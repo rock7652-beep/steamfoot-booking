@@ -1,0 +1,479 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// Enums
+// ============================================================
+
+enum UserRole {
+  OWNER
+  MANAGER
+  CUSTOMER
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+enum StaffStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum CustomerStage {
+  LEAD      // 名單，尚未到店
+  TRIAL     // 已體驗，未購課
+  ACTIVE    // 已購課，可自助預約
+  INACTIVE  // 曾購課但目前無有效課程
+}
+
+enum PlanCategory {
+  TRIAL     // 體驗
+  SINGLE    // 單次
+  PACKAGE   // 套餐（3堂、5堂、10堂、22堂）
+}
+
+enum WalletStatus {
+  ACTIVE
+  USED_UP
+  EXPIRED
+  CANCELLED
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum BookedByType {
+  CUSTOMER
+  STAFF
+  OWNER
+}
+
+enum BookingType {
+  FIRST_TRIAL
+  SINGLE
+  PACKAGE_SESSION
+}
+
+enum TransactionType {
+  TRIAL_PURCHASE      // 體驗購買
+  SINGLE_PURCHASE     // 單次消費
+  PACKAGE_PURCHASE    // 套餐購買
+  SESSION_DEDUCTION   // 堂數扣抵
+  SUPPLEMENT          // 補差額
+  REFUND              // 退款
+  ADJUSTMENT          // 手動調整
+}
+
+enum PaymentMethod {
+  CASH
+  TRANSFER
+  LINE_PAY
+  CREDIT_CARD
+  OTHER
+}
+
+enum CashbookEntryType {
+  INCOME
+  EXPENSE
+  WITHDRAW
+  ADJUSTMENT
+}
+
+enum ReminderChannel {
+  EMAIL
+  LINE
+  SMS
+}
+
+enum ReminderStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+enum SpaceFeeStatus {
+  PENDING
+  PAID
+  OVERDUE
+  WAIVED
+}
+
+// ============================================================
+// Auth - NextAuth.js Models
+// ============================================================
+
+model User {
+  id            String     @id @default(cuid())
+  name          String
+  email         String?    @unique
+  phone         String?    @unique
+  emailVerified DateTime?
+  image         String?
+  passwordHash  String?
+  role          UserRole   @default(CUSTOMER)
+  status        UserStatus @default(ACTIVE)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  // NextAuth relations
+  accounts Account[]
+  sessions Session[]
+
+  // Domain relations
+  staff    Staff?
+  customer Customer?
+
+  // Audit
+  auditLogs      AuditLog[]
+  cashbookEntries CashbookEntry[] @relation("CashbookCreatedBy")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ============================================================
+// Staff（店長）
+// ============================================================
+
+model Staff {
+  id              String      @id @default(cuid())
+  userId          String      @unique
+  displayName     String
+  colorCode       String      @default("#6366f1") // 後台日曆識別色
+  isOwner         Boolean     @default(false)
+  monthlySpaceFee Decimal     @default(0) @db.Decimal(10, 0) // 每月固定空間分租費
+  spaceFeeEnabled Boolean     @default(false)
+  status          StaffStatus @default(ACTIVE)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // 名下顧客
+  assignedCustomers Customer[] @relation("AssignedStaff")
+
+  // 營收歸屬（快照在 booking/transaction 上）
+  revenueBookings      Booking[]     @relation("RevenueStaff")
+  serviceBookings      Booking[]     @relation("ServiceStaff")
+  bookedByStaff        Booking[]     @relation("BookedByStaff")
+  revenueTransactions  Transaction[] @relation("RevenueStaff")
+  serviceTransactions  Transaction[] @relation("ServiceStaff")
+
+  // 空間分租費
+  spaceFeeRecords SpaceFeeRecord[]
+
+  // 現金帳
+  cashbookEntries CashbookEntry[] @relation("CashbookStaff")
+}
+
+// ============================================================
+// Customer（顧客）
+// ============================================================
+
+model Customer {
+  id                 String        @id @default(cuid())
+  userId             String?       @unique // nullable: 有些顧客不一定有登入帳號
+  name               String
+  phone              String
+  lineName           String?       // LINE 顯示名稱
+  notes              String?       // 內部備註
+  assignedStaffId    String        // 直屬店長（FK → Staff）
+  customerStage      CustomerStage @default(LEAD)
+  selfBookingEnabled Boolean       @default(false)
+  firstVisitAt       DateTime?     // 首次到店日期
+  convertedAt        DateTime?     // 首次購課日期
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  user          User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+  assignedStaff Staff  @relation("AssignedStaff", fields: [assignedStaffId], references: [id])
+
+  // 課程錢包
+  planWallets CustomerPlanWallet[]
+
+  // 預約
+  bookings Booking[]
+
+  // 交易
+  transactions Transaction[]
+
+  @@index([assignedStaffId])
+  @@index([customerStage])
+  @@index([phone])
+}
+
+// ============================================================
+// ServicePlan（課程方案）
+// ============================================================
+
+model ServicePlan {
+  id           String       @id @default(cuid())
+  name         String       // e.g. "體驗", "單次", "3堂套餐"
+  category     PlanCategory
+  price        Decimal      @db.Decimal(10, 0)
+  sessionCount Int          // 堂數
+  validityDays Int?         // 有效天數（null = 無期限）
+  isActive     Boolean      @default(true)
+  sortOrder    Int          @default(0) // 排序
+  description  String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  // 顧客購買記錄
+  wallets  CustomerPlanWallet[]
+  bookings Booking[]
+}
+
+// ============================================================
+// CustomerPlanWallet（顧客課程錢包）
+// ============================================================
+
+model CustomerPlanWallet {
+  id                String       @id @default(cuid())
+  customerId        String
+  planId            String
+  purchasedPrice    Decimal      @db.Decimal(10, 0) // 快照：購買當時價格
+  totalSessions     Int          // 總堂數
+  remainingSessions Int          // 剩餘堂數
+  startDate         DateTime     @db.Date
+  expiryDate        DateTime?    @db.Date // null = 無期限
+  status            WalletStatus @default(ACTIVE)
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  customer Customer    @relation(fields: [customerId], references: [id])
+  plan     ServicePlan @relation(fields: [planId], references: [id])
+
+  // 使用此錢包的預約
+  bookings Booking[]
+
+  // 相關交易
+  transactions Transaction[]
+
+  @@index([customerId])
+  @@index([customerId, status])
+}
+
+// ============================================================
+// BookingSlot（可配置時段）
+// ============================================================
+
+model BookingSlot {
+  id        String   @id @default(cuid())
+  dayOfWeek Int      // 0=Sunday, 1=Monday, ..., 6=Saturday
+  startTime String   // "HH:mm" 格式，e.g. "10:00"
+  capacity  Int      @default(6) // 該時段最大預約數（足甕數量）
+  isEnabled Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([dayOfWeek, startTime])
+  @@index([dayOfWeek])
+}
+
+// ============================================================
+// Booking（預約）
+// ============================================================
+
+model Booking {
+  id                   String        @id @default(cuid())
+  customerId           String
+  bookingDate          DateTime      @db.Date
+  slotTime             String        // "HH:mm"，對應 BookingSlot.startTime
+  revenueStaffId       String        // 冗餘快照：此筆營收歸屬哪位店長（建立時從 customer.assignedStaffId 複製）
+  serviceStaffId       String?       // 當天實際服務/值班店長（nullable, 可後補）
+  bookedByType         BookedByType  @default(CUSTOMER)
+  bookedByStaffId      String?       // 若由店長代約，記錄是哪位店長
+  bookingType          BookingType   @default(PACKAGE_SESSION)
+  servicePlanId        String?       // 使用哪個方案（nullable for flexibility）
+  customerPlanWalletId String?       // 若使用套餐，對應哪個錢包
+  bookingStatus        BookingStatus @default(PENDING)
+  reminderSent         Boolean       @default(false)
+  notes                String?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+
+  customer           Customer            @relation(fields: [customerId], references: [id])
+  revenueStaff       Staff               @relation("RevenueStaff", fields: [revenueStaffId], references: [id])
+  serviceStaff       Staff?              @relation("ServiceStaff", fields: [serviceStaffId], references: [id])
+  bookedByStaff      Staff?              @relation("BookedByStaff", fields: [bookedByStaffId], references: [id])
+  servicePlan        ServicePlan?        @relation(fields: [servicePlanId], references: [id])
+  customerPlanWallet CustomerPlanWallet? @relation(fields: [customerPlanWalletId], references: [id])
+
+  // 交易
+  transactions Transaction[]
+
+  // 提醒
+  reminders Reminder[]
+
+  @@index([bookingDate])
+  @@index([bookingDate, slotTime])          // 查詢某天某時段預約數
+  @@index([customerId])
+  @@index([revenueStaffId])
+  @@index([revenueStaffId, bookingDate])    // 店長月報查詢
+  @@index([bookingStatus])
+}
+
+// ============================================================
+// Transaction（交易紀錄）
+// ============================================================
+
+model Transaction {
+  id                   String          @id @default(cuid())
+  customerId           String
+  bookingId            String?         // nullable: 購課交易不一定綁定預約
+  revenueStaffId       String          // 冗餘快照：營收歸屬店長
+  serviceStaffId       String?         // 服務/值班店長
+  customerPlanWalletId String?         // 若為堂數扣抵或套餐購買，關聯到錢包
+  transactionType      TransactionType
+  paymentMethod        PaymentMethod   @default(CASH)
+  amount               Decimal         @db.Decimal(10, 0) // 正數=收入，負數=退款
+  quantity             Int?            // 堂數（用於 SESSION_DEDUCTION）
+  note                 String?
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+
+  customer           Customer            @relation(fields: [customerId], references: [id])
+  booking            Booking?            @relation(fields: [bookingId], references: [id])
+  revenueStaff       Staff               @relation("RevenueStaff", fields: [revenueStaffId], references: [id])
+  serviceStaff       Staff?              @relation("ServiceStaff", fields: [serviceStaffId], references: [id])
+  customerPlanWallet CustomerPlanWallet? @relation(fields: [customerPlanWalletId], references: [id])
+
+  @@index([customerId])
+  @@index([revenueStaffId])
+  @@index([revenueStaffId, createdAt])    // 店長月營收查詢
+  @@index([createdAt])
+  @@index([transactionType])
+}
+
+// ============================================================
+// CashbookEntry（現金帳）— Phase 2 但先建 schema
+// ============================================================
+
+model CashbookEntry {
+  id              String             @id @default(cuid())
+  entryDate       DateTime           @db.Date
+  type            CashbookEntryType
+  category        String?            // 自由分類：水電、材料、雜支...
+  amount          Decimal            @db.Decimal(10, 0)
+  staffId         String?            // 歸屬店長（nullable）
+  note            String?
+  createdByUserId String
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  staff     Staff? @relation("CashbookStaff", fields: [staffId], references: [id])
+  createdBy User   @relation("CashbookCreatedBy", fields: [createdByUserId], references: [id])
+
+  @@index([entryDate])
+  @@index([staffId])
+}
+
+// ============================================================
+// Reminder（提醒紀錄）— Phase 2 但先建 schema
+// ============================================================
+
+model Reminder {
+  id          String          @id @default(cuid())
+  bookingId   String
+  channel     ReminderChannel @default(LINE)
+  scheduledAt DateTime
+  sentAt      DateTime?
+  status      ReminderStatus  @default(PENDING)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  booking Booking @relation(fields: [bookingId], references: [id])
+
+  @@index([status, scheduledAt])
+}
+
+// ============================================================
+// AuditLog（稽核紀錄）— Phase 2 但先建 schema
+// ============================================================
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  actorUserId String
+  targetType  String   // e.g. "Customer", "Booking", "Transaction"
+  targetId    String
+  action      String   // e.g. "CREATE", "UPDATE", "DELETE", "TRANSFER"
+  beforeJson  Json?    // 變更前資料快照
+  afterJson   Json?    // 變更後資料快照
+  createdAt   DateTime @default(now())
+
+  actor User @relation(fields: [actorUserId], references: [id])
+
+  @@index([targetType, targetId])
+  @@index([actorUserId])
+  @@index([createdAt])
+}
+
+// ============================================================
+// SpaceFeeRecord（空間分租費紀錄）— Phase 2 但先建 schema
+// ============================================================
+
+model SpaceFeeRecord {
+  id        String         @id @default(cuid())
+  staffId   String
+  month     String         // "YYYY-MM" 格式
+  feeAmount Decimal        @db.Decimal(10, 0)
+  status    SpaceFeeStatus @default(PENDING)
+  paidAt    DateTime?
+  note      String?
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  staff Staff @relation(fields: [staffId], references: [id])
+
+  @@unique([staffId, month])
+  @@index([staffId])
+  @@index([month])
+}
