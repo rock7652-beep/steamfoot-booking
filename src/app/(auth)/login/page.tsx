@@ -1,0 +1,63 @@
+"use client";
+
+import { useActionState } from "react";
+import { loginAction } from "@/server/actions/auth";
+
+const initialState = { error: null as string | null };
+
+export default function LoginPage() {
+  const [state, action, pending] = useActionState(loginAction, initialState);
+
+  return (
+    <div className="w-full max-w-sm rounded-xl border border-gray-200 bg-white p-8 shadow-sm">
+      <h1 className="mb-2 text-2xl font-bold text-gray-900">蒸足管理系統</h1>
+      <p className="mb-6 text-sm text-gray-500">請以店長帳號登入</p>
+
+      <form action={action} className="space-y-4">
+        <div>
+          <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+            Email
+          </label>
+          <input
+            id="email"
+            name="email"
+            type="email"
+            autoComplete="email"
+            required
+            className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            placeholder="alice@steamfoot.tw"
+          />
+        </div>
+
+        <div>
+          <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+            密碼
+          </label>
+          <input
+            id="password"
+            name="password"
+            type="password"
+            autoComplete="current-password"
+            required
+            className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            placeholder="••••••••"
+          />
+        </div>
+
+        {state.error && (
+          <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
+            {state.error}
+          </p>
+        )}
+
+        <button
+          type="submit"
+          disabled={pending}
+          className="w-full rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
+        >
+          {pending ? "登入中…" : "登入"}
+        </button>
+      </form>
+    </div>
+  );
+}
