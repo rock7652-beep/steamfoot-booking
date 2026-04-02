@@ -22,7 +22,6 @@ export default async function EditPlanPage({ params }: PageProps) {
     "use server";
     const result = await updatePlan(id, {
       name: formData.get("name") as string,
-      category: formData.get("category") as PlanCategory,
       price: Number(formData.get("price")),
       sessionCount: Number(formData.get("sessionCount")),
       validityDays: formData.get("validityDays")
@@ -35,7 +34,7 @@ export default async function EditPlanPage({ params }: PageProps) {
     });
 
     if (!result.success) {
-      throw new Error(result.error?.message || "編輯方案失敗");
+      throw new Error(result.error || "編輯方案失敗");
     }
 
     redirect("/dashboard/plans");

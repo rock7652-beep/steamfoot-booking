@@ -29,7 +29,7 @@ export default async function NewPlanPage({}: PageProps) {
     });
 
     if (!result.success) {
-      throw new Error(result.error?.message || "新增方案失敗");
+      throw new Error(result.error || "新增方案失敗");
     }
 
     redirect("/dashboard/plans");

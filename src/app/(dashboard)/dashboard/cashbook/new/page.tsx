@@ -28,7 +28,7 @@ export default async function NewCashbookPage({}: PageProps) {
     });
 
     if (!result.success) {
-      throw new Error(result.error?.message || "新增記帳失敗");
+      throw new Error(result.error || "新增記帳失敗");
     }
 
     redirect("/dashboard/cashbook");

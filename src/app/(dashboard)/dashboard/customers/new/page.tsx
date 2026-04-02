@@ -21,11 +21,10 @@ export default async function NewCustomerPage({}: PageProps) {
       lineName: formData.get("lineName") as string,
       notes: formData.get("notes") as string,
       assignedStaffId: formData.get("assignedStaffId") as string,
-      customerStage: "LEAD",
     });
 
     if (!result.success) {
-      throw new Error(result.error?.message || "新增顧客失敗");
+      throw new Error(result.error || "新增顧客失敗");
     }
 
     redirect(`/dashboard/customers/${result.data!.customerId}`);

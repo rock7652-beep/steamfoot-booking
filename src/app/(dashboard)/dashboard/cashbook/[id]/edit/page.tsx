@@ -33,12 +33,12 @@ export default async function EditCashbookPage({ params }: PageProps) {
       type: formData.get("type") as CashbookEntryType,
       category: formData.get("category") as string,
       amount: Number(formData.get("amount")),
-      staffId: formData.get("staffId") || null,
+      staffId: (formData.get("staffId") as string) || null,
       note: formData.get("note") as string,
     });
 
     if (!result.success) {
-      throw new Error(result.error?.message || "編輯記帳失敗");
+      throw new Error(result.error || "編輯記帳失敗");
     }
 
     redirect("/dashboard/cashbook");

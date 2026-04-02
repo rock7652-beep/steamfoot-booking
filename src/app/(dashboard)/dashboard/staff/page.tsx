@@ -21,7 +21,6 @@ export default async function StaffPage({}: PageProps) {
       email: formData.get("email") as string,
       phone: formData.get("phone") as string,
       password: formData.get("password") as string,
-      role: "MANAGER",
       colorCode: formData.get("colorCode") as string,
       monthlySpaceFee: formData.get("monthlySpaceFee")
         ? Number(formData.get("monthlySpaceFee"))
@@ -29,7 +28,7 @@ export default async function StaffPage({}: PageProps) {
     });
 
     if (!result.success) {
-      throw new Error(result.error?.message || "新增店長失敗");
+      throw new Error(result.error || "新增店長失敗");
     }
 
     redirect("/dashboard/staff");
