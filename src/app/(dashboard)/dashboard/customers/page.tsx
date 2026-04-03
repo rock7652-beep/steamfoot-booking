@@ -51,19 +51,27 @@ export default async function CustomersPage({ searchParams }: PageProps) {
   return (
     <div>
       {/* Header */}
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <Link href="/dashboard" className="text-sm text-gray-500 hover:text-gray-700">
             ← 首頁
           </Link>
           <h1 className="text-xl font-bold text-gray-900">顧客管理</h1>
         </div>
-        <Link
-          href="/dashboard/customers/new"
-          className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
-        >
-          + 新增顧客
-        </Link>
+        <div className="flex gap-2">
+          <a
+            href="/api/export/customers"
+            className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 active:bg-gray-100"
+          >
+            匯出 Excel
+          </a>
+          <Link
+            href="/dashboard/customers/new"
+            className="rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 active:bg-indigo-800"
+          >
+            + 新增顧客
+          </Link>
+        </div>
       </div>
 
       {/* 篩選列 */}

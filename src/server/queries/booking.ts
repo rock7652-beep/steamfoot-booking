@@ -228,3 +228,67 @@ export async function getMonthlyRevenueSummary(year: number, month: number) {
     transactionCount: r._count.id,
   }));
 }
+
+// ============================================================
+// getMonthBookingSummary — 取月份日曆資料（含各日期的預約統計）
+// ============================================================
+
+export async function getMonthBookingSummary(year: number, month: number) {
+  const user = await requireStaffSession();
+
+  const startDate = new Date(year, month - 1, 1);
+  const endDate = new Date(year, month, 0); // last day of month
+
+  const staffFilter =
+    user.role === "MANAGER" && user.staffId
+      ? { customer: { assignedStaffId: user.staffId } }
+      : {};
+
+  // 取該月份所有預約
+  const bookings = await prisma.booking.findMany({
+    where: {
+      bookingDate: { gte: startDate, lte: endDate },
+      bookingStatus: { in: ["PENDING", "CONFIRMED", "COMPLETED", "NO_SHOW"] },
+      ...staffFilter,
+    },
+    include: {
+      revenueStaff: { select: { id: true, displayName: true, colorCode: true } },
+    },
+  });
+
+  // 按日期分組統計
+  const dailyStats = new Map<
+    string,
+    { total: number; staffStats: Map<string, { staffName: string; colorCode: string; count: number }> }
+  >();
+
+  for (let day = 1; day <= endDate.getDate(); day++) {
+    const dateKey = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    dailyStats.set(dateKey, { total: 0, staffStats: new Map() });
+  }
+
+  for (const booking of bookings) {
+    const dateKey = booking.bookingDate.toISOString().slice(0, 10);
+    const dayData = dailyStats.get(dateKey);
+    if (!dayData) continue;
+
+    const staffId = booking.revenueStaff.id;
+    dayData.total++;
+
+    let staffStat = dayData.staffStats.get(staffId);
+    if (!staffStat) {
+      staffStat = { staffName: booking.revenueStaff.displayName, colorCode: booking.revenueStaff.colorCode, count: 0 };
+      dayData.staffStats.set(staffId, staffStat);
+    }
+    staffStat.count++;
+  }
+
+  // 轉換為陣列格式
+  const result = Array.from(dailyStats.entries()).map(([dateStr, data]) => ({
+    date: dateStr,
+    totalBookingCount: data.total,
+    staffBookings: Array.from(data.staffStats.values()),
+  }));
+
+  return result;
+}
