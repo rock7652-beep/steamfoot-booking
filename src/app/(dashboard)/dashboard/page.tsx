@@ -94,11 +94,13 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      {/* 系統資訊（開發用） */}
-      <details className="mt-8 rounded-xl border border-dashed border-gray-300 p-4 text-xs text-gray-400">
-        <summary className="cursor-pointer font-medium">Session 資訊（開發用）</summary>
-        <pre className="mt-2 overflow-x-auto">{JSON.stringify(user, null, 2)}</pre>
-      </details>
+      {/* Debug session info - only show in development */}
+      {process.env.NODE_ENV === 'development' && (
+        <details className="mt-8 rounded-xl border border-dashed border-gray-300 p-4 text-xs text-gray-400">
+          <summary className="cursor-pointer font-medium">Session 資訊（開發用）</summary>
+          <pre className="mt-2 overflow-x-auto">{JSON.stringify(user, null, 2)}</pre>
+        </details>
+      )}
     </div>
   );
 }
