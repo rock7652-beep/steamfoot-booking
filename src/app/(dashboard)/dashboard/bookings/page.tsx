@@ -44,10 +44,10 @@ export default async function BookingsPage({ searchParams }: PageProps) {
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-bold text-gray-900">預約排程</h1>
         <Link
-          href={`/dashboard/customers`}
+          href={`/dashboard/bookings/new?date=${date}`}
           className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
         >
-          + 至顧客頁建立預約
+          + 新增預約
         </Link>
       </div>
 

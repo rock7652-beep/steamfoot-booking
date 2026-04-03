@@ -85,6 +85,7 @@ enum PaymentMethod {
   LINE_PAY
   CREDIT_CARD
   OTHER
+  UNPAID
 }
 
 enum CashbookEntryType {

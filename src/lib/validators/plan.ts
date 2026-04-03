@@ -23,6 +23,6 @@ export const updatePlanSchema = z.object({
 export const assignPlanSchema = z.object({
   customerId: z.string().cuid(),
   planId: z.string().cuid(),
-  paymentMethod: z.enum(["CASH", "TRANSFER", "LINE_PAY", "CREDIT_CARD", "OTHER"]),
+  paymentMethod: z.enum(["CASH", "TRANSFER", "LINE_PAY", "CREDIT_CARD", "OTHER", "UNPAID"]),
   note: z.string().max(500).optional(),
 });

@@ -206,7 +206,7 @@ export default async function StaffPage({}: PageProps) {
                     <td className="px-4 py-3">
                       {!staff.isOwner && (
                         <Link
-                          href={`#`}
+                          href={`/dashboard/staff/${staff.id}/edit`}
                           className="text-sm text-indigo-600 hover:underline"
                         >
                           編輯

@@ -25,7 +25,7 @@ export function AssignPlanForm({ customerId, plans }: Props) {
       const result = await assignPlanToCustomer({
         customerId,
         planId,
-        paymentMethod: paymentMethod as "CASH" | "TRANSFER" | "LINE_PAY" | "CREDIT_CARD" | "OTHER",
+        paymentMethod: paymentMethod as "CASH" | "TRANSFER" | "LINE_PAY" | "CREDIT_CARD" | "OTHER" | "UNPAID",
       });
       if (result.success) {
         setOpen(false);
@@ -72,6 +72,7 @@ export function AssignPlanForm({ customerId, plans }: Props) {
           <option value="LINE_PAY">LINE Pay</option>
           <option value="CREDIT_CARD">信用卡</option>
           <option value="OTHER">其他</option>
+          <option value="UNPAID">未付款</option>
         </select>
       </div>
       <div className="flex gap-2">

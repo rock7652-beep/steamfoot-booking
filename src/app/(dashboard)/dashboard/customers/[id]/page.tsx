@@ -152,7 +152,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
       </div>
 
       {/* Wallets */}
-      <div className="rounded-xl border bg-white p-6 shadow-sm">
+      <div id="plan" className="rounded-xl border bg-white p-6 shadow-sm">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="font-semibold text-gray-800">課程方案</h2>
           <AssignPlanForm customerId={id} plans={plans.map((p) => ({
@@ -201,16 +201,31 @@ export default async function CustomerDetailPage({ params }: PageProps) {
       </div>
 
       {/* Create Booking */}
-      <div className="rounded-xl border bg-white p-6 shadow-sm">
+      <div id="booking" className="rounded-xl border bg-white p-6 shadow-sm">
         <h2 className="mb-4 font-semibold text-gray-800">建立新預約</h2>
-        <CreateBookingForm
-          customerId={id}
-          activeWallets={activeWallets.map((w) => ({
-            id: w.id,
-            planName: w.plan.name,
-            remainingSessions: w.remainingSessions,
-          }))}
-        />
+        {activeWallets.length === 0 ? (
+          <div className="rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
+            <p className="font-medium">此顧客尚無有效課程方案</p>
+            <p className="mt-1 text-xs text-yellow-700">
+              體驗或單次預約請直接建立；套餐堂數預約需先在上方「課程方案」區塊指派方案。
+            </p>
+            <div className="mt-3">
+              <CreateBookingForm
+                customerId={id}
+                activeWallets={[]}
+              />
+            </div>
+          </div>
+        ) : (
+          <CreateBookingForm
+            customerId={id}
+            activeWallets={activeWallets.map((w) => ({
+              id: w.id,
+              planName: w.plan.name,
+              remainingSessions: w.remainingSessions,
+            }))}
+          />
+        )}
       </div>
 
       {/* Upcoming bookings */}

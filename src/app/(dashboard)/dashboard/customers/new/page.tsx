@@ -15,12 +15,16 @@ export default async function NewCustomerPage({}: PageProps) {
 
   async function handleSubmit(formData: FormData) {
     "use server";
+    const assignedStaffIdRaw = formData.get("assignedStaffId") as string;
+    const lineNameRaw = formData.get("lineName") as string;
+    const notesRaw = formData.get("notes") as string;
+
     const result = await createCustomer({
       name: formData.get("name") as string,
       phone: formData.get("phone") as string,
-      lineName: formData.get("lineName") as string,
-      notes: formData.get("notes") as string,
-      assignedStaffId: formData.get("assignedStaffId") as string,
+      lineName: lineNameRaw || undefined,
+      notes: notesRaw || undefined,
+      assignedStaffId: assignedStaffIdRaw || undefined,
     });
 
     if (!result.success) {

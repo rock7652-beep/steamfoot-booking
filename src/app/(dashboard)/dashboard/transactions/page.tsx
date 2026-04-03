@@ -28,6 +28,7 @@ const PAY_METHOD_LABEL: Record<PaymentMethod, string> = {
   LINE_PAY: "LINE Pay",
   CREDIT_CARD: "信用卡",
   OTHER: "其他",
+  UNPAID: "未付款",
 };
 
 interface PageProps {
@@ -71,7 +72,12 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-xl font-bold text-gray-900">交易紀錄</h1>
+        <div className="flex items-center gap-3">
+          <Link href="/dashboard" className="text-sm text-gray-500 hover:text-gray-700">
+            ← 首頁
+          </Link>
+          <h1 className="text-xl font-bold text-gray-900">交易紀錄</h1>
+        </div>
       </div>
 
       {/* 篩選列 */}
