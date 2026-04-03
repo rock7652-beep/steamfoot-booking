@@ -1,0 +1,34 @@
+---
+title: 蒸足系統 — 顧客登入與綁定流程
+---
+flowchart TD
+    A[顧客到達首頁] --> B{選擇登入方式}
+    B -->|Google| C[Google OAuth 授權]
+    B -->|手機| D[輸入手機號碼]
+    B -->|店長帳號| E[Email + 密碼登入]
+
+    C --> F[NextAuth 建立 User + Account]
+    F --> G{以 Google email 查 Customer 表}
+    G -->|找到匹配| H[自動綁定: Customer.userId = User.id]
+    G -->|沒找到| I[自動建立新 Customer]
+    I --> J[customerStage = LEAD, phone 待補填]
+
+    D --> K[發送 OTP 驗證碼]
+    K --> L[驗證成功]
+    L --> M{以手機號碼查 Customer 表}
+    M -->|找到匹配| N[自動綁定: Customer.userId = User.id]
+    M -->|沒找到| O[建立 User + Customer]
+
+    E --> P[驗證帳密]
+    P --> Q[導向後台 Dashboard]
+
+    H --> R[導向前台首頁]
+    J --> R
+    N --> R
+    O --> R
+
+    style A fill:#e0e7ff
+    style R fill:#dcfce7
+    style Q fill:#dcfce7
+    style I fill:#fef3c7
+    style O fill:#fef3c7

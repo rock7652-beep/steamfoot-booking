@@ -1,7 +1,7 @@
-import { listCustomers } from "@/server/queries/customer";
 import { createBooking } from "@/server/actions/booking";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import CustomerSearch from "./customer-search";
 
 const SLOT_TIMES = ["10:00", "11:00", "14:00", "15:00", "16:00", "17:30", "18:30", "19:30"];
 
@@ -24,8 +24,6 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const today = new Date().toISOString().slice(0, 10);
   const defaultDate = params.date ?? today;
-
-  const { customers } = await listCustomers({ pageSize: 200 });
   const days = getNextDays(14);
 
   async function handleCreate(formData: FormData) {
@@ -35,6 +33,10 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
     const slotTime = formData.get("slotTime") as string;
     const bookingType = formData.get("bookingType") as "FIRST_TRIAL" | "SINGLE" | "PACKAGE_SESSION";
     const notes = (formData.get("notes") as string) || undefined;
+
+    if (!customerId) {
+      throw new Error("請選擇顧客");
+    }
 
     const result = await createBooking({
       customerId,
@@ -48,44 +50,33 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
       throw new Error(result.error || "預約建立失敗");
     }
 
-    redirect(`/dashboard/bookings?date=${bookingDate}`);
+    redirect(`/dashboard/bookings?view=day&date=${bookingDate}`);
   }
 
   return (
-    <div className="max-w-xl space-y-6">
+    <div className="mx-auto max-w-lg space-y-6 px-4 py-4">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-gray-500">
-        <Link href="/dashboard" className="hover:text-gray-700">首頁</Link>
-        <span>/</span>
-        <Link href={`/dashboard/bookings?date=${defaultDate}`} className="hover:text-gray-700">
-          預約排程
-        </Link>
+        <Link href="/dashboard/bookings" className="hover:text-gray-700">月曆</Link>
         <span>/</span>
         <span className="text-gray-700">新增預約</span>
       </div>
 
-      <div className="rounded-xl border bg-white p-6 shadow-sm">
-        <h1 className="mb-6 text-xl font-bold text-gray-900">新增預約</h1>
+      <div className="rounded-xl border bg-white p-5 shadow-sm">
+        <h1 className="mb-5 text-lg font-bold text-gray-900">新增預約</h1>
 
         <form action={handleCreate} className="space-y-4">
-          {/* Customer */}
+          {/* Customer — Autocomplete Search */}
           <div>
             <label className="block text-sm font-medium text-gray-700">
               顧客 <span className="text-red-500">*</span>
             </label>
-            <select
-              name="customerId"
-              required
-              className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
-            >
-              <option value="">請選擇顧客...</option>
-              {customers.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}（{c.phone}）— {c.assignedStaff.displayName}
-                  {c._count.planWallets > 0 ? ` · 有效方案 ${c._count.planWallets} 份` : ""}
-                </option>
-              ))}
-            </select>
+            <div className="mt-1">
+              <CustomerSearch />
+            </div>
+            <p className="mt-1 text-xs text-gray-400">
+              輸入姓名、電話或 Email 搜尋
+            </p>
           </div>
 
           {/* Date */}
@@ -150,9 +141,6 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
               <option value="FIRST_TRIAL">體驗</option>
               <option value="SINGLE">單次</option>
             </select>
-            <p className="mt-1 text-xs text-gray-400">
-              套餐堂數需顧客有有效課程方案；體驗 / 單次無需方案。
-            </p>
           </div>
 
           {/* Notes */}
@@ -170,13 +158,13 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
           <div className="flex gap-3 border-t pt-5">
             <button
               type="submit"
-              className="rounded-lg bg-indigo-600 px-5 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+              className="flex-1 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 active:bg-indigo-800"
             >
               確認建立
             </button>
             <Link
-              href={`/dashboard/bookings?date=${defaultDate}`}
-              className="rounded-lg border border-gray-300 px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              href={`/dashboard/bookings?view=day&date=${defaultDate}`}
+              className="rounded-lg border border-gray-300 px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
             >
               取消
             </Link>

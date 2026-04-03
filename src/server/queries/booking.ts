@@ -163,19 +163,21 @@ export async function getDayBookings(date: string) {
 
   const dateObj = new Date(date + "T00:00:00");
 
-  const staffFilter =
-    user.role === "MANAGER" && user.staffId
-      ? { customer: { assignedStaffId: user.staffId } }
-      : {};
-
+  // 所有店長可看全部預約（共享查看）
   return prisma.booking.findMany({
     where: {
       bookingDate: dateObj,
       bookingStatus: { in: ["PENDING", "CONFIRMED", "COMPLETED", "NO_SHOW"] },
-      ...staffFilter,
     },
     include: {
-      customer: { select: { id: true, name: true, phone: true } },
+      customer: {
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+          assignedStaff: { select: { id: true, displayName: true, colorCode: true } },
+        },
+      },
       revenueStaff: { select: { id: true, displayName: true, colorCode: true } },
       serviceStaff: { select: { id: true, displayName: true } },
       servicePlan: { select: { name: true } },
@@ -239,20 +241,16 @@ export async function getMonthBookingSummary(year: number, month: number) {
   const startDate = new Date(year, month - 1, 1);
   const endDate = new Date(year, month, 0); // last day of month
 
-  const staffFilter =
-    user.role === "MANAGER" && user.staffId
-      ? { customer: { assignedStaffId: user.staffId } }
-      : {};
-
+  // Manager 也能看全部預約（共享查看）
   // 取該月份所有預約
   const bookings = await prisma.booking.findMany({
     where: {
       bookingDate: { gte: startDate, lte: endDate },
       bookingStatus: { in: ["PENDING", "CONFIRMED", "COMPLETED", "NO_SHOW"] },
-      ...staffFilter,
     },
     include: {
       revenueStaff: { select: { id: true, displayName: true, colorCode: true } },
+      customer: { select: { assignedStaff: { select: { id: true, displayName: true, colorCode: true } } } },
     },
   });
 
@@ -272,15 +270,18 @@ export async function getMonthBookingSummary(year: number, month: number) {
     const dayData = dailyStats.get(dateKey);
     if (!dayData) continue;
 
-    const staffId = booking.revenueStaff.id;
+    // 用 revenueStaff 或 customer.assignedStaff 來識別
+    const staff = booking.revenueStaff || booking.customer?.assignedStaff;
     dayData.total++;
 
-    let staffStat = dayData.staffStats.get(staffId);
-    if (!staffStat) {
-      staffStat = { staffName: booking.revenueStaff.displayName, colorCode: booking.revenueStaff.colorCode, count: 0 };
-      dayData.staffStats.set(staffId, staffStat);
+    if (staff) {
+      let staffStat = dayData.staffStats.get(staff.id);
+      if (!staffStat) {
+        staffStat = { staffName: staff.displayName, colorCode: staff.colorCode, count: 0 };
+        dayData.staffStats.set(staff.id, staffStat);
+      }
+      staffStat.count++;
     }
-    staffStat.count++;
   }
 
   // 轉換為陣列格式

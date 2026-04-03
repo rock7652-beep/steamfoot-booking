@@ -23,39 +23,42 @@ export async function createCustomer(
     const user = await requireStaffSession();
     const data = createCustomerSchema.parse(input);
 
-    let assignedStaffId: string;
+    // assignedStaffId 現在是選填
+    let assignedStaffId: string | undefined;
 
-    if (user.role === "OWNER") {
-      // Owner 可以指定任何店長，預設給自己
-      if (data.assignedStaffId) {
-        const targetStaff = await prisma.staff.findUnique({
-          where: { id: data.assignedStaffId, status: "ACTIVE" },
-        });
-        if (!targetStaff) throw new AppError("NOT_FOUND", "指定店長不存在");
-        assignedStaffId = targetStaff.id;
-      } else {
-        if (!user.staffId) throw new AppError("FORBIDDEN", "Owner 帳號未關聯 Staff");
-        assignedStaffId = user.staffId;
-      }
-    } else {
-      // Manager 只能綁到自己
-      if (!user.staffId) throw new AppError("FORBIDDEN", "Manager 帳號未關聯 Staff");
-      assignedStaffId = user.staffId;
+    if (data.assignedStaffId) {
+      const targetStaff = await prisma.staff.findUnique({
+        where: { id: data.assignedStaffId, status: "ACTIVE" },
+      });
+      if (!targetStaff) throw new AppError("NOT_FOUND", "指定店長不存在");
+      assignedStaffId = targetStaff.id;
+    }
+    // 不再強制指派 — 顧客可稍後由店長指派
+
+    // 檢查電話是否重複（僅當有填寫電話時）
+    if (data.phone) {
+      const existingPhone = await prisma.customer.findFirst({
+        where: { phone: data.phone },
+      });
+      if (existingPhone) throw new AppError("CONFLICT", "此電話號碼已存在於系統中");
     }
 
-    // 檢查電話是否重複
-    const existingPhone = await prisma.customer.findFirst({
-      where: { phone: data.phone },
-    });
-    if (existingPhone) throw new AppError("CONFLICT", "此電話號碼已存在於系統中");
+    // 檢查 email 是否重複（僅當有填寫時）
+    if (data.email) {
+      const existingEmail = await prisma.customer.findFirst({
+        where: { email: data.email },
+      });
+      if (existingEmail) throw new AppError("CONFLICT", "此 Email 已存在於系統中");
+    }
 
     const customer = await prisma.customer.create({
       data: {
         name: data.name,
-        phone: data.phone,
+        phone: data.phone || "",
+        email: data.email || null,
         lineName: data.lineName,
         notes: data.notes,
-        assignedStaffId,
+        assignedStaffId: assignedStaffId || null,
         customerStage: "LEAD",
         selfBookingEnabled: false,
       },

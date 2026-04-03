@@ -43,12 +43,8 @@ export async function createBooking(
     });
     if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
 
-    // ── 2. 權限檢查
-    if (user.role === "MANAGER") {
-      if (!user.staffId || customer.assignedStaffId !== user.staffId) {
-        throw new AppError("FORBIDDEN", "Manager 只能為自己名下顧客預約");
-      }
-    }
+    // ── 2. 權限檢查（Manager 現在可為任何顧客預約，共享查看）
+    // 不再限制 Manager 只能為自己名下顧客預約
 
     if (user.role === "CUSTOMER") {
       // 顧客只能為自己預約
@@ -147,7 +143,7 @@ export async function createBooking(
         customerId: data.customerId,
         bookingDate: bookingDateObj,
         slotTime: data.slotTime,
-        revenueStaffId: customer.assignedStaffId, // ← 快照，轉讓不影響
+        revenueStaffId: customer.assignedStaffId ?? null, // 快照（nullable: 顧客可能尚未指派店長）
         bookedByType,
         bookedByStaffId,
         bookingType: data.bookingType,

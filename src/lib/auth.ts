@@ -8,9 +8,6 @@ import type { UserRole } from "@prisma/client";
 
 // ============================================================
 // NextAuth v5 type augmentation
-// Session + User are augmented via "next-auth".
-// JWT fields are accessed via explicit casting in callbacks
-// (module "@auth/core/jwt" augmentation is not available in this env).
 // ============================================================
 
 declare module "next-auth" {
@@ -30,10 +27,6 @@ declare module "next-auth" {
     };
   }
 }
-
-// ============================================================
-// Custom token shape (not augmenting @auth/core/jwt — cast in callbacks)
-// ============================================================
 
 interface AppJWT {
   sub?: string;
@@ -94,153 +87,73 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ],
 
   callbacks: {
-    // Handle new Google OAuth users
+    // Handle Google OAuth sign-in — bind to existing Customer if found
     async signIn({ user, account, profile }) {
-      // Only process for Google OAuth provider
-      if (account?.provider === "google") {
-        // Check if this Google account is linked to an existing user
-        const existingAccount = await prisma.account.findUnique({
-          where: {
-            provider_providerAccountId: {
-              provider: "google",
-              providerAccountId: account.providerAccountId,
-            },
-          },
-          include: {
-            user: {
-              include: {
-                customer: { select: { id: true } },
-              },
-            },
-          },
+      if (account?.provider !== "google") return true;
+
+      const googleId = account.providerAccountId;
+      const googleEmail = profile?.email || user.email;
+
+      // Step 1: 以 googleId 查找既有 Customer
+      let existingCustomer = await prisma.customer.findUnique({
+        where: { googleId },
+      });
+
+      // Step 2: 找不到 → 以 email 查找
+      if (!existingCustomer && googleEmail) {
+        existingCustomer = await prisma.customer.findFirst({
+          where: { email: googleEmail },
         });
-
-        // If this is a new Google user (no account linked yet)
-        if (!existingAccount && user.email && user.name) {
-          const dbUser = await prisma.user.findUnique({
-            where: { email: user.email },
-            include: {
-              customer: { select: { id: true } },
-            },
-          });
-
-          // If user doesn't exist in DB, they'll be auto-created by PrismaAdapter
-          // Now create a Customer record for new Google users
-          if (!dbUser) {
-            // Wait a bit for the adapter to create the user, then create customer
-            // This is handled in the jwt callback instead
-          }
-        }
       }
+
+      // Step 3: 如果找到既有 Customer 且已有 userId，檢查是否是同一 User
+      if (existingCustomer && existingCustomer.userId) {
+        // 已綁定 — 正常登入（PrismaAdapter 會處理 Account 連結）
+        return true;
+      }
+
+      // 後續綁定邏輯在 jwt callback 處理（因為需要 User.id）
       return true;
     },
 
-    // Persist custom fields to the JWT token
-    async jwt({ token, user, account }) {
+    // Persist custom fields to JWT
+    async jwt({ token, user, account, profile }) {
       if (user) {
-        // user is our authorize() return value — cast to access custom fields
         const appToken = token as unknown as AppJWT;
-        const appUser = user as { role?: UserRole; staffId?: string | null; customerId?: string | null };
         appToken.sub = user.id;
 
-        // For OAuth users on first sign-in, create Customer record
-        if (account?.provider === "google" && user.email) {
-          const dbUser = await prisma.user.findUnique({
-            where: { id: user.id },
+        if (account?.provider === "google") {
+          const googleId = account.providerAccountId;
+          const googleEmail = (profile as { email?: string })?.email || user.email;
+
+          // 嘗試綁定或建立 Customer
+          await bindGoogleCustomer(user.id as string, googleId, googleEmail as string);
+
+          // 取得最新 User 資料
+          const freshUser = await prisma.user.findUnique({
+            where: { id: user.id as string },
             include: {
               customer: { select: { id: true } },
               staff: { select: { id: true } },
             },
           });
 
-          if (dbUser) {
-            // If this is a new user (no customer/staff record yet)
-            if (!dbUser.customer && !dbUser.staff) {
-              // Create a Customer record with CUSTOMER role
-              // Need to find an assignedStaffId — for now use first OWNER or create default
-              let assignedStaffId = await prisma.staff.findFirst({
-                where: { isOwner: true },
-                select: { id: true },
-              });
-
-              if (!assignedStaffId) {
-                // Fallback: create a default staff record if no owner exists
-                const defaultStaff = await prisma.staff.create({
-                  data: {
-                    user: {
-                      create: {
-                        name: "Default Admin",
-                        email: "admin@default.local",
-                        role: "OWNER",
-                      },
-                    },
-                    displayName: "Default Admin",
-                    isOwner: true,
-                  },
-                  select: { id: true },
-                });
-                assignedStaffId = defaultStaff;
-              }
-
-              // Create customer record
-              await prisma.customer.create({
-                data: {
-                  userId: dbUser.id,
-                  name: dbUser.name,
-                  phone: "", // Will be updated later
-                  assignedStaffId: assignedStaffId.id,
-                  customerStage: "LEAD",
-                },
-              });
-
-              // Update user role to CUSTOMER if not already set
-              if (dbUser.role !== "CUSTOMER") {
-                await prisma.user.update({
-                  where: { id: dbUser.id },
-                  data: { role: "CUSTOMER" },
-                });
-              }
-            }
-
-            // Fetch fresh user data with relationships
-            const freshUser = await prisma.user.findUnique({
-              where: { id: dbUser.id },
-              include: {
-                customer: { select: { id: true } },
-                staff: { select: { id: true } },
-              },
-            });
-
-            if (freshUser) {
-              appToken.role = freshUser.role;
-              appToken.staffId = freshUser.staff?.id ?? null;
-              appToken.customerId = freshUser.customer?.id ?? null;
-            }
+          if (freshUser) {
+            appToken.role = freshUser.role;
+            appToken.staffId = freshUser.staff?.id ?? null;
+            appToken.customerId = freshUser.customer?.id ?? null;
           }
-        } else if (appUser?.role) {
-          // For credentials provider, use the values from authorize()
-          appToken.role = appUser.role;
-          appToken.staffId = appUser.staffId ?? null;
-          appToken.customerId = appUser.customerId ?? null;
         } else {
-          // Fallback: fetch from database for any provider
-          const dbUser = await prisma.user.findUnique({
-            where: { id: user.id },
-            include: {
-              customer: { select: { id: true } },
-              staff: { select: { id: true } },
-            },
-          });
-
-          if (dbUser) {
-            appToken.role = dbUser.role;
-            appToken.staffId = dbUser.staff?.id ?? null;
-            appToken.customerId = dbUser.customer?.id ?? null;
+          // Credentials provider
+          const appUser = user as { role?: UserRole; staffId?: string | null; customerId?: string | null };
+          if (appUser.role) {
+            appToken.role = appUser.role;
+            appToken.staffId = appUser.staffId ?? null;
+            appToken.customerId = appUser.customerId ?? null;
           }
         }
       } else {
-        // On subsequent calls, refresh role/staffId/customerId from DB
-        // This ensures we get the latest values if they were updated by an admin
+        // Subsequent requests — refresh from DB
         if (token.sub) {
           const dbUser = await prisma.user.findUnique({
             where: { id: token.sub as string },
@@ -261,7 +174,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return token;
     },
 
-    // Expose custom fields to the Session object
+    // Expose custom fields to Session
     session({ session, token }) {
       const appToken = token as unknown as AppJWT;
       session.user.id = appToken.sub ?? token.sub ?? "";
@@ -277,3 +190,72 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     error: "/login",
   },
 });
+
+// ============================================================
+// Google 綁定邏輯
+// 優先 googleId → 再 email → 綁定或建立
+// ============================================================
+
+async function bindGoogleCustomer(
+  userId: string,
+  googleId: string,
+  googleEmail: string
+) {
+  // Step 1: 以 googleId 查找
+  let customer = await prisma.customer.findUnique({
+    where: { googleId },
+  });
+
+  // Step 2: 以 email 查找
+  if (!customer && googleEmail) {
+    customer = await prisma.customer.findFirst({
+      where: { email: googleEmail },
+    });
+  }
+
+  if (customer) {
+    // 綁定到此 User（若尚未綁定）
+    const updateData: Record<string, unknown> = {};
+    if (!customer.userId) updateData.userId = userId;
+    if (!customer.googleId) updateData.googleId = googleId;
+    if (!customer.email && googleEmail) updateData.email = googleEmail;
+
+    if (Object.keys(updateData).length > 0) {
+      await prisma.customer.update({
+        where: { id: customer.id },
+        data: updateData,
+      });
+    }
+  } else {
+    // 建立新 Customer（暫不指派店長）
+    const googleUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { name: true },
+    });
+
+    await prisma.customer.create({
+      data: {
+        userId,
+        name: googleUser?.name || "Google 用戶",
+        phone: "",
+        email: googleEmail || null,
+        googleId,
+        assignedStaffId: undefined, // 稍後由店長指派
+        customerStage: "LEAD",
+      },
+    });
+  }
+
+  // 確保 User role 是 CUSTOMER（若不是 staff）
+  const dbUser = await prisma.user.findUnique({
+    where: { id: userId },
+    include: { staff: { select: { id: true } } },
+  });
+
+  if (dbUser && !dbUser.staff && dbUser.role !== "CUSTOMER") {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { role: "CUSTOMER" },
+    });
+  }
+}

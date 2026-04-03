@@ -1,130 +1,185 @@
 import { UserRole } from "@prisma/client";
+import { prisma } from "@/lib/db";
 
 // ============================================================
-// RBAC 權限定義
+// 權限代碼定義（key-value table 用）
 // ============================================================
 
-/**
- * 資源 (Resource) 定義
- */
-export type Resource =
-  | "staff"
-  | "customer"
-  | "booking"
-  | "service_plan"
-  | "wallet"
-  | "transaction"
-  | "cashbook"
-  | "report"
-  | "reminder"
-  | "space_fee"
-  | "audit_log"
-  | "settings";
+export const ALL_PERMISSIONS = [
+  // 顧客
+  "customer.read",
+  "customer.create",
+  "customer.update",
+  "customer.assign",   // 指派/變更直屬店長
+  "customer.export",
+  // 預約
+  "booking.read",
+  "booking.create",
+  "booking.update",
+  // 交易
+  "transaction.read",
+  "transaction.create",
+  // 課程錢包
+  "wallet.read",
+  "wallet.create",
+  // 報表
+  "report.read",
+  "report.export",
+  // 現金帳
+  "cashbook.read",
+  "cashbook.create",
+] as const;
 
-/**
- * 操作 (Action) 定義
- */
-export type Action =
-  | "create"
-  | "read"
-  | "read_own"
-  | "update"
-  | "update_own"
-  | "delete"
-  | "list"
-  | "list_own"
-  | "transfer"
-  | "manage";
+export type PermissionCode = (typeof ALL_PERMISSIONS)[number];
 
-/**
- * 權限矩陣
- *
- * Owner: 全部資源完全存取
- * Manager: 只能存取自己名下的顧客/預約/交易
- * Customer: 只能看自己的資料，且需購課後才能預約
- */
-const PERMISSIONS: Record<UserRole, Partial<Record<Resource, Action[]>>> = {
-  OWNER: {
-    staff: ["create", "read", "update", "delete", "list", "manage"],
-    customer: ["create", "read", "update", "delete", "list", "transfer"],
-    booking: ["create", "read", "update", "delete", "list"],
-    service_plan: ["create", "read", "update", "delete", "list", "manage"],
-    wallet: ["create", "read", "update", "list"],
-    transaction: ["create", "read", "list"],
-    cashbook: ["create", "read", "update", "delete", "list"],
-    report: ["read", "list"],
-    reminder: ["create", "read", "list", "manage"],
-    space_fee: ["create", "read", "update", "list", "manage"],
-    audit_log: ["read", "list"],
-    settings: ["read", "update", "manage"],
+// 權限分類（UI 用）
+export const PERMISSION_GROUPS: Record<string, { label: string; codes: PermissionCode[] }> = {
+  customer: {
+    label: "顧客管理",
+    codes: ["customer.read", "customer.create", "customer.update", "customer.assign", "customer.export"],
   },
-  MANAGER: {
-    customer: ["create", "read_own", "update_own", "list_own"],
-    booking: ["create", "read_own", "update_own", "list_own"],
-    service_plan: ["read", "list"],
-    wallet: ["create", "read_own", "list_own"],
-    transaction: ["create", "read_own", "list_own"],
-    cashbook: ["read_own", "list_own"],
-    report: ["read_own"],
+  booking: {
+    label: "預約管理",
+    codes: ["booking.read", "booking.create", "booking.update"],
   },
-  CUSTOMER: {
-    booking: ["create", "read_own", "list_own"],
-    wallet: ["read_own", "list_own"],
-    transaction: ["read_own", "list_own"],
+  transaction: {
+    label: "交易紀錄",
+    codes: ["transaction.read", "transaction.create"],
+  },
+  wallet: {
+    label: "課程方案",
+    codes: ["wallet.read", "wallet.create"],
+  },
+  report: {
+    label: "報表",
+    codes: ["report.read", "report.export"],
+  },
+  cashbook: {
+    label: "現金帳",
+    codes: ["cashbook.read", "cashbook.create"],
   },
 };
 
+// 權限代碼 → 中文說明
+export const PERMISSION_LABELS: Record<PermissionCode, string> = {
+  "customer.read": "查看顧客",
+  "customer.create": "新增顧客",
+  "customer.update": "編輯顧客",
+  "customer.assign": "指派直屬店長",
+  "customer.export": "匯出顧客資料",
+  "booking.read": "查看預約",
+  "booking.create": "新增預約",
+  "booking.update": "修改/取消預約",
+  "transaction.read": "查看交易",
+  "transaction.create": "新增交易",
+  "wallet.read": "查看課程方案",
+  "wallet.create": "指派課程方案",
+  "report.read": "查看報表",
+  "report.export": "匯出報表",
+  "cashbook.read": "查看現金帳",
+  "cashbook.create": "新增現金帳",
+};
+
+// 新建 Manager 時的預設權限
+export const DEFAULT_MANAGER_PERMISSIONS: PermissionCode[] = [
+  "customer.read",
+  "customer.create",
+  "booking.read",
+  "booking.create",
+  "booking.update",
+  "transaction.read",
+  "transaction.create",
+  "wallet.read",
+];
+
+// ============================================================
+// 權限檢查（動態查表）
+// ============================================================
+
 /**
- * 檢查角色是否有某資源的某操作權限
+ * 檢查某 staff 是否有某權限
+ * Owner 永遠有所有權限
  */
-export function hasPermission(
+export async function checkPermission(
   role: UserRole,
-  resource: Resource,
-  action: Action
-): boolean {
-  const rolePerms = PERMISSIONS[role];
-  if (!rolePerms) return false;
-  const actions = rolePerms[resource];
-  if (!actions) return false;
-  return actions.includes(action);
+  staffId: string | null,
+  permission: PermissionCode
+): Promise<boolean> {
+  // Owner 永遠放行
+  if (role === "OWNER") return true;
+
+  // Customer 不在此系統中
+  if (role === "CUSTOMER") return false;
+
+  // Manager 查 StaffPermission 表
+  if (!staffId) return false;
+
+  const record = await prisma.staffPermission.findUnique({
+    where: {
+      staffId_permission: {
+        staffId,
+        permission,
+      },
+    },
+  });
+
+  return record?.granted ?? false;
 }
 
 /**
- * 檢查 Manager 是否只能存取自己名下資料
- * 若權限是 read_own / update_own / list_own，回傳 true
+ * 取得某 staff 的所有已授權權限
  */
-export function isOwnOnly(role: UserRole, resource: Resource): boolean {
-  const rolePerms = PERMISSIONS[role];
-  if (!rolePerms) return true;
-  const actions = rolePerms[resource];
-  if (!actions) return true;
-  // 如果有完整的 read/list/update，就不是 own-only
-  const hasFullAccess = actions.some(
-    (a) => a === "read" || a === "list" || a === "update"
+export async function getStaffPermissions(
+  staffId: string
+): Promise<Set<PermissionCode>> {
+  const records = await prisma.staffPermission.findMany({
+    where: { staffId, granted: true },
+    select: { permission: true },
+  });
+  return new Set(records.map((r) => r.permission as PermissionCode));
+}
+
+/**
+ * 批次更新某 staff 的權限
+ */
+export async function updateStaffPermissions(
+  staffId: string,
+  permissions: Record<PermissionCode, boolean>
+): Promise<void> {
+  const upserts = Object.entries(permissions).map(([perm, granted]) =>
+    prisma.staffPermission.upsert({
+      where: {
+        staffId_permission: { staffId, permission: perm },
+      },
+      create: { staffId, permission: perm, granted },
+      update: { granted },
+    })
   );
-  return !hasFullAccess;
+
+  await prisma.$transaction(upserts);
 }
 
 /**
- * 取得角色對某資源的所有允許操作
+ * 為新 Manager 建立預設權限
  */
-export function getPermissions(
-  role: UserRole,
-  resource: Resource
-): Action[] {
-  return PERMISSIONS[role]?.[resource] ?? [];
+export async function createDefaultPermissions(staffId: string): Promise<void> {
+  const data = ALL_PERMISSIONS.map((perm) => ({
+    staffId,
+    permission: perm,
+    granted: DEFAULT_MANAGER_PERMISSIONS.includes(perm),
+  }));
+
+  await prisma.staffPermission.createMany({ data, skipDuplicates: true });
 }
 
-/**
- * 確認是否為 Owner
- */
+// ============================================================
+// 便捷函數（向後相容）
+// ============================================================
+
 export function isOwner(role: UserRole): boolean {
   return role === "OWNER";
 }
 
-/**
- * 確認是否為 Staff（Owner 或 Manager）
- */
 export function isStaff(role: UserRole): boolean {
   return role === "OWNER" || role === "MANAGER";
 }

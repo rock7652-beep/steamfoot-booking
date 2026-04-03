@@ -29,14 +29,8 @@ export async function GET() {
   if (!session?.user) return new NextResponse("Unauthorized", { status: 401 });
   if (session.user.role === "CUSTOMER") return new NextResponse("Forbidden", { status: 403 });
 
-  // Manager can only export own customers
-  const staffFilter =
-    session.user.role === "MANAGER" && session.user.staffId
-      ? { assignedStaffId: session.user.staffId }
-      : {};
-
+  // 所有店長可匯出全部顧客（共享查看）
   const customers = await prisma.customer.findMany({
-    where: { ...staffFilter },
     include: {
       assignedStaff: { select: { displayName: true } },
       user: { select: { email: true } },
@@ -56,13 +50,15 @@ export async function GET() {
   const headers = [
     "姓名",
     "電話",
-    "LINE 名稱",
     "Email",
+    "Google 帳號",
+    "LINE 名稱",
     "狀態",
-    "歸屬店長",
+    "直屬店長",
     "有效方案",
     "剩餘堂數",
     "總預約數",
+    "最近消費",
     "備註",
     "首次到訪",
     "建立日期",
@@ -74,13 +70,15 @@ export async function GET() {
     return [
       c.name,
       c.phone,
-      c.lineName ?? "",
+      c.email ?? "",
       c.user?.email ?? "",
+      c.lineName ?? "",
       STAGE_ZH[c.customerStage] ?? c.customerStage,
-      c.assignedStaff.displayName,
+      c.assignedStaff?.displayName ?? "未指派",
       activePlans || "無",
       remainingSessions.toString(),
       c._count.bookings.toString(),
+      c.lastVisitAt ? new Date(c.lastVisitAt).toLocaleDateString("zh-TW") : "",
       c.notes ?? "",
       c.firstVisitAt ? new Date(c.firstVisitAt).toLocaleDateString("zh-TW") : "",
       new Date(c.createdAt).toLocaleDateString("zh-TW"),

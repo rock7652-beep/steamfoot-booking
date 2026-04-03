@@ -201,6 +201,9 @@ model Staff {
   // 名下顧客
   assignedCustomers Customer[] @relation("AssignedStaff")
 
+  // 動態權限設定（key-value）
+  permissions StaffPermission[]
+
   // 營收歸屬（快照在 booking/transaction 上）
   revenueBookings      Booking[]     @relation("RevenueStaff")
   serviceBookings      Booking[]     @relation("ServiceStaff")
@@ -224,18 +227,21 @@ model Customer {
   userId             String?       @unique // nullable: 有些顧客不一定有登入帳號
   name               String
   phone              String
+  email              String?       // 用於 Google 綁定比對
+  googleId           String?       @unique // Google sub ID，避免 email 變更造成重複
   lineName           String?       // LINE 顯示名稱
   notes              String?       // 內部備註
-  assignedStaffId    String        // 直屬店長（FK → Staff）
+  assignedStaffId    String?       // 直屬店長（nullable: 建立時可不指派）
   customerStage      CustomerStage @default(LEAD)
   selfBookingEnabled Boolean       @default(false)
   firstVisitAt       DateTime?     // 首次到店日期
   convertedAt        DateTime?     // 首次購課日期
+  lastVisitAt        DateTime?     // 最近消費日期（方便列表顯示）
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
 
   user          User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
-  assignedStaff Staff  @relation("AssignedStaff", fields: [assignedStaffId], references: [id])
+  assignedStaff Staff? @relation("AssignedStaff", fields: [assignedStaffId], references: [id])
 
   // 課程錢包
   planWallets CustomerPlanWallet[]
@@ -249,6 +255,8 @@ model Customer {
   @@index([assignedStaffId])
   @@index([customerStage])
   @@index([phone])
+  @@index([email])
+  @@index([googleId])
 }
 
 // ============================================================
@@ -329,7 +337,7 @@ model Booking {
   customerId           String
   bookingDate          DateTime      @db.Date
   slotTime             String        // "HH:mm"，對應 BookingSlot.startTime
-  revenueStaffId       String        // 冗餘快照：此筆營收歸屬哪位店長（建立時從 customer.assignedStaffId 複製）
+  revenueStaffId       String?       // 冗餘快照：營收歸屬店長（nullable: 顧客可能尚未指派）
   serviceStaffId       String?       // 當天實際服務/值班店長（nullable, 可後補）
   bookedByType         BookedByType  @default(CUSTOMER)
   bookedByStaffId      String?       // 若由店長代約，記錄是哪位店長
@@ -343,7 +351,7 @@ model Booking {
   updatedAt            DateTime      @updatedAt
 
   customer           Customer            @relation(fields: [customerId], references: [id])
-  revenueStaff       Staff               @relation("RevenueStaff", fields: [revenueStaffId], references: [id])
+  revenueStaff       Staff?              @relation("RevenueStaff", fields: [revenueStaffId], references: [id])
   serviceStaff       Staff?              @relation("ServiceStaff", fields: [serviceStaffId], references: [id])
   bookedByStaff      Staff?              @relation("BookedByStaff", fields: [bookedByStaffId], references: [id])
   servicePlan        ServicePlan?        @relation(fields: [servicePlanId], references: [id])
@@ -456,6 +464,22 @@ model AuditLog {
   @@index([targetType, targetId])
   @@index([actorUserId])
   @@index([createdAt])
+}
+
+// ============================================================
+// StaffPermission（店長權限設定，key-value 表）
+// ============================================================
+
+model StaffPermission {
+  id         String  @id @default(cuid())
+  staffId    String
+  permission String  // e.g. "customer.read", "booking.create", "report.read"
+  granted    Boolean @default(true)
+
+  staff Staff @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@unique([staffId, permission])
+  @@index([staffId])
 }
 
 // ============================================================
