@@ -355,6 +355,7 @@ model Booking {
   bookingType          BookingType   @default(PACKAGE_SESSION)
   servicePlanId        String?       // 使用哪個方案（nullable for flexibility）
   customerPlanWalletId String?       // 若使用套餐，對應哪個錢包
+  people               Int           @default(1) // 預約人數（1~4）
   bookingStatus        BookingStatus @default(PENDING)
   reminderSent         Boolean       @default(false)
   notes                String?

@@ -152,22 +152,26 @@ function SlotBookingForm({
   slots: SlotAvailability[];
   activeWallets: ActiveWallet[];
 }) {
-  type FormState = { error: string | null; success: boolean; bookedTime: string };
+  const [people, setPeople] = useState(1);
+
+  type FormState = { error: string | null; success: boolean; bookedTime: string; bookedPeople: number };
   const [state, action, pending] = useActionState(
     async (prev: FormState, formData: FormData): Promise<FormState> => {
       const slotTime = formData.get("slotTime") as string;
       const customerPlanWalletId = formData.get("customerPlanWalletId") as string;
+      const peopleVal = Number(formData.get("people")) || 1;
       const result = await createBooking({
         customerId,
         bookingDate: selectedDate,
         slotTime,
         bookingType: "PACKAGE_SESSION",
         customerPlanWalletId: customerPlanWalletId || undefined,
+        people: peopleVal,
       });
-      if (result.success) return { error: null, success: true, bookedTime: slotTime };
-      return { error: result.error, success: false, bookedTime: "" };
+      if (result.success) return { error: null, success: true, bookedTime: slotTime, bookedPeople: peopleVal };
+      return { error: result.error, success: false, bookedTime: "", bookedPeople: 0 };
     },
-    { error: null, success: false, bookedTime: "" }
+    { error: null, success: false, bookedTime: "", bookedPeople: 0 }
   );
 
   const availableSlots = slots.filter((s) => s.isEnabled && s.available > 0);
@@ -178,10 +182,11 @@ function SlotBookingForm({
         <h2 className="text-base font-semibold text-green-800">預約成功</h2>
         <p className="mt-1 text-sm text-green-600">
           {selectedDate} {state.bookedTime}
+          {state.bookedPeople > 1 && `（${state.bookedPeople} 人）`}
         </p>
         <div className="mt-4 flex justify-center gap-3">
           <a href="/book/new" className="rounded-lg bg-white px-4 py-2 text-sm text-green-700 border border-green-300 hover:bg-green-50">再次預約</a>
-          <a href="/my-bookings" className="rounded-lg bg-green-600 px-4 py-2 text-sm text-white hover:bg-green-700">查���我的預約</a>
+          <a href="/my-bookings" className="rounded-lg bg-green-600 px-4 py-2 text-sm text-white hover:bg-green-700">查看我的預約</a>
         </div>
       </div>
     );
@@ -195,21 +200,48 @@ function SlotBookingForm({
         <div className="rounded-lg bg-red-50 px-4 py-2 text-sm text-red-600">{state.error}</div>
       )}
 
+      {/* 人數選擇 */}
+      <div>
+        <label className="mb-1 block text-xs text-earth-500">預約人數</label>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setPeople((p) => Math.max(1, p - 1))}
+            disabled={people <= 1}
+            className="flex h-9 w-9 items-center justify-center rounded-lg border border-earth-300 text-lg text-earth-600 hover:bg-earth-100 disabled:opacity-40"
+          >
+            −
+          </button>
+          <span className="min-w-[2rem] text-center text-lg font-bold text-earth-800">{people}</span>
+          <button
+            type="button"
+            onClick={() => setPeople((p) => Math.min(4, p + 1))}
+            disabled={people >= 4}
+            className="flex h-9 w-9 items-center justify-center rounded-lg border border-earth-300 text-lg text-earth-600 hover:bg-earth-100 disabled:opacity-40"
+          >
+            +
+          </button>
+          <span className="text-xs text-earth-400">（最多 4 人）</span>
+        </div>
+        <input type="hidden" name="people" value={people} />
+      </div>
+
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {slots.filter((s) => s.isEnabled).map((slot) => {
           const isFull = slot.available === 0;
+          const notEnough = slot.available > 0 && slot.available < people;
           return (
             <label
               key={slot.startTime}
               className={`relative flex cursor-pointer flex-col items-center rounded-xl border p-3 text-center transition-colors ${
-                isFull
+                isFull || notEnough
                   ? "cursor-not-allowed border-earth-200 bg-earth-50 opacity-50"
                   : "border-earth-200 bg-white hover:border-primary-400 hover:bg-primary-50 has-[:checked]:border-primary-500 has-[:checked]:bg-primary-600 has-[:checked]:text-white"
               }`}
             >
-              <input type="radio" name="slotTime" value={slot.startTime} disabled={isFull} className="sr-only" required />
+              <input type="radio" name="slotTime" value={slot.startTime} disabled={isFull || notEnough} className="sr-only" required />
               <span className="text-base font-bold">{slot.startTime}</span>
-              <span className={`mt-0.5 text-xs ${isFull ? "text-red-500" : "text-earth-400"}`}>
+              <span className={`mt-0.5 text-xs ${isFull ? "text-red-500" : notEnough ? "text-yellow-500" : "text-earth-400"}`}>
                 {isFull ? "已額滿" : `剩 ${slot.available} 位`}
               </span>
             </label>
@@ -237,7 +269,7 @@ function SlotBookingForm({
 
       {availableSlots.length > 0 && (
         <button type="submit" disabled={pending} className="w-full rounded-xl bg-primary-600 py-3 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-60">
-          {pending ? "預約中..." : "確認預約"}
+          {pending ? "預約中..." : `確認預約（${people} 人）`}
         </button>
       )}
     </form>

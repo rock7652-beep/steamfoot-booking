@@ -26,14 +26,14 @@ export async function fetchDaySlots(date: string): Promise<{
         bookingDate: dateObj,
         bookingStatus: { in: ["PENDING", "CONFIRMED"] },
       },
-      _count: { slotTime: true },
+      _sum: { people: true },
     }),
   ]);
 
   if (slots.length === 0) return { slots: [] };
 
   const bookedMap = new Map(
-    existingBookings.map((b) => [b.slotTime, b._count.slotTime])
+    existingBookings.map((b) => [b.slotTime, b._sum.people ?? 0])
   );
 
   return {

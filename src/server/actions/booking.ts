@@ -32,6 +32,7 @@ export async function createBooking(
   try {
     const user = await requireSession();
     const data = createBookingSchema.parse(input);
+    const bookingPeople = data.people ?? 1;
 
     // ── 1. 取顧客（含 ACTIVE wallets）
     const customer = await prisma.customer.findUnique({
@@ -113,15 +114,23 @@ export async function createBooking(
       throw new AppError("VALIDATION", `${data.slotTime} 在該日不是有效時段`);
     }
 
-    const bookedCount = await prisma.booking.count({
+    const bookedAgg = await prisma.booking.aggregate({
       where: {
         bookingDate: bookingDateObj,
         slotTime: data.slotTime,
         bookingStatus: { in: ["PENDING", "CONFIRMED"] },
       },
+      _sum: { people: true },
     });
-    if (bookedCount >= slot.capacity) {
-      throw new AppError("BUSINESS_RULE", "該時段已額滿，請選擇其他時段");
+    const bookedPeople = bookedAgg._sum.people ?? 0;
+    const remaining = slot.capacity - bookedPeople;
+    if (remaining < bookingPeople) {
+      throw new AppError(
+        "BUSINESS_RULE",
+        remaining <= 0
+          ? "該時段已額滿，請選擇其他時段"
+          : `該時段剩餘 ${remaining} 位，無法預約 ${bookingPeople} 位`
+      );
     }
 
     // ── 6. 決定 bookedByType / bookedByStaffId
@@ -150,6 +159,7 @@ export async function createBooking(
         bookingType: data.bookingType,
         servicePlanId: data.servicePlanId ?? null,
         customerPlanWalletId: data.customerPlanWalletId ?? null,
+        people: bookingPeople,
         bookingStatus: "CONFIRMED",
         notes: data.notes,
       },
@@ -209,15 +219,22 @@ export async function updateBooking(
       });
       if (!slot) throw new AppError("VALIDATION", "目標時段不可用");
 
-      const bookedCount = await prisma.booking.count({
+      const bookedAgg = await prisma.booking.aggregate({
         where: {
           bookingDate: newDate,
           slotTime: newSlot,
           bookingStatus: { in: ["PENDING", "CONFIRMED"] },
           NOT: { id: bookingId }, // 排除自己
         },
+        _sum: { people: true },
       });
-      if (bookedCount >= slot.capacity) {
+      const currentBooking = await prisma.booking.findUnique({
+        where: { id: bookingId },
+        select: { people: true },
+      });
+      const bookedPeople = bookedAgg._sum.people ?? 0;
+      const bookingPeople = currentBooking?.people ?? 1;
+      if (bookedPeople + bookingPeople > slot.capacity) {
         throw new AppError("BUSINESS_RULE", "目標時段已額滿");
       }
     }

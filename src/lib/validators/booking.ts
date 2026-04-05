@@ -7,6 +7,7 @@ export const createBookingSchema = z.object({
   bookingType: z.enum(["FIRST_TRIAL", "SINGLE", "PACKAGE_SESSION"]),
   servicePlanId: z.string().cuid().optional(),
   customerPlanWalletId: z.string().cuid().optional(),
+  people: z.number().int().min(1).max(4).optional(),
   notes: z.string().max(500).optional(),
 });
 

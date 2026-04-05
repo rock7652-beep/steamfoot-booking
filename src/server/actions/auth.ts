@@ -42,5 +42,5 @@ export async function loginAction(
 // ============================================================
 
 export async function logoutAction() {
-  await signOut({ redirectTo: "/login" });
+  await signOut({ redirectTo: "/" });
 }
