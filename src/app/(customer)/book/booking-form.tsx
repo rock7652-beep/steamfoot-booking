@@ -53,7 +53,7 @@ export function BookingForm({ customerId, selectedDate, slots, activeWallets }: 
         </p>
         <div className="mt-4 flex justify-center gap-3">
           <a
-            href={`/book?date=${selectedDate}`}
+            href={`/book/new?date=${selectedDate}`}
             className="rounded-lg bg-white px-4 py-2 text-sm text-green-700 border border-green-300 hover:bg-green-50"
           >
             再次預約

@@ -19,7 +19,7 @@ const CATEGORY_LABEL: Record<string, string> = {
 
 export default async function MyPlansPage() {
   const user = await getCurrentUser();
-  if (!user || !user.customerId) redirect("/login");
+  if (!user || !user.customerId) redirect("/");
 
   const customer = await prisma.customer.findUnique({
     where: { id: user.customerId },
@@ -30,7 +30,7 @@ export default async function MyPlansPage() {
       },
     },
   });
-  if (!customer) redirect("/login");
+  if (!customer) redirect("/");
 
   const activeWallets = customer.planWallets.filter((w) => w.status === "ACTIVE");
   const inactiveWallets = customer.planWallets.filter((w) => w.status !== "ACTIVE");
@@ -95,7 +95,7 @@ export default async function MyPlansPage() {
       {totalRemaining > 0 && customer.selfBookingEnabled && (
         <div className="mt-8 text-center">
           <Link
-            href="/book"
+            href="/book/new"
             className="rounded-xl bg-primary-600 px-8 py-3 text-sm font-semibold text-white hover:bg-primary-700"
           >
             立即預約

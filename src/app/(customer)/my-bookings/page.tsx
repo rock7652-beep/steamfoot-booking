@@ -33,7 +33,7 @@ interface PageProps {
 export default async function MyBookingsPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const user = await getCurrentUser();
-  if (!user || !user.customerId) redirect("/login");
+  if (!user || !user.customerId) redirect("/");
 
   const tab = params.tab ?? "upcoming";
 
@@ -93,7 +93,7 @@ export default async function MyBookingsPage({ searchParams }: PageProps) {
               <div className="mb-2 text-3xl">📅</div>
               <p className="text-sm">尚無即將到來的預約</p>
               <Link
-                href="/book"
+                href="/book/new"
                 className="mt-3 inline-block rounded-lg bg-primary-600 px-4 py-2 text-sm text-white hover:bg-primary-700"
               >
                 立即預約
