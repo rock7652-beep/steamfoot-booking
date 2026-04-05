@@ -135,11 +135,16 @@ export default async function MyBookingsPage({ searchParams }: PageProps) {
                 </span>
               </div>
 
-              <div className="mt-2 flex items-center gap-3 text-xs text-earth-500">
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-earth-500">
                 <span>
                   類型：{BOOKING_TYPE_LABEL[b.bookingType] ?? b.bookingType}
                 </span>
                 <span>{b.people} 人</span>
+                {b.isMakeup && (
+                  <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
+                    補課
+                  </span>
+                )}
                 {b.revenueStaff && (
                   <span className="flex items-center gap-1">
                     <span

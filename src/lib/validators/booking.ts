@@ -8,6 +8,8 @@ export const createBookingSchema = z.object({
   servicePlanId: z.string().cuid().optional(),
   customerPlanWalletId: z.string().cuid().optional(),
   people: z.number().int().min(1).max(4).optional(),
+  isMakeup: z.boolean().optional(),
+  makeupCreditId: z.string().cuid().optional(),
   notes: z.string().max(500).optional(),
 });
 

@@ -8,26 +8,42 @@ export default async function NewBookingPage() {
   const user = await getCurrentUser();
   if (!user || !user.customerId) redirect("/");
 
-  // ⚡ 只查必要欄位：selfBookingEnabled + wallet 摘要
-  const customer = await prisma.customer.findUnique({
-    where: { id: user.customerId },
-    select: {
-      selfBookingEnabled: true,
-      planWallets: {
-        where: { status: "ACTIVE", remainingSessions: { gt: 0 } },
-        select: {
-          id: true,
-          remainingSessions: true,
-          plan: { select: { name: true } },
+  const [customer, makeupCredits] = await Promise.all([
+    prisma.customer.findUnique({
+      where: { id: user.customerId },
+      select: {
+        selfBookingEnabled: true,
+        planWallets: {
+          where: { status: "ACTIVE", remainingSessions: { gt: 0 } },
+          select: {
+            id: true,
+            remainingSessions: true,
+            plan: { select: { name: true } },
+          },
+          orderBy: { createdAt: "asc" },
         },
-        orderBy: { createdAt: "asc" },
       },
-    },
-  });
+    }),
+    prisma.makeupCredit.findMany({
+      where: {
+        customerId: user.customerId,
+        isUsed: false,
+        OR: [{ expiredAt: null }, { expiredAt: { gte: new Date() } }],
+      },
+      select: {
+        id: true,
+        expiredAt: true,
+        originalBooking: {
+          select: { bookingDate: true, slotTime: true },
+        },
+      },
+      orderBy: { createdAt: "asc" },
+    }),
+  ]);
   if (!customer) redirect("/");
 
   const hasValidWallet =
-    customer.selfBookingEnabled && customer.planWallets.length > 0;
+    customer.selfBookingEnabled && (customer.planWallets.length > 0 || makeupCredits.length > 0);
 
   if (!hasValidWallet) {
     return (
@@ -50,7 +66,6 @@ export default async function NewBookingPage() {
     );
   }
 
-  // ⚡ 並行查詢：未來預約數 + wallet 總堂數（已在上面查到）
   const totalRemaining = customer.planWallets.reduce(
     (s, w) => s + w.remainingSessions,
     0
@@ -61,6 +76,7 @@ export default async function NewBookingPage() {
       customerId: user.customerId,
       bookingStatus: { in: ["PENDING", "CONFIRMED"] },
       bookingDate: { gte: new Date(new Date().setHours(0, 0, 0, 0)) },
+      isMakeup: false,
     },
   });
 
@@ -77,15 +93,20 @@ export default async function NewBookingPage() {
 
       {/* 剩餘配額 */}
       <div className="mb-4 rounded-lg bg-primary-50 px-4 py-3 text-sm">
-        <span className="text-primary-700">
+        <div className="text-primary-700">
           剩餘可預約：<strong className="text-lg">{remainingQuota}</strong> 堂
-        </span>
-        <span className="ml-3 text-xs text-primary-400">
-          ���已有 {futureBookingCount} 筆未完成，課程剩餘 {totalRemaining} 堂）
-        </span>
+          <span className="ml-3 text-xs text-primary-400">
+            （已有 {futureBookingCount} 筆未完成，課程剩餘 {totalRemaining} 堂）
+          </span>
+        </div>
+        {makeupCredits.length > 0 && (
+          <div className="mt-1 text-amber-600">
+            可用補課：<strong>{makeupCredits.length}</strong> 次（不扣堂）
+          </div>
+        )}
       </div>
 
-      {remainingQuota <= 0 ? (
+      {remainingQuota <= 0 && makeupCredits.length === 0 ? (
         <div className="rounded-xl border bg-yellow-50 p-4 text-sm text-yellow-700">
           預約已達課程剩餘堂數上限，請完成已預約的課程後再繼續預約。
         </div>
@@ -96,6 +117,12 @@ export default async function NewBookingPage() {
             id: w.id,
             planName: w.plan.name,
             remainingSessions: w.remainingSessions,
+          }))}
+          makeupCredits={makeupCredits.map((c) => ({
+            id: c.id,
+            originalDate: c.originalBooking.bookingDate.toISOString().slice(0, 10),
+            originalSlot: c.originalBooking.slotTime,
+            expiredAt: c.expiredAt?.toISOString() ?? null,
           }))}
         />
       )}

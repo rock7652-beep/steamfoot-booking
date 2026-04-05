@@ -261,6 +261,9 @@ model Customer {
   // 預約
   bookings Booking[]
 
+  // 補課資格
+  makeupCredits MakeupCredit[]
+
   // 交易
   transactions Transaction[]
 
@@ -356,6 +359,9 @@ model Booking {
   servicePlanId        String?       // 使用哪個方案（nullable for flexibility）
   customerPlanWalletId String?       // 若使用套餐，對應哪個錢包
   people               Int           @default(1) // 預約人數（1~4）
+  isMakeup             Boolean       @default(false) // 是否為補課預約
+  makeupCreditId       String?       @unique // 若為補課，關聯使用的補課資格
+  isCheckedIn          Boolean       @default(false) // 是否已報到
   bookingStatus        BookingStatus @default(PENDING)
   reminderSent         Boolean       @default(false)
   notes                String?
@@ -368,6 +374,10 @@ model Booking {
   bookedByStaff      Staff?              @relation("BookedByStaff", fields: [bookedByStaffId], references: [id])
   servicePlan        ServicePlan?        @relation(fields: [servicePlanId], references: [id])
   customerPlanWallet CustomerPlanWallet? @relation(fields: [customerPlanWalletId], references: [id])
+
+  // 補課關聯
+  makeupCredit    MakeupCredit? @relation("MakeupBooking", fields: [makeupCreditId], references: [id])
+  generatedCredit MakeupCredit? @relation("OriginalBooking")
 
   // 交易
   transactions Transaction[]
@@ -383,6 +393,25 @@ model Booking {
   @@index([revenueStaffId])
   @@index([revenueStaffId, bookingDate])    // 店長月報查詢
   @@index([bookingStatus])
+}
+
+// ============================================================
+// MakeupCredit（補課資格）
+// ============================================================
+
+model MakeupCredit {
+  id                String    @id @default(cuid())
+  customerId        String
+  originalBookingId String    @unique // 產生此資格的原始預約（NO_SHOW）
+  isUsed            Boolean   @default(false)
+  expiredAt         DateTime? // 補課有效期限（如 30 天後到期）
+  createdAt         DateTime  @default(now())
+
+  customer        Customer @relation(fields: [customerId], references: [id])
+  originalBooking Booking  @relation("OriginalBooking", fields: [originalBookingId], references: [id])
+  usedBooking     Booking? @relation("MakeupBooking")
+
+  @@index([customerId, isUsed])
 }
 
 // ============================================================

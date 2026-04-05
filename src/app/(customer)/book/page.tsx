@@ -7,8 +7,8 @@ export default async function CustomerHomePage() {
   const user = await getCurrentUser();
   if (!user || !user.customerId) redirect("/");
 
-  // 查詢方案餘額 + 最近預約（輕量 select）
-  const [walletData, lastBooking] = await Promise.all([
+  // 查詢方案餘額 + 最近預約 + 補課次數（輕量 select）
+  const [walletData, lastBooking, makeupCount] = await Promise.all([
     prisma.customerPlanWallet.aggregate({
       where: { customerId: user.customerId, status: "ACTIVE", remainingSessions: { gt: 0 } },
       _sum: { remainingSessions: true },
@@ -17,6 +17,13 @@ export default async function CustomerHomePage() {
       where: { customerId: user.customerId, bookingStatus: { in: ["COMPLETED", "CONFIRMED", "PENDING"] } },
       select: { bookingDate: true, slotTime: true },
       orderBy: { bookingDate: "desc" },
+    }),
+    prisma.makeupCredit.count({
+      where: {
+        customerId: user.customerId,
+        isUsed: false,
+        OR: [{ expiredAt: null }, { expiredAt: { gte: new Date() } }],
+      },
     }),
   ]);
 
@@ -34,6 +41,9 @@ export default async function CustomerHomePage() {
             <p>你目前還有 <strong className="text-primary-700">{remaining}</strong> 次療程</p>
           ) : (
             <p>你目前尚未購買方案</p>
+          )}
+          {makeupCount > 0 && (
+            <p>可用補課：<strong className="text-amber-600">{makeupCount}</strong> 次</p>
           )}
           {lastBooking ? (
             <p>

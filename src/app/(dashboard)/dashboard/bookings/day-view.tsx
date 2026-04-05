@@ -26,6 +26,8 @@ interface DayBooking {
   id: string;
   slotTime: string;
   people: number;
+  isMakeup: boolean;
+  isCheckedIn: boolean;
   bookingStatus: string;
   customer: { name: string; phone: string; assignedStaff?: { displayName: string; colorCode: string } | null };
   revenueStaff: { id: string; displayName: string; colorCode: string } | null;
@@ -188,6 +190,16 @@ export function DayView({ date, bookings }: DayViewProps) {
                         {booking.people > 1 && (
                           <span className="ml-1 inline-block rounded bg-earth-100 px-1 py-0.5 text-[10px] font-medium text-earth-600">
                             {booking.people}人
+                          </span>
+                        )}
+                        {booking.isMakeup && (
+                          <span className="ml-1 inline-block rounded bg-amber-100 px-1 py-0.5 text-[10px] font-medium text-amber-700">
+                            補課
+                          </span>
+                        )}
+                        {booking.isCheckedIn && booking.bookingStatus === "CONFIRMED" && (
+                          <span className="ml-1 inline-block rounded bg-green-100 px-1 py-0.5 text-[10px] font-medium text-green-700">
+                            已報到
                           </span>
                         )}
                       </span>

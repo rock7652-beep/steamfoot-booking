@@ -17,13 +17,13 @@ import type { z } from "zod";
 // createBooking
 //
 // 商業規則（嚴格實作，後端強制）：
-// 1. Manager 只能為自己名下顧客預約
+// 1. Manager 可為任何顧客預約
 // 2. Customer 自助預約：selfBookingEnabled + ACTIVE wallet
-// 3. 未來有效預約數 + 1 ≤ 剩餘堂數（Customer 自助）
-// 4. 只能預約未來 14 天內
-// 5. 時段必須 enabled 且未額滿
-// 6. 快照 revenueStaffId = customer.assignedStaffId
-// 7. 不扣堂（到店 markCompleted 才扣）
+// 3. 一般預約：立即預扣 wallet.remainingSessions
+// 4. 補課預約：不扣堂，驗證 MakeupCredit 有效且未使用
+// 5. 只能預約未來 14 天內
+// 6. 時段必須 enabled 且名額足夠
+// 7. 快照 revenueStaffId = customer.assignedStaffId
 // ============================================================
 
 export async function createBooking(
@@ -33,6 +33,7 @@ export async function createBooking(
     const user = await requireSession();
     const data = createBookingSchema.parse(input);
     const bookingPeople = data.people ?? 1;
+    const isMakeup = data.isMakeup ?? false;
 
     // ── 1. 取顧客（含 ACTIVE wallets）
     const customer = await prisma.customer.findUnique({
@@ -45,26 +46,47 @@ export async function createBooking(
     });
     if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
 
-    // ── 2. 權限檢查（Manager 現在可為任何顧客預約，共享查看）
-    // 不再限制 Manager 只能為自己名下顧客預約
-
+    // ── 2. 權限檢查
     if (user.role === "CUSTOMER") {
-      // 顧客只能為自己預約
       if (!user.customerId || user.customerId !== data.customerId) {
         throw new AppError("FORBIDDEN", "顧客只能為自己建立預約");
       }
-      // 必須開啟自助預約
       if (!customer.selfBookingEnabled) {
         throw new AppError("BUSINESS_RULE", "尚未開放自助預約，請聯繫店長");
       }
-      // 必須有有效課程且剩餘堂數 > 0
+    }
+
+    // ── 3. 補課驗證
+    let makeupCreditId: string | null = null;
+    if (isMakeup) {
+      if (!data.makeupCreditId) {
+        throw new AppError("VALIDATION", "補課預約需指定補課資格");
+      }
+      const credit = await prisma.makeupCredit.findUnique({
+        where: { id: data.makeupCreditId },
+      });
+      if (!credit) throw new AppError("NOT_FOUND", "補課資格不存在");
+      if (credit.customerId !== data.customerId) {
+        throw new AppError("FORBIDDEN", "此補課資格不屬於該顧客");
+      }
+      if (credit.isUsed) {
+        throw new AppError("BUSINESS_RULE", "此補課資格已使用");
+      }
+      if (credit.expiredAt && credit.expiredAt < new Date()) {
+        throw new AppError("BUSINESS_RULE", "此補課資格已過期");
+      }
+      makeupCreditId = credit.id;
+    }
+
+    // ── 4. 一般預約：需有有效課程
+    if (!isMakeup && user.role === "CUSTOMER") {
       const hasValidWallet = customer.planWallets.some((w) => w.remainingSessions > 0);
       if (!hasValidWallet) {
         throw new AppError("BUSINESS_RULE", "尚無有效課程或剩餘堂數不足，請先購買課程方案");
       }
     }
 
-    // ── 3. 日期範圍檢查（未來 14 天內）
+    // ── 5. 日期範圍檢查（未來 14 天內）
     const bookingDateObj = new Date(data.bookingDate + "T00:00:00");
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -78,13 +100,14 @@ export async function createBooking(
       throw new AppError("BUSINESS_RULE", "只能預約未來 14 天內的時段");
     }
 
-    // ── 4. 顧客自助預約：未來有效預約數 ≤ 剩餘堂數
-    if (user.role === "CUSTOMER") {
+    // ── 6. 顧客自助預約（一般）：未來有效預約數 ≤ 剩餘堂數
+    if (!isMakeup && user.role === "CUSTOMER") {
       const futureBookingCount = await prisma.booking.count({
         where: {
           customerId: data.customerId,
           bookingStatus: { in: ["PENDING", "CONFIRMED"] },
           bookingDate: { gte: today },
+          isMakeup: false, // 只計一般預約
         },
       });
 
@@ -101,7 +124,7 @@ export async function createBooking(
       }
     }
 
-    // ── 5. 時段可用性檢查
+    // ── 7. 時段可用性檢查
     const dayOfWeek = bookingDateObj.getDay();
     const slot = await prisma.bookingSlot.findFirst({
       where: {
@@ -133,7 +156,7 @@ export async function createBooking(
       );
     }
 
-    // ── 6. 決定 bookedByType / bookedByStaffId
+    // ── 8. 決定 bookedByType / bookedByStaffId
     let bookedByType: "CUSTOMER" | "STAFF" | "OWNER";
     let bookedByStaffId: string | null = null;
 
@@ -147,22 +170,53 @@ export async function createBooking(
       bookedByStaffId = user.staffId ?? null;
     }
 
-    // ── 7. 建立預約（快照 revenueStaffId，不扣堂）
-    const booking = await prisma.booking.create({
-      data: {
-        customerId: data.customerId,
-        bookingDate: bookingDateObj,
-        slotTime: data.slotTime,
-        revenueStaffId: customer.assignedStaffId ?? null, // 快照（nullable: 顧客可能尚未指派店長）
-        bookedByType,
-        bookedByStaffId,
-        bookingType: data.bookingType,
-        servicePlanId: data.servicePlanId ?? null,
-        customerPlanWalletId: data.customerPlanWalletId ?? null,
-        people: bookingPeople,
-        bookingStatus: "CONFIRMED",
-        notes: data.notes,
-      },
+    // ── 9. 建立預約 + 預扣堂數（transaction 保一致性）
+    const booking = await prisma.$transaction(async (tx) => {
+      // 9a. 一般預約且有綁定錢包 → 立即預扣
+      if (!isMakeup && data.customerPlanWalletId) {
+        const wallet = await tx.customerPlanWallet.findUnique({
+          where: { id: data.customerPlanWalletId },
+        });
+        if (!wallet || wallet.status !== "ACTIVE" || wallet.remainingSessions <= 0) {
+          throw new AppError("BUSINESS_RULE", "課程錢包無效或堂數不足");
+        }
+        const newRemaining = wallet.remainingSessions - 1;
+        await tx.customerPlanWallet.update({
+          where: { id: wallet.id },
+          data: {
+            remainingSessions: newRemaining,
+            status: newRemaining <= 0 ? "USED_UP" : "ACTIVE",
+          },
+        });
+      }
+
+      // 9b. 補課預約 → 標記 credit 為已使用
+      if (isMakeup && makeupCreditId) {
+        await tx.makeupCredit.update({
+          where: { id: makeupCreditId },
+          data: { isUsed: true },
+        });
+      }
+
+      // 9c. 建立預約
+      return tx.booking.create({
+        data: {
+          customerId: data.customerId,
+          bookingDate: bookingDateObj,
+          slotTime: data.slotTime,
+          revenueStaffId: customer.assignedStaffId ?? null,
+          bookedByType,
+          bookedByStaffId,
+          bookingType: data.bookingType,
+          servicePlanId: data.servicePlanId ?? null,
+          customerPlanWalletId: data.customerPlanWalletId ?? null,
+          people: bookingPeople,
+          isMakeup,
+          makeupCreditId,
+          bookingStatus: "CONFIRMED",
+          notes: data.notes,
+        },
+      });
     });
 
     revalidatePath("/dashboard/bookings");
@@ -225,7 +279,7 @@ export async function updateBooking(
           bookingDate: newDate,
           slotTime: newSlot,
           bookingStatus: { in: ["PENDING", "CONFIRMED"] },
-          NOT: { id: bookingId }, // 排除自己
+          NOT: { id: bookingId },
         },
         _sum: { people: true },
       });
@@ -259,9 +313,10 @@ export async function updateBooking(
 
 // ============================================================
 // cancelBooking
-// Owner: 任意預約
-// Manager: 自己名下
-// Customer: 自己的 PENDING / CONFIRMED 預約
+//
+// 取消規則：
+// - 一般預約 (CONFIRMED)：退回預扣堂數 wallet +1
+// - 補課預約 (CONFIRMED, isMakeup)：退回 credit.isUsed = false
 // ============================================================
 
 export async function cancelBooking(
@@ -298,12 +353,39 @@ export async function cancelBooking(
       }
     }
 
-    await prisma.booking.update({
-      where: { id: bookingId },
-      data: {
-        bookingStatus: "CANCELLED",
-        notes: note ? `[取消] ${note}` : booking.notes,
-      },
+    await prisma.$transaction(async (tx) => {
+      // 1. 標記取消
+      await tx.booking.update({
+        where: { id: bookingId },
+        data: {
+          bookingStatus: "CANCELLED",
+          notes: note ? `[取消] ${note}` : booking.notes,
+        },
+      });
+
+      // 2. 一般預約且有綁定錢包 → 退回堂數
+      if (!booking.isMakeup && booking.customerPlanWalletId) {
+        const wallet = await tx.customerPlanWallet.findUnique({
+          where: { id: booking.customerPlanWalletId },
+        });
+        if (wallet) {
+          await tx.customerPlanWallet.update({
+            where: { id: wallet.id },
+            data: {
+              remainingSessions: wallet.remainingSessions + 1,
+              status: "ACTIVE", // 退堂後重啟
+            },
+          });
+        }
+      }
+
+      // 3. 補課預約 → 退回補課資格
+      if (booking.isMakeup && booking.makeupCreditId) {
+        await tx.makeupCredit.update({
+          where: { id: booking.makeupCreditId },
+          data: { isUsed: false },
+        });
+      }
     });
 
     revalidatePath("/dashboard/bookings");
@@ -315,14 +397,50 @@ export async function cancelBooking(
 }
 
 // ============================================================
+// checkInBooking — 報到
+// ============================================================
+
+export async function checkInBooking(
+  bookingId: string
+): Promise<ActionResult<void>> {
+  try {
+    const user = await requirePermission("booking.update");
+
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: { customer: true },
+    });
+    if (!booking) throw new AppError("NOT_FOUND", "預約不存在");
+    if (booking.bookingStatus !== "CONFIRMED") {
+      throw new AppError("VALIDATION", "只能對已確認的預約進行報到");
+    }
+
+    if (user.role === "MANAGER") {
+      if (!user.staffId || booking.customer.assignedStaffId !== user.staffId) {
+        throw new AppError("FORBIDDEN", "無法操作其他店長名下的預約");
+      }
+    }
+
+    await prisma.booking.update({
+      where: { id: bookingId },
+      data: { isCheckedIn: true },
+    });
+
+    revalidatePath("/dashboard/bookings");
+    return { success: true, data: undefined };
+  } catch (e) {
+    return handleActionError(e);
+  }
+}
+
+// ============================================================
 // markCompleted
 //
-// 到店完成後：
-// 1. 更新 bookingStatus = COMPLETED
-// 2. 若 PACKAGE_SESSION + wallet → 扣堂
-// 3. 若 remainingSessions = 0 → wallet.status = USED_UP
-// 4. 建立 SESSION_DEDUCTION Transaction
-// 5. 若無其他 ACTIVE wallet → 顧客 stage = INACTIVE
+// 新邏輯（預扣制）：
+// 1. 更新 bookingStatus = COMPLETED, isCheckedIn = true
+// 2. 建立 SESSION_DEDUCTION 交易紀錄（記錄完成事實）
+// 3. 不再扣堂（已在 createBooking 預扣）
+// 4. 若錢包已用完 + 無其他 ACTIVE wallet → 顧客 stage = INACTIVE
 // ============================================================
 
 export async function markCompleted(
@@ -349,7 +467,6 @@ export async function markCompleted(
       throw new AppError("BUSINESS_RULE", "已取消的預約無法標記完成");
     }
 
-    // Manager 只能標記自己名下顧客的預約
     if (user.role === "MANAGER") {
       if (!user.staffId || booking.customer.assignedStaffId !== user.staffId) {
         throw new AppError("FORBIDDEN", "無法操作其他店長名下的預約");
@@ -364,44 +481,33 @@ export async function markCompleted(
         where: { id: bookingId },
         data: {
           bookingStatus: "COMPLETED",
+          isCheckedIn: true,
           serviceStaffId,
         },
       });
 
-      // 2. 扣堂（只有 PACKAGE_SESSION 且有綁定錢包）
-      if (
-        booking.bookingType === "PACKAGE_SESSION" &&
-        booking.customerPlanWallet
-      ) {
+      // 2. 建立交易紀錄（不再扣堂，僅記錄）
+      if (booking.customerPlanWallet) {
         const wallet = booking.customerPlanWallet;
-        const newRemaining = wallet.remainingSessions - 1;
-
-        await tx.customerPlanWallet.update({
-          where: { id: wallet.id },
-          data: {
-            remainingSessions: newRemaining,
-            status: newRemaining <= 0 ? "USED_UP" : "ACTIVE",
-          },
-        });
-
-        // 3. 建立扣堂交易紀錄（amount = 0，記錄扣堂動作）
         await tx.transaction.create({
           data: {
             customerId: booking.customerId,
             bookingId: booking.id,
-            revenueStaffId: booking.revenueStaffId ?? serviceStaffId ?? user.staffId!, // 維持歷史快照，fallback 到服務者
+            revenueStaffId: booking.revenueStaffId ?? serviceStaffId ?? user.staffId!,
             serviceStaffId,
             customerPlanWalletId: wallet.id,
             transactionType: "SESSION_DEDUCTION",
             paymentMethod: "CASH",
             amount: 0,
             quantity: 1,
-            note: `預約完成扣堂（${booking.bookingDate.toLocaleDateString("zh-TW")} ${booking.slotTime}）`,
+            note: booking.isMakeup
+              ? `補課完成（${booking.bookingDate.toLocaleDateString("zh-TW")} ${booking.slotTime}）`
+              : `預約完成（${booking.bookingDate.toLocaleDateString("zh-TW")} ${booking.slotTime}）`,
           },
         });
 
-        // 4. 若此錢包已用完，確認顧客是否還有其他 ACTIVE wallet
-        if (newRemaining <= 0) {
+        // 3. 若錢包堂數為 0，確認是否還有其他 ACTIVE wallet
+        if (wallet.remainingSessions <= 0) {
           const otherActiveWallets = await tx.customerPlanWallet.count({
             where: {
               customerId: booking.customerId,
@@ -431,7 +537,12 @@ export async function markCompleted(
 }
 
 // ============================================================
-// markNoShow — Owner / Manager（自己名下）
+// markNoShow
+//
+// 未到規則：
+// 1. 狀態 → NO_SHOW
+// 2. 不退堂（已預扣的堂數不回補）
+// 3. 自動產生 MakeupCredit（30 天有效）
 // ============================================================
 
 export async function markNoShow(bookingId: string): Promise<ActionResult<void>> {
@@ -453,10 +564,28 @@ export async function markNoShow(bookingId: string): Promise<ActionResult<void>>
       }
     }
 
-    // 未到不扣堂
-    await prisma.booking.update({
-      where: { id: bookingId },
-      data: { bookingStatus: "NO_SHOW" },
+    await prisma.$transaction(async (tx) => {
+      // 1. 標記未到
+      await tx.booking.update({
+        where: { id: bookingId },
+        data: { bookingStatus: "NO_SHOW" },
+      });
+
+      // 2. 自動產生補課資格（30 天有效）
+      //    - 只有非補課預約才產生（補課的未到不再給新的補課）
+      if (!booking.isMakeup) {
+        const expiredAt = new Date();
+        expiredAt.setDate(expiredAt.getDate() + 30);
+
+        await tx.makeupCredit.create({
+          data: {
+            customerId: booking.customerId,
+            originalBookingId: booking.id,
+            isUsed: false,
+            expiredAt,
+          },
+        });
+      }
     });
 
     revalidatePath("/dashboard/bookings");
