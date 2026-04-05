@@ -99,22 +99,29 @@ export default async function MyBookingsPage({ searchParams }: PageProps) {
 
       {/* Booking list */}
       {displayed.length === 0 ? (
-        <div className="py-12 text-center text-earth-400">
+        <div className="rounded-2xl bg-white p-8 text-center shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
           {tab === "upcoming" ? (
             <>
-              <div className="mb-2 text-3xl">📅</div>
-              <p className="text-sm">尚無即將到來的預約</p>
+              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-primary-50">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-primary-400"><path d="M6.75 3v2.25M17.25 3v2.25" /><path d="M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" /></svg>
+              </div>
+              <p className="text-sm font-medium text-earth-700">還沒有預約</p>
+              <p className="mt-1 text-xs text-earth-400">選擇一個時段，開始你的療程吧</p>
               <Link
                 href="/book/new"
-                className="mt-3 inline-block rounded-lg bg-primary-600 px-4 py-2 text-sm text-white hover:bg-primary-700"
+                className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-primary-600 px-5 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-primary-700"
               >
-                立即預約
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 4.5v15m7.5-7.5h-15" /></svg>
+                預約第一堂
               </Link>
             </>
           ) : (
             <>
-              <div className="mb-2 text-3xl">📋</div>
-              <p className="text-sm">尚無歷史預約紀錄</p>
+              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-earth-100">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-earth-400"><path d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              </div>
+              <p className="text-sm font-medium text-earth-700">尚無歷史紀錄</p>
+              <p className="mt-1 text-xs text-earth-400">完成的預約會顯示在這裡</p>
             </>
           )}
         </div>

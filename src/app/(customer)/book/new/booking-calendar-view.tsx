@@ -408,19 +408,38 @@ function SlotBookingForm({
 
   if (state.success) {
     return (
-      <div className="rounded-xl border border-green-200 bg-green-50 p-6 text-center">
-        <div className="mb-2 text-3xl">&#10003;</div>
-        <h2 className="text-base font-semibold text-green-800">
+      <div className="rounded-2xl bg-white p-8 text-center shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+        <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-green-50">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-600"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+        </div>
+        <h2 className="text-lg font-semibold text-earth-900">
           {state.wasMakeup ? "補課預約成功" : "預約成功"}
         </h2>
-        <p className="mt-1 text-sm text-green-600">
+        <p className="mt-1.5 text-sm text-earth-500">
           {selectedDate} {state.bookedTime}
-          {state.bookedPeople > 1 && ` （${state.bookedPeople} 人）`}
-          {state.wasMakeup && " （補課，不扣堂）"}
+          {state.bookedPeople > 1 && ` / ${state.bookedPeople} 人`}
+          {state.wasMakeup && " / 補課不扣堂"}
         </p>
-        <div className="mt-4 flex justify-center gap-3">
-          <a href="/book/new" className="rounded-lg bg-white px-4 py-2 text-sm text-green-700 border border-green-300 hover:bg-green-50">再次預約</a>
-          <a href="/my-bookings" className="rounded-lg bg-green-600 px-4 py-2 text-sm text-white hover:bg-green-700">查看我的預約</a>
+        <p className="mt-1 text-xs text-earth-400">記得準時到喔</p>
+        <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-center">
+          <a
+            href="/my-bookings"
+            className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-primary-700"
+          >
+            查看我的預約
+          </a>
+          <a
+            href="/book/new"
+            className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-earth-200 px-5 py-2.5 text-sm font-medium text-earth-600 transition hover:bg-earth-50"
+          >
+            繼續預約
+          </a>
+          <a
+            href="/book"
+            className="inline-flex items-center justify-center rounded-lg px-5 py-2.5 text-sm text-earth-400 transition hover:text-earth-600"
+          >
+            返回首頁
+          </a>
         </div>
       </div>
     );
