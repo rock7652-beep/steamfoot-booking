@@ -240,6 +240,7 @@ model Customer {
   gender             String?       // 性別（選填）
   birthday           DateTime?     @db.Date // 出生年月日（選填）
   height             Float?        // 身高 cm（選填）
+  address            String?       // 地址（選填）
   lineName           String?       // LINE 顯示名稱
   notes              String?       // 內部備註
   assignedStaffId    String?       // 直屬店長（nullable: 建立時可不指派）

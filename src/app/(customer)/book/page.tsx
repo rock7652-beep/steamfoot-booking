@@ -17,7 +17,7 @@ export default async function CustomerHomePage() {
           href="/book/new"
           className="flex items-center gap-4 rounded-xl border border-earth-200 bg-white p-5 shadow-sm transition hover:border-primary-300 hover:shadow-md"
         >
-          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary-100 text-xl">
+          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary-100 text-xl text-primary-700 font-bold">
             +
           </div>
           <div>
@@ -30,7 +30,7 @@ export default async function CustomerHomePage() {
           href="/my-bookings"
           className="flex items-center gap-4 rounded-xl border border-earth-200 bg-white p-5 shadow-sm transition hover:border-primary-300 hover:shadow-md"
         >
-          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary-100 text-xl">
+          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary-100 text-xl text-primary-700 font-bold">
             =
           </div>
           <div>
@@ -43,7 +43,7 @@ export default async function CustomerHomePage() {
           href="/my-plans"
           className="flex items-center gap-4 rounded-xl border border-earth-200 bg-white p-5 shadow-sm transition hover:border-primary-300 hover:shadow-md"
         >
-          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary-100 text-xl">
+          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary-100 text-xl text-primary-700 font-bold">
             #
           </div>
           <div>
@@ -51,6 +51,34 @@ export default async function CustomerHomePage() {
             <p className="text-sm text-earth-500">課程餘額與方案狀態</p>
           </div>
         </Link>
+
+        <Link
+          href="/profile"
+          className="flex items-center gap-4 rounded-xl border border-earth-200 bg-white p-5 shadow-sm transition hover:border-primary-300 hover:shadow-md"
+        >
+          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary-100 text-xl text-primary-700 font-bold">
+            @
+          </div>
+          <div>
+            <p className="font-semibold text-earth-900">我的資料</p>
+            <p className="text-sm text-earth-500">編輯基本資料與修改密碼</p>
+          </div>
+        </Link>
+
+        <a
+          href="https://health-tracker-eight-rosy.vercel.app/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-4 rounded-xl border border-earth-200 bg-white p-5 shadow-sm transition hover:border-primary-300 hover:shadow-md"
+        >
+          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary-100 text-xl text-primary-700 font-bold">
+            ~
+          </div>
+          <div>
+            <p className="font-semibold text-earth-900">身體指數</p>
+            <p className="text-sm text-earth-500">記錄與追蹤身體數據</p>
+          </div>
+        </a>
       </div>
     </div>
   );

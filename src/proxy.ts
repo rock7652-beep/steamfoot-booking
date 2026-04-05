@@ -30,7 +30,7 @@ export const proxy = auth((req: NextRequest & { auth: { user?: { role?: string }
   }
 
   // ── Protected customer routes — 需要登入 ──
-  const customerRoutes = ["/book", "/my-bookings", "/my-plans"];
+  const customerRoutes = ["/book", "/my-bookings", "/my-plans", "/profile"];
   const isCustomerRoute = customerRoutes.some(
     (p) => pathname === p || pathname.startsWith(p + "/")
   );
