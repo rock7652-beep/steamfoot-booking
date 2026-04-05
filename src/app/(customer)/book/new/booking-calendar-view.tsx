@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useCallback, useActionState } from "react";
+import { useState, useCallback, useEffect, useActionState } from "react";
 import { fetchDaySlots } from "@/server/actions/slots";
+import { fetchMonthAvailability } from "@/server/actions/slots";
 import { createBooking } from "@/server/actions/booking";
 import type { SlotAvailability } from "@/types";
+import type { MonthSlotInfo } from "@/server/actions/slots";
 
 interface ActiveWallet {
   id: string;
@@ -24,15 +26,37 @@ interface Props {
   makeupCredits?: MakeupCreditInfo[];
 }
 
+type MonthDayInfo = { totalCapacity: number; totalBooked: number; slots: MonthSlotInfo[] };
+
 export function BookingCalendarView({ customerId, activeWallets, makeupCredits = [] }: Props) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
+  const [people, setPeople] = useState(1);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [slots, setSlots] = useState<SlotAvailability[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [calYear, setCalYear] = useState(today.getFullYear());
-  const [calMonth, setCalMonth] = useState(today.getMonth());
+  const [calMonth, setCalMonth] = useState(today.getMonth()); // 0-based
+  const [monthData, setMonthData] = useState<Record<string, MonthDayInfo>>({});
+  const [loadingMonth, setLoadingMonth] = useState(false);
+
+  // 載入整月可預約概覽
+  const loadMonth = useCallback(async (year: number, month: number) => {
+    setLoadingMonth(true);
+    try {
+      const result = await fetchMonthAvailability(year, month + 1);
+      setMonthData(result.days);
+    } catch {
+      setMonthData({});
+    } finally {
+      setLoadingMonth(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadMonth(calYear, calMonth);
+  }, [calYear, calMonth, loadMonth]);
 
   const loadSlots = useCallback(async (date: string) => {
     setLoadingSlots(true);
@@ -47,6 +71,11 @@ export function BookingCalendarView({ customerId, activeWallets, makeupCredits =
   }, []);
 
   const handleSelectDate = (dateStr: string) => {
+    if (selectedDate === dateStr) {
+      setSelectedDate(null);
+      setSlots([]);
+      return;
+    }
     setSelectedDate(dateStr);
     loadSlots(dateStr);
   };
@@ -68,27 +97,113 @@ export function BookingCalendarView({ customerId, activeWallets, makeupCredits =
   const prevMonth = () => {
     if (calMonth === 0) { setCalYear(calYear - 1); setCalMonth(11); }
     else setCalMonth(calMonth - 1);
+    setSelectedDate(null);
+    setSlots([]);
   };
   const nextMonth = () => {
     if (calMonth === 11) { setCalYear(calYear + 1); setCalMonth(0); }
     else setCalMonth(calMonth + 1);
+    setSelectedDate(null);
+    setSlots([]);
+  };
+
+  // 依人數計算某天的 slot badges（最多顯示 MAX_BADGES 筆）
+  const MAX_BADGES = 3;
+
+  const getDayBadges = (dateStr: string) => {
+    const info = monthData[dateStr];
+    if (!info) return { badges: [], extra: 0, isClosed: true };
+    if (info.totalCapacity === 0) return { badges: [], extra: 0, isClosed: true };
+
+    const enabledSlots = info.slots.filter((s) => s.capacity > 0);
+    if (enabledSlots.length === 0) return { badges: [], extra: 0, isClosed: true };
+
+    const badges: { time: string; label: string; isFull: boolean }[] = [];
+    for (const s of enabledSlots) {
+      const avail = s.capacity - s.booked;
+      if (avail <= 0) {
+        badges.push({ time: s.startTime, label: "滿", isFull: true });
+      } else if (avail < people) {
+        // 可用名額不足以容納所選人數
+        badges.push({ time: s.startTime, label: "滿", isFull: true });
+      } else {
+        badges.push({ time: s.startTime, label: `${avail}位`, isFull: false });
+      }
+    }
+
+    const shown = badges.slice(0, MAX_BADGES);
+    const extra = badges.length - shown.length;
+    return { badges: shown, extra, isClosed: false };
+  };
+
+  // 整體狀態指示（考慮人數）
+  const getDayIndicator = (dateStr: string) => {
+    const info = monthData[dateStr];
+    if (!info || info.totalCapacity === 0) return null;
+    // 計算以當前人數能預約的時段數
+    const bookableSlots = info.slots.filter((s) => (s.capacity - s.booked) >= people);
+    if (bookableSlots.length === 0) return "full";
+    const totalAvail = info.slots.reduce((sum, s) => sum + Math.max(0, s.capacity - s.booked), 0);
+    const ratio = totalAvail / info.totalCapacity;
+    if (ratio <= 0.3) return "scarce";
+    return "available";
+  };
+
+  const indicatorColors = {
+    available: "bg-green-400",
+    scarce: "bg-yellow-400",
+    full: "bg-red-300",
   };
 
   return (
     <div>
+      {/* 人數選擇 — 放在月曆上方，影響整個月曆顯示 */}
+      <div className="mb-3 flex items-center gap-3 rounded-xl border border-earth-200 bg-white px-4 py-3 shadow-sm">
+        <span className="text-sm font-medium text-earth-700">預約人數</span>
+        <button
+          type="button"
+          onClick={() => setPeople((p) => Math.max(1, p - 1))}
+          disabled={people <= 1}
+          className="flex h-7 w-7 items-center justify-center rounded-lg border border-earth-300 text-sm text-earth-600 hover:bg-earth-100 disabled:opacity-40"
+        >
+          &minus;
+        </button>
+        <span className="min-w-[1.5rem] text-center text-base font-bold text-earth-800">{people}</span>
+        <button
+          type="button"
+          onClick={() => setPeople((p) => Math.min(4, p + 1))}
+          disabled={people >= 4}
+          className="flex h-7 w-7 items-center justify-center rounded-lg border border-earth-300 text-sm text-earth-600 hover:bg-earth-100 disabled:opacity-40"
+        >
+          +
+        </button>
+        <span className="text-xs text-earth-400">（最多 4 人）</span>
+      </div>
+
       {/* 月曆 */}
-      <div className="mb-4 rounded-xl border border-earth-200 bg-white p-4 shadow-sm">
-        <div className="mb-3 flex items-center justify-between">
-          <button onClick={prevMonth} className="rounded px-2 py-1 text-sm text-earth-500 hover:bg-earth-100">&lt;</button>
-          <span className="text-sm font-semibold text-earth-800">{monthLabel}</span>
-          <button onClick={nextMonth} className="rounded px-2 py-1 text-sm text-earth-500 hover:bg-earth-100">&gt;</button>
+      <div className="mb-4 rounded-xl border border-earth-200 bg-white shadow-sm overflow-hidden">
+        {/* 月份切換 */}
+        <div className="flex items-center justify-between border-b border-earth-100 px-4 py-3">
+          <button onClick={prevMonth} className="flex h-8 w-8 items-center justify-center rounded-lg text-earth-500 hover:bg-earth-100 transition">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="15 18 9 12 15 6" /></svg>
+          </button>
+          <span className="text-sm font-bold text-earth-800">{monthLabel}</span>
+          <button onClick={nextMonth} className="flex h-8 w-8 items-center justify-center rounded-lg text-earth-500 hover:bg-earth-100 transition">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="9 18 15 12 9 6" /></svg>
+          </button>
         </div>
-        <div className="grid grid-cols-7 text-center text-xs text-earth-400">
-          {weekLabels.map((w) => <div key={w} className="py-1">{w}</div>)}
+
+        {/* 星期標頭 */}
+        <div className="grid grid-cols-7 border-b border-earth-100 bg-earth-50">
+          {weekLabels.map((w) => (
+            <div key={w} className="py-2 text-center text-xs font-medium text-earth-400">{w}</div>
+          ))}
         </div>
-        <div className="grid grid-cols-7 text-center">
+
+        {/* 日期格 */}
+        <div className="grid grid-cols-7">
           {days.map((day, i) => {
-            if (day === null) return <div key={`e-${i}`} />;
+            if (day === null) return <div key={`e-${i}`} className="min-h-[72px] border-b border-r border-earth-100" />;
             const dateObj = new Date(calYear, calMonth, day);
             dateObj.setHours(0, 0, 0, 0);
             const isPast = dateObj < today;
@@ -97,36 +212,130 @@ export function BookingCalendarView({ customerId, activeWallets, makeupCredits =
             const dateStr = `${calYear}-${String(calMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
             const isSelected = dateStr === selectedDate;
             const isToday = dateObj.getTime() === today.getTime();
+            const indicator = !disabled ? getDayIndicator(dateStr) : null;
+            const { badges, extra, isClosed } = !disabled ? getDayBadges(dateStr) : { badges: [], extra: 0, isClosed: false };
 
             return (
               <button
                 key={day}
                 disabled={disabled}
                 onClick={() => handleSelectDate(dateStr)}
-                className={`mx-auto my-0.5 flex h-9 w-9 items-center justify-center rounded-full text-sm transition ${
+                className={`relative flex min-h-[72px] flex-col items-start border-b border-r border-earth-100 p-1 transition ${
                   isSelected
-                    ? "bg-primary-600 font-bold text-white"
+                    ? "bg-primary-600 text-white"
                     : disabled
-                      ? "text-earth-300"
-                      : isToday
-                        ? "font-semibold text-primary-600 hover:bg-primary-50"
-                        : "text-earth-700 hover:bg-earth-100"
+                      ? "bg-earth-50 text-earth-300"
+                      : "bg-white text-earth-700 hover:bg-primary-50"
                 }`}
               >
-                {day}
+                {/* 日期數字 + 狀態點 */}
+                <div className="flex w-full items-center gap-0.5">
+                  <span className={`text-xs leading-none ${
+                    isSelected ? "font-bold text-white" : isToday ? "font-bold text-primary-600" : ""
+                  }`}>
+                    {day}
+                  </span>
+                  {indicator && !isSelected && (
+                    <span className={`h-1.5 w-1.5 rounded-full ${indicatorColors[indicator]}`} />
+                  )}
+                  {indicator && isSelected && (
+                    <span className="h-1.5 w-1.5 rounded-full bg-white/70" />
+                  )}
+                  {isToday && !isSelected && (
+                    <span className="text-[7px] leading-none text-primary-400 ml-auto">今天</span>
+                  )}
+                </div>
+
+                {/* 公休 badge */}
+                {!disabled && isClosed && (
+                  <span className={`mt-0.5 rounded px-1 text-[8px] leading-tight ${
+                    isSelected ? "bg-white/20 text-white/80" : "bg-earth-100 text-earth-400"
+                  }`}>
+                    公休
+                  </span>
+                )}
+
+                {/* 時段 badges */}
+                {!disabled && !isClosed && badges.length > 0 && (
+                  <div className="mt-0.5 flex w-full flex-col gap-px overflow-hidden">
+                    {badges.map((b) => (
+                      <span
+                        key={b.time}
+                        className={`truncate rounded px-0.5 text-[7px] leading-tight ${
+                          isSelected
+                            ? b.isFull ? "bg-white/20 text-white/60" : "bg-white/25 text-white"
+                            : b.isFull
+                              ? "bg-red-50 text-red-400"
+                              : "bg-green-50 text-green-600"
+                        }`}
+                      >
+                        {b.time} {b.label}
+                      </span>
+                    ))}
+                    {extra > 0 && (
+                      <span className={`text-[7px] leading-tight ${
+                        isSelected ? "text-white/60" : "text-earth-300"
+                      }`}>
+                        +{extra}
+                      </span>
+                    )}
+                  </div>
+                )}
               </button>
             );
           })}
         </div>
+
+        {/* 圖例 */}
+        {!loadingMonth && (
+          <div className="flex items-center justify-center gap-4 border-t border-earth-100 px-4 py-2">
+            <div className="flex items-center gap-1">
+              <span className="h-2 w-2 rounded-full bg-green-400" />
+              <span className="text-[10px] text-earth-400">充裕</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="h-2 w-2 rounded-full bg-yellow-400" />
+              <span className="text-[10px] text-earth-400">快滿</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="h-2 w-2 rounded-full bg-red-300" />
+              <span className="text-[10px] text-earth-400">額滿</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="rounded bg-earth-100 px-1 text-[8px] text-earth-400">公休</span>
+              <span className="text-[10px] text-earth-400">無時段</span>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* 時段 */}
+      {/* 時段展開區 */}
       {selectedDate && (
-        <div>
+        <div className="animate-in slide-in-from-top-2 fade-in duration-200">
+          <div className="mb-2 flex items-center gap-2">
+            <h3 className="text-sm font-bold text-earth-800">
+              {new Date(selectedDate + "T12:00:00").toLocaleDateString("zh-TW", {
+                month: "long",
+                day: "numeric",
+                weekday: "short",
+              })}
+            </h3>
+            <button
+              onClick={() => { setSelectedDate(null); setSlots([]); }}
+              className="ml-auto text-xs text-earth-400 hover:text-earth-600"
+            >
+              收合
+            </button>
+          </div>
+
           {loadingSlots ? (
-            <div className="py-8 text-center text-sm text-earth-400">載入時段中...</div>
+            <div className="rounded-xl border border-earth-200 bg-white py-8 text-center text-sm text-earth-400">
+              載入時段中...
+            </div>
           ) : slots.length === 0 ? (
-            <div className="py-8 text-center text-sm text-earth-400">該日無可用時段</div>
+            <div className="rounded-xl border border-earth-200 bg-white py-8 text-center text-sm text-earth-400">
+              該日無可用時段
+            </div>
           ) : (
             <SlotBookingForm
               customerId={customerId}
@@ -134,14 +343,15 @@ export function BookingCalendarView({ customerId, activeWallets, makeupCredits =
               slots={slots}
               activeWallets={activeWallets}
               makeupCredits={makeupCredits}
+              initialPeople={people}
             />
           )}
         </div>
       )}
 
       {!selectedDate && (
-        <div className="py-8 text-center text-sm text-earth-400">
-          請先選擇日��
+        <div className="py-6 text-center text-sm text-earth-400">
+          請點選日期查看時段
         </div>
       )}
     </div>
@@ -155,14 +365,16 @@ function SlotBookingForm({
   slots,
   activeWallets,
   makeupCredits,
+  initialPeople,
 }: {
   customerId: string;
   selectedDate: string;
   slots: SlotAvailability[];
   activeWallets: ActiveWallet[];
   makeupCredits: MakeupCreditInfo[];
+  initialPeople: number;
 }) {
-  const [people, setPeople] = useState(1);
+  const [people] = useState(initialPeople);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [useMakeup, setUseMakeup] = useState(false);
   const [selectedCreditId, setSelectedCreditId] = useState(makeupCredits[0]?.id ?? "");
@@ -192,11 +404,12 @@ function SlotBookingForm({
     { error: null, success: false, bookedTime: "", bookedPeople: 0, wasMakeup: false }
   );
 
-  const availableSlots = slots.filter((s) => s.isEnabled && s.available > 0);
+  const availableSlots = slots.filter((s) => s.isEnabled && s.available >= people);
 
   if (state.success) {
     return (
       <div className="rounded-xl border border-green-200 bg-green-50 p-6 text-center">
+        <div className="mb-2 text-3xl">&#10003;</div>
         <h2 className="text-base font-semibold text-green-800">
           {state.wasMakeup ? "補課預約成功" : "預約成功"}
         </h2>
@@ -214,9 +427,7 @@ function SlotBookingForm({
   }
 
   return (
-    <form action={action} className="space-y-4">
-      <p className="text-xs text-earth-500">選擇時段</p>
-
+    <form action={action} className="space-y-3 rounded-xl border border-earth-200 bg-white p-4 shadow-sm">
       {state.error && (
         <div className="rounded-lg bg-red-50 px-4 py-2 text-sm text-red-600">{state.error}</div>
       )}
@@ -253,54 +464,39 @@ function SlotBookingForm({
       )}
       <input type="hidden" name="isMakeup" value={useMakeup ? "true" : "false"} />
       <input type="hidden" name="makeupCreditId" value={useMakeup ? selectedCreditId : ""} />
+      <input type="hidden" name="people" value={people} />
 
-      {/* 人數選擇 */}
-      <div>
-        <label className="mb-1 block text-xs text-earth-500">預約人數</label>
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => setPeople((p) => Math.max(1, p - 1))}
-            disabled={people <= 1}
-            className="flex h-9 w-9 items-center justify-center rounded-lg border border-earth-300 text-lg text-earth-600 hover:bg-earth-100 disabled:opacity-40"
-          >
-            &minus;
-          </button>
-          <span className="min-w-[2rem] text-center text-lg font-bold text-earth-800">{people}</span>
-          <button
-            type="button"
-            onClick={() => setPeople((p) => Math.min(4, p + 1))}
-            disabled={people >= 4}
-            className="flex h-9 w-9 items-center justify-center rounded-lg border border-earth-300 text-lg text-earth-600 hover:bg-earth-100 disabled:opacity-40"
-          >
-            +
-          </button>
-          <span className="text-xs text-earth-400">（最多 4 人）</span>
-        </div>
-        <input type="hidden" name="people" value={people} />
+      {/* 人數顯示（從月曆帶入） */}
+      <div className="flex items-center gap-2 text-sm text-earth-600">
+        <span>預約人數：<strong className="text-earth-800">{people} 人</strong></span>
+        <span className="text-[10px] text-earth-400">（可於上方月曆區調整）</span>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        {slots.filter((s) => s.isEnabled).map((slot) => {
-          const isFull = slot.available === 0;
-          const notEnough = slot.available > 0 && slot.available < people;
-          return (
-            <label
-              key={slot.startTime}
-              className={`relative flex cursor-pointer flex-col items-center rounded-xl border p-3 text-center transition-colors ${
-                isFull || notEnough
-                  ? "cursor-not-allowed border-earth-200 bg-earth-50 opacity-50"
-                  : "border-earth-200 bg-white hover:border-primary-400 hover:bg-primary-50 has-[:checked]:border-primary-500 has-[:checked]:bg-primary-600 has-[:checked]:text-white"
-              }`}
-            >
-              <input type="radio" name="slotTime" value={slot.startTime} disabled={isFull || notEnough} className="sr-only" required onChange={() => setSelectedSlot(slot.startTime)} />
-              <span className="text-base font-bold">{slot.startTime}</span>
-              <span className={`mt-0.5 text-xs ${isFull ? "text-red-500" : notEnough ? "text-yellow-500" : "text-earth-400"}`}>
-                {isFull ? "已額滿" : notEnough ? "名���不足" : `剩 ${slot.available} 位`}
-              </span>
-            </label>
-          );
-        })}
+      {/* 時段卡片 */}
+      <div>
+        <p className="mb-2 text-xs text-earth-500">選擇時段</p>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {slots.filter((s) => s.isEnabled).map((slot) => {
+            const isFull = slot.available === 0;
+            const notEnough = slot.available > 0 && slot.available < people;
+            return (
+              <label
+                key={slot.startTime}
+                className={`relative flex cursor-pointer flex-col items-center rounded-xl border p-3 text-center transition-colors ${
+                  isFull || notEnough
+                    ? "cursor-not-allowed border-earth-200 bg-earth-50 opacity-50"
+                    : "border-earth-200 bg-white hover:border-primary-400 hover:bg-primary-50 has-[:checked]:border-primary-500 has-[:checked]:bg-primary-600 has-[:checked]:text-white"
+                }`}
+              >
+                <input type="radio" name="slotTime" value={slot.startTime} disabled={isFull || notEnough} className="sr-only" required onChange={() => setSelectedSlot(slot.startTime)} />
+                <span className="text-base font-bold">{slot.startTime}</span>
+                <span className={`mt-0.5 text-xs ${isFull ? "text-red-500" : notEnough ? "text-red-400" : "text-earth-400"}`}>
+                  {isFull ? "滿" : notEnough ? "滿" : `${slot.available}位`}
+                </span>
+              </label>
+            );
+          })}
+        </div>
       </div>
 
       {availableSlots.length === 0 && (
@@ -312,7 +508,7 @@ function SlotBookingForm({
           <label className="mb-1 block text-xs text-earth-500">使用課程</label>
           <select name="customerPlanWalletId" className="w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500">
             {activeWallets.map((w) => (
-              <option key={w.id} value={w.id}>{w.planName}（��� {w.remainingSessions} 堂）</option>
+              <option key={w.id} value={w.id}>{w.planName}（剩 {w.remainingSessions} 堂）</option>
             ))}
           </select>
         </div>

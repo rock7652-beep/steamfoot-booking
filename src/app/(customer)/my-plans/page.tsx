@@ -25,7 +25,14 @@ export default async function MyPlansPage() {
     where: { id: user.customerId },
     include: {
       planWallets: {
-        include: { plan: { select: { name: true, category: true, sessionCount: true } } },
+        include: {
+          plan: { select: { name: true, category: true, sessionCount: true } },
+          bookings: {
+            where: { bookingStatus: { in: ["COMPLETED", "NO_SHOW", "CONFIRMED", "PENDING"] } },
+            select: { bookingDate: true, slotTime: true, bookingStatus: true, isMakeup: true },
+            orderBy: { bookingDate: "asc" },
+          },
+        },
         orderBy: { createdAt: "desc" },
       },
     },
@@ -122,12 +129,27 @@ function WalletCard({
     startDate: Date;
     expiryDate: Date | null;
     status: WalletStatus;
+    bookings: { bookingDate: Date; slotTime: string; bookingStatus: string; isMakeup: boolean }[];
   };
   isActive: boolean;
 }) {
-  const progressPct = Math.round(
-    ((wallet.totalSessions - wallet.remainingSessions) / wallet.totalSessions) * 100
+  // ── 分類計算 ──
+  // 已使用 = COMPLETED + NO_SHOW（非補課），這些真正消耗了堂數
+  const usedBookings = wallet.bookings.filter(
+    (b) => !b.isMakeup && (b.bookingStatus === "COMPLETED" || b.bookingStatus === "NO_SHOW")
   );
+  const usedCount = usedBookings.length;
+
+  // 已預扣待使用 = CONFIRMED + PENDING（非補課），已扣堂但還沒到店
+  const preDeductedCount = wallet.bookings.filter(
+    (b) => !b.isMakeup && (b.bookingStatus === "CONFIRMED" || b.bookingStatus === "PENDING")
+  ).length;
+
+  // 剩餘可預約 = remainingSessions - preDeductedCount（理論上 remainingSessions 已經扣除 preDeducted）
+  // 但 remainingSessions = totalSessions - usedCount - preDeductedCount，所以直接用它
+  const remainingBookable = wallet.remainingSessions;
+
+  const progressPct = Math.round((usedCount / wallet.totalSessions) * 100);
 
   return (
     <div className="rounded-xl border bg-white p-4 shadow-sm">
@@ -144,12 +166,32 @@ function WalletCard({
           </p>
         </div>
         <div className="text-right">
-          <span className="text-2xl font-bold text-primary-700">{wallet.remainingSessions}</span>
+          <span className="text-2xl font-bold text-primary-700">{remainingBookable}</span>
           <span className="text-sm text-earth-400"> / {wallet.totalSessions} 堂</span>
         </div>
       </div>
 
-      {/* Progress bar */}
+      {/* 堂數摘要 */}
+      <div className="mt-2 grid grid-cols-4 gap-1 text-center">
+        <div className="rounded-md bg-earth-50 px-1 py-1.5">
+          <p className="text-lg font-bold text-earth-700">{wallet.totalSessions}</p>
+          <p className="text-[10px] text-earth-400">總堂數</p>
+        </div>
+        <div className="rounded-md bg-green-50 px-1 py-1.5">
+          <p className="text-lg font-bold text-green-700">{usedCount}</p>
+          <p className="text-[10px] text-green-500">已使用</p>
+        </div>
+        <div className="rounded-md bg-blue-50 px-1 py-1.5">
+          <p className="text-lg font-bold text-blue-600">{preDeductedCount}</p>
+          <p className="text-[10px] text-blue-400">已預扣待使用</p>
+        </div>
+        <div className="rounded-md bg-primary-50 px-1 py-1.5">
+          <p className="text-lg font-bold text-primary-700">{remainingBookable}</p>
+          <p className="text-[10px] text-primary-400">剩餘可預約</p>
+        </div>
+      </div>
+
+      {/* Progress bar — 只反映已使用比例 */}
       <div className="mt-3 h-1.5 w-full rounded-full bg-earth-100">
         <div
           className={`h-1.5 rounded-full transition-all ${
@@ -158,6 +200,42 @@ function WalletCard({
           style={{ width: `${progressPct}%` }}
         />
       </div>
+
+      {/* Session usage grid — 只顯示已使用（COMPLETED / NO_SHOW） */}
+      {wallet.totalSessions > 0 && (
+        <div className="mt-3">
+          <p className="mb-1.5 text-[10px] font-medium text-earth-400 uppercase tracking-wider">使用紀錄</p>
+          <div className="flex flex-wrap gap-1.5">
+            {Array.from({ length: wallet.totalSessions }, (_, i) => {
+              const booking = usedBookings[i];
+              if (booking) {
+                const dateLabel = new Date(booking.bookingDate).toLocaleDateString("zh-TW", { month: "numeric", day: "numeric" });
+                const isNoShow = booking.bookingStatus === "NO_SHOW";
+                return (
+                  <div
+                    key={i}
+                    className={`flex h-8 min-w-[3rem] items-center justify-center rounded-md px-1.5 text-[10px] font-medium ${
+                      isNoShow ? "bg-red-100 text-red-600" : "bg-green-100 text-green-700"
+                    }`}
+                    title={`${dateLabel} ${booking.slotTime} ${isNoShow ? "未到" : "已完成"}`}
+                  >
+                    {dateLabel}
+                    {isNoShow && <span className="ml-0.5">!</span>}
+                  </div>
+                );
+              }
+              return (
+                <div
+                  key={i}
+                  className="flex h-8 w-8 items-center justify-center rounded-md border border-dashed border-earth-200 text-[10px] text-earth-300"
+                >
+                  {i + 1}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="mt-2 flex items-center justify-between text-xs text-earth-400">
         <span>開始 {new Date(wallet.startDate).toLocaleDateString("zh-TW")}</span>

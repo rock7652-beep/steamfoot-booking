@@ -7,27 +7,36 @@ export default async function CustomerHomePage() {
   const user = await getCurrentUser();
   if (!user || !user.customerId) redirect("/");
 
-  // 查詢方案餘額 + 最近預約 + 補課次數（輕量 select）
-  const [walletData, lastBooking, makeupCount] = await Promise.all([
-    prisma.customerPlanWallet.aggregate({
-      where: { customerId: user.customerId, status: "ACTIVE", remainingSessions: { gt: 0 } },
-      _sum: { remainingSessions: true },
-    }),
-    prisma.booking.findFirst({
-      where: { customerId: user.customerId, bookingStatus: { in: ["COMPLETED", "CONFIRMED", "PENDING"] } },
-      select: { bookingDate: true, slotTime: true },
-      orderBy: { bookingDate: "desc" },
-    }),
-    prisma.makeupCredit.count({
-      where: {
-        customerId: user.customerId,
-        isUsed: false,
-        OR: [{ expiredAt: null }, { expiredAt: { gte: new Date() } }],
-      },
-    }),
-  ]);
+  // 查詢方案餘額 + 最近預約 + 補課次數（輕量 select + 防呆）
+  let remaining = 0;
+  let lastBooking: { bookingDate: Date; slotTime: string } | null = null;
+  let makeupCount = 0;
 
-  const remaining = walletData._sum.remainingSessions ?? 0;
+  try {
+    const [walletData, booking, credits] = await Promise.all([
+      prisma.customerPlanWallet.aggregate({
+        where: { customerId: user.customerId, status: "ACTIVE", remainingSessions: { gt: 0 } },
+        _sum: { remainingSessions: true },
+      }),
+      prisma.booking.findFirst({
+        where: { customerId: user.customerId, bookingStatus: { in: ["COMPLETED", "CONFIRMED", "PENDING"] } },
+        select: { bookingDate: true, slotTime: true },
+        orderBy: { bookingDate: "desc" },
+      }),
+      prisma.makeupCredit.count({
+        where: {
+          customerId: user.customerId,
+          isUsed: false,
+          OR: [{ expiredAt: null }, { expiredAt: { gte: new Date() } }],
+        },
+      }),
+    ]);
+    remaining = walletData._sum.remainingSessions ?? 0;
+    lastBooking = booking;
+    makeupCount = credits;
+  } catch {
+    // 資料庫查詢失敗時顯示空狀態���不讓整頁掛掉
+  }
 
   return (
     <div>

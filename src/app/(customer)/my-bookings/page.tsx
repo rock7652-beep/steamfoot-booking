@@ -54,9 +54,18 @@ export default async function MyBookingsPage({ searchParams }: PageProps) {
 
   return (
     <div>
-      <div className="mb-6 flex items-center gap-3">
-        <Link href="/book" className="text-earth-400 hover:text-earth-600 lg:hidden">&larr;</Link>
-        <h1 className="text-xl font-bold text-earth-900">我的預約</h1>
+      <div className="mb-6 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Link href="/book" className="text-earth-400 hover:text-earth-600 lg:hidden">&larr;</Link>
+          <h1 className="text-xl font-bold text-earth-900">我的預約</h1>
+        </div>
+        <Link
+          href="/book/new"
+          className="flex items-center gap-1.5 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-primary-700 transition"
+        >
+          <span>＋</span>
+          新增預約
+        </Link>
       </div>
 
       {/* Tabs */}

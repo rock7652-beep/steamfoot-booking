@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { getCurrentUser } from "@/lib/session";
 import { logoutAction } from "@/server/actions/auth";
 import Link from "next/link";
+import { MobileNav } from "./mobile-nav";
 
 const NAV_ITEMS = [
   { href: "/book", label: "首頁" },
@@ -27,25 +28,8 @@ export default async function CustomerLayout({
 
   return (
     <div className="min-h-screen bg-earth-50">
-      {/* Mobile header */}
-      <header className="border-b border-earth-200 bg-white px-4 py-3 lg:hidden">
-        <div className="flex items-center justify-between">
-          <Link href="/book" className="text-base font-bold text-earth-900">
-            蒸足健康站
-          </Link>
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-earth-500">{user.name}</span>
-            <form action={logoutAction}>
-              <button
-                type="submit"
-                className="text-xs text-earth-400 hover:text-earth-600"
-              >
-                登出
-              </button>
-            </form>
-          </div>
-        </div>
-      </header>
+      {/* Mobile hamburger menu */}
+      <MobileNav userName={user.name ?? "顧客"} pathname={pathname} />
 
       <div className="lg:flex">
         {/* Desktop sidebar */}
