@@ -79,16 +79,16 @@ export default async function BookPage({ searchParams }: PageProps) {
 
   return (
     <div>
-      <h1 className="mb-6 text-xl font-bold text-gray-900">線上預約</h1>
+      <h1 className="mb-6 text-xl font-bold text-earth-900">線上預約</h1>
 
       {/* 未購課 / 無資格 */}
       {!hasValidWallet && (
-        <div className="rounded-xl border border-gray-200 bg-white p-8 text-center shadow-sm">
+        <div className="rounded-xl border border-earth-200 bg-white p-8 text-center shadow-sm">
           <div className="mb-3 text-4xl">🌿</div>
-          <h2 className="mb-2 text-base font-semibold text-gray-800">
+          <h2 className="mb-2 text-base font-semibold text-earth-800">
             尚未開放自助預約
           </h2>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-earth-500">
             請聯繫您的直屬店長，協助為您安排預約或購買課程方案。
           </p>
           {customer.selfBookingEnabled && (
@@ -103,13 +103,13 @@ export default async function BookPage({ searchParams }: PageProps) {
       {hasValidWallet && (
         <>
           {/* 剩餘配額提示 */}
-          <div className="mb-4 rounded-lg bg-indigo-50 px-4 py-3 text-sm">
-            <span className="text-indigo-700">
+          <div className="mb-4 rounded-lg bg-primary-50 px-4 py-3 text-sm">
+            <span className="text-primary-700">
               剩餘可預約：
               <strong className="text-lg"> {remainingQuota} </strong>
               堂
             </span>
-            <span className="ml-3 text-xs text-indigo-400">
+            <span className="ml-3 text-xs text-primary-400">
               （已有 {futureBookingCount} 筆未完成預約，課程剩餘 {totalRemaining} 堂）
             </span>
           </div>
@@ -122,7 +122,7 @@ export default async function BookPage({ searchParams }: PageProps) {
             <>
               {/* 日期選擇 */}
               <div className="mb-4">
-                <p className="mb-2 text-xs text-gray-500">選擇日期</p>
+                <p className="mb-2 text-xs text-earth-500">選擇日期</p>
                 <div className="flex gap-1.5 overflow-x-auto pb-1">
                   {days.map((d) => (
                     <a
@@ -130,12 +130,12 @@ export default async function BookPage({ searchParams }: PageProps) {
                       href={`?date=${d.date}`}
                       className={`flex min-w-[52px] flex-col items-center rounded-xl border px-2 py-2 text-center text-xs transition-colors ${
                         d.date === validDate
-                          ? "border-indigo-500 bg-indigo-600 text-white"
-                          : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                          ? "border-primary-500 bg-primary-600 text-white"
+                          : "border-earth-200 bg-white text-earth-700 hover:bg-earth-50"
                       }`}
                     >
                       <span className="font-medium">{d.label}</span>
-                      <span className={d.date === validDate ? "text-indigo-200" : "text-gray-400"}>
+                      <span className={d.date === validDate ? "text-primary-200" : "text-earth-400"}>
                         （{d.day}）
                       </span>
                     </a>

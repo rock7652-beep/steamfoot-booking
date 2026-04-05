@@ -65,8 +65,8 @@ export function CreateBookingForm({ customerId, activeWallets }: Props) {
       )}
 
       <div>
-        <label className="block text-xs text-gray-500">日期</label>
-        <select name="bookingDate" required className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm">
+        <label className="block text-xs text-earth-500">日期</label>
+        <select name="bookingDate" required className="mt-1 w-full rounded border border-earth-300 px-2 py-1 text-sm">
           {days.map((d) => (
             <option key={d} value={d}>{d}</option>
           ))}
@@ -74,8 +74,8 @@ export function CreateBookingForm({ customerId, activeWallets }: Props) {
       </div>
 
       <div>
-        <label className="block text-xs text-gray-500">時段</label>
-        <select name="slotTime" required className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm">
+        <label className="block text-xs text-earth-500">時段</label>
+        <select name="slotTime" required className="mt-1 w-full rounded border border-earth-300 px-2 py-1 text-sm">
           {SLOT_TIMES.map((t) => (
             <option key={t} value={t}>{t}</option>
           ))}
@@ -83,8 +83,8 @@ export function CreateBookingForm({ customerId, activeWallets }: Props) {
       </div>
 
       <div>
-        <label className="block text-xs text-gray-500">類型</label>
-        <select name="bookingType" required className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm">
+        <label className="block text-xs text-earth-500">類型</label>
+        <select name="bookingType" required className="mt-1 w-full rounded border border-earth-300 px-2 py-1 text-sm">
           <option value="PACKAGE_SESSION">套餐堂數</option>
           <option value="FIRST_TRIAL">體驗</option>
           <option value="SINGLE">單次</option>
@@ -93,8 +93,8 @@ export function CreateBookingForm({ customerId, activeWallets }: Props) {
 
       {activeWallets.length > 0 && (
         <div>
-          <label className="block text-xs text-gray-500">使用課程</label>
-          <select name="customerPlanWalletId" className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm">
+          <label className="block text-xs text-earth-500">使用課程</label>
+          <select name="customerPlanWalletId" className="mt-1 w-full rounded border border-earth-300 px-2 py-1 text-sm">
             <option value="">不指定</option>
             {activeWallets.map((w) => (
               <option key={w.id} value={w.id}>
@@ -109,7 +109,7 @@ export function CreateBookingForm({ customerId, activeWallets }: Props) {
         <button
           type="submit"
           disabled={pending}
-          className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
+          className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-60"
         >
           {pending ? "建立中…" : "建立預約"}
         </button>

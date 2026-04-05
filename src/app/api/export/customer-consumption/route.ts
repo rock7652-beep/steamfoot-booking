@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { checkPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
 
 function toCsv(rows: string[][]): string {
@@ -36,11 +37,14 @@ export async function GET(req: NextRequest) {
   });
   if (!customer) return new NextResponse("Not found", { status: 404 });
 
-  if (session.user.role === "MANAGER" && customer.assignedStaffId !== session.user.staffId) {
-    return new NextResponse("Forbidden", { status: 403 });
-  }
-  if (session.user.role === "CUSTOMER" && customer.id !== session.user.customerId) {
-    return new NextResponse("Forbidden", { status: 403 });
+  // Staff: check customer.export permission; Customer: only own data
+  if (session.user.role === "CUSTOMER") {
+    if (customer.id !== session.user.customerId) {
+      return new NextResponse("Forbidden", { status: 403 });
+    }
+  } else {
+    const allowed = await checkPermission(session.user.role, session.user.staffId, "customer.export");
+    if (!allowed) return new NextResponse("Forbidden", { status: 403 });
   }
 
   let dateFilter: Record<string, unknown> = {};

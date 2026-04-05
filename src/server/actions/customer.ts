@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
-import { requireSession, requireStaffSession, requireOwnerSession } from "@/lib/session";
+import { requireSession, requireStaffSession } from "@/lib/session";
+import { requirePermission } from "@/lib/permissions";
 import { AppError, handleActionError } from "@/lib/errors";
 import {
   createCustomerSchema,
@@ -20,7 +21,7 @@ export async function createCustomer(
   input: z.infer<typeof createCustomerSchema>
 ): Promise<ActionResult<{ customerId: string }>> {
   try {
-    const user = await requireStaffSession();
+    const user = await requirePermission("customer.create");
     const data = createCustomerSchema.parse(input);
 
     // assignedStaffId 現在是選填
@@ -80,7 +81,7 @@ export async function updateCustomer(
   input: z.infer<typeof updateCustomerSchema>
 ): Promise<ActionResult<void>> {
   try {
-    const user = await requireStaffSession();
+    const user = await requirePermission("customer.update");
     const data = updateCustomerSchema.parse(input);
 
     const customer = await prisma.customer.findUnique({
@@ -117,7 +118,7 @@ export async function transferCustomer(
   input: z.infer<typeof transferCustomerSchema>
 ): Promise<ActionResult<void>> {
   try {
-    await requireOwnerSession();
+    await requirePermission("customer.assign");
     const data = transferCustomerSchema.parse(input);
 
     const customer = await prisma.customer.findUnique({
@@ -155,7 +156,7 @@ export async function updateCustomerStage(
   stage: "LEAD" | "TRIAL" | "ACTIVE" | "INACTIVE"
 ): Promise<ActionResult<void>> {
   try {
-    const user = await requireStaffSession();
+    const user = await requirePermission("customer.update");
 
     const customer = await prisma.customer.findUnique({ where: { id: customerId } });
     if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");

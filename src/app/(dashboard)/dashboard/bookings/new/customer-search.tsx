@@ -30,7 +30,6 @@ export default function CustomerSearch({
   const containerRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<NodeJS.Timeout>(undefined);
 
-  // 搜尋
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
@@ -62,7 +61,6 @@ export default function CustomerSearch({
     };
   }, [query]);
 
-  // 點擊外部關閉
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
@@ -87,36 +85,36 @@ export default function CustomerSearch({
         value={query}
         onChange={(e) => {
           setQuery(e.target.value);
-          if (selectedId) setSelectedId(""); // 清除已選
+          if (selectedId) setSelectedId("");
         }}
         onFocus={() => results.length > 0 && setIsOpen(true)}
         placeholder="搜尋姓名、電話或 Email..."
-        className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+        className="block w-full rounded-lg border border-earth-300 bg-white px-3 py-2 text-sm text-earth-800 placeholder:text-earth-400 focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
         autoComplete="off"
       />
       {loading && (
-        <div className="absolute right-3 top-2.5 text-xs text-gray-400">
+        <div className="absolute right-3 top-2.5 text-xs text-earth-400">
           搜尋中...
         </div>
       )}
 
       {/* Dropdown */}
       {isOpen && results.length > 0 && (
-        <div className="absolute z-20 mt-1 w-full rounded-lg border border-gray-200 bg-white shadow-lg max-h-60 overflow-y-auto">
+        <div className="absolute z-20 mt-1 w-full rounded-lg border border-earth-200 bg-white shadow-lg max-h-60 overflow-y-auto">
           {results.map((c) => (
             <button
               key={c.id}
               type="button"
               onClick={() => selectCustomer(c)}
-              className="flex w-full items-center justify-between px-3 py-2.5 text-left text-sm hover:bg-indigo-50 active:bg-indigo-100"
+              className="flex w-full items-center justify-between px-3 py-2.5 text-left text-sm hover:bg-primary-50 active:bg-primary-100 transition-colors"
             >
               <div>
-                <span className="font-medium text-gray-900">{c.name}</span>
+                <span className="font-medium text-earth-900">{c.name}</span>
                 {c.phone && (
-                  <span className="ml-2 text-gray-500">{c.phone}</span>
+                  <span className="ml-2 text-earth-500">{c.phone}</span>
                 )}
                 {c.email && (
-                  <span className="ml-2 text-xs text-gray-400">{c.email}</span>
+                  <span className="ml-2 text-xs text-earth-400">{c.email}</span>
                 )}
               </div>
               <div className="flex items-center gap-2 text-xs">
@@ -130,7 +128,7 @@ export default function CustomerSearch({
                   </span>
                 )}
                 {c.remainingSessions > 0 && (
-                  <span className="text-green-600">
+                  <span className="text-primary-600">
                     剩{c.remainingSessions}堂
                   </span>
                 )}
@@ -141,12 +139,11 @@ export default function CustomerSearch({
       )}
 
       {isOpen && results.length === 0 && query.length >= 1 && !loading && (
-        <div className="absolute z-20 mt-1 w-full rounded-lg border border-gray-200 bg-white p-3 shadow-lg text-center text-sm text-gray-400">
+        <div className="absolute z-20 mt-1 w-full rounded-lg border border-earth-200 bg-white p-3 shadow-lg text-center text-sm text-earth-400">
           找不到匹配的顧客
         </div>
       )}
 
-      {/* 驗證提示 */}
       {!selectedId && (
         <input
           type="text"

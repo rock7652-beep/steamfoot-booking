@@ -20,7 +20,7 @@ export interface ListBookingsOptions {
 export async function listAvailableSlots(date: string): Promise<DayAvailability> {
   await requireSession();
 
-  const dateObj = new Date(date + "T00:00:00");
+  const dateObj = new Date(date + "T00:00:00Z");
   const dayOfWeek = dateObj.getDay();
 
   // 取該星期幾的所有啟用時段
@@ -161,7 +161,7 @@ export async function getBookingDetail(bookingId: string) {
 export async function getDayBookings(date: string) {
   const user = await requireStaffSession();
 
-  const dateObj = new Date(date + "T00:00:00");
+  const dateObj = new Date(date + "T00:00:00Z");
 
   // 所有店長可看全部預約（共享查看）
   return prisma.booking.findMany({
@@ -194,8 +194,8 @@ export async function getDayBookings(date: string) {
 export async function getMonthlyRevenueSummary(year: number, month: number) {
   const user = await requireStaffSession();
 
-  const startDate = new Date(year, month - 1, 1);
-  const endDate = new Date(year, month, 0); // last day of month
+  const startDate = new Date(Date.UTC(year, month - 1, 1));
+  const endDate = new Date(Date.UTC(year, month, 0)); // last day of month
 
   const staffFilter =
     user.role === "MANAGER" && user.staffId
@@ -238,8 +238,8 @@ export async function getMonthlyRevenueSummary(year: number, month: number) {
 export async function getMonthBookingSummary(year: number, month: number) {
   const user = await requireStaffSession();
 
-  const startDate = new Date(year, month - 1, 1);
-  const endDate = new Date(year, month, 0); // last day of month
+  const startDate = new Date(Date.UTC(year, month - 1, 1));
+  const endDate = new Date(Date.UTC(year, month, 0)); // last day of month
 
   // Manager 也能看全部預約（共享查看）
   // 取該月份所有預約

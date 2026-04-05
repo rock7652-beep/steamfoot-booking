@@ -18,15 +18,15 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="w-full max-w-sm rounded-xl border border-gray-200 bg-white p-6 shadow-sm sm:p-8">
-      <h1 className="mb-2 text-2xl font-bold text-gray-900">蒸足管理系統</h1>
+    <div className="w-full max-w-sm rounded-xl border border-earth-200 bg-white p-6 shadow-sm sm:p-8">
+      <h1 className="mb-2 text-2xl font-bold text-earth-900">蒸足管理系統</h1>
 
       {/* Google OAuth Sign-in - Mobile-first prominent button */}
       <div className="mb-6">
         <button
           onClick={handleGoogleSignIn}
           type="button"
-          className="flex w-full items-center justify-center gap-3 rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm font-medium text-gray-900 hover:bg-gray-50 active:bg-gray-100"
+          className="flex w-full items-center justify-center gap-3 rounded-lg border border-earth-300 bg-white px-4 py-3 text-sm font-medium text-earth-900 hover:bg-earth-50 active:bg-earth-100"
         >
           <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path
@@ -53,19 +53,19 @@ export default function LoginPage() {
       {/* Divider */}
       <div className="relative mb-6">
         <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-gray-200"></div>
+          <div className="w-full border-t border-earth-200"></div>
         </div>
         <div className="relative flex justify-center text-sm">
-          <span className="bg-white px-2 text-gray-500">或</span>
+          <span className="bg-white px-2 text-earth-500">或</span>
         </div>
       </div>
 
       {/* Staff Email/Password Login */}
-      <p className="mb-4 text-sm text-gray-600">店長帳號登入</p>
+      <p className="mb-4 text-sm text-earth-600">店長帳號登入</p>
 
       <form action={action} className="space-y-4">
         <div>
-          <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="email" className="block text-sm font-medium text-earth-700">
             Email
           </label>
           <input
@@ -74,13 +74,13 @@ export default function LoginPage() {
             type="email"
             autoComplete="email"
             required
-            className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
             placeholder="alice@steamfoot.tw"
           />
         </div>
 
         <div>
-          <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="password" className="block text-sm font-medium text-earth-700">
             密碼
           </label>
           <input
@@ -89,7 +89,7 @@ export default function LoginPage() {
             type="password"
             autoComplete="current-password"
             required
-            className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
             placeholder="••••••••"
           />
         </div>
@@ -103,7 +103,7 @@ export default function LoginPage() {
         <button
           type="submit"
           disabled={pending}
-          className="w-full rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
+          className="w-full rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-60"
         >
           {pending ? "登入中…" : "登入"}
         </button>

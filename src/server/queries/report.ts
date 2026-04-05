@@ -19,8 +19,8 @@ const REVENUE_TYPES = [
 function monthRange(month: string) {
   const [year, mon] = month.split("-").map(Number);
   return {
-    monthStart: new Date(year, mon - 1, 1),
-    monthEnd: new Date(year, mon, 0, 23, 59, 59),
+    monthStart: new Date(Date.UTC(year, mon - 1, 1)),
+    monthEnd: new Date(Date.UTC(year, mon, 0, 23, 59, 59)),
   };
 }
 
@@ -61,10 +61,11 @@ export async function monthlyStaffRevenueSummary(month: string) {
   const completedMap: Record<string, number> = {};
   for (const b of completedBookings) {
     const cnt = b._count as { id: number };
-    completedMap[b.revenueStaffId] = cnt.id;
+    const sid = b.revenueStaffId ?? "unassigned";
+    completedMap[sid] = cnt.id;
   }
 
-  const staffIds = rows.map((r) => r.revenueStaffId);
+  const staffIds = rows.map((r) => r.revenueStaffId).filter((id): id is string => id !== null);
   const staffList = await prisma.staff.findMany({
     where: { id: { in: staffIds } },
     select: { id: true, displayName: true },
@@ -74,13 +75,14 @@ export async function monthlyStaffRevenueSummary(month: string) {
   return rows.map((r) => {
     const sum = r._sum as { amount: unknown };
     const cnt = r._count as { id: number };
+    const sid = r.revenueStaffId ?? "unassigned";
     return {
-      staffId: r.revenueStaffId,
-      staffName: staffMap[r.revenueStaffId] ?? "未知",
+      staffId: sid,
+      staffName: staffMap[sid] ?? "未指派",
       month,
       totalRevenue: Number(sum.amount ?? 0),
       transactionCount: cnt.id,
-      completedBookings: completedMap[r.revenueStaffId] ?? 0,
+      completedBookings: completedMap[sid] ?? 0,
     };
   });
 }
@@ -262,25 +264,29 @@ export async function monthlyStoreSummary(month: string) {
   for (const r of revenueRows) {
     const sum = r._sum as { amount: unknown };
     const cnt = r._count as { id: number };
-    revenueMap[r.revenueStaffId] = Number(sum.amount ?? 0);
-    txCountMap[r.revenueStaffId] = cnt.id;
+    const sid = r.revenueStaffId ?? "unassigned";
+    revenueMap[sid] = Number(sum.amount ?? 0);
+    txCountMap[sid] = cnt.id;
   }
   const spaceFeeMap: Record<string, number> = {};
   for (const f of spaceFees) spaceFeeMap[f.staffId] = Number(f.feeAmount);
   const customerCountMap: Record<string, number> = {};
   for (const c of customerCounts) {
     const cnt = c._count as { id: number };
-    customerCountMap[c.assignedStaffId] = cnt.id;
+    const sid = c.assignedStaffId ?? "unassigned";
+    customerCountMap[sid] = cnt.id;
   }
   const activeCountMap: Record<string, number> = {};
   for (const c of activeCustomerCounts) {
     const cnt = c._count as { id: number };
-    activeCountMap[c.assignedStaffId] = cnt.id;
+    const sid = c.assignedStaffId ?? "unassigned";
+    activeCountMap[sid] = cnt.id;
   }
   const completedByStaffMap: Record<string, number> = {};
   for (const b of completedByStaff) {
     const cnt = b._count as { id: number };
-    completedByStaffMap[b.revenueStaffId] = cnt.id;
+    const sid = b.revenueStaffId ?? "unassigned";
+    completedByStaffMap[sid] = cnt.id;
   }
 
   const cashbookMap: Record<string, number> = {};

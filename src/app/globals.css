@@ -1,12 +1,59 @@
 @import "tailwindcss";
 
+@theme {
+  /* Earth tone palette */
+  --color-earth-50: #faf8f5;
+  --color-earth-100: #f3efe8;
+  --color-earth-200: #e8e0d4;
+  --color-earth-300: #d4c8b8;
+  --color-earth-400: #b8a68e;
+  --color-earth-500: #9c8b72;
+  --color-earth-600: #7d6e58;
+  --color-earth-700: #655a48;
+  --color-earth-800: #4a4235;
+  --color-earth-900: #342f27;
+
+  /* Primary accent — warm olive/sage */
+  --color-primary-50: #f6f7f4;
+  --color-primary-100: #e8ebe2;
+  --color-primary-200: #d1d8c5;
+  --color-primary-300: #b0bc9e;
+  --color-primary-400: #8fa17a;
+  --color-primary-500: #6f8558;
+  --color-primary-600: #5a6c47;
+  --color-primary-700: #475639;
+  --color-primary-800: #3a4530;
+  --color-primary-900: #2d3526;
+
+  /* Sidebar width tokens */
+  --sidebar-width: 15rem;
+  --sidebar-collapsed-width: 4rem;
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #faf8f5;
+  --foreground: #342f27;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Smooth sidebar transition */
+.sidebar-transition {
+  transition: width 200ms ease, transform 200ms ease;
+}
+
+/* Scrollbar styling for sidebar */
+.sidebar-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+.sidebar-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.sidebar-scroll::-webkit-scrollbar-thumb {
+  background: var(--color-earth-300);
+  border-radius: 2px;
 }

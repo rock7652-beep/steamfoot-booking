@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireSession, requireStaffSession } from "@/lib/session";
+import { requirePermission } from "@/lib/permissions";
 import { AppError, handleActionError } from "@/lib/errors";
 import {
   createBookingSchema,
@@ -171,7 +172,7 @@ export async function updateBooking(
   input: z.infer<typeof updateBookingSchema>
 ): Promise<ActionResult<void>> {
   try {
-    const user = await requireStaffSession();
+    const user = await requirePermission("booking.update");
     const data = updateBookingSchema.parse(input);
 
     const booking = await prisma.booking.findUnique({
@@ -309,7 +310,7 @@ export async function markCompleted(
   input?: z.infer<typeof completeBookingSchema>
 ): Promise<ActionResult<void>> {
   try {
-    const user = await requireStaffSession();
+    const user = await requirePermission("booking.update");
     const data = completeBookingSchema.parse(input ?? {});
 
     const booking = await prisma.booking.findUnique({
@@ -368,7 +369,7 @@ export async function markCompleted(
           data: {
             customerId: booking.customerId,
             bookingId: booking.id,
-            revenueStaffId: booking.revenueStaffId, // 維持歷史快照
+            revenueStaffId: booking.revenueStaffId ?? serviceStaffId ?? user.staffId!, // 維持歷史快照，fallback 到服務者
             serviceStaffId,
             customerPlanWalletId: wallet.id,
             transactionType: "SESSION_DEDUCTION",
@@ -415,7 +416,7 @@ export async function markCompleted(
 
 export async function markNoShow(bookingId: string): Promise<ActionResult<void>> {
   try {
-    const user = await requireStaffSession();
+    const user = await requirePermission("booking.update");
 
     const booking = await prisma.booking.findUnique({
       where: { id: bookingId },

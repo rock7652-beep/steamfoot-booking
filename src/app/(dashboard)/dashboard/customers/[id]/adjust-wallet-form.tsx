@@ -29,7 +29,7 @@ export function AdjustWalletForm({ walletId, currentRemaining }: Props) {
 
   if (!open) {
     return (
-      <button onClick={() => setOpen(true)} className="text-xs text-indigo-600 hover:underline">
+      <button onClick={() => setOpen(true)} className="text-xs text-primary-600 hover:underline">
         調整堂數
       </button>
     );
@@ -38,32 +38,32 @@ export function AdjustWalletForm({ walletId, currentRemaining }: Props) {
   return (
     <form action={action} className="flex flex-wrap items-end gap-2">
       <div>
-        <label className="block text-xs text-gray-500">調整為幾堂</label>
+        <label className="block text-xs text-earth-500">調整為幾堂</label>
         <input
           name="newRemaining"
           type="number"
           min="0"
           defaultValue={currentRemaining}
-          className="mt-1 w-20 rounded border border-gray-300 px-2 py-1 text-sm"
+          className="mt-1 w-20 rounded border border-earth-300 px-2 py-1 text-sm"
         />
       </div>
       <div>
-        <label className="block text-xs text-gray-500">原因</label>
+        <label className="block text-xs text-earth-500">原因</label>
         <input
           name="note"
           placeholder="調整原因"
-          className="mt-1 rounded border border-gray-300 px-2 py-1 text-sm"
+          className="mt-1 rounded border border-earth-300 px-2 py-1 text-sm"
         />
       </div>
       {state.error && <span className="w-full text-xs text-red-600">{state.error}</span>}
       <button
         type="submit"
         disabled={pending}
-        className="rounded bg-indigo-100 px-3 py-1 text-sm font-medium text-indigo-700 hover:bg-indigo-200 disabled:opacity-60"
+        className="rounded bg-primary-100 px-3 py-1 text-sm font-medium text-primary-700 hover:bg-primary-200 disabled:opacity-60"
       >
         {pending ? "更新中…" : "確認"}
       </button>
-      <button type="button" onClick={() => setOpen(false)} className="text-xs text-gray-400 hover:text-gray-600">
+      <button type="button" onClick={() => setOpen(false)} className="text-xs text-earth-400 hover:text-earth-600">
         取消
       </button>
     </form>

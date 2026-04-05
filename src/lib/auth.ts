@@ -124,10 +124,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         if (account?.provider === "google") {
           const googleId = account.providerAccountId;
-          const googleEmail = (profile as { email?: string })?.email || user.email;
+          const googleProfile = profile as { email?: string; name?: string; picture?: string } | undefined;
+          const googleEmail = googleProfile?.email || user.email;
 
-          // 嘗試綁定或建立 Customer
-          await bindGoogleCustomer(user.id as string, googleId, googleEmail as string);
+          // 嘗試綁定或建立 Customer（帶入 Google profile 資訊）
+          await bindGoogleCustomer(user.id as string, googleId, googleEmail as string, {
+            name: googleProfile?.name || undefined,
+            avatar: googleProfile?.picture || undefined,
+          });
 
           // 取得最新 User 資料
           const freshUser = await prisma.user.findUnique({
@@ -199,63 +203,77 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 async function bindGoogleCustomer(
   userId: string,
   googleId: string,
-  googleEmail: string
+  googleEmail: string,
+  googleProfile?: { name?: string; avatar?: string }
 ) {
-  // Step 1: 以 googleId 查找
-  let customer = await prisma.customer.findUnique({
-    where: { googleId },
-  });
-
-  // Step 2: 以 email 查找
-  if (!customer && googleEmail) {
-    customer = await prisma.customer.findFirst({
-      where: { email: googleEmail },
+  try {
+    // Step 1: 以 googleId 查找（最穩定的識別，不受 email 變更影響）
+    let customer = await prisma.customer.findUnique({
+      where: { googleId },
     });
-  }
 
-  if (customer) {
-    // 綁定到此 User（若尚未綁定）
-    const updateData: Record<string, unknown> = {};
-    if (!customer.userId) updateData.userId = userId;
-    if (!customer.googleId) updateData.googleId = googleId;
-    if (!customer.email && googleEmail) updateData.email = googleEmail;
-
-    if (Object.keys(updateData).length > 0) {
-      await prisma.customer.update({
-        where: { id: customer.id },
-        data: updateData,
+    // Step 2: 以 email 查找
+    if (!customer && googleEmail) {
+      customer = await prisma.customer.findFirst({
+        where: { email: googleEmail },
       });
     }
-  } else {
-    // 建立新 Customer（暫不指派店長）
-    const googleUser = await prisma.user.findUnique({
+
+    if (customer) {
+      // 綁定到此 User（若尚未綁定），同時補齊 googleId / email / avatar / authSource
+      const updateData: Record<string, unknown> = {};
+      if (!customer.userId) updateData.userId = userId;
+      if (!customer.googleId) {
+        updateData.googleId = googleId;
+        updateData.authSource = "GOOGLE"; // 紀錄綁定來源
+      }
+      if (!customer.email && googleEmail) updateData.email = googleEmail;
+      // 每次登入更新 avatar（Google 大頭貼可能變更）
+      if (googleProfile?.avatar) updateData.avatar = googleProfile.avatar;
+      // 若 name 是預設值或空，優先帶入 Google profile name
+      if (googleProfile?.name && (customer.name === "Google 用戶" || !customer.name)) {
+        updateData.name = googleProfile.name;
+      }
+
+      if (Object.keys(updateData).length > 0) {
+        // Prisma @updatedAt 會自動更新 updatedAt，方便追蹤綁定時間
+        await prisma.customer.update({
+          where: { id: customer.id },
+          data: updateData,
+        });
+      }
+    } else {
+      // 建立新 Customer（暫不指派店長，由店長後續手動分配）
+      await prisma.customer.create({
+        data: {
+          userId,
+          name: googleProfile?.name || "Google 用戶",
+          phone: "",
+          email: googleEmail || null,
+          googleId,
+          avatar: googleProfile?.avatar || null,
+          authSource: "GOOGLE", // 紀錄來源為 Google
+          // assignedStaffId 不設定 → null，稍後由店長指派
+          customerStage: "LEAD",
+        },
+      });
+    }
+
+    // 確保 User role 是 CUSTOMER（若該 User 不是 staff）
+    const dbUser = await prisma.user.findUnique({
       where: { id: userId },
-      select: { name: true },
+      include: { staff: { select: { id: true } } },
     });
 
-    await prisma.customer.create({
-      data: {
-        userId,
-        name: googleUser?.name || "Google 用戶",
-        phone: "",
-        email: googleEmail || null,
-        googleId,
-        assignedStaffId: undefined, // 稍後由店長指派
-        customerStage: "LEAD",
-      },
-    });
-  }
-
-  // 確保 User role 是 CUSTOMER（若不是 staff）
-  const dbUser = await prisma.user.findUnique({
-    where: { id: userId },
-    include: { staff: { select: { id: true } } },
-  });
-
-  if (dbUser && !dbUser.staff && dbUser.role !== "CUSTOMER") {
-    await prisma.user.update({
-      where: { id: userId },
-      data: { role: "CUSTOMER" },
-    });
+    if (dbUser && !dbUser.staff && dbUser.role !== "CUSTOMER") {
+      await prisma.user.update({
+        where: { id: userId },
+        data: { role: "CUSTOMER" },
+      });
+    }
+  } catch (error) {
+    console.error("[bindGoogleCustomer] Error:", error);
+    // 不 throw — 讓登入流程繼續，避免用戶卡在登入畫面
+    // Customer 綁定失敗不影響 User 登入本身
   }
 }

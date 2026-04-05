@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
-import { requireStaffSession, requireOwnerSession } from "@/lib/session";
+import { requirePermission } from "@/lib/permissions";
 import { AppError, handleActionError } from "@/lib/errors";
 import { assignPlanSchema } from "@/lib/validators/plan";
 import type { ActionResult } from "@/types";
@@ -20,7 +20,7 @@ export async function assignPlanToCustomer(
   input: z.infer<typeof assignPlanSchema>
 ): Promise<ActionResult<{ walletId: string; transactionId: string }>> {
   try {
-    const user = await requireStaffSession();
+    const user = await requirePermission("wallet.create");
     const data = assignPlanSchema.parse(input);
 
     // 取顧客
@@ -74,7 +74,7 @@ export async function assignPlanToCustomer(
       const transaction = await tx.transaction.create({
         data: {
           customerId: data.customerId,
-          revenueStaffId: customer.assignedStaffId, // 快照：轉讓不影響此值
+          revenueStaffId: customer.assignedStaffId ?? user.staffId!, // 快照：fallback 到操作者
           transactionType: txType,
           paymentMethod: data.paymentMethod,
           amount: plan.price,
@@ -117,7 +117,7 @@ export async function adjustRemainingSessions(
   note?: string
 ): Promise<ActionResult<void>> {
   try {
-    await requireOwnerSession();
+    const user = await requirePermission("wallet.create");
 
     if (newRemaining < 0) {
       throw new AppError("VALIDATION", "剩餘堂數不可為負數");
@@ -149,7 +149,7 @@ export async function adjustRemainingSessions(
       await tx.transaction.create({
         data: {
           customerId: wallet.customerId,
-          revenueStaffId: customer.assignedStaffId,
+          revenueStaffId: customer.assignedStaffId ?? user.staffId!,
           transactionType: "ADJUSTMENT",
           paymentMethod: "CASH",
           amount: 0,

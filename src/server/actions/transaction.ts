@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { requireStaffSession, requireOwnerSession } from "@/lib/session";
+import { requirePermission } from "@/lib/permissions";
 import { AppError, handleActionError } from "@/lib/errors";
 import type { ActionResult } from "@/types";
 import type { PaymentMethod, TransactionType } from "@prisma/client";
@@ -58,7 +58,7 @@ export async function createTransaction(
   input: z.infer<typeof createTransactionSchema>
 ): Promise<ActionResult<{ transactionId: string }>> {
   try {
-    const user = await requireOwnerSession();
+    const user = await requirePermission("transaction.create");
     const data = createTransactionSchema.parse(input);
 
     // 確認顧客存在
@@ -80,7 +80,7 @@ export async function createTransaction(
       data: {
         customerId: data.customerId,
         bookingId: data.bookingId ?? null,
-        revenueStaffId: customer.assignedStaffId, // 快照：以當前歸屬為準
+        revenueStaffId: customer.assignedStaffId ?? user.staffId ?? (() => { throw new AppError("FORBIDDEN", "顧客尚未指派店長，無法建立交易"); })(),
         serviceStaffId: user.staffId ?? null,
         customerPlanWalletId: data.customerPlanWalletId ?? null,
         transactionType: data.transactionType as TransactionType,
@@ -111,7 +111,7 @@ export async function refundTransaction(
   input: z.infer<typeof refundTransactionSchema>
 ): Promise<ActionResult<{ refundId: string }>> {
   try {
-    await requireOwnerSession();
+    await requirePermission("transaction.create");
     const data = refundTransactionSchema.parse(input);
 
     const original = await prisma.transaction.findUnique({
@@ -157,7 +157,7 @@ export async function createAdjustment(
   input: z.infer<typeof adjustmentSchema>
 ): Promise<ActionResult<{ transactionId: string }>> {
   try {
-    const user = await requireOwnerSession();
+    const user = await requirePermission("transaction.create");
     const data = adjustmentSchema.parse(input);
 
     const customer = await prisma.customer.findUnique({
@@ -169,7 +169,7 @@ export async function createAdjustment(
     const tx = await prisma.transaction.create({
       data: {
         customerId: data.customerId,
-        revenueStaffId: customer.assignedStaffId,
+        revenueStaffId: customer.assignedStaffId ?? user.staffId ?? (() => { throw new AppError("FORBIDDEN", "顧客尚未指派店長，無法建立交易"); })(),
         serviceStaffId: user.staffId ?? null,
         transactionType: data.amount >= 0 ? "SUPPLEMENT" : "ADJUSTMENT",
         paymentMethod: "CASH",

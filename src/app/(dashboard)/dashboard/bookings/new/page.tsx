@@ -1,4 +1,6 @@
 import { createBooking } from "@/server/actions/booking";
+import { getCurrentUser } from "@/lib/session";
+import { checkPermission } from "@/lib/permissions";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import CustomerSearch from "./customer-search";
@@ -21,6 +23,11 @@ interface PageProps {
 }
 
 export default async function NewBookingPage({ searchParams }: PageProps) {
+  const user = await getCurrentUser();
+  if (!user || !(await checkPermission(user.role, user.staffId, "booking.create"))) {
+    redirect("/dashboard");
+  }
+
   const params = await searchParams;
   const today = new Date().toISOString().slice(0, 10);
   const defaultDate = params.date ?? today;
@@ -54,41 +61,41 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
   }
 
   return (
-    <div className="mx-auto max-w-lg space-y-6 px-4 py-4">
+    <div className="mx-auto max-w-lg space-y-6">
       {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-sm text-gray-500">
-        <Link href="/dashboard/bookings" className="hover:text-gray-700">月曆</Link>
+      <div className="flex items-center gap-2 text-sm text-earth-500">
+        <Link href="/dashboard/bookings" className="hover:text-earth-700">月曆</Link>
         <span>/</span>
-        <span className="text-gray-700">新增預約</span>
+        <span className="text-earth-700">新增預約</span>
       </div>
 
-      <div className="rounded-xl border bg-white p-5 shadow-sm">
-        <h1 className="mb-5 text-lg font-bold text-gray-900">新增預約</h1>
+      <div className="rounded-xl border border-earth-200 bg-white p-5 shadow-sm">
+        <h1 className="mb-5 text-lg font-bold text-earth-900">新增預約</h1>
 
-        <form action={handleCreate} className="space-y-4">
+        <form action={handleCreate} className="space-y-5">
           {/* Customer — Autocomplete Search */}
           <div>
-            <label className="block text-sm font-medium text-gray-700">
+            <label className="block text-sm font-medium text-earth-700">
               顧客 <span className="text-red-500">*</span>
             </label>
-            <div className="mt-1">
+            <div className="mt-1.5">
               <CustomerSearch />
             </div>
-            <p className="mt-1 text-xs text-gray-400">
+            <p className="mt-1 text-xs text-earth-400">
               輸入姓名、電話或 Email 搜尋
             </p>
           </div>
 
           {/* Date */}
           <div>
-            <label className="block text-sm font-medium text-gray-700">
+            <label className="block text-sm font-medium text-earth-700">
               日期 <span className="text-red-500">*</span>
             </label>
             <select
               name="bookingDate"
               required
               defaultValue={days.includes(defaultDate) ? defaultDate : days[0]}
-              className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="mt-1.5 block w-full rounded-lg border border-earth-300 bg-white px-3 py-2 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
             >
               {days.map((d) => {
                 const dateObj = new Date(d + "T12:00:00");
@@ -104,14 +111,14 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
 
           {/* Slot Time */}
           <div>
-            <label className="block text-sm font-medium text-gray-700">
+            <label className="block text-sm font-medium text-earth-700">
               時段 <span className="text-red-500">*</span>
             </label>
-            <div className="mt-1 grid grid-cols-4 gap-2">
+            <div className="mt-1.5 grid grid-cols-4 gap-2">
               {SLOT_TIMES.map((t, i) => (
                 <label
                   key={t}
-                  className="flex cursor-pointer items-center justify-center rounded-lg border border-gray-200 px-2 py-2 text-sm font-medium hover:border-indigo-400 hover:bg-indigo-50 has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-600 has-[:checked]:text-white"
+                  className="flex cursor-pointer items-center justify-center rounded-lg border border-earth-200 px-2 py-2.5 text-sm font-medium text-earth-700 hover:border-primary-400 hover:bg-primary-50 has-[:checked]:border-primary-600 has-[:checked]:bg-primary-600 has-[:checked]:text-white transition-colors"
                 >
                   <input
                     type="radio"
@@ -129,13 +136,13 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
 
           {/* Booking Type */}
           <div>
-            <label className="block text-sm font-medium text-gray-700">
+            <label className="block text-sm font-medium text-earth-700">
               預約類型 <span className="text-red-500">*</span>
             </label>
             <select
               name="bookingType"
               required
-              className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="mt-1.5 block w-full rounded-lg border border-earth-300 bg-white px-3 py-2 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
             >
               <option value="PACKAGE_SESSION">套餐堂數</option>
               <option value="FIRST_TRIAL">體驗</option>
@@ -145,26 +152,26 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
 
           {/* Notes */}
           <div>
-            <label className="block text-sm font-medium text-gray-700">備註（選填）</label>
+            <label className="block text-sm font-medium text-earth-700">備註（選填）</label>
             <textarea
               name="notes"
               rows={2}
-              className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="mt-1.5 block w-full rounded-lg border border-earth-300 bg-white px-3 py-2 text-sm text-earth-800 placeholder:text-earth-400 focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
               placeholder="特殊需求、備忘事項..."
             />
           </div>
 
           {/* Buttons */}
-          <div className="flex gap-3 border-t pt-5">
+          <div className="flex gap-3 border-t border-earth-200 pt-5">
             <button
               type="submit"
-              className="flex-1 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 active:bg-indigo-800"
+              className="flex-1 rounded-lg bg-primary-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-primary-700 active:bg-primary-800 transition-colors"
             >
               確認建立
             </button>
             <Link
               href={`/dashboard/bookings?view=day&date=${defaultDate}`}
-              className="rounded-lg border border-gray-300 px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              className="rounded-lg border border-earth-300 px-5 py-2.5 text-sm font-medium text-earth-700 hover:bg-earth-50 transition-colors"
             >
               取消
             </Link>

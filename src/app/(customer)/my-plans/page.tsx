@@ -38,17 +38,17 @@ export default async function MyPlansPage() {
 
   return (
     <div>
-      <h1 className="mb-6 text-xl font-bold text-gray-900">我的課程</h1>
+      <h1 className="mb-6 text-xl font-bold text-earth-900">我的課程</h1>
 
       {/* Summary */}
       {activeWallets.length > 0 && (
-        <div className="mb-6 rounded-xl border border-indigo-100 bg-indigo-50 px-5 py-4">
-          <p className="text-sm text-indigo-700">
+        <div className="mb-6 rounded-xl border border-primary-100 bg-primary-50 px-5 py-4">
+          <p className="text-sm text-primary-700">
             有效課程 <strong>{activeWallets.length}</strong> 份，
-            共剩餘 <strong className="text-xl text-indigo-800">{totalRemaining}</strong> 堂
+            共剩餘 <strong className="text-xl text-primary-800">{totalRemaining}</strong> 堂
           </p>
           {customer.selfBookingEnabled ? (
-            <p className="mt-1 text-xs text-indigo-500">✓ 已開放自助預約</p>
+            <p className="mt-1 text-xs text-primary-500">✓ 已開放自助預約</p>
           ) : (
             <p className="mt-1 text-xs text-yellow-600">
               ⚠ 自助預約功能由店長開啟，請聯繫店長
@@ -58,17 +58,17 @@ export default async function MyPlansPage() {
       )}
 
       {customer.planWallets.length === 0 ? (
-        <div className="py-12 text-center text-gray-400">
+        <div className="py-12 text-center text-earth-400">
           <div className="mb-2 text-3xl">🌱</div>
           <p className="text-sm">尚未購買課程</p>
-          <p className="mt-1 text-xs text-gray-400">請聯繫您的直屬店長購買課程方案</p>
+          <p className="mt-1 text-xs text-earth-400">請聯繫您的直屬店長購買課程方案</p>
         </div>
       ) : (
         <div className="space-y-4">
           {/* Active wallets */}
           {activeWallets.length > 0 && (
             <section>
-              <h2 className="mb-2 text-sm font-semibold text-gray-700">有效課程</h2>
+              <h2 className="mb-2 text-sm font-semibold text-earth-700">有效課程</h2>
               <div className="space-y-3">
                 {activeWallets.map((w) => (
                   <WalletCard key={w.id} wallet={w} isActive />
@@ -80,7 +80,7 @@ export default async function MyPlansPage() {
           {/* Inactive wallets */}
           {inactiveWallets.length > 0 && (
             <section>
-              <h2 className="mb-2 text-sm font-semibold text-gray-500">歷史課程</h2>
+              <h2 className="mb-2 text-sm font-semibold text-earth-500">歷史課程</h2>
               <div className="space-y-3 opacity-60">
                 {inactiveWallets.map((w) => (
                   <WalletCard key={w.id} wallet={w} isActive={false} />
@@ -96,7 +96,7 @@ export default async function MyPlansPage() {
         <div className="mt-8 text-center">
           <Link
             href="/book"
-            className="rounded-xl bg-indigo-600 px-8 py-3 text-sm font-semibold text-white hover:bg-indigo-700"
+            className="rounded-xl bg-primary-600 px-8 py-3 text-sm font-semibold text-white hover:bg-primary-700"
           >
             立即預約
           </Link>
@@ -131,32 +131,32 @@ function WalletCard({
       <div className="flex items-start justify-between">
         <div>
           <div className="flex items-center gap-2">
-            <span className="font-semibold text-gray-900">{wallet.plan.name}</span>
-            <span className="rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-600">
+            <span className="font-semibold text-earth-900">{wallet.plan.name}</span>
+            <span className="rounded bg-earth-100 px-1.5 py-0.5 text-xs text-earth-600">
               {CATEGORY_LABEL[wallet.plan.category] ?? wallet.plan.category}
             </span>
           </div>
-          <p className="mt-0.5 text-xs text-gray-400">
+          <p className="mt-0.5 text-xs text-earth-400">
             購入 NT$ {Number(wallet.purchasedPrice).toLocaleString()}
           </p>
         </div>
         <div className="text-right">
-          <span className="text-2xl font-bold text-indigo-700">{wallet.remainingSessions}</span>
-          <span className="text-sm text-gray-400"> / {wallet.totalSessions} 堂</span>
+          <span className="text-2xl font-bold text-primary-700">{wallet.remainingSessions}</span>
+          <span className="text-sm text-earth-400"> / {wallet.totalSessions} 堂</span>
         </div>
       </div>
 
       {/* Progress bar */}
-      <div className="mt-3 h-1.5 w-full rounded-full bg-gray-100">
+      <div className="mt-3 h-1.5 w-full rounded-full bg-earth-100">
         <div
           className={`h-1.5 rounded-full transition-all ${
-            isActive ? "bg-indigo-500" : "bg-gray-300"
+            isActive ? "bg-primary-500" : "bg-earth-300"
           }`}
           style={{ width: `${progressPct}%` }}
         />
       </div>
 
-      <div className="mt-2 flex items-center justify-between text-xs text-gray-400">
+      <div className="mt-2 flex items-center justify-between text-xs text-earth-400">
         <span>開始 {new Date(wallet.startDate).toLocaleDateString("zh-TW")}</span>
         <div className="flex items-center gap-2">
           {wallet.expiryDate && (
@@ -165,7 +165,7 @@ function WalletCard({
           <span className={`rounded px-1.5 py-0.5 ${
             wallet.status === "ACTIVE"
               ? "bg-green-100 text-green-700"
-              : "bg-gray-100 text-gray-500"
+              : "bg-earth-100 text-earth-500"
           }`}>
             {WALLET_STATUS_LABEL[wallet.status]}
           </span>

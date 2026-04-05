@@ -82,6 +82,53 @@ async function main() {
   console.log("  Staff created:", ownerStaff.displayName, managerBStaff.displayName, managerCStaff.displayName);
 
   // ============================================================
+  // 1b. Staff Permissions (RBAC)
+  // ============================================================
+
+  // Bob: 大部分權限（模擬「部分權限 Manager」）
+  const bobPermissions = [
+    "customer.read", "customer.create", "customer.update",
+    "booking.read", "booking.create", "booking.update",
+    "transaction.read", "transaction.create",
+    "wallet.read", "wallet.create",
+    "report.read",
+  ];
+  // Carol: 極少權限（模擬「極少權限 Manager」）
+  const carolPermissions = [
+    "customer.read",
+    "booking.read", "booking.create",
+  ];
+
+  const allPermCodes = [
+    "customer.read", "customer.create", "customer.update", "customer.assign", "customer.export",
+    "booking.read", "booking.create", "booking.update",
+    "transaction.read", "transaction.create",
+    "wallet.read", "wallet.create",
+    "report.read", "report.export",
+    "cashbook.read", "cashbook.create",
+  ];
+
+  await prisma.staffPermission.createMany({
+    data: allPermCodes.map((perm) => ({
+      staffId: managerBStaff.id,
+      permission: perm,
+      granted: bobPermissions.includes(perm),
+    })),
+    skipDuplicates: true,
+  });
+
+  await prisma.staffPermission.createMany({
+    data: allPermCodes.map((perm) => ({
+      staffId: managerCStaff.id,
+      permission: perm,
+      granted: carolPermissions.includes(perm),
+    })),
+    skipDuplicates: true,
+  });
+
+  console.log("  Permissions: Bob=", bobPermissions.length, "granted, Carol=", carolPermissions.length, "granted");
+
+  // ============================================================
   // 2. Service Plans
   // ============================================================
 

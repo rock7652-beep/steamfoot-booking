@@ -14,9 +14,11 @@ interface CalendarMonthProps {
   year: number;
   month: number;
   monthData: MonthSummaryDay[];
+  /** Base path for day view links. Defaults to "" (relative to current page). */
+  basePath?: string;
 }
 
-export function CalendarMonth({ year, month, monthData }: CalendarMonthProps) {
+export function CalendarMonth({ year, month, monthData, basePath = "" }: CalendarMonthProps) {
   const monthLabel = `${year}年${month}月`;
   const firstDayOfMonth = new Date(year, month - 1, 1).getDay();
   const daysInMonth = new Date(year, month, 0).getDate();
@@ -49,15 +51,15 @@ export function CalendarMonth({ year, month, monthData }: CalendarMonthProps) {
       {/* Month Navigation */}
       <div className="flex items-center justify-between">
         <Link
-          href={`?year=${prevYear}&month=${prevMonth}`}
-          className="rounded-lg border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50 active:bg-gray-100"
+          href={`${basePath}?year=${prevYear}&month=${prevMonth}`}
+          className="rounded-lg border border-earth-300 px-3 py-2 text-sm hover:bg-earth-50 active:bg-earth-100"
         >
           ←
         </Link>
-        <span className="text-base font-bold text-gray-900">{monthLabel}</span>
+        <span className="text-base font-bold text-earth-900">{monthLabel}</span>
         <Link
-          href={`?year=${nextYear}&month=${nextMonth}`}
-          className="rounded-lg border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50 active:bg-gray-100"
+          href={`${basePath}?year=${nextYear}&month=${nextMonth}`}
+          className="rounded-lg border border-earth-300 px-3 py-2 text-sm hover:bg-earth-50 active:bg-earth-100"
         >
           →
         </Link>
@@ -66,8 +68,8 @@ export function CalendarMonth({ year, month, monthData }: CalendarMonthProps) {
       {/* Today shortcut */}
       <div className="flex justify-center">
         <Link
-          href="/dashboard/bookings"
-          className="rounded-full bg-indigo-50 px-4 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-100"
+          href={basePath || "/dashboard/bookings"}
+          className="rounded-full bg-primary-50 px-4 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-100"
         >
           回到今天
         </Link>
@@ -75,25 +77,25 @@ export function CalendarMonth({ year, month, monthData }: CalendarMonthProps) {
 
       {/* Staff Color Legend */}
       {staffColorMap.size > 0 && (
-        <div className="flex flex-wrap gap-3 rounded-lg bg-gray-50 p-2.5">
+        <div className="flex flex-wrap gap-3 rounded-lg bg-earth-50 p-2.5">
           {Array.from(staffColorMap.entries()).map(([name, color]) => (
             <div key={name} className="flex items-center gap-1.5">
               <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }} />
-              <span className="text-xs text-gray-600">{name}</span>
+              <span className="text-xs text-earth-600">{name}</span>
             </div>
           ))}
         </div>
       )}
 
       {/* Calendar Grid */}
-      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+      <div className="overflow-hidden rounded-xl border border-earth-200 bg-white shadow-sm">
         {/* Weekday Headers */}
-        <div className="grid grid-cols-7 border-b border-gray-100 bg-gray-50">
+        <div className="grid grid-cols-7 border-b border-earth-100 bg-earth-50">
           {WEEKDAY_LABELS.map((label, i) => (
             <div
               key={label}
               className={`py-2 text-center text-xs font-semibold ${
-                i === 0 ? "text-red-400" : i === 6 ? "text-blue-400" : "text-gray-500"
+                i === 0 ? "text-red-400" : i === 6 ? "text-blue-400" : "text-earth-500"
               }`}
             >
               {label}
@@ -105,7 +107,7 @@ export function CalendarMonth({ year, month, monthData }: CalendarMonthProps) {
         <div className="grid grid-cols-7">
           {/* Empty cells */}
           {Array.from({ length: firstDayOfMonth }).map((_, i) => (
-            <div key={`empty-${i}`} className="border-b border-r border-gray-50 bg-gray-25 p-1.5 min-h-[3.5rem]" />
+            <div key={`empty-${i}`} className="border-b border-r border-earth-100 bg-earth-50 p-1.5 min-h-[3.5rem]" />
           ))}
 
           {/* Day cells */}
@@ -119,17 +121,17 @@ export function CalendarMonth({ year, month, monthData }: CalendarMonthProps) {
             return (
               <Link
                 key={day}
-                href={`?view=day&date=${dayKey}`}
-                className={`relative border-b border-r border-gray-50 p-1.5 min-h-[3.5rem] transition-colors active:bg-indigo-50 ${
-                  isToday ? "bg-indigo-50/60" : "hover:bg-gray-50"
+                href={basePath ? `${basePath}?view=day&date=${dayKey}` : `?view=day&date=${dayKey}`}
+                className={`relative border-b border-r border-earth-100 p-1.5 min-h-[3.5rem] transition-colors active:bg-primary-50 ${
+                  isToday ? "bg-primary-50/60" : "hover:bg-earth-50"
                 }`}
               >
                 {/* Day number */}
                 <div
                   className={`text-xs font-medium ${
                     isToday
-                      ? "flex h-5 w-5 items-center justify-center rounded-full bg-indigo-600 text-white"
-                      : "text-gray-700"
+                      ? "flex h-5 w-5 items-center justify-center rounded-full bg-primary-600 text-white"
+                      : "text-earth-700"
                   }`}
                 >
                   {day}
@@ -138,7 +140,7 @@ export function CalendarMonth({ year, month, monthData }: CalendarMonthProps) {
                 {/* Booking info */}
                 {hasBookings && (
                   <div className="mt-0.5 space-y-0.5">
-                    <div className="text-[10px] font-semibold text-indigo-600">
+                    <div className="text-[10px] font-semibold text-primary-600">
                       {dayData.totalBookingCount}筆
                     </div>
                     <div className="flex flex-wrap gap-0.5">

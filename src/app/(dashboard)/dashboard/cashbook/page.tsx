@@ -1,4 +1,7 @@
 import { listCashbookEntries, getMonthlySummary } from "@/server/queries/cashbook";
+import { getCurrentUser } from "@/lib/session";
+import { checkPermission } from "@/lib/permissions";
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import type { CashbookEntryType } from "@prisma/client";
 
@@ -13,7 +16,7 @@ const ENTRY_TYPE_COLOR: Record<CashbookEntryType, string> = {
   INCOME: "bg-green-100 text-green-700",
   EXPENSE: "bg-red-100 text-red-700",
   WITHDRAW: "bg-orange-100 text-orange-700",
-  ADJUSTMENT: "bg-gray-100 text-gray-600",
+  ADJUSTMENT: "bg-earth-100 text-earth-600",
 };
 
 interface PageProps {
@@ -25,6 +28,11 @@ interface PageProps {
 }
 
 export default async function CashbookPage({ searchParams }: PageProps) {
+  const user = await getCurrentUser();
+  if (!user || !(await checkPermission(user.role, user.staffId, "cashbook.read"))) {
+    redirect("/dashboard");
+  }
+
   const params = await searchParams;
   const page = Number(params.page ?? 1);
 
@@ -53,10 +61,10 @@ export default async function CashbookPage({ searchParams }: PageProps) {
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-xl font-bold text-gray-900">現金帳</h1>
+        <h1 className="text-xl font-bold text-earth-900">現金帳</h1>
         <Link
           href="/dashboard/cashbook/new"
-          className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+          className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
         >
           + 新增記帳
         </Link>
@@ -65,18 +73,18 @@ export default async function CashbookPage({ searchParams }: PageProps) {
       {/* 月份選擇 */}
       <form method="GET" className="mb-4 flex flex-wrap items-end gap-2">
         <div>
-          <label className="block text-xs text-gray-500">月份</label>
+          <label className="block text-xs text-earth-500">月份</label>
           <input
             name="month"
             type="month"
             defaultValue={month}
-            className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none"
+            className="rounded-lg border border-earth-300 px-3 py-1.5 text-sm focus:outline-none"
           />
         </div>
         <select
           name="type"
           defaultValue={params.type ?? ""}
-          className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none"
+          className="rounded-lg border border-earth-300 px-3 py-1.5 text-sm focus:outline-none"
         >
           <option value="">所有類型</option>
           {Object.entries(ENTRY_TYPE_LABEL).map(([k, v]) => (
@@ -87,7 +95,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
         </select>
         <button
           type="submit"
-          className="rounded-lg bg-gray-100 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-200"
+          className="rounded-lg bg-earth-100 px-3 py-1.5 text-sm text-earth-700 hover:bg-earth-200"
         >
           查詢
         </button>
@@ -107,13 +115,13 @@ export default async function CashbookPage({ searchParams }: PageProps) {
             NT$ {summary.expense.toLocaleString()}
           </p>
         </div>
-        <div className={`rounded-xl border p-4 ${summary.net >= 0 ? "bg-indigo-50" : "bg-orange-50"}`}>
-          <p className={`text-xs ${summary.net >= 0 ? "text-indigo-600" : "text-orange-600"}`}>
+        <div className={`rounded-xl border p-4 ${summary.net >= 0 ? "bg-primary-50" : "bg-orange-50"}`}>
+          <p className={`text-xs ${summary.net >= 0 ? "text-primary-600" : "text-orange-600"}`}>
             淨額
           </p>
           <p
             className={`text-xl font-bold ${
-              summary.net >= 0 ? "text-indigo-700" : "text-orange-700"
+              summary.net >= 0 ? "text-primary-700" : "text-orange-700"
             }`}
           >
             NT$ {summary.net.toLocaleString()}
@@ -122,30 +130,30 @@ export default async function CashbookPage({ searchParams }: PageProps) {
       </div>
 
       {/* 明細列表 */}
-      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+      <div className="overflow-hidden rounded-xl border border-earth-200 bg-white shadow-sm">
         <table className="min-w-full divide-y divide-gray-200 text-sm">
-          <thead className="bg-gray-50">
+          <thead className="bg-earth-50">
             <tr>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">日期</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">類型</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">分類</th>
-              <th className="px-4 py-3 text-right font-medium text-gray-600">金額</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">歸屬店長</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">備註</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">操作</th>
+              <th className="px-4 py-3 text-left font-medium text-earth-600">日期</th>
+              <th className="px-4 py-3 text-left font-medium text-earth-600">類型</th>
+              <th className="px-4 py-3 text-left font-medium text-earth-600">分類</th>
+              <th className="px-4 py-3 text-right font-medium text-earth-600">金額</th>
+              <th className="px-4 py-3 text-left font-medium text-earth-600">歸屬店長</th>
+              <th className="px-4 py-3 text-left font-medium text-earth-600">備註</th>
+              <th className="px-4 py-3 text-left font-medium text-earth-600">操作</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody className="divide-y divide-earth-100">
             {entries.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-gray-400">
+                <td colSpan={7} className="px-4 py-8 text-center text-earth-400">
                   尚無記錄
                 </td>
               </tr>
             )}
             {entries.map((e) => (
-              <tr key={e.id} className="hover:bg-gray-50">
-                <td className="px-4 py-3 text-gray-600">
+              <tr key={e.id} className="hover:bg-earth-50">
+                <td className="px-4 py-3 text-earth-600">
                   {new Date(e.entryDate).toLocaleDateString("zh-TW")}
                 </td>
                 <td className="px-4 py-3">
@@ -157,7 +165,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
                     {ENTRY_TYPE_LABEL[e.type]}
                   </span>
                 </td>
-                <td className="px-4 py-3 text-gray-600">{e.category ?? "—"}</td>
+                <td className="px-4 py-3 text-earth-600">{e.category ?? "—"}</td>
                 <td
                   className={`px-4 py-3 text-right font-medium ${
                     e.type === "INCOME" ? "text-green-700" : "text-red-700"
@@ -165,16 +173,16 @@ export default async function CashbookPage({ searchParams }: PageProps) {
                 >
                   NT$ {Number(e.amount).toLocaleString()}
                 </td>
-                <td className="px-4 py-3 text-gray-600">
+                <td className="px-4 py-3 text-earth-600">
                   {e.staff?.displayName ?? "未指定"}
                 </td>
-                <td className="max-w-xs truncate px-4 py-3 text-gray-400">
+                <td className="max-w-xs truncate px-4 py-3 text-earth-400">
                   {e.note ?? "—"}
                 </td>
                 <td className="px-4 py-3">
                   <Link
                     href={`/dashboard/cashbook/${e.id}/edit`}
-                    className="text-indigo-600 hover:underline"
+                    className="text-primary-600 hover:underline"
                   >
                     編輯
                   </Link>
@@ -186,7 +194,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
       </div>
 
       {totalPages > 1 && (
-        <div className="mt-4 flex items-center justify-between text-sm text-gray-600">
+        <div className="mt-4 flex items-center justify-between text-sm text-earth-600">
           <span>
             共 {total} 筆，第 {page} / {totalPages} 頁
           </span>
@@ -194,7 +202,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
             {page > 1 && (
               <Link
                 href={`?${new URLSearchParams({ ...params, page: String(page - 1) })}`}
-                className="rounded border px-3 py-1 hover:bg-gray-50"
+                className="rounded border px-3 py-1 hover:bg-earth-50"
               >
                 上一頁
               </Link>
@@ -202,7 +210,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
             {page < totalPages && (
               <Link
                 href={`?${new URLSearchParams({ ...params, page: String(page + 1) })}`}
-                className="rounded border px-3 py-1 hover:bg-gray-50"
+                className="rounded border px-3 py-1 hover:bg-earth-50"
               >
                 下一頁
               </Link>

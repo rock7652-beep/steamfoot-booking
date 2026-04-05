@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { requireStaffSession } from "@/lib/session";
+import { requirePermission } from "@/lib/permissions";
 import { AppError, handleActionError } from "@/lib/errors";
 import type { ActionResult } from "@/types";
 import type { CashbookEntryType } from "@prisma/client";
@@ -42,7 +42,7 @@ export async function createCashbookEntry(
   input: z.infer<typeof createCashbookEntrySchema>
 ): Promise<ActionResult<{ entryId: string }>> {
   try {
-    const user = await requireStaffSession();
+    const user = await requirePermission("cashbook.create");
     const data = createCashbookEntrySchema.parse(input);
 
     // Manager 若未指定 staffId，自動綁定自己
@@ -81,7 +81,7 @@ export async function updateCashbookEntry(
   input: z.infer<typeof updateCashbookEntrySchema>
 ): Promise<ActionResult<void>> {
   try {
-    const user = await requireStaffSession();
+    const user = await requirePermission("cashbook.create");
     const data = updateCashbookEntrySchema.parse(input);
 
     const entry = await prisma.cashbookEntry.findUnique({
@@ -122,7 +122,7 @@ export async function updateCashbookEntry(
 
 export async function deleteCashbookEntry(entryId: string): Promise<ActionResult<void>> {
   try {
-    await requireStaffSession(); // Owner 才能刪
+    await requirePermission("cashbook.create"); // Owner 才能刪
 
     const entry = await prisma.cashbookEntry.findUnique({ where: { id: entryId } });
     if (!entry) throw new AppError("NOT_FOUND", "現金帳紀錄不存在");

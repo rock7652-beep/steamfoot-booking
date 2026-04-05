@@ -39,9 +39,9 @@ export default async function CancelBookingPage({ params }: PageProps) {
   return (
     <div className="py-8">
       <div className="rounded-xl border border-red-100 bg-white p-6 shadow-sm">
-        <h1 className="mb-4 text-lg font-bold text-gray-900">取消預約確認</h1>
-        <div className="mb-6 rounded-lg bg-gray-50 p-4 text-sm">
-          <p className="text-gray-700">
+        <h1 className="mb-4 text-lg font-bold text-earth-900">取消預約確認</h1>
+        <div className="mb-6 rounded-lg bg-earth-50 p-4 text-sm">
+          <p className="text-earth-700">
             <strong>日期：</strong>
             {new Date(booking.bookingDate).toLocaleDateString("zh-TW", {
               year: "numeric",
@@ -50,11 +50,11 @@ export default async function CancelBookingPage({ params }: PageProps) {
               weekday: "short",
             })}
           </p>
-          <p className="mt-1 text-gray-700">
+          <p className="mt-1 text-earth-700">
             <strong>時段：</strong>{booking.slotTime}
           </p>
         </div>
-        <p className="mb-6 text-sm text-gray-500">
+        <p className="mb-6 text-sm text-earth-500">
           取消後課程堂數不會扣除，但請盡量提早通知以便安排其他顧客。
         </p>
         <div className="flex gap-3">
@@ -68,7 +68,7 @@ export default async function CancelBookingPage({ params }: PageProps) {
           </form>
           <Link
             href="/my-bookings"
-            className="rounded-lg border border-gray-300 px-5 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
+            className="rounded-lg border border-earth-300 px-5 py-2 text-sm font-medium text-earth-600 hover:bg-earth-50"
           >
             返回
           </Link>

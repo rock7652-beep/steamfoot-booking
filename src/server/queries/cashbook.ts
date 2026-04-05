@@ -34,8 +34,8 @@ export async function listCashbookEntries(options: ListCashbookOptions = {}) {
     ...(dateFrom || dateTo
       ? {
           entryDate: {
-            ...(dateFrom ? { gte: new Date(dateFrom + "T00:00:00") } : {}),
-            ...(dateTo ? { lte: new Date(dateTo + "T23:59:59") } : {}),
+            ...(dateFrom ? { gte: new Date(dateFrom + "T00:00:00Z") } : {}),
+            ...(dateTo ? { lte: new Date(dateTo + "T23:59:59Z") } : {}),
           },
         }
       : {}),
@@ -68,8 +68,8 @@ export async function getDailySummary(date: string) {
   const staffFilter =
     user.role === "MANAGER" && user.staffId ? { staffId: user.staffId } : {};
 
-  const dayStart = new Date(date + "T00:00:00");
-  const dayEnd = new Date(date + "T23:59:59");
+  const dayStart = new Date(date + "T00:00:00Z");
+  const dayEnd = new Date(date + "T23:59:59Z");
 
   const entries = await prisma.cashbookEntry.findMany({
     where: {
@@ -110,8 +110,8 @@ export async function getMonthlySummary(month: string) {
     user.role === "MANAGER" && user.staffId ? { staffId: user.staffId } : {};
 
   const [year, mon] = month.split("-").map(Number);
-  const monthStart = new Date(year, mon - 1, 1);
-  const monthEnd = new Date(year, mon, 0, 23, 59, 59); // last day of month
+  const monthStart = new Date(Date.UTC(year, mon - 1, 1));
+  const monthEnd = new Date(Date.UTC(year, mon, 0, 23, 59, 59)); // last day of month
 
   const aggregates = await prisma.cashbookEntry.groupBy({
     by: ["type"],

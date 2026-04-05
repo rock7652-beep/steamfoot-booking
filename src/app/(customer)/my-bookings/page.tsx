@@ -54,21 +54,21 @@ export default async function MyBookingsPage({ searchParams }: PageProps) {
 
   return (
     <div>
-      <h1 className="mb-6 text-xl font-bold text-gray-900">我的預約</h1>
+      <h1 className="mb-6 text-xl font-bold text-earth-900">我的預約</h1>
 
       {/* Tabs */}
-      <div className="mb-4 flex gap-2 border-b border-gray-200">
+      <div className="mb-4 flex gap-2 border-b border-earth-200">
         <Link
           href="?tab=upcoming"
           className={`px-4 py-2 text-sm font-medium ${
             tab === "upcoming"
-              ? "border-b-2 border-indigo-600 text-indigo-600"
-              : "text-gray-500 hover:text-gray-700"
+              ? "border-b-2 border-primary-600 text-primary-600"
+              : "text-earth-500 hover:text-earth-700"
           }`}
         >
           即將到來
           {upcoming.length > 0 && (
-            <span className="ml-1.5 rounded-full bg-indigo-100 px-1.5 py-0.5 text-xs text-indigo-700">
+            <span className="ml-1.5 rounded-full bg-primary-100 px-1.5 py-0.5 text-xs text-primary-700">
               {upcoming.length}
             </span>
           )}
@@ -77,8 +77,8 @@ export default async function MyBookingsPage({ searchParams }: PageProps) {
           href="?tab=history"
           className={`px-4 py-2 text-sm font-medium ${
             tab === "history"
-              ? "border-b-2 border-indigo-600 text-indigo-600"
-              : "text-gray-500 hover:text-gray-700"
+              ? "border-b-2 border-primary-600 text-primary-600"
+              : "text-earth-500 hover:text-earth-700"
           }`}
         >
           歷史紀錄
@@ -87,14 +87,14 @@ export default async function MyBookingsPage({ searchParams }: PageProps) {
 
       {/* Booking cards */}
       {displayed.length === 0 ? (
-        <div className="py-12 text-center text-gray-400">
+        <div className="py-12 text-center text-earth-400">
           {tab === "upcoming" ? (
             <>
               <div className="mb-2 text-3xl">📅</div>
               <p className="text-sm">尚無即將到來的預約</p>
               <Link
                 href="/book"
-                className="mt-3 inline-block rounded-lg bg-indigo-600 px-4 py-2 text-sm text-white hover:bg-indigo-700"
+                className="mt-3 inline-block rounded-lg bg-primary-600 px-4 py-2 text-sm text-white hover:bg-primary-700"
               >
                 立即預約
               </Link>
@@ -117,7 +117,7 @@ export default async function MyBookingsPage({ searchParams }: PageProps) {
             >
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="font-semibold text-gray-900">
+                  <p className="font-semibold text-earth-900">
                     {new Date(b.bookingDate).toLocaleDateString("zh-TW", {
                       year: "numeric",
                       month: "long",
@@ -125,14 +125,14 @@ export default async function MyBookingsPage({ searchParams }: PageProps) {
                       weekday: "short",
                     })}
                   </p>
-                  <p className="text-lg font-bold text-indigo-700">{b.slotTime}</p>
+                  <p className="text-lg font-bold text-primary-700">{b.slotTime}</p>
                 </div>
                 <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_COLOR[b.bookingStatus]}`}>
                   {STATUS_LABEL[b.bookingStatus]}
                 </span>
               </div>
 
-              <div className="mt-2 flex items-center gap-3 text-xs text-gray-500">
+              <div className="mt-2 flex items-center gap-3 text-xs text-earth-500">
                 <span>
                   類型：{BOOKING_TYPE_LABEL[b.bookingType] ?? b.bookingType}
                 </span>

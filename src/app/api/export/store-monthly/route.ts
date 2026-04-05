@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { checkPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
 
 function toCsv(rows: string[][]): string {
@@ -11,16 +12,16 @@ function toCsv(rows: string[][]): string {
 
 export async function GET(req: NextRequest) {
   const session = await auth();
-  if (!session?.user || session.user.role !== "OWNER") {
-    return new NextResponse("Forbidden — Owner only", { status: 403 });
-  }
+  if (!session?.user) return new NextResponse("Unauthorized", { status: 401 });
+  const allowed = await checkPermission(session.user.role, session.user.staffId, "report.export");
+  if (!allowed) return new NextResponse("Forbidden", { status: 403 });
 
   const { searchParams } = req.nextUrl;
   const month = searchParams.get("month") ?? new Date().toISOString().slice(0, 7);
 
   const [year, mon] = month.split("-").map(Number);
-  const monthStart = new Date(year, mon - 1, 1);
-  const monthEnd = new Date(year, mon, 0, 23, 59, 59);
+  const monthStart = new Date(Date.UTC(year, mon - 1, 1));
+  const monthEnd = new Date(Date.UTC(year, mon, 0, 23, 59, 59));
 
   const [txRows, cashRows, spaceFees, completedRows] = await Promise.all([
     prisma.transaction.groupBy({
@@ -47,15 +48,16 @@ export async function GET(req: NextRequest) {
     }),
   ]);
 
-  const staffIds = [...new Set(txRows.map((r) => r.revenueStaffId))];
+  const staffIds = [...new Set(txRows.map((r) => r.revenueStaffId).filter((id): id is string => id !== null))];
   const staffList = await prisma.staff.findMany({ where: { id: { in: staffIds } }, select: { id: true, displayName: true } });
-  const staffMap = Object.fromEntries(staffList.map((s) => [s.id, s.displayName]));
+  const staffMap: Record<string, string> = Object.fromEntries(staffList.map((s) => [s.id, s.displayName]));
 
   const byStaff: Record<string, { name: string; trial: number; single: number; package: number; supplement: number; refund: number; total: number; spaceFee: number; net: number; completed: number }> = {};
   for (const r of txRows) {
-    if (!byStaff[r.revenueStaffId]) byStaff[r.revenueStaffId] = { name: staffMap[r.revenueStaffId] ?? "未知", trial: 0, single: 0, package: 0, supplement: 0, refund: 0, total: 0, spaceFee: 0, net: 0, completed: 0 };
+    const sid = r.revenueStaffId ?? "unassigned";
+    if (!byStaff[sid]) byStaff[sid] = { name: staffMap[sid] ?? "未指派", trial: 0, single: 0, package: 0, supplement: 0, refund: 0, total: 0, spaceFee: 0, net: 0, completed: 0 };
     const amt = Number((r._sum as { amount: unknown }).amount ?? 0);
-    const s = byStaff[r.revenueStaffId];
+    const s = byStaff[sid];
     if (r.transactionType === "TRIAL_PURCHASE") { s.trial += amt; s.total += amt; }
     else if (r.transactionType === "SINGLE_PURCHASE") { s.single += amt; s.total += amt; }
     else if (r.transactionType === "PACKAGE_PURCHASE") { s.package += amt; s.total += amt; }
@@ -64,7 +66,8 @@ export async function GET(req: NextRequest) {
   }
   for (const b of completedRows) {
     const cnt = b._count as { id: number };
-    if (byStaff[b.revenueStaffId]) byStaff[b.revenueStaffId].completed = cnt.id;
+    const sid = b.revenueStaffId ?? "unassigned";
+    if (byStaff[sid]) byStaff[sid].completed = cnt.id;
   }
   for (const f of spaceFees) {
     if (byStaff[f.staffId]) {

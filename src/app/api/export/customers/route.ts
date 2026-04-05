@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { checkPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
 
 function toCsv(rows: string[][]): string {
@@ -27,7 +28,8 @@ const STAGE_ZH: Record<string, string> = {
 export async function GET() {
   const session = await auth();
   if (!session?.user) return new NextResponse("Unauthorized", { status: 401 });
-  if (session.user.role === "CUSTOMER") return new NextResponse("Forbidden", { status: 403 });
+  const allowed = await checkPermission(session.user.role, session.user.staffId, "customer.export");
+  if (!allowed) return new NextResponse("Forbidden", { status: 403 });
 
   // 所有店長可匯出全部顧客（共享查看）
   const customers = await prisma.customer.findMany({

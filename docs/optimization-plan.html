@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>蒸足預約系統 — 優化規劃文件</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #232734;
+    --border: #2e3348;
+    --text: #e4e6ed;
+    --text2: #9ca0b0;
+    --accent: #6366f1;
+    --accent2: #818cf8;
+    --green: #22c55e;
+    --orange: #f59e0b;
+    --red: #ef4444;
+    --blue: #3b82f6;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    padding: 2rem;
+  }
+  .container { max-width: 1100px; margin: 0 auto; }
+
+  /* Header */
+  .doc-header {
+    text-align: center;
+    padding: 3rem 0 2rem;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 3rem;
+  }
+  .doc-header h1 { font-size: 2rem; font-weight: 700; margin-bottom: 0.5rem; }
+  .doc-header .subtitle { color: var(--text2); font-size: 1rem; }
+  .doc-header .date { color: var(--accent2); font-size: 0.85rem; margin-top: 0.5rem; }
+
+  /* TOC */
+  .toc {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem 2rem;
+    margin-bottom: 3rem;
+  }
+  .toc h2 { font-size: 1rem; color: var(--text2); margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.05em; }
+  .toc ol { padding-left: 1.5rem; }
+  .toc li { margin-bottom: 0.4rem; }
+  .toc a { color: var(--accent2); text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+
+  /* Section */
+  .section {
+    margin-bottom: 3rem;
+    padding-bottom: 2rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .section:last-child { border-bottom: none; }
+  .section h2 {
+    font-size: 1.5rem;
+    color: var(--accent2);
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .section h2 .num {
+    background: var(--accent);
+    color: white;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+    font-weight: 700;
+  }
+  .section h3 {
+    font-size: 1.1rem;
+    margin: 1.5rem 0 0.75rem;
+    color: var(--text);
+  }
+  .section p { color: var(--text2); margin-bottom: 0.75rem; }
+
+  /* Wireframe */
+  .wireframe {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin: 1.5rem 0;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.75rem;
+    line-height: 1.5;
+  }
+  .wireframe-title {
+    background: var(--surface2);
+    padding: 0.5rem 1rem;
+    font-size: 0.8rem;
+    color: var(--text2);
+    border-bottom: 1px solid var(--border);
+    font-family: -apple-system, sans-serif;
+  }
+  .wireframe pre {
+    padding: 1rem;
+    overflow-x: auto;
+    white-space: pre;
+    color: var(--text2);
+  }
+  .wireframe .highlight { color: var(--accent2); }
+  .wireframe .green { color: var(--green); }
+  .wireframe .orange { color: var(--orange); }
+
+  /* Schema diff */
+  .schema-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin: 1rem 0;
+  }
+  .schema-block .label {
+    background: var(--surface2);
+    padding: 0.5rem 1rem;
+    font-size: 0.8rem;
+    color: var(--text2);
+    border-bottom: 1px solid var(--border);
+  }
+  .schema-block pre {
+    padding: 1rem;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.8rem;
+    line-height: 1.6;
+    overflow-x: auto;
+    white-space: pre;
+  }
+  .added { color: var(--green); }
+  .removed { color: var(--red); }
+  .unchanged { color: var(--text2); }
+  .comment { color: #6b7280; }
+
+  /* Table */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+    font-size: 0.9rem;
+  }
+  th, td {
+    padding: 0.6rem 0.8rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  th {
+    background: var(--surface2);
+    color: var(--text2);
+    font-weight: 600;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  td { color: var(--text2); }
+
+  /* Badge */
+  .badge {
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  .badge-new { background: rgba(34,197,94,0.15); color: var(--green); }
+  .badge-change { background: rgba(245,158,11,0.15); color: var(--orange); }
+  .badge-none { background: rgba(156,160,176,0.1); color: var(--text2); }
+
+  /* Phase */
+  .phase-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+    margin: 1rem 0;
+  }
+  .phase-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.25rem;
+  }
+  .phase-card .phase-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.5rem;
+    font-weight: 700;
+  }
+  .phase-card h4 { font-size: 1rem; margin-bottom: 0.5rem; color: var(--text); }
+  .phase-card ul { padding-left: 1.2rem; color: var(--text2); font-size: 0.9rem; }
+  .phase-card li { margin-bottom: 0.25rem; }
+  .p1 .phase-label { color: var(--green); }
+  .p2 .phase-label { color: var(--blue); }
+  .p3 .phase-label { color: var(--orange); }
+  .p4 .phase-label { color: var(--accent2); }
+
+  /* Flow diagram */
+  .flow {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin: 1rem 0;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.8rem;
+    line-height: 1.6;
+    overflow-x: auto;
+    white-space: pre;
+    color: var(--text2);
+  }
+
+  /* Note */
+  .note {
+    background: rgba(99,102,241,0.08);
+    border-left: 3px solid var(--accent);
+    padding: 1rem 1.25rem;
+    border-radius: 0 8px 8px 0;
+    margin: 1rem 0;
+    font-size: 0.9rem;
+    color: var(--text2);
+  }
+  .note strong { color: var(--text); }
+</style>
+</head>
+<body>
+<div class="container">
+
+<!-- Header -->
+<div class="doc-header">
+  <h1>蒸足預約系統 — 優化規劃文件</h1>
+  <div class="subtitle">UI/UX 重構 + RBAC 權限 + 報表強化 + 顧客邏輯調整</div>
+  <div class="date">2026-04-04 | Version 1.0</div>
+</div>
+
+<!-- TOC -->
+<div class="toc">
+  <h2>目錄</h2>
+  <ol>
+    <li><a href="#wireframe">UI Wireframe 草圖</a></li>
+    <li><a href="#schema">DB Schema 調整建議</a></li>
+    <li><a href="#rbac">RBAC 權限系統設計</a></li>
+    <li><a href="#api">API / Query 邏輯影響</a></li>
+    <li><a href="#order">實作順序</a></li>
+  </ol>
+</div>
+
+<!-- ============================================================ -->
+<!-- 1. WIREFRAME -->
+<!-- ============================================================ -->
+<div class="section" id="wireframe">
+  <h2><span class="num">1</span> UI Wireframe 草圖</h2>
+
+  <h3>1-A. 全域 Layout — 左側 Sidebar（可收合）</h3>
+  <p>目前是頂部 Header + 底部 Mobile Nav。改為左側 Sidebar，桌面常駐、手機漢堡選單觸發。</p>
+
+  <div class="wireframe">
+    <div class="wireframe-title">Desktop Layout（Sidebar 展開）</div>
+<pre>
+┌──────────────┬─────────────────────────────────────────────────┐
+│  <span class="highlight">蒸足系統</span>      │  Header: 頁面標題 + 使用者名稱 + 登出           │
+│              ├─────────────────────────────────────────────────┤
+│  <span class="green">■</span> 總覽       │                                                 │
+│  <span class="green">■</span> 預約管理    │              Main Content Area                  │
+│  <span class="green">■</span> 顧客管理    │                                                 │
+│  <span class="green">■</span> 方案管理    │              （依選中頁面切換）                   │
+│  <span class="green">■</span> 交易紀錄    │                                                 │
+│  <span class="green">■</span> 現金帳     │                                                 │
+│  ─────────── │                                                 │
+│  <span class="orange">■</span> 報表       │                                                 │
+│  <span class="orange">■</span> 員工管理    │                                                 │
+│  <span class="orange">■</span> 設定       │                                                 │
+│              │                                                 │
+│  [<span class="highlight">&lt;&lt;</span>] 收合   │                                                 │
+└──────────────┴─────────────────────────────────────────────────┘
+
+Sidebar 寬度：展開 240px / 收合 64px（只顯示 icon）
+</pre>
+  </div>
+
+  <div class="wireframe">
+    <div class="wireframe-title">Mobile Layout（Sidebar 收合為漢堡選單）</div>
+<pre>
+┌─────────────────────────────────────┐
+│ [☰]  蒸足系統    黃先生 ▾          │
+├─────────────────────────────────────┤
+│                                     │
+│         Main Content Area           │
+│                                     │
+│                                     │
+├─────────────────────────────────────┤
+│  🏠    📅    👥    💰    📊      │  ← 底部快捷列（保留 5 個常用）
+└─────────────────────────────────────┘
+
+點擊 [☰] → Sidebar 從左側滑出（overlay）
+</pre>
+  </div>
+
+  <div class="note">
+    <strong>設計重點：</strong>Sidebar 選項根據 RBAC 權限動態顯示。例如沒有 report.read 權限的店長看不到「報表」選項。收合狀態存在 localStorage。
+  </div>
+
+  <h3>1-B. 顧客管理頁 — 表格列表</h3>
+  <p>目前已經是表格，但需要優化欄位和互動。加強搜尋、批量操作。</p>
+
+  <div class="wireframe">
+    <div class="wireframe-title">顧客管理頁（/dashboard/customers）</div>
+<pre>
+┌─────────────────────────────────────────────────────────────┐
+│  顧客管理                              [+ 新增顧客]         │
+├─────────────────────────────────────────────────────────────┤
+│  🔍 搜尋姓名/電話/email    │ 篩選: [階段 ▾] [直屬店長 ▾]  │
+├────┬──────┬───────┬────────┬──────┬──────┬──────┬───────────┤
+│ #  │ 姓名  │ 電話   │ Email  │ 來源  │ 階段  │ 店長  │ 剩餘堂數  │
+├────┼──────┼───────┼────────┼──────┼──────┼──────┼───────────┤
+│ 1  │<span class="highlight">王小明</span>│0912...│w@g...  │<span class="green">GOOGLE</span>│<span class="green">ACTIVE</span>│ 李店長│    <span class="green">8</span>      │
+│ 2  │陳美麗 │0933...│c@g...  │MANUAL│<span class="orange">TRIAL</span> │ 未指派│    0      │
+│ 3  │林先生 │0955...│  —     │MANUAL│ LEAD │ 張店長│    0      │
+├────┴──────┴───────┴────────┴──────┴──────┴──────┴───────────┤
+│  共 42 位顧客                          &lt; 1 2 3 &gt;           │
+└─────────────────────────────────────────────────────────────┘
+
+<span class="highlight">新增欄位：</span>「來源」(authSource) — 顯示 GOOGLE / EMAIL / MANUAL
+<span class="highlight">互動：</span>點擊列 → 進入 /dashboard/customers/[id] 詳情頁
+</pre>
+  </div>
+
+  <h3>1-C. 新增預約頁 — 顧客 Autocomplete</h3>
+  <p>目前 /dashboard/bookings/new 已有 customer-search.tsx，需強化 autocomplete 體驗。</p>
+
+  <div class="wireframe">
+    <div class="wireframe-title">新增預約頁（/dashboard/bookings/new）</div>
+<pre>
+┌─────────────────────────────────────────────────────────────┐
+│  新增預約                                                    │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  顧客 *                                                     │
+│  ┌─────────────────────────────────────────────────┐        │
+│  │ 🔍 輸入姓名或電話搜尋...          <span class="highlight">王</span>             │        │
+│  ├─────────────────────────────────────────────────┤        │
+│  │  <span class="highlight">王小明</span>  0912-345-678  (李店長)  <span class="green">ACTIVE</span>          │  ← hit │
+│  │  <span class="highlight">王</span>大華  0933-222-111  (張店長)  TRIAL           │        │
+│  │  <span class="highlight">王</span>美玲  0955-888-999  (未指派)  LEAD            │        │
+│  └─────────────────────────────────────────────────┘        │
+│                                                             │
+│  日期 *          時段 *                                      │
+│  ┌───────────┐   ┌──────────────────────────────┐           │
+│  │ 2026-04-05│   │ ● 10:00 (2/6)  ○ 11:00 (5/6)│           │
+│  └───────────┘   │ ○ 14:00 (0/6)  ○ 15:00 (3/6)│           │
+│                  └──────────────────────────────┘           │
+│  類型 *              備註                                    │
+│  ┌───────────┐       ┌─────────────────────────┐            │
+│  │ 套餐扣堂 ▾│       │                         │            │
+│  └───────────┘       └─────────────────────────┘            │
+│                                                             │
+│                                     [取消]  [<span class="green">建立預約</span>]     │
+└─────────────────────────────────────────────────────────────┘
+
+<span class="highlight">Autocomplete 規格：</span>
+  - 至少輸入 1 字才觸發搜尋（debounce 300ms）
+  - 顯示：姓名 + 電話 + 直屬店長 + 階段
+  - 支援鍵盤 ↑↓ 選取 + Enter 確認
+</pre>
+  </div>
+
+  <h3>1-D. 報表頁 — 多維度日期篩選</h3>
+  <p>目前只支援「月」。需擴充為：單日 / 日期區間 / 月 / 季。</p>
+
+  <div class="wireframe">
+    <div class="wireframe-title">報表頁（/dashboard/reports）</div>
+<pre>
+┌─────────────────────────────────────────────────────────────┐
+│  營收報表                                        [匯出 CSV] │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  日期模式:  (<span class="green">●</span>) 單日  (○) 區間  (○) 月  (○) 季          │
+│                                                             │
+│  ┌─ 單日 ─────────────────────────────────────────┐         │
+│  │  日期: [2026-04-04]                    [查詢]  │         │
+│  └────────────────────────────────────────────────┘         │
+│                                                             │
+│  ┌─ 區間 ─────────────────────────────────────────┐         │
+│  │  起始: [2026-03-01]  結束: [2026-04-04] [查詢] │         │
+│  └────────────────────────────────────────────────┘         │
+│                                                             │
+│  ┌─ 月 ──────────────────────────────────────────┐          │
+│  │  年月: [2026-04 ▾]                     [查詢]  │          │
+│  └────────────────────────────────────────────────┘         │
+│                                                             │
+│  ┌─ 季 ──────────────────────────────────────────┐          │
+│  │  年度: [2026 ▾]  季度: [Q1 ▾]          [查詢]  │          │
+│  └────────────────────────────────────────────────┘         │
+│                                                             │
+│  ┌─ 總覽卡片 ────────────────────────────────────┐          │
+│  │  總營收: $128,000  退款: -$3,000               │          │
+│  │  完成預約: 45 次    淨營收: $125,000            │          │
+│  └────────────────────────────────────────────────┘         │
+│                                                             │
+│  ┌─ 店長明細 ────────────────────────────────────┐          │
+│  │ 店長   │ 顧客數 │ 服務次數 │ 營收    │ 佔比   │          │
+│  │ 李店長 │   12   │    28   │ $78,000 │ 62.4%  │          │
+│  │ 張店長 │    8   │    17   │ $47,000 │ 37.6%  │          │
+│  └────────────────────────────────────────────────┘         │
+│                                                             │
+│  ┌─ 方案類別明細 ────────────────────────────────┐          │
+│  │ 店長   │ 體驗   │ 單次    │ 套餐     │ 合計   │          │
+│  │ 李店長 │ $3,000 │ $5,000 │ $70,000  │$78,000 │          │
+│  │ 張店長 │ $1,500 │ $3,500 │ $42,000  │$47,000 │          │
+│  └────────────────────────────────────────────────┘         │
+└─────────────────────────────────────────────────────────────┘
+</pre>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- 2. SCHEMA -->
+<!-- ============================================================ -->
+<div class="section" id="schema">
+  <h2><span class="num">2</span> DB Schema 調整建議</h2>
+
+  <p>根據需求，Schema 需要以下變更。已完成的標記綠色。</p>
+
+  <h3>2-A. Customer Model 變更</h3>
+
+  <div class="schema-block">
+    <div class="label">prisma/schema.prisma — Customer</div>
+<pre>
+<span class="unchanged">model Customer {</span>
+<span class="unchanged">  id                 String        @id @default(cuid())</span>
+<span class="unchanged">  userId             String?       @unique</span>
+<span class="unchanged">  name               String</span>
+<span class="unchanged">  phone              String</span>
+<span class="unchanged">  email              String?       @unique</span>
+<span class="unchanged">  googleId           String?       @unique</span>
+<span class="added">  avatar             String?       // ✅ 已完成 — Google 大頭貼</span>
+<span class="added">  authSource         AuthSource    @default(MANUAL) // ✅ 已完成 — 來源</span>
+<span class="unchanged">  lineName           String?</span>
+<span class="unchanged">  notes              String?</span>
+<span class="unchanged">  assignedStaffId    String?       // ✅ 已 nullable — 建立時不需選店長</span>
+<span class="unchanged">  ...</span>
+<span class="unchanged">}</span>
+</pre>
+  </div>
+
+  <div class="note">
+    <strong>不需要額外改動：</strong>assignedStaffId 在原 schema 中已經是 nullable（String?），建立顧客時不選店長的需求已經被滿足。目前 createCustomer action 也已支援不傳 assignedStaffId。
+  </div>
+
+  <h3>2-B. StaffPermission — 已有 RBAC 基礎，無需改動</h3>
+
+  <div class="schema-block">
+    <div class="label">prisma/schema.prisma — StaffPermission（現有，不改動）</div>
+<pre>
+<span class="unchanged">model StaffPermission {</span>
+<span class="unchanged">  id         String  @id @default(cuid())</span>
+<span class="unchanged">  staffId    String</span>
+<span class="unchanged">  permission String  <span class="comment">// "customer.read", "booking.create", etc.</span></span>
+<span class="unchanged">  granted    Boolean @default(true)</span>
+<span class="unchanged">  @@unique([staffId, permission])</span>
+<span class="unchanged">}</span>
+</pre>
+  </div>
+
+  <p>Schema 層面已支援 RBAC，但目前 actions/queries 裡大多只檢查 role（OWNER/MANAGER），<strong>需要改為檢查 StaffPermission</strong>。</p>
+
+  <h3>2-C. Schema 總結 — 無須新增 Migration</h3>
+
+  <table>
+    <tr><th>Model</th><th>變更項目</th><th>狀態</th></tr>
+    <tr><td>Customer</td><td>新增 avatar, authSource</td><td><span class="badge badge-new">已完成</span></td></tr>
+    <tr><td>Customer</td><td>assignedStaffId nullable</td><td><span class="badge badge-none">原本就是</span></td></tr>
+    <tr><td>StaffPermission</td><td>RBAC key-value 權限表</td><td><span class="badge badge-none">原本就有</span></td></tr>
+    <tr><td>AuthSource enum</td><td>GOOGLE / EMAIL / MANUAL</td><td><span class="badge badge-new">已完成</span></td></tr>
+  </table>
+
+  <div class="note">
+    <strong>結論：</strong>DB Schema 不需要再跑 migration。所有需求都可以透過修改 application 層（UI + actions + queries）達成。
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- 3. RBAC -->
+<!-- ============================================================ -->
+<div class="section" id="rbac">
+  <h2><span class="num">3</span> RBAC 權限系統設計</h2>
+
+  <h3>3-A. 權限清單（已定義在 permissions.ts）</h3>
+
+  <table>
+    <tr><th>權限 Key</th><th>說明</th><th>Owner</th><th>Manager 預設</th></tr>
+    <tr><td>customer.read</td><td>查看所有顧客（共同服務）</td><td>✅</td><td>✅</td></tr>
+    <tr><td>customer.create</td><td>新增顧客</td><td>✅</td><td>✅</td></tr>
+    <tr><td>customer.update</td><td>修改顧客資料</td><td>✅</td><td>✅</td></tr>
+    <tr><td>customer.assign</td><td>指派/轉移顧客</td><td>✅</td><td>❌</td></tr>
+    <tr><td>customer.export</td><td>匯出顧客資料</td><td>✅</td><td>❌</td></tr>
+    <tr><td>booking.read</td><td>查看預約</td><td>✅</td><td>✅</td></tr>
+    <tr><td>booking.create</td><td>新增預約</td><td>✅</td><td>✅</td></tr>
+    <tr><td>booking.update</td><td>修改/取消預約</td><td>✅</td><td>✅</td></tr>
+    <tr><td>transaction.read</td><td>查看交易紀錄</td><td>✅</td><td>✅</td></tr>
+    <tr><td>transaction.create</td><td>新增交易（購課/扣堂）</td><td>✅</td><td>✅</td></tr>
+    <tr><td>wallet.read</td><td>查看課程錢包</td><td>✅</td><td>✅</td></tr>
+    <tr><td>wallet.create</td><td>指派方案</td><td>✅</td><td>❌</td></tr>
+    <tr><td>wallet.adjust</td><td>手動調整堂數</td><td>✅</td><td>❌</td></tr>
+    <tr><td>report.read</td><td>查看報表</td><td>✅</td><td>❌</td></tr>
+    <tr><td>report.export</td><td>匯出報表</td><td>✅</td><td>❌</td></tr>
+    <tr><td>cashbook.read</td><td>查看現金帳</td><td>✅</td><td>❌</td></tr>
+    <tr><td>cashbook.create</td><td>新增現金帳</td><td>✅</td><td>❌</td></tr>
+    <tr><td>staff.manage</td><td>員工管理</td><td>✅</td><td>❌</td></tr>
+  </table>
+
+  <h3>3-B. 權限檢查邏輯</h3>
+
+  <div class="flow">權限判斷流程：
+
+  Request 進入
+      │
+      ▼
+  是否已登入？ ──NO──▶ 401 Unauthorized
+      │ YES
+      ▼
+  Role = OWNER？ ──YES──▶ ✅ 全部放行（Owner 擁有所有權限）
+      │ NO
+      ▼
+  Role = MANAGER？
+      │ YES
+      ▼
+  查詢 StaffPermission 表
+      │
+      ▼
+  permission.granted = true？ ──NO──▶ 403 Forbidden
+      │ YES
+      ▼
+  ✅ 放行
+
+  <span style="color:#6366f1">資料範圍規則（Data Scope）：</span>
+
+  「customer.read」  → 所有店長都能看到<span style="color:#22c55e">全部</span>顧客（共同服務）
+  「transaction.*」  → 營收歸屬僅記錄<span style="color:#f59e0b">直屬店長</span>（revenueStaffId）
+  「report.read」    → Owner 看全店，Manager 只看<span style="color:#f59e0b">自己的</span>營收</div>
+
+  <h3>3-C. 主要改動點</h3>
+  <p>目前 actions/queries 裡的權限檢查大多是 requireStaffSession()（只檢查 OWNER 或 MANAGER），需改為使用 checkPermission()。</p>
+
+  <div class="schema-block">
+    <div class="label">改動前 vs 改動後</div>
+<pre>
+<span class="comment">// ❌ 目前：只區分 role</span>
+<span class="removed">const user = await requireStaffSession();</span>
+<span class="removed">if (user.role !== "OWNER") throw new Error("無權限");</span>
+
+<span class="comment">// ✅ 改後：使用細粒度 permission</span>
+<span class="added">const user = await requireStaffSession();</span>
+<span class="added">await checkPermission(user.role, user.staffId, "wallet.adjust");</span>
+</pre>
+  </div>
+
+  <h3>3-D. Sidebar 權限控制</h3>
+  <p>Sidebar 選項根據權限動態顯示：</p>
+
+  <table>
+    <tr><th>Sidebar 項目</th><th>需要的權限</th></tr>
+    <tr><td>總覽</td><td>任何已登入 staff</td></tr>
+    <tr><td>預約管理</td><td>booking.read</td></tr>
+    <tr><td>顧客管理</td><td>customer.read</td></tr>
+    <tr><td>方案管理</td><td>wallet.read</td></tr>
+    <tr><td>交易紀錄</td><td>transaction.read</td></tr>
+    <tr><td>現金帳</td><td>cashbook.read</td></tr>
+    <tr><td>報表</td><td>report.read</td></tr>
+    <tr><td>員工管理</td><td>staff.manage</td></tr>
+  </table>
+</div>
+
+<!-- ============================================================ -->
+<!-- 4. API -->
+<!-- ============================================================ -->
+<div class="section" id="api">
+  <h2><span class="num">4</span> API / Query 邏輯影響</h2>
+
+  <h3>4-A. 需改動的 Server Actions</h3>
+
+  <table>
+    <tr><th>Action</th><th>目前權限</th><th>改為</th><th>其他改動</th></tr>
+    <tr>
+      <td>createCustomer</td>
+      <td>requireStaffSession</td>
+      <td>checkPermission("customer.create")</td>
+      <td>確認 assignedStaffId 可為 null</td>
+    </tr>
+    <tr>
+      <td>updateCustomer</td>
+      <td>requireStaffSession + 自己的客戶</td>
+      <td>checkPermission("customer.update")</td>
+      <td>所有 Manager 都可修改基本資料</td>
+    </tr>
+    <tr>
+      <td>transferCustomer</td>
+      <td>requireOwnerSession</td>
+      <td>checkPermission("customer.assign")</td>
+      <td>—</td>
+    </tr>
+    <tr>
+      <td>assignPlanToCustomer</td>
+      <td>requireStaffSession</td>
+      <td>checkPermission("wallet.create")</td>
+      <td>—</td>
+    </tr>
+    <tr>
+      <td>adjustRemainingSessions</td>
+      <td>requireOwnerSession</td>
+      <td>checkPermission("wallet.adjust")</td>
+      <td>—</td>
+    </tr>
+    <tr>
+      <td>createBooking</td>
+      <td>requireStaffSession</td>
+      <td>checkPermission("booking.create")</td>
+      <td>—</td>
+    </tr>
+    <tr>
+      <td>cancelBooking</td>
+      <td>requireStaffSession + 自己客戶</td>
+      <td>checkPermission("booking.update")</td>
+      <td>—</td>
+    </tr>
+  </table>
+
+  <h3>4-B. 需改動的 Queries</h3>
+
+  <table>
+    <tr><th>Query</th><th>改動說明</th></tr>
+    <tr>
+      <td>listCustomers</td>
+      <td><span class="badge badge-none">不改</span> — 已支援全部店長查看全部顧客</td>
+    </tr>
+    <tr>
+      <td>searchCustomers</td>
+      <td><span class="badge badge-none">不改</span> — autocomplete 已可用，需前端 debounce 優化</td>
+    </tr>
+    <tr>
+      <td>monthlyStoreSummary</td>
+      <td><span class="badge badge-change">改動</span> — 支援 dateRange 參數（單日/區間/月/季）</td>
+    </tr>
+    <tr>
+      <td>monthlyRevenueByCategory</td>
+      <td><span class="badge badge-change">改動</span> — 同上，改為通用 dateRange</td>
+    </tr>
+  </table>
+
+  <h3>4-C. 報表 Query 重構</h3>
+  <p>現有的 monthlyStoreSummary 和 monthlyRevenueByCategory 只接受 year + month 參數。需要改為接收通用日期範圍。</p>
+
+  <div class="schema-block">
+    <div class="label">報表 Query 新介面</div>
+<pre>
+<span class="comment">// 新的通用日期範圍型別</span>
+<span class="added">type ReportDateRange = </span>
+<span class="added">  | { mode: "day";     date: string }                    // "2026-04-04"</span>
+<span class="added">  | { mode: "range";   startDate: string; endDate: string } // 自訂區間</span>
+<span class="added">  | { mode: "month";   year: number; month: number }     // 2026-04</span>
+<span class="added">  | { mode: "quarter"; year: number; quarter: 1|2|3|4 }  // 2026-Q1</span>
+
+<span class="comment">// 轉換為 startDate / endDate 的 helper</span>
+<span class="added">function resolveRange(range: ReportDateRange): { start: Date; end: Date }</span>
+
+<span class="comment">// 報表查詢統一改為接收 ReportDateRange</span>
+<span class="added">async function storeSummary(range: ReportDateRange) { ... }</span>
+<span class="added">async function revenueByCategory(range: ReportDateRange) { ... }</span>
+</pre>
+  </div>
+
+  <h3>4-D. 顧客管理 — 資料可見性規則</h3>
+
+  <div class="flow">資料可見性矩陣：
+
+  ┌──────────────────┬──────────────┬──────────────┬──────────────┐
+  │ 資料類別          │ Owner        │ Manager      │ Customer     │
+  ├──────────────────┼──────────────┼──────────────┼──────────────┤
+  │ 顧客基本資料      │ 全部          │ 全部          │ 僅自己        │
+  │ 顧客預約紀錄      │ 全部          │ 全部          │ 僅自己        │
+  │ 消費/儲值紀錄     │ 全部          │ 全部（僅查看） │ 僅自己        │
+  │ 營收歸屬          │ 全店          │ 自己的客戶     │ —            │
+  │ 報表              │ 全店 + 各店長 │ 僅自己數據     │ —            │
+  └──────────────────┴──────────────┴──────────────┴──────────────┘
+
+  <span style="color:#6366f1">核心原則：</span>
+  「看」可以共享（共同服務），「歸屬」只記直屬（營收分析）</div>
+</div>
+
+<!-- ============================================================ -->
+<!-- 5. 實作順序 -->
+<!-- ============================================================ -->
+<div class="section" id="order">
+  <h2><span class="num">5</span> 實作順序</h2>
+
+  <p>建議分 4 個 Phase，每個 Phase 可獨立部署上線。</p>
+
+  <div class="phase-grid">
+    <div class="phase-card p1">
+      <div class="phase-label">Phase 1 — Layout 重構（預估 1~2 天）</div>
+      <h4>左側 Sidebar + 全域 Layout</h4>
+      <ul>
+        <li>建立 Sidebar 元件（展開/收合 + localStorage 記憶）</li>
+        <li>建立 DashboardLayout 共用 layout，移除原有 bottom nav（桌面）</li>
+        <li>Mobile: 保留 bottom quick nav，加 hamburger 觸發 Sidebar overlay</li>
+        <li>Sidebar 項目根據 session.role + permissions 動態顯示</li>
+      </ul>
+    </div>
+
+    <div class="phase-card p2">
+      <div class="phase-label">Phase 2 — RBAC 權限落地（預估 1 天）</div>
+      <h4>細粒度權限檢查</h4>
+      <ul>
+        <li>新增 wallet.adjust 和 staff.manage 到 ALL_PERMISSIONS</li>
+        <li>所有 server actions 從 requireOwnerSession → checkPermission</li>
+        <li>Sidebar + 頁面按鈕 根據權限條件渲染</li>
+        <li>Owner 的「員工管理」頁面加入權限開關 UI（toggle 每個 permission）</li>
+      </ul>
+    </div>
+
+    <div class="phase-card p3">
+      <div class="phase-label">Phase 3 — 報表強化（預估 1 天）</div>
+      <h4>多維度日期篩選</h4>
+      <ul>
+        <li>建立 ReportDateRange 型別 + resolveRange helper</li>
+        <li>重構 storeSummary / revenueByCategory query</li>
+        <li>報表頁 UI: 日期模式切換（單日/區間/月/季）</li>
+        <li>Manager 的報表自動限制為自己的營收數據</li>
+      </ul>
+    </div>
+
+    <div class="phase-card p4">
+      <div class="phase-label">Phase 4 — UX 細節優化（預估 0.5 天）</div>
+      <h4>Autocomplete + 顧客列表微調</h4>
+      <ul>
+        <li>customer-search.tsx: 強化 debounce、鍵盤操作、顯示更多欄位</li>
+        <li>顧客列表: 加「來源」欄位（authSource badge）</li>
+        <li>顧客列表: 加「直屬店長」篩選 dropdown</li>
+        <li>確認 createCustomer 不強制 assignedStaffId</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="note">
+    <strong>建議：</strong>Phase 1 → 2 → 4 → 3 的順序也可以，取決於是先讓日常操作更順暢（Layout + RBAC + UX），還是先讓報表功能更完整。如果店長已經在使用系統，建議先做 Phase 1 + 2 + 4 讓體驗升級，報表最後補。
+  </div>
+</div>
+
+</div><!-- container -->
+</body>
+</html>

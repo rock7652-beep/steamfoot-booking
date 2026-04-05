@@ -173,6 +173,35 @@ export async function createDefaultPermissions(staffId: string): Promise<void> {
 }
 
 // ============================================================
+// requirePermission — 結合 session + 權限檢查
+// 用於 server actions / queries，無權限時拋 FORBIDDEN
+// ============================================================
+
+export async function requirePermission(permission: PermissionCode) {
+  const { requireStaffSession } = await import("@/lib/session");
+  const { AppError } = await import("@/lib/errors");
+  const user = await requireStaffSession();
+  if (user.role === "OWNER") return user;
+  const allowed = await checkPermission(user.role, user.staffId, permission);
+  if (!allowed) throw new AppError("FORBIDDEN", "您沒有此操作的權限");
+  return user;
+}
+
+// ============================================================
+// getUserPermissions — 取得使用者的所有已授權權限（供 layout 傳給 sidebar）
+// ============================================================
+
+export async function getUserPermissions(
+  role: UserRole,
+  staffId: string | null
+): Promise<PermissionCode[]> {
+  if (role === "OWNER") return [...ALL_PERMISSIONS];
+  if (role !== "MANAGER" || !staffId) return [];
+  const perms = await getStaffPermissions(staffId);
+  return Array.from(perms);
+}
+
+// ============================================================
 // 便捷函數（向後相容）
 // ============================================================
 

@@ -1,4 +1,7 @@
 import { listTransactions } from "@/server/queries/transaction";
+import { getCurrentUser } from "@/lib/session";
+import { checkPermission } from "@/lib/permissions";
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import type { TransactionType, PaymentMethod } from "@prisma/client";
 
@@ -16,7 +19,7 @@ const TX_TYPE_COLOR: Record<TransactionType, string> = {
   TRIAL_PURCHASE: "bg-purple-100 text-purple-700",
   SINGLE_PURCHASE: "bg-blue-100 text-blue-700",
   PACKAGE_PURCHASE: "bg-green-100 text-green-700",
-  SESSION_DEDUCTION: "bg-gray-100 text-gray-600",
+  SESSION_DEDUCTION: "bg-earth-100 text-earth-600",
   SUPPLEMENT: "bg-yellow-100 text-yellow-700",
   REFUND: "bg-red-100 text-red-700",
   ADJUSTMENT: "bg-orange-100 text-orange-700",
@@ -41,6 +44,11 @@ interface PageProps {
 }
 
 export default async function TransactionsPage({ searchParams }: PageProps) {
+  const user = await getCurrentUser();
+  if (!user || !(await checkPermission(user.role, user.staffId, "transaction.read"))) {
+    redirect("/dashboard");
+  }
+
   const params = await searchParams;
   const page = Number(params.page ?? 1);
 
@@ -73,37 +81,37 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Link href="/dashboard" className="text-sm text-gray-500 hover:text-gray-700">
+          <Link href="/dashboard" className="text-sm text-earth-500 hover:text-earth-700">
             ← 首頁
           </Link>
-          <h1 className="text-xl font-bold text-gray-900">交易紀錄</h1>
+          <h1 className="text-xl font-bold text-earth-900">交易紀錄</h1>
         </div>
       </div>
 
       {/* 篩選列 */}
       <form method="GET" className="mb-4 flex flex-wrap items-end gap-2">
         <div>
-          <label className="block text-xs text-gray-500">開始日期</label>
+          <label className="block text-xs text-earth-500">開始日期</label>
           <input
             name="dateFrom"
             type="date"
             defaultValue={dateFrom}
-            className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none"
+            className="rounded-lg border border-earth-300 px-3 py-1.5 text-sm focus:outline-none"
           />
         </div>
         <div>
-          <label className="block text-xs text-gray-500">結束日期</label>
+          <label className="block text-xs text-earth-500">結束日期</label>
           <input
             name="dateTo"
             type="date"
             defaultValue={dateTo}
-            className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none"
+            className="rounded-lg border border-earth-300 px-3 py-1.5 text-sm focus:outline-none"
           />
         </div>
         <select
           name="transactionType"
           defaultValue={params.transactionType ?? ""}
-          className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none"
+          className="rounded-lg border border-earth-300 px-3 py-1.5 text-sm focus:outline-none"
         >
           <option value="">所有類型</option>
           {Object.entries(TX_TYPE_LABEL).map(([k, v]) => (
@@ -114,47 +122,47 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
         </select>
         <button
           type="submit"
-          className="rounded-lg bg-gray-100 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-200"
+          className="rounded-lg bg-earth-100 px-3 py-1.5 text-sm text-earth-700 hover:bg-earth-200"
         >
           查詢
         </button>
       </form>
 
       {/* 快速統計 */}
-      <div className="mb-4 rounded-lg bg-indigo-50 px-4 py-3 text-sm text-indigo-800">
+      <div className="mb-4 rounded-lg bg-primary-50 px-4 py-3 text-sm text-primary-800">
         本頁收入合計：
         <strong className="ml-1">NT$ {pageRevenue.toLocaleString()}</strong>
-        <span className="ml-3 text-xs text-indigo-500">（共 {total} 筆交易）</span>
+        <span className="ml-3 text-xs text-primary-500">（共 {total} 筆交易）</span>
       </div>
 
       {/* 交易列表 */}
-      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+      <div className="overflow-hidden rounded-xl border border-earth-200 bg-white shadow-sm">
         <table className="min-w-full divide-y divide-gray-200 text-sm">
-          <thead className="bg-gray-50">
+          <thead className="bg-earth-50">
             <tr>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">日期</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">顧客</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">類型</th>
-              <th className="px-4 py-3 text-right font-medium text-gray-600">金額</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">付款方式</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">歸屬店長</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">備註</th>
+              <th className="px-4 py-3 text-left font-medium text-earth-600">日期</th>
+              <th className="px-4 py-3 text-left font-medium text-earth-600">顧客</th>
+              <th className="px-4 py-3 text-left font-medium text-earth-600">類型</th>
+              <th className="px-4 py-3 text-right font-medium text-earth-600">金額</th>
+              <th className="px-4 py-3 text-left font-medium text-earth-600">付款方式</th>
+              <th className="px-4 py-3 text-left font-medium text-earth-600">歸屬店長</th>
+              <th className="px-4 py-3 text-left font-medium text-earth-600">備註</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody className="divide-y divide-earth-100">
             {transactions.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-gray-400">
+                <td colSpan={7} className="px-4 py-8 text-center text-earth-400">
                   無交易紀錄
                 </td>
               </tr>
             )}
             {transactions.map((t) => (
-              <tr key={t.id} className="hover:bg-gray-50">
-                <td className="px-4 py-3 text-gray-600">
+              <tr key={t.id} className="hover:bg-earth-50">
+                <td className="px-4 py-3 text-earth-600">
                   {new Date(t.createdAt).toLocaleDateString("zh-TW")}
                 </td>
-                <td className="px-4 py-3 text-gray-900">{t.customer.name}</td>
+                <td className="px-4 py-3 text-earth-900">{t.customer.name}</td>
                 <td className="px-4 py-3">
                   <span
                     className={`rounded px-2 py-0.5 text-xs font-medium ${
@@ -166,17 +174,17 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
                 </td>
                 <td
                   className={`px-4 py-3 text-right font-medium ${
-                    Number(t.amount) < 0 ? "text-red-600" : "text-gray-900"
+                    Number(t.amount) < 0 ? "text-red-600" : "text-earth-900"
                   }`}
                 >
                   {Number(t.amount) < 0 ? "-" : ""}
                   NT$ {Math.abs(Number(t.amount)).toLocaleString()}
                 </td>
-                <td className="px-4 py-3 text-gray-600">
+                <td className="px-4 py-3 text-earth-600">
                   {PAY_METHOD_LABEL[t.paymentMethod]}
                 </td>
-                <td className="px-4 py-3 text-gray-600">{t.revenueStaff.displayName}</td>
-                <td className="max-w-xs truncate px-4 py-3 text-gray-400">
+                <td className="px-4 py-3 text-earth-600">{t.revenueStaff.displayName}</td>
+                <td className="max-w-xs truncate px-4 py-3 text-earth-400">
                   {t.note ?? "—"}
                 </td>
               </tr>
@@ -186,7 +194,7 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
       </div>
 
       {totalPages > 1 && (
-        <div className="mt-4 flex items-center justify-between text-sm text-gray-600">
+        <div className="mt-4 flex items-center justify-between text-sm text-earth-600">
           <span>
             共 {total} 筆，第 {page} / {totalPages} 頁
           </span>
@@ -194,7 +202,7 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
             {page > 1 && (
               <Link
                 href={`?${new URLSearchParams({ ...params, page: String(page - 1) })}`}
-                className="rounded border px-3 py-1 hover:bg-gray-50"
+                className="rounded border px-3 py-1 hover:bg-earth-50"
               >
                 上一頁
               </Link>
@@ -202,7 +210,7 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
             {page < totalPages && (
               <Link
                 href={`?${new URLSearchParams({ ...params, page: String(page + 1) })}`}
-                className="rounded border px-3 py-1 hover:bg-gray-50"
+                className="rounded border px-3 py-1 hover:bg-earth-50"
               >
                 下一頁
               </Link>

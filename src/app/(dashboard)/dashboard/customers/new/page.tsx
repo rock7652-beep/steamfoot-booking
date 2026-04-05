@@ -1,6 +1,7 @@
 import { listStaffSelectOptions } from "@/server/queries/staff";
 import { createCustomer } from "@/server/actions/customer";
 import { getCurrentUser } from "@/lib/session";
+import { checkPermission } from "@/lib/permissions";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 
@@ -9,7 +10,9 @@ interface PageProps {}
 export default async function NewCustomerPage({}: PageProps) {
   const user = await getCurrentUser();
   if (!user) notFound();
-  if (user.role === "CUSTOMER") redirect("/book");
+  if (!(await checkPermission(user.role, user.staffId, "customer.create"))) {
+    redirect("/dashboard");
+  }
 
   const staffOptions = await listStaffSelectOptions();
 
@@ -40,81 +43,81 @@ export default async function NewCustomerPage({}: PageProps) {
     <div className="max-w-2xl space-y-6">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <Link href="/dashboard/customers" className="text-sm text-gray-500 hover:text-gray-700">
+        <Link href="/dashboard/customers" className="text-sm text-earth-500 hover:text-earth-700">
           ← 顧客列表
         </Link>
       </div>
 
       {/* Form Card */}
       <div className="rounded-xl border bg-white p-6 shadow-sm">
-        <h1 className="mb-6 text-xl font-bold text-gray-900">新增顧客</h1>
+        <h1 className="mb-6 text-xl font-bold text-earth-900">新增顧客</h1>
 
         <form action={handleSubmit} className="space-y-4">
           {/* Name */}
           <div>
-            <label className="block text-sm font-medium text-gray-700">姓名</label>
+            <label className="block text-sm font-medium text-earth-700">姓名</label>
             <input
               type="text"
               name="name"
               required
-              className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
               placeholder="輸入顧客姓名"
             />
           </div>
 
           {/* Phone */}
           <div>
-            <label className="block text-sm font-medium text-gray-700">電話</label>
+            <label className="block text-sm font-medium text-earth-700">電話</label>
             <input
               type="tel"
               name="phone"
               required
-              className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
               placeholder="輸入電話號碼"
             />
           </div>
 
           {/* Line Name */}
           <div>
-            <label className="block text-sm font-medium text-gray-700">LINE 名稱</label>
+            <label className="block text-sm font-medium text-earth-700">LINE 名稱</label>
             <input
               type="text"
               name="lineName"
-              className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
               placeholder="輸入 LINE 名稱（選填）"
             />
           </div>
 
           {/* Notes */}
           <div>
-            <label className="block text-sm font-medium text-gray-700">備註</label>
+            <label className="block text-sm font-medium text-earth-700">備註</label>
             <textarea
               name="notes"
               rows={3}
-              className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
               placeholder="輸入備註（選填）"
             />
           </div>
 
           {/* Email */}
           <div>
-            <label className="block text-sm font-medium text-gray-700">Email</label>
+            <label className="block text-sm font-medium text-earth-700">Email</label>
             <input
               type="email"
               name="email"
-              className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
               placeholder="輸入 Email（選填，供 Google 綁定比對）"
             />
           </div>
 
           {/* Assigned Staff — 選填 */}
           <div>
-            <label className="block text-sm font-medium text-gray-700">
-              直屬店長 <span className="text-xs text-gray-400">（選填，可稍後指派）</span>
+            <label className="block text-sm font-medium text-earth-700">
+              直屬店長 <span className="text-xs text-earth-400">（選填，可稍後指派）</span>
             </label>
             <select
               name="assignedStaffId"
-              className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
             >
               <option value="">暫不指派</option>
               {staffOptions.map((s) => (
@@ -129,13 +132,13 @@ export default async function NewCustomerPage({}: PageProps) {
           <div className="flex gap-3 border-t pt-6">
             <button
               type="submit"
-              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+              className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
             >
               確認新增
             </button>
             <Link
               href="/dashboard/customers"
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              className="rounded-lg border border-earth-300 px-4 py-2 text-sm font-medium text-earth-700 hover:bg-earth-50"
             >
               取消
             </Link>

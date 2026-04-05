@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
-import { requireOwnerSession } from "@/lib/session";
+import { requirePermission } from "@/lib/permissions";
 import { AppError, handleActionError } from "@/lib/errors";
 import { createPlanSchema, updatePlanSchema } from "@/lib/validators/plan";
 import type { ActionResult } from "@/types";
@@ -16,7 +16,7 @@ export async function createPlan(
   input: z.infer<typeof createPlanSchema>
 ): Promise<ActionResult<{ planId: string }>> {
   try {
-    await requireOwnerSession();
+    await requirePermission("wallet.create");
     const data = createPlanSchema.parse(input);
 
     const plan = await prisma.servicePlan.create({
@@ -48,7 +48,7 @@ export async function updatePlan(
   input: z.infer<typeof updatePlanSchema>
 ): Promise<ActionResult<void>> {
   try {
-    await requireOwnerSession();
+    await requirePermission("wallet.create");
     const data = updatePlanSchema.parse(input);
 
     const plan = await prisma.servicePlan.findUnique({ where: { id: planId } });
@@ -72,7 +72,7 @@ export async function updatePlan(
 
 export async function deactivatePlan(planId: string): Promise<ActionResult<void>> {
   try {
-    await requireOwnerSession();
+    await requirePermission("wallet.create");
 
     const plan = await prisma.servicePlan.findUnique({ where: { id: planId } });
     if (!plan) throw new AppError("NOT_FOUND", "課程方案不存在");

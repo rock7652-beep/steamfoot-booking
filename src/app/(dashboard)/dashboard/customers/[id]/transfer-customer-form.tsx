@@ -5,7 +5,7 @@ import { transferCustomer } from "@/server/actions/customer";
 
 interface Props {
   customerId: string;
-  currentStaffId: string;
+  currentStaffId: string | null;
   staffList: { id: string; displayName: string }[];
 }
 
@@ -39,8 +39,8 @@ export function TransferCustomerForm({ customerId, currentStaffId, staffList }: 
     <form action={action} className="flex flex-wrap items-center gap-2">
       <select
         name="newStaffId"
-        defaultValue={currentStaffId}
-        className="rounded border border-gray-300 px-2 py-1 text-sm"
+        defaultValue={currentStaffId ?? undefined}
+        className="rounded border border-earth-300 px-2 py-1 text-sm"
       >
         {staffList.map((s) => (
           <option key={s.id} value={s.id}>{s.displayName}</option>
@@ -54,7 +54,7 @@ export function TransferCustomerForm({ customerId, currentStaffId, staffList }: 
       >
         {pending ? "轉讓中…" : "確認轉讓"}
       </button>
-      <button type="button" onClick={() => setOpen(false)} className="text-sm text-gray-400 hover:text-gray-600">
+      <button type="button" onClick={() => setOpen(false)} className="text-sm text-earth-400 hover:text-earth-600">
         取消
       </button>
     </form>

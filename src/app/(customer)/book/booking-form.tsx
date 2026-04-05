@@ -71,7 +71,7 @@ export function BookingForm({ customerId, selectedDate, slots, activeWallets }: 
 
   return (
     <div>
-      <p className="mb-3 text-xs text-gray-500">選擇時段</p>
+      <p className="mb-3 text-xs text-earth-500">選擇時段</p>
 
       {state.error && (
         <div className="mb-3 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-600">
@@ -89,8 +89,8 @@ export function BookingForm({ customerId, selectedDate, slots, activeWallets }: 
                 key={slot.startTime}
                 className={`relative flex cursor-pointer flex-col items-center rounded-xl border p-3 text-center transition-colors ${
                   isFull
-                    ? "cursor-not-allowed border-gray-200 bg-gray-50 opacity-50"
-                    : "border-gray-200 bg-white hover:border-indigo-400 hover:bg-indigo-50 has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-600 has-[:checked]:text-white"
+                    ? "cursor-not-allowed border-earth-200 bg-earth-50 opacity-50"
+                    : "border-earth-200 bg-white hover:border-primary-400 hover:bg-primary-50 has-[:checked]:border-primary-500 has-[:checked]:bg-primary-600 has-[:checked]:text-white"
                 }`}
               >
                 <input
@@ -102,7 +102,7 @@ export function BookingForm({ customerId, selectedDate, slots, activeWallets }: 
                   required
                 />
                 <span className="text-base font-bold">{slot.startTime}</span>
-                <span className={`mt-0.5 text-xs ${isFull ? "text-red-500" : "text-gray-400 has-[:checked]:text-indigo-200"}`}>
+                <span className={`mt-0.5 text-xs ${isFull ? "text-red-500" : "text-earth-400 has-[:checked]:text-primary-200"}`}>
                   {isFull ? "已額滿" : `剩 ${slot.available} 位`}
                 </span>
               </label>
@@ -111,16 +111,16 @@ export function BookingForm({ customerId, selectedDate, slots, activeWallets }: 
         </div>
 
         {availableSlots.length === 0 && (
-          <p className="text-center text-sm text-gray-400">今日所有時段已額滿</p>
+          <p className="text-center text-sm text-earth-400">今日所有時段已額滿</p>
         )}
 
         {/* Wallet selection (if multiple) */}
         {activeWallets.length > 1 && (
           <div>
-            <label className="mb-1 block text-xs text-gray-500">使用課程</label>
+            <label className="mb-1 block text-xs text-earth-500">使用課程</label>
             <select
               name="customerPlanWalletId"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
             >
               {activeWallets.map((w) => (
                 <option key={w.id} value={w.id}>
@@ -142,7 +142,7 @@ export function BookingForm({ customerId, selectedDate, slots, activeWallets }: 
           <button
             type="submit"
             disabled={pending}
-            className="w-full rounded-xl bg-indigo-600 py-3 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-60"
+            className="w-full rounded-xl bg-primary-600 py-3 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-60"
           >
             {pending ? "預約中…" : "確認預約"}
           </button>

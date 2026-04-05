@@ -1,5 +1,6 @@
 import { createPlan } from "@/server/actions/plan";
 import { getCurrentUser } from "@/lib/session";
+import { checkPermission } from "@/lib/permissions";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 
@@ -9,8 +10,9 @@ interface PageProps {}
 
 export default async function NewPlanPage({}: PageProps) {
   const user = await getCurrentUser();
-  if (!user) notFound();
-  if (user.role !== "OWNER") notFound();
+  if (!user || !(await checkPermission(user.role, user.staffId, "wallet.create"))) {
+    redirect("/dashboard");
+  }
 
   async function handleSubmit(formData: FormData) {
     "use server";
@@ -39,36 +41,36 @@ export default async function NewPlanPage({}: PageProps) {
     <div className="max-w-2xl space-y-6">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <Link href="/dashboard/plans" className="text-sm text-gray-500 hover:text-gray-700">
+        <Link href="/dashboard/plans" className="text-sm text-earth-500 hover:text-earth-700">
           ← 課程方案
         </Link>
       </div>
 
       {/* Form Card */}
       <div className="rounded-xl border bg-white p-6 shadow-sm">
-        <h1 className="mb-6 text-xl font-bold text-gray-900">新增課程方案</h1>
+        <h1 className="mb-6 text-xl font-bold text-earth-900">新增課程方案</h1>
 
         <form action={handleSubmit} className="space-y-4">
           {/* Name */}
           <div>
-            <label className="block text-sm font-medium text-gray-700">方案名稱</label>
+            <label className="block text-sm font-medium text-earth-700">方案名稱</label>
             <input
               type="text"
               name="name"
               required
-              className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
               placeholder="例：入門課程套餐"
             />
           </div>
 
           {/* Category */}
           <div>
-            <label className="block text-sm font-medium text-gray-700">類別</label>
+            <label className="block text-sm font-medium text-earth-700">類別</label>
             <select
               name="category"
               required
               defaultValue="SINGLE"
-              className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
             >
               <option value="TRIAL">體驗</option>
               <option value="SINGLE">單次</option>
@@ -78,65 +80,65 @@ export default async function NewPlanPage({}: PageProps) {
 
           {/* Price */}
           <div>
-            <label className="block text-sm font-medium text-gray-700">價格（元）</label>
+            <label className="block text-sm font-medium text-earth-700">價格（元）</label>
             <input
               type="number"
               name="price"
               required
               min="0"
               step="1"
-              className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
               placeholder="輸入價格"
             />
           </div>
 
           {/* Session Count */}
           <div>
-            <label className="block text-sm font-medium text-gray-700">堂數</label>
+            <label className="block text-sm font-medium text-earth-700">堂數</label>
             <input
               type="number"
               name="sessionCount"
               required
               min="1"
               step="1"
-              className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
               placeholder="輸入堂數"
             />
           </div>
 
           {/* Validity Days */}
           <div>
-            <label className="block text-sm font-medium text-gray-700">有效天數（選填）</label>
+            <label className="block text-sm font-medium text-earth-700">有效天數（選填）</label>
             <input
               type="number"
               name="validityDays"
               min="1"
               step="1"
-              className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
               placeholder="輸入有效天數，留空表示無期限"
             />
           </div>
 
           {/* Description */}
           <div>
-            <label className="block text-sm font-medium text-gray-700">描述（選填）</label>
+            <label className="block text-sm font-medium text-earth-700">描述（選填）</label>
             <textarea
               name="description"
               rows={3}
-              className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
               placeholder="輸入方案描述"
             />
           </div>
 
           {/* Sort Order */}
           <div>
-            <label className="block text-sm font-medium text-gray-700">排序（選填）</label>
+            <label className="block text-sm font-medium text-earth-700">排序（選填）</label>
             <input
               type="number"
               name="sortOrder"
               min="0"
               step="1"
-              className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
               placeholder="數字越小越靠前，預設 0"
             />
           </div>
@@ -145,13 +147,13 @@ export default async function NewPlanPage({}: PageProps) {
           <div className="flex gap-3 border-t pt-6">
             <button
               type="submit"
-              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+              className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
             >
               確認新增
             </button>
             <Link
               href="/dashboard/plans"
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              className="rounded-lg border border-earth-300 px-4 py-2 text-sm font-medium text-earth-700 hover:bg-earth-50"
             >
               取消
             </Link>

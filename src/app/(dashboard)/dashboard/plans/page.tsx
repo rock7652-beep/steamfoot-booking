@@ -1,5 +1,7 @@
 import { listPlans } from "@/server/queries/plan";
 import { getCurrentUser } from "@/lib/session";
+import { checkPermission } from "@/lib/permissions";
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import type { PlanCategory } from "@prisma/client";
 
@@ -23,7 +25,10 @@ export default async function PlansPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const showAll = params.showAll === "1";
   const user = await getCurrentUser();
-  const isOwner = user?.role === "OWNER";
+  if (!user || !(await checkPermission(user.role, user.staffId, "wallet.read"))) {
+    redirect("/dashboard");
+  }
+  const isOwner = user.role === "OWNER";
 
   const plans = await listPlans(showAll);
 
@@ -31,16 +36,16 @@ export default async function PlansPage({ searchParams }: PageProps) {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Link href="/dashboard" className="text-sm text-gray-500 hover:text-gray-700">
+          <Link href="/dashboard" className="text-sm text-earth-500 hover:text-earth-700">
             ← 首頁
           </Link>
-          <h1 className="text-xl font-bold text-gray-900">課程方案</h1>
+          <h1 className="text-xl font-bold text-earth-900">課程方案</h1>
         </div>
         <div className="flex gap-2">
           {isOwner && (
             <Link
               href="/dashboard/plans/new"
-              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+              className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
             >
               + 新增方案
             </Link>
@@ -54,8 +59,8 @@ export default async function PlansPage({ searchParams }: PageProps) {
           href="?showAll=0"
           className={`rounded-lg px-3 py-1.5 text-sm ${
             !showAll
-              ? "bg-indigo-600 text-white"
-              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+              ? "bg-primary-600 text-white"
+              : "bg-earth-100 text-earth-700 hover:bg-earth-200"
           }`}
         >
           上架中
@@ -64,8 +69,8 @@ export default async function PlansPage({ searchParams }: PageProps) {
           href="?showAll=1"
           className={`rounded-lg px-3 py-1.5 text-sm ${
             showAll
-              ? "bg-indigo-600 text-white"
-              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+              ? "bg-primary-600 text-white"
+              : "bg-earth-100 text-earth-700 hover:bg-earth-200"
           }`}
         >
           全部（含下架）
@@ -74,7 +79,7 @@ export default async function PlansPage({ searchParams }: PageProps) {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {plans.length === 0 && (
-          <p className="text-gray-400">尚無課程方案</p>
+          <p className="text-earth-400">尚無課程方案</p>
         )}
         {plans.map((plan) => (
           <div
@@ -97,22 +102,22 @@ export default async function PlansPage({ searchParams }: PageProps) {
                 </span>
               )}
             </div>
-            <h2 className="text-base font-bold text-gray-900">{plan.name}</h2>
-            <p className="mt-1 text-lg font-semibold text-indigo-700">
+            <h2 className="text-base font-bold text-earth-900">{plan.name}</h2>
+            <p className="mt-1 text-lg font-semibold text-primary-700">
               NT$ {Number(plan.price).toLocaleString()}
             </p>
-            <p className="text-sm text-gray-500">{plan.sessionCount} 堂</p>
+            <p className="text-sm text-earth-500">{plan.sessionCount} 堂</p>
             {plan.validityDays && (
-              <p className="text-xs text-gray-400">有效 {plan.validityDays} 天</p>
+              <p className="text-xs text-earth-400">有效 {plan.validityDays} 天</p>
             )}
             {plan.description && (
-              <p className="mt-2 text-xs text-gray-500">{plan.description}</p>
+              <p className="mt-2 text-xs text-earth-500">{plan.description}</p>
             )}
             {isOwner && (
               <div className="mt-3 border-t pt-3">
                 <Link
                   href={`/dashboard/plans/${plan.id}/edit`}
-                  className="text-sm text-indigo-600 hover:underline"
+                  className="text-sm text-primary-600 hover:underline"
                 >
                   編輯
                 </Link>

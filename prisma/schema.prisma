@@ -36,6 +36,12 @@ enum CustomerStage {
   INACTIVE  // 曾購課但目前無有效課程
 }
 
+enum AuthSource {
+  GOOGLE    // Google OAuth 註冊
+  EMAIL     // Email/密碼註冊
+  MANUAL    // 店長手動建立
+}
+
 enum PlanCategory {
   TRIAL     // 體驗
   SINGLE    // 單次
@@ -227,8 +233,10 @@ model Customer {
   userId             String?       @unique // nullable: 有些顧客不一定有登入帳號
   name               String
   phone              String
-  email              String?       // 用於 Google 綁定比對
+  email              String?       @unique // 用於 Google 綁定比對（unique 確保一對一綁定）
   googleId           String?       @unique // Google sub ID，避免 email 變更造成重複
+  avatar             String?       // Google 大頭貼 URL（未來 UI 用）
+  authSource         AuthSource    @default(MANUAL) // 顧客來源（分析用）
   lineName           String?       // LINE 顯示名稱
   notes              String?       // 內部備註
   assignedStaffId    String?       // 直屬店長（nullable: 建立時可不指派）
@@ -255,8 +263,7 @@ model Customer {
   @@index([assignedStaffId])
   @@index([customerStage])
   @@index([phone])
-  @@index([email])
-  @@index([googleId])
+  // email 和 googleId 已有 @unique，自帶索引
 }
 
 // ============================================================
