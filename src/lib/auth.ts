@@ -59,7 +59,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         const user = await prisma.user.findUnique({
           where: { email },
-          include: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            passwordHash: true,
+            role: true,
+            status: true,
             staff: { select: { id: true } },
             customer: { select: { id: true } },
           },
@@ -98,15 +104,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         const user = await prisma.user.findUnique({
           where: { phone },
-          include: {
-            staff: { select: { id: true } },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            passwordHash: true,
+            role: true,
+            status: true,
             customer: { select: { id: true } },
           },
         });
 
         if (!user || !user.passwordHash) return null;
         if (user.status !== "ACTIVE") return null;
-        // 此 provider 僅限 CUSTOMER
         if (user.role !== "CUSTOMER") return null;
 
         const valid = compareSync(password, user.passwordHash);
@@ -126,6 +136,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
   callbacks: {
     // Persist custom fields to JWT
+    // 🔧 效能優化：只在登入時寫入 JWT，後續請求直接從 token 讀取
+    // 不再每次 request 都查 DB。若需要即時反映 role 變更，使用者重新登入即可。
     async jwt({ token, user }) {
       if (user) {
         const appToken = token as unknown as AppJWT;
@@ -136,25 +148,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           appToken.staffId = appUser.staffId ?? null;
           appToken.customerId = appUser.customerId ?? null;
         }
-      } else {
-        // Subsequent requests — refresh from DB
-        if (token.sub) {
-          const dbUser = await prisma.user.findUnique({
-            where: { id: token.sub as string },
-            include: {
-              customer: { select: { id: true } },
-              staff: { select: { id: true } },
-            },
-          });
-
-          if (dbUser) {
-            const appToken = token as unknown as AppJWT;
-            appToken.role = dbUser.role;
-            appToken.staffId = dbUser.staff?.id ?? null;
-            appToken.customerId = dbUser.customer?.id ?? null;
-          }
-        }
       }
+      // ⚡ 移除 else 區塊的 DB 查詢 — 這是最大效能瓶頸
+      // 原本每次 request 都會 SELECT user + JOIN customer + JOIN staff
       return token;
     },
 

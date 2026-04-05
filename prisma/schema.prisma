@@ -375,7 +375,9 @@ model Booking {
 
   @@index([bookingDate])
   @@index([bookingDate, slotTime])          // 查詢某天某時段預約數
+  @@index([bookingDate, bookingStatus])     // ⚡ 月曆統計（groupBy date + status filter）
   @@index([customerId])
+  @@index([customerId, bookingStatus])      // ⚡ 顧客未來預約數查詢
   @@index([revenueStaffId])
   @@index([revenueStaffId, bookingDate])    // 店長月報查詢
   @@index([bookingStatus])

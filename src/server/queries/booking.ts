@@ -94,15 +94,24 @@ export async function listBookings(options: ListBookingsOptions = {}) {
       : {}),
   };
 
-  const [bookings, total] = await Promise.all([
-    prisma.booking.findMany({
-      where,
-      include: {
+  // ⚡ Customer 不需要 customer/serviceStaff include（自己看自己的）
+  const isCustomer = user.role === "CUSTOMER";
+  const includeFields = isCustomer
+    ? {
+        revenueStaff: { select: { id: true, displayName: true, colorCode: true } },
+        servicePlan: { select: { id: true, name: true } },
+      }
+    : {
         customer: { select: { id: true, name: true, phone: true } },
         revenueStaff: { select: { id: true, displayName: true, colorCode: true } },
         serviceStaff: { select: { id: true, displayName: true } },
         servicePlan: { select: { id: true, name: true } },
-      },
+      };
+
+  const [bookings, total] = await Promise.all([
+    prisma.booking.findMany({
+      where,
+      include: includeFields,
       orderBy: [{ bookingDate: "desc" }, { slotTime: "asc" }],
       skip: (page - 1) * pageSize,
       take: pageSize,
@@ -241,57 +250,77 @@ export async function getMonthBookingSummary(year: number, month: number) {
   const user = await requireStaffSession();
 
   const startDate = new Date(Date.UTC(year, month - 1, 1));
-  const endDate = new Date(Date.UTC(year, month, 0)); // last day of month
+  const endDate = new Date(Date.UTC(year, month, 0));
 
-  // Manager 也能看全部預約（共享查看）
-  // 取該月份所有預約
-  const bookings = await prisma.booking.findMany({
-    where: {
-      bookingDate: { gte: startDate, lte: endDate },
-      bookingStatus: { in: ["PENDING", "CONFIRMED", "COMPLETED", "NO_SHOW"] },
-    },
-    include: {
-      revenueStaff: { select: { id: true, displayName: true, colorCode: true } },
-      customer: { select: { assignedStaff: { select: { id: true, displayName: true, colorCode: true } } } },
-    },
-  });
+  // ⚡ 優化：用 groupBy 取每日統計，避免 fetch 整月所有 booking 行
+  const [dailyCounts, staffCounts] = await Promise.all([
+    prisma.booking.groupBy({
+      by: ["bookingDate"],
+      where: {
+        bookingDate: { gte: startDate, lte: endDate },
+        bookingStatus: { in: ["PENDING", "CONFIRMED", "COMPLETED", "NO_SHOW"] },
+      },
+      _count: { id: true },
+    }),
+    prisma.booking.groupBy({
+      by: ["bookingDate", "revenueStaffId"],
+      where: {
+        bookingDate: { gte: startDate, lte: endDate },
+        bookingStatus: { in: ["PENDING", "CONFIRMED", "COMPLETED", "NO_SHOW"] },
+        revenueStaffId: { not: null },
+      },
+      _count: { id: true },
+    }),
+  ]);
 
-  // 按日期分組統計
-  const dailyStats = new Map<
-    string,
-    { total: number; staffStats: Map<string, { staffName: string; colorCode: string; count: number }> }
-  >();
+  // 取涉及的 staff 名稱
+  const staffIds = [...new Set(staffCounts.map((s) => s.revenueStaffId!).filter(Boolean))];
+  const staffList = staffIds.length > 0
+    ? await prisma.staff.findMany({
+        where: { id: { in: staffIds } },
+        select: { id: true, displayName: true, colorCode: true },
+      })
+    : [];
+  const staffMap = new Map(staffList.map((s) => [s.id, s]));
+
+  // 組裝每日資料
+  const dailyMap = new Map<string, { total: number; staffBookings: { staffName: string; colorCode: string; count: number }[] }>();
 
   for (let day = 1; day <= endDate.getDate(); day++) {
     const dateKey = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    dailyStats.set(dateKey, { total: 0, staffStats: new Map() });
+    dailyMap.set(dateKey, { total: 0, staffBookings: [] });
   }
 
-  for (const booking of bookings) {
-    const dateKey = booking.bookingDate.toISOString().slice(0, 10);
-    const dayData = dailyStats.get(dateKey);
-    if (!dayData) continue;
-
-    // 用 revenueStaff 或 customer.assignedStaff 來識別
-    const staff = booking.revenueStaff || booking.customer?.assignedStaff;
-    dayData.total++;
-
-    if (staff) {
-      let staffStat = dayData.staffStats.get(staff.id);
-      if (!staffStat) {
-        staffStat = { staffName: staff.displayName, colorCode: staff.colorCode, count: 0 };
-        dayData.staffStats.set(staff.id, staffStat);
-      }
-      staffStat.count++;
-    }
+  for (const row of dailyCounts) {
+    const dateKey = row.bookingDate.toISOString().slice(0, 10);
+    const entry = dailyMap.get(dateKey);
+    if (entry) entry.total = row._count.id;
   }
 
-  // 轉換為陣列格式
-  const result = Array.from(dailyStats.entries()).map(([dateStr, data]) => ({
+  // 按日期+staff 組裝
+  const staffByDate = new Map<string, Map<string, number>>();
+  for (const row of staffCounts) {
+    const dateKey = row.bookingDate.toISOString().slice(0, 10);
+    if (!staffByDate.has(dateKey)) staffByDate.set(dateKey, new Map());
+    staffByDate.get(dateKey)!.set(row.revenueStaffId!, row._count.id);
+  }
+
+  for (const [dateKey, staffCountMap] of staffByDate) {
+    const entry = dailyMap.get(dateKey);
+    if (!entry) continue;
+    entry.staffBookings = Array.from(staffCountMap.entries()).map(([sid, count]) => {
+      const staff = staffMap.get(sid);
+      return {
+        staffName: staff?.displayName ?? "Unknown",
+        colorCode: staff?.colorCode ?? "#999",
+        count,
+      };
+    });
+  }
+
+  return Array.from(dailyMap.entries()).map(([dateStr, data]) => ({
     date: dateStr,
     totalBookingCount: data.total,
-    staffBookings: Array.from(data.staffStats.values()),
+    staffBookings: data.staffBookings,
   }));
-
-  return result;
 }
