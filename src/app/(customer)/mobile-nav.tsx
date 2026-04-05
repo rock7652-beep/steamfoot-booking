@@ -4,12 +4,62 @@ import { useState } from "react";
 import Link from "next/link";
 import { logoutAction } from "@/server/actions/auth";
 
+// SVG icon paths (Heroicons outline, 24x24 viewBox) — 與桌面版 sidebar 共用同一套
+const ICON_PATHS: Record<string, string[]> = {
+  home: [
+    "M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12",
+    "M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75",
+  ],
+  plus: ["M12 4.5v15m7.5-7.5h-15"],
+  calendar: [
+    "M6.75 3v2.25M17.25 3v2.25",
+    "M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5",
+  ],
+  wallet: [
+    "M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 110-6h5.25A2.25 2.25 0 0121 6v6z",
+    "M21 12v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18V6a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 6",
+  ],
+  user: [
+    "M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z",
+    "M4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z",
+  ],
+  external: [
+    "M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5",
+    "M7.5 16.5L21 3m0 0h-5.25M21 3v5.25",
+  ],
+  logout: [
+    "M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15",
+    "M18.75 12l3-3m0 0l-3-3m3 3H9",
+  ],
+};
+
+function NavIcon({ name, className = "" }: { name: string; className?: string }) {
+  const paths = ICON_PATHS[name] ?? ICON_PATHS.home;
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={`flex-shrink-0 ${className}`}
+    >
+      {paths.map((d, i) => (
+        <path key={i} d={d} />
+      ))}
+    </svg>
+  );
+}
+
 const NAV_ITEMS = [
-  { href: "/book", label: "首頁", icon: "🏠" },
-  { href: "/book/new", label: "新增預約", icon: "📅" },
-  { href: "/my-bookings", label: "我的預約", icon: "📋" },
-  { href: "/my-plans", label: "我的方案", icon: "💎" },
-  { href: "/profile", label: "我的資料", icon: "👤" },
+  { href: "/book", label: "首頁", icon: "home" },
+  { href: "/book/new", label: "新增預約", icon: "plus" },
+  { href: "/my-bookings", label: "我的預約", icon: "calendar" },
+  { href: "/my-plans", label: "我的方案", icon: "wallet" },
+  { href: "/profile", label: "我的資料", icon: "user" },
 ];
 
 export function MobileNav({ userName, pathname }: { userName: string; pathname: string }) {
@@ -86,7 +136,7 @@ export function MobileNav({ userName, pathname }: { userName: string; pathname: 
                     : "text-earth-600 hover:bg-earth-50"
                 }`}
               >
-                <span className="text-base">{item.icon}</span>
+                <NavIcon name={item.icon} className={isActive ? "text-primary-600" : "text-earth-400"} />
                 {item.label}
               </Link>
             );
@@ -99,9 +149,8 @@ export function MobileNav({ userName, pathname }: { userName: string; pathname: 
             onClick={() => setOpen(false)}
             className="mb-1 flex items-center gap-3 rounded-lg px-4 py-3 text-sm text-earth-600 hover:bg-earth-50 transition"
           >
-            <span className="text-base">📊</span>
+            <NavIcon name="external" className="text-earth-400" />
             身體指數
-            <span className="ml-auto text-xs text-earth-300">&#8599;</span>
           </a>
         </div>
 
@@ -111,7 +160,7 @@ export function MobileNav({ userName, pathname }: { userName: string; pathname: 
               type="submit"
               className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-sm text-earth-400 hover:bg-earth-50 hover:text-earth-600 transition"
             >
-              <span className="text-base">🚪</span>
+              <NavIcon name="logout" className="text-earth-300" />
               登出
             </button>
           </form>

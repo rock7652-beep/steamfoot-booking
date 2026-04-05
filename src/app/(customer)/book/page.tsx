@@ -7,21 +7,33 @@ export default async function CustomerHomePage() {
   const user = await getCurrentUser();
   if (!user || !user.customerId) redirect("/");
 
-  // 查詢方案餘額 + 最近預約 + 補課次數（輕量 select + 防呆）
+  // 查詢方案餘額（依人數扣堂）+ 最近預約 + 補課次數
   let remaining = 0;
-  let lastBooking: { bookingDate: Date; slotTime: string } | null = null;
+  let nextBooking: { bookingDate: Date; slotTime: string } | null = null;
   let makeupCount = 0;
 
   try {
-    const [walletData, booking, credits] = await Promise.all([
-      prisma.customerPlanWallet.aggregate({
-        where: { customerId: user.customerId, status: "ACTIVE", remainingSessions: { gt: 0 } },
-        _sum: { remainingSessions: true },
+    const [wallets, upcoming, credits] = await Promise.all([
+      // 取所有有效方案 + 關聯預約，用 people 加總算真實剩餘
+      prisma.customerPlanWallet.findMany({
+        where: { customerId: user.customerId, status: "ACTIVE" },
+        select: {
+          totalSessions: true,
+          bookings: {
+            where: { bookingStatus: { in: ["COMPLETED", "NO_SHOW", "CONFIRMED", "PENDING"] }, isMakeup: false },
+            select: { bookingStatus: true, people: true },
+          },
+        },
       }),
+      // 最近一次預約：未取消、未來日期、升冪取第一筆
       prisma.booking.findFirst({
-        where: { customerId: user.customerId, bookingStatus: { in: ["COMPLETED", "CONFIRMED", "PENDING"] } },
+        where: {
+          customerId: user.customerId,
+          bookingStatus: { in: ["CONFIRMED", "PENDING"] },
+          bookingDate: { gte: new Date() },
+        },
         select: { bookingDate: true, slotTime: true },
-        orderBy: { bookingDate: "desc" },
+        orderBy: [{ bookingDate: "asc" }, { slotTime: "asc" }],
       }),
       prisma.makeupCredit.count({
         where: {
@@ -31,11 +43,20 @@ export default async function CustomerHomePage() {
         },
       }),
     ]);
-    remaining = walletData._sum.remainingSessions ?? 0;
-    lastBooking = booking;
+    // 依 people 數加總計算真實剩餘可預約
+    remaining = wallets.reduce((sum, w) => {
+      const used = w.bookings
+        .filter((b) => b.bookingStatus === "COMPLETED" || b.bookingStatus === "NO_SHOW")
+        .reduce((s, b) => s + b.people, 0);
+      const preDeducted = w.bookings
+        .filter((b) => b.bookingStatus === "CONFIRMED" || b.bookingStatus === "PENDING")
+        .reduce((s, b) => s + b.people, 0);
+      return sum + (w.totalSessions - used - preDeducted);
+    }, 0);
+    nextBooking = upcoming;
     makeupCount = credits;
   } catch {
-    // 資料庫查詢失敗時顯示空狀態���不讓整頁掛掉
+    // 資料庫查詢失敗時顯示空狀態，不讓整頁掛掉
   }
 
   return (
@@ -54,15 +75,16 @@ export default async function CustomerHomePage() {
           {makeupCount > 0 && (
             <p>可用補課：<strong className="text-amber-600">{makeupCount}</strong> 次</p>
           )}
-          {lastBooking ? (
+          {nextBooking ? (
             <p>
-              上次預約：{new Date(lastBooking.bookingDate).toLocaleDateString("zh-TW", {
+              最近一次預約：{new Date(nextBooking.bookingDate).toLocaleDateString("zh-TW", {
                 month: "long",
                 day: "numeric",
-              })} {lastBooking.slotTime}
+                weekday: "short",
+              })} {nextBooking.slotTime}
             </p>
           ) : (
-            <p>你還沒有預約紀錄</p>
+            <p>目前沒有即將到來的預約</p>
           )}
         </div>
         <p className="mt-3 text-sm text-earth-400">今天也來放鬆一下吧</p>

@@ -41,7 +41,17 @@ export default async function MyPlansPage() {
 
   const activeWallets = customer.planWallets.filter((w) => w.status === "ACTIVE");
   const inactiveWallets = customer.planWallets.filter((w) => w.status !== "ACTIVE");
-  const totalRemaining = activeWallets.reduce((s, w) => s + w.remainingSessions, 0);
+
+  // 用與 WalletCard 一致的 people 加總邏輯算出每份方案的剩餘可預約
+  const totalRemaining = activeWallets.reduce((sum, w) => {
+    const used = w.bookings
+      .filter((b) => !b.isMakeup && (b.bookingStatus === "COMPLETED" || b.bookingStatus === "NO_SHOW"))
+      .reduce((s, b) => s + b.people, 0);
+    const preDeducted = w.bookings
+      .filter((b) => !b.isMakeup && (b.bookingStatus === "CONFIRMED" || b.bookingStatus === "PENDING"))
+      .reduce((s, b) => s + b.people, 0);
+    return sum + (w.totalSessions - used - preDeducted);
+  }, 0);
 
   return (
     <div>
