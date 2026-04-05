@@ -9,36 +9,62 @@ export const proxy = auth((req: NextRequest & { auth: { user?: { role?: string }
   const isLoggedIn = !!session?.user;
   const role = session?.user?.role;
 
-  // Public routes — 直接放行
-  if (pathname === "/" || pathname.startsWith("/login") || pathname.startsWith("/api/auth")) {
-    // 已登入時訪問 login，自動導向對應首頁
+  // ── Public routes — 任何人皆可訪問 ──
+  const publicRoutes = ["/", "/login", "/api/auth", "/onboarding"];
+  const isPublic = publicRoutes.some(
+    (p) => pathname === p || pathname.startsWith(p + "/")
+  );
+
+  if (isPublic) {
+    // 已登入時訪問 /login → 導向對應首頁
     if (isLoggedIn && pathname.startsWith("/login")) {
       const dest = role === "CUSTOMER" ? "/book" : "/dashboard";
       return NextResponse.redirect(new URL(dest, req.url));
     }
-    return NextResponse.next();
+    // 注入 pathname header（onboarding 頁面需要）
+    const response = NextResponse.next();
+    response.headers.set("x-next-pathname", pathname);
+    return response;
   }
 
-  // 未登入 → redirect to login
+  // ── Protected customer routes — 需要登入 ──
+  const customerRoutes = ["/book", "/my-bookings", "/my-plans", "/profile"];
+  const isCustomerRoute = customerRoutes.some(
+    (p) => pathname === p || pathname.startsWith(p + "/")
+  );
+
+  if (isCustomerRoute) {
+    // 未登入 → 回首頁（首頁有 Google 登入 CTA）
+    if (!isLoggedIn) {
+      return NextResponse.redirect(new URL("/", req.url));
+    }
+    // Owner/Manager 不可進入顧客頁面
+    if (role === "OWNER" || role === "MANAGER") {
+      return NextResponse.redirect(new URL("/dashboard", req.url));
+    }
+    // 注入 pathname header
+    const response = NextResponse.next();
+    response.headers.set("x-next-pathname", pathname);
+    return response;
+  }
+
+  // ── Admin routes (/dashboard/**) — 需要登入 + staff 身份 ──
+  if (pathname.startsWith("/dashboard")) {
+    if (!isLoggedIn) {
+      return NextResponse.redirect(new URL("/login", req.url));
+    }
+    if (role === "CUSTOMER") {
+      return NextResponse.redirect(new URL("/book", req.url));
+    }
+    const response = NextResponse.next();
+    response.headers.set("x-next-pathname", pathname);
+    return response;
+  }
+
+  // ── 其他未知路由 — 未登入導向首頁 ──
   if (!isLoggedIn) {
-    return NextResponse.redirect(new URL("/login", req.url));
+    return NextResponse.redirect(new URL("/", req.url));
   }
-
-  // Customer 嘗試訪問後台
-  if (role === "CUSTOMER" && pathname.startsWith("/dashboard")) {
-    return NextResponse.redirect(new URL("/book", req.url));
-  }
-
-  // Owner/Manager 嘗試訪問顧客前台頁
-  const customerFrontend = ["/book", "/my-bookings", "/my-plans", "/onboarding", "/profile"];
-  if (
-    (role === "OWNER" || role === "MANAGER") &&
-    customerFrontend.some((p) => pathname === p || pathname.startsWith(p + "/"))
-  ) {
-    return NextResponse.redirect(new URL("/dashboard", req.url));
-  }
-
-  // 注入 pathname header，供 customer layout 判斷目前路徑（用於 onboarding 重導邏輯）
   const response = NextResponse.next();
   response.headers.set("x-next-pathname", pathname);
   return response;
