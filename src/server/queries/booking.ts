@@ -33,17 +33,17 @@ export async function listAvailableSlots(date: string): Promise<DayAvailability>
     return { date, dayOfWeek, slots: [] };
   }
 
-  // 計算各時段已預約數
+  // 計算各時段已預約人數（以 SUM(people) 為準）
   const existingBookings = await prisma.booking.groupBy({
     by: ["slotTime"],
     where: {
       bookingDate: dateObj,
       bookingStatus: { in: ["PENDING", "CONFIRMED"] },
     },
-    _count: { slotTime: true },
+    _sum: { people: true },
   });
 
-  const bookedMap = new Map(existingBookings.map((b) => [b.slotTime, b._count.slotTime]));
+  const bookedMap = new Map(existingBookings.map((b) => [b.slotTime, b._sum.people ?? 0]));
 
   const slotAvailability: SlotAvailability[] = slots.map((slot) => {
     const booked = bookedMap.get(slot.startTime) ?? 0;

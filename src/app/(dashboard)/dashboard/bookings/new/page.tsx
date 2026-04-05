@@ -39,6 +39,7 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
     const bookingDate = formData.get("bookingDate") as string;
     const slotTime = formData.get("slotTime") as string;
     const bookingType = formData.get("bookingType") as "FIRST_TRIAL" | "SINGLE" | "PACKAGE_SESSION";
+    const people = Number(formData.get("people")) || 1;
     const notes = (formData.get("notes") as string) || undefined;
 
     if (!customerId) {
@@ -50,6 +51,7 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
       bookingDate,
       slotTime,
       bookingType,
+      people,
       notes,
     });
 
@@ -147,6 +149,23 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
               <option value="PACKAGE_SESSION">套餐堂數</option>
               <option value="FIRST_TRIAL">體驗</option>
               <option value="SINGLE">單次</option>
+            </select>
+          </div>
+
+          {/* People */}
+          <div>
+            <label className="block text-sm font-medium text-earth-700">
+              預約人數
+            </label>
+            <select
+              name="people"
+              defaultValue="1"
+              className="mt-1.5 block w-full rounded-lg border border-earth-300 bg-white px-3 py-2 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
+            >
+              <option value="1">1 人</option>
+              <option value="2">2 人</option>
+              <option value="3">3 人</option>
+              <option value="4">4 人</option>
             </select>
           </div>
 

@@ -35,6 +35,7 @@ export function CreateBookingForm({ customerId, activeWallets }: Props) {
       const slotTime = formData.get("slotTime") as string;
       const bookingType = formData.get("bookingType") as "FIRST_TRIAL" | "SINGLE" | "PACKAGE_SESSION";
       const customerPlanWalletId = formData.get("customerPlanWalletId") as string | null;
+      const people = Number(formData.get("people")) || 1;
 
       const result = await createBooking({
         customerId,
@@ -42,6 +43,7 @@ export function CreateBookingForm({ customerId, activeWallets }: Props) {
         slotTime,
         bookingType,
         customerPlanWalletId: customerPlanWalletId || undefined,
+        people,
       });
       if (result.success) return { error: null, success: true };
       return { error: result.error ?? "發生錯誤", success: false };
@@ -88,6 +90,16 @@ export function CreateBookingForm({ customerId, activeWallets }: Props) {
           <option value="PACKAGE_SESSION">套餐堂數</option>
           <option value="FIRST_TRIAL">體驗</option>
           <option value="SINGLE">單次</option>
+        </select>
+      </div>
+
+      <div>
+        <label className="block text-xs text-earth-500">人數</label>
+        <select name="people" defaultValue="1" className="mt-1 w-full rounded border border-earth-300 px-2 py-1 text-sm">
+          <option value="1">1 人</option>
+          <option value="2">2 人</option>
+          <option value="3">3 人</option>
+          <option value="4">4 人</option>
         </select>
       </div>
 

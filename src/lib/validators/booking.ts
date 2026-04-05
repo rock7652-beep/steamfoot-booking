@@ -14,6 +14,7 @@ export const createBookingSchema = z.object({
 export const updateBookingSchema = z.object({
   bookingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   slotTime: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+  people: z.number().int().min(1).max(4).optional(),
   serviceStaffId: z.string().cuid().optional(),
   notes: z.string().max(500).optional(),
 });

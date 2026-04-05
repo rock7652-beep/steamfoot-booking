@@ -202,12 +202,13 @@ export async function updateBooking(
       }
     }
 
-    // 若修改日期/時段，需重新檢查可用性
-    if (data.bookingDate || data.slotTime) {
+    // 若修改日期/時段/人數，需重新檢查可用性
+    if (data.bookingDate || data.slotTime || data.people) {
       const newDate = data.bookingDate
         ? new Date(data.bookingDate + "T00:00:00")
         : booking.bookingDate;
       const newSlot = data.slotTime ?? booking.slotTime;
+      const newPeople = data.people ?? booking.people;
 
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -228,20 +229,22 @@ export async function updateBooking(
         },
         _sum: { people: true },
       });
-      const currentBooking = await prisma.booking.findUnique({
-        where: { id: bookingId },
-        select: { people: true },
-      });
       const bookedPeople = bookedAgg._sum.people ?? 0;
-      const bookingPeople = currentBooking?.people ?? 1;
-      if (bookedPeople + bookingPeople > slot.capacity) {
-        throw new AppError("BUSINESS_RULE", "目標時段已額滿");
+      const remaining = slot.capacity - bookedPeople;
+      if (remaining < newPeople) {
+        throw new AppError(
+          "BUSINESS_RULE",
+          remaining <= 0
+            ? "目標時段已額滿"
+            : `目標時段剩餘 ${remaining} 位，無法容納 ${newPeople} 人`
+        );
       }
     }
 
     const updateData: Record<string, unknown> = {};
     if (data.bookingDate) updateData.bookingDate = new Date(data.bookingDate + "T00:00:00");
     if (data.slotTime) updateData.slotTime = data.slotTime;
+    if (data.people !== undefined) updateData.people = data.people;
     if (data.serviceStaffId !== undefined) updateData.serviceStaffId = data.serviceStaffId;
     if (data.notes !== undefined) updateData.notes = data.notes;
 
