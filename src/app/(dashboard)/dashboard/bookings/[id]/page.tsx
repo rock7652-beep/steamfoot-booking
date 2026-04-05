@@ -120,6 +120,10 @@ export default async function BookingDetailPage({ params }: PageProps) {
             <dd>{BOOKING_TYPE_LABEL[booking.bookingType] ?? booking.bookingType}</dd>
           </div>
           <div>
+            <dt className="text-earth-500">預約人數</dt>
+            <dd className="font-medium">{booking.people} 人</dd>
+          </div>
+          <div>
             <dt className="text-earth-500">歸屬店長</dt>
             <dd>{booking.revenueStaff?.displayName ?? "未指派"}</dd>
           </div>

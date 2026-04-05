@@ -139,6 +139,7 @@ export default async function MyBookingsPage({ searchParams }: PageProps) {
                 <span>
                   類型：{BOOKING_TYPE_LABEL[b.bookingType] ?? b.bookingType}
                 </span>
+                <span>{b.people} 人</span>
                 {b.revenueStaff && (
                   <span className="flex items-center gap-1">
                     <span

@@ -25,6 +25,7 @@ const STATUS_COLORS: Record<string, string> = {
 interface DayBooking {
   id: string;
   slotTime: string;
+  people: number;
   bookingStatus: string;
   customer: { name: string; phone: string; assignedStaff?: { displayName: string; colorCode: string } | null };
   revenueStaff: { id: string; displayName: string; colorCode: string } | null;
@@ -76,6 +77,7 @@ export function DayView({ date, bookings }: DayViewProps) {
   const staffList = Array.from(staffSet);
 
   const activeBookingCount = bookings.filter((b) => b.bookingStatus !== "CANCELLED").length;
+  const activePeopleCount = bookings.filter((b) => b.bookingStatus !== "CANCELLED").reduce((sum, b) => sum + (b.people ?? 1), 0);
 
   return (
     <div className="space-y-4">
@@ -86,7 +88,7 @@ export function DayView({ date, bookings }: DayViewProps) {
             {displayDate}（{dayLabel}）
           </h1>
           <p className="mt-1 text-sm text-earth-500">
-            共 {activeBookingCount} 筆有效預約
+            共 {activeBookingCount} 筆預約（{activePeopleCount} 人）
           </p>
         </div>
         <Link
@@ -132,7 +134,7 @@ export function DayView({ date, bookings }: DayViewProps) {
       <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
         {FIXED_SLOTS.map((slot) => {
           const slotBookings = slotMap.get(slot) || [];
-          const activeCount = slotBookings.filter((b) => b.bookingStatus !== "CANCELLED").length;
+          const activeCount = slotBookings.filter((b) => b.bookingStatus !== "CANCELLED").reduce((sum, b) => sum + (b.people ?? 1), 0);
           const isFull = activeCount >= CAPACITY;
           const isNearFull = activeCount >= 4;
 
@@ -183,6 +185,11 @@ export function DayView({ date, bookings }: DayViewProps) {
                       />
                       <span className="min-w-0 flex-1 truncate text-sm font-medium text-earth-900">
                         {booking.customer.name}
+                        {booking.people > 1 && (
+                          <span className="ml-1 inline-block rounded bg-earth-100 px-1 py-0.5 text-[10px] font-medium text-earth-600">
+                            {booking.people}人
+                          </span>
+                        )}
                       </span>
                       <span
                         className={`rounded px-1.5 py-0.5 text-[11px] font-medium whitespace-nowrap ${

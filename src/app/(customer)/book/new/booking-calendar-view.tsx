@@ -153,6 +153,7 @@ function SlotBookingForm({
   activeWallets: ActiveWallet[];
 }) {
   const [people, setPeople] = useState(1);
+  const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
 
   type FormState = { error: string | null; success: boolean; bookedTime: string; bookedPeople: number };
   const [state, action, pending] = useActionState(
@@ -239,10 +240,10 @@ function SlotBookingForm({
                   : "border-earth-200 bg-white hover:border-primary-400 hover:bg-primary-50 has-[:checked]:border-primary-500 has-[:checked]:bg-primary-600 has-[:checked]:text-white"
               }`}
             >
-              <input type="radio" name="slotTime" value={slot.startTime} disabled={isFull || notEnough} className="sr-only" required />
+              <input type="radio" name="slotTime" value={slot.startTime} disabled={isFull || notEnough} className="sr-only" required onChange={() => setSelectedSlot(slot.startTime)} />
               <span className="text-base font-bold">{slot.startTime}</span>
               <span className={`mt-0.5 text-xs ${isFull ? "text-red-500" : notEnough ? "text-yellow-500" : "text-earth-400"}`}>
-                {isFull ? "已額滿" : `剩 ${slot.available} 位`}
+                {isFull ? "已額滿" : notEnough ? "名額不足" : `剩 ${slot.available} 位`}
               </span>
             </label>
           );
@@ -265,6 +266,18 @@ function SlotBookingForm({
       )}
       {activeWallets.length === 1 && (
         <input type="hidden" name="customerPlanWalletId" value={activeWallets[0].id} />
+      )}
+
+      {/* 預約確認摘要 */}
+      {selectedSlot && availableSlots.length > 0 && (
+        <div className="rounded-lg border border-primary-200 bg-primary-50 px-4 py-3 text-sm text-primary-800">
+          <p className="font-medium">預約確認</p>
+          <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-primary-700">
+            <span>日期：{selectedDate}</span>
+            <span>時間：{selectedSlot}</span>
+            <span>人數：{people} 人</span>
+          </div>
+        </div>
       )}
 
       {availableSlots.length > 0 && (
