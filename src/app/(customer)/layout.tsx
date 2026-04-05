@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { getCurrentUser } from "@/lib/session";
+import { prisma } from "@/lib/db";
 import { logoutAction } from "@/server/actions/auth";
 import Link from "next/link";
 
@@ -11,6 +13,23 @@ export default async function CustomerLayout({
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   if (user.role !== "CUSTOMER") redirect("/dashboard");
+
+  // Onboarding 強制導向：phone 或 email 為空時，必須先填寫基本資料
+  if (user.customerId) {
+    const customer = await prisma.customer.findUnique({
+      where: { id: user.customerId },
+      select: { phone: true, email: true },
+    });
+    const needsOnboarding = !customer?.phone || !customer?.email;
+    if (needsOnboarding) {
+      // 取得目前路徑（由 middleware 注入），避免在 /onboarding 頁面重導造成無限迴圈
+      const headerList = await headers();
+      const pathname = headerList.get("x-next-pathname") || "";
+      if (!pathname.startsWith("/onboarding")) {
+        redirect("/onboarding");
+      }
+    }
+  }
 
   return (
     <div className="min-h-screen bg-earth-50">
@@ -36,6 +55,12 @@ export default async function CustomerLayout({
               className="text-earth-600 hover:text-primary-600"
             >
               我的課程
+            </Link>
+            <Link
+              href="/profile"
+              className="text-earth-600 hover:text-primary-600"
+            >
+              我的資料
             </Link>
           </nav>
           <div className="flex items-center gap-3">

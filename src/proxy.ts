@@ -30,7 +30,7 @@ export const proxy = auth((req: NextRequest & { auth: { user?: { role?: string }
   }
 
   // Owner/Manager 嘗試訪問顧客前台頁
-  const customerFrontend = ["/book", "/my-bookings", "/my-plans"];
+  const customerFrontend = ["/book", "/my-bookings", "/my-plans", "/onboarding", "/profile"];
   if (
     (role === "OWNER" || role === "MANAGER") &&
     customerFrontend.some((p) => pathname === p || pathname.startsWith(p + "/"))
@@ -38,7 +38,10 @@ export const proxy = auth((req: NextRequest & { auth: { user?: { role?: string }
     return NextResponse.redirect(new URL("/dashboard", req.url));
   }
 
-  return NextResponse.next();
+  // 注入 pathname header，供 customer layout 判斷目前路徑（用於 onboarding 重導邏輯）
+  const response = NextResponse.next();
+  response.headers.set("x-next-pathname", pathname);
+  return response;
 });
 
 export const config = {

@@ -92,28 +92,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async signIn({ user, account, profile }) {
       if (account?.provider !== "google") return true;
 
-      const googleId = account.providerAccountId;
-      const googleEmail = profile?.email || user.email;
-
-      // Step 1: 以 googleId 查找既有 Customer
-      let existingCustomer = await prisma.customer.findUnique({
-        where: { googleId },
-      });
-
-      // Step 2: 找不到 → 以 email 查找
-      if (!existingCustomer && googleEmail) {
-        existingCustomer = await prisma.customer.findFirst({
-          where: { email: googleEmail },
+      // 🔒 防止 Google 登入綁定到 Staff/Owner 帳號
+      // Staff 帳號只能用 Credentials 登入
+      if (user.id) {
+        const existingUser = await prisma.user.findUnique({
+          where: { id: user.id as string },
+          include: { staff: { select: { id: true } } },
         });
+        if (existingUser?.staff) {
+          // 此 email 已是 Staff 帳號，拒絕 Google OAuth 登入
+          return "/login?error=staff_use_credentials";
+        }
       }
 
-      // Step 3: 如果找到既有 Customer 且已有 userId，檢查是否是同一 User
-      if (existingCustomer && existingCustomer.userId) {
-        // 已綁定 — 正常登入（PrismaAdapter 會處理 Account 連結）
-        return true;
-      }
-
-      // 後續綁定邏輯在 jwt callback 處理（因為需要 User.id）
       return true;
     },
 
@@ -144,8 +135,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           });
 
           if (freshUser) {
-            appToken.role = freshUser.role;
-            appToken.staffId = freshUser.staff?.id ?? null;
+            // 🔒 Google 登入一律為 CUSTOMER，即使 DB role 不對也強制覆蓋
+            appToken.role = "CUSTOMER" as UserRole;
+            appToken.staffId = null;
             appToken.customerId = freshUser.customer?.id ?? null;
           }
         } else {
