@@ -42,7 +42,10 @@ export const proxy = auth((req: NextRequest & { auth: { user?: { role?: string }
     if (role === "OWNER" || role === "MANAGER") {
       return NextResponse.redirect(new URL("/dashboard", req.url));
     }
-    return NextResponse.next();
+    // 注入 pathname header（sidebar 高亮用）
+    const response = NextResponse.next();
+    response.headers.set("x-next-pathname", pathname);
+    return response;
   }
 
   // ── Admin routes (/dashboard/**) — 需要登入 + staff 身份 ──

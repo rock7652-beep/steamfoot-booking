@@ -38,7 +38,10 @@ export default async function MyPlansPage() {
 
   return (
     <div>
-      <h1 className="mb-6 text-xl font-bold text-earth-900">我的課程</h1>
+      <div className="mb-6 flex items-center gap-3">
+        <Link href="/book" className="text-earth-400 hover:text-earth-600 lg:hidden">&larr;</Link>
+        <h1 className="text-xl font-bold text-earth-900">我的方案</h1>
+      </div>
 
       {/* Summary */}
       {activeWallets.length > 0 && (

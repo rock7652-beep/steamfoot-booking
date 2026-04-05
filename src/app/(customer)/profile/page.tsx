@@ -43,7 +43,7 @@ export default async function ProfilePage() {
   return (
     <div>
       <div className="mb-6 flex items-center gap-3">
-        <Link href="/book" className="text-earth-400 hover:text-earth-600">
+        <Link href="/book" className="text-earth-400 hover:text-earth-600 lg:hidden">
           &larr;
         </Link>
         <h1 className="text-xl font-bold text-earth-900">我的資料</h1>

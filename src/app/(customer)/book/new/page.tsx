@@ -69,7 +69,7 @@ export default async function NewBookingPage() {
   return (
     <div>
       <div className="mb-4 flex items-center gap-3">
-        <Link href="/book" className="text-earth-400 hover:text-earth-600">
+        <Link href="/book" className="text-earth-400 hover:text-earth-600 lg:hidden">
           &larr;
         </Link>
         <h1 className="text-xl font-bold text-earth-900">新增預約</h1>

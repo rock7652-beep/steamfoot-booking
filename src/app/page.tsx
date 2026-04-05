@@ -35,13 +35,13 @@ export default async function HomePage() {
           </div>
         </div>
 
-        {/* 員工入口 */}
+        {/* 後台入口 */}
         <div className="mt-8 text-center">
           <Link
             href="/login"
-            className="text-xs text-earth-400 hover:text-earth-600"
+            className="text-xs text-gray-400 hover:text-gray-500"
           >
-            員工登入
+            後台登入
           </Link>
         </div>
       </div>

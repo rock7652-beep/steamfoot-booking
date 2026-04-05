@@ -54,7 +54,10 @@ export default async function MyBookingsPage({ searchParams }: PageProps) {
 
   return (
     <div>
-      <h1 className="mb-6 text-xl font-bold text-earth-900">我的預約</h1>
+      <div className="mb-6 flex items-center gap-3">
+        <Link href="/book" className="text-earth-400 hover:text-earth-600 lg:hidden">&larr;</Link>
+        <h1 className="text-xl font-bold text-earth-900">我的預約</h1>
+      </div>
 
       {/* Tabs */}
       <div className="mb-4 flex gap-2 border-b border-earth-200">

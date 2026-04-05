@@ -9,7 +9,7 @@ import { revalidatePath } from "next/cache";
 // 更新個人資料
 // ============================================================
 
-export type ProfileState = { error: string | null; success: boolean };
+export type ProfileState = { error: string | null; success: boolean; phoneChanged?: boolean };
 
 export async function updateProfileAction(
   _prev: ProfileState,
@@ -100,8 +100,9 @@ export async function updateProfileAction(
       });
     }
 
+    const phoneChanged = phone !== currentCustomer.phone;
     revalidatePath("/profile");
-    return { error: null, success: true };
+    return { error: null, success: true, phoneChanged };
   } catch (error) {
     console.error("[updateProfileAction] Error:", error);
     return { error: "儲存失敗，請稍後再試", success: false };
