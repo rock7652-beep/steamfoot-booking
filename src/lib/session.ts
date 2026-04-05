@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { AppError } from "@/lib/errors";
@@ -6,11 +7,11 @@ import { AppError } from "@/lib/errors";
 // Session helpers
 // ============================================================
 
-/** 取得當前 session user（null = 未登入） */
-export async function getCurrentUser() {
+/** 取得當前 session user（null = 未登入）— React cache 確保同一 request 只查一次 */
+export const getCurrentUser = cache(async () => {
   const session = await auth();
   return session?.user ?? null;
-}
+});
 
 /** 取得 session；若未登入拋出 UNAUTHORIZED */
 export async function requireSession() {

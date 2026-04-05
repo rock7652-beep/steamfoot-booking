@@ -29,7 +29,7 @@ export default async function MyPlansPage() {
           plan: { select: { name: true, category: true, sessionCount: true } },
           bookings: {
             where: { bookingStatus: { in: ["COMPLETED", "NO_SHOW", "CONFIRMED", "PENDING"] } },
-            select: { bookingDate: true, slotTime: true, bookingStatus: true, isMakeup: true },
+            select: { bookingDate: true, slotTime: true, bookingStatus: true, isMakeup: true, people: true },
             orderBy: { bookingDate: "asc" },
           },
         },
@@ -129,25 +129,25 @@ function WalletCard({
     startDate: Date;
     expiryDate: Date | null;
     status: WalletStatus;
-    bookings: { bookingDate: Date; slotTime: string; bookingStatus: string; isMakeup: boolean }[];
+    bookings: { bookingDate: Date; slotTime: string; bookingStatus: string; isMakeup: boolean; people: number }[];
   };
   isActive: boolean;
 }) {
-  // ── 分類計算 ──
-  // 已使用 = COMPLETED + NO_SHOW（非補課），這些真正消耗了堂數
+  // ── 分類計算（依人數扣堂，非筆數） ──
+  // 已使用 = COMPLETED + NO_SHOW（非補課），依 people 數加總
   const usedBookings = wallet.bookings.filter(
     (b) => !b.isMakeup && (b.bookingStatus === "COMPLETED" || b.bookingStatus === "NO_SHOW")
   );
-  const usedCount = usedBookings.length;
+  const usedCount = usedBookings.reduce((sum, b) => sum + b.people, 0);
 
-  // 已預扣待使用 = CONFIRMED + PENDING（非補課），已扣堂但還沒到店
-  const preDeductedCount = wallet.bookings.filter(
+  // 已預扣待使用 = CONFIRMED + PENDING（非補課），依 people 數加總
+  const preDeductedBookings = wallet.bookings.filter(
     (b) => !b.isMakeup && (b.bookingStatus === "CONFIRMED" || b.bookingStatus === "PENDING")
-  ).length;
+  );
+  const preDeductedCount = preDeductedBookings.reduce((sum, b) => sum + b.people, 0);
 
-  // 剩餘可預約 = remainingSessions - preDeductedCount（理論上 remainingSessions 已經扣除 preDeducted）
-  // 但 remainingSessions = totalSessions - usedCount - preDeductedCount，所以直接用它
-  const remainingBookable = wallet.remainingSessions;
+  // 剩餘可預約 = 總堂數 - 已使用 - 已預扣待使用
+  const remainingBookable = wallet.totalSessions - usedCount - preDeductedCount;
 
   const progressPct = Math.round((usedCount / wallet.totalSessions) * 100);
 
@@ -201,38 +201,48 @@ function WalletCard({
         />
       </div>
 
-      {/* Session usage grid — 只顯示已使用（COMPLETED / NO_SHOW） */}
+      {/* Session usage grid — 依人數展開格子（COMPLETED / NO_SHOW） */}
       {wallet.totalSessions > 0 && (
         <div className="mt-3">
           <p className="mb-1.5 text-[10px] font-medium text-earth-400 uppercase tracking-wider">使用紀錄</p>
           <div className="flex flex-wrap gap-1.5">
-            {Array.from({ length: wallet.totalSessions }, (_, i) => {
-              const booking = usedBookings[i];
-              if (booking) {
-                const dateLabel = new Date(booking.bookingDate).toLocaleDateString("zh-TW", { month: "numeric", day: "numeric" });
-                const isNoShow = booking.bookingStatus === "NO_SHOW";
+            {(() => {
+              // 把每筆已使用預約依 people 數展開成多個格子
+              const usedCells: { dateLabel: string; slotTime: string; isNoShow: boolean; people: number; index: number }[] = [];
+              for (const b of usedBookings) {
+                const dateLabel = new Date(b.bookingDate).toLocaleDateString("zh-TW", { month: "numeric", day: "numeric" });
+                const isNoShow = b.bookingStatus === "NO_SHOW";
+                for (let p = 0; p < b.people; p++) {
+                  usedCells.push({ dateLabel, slotTime: b.slotTime, isNoShow, people: b.people, index: p });
+                }
+              }
+              return Array.from({ length: wallet.totalSessions }, (_, i) => {
+                const cell = usedCells[i];
+                if (cell) {
+                  return (
+                    <div
+                      key={i}
+                      className={`flex h-8 min-w-[3rem] items-center justify-center rounded-md px-1.5 text-[10px] font-medium ${
+                        cell.isNoShow ? "bg-red-100 text-red-600" : "bg-green-100 text-green-700"
+                      }`}
+                      title={`${cell.dateLabel} ${cell.slotTime} ${cell.isNoShow ? "未到" : "已完成"}${cell.people > 1 ? ` (${cell.people}位)` : ""}`}
+                    >
+                      {cell.dateLabel}
+                      {cell.people > 1 && cell.index === 0 && <span className="ml-0.5 text-[8px] opacity-70">×{cell.people}</span>}
+                      {cell.isNoShow && <span className="ml-0.5">!</span>}
+                    </div>
+                  );
+                }
                 return (
                   <div
                     key={i}
-                    className={`flex h-8 min-w-[3rem] items-center justify-center rounded-md px-1.5 text-[10px] font-medium ${
-                      isNoShow ? "bg-red-100 text-red-600" : "bg-green-100 text-green-700"
-                    }`}
-                    title={`${dateLabel} ${booking.slotTime} ${isNoShow ? "未到" : "已完成"}`}
+                    className="flex h-8 w-8 items-center justify-center rounded-md border border-dashed border-earth-200 text-[10px] text-earth-300"
                   >
-                    {dateLabel}
-                    {isNoShow && <span className="ml-0.5">!</span>}
+                    {i + 1}
                   </div>
                 );
-              }
-              return (
-                <div
-                  key={i}
-                  className="flex h-8 w-8 items-center justify-center rounded-md border border-dashed border-earth-200 text-[10px] text-earth-300"
-                >
-                  {i + 1}
-                </div>
-              );
-            })}
+              });
+            })()}
           </div>
         </div>
       )}
