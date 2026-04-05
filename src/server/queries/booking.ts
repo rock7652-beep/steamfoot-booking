@@ -72,10 +72,12 @@ export async function listBookings(options: ListBookingsOptions = {}) {
 
   // 後端強制資料隔離
   let whereCustomer: Record<string, unknown> = {};
-  if (user.role === "MANAGER" && user.staffId) {
-    whereCustomer = { assignedStaffId: user.staffId };
-  } else if (user.role === "CUSTOMER" && user.customerId) {
+  if (user.role === "CUSTOMER") {
+    // Customer 必須有 customerId，否則不回傳任何資料
+    if (!user.customerId) return { bookings: [], total: 0, page, pageSize };
     whereCustomer = { id: user.customerId };
+  } else if (user.role === "MANAGER" && user.staffId) {
+    whereCustomer = { assignedStaffId: user.staffId };
   }
 
   const where: Record<string, unknown> = {
