@@ -641,6 +641,18 @@ async function main() {
   console.log("  Bookings created: 8");
 
   // ============================================================
+  // 8. ShopConfig（店家設定 — 方案預設 BASIC）
+  // ============================================================
+
+  await prisma.shopConfig.upsert({
+    where: { id: "default" },
+    create: { id: "default", shopName: "蒸足", plan: "BASIC" },
+    update: {},  // 已存在則不覆蓋
+  });
+
+  console.log("  ShopConfig: default (plan=BASIC)");
+
+  // ============================================================
   // Done
   // ============================================================
 
