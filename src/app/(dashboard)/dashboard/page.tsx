@@ -1,9 +1,11 @@
 import { getCurrentUser } from "@/lib/session";
 import { getMonthBookingSummary } from "@/server/queries/booking";
+import { getLatestReconciliationRun } from "@/server/queries/reconciliation";
 import { todayRange, monthRange, toLocalDateStr } from "@/lib/date-utils";
 import { prisma } from "@/lib/db";
 import Link from "next/link";
 import { DashboardCalendar } from "./dashboard-calendar";
+import { ReconciliationBanner } from "@/components/reconciliation-banner";
 
 interface PageProps {
   searchParams: Promise<{ year?: string; month?: string }>;
@@ -36,7 +38,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     : {};
 
   // Parallel queries
-  const [stats, todayBookings, monthData] = await Promise.all([
+  const [stats, todayBookings, monthData, latestRecon] = await Promise.all([
     // KPI stats
     (async () => {
       const currentMonth = monthRange(toLocalDateStr().slice(0, 7));
@@ -109,6 +111,9 @@ export default async function DashboardPage({ searchParams }: PageProps) {
 
     // Month calendar data
     getMonthBookingSummary(year, month),
+
+    // Latest reconciliation run
+    getLatestReconciliationRun().catch(() => null),
   ]);
 
   // Busyness level
@@ -151,6 +156,17 @@ export default async function DashboardPage({ searchParams }: PageProps) {
 
   return (
     <div className="mx-auto max-w-5xl space-y-5 px-4 py-4">
+      {/* ── Reconciliation Alert ── */}
+      {isOwner && latestRecon && latestRecon.status !== "pass" && (
+        <ReconciliationBanner
+          status={latestRecon.status}
+          mismatchCount={latestRecon.mismatchCount}
+          errorCount={latestRecon.errorCount}
+          startedAt={latestRecon.startedAt}
+          failedChecks={latestRecon.checks}
+        />
+      )}
+
       {/* ── Today Summary ── */}
       <div className="rounded-2xl bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
         <div className="flex items-start justify-between">

@@ -526,6 +526,48 @@ model StaffPermission {
 }
 
 // ============================================================
+// ReconciliationRun（對帳執行記錄）
+// ============================================================
+
+model ReconciliationRun {
+  id          String   @id @default(cuid())
+  triggeredBy String   // "manual" | "cron"
+  status      String   // "running" | "pass" | "mismatch" | "error"
+  targetDate  String   // 對帳目標日期 "YYYY-MM-DD"
+  targetMonth String   // 對帳目標月份 "YYYY-MM"
+  timezone    String   @default("Asia/Taipei")
+  totalChecks Int      @default(0)
+  passCount   Int      @default(0)
+  mismatchCount Int    @default(0)
+  errorCount  Int      @default(0)
+  durationMs  Int?     // 執行耗時
+  startedAt   DateTime @default(now())
+  finishedAt  DateTime?
+
+  checks ReconciliationCheck[]
+
+  @@index([startedAt])
+  @@index([status])
+}
+
+model ReconciliationCheck {
+  id           String  @id @default(cuid())
+  runId        String
+  checkCode    String  // e.g. "today_revenue", "month_revenue", "today_booking_count"
+  checkName    String  // 中文名稱
+  status       String  // "pass" | "mismatch" | "error"
+  sources      Json    // { sourceName: value } 各來源數值
+  expected     String? // 期望值描述
+  errorMessage String? // error 時的錯誤訊息
+  debugPayload Json    // 完整 debug 資訊
+
+  run ReconciliationRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId])
+  @@index([status])
+}
+
+// ============================================================
 // SpaceFeeRecord（空間分租費紀錄）— Phase 2 但先建 schema
 // ============================================================
 
