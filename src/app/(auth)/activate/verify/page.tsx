@@ -32,31 +32,41 @@ export default function ActivateVerifyPage() {
   }
 
   function handleSubmit() {
+    console.log("[Activate UI] submit clicked, token length:", token?.length, "password length:", password?.length);
     setError(null);
 
     if (!/^\d{4,}$/.test(password)) {
+      console.log("[Activate UI] client-side password validation failed");
       setError("密碼需為純數字，至少 4 碼");
       return;
     }
     if (password !== confirmPassword) {
+      console.log("[Activate UI] password mismatch");
       setError("兩次密碼不一致");
       return;
     }
 
+    console.log("[Activate UI] calling activateAccount...");
     startTransition(async () => {
-      const result = await activateAccount(token, password);
-      if (!result.success) {
-        setError(result.error);
-        return;
-      }
-
-      setSuccess(true);
-
-      // 自動登入
       try {
-        await autoLoginAfterActivation(result.data.phone, password);
-      } catch {
-        // redirect error from signIn — expected
+        const result = await activateAccount(token, password);
+        console.log("[Activate UI] activateAccount returned:", JSON.stringify(result));
+        if (!result.success) {
+          setError(result.error);
+          return;
+        }
+
+        setSuccess(true);
+
+        // 自動登入
+        try {
+          await autoLoginAfterActivation(result.data.phone, password);
+        } catch {
+          // redirect error from signIn — expected
+        }
+      } catch (err) {
+        console.error("[Activate UI] activateAccount threw:", err);
+        setError("系統錯誤，請稍後再試");
       }
     });
   }
