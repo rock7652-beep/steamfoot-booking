@@ -158,6 +158,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
           lineUserId={customer.lineUserId ?? null}
           lineLinkedAt={customer.lineLinkedAt?.toISOString() ?? null}
           lineBindingCode={customer.lineBindingCode ?? null}
+          lineBindingCodeCreatedAt={customer.lineBindingCodeCreatedAt?.toISOString() ?? null}
         />
 
         {/* Transfer (Owner only) */}
