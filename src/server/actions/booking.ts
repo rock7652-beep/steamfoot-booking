@@ -10,6 +10,7 @@ import {
   updateBookingSchema,
   completeBookingSchema,
 } from "@/lib/validators/booking";
+import { getNowTaipeiHHmm, toLocalDateStr } from "@/lib/date-utils";
 import type { ActionResult } from "@/types";
 import type { z } from "zod";
 
@@ -111,6 +112,15 @@ export async function createBooking(
     }
     if (bookingDateObj > maxDate) {
       throw new AppError("BUSINESS_RULE", "只能預約未來 14 天內的時段");
+    }
+
+    // P0-1: 同日已過時段不可預約（後端強制擋）
+    const todayStr = toLocalDateStr();
+    if (data.bookingDate === todayStr) {
+      const nowHHmm = getNowTaipeiHHmm();
+      if (data.slotTime <= nowHHmm) {
+        throw new AppError("BUSINESS_RULE", `時段 ${data.slotTime} 已過，請選擇其他時段`);
+      }
     }
 
     // ── 6. 顧客自助預約（一般）：未來有效預約數 ≤ 剩餘堂數
@@ -402,6 +412,7 @@ export async function cancelBooking(
     });
 
     revalidatePath("/dashboard/bookings");
+    revalidatePath("/dashboard");
     revalidatePath("/book");
     return { success: true, data: undefined };
   } catch (e) {
@@ -436,6 +447,7 @@ export async function checkInBooking(
     });
 
     revalidatePath("/dashboard/bookings");
+    revalidatePath("/dashboard");
     return { success: true, data: undefined };
   } catch (e) {
     return handleActionError(e);
@@ -534,6 +546,7 @@ export async function markCompleted(
     });
 
     revalidatePath("/dashboard/bookings");
+    revalidatePath("/dashboard");
     revalidatePath(`/dashboard/customers/${booking.customerId}`);
     return { success: true, data: undefined };
   } catch (e) {

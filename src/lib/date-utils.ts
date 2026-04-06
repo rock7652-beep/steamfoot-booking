@@ -81,6 +81,26 @@ export function dayRange(dateStr: string): { start: Date; end: Date } {
 }
 
 // ============================================================
+// 台灣時間取得
+// ============================================================
+
+/**
+ * 取得台灣當前時間的 HH:mm 字串
+ */
+export function getNowTaipeiHHmm(): string {
+  const now = new Date();
+  const local = new Date(now.getTime() + TZ_OFFSET_HOURS * 60 * 60 * 1000);
+  return `${String(local.getUTCHours()).padStart(2, "0")}:${String(local.getUTCMinutes()).padStart(2, "0")}`;
+}
+
+/**
+ * 取得台灣今天的日期字串（YYYY-MM-DD）—— todayRange().dateStr 的輕量別名
+ */
+export function getTodayTaipeiDateStr(): string {
+  return toLocalDateStr();
+}
+
+// ============================================================
 // 日期邊界（用於查詢 bookingDate 等日期欄位，存為 T00:00:00Z）
 // ============================================================
 

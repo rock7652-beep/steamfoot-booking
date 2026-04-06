@@ -29,6 +29,8 @@ export interface SlotAvailability {
   bookedCount: number;
   available: number;
   isEnabled: boolean;
+  /** 同日已過時段（台灣時間） */
+  isPast?: boolean;
 }
 
 /** 某天所有時段的可用資訊 */

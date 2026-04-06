@@ -2,11 +2,12 @@ import { getCurrentUser } from "@/lib/session";
 import { getMonthBookingSummary } from "@/server/queries/booking";
 import { getLatestReconciliationRun } from "@/server/queries/reconciliation";
 import { todayRange, monthRange, toLocalDateStr } from "@/lib/date-utils";
-import { getManagerCustomerFilter, getManagerCustomerWhere } from "@/lib/manager-visibility";
+import { getManagerCustomerWhere } from "@/lib/manager-visibility";
 import { prisma } from "@/lib/db";
 import Link from "next/link";
 import { DashboardCalendar } from "./dashboard-calendar";
 import { ReconciliationBanner } from "@/components/reconciliation-banner";
+import { BookingQuickActions } from "./booking-quick-actions";
 
 interface PageProps {
   searchParams: Promise<{ year?: string; month?: string }>;
@@ -30,8 +31,8 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   const year = params.year ? parseInt(params.year) : parseInt(toLocalDateStr().slice(0, 4));
   const month = params.month ? parseInt(params.month) : parseInt(toLocalDateStr().slice(5, 7));
 
-  // Staff filter for manager（使用可配置的 visibility mode）
-  const staffCustomerFilter = getManagerCustomerFilter(user.role, user.staffId);
+  // P0-3: 「顧客屬於店」— 今日預約 / KPI 全店共享，任一店長看到一致結果
+  // 顧客數仍使用 visibility filter（「名下顧客」有意義）
   const staffCustomerWhere = getManagerCustomerWhere(user.role, user.staffId);
 
   // Parallel queries
@@ -43,9 +44,9 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       const [customerCount, activeCount, todayAgg, monthRevenue, todayCompleted, todayRevenue] = await Promise.all([
         prisma.customer.count({ where: staffCustomerWhere }),
         prisma.customer.count({ where: { ...staffCustomerWhere, customerStage: "ACTIVE" } }),
+        // P0-3: 今日預約不篩 staff，全店共享
         prisma.booking.aggregate({
           where: {
-            ...staffCustomerFilter,
             bookingDate: { gte: todayStart, lte: todayEnd },
             bookingStatus: { in: ["PENDING", "CONFIRMED", "COMPLETED", "NO_SHOW"] },
           },
@@ -61,9 +62,9 @@ export default async function DashboardPage({ searchParams }: PageProps) {
               _sum: { amount: true },
             })
           : null,
+        // P0-3: 今日已完成不篩 staff
         prisma.booking.aggregate({
           where: {
-            ...staffCustomerFilter,
             bookingDate: { gte: todayStart, lte: todayEnd },
             bookingStatus: "COMPLETED",
           },
@@ -92,10 +93,9 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       };
     })(),
 
-    // Today's booking list
+    // P0-3: Today's booking list — 全店共享，不篩 staff
     prisma.booking.findMany({
       where: {
-        ...staffCustomerFilter,
         bookingDate: { gte: todayStart, lte: todayEnd },
         bookingStatus: { in: ["PENDING", "CONFIRMED", "COMPLETED", "NO_SHOW"] },
       },
@@ -262,42 +262,45 @@ export default async function DashboardPage({ searchParams }: PageProps) {
             })()}
             <div className="rounded-xl border border-earth-100 overflow-hidden">
               {todayBookings.map((b, idx) => (
-                <Link
+                <div
                   key={b.id}
-                  href={`/dashboard/bookings/${b.id}`}
-                  className={`flex items-center gap-3 px-3 py-2 border-l-3 transition-colors hover:bg-earth-50 ${
+                  className={`flex items-center gap-2 px-3 py-2 border-l-3 ${
                     STATUS_BORDER[b.bookingStatus] ?? ""
                   } ${STATUS_ROW_BG[b.bookingStatus] ?? ""} ${
                     idx > 0 ? "border-t border-earth-100" : ""
                   }`}
                 >
-                  {/* Time */}
-                  <span className="w-12 text-sm font-bold text-primary-700 flex-shrink-0">{b.slotTime}</span>
-
-                  {/* Staff dot */}
-                  {b.revenueStaff && (
-                    <span
-                      className="h-2 w-2 rounded-full flex-shrink-0"
-                      style={{ backgroundColor: b.revenueStaff.colorCode }}
-                    />
-                  )}
-
-                  {/* Customer name */}
-                  <span className="flex-1 truncate text-sm text-earth-800">{b.customer.name}</span>
-
-                  {/* People */}
-                  {b.people > 1 && (
-                    <span className="rounded bg-earth-100 px-1.5 py-0.5 text-[10px] font-medium text-earth-600">
-                      {b.people}位
+                  {/* 左側：時段 + 人員資訊（可點連結） */}
+                  <Link
+                    href={`/dashboard/bookings/${b.id}`}
+                    className="flex flex-1 items-center gap-2 min-w-0 transition-colors hover:opacity-75"
+                  >
+                    <span className="w-12 text-sm font-bold text-primary-700 flex-shrink-0">{b.slotTime}</span>
+                    {b.revenueStaff && (
+                      <span
+                        className="h-2 w-2 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: b.revenueStaff.colorCode }}
+                      />
+                    )}
+                    <span className="flex-1 truncate text-sm text-earth-800">{b.customer.name}</span>
+                    {b.people > 1 && (
+                      <span className="rounded bg-earth-100 px-1.5 py-0.5 text-[10px] font-medium text-earth-600">
+                        {b.people}位
+                      </span>
+                    )}
+                    <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-medium ${STATUS_COLOR[b.bookingStatus] ?? ""}`}>
+                      <span className="mr-0.5">{STATUS_ICON[b.bookingStatus] ?? ""}</span>
+                      {STATUS_LABEL[b.bookingStatus] ?? b.bookingStatus}
                     </span>
-                  )}
+                  </Link>
 
-                  {/* Status with icon */}
-                  <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-medium ${STATUS_COLOR[b.bookingStatus] ?? ""}`}>
-                    <span className="mr-0.5">{STATUS_ICON[b.bookingStatus] ?? ""}</span>
-                    {STATUS_LABEL[b.bookingStatus] ?? b.bookingStatus}
-                  </span>
-                </Link>
+                  {/* P1-1: 右側快捷操作鍵 */}
+                  <BookingQuickActions
+                    bookingId={b.id}
+                    status={b.bookingStatus}
+                    isCheckedIn={b.isCheckedIn}
+                  />
+                </div>
               ))}
             </div>
           </>

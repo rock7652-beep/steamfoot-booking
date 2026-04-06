@@ -393,6 +393,7 @@ model Booking {
   @@index([revenueStaffId])
   @@index([revenueStaffId, bookingDate])    // 店長月報查詢
   @@index([bookingStatus])
+  @@index([customerPlanWalletId])            // ⚡ 方案使用紀錄查詢
 }
 
 // ============================================================

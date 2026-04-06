@@ -47,16 +47,9 @@ export default async function NewBookingPage() {
   ]);
   if (!customer) redirect("/");
 
-  // People-based remaining computation (consistent with my-plans)
+  // P0-2 修正：使用 wallet.remainingSessions 作為唯一真值來源
   const walletsWithRemaining = customer.planWallets.map((w) => {
-    const used = w.bookings
-      .filter((b) => b.bookingStatus === "COMPLETED" || b.bookingStatus === "NO_SHOW")
-      .reduce((s, b) => s + b.people, 0);
-    const preDeducted = w.bookings
-      .filter((b) => b.bookingStatus === "CONFIRMED" || b.bookingStatus === "PENDING")
-      .reduce((s, b) => s + b.people, 0);
-    const remaining = w.totalSessions - used - preDeducted;
-    return { ...w, computedRemaining: remaining };
+    return { ...w, computedRemaining: w.remainingSessions };
   });
   const activeWallets = walletsWithRemaining.filter((w) => w.computedRemaining > 0);
 
@@ -101,21 +94,14 @@ export default async function NewBookingPage() {
     );
   }
 
+  // P0-2: remainingSessions 已包含預扣，直接加總即可
   const totalRemaining = activeWallets.reduce(
     (s, w) => s + w.computedRemaining,
     0
   );
 
-  const futureBookingCount = await prisma.booking.count({
-    where: {
-      customerId: user.customerId,
-      bookingStatus: { in: ["PENDING", "CONFIRMED"] },
-      bookingDate: { gte: new Date(new Date().setHours(0, 0, 0, 0)) },
-      isMakeup: false,
-    },
-  });
-
-  const remainingQuota = Math.max(0, totalRemaining - futureBookingCount);
+  // remainingSessions 已經減去了 CONFIRMED/PENDING 的預扣量，不需再減 futureBookingCount
+  const remainingQuota = Math.max(0, totalRemaining);
 
   return (
     <div>
@@ -130,9 +116,6 @@ export default async function NewBookingPage() {
       <div className="mb-4 rounded-lg bg-primary-50 px-4 py-3 text-sm">
         <div className="text-primary-700">
           剩餘可預約：<strong className="text-lg">{remainingQuota}</strong> 堂
-          <span className="ml-3 text-xs text-primary-400">
-            （已有 {futureBookingCount} 筆未完成，課程剩餘 {totalRemaining} 堂）
-          </span>
         </div>
         {makeupCredits.length > 0 && (
           <div className="mt-1 text-amber-600">

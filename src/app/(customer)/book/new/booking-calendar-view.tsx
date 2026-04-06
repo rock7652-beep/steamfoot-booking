@@ -404,7 +404,7 @@ function SlotBookingForm({
     { error: null, success: false, bookedTime: "", bookedPeople: 0, wasMakeup: false }
   );
 
-  const availableSlots = slots.filter((s) => s.isEnabled && s.available >= people);
+  const availableSlots = slots.filter((s) => s.isEnabled && !s.isPast && s.available >= people);
 
   if (state.success) {
     return (
@@ -496,21 +496,23 @@ function SlotBookingForm({
         <p className="mb-2 text-xs text-earth-500">選擇時段</p>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {slots.filter((s) => s.isEnabled).map((slot) => {
-            const isFull = slot.available === 0;
-            const notEnough = slot.available > 0 && slot.available < people;
+            const isPast = !!slot.isPast;
+            const isFull = !isPast && slot.available === 0;
+            const notEnough = !isPast && slot.available > 0 && slot.available < people;
+            const disabled = isPast || isFull || notEnough;
             return (
               <label
                 key={slot.startTime}
                 className={`relative flex cursor-pointer flex-col items-center rounded-xl border p-3 text-center transition-colors ${
-                  isFull || notEnough
+                  disabled
                     ? "cursor-not-allowed border-earth-200 bg-earth-50 opacity-50"
                     : "border-earth-200 bg-white hover:border-primary-400 hover:bg-primary-50 has-[:checked]:border-primary-500 has-[:checked]:bg-primary-600 has-[:checked]:text-white"
                 }`}
               >
-                <input type="radio" name="slotTime" value={slot.startTime} disabled={isFull || notEnough} className="sr-only" required onChange={() => setSelectedSlot(slot.startTime)} />
+                <input type="radio" name="slotTime" value={slot.startTime} disabled={disabled} className="sr-only" required onChange={() => setSelectedSlot(slot.startTime)} />
                 <span className="text-base font-bold">{slot.startTime}</span>
-                <span className={`mt-0.5 text-xs ${isFull ? "text-red-500" : notEnough ? "text-red-400" : "text-earth-400"}`}>
-                  {isFull ? "滿" : notEnough ? "滿" : `${slot.available}位`}
+                <span className={`mt-0.5 text-xs ${isPast ? "text-earth-400" : isFull ? "text-red-500" : notEnough ? "text-red-400" : "text-earth-400"}`}>
+                  {isPast ? "已過時段" : isFull ? "滿" : notEnough ? "滿" : `${slot.available}位`}
                 </span>
               </label>
             );

@@ -42,16 +42,9 @@ export default async function MyPlansPage() {
   const activeWallets = customer.planWallets.filter((w) => w.status === "ACTIVE");
   const inactiveWallets = customer.planWallets.filter((w) => w.status !== "ACTIVE");
 
-  // 用與 WalletCard 一致的 people 加總邏輯算出每份方案的剩餘可預約
-  const totalRemaining = activeWallets.reduce((sum, w) => {
-    const used = w.bookings
-      .filter((b) => !b.isMakeup && (b.bookingStatus === "COMPLETED" || b.bookingStatus === "NO_SHOW"))
-      .reduce((s, b) => s + b.people, 0);
-    const preDeducted = w.bookings
-      .filter((b) => !b.isMakeup && (b.bookingStatus === "CONFIRMED" || b.bookingStatus === "PENDING"))
-      .reduce((s, b) => s + b.people, 0);
-    return sum + (w.totalSessions - used - preDeducted);
-  }, 0);
+  // P0-2 修正：使用 wallet.remainingSessions 作為唯一真值來源
+  // remainingSessions 由 createBooking 預扣、cancelBooking 退還，是 DB 層級的正確值
+  const totalRemaining = activeWallets.reduce((sum, w) => sum + w.remainingSessions, 0);
 
   return (
     <div>
@@ -62,10 +55,11 @@ export default async function MyPlansPage() {
 
       {/* Summary — 主敘事：剩餘可預約最醒目 */}
       {activeWallets.length > 0 && (() => {
+        // P0-2: 已預約未用 = 各 wallet 的 CONFIRMED/PENDING 筆數（每筆預扣 1 堂）
         const totalPreDeducted = activeWallets.reduce((sum, w) => {
           return sum + w.bookings
             .filter((b) => !b.isMakeup && (b.bookingStatus === "CONFIRMED" || b.bookingStatus === "PENDING"))
-            .reduce((s, b) => s + b.people, 0);
+            .length;
         }, 0);
         return (
           <div className="mb-6 rounded-2xl bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
@@ -158,23 +152,24 @@ function WalletCard({
   };
   isActive: boolean;
 }) {
-  // ── 分類計算（依人數扣堂，非筆數） ──
-  // 已使用 = COMPLETED + NO_SHOW（非補課），依 people 數加總
-  const usedBookings = wallet.bookings.filter(
-    (b) => !b.isMakeup && (b.bookingStatus === "COMPLETED" || b.bookingStatus === "NO_SHOW")
-  );
-  const usedCount = usedBookings.reduce((sum, b) => sum + b.people, 0);
-
-  // 已預扣待使用 = CONFIRMED + PENDING（非補課），依 people 數加總
+  // ── P0-2 修正：以 wallet.remainingSessions 為唯一真值來源 ──
+  // remainingSessions 由 createBooking 預扣（-1/筆）、cancelBooking 退還（+1/筆）
+  // 已預扣 = 仍有效的 CONFIRMED + PENDING 筆數
   const preDeductedBookings = wallet.bookings.filter(
     (b) => !b.isMakeup && (b.bookingStatus === "CONFIRMED" || b.bookingStatus === "PENDING")
   );
-  const preDeductedCount = preDeductedBookings.reduce((sum, b) => sum + b.people, 0);
+  const preDeductedCount = preDeductedBookings.length;
 
-  // 剩餘可預約 = 總堂數 - 已使用 - 已預扣待使用
-  const remainingBookable = wallet.totalSessions - usedCount - preDeductedCount;
+  // 已使用 = 總堂數 - 剩餘堂數 - 已預扣（= 已完成 + 未到的堂數）
+  const remainingBookable = wallet.remainingSessions;
+  const usedCount = wallet.totalSessions - wallet.remainingSessions - preDeductedCount;
 
-  const progressPct = Math.round((usedCount / wallet.totalSessions) * 100);
+  // 用於顯示使用紀錄格子
+  const usedBookings = wallet.bookings.filter(
+    (b) => !b.isMakeup && (b.bookingStatus === "COMPLETED" || b.bookingStatus === "NO_SHOW")
+  );
+
+  const progressPct = wallet.totalSessions > 0 ? Math.round(((wallet.totalSessions - wallet.remainingSessions) / wallet.totalSessions) * 100) : 0;
 
   return (
     <div className="rounded-xl bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">

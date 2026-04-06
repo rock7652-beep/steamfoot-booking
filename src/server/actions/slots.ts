@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/session";
+import { getNowTaipeiHHmm, toLocalDateStr } from "@/lib/date-utils";
 import type { SlotAvailability } from "@/types";
 
 /** 單一時段摘要 */
@@ -55,6 +56,10 @@ export async function fetchMonthAvailability(
     bookedMap.set(key, b._sum.people ?? 0);
   }
 
+  // P0-1: 同日已過時段標記
+  const todayStr = toLocalDateStr();
+  const nowHHmm = getNowTaipeiHHmm();
+
   // 建立每天的摘要
   const days: Record<string, { totalCapacity: number; totalBooked: number; slots: MonthSlotInfo[] }> = {};
   const cursor = new Date(startDate);
@@ -62,6 +67,7 @@ export async function fetchMonthAvailability(
     const dateStr = cursor.toISOString().slice(0, 10);
     const dow = cursor.getUTCDay();
     const daySlots = dowSlots.get(dow) ?? [];
+    const isToday = dateStr === todayStr;
 
     let totalCap = 0;
     let totalBooked = 0;
@@ -69,9 +75,12 @@ export async function fetchMonthAvailability(
 
     for (const s of daySlots) {
       const booked = bookedMap.get(`${dateStr}|${s.startTime}`) ?? 0;
+      // 同日已過時段：capacity 視為 0（已滿），讓前端月曆正確顯示
+      const isPast = isToday && s.startTime <= nowHHmm;
+      const effectiveCap = isPast ? booked : s.capacity; // 讓 available = 0
       totalCap += s.capacity;
-      totalBooked += booked;
-      slotInfos.push({ startTime: s.startTime, capacity: s.capacity, booked });
+      totalBooked += isPast ? s.capacity : booked;
+      slotInfos.push({ startTime: s.startTime, capacity: effectiveCap, booked });
     }
 
     days[dateStr] = { totalCapacity: totalCap, totalBooked, slots: slotInfos };
@@ -113,15 +122,22 @@ export async function fetchDaySlots(date: string): Promise<{
     existingBookings.map((b) => [b.slotTime, b._sum.people ?? 0])
   );
 
+  // P0-1: 判斷同日已過時段
+  const todayStr = toLocalDateStr();
+  const isToday = date === todayStr;
+  const nowHHmm = isToday ? getNowTaipeiHHmm() : null;
+
   return {
     slots: slots.map((slot) => {
       const booked = bookedMap.get(slot.startTime) ?? 0;
+      const isPast = isToday && nowHHmm !== null && slot.startTime <= nowHHmm;
       return {
         startTime: slot.startTime,
         capacity: slot.capacity,
         bookedCount: booked,
-        available: Math.max(0, slot.capacity - booked),
+        available: isPast ? 0 : Math.max(0, slot.capacity - booked),
         isEnabled: slot.isEnabled,
+        isPast,
       };
     }),
   };
