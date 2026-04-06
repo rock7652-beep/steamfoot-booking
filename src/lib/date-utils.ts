@@ -115,6 +115,19 @@ export function bookingMonthRange(year: number, month: number): { start: Date; e
   };
 }
 
+/**
+ * 取得台灣「今天」對應的 bookingDate 精確值
+ *
+ * bookingDate 是 @db.Date（PostgreSQL DATE），Prisma 存為 UTC midnight
+ * 例：台灣 4/6 → bookingDate = 2026-04-06T00:00:00.000Z
+ *
+ * ⚠ 不能用 todayRange()（那是給 createdAt 等 TIMESTAMP 欄位的 TZ 偏移邊界）
+ */
+export function bookingDateToday(): Date {
+  const dateStr = toLocalDateStr(); // 台灣今天 "YYYY-MM-DD"
+  return new Date(dateStr + "T00:00:00.000Z");
+}
+
 // ============================================================
 // 報表日期範圍 preset
 // ============================================================

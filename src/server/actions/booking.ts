@@ -571,6 +571,164 @@ export async function markNoShow(
 }
 
 // ============================================================
+// revertBookingStatus（修正：回滾至 PENDING）
+//
+// 狀態轉換規則：
+// - COMPLETED → PENDING：退回 wallet +1, 刪除 SESSION_DEDUCTION
+// - NO_SHOW(DEDUCTED) → PENDING：退回 wallet +1, 刪除 SESSION_DEDUCTION
+// - NO_SHOW(NOT_DEDUCTED + 有補課) → PENDING：刪除 makeupCredit
+// - NO_SHOW(NOT_DEDUCTED + 無補課) → PENDING：僅恢復狀態
+// - CANCELLED → PENDING：若為補課預約 → 重新標記 credit 為已使用
+// ============================================================
+
+export async function revertBookingStatus(
+  bookingId: string
+): Promise<ActionResult<void>> {
+  try {
+    await requirePermission("booking.update");
+
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: {
+        customer: true,
+        customerPlanWallet: true,
+      },
+    });
+    if (!booking) throw new AppError("NOT_FOUND", "預約不存在");
+
+    const st = booking.bookingStatus;
+    if (st === "PENDING" || st === "CONFIRMED") {
+      throw new AppError("VALIDATION", "預約已是待到店狀態，無需修正");
+    }
+
+    await prisma.$transaction(async (tx) => {
+      // ── COMPLETED → PENDING ──
+      if (st === "COMPLETED") {
+        // 退回堂數（非補課才退）
+        const wallet = booking.customerPlanWallet;
+        if (wallet && !booking.isMakeup) {
+          await tx.customerPlanWallet.update({
+            where: { id: wallet.id },
+            data: {
+              remainingSessions: wallet.remainingSessions + 1,
+              status: "ACTIVE", // 退回後一定有堂數
+            },
+          });
+
+          // 刪除此預約的 SESSION_DEDUCTION 交易
+          await tx.transaction.deleteMany({
+            where: {
+              bookingId: booking.id,
+              transactionType: "SESSION_DEDUCTION",
+            },
+          });
+
+          // 若顧客被標為 INACTIVE，恢復為 ACTIVE
+          if (booking.customer.customerStage === "INACTIVE") {
+            await tx.customer.update({
+              where: { id: booking.customerId },
+              data: { customerStage: "ACTIVE", selfBookingEnabled: true },
+            });
+          }
+        }
+
+        await tx.booking.update({
+          where: { id: bookingId },
+          data: {
+            bookingStatus: "PENDING",
+            isCheckedIn: false,
+          },
+        });
+      }
+
+      // ── NO_SHOW → PENDING ──
+      else if (st === "NO_SHOW") {
+        const wallet = booking.customerPlanWallet;
+
+        // 若曾扣堂 → 退回
+        if (booking.noShowPolicy === "DEDUCTED" && wallet && !booking.isMakeup) {
+          await tx.customerPlanWallet.update({
+            where: { id: wallet.id },
+            data: {
+              remainingSessions: wallet.remainingSessions + 1,
+              status: "ACTIVE",
+            },
+          });
+          await tx.transaction.deleteMany({
+            where: {
+              bookingId: booking.id,
+              transactionType: "SESSION_DEDUCTION",
+            },
+          });
+
+          if (booking.customer.customerStage === "INACTIVE") {
+            await tx.customer.update({
+              where: { id: booking.customerId },
+              data: { customerStage: "ACTIVE", selfBookingEnabled: true },
+            });
+          }
+        }
+
+        // 若曾發補課資格 → 刪除（前提：該 credit 尚未被用於新預約）
+        if (booking.noShowMakeupGranted) {
+          const credit = await tx.makeupCredit.findUnique({
+            where: { originalBookingId: booking.id },
+          });
+          if (credit) {
+            if (credit.isUsed) {
+              throw new AppError(
+                "BUSINESS_RULE",
+                "此筆未到已產生的補課資格已被使用，無法修正。請先取消補課預約後再修正。"
+              );
+            }
+            await tx.makeupCredit.delete({
+              where: { id: credit.id },
+            });
+          }
+        }
+
+        await tx.booking.update({
+          where: { id: bookingId },
+          data: {
+            bookingStatus: "PENDING",
+            noShowPolicy: null,
+            noShowMakeupGranted: null,
+          },
+        });
+      }
+
+      // ── CANCELLED → PENDING ──
+      else if (st === "CANCELLED") {
+        // 補課預約取消時已退回 credit → 恢復時重新標記為已使用
+        if (booking.isMakeup && booking.makeupCreditId) {
+          const credit = await tx.makeupCredit.findUnique({
+            where: { id: booking.makeupCreditId },
+          });
+          if (credit && !credit.isUsed) {
+            await tx.makeupCredit.update({
+              where: { id: booking.makeupCreditId },
+              data: { isUsed: true },
+            });
+          }
+        }
+
+        await tx.booking.update({
+          where: { id: bookingId },
+          data: {
+            bookingStatus: "PENDING",
+          },
+        });
+      }
+    });
+
+    revalidateAll(booking.customerId);
+    return { success: true, data: undefined };
+  } catch (e) {
+    return handleActionError(e);
+  }
+}
+
+// ============================================================
 // checkInBooking — 已棄用，保留向後相容
 // 新流程不需要報到步驟，直接從 PENDING → COMPLETED / NO_SHOW
 // ============================================================

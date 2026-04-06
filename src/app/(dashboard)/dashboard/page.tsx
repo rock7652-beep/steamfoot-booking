@@ -1,7 +1,7 @@
 import { getCurrentUser } from "@/lib/session";
 import { getMonthBookingSummary } from "@/server/queries/booking";
 import { getLatestReconciliationRun } from "@/server/queries/reconciliation";
-import { todayRange, monthRange, toLocalDateStr } from "@/lib/date-utils";
+import { todayRange, monthRange, toLocalDateStr, bookingDateToday } from "@/lib/date-utils";
 import { getManagerCustomerWhere } from "@/lib/manager-visibility";
 import { prisma } from "@/lib/db";
 import Link from "next/link";
@@ -28,10 +28,11 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   if (!user) return null;
   const isOwner = user.role === "OWNER";
 
-  const today = todayRange();
+  const today = todayRange();          // for createdAt queries (TIMESTAMP)
   const todayStart = today.start;
   const todayEnd = today.end;
   const todayDateStr = today.dateStr;
+  const todayBookingDate = bookingDateToday(); // for bookingDate queries (@db.Date = UTC midnight)
   const todayLabel = new Date(todayStart.getTime() + 8 * 60 * 60 * 1000)
     .toLocaleDateString("zh-TW", { month: "long", day: "numeric", weekday: "short" });
 
@@ -54,9 +55,10 @@ export default async function DashboardPage({ searchParams }: PageProps) {
         prisma.customer.count({ where: staffCustomerWhere }),
         prisma.customer.count({ where: { ...staffCustomerWhere, customerStage: "ACTIVE" } }),
         // P0-3: 今日預約不篩 staff，全店共享
+        // bookingDate 是 @db.Date（UTC midnight），用精確值查詢
         prisma.booking.aggregate({
           where: {
-            bookingDate: { gte: todayStart, lte: todayEnd },
+            bookingDate: todayBookingDate,
             bookingStatus: { in: [...ACTIVE_BOOKING_STATUSES] },
           },
           _count: { id: true },
@@ -74,7 +76,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
         // P0-3: 今日已完成不篩 staff
         prisma.booking.aggregate({
           where: {
-            bookingDate: { gte: todayStart, lte: todayEnd },
+            bookingDate: todayBookingDate,
             bookingStatus: "COMPLETED",
           },
           _count: { id: true },
@@ -103,9 +105,10 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     })(),
 
     // P0-3: Today's booking list — 全店共享，不篩 staff
+    // bookingDate 是 @db.Date（UTC midnight），用精確值查詢
     prisma.booking.findMany({
       where: {
-        bookingDate: { gte: todayStart, lte: todayEnd },
+        bookingDate: todayBookingDate,
         bookingStatus: { in: [...ACTIVE_BOOKING_STATUSES] },
       },
       include: {
@@ -242,7 +245,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                 </div>
               );
             })()}
-            <div className="rounded-xl border border-earth-100 overflow-hidden">
+            <div className="rounded-xl border border-earth-100">
               {todayBookings.map((b, idx) => (
                 <div
                   key={b.id}
