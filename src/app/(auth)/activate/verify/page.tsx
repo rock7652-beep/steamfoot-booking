@@ -38,25 +38,26 @@ export default function ActivateVerifyPage() {
   }
 
   function handleSubmit() {
-    console.log("[Activate UI] submit clicked, token length:", token?.length, "password length:", password?.length);
+    const debugInfo = `submit! pw="${password}" len=${password.length} digits=${/^\d{4,}$/.test(password)} match=${password === confirmPassword} token=${token.slice(0,8)}...`;
+    console.log("[Activate UI]", debugInfo);
+    alert(debugInfo); // 強制彈窗 — 驗收後移除
     setError(null);
 
     if (!/^\d{4,}$/.test(password)) {
-      console.log("[Activate UI] client-side password validation failed");
       setError("密碼需為純數字，至少 4 碼");
       return;
     }
     if (password !== confirmPassword) {
-      console.log("[Activate UI] password mismatch");
       setError("兩次密碼不一致");
       return;
     }
 
-    console.log("[Activate UI] calling activateAccount...");
+    alert("通過驗證，準備呼叫 server action..."); // 驗收後移除
     startTransition(async () => {
       try {
         const result = await activateAccount(token, password);
         console.log("[Activate UI] activateAccount returned:", JSON.stringify(result));
+        alert("server action 回傳: " + JSON.stringify(result)); // 驗收後移除
         if (!result.success) {
           setError(result.error);
           return;
