@@ -63,6 +63,13 @@ export async function GET() {
 
 async function handleLineEvent(event: LineWebhookEvent) {
   const lineUserId = event.source?.userId;
+  console.log("[LINE] Event:", {
+    type: event.type,
+    userId: lineUserId,
+    hasReplyToken: !!event.replyToken,
+    messageType: event.message?.type,
+    messageText: event.message?.text,
+  });
   if (!lineUserId) return;
 
   switch (event.type) {
@@ -108,7 +115,7 @@ async function handleFollow(lineUserId: string, replyToken?: string) {
 
   // 回覆歡迎訊息
   if (replyToken) {
-    await replyMessage(replyToken, [
+    const result = await replyMessage(replyToken, [
       {
         type: "text",
         text: [
@@ -123,6 +130,7 @@ async function handleFollow(lineUserId: string, replyToken?: string) {
         ].join("\n"),
       },
     ]);
+    console.log("[LINE] Follow reply result:", result);
   }
 }
 
@@ -183,12 +191,13 @@ async function handleBindingRequest(
   if (existingLinked) {
     console.log(`[LINE] Already linked to customer: ${existingLinked.name}`);
     if (replyToken) {
-      await replyMessage(replyToken, [
+      const result = await replyMessage(replyToken, [
         {
           type: "text",
           text: "此 LINE 帳號已綁定其他顧客資料，如需變更請聯繫店家。",
         },
       ]);
+      console.log("[LINE] Already-linked reply result:", result);
     }
     return;
   }
@@ -201,7 +210,7 @@ async function handleBindingRequest(
   if (!customer) {
     console.log(`[LINE] Invalid binding code: ${bindingCode}`);
     if (replyToken) {
-      await replyMessage(replyToken, [
+      const result = await replyMessage(replyToken, [
         {
           type: "text",
           text: [
@@ -211,6 +220,7 @@ async function handleBindingRequest(
           ].join("\n"),
         },
       ]);
+      console.log("[LINE] Invalid-code reply result:", result);
     }
     return;
   }
@@ -219,12 +229,13 @@ async function handleBindingRequest(
   if (customer.lineLinkStatus === "LINKED" && customer.lineUserId) {
     console.log(`[LINE] Customer ${customer.name} already linked to another LINE`);
     if (replyToken) {
-      await replyMessage(replyToken, [
+      const result = await replyMessage(replyToken, [
         {
           type: "text",
           text: "此顧客帳號已綁定其他 LINE，如需重新綁定請聯繫店家解除後再試。",
         },
       ]);
+      console.log("[LINE] Already-linked-customer reply result:", result);
     }
     return;
   }
@@ -236,12 +247,13 @@ async function handleBindingRequest(
     if (ageMs > TWENTY_FOUR_HOURS) {
       console.log(`[LINE] Binding code expired for customer: ${customer.name}`);
       if (replyToken) {
-        await replyMessage(replyToken, [
+        const result = await replyMessage(replyToken, [
           {
             type: "text",
             text: "此綁定碼已過期，請聯繫店家重新產生綁定碼。",
           },
         ]);
+        console.log("[LINE] Expired-code reply result:", result);
       }
       return;
     }
@@ -261,12 +273,13 @@ async function handleBindingRequest(
   console.log(`[LINE] Binding success: ${customer.name} (${customer.id}) <-> ${lineUserId}`);
 
   if (replyToken) {
-    await replyMessage(replyToken, [
+    const result = await replyMessage(replyToken, [
       {
         type: "text",
         text: `${customer.name} 您好！LINE 綁定成功 ✓\n\n之後您將可收到預約提醒通知。`,
       },
     ]);
+    console.log("[LINE] Binding-success reply result:", result);
   }
 }
 

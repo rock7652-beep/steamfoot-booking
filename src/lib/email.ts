@@ -1,35 +1,34 @@
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
 
 // ============================================================
-// Email utility — graceful fallback to console when SMTP unconfigured
+// Email utility — Resend API
+//
+// 環境變數：
+//   RESEND_API_KEY — Resend API Key（必要）
+//   RESEND_FROM    — 寄件人（預設 noreply@steamfoot.tw）
+//
+// 如果未設定 RESEND_API_KEY，會 fallback 到 console.log
 // ============================================================
 
-const SMTP_HOST = process.env.SMTP_HOST;
-const SMTP_PORT = parseInt(process.env.SMTP_PORT ?? "587", 10);
-const SMTP_USER = process.env.SMTP_USER;
-const SMTP_PASS = process.env.SMTP_PASS;
-const SMTP_FROM = process.env.SMTP_FROM ?? "noreply@steamfoot.tw";
+const RESEND_API_KEY = process.env.RESEND_API_KEY;
+const RESEND_FROM = process.env.RESEND_FROM ?? "蒸足健康站 <noreply@steamfoot.tw>";
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? "https://steamfoot.tw";
 
-const BASE_URL =
-  process.env.NEXT_PUBLIC_BASE_URL ?? "https://steamfoot.tw";
+console.log("RESEND_API_KEY exists:", !!RESEND_API_KEY);
 
-const isConfigured = !!(SMTP_HOST && SMTP_USER && SMTP_PASS);
+const isConfigured = !!RESEND_API_KEY;
 
-function getTransporter() {
-  if (!isConfigured) return null;
-  return nodemailer.createTransport({
-    host: SMTP_HOST,
-    port: SMTP_PORT,
-    secure: SMTP_PORT === 465,
-    auth: { user: SMTP_USER, pass: SMTP_PASS },
-  });
+function getResend() {
+  if (!RESEND_API_KEY) return null;
+  return new Resend(RESEND_API_KEY);
 }
 
 async function sendMail(to: string, subject: string, html: string) {
-  const transporter = getTransporter();
-  if (!transporter) {
+  const resend = getResend();
+
+  if (!resend) {
     console.log("──────────────────────────────────────");
-    console.log("[Email] SMTP not configured — logging to console");
+    console.log("[Email] RESEND_API_KEY not configured — logging to console");
     console.log(`To: ${to}`);
     console.log(`Subject: ${subject}`);
     console.log(html);
@@ -37,12 +36,19 @@ async function sendMail(to: string, subject: string, html: string) {
     return;
   }
 
-  await transporter.sendMail({
-    from: `蒸足健康站 <${SMTP_FROM}>`,
+  const { data, error } = await resend.emails.send({
+    from: RESEND_FROM,
     to,
     subject,
     html,
   });
+
+  if (error) {
+    console.error("[Email] Resend error:", error);
+    throw new Error(`Email send failed: ${error.message}`);
+  }
+
+  console.log(`[Email] Sent successfully: ${data?.id} → ${to}`);
 }
 
 // ============================================================
@@ -104,3 +110,6 @@ export async function sendPasswordResetEmail(
   `;
   await sendMail(email, subject, html);
 }
+
+/** 檢查 email service 是否已設定 */
+export { isConfigured as isEmailConfigured };
