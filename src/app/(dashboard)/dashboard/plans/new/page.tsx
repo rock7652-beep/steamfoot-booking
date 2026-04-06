@@ -59,7 +59,7 @@ export default async function NewPlanPage({}: PageProps) {
               name="name"
               required
               className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
-              placeholder="例：入門課程套餐"
+              placeholder="例：入門課程方案"
             />
           </div>
 
@@ -74,7 +74,7 @@ export default async function NewPlanPage({}: PageProps) {
             >
               <option value="TRIAL">體驗</option>
               <option value="SINGLE">單次</option>
-              <option value="PACKAGE">套餐</option>
+              <option value="PACKAGE">課程</option>
             </select>
           </div>
 

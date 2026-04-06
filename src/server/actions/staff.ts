@@ -125,3 +125,27 @@ export async function deactivateStaff(staffId: string): Promise<ActionResult<voi
     return handleActionError(e);
   }
 }
+
+// ============================================================
+// activateStaff — Owner only
+// ============================================================
+
+export async function activateStaff(staffId: string): Promise<ActionResult<void>> {
+  try {
+    await requireOwnerSession();
+
+    const staff = await prisma.staff.findUnique({ where: { id: staffId } });
+    if (!staff) throw new AppError("NOT_FOUND", "店長不存在");
+    if (staff.isOwner) throw new AppError("FORBIDDEN", "無法修改店主帳號");
+
+    await prisma.$transaction([
+      prisma.staff.update({ where: { id: staffId }, data: { status: "ACTIVE" } }),
+      prisma.user.update({ where: { id: staff.userId }, data: { status: "ACTIVE" } }),
+    ]);
+
+    revalidatePath("/dashboard/staff");
+    return { success: true, data: undefined };
+  } catch (e) {
+    return handleActionError(e);
+  }
+}

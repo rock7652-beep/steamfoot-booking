@@ -9,7 +9,7 @@ import type { TransactionType, PaymentMethod } from "@prisma/client";
 const TX_TYPE_LABEL: Record<TransactionType, string> = {
   TRIAL_PURCHASE: "體驗購買",
   SINGLE_PURCHASE: "單次消費",
-  PACKAGE_PURCHASE: "套餐購買",
+  PACKAGE_PURCHASE: "課程購買",
   SESSION_DEDUCTION: "堂數扣抵",
   SUPPLEMENT: "補差額",
   REFUND: "退款",
@@ -73,6 +73,9 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
   ]);
 
   const totalPages = Math.ceil(total / pageSize);
+
+  const hasActiveFilters = !!(params.transactionType || params.staff);
+  const activeFilterCount = [params.transactionType, params.staff].filter(Boolean).length;
 
   // 統計本頁收入
   const pageRevenue = transactions
@@ -140,9 +143,52 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
           type="submit"
           className="rounded-lg bg-earth-100 px-3 py-1.5 text-sm text-earth-700 hover:bg-earth-200"
         >
-          查詢
+          查詢{hasActiveFilters && <span className="ml-1 text-primary-600">({activeFilterCount})</span>}
         </button>
+        {hasActiveFilters && (
+          <Link
+            href="/dashboard/transactions"
+            className="rounded-lg px-2 py-1.5 text-sm text-earth-400 hover:text-earth-600 transition-colors"
+          >
+            清除
+          </Link>
+        )}
       </form>
+
+      {hasActiveFilters && (
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <span className="text-xs text-earth-500">篩選條件：</span>
+          {params.transactionType && (
+            <Link
+              href={`?${new URLSearchParams({
+                dateFrom,
+                dateTo,
+                ...(params.staff ? { staff: params.staff } : {}),
+              })}`}
+              className="inline-flex items-center gap-1 rounded-full bg-primary-50 px-2.5 py-0.5 text-xs text-primary-700 hover:bg-primary-100"
+            >
+              {TX_TYPE_LABEL[params.transactionType]}
+              <span className="text-primary-400">×</span>
+            </Link>
+          )}
+          {params.staff && (
+            <Link
+              href={`?${new URLSearchParams({
+                dateFrom,
+                dateTo,
+                ...(params.transactionType ? { transactionType: params.transactionType } : {}),
+              })}`}
+              className="inline-flex items-center gap-1 rounded-full bg-primary-50 px-2.5 py-0.5 text-xs text-primary-700 hover:bg-primary-100"
+            >
+              店長：{staffOptions.find(s => s.id === params.staff)?.displayName ?? params.staff}
+              <span className="text-primary-400">×</span>
+            </Link>
+          )}
+          <Link href="/dashboard/transactions" className="text-xs text-earth-400 hover:text-earth-600 ml-1">
+            全部清除
+          </Link>
+        </div>
+      )}
 
       {/* 快速統計 */}
       <div className="mb-4 rounded-lg bg-primary-50 px-4 py-3 text-sm text-primary-800">

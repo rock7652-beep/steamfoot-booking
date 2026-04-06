@@ -88,7 +88,7 @@ export async function GET(req: NextRequest) {
     [`蒸足店 全店月報 — ${month}`],
     [],
     ["=== 課程收入明細（按店長）==="],
-    ["店長", "體驗", "單次", "套餐", "補差額", "退款", "課程總收", "空間費", "淨收", "完成堂數"],
+    ["店長", "體驗", "單次", "課程", "補差額", "退款", "課程總收", "空間費", "淨收", "完成堂數"],
     ...Object.values(byStaff).map((s) => [s.name, s.trial, s.single, s.package, s.supplement, s.refund, s.total, s.spaceFee, s.net, s.completed].map(String)),
     ["合計",
       Object.values(byStaff).reduce((a, s) => a + s.trial, 0),

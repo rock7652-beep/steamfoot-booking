@@ -7,30 +7,36 @@ import Link from "next/link";
 
 type CashbookEntryType = "INCOME" | "EXPENSE" | "WITHDRAW" | "ADJUSTMENT";
 
-interface PageProps {}
+interface PageProps {
+  searchParams: Promise<{ error?: string }>;
+}
 
-export default async function NewCashbookPage({}: PageProps) {
+export default async function NewCashbookPage({ searchParams }: PageProps) {
   const user = await getCurrentUser();
   if (!user || !(await checkPermission(user.role, user.staffId, "cashbook.create"))) {
     redirect("/dashboard");
   }
 
+  const params = await searchParams;
   const staffOptions = await listStaffSelectOptions();
-  const today = new Date().toISOString().slice(0, 10);
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 
   async function handleSubmit(formData: FormData) {
     "use server";
-    const result = await createCashbookEntry({
+    const raw = {
       entryDate: formData.get("entryDate") as string,
       type: formData.get("type") as CashbookEntryType,
-      category: formData.get("category") as string,
+      category: (formData.get("category") as string) || undefined,
       amount: Number(formData.get("amount")),
-      staffId: formData.get("staffId") as string,
-      note: formData.get("note") as string,
-    });
+      staffId: (formData.get("staffId") as string) || undefined,
+      note: (formData.get("note") as string) || undefined,
+    };
+
+    const result = await createCashbookEntry(raw);
 
     if (!result.success) {
-      throw new Error(result.error || "新增記帳失敗");
+      redirect(`/dashboard/cashbook/new?error=${encodeURIComponent(result.error || "新增記帳失敗")}`);
     }
 
     redirect("/dashboard/cashbook");
@@ -44,6 +50,12 @@ export default async function NewCashbookPage({}: PageProps) {
           ← 現金帳
         </Link>
       </div>
+
+      {params.error && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {params.error}
+        </div>
+      )}
 
       {/* Form Card */}
       <div className="rounded-xl border bg-white p-6 shadow-sm">

@@ -7,33 +7,25 @@ import { checkPermission } from "@/lib/permissions";
 import { redirect } from "next/navigation";
 import ReportDateRange from "@/components/report-date-range";
 
+function toLocalDateStr(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 function getDateRange(preset: string): { startDate: string; endDate: string; label: string } {
   const now = new Date();
-  const today = now.toISOString().slice(0, 10);
+  const today = toLocalDateStr(now);
   const y = now.getFullYear();
   const m = now.getMonth();
-  const d = now.getDate();
 
   switch (preset) {
     case "today":
-      return { startDate: today, endDate: today, label: `${today}` };
-    case "week": {
-      const dayOfWeek = now.getDay();
-      const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-      const monday = new Date(y, m, d + mondayOffset);
-      const sunday = new Date(y, m, d + mondayOffset + 6);
-      return {
-        startDate: monday.toISOString().slice(0, 10),
-        endDate: sunday.toISOString().slice(0, 10),
-        label: `本週`,
-      };
-    }
+      return { startDate: today, endDate: today, label: today };
     case "month": {
       const first = new Date(y, m, 1);
       const last = new Date(y, m + 1, 0);
       return {
-        startDate: first.toISOString().slice(0, 10),
-        endDate: last.toISOString().slice(0, 10),
+        startDate: toLocalDateStr(first),
+        endDate: toLocalDateStr(last),
         label: `${y}/${String(m + 1).padStart(2, "0")}`,
       };
     }
@@ -42,8 +34,8 @@ function getDateRange(preset: string): { startDate: string; endDate: string; lab
       const first = new Date(y, qStart, 1);
       const last = new Date(y, qStart + 3, 0);
       return {
-        startDate: first.toISOString().slice(0, 10),
-        endDate: last.toISOString().slice(0, 10),
+        startDate: toLocalDateStr(first),
+        endDate: toLocalDateStr(last),
         label: `${y} Q${Math.floor(m / 3) + 1}`,
       };
     }
@@ -68,7 +60,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
     redirect("/dashboard");
   }
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = toLocalDateStr(new Date());
 
   let startDate: string;
   let endDate: string;
@@ -187,7 +179,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
                   <th className="px-3 py-2.5 text-left font-medium text-earth-600">店長</th>
                   <th className="px-3 py-2.5 text-right font-medium text-earth-600">體驗</th>
                   <th className="px-3 py-2.5 text-right font-medium text-earth-600">單次</th>
-                  <th className="px-3 py-2.5 text-right font-medium text-earth-600">套餐</th>
+                  <th className="px-3 py-2.5 text-right font-medium text-earth-600">課程</th>
                   <th className="px-3 py-2.5 text-right font-medium text-earth-600">淨收</th>
                 </tr>
               </thead>

@@ -15,13 +15,16 @@ const REVENUE_TYPES = [
   "SUPPLEMENT",
 ];
 
-// Helper: parse month string to date range
+// Helper: parse month string to date range (Asia/Taipei = UTC+8)
+const TZ_OFFSET_HOURS = 8;
+
 function monthRange(month: string) {
   const [year, mon] = month.split("-").map(Number);
-  return {
-    monthStart: new Date(Date.UTC(year, mon - 1, 1)),
-    monthEnd: new Date(Date.UTC(year, mon, 0, 23, 59, 59)),
-  };
+  // Local midnight in UTC+8 = UTC previous day 16:00
+  const monthStart = new Date(Date.UTC(year, mon - 1, 1, -TZ_OFFSET_HOURS, 0, 0, 0));
+  // Local 23:59:59.999 in UTC+8 = UTC same day 15:59:59.999
+  const monthEnd = new Date(Date.UTC(year, mon, 0, 23 - TZ_OFFSET_HOURS, 59, 59, 999));
+  return { monthStart, monthEnd };
 }
 
 // ============================================================

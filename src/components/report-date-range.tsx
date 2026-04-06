@@ -5,7 +5,6 @@ import { useState } from "react";
 
 const PRESETS = [
   { key: "today", label: "今日" },
-  { key: "week", label: "本週" },
   { key: "month", label: "本月" },
   { key: "custom", label: "自訂" },
 ] as const;

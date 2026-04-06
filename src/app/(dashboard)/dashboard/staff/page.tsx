@@ -3,6 +3,7 @@ import { createStaff } from "@/server/actions/staff";
 import { getCurrentUser } from "@/lib/session";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { StaffStatusToggle } from "./staff-status-toggle";
 
 interface PageProps {}
 
@@ -205,12 +206,15 @@ export default async function StaffPage({}: PageProps) {
                     </td>
                     <td className="px-4 py-3">
                       {!staff.isOwner && (
-                        <Link
-                          href={`/dashboard/staff/${staff.id}/edit`}
-                          className="text-sm text-primary-600 hover:underline"
-                        >
-                          編輯
-                        </Link>
+                        <div className="flex items-center gap-2">
+                          <Link
+                            href={`/dashboard/staff/${staff.id}/edit`}
+                            className="text-sm text-primary-600 hover:underline"
+                          >
+                            編輯
+                          </Link>
+                          <StaffStatusToggle staffId={staff.id} currentStatus={staff.status} />
+                        </div>
                       )}
                     </td>
                   </tr>

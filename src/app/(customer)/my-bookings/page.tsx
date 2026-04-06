@@ -23,7 +23,7 @@ const STATUS_COLOR: Record<BookingStatus, string> = {
 const BOOKING_TYPE_LABEL: Record<string, string> = {
   FIRST_TRIAL: "體驗",
   SINGLE: "單次",
-  PACKAGE_SESSION: "套餐堂數",
+  PACKAGE_SESSION: "課程堂數",
 };
 
 interface PageProps {
@@ -150,7 +150,7 @@ export default async function MyBookingsPage({ searchParams }: PageProps) {
 
                 {/* Info tags */}
                 <div className="flex flex-1 flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-earth-500 min-w-0">
-                  <span>{b.people}位</span>
+                  {b.people > 1 && <span>{b.people}位</span>}
                   <span className="text-earth-300">·</span>
                   <span className="truncate">{BOOKING_TYPE_LABEL[b.bookingType] ?? b.bookingType}</span>
                   {b.isMakeup && (

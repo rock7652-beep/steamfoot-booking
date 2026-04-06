@@ -8,7 +8,7 @@ import type { PlanCategory } from "@prisma/client";
 const CATEGORY_LABEL: Record<PlanCategory, string> = {
   TRIAL: "體驗",
   SINGLE: "單次",
-  PACKAGE: "套餐",
+  PACKAGE: "課程",
 };
 
 const CATEGORY_COLOR: Record<PlanCategory, string> = {

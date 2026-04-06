@@ -12,7 +12,7 @@ function toCsv(rows: string[][]): string {
 
 const TX_TYPE_ZH: Record<string, string> = {
   TRIAL_PURCHASE: "體驗購買", SINGLE_PURCHASE: "單次消費",
-  PACKAGE_PURCHASE: "套餐購買", SESSION_DEDUCTION: "堂數扣抵",
+  PACKAGE_PURCHASE: "課程購買", SESSION_DEDUCTION: "堂數扣抵",
   SUPPLEMENT: "補差額", REFUND: "退款", ADJUSTMENT: "手動調整",
 };
 const PAY_ZH: Record<string, string> = {

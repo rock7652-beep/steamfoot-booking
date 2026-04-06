@@ -146,7 +146,7 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
               required
               className="mt-1.5 block w-full rounded-lg border border-earth-300 bg-white px-3 py-2 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
             >
-              <option value="PACKAGE_SESSION">套餐堂數</option>
+              <option value="PACKAGE_SESSION">課程堂數</option>
               <option value="FIRST_TRIAL">體驗</option>
               <option value="SINGLE">單次</option>
             </select>

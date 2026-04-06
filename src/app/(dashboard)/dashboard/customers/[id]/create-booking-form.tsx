@@ -87,7 +87,7 @@ export function CreateBookingForm({ customerId, activeWallets }: Props) {
       <div>
         <label className="block text-xs text-earth-500">類型</label>
         <select name="bookingType" required className="mt-1 w-full rounded border border-earth-300 px-2 py-1 text-sm">
-          <option value="PACKAGE_SESSION">套餐堂數</option>
+          <option value="PACKAGE_SESSION">課程堂數</option>
           <option value="FIRST_TRIAL">體驗</option>
           <option value="SINGLE">單次</option>
         </select>

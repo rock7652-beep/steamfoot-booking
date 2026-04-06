@@ -50,6 +50,9 @@ export default async function CustomersPage({ searchParams }: PageProps) {
 
   const totalPages = Math.ceil(total / pageSize);
 
+  const hasActiveFilters = !!(params.search || params.stage || params.staff);
+  const activeFilterCount = [params.search, params.stage, params.staff].filter(Boolean).length;
+
   return (
     <div>
       {/* Header */}
@@ -103,9 +106,62 @@ export default async function CustomersPage({ searchParams }: PageProps) {
           type="submit"
           className="rounded-lg bg-earth-100 px-3 py-1.5 text-sm font-medium text-earth-700 hover:bg-earth-200 transition-colors"
         >
-          搜尋
+          搜尋{hasActiveFilters && <span className="ml-1 text-primary-600">({activeFilterCount})</span>}
         </button>
+        {hasActiveFilters && (
+          <Link
+            href="/dashboard/customers"
+            className="rounded-lg px-2 py-1.5 text-sm text-earth-400 hover:text-earth-600 transition-colors"
+          >
+            清除
+          </Link>
+        )}
       </form>
+
+      {hasActiveFilters && (
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <span className="text-xs text-earth-500">篩選條件：</span>
+          {params.search && (
+            <Link
+              href={`?${new URLSearchParams({
+                ...(params.stage ? { stage: params.stage } : {}),
+                ...(params.staff ? { staff: params.staff } : {}),
+              })}`}
+              className="inline-flex items-center gap-1 rounded-full bg-primary-50 px-2.5 py-0.5 text-xs text-primary-700 hover:bg-primary-100"
+            >
+              搜尋：{params.search}
+              <span className="text-primary-400">×</span>
+            </Link>
+          )}
+          {params.stage && (
+            <Link
+              href={`?${new URLSearchParams({
+                ...(params.search ? { search: params.search } : {}),
+                ...(params.staff ? { staff: params.staff } : {}),
+              })}`}
+              className="inline-flex items-center gap-1 rounded-full bg-primary-50 px-2.5 py-0.5 text-xs text-primary-700 hover:bg-primary-100"
+            >
+              {STAGE_LABEL[params.stage]}
+              <span className="text-primary-400">×</span>
+            </Link>
+          )}
+          {params.staff && (
+            <Link
+              href={`?${new URLSearchParams({
+                ...(params.search ? { search: params.search } : {}),
+                ...(params.stage ? { stage: params.stage } : {}),
+              })}`}
+              className="inline-flex items-center gap-1 rounded-full bg-primary-50 px-2.5 py-0.5 text-xs text-primary-700 hover:bg-primary-100"
+            >
+              店長：{staffOptions.find(s => s.id === params.staff)?.displayName ?? params.staff}
+              <span className="text-primary-400">×</span>
+            </Link>
+          )}
+          <Link href="/dashboard/customers" className="text-xs text-earth-400 hover:text-earth-600 ml-1">
+            全部清除
+          </Link>
+        </div>
+      )}
 
       <p className="mb-3 text-xs text-earth-400">共 {total} 位顧客</p>
 

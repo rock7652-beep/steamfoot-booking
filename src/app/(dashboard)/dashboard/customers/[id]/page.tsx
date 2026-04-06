@@ -22,7 +22,7 @@ const WALLET_STATUS_LABEL: Record<string, string> = {
   ACTIVE: "有效", USED_UP: "已用完", EXPIRED: "已過期", CANCELLED: "已取消",
 };
 const TX_TYPE_LABEL: Record<string, string> = {
-  TRIAL_PURCHASE: "體驗購買", SINGLE_PURCHASE: "單次消費", PACKAGE_PURCHASE: "套餐購買",
+  TRIAL_PURCHASE: "體驗購買", SINGLE_PURCHASE: "單次消費", PACKAGE_PURCHASE: "課程購買",
   SESSION_DEDUCTION: "堂數扣抵", SUPPLEMENT: "補差額", REFUND: "退款", ADJUSTMENT: "手動調整",
 };
 const BOOKING_STATUS_LABEL: Record<string, string> = {
@@ -210,7 +210,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
           <div className="rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
             <p className="font-medium">此顧客尚無有效課程方案</p>
             <p className="mt-1 text-xs text-yellow-700">
-              體驗或單次預約請直接建立；套餐堂數預約需先在上方「課程方案」區塊指派方案。
+              體驗或單次預約請直接建立；課程堂數預約需先在上方「課程方案」區塊指派方案。
             </p>
             <div className="mt-3">
               <CreateBookingForm
@@ -280,7 +280,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
                   <td className="py-2">
                     <span className={`rounded px-1.5 py-0.5 text-xs ${
                       b.bookingStatus === "COMPLETED" ? "bg-green-100 text-green-700" :
-                      b.bookingStatus === "CANCELLED" ? "bg-red-100 text-red-700" :
+                      b.bookingStatus === "CANCELLED" ? "bg-earth-100 text-earth-500" :
                       "bg-earth-100 text-earth-600"
                     }`}>
                       {BOOKING_STATUS_LABEL[b.bookingStatus] ?? b.bookingStatus}

@@ -115,7 +115,7 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  const headers = ["店長", "體驗收入", "單次收入", "套餐收入", "補差額", "課程總收入", "空間分租費", "淨收", "完成服務堂數"];
+  const headers = ["店長", "體驗收入", "單次收入", "課程收入", "補差額", "課程總收入", "空間分租費", "淨收", "完成服務堂數"];
   const dataRows = Object.values(byStaff).map((s) => [
     s.name, s.trial, s.single, s.package, s.supplement, s.total, s.spaceFee, s.net, s.completed
   ].map(String));

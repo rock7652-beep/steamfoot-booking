@@ -16,9 +16,11 @@ interface CalendarMonthProps {
   month: number;
   monthData: MonthSummaryDay[];
   basePath?: string;
+  selectedDate?: string | null;
+  onDaySelect?: (dateKey: string) => void;
 }
 
-export function CalendarMonth({ year, month, monthData, basePath = "" }: CalendarMonthProps) {
+export function CalendarMonth({ year, month, monthData, basePath = "", selectedDate, onDaySelect }: CalendarMonthProps) {
   const monthLabel = `${year}年${month}月`;
   const firstDayOfMonth = new Date(year, month - 1, 1).getDay();
   const daysInMonth = new Date(year, month, 0).getDate();
@@ -117,18 +119,19 @@ export function CalendarMonth({ year, month, monthData, basePath = "" }: Calenda
             const dayKey = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
             const dayData = getData(day);
             const isToday = todayStr === dayKey;
+            const isSelected = selectedDate === dayKey;
             const hasBookings = dayData && dayData.totalBookingCount > 0;
 
-            return (
-              <Link
-                key={day}
-                href={basePath ? `${basePath}?view=day&date=${dayKey}` : `?view=day&date=${dayKey}`}
-                className={`relative border-b border-r border-earth-100 p-1 min-h-[3.5rem] transition-colors ${
-                  isToday
-                    ? "bg-primary-50 ring-2 ring-inset ring-primary-400"
-                    : "hover:bg-earth-50"
-                }`}
-              >
+            const cellClassName = `relative border-b border-r border-earth-100 p-1 min-h-[3.5rem] transition-colors text-left ${
+              isSelected
+                ? "bg-primary-100 ring-2 ring-inset ring-primary-500"
+                : isToday
+                  ? "bg-primary-50 ring-2 ring-inset ring-primary-400"
+                  : "hover:bg-earth-50"
+            }`;
+
+            const cellContent = (
+              <>
                 {/* Day number */}
                 <div
                   className={`text-xs font-medium ${
@@ -162,11 +165,70 @@ export function CalendarMonth({ year, month, monthData, basePath = "" }: Calenda
                     </div>
                   </div>
                 )}
+              </>
+            );
+
+            if (onDaySelect) {
+              return (
+                <button
+                  key={day}
+                  type="button"
+                  onClick={() => onDaySelect(dayKey)}
+                  className={cellClassName}
+                >
+                  {cellContent}
+                </button>
+              );
+            }
+
+            return (
+              <Link
+                key={day}
+                href={basePath ? `${basePath}?view=day&date=${dayKey}` : `?view=day&date=${dayKey}`}
+                className={cellClassName}
+              >
+                {cellContent}
               </Link>
             );
           })}
         </div>
       </div>
+
+      {/* Inline Day Detail Panel */}
+      {selectedDate && (() => {
+        const data = monthData.find((d) => d.date === selectedDate);
+        if (!data) return null;
+        return (
+          <div className="mt-3 rounded-xl border border-primary-200 bg-primary-50/50 p-4">
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="text-sm font-semibold text-earth-800">
+                {selectedDate.slice(5)} 預約概覽
+              </h4>
+              <Link
+                href={`/dashboard/bookings?view=day&date=${selectedDate}`}
+                className="text-xs text-primary-600 hover:text-primary-700"
+              >
+                完整時段表 →
+              </Link>
+            </div>
+            <div className="flex gap-4 text-sm">
+              <span className="text-earth-600">{data.totalBookingCount} 筆預約</span>
+              <span className="text-earth-600">{data.totalPeople} 人</span>
+            </div>
+            {data.staffBookings.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {data.staffBookings.map((s) => (
+                  <div key={s.staffName} className="flex items-center gap-1 rounded-md bg-white px-2 py-1 text-xs">
+                    <span className="h-2 w-2 rounded-full" style={{ backgroundColor: s.colorCode }} />
+                    <span className="text-earth-700">{s.staffName}</span>
+                    <span className="text-earth-500">{s.count}筆</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 }

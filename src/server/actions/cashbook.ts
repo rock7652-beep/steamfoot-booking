@@ -46,7 +46,7 @@ export async function createCashbookEntry(
     const data = createCashbookEntrySchema.parse(input);
 
     // Manager 若未指定 staffId，自動綁定自己
-    let staffId = data.staffId ?? null;
+    let staffId = data.staffId || null;
     if (user.role === "MANAGER") {
       // Manager 只能建立歸屬於自己的現金帳紀錄
       staffId = user.staffId ?? null;
@@ -56,10 +56,10 @@ export async function createCashbookEntry(
       data: {
         entryDate: new Date(data.entryDate + "T00:00:00"),
         type: data.type as CashbookEntryType,
-        category: data.category ?? null,
+        category: data.category || null,
         amount: data.amount,
         staffId,
-        note: data.note ?? null,
+        note: data.note || null,
         createdByUserId: user.id,
       },
     });

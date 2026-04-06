@@ -12,11 +12,11 @@ const STATUS_LABEL: Record<string, string> = {
 };
 const STATUS_COLOR: Record<string, string> = {
   PENDING: "bg-yellow-100 text-yellow-700", CONFIRMED: "bg-blue-100 text-blue-700",
-  COMPLETED: "bg-green-100 text-green-700", CANCELLED: "bg-red-100 text-red-700",
+  COMPLETED: "bg-green-100 text-green-700", CANCELLED: "bg-earth-100 text-earth-500",
   NO_SHOW: "bg-earth-100 text-earth-600",
 };
 const BOOKING_TYPE_LABEL: Record<string, string> = {
-  FIRST_TRIAL: "體驗", SINGLE: "單次", PACKAGE_SESSION: "套餐堂數",
+  FIRST_TRIAL: "體驗", SINGLE: "單次", PACKAGE_SESSION: "課程堂數",
 };
 
 async function getBooking(id: string) {

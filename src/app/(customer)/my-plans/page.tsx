@@ -14,7 +14,7 @@ const WALLET_STATUS_LABEL: Record<WalletStatus, string> = {
 const CATEGORY_LABEL: Record<string, string> = {
   TRIAL: "體驗",
   SINGLE: "單次",
-  PACKAGE: "套餐",
+  PACKAGE: "課程",
 };
 
 export default async function MyPlansPage() {

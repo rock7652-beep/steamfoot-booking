@@ -14,11 +14,16 @@ export default async function NewBookingPage() {
       select: {
         selfBookingEnabled: true,
         planWallets: {
-          where: { status: "ACTIVE", remainingSessions: { gt: 0 } },
+          where: { status: "ACTIVE" },
           select: {
             id: true,
+            totalSessions: true,
             remainingSessions: true,
             plan: { select: { name: true } },
+            bookings: {
+              where: { isMakeup: false },
+              select: { people: true, bookingStatus: true },
+            },
           },
           orderBy: { createdAt: "asc" },
         },
@@ -42,8 +47,21 @@ export default async function NewBookingPage() {
   ]);
   if (!customer) redirect("/");
 
+  // People-based remaining computation (consistent with my-plans)
+  const walletsWithRemaining = customer.planWallets.map((w) => {
+    const used = w.bookings
+      .filter((b) => b.bookingStatus === "COMPLETED" || b.bookingStatus === "NO_SHOW")
+      .reduce((s, b) => s + b.people, 0);
+    const preDeducted = w.bookings
+      .filter((b) => b.bookingStatus === "CONFIRMED" || b.bookingStatus === "PENDING")
+      .reduce((s, b) => s + b.people, 0);
+    const remaining = w.totalSessions - used - preDeducted;
+    return { ...w, computedRemaining: remaining };
+  });
+  const activeWallets = walletsWithRemaining.filter((w) => w.computedRemaining > 0);
+
   const hasValidWallet =
-    customer.selfBookingEnabled && (customer.planWallets.length > 0 || makeupCredits.length > 0);
+    customer.selfBookingEnabled && (activeWallets.length > 0 || makeupCredits.length > 0);
 
   if (!hasValidWallet) {
     return (
@@ -83,8 +101,8 @@ export default async function NewBookingPage() {
     );
   }
 
-  const totalRemaining = customer.planWallets.reduce(
-    (s, w) => s + w.remainingSessions,
+  const totalRemaining = activeWallets.reduce(
+    (s, w) => s + w.computedRemaining,
     0
   );
 
