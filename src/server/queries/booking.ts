@@ -261,6 +261,7 @@ export async function getMonthBookingSummary(year: number, month: number) {
         bookingStatus: { in: ["PENDING", "CONFIRMED", "COMPLETED", "NO_SHOW"] },
       },
       _count: { id: true },
+      _sum: { people: true },
     }),
     prisma.booking.groupBy({
       by: ["bookingDate", "revenueStaffId"],
@@ -284,17 +285,20 @@ export async function getMonthBookingSummary(year: number, month: number) {
   const staffMap = new Map(staffList.map((s) => [s.id, s]));
 
   // 組裝每日資料
-  const dailyMap = new Map<string, { total: number; staffBookings: { staffName: string; colorCode: string; count: number }[] }>();
+  const dailyMap = new Map<string, { total: number; totalPeople: number; staffBookings: { staffName: string; colorCode: string; count: number }[] }>();
 
   for (let day = 1; day <= endDate.getDate(); day++) {
     const dateKey = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    dailyMap.set(dateKey, { total: 0, staffBookings: [] });
+    dailyMap.set(dateKey, { total: 0, totalPeople: 0, staffBookings: [] });
   }
 
   for (const row of dailyCounts) {
     const dateKey = row.bookingDate.toISOString().slice(0, 10);
     const entry = dailyMap.get(dateKey);
-    if (entry) entry.total = row._count.id;
+    if (entry) {
+      entry.total = row._count.id;
+      entry.totalPeople = row._sum.people ?? 0;
+    }
   }
 
   // 按日期+staff 組裝
@@ -321,6 +325,7 @@ export async function getMonthBookingSummary(year: number, month: number) {
   return Array.from(dailyMap.entries()).map(([dateStr, data]) => ({
     date: dateStr,
     totalBookingCount: data.total,
+    totalPeople: data.totalPeople,
     staffBookings: data.staffBookings,
   }));
 }

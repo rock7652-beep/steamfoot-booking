@@ -1,4 +1,5 @@
 import { listTransactions } from "@/server/queries/transaction";
+import { listStaffSelectOptions } from "@/server/queries/staff";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { redirect } from "next/navigation";
@@ -39,6 +40,7 @@ interface PageProps {
     dateFrom?: string;
     dateTo?: string;
     transactionType?: TransactionType;
+    staff?: string;
     page?: string;
   }>;
 }
@@ -58,13 +60,17 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
   const dateFrom = params.dateFrom ?? firstDayOfMonth;
   const dateTo = params.dateTo ?? today;
 
-  const { transactions, total, pageSize } = await listTransactions({
-    dateFrom,
-    dateTo,
-    transactionType: params.transactionType,
-    page,
-    pageSize: 30,
-  });
+  const [{ transactions, total, pageSize }, staffOptions] = await Promise.all([
+    listTransactions({
+      dateFrom,
+      dateTo,
+      transactionType: params.transactionType,
+      revenueStaffId: params.staff,
+      page,
+      pageSize: 30,
+    }),
+    listStaffSelectOptions(),
+  ]);
 
   const totalPages = Math.ceil(total / pageSize);
 
@@ -120,6 +126,16 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
             </option>
           ))}
         </select>
+        <select
+          name="staff"
+          defaultValue={params.staff ?? ""}
+          className="rounded-lg border border-earth-300 px-3 py-1.5 text-sm focus:outline-none"
+        >
+          <option value="">全部店長</option>
+          {staffOptions.map((s) => (
+            <option key={s.id} value={s.id}>{s.displayName}</option>
+          ))}
+        </select>
         <button
           type="submit"
           className="rounded-lg bg-earth-100 px-3 py-1.5 text-sm text-earth-700 hover:bg-earth-200"
@@ -153,7 +169,8 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
             {transactions.length === 0 && (
               <tr>
                 <td colSpan={7} className="px-4 py-8 text-center text-earth-400">
-                  無交易紀錄
+                  <p className="text-sm">沒有符合條件的交易紀錄</p>
+                  <p className="mt-1 text-xs">請調整篩選條件或日期範圍</p>
                 </td>
               </tr>
             )}

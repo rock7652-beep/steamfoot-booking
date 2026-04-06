@@ -1,4 +1,5 @@
 import { listCustomers } from "@/server/queries/customer";
+import { listStaffSelectOptions } from "@/server/queries/staff";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { redirect } from "next/navigation";
@@ -36,13 +37,16 @@ export default async function CustomersPage({ searchParams }: PageProps) {
     redirect("/dashboard");
   }
 
-  const { customers, total, pageSize } = await listCustomers({
-    stage: params.stage,
-    search: params.search,
-    assignedStaffId: params.staff,
-    page,
-    pageSize: 20,
-  });
+  const [{ customers, total, pageSize }, staffOptions] = await Promise.all([
+    listCustomers({
+      stage: params.stage,
+      search: params.search,
+      assignedStaffId: params.staff,
+      page,
+      pageSize: 20,
+    }),
+    listStaffSelectOptions(),
+  ]);
 
   const totalPages = Math.ceil(total / pageSize);
 
@@ -85,6 +89,16 @@ export default async function CustomersPage({ searchParams }: PageProps) {
             <option key={k} value={k}>{v}</option>
           ))}
         </select>
+        <select
+          name="staff"
+          defaultValue={params.staff ?? ""}
+          className="rounded-lg border border-earth-300 bg-white px-2 py-1.5 text-sm text-earth-700 focus:outline-none focus:ring-2 focus:ring-primary-300"
+        >
+          <option value="">全部店長</option>
+          {staffOptions.map((s) => (
+            <option key={s.id} value={s.id}>{s.displayName}</option>
+          ))}
+        </select>
         <button
           type="submit"
           className="rounded-lg bg-earth-100 px-3 py-1.5 text-sm font-medium text-earth-700 hover:bg-earth-200 transition-colors"
@@ -97,8 +111,14 @@ export default async function CustomersPage({ searchParams }: PageProps) {
 
       {/* Customer table */}
       {customers.length === 0 ? (
-        <div className="rounded-xl border border-earth-200 bg-white py-12 text-center text-earth-400">
-          尚無顧客資料
+        <div className="rounded-xl border border-earth-200 bg-white py-10 text-center">
+          <p className="text-sm text-earth-500">{params.search || params.stage || params.staff ? "沒有符合條件的顧客" : "尚無顧客資料"}</p>
+          {(params.search || params.stage || params.staff) && (
+            <Link href="/dashboard/customers" className="mt-2 inline-block text-xs text-primary-600 hover:text-primary-700">清除篩選 →</Link>
+          )}
+          {!params.search && !params.stage && !params.staff && (
+            <Link href="/dashboard/customers/new" className="mt-2 inline-block text-xs text-primary-600 hover:text-primary-700">新增第一位顧客 →</Link>
+          )}
         </div>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-earth-200 bg-white shadow-sm">

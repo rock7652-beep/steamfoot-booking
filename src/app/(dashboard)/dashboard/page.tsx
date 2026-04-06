@@ -4,55 +4,6 @@ import { prisma } from "@/lib/db";
 import Link from "next/link";
 import { CalendarMonth } from "./bookings/calendar-month";
 
-async function getDashboardStats(user: Awaited<ReturnType<typeof getCurrentUser>>) {
-  if (!user) return null;
-
-  const now = new Date();
-  const todayStart = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
-  const todayEnd = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999));
-  const monthStart = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1));
-
-  if (user.role === "OWNER") {
-    const [customerCount, activeCount, todayBookings, monthRevenue] = await Promise.all([
-      prisma.customer.count(),
-      prisma.customer.count({ where: { customerStage: "ACTIVE" } }),
-      prisma.booking.count({
-        where: {
-          bookingDate: { gte: todayStart, lte: todayEnd },
-          bookingStatus: { in: ["PENDING", "CONFIRMED"] },
-        },
-      }),
-      prisma.transaction.aggregate({
-        where: {
-          createdAt: { gte: monthStart },
-          transactionType: { in: ["TRIAL_PURCHASE", "SINGLE_PURCHASE", "PACKAGE_PURCHASE"] },
-        },
-        _sum: { amount: true },
-      }),
-    ]);
-    return { customerCount, activeCount, todayBookings, monthRevenue: Number(monthRevenue._sum.amount ?? 0) };
-  }
-
-  if (user.role === "MANAGER" && user.staffId) {
-    const [customerCount, activeCount, todayBookings] = await Promise.all([
-      prisma.customer.count({ where: { assignedStaffId: user.staffId } }),
-      prisma.customer.count({
-        where: { assignedStaffId: user.staffId, customerStage: "ACTIVE" },
-      }),
-      prisma.booking.count({
-        where: {
-          customer: { assignedStaffId: user.staffId },
-          bookingDate: { gte: todayStart, lte: todayEnd },
-          bookingStatus: { in: ["PENDING", "CONFIRMED"] },
-        },
-      }),
-    ]);
-    return { customerCount, activeCount, todayBookings, monthRevenue: null };
-  }
-
-  return null;
-}
-
 interface PageProps {
   searchParams: Promise<{ year?: string; month?: string }>;
 }
@@ -60,109 +11,249 @@ interface PageProps {
 export default async function DashboardPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const user = await getCurrentUser();
-  const stats = await getDashboardStats(user);
-  const isOwner = user?.role === "OWNER";
+  if (!user) return null;
+  const isOwner = user.role === "OWNER";
 
-  const today = new Date();
-  const year = params.year ? parseInt(params.year) : today.getFullYear();
-  const month = params.month ? parseInt(params.month) : today.getMonth() + 1;
-  const monthData = await getMonthBookingSummary(year, month);
+  const now = new Date();
+  const todayStart = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+  const todayEnd = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999));
+  const todayLabel = now.toLocaleDateString("zh-TW", { month: "long", day: "numeric", weekday: "short" });
+
+  // Calendar month params
+  const year = params.year ? parseInt(params.year) : now.getFullYear();
+  const month = params.month ? parseInt(params.month) : now.getMonth() + 1;
+
+  // Staff filter for manager
+  const staffCustomerFilter = user.role === "MANAGER" && user.staffId
+    ? { customer: { assignedStaffId: user.staffId } }
+    : {};
+  const staffCustomerWhere = user.role === "MANAGER" && user.staffId
+    ? { assignedStaffId: user.staffId }
+    : {};
+
+  // Parallel queries
+  const [stats, todayBookings, monthData] = await Promise.all([
+    // KPI stats
+    (async () => {
+      const monthStart = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1));
+      const [customerCount, activeCount, todayAgg, monthRevenue] = await Promise.all([
+        prisma.customer.count({ where: staffCustomerWhere }),
+        prisma.customer.count({ where: { ...staffCustomerWhere, customerStage: "ACTIVE" } }),
+        prisma.booking.aggregate({
+          where: {
+            ...staffCustomerFilter,
+            bookingDate: { gte: todayStart, lte: todayEnd },
+            bookingStatus: { in: ["PENDING", "CONFIRMED"] },
+          },
+          _count: { id: true },
+          _sum: { people: true },
+        }),
+        isOwner
+          ? prisma.transaction.aggregate({
+              where: {
+                createdAt: { gte: monthStart },
+                transactionType: { in: ["TRIAL_PURCHASE", "SINGLE_PURCHASE", "PACKAGE_PURCHASE"] },
+              },
+              _sum: { amount: true },
+            })
+          : null,
+      ]);
+      return {
+        customerCount,
+        activeCount,
+        todayBookingCount: todayAgg._count.id,
+        todayPeople: todayAgg._sum.people ?? 0,
+        monthRevenue: monthRevenue ? Number(monthRevenue._sum.amount ?? 0) : null,
+      };
+    })(),
+
+    // Today's booking list
+    prisma.booking.findMany({
+      where: {
+        ...staffCustomerFilter,
+        bookingDate: { gte: todayStart, lte: todayEnd },
+        bookingStatus: { in: ["PENDING", "CONFIRMED", "COMPLETED", "NO_SHOW"] },
+      },
+      include: {
+        customer: { select: { name: true, phone: true } },
+        revenueStaff: { select: { displayName: true, colorCode: true } },
+      },
+      orderBy: { slotTime: "asc" },
+    }),
+
+    // Month calendar data
+    getMonthBookingSummary(year, month),
+  ]);
+
+  // Busyness level
+  const busyLevel = stats.todayPeople === 0 ? "idle" : stats.todayPeople <= 8 ? "normal" : stats.todayPeople <= 15 ? "busy" : "full";
+  const busyConfig = {
+    idle: { label: "清閒", color: "text-earth-500", bg: "bg-earth-100" },
+    normal: { label: "正常", color: "text-green-700", bg: "bg-green-100" },
+    busy: { label: "忙碌", color: "text-yellow-700", bg: "bg-yellow-100" },
+    full: { label: "爆滿", color: "text-red-700", bg: "bg-red-100" },
+  }[busyLevel];
+
+  const STATUS_LABEL: Record<string, string> = {
+    PENDING: "待確認",
+    CONFIRMED: "已確認",
+    COMPLETED: "已完成",
+    NO_SHOW: "未到",
+  };
+  const STATUS_COLOR: Record<string, string> = {
+    PENDING: "bg-yellow-100 text-yellow-700",
+    CONFIRMED: "bg-blue-100 text-blue-700",
+    COMPLETED: "bg-green-100 text-green-700",
+    NO_SHOW: "bg-red-100 text-red-600",
+  };
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 px-4 py-4">
-      {/* Greeting + KPI */}
-      <div>
-        <h2 className="mb-4 text-xl font-bold text-earth-900">
-          歡迎回來，{user?.name}
-        </h2>
-
-        {stats && (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <StatCard label="名下顧客" value={stats.customerCount} unit="位" />
-            <StatCard label="有效課程顧客" value={stats.activeCount} unit="位" />
-            <StatCard label="今日預約" value={stats.todayBookings} unit="筆" highlight />
-            {isOwner && stats.monthRevenue !== null && (
-              <StatCard
-                label="本月營收"
-                value={`$${stats.monthRevenue.toLocaleString()}`}
-                unit=""
-              />
-            )}
+    <div className="mx-auto max-w-5xl space-y-5 px-4 py-4">
+      {/* ── Today Summary ── */}
+      <div className="rounded-2xl bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="text-sm text-earth-500">歡迎回來，{user.name}</p>
+            <p className="mt-0.5 text-lg font-bold text-earth-900">今天 {todayLabel}</p>
           </div>
-        )}
+          <span className={`rounded-md px-2.5 py-1 text-xs font-medium ${busyConfig.bg} ${busyConfig.color}`}>
+            {busyConfig.label}
+          </span>
+        </div>
+
+        {/* Today KPIs */}
+        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <div className="rounded-xl bg-primary-50 px-3 py-2.5">
+            <p className="text-[11px] text-primary-600">今日預約</p>
+            <p className="text-xl font-bold text-primary-700">{stats.todayBookingCount}<span className="ml-1 text-xs font-normal text-primary-400">筆</span></p>
+          </div>
+          <div className="rounded-xl bg-primary-50 px-3 py-2.5">
+            <p className="text-[11px] text-primary-600">今日人數</p>
+            <p className="text-xl font-bold text-primary-700">{stats.todayPeople}<span className="ml-1 text-xs font-normal text-primary-400">人</span></p>
+          </div>
+          <div className="rounded-xl bg-earth-50 px-3 py-2.5">
+            <p className="text-[11px] text-earth-500">名下顧客</p>
+            <p className="text-xl font-bold text-earth-800">{stats.customerCount}<span className="ml-1 text-xs font-normal text-earth-400">位</span></p>
+          </div>
+          {isOwner && stats.monthRevenue !== null ? (
+            <div className="rounded-xl bg-earth-50 px-3 py-2.5">
+              <p className="text-[11px] text-earth-500">本月營收</p>
+              <p className="text-xl font-bold text-earth-800">${stats.monthRevenue.toLocaleString()}</p>
+            </div>
+          ) : (
+            <div className="rounded-xl bg-earth-50 px-3 py-2.5">
+              <p className="text-[11px] text-earth-500">有效顧客</p>
+              <p className="text-xl font-bold text-earth-800">{stats.activeCount}<span className="ml-1 text-xs font-normal text-earth-400">位</span></p>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Calendar Overview */}
-      <section>
+      {/* ── Today Bookings List ── */}
+      <section className="rounded-2xl bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
         <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-base font-semibold text-earth-800">預約總覽</h3>
+          <h3 className="text-sm font-semibold text-earth-800">今日預約</h3>
+          <Link
+            href={`/dashboard/bookings?view=day&date=${todayStart.toISOString().slice(0, 10)}`}
+            className="text-xs text-primary-600 hover:text-primary-700"
+          >
+            完整時段表 →
+          </Link>
+        </div>
+
+        {todayBookings.length === 0 ? (
+          <div className="rounded-xl bg-earth-50 py-6 text-center">
+            <p className="text-sm text-earth-400">今天沒有預約</p>
+            <Link
+              href="/dashboard/bookings/new"
+              className="mt-2 inline-block text-xs text-primary-600 hover:text-primary-700"
+            >
+              新增預約 →
+            </Link>
+          </div>
+        ) : (
+          <div className="rounded-xl border border-earth-100 overflow-hidden">
+            {todayBookings.map((b, idx) => (
+              <Link
+                key={b.id}
+                href={`/dashboard/bookings/${b.id}`}
+                className={`flex items-center gap-3 px-3 py-2 transition-colors hover:bg-earth-50 ${
+                  idx > 0 ? "border-t border-earth-100" : ""
+                }`}
+              >
+                {/* Time */}
+                <span className="w-12 text-sm font-bold text-primary-700 flex-shrink-0">{b.slotTime}</span>
+
+                {/* Staff dot */}
+                {b.revenueStaff && (
+                  <span
+                    className="h-2 w-2 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: b.revenueStaff.colorCode }}
+                  />
+                )}
+
+                {/* Customer name */}
+                <span className="flex-1 truncate text-sm text-earth-800">{b.customer.name}</span>
+
+                {/* People */}
+                {b.people > 1 && (
+                  <span className="rounded bg-earth-100 px-1.5 py-0.5 text-[10px] font-medium text-earth-600">
+                    {b.people}位
+                  </span>
+                )}
+
+                {/* Status */}
+                <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-medium ${STATUS_COLOR[b.bookingStatus] ?? ""}`}>
+                  {STATUS_LABEL[b.bookingStatus] ?? b.bookingStatus}
+                </span>
+              </Link>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* ── Quick Actions ── */}
+      <div className="flex flex-wrap gap-2">
+        <QuickLink href="/dashboard/bookings/new" label="新增預約" primary />
+        <QuickLink href="/dashboard/customers" label="顧客管理" />
+        <QuickLink href={`/dashboard/bookings?view=day&date=${todayStart.toISOString().slice(0, 10)}`} label="今日時段表" />
+        <QuickLink href="/dashboard/transactions" label="交易紀錄" />
+        <QuickLink href="/dashboard/cashbook" label="現金帳" />
+        {isOwner && <QuickLink href="/dashboard/staff" label="店長管理" />}
+        <QuickLink href="/dashboard/reports" label="報表" />
+      </div>
+
+      {/* ── Calendar Overview ── */}
+      <section className="rounded-2xl bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-earth-800">預約總覽</h3>
           <Link
             href="/dashboard/bookings"
-            className="text-sm font-medium text-primary-600 hover:text-primary-700"
+            className="text-xs text-primary-600 hover:text-primary-700"
           >
             預約管理 →
           </Link>
         </div>
-        <div className="rounded-xl border border-earth-200 bg-white p-4 shadow-sm">
-          <CalendarMonth
-            year={year}
-            month={month}
-            monthData={monthData}
-            basePath="/dashboard/bookings"
-          />
-        </div>
-      </section>
-
-      {/* Quick Links */}
-      <section className="rounded-xl border border-earth-200 bg-white p-5">
-        <h3 className="mb-3 text-sm font-semibold text-earth-700">快速入口</h3>
-        <div className="flex flex-wrap gap-2">
-          <QuickLink href="/dashboard/customers" label="顧客管理" />
-          <QuickLink href="/dashboard/bookings/new" label="新增預約" />
-          <QuickLink href="/dashboard/plans" label="課程方案" />
-          <QuickLink href="/dashboard/transactions" label="交易紀錄" />
-          <QuickLink href="/dashboard/cashbook" label="現金帳" />
-          {isOwner && <QuickLink href="/dashboard/staff" label="店長管理" />}
-          <QuickLink href="/dashboard/reports" label="報表" />
-        </div>
+        <CalendarMonth
+          year={year}
+          month={month}
+          monthData={monthData}
+          basePath="/dashboard"
+        />
       </section>
     </div>
   );
 }
 
-function StatCard({
-  label,
-  value,
-  unit,
-  highlight,
-}: {
-  label: string;
-  value: number | string;
-  unit: string;
-  highlight?: boolean;
-}) {
-  return (
-    <div
-      className={`rounded-xl border p-3.5 ${
-        highlight
-          ? "border-primary-200 bg-primary-50"
-          : "border-earth-200 bg-white"
-      }`}
-    >
-      <p className={`text-xs ${highlight ? "text-primary-600" : "text-earth-500"}`}>{label}</p>
-      <p className={`mt-1 text-xl font-bold ${highlight ? "text-primary-700" : "text-earth-900"}`}>
-        {typeof value === "number" ? value.toLocaleString() : value}
-        {unit && <span className="ml-1 text-sm font-normal text-earth-400">{unit}</span>}
-      </p>
-    </div>
-  );
-}
-
-function QuickLink({ href, label }: { href: string; label: string }) {
+function QuickLink({ href, label, primary }: { href: string; label: string; primary?: boolean }) {
   return (
     <Link
       href={href}
-      className="rounded-lg border border-earth-200 bg-white px-3.5 py-2 text-sm font-medium text-earth-700 hover:bg-earth-50 hover:border-earth-300 transition-colors"
+      className={`rounded-lg px-3.5 py-2 text-sm font-medium transition-colors ${
+        primary
+          ? "bg-primary-600 text-white shadow-sm hover:bg-primary-700"
+          : "border border-earth-200 bg-white text-earth-700 hover:bg-earth-50"
+      }`}
     >
       {label}
     </Link>
