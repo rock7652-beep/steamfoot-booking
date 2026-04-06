@@ -122,12 +122,23 @@ export function isSlotPastToday(date: string, slotTime: string): boolean {
 // ============================================================
 
 /**
- * 未到處理策略（三選一）：
- * - DEDUCTED: 扣堂，不補課
- * - NOT_DEDUCTED: 不扣堂，給補課資格（30天）
- * - NOT_DEDUCTED_NO_MAKEUP: 不扣堂，也不給補課
+ * DB 層：noShowPolicy 只有 2 種值
+ * - DEDUCTED: 扣堂
+ * - NOT_DEDUCTED: 不扣堂
  */
-export type NoShowPolicy = "DEDUCTED" | "NOT_DEDUCTED" | "NOT_DEDUCTED_NO_MAKEUP";
+export type NoShowPolicy = "DEDUCTED" | "NOT_DEDUCTED";
+
+/**
+ * UI 層：店長在 popover 選擇的未到處理方式（三選一）
+ * - DEDUCTED: 扣堂（照常扣）
+ * - NOT_DEDUCTED_WITH_MAKEUP: 不扣堂＋給補課
+ * - NOT_DEDUCTED_NO_MAKEUP: 不扣堂、不補課
+ *
+ * 後端會拆成兩個欄位存：
+ *   noShowPolicy        → "DEDUCTED" | "NOT_DEDUCTED"
+ *   noShowMakeupGranted → true | false
+ */
+export type NoShowChoice = "DEDUCTED" | "NOT_DEDUCTED_WITH_MAKEUP" | "NOT_DEDUCTED_NO_MAKEUP";
 
 // ============================================================
 // 5. 方案類別標籤

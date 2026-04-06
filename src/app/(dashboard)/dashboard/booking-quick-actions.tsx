@@ -2,7 +2,7 @@
 
 import { useState, useActionState } from "react";
 import { markCompleted, markNoShow, cancelBooking } from "@/server/actions/booking";
-import type { NoShowPolicy } from "@/lib/booking-constants";
+import type { NoShowChoice } from "@/lib/booking-constants";
 
 interface Props {
   bookingId: string;
@@ -22,12 +22,11 @@ function ActionButton({
   label: string;
   onClick: () => void;
   pending: boolean;
-  color: "green" | "blue" | "red" | "yellow";
+  color: "green" | "red" | "yellow";
   confirmMsg?: string;
 }) {
   const colorMap = {
     green: "bg-green-50 text-green-700 hover:bg-green-100",
-    blue: "bg-blue-50 text-blue-700 hover:bg-blue-100",
     red: "bg-red-50 text-red-600 hover:bg-red-100",
     yellow: "bg-yellow-50 text-yellow-700 hover:bg-yellow-100",
   };
@@ -73,11 +72,11 @@ export function BookingQuickActions({ bookingId, status }: Props) {
     { error: null, done: false }
   );
 
-  async function handleNoShow(policy: NoShowPolicy) {
+  async function handleNoShow(choice: NoShowChoice) {
     setNoShowPending(true);
     setShowNoShowMenu(false);
     try {
-      const r = await markNoShow(bookingId, policy);
+      const r = await markNoShow(bookingId, choice);
       setNoShowState(r.success ? { error: null, done: true } : { error: r.error ?? "操作失敗", done: false });
     } catch {
       setNoShowState({ error: "操作失敗", done: false });
@@ -93,7 +92,7 @@ export function BookingQuickActions({ bookingId, status }: Props) {
     return <span className="text-[10px] text-green-600 font-medium">✓ 已更新</span>;
   }
 
-  // 已完成或未到 → 不顯示操作
+  // 已完成���未到 → 不顯示操作
   if (status === "COMPLETED" || status === "NO_SHOW" || status === "CANCELLED") {
     return null;
   }
@@ -106,7 +105,7 @@ export function BookingQuickActions({ bookingId, status }: Props) {
         </span>
       )}
 
-      {/* 出席（PENDING / CONFIRMED → COMPLETED） */}
+      {/* 出席 */}
       <ActionButton
         label="出席"
         onClick={() => completeAction()}
@@ -114,7 +113,7 @@ export function BookingQuickActions({ bookingId, status }: Props) {
         color="green"
       />
 
-      {/* 未到 — 點擊展開扣堂選單 */}
+      {/* 未到 — 點擊展開處理方式選單 */}
       <div className="relative">
         <ActionButton
           label="未到"
@@ -130,31 +129,42 @@ export function BookingQuickActions({ bookingId, status }: Props) {
               onClick={(e) => { e.stopPropagation(); setShowNoShowMenu(false); }}
             />
             {/* Popover 選單 */}
-            <div className="absolute right-0 top-full z-50 mt-1 w-44 rounded-lg border border-earth-200 bg-white p-1.5 shadow-lg">
-              <p className="mb-1 px-1.5 text-[9px] font-medium text-earth-400">扣堂方式</p>
+            <div className="absolute right-0 top-full z-50 mt-1 w-48 rounded-lg border border-earth-200 bg-white py-1 shadow-lg">
+              <p className="mb-0.5 px-3 pt-1 text-[10px] font-medium text-earth-400">
+                未到處理方式
+              </p>
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); handleNoShow("DEDUCTED"); }}
-                className="flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-[11px] text-earth-700 hover:bg-red-50 hover:text-red-700 transition"
+                className="flex w-full items-start gap-2 px-3 py-2 text-left text-[11px] text-earth-700 hover:bg-red-50 transition"
               >
-                <span className="text-red-500">✗</span>
-                扣堂（照常扣）
+                <span className="mt-px text-red-500">✗</span>
+                <div>
+                  <div className="font-medium">扣堂（照常扣）</div>
+                  <div className="text-[9px] text-earth-400">扣 1 堂、不給補課</div>
+                </div>
               </button>
               <button
                 type="button"
-                onClick={(e) => { e.stopPropagation(); handleNoShow("NOT_DEDUCTED"); }}
-                className="flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-[11px] text-earth-700 hover:bg-amber-50 hover:text-amber-700 transition"
+                onClick={(e) => { e.stopPropagation(); handleNoShow("NOT_DEDUCTED_WITH_MAKEUP"); }}
+                className="flex w-full items-start gap-2 px-3 py-2 text-left text-[11px] text-earth-700 hover:bg-amber-50 transition"
               >
-                <span className="text-amber-500">↩</span>
-                不扣堂＋給補課
+                <span className="mt-px text-amber-500">↩</span>
+                <div>
+                  <div className="font-medium">不扣堂＋給補課</div>
+                  <div className="text-[9px] text-earth-400">不扣堂、給 30 天補課資格</div>
+                </div>
               </button>
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); handleNoShow("NOT_DEDUCTED_NO_MAKEUP"); }}
-                className="flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-[11px] text-earth-700 hover:bg-earth-50 hover:text-earth-600 transition"
+                className="flex w-full items-start gap-2 px-3 py-2 text-left text-[11px] text-earth-700 hover:bg-earth-50 transition"
               >
-                <span className="text-earth-400">—</span>
-                不扣堂、不補課
+                <span className="mt-px text-earth-400">—</span>
+                <div>
+                  <div className="font-medium">不扣堂、不補課</div>
+                  <div className="text-[9px] text-earth-400">僅記錄未到、不做任何扣減</div>
+                </div>
               </button>
             </div>
           </>

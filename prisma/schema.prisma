@@ -364,6 +364,7 @@ model Booking {
   isCheckedIn          Boolean       @default(false) // 已棄用，保留向後相容
   bookingStatus        BookingStatus @default(PENDING)
   noShowPolicy         String?       // "DEDUCTED" | "NOT_DEDUCTED"，僅 NO_SHOW 時有值
+  noShowMakeupGranted  Boolean?      // 是否有發補課資格（true=有發, false=沒發, null=非NO_SHOW）
   reminderSent         Boolean       @default(false)
   notes                String?
   createdAt            DateTime      @default(now())

@@ -14,7 +14,7 @@ import { getNowTaipeiHHmm, toLocalDateStr } from "@/lib/date-utils";
 import {
   getBookingDateTime,
   PENDING_STATUSES,
-  type NoShowPolicy,
+  type NoShowChoice,
 } from "@/lib/booking-constants";
 import type { ActionResult } from "@/types";
 import type { z } from "zod";
@@ -469,14 +469,24 @@ export async function markCompleted(
 // ============================================================
 // markNoShow（未到）
 //
-// 新邏輯：店長可選擇「扣堂」或「不扣堂」
-// - DEDUCTED: 扣堂 + 寫 usage record（標記 type=no_show）+ 產生補課資格
-// - NOT_DEDUCTED: 不扣堂、不寫 usage record、產生補課資格
+// 三選一（UI 層 NoShowChoice → DB 層拆成兩欄位）：
+//
+// 1. DEDUCTED（扣堂）
+//    → noShowPolicy = "DEDUCTED", noShowMakeupGranted = false
+//    → 扣堂 + 寫 SESSION_DEDUCTION + 不給補課
+//
+// 2. NOT_DEDUCTED_WITH_MAKEUP（不扣堂＋給補課）
+//    → noShowPolicy = "NOT_DEDUCTED", noShowMakeupGranted = true
+//    → 不扣堂 + 建 makeupCredit（30天）
+//
+// 3. NOT_DEDUCTED_NO_MAKEUP（不扣堂、不補課）
+//    → noShowPolicy = "NOT_DEDUCTED", noShowMakeupGranted = false
+//    → 不扣堂 + 不建 makeupCredit
 // ============================================================
 
 export async function markNoShow(
   bookingId: string,
-  policy: NoShowPolicy = "NOT_DEDUCTED"
+  choice: NoShowChoice = "NOT_DEDUCTED_NO_MAKEUP"
 ): Promise<ActionResult<void>> {
   try {
     await requirePermission("booking.update");
@@ -494,19 +504,25 @@ export async function markNoShow(
       throw new AppError("VALIDATION", "只能對待到店的預約標記未到");
     }
 
+    // 拆解 UI choice → DB 欄位
+    const shouldDeduct = choice === "DEDUCTED";
+    const shouldGrantMakeup = choice === "NOT_DEDUCTED_WITH_MAKEUP";
+    const dbPolicy = shouldDeduct ? "DEDUCTED" : "NOT_DEDUCTED";
+
     await prisma.$transaction(async (tx) => {
-      // 1. 標記未到 + 記錄扣堂策略
+      // 1. 標記未到 + 記錄扣堂策略 + 是否發補課
       await tx.booking.update({
         where: { id: bookingId },
         data: {
           bookingStatus: "NO_SHOW",
-          noShowPolicy: policy,
+          noShowPolicy: dbPolicy,
+          noShowMakeupGranted: shouldGrantMakeup,
         },
       });
 
       // 2. 若扣堂 → 扣 wallet + 寫 usage record
       const wallet = booking.customerPlanWallet;
-      if (policy === "DEDUCTED" && wallet && !booking.isMakeup) {
+      if (shouldDeduct && wallet && !booking.isMakeup) {
         const newRemaining = Math.max(0, wallet.remainingSessions - 1);
         await tx.customerPlanWallet.update({
           where: { id: wallet.id },
@@ -532,8 +548,8 @@ export async function markNoShow(
         });
       }
 
-      // 3. 產生補課資格（非補課預約 + 明確選擇「不扣堂＋給補課」時才給）
-      if (!booking.isMakeup && policy === "NOT_DEDUCTED") {
+      // 3. 若不扣堂＋給補課 → 建 makeupCredit
+      if (!booking.isMakeup && shouldGrantMakeup) {
         const expiredAt = new Date();
         expiredAt.setDate(expiredAt.getDate() + 30);
         await tx.makeupCredit.create({
