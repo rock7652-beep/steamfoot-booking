@@ -77,55 +77,133 @@ export default async function PlansPage({ searchParams }: PageProps) {
         </Link>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {plans.length === 0 && (
-          <p className="text-earth-400">尚無課程方案</p>
-        )}
-        {plans.map((plan) => (
-          <div
-            key={plan.id}
-            className={`rounded-xl border bg-white p-5 shadow-sm ${
-              !plan.isActive ? "opacity-50" : ""
-            }`}
-          >
-            <div className="mb-2 flex items-start justify-between">
-              <span
-                className={`rounded px-2 py-0.5 text-xs font-medium ${
-                  CATEGORY_COLOR[plan.category]
-                }`}
-              >
-                {CATEGORY_LABEL[plan.category]}
-              </span>
-              {!plan.isActive && (
-                <span className="rounded bg-red-100 px-2 py-0.5 text-xs text-red-600">
-                  已下架
-                </span>
-              )}
-            </div>
-            <h2 className="text-base font-bold text-earth-900">{plan.name}</h2>
-            <p className="mt-1 text-lg font-semibold text-primary-700">
-              NT$ {Number(plan.price).toLocaleString()}
-            </p>
-            <p className="text-sm text-earth-500">{plan.sessionCount} 堂</p>
-            {plan.validityDays && (
-              <p className="text-xs text-earth-400">有效 {plan.validityDays} 天</p>
-            )}
-            {plan.description && (
-              <p className="mt-2 text-xs text-earth-500">{plan.description}</p>
-            )}
-            {isOwner && (
-              <div className="mt-3 border-t pt-3">
-                <Link
-                  href={`/dashboard/plans/${plan.id}/edit`}
-                  className="text-sm text-primary-600 hover:underline"
-                >
-                  編輯
-                </Link>
-              </div>
-            )}
+      {plans.length === 0 ? (
+        <div className="rounded-xl border border-earth-200 bg-white py-12 text-center shadow-sm">
+          <p className="text-sm text-earth-400">尚無課程方案</p>
+        </div>
+      ) : (
+        <div className="rounded-xl border border-earth-200 bg-white shadow-sm overflow-hidden">
+          {/* Desktop table */}
+          <div className="hidden sm:block overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-earth-200 bg-earth-50">
+                  <th className="px-4 py-3 text-left font-medium text-earth-500">類別</th>
+                  <th className="px-4 py-3 text-left font-medium text-earth-500">方案名稱</th>
+                  <th className="px-4 py-3 text-right font-medium text-earth-500">價格</th>
+                  <th className="px-4 py-3 text-right font-medium text-earth-500">堂數</th>
+                  <th className="px-4 py-3 text-right font-medium text-earth-500">單堂均價</th>
+                  <th className="px-4 py-3 text-right font-medium text-earth-500">有效天數</th>
+                  <th className="px-4 py-3 text-center font-medium text-earth-500">狀態</th>
+                  {isOwner && (
+                    <th className="px-4 py-3 text-center font-medium text-earth-500">操作</th>
+                  )}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-earth-100">
+                {plans.map((plan) => {
+                  const price = Number(plan.price);
+                  const avgPrice = plan.sessionCount > 0 ? Math.round(price / plan.sessionCount) : 0;
+                  return (
+                    <tr
+                      key={plan.id}
+                      className={`transition-colors hover:bg-earth-50 ${!plan.isActive ? "opacity-50" : ""}`}
+                    >
+                      <td className="px-4 py-3">
+                        <span className={`rounded px-2 py-0.5 text-xs font-medium ${CATEGORY_COLOR[plan.category]}`}>
+                          {CATEGORY_LABEL[plan.category]}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div>
+                          <span className="font-medium text-earth-900">{plan.name}</span>
+                          {plan.description && (
+                            <p className="mt-0.5 text-xs text-earth-400 line-clamp-1">{plan.description}</p>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-right font-semibold text-primary-700">
+                        ${price.toLocaleString()}
+                      </td>
+                      <td className="px-4 py-3 text-right text-earth-700">
+                        {plan.sessionCount} 堂
+                      </td>
+                      <td className="px-4 py-3 text-right text-earth-500">
+                        ${avgPrice.toLocaleString()}
+                      </td>
+                      <td className="px-4 py-3 text-right text-earth-500">
+                        {plan.validityDays ? `${plan.validityDays} 天` : "—"}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        {plan.isActive ? (
+                          <span className="rounded bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">上架</span>
+                        ) : (
+                          <span className="rounded bg-red-100 px-2 py-0.5 text-xs font-medium text-red-600">下架</span>
+                        )}
+                      </td>
+                      {isOwner && (
+                        <td className="px-4 py-3 text-center">
+                          <Link
+                            href={`/dashboard/plans/${plan.id}/edit`}
+                            className="text-sm text-primary-600 hover:underline"
+                          >
+                            編輯
+                          </Link>
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
-        ))}
-      </div>
+
+          {/* Mobile list */}
+          <div className="sm:hidden divide-y divide-earth-100">
+            {plans.map((plan) => {
+              const price = Number(plan.price);
+              const avgPrice = plan.sessionCount > 0 ? Math.round(price / plan.sessionCount) : 0;
+              return (
+                <div
+                  key={plan.id}
+                  className={`px-4 py-3 ${!plan.isActive ? "opacity-50" : ""}`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className={`rounded px-2 py-0.5 text-xs font-medium ${CATEGORY_COLOR[plan.category]}`}>
+                        {CATEGORY_LABEL[plan.category]}
+                      </span>
+                      <span className="font-medium text-earth-900">{plan.name}</span>
+                    </div>
+                    {!plan.isActive && (
+                      <span className="rounded bg-red-100 px-2 py-0.5 text-xs text-red-600">下架</span>
+                    )}
+                  </div>
+                  <div className="mt-2 flex items-center justify-between text-sm">
+                    <div className="flex gap-3 text-earth-500">
+                      <span className="font-semibold text-primary-700">${price.toLocaleString()}</span>
+                      <span>{plan.sessionCount} 堂</span>
+                      <span>均 ${avgPrice.toLocaleString()}/堂</span>
+                      {plan.validityDays && <span>{plan.validityDays} 天</span>}
+                    </div>
+                    {isOwner && (
+                      <Link
+                        href={`/dashboard/plans/${plan.id}/edit`}
+                        className="text-primary-600 hover:underline"
+                      >
+                        編輯
+                      </Link>
+                    )}
+                  </div>
+                  {plan.description && (
+                    <p className="mt-1 text-xs text-earth-400 line-clamp-1">{plan.description}</p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { getCurrentUser } from "@/lib/session";
 import { getMonthBookingSummary } from "@/server/queries/booking";
 import { getLatestReconciliationRun } from "@/server/queries/reconciliation";
 import { todayRange, monthRange, toLocalDateStr } from "@/lib/date-utils";
+import { getManagerCustomerFilter, getManagerCustomerWhere } from "@/lib/manager-visibility";
 import { prisma } from "@/lib/db";
 import Link from "next/link";
 import { DashboardCalendar } from "./dashboard-calendar";
@@ -29,13 +30,9 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   const year = params.year ? parseInt(params.year) : parseInt(toLocalDateStr().slice(0, 4));
   const month = params.month ? parseInt(params.month) : parseInt(toLocalDateStr().slice(5, 7));
 
-  // Staff filter for manager
-  const staffCustomerFilter = user.role === "MANAGER" && user.staffId
-    ? { customer: { assignedStaffId: user.staffId } }
-    : {};
-  const staffCustomerWhere = user.role === "MANAGER" && user.staffId
-    ? { assignedStaffId: user.staffId }
-    : {};
+  // Staff filter for manager（使用可配置的 visibility mode）
+  const staffCustomerFilter = getManagerCustomerFilter(user.role, user.staffId);
+  const staffCustomerWhere = getManagerCustomerWhere(user.role, user.staffId);
 
   // Parallel queries
   const [stats, todayBookings, monthData, latestRecon] = await Promise.all([
@@ -50,7 +47,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
           where: {
             ...staffCustomerFilter,
             bookingDate: { gte: todayStart, lte: todayEnd },
-            bookingStatus: { in: ["PENDING", "CONFIRMED"] },
+            bookingStatus: { in: ["PENDING", "CONFIRMED", "COMPLETED", "NO_SHOW"] },
           },
           _count: { id: true },
           _sum: { people: true },

@@ -4,6 +4,7 @@ import { checkPermission } from "@/lib/permissions";
 import { markCompleted, cancelBooking, markNoShow, checkInBooking } from "@/server/actions/booking";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
+import { NoShowButton, CancelButton } from "./booking-actions";
 
 // Status/type labels
 const STATUS_LABEL: Record<string, string> = {
@@ -51,13 +52,7 @@ export default async function BookingDetailPage({ params }: PageProps) {
   const booking = await getBooking(id);
   if (!booking) notFound();
 
-  // Manager isolation
-  if (user.role === "MANAGER" && user.staffId) {
-    const assignedTo = booking.customer.assignedStaffId;
-    if (assignedTo && assignedTo !== user.staffId) {
-      redirect("/dashboard/bookings");
-    }
-  }
+  // 「顧客屬於店」：所有 Manager 可查看任何預約詳情
 
   const isActive =
     booking.bookingStatus === "CONFIRMED" || booking.bookingStatus === "PENDING";
@@ -74,9 +69,8 @@ export default async function BookingDetailPage({ params }: PageProps) {
     await markCompleted(id);
     redirect(`/dashboard/bookings/${id}`);
   }
-  async function cancelAction(formData: FormData) {
+  async function cancelAction(note?: string) {
     "use server";
-    const note = formData.get("note") as string | undefined;
     await cancelBooking(id, note ?? undefined);
     redirect(`/dashboard/bookings/${id}`);
   }
@@ -217,41 +211,10 @@ export default async function BookingDetailPage({ params }: PageProps) {
                 </button>
               </form>
             </div>
-            {/* 第二行：未到 + 取消 */}
+            {/* 第二行：未到 + 取消（使用 Client Component 處理 confirm 對話框） */}
             <div className="flex flex-wrap items-center gap-3">
-              <form action={noShowAction}>
-                <button
-                  type="submit"
-                  className="rounded-lg bg-earth-200 px-4 py-2 text-sm font-medium text-earth-700 hover:bg-gray-300"
-                  onClick={(e) => {
-                    const msg = booking.isMakeup
-                      ? "確定標記未到？補課的未到不會再產生新的補課資格。"
-                      : "確定標記未到？已預扣堂數不會退回，但會自動產生一次補課資格。";
-                    if (!confirm(msg)) e.preventDefault();
-                  }}
-                >
-                  未到
-                </button>
-              </form>
-              <form action={cancelAction} className="flex items-center gap-2">
-                <input
-                  name="note"
-                  placeholder="取消原因（選填）"
-                  className="rounded-lg border border-earth-300 px-3 py-2 text-sm"
-                />
-                <button
-                  type="submit"
-                  className="rounded-lg bg-red-100 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-200"
-                  onClick={(e) => {
-                    const msg = booking.isMakeup
-                      ? "確定取消？補課資格將退回。"
-                      : "確定取消？已預扣堂數將退回。";
-                    if (!confirm(msg)) e.preventDefault();
-                  }}
-                >
-                  取消預約
-                </button>
-              </form>
+              <NoShowButton isMakeup={booking.isMakeup} action={noShowAction} />
+              <CancelButton isMakeup={booking.isMakeup} action={cancelAction} />
             </div>
           </div>
         )}

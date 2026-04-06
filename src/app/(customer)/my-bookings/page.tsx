@@ -174,14 +174,29 @@ export default async function MyBookingsPage({ searchParams }: PageProps) {
                   <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${STATUS_COLOR[b.bookingStatus]}`}>
                     {STATUS_LABEL[b.bookingStatus]}
                   </span>
-                  {(b.bookingStatus === "PENDING" || b.bookingStatus === "CONFIRMED") && (
-                    <Link
-                      href={`/my-bookings/${b.id}/cancel`}
-                      className="text-[11px] text-red-400 hover:text-red-600 hover:underline"
-                    >
-                      取消
-                    </Link>
-                  )}
+                  {(b.bookingStatus === "PENDING" || b.bookingStatus === "CONFIRMED") && (() => {
+                    const dateStr = new Date(b.bookingDate).toISOString().slice(0, 10);
+                    const [h, m] = b.slotTime.split(":").map(Number);
+                    const bookingTime = new Date(`${dateStr}T${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:00+08:00`);
+                    const hoursLeft = (bookingTime.getTime() - Date.now()) / (1000 * 60 * 60);
+                    const canCancel = hoursLeft >= 12;
+
+                    return canCancel ? (
+                      <Link
+                        href={`/my-bookings/${b.id}/cancel`}
+                        className="text-[11px] text-red-400 hover:text-red-600 hover:underline"
+                      >
+                        取消
+                      </Link>
+                    ) : (
+                      <span
+                        className="text-[11px] text-earth-300 cursor-not-allowed"
+                        title="開課前 12 小時內無法取消"
+                      >
+                        取消
+                      </span>
+                    );
+                  })()}
                 </div>
               </div>
             </div>

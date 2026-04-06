@@ -166,7 +166,7 @@ async function checkTodayRevenue(targetDate: string, _targetMonth: string): Prom
 
   return {
     checkCode: "today_revenue",
-    checkName: "今日���收",
+    checkName: "今日營收",
     status: allMatch ? "pass" : "mismatch",
     sources,
     expected: "所有來源數字完全一致",
@@ -336,7 +336,7 @@ async function checkTodayBookingPeople(targetDate: string, _targetMonth: string)
 
   const sources = {
     "aggregate _sum.people": aggPeople,
-    "逐���加總 people": rowPeople,
+    "逐筆加總 people": rowPeople,
   };
 
   const allMatch = aggPeople === rowPeople;
@@ -359,7 +359,7 @@ async function checkTodayBookingPeople(targetDate: string, _targetMonth: string)
 }
 
 // ============================================================
-// 對帳項目 5：CSV 合計列對帳（本月��
+// 對帳項目 5：CSV 合計列對帳（本月）
 // 模擬 CSV 邏輯的合計列 vs 報表邏輯
 // ============================================================
 

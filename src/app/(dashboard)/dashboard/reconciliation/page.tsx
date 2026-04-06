@@ -9,11 +9,11 @@ interface PageProps {
   searchParams: Promise<{ runId?: string }>;
 }
 
-const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
-  pass: { label: "通過", color: "text-green-700", bg: "bg-green-100" },
-  mismatch: { label: "不一致", color: "text-yellow-700", bg: "bg-yellow-100" },
-  error: { label: "錯誤", color: "text-red-700", bg: "bg-red-100" },
-  running: { label: "執行中", color: "text-blue-700", bg: "bg-blue-100" },
+const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; icon: string }> = {
+  pass: { label: "通過", color: "text-green-700", bg: "bg-green-100", icon: "✓" },
+  mismatch: { label: "不一致", color: "text-yellow-700", bg: "bg-yellow-100", icon: "⚠" },
+  error: { label: "錯誤", color: "text-red-700", bg: "bg-red-100", icon: "✗" },
+  running: { label: "執行中", color: "text-blue-700", bg: "bg-blue-100", icon: "…" },
 };
 
 export default async function ReconciliationPage({ searchParams }: PageProps) {
@@ -31,6 +31,10 @@ export default async function ReconciliationPage({ searchParams }: PageProps) {
   const latestRun = runs[0] ?? null;
   const displayRun = selectedRun ?? (latestRun ? await getReconciliationRunDetail(latestRun.id) : null);
 
+  // 分離通過與異常項目
+  const passedChecks = displayRun?.checks.filter((c) => c.status === "pass") ?? [];
+  const failedChecks = displayRun?.checks.filter((c) => c.status !== "pass") ?? [];
+
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       {/* Header */}
@@ -44,7 +48,7 @@ export default async function ReconciliationPage({ searchParams }: PageProps) {
         <RunReconciliationButton />
       </div>
 
-      {/* Latest status summary */}
+      {/* ═══════ 第一層：總覽狀態 ═══════ */}
       {displayRun && (
         <div className="rounded-xl border border-earth-200 bg-white p-5 shadow-sm">
           <div className="flex items-start justify-between">
@@ -90,82 +94,25 @@ export default async function ReconciliationPage({ searchParams }: PageProps) {
               <p className="text-lg font-bold text-red-700">{displayRun.errorCount}</p>
             </div>
           </div>
+        </div>
+      )}
 
-          {/* Check details */}
-          <div className="mt-5 space-y-3">
-            <h3 className="text-sm font-semibold text-earth-700">檢查明細</h3>
-            {displayRun.checks.map((check) => {
-              const config = STATUS_CONFIG[check.status];
-              const sources = check.sources as Record<string, number>;
-              const debug = check.debugPayload as Record<string, unknown>;
-              return (
-                <div
-                  key={check.id}
-                  className={`rounded-xl border p-4 ${
-                    check.status === "pass"
-                      ? "border-green-200 bg-green-50/50"
-                      : check.status === "mismatch"
-                      ? "border-yellow-200 bg-yellow-50/50"
-                      : "border-red-200 bg-red-50/50"
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className={`text-sm font-medium ${config?.color}`}>
-                        {check.status === "pass" ? "\u2713" : check.status === "mismatch" ? "\u26A0" : "\u2717"}
-                      </span>
-                      <span className="text-sm font-semibold text-earth-800">{check.checkName}</span>
-                      <span className="text-xs text-earth-400">{check.checkCode}</span>
-                    </div>
-                    <span
-                      className={`rounded px-2 py-0.5 text-xs font-medium ${config?.bg} ${config?.color}`}
-                    >
-                      {config?.label}
-                    </span>
-                  </div>
+      {/* ═══════ 第二層：異常項目優先顯示 ═══════ */}
+      {displayRun && failedChecks.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold text-red-700">需注意的項目（{failedChecks.length}）</h3>
+          {failedChecks.map((check) => (
+            <CheckDetailCard key={check.id} check={check} />
+          ))}
+        </div>
+      )}
 
-                  {/* Sources table */}
-                  {Object.keys(sources).length > 0 && (
-                    <div className="mt-2 overflow-x-auto">
-                      <table className="w-full text-xs">
-                        <thead>
-                          <tr className="border-b border-earth-200">
-                            <th className="pb-1 text-left font-medium text-earth-500">資料來源</th>
-                            <th className="pb-1 text-right font-medium text-earth-500">數值</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {Object.entries(sources).map(([name, value]) => (
-                            <tr key={name} className="border-b border-earth-100 last:border-0">
-                              <td className="py-1 text-earth-700">{name}</td>
-                              <td className="py-1 text-right font-mono text-earth-900">
-                                {typeof value === "number" ? value.toLocaleString() : String(value)}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-
-                  {/* Error message */}
-                  {check.errorMessage && (
-                    <p className="mt-2 text-xs text-red-600">{check.errorMessage}</p>
-                  )}
-
-                  {/* Debug payload (collapsible) */}
-                  <details className="mt-2">
-                    <summary className="cursor-pointer text-xs text-earth-400 hover:text-earth-600">
-                      Debug 資訊
-                    </summary>
-                    <pre className="mt-1 max-h-48 overflow-auto rounded-lg bg-earth-900 p-3 text-[11px] text-earth-100">
-                      {JSON.stringify(debug, null, 2)}
-                    </pre>
-                  </details>
-                </div>
-              );
-            })}
-          </div>
+      {displayRun && passedChecks.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold text-green-700">通過的項目（{passedChecks.length}）</h3>
+          {passedChecks.map((check) => (
+            <CheckDetailCard key={check.id} check={check} />
+          ))}
         </div>
       )}
 
@@ -177,7 +124,7 @@ export default async function ReconciliationPage({ searchParams }: PageProps) {
         </div>
       )}
 
-      {/* History */}
+      {/* ═══════ 歷史列表 ═══════ */}
       {runs.length > 0 && (
         <div className="rounded-xl border border-earth-200 bg-white p-5 shadow-sm">
           <h2 className="mb-3 text-sm font-semibold text-earth-800">對帳歷史</h2>
@@ -233,11 +180,137 @@ export default async function ReconciliationPage({ searchParams }: PageProps) {
         <ul className="mt-1.5 space-y-0.5 list-disc list-inside">
           <li>每次執行檢查 5 個項目：今日營收、本月營收、今日預約筆數、今日預約人數、CSV 合計列</li>
           <li>數字比對容許誤差 = 0（必須完全一致）</li>
-          <li>每項檢查��多個來源取值後交叉比對（aggregate vs groupBy vs 逐筆加總）</li>
+          <li>每項檢查從多個來源取值後交叉比對（aggregate vs groupBy vs 逐筆加總）</li>
           <li>點擊各項目的「Debug 資訊」可查看完整的日期範圍、公式、來源明細</li>
           <li>異常時 Dashboard 首頁會顯示警示條（僅 Owner 可見）</li>
         </ul>
       </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════
+// 單項檢查明細卡片（第二層 + 第三層合併）
+// ════════════════════════════════════════════════
+
+interface CheckCardProps {
+  check: {
+    id: string;
+    checkCode: string;
+    checkName: string;
+    status: string;
+    sources: unknown;
+    expected?: string | null;
+    errorMessage?: string | null;
+    debugPayload: unknown;
+  };
+}
+
+function CheckDetailCard({ check }: CheckCardProps) {
+  const config = STATUS_CONFIG[check.status];
+  const sources = check.sources as Record<string, number>;
+  const debug = check.debugPayload as Record<string, unknown>;
+
+  // 計算來源值是否一致（用於顯示差異高亮）
+  const sourceValues = Object.values(sources).filter((v) => typeof v === "number");
+  const allSame = sourceValues.length > 0 && sourceValues.every((v) => v === sourceValues[0]);
+
+  return (
+    <div
+      className={`rounded-xl border p-4 ${
+        check.status === "pass"
+          ? "border-green-200 bg-green-50/50"
+          : check.status === "mismatch"
+          ? "border-yellow-200 bg-yellow-50/50"
+          : "border-red-200 bg-red-50/50"
+      }`}
+    >
+      {/* 標題列 */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className={`text-sm font-medium ${config?.color}`}>
+            {config?.icon}
+          </span>
+          <span className="text-sm font-semibold text-earth-800">{check.checkName}</span>
+          <span className="text-xs text-earth-400">{check.checkCode}</span>
+        </div>
+        <span
+          className={`rounded px-2 py-0.5 text-xs font-medium ${config?.bg} ${config?.color}`}
+        >
+          {config?.label}
+        </span>
+      </div>
+
+      {/* 期望結果 */}
+      {check.expected && (
+        <p className="mt-1.5 text-xs text-earth-500">
+          期望：{check.expected}
+        </p>
+      )}
+
+      {/* 第二層：來源比對表 */}
+      {Object.keys(sources).length > 0 && (
+        <div className="mt-3 overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b border-earth-200">
+                <th className="pb-1.5 text-left font-medium text-earth-500">資料來源</th>
+                <th className="pb-1.5 text-right font-medium text-earth-500">數值</th>
+                {!allSame && (
+                  <th className="pb-1.5 text-right font-medium text-earth-500">差異</th>
+                )}
+              </tr>
+            </thead>
+            <tbody>
+              {Object.entries(sources).map(([name, value], idx) => {
+                const firstValue = sourceValues[0];
+                const diff = typeof value === "number" && typeof firstValue === "number" ? value - firstValue : 0;
+                return (
+                  <tr key={name} className="border-b border-earth-100 last:border-0">
+                    <td className="py-1.5 text-earth-700">{name}</td>
+                    <td className={`py-1.5 text-right font-mono ${
+                      !allSame && idx > 0 && diff !== 0 ? "font-bold text-yellow-700" : "text-earth-900"
+                    }`}>
+                      {typeof value === "number" ? value.toLocaleString() : String(value)}
+                    </td>
+                    {!allSame && (
+                      <td className="py-1.5 text-right font-mono text-xs">
+                        {idx === 0 ? (
+                          <span className="text-earth-400">基準</span>
+                        ) : diff !== 0 ? (
+                          <span className={diff > 0 ? "text-red-600" : "text-red-600"}>
+                            {diff > 0 ? "+" : ""}{diff.toLocaleString()}
+                          </span>
+                        ) : (
+                          <span className="text-green-600">一致</span>
+                        )}
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Error message */}
+      {check.errorMessage && (
+        <div className="mt-2 rounded-lg bg-red-50 px-3 py-2">
+          <p className="text-xs font-medium text-red-700">錯誤訊息</p>
+          <p className="mt-0.5 text-xs text-red-600">{check.errorMessage}</p>
+        </div>
+      )}
+
+      {/* 第三層：Debug payload（可摺疊） */}
+      <details className="mt-3">
+        <summary className="cursor-pointer text-xs text-earth-400 hover:text-earth-600">
+          展開 Debug 資訊
+        </summary>
+        <pre className="mt-1.5 max-h-48 overflow-auto rounded-lg bg-earth-900 p-3 text-[11px] text-earth-100">
+          {JSON.stringify(debug, null, 2)}
+        </pre>
+      </details>
     </div>
   );
 }

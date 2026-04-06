@@ -14,6 +14,19 @@ import type { ActionResult } from "@/types";
 import type { z } from "zod";
 
 // ============================================================
+// Helper: 組合 bookingDate + slotTime 為完整 Date（台灣時間）
+// bookingDate 存的是 UTC midnight，slotTime 是 "HH:mm" 台灣時間
+// ============================================================
+
+function getBookingDateTime(bookingDate: Date, slotTime: string): Date {
+  // bookingDate = YYYY-MM-DDT00:00:00.000Z (UTC midnight = 台灣 08:00)
+  const dateStr = bookingDate.toISOString().slice(0, 10); // "YYYY-MM-DD"
+  const [hours, minutes] = slotTime.split(":").map(Number);
+  // 台灣時間 = UTC + 8，所以 UTC 時間 = 台灣時間 - 8
+  return new Date(`${dateStr}T${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:00+08:00`);
+}
+
+// ============================================================
 // createBooking
 //
 // 商業規則（嚴格實作，後端強制）：
@@ -249,12 +262,7 @@ export async function updateBooking(
       throw new AppError("BUSINESS_RULE", "已完成或已取消的預約無法修改");
     }
 
-    // Manager 只能修改自己名下顧客的預約
-    if (user.role === "MANAGER") {
-      if (!user.staffId || booking.customer.assignedStaffId !== user.staffId) {
-        throw new AppError("FORBIDDEN", "無法修改其他店長名下的預約");
-      }
-    }
+    // 「顧客屬於店」：所有 Manager 可修改任何顧客的預約
 
     // 若修改日期/時段/人數，需重新檢查可用性
     if (data.bookingDate || data.slotTime || data.people) {
@@ -344,14 +352,19 @@ export async function cancelBooking(
       if (!user.customerId || booking.customerId !== user.customerId) {
         throw new AppError("FORBIDDEN", "只能取消自己的預約");
       }
-    }
 
-    // Manager 只能取消自己名下顧客的
-    if (user.role === "MANAGER") {
-      if (!user.staffId || booking.customer.assignedStaffId !== user.staffId) {
-        throw new AppError("FORBIDDEN", "無法取消其他店長名下的預約");
+      // P1-3: 開課前 12 小時不可取消
+      const bookingDateTime = getBookingDateTime(booking.bookingDate, booking.slotTime);
+      const hoursUntilBooking = (bookingDateTime.getTime() - Date.now()) / (1000 * 60 * 60);
+      if (hoursUntilBooking < 12) {
+        throw new AppError(
+          "BUSINESS_RULE",
+          "開課前 12 小時內無法自行取消，請直接聯繫店家"
+        );
       }
     }
+
+    // 「顧客屬於店」：所有 Manager 可取消任何顧客的預約
 
     await prisma.$transaction(async (tx) => {
       // 1. 標記取消
@@ -415,11 +428,7 @@ export async function checkInBooking(
       throw new AppError("VALIDATION", "只能對已確認的預約進行報到");
     }
 
-    if (user.role === "MANAGER") {
-      if (!user.staffId || booking.customer.assignedStaffId !== user.staffId) {
-        throw new AppError("FORBIDDEN", "無法操作其他店長名下的預約");
-      }
-    }
+    // 「顧客屬於店」：所有 Manager 可為任何顧客報到
 
     await prisma.booking.update({
       where: { id: bookingId },
@@ -467,11 +476,7 @@ export async function markCompleted(
       throw new AppError("BUSINESS_RULE", "已取消的預約無法標記完成");
     }
 
-    if (user.role === "MANAGER") {
-      if (!user.staffId || booking.customer.assignedStaffId !== user.staffId) {
-        throw new AppError("FORBIDDEN", "無法操作其他店長名下的預約");
-      }
-    }
+    // 「顧客屬於店」：所有 Manager 可完成任何顧客的預約
 
     const serviceStaffId = data.serviceStaffId ?? booking.serviceStaffId ?? null;
 
@@ -558,11 +563,7 @@ export async function markNoShow(bookingId: string): Promise<ActionResult<void>>
       throw new AppError("VALIDATION", "只能對確認中的預約標記未到");
     }
 
-    if (user.role === "MANAGER") {
-      if (!user.staffId || booking.customer.assignedStaffId !== user.staffId) {
-        throw new AppError("FORBIDDEN", "無法操作其他店長名下的預約");
-      }
-    }
+    // 「顧客屬於店」：所有 Manager 可標記任何顧客未到
 
     await prisma.$transaction(async (tx) => {
       // 1. 標記未到

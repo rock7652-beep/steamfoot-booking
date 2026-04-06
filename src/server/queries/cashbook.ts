@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { requireStaffSession } from "@/lib/session";
+import { getManagerReadFilter } from "@/lib/manager-visibility";
 import type { CashbookEntryType } from "@prisma/client";
 
 export interface ListCashbookOptions {
@@ -20,13 +21,13 @@ export async function listCashbookEntries(options: ListCashbookOptions = {}) {
   const user = await requireStaffSession();
   const { dateFrom, dateTo, type, staffId, page = 1, pageSize = 30 } = options;
 
-  // Manager 強制過濾：只看自己的
-  const staffFilter =
-    user.role === "MANAGER" && user.staffId
-      ? { staffId: user.staffId }
-      : staffId
-      ? { staffId }
-      : {};
+  // Manager 篩選（讀取型：受 visibility mode 控制）
+  const visibilityFilter = getManagerReadFilter(user.role, user.staffId, "staffId");
+  const staffFilter = Object.keys(visibilityFilter).length > 0
+    ? visibilityFilter
+    : staffId
+    ? { staffId }
+    : {};
 
   const where = {
     ...staffFilter,
@@ -65,8 +66,7 @@ export async function listCashbookEntries(options: ListCashbookOptions = {}) {
 export async function getDailySummary(date: string) {
   const user = await requireStaffSession();
 
-  const staffFilter =
-    user.role === "MANAGER" && user.staffId ? { staffId: user.staffId } : {};
+  const staffFilter = getManagerReadFilter(user.role, user.staffId, "staffId");
 
   const dayStart = new Date(date + "T00:00:00Z");
   const dayEnd = new Date(date + "T23:59:59Z");
@@ -106,8 +106,7 @@ export async function getMonthlySummary(month: string) {
   // month: "YYYY-MM"
   const user = await requireStaffSession();
 
-  const staffFilter =
-    user.role === "MANAGER" && user.staffId ? { staffId: user.staffId } : {};
+  const staffFilter = getManagerReadFilter(user.role, user.staffId, "staffId");
 
   const [year, mon] = month.split("-").map(Number);
   const monthStart = new Date(Date.UTC(year, mon - 1, 1));

@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { checkPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
 import { toLocalMonthStr, monthRange } from "@/lib/date-utils";
+import { getManagerReadFilter } from "@/lib/manager-visibility";
 
 function toCsv(rows: string[][]): string {
   return rows
@@ -33,16 +34,14 @@ export async function GET(req: NextRequest) {
 
   const REVENUE_TYPES = ["TRIAL_PURCHASE", "SINGLE_PURCHASE", "PACKAGE_PURCHASE", "SUPPLEMENT"];
 
-  const staffFilter =
-    session.user.role === "MANAGER" && session.user.staffId
-      ? { revenueStaffId: session.user.staffId }
-      : {};
+  const revenueFilter = getManagerReadFilter(session.user.role, session.user.staffId, "revenueStaffId");
+  const staffIdFilter = getManagerReadFilter(session.user.role, session.user.staffId, "staffId");
 
   const [txRows, completedRows, spaceFees] = await Promise.all([
     prisma.transaction.groupBy({
       by: ["revenueStaffId", "transactionType"],
       where: {
-        ...staffFilter,
+        ...revenueFilter,
         transactionType: { in: REVENUE_TYPES as never },
         createdAt: { gte: monthStart, lte: monthEnd },
       },
@@ -51,9 +50,7 @@ export async function GET(req: NextRequest) {
     prisma.booking.groupBy({
       by: ["revenueStaffId"],
       where: {
-        ...(session.user.role === "MANAGER" && session.user.staffId
-          ? { revenueStaffId: session.user.staffId }
-          : {}),
+        ...revenueFilter,
         bookingStatus: "COMPLETED",
         bookingDate: { gte: monthStart, lte: monthEnd },
       },
@@ -61,9 +58,7 @@ export async function GET(req: NextRequest) {
     }),
     prisma.spaceFeeRecord.findMany({
       where: {
-        ...(session.user.role === "MANAGER" && session.user.staffId
-          ? { staffId: session.user.staffId }
-          : {}),
+        ...staffIdFilter,
         month,
       },
       select: { staffId: true, feeAmount: true },

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { requireSession, requireStaffSession } from "@/lib/session";
 import { AppError } from "@/lib/errors";
+import { getManagerReadFilter, getVisibilityMode } from "@/lib/manager-visibility";
 import type { TransactionType, PaymentMethod } from "@prisma/client";
 
 export interface ListTransactionsOptions {
@@ -33,13 +34,14 @@ export async function listTransactions(options: ListTransactionsOptions = {}) {
     pageSize = 30,
   } = options;
 
-  // Manager 強制過濾
-  const staffFilter =
-    user.role === "MANAGER" && user.staffId
-      ? { revenueStaffId: user.staffId }
-      : revenueStaffId
-      ? { revenueStaffId }
-      : {};
+  // Manager 篩選（讀取型：受 visibility mode 控制）
+  const visibilityFilter = getManagerReadFilter(user.role, user.staffId, "revenueStaffId");
+  // 若 UI 層有傳入 revenueStaffId 篩選，且 visibility 沒有強制篩選 → 使用 UI 篩選
+  const staffFilter = Object.keys(visibilityFilter).length > 0
+    ? visibilityFilter
+    : revenueStaffId
+    ? { revenueStaffId }
+    : {};
 
   const where = {
     ...staffFilter,
@@ -112,10 +114,13 @@ export async function getTransactionDetail(transactionId: string) {
   });
   if (!tx) throw new AppError("NOT_FOUND", "交易紀錄不存在");
 
-  // Manager 只能看自己名下顧客的交易
+  // Manager 讀取限制（受 visibility mode 控制）
   if (user.role === "MANAGER") {
-    if (!user.staffId || tx.revenueStaffId !== user.staffId) {
-      throw new AppError("FORBIDDEN", "無法查看其他店長名下的交易");
+    const mode = getVisibilityMode();
+    if (mode === "SELF_ONLY") {
+      if (!user.staffId || tx.revenueStaffId !== user.staffId) {
+        throw new AppError("FORBIDDEN", "無法查看其他店長名下的交易");
+      }
     }
   }
 
@@ -142,10 +147,13 @@ export async function getCustomerTransactionSummary(customerId: string) {
   });
   if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
 
-  // Manager 只能查自己名下
+  // Manager 讀取限制（受 visibility mode 控制）
   if (user.role === "MANAGER") {
-    if (!user.staffId || customer.assignedStaffId !== user.staffId) {
-      throw new AppError("FORBIDDEN", "無法查看其他店長名下的顧客");
+    const mode = getVisibilityMode();
+    if (mode === "SELF_ONLY") {
+      if (!user.staffId || customer.assignedStaffId !== user.staffId) {
+        throw new AppError("FORBIDDEN", "無法查看其他店長名下的顧客");
+      }
     }
   }
 

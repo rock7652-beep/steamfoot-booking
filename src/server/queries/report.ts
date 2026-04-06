@@ -8,6 +8,7 @@ import { prisma } from "@/lib/db";
 import { requireStaffSession, requireSession } from "@/lib/session";
 import { AppError } from "@/lib/errors";
 import { monthRange as sharedMonthRange } from "@/lib/date-utils";
+import { getManagerReadFilter, getVisibilityMode } from "@/lib/manager-visibility";
 
 const REVENUE_TYPES = [
   "TRIAL_PURCHASE",
@@ -29,16 +30,13 @@ export async function monthlyStaffRevenueSummary(month: string) {
   const user = await requireStaffSession();
   const { monthStart, monthEnd } = monthRange(month);
 
-  const staffFilter =
-    user.role === "MANAGER" && user.staffId
-      ? { revenueStaffId: user.staffId }
-      : {};
+  const revenueFilter = getManagerReadFilter(user.role, user.staffId, "revenueStaffId");
 
   const [rows, completedBookings] = await Promise.all([
     prisma.transaction.groupBy({
       by: ["revenueStaffId"],
       where: {
-        ...staffFilter,
+        ...revenueFilter,
         transactionType: { in: REVENUE_TYPES as never },
         createdAt: { gte: monthStart, lte: monthEnd },
       },
@@ -48,7 +46,7 @@ export async function monthlyStaffRevenueSummary(month: string) {
     prisma.booking.groupBy({
       by: ["revenueStaffId"],
       where: {
-        ...(user.role === "MANAGER" && user.staffId ? { revenueStaffId: user.staffId } : {}),
+        ...revenueFilter,
         bookingStatus: "COMPLETED",
         bookingDate: { gte: monthStart, lte: monthEnd },
       },
@@ -92,23 +90,20 @@ export async function monthlyStaffNetSummary(month: string) {
   const user = await requireStaffSession();
   const { monthStart, monthEnd } = monthRange(month);
 
-  const staffFilter =
-    user.role === "MANAGER" && user.staffId
-      ? { revenueStaffId: user.staffId }
-      : {};
+  const revenueFilter = getManagerReadFilter(user.role, user.staffId, "revenueStaffId");
+  const staffIdFilter = getManagerReadFilter(user.role, user.staffId, "staffId");
 
   const revenueRows = await prisma.transaction.groupBy({
     by: ["revenueStaffId"],
     where: {
-      ...staffFilter,
+      ...revenueFilter,
       transactionType: { in: REVENUE_TYPES as never },
       createdAt: { gte: monthStart, lte: monthEnd },
     },
     _sum: { amount: true },
   });
 
-  const spaceFeeFilter =
-    user.role === "MANAGER" && user.staffId ? { staffId: user.staffId } : {};
+  const spaceFeeFilter = staffIdFilter;
 
   const spaceFees = await prisma.spaceFeeRecord.findMany({
     where: { ...spaceFeeFilter, month },
@@ -146,21 +141,20 @@ export async function monthlyStoreSummary(month: string) {
   const user = await requireStaffSession();
   const { monthStart, monthEnd } = monthRange(month);
 
+  const revenueFilter = getManagerReadFilter(user.role, user.staffId, "revenueStaffId");
+  const staffIdFilter = getManagerReadFilter(user.role, user.staffId, "staffId");
+  const assignedFilter = getManagerReadFilter(user.role, user.staffId, "assignedStaffId");
+
   // All staff visible to this user
   const allStaff = await prisma.staff.findMany({
     where:
-      user.role === "MANAGER" && user.staffId
+      user.role === "MANAGER" && user.staffId && Object.keys(revenueFilter).length > 0
         ? { id: user.staffId }
         : { status: "ACTIVE" },
     select: { id: true, displayName: true },
   });
   const allStaffIds = allStaff.map((s) => s.id);
   const staffNameMap = Object.fromEntries(allStaff.map((s) => [s.id, s.displayName]));
-
-  const staffFilter =
-    user.role === "MANAGER" && user.staffId
-      ? { revenueStaffId: user.staffId }
-      : {};
 
   const [
     revenueRows,
@@ -177,7 +171,7 @@ export async function monthlyStoreSummary(month: string) {
     prisma.transaction.groupBy({
       by: ["revenueStaffId"],
       where: {
-        ...staffFilter,
+        ...revenueFilter,
         transactionType: { in: REVENUE_TYPES as never },
         createdAt: { gte: monthStart, lte: monthEnd },
       },
@@ -187,7 +181,7 @@ export async function monthlyStoreSummary(month: string) {
     // Total refunds
     prisma.transaction.aggregate({
       where: {
-        ...staffFilter,
+        ...revenueFilter,
         transactionType: "REFUND",
         createdAt: { gte: monthStart, lte: monthEnd },
       },
@@ -196,7 +190,7 @@ export async function monthlyStoreSummary(month: string) {
     // Total completed bookings
     prisma.booking.count({
       where: {
-        ...(user.role === "MANAGER" && user.staffId ? { revenueStaffId: user.staffId } : {}),
+        ...revenueFilter,
         bookingStatus: "COMPLETED",
         bookingDate: { gte: monthStart, lte: monthEnd },
       },
@@ -205,7 +199,7 @@ export async function monthlyStoreSummary(month: string) {
     prisma.cashbookEntry.groupBy({
       by: ["type"],
       where: {
-        ...(user.role === "MANAGER" && user.staffId ? { staffId: user.staffId } : {}),
+        ...staffIdFilter,
         entryDate: { gte: monthStart, lte: monthEnd },
       },
       _sum: { amount: true },
@@ -213,7 +207,7 @@ export async function monthlyStoreSummary(month: string) {
     // Space fees total
     prisma.spaceFeeRecord.aggregate({
       where: {
-        ...(user.role === "MANAGER" && user.staffId ? { staffId: user.staffId } : {}),
+        ...staffIdFilter,
         month,
       },
       _sum: { feeAmount: true },
@@ -221,7 +215,7 @@ export async function monthlyStoreSummary(month: string) {
     // Space fees per staff
     prisma.spaceFeeRecord.findMany({
       where: {
-        ...(user.role === "MANAGER" && user.staffId ? { staffId: user.staffId } : {}),
+        ...staffIdFilter,
         month,
       },
       select: { staffId: true, feeAmount: true },
@@ -229,17 +223,14 @@ export async function monthlyStoreSummary(month: string) {
     // Customer count per staff
     prisma.customer.groupBy({
       by: ["assignedStaffId"],
-      where:
-        user.role === "MANAGER" && user.staffId
-          ? { assignedStaffId: user.staffId }
-          : {},
+      where: assignedFilter,
       _count: { id: true },
     }),
     // Active customer count per staff
     prisma.customer.groupBy({
       by: ["assignedStaffId"],
       where: {
-        ...(user.role === "MANAGER" && user.staffId ? { assignedStaffId: user.staffId } : {}),
+        ...assignedFilter,
         customerStage: "ACTIVE",
       },
       _count: { id: true },
@@ -248,7 +239,7 @@ export async function monthlyStoreSummary(month: string) {
     prisma.booking.groupBy({
       by: ["revenueStaffId"],
       where: {
-        ...(user.role === "MANAGER" && user.staffId ? { revenueStaffId: user.staffId } : {}),
+        ...revenueFilter,
         bookingStatus: "COMPLETED",
         bookingDate: { gte: monthStart, lte: monthEnd },
       },
@@ -337,15 +328,12 @@ export async function monthlyRevenueByCategory(month: string) {
   const user = await requireStaffSession();
   const { monthStart, monthEnd } = monthRange(month);
 
-  const staffFilter =
-    user.role === "MANAGER" && user.staffId
-      ? { revenueStaffId: user.staffId }
-      : {};
+  const revenueFilter = getManagerReadFilter(user.role, user.staffId, "revenueStaffId");
 
   const rows = await prisma.transaction.groupBy({
     by: ["revenueStaffId", "transactionType"],
     where: {
-      ...staffFilter,
+      ...revenueFilter,
       transactionType: { in: REVENUE_TYPES as never },
       createdAt: { gte: monthStart, lte: monthEnd },
     },
@@ -357,7 +345,7 @@ export async function monthlyRevenueByCategory(month: string) {
   const refunds = await prisma.transaction.groupBy({
     by: ["revenueStaffId"],
     where: {
-      ...staffFilter,
+      ...revenueFilter,
       transactionType: "REFUND",
       createdAt: { gte: monthStart, lte: monthEnd },
     },
@@ -436,8 +424,11 @@ export async function customerConsumptionDetail(customerId: string, month?: stri
       throw new AppError("FORBIDDEN", "只能查看自己的消費記錄");
   }
   if (user.role === "MANAGER") {
-    if (!user.staffId || customer.assignedStaffId !== user.staffId)
-      throw new AppError("FORBIDDEN", "無法查看其他店長名下的顧客");
+    const mode = getVisibilityMode();
+    if (mode === "SELF_ONLY") {
+      if (!user.staffId || customer.assignedStaffId !== user.staffId)
+        throw new AppError("FORBIDDEN", "無法查看其他店長名下的顧客");
+    }
   }
 
   // Build date filter if month provided

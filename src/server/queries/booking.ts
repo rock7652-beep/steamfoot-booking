@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { requireSession, requireStaffSession } from "@/lib/session";
 import { AppError } from "@/lib/errors";
+import { getManagerCustomerFilter } from "@/lib/manager-visibility";
 import type { BookingStatus } from "@prisma/client";
 import type { SlotAvailability, DayAvailability } from "@/types";
 
@@ -70,14 +71,18 @@ export async function listBookings(options: ListBookingsOptions = {}) {
   const user = await requireSession();
   const { dateFrom, dateTo, status, customerId, page = 1, pageSize = 30 } = options;
 
-  // 後端強制資料隔離
+  // 後端強制資料隔離（讀取型：受 visibility mode 控制）
   let whereCustomer: Record<string, unknown> = {};
   if (user.role === "CUSTOMER") {
     // Customer 必須有 customerId，否則不回傳任何資料
     if (!user.customerId) return { bookings: [], total: 0, page, pageSize };
     whereCustomer = { id: user.customerId };
   } else if (user.role === "MANAGER" && user.staffId) {
-    whereCustomer = { assignedStaffId: user.staffId };
+    const customerFilter = getManagerCustomerFilter(user.role, user.staffId);
+    // getManagerCustomerFilter 回傳 { customer: { assignedStaffId: ... } } 或 {}
+    // 這裡需要取出 customer 層級的 where
+    const nested = customerFilter.customer as Record<string, unknown> | undefined;
+    whereCustomer = nested ?? {};
   }
 
   const where: Record<string, unknown> = {
@@ -150,12 +155,7 @@ export async function getBookingDetail(bookingId: string) {
   });
   if (!booking) throw new AppError("NOT_FOUND", "預約不存在");
 
-  // 後端強制權限檢查
-  if (user.role === "MANAGER") {
-    if (!user.staffId || booking.customer.assignedStaffId !== user.staffId) {
-      throw new AppError("FORBIDDEN", "無法查看其他店長名下的預約");
-    }
-  }
+  // 「顧客屬於店」：所有 Manager 可查看任何預約詳情
   if (user.role === "CUSTOMER") {
     if (!user.customerId || booking.customerId !== user.customerId) {
       throw new AppError("FORBIDDEN", "只能查看自己的預約");

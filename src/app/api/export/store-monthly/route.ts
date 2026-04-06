@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { checkPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
 import { toLocalMonthStr, monthRange } from "@/lib/date-utils";
+import { getManagerReadFilter } from "@/lib/manager-visibility";
 
 function toCsv(rows: string[][]): string {
   return rows.map((row) => row.map((cell) => {
@@ -22,10 +23,14 @@ export async function GET(req: NextRequest) {
 
   const { start: monthStart, end: monthEnd } = monthRange(month);
 
+  const revenueFilter = getManagerReadFilter(session.user.role, session.user.staffId, "revenueStaffId");
+  const staffIdFilter = getManagerReadFilter(session.user.role, session.user.staffId, "staffId");
+
   const [txRows, cashRows, spaceFees, completedRows] = await Promise.all([
     prisma.transaction.groupBy({
       by: ["revenueStaffId", "transactionType"],
       where: {
+        ...revenueFilter,
         transactionType: { in: ["TRIAL_PURCHASE", "SINGLE_PURCHASE", "PACKAGE_PURCHASE", "SUPPLEMENT", "REFUND"] },
         createdAt: { gte: monthStart, lte: monthEnd },
       },
@@ -33,16 +38,16 @@ export async function GET(req: NextRequest) {
     }),
     prisma.cashbookEntry.groupBy({
       by: ["type"],
-      where: { entryDate: { gte: monthStart, lte: monthEnd } },
+      where: { ...staffIdFilter, entryDate: { gte: monthStart, lte: monthEnd } },
       _sum: { amount: true },
     }),
     prisma.spaceFeeRecord.findMany({
-      where: { month },
+      where: { ...staffIdFilter, month },
       select: { staffId: true, feeAmount: true },
     }),
     prisma.booking.groupBy({
       by: ["revenueStaffId"],
-      where: { bookingStatus: "COMPLETED", bookingDate: { gte: monthStart, lte: monthEnd } },
+      where: { ...revenueFilter, bookingStatus: "COMPLETED", bookingDate: { gte: monthStart, lte: monthEnd } },
       _count: { id: true },
     }),
   ]);
