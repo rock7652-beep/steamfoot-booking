@@ -1,7 +1,7 @@
 # 角色權限矩陣
 
-> 最後更新：2026-04-06
-> 適用版本：commit e63bfad+
+> 最後更新：2026-04-06（v1.2 更新）
+> 適用版本：穩定模組 v1.2+
 
 ## 角色定義
 
@@ -45,18 +45,19 @@
 | **Dashboard 首頁** | R | R（自己名下） | — | `getCurrentUser()` | layout redirect |
 | **預約管理 - 月曆** | R | R（全部） | — | `checkPermission(booking.read)` | `requireStaffSession()` |
 | **預約管理 - 日檢視** | R | R（全部） | — | 同上 | `requireStaffSession()` |
-| **預約管理 - 新增** | CRU | CRU | — | — | `createBooking()` 內部檢查 |
+| **預約管理 - 新增** | CRU | CRU | — | `checkPermission(booking.create)` | `createBooking()` 內部檢查 |
 | **預約管理 - 詳情** | RU | RU（自己名下） | — | `checkPermission(booking.read)` | `getBookingDetail()` 隔離 |
 | **顧客管理 - 列表** | R | R（全部共享） | — | `checkPermission(customer.read)` | `requireStaffSession()` |
 | **顧客管理 - 詳情** | RU | RU（全部可看） | — | `checkPermission(customer.read)` | `getCustomerDetail()` |
-| **顧客管理 - 新增** | C | C | — | — | `requirePermission(customer.create)` |
+| **顧客管理 - 新增** | C | C | — | `checkPermission(customer.create)` | `requirePermission(customer.create)` |
 | **交易紀錄** | R | R（自己名下） | — | `checkPermission(transaction.read)` | `listTransactions()` staffFilter |
 | **現金帳 - 列表** | R | R（自己名下） | — | `checkPermission(cashbook.read)` | `listCashbookEntries()` staffFilter |
 | **現金帳 - 新增** | C | C（綁定自己） | — | `checkPermission(cashbook.create)` | `requirePermission(cashbook.create)` |
 | **課程方案 - 列表** | R | R | — | `checkPermission(wallet.read)` | `requireStaffSession()` |
 | **課程方案 - 新增** | C | — | — | `isOwner` 按鈕隱藏 | `requirePermission(wallet.create)` |
 | **課程方案 - 編輯** | U | — | — | `isOwner` 條件渲染 | `requirePermission(wallet.create)` |
-| **店長管理** | CRUD | — | — | `user.role !== "OWNER"` → notFound | `requireOwnerSession()` |
+| **店長管理 - 列表** | CRUD | — | — | `user.role !== "OWNER"` → notFound | `requireOwnerSession()` |
+| **店長管理 - 編輯** | U | — | — | `user.role !== "OWNER"` → notFound | `updateStaff()` 內部檢查 |
 | **報表** | R | R（自己名下） | — | `checkPermission(report.read)` | `requireStaffSession()` + staffFilter |
 | **匯出 CSV** | R | R（自己名下） | — | 頁面上連結 | `requireStaffSession()` + staffFilter |
 
@@ -88,21 +89,34 @@
 
 ---
 
-## 已知問題與建議
+## 審計結果（v1.2 更新）
 
-### 審計結果
-
-| # | 類型 | 描述 | 風險 |
+| # | 類型 | 描述 | 狀態 |
 |---|------|------|------|
-| 1 | UI 缺 check | `/dashboard/customers/new` 無 UI 層 `checkPermission` | 低（後端有擋） |
-| 2 | UI 缺 check | `/dashboard/bookings/new` 無 UI 層 `checkPermission` | 低（後端有擋） |
-| 3 | UI 缺 check | `/dashboard/cashbook/new` 無 UI 層 `checkPermission` | 低（後端有擋） |
-| 4 | 設計決策 | Manager 可查看所有顧客/預約（共享模式） | 無（by design） |
-| 5 | 建議 | 無 middleware 層級路由保護 | 中（可加） |
+| 1 | ~~UI 缺 check~~ | `/dashboard/customers/new` | ✅ 已補齊 `checkPermission(customer.create)` |
+| 2 | ~~UI 缺 check~~ | `/dashboard/bookings/new` | ✅ 已補齊 `checkPermission(booking.create)` |
+| 3 | ~~UI 缺 check~~ | `/dashboard/cashbook/new` | ✅ 已補齊 `checkPermission(cashbook.create)` |
+| 4 | ~~UI 缺 check~~ | `/dashboard/staff/[id]/edit` 無 Owner 檢查 | ✅ v1.2 已補齊 `user.role !== "OWNER"` |
+| 5 | 設計決策 | Manager 可查看所有顧客/預約（共享模式） | 無風險（by design） |
+| 6 | 設計決策 | `(dashboard)` layout 做 auth + role 攔截，不做 middleware | 見下方說明 |
 
 ### 結論
 
 - **後端防護覆蓋率：100%** — 所有 server action 和 query 皆有權限檢查
-- **UI 防護覆蓋率：79%**（15/19 頁面）— 4 個新增頁缺 UI 層 check
-- **無實際安全漏洞** — 所有缺少 UI check 的頁面，後端皆有 `requirePermission()` 兜底
+- **UI 防護覆蓋率：100%** — 所有頁面皆有 `checkPermission()` 或 role 檢查
+- **無安全漏洞**
 - **Manager 隔離完整** — 交易、現金帳、報表皆強制 staffFilter
+
+### 關於 `(dashboard)` 統一保護
+
+目前 `(dashboard)/layout.tsx` 已做：
+- 未登入 → `/login`
+- CUSTOMER → `/book`
+- OWNER / MANAGER → 放行 + 載入權限
+
+**不建議**加 middleware 層級路由保護，原因：
+1. Layout 已提供 auth + role 攔截，覆蓋所有子路由
+2. 各頁面的細粒度 `checkPermission()` 無法在 middleware 做（需查 DB）
+3. Next.js middleware 跑在 Edge Runtime，無法使用 Prisma（本專案 DB 查詢依賴）
+4. 加 middleware 會造成雙重查詢（middleware 查一次 + 頁面查一次）
+5. 現有架構是「layout 擋身份 + 頁面擋權限」二層防護，已足夠

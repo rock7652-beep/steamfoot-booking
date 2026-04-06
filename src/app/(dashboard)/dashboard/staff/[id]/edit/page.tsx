@@ -1,5 +1,6 @@
 import { getStaffDetail } from "@/server/queries/staff";
 import { updateStaff } from "@/server/actions/staff";
+import { getCurrentUser } from "@/lib/session";
 import {
   getStaffPermissions,
   updateStaffPermissions,
@@ -17,6 +18,9 @@ interface PageProps {
 }
 
 export default async function EditStaffPage({ params }: PageProps) {
+  const user = await getCurrentUser();
+  if (!user || user.role !== "OWNER") notFound();
+
   const { id } = await params;
 
   const staff = await getStaffDetail(id).catch(() => null);

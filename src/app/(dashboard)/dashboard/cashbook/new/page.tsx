@@ -2,6 +2,7 @@ import { listStaffSelectOptions } from "@/server/queries/staff";
 import { createCashbookEntry } from "@/server/actions/cashbook";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
+import { toLocalDateStr } from "@/lib/date-utils";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 
@@ -19,8 +20,7 @@ export default async function NewCashbookPage({ searchParams }: PageProps) {
 
   const params = await searchParams;
   const staffOptions = await listStaffSelectOptions();
-  const now = new Date();
-  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const today = toLocalDateStr();
 
   async function handleSubmit(formData: FormData) {
     "use server";
