@@ -263,7 +263,9 @@ model Customer {
   lineName           String?       // LINE 顯示名稱
   lineUserId         String?       // LINE user ID (from webhook)
   lineLinkedAt       DateTime?     // LINE 綁定時間
-  lineLinkStatus     LineLinkStatus @default(UNLINKED)
+  lineLinkStatus            LineLinkStatus @default(UNLINKED)
+  lineBindingCode           String?        @unique // 6 ��綁定碼
+  lineBindingCodeCreatedAt  DateTime?      // 綁定碼產生時間
   notes              String?       // 內部備註
   assignedStaffId    String?       // 直屬店長（nullable: 建立時可不指派）
   customerStage      CustomerStage @default(LEAD)

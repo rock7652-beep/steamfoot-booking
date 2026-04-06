@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyLineSignature } from "@/lib/line";
+import { verifyLineSignature, replyMessage } from "@/lib/line";
 import { prisma } from "@/lib/db";
 
 export async function POST(request: NextRequest) {
@@ -43,13 +43,29 @@ async function handleLineEvent(event: LineWebhookEvent) {
 
   switch (event.type) {
     case "follow": {
-      // 使用者加入好友 — 嘗試綁定
       console.log(`[LINE] Follow event from ${lineUserId}`);
-      await linkLineUser(lineUserId);
+      // Re-link if previously blocked
+      const blocked = await prisma.customer.findFirst({
+        where: { lineUserId, lineLinkStatus: "BLOCKED" },
+      });
+      if (blocked) {
+        await prisma.customer.update({
+          where: { id: blocked.id },
+          data: { lineLinkStatus: "LINKED", lineLinkedAt: new Date() },
+        });
+      }
+      // Reply with welcome + binding instructions
+      if (event.replyToken) {
+        await replyMessage(event.replyToken, [
+          {
+            type: "text",
+            text: "歡迎加入蒸足官方帳號！\n\n如需綁定您的預約帳號，請輸入：\n綁定 你的綁定碼\n\n例如：綁定 ABC123\n\n綁定碼可在店家後台的顧客頁面取得。",
+          },
+        ]);
+      }
       break;
     }
     case "unfollow": {
-      // 使用者封鎖
       console.log(`[LINE] Unfollow event from ${lineUserId}`);
       await prisma.customer.updateMany({
         where: { lineUserId },
@@ -58,38 +74,97 @@ async function handleLineEvent(event: LineWebhookEvent) {
       break;
     }
     case "message": {
-      // 收到訊息 — 嘗試綁定（若尚未綁定）
-      console.log(`[LINE] Message from ${lineUserId}: ${event.message?.text ?? "(non-text)"}`);
-      await linkLineUser(lineUserId);
+      if (event.message?.type !== "text" || !event.message.text) break;
+      const text = event.message.text.trim();
+      console.log(`[LINE] Message from ${lineUserId}: ${text}`);
+
+      // 解析「綁定 XXXXXX」格式
+      const bindMatch = text.match(/^綁定\s*([A-Z0-9]{6})$/i);
+      if (bindMatch) {
+        await handleBindingRequest(lineUserId, bindMatch[1].toUpperCase(), event.replyToken);
+      }
       break;
     }
   }
 }
 
-/**
- * 嘗試將 LINE userId 與顧客綁定
- * v1 邏輯：找 lineLinkStatus=UNLINKED 且 lineUserId 為空的顧客
- *         目前無法自動配對，僅記錄 lineUserId 供手動綁定
- */
-async function linkLineUser(lineUserId: string) {
-  // 檢查是否已綁定
-  const existing = await prisma.customer.findFirst({
-    where: { lineUserId },
+// ============================================================
+// 綁定碼處理
+// ============================================================
+
+async function handleBindingRequest(
+  lineUserId: string,
+  bindingCode: string,
+  replyToken?: string
+) {
+  // 1. 檢查此 LINE 是否已綁定其他顧客
+  const existingLinked = await prisma.customer.findFirst({
+    where: { lineUserId, lineLinkStatus: "LINKED" },
   });
 
-  if (existing) {
-    // 已綁定，確保狀態正確
-    if (existing.lineLinkStatus !== "LINKED") {
-      await prisma.customer.update({
-        where: { id: existing.id },
-        data: { lineLinkStatus: "LINKED", lineLinkedAt: new Date() },
-      });
+  if (existingLinked) {
+    if (replyToken) {
+      await replyMessage(replyToken, [
+        {
+          type: "text",
+          text: "此 LINE 帳號已綁定其他顧客資料，如需協助請聯繫店家。",
+        },
+      ]);
     }
     return;
   }
 
-  // v1: 記錄到 console，未來做完整綁定流程
-  console.log(`[LINE] New lineUserId ${lineUserId} — no matching customer found. Manual binding required.`);
+  // 2. 查詢綁定碼對應的顧客
+  const customer = await prisma.customer.findUnique({
+    where: { lineBindingCode: bindingCode },
+  });
+
+  if (!customer) {
+    if (replyToken) {
+      await replyMessage(replyToken, [
+        {
+          type: "text",
+          text: "綁定失敗，請確認綁定碼是否正確。\n\n綁定碼可在店家後台的顧客頁面取得。",
+        },
+      ]);
+    }
+    return;
+  }
+
+  // 3. 檢查該顧客是否已被其他 LINE 綁定
+  if (customer.lineLinkStatus === "LINKED" && customer.lineUserId) {
+    if (replyToken) {
+      await replyMessage(replyToken, [
+        {
+          type: "text",
+          text: "此顧客帳號已綁定其他 LINE，如需重新綁定請聯繫店家解除後再試。",
+        },
+      ]);
+    }
+    return;
+  }
+
+  // 4. 執行綁定
+  await prisma.customer.update({
+    where: { id: customer.id },
+    data: {
+      lineUserId,
+      lineLinkStatus: "LINKED",
+      lineLinkedAt: new Date(),
+      // 綁定碼保留，但不再可用（因 lineLinkStatus 已改）
+    },
+  });
+
+  console.log(`[LINE] Binding success: ${customer.name} (${customer.id}) <-> ${lineUserId}`);
+
+  if (replyToken) {
+    await replyMessage(replyToken, [
+      {
+        type: "text",
+        text: `${customer.name} 您好！LINE 綁定成功，之後您將可收到預約提醒通知。`,
+      },
+    ]);
+  }
 }
 
 // ============================================================

@@ -3,8 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { requireOwnerSession } from "@/lib/session";
+import { requireOwnerSession, requireStaffSession } from "@/lib/session";
 import { requireFeature } from "@/lib/shop-config";
+import { requirePermission } from "@/lib/permissions";
 import { FEATURES } from "@/lib/shop-plan";
 import { AppError, handleActionError } from "@/lib/errors";
 import { pushMessage, renderTemplate, type TemplateVariables } from "@/lib/line";
@@ -239,6 +240,87 @@ export async function testSendLineMessage(
     }
 
     revalidatePath("/dashboard/reminders");
+    return { success: true, data: undefined };
+  } catch (e) {
+    return handleActionError(e);
+  }
+}
+
+// ============================================================
+// LINE Binding Actions
+// ============================================================
+
+/** 產生 6 碼英數綁定碼 */
+function generateBindingCode(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // 排除易混淆字元
+  let code = "";
+  for (let i = 0; i < 6; i++) {
+    code += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return code;
+}
+
+/** 產生或重新產生顧客的 LINE 綁定碼 */
+export async function generateLineBindingCode(
+  customerId: string
+): Promise<ActionResult<{ code: string }>> {
+  try {
+    await requirePermission("customer.update");
+
+    const customer = await prisma.customer.findUnique({ where: { id: customerId } });
+    if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
+    if (customer.lineLinkStatus === "LINKED") {
+      throw new AppError("BUSINESS_RULE", "此顧客���綁定 LINE，請先解除綁定");
+    }
+
+    // 產生唯一綁定碼（最多嘗試 10 次）
+    let code = "";
+    for (let attempt = 0; attempt < 10; attempt++) {
+      code = generateBindingCode();
+      const existing = await prisma.customer.findUnique({
+        where: { lineBindingCode: code },
+      });
+      if (!existing) break;
+      if (attempt === 9) throw new AppError("BUSINESS_RULE", "產生綁定碼失敗，請重試");
+    }
+
+    await prisma.customer.update({
+      where: { id: customerId },
+      data: {
+        lineBindingCode: code,
+        lineBindingCodeCreatedAt: new Date(),
+      },
+    });
+
+    revalidatePath(`/dashboard/customers/${customerId}`);
+    return { success: true, data: { code } };
+  } catch (e) {
+    return handleActionError(e);
+  }
+}
+
+/** 解除 LINE 綁定 */
+export async function unlinkLineAccount(
+  customerId: string
+): Promise<ActionResult<void>> {
+  try {
+    await requirePermission("customer.update");
+
+    const customer = await prisma.customer.findUnique({ where: { id: customerId } });
+    if (!customer) throw new AppError("NOT_FOUND", "顧客��存在");
+
+    await prisma.customer.update({
+      where: { id: customerId },
+      data: {
+        lineUserId: null,
+        lineLinkedAt: null,
+        lineLinkStatus: "UNLINKED",
+        lineBindingCode: null,
+        lineBindingCodeCreatedAt: null,
+      },
+    });
+
+    revalidatePath(`/dashboard/customers/${customerId}`);
     return { success: true, data: undefined };
   } catch (e) {
     return handleActionError(e);
