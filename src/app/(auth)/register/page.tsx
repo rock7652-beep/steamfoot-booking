@@ -1,14 +1,26 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { customerRegisterAction, type RegisterState } from "@/server/actions/customer-auth";
 import Link from "next/link";
 
 export default function RegisterPage() {
+  const router = useRouter();
   const [state, formAction, pending] = useActionState<RegisterState, FormData>(
     customerRegisterAction,
     { error: null }
   );
+
+  // 若後台建立的顧客，導向開通頁面
+  useEffect(() => {
+    if (state.error === "NEEDS_ACTIVATION") {
+      const form = document.querySelector("form");
+      const phoneInput = form?.querySelector<HTMLInputElement>('input[name="phone"]');
+      const phone = phoneInput?.value ?? "";
+      router.push(`/activate?phone=${encodeURIComponent(phone)}`);
+    }
+  }, [state.error, router]);
 
   return (
     <div className="w-full max-w-sm">
@@ -19,7 +31,7 @@ export default function RegisterPage() {
 
       <div className="rounded-2xl border border-earth-200 bg-white p-6 shadow-sm">
         <form action={formAction} className="space-y-4">
-          {state.error && (
+          {state.error && state.error !== "NEEDS_ACTIVATION" && (
             <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
               {state.error}
             </p>

@@ -119,7 +119,7 @@ export async function getCustomerDetail(customerId: string) {
   const customer = await prisma.customer.findUnique({
     where: { id: customerId },
     include: {
-      user: { select: { email: true, image: true } },
+      user: { select: { email: true, image: true, status: true } },
       assignedStaff: {
         select: { id: true, displayName: true, colorCode: true },
       },

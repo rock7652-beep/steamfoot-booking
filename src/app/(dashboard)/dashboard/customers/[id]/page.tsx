@@ -92,6 +92,15 @@ export default async function CustomerDetailPage({ params }: PageProps) {
             <span className={`rounded px-2 py-1 text-xs font-medium ${STAGE_COLOR[customer.customerStage] ?? "bg-earth-100 text-earth-700"}`}>
               {STAGE_LABEL[customer.customerStage] ?? customer.customerStage}
             </span>
+            {customer.user ? (
+              <span className="rounded bg-green-100 px-2 py-0.5 text-xs text-green-700">
+                帳號已啟用
+              </span>
+            ) : (
+              <span className="rounded bg-orange-100 px-2 py-0.5 text-xs text-orange-700">
+                帳號未開通
+              </span>
+            )}
             {customer.selfBookingEnabled && (
               <span className="rounded bg-primary-100 px-2 py-0.5 text-xs text-primary-700">
                 自助預約開啟

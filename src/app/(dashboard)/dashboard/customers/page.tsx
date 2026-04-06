@@ -223,6 +223,11 @@ export default async function CustomersPage({ searchParams }: PageProps) {
                     <span className={`inline-block rounded-md px-2 py-0.5 text-xs font-medium ${STAGE_COLOR[c.customerStage]}`}>
                       {STAGE_LABEL[c.customerStage]}
                     </span>
+                    {!c.user && (
+                      <span className="ml-1 inline-block rounded-md bg-orange-100 px-1.5 py-0.5 text-xs text-orange-600">
+                        未開通
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-right font-medium">
                     {c.totalRemainingSessions > 0 ? (
@@ -254,9 +259,16 @@ export default async function CustomersPage({ searchParams }: PageProps) {
                     <span className="font-medium text-earth-900">{c.name}</span>
                     <span className="text-sm text-earth-500">{c.phone || ""}</span>
                   </div>
-                  <span className={`rounded-md px-1.5 py-0.5 text-xs font-medium ${STAGE_COLOR[c.customerStage]}`}>
-                    {STAGE_LABEL[c.customerStage]}
-                  </span>
+                  <div className="flex items-center gap-1">
+                    <span className={`rounded-md px-1.5 py-0.5 text-xs font-medium ${STAGE_COLOR[c.customerStage]}`}>
+                      {STAGE_LABEL[c.customerStage]}
+                    </span>
+                    {!c.user && (
+                      <span className="rounded-md bg-orange-100 px-1.5 py-0.5 text-xs text-orange-600">
+                        未開通
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <div className="mt-1 flex items-center gap-3 text-xs text-earth-500">
                   {c.assignedStaff ? (
