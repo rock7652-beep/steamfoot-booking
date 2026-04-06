@@ -63,10 +63,14 @@ export function LineBindingSection({
     return () => clearInterval(timer);
   }, [updateExpiry]);
 
-  // ── 自動刷新：每 10 秒檢查綁定狀態 ──
+  // ── 自動刷新：等待綁定完成 / re-follow 恢復 ──
   useEffect(() => {
-    if (status !== "UNLINKED" && status !== "BLOCKED") return;
-    if (!bindingCode) return;
+    // LINKED → 不需要刷新
+    if (status === "LINKED") return;
+    // UNLINKED 且沒有綁定碼 → 沒在等待綁定，不刷新
+    if (status === "UNLINKED" && !bindingCode) return;
+    // BLOCKED → 需要偵測 re-follow 恢復（不依賴 bindingCode）
+    // UNLINKED + 有綁定碼 → 需要偵測綁定成功
 
     const interval = setInterval(() => {
       router.refresh();
@@ -83,7 +87,11 @@ export function LineBindingSection({
   useEffect(() => {
     if (lineLinkStatus === "LINKED" && status !== "LINKED") {
       setStatus("LINKED");
-      setMessage({ text: "LINE 綁定成功！", type: "success" });
+      if (status === "BLOCKED") {
+        setMessage({ text: "LINE 已重新連結（顧客重新加入好友）", type: "success" });
+      } else {
+        setMessage({ text: "LINE 綁定成功！", type: "success" });
+      }
     }
   }, [lineLinkStatus, status]);
 
@@ -290,7 +298,7 @@ export function LineBindingSection({
           </div>
 
           {/* 加入 LINE 好友 */}
-          {LINE_OA_URL && (
+          {LINE_OA_URL ? (
             <a
               href={LINE_OA_URL}
               target="_blank"
@@ -302,6 +310,10 @@ export function LineBindingSection({
               </svg>
               加入 LINE 官方帳號
             </a>
+          ) : (
+            <p className="rounded-lg border border-yellow-200 bg-yellow-50 px-3 py-2 text-xs text-yellow-700">
+              LINE 官方帳號連結尚未設定，請至環境變數設定 <code className="font-mono bg-yellow-100 px-1 rounded">NEXT_PUBLIC_LINE_OA_ADD_FRIEND_URL</code>
+            </p>
           )}
 
           {/* 綁定步驟說明 */}
