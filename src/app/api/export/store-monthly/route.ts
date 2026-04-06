@@ -19,9 +19,10 @@ export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
   const month = searchParams.get("month") ?? new Date().toISOString().slice(0, 7);
 
+  const TZ_OFFSET = 8; // Asia/Taipei UTC+8
   const [year, mon] = month.split("-").map(Number);
-  const monthStart = new Date(Date.UTC(year, mon - 1, 1));
-  const monthEnd = new Date(Date.UTC(year, mon, 0, 23, 59, 59));
+  const monthStart = new Date(Date.UTC(year, mon - 1, 1, -TZ_OFFSET));
+  const monthEnd = new Date(Date.UTC(year, mon, 0, 23 - TZ_OFFSET, 59, 59, 999));
 
   const [txRows, cashRows, spaceFees, completedRows] = await Promise.all([
     prisma.transaction.groupBy({

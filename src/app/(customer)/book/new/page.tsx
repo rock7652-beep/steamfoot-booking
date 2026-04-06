@@ -158,10 +158,10 @@ export default async function NewBookingPage() {
       ) : (
         <BookingCalendarView
           customerId={user.customerId}
-          activeWallets={customer.planWallets.map((w) => ({
+          activeWallets={activeWallets.map((w) => ({
             id: w.id,
             planName: w.plan.name,
-            remainingSessions: w.remainingSessions,
+            remainingSessions: w.computedRemaining,
           }))}
           makeupCredits={makeupCredits.map((c) => ({
             id: c.id,
