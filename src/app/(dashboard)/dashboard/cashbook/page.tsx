@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { toLocalDateStr } from "@/lib/date-utils";
 import type { CashbookEntryType } from "@prisma/client";
 
 const ENTRY_TYPE_LABEL: Record<CashbookEntryType, string> = {
@@ -36,7 +37,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const page = Number(params.page ?? 1);
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = toLocalDateStr();
   const currentMonth = today.slice(0, 7); // "YYYY-MM"
   const month = params.month ?? currentMonth;
 

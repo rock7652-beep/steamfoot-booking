@@ -1,5 +1,6 @@
 import { getCurrentUser } from "@/lib/session";
 import { getMonthBookingSummary } from "@/server/queries/booking";
+import { todayRange, monthRange, toLocalDateStr } from "@/lib/date-utils";
 import { prisma } from "@/lib/db";
 import Link from "next/link";
 import { DashboardCalendar } from "./dashboard-calendar";
@@ -14,20 +15,17 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   if (!user) return null;
   const isOwner = user.role === "OWNER";
 
-  const TZ_OFFSET = 8; // Asia/Taipei = UTC+8
-  const now = new Date();
-  // 計算台灣時間的「今天」
-  const localNow = new Date(now.getTime() + TZ_OFFSET * 60 * 60 * 1000);
-  const todayLocalY = localNow.getUTCFullYear();
-  const todayLocalM = localNow.getUTCMonth();
-  const todayLocalD = localNow.getUTCDate();
-  const todayStart = new Date(Date.UTC(todayLocalY, todayLocalM, todayLocalD, -TZ_OFFSET));
-  const todayEnd = new Date(Date.UTC(todayLocalY, todayLocalM, todayLocalD, 23 - TZ_OFFSET, 59, 59, 999));
-  const todayLabel = localNow.toLocaleDateString("zh-TW", { month: "long", day: "numeric", weekday: "short" });
+  const today = todayRange();
+  const todayStart = today.start;
+  const todayEnd = today.end;
+  const todayDateStr = today.dateStr;
+  const todayLabel = new Date(todayStart.getTime() + 8 * 60 * 60 * 1000)
+    .toLocaleDateString("zh-TW", { month: "long", day: "numeric", weekday: "short" });
 
   // Calendar month params
-  const year = params.year ? parseInt(params.year) : now.getFullYear();
-  const month = params.month ? parseInt(params.month) : now.getMonth() + 1;
+  const now = new Date();
+  const year = params.year ? parseInt(params.year) : parseInt(toLocalDateStr().slice(0, 4));
+  const month = params.month ? parseInt(params.month) : parseInt(toLocalDateStr().slice(5, 7));
 
   // Staff filter for manager
   const staffCustomerFilter = user.role === "MANAGER" && user.staffId
@@ -41,7 +39,8 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   const [stats, todayBookings, monthData] = await Promise.all([
     // KPI stats
     (async () => {
-      const monthStart = new Date(Date.UTC(todayLocalY, todayLocalM, 1, -TZ_OFFSET));
+      const currentMonth = monthRange(toLocalDateStr().slice(0, 7));
+      const monthStart = currentMonth.start;
       const [customerCount, activeCount, todayAgg, monthRevenue, todayCompleted, todayRevenue] = await Promise.all([
         prisma.customer.count({ where: staffCustomerWhere }),
         prisma.customer.count({ where: { ...staffCustomerWhere, customerStage: "ACTIVE" } }),
@@ -207,7 +206,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-sm font-semibold text-earth-800">今日預約</h3>
           <Link
-            href={`/dashboard/bookings?view=day&date=${`${todayLocalY}-${String(todayLocalM + 1).padStart(2, "0")}-${String(todayLocalD).padStart(2, "0")}`}`}
+            href={`/dashboard/bookings?view=day&date=${todayDateStr}`}
             className="text-xs text-primary-600 hover:text-primary-700"
           >
             完整時段表 →
@@ -296,7 +295,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       <div className="flex flex-wrap gap-2">
         <QuickLink href="/dashboard/bookings/new" label="新增預約" primary />
         <QuickLink href="/dashboard/customers" label="顧客管理" />
-        <QuickLink href={`/dashboard/bookings?view=day&date=${`${todayLocalY}-${String(todayLocalM + 1).padStart(2, "0")}-${String(todayLocalD).padStart(2, "0")}`}`} label="今日時段表" />
+        <QuickLink href={`/dashboard/bookings?view=day&date=${todayDateStr}`} label="今日時段表" />
         <QuickLink href="/dashboard/transactions" label="交易紀錄" />
         <QuickLink href="/dashboard/cashbook" label="現金帳" />
         {isOwner && <QuickLink href="/dashboard/staff" label="店長管理" />}

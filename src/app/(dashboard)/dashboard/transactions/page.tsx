@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { toLocalDateStr } from "@/lib/date-utils";
 import type { TransactionType, PaymentMethod } from "@prisma/client";
 
 const TX_TYPE_LABEL: Record<TransactionType, string> = {
@@ -54,7 +55,7 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const page = Number(params.page ?? 1);
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = toLocalDateStr();
   // 預設：本月
   const firstDayOfMonth = today.slice(0, 8) + "01";
   const dateFrom = params.dateFrom ?? firstDayOfMonth;

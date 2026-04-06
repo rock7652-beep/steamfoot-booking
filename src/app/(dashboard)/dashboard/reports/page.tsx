@@ -6,43 +6,7 @@ import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { redirect } from "next/navigation";
 import ReportDateRange from "@/components/report-date-range";
-
-function toLocalDateStr(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-function getDateRange(preset: string): { startDate: string; endDate: string; label: string } {
-  const now = new Date();
-  const today = toLocalDateStr(now);
-  const y = now.getFullYear();
-  const m = now.getMonth();
-
-  switch (preset) {
-    case "today":
-      return { startDate: today, endDate: today, label: today };
-    case "month": {
-      const first = new Date(y, m, 1);
-      const last = new Date(y, m + 1, 0);
-      return {
-        startDate: toLocalDateStr(first),
-        endDate: toLocalDateStr(last),
-        label: `${y}/${String(m + 1).padStart(2, "0")}`,
-      };
-    }
-    case "quarter": {
-      const qStart = Math.floor(m / 3) * 3;
-      const first = new Date(y, qStart, 1);
-      const last = new Date(y, qStart + 3, 0);
-      return {
-        startDate: toLocalDateStr(first),
-        endDate: toLocalDateStr(last),
-        label: `${y} Q${Math.floor(m / 3) + 1}`,
-      };
-    }
-    default:
-      return { startDate: today, endDate: today, label: today };
-  }
-}
+import { toLocalDateStr, getPresetDateRange, type DateRangePreset } from "@/lib/date-utils";
 
 interface PageProps {
   searchParams: Promise<{
@@ -60,7 +24,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
     redirect("/dashboard");
   }
 
-  const today = toLocalDateStr(new Date());
+  const today = toLocalDateStr();
 
   let startDate: string;
   let endDate: string;
@@ -72,13 +36,13 @@ export default async function ReportsPage({ searchParams }: PageProps) {
     endDate = params.endDate;
     activePreset = "custom";
     displayLabel = `${startDate} ~ ${endDate}`;
-  } else if (params.preset) {
-    const range = getDateRange(params.preset);
+  } else if (params.preset && ["today", "month", "quarter"].includes(params.preset)) {
+    const range = getPresetDateRange(params.preset as DateRangePreset);
     startDate = range.startDate;
     endDate = range.endDate;
     displayLabel = range.label;
   } else {
-    const range = getDateRange("month");
+    const range = getPresetDateRange("month");
     startDate = range.startDate;
     endDate = range.endDate;
     displayLabel = range.label;

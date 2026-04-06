@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { checkPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
+import { toLocalMonthStr, monthRange } from "@/lib/date-utils";
 
 function toCsv(rows: string[][]): string {
   return rows.map((row) => row.map((cell) => {
@@ -17,12 +18,9 @@ export async function GET(req: NextRequest) {
   if (!allowed) return new NextResponse("Forbidden", { status: 403 });
 
   const { searchParams } = req.nextUrl;
-  const month = searchParams.get("month") ?? new Date().toISOString().slice(0, 7);
+  const month = searchParams.get("month") ?? toLocalMonthStr();
 
-  const TZ_OFFSET = 8; // Asia/Taipei UTC+8
-  const [year, mon] = month.split("-").map(Number);
-  const monthStart = new Date(Date.UTC(year, mon - 1, 1, -TZ_OFFSET));
-  const monthEnd = new Date(Date.UTC(year, mon, 0, 23 - TZ_OFFSET, 59, 59, 999));
+  const { start: monthStart, end: monthEnd } = monthRange(month);
 
   const [txRows, cashRows, spaceFees, completedRows] = await Promise.all([
     prisma.transaction.groupBy({

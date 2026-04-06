@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { checkPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
+import { toLocalDateStr } from "@/lib/date-utils";
 
 function toCsv(rows: string[][]): string {
   return rows
@@ -88,7 +89,7 @@ export async function GET() {
   });
 
   const csv = toCsv([headers, ...rows]);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = toLocalDateStr();
   const filename = `顧客資料_${today}.csv`;
 
   return new NextResponse("\uFEFF" + csv, {

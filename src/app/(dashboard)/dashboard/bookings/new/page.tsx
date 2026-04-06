@@ -1,6 +1,7 @@
 import { createBooking } from "@/server/actions/booking";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
+import { toLocalDateStr } from "@/lib/date-utils";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import CustomerSearch from "./customer-search";
@@ -9,11 +10,11 @@ const SLOT_TIMES = ["10:00", "11:00", "14:00", "15:00", "16:00", "17:30", "18:30
 
 function getNextDays(n: number): string[] {
   const days: string[] = [];
-  const now = new Date();
+  const today = toLocalDateStr();
+  const [y, m, d] = today.split("-").map(Number);
   for (let i = 0; i < n; i++) {
-    const d = new Date(now);
-    d.setDate(now.getDate() + i);
-    days.push(d.toISOString().slice(0, 10));
+    const date = new Date(Date.UTC(y, m - 1, d + i));
+    days.push(date.toISOString().slice(0, 10));
   }
   return days;
 }
@@ -29,7 +30,7 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
   }
 
   const params = await searchParams;
-  const today = new Date().toISOString().slice(0, 10);
+  const today = toLocalDateStr();
   const defaultDate = params.date ?? today;
   const days = getNextDays(14);
 
