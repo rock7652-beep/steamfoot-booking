@@ -104,7 +104,7 @@ export async function runDailyReminders(): Promise<SendResult> {
       bookingTime: booking.slotTime,
       shopName,
       staffName: customer.assignedStaff?.displayName ?? "店長",
-      bookingLink: `${process.env.NEXT_PUBLIC_BASE_URL ?? "https://steamfoot.tw"}/my-bookings`,
+      bookingLink: `${process.env.NEXTAUTH_URL ?? process.env.NEXT_PUBLIC_BASE_URL ?? "https://steamfoot-booking.vercel.app"}/my-bookings`,
     };
     const renderedBody = renderTemplate(templateBody, vars);
 

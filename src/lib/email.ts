@@ -12,7 +12,11 @@ import { Resend } from "resend";
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const RESEND_FROM = process.env.RESEND_FROM ?? "蒸足健康站 <noreply@steamfoot.tw>";
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? "https://steamfoot.tw";
+const BASE_URL =
+  process.env.NEXTAUTH_URL ??
+  process.env.NEXT_PUBLIC_APP_URL ??
+  process.env.NEXT_PUBLIC_BASE_URL ??
+  "https://steamfoot-booking.vercel.app";
 
 console.log("RESEND_API_KEY exists:", !!RESEND_API_KEY);
 
