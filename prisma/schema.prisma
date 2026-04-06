@@ -113,6 +113,19 @@ enum ReminderStatus {
   FAILED
 }
 
+enum LineLinkStatus {
+  UNLINKED
+  LINKED
+  BLOCKED
+}
+
+enum MessageLogStatus {
+  PENDING
+  SENT
+  FAILED
+  SKIPPED
+}
+
 enum SpaceFeeStatus {
   PENDING
   PAID
@@ -248,6 +261,9 @@ model Customer {
   height             Float?        // 身高 cm（選填）
   address            String?       // 地址（選填）
   lineName           String?       // LINE 顯示名稱
+  lineUserId         String?       // LINE user ID (from webhook)
+  lineLinkedAt       DateTime?     // LINE 綁定時間
+  lineLinkStatus     LineLinkStatus @default(UNLINKED)
   notes              String?       // 內部備註
   assignedStaffId    String?       // 直屬店長（nullable: 建立時可不指派）
   customerStage      CustomerStage @default(LEAD)
@@ -272,6 +288,9 @@ model Customer {
 
   // 交易
   transactions Transaction[]
+
+  // 訊息紀錄
+  messageLogs MessageLog[]
 
   @@index([assignedStaffId])
   @@index([customerStage])
@@ -392,6 +411,9 @@ model Booking {
 
   // 提醒
   reminders Reminder[]
+
+  // 訊息紀錄
+  messageLogs MessageLog[]
 
   @@index([bookingDate])
   @@index([bookingDate, slotTime])          // 查詢某天某時段預約數
@@ -608,4 +630,68 @@ model ShopConfig {
   plan      ShopPlan @default(FREE)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// ============================================================
+// ReminderRule（提醒規則）
+// ============================================================
+
+model ReminderRule {
+  id          String   @id @default(cuid())
+  name        String   // "預約前一天提醒"
+  triggerType String   // "BEFORE_BOOKING_1D", "BEFORE_BOOKING_2H", "AFTER_SERVICE_7D", "INACTIVE_30D"
+  channel     ReminderChannel @default(LINE)
+  templateId  String?
+  isEnabled   Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  template    MessageTemplate? @relation(fields: [templateId], references: [id])
+  logs        MessageLog[]
+}
+
+// ============================================================
+// MessageTemplate（訊息模板）
+// ============================================================
+
+model MessageTemplate {
+  id        String   @id @default(cuid())
+  name      String   // "預約提醒 - 基本"
+  channel   ReminderChannel @default(LINE)
+  body      String   // 含變數的模板內容
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  rules ReminderRule[]
+  logs  MessageLog[]
+}
+
+// ============================================================
+// MessageLog（訊息發送紀錄）
+// ============================================================
+
+model MessageLog {
+  id            String           @id @default(cuid())
+  ruleId        String?
+  templateId    String?
+  customerId    String
+  bookingId     String?
+  channel       ReminderChannel  @default(LINE)
+  status        MessageLogStatus @default(PENDING)
+  renderedBody  String?          // 替換變數後的實際內容
+  errorMessage  String?
+  sentAt        DateTime?
+  createdAt     DateTime         @default(now())
+
+  rule     ReminderRule?    @relation(fields: [ruleId], references: [id])
+  template MessageTemplate? @relation(fields: [templateId], references: [id])
+  customer Customer         @relation(fields: [customerId], references: [id])
+  booking  Booking?         @relation(fields: [bookingId], references: [id])
+
+  @@index([customerId])
+  @@index([bookingId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([ruleId, bookingId], name: "idx_rule_booking") // 防重複發送
 }

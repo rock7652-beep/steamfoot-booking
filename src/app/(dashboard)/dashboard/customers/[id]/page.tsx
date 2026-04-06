@@ -141,6 +141,39 @@ export default async function CustomerDetailPage({ params }: PageProps) {
           </button>
         </form>
 
+        {/* LINE 綁定狀態 */}
+        <div className="mt-4 border-t pt-4">
+          <h3 className="mb-2 text-sm font-medium text-earth-700">LINE 綁定狀態</h3>
+          {customer.lineLinkStatus === "LINKED" ? (
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-1 rounded-full bg-[#06C755]/10 px-2.5 py-1 text-xs font-medium text-[#06C755]">
+                <svg className="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                已綁定
+              </span>
+              {customer.lineLinkedAt && (
+                <span className="text-xs text-earth-400">
+                  {new Date(customer.lineLinkedAt).toLocaleDateString("zh-TW")} 綁定
+                </span>
+              )}
+            </div>
+          ) : customer.lineLinkStatus === "BLOCKED" ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2.5 py-1 text-xs font-medium text-red-600">
+              已封鎖
+            </span>
+          ) : (
+            <div>
+              <span className="inline-flex items-center gap-1 rounded-full bg-earth-100 px-2.5 py-1 text-xs font-medium text-earth-500">
+                未綁定
+              </span>
+              <p className="mt-2 text-xs text-earth-400">
+                請引導顧客加入 LINE 官方帳號好友，系統將自動綁定。
+              </p>
+            </div>
+          )}
+        </div>
+
         {/* Transfer (Owner only) */}
         {user.role === "OWNER" && staffList.length > 0 && (
           <div className="mt-3 border-t pt-3">
