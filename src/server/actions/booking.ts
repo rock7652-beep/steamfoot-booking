@@ -99,26 +99,26 @@ export async function createBooking(
       }
     }
 
-    // ── 5. 日期範圍檢查（未來 14 天內）
-    const bookingDateObj = new Date(data.bookingDate + "T00:00:00");
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const maxDate = new Date(today);
-    maxDate.setDate(maxDate.getDate() + 14);
+    // ── 5. 日期範圍檢查（以台灣時間為準，避免 UTC 伺服器判斷錯誤）
+    const todayStr = toLocalDateStr(); // 台灣今天 "YYYY-MM-DD"
+    if (data.bookingDate < todayStr) {
+      throw new AppError("VALIDATION", "不可預約過去的日期");
+    }
 
-    if (bookingDateObj < today)
-      throw new AppError("VALIDATION", "不能預約過去的日期");
-    if (bookingDateObj > maxDate)
+    const [ty, tm, td] = todayStr.split("-").map(Number);
+    const maxDateObj = new Date(Date.UTC(ty, tm - 1, td + 14));
+    const bookingDateObj = new Date(data.bookingDate + "T00:00:00Z");
+    if (bookingDateObj > maxDateObj) {
       throw new AppError("BUSINESS_RULE", "只能預約未來 14 天內的時段");
+    }
 
     // 同日已過時段不可預約（後端強制擋）
-    const todayStr = toLocalDateStr();
     if (data.bookingDate === todayStr) {
       const nowHHmm = getNowTaipeiHHmm();
       if (data.slotTime <= nowHHmm) {
         throw new AppError(
           "BUSINESS_RULE",
-          `時段 ${data.slotTime} 已過，請選擇其他時段`
+          `不可預約已過時段（${data.slotTime} 已過）`
         );
       }
     }
