@@ -17,6 +17,7 @@ import {
   type NoShowChoice,
 } from "@/lib/booking-constants";
 import type { ActionResult } from "@/types";
+import { checkBookingLimit } from "@/lib/shop-config";
 import type { z } from "zod";
 
 // 共用 revalidate
@@ -47,6 +48,15 @@ export async function createBooking(
     const data = createBookingSchema.parse(input);
     const bookingPeople = data.people ?? 1;
     const isMakeup = data.isMakeup ?? false;
+
+    // ── 0. FREE 方案預約數限制
+    const bookingLimit = await checkBookingLimit();
+    if (!bookingLimit.allowed) {
+      return {
+        success: false,
+        error: `免費方案本月預約上限 ${bookingLimit.limit} 筆已達，請升級方案`,
+      };
+    }
 
     // ── 1. 取顧客（含 ACTIVE wallets）
     const customer = await prisma.customer.findUnique({

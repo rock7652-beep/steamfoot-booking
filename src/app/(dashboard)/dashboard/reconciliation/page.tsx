@@ -1,5 +1,8 @@
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
+import { getShopPlan } from "@/lib/shop-config";
+import { FEATURES } from "@/lib/shop-plan";
+import { FeatureGate } from "@/components/feature-gate";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { listReconciliationRuns, getReconciliationRunDetail } from "@/server/queries/reconciliation";
@@ -23,9 +26,10 @@ export default async function ReconciliationPage({ searchParams }: PageProps) {
   }
 
   const params = await searchParams;
-  const [runs, selectedRun] = await Promise.all([
+  const [runs, selectedRun, shopPlan] = await Promise.all([
     listReconciliationRuns(20),
     params.runId ? getReconciliationRunDetail(params.runId) : null,
+    getShopPlan(),
   ]);
 
   const latestRun = runs[0] ?? null;
@@ -36,6 +40,7 @@ export default async function ReconciliationPage({ searchParams }: PageProps) {
   const failedChecks = displayRun?.checks.filter((c) => c.status !== "pass") ?? [];
 
   return (
+    <FeatureGate plan={shopPlan} feature={FEATURES.RECONCILIATION}>
     <div className="mx-auto max-w-3xl space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -186,6 +191,7 @@ export default async function ReconciliationPage({ searchParams }: PageProps) {
         </ul>
       </div>
     </div>
+    </FeatureGate>
   );
 }
 

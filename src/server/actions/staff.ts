@@ -6,6 +6,8 @@ import { hashSync } from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { requireOwnerSession } from "@/lib/session";
 import { AppError, handleActionError } from "@/lib/errors";
+import { requireFeature } from "@/lib/shop-config";
+import { FEATURES } from "@/lib/shop-plan";
 import type { ActionResult } from "@/types";
 
 // ============================================================
@@ -39,6 +41,7 @@ export async function createStaff(
 ): Promise<ActionResult<{ staffId: string }>> {
   try {
     await requireOwnerSession();
+    await requireFeature(FEATURES.STAFF_MANAGEMENT);
     const data = createStaffSchema.parse(input);
 
     // 檢查 email 是否已存在

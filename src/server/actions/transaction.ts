@@ -5,6 +5,8 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/permissions";
 import { AppError, handleActionError } from "@/lib/errors";
+import { requireFeature } from "@/lib/shop-config";
+import { FEATURES } from "@/lib/shop-plan";
 import type { ActionResult } from "@/types";
 import type { PaymentMethod, TransactionType } from "@prisma/client";
 
@@ -59,6 +61,7 @@ export async function createTransaction(
 ): Promise<ActionResult<{ transactionId: string }>> {
   try {
     const user = await requirePermission("transaction.create");
+    await requireFeature(FEATURES.TRANSACTION_MANAGEMENT);
     const data = createTransactionSchema.parse(input);
 
     // 確認顧客存在

@@ -4,6 +4,9 @@ import {
 } from "@/server/queries/report";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
+import { getShopPlan } from "@/lib/shop-config";
+import { FEATURES } from "@/lib/shop-plan";
+import { FeatureGate } from "@/components/feature-gate";
 import { redirect } from "next/navigation";
 import ReportDateRange from "@/components/report-date-range";
 import { toLocalDateStr, getPresetDateRange, type DateRangePreset } from "@/lib/date-utils";
@@ -52,10 +55,14 @@ export default async function ReportsPage({ searchParams }: PageProps) {
 
   // 傳入實際日期範圍，而非只取月份
   const dateRangeOpts = { startDate, endDate };
-  const storeSummary = await monthlyStoreSummary(month, dateRangeOpts);
-  const revenueByCategory = await monthlyRevenueByCategory(month, dateRangeOpts);
+  const [storeSummary, revenueByCategory, shopPlan] = await Promise.all([
+    monthlyStoreSummary(month, dateRangeOpts),
+    monthlyRevenueByCategory(month, dateRangeOpts),
+    getShopPlan(),
+  ]);
 
   return (
+    <FeatureGate plan={shopPlan} feature={FEATURES.BASIC_REPORTS}>
     <div className="mx-auto max-w-2xl">
       <div className="mb-5 flex items-center justify-between">
         <h1 className="text-lg font-bold text-earth-900">報表</h1>
@@ -194,5 +201,6 @@ export default async function ReportsPage({ searchParams }: PageProps) {
         </div>
       </section>
     </div>
+    </FeatureGate>
   );
 }

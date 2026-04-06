@@ -2,6 +2,9 @@ import { listTransactions } from "@/server/queries/transaction";
 import { listStaffSelectOptions } from "@/server/queries/staff";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
+import { getShopPlan } from "@/lib/shop-config";
+import { FEATURES } from "@/lib/shop-plan";
+import { FeatureGate } from "@/components/feature-gate";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { toLocalDateStr } from "@/lib/date-utils";
@@ -61,7 +64,7 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
   const dateFrom = params.dateFrom ?? firstDayOfMonth;
   const dateTo = params.dateTo ?? today;
 
-  const [{ transactions, total, pageSize }, staffOptions] = await Promise.all([
+  const [{ transactions, total, pageSize }, staffOptions, shopPlan] = await Promise.all([
     listTransactions({
       dateFrom,
       dateTo,
@@ -72,6 +75,7 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
       pageSize: 30,
     }),
     listStaffSelectOptions(),
+    getShopPlan(),
   ]);
 
   const totalPages = Math.ceil(total / pageSize);
@@ -89,6 +93,7 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
     .reduce((sum, t) => sum + Number(t.amount), 0);
 
   return (
+    <FeatureGate plan={shopPlan} feature={FEATURES.TRANSACTION_MANAGEMENT}>
     <div>
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -284,5 +289,6 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
         </div>
       )}
     </div>
+    </FeatureGate>
   );
 }

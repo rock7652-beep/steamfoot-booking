@@ -1,6 +1,9 @@
 import { listStaff } from "@/server/queries/staff";
 import { createStaff } from "@/server/actions/staff";
 import { getCurrentUser } from "@/lib/session";
+import { getShopPlan } from "@/lib/shop-config";
+import { FEATURES } from "@/lib/shop-plan";
+import { FeatureGate } from "@/components/feature-gate";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { StaffStatusToggle } from "./staff-status-toggle";
@@ -12,7 +15,7 @@ export default async function StaffPage({}: PageProps) {
   if (!user) notFound();
   if (user.role !== "OWNER") notFound();
 
-  const staffList = await listStaff();
+  const [staffList, shopPlan] = await Promise.all([listStaff(), getShopPlan()]);
 
   async function handleCreateStaff(formData: FormData) {
     "use server";
@@ -42,6 +45,7 @@ export default async function StaffPage({}: PageProps) {
   };
 
   return (
+    <FeatureGate plan={shopPlan} feature={FEATURES.STAFF_MANAGEMENT}>
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-3">
@@ -225,5 +229,6 @@ export default async function StaffPage({}: PageProps) {
         )}
       </div>
     </div>
+    </FeatureGate>
   );
 }

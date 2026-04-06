@@ -1,6 +1,9 @@
 import { listCashbookEntries, getMonthlySummary } from "@/server/queries/cashbook";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
+import { getShopPlan } from "@/lib/shop-config";
+import { FEATURES } from "@/lib/shop-plan";
+import { FeatureGate } from "@/components/feature-gate";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { toLocalDateStr } from "@/lib/date-utils";
@@ -46,7 +49,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
   const lastDay = new Date(year, mon, 0).getDate();
   const dateTo = `${month}-${String(lastDay).padStart(2, "0")}`;
 
-  const [{ entries, total, pageSize }, summary] = await Promise.all([
+  const [{ entries, total, pageSize }, summary, shopPlan] = await Promise.all([
     listCashbookEntries({
       dateFrom,
       dateTo,
@@ -55,11 +58,13 @@ export default async function CashbookPage({ searchParams }: PageProps) {
       pageSize: 30,
     }),
     getMonthlySummary(month),
+    getShopPlan(),
   ]);
 
   const totalPages = Math.ceil(total / pageSize);
 
   return (
+    <FeatureGate plan={shopPlan} feature={FEATURES.CASHBOOK}>
     <div>
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-xl font-bold text-earth-900">現金帳</h1>
@@ -220,5 +225,6 @@ export default async function CashbookPage({ searchParams }: PageProps) {
         </div>
       )}
     </div>
+    </FeatureGate>
   );
 }

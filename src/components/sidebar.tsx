@@ -4,6 +4,9 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import BuildFooter from "@/components/build-footer";
+import { PlanBadge, LockedNavItem } from "@/components/feature-gate";
+import { hasFeature, type Feature, FEATURES } from "@/lib/shop-plan";
+import type { ShopPlan } from "@prisma/client";
 
 interface NavItem {
   href: string;
@@ -11,6 +14,10 @@ interface NavItem {
   icon: React.ReactNode;
   ownerOnly?: boolean;
   permission?: string;
+  /** 需要此 feature 才能使用（無則鎖定顯示） */
+  requiredFeature?: Feature;
+  /** 鎖定時升級到哪個方案 */
+  upgradeTo?: "BASIC" | "PRO";
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -47,6 +54,8 @@ const NAV_ITEMS: NavItem[] = [
     href: "/dashboard/transactions",
     label: "交易紀錄",
     permission: "transaction.read",
+    requiredFeature: FEATURES.TRANSACTION_MANAGEMENT,
+    upgradeTo: "BASIC",
     icon: (
       <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
@@ -57,6 +66,8 @@ const NAV_ITEMS: NavItem[] = [
     href: "/dashboard/plans",
     label: "課程方案",
     permission: "wallet.read",
+    requiredFeature: FEATURES.PLAN_MANAGEMENT,
+    upgradeTo: "BASIC",
     icon: (
       <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
@@ -67,6 +78,8 @@ const NAV_ITEMS: NavItem[] = [
     href: "/dashboard/cashbook",
     label: "現金帳",
     permission: "cashbook.read",
+    requiredFeature: FEATURES.CASHBOOK,
+    upgradeTo: "BASIC",
     icon: (
       <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -77,6 +90,8 @@ const NAV_ITEMS: NavItem[] = [
     href: "/dashboard/staff",
     label: "店長管理",
     ownerOnly: true,
+    requiredFeature: FEATURES.STAFF_MANAGEMENT,
+    upgradeTo: "BASIC",
     icon: (
       <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -88,6 +103,8 @@ const NAV_ITEMS: NavItem[] = [
     href: "/dashboard/reports",
     label: "報表",
     permission: "report.read",
+    requiredFeature: FEATURES.BASIC_REPORTS,
+    upgradeTo: "BASIC",
     icon: (
       <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
@@ -98,9 +115,59 @@ const NAV_ITEMS: NavItem[] = [
     href: "/dashboard/reconciliation",
     label: "對帳中心",
     ownerOnly: true,
+    requiredFeature: FEATURES.RECONCILIATION,
+    upgradeTo: "BASIC",
     icon: (
       <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    ),
+  },
+  // PRO 功能
+  {
+    href: "/dashboard/analytics",
+    label: "聯盟數據",
+    ownerOnly: true,
+    requiredFeature: FEATURES.CROSS_BRANCH_ANALYTICS,
+    upgradeTo: "PRO",
+    icon: (
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5" />
+      </svg>
+    ),
+  },
+  {
+    href: "/dashboard/ranking",
+    label: "排行榜",
+    ownerOnly: true,
+    requiredFeature: FEATURES.RANKING,
+    upgradeTo: "PRO",
+    icon: (
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M18.75 4.236c.982.143 1.954.317 2.916.52A6.003 6.003 0 0016.27 9.728M18.75 4.236V4.5c0 2.108-.966 3.99-2.48 5.228m0 0a6.003 6.003 0 01-3.77 1.522m0 0a6.003 6.003 0 01-3.77-1.522" />
+      </svg>
+    ),
+  },
+  {
+    href: "/dashboard/training",
+    label: "學習中心",
+    ownerOnly: true,
+    requiredFeature: FEATURES.TRAINING_CONTENT,
+    upgradeTo: "PRO",
+    icon: (
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M4.26 10.147a60.438 60.438 0 00-.491 6.347A48.62 48.62 0 0112 20.904a48.62 48.62 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.636 50.636 0 00-2.658-.813A59.906 59.906 0 0112 3.493a59.903 59.903 0 0110.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.717 50.717 0 0112 13.489a50.702 50.702 0 017.74-3.342" />
+      </svg>
+    ),
+  },
+  // 方案設定（所有方案都看得到）
+  {
+    href: "/dashboard/settings/plan",
+    label: "方案設定",
+    ownerOnly: true,
+    icon: (
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" />
       </svg>
     ),
   },
@@ -109,6 +176,7 @@ const NAV_ITEMS: NavItem[] = [
 interface DashboardShellProps {
   isOwner: boolean;
   permissions: string[];
+  shopPlan: ShopPlan;
   userName: string;
   roleLabel: string;
   logoutButton: React.ReactNode;
@@ -119,6 +187,7 @@ interface DashboardShellProps {
 export default function DashboardShell({
   isOwner,
   permissions,
+  shopPlan,
   userName,
   roleLabel,
   logoutButton,
@@ -145,10 +214,18 @@ export default function DashboardShell({
     };
   }, [mobileOpen]);
 
-  const visibleItems = NAV_ITEMS.filter((item) => {
-    if (item.ownerOnly && !isOwner) return false;
-    if (item.permission && !permissions.includes(item.permission)) return false;
-    return true;
+  // 分類 nav items：可見 vs 鎖定
+  const categorizedItems = NAV_ITEMS.map((item) => {
+    // 角色 / 權限檢查（與原邏輯相同）
+    if (item.ownerOnly && !isOwner) return { item, visible: false, locked: false };
+    if (item.permission && !isOwner && !permissions.includes(item.permission)) return { item, visible: false, locked: false };
+
+    // 方案檢查
+    if (item.requiredFeature && !hasFeature(shopPlan, item.requiredFeature)) {
+      return { item, visible: true, locked: true }; // 可見但鎖定
+    }
+
+    return { item, visible: true, locked: false };
   });
 
   function isActive(href: string) {
@@ -156,30 +233,47 @@ export default function DashboardShell({
     return pathname.startsWith(href);
   }
 
-  const navLinks = (
+  const renderNavItems = () => (
     <nav className="sidebar-scroll flex flex-1 flex-col overflow-y-auto px-2 py-2">
       <ul className="space-y-0.5">
-        {visibleItems.map((item) => {
-          const active = isActive(item.href);
-          return (
-            <li key={item.href}>
-              <Link
-                href={item.href}
-                className={`group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                  active
-                    ? "bg-primary-100 text-primary-800"
-                    : "text-earth-700 hover:bg-earth-100 hover:text-earth-900"
-                } ${collapsed ? "justify-center" : ""}`}
-                title={collapsed ? item.label : undefined}
-              >
-                <span className={`shrink-0 ${active ? "text-primary-600" : "text-earth-500 group-hover:text-earth-700"}`}>
-                  {item.icon}
-                </span>
-                {!collapsed && <span>{item.label}</span>}
-              </Link>
-            </li>
-          );
-        })}
+        {categorizedItems
+          .filter((c) => c.visible)
+          .map((c) => {
+            const { item, locked } = c;
+
+            if (locked) {
+              return (
+                <li key={item.href}>
+                  <LockedNavItem
+                    label={item.label}
+                    icon={item.icon}
+                    collapsed={collapsed}
+                    targetPlan={item.upgradeTo ?? "BASIC"}
+                  />
+                </li>
+              );
+            }
+
+            const active = isActive(item.href);
+            return (
+              <li key={item.href}>
+                <Link
+                  href={item.href}
+                  className={`group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                    active
+                      ? "bg-primary-100 text-primary-800"
+                      : "text-earth-700 hover:bg-earth-100 hover:text-earth-900"
+                  } ${collapsed ? "justify-center" : ""}`}
+                  title={collapsed ? item.label : undefined}
+                >
+                  <span className={`shrink-0 ${active ? "text-primary-600" : "text-earth-500 group-hover:text-earth-700"}`}>
+                    {item.icon}
+                  </span>
+                  {!collapsed && <span>{item.label}</span>}
+                </Link>
+              </li>
+            );
+          })}
       </ul>
     </nav>
   );
@@ -194,9 +288,12 @@ export default function DashboardShell({
       >
         <div className="flex h-14 items-center justify-between border-b border-earth-200 px-3">
           {!collapsed && (
-            <Link href="/dashboard" className="text-base font-bold text-earth-800">
-              蒸足管理
-            </Link>
+            <div className="flex items-center gap-2">
+              <Link href="/dashboard" className="text-base font-bold text-earth-800">
+                蒸足管理
+              </Link>
+              <PlanBadge plan={shopPlan} />
+            </div>
           )}
           <button
             type="button"
@@ -209,7 +306,7 @@ export default function DashboardShell({
             </svg>
           </button>
         </div>
-        {navLinks}
+        {renderNavItems()}
       </aside>
 
       {/* Mobile overlay */}
@@ -221,9 +318,12 @@ export default function DashboardShell({
           />
           <aside className="absolute inset-y-0 left-0 flex w-64 flex-col bg-white shadow-xl">
             <div className="flex h-14 items-center justify-between border-b border-earth-200 px-4">
-              <Link href="/dashboard" className="text-base font-bold text-earth-800">
-                蒸足管理
-              </Link>
+              <div className="flex items-center gap-2">
+                <Link href="/dashboard" className="text-base font-bold text-earth-800">
+                  蒸足管理
+                </Link>
+                <PlanBadge plan={shopPlan} />
+              </div>
               <button
                 type="button"
                 onClick={() => setMobileOpen(false)}
@@ -235,7 +335,7 @@ export default function DashboardShell({
                 </svg>
               </button>
             </div>
-            {navLinks}
+            {renderNavItems()}
           </aside>
         </div>
       )}

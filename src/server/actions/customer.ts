@@ -11,6 +11,7 @@ import {
   transferCustomerSchema,
 } from "@/lib/validators/customer";
 import type { ActionResult } from "@/types";
+import { checkCustomerLimit } from "@/lib/shop-config";
 import type { z } from "zod";
 
 // ============================================================
@@ -23,6 +24,15 @@ export async function createCustomer(
   try {
     const user = await requirePermission("customer.create");
     const data = createCustomerSchema.parse(input);
+
+    // FREE 方案顧客數限制
+    const customerLimit = await checkCustomerLimit();
+    if (!customerLimit.allowed) {
+      return {
+        success: false,
+        error: `免費方案顧客上限 ${customerLimit.limit} 位已達，請升級方案`,
+      };
+    }
 
     // assignedStaffId 現在是選填
     let assignedStaffId: string | undefined;

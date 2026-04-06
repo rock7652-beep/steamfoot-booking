@@ -120,6 +120,12 @@ enum SpaceFeeStatus {
   WAIVED
 }
 
+enum ShopPlan {
+  FREE
+  BASIC
+  PRO
+}
+
 // ============================================================
 // Auth - NextAuth.js Models
 // ============================================================
@@ -590,4 +596,16 @@ model SpaceFeeRecord {
   @@unique([staffId, month])
   @@index([staffId])
   @@index([month])
+}
+
+// ============================================================
+// ShopConfig（店家設定 — 方案分級用，全域唯一一筆）
+// ============================================================
+
+model ShopConfig {
+  id        String   @id @default("default")
+  shopName  String   @default("蒸足")
+  plan      ShopPlan @default(FREE)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
