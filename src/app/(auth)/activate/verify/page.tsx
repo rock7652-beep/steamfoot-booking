@@ -8,9 +8,15 @@ import {
   autoLoginAfterActivation,
 } from "@/server/actions/account";
 
+// 部署版本標記 — 確認正式環境是否為最新
+const BUILD_TAG = "v20260406-8656191";
+
 export default function ActivateVerifyPage() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token") ?? "";
+
+  // 頁面載入時立即輸出，無論任何情況都會出現
+  console.log(`[Activate UI] page loaded — build: ${BUILD_TAG}, token: ${token ? token.slice(0, 8) + "..." : "EMPTY"}, host: ${typeof window !== "undefined" ? window.location.host : "SSR"}`);
 
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -157,6 +163,8 @@ export default function ActivateVerifyPage() {
             ← 返回登入
           </Link>
         </div>
+        {/* 版本標記 — 確認部署版本用，驗收後移除 */}
+        <p className="mt-2 text-center text-[10px] text-earth-300">{BUILD_TAG}</p>
       </div>
     </div>
   );
