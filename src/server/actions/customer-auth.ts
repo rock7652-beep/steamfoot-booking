@@ -69,15 +69,17 @@ export async function customerRegisterAction(
 
   // 密碼規則：至少 4 位數字
   if (!/^\d{4,}$/.test(password)) {
-    return { error: "密碼須至少 4 位數字" };
+    return { error: "密碼需為純數字，至少 4 碼" };
   }
 
   if (password !== confirmPassword) {
     return { error: "兩次密碼不一致" };
   }
 
-  // 檢查手機是否已註冊
-  const existingUser = await prisma.user.findUnique({ where: { phone } });
+  // 檢查手機是否已有顧客帳號（店長帳號不影響）
+  const existingUser = await prisma.user.findFirst({
+    where: { phone, role: "CUSTOMER" },
+  });
   if (existingUser) {
     return { error: "此手機號碼已註冊，請直接登入" };
   }

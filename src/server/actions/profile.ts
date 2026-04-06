@@ -62,10 +62,10 @@ export async function updateProfileAction(
       if (existingPhone) {
         return { error: "此手機號碼已被其他帳號使用", success: false };
       }
-      // 同步更新 User.phone（登入用）
+      // 同步更新 User.phone（登入用）— 只檢查同角色（CUSTOMER）
       if (currentCustomer.userId) {
         const existingUserPhone = await prisma.user.findFirst({
-          where: { phone, id: { not: currentCustomer.userId } },
+          where: { phone, role: "CUSTOMER", id: { not: currentCustomer.userId } },
         });
         if (existingUserPhone) {
           return { error: "此手機號碼已被其他帳號使用", success: false };
@@ -132,7 +132,7 @@ export async function changePasswordAction(
   if (!newPassword) return { error: "請輸入新密碼", success: false };
 
   if (!/^\d{4,}$/.test(newPassword)) {
-    return { error: "新密碼須至少 4 位數字", success: false };
+    return { error: "新密碼需為純數字，至少 4 碼", success: false };
   }
 
   if (newPassword !== confirmPassword) {

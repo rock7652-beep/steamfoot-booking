@@ -35,7 +35,7 @@ export default function ActivateVerifyPage() {
     setError(null);
 
     if (!/^\d{4,}$/.test(password)) {
-      setError("密碼須至少 4 位數字");
+      setError("密碼需為純數字，至少 4 碼");
       return;
     }
     if (password !== confirmPassword) {

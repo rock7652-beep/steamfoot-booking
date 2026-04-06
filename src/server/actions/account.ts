@@ -39,13 +39,13 @@ export async function checkPhoneStatus(phone: string): Promise<PhoneStatus> {
     return { status: "not_found" };
   }
 
-  // 先查 User（phone unique）— 有 User 表示已開通
-  const user = await prisma.user.findUnique({
-    where: { phone },
+  // 先查 User — 只查 CUSTOMER 角色（店長帳號不影響顧客）
+  const user = await prisma.user.findFirst({
+    where: { phone, role: "CUSTOMER" },
     select: { id: true, role: true, status: true, customer: { select: { name: true } } },
   });
 
-  if (user && user.role === "CUSTOMER" && user.status === "ACTIVE") {
+  if (user && user.status === "ACTIVE") {
     return {
       status: "active",
       customerName: user.customer?.name ?? "",
@@ -155,7 +155,7 @@ export async function activateAccount(
     if (!rawToken) return { success: false, error: "缺少驗證碼" };
 
     if (!/^\d{4,}$/.test(password)) {
-      return { success: false, error: "密碼須至少 4 位數字" };
+      return { success: false, error: "密碼需為純數字，至少 4 碼" };
     }
 
     const hashedToken = hashToken(rawToken);
@@ -191,12 +191,12 @@ export async function activateAccount(
       return { success: false, error: "此帳號已開通，請直接登入" };
     }
 
-    // 檢查 User.phone 唯一性
-    const existingUser = await prisma.user.findUnique({
-      where: { phone: customer.phone },
+    // 檢查是否已有 CUSTOMER 角色的 User 使用此手機（店長帳號不影響）
+    const existingCustomerUser = await prisma.user.findFirst({
+      where: { phone: customer.phone, role: "CUSTOMER" },
     });
-    if (existingUser) {
-      return { success: false, error: "此手機號碼已有帳號，請直接登入或聯繫店家" };
+    if (existingCustomerUser) {
+      return { success: false, error: "此手機號碼已有顧客帳號，請直接登入或聯繫店家" };
     }
 
     const passwordHash = hashSync(password, 10);
@@ -303,7 +303,7 @@ export async function resetPassword(
     if (!rawToken) return { success: false, error: "缺少驗證碼" };
 
     if (!/^\d{4,}$/.test(password)) {
-      return { success: false, error: "密碼須至少 4 位數字" };
+      return { success: false, error: "密碼需為純數字，至少 4 碼" };
     }
 
     const hashedToken = hashToken(rawToken);

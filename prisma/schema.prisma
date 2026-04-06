@@ -147,7 +147,7 @@ model User {
   id            String     @id @default(cuid())
   name          String
   email         String?    @unique
-  phone         String?    @unique
+  phone         String?
   emailVerified DateTime?
   image         String?
   passwordHash  String?
@@ -167,6 +167,10 @@ model User {
   // Audit
   auditLogs      AuditLog[]
   cashbookEntries CashbookEntry[] @relation("CashbookCreatedBy")
+
+  // 同一角色內手機不重複，但不同角色可共用手機
+  @@unique([phone, role])
+  @@index([phone])
 }
 
 model Account {

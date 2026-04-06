@@ -103,8 +103,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         if (!phone || !password) return null;
 
-        const user = await prisma.user.findUnique({
-          where: { phone },
+        const user = await prisma.user.findFirst({
+          where: { phone, role: "CUSTOMER" },
           select: {
             id: true,
             name: true,
@@ -118,7 +118,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         if (!user || !user.passwordHash) return null;
         if (user.status !== "ACTIVE") return null;
-        if (user.role !== "CUSTOMER") return null;
 
         const valid = compareSync(password, user.passwordHash);
         if (!valid) return null;
