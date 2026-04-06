@@ -152,16 +152,26 @@ export async function activateAccount(
   password: string
 ): Promise<ActivateResult> {
   try {
+    console.log("[Activate] rawToken length:", rawToken?.length, "password length:", password?.length);
+
     if (!rawToken) return { success: false, error: "缺少驗證碼" };
 
     if (!/^\d{4,}$/.test(password)) {
+      console.log("[Activate] password validation failed:", password);
       return { success: false, error: "密碼需為純數字，至少 4 碼" };
     }
 
     const hashedToken = hashToken(rawToken);
+    console.log("[Activate] hashedToken:", hashedToken.slice(0, 12) + "...");
+
     const record = await prisma.verificationToken.findUnique({
       where: { token: hashedToken },
     });
+    console.log("[Activate] token record:", record ? {
+      identifier: record.identifier,
+      expires: record.expires.toISOString(),
+      isExpired: record.expires < new Date(),
+    } : "NOT FOUND");
 
     if (!record) {
       return { success: false, error: "驗證連結無效或已過期，請重新申請" };
@@ -177,6 +187,7 @@ export async function activateAccount(
     // 解析 customerId
     const match = record.identifier.match(/^activate:(.+)$/);
     if (!match) {
+      console.log("[Activate] identifier format error:", record.identifier);
       return { success: false, error: "驗證碼格式錯誤" };
     }
     const customerId = match[1];
@@ -184,10 +195,18 @@ export async function activateAccount(
     const customer = await prisma.customer.findUnique({
       where: { id: customerId },
     });
+    console.log("[Activate] customer:", customer ? {
+      id: customer.id,
+      name: customer.name,
+      phone: customer.phone,
+      userId: customer.userId,
+    } : "NOT FOUND");
+
     if (!customer) {
       return { success: false, error: "顧客資料不存在" };
     }
     if (customer.userId) {
+      console.log("[Activate] already activated, userId:", customer.userId);
       return { success: false, error: "此帳號已開通，請直接登入" };
     }
 
@@ -195,6 +214,11 @@ export async function activateAccount(
     const existingCustomerUser = await prisma.user.findFirst({
       where: { phone: customer.phone, role: "CUSTOMER" },
     });
+    console.log("[Activate] existingCustomerUser:", existingCustomerUser ? {
+      id: existingCustomerUser.id,
+      role: existingCustomerUser.role,
+    } : "NONE (good)");
+
     if (existingCustomerUser) {
       return { success: false, error: "此手機號碼已有顧客帳號，請直接登入或聯繫店家" };
     }
@@ -202,6 +226,7 @@ export async function activateAccount(
     const passwordHash = hashSync(password, 10);
 
     // Transaction: 建立 User + 連結 Customer + 刪除 token
+    console.log("[Activate] creating User + linking Customer...");
     await prisma.$transaction([
       prisma.user.create({
         data: {
@@ -227,6 +252,7 @@ export async function activateAccount(
       }),
     ]);
 
+    console.log("[Activate] SUCCESS — phone:", customer.phone);
     return { success: true, data: { phone: customer.phone } };
   } catch (e) {
     console.error("[activateAccount]", e);
