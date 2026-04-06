@@ -532,7 +532,7 @@ export async function markNoShow(
         });
       }
 
-      // 3. 產生補課資格（非補課預約 + 不扣堂時才給補課）
+      // 3. 產生補課資格（非補課預約 + 明確選擇「不扣堂＋給補課」時才給）
       if (!booking.isMakeup && policy === "NOT_DEDUCTED") {
         const expiredAt = new Date();
         expiredAt.setDate(expiredAt.getDate() + 30);

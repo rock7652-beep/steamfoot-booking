@@ -121,7 +121,13 @@ export function isSlotPastToday(date: string, slotTime: string): boolean {
 // 4. No-Show 扣堂策略
 // ============================================================
 
-export type NoShowPolicy = "DEDUCTED" | "NOT_DEDUCTED";
+/**
+ * 未到處理策略（三選一）：
+ * - DEDUCTED: 扣堂，不補課
+ * - NOT_DEDUCTED: 不扣堂，給補課資格（30天）
+ * - NOT_DEDUCTED_NO_MAKEUP: 不扣堂，也不給補課
+ */
+export type NoShowPolicy = "DEDUCTED" | "NOT_DEDUCTED" | "NOT_DEDUCTED_NO_MAKEUP";
 
 // ============================================================
 // 5. 方案類別標籤

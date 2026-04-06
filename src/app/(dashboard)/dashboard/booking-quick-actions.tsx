@@ -130,7 +130,7 @@ export function BookingQuickActions({ bookingId, status }: Props) {
               onClick={(e) => { e.stopPropagation(); setShowNoShowMenu(false); }}
             />
             {/* Popover 選單 */}
-            <div className="absolute right-0 top-full z-50 mt-1 w-36 rounded-lg border border-earth-200 bg-white p-1.5 shadow-lg">
+            <div className="absolute right-0 top-full z-50 mt-1 w-44 rounded-lg border border-earth-200 bg-white p-1.5 shadow-lg">
               <p className="mb-1 px-1.5 text-[9px] font-medium text-earth-400">扣堂方式</p>
               <button
                 type="button"
@@ -146,7 +146,15 @@ export function BookingQuickActions({ bookingId, status }: Props) {
                 className="flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-[11px] text-earth-700 hover:bg-amber-50 hover:text-amber-700 transition"
               >
                 <span className="text-amber-500">↩</span>
-                不扣堂（給補課）
+                不扣堂＋給補課
+              </button>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); handleNoShow("NOT_DEDUCTED_NO_MAKEUP"); }}
+                className="flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-[11px] text-earth-700 hover:bg-earth-50 hover:text-earth-600 transition"
+              >
+                <span className="text-earth-400">—</span>
+                不扣堂、不補課
               </button>
             </div>
           </>
