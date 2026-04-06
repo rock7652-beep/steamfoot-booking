@@ -6,25 +6,34 @@ import { Resend } from "resend";
 // 環境變數：
 //   RESEND_API_KEY — Resend API Key（必要）
 //   RESEND_FROM    — 寄件人（預設 noreply@steamfoot.tw）
+//   NEXTAUTH_URL   — 用於信件連結的 base URL
 //
 // 如果未設定 RESEND_API_KEY，會 fallback 到 console.log
 // ============================================================
 
-const RESEND_API_KEY = process.env.RESEND_API_KEY;
-const RESEND_FROM = process.env.RESEND_FROM ?? "蒸足健康站 <noreply@steamfoot.tw>";
-const BASE_URL =
-  process.env.NEXTAUTH_URL ??
-  process.env.NEXT_PUBLIC_APP_URL ??
-  process.env.NEXT_PUBLIC_BASE_URL ??
-  "https://steamfoot-booking.vercel.app";
+/** 每次呼叫時即時讀取環境變數，避免 build-time 快取 */
+function getBaseUrl(): string {
+  const url =
+    process.env.NEXTAUTH_URL ??
+    process.env.NEXT_PUBLIC_APP_URL ??
+    process.env.NEXT_PUBLIC_BASE_URL ??
+    "https://steamfoot-booking.vercel.app";
+  // 移除尾端斜線
+  return url.replace(/\/+$/, "");
+}
 
-console.log("RESEND_API_KEY exists:", !!RESEND_API_KEY);
+function getResendApiKey(): string | undefined {
+  return process.env.RESEND_API_KEY;
+}
 
-const isConfigured = !!RESEND_API_KEY;
+function getResendFrom(): string {
+  return process.env.RESEND_FROM ?? "蒸足健康站 <noreply@steamfoot.tw>";
+}
 
 function getResend() {
-  if (!RESEND_API_KEY) return null;
-  return new Resend(RESEND_API_KEY);
+  const apiKey = getResendApiKey();
+  if (!apiKey) return null;
+  return new Resend(apiKey);
 }
 
 async function sendMail(to: string, subject: string, html: string) {
@@ -41,7 +50,7 @@ async function sendMail(to: string, subject: string, html: string) {
   }
 
   const { data, error } = await resend.emails.send({
-    from: RESEND_FROM,
+    from: getResendFrom(),
     to,
     subject,
     html,
@@ -64,7 +73,13 @@ export async function sendActivationEmail(
   token: string,
   customerName: string
 ) {
-  const link = `${BASE_URL}/activate/verify?token=${token}`;
+  const baseUrl = getBaseUrl();
+  console.log("[Email] BASE_URL:", baseUrl);
+  console.log("[Email] NEXTAUTH_URL:", process.env.NEXTAUTH_URL);
+  console.log("[Email] NEXT_PUBLIC_APP_URL:", process.env.NEXT_PUBLIC_APP_URL);
+  console.log("[Email] NEXT_PUBLIC_BASE_URL:", process.env.NEXT_PUBLIC_BASE_URL);
+
+  const link = `${baseUrl}/activate/verify?token=${token}`;
   const subject = "蒸足健康站 — 帳號開通";
   const html = `
     <div style="max-width:480px;margin:0 auto;font-family:sans-serif;color:#333">
@@ -94,7 +109,8 @@ export async function sendPasswordResetEmail(
   token: string,
   customerName: string
 ) {
-  const link = `${BASE_URL}/reset-password?token=${token}`;
+  const baseUrl = getBaseUrl();
+  const link = `${baseUrl}/reset-password?token=${token}`;
   const subject = "蒸足健康站 — 密碼重設";
   const html = `
     <div style="max-width:480px;margin:0 auto;font-family:sans-serif;color:#333">
@@ -116,4 +132,4 @@ export async function sendPasswordResetEmail(
 }
 
 /** 檢查 email service 是否已設定 */
-export { isConfigured as isEmailConfigured };
+export const isEmailConfigured = !!getResendApiKey();
