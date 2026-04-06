@@ -10,7 +10,15 @@ export const proxy = auth((req: NextRequest & { auth: { user?: { role?: string }
   const role = session?.user?.role;
 
   // ── Public routes — 任何人皆可訪問 ──
-  const publicRoutes = ["/", "/login", "/register", "/api/auth"];
+  const publicRoutes = [
+    "/", "/login", "/register",
+    "/api/auth",
+    "/api/line/webhook",   // LINE Webhook（外部呼叫）
+    "/api/cron",           // Vercel Cron jobs
+    "/activate",           // 帳號開通
+    "/forgot-password",    // 忘記密碼
+    "/reset-password",     // 重設密碼
+  ];
   const isPublic = publicRoutes.some(
     (p) => pathname === p || pathname.startsWith(p + "/")
   );
@@ -68,6 +76,6 @@ export const proxy = auth((req: NextRequest & { auth: { user?: { role?: string }
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico).*)",
+    "/((?!api/line/webhook|api/cron|_next/static|_next/image|favicon\\.ico).*)",
   ],
 };
