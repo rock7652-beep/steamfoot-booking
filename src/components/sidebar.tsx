@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import BuildFooter from "@/components/build-footer";
 
 interface NavItem {
   href: string;
@@ -114,8 +115,6 @@ interface DashboardShellProps {
   children: React.ReactNode;
 }
 
-const BUILD_VERSION = process.env.NEXT_PUBLIC_BUILD_VERSION || "dev";
-const BUILD_TIME = process.env.NEXT_PUBLIC_BUILD_TIME || "";
 
 export default function DashboardShell({
   isOwner,
@@ -211,11 +210,6 @@ export default function DashboardShell({
           </button>
         </div>
         {navLinks}
-        {!collapsed && (
-          <div className="border-t border-earth-200 px-3 py-2">
-            <p className="text-[10px] text-earth-300">v{BUILD_VERSION}{BUILD_TIME ? ` (${BUILD_TIME})` : ""}</p>
-          </div>
-        )}
       </aside>
 
       {/* Mobile overlay */}
@@ -242,9 +236,6 @@ export default function DashboardShell({
               </button>
             </div>
             {navLinks}
-            <div className="border-t border-earth-200 px-4 py-2">
-              <p className="text-[10px] text-earth-300">v{BUILD_VERSION}{BUILD_TIME ? ` (${BUILD_TIME})` : ""}</p>
-            </div>
           </aside>
         </div>
       )}
@@ -285,6 +276,8 @@ export default function DashboardShell({
         <main className="mx-auto max-w-6xl px-4 py-5 sm:px-6 sm:py-6">
           {children}
         </main>
+
+        <BuildFooter />
       </div>
     </div>
   );

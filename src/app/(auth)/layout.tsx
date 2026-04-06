@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
+import BuildFooter from "@/components/build-footer";
 
 export default async function AuthLayout({
   children,
@@ -11,8 +12,11 @@ export default async function AuthLayout({
     redirect(user.role === "CUSTOMER" ? "/book" : "/dashboard");
   }
   return (
-    <div className="flex min-h-screen items-center justify-center bg-earth-50">
-      {children}
+    <div className="flex min-h-screen flex-col bg-earth-50">
+      <div className="flex flex-1 items-center justify-center">
+        {children}
+      </div>
+      <BuildFooter />
     </div>
   );
 }

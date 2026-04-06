@@ -19,8 +19,8 @@ export default function RootLayout({
 }) {
   return (
     <html lang="zh-TW">
-      <body className="bg-white text-gray-900 antialiased min-h-screen">
-        {children}
+      <body className="bg-white text-gray-900 antialiased min-h-screen flex flex-col">
+        <div className="flex-1">{children}</div>
       </body>
     </html>
   )
