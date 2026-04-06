@@ -7,20 +7,26 @@
 import { prisma } from "@/lib/db";
 import { requireStaffSession, requireSession } from "@/lib/session";
 import { AppError } from "@/lib/errors";
-import { monthRange as sharedMonthRange } from "@/lib/date-utils";
+import { monthRange as sharedMonthRange, dayRange } from "@/lib/date-utils";
 import { getManagerReadFilter, getVisibilityMode } from "@/lib/manager-visibility";
+import { REVENUE_TRANSACTION_TYPES } from "@/lib/booking-constants";
 
-const REVENUE_TYPES = [
-  "TRIAL_PURCHASE",
-  "SINGLE_PURCHASE",
-  "PACKAGE_PURCHASE",
-  "SUPPLEMENT",
-];
+const REVENUE_TYPES = [...REVENUE_TRANSACTION_TYPES];
 
 // 使用共用日期工具
 function monthRange(month: string) {
   const { start, end } = sharedMonthRange(month);
   return { monthStart: start, monthEnd: end };
+}
+
+/**
+ * 從 startDate / endDate 字串計算 UTC 邊界
+ * 支援同日（today preset）和跨日（custom range）
+ */
+function dateRangeBounds(startDate: string, endDate: string) {
+  const startBounds = dayRange(startDate);
+  const endBounds = dayRange(endDate);
+  return { rangeStart: startBounds.start, rangeEnd: endBounds.end };
 }
 
 // ============================================================
@@ -136,10 +142,20 @@ export async function monthlyStaffNetSummary(month: string) {
 
 // ============================================================
 // monthlyStoreSummary — Enhanced with per-staff customer counts
+// 支援 startDate/endDate 日期範圍查詢
 // ============================================================
-export async function monthlyStoreSummary(month: string) {
+export async function monthlyStoreSummary(
+  month: string,
+  options?: { startDate?: string; endDate?: string }
+) {
   const user = await requireStaffSession();
-  const { monthStart, monthEnd } = monthRange(month);
+  // 如果有傳入 startDate/endDate，使用精確日期範圍；否則用月份
+  const { monthStart, monthEnd } = options?.startDate && options?.endDate
+    ? (() => {
+        const { rangeStart, rangeEnd } = dateRangeBounds(options.startDate!, options.endDate!);
+        return { monthStart: rangeStart, monthEnd: rangeEnd };
+      })()
+    : monthRange(month);
 
   const revenueFilter = getManagerReadFilter(user.role, user.staffId, "revenueStaffId");
   const staffIdFilter = getManagerReadFilter(user.role, user.staffId, "staffId");
@@ -323,10 +339,19 @@ export async function monthlyStoreSummary(month: string) {
 
 // ============================================================
 // monthlyRevenueByCategory — groups revenue by transactionType and revenueStaffId
+// 支援 startDate/endDate 日期範圍查詢
 // ============================================================
-export async function monthlyRevenueByCategory(month: string) {
+export async function monthlyRevenueByCategory(
+  month: string,
+  options?: { startDate?: string; endDate?: string }
+) {
   const user = await requireStaffSession();
-  const { monthStart, monthEnd } = monthRange(month);
+  const { monthStart, monthEnd } = options?.startDate && options?.endDate
+    ? (() => {
+        const { rangeStart, rangeEnd } = dateRangeBounds(options.startDate!, options.endDate!);
+        return { monthStart: rangeStart, monthEnd: rangeEnd };
+      })()
+    : monthRange(month);
 
   const revenueFilter = getManagerReadFilter(user.role, user.staffId, "revenueStaffId");
 

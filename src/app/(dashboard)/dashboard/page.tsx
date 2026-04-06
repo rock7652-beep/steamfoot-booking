@@ -8,6 +8,15 @@ import Link from "next/link";
 import { DashboardCalendar } from "./dashboard-calendar";
 import { ReconciliationBanner } from "@/components/reconciliation-banner";
 import { BookingQuickActions } from "./booking-quick-actions";
+import {
+  ACTIVE_BOOKING_STATUSES,
+  REVENUE_TRANSACTION_TYPES,
+  STATUS_LABEL,
+  STATUS_COLOR,
+  STATUS_BORDER,
+  STATUS_ROW_BG,
+  STATUS_ICON,
+} from "@/lib/booking-constants";
 
 interface PageProps {
   searchParams: Promise<{ year?: string; month?: string }>;
@@ -48,7 +57,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
         prisma.booking.aggregate({
           where: {
             bookingDate: { gte: todayStart, lte: todayEnd },
-            bookingStatus: { in: ["PENDING", "CONFIRMED", "COMPLETED", "NO_SHOW"] },
+            bookingStatus: { in: [...ACTIVE_BOOKING_STATUSES] },
           },
           _count: { id: true },
           _sum: { people: true },
@@ -57,7 +66,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
           ? prisma.transaction.aggregate({
               where: {
                 createdAt: { gte: monthStart },
-                transactionType: { in: ["TRIAL_PURCHASE", "SINGLE_PURCHASE", "PACKAGE_PURCHASE", "SUPPLEMENT"] },
+                transactionType: { in: [...REVENUE_TRANSACTION_TYPES] },
               },
               _sum: { amount: true },
             })
@@ -75,7 +84,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
           ? prisma.transaction.aggregate({
               where: {
                 createdAt: { gte: todayStart, lte: todayEnd },
-                transactionType: { in: ["TRIAL_PURCHASE", "SINGLE_PURCHASE", "PACKAGE_PURCHASE", "SUPPLEMENT"] },
+                transactionType: { in: [...REVENUE_TRANSACTION_TYPES] },
               },
               _sum: { amount: true },
             })
@@ -97,7 +106,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     prisma.booking.findMany({
       where: {
         bookingDate: { gte: todayStart, lte: todayEnd },
-        bookingStatus: { in: ["PENDING", "CONFIRMED", "COMPLETED", "NO_SHOW"] },
+        bookingStatus: { in: [...ACTIVE_BOOKING_STATUSES] },
       },
       include: {
         customer: { select: { name: true, phone: true } },
@@ -122,34 +131,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     full: { label: "爆滿", color: "text-red-700", bg: "bg-red-100" },
   }[busyLevel];
 
-  const STATUS_LABEL: Record<string, string> = {
-    PENDING: "待確認",
-    CONFIRMED: "已確認",
-    COMPLETED: "已完成",
-    NO_SHOW: "未到",
-  };
-  const STATUS_COLOR: Record<string, string> = {
-    PENDING: "bg-yellow-100 text-yellow-700",
-    CONFIRMED: "bg-blue-100 text-blue-700",
-    COMPLETED: "bg-green-100 text-green-700",
-    NO_SHOW: "bg-red-100 text-red-600",
-  };
-  const STATUS_BORDER: Record<string, string> = {
-    PENDING: "border-l-yellow-400",
-    CONFIRMED: "border-l-blue-400",
-    COMPLETED: "border-l-green-400",
-    NO_SHOW: "border-l-red-400",
-  };
-  const STATUS_ROW_BG: Record<string, string> = {
-    COMPLETED: "bg-green-50/30",
-    NO_SHOW: "bg-red-50/30",
-  };
-  const STATUS_ICON: Record<string, string> = {
-    PENDING: "\u25CB",
-    CONFIRMED: "\u25C9",
-    COMPLETED: "\u2713",
-    NO_SHOW: "\u2717",
-  };
+  // 使用 booking-constants.ts 的共用常數（已在頂部 import）
 
   return (
     <div className="mx-auto max-w-5xl space-y-5 px-4 py-4">

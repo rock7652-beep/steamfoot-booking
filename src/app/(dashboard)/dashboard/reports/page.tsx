@@ -50,8 +50,10 @@ export default async function ReportsPage({ searchParams }: PageProps) {
 
   const month = startDate.slice(0, 7);
 
-  const storeSummary = await monthlyStoreSummary(month);
-  const revenueByCategory = await monthlyRevenueByCategory(month);
+  // 傳入實際日期範圍，而非只取月份
+  const dateRangeOpts = { startDate, endDate };
+  const storeSummary = await monthlyStoreSummary(month, dateRangeOpts);
+  const revenueByCategory = await monthlyRevenueByCategory(month, dateRangeOpts);
 
   return (
     <div className="mx-auto max-w-2xl">

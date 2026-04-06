@@ -10,6 +10,11 @@ import { TransferCustomerForm } from "./transfer-customer-form";
 import { CreateBookingForm } from "./create-booking-form";
 import { AdjustWalletForm } from "./adjust-wallet-form";
 import { updateCustomerStage } from "@/server/actions/customer";
+import {
+  STATUS_LABEL,
+  STATUS_COLOR,
+  WALLET_STATUS_LABEL,
+} from "@/lib/booking-constants";
 
 const STAGE_LABEL: Record<string, string> = {
   LEAD: "名單", TRIAL: "體驗", ACTIVE: "已購課", INACTIVE: "已停用",
@@ -18,16 +23,9 @@ const STAGE_COLOR: Record<string, string> = {
   LEAD: "bg-earth-100 text-earth-700", TRIAL: "bg-blue-100 text-blue-700",
   ACTIVE: "bg-green-100 text-green-700", INACTIVE: "bg-yellow-100 text-yellow-700",
 };
-const WALLET_STATUS_LABEL: Record<string, string> = {
-  ACTIVE: "有效", USED_UP: "已用完", EXPIRED: "已過期", CANCELLED: "已取消",
-};
 const TX_TYPE_LABEL: Record<string, string> = {
   TRIAL_PURCHASE: "體驗購買", SINGLE_PURCHASE: "單次消費", PACKAGE_PURCHASE: "課程購買",
   SESSION_DEDUCTION: "堂數扣抵", SUPPLEMENT: "補差額", REFUND: "退款", ADJUSTMENT: "手動調整",
-};
-const BOOKING_STATUS_LABEL: Record<string, string> = {
-  PENDING: "待確認", CONFIRMED: "已確認", COMPLETED: "已完成",
-  CANCELLED: "已取消", NO_SHOW: "未到",
 };
 
 interface PageProps {
@@ -55,6 +53,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
       : [];
 
   const activeWallets = customer.planWallets.filter((w) => w.status === "ACTIVE");
+  const inactiveWallets = customer.planWallets.filter((w) => w.status !== "ACTIVE");
   const totalRemaining = activeWallets.reduce((s, w) => s + w.remainingSessions, 0);
 
   const upcomingBookings = customer.bookings.filter(
@@ -169,36 +168,26 @@ export default async function CustomerDetailPage({ params }: PageProps) {
         {customer.planWallets.length === 0 ? (
           <p className="text-sm text-earth-400">尚未購買課程</p>
         ) : (
-          <div className="space-y-3">
-            {customer.planWallets.map((w) => (
-              <div key={w.id} className={`rounded-lg border p-3 ${w.status !== "ACTIVE" ? "opacity-60" : ""}`}>
-                <div className="flex items-start justify-between">
-                  <div>
-                    <span className="font-medium">{w.plan.name}</span>
-                    <span className={`ml-2 rounded px-1.5 py-0.5 text-xs ${
-                      w.status === "ACTIVE" ? "bg-green-100 text-green-700" : "bg-earth-100 text-earth-600"
-                    }`}>
-                      {WALLET_STATUS_LABEL[w.status] ?? w.status}
-                    </span>
-                  </div>
-                  <div className="text-right text-sm">
-                    <span className="text-lg font-bold text-primary-700">{w.remainingSessions}</span>
-                    <span className="text-earth-500"> / {w.totalSessions} 堂</span>
-                  </div>
-                </div>
-                <div className="mt-1 flex items-center gap-4 text-xs text-earth-400">
-                  <span>購入 NT$ {Number(w.purchasedPrice).toLocaleString()}</span>
-                  <span>開始 {new Date(w.startDate).toLocaleDateString("zh-TW")}</span>
-                  {w.expiryDate && <span>到期 {new Date(w.expiryDate).toLocaleDateString("zh-TW")}</span>}
-                </div>
-                {/* Adjust sessions (Owner only) */}
-                {user.role === "OWNER" && w.status === "ACTIVE" && (
-                  <div className="mt-2 border-t pt-2">
-                    <AdjustWalletForm walletId={w.id} currentRemaining={w.remainingSessions} />
-                  </div>
-                )}
+          <div className="space-y-4">
+            {/* 有效課程 */}
+            {activeWallets.length > 0 && (
+              <div className="space-y-3">
+                {activeWallets.map((w) => (
+                  <WalletItem key={w.id} w={w} userRole={user.role} />
+                ))}
               </div>
-            ))}
+            )}
+            {/* 歷史課程 */}
+            {inactiveWallets.length > 0 && (
+              <div>
+                <p className="mb-2 text-xs font-medium text-earth-400">歷史方案</p>
+                <div className="space-y-3 opacity-60">
+                  {inactiveWallets.map((w) => (
+                    <WalletItem key={w.id} w={w} userRole={user.role} />
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -242,7 +231,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
               <div key={b.id} className="flex items-center justify-between rounded-lg bg-blue-50 px-3 py-2 text-sm">
                 <span>{new Date(b.bookingDate).toLocaleDateString("zh-TW")} {b.slotTime}</span>
                 <span className="text-xs text-blue-700">
-                  {BOOKING_STATUS_LABEL[b.bookingStatus] ?? b.bookingStatus}
+                  {STATUS_LABEL[b.bookingStatus] ?? b.bookingStatus}
                 </span>
                 <Link href={`/dashboard/bookings/${b.id}`} className="text-primary-600 hover:underline">
                   操作
@@ -283,7 +272,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
                       b.bookingStatus === "CANCELLED" ? "bg-earth-100 text-earth-500" :
                       "bg-earth-100 text-earth-600"
                     }`}>
-                      {BOOKING_STATUS_LABEL[b.bookingStatus] ?? b.bookingStatus}
+                      {STATUS_LABEL[b.bookingStatus] ?? b.bookingStatus}
                     </span>
                   </td>
                   <td className="py-2">
@@ -340,6 +329,37 @@ export default async function CustomerDetailPage({ params }: PageProps) {
           </table>
         )}
       </div>
+    </div>
+  );
+}
+
+function WalletItem({ w, userRole }: { w: { id: string; plan: { name: string }; status: string; remainingSessions: number; totalSessions: number; purchasedPrice: unknown; startDate: Date; expiryDate: Date | null }; userRole: string }) {
+  return (
+    <div className={`rounded-lg border p-3 ${w.status !== "ACTIVE" ? "" : ""}`}>
+      <div className="flex items-start justify-between">
+        <div>
+          <span className="font-medium">{w.plan.name}</span>
+          <span className={`ml-2 rounded px-1.5 py-0.5 text-xs ${
+            w.status === "ACTIVE" ? "bg-green-100 text-green-700" : "bg-earth-100 text-earth-600"
+          }`}>
+            {WALLET_STATUS_LABEL[w.status] ?? w.status}
+          </span>
+        </div>
+        <div className="text-right text-sm">
+          <span className="text-lg font-bold text-primary-700">{w.remainingSessions}</span>
+          <span className="text-earth-500"> / {w.totalSessions} 堂</span>
+        </div>
+      </div>
+      <div className="mt-1 flex items-center gap-4 text-xs text-earth-400">
+        <span>購入 NT$ {Number(w.purchasedPrice).toLocaleString()}</span>
+        <span>開始 {new Date(w.startDate).toLocaleDateString("zh-TW")}</span>
+        {w.expiryDate && <span>到期 {new Date(w.expiryDate).toLocaleDateString("zh-TW")}</span>}
+      </div>
+      {userRole === "OWNER" && w.status === "ACTIVE" && (
+        <div className="mt-2 border-t pt-2">
+          <AdjustWalletForm walletId={w.id} currentRemaining={w.remainingSessions} />
+        </div>
+      )}
     </div>
   );
 }

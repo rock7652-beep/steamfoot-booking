@@ -40,8 +40,15 @@ export default function ReportDateRange({
     router.push(`?${params.toString()}`);
   }
 
+  const [dateError, setDateError] = useState<string | null>(null);
+
   function handleCustomSubmit() {
     if (!customStart || !customEnd) return;
+    if (customEnd < customStart) {
+      setDateError("結束日期不能早於起始日期");
+      return;
+    }
+    setDateError(null);
     const params = new URLSearchParams();
     params.set("startDate", customStart);
     params.set("endDate", customEnd);
@@ -76,33 +83,38 @@ export default function ReportDateRange({
 
       {/* Custom date range */}
       {showCustom && (
-        <div className="flex items-end gap-2">
-          <div className="flex-1">
-            <label className="block text-xs text-earth-500 mb-0.5">起始</label>
-            <input
-              type="date"
-              value={customStart}
-              onChange={(e) => setCustomStart(e.target.value)}
-              className="block w-full rounded-lg border border-earth-300 bg-white px-2.5 py-1.5 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
-            />
+        <>
+          <div className="flex items-end gap-2">
+            <div className="flex-1">
+              <label className="block text-xs text-earth-500 mb-0.5">起始</label>
+              <input
+                type="date"
+                value={customStart}
+                onChange={(e) => { setCustomStart(e.target.value); setDateError(null); }}
+                className="block w-full rounded-lg border border-earth-300 bg-white px-2.5 py-1.5 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
+              />
+            </div>
+            <div className="flex-1">
+              <label className="block text-xs text-earth-500 mb-0.5">結束</label>
+              <input
+                type="date"
+                value={customEnd}
+                onChange={(e) => { setCustomEnd(e.target.value); setDateError(null); }}
+                className="block w-full rounded-lg border border-earth-300 bg-white px-2.5 py-1.5 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={handleCustomSubmit}
+              className="rounded-lg bg-primary-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-primary-700 transition-colors"
+            >
+              查詢
+            </button>
           </div>
-          <div className="flex-1">
-            <label className="block text-xs text-earth-500 mb-0.5">結束</label>
-            <input
-              type="date"
-              value={customEnd}
-              onChange={(e) => setCustomEnd(e.target.value)}
-              className="block w-full rounded-lg border border-earth-300 bg-white px-2.5 py-1.5 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
-            />
-          </div>
-          <button
-            type="button"
-            onClick={handleCustomSubmit}
-            className="rounded-lg bg-primary-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-primary-700 transition-colors"
-          >
-            查詢
-          </button>
-        </div>
+          {dateError && (
+            <p className="text-xs text-red-500">{dateError}</p>
+          )}
+        </>
       )}
     </div>
   );

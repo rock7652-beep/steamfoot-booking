@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   env: {
-    NEXT_PUBLIC_BUILD_VERSION: "1.5.0",
+    NEXT_PUBLIC_BUILD_VERSION: "1.6.0",
     NEXT_PUBLIC_BUILD_TIME: new Date().toISOString().slice(0, 16).replace("T", " "),
     NEXT_PUBLIC_BUILD_ENV:
       process.env.VERCEL_ENV === "production"

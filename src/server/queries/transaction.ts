@@ -11,6 +11,7 @@ export interface ListTransactionsOptions {
   paymentMethod?: PaymentMethod;
   dateFrom?: string; // "YYYY-MM-DD"
   dateTo?: string;
+  excludeSessionDeduction?: boolean; // 排除 SESSION_DEDUCTION（金額=0的使用紀錄）
   page?: number;
   pageSize?: number;
 }
@@ -30,6 +31,7 @@ export async function listTransactions(options: ListTransactionsOptions = {}) {
     paymentMethod,
     dateFrom,
     dateTo,
+    excludeSessionDeduction = false,
     page = 1,
     pageSize = 30,
   } = options;
@@ -47,6 +49,7 @@ export async function listTransactions(options: ListTransactionsOptions = {}) {
     ...staffFilter,
     ...(customerId ? { customerId } : {}),
     ...(transactionType ? { transactionType } : {}),
+    ...(!transactionType && excludeSessionDeduction ? { transactionType: { not: "SESSION_DEDUCTION" as TransactionType } } : {}),
     ...(paymentMethod ? { paymentMethod } : {}),
     ...(dateFrom || dateTo
       ? {

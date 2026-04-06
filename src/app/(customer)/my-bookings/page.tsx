@@ -2,29 +2,13 @@ import { getCurrentUser } from "@/lib/session";
 import { listBookings } from "@/server/queries/booking";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import type { BookingStatus } from "@prisma/client";
-
-const STATUS_LABEL: Record<BookingStatus, string> = {
-  PENDING: "待確認",
-  CONFIRMED: "已確認",
-  COMPLETED: "已完成",
-  CANCELLED: "已取消",
-  NO_SHOW: "未到",
-};
-
-const STATUS_COLOR: Record<BookingStatus, string> = {
-  PENDING: "bg-yellow-100 text-yellow-700",
-  CONFIRMED: "bg-blue-100 text-blue-700",
-  COMPLETED: "bg-green-100 text-green-700",
-  CANCELLED: "bg-gray-100 text-gray-500",
-  NO_SHOW: "bg-red-100 text-red-600",
-};
-
-const BOOKING_TYPE_LABEL: Record<string, string> = {
-  FIRST_TRIAL: "體驗",
-  SINGLE: "單次",
-  PACKAGE_SESSION: "課程堂數",
-};
+import {
+  STATUS_LABEL,
+  STATUS_COLOR,
+  BOOKING_TYPE_LABEL,
+  isBookingPast,
+  PENDING_STATUSES,
+} from "@/lib/booking-constants";
 
 interface PageProps {
   searchParams: Promise<{ tab?: "upcoming" | "history" }>;
@@ -40,15 +24,23 @@ export default async function MyBookingsPage({ searchParams }: PageProps) {
   // 取顧客所有預約（最新 50 筆）
   const { bookings } = await listBookings({ pageSize: 50 });
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  // ── 依日期+時間拆分，而非僅依狀態 ──
+  // upcoming = 未來 + 今日未過時段 的 PENDING/CONFIRMED
+  // history  = 已過時段 + COMPLETED + NO_SHOW + CANCELLED
+  const upcoming = bookings.filter((b) => {
+    const isPending = (PENDING_STATUSES as readonly string[]).includes(b.bookingStatus);
+    if (!isPending) return false;
+    // 若日期+時段已過，算歷史
+    return !isBookingPast(new Date(b.bookingDate), b.slotTime);
+  });
 
-  const upcoming = bookings.filter(
-    (b) => b.bookingStatus === "PENDING" || b.bookingStatus === "CONFIRMED"
-  );
-  const history = bookings.filter(
-    (b) => b.bookingStatus !== "PENDING" && b.bookingStatus !== "CONFIRMED"
-  );
+  const history = bookings.filter((b) => {
+    // 非 PENDING/CONFIRMED → 歷史
+    const isPending = (PENDING_STATUSES as readonly string[]).includes(b.bookingStatus);
+    if (!isPending) return true;
+    // PENDING 但已過時段 → 歷史
+    return isBookingPast(new Date(b.bookingDate), b.slotTime);
+  });
 
   const displayed = tab === "upcoming" ? upcoming : history;
 
@@ -171,8 +163,8 @@ export default async function MyBookingsPage({ searchParams }: PageProps) {
 
                 {/* Status + action */}
                 <div className="flex items-center gap-2 flex-shrink-0">
-                  <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${STATUS_COLOR[b.bookingStatus]}`}>
-                    {STATUS_LABEL[b.bookingStatus]}
+                  <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${STATUS_COLOR[b.bookingStatus] ?? ""}`}>
+                    {STATUS_LABEL[b.bookingStatus] ?? b.bookingStatus}
                   </span>
                   {(b.bookingStatus === "PENDING" || b.bookingStatus === "CONFIRMED") && (() => {
                     const dateStr = new Date(b.bookingDate).toISOString().slice(0, 10);

@@ -3,19 +3,11 @@ import { prisma } from "@/lib/db";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import type { WalletStatus } from "@prisma/client";
-
-const WALLET_STATUS_LABEL: Record<WalletStatus, string> = {
-  ACTIVE: "有效",
-  USED_UP: "已用完",
-  EXPIRED: "已過期",
-  CANCELLED: "已取消",
-};
-
-const CATEGORY_LABEL: Record<string, string> = {
-  TRIAL: "體驗",
-  SINGLE: "單次",
-  PACKAGE: "課程",
-};
+import {
+  WALLET_STATUS_LABEL,
+  PLAN_CATEGORY_LABEL,
+  PENDING_STATUSES,
+} from "@/lib/booking-constants";
 
 export default async function MyPlansPage() {
   const user = await getCurrentUser();
@@ -29,7 +21,14 @@ export default async function MyPlansPage() {
           plan: { select: { name: true, category: true, sessionCount: true } },
           bookings: {
             where: { bookingStatus: { in: ["COMPLETED", "NO_SHOW", "CONFIRMED", "PENDING"] } },
-            select: { bookingDate: true, slotTime: true, bookingStatus: true, isMakeup: true, people: true },
+            select: {
+              bookingDate: true,
+              slotTime: true,
+              bookingStatus: true,
+              isMakeup: true,
+              people: true,
+              noShowPolicy: true,
+            },
             orderBy: { bookingDate: "asc" },
           },
         },
@@ -39,12 +38,26 @@ export default async function MyPlansPage() {
   });
   if (!customer) redirect("/");
 
+  // ── 3 區分類 ──
   const activeWallets = customer.planWallets.filter((w) => w.status === "ACTIVE");
-  const inactiveWallets = customer.planWallets.filter((w) => w.status !== "ACTIVE");
+  const expiredWallets = customer.planWallets.filter((w) => w.status === "EXPIRED");
+  const historyWallets = customer.planWallets.filter(
+    (w) => w.status === "USED_UP" || w.status === "CANCELLED"
+  );
 
-  // P0-2 修正：使用 wallet.remainingSessions 作為唯一真值來源
-  // remainingSessions 由 createBooking 預扣、cancelBooking 退還，是 DB 層級的正確值
+  // ── 新扣堂模型：remainingSessions = 購買 - COMPLETED - NO_SHOW(DEDUCTED) ──
+  // 可預約堂數 = remainingSessions - count(PENDING bookings that aren't makeup)
   const totalRemaining = activeWallets.reduce((sum, w) => sum + w.remainingSessions, 0);
+  const totalPendingCount = activeWallets.reduce((sum, w) => {
+    return sum + w.bookings
+      .filter((b) => !b.isMakeup && (PENDING_STATUSES as readonly string[]).includes(b.bookingStatus))
+      .length;
+  }, 0);
+  const availableToBook = Math.max(0, totalRemaining - totalPendingCount);
+
+  // 再依體驗 vs 課程分組
+  const activeTrialWallets = activeWallets.filter((w) => w.plan.category === "TRIAL");
+  const activePackageWallets = activeWallets.filter((w) => w.plan.category !== "TRIAL");
 
   return (
     <div>
@@ -53,40 +66,37 @@ export default async function MyPlansPage() {
         <h1 className="text-xl font-bold text-earth-900">我的方案</h1>
       </div>
 
-      {/* Summary — 主敘事：剩餘可預約最醒目 */}
-      {activeWallets.length > 0 && (() => {
-        // P0-2: 已預約未用 = 各 wallet 的 CONFIRMED/PENDING 筆數（每筆預扣 1 堂）
-        const totalPreDeducted = activeWallets.reduce((sum, w) => {
-          return sum + w.bookings
-            .filter((b) => !b.isMakeup && (b.bookingStatus === "CONFIRMED" || b.bookingStatus === "PENDING"))
-            .length;
-        }, 0);
-        return (
-          <div className="mb-6 rounded-2xl bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-            <p className="text-sm text-earth-500">你還有</p>
-            <p className="mt-0.5 text-3xl font-bold text-primary-700">
-              {totalRemaining} <span className="text-base font-medium text-earth-400">堂可以預約</span>
+      {/* Summary */}
+      {activeWallets.length > 0 && (
+        <div className="mb-6 rounded-2xl bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+          <p className="text-sm text-earth-500">你還有</p>
+          <p className="mt-0.5 text-3xl font-bold text-primary-700">
+            {availableToBook} <span className="text-base font-medium text-earth-400">堂可以預約</span>
+          </p>
+          {totalPendingCount > 0 && (
+            <p className="mt-1.5 text-sm text-earth-500">
+              其中 <strong className="text-blue-600">{totalPendingCount}</strong> 堂已預約、等待到店
             </p>
-            {totalPreDeducted > 0 && (
-              <p className="mt-1.5 text-sm text-earth-500">
-                其中 <strong className="text-blue-600">{totalPreDeducted}</strong> 堂已預約、尚未使用
-              </p>
+          )}
+          {availableToBook < totalRemaining && (
+            <p className="mt-0.5 text-xs text-earth-400">
+              剩餘堂數 {totalRemaining}（含已預約未用 {totalPendingCount}）
+            </p>
+          )}
+          <div className="mt-3 flex items-center gap-3">
+            {customer.selfBookingEnabled ? (
+              <Link
+                href="/book/new"
+                className="rounded-lg bg-primary-600 px-5 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-primary-700"
+              >
+                立即預約
+              </Link>
+            ) : (
+              <p className="text-xs text-yellow-600">自助預約功能由店長開啟，請聯繫店長</p>
             )}
-            <div className="mt-3 flex items-center gap-3">
-              {customer.selfBookingEnabled ? (
-                <Link
-                  href="/book/new"
-                  className="rounded-lg bg-primary-600 px-5 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-primary-700"
-                >
-                  立即預約
-                </Link>
-              ) : (
-                <p className="text-xs text-yellow-600">自助預約功能由店長開啟，請聯繫店長</p>
-              )}
-            </div>
           </div>
-        );
-      })()}
+        </div>
+      )}
 
       {customer.planWallets.length === 0 ? (
         <div className="rounded-2xl bg-white p-8 text-center shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
@@ -103,25 +113,49 @@ export default async function MyPlansPage() {
           </Link>
         </div>
       ) : (
-        <div className="space-y-4">
-          {/* Active wallets */}
-          {activeWallets.length > 0 && (
+        <div className="space-y-5">
+          {/* ── 有效課程 ── */}
+          {activePackageWallets.length > 0 && (
             <section>
               <h2 className="mb-2 text-sm font-semibold text-earth-700">有效課程</h2>
               <div className="space-y-3">
-                {activeWallets.map((w) => (
+                {activePackageWallets.map((w) => (
                   <WalletCard key={w.id} wallet={w} isActive />
                 ))}
               </div>
             </section>
           )}
 
-          {/* Inactive wallets */}
-          {inactiveWallets.length > 0 && (
+          {/* ── 有效體驗 ── */}
+          {activeTrialWallets.length > 0 && (
+            <section>
+              <h2 className="mb-2 text-sm font-semibold text-earth-700">體驗方案</h2>
+              <div className="space-y-3">
+                {activeTrialWallets.map((w) => (
+                  <WalletCard key={w.id} wallet={w} isActive />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* ── 已過期 ── */}
+          {expiredWallets.length > 0 && (
+            <section>
+              <h2 className="mb-2 text-sm font-semibold text-earth-500">已過期</h2>
+              <div className="space-y-3 opacity-60">
+                {expiredWallets.map((w) => (
+                  <WalletCard key={w.id} wallet={w} isActive={false} />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* ── 已用完 / 已取消 ── */}
+          {historyWallets.length > 0 && (
             <section>
               <h2 className="mb-2 text-sm font-semibold text-earth-500">歷史課程</h2>
               <div className="space-y-3 opacity-60">
-                {inactiveWallets.map((w) => (
+                {historyWallets.map((w) => (
                   <WalletCard key={w.id} wallet={w} isActive={false} />
                 ))}
               </div>
@@ -129,8 +163,6 @@ export default async function MyPlansPage() {
           )}
         </div>
       )}
-
-      {/* CTA 已移至頂部摘要區塊 */}
     </div>
   );
 }
@@ -148,28 +180,45 @@ function WalletCard({
     startDate: Date;
     expiryDate: Date | null;
     status: WalletStatus;
-    bookings: { bookingDate: Date; slotTime: string; bookingStatus: string; isMakeup: boolean; people: number }[];
+    bookings: {
+      bookingDate: Date;
+      slotTime: string;
+      bookingStatus: string;
+      isMakeup: boolean;
+      people: number;
+      noShowPolicy: string | null;
+    }[];
   };
   isActive: boolean;
 }) {
-  // ── P0-2 修正：以 wallet.remainingSessions 為唯一真值來源 ──
-  // remainingSessions 由 createBooking 預扣（-1/筆）、cancelBooking 退還（+1/筆）
-  // 已預扣 = 仍有效的 CONFIRMED + PENDING 筆數
-  const preDeductedBookings = wallet.bookings.filter(
-    (b) => !b.isMakeup && (b.bookingStatus === "CONFIRMED" || b.bookingStatus === "PENDING")
+  // ── 新扣堂模型 ──
+  // remainingSessions = totalSessions - COMPLETED count - NO_SHOW(DEDUCTED) count
+  // 已預約待到店 = PENDING + CONFIRMED（非補課）
+  const pendingBookings = wallet.bookings.filter(
+    (b) => !b.isMakeup && (PENDING_STATUSES as readonly string[]).includes(b.bookingStatus)
   );
-  const preDeductedCount = preDeductedBookings.length;
+  const pendingCount = pendingBookings.length;
 
-  // 已使用 = 總堂數 - 剩餘堂數 - 已預扣（= 已完成 + 未到的堂數）
-  const remainingBookable = wallet.remainingSessions;
-  const usedCount = wallet.totalSessions - wallet.remainingSessions - preDeductedCount;
+  // 已消耗 = COMPLETED + NO_SHOW(DEDUCTED)
+  const completedCount = wallet.bookings.filter(
+    (b) => !b.isMakeup && b.bookingStatus === "COMPLETED"
+  ).length;
+  const noShowDeductedCount = wallet.bookings.filter(
+    (b) => !b.isMakeup && b.bookingStatus === "NO_SHOW" && b.noShowPolicy === "DEDUCTED"
+  ).length;
+  const usedCount = completedCount + noShowDeductedCount;
 
-  // 用於顯示使用紀錄格子
+  // 可預約 = remainingSessions - 待到店筆數
+  const availableToBook = Math.max(0, wallet.remainingSessions - pendingCount);
+
+  // 已使用紀錄（含 COMPLETED + 所有 NO_SHOW）
   const usedBookings = wallet.bookings.filter(
     (b) => !b.isMakeup && (b.bookingStatus === "COMPLETED" || b.bookingStatus === "NO_SHOW")
   );
 
-  const progressPct = wallet.totalSessions > 0 ? Math.round(((wallet.totalSessions - wallet.remainingSessions) / wallet.totalSessions) * 100) : 0;
+  const progressPct = wallet.totalSessions > 0
+    ? Math.round(((wallet.totalSessions - wallet.remainingSessions) / wallet.totalSessions) * 100)
+    : 0;
 
   return (
     <div className="rounded-xl bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
@@ -179,12 +228,12 @@ function WalletCard({
           <div className="flex items-center gap-2">
             <span className="text-sm font-semibold text-earth-900">{wallet.plan.name}</span>
             <span className="rounded-md bg-earth-100 px-1.5 py-0.5 text-[10px] text-earth-500">
-              {CATEGORY_LABEL[wallet.plan.category] ?? wallet.plan.category}
+              {PLAN_CATEGORY_LABEL[wallet.plan.category] ?? wallet.plan.category}
             </span>
           </div>
         </div>
         <div className="text-right">
-          <span className="text-2xl font-bold text-primary-700">{remainingBookable}</span>
+          <span className="text-2xl font-bold text-primary-700">{wallet.remainingSessions}</span>
           <span className="text-xs text-earth-400"> / {wallet.totalSessions}</span>
         </div>
       </div>
@@ -199,55 +248,43 @@ function WalletCard({
         />
       </div>
 
-      {/* 堂數明細 — 三欄精簡版 */}
+      {/* 堂數明細 */}
       <div className="mt-2.5 flex items-center gap-4 text-xs text-earth-500">
         <span>已使用 <strong className="text-earth-700">{usedCount}</strong></span>
-        <span>已預約未用 <strong className="text-blue-600">{preDeductedCount}</strong></span>
-        <span>可預約 <strong className="text-primary-700">{remainingBookable}</strong></span>
+        {pendingCount > 0 && (
+          <span>待到店 <strong className="text-blue-600">{pendingCount}</strong></span>
+        )}
+        <span>可預約 <strong className="text-primary-700">{availableToBook}</strong></span>
       </div>
 
-      {/* Session usage grid — 依人數展開格子（COMPLETED / NO_SHOW） */}
-      {wallet.totalSessions > 0 && (
+      {/* Session usage grid */}
+      {wallet.totalSessions > 0 && usedBookings.length > 0 && (
         <div className="mt-3">
           <p className="mb-1.5 text-[10px] font-medium text-earth-400 uppercase tracking-wider">使用紀錄</p>
           <div className="flex flex-wrap gap-1.5">
-            {(() => {
-              // 把每筆已使用預約依 people 數展開成多個格子
-              const usedCells: { dateLabel: string; slotTime: string; isNoShow: boolean; people: number; index: number }[] = [];
-              for (const b of usedBookings) {
-                const dateLabel = new Date(b.bookingDate).toLocaleDateString("zh-TW", { month: "numeric", day: "numeric" });
-                const isNoShow = b.bookingStatus === "NO_SHOW";
-                for (let p = 0; p < b.people; p++) {
-                  usedCells.push({ dateLabel, slotTime: b.slotTime, isNoShow, people: b.people, index: p });
-                }
-              }
-              return Array.from({ length: wallet.totalSessions }, (_, i) => {
-                const cell = usedCells[i];
-                if (cell) {
-                  return (
-                    <div
-                      key={i}
-                      className={`flex h-8 min-w-[3rem] items-center justify-center rounded-md px-1.5 text-[10px] font-medium ${
-                        cell.isNoShow ? "bg-red-100 text-red-600" : "bg-green-100 text-green-700"
-                      }`}
-                      title={`${cell.dateLabel} ${cell.slotTime} ${cell.isNoShow ? "未到" : "已完成"}${cell.people > 1 ? ` (${cell.people}位)` : ""}`}
-                    >
-                      {cell.dateLabel}
-                      {cell.people > 1 && cell.index === 0 && <span className="ml-0.5 text-[8px] opacity-70">×{cell.people}</span>}
-                      {cell.isNoShow && <span className="ml-0.5">!</span>}
-                    </div>
-                  );
-                }
-                return (
-                  <div
-                    key={i}
-                    className="flex h-8 w-8 items-center justify-center rounded-md border border-dashed border-earth-200 text-[10px] text-earth-300"
-                  >
-                    {i + 1}
-                  </div>
-                );
-              });
-            })()}
+            {usedBookings.map((b, i) => {
+              const dateLabel = new Date(b.bookingDate).toLocaleDateString("zh-TW", { month: "numeric", day: "numeric" });
+              const isNoShow = b.bookingStatus === "NO_SHOW";
+              const isDeducted = isNoShow && b.noShowPolicy === "DEDUCTED";
+              return (
+                <div
+                  key={i}
+                  className={`flex h-8 min-w-[3rem] items-center justify-center rounded-md px-1.5 text-[10px] font-medium ${
+                    isNoShow
+                      ? isDeducted
+                        ? "bg-red-100 text-red-600"
+                        : "bg-amber-100 text-amber-600"
+                      : "bg-green-100 text-green-700"
+                  }`}
+                  title={`${dateLabel} ${b.slotTime} ${
+                    isNoShow ? (isDeducted ? "未到(扣堂)" : "未到(不扣堂)") : "出席"
+                  }`}
+                >
+                  {dateLabel}
+                  {isNoShow && <span className="ml-0.5">{isDeducted ? "!" : "↩"}</span>}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -259,7 +296,7 @@ function WalletCard({
             ? "bg-green-50 text-green-600"
             : "bg-earth-100 text-earth-500"
         }`}>
-          {WALLET_STATUS_LABEL[wallet.status]}
+          {WALLET_STATUS_LABEL[wallet.status] ?? wallet.status}
         </span>
       </div>
     </div>

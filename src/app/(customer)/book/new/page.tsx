@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { BookingCalendarView } from "./booking-calendar-view";
+import { PENDING_STATUSES } from "@/lib/booking-constants";
 
 export default async function NewBookingPage() {
   const user = await getCurrentUser();
@@ -47,9 +48,13 @@ export default async function NewBookingPage() {
   ]);
   if (!customer) redirect("/");
 
-  // P0-2 修正：使用 wallet.remainingSessions 作為唯一真值來源
+  // 新扣堂模型：remainingSessions = 購買 - COMPLETED - NO_SHOW(DEDUCTED)
+  // 可預約 = remainingSessions - count(PENDING 非補課)
   const walletsWithRemaining = customer.planWallets.map((w) => {
-    return { ...w, computedRemaining: w.remainingSessions };
+    const pendingCount = w.bookings
+      .filter((b) => (PENDING_STATUSES as readonly string[]).includes(b.bookingStatus))
+      .length;
+    return { ...w, computedRemaining: Math.max(0, w.remainingSessions - pendingCount) };
   });
   const activeWallets = walletsWithRemaining.filter((w) => w.computedRemaining > 0);
 
@@ -94,13 +99,11 @@ export default async function NewBookingPage() {
     );
   }
 
-  // P0-2: remainingSessions 已包含預扣，直接加總即可
+  // 新模型：computedRemaining 已減去待到店預約數
   const totalRemaining = activeWallets.reduce(
     (s, w) => s + w.computedRemaining,
     0
   );
-
-  // remainingSessions 已經減去了 CONFIRMED/PENDING 的預扣量，不需再減 futureBookingCount
   const remainingQuota = Math.max(0, totalRemaining);
 
   return (

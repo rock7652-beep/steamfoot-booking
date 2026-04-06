@@ -5,23 +5,23 @@ import { checkPermission } from "@/lib/permissions";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { toLocalDateStr } from "@/lib/date-utils";
+import { CASH_TRANSACTION_TYPES } from "@/lib/booking-constants";
 import type { TransactionType, PaymentMethod } from "@prisma/client";
 
-const TX_TYPE_LABEL: Record<TransactionType, string> = {
+/** 交易頁面只顯示有金額的類型（排除 SESSION_DEDUCTION） */
+const TX_TYPE_LABEL: Record<string, string> = {
   TRIAL_PURCHASE: "體驗購買",
   SINGLE_PURCHASE: "單次消費",
   PACKAGE_PURCHASE: "課程購買",
-  SESSION_DEDUCTION: "堂數扣抵",
   SUPPLEMENT: "補差額",
   REFUND: "退款",
   ADJUSTMENT: "手動調整",
 };
 
-const TX_TYPE_COLOR: Record<TransactionType, string> = {
+const TX_TYPE_COLOR: Record<string, string> = {
   TRIAL_PURCHASE: "bg-purple-100 text-purple-700",
   SINGLE_PURCHASE: "bg-blue-100 text-blue-700",
   PACKAGE_PURCHASE: "bg-green-100 text-green-700",
-  SESSION_DEDUCTION: "bg-earth-100 text-earth-600",
   SUPPLEMENT: "bg-yellow-100 text-yellow-700",
   REFUND: "bg-red-100 text-red-700",
   ADJUSTMENT: "bg-orange-100 text-orange-700",
@@ -67,6 +67,7 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
       dateTo,
       transactionType: params.transactionType,
       revenueStaffId: params.staff,
+      excludeSessionDeduction: !params.transactionType, // 預設排除 SESSION_DEDUCTION，除非使用者明確篩選類型
       page,
       pageSize: 30,
     }),

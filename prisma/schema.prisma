@@ -361,8 +361,9 @@ model Booking {
   people               Int           @default(1) // 預約人數（1~4）
   isMakeup             Boolean       @default(false) // 是否為補課預約
   makeupCreditId       String?       @unique // 若為補課，關聯使用的補課資格
-  isCheckedIn          Boolean       @default(false) // 是否已報到
+  isCheckedIn          Boolean       @default(false) // 已棄用，保留向後相容
   bookingStatus        BookingStatus @default(PENDING)
+  noShowPolicy         String?       // "DEDUCTED" | "NOT_DEDUCTED"，僅 NO_SHOW 時有值
   reminderSent         Boolean       @default(false)
   notes                String?
   createdAt            DateTime      @default(now())
