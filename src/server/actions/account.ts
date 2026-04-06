@@ -247,13 +247,13 @@ export async function requestPasswordReset(
       return { success: true, data: undefined };
     }
 
-    const user = await prisma.user.findUnique({
-      where: { phone },
+    const user = await prisma.user.findFirst({
+      where: { phone, role: "CUSTOMER" },
       select: { id: true, role: true, status: true, customer: { select: { id: true, name: true, email: true } } },
     });
 
     // 不論是否找到，都回傳成功（防列舉攻擊）
-    if (!user || user.role !== "CUSTOMER" || user.status !== "ACTIVE") {
+    if (!user || user.status !== "ACTIVE") {
       return { success: true, data: undefined };
     }
 
