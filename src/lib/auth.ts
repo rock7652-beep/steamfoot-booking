@@ -155,18 +155,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       allowDangerousEmailAccountLinking: true,
     }),
 
-    // ── LINE Login (custom OAuth — 不用 OIDC discovery) ──
-    // LINE 的 OIDC 實作有多處非標準行為（PKCE/nonce/token auth method），
-    // 改用 type: "oauth" 手動指定 endpoints 完全繞過 discovery 問題。
+    // ── LINE Login (完全手動 OAuth) ──
+    // LINE OIDC 與 Auth.js 有多處不相容，改為手動處理 token exchange + profile fetch。
     {
       id: "line",
       name: "LINE",
       type: "oauth" as const,
       clientId: process.env.LINE_LOGIN_CHANNEL_ID!,
       clientSecret: process.env.LINE_LOGIN_CHANNEL_SECRET!,
-      client: {
-        token_endpoint_auth_method: "client_secret_post",
-      },
       checks: ["state"],
       authorization: {
         url: "https://access.line.me/oauth2/v2.1/authorize",
@@ -175,21 +171,58 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           bot_prompt: "aggressive",
         },
       },
+      // 手動 token exchange — 確保用 client_secret_post
       token: {
         url: "https://api.line.me/oauth2/v2.1/token",
+        async request({ params, provider }: any) {
+          const baseUrl = process.env.NEXTAUTH_URL || process.env.AUTH_URL || "https://www.steamfoot.com";
+          const redirectUri = `${baseUrl}/api/auth/callback/line`;
+          console.log("[auth] LINE token exchange start:", { code: !!(params as any)?.code, redirectUri });
+          const body = new URLSearchParams({
+            grant_type: "authorization_code",
+            code: String((params as any)?.code ?? ""),
+            redirect_uri: redirectUri,
+            client_id: provider.clientId as string,
+            client_secret: provider.clientSecret as string,
+          });
+          const res = await fetch("https://api.line.me/oauth2/v2.1/token", {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body,
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            console.error("[auth] LINE token exchange FAILED:", { status: res.status, body: data });
+            throw new Error(`LINE token error ${res.status}: ${JSON.stringify(data)}`);
+          }
+          console.log("[auth] LINE token exchange OK:", { hasAccessToken: !!data.access_token });
+          return { tokens: data };
+        },
       },
+      // 手動 userinfo — LINE /v2/profile 回傳 userId/displayName/pictureUrl
       userinfo: {
         url: "https://api.line.me/v2/profile",
+        async request({ tokens }: any) {
+          console.log("[auth] LINE profile fetch start");
+          const res = await fetch("https://api.line.me/v2/profile", {
+            headers: { Authorization: `Bearer ${tokens.access_token}` },
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            console.error("[auth] LINE profile fetch FAILED:", { status: res.status, body: data });
+            throw new Error(`LINE profile error ${res.status}: ${JSON.stringify(data)}`);
+          }
+          console.log("[auth] LINE profile fetch OK:", { userId: data.userId, displayName: data.displayName });
+          return data;
+        },
       },
       allowDangerousEmailAccountLinking: true,
       profile(profile: any) {
-        console.log("[auth] LINE profile raw:", JSON.stringify(profile));
         return {
-          id: profile.userId ?? profile.sub,
-          name: profile.displayName ?? profile.name ?? "LINE 用戶",
-          email: profile.email ?? null,
-          image: profile.pictureUrl ?? profile.picture ?? null,
-          // jwt callback 會從 DB 重新查詢，這裡的值僅為型別滿足用
+          id: profile.userId,
+          name: profile.displayName ?? "LINE 用戶",
+          email: null, // LINE 預設不提供 email
+          image: profile.pictureUrl ?? null,
           role: "CUSTOMER" as UserRole,
           staffId: null,
           customerId: null,
