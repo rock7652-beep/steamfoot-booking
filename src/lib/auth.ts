@@ -179,15 +179,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         url: "https://api.line.me/oauth2/v2.1/token",
       },
       userinfo: {
-        url: "https://api.line.me/oauth2/v2.1/userinfo",
+        url: "https://api.line.me/v2/profile",
       },
       allowDangerousEmailAccountLinking: true,
       profile(profile: any) {
+        console.log("[auth] LINE profile raw:", JSON.stringify(profile));
         return {
-          id: profile.sub,
-          name: profile.name,
+          id: profile.userId ?? profile.sub,
+          name: profile.displayName ?? profile.name ?? "LINE 用戶",
           email: profile.email ?? null,
-          image: profile.picture,
+          image: profile.pictureUrl ?? profile.picture ?? null,
           // jwt callback 會從 DB 重新查詢，這裡的值僅為型別滿足用
           role: "CUSTOMER" as UserRole,
           staffId: null,
