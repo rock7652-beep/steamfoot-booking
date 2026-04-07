@@ -100,11 +100,19 @@ export async function requestActivation(
 
     // 檢查 email 是否被其他顧客使用
     if (email) {
-      const emailTaken = await prisma.customer.findFirst({
+      const emailTakenByCustomer = await prisma.customer.findFirst({
         where: { email, id: { not: customer.id } },
       });
-      if (emailTaken) {
-        return { success: false, error: "此 Email 已被其他帳號使用" };
+      if (emailTakenByCustomer) {
+        return { success: false, error: "此 Email 已被其他顧客使用" };
+      }
+
+      // 檢查 email 是否被 User 表使用（含店長帳號）
+      const emailTakenByUser = await prisma.user.findUnique({
+        where: { email },
+      });
+      if (emailTakenByUser) {
+        return { success: false, error: "此 Email 已被其他帳號使用，請改用其他 Email" };
       }
     }
 
@@ -221,6 +229,20 @@ export async function activateAccount(
 
     if (existingCustomerUser) {
       return { success: false, error: "此手機號碼已有顧客帳號，請直接登入或聯繫店家" };
+    }
+
+    // 檢查 email 全域唯一（店長 + 顧客共用）
+    if (customer.email) {
+      const existingEmailUser = await prisma.user.findUnique({
+        where: { email: customer.email },
+      });
+      if (existingEmailUser) {
+        console.log("[Activate] email conflict:", customer.email, "used by user:", existingEmailUser.id);
+        return {
+          success: false,
+          error: "此 Email 已被其他帳號使用，請至後台更換此顧客的 Email 後重新開通",
+        };
+      }
     }
 
     const passwordHash = hashSync(password, 10);
