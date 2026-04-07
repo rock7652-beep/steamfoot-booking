@@ -138,14 +138,37 @@ export async function requestActivation(
     });
 
     // 寄出 email（URL 帶 raw token）
-    await sendActivationEmail(email, rawToken, customer.name);
+    try {
+      await sendActivationEmail(email, rawToken, customer.name);
+    } catch (mailErr) {
+      console.error("[requestActivation] email send failed:", mailErr);
+      const msg = mailErr instanceof Error ? mailErr.message : String(mailErr);
+      if (msg.includes("verify a domain") || msg.includes("testing emails")) {
+        return { success: false, error: "Email 服務尚未完成網域驗證，目前僅支援寄送至管理員信箱。請聯繫店家處理。" };
+      }
+      return { success: false, error: `驗證信寄送失敗：${msg}` };
+    }
 
     // 回傳遮蔽 email
     const masked = maskEmail(email);
     return { success: true, data: { masked } };
-  } catch (e) {
-    console.error("[requestActivation]", e);
-    return { success: false, error: "系統錯誤，請稍後再試" };
+  } catch (e: unknown) {
+    const isPrisma = e && typeof e === "object" && "code" in e;
+    console.error("[requestActivation] FULL ERROR:", {
+      message: e instanceof Error ? e.message : String(e),
+      code: isPrisma ? (e as { code: string }).code : undefined,
+      meta: isPrisma && "meta" in e ? (e as { meta: unknown }).meta : undefined,
+    });
+
+    let detail = "系統錯誤，請稍後再試";
+    if (isPrisma) {
+      const code = (e as { code: string }).code;
+      if (code === "P2002") detail = "資料衝突，請聯繫店家";
+      else detail = `資料庫錯誤 (${code})`;
+    } else if (e instanceof Error) {
+      detail = e.message;
+    }
+    return { success: false, error: detail };
   }
 }
 
