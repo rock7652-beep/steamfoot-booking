@@ -13,7 +13,7 @@ const SAMPLE_VARS = {
   bookingTime: "14:00",
   shopName: "蒸足",
   staffName: "Alice 店主",
-  bookingLink: "https://www.steamfoot.com/my-bookings",
+  bookingLink: "https://steamfoot.com/my-bookings",
 };
 
 const DEFAULT_BODY = `{{customerName}} 您好！

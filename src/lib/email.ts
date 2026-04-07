@@ -17,7 +17,7 @@ function getBaseUrl(): string {
     process.env.NEXTAUTH_URL ??
     process.env.NEXT_PUBLIC_APP_URL ??
     process.env.NEXT_PUBLIC_BASE_URL ??
-    "https://www.steamfoot.com";
+    "https://steamfoot.com";
   // 移除尾端斜線
   return url.replace(/\/+$/, "");
 }
