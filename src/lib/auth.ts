@@ -175,7 +175,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       authorization: {
         url: "https://access.line.me/oauth2/v2.1/authorize",
         params: {
-          scope: "profile openid email",
+          // 只用 profile — 不要 openid（會導致 LINE 回傳 id_token，
+          // 而 oauth4webapi 即使 requireIdToken=false 仍會驗證 id_token 的 issuer，
+          // 我們的 fake issuer "https://authjs.dev" 與 LINE 的 "https://access.line.me" 不符會失敗）。
+          // 用戶資訊透過 /v2/profile 取得，不需要 id_token。
+          scope: "profile",
           bot_prompt: "aggressive",
         },
       },
