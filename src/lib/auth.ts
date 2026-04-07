@@ -151,12 +151,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       issuer: "https://access.line.me",
       clientId: process.env.LINE_LOGIN_CHANNEL_ID!,
       clientSecret: process.env.LINE_LOGIN_CHANNEL_SECRET!,
-      // LINE 要求 client_secret_post（credentials 放在 POST body）
-      // LINE OIDC discovery 沒有 token_endpoint_auth_methods_supported，
-      // NextAuth 預設用 client_secret_basic 會被 LINE 拒絕
+      // LINE 兩個非標準要求：
+      // 1. token endpoint 只接受 client_secret_post（不接受 Basic Auth）
+      // 2. authorization 強制要求 state 參數（即使用了 PKCE 也一樣）
+      //    Auth.js 偵測到 PKCE 支援後預設只用 PKCE 不送 state → LINE 拒絕
       client: {
         token_endpoint_auth_method: "client_secret_post",
       },
+      checks: ["state", "pkce"],
       authorization: {
         params: {
           scope: "profile openid email",
