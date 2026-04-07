@@ -1,7 +1,6 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
-import { PrismaAdapter } from "@auth/prisma-adapter";
 import { compareSync } from "bcryptjs";
 import { prisma } from "@/lib/db";
 import type { Provider } from "next-auth/providers";
@@ -42,7 +41,8 @@ interface AppJWT {
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   trustHost: true,
-  adapter: PrismaAdapter(prisma) as any,
+  // 不使用 PrismaAdapter — OAuth 帳號管理由 signIn callback 手動處理
+  // 若使用 adapter + 自訂 signIn callback 會造成 User/Account 重複建立衝突
   session: { strategy: "jwt" },
 
   providers: [
@@ -351,7 +351,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         user.id = newUser.id;
         return true;
       } catch (error) {
-        console.error("[auth] signIn callback error:", error);
+        console.error("[auth] signIn callback error:", {
+          provider: account?.provider,
+          providerAccountId: account?.providerAccountId,
+          email: user.email,
+          error: error instanceof Error ? { message: error.message, stack: error.stack } : error,
+        });
         return false;
       }
     },
@@ -398,5 +403,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   pages: {
     signIn: "/login",
     error: "/login",
+  },
+
+  logger: {
+    error(code, ...message) {
+      console.error("[next-auth][error]", code, ...message);
+    },
+    warn(code, ...message) {
+      console.warn("[next-auth][warn]", code, ...message);
+    },
   },
 });
