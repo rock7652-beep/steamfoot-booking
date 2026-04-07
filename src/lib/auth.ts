@@ -155,28 +155,31 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       allowDangerousEmailAccountLinking: true,
     }),
 
-    // ── LINE Login (custom OIDC) ──
+    // ── LINE Login (custom OAuth — 不用 OIDC discovery) ──
+    // LINE 的 OIDC 實作有多處非標準行為（PKCE/nonce/token auth method），
+    // 改用 type: "oauth" 手動指定 endpoints 完全繞過 discovery 問題。
     {
       id: "line",
       name: "LINE",
-      type: "oidc" as const,
-      issuer: "https://access.line.me",
+      type: "oauth" as const,
       clientId: process.env.LINE_LOGIN_CHANNEL_ID!,
       clientSecret: process.env.LINE_LOGIN_CHANNEL_SECRET!,
-      // LINE 非標準要求：
-      // 1. token endpoint 只接受 client_secret_post（不接受 Basic Auth）
-      // 2. authorization 強制要求 state 參數
-      // 3. 雖然 discovery 宣稱支援 PKCE(S256)，但搭配 Auth.js 會導致
-      //    Configuration error，改用 state only
       client: {
         token_endpoint_auth_method: "client_secret_post",
       },
       checks: ["state"],
       authorization: {
+        url: "https://access.line.me/oauth2/v2.1/authorize",
         params: {
           scope: "profile openid email",
           bot_prompt: "aggressive",
         },
+      },
+      token: {
+        url: "https://api.line.me/oauth2/v2.1/token",
+      },
+      userinfo: {
+        url: "https://api.line.me/oauth2/v2.1/userinfo",
       },
       allowDangerousEmailAccountLinking: true,
       profile(profile: any) {
