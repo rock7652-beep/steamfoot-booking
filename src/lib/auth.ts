@@ -155,15 +155,23 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       allowDangerousEmailAccountLinking: true,
     }),
 
-    // ── LINE Login (完全手動 OAuth) ──
-    // LINE OIDC 與 Auth.js 有多處不相容，改為手動處理 token exchange + profile fetch。
+    // ── LINE Login (手動 OAuth) ──
+    // LINE 與 Auth.js 不相容處：
+    //   1. token endpoint 需要 client_secret_post（預設是 client_secret_basic）
+    //   2. token response 可能缺少 token_type — 需要 conform 補上
+    //   3. userinfo (/v2/profile) 回傳 userId/displayName/pictureUrl（非標準 OIDC）
     {
       id: "line",
       name: "LINE",
       type: "oauth" as const,
       clientId: process.env.LINE_LOGIN_CHANNEL_ID!,
       clientSecret: process.env.LINE_LOGIN_CHANNEL_SECRET!,
+      // LINE 要求 state 參數；不使用 PKCE（LINE 不支援）
       checks: ["state"],
+      // 告訴 oauth4webapi 用 client_secret_post（把 client_id/secret 放在 POST body）
+      client: {
+        token_endpoint_auth_method: "client_secret_post",
+      },
       authorization: {
         url: "https://access.line.me/oauth2/v2.1/authorize",
         params: {
@@ -171,35 +179,31 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           bot_prompt: "aggressive",
         },
       },
-      // 手動 token exchange — 確保用 client_secret_post
       token: {
         url: "https://api.line.me/oauth2/v2.1/token",
-        async request({ params, provider }: any) {
-          const baseUrl = process.env.NEXTAUTH_URL || process.env.AUTH_URL || "https://www.steamfoot.com";
-          const redirectUri = `${baseUrl}/api/auth/callback/line`;
-          console.log("[auth] LINE token exchange start:", { code: !!(params as any)?.code, redirectUri });
-          const body = new URLSearchParams({
-            grant_type: "authorization_code",
-            code: String((params as any)?.code ?? ""),
-            redirect_uri: redirectUri,
-            client_id: provider.clientId as string,
-            client_secret: provider.clientSecret as string,
+        // conform 在 oauth4webapi 拿到 token response 後呼叫，
+        // 可修正 LINE 回傳缺少 token_type 的問題
+        async conform(response: Response) {
+          const cloned = response.clone();
+          const body = await cloned.json();
+          console.log("[auth] LINE token conform:", {
+            status: response.status,
+            hasAccessToken: !!body.access_token,
+            tokenType: body.token_type,
           });
-          const res = await fetch("https://api.line.me/oauth2/v2.1/token", {
-            method: "POST",
-            headers: { "Content-Type": "application/x-www-form-urlencoded" },
-            body,
-          });
-          const data = await res.json();
-          if (!res.ok) {
-            console.error("[auth] LINE token exchange FAILED:", { status: res.status, body: data });
-            throw new Error(`LINE token error ${res.status}: ${JSON.stringify(data)}`);
+          // 若 LINE 沒回傳 token_type，補上 "bearer" 讓 oauth4webapi 通過驗證
+          if (!body.token_type && body.access_token) {
+            return Response.json(
+              { ...body, token_type: "bearer" },
+              { status: response.status, headers: response.headers }
+            );
           }
-          console.log("[auth] LINE token exchange OK:", { hasAccessToken: !!data.access_token });
-          return { tokens: data };
+          return response;
         },
       },
       // 手動 userinfo — LINE /v2/profile 回傳 userId/displayName/pictureUrl
+      // 注意：token.request 不會被 Auth.js 呼叫（是 dead code），
+      //       但 userinfo.request 在 type:"oauth" 時會被呼叫
       userinfo: {
         url: "https://api.line.me/v2/profile",
         async request({ tokens }: any) {
