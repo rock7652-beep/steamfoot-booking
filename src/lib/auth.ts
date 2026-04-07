@@ -40,6 +40,7 @@ interface AppJWT {
 // ============================================================
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  debug: true, // 完整 debug log — 部署後從 Vercel logs 看 provider 原始錯誤
   trustHost: true,
   // 不使用 PrismaAdapter — OAuth 帳號管理由 signIn callback 手動處理
   // 若使用 adapter + 自訂 signIn callback 會造成 User/Account 重複建立衝突
@@ -150,6 +151,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       issuer: "https://access.line.me",
       clientId: process.env.LINE_LOGIN_CHANNEL_ID!,
       clientSecret: process.env.LINE_LOGIN_CHANNEL_SECRET!,
+      // LINE 要求 client_secret_post（credentials 放在 POST body）
+      // LINE OIDC discovery 沒有 token_endpoint_auth_methods_supported，
+      // NextAuth 預設用 client_secret_basic 會被 LINE 拒絕
+      client: {
+        token_endpoint_auth_method: "client_secret_post",
+      },
       authorization: {
         params: {
           scope: "profile openid email",
