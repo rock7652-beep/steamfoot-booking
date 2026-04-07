@@ -76,7 +76,8 @@ export default function ActivateVerifyForm() {
         }
       } catch (err) {
         console.error("[Activate UI] threw:", err);
-        setError("系統錯誤，請稍後再試");
+        const msg = err instanceof Error ? err.message : String(err);
+        setError(`系統錯誤：${msg}`);
       }
     });
   }

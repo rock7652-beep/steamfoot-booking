@@ -254,9 +254,30 @@ export async function activateAccount(
 
     console.log("[Activate] SUCCESS — phone:", customer.phone);
     return { success: true, data: { phone: customer.phone } };
-  } catch (e) {
-    console.error("[activateAccount]", e);
-    return { success: false, error: "開通失敗，請稍後再試" };
+  } catch (e: unknown) {
+    // 完整輸出錯誤，包含 Prisma error code / meta
+    const isPrisma = e && typeof e === "object" && "code" in e;
+    console.error("[activateAccount] FULL ERROR:", {
+      message: e instanceof Error ? e.message : String(e),
+      code: isPrisma ? (e as { code: string }).code : undefined,
+      meta: isPrisma && "meta" in e ? (e as { meta: unknown }).meta : undefined,
+      stack: e instanceof Error ? e.stack : undefined,
+    });
+
+    // 把具體原因回傳給前端（debug 用，驗收後可改回通用訊息）
+    let detail = "開通失敗";
+    if (isPrisma) {
+      const code = (e as { code: string }).code;
+      const meta = (e as { meta?: { target?: string[] } }).meta;
+      if (code === "P2002") {
+        detail = `資料衝突：${meta?.target?.join(", ") ?? "unique constraint"}`;
+      } else {
+        detail = `資料庫錯誤 ${code}`;
+      }
+    } else if (e instanceof Error) {
+      detail = e.message;
+    }
+    return { success: false, error: detail };
   }
 }
 
