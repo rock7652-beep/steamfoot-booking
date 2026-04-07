@@ -38,6 +38,7 @@ enum CustomerStage {
 
 enum AuthSource {
   GOOGLE    // Google OAuth 註冊
+  LINE      // LINE Login 註冊
   EMAIL     // Email/密碼註冊
   MANUAL    // 店長手動建立
 }
@@ -265,7 +266,7 @@ model Customer {
   height             Float?        // 身高 cm（選填）
   address            String?       // 地址（選填）
   lineName           String?       // LINE 顯示名稱
-  lineUserId         String?       // LINE user ID (from webhook)
+  lineUserId         String?       @unique // LINE user ID (from webhook)
   lineLinkedAt       DateTime?     // LINE 綁定時間
   lineLinkStatus            LineLinkStatus @default(UNLINKED)
   lineBindingCode           String?        @unique // 6 ��綁定碼

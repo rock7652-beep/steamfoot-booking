@@ -1,9 +1,6 @@
 import { Suspense } from "react";
 import ActivateVerifyForm from "./activate-verify-form";
 
-// 部署版本標記
-export const BUILD_TAG = "v20260406-de7be7d-B";
-
 export default function ActivateVerifyPage() {
   return (
     <Suspense

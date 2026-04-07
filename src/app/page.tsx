@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { OAuthButtons } from "./oauth-buttons";
 import { CustomerLoginForm } from "./customer-login-form";
 
 export default async function HomePage() {
@@ -23,6 +24,20 @@ export default async function HomePage() {
 
         {/* 登入表單 */}
         <div className="rounded-2xl border border-earth-200 bg-white p-6 shadow-sm">
+          <OAuthButtons />
+
+          {/* Divider */}
+          <div className="relative my-5">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-earth-200" />
+            </div>
+            <div className="relative flex justify-center">
+              <span className="bg-white px-3 text-xs text-earth-400">
+                或使用手機登入
+              </span>
+            </div>
+          </div>
+
           <CustomerLoginForm />
 
           <div className="mt-4 text-center">

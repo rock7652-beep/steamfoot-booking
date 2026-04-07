@@ -17,7 +17,7 @@ function getBaseUrl(): string {
     process.env.NEXTAUTH_URL ??
     process.env.NEXT_PUBLIC_APP_URL ??
     process.env.NEXT_PUBLIC_BASE_URL ??
-    "https://steamfoot-booking.vercel.app";
+    "https://www.steamfoot.com";
   // 移除尾端斜線
   return url.replace(/\/+$/, "");
 }
@@ -74,11 +74,6 @@ export async function sendActivationEmail(
   customerName: string
 ) {
   const baseUrl = getBaseUrl();
-  console.log("[Email] BASE_URL:", baseUrl);
-  console.log("[Email] NEXTAUTH_URL:", process.env.NEXTAUTH_URL);
-  console.log("[Email] NEXT_PUBLIC_APP_URL:", process.env.NEXT_PUBLIC_APP_URL);
-  console.log("[Email] NEXT_PUBLIC_BASE_URL:", process.env.NEXT_PUBLIC_BASE_URL);
-
   const link = `${baseUrl}/activate/verify?token=${token}`;
   const subject = "蒸足健康站 — 帳號開通";
   const html = `

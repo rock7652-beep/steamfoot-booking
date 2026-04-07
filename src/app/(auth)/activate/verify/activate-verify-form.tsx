@@ -1,14 +1,12 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   activateAccount,
   autoLoginAfterActivation,
 } from "@/server/actions/account";
-
-const BUILD_TAG = "v20260406-de7be7d-B";
 
 export default function ActivateVerifyForm() {
   const searchParams = useSearchParams();
@@ -19,13 +17,6 @@ export default function ActivateVerifyForm() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [pending, startTransition] = useTransition();
-  const [hydrated, setHydrated] = useState(false);
-
-  // 確認 hydration 完成
-  useEffect(() => {
-    setHydrated(true);
-    console.log(`[Activate UI] hydrated! build=${BUILD_TAG} host=${window.location.host} token=${token ? token.slice(0, 8) + "..." : "EMPTY"}`);
-  }, [token]);
 
   if (!token) {
     return (
@@ -47,21 +38,17 @@ export default function ActivateVerifyForm() {
     setError(null);
 
     if (!/^\d{4,}$/.test(password)) {
-      console.log("[Activate UI] blocked: password not numeric");
       setError("密碼需為純數字，至少 4 碼");
       return;
     }
     if (password !== confirmPassword) {
-      console.log("[Activate UI] blocked: password mismatch");
       setError("兩次密碼不一致");
       return;
     }
 
-    console.log("[Activate UI] calling activateAccount...");
     startTransition(async () => {
       try {
         const result = await activateAccount(token, password);
-        console.log("[Activate UI] returned:", JSON.stringify(result));
         if (!result.success) {
           setError(result.error);
           return;
@@ -173,10 +160,6 @@ export default function ActivateVerifyForm() {
             ← 返回登入
           </Link>
         </div>
-        {/* 版本標記 + hydration 狀態 */}
-        <p className="mt-2 text-center text-[10px] text-earth-300">
-          {BUILD_TAG} {hydrated ? "✓ JS ready" : "⏳ loading..."}
-        </p>
       </form>
     </div>
   );
