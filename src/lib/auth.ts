@@ -39,6 +39,18 @@ interface AppJWT {
 // NextAuth config
 // ============================================================
 
+// 啟動時印出 env 狀態
+console.log("[auth] ENV CHECK:", {
+  hasLineId: !!process.env.LINE_LOGIN_CHANNEL_ID,
+  hasLineSecret: !!process.env.LINE_LOGIN_CHANNEL_SECRET,
+  hasGoogleId: !!process.env.GOOGLE_CLIENT_ID,
+  hasGoogleSecret: !!process.env.GOOGLE_CLIENT_SECRET,
+  hasAuthSecret: !!process.env.AUTH_SECRET,
+  hasNextAuthSecret: !!process.env.NEXTAUTH_SECRET,
+  nextauthUrl: process.env.NEXTAUTH_URL ?? "(not set)",
+  authUrl: process.env.AUTH_URL ?? "(not set)",
+});
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   debug: true, // 完整 debug log — 部署後從 Vercel logs 看 provider 原始錯誤
   trustHost: true,
@@ -151,14 +163,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       issuer: "https://access.line.me",
       clientId: process.env.LINE_LOGIN_CHANNEL_ID!,
       clientSecret: process.env.LINE_LOGIN_CHANNEL_SECRET!,
-      // LINE 兩個非標準要求：
+      // LINE 非標準要求：
       // 1. token endpoint 只接受 client_secret_post（不接受 Basic Auth）
-      // 2. authorization 強制要求 state 參數（即使用了 PKCE 也一樣）
-      //    Auth.js 偵測到 PKCE 支援後預設只用 PKCE 不送 state → LINE 拒絕
+      // 2. authorization 強制要求 state 參數
+      // 3. 雖然 discovery 宣稱支援 PKCE(S256)，但搭配 Auth.js 會導致
+      //    Configuration error，改用 state only
       client: {
         token_endpoint_auth_method: "client_secret_post",
       },
-      checks: ["state", "pkce"],
+      checks: ["state"],
       authorization: {
         params: {
           scope: "profile openid email",
