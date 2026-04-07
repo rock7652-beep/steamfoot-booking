@@ -213,7 +213,7 @@ export async function testSendLineMessage(
       bookingTime: "14:00",
       shopName: shopConfig?.shopName ?? "蒸足",
       staffName: customer.assignedStaff?.displayName ?? "店長",
-      bookingLink: `${process.env.NEXTAUTH_URL ?? process.env.NEXT_PUBLIC_BASE_URL ?? "https://steamfoot.com"}/my-bookings`,
+      bookingLink: `${process.env.NEXTAUTH_URL ?? process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.steamfoot.com"}/my-bookings`,
     };
 
     const renderedBody = renderTemplate(template.body, vars);

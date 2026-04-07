@@ -163,6 +163,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           name: profile.name,
           email: profile.email ?? null,
           image: profile.picture,
+          // jwt callback 會從 DB 重新查詢，這裡的值僅為型別滿足用
           role: "CUSTOMER" as UserRole,
           staffId: null,
           customerId: null,
@@ -179,6 +180,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!account || (account.type !== "oauth" && account.type !== "oidc")) return true;
 
         const provider = account.provider; // "google" or "line"
+        console.log("[auth] signIn start:", {
+          provider,
+          providerAccountId: account.providerAccountId,
+          email: user.email,
+          name: user.name,
+        });
 
         // Get OAuth profile info
         const oauthEmail = user.email;
@@ -207,6 +214,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!customer && oauthEmail) {
           customer = await prisma.customer.findFirst({ where: { email: oauthEmail } });
         }
+
+        console.log("[auth] customer lookup:", {
+          found: !!customer,
+          customerId: customer?.id ?? null,
+          customerUserId: customer?.userId ?? null,
+          hasUser: !!customer?.userId,
+        });
 
         if (customer?.userId) {
           // Customer exists and already has a User - link this OAuth Account to existing User
@@ -248,6 +262,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
           // Override NextAuth's user.id to use existing User
           user.id = customer.userId;
+          console.log("[auth] signIn path: existing customer+user, userId=", customer.userId);
           return true;
         }
 
@@ -295,6 +310,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           await prisma.customer.update({ where: { id: customer.id }, data: updateData });
 
           user.id = newUser.id;
+          console.log("[auth] signIn path: existing customer without user, created userId=", newUser.id);
           return true;
         }
 
@@ -349,6 +365,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         });
 
         user.id = newUser.id;
+        console.log("[auth] signIn path: new customer+user, userId=", newUser.id);
         return true;
       } catch (error) {
         console.error("[auth] signIn callback error:", {
@@ -364,17 +381,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     // Persist custom fields to JWT
     // 🔧 效能優化：只在登入時寫入 JWT，後續請求直接從 token 讀取
     // 不再每次 request 都查 DB。若需要即時反映 role 變更，使用者重新登入即可。
-    async jwt({ token, user }) {
+    async jwt({ token, user, account }) {
       if (user) {
         const appToken = token as unknown as AppJWT;
         appToken.sub = user.id;
-        const appUser = user as { role?: UserRole; staffId?: string | null; customerId?: string | null };
-        if (appUser.role) {
-          appToken.role = appUser.role;
-          appToken.staffId = appUser.staffId ?? null;
-          appToken.customerId = appUser.customerId ?? null;
-        } else {
-          // OAuth login - user object from adapter lacks role/staffId/customerId
+
+        if (account?.type === "oauth" || account?.type === "oidc") {
+          // OAuth login — 一律從 DB 讀取 role/staffId/customerId
+          // 因為 signIn callback 已建立/綁定 User，DB 資料才是正確的
           const dbUser = await prisma.user.findUnique({
             where: { id: user.id! },
             select: { role: true, staff: { select: { id: true } }, customer: { select: { id: true } } },
@@ -383,7 +397,25 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             appToken.role = dbUser.role;
             appToken.staffId = dbUser.staff?.id ?? null;
             appToken.customerId = dbUser.customer?.id ?? null;
+            console.log("[auth] jwt (OAuth):", {
+              userId: user.id,
+              role: dbUser.role,
+              staffId: dbUser.staff?.id ?? null,
+              customerId: dbUser.customer?.id ?? null,
+            });
+          } else {
+            // DB 查不到（不應發生）— 預設為 CUSTOMER
+            console.error("[auth] jwt: DB user not found for OAuth login", { userId: user.id });
+            appToken.role = "CUSTOMER";
+            appToken.staffId = null;
+            appToken.customerId = null;
           }
+        } else {
+          // Credentials login — authorize() 已回傳正確的 role/staffId/customerId
+          const appUser = user as { role: UserRole; staffId: string | null; customerId: string | null };
+          appToken.role = appUser.role;
+          appToken.staffId = appUser.staffId ?? null;
+          appToken.customerId = appUser.customerId ?? null;
         }
       }
       return token;
@@ -402,7 +434,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
   pages: {
     signIn: "/login",
-    error: "/login",
+    // OAuth 錯誤導向顧客首頁（/），而非員工後台登入頁（/login）
+    error: "/",
   },
 
   logger: {

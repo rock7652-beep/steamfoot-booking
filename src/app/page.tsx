@@ -4,7 +4,19 @@ import Link from "next/link";
 import { OAuthButtons } from "./oauth-buttons";
 import { CustomerLoginForm } from "./customer-login-form";
 
-export default async function HomePage() {
+interface PageProps {
+  searchParams: Promise<{ error?: string }>;
+}
+
+const ERROR_MESSAGES: Record<string, string> = {
+  OAuthCallbackError: "登入失敗，請重試。若持續失敗請改用手機登入。",
+  OAuthAccountNotLinked: "此帳號尚未綁定，請先使用手機登入後再綁定。",
+  AccessDenied: "登入被拒絕，請重試。",
+  default: "登入時發生錯誤，請重試。",
+};
+
+export default async function HomePage({ searchParams }: PageProps) {
+  const params = await searchParams;
   const session = await auth();
 
   if (session?.user) {
@@ -12,6 +24,10 @@ export default async function HomePage() {
     if (role === "CUSTOMER") redirect("/book");
     redirect("/dashboard");
   }
+
+  const errorMessage = params.error
+    ? ERROR_MESSAGES[params.error] ?? ERROR_MESSAGES.default
+    : null;
 
   return (
     <main className="flex min-h-dvh flex-col items-center justify-center bg-earth-50 px-4">
@@ -24,6 +40,12 @@ export default async function HomePage() {
 
         {/* 登入表單 */}
         <div className="rounded-2xl border border-earth-200 bg-white p-6 shadow-sm">
+          {errorMessage && (
+            <div className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
+              {errorMessage}
+            </div>
+          )}
+
           <OAuthButtons />
 
           {/* Divider */}
