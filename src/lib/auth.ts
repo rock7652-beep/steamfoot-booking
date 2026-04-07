@@ -39,20 +39,7 @@ interface AppJWT {
 // NextAuth config
 // ============================================================
 
-// 啟動時印出 env 狀態
-console.log("[auth] ENV CHECK:", {
-  hasLineId: !!process.env.LINE_LOGIN_CHANNEL_ID,
-  hasLineSecret: !!process.env.LINE_LOGIN_CHANNEL_SECRET,
-  hasGoogleId: !!process.env.GOOGLE_CLIENT_ID,
-  hasGoogleSecret: !!process.env.GOOGLE_CLIENT_SECRET,
-  hasAuthSecret: !!process.env.AUTH_SECRET,
-  hasNextAuthSecret: !!process.env.NEXTAUTH_SECRET,
-  nextauthUrl: process.env.NEXTAUTH_URL ?? "(not set)",
-  authUrl: process.env.AUTH_URL ?? "(not set)",
-});
-
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  debug: true, // 完整 debug log — 部署後從 Vercel logs 看 provider 原始錯誤
   trustHost: true,
   // 不使用 PrismaAdapter — OAuth 帳號管理由 signIn callback 手動處理
   // 若使用 adapter + 自訂 signIn callback 會造成 User/Account 重複建立衝突
@@ -185,17 +172,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       },
       token: {
         url: "https://api.line.me/oauth2/v2.1/token",
-        // conform 在 oauth4webapi 拿到 token response 後呼叫，
-        // 可修正 LINE 回傳缺少 token_type 的問題
+        // conform: 若 LINE 沒回傳 token_type，補上 "bearer" 讓 oauth4webapi 通過驗證
         async conform(response: Response) {
           const cloned = response.clone();
           const body = await cloned.json();
-          console.log("[auth] LINE token conform:", {
-            status: response.status,
-            hasAccessToken: !!body.access_token,
-            tokenType: body.token_type,
-          });
-          // 若 LINE 沒回傳 token_type，補上 "bearer" 讓 oauth4webapi 通過驗證
           if (!body.token_type && body.access_token) {
             return Response.json(
               { ...body, token_type: "bearer" },
@@ -206,22 +186,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         },
       },
       // 手動 userinfo — LINE /v2/profile 回傳 userId/displayName/pictureUrl
-      // 注意：token.request 不會被 Auth.js 呼叫（是 dead code），
-      //       但 userinfo.request 在 type:"oauth" 時會被呼叫
+      // userinfo.request 在 type:"oauth" 時會被 Auth.js 呼叫
       userinfo: {
         url: "https://api.line.me/v2/profile",
         async request({ tokens }: any) {
-          console.log("[auth] LINE profile fetch start");
           const res = await fetch("https://api.line.me/v2/profile", {
             headers: { Authorization: `Bearer ${tokens.access_token}` },
           });
-          const data = await res.json();
           if (!res.ok) {
-            console.error("[auth] LINE profile fetch FAILED:", { status: res.status, body: data });
-            throw new Error(`LINE profile error ${res.status}: ${JSON.stringify(data)}`);
+            const body = await res.json().catch(() => ({}));
+            throw new Error(`LINE profile error ${res.status}: ${JSON.stringify(body)}`);
           }
-          console.log("[auth] LINE profile fetch OK:", { userId: data.userId, displayName: data.displayName });
-          return data;
+          return await res.json();
         },
       },
       allowDangerousEmailAccountLinking: true,
@@ -247,12 +223,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!account || (account.type !== "oauth" && account.type !== "oidc")) return true;
 
         const provider = account.provider; // "google" or "line"
-        console.log("[auth] signIn start:", {
-          provider,
-          providerAccountId: account.providerAccountId,
-          email: user.email,
-          name: user.name,
-        });
 
         // Get OAuth profile info
         const oauthEmail = user.email;
@@ -262,11 +232,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const googleId = provider === "google" ? account.providerAccountId : null;
 
         // BLOCK: Don't allow OAuth to link to staff accounts
+        // 員工帳號必須透過 /login（email+密碼）登入，不可透過 OAuth 進入前台
         if (oauthEmail) {
           const staffUser = await prisma.user.findUnique({ where: { email: oauthEmail } });
           if (staffUser && staffUser.role !== "CUSTOMER") {
-            console.error(`[auth] OAuth blocked: email ${oauthEmail} belongs to staff (role=${staffUser.role})`);
-            return false; // Block - this email belongs to staff
+            // 回傳自訂 redirect URL，讓首頁顯示明確錯誤訊息
+            return "/?error=StaffEmailBlocked";
           }
         }
 
@@ -281,13 +252,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!customer && oauthEmail) {
           customer = await prisma.customer.findFirst({ where: { email: oauthEmail } });
         }
-
-        console.log("[auth] customer lookup:", {
-          found: !!customer,
-          customerId: customer?.id ?? null,
-          customerUserId: customer?.userId ?? null,
-          hasUser: !!customer?.userId,
-        });
 
         if (customer?.userId) {
           // Customer exists and already has a User - link this OAuth Account to existing User
@@ -327,9 +291,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             await prisma.customer.update({ where: { id: customer.id }, data: updateData });
           }
 
-          // Override NextAuth's user.id to use existing User
           user.id = customer.userId;
-          console.log("[auth] signIn path: existing customer+user, userId=", customer.userId);
           return true;
         }
 
@@ -377,7 +339,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           await prisma.customer.update({ where: { id: customer.id }, data: updateData });
 
           user.id = newUser.id;
-          console.log("[auth] signIn path: existing customer without user, created userId=", newUser.id);
           return true;
         }
 
@@ -432,7 +393,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         });
 
         user.id = newUser.id;
-        console.log("[auth] signIn path: new customer+user, userId=", newUser.id);
         return true;
       } catch (error) {
         console.error("[auth] signIn callback error:", {
@@ -464,12 +424,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             appToken.role = dbUser.role;
             appToken.staffId = dbUser.staff?.id ?? null;
             appToken.customerId = dbUser.customer?.id ?? null;
-            console.log("[auth] jwt (OAuth):", {
-              userId: user.id,
-              role: dbUser.role,
-              staffId: dbUser.staff?.id ?? null,
-              customerId: dbUser.customer?.id ?? null,
-            });
           } else {
             // DB 查不到（不應發生）— 預設為 CUSTOMER
             console.error("[auth] jwt: DB user not found for OAuth login", { userId: user.id });
@@ -505,12 +459,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     error: "/",
   },
 
+  // 僅保留 error logger，warn/debug 使用 NextAuth 預設
   logger: {
     error(code, ...message) {
       console.error("[next-auth][error]", code, ...message);
-    },
-    warn(code, ...message) {
-      console.warn("[next-auth][warn]", code, ...message);
     },
   },
 });

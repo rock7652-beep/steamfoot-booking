@@ -12,6 +12,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   OAuthCallbackError: "登入失敗，請重試。若持續失敗請改用手機登入。",
   OAuthAccountNotLinked: "此帳號尚未綁定，請先使用手機登入後再綁定。",
   AccessDenied: "登入被拒絕，請重試。",
+  StaffEmailBlocked:
+    "此 Email 為員工帳號，無法用於顧客登入。請使用其他帳號，或從員工登入頁登入。",
   default: "登入時發生錯誤，請重試。",
 };
 
