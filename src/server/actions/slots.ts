@@ -69,8 +69,8 @@ export async function fetchMonthAvailability(
   const startDate = new Date(Date.UTC(year, month - 1, 1));
   const endDate = new Date(Date.UTC(year, month, 0)); // last day of month
 
-  // 並行取得時段 + 營業時間 + 特殊日期
-  const [allSlots, businessHoursRows, specialDaysRows] = await Promise.all([
+  // 並行取得時段 + 營業時間 + 特殊日期 + 時段覆寫
+  const [allSlots, businessHoursRows, specialDaysRows, slotOverrideRows] = await Promise.all([
     prisma.bookingSlot.findMany({
       where: { isEnabled: true },
       select: { dayOfWeek: true, startTime: true, capacity: true },
@@ -80,7 +80,18 @@ export async function fetchMonthAvailability(
     prisma.specialBusinessDay.findMany({
       where: { date: { gte: startDate, lte: endDate } },
     }),
+    prisma.slotOverride.findMany({
+      where: { date: { gte: startDate, lte: endDate } },
+    }),
   ]);
+
+  // 建立 slot override map: "YYYY-MM-DD|HH:mm" → override
+  const slotOverrideMap = new Map(
+    slotOverrideRows.map((o) => [
+      `${o.date.toISOString().slice(0, 10)}|${o.startTime}`,
+      o,
+    ])
+  );
 
   // 建立快速查詢 map
   const businessHoursMap = new Map(businessHoursRows.map((b) => [b.dayOfWeek, { isOpen: b.isOpen, openTime: b.openTime, closeTime: b.closeTime }]));
@@ -143,15 +154,26 @@ export async function fetchMonthAvailability(
     const slotInfos: MonthSlotInfo[] = [];
 
     for (const s of daySlots) {
-      // 過濾超出營業範圍的 slot（特殊時段縮短時生效）
-      if (!isSlotInRange(s.startTime, status.openTime, status.closeTime)) continue;
+      const overrideKey = `${dateStr}|${s.startTime}`;
+      const override = slotOverrideMap.get(overrideKey);
 
-      const booked = bookedMap.get(`${dateStr}|${s.startTime}`) ?? 0;
+      // SlotOverride 優先：disabled → 跳過；enabled → 強制納入
+      if (override?.type === "disabled") continue;
+
+      const inRange = isSlotInRange(s.startTime, status.openTime, status.closeTime);
+      // 如果不在營業範圍且沒有 "enabled" 覆寫，跳過
+      if (!inRange && override?.type !== "enabled") continue;
+
+      const slotCapacity = override?.type === "capacity_change" && override.capacity != null
+        ? override.capacity
+        : s.capacity;
+
+      const booked = bookedMap.get(overrideKey) ?? 0;
       // 同日已過時段：capacity 視為 0（已滿），讓前端月曆正確顯示
       const isPast = isToday && s.startTime <= nowHHmm;
-      const effectiveCap = isPast ? booked : s.capacity; // 讓 available = 0
-      totalCap += s.capacity;
-      totalBooked += isPast ? s.capacity : booked;
+      const effectiveCap = isPast ? booked : slotCapacity; // 讓 available = 0
+      totalCap += slotCapacity;
+      totalBooked += isPast ? slotCapacity : booked;
       slotInfos.push({ startTime: s.startTime, capacity: effectiveCap, booked });
     }
 
@@ -190,8 +212,8 @@ export async function fetchDaySlots(date: string): Promise<{
   const dayOpenTime = specialDay?.type === "custom" ? specialDay.openTime : (businessHour?.openTime ?? null);
   const dayCloseTime = specialDay?.type === "custom" ? specialDay.closeTime : (businessHour?.closeTime ?? null);
 
-  // ⚡ 兩個查詢並行
-  const [slots, existingBookings] = await Promise.all([
+  // ⚡ 三個查詢並行
+  const [slots, existingBookings, slotOverrides] = await Promise.all([
     prisma.bookingSlot.findMany({
       where: { dayOfWeek, isEnabled: true },
       select: { startTime: true, capacity: true, isEnabled: true },
@@ -205,12 +227,18 @@ export async function fetchDaySlots(date: string): Promise<{
       },
       _sum: { people: true },
     }),
+    prisma.slotOverride.findMany({
+      where: { date: dateObj },
+    }),
   ]);
 
   if (slots.length === 0) return { slots: [] };
 
   const bookedMap = new Map(
     existingBookings.map((b) => [b.slotTime, b._sum.people ?? 0])
+  );
+  const overrideMap = new Map(
+    slotOverrides.map((o) => [o.startTime, o])
   );
 
   // P0-1: 判斷同日已過時段
@@ -220,15 +248,27 @@ export async function fetchDaySlots(date: string): Promise<{
 
   return {
     slots: slots
-      .filter((slot) => isSlotInRange(slot.startTime, dayOpenTime, dayCloseTime))
+      .filter((slot) => {
+        const override = overrideMap.get(slot.startTime);
+        // SlotOverride: disabled → 移除
+        if (override?.type === "disabled") return false;
+        // SlotOverride: enabled → 強制納入（即使超出營業範圍）
+        if (override?.type === "enabled") return true;
+        // 一般邏輯：檢查營業範圍
+        return isSlotInRange(slot.startTime, dayOpenTime, dayCloseTime);
+      })
       .map((slot) => {
         const booked = bookedMap.get(slot.startTime) ?? 0;
         const isPast = isToday && nowHHmm !== null && slot.startTime <= nowHHmm;
+        const override = overrideMap.get(slot.startTime);
+        const slotCapacity = override?.type === "capacity_change" && override.capacity != null
+          ? override.capacity
+          : slot.capacity;
         return {
           startTime: slot.startTime,
-          capacity: slot.capacity,
+          capacity: slotCapacity,
           bookedCount: booked,
-          available: isPast ? 0 : Math.max(0, slot.capacity - booked),
+          available: isPast ? 0 : Math.max(0, slotCapacity - booked),
           isEnabled: slot.isEnabled,
           isPast,
         };

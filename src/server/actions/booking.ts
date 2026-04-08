@@ -77,10 +77,25 @@ export async function createBooking(
       };
     }
 
+    // 檢查 SlotOverride（單一時段覆寫，最高優先）
+    const slotOverride = data.slotTime
+      ? await prisma.slotOverride.findUnique({
+          where: { date_startTime: { date: closureDateObj, startTime: data.slotTime } },
+        })
+      : null;
+
+    if (slotOverride?.type === "disabled") {
+      return {
+        success: false,
+        error: `${data.bookingDate} ${data.slotTime} 時段已被手動關閉${slotOverride.reason ? `（${slotOverride.reason}）` : ""}`,
+      };
+    }
+
     // 檢查 slot 時段是否在營業範圍內（特殊時段縮短時攔截）
+    // 若 SlotOverride 為 "enabled"，跳過營業範圍檢查（強制開放）
     const dayOpenTime = specialDay?.type === "custom" ? specialDay.openTime : (businessHour?.openTime ?? null);
     const dayCloseTime = specialDay?.type === "custom" ? specialDay.closeTime : (businessHour?.closeTime ?? null);
-    if (dayOpenTime && dayCloseTime && data.slotTime) {
+    if (slotOverride?.type !== "enabled" && dayOpenTime && dayCloseTime && data.slotTime) {
       if (data.slotTime < dayOpenTime || data.slotTime >= dayCloseTime) {
         return {
           success: false,

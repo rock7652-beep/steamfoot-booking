@@ -9,6 +9,7 @@ import {
   getMonthSpecialDays,
   getDaySlotDetails,
   copySettingsToFutureWeeks,
+  toggleSlotOverride,
 } from "@/server/actions/business-hours";
 
 // ============================================================
@@ -40,7 +41,15 @@ interface DayDetail {
   specialDayId: string | null;
   dayOfWeek: number;
   dayName: string;
-  slots: { startTime: string; capacity: number; isEnabled: boolean; inRange: boolean }[];
+  slots: {
+    startTime: string;
+    capacity: number;
+    templateCapacity: number;
+    isEnabled: boolean;
+    inRange: boolean;
+    override: string | null;
+    overrideReason: string | null;
+  }[];
   weeklyDefault: { isOpen: boolean; openTime: string | null; closeTime: string | null } | null;
 }
 
@@ -454,9 +463,14 @@ export function ScheduleManager({
               )}
             </div>
 
-            {/* 該日可預約時段預覽 */}
+            {/* 該日可預約時段控制 */}
             <div className="rounded-xl border bg-white p-4 shadow-sm">
-              <h4 className="mb-2 text-xs font-semibold text-earth-700">該日可預約時段預覽</h4>
+              <div className="mb-2 flex items-center justify-between">
+                <h4 className="text-xs font-semibold text-earth-700">該日可預約時段</h4>
+                {canManage && dayDetail.slots.length > 0 && editStatus !== "closed" && editStatus !== "training" && (
+                  <span className="text-[10px] text-earth-400">點擊切換開/關</span>
+                )}
+              </div>
               {editStatus === "closed" || editStatus === "training" ? (
                 <p className="py-4 text-center text-sm text-earth-400">
                   {editStatus === "closed" ? "店休日 — 不開放預約" : "進修日 — 不開放預約"}
@@ -467,28 +481,24 @@ export function ScheduleManager({
                 </p>
               ) : (
                 <div className="grid grid-cols-3 gap-1.5">
-                  {dayDetail.slots.map((s) => {
-                    const isActive = editStatus === "open"
-                      ? s.isEnabled
-                      : editStatus === "custom"
-                        ? s.startTime >= editOpenTime && s.startTime < editCloseTime && s.isEnabled
-                        : false;
-
-                    return (
-                      <div
-                        key={s.startTime}
-                        className={`rounded-lg px-2 py-1.5 text-center text-xs font-medium ${
-                          isActive
-                            ? "bg-green-100 text-green-700"
-                            : "bg-earth-100 text-earth-400 line-through"
-                        }`}
-                      >
-                        {s.startTime}
-                        <span className="ml-1 text-[10px] opacity-60">({s.capacity}位)</span>
-                      </div>
-                    );
-                  })}
+                  {dayDetail.slots.map((s) => (
+                    <SlotToggleButton
+                      key={s.startTime}
+                      slot={s}
+                      date={selectedDate}
+                      editStatus={editStatus}
+                      editOpenTime={editOpenTime}
+                      editCloseTime={editCloseTime}
+                      canManage={canManage}
+                      onToggled={() => selectDate(selectedDate)}
+                    />
+                  ))}
                 </div>
+              )}
+              {dayDetail.slots.some((s) => s.override) && (
+                <p className="mt-2 text-[10px] text-amber-600">
+                  ⚡ 有手動覆寫的時段（黃框 = 強制開放，紅框 = 手動關閉）
+                </p>
               )}
             </div>
           </div>
@@ -572,5 +582,134 @@ function WeeklyDayRow({
         </button>
       )}
     </div>
+  );
+}
+
+// ============================================================
+// 時段開關按鈕（支援三態切換：預設 → 關閉 → 強制開放 → 移除覆寫）
+// ============================================================
+
+function SlotToggleButton({
+  slot,
+  date,
+  editStatus,
+  editOpenTime,
+  editCloseTime,
+  canManage,
+  onToggled,
+}: {
+  slot: {
+    startTime: string;
+    capacity: number;
+    templateCapacity: number;
+    isEnabled: boolean;
+    inRange: boolean;
+    override: string | null;
+    overrideReason: string | null;
+  };
+  date: string;
+  editStatus: string;
+  editOpenTime: string;
+  editCloseTime: string;
+  canManage: boolean;
+  onToggled: () => void;
+}) {
+  const [toggling, setToggling] = useState(false);
+
+  // 計算此時段的顯示狀態
+  const wouldBeActive = editStatus === "open"
+    ? slot.isEnabled
+    : editStatus === "custom"
+      ? slot.startTime >= editOpenTime && slot.startTime < editCloseTime && slot.isEnabled
+      : false;
+
+  // 有 override 時以 override 為準
+  const isActive = slot.override === "disabled" ? false
+    : slot.override === "enabled" ? true
+    : wouldBeActive;
+
+  const handleClick = async () => {
+    if (!canManage || toggling) return;
+
+    setToggling(true);
+    try {
+      let action: "disable" | "enable" | "remove";
+
+      if (slot.override === "disabled") {
+        // 已關閉 → 移除覆寫（回到預設）
+        action = "remove";
+      } else if (slot.override === "enabled") {
+        // 已強制開放 → 移除覆寫（回到預設）
+        action = "remove";
+      } else if (isActive) {
+        // 預設開放 → 手動關閉
+        action = "disable";
+      } else {
+        // 預設關閉（超出範圍）→ 強制開放
+        action = "enable";
+      }
+
+      const result = await toggleSlotOverride({
+        date,
+        startTime: slot.startTime,
+        action,
+      });
+      if (!result.success) {
+        toast.error(result.error);
+      } else {
+        const msgs: Record<string, string> = {
+          disable: `${slot.startTime} 已關閉`,
+          enable: `${slot.startTime} 已強制開放`,
+          remove: `${slot.startTime} 已回復預設`,
+        };
+        toast.success(msgs[action]);
+        onToggled();
+      }
+    } catch {
+      toast.error("操作失敗");
+    } finally {
+      setToggling(false);
+    }
+  };
+
+  // 樣式：根據狀態和 override 類型決定
+  let className = "rounded-lg px-2 py-1.5 text-center text-xs font-medium transition ";
+  if (toggling) {
+    className += "bg-earth-50 text-earth-300 animate-pulse";
+  } else if (slot.override === "disabled") {
+    className += "bg-red-50 text-red-400 line-through ring-1 ring-red-300";
+  } else if (slot.override === "enabled") {
+    className += "bg-amber-50 text-amber-700 ring-1 ring-amber-400";
+  } else if (isActive) {
+    className += "bg-green-100 text-green-700";
+  } else {
+    className += "bg-earth-100 text-earth-400 line-through";
+  }
+
+  if (canManage) {
+    className += " cursor-pointer hover:ring-2 hover:ring-primary-300";
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      disabled={!canManage || toggling}
+      className={className}
+      title={
+        slot.override === "disabled"
+          ? `手動關閉${slot.overrideReason ? `：${slot.overrideReason}` : ""}（點擊回復）`
+          : slot.override === "enabled"
+            ? `強制開放${slot.overrideReason ? `：${slot.overrideReason}` : ""}（點擊回復）`
+            : isActive
+              ? `${slot.startTime}（${slot.capacity}位）— 點擊關閉`
+              : `${slot.startTime}（超出範圍）— 點擊強制開放`
+      }
+    >
+      {slot.startTime}
+      <span className="ml-1 text-[10px] opacity-60">({slot.capacity}位)</span>
+      {slot.override === "disabled" && <span className="ml-0.5 text-[9px]">✕</span>}
+      {slot.override === "enabled" && <span className="ml-0.5 text-[9px]">⚡</span>}
+    </button>
   );
 }

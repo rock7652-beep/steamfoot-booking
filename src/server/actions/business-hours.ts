@@ -60,8 +60,8 @@ export async function getDaySlotDetails(dateStr: string) {
   const dateObj = new Date(dateStr + "T00:00:00Z");
   const dow = dateObj.getUTCDay();
 
-  // 並行查詢
-  const [slots, specialDay, businessHour] = await Promise.all([
+  // 並行查詢（含 slot override）
+  const [slots, specialDay, businessHour, slotOverrides] = await Promise.all([
     prisma.bookingSlot.findMany({
       where: { dayOfWeek: dow },
       select: { startTime: true, capacity: true, isEnabled: true },
@@ -69,6 +69,10 @@ export async function getDaySlotDetails(dateStr: string) {
     }),
     prisma.specialBusinessDay.findUnique({ where: { date: dateObj } }),
     prisma.businessHours.findUnique({ where: { dayOfWeek: dow } }),
+    prisma.slotOverride.findMany({
+      where: { date: dateObj },
+      orderBy: { startTime: "asc" },
+    }),
   ]);
 
   // 決定該日狀態
@@ -102,14 +106,40 @@ export async function getDaySlotDetails(dateStr: string) {
     }
   }
 
-  // 篩選出該日可用的時段
+  // 建立 slot override map
+  const overrideMap = new Map(slotOverrides.map((o) => [o.startTime, o]));
+
+  // 篩選出該日可用的時段（套用 override）
   const filteredSlots = slots.map((s) => {
     const inRange = !openTime || !closeTime || (s.startTime >= openTime && s.startTime < closeTime);
+    const override = overrideMap.get(s.startTime);
+
+    let effectiveEnabled = s.isEnabled && inRange;
+    let effectiveCapacity = s.capacity;
+    let overrideType: string | null = null;
+    let overrideReason: string | null = null;
+
+    if (override) {
+      overrideType = override.type;
+      overrideReason = override.reason;
+      if (override.type === "disabled") {
+        effectiveEnabled = false;
+      } else if (override.type === "enabled") {
+        // 強制開放（即使超出營業範圍）
+        effectiveEnabled = true;
+      } else if (override.type === "capacity_change") {
+        effectiveCapacity = override.capacity ?? s.capacity;
+      }
+    }
+
     return {
       startTime: s.startTime,
-      capacity: s.capacity,
-      isEnabled: s.isEnabled && inRange,
+      capacity: effectiveCapacity,
+      templateCapacity: s.capacity,
+      isEnabled: effectiveEnabled,
       inRange,
+      override: overrideType,
+      overrideReason,
     };
   });
 
@@ -312,6 +342,96 @@ export async function copySettingsToFutureWeeks(input: {
 
     revalidatePath("/dashboard/settings/hours");
     return { success: true, data: { count: dates.length } };
+  } catch (e) {
+    return handleActionError(e);
+  }
+}
+
+// ============================================================
+// SlotOverride — 單日時段覆寫
+// ============================================================
+
+/** 取得某天的所有 slot override */
+export async function getDaySlotOverrides(dateStr: string) {
+  const dateObj = new Date(dateStr + "T00:00:00Z");
+  return prisma.slotOverride.findMany({
+    where: { date: dateObj },
+    orderBy: { startTime: "asc" },
+  });
+}
+
+/** 切換單一時段的開/關（toggle） */
+export async function toggleSlotOverride(input: {
+  date: string;       // YYYY-MM-DD
+  startTime: string;  // HH:mm
+  action: "disable" | "enable" | "remove"; // disable=關閉, enable=強制開放, remove=回復預設
+  reason?: string;
+}): Promise<ActionResult<void>> {
+  try {
+    const user = await requirePermission("business_hours.manage");
+
+    const dateObj = new Date(input.date + "T00:00:00Z");
+
+    if (input.action === "remove") {
+      await prisma.slotOverride.deleteMany({
+        where: { date: dateObj, startTime: input.startTime },
+      });
+    } else {
+      await prisma.slotOverride.upsert({
+        where: { date_startTime: { date: dateObj, startTime: input.startTime } },
+        update: {
+          type: input.action === "disable" ? "disabled" : "enabled",
+          reason: input.reason ?? null,
+        },
+        create: {
+          date: dateObj,
+          startTime: input.startTime,
+          type: input.action === "disable" ? "disabled" : "enabled",
+          reason: input.reason ?? null,
+        },
+      });
+    }
+
+    revalidatePath("/dashboard/settings/hours");
+    return { success: true, data: undefined };
+  } catch (e) {
+    return handleActionError(e);
+  }
+}
+
+/** 更新單一時段容量覆寫 */
+export async function overrideSlotCapacity(input: {
+  date: string;
+  startTime: string;
+  capacity: number;
+  reason?: string;
+}): Promise<ActionResult<void>> {
+  try {
+    const user = await requirePermission("business_hours.manage");
+
+    if (input.capacity < 0 || input.capacity > 99) {
+      throw new AppError("VALIDATION", "容量需在 0-99 之間");
+    }
+
+    const dateObj = new Date(input.date + "T00:00:00Z");
+    await prisma.slotOverride.upsert({
+      where: { date_startTime: { date: dateObj, startTime: input.startTime } },
+      update: {
+        type: "capacity_change",
+        capacity: input.capacity,
+        reason: input.reason ?? null,
+      },
+      create: {
+        date: dateObj,
+        startTime: input.startTime,
+        type: "capacity_change",
+        capacity: input.capacity,
+        reason: input.reason ?? null,
+      },
+    });
+
+    revalidatePath("/dashboard/settings/hours");
+    return { success: true, data: undefined };
   } catch (e) {
     return handleActionError(e);
   }

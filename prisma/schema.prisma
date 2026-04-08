@@ -805,3 +805,21 @@ model SpecialBusinessDay {
   @@unique([date])
   @@index([date])
 }
+
+// ============================================================
+// SlotOverride（單日時段覆寫：手動關閉/開放/調整容量）
+// ============================================================
+
+model SlotOverride {
+  id        String   @id @default(cuid())
+  date      DateTime @db.Date
+  startTime String   // "HH:mm"
+  type      String   // "disabled" | "enabled" | "capacity_change"
+  capacity  Int?     // type=capacity_change 時覆寫容量
+  reason    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([date, startTime])
+  @@index([date])
+}
