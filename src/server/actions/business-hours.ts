@@ -3,16 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/session";
+import { requirePermission } from "@/lib/permissions";
 import { AppError, handleActionError } from "@/lib/errors";
 import type { ActionResult } from "@/types";
-
-async function requireOwner() {
-  const user = await requireSession();
-  if (user.role !== "OWNER") {
-    throw new AppError("FORBIDDEN", "此功能僅限店主使用");
-  }
-  return user;
-}
 
 const DAY_NAMES = ["週日", "週一", "週二", "週三", "週四", "週五", "週六"];
 
@@ -82,7 +75,7 @@ export async function updateBusinessHours(
   input: { isOpen: boolean; openTime: string | null; closeTime: string | null }
 ): Promise<ActionResult<void>> {
   try {
-    const user = await requireOwner();
+    const user = await requirePermission("business_hours.manage");
 
     await prisma.businessHours.upsert({
       where: { dayOfWeek },
@@ -118,7 +111,7 @@ export async function addSpecialDay(input: {
   closeTime?: string;
 }): Promise<ActionResult<void>> {
   try {
-    const user = await requireOwner();
+    const user = await requirePermission("business_hours.manage");
 
     const dateObj = new Date(input.date);
 
@@ -148,7 +141,7 @@ export async function addSpecialDay(input: {
 
 export async function removeSpecialDay(id: string): Promise<ActionResult<void>> {
   try {
-    const user = await requireOwner();
+    const user = await requirePermission("business_hours.manage");
 
     await prisma.specialBusinessDay.delete({ where: { id } });
 

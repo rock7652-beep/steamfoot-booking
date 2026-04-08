@@ -40,7 +40,7 @@ async function main() {
       email: "bob@steamfoot.tw",
       phone: "0923456789",
       passwordHash,
-      role: "MANAGER",
+      role: "STORE_MANAGER",
       staff: {
         create: {
           displayName: "Bob 店長",
@@ -61,7 +61,7 @@ async function main() {
       email: "carol@steamfoot.tw",
       phone: "0934567890",
       passwordHash,
-      role: "MANAGER",
+      role: "STORE_MANAGER",
       staff: {
         create: {
           displayName: "Carol 店長",

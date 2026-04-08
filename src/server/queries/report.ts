@@ -164,7 +164,7 @@ export async function monthlyStoreSummary(
   // All staff visible to this user
   const allStaff = await prisma.staff.findMany({
     where:
-      user.role === "MANAGER" && user.staffId && Object.keys(revenueFilter).length > 0
+      user.role !== "OWNER" && user.staffId && Object.keys(revenueFilter).length > 0
         ? { id: user.staffId }
         : { status: "ACTIVE" },
     select: { id: true, displayName: true },
@@ -448,11 +448,11 @@ export async function customerConsumptionDetail(customerId: string, month?: stri
     if (!user.customerId || user.customerId !== customerId)
       throw new AppError("FORBIDDEN", "只能查看自己的消費記錄");
   }
-  if (user.role === "MANAGER") {
+  if (user.role !== "OWNER" && user.role !== "CUSTOMER") {
     const mode = getVisibilityMode();
     if (mode === "SELF_ONLY") {
       if (!user.staffId || customer.assignedStaffId !== user.staffId)
-        throw new AppError("FORBIDDEN", "無法查看其他店長名下的顧客");
+        throw new AppError("FORBIDDEN", "無法查看其他員工名下的顧客");
     }
   }
 

@@ -19,9 +19,9 @@ export async function listCustomerWallets(customerId: string) {
   });
   if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
 
-  if (user.role === "MANAGER") {
+  if (user.role !== "OWNER" && user.role !== "CUSTOMER") {
     if (!user.staffId || customer.assignedStaffId !== user.staffId) {
-      throw new AppError("FORBIDDEN", "無法查看其他店長名下顧客的課程錢包");
+      throw new AppError("FORBIDDEN", "無法查看其他員工名下顧客的課程錢包");
     }
   }
   if (user.role === "CUSTOMER") {
@@ -50,9 +50,9 @@ export async function getActiveWallet(customerId: string) {
   });
   if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
 
-  if (user.role === "MANAGER") {
+  if (user.role !== "OWNER" && user.role !== "CUSTOMER") {
     if (!user.staffId || customer.assignedStaffId !== user.staffId) {
-      throw new AppError("FORBIDDEN", "無法查看其他店長名下顧客的課程錢包");
+      throw new AppError("FORBIDDEN", "無法查看其他員工名下顧客的課程錢包");
     }
   }
   if (user.role === "CUSTOMER") {

@@ -8,7 +8,8 @@ import Link from "next/link";
 
 export default async function BusinessHoursPage() {
   const user = await getCurrentUser();
-  if (!user || user.role !== "OWNER") redirect("/dashboard");
+  if (!user) redirect("/dashboard");
+  if (!(await checkPermission(user.role, user.staffId, "business_hours.view"))) redirect("/dashboard");
 
   const [hours, specialDays] = await Promise.all([
     getBusinessHours(),

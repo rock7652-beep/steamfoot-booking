@@ -11,10 +11,10 @@ export const createCustomerSchema = z.object({
 
 export const updateCustomerSchema = z.object({
   name: z.string().min(1).max(100).optional(),
-  phone: z.string().max(20).optional(),
+  phone: z.string().max(20).nullable().optional(),
   email: z.string().email().max(200).nullable().optional(),
-  lineName: z.string().max(100).optional(),
-  notes: z.string().max(1000).optional(),
+  lineName: z.string().max(100).nullable().optional(),
+  notes: z.string().max(1000).nullable().optional(),
   gender: z.string().max(10).nullable().optional(),
   birthday: z.string().nullable().optional(), // ISO date string, converted to Date in action
   height: z.number().min(50).max(250).nullable().optional(),

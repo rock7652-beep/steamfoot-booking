@@ -99,8 +99,8 @@ export async function updateCustomer(
     });
     if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
 
-    // Manager 只能修改自己名下顧客
-    if (user.role === "MANAGER") {
+    // 非 Owner 員工只能修改自己名下顧客
+    if (user.role !== "OWNER") {
       if (!user.staffId || customer.assignedStaffId !== user.staffId) {
         throw new AppError("FORBIDDEN", "無法修改其他店長名下的顧客");
       }
@@ -177,7 +177,7 @@ export async function updateCustomerStage(
     const customer = await prisma.customer.findUnique({ where: { id: customerId } });
     if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
 
-    if (user.role === "MANAGER") {
+    if (user.role !== "OWNER") {
       if (!user.staffId || customer.assignedStaffId !== user.staffId) {
         throw new AppError("FORBIDDEN", "無法修改其他店長名下的顧客");
       }

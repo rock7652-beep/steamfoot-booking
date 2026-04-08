@@ -77,7 +77,7 @@ export async function listBookings(options: ListBookingsOptions = {}) {
     // Customer 必須有 customerId，否則不回傳任何資料
     if (!user.customerId) return { bookings: [], total: 0, page, pageSize };
     whereCustomer = { id: user.customerId };
-  } else if (user.role === "MANAGER" && user.staffId) {
+  } else if (user.role !== "OWNER" && user.staffId) {
     const customerFilter = getManagerCustomerFilter(user.role, user.staffId);
     // getManagerCustomerFilter 回傳 { customer: { assignedStaffId: ... } } 或 {}
     // 這裡需要取出 customer 層級的 where
@@ -209,7 +209,7 @@ export async function getMonthlyRevenueSummary(year: number, month: number) {
   const endDate = new Date(Date.UTC(year, month, 0)); // last day of month
 
   const staffFilter =
-    user.role === "MANAGER" && user.staffId
+    user.role !== "OWNER" && user.staffId
       ? { revenueStaffId: user.staffId }
       : {};
 

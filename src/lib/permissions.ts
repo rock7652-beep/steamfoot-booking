@@ -2,6 +2,50 @@ import { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/db";
 
 // ============================================================
+// 角色常數 & 輔助函式
+// ============================================================
+
+/** 所有「店員級」角色（不含 OWNER / CUSTOMER） */
+export const STAFF_ROLES: UserRole[] = [
+  "STORE_MANAGER",
+  "BRANCH_MANAGER",
+  "INTERN_MANAGER",
+  "MANAGER", // 向後相容（已棄用，等同 STORE_MANAGER）
+];
+
+/** 角色中文標籤 */
+export const ROLE_LABELS: Record<UserRole, string> = {
+  OWNER: "系統管理者",
+  STORE_MANAGER: "店長",
+  BRANCH_MANAGER: "分店長",
+  INTERN_MANAGER: "實習店長",
+  MANAGER: "店長", // 向後相容
+  CUSTOMER: "顧客",
+};
+
+/** 可指派給員工的角色（建立/編輯員工時選擇） */
+export const ASSIGNABLE_STAFF_ROLES: UserRole[] = [
+  "STORE_MANAGER",
+  "BRANCH_MANAGER",
+  "INTERN_MANAGER",
+];
+
+/** 判斷是否為 Owner */
+export function isOwner(role: UserRole | string): boolean {
+  return role === "OWNER";
+}
+
+/** 判斷是否為任意員工角色（含 OWNER） */
+export function isStaffRole(role: UserRole | string): boolean {
+  return role === "OWNER" || (STAFF_ROLES as string[]).includes(role);
+}
+
+/** 判斷是否為非 Owner 的員工角色 */
+export function isNonOwnerStaff(role: UserRole | string): boolean {
+  return (STAFF_ROLES as string[]).includes(role);
+}
+
+// ============================================================
 // 權限代碼定義（key-value table 用）
 // ============================================================
 
@@ -22,12 +66,20 @@ export const ALL_PERMISSIONS = [
   // 課程錢包
   "wallet.read",
   "wallet.create",
+  "wallet.adjust",     // 調整剩餘堂數
+  // 方案
+  "plans.edit",        // 編輯方案設定
+  // 營業時間
+  "business_hours.view",
+  "business_hours.manage",
   // 報表
   "report.read",
   "report.export",
   // 現金帳
   "cashbook.read",
   "cashbook.create",
+  // 人員
+  "staff.view",
 ] as const;
 
 export type PermissionCode = (typeof ALL_PERMISSIONS)[number];
@@ -48,7 +100,15 @@ export const PERMISSION_GROUPS: Record<string, { label: string; codes: Permissio
   },
   wallet: {
     label: "課程方案",
-    codes: ["wallet.read", "wallet.create"],
+    codes: ["wallet.read", "wallet.create", "wallet.adjust"],
+  },
+  plans: {
+    label: "方案設定",
+    codes: ["plans.edit"],
+  },
+  business_hours: {
+    label: "營業時間",
+    codes: ["business_hours.view", "business_hours.manage"],
   },
   report: {
     label: "報表",
@@ -57,6 +117,10 @@ export const PERMISSION_GROUPS: Record<string, { label: string; codes: Permissio
   cashbook: {
     label: "現金帳",
     codes: ["cashbook.read", "cashbook.create"],
+  },
+  staff: {
+    label: "人員管理",
+    codes: ["staff.view"],
   },
 };
 
@@ -74,23 +138,95 @@ export const PERMISSION_LABELS: Record<PermissionCode, string> = {
   "transaction.create": "新增交易",
   "wallet.read": "查看課程方案",
   "wallet.create": "指派課程方案",
+  "wallet.adjust": "調整剩餘堂數",
+  "plans.edit": "編輯方案設定",
+  "business_hours.view": "查看營業時間",
+  "business_hours.manage": "修改營業時間",
   "report.read": "查看報表",
   "report.export": "匯出報表",
   "cashbook.read": "查看現金帳",
   "cashbook.create": "新增現金帳",
+  "staff.view": "查看店員資料",
 };
 
-// 新建 Manager 時的預設權限
-export const DEFAULT_MANAGER_PERMISSIONS: PermissionCode[] = [
+// ============================================================
+// 各角色預設權限
+// ============================================================
+
+/** 店長 預設權限（接近完整營運權限） */
+export const DEFAULT_STORE_MANAGER_PERMISSIONS: PermissionCode[] = [
   "customer.read",
   "customer.create",
+  "customer.update",
+  "customer.assign",
+  "customer.export",
   "booking.read",
   "booking.create",
   "booking.update",
   "transaction.read",
   "transaction.create",
   "wallet.read",
+  "wallet.create",
+  "wallet.adjust",
+  "plans.edit",
+  "business_hours.view",
+  "business_hours.manage",
+  "report.read",
+  "report.export",
+  "cashbook.read",
+  "cashbook.create",
+  "staff.view",
 ];
+
+/** 分店長 預設權限（大部分日常操作） */
+export const DEFAULT_BRANCH_MANAGER_PERMISSIONS: PermissionCode[] = [
+  "customer.read",
+  "customer.create",
+  "customer.update",
+  "booking.read",
+  "booking.create",
+  "booking.update",
+  "transaction.read",
+  "transaction.create",
+  "wallet.read",
+  "wallet.create",
+  "business_hours.view",
+  "report.read",
+  "cashbook.read",
+  "cashbook.create",
+];
+
+/** 實習店長 預設權限（學習與協助） */
+export const DEFAULT_INTERN_MANAGER_PERMISSIONS: PermissionCode[] = [
+  "customer.read",
+  "customer.create",
+  "customer.update",
+  "booking.read",
+  "booking.create",
+  "transaction.read",
+  "wallet.read",
+  "wallet.create",
+  "business_hours.view",
+];
+
+/** 向後相容：舊版 MANAGER 預設（等同店長） */
+export const DEFAULT_MANAGER_PERMISSIONS = DEFAULT_STORE_MANAGER_PERMISSIONS;
+
+/** 根據角色取得預設權限列表 */
+export function getDefaultPermissionsForRole(role: UserRole): PermissionCode[] {
+  switch (role) {
+    case "STORE_MANAGER":
+      return DEFAULT_STORE_MANAGER_PERMISSIONS;
+    case "BRANCH_MANAGER":
+      return DEFAULT_BRANCH_MANAGER_PERMISSIONS;
+    case "INTERN_MANAGER":
+      return DEFAULT_INTERN_MANAGER_PERMISSIONS;
+    case "MANAGER":
+      return DEFAULT_STORE_MANAGER_PERMISSIONS; // 向後相容
+    default:
+      return [];
+  }
+}
 
 // ============================================================
 // 權限檢查（動態查表）
@@ -111,7 +247,7 @@ export async function checkPermission(
   // Customer 不在此系統中
   if (role === "CUSTOMER") return false;
 
-  // Manager 查 StaffPermission 表
+  // 所有員工角色（STORE_MANAGER / BRANCH_MANAGER / INTERN_MANAGER / MANAGER）查 StaffPermission 表
   if (!staffId) return false;
 
   const record = await prisma.staffPermission.findUnique({
@@ -160,13 +296,17 @@ export async function updateStaffPermissions(
 }
 
 /**
- * 為新 Manager 建立預設權限
+ * 為新員工建立預設權限（根據角色）
  */
-export async function createDefaultPermissions(staffId: string): Promise<void> {
+export async function createDefaultPermissions(
+  staffId: string,
+  role: UserRole = "STORE_MANAGER"
+): Promise<void> {
+  const defaults = getDefaultPermissionsForRole(role);
   const data = ALL_PERMISSIONS.map((perm) => ({
     staffId,
     permission: perm,
-    granted: DEFAULT_MANAGER_PERMISSIONS.includes(perm),
+    granted: defaults.includes(perm),
   }));
 
   await prisma.staffPermission.createMany({ data, skipDuplicates: true });
@@ -196,19 +336,16 @@ export async function getUserPermissions(
   staffId: string | null
 ): Promise<PermissionCode[]> {
   if (role === "OWNER") return [...ALL_PERMISSIONS];
-  if (role !== "MANAGER" || !staffId) return [];
+  if (!isNonOwnerStaff(role) || !staffId) return [];
   const perms = await getStaffPermissions(staffId);
   return Array.from(perms);
 }
 
 // ============================================================
-// 便捷函數（向後相容）
+// 便捷函數（向後相容 — 已重新匯出到頂部）
 // ============================================================
 
-export function isOwner(role: UserRole): boolean {
-  return role === "OWNER";
-}
-
+/** @deprecated 使用 isStaffRole() 代替 */
 export function isStaff(role: UserRole): boolean {
-  return role === "OWNER" || role === "MANAGER";
+  return isStaffRole(role);
 }

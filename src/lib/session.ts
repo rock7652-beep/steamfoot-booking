@@ -2,6 +2,7 @@ import { cache } from "react";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { AppError } from "@/lib/errors";
+import { isStaffRole } from "@/lib/permissions";
 
 // ============================================================
 // Session helpers
@@ -20,11 +21,11 @@ export async function requireSession() {
   return user;
 }
 
-/** 要求 Owner 或 Manager 身份 */
+/** 要求任意員工身份（OWNER / STORE_MANAGER / BRANCH_MANAGER / INTERN_MANAGER / MANAGER） */
 export async function requireStaffSession() {
   const user = await requireSession();
-  if (user.role !== "OWNER" && user.role !== "MANAGER") {
-    throw new AppError("FORBIDDEN", "此功能僅限店長使用");
+  if (!isStaffRole(user.role)) {
+    throw new AppError("FORBIDDEN", "此功能僅限員工使用");
   }
   return user;
 }
@@ -33,12 +34,12 @@ export async function requireStaffSession() {
 export async function requireOwnerSession() {
   const user = await requireSession();
   if (user.role !== "OWNER") {
-    throw new AppError("FORBIDDEN", "此功能僅限店主使用");
+    throw new AppError("FORBIDDEN", "此功能僅限系統管理者使用");
   }
   return user;
 }
 
-/** 取得當前 Staff 記錄（Manager / Owner 皆有） */
+/** 取得當前 Staff 記錄（所有員工角色皆有） */
 export async function getCurrentStaff() {
   const user = await getCurrentUser();
   if (!user?.staffId) return null;

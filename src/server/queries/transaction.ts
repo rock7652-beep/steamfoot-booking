@@ -117,12 +117,12 @@ export async function getTransactionDetail(transactionId: string) {
   });
   if (!tx) throw new AppError("NOT_FOUND", "交易紀錄不存在");
 
-  // Manager 讀取限制（受 visibility mode 控制）
-  if (user.role === "MANAGER") {
+  // 非 Owner 員工讀取限制（受 visibility mode 控制）
+  if (user.role !== "OWNER" && user.role !== "CUSTOMER") {
     const mode = getVisibilityMode();
     if (mode === "SELF_ONLY") {
       if (!user.staffId || tx.revenueStaffId !== user.staffId) {
-        throw new AppError("FORBIDDEN", "無法查看其他店長名下的交易");
+        throw new AppError("FORBIDDEN", "無法查看其他員工名下的交易");
       }
     }
   }
@@ -150,12 +150,12 @@ export async function getCustomerTransactionSummary(customerId: string) {
   });
   if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
 
-  // Manager 讀取限制（受 visibility mode 控制）
-  if (user.role === "MANAGER") {
+  // 非 Owner 員工讀取限制（受 visibility mode 控制）
+  if (user.role !== "OWNER" && user.role !== "CUSTOMER") {
     const mode = getVisibilityMode();
     if (mode === "SELF_ONLY") {
       if (!user.staffId || customer.assignedStaffId !== user.staffId) {
-        throw new AppError("FORBIDDEN", "無法查看其他店長名下的顧客");
+        throw new AppError("FORBIDDEN", "無法查看其他員工名下的顧客");
       }
     }
   }

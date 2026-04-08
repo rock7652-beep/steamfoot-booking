@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
 import { logoutAction } from "@/server/actions/auth";
-import { getUserPermissions } from "@/lib/permissions";
+import { getUserPermissions, ROLE_LABELS, isStaffRole } from "@/lib/permissions";
 import { getShopPlan, getTrialStatus } from "@/lib/shop-config";
 import DashboardShell from "@/components/sidebar";
 
@@ -14,8 +14,7 @@ export default async function DashboardLayout({
   if (!user) redirect("/login");
   if (user.role === "CUSTOMER") redirect("/book");
 
-  const roleLabel =
-    user.role === "OWNER" ? "店主" : user.role === "MANAGER" ? "店長" : "";
+  const roleLabel = ROLE_LABELS[user.role] ?? "";
   const isOwner = user.role === "OWNER";
   const [permissions, shopPlan, trialStatus] = await Promise.all([
     getUserPermissions(user.role, user.staffId),

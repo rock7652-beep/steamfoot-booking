@@ -1,24 +1,28 @@
 import { listStaff } from "@/server/queries/staff";
 import { createStaff } from "@/server/actions/staff";
 import { getCurrentUser } from "@/lib/session";
+import { checkPermission, ROLE_LABELS } from "@/lib/permissions";
 import { getShopPlan } from "@/lib/shop-config";
 import { FEATURES } from "@/lib/shop-plan";
 import { FeatureGate } from "@/components/feature-gate";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { StaffStatusToggle } from "./staff-status-toggle";
+import type { UserRole } from "@prisma/client";
 
 interface PageProps {}
 
 export default async function StaffPage({}: PageProps) {
   const user = await getCurrentUser();
   if (!user) notFound();
-  if (user.role !== "OWNER") notFound();
+  if (!(await checkPermission(user.role, user.staffId, "staff.view"))) notFound();
 
+  const isOwner = user.role === "OWNER";
   const [staffList, shopPlan] = await Promise.all([listStaff(), getShopPlan()]);
 
   async function handleCreateStaff(formData: FormData) {
     "use server";
+    const roleValue = (formData.get("role") as string) || "STORE_MANAGER";
     const result = await createStaff({
       name: formData.get("name") as string,
       displayName: formData.get("displayName") as string,
@@ -29,6 +33,7 @@ export default async function StaffPage({}: PageProps) {
       monthlySpaceFee: formData.get("monthlySpaceFee")
         ? Number(formData.get("monthlySpaceFee"))
         : 0,
+      role: roleValue as "STORE_MANAGER" | "BRANCH_MANAGER" | "INTERN_MANAGER",
     });
 
     if (!result.success) {
@@ -54,11 +59,27 @@ export default async function StaffPage({}: PageProps) {
         </Link>
       </div>
 
-      {/* Create Form Card */}
+      {/* Create Form Card — OWNER only */}
+      {isOwner && (
       <div className="rounded-xl border bg-white p-6 shadow-sm">
-        <h2 className="mb-4 text-lg font-bold text-earth-900">新增店長</h2>
+        <h2 className="mb-4 text-lg font-bold text-earth-900">新增員工</h2>
 
         <form action={handleCreateStaff} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {/* Role Selection */}
+          <div className="sm:col-span-2">
+            <label className="block text-sm font-medium text-earth-700">角色</label>
+            <select
+              name="role"
+              defaultValue="STORE_MANAGER"
+              className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
+            >
+              <option value="STORE_MANAGER">店長（主要經營者）</option>
+              <option value="BRANCH_MANAGER">分店長（合作協助經營者）</option>
+              <option value="INTERN_MANAGER">實習店長（學習階段）</option>
+            </select>
+            <p className="mt-1 text-xs text-earth-400">系統會根據角色自動帶入預設權限，建立後可在編輯頁調整</p>
+          </div>
+
           {/* Real Name */}
           <div>
             <label className="block text-sm font-medium text-earth-700">真實姓名</label>
@@ -156,10 +177,11 @@ export default async function StaffPage({}: PageProps) {
           </div>
         </form>
       </div>
+      )}
 
       {/* Staff List Card */}
       <div className="rounded-xl border bg-white p-6 shadow-sm">
-        <h2 className="mb-4 text-lg font-bold text-earth-900">店長列表</h2>
+        <h2 className="mb-4 text-lg font-bold text-earth-900">員工列表</h2>
 
         {staffList.length === 0 ? (
           <p className="text-earth-400">暫無店長</p>
@@ -169,8 +191,8 @@ export default async function StaffPage({}: PageProps) {
               <thead className="bg-earth-50">
                 <tr>
                   <th className="px-4 py-3 text-left font-medium text-earth-600">姓名</th>
+                  <th className="px-4 py-3 text-left font-medium text-earth-600">角色</th>
                   <th className="px-4 py-3 text-left font-medium text-earth-600">Email</th>
-                  <th className="px-4 py-3 text-left font-medium text-earth-600">電話</th>
                   <th className="px-4 py-3 text-left font-medium text-earth-600">狀態</th>
                   <th className="px-4 py-3 text-left font-medium text-earth-600">顧客數</th>
                   <th className="px-4 py-3 text-left font-medium text-earth-600">操作</th>
@@ -187,10 +209,17 @@ export default async function StaffPage({}: PageProps) {
                         <div className="text-xs text-earth-500">{staff.user.name}</div>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-earth-600">{staff.user.email}</td>
-                    <td className="px-4 py-3 text-earth-600">
-                      {staff.user.phone || "—"}
+                    <td className="px-4 py-3">
+                      <span className={`rounded px-2 py-0.5 text-xs font-medium ${
+                        staff.isOwner ? "bg-yellow-100 text-yellow-700" :
+                        staff.user.role === "STORE_MANAGER" || staff.user.role === "MANAGER" ? "bg-primary-100 text-primary-700" :
+                        staff.user.role === "BRANCH_MANAGER" ? "bg-blue-100 text-blue-700" :
+                        "bg-earth-100 text-earth-700"
+                      }`}>
+                        {staff.isOwner ? "系統管理者" : ROLE_LABELS[staff.user.role as UserRole] ?? staff.user.role}
+                      </span>
                     </td>
+                    <td className="px-4 py-3 text-earth-600">{staff.user.email}</td>
                     <td className="px-4 py-3">
                       <span
                         className={`rounded px-2 py-1 text-xs font-medium ${
@@ -209,7 +238,7 @@ export default async function StaffPage({}: PageProps) {
                       {staff._count.assignedCustomers}
                     </td>
                     <td className="px-4 py-3">
-                      {!staff.isOwner && (
+                      {isOwner && !staff.isOwner && (
                         <div className="flex items-center gap-2">
                           <Link
                             href={`/dashboard/staff/${staff.id}/edit`}

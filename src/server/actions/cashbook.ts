@@ -37,7 +37,7 @@ const updateCashbookEntrySchema = z.object({
 
 // ============================================================
 // createCashbookEntry
-// Owner / Manager（Manager 只能為自己名下建立）
+// Owner / Staff（非 Owner 員工只能為自己名下建立）
 // ============================================================
 
 export async function createCashbookEntry(
@@ -48,10 +48,10 @@ export async function createCashbookEntry(
     await requireFeature(FEATURES.CASHBOOK);
     const data = createCashbookEntrySchema.parse(input);
 
-    // Manager 若未指定 staffId，自動綁定自己
+    // 非 Owner 員工若未指定 staffId，自動綁定自己
     let staffId = data.staffId || null;
-    if (user.role === "MANAGER") {
-      // Manager 只能建立歸屬於自己的現金帳紀錄
+    if (user.role !== "OWNER") {
+      // 非 Owner 員工只能建立歸屬於自己的現金帳紀錄
       staffId = user.staffId ?? null;
     }
 
@@ -76,7 +76,7 @@ export async function createCashbookEntry(
 
 // ============================================================
 // updateCashbookEntry
-// Owner: 任意；Manager: 只能改自己的
+// Owner: 任意；非 Owner 員工: 只能改自己的
 // ============================================================
 
 export async function updateCashbookEntry(
@@ -92,10 +92,10 @@ export async function updateCashbookEntry(
     });
     if (!entry) throw new AppError("NOT_FOUND", "現金帳紀錄不存在");
 
-    // Manager 只能修改自己的紀錄
-    if (user.role === "MANAGER") {
+    // 非 Owner 員工只能修改自己的紀錄
+    if (user.role !== "OWNER") {
       if (!user.staffId || entry.staffId !== user.staffId) {
-        throw new AppError("FORBIDDEN", "無法修改其他店長的現金帳紀錄");
+        throw new AppError("FORBIDDEN", "無法修改其他員工的現金帳紀錄");
       }
     }
 
@@ -105,7 +105,7 @@ export async function updateCashbookEntry(
     if (data.category !== undefined) updateData.category = data.category;
     if (data.amount !== undefined) updateData.amount = data.amount;
     if (data.staffId !== undefined) {
-      // Manager 不能改 staffId（鎖定自己）
+      // 非 Owner 員工不能改 staffId（鎖定自己），只有 Owner 可指派
       if (user.role === "OWNER") updateData.staffId = data.staffId;
     }
     if (data.note !== undefined) updateData.note = data.note;

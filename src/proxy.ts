@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { isStaffRole } from "@/lib/permissions";
 
 // Next.js 16: proxy.ts（前身為 middleware.ts）
 export const proxy = auth((req: NextRequest & { auth: { user?: { role?: string } } | null }) => {
@@ -47,7 +48,7 @@ export const proxy = auth((req: NextRequest & { auth: { user?: { role?: string }
     if (!isLoggedIn) {
       return NextResponse.redirect(new URL("/", req.url));
     }
-    if (role === "OWNER" || role === "MANAGER") {
+    if (role && isStaffRole(role)) {
       return NextResponse.redirect(new URL("/dashboard", req.url));
     }
     // 注入 pathname header（sidebar 高亮用）

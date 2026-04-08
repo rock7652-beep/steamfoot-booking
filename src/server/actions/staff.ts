@@ -8,6 +8,8 @@ import { requireOwnerSession } from "@/lib/session";
 import { AppError, handleActionError } from "@/lib/errors";
 import { requireFeature } from "@/lib/shop-config";
 import { FEATURES } from "@/lib/shop-plan";
+import { createDefaultPermissions, ASSIGNABLE_STAFF_ROLES } from "@/lib/permissions";
+import type { UserRole } from "@prisma/client";
 import type { ActionResult } from "@/types";
 
 // ============================================================
@@ -23,6 +25,7 @@ const createStaffSchema = z.object({
   colorCode: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
   monthlySpaceFee: z.number().int().min(0).optional(),
   spaceFeeEnabled: z.boolean().optional(),
+  role: z.enum(["STORE_MANAGER", "BRANCH_MANAGER", "INTERN_MANAGER"]).optional(),
 });
 
 const updateStaffSchema = z.object({
@@ -30,6 +33,7 @@ const updateStaffSchema = z.object({
   colorCode: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
   monthlySpaceFee: z.number().int().min(0).optional(),
   spaceFeeEnabled: z.boolean().optional(),
+  role: z.enum(["STORE_MANAGER", "BRANCH_MANAGER", "INTERN_MANAGER"]).optional(),
 });
 
 // ============================================================
@@ -49,6 +53,7 @@ export async function createStaff(
     if (existing) throw new AppError("CONFLICT", "此 Email 已被使用");
 
     const passwordHash = hashSync(data.password, 10);
+    const staffRole: UserRole = data.role ?? "STORE_MANAGER";
 
     const user = await prisma.user.create({
       data: {
@@ -56,7 +61,7 @@ export async function createStaff(
         email: data.email,
         phone: data.phone,
         passwordHash,
-        role: "MANAGER",
+        role: staffRole,
         staff: {
           create: {
             displayName: data.displayName,
@@ -69,6 +74,11 @@ export async function createStaff(
       },
       include: { staff: true },
     });
+
+    // 根據角色建立預設權限
+    if (user.staff) {
+      await createDefaultPermissions(user.staff.id, staffRole);
+    }
 
     revalidatePath("/dashboard/staff");
     return { success: true, data: { staffId: user.staff!.id } };
@@ -89,14 +99,27 @@ export async function updateStaff(
     await requireOwnerSession();
     const data = updateStaffSchema.parse(input);
 
-    const staff = await prisma.staff.findUnique({ where: { id: staffId } });
-    if (!staff) throw new AppError("NOT_FOUND", "店長不存在");
-    if (staff.isOwner) throw new AppError("FORBIDDEN", "無法修改店主帳號");
+    const staff = await prisma.staff.findUnique({
+      where: { id: staffId },
+      include: { user: { select: { id: true } } },
+    });
+    if (!staff) throw new AppError("NOT_FOUND", "員工不存在");
+    if (staff.isOwner) throw new AppError("FORBIDDEN", "無法修改系統管理者帳號");
 
+    // 更新 Staff 基本資料
+    const { role: newRole, ...staffData } = data;
     await prisma.staff.update({
       where: { id: staffId },
-      data,
+      data: staffData,
     });
+
+    // 如果角色變更，同步更新 User.role
+    if (newRole) {
+      await prisma.user.update({
+        where: { id: staff.user.id },
+        data: { role: newRole },
+      });
+    }
 
     revalidatePath("/dashboard/staff");
     return { success: true, data: undefined };
@@ -114,8 +137,8 @@ export async function deactivateStaff(staffId: string): Promise<ActionResult<voi
     await requireOwnerSession();
 
     const staff = await prisma.staff.findUnique({ where: { id: staffId } });
-    if (!staff) throw new AppError("NOT_FOUND", "店長不存在");
-    if (staff.isOwner) throw new AppError("FORBIDDEN", "無法停用店主帳號");
+    if (!staff) throw new AppError("NOT_FOUND", "員工不存在");
+    if (staff.isOwner) throw new AppError("FORBIDDEN", "無法停用系統管理者帳號");
 
     await prisma.$transaction([
       prisma.staff.update({ where: { id: staffId }, data: { status: "INACTIVE" } }),
@@ -138,8 +161,8 @@ export async function activateStaff(staffId: string): Promise<ActionResult<void>
     await requireOwnerSession();
 
     const staff = await prisma.staff.findUnique({ where: { id: staffId } });
-    if (!staff) throw new AppError("NOT_FOUND", "店長不存在");
-    if (staff.isOwner) throw new AppError("FORBIDDEN", "無法修改店主帳號");
+    if (!staff) throw new AppError("NOT_FOUND", "員工不存在");
+    if (staff.isOwner) throw new AppError("FORBIDDEN", "無法修改系統管理者帳號");
 
     await prisma.$transaction([
       prisma.staff.update({ where: { id: staffId }, data: { status: "ACTIVE" } }),

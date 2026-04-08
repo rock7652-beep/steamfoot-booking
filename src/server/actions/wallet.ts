@@ -105,7 +105,7 @@ export async function assignPlanToCustomer(
 }
 
 // ============================================================
-// adjustRemainingSessions — Owner only（手動補正）
+// adjustRemainingSessions — 需要 wallet.adjust 權限（手動補正）
 // ============================================================
 
 export async function adjustRemainingSessions(
@@ -114,7 +114,7 @@ export async function adjustRemainingSessions(
   note?: string
 ): Promise<ActionResult<void>> {
   try {
-    const user = await requirePermission("wallet.create");
+    const user = await requirePermission("wallet.adjust");
 
     if (newRemaining < 0) {
       throw new AppError("VALIDATION", "剩餘堂數不可為負數");

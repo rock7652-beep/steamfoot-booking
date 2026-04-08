@@ -8,8 +8,10 @@ import {
   PERMISSION_GROUPS,
   PERMISSION_LABELS,
   ALL_PERMISSIONS,
+  ROLE_LABELS,
   type PermissionCode,
 } from "@/lib/permissions";
+import type { UserRole } from "@prisma/client";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
@@ -35,11 +37,13 @@ export default async function EditStaffPage({ params }: PageProps) {
   async function handleUpdate(formData: FormData) {
     "use server";
     const monthlyFeeRaw = formData.get("monthlySpaceFee") as string;
+    const roleValue = formData.get("role") as string | null;
     const result = await updateStaff(id, {
       displayName: formData.get("displayName") as string,
       colorCode: formData.get("colorCode") as string,
       monthlySpaceFee: monthlyFeeRaw ? Number(monthlyFeeRaw) : 0,
       spaceFeeEnabled: formData.get("spaceFeeEnabled") === "true",
+      ...(roleValue ? { role: roleValue as "STORE_MANAGER" | "BRANCH_MANAGER" | "INTERN_MANAGER" } : {}),
     });
 
     if (!result.success) {
@@ -73,17 +77,34 @@ export default async function EditStaffPage({ params }: PageProps) {
 
       {/* 基本資料 */}
       <div className="rounded-xl border bg-white p-5 shadow-sm">
-        <h1 className="mb-1 text-lg font-bold text-earth-900">編輯店長資料</h1>
+        <h1 className="mb-1 text-lg font-bold text-earth-900">編輯員工資料</h1>
         <p className="mb-5 text-sm text-earth-400">
           {staff.user.name}（{staff.user.email}）
-          {staff.isOwner && (
-            <span className="ml-2 rounded bg-primary-100 px-1.5 py-0.5 text-xs font-medium text-primary-700">
-              Owner
-            </span>
-          )}
+          <span className={`ml-2 rounded px-1.5 py-0.5 text-xs font-medium ${
+            staff.isOwner ? "bg-yellow-100 text-yellow-700" : "bg-primary-100 text-primary-700"
+          }`}>
+            {staff.isOwner ? "系統管理者" : ROLE_LABELS[staff.user.role as UserRole] ?? staff.user.role}
+          </span>
         </p>
 
         <form action={handleUpdate} className="space-y-4">
+          {/* 角色選擇（僅非 Owner 可修改） */}
+          {!staff.isOwner && (
+            <div>
+              <label className="block text-sm font-medium text-earth-700">角色</label>
+              <select
+                name="role"
+                defaultValue={staff.user.role === "MANAGER" ? "STORE_MANAGER" : staff.user.role}
+                className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
+              >
+                <option value="STORE_MANAGER">店長（主要經營者）</option>
+                <option value="BRANCH_MANAGER">分店長（合作協助經營者）</option>
+                <option value="INTERN_MANAGER">實習店長（學習階段）</option>
+              </select>
+              <p className="mt-1 text-xs text-earth-400">變更角色不會自動調整已設定的權限，請在下方手動調整</p>
+            </div>
+          )}
+
           <div>
             <label className="block text-sm font-medium text-earth-700">顯示名稱</label>
             <input
@@ -144,12 +165,12 @@ export default async function EditStaffPage({ params }: PageProps) {
         </form>
       </div>
 
-      {/* 權限設定（僅非 Owner 的 Manager 顯示） */}
+      {/* 權限設定（僅非 Owner 的員工顯示） */}
       {!staff.isOwner && (
         <div className="rounded-xl border bg-white p-5 shadow-sm">
           <h2 className="mb-1 text-lg font-bold text-earth-900">操作權限</h2>
           <p className="mb-4 text-xs text-earth-400">
-            設定此店長可操作的功能範圍，勾選為允許。
+            設定此員工可操作的功能範圍，勾選為允許。角色預設權限已自動帶入，可依需求額外增減。
           </p>
 
           <form action={handlePermissions} className="space-y-5">

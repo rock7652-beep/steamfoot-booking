@@ -13,8 +13,11 @@ datasource db {
 // ============================================================
 
 enum UserRole {
-  OWNER
-  MANAGER
+  OWNER            // 系統管理者 / 主帳號
+  STORE_MANAGER    // 店長（主要經營者）
+  BRANCH_MANAGER   // 分店長（合作協助經營者）
+  INTERN_MANAGER   // 實習店長（學習階段）
+  MANAGER          // [已棄用] 向後相容，視同 STORE_MANAGER
   CUSTOMER
 }
 

@@ -1,16 +1,17 @@
 import { prisma } from "@/lib/db";
-import { requireOwnerSession, requireStaffSession } from "@/lib/session";
+import { requireStaffSession } from "@/lib/session";
+import { requirePermission } from "@/lib/permissions";
 import { AppError } from "@/lib/errors";
 
 // ============================================================
-// listStaff — Owner only
+// listStaff — 需要 staff.view 權限
 // ============================================================
 
 export async function listStaff() {
-  await requireOwnerSession();
+  await requirePermission("staff.view");
   return prisma.staff.findMany({
     include: {
-      user: { select: { id: true, name: true, email: true, phone: true, status: true } },
+      user: { select: { id: true, name: true, email: true, phone: true, status: true, role: true } },
       _count: {
         select: { assignedCustomers: true },
       },
@@ -20,8 +21,7 @@ export async function listStaff() {
 }
 
 // ============================================================
-// listStaffSelectOptions — Owner and Manager can call (for UI select boxes)
-// Returns minimal staff data for dropdowns
+// listStaffSelectOptions — 任何員工角色都可呼叫（UI 下拉選單用）
 // ============================================================
 
 export async function listStaffSelectOptions() {
@@ -34,21 +34,21 @@ export async function listStaffSelectOptions() {
 }
 
 // ============================================================
-// getStaffDetail — Owner only
+// getStaffDetail — Owner only（編輯權限管理用）
 // ============================================================
 
 export async function getStaffDetail(staffId: string) {
-  await requireOwnerSession();
+  await requirePermission("staff.view");
 
   const staff = await prisma.staff.findUnique({
     where: { id: staffId },
     include: {
-      user: { select: { id: true, name: true, email: true, phone: true, status: true } },
+      user: { select: { id: true, name: true, email: true, phone: true, status: true, role: true } },
       _count: {
         select: { assignedCustomers: true, revenueBookings: true },
       },
     },
   });
-  if (!staff) throw new AppError("NOT_FOUND", "店長不存在");
+  if (!staff) throw new AppError("NOT_FOUND", "員工不存在");
   return staff;
 }

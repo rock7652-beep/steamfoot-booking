@@ -89,8 +89,8 @@ const NAV_ITEMS: NavItem[] = [
   },
   {
     href: "/dashboard/staff",
-    label: "店長管理",
-    ownerOnly: true,
+    label: "人員管理",
+    permission: "staff.view",
     requiredFeature: FEATURES.STAFF_MANAGEMENT,
     upgradeTo: "BASIC",
     icon: (
@@ -200,7 +200,7 @@ const NAV_ITEMS: NavItem[] = [
   {
     href: "/dashboard/settings/hours",
     label: "營業時間",
-    ownerOnly: true,
+    permission: "business_hours.view",
     icon: (
       <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
