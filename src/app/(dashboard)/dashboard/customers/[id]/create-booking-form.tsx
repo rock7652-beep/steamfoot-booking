@@ -1,8 +1,11 @@
 "use client";
 
-import { useActionState } from "react";
+import { useState, useCallback, useEffect, useActionState } from "react";
 import { createBooking } from "@/server/actions/booking";
+import { fetchDaySlots } from "@/server/actions/slots";
+import { toLocalDateStr } from "@/lib/date-utils";
 import { toast } from "sonner";
+import type { SlotAvailability } from "@/types";
 
 interface ActiveWallet {
   id: string;
@@ -15,21 +18,43 @@ interface Props {
   activeWallets: ActiveWallet[];
 }
 
-// Next 14 days helper
+// Next 14 days helper (Taiwan time)
 function getNextDays(n: number): string[] {
   const days: string[] = [];
-  const d = new Date();
+  const today = toLocalDateStr();
+  const [y, m, d] = today.split("-").map(Number);
   for (let i = 0; i < n; i++) {
-    const date = new Date(d);
-    date.setDate(d.getDate() + i);
+    const date = new Date(Date.UTC(y, m - 1, d + i));
     days.push(date.toISOString().slice(0, 10));
   }
   return days;
 }
 
-const SLOT_TIMES = ["10:00", "11:00", "14:00", "15:00", "16:00", "17:30", "18:30", "19:30"];
-
 export function CreateBookingForm({ customerId, activeWallets }: Props) {
+  const days = getNextDays(14);
+  const [selectedDate, setSelectedDate] = useState(days[0]);
+  const [slots, setSlots] = useState<SlotAvailability[]>([]);
+  const [loadingSlots, setLoadingSlots] = useState(true);
+
+  const loadSlots = useCallback(async (date: string) => {
+    setLoadingSlots(true);
+    try {
+      const result = await fetchDaySlots(date);
+      setSlots(result.slots);
+    } catch {
+      setSlots([]);
+    } finally {
+      setLoadingSlots(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadSlots(selectedDate);
+  }, [selectedDate, loadSlots]);
+
+  // 可預約的時段（排除已過和已滿）
+  const availableSlots = slots.filter((s) => s.available > 0 && !s.isPast);
+
   const [state, action, pending] = useActionState(
     async (_prev: { error: string | null; success: boolean }, formData: FormData) => {
       const bookingDate = formData.get("bookingDate") as string;
@@ -48,6 +73,8 @@ export function CreateBookingForm({ customerId, activeWallets }: Props) {
       });
       if (result.success) {
         toast.success("預約已建立");
+        // 重新載入時段（反映新預約）
+        loadSlots(bookingDate);
         return { error: null, success: true };
       }
       toast.error(result.error ?? "建立預約失敗");
@@ -55,8 +82,6 @@ export function CreateBookingForm({ customerId, activeWallets }: Props) {
     },
     { error: null, success: false }
   );
-
-  const days = getNextDays(14);
 
   return (
     <form action={action} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -73,7 +98,13 @@ export function CreateBookingForm({ customerId, activeWallets }: Props) {
 
       <div>
         <label className="block text-xs text-earth-500">日期</label>
-        <select name="bookingDate" required className="mt-1 w-full rounded border border-earth-300 px-2 py-1 text-sm">
+        <select
+          name="bookingDate"
+          required
+          value={selectedDate}
+          onChange={(e) => setSelectedDate(e.target.value)}
+          className="mt-1 w-full rounded border border-earth-300 px-2 py-1 text-sm"
+        >
           {days.map((d) => (
             <option key={d} value={d}>{d}</option>
           ))}
@@ -82,11 +113,21 @@ export function CreateBookingForm({ customerId, activeWallets }: Props) {
 
       <div>
         <label className="block text-xs text-earth-500">時段</label>
-        <select name="slotTime" required className="mt-1 w-full rounded border border-earth-300 px-2 py-1 text-sm">
-          {SLOT_TIMES.map((t) => (
-            <option key={t} value={t}>{t}</option>
-          ))}
-        </select>
+        {loadingSlots ? (
+          <p className="mt-1 py-1 text-xs text-earth-400">載入中...</p>
+        ) : availableSlots.length === 0 ? (
+          <p className="mt-1 py-1 text-xs text-amber-600">
+            {slots.length === 0 ? "公休日" : "無可用時段"}
+          </p>
+        ) : (
+          <select name="slotTime" required className="mt-1 w-full rounded border border-earth-300 px-2 py-1 text-sm">
+            {availableSlots.map((s) => (
+              <option key={s.startTime} value={s.startTime}>
+                {s.startTime}（剩 {s.available} 位）
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
       <div>
@@ -125,7 +166,7 @@ export function CreateBookingForm({ customerId, activeWallets }: Props) {
       <div className="col-span-2 flex items-end sm:col-span-4">
         <button
           type="submit"
-          disabled={pending}
+          disabled={pending || availableSlots.length === 0}
           className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-60"
         >
           {pending ? "建立中…" : "建立預約"}

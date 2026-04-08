@@ -1,9 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import type { SlotAvailability } from "@/types";
 
-const FIXED_SLOTS = ["10:00", "11:00", "14:00", "15:00", "16:00", "17:30", "18:30", "19:30"];
-const CAPACITY = 6;
 const WEEKDAY_LABELS = ["日", "一", "二", "三", "四", "五", "六"];
 
 const STATUS_LABEL: Record<string, string> = {
@@ -38,9 +37,11 @@ interface DayBooking {
 interface DayViewProps {
   date: string;
   bookings: DayBooking[];
+  /** 從 fetchDaySlots() 取得的實際可預約時段（已套用營業時間 + SlotOverride） */
+  slots: SlotAvailability[];
 }
 
-export function DayView({ date, bookings }: DayViewProps) {
+export function DayView({ date, bookings, slots }: DayViewProps) {
   const dateObj = new Date(date + "T12:00:00");
   const dayLabel = WEEKDAY_LABELS[dateObj.getDay()];
   const displayDate = dateObj.toLocaleDateString("zh-TW", { month: "2-digit", day: "2-digit" });
@@ -54,9 +55,27 @@ export function DayView({ date, bookings }: DayViewProps) {
   nextDate.setDate(nextDate.getDate() + 1);
   const nextDateStr = nextDate.toISOString().slice(0, 10);
 
+  // 用 DB 時段建立 slot 列表；同時收集不在時段列表內的預約（歷史或異常）
+  const slotTimeSet = new Set(slots.map((s) => s.startTime));
+  const slotCapacityMap = new Map(slots.map((s) => [s.startTime, s.capacity]));
+
+  // 找出有預約但不在當前時段設定中的 slotTime（歷史資料）
+  const orphanSlotTimes = new Set<string>();
+  for (const booking of bookings) {
+    if (!slotTimeSet.has(booking.slotTime)) {
+      orphanSlotTimes.add(booking.slotTime);
+    }
+  }
+
+  // 合併：先顯示 DB 時段，再附加孤兒時段（排序）
+  const allSlotTimes = [
+    ...slots.map((s) => s.startTime),
+    ...Array.from(orphanSlotTimes).sort(),
+  ];
+
   // Group bookings by slot
   const slotMap = new Map<string, DayBooking[]>();
-  for (const slot of FIXED_SLOTS) {
+  for (const slot of allSlotTimes) {
     slotMap.set(slot, []);
   }
   for (const booking of bookings) {
@@ -81,6 +100,8 @@ export function DayView({ date, bookings }: DayViewProps) {
   const activeBookingCount = bookings.filter((b) => b.bookingStatus !== "CANCELLED").length;
   const activePeopleCount = bookings.filter((b) => b.bookingStatus !== "CANCELLED").reduce((sum, b) => sum + (b.people ?? 1), 0);
 
+  const isClosed = slots.length === 0 && bookings.length === 0;
+
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -90,7 +111,11 @@ export function DayView({ date, bookings }: DayViewProps) {
             {displayDate}（{dayLabel}）
           </h1>
           <p className="mt-1 text-sm text-earth-500">
-            共 {activeBookingCount} 筆預約（{activePeopleCount} 人）
+            {isClosed ? (
+              <span className="text-amber-600">公休日 — 不開放預約</span>
+            ) : (
+              <>共 {activeBookingCount} 筆預約（{activePeopleCount} 人）</>
+            )}
           </p>
         </div>
         <Link
@@ -132,92 +157,113 @@ export function DayView({ date, bookings }: DayViewProps) {
         </div>
       )}
 
+      {/* Closed day message */}
+      {isClosed && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-6 py-8 text-center">
+          <p className="text-sm text-amber-700">此日為公休日或尚未設定預約時段</p>
+          <Link href="/dashboard/settings/hours" className="mt-2 inline-block text-xs text-primary-600 hover:underline">
+            前往預約開放設定 →
+          </Link>
+        </div>
+      )}
+
       {/* Time Slots — 2-col grid on desktop */}
-      <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
-        {FIXED_SLOTS.map((slot) => {
-          const slotBookings = slotMap.get(slot) || [];
-          const activeCount = slotBookings.filter((b) => b.bookingStatus !== "CANCELLED").reduce((sum, b) => sum + (b.people ?? 1), 0);
-          const isFull = activeCount >= CAPACITY;
-          const isNearFull = activeCount >= 4;
+      {allSlotTimes.length > 0 && (
+        <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
+          {allSlotTimes.map((slotTime) => {
+            const slotBookings = slotMap.get(slotTime) || [];
+            const activeCount = slotBookings.filter((b) => b.bookingStatus !== "CANCELLED").reduce((sum, b) => sum + (b.people ?? 1), 0);
+            const capacity = slotCapacityMap.get(slotTime) ?? 0;
+            const isOrphan = orphanSlotTimes.has(slotTime);
+            const isFull = capacity > 0 && activeCount >= capacity;
+            const isNearFull = capacity > 0 && activeCount >= capacity - 2;
 
-          return (
-            <div key={slot} className="rounded-lg border border-earth-200 bg-white p-3">
-              {/* Time header */}
-              <div className="mb-2 flex items-center justify-between">
-                <span
-                  className={`inline-block rounded px-2 py-0.5 text-sm font-bold ${
-                    isFull
-                      ? "bg-red-100 text-red-700"
-                      : isNearFull
-                      ? "bg-yellow-100 text-yellow-700"
-                      : "bg-green-50 text-green-700"
-                  }`}
-                >
-                  {slot}
-                </span>
-                <span className="text-xs text-earth-500">
-                  <span
-                    className={`font-semibold ${
-                      isFull ? "text-red-600" : isNearFull ? "text-yellow-600" : "text-green-600"
-                    }`}
-                  >
-                    {activeCount}
-                  </span>
-                  <span className="text-earth-400">/{CAPACITY}</span>
-                </span>
-              </div>
-
-              {/* Booking cards — compact */}
-              {slotBookings.length === 0 ? (
-                <p className="text-xs text-earth-300">暫無預約</p>
-              ) : (
-                <div className="space-y-1.5">
-                  {slotBookings.map((booking) => (
-                    <Link
-                      key={booking.id}
-                      href={`/dashboard/bookings/${booking.id}`}
-                      className={`flex items-center gap-2 rounded-md border px-2.5 py-1.5 transition-shadow hover:shadow-md ${
-                        STATUS_COLORS[booking.bookingStatus] || "border-earth-200 bg-white"
+            return (
+              <div key={slotTime} className={`rounded-lg border bg-white p-3 ${isOrphan ? "border-amber-200 bg-amber-50/30" : "border-earth-200"}`}>
+                {/* Time header */}
+                <div className="mb-2 flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <span
+                      className={`inline-block rounded px-2 py-0.5 text-sm font-bold ${
+                        isFull
+                          ? "bg-red-100 text-red-700"
+                          : isNearFull
+                          ? "bg-yellow-100 text-yellow-700"
+                          : "bg-green-50 text-green-700"
                       }`}
                     >
-                      {/* Staff color dot */}
-                      <div
-                        className="h-2.5 w-2.5 flex-shrink-0 rounded-full"
-                        style={{ backgroundColor: (booking.revenueStaff || booking.customer.assignedStaff)?.colorCode || "#9ca3af" }}
-                      />
-                      <span className="min-w-0 flex-1 truncate text-sm font-medium text-earth-900">
-                        {booking.customer.name}
-                        {booking.people > 1 && (
-                          <span className="ml-1 inline-block rounded bg-earth-100 px-1 py-0.5 text-[10px] font-medium text-earth-600">
-                            {booking.people}人
-                          </span>
-                        )}
-                        {booking.isMakeup && (
-                          <span className="ml-1 inline-block rounded bg-amber-100 px-1 py-0.5 text-[10px] font-medium text-amber-700">
-                            補課
-                          </span>
-                        )}
-                        {booking.isCheckedIn && booking.bookingStatus === "CONFIRMED" && (
-                          <span className="ml-1 inline-block rounded bg-green-100 px-1 py-0.5 text-[10px] font-medium text-green-700">
-                            已報到
-                          </span>
-                        )}
+                      {slotTime}
+                    </span>
+                    {isOrphan && (
+                      <span className="rounded bg-amber-100 px-1 py-0.5 text-[10px] text-amber-600">
+                        已關閉時段
                       </span>
-                      <span
-                        className={`rounded px-1.5 py-0.5 text-[11px] font-medium whitespace-nowrap ${
-                          STATUS_COLORS[booking.bookingStatus] || "bg-earth-100 text-earth-600"
+                    )}
+                  </div>
+                  <span className="text-xs text-earth-500">
+                    <span
+                      className={`font-semibold ${
+                        isFull ? "text-red-600" : isNearFull ? "text-yellow-600" : "text-green-600"
+                      }`}
+                    >
+                      {activeCount}
+                    </span>
+                    <span className="text-earth-400">/{capacity}</span>
+                  </span>
+                </div>
+
+                {/* Booking cards — compact */}
+                {slotBookings.length === 0 ? (
+                  <p className="text-xs text-earth-300">暫無預約</p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {slotBookings.map((booking) => (
+                      <Link
+                        key={booking.id}
+                        href={`/dashboard/bookings/${booking.id}`}
+                        className={`flex items-center gap-2 rounded-md border px-2.5 py-1.5 transition-shadow hover:shadow-md ${
+                          STATUS_COLORS[booking.bookingStatus] || "border-earth-200 bg-white"
                         }`}
                       >
-                        {STATUS_LABEL[booking.bookingStatus] || booking.bookingStatus}
-                      </span>
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
+                        {/* Staff color dot */}
+                        <div
+                          className="h-2.5 w-2.5 flex-shrink-0 rounded-full"
+                          style={{ backgroundColor: (booking.revenueStaff || booking.customer.assignedStaff)?.colorCode || "#9ca3af" }}
+                        />
+                        <span className="min-w-0 flex-1 truncate text-sm font-medium text-earth-900">
+                          {booking.customer.name}
+                          {booking.people > 1 && (
+                            <span className="ml-1 inline-block rounded bg-earth-100 px-1 py-0.5 text-[10px] font-medium text-earth-600">
+                              {booking.people}人
+                            </span>
+                          )}
+                          {booking.isMakeup && (
+                            <span className="ml-1 inline-block rounded bg-amber-100 px-1 py-0.5 text-[10px] font-medium text-amber-700">
+                              補課
+                            </span>
+                          )}
+                          {booking.isCheckedIn && booking.bookingStatus === "CONFIRMED" && (
+                            <span className="ml-1 inline-block rounded bg-green-100 px-1 py-0.5 text-[10px] font-medium text-green-700">
+                              已報到
+                            </span>
+                          )}
+                        </span>
+                        <span
+                          className={`rounded px-1.5 py-0.5 text-[11px] font-medium whitespace-nowrap ${
+                            STATUS_COLORS[booking.bookingStatus] || "bg-earth-100 text-earth-600"
+                          }`}
+                        >
+                          {STATUS_LABEL[booking.bookingStatus] || booking.bookingStatus}
+                        </span>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

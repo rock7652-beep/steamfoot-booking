@@ -1,4 +1,5 @@
 import { getMonthBookingSummary, getDayBookings } from "@/server/queries/booking";
+import { fetchDaySlots } from "@/server/actions/slots";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { redirect } from "next/navigation";
@@ -20,10 +21,17 @@ export default async function BookingsPage({ searchParams }: PageProps) {
   const selectedDate = params.date;
 
   if (view === "day" && selectedDate) {
-    const bookings = await getDayBookings(selectedDate);
+    const [bookings, slotResult] = await Promise.all([
+      getDayBookings(selectedDate),
+      fetchDaySlots(selectedDate),
+    ]);
     return (
       <div className="mx-auto max-w-5xl px-4 py-4">
-        <DayView date={selectedDate} bookings={bookings} />
+        <DayView
+          date={selectedDate}
+          bookings={bookings}
+          slots={slotResult.slots}
+        />
       </div>
     );
   }

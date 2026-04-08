@@ -7,8 +7,6 @@ import { redirect } from "next/navigation";
 import CustomerSearch from "./customer-search";
 import { DashboardBookingForm } from "./booking-form";
 
-const SLOT_TIMES = ["10:00", "11:00", "14:00", "15:00", "16:00", "17:30", "18:30", "19:30"];
-
 function getNextDays(n: number): string[] {
   const days: string[] = [];
   const today = toLocalDateStr();
@@ -79,7 +77,6 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
         <form action={handleCreate} className="space-y-5">
           <DashboardBookingForm
             days={days}
-            slotTimes={SLOT_TIMES}
             defaultDate={defaultDate}
             todayStr={todayStr}
           >
