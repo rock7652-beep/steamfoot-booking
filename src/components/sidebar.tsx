@@ -199,7 +199,7 @@ const NAV_ITEMS: NavItem[] = [
   // 營業時間設定
   {
     href: "/dashboard/settings/hours",
-    label: "營業時間",
+    label: "預約開放設定",
     permission: "business_hours.view",
     icon: (
       <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
