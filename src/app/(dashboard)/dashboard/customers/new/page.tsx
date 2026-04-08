@@ -37,7 +37,7 @@ export default async function NewCustomerPage({}: PageProps) {
       throw new Error(result.error || "新增顧客失敗");
     }
 
-    redirect(`/dashboard/customers/${result.data!.customerId}`);
+    redirect(`/dashboard/customers/${result.data?.customerId ?? ""}`);
   }
 
   return (

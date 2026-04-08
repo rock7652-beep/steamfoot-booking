@@ -2,6 +2,7 @@ import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { notFound } from "next/navigation";
 import { getBusinessHours, getMonthSpecialDays } from "@/server/actions/business-hours";
+import { toLocalDateStr } from "@/lib/date-utils";
 import Link from "next/link";
 import { ScheduleManager } from "./schedule-manager";
 
@@ -12,11 +13,12 @@ export default async function ScheduleSettingsPage() {
 
   const canManage = await checkPermission(user.role, user.staffId, "business_hours.manage");
 
-  // 取得初始資料
-  const now = new Date();
+  // 取得初始資料（使用台灣時間判斷當前月份）
+  const todayStr = toLocalDateStr();
+  const [nowYear, nowMonth] = todayStr.split("-").map(Number);
   const [weeklyHours, specialDays] = await Promise.all([
     getBusinessHours(),
-    getMonthSpecialDays(now.getFullYear(), now.getMonth() + 1),
+    getMonthSpecialDays(nowYear, nowMonth),
   ]);
 
   return (
@@ -36,8 +38,8 @@ export default async function ScheduleSettingsPage() {
           closeTime: h.closeTime,
         }))}
         initialSpecialDays={specialDays}
-        initialYear={now.getFullYear()}
-        initialMonth={now.getMonth() + 1}
+        initialYear={nowYear}
+        initialMonth={nowMonth}
         canManage={canManage}
       />
     </div>

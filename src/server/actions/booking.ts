@@ -304,7 +304,7 @@ export async function updateBooking(
 
     if (data.bookingDate || data.slotTime || data.people) {
       const newDate = data.bookingDate
-        ? new Date(data.bookingDate + "T00:00:00")
+        ? new Date(data.bookingDate + "T00:00:00Z")
         : booking.bookingDate;
       const newSlot = data.slotTime ?? booking.slotTime;
       const newPeople = data.people ?? booking.people;
@@ -313,11 +313,48 @@ export async function updateBooking(
       td.setHours(0, 0, 0, 0);
       if (newDate < td) throw new AppError("VALIDATION", "不能改到過去的日期");
 
-      const dayOfWeek = newDate.getDay();
+      // 檢查營業狀態（與 createBooking 同邏輯）
+      const [specialDay, businessHour, slotOverride] = await Promise.all([
+        prisma.specialBusinessDay.findUnique({ where: { date: newDate } }),
+        prisma.businessHours.findUnique({ where: { dayOfWeek: newDate.getUTCDay() } }),
+        prisma.slotOverride.findUnique({
+          where: { date_startTime: { date: newDate, startTime: newSlot } },
+        }),
+      ]);
+
+      // SlotOverride: disabled → 不可用
+      if (slotOverride?.type === "disabled") {
+        throw new AppError("VALIDATION", `${newSlot} 時段已被手動關閉`);
+      }
+
+      // 公休/進修 → 不可預約
+      if (specialDay && (specialDay.type === "closed" || specialDay.type === "training")) {
+        throw new AppError("VALIDATION", "目標日期為公休或進修日");
+      }
+      if (!specialDay && businessHour && !businessHour.isOpen) {
+        throw new AppError("VALIDATION", "目標日期為固定公休日");
+      }
+
+      // 營業時間範圍檢查（enabled 覆寫跳過）
+      if (slotOverride?.type !== "enabled") {
+        const dayOpenTime = specialDay?.type === "custom" ? specialDay.openTime : (businessHour?.openTime ?? null);
+        const dayCloseTime = specialDay?.type === "custom" ? specialDay.closeTime : (businessHour?.closeTime ?? null);
+        if (dayOpenTime && dayCloseTime && (newSlot < dayOpenTime || newSlot >= dayCloseTime)) {
+          throw new AppError("VALIDATION", `${newSlot} 不在營業時間 ${dayOpenTime}-${dayCloseTime} 範圍內`);
+        }
+      }
+
+      // BookingSlot 模板檢查
+      const dayOfWeek = newDate.getUTCDay();
       const slot = await prisma.bookingSlot.findFirst({
         where: { dayOfWeek, startTime: newSlot, isEnabled: true },
       });
       if (!slot) throw new AppError("VALIDATION", "目標時段不可用");
+
+      // 容量檢查（SlotOverride capacity_change 覆寫）
+      const effectiveCapacity = slotOverride?.type === "capacity_change" && slotOverride.capacity != null
+        ? slotOverride.capacity
+        : slot.capacity;
 
       const bookedAgg = await prisma.booking.aggregate({
         where: {
@@ -329,14 +366,14 @@ export async function updateBooking(
         _sum: { people: true },
       });
       const booked = bookedAgg._sum.people ?? 0;
-      if (slot.capacity - booked < newPeople) {
+      if (effectiveCapacity - booked < newPeople) {
         throw new AppError("BUSINESS_RULE", "目標時段名額不足");
       }
     }
 
     const updateData: Record<string, unknown> = {};
     if (data.bookingDate)
-      updateData.bookingDate = new Date(data.bookingDate + "T00:00:00");
+      updateData.bookingDate = new Date(data.bookingDate + "T00:00:00Z");
     if (data.slotTime) updateData.slotTime = data.slotTime;
     if (data.people !== undefined) updateData.people = data.people;
     if (data.serviceStaffId !== undefined)

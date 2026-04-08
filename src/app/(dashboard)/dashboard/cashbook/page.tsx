@@ -207,7 +207,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
           <div className="flex gap-2">
             {page > 1 && (
               <Link
-                href={`?${new URLSearchParams({ ...params, page: String(page - 1) })}`}
+                href={`?${new URLSearchParams(Object.fromEntries(Object.entries({ ...params, page: String(page - 1) }).filter(([, v]) => v != null)))}`}
                 className="rounded border px-3 py-1 hover:bg-earth-50"
               >
                 上一頁
@@ -215,7 +215,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
             )}
             {page < totalPages && (
               <Link
-                href={`?${new URLSearchParams({ ...params, page: String(page + 1) })}`}
+                href={`?${new URLSearchParams(Object.fromEntries(Object.entries({ ...params, page: String(page + 1) }).filter(([, v]) => v != null)))}`}
                 className="rounded border px-3 py-1 hover:bg-earth-50"
               >
                 下一頁

@@ -2,6 +2,7 @@ import { getMonthBookingSummary, getDayBookings } from "@/server/queries/booking
 import { fetchDaySlots } from "@/server/actions/slots";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
+import { toLocalDateStr } from "@/lib/date-utils";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { CalendarMonth } from "./calendar-month";
@@ -36,10 +37,11 @@ export default async function BookingsPage({ searchParams }: PageProps) {
     );
   }
 
-  // Month view - use URL params for month navigation
-  const today = new Date();
-  const year = params.year ? parseInt(params.year) : today.getFullYear();
-  const month = params.month ? parseInt(params.month) : today.getMonth() + 1;
+  // Month view - use URL params for month navigation (Taiwan time)
+  const todayStr = toLocalDateStr();
+  const [todayY, todayM] = todayStr.split("-").map(Number);
+  const year = params.year ? parseInt(params.year) : todayY;
+  const month = params.month ? parseInt(params.month) : todayM;
 
   const monthData = await getMonthBookingSummary(year, month);
 

@@ -15,9 +15,11 @@ export interface ListBookingsOptions {
 }
 
 // ============================================================
-// listAvailableSlots — 查詢某天所有時段可用性
+// listAvailableSlots — 已棄用，請改用 fetchDaySlots (slots.ts)
+// 此函式不檢查 BusinessHours / SpecialBusinessDay / SlotOverride
 // ============================================================
 
+/** @deprecated 請改用 src/server/actions/slots.ts 的 fetchDaySlots() */
 export async function listAvailableSlots(date: string): Promise<DayAvailability> {
   await requireSession();
 
