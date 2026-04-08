@@ -3,7 +3,6 @@ import { requireSession, requireStaffSession } from "@/lib/session";
 import { AppError } from "@/lib/errors";
 import { getManagerCustomerFilter } from "@/lib/manager-visibility";
 import type { BookingStatus } from "@prisma/client";
-import type { SlotAvailability, DayAvailability } from "@/types";
 
 export interface ListBookingsOptions {
   dateFrom?: string; // "YYYY-MM-DD"
@@ -12,54 +11,6 @@ export interface ListBookingsOptions {
   customerId?: string;
   page?: number;
   pageSize?: number;
-}
-
-// ============================================================
-// listAvailableSlots — 已棄用，請改用 fetchDaySlots (slots.ts)
-// 此函式不檢查 BusinessHours / SpecialBusinessDay / SlotOverride
-// ============================================================
-
-/** @deprecated 請改用 src/server/actions/slots.ts 的 fetchDaySlots() */
-export async function listAvailableSlots(date: string): Promise<DayAvailability> {
-  await requireSession();
-
-  const dateObj = new Date(date + "T00:00:00Z");
-  const dayOfWeek = dateObj.getDay();
-
-  // 取該星期幾的所有啟用時段
-  const slots = await prisma.bookingSlot.findMany({
-    where: { dayOfWeek, isEnabled: true },
-    orderBy: { startTime: "asc" },
-  });
-
-  if (slots.length === 0) {
-    return { date, dayOfWeek, slots: [] };
-  }
-
-  // 計算各時段已預約人數（以 SUM(people) 為準）
-  const existingBookings = await prisma.booking.groupBy({
-    by: ["slotTime"],
-    where: {
-      bookingDate: dateObj,
-      bookingStatus: { in: ["PENDING", "CONFIRMED"] },
-    },
-    _sum: { people: true },
-  });
-
-  const bookedMap = new Map(existingBookings.map((b) => [b.slotTime, b._sum.people ?? 0]));
-
-  const slotAvailability: SlotAvailability[] = slots.map((slot) => {
-    const booked = bookedMap.get(slot.startTime) ?? 0;
-    return {
-      startTime: slot.startTime,
-      capacity: slot.capacity,
-      bookedCount: booked,
-      available: Math.max(0, slot.capacity - booked),
-      isEnabled: slot.isEnabled,
-    };
-  });
-
-  return { date, dayOfWeek, slots: slotAvailability };
 }
 
 // ============================================================
@@ -289,7 +240,7 @@ export async function getMonthBookingSummary(year: number, month: number) {
   // 組裝每日資料
   const dailyMap = new Map<string, { total: number; totalPeople: number; staffBookings: { staffName: string; colorCode: string; count: number }[] }>();
 
-  for (let day = 1; day <= endDate.getDate(); day++) {
+  for (let day = 1; day <= endDate.getUTCDate(); day++) {
     const dateKey = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
     dailyMap.set(dateKey, { total: 0, totalPeople: 0, staffBookings: [] });
   }

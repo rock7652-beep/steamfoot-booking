@@ -1,16 +1,19 @@
 "use client";
 
-import { useState, useCallback, useTransition } from "react";
+import { useState, useCallback, useTransition, useEffect } from "react";
 import { toast } from "sonner";
 import {
   updateBusinessHours,
   addSpecialDay,
   removeSpecialDayByDate,
   getMonthSpecialDays,
+  getMonthScheduleSummary,
   getDaySlotDetails,
   copySettingsToFutureWeeks,
   toggleSlotOverride,
+  overrideSlotCapacity,
 } from "@/server/actions/business-hours";
+import { SLOT_INTERVAL_OPTIONS, CAPACITY_OPTIONS } from "@/lib/slot-generator";
 
 // ============================================================
 // Types
@@ -22,6 +25,8 @@ interface WeeklyHour {
   isOpen: boolean;
   openTime: string | null;
   closeTime: string | null;
+  slotInterval: number;
+  defaultCapacity: number;
 }
 
 interface SpecialDay {
@@ -50,8 +55,21 @@ interface DayDetail {
     override: string | null;
     overrideReason: string | null;
   }[];
-  weeklyDefault: { isOpen: boolean; openTime: string | null; closeTime: string | null } | null;
+  slotInterval: number;
+  defaultCapacity: number;
+  weeklyDefault: {
+    isOpen: boolean; openTime: string | null; closeTime: string | null;
+    slotInterval: number; defaultCapacity: number;
+  } | null;
 }
+
+type MonthSummary = Record<string, {
+  status: "open" | "closed" | "training" | "custom";
+  openTime: string | null;
+  closeTime: string | null;
+  slotCount: number;
+  overrideCount: number;
+}>;
 
 interface Props {
   weeklyHours: WeeklyHour[];
@@ -92,6 +110,22 @@ export function ScheduleManager({
   const [editCloseTime, setEditCloseTime] = useState("22:00");
   const [editReason, setEditReason] = useState("");
   const [copyWeeks, setCopyWeeks] = useState(0);
+  const [editInterval, setEditInterval] = useState(60);
+  const [editCapacity, setEditCapacity] = useState(6);
+  // applyMode: "day" = 只改這天, "copy" = 複製到未來N週, "permanent" = 設為每週固定規則
+  const [applyMode, setApplyMode] = useState<"day" | "copy" | "permanent">("day");
+
+  // 月曆摘要
+  const [monthSummary, setMonthSummary] = useState<MonthSummary>({});
+
+  // 單時段名額調整 - 選中的時段
+  const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+  const [slotCapacityInput, setSlotCapacityInput] = useState<number>(0);
+
+  // 載入月曆摘要
+  useEffect(() => {
+    getMonthScheduleSummary(year, month).then(setMonthSummary).catch(() => {});
+  }, [year, month]);
 
   // ── 月曆資料計算 ──
   const firstDay = new Date(Date.UTC(year, month - 1, 1));
@@ -136,14 +170,19 @@ export function ScheduleManager({
     setSelectedDate(null);
     setDayDetail(null);
 
-    // 載入新月份的特殊日期
-    const data = await getMonthSpecialDays(newYear, newMonth);
+    // 載入新月份的特殊日期 + 摘要
+    const [data, summary] = await Promise.all([
+      getMonthSpecialDays(newYear, newMonth),
+      getMonthScheduleSummary(newYear, newMonth),
+    ]);
     setSpecialDays(data);
+    setMonthSummary(summary);
   }, [year, month]);
 
   // ── 選擇日期 ──
   const selectDate = useCallback(async (dateStr: string) => {
     setSelectedDate(dateStr);
+    setSelectedSlot(null);
     setLoadingDay(true);
     try {
       const detail = await getDaySlotDetails(dateStr);
@@ -152,7 +191,10 @@ export function ScheduleManager({
       setEditOpenTime(detail.openTime ?? "10:00");
       setEditCloseTime(detail.closeTime ?? "22:00");
       setEditReason(detail.reason ?? "");
+      setEditInterval(detail.slotInterval);
+      setEditCapacity(detail.defaultCapacity);
       setCopyWeeks(0);
+      setApplyMode("day");
     } catch {
       toast.error("載入日期設定失敗");
     } finally {
@@ -166,64 +208,117 @@ export function ScheduleManager({
 
     startTransition(async () => {
       try {
-        if (editStatus === "open") {
-          // 回復為每週預設 → 移除特殊設定
-          await removeSpecialDayByDate(selectedDate);
-        } else {
-          // 新增/更新特殊日期
-          const result = await addSpecialDay({
-            date: selectedDate,
-            type: editStatus === "custom" ? "custom" : editStatus,
-            reason: editReason || undefined,
-            openTime: editStatus === "custom" ? editOpenTime : undefined,
-            closeTime: editStatus === "custom" ? editCloseTime : undefined,
+        // 「設為每週固定規則」模式 → 更新每週固定規則
+        if (applyMode === "permanent" && dayDetail) {
+          const dow = dayDetail.dayOfWeek;
+          const isOpen = editStatus === "open" || editStatus === "custom";
+          const result = await updateBusinessHours(dow, {
+            isOpen,
+            openTime: isOpen ? editOpenTime : null,
+            closeTime: isOpen ? editCloseTime : null,
+            slotInterval: editInterval,
+            defaultCapacity: editCapacity,
           });
           if (!result.success) {
             toast.error(result.error);
             return;
           }
-        }
-
-        // 複製到未來 N 週
-        if (copyWeeks > 0 && editStatus !== "open") {
-          const copyResult = await copySettingsToFutureWeeks({
-            sourceDate: selectedDate,
-            type: editStatus === "custom" ? "custom" : editStatus,
-            reason: editReason || undefined,
-            openTime: editStatus === "custom" ? editOpenTime : undefined,
-            closeTime: editStatus === "custom" ? editCloseTime : undefined,
-            weeks: copyWeeks,
-          });
-          if (copyResult.success) {
-            toast.success(`已套用到未來 ${copyResult.data.count} 週`);
+          // ① 每週固定規則已成功更新 → 才移除該日特殊設定（順序不可反）
+          try {
+            await removeSpecialDayByDate(selectedDate);
+          } catch {
+            // 刪除特殊設定失敗不影響每週固定規則已更新，僅提醒
+            toast.warning("每週固定規則已更新，但該日特殊設定移除失敗，可手動移除");
           }
+          // 同步更新本地 weeklyHours
+          setWeeklyHours((prev) =>
+            prev.map((w) => w.dayOfWeek === dow ? {
+              ...w,
+              isOpen,
+              openTime: isOpen ? editOpenTime : null,
+              closeTime: isOpen ? editCloseTime : null,
+              slotInterval: editInterval,
+              defaultCapacity: editCapacity,
+            } : w)
+          );
+          toast.success(`${dayDetail.dayName} 每週固定規則已更新`);
         } else {
-          toast.success("設定已儲存");
+          // 非永久模式：操作特殊日期
+          if (editStatus === "open") {
+            // 回復為每週預設 → 移除特殊設定
+            await removeSpecialDayByDate(selectedDate);
+          } else {
+            // 新增/更新特殊日期
+            const result = await addSpecialDay({
+              date: selectedDate,
+              type: editStatus === "custom" ? "custom" : editStatus,
+              reason: editReason || undefined,
+              openTime: editStatus === "custom" ? editOpenTime : undefined,
+              closeTime: editStatus === "custom" ? editCloseTime : undefined,
+              defaultCapacity: editStatus === "custom" ? editCapacity : undefined,
+            });
+            if (!result.success) {
+              toast.error(result.error);
+              return;
+            }
+          }
+
+          // 複製到未來 N 週
+          if (applyMode === "copy" && copyWeeks > 0 && editStatus !== "open") {
+            const copyResult = await copySettingsToFutureWeeks({
+              sourceDate: selectedDate,
+              type: editStatus === "custom" ? "custom" : editStatus,
+              reason: editReason || undefined,
+              openTime: editStatus === "custom" ? editOpenTime : undefined,
+              closeTime: editStatus === "custom" ? editCloseTime : undefined,
+              defaultCapacity: editStatus === "custom" ? editCapacity : undefined,
+              weeks: copyWeeks,
+            });
+            if (copyResult.success) {
+              toast.success(`已套用到未來 ${copyResult.data.count} 週`);
+            }
+          } else {
+            toast.success("設定已儲存");
+          }
         }
 
         // 重新載入月份資料
-        const newSpecials = await getMonthSpecialDays(year, month);
+        const [newSpecials, newSummary] = await Promise.all([
+          getMonthSpecialDays(year, month),
+          getMonthScheduleSummary(year, month),
+        ]);
         setSpecialDays(newSpecials);
+        setMonthSummary(newSummary);
         await selectDate(selectedDate);
       } catch {
         toast.error("儲存失敗");
       }
     });
-  }, [selectedDate, canManage, editStatus, editReason, editOpenTime, editCloseTime, copyWeeks, year, month, selectDate]);
+  }, [selectedDate, canManage, editStatus, editReason, editOpenTime, editCloseTime, editInterval, editCapacity, applyMode, copyWeeks, year, month, selectDate, dayDetail]);
 
   // ── 儲存每週固定設定 ──
-  const saveWeeklyDay = useCallback(async (dow: number, isOpen: boolean, openTime: string, closeTime: string) => {
+  const saveWeeklyDay = useCallback(async (
+    dow: number, isOpen: boolean, openTime: string, closeTime: string,
+    slotInterval: number, defaultCapacity: number
+  ) => {
     if (!canManage) return;
     startTransition(async () => {
       const result = await updateBusinessHours(dow, {
         isOpen,
         openTime: isOpen ? openTime : null,
         closeTime: isOpen ? closeTime : null,
+        slotInterval,
+        defaultCapacity,
       });
       if (result.success) {
         toast.success("每週預設已更新");
         setWeeklyHours((prev) =>
-          prev.map((w) => w.dayOfWeek === dow ? { ...w, isOpen, openTime: isOpen ? openTime : null, closeTime: isOpen ? closeTime : null } : w)
+          prev.map((w) => w.dayOfWeek === dow ? {
+            ...w, isOpen,
+            openTime: isOpen ? openTime : null,
+            closeTime: isOpen ? closeTime : null,
+            slotInterval, defaultCapacity,
+          } : w)
         );
       } else {
         toast.error(result.error);
@@ -269,19 +364,27 @@ export function ScheduleManager({
               const color = getDayColor(dateStr, dow);
               const label = getDayLabel(dateStr, dow);
               const isSelected = selectedDate === dateStr;
+              const summary = monthSummary[dateStr];
 
               return (
                 <button
                   key={day}
                   type="button"
                   onClick={() => selectDate(dateStr)}
-                  className={`relative flex h-10 items-center justify-center rounded-lg text-sm font-medium transition ${color} ${
+                  className={`relative flex h-14 flex-col items-center justify-center rounded-lg text-sm font-medium transition ${color} ${
                     isSelected ? "ring-2 ring-primary-500 ring-offset-1" : "hover:ring-1 hover:ring-earth-300"
                   }`}
                 >
-                  {day}
-                  {label && (
-                    <span className="absolute -top-0.5 -right-0.5 text-[9px] font-bold">{label}</span>
+                  <span className="leading-tight">{day}</span>
+                  {summary?.openTime && summary?.closeTime ? (
+                    <span className="text-[9px] leading-tight opacity-70">
+                      {summary.openTime.slice(0, 5)}–{summary.closeTime.slice(0, 5)}
+                    </span>
+                  ) : label ? (
+                    <span className="text-[9px] leading-tight font-bold">{label}</span>
+                  ) : null}
+                  {summary && summary.overrideCount > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-amber-400 text-[8px] font-bold text-white">{summary.overrideCount}</span>
                   )}
                 </button>
               );
@@ -340,16 +443,12 @@ export function ScheduleManager({
         ) : dayDetail ? (
           <div className="space-y-3">
             <div className="rounded-xl border bg-white p-4 shadow-sm">
-              <h3 className="mb-1 text-base font-bold text-earth-900">
+              <h3 className="mb-2 text-base font-bold text-earth-900">
                 {selectedDate} ({dayDetail.dayName})
               </h3>
-              {dayDetail.weeklyDefault && (
-                <p className="mb-3 text-xs text-earth-400">
-                  每週預設：{dayDetail.weeklyDefault.isOpen
-                    ? `${dayDetail.weeklyDefault.openTime} - ${dayDetail.weeklyDefault.closeTime}`
-                    : "公休"}
-                </p>
-              )}
+
+              {/* 規則推導 */}
+              <CascadeInfo dayDetail={dayDetail} />
 
               {/* 狀態選擇 */}
               <div className="mb-3">
@@ -378,26 +477,56 @@ export function ScheduleManager({
                 </div>
               </div>
 
-              {/* 自訂時段：時間設定 */}
+              {/* 自訂時段：時間 + 間隔 + 名額 */}
               {editStatus === "custom" && (
-                <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 p-3">
-                  <label className="mb-1.5 block text-xs font-medium text-blue-800">可預約時段範圍（24 小時制）</label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="time"
-                      value={editOpenTime}
-                      onChange={(e) => setEditOpenTime(e.target.value)}
-                      disabled={!canManage}
-                      className="rounded border border-earth-300 px-2 py-1.5 text-sm"
-                    />
-                    <span className="text-earth-400">~</span>
-                    <input
-                      type="time"
-                      value={editCloseTime}
-                      onChange={(e) => setEditCloseTime(e.target.value)}
-                      disabled={!canManage}
-                      className="rounded border border-earth-300 px-2 py-1.5 text-sm"
-                    />
+                <div className="mb-3 space-y-2.5 rounded-lg border border-blue-200 bg-blue-50 p-3">
+                  <div>
+                    <label className="mb-1.5 block text-xs font-medium text-blue-800">可預約時段範圍（24 小時制）</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="time"
+                        value={editOpenTime}
+                        onChange={(e) => setEditOpenTime(e.target.value)}
+                        disabled={!canManage}
+                        className="rounded border border-earth-300 px-2 py-1.5 text-sm"
+                      />
+                      <span className="text-earth-400">~</span>
+                      <input
+                        type="time"
+                        value={editCloseTime}
+                        onChange={(e) => setEditCloseTime(e.target.value)}
+                        disabled={!canManage}
+                        className="rounded border border-earth-300 px-2 py-1.5 text-sm"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-3">
+                    <div className="flex-1">
+                      <label className="mb-1 block text-[11px] font-medium text-blue-700">時段間隔</label>
+                      <select
+                        value={editInterval}
+                        onChange={(e) => setEditInterval(Number(e.target.value))}
+                        disabled={!canManage}
+                        className="w-full rounded border border-earth-300 px-2 py-1.5 text-xs"
+                      >
+                        {SLOT_INTERVAL_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="flex-1">
+                      <label className="mb-1 block text-[11px] font-medium text-blue-700">每時段名額</label>
+                      <select
+                        value={editCapacity}
+                        onChange={(e) => setEditCapacity(Number(e.target.value))}
+                        disabled={!canManage}
+                        className="w-full rounded border border-earth-300 px-2 py-1.5 text-xs"
+                      >
+                        {CAPACITY_OPTIONS.map((c) => (
+                          <option key={c} value={c}>{c} 位</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
                 </div>
               )}
@@ -418,21 +547,62 @@ export function ScheduleManager({
                 </div>
               )}
 
-              {/* 套用到未來幾週 */}
-              {editStatus !== "open" && canManage && (
+              {/* 套用範圍 */}
+              {canManage && (
                 <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
-                  <label className="mb-1 block text-xs font-medium text-amber-800">複製到未來幾週同星期</label>
-                  <select
-                    value={copyWeeks}
-                    onChange={(e) => setCopyWeeks(Number(e.target.value))}
-                    className="rounded border border-earth-300 px-2 py-1.5 text-sm"
-                  >
-                    <option value={0}>只改這天</option>
-                    <option value={2}>未來 2 週</option>
-                    <option value={4}>未來 4 週</option>
-                    <option value={8}>未來 8 週</option>
-                    <option value={12}>未來 12 週</option>
-                  </select>
+                  <label className="mb-2 block text-xs font-medium text-amber-800">套用範圍</label>
+                  <div className="space-y-1.5">
+                    <label className="flex items-center gap-2 text-xs text-earth-700">
+                      <input
+                        type="radio"
+                        name="applyMode"
+                        value="day"
+                        checked={applyMode === "day"}
+                        onChange={() => { setApplyMode("day"); setCopyWeeks(0); }}
+                        className="accent-primary-600"
+                      />
+                      只改這天
+                    </label>
+                    {editStatus !== "open" && (
+                      <label className="flex items-center gap-2 text-xs text-earth-700">
+                        <input
+                          type="radio"
+                          name="applyMode"
+                          value="copy"
+                          checked={applyMode === "copy"}
+                          onChange={() => setApplyMode("copy")}
+                          className="accent-primary-600"
+                        />
+                        複製到未來
+                        <select
+                          value={copyWeeks}
+                          onChange={(e) => { setCopyWeeks(Number(e.target.value)); setApplyMode("copy"); }}
+                          className="rounded border border-earth-300 px-1.5 py-0.5 text-xs"
+                        >
+                          <option value={2}>2 週</option>
+                          <option value={4}>4 週</option>
+                          <option value={8}>8 週</option>
+                          <option value={12}>12 週</option>
+                        </select>
+                      </label>
+                    )}
+                    {(editStatus === "open" || editStatus === "custom") && (
+                      <label className="flex items-center gap-2 text-xs text-earth-700">
+                        <input
+                          type="radio"
+                          name="applyMode"
+                          value="permanent"
+                          checked={applyMode === "permanent"}
+                          onChange={() => setApplyMode("permanent")}
+                          className="accent-primary-600"
+                        />
+                        <span>
+                          更新每週{dayDetail?.dayName}固定規則
+                          <span className="ml-1 text-[10px] text-amber-600">⚠ 覆蓋現有設定</span>
+                        </span>
+                      </label>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -480,29 +650,174 @@ export function ScheduleManager({
                   此日尚未設定預約時段模板
                 </p>
               ) : (
-                <div className="grid grid-cols-3 gap-1.5">
-                  {dayDetail.slots.map((s) => (
-                    <SlotToggleButton
-                      key={s.startTime}
-                      slot={s}
-                      date={selectedDate}
-                      editStatus={editStatus}
-                      editOpenTime={editOpenTime}
-                      editCloseTime={editCloseTime}
-                      canManage={canManage}
-                      onToggled={() => selectDate(selectedDate)}
-                    />
-                  ))}
-                </div>
+                <>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {dayDetail.slots.map((s) => (
+                      <SlotToggleButton
+                        key={s.startTime}
+                        slot={s}
+                        date={selectedDate}
+                        editStatus={editStatus}
+                        editOpenTime={editOpenTime}
+                        editCloseTime={editCloseTime}
+                        canManage={canManage}
+                        isSelected={selectedSlot === s.startTime}
+                        onToggled={() => { setSelectedSlot(null); selectDate(selectedDate); }}
+                        onSelect={(startTime) => {
+                          if (selectedSlot === startTime) {
+                            setSelectedSlot(null);
+                          } else {
+                            setSelectedSlot(startTime);
+                            const slot = dayDetail.slots.find((x) => x.startTime === startTime);
+                            setSlotCapacityInput(slot?.capacity ?? dayDetail.defaultCapacity);
+                          }
+                        }}
+                      />
+                    ))}
+                  </div>
+
+                  {/* 名額調整控制列 */}
+                  {selectedSlot && canManage && (() => {
+                    const slot = dayDetail.slots.find((s) => s.startTime === selectedSlot);
+                    if (!slot) return null;
+                    return (
+                      <div className="mt-2 flex items-center gap-2 rounded-lg bg-primary-50 px-3 py-2">
+                        <span className="text-xs font-medium text-earth-700">{selectedSlot}</span>
+                        <span className="text-[10px] text-earth-400">預設 {slot.templateCapacity} 位</span>
+                        <span className="text-earth-400">→</span>
+                        <input
+                          type="number"
+                          min={0}
+                          max={99}
+                          value={slotCapacityInput}
+                          onChange={(e) => setSlotCapacityInput(Number(e.target.value))}
+                          className="w-14 rounded border border-earth-300 px-1.5 py-0.5 text-center text-xs"
+                        />
+                        <span className="text-[10px] text-earth-400">位</span>
+                        <button
+                          type="button"
+                          disabled={isPending}
+                          onClick={async () => {
+                            startTransition(async () => {
+                              const result = await overrideSlotCapacity({
+                                date: selectedDate,
+                                startTime: selectedSlot,
+                                capacity: slotCapacityInput,
+                              });
+                              if (result.success) {
+                                toast.success(`${selectedSlot} 名額已調整為 ${slotCapacityInput} 位`);
+                                setSelectedSlot(null);
+                                const [, newSummary] = await Promise.all([
+                                  selectDate(selectedDate),
+                                  getMonthScheduleSummary(year, month),
+                                ]);
+                                setMonthSummary(newSummary);
+                              } else {
+                                toast.error(result.error);
+                              }
+                            });
+                          }}
+                          className="rounded bg-primary-600 px-2 py-0.5 text-[10px] font-medium text-white hover:bg-primary-700 disabled:opacity-60"
+                        >
+                          {isPending ? "..." : "儲存"}
+                        </button>
+                        {slot.override === "capacity_change" && (
+                          <button
+                            type="button"
+                            disabled={isPending}
+                            onClick={async () => {
+                              startTransition(async () => {
+                                const result = await toggleSlotOverride({
+                                  date: selectedDate,
+                                  startTime: selectedSlot,
+                                  action: "remove",
+                                });
+                                if (result.success) {
+                                  toast.success(`${selectedSlot} 已回復預設名額`);
+                                  setSelectedSlot(null);
+                                  const [, newSummary] = await Promise.all([
+                                    selectDate(selectedDate),
+                                    getMonthScheduleSummary(year, month),
+                                  ]);
+                                  setMonthSummary(newSummary);
+                                } else {
+                                  toast.error(result.error);
+                                }
+                              });
+                            }}
+                            className="rounded border border-earth-300 px-2 py-0.5 text-[10px] text-earth-500 hover:bg-earth-50 disabled:opacity-60"
+                          >
+                            回復預設
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </>
               )}
               {dayDetail.slots.some((s) => s.override) && (
                 <p className="mt-2 text-[10px] text-amber-600">
-                  ⚡ 有手動覆寫的時段（黃框 = 強制開放，紅框 = 手動關閉）
+                  ⚡ 有手動覆寫的時段（黃框 = 強制開放，紅框 = 手動關閉，右鍵選取調整名額）
                 </p>
               )}
             </div>
           </div>
         ) : null}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// 規則推導摘要
+// ============================================================
+
+function CascadeInfo({ dayDetail }: { dayDetail: DayDetail }) {
+  const wd = dayDetail.weeklyDefault;
+  const hasOverride = dayDetail.specialDayId !== null;
+  const disabledCount = dayDetail.slots.filter((s) => s.override === "disabled").length;
+  const enabledCount = dayDetail.slots.filter((s) => s.override === "enabled").length;
+  const capChangeCount = dayDetail.slots.filter((s) => s.override === "capacity_change").length;
+  const activeSlots = dayDetail.slots.filter((s) => s.isEnabled).length;
+  const overrideParts: string[] = [];
+  if (disabledCount > 0) overrideParts.push(`${disabledCount} 關閉`);
+  if (enabledCount > 0) overrideParts.push(`${enabledCount} 強制開放`);
+  if (capChangeCount > 0) overrideParts.push(`${capChangeCount} 名額調整`);
+
+  return (
+    <div className="mb-3 space-y-1.5 rounded-lg bg-earth-50 px-3 py-2 text-[11px] text-earth-600">
+      <div className="flex items-start gap-2">
+        <span className="shrink-0 font-semibold text-earth-500">1 每週預設</span>
+        <span>
+          {wd
+            ? wd.isOpen
+              ? `${wd.openTime}–${wd.closeTime} / ${wd.slotInterval}分 / ${wd.defaultCapacity}位`
+              : "公休"
+            : "未設定"}
+        </span>
+      </div>
+      <div className="flex items-start gap-2">
+        <span className="shrink-0 font-semibold text-earth-500">2 當日覆寫</span>
+        <span>
+          {!hasOverride
+            ? "無（依照每週預設）"
+            : dayDetail.status === "closed"
+              ? `店休${dayDetail.reason ? `（${dayDetail.reason}）` : ""}`
+              : dayDetail.status === "training"
+                ? `進修${dayDetail.reason ? `（${dayDetail.reason}）` : ""}`
+                : `自訂 ${dayDetail.openTime}–${dayDetail.closeTime} / ${dayDetail.slotInterval}分 / ${dayDetail.defaultCapacity}位`}
+        </span>
+      </div>
+      <div className="flex items-start gap-2">
+        <span className="shrink-0 font-semibold text-earth-500">3 最終結果</span>
+        <span>
+          {dayDetail.status === "closed" || dayDetail.status === "training"
+            ? "不營業"
+            : `${activeSlots} 個可用時段 / ${dayDetail.defaultCapacity}位`}
+          {overrideParts.length > 0 && (
+            <span className="ml-1 text-amber-600">({overrideParts.join(", ")})</span>
+          )}
+        </span>
       </div>
     </div>
   );
@@ -521,12 +836,15 @@ function WeeklyDayRow({
   day: WeeklyHour;
   canManage: boolean;
   isPending: boolean;
-  onSave: (dow: number, isOpen: boolean, openTime: string, closeTime: string) => void;
+  onSave: (dow: number, isOpen: boolean, openTime: string, closeTime: string, slotInterval: number, defaultCapacity: number) => void;
 }) {
   const [isOpen, setIsOpen] = useState(day.isOpen);
   const [openTime, setOpenTime] = useState(day.openTime ?? "10:00");
   const [closeTime, setCloseTime] = useState(day.closeTime ?? "22:00");
+  const [interval, setInterval] = useState(day.slotInterval);
+  const [capacity, setCapacity] = useState(day.defaultCapacity);
   const [dirty, setDirty] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   function handleToggle() {
     setIsOpen(!isOpen);
@@ -534,52 +852,94 @@ function WeeklyDayRow({
   }
 
   return (
-    <div className="flex items-center gap-2 rounded-lg bg-earth-50 px-3 py-2">
-      <span className="w-8 text-sm font-medium text-earth-700">{day.dayName}</span>
+    <div className="rounded-lg bg-earth-50 px-3 py-2">
+      <div className="flex items-center gap-2">
+        <span className="w-8 text-sm font-medium text-earth-700">{day.dayName}</span>
 
-      <button
-        type="button"
-        disabled={!canManage}
-        onClick={handleToggle}
-        className={`relative h-5 w-9 rounded-full transition ${isOpen ? "bg-green-500" : "bg-earth-300"} disabled:opacity-50`}
-      >
-        <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition ${isOpen ? "left-[18px]" : "left-0.5"}`} />
-      </button>
-
-      {isOpen ? (
-        <>
-          <input
-            type="time"
-            value={openTime}
-            onChange={(e) => { setOpenTime(e.target.value); setDirty(true); }}
-            disabled={!canManage}
-            className="rounded border border-earth-300 px-1.5 py-1 text-xs"
-          />
-          <span className="text-xs text-earth-400">~</span>
-          <input
-            type="time"
-            value={closeTime}
-            onChange={(e) => { setCloseTime(e.target.value); setDirty(true); }}
-            disabled={!canManage}
-            className="rounded border border-earth-300 px-1.5 py-1 text-xs"
-          />
-        </>
-      ) : (
-        <span className="text-xs text-earth-400">公休</span>
-      )}
-
-      {dirty && canManage && (
         <button
           type="button"
-          disabled={isPending}
-          onClick={() => {
-            onSave(day.dayOfWeek, isOpen, openTime, closeTime);
-            setDirty(false);
-          }}
-          className="ml-auto rounded bg-primary-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-primary-700 disabled:opacity-60"
+          disabled={!canManage}
+          onClick={handleToggle}
+          className={`relative h-5 w-9 shrink-0 rounded-full transition ${isOpen ? "bg-green-500" : "bg-earth-300"} disabled:opacity-50`}
         >
-          儲存
+          <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition ${isOpen ? "left-[18px]" : "left-0.5"}`} />
         </button>
+
+        {isOpen ? (
+          <>
+            <input
+              type="time"
+              value={openTime}
+              onChange={(e) => { setOpenTime(e.target.value); setDirty(true); }}
+              disabled={!canManage}
+              className="rounded border border-earth-300 px-1.5 py-1 text-xs"
+            />
+            <span className="text-xs text-earth-400">~</span>
+            <input
+              type="time"
+              value={closeTime}
+              onChange={(e) => { setCloseTime(e.target.value); setDirty(true); }}
+              disabled={!canManage}
+              className="rounded border border-earth-300 px-1.5 py-1 text-xs"
+            />
+            <button
+              type="button"
+              onClick={() => setExpanded(!expanded)}
+              className="ml-auto text-[10px] text-earth-400 hover:text-earth-600"
+              title="展開時段/名額設定"
+            >
+              {expanded ? "收合 ▲" : `${interval}分/${capacity}位 ▼`}
+            </button>
+          </>
+        ) : (
+          <span className="text-xs text-earth-400">公休</span>
+        )}
+
+        {dirty && canManage && (
+          <button
+            type="button"
+            disabled={isPending}
+            onClick={() => {
+              onSave(day.dayOfWeek, isOpen, openTime, closeTime, interval, capacity);
+              setDirty(false);
+            }}
+            className={`${isOpen && !expanded ? "" : "ml-auto"} shrink-0 rounded bg-primary-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-primary-700 disabled:opacity-60`}
+          >
+            儲存
+          </button>
+        )}
+      </div>
+
+      {/* 展開的間隔/名額設定 */}
+      {isOpen && expanded && (
+        <div className="mt-2 flex items-center gap-3 border-t border-earth-200 pt-2">
+          <div className="flex items-center gap-1.5">
+            <label className="text-[10px] text-earth-500">間隔</label>
+            <select
+              value={interval}
+              onChange={(e) => { setInterval(Number(e.target.value)); setDirty(true); }}
+              disabled={!canManage}
+              className="rounded border border-earth-300 px-1 py-0.5 text-[11px]"
+            >
+              {SLOT_INTERVAL_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <label className="text-[10px] text-earth-500">名額</label>
+            <select
+              value={capacity}
+              onChange={(e) => { setCapacity(Number(e.target.value)); setDirty(true); }}
+              disabled={!canManage}
+              className="rounded border border-earth-300 px-1 py-0.5 text-[11px]"
+            >
+              {CAPACITY_OPTIONS.map((c) => (
+                <option key={c} value={c}>{c} 位</option>
+              ))}
+            </select>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -596,7 +956,9 @@ function SlotToggleButton({
   editOpenTime,
   editCloseTime,
   canManage,
+  isSelected,
   onToggled,
+  onSelect,
 }: {
   slot: {
     startTime: string;
@@ -612,7 +974,9 @@ function SlotToggleButton({
   editOpenTime: string;
   editCloseTime: string;
   canManage: boolean;
+  isSelected: boolean;
   onToggled: () => void;
+  onSelect: (startTime: string) => void;
 }) {
   const [toggling, setToggling] = useState(false);
 
@@ -686,7 +1050,9 @@ function SlotToggleButton({
     className += "bg-earth-100 text-earth-400 line-through";
   }
 
-  if (canManage) {
+  if (isSelected) {
+    className += " ring-2 ring-primary-500";
+  } else if (canManage) {
     className += " cursor-pointer hover:ring-2 hover:ring-primary-300";
   }
 
@@ -694,6 +1060,10 @@ function SlotToggleButton({
     <button
       type="button"
       onClick={handleClick}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        if (canManage) onSelect(slot.startTime);
+      }}
       disabled={!canManage || toggling}
       className={className}
       title={
@@ -702,14 +1072,17 @@ function SlotToggleButton({
           : slot.override === "enabled"
             ? `強制開放${slot.overrideReason ? `：${slot.overrideReason}` : ""}（點擊回復）`
             : isActive
-              ? `${slot.startTime}（${slot.capacity}位）— 點擊關閉`
+              ? `${slot.startTime}（${slot.capacity}位）— 左鍵切換開/關，右鍵調整名額`
               : `${slot.startTime}（超出範圍）— 點擊強制開放`
       }
     >
       {slot.startTime}
-      <span className="ml-1 text-[10px] opacity-60">({slot.capacity}位)</span>
+      <span className={`ml-1 text-[10px] ${slot.override === "capacity_change" ? "font-bold text-amber-600" : "opacity-60"}`}>
+        ({slot.capacity}位)
+      </span>
       {slot.override === "disabled" && <span className="ml-0.5 text-[9px]">✕</span>}
       {slot.override === "enabled" && <span className="ml-0.5 text-[9px]">⚡</span>}
+      {slot.override === "capacity_change" && <span className="ml-0.5 text-[9px]">✎</span>}
     </button>
   );
 }

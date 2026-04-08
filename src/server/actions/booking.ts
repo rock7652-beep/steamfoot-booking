@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/session";
 import { requirePermission } from "@/lib/permissions";
 import { AppError, handleActionError } from "@/lib/errors";
+import { generateSlots } from "@/lib/slot-generator";
 import {
   createBookingSchema,
   updateBookingSchema,
@@ -62,7 +63,7 @@ export async function createBooking(
     const closureDateObj = new Date(data.bookingDate + "T00:00:00Z");
     const [specialDay, businessHour] = await Promise.all([
       prisma.specialBusinessDay.findUnique({ where: { date: closureDateObj } }),
-      prisma.businessHours.findUnique({ where: { dayOfWeek: closureDateObj.getDay() } }),
+      prisma.businessHours.findUnique({ where: { dayOfWeek: closureDateObj.getUTCDay() } }),
     ]);
     if (specialDay && (specialDay.type === "closed" || specialDay.type === "training")) {
       return {
@@ -200,13 +201,29 @@ export async function createBooking(
       }
     }
 
-    // ── 7. 時段可用性檢查
-    const dayOfWeek = bookingDateObj.getDay();
-    const slot = await prisma.bookingSlot.findFirst({
-      where: { dayOfWeek, startTime: data.slotTime, isEnabled: true },
-    });
-    if (!slot)
+    // ── 7. 時段可用性檢查（規則即時運算，不查 BookingSlot）
+    // 用營業規則生成該日可用時段
+    const bhForSlot = await prisma.businessHours.findUnique({ where: { dayOfWeek: bookingDateObj.getUTCDay() } });
+    const effectiveOpen = specialDay?.type === "custom" ? specialDay.openTime : (bhForSlot?.openTime ?? null);
+    const effectiveClose = specialDay?.type === "custom" ? specialDay.closeTime : (bhForSlot?.closeTime ?? null);
+    const effectiveInterval = (specialDay?.type === "custom" ? specialDay.slotInterval : null) ?? bhForSlot?.slotInterval ?? 60;
+    const effectiveCapacity = (specialDay?.type === "custom" ? specialDay.defaultCapacity : null) ?? bhForSlot?.defaultCapacity ?? 6;
+
+    if (!effectiveOpen || !effectiveClose) {
+      throw new AppError("VALIDATION", "該日尚未設定營業時間");
+    }
+
+    // 確認 slotTime 在生成的時段中（或有 enabled 覆寫）
+    const generatedSlots = generateSlots(effectiveOpen, effectiveClose, effectiveInterval, effectiveCapacity);
+    const matchedSlot = generatedSlots.find((s) => s.startTime === data.slotTime);
+    if (!matchedSlot && slotOverride?.type !== "enabled") {
       throw new AppError("VALIDATION", `${data.slotTime} 在該日不是有效時段`);
+    }
+
+    // 取得該時段的實際容量（SlotOverride capacity_change 覆寫）
+    const slotCapacity = slotOverride?.type === "capacity_change" && slotOverride.capacity != null
+      ? slotOverride.capacity
+      : matchedSlot?.capacity ?? effectiveCapacity;
 
     const bookedAgg = await prisma.booking.aggregate({
       where: {
@@ -217,7 +234,7 @@ export async function createBooking(
       _sum: { people: true },
     });
     const bookedPeople = bookedAgg._sum.people ?? 0;
-    const remaining = slot.capacity - bookedPeople;
+    const remaining = slotCapacity - bookedPeople;
     if (remaining < bookingPeople) {
       throw new AppError(
         "BUSINESS_RULE",
@@ -335,26 +352,27 @@ export async function updateBooking(
         throw new AppError("VALIDATION", "目標日期為固定公休日");
       }
 
-      // 營業時間範圍檢查（enabled 覆寫跳過）
+      // 用規則驗證時段（不查 BookingSlot）
+      const updOpenTime = specialDay?.type === "custom" ? specialDay.openTime : (businessHour?.openTime ?? null);
+      const updCloseTime = specialDay?.type === "custom" ? specialDay.closeTime : (businessHour?.closeTime ?? null);
+      const updInterval = (specialDay?.type === "custom" ? specialDay.slotInterval : null) ?? businessHour?.slotInterval ?? 60;
+      const updDefaultCap = (specialDay?.type === "custom" ? specialDay.defaultCapacity : null) ?? businessHour?.defaultCapacity ?? 6;
+
       if (slotOverride?.type !== "enabled") {
-        const dayOpenTime = specialDay?.type === "custom" ? specialDay.openTime : (businessHour?.openTime ?? null);
-        const dayCloseTime = specialDay?.type === "custom" ? specialDay.closeTime : (businessHour?.closeTime ?? null);
-        if (dayOpenTime && dayCloseTime && (newSlot < dayOpenTime || newSlot >= dayCloseTime)) {
-          throw new AppError("VALIDATION", `${newSlot} 不在營業時間 ${dayOpenTime}-${dayCloseTime} 範圍內`);
+        if (!updOpenTime || !updCloseTime) {
+          throw new AppError("VALIDATION", "目標日期尚未設定營業時間");
+        }
+        const updGeneratedSlots = generateSlots(updOpenTime, updCloseTime, updInterval, updDefaultCap);
+        const updMatchedSlot = updGeneratedSlots.find((s) => s.startTime === newSlot);
+        if (!updMatchedSlot) {
+          throw new AppError("VALIDATION", `${newSlot} 不在營業時間範圍內`);
         }
       }
 
-      // BookingSlot 模板檢查
-      const dayOfWeek = newDate.getUTCDay();
-      const slot = await prisma.bookingSlot.findFirst({
-        where: { dayOfWeek, startTime: newSlot, isEnabled: true },
-      });
-      if (!slot) throw new AppError("VALIDATION", "目標時段不可用");
-
-      // 容量檢查（SlotOverride capacity_change 覆寫）
+      // 容量檢查
       const effectiveCapacity = slotOverride?.type === "capacity_change" && slotOverride.capacity != null
         ? slotOverride.capacity
-        : slot.capacity;
+        : updDefaultCap;
 
       const bookedAgg = await prisma.booking.aggregate({
         where: {
