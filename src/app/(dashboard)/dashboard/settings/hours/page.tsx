@@ -36,6 +36,8 @@ export default async function ScheduleSettingsPage() {
           isOpen: h.isOpen,
           openTime: h.openTime,
           closeTime: h.closeTime,
+          slotInterval: h.slotInterval,
+          defaultCapacity: h.defaultCapacity,
         }))}
         initialSpecialDays={specialDays}
         initialYear={nowYear}
