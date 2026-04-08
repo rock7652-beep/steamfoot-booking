@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
 import { logoutAction } from "@/server/actions/auth";
 import { getUserPermissions } from "@/lib/permissions";
-import { getShopPlan } from "@/lib/shop-config";
+import { getShopPlan, getTrialStatus } from "@/lib/shop-config";
 import DashboardShell from "@/components/sidebar";
 
 export default async function DashboardLayout({
@@ -17,9 +17,10 @@ export default async function DashboardLayout({
   const roleLabel =
     user.role === "OWNER" ? "店主" : user.role === "MANAGER" ? "店長" : "";
   const isOwner = user.role === "OWNER";
-  const [permissions, shopPlan] = await Promise.all([
+  const [permissions, shopPlan, trialStatus] = await Promise.all([
     getUserPermissions(user.role, user.staffId),
     getShopPlan(),
+    getTrialStatus(),
   ]);
 
   return (
@@ -39,6 +40,7 @@ export default async function DashboardLayout({
           </button>
         </form>
       }
+      trialStatus={trialStatus}
     >
       {children}
     </DashboardShell>

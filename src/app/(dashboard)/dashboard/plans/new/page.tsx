@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
+import { SubmitButton } from "@/components/submit-button";
 
 type PlanCategory = "TRIAL" | "SINGLE" | "PACKAGE";
 
@@ -145,12 +146,11 @@ export default async function NewPlanPage({}: PageProps) {
 
           {/* Buttons */}
           <div className="flex gap-3 border-t pt-6">
-            <button
-              type="submit"
-              className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
-            >
-              確認新增
-            </button>
+            <SubmitButton
+              label="確認新增"
+              pendingLabel="新增中..."
+              className="bg-primary-600 text-white hover:bg-primary-700"
+            />
             <Link
               href="/dashboard/plans"
               className="rounded-lg border border-earth-300 px-4 py-2 text-sm font-medium text-earth-700 hover:bg-earth-50"

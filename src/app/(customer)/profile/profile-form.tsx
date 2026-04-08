@@ -4,6 +4,7 @@ import { useActionState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { updateProfileAction, type ProfileState } from "@/server/actions/profile";
+import { toast } from "sonner";
 import Link from "next/link";
 
 interface Props {
@@ -25,6 +26,12 @@ export function ProfileForm({ customer, age }: Props) {
     updateProfileAction,
     { error: null, success: false }
   );
+
+  // toast 提示
+  useEffect(() => {
+    if (state.success) toast.success("個人資料已儲存");
+    if (state.error) toast.error(state.error);
+  }, [state.success, state.error]);
 
   // 手機變更後自動登出
   useEffect(() => {

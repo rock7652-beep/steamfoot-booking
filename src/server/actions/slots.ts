@@ -5,6 +5,51 @@ import { requireSession } from "@/lib/session";
 import { getNowTaipeiHHmm, toLocalDateStr } from "@/lib/date-utils";
 import type { SlotAvailability } from "@/types";
 
+/**
+ * 判斷某日期的營業狀態
+ * closed = 全天不可預約
+ * openTime / closeTime = 該日允許的時段範圍（用來過濾 BookingSlot）
+ */
+interface DayBusinessStatus {
+  closed: boolean;
+  reason: string | null;
+  /** 該日有效營業開始時間（null = 使用預設 slot 定義） */
+  openTime: string | null;
+  /** 該日有效營業結束時間（null = 使用預設 slot 定義） */
+  closeTime: string | null;
+}
+
+function getDayBusinessStatus(
+  dateStr: string,
+  dow: number,
+  specialDayMap: Map<string, { type: string; reason: string | null; openTime: string | null; closeTime: string | null }>,
+  businessHoursMap: Map<number, { isOpen: boolean; openTime: string | null; closeTime: string | null }>
+): DayBusinessStatus {
+  // 1. 特殊日期優先
+  const special = specialDayMap.get(dateStr);
+  if (special) {
+    if (special.type === "closed" || special.type === "training") {
+      return { closed: true, reason: special.reason ?? (special.type === "training" ? "進修日" : "公休"), openTime: null, closeTime: null };
+    }
+    // custom: 營業但時段受限
+    return { closed: false, reason: null, openTime: special.openTime, closeTime: special.closeTime };
+  }
+
+  // 2. 固定營業時間
+  const bh = businessHoursMap.get(dow);
+  if (bh && !bh.isOpen) {
+    return { closed: true, reason: "固定公休", openTime: null, closeTime: null };
+  }
+  // 營業中，回傳固定時段（若有）用於 slot 過濾
+  return { closed: false, reason: null, openTime: bh?.openTime ?? null, closeTime: bh?.closeTime ?? null };
+}
+
+/** 判斷 slot 時段是否在營業範圍內 */
+function isSlotInRange(slotTime: string, openTime: string | null, closeTime: string | null): boolean {
+  if (!openTime || !closeTime) return true; // 無限制
+  return slotTime >= openTime && slotTime < closeTime;
+}
+
 /** 單一時段摘要 */
 export interface MonthSlotInfo {
   startTime: string;
@@ -24,12 +69,27 @@ export async function fetchMonthAvailability(
   const startDate = new Date(Date.UTC(year, month - 1, 1));
   const endDate = new Date(Date.UTC(year, month, 0)); // last day of month
 
-  // 取得所有啟用時段的 dayOfWeek → [{startTime, capacity}]
-  const allSlots = await prisma.bookingSlot.findMany({
-    where: { isEnabled: true },
-    select: { dayOfWeek: true, startTime: true, capacity: true },
-    orderBy: { startTime: "asc" },
-  });
+  // 並行取得時段 + 營業時間 + 特殊日期
+  const [allSlots, businessHoursRows, specialDaysRows] = await Promise.all([
+    prisma.bookingSlot.findMany({
+      where: { isEnabled: true },
+      select: { dayOfWeek: true, startTime: true, capacity: true },
+      orderBy: { startTime: "asc" },
+    }),
+    prisma.businessHours.findMany(),
+    prisma.specialBusinessDay.findMany({
+      where: { date: { gte: startDate, lte: endDate } },
+    }),
+  ]);
+
+  // 建立快速查詢 map
+  const businessHoursMap = new Map(businessHoursRows.map((b) => [b.dayOfWeek, { isOpen: b.isOpen, openTime: b.openTime, closeTime: b.closeTime }]));
+  const specialDayMap = new Map(
+    specialDaysRows.map((s) => [
+      s.date.toISOString().slice(0, 10),
+      { type: s.type, reason: s.reason, openTime: s.openTime, closeTime: s.closeTime },
+    ])
+  );
 
   // dayOfWeek → slot list
   const dowSlots = new Map<number, { startTime: string; capacity: number }[]>();
@@ -66,14 +126,26 @@ export async function fetchMonthAvailability(
   while (cursor <= endDate) {
     const dateStr = cursor.toISOString().slice(0, 10);
     const dow = cursor.getUTCDay();
-    const daySlots = dowSlots.get(dow) ?? [];
     const isToday = dateStr === todayStr;
 
+    // 檢查營業狀態（公休 / 特殊時段 / 正常）
+    const status = getDayBusinessStatus(dateStr, dow, specialDayMap, businessHoursMap);
+    if (status.closed) {
+      // 關閉日：totalCapacity = 0 → 前台顯示「公休」
+      days[dateStr] = { totalCapacity: 0, totalBooked: 0, slots: [] };
+      cursor.setUTCDate(cursor.getUTCDate() + 1);
+      continue;
+    }
+
+    const daySlots = dowSlots.get(dow) ?? [];
     let totalCap = 0;
     let totalBooked = 0;
     const slotInfos: MonthSlotInfo[] = [];
 
     for (const s of daySlots) {
+      // 過濾超出營業範圍的 slot（特殊時段縮短時生效）
+      if (!isSlotInRange(s.startTime, status.openTime, status.closeTime)) continue;
+
       const booked = bookedMap.get(`${dateStr}|${s.startTime}`) ?? 0;
       // 同日已過時段：capacity 視為 0（已滿），讓前端月曆正確顯示
       const isPast = isToday && s.startTime <= nowHHmm;
@@ -98,6 +170,25 @@ export async function fetchDaySlots(date: string): Promise<{
 
   const dateObj = new Date(date + "T00:00:00Z");
   const dayOfWeek = dateObj.getDay();
+
+  // 先查營業狀態
+  const [specialDay, businessHour] = await Promise.all([
+    prisma.specialBusinessDay.findUnique({ where: { date: dateObj } }),
+    prisma.businessHours.findUnique({ where: { dayOfWeek } }),
+  ]);
+
+  // 特殊日期公休 / 進修
+  if (specialDay && (specialDay.type === "closed" || specialDay.type === "training")) {
+    return { slots: [] };
+  }
+  // 固定公休
+  if (!specialDay && businessHour && !businessHour.isOpen) {
+    return { slots: [] };
+  }
+
+  // 計算該日允許的時段範圍（特殊時段 → custom openTime/closeTime，正常 → businessHour）
+  const dayOpenTime = specialDay?.type === "custom" ? specialDay.openTime : (businessHour?.openTime ?? null);
+  const dayCloseTime = specialDay?.type === "custom" ? specialDay.closeTime : (businessHour?.closeTime ?? null);
 
   // ⚡ 兩個查詢並行
   const [slots, existingBookings] = await Promise.all([
@@ -128,17 +219,19 @@ export async function fetchDaySlots(date: string): Promise<{
   const nowHHmm = isToday ? getNowTaipeiHHmm() : null;
 
   return {
-    slots: slots.map((slot) => {
-      const booked = bookedMap.get(slot.startTime) ?? 0;
-      const isPast = isToday && nowHHmm !== null && slot.startTime <= nowHHmm;
-      return {
-        startTime: slot.startTime,
-        capacity: slot.capacity,
-        bookedCount: booked,
-        available: isPast ? 0 : Math.max(0, slot.capacity - booked),
-        isEnabled: slot.isEnabled,
-        isPast,
-      };
-    }),
+    slots: slots
+      .filter((slot) => isSlotInRange(slot.startTime, dayOpenTime, dayCloseTime))
+      .map((slot) => {
+        const booked = bookedMap.get(slot.startTime) ?? 0;
+        const isPast = isToday && nowHHmm !== null && slot.startTime <= nowHHmm;
+        return {
+          startTime: slot.startTime,
+          capacity: slot.capacity,
+          bookedCount: booked,
+          available: isPast ? 0 : Math.max(0, slot.capacity - booked),
+          isEnabled: slot.isEnabled,
+          isPast,
+        };
+      }),
   };
 }

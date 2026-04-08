@@ -3,6 +3,7 @@ import { cancelBooking } from "@/server/actions/booking";
 import { prisma } from "@/lib/db";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
+import { SubmitButton } from "@/components/submit-button";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -76,12 +77,7 @@ export default async function CancelBookingPage({ params }: PageProps) {
             </p>
             <div className="flex gap-3">
               <form action={doCancelAction}>
-                <button
-                  type="submit"
-                  className="rounded-lg bg-red-600 px-5 py-2 text-sm font-medium text-white hover:bg-red-700"
-                >
-                  確認取消
-                </button>
+                <SubmitButton label="確認取消" pendingLabel="取消中..." className="bg-red-600 text-white hover:bg-red-700" />
               </form>
               <Link
                 href="/my-bookings"

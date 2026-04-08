@@ -4,7 +4,8 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import BuildFooter from "@/components/build-footer";
-import { PlanBadge, LockedNavItem } from "@/components/feature-gate";
+import { PlanBadge, LockedNavItem, TrialProgressBar } from "@/components/feature-gate";
+import type { TrialStatus } from "@/lib/shop-config";
 import { hasFeature, type Feature, FEATURES } from "@/lib/shop-plan";
 import type { ShopPlan } from "@prisma/client";
 
@@ -103,6 +104,8 @@ const NAV_ITEMS: NavItem[] = [
     href: "/dashboard/ops",
     label: "營運儀表板",
     ownerOnly: true,
+    requiredFeature: FEATURES.OPS_DASHBOARD_BASIC,
+    upgradeTo: "BASIC",
     icon: (
       <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5" />
@@ -193,6 +196,17 @@ const NAV_ITEMS: NavItem[] = [
       </svg>
     ),
   },
+  // 營業時間設定
+  {
+    href: "/dashboard/settings/hours",
+    label: "營業時間",
+    ownerOnly: true,
+    icon: (
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    ),
+  },
 ];
 
 interface DashboardShellProps {
@@ -203,6 +217,7 @@ interface DashboardShellProps {
   roleLabel: string;
   logoutButton: React.ReactNode;
   children: React.ReactNode;
+  trialStatus?: TrialStatus;
 }
 
 
@@ -214,6 +229,7 @@ export default function DashboardShell({
   roleLabel,
   logoutButton,
   children,
+  trialStatus,
 }: DashboardShellProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
@@ -396,6 +412,11 @@ export default function DashboardShell({
 
         {/* Content */}
         <main className="mx-auto max-w-6xl px-4 py-5 sm:px-6 sm:py-6">
+          {trialStatus && trialStatus.isFree && trialStatus.stage !== "normal" && (
+            <div className="mb-4">
+              <TrialProgressBar trial={trialStatus} />
+            </div>
+          )}
           {children}
         </main>
 

@@ -15,6 +15,9 @@ export const updateCustomerSchema = z.object({
   email: z.string().email().max(200).nullable().optional(),
   lineName: z.string().max(100).optional(),
   notes: z.string().max(1000).optional(),
+  gender: z.string().max(10).nullable().optional(),
+  birthday: z.string().nullable().optional(), // ISO date string, converted to Date in action
+  height: z.number().min(50).max(250).nullable().optional(),
   customerStage: z.enum(["LEAD", "TRIAL", "ACTIVE", "INACTIVE"]).optional(),
   selfBookingEnabled: z.boolean().optional(),
   assignedStaffId: z.string().cuid().nullable().optional(),

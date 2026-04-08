@@ -1,6 +1,7 @@
 import { getStaffDetail } from "@/server/queries/staff";
 import { updateStaff } from "@/server/actions/staff";
 import { getCurrentUser } from "@/lib/session";
+import { SubmitButton } from "@/components/submit-button";
 import {
   getStaffPermissions,
   updateStaffPermissions,
@@ -132,12 +133,7 @@ export default async function EditStaffPage({ params }: PageProps) {
           </div>
 
           <div className="flex gap-3 border-t pt-4">
-            <button
-              type="submit"
-              className="rounded-lg bg-primary-600 px-5 py-2 text-sm font-medium text-white hover:bg-primary-700 active:bg-primary-800"
-            >
-              儲存
-            </button>
+            <SubmitButton label="儲存" pendingLabel="儲存中..." className="bg-primary-600 text-white hover:bg-primary-700" />
             <Link
               href="/dashboard/staff"
               className="rounded-lg border border-earth-300 px-5 py-2 text-sm font-medium text-earth-700 hover:bg-earth-50"
@@ -184,12 +180,7 @@ export default async function EditStaffPage({ params }: PageProps) {
             ))}
 
             <div className="border-t pt-4">
-              <button
-                type="submit"
-                className="rounded-lg bg-primary-600 px-5 py-2 text-sm font-medium text-white hover:bg-primary-700 active:bg-primary-800"
-              >
-                儲存權限
-              </button>
+              <SubmitButton label="儲存權限" pendingLabel="儲存中..." className="bg-primary-600 text-white hover:bg-primary-700" />
             </div>
           </form>
         </div>

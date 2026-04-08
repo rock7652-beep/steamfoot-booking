@@ -30,7 +30,7 @@ export async function createCustomer(
     if (!customerLimit.allowed) {
       return {
         success: false,
-        error: `免費方案顧客上限 ${customerLimit.limit} 位已達，請升級方案`,
+        error: `體驗版顧客上限 ${customerLimit.limit} 位已達，請升級方案以繼續新增`,
       };
     }
 
@@ -106,9 +106,15 @@ export async function updateCustomer(
       }
     }
 
+    // birthday: string → Date 轉換
+    const prismaData: Record<string, unknown> = { ...data };
+    if (data.birthday !== undefined) {
+      prismaData.birthday = data.birthday ? new Date(data.birthday) : null;
+    }
+
     await prisma.customer.update({
       where: { id: customerId },
-      data,
+      data: prismaData,
     });
 
     revalidatePath("/dashboard/customers");

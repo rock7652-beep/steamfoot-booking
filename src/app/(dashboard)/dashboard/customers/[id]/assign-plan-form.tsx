@@ -2,6 +2,7 @@
 
 import { useState, useActionState } from "react";
 import { assignPlanToCustomer } from "@/server/actions/wallet";
+import { toast } from "sonner";
 
 interface Plan {
   id: string;
@@ -28,9 +29,11 @@ export function AssignPlanForm({ customerId, plans }: Props) {
         paymentMethod: paymentMethod as "CASH" | "TRANSFER" | "LINE_PAY" | "CREDIT_CARD" | "OTHER" | "UNPAID",
       });
       if (result.success) {
+        toast.success("方案已成功指派");
         setOpen(false);
         return { error: null };
       }
+      toast.error(result.error ?? "指派失敗");
       return { error: result.error ?? "發生錯誤" };
     },
     { error: null }

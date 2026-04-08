@@ -54,8 +54,39 @@ export async function createBooking(
     if (!bookingLimit.allowed) {
       return {
         success: false,
-        error: `免費方案本月預約上限 ${bookingLimit.limit} 筆已達，請升級方案`,
+        error: `體驗版預約上限 ${bookingLimit.limit} 筆已達，請升級方案以繼續新增`,
       };
+    }
+
+    // ── 0.5 檢查營業日 / 公休
+    const closureDateObj = new Date(data.bookingDate + "T00:00:00Z");
+    const [specialDay, businessHour] = await Promise.all([
+      prisma.specialBusinessDay.findUnique({ where: { date: closureDateObj } }),
+      prisma.businessHours.findUnique({ where: { dayOfWeek: closureDateObj.getDay() } }),
+    ]);
+    if (specialDay && (specialDay.type === "closed" || specialDay.type === "training")) {
+      return {
+        success: false,
+        error: `${data.bookingDate} 為${specialDay.type === "training" ? "進修日" : "公休日"}，無法預約`,
+      };
+    }
+    if (!specialDay && businessHour && !businessHour.isOpen) {
+      return {
+        success: false,
+        error: `${data.bookingDate} 為固定公休日，無法預約`,
+      };
+    }
+
+    // 檢查 slot 時段是否在營業範圍內（特殊時段縮短時攔截）
+    const dayOpenTime = specialDay?.type === "custom" ? specialDay.openTime : (businessHour?.openTime ?? null);
+    const dayCloseTime = specialDay?.type === "custom" ? specialDay.closeTime : (businessHour?.closeTime ?? null);
+    if (dayOpenTime && dayCloseTime && data.slotTime) {
+      if (data.slotTime < dayOpenTime || data.slotTime >= dayCloseTime) {
+        return {
+          success: false,
+          error: `${data.bookingDate} 營業時間為 ${dayOpenTime}-${dayCloseTime}，${data.slotTime} 不在營業範圍內`,
+        };
+      }
     }
 
     // ── 1. 取顧客（含 ACTIVE wallets）

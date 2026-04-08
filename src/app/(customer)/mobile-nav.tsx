@@ -62,7 +62,7 @@ const NAV_ITEMS = [
   { href: "/profile", label: "我的資料", icon: "user" },
 ];
 
-export function MobileNav({ userName, pathname }: { userName: string; pathname: string }) {
+export function MobileNav({ userName, pathname, customerId }: { userName: string; pathname: string; customerId?: string | null }) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -143,7 +143,7 @@ export function MobileNav({ userName, pathname }: { userName: string; pathname: 
           })}
 
           <a
-            href="https://health-tracker-eight-rosy.vercel.app/"
+            href={`https://health-tracker-eight-rosy.vercel.app/${customerId ? `?customerId=${customerId}` : ""}`}
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => setOpen(false)}

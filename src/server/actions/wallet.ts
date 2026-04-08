@@ -29,12 +29,8 @@ export async function assignPlanToCustomer(
     });
     if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
 
-    // Manager 只能操作自己名下顧客
-    if (user.role === "MANAGER") {
-      if (!user.staffId || customer.assignedStaffId !== user.staffId) {
-        throw new AppError("FORBIDDEN", "無法為其他店長名下顧客購課");
-      }
-    }
+    // Manager 可為任何顧客購課（含未派任店長的顧客）
+    // 不再強制 assignedStaffId === user.staffId
 
     // 取方案
     const plan = await prisma.servicePlan.findUnique({
@@ -70,11 +66,12 @@ export async function assignPlanToCustomer(
         },
       });
 
-      // 2. 建立交易紀錄（快照 revenueStaffId）
+      // 2. 建立交易紀錄（快照 revenueStaffId + soldByStaffId）
       const transaction = await tx.transaction.create({
         data: {
           customerId: data.customerId,
           revenueStaffId: customer.assignedStaffId ?? user.staffId!, // 快照：fallback 到操作者
+          soldByStaffId: user.staffId ?? null, // 紀錄本次操作/成交店長
           transactionType: txType,
           paymentMethod: data.paymentMethod,
           amount: plan.price,
@@ -150,6 +147,7 @@ export async function adjustRemainingSessions(
         data: {
           customerId: wallet.customerId,
           revenueStaffId: customer.assignedStaffId ?? user.staffId!,
+          soldByStaffId: user.staffId ?? null,
           transactionType: "ADJUSTMENT",
           paymentMethod: "CASH",
           amount: 0,

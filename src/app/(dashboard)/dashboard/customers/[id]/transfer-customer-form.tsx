@@ -2,6 +2,7 @@
 
 import { useState, useActionState } from "react";
 import { transferCustomer } from "@/server/actions/customer";
+import { toast } from "sonner";
 
 interface Props {
   customerId: string;
@@ -16,9 +17,11 @@ export function TransferCustomerForm({ customerId, currentStaffId, staffList }: 
       const newStaffId = formData.get("newStaffId") as string;
       const result = await transferCustomer({ customerId, newStaffId });
       if (result.success) {
+        toast.success("已成功轉讓直屬店長");
         setOpen(false);
         return { error: null };
       }
+      toast.error(result.error ?? "轉讓失敗");
       return { error: result.error ?? "發生錯誤" };
     },
     { error: null }

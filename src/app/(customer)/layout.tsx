@@ -80,7 +80,7 @@ export default async function CustomerLayout({
   return (
     <div className="min-h-screen bg-earth-50">
       {/* Mobile hamburger menu */}
-      <MobileNav userName={user.name ?? "顧客"} pathname={pathname} />
+      <MobileNav userName={user.name ?? "顧客"} pathname={pathname} customerId={user.customerId} />
 
       <div className="lg:flex">
         {/* Desktop sidebar — fixed narrow design */}
@@ -120,7 +120,7 @@ export default async function CustomerLayout({
             })}
 
             <a
-              href="https://health-tracker-eight-rosy.vercel.app/"
+              href={`https://health-tracker-eight-rosy.vercel.app/${user.customerId ? `?customerId=${user.customerId}` : ""}`}
               target="_blank"
               rel="noopener noreferrer"
               className="mb-0.5 flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] text-earth-500 hover:bg-earth-50 hover:text-earth-800 transition"

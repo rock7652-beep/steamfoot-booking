@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { createBooking } from "@/server/actions/booking";
+import { toast } from "sonner";
 import type { SlotAvailability } from "@/types";
 
 interface ActiveWallet {
@@ -33,8 +34,10 @@ export function BookingForm({ customerId, selectedDate, slots, activeWallets }: 
       });
 
       if (result.success) {
+        toast.success("預約成功！");
         return { error: null, success: true, bookedTime: slotTime };
       }
+      toast.error(result.error ?? "預約失敗");
       return { error: result.error, success: false, bookedTime: "" };
     },
     { error: null, success: false, bookedTime: "" }

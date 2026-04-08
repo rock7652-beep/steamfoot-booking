@@ -166,8 +166,10 @@ model User {
   customer Customer?
 
   // Audit
-  auditLogs      AuditLog[]
-  cashbookEntries CashbookEntry[] @relation("CashbookCreatedBy")
+  auditLogs       AuditLog[]
+  cashbookEntries  CashbookEntry[] @relation("CashbookCreatedBy")
+  opsActionLogs       OpsActionLog[]
+  opsActionHistories  OpsActionHistory[]
 
   // 同一角色內手機不重複，但不同角色可共用手機
   @@unique([phone, role])
@@ -240,12 +242,16 @@ model Staff {
   bookedByStaff        Booking[]     @relation("BookedByStaff")
   revenueTransactions  Transaction[] @relation("RevenueStaff")
   serviceTransactions  Transaction[] @relation("ServiceStaff")
+  soldTransactions     Transaction[] @relation("SoldByStaff")
 
   // 空間分租費
   spaceFeeRecords SpaceFeeRecord[]
 
   // 現金帳
   cashbookEntries CashbookEntry[] @relation("CashbookStaff")
+
+  // 營運儀表板指派
+  opsAssignments OpsActionLog[] @relation("OpsAssignee")
 }
 
 // ============================================================
@@ -462,6 +468,7 @@ model Transaction {
   bookingId            String?         // nullable: 購課交易不一定綁定預約
   revenueStaffId       String          // 冗餘快照：營收歸屬店長
   serviceStaffId       String?         // 服務/值班店長
+  soldByStaffId        String?         // 本次操作/成交店長（紀錄誰開通）
   customerPlanWalletId String?         // 若為堂數扣抵或套餐購買，關聯到錢包
   transactionType      TransactionType
   paymentMethod        PaymentMethod   @default(CASH)
@@ -475,6 +482,7 @@ model Transaction {
   booking            Booking?            @relation(fields: [bookingId], references: [id])
   revenueStaff       Staff               @relation("RevenueStaff", fields: [revenueStaffId], references: [id])
   serviceStaff       Staff?              @relation("ServiceStaff", fields: [serviceStaffId], references: [id])
+  soldByStaff        Staff?              @relation("SoldByStaff", fields: [soldByStaffId], references: [id])
   customerPlanWallet CustomerPlanWallet? @relation(fields: [customerPlanWalletId], references: [id])
 
   @@index([customerId])
@@ -701,4 +709,92 @@ model MessageLog {
   @@index([status])
   @@index([createdAt])
   @@index([ruleId, bookingId], name: "idx_rule_booking") // 防重複發送
+}
+
+// ============================================================
+// OpsActionLog（營運儀表板執行閉環追蹤）
+// ============================================================
+
+model OpsActionLog {
+  id              String    @id @default(cuid())
+  module          String    // "alert" | "customer_action" | "recommendation"
+  refId           String    // alert id / customer action id / recommendation id
+  status          String    // alert: resolved/ignored/snoozed | customer_action: contacted/tracking/closed/skipped | recommendation: adopted/rejected
+  note            String?   // 追蹤備註
+  actorUserId     String
+  assigneeStaffId String?   // 指派負責店長
+  dueDate         DateTime? // 到期日
+  // Effectiveness tracking (v2.3)
+  outcomeStatus   String?   // "improved" | "no_change" | "pending"
+  outcomeNote     String?   // 成效備註
+  outcomeMetric   String?   // e.g. "回訪 1 次", "$3,200 營收"
+  outcomeAt       DateTime? // 成效確認時間
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  actor    User   @relation(fields: [actorUserId], references: [id])
+  assignee Staff? @relation("OpsAssignee", fields: [assigneeStaffId], references: [id])
+
+  history OpsActionHistory[]
+
+  @@unique([module, refId]) // 每個項目只追蹤最新狀態
+  @@index([module])
+  @@index([actorUserId])
+  @@index([assigneeStaffId])
+  @@index([createdAt])
+}
+
+// ============================================================
+// OpsActionHistory（營運儀表板操作歷史）
+// ============================================================
+
+model OpsActionHistory {
+  id            String   @id @default(cuid())
+  opsActionLogId String
+  actorUserId   String
+  action        String   // "status_change" | "assign" | "due_date" | "note"
+  oldValue      String?
+  newValue      String?
+  note          String?
+  createdAt     DateTime @default(now())
+
+  opsActionLog OpsActionLog @relation(fields: [opsActionLogId], references: [id], onDelete: Cascade)
+  actor        User         @relation(fields: [actorUserId], references: [id])
+
+  @@index([opsActionLogId])
+  @@index([createdAt])
+}
+
+// ============================================================
+// BusinessHours（每週固定營業時間）
+// ============================================================
+
+model BusinessHours {
+  id        String   @id @default(cuid())
+  dayOfWeek Int      // 0=Sunday ... 6=Saturday
+  isOpen    Boolean  @default(true)
+  openTime  String?  // "HH:mm"，null 表示公休
+  closeTime String?  // "HH:mm"，null 表示公休
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([dayOfWeek])
+}
+
+// ============================================================
+// SpecialBusinessDay（特殊日期覆寫：公休 / 進修 / 調整營業時段）
+// ============================================================
+
+model SpecialBusinessDay {
+  id        String   @id @default(cuid())
+  date      DateTime @db.Date
+  type      String   // "closed" | "training" | "custom"
+  reason    String?  // 公休原因、進修說明
+  openTime  String?  // type=custom 時的特殊營業開始
+  closeTime String?  // type=custom 時的特殊營業結束
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([date])
+  @@index([date])
 }

@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { createBooking } from "@/server/actions/booking";
+import { toast } from "sonner";
 
 interface ActiveWallet {
   id: string;
@@ -45,7 +46,11 @@ export function CreateBookingForm({ customerId, activeWallets }: Props) {
         customerPlanWalletId: customerPlanWalletId || undefined,
         people,
       });
-      if (result.success) return { error: null, success: true };
+      if (result.success) {
+        toast.success("預約已建立");
+        return { error: null, success: true };
+      }
+      toast.error(result.error ?? "建立預約失敗");
       return { error: result.error ?? "發生錯誤", success: false };
     },
     { error: null, success: false }

@@ -2,6 +2,7 @@
 
 import { useState, useActionState } from "react";
 import { adjustRemainingSessions } from "@/server/actions/wallet";
+import { toast } from "sonner";
 
 interface Props {
   walletId: string;
@@ -19,9 +20,11 @@ export function AdjustWalletForm({ walletId, currentRemaining }: Props) {
       }
       const result = await adjustRemainingSessions(walletId, newRemaining, note || undefined);
       if (result.success) {
+        toast.success("堂數已更新");
         setOpen(false);
         return { error: null };
       }
+      toast.error(result.error ?? "更新失敗");
       return { error: result.error ?? "發生錯誤" };
     },
     { error: null }
