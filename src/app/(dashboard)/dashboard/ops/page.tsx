@@ -9,24 +9,54 @@ import {
   getCustomerSegments,
   getStaffPerformance,
 } from "@/server/queries/ops-dashboard";
+import {
+  getOpsAlerts,
+  getCustomerActions,
+  getStaffRankings,
+  getRecommendations,
+} from "@/server/queries/ops-dashboard-v2";
+import { getOpsActionLogs, getActiveStaffList, getEffectivenessSummary } from "@/server/actions/ops-action-log";
 import { TrendTabs } from "./trend-tabs";
 import { FunnelChart } from "./funnel-chart";
+import { AlertsSection } from "./alerts-section";
+import { CustomerActionsSection } from "./customer-actions-section";
+import { RankingsSection } from "./rankings-section";
+import { RecommendationsSection } from "./recommendations-section";
+import { EffectivenessSection } from "./effectiveness-section";
 
 export default async function OpsDashboardPage() {
   const user = await getCurrentUser();
   if (!user) return null;
   if (user.role !== "OWNER") notFound();
 
-  const [today, trend7, trend30, funnel, topCustomers, segments, staffPerf] =
-    await Promise.all([
-      getTodaySummary(),
-      getDailyTrend(7),
-      getDailyTrend(30),
-      getOperationsFunnel(30),
-      getTopCustomers(10),
-      getCustomerSegments(),
-      getStaffPerformance(30),
-    ]);
+  const [
+    today, trend7, trend30, funnel, topCustomers, segments, staffPerf,
+    alerts, customerActions, staffRankings, recommendations,
+    alertLogs, customerActionLogs, recommendationLogs,
+    staffList, effectivenessSummary,
+  ] = await Promise.all([
+    getTodaySummary(),
+    getDailyTrend(7),
+    getDailyTrend(30),
+    getOperationsFunnel(30),
+    getTopCustomers(10),
+    getCustomerSegments(),
+    getStaffPerformance(30),
+    getOpsAlerts(),
+    getCustomerActions(20),
+    getStaffRankings(30),
+    getRecommendations(),
+    getOpsActionLogs("alert"),
+    getOpsActionLogs("customer_action"),
+    getOpsActionLogs("recommendation"),
+    getActiveStaffList(),
+    getEffectivenessSummary(),
+  ]);
+
+  // Convert Maps to plain objects for client components
+  const alertLogsObj = Object.fromEntries(alertLogs);
+  const customerActionLogsObj = Object.fromEntries(customerActionLogs);
+  const recommendationLogsObj = Object.fromEntries(recommendationLogs);
 
   const totalSegmentCount = segments.reduce((sum, s) => sum + s.count, 0);
 
@@ -240,6 +270,51 @@ export default async function OpsDashboardPage() {
             </table>
           </div>
         )}
+      </section>
+
+      {/* ═══════════════════════════════════════════════════════ */}
+      {/* ──  V2 模組：異常警報 / 顧客經營 / 排行榜 / AI建議  ── */}
+      {/* ═══════════════════════════════════════════════════════ */}
+
+      {/* ── 7. 異常警報系統 ── */}
+      <section className="rounded-2xl bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+        <h2 className="mb-3 text-sm font-semibold text-earth-800">
+          異常警報 <span className="text-xs font-normal text-earth-400">即時監控</span>
+        </h2>
+        <AlertsSection alerts={alerts} actionLogs={alertLogsObj} staffList={staffList} />
+      </section>
+
+      {/* ── 8. 顧客經營清單 ── */}
+      <section className="rounded-2xl bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+        <h2 className="mb-3 text-sm font-semibold text-earth-800">
+          顧客經營清單 <span className="text-xs font-normal text-earth-400">待處理 {customerActions.length} 項</span>
+        </h2>
+        <CustomerActionsSection actions={customerActions} actionLogs={customerActionLogsObj} staffList={staffList} />
+      </section>
+
+      {/* ── 9. 店長排行榜 + 10. AI 經營建議 (side by side on desktop) ── */}
+      <div className="grid gap-5 lg:grid-cols-2">
+        <section className="rounded-2xl bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+          <h2 className="mb-3 text-sm font-semibold text-earth-800">
+            店長排行榜 <span className="text-xs font-normal text-earth-400">近 30 天</span>
+          </h2>
+          <RankingsSection rankings={staffRankings} />
+        </section>
+
+        <section className="rounded-2xl bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+          <h2 className="mb-3 text-sm font-semibold text-earth-800">
+            AI 經營建議 <span className="text-xs font-normal text-earth-400">數據驅動</span>
+          </h2>
+          <RecommendationsSection recommendations={recommendations} actionLogs={recommendationLogsObj} staffList={staffList} />
+        </section>
+      </div>
+
+      {/* ── 11. 成效追蹤 ── */}
+      <section className="rounded-2xl bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+        <h2 className="mb-3 text-sm font-semibold text-earth-800">
+          採納成效追蹤 <span className="text-xs font-normal text-earth-400">執行閉環</span>
+        </h2>
+        <EffectivenessSection summary={effectivenessSummary} />
       </section>
     </div>
   );
