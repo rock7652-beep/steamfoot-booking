@@ -247,8 +247,23 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
                     Number(t.amount) < 0 ? "text-red-600" : "text-earth-900"
                   }`}
                 >
-                  {Number(t.amount) < 0 ? "-" : ""}
-                  NT$ {Math.abs(Number(t.amount)).toLocaleString()}
+                  {t.originalAmount && t.discountType && t.discountType !== "none" ? (
+                    <div>
+                      <span className="text-xs text-earth-400 line-through">
+                        NT$ {Number(t.originalAmount).toLocaleString()}
+                      </span>
+                      <br />
+                      NT$ {Math.abs(Number(t.amount)).toLocaleString()}
+                      {t.discountReason && (
+                        <span className="ml-1 text-[10px] text-amber-600">({t.discountReason})</span>
+                      )}
+                    </div>
+                  ) : (
+                    <>
+                      {Number(t.amount) < 0 ? "-" : ""}
+                      NT$ {Math.abs(Number(t.amount)).toLocaleString()}
+                    </>
+                  )}
                 </td>
                 <td className="px-4 py-3 text-earth-600">
                   {PAY_METHOD_LABEL[t.paymentMethod]}

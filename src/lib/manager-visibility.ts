@@ -17,8 +17,9 @@ export type VisibilityMode = "SELF_ONLY" | "STORE_SHARED";
  */
 export function getVisibilityMode(): VisibilityMode {
   const envMode = process.env.MANAGER_VISIBILITY_MODE;
-  if (envMode === "STORE_SHARED") return "STORE_SHARED";
-  return "SELF_ONLY";
+  if (envMode === "SELF_ONLY") return "SELF_ONLY";
+  // 預設同店可視 — 同一家店的員工可以看到全店資料
+  return "STORE_SHARED";
 }
 
 /**

@@ -45,13 +45,14 @@ export default async function CustomerDetailPage({ params }: PageProps) {
     redirect("/dashboard");
   }
 
-  const [customer, plans, staffOptions, tags, scripts, customerActionLogs] = await Promise.all([
+  const [customer, plans, staffOptions, tags, scripts, customerActionLogs, canDiscount] = await Promise.all([
     getCustomerDetail(id),
     listPlans(),
     listStaffSelectOptions(),
     user.role !== "CUSTOMER" ? getCustomerTags(id) : Promise.resolve([]),
     user.role !== "CUSTOMER" ? getCustomerScript(id) : Promise.resolve([]),
     user.role !== "CUSTOMER" ? getOpsActionLogs("customer_action") : Promise.resolve(new Map()),
+    checkPermission(user.role, user.staffId, "transaction.discount"),
   ]);
 
   // For transfer form, only pass staff list to Owner
@@ -240,7 +241,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
       <div id="plan" className="rounded-xl border bg-white p-6 shadow-sm">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="font-semibold text-earth-800">課程方案</h2>
-          <AssignPlanForm customerId={id} plans={plans.map((p) => ({
+          <AssignPlanForm customerId={id} canDiscount={canDiscount} plans={plans.map((p) => ({
             id: p.id,
             name: p.name,
             category: p.category,
@@ -396,18 +397,32 @@ export default async function CustomerDetailPage({ params }: PageProps) {
               </tr>
             </thead>
             <tbody className="divide-y divide-earth-100">
-              {customer.transactions.map((t) => (
+              {customer.transactions.map((t) => {
+                const hasDiscount = t.originalAmount && t.discountType && t.discountType !== "none";
+                return (
                 <tr key={t.id}>
                   <td className="py-2 text-earth-600">
                     {new Date(t.createdAt).toLocaleDateString("zh-TW")}
                   </td>
                   <td className="py-2">{TX_TYPE_LABEL[t.transactionType] ?? t.transactionType}</td>
                   <td className={`py-2 text-right font-medium ${Number(t.amount) < 0 ? "text-red-600" : "text-earth-900"}`}>
-                    NT$ {Number(t.amount).toLocaleString()}
+                    {hasDiscount ? (
+                      <div>
+                        <span className="text-xs text-earth-400 line-through">NT$ {Number(t.originalAmount).toLocaleString()}</span>
+                        <br />
+                        <span>NT$ {Number(t.amount).toLocaleString()}</span>
+                        {t.discountReason && (
+                          <span className="ml-1 text-[10px] text-amber-600">({t.discountReason})</span>
+                        )}
+                      </div>
+                    ) : (
+                      <>NT$ {Number(t.amount).toLocaleString()}</>
+                    )}
                   </td>
                   <td className="py-2 text-earth-500">{t.paymentMethod}</td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         )}

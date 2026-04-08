@@ -475,7 +475,11 @@ model Transaction {
   customerPlanWalletId String?         // 若為堂數扣抵或套餐購買，關聯到錢包
   transactionType      TransactionType
   paymentMethod        PaymentMethod   @default(CASH)
-  amount               Decimal         @db.Decimal(10, 0) // 正數=收入，負數=退款
+  amount               Decimal         @db.Decimal(10, 0) // 實收金額（折扣後）
+  originalAmount       Decimal?        @db.Decimal(10, 0) // 原價（null = 無折扣）
+  discountType         String?         // "none" | "fixed" | "percentage"
+  discountValue        Decimal?        @db.Decimal(10, 2) // 折扣值（金額 or 百分比）
+  discountReason       String?         // 折扣原因 / 活動名稱
   quantity             Int?            // 堂數（用於 SESSION_DEDUCTION）
   note                 String?
   createdAt            DateTime        @default(now())

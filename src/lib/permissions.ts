@@ -63,6 +63,7 @@ export const ALL_PERMISSIONS = [
   // 交易
   "transaction.read",
   "transaction.create",
+  "transaction.discount", // 使用折扣
   // 課程錢包
   "wallet.read",
   "wallet.create",
@@ -96,7 +97,7 @@ export const PERMISSION_GROUPS: Record<string, { label: string; codes: Permissio
   },
   transaction: {
     label: "交易紀錄",
-    codes: ["transaction.read", "transaction.create"],
+    codes: ["transaction.read", "transaction.create", "transaction.discount"],
   },
   wallet: {
     label: "課程方案",
@@ -136,6 +137,7 @@ export const PERMISSION_LABELS: Record<PermissionCode, string> = {
   "booking.update": "修改/取消預約",
   "transaction.read": "查看交易",
   "transaction.create": "新增交易",
+  "transaction.discount": "使用折扣",
   "wallet.read": "查看課程方案",
   "wallet.create": "指派課程方案",
   "wallet.adjust": "調整剩餘堂數",
@@ -165,6 +167,7 @@ export const DEFAULT_STORE_MANAGER_PERMISSIONS: PermissionCode[] = [
   "booking.update",
   "transaction.read",
   "transaction.create",
+  "transaction.discount",
   "wallet.read",
   "wallet.create",
   "wallet.adjust",
@@ -188,6 +191,7 @@ export const DEFAULT_BRANCH_MANAGER_PERMISSIONS: PermissionCode[] = [
   "booking.update",
   "transaction.read",
   "transaction.create",
+  "transaction.discount",
   "wallet.read",
   "wallet.create",
   "business_hours.view",

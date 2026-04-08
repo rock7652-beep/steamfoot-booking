@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
-import { requirePermission } from "@/lib/permissions";
+import { requirePermission, checkPermission } from "@/lib/permissions";
 import { AppError, handleActionError } from "@/lib/errors";
 import { assignPlanSchema } from "@/lib/validators/plan";
 import type { ActionResult } from "@/types";
@@ -10,9 +10,35 @@ import type { z } from "zod";
 import { addDays } from "date-fns";
 
 // ============================================================
+// 折扣計算
+// ============================================================
+
+function calculateFinalAmount(
+  originalPrice: number,
+  discountType: string,
+  discountValue: number | undefined
+): number {
+  if (discountType === "none" || !discountValue) return originalPrice;
+
+  if (discountType === "fixed") {
+    // 固定金額折扣
+    const result = originalPrice - discountValue;
+    return Math.max(0, Math.round(result));
+  }
+
+  if (discountType === "percentage") {
+    // 百分比折扣（discountValue = 打幾折，e.g. 80 = 8折）
+    const ratio = discountValue / 100;
+    const result = originalPrice * ratio;
+    return Math.max(0, Math.round(result));
+  }
+
+  return originalPrice;
+}
+
+// ============================================================
 // assignPlanToCustomer
-// Owner: 任意顧客
-// Manager: 自己名下顧客
+// 同店所有員工皆可為顧客購課
 // 邏輯：建立錢包 + 交易，更新顧客 stage / selfBookingEnabled
 // ============================================================
 
@@ -23,20 +49,41 @@ export async function assignPlanToCustomer(
     const user = await requirePermission("wallet.create");
     const data = assignPlanSchema.parse(input);
 
+    // 折扣權限檢查：如果有折扣，需要 transaction.discount 權限
+    const hasDiscount = data.discountType && data.discountType !== "none" && data.discountValue;
+    if (hasDiscount) {
+      const canDiscount = await checkPermission(user.role, user.staffId, "transaction.discount");
+      if (!canDiscount) {
+        throw new AppError("FORBIDDEN", "您沒有使用折扣的權限");
+      }
+    }
+
     // 取顧客
     const customer = await prisma.customer.findUnique({
       where: { id: data.customerId },
     });
     if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
 
-    // Manager 可為任何顧客購課（含未派任店長的顧客）
-    // 不再強制 assignedStaffId === user.staffId
-
     // 取方案
     const plan = await prisma.servicePlan.findUnique({
       where: { id: data.planId, isActive: true },
     });
     if (!plan) throw new AppError("NOT_FOUND", "課程方案不存在或已停用");
+
+    // 折扣驗證
+    const originalPrice = Number(plan.price);
+    const discountType = data.discountType ?? "none";
+    const discountValue = data.discountValue;
+
+    if (discountType === "fixed" && discountValue && discountValue > originalPrice) {
+      throw new AppError("VALIDATION", "折扣金額不可超過原價");
+    }
+    if (discountType === "percentage" && discountValue && (discountValue < 1 || discountValue > 100)) {
+      throw new AppError("VALIDATION", "折扣百分比需在 1-100 之間");
+    }
+
+    // 計算實收金額
+    const finalAmount = calculateFinalAmount(originalPrice, discountType, discountValue);
 
     // 決定 transactionType
     const txType =
@@ -52,12 +99,12 @@ export async function assignPlanToCustomer(
 
     // 使用 Prisma transaction 確保原子性
     const result = await prisma.$transaction(async (tx) => {
-      // 1. 建立課程錢包（快照購買時的價格）
+      // 1. 建立課程錢包（快照購買時的價格 = 實收金額）
       const wallet = await tx.customerPlanWallet.create({
         data: {
           customerId: data.customerId,
           planId: data.planId,
-          purchasedPrice: plan.price,          // 快照：不受日後改價影響
+          purchasedPrice: finalAmount,          // 快照：實收金額
           totalSessions: plan.sessionCount,
           remainingSessions: plan.sessionCount,
           startDate,
@@ -66,15 +113,19 @@ export async function assignPlanToCustomer(
         },
       });
 
-      // 2. 建立交易紀錄（快照 revenueStaffId + soldByStaffId）
+      // 2. 建立交易紀錄
       const transaction = await tx.transaction.create({
         data: {
           customerId: data.customerId,
-          revenueStaffId: customer.assignedStaffId ?? user.staffId!, // 快照：fallback 到操作者
+          revenueStaffId: customer.assignedStaffId ?? user.staffId!, // 快照：營收歸屬
           soldByStaffId: user.staffId ?? null, // 紀錄本次操作/成交店長
           transactionType: txType,
           paymentMethod: data.paymentMethod,
-          amount: plan.price,
+          amount: finalAmount,                    // 實收金額
+          originalAmount: hasDiscount ? originalPrice : null,  // 有折扣才記原價
+          discountType: hasDiscount ? discountType : null,
+          discountValue: hasDiscount ? discountValue : null,
+          discountReason: data.discountReason || null,
           customerPlanWalletId: wallet.id,
           note: data.note,
         },

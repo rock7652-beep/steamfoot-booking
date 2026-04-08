@@ -25,4 +25,8 @@ export const assignPlanSchema = z.object({
   planId: z.string().cuid(),
   paymentMethod: z.enum(["CASH", "TRANSFER", "LINE_PAY", "CREDIT_CARD", "OTHER", "UNPAID"]),
   note: z.string().max(500).optional(),
+  // 折扣
+  discountType: z.enum(["none", "fixed", "percentage"]).optional().default("none"),
+  discountValue: z.number().min(0).optional(),          // 金額 or 百分比
+  discountReason: z.string().max(200).optional(),       // 折扣原因 / 活動名稱
 });

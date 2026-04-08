@@ -99,12 +99,8 @@ export async function updateCustomer(
     });
     if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
 
-    // 非 Owner 員工只能修改自己名下顧客
-    if (user.role !== "OWNER") {
-      if (!user.staffId || customer.assignedStaffId !== user.staffId) {
-        throw new AppError("FORBIDDEN", "無法修改其他店長名下的顧客");
-      }
-    }
+    // 同店員工皆可操作（權限已由 requirePermission 把關）
+    // assignedStaffId 僅用於歸屬/報表，不限制寫入操作
 
     // birthday: string → Date 轉換
     const prismaData: Record<string, unknown> = { ...data };
@@ -177,11 +173,7 @@ export async function updateCustomerStage(
     const customer = await prisma.customer.findUnique({ where: { id: customerId } });
     if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
 
-    if (user.role !== "OWNER") {
-      if (!user.staffId || customer.assignedStaffId !== user.staffId) {
-        throw new AppError("FORBIDDEN", "無法修改其他店長名下的顧客");
-      }
-    }
+    // 同店員工皆可操作（權限已由 requirePermission 把關）
 
     const updateData: Record<string, unknown> = { customerStage: stage };
     if (stage === "TRIAL" && !customer.firstVisitAt) {
