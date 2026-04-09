@@ -1,5 +1,7 @@
 import type { NextConfig } from "next";
 
+const HEALTH_TRACKER_URL = "https://health-tracker-eight-rosy.vercel.app";
+
 const nextConfig: NextConfig = {
   env: {
     NEXT_PUBLIC_BUILD_VERSION: "1.7.1",
@@ -12,6 +14,33 @@ const nextConfig: NextConfig = {
           : process.env.NODE_ENV === "production"
             ? "prod"
             : "dev",
+  },
+  async redirects() {
+    return [
+      // 保底轉址：LINE 圖文選單 / 舊連結 / 外部分享連結
+      // query string 自動保留（Next.js 預設行為）
+      {
+        source: "/health",
+        destination: HEALTH_TRACKER_URL + "/",
+        permanent: false, // 302 — 方便日後改網域
+      },
+      {
+        source: "/body-index",
+        destination: HEALTH_TRACKER_URL + "/",
+        permanent: false,
+      },
+      {
+        source: "/health-tracker",
+        destination: HEALTH_TRACKER_URL + "/",
+        permanent: false,
+      },
+      // 子路徑也攔截（例如 /health/login, /health/dashboard 等）
+      {
+        source: "/health/:path*",
+        destination: HEALTH_TRACKER_URL + "/:path*",
+        permanent: false,
+      },
+    ];
   },
 };
 
