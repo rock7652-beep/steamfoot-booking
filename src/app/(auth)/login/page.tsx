@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { loginAction } from "@/server/actions/auth";
+import { APP_VERSION, APP_VERSION_DATE } from "@/lib/version";
 
 const initialState = { error: null as string | null };
 
@@ -10,8 +11,11 @@ export default function LoginPage() {
 
   return (
     <div className="w-full max-w-sm rounded-xl border border-earth-200 bg-white p-6 shadow-sm sm:p-8">
-      <h1 className="mb-2 text-2xl font-bold text-earth-900">蒸足管理系統</h1>
-      <p className="mb-6 text-sm text-earth-500">員工登入</p>
+      <h1 className="mb-1 text-2xl font-bold text-earth-900">蒸足管理系統</h1>
+      <div className="mb-6 flex items-center gap-2">
+        <p className="text-sm text-earth-500">員工登入</p>
+        <span className="text-[10px] text-earth-300">v{APP_VERSION} · {APP_VERSION_DATE}</span>
+      </div>
 
       <form action={action} className="space-y-4">
         <div>

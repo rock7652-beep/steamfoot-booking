@@ -4,9 +4,11 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import BuildFooter from "@/components/build-footer";
+import UpdateBanner from "@/components/update-banner";
 import { PlanBadge, LockedNavItem, TrialProgressBar } from "@/components/feature-gate";
 import type { TrialStatus } from "@/lib/shop-config";
 import { hasFeature, type Feature, FEATURES } from "@/lib/shop-plan";
+import { APP_VERSION } from "@/lib/version";
 import type { ShopPlan } from "@prisma/client";
 
 interface NavItem {
@@ -345,6 +347,14 @@ export default function DashboardShell({
           </button>
         </div>
         {renderNavItems()}
+        {/* Sidebar version footer */}
+        <div className="border-t border-earth-100 px-3 py-2 text-center">
+          {collapsed ? (
+            <span className="text-[9px] text-earth-300">v{APP_VERSION}</span>
+          ) : (
+            <span className="text-[10px] text-earth-300">v{APP_VERSION} · {process.env.NEXT_PUBLIC_BUILD_ENV || "dev"}</span>
+          )}
+        </div>
       </aside>
 
       {/* Mobile overlay */}
@@ -412,8 +422,9 @@ export default function DashboardShell({
 
         {/* Content */}
         <main className="mx-auto max-w-6xl px-4 py-5 sm:px-6 sm:py-6">
+          <UpdateBanner />
           {trialStatus && trialStatus.isFree && trialStatus.stage !== "normal" && (
-            <div className="mb-4">
+            <div className="mb-4 mt-3">
               <TrialProgressBar trial={trialStatus} />
             </div>
           )}

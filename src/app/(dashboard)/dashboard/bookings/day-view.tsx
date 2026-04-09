@@ -39,9 +39,11 @@ interface DayViewProps {
   bookings: DayBooking[];
   /** 從 fetchDaySlots() 取得的實際可預約時段（已套用營業時間 + SlotOverride） */
   slots: SlotAvailability[];
+  /** 內嵌模式：隱藏返回按鈕和日期導航 */
+  inline?: boolean;
 }
 
-export function DayView({ date, bookings, slots }: DayViewProps) {
+export function DayView({ date, bookings, slots, inline }: DayViewProps) {
   const dateObj = new Date(date + "T12:00:00");
   const dayLabel = WEEKDAY_LABELS[dateObj.getDay()];
   const displayDate = dateObj.toLocaleDateString("zh-TW", { month: "2-digit", day: "2-digit" });
@@ -107,7 +109,7 @@ export function DayView({ date, bookings, slots }: DayViewProps) {
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-earth-900">
+          <h1 className={`font-bold text-earth-900 ${inline ? "text-lg" : "text-2xl"}`}>
             {displayDate}（{dayLabel}）
           </h1>
           <p className="mt-1 text-sm text-earth-500">
@@ -118,29 +120,33 @@ export function DayView({ date, bookings, slots }: DayViewProps) {
             )}
           </p>
         </div>
-        <Link
-          href="/dashboard/bookings"
-          className="rounded-lg border border-earth-300 px-4 py-2 text-sm font-medium text-earth-700 hover:bg-earth-50 w-fit"
-        >
-          ← 返回月曆
-        </Link>
+        {!inline && (
+          <Link
+            href="/dashboard/bookings"
+            className="rounded-lg border border-earth-300 px-4 py-2 text-sm font-medium text-earth-700 hover:bg-earth-50 w-fit"
+          >
+            ← 返回月曆
+          </Link>
+        )}
       </div>
 
       {/* Day Navigation */}
-      <div className="flex items-center gap-2">
-        <Link
-          href={`?view=day&date=${prevDateStr}`}
-          className="rounded-lg border border-earth-300 px-3 py-2 text-sm hover:bg-earth-50"
-        >
-          ← 前一天
-        </Link>
-        <Link
-          href={`?view=day&date=${nextDateStr}`}
-          className="rounded-lg border border-earth-300 px-3 py-2 text-sm hover:bg-earth-50"
-        >
-          後一天 →
-        </Link>
-      </div>
+      {!inline && (
+        <div className="flex items-center gap-2">
+          <Link
+            href={`?view=day&date=${prevDateStr}`}
+            className="rounded-lg border border-earth-300 px-3 py-2 text-sm hover:bg-earth-50"
+          >
+            ← 前一天
+          </Link>
+          <Link
+            href={`?view=day&date=${nextDateStr}`}
+            className="rounded-lg border border-earth-300 px-3 py-2 text-sm hover:bg-earth-50"
+          >
+            後一天 →
+          </Link>
+        </div>
+      )}
 
       {/* Staff Color Legend */}
       {staffList.length > 0 && (

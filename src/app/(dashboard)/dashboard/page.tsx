@@ -204,10 +204,10 @@ export default async function DashboardPage({ searchParams }: PageProps) {
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-sm font-semibold text-earth-800">今日預約</h3>
           <Link
-            href={`/dashboard/bookings?view=day&date=${todayDateStr}`}
+            href="/dashboard/bookings"
             className="text-xs text-primary-600 hover:text-primary-700"
           >
-            完整時段表 →
+            預約管理 →
           </Link>
         </div>
 
@@ -296,7 +296,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       <div className="flex flex-wrap gap-2">
         <QuickLink href="/dashboard/bookings/new" label="新增預約" primary />
         <QuickLink href="/dashboard/customers" label="顧客管理" />
-        <QuickLink href={`/dashboard/bookings?view=day&date=${todayDateStr}`} label="今日時段表" />
+        <QuickLink href="/dashboard/bookings" label="預約排程" />
         <QuickLink href="/dashboard/transactions" label="交易紀錄" />
         <QuickLink href="/dashboard/cashbook" label="現金帳" />
         {isOwner && <QuickLink href="/dashboard/staff" label="店長管理" />}

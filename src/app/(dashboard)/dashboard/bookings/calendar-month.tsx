@@ -18,9 +18,11 @@ interface CalendarMonthProps {
   basePath?: string;
   selectedDate?: string | null;
   onDaySelect?: (dateKey: string) => void;
+  /** 隱藏內建的摘要面板（由外部元件提供完整詳情） */
+  hideInlineDetail?: boolean;
 }
 
-export function CalendarMonth({ year, month, monthData, basePath = "", selectedDate, onDaySelect }: CalendarMonthProps) {
+export function CalendarMonth({ year, month, monthData, basePath = "", selectedDate, onDaySelect, hideInlineDetail }: CalendarMonthProps) {
   const monthLabel = `${year}年${month}月`;
   const firstDayOfMonth = new Date(year, month - 1, 1).getDay();
   const daysInMonth = new Date(year, month, 0).getDate();
@@ -194,8 +196,8 @@ export function CalendarMonth({ year, month, monthData, basePath = "", selectedD
         </div>
       </div>
 
-      {/* Inline Day Detail Panel */}
-      {selectedDate && (() => {
+      {/* Inline Day Detail Panel (simple summary — hidden when parent provides full detail) */}
+      {!hideInlineDetail && selectedDate && (() => {
         const data = monthData.find((d) => d.date === selectedDate);
         if (!data) return null;
         return (

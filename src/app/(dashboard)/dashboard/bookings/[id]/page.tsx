@@ -1,10 +1,10 @@
 import { prisma } from "@/lib/db";
 import { requireStaffSession } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
-import { markCompleted, cancelBooking, markNoShow, checkInBooking } from "@/server/actions/booking";
+import { markCompleted, cancelBooking, markNoShow, checkInBooking, revertBookingStatus } from "@/server/actions/booking";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
-import { NoShowButton, CancelButton } from "./booking-actions";
+import { NoShowButton, CancelButton, RevertButton } from "./booking-actions";
 
 // Status/type labels
 const STATUS_LABEL: Record<string, string> = {
@@ -77,6 +77,11 @@ export default async function BookingDetailPage({ params }: PageProps) {
   async function noShowAction() {
     "use server";
     await markNoShow(id);
+    redirect(`/dashboard/bookings/${id}`);
+  }
+  async function revertAction() {
+    "use server";
+    await revertBookingStatus(id);
     redirect(`/dashboard/bookings/${id}`);
   }
 
@@ -187,10 +192,9 @@ export default async function BookingDetailPage({ params }: PageProps) {
           )}
         </dl>
 
-        {/* Actions */}
+        {/* Actions — PENDING / CONFIRMED */}
         {isActive && (
           <div className="mt-6 space-y-3 border-t pt-4">
-            {/* 第一行：報到 + 完成 */}
             <div className="flex flex-wrap gap-3">
               {canCheckIn && (
                 <form action={checkInAction}>
@@ -211,11 +215,25 @@ export default async function BookingDetailPage({ params }: PageProps) {
                 </button>
               </form>
             </div>
-            {/* 第二行：未到 + 取消（使用 Client Component 處理 confirm 對話框） */}
             <div className="flex flex-wrap items-center gap-3">
               <NoShowButton isMakeup={booking.isMakeup} action={noShowAction} />
               <CancelButton isMakeup={booking.isMakeup} action={cancelAction} />
             </div>
+          </div>
+        )}
+
+        {/* Actions — COMPLETED / NO_SHOW / CANCELLED：允許回退 */}
+        {!isActive && (
+          <div className="mt-6 border-t pt-4">
+            <p className="mb-2 text-xs text-earth-400">
+              {booking.bookingStatus === "COMPLETED" && "回退將還原已扣堂數，狀態改回「待確認」"}
+              {booking.bookingStatus === "NO_SHOW" && "回退將還原扣堂（若有）並移除補課資格，狀態改回「待確認」"}
+              {booking.bookingStatus === "CANCELLED" && "回退將恢復預約，狀態改回「待確認」"}
+            </p>
+            <RevertButton
+              status={booking.bookingStatus}
+              action={revertAction}
+            />
           </div>
         )}
       </div>

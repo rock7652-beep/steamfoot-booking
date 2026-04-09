@@ -6,6 +6,7 @@ import { requireSession } from "@/lib/session";
 import { requirePermission } from "@/lib/permissions";
 import { AppError, handleActionError } from "@/lib/errors";
 import { generateSlots, validateTimeRange } from "@/lib/slot-generator";
+import { toLocalDateStr } from "@/lib/date-utils";
 import type { ActionResult } from "@/types";
 
 const DAY_NAMES = ["週日", "週一", "週二", "週三", "週四", "週五", "週六"];
@@ -444,6 +445,25 @@ export async function updateBusinessHours(
       },
     });
 
+    // 清理未來同星期的 custom 類型 SpecialBusinessDay，讓新的每週規則生效
+    // 保留 closed / training（那些是刻意的例外）
+    const todayUTC = new Date(toLocalDateStr() + "T00:00:00Z");
+    const futureCustomDays = await prisma.specialBusinessDay.findMany({
+      where: {
+        type: "custom",
+        date: { gte: todayUTC },
+      },
+      select: { id: true, date: true },
+    });
+    const idsToDelete = futureCustomDays
+      .filter((d) => d.date.getUTCDay() === dayOfWeek)
+      .map((d) => d.id);
+    if (idsToDelete.length > 0) {
+      await prisma.specialBusinessDay.deleteMany({
+        where: { id: { in: idsToDelete } },
+      });
+    }
+
     revalidatePath("/dashboard/settings/hours");
     return { success: true, data: undefined };
   } catch (e) {
@@ -759,6 +779,117 @@ export async function overrideSlotCapacity(input: {
 
     revalidatePath("/dashboard/settings/hours");
     return { success: true, data: undefined };
+  } catch (e) {
+    return handleActionError(e);
+  }
+}
+
+// ============================================================
+// 每週排班模板（含時段開關）— 複製來源日的完整配置到未來同星期
+// ============================================================
+
+/**
+ * 把某天的營業時間 + SlotOverride 配置，套用到未來同星期幾的所有日期。
+ *
+ * 行為：
+ * 1. 更新 BusinessHours（營業時間/間隔/名額）
+ * 2. 讀取來源日所有 SlotOverride
+ * 3. 找出未來 N 週同星期幾的日期
+ * 4. 清除那些日期的既有 SlotOverride + custom SpecialBusinessDay
+ * 5. 複製來源日的 SlotOverride 到所有目標日期
+ * 6. 清除來源日的 custom SpecialBusinessDay
+ */
+export async function applyWeeklyTemplate(input: {
+  sourceDate: string;    // YYYY-MM-DD — 來源日期
+  isOpen: boolean;
+  openTime: string | null;
+  closeTime: string | null;
+  slotInterval: number;
+  defaultCapacity: number;
+  weeks: number;         // 套用到未來幾週（1-52）
+}): Promise<ActionResult<{ count: number }>> {
+  try {
+    await requirePermission("business_hours.manage");
+
+    if (input.weeks < 1 || input.weeks > 104) {
+      throw new AppError("VALIDATION", "週數需在 1-104 之間");
+    }
+
+    const sourceDate = new Date(input.sourceDate + "T00:00:00Z");
+    const dayOfWeek = sourceDate.getUTCDay();
+
+    // 1. 更新 BusinessHours
+    if (input.isOpen) {
+      const v = validateTimeRange({
+        openTime: input.openTime,
+        closeTime: input.closeTime,
+        slotInterval: input.slotInterval,
+        defaultCapacity: input.defaultCapacity,
+      });
+      if (!v.valid) throw new AppError("VALIDATION", v.error!);
+    }
+
+    await prisma.businessHours.upsert({
+      where: { dayOfWeek },
+      update: {
+        isOpen: input.isOpen,
+        openTime: input.isOpen ? input.openTime : null,
+        closeTime: input.isOpen ? input.closeTime : null,
+        slotInterval: input.slotInterval,
+        defaultCapacity: input.defaultCapacity,
+      },
+      create: {
+        dayOfWeek,
+        isOpen: input.isOpen,
+        openTime: input.isOpen ? input.openTime : null,
+        closeTime: input.isOpen ? input.closeTime : null,
+        slotInterval: input.slotInterval,
+        defaultCapacity: input.defaultCapacity,
+      },
+    });
+
+    // 2. 讀取來源日的 SlotOverride
+    const sourceOverrides = await prisma.slotOverride.findMany({
+      where: { date: sourceDate },
+    });
+
+    // 3. 計算目標日期
+    const targetDates: Date[] = [];
+    for (let i = 1; i <= input.weeks; i++) {
+      const d = new Date(sourceDate);
+      d.setUTCDate(d.getUTCDate() + 7 * i);
+      targetDates.push(d);
+    }
+
+    // 4. 批次清除：用 date IN (...) 一次刪完（不用逐日 deleteMany）
+    await prisma.slotOverride.deleteMany({
+      where: { date: { in: targetDates } },
+    });
+    await prisma.specialBusinessDay.deleteMany({
+      where: { date: { in: targetDates }, type: "custom" },
+    });
+
+    // 5. 批次建立：用 createMany 一次寫入所有 override
+    if (sourceOverrides.length > 0) {
+      const createData = targetDates.flatMap((targetDate) =>
+        sourceOverrides.map((src) => ({
+          date: targetDate,
+          startTime: src.startTime,
+          type: src.type,
+          capacity: src.capacity,
+          reason: src.reason,
+        }))
+      );
+      await prisma.slotOverride.createMany({ data: createData });
+    }
+
+    // 6. 清除來源日的 custom SpecialBusinessDay
+    await prisma.specialBusinessDay.deleteMany({
+      where: { date: sourceDate, type: "custom" },
+    });
+
+    revalidatePath("/dashboard/settings/hours");
+    return { success: true, data: { count: targetDates.length } };
   } catch (e) {
     return handleActionError(e);
   }

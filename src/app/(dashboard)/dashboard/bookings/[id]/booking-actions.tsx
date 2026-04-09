@@ -71,3 +71,37 @@ export function CancelButton({ isMakeup, action }: CancelButtonProps) {
     </form>
   );
 }
+
+const REVERT_MSG: Record<string, string> = {
+  COMPLETED: "確定回退？已扣堂數將還原，狀態改回「待確認」。",
+  NO_SHOW: "確定回退？扣堂（若有）將還原並移除補課資格，狀態改回「待確認」。",
+  CANCELLED: "確定回退？預約將恢復，狀態改回「待確認」。",
+};
+
+interface RevertButtonProps {
+  status: string;
+  action: () => Promise<void>;
+}
+
+export function RevertButton({ status, action }: RevertButtonProps) {
+  const [isPending, startTransition] = useTransition();
+
+  function handleClick() {
+    const msg = REVERT_MSG[status] ?? "確定回退此預約？";
+    if (!confirm(msg)) return;
+    startTransition(async () => {
+      await action();
+    });
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      disabled={isPending}
+      className="rounded-lg bg-amber-100 px-4 py-2 text-sm font-medium text-amber-700 hover:bg-amber-200 disabled:opacity-50"
+    >
+      {isPending ? "處理中..." : "回退狀態"}
+    </button>
+  );
+}

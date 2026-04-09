@@ -12,6 +12,7 @@ import {
   copySettingsToFutureWeeks,
   toggleSlotOverride,
   overrideSlotCapacity,
+  applyWeeklyTemplate,
 } from "@/server/actions/business-hours";
 import { SLOT_INTERVAL_OPTIONS, CAPACITY_OPTIONS } from "@/lib/slot-generator";
 
@@ -112,8 +113,9 @@ export function ScheduleManager({
   const [copyWeeks, setCopyWeeks] = useState(0);
   const [editInterval, setEditInterval] = useState(60);
   const [editCapacity, setEditCapacity] = useState(6);
-  // applyMode: "day" = 只改這天, "copy" = 複製到未來N週, "permanent" = 設為每週固定規則
-  const [applyMode, setApplyMode] = useState<"day" | "copy" | "permanent">("day");
+  // applyMode: "day" = 只改這天, "copy" = 複製到未來N週, "permanent" = 設為每週固定規則, "template" = 排班模板（含時段開關）
+  const [applyMode, setApplyMode] = useState<"day" | "copy" | "permanent" | "template">("day");
+  const [templateWeeks, setTemplateWeeks] = useState(52);
 
   // 月曆摘要
   const [monthSummary, setMonthSummary] = useState<MonthSummary>({});
@@ -208,17 +210,48 @@ export function ScheduleManager({
 
     startTransition(async () => {
       try {
-        // 「設為每週固定規則」模式 → 更新每週固定規則
-        if (applyMode === "permanent" && dayDetail) {
-          const dow = dayDetail.dayOfWeek;
+        // 「排班模板」模式 → 營業時間 + 時段開關一起複製到未來
+        if (applyMode === "template" && dayDetail) {
           const isOpen = editStatus === "open" || editStatus === "custom";
-          const result = await updateBusinessHours(dow, {
+          const result = await applyWeeklyTemplate({
+            sourceDate: selectedDate,
             isOpen,
             openTime: isOpen ? editOpenTime : null,
             closeTime: isOpen ? editCloseTime : null,
             slotInterval: editInterval,
             defaultCapacity: editCapacity,
+            weeks: templateWeeks,
           });
+          if (!result.success) {
+            toast.error(result.error);
+            return;
+          }
+          // 同步更新本地 weeklyHours
+          setWeeklyHours((prev) =>
+            prev.map((w) => w.dayOfWeek === dayDetail.dayOfWeek ? {
+              ...w,
+              isOpen,
+              openTime: isOpen ? editOpenTime : null,
+              closeTime: isOpen ? editCloseTime : null,
+              slotInterval: editInterval,
+              defaultCapacity: editCapacity,
+            } : w)
+          );
+          toast.success(`每週${dayDetail.dayName}固定排班已設定（套用 ${result.data.count} 週）`);
+        }
+        // 「設為每週固定規則」模式 → 只更新營業時間
+        else if (applyMode === "permanent" && dayDetail) {
+          const dow = dayDetail.dayOfWeek;
+          const isOpen = editStatus === "open" || editStatus === "custom";
+          const payload = {
+            isOpen,
+            openTime: isOpen ? editOpenTime : null,
+            closeTime: isOpen ? editCloseTime : null,
+            slotInterval: editInterval,
+            defaultCapacity: editCapacity,
+          };
+
+          const result = await updateBusinessHours(dow, payload);
           if (!result.success) {
             toast.error(result.error);
             return;
@@ -294,7 +327,7 @@ export function ScheduleManager({
         toast.error("儲存失敗");
       }
     });
-  }, [selectedDate, canManage, editStatus, editReason, editOpenTime, editCloseTime, editInterval, editCapacity, applyMode, copyWeeks, year, month, selectDate, dayDetail]);
+  }, [selectedDate, canManage, editStatus, editReason, editOpenTime, editCloseTime, editInterval, editCapacity, applyMode, copyWeeks, templateWeeks, year, month, selectDate, dayDetail]);
 
   // ── 儲存每週固定設定 ──
   const saveWeeklyDay = useCallback(async (
@@ -303,13 +336,15 @@ export function ScheduleManager({
   ) => {
     if (!canManage) return;
     startTransition(async () => {
-      const result = await updateBusinessHours(dow, {
+      const payload = {
         isOpen,
         openTime: isOpen ? openTime : null,
         closeTime: isOpen ? closeTime : null,
         slotInterval,
         defaultCapacity,
-      });
+      };
+
+      const result = await updateBusinessHours(dow, payload);
       if (result.success) {
         toast.success("每週預設已更新");
         setWeeklyHours((prev) =>
@@ -320,11 +355,21 @@ export function ScheduleManager({
             slotInterval, defaultCapacity,
           } : w)
         );
+        // 重新載入月份摘要 + 當前選中日期，讓月曆即時反映新規則
+        const [newSpecials, newSummary] = await Promise.all([
+          getMonthSpecialDays(year, month),
+          getMonthScheduleSummary(year, month),
+        ]);
+        setSpecialDays(newSpecials);
+        setMonthSummary(newSummary);
+        if (selectedDate) {
+          await selectDate(selectedDate);
+        }
       } else {
         toast.error(result.error);
       }
     });
-  }, [canManage]);
+  }, [canManage, year, month, selectedDate, selectDate]);
 
   // ── 渲染 ──
   return (
@@ -477,8 +522,8 @@ export function ScheduleManager({
                 </div>
               </div>
 
-              {/* 自訂時段：時間 + 間隔 + 名額 */}
-              {editStatus === "custom" && (
+              {/* 時段設定：custom 模式、permanent+open、template+open 都顯示 */}
+              {(editStatus === "custom" || (editStatus === "open" && (applyMode === "permanent" || applyMode === "template"))) && (
                 <div className="mb-3 space-y-2.5 rounded-lg border border-blue-200 bg-blue-50 p-3">
                   <div>
                     <label className="mb-1.5 block text-xs font-medium text-blue-800">可預約時段範圍（24 小時制）</label>
@@ -587,20 +632,48 @@ export function ScheduleManager({
                       </label>
                     )}
                     {(editStatus === "open" || editStatus === "custom") && (
-                      <label className="flex items-center gap-2 text-xs text-earth-700">
-                        <input
-                          type="radio"
-                          name="applyMode"
-                          value="permanent"
-                          checked={applyMode === "permanent"}
-                          onChange={() => setApplyMode("permanent")}
-                          className="accent-primary-600"
-                        />
-                        <span>
-                          更新每週{dayDetail?.dayName}固定規則
-                          <span className="ml-1 text-[10px] text-amber-600">⚠ 覆蓋現有設定</span>
-                        </span>
-                      </label>
+                      <>
+                        <label className="flex items-center gap-2 text-xs text-earth-700">
+                          <input
+                            type="radio"
+                            name="applyMode"
+                            value="permanent"
+                            checked={applyMode === "permanent"}
+                            onChange={() => setApplyMode("permanent")}
+                            className="accent-primary-600"
+                          />
+                          <span>
+                            更新每週{dayDetail?.dayName}營業時間
+                            <span className="ml-1 text-[10px] text-earth-400">僅時間/名額</span>
+                          </span>
+                        </label>
+                        <label className="flex items-center gap-2 text-xs text-earth-700">
+                          <input
+                            type="radio"
+                            name="applyMode"
+                            value="template"
+                            checked={applyMode === "template"}
+                            onChange={() => setApplyMode("template")}
+                            className="accent-primary-600"
+                          />
+                          <div>
+                            <span>設定每週{dayDetail?.dayName}固定排班</span>
+                            <span className="ml-1 text-[10px] text-earth-400">含時段開關</span>
+                            <div className="mt-0.5 text-[10px] text-earth-400">會套用到未來所有週</div>
+                          </div>
+                          <select
+                            value={templateWeeks}
+                            onChange={(e) => { setTemplateWeeks(Number(e.target.value)); setApplyMode("template"); }}
+                            className="ml-auto rounded border border-earth-300 px-1.5 py-0.5 text-xs"
+                          >
+                            <option value={52}>無限</option>
+                            <option value={4}>4 週</option>
+                            <option value={8}>8 週</option>
+                            <option value={12}>12 週</option>
+                            <option value={26}>26 週</option>
+                          </select>
+                        </label>
+                      </>
                     )}
                   </div>
                 </div>
