@@ -29,12 +29,30 @@ const LOG_STATUS_COLOR: Record<string, string> = {
   SKIPPED: "bg-earth-100 text-earth-500",
 };
 
-const TRIGGER_LABEL: Record<string, string> = {
-  BEFORE_BOOKING_1D: "預約前一天",
-  BEFORE_BOOKING_2H: "預約前 2 小時",
-  AFTER_SERVICE_7D: "服務後 7 天",
-  INACTIVE_30D: "30 天未回訪",
-};
+function formatTriggerLabel(rule: {
+  type: string;
+  triggerType: string;
+  offsetMinutes: number | null;
+  offsetDays: number;
+  fixedTime: string | null;
+}): string {
+  if (rule.type === "relative" && rule.offsetMinutes) {
+    const hours = rule.offsetMinutes / 60;
+    return hours >= 1
+      ? `預約前 ${hours % 1 === 0 ? hours : hours.toFixed(1)} 小時`
+      : `預約前 ${rule.offsetMinutes} 分鐘`;
+  }
+  if (rule.type === "fixed") {
+    const days = rule.offsetDays === 0 ? "當天" : `前 ${rule.offsetDays} 天`;
+    return `${days} ${rule.fixedTime ?? "20:00"} 發送`;
+  }
+  // Legacy fallback
+  const LEGACY: Record<string, string> = {
+    BEFORE_BOOKING_1D: "預約前一天",
+    BEFORE_BOOKING_2H: "預約前 2 小時",
+  };
+  return LEGACY[rule.triggerType] ?? rule.triggerType;
+}
 
 interface PageProps {
   searchParams: Promise<{ tab?: string; status?: string; search?: string; page?: string }>;
@@ -133,7 +151,7 @@ export default async function RemindersPage({ searchParams }: PageProps) {
                         </span>
                       </div>
                       <p className="mt-1 text-xs text-earth-500">
-                        觸發條件：{TRIGGER_LABEL[rule.triggerType] ?? rule.triggerType}
+                        觸發條件：{formatTriggerLabel(rule)}
                         {" · "}通路：{rule.channel}
                         {rule.template && <>{" · "}模板：{rule.template.name}</>}
                       </p>

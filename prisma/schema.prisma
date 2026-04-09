@@ -663,14 +663,18 @@ model ShopConfig {
 // ============================================================
 
 model ReminderRule {
-  id          String   @id @default(cuid())
-  name        String   // "預約前一天提醒"
-  triggerType String   // "BEFORE_BOOKING_1D", "BEFORE_BOOKING_2H", "AFTER_SERVICE_7D", "INACTIVE_30D"
-  channel     ReminderChannel @default(LINE)
-  templateId  String?
-  isEnabled   Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id            String   @id @default(cuid())
+  name          String   // "預約前一天提醒"
+  triggerType   String   // "BEFORE_BOOKING_1D", "BEFORE_BOOKING_2H", "AFTER_SERVICE_7D", "INACTIVE_30D" (legacy)
+  type          String   @default("fixed")  // "relative" | "fixed"
+  offsetMinutes Int?     // relative: 預約前 N 分鐘（例：720=12hr, 1440=24hr）
+  offsetDays    Int      @default(1)         // fixed: 預約前 N 天
+  fixedTime     String?  // fixed: 發送時間 "HH:mm"（例："20:00"）
+  channel       ReminderChannel @default(LINE)
+  templateId    String?
+  isEnabled     Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   template    MessageTemplate? @relation(fields: [templateId], references: [id])
   logs        MessageLog[]

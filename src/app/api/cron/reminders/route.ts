@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { runDailyReminders } from "@/server/reminder-engine";
+import { runReminders } from "@/server/reminder-engine";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * 提醒 Cron Job — 每 5 分鐘執行一次
+ *
+ * Vercel Cron 設定：vercel.json → crons → "* /5 * * * *"
+ * 或由外部 cron service 呼叫
+ */
 export async function GET(request: NextRequest) {
-  // Verify cron secret (Vercel sends this header)
   const authHeader = request.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
 
@@ -13,8 +18,8 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    console.log("[Cron] Running daily reminders...");
-    const result = await runDailyReminders();
+    console.log("[Cron] Running reminders...");
+    const result = await runReminders();
     console.log(`[Cron] Done: ${result.sent} sent, ${result.skipped} skipped, ${result.failed} failed`);
 
     return NextResponse.json({

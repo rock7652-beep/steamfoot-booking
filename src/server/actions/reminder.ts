@@ -17,7 +17,11 @@ import type { ActionResult } from "@/types";
 
 const createRuleSchema = z.object({
   name: z.string().min(1).max(100),
-  triggerType: z.enum(["BEFORE_BOOKING_1D", "BEFORE_BOOKING_2H", "AFTER_SERVICE_7D", "INACTIVE_30D"]),
+  triggerType: z.string().default("CUSTOM"), // legacy compat
+  type: z.enum(["relative", "fixed"]),
+  offsetMinutes: z.number().int().min(1).max(10080).optional(), // max 7 days
+  offsetDays: z.number().int().min(0).max(7).optional().default(1),
+  fixedTime: z.string().regex(/^\d{2}:\d{2}$/).optional(),
   channel: z.enum(["LINE", "EMAIL", "SMS"]).optional().default("LINE"),
   templateId: z.string().cuid().optional(),
   isEnabled: z.boolean().optional().default(true),
@@ -25,7 +29,10 @@ const createRuleSchema = z.object({
 
 const updateRuleSchema = z.object({
   name: z.string().min(1).max(100).optional(),
-  triggerType: z.enum(["BEFORE_BOOKING_1D", "BEFORE_BOOKING_2H", "AFTER_SERVICE_7D", "INACTIVE_30D"]).optional(),
+  type: z.enum(["relative", "fixed"]).optional(),
+  offsetMinutes: z.number().int().min(1).max(10080).optional(),
+  offsetDays: z.number().int().min(0).max(7).optional(),
+  fixedTime: z.string().regex(/^\d{2}:\d{2}$/).optional(),
   templateId: z.string().cuid().nullable().optional(),
   isEnabled: z.boolean().optional(),
 });
@@ -59,6 +66,10 @@ export async function createReminderRule(
       data: {
         name: data.name,
         triggerType: data.triggerType,
+        type: data.type,
+        offsetMinutes: data.type === "relative" ? data.offsetMinutes : null,
+        offsetDays: data.type === "fixed" ? (data.offsetDays ?? 1) : 0,
+        fixedTime: data.type === "fixed" ? (data.fixedTime ?? "20:00") : null,
         channel: data.channel,
         templateId: data.templateId ?? null,
         isEnabled: data.isEnabled,
