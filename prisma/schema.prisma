@@ -281,6 +281,10 @@ model Customer {
   lineBindingCode           String?        @unique // 6 ��綁定碼
   lineBindingCodeCreatedAt  DateTime?      // 綁定碼產生時間
   notes              String?       // 內部備註
+  // 身體數據系統連結
+  healthProfileId    String?       // 身體數據系統的 profile UUID
+  healthLinkStatus   String        @default("unlinked") // "unlinked" | "linked" | "not_found" | "error"
+  healthSyncedAt     DateTime?     // 最後一次同步身體數據的時間
   assignedStaffId    String?       // 直屬店長（nullable: 建立時可不指派）
   customerStage      CustomerStage @default(LEAD)
   selfBookingEnabled Boolean       @default(false)
@@ -777,13 +781,15 @@ model OpsActionHistory {
 // ============================================================
 
 model BusinessHours {
-  id        String   @id @default(cuid())
-  dayOfWeek Int      // 0=Sunday ... 6=Saturday
-  isOpen    Boolean  @default(true)
-  openTime  String?  // "HH:mm"，null 表示公休
-  closeTime String?  // "HH:mm"，null 表示公休
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id              String   @id @default(cuid())
+  dayOfWeek       Int      // 0=Sunday ... 6=Saturday
+  isOpen          Boolean  @default(true)
+  openTime        String?  // "HH:mm"，null 表示公休
+  closeTime       String?  // "HH:mm"，null 表示公休
+  slotInterval    Int      @default(60)  // 時段間隔（分鐘）：30/60/90/120
+  defaultCapacity Int      @default(6)   // 每時段預設名額
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   @@unique([dayOfWeek])
 }
@@ -793,14 +799,16 @@ model BusinessHours {
 // ============================================================
 
 model SpecialBusinessDay {
-  id        String   @id @default(cuid())
-  date      DateTime @db.Date
-  type      String   // "closed" | "training" | "custom"
-  reason    String?  // 公休原因、進修說明
-  openTime  String?  // type=custom 時的特殊營業開始
-  closeTime String?  // type=custom 時的特殊營業結束
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id              String   @id @default(cuid())
+  date            DateTime @db.Date
+  type            String   // "closed" | "training" | "custom"
+  reason          String?  // 公休原因、進修說明
+  openTime        String?  // type=custom 時的特殊營業開始
+  closeTime       String?  // type=custom 時的特殊營業結束
+  slotInterval    Int?     // 覆寫時段間隔（null=沿用每週規則）
+  defaultCapacity Int?     // 覆寫每時段名額（null=沿用每週規則）
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   @@unique([date])
   @@index([date])
