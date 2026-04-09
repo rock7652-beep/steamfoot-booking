@@ -64,7 +64,11 @@ export function DashboardCalendar({ year, month, monthData }: DashboardCalendarP
       {selectedDate && (
         <div className="rounded-xl border border-primary-200 bg-white p-4">
           {isPending ? (
-            <div className="flex items-center justify-center py-8">
+            <div className="flex items-center justify-center gap-2 py-8">
+              <svg className="h-5 w-5 animate-spin text-primary-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
+                <path d="M12 2a10 10 0 0 1 10 10" strokeLinecap="round" />
+              </svg>
               <span className="text-sm text-earth-400">載入中...</span>
             </div>
           ) : (

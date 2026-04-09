@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import { toggleReminderRule } from "@/server/actions/reminder";
 
 export function RuleToggle({ ruleId, isEnabled }: { ruleId: string; isEnabled: boolean }) {
@@ -12,6 +13,9 @@ export function RuleToggle({ ruleId, isEnabled }: { ruleId: string; isEnabled: b
     const result = await toggleReminderRule(ruleId, !enabled);
     if (result.success) {
       setEnabled(!enabled);
+      toast.success(!enabled ? "規則已啟用" : "規則已停用");
+    } else {
+      toast.error(result.error ?? "操作失敗");
     }
     setPending(false);
   }

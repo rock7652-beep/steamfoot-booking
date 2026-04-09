@@ -4,7 +4,7 @@
  * 登入頁、Dashboard sidebar、更新橫幅、Changelog 頁面統一引用此檔
  */
 
-export const APP_VERSION = "2.3.0";
+export const APP_VERSION = "2.3.1";
 export const APP_VERSION_DATE = "2026-04-09";
 
 export type ChangelogTag = "新功能" | "修正" | "優化";
@@ -26,6 +26,43 @@ export interface ChangelogEntry {
  * 更新橫幅顯示第一筆
  */
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: "2.3.1",
+    date: "2026-04-09",
+    highlights: "手機端操作回饋全面優化、預約列表快捷操作",
+    changes: [
+      {
+        tag: "優化",
+        text: "全系統按鈕加入 loading spinner / 處理中文字 / disabled 防重複點擊",
+        roles: ["全部"],
+      },
+      {
+        tag: "優化",
+        text: "所有互動操作加入 toast 成功/失敗提示（取代 alert 與無回饋）",
+        roles: ["全部"],
+      },
+      {
+        tag: "新功能",
+        text: "預約管理列表快捷操作 — 出席/未到/取消/修正可直接在時段卡片操作，無需進入詳情頁",
+        roles: ["店長"],
+      },
+      {
+        tag: "優化",
+        text: "OAuth 登入按鈕（LINE / Google）加入 loading 狀態與防重複點擊",
+        roles: ["全部"],
+      },
+      {
+        tag: "優化",
+        text: "載入日期詳情時顯示 spinner 動畫，避免手機端誤以為無回應",
+        roles: ["店長"],
+      },
+      {
+        tag: "優化",
+        text: "身體數據外部連結加入提示說明，避免 LINE 登入問題造成困惑",
+        roles: ["店長"],
+      },
+    ],
+  },
   {
     version: "2.3.0",
     date: "2026-04-09",

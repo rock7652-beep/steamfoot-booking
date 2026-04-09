@@ -1,6 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
+import { toast } from "sonner";
 import { activateStaff, deactivateStaff } from "@/server/actions/staff";
 import { useRouter } from "next/navigation";
 
@@ -21,9 +22,10 @@ export function StaffStatusToggle({ staffId, currentStatus }: StaffStatusToggleP
         : await activateStaff(staffId);
 
       if (!result.success) {
-        alert(result.error || "操作失敗");
+        toast.error(result.error || "操作失敗");
         return;
       }
+      toast.success(isActive ? "已停用員工" : "已啟用員工");
       router.refresh();
     });
   }

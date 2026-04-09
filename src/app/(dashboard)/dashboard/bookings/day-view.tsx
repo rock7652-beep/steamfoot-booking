@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import type { SlotAvailability } from "@/types";
+import { BookingQuickActions } from "../booking-quick-actions";
 
 const WEEKDAY_LABELS = ["日", "一", "二", "三", "四", "五", "六"];
 
@@ -224,9 +225,8 @@ export function DayView({ date, bookings, slots, inline }: DayViewProps) {
                 ) : (
                   <div className="space-y-1.5">
                     {slotBookings.map((booking) => (
-                      <Link
+                      <div
                         key={booking.id}
-                        href={`/dashboard/bookings/${booking.id}`}
                         className={`flex items-center gap-2 rounded-md border px-2.5 py-1.5 transition-shadow hover:shadow-md ${
                           STATUS_COLORS[booking.bookingStatus] || "border-earth-200 bg-white"
                         }`}
@@ -236,7 +236,10 @@ export function DayView({ date, bookings, slots, inline }: DayViewProps) {
                           className="h-2.5 w-2.5 flex-shrink-0 rounded-full"
                           style={{ backgroundColor: (booking.revenueStaff || booking.customer.assignedStaff)?.colorCode || "#9ca3af" }}
                         />
-                        <span className="min-w-0 flex-1 truncate text-sm font-medium text-earth-900">
+                        <Link
+                          href={`/dashboard/bookings/${booking.id}`}
+                          className="min-w-0 flex-1 truncate text-sm font-medium text-earth-900 hover:text-primary-700"
+                        >
                           {booking.customer.name}
                           {booking.people > 1 && (
                             <span className="ml-1 inline-block rounded bg-earth-100 px-1 py-0.5 text-[10px] font-medium text-earth-600">
@@ -253,15 +256,14 @@ export function DayView({ date, bookings, slots, inline }: DayViewProps) {
                               已報到
                             </span>
                           )}
-                        </span>
-                        <span
-                          className={`rounded px-1.5 py-0.5 text-[11px] font-medium whitespace-nowrap ${
-                            STATUS_COLORS[booking.bookingStatus] || "bg-earth-100 text-earth-600"
-                          }`}
-                        >
-                          {STATUS_LABEL[booking.bookingStatus] || booking.bookingStatus}
-                        </span>
-                      </Link>
+                        </Link>
+                        {/* Quick actions — inline buttons for status changes */}
+                        <BookingQuickActions
+                          bookingId={booking.id}
+                          status={booking.bookingStatus}
+                          isCheckedIn={booking.isCheckedIn}
+                        />
+                      </div>
                     ))}
                   </div>
                 )}

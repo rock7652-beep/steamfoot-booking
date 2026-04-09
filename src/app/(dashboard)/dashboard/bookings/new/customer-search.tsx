@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { toast } from "sonner";
 
 interface CustomerResult {
   id: string;
@@ -50,7 +51,7 @@ export default function CustomerSearch({
           setIsOpen(true);
         }
       } catch {
-        // ignore
+        toast.error("搜尋顧客失敗，請重試");
       } finally {
         setLoading(false);
       }

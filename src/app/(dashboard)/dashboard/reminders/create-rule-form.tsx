@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import { createReminderRule } from "@/server/actions/reminder";
 
 const QUICK_PRESETS = [
@@ -48,11 +49,13 @@ export function CreateRuleForm({ templates }: Props) {
     });
 
     if (result.success) {
+      toast.success("提醒規則已建立");
       setOpen(false);
       setType("relative");
       setOffsetMinutes(1440);
       setCustomHours("");
     } else {
+      toast.error(result.error);
       setError(result.error);
     }
     setPending(false);

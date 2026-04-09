@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useActionState } from "react";
 import { createPortal } from "react-dom";
+import { toast } from "sonner";
 import { markCompleted, markNoShow, cancelBooking, revertBookingStatus } from "@/server/actions/booking";
 import type { NoShowChoice } from "@/lib/booking-constants";
 
@@ -135,7 +136,12 @@ export function BookingQuickActions({ bookingId, status }: Props) {
   const [completeState, completeAction, completePending] = useActionState(
     async (): Promise<ActionState> => {
       const r = await markCompleted(bookingId);
-      return r.success ? { error: null, done: true } : { error: r.error ?? "操作失敗", done: false };
+      if (r.success) {
+        toast.success("已標記出席");
+        return { error: null, done: true };
+      }
+      toast.error(r.error ?? "操作失敗");
+      return { error: r.error ?? "操作失敗", done: false };
     },
     { error: null, done: false }
   );
@@ -146,7 +152,12 @@ export function BookingQuickActions({ bookingId, status }: Props) {
   const [cancelState, cancelAction, cancelPending] = useActionState(
     async (): Promise<ActionState> => {
       const r = await cancelBooking(bookingId);
-      return r.success ? { error: null, done: true } : { error: r.error ?? "操作失敗", done: false };
+      if (r.success) {
+        toast.success("預約已取消");
+        return { error: null, done: true };
+      }
+      toast.error(r.error ?? "操作失敗");
+      return { error: r.error ?? "操作失敗", done: false };
     },
     { error: null, done: false }
   );
@@ -160,8 +171,15 @@ export function BookingQuickActions({ bookingId, status }: Props) {
     setShowNoShowMenu(false);
     try {
       const r = await markNoShow(bookingId, choice);
-      setNoShowState(r.success ? { error: null, done: true } : { error: r.error ?? "操作失敗", done: false });
+      if (r.success) {
+        toast.success("已標記未到");
+        setNoShowState({ error: null, done: true });
+      } else {
+        toast.error(r.error ?? "操作失敗");
+        setNoShowState({ error: r.error ?? "操作失敗", done: false });
+      }
     } catch {
+      toast.error("操作失敗");
       setNoShowState({ error: "操作失敗", done: false });
     } finally {
       setNoShowPending(false);
@@ -172,8 +190,15 @@ export function BookingQuickActions({ bookingId, status }: Props) {
     setRevertPending(true);
     try {
       const r = await revertBookingStatus(bookingId);
-      setRevertState(r.success ? { error: null, done: true } : { error: r.error ?? "操作失敗", done: false });
+      if (r.success) {
+        toast.success("已恢復為待到店");
+        setRevertState({ error: null, done: true });
+      } else {
+        toast.error(r.error ?? "操作失敗");
+        setRevertState({ error: r.error ?? "操作失敗", done: false });
+      }
     } catch {
+      toast.error("操作失敗");
       setRevertState({ error: "操作失敗", done: false });
     } finally {
       setRevertPending(false);

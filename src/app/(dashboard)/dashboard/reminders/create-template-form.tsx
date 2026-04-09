@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import { createMessageTemplate } from "@/server/actions/reminder";
 
 function renderTemplate(template: string, vars: Record<string, string>): string {
@@ -45,9 +46,11 @@ export function CreateTemplateForm() {
     });
 
     if (result.success) {
+      toast.success("訊息模板已建立");
       setOpen(false);
       setBody(DEFAULT_BODY);
     } else {
+      toast.error(result.error);
       setError(result.error);
     }
     setPending(false);
