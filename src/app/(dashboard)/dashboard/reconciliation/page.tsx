@@ -6,6 +6,7 @@ import { ServerTiming, withTiming } from "@/lib/perf";
 import { FeatureGate } from "@/components/feature-gate";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { EmptyState } from "@/components/ui/empty-state";
 import { listReconciliationRuns, getReconciliationRunDetail } from "@/server/queries/reconciliation";
 import { RunReconciliationButton } from "./run-button";
 
@@ -126,10 +127,11 @@ export default async function ReconciliationPage({ searchParams }: PageProps) {
 
       {/* Empty state */}
       {!displayRun && (
-        <div className="rounded-xl border border-earth-200 bg-white py-12 text-center shadow-sm">
-          <p className="text-sm text-earth-400">尚無對帳記錄</p>
-          <p className="mt-1 text-xs text-earth-400">點擊上方「手動執行對帳」開始第一次對帳</p>
-        </div>
+        <EmptyState
+          icon="settings"
+          title="尚無對帳記錄"
+          description="點擊上方「手動執行對帳」開始第一次對帳"
+        />
       )}
 
       {/* ═══════ 歷史列表 ═══════ */}

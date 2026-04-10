@@ -46,6 +46,16 @@ body {
   transition: width 200ms ease, transform 200ms ease;
 }
 
+/* Nav group expand/collapse animation */
+.nav-group-items {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 200ms ease;
+}
+.nav-group-items.open {
+  grid-template-rows: 1fr;
+}
+
 /* Scrollbar styling for sidebar */
 .sidebar-scroll::-webkit-scrollbar {
   width: 4px;

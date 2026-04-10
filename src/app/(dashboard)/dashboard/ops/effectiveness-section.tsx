@@ -1,5 +1,6 @@
 "use client";
 
+import { EmptyState } from "@/components/ui/empty-state";
 import type { EffectivenessSummary } from "@/server/actions/ops-action-log";
 
 const moduleLabels: Record<string, string> = {
@@ -20,11 +21,7 @@ interface Props {
 
 export function EffectivenessSection({ summary }: Props) {
   if (summary.totalActioned === 0) {
-    return (
-      <p className="py-4 text-center text-sm text-earth-400">
-        尚無已處理項目，處理警報或顧客經營後可追蹤成效
-      </p>
-    );
+    return <EmptyState icon="empty" title="尚無已處理項目" description="處理警報或顧客經營後可在此追蹤成效" />;
   }
 
   const improvementRate =

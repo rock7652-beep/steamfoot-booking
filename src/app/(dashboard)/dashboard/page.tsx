@@ -1,6 +1,7 @@
 import { getCurrentUser } from "@/lib/session";
 import { getMonthBookingSummary } from "@/server/queries/booking";
 import { getLatestReconciliationRun } from "@/server/queries/reconciliation";
+import { getDailyTrend } from "@/server/queries/ops-dashboard";
 import { todayRange, monthRange, toLocalDateStr, bookingDateToday } from "@/lib/date-utils";
 import { getManagerCustomerWhere } from "@/lib/manager-visibility";
 import { prisma } from "@/lib/db";
@@ -8,10 +9,16 @@ import Link from "next/link";
 import { DashboardCalendar } from "./dashboard-calendar";
 import { ReconciliationBanner } from "@/components/reconciliation-banner";
 import { TodayBookingsList } from "./today-bookings-list";
+import { DashboardAlerts } from "./dashboard-alerts";
+import { KpiCard } from "@/components/ui/kpi-card";
+import { SectionCard } from "@/components/ui/section-card";
 import {
   ACTIVE_BOOKING_STATUSES,
   REVENUE_TRANSACTION_TYPES,
 } from "@/lib/booking-constants";
+
+// Owner-only: lazy import trend tabs
+import { TrendTabs } from "./ops/trend-tabs";
 
 interface PageProps {
   searchParams: Promise<{ year?: string; month?: string }>;
@@ -23,34 +30,41 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   if (!user) return null;
   const isOwner = user.role === "OWNER";
 
-  const today = todayRange();          // for createdAt queries (TIMESTAMP)
+  const today = todayRange();
   const todayStart = today.start;
   const todayEnd = today.end;
-  const todayDateStr = today.dateStr;
-  const todayBookingDate = bookingDateToday(); // for bookingDate queries (@db.Date = UTC midnight)
+  const todayBookingDate = bookingDateToday();
   const todayLabel = new Date(todayStart.getTime() + 8 * 60 * 60 * 1000)
     .toLocaleDateString("zh-TW", { month: "long", day: "numeric", weekday: "short" });
 
   // Calendar month params
-  const now = new Date();
   const year = params.year ? parseInt(params.year) : parseInt(toLocalDateStr().slice(0, 4));
   const month = params.month ? parseInt(params.month) : parseInt(toLocalDateStr().slice(5, 7));
 
-  // P0-3: 「顧客屬於店」— 今日預約 / KPI 全店共享，任一店長看到一致結果
-  // 顧客數仍使用 visibility filter（「名下顧客」有意義）
+  // P0-3: 「顧客屬於店」— 今日預約 / KPI 全店共享
   const staffCustomerWhere = getManagerCustomerWhere(user.role, user.staffId);
 
+  // ── Last week same day for comparison ──
+  const lastWeekDate = new Date(todayBookingDate.getTime() - 7 * 24 * 60 * 60 * 1000);
+
   // Parallel queries
-  const [stats, todayBookings, monthData, latestRecon] = await Promise.all([
+  const [stats, todayBookings, monthData, latestRecon, lastWeekBookings, trend7, trend30] = await Promise.all([
     // KPI stats
     (async () => {
       const currentMonth = monthRange(toLocalDateStr().slice(0, 7));
       const monthStart = currentMonth.start;
-      const [customerCount, activeCount, todayAgg, monthRevenue, todayCompleted, todayRevenue] = await Promise.all([
+
+      // Previous month revenue for comparison
+      const prevMonthStr = (() => {
+        const d = new Date(monthStart);
+        d.setMonth(d.getMonth() - 1);
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      })();
+      const prevMonth = monthRange(prevMonthStr);
+
+      const [customerCount, activeCount, todayAgg, monthRevenue, todayCompleted, todayRevenue, prevMonthRevenue, noShowCount] = await Promise.all([
         prisma.customer.count({ where: staffCustomerWhere }),
         prisma.customer.count({ where: { ...staffCustomerWhere, customerStage: "ACTIVE" } }),
-        // P0-3: 今日預約不篩 staff，全店共享
-        // bookingDate 是 @db.Date（UTC midnight），用精確值查詢
         prisma.booking.aggregate({
           where: {
             bookingDate: todayBookingDate,
@@ -68,7 +82,6 @@ export default async function DashboardPage({ searchParams }: PageProps) {
               _sum: { amount: true },
             })
           : null,
-        // P0-3: 今日已完成不篩 staff
         prisma.booking.aggregate({
           where: {
             bookingDate: todayBookingDate,
@@ -86,6 +99,21 @@ export default async function DashboardPage({ searchParams }: PageProps) {
               _sum: { amount: true },
             })
           : null,
+        isOwner
+          ? prisma.transaction.aggregate({
+              where: {
+                createdAt: { gte: prevMonth.start, lt: monthStart },
+                transactionType: { in: [...REVENUE_TRANSACTION_TYPES] },
+              },
+              _sum: { amount: true },
+            })
+          : null,
+        prisma.booking.count({
+          where: {
+            bookingDate: todayBookingDate,
+            bookingStatus: "NO_SHOW",
+          },
+        }),
       ]);
       return {
         customerCount,
@@ -93,14 +121,15 @@ export default async function DashboardPage({ searchParams }: PageProps) {
         todayBookingCount: todayAgg._count.id,
         todayPeople: todayAgg._sum.people ?? 0,
         monthRevenue: monthRevenue ? Number(monthRevenue._sum.amount ?? 0) : null,
+        prevMonthRevenue: prevMonthRevenue ? Number(prevMonthRevenue._sum.amount ?? 0) : null,
         todayCompletedCount: todayCompleted._count.id,
         todayCompletedPeople: todayCompleted._sum.people ?? 0,
         todayRevenue: todayRevenue ? Number(todayRevenue._sum.amount ?? 0) : null,
+        noShowCount,
       };
     })(),
 
-    // P0-3: Today's booking list — 全店共享，不篩 staff
-    // bookingDate 是 @db.Date（UTC midnight），用精確值查詢
+    // Today's booking list
     prisma.booking.findMany({
       where: {
         bookingDate: todayBookingDate,
@@ -118,6 +147,19 @@ export default async function DashboardPage({ searchParams }: PageProps) {
 
     // Latest reconciliation run
     getLatestReconciliationRun().catch(() => null),
+
+    // Last week same day booking count (for comparison)
+    prisma.booking.aggregate({
+      where: {
+        bookingDate: lastWeekDate,
+        bookingStatus: { in: [...ACTIVE_BOOKING_STATUSES] },
+      },
+      _count: { id: true },
+    }),
+
+    // Trend data (owner only — null for staff)
+    isOwner ? getDailyTrend(7).catch(() => []) : Promise.resolve(null),
+    isOwner ? getDailyTrend(30).catch(() => []) : Promise.resolve(null),
   ]);
 
   // Busyness level
@@ -129,22 +171,21 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     full: { label: "爆滿", color: "text-red-700", bg: "bg-red-100" },
   }[busyLevel];
 
-  // 使用 booking-constants.ts 的共用常數（已在頂部 import）
+  // Comparison: today vs last week same day
+  const lastWeekCount = lastWeekBookings._count.id;
+  const bookingChange = stats.todayBookingCount - lastWeekCount;
+
+  // Revenue comparison
+  const revenueChange = (stats.monthRevenue != null && stats.prevMonthRevenue != null && stats.prevMonthRevenue > 0)
+    ? Math.round(((stats.monthRevenue - stats.prevMonthRevenue) / stats.prevMonthRevenue) * 100)
+    : null;
 
   return (
     <div className="mx-auto max-w-5xl space-y-5 px-4 py-4">
-      {/* ── Reconciliation Alert ── */}
-      {isOwner && latestRecon && latestRecon.status !== "pass" && (
-        <ReconciliationBanner
-          status={latestRecon.status}
-          mismatchCount={latestRecon.mismatchCount}
-          errorCount={latestRecon.errorCount}
-          startedAt={latestRecon.startedAt}
-          failedChecks={latestRecon.checks}
-        />
-      )}
 
-      {/* ── Today Summary ── */}
+      {/* ═══════════════════════════════════════════════ */}
+      {/* 1. 頁面標題區                                   */}
+      {/* ═══════════════════════════════════════════════ */}
       <div className="rounded-2xl bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
         <div className="flex items-start justify-between">
           <div>
@@ -155,55 +196,91 @@ export default async function DashboardPage({ searchParams }: PageProps) {
             {busyConfig.label}
           </span>
         </div>
-
-        {/* Today KPIs */}
-        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
-          <div className="rounded-xl bg-primary-50 px-3 py-2.5">
-            <p className="text-[11px] text-primary-600">今日預約</p>
-            <p className="text-xl font-bold text-primary-700">{stats.todayBookingCount}<span className="ml-1 text-xs font-normal text-primary-400">筆</span></p>
-          </div>
-          <div className="rounded-xl bg-primary-50 px-3 py-2.5">
-            <p className="text-[11px] text-primary-600">今日人數</p>
-            <p className="text-xl font-bold text-primary-700">{stats.todayPeople}<span className="ml-1 text-xs font-normal text-primary-400">人</span></p>
-          </div>
-          <div className="rounded-xl bg-green-50 px-3 py-2.5">
-            <p className="text-[11px] text-green-600">今日已完成</p>
-            <p className="text-xl font-bold text-green-700">{stats.todayCompletedPeople}<span className="ml-1 text-xs font-normal text-green-400">/ {stats.todayPeople}人</span></p>
-          </div>
-          <div className="rounded-xl bg-earth-50 px-3 py-2.5">
-            <p className="text-[11px] text-earth-500">名下顧客</p>
-            <p className="text-xl font-bold text-earth-800">{stats.customerCount}<span className="ml-1 text-xs font-normal text-earth-400">位</span></p>
-          </div>
-          {isOwner && stats.monthRevenue !== null ? (
-            <>
-              <div className="rounded-xl bg-earth-50 px-3 py-2.5">
-                <p className="text-[11px] text-earth-500">本月營收</p>
-                <p className="text-xl font-bold text-earth-800">${stats.monthRevenue.toLocaleString()}</p>
-              </div>
-              <div className="rounded-xl bg-earth-50 px-3 py-2.5">
-                <p className="text-[11px] text-earth-500">今日營收</p>
-                <p className="text-xl font-bold text-earth-800">${(stats.todayRevenue ?? 0).toLocaleString()}</p>
-              </div>
-            </>
-          ) : (
-            <div className="rounded-xl bg-earth-50 px-3 py-2.5">
-              <p className="text-[11px] text-earth-500">有效顧客</p>
-              <p className="text-xl font-bold text-earth-800">{stats.activeCount}<span className="ml-1 text-xs font-normal text-earth-400">位</span></p>
-            </div>
-          )}
-        </div>
       </div>
 
-      {/* ── Today Bookings List ── */}
-      <section className="rounded-2xl bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-        <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-earth-800">今日預約</h3>
-          <Link
-            href="/dashboard/bookings"
-            className="text-xs text-primary-600 hover:text-primary-700"
-          >
-            預約管理 →
-          </Link>
+      {/* ═══════════════════════════════════════════════ */}
+      {/* 2. 警示區                                       */}
+      {/* ═══════════════════════════════════════════════ */}
+      {isOwner && latestRecon && latestRecon.status !== "pass" && (
+        <ReconciliationBanner
+          status={latestRecon.status}
+          mismatchCount={latestRecon.mismatchCount}
+          errorCount={latestRecon.errorCount}
+          startedAt={latestRecon.startedAt}
+          failedChecks={latestRecon.checks}
+        />
+      )}
+      <DashboardAlerts
+        todayBookingCount={stats.todayBookingCount}
+        noShowCount={stats.noShowCount}
+      />
+
+      {/* ═══════════════════════════════════════════════ */}
+      {/* 3. KPI 摘要列                                   */}
+      {/* ═══════════════════════════════════════════════ */}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        <KpiCard
+          label="今日預約"
+          value={stats.todayBookingCount}
+          unit="筆"
+          color="primary"
+          change={bookingChange !== 0 ? { value: bookingChange, label: "vs 上週同日" } : null}
+        />
+        <KpiCard
+          label="今日人數"
+          value={stats.todayPeople}
+          unit="人"
+          color="primary"
+        />
+        <KpiCard
+          label="今日已完成"
+          value={stats.todayCompletedPeople}
+          unit={`/ ${stats.todayPeople}人`}
+          color="green"
+        />
+        <KpiCard
+          label="名下顧客"
+          value={stats.customerCount}
+          unit="位"
+          color="earth"
+        />
+        {isOwner && stats.monthRevenue !== null ? (
+          <>
+            <KpiCard
+              label="本月營收"
+              value={`$${stats.monthRevenue.toLocaleString()}`}
+              color="earth"
+              change={revenueChange != null ? { value: revenueChange, label: "vs 上月同期 %" } : null}
+            />
+            <KpiCard
+              label="今日營收"
+              value={`$${(stats.todayRevenue ?? 0).toLocaleString()}`}
+              color="amber"
+            />
+          </>
+        ) : (
+          <KpiCard
+            label="有效顧客"
+            value={stats.activeCount}
+            unit="位"
+            color="earth"
+          />
+        )}
+      </div>
+
+      {/* ═══════════════════════════════════════════════ */}
+      {/* 4. 核心工作區 — 今日預約 + Quick Actions         */}
+      {/* ═══════════════════════════════════════════════ */}
+      <SectionCard
+        title="今日預約"
+        action={{ label: "預約管理", href: "/dashboard/bookings" }}
+      >
+        {/* Quick Actions inline */}
+        <div className="mb-3 flex flex-wrap gap-2">
+          <QuickLink href="/dashboard/bookings/new" label="新增預約" primary />
+          <QuickLink href="/dashboard/customers" label="顧客管理" />
+          <QuickLink href="/dashboard/transactions" label="交易紀錄" />
+          {isOwner && <QuickLink href="/dashboard/staff" label="人員管理" />}
         </div>
 
         {todayBookings.length === 0 ? (
@@ -219,36 +296,34 @@ export default async function DashboardPage({ searchParams }: PageProps) {
         ) : (
           <TodayBookingsList bookings={todayBookings} />
         )}
-      </section>
+      </SectionCard>
 
-      {/* ── Quick Actions ── */}
-      <div className="flex flex-wrap gap-2">
-        <QuickLink href="/dashboard/bookings/new" label="新增預約" primary />
-        <QuickLink href="/dashboard/customers" label="顧客管理" />
-        <QuickLink href="/dashboard/bookings" label="預約排程" />
-        <QuickLink href="/dashboard/transactions" label="交易紀錄" />
-        <QuickLink href="/dashboard/cashbook" label="現金帳" />
-        {isOwner && <QuickLink href="/dashboard/staff" label="店長管理" />}
-        <QuickLink href="/dashboard/reports" label="報表" />
-      </div>
+      {/* ═══════════════════════════════════════════════ */}
+      {/* 5. 趨勢分析區 — Owner only                     */}
+      {/* ═══════════════════════════════════════════════ */}
+      {isOwner && trend7 && trend30 && trend7.length > 0 && (
+        <SectionCard
+          title="趨勢分析"
+          subtitle="營收與預約趨勢"
+          action={{ label: "營運儀表板", href: "/dashboard/ops" }}
+        >
+          <TrendTabs data7={trend7} data30={trend30} />
+        </SectionCard>
+      )}
 
-      {/* ── Calendar Overview ── */}
-      <section className="rounded-2xl bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-        <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-earth-800">預約總覽</h3>
-          <Link
-            href="/dashboard/bookings"
-            className="text-xs text-primary-600 hover:text-primary-700"
-          >
-            預約管理 →
-          </Link>
-        </div>
+      {/* ═══════════════════════════════════════════════ */}
+      {/* 6. 預約總覽 — 月曆                              */}
+      {/* ═══════════════════════════════════════════════ */}
+      <SectionCard
+        title="預約總覽"
+        action={{ label: "預約管理", href: "/dashboard/bookings" }}
+      >
         <DashboardCalendar
           year={year}
           month={month}
           monthData={monthData}
         />
-      </section>
+      </SectionCard>
     </div>
   );
 }

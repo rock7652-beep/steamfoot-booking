@@ -6,6 +6,7 @@ import { getShopPlan } from "@/lib/shop-config";
 import { FEATURES } from "@/lib/shop-plan";
 import { FeatureGate } from "@/components/feature-gate";
 import Link from "next/link";
+import { EmptyState } from "@/components/ui/empty-state";
 import { notFound, redirect } from "next/navigation";
 import { StaffStatusToggle } from "./staff-status-toggle";
 import type { UserRole } from "@prisma/client";
@@ -184,7 +185,11 @@ export default async function StaffPage({}: PageProps) {
         <h2 className="mb-4 text-lg font-bold text-earth-900">員工列表</h2>
 
         {staffList.length === 0 ? (
-          <p className="text-earth-400">暫無店長</p>
+          <EmptyState
+            icon="empty"
+            title="暫無員工"
+            description="使用上方表單新增第一位員工"
+          />
         ) : (
           <div className="overflow-hidden rounded-lg border border-earth-200">
             <table className="min-w-full divide-y divide-gray-200 text-sm">

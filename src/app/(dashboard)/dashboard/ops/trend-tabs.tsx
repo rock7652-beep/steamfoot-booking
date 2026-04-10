@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { PeriodToggle } from "@/components/ui/period-toggle";
 import { TrendChart } from "./trend-chart";
 import type { DayTrend } from "@/server/queries/ops-dashboard";
 
@@ -30,39 +31,8 @@ export function TrendTabs({ data7, data30 }: TrendTabsProps) {
     <div>
       {/* Tabs row */}
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        {/* Period toggle */}
-        <div className="flex rounded-lg border border-earth-200 p-0.5">
-          {PERIODS.map((p) => (
-            <button
-              key={p.key}
-              onClick={() => setPeriod(p.key)}
-              className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
-                period === p.key
-                  ? "bg-primary-600 text-white"
-                  : "text-earth-500 hover:text-earth-700"
-              }`}
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Metric toggle */}
-        <div className="flex rounded-lg border border-earth-200 p-0.5">
-          {METRICS.map((m) => (
-            <button
-              key={m.key}
-              onClick={() => setMetric(m.key)}
-              className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
-                metric === m.key
-                  ? "bg-primary-600 text-white"
-                  : "text-earth-500 hover:text-earth-700"
-              }`}
-            >
-              {m.label}
-            </button>
-          ))}
-        </div>
+        <PeriodToggle periods={PERIODS} value={period} onChange={setPeriod} />
+        <PeriodToggle periods={METRICS} value={metric} onChange={setMetric} />
       </div>
 
       {/* Chart */}

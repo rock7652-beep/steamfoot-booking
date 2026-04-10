@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
+import { EmptyState } from "@/components/ui/empty-state";
 import type { CustomerAction, ActionType } from "@/server/queries/ops-dashboard-v2";
 import {
   markCustomerAction,
@@ -130,7 +131,7 @@ export function CustomerActionsSection({ actions, actionLogs, staffList }: Props
   }
 
   if (actions.length === 0) {
-    return <p className="py-4 text-center text-sm text-earth-400">目前沒有待處理的顧客經營項目</p>;
+    return <EmptyState icon="empty" title="目前沒有待處理項目" description="保持與顧客的互動，新的經營項目會在此出現" />;
   }
 
   return (

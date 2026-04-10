@@ -7,6 +7,7 @@ import { FEATURES } from "@/lib/shop-plan";
 import { FeatureGate } from "@/components/feature-gate";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { EmptyState } from "@/components/ui/empty-state";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { CASH_TRANSACTION_TYPES } from "@/lib/booking-constants";
 import type { TransactionType, PaymentMethod } from "@prisma/client";
@@ -221,9 +222,12 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
           <tbody className="divide-y divide-earth-100">
             {transactions.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-earth-400">
-                  <p className="text-sm">沒有符合條件的交易紀錄</p>
-                  <p className="mt-1 text-xs">請調整篩選條件或日期範圍</p>
+                <td colSpan={7} className="px-4 py-0">
+                  <EmptyState
+                    icon="search"
+                    title="沒有符合條件的交易紀錄"
+                    description="請調整篩選條件或日期範圍"
+                  />
                 </td>
               </tr>
             )}

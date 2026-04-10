@@ -1,6 +1,7 @@
 import { getCurrentUser } from "@/lib/session";
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   getTodaySummary,
   getDailyTrend,
@@ -16,6 +17,8 @@ import {
   getRecommendations,
 } from "@/server/queries/ops-dashboard-v2";
 import { getOpsActionLogs, getActiveStaffList, getEffectivenessSummary } from "@/server/actions/ops-action-log";
+import { KpiCard } from "@/components/ui/kpi-card";
+import { SectionCard } from "@/components/ui/section-card";
 import { TrendTabs } from "./trend-tabs";
 import { FunnelChart } from "./funnel-chart";
 import { AlertsSection } from "./alerts-section";
@@ -77,8 +80,7 @@ export default async function OpsDashboardPage() {
       </div>
 
       {/* ── 1. 今日營運總覽 ── */}
-      <section className="rounded-2xl bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-        <h2 className="mb-3 text-sm font-semibold text-earth-800">今日營運</h2>
+      <SectionCard title="今日營運">
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
           <KpiCard label="今日預約" value={today.bookingCount} unit="筆" color="primary" />
           <KpiCard label="今日到店" value={today.arrivedCount} unit="人" color="green" />
@@ -92,27 +94,22 @@ export default async function OpsDashboardPage() {
             color="red"
           />
         </div>
-      </section>
+      </SectionCard>
 
       {/* ── 2. 趨勢圖 ── */}
-      <section className="rounded-2xl bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-        <h2 className="mb-1 text-sm font-semibold text-earth-800">趨勢分析</h2>
+      <SectionCard title="趨勢分析">
         <TrendTabs data7={trend7} data30={trend30} />
-      </section>
+      </SectionCard>
 
       {/* ── 3. 營運漏斗 + 4. 顧客分級 (side by side on desktop) ── */}
       <div className="grid gap-5 lg:grid-cols-2">
         {/* 營運漏斗 */}
-        <section className="rounded-2xl bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-          <h2 className="mb-3 text-sm font-semibold text-earth-800">
-            營運漏斗 <span className="text-xs font-normal text-earth-400">近 30 天</span>
-          </h2>
+        <SectionCard title="營運漏斗" subtitle="近 30 天">
           <FunnelChart steps={funnel} />
-        </section>
+        </SectionCard>
 
         {/* 顧客分級 */}
-        <section className="rounded-2xl bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-          <h2 className="mb-3 text-sm font-semibold text-earth-800">顧客分級</h2>
+        <SectionCard title="顧客分級">
           <div className="space-y-2">
             {segments.map((seg) => (
               <div key={seg.label} className="flex items-center gap-3">
@@ -138,14 +135,13 @@ export default async function OpsDashboardPage() {
           <p className="mt-3 text-[11px] text-earth-400">
             {segments.map((s) => `${s.label}：${s.description}`).join("｜")}
           </p>
-        </section>
+        </SectionCard>
       </div>
 
       {/* ── 5. 高價值顧客排行 ── */}
-      <section className="rounded-2xl bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-        <h2 className="mb-3 text-sm font-semibold text-earth-800">高價值顧客排行 TOP 10</h2>
+      <SectionCard title="高價值顧客排行 TOP 10">
         {topCustomers.length === 0 ? (
-          <p className="py-4 text-center text-sm text-earth-400">尚無顧客資料</p>
+          <EmptyState icon="empty" title="尚無顧客資料" description="有顧客消費後將自動產生排行" />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -207,15 +203,12 @@ export default async function OpsDashboardPage() {
             </table>
           </div>
         )}
-      </section>
+      </SectionCard>
 
       {/* ── 6. 店長績效比較 ── */}
-      <section className="rounded-2xl bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-        <h2 className="mb-3 text-sm font-semibold text-earth-800">
-          店長績效比較 <span className="text-xs font-normal text-earth-400">近 30 天</span>
-        </h2>
+      <SectionCard title="店長績效比較" subtitle="近 30 天">
         {staffPerf.length === 0 ? (
-          <p className="py-4 text-center text-sm text-earth-400">尚無店長資料</p>
+          <EmptyState icon="empty" title="尚無店長資料" description="新增員工後將自動追蹤績效" />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -270,93 +263,37 @@ export default async function OpsDashboardPage() {
             </table>
           </div>
         )}
-      </section>
+      </SectionCard>
 
       {/* ═══════════════════════════════════════════════════════ */}
       {/* ──  V2 模組：異常警報 / 顧客經營 / 排行榜 / AI建議  ── */}
       {/* ═══════════════════════════════════════════════════════ */}
 
       {/* ── 7. 異常警報系統 ── */}
-      <section className="rounded-2xl bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-        <h2 className="mb-3 text-sm font-semibold text-earth-800">
-          異常警報 <span className="text-xs font-normal text-earth-400">即時監控</span>
-        </h2>
+      <SectionCard title="異常警報" subtitle="即時監控">
         <AlertsSection alerts={alerts} actionLogs={alertLogsObj} staffList={staffList} />
-      </section>
+      </SectionCard>
 
       {/* ── 8. 顧客經營清單 ── */}
-      <section className="rounded-2xl bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-        <h2 className="mb-3 text-sm font-semibold text-earth-800">
-          顧客經營清單 <span className="text-xs font-normal text-earth-400">待處理 {customerActions.length} 項</span>
-        </h2>
+      <SectionCard title="顧客經營清單" subtitle={`待處理 ${customerActions.length} 項`}>
         <CustomerActionsSection actions={customerActions} actionLogs={customerActionLogsObj} staffList={staffList} />
-      </section>
+      </SectionCard>
 
       {/* ── 9. 店長排行榜 + 10. AI 經營建議 (side by side on desktop) ── */}
       <div className="grid gap-5 lg:grid-cols-2">
-        <section className="rounded-2xl bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-          <h2 className="mb-3 text-sm font-semibold text-earth-800">
-            店長排行榜 <span className="text-xs font-normal text-earth-400">近 30 天</span>
-          </h2>
+        <SectionCard title="店長排行榜" subtitle="近 30 天">
           <RankingsSection rankings={staffRankings} />
-        </section>
+        </SectionCard>
 
-        <section className="rounded-2xl bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-          <h2 className="mb-3 text-sm font-semibold text-earth-800">
-            AI 經營建議 <span className="text-xs font-normal text-earth-400">數據驅動</span>
-          </h2>
+        <SectionCard title="AI 經營建議" subtitle="數據驅動">
           <RecommendationsSection recommendations={recommendations} actionLogs={recommendationLogsObj} staffList={staffList} />
-        </section>
+        </SectionCard>
       </div>
 
       {/* ── 11. 成效追蹤 ── */}
-      <section className="rounded-2xl bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-        <h2 className="mb-3 text-sm font-semibold text-earth-800">
-          採納成效追蹤 <span className="text-xs font-normal text-earth-400">執行閉環</span>
-        </h2>
+      <SectionCard title="採納成效追蹤" subtitle="執行閉環">
         <EffectivenessSection summary={effectivenessSummary} />
-      </section>
-    </div>
-  );
-}
-
-// ── KPI Card Component ──
-
-function KpiCard({
-  label,
-  value,
-  unit,
-  color = "primary",
-}: {
-  label: string;
-  value: number | string;
-  unit?: string;
-  color?: "primary" | "green" | "blue" | "red" | "amber";
-}) {
-  const colors = {
-    primary: "bg-primary-50 text-primary-700",
-    green: "bg-green-50 text-green-700",
-    blue: "bg-blue-50 text-blue-700",
-    red: "bg-red-50 text-red-600",
-    amber: "bg-amber-50 text-amber-700",
-  };
-  const labelColors = {
-    primary: "text-primary-600",
-    green: "text-green-600",
-    blue: "text-blue-600",
-    red: "text-red-500",
-    amber: "text-amber-600",
-  };
-
-  return (
-    <div className={`rounded-xl px-3 py-2.5 ${colors[color]}`}>
-      <p className={`text-[11px] ${labelColors[color]}`}>{label}</p>
-      <p className="text-xl font-bold">
-        {value}
-        {unit && (
-          <span className="ml-1 text-xs font-normal opacity-60">{unit}</span>
-        )}
-      </p>
+      </SectionCard>
     </div>
   );
 }

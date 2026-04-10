@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { EmptyState } from "@/components/ui/empty-state";
 import type { StaffRanking } from "@/server/queries/ops-dashboard-v2";
 import { getStaffRankings } from "@/server/queries/ops-dashboard-v2";
 
@@ -31,9 +32,7 @@ export function RankingsSection({ rankings: initialRankings, initialDays = 30 }:
   }
 
   if (rankings.length === 0 && !pending) {
-    return (
-      <p className="py-4 text-center text-sm text-earth-400">尚無店長績效資料</p>
-    );
+    return <EmptyState icon="empty" title="尚無店長績效資料" description="有員工活動後將自動產生排行" />;
   }
 
   const maxRevenue = Math.max(...rankings.map((r) => r.revenue), 1);

@@ -5,6 +5,7 @@ import { getCachedPlans, getCachedStaffOptions } from "@/lib/query-cache";
 import { ServerTiming, withTiming } from "@/lib/perf";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
+import { EmptyState } from "@/components/ui/empty-state";
 import { AssignPlanForm } from "./assign-plan-form";
 import { TransferCustomerForm } from "./transfer-customer-form";
 import { CreateBookingForm } from "./create-booking-form";
@@ -226,7 +227,11 @@ export default async function CustomerDetailPage({ params }: PageProps) {
           }))} />
         </div>
         {customer.planWallets.length === 0 ? (
-          <p className="text-sm text-earth-400">尚未購買課程</p>
+          <EmptyState
+            icon="empty"
+            title="尚未購買課程"
+            description="可在上方指派課程方案給此顧客"
+          />
         ) : (
           <div className="space-y-4">
             {/* 有效課程 */}
@@ -308,7 +313,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
           預約紀錄（最近 {historyBookings.length} 筆）
         </h2>
         {historyBookings.length === 0 ? (
-          <p className="text-sm text-earth-400">尚無歷史預約</p>
+          <EmptyState icon="empty" title="尚無歷史預約" description="此顧客還沒有預約紀錄" />
         ) : (
           <table className="min-w-full text-sm">
             <thead>
@@ -361,7 +366,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
           </Link>
         </div>
         {customer.transactions.length === 0 ? (
-          <p className="text-sm text-earth-400">尚無消費紀錄</p>
+          <EmptyState icon="empty" title="尚無消費紀錄" description="此顧客還沒有消費記錄" />
         ) : (
           <table className="min-w-full text-sm">
             <thead>

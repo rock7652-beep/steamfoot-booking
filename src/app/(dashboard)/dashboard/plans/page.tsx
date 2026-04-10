@@ -6,6 +6,7 @@ import { FEATURES } from "@/lib/shop-plan";
 import { FeatureGate } from "@/components/feature-gate";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { EmptyState } from "@/components/ui/empty-state";
 import type { PlanCategory } from "@prisma/client";
 
 const CATEGORY_LABEL: Record<PlanCategory, string> = {
@@ -82,9 +83,12 @@ export default async function PlansPage({ searchParams }: PageProps) {
       </div>
 
       {plans.length === 0 ? (
-        <div className="rounded-xl border border-earth-200 bg-white py-12 text-center shadow-sm">
-          <p className="text-sm text-earth-400">尚無課程方案</p>
-        </div>
+        <EmptyState
+          icon="settings"
+          title="尚無課程方案"
+          description="建立您的第一個課程方案，顧客就能購買"
+          action={{ label: "建立方案", href: "/dashboard/plans/new" }}
+        />
       ) : (
         <div className="rounded-xl border border-earth-200 bg-white shadow-sm overflow-hidden">
           {/* Desktop table */}

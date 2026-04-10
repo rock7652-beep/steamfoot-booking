@@ -6,6 +6,7 @@ import { FEATURES } from "@/lib/shop-plan";
 import { FeatureGate } from "@/components/feature-gate";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { EmptyState } from "@/components/ui/empty-state";
 import { toLocalDateStr } from "@/lib/date-utils";
 import type { CashbookEntryType } from "@prisma/client";
 
@@ -152,8 +153,12 @@ export default async function CashbookPage({ searchParams }: PageProps) {
           <tbody className="divide-y divide-earth-100">
             {entries.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-earth-400">
-                  尚無記錄
+                <td colSpan={7} className="px-4 py-0">
+                  <EmptyState
+                    icon="empty"
+                    title="尚無現金帳記錄"
+                    description="新增第一筆現金帳記錄來開始追蹤"
+                  />
                 </td>
               </tr>
             )}

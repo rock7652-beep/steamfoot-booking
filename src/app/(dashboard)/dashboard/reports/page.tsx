@@ -10,6 +10,7 @@ import { FEATURES } from "@/lib/shop-plan";
 import { ServerTiming, withTiming } from "@/lib/perf";
 import { FeatureGate } from "@/components/feature-gate";
 import { redirect } from "next/navigation";
+import { EmptyState } from "@/components/ui/empty-state";
 import ReportDateRange from "@/components/report-date-range";
 import { toLocalDateStr, getPresetDateRange, type DateRangePreset } from "@/lib/date-utils";
 
@@ -145,9 +146,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
         <h2 className="mb-2 text-sm font-semibold text-earth-800">店長明細</h2>
         <div className="space-y-2">
           {storeSummary.staffBreakdown.length === 0 ? (
-            <div className="rounded-xl border border-earth-200 bg-white py-8 text-center text-sm text-earth-400">
-              本期無資料
-            </div>
+            <EmptyState icon="empty" title="本期無資料" description="選擇的期間內沒有店長績效資料" />
           ) : (
             storeSummary.staffBreakdown.map((r) => (
               <div key={r.staffId} className="rounded-xl border border-earth-200 bg-white p-3.5 shadow-sm">
@@ -175,9 +174,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
       <section className="mb-6">
         <h2 className="mb-2 text-sm font-semibold text-earth-800">收入類型</h2>
         {revenueByCategory.length === 0 ? (
-          <div className="rounded-xl border border-earth-200 bg-white py-8 text-center text-sm text-earth-400">
-            本期無資料
-          </div>
+          <EmptyState icon="empty" title="本期無資料" description="選擇的期間內沒有收入類型資料" />
         ) : (
           <div className="overflow-x-auto rounded-xl border border-earth-200 bg-white shadow-sm">
             <table className="w-full text-sm">

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import type { SlotAvailability } from "@/types";
+import { EmptyState } from "@/components/ui/empty-state";
 import { BookingQuickActions } from "../booking-quick-actions";
 
 const WEEKDAY_LABELS = ["日", "一", "二", "三", "四", "五", "六"];
@@ -166,12 +167,12 @@ export function DayView({ date, bookings, slots, inline }: DayViewProps) {
 
       {/* Closed day message */}
       {isClosed && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-6 py-8 text-center">
-          <p className="text-sm text-amber-700">此日為公休日或尚未設定預約時段</p>
-          <Link href="/dashboard/settings/hours" className="mt-2 inline-block text-xs text-primary-600 hover:underline">
-            前往預約開放設定 →
-          </Link>
-        </div>
+        <EmptyState
+          icon="settings"
+          title="此日為公休日或尚未設定預約時段"
+          description="可在預約開放設定中調整營業時段"
+          action={{ label: "前往預約開放設定", href: "/dashboard/settings/hours" }}
+        />
       )}
 
       {/* Time Slots — 2-col grid on desktop */}
