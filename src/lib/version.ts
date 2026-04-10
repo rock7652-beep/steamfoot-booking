@@ -4,7 +4,7 @@
  * 登入頁、Dashboard sidebar、更新橫幅、Changelog 頁面統一引用此檔
  */
 
-export const APP_VERSION = "2.4.0";
+export const APP_VERSION = "2.5.0";
 export const APP_VERSION_DATE = "2026-04-10";
 
 export type ChangelogTag = "新功能" | "修正" | "優化";
@@ -26,6 +26,53 @@ export interface ChangelogEntry {
  * 更新橫幅顯示第一筆
  */
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: "2.5.0",
+    date: "2026-04-10",
+    highlights: "產品級體驗升級：骨架屏、即時操作回饋、報表快照、效能監控",
+    changes: [
+      {
+        tag: "新功能",
+        text: "Skeleton Loading — Dashboard、顧客、預約、報表等 5 個高頻頁面加入骨架屏，載入時不再白屏",
+        roles: ["全部"],
+      },
+      {
+        tag: "新功能",
+        text: "Optimistic UI — 今日預約出席/未到/取消操作即時更新狀態 badge 與進度條，無需等待伺服器回應",
+        roles: ["店長"],
+      },
+      {
+        tag: "新功能",
+        text: "顧客狀態更新改為即時回饋，操作後顯示 toast 通知",
+        roles: ["店長"],
+      },
+      {
+        tag: "新功能",
+        text: "報表預計算 — 過去月份報表自動快照，查詢速度從 ~700ms 降至 ~5ms",
+        roles: ["店長"],
+      },
+      {
+        tag: "新功能",
+        text: "效能儀表板 — /dashboard/settings/perf 查看頁面效能與快取狀態（OWNER 專屬）",
+        roles: ["店長"],
+      },
+      {
+        tag: "優化",
+        text: "全系統快取策略升級 — Layout 共用查詢改用 unstable_cache，減少重複 DB 查詢",
+        roles: ["全部"],
+      },
+      {
+        tag: "優化",
+        text: "Cache invalidation 統一管理 — 所有 mutation 使用 updateTag() 即時失效，不再依賴 TTL 等待",
+        roles: ["全部"],
+      },
+      {
+        tag: "優化",
+        text: "SLA 效能目標定義 — 關鍵頁面設定載入時間上限，超時自動記錄告警",
+        roles: ["店長"],
+      },
+    ],
+  },
   {
     version: "2.4.0",
     date: "2026-04-10",
