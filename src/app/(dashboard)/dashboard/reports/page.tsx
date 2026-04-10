@@ -2,10 +2,12 @@ import {
   monthlyStoreSummary,
   monthlyRevenueByCategory,
 } from "@/server/queries/report";
+import { getReportSnapshot } from "@/server/queries/report-snapshot";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
-import { getShopPlan } from "@/lib/shop-config";
+import { getCachedShopPlan } from "@/lib/query-cache";
 import { FEATURES } from "@/lib/shop-plan";
+import { ServerTiming, withTiming } from "@/lib/perf";
 import { FeatureGate } from "@/components/feature-gate";
 import { redirect } from "next/navigation";
 import ReportDateRange from "@/components/report-date-range";
@@ -52,14 +54,46 @@ export default async function ReportsPage({ searchParams }: PageProps) {
   }
 
   const month = startDate.slice(0, 7);
+  const currentMonth = toLocalDateStr().slice(0, 7);
 
-  // 傳入實際日期範圍，而非只取月份
+  const timer = new ServerTiming("/dashboard/reports");
+
+  // For past complete months with default preset, try pre-computed snapshot first
+  const isFullPastMonth = month < currentMonth && activePreset === "month";
   const dateRangeOpts = { startDate, endDate };
-  const [storeSummary, revenueByCategory, shopPlan] = await Promise.all([
-    monthlyStoreSummary(month, dateRangeOpts),
-    monthlyRevenueByCategory(month, dateRangeOpts),
-    getShopPlan(),
-  ]);
+
+  type StoreSummary = Awaited<ReturnType<typeof monthlyStoreSummary>>;
+  type RevenueByCategory = Awaited<ReturnType<typeof monthlyRevenueByCategory>>;
+
+  let storeSummary: StoreSummary;
+  let revenueByCategory: RevenueByCategory;
+  let shopPlan: Awaited<ReturnType<typeof getCachedShopPlan>>;
+
+  if (isFullPastMonth) {
+    const [ssSnap, rcSnap, sp] = await Promise.all([
+      withTiming("snapshotStoreSummary", timer, () => getReportSnapshot(month, "STORE_SUMMARY")),
+      withTiming("snapshotRevenueByCategory", timer, () => getReportSnapshot(month, "REVENUE_BY_CATEGORY")),
+      withTiming("getCachedShopPlan", timer, () => getCachedShopPlan()),
+    ]);
+    shopPlan = sp;
+    if (ssSnap && rcSnap) {
+      storeSummary = ssSnap as StoreSummary;
+      revenueByCategory = rcSnap as RevenueByCategory;
+    } else {
+      [storeSummary, revenueByCategory] = await Promise.all([
+        withTiming("monthlyStoreSummary", timer, () => monthlyStoreSummary(month, dateRangeOpts)),
+        withTiming("monthlyRevenueByCategory", timer, () => monthlyRevenueByCategory(month, dateRangeOpts)),
+      ]);
+    }
+  } else {
+    [storeSummary, revenueByCategory, shopPlan] = await Promise.all([
+      withTiming("monthlyStoreSummary", timer, () => monthlyStoreSummary(month, dateRangeOpts)),
+      withTiming("monthlyRevenueByCategory", timer, () => monthlyRevenueByCategory(month, dateRangeOpts)),
+      withTiming("getCachedShopPlan", timer, () => getCachedShopPlan()),
+    ]);
+  }
+
+  timer.finish();
 
   return (
     <FeatureGate plan={shopPlan} feature={FEATURES.BASIC_REPORTS}>

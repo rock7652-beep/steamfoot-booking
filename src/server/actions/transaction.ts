@@ -1,12 +1,12 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/permissions";
 import { AppError, handleActionError } from "@/lib/errors";
 import { requireFeature } from "@/lib/shop-config";
 import { FEATURES } from "@/lib/shop-plan";
+import { revalidateTransactions } from "@/lib/revalidation";
 import type { ActionResult } from "@/types";
 import type { PaymentMethod, TransactionType } from "@prisma/client";
 
@@ -94,8 +94,7 @@ export async function createTransaction(
       },
     });
 
-    revalidatePath("/dashboard/transactions");
-    revalidatePath(`/dashboard/customers/${data.customerId}`);
+    revalidateTransactions(data.customerId);
     return { success: true, data: { transactionId: tx.id } };
   } catch (e) {
     return handleActionError(e);
@@ -143,7 +142,7 @@ export async function refundTransaction(
       },
     });
 
-    revalidatePath("/dashboard/transactions");
+    revalidateTransactions(original.customerId);
     return { success: true, data: { refundId: refund.id } };
   } catch (e) {
     return handleActionError(e);
@@ -181,7 +180,7 @@ export async function createAdjustment(
       },
     });
 
-    revalidatePath("/dashboard/transactions");
+    revalidateTransactions(data.customerId);
     return { success: true, data: { transactionId: tx.id } };
   } catch (e) {
     return handleActionError(e);

@@ -1,7 +1,6 @@
 "use server";
 
 import { z } from "zod";
-import { revalidatePath } from "next/cache";
 import { hashSync } from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { requireOwnerSession } from "@/lib/session";
@@ -9,6 +8,7 @@ import { AppError, handleActionError } from "@/lib/errors";
 import { requireFeature } from "@/lib/shop-config";
 import { FEATURES } from "@/lib/shop-plan";
 import { createDefaultPermissions, ASSIGNABLE_STAFF_ROLES } from "@/lib/permissions";
+import { revalidateStaff } from "@/lib/revalidation";
 import type { UserRole } from "@prisma/client";
 import type { ActionResult } from "@/types";
 
@@ -80,7 +80,7 @@ export async function createStaff(
       await createDefaultPermissions(user.staff.id, staffRole);
     }
 
-    revalidatePath("/dashboard/staff");
+    revalidateStaff();
     return { success: true, data: { staffId: user.staff!.id } };
   } catch (e) {
     return handleActionError(e);
@@ -121,7 +121,7 @@ export async function updateStaff(
       });
     }
 
-    revalidatePath("/dashboard/staff");
+    revalidateStaff();
     return { success: true, data: undefined };
   } catch (e) {
     return handleActionError(e);
@@ -145,7 +145,7 @@ export async function deactivateStaff(staffId: string): Promise<ActionResult<voi
       prisma.user.update({ where: { id: staff.userId }, data: { status: "SUSPENDED" } }),
     ]);
 
-    revalidatePath("/dashboard/staff");
+    revalidateStaff();
     return { success: true, data: undefined };
   } catch (e) {
     return handleActionError(e);
@@ -169,7 +169,7 @@ export async function activateStaff(staffId: string): Promise<ActionResult<void>
       prisma.user.update({ where: { id: staff.userId }, data: { status: "ACTIVE" } }),
     ]);
 
-    revalidatePath("/dashboard/staff");
+    revalidateStaff();
     return { success: true, data: undefined };
   } catch (e) {
     return handleActionError(e);

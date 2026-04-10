@@ -1,7 +1,8 @@
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
-import { getShopPlan } from "@/lib/shop-config";
+import { getCachedShopPlan } from "@/lib/query-cache";
 import { FEATURES } from "@/lib/shop-plan";
+import { ServerTiming, withTiming } from "@/lib/perf";
 import { FeatureGate } from "@/components/feature-gate";
 import { redirect } from "next/navigation";
 import Link from "next/link";
@@ -26,11 +27,13 @@ export default async function ReconciliationPage({ searchParams }: PageProps) {
   }
 
   const params = await searchParams;
+  const timer = new ServerTiming("/dashboard/reconciliation");
   const [runs, selectedRun, shopPlan] = await Promise.all([
-    listReconciliationRuns(20),
-    params.runId ? getReconciliationRunDetail(params.runId) : null,
-    getShopPlan(),
+    withTiming("listReconciliationRuns", timer, () => listReconciliationRuns(20)),
+    params.runId ? withTiming("getReconciliationRunDetail", timer, () => getReconciliationRunDetail(params.runId!)) : null,
+    withTiming("getCachedShopPlan", timer, () => getCachedShopPlan()),
   ]);
+  timer.finish();
 
   const latestRun = runs[0] ?? null;
   const displayRun = selectedRun ?? (latestRun ? await getReconciliationRunDetail(latestRun.id) : null);

@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/session";
 import { requirePermission } from "@/lib/permissions";
@@ -17,18 +16,14 @@ import {
   PENDING_STATUSES,
   type NoShowChoice,
 } from "@/lib/booking-constants";
+import { revalidateBookings } from "@/lib/revalidation";
 import type { ActionResult } from "@/types";
 import { checkBookingLimit } from "@/lib/shop-config";
 import type { z } from "zod";
 
 // 共用 revalidate
 function revalidateAll(customerId?: string) {
-  revalidatePath("/dashboard/bookings");
-  revalidatePath("/dashboard");
-  revalidatePath("/book");
-  revalidatePath("/my-bookings");
-  revalidatePath("/my-plans");
-  if (customerId) revalidatePath(`/dashboard/customers/${customerId}`);
+  revalidateBookings(customerId);
 }
 
 // ============================================================

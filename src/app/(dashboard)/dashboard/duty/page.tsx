@@ -5,10 +5,12 @@ import { toLocalDateStr } from "@/lib/date-utils";
 import { redirect } from "next/navigation";
 import { getDutyByWeek, getDutyByDateRange } from "@/server/queries/duty";
 import {
-  getCachedBusinessHours,
   getCachedSpecialDays,
-  getCachedDutyEnabled,
+  getBusinessHoursWithTiming,
+  getSpecialDaysWithTiming,
+  getDutyEnabledWithTiming,
 } from "@/lib/duty-cache";
+import { ServerTiming, withTiming } from "@/lib/perf";
 import { DutyWeekView } from "./duty-week-view";
 import type { UserRole } from "@prisma/client";
 
@@ -71,7 +73,7 @@ async function DutyWeekContent({ weekStart, userRole, userStaffId }: {
   userRole: UserRole;
   userStaffId: string | null;
 }) {
-  const t0 = performance.now();
+  const timer = new ServerTiming("/dashboard/duty");
 
   const weekStartDate = new Date(weekStart + "T00:00:00Z");
   const weekEndISO = new Date(weekStartDate.getTime() + 6 * 86400000).toISOString();
@@ -81,38 +83,31 @@ async function DutyWeekContent({ weekStart, userRole, userStaffId }: {
   const nextWeekEnd = new Date(new Date(nextWeekStart + "T00:00:00Z").getTime() + 6 * 86400000).toISOString();
 
   // ── 2 個核心查詢 + 3 個快取查詢，全部並行 ──
-  // 核心：getDutyByWeek（值班資料） + checkPermission（權限）
-  // 快取：businessHours（60s 快取）、specialDays（60s 快取）、dutyEnabled（30s 快取）
-  // 預抓：上一週 + 下一週的值班資料 + 特殊日（背景不阻塞）
   const [
     assignments,
     businessHours,
     specialDays,
     dutyEnabled,
     canManage,
-    // 預抓相鄰週（不 await，只是啟動 Promise）
     _prevAssignments,
     _nextAssignments,
     _prevSpecialDays,
     _nextSpecialDays,
   ] = await Promise.all([
-    // 核心查詢
-    getDutyByWeek(weekStart),
-    // 快取查詢（跨 request 60s 有效）
-    getCachedBusinessHours(),
-    getCachedSpecialDays(weekStartDate.toISOString(), weekEndISO),
-    getCachedDutyEnabled(),
+    withTiming("getDutyByWeek", timer, () => getDutyByWeek(weekStart)),
+    getBusinessHoursWithTiming(timer),
+    getSpecialDaysWithTiming(weekStartDate.toISOString(), weekEndISO, timer),
+    getDutyEnabledWithTiming(timer),
     userRole === "OWNER"
       ? Promise.resolve(true)
       : checkPermission(userRole, userStaffId, "duty.manage"),
-    // 預抓相鄰週 — 填入快取供下次 navigation 使用
     getDutyByDateRange(prevWeekStart, 6).catch(() => []),
     getDutyByDateRange(nextWeekStart, 6).catch(() => []),
     getCachedSpecialDays(new Date(prevWeekStart + "T00:00:00Z").toISOString(), prevWeekEnd).catch(() => []),
     getCachedSpecialDays(new Date(nextWeekStart + "T00:00:00Z").toISOString(), nextWeekEnd).catch(() => []),
   ]);
 
-  const totalMs = Math.round(performance.now() - t0);
+  const perfLog = timer.finish();
 
   return (
     <>
@@ -140,7 +135,7 @@ async function DutyWeekContent({ weekStart, userRole, userStaffId }: {
         {/* Server timing（開發模式可見） */}
         {process.env.NODE_ENV === "development" && (
           <span className="ml-auto text-[10px] text-earth-400">
-            server: {totalMs}ms
+            server: {perfLog.totalMs}ms | queries: {perfLog.queryCount}
           </span>
         )}
       </div>

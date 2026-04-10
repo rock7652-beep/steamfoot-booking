@@ -1,12 +1,12 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/session";
 import { requirePermission } from "@/lib/permissions";
 import { AppError, handleActionError } from "@/lib/errors";
 import { generateSlots, validateTimeRange } from "@/lib/slot-generator";
 import { toLocalDateStr } from "@/lib/date-utils";
+import { revalidateBusinessHours, revalidateSpecialDays } from "@/lib/revalidation";
 import type { ActionResult } from "@/types";
 
 const DAY_NAMES = ["週日", "週一", "週二", "週三", "週四", "週五", "週六"];
@@ -464,7 +464,7 @@ export async function updateBusinessHours(
       });
     }
 
-    revalidatePath("/dashboard/settings/hours");
+    revalidateBusinessHours();
     return { success: true, data: undefined };
   } catch (e) {
     return handleActionError(e);
@@ -557,7 +557,7 @@ export async function addSpecialDay(input: {
       },
     });
 
-    revalidatePath("/dashboard/settings/hours");
+    revalidateSpecialDays();
     return { success: true, data: undefined };
   } catch (e) {
     return handleActionError(e);
@@ -570,7 +570,7 @@ export async function removeSpecialDay(id: string): Promise<ActionResult<void>> 
 
     await prisma.specialBusinessDay.delete({ where: { id } });
 
-    revalidatePath("/dashboard/settings/hours");
+    revalidateSpecialDays();
     return { success: true, data: undefined };
   } catch (e) {
     return handleActionError(e);
@@ -585,7 +585,7 @@ export async function removeSpecialDayByDate(dateStr: string): Promise<ActionRes
     const dateObj = new Date(dateStr);
     await prisma.specialBusinessDay.deleteMany({ where: { date: dateObj } });
 
-    revalidatePath("/dashboard/settings/hours");
+    revalidateSpecialDays();
     return { success: true, data: undefined };
   } catch (e) {
     return handleActionError(e);
@@ -656,7 +656,7 @@ export async function copySettingsToFutureWeeks(input: {
 
     await prisma.$transaction(upserts);
 
-    revalidatePath("/dashboard/settings/hours");
+    revalidateSpecialDays();
     return { success: true, data: { count: dates.length } };
   } catch (e) {
     return handleActionError(e);
@@ -724,7 +724,7 @@ export async function toggleSlotOverride(input: {
       });
     }
 
-    revalidatePath("/dashboard/settings/hours");
+    revalidateSpecialDays();
     return { success: true, data: undefined };
   } catch (e) {
     return handleActionError(e);
@@ -777,7 +777,7 @@ export async function overrideSlotCapacity(input: {
       },
     });
 
-    revalidatePath("/dashboard/settings/hours");
+    revalidateSpecialDays();
     return { success: true, data: undefined };
   } catch (e) {
     return handleActionError(e);
@@ -888,7 +888,7 @@ export async function applyWeeklyTemplate(input: {
       where: { date: sourceDate, type: "custom" },
     });
 
-    revalidatePath("/dashboard/settings/hours");
+    revalidateBusinessHours();
     return { success: true, data: { count: targetDates.length } };
   } catch (e) {
     return handleActionError(e);

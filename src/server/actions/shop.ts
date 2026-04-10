@@ -1,8 +1,8 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireOwnerSession } from "@/lib/session";
+import { revalidateDutyScheduling, revalidateShopConfig } from "@/lib/revalidation";
 import type { ShopPlan } from "@prisma/client";
 import type { ActionResult } from "@/types";
 
@@ -20,11 +20,7 @@ export async function updateDutyScheduling(
       update: { dutySchedulingEnabled: enabled },
     });
 
-    revalidatePath("/dashboard");
-    revalidatePath("/dashboard/duty");
-    revalidatePath("/dashboard/settings/duty");
-    revalidatePath("/dashboard/bookings");
-    revalidatePath("/book");
+    revalidateDutyScheduling();
     return { success: true, data: undefined };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "操作失敗" };
@@ -47,8 +43,7 @@ export async function updateShopPlan(
       update: { plan },
     });
 
-    revalidatePath("/dashboard");
-    revalidatePath("/dashboard/settings/plan");
+    revalidateShopConfig();
     return { success: true, data: undefined };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "操作失敗" };

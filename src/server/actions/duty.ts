@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/permissions";
 import { handleActionError } from "@/lib/errors";
@@ -12,13 +11,8 @@ import {
   copyToWeekDatesSchema,
 } from "@/lib/validators/duty";
 import { generateSlots } from "@/lib/slot-generator";
+import { revalidateDuty } from "@/lib/revalidation";
 import type { ActionResult } from "@/types";
-
-function revalidateDuty() {
-  revalidatePath("/dashboard/duty");
-  revalidatePath("/dashboard/bookings");
-  revalidatePath("/book");
-}
 
 // ============================================================
 // 共用：取得某天的營業時段列表

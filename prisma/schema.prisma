@@ -880,3 +880,16 @@ model DutyAssignment {
   @@index([staffId])                   // 查某人的值班紀錄
   @@index([staffId, date])             // 查某人某天的值班
 }
+
+// ── 報表快照（Pre-compute）──
+model ReportSnapshot {
+  id        String   @id @default(cuid())
+  month     String   // "2026-04" 格式
+  type      String   // "STORE_SUMMARY" | "REVENUE_BY_CATEGORY"
+  data      Json     // 快照數據
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([month, type])
+  @@index([month])
+}

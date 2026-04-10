@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
 import { logoutAction } from "@/server/actions/auth";
 import { getUserPermissions, ROLE_LABELS, isStaffRole } from "@/lib/permissions";
-import { getShopPlan, getTrialStatus } from "@/lib/shop-config";
+import { getCachedShopPlan, getCachedTrialStatus } from "@/lib/query-cache";
 import DashboardShell from "@/components/sidebar";
 
 export default async function DashboardLayout({
@@ -18,8 +18,8 @@ export default async function DashboardLayout({
   const isOwner = user.role === "OWNER";
   const [permissions, shopPlan, trialStatus] = await Promise.all([
     getUserPermissions(user.role, user.staffId),
-    getShopPlan(),
-    getTrialStatus(),
+    getCachedShopPlan(),
+    getCachedTrialStatus(),
   ]);
 
   return (

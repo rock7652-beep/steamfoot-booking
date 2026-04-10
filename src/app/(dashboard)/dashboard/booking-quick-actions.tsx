@@ -10,6 +10,7 @@ interface Props {
   bookingId: string;
   status: string;
   isCheckedIn: boolean; // 保留 prop 相容，但不再使用
+  onOptimisticUpdate?: (newStatus: string) => void;
 }
 
 type ActionState = { error: string | null; done: boolean };
@@ -129,12 +130,13 @@ function NoShowPopover({
   );
 }
 
-export function BookingQuickActions({ bookingId, status }: Props) {
+export function BookingQuickActions({ bookingId, status, onOptimisticUpdate }: Props) {
   const [showNoShowMenu, setShowNoShowMenu] = useState(false);
   const noShowAnchorRef = useRef<HTMLDivElement>(null);
 
   const [completeState, completeAction, completePending] = useActionState(
     async (): Promise<ActionState> => {
+      onOptimisticUpdate?.("COMPLETED");
       const r = await markCompleted(bookingId);
       if (r.success) {
         toast.success("已標記出席");
@@ -151,6 +153,7 @@ export function BookingQuickActions({ bookingId, status }: Props) {
 
   const [cancelState, cancelAction, cancelPending] = useActionState(
     async (): Promise<ActionState> => {
+      onOptimisticUpdate?.("CANCELLED");
       const r = await cancelBooking(bookingId);
       if (r.success) {
         toast.success("預約已取消");
@@ -169,6 +172,7 @@ export function BookingQuickActions({ bookingId, status }: Props) {
   async function handleNoShow(choice: NoShowChoice) {
     setNoShowPending(true);
     setShowNoShowMenu(false);
+    onOptimisticUpdate?.("NO_SHOW");
     try {
       const r = await markNoShow(bookingId, choice);
       if (r.success) {
@@ -188,6 +192,7 @@ export function BookingQuickActions({ bookingId, status }: Props) {
 
   async function handleRevert() {
     setRevertPending(true);
+    onOptimisticUpdate?.("PENDING");
     try {
       const r = await revertBookingStatus(bookingId);
       if (r.success) {
@@ -205,12 +210,7 @@ export function BookingQuickActions({ bookingId, status }: Props) {
     }
   }
 
-  const anyDone = completeState.done || noShowState.done || cancelState.done || revertState.done;
   const anyError = completeState.error || noShowState.error || cancelState.error || revertState.error;
-
-  if (anyDone) {
-    return <span className="text-[10px] text-green-600 font-medium">✓ 已更新</span>;
-  }
 
   // ── 終端狀態（COMPLETED / NO_SHOW / CANCELLED）→ 顯示「修正」按鈕 ──
   if (status === "COMPLETED" || status === "NO_SHOW" || status === "CANCELLED") {

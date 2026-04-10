@@ -1,8 +1,8 @@
 import { getCustomerDetail } from "@/server/queries/customer";
-import { listPlans } from "@/server/queries/plan";
-import { listStaffSelectOptions } from "@/server/queries/staff";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
+import { getCachedPlans, getCachedStaffOptions } from "@/lib/query-cache";
+import { ServerTiming, withTiming } from "@/lib/perf";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { AssignPlanForm } from "./assign-plan-form";
@@ -10,12 +10,13 @@ import { TransferCustomerForm } from "./transfer-customer-form";
 import { CreateBookingForm } from "./create-booking-form";
 import { AdjustWalletForm } from "./adjust-wallet-form";
 import { LineBindingSection } from "./line-binding-section";
-import { updateCustomerStage } from "@/server/actions/customer";
+import { HealthSectionWrapper } from "./health-section";
+import { HealthSummarySection } from "./health-summary";
+import { CustomerStageForm } from "./customer-stage-form";
 import { getCustomerTags, getCustomerScript } from "@/server/queries/customer-tags";
 import { getOpsActionLogs } from "@/server/actions/ops-action-log";
 import { OpsPanel } from "./ops-panel";
 import { EditCustomerModal } from "./edit-customer-modal";
-import { SubmitButton } from "@/components/submit-button";
 import {
   STATUS_LABEL,
   STATUS_COLOR,
@@ -45,15 +46,19 @@ export default async function CustomerDetailPage({ params }: PageProps) {
     redirect("/dashboard");
   }
 
+  const timer = new ServerTiming(`/dashboard/customers/${id}`);
+
   const [customer, plans, staffOptions, tags, scripts, customerActionLogs, canDiscount] = await Promise.all([
-    getCustomerDetail(id),
-    listPlans(),
-    listStaffSelectOptions(),
-    user.role !== "CUSTOMER" ? getCustomerTags(id) : Promise.resolve([]),
-    user.role !== "CUSTOMER" ? getCustomerScript(id) : Promise.resolve([]),
-    user.role !== "CUSTOMER" ? getOpsActionLogs("customer_action") : Promise.resolve(new Map()),
+    withTiming("getCustomerDetail", timer, () => getCustomerDetail(id)),
+    withTiming("getCachedPlans", timer, () => getCachedPlans()),
+    withTiming("getCachedStaffOptions", timer, () => getCachedStaffOptions()),
+    user.role !== "CUSTOMER" ? withTiming("getCustomerTags", timer, () => getCustomerTags(id)) : Promise.resolve([]),
+    user.role !== "CUSTOMER" ? withTiming("getCustomerScript", timer, () => getCustomerScript(id)) : Promise.resolve([]),
+    user.role !== "CUSTOMER" ? withTiming("getOpsActionLogs", timer, () => getOpsActionLogs("customer_action")) : Promise.resolve(new Map()),
     checkPermission(user.role, user.staffId, "transaction.discount"),
   ]);
+
+  timer.finish();
 
   // For transfer form, only pass staff list to Owner
   const staffList =
@@ -72,12 +77,6 @@ export default async function CustomerDetailPage({ params }: PageProps) {
     (b) => b.bookingStatus !== "PENDING" && b.bookingStatus !== "CONFIRMED"
   );
 
-  // Inline Server Action: update stage
-  async function handleStageChange(formData: FormData) {
-    "use server";
-    const stage = formData.get("stage") as "LEAD" | "TRIAL" | "ACTIVE" | "INACTIVE";
-    await updateCustomerStage(id, stage);
-  }
 
   return (
     <div className="max-w-4xl space-y-6">
@@ -157,20 +156,8 @@ export default async function CustomerDetailPage({ params }: PageProps) {
           )}
         </dl>
 
-        {/* Stage change */}
-        <form action={handleStageChange} className="mt-4 flex items-center gap-2 border-t pt-4">
-          <label className="text-sm text-earth-600">更新狀態：</label>
-          <select
-            name="stage"
-            defaultValue={customer.customerStage}
-            className="rounded border border-earth-300 px-2 py-1 text-sm"
-          >
-            {Object.entries(STAGE_LABEL).map(([k, v]) => (
-              <option key={k} value={k}>{v}</option>
-            ))}
-          </select>
-          <SubmitButton label="更新" pendingLabel="更新中..." className="bg-earth-100 text-earth-700 hover:bg-earth-200" />
-        </form>
+        {/* Stage change — optimistic client component */}
+        <CustomerStageForm customerId={id} currentStage={customer.customerStage} />
 
         {/* LINE 綁定 */}
         <LineBindingSection
@@ -194,29 +181,18 @@ export default async function CustomerDetailPage({ params }: PageProps) {
         )}
       </div>
 
-      {/* 身體指數（外連健康管理系統） */}
-      <div className="rounded-xl border bg-white p-6 shadow-sm">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="font-semibold text-earth-800">身體指數</h2>
-            <p className="mt-0.5 text-xs text-earth-400">開啟健康管理系統，查看與編輯此顧客的身體指數紀錄</p>
-          </div>
-          <a
-            href={`https://health-tracker-eight-rosy.vercel.app/?customerId=${id}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-primary-700"
-          >
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
-            </svg>
-            開啟身體指數
-            <svg className="h-3.5 w-3.5 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-            </svg>
-          </a>
-        </div>
-      </div>
+      {/* 身體數據（串接健康管理系統） */}
+      <HealthSectionWrapper
+        customerId={id}
+        customerEmail={customer.email}
+        customerPhone={customer.phone}
+        healthLinkStatus={customer.healthLinkStatus}
+        healthProfileId={customer.healthProfileId}
+      >
+        {customer.healthProfileId && (
+          <HealthSummarySection healthProfileId={customer.healthProfileId} />
+        )}
+      </HealthSectionWrapper>
 
       {/* Ops Panel (staff only) */}
       {user.role !== "CUSTOMER" && (

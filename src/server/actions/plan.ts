@@ -1,12 +1,12 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/permissions";
 import { AppError, handleActionError } from "@/lib/errors";
 import { requireFeature } from "@/lib/shop-config";
 import { FEATURES } from "@/lib/shop-plan";
 import { createPlanSchema, updatePlanSchema } from "@/lib/validators/plan";
+import { revalidatePlans } from "@/lib/revalidation";
 import type { ActionResult } from "@/types";
 import type { z } from "zod";
 
@@ -35,7 +35,7 @@ export async function createPlan(
       },
     });
 
-    revalidatePath("/dashboard/plans");
+    revalidatePlans();
     return { success: true, data: { planId: plan.id } };
   } catch (e) {
     return handleActionError(e);
@@ -62,7 +62,7 @@ export async function updatePlan(
       data,
     });
 
-    revalidatePath("/dashboard/plans");
+    revalidatePlans();
     return { success: true, data: undefined };
   } catch (e) {
     return handleActionError(e);
@@ -86,7 +86,7 @@ export async function deactivatePlan(planId: string): Promise<ActionResult<void>
       data: { isActive: false },
     });
 
-    revalidatePath("/dashboard/plans");
+    revalidatePlans();
     return { success: true, data: undefined };
   } catch (e) {
     return handleActionError(e);

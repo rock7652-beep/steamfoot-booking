@@ -10,6 +10,7 @@
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/db";
+import type { ServerTiming } from "@/lib/perf";
 
 /**
  * request-level 快取：同一次 server render 內只查一次 businessHours
@@ -86,3 +87,42 @@ export const getCachedDutyEnabled = unstable_cache(
   ["duty-scheduling-enabled"],
   { revalidate: 30, tags: ["duty-scheduling"] }
 );
+
+// ── 帶計時的包裝（供 ServerTiming 使用） ──────────────
+
+export async function getBusinessHoursWithTiming(timer?: ServerTiming) {
+  const t0 = performance.now();
+  const result = await getCachedBusinessHours();
+  const ms = performance.now() - t0;
+  if (timer) {
+    timer.record("getCachedBusinessHours", ms);
+    timer.cacheStatus("business-hours", ms < 10 ? "hit" : "miss");
+  }
+  return result;
+}
+
+export async function getSpecialDaysWithTiming(
+  weekStartISO: string,
+  weekEndISO: string,
+  timer?: ServerTiming,
+) {
+  const t0 = performance.now();
+  const result = await getCachedSpecialDays(weekStartISO, weekEndISO);
+  const ms = performance.now() - t0;
+  if (timer) {
+    timer.record("getCachedSpecialDays", ms);
+    timer.cacheStatus("special-days", ms < 10 ? "hit" : "miss");
+  }
+  return result;
+}
+
+export async function getDutyEnabledWithTiming(timer?: ServerTiming) {
+  const t0 = performance.now();
+  const result = await getCachedDutyEnabled();
+  const ms = performance.now() - t0;
+  if (timer) {
+    timer.record("getCachedDutyEnabled", ms);
+    timer.cacheStatus("duty-scheduling", ms < 10 ? "hit" : "miss");
+  }
+  return result;
+}
