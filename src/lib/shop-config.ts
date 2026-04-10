@@ -17,12 +17,21 @@ export async function getShopPlan(): Promise<ShopPlan> {
   return config?.plan ?? "FREE";
 }
 
+/** 值班排班聯動是否啟用 */
+export async function isDutySchedulingEnabled(): Promise<boolean> {
+  const config = await prisma.shopConfig.findUnique({
+    where: { id: "default" },
+    select: { dutySchedulingEnabled: true },
+  });
+  return config?.dutySchedulingEnabled ?? false;
+}
+
 /** 取得完整店家設定 */
 export async function getShopConfig() {
   const config = await prisma.shopConfig.findUnique({
     where: { id: "default" },
   });
-  return config ?? { id: "default", shopName: "蒸足", plan: "FREE" as ShopPlan, createdAt: new Date(), updatedAt: new Date() };
+  return config ?? { id: "default", shopName: "蒸足", plan: "FREE" as ShopPlan, dutySchedulingEnabled: false, createdAt: new Date(), updatedAt: new Date() };
 }
 
 /**

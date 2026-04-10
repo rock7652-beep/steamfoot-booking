@@ -106,8 +106,8 @@ export async function fetchMonthAvailability(
   const startDate = new Date(Date.UTC(year, month - 1, 1));
   const endDate = new Date(Date.UTC(year, month, 0));
 
-  // 並行取得營業時間 + 特殊日期 + 時段覆寫
-  const [businessHoursRows, specialDaysRows, slotOverrideRows] = await Promise.all([
+  // 並行取得營業時間 + 特殊日期 + 時段覆寫 + 值班安排
+  const [businessHoursRows, specialDaysRows, slotOverrideRows, dutyAssignmentRows] = await Promise.all([
     prisma.businessHours.findMany(),
     prisma.specialBusinessDay.findMany({
       where: { date: { gte: startDate, lte: endDate } },
@@ -115,7 +115,19 @@ export async function fetchMonthAvailability(
     prisma.slotOverride.findMany({
       where: { date: { gte: startDate, lte: endDate } },
     }),
+    prisma.dutyAssignment.findMany({
+      where: { date: { gte: startDate, lte: endDate } },
+      select: { date: true, slotTime: true },
+      distinct: ["date", "slotTime"],
+    }),
   ]);
+
+  // 值班時段 Set（date|slotTime）
+  const dutySlotKeys = new Set(
+    dutyAssignmentRows.map((d) => `${d.date.toISOString().slice(0, 10)}|${d.slotTime}`)
+  );
+  const { isDutySchedulingEnabled } = await import("@/lib/shop-config");
+  const dutyFeatureActive = await isDutySchedulingEnabled();
 
   // 建立查詢 map
   const businessHoursMap = new Map(businessHoursRows.map((b) => [b.dayOfWeek, {
@@ -209,7 +221,15 @@ export async function fetchMonthAvailability(
     // 排序
     slotInfos.sort((a, b) => a.startTime.localeCompare(b.startTime));
 
-    days[dateStr] = { totalCapacity: totalCap, totalBooked, slots: slotInfos };
+    // 值班安排過濾：只保留有值班人員的時段
+    if (dutyFeatureActive) {
+      const filteredSlots = slotInfos.filter((s) => dutySlotKeys.has(`${dateStr}|${s.startTime}`));
+      const filteredCap = filteredSlots.reduce((sum, s) => sum + s.capacity, 0);
+      const filteredBooked = filteredSlots.reduce((sum, s) => sum + s.booked, 0);
+      days[dateStr] = { totalCapacity: filteredCap, totalBooked: filteredBooked, slots: filteredSlots };
+    } else {
+      days[dateStr] = { totalCapacity: totalCap, totalBooked, slots: slotInfos };
+    }
     cursor.setUTCDate(cursor.getUTCDate() + 1);
   }
 
@@ -229,7 +249,7 @@ export async function fetchDaySlots(date: string): Promise<{
   const dayOfWeek = dateObj.getUTCDay();
 
   // 查營業狀態
-  const [specialDay, businessHour, slotOverrides, existingBookings] = await Promise.all([
+  const [specialDay, businessHour, slotOverrides, existingBookings, dutySlots] = await Promise.all([
     prisma.specialBusinessDay.findUnique({ where: { date: dateObj } }),
     prisma.businessHours.findUnique({ where: { dayOfWeek } }),
     prisma.slotOverride.findMany({ where: { date: dateObj } }),
@@ -241,7 +261,14 @@ export async function fetchDaySlots(date: string): Promise<{
       },
       _sum: { people: true },
     }),
+    // 值班安排：查有哪些時段有人值班
+    prisma.dutyAssignment.findMany({
+      where: { date: dateObj },
+      select: { slotTime: true },
+      distinct: ["slotTime"],
+    }),
   ]);
+  const dutySlotSet = new Set(dutySlots.map((d) => d.slotTime));
 
   // 公休 / 進修
   if (specialDay && (specialDay.type === "closed" || specialDay.type === "training")) {
@@ -308,6 +335,17 @@ export async function fetchDaySlots(date: string): Promise<{
   }
 
   result.sort((a, b) => a.startTime.localeCompare(b.startTime));
+
+  // 值班安排過濾：只保留有值班人員的時段
+  // 判斷該日是否有任何值班安排
+  // 若該日完全無值班 → 該日所有時段不可預約（前台）
+  // 但若全系統都沒有任何 DutyAssignment（功能尚未使用），則不過濾
+  const { isDutySchedulingEnabled } = await import("@/lib/shop-config");
+  const dutyFeatureInUse = await isDutySchedulingEnabled();
+  if (dutyFeatureInUse) {
+    const filtered = result.filter((s) => dutySlotSet.has(s.startTime));
+    return { slots: filtered };
+  }
 
   return { slots: result };
 }

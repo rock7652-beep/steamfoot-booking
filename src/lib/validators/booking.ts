@@ -11,6 +11,7 @@ export const createBookingSchema = z.object({
   isMakeup: z.boolean().optional(),
   makeupCreditId: z.string().cuid().optional(),
   notes: z.string().max(500).optional(),
+  skipDutyCheck: z.boolean().optional(), // OWNER 可略過值班檢查
 });
 
 export const updateBookingSchema = z.object({

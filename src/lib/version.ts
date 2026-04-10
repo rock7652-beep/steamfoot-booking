@@ -4,8 +4,8 @@
  * 登入頁、Dashboard sidebar、更新橫幅、Changelog 頁面統一引用此檔
  */
 
-export const APP_VERSION = "2.3.1";
-export const APP_VERSION_DATE = "2026-04-09";
+export const APP_VERSION = "2.4.0";
+export const APP_VERSION_DATE = "2026-04-10";
 
 export type ChangelogTag = "新功能" | "修正" | "優化";
 export type AffectedRole = "全部" | "店長" | "員工" | "顧客";
@@ -26,6 +26,43 @@ export interface ChangelogEntry {
  * 更新橫幅顯示第一筆
  */
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: "2.4.0",
+    date: "2026-04-10",
+    highlights: "值班排班系統上線、排班聯動開關、安全預約控制",
+    changes: [
+      {
+        tag: "新功能",
+        text: "值班排班系統 — 每日每時段可安排多位值班人員，支援身份角色與參與類型標記",
+        roles: ["店長"],
+      },
+      {
+        tag: "新功能",
+        text: "三種快速排班：複製到整天（非覆蓋補缺）、從前一營業日複製、複製到本週其他日期（覆蓋式）",
+        roles: ["店長"],
+      },
+      {
+        tag: "新功能",
+        text: "排班聯動開關 — 啟用後只有已安排值班的時段才開放預約，可隨時關閉恢復",
+        roles: ["店長"],
+      },
+      {
+        tag: "新功能",
+        text: "啟用聯動時自動提醒本週未排班營業日數量，協助排班完整性檢查",
+        roles: ["店長"],
+      },
+      {
+        tag: "新功能",
+        text: "OWNER 後台代約可勾選「略過值班檢查」，前台客戶端不受此選項影響",
+        roles: ["店長"],
+      },
+      {
+        tag: "優化",
+        text: "公休日自動阻擋 — 無法手動新增值班，也無法被複製操作覆蓋",
+        roles: ["店長"],
+      },
+    ],
+  },
   {
     version: "2.3.1",
     date: "2026-04-09",

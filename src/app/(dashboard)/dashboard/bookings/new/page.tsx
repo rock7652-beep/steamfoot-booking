@@ -32,6 +32,7 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
   const todayStr = toLocalDateStr();
   const defaultDate = params.date ?? todayStr;
   const days = getNextDays(14);
+  const isOwner = user.role === "OWNER";
 
   async function handleCreate(formData: FormData) {
     "use server";
@@ -41,6 +42,7 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
     const bookingType = formData.get("bookingType") as "FIRST_TRIAL" | "SINGLE" | "PACKAGE_SESSION";
     const people = Number(formData.get("people")) || 1;
     const notes = (formData.get("notes") as string) || undefined;
+    const skipDutyCheck = formData.get("skipDutyCheck") === "on";
 
     if (!customerId) {
       throw new Error("請選擇顧客");
@@ -53,6 +55,7 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
       bookingType,
       people,
       notes,
+      skipDutyCheck: skipDutyCheck || undefined,
     });
 
     if (!result.success) {
@@ -137,6 +140,21 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
               placeholder="特殊需求、備忘事項..."
             />
           </div>
+
+          {/* OWNER: 略過值班檢查 */}
+          {isOwner && (
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                name="skipDutyCheck"
+                id="skipDutyCheck"
+                className="h-4 w-4 rounded border-earth-300 text-primary-600 focus:ring-primary-500"
+              />
+              <label htmlFor="skipDutyCheck" className="text-sm text-earth-600">
+                略過值班檢查（該時段無值班人員時仍可建立預約）
+              </label>
+            </div>
+          )}
 
           {/* Buttons */}
           <div className="flex gap-3 border-t border-earth-200 pt-5">

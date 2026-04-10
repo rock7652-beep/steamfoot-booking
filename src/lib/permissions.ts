@@ -81,6 +81,9 @@ export const ALL_PERMISSIONS = [
   "cashbook.create",
   // 人員
   "staff.view",
+  // 值班安排
+  "duty.read",
+  "duty.manage",
 ] as const;
 
 export type PermissionCode = (typeof ALL_PERMISSIONS)[number];
@@ -123,6 +126,10 @@ export const PERMISSION_GROUPS: Record<string, { label: string; codes: Permissio
     label: "人員管理",
     codes: ["staff.view"],
   },
+  duty: {
+    label: "值班安排",
+    codes: ["duty.read", "duty.manage"],
+  },
 };
 
 // 權限代碼 → 中文說明
@@ -149,6 +156,8 @@ export const PERMISSION_LABELS: Record<PermissionCode, string> = {
   "cashbook.read": "查看現金帳",
   "cashbook.create": "新增現金帳",
   "staff.view": "查看店員資料",
+  "duty.read": "查看值班安排",
+  "duty.manage": "管理值班安排",
 };
 
 // ============================================================
@@ -179,6 +188,8 @@ export const DEFAULT_STORE_MANAGER_PERMISSIONS: PermissionCode[] = [
   "cashbook.read",
   "cashbook.create",
   "staff.view",
+  "duty.read",
+  "duty.manage",
 ];
 
 /** 分店長 預設權限（大部分日常操作） */
@@ -198,6 +209,7 @@ export const DEFAULT_BRANCH_MANAGER_PERMISSIONS: PermissionCode[] = [
   "report.read",
   "cashbook.read",
   "cashbook.create",
+  "duty.read",
 ];
 
 /** 實習店長 預設權限（學習與協助） */
@@ -211,6 +223,7 @@ export const DEFAULT_INTERN_MANAGER_PERMISSIONS: PermissionCode[] = [
   "wallet.read",
   "wallet.create",
   "business_hours.view",
+  "duty.read",
 ];
 
 /** 向後相容：舊版 MANAGER 預設（等同店長） */

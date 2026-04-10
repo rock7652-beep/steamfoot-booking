@@ -220,6 +220,28 @@ export async function createBooking(
       throw new AppError("VALIDATION", `${data.slotTime} 在該日不是有效時段`);
     }
 
+    // ── 7.5 值班檢查：該時段須有值班人員（OWNER 可略過）
+    const skipDutyCheck = data.skipDutyCheck === true && user.role === "OWNER";
+    if (!skipDutyCheck) {
+      // 先確認系統是否已啟用值班排班聯動
+      const { isDutySchedulingEnabled } = await import("@/lib/shop-config");
+      const dutyFeatureInUse = await isDutySchedulingEnabled();
+      if (dutyFeatureInUse) {
+        const dutyCount = await prisma.dutyAssignment.count({
+          where: {
+            date: bookingDateObj,
+            slotTime: data.slotTime,
+          },
+        });
+        if (dutyCount === 0) {
+          throw new AppError(
+            "BUSINESS_RULE",
+            `${data.bookingDate} ${data.slotTime} 尚無值班人員安排，無法預約`
+          );
+        }
+      }
+    }
+
     // 取得該時段的實際容量（SlotOverride capacity_change 覆寫）
     const slotCapacity = slotOverride?.type === "capacity_change" && slotOverride.capacity != null
       ? slotOverride.capacity

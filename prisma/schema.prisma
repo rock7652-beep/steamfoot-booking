@@ -137,6 +137,20 @@ enum SpaceFeeStatus {
   WAIVED
 }
 
+enum DutyRole {
+  STORE_MANAGER    // 店長
+  BRANCH_MANAGER   // 分店長
+  INTERN_COACH     // 實習教練
+  HOURLY_STAFF     // 計時人員
+}
+
+enum ParticipationType {
+  PRIMARY          // 主服務
+  ASSIST           // 協助服務
+  SHADOW           // 學習跟班
+  SUPPORT          // 現場支援
+}
+
 enum ShopPlan {
   FREE
   BASIC
@@ -255,6 +269,10 @@ model Staff {
 
   // 營運儀表板指派
   opsAssignments OpsActionLog[] @relation("OpsAssignee")
+
+  // 值班安排
+  dutyAssignments    DutyAssignment[] @relation("DutyStaff")
+  dutyCreatedBy      DutyAssignment[] @relation("DutyCreatedBy")
 }
 
 // ============================================================
@@ -651,11 +669,12 @@ model SpaceFeeRecord {
 // ============================================================
 
 model ShopConfig {
-  id        String   @id @default("default")
-  shopName  String   @default("蒸足")
-  plan      ShopPlan @default(FREE)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                    String   @id @default("default")
+  shopName              String   @default("蒸足")
+  plan                  ShopPlan @default(FREE)
+  dutySchedulingEnabled Boolean  @default(false)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 }
 
 // ============================================================
@@ -834,4 +853,30 @@ model SlotOverride {
 
   @@unique([date, startTime])
   @@index([date])
+}
+
+// ============================================================
+// DutyAssignment（值班人員安排）
+// ============================================================
+
+model DutyAssignment {
+  id                String            @id @default(cuid())
+  date              DateTime          @db.Date        // 值班日期（與 Booking.bookingDate 同格式）
+  slotTime          String            // "HH:mm"，對齊現有 slot 時間格式
+  staffId           String            // 值班人員
+  dutyRole          DutyRole          // 該人員在此時段的身份
+  participationType ParticipationType // 參與方式
+  notes             String?           // 備註
+  createdByStaffId  String?           // 誰安排的（審計用）
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  staff        Staff  @relation("DutyStaff", fields: [staffId], references: [id])
+  createdBy    Staff? @relation("DutyCreatedBy", fields: [createdByStaffId], references: [id])
+
+  @@unique([date, slotTime, staffId])  // 同一時段同一人只能有一筆
+  @@index([date])                      // 查某天所有值班
+  @@index([date, slotTime])            // 查某天某時段的值班人員
+  @@index([staffId])                   // 查某人的值班紀錄
+  @@index([staffId, date])             // 查某人某天的值班
 }
