@@ -1,20 +1,13 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useState, useCallback } from "react";
 import Link from "next/link";
 import { PARTICIPATION_TYPE_SHORT } from "@/lib/duty-constants";
-import type { DutyRole, ParticipationType } from "@prisma/client";
+import type { ParticipationType } from "@prisma/client";
+import type { DutyWeekItem } from "@/server/queries/duty";
 
-interface Assignment {
-  id: string;
-  date: string;
-  slotTime: string;
-  staffId: string;
-  staffName: string;
-  staffColor: string;
-  dutyRole: DutyRole;
-  participationType: ParticipationType;
-}
+type Assignment = DutyWeekItem;
 
 interface BusinessHourInfo {
   dayOfWeek: number;
@@ -99,26 +92,32 @@ function getSlotsForDay(
 
 export function DutyWeekView({ weekStart, assignments, businessHours, specialDays, canManage }: Props) {
   const router = useRouter();
+  const [navStart, setNavStart] = useState<number | null>(null);
+
+  const navigateWeek = useCallback((week: string) => {
+    setNavStart(performance.now());
+    router.push(`/dashboard/duty?week=${week}`);
+  }, [router]);
 
   // 週一到週日的日期
   const weekDates = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
-  // 取每天的時段
-  const daySlotsMap = new Map<string, string[] | "closed">();
-  for (const date of weekDates) {
-    daySlotsMap.set(date, getSlotsForDay(date, businessHours, specialDays));
-  }
-
-  // 收集所有出現過的時段（聯集）
+  // 取每天的時段 — 使用 Set 做 O(1) 查詢
+  const daySlotsMap = new Map<string, Set<string> | "closed">();
   const allSlots = new Set<string>();
-  for (const slots of daySlotsMap.values()) {
-    if (slots !== "closed") {
+  for (const date of weekDates) {
+    const slots = getSlotsForDay(date, businessHours, specialDays);
+    if (slots === "closed") {
+      daySlotsMap.set(date, "closed");
+    } else {
+      const slotSet = new Set(slots);
+      daySlotsMap.set(date, slotSet);
       for (const s of slots) allSlots.add(s);
     }
   }
   const sortedSlots = Array.from(allSlots).sort();
 
-  // 按 date+slotTime 分組 assignments
+  // 按 date|slotTime 分組 assignments — O(n) 建表，O(1) 查詢
   const assignmentMap = new Map<string, Assignment[]>();
   for (const a of assignments) {
     const key = `${a.date}|${a.slotTime}`;
@@ -139,7 +138,7 @@ export function DutyWeekView({ weekStart, assignments, businessHours, specialDay
       {/* 週切換器 */}
       <div className="mb-4 flex items-center justify-center gap-3">
         <button
-          onClick={() => router.push(`/dashboard/duty?week=${prevWeek}`)}
+          onClick={() => navigateWeek(prevWeek)}
           className="rounded-lg px-3 py-1.5 text-sm text-earth-600 hover:bg-earth-100"
         >
           &lt; 上一週
@@ -148,7 +147,7 @@ export function DutyWeekView({ weekStart, assignments, businessHours, specialDay
           {formatDateShort(weekStart)} ~ {formatDateShort(weekEndStr)}
         </span>
         <button
-          onClick={() => router.push(`/dashboard/duty?week=${nextWeek}`)}
+          onClick={() => navigateWeek(nextWeek)}
           className="rounded-lg px-3 py-1.5 text-sm text-earth-600 hover:bg-earth-100"
         >
           下一週 &gt;
@@ -205,7 +204,7 @@ export function DutyWeekView({ weekStart, assignments, businessHours, specialDay
                         </td>
                       );
                     }
-                    if (!daySlots || !daySlots.includes(slot)) {
+                    if (!daySlots || !daySlots.has(slot)) {
                       return (
                         <td
                           key={date}

@@ -25,7 +25,6 @@ interface AssignmentInfo {
   staffId: string;
   staffName: string;
   staffColor: string;
-  staffRole: string;
   dutyRole: DutyRole;
   participationType: ParticipationType;
   notes: string | null;

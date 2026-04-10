@@ -53,9 +53,10 @@ export default async function DutyDayPage({ params }: PageProps) {
       slots = generated.map((s) => s.startTime);
 
       // 處理覆寫
+      const slotSet = new Set(slots);
       const overrideMap = new Map(slotOverrides.map((o) => [o.startTime, o]));
       for (const [startTime, override] of overrideMap) {
-        if (override.type === "enabled" && !slots.includes(startTime)) {
+        if (override.type === "enabled" && !slotSet.has(startTime)) {
           slots.push(startTime);
         }
       }
@@ -69,19 +70,7 @@ export default async function DutyDayPage({ params }: PageProps) {
     }
   }
 
-  // 取所有 ACTIVE staff
-  const staffList = await prisma.staff.findMany({
-    where: { status: "ACTIVE" },
-    select: {
-      id: true,
-      displayName: true,
-      colorCode: true,
-      user: { select: { role: true } },
-    },
-    orderBy: { displayName: "asc" },
-  });
-
-  // 計算該日的週一（用於「複製到本週其他日期」的範圍）
+  // 取所有 ACTIVE staff + 週範圍資料（合併查詢減少 round-trip）
   const d = new Date(date + "T00:00:00Z");
   const dayOfWeekIdx = d.getUTCDay();
   const mondayOffset = dayOfWeekIdx === 0 ? -6 : 1 - dayOfWeekIdx;
@@ -94,31 +83,42 @@ export default async function DutyDayPage({ params }: PageProps) {
     weekDates.push(wd.toISOString().slice(0, 10));
   }
 
-  // 查哪些日期已有安排（用於複製確認）
-  const weekAssignmentCounts = await prisma.dutyAssignment.groupBy({
-    by: ["date"],
-    where: {
-      date: {
-        gte: new Date(weekDates[0] + "T00:00:00Z"),
-        lte: new Date(weekDates[6] + "T00:00:00Z"),
+  const [staffList, weekAssignmentCounts, allBusinessHours, weekSpecialDays] = await Promise.all([
+    prisma.staff.findMany({
+      where: { status: "ACTIVE" },
+      select: {
+        id: true,
+        displayName: true,
+        colorCode: true,
+        user: { select: { role: true } },
       },
-    },
-    _count: { id: true },
-  });
+      orderBy: { displayName: "asc" },
+    }),
+    prisma.dutyAssignment.groupBy({
+      by: ["date"],
+      where: {
+        date: {
+          gte: new Date(weekDates[0] + "T00:00:00Z"),
+          lte: new Date(weekDates[6] + "T00:00:00Z"),
+        },
+      },
+      _count: { id: true },
+    }),
+    prisma.businessHours.findMany(),
+    prisma.specialBusinessDay.findMany({
+      where: {
+        date: {
+          gte: new Date(weekDates[0] + "T00:00:00Z"),
+          lte: new Date(weekDates[6] + "T00:00:00Z"),
+        },
+      },
+    }),
+  ]);
+
   const weekCountMap = new Map(
     weekAssignmentCounts.map((c) => [c.date.toISOString().slice(0, 10), c._count.id])
   );
 
-  // 查哪些日期是公休（用於複製面板灰掉不可選）
-  const allBusinessHours = await prisma.businessHours.findMany();
-  const weekSpecialDays = await prisma.specialBusinessDay.findMany({
-    where: {
-      date: {
-        gte: new Date(weekDates[0] + "T00:00:00Z"),
-        lte: new Date(weekDates[6] + "T00:00:00Z"),
-      },
-    },
-  });
   const specialDayMap = new Map(weekSpecialDays.map((s) => [s.date.toISOString().slice(0, 10), s]));
   const bhMap = new Map(allBusinessHours.map((b) => [b.dayOfWeek, b]));
 
@@ -157,7 +157,6 @@ export default async function DutyDayPage({ params }: PageProps) {
           staffId: a.staffId,
           staffName: a.staff.displayName,
           staffColor: a.staff.colorCode,
-          staffRole: a.staff.user.role,
           dutyRole: a.dutyRole,
           participationType: a.participationType,
           notes: a.notes,
