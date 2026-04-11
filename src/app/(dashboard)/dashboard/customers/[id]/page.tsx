@@ -182,7 +182,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
         )}
       </div>
 
-      {/* 身體數據（串接健康管理系統） */}
+      {/* AI健康評估（串接健康管理系統） */}
       <HealthSectionWrapper
         customerId={id}
         customerEmail={customer.email}

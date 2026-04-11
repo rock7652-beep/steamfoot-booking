@@ -150,7 +150,7 @@ export function MobileNav({ userName, pathname, customerId }: { userName: string
             className="mb-1 flex items-center gap-3 rounded-lg px-4 py-3 text-sm text-earth-600 hover:bg-earth-50 transition"
           >
             <NavIcon name="external" className="text-earth-400" />
-            身體指數
+            AI健康評估
           </a>
         </div>
 

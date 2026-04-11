@@ -1,9 +1,9 @@
 /**
- * HealthDataService — 身體數據系統 API 串接
+ * HealthDataService — AI 健康評估系統 API 串接
  *
  * 功能：
  * 1. lookupHealthProfile(email?, phone?) — 以 email/phone 查詢 profile
- * 2. getHealthSummary(profileId) — 取得身體數據摘要（帶 5 分鐘快取）
+ * 2. getHealthSummary(profileId) — 取得健康評估摘要（帶 5 分鐘快取）
  * 3. generateBusinessInsights(summary) — 生成經營提示
  */
 
@@ -144,7 +144,7 @@ async function healthFetch<T>(path: string): Promise<T> {
 // ============================================================
 
 /**
- * 以 email 或 phone 查詢身體數據系統的 profile
+ * 以 email 或 phone 查詢AI 健康評估系統的 profile
  */
 export async function lookupHealthProfile(
   email?: string | null,
@@ -170,7 +170,7 @@ export async function lookupHealthProfile(
 }
 
 /**
- * 取得身體數據摘要（帶 5 分鐘 LRU 快取）
+ * 取得AI 健康評估摘要（帶 5 分鐘 LRU 快取）
  */
 export async function getHealthSummary(
   profileId: string
@@ -191,7 +191,7 @@ export async function getHealthSummary(
 }
 
 /**
- * 根據身體數據摘要生成經營提示
+ * 根據AI 健康評估摘要生成經營提示
  */
 export function generateBusinessInsights(
   summary: HealthSummary

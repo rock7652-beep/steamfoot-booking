@@ -8,7 +8,7 @@ import {
 } from "@/server/actions/health";
 
 // ============================================================
-// HealthLinkModal — 手動搜尋並綁定身體數據帳號
+// HealthLinkModal — 建立 / 連結 AI 健康評估資料
 // ============================================================
 
 interface HealthLinkModalProps {
@@ -115,7 +115,7 @@ export function HealthLinkModal({
           onClick={openModal}
           className="rounded-lg border border-primary-200 bg-primary-50 px-3 py-1.5 text-xs font-medium text-primary-700 transition hover:bg-primary-100"
         >
-          手動搜尋綁定
+          建立 / 連結評估
         </button>
       )}
 
@@ -125,7 +125,7 @@ export function HealthLinkModal({
           <div className="mx-4 w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold text-earth-900">
-                搜尋身體數據帳號
+                搜尋健康評估資料
               </h3>
               <button
                 onClick={() => setOpen(false)}

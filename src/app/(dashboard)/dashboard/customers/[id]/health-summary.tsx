@@ -15,7 +15,7 @@ export async function HealthSummarySection({ healthProfileId }: HealthSummaryPro
   if (!summary) {
     return (
       <div className="rounded-lg border border-earth-200 bg-earth-50 p-4 text-center">
-        <p className="text-sm text-earth-500">身體數據暫時無法載入，請稍後再試</p>
+        <p className="text-sm text-earth-500">AI 健康評估暫時無法載入，請稍後再試</p>
       </div>
     );
   }
@@ -48,7 +48,7 @@ export async function HealthSummarySection({ healthProfileId }: HealthSummaryPro
           rel="noopener noreferrer"
           className="text-xs text-primary-600 hover:underline"
         >
-          前往身體數據系統 ↗
+          前往 AI 健康評估系統 ↗
         </a>
       </div>
 

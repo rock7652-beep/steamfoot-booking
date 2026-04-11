@@ -181,8 +181,8 @@ export default async function CustomerHomePage() {
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-primary-600"><path d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5" /><path d="M7.5 16.5L21 3m0 0h-5.25M21 3v5.25" /></svg>
           </span>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-earth-800">身體指數</p>
-            <p className="text-xs text-earth-400">開啟健康管理系統</p>
+            <p className="text-sm font-medium text-earth-800">AI健康評估</p>
+            <p className="text-xs text-earth-400">查看您的 AI 健康分析報告</p>
           </div>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="text-earth-300"><path d="M9 5l7 7-7 7" /></svg>
         </a>

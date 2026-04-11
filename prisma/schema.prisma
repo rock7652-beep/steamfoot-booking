@@ -324,10 +324,10 @@ model Customer {
   lineBindingCode           String?        @unique // 6 ��綁定碼
   lineBindingCodeCreatedAt  DateTime?      // 綁定碼產生時間
   notes              String?       // 內部備註
-  // 身體數據系統連結
-  healthProfileId    String?       // 身體數據系統的 profile UUID
+  // AI 健康評估系統連結
+  healthProfileId    String?       // AI 健康評估系統的 profile UUID
   healthLinkStatus   String        @default("unlinked") // "unlinked" | "linked" | "not_found" | "error"
-  healthSyncedAt     DateTime?     // 最後一次同步身體數據的時間
+  healthSyncedAt     DateTime?     // 最後一次同步健康評估的時間
   assignedStaffId    String?       // 直屬店長（nullable: 建立時可不指派）
   customerStage      CustomerStage @default(LEAD)
   selfBookingEnabled Boolean       @default(false)

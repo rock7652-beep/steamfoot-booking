@@ -41,7 +41,7 @@ export async function tryAutoLinkHealth(customerId: string): Promise<{
       return { status: "no_email" };
     }
 
-    // 呼叫身體數據 API 查詢
+    // 呼叫 AI 健康評估 API 查詢
     const result = await lookupHealthProfile(customer.email, customer.phone);
 
     if (!result.found || result.profiles.length === 0) {

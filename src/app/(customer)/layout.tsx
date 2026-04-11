@@ -126,7 +126,7 @@ export default async function CustomerLayout({
               className="mb-0.5 flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] text-earth-500 hover:bg-earth-50 hover:text-earth-800 transition"
             >
               <NavIcon name="external" className="text-earth-400" />
-              身體指數
+              AI健康評估
             </a>
           </nav>
 

@@ -12,7 +12,7 @@ function ExternalLinkWarning({ url, onClose }: { url: string; onClose: () => voi
       <div className="w-full max-w-sm rounded-xl bg-white p-5 shadow-xl mx-4" onClick={(e) => e.stopPropagation()}>
         <h3 className="text-sm font-bold text-earth-900">即將前往外部系統</h3>
         <div className="mt-3 space-y-2 text-xs text-earth-600">
-          <p>您即將前往<strong>身體數據追蹤系統</strong>，這是獨立的外部服務。</p>
+          <p>您即將前往<strong>AI 健康評估系統</strong>，這是獨立的外部服務。</p>
           <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
             <p className="font-medium text-amber-700">注意事項：</p>
             <ul className="mt-1 list-disc pl-4 space-y-0.5 text-amber-600">
@@ -30,7 +30,7 @@ function ExternalLinkWarning({ url, onClose }: { url: string; onClose: () => voi
             onClick={onClose}
             className="rounded-lg bg-primary-600 px-4 py-2 text-xs font-medium text-white hover:bg-primary-700"
           >
-            前往身體數據系統
+            前往 AI 健康評估系統
           </a>
           <button
             onClick={onClose}
@@ -116,7 +116,8 @@ export function HealthSectionWrapper({
   return (
     <div className="rounded-xl border bg-white p-6 shadow-sm">
       <div className="flex items-center justify-between">
-        <h2 className="font-semibold text-earth-800">身體數據</h2>
+        <h2 className="font-semibold text-earth-800">AI健康評估</h2>
+        <span className="ml-2 inline-flex items-center rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 px-2 py-0.5 text-[10px] font-semibold text-white">AI 分析</span>
         <div className="flex items-center gap-2">
           {status === "linked" && (
             <button
@@ -155,16 +156,16 @@ export function HealthSectionWrapper({
         {status === "unlinked" && autoLinking && (
           <div className="flex items-center gap-2 rounded-lg border border-earth-200 bg-earth-50 p-4">
             <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-600 border-t-transparent" />
-            <p className="text-sm text-earth-500">正在比對身體數據帳號...</p>
+            <p className="text-sm text-earth-500">正在比對 AI 健康評估資料...</p>
           </div>
         )}
 
         {/* ===== 尚未連結（自動比對未啟動或等待中） ===== */}
         {status === "unlinked" && !autoLinking && (
           <div className="rounded-lg border border-earth-200 bg-earth-50 p-4 text-center">
-            <p className="text-sm text-earth-500">尚未連結身體數據系統</p>
+            <p className="text-sm text-earth-500">尚未建立 AI 健康評估資料</p>
             <p className="mt-1 text-xs text-earth-400">
-              系統將自動以 Email / 手機比對，或點擊右上方手動搜尋
+              系統將自動透過 Email / 手機進行健康資料比對，或可點擊右上方手動建立您的健康評估檔案。
             </p>
           </div>
         )}
@@ -173,10 +174,10 @@ export function HealthSectionWrapper({
         {status === "not_found" && (
           <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-center">
             <p className="text-sm text-yellow-700">
-              查無對應的身體數據帳號
+              查無對應的健康評估資料
             </p>
             <p className="mt-1 text-xs text-yellow-600">
-              顧客可能尚未在身體數據系統註冊，或使用了不同的 Email / 手機
+              顧客可能尚未建立 AI 健康評估檔案，或使用了不同的 Email / 手機
             </p>
           </div>
         )}
@@ -184,7 +185,7 @@ export function HealthSectionWrapper({
         {/* ===== 錯誤 ===== */}
         {status === "error" && (
           <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-center">
-            <p className="text-sm text-red-700">身體數據暫時無法載入</p>
+            <p className="text-sm text-red-700">AI 健康評估暫時無法載入</p>
             <button
               onClick={handleRetry}
               disabled={autoLinking}
