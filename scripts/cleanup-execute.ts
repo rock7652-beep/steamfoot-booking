@@ -326,7 +326,7 @@ async function main() {
     // Step 20: 升級彥陸
     await tx.user.update({
       where: { id: upgradeUser.id },
-      data: { role: "OWNER" },
+      data: { role: "ADMIN" },
     });
     step("升級 User 彥陸 → role=OWNER");
 

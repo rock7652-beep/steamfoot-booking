@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Phase 1 — 身體數據整合任務清單</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #232734;
+    --border: #2e3348;
+    --text: #e4e6ed;
+    --text2: #9ca0b0;
+    --accent: #6366f1;
+    --accent2: #818cf8;
+    --green: #22c55e;
+    --orange: #f59e0b;
+    --red: #ef4444;
+    --blue: #3b82f6;
+    --teal: #14b8a6;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    padding: 2rem;
+  }
+  .container { max-width: 1100px; margin: 0 auto; }
+  .doc-header {
+    text-align: center;
+    padding: 2rem 0 1.5rem;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 2rem;
+  }
+  .doc-header h1 { font-size: 1.8rem; font-weight: 700; }
+  .doc-header .sub { color: var(--text2); font-size: 0.9rem; margin-top: 0.5rem; }
+
+  /* Decisions summary */
+  .decisions {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.25rem;
+    margin-bottom: 2rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 0.75rem;
+  }
+  .dec-item { font-size: 0.8rem; }
+  .dec-item .label { color: var(--text2); }
+  .dec-item .val { color: var(--green); font-weight: 600; }
+
+  .section {
+    margin-bottom: 2.5rem;
+    padding-bottom: 2rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .section:last-child { border-bottom: none; }
+  .section h2 {
+    font-size: 1.3rem;
+    color: var(--accent2);
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .section h2 .tag {
+    font-size: 0.65rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+  .tag-ht { background: rgba(20,184,166,0.15); color: var(--teal); }
+  .tag-bs { background: rgba(99,102,241,0.15); color: var(--accent2); }
+  .section h3 { font-size: 1rem; margin: 1.25rem 0 0.5rem; color: var(--text); }
+  .section p { color: var(--text2); margin-bottom: 0.5rem; font-size: 0.9rem; }
+
+  /* Task list */
+  .task-list { margin: 1rem 0; }
+  .task {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 0.75rem;
+  }
+  .task-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+  }
+  .task-num {
+    background: var(--surface2);
+    color: var(--text2);
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .task-title { font-weight: 600; font-size: 0.95rem; }
+  .task-body { color: var(--text2); font-size: 0.85rem; padding-left: 2.5rem; }
+  .task-body ul { padding-left: 1.2rem; margin: 0.25rem 0; }
+  .task-body li { margin-bottom: 0.15rem; }
+  .task-file {
+    display: inline-block;
+    background: var(--surface2);
+    padding: 0.1rem 0.5rem;
+    border-radius: 4px;
+    font-family: 'SF Mono', monospace;
+    font-size: 0.78rem;
+    color: var(--accent2);
+    margin: 0.1rem 0;
+  }
+
+  pre {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1rem;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.78rem;
+    line-height: 1.6;
+    overflow-x: auto;
+    margin: 0.75rem 0;
+    color: var(--text2);
+  }
+  .code-label {
+    background: var(--surface2);
+    padding: 0.4rem 1rem;
+    font-size: 0.78rem;
+    color: var(--text2);
+    border: 1px solid var(--border);
+    border-bottom: none;
+    border-radius: 10px 10px 0 0;
+    margin-bottom: 0;
+    margin-top: 0.75rem;
+  }
+  .code-labeled { border-radius: 0 0 10px 10px; margin-top: 0; }
+
+  .note {
+    background: rgba(99,102,241,0.08);
+    border-left: 3px solid var(--accent);
+    padding: 0.75rem 1rem;
+    border-radius: 0 8px 8px 0;
+    margin: 0.75rem 0;
+    font-size: 0.85rem;
+    color: var(--text2);
+  }
+  .note strong { color: var(--text); }
+  .note-warn {
+    background: rgba(245,158,11,0.08);
+    border-left-color: var(--orange);
+  }
+  .note-green {
+    background: rgba(34,197,94,0.08);
+    border-left-color: var(--green);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0.75rem 0;
+    font-size: 0.83rem;
+  }
+  th, td {
+    padding: 0.5rem 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  th {
+    background: var(--surface2);
+    color: var(--text2);
+    font-weight: 600;
+    font-size: 0.73rem;
+    text-transform: uppercase;
+  }
+
+  .flow {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.25rem;
+    margin: 0.75rem 0;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.75rem;
+    line-height: 1.6;
+    overflow-x: auto;
+    white-space: pre;
+    color: var(--text2);
+  }
+  .hl { color: var(--accent2); }
+  .gr { color: var(--green); }
+  .or { color: var(--orange); }
+  .rd { color: var(--red); }
+  .tl { color: var(--teal); }
+
+  .wireframe {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    margin: 0.75rem 0;
+  }
+  .wireframe-title {
+    background: var(--surface2);
+    padding: 0.4rem 1rem;
+    font-size: 0.78rem;
+    color: var(--text2);
+    border-bottom: 1px solid var(--border);
+  }
+  .wireframe pre {
+    padding: 1rem;
+    font-size: 0.73rem;
+    border: none;
+    border-radius: 0;
+    margin: 0;
+  }
+
+  @media (max-width: 768px) {
+    body { padding: 1rem; }
+    .decisions { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+<div class="doc-header">
+  <h1>Phase 1 — 身體數據整合任務清單</h1>
+  <div class="sub">可直接交付給 Code 的實作規格</div>
+</div>
+
+<!-- Confirmed decisions -->
+<div class="decisions">
+  <div class="dec-item"><span class="label">開發順序</span><br><span class="val">先做身體數據 API → 再接蒸足</span></div>
+  <div class="dec-item"><span class="label">API 部署</span><br><span class="val">加在現有 health-tracker</span></div>
+  <div class="dec-item"><span class="label">快取策略</span><br><span class="val">Server 端 5 分鐘快取</span></div>
+  <div class="dec-item"><span class="label">顯示範圍</span><br><span class="val">僅後台（店長）</span></div>
+  <div class="dec-item"><span class="label">SSO</span><br><span class="val">Phase 4 再做</span></div>
+  <div class="dec-item"><span class="label">對應機制</span><br><span class="val">Email 優先 + 手動綁定</span></div>
+</div>
+
+<!-- ========================================== -->
+<!-- PART A: 身體數據系統 -->
+<!-- ========================================== -->
+<div class="section">
+  <h2><span class="tag tag-ht">health-tracker</span> Part A — 身體數據系統 API 建立</h2>
+  <p>在現有 health-tracker Next.js 專案中新增 3 個 API Route + 1 個認證 helper。不改動任何現有功能。</p>
+
+  <!-- Task A1 -->
+  <div class="task-list">
+    <div class="task">
+      <div class="task-header">
+        <span class="task-num">A1</span>
+        <span class="task-title">建立 API Key 認證 helper</span>
+      </div>
+      <div class="task-body">
+        <p>新建 <span class="task-file">src/lib/api-auth.ts</span></p>
+        <ul>
+          <li>從 request header 讀取 <code>X-API-Key</code></li>
+          <li>與 env <code>INTERNAL_API_KEY</code> 比對</li>
+          <li>不符合 → 回傳 401 JSON</li>
+          <li>加入簡易 rate limit（optional，可用 Map 記錄 IP + timestamp）</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="code-label">src/lib/api-auth.ts 範例</div>
+<pre class="code-labeled"><span class="gr">// API Key 驗證，用於 server-to-server 呼叫</span>
+import { NextRequest, NextResponse } from "next/server";
+
+export function validateApiKey(req: NextRequest): NextResponse | null {
+  const apiKey = req.headers.get("x-api-key");
+  if (!apiKey || apiKey !== process.env.INTERNAL_API_KEY) {
+    return NextResponse.json(
+      { error: "Unauthorized" },
+      { status: 401 }
+    );
+  }
+  return null; <span class="gr">// null = 驗證通過</span>
+}
+</pre>
+
+    <div class="note">
+      <strong>.env.local 新增：</strong><code>INTERNAL_API_KEY=</code>（隨機產生一組 32+ 字元的 key，蒸足系統也要存一份）
+    </div>
+
+    <!-- Task A2 -->
+    <div class="task">
+      <div class="task-header">
+        <span class="task-num">A2</span>
+        <span class="task-title">API: 以 email 查詢 profile</span>
+      </div>
+      <div class="task-body">
+        <p>新建 <span class="task-file">src/app/api/health/profile/route.ts</span></p>
+        <ul>
+          <li>Method: GET</li>
+          <li>Query: <code>?email=xxx@gmail.com</code></li>
+          <li>用 Supabase server client 查 <code>profiles</code> 表（join <code>auth.users</code> 的 email）</li>
+          <li>找到 → 回傳 <code>{ found: true, profile: { id, fullName, gender, age, height } }</code></li>
+          <li>找不到 → 回傳 <code>{ found: false }</code></li>
+          <li><strong>不回傳</strong>任何 auth token / password / session 資料</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="code-label">GET /api/health/profile?email=wang@gmail.com</div>
+<pre class="code-labeled"><span class="gr">// Response 200</span>
+{
+  "found": true,
+  "profile": {
+    "id": "a1b2c3d4-...",      <span class="gr">// profiles.id (UUID)</span>
+    "fullName": "王小明",
+    "gender": "male",           <span class="gr">// "male" | "female" | null</span>
+    "age": 35,
+    "height": 175
+  }
+}
+
+<span class="gr">// 找不到時</span>
+{ "found": false }
+</pre>
+
+    <div class="note note-warn">
+      <strong>注意：</strong>health-tracker 的 profiles 表用 auth.users.id 作為 id，email 存在 auth.users 表。查詢時需要先從 Supabase Auth admin API 或用 service_role key 查 auth.users.email → 取得 user.id → 再查 profiles。或者如果 profiles 表有存 email 欄位就直接查。請先確認 profiles 表是否有 email 欄位。
+    </div>
+
+    <!-- Task A3 -->
+    <div class="task">
+      <div class="task-header">
+        <span class="task-num">A3</span>
+        <span class="task-title">API: 取得身體數據摘要</span>
+      </div>
+      <div class="task-body">
+        <p>新建 <span class="task-file">src/app/api/health/summary/route.ts</span></p>
+        <ul>
+          <li>Method: GET</li>
+          <li>Query: <code>?profileId=uuid-xxx</code></li>
+          <li>查 <code>body_records</code> WHERE user_id = profileId</li>
+          <li>回傳內容：</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="code-label">GET /api/health/summary?profileId=a1b2c3d4</div>
+<pre class="code-labeled">{
+  "latest": {                           <span class="gr">// 最新一筆量測</span>
+    "measuredAt": "2026-04-01",
+    "weight": 72.5,
+    "bmi": 23.7,
+    "bodyFat": 22.1,
+    "muscleMass": 32.8,
+    "boneMass": 2.8,
+    "visceralFat": 8,
+    "bmr": 1580,
+    "bodyWater": 55.2,
+    "metabolicAge": 32,
+    "note": "飯後量測"
+  },
+  "trend": [                            <span class="gr">// 最近 5 筆（含最新，由舊到新）</span>
+    { "measuredAt": "2026-02-15", "weight": 75.0, "bodyFat": 24.2, "bmi": 24.5 },
+    { "measuredAt": "2026-03-01", "weight": 74.0, "bodyFat": 23.5, "bmi": 24.2 },
+    { "measuredAt": "2026-03-15", "weight": 73.2, "bodyFat": 22.8, "bmi": 23.9 },
+    { "measuredAt": "2026-04-01", "weight": 72.5, "bodyFat": 22.1, "bmi": 23.7 }
+  ],
+  "alerts": [                           <span class="gr">// 紅黃綠警示（用 health-ranges.ts 邏輯）</span>
+    { "metric": "visceralFat", "status": "warning", "label": "內臟脂肪", "message": "偏高，建議 1~9" },
+    { "metric": "bodyFat", "status": "normal", "label": "體脂肪", "message": "" }
+  ],
+  "meta": {                             <span class="gr">// 經營用 metadata</span>
+    "totalRecords": 12,
+    "daysSinceLastMeasure": 7,
+    "firstMeasuredAt": "2025-10-15"
+  }
+}
+
+<span class="gr">// 無紀錄時</span>
+{
+  "latest": null,
+  "trend": [],
+  "alerts": [],
+  "meta": { "totalRecords": 0, "daysSinceLastMeasure": null, "firstMeasuredAt": null }
+}
+</pre>
+
+    <div class="note">
+      <strong>alerts 邏輯：</strong>直接複用 health-tracker 現有的 <code>src/lib/health-ranges.ts</code> 的 <code>getHealthStatus()</code> 函式。不用重寫。只需要帶入最新一筆數據 + profile 的 gender 即可。
+    </div>
+
+    <!-- Task A4 -->
+    <div class="task">
+      <div class="task-header">
+        <span class="task-num">A4</span>
+        <span class="task-title">驗收：用 curl 測試 API</span>
+      </div>
+      <div class="task-body">
+        <p>部署後用以下指令驗收：</p>
+      </div>
+    </div>
+
+<pre><span class="gr"># 1. 無 API Key → 應回 401</span>
+curl https://health-tracker-eight-rosy.vercel.app/api/health/profile?email=test@gmail.com
+
+<span class="gr"># 2. 有 API Key + 存在的 email → 應回 profile</span>
+curl -H "X-API-Key: YOUR_KEY" \
+  "https://health-tracker-eight-rosy.vercel.app/api/health/profile?email=真實email"
+
+<span class="gr"># 3. 有 API Key + 不存在的 email → 應回 { found: false }</span>
+curl -H "X-API-Key: YOUR_KEY" \
+  "https://health-tracker-eight-rosy.vercel.app/api/health/profile?email=nobody@xxx.com"
+
+<span class="gr"># 4. Summary → 應回完整摘要</span>
+curl -H "X-API-Key: YOUR_KEY" \
+  "https://health-tracker-eight-rosy.vercel.app/api/health/summary?profileId=取得的UUID"
+</pre>
+  </div>
+</div>
+
+<!-- ========================================== -->
+<!-- PART B: 蒸足系統 -->
+<!-- ========================================== -->
+<div class="section">
+  <h2><span class="tag tag-bs">booking-system</span> Part B — 蒸足系統串接</h2>
+  <p>API 驗收通過後，在蒸足系統做以下改動。</p>
+
+  <div class="task-list">
+    <!-- Task B1 -->
+    <div class="task">
+      <div class="task-header">
+        <span class="task-num">B1</span>
+        <span class="task-title">Schema: Customer 新增欄位</span>
+      </div>
+      <div class="task-body">
+        <p>修改 <span class="task-file">prisma/schema.prisma</span></p>
+        <ul>
+          <li><code>healthProfileId String?</code> — 身體數據系統的 profile UUID</li>
+          <li><code>healthSyncedAt DateTime?</code> — 最後一次同步時間</li>
+        </ul>
+        <p>然後跑 <code>npx prisma db push</code></p>
+      </div>
+    </div>
+
+    <!-- Task B2 -->
+    <div class="task">
+      <div class="task-header">
+        <span class="task-num">B2</span>
+        <span class="task-title">Service: HealthDataService</span>
+      </div>
+      <div class="task-body">
+        <p>新建 <span class="task-file">src/lib/health-service.ts</span></p>
+        <p>負責：呼叫身體數據 API + 5 分鐘 in-memory 快取 + 錯誤處理</p>
+      </div>
+    </div>
+
+    <div class="code-label">src/lib/health-service.ts 架構</div>
+<pre class="code-labeled">const HEALTH_API_BASE = process.env.HEALTH_API_URL;  <span class="gr">// "https://health-tracker-eight-rosy.vercel.app"</span>
+const HEALTH_API_KEY = process.env.HEALTH_API_KEY;    <span class="gr">// 與身體數據系統的 INTERNAL_API_KEY 相同</span>
+const CACHE_TTL = 5 * 60 * 1000;                      <span class="gr">// 5 分鐘</span>
+
+<span class="gr">// In-memory 快取（key = profileId）</span>
+const cache = new Map&lt;string, { data: HealthSummary; expiresAt: number }&gt;();
+
+<span class="hl">// 1. 以 email 查詢 profile（用於首次比對）</span>
+export async function lookupHealthProfile(email: string): Promise&lt;{
+  found: boolean;
+  profileId?: string;
+  fullName?: string;
+}&gt;
+
+<span class="hl">// 2. 取得身體數據摘要（帶快取）</span>
+export async function getHealthSummary(profileId: string): Promise&lt;HealthSummary | null&gt;
+
+<span class="hl">// 3. 經營提示生成（純邏輯，不打 API）</span>
+export function generateBusinessInsights(summary: HealthSummary): BusinessInsight[]
+
+<span class="gr">// 型別定義</span>
+interface HealthSummary {
+  latest: HealthRecord | null;
+  trend: TrendPoint[];
+  alerts: HealthAlert[];
+  meta: { totalRecords: number; daysSinceLastMeasure: number | null; firstMeasuredAt: string | null; };
+}
+interface HealthAlert { metric: string; status: "normal" | "warning" | "danger"; label: string; message: string; }
+interface BusinessInsight { type: "positive" | "warning" | "danger"; message: string; }
+</pre>
+
+    <!-- Task B3 -->
+    <div class="task">
+      <div class="task-header">
+        <span class="task-num">B3</span>
+        <span class="task-title">Query: 自動比對 + 綁定邏輯</span>
+      </div>
+      <div class="task-body">
+        <p>修改 <span class="task-file">src/server/queries/customer.ts</span> 的 <code>getCustomerDetail()</code></p>
+        <ul>
+          <li>若 customer.healthProfileId 已有值 → 直接呼叫 getHealthSummary()</li>
+          <li>若 healthProfileId 為 null 且 customer.email 有值 → 自動呼叫 lookupHealthProfile(email)</li>
+          <li>若查到 → 更新 customer.healthProfileId 和 healthSyncedAt → 再取 summary</li>
+          <li>若查不到 → 回傳 healthData: null（UI 顯示「尚未連結」）</li>
+          <li><strong>整個流程非阻塞</strong>：先回傳基本顧客資料，身體數據用 Suspense / streaming 載入</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="flow">自動比對流程：
+
+  店長開啟 /dashboard/customers/[id]
+      │
+      ▼
+  Customer 有 <span class="hl">healthProfileId</span>？
+      │                │
+     YES              NO
+      │                │
+      ▼                ▼
+  呼叫 <span class="tl">getHealthSummary</span>   Customer 有 <span class="hl">email</span>？
+  (帶 5min 快取)          │            │
+      │                  YES          NO
+      │                   │            │
+      ▼                   ▼            ▼
+  顯示摘要卡片      呼叫 <span class="tl">lookupHealthProfile</span>    顯示「尚未連結」
+                         │                    + [手動搜尋] 按鈕
+                    找到 profile？
+                    │           │
+                   YES         NO
+                    │           │
+                    ▼           ▼
+              <span class="gr">綁定 healthProfileId</span>   顯示「查無對應帳號」
+              呼叫 getHealthSummary    + [手動搜尋] 按鈕
+              顯示摘要卡片</div>
+
+    <!-- Task B4 -->
+    <div class="task">
+      <div class="task-header">
+        <span class="task-num">B4</span>
+        <span class="task-title">UI: 顧客詳情頁 — 身體數據摘要區塊</span>
+      </div>
+      <div class="task-body">
+        <p>修改 <span class="task-file">src/app/(dashboard)/dashboard/customers/[id]/page.tsx</span></p>
+        <p>在顧客基本資料和課程錢包之間，插入身體數據區塊。</p>
+      </div>
+    </div>
+
+    <div class="wireframe">
+      <div class="wireframe-title">已連結 — 顯示摘要</div>
+<pre>
+┌─ 身體數據 ──────────────────────────────────────────────────┐
+│                                                             │
+│  最近量測：2026-04-01（7 天前）          [<span class="hl">開啟完整紀錄 ↗</span>]    │
+│                                                             │
+│  ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐               │
+│  │ 體重    │ │  BMI   │ │ 體脂肪  │ │內臟脂肪 │               │
+│  │<span class="gr">72.5 kg</span> │ │ <span class="gr">23.7</span>  │ │<span class="gr">22.1%</span>  │ │<span class="or">8 ⚠</span>    │               │
+│  │<span class="gr">↓1.5</span>    │ │<span class="gr">↓0.5</span>   │ │<span class="gr">↓1.4%</span>  │ │ →0    │               │
+│  └────────┘ └────────┘ └────────┘ └────────┘               │
+│  ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐               │
+│  │ 肌肉量  │ │基礎代謝 │ │ 體水分  │ │代謝年齡 │               │
+│  │<span class="gr">32.8kg</span> │ │<span class="gr">1,580</span>  │ │<span class="gr">55.2%</span>  │ │<span class="gr">32 歲</span>  │               │
+│  └────────┘ └────────┘ └────────┘ └────────┘               │
+│                                                             │
+│  <span class="or">⚠ 注意：內臟脂肪偏高（正常範圍 1~9）</span>                        │
+│                                                             │
+│  ── 經營提示 ──────────────────────────────────────          │
+│  <span class="gr">✓ 近期有量測紀錄，顧客活躍中</span>                               │
+│  <span class="gr">✓ 體重持續下降，療程見效</span>                                  │
+│  <span class="or">△ 內臟脂肪需關注，可推薦加強課程</span>                           │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+</pre>
+    </div>
+
+    <div class="wireframe">
+      <div class="wireframe-title">尚未連結 — 引導綁定</div>
+<pre>
+┌─ 身體數據 ──────────────────────────────────────────────────┐
+│                                                             │
+│  🔗 此顧客尚未連結身體數據系統                                 │
+│                                                             │
+│     自動比對結果：查無 <span class="or">wang@gmail.com</span> 對應的帳號            │
+│                                                             │
+│     [<span class="hl">手動搜尋連結</span>]                                        │
+│                                                             │
+│     <span class="or">可能原因：顧客在身體數據系統使用不同 email 註冊</span>            │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+</pre>
+    </div>
+
+    <!-- Task B5 -->
+    <div class="task">
+      <div class="task-header">
+        <span class="task-num">B5</span>
+        <span class="task-title">UI: 手動搜尋綁定 Modal</span>
+      </div>
+      <div class="task-body">
+        <p>新建 <span class="task-file">src/app/(dashboard)/dashboard/customers/[id]/health-link-modal.tsx</span></p>
+        <ul>
+          <li>輸入 email 或手機號碼 → 呼叫 lookupHealthProfile</li>
+          <li>顯示查詢結果（姓名 + 基本資料）讓店長確認</li>
+          <li>確認 → 寫入 healthProfileId → 關閉 modal → 重新載入身體數據區塊</li>
+          <li>此功能保留未來擴充 phone 比對的空間（API 端也要支援 ?phone=xxx 參數）</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="wireframe">
+      <div class="wireframe-title">手動搜尋連結 Modal</div>
+<pre>
+┌─ 搜尋身體數據帳號 ───────────────────────┐
+│                                          │
+│  搜尋方式:  (●) Email  (○) 手機號碼       │
+│                                          │
+│  ┌────────────────────────────────┐      │
+│  │ 輸入 email...                  │      │
+│  └────────────────────────────────┘      │
+│                               [搜尋]     │
+│                                          │
+│  ┌─ 查詢結果 ─────────────────────┐      │
+│  │  姓名：王小明                    │      │
+│  │  性別：男                       │      │
+│  │  年齡：35 歲                    │      │
+│  │  身高：175 cm                   │      │
+│  │                                │      │
+│  │  確認連結此帳號？  [取消] [<span class="gr">確認</span>]│      │
+│  └────────────────────────────────┘      │
+│                                          │
+└──────────────────────────────────────────┘
+</pre>
+    </div>
+
+    <!-- Task B6 -->
+    <div class="task">
+      <div class="task-header">
+        <span class="task-num">B6</span>
+        <span class="task-title">Action: 手動綁定 Server Action</span>
+      </div>
+      <div class="task-body">
+        <p>新建 <span class="task-file">src/server/actions/health.ts</span></p>
+        <ul>
+          <li><code>linkHealthProfile(customerId, healthProfileId)</code> — 寫入綁定</li>
+          <li><code>unlinkHealthProfile(customerId)</code> — 解除綁定（將 healthProfileId 設為 null）</li>
+          <li>權限檢查：requireStaffSession + checkPermission("customer.update")</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================== -->
+<!-- ENV -->
+<!-- ========================================== -->
+<div class="section">
+  <h2>環境變數清單</h2>
+
+  <table>
+    <tr><th>系統</th><th>變數名稱</th><th>值</th></tr>
+    <tr>
+      <td>身體數據系統</td>
+      <td><code>INTERNAL_API_KEY</code></td>
+      <td>隨機 32+ 字元（如 <code>openssl rand -hex 32</code>）</td>
+    </tr>
+    <tr>
+      <td>蒸足系統</td>
+      <td><code>HEALTH_API_URL</code></td>
+      <td><code>https://health-tracker-eight-rosy.vercel.app</code></td>
+    </tr>
+    <tr>
+      <td>蒸足系統</td>
+      <td><code>HEALTH_API_KEY</code></td>
+      <td>與上面 INTERNAL_API_KEY 相同的值</td>
+    </tr>
+  </table>
+</div>
+
+<!-- ========================================== -->
+<!-- 驗收 -->
+<!-- ========================================== -->
+<div class="section">
+  <h2>驗收檢查清單</h2>
+
+  <table>
+    <tr><th>#</th><th>驗收項目</th><th>預期結果</th></tr>
+    <tr>
+      <td>1</td>
+      <td>身體數據 API 無 key → 401</td>
+      <td>回傳 <code>{ error: "Unauthorized" }</code></td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td>API /profile?email=存在的email → 正確回傳</td>
+      <td><code>{ found: true, profile: {...} }</code></td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td>API /summary?profileId=xxx → 正確回傳</td>
+      <td>latest + trend + alerts + meta 結構完整</td>
+    </tr>
+    <tr>
+      <td>4</td>
+      <td>蒸足後台：已有 email 的顧客 → 自動比對成功</td>
+      <td>顧客詳情頁顯示身體數據摘要卡片</td>
+    </tr>
+    <tr>
+      <td>5</td>
+      <td>蒸足後台：無 email 的顧客 → 顯示「尚未連結」</td>
+      <td>出現手動搜尋按鈕</td>
+    </tr>
+    <tr>
+      <td>6</td>
+      <td>手動搜尋綁定 → 輸入 email → 找到 → 確認綁定</td>
+      <td>綁定後立即顯示身體數據摘要</td>
+    </tr>
+    <tr>
+      <td>7</td>
+      <td>5 分鐘內重複開啟同一顧客頁</td>
+      <td>不重複打 API（用快取）</td>
+    </tr>
+    <tr>
+      <td>8</td>
+      <td>身體數據 API 掛掉時</td>
+      <td>顧客頁正常顯示其他區塊，身體數據區塊顯示「暫時無法載入」</td>
+    </tr>
+    <tr>
+      <td>9</td>
+      <td>經營提示正確性</td>
+      <td>根據 daysSinceLastMeasure 和 alerts 顯示對應顏色與文字</td>
+    </tr>
+    <tr>
+      <td>10</td>
+      <td>顧客端（前台）看不到身體數據</td>
+      <td>/book、/my-bookings、/my-plans 無任何身體數據區塊</td>
+    </tr>
+  </table>
+</div>
+
+<!-- ========================================== -->
+<!-- 檔案清單 -->
+<!-- ========================================== -->
+<div class="section">
+  <h2>檔案變更總覽</h2>
+
+  <h3>身體數據系統（health-tracker）— 新增 4 個檔案</h3>
+  <table>
+    <tr><th>檔案</th><th>類型</th><th>說明</th></tr>
+    <tr><td><code>src/lib/api-auth.ts</code></td><td>新建</td><td>API Key 驗證 helper</td></tr>
+    <tr><td><code>src/app/api/health/profile/route.ts</code></td><td>新建</td><td>以 email 查詢 profile</td></tr>
+    <tr><td><code>src/app/api/health/summary/route.ts</code></td><td>新建</td><td>身體數據摘要 API</td></tr>
+    <tr><td><code>.env.local</code></td><td>修改</td><td>新增 INTERNAL_API_KEY</td></tr>
+  </table>
+
+  <h3>蒸足系統（booking-system）— 新增 4 個 / 修改 3 個</h3>
+  <table>
+    <tr><th>檔案</th><th>類型</th><th>說明</th></tr>
+    <tr><td><code>prisma/schema.prisma</code></td><td>修改</td><td>Customer 加 healthProfileId, healthSyncedAt</td></tr>
+    <tr><td><code>src/lib/health-service.ts</code></td><td>新建</td><td>API 呼叫 + 快取 + 經營提示</td></tr>
+    <tr><td><code>src/server/actions/health.ts</code></td><td>新建</td><td>綁定/解綁 server action</td></tr>
+    <tr><td><code>src/server/queries/customer.ts</code></td><td>修改</td><td>getCustomerDetail 加入身體數據查詢</td></tr>
+    <tr><td><code>src/app/(dashboard)/.../[id]/page.tsx</code></td><td>修改</td><td>加入身體數據摘要區塊</td></tr>
+    <tr><td><code>src/app/(dashboard)/.../[id]/health-summary.tsx</code></td><td>新建</td><td>身體數據摘要 UI 元件</td></tr>
+    <tr><td><code>src/app/(dashboard)/.../[id]/health-link-modal.tsx</code></td><td>新建</td><td>手動搜尋綁定 Modal</td></tr>
+    <tr><td><code>.env</code></td><td>修改</td><td>新增 HEALTH_API_URL, HEALTH_API_KEY</td></tr>
+  </table>
+</div>
+
+<!-- ========================================== -->
+<!-- 開發順序 -->
+<!-- ========================================== -->
+<div class="section">
+  <h2>建議開發順序</h2>
+
+  <div class="flow">
+<span class="tl">Step 1</span> → 身體數據系統：A1 (api-auth) + A2 (profile API) + A3 (summary API)
+         部署到 Vercel，A4 驗收通過
+
+<span class="hl">Step 2</span> → 蒸足系統：B1 (schema) + B2 (health-service)
+         跑 prisma db push，確認 service 可呼叫 API
+
+<span class="hl">Step 3</span> → 蒸足系統：B3 (自動比對) + B4 (摘要 UI)
+         在顧客詳情頁看到身體數據
+
+<span class="hl">Step 4</span> → 蒸足系統：B5 (modal) + B6 (綁定 action)
+         手動搜尋綁定功能
+
+<span class="gr">Step 5</span> → 全面驗收（10 項檢查清單）
+</div>
+
+  <div class="note note-green">
+    <strong>預估工時：</strong>身體數據 API（2~3 小時）+ 蒸足串接（3~4 小時）= 總計約 1 天。
+  </div>
+</div>
+
+</div>
+</body>
+</html>

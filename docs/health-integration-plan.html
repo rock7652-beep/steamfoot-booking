@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>蒸足 × 身體數據 — 整合架構規劃</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #232734;
+    --border: #2e3348;
+    --text: #e4e6ed;
+    --text2: #9ca0b0;
+    --accent: #6366f1;
+    --accent2: #818cf8;
+    --green: #22c55e;
+    --orange: #f59e0b;
+    --red: #ef4444;
+    --blue: #3b82f6;
+    --teal: #14b8a6;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    padding: 2rem;
+  }
+  .container { max-width: 1100px; margin: 0 auto; }
+  .doc-header {
+    text-align: center;
+    padding: 3rem 0 2rem;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 3rem;
+  }
+  .doc-header h1 { font-size: 2rem; font-weight: 700; margin-bottom: 0.5rem; }
+  .doc-header .subtitle { color: var(--text2); font-size: 1rem; }
+  .doc-header .date { color: var(--accent2); font-size: 0.85rem; margin-top: 0.5rem; }
+
+  /* Status banner */
+  .status-banner {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+  .status-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .dot-green { background: var(--green); }
+  .dot-orange { background: var(--orange); }
+  .dot-red { background: var(--red); }
+  .status-label { font-size: 0.85rem; color: var(--text2); }
+  .status-value { font-size: 0.85rem; color: var(--text); font-weight: 600; }
+
+  .section {
+    margin-bottom: 3rem;
+    padding-bottom: 2rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .section:last-child { border-bottom: none; }
+  .section h2 {
+    font-size: 1.4rem;
+    color: var(--accent2);
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .section h2 .num {
+    background: var(--accent);
+    color: white;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+    font-weight: 700;
+  }
+  .section h3 {
+    font-size: 1.1rem;
+    margin: 1.5rem 0 0.75rem;
+    color: var(--text);
+  }
+  .section p { color: var(--text2); margin-bottom: 0.75rem; }
+
+  pre, .code-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1rem;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.8rem;
+    line-height: 1.6;
+    overflow-x: auto;
+    margin: 1rem 0;
+    color: var(--text2);
+  }
+  .code-label {
+    background: var(--surface2);
+    padding: 0.4rem 1rem;
+    font-size: 0.8rem;
+    color: var(--text2);
+    border-bottom: 1px solid var(--border);
+    border-radius: 12px 12px 0 0;
+    margin-bottom: -1rem;
+  }
+  .code-labeled { border-radius: 0 0 12px 12px; margin-top: 0; }
+
+  .note {
+    background: rgba(99,102,241,0.08);
+    border-left: 3px solid var(--accent);
+    padding: 1rem 1.25rem;
+    border-radius: 0 8px 8px 0;
+    margin: 1rem 0;
+    font-size: 0.9rem;
+    color: var(--text2);
+  }
+  .note strong { color: var(--text); }
+  .note-warn {
+    background: rgba(245,158,11,0.08);
+    border-left-color: var(--orange);
+  }
+  .note-green {
+    background: rgba(34,197,94,0.08);
+    border-left-color: var(--green);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+    font-size: 0.85rem;
+  }
+  th, td {
+    padding: 0.6rem 0.8rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  th {
+    background: var(--surface2);
+    color: var(--text2);
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  td { color: var(--text2); }
+
+  .flow-diagram {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin: 1.5rem 0;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.78rem;
+    line-height: 1.6;
+    overflow-x: auto;
+    white-space: pre;
+    color: var(--text2);
+  }
+  .hl { color: var(--accent2); }
+  .gr { color: var(--green); }
+  .or { color: var(--orange); }
+  .rd { color: var(--red); }
+  .tl { color: var(--teal); }
+  .bl { color: var(--blue); }
+
+  .phase-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.25rem;
+    margin: 1rem 0;
+  }
+  .phase-card .phase-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.5rem;
+    font-weight: 700;
+  }
+  .phase-card h4 { font-size: 1rem; margin-bottom: 0.75rem; color: var(--text); }
+  .phase-card ul { padding-left: 1.2rem; color: var(--text2); font-size: 0.9rem; }
+  .phase-card li { margin-bottom: 0.3rem; }
+  .p1 .phase-label { color: var(--green); }
+  .p2 .phase-label { color: var(--blue); }
+  .p3 .phase-label { color: var(--orange); }
+  .p4 .phase-label { color: var(--accent2); }
+
+  .comparison {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin: 1rem 0;
+  }
+  .comp-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1rem;
+  }
+  .comp-card h4 {
+    font-size: 0.85rem;
+    color: var(--text2);
+    margin-bottom: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  .comp-card .value { font-size: 0.85rem; color: var(--text); }
+  .comp-card .detail { font-size: 0.78rem; color: var(--text2); margin-top: 0.25rem; }
+
+  .wireframe {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin: 1.5rem 0;
+  }
+  .wireframe-title {
+    background: var(--surface2);
+    padding: 0.5rem 1rem;
+    font-size: 0.8rem;
+    color: var(--text2);
+    border-bottom: 1px solid var(--border);
+  }
+  .wireframe pre {
+    padding: 1rem;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.75rem;
+    line-height: 1.5;
+    overflow-x: auto;
+    white-space: pre;
+    color: var(--text2);
+  }
+
+  .badge {
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+  }
+  .badge-yes { background: rgba(34,197,94,0.15); color: var(--green); }
+  .badge-no { background: rgba(239,68,68,0.15); color: var(--red); }
+  .badge-plan { background: rgba(59,130,246,0.15); color: var(--blue); }
+
+  @media (max-width: 768px) {
+    body { padding: 1rem; }
+    .status-banner { grid-template-columns: 1fr; }
+    .comparison { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+<div class="doc-header">
+  <h1>蒸足 × 身體數據 — 整合架構規劃</h1>
+  <div class="subtitle">跨系統資料整合 · 顧客經營工具 · 分階段實作</div>
+  <div class="date">2026-04-08 | Version 1.0</div>
+</div>
+
+<!-- ========================================== -->
+<!-- 現狀分析 -->
+<!-- ========================================== -->
+<div class="section">
+  <h2><span class="num">0</span> 現狀分析</h2>
+
+  <div class="status-banner">
+    <div class="status-item">
+      <span class="status-dot dot-red"></span>
+      <div>
+        <div class="status-label">DB 架構</div>
+        <div class="status-value">兩套獨立 Supabase 專案</div>
+      </div>
+    </div>
+    <div class="status-item">
+      <span class="status-dot dot-orange"></span>
+      <div>
+        <div class="status-label">API 層</div>
+        <div class="status-value">身體數據系統無獨立 API</div>
+      </div>
+    </div>
+    <div class="status-item">
+      <span class="status-dot dot-orange"></span>
+      <div>
+        <div class="status-label">帳號對應</div>
+        <div class="status-value">兩邊 Google OAuth 各自獨立</div>
+      </div>
+    </div>
+    <div class="status-item">
+      <span class="status-dot dot-green"></span>
+      <div>
+        <div class="status-label">資料品質</div>
+        <div class="status-value">body_records 結構完整可用</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="comparison">
+    <div class="comp-card">
+      <h4>蒸足預約系統</h4>
+      <div class="value">Supabase: qijlnhtpbintanzpxkvf</div>
+      <div class="detail">Framework: Next.js + Prisma</div>
+      <div class="detail">Auth: NextAuth v5 (Google OAuth + Credentials)</div>
+      <div class="detail">User ID: cuid() 格式</div>
+      <div class="detail">顧客表: Customer (email, googleId, phone)</div>
+    </div>
+    <div class="comp-card">
+      <h4>身體數據系統</h4>
+      <div class="value">Supabase: egjwskbffpcomdhjwznc</div>
+      <div class="detail">Framework: Next.js + Supabase Client</div>
+      <div class="detail">Auth: Supabase Auth (Google OAuth)</div>
+      <div class="detail">User ID: UUID 格式</div>
+      <div class="detail">使用者表: profiles (email, phone, role)</div>
+    </div>
+  </div>
+
+  <div class="note note-warn">
+    <strong>核心挑戰：</strong>兩套系統的 DB 完全獨立（不同 Supabase 專案），無法 JOIN。User ID 格式也不同（cuid vs UUID）。必須透過 API 層 + email 比對 來橋接。
+  </div>
+</div>
+
+<!-- ========================================== -->
+<!-- 1. 整體架構 -->
+<!-- ========================================== -->
+<div class="section">
+  <h2><span class="num">1</span> 整體架構設計</h2>
+
+  <h3>1-A. 架構選型：API Bridge 模式</h3>
+  <p>不合併 DB，而是在身體數據系統建立一組 API endpoint，讓蒸足系統可以安全地讀取資料。</p>
+
+  <div class="flow-diagram">
+┌─────────────────────┐          ┌─────────────────────┐
+│   <span class="hl">蒸足預約系統</span>         │          │   <span class="tl">身體數據系統</span>         │
+│   (booking-system)  │          │   (health-tracker)  │
+│                     │          │                     │
+│  Prisma + Postgres  │          │  Supabase Client    │
+│  NextAuth v5        │          │  Supabase Auth      │
+│                     │          │                     │
+│  ┌───────────────┐  │  <span class="gr">HTTPS</span>   │  ┌───────────────┐  │
+│  │ Health Data   │──┼────────▶│  │ <span class="gr">/api/health</span>   │  │
+│  │ Service       │  │  <span class="or">API Key</span> │  │ (新建 API)    │  │
+│  │ (讀取＋快取)   │◀─┼────────│  │               │  │
+│  └───────────────┘  │          │  └───────┬───────┘  │
+│         │           │          │          │          │
+│         ▼           │          │          ▼          │
+│  ┌───────────────┐  │          │  ┌───────────────┐  │
+│  │ Customer 頁面  │  │          │  │ body_records  │  │
+│  │ 身體數據摘要   │  │          │  │ profiles      │  │
+│  └───────────────┘  │          │  └───────────────┘  │
+└─────────────────────┘          └─────────────────────┘
+
+<span class="hl">資料流向：單向讀取</span>（蒸足 ← 身體數據）
+<span class="hl">對應機制：</span>email 為主鍵比對
+<span class="hl">認證方式：</span>API Key（server-to-server）</div>
+
+  <h3>1-B. 為什麼不合併 DB？</h3>
+
+  <table>
+    <tr><th>方案</th><th>優點</th><th>缺點</th><th>建議</th></tr>
+    <tr>
+      <td>合併到同一 Supabase</td>
+      <td>直接 JOIN，簡單</td>
+      <td>遷移風險高、兩套 Auth 衝突、RLS 複雜</td>
+      <td><span class="badge badge-no">不建議</span></td>
+    </tr>
+    <tr>
+      <td>API Bridge（推薦）</td>
+      <td>零遷移、各自獨立部署、安全</td>
+      <td>需建 API、有網路延遲</td>
+      <td><span class="badge badge-yes">推薦</span></td>
+    </tr>
+    <tr>
+      <td>DB Replica / Foreign Data</td>
+      <td>接近原生 JOIN</td>
+      <td>Supabase 不支援 FDW、維運複雜</td>
+      <td><span class="badge badge-no">不適用</span></td>
+    </tr>
+  </table>
+</div>
+
+<!-- ========================================== -->
+<!-- 2. 顧客對應機制 -->
+<!-- ========================================== -->
+<div class="section">
+  <h2><span class="num">2</span> 顧客對應機制設計</h2>
+
+  <h3>2-A. 對應策略：Email 為主鍵</h3>
+  <p>兩套系統都有 Google OAuth，Google 帳號的 email 是最穩定的共用識別。</p>
+
+  <div class="flow-diagram">
+<span class="hl">對應流程：</span>
+
+  蒸足 Customer                    身體數據 profiles
+  ┌──────────────────┐            ┌──────────────────┐
+  │ id: cuid_abc123  │            │ id: uuid-xyz-789 │
+  │ email: a@g.com   │───<span class="gr"> email 比對 </span>──│ email: a@g.com   │
+  │ googleId: 111... │            │ (auth.users)     │
+  │ name: 王小明      │            │ full_name: 王小明  │
+  │ phone: 0912...   │            │ phone: 0912...   │
+  │ <span class="tl">healthProfileId</span>  │──────────▶│ id: uuid-xyz-789 │
+  └──────────────────┘            └──────────────────┘
+
+<span class="or">新增欄位（蒸足 Customer）：</span>
+  healthProfileId   String?   // 身體數據系統的 profile UUID
+  healthSyncedAt    DateTime? // 最後同步時間</div>
+
+  <h3>2-B. 綁定時機與方式</h3>
+
+  <table>
+    <tr><th>方式</th><th>觸發時機</th><th>說明</th></tr>
+    <tr>
+      <td><strong>自動比對</strong></td>
+      <td>店長開啟顧客詳情頁</td>
+      <td>以 Customer.email 呼叫身體數據 API 查詢 profile，若找到則自動綁定 healthProfileId</td>
+    </tr>
+    <tr>
+      <td><strong>手動綁定</strong></td>
+      <td>店長點「連結身體數據」</td>
+      <td>輸入 email 或手機號碼搜尋身體數據系統，確認後綁定</td>
+    </tr>
+    <tr>
+      <td><strong>批量比對</strong></td>
+      <td>後台管理工具</td>
+      <td>一次比對所有 Customer email，顯示匹配結果供確認</td>
+    </tr>
+  </table>
+
+  <div class="note note-green">
+    <strong>建議第一階段用「自動比對」：</strong>店長點進顧客頁時，背景自動以 email 查詢。找到就顯示身體數據摘要，找不到就顯示「尚未連結」。零額外操作成本。
+  </div>
+</div>
+
+<!-- ========================================== -->
+<!-- 3. API 設計 -->
+<!-- ========================================== -->
+<div class="section">
+  <h2><span class="num">3</span> 身體數據 API 設計（需在 health-tracker 新建）</h2>
+
+  <h3>3-A. API 端點規格</h3>
+
+  <div class="code-label">GET /api/health/profile?email={email}</div>
+  <pre class="code-labeled"><span class="gr">// 用途：以 email 查詢 profile，回傳基本資料</span>
+<span class="gr">// 認證：X-API-Key header</span>
+
+Response:
+{
+  "found": true,
+  "profile": {
+    "id": "uuid-xyz-789",
+    "fullName": "王小明",
+    "gender": "male",
+    "age": 35,
+    "height": 175
+  }
+}</pre>
+
+  <div class="code-label">GET /api/health/summary?profileId={uuid}</div>
+  <pre class="code-labeled"><span class="gr">// 用途：取得最新量測摘要 + 近 5 次趨勢</span>
+<span class="gr">// 認證：X-API-Key header</span>
+
+Response:
+{
+  "latest": {
+    "measuredAt": "2026-04-01",
+    "weight": 72.5,
+    "bmi": 23.7,
+    "bodyFat": 22.1,
+    "muscleMass": 32.8,
+    "visceralFat": 8,
+    "bmr": 1580,
+    "bodyWater": 55.2,
+    "metabolicAge": 32
+  },
+  "trend": [
+    { "measuredAt": "2026-03-01", "weight": 74.0, "bodyFat": 23.5 },
+    { "measuredAt": "2026-03-15", "weight": 73.2, "bodyFat": 22.8 },
+    { "measuredAt": "2026-04-01", "weight": 72.5, "bodyFat": 22.1 }
+  ],
+  "alerts": [
+    { "metric": "visceralFat", "status": "warning", "message": "內臟脂肪偏高" },
+    { "metric": "bodyWater", "status": "normal", "message": "" }
+  ],
+  "daysSinceLastMeasure": 7,
+  "totalRecords": 12
+}</pre>
+
+  <div class="code-label">GET /api/health/records?profileId={uuid}&limit=20</div>
+  <pre class="code-labeled"><span class="gr">// 用途：取得完整歷史紀錄（用於圖表，Phase 2）</span>
+<span class="gr">// 認證：X-API-Key header</span>
+
+Response:
+{
+  "records": [
+    {
+      "measuredAt": "2026-04-01",
+      "weight": 72.5,
+      "bmi": 23.7,
+      "bodyFat": 22.1,
+      ...
+    },
+    ...
+  ],
+  "total": 12
+}</pre>
+
+  <h3>3-B. 安全機制</h3>
+
+  <div class="flow-diagram">
+<span class="hl">API 認證：Server-to-Server API Key</span>
+
+  蒸足系統（後端）                 身體數據系統
+  ┌──────────────┐               ┌──────────────────┐
+  │ Server Action │──<span class="or"> X-API-Key </span>──▶│ /api/health/*    │
+  │ or Query      │               │                  │
+  │               │               │  驗證 API Key    │
+  │ 不經過前端     │               │  ✅ → 回傳資料   │
+  │ 不暴露 Key    │               │  ❌ → 401        │
+  └──────────────┘               └──────────────────┘
+
+<span class="gr">安全要點：</span>
+  1. API Key 存在蒸足系統的 .env（HEALTH_API_KEY）
+  2. 身體數據系統的 .env 也存一份用於驗證（INTERNAL_API_KEY）
+  3. API 只開放 GET（唯讀），不開放寫入
+  4. Rate limit: 100 req/min（防濫用）
+  5. 只回傳必要欄位（不回傳 auth 資訊）</div>
+</div>
+
+<!-- ========================================== -->
+<!-- 4. 蒸足後台顯示設計 -->
+<!-- ========================================== -->
+<div class="section">
+  <h2><span class="num">4</span> 蒸足後台 — 身體數據顯示設計</h2>
+
+  <h3>4-A. 顧客詳情頁 — 身體數據摘要卡片</h3>
+
+  <div class="wireframe">
+    <div class="wireframe-title">顧客詳情頁 /dashboard/customers/[id] — 身體數據區塊</div>
+<pre>
+┌─ 身體數據 ─────────────────────────────────────────────────┐
+│                                                            │
+│  最近量測：2026-04-01（7 天前）           [<span class="hl">查看完整紀錄 ↗</span>]  │
+│                                                            │
+│  ┌──────────┬──────────┬──────────┬──────────┐             │
+│  │ 體重      │ BMI      │ 體脂肪    │ 內臟脂肪  │             │
+│  │ <span class="gr">72.5 kg</span>  │ <span class="gr">23.7</span>    │ <span class="gr">22.1%</span>   │ <span class="or">8 ⚠</span>     │             │
+│  │ ↓ 1.5kg  │ ↓ 0.5   │ ↓ 1.4%  │ → 0     │             │
+│  └──────────┴──────────┴──────────┴──────────┘             │
+│                                                            │
+│  ┌──────────┬──────────┬──────────┬──────────┐             │
+│  │ 肌肉量    │ 基礎代謝  │ 體水分    │ 代謝年齡  │             │
+│  │ <span class="gr">32.8 kg</span> │ <span class="gr">1,580</span>   │ <span class="gr">55.2%</span>  │ <span class="gr">32 歲</span>   │             │
+│  │ ↑ 0.3kg │ ↑ 20    │ ↑ 0.5%  │ ↓ 1     │             │
+│  └──────────┴──────────┴──────────┴──────────┘             │
+│                                                            │
+│  <span class="or">⚠ 注意：內臟脂肪偏高（建議 1~9 正常）</span>                      │
+│                                                            │
+│  ┌─ 最近趨勢（體重 / 體脂）──────────────────────┐           │
+│  │   74 ┤ ●                                     │           │
+│  │   73 ┤    ●                                  │           │
+│  │   72 ┤        ●                              │           │
+│  │      └───┬────┬────┬                         │           │
+│  │        3/1  3/15  4/1                        │           │
+│  └───────────────────────────────────────────────┘          │
+│                                                            │
+│  經營提示：                                                  │
+│  <span class="gr">✓ 近期有量測紀錄（活躍顧客）</span>                              │
+│  <span class="gr">✓ 體重趨勢下降（療程見效）</span>                               │
+│  <span class="or">△ 內臟脂肪需關注，可推薦加強課程</span>                          │
+│                                                            │
+└────────────────────────────────────────────────────────────┘
+
+<span class="hl">當尚未連結時：</span>
+┌─ 身體數據 ─────────────────────────────────────────────────┐
+│                                                            │
+│  🔗 此顧客尚未連結身體數據系統                                │
+│     Email: wang@gmail.com — 未找到對應帳號                   │
+│                                                            │
+│     [手動搜尋連結]                                           │
+│                                                            │
+└────────────────────────────────────────────────────────────┘</pre>
+  </div>
+
+  <h3>4-B. 經營提示邏輯</h3>
+
+  <table>
+    <tr><th>條件</th><th>提示內容</th><th>顏色</th></tr>
+    <tr><td>最後量測 ≤ 14 天</td><td>近期有量測紀錄（活躍顧客）</td><td style="color:var(--green)">綠</td></tr>
+    <tr><td>最後量測 15~30 天</td><td>已超過 2 週未量測，建議提醒回訪</td><td style="color:var(--orange)">橙</td></tr>
+    <tr><td>最後量測 > 30 天</td><td>已超過 1 個月未量測，可能流失</td><td style="color:var(--red)">紅</td></tr>
+    <tr><td>體重/體脂持續下降</td><td>療程見效，趨勢良好</td><td style="color:var(--green)">綠</td></tr>
+    <tr><td>任何指標 status=warning</td><td>顯示具體警示，可推薦加強課程</td><td style="color:var(--orange)">橙</td></tr>
+    <tr><td>totalRecords < 3</td><td>紀錄較少，建議鼓勵持續追蹤</td><td style="color:var(--orange)">橙</td></tr>
+  </table>
+</div>
+
+<!-- ========================================== -->
+<!-- 5. 分階段實作 -->
+<!-- ========================================== -->
+<div class="section">
+  <h2><span class="num">5</span> 分階段實作計畫</h2>
+
+  <div class="phase-card p1">
+    <div class="phase-label">Phase 1 — API 建立 + 基礎連結（預估 1~2 天）</div>
+    <h4>在身體數據系統建 API，在蒸足系統做基礎讀取</h4>
+    <ul>
+      <li><strong>身體數據系統：</strong>新增 /api/health/profile、/api/health/summary 兩個 API route</li>
+      <li><strong>身體數據系統：</strong>API Key 驗證 middleware</li>
+      <li><strong>蒸足系統：</strong>Customer schema 新增 healthProfileId、healthSyncedAt</li>
+      <li><strong>蒸足系統：</strong>建立 HealthDataService（呼叫 API + 快取 5 分鐘）</li>
+      <li><strong>蒸足系統：</strong>顧客詳情頁加入「身體數據摘要」區塊（最新一筆 + 警示）</li>
+      <li><strong>蒸足系統：</strong>自動比對邏輯（開啟顧客頁時以 email 查詢 + 綁定）</li>
+    </ul>
+  </div>
+
+  <div class="phase-card p2">
+    <div class="phase-label">Phase 2 — 趨勢圖表 + 經營提示（預估 1 天）</div>
+    <h4>加入視覺化與經營輔助工具</h4>
+    <ul>
+      <li><strong>身體數據系統：</strong>新增 /api/health/records（歷史紀錄）</li>
+      <li><strong>蒸足系統：</strong>顧客頁加入 Recharts 趨勢圖（體重 + 體脂折線圖）</li>
+      <li><strong>蒸足系統：</strong>經營提示引擎（根據量測頻率、趨勢、警示生成提示）</li>
+      <li><strong>蒸足系統：</strong>顧客列表加入「最近量測」欄位 + 排序</li>
+    </ul>
+  </div>
+
+  <div class="phase-card p3">
+    <div class="phase-label">Phase 3 — 批量同步 + 通知整合（預估 1 天）</div>
+    <h4>自動化對應與回訪提醒</h4>
+    <ul>
+      <li><strong>蒸足系統：</strong>後台「批量比對」工具（一鍵比對所有 Customer email）</li>
+      <li><strong>蒸足系統：</strong>定時同步排程（每日凌晨更新所有已連結顧客的摘要快取）</li>
+      <li><strong>蒸足系統：</strong>回訪提醒列表（超過 N 天未量測的顧客清單）</li>
+      <li><strong>通知預留：</strong>搭配 customer.email + booking 系統發送提醒 email</li>
+    </ul>
+  </div>
+
+  <div class="phase-card p4">
+    <div class="phase-label">Phase 4（未來）— SSO + 深度整合</div>
+    <h4>統一登入與雙向資料流</h4>
+    <ul>
+      <li>統一 Google OAuth（兩套系統共用 Google Client ID）</li>
+      <li>身體數據系統的「預約教練」按鈕直接跳轉蒸足預約頁</li>
+      <li>蒸足系統的預約完成後，自動在身體數據系統建立追蹤提醒</li>
+      <li>合併帳號中心（一個地方管理所有個人資料）</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ========================================== -->
+<!-- 6. Schema 變更 -->
+<!-- ========================================== -->
+<div class="section">
+  <h2><span class="num">6</span> Schema 變更清單</h2>
+
+  <h3>6-A. 蒸足系統 — Customer Model</h3>
+  <div class="code-label">prisma/schema.prisma</div>
+  <pre class="code-labeled">model Customer {
+  ...existing fields...
+
+  <span class="gr">// 新增：身體數據系統連結</span>
+  <span class="gr">healthProfileId   String?    // 身體數據 profiles.id (UUID)</span>
+  <span class="gr">healthSyncedAt    DateTime?  // 最後一次同步身體數據的時間</span>
+}</pre>
+
+  <h3>6-B. 身體數據系統 — 新增 API Route（不改 DB）</h3>
+  <div class="code-label">需新建的檔案</div>
+  <pre class="code-labeled">src/app/api/health/profile/route.ts    <span class="gr">// GET ?email=xxx</span>
+src/app/api/health/summary/route.ts    <span class="gr">// GET ?profileId=xxx</span>
+src/app/api/health/records/route.ts    <span class="gr">// GET ?profileId=xxx&limit=20</span>
+src/lib/api-auth.ts                    <span class="gr">// API Key 驗證 helper</span></pre>
+
+  <div class="note">
+    <strong>身體數據系統的 DB 不需要任何改動。</strong>API 只是把現有的 Supabase 查詢包裝成 HTTP 端點，加上 API Key 認證。既有的 RLS policy 不受影響。
+  </div>
+</div>
+
+<!-- ========================================== -->
+<!-- 7. 風險與備案 -->
+<!-- ========================================== -->
+<div class="section">
+  <h2><span class="num">7</span> 風險評估與備案</h2>
+
+  <table>
+    <tr><th>風險</th><th>影響</th><th>緩解措施</th></tr>
+    <tr>
+      <td>Email 不一致（兩邊不同 email）</td>
+      <td>自動比對失敗</td>
+      <td>提供手動搜尋綁定功能（以 phone 或 name 輔助比對）</td>
+    </tr>
+    <tr>
+      <td>身體數據 API 不穩定 / Vercel 冷啟動</td>
+      <td>顧客頁載入慢</td>
+      <td>5 分鐘快取 + 非阻塞載入（先顯示蒸足資料，身體數據異步載入）</td>
+    </tr>
+    <tr>
+      <td>API Key 外洩</td>
+      <td>資料被未授權讀取</td>
+      <td>Key 只存 server-side env、加 rate limit、只開放 GET</td>
+    </tr>
+    <tr>
+      <td>大量顧客同步時效能</td>
+      <td>API 被打爆</td>
+      <td>批量同步加入 queue + rate limit（每秒最多 10 筆）</td>
+    </tr>
+    <tr>
+      <td>兩邊 profile 資料不一致（名字/電話不同）</td>
+      <td>店長困惑</td>
+      <td>只顯示身體數據、不覆蓋蒸足系統資料。明確標示「來自身體數據系統」</td>
+    </tr>
+  </table>
+</div>
+
+<!-- ========================================== -->
+<!-- 8. 決策確認 -->
+<!-- ========================================== -->
+<div class="section">
+  <h2><span class="num">8</span> 需要你確認的決策點</h2>
+
+  <table>
+    <tr><th>#</th><th>問題</th><th>建議</th></tr>
+    <tr>
+      <td>1</td>
+      <td>Phase 1 先做哪一邊？</td>
+      <td>建議先在<strong>身體數據系統建 API</strong>（約 2~3 小時），再回蒸足系統做讀取</td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td>身體數據 API 部署在哪裡？</td>
+      <td>直接加在現有 health-tracker 的 Next.js API routes，部署在 Vercel（最快）</td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td>快取策略？</td>
+      <td>蒸足後端 in-memory 快取 5 分鐘。Phase 3 再做每日定時同步。</td>
+    </tr>
+    <tr>
+      <td>4</td>
+      <td>顧客端也要看身體數據嗎？</td>
+      <td>第一階段只在<strong>後台（店長）</strong>顯示。顧客看自己的身體數據去身體數據系統看。</td>
+    </tr>
+    <tr>
+      <td>5</td>
+      <td>要不要現在就統一 Google Client ID？</td>
+      <td><strong>不急</strong>，Phase 4 再做。目前 email 比對夠用。</td>
+    </tr>
+  </table>
+</div>
+
+</div>
+</body>
+</html>

@@ -13,11 +13,9 @@ datasource db {
 // ============================================================
 
 enum UserRole {
-  OWNER            // 系統管理者 / 主帳號
+  ADMIN            // 系統管理者 / HQ（跨店管理）
   STORE_MANAGER    // 店長（主要經營者）
-  BRANCH_MANAGER   // 分店長（合作協助經營者）
-  INTERN_MANAGER   // 實習店長（學習階段）
-  MANAGER          // [已棄用] 向後相容，視同 STORE_MANAGER
+  COACH            // 教練（合作協助經營者 / 實習）
   CUSTOMER
 }
 
@@ -70,7 +68,7 @@ enum BookingStatus {
 enum BookedByType {
   CUSTOMER
   STAFF
-  OWNER
+  ADMIN
 }
 
 enum BookingType {
@@ -230,12 +228,35 @@ model VerificationToken {
 }
 
 // ============================================================
+// Store（店舖）— 多店基礎結構
+// ============================================================
+
+model Store {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  staff               Staff[]
+  customers           Customer[]
+  bookings            Booking[]
+  transactions        Transaction[]
+  customerPlanWallets CustomerPlanWallet[]
+  cashbookEntries     CashbookEntry[]
+  dutyAssignments     DutyAssignment[]
+  shopConfig          ShopConfig?
+}
+
+// ============================================================
 // Staff（店長）
 // ============================================================
 
 model Staff {
   id              String      @id @default(cuid())
   userId          String      @unique
+  storeId         String
   displayName     String
   colorCode       String      @default("#6366f1") // 後台日曆識別色
   isOwner         Boolean     @default(false)
@@ -245,7 +266,8 @@ model Staff {
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  store Store @relation(fields: [storeId], references: [id])
 
   // 名下顧客
   assignedCustomers Customer[] @relation("AssignedStaff")
@@ -273,6 +295,8 @@ model Staff {
   // 值班安排
   dutyAssignments    DutyAssignment[] @relation("DutyStaff")
   dutyCreatedBy      DutyAssignment[] @relation("DutyCreatedBy")
+
+  @@index([storeId])
 }
 
 // ============================================================
@@ -282,6 +306,7 @@ model Staff {
 model Customer {
   id                 String        @id @default(cuid())
   userId             String?       @unique // nullable: 有些顧客不一定有登入帳號
+  storeId            String
   name               String
   phone              String
   email              String?       @unique // 用於 Google 綁定比對（unique 確保一對一綁定）
@@ -313,6 +338,7 @@ model Customer {
   updatedAt          DateTime      @updatedAt
 
   user          User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+  store         Store  @relation(fields: [storeId], references: [id])
   assignedStaff Staff? @relation("AssignedStaff", fields: [assignedStaffId], references: [id])
 
   // 課程錢包
@@ -330,6 +356,7 @@ model Customer {
   // 訊息紀錄
   messageLogs MessageLog[]
 
+  @@index([storeId])
   @@index([assignedStaffId])
   @@index([customerStage])
   @@index([phone])
@@ -365,6 +392,7 @@ model ServicePlan {
 model CustomerPlanWallet {
   id                String       @id @default(cuid())
   customerId        String
+  storeId           String
   planId            String
   purchasedPrice    Decimal      @db.Decimal(10, 0) // 快照：購買當時價格
   totalSessions     Int          // 總堂數
@@ -376,6 +404,7 @@ model CustomerPlanWallet {
   updatedAt         DateTime     @updatedAt
 
   customer Customer    @relation(fields: [customerId], references: [id])
+  store    Store       @relation(fields: [storeId], references: [id])
   plan     ServicePlan @relation(fields: [planId], references: [id])
 
   // 使用此錢包的預約
@@ -384,6 +413,7 @@ model CustomerPlanWallet {
   // 相關交易
   transactions Transaction[]
 
+  @@index([storeId])
   @@index([customerId])
   @@index([customerId, status])
 }
@@ -412,6 +442,7 @@ model BookingSlot {
 model Booking {
   id                   String        @id @default(cuid())
   customerId           String
+  storeId              String
   bookingDate          DateTime      @db.Date
   slotTime             String        // "HH:mm"，對應 BookingSlot.startTime
   revenueStaffId       String?       // 冗餘快照：營收歸屬店長（nullable: 顧客可能尚未指派）
@@ -434,6 +465,7 @@ model Booking {
   updatedAt            DateTime      @updatedAt
 
   customer           Customer            @relation(fields: [customerId], references: [id])
+  store              Store               @relation(fields: [storeId], references: [id])
   revenueStaff       Staff?              @relation("RevenueStaff", fields: [revenueStaffId], references: [id])
   serviceStaff       Staff?              @relation("ServiceStaff", fields: [serviceStaffId], references: [id])
   bookedByStaff      Staff?              @relation("BookedByStaff", fields: [bookedByStaffId], references: [id])
@@ -453,6 +485,7 @@ model Booking {
   // 訊息紀錄
   messageLogs MessageLog[]
 
+  @@index([storeId])
   @@index([bookingDate])
   @@index([bookingDate, slotTime])          // 查詢某天某時段預約數
   @@index([bookingDate, bookingStatus])     // ⚡ 月曆統計（groupBy date + status filter）
@@ -490,6 +523,7 @@ model MakeupCredit {
 model Transaction {
   id                   String          @id @default(cuid())
   customerId           String
+  storeId              String
   bookingId            String?         // nullable: 購課交易不一定綁定預約
   revenueStaffId       String          // 冗餘快照：營收歸屬店長
   serviceStaffId       String?         // 服務/值班店長
@@ -508,12 +542,14 @@ model Transaction {
   updatedAt            DateTime        @updatedAt
 
   customer           Customer            @relation(fields: [customerId], references: [id])
+  store              Store               @relation(fields: [storeId], references: [id])
   booking            Booking?            @relation(fields: [bookingId], references: [id])
   revenueStaff       Staff               @relation("RevenueStaff", fields: [revenueStaffId], references: [id])
   serviceStaff       Staff?              @relation("ServiceStaff", fields: [serviceStaffId], references: [id])
   soldByStaff        Staff?              @relation("SoldByStaff", fields: [soldByStaffId], references: [id])
   customerPlanWallet CustomerPlanWallet? @relation(fields: [customerPlanWalletId], references: [id])
 
+  @@index([storeId])
   @@index([customerId])
   @@index([revenueStaffId])
   @@index([revenueStaffId, createdAt])    // 店長月營收查詢
@@ -527,6 +563,7 @@ model Transaction {
 
 model CashbookEntry {
   id              String             @id @default(cuid())
+  storeId         String
   entryDate       DateTime           @db.Date
   type            CashbookEntryType
   category        String?            // 自由分類：水電、材料、雜支...
@@ -537,9 +574,11 @@ model CashbookEntry {
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
 
+  store     Store  @relation(fields: [storeId], references: [id])
   staff     Staff? @relation("CashbookStaff", fields: [staffId], references: [id])
   createdBy User   @relation("CashbookCreatedBy", fields: [createdByUserId], references: [id])
 
+  @@index([storeId])
   @@index([entryDate])
   @@index([staffId])
 }
@@ -669,12 +708,15 @@ model SpaceFeeRecord {
 // ============================================================
 
 model ShopConfig {
-  id                    String   @id @default("default")
+  id                    String   @id @default(cuid())
+  storeId               String   @unique
   shopName              String   @default("蒸足")
   plan                  ShopPlan @default(FREE)
   dutySchedulingEnabled Boolean  @default(false)
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
+
+  store Store @relation(fields: [storeId], references: [id])
 }
 
 // ============================================================
@@ -861,6 +903,7 @@ model SlotOverride {
 
 model DutyAssignment {
   id                String            @id @default(cuid())
+  storeId           String
   date              DateTime          @db.Date        // 值班日期（與 Booking.bookingDate 同格式）
   slotTime          String            // "HH:mm"，對齊現有 slot 時間格式
   staffId           String            // 值班人員
@@ -871,10 +914,12 @@ model DutyAssignment {
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
 
+  store        Store  @relation(fields: [storeId], references: [id])
   staff        Staff  @relation("DutyStaff", fields: [staffId], references: [id])
   createdBy    Staff? @relation("DutyCreatedBy", fields: [createdByStaffId], references: [id])
 
   @@unique([date, slotTime, staffId])  // 同一時段同一人只能有一筆
+  @@index([storeId])
   @@index([date])                      // 查某天所有值班
   @@index([date, slotTime])            // 查某天某時段的值班人員
   @@index([staffId])                   // 查某人的值班紀錄

@@ -1,11 +1,11 @@
 import { prisma } from "@/lib/db";
-import { requireStaffSession } from "@/lib/session";
+import { requireAdminSession } from "@/lib/session";
 
 /**
  * 取得最新一筆對帳結果（供 Dashboard 警示條用）
  */
 export async function getLatestReconciliationRun() {
-  await requireStaffSession();
+  await requireAdminSession();
 
   const run = await prisma.reconciliationRun.findFirst({
     where: { status: { not: "running" } },
@@ -25,7 +25,7 @@ export async function getLatestReconciliationRun() {
  * 取得對帳歷史列表
  */
 export async function listReconciliationRuns(limit = 20) {
-  await requireStaffSession();
+  await requireAdminSession();
 
   return prisma.reconciliationRun.findMany({
     orderBy: { startedAt: "desc" },
@@ -42,7 +42,7 @@ export async function listReconciliationRuns(limit = 20) {
  * 取得指定 run 的完整 check 列表
  */
 export async function getReconciliationRunDetail(runId: string) {
-  await requireStaffSession();
+  await requireAdminSession();
 
   const run = await prisma.reconciliationRun.findUnique({
     where: { id: runId },

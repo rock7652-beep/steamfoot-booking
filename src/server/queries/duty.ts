@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/permissions";
+import { getStoreFilter } from "@/lib/manager-visibility";
 import type { DutyRole, ParticipationType } from "@prisma/client";
 
 // ============================================================
@@ -7,11 +8,11 @@ import type { DutyRole, ParticipationType } from "@prisma/client";
 // ============================================================
 
 export async function getDutyByDate(date: string) {
-  await requirePermission("duty.read");
+  const user = await requirePermission("duty.read");
   const dateObj = new Date(date + "T00:00:00Z");
 
   return prisma.dutyAssignment.findMany({
-    where: { date: dateObj },
+    where: { date: dateObj, ...getStoreFilter(user) },
     include: {
       staff: {
         select: {
@@ -42,18 +43,21 @@ export interface DutyWeekItem {
 }
 
 export async function getDutyByWeek(weekStart: string): Promise<DutyWeekItem[]> {
-  await requirePermission("duty.read");
-  return getDutyByDateRange(weekStart, 6);
+  const user = await requirePermission("duty.read");
+  return getDutyByDateRange(weekStart, 6, user);
 }
 
 /** 查詢指定日期範圍的值班（內部用，不做權限檢查） */
-export async function getDutyByDateRange(startDateStr: string, daysSpan: number): Promise<DutyWeekItem[]> {
+export async function getDutyByDateRange(startDateStr: string, daysSpan: number, user?: { role: string; storeId?: string | null }): Promise<DutyWeekItem[]> {
   const startDate = new Date(startDateStr + "T00:00:00Z");
   const endDate = new Date(startDate);
   endDate.setUTCDate(endDate.getUTCDate() + daysSpan);
 
+  const storeFilter = user ? getStoreFilter(user) : {};
+
   const rows = await prisma.dutyAssignment.findMany({
     where: {
+      ...storeFilter,
       date: { gte: startDate, lte: endDate },
     },
     select: {
@@ -90,7 +94,7 @@ export async function getDutyByDateRange(startDateStr: string, daysSpan: number)
 // ============================================================
 
 export async function getStaffDutyByMonth(staffId: string, month: string) {
-  await requirePermission("duty.read");
+  const user = await requirePermission("duty.read");
 
   const [year, mon] = month.split("-").map(Number);
   const startDate = new Date(Date.UTC(year, mon - 1, 1));
@@ -98,6 +102,7 @@ export async function getStaffDutyByMonth(staffId: string, month: string) {
 
   return prisma.dutyAssignment.findMany({
     where: {
+      ...getStoreFilter(user),
       staffId,
       date: { gte: startDate, lte: endDate },
     },
@@ -110,11 +115,11 @@ export async function getStaffDutyByMonth(staffId: string, month: string) {
 // ============================================================
 
 export async function getSlotDutyStaff(date: string, slotTime: string) {
-  await requirePermission("duty.read");
+  const user = await requirePermission("duty.read");
   const dateObj = new Date(date + "T00:00:00Z");
 
   return prisma.dutyAssignment.findMany({
-    where: { date: dateObj, slotTime },
+    where: { date: dateObj, slotTime, ...getStoreFilter(user) },
     include: {
       staff: {
         select: {
@@ -133,6 +138,8 @@ export async function getSlotDutyStaff(date: string, slotTime: string) {
 // ============================================================
 
 export async function getDutyCountByDate(date: string): Promise<number> {
+  const { requireStaffSession } = await import("@/lib/session");
+  const user = await requireStaffSession();
   const dateObj = new Date(date + "T00:00:00Z");
-  return prisma.dutyAssignment.count({ where: { date: dateObj } });
+  return prisma.dutyAssignment.count({ where: { date: dateObj, ...getStoreFilter(user) } });
 }

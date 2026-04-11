@@ -44,3 +44,4 @@ prisma/dev.db
 next-env.d.ts
 
 /src/generated/prisma
+scripts/backup-before-cleanup.json

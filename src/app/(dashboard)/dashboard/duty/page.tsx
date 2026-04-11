@@ -98,7 +98,7 @@ async function DutyWeekContent({ weekStart, userRole, userStaffId }: {
     getBusinessHoursWithTiming(timer),
     getSpecialDaysWithTiming(weekStartDate.toISOString(), weekEndISO, timer),
     getDutyEnabledWithTiming(timer),
-    userRole === "OWNER"
+    userRole === "ADMIN"
       ? Promise.resolve(true)
       : checkPermission(userRole, userStaffId, "duty.manage"),
     getDutyByDateRange(prevWeekStart, 6).catch(() => []),
@@ -124,7 +124,7 @@ async function DutyWeekContent({ weekStart, userRole, userStaffId }: {
             排班聯動未啟用（值班僅供參考）
           </span>
         )}
-        {userRole === "OWNER" && (
+        {userRole === "ADMIN" && (
           <a
             href="/dashboard/settings/duty"
             className="text-xs text-primary-600 hover:text-primary-800 hover:underline"

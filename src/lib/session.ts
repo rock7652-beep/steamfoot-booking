@@ -21,7 +21,7 @@ export async function requireSession() {
   return user;
 }
 
-/** 要求任意員工身份（OWNER / STORE_MANAGER / BRANCH_MANAGER / INTERN_MANAGER / MANAGER） */
+/** 要求任意員工身份（ADMIN / STORE_MANAGER / COACH） */
 export async function requireStaffSession() {
   const user = await requireSession();
   if (!isStaffRole(user.role)) {
@@ -30,14 +30,17 @@ export async function requireStaffSession() {
   return user;
 }
 
-/** 要求 Owner 身份 */
-export async function requireOwnerSession() {
+/** 要求 Admin 身份 */
+export async function requireAdminSession() {
   const user = await requireSession();
-  if (user.role !== "OWNER") {
+  if (user.role !== "ADMIN") {
     throw new AppError("FORBIDDEN", "此功能僅限系統管理者使用");
   }
   return user;
 }
+
+/** @deprecated 使用 requireAdminSession() 代替 */
+export const requireOwnerSession = requireAdminSession;
 
 /** 取得當前 Staff 記錄（所有員工角色皆有） */
 export async function getCurrentStaff() {

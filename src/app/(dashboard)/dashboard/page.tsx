@@ -28,7 +28,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const user = await getCurrentUser();
   if (!user) return null;
-  const isOwner = user.role === "OWNER";
+  const isOwner = user.role === "ADMIN";
 
   const today = todayRange();
   const todayStart = today.start;

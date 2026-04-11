@@ -11,9 +11,9 @@ const prisma = new PrismaClient();
 
 async function main() {
   const result = await prisma.shopConfig.upsert({
-    where: { id: "default" },
+    where: { storeId: "default-store" },
     create: {
-      id: "default",
+      storeId: "default-store",
       shopName: "蒸足",
       plan: "BASIC",
     },

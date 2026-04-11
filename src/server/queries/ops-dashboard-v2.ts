@@ -9,6 +9,7 @@ import {
   toLocalDateStr,
 } from "@/lib/date-utils";
 import { REVENUE_TRANSACTION_TYPES } from "@/lib/booking-constants";
+import { getStoreFilter } from "@/lib/manager-visibility";
 
 // ============================================================
 // 1. 異常警報系統 (Alerts)
@@ -27,7 +28,8 @@ export interface OpsAlert {
 }
 
 export async function getOpsAlerts(): Promise<OpsAlert[]> {
-  await requireStaffSession();
+  const user = await requireStaffSession();
+  const storeFilter = getStoreFilter(user);
 
   const now = new Date();
   const today = todayRange();
@@ -48,11 +50,11 @@ export async function getOpsAlerts(): Promise<OpsAlert[]> {
   ] = await Promise.all([
     // 今日未到
     prisma.booking.count({
-      where: { bookingDate: todayBookingDate, bookingStatus: "NO_SHOW" },
+      where: { bookingDate: todayBookingDate, bookingStatus: "NO_SHOW", ...storeFilter },
     }),
     // 今日取消
     prisma.booking.count({
-      where: { bookingDate: todayBookingDate, bookingStatus: "CANCELLED" },
+      where: { bookingDate: todayBookingDate, bookingStatus: "CANCELLED", ...storeFilter },
     }),
     // 7天內即將到期的套票
     prisma.customerPlanWallet.count({
@@ -62,6 +64,7 @@ export async function getOpsAlerts(): Promise<OpsAlert[]> {
           gte: now,
           lte: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000),
         },
+        ...storeFilter,
       },
     }),
     // 即將流失顧客（30-60天未到店）
@@ -71,6 +74,7 @@ export async function getOpsAlerts(): Promise<OpsAlert[]> {
           gte: new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000),
           lt: thirtyDaysAgo,
         },
+        ...storeFilter,
       },
     }),
     // 今日預約數
@@ -78,6 +82,7 @@ export async function getOpsAlerts(): Promise<OpsAlert[]> {
       where: {
         bookingDate: todayBookingDate,
         bookingStatus: { in: ["PENDING", "CONFIRMED", "COMPLETED", "NO_SHOW"] },
+        ...storeFilter,
       },
     }),
     // 昨日預約數
@@ -88,6 +93,7 @@ export async function getOpsAlerts(): Promise<OpsAlert[]> {
         where: {
           bookingDate: new Date(yesterdayStr + "T00:00:00.000Z"),
           bookingStatus: { in: ["PENDING", "CONFIRMED", "COMPLETED", "NO_SHOW"] },
+          ...storeFilter,
         },
       });
     })(),
@@ -98,6 +104,7 @@ export async function getOpsAlerts(): Promise<OpsAlert[]> {
         where: {
           createdAt: { gte: monthStart },
           transactionType: { in: [...REVENUE_TRANSACTION_TYPES] },
+          ...storeFilter,
         },
         _sum: { amount: true },
       });
@@ -113,6 +120,7 @@ export async function getOpsAlerts(): Promise<OpsAlert[]> {
         where: {
           createdAt: { gte: start, lt: end },
           transactionType: { in: [...REVENUE_TRANSACTION_TYPES] },
+          ...storeFilter,
         },
         _sum: { amount: true },
       });
@@ -123,6 +131,7 @@ export async function getOpsAlerts(): Promise<OpsAlert[]> {
         bookingDate: { gte: todayBookingDate },
         bookingStatus: "PENDING",
         revenueStaffId: null,
+        ...storeFilter,
       },
     }),
   ]);
@@ -254,7 +263,8 @@ export interface CustomerAction {
 }
 
 export async function getCustomerActions(limit = 20): Promise<CustomerAction[]> {
-  await requireStaffSession();
+  const user = await requireStaffSession();
+  const storeFilter = getStoreFilter(user);
 
   const now = new Date();
   const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
@@ -277,6 +287,7 @@ export async function getCustomerActions(limit = 20): Promise<CustomerAction[]> 
           gte: new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000),
           lt: thirtyDaysAgo,
         },
+        ...storeFilter,
       },
       select: { id: true, name: true, phone: true, lastVisitAt: true, lineLinkStatus: true },
       orderBy: { lastVisitAt: "desc" },
@@ -288,6 +299,7 @@ export async function getCustomerActions(limit = 20): Promise<CustomerAction[]> 
       where: {
         status: "ACTIVE",
         expiryDate: { gte: now, lte: fourteenDaysFromNow },
+        ...storeFilter,
       },
       select: {
         id: true,
@@ -304,6 +316,7 @@ export async function getCustomerActions(limit = 20): Promise<CustomerAction[]> 
       where: {
         createdAt: { gte: sevenDaysAgo },
         bookings: { none: { bookingStatus: "COMPLETED" } },
+        ...storeFilter,
       },
       select: { id: true, name: true, phone: true, createdAt: true, lineLinkStatus: true },
       orderBy: { createdAt: "desc" },
@@ -316,6 +329,7 @@ export async function getCustomerActions(limit = 20): Promise<CustomerAction[]> 
         lastVisitAt: { gte: thirtyDaysAgo },
         planWallets: { none: { status: "ACTIVE" } },
         bookings: { some: { bookingStatus: "COMPLETED" } },
+        ...storeFilter,
       },
       select: {
         id: true,
@@ -332,6 +346,7 @@ export async function getCustomerActions(limit = 20): Promise<CustomerAction[]> 
     prisma.customer.findMany({
       where: {
         birthday: { not: null },
+        ...storeFilter,
       },
       select: { id: true, name: true, phone: true, birthday: true, lineLinkStatus: true },
     }),
@@ -457,7 +472,8 @@ export interface StaffRanking {
 }
 
 export async function getStaffRankings(days = 30): Promise<StaffRanking[]> {
-  await requireStaffSession();
+  const user = await requireStaffSession();
+  const storeFilter = getStoreFilter(user);
 
   const now = new Date();
   const periodStart = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
@@ -471,7 +487,7 @@ export async function getStaffRankings(days = 30): Promise<StaffRanking[]> {
   const prevStartRange = dayRange(prevPeriodStartStr);
 
   const staff = await prisma.staff.findMany({
-    where: { status: "ACTIVE" },
+    where: { status: "ACTIVE", ...storeFilter },
     select: {
       id: true,
       displayName: true,
@@ -505,6 +521,7 @@ export async function getStaffRankings(days = 30): Promise<StaffRanking[]> {
     where: {
       createdAt: { gte: prevStartRange.start, lt: startRange.start },
       transactionType: { in: [...REVENUE_TRANSACTION_TYPES] },
+      ...storeFilter,
     },
     _sum: { amount: true },
   });
@@ -567,7 +584,8 @@ export interface Recommendation {
 }
 
 export async function getRecommendations(): Promise<Recommendation[]> {
-  await requireStaffSession();
+  const user = await requireStaffSession();
+  const storeFilter = getStoreFilter(user);
 
   const now = new Date();
   const today = todayRange();
@@ -583,10 +601,11 @@ export async function getRecommendations(): Promise<Recommendation[]> {
     noShowRate30,
     avgBookingsPerDay,
   ] = await Promise.all([
-    prisma.customer.count(),
-    prisma.customer.count({ where: { lastVisitAt: { gte: thirtyDaysAgo } } }),
+    prisma.customer.count({ where: { ...storeFilter } }),
+    prisma.customer.count({ where: { lastVisitAt: { gte: thirtyDaysAgo }, ...storeFilter } }),
     prisma.customer.count({
       where: {
+        ...storeFilter,
         OR: [
           { lastVisitAt: { lt: sixtyDaysAgo } },
           { lastVisitAt: null, createdAt: { lt: sixtyDaysAgo } },
@@ -599,11 +618,12 @@ export async function getRecommendations(): Promise<Recommendation[]> {
         lastVisitAt: { gte: thirtyDaysAgo },
         planWallets: { none: { status: "ACTIVE" } },
         bookings: { some: { bookingStatus: "COMPLETED" } },
+        ...storeFilter,
       },
     }),
     // 套票剩餘 ≤2 堂
     prisma.customerPlanWallet.count({
-      where: { status: "ACTIVE", remainingSessions: { lte: 2 } },
+      where: { status: "ACTIVE", remainingSessions: { lte: 2 }, ...storeFilter },
     }),
     // 30 天未到率
     (async () => {
@@ -614,12 +634,14 @@ export async function getRecommendations(): Promise<Recommendation[]> {
           where: {
             bookingDate: { gte: periodStart, lte: periodEnd },
             bookingStatus: { in: ["COMPLETED", "NO_SHOW"] },
+            ...storeFilter,
           },
         }),
         prisma.booking.count({
           where: {
             bookingDate: { gte: periodStart, lte: periodEnd },
             bookingStatus: "NO_SHOW",
+            ...storeFilter,
           },
         }),
       ]);
@@ -633,6 +655,7 @@ export async function getRecommendations(): Promise<Recommendation[]> {
         where: {
           bookingDate: { gte: periodStart, lte: periodEnd },
           bookingStatus: { in: ["PENDING", "CONFIRMED", "COMPLETED", "NO_SHOW"] },
+          ...storeFilter,
         },
       });
       return Math.round(total / 30);

@@ -15,9 +15,10 @@ function monthRange(month: string) {
 
 export async function computeStoreSummary(month: string) {
   const { monthStart, monthEnd } = monthRange(month);
+  const storeFilter = { storeId: "default-store" };
 
   const allStaff = await prisma.staff.findMany({
-    where: { status: "ACTIVE" },
+    where: { status: "ACTIVE", ...storeFilter },
     select: { id: true, displayName: true },
   });
   const allStaffIds = allStaff.map((s) => s.id);
@@ -39,6 +40,7 @@ export async function computeStoreSummary(month: string) {
       where: {
         transactionType: { in: REVENUE_TYPES as never },
         createdAt: { gte: monthStart, lte: monthEnd },
+        ...storeFilter,
       },
       _sum: { amount: true },
       _count: { id: true },
@@ -47,6 +49,7 @@ export async function computeStoreSummary(month: string) {
       where: {
         transactionType: "REFUND",
         createdAt: { gte: monthStart, lte: monthEnd },
+        ...storeFilter,
       },
       _sum: { amount: true },
     }),
@@ -54,28 +57,30 @@ export async function computeStoreSummary(month: string) {
       where: {
         bookingStatus: "COMPLETED",
         bookingDate: { gte: monthStart, lte: monthEnd },
+        ...storeFilter,
       },
     }),
     prisma.cashbookEntry.groupBy({
       by: ["type"],
-      where: { entryDate: { gte: monthStart, lte: monthEnd } },
+      where: { entryDate: { gte: monthStart, lte: monthEnd }, ...storeFilter },
       _sum: { amount: true },
     }),
     prisma.spaceFeeRecord.aggregate({
-      where: { month },
+      where: { month, ...storeFilter },
       _sum: { feeAmount: true },
     }),
     prisma.spaceFeeRecord.findMany({
-      where: { month },
+      where: { month, ...storeFilter },
       select: { staffId: true, feeAmount: true },
     }),
     prisma.customer.groupBy({
       by: ["assignedStaffId"],
+      where: { ...storeFilter },
       _count: { id: true },
     }),
     prisma.customer.groupBy({
       by: ["assignedStaffId"],
-      where: { customerStage: "ACTIVE" },
+      where: { customerStage: "ACTIVE", ...storeFilter },
       _count: { id: true },
     }),
     prisma.booking.groupBy({
@@ -83,6 +88,7 @@ export async function computeStoreSummary(month: string) {
       where: {
         bookingStatus: "COMPLETED",
         bookingDate: { gte: monthStart, lte: monthEnd },
+        ...storeFilter,
       },
       _count: { id: true },
     }),
@@ -162,12 +168,14 @@ export async function computeStoreSummary(month: string) {
 
 export async function computeRevenueByCategory(month: string) {
   const { monthStart, monthEnd } = monthRange(month);
+  const storeFilter = { storeId: "default-store" };
 
   const rows = await prisma.transaction.groupBy({
     by: ["revenueStaffId", "transactionType"],
     where: {
       transactionType: { in: REVENUE_TYPES as never },
       createdAt: { gte: monthStart, lte: monthEnd },
+      ...storeFilter,
     },
     _sum: { amount: true },
     _count: { id: true },
@@ -178,6 +186,7 @@ export async function computeRevenueByCategory(month: string) {
     where: {
       transactionType: "REFUND",
       createdAt: { gte: monthStart, lte: monthEnd },
+      ...storeFilter,
     },
     _sum: { amount: true },
   });

@@ -15,7 +15,7 @@ export default async function DashboardLayout({
   if (user.role === "CUSTOMER") redirect("/book");
 
   const roleLabel = ROLE_LABELS[user.role] ?? "";
-  const isOwner = user.role === "OWNER";
+  const isOwner = user.role === "ADMIN";
   const [permissions, shopPlan, trialStatus] = await Promise.all([
     getUserPermissions(user.role, user.staffId),
     getCachedShopPlan(),

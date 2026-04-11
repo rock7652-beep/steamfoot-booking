@@ -23,7 +23,7 @@ export const getBusinessHoursOnce = cache(async () => {
  * request-level 快取：同一次 server render 內只查一次 ShopConfig
  */
 export const getShopConfigOnce = cache(async () => {
-  const config = await prisma.shopConfig.findUnique({ where: { id: "default" } });
+  const config = await prisma.shopConfig.findUnique({ where: { storeId: "default-store" } });
   return config ?? { dutySchedulingEnabled: false };
 });
 
@@ -79,7 +79,7 @@ export const getCachedSpecialDays = unstable_cache(
 export const getCachedDutyEnabled = unstable_cache(
   async () => {
     const config = await prisma.shopConfig.findUnique({
-      where: { id: "default" },
+      where: { storeId: "default-store" },
       select: { dutySchedulingEnabled: true },
     });
     return config?.dutySchedulingEnabled ?? false;

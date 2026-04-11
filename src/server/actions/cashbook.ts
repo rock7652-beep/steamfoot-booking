@@ -9,6 +9,7 @@ import { requireFeature } from "@/lib/shop-config";
 import { FEATURES } from "@/lib/shop-plan";
 import type { ActionResult } from "@/types";
 import type { CashbookEntryType } from "@prisma/client";
+import { assertStoreAccess } from "@/lib/manager-visibility";
 
 // ============================================================
 // Validators
@@ -50,7 +51,7 @@ export async function createCashbookEntry(
 
     // 非 Owner 員工若未指定 staffId，自動綁定自己
     let staffId = data.staffId || null;
-    if (user.role !== "OWNER") {
+    if (user.role !== "ADMIN") {
       // 非 Owner 員工只能建立歸屬於自己的現金帳紀錄
       staffId = user.staffId ?? null;
     }
@@ -64,6 +65,7 @@ export async function createCashbookEntry(
         staffId,
         note: data.note || null,
         createdByUserId: user.id,
+        storeId: user.storeId ?? "default-store",
       },
     });
 
@@ -91,9 +93,10 @@ export async function updateCashbookEntry(
       where: { id: entryId },
     });
     if (!entry) throw new AppError("NOT_FOUND", "現金帳紀錄不存在");
+    assertStoreAccess(user, entry.storeId);
 
     // 非 Owner 員工只能修改自己的紀錄
-    if (user.role !== "OWNER") {
+    if (user.role !== "ADMIN") {
       if (!user.staffId || entry.staffId !== user.staffId) {
         throw new AppError("FORBIDDEN", "無法修改其他員工的現金帳紀錄");
       }
@@ -106,7 +109,7 @@ export async function updateCashbookEntry(
     if (data.amount !== undefined) updateData.amount = data.amount;
     if (data.staffId !== undefined) {
       // 非 Owner 員工不能改 staffId（鎖定自己），只有 Owner 可指派
-      if (user.role === "OWNER") updateData.staffId = data.staffId;
+      if (user.role === "ADMIN") updateData.staffId = data.staffId;
     }
     if (data.note !== undefined) updateData.note = data.note;
 
@@ -125,10 +128,11 @@ export async function updateCashbookEntry(
 
 export async function deleteCashbookEntry(entryId: string): Promise<ActionResult<void>> {
   try {
-    await requirePermission("cashbook.create"); // Owner 才能刪
+    const user = await requirePermission("cashbook.create"); // Owner 才能刪
 
     const entry = await prisma.cashbookEntry.findUnique({ where: { id: entryId } });
     if (!entry) throw new AppError("NOT_FOUND", "現金帳紀錄不存在");
+    assertStoreAccess(user, entry.storeId);
 
     await prisma.cashbookEntry.delete({ where: { id: entryId } });
 

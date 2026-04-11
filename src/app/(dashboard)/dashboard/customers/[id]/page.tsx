@@ -63,7 +63,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
 
   // For transfer form, only pass staff list to Owner
   const staffList =
-    user.role === "OWNER"
+    user.role === "ADMIN"
       ? staffOptions.map((s) => ({ id: s.id, displayName: s.displayName }))
       : [];
 
@@ -171,7 +171,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
         />
 
         {/* Transfer (Owner only) */}
-        {user.role === "OWNER" && staffList.length > 0 && (
+        {user.role === "ADMIN" && staffList.length > 0 && (
           <div className="mt-3 border-t pt-3">
             <TransferCustomerForm
               customerId={id}
@@ -434,7 +434,7 @@ function WalletItem({ w, userRole }: { w: { id: string; plan: { name: string }; 
         <span>開始 {new Date(w.startDate).toLocaleDateString("zh-TW")}</span>
         {w.expiryDate && <span>到期 {new Date(w.expiryDate).toLocaleDateString("zh-TW")}</span>}
       </div>
-      {userRole === "OWNER" && w.status === "ACTIVE" && (
+      {userRole === "ADMIN" && w.status === "ACTIVE" && (
         <div className="mt-2 border-t pt-2">
           <AdjustWalletForm walletId={w.id} currentRemaining={w.remainingSessions} />
         </div>

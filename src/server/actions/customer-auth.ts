@@ -116,6 +116,7 @@ export async function customerRegisterAction(
             notes,
             authSource: "EMAIL",
             customerStage: "LEAD",
+            storeId: "default-store",
           },
         },
       },

@@ -32,7 +32,7 @@ export default async function PlansPage({ searchParams }: PageProps) {
   if (!user || !(await checkPermission(user.role, user.staffId, "wallet.read"))) {
     redirect("/dashboard");
   }
-  const isOwner = user.role === "OWNER";
+  const isOwner = user.role === "ADMIN";
 
   const [plans, shopPlan] = await Promise.all([listPlans(showAll), getShopPlan()]);
 

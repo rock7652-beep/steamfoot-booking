@@ -19,9 +19,10 @@ async function main() {
       email: "alice@steamfoot.tw",
       phone: "0912345678",
       passwordHash,
-      role: "OWNER",
+      role: "ADMIN",
       staff: {
         create: {
+          storeId: "default-store",
           displayName: "Alice 店主",
           colorCode: "#6366f1",
           isOwner: true,
@@ -43,6 +44,7 @@ async function main() {
       role: "STORE_MANAGER",
       staff: {
         create: {
+          storeId: "default-store",
           displayName: "Bob 店長",
           colorCode: "#f59e0b",
           isOwner: false,
@@ -64,6 +66,7 @@ async function main() {
       role: "STORE_MANAGER",
       staff: {
         create: {
+          storeId: "default-store",
           displayName: "Carol 店長",
           colorCode: "#10b981",
           isOwner: false,
@@ -232,6 +235,7 @@ async function main() {
   // Alice 名下顧客
   const customerActive1 = await prisma.customer.create({
     data: {
+      storeId: "default-store",
       name: "王小明",
       phone: "0911111111",
       lineName: "小明LINE",
@@ -245,6 +249,7 @@ async function main() {
 
   const customerActive2 = await prisma.customer.create({
     data: {
+      storeId: "default-store",
       name: "李小華",
       phone: "0911222222",
       assignedStaffId: ownerStaff.id,
@@ -257,6 +262,7 @@ async function main() {
 
   const customerTrial1 = await prisma.customer.create({
     data: {
+      storeId: "default-store",
       name: "張美玲",
       phone: "0911333333",
       assignedStaffId: ownerStaff.id,
@@ -269,6 +275,7 @@ async function main() {
   // Bob 名下顧客
   const customerActive3 = await prisma.customer.create({
     data: {
+      storeId: "default-store",
       name: "陳大偉",
       phone: "0922111111",
       lineName: "大偉",
@@ -282,6 +289,7 @@ async function main() {
 
   await prisma.customer.create({
     data: {
+      storeId: "default-store",
       name: "林志強",
       phone: "0922222222",
       assignedStaffId: managerBStaff.id,
@@ -292,6 +300,7 @@ async function main() {
 
   const customerInactive1 = await prisma.customer.create({
     data: {
+      storeId: "default-store",
       name: "周美美",
       phone: "0922333333",
       assignedStaffId: managerBStaff.id,
@@ -305,6 +314,7 @@ async function main() {
   // Carol 名下顧客
   const customerActive4 = await prisma.customer.create({
     data: {
+      storeId: "default-store",
       name: "吳家豪",
       phone: "0933111111",
       lineName: "家豪JH",
@@ -318,6 +328,7 @@ async function main() {
 
   await prisma.customer.create({
     data: {
+      storeId: "default-store",
       name: "黃雅琪",
       phone: "0933222222",
       assignedStaffId: managerCStaff.id,
@@ -329,6 +340,7 @@ async function main() {
 
   await prisma.customer.create({
     data: {
+      storeId: "default-store",
       name: "鄭小花",
       phone: "0933333333",
       assignedStaffId: managerCStaff.id,
@@ -339,6 +351,7 @@ async function main() {
 
   const customerActive5 = await prisma.customer.create({
     data: {
+      storeId: "default-store",
       name: "劉心怡",
       phone: "0933444444",
       assignedStaffId: managerCStaff.id,
@@ -363,6 +376,7 @@ async function main() {
   // 王小明：10堂套餐，已用3堂
   const wallet1 = await prisma.customerPlanWallet.create({
     data: {
+      storeId: "default-store",
       customerId: customerActive1.id,
       planId: plan10.id,
       purchasedPrice: 6000,
@@ -377,6 +391,7 @@ async function main() {
   // 李小華：5堂套餐，已用1堂
   const wallet2 = await prisma.customerPlanWallet.create({
     data: {
+      storeId: "default-store",
       customerId: customerActive2.id,
       planId: plan5.id,
       purchasedPrice: 3250,
@@ -391,6 +406,7 @@ async function main() {
   // 陳大偉：3堂套餐，已用1堂
   const wallet3 = await prisma.customerPlanWallet.create({
     data: {
+      storeId: "default-store",
       customerId: customerActive3.id,
       planId: plan3.id,
       purchasedPrice: 2100,
@@ -405,6 +421,7 @@ async function main() {
   // 吳家豪：10堂套餐，全新
   const wallet4 = await prisma.customerPlanWallet.create({
     data: {
+      storeId: "default-store",
       customerId: customerActive4.id,
       planId: plan10.id,
       purchasedPrice: 6000,
@@ -419,6 +436,7 @@ async function main() {
   // 劉心怡：5堂套餐，已用3堂
   const wallet5 = await prisma.customerPlanWallet.create({
     data: {
+      storeId: "default-store",
       customerId: customerActive5.id,
       planId: plan5.id,
       purchasedPrice: 3250,
@@ -433,6 +451,7 @@ async function main() {
   // 周美美：舊的3堂已用完
   await prisma.customerPlanWallet.create({
     data: {
+      storeId: "default-store",
       customerId: customerInactive1.id,
       planId: plan3.id,
       purchasedPrice: 2100,
@@ -453,6 +472,7 @@ async function main() {
   // 王小明購買10堂
   await prisma.transaction.create({
     data: {
+      storeId: "default-store",
       customerId: customerActive1.id,
       revenueStaffId: ownerStaff.id,
       transactionType: "PACKAGE_PURCHASE",
@@ -466,6 +486,7 @@ async function main() {
   // 李小華購買5堂
   await prisma.transaction.create({
     data: {
+      storeId: "default-store",
       customerId: customerActive2.id,
       revenueStaffId: ownerStaff.id,
       transactionType: "PACKAGE_PURCHASE",
@@ -479,6 +500,7 @@ async function main() {
   // 陳大偉購買3堂（Bob名下）
   await prisma.transaction.create({
     data: {
+      storeId: "default-store",
       customerId: customerActive3.id,
       revenueStaffId: managerBStaff.id,
       transactionType: "PACKAGE_PURCHASE",
@@ -492,6 +514,7 @@ async function main() {
   // 吳家豪購買10堂（Carol名下）
   await prisma.transaction.create({
     data: {
+      storeId: "default-store",
       customerId: customerActive4.id,
       revenueStaffId: managerCStaff.id,
       transactionType: "PACKAGE_PURCHASE",
@@ -505,6 +528,7 @@ async function main() {
   // 劉心怡購買5堂（Carol名下）
   await prisma.transaction.create({
     data: {
+      storeId: "default-store",
       customerId: customerActive5.id,
       revenueStaffId: managerCStaff.id,
       transactionType: "PACKAGE_PURCHASE",
@@ -518,6 +542,7 @@ async function main() {
   // 張美玲體驗（Alice名下）
   await prisma.transaction.create({
     data: {
+      storeId: "default-store",
       customerId: customerTrial1.id,
       revenueStaffId: ownerStaff.id,
       transactionType: "TRIAL_PURCHASE",
@@ -538,6 +563,7 @@ async function main() {
     const date = new Date(`2026-01-${10 + i * 7}`);
     await prisma.booking.create({
       data: {
+        storeId: "default-store",
         customerId: customerActive1.id,
         bookingDate: date,
         slotTime: "14:00",
@@ -557,6 +583,7 @@ async function main() {
   // 李小華已完成1次
   await prisma.booking.create({
     data: {
+      storeId: "default-store",
       customerId: customerActive2.id,
       bookingDate: new Date("2026-02-05"),
       slotTime: "10:00",
@@ -573,6 +600,7 @@ async function main() {
   // 陳大偉已完成1次（Bob名下）
   await prisma.booking.create({
     data: {
+      storeId: "default-store",
       customerId: customerActive3.id,
       bookingDate: new Date("2026-02-10"),
       slotTime: "15:00",
@@ -590,6 +618,7 @@ async function main() {
   // 張美玲體驗預約（已完成）
   await prisma.booking.create({
     data: {
+      storeId: "default-store",
       customerId: customerTrial1.id,
       bookingDate: new Date("2026-03-15"),
       slotTime: "11:00",
@@ -608,6 +637,7 @@ async function main() {
   tomorrow.setDate(tomorrow.getDate() + 1);
   await prisma.booking.create({
     data: {
+      storeId: "default-store",
       customerId: customerActive1.id,
       bookingDate: tomorrow,
       slotTime: "14:00",
@@ -625,6 +655,7 @@ async function main() {
   dayAfter.setDate(dayAfter.getDate() + 2);
   await prisma.booking.create({
     data: {
+      storeId: "default-store",
       customerId: customerActive4.id,
       bookingDate: dayAfter,
       slotTime: "16:00",
@@ -644,9 +675,16 @@ async function main() {
   // 8. ShopConfig（店家設定 — 方案預設 BASIC）
   // ============================================================
 
+  // 先確保 Store 存在
+  await prisma.store.upsert({
+    where: { id: "default-store" },
+    create: { id: "default-store", name: "蒸足", slug: "default", isDefault: true },
+    update: {},
+  });
+
   await prisma.shopConfig.upsert({
-    where: { id: "default" },
-    create: { id: "default", shopName: "蒸足", plan: "BASIC" },
+    where: { storeId: "default-store" },
+    create: { storeId: "default-store", shopName: "蒸足", plan: "BASIC" },
     update: {},  // 已存在則不覆蓋
   });
 

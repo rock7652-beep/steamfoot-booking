@@ -119,9 +119,9 @@ export default async function EditCashbookPage({ params }: PageProps) {
           {/* Staff */}
           <div>
             <label className="block text-sm font-medium text-earth-700">
-              {user.role === "OWNER" ? "歸屬店長（選填）" : "歸屬店長"}
+              {user.role === "ADMIN" ? "歸屬店長（選填）" : "歸屬店長"}
             </label>
-            {user.role === "OWNER" ? (
+            {user.role === "ADMIN" ? (
               <select
                 name="staffId"
                 defaultValue={entry.staffId ?? ""}

@@ -8,7 +8,7 @@ import { prisma } from "@/lib/db";
 import { requireStaffSession, requireSession } from "@/lib/session";
 import { AppError } from "@/lib/errors";
 import { monthRange as sharedMonthRange, dayRange } from "@/lib/date-utils";
-import { getManagerReadFilter, getVisibilityMode } from "@/lib/manager-visibility";
+import { getManagerReadFilter, getVisibilityMode, getStoreFilter } from "@/lib/manager-visibility";
 import { REVENUE_TRANSACTION_TYPES } from "@/lib/booking-constants";
 
 const REVENUE_TYPES = [...REVENUE_TRANSACTION_TYPES];
@@ -36,7 +36,7 @@ export async function monthlyStaffRevenueSummary(month: string) {
   const user = await requireStaffSession();
   const { monthStart, monthEnd } = monthRange(month);
 
-  const revenueFilter = getManagerReadFilter(user.role, user.staffId, "revenueStaffId");
+  const revenueFilter = getManagerReadFilter(user.role, user.staffId, "revenueStaffId", user.storeId);
 
   const [rows, completedBookings] = await Promise.all([
     prisma.transaction.groupBy({
@@ -96,8 +96,8 @@ export async function monthlyStaffNetSummary(month: string) {
   const user = await requireStaffSession();
   const { monthStart, monthEnd } = monthRange(month);
 
-  const revenueFilter = getManagerReadFilter(user.role, user.staffId, "revenueStaffId");
-  const staffIdFilter = getManagerReadFilter(user.role, user.staffId, "staffId");
+  const revenueFilter = getManagerReadFilter(user.role, user.staffId, "revenueStaffId", user.storeId);
+  const staffIdFilter = getManagerReadFilter(user.role, user.staffId, "staffId", user.storeId);
 
   const revenueRows = await prisma.transaction.groupBy({
     by: ["revenueStaffId"],
@@ -157,14 +157,14 @@ export async function monthlyStoreSummary(
       })()
     : monthRange(month);
 
-  const revenueFilter = getManagerReadFilter(user.role, user.staffId, "revenueStaffId");
-  const staffIdFilter = getManagerReadFilter(user.role, user.staffId, "staffId");
-  const assignedFilter = getManagerReadFilter(user.role, user.staffId, "assignedStaffId");
+  const revenueFilter = getManagerReadFilter(user.role, user.staffId, "revenueStaffId", user.storeId);
+  const staffIdFilter = getManagerReadFilter(user.role, user.staffId, "staffId", user.storeId);
+  const assignedFilter = getManagerReadFilter(user.role, user.staffId, "assignedStaffId", user.storeId);
 
   // All staff visible to this user
   const allStaff = await prisma.staff.findMany({
     where:
-      user.role !== "OWNER" && user.staffId && Object.keys(revenueFilter).length > 0
+      user.role !== "ADMIN" && user.staffId && Object.keys(revenueFilter).length > 0
         ? { id: user.staffId }
         : { status: "ACTIVE" },
     select: { id: true, displayName: true },
@@ -353,7 +353,7 @@ export async function monthlyRevenueByCategory(
       })()
     : monthRange(month);
 
-  const revenueFilter = getManagerReadFilter(user.role, user.staffId, "revenueStaffId");
+  const revenueFilter = getManagerReadFilter(user.role, user.staffId, "revenueStaffId", user.storeId);
 
   const rows = await prisma.transaction.groupBy({
     by: ["revenueStaffId", "transactionType"],
@@ -438,8 +438,9 @@ export async function monthlyRevenueByCategory(
 export async function customerConsumptionDetail(customerId: string, month?: string) {
   const user = await requireSession();
 
-  const customer = await prisma.customer.findUnique({
-    where: { id: customerId },
+  const storeFilter = user.role !== "CUSTOMER" ? getStoreFilter(user) : {};
+  const customer = await prisma.customer.findFirst({
+    where: { id: customerId, ...storeFilter },
     select: { id: true, name: true, phone: true, assignedStaffId: true, customerStage: true, selfBookingEnabled: true },
   });
   if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
@@ -448,7 +449,7 @@ export async function customerConsumptionDetail(customerId: string, month?: stri
     if (!user.customerId || user.customerId !== customerId)
       throw new AppError("FORBIDDEN", "只能查看自己的消費記錄");
   }
-  if (user.role !== "OWNER" && user.role !== "CUSTOMER") {
+  if (user.role !== "ADMIN" && user.role !== "CUSTOMER") {
     const mode = getVisibilityMode();
     if (mode === "SELF_ONLY") {
       if (!user.staffId || customer.assignedStaffId !== user.staffId)

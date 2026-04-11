@@ -18,7 +18,7 @@ export default async function StaffPage({}: PageProps) {
   if (!user) notFound();
   if (!(await checkPermission(user.role, user.staffId, "staff.view"))) notFound();
 
-  const isOwner = user.role === "OWNER";
+  const isOwner = user.role === "ADMIN";
   const [staffList, shopPlan] = await Promise.all([listStaff(), getShopPlan()]);
 
   async function handleCreateStaff(formData: FormData) {
@@ -34,7 +34,7 @@ export default async function StaffPage({}: PageProps) {
       monthlySpaceFee: formData.get("monthlySpaceFee")
         ? Number(formData.get("monthlySpaceFee"))
         : 0,
-      role: roleValue as "STORE_MANAGER" | "BRANCH_MANAGER" | "INTERN_MANAGER",
+      role: roleValue as "STORE_MANAGER" | "COACH",
     });
 
     if (!result.success) {
@@ -75,8 +75,7 @@ export default async function StaffPage({}: PageProps) {
               className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
             >
               <option value="STORE_MANAGER">店長（主要經營者）</option>
-              <option value="BRANCH_MANAGER">分店長（合作協助經營者）</option>
-              <option value="INTERN_MANAGER">實習店長（學習階段）</option>
+              <option value="COACH">教練（合作協助經營者）</option>
             </select>
             <p className="mt-1 text-xs text-earth-400">系統會根據角色自動帶入預設權限，建立後可在編輯頁調整</p>
           </div>
@@ -217,8 +216,8 @@ export default async function StaffPage({}: PageProps) {
                     <td className="px-4 py-3">
                       <span className={`rounded px-2 py-0.5 text-xs font-medium ${
                         staff.isOwner ? "bg-yellow-100 text-yellow-700" :
-                        staff.user.role === "STORE_MANAGER" || staff.user.role === "MANAGER" ? "bg-primary-100 text-primary-700" :
-                        staff.user.role === "BRANCH_MANAGER" ? "bg-blue-100 text-blue-700" :
+                        staff.user.role === "STORE_MANAGER" ? "bg-primary-100 text-primary-700" :
+                        staff.user.role === "COACH" ? "bg-blue-100 text-blue-700" :
                         "bg-earth-100 text-earth-700"
                       }`}>
                         {staff.isOwner ? "系統管理者" : ROLE_LABELS[staff.user.role as UserRole] ?? staff.user.role}

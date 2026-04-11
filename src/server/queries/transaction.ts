@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db";
 import { requireSession, requireStaffSession } from "@/lib/session";
 import { AppError } from "@/lib/errors";
-import { getManagerReadFilter, getVisibilityMode } from "@/lib/manager-visibility";
+import { getManagerReadFilter, getStoreFilter, getVisibilityMode } from "@/lib/manager-visibility";
 import type { TransactionType, PaymentMethod } from "@prisma/client";
 
 export interface ListTransactionsOptions {
@@ -37,7 +37,7 @@ export async function listTransactions(options: ListTransactionsOptions = {}) {
   } = options;
 
   // Manager 篩選（讀取型：受 visibility mode 控制）
-  const visibilityFilter = getManagerReadFilter(user.role, user.staffId, "revenueStaffId");
+  const visibilityFilter = getManagerReadFilter(user.role, user.staffId, "revenueStaffId", user.storeId);
   // 若 UI 層有傳入 revenueStaffId 篩選，且 visibility 沒有強制篩選 → 使用 UI 篩選
   const staffFilter = Object.keys(visibilityFilter).length > 0
     ? visibilityFilter
@@ -46,6 +46,7 @@ export async function listTransactions(options: ListTransactionsOptions = {}) {
     : {};
 
   const where = {
+    ...getStoreFilter(user),
     ...staffFilter,
     ...(customerId ? { customerId } : {}),
     ...(transactionType ? { transactionType } : {}),
@@ -96,8 +97,8 @@ export async function listTransactions(options: ListTransactionsOptions = {}) {
 export async function getTransactionDetail(transactionId: string) {
   const user = await requireSession();
 
-  const tx = await prisma.transaction.findUnique({
-    where: { id: transactionId },
+  const tx = await prisma.transaction.findFirst({
+    where: { id: transactionId, ...getStoreFilter(user) },
     include: {
       customer: { select: { id: true, name: true, assignedStaffId: true } },
       revenueStaff: { select: { id: true, displayName: true } },
@@ -118,7 +119,7 @@ export async function getTransactionDetail(transactionId: string) {
   if (!tx) throw new AppError("NOT_FOUND", "交易紀錄不存在");
 
   // 非 Owner 員工讀取限制（受 visibility mode 控制）
-  if (user.role !== "OWNER" && user.role !== "CUSTOMER") {
+  if (user.role !== "ADMIN" && user.role !== "CUSTOMER") {
     const mode = getVisibilityMode();
     if (mode === "SELF_ONLY") {
       if (!user.staffId || tx.revenueStaffId !== user.staffId) {
@@ -144,14 +145,14 @@ export async function getCustomerTransactionSummary(customerId: string) {
     }
   }
 
-  const customer = await prisma.customer.findUnique({
-    where: { id: customerId },
+  const customer = await prisma.customer.findFirst({
+    where: { id: customerId, ...getStoreFilter(user) },
     select: { id: true, assignedStaffId: true },
   });
   if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
 
   // 非 Owner 員工讀取限制（受 visibility mode 控制）
-  if (user.role !== "OWNER" && user.role !== "CUSTOMER") {
+  if (user.role !== "ADMIN" && user.role !== "CUSTOMER") {
     const mode = getVisibilityMode();
     if (mode === "SELF_ONLY") {
       if (!user.staffId || customer.assignedStaffId !== user.staffId) {

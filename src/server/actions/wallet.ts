@@ -8,6 +8,7 @@ import { assignPlanSchema } from "@/lib/validators/plan";
 import type { ActionResult } from "@/types";
 import type { z } from "zod";
 import { addDays } from "date-fns";
+import { assertStoreAccess } from "@/lib/manager-visibility";
 
 // ============================================================
 // 折扣計算
@@ -63,6 +64,7 @@ export async function assignPlanToCustomer(
       where: { id: data.customerId },
     });
     if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
+    assertStoreAccess(user, customer.storeId);
 
     // 取方案
     const plan = await prisma.servicePlan.findUnique({
@@ -110,6 +112,7 @@ export async function assignPlanToCustomer(
           startDate,
           expiryDate,
           status: "ACTIVE",
+          storeId: user.storeId ?? "default-store",
         },
       });
 
@@ -128,6 +131,7 @@ export async function assignPlanToCustomer(
           discountReason: data.discountReason || null,
           customerPlanWalletId: wallet.id,
           note: data.note,
+          storeId: user.storeId ?? "default-store",
         },
       });
 
@@ -175,6 +179,7 @@ export async function adjustRemainingSessions(
       where: { id: walletId },
     });
     if (!wallet) throw new AppError("NOT_FOUND", "課程錢包不存在");
+    assertStoreAccess(user, wallet.storeId);
 
     // 建立調整交易紀錄
     const customer = await prisma.customer.findUnique({
@@ -205,6 +210,7 @@ export async function adjustRemainingSessions(
           quantity: diff,
           customerPlanWalletId: walletId,
           note: note ?? `手動調整：${wallet.remainingSessions} → ${newRemaining} 堂`,
+          storeId: user.storeId ?? "default-store",
         },
       });
     });

@@ -30,7 +30,7 @@ import { EffectivenessSection } from "./effectiveness-section";
 export default async function OpsDashboardPage() {
   const user = await getCurrentUser();
   if (!user) return null;
-  if (user.role !== "OWNER") notFound();
+  if (user.role !== "ADMIN") notFound();
 
   const [
     today, trend7, trend30, funnel, topCustomers, segments, staffPerf,

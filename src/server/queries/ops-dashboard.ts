@@ -9,6 +9,7 @@ import {
   toLocalDateStr,
 } from "@/lib/date-utils";
 import { REVENUE_TRANSACTION_TYPES } from "@/lib/booking-constants";
+import { getStoreFilter } from "@/lib/manager-visibility";
 
 // ============================================================
 // 1. 今日營運總覽
@@ -26,25 +27,27 @@ export interface TodaySummary {
 }
 
 export async function getTodaySummary(): Promise<TodaySummary> {
-  await requireStaffSession();
+  const user = await requireStaffSession();
+  const storeFilter = getStoreFilter(user);
   const today = todayRange();
   const todayBookingDate = bookingDateToday();
 
   const [bookings, todayRevenueAgg, newCustomerCount] = await Promise.all([
     prisma.booking.groupBy({
       by: ["bookingStatus"],
-      where: { bookingDate: todayBookingDate },
+      where: { bookingDate: todayBookingDate, ...storeFilter },
       _count: { id: true },
     }),
     prisma.transaction.aggregate({
       where: {
         createdAt: { gte: today.start, lte: today.end },
         transactionType: { in: [...REVENUE_TRANSACTION_TYPES] },
+        ...storeFilter,
       },
       _sum: { amount: true },
     }),
     prisma.customer.count({
-      where: { createdAt: { gte: today.start, lte: today.end } },
+      where: { createdAt: { gte: today.start, lte: today.end }, ...storeFilter },
     }),
   ]);
 
@@ -82,7 +85,8 @@ export interface DayTrend {
 }
 
 export async function getDailyTrend(days: number): Promise<DayTrend[]> {
-  await requireStaffSession();
+  const user = await requireStaffSession();
+  const storeFilter = getStoreFilter(user);
 
   // 計算 N 天前的日期 (UTC+8)
   const now = new Date();
@@ -111,6 +115,7 @@ export async function getDailyTrend(days: number): Promise<DayTrend[]> {
             lte: new Date(todayStr + "T00:00:00.000Z"),
           },
           bookingStatus: { in: ["PENDING", "CONFIRMED", "COMPLETED", "NO_SHOW"] },
+          ...storeFilter,
         },
         select: { bookingDate: true, bookingStatus: true },
       }),
@@ -120,13 +125,14 @@ export async function getDailyTrend(days: number): Promise<DayTrend[]> {
         where: {
           createdAt: { gte: startRange.start, lte: endRange.end },
           transactionType: { in: [...REVENUE_TRANSACTION_TYPES] },
+          ...storeFilter,
         },
         select: { createdAt: true, amount: true },
       }),
 
       // New customers per day
       prisma.customer.findMany({
-        where: { createdAt: { gte: startRange.start, lte: endRange.end } },
+        where: { createdAt: { gte: startRange.start, lte: endRange.end }, ...storeFilter },
         select: { createdAt: true },
       }),
 
@@ -138,6 +144,7 @@ export async function getDailyTrend(days: number): Promise<DayTrend[]> {
             lte: new Date(todayStr + "T00:00:00.000Z"),
           },
           bookingStatus: { in: ["COMPLETED"] },
+          ...storeFilter,
         },
         select: { bookingDate: true, customerId: true, customer: { select: { firstVisitAt: true } } },
       }),
@@ -195,7 +202,8 @@ export interface FunnelStep {
 }
 
 export async function getOperationsFunnel(days: number): Promise<FunnelStep[]> {
-  await requireStaffSession();
+  const user = await requireStaffSession();
+  const storeFilter = getStoreFilter(user);
 
   const now = new Date();
   const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
@@ -215,6 +223,7 @@ export async function getOperationsFunnel(days: number): Promise<FunnelStep[]> {
     // 活躍顧客數（有任何動作的 distinct customer）
     prisma.customer.count({
       where: {
+        ...storeFilter,
         OR: [
           { lastVisitAt: { gte: startRange.start } },
           { createdAt: { gte: startRange.start, lte: endRange.end } },
@@ -226,6 +235,7 @@ export async function getOperationsFunnel(days: number): Promise<FunnelStep[]> {
     prisma.booking.count({
       where: {
         createdAt: { gte: startRange.start, lte: endRange.end },
+        ...storeFilter,
       },
     }),
     // 已確認預約
@@ -233,6 +243,7 @@ export async function getOperationsFunnel(days: number): Promise<FunnelStep[]> {
       where: {
         createdAt: { gte: startRange.start, lte: endRange.end },
         bookingStatus: { in: ["CONFIRMED", "COMPLETED"] },
+        ...storeFilter,
       },
     }),
     // 已到店完成
@@ -243,6 +254,7 @@ export async function getOperationsFunnel(days: number): Promise<FunnelStep[]> {
           lte: new Date(todayStr + "T00:00:00.000Z"),
         },
         bookingStatus: "COMPLETED",
+        ...storeFilter,
       },
     }),
     // 有交易（付款）
@@ -250,11 +262,13 @@ export async function getOperationsFunnel(days: number): Promise<FunnelStep[]> {
       where: {
         createdAt: { gte: startRange.start, lte: endRange.end },
         transactionType: { in: [...REVENUE_TRANSACTION_TYPES] },
+        ...storeFilter,
       },
     }),
     // 回購（有多於 1 筆套票購買的顧客）
     prisma.customer.count({
       where: {
+        ...storeFilter,
         transactions: {
           some: {
             createdAt: { gte: startRange.start, lte: endRange.end },
@@ -295,13 +309,15 @@ export interface TopCustomer {
 }
 
 export async function getTopCustomers(limit = 10): Promise<TopCustomer[]> {
-  await requireStaffSession();
+  const user = await requireStaffSession();
+  const storeFilter = getStoreFilter(user);
 
   const sixMonthsAgo = new Date();
   sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
 
   const customers = await prisma.customer.findMany({
     where: {
+      ...storeFilter,
       OR: [
         { lastVisitAt: { gte: sixMonthsAgo } },
         { transactions: { some: { createdAt: { gte: sixMonthsAgo } } } },
@@ -370,7 +386,8 @@ export interface CustomerSegment {
 }
 
 export async function getCustomerSegments(): Promise<CustomerSegment[]> {
-  await requireStaffSession();
+  const user = await requireStaffSession();
+  const storeFilter = getStoreFilter(user);
 
   const now = new Date();
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -389,29 +406,33 @@ export async function getCustomerSegments(): Promise<CustomerSegment[]> {
     // 新客：30 天內建立、無完成預約
     prisma.customer.count({
       where: {
+        ...storeFilter,
         createdAt: { gte: thirtyDaysAgo },
         bookings: { none: { bookingStatus: "COMPLETED" } },
       },
     }),
     // 活躍客：7 天內有到店
     prisma.customer.count({
-      where: { lastVisitAt: { gte: sevenDaysAgo } },
+      where: { lastVisitAt: { gte: sevenDaysAgo }, ...storeFilter },
     }),
     // 回訪中：7-30 天有到店
     prisma.customer.count({
       where: {
         lastVisitAt: { gte: thirtyDaysAgo, lt: sevenDaysAgo },
+        ...storeFilter,
       },
     }),
     // 即將流失：30-60 天無到店
     prisma.customer.count({
       where: {
         lastVisitAt: { gte: sixtyDaysAgo, lt: thirtyDaysAgo },
+        ...storeFilter,
       },
     }),
     // 沉睡客：60+ 天無到店
     prisma.customer.count({
       where: {
+        ...storeFilter,
         OR: [
           { lastVisitAt: { lt: sixtyDaysAgo } },
           { lastVisitAt: null, createdAt: { lt: sixtyDaysAgo } },
@@ -423,6 +444,7 @@ export async function getCustomerSegments(): Promise<CustomerSegment[]> {
       where: {
         lastVisitAt: { gte: ninetyDaysAgo },
         planWallets: { some: { status: "ACTIVE" } },
+        ...storeFilter,
       },
     }),
   ]);
@@ -455,7 +477,8 @@ export interface StaffPerformance {
 }
 
 export async function getStaffPerformance(days = 30): Promise<StaffPerformance[]> {
-  await requireStaffSession();
+  const user = await requireStaffSession();
+  const storeFilter = getStoreFilter(user);
 
   const now = new Date();
   const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
@@ -465,7 +488,7 @@ export async function getStaffPerformance(days = 30): Promise<StaffPerformance[]
   const endRange = dayRange(todayStr);
 
   const staff = await prisma.staff.findMany({
-    where: { status: "ACTIVE" },
+    where: { status: "ACTIVE", ...storeFilter },
     select: {
       id: true,
       displayName: true,

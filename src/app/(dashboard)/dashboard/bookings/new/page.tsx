@@ -32,7 +32,7 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
   const todayStr = toLocalDateStr();
   const defaultDate = params.date ?? todayStr;
   const days = getNextDays(14);
-  const isOwner = user.role === "OWNER";
+  const isOwner = user.role === "ADMIN";
 
   async function handleCreate(formData: FormData) {
     "use server";

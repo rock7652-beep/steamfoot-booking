@@ -17,7 +17,7 @@ export default async function DutyDayPage({ params }: PageProps) {
   }
 
   const { date } = await params;
-  const canManage = user.role === "OWNER" || await checkPermission(user.role, user.staffId, "duty.manage");
+  const canManage = user.role === "ADMIN" || await checkPermission(user.role, user.staffId, "duty.manage");
 
   // 取值班資料
   const assignments = await getDutyByDate(date);

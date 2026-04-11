@@ -88,8 +88,8 @@ async function main() {
     include: { staff: true },
   });
   check("彥陸 User 存在", yanlu !== null, yanlu ? `role=${yanlu.role}` : "找不到！");
-  check("彥陸已升級為 OWNER", yanlu?.role === "OWNER",
-    yanlu?.role === "OWNER" ? "正確" : `目前 role=${yanlu?.role}`);
+  check("彥陸已升級為 OWNER", yanlu?.role === "ADMIN",
+    yanlu?.role === "ADMIN" ? "正確" : `目前 role=${yanlu?.role}`);
   check("彥陸 Staff isOwner=true", yanlu?.staff?.isOwner === true,
     yanlu?.staff?.isOwner ? "正確" : "未升級！");
 

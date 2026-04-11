@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { checkPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
 import { toLocalDateStr } from "@/lib/date-utils";
+import { getStoreFilter } from "@/lib/manager-visibility";
 
 function toCsv(rows: string[][]): string {
   return rows
@@ -32,8 +33,11 @@ export async function GET() {
   const allowed = await checkPermission(session.user.role, session.user.staffId, "customer.export");
   if (!allowed) return new NextResponse("Forbidden", { status: 403 });
 
+  const user = session.user;
+
   // 所有店長可匯出全部顧客（共享查看）
   const customers = await prisma.customer.findMany({
+    where: { ...getStoreFilter(user) },
     include: {
       assignedStaff: { select: { displayName: true } },
       user: { select: { email: true } },

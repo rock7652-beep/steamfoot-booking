@@ -61,7 +61,7 @@ interface PageProps {
 export default async function RemindersPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const user = await getCurrentUser();
-  if (!user || user.role !== "OWNER") {
+  if (!user || user.role !== "ADMIN") {
     redirect("/dashboard");
   }
 

@@ -11,7 +11,7 @@ import { hasFeature, FREE_LIMITS, type Feature } from "@/lib/shop-plan";
 /** 取得目前店家方案（快取友好，讀單筆） */
 export async function getShopPlan(): Promise<ShopPlan> {
   const config = await prisma.shopConfig.findUnique({
-    where: { id: "default" },
+    where: { storeId: "default-store" },
     select: { plan: true },
   });
   return config?.plan ?? "FREE";
@@ -20,7 +20,7 @@ export async function getShopPlan(): Promise<ShopPlan> {
 /** 值班排班聯動是否啟用 */
 export async function isDutySchedulingEnabled(): Promise<boolean> {
   const config = await prisma.shopConfig.findUnique({
-    where: { id: "default" },
+    where: { storeId: "default-store" },
     select: { dutySchedulingEnabled: true },
   });
   return config?.dutySchedulingEnabled ?? false;
@@ -29,9 +29,9 @@ export async function isDutySchedulingEnabled(): Promise<boolean> {
 /** 取得完整店家設定 */
 export async function getShopConfig() {
   const config = await prisma.shopConfig.findUnique({
-    where: { id: "default" },
+    where: { storeId: "default-store" },
   });
-  return config ?? { id: "default", shopName: "蒸足", plan: "FREE" as ShopPlan, dutySchedulingEnabled: false, createdAt: new Date(), updatedAt: new Date() };
+  return config ?? { id: "default", storeId: "default-store", shopName: "蒸足", plan: "FREE" as ShopPlan, dutySchedulingEnabled: false, createdAt: new Date(), updatedAt: new Date() };
 }
 
 /**
@@ -101,10 +101,10 @@ export async function getTrialStatus(): Promise<TrialStatus> {
   const trialExpired = daysRemaining === 0;
   const daysPct = Math.round(((FREE_LIMITS.trialDays - daysRemaining) / FREE_LIMITS.trialDays) * 100);
 
-  // 計算顧客 / 預約數
+  // 計算顧客 / 預約數（限 default-store scope）
   const [customerCount, bookingCount] = await Promise.all([
-    prisma.customer.count(),
-    prisma.booking.count(),
+    prisma.customer.count({ where: { storeId: "default-store" } }),
+    prisma.booking.count({ where: { storeId: "default-store" } }),
   ]);
 
   const customerPct = Math.round((customerCount / FREE_LIMITS.maxCustomers) * 100);
@@ -150,7 +150,7 @@ export async function checkCustomerLimit(): Promise<{ allowed: boolean; current:
   const trialExpired = isTrialExpired(config.createdAt);
   if (trialExpired) return { allowed: false, current: 0, limit: 0 };
 
-  const current = await prisma.customer.count();
+  const current = await prisma.customer.count({ where: { storeId: "default-store" } });
   return {
     allowed: current < FREE_LIMITS.maxCustomers,
     current,
@@ -169,7 +169,7 @@ export async function checkBookingLimit(): Promise<{ allowed: boolean; current: 
   const trialExpired = isTrialExpired(config.createdAt);
   if (trialExpired) return { allowed: false, current: 0, limit: 0 };
 
-  const current = await prisma.booking.count();
+  const current = await prisma.booking.count({ where: { storeId: "default-store" } });
   return {
     allowed: current < FREE_LIMITS.maxBookings,
     current,

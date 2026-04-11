@@ -56,7 +56,7 @@ export async function runReminders(): Promise<SendResult> {
   const windowEnd = new Date(now.getTime() + WINDOW_MINUTES * 60 * 1000);
 
   // 3. 取得 ShopConfig
-  const shopConfig = await prisma.shopConfig.findUnique({ where: { id: "default" } });
+  const shopConfig = await prisma.shopConfig.findUnique({ where: { storeId: "default-store" } });
   const shopName = shopConfig?.shopName ?? "蒸足";
   const baseUrl = process.env.NEXTAUTH_URL ?? process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.steamfoot.com";
 

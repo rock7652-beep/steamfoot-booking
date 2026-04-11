@@ -14,7 +14,7 @@ import { PlanSwitcher } from "./plan-switcher";
 export default async function PlanSettingsPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
-  if (user.role !== "OWNER") notFound();
+  if (user.role !== "ADMIN") notFound();
 
   const config = await getShopConfig();
 

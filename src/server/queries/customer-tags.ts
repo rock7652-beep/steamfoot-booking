@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { requireStaffSession } from "@/lib/session";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { REVENUE_TRANSACTION_TYPES } from "@/lib/booking-constants";
+import { getStoreFilter } from "@/lib/manager-visibility";
 
 // ============================================================
 // Auto-computed customer tags
@@ -47,7 +48,8 @@ function getTagDef(id: CustomerTagId): CustomerTag {
  * Used on the customer detail page for real-time display.
  */
 export async function getCustomerTags(customerId: string): Promise<CustomerTag[]> {
-  await requireStaffSession();
+  const user = await requireStaffSession();
+  const storeFilter = getStoreFilter(user);
 
   const now = new Date();
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -55,8 +57,8 @@ export async function getCustomerTags(customerId: string): Promise<CustomerTag[]
   const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
   const fourteenDaysFromNow = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
 
-  const customer = await prisma.customer.findUnique({
-    where: { id: customerId },
+  const customer = await prisma.customer.findFirst({
+    where: { id: customerId, ...storeFilter },
     select: {
       firstVisitAt: true,
       lastVisitAt: true,
@@ -140,10 +142,11 @@ export async function getCustomerTags(customerId: string): Promise<CustomerTag[]
  * Compute suggested talking script based on customer tags and data.
  */
 export async function getCustomerScript(customerId: string): Promise<string[]> {
-  await requireStaffSession();
+  const user = await requireStaffSession();
+  const storeFilter = getStoreFilter(user);
 
-  const customer = await prisma.customer.findUnique({
-    where: { id: customerId },
+  const customer = await prisma.customer.findFirst({
+    where: { id: customerId, ...storeFilter },
     select: {
       name: true,
       lastVisitAt: true,

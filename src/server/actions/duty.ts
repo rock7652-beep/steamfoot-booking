@@ -12,6 +12,7 @@ import {
 } from "@/lib/validators/duty";
 import { generateSlots } from "@/lib/slot-generator";
 import { revalidateDuty } from "@/lib/revalidation";
+import { assertStoreAccess, getStoreFilter } from "@/lib/manager-visibility";
 import type { ActionResult } from "@/types";
 
 // ============================================================
@@ -111,6 +112,7 @@ export async function upsertDutyAssignment(
         participationType: data.participationType as any,
         notes: data.notes,
         createdByStaffId: user.staffId,
+        storeId: user.storeId ?? "default-store",
       },
       update: {
         dutyRole: data.dutyRole as any,
@@ -175,6 +177,7 @@ export async function batchCreateDutyAssignments(
           dutyRole: data.dutyRole as any,
           participationType: data.participationType as any,
           createdByStaffId: user.staffId,
+          storeId: user.storeId ?? "default-store",
         },
         update: {
           dutyRole: data.dutyRole as any,
@@ -199,7 +202,7 @@ export async function copySlotToAllSlots(
   input: { date: string; sourceSlotTime: string }
 ): Promise<ActionResult<{ copiedCount: number }>> {
   try {
-    await requirePermission("duty.manage");
+    const user = await requirePermission("duty.manage");
     const data = copySlotToAllSlotsSchema.parse(input);
 
     const dateObj = new Date(data.date + "T00:00:00Z");
@@ -242,6 +245,7 @@ export async function copySlotToAllSlots(
             participationType: src.participationType,
             notes: src.notes,
             createdByStaffId: src.createdByStaffId,
+            storeId: src.storeId ?? user.storeId ?? "default-store",
           });
         }
       }
@@ -266,7 +270,7 @@ export async function copyFromPreviousBusinessDay(
   input: { targetDate: string }
 ): Promise<ActionResult<{ sourceDate: string; copiedCount: number }>> {
   try {
-    await requirePermission("duty.manage");
+    const user = await requirePermission("duty.manage");
     const data = copyFromPreviousBusinessDaySchema.parse(input);
 
     const targetDateObj = new Date(data.targetDate + "T00:00:00Z");
@@ -317,6 +321,7 @@ export async function copyFromPreviousBusinessDay(
         participationType: a.participationType,
         notes: a.notes,
         createdByStaffId: a.createdByStaffId,
+        storeId: user.storeId ?? "default-store",
       }));
 
     if (creates.length > 0) {
@@ -338,7 +343,7 @@ export async function copyToWeekDates(
   input: { sourceDate: string; targetDates: string[] }
 ): Promise<ActionResult<{ copiedCount: number }>> {
   try {
-    await requirePermission("duty.manage");
+    const user = await requirePermission("duty.manage");
     const data = copyToWeekDatesSchema.parse(input);
 
     const sourceDateObj = new Date(data.sourceDate + "T00:00:00Z");
@@ -376,6 +381,7 @@ export async function copyToWeekDates(
           participationType: a.participationType,
           notes: a.notes,
           createdByStaffId: a.createdByStaffId,
+          storeId: user.storeId ?? "default-store",
         }));
 
       if (creates.length > 0) {
@@ -397,7 +403,12 @@ export async function copyToWeekDates(
 
 export async function deleteDutyAssignment(id: string): Promise<ActionResult> {
   try {
-    await requirePermission("duty.manage");
+    const user = await requirePermission("duty.manage");
+
+    const assignment = await prisma.dutyAssignment.findUnique({ where: { id } });
+    if (!assignment) return { success: false, error: "值班安排不存在" };
+    assertStoreAccess(user, assignment.storeId);
+
     await prisma.dutyAssignment.delete({ where: { id } });
     revalidateDuty();
     return { success: true, data: undefined };
@@ -415,10 +426,10 @@ export async function clearSlotDutyAssignments(
   slotTime: string
 ): Promise<ActionResult> {
   try {
-    await requirePermission("duty.manage");
+    const user = await requirePermission("duty.manage");
     const dateObj = new Date(date + "T00:00:00Z");
     await prisma.dutyAssignment.deleteMany({
-      where: { date: dateObj, slotTime },
+      where: { date: dateObj, slotTime, ...getStoreFilter(user) },
     });
     revalidateDuty();
     return { success: true, data: undefined };
@@ -433,10 +444,10 @@ export async function clearSlotDutyAssignments(
 
 export async function clearDateDutyAssignments(date: string): Promise<ActionResult> {
   try {
-    await requirePermission("duty.manage");
+    const user = await requirePermission("duty.manage");
     const dateObj = new Date(date + "T00:00:00Z");
     await prisma.dutyAssignment.deleteMany({
-      where: { date: dateObj },
+      where: { date: dateObj, ...getStoreFilter(user) },
     });
     revalidateDuty();
     return { success: true, data: undefined };

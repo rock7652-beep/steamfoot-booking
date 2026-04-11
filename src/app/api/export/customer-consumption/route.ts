@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { checkPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
+import { getStoreFilter } from "@/lib/manager-visibility";
 
 function toCsv(rows: string[][]): string {
   return rows.map((row) => row.map((cell) => {
@@ -30,9 +31,11 @@ export async function GET(req: NextRequest) {
 
   if (!customerId) return new NextResponse("customerId required", { status: 400 });
 
+  const user = session.user;
+
   // Permission check
   const customer = await prisma.customer.findUnique({
-    where: { id: customerId },
+    where: { id: customerId, ...getStoreFilter(user) },
     select: { id: true, name: true, phone: true, assignedStaffId: true },
   });
   if (!customer) return new NextResponse("Not found", { status: 404 });
@@ -54,7 +57,7 @@ export async function GET(req: NextRequest) {
   }
 
   const transactions = await prisma.transaction.findMany({
-    where: { customerId, ...dateFilter },
+    where: { customerId, ...dateFilter, ...getStoreFilter(user) },
     include: { revenueStaff: { select: { displayName: true } } },
     orderBy: { createdAt: "desc" },
   });

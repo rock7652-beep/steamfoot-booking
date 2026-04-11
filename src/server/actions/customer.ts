@@ -12,6 +12,7 @@ import {
 } from "@/lib/validators/customer";
 import type { ActionResult } from "@/types";
 import { checkCustomerLimit } from "@/lib/shop-config";
+import { assertStoreAccess } from "@/lib/manager-visibility";
 import type { z } from "zod";
 
 // ============================================================
@@ -72,6 +73,7 @@ export async function createCustomer(
         assignedStaffId: assignedStaffId || null,
         customerStage: "LEAD",
         selfBookingEnabled: false,
+        storeId: user.storeId ?? "default-store",
       },
     });
 
@@ -98,6 +100,7 @@ export async function updateCustomer(
       where: { id: customerId },
     });
     if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
+    assertStoreAccess(user, customer.storeId);
 
     // 同店員工皆可操作（權限已由 requirePermission 把關）
     // assignedStaffId 僅用於歸屬/報表，不限制寫入操作
@@ -130,13 +133,14 @@ export async function transferCustomer(
   input: z.infer<typeof transferCustomerSchema>
 ): Promise<ActionResult<void>> {
   try {
-    await requirePermission("customer.assign");
+    const user = await requirePermission("customer.assign");
     const data = transferCustomerSchema.parse(input);
 
     const customer = await prisma.customer.findUnique({
       where: { id: data.customerId },
     });
     if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
+    assertStoreAccess(user, customer.storeId);
     if (customer.assignedStaffId === data.newStaffId) {
       throw new AppError("VALIDATION", "顧客已隸屬於該店長");
     }
@@ -201,9 +205,10 @@ export async function setSelfBookingEnabled(
 
     const customer = await prisma.customer.findUnique({ where: { id: customerId } });
     if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
+    assertStoreAccess(user, customer.storeId);
 
     // Only owner can manually toggle; manager can't disable once enabled
-    if (user.role !== "OWNER") {
+    if (user.role !== "ADMIN") {
       throw new AppError("FORBIDDEN", "此功能僅限店主使用");
     }
 

@@ -1,0 +1,15 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "dev",
+      "runtimeExecutable": "/Users/huangyenlu/.nvm/versions/node/v20.20.2/bin/npx",
+      "runtimeArgs": ["next", "dev", "--port", "3001"],
+      "port": 3001,
+      "autoPort": true,
+      "env": {
+        "PATH": "/Users/huangyenlu/.nvm/versions/node/v20.20.2/bin:/usr/bin:/bin"
+      }
+    }
+  ]
+}

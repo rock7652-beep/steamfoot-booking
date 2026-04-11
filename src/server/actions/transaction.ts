@@ -9,6 +9,7 @@ import { FEATURES } from "@/lib/shop-plan";
 import { revalidateTransactions } from "@/lib/revalidation";
 import type { ActionResult } from "@/types";
 import type { PaymentMethod, TransactionType } from "@prisma/client";
+import { assertStoreAccess } from "@/lib/manager-visibility";
 
 // ============================================================
 // Validators
@@ -67,9 +68,10 @@ export async function createTransaction(
     // 確認顧客存在
     const customer = await prisma.customer.findUnique({
       where: { id: data.customerId },
-      select: { id: true, assignedStaffId: true },
+      select: { id: true, assignedStaffId: true, storeId: true },
     });
     if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
+    assertStoreAccess(user, customer.storeId);
 
     // 若指定 wallet，確認其存在且屬於該顧客
     if (data.customerPlanWalletId) {
@@ -91,6 +93,7 @@ export async function createTransaction(
         amount: data.amount,
         quantity: data.quantity ?? null,
         note: data.note ?? null,
+        storeId: user.storeId ?? "default-store",
       },
     });
 
@@ -113,7 +116,7 @@ export async function refundTransaction(
   input: z.infer<typeof refundTransactionSchema>
 ): Promise<ActionResult<{ refundId: string }>> {
   try {
-    await requirePermission("transaction.create");
+    const user = await requirePermission("transaction.create");
     const data = refundTransactionSchema.parse(input);
 
     const original = await prisma.transaction.findUnique({
@@ -121,6 +124,7 @@ export async function refundTransaction(
       include: { customer: { select: { assignedStaffId: true } } },
     });
     if (!original) throw new AppError("NOT_FOUND", "原始交易不存在");
+    assertStoreAccess(user, original.storeId);
 
     if (original.transactionType === "REFUND") {
       throw new AppError("BUSINESS_RULE", "不能對退款交易再次退款");
@@ -139,6 +143,7 @@ export async function refundTransaction(
         paymentMethod: data.paymentMethod as PaymentMethod,
         amount: -data.amount, // 負數
         note: data.note ? `[退款] ${data.note}` : `[退款] 原交易 ${originalTransactionId}`,
+        storeId: user.storeId ?? "default-store",
       },
     });
 
@@ -164,9 +169,10 @@ export async function createAdjustment(
 
     const customer = await prisma.customer.findUnique({
       where: { id: data.customerId },
-      select: { id: true, assignedStaffId: true },
+      select: { id: true, assignedStaffId: true, storeId: true },
     });
     if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
+    assertStoreAccess(user, customer.storeId);
 
     const tx = await prisma.transaction.create({
       data: {
@@ -177,6 +183,7 @@ export async function createAdjustment(
         paymentMethod: "CASH",
         amount: data.amount,
         note: data.note,
+        storeId: user.storeId ?? "default-store",
       },
     });
 

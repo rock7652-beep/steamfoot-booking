@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { requireSession, requireStaffSession } from "@/lib/session";
 import { AppError } from "@/lib/errors";
+import { getStoreFilter } from "@/lib/manager-visibility";
 import type { CustomerStage } from "@prisma/client";
 
 export interface ListCustomersOptions {
@@ -23,6 +24,7 @@ export async function listCustomers(options: ListCustomersOptions = {}) {
 
   // 不再依 Manager 隔離 — 所有店長都能看全部顧客
   const where = {
+    ...getStoreFilter(user),
     ...(stage ? { customerStage: stage } : {}),
     ...(assignedStaffId ? { assignedStaffId } : {}),
     ...(search
@@ -77,12 +79,13 @@ export async function listCustomers(options: ListCustomersOptions = {}) {
 // ============================================================
 
 export async function searchCustomers(query: string, limit = 10) {
-  await requireStaffSession();
+  const user = await requireStaffSession();
 
   if (!query || query.length < 1) return [];
 
   return prisma.customer.findMany({
     where: {
+      ...getStoreFilter(user),
       OR: [
         { name: { contains: query, mode: "insensitive" } },
         { phone: { contains: query } },
@@ -116,8 +119,8 @@ export async function searchCustomers(query: string, limit = 10) {
 export async function getCustomerDetail(customerId: string) {
   const user = await requireSession();
 
-  const customer = await prisma.customer.findUnique({
-    where: { id: customerId },
+  const customer = await prisma.customer.findFirst({
+    where: { id: customerId, ...getStoreFilter(user) },
     include: {
       user: { select: { email: true, image: true, status: true } },
       assignedStaff: {

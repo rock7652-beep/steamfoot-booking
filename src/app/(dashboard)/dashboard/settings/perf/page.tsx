@@ -22,7 +22,7 @@ const CACHE_LABEL: Record<string, string> = {
 
 export default async function PerfPage() {
   const user = await getCurrentUser();
-  if (!user || user.role !== "OWNER") {
+  if (!user || user.role !== "ADMIN") {
     redirect("/dashboard");
   }
 

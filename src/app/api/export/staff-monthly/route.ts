@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import { checkPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
 import { toLocalMonthStr, monthRange } from "@/lib/date-utils";
-import { getManagerReadFilter } from "@/lib/manager-visibility";
+import { getManagerReadFilter, getStoreFilter } from "@/lib/manager-visibility";
 
 function toCsv(rows: string[][]): string {
   return rows
@@ -27,6 +27,9 @@ export async function GET(req: NextRequest) {
   const allowed = await checkPermission(session.user.role, session.user.staffId, "report.export");
   if (!allowed) return new NextResponse("Forbidden", { status: 403 });
 
+  const user = session.user;
+  const storeFilter = getStoreFilter(user);
+
   const { searchParams } = req.nextUrl;
   const month = searchParams.get("month") ?? toLocalMonthStr();
 
@@ -42,6 +45,7 @@ export async function GET(req: NextRequest) {
       by: ["revenueStaffId", "transactionType"],
       where: {
         ...revenueFilter,
+        ...storeFilter,
         transactionType: { in: REVENUE_TYPES as never },
         createdAt: { gte: monthStart, lte: monthEnd },
       },
@@ -51,6 +55,7 @@ export async function GET(req: NextRequest) {
       by: ["revenueStaffId"],
       where: {
         ...revenueFilter,
+        ...storeFilter,
         bookingStatus: "COMPLETED",
         bookingDate: { gte: monthStart, lte: monthEnd },
       },
@@ -59,6 +64,7 @@ export async function GET(req: NextRequest) {
     prisma.spaceFeeRecord.findMany({
       where: {
         ...staffIdFilter,
+        ...storeFilter,
         month,
       },
       select: { staffId: true, feeAmount: true },

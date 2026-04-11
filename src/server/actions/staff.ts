@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { hashSync } from "bcryptjs";
 import { prisma } from "@/lib/db";
-import { requireOwnerSession } from "@/lib/session";
+import { requireAdminSession } from "@/lib/session";
 import { AppError, handleActionError } from "@/lib/errors";
 import { requireFeature } from "@/lib/shop-config";
 import { FEATURES } from "@/lib/shop-plan";
@@ -25,7 +25,7 @@ const createStaffSchema = z.object({
   colorCode: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
   monthlySpaceFee: z.number().int().min(0).optional(),
   spaceFeeEnabled: z.boolean().optional(),
-  role: z.enum(["STORE_MANAGER", "BRANCH_MANAGER", "INTERN_MANAGER"]).optional(),
+  role: z.enum(["STORE_MANAGER", "COACH"]).optional(),
 });
 
 const updateStaffSchema = z.object({
@@ -33,7 +33,7 @@ const updateStaffSchema = z.object({
   colorCode: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
   monthlySpaceFee: z.number().int().min(0).optional(),
   spaceFeeEnabled: z.boolean().optional(),
-  role: z.enum(["STORE_MANAGER", "BRANCH_MANAGER", "INTERN_MANAGER"]).optional(),
+  role: z.enum(["STORE_MANAGER", "COACH"]).optional(),
 });
 
 // ============================================================
@@ -44,7 +44,7 @@ export async function createStaff(
   input: z.infer<typeof createStaffSchema>
 ): Promise<ActionResult<{ staffId: string }>> {
   try {
-    await requireOwnerSession();
+    await requireAdminSession();
     await requireFeature(FEATURES.STAFF_MANAGEMENT);
     const data = createStaffSchema.parse(input);
 
@@ -69,6 +69,7 @@ export async function createStaff(
             isOwner: false,
             monthlySpaceFee: data.monthlySpaceFee ?? 0,
             spaceFeeEnabled: data.spaceFeeEnabled ?? true,
+            storeId: "default-store",
           },
         },
       },
@@ -96,7 +97,7 @@ export async function updateStaff(
   input: z.infer<typeof updateStaffSchema>
 ): Promise<ActionResult<void>> {
   try {
-    await requireOwnerSession();
+    await requireAdminSession();
     const data = updateStaffSchema.parse(input);
 
     const staff = await prisma.staff.findUnique({
@@ -134,7 +135,7 @@ export async function updateStaff(
 
 export async function deactivateStaff(staffId: string): Promise<ActionResult<void>> {
   try {
-    await requireOwnerSession();
+    await requireAdminSession();
 
     const staff = await prisma.staff.findUnique({ where: { id: staffId } });
     if (!staff) throw new AppError("NOT_FOUND", "員工不存在");
@@ -158,7 +159,7 @@ export async function deactivateStaff(staffId: string): Promise<ActionResult<voi
 
 export async function activateStaff(staffId: string): Promise<ActionResult<void>> {
   try {
-    await requireOwnerSession();
+    await requireAdminSession();
 
     const staff = await prisma.staff.findUnique({ where: { id: staffId } });
     if (!staff) throw new AppError("NOT_FOUND", "員工不存在");

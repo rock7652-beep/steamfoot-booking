@@ -1,0 +1,39 @@
+{
+  "executedAt": "2026-04-06T07:15:11.340Z",
+  "counts": {
+    "reconciliationChecks": 15,
+    "reconciliationRuns": 3,
+    "staffPermissions": 31,
+    "reminders": 0,
+    "makeupCredits": 0,
+    "transactions": 12,
+    "bookings": 14,
+    "wallets": 9,
+    "customers": 13,
+    "accounts": 1,
+    "sessions": 0,
+    "spaceFees": 0,
+    "cashbook": 0,
+    "auditLogs": 0,
+    "staff": 3,
+    "users": 5
+  },
+  "log": [
+    "刪除 ReconciliationCheck: 15",
+    "刪除 ReconciliationRun: 3",
+    "刪除 StaffPermission: 31",
+    "刪除 Reminder: 0",
+    "刪除 MakeupCredit: 0",
+    "刪除 Transaction: 12",
+    "刪除 Booking: 14",
+    "刪除 CustomerPlanWallet: 9",
+    "解除 Customer「Hi.我是彥陸」的 userId 關聯",
+    "刪除 Customer: 13",
+    "刪除 Account (OAuth): 1",
+    "刪除 Session: 0",
+    "刪除 Staff: 3",
+    "刪除 User: 5",
+    "升級 User 彥陸 → role=OWNER",
+    "升級 Staff 彥陸 → isOwner=true"
+  ]
+}

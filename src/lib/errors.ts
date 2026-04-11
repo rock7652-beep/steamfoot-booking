@@ -41,6 +41,26 @@ export function handleActionError(e: unknown): ActionResult<never> {
   ) {
     throw e;
   }
-  console.error("[Server Action Error]", e);
+
+  // Categorized Prisma / DB error logging
+  const msg = e instanceof Error ? e.message : String(e);
+  if (msg.includes("Null constraint violation")) {
+    console.error("[Server Action Error][MISSING_FIELD]", msg, e);
+    return { success: false, error: "資料欄位缺失，請聯繫管理員（Null constraint）" };
+  }
+  if (msg.includes("Foreign key constraint") || msg.includes("violates foreign key")) {
+    console.error("[Server Action Error][FK_VIOLATION]", msg, e);
+    return { success: false, error: "關聯資料不存在，請確認資料完整性" };
+  }
+  if (msg.includes("Unique constraint")) {
+    console.error("[Server Action Error][UNIQUE_VIOLATION]", msg, e);
+    return { success: false, error: "資料重複，請勿重複操作" };
+  }
+  if (msg.includes("FORBIDDEN")) {
+    console.error("[Server Action Error][PERMISSION]", msg);
+    return { success: false, error: "權限不足，無法執行此操作" };
+  }
+
+  console.error("[Server Action Error][UNKNOWN]", e);
   return { success: false, error: "系統錯誤，請稍後再試" };
 }

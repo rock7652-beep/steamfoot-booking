@@ -22,7 +22,7 @@ interface PageProps {
 
 export default async function EditStaffPage({ params }: PageProps) {
   const user = await getCurrentUser();
-  if (!user || user.role !== "OWNER") notFound();
+  if (!user || user.role !== "ADMIN") notFound();
 
   const { id } = await params;
 
@@ -43,7 +43,7 @@ export default async function EditStaffPage({ params }: PageProps) {
       colorCode: formData.get("colorCode") as string,
       monthlySpaceFee: monthlyFeeRaw ? Number(monthlyFeeRaw) : 0,
       spaceFeeEnabled: formData.get("spaceFeeEnabled") === "true",
-      ...(roleValue ? { role: roleValue as "STORE_MANAGER" | "BRANCH_MANAGER" | "INTERN_MANAGER" } : {}),
+      ...(roleValue ? { role: roleValue as "STORE_MANAGER" | "COACH" } : {}),
     });
 
     if (!result.success) {
@@ -94,12 +94,11 @@ export default async function EditStaffPage({ params }: PageProps) {
               <label className="block text-sm font-medium text-earth-700">角色</label>
               <select
                 name="role"
-                defaultValue={staff.user.role === "MANAGER" ? "STORE_MANAGER" : staff.user.role}
+                defaultValue={staff.user.role}
                 className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
               >
                 <option value="STORE_MANAGER">店長（主要經營者）</option>
-                <option value="BRANCH_MANAGER">分店長（合作協助經營者）</option>
-                <option value="INTERN_MANAGER">實習店長（學習階段）</option>
+                <option value="COACH">教練（合作協助經營者）</option>
               </select>
               <p className="mt-1 text-xs text-earth-400">變更角色不會自動調整已設定的權限，請在下方手動調整</p>
             </div>

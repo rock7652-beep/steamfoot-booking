@@ -15,6 +15,7 @@ declare module "next-auth" {
     role: UserRole;
     staffId: string | null;
     customerId: string | null;
+    storeId: string | null;
   }
   interface Session {
     user: {
@@ -24,6 +25,7 @@ declare module "next-auth" {
       role: UserRole;
       staffId: string | null;
       customerId: string | null;
+      storeId: string | null;
     };
   }
 }
@@ -33,6 +35,7 @@ interface AppJWT {
   role: UserRole;
   staffId: string | null;
   customerId: string | null;
+  storeId: string | null;
 }
 
 // ============================================================
@@ -69,8 +72,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             passwordHash: true,
             role: true,
             status: true,
-            staff: { select: { id: true } },
-            customer: { select: { id: true } },
+            staff: { select: { id: true, storeId: true } },
+            customer: { select: { id: true, storeId: true } },
           },
         });
 
@@ -87,6 +90,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           role: user.role,
           staffId: user.staff?.id ?? null,
           customerId: user.customer?.id ?? null,
+          storeId: user.staff?.storeId ?? user.customer?.storeId ?? null,
         };
       },
     }),
@@ -114,7 +118,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             passwordHash: true,
             role: true,
             status: true,
-            customer: { select: { id: true } },
+            customer: { select: { id: true, storeId: true } },
           },
         });
 
@@ -131,6 +135,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           role: user.role,
           staffId: null,
           customerId: user.customer?.id ?? null,
+          storeId: user.customer?.storeId ?? null,
         };
       },
     }),
@@ -210,6 +215,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           role: "CUSTOMER" as UserRole,
           staffId: null,
           customerId: null,
+          storeId: null,
         };
       },
     } satisfies Provider,
@@ -360,6 +366,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             email: oauthEmail,
             authSource: provider === "line" ? "LINE" : "GOOGLE",
             userId: newUser.id,
+            storeId: "default-store",
             ...(provider === "line" && lineUserId
               ? {
                   lineUserId,
@@ -409,34 +416,68 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     // 🔧 效能優化：只在登入時寫入 JWT，後續請求直接從 token 讀取
     // 不再每次 request 都查 DB。若需要即時反映 role 變更，使用者重新登入即可。
     async jwt({ token, user, account }) {
-      if (user) {
-        const appToken = token as unknown as AppJWT;
-        appToken.sub = user.id;
+      const appToken = token as unknown as AppJWT;
 
-        if (account?.type === "oauth" || account?.type === "oidc") {
-          // OAuth login — 一律從 DB 讀取 role/staffId/customerId
-          // 因為 signIn callback 已建立/綁定 User，DB 資料才是正確的
+      // Handle stale JWTs with deprecated role values — force re-read from DB
+      // Uses try-catch because the middleware Prisma client may not support new fields yet
+      const DEPRECATED_ROLES = ["OWNER", "BRANCH_MANAGER", "INTERN_MANAGER", "MANAGER"];
+      if (!user && appToken.role && DEPRECATED_ROLES.includes(appToken.role as string)) {
+        try {
           const dbUser = await prisma.user.findUnique({
-            where: { id: user.id! },
-            select: { role: true, staff: { select: { id: true } }, customer: { select: { id: true } } },
+            where: { id: appToken.sub! },
+            include: { staff: true, customer: true },
           });
           if (dbUser) {
             appToken.role = dbUser.role;
             appToken.staffId = dbUser.staff?.id ?? null;
             appToken.customerId = dbUser.customer?.id ?? null;
+            appToken.storeId = (dbUser.staff as any)?.storeId ?? (dbUser.customer as any)?.storeId ?? null;
+          }
+        } catch {
+          // Middleware Prisma client may be stale — just update the role from DB without storeId
+          try {
+            const dbUser = await prisma.user.findUnique({
+              where: { id: appToken.sub! },
+              select: { role: true },
+            });
+            if (dbUser) appToken.role = dbUser.role;
+          } catch {
+            // Complete failure — leave token as-is, user will need to re-login
+          }
+        }
+        return token;
+      }
+
+      if (user) {
+        appToken.sub = user.id;
+
+        if (account?.type === "oauth" || account?.type === "oidc") {
+          // OAuth login — 一律從 DB 讀取 role/staffId/customerId/storeId
+          // 因為 signIn callback 已建立/綁定 User，DB 資料才是正確的
+          const dbUser = await prisma.user.findUnique({
+            where: { id: user.id! },
+            select: { role: true, staff: { select: { id: true, storeId: true } }, customer: { select: { id: true, storeId: true } } },
+          });
+          if (dbUser) {
+            appToken.role = dbUser.role;
+            appToken.staffId = dbUser.staff?.id ?? null;
+            appToken.customerId = dbUser.customer?.id ?? null;
+            appToken.storeId = dbUser.staff?.storeId ?? dbUser.customer?.storeId ?? null;
           } else {
             // DB 查不到（不應發生）— 預設為 CUSTOMER
             console.error("[auth] jwt: DB user not found for OAuth login", { userId: user.id });
             appToken.role = "CUSTOMER";
             appToken.staffId = null;
             appToken.customerId = null;
+            appToken.storeId = null;
           }
         } else {
-          // Credentials login — authorize() 已回傳正確的 role/staffId/customerId
-          const appUser = user as { role: UserRole; staffId: string | null; customerId: string | null };
+          // Credentials login — authorize() 已回傳正確的 role/staffId/customerId/storeId
+          const appUser = user as { role: UserRole; staffId: string | null; customerId: string | null; storeId: string | null };
           appToken.role = appUser.role;
           appToken.staffId = appUser.staffId ?? null;
           appToken.customerId = appUser.customerId ?? null;
+          appToken.storeId = appUser.storeId ?? null;
         }
       }
       return token;
@@ -449,6 +490,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       session.user.role = appToken.role;
       session.user.staffId = appToken.staffId ?? null;
       session.user.customerId = appToken.customerId ?? null;
+      session.user.storeId = appToken.storeId ?? null;
       return session;
     },
   },

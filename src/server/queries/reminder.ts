@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { requireStaffSession } from "@/lib/session";
 import { toLocalDateStr } from "@/lib/date-utils";
+import { getStoreFilter } from "@/lib/manager-visibility";
 
 // ============================================================
 // ReminderRule queries
@@ -49,10 +50,11 @@ export interface ListMessageLogsOptions {
 }
 
 export async function listMessageLogs(options: ListMessageLogsOptions = {}) {
-  await requireStaffSession();
+  const user = await requireStaffSession();
+  const storeFilter = getStoreFilter(user);
   const { status, search, page = 1, pageSize = 30 } = options;
 
-  const where: Record<string, unknown> = {};
+  const where: Record<string, unknown> = { ...storeFilter };
   if (status && status !== "ALL") {
     where.status = status;
   }
@@ -83,7 +85,8 @@ export async function listMessageLogs(options: ListMessageLogsOptions = {}) {
 // ============================================================
 
 export async function getReminderStats() {
-  await requireStaffSession();
+  const user = await requireStaffSession();
+  const storeFilter = getStoreFilter(user);
   const today = toLocalDateStr();
 
   const [enabledRules, todayPending, todaySent, todayFailed] = await Promise.all([
@@ -95,6 +98,7 @@ export async function getReminderStats() {
           gte: new Date(today + "T00:00:00+08:00"),
           lt: new Date(today + "T23:59:59+08:00"),
         },
+        ...storeFilter,
       },
     }),
     prisma.messageLog.count({
@@ -104,6 +108,7 @@ export async function getReminderStats() {
           gte: new Date(today + "T00:00:00+08:00"),
           lt: new Date(today + "T23:59:59+08:00"),
         },
+        ...storeFilter,
       },
     }),
     prisma.messageLog.count({
@@ -113,6 +118,7 @@ export async function getReminderStats() {
           gte: new Date(today + "T00:00:00+08:00"),
           lt: new Date(today + "T23:59:59+08:00"),
         },
+        ...storeFilter,
       },
     }),
   ]);

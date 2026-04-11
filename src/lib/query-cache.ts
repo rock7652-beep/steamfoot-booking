@@ -21,7 +21,7 @@ import type { ShopPlan } from "@prisma/client";
 export const getCachedShopPlan = unstable_cache(
   async (): Promise<ShopPlan> => {
     const config = await prisma.shopConfig.findUnique({
-      where: { id: "default" },
+      where: { storeId: "default-store" },
       select: { plan: true },
     });
     return config?.plan ?? "FREE";

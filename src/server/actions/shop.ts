@@ -1,22 +1,23 @@
 "use server";
 
 import { prisma } from "@/lib/db";
-import { requireOwnerSession } from "@/lib/session";
+import { requireAdminSession } from "@/lib/session";
 import { revalidateDutyScheduling, revalidateShopConfig } from "@/lib/revalidation";
 import type { ShopPlan } from "@prisma/client";
 import type { ActionResult } from "@/types";
 
 const VALID_PLANS: ShopPlan[] = ["FREE", "BASIC", "PRO"];
+const DEFAULT_STORE_ID = "default-store";
 
 export async function updateDutyScheduling(
   enabled: boolean
 ): Promise<ActionResult<void>> {
   try {
-    await requireOwnerSession();
+    await requireAdminSession();
 
     await prisma.shopConfig.upsert({
-      where: { id: "default" },
-      create: { id: "default", dutySchedulingEnabled: enabled },
+      where: { storeId: DEFAULT_STORE_ID },
+      create: { storeId: DEFAULT_STORE_ID, dutySchedulingEnabled: enabled },
       update: { dutySchedulingEnabled: enabled },
     });
 
@@ -31,15 +32,15 @@ export async function updateShopPlan(
   plan: ShopPlan
 ): Promise<ActionResult<void>> {
   try {
-    await requireOwnerSession();
+    await requireAdminSession();
 
     if (!VALID_PLANS.includes(plan)) {
       return { success: false, error: "無效的方案" };
     }
 
     await prisma.shopConfig.upsert({
-      where: { id: "default" },
-      create: { id: "default", plan },
+      where: { storeId: DEFAULT_STORE_ID },
+      create: { storeId: DEFAULT_STORE_ID, plan },
       update: { plan },
     });
 

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/session";
 import { AppError } from "@/lib/errors";
+import { getStoreFilter } from "@/lib/manager-visibility";
 
 // ============================================================
 // listCustomerWallets
@@ -13,13 +14,13 @@ export async function listCustomerWallets(customerId: string) {
   const user = await requireSession();
 
   // 先取顧客做權限驗證
-  const customer = await prisma.customer.findUnique({
-    where: { id: customerId },
+  const customer = await prisma.customer.findFirst({
+    where: { id: customerId, ...getStoreFilter(user) },
     select: { id: true, assignedStaffId: true },
   });
   if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
 
-  if (user.role !== "OWNER" && user.role !== "CUSTOMER") {
+  if (user.role !== "ADMIN" && user.role !== "CUSTOMER") {
     if (!user.staffId || customer.assignedStaffId !== user.staffId) {
       throw new AppError("FORBIDDEN", "無法查看其他員工名下顧客的課程錢包");
     }
@@ -44,13 +45,13 @@ export async function listCustomerWallets(customerId: string) {
 export async function getActiveWallet(customerId: string) {
   const user = await requireSession();
 
-  const customer = await prisma.customer.findUnique({
-    where: { id: customerId },
+  const customer = await prisma.customer.findFirst({
+    where: { id: customerId, ...getStoreFilter(user) },
     select: { assignedStaffId: true },
   });
   if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
 
-  if (user.role !== "OWNER" && user.role !== "CUSTOMER") {
+  if (user.role !== "ADMIN" && user.role !== "CUSTOMER") {
     if (!user.staffId || customer.assignedStaffId !== user.staffId) {
       throw new AppError("FORBIDDEN", "無法查看其他員工名下顧客的課程錢包");
     }

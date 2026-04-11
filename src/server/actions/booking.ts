@@ -19,6 +19,7 @@ import {
 import { revalidateBookings } from "@/lib/revalidation";
 import type { ActionResult } from "@/types";
 import { checkBookingLimit } from "@/lib/shop-config";
+import { assertStoreAccess } from "@/lib/manager-visibility";
 import type { z } from "zod";
 
 // 共用 revalidate
@@ -108,6 +109,7 @@ export async function createBooking(
       },
     });
     if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
+    assertStoreAccess(user, customer.storeId);
 
     // ── 2. 權限檢查
     if (user.role === "CUSTOMER") {
@@ -216,7 +218,7 @@ export async function createBooking(
     }
 
     // ── 7.5 值班檢查：該時段須有值班人員（OWNER 可略過）
-    const skipDutyCheck = data.skipDutyCheck === true && user.role === "OWNER";
+    const skipDutyCheck = data.skipDutyCheck === true && user.role === "ADMIN";
     if (!skipDutyCheck) {
       // 先確認系統是否已啟用值班排班聯動
       const { isDutySchedulingEnabled } = await import("@/lib/shop-config");
@@ -262,12 +264,12 @@ export async function createBooking(
     }
 
     // ── 8. 決定 bookedByType / bookedByStaffId
-    let bookedByType: "CUSTOMER" | "STAFF" | "OWNER";
+    let bookedByType: "CUSTOMER" | "STAFF" | "ADMIN";
     let bookedByStaffId: string | null = null;
     if (user.role === "CUSTOMER") {
       bookedByType = "CUSTOMER";
-    } else if (user.role === "OWNER") {
-      bookedByType = "OWNER";
+    } else if (user.role === "ADMIN") {
+      bookedByType = "ADMIN";
       bookedByStaffId = user.staffId ?? null;
     } else {
       bookedByType = "STAFF";
@@ -300,6 +302,7 @@ export async function createBooking(
           makeupCreditId,
           bookingStatus: "PENDING", // 統一為「待到店」
           notes: data.notes,
+          storeId: user.storeId ?? "default-store",
         },
       });
     });
@@ -320,7 +323,7 @@ export async function updateBooking(
   input: z.infer<typeof updateBookingSchema>
 ): Promise<ActionResult<void>> {
   try {
-    await requirePermission("booking.update");
+    const user = await requirePermission("booking.update");
     const data = updateBookingSchema.parse(input);
 
     const booking = await prisma.booking.findUnique({
@@ -328,6 +331,7 @@ export async function updateBooking(
       include: { customer: true },
     });
     if (!booking) throw new AppError("NOT_FOUND", "預約不存在");
+    assertStoreAccess(user, booking.storeId);
 
     if (
       booking.bookingStatus === "COMPLETED" ||
@@ -444,6 +448,7 @@ export async function cancelBooking(
       include: { customer: true },
     });
     if (!booking) throw new AppError("NOT_FOUND", "預約不存在");
+    assertStoreAccess(user, booking.storeId);
 
     if (booking.bookingStatus === "COMPLETED")
       throw new AppError("BUSINESS_RULE", "已出席的預約無法取消");
@@ -520,6 +525,7 @@ export async function markCompleted(
       },
     });
     if (!booking) throw new AppError("NOT_FOUND", "預約不存在");
+    assertStoreAccess(user, booking.storeId);
     if (booking.bookingStatus === "COMPLETED")
       throw new AppError("VALIDATION", "已標記為出席");
     if (booking.bookingStatus === "CANCELLED")
@@ -565,6 +571,7 @@ export async function markCompleted(
             amount: 0,
             quantity: 1,
             note: `出席（${booking.bookingDate.toISOString().slice(0, 10)} ${booking.slotTime}）`,
+            storeId: user.storeId ?? "default-store",
           },
         });
 
@@ -617,14 +624,14 @@ export async function markNoShow(
   choice: NoShowChoice = "NOT_DEDUCTED_NO_MAKEUP"
 ): Promise<ActionResult<void>> {
   try {
-    await requirePermission("booking.update");
-    const user = await requireSession();
+    const user = await requirePermission("booking.update");
 
     const booking = await prisma.booking.findUnique({
       where: { id: bookingId },
       include: { customer: true, customerPlanWallet: true },
     });
     if (!booking) throw new AppError("NOT_FOUND", "預約不存在");
+    assertStoreAccess(user, booking.storeId);
     if (
       booking.bookingStatus !== "CONFIRMED" &&
       booking.bookingStatus !== "PENDING"
@@ -672,6 +679,7 @@ export async function markNoShow(
             amount: 0,
             quantity: 1,
             note: `未到扣堂（${booking.bookingDate.toISOString().slice(0, 10)} ${booking.slotTime}）`,
+            storeId: user.storeId ?? "default-store",
           },
         });
       }
@@ -713,7 +721,7 @@ export async function revertBookingStatus(
   bookingId: string
 ): Promise<ActionResult<void>> {
   try {
-    await requirePermission("booking.update");
+    const user = await requirePermission("booking.update");
 
     const booking = await prisma.booking.findUnique({
       where: { id: bookingId },
@@ -723,6 +731,7 @@ export async function revertBookingStatus(
       },
     });
     if (!booking) throw new AppError("NOT_FOUND", "預約不存在");
+    assertStoreAccess(user, booking.storeId);
 
     const st = booking.bookingStatus;
     if (st === "PENDING" || st === "CONFIRMED") {

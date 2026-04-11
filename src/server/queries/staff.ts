@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { requireStaffSession } from "@/lib/session";
 import { requirePermission } from "@/lib/permissions";
+import { getStoreFilter } from "@/lib/manager-visibility";
 import { AppError } from "@/lib/errors";
 
 // ============================================================
@@ -8,8 +9,9 @@ import { AppError } from "@/lib/errors";
 // ============================================================
 
 export async function listStaff() {
-  await requirePermission("staff.view");
+  const user = await requirePermission("staff.view");
   return prisma.staff.findMany({
+    where: { ...getStoreFilter(user) },
     include: {
       user: { select: { id: true, name: true, email: true, phone: true, status: true, role: true } },
       _count: {
@@ -25,9 +27,9 @@ export async function listStaff() {
 // ============================================================
 
 export async function listStaffSelectOptions() {
-  await requireStaffSession();
+  const user = await requireStaffSession();
   return prisma.staff.findMany({
-    where: { status: "ACTIVE" },
+    where: { status: "ACTIVE", ...getStoreFilter(user) },
     select: { id: true, displayName: true },
     orderBy: [{ isOwner: "desc" }, { createdAt: "asc" }],
   });
@@ -38,10 +40,10 @@ export async function listStaffSelectOptions() {
 // ============================================================
 
 export async function getStaffDetail(staffId: string) {
-  await requirePermission("staff.view");
+  const user = await requirePermission("staff.view");
 
-  const staff = await prisma.staff.findUnique({
-    where: { id: staffId },
+  const staff = await prisma.staff.findFirst({
+    where: { id: staffId, ...getStoreFilter(user) },
     include: {
       user: { select: { id: true, name: true, email: true, phone: true, status: true, role: true } },
       _count: {

@@ -5,42 +5,37 @@ import { prisma } from "@/lib/db";
 // 角色常數 & 輔助函式
 // ============================================================
 
-/** 所有「店員級」角色（不含 OWNER / CUSTOMER） */
+/** 所有「店員級」角色（不含 ADMIN / CUSTOMER） */
 export const STAFF_ROLES: UserRole[] = [
   "STORE_MANAGER",
-  "BRANCH_MANAGER",
-  "INTERN_MANAGER",
-  "MANAGER", // 向後相容（已棄用，等同 STORE_MANAGER）
+  "COACH",
 ];
 
 /** 角色中文標籤 */
 export const ROLE_LABELS: Record<UserRole, string> = {
-  OWNER: "系統管理者",
+  ADMIN: "系統管理者",
   STORE_MANAGER: "店長",
-  BRANCH_MANAGER: "分店長",
-  INTERN_MANAGER: "實習店長",
-  MANAGER: "店長", // 向後相容
+  COACH: "教練",
   CUSTOMER: "顧客",
 };
 
 /** 可指派給員工的角色（建立/編輯員工時選擇） */
 export const ASSIGNABLE_STAFF_ROLES: UserRole[] = [
   "STORE_MANAGER",
-  "BRANCH_MANAGER",
-  "INTERN_MANAGER",
+  "COACH",
 ];
 
-/** 判斷是否為 Owner */
+/** 判斷是否為 Admin（原 Owner） */
 export function isOwner(role: UserRole | string): boolean {
-  return role === "OWNER";
+  return role === "ADMIN";
 }
 
-/** 判斷是否為任意員工角色（含 OWNER） */
+/** 判斷是否為任意員工角色（含 ADMIN） */
 export function isStaffRole(role: UserRole | string): boolean {
-  return role === "OWNER" || (STAFF_ROLES as string[]).includes(role);
+  return role === "ADMIN" || (STAFF_ROLES as string[]).includes(role);
 }
 
-/** 判斷是否為非 Owner 的員工角色 */
+/** 判斷是否為非 Admin 的員工角色 */
 export function isNonOwnerStaff(role: UserRole | string): boolean {
   return (STAFF_ROLES as string[]).includes(role);
 }
@@ -192,8 +187,8 @@ export const DEFAULT_STORE_MANAGER_PERMISSIONS: PermissionCode[] = [
   "duty.manage",
 ];
 
-/** 分店長 預設權限（大部分日常操作） */
-export const DEFAULT_BRANCH_MANAGER_PERMISSIONS: PermissionCode[] = [
+/** 教練 預設權限（日常操作） */
+export const DEFAULT_COACH_PERMISSIONS: PermissionCode[] = [
   "customer.read",
   "customer.create",
   "customer.update",
@@ -212,34 +207,13 @@ export const DEFAULT_BRANCH_MANAGER_PERMISSIONS: PermissionCode[] = [
   "duty.read",
 ];
 
-/** 實習店長 預設權限（學習與協助） */
-export const DEFAULT_INTERN_MANAGER_PERMISSIONS: PermissionCode[] = [
-  "customer.read",
-  "customer.create",
-  "customer.update",
-  "booking.read",
-  "booking.create",
-  "transaction.read",
-  "wallet.read",
-  "wallet.create",
-  "business_hours.view",
-  "duty.read",
-];
-
-/** 向後相容：舊版 MANAGER 預設（等同店長） */
-export const DEFAULT_MANAGER_PERMISSIONS = DEFAULT_STORE_MANAGER_PERMISSIONS;
-
 /** 根據角色取得預設權限列表 */
 export function getDefaultPermissionsForRole(role: UserRole): PermissionCode[] {
   switch (role) {
     case "STORE_MANAGER":
       return DEFAULT_STORE_MANAGER_PERMISSIONS;
-    case "BRANCH_MANAGER":
-      return DEFAULT_BRANCH_MANAGER_PERMISSIONS;
-    case "INTERN_MANAGER":
-      return DEFAULT_INTERN_MANAGER_PERMISSIONS;
-    case "MANAGER":
-      return DEFAULT_STORE_MANAGER_PERMISSIONS; // 向後相容
+    case "COACH":
+      return DEFAULT_COACH_PERMISSIONS;
     default:
       return [];
   }
@@ -251,20 +225,20 @@ export function getDefaultPermissionsForRole(role: UserRole): PermissionCode[] {
 
 /**
  * 檢查某 staff 是否有某權限
- * Owner 永遠有所有權限
+ * Admin 永遠有所有權限
  */
 export async function checkPermission(
   role: UserRole,
   staffId: string | null,
   permission: PermissionCode
 ): Promise<boolean> {
-  // Owner 永遠放行
-  if (role === "OWNER") return true;
+  // Admin 永遠放行
+  if (role === "ADMIN") return true;
 
   // Customer 不在此系統中
   if (role === "CUSTOMER") return false;
 
-  // 所有員工角色（STORE_MANAGER / BRANCH_MANAGER / INTERN_MANAGER / MANAGER）查 StaffPermission 表
+  // 所有員工角色（STORE_MANAGER / COACH）查 StaffPermission 表
   if (!staffId) return false;
 
   const record = await prisma.staffPermission.findUnique({
@@ -338,7 +312,7 @@ export async function requirePermission(permission: PermissionCode) {
   const { requireStaffSession } = await import("@/lib/session");
   const { AppError } = await import("@/lib/errors");
   const user = await requireStaffSession();
-  if (user.role === "OWNER") return user;
+  if (user.role === "ADMIN") return user;
   const allowed = await checkPermission(user.role, user.staffId, permission);
   if (!allowed) throw new AppError("FORBIDDEN", "您沒有此操作的權限");
   return user;
@@ -352,17 +326,8 @@ export async function getUserPermissions(
   role: UserRole,
   staffId: string | null
 ): Promise<PermissionCode[]> {
-  if (role === "OWNER") return [...ALL_PERMISSIONS];
+  if (role === "ADMIN") return [...ALL_PERMISSIONS];
   if (!isNonOwnerStaff(role) || !staffId) return [];
   const perms = await getStaffPermissions(staffId);
   return Array.from(perms);
-}
-
-// ============================================================
-// 便捷函數（向後相容 — 已重新匯出到頂部）
-// ============================================================
-
-/** @deprecated 使用 isStaffRole() 代替 */
-export function isStaff(role: UserRole): boolean {
-  return isStaffRole(role);
 }

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { requireOwnerSession, requireStaffSession } from "@/lib/session";
+import { requireAdminSession, requireStaffSession } from "@/lib/session";
 import { requireFeature } from "@/lib/shop-config";
 import { requirePermission } from "@/lib/permissions";
 import { FEATURES } from "@/lib/shop-plan";
@@ -58,7 +58,7 @@ export async function createReminderRule(
   input: z.input<typeof createRuleSchema>
 ): Promise<ActionResult<{ ruleId: string }>> {
   try {
-    await requireOwnerSession();
+    await requireAdminSession();
     await requireFeature(FEATURES.AUTO_REMINDER);
     const data = createRuleSchema.parse(input);
 
@@ -88,7 +88,7 @@ export async function updateReminderRule(
   input: z.input<typeof updateRuleSchema>
 ): Promise<ActionResult<void>> {
   try {
-    await requireOwnerSession();
+    await requireAdminSession();
     await requireFeature(FEATURES.AUTO_REMINDER);
     const data = updateRuleSchema.parse(input);
 
@@ -109,7 +109,7 @@ export async function toggleReminderRule(
   isEnabled: boolean
 ): Promise<ActionResult<void>> {
   try {
-    await requireOwnerSession();
+    await requireAdminSession();
     await requireFeature(FEATURES.AUTO_REMINDER);
 
     await prisma.reminderRule.update({
@@ -132,7 +132,7 @@ export async function createMessageTemplate(
   input: z.input<typeof createTemplateSchema>
 ): Promise<ActionResult<{ templateId: string }>> {
   try {
-    await requireOwnerSession();
+    await requireAdminSession();
     await requireFeature(FEATURES.AUTO_REMINDER);
     const data = createTemplateSchema.parse(input);
 
@@ -165,7 +165,7 @@ export async function updateMessageTemplate(
   input: z.input<typeof updateTemplateSchema>
 ): Promise<ActionResult<void>> {
   try {
-    await requireOwnerSession();
+    await requireAdminSession();
     await requireFeature(FEATURES.AUTO_REMINDER);
     const data = updateTemplateSchema.parse(input);
 
@@ -200,7 +200,7 @@ export async function testSendLineMessage(
   templateId: string
 ): Promise<ActionResult<void>> {
   try {
-    await requireOwnerSession();
+    await requireAdminSession();
     await requireFeature(FEATURES.AUTO_REMINDER);
 
     const [customer, template, shopConfig] = await Promise.all([
@@ -209,7 +209,7 @@ export async function testSendLineMessage(
         include: { assignedStaff: true },
       }),
       prisma.messageTemplate.findUnique({ where: { id: templateId } }),
-      prisma.shopConfig.findUnique({ where: { id: "default" } }),
+      prisma.shopConfig.findUnique({ where: { storeId: "default-store" } }),
     ]);
 
     if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");

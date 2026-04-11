@@ -41,11 +41,9 @@ export const PARTICIPATION_TYPE_SHORT: Record<ParticipationType, string> = {
 // ============================================================
 
 export const DEFAULT_DUTY_ROLE_MAP: Partial<Record<UserRole, DutyRole>> = {
-  OWNER: "STORE_MANAGER",
+  ADMIN: "STORE_MANAGER",
   STORE_MANAGER: "STORE_MANAGER",
-  BRANCH_MANAGER: "BRANCH_MANAGER",
-  INTERN_MANAGER: "INTERN_COACH",
-  MANAGER: "STORE_MANAGER", // legacy
+  COACH: "BRANCH_MANAGER",
 };
 
 // ============================================================

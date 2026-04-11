@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/session";
 import { getNowTaipeiHHmm, toLocalDateStr } from "@/lib/date-utils";
 import { generateSlots } from "@/lib/slot-generator";
+import { getStoreFilter } from "@/lib/manager-visibility";
 import type { SlotAvailability } from "@/types";
 
 // ============================================================
@@ -101,7 +102,7 @@ export async function fetchMonthAvailability(
 ): Promise<{
   days: Record<string, { totalCapacity: number; totalBooked: number; slots: MonthSlotInfo[] }>;
 }> {
-  await requireSession();
+  const user = await requireSession();
 
   const startDate = new Date(Date.UTC(year, month - 1, 1));
   const endDate = new Date(Date.UTC(year, month, 0));
@@ -152,6 +153,7 @@ export async function fetchMonthAvailability(
     where: {
       bookingDate: { gte: startDate, lte: endDate },
       bookingStatus: { in: ["PENDING", "CONFIRMED"] },
+      ...getStoreFilter(user),
     },
     _sum: { people: true },
   });
@@ -243,7 +245,7 @@ export async function fetchMonthAvailability(
 export async function fetchDaySlots(date: string): Promise<{
   slots: SlotAvailability[];
 }> {
-  await requireSession();
+  const user = await requireSession();
 
   const dateObj = new Date(date + "T00:00:00Z");
   const dayOfWeek = dateObj.getUTCDay();
@@ -258,6 +260,7 @@ export async function fetchDaySlots(date: string): Promise<{
       where: {
         bookingDate: dateObj,
         bookingStatus: { in: ["PENDING", "CONFIRMED"] },
+        ...getStoreFilter(user),
       },
       _sum: { people: true },
     }),

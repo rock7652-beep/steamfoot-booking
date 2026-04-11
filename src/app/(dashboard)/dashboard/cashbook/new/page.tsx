@@ -119,9 +119,9 @@ export default async function NewCashbookPage({ searchParams }: PageProps) {
           {/* Staff */}
           <div>
             <label className="block text-sm font-medium text-earth-700">
-              {user.role === "OWNER" ? "歸屬店長（選填）" : "歸屬店長（自動分配）"}
+              {user.role === "ADMIN" ? "歸屬店長（選填）" : "歸屬店長（自動分配）"}
             </label>
-            {user.role === "OWNER" ? (
+            {user.role === "ADMIN" ? (
               <select
                 name="staffId"
                 className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"

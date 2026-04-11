@@ -22,7 +22,7 @@ export async function listCashbookEntries(options: ListCashbookOptions = {}) {
   const { dateFrom, dateTo, type, staffId, page = 1, pageSize = 30 } = options;
 
   // Manager 篩選（讀取型：受 visibility mode 控制）
-  const visibilityFilter = getManagerReadFilter(user.role, user.staffId, "staffId");
+  const visibilityFilter = getManagerReadFilter(user.role, user.staffId, "staffId", user.storeId);
   const staffFilter = Object.keys(visibilityFilter).length > 0
     ? visibilityFilter
     : staffId
@@ -66,7 +66,7 @@ export async function listCashbookEntries(options: ListCashbookOptions = {}) {
 export async function getDailySummary(date: string) {
   const user = await requireStaffSession();
 
-  const staffFilter = getManagerReadFilter(user.role, user.staffId, "staffId");
+  const staffFilter = getManagerReadFilter(user.role, user.staffId, "staffId", user.storeId);
 
   const dayStart = new Date(date + "T00:00:00Z");
   const dayEnd = new Date(date + "T23:59:59Z");
@@ -106,7 +106,7 @@ export async function getMonthlySummary(month: string) {
   // month: "YYYY-MM"
   const user = await requireStaffSession();
 
-  const staffFilter = getManagerReadFilter(user.role, user.staffId, "staffId");
+  const staffFilter = getManagerReadFilter(user.role, user.staffId, "staffId", user.storeId);
 
   const [year, mon] = month.split("-").map(Number);
   const monthStart = new Date(Date.UTC(year, mon - 1, 1));
