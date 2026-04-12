@@ -9,7 +9,7 @@ import { PlanBadge, LockedNavItem, TrialProgressBar } from "@/components/feature
 import { DashboardBreadcrumb } from "@/components/breadcrumb";
 import type { TrialStatus } from "@/lib/shop-config";
 import { hasFeature, type Feature, FEATURES } from "@/lib/shop-plan";
-import { hasFeature as hasPricingFeature, FEATURES as FF, type FeatureKey } from "@/lib/feature-flags";
+
 import { APP_VERSION } from "@/lib/version";
 import type { ShopPlan, PricingPlan } from "@prisma/client";
 import StoreSwitcher from "@/components/store-switcher";
@@ -385,6 +385,16 @@ export default function DashboardShell({
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  // 左上角顯示目前店名（ADMIN 切店時動態更新）
+  const headerTitle = (() => {
+    if (isOwner && storeOptions && storeOptions.length > 1) {
+      if (activeStoreId === null || activeStoreId === undefined) return "全部分店";
+      const current = storeOptions.find((s) => s.id === activeStoreId);
+      return current?.name ?? "蒸足管理";
+    }
+    return "蒸足管理";
+  })();
+
   // Determine which groups have visible items and which group contains the active item
   const { visibleGroups, activeGroupId } = useMemo(() => {
     const groups = NAV_GROUPS.map((group) => {
@@ -598,9 +608,9 @@ export default function DashboardShell({
       >
         <div className="flex h-14 items-center justify-between border-b border-earth-200 px-3">
           {!collapsed && (
-            <div className="flex items-center gap-2">
-              <Link href="/dashboard" className="text-base font-bold text-earth-800">
-                蒸足管理
+            <div className="flex items-center gap-2 min-w-0">
+              <Link href="/dashboard" className="text-sm font-bold text-earth-800 truncate" title={headerTitle}>
+                {headerTitle}
               </Link>
               <PlanBadge plan={shopPlan} />
             </div>
@@ -608,7 +618,7 @@ export default function DashboardShell({
           <button
             type="button"
             onClick={() => setCollapsed(!collapsed)}
-            className={`rounded-lg p-1.5 text-earth-400 hover:bg-earth-100 hover:text-earth-600 ${collapsed ? "mx-auto" : ""}`}
+            className={`rounded-lg p-1.5 text-earth-400 hover:bg-earth-100 hover:text-earth-600 shrink-0 ${collapsed ? "mx-auto" : ""}`}
             aria-label={collapsed ? "展開側邊欄" : "收合側邊欄"}
           >
             <svg className={`h-4 w-4 transition-transform ${collapsed ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -616,8 +626,8 @@ export default function DashboardShell({
             </svg>
           </button>
         </div>
-        {/* Store Switcher — ADMIN only, multi-store, ALLIANCE plan */}
-        {isOwner && storeOptions && storeOptions.length > 1 && (!pricingPlan || hasPricingFeature(pricingPlan, FF.MULTI_STORE)) && (
+        {/* Store Switcher — ADMIN only, multi-store */}
+        {isOwner && storeOptions && storeOptions.length > 1 && (
           <div className="border-b border-earth-200">
             <StoreSwitcher
               stores={storeOptions}
@@ -646,9 +656,9 @@ export default function DashboardShell({
           />
           <aside className="absolute inset-y-0 left-0 flex w-64 flex-col bg-white shadow-xl">
             <div className="flex h-14 items-center justify-between border-b border-earth-200 px-4">
-              <div className="flex items-center gap-2">
-                <Link href="/dashboard" className="text-base font-bold text-earth-800">
-                  蒸足管理
+              <div className="flex items-center gap-2 min-w-0">
+                <Link href="/dashboard" className="text-sm font-bold text-earth-800 truncate" title={headerTitle}>
+                  {headerTitle}
                 </Link>
                 <PlanBadge plan={shopPlan} />
               </div>
@@ -663,8 +673,8 @@ export default function DashboardShell({
                 </svg>
               </button>
             </div>
-            {/* Store Switcher — mobile ADMIN only, ALLIANCE plan */}
-            {isOwner && storeOptions && storeOptions.length > 1 && (!pricingPlan || hasPricingFeature(pricingPlan, FF.MULTI_STORE)) && (
+            {/* Store Switcher — mobile ADMIN only */}
+            {isOwner && storeOptions && storeOptions.length > 1 && (
               <div className="border-b border-earth-200">
                 <StoreSwitcher
                   stores={storeOptions}
