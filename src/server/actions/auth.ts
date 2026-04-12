@@ -2,6 +2,7 @@
 
 import { signIn, signOut } from "@/lib/auth";
 import { AuthError } from "next-auth";
+import { prisma } from "@/lib/db";
 
 // ============================================================
 // loginAction
@@ -20,11 +21,26 @@ export async function loginAction(
     return { error: "請輸入 Email 和密碼" };
   }
 
+  // 登入前先查 role，決定登入後導向
+  // CUSTOMER → /book，其他角色 → /dashboard
+  let redirectTo = "/dashboard";
+  try {
+    const user = await prisma.user.findUnique({
+      where: { email },
+      select: { role: true },
+    });
+    if (user?.role === "CUSTOMER") {
+      redirectTo = "/book";
+    }
+  } catch {
+    // DB 查詢失敗時 fallback 到 /dashboard（dashboard layout 會再 redirect）
+  }
+
   try {
     await signIn("credentials", {
       email,
       password,
-      redirectTo: "/dashboard",
+      redirectTo,
     });
   } catch (e) {
     if (e instanceof AuthError) {
