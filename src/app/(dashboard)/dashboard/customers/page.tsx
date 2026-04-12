@@ -248,7 +248,7 @@ export default async function CustomersPage({ searchParams }: PageProps) {
                   </td>
                   <td className="px-4 py-3 text-right text-xs text-earth-500">
                     {c.lastVisitAt
-                      ? new Date(c.lastVisitAt).toLocaleDateString("zh-TW")
+                      ? new Date(c.lastVisitAt).toLocaleDateString("zh-TW", { timeZone: "Asia/Taipei" })
                       : "—"}
                   </td>
                 </tr>
@@ -301,7 +301,7 @@ export default async function CustomersPage({ searchParams }: PageProps) {
                   </span>
                   <span>
                     {c.lastVisitAt
-                      ? new Date(c.lastVisitAt).toLocaleDateString("zh-TW")
+                      ? new Date(c.lastVisitAt).toLocaleDateString("zh-TW", { timeZone: "Asia/Taipei" })
                       : "—"}
                   </span>
                   {(c.email || c.user?.email) && (

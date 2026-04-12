@@ -74,6 +74,7 @@ export function OpsHistoryPopover({ module, refId }: Props) {
                       <span className="text-[10px] text-earth-400">{h.actorName}</span>
                       <span className="ml-auto text-[10px] text-earth-300">
                         {new Date(h.createdAt).toLocaleString("zh-TW", {
+                          timeZone: "Asia/Taipei",
                           month: "numeric",
                           day: "numeric",
                           hour: "2-digit",

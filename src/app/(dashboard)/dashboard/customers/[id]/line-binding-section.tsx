@@ -175,7 +175,7 @@ export function LineBindingSection({
             </span>
             {lineLinkedAt && (
               <span className="text-xs text-earth-400">
-                {new Date(lineLinkedAt).toLocaleDateString("zh-TW")} 綁定
+                {new Date(lineLinkedAt).toLocaleDateString("zh-TW", { timeZone: "Asia/Taipei" })} 綁定
               </span>
             )}
           </div>

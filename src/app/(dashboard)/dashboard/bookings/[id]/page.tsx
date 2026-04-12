@@ -250,7 +250,7 @@ export default async function BookingDetailPage({ params }: PageProps) {
                   NT$ {Number(t.amount).toLocaleString()}
                 </span>
                 <span className="text-xs text-earth-400">
-                  {new Date(t.createdAt).toLocaleDateString("zh-TW")}
+                  {new Date(t.createdAt).toLocaleDateString("zh-TW", { timeZone: "Asia/Taipei" })}
                 </span>
               </div>
             ))}

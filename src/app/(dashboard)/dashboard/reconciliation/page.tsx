@@ -66,7 +66,7 @@ export default async function ReconciliationPage({ searchParams }: PageProps) {
                 {selectedRun ? "選取的對帳結果" : "最新對帳結果"}
               </h2>
               <p className="mt-0.5 text-xs text-earth-400">
-                {new Date(displayRun.startedAt).toLocaleString("zh-TW")}
+                {new Date(displayRun.startedAt).toLocaleString("zh-TW", { timeZone: "Asia/Taipei" })}
                 <span className="ml-2">
                   {displayRun.triggeredBy === "manual" ? "手動觸發" : "排程觸發"}
                 </span>
@@ -159,7 +159,7 @@ export default async function ReconciliationPage({ searchParams }: PageProps) {
                       {config?.label}
                     </span>
                     <span className="text-xs text-earth-600">
-                      {new Date(run.startedAt).toLocaleString("zh-TW")}
+                      {new Date(run.startedAt).toLocaleString("zh-TW", { timeZone: "Asia/Taipei" })}
                     </span>
                     <span className="text-xs text-earth-400">
                       {run.triggeredBy === "manual" ? "手動" : "排程"}

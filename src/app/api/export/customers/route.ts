@@ -90,10 +90,10 @@ export async function GET() {
       activePlans || "無",
       remainingSessions.toString(),
       c._count.bookings.toString(),
-      c.lastVisitAt ? new Date(c.lastVisitAt).toLocaleDateString("zh-TW") : "",
+      c.lastVisitAt ? new Date(c.lastVisitAt).toLocaleDateString("zh-TW", { timeZone: "Asia/Taipei" }) : "",
       c.notes ?? "",
-      c.firstVisitAt ? new Date(c.firstVisitAt).toLocaleDateString("zh-TW") : "",
-      new Date(c.createdAt).toLocaleDateString("zh-TW"),
+      c.firstVisitAt ? new Date(c.firstVisitAt).toLocaleDateString("zh-TW", { timeZone: "Asia/Taipei" }) : "",
+      new Date(c.createdAt).toLocaleDateString("zh-TW", { timeZone: "Asia/Taipei" }),
     ];
   });
 

@@ -144,7 +144,7 @@ export function AlertsSection({ alerts, actionLogs, staffList }: Props) {
                     <p className="mt-0.5 text-xs text-earth-600">{alert.description}</p>
                     {log?.actorName && log.status && (
                       <p className="mt-1 text-[10px] text-earth-400">
-                        {log.actorName} · {new Date(log.updatedAt).toLocaleString("zh-TW")}
+                        {log.actorName} · {new Date(log.updatedAt).toLocaleString("zh-TW", { timeZone: "Asia/Taipei" })}
                       </p>
                     )}
                   </div>

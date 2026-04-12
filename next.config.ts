@@ -4,8 +4,16 @@ const HEALTH_TRACKER_URL = "https://health-tracker-eight-rosy.vercel.app";
 
 const nextConfig: NextConfig = {
   env: {
-    NEXT_PUBLIC_BUILD_VERSION: "2.5.0",
-    NEXT_PUBLIC_BUILD_TIME: new Date().toISOString().slice(0, 16).replace("T", " "),
+    NEXT_PUBLIC_BUILD_VERSION: "2.6.0",
+    NEXT_PUBLIC_BUILD_TIME: new Date().toLocaleString("zh-TW", {
+      timeZone: "Asia/Taipei",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }),
     NEXT_PUBLIC_BUILD_ENV:
       process.env.VERCEL_ENV === "production"
         ? "prod"

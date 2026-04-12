@@ -75,7 +75,7 @@ export async function GET(req: NextRequest) {
 
   const headers = ["日期", "類型", "金額", "付款方式", "歸屬店長", "備註"];
   const txRows = transactions.map((t) => [
-    new Date(t.createdAt).toLocaleDateString("zh-TW"),
+    new Date(t.createdAt).toLocaleDateString("zh-TW", { timeZone: "Asia/Taipei" }),
     TX_TYPE_ZH[t.transactionType] ?? t.transactionType,
     Number(t.amount).toString(),
     PAY_ZH[t.paymentMethod] ?? t.paymentMethod,

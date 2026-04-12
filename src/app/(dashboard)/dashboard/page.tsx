@@ -44,8 +44,8 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   const todayStart = today.start;
   const todayEnd = today.end;
   const todayBookingDate = bookingDateToday();
-  const todayLabel = new Date(todayStart.getTime() + 8 * 60 * 60 * 1000)
-    .toLocaleDateString("zh-TW", { month: "long", day: "numeric", weekday: "short" });
+  const todayLabel = new Date()
+    .toLocaleDateString("zh-TW", { timeZone: "Asia/Taipei", month: "long", day: "numeric", weekday: "short" });
 
   // Calendar month params
   const year = params.year ? parseInt(params.year) : parseInt(toLocalDateStr().slice(0, 4));

@@ -243,7 +243,7 @@ export function CustomerActionsSection({ actions, actionLogs, staffList }: Props
                       <p className="mt-1 rounded bg-amber-50 px-2 py-1 text-[11px] text-amber-700">
                         📝 {log.note}
                         <span className="ml-2 text-[10px] text-earth-400">
-                          — {log.actorName} · {new Date(log.updatedAt).toLocaleString("zh-TW")}
+                          — {log.actorName} · {new Date(log.updatedAt).toLocaleString("zh-TW", { timeZone: "Asia/Taipei" })}
                         </span>
                       </p>
                     )}

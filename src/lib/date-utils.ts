@@ -101,6 +101,56 @@ export function getTodayTaipeiDateStr(): string {
 }
 
 // ============================================================
+// 台灣時間顯示格式（供前端顯示用）
+// ============================================================
+
+/**
+ * 將日期格式化為台灣時間顯示字串
+ *
+ * @param date Date 物件或 ISO string
+ * @param opts 可選格式設定
+ * @returns 台灣時區的格式化時間字串
+ *
+ * @example
+ * formatTWTime(new Date())               // "2026/4/12 21:30"
+ * formatTWTime(date, { dateOnly: true })  // "2026/4/12"
+ * formatTWTime(date, { style: "short" })  // "4/12 21:30"
+ */
+export function formatTWTime(
+  date: Date | string,
+  opts?: {
+    dateOnly?: boolean;
+    style?: "full" | "short";
+  },
+): string {
+  const d = typeof date === "string" ? new Date(date) : date;
+  const options: Intl.DateTimeFormatOptions = {
+    timeZone: "Asia/Taipei",
+    ...(opts?.dateOnly
+      ? { year: "numeric", month: "numeric", day: "numeric" }
+      : opts?.style === "short"
+        ? { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }
+        : { year: "numeric", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }),
+  };
+  return d.toLocaleString("zh-TW", options);
+}
+
+/**
+ * 取得台灣時間的 "YYYY-MM-DD HH:mm" 格式字串
+ * 用於 build version、log 等需要固定格式的場景
+ */
+export function formatTWDateTime(date?: Date): string {
+  const d = date ?? new Date();
+  const local = new Date(d.getTime() + TZ_OFFSET_HOURS * 60 * 60 * 1000);
+  const y = local.getUTCFullYear();
+  const m = String(local.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(local.getUTCDate()).padStart(2, "0");
+  const h = String(local.getUTCHours()).padStart(2, "0");
+  const min = String(local.getUTCMinutes()).padStart(2, "0");
+  return `${y}-${m}-${day} ${h}:${min}`;
+}
+
+// ============================================================
 // 日期邊界（用於查詢 bookingDate 等日期欄位，存為 T00:00:00Z）
 // ============================================================
 

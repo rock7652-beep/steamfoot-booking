@@ -237,7 +237,7 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
             {transactions.map((t) => (
               <tr key={t.id} className="hover:bg-earth-50">
                 <td className="px-4 py-3 text-earth-600">
-                  {new Date(t.createdAt).toLocaleDateString("zh-TW")}
+                  {new Date(t.createdAt).toLocaleDateString("zh-TW", { timeZone: "Asia/Taipei" })}
                 </td>
                 <td className="px-4 py-3 text-earth-900">{t.customer.name}</td>
                 <td className="px-4 py-3">

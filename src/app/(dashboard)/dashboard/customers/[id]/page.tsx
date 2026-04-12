@@ -150,11 +150,11 @@ export default async function CustomerDetailPage({ params }: PageProps) {
           </div>
           <div>
             <dt className="text-earth-500">首次到店</dt>
-            <dd>{customer.firstVisitAt ? new Date(customer.firstVisitAt).toLocaleDateString("zh-TW") : "—"}</dd>
+            <dd>{customer.firstVisitAt ? new Date(customer.firstVisitAt).toLocaleDateString("zh-TW", { timeZone: "Asia/Taipei" }) : "—"}</dd>
           </div>
           <div>
             <dt className="text-earth-500">首次購課</dt>
-            <dd>{customer.convertedAt ? new Date(customer.convertedAt).toLocaleDateString("zh-TW") : "—"}</dd>
+            <dd>{customer.convertedAt ? new Date(customer.convertedAt).toLocaleDateString("zh-TW", { timeZone: "Asia/Taipei" }) : "—"}</dd>
           </div>
           {customer.notes && (
             <div className="col-span-3">
@@ -397,7 +397,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
                 return (
                 <tr key={t.id}>
                   <td className="py-2 text-earth-600">
-                    {new Date(t.createdAt).toLocaleDateString("zh-TW")}
+                    {new Date(t.createdAt).toLocaleDateString("zh-TW", { timeZone: "Asia/Taipei" })}
                   </td>
                   <td className="py-2">{TX_TYPE_LABEL[t.transactionType] ?? t.transactionType}</td>
                   <td className={`py-2 text-right font-medium ${Number(t.amount) < 0 ? "text-red-600" : "text-earth-900"}`}>

@@ -19,6 +19,7 @@ export function ReconciliationBanner({
 
   const isError = status === "error";
   const timeStr = new Date(startedAt).toLocaleString("zh-TW", {
+    timeZone: "Asia/Taipei",
     month: "numeric",
     day: "numeric",
     hour: "2-digit",
