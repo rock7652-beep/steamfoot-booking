@@ -32,11 +32,11 @@ function dateRangeBounds(startDate: string, endDate: string) {
 // ============================================================
 // monthlyStaffRevenueSummary
 // ============================================================
-export async function monthlyStaffRevenueSummary(month: string) {
+export async function monthlyStaffRevenueSummary(month: string, activeStoreId?: string | null) {
   const user = await requireStaffSession();
   const { monthStart, monthEnd } = monthRange(month);
 
-  const revenueFilter = getManagerReadFilter(user.role, user.staffId, "revenueStaffId", user.storeId);
+  const revenueFilter = getManagerReadFilter(user.role, user.staffId, "revenueStaffId", activeStoreId ?? user.storeId);
 
   const [rows, completedBookings] = await Promise.all([
     prisma.transaction.groupBy({
@@ -92,12 +92,12 @@ export async function monthlyStaffRevenueSummary(month: string) {
 // ============================================================
 // monthlyStaffNetSummary
 // ============================================================
-export async function monthlyStaffNetSummary(month: string) {
+export async function monthlyStaffNetSummary(month: string, activeStoreId?: string | null) {
   const user = await requireStaffSession();
   const { monthStart, monthEnd } = monthRange(month);
 
-  const revenueFilter = getManagerReadFilter(user.role, user.staffId, "revenueStaffId", user.storeId);
-  const staffIdFilter = getManagerReadFilter(user.role, user.staffId, "staffId", user.storeId);
+  const revenueFilter = getManagerReadFilter(user.role, user.staffId, "revenueStaffId", activeStoreId ?? user.storeId);
+  const staffIdFilter = getManagerReadFilter(user.role, user.staffId, "staffId", activeStoreId ?? user.storeId);
 
   const revenueRows = await prisma.transaction.groupBy({
     by: ["revenueStaffId"],
@@ -146,9 +146,10 @@ export async function monthlyStaffNetSummary(month: string) {
 // ============================================================
 export async function monthlyStoreSummary(
   month: string,
-  options?: { startDate?: string; endDate?: string }
+  options?: { startDate?: string; endDate?: string; activeStoreId?: string | null }
 ) {
   const user = await requireStaffSession();
+  const activeStoreId = options?.activeStoreId;
   // 如果有傳入 startDate/endDate，使用精確日期範圍；否則用月份
   const { monthStart, monthEnd } = options?.startDate && options?.endDate
     ? (() => {
@@ -157,16 +158,24 @@ export async function monthlyStoreSummary(
       })()
     : monthRange(month);
 
-  const revenueFilter = getManagerReadFilter(user.role, user.staffId, "revenueStaffId", user.storeId);
-  const staffIdFilter = getManagerReadFilter(user.role, user.staffId, "staffId", user.storeId);
-  const assignedFilter = getManagerReadFilter(user.role, user.staffId, "assignedStaffId", user.storeId);
+  const revenueFilter = getManagerReadFilter(user.role, user.staffId, "revenueStaffId", activeStoreId ?? user.storeId);
+  const staffIdFilter = getManagerReadFilter(user.role, user.staffId, "staffId", activeStoreId ?? user.storeId);
+  const assignedFilter = getManagerReadFilter(user.role, user.staffId, "assignedStaffId", activeStoreId ?? user.storeId);
+
+  // SpaceFeeRecord has no storeId — filter via staff relation instead
+  const spaceFeeFilter: Record<string, unknown> = { ...staffIdFilter };
+  if ("storeId" in spaceFeeFilter) {
+    const sid = spaceFeeFilter.storeId;
+    delete spaceFeeFilter.storeId;
+    spaceFeeFilter.staff = { storeId: sid };
+  }
 
   // All staff visible to this user
   const allStaff = await prisma.staff.findMany({
     where:
       user.role !== "ADMIN" && user.staffId && Object.keys(revenueFilter).length > 0
         ? { id: user.staffId }
-        : { status: "ACTIVE" },
+        : { status: "ACTIVE", ...(activeStoreId ? { storeId: activeStoreId } : {}) },
     select: { id: true, displayName: true },
   });
   const allStaffIds = allStaff.map((s) => s.id);
@@ -223,7 +232,7 @@ export async function monthlyStoreSummary(
     // Space fees total
     prisma.spaceFeeRecord.aggregate({
       where: {
-        ...staffIdFilter,
+        ...spaceFeeFilter,
         month,
       },
       _sum: { feeAmount: true },
@@ -231,7 +240,7 @@ export async function monthlyStoreSummary(
     // Space fees per staff
     prisma.spaceFeeRecord.findMany({
       where: {
-        ...staffIdFilter,
+        ...spaceFeeFilter,
         month,
       },
       select: { staffId: true, feeAmount: true },
@@ -343,9 +352,10 @@ export async function monthlyStoreSummary(
 // ============================================================
 export async function monthlyRevenueByCategory(
   month: string,
-  options?: { startDate?: string; endDate?: string }
+  options?: { startDate?: string; endDate?: string; activeStoreId?: string | null }
 ) {
   const user = await requireStaffSession();
+  const activeStoreId = options?.activeStoreId;
   const { monthStart, monthEnd } = options?.startDate && options?.endDate
     ? (() => {
         const { rangeStart, rangeEnd } = dateRangeBounds(options.startDate!, options.endDate!);
@@ -353,7 +363,7 @@ export async function monthlyRevenueByCategory(
       })()
     : monthRange(month);
 
-  const revenueFilter = getManagerReadFilter(user.role, user.staffId, "revenueStaffId", user.storeId);
+  const revenueFilter = getManagerReadFilter(user.role, user.staffId, "revenueStaffId", activeStoreId ?? user.storeId);
 
   const rows = await prisma.transaction.groupBy({
     by: ["revenueStaffId", "transactionType"],

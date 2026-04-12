@@ -1,4 +1,5 @@
 import { getCurrentUser } from "@/lib/session";
+import { getActiveStoreForRead } from "@/lib/store";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -32,23 +33,25 @@ export default async function OpsDashboardPage() {
   if (!user) return null;
   if (user.role !== "ADMIN") notFound();
 
+  const activeStoreId = await getActiveStoreForRead(user);
+
   const [
     today, trend7, trend30, funnel, topCustomers, segments, staffPerf,
     alerts, customerActions, staffRankings, recommendations,
     alertLogs, customerActionLogs, recommendationLogs,
     staffList, effectivenessSummary,
   ] = await Promise.all([
-    getTodaySummary(),
-    getDailyTrend(7),
-    getDailyTrend(30),
-    getOperationsFunnel(30),
-    getTopCustomers(10),
-    getCustomerSegments(),
-    getStaffPerformance(30),
-    getOpsAlerts(),
-    getCustomerActions(20),
-    getStaffRankings(30),
-    getRecommendations(),
+    getTodaySummary(activeStoreId),
+    getDailyTrend(7, activeStoreId),
+    getDailyTrend(30, activeStoreId),
+    getOperationsFunnel(30, activeStoreId),
+    getTopCustomers(10, activeStoreId),
+    getCustomerSegments(activeStoreId),
+    getStaffPerformance(30, activeStoreId),
+    getOpsAlerts(activeStoreId),
+    getCustomerActions(20, activeStoreId),
+    getStaffRankings(30, activeStoreId),
+    getRecommendations(activeStoreId),
     getOpsActionLogs("alert"),
     getOpsActionLogs("customer_action"),
     getOpsActionLogs("recommendation"),

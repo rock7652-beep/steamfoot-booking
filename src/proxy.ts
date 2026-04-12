@@ -13,6 +13,7 @@ export const proxy = auth((req: NextRequest & { auth: { user?: { role?: string }
   // ── Public routes — 任何人皆可訪問 ──
   const publicRoutes = [
     "/", "/login", "/register",
+    "/pricing",            // 公開方案頁
     "/api/auth",
     "/api/line/webhook",   // LINE Webhook（外部呼叫）
     "/api/cron",           // Vercel Cron jobs
@@ -57,13 +58,20 @@ export const proxy = auth((req: NextRequest & { auth: { user?: { role?: string }
     return response;
   }
 
-  // ── Admin routes (/dashboard/**) — 需要登入 + staff 身份 ──
+  // ── Admin routes (/dashboard/**) — 需要登入 + staff 身份 + storeId ──
   if (pathname.startsWith("/dashboard")) {
     if (!isLoggedIn) {
       return NextResponse.redirect(new URL("/login", req.url));
     }
     if (role === "CUSTOMER") {
       return NextResponse.redirect(new URL("/book", req.url));
+    }
+    // Staff 無 storeId → 強制重新登入
+    const storeId = (session?.user as { storeId?: string })?.storeId;
+    if (role && isStaffRole(role) && !storeId) {
+      const loginUrl = new URL("/login", req.url);
+      loginUrl.searchParams.set("error", "missing-store");
+      return NextResponse.redirect(loginUrl);
     }
     return NextResponse.next();
   }

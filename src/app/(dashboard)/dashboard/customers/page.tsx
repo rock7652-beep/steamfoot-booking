@@ -2,6 +2,7 @@ import { listCustomers } from "@/server/queries/customer";
 import { listStaffSelectOptions } from "@/server/queries/staff";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
+import { getActiveStoreForRead } from "@/lib/store";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -38,6 +39,7 @@ export default async function CustomersPage({ searchParams }: PageProps) {
     redirect("/dashboard");
   }
 
+  const activeStoreId = await getActiveStoreForRead(user);
   const [{ customers, total, pageSize }, staffOptions] = await Promise.all([
     listCustomers({
       stage: params.stage,
@@ -45,8 +47,9 @@ export default async function CustomersPage({ searchParams }: PageProps) {
       assignedStaffId: params.staff,
       page,
       pageSize: 20,
+      activeStoreId,
     }),
-    listStaffSelectOptions(),
+    listStaffSelectOptions(activeStoreId),
   ]);
 
   const totalPages = Math.ceil(total / pageSize);

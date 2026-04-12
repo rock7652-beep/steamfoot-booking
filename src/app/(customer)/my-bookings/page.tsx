@@ -1,7 +1,9 @@
 import { getCurrentUser } from "@/lib/session";
 import { listBookings } from "@/server/queries/booking";
+import { getHealthCardData } from "@/server/queries/health-card";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { HealthAssessmentCard } from "@/components/health-assessment-card";
 import {
   STATUS_LABEL,
   STATUS_COLOR,
@@ -21,8 +23,11 @@ export default async function MyBookingsPage({ searchParams }: PageProps) {
 
   const tab = params.tab ?? "upcoming";
 
-  // 取顧客所有預約（最新 50 筆）
-  const { bookings } = await listBookings({ pageSize: 50 });
+  // 並行取預約 + 健康卡片資料
+  const [{ bookings }, healthCard] = await Promise.all([
+    listBookings({ pageSize: 50 }),
+    getHealthCardData(user.customerId),
+  ]);
 
   // ── 依日期+時間拆分，而非僅依狀態 ──
   // upcoming = 未來 + 今日未過時段 的 PENDING/CONFIRMED
@@ -59,6 +64,13 @@ export default async function MyBookingsPage({ searchParams }: PageProps) {
           新增預約
         </Link>
       </div>
+
+      {/* Health Assessment Card */}
+      {healthCard.available && (
+        <div className="mb-5">
+          <HealthAssessmentCard score={healthCard.score} customerId={user.customerId} />
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="mb-4 flex gap-2 border-b border-earth-200">

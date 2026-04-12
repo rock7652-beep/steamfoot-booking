@@ -5,6 +5,7 @@ import { compareSync } from "bcryptjs";
 import { prisma } from "@/lib/db";
 import type { Provider } from "next-auth/providers";
 import type { UserRole } from "@prisma/client";
+import { DEFAULT_STORE_ID } from "@/lib/store";
 
 // ============================================================
 // NextAuth v5 type augmentation
@@ -366,7 +367,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             email: oauthEmail,
             authSource: provider === "line" ? "LINE" : "GOOGLE",
             userId: newUser.id,
-            storeId: "default-store",
+            storeId: DEFAULT_STORE_ID,
             ...(provider === "line" && lineUserId
               ? {
                   lineUserId,

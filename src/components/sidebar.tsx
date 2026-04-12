@@ -9,8 +9,10 @@ import { PlanBadge, LockedNavItem, TrialProgressBar } from "@/components/feature
 import { DashboardBreadcrumb } from "@/components/breadcrumb";
 import type { TrialStatus } from "@/lib/shop-config";
 import { hasFeature, type Feature, FEATURES } from "@/lib/shop-plan";
+import { hasFeature as hasPricingFeature, FEATURES as FF, type FeatureKey } from "@/lib/feature-flags";
 import { APP_VERSION } from "@/lib/version";
-import type { ShopPlan } from "@prisma/client";
+import type { ShopPlan, PricingPlan } from "@prisma/client";
+import StoreSwitcher from "@/components/store-switcher";
 
 // ============================================================
 // Types
@@ -281,6 +283,26 @@ export const NAV_GROUPS: NavGroup[] = [
           </svg>
         ),
       },
+      {
+        href: "/dashboard/upgrade-requests",
+        label: "升級申請",
+        ownerOnly: true,
+        icon: (
+          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3 4.5h14.25M3 9h9.75M3 13.5h9.75m4.5-4.5v12m0 0l-3.75-3.75M17.25 21l3.75-3.75" />
+          </svg>
+        ),
+      },
+      {
+        href: "/dashboard/system-status",
+        label: "系統狀態",
+        ownerOnly: true,
+        icon: (
+          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+          </svg>
+        ),
+      },
     ],
   },
   {
@@ -324,26 +346,40 @@ export const NAV_GROUPS: NavGroup[] = [
 // Component
 // ============================================================
 
+interface StoreOption {
+  id: string;
+  name: string;
+  isDefault: boolean;
+}
+
 interface DashboardShellProps {
   isOwner: boolean;
   permissions: string[];
   shopPlan: ShopPlan;
+  pricingPlan?: PricingPlan;
   userName: string;
   roleLabel: string;
   logoutButton: React.ReactNode;
   children: React.ReactNode;
   trialStatus?: TrialStatus;
+  /** ADMIN only — store options for switcher */
+  storeOptions?: StoreOption[];
+  /** Current active store cookie value (null = all stores) */
+  activeStoreId?: string | null;
 }
 
 export default function DashboardShell({
   isOwner,
   permissions,
   shopPlan,
+  pricingPlan,
   userName,
   roleLabel,
   logoutButton,
   children,
   trialStatus,
+  storeOptions,
+  activeStoreId,
 }: DashboardShellProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
@@ -580,6 +616,16 @@ export default function DashboardShell({
             </svg>
           </button>
         </div>
+        {/* Store Switcher — ADMIN only, multi-store, ALLIANCE plan */}
+        {isOwner && storeOptions && storeOptions.length > 1 && (!pricingPlan || hasPricingFeature(pricingPlan, FF.MULTI_STORE)) && (
+          <div className="border-b border-earth-200">
+            <StoreSwitcher
+              stores={storeOptions}
+              activeStoreId={activeStoreId ?? null}
+              collapsed={collapsed}
+            />
+          </div>
+        )}
         {renderNavGroups()}
         {/* Sidebar version footer */}
         <div className="border-t border-earth-100 px-3 py-2 text-center">
@@ -617,6 +663,15 @@ export default function DashboardShell({
                 </svg>
               </button>
             </div>
+            {/* Store Switcher — mobile ADMIN only, ALLIANCE plan */}
+            {isOwner && storeOptions && storeOptions.length > 1 && (!pricingPlan || hasPricingFeature(pricingPlan, FF.MULTI_STORE)) && (
+              <div className="border-b border-earth-200">
+                <StoreSwitcher
+                  stores={storeOptions}
+                  activeStoreId={activeStoreId ?? null}
+                />
+              </div>
+            )}
             {renderNavGroups()}
           </aside>
         </div>

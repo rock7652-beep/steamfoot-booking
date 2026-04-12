@@ -155,6 +155,76 @@ enum ShopPlan {
   PRO
 }
 
+enum PricingPlan {
+  EXPERIENCE
+  BASIC
+  GROWTH
+  ALLIANCE
+}
+
+enum UpgradeRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+  EXPIRED
+}
+
+enum StorePlanStatus {
+  TRIAL
+  ACTIVE
+  PAYMENT_PENDING
+  PAST_DUE
+  SCHEDULED_DOWNGRADE
+  CANCELLED
+  EXPIRED
+}
+
+enum BillingStatus {
+  NOT_REQUIRED
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+  WAIVED
+}
+
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVE
+  PAYMENT_PENDING
+  PAST_DUE
+  CANCELLED
+  EXPIRED
+}
+
+enum PlanChangeType {
+  TRIAL_STARTED
+  UPGRADE_APPROVED
+  DOWNGRADE_SCHEDULED
+  DOWNGRADE_EXECUTED
+  PLAN_ACTIVATED
+  PLAN_RENEWED
+  PLAN_CANCELLED
+  ADMIN_MANUAL_CHANGE
+  PAYMENT_CONFIRMED
+  PAYMENT_FAILED
+}
+
+enum RequestType {
+  UPGRADE
+  DOWNGRADE
+  TRIAL
+  RENEW
+}
+
+enum RequestSource {
+  PRICING
+  FEATURE_GATE
+  SETTINGS
+  ADMIN_CREATED
+}
+
 // ============================================================
 // Auth - NextAuth.js Models
 // ============================================================
@@ -232,12 +302,32 @@ model VerificationToken {
 // ============================================================
 
 model Store {
-  id        String   @id @default(cuid())
-  name      String
-  slug      String   @unique
-  isDefault Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id             String      @id @default(cuid())
+  name           String
+  slug           String      @unique
+  isDefault      Boolean     @default(false)
+  parentStoreId  String?
+  plan           PricingPlan @default(EXPERIENCE)
+  planStatus     StorePlanStatus @default(ACTIVE)
+  planEffectiveAt DateTime?
+  planExpiresAt   DateTime?
+  currentSubscriptionId String? @unique
+  // Override fields — 客製方案用量上限（null = 走方案預設）
+  maxStaffOverride           Int?
+  maxCustomersOverride       Int?
+  maxMonthlyBookingsOverride Int?
+  maxMonthlyReportsOverride  Int?
+  maxReminderSendsOverride   Int?
+  maxStoresOverride          Int?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  parentStore  Store?  @relation("StoreHierarchy", fields: [parentStoreId], references: [id])
+  childStores  Store[] @relation("StoreHierarchy")
+
+  currentSubscription StoreSubscription? @relation("CurrentSubscription", fields: [currentSubscriptionId], references: [id])
+  subscriptions       StoreSubscription[] @relation("StoreSubscriptions")
+  planChanges         StorePlanChange[]
 
   staff               Staff[]
   customers           Customer[]
@@ -247,6 +337,9 @@ model Store {
   cashbookEntries     CashbookEntry[]
   dutyAssignments     DutyAssignment[]
   shopConfig          ShopConfig?
+  upgradeRequests     UpgradeRequest[]
+
+  @@index([parentStoreId])
 }
 
 // ============================================================
@@ -937,4 +1030,112 @@ model ReportSnapshot {
 
   @@unique([month, type])
   @@index([month])
+}
+
+// ── 錯誤日誌（系統可觀測性）──
+model ErrorLog {
+  id        String   @id @default(cuid())
+  category  String   // DB_CONNECTION, STORE_MISSING, ENV_MISSING, EXTERNAL_API, PERMISSION, AUTH, FK_VIOLATION, MISSING_FIELD, UNIQUE_VIOLATION, UNKNOWN
+  message   String
+  userId    String?
+  storeId   String?
+  metadata  Json?    // 額外資訊（stack trace 摘要、request path 等）
+  createdAt DateTime @default(now())
+
+  @@index([category])
+  @@index([createdAt])
+  @@index([userId])
+}
+
+// ============================================================
+// UpgradeRequest（方案升級申請）
+// ============================================================
+
+model UpgradeRequest {
+  id            String               @id @default(cuid())
+  storeId       String
+  currentPlan   PricingPlan
+  requestedPlan PricingPlan
+  reason        String?
+  status        UpgradeRequestStatus @default(PENDING)
+  requestedBy   String               // userId
+  reviewedBy    String?              // admin userId
+  reviewedAt    DateTime?
+  reviewNote    String?
+  // v2 補欄位
+  requestType   RequestType          @default(UPGRADE)
+  source        RequestSource?
+  contactName   String?
+  contactPhone  String?
+  contactEmail  String?
+  billingStatus BillingStatus        @default(NOT_REQUIRED)
+  effectiveAt   DateTime?
+  expiredAt     DateTime?
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+
+  store Store @relation(fields: [storeId], references: [id])
+
+  @@index([storeId])
+  @@index([status])
+  @@index([requestedBy])
+}
+
+// ============================================================
+// StoreSubscription（店家方案訂閱主表）
+// ============================================================
+
+model StoreSubscription {
+  id              String             @id @default(cuid())
+  storeId         String
+  plan            PricingPlan
+  status          SubscriptionStatus @default(ACTIVE)
+  startedAt       DateTime           @default(now())
+  effectiveAt     DateTime?
+  expiresAt       DateTime?
+  cancelledAt     DateTime?
+  isTrial         Boolean            @default(false)
+  billingCycle    String?            // MONTHLY | YEARLY | ONE_TIME
+  billingStatus   BillingStatus      @default(NOT_REQUIRED)
+  priceAmount     Int?
+  priceCurrency   String?            @default("TWD")
+  sourceRequestId String?
+  createdBy       String?
+  note            String?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  store           Store              @relation("StoreSubscriptions", fields: [storeId], references: [id])
+  currentForStore Store?             @relation("CurrentSubscription")
+  planChanges     StorePlanChange[]
+
+  @@index([storeId])
+  @@index([status])
+}
+
+// ============================================================
+// StorePlanChange（方案異動紀錄）
+// ============================================================
+
+model StorePlanChange {
+  id              String          @id @default(cuid())
+  storeId         String
+  changeType      PlanChangeType
+  fromPlan        PricingPlan?
+  toPlan          PricingPlan
+  fromStatus      StorePlanStatus?
+  toStatus        StorePlanStatus
+  requestId       String?
+  subscriptionId  String?
+  operatorUserId  String?
+  reason          String?
+  metadataJson    Json?
+  createdAt       DateTime        @default(now())
+
+  store           Store              @relation(fields: [storeId], references: [id])
+  subscription    StoreSubscription? @relation(fields: [subscriptionId], references: [id])
+
+  @@index([storeId])
+  @@index([changeType])
+  @@index([createdAt])
 }

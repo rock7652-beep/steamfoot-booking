@@ -3,7 +3,7 @@
 import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/permissions";
 import {
-  lookupHealthProfile,
+  lookupHealthProfileSafe,
   invalidateHealthCache,
 } from "@/lib/health-service";
 import { revalidatePath } from "next/cache";
@@ -41,8 +41,8 @@ export async function tryAutoLinkHealth(customerId: string): Promise<{
       return { status: "no_email" };
     }
 
-    // 呼叫 AI 健康評估 API 查詢
-    const result = await lookupHealthProfile(customer.email, customer.phone);
+    // 呼叫 AI 健康評估 API 查詢（用 safe wrapper 避免 throw）
+    const result = await lookupHealthProfileSafe(customer.email, customer.phone, { customerId });
 
     if (!result.found || result.profiles.length === 0) {
       // 記錄為 not_found，避免重複嘗試
@@ -174,7 +174,7 @@ export async function searchHealthProfile(
   try {
     await requirePermission("customer.read");
 
-    return await lookupHealthProfile(email, phone);
+    return await lookupHealthProfileSafe(email, phone);
   } catch (error) {
     console.error("[searchHealthProfile] Error:", error);
     return { found: false, profiles: [] };

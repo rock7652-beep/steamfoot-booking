@@ -3,7 +3,8 @@
  */
 import { prisma } from "@/lib/db";
 
-type SnapshotType = "STORE_SUMMARY" | "REVENUE_BY_CATEGORY";
+/** Type can include storeId suffix, e.g. "STORE_SUMMARY:store-abc" */
+type SnapshotType = string;
 
 export async function getReportSnapshot(month: string, type: SnapshotType) {
   const snapshot = await prisma.reportSnapshot.findUnique({

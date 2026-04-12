@@ -4,6 +4,7 @@ import { checkPermission } from "@/lib/permissions";
 import { getShopPlan } from "@/lib/shop-config";
 import { FEATURES } from "@/lib/shop-plan";
 import { FeatureGate } from "@/components/feature-gate";
+import { getActiveStoreForRead } from "@/lib/store";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -50,6 +51,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
   const lastDay = new Date(year, mon, 0).getDate();
   const dateTo = `${month}-${String(lastDay).padStart(2, "0")}`;
 
+  const activeStoreId = await getActiveStoreForRead(user);
   const [{ entries, total, pageSize }, summary, shopPlan] = await Promise.all([
     listCashbookEntries({
       dateFrom,
@@ -57,8 +59,9 @@ export default async function CashbookPage({ searchParams }: PageProps) {
       type: params.type,
       page,
       pageSize: 30,
+      activeStoreId,
     }),
-    getMonthlySummary(month),
+    getMonthlySummary(month, activeStoreId),
     getShopPlan(),
   ]);
 

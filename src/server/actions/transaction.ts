@@ -10,6 +10,7 @@ import { revalidateTransactions } from "@/lib/revalidation";
 import type { ActionResult } from "@/types";
 import type { PaymentMethod, TransactionType } from "@prisma/client";
 import { assertStoreAccess } from "@/lib/manager-visibility";
+import { currentStoreId } from "@/lib/store";
 
 // ============================================================
 // Validators
@@ -93,7 +94,7 @@ export async function createTransaction(
         amount: data.amount,
         quantity: data.quantity ?? null,
         note: data.note ?? null,
-        storeId: user.storeId ?? "default-store",
+        storeId: currentStoreId(user),
       },
     });
 
@@ -143,7 +144,7 @@ export async function refundTransaction(
         paymentMethod: data.paymentMethod as PaymentMethod,
         amount: -data.amount, // 負數
         note: data.note ? `[退款] ${data.note}` : `[退款] 原交易 ${originalTransactionId}`,
-        storeId: user.storeId ?? "default-store",
+        storeId: currentStoreId(user),
       },
     });
 
@@ -183,7 +184,7 @@ export async function createAdjustment(
         paymentMethod: "CASH",
         amount: data.amount,
         note: data.note,
-        storeId: user.storeId ?? "default-store",
+        storeId: currentStoreId(user),
       },
     });
 

@@ -5,6 +5,7 @@ import { checkPermission } from "@/lib/permissions";
 import { getShopPlan } from "@/lib/shop-config";
 import { FEATURES } from "@/lib/shop-plan";
 import { FeatureGate } from "@/components/feature-gate";
+import { getActiveStoreForRead } from "@/lib/store";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -65,17 +66,19 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
   const dateFrom = params.dateFrom ?? firstDayOfMonth;
   const dateTo = params.dateTo ?? today;
 
+  const activeStoreId = await getActiveStoreForRead(user);
   const [{ transactions, total, pageSize }, staffOptions, shopPlan] = await Promise.all([
     listTransactions({
       dateFrom,
       dateTo,
       transactionType: params.transactionType,
       revenueStaffId: params.staff,
-      excludeSessionDeduction: !params.transactionType, // 預設排除 SESSION_DEDUCTION，除非使用者明確篩選類型
+      excludeSessionDeduction: !params.transactionType,
       page,
       pageSize: 30,
+      activeStoreId,
     }),
-    listStaffSelectOptions(),
+    listStaffSelectOptions(activeStoreId),
     getShopPlan(),
   ]);
 

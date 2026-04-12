@@ -7,12 +7,12 @@ import type { DutyRole, ParticipationType } from "@prisma/client";
 // getDutyByDate — 查某天的所有值班安排（含 Staff 資訊）
 // ============================================================
 
-export async function getDutyByDate(date: string) {
+export async function getDutyByDate(date: string, activeStoreId?: string | null) {
   const user = await requirePermission("duty.read");
   const dateObj = new Date(date + "T00:00:00Z");
 
   return prisma.dutyAssignment.findMany({
-    where: { date: dateObj, ...getStoreFilter(user) },
+    where: { date: dateObj, ...getStoreFilter(user, activeStoreId) },
     include: {
       staff: {
         select: {
@@ -42,18 +42,18 @@ export interface DutyWeekItem {
   participationType: ParticipationType;
 }
 
-export async function getDutyByWeek(weekStart: string): Promise<DutyWeekItem[]> {
+export async function getDutyByWeek(weekStart: string, activeStoreId?: string | null): Promise<DutyWeekItem[]> {
   const user = await requirePermission("duty.read");
-  return getDutyByDateRange(weekStart, 6, user);
+  return getDutyByDateRange(weekStart, 6, user, activeStoreId);
 }
 
 /** 查詢指定日期範圍的值班（內部用，不做權限檢查） */
-export async function getDutyByDateRange(startDateStr: string, daysSpan: number, user?: { role: string; storeId?: string | null }): Promise<DutyWeekItem[]> {
+export async function getDutyByDateRange(startDateStr: string, daysSpan: number, user?: { role: string; storeId?: string | null }, activeStoreId?: string | null): Promise<DutyWeekItem[]> {
   const startDate = new Date(startDateStr + "T00:00:00Z");
   const endDate = new Date(startDate);
   endDate.setUTCDate(endDate.getUTCDate() + daysSpan);
 
-  const storeFilter = user ? getStoreFilter(user) : {};
+  const storeFilter = user ? getStoreFilter(user, activeStoreId) : {};
 
   const rows = await prisma.dutyAssignment.findMany({
     where: {
@@ -93,7 +93,7 @@ export async function getDutyByDateRange(startDateStr: string, daysSpan: number,
 // getStaffDutyByMonth — 查某人某月的值班紀錄（報表用）
 // ============================================================
 
-export async function getStaffDutyByMonth(staffId: string, month: string) {
+export async function getStaffDutyByMonth(staffId: string, month: string, activeStoreId?: string | null) {
   const user = await requirePermission("duty.read");
 
   const [year, mon] = month.split("-").map(Number);
@@ -102,7 +102,7 @@ export async function getStaffDutyByMonth(staffId: string, month: string) {
 
   return prisma.dutyAssignment.findMany({
     where: {
-      ...getStoreFilter(user),
+      ...getStoreFilter(user, activeStoreId),
       staffId,
       date: { gte: startDate, lte: endDate },
     },
@@ -114,12 +114,12 @@ export async function getStaffDutyByMonth(staffId: string, month: string) {
 // getSlotDutyStaff — 查某天某時段的值班人員
 // ============================================================
 
-export async function getSlotDutyStaff(date: string, slotTime: string) {
+export async function getSlotDutyStaff(date: string, slotTime: string, activeStoreId?: string | null) {
   const user = await requirePermission("duty.read");
   const dateObj = new Date(date + "T00:00:00Z");
 
   return prisma.dutyAssignment.findMany({
-    where: { date: dateObj, slotTime, ...getStoreFilter(user) },
+    where: { date: dateObj, slotTime, ...getStoreFilter(user, activeStoreId) },
     include: {
       staff: {
         select: {
@@ -137,9 +137,9 @@ export async function getSlotDutyStaff(date: string, slotTime: string) {
 // getDutyCountByDate — 查某天是否有值班安排（輕量查詢）
 // ============================================================
 
-export async function getDutyCountByDate(date: string): Promise<number> {
+export async function getDutyCountByDate(date: string, activeStoreId?: string | null): Promise<number> {
   const { requireStaffSession } = await import("@/lib/session");
   const user = await requireStaffSession();
   const dateObj = new Date(date + "T00:00:00Z");
-  return prisma.dutyAssignment.count({ where: { date: dateObj, ...getStoreFilter(user) } });
+  return prisma.dutyAssignment.count({ where: { date: dateObj, ...getStoreFilter(user, activeStoreId) } });
 }

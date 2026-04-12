@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { auth } from "@/lib/auth";
 import { checkPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
 import { getStoreFilter } from "@/lib/manager-visibility";
+import { resolveActiveStoreId } from "@/lib/store";
 
 function toCsv(rows: string[][]): string {
   return rows.map((row) => row.map((cell) => {
@@ -32,10 +34,13 @@ export async function GET(req: NextRequest) {
   if (!customerId) return new NextResponse("customerId required", { status: 400 });
 
   const user = session.user;
+  const cookieStore = await cookies();
+  const cookieStoreId = cookieStore.get("active-store-id")?.value ?? null;
+  const activeStoreId = resolveActiveStoreId(user, cookieStoreId);
 
   // Permission check
   const customer = await prisma.customer.findUnique({
-    where: { id: customerId, ...getStoreFilter(user) },
+    where: { id: customerId, ...getStoreFilter(user, activeStoreId) },
     select: { id: true, name: true, phone: true, assignedStaffId: true },
   });
   if (!customer) return new NextResponse("Not found", { status: 404 });
@@ -57,13 +62,13 @@ export async function GET(req: NextRequest) {
   }
 
   const transactions = await prisma.transaction.findMany({
-    where: { customerId, ...dateFilter, ...getStoreFilter(user) },
+    where: { customerId, ...dateFilter, ...getStoreFilter(user, activeStoreId) },
     include: { revenueStaff: { select: { displayName: true } } },
     orderBy: { createdAt: "desc" },
   });
 
   const wallets = await prisma.customerPlanWallet.findMany({
-    where: { customerId },
+    where: { customerId, ...getStoreFilter(user, activeStoreId) },
     include: { plan: { select: { name: true } } },
     orderBy: { createdAt: "desc" },
   });

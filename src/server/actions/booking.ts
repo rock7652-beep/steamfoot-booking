@@ -20,6 +20,7 @@ import { revalidateBookings } from "@/lib/revalidation";
 import type { ActionResult } from "@/types";
 import { checkBookingLimit } from "@/lib/shop-config";
 import { assertStoreAccess } from "@/lib/manager-visibility";
+import { currentStoreId } from "@/lib/store";
 import type { z } from "zod";
 
 // 共用 revalidate
@@ -46,13 +47,25 @@ export async function createBooking(
     const bookingPeople = data.people ?? 1;
     const isMakeup = data.isMakeup ?? false;
 
-    // ── 0. FREE 方案預約數限制
+    // ── 0. FREE 方案預約數限制（legacy ShopPlan）
     const bookingLimit = await checkBookingLimit();
     if (!bookingLimit.allowed) {
       return {
         success: false,
         error: `體驗版預約上限 ${bookingLimit.limit} 筆已達，請升級方案以繼續新增`,
       };
+    }
+
+    // ── 0.1 PricingPlan 月度預約數限制
+    if (user.storeId) {
+      const { checkMonthlyBookingLimitOrThrow } = await import("@/lib/usage-gate");
+      const now = new Date();
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+      const monthlyCount = await prisma.booking.count({
+        where: { storeId: user.storeId, createdAt: { gte: monthStart, lte: monthEnd } },
+      });
+      await checkMonthlyBookingLimitOrThrow(monthlyCount);
     }
 
     // ── 0.5 檢查營業日 / 公休
@@ -302,7 +315,7 @@ export async function createBooking(
           makeupCreditId,
           bookingStatus: "PENDING", // 統一為「待到店」
           notes: data.notes,
-          storeId: user.storeId ?? "default-store",
+          storeId: currentStoreId(user),
         },
       });
     });
@@ -571,7 +584,7 @@ export async function markCompleted(
             amount: 0,
             quantity: 1,
             note: `出席（${booking.bookingDate.toISOString().slice(0, 10)} ${booking.slotTime}）`,
-            storeId: user.storeId ?? "default-store",
+            storeId: currentStoreId(user),
           },
         });
 
@@ -679,7 +692,7 @@ export async function markNoShow(
             amount: 0,
             quantity: 1,
             note: `未到扣堂（${booking.bookingDate.toISOString().slice(0, 10)} ${booking.slotTime}）`,
-            storeId: user.storeId ?? "default-store",
+            storeId: currentStoreId(user),
           },
         });
       }

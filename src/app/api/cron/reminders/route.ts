@@ -3,6 +3,8 @@ import { runReminders } from "@/server/reminder-engine";
 import { computeStoreSummary, computeRevenueByCategory } from "@/server/queries/report-compute";
 import { upsertReportSnapshot } from "@/server/queries/report-snapshot";
 import { toLocalDateStr } from "@/lib/date-utils";
+import { prisma } from "@/lib/db";
+import { getAllActiveStoreIds } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
 
@@ -33,27 +35,67 @@ export async function GET(request: NextRequest) {
     results.reminders = { error: error instanceof Error ? error.message : "Unknown error" };
   }
 
-  // ── 2. Report snapshot pre-compute ──
+  // ── 2. Report snapshot pre-compute (all stores) ──
   try {
-    const today = toLocalDateStr(); // "2026-04-10"
+    const today = toLocalDateStr();
     const prevMonth = getPreviousMonth(today);
-    console.log(`[Cron] Computing report snapshot for ${prevMonth}...`);
+    const storeIds = await getAllActiveStoreIds();
+    console.log(`[Cron] Computing report snapshots for ${prevMonth} across ${storeIds.length} store(s)...`);
 
-    const [storeSummary, revenueByCategory] = await Promise.all([
-      computeStoreSummary(prevMonth),
-      computeRevenueByCategory(prevMonth),
-    ]);
+    for (const sid of storeIds) {
+      const [storeSummary, revenueByCategory] = await Promise.all([
+        computeStoreSummary(prevMonth, sid),
+        computeRevenueByCategory(prevMonth, sid),
+      ]);
 
-    await Promise.all([
-      upsertReportSnapshot(prevMonth, "STORE_SUMMARY", storeSummary),
-      upsertReportSnapshot(prevMonth, "REVENUE_BY_CATEGORY", revenueByCategory),
-    ]);
+      await Promise.all([
+        upsertReportSnapshot(prevMonth, `STORE_SUMMARY:${sid}`, storeSummary),
+        upsertReportSnapshot(prevMonth, `REVENUE_BY_CATEGORY:${sid}`, revenueByCategory),
+      ]);
+    }
 
-    console.log(`[Cron] Report snapshot for ${prevMonth} saved`);
-    results.reportSnapshot = { month: prevMonth, status: "ok" };
+    console.log(`[Cron] Report snapshots for ${prevMonth} saved (${storeIds.length} stores)`);
+    results.reportSnapshot = { month: prevMonth, stores: storeIds.length, status: "ok" };
   } catch (error) {
     console.error("[Cron] Report snapshot error:", error);
     results.reportSnapshot = { error: error instanceof Error ? error.message : "Unknown error" };
+  }
+
+  // ── 3. Scheduled downgrades ──
+  try {
+    const { processScheduledDowngrades } = await import("@/server/actions/upgrade-request");
+    console.log("[Cron] Processing scheduled downgrades...");
+    const downgradeResult = await processScheduledDowngrades();
+    console.log(`[Cron] Downgrades: ${downgradeResult.processed} processed, ${downgradeResult.errors.length} errors`);
+    results.downgrades = downgradeResult;
+  } catch (error) {
+    console.error("[Cron] Downgrade error:", error);
+    results.downgrades = { error: error instanceof Error ? error.message : "Unknown error" };
+  }
+
+  // ── 4. Expired trials ──
+  try {
+    const { processExpiredTrials } = await import("@/server/actions/upgrade-request");
+    console.log("[Cron] Processing expired trials...");
+    const trialResult = await processExpiredTrials();
+    console.log(`[Cron] Trials: ${trialResult.processed} processed, ${trialResult.errors.length} errors`);
+    results.expiredTrials = trialResult;
+  } catch (error) {
+    console.error("[Cron] Trial expiry error:", error);
+    results.expiredTrials = { error: error instanceof Error ? error.message : "Unknown error" };
+  }
+
+  // ── 5. ErrorLog cleanup (30 days) ──
+  try {
+    const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const deleted = await prisma.errorLog.deleteMany({
+      where: { createdAt: { lt: cutoff } },
+    });
+    console.log(`[Cron] ErrorLog cleanup: ${deleted.count} old records deleted`);
+    results.errorLogCleanup = { deleted: deleted.count };
+  } catch (error) {
+    console.error("[Cron] ErrorLog cleanup error:", error);
+    results.errorLogCleanup = { error: error instanceof Error ? error.message : "Unknown" };
   }
 
   return NextResponse.json({ ok: true, ...results });

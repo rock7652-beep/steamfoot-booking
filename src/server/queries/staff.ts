@@ -8,10 +8,10 @@ import { AppError } from "@/lib/errors";
 // listStaff — 需要 staff.view 權限
 // ============================================================
 
-export async function listStaff() {
+export async function listStaff(activeStoreId?: string | null) {
   const user = await requirePermission("staff.view");
   return prisma.staff.findMany({
-    where: { ...getStoreFilter(user) },
+    where: { ...getStoreFilter(user, activeStoreId) },
     include: {
       user: { select: { id: true, name: true, email: true, phone: true, status: true, role: true } },
       _count: {
@@ -26,10 +26,10 @@ export async function listStaff() {
 // listStaffSelectOptions — 任何員工角色都可呼叫（UI 下拉選單用）
 // ============================================================
 
-export async function listStaffSelectOptions() {
+export async function listStaffSelectOptions(activeStoreId?: string | null) {
   const user = await requireStaffSession();
   return prisma.staff.findMany({
-    where: { status: "ACTIVE", ...getStoreFilter(user) },
+    where: { status: "ACTIVE", ...getStoreFilter(user, activeStoreId) },
     select: { id: true, displayName: true },
     orderBy: [{ isOwner: "desc" }, { createdAt: "asc" }],
   });
@@ -39,11 +39,11 @@ export async function listStaffSelectOptions() {
 // getStaffDetail — Owner only（編輯權限管理用）
 // ============================================================
 
-export async function getStaffDetail(staffId: string) {
+export async function getStaffDetail(staffId: string, activeStoreId?: string | null) {
   const user = await requirePermission("staff.view");
 
   const staff = await prisma.staff.findFirst({
-    where: { id: staffId, ...getStoreFilter(user) },
+    where: { id: staffId, ...getStoreFilter(user, activeStoreId) },
     include: {
       user: { select: { id: true, name: true, email: true, phone: true, status: true, role: true } },
       _count: {

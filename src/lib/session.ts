@@ -27,6 +27,9 @@ export async function requireStaffSession() {
   if (!isStaffRole(user.role)) {
     throw new AppError("FORBIDDEN", "此功能僅限員工使用");
   }
+  if (!user.storeId) {
+    throw new AppError("UNAUTHORIZED", "缺少店舖資訊，請登出後重新登入");
+  }
   return user;
 }
 

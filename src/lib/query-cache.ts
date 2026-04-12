@@ -11,20 +11,20 @@
 
 import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/db";
-import { getTrialStatus } from "@/lib/shop-config";
+import { getTrialStatus, getShopPlan } from "@/lib/shop-config";
 import type { ShopPlan } from "@prisma/client";
 
 /**
  * 快取 shopPlan — 60s TTL，tag: "shop-config"
  * 免 session（僅讀單筆 config），適合 layout / feature gate
+ * storeId 為空時使用 DEFAULT_STORE_ID
+ *
+ * ⚠ storeId 作為函式參數，自動成為 cache key 的一部分，
+ *   不同 storeId 會產生獨立的快取條目。
  */
 export const getCachedShopPlan = unstable_cache(
-  async (): Promise<ShopPlan> => {
-    const config = await prisma.shopConfig.findUnique({
-      where: { storeId: "default-store" },
-      select: { plan: true },
-    });
-    return config?.plan ?? "FREE";
+  async (storeId?: string): Promise<ShopPlan> => {
+    return getShopPlan(storeId);
   },
   ["shop-plan"],
   { revalidate: 60, tags: ["shop-config"] },
@@ -48,11 +48,12 @@ export const getCachedPlans = unstable_cache(
 /**
  * 快取 staff select options — 60s TTL，tag: "staff"
  * 注意：呼叫端仍需自行做 session 檢查
+ * storeId 參數自動成為 cache key 一部分（不同店獨立快取）
  */
 export const getCachedStaffOptions = unstable_cache(
-  async () => {
+  async (storeId?: string) => {
     return prisma.staff.findMany({
-      where: { status: "ACTIVE" },
+      where: { status: "ACTIVE", ...(storeId ? { storeId } : {}) },
       select: { id: true, displayName: true },
       orderBy: [{ isOwner: "desc" }, { createdAt: "asc" }],
     });

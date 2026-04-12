@@ -5,6 +5,7 @@ import { checkPermission, ROLE_LABELS } from "@/lib/permissions";
 import { getShopPlan } from "@/lib/shop-config";
 import { FEATURES } from "@/lib/shop-plan";
 import { FeatureGate } from "@/components/feature-gate";
+import { getActiveStoreForRead } from "@/lib/store";
 import Link from "next/link";
 import { EmptyState } from "@/components/ui/empty-state";
 import { notFound, redirect } from "next/navigation";
@@ -19,7 +20,8 @@ export default async function StaffPage({}: PageProps) {
   if (!(await checkPermission(user.role, user.staffId, "staff.view"))) notFound();
 
   const isOwner = user.role === "ADMIN";
-  const [staffList, shopPlan] = await Promise.all([listStaff(), getShopPlan()]);
+  const activeStoreId = await getActiveStoreForRead(user);
+  const [staffList, shopPlan] = await Promise.all([listStaff(activeStoreId), getShopPlan()]);
 
   async function handleCreateStaff(formData: FormData) {
     "use server";

@@ -13,6 +13,7 @@ import {
 import type { ActionResult } from "@/types";
 import { checkCustomerLimit } from "@/lib/shop-config";
 import { assertStoreAccess } from "@/lib/manager-visibility";
+import { currentStoreId } from "@/lib/store";
 import type { z } from "zod";
 
 // ============================================================
@@ -26,7 +27,7 @@ export async function createCustomer(
     const user = await requirePermission("customer.create");
     const data = createCustomerSchema.parse(input);
 
-    // FREE 方案顧客數限制
+    // FREE 方案顧客數限制（legacy ShopPlan）
     const customerLimit = await checkCustomerLimit();
     if (!customerLimit.allowed) {
       return {
@@ -34,6 +35,13 @@ export async function createCustomer(
         error: `體驗版顧客上限 ${customerLimit.limit} 位已達，請升級方案以繼續新增`,
       };
     }
+
+    // PricingPlan 顧客數限制
+    const { checkCustomerLimitOrThrow } = await import("@/lib/usage-gate");
+    const currentCustomerCount = await prisma.customer.count({
+      where: { storeId: currentStoreId(user) },
+    });
+    await checkCustomerLimitOrThrow(currentCustomerCount);
 
     // assignedStaffId 現在是選填
     let assignedStaffId: string | undefined;
@@ -73,7 +81,7 @@ export async function createCustomer(
         assignedStaffId: assignedStaffId || null,
         customerStage: "LEAD",
         selfBookingEnabled: false,
-        storeId: user.storeId ?? "default-store",
+        storeId: currentStoreId(user),
       },
     });
 
@@ -149,6 +157,7 @@ export async function transferCustomer(
       where: { id: data.newStaffId, status: "ACTIVE" },
     });
     if (!newStaff) throw new AppError("NOT_FOUND", "目標店長不存在");
+    assertStoreAccess(user, newStaff.storeId);
 
     // 只更新 customer.assignedStaffId，歷史資料不動
     await prisma.customer.update({
@@ -176,8 +185,7 @@ export async function updateCustomerStage(
 
     const customer = await prisma.customer.findUnique({ where: { id: customerId } });
     if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
-
-    // 同店員工皆可操作（權限已由 requirePermission 把關）
+    assertStoreAccess(user, customer.storeId);
 
     const updateData: Record<string, unknown> = { customerStage: stage };
     if (stage === "TRIAL" && !customer.firstVisitAt) {

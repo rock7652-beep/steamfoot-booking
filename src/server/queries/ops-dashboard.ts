@@ -26,9 +26,9 @@ export interface TodaySummary {
   newCustomerCount: number;
 }
 
-export async function getTodaySummary(): Promise<TodaySummary> {
+export async function getTodaySummary(activeStoreId?: string | null): Promise<TodaySummary> {
   const user = await requireStaffSession();
-  const storeFilter = getStoreFilter(user);
+  const storeFilter = getStoreFilter(user, activeStoreId);
   const today = todayRange();
   const todayBookingDate = bookingDateToday();
 
@@ -84,9 +84,9 @@ export interface DayTrend {
   returningCustomerCount: number;
 }
 
-export async function getDailyTrend(days: number): Promise<DayTrend[]> {
+export async function getDailyTrend(days: number, activeStoreId?: string | null): Promise<DayTrend[]> {
   const user = await requireStaffSession();
-  const storeFilter = getStoreFilter(user);
+  const storeFilter = getStoreFilter(user, activeStoreId);
 
   // 計算 N 天前的日期 (UTC+8)
   const now = new Date();
@@ -201,9 +201,9 @@ export interface FunnelStep {
   pct: number; // 相對第一步的百分比
 }
 
-export async function getOperationsFunnel(days: number): Promise<FunnelStep[]> {
+export async function getOperationsFunnel(days: number, activeStoreId?: string | null): Promise<FunnelStep[]> {
   const user = await requireStaffSession();
-  const storeFilter = getStoreFilter(user);
+  const storeFilter = getStoreFilter(user, activeStoreId);
 
   const now = new Date();
   const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
@@ -308,9 +308,9 @@ export interface TopCustomer {
   score: number;
 }
 
-export async function getTopCustomers(limit = 10): Promise<TopCustomer[]> {
+export async function getTopCustomers(limit = 10, activeStoreId?: string | null): Promise<TopCustomer[]> {
   const user = await requireStaffSession();
-  const storeFilter = getStoreFilter(user);
+  const storeFilter = getStoreFilter(user, activeStoreId);
 
   const sixMonthsAgo = new Date();
   sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
@@ -385,9 +385,9 @@ export interface CustomerSegment {
   description: string;
 }
 
-export async function getCustomerSegments(): Promise<CustomerSegment[]> {
+export async function getCustomerSegments(activeStoreId?: string | null): Promise<CustomerSegment[]> {
   const user = await requireStaffSession();
-  const storeFilter = getStoreFilter(user);
+  const storeFilter = getStoreFilter(user, activeStoreId);
 
   const now = new Date();
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -476,9 +476,9 @@ export interface StaffPerformance {
   completionRate: number; // 到店率
 }
 
-export async function getStaffPerformance(days = 30): Promise<StaffPerformance[]> {
+export async function getStaffPerformance(days = 30, activeStoreId?: string | null): Promise<StaffPerformance[]> {
   const user = await requireStaffSession();
-  const storeFilter = getStoreFilter(user);
+  const storeFilter = getStoreFilter(user, activeStoreId);
 
   const now = new Date();
   const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);

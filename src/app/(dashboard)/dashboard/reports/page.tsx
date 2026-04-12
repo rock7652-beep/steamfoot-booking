@@ -7,8 +7,13 @@ import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { getCachedShopPlan } from "@/lib/query-cache";
 import { FEATURES } from "@/lib/shop-plan";
+import { FEATURES as FF } from "@/lib/feature-flags";
+import { getCurrentStorePlan } from "@/lib/store-plan";
+import { hasFeature as hasPricingFeature } from "@/lib/feature-flags";
 import { ServerTiming, withTiming } from "@/lib/perf";
 import { FeatureGate } from "@/components/feature-gate";
+import { UpgradeNoticePage } from "@/components/upgrade-notice";
+import { getActiveStoreForRead } from "@/lib/store";
 import { redirect } from "next/navigation";
 import { EmptyState } from "@/components/ui/empty-state";
 import ReportDateRange from "@/components/report-date-range";
@@ -28,6 +33,17 @@ export default async function ReportsPage({ searchParams }: PageProps) {
   const user = await getCurrentUser();
   if (!user || !(await checkPermission(user.role, user.staffId, "report.read"))) {
     redirect("/dashboard");
+  }
+
+  // PricingPlan feature gate: 進階報表需 GROWTH+
+  const pricingPlan = await getCurrentStorePlan();
+  if (!hasPricingFeature(pricingPlan, FF.ADVANCED_REPORTS)) {
+    return (
+      <UpgradeNoticePage
+        title="進階報表需升級方案"
+        description="此功能需升級至「成長版」方案才能使用。升級後可享有完整報表、AI 健康分析等進階功能。"
+      />
+    );
   }
 
   const today = toLocalDateStr();
@@ -56,12 +72,13 @@ export default async function ReportsPage({ searchParams }: PageProps) {
 
   const month = startDate.slice(0, 7);
   const currentMonth = toLocalDateStr().slice(0, 7);
+  const activeStoreId = await getActiveStoreForRead(user);
 
   const timer = new ServerTiming("/dashboard/reports");
 
   // For past complete months with default preset, try pre-computed snapshot first
   const isFullPastMonth = month < currentMonth && activePreset === "month";
-  const dateRangeOpts = { startDate, endDate };
+  const dateRangeOpts = { startDate, endDate, activeStoreId };
 
   type StoreSummary = Awaited<ReturnType<typeof monthlyStoreSummary>>;
   type RevenueByCategory = Awaited<ReturnType<typeof monthlyRevenueByCategory>>;

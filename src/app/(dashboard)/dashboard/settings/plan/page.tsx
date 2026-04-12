@@ -1,5 +1,6 @@
 import { getCurrentUser } from "@/lib/session";
 import { getShopConfig } from "@/lib/shop-config";
+import { prisma } from "@/lib/db";
 import { Fragment } from "react";
 import { redirect, notFound } from "next/navigation";
 import {
@@ -8,8 +9,20 @@ import {
   FEATURE_COMPARISON,
   hasFeature,
 } from "@/lib/shop-plan";
+import { PRICING_PLAN_INFO } from "@/lib/feature-flags";
+import { getAllStoresUsage, type StoreUsage } from "@/server/queries/usage";
+import { getPendingUpgradeRequest } from "@/server/queries/upgrade-request";
 import type { ShopPlan } from "@prisma/client";
 import { PlanSwitcher } from "./plan-switcher";
+import { PricingPlanSwitcher } from "./pricing-plan-switcher";
+import { UpgradeRequestForm } from "@/components/upgrade-request-form";
+import { StoreRequestHistory } from "./store-request-history";
+import { StorePlanHistory } from "./store-plan-history";
+import { AdminPlanOverride } from "./admin-plan-override";
+import { AdminTrialStart } from "./admin-trial-start";
+import { PlanOverviewStats } from "./plan-overview-stats";
+import { DowngradeRequestForm } from "@/components/downgrade-request-form";
+import type { StorePlanStatus } from "@prisma/client";
 
 export default async function PlanSettingsPage() {
   const user = await getCurrentUser();
@@ -195,6 +208,239 @@ export default async function PlanSettingsPage() {
 
       {/* Plan Switcher (Owner only) */}
       <PlanSwitcher currentPlan={config.plan} />
+
+      {/* ═══════════════════════════════════════════ */}
+      {/* HQ 方案總覽                                  */}
+      {/* ═══════════════════════════════════════════ */}
+      <PlanOverviewStats />
+
+      {/* ═══════════════════════════════════════════ */}
+      {/* PricingPlan — 店舖方案管理 + 用量儀表板      */}
+      {/* ═══════════════════════════════════════════ */}
+      <StorePlanSection />
+    </div>
+  );
+}
+
+// ============================================================
+// 店舖方案管理（PricingPlan on Store）
+// ============================================================
+
+async function StorePlanSection() {
+  const storesUsage = await getAllStoresUsage();
+
+  return (
+    <div className="space-y-6 border-t border-earth-200 pt-8">
+      <div>
+        <h2 className="text-base font-bold text-earth-900">店舖方案管理</h2>
+        <p className="mt-1 text-xs text-earth-400">
+          管理各店舖的收費方案與功能權限，用量接近上限時會顯示警示
+        </p>
+      </div>
+
+      {storesUsage.map((store) => (
+        <div key={store.storeId} className="space-y-4">
+          {/* Usage Dashboard */}
+          <div className="rounded-xl border border-earth-200 bg-white p-5">
+            <div className="mb-4 flex items-start justify-between">
+              <div>
+                <h3 className="text-sm font-semibold text-earth-800">{store.storeName}</h3>
+                <div className="mt-0.5 flex items-center gap-2">
+                  <span className={`rounded px-2 py-0.5 text-[10px] font-medium ${PRICING_PLAN_INFO[store.plan].bgColor} ${PRICING_PLAN_INFO[store.plan].color}`}>
+                    {PRICING_PLAN_INFO[store.plan].label}
+                  </span>
+                  <PlanStatusBadge status={store.planStatus} />
+                </div>
+              </div>
+              <div className="text-right text-[10px] text-earth-400 space-y-0.5">
+                {store.planEffectiveAt && (
+                  <p>生效：{new Date(store.planEffectiveAt).toLocaleDateString("zh-TW", { timeZone: "Asia/Taipei" })}</p>
+                )}
+                {store.planExpiresAt && (
+                  <p className="text-amber-600">
+                    {store.planStatus === "SCHEDULED_DOWNGRADE" ? "降級日" : "到期"}：
+                    {new Date(store.planExpiresAt).toLocaleDateString("zh-TW", { timeZone: "Asia/Taipei" })}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* 狀態說明文案 */}
+            {store.planStatus !== "ACTIVE" && (
+              <div className={`rounded-lg px-3 py-2 text-xs ${
+                store.planStatus === "TRIAL" ? "border border-blue-200 bg-blue-50 text-blue-700"
+                : store.planStatus === "PAYMENT_PENDING" ? "border border-amber-200 bg-amber-50 text-amber-700"
+                : store.planStatus === "SCHEDULED_DOWNGRADE" ? "border border-amber-200 bg-amber-50 text-amber-700"
+                : store.planStatus === "EXPIRED" ? "border border-red-200 bg-red-50 text-red-700"
+                : "border border-earth-200 bg-earth-50 text-earth-600"
+              }`}>
+                {STATUS_DESCRIPTION[store.planStatus]}
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {store.metrics.map((m) => (
+                <UsageCard key={m.label} metric={m} />
+              ))}
+            </div>
+
+            {/* Upgrade warning */}
+            {store.metrics.some((m) => m.status === "warning" || m.status === "danger") && (
+              <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5">
+                <p className="text-xs font-medium text-amber-800">
+                  {store.metrics.some((m) => m.status === "danger")
+                    ? "已達用量上限，部分功能將受限制。請升級方案以繼續使用。"
+                    : "用量接近上限，建議考慮升級方案。"}
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* ADMIN 手動調方案 */}
+          <AdminPlanOverride
+            storeId={store.storeId}
+            storeName={store.storeName}
+            currentPlan={store.plan}
+          />
+
+          {/* Upgrade Request (inline) */}
+          {store.plan !== "ALLIANCE" && (
+            <UpgradeRequestSection storeId={store.storeId} currentPlan={store.plan} />
+          )}
+
+          {/* Downgrade Request */}
+          {store.plan !== "EXPERIENCE" && (
+            <DowngradeRequestSection storeId={store.storeId} currentPlan={store.plan} />
+          )}
+
+          {/* ADMIN 試用開通 */}
+          <AdminTrialStart storeId={store.storeId} storeName={store.storeName} />
+
+          {/* 申請歷史 */}
+          <StoreRequestHistory storeId={store.storeId} />
+
+          {/* 方案異動紀錄 */}
+          <StorePlanHistory storeId={store.storeId} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+async function UpgradeRequestSection({
+  storeId,
+  currentPlan,
+}: {
+  storeId: string;
+  currentPlan: import("@prisma/client").PricingPlan;
+}) {
+  const pending = await getPendingUpgradeRequest(storeId);
+  return (
+    <UpgradeRequestForm
+      currentPlan={currentPlan}
+      source="SETTINGS"
+      hasPending={!!pending}
+    />
+  );
+}
+
+async function DowngradeRequestSection({
+  storeId,
+  currentPlan,
+}: {
+  storeId: string;
+  currentPlan: import("@prisma/client").PricingPlan;
+}) {
+  const pending = await prisma.upgradeRequest.findFirst({
+    where: { storeId, status: "PENDING", requestType: "DOWNGRADE" },
+  });
+  return (
+    <DowngradeRequestForm
+      currentPlan={currentPlan}
+      hasPending={!!pending}
+    />
+  );
+}
+
+// ── 方案狀態 badge ──
+
+const STATUS_DESCRIPTION: Record<StorePlanStatus, string> = {
+  TRIAL: "試用期間，到期後將自動回退為體驗版",
+  ACTIVE: "方案已啟用",
+  PAYMENT_PENDING: "方案已核准，待完成付款後啟用",
+  PAST_DUE: "付款逾期，請盡速完成付款",
+  SCHEDULED_DOWNGRADE: "方案將於指定日期自動降級",
+  CANCELLED: "方案已取消",
+  EXPIRED: "方案已到期，請聯繫管理員或提交升級申請",
+};
+
+const PLAN_STATUS_CONFIG: Record<StorePlanStatus, { label: string; color: string }> = {
+  TRIAL: { label: "試用中", color: "bg-blue-100 text-blue-700" },
+  ACTIVE: { label: "啟用中", color: "bg-green-100 text-green-700" },
+  PAYMENT_PENDING: { label: "待付款", color: "bg-amber-100 text-amber-700" },
+  PAST_DUE: { label: "逾期", color: "bg-red-100 text-red-700" },
+  SCHEDULED_DOWNGRADE: { label: "排定降級", color: "bg-amber-100 text-amber-700" },
+  CANCELLED: { label: "已取消", color: "bg-earth-100 text-earth-600" },
+  EXPIRED: { label: "已到期", color: "bg-earth-100 text-earth-500" },
+};
+
+function PlanStatusBadge({ status }: { status: StorePlanStatus }) {
+  const config = PLAN_STATUS_CONFIG[status];
+  return (
+    <span className={`rounded px-2 py-0.5 text-[10px] font-medium ${config.color}`}>
+      {config.label}
+    </span>
+  );
+}
+
+// ============================================================
+// 用量卡片
+// ============================================================
+
+function UsageCard({ metric }: { metric: StoreUsage["metrics"][number] }) {
+  const borderColor =
+    metric.status === "danger"
+      ? "border-red-200"
+      : metric.status === "warning"
+      ? "border-amber-200"
+      : "border-earth-200";
+
+  const bgColor =
+    metric.status === "danger"
+      ? "bg-red-50"
+      : metric.status === "warning"
+      ? "bg-amber-50"
+      : "bg-white";
+
+  const barColor =
+    metric.status === "danger"
+      ? "bg-red-500"
+      : metric.status === "warning"
+      ? "bg-amber-500"
+      : "bg-primary-500";
+
+  return (
+    <div className={`rounded-lg border p-3 ${borderColor} ${bgColor}`}>
+      <p className="text-[11px] text-earth-500">{metric.label}</p>
+      <div className="mt-1 flex items-baseline gap-1">
+        <span className="text-lg font-bold text-earth-900">
+          {metric.current.toLocaleString()}
+        </span>
+        <span className="text-xs text-earth-400">
+          / {metric.limit !== null ? metric.limit.toLocaleString() : "無限制"}
+        </span>
+      </div>
+      {metric.limit !== null && (
+        <div className="mt-2 h-1.5 w-full rounded-full bg-earth-100">
+          <div
+            className={`h-full rounded-full transition-all ${barColor}`}
+            style={{ width: `${Math.min(100, metric.pct)}%` }}
+          />
+        </div>
+      )}
+      {metric.status === "unlimited" && (
+        <p className="mt-1 text-[10px] text-earth-400">無限制</p>
+      )}
     </div>
   );
 }

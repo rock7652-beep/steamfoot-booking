@@ -10,6 +10,9 @@
 
 import { prisma } from "@/lib/db";
 import { pushMessage, renderTemplate, type TemplateVariables } from "@/lib/line";
+import { getShopConfig } from "@/lib/shop-config";
+import { checkReminderSendLimit } from "@/lib/usage-gate";
+import type { StorePlanFields } from "@/lib/store-plan";
 
 const DEFAULT_TEMPLATE = `{{customerName}} 您好！
 
@@ -55,10 +58,15 @@ export async function runReminders(): Promise<SendResult> {
   const now = new Date();
   const windowEnd = new Date(now.getTime() + WINDOW_MINUTES * 60 * 1000);
 
-  // 3. 取得 ShopConfig
-  const shopConfig = await prisma.shopConfig.findUnique({ where: { storeId: "default-store" } });
-  const shopName = shopConfig?.shopName ?? "蒸足";
+  // 3. 基礎設定（shopName 在迴圈內依各 booking 的 storeId 取得）
   const baseUrl = process.env.NEXTAUTH_URL ?? process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.steamfoot.com";
+  // Cache shopName per storeId to avoid repeated DB queries
+  const shopNameCache = new Map<string, string>();
+  // Cache store plan + send count for usage gate
+  const storePlanCache = new Map<string, StorePlanFields>();
+  const storeSendCountCache = new Map<string, number>();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
 
   // 4. 逐規則處理
   for (const rule of rules) {
@@ -94,13 +102,58 @@ export async function runReminders(): Promise<SendResult> {
         continue;
       }
 
-      // 渲染模板
+      // 用量限制：檢查此店的提醒發送是否超過上限
+      const bookingStoreId = booking.storeId;
+      if (!storePlanCache.has(bookingStoreId)) {
+        const storeData = await prisma.store.findUnique({
+          where: { id: bookingStoreId },
+          select: {
+            id: true, plan: true,
+            maxStaffOverride: true, maxCustomersOverride: true,
+            maxMonthlyBookingsOverride: true, maxMonthlyReportsOverride: true,
+            maxReminderSendsOverride: true, maxStoresOverride: true,
+          },
+        });
+        if (storeData) storePlanCache.set(bookingStoreId, storeData);
+      }
+      if (!storeSendCountCache.has(bookingStoreId)) {
+        const cnt = await prisma.messageLog.count({
+          where: {
+            status: "SENT",
+            sentAt: { gte: monthStart, lte: monthEnd },
+            booking: { storeId: bookingStoreId },
+          },
+        });
+        storeSendCountCache.set(bookingStoreId, cnt);
+      }
+      const storePlan = storePlanCache.get(bookingStoreId);
+      if (storePlan) {
+        const sendCount = storeSendCountCache.get(bookingStoreId) ?? 0;
+        const limitCheck = checkReminderSendLimit(storePlan, sendCount);
+        if (!limitCheck.allowed) {
+          result.skipped++;
+          result.details.push({
+            customerId: customer.id,
+            bookingId: booking.id,
+            ruleName: rule.name,
+            status: "SKIPPED",
+            error: `Reminder send limit reached (${limitCheck.current}/${limitCheck.limit})`,
+          });
+          continue;
+        }
+      }
+
+      // 渲染模板（shopName 依 booking 所屬店舖取得）
+      if (!shopNameCache.has(bookingStoreId)) {
+        const sc = await getShopConfig(bookingStoreId);
+        shopNameCache.set(bookingStoreId, sc.shopName);
+      }
       const bookingDateStr = booking.bookingDate.toISOString().slice(0, 10);
       const vars: TemplateVariables = {
         customerName: customer.name,
         bookingDate: bookingDateStr,
         bookingTime: booking.slotTime,
-        shopName,
+        shopName: shopNameCache.get(bookingStoreId) ?? "蒸足",
         staffName: customer.assignedStaff?.displayName ?? "店長",
         bookingLink: `${baseUrl}/my-bookings`,
       };
@@ -128,6 +181,8 @@ export async function runReminders(): Promise<SendResult> {
 
       if (sendResult.success) {
         result.sent++;
+        // 更新 cache 中的發送計數
+        storeSendCountCache.set(bookingStoreId, (storeSendCountCache.get(bookingStoreId) ?? 0) + 1);
       } else {
         result.failed++;
       }

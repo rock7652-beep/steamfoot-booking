@@ -94,3 +94,12 @@ export function revalidateShopConfig() {
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/settings/plan");
 }
+
+/** 店舖方案 / 訂閱 / 升級申請變更後呼叫 */
+export function revalidateStorePlan() {
+  updateTag("store-plan");
+  updateTag("upgrade-requests");
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/settings/plan");
+  revalidatePath("/dashboard/upgrade-requests");
+}

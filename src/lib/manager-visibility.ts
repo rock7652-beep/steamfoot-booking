@@ -14,6 +14,7 @@
  */
 
 import { isOwner, isNonOwnerStaff } from "@/lib/permissions";
+import { AppError } from "@/lib/errors";
 
 export type VisibilityMode = "SELF_ONLY" | "STORE_SHARED";
 
@@ -35,12 +36,23 @@ export function getVisibilityMode(): VisibilityMode {
 
 /**
  * 回傳 storeId 篩選條件
- * - ADMIN: {} （不篩選）
+ *
+ * - ADMIN + activeStoreId: { storeId: activeStoreId }（指定店視角）
+ * - ADMIN + 無 activeStoreId (= "__all__"): {}（全部）
  * - 其他角色: { storeId: user.storeId }
- * - 無 storeId: { storeId: "__IMPOSSIBLE__" } （安全預設，不回傳任何資料）
+ * - 無 storeId: { storeId: "__IMPOSSIBLE__" }（安全預設）
+ *
+ * @param activeStoreId 由 resolveActiveStoreId() 提供（僅 ADMIN 讀取場景使用）
  */
-export function getStoreFilter(user: SessionLike): Record<string, unknown> {
-  if (isOwner(user.role)) return {};
+export function getStoreFilter(
+  user: SessionLike,
+  activeStoreId?: string | null
+): Record<string, unknown> {
+  if (isOwner(user.role)) {
+    // ADMIN: 若有指定 activeStoreId，則按店篩選；否則不篩選
+    if (activeStoreId) return { storeId: activeStoreId };
+    return {};
+  }
   if (!user.storeId) return { storeId: "__IMPOSSIBLE__" };
   return { storeId: user.storeId };
 }
@@ -55,8 +67,7 @@ export function assertStoreAccess(
 ): void {
   if (isOwner(user.role)) return;
   if (user.storeId !== recordStoreId) {
-    // 動態 import 以避免循環依賴
-    throw new Error("FORBIDDEN: 無權存取其他店舖的資料");
+    throw new AppError("FORBIDDEN", "FORBIDDEN_STORE_ACCESS: 無權存取其他店舖的資料");
   }
 }
 
@@ -76,8 +87,8 @@ export function getManagerReadFilter(
 ): Record<string, unknown> {
   const filter: Record<string, unknown> = {};
 
-  // 多店篩選：非 ADMIN 強制加入 storeId
-  if (!isOwner(role) && storeId) filter.storeId = storeId;
+  // 多店篩選：有 storeId 就加入（含 ADMIN 指定店視角）
+  if (storeId) filter.storeId = storeId;
 
   // Admin 不加員工篩選（但已加 storeId if provided）
   if (isOwner(role)) return filter;
@@ -105,7 +116,7 @@ export function getManagerCustomerFilter(
   storeId?: string | null
 ): Record<string, unknown> {
   const filter: Record<string, unknown> = {};
-  if (!isOwner(role) && storeId) filter.storeId = storeId;
+  if (storeId) filter.storeId = storeId;
 
   if (isOwner(role)) return filter;
   if (!isNonOwnerStaff(role) || !staffId) return { ...filter, customer: { assignedStaffId: "__IMPOSSIBLE__" } };
@@ -126,7 +137,7 @@ export function getManagerCustomerWhere(
   storeId?: string | null
 ): Record<string, unknown> {
   const filter: Record<string, unknown> = {};
-  if (!isOwner(role) && storeId) filter.storeId = storeId;
+  if (storeId) filter.storeId = storeId;
 
   if (isOwner(role)) return filter;
   if (!isNonOwnerStaff(role) || !staffId) return { ...filter, assignedStaffId: "__IMPOSSIBLE__" };

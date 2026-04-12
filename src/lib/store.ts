@@ -1,0 +1,84 @@
+import { AppError } from "@/lib/errors";
+import { isOwner } from "@/lib/permissions";
+
+type SessionLike = { role: string; storeId?: string | null };
+
+/**
+ * 系統預設 storeId — 用於無 user context 的系統查詢（cron、cache preload 等）。
+ * Cron jobs 使用 getAllActiveStoreIds() 迭代各店。
+ */
+export const DEFAULT_STORE_ID = "default-store";
+
+/**
+ * 取得當前使用者的 storeId，若不存在則拋出錯誤。
+ * 用於 server action 中 create/update/delete 需要寫入 storeId 的場景。
+ * ⚠ 寫入操作永遠使用 JWT 中的 storeId，不受 cookie 視角影響。
+ */
+export function currentStoreId(user: SessionLike): string {
+  if (user.storeId) return user.storeId;
+  throw new AppError(
+    "UNAUTHORIZED",
+    "缺少 storeId，請重新登入"
+  );
+}
+
+/**
+ * 取得所有 active store 的 ID（供 cron / background jobs 使用）
+ */
+export async function getAllActiveStoreIds(): Promise<string[]> {
+  const { prisma } = await import("@/lib/db");
+  const stores = await prisma.store.findMany({
+    select: { id: true },
+    orderBy: { createdAt: "asc" },
+  });
+  return stores.map((s) => s.id);
+}
+
+/**
+ * 取得 ADMIN 可選的店舖清單（含「全部」選項）
+ */
+export async function getStoreOptions(): Promise<Array<{ id: string; name: string; isDefault: boolean }>> {
+  const { prisma } = await import("@/lib/db");
+  return prisma.store.findMany({
+    select: { id: true, name: true, isDefault: true },
+    orderBy: { createdAt: "asc" },
+  });
+}
+
+/**
+ * 取得使用者的有效查詢 storeId
+ *
+ * - ADMIN: 讀 cookie `active-store-id`，若為 "__all__" 回傳 null（全部），否則回傳指定店
+ * - 非 ADMIN: 回傳 session.storeId
+ *
+ * ⚠ 此函式僅用於「讀取」場景。寫入操作必須用 currentStoreId()。
+ */
+export function resolveActiveStoreId(
+  user: SessionLike,
+  cookieStoreId?: string | null
+): string | null {
+  if (isOwner(user.role) && cookieStoreId) {
+    if (cookieStoreId === "__all__") return null;
+    return cookieStoreId;
+  }
+  return user.storeId ?? null;
+}
+
+/**
+ * 從 cookie 讀取並解析 ADMIN 的有效查看 storeId。
+ * 供 Server Component (讀取型頁面) 使用。
+ *
+ * - ADMIN: 讀 cookie，解析為具體 storeId 或 null（全部）
+ * - 非 ADMIN: 回傳 user.storeId
+ *
+ * ⚠ 使用 next/headers cookies() 直接讀取，避免動態 import "use server" 模組的問題。
+ */
+export async function getActiveStoreForRead(
+  user: SessionLike
+): Promise<string | null> {
+  if (!isOwner(user.role)) return user.storeId ?? null;
+  const { cookies } = await import("next/headers");
+  const cookieStore = await cookies();
+  const cookieStoreId = cookieStore.get("active-store-id")?.value ?? null;
+  return resolveActiveStoreId(user, cookieStoreId);
+}

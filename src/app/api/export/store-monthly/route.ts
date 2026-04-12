@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { auth } from "@/lib/auth";
 import { checkPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
 import { toLocalMonthStr, monthRange } from "@/lib/date-utils";
 import { getManagerReadFilter, getStoreFilter } from "@/lib/manager-visibility";
+import { resolveActiveStoreId, currentStoreId } from "@/lib/store";
+import { checkReportLimit } from "@/lib/usage-gate";
+import { getStorePlanById } from "@/lib/store-plan";
 
 function toCsv(rows: string[][]): string {
   return rows.map((row) => row.map((cell) => {
@@ -19,15 +23,47 @@ export async function GET(req: NextRequest) {
   if (!allowed) return new NextResponse("Forbidden", { status: 403 });
 
   const user = session.user;
-  const storeFilter = getStoreFilter(user);
+  const cookieStore = await cookies();
+  const cookieStoreId = cookieStore.get("active-store-id")?.value ?? null;
+  const activeStoreId = resolveActiveStoreId(user, cookieStoreId);
+  const storeFilter = getStoreFilter(user, activeStoreId);
+
+  // PricingPlan: 報表匯出次數限制
+  if (user.storeId) {
+    const store = await prisma.store.findUnique({
+      where: { id: user.storeId },
+      select: {
+        id: true, plan: true,
+        maxStaffOverride: true, maxCustomersOverride: true,
+        maxMonthlyBookingsOverride: true, maxMonthlyReportsOverride: true,
+        maxReminderSendsOverride: true, maxStoresOverride: true,
+      },
+    });
+    if (store) {
+      // 計算本月匯出次數（用 ErrorLog 的 EXTERNAL_API 作為 proxy 太粗略，直接計 report snapshot）
+      // 簡化：EXPERIENCE/BASIC maxMonthlyReports=0 直接阻擋
+      const limitCheck = checkReportLimit(store, 0);
+      if (!limitCheck.allowed) {
+        return new NextResponse("報表匯出功能需升級方案", { status: 403 });
+      }
+    }
+  }
 
   const { searchParams } = req.nextUrl;
   const month = searchParams.get("month") ?? toLocalMonthStr();
 
   const { start: monthStart, end: monthEnd } = monthRange(month);
 
-  const revenueFilter = getManagerReadFilter(session.user.role, session.user.staffId, "revenueStaffId");
-  const staffIdFilter = getManagerReadFilter(session.user.role, session.user.staffId, "staffId");
+  const revenueFilter = getManagerReadFilter(session.user.role, session.user.staffId, "revenueStaffId", activeStoreId);
+  const staffIdFilter = getManagerReadFilter(session.user.role, session.user.staffId, "staffId", activeStoreId);
+
+  // SpaceFeeRecord has no storeId — filter via staff relation instead
+  const spaceFeeFilter: Record<string, unknown> = { ...staffIdFilter };
+  if ("storeId" in spaceFeeFilter) {
+    const sid = spaceFeeFilter.storeId;
+    delete spaceFeeFilter.storeId;
+    spaceFeeFilter.staff = { storeId: sid };
+  }
 
   const [txRows, cashRows, spaceFees, completedRows] = await Promise.all([
     prisma.transaction.groupBy({
@@ -46,7 +82,7 @@ export async function GET(req: NextRequest) {
       _sum: { amount: true },
     }),
     prisma.spaceFeeRecord.findMany({
-      where: { ...staffIdFilter, ...storeFilter, month },
+      where: { ...spaceFeeFilter, month },
       select: { staffId: true, feeAmount: true },
     }),
     prisma.booking.groupBy({

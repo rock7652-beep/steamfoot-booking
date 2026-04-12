@@ -3,6 +3,9 @@ import { getCurrentUser } from "@/lib/session";
 import { logoutAction } from "@/server/actions/auth";
 import { getUserPermissions, ROLE_LABELS, isStaffRole } from "@/lib/permissions";
 import { getCachedShopPlan, getCachedTrialStatus } from "@/lib/query-cache";
+import { getStoreOptions, resolveActiveStoreId } from "@/lib/store";
+import { getActiveStoreCookie } from "@/server/actions/store-switch";
+import { getStorePlanById } from "@/lib/store-plan";
 import DashboardShell from "@/components/sidebar";
 
 export default async function DashboardLayout({
@@ -15,18 +18,27 @@ export default async function DashboardLayout({
   if (user.role === "CUSTOMER") redirect("/book");
 
   const roleLabel = ROLE_LABELS[user.role] ?? "";
-  const isOwner = user.role === "ADMIN";
-  const [permissions, shopPlan, trialStatus] = await Promise.all([
-    getUserPermissions(user.role, user.staffId),
-    getCachedShopPlan(),
-    getCachedTrialStatus(),
-  ]);
+  const isOwnerRole = user.role === "ADMIN";
+
+  const [permissions, shopPlan, trialStatus, storeOptions, cookieStoreId, pricingPlan] =
+    await Promise.all([
+      getUserPermissions(user.role, user.staffId),
+      getCachedShopPlan(),
+      getCachedTrialStatus(),
+      isOwnerRole ? getStoreOptions() : Promise.resolve([]),
+      isOwnerRole ? getActiveStoreCookie() : Promise.resolve(null),
+      user.storeId ? getStorePlanById(user.storeId) : Promise.resolve("EXPERIENCE" as const),
+    ]);
+
+  // Resolve the effective active store for read views
+  const activeStoreId = resolveActiveStoreId(user, cookieStoreId);
 
   return (
     <DashboardShell
-      isOwner={isOwner}
+      isOwner={isOwnerRole}
       permissions={permissions}
       shopPlan={shopPlan}
+      pricingPlan={pricingPlan}
       userName={user.name ?? ""}
       roleLabel={roleLabel}
       logoutButton={
@@ -40,6 +52,8 @@ export default async function DashboardLayout({
         </form>
       }
       trialStatus={trialStatus}
+      storeOptions={isOwnerRole ? storeOptions : undefined}
+      activeStoreId={isOwnerRole ? activeStoreId : undefined}
     >
       {children}
     </DashboardShell>

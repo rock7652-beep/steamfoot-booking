@@ -13,6 +13,7 @@ import {
 import { generateSlots } from "@/lib/slot-generator";
 import { revalidateDuty } from "@/lib/revalidation";
 import { assertStoreAccess, getStoreFilter } from "@/lib/manager-visibility";
+import { currentStoreId } from "@/lib/store";
 import type { ActionResult } from "@/types";
 
 // ============================================================
@@ -80,11 +81,12 @@ export async function upsertDutyAssignment(
     const user = await requirePermission("duty.manage");
     const data = dutyAssignmentSchema.parse(input);
 
-    // 驗證 staff 是 ACTIVE
+    // 驗證 staff 是 ACTIVE 且同店
     const staff = await prisma.staff.findUnique({ where: { id: data.staffId } });
     if (!staff || staff.status !== "ACTIVE") {
       return { success: false, error: "無法安排非在職人員值班" };
     }
+    assertStoreAccess(user, staff.storeId);
 
     // 驗證是營業日且時段合法
     const validSlots = await getBusinessSlotsForDate(data.date);
@@ -112,7 +114,7 @@ export async function upsertDutyAssignment(
         participationType: data.participationType as any,
         notes: data.notes,
         createdByStaffId: user.staffId,
-        storeId: user.storeId ?? "default-store",
+        storeId: currentStoreId(user),
       },
       update: {
         dutyRole: data.dutyRole as any,
@@ -149,6 +151,7 @@ export async function batchCreateDutyAssignments(
     if (!staff || staff.status !== "ACTIVE") {
       return { success: false, error: "無法安排非在職人員值班" };
     }
+    assertStoreAccess(user, staff.storeId);
 
     const validSlots = await getBusinessSlotsForDate(data.date);
     if (validSlots.length === 0) {
@@ -177,7 +180,7 @@ export async function batchCreateDutyAssignments(
           dutyRole: data.dutyRole as any,
           participationType: data.participationType as any,
           createdByStaffId: user.staffId,
-          storeId: user.storeId ?? "default-store",
+          storeId: currentStoreId(user),
         },
         update: {
           dutyRole: data.dutyRole as any,
@@ -245,7 +248,7 @@ export async function copySlotToAllSlots(
             participationType: src.participationType,
             notes: src.notes,
             createdByStaffId: src.createdByStaffId,
-            storeId: src.storeId ?? user.storeId ?? "default-store",
+            storeId: currentStoreId(user),
           });
         }
       }
@@ -321,7 +324,7 @@ export async function copyFromPreviousBusinessDay(
         participationType: a.participationType,
         notes: a.notes,
         createdByStaffId: a.createdByStaffId,
-        storeId: user.storeId ?? "default-store",
+        storeId: currentStoreId(user),
       }));
 
     if (creates.length > 0) {
@@ -381,7 +384,7 @@ export async function copyToWeekDates(
           participationType: a.participationType,
           notes: a.notes,
           createdByStaffId: a.createdByStaffId,
-          storeId: user.storeId ?? "default-store",
+          storeId: currentStoreId(user),
         }));
 
       if (creates.length > 0) {

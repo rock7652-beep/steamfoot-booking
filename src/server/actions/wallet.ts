@@ -9,6 +9,7 @@ import type { ActionResult } from "@/types";
 import type { z } from "zod";
 import { addDays } from "date-fns";
 import { assertStoreAccess } from "@/lib/manager-visibility";
+import { currentStoreId } from "@/lib/store";
 
 // ============================================================
 // 折扣計算
@@ -112,7 +113,7 @@ export async function assignPlanToCustomer(
           startDate,
           expiryDate,
           status: "ACTIVE",
-          storeId: user.storeId ?? "default-store",
+          storeId: currentStoreId(user),
         },
       });
 
@@ -131,7 +132,7 @@ export async function assignPlanToCustomer(
           discountReason: data.discountReason || null,
           customerPlanWalletId: wallet.id,
           note: data.note,
-          storeId: user.storeId ?? "default-store",
+          storeId: currentStoreId(user),
         },
       });
 
@@ -210,7 +211,7 @@ export async function adjustRemainingSessions(
           quantity: diff,
           customerPlanWalletId: walletId,
           note: note ?? `手動調整：${wallet.remainingSessions} → ${newRemaining} 堂`,
-          storeId: user.storeId ?? "default-store",
+          storeId: currentStoreId(user),
         },
       });
     });

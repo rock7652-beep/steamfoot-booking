@@ -8,8 +8,10 @@ import { requireFeature } from "@/lib/shop-config";
 import { requirePermission } from "@/lib/permissions";
 import { FEATURES } from "@/lib/shop-plan";
 import { AppError, handleActionError } from "@/lib/errors";
+import { assertStoreAccess } from "@/lib/manager-visibility";
 import { pushMessage, renderTemplate, type TemplateVariables } from "@/lib/line";
 import type { ActionResult } from "@/types";
+import { getShopConfig } from "@/lib/shop-config";
 
 // ============================================================
 // Validators
@@ -200,19 +202,20 @@ export async function testSendLineMessage(
   templateId: string
 ): Promise<ActionResult<void>> {
   try {
-    await requireAdminSession();
+    const adminUser = await requireAdminSession();
     await requireFeature(FEATURES.AUTO_REMINDER);
 
-    const [customer, template, shopConfig] = await Promise.all([
+    const [customer, template] = await Promise.all([
       prisma.customer.findUnique({
         where: { id: customerId },
         include: { assignedStaff: true },
       }),
       prisma.messageTemplate.findUnique({ where: { id: templateId } }),
-      prisma.shopConfig.findUnique({ where: { storeId: "default-store" } }),
     ]);
+    const shopConfig = customer ? await getShopConfig(customer.storeId) : null;
 
     if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
+    assertStoreAccess(adminUser, customer.storeId);
     if (!template) throw new AppError("NOT_FOUND", "模板不存在");
     if (!customer.lineUserId) {
       throw new AppError("BUSINESS_RULE", "此顧客尚未綁定 LINE");
@@ -276,10 +279,11 @@ export async function generateLineBindingCode(
   customerId: string
 ): Promise<ActionResult<{ code: string }>> {
   try {
-    await requirePermission("customer.update");
+    const user = await requirePermission("customer.update");
 
     const customer = await prisma.customer.findUnique({ where: { id: customerId } });
     if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
+    assertStoreAccess(user, customer.storeId);
     if (customer.lineLinkStatus === "LINKED") {
       throw new AppError("BUSINESS_RULE", "此顧客���綁定 LINE，請先解除綁定");
     }
@@ -315,10 +319,11 @@ export async function unlinkLineAccount(
   customerId: string
 ): Promise<ActionResult<void>> {
   try {
-    await requirePermission("customer.update");
+    const user = await requirePermission("customer.update");
 
     const customer = await prisma.customer.findUnique({ where: { id: customerId } });
-    if (!customer) throw new AppError("NOT_FOUND", "顧客��存在");
+    if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
+    assertStoreAccess(user, customer.storeId);
 
     await prisma.customer.update({
       where: { id: customerId },

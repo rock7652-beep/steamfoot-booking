@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { auth } from "@/lib/auth";
 import { checkPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { getStoreFilter } from "@/lib/manager-visibility";
+import { resolveActiveStoreId } from "@/lib/store";
 
 function toCsv(rows: string[][]): string {
   return rows
@@ -34,10 +36,13 @@ export async function GET() {
   if (!allowed) return new NextResponse("Forbidden", { status: 403 });
 
   const user = session.user;
+  const cookieStore = await cookies();
+  const cookieStoreId = cookieStore.get("active-store-id")?.value ?? null;
+  const activeStoreId = resolveActiveStoreId(user, cookieStoreId);
 
-  // 所有店長可匯出全部顧客（共享查看）
+  // 匯出符合當前店舖視角的顧客
   const customers = await prisma.customer.findMany({
-    where: { ...getStoreFilter(user) },
+    where: { ...getStoreFilter(user, activeStoreId) },
     include: {
       assignedStaff: { select: { displayName: true } },
       user: { select: { email: true } },

@@ -678,8 +678,8 @@ async function main() {
   // 先確保 Store 存在
   await prisma.store.upsert({
     where: { id: "default-store" },
-    create: { id: "default-store", name: "蒸足", slug: "default", isDefault: true },
-    update: {},
+    create: { id: "default-store", name: "蒸足", slug: "default", isDefault: true, plan: "ALLIANCE" },
+    update: { plan: "ALLIANCE" },
   });
 
   await prisma.shopConfig.upsert({

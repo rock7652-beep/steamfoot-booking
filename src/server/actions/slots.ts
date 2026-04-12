@@ -367,6 +367,7 @@ export async function fetchDayDetail(date: string) {
     fetchDaySlots(date),
     prisma.booking.findMany({
       where: {
+        ...getStoreFilter(user),
         bookingDate: dateObj,
         bookingStatus: { in: ["PENDING", "CONFIRMED", "COMPLETED", "NO_SHOW"] },
       },

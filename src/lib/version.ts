@@ -4,8 +4,8 @@
  * 登入頁、Dashboard sidebar、更新橫幅、Changelog 頁面統一引用此檔
  */
 
-export const APP_VERSION = "2.5.0";
-export const APP_VERSION_DATE = "2026-04-10";
+export const APP_VERSION = "2.6.0";
+export const APP_VERSION_DATE = "2026-04-12";
 
 export type ChangelogTag = "新功能" | "修正" | "優化";
 export type AffectedRole = "全部" | "店長" | "員工" | "顧客";
@@ -26,6 +26,53 @@ export interface ChangelogEntry {
  * 更新橫幅顯示第一筆
  */
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: "2.6.0",
+    date: "2026-04-12",
+    highlights: "方案管理系統 v2 — 訂閱、升降級排程、試用、付款確認、HQ 統計",
+    changes: [
+      {
+        tag: "新功能",
+        text: "方案升級申請 — 店家可提交升級/降級/續約申請，ADMIN 審核後生效",
+        roles: ["店長"],
+      },
+      {
+        tag: "新功能",
+        text: "降級排程 — 降級核准後不立即生效，自動於下月 1 日執行",
+        roles: ["店長"],
+      },
+      {
+        tag: "新功能",
+        text: "試用機制 — ADMIN 可開通指定方案試用，到期自動回退體驗版",
+        roles: ["店長"],
+      },
+      {
+        tag: "新功能",
+        text: "付款確認流程 — 核准時可勾選「需付款」，確認收款後才正式啟用",
+        roles: ["店長"],
+      },
+      {
+        tag: "新功能",
+        text: "方案歷史紀錄 — 每次方案異動都有完整 audit trail（含操作者、原因）",
+        roles: ["店長"],
+      },
+      {
+        tag: "新功能",
+        text: "HQ 統計總覽 — 方案分布、本月申請數、升降級趨勢、試用轉換率",
+        roles: ["店長"],
+      },
+      {
+        tag: "新功能",
+        text: "方案中心補強 — 顯示方案狀態、生效日、到期日、各狀態說明文案",
+        roles: ["店長"],
+      },
+      {
+        tag: "優化",
+        text: "requestType / source 強型別化（enum），避免資料污染",
+        roles: ["店長"],
+      },
+    ],
+  },
   {
     version: "2.5.0",
     date: "2026-04-10",

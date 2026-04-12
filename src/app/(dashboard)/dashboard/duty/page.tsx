@@ -4,6 +4,7 @@ import { checkPermission } from "@/lib/permissions";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { redirect } from "next/navigation";
 import { getDutyByWeek, getDutyByDateRange } from "@/server/queries/duty";
+import { getActiveStoreForRead } from "@/lib/store";
 import {
   getCachedSpecialDays,
   getBusinessHoursWithTiming,
@@ -68,10 +69,11 @@ function DutyWeekSkeleton() {
   );
 }
 
-async function DutyWeekContent({ weekStart, userRole, userStaffId }: {
+async function DutyWeekContent({ weekStart, userRole, userStaffId, activeStoreId }: {
   weekStart: string;
   userRole: UserRole;
   userStaffId: string | null;
+  activeStoreId: string | null;
 }) {
   const timer = new ServerTiming("/dashboard/duty");
 
@@ -94,15 +96,15 @@ async function DutyWeekContent({ weekStart, userRole, userStaffId }: {
     _prevSpecialDays,
     _nextSpecialDays,
   ] = await Promise.all([
-    withTiming("getDutyByWeek", timer, () => getDutyByWeek(weekStart)),
+    withTiming("getDutyByWeek", timer, () => getDutyByWeek(weekStart, activeStoreId)),
     getBusinessHoursWithTiming(timer),
     getSpecialDaysWithTiming(weekStartDate.toISOString(), weekEndISO, timer),
     getDutyEnabledWithTiming(timer),
     userRole === "ADMIN"
       ? Promise.resolve(true)
       : checkPermission(userRole, userStaffId, "duty.manage"),
-    getDutyByDateRange(prevWeekStart, 6).catch(() => []),
-    getDutyByDateRange(nextWeekStart, 6).catch(() => []),
+    getDutyByDateRange(prevWeekStart, 6, undefined, activeStoreId).catch(() => []),
+    getDutyByDateRange(nextWeekStart, 6, undefined, activeStoreId).catch(() => []),
     getCachedSpecialDays(new Date(prevWeekStart + "T00:00:00Z").toISOString(), prevWeekEnd).catch(() => []),
     getCachedSpecialDays(new Date(nextWeekStart + "T00:00:00Z").toISOString(), nextWeekEnd).catch(() => []),
   ]);
@@ -159,6 +161,7 @@ export default async function DutyPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const todayStr = toLocalDateStr();
   const weekStart = params.week ?? getMonday(todayStr);
+  const activeStoreId = await getActiveStoreForRead(user);
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -167,6 +170,7 @@ export default async function DutyPage({ searchParams }: PageProps) {
           weekStart={weekStart}
           userRole={user.role}
           userStaffId={user.staffId}
+          activeStoreId={activeStoreId}
         />
       </Suspense>
     </div>

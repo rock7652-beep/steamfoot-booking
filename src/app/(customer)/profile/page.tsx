@@ -1,7 +1,9 @@
 import { getCurrentUser } from "@/lib/session";
 import { prisma } from "@/lib/db";
+import { getHealthCardData } from "@/server/queries/health-card";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { HealthAssessmentCard } from "@/components/health-assessment-card";
 import { ProfileForm } from "./profile-form";
 import { ChangePasswordForm } from "./change-password-form";
 
@@ -9,19 +11,22 @@ export default async function ProfilePage() {
   const user = await getCurrentUser();
   if (!user || user.role !== "CUSTOMER" || !user.customerId) redirect("/");
 
-  const customer = await prisma.customer.findUnique({
-    where: { id: user.customerId },
-    select: {
-      name: true,
-      phone: true,
-      email: true,
-      gender: true,
-      birthday: true,
-      height: true,
-      address: true,
-      notes: true,
-    },
-  });
+  const [customer, healthCard] = await Promise.all([
+    prisma.customer.findUnique({
+      where: { id: user.customerId },
+      select: {
+        name: true,
+        phone: true,
+        email: true,
+        gender: true,
+        birthday: true,
+        height: true,
+        address: true,
+        notes: true,
+      },
+    }),
+    getHealthCardData(user.customerId),
+  ]);
   if (!customer) redirect("/");
 
   const birthdayStr = customer.birthday
@@ -50,6 +55,11 @@ export default async function ProfilePage() {
       </div>
 
       <div className="space-y-6">
+        {/* AI 健康評估 */}
+        {healthCard.available && (
+          <HealthAssessmentCard score={healthCard.score} customerId={user.customerId} />
+        )}
+
         {/* 基本資料 */}
         <div className="rounded-2xl border border-earth-200 bg-white p-6 shadow-sm">
           <h2 className="mb-4 text-sm font-semibold text-earth-700">基本資料</h2>

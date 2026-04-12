@@ -27,9 +27,9 @@ export interface OpsAlert {
   actionHref?: string;   // e.g. "/dashboard/customers?stage=INACTIVE"
 }
 
-export async function getOpsAlerts(): Promise<OpsAlert[]> {
+export async function getOpsAlerts(activeStoreId?: string | null): Promise<OpsAlert[]> {
   const user = await requireStaffSession();
-  const storeFilter = getStoreFilter(user);
+  const storeFilter = getStoreFilter(user, activeStoreId);
 
   const now = new Date();
   const today = todayRange();
@@ -262,9 +262,9 @@ export interface CustomerAction {
   suggestedAction: string;
 }
 
-export async function getCustomerActions(limit = 20): Promise<CustomerAction[]> {
+export async function getCustomerActions(limit = 20, activeStoreId?: string | null): Promise<CustomerAction[]> {
   const user = await requireStaffSession();
-  const storeFilter = getStoreFilter(user);
+  const storeFilter = getStoreFilter(user, activeStoreId);
 
   const now = new Date();
   const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
@@ -471,9 +471,9 @@ export interface StaffRanking {
   revenueGrowth: number | null; // vs last period, in %
 }
 
-export async function getStaffRankings(days = 30): Promise<StaffRanking[]> {
+export async function getStaffRankings(days = 30, activeStoreId?: string | null): Promise<StaffRanking[]> {
   const user = await requireStaffSession();
-  const storeFilter = getStoreFilter(user);
+  const storeFilter = getStoreFilter(user, activeStoreId);
 
   const now = new Date();
   const periodStart = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
@@ -583,9 +583,9 @@ export interface Recommendation {
   actionHref?: string;
 }
 
-export async function getRecommendations(): Promise<Recommendation[]> {
+export async function getRecommendations(activeStoreId?: string | null): Promise<Recommendation[]> {
   const user = await requireStaffSession();
-  const storeFilter = getStoreFilter(user);
+  const storeFilter = getStoreFilter(user, activeStoreId);
 
   const now = new Date();
   const today = todayRange();

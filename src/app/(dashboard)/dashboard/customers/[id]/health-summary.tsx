@@ -1,5 +1,5 @@
 import {
-  getHealthSummary,
+  getHealthSummarySafe,
   generateBusinessInsights,
   type HealthSummary,
   type BusinessInsight,
@@ -7,10 +7,11 @@ import {
 
 interface HealthSummaryProps {
   healthProfileId: string;
+  customerId?: string;
 }
 
-export async function HealthSummarySection({ healthProfileId }: HealthSummaryProps) {
-  const summary = await getHealthSummary(healthProfileId);
+export async function HealthSummarySection({ healthProfileId, customerId }: HealthSummaryProps) {
+  const summary = await getHealthSummarySafe(healthProfileId, { customerId });
 
   if (!summary) {
     return (

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { hashSync } from "bcryptjs";
 import { signIn } from "@/lib/auth";
 import { AuthError } from "next-auth";
+import { DEFAULT_STORE_ID } from "@/lib/store";
 
 // ============================================================
 // 顧客手機登入
@@ -116,7 +117,7 @@ export async function customerRegisterAction(
             notes,
             authSource: "EMAIL",
             customerStage: "LEAD",
-            storeId: "default-store",
+            storeId: DEFAULT_STORE_ID,
           },
         },
       },

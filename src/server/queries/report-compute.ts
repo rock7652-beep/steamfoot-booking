@@ -6,6 +6,8 @@ import { prisma } from "@/lib/db";
 import { monthRange as sharedMonthRange } from "@/lib/date-utils";
 import { REVENUE_TRANSACTION_TYPES } from "@/lib/booking-constants";
 
+import { DEFAULT_STORE_ID } from "@/lib/store";
+
 const REVENUE_TYPES = [...REVENUE_TRANSACTION_TYPES];
 
 function monthRange(month: string) {
@@ -13,9 +15,9 @@ function monthRange(month: string) {
   return { monthStart: start, monthEnd: end };
 }
 
-export async function computeStoreSummary(month: string) {
+export async function computeStoreSummary(month: string, storeId?: string) {
   const { monthStart, monthEnd } = monthRange(month);
-  const storeFilter = { storeId: "default-store" };
+  const storeFilter = { storeId: storeId || DEFAULT_STORE_ID };
 
   const allStaff = await prisma.staff.findMany({
     where: { status: "ACTIVE", ...storeFilter },
@@ -166,9 +168,9 @@ export async function computeStoreSummary(month: string) {
   };
 }
 
-export async function computeRevenueByCategory(month: string) {
+export async function computeRevenueByCategory(month: string, storeId?: string) {
   const { monthStart, monthEnd } = monthRange(month);
-  const storeFilter = { storeId: "default-store" };
+  const storeFilter = { storeId: storeId || DEFAULT_STORE_ID };
 
   const rows = await prisma.transaction.groupBy({
     by: ["revenueStaffId", "transactionType"],

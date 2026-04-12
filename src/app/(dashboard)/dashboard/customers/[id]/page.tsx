@@ -1,6 +1,8 @@
 import { getCustomerDetail } from "@/server/queries/customer";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
+import { getCurrentStorePlan } from "@/lib/store-plan";
+import { hasFeature as hasPricingFeature, FEATURES as FF } from "@/lib/feature-flags";
 import { getCachedPlans, getCachedStaffOptions } from "@/lib/query-cache";
 import { ServerTiming, withTiming } from "@/lib/perf";
 import { notFound, redirect } from "next/navigation";
@@ -13,6 +15,7 @@ import { AdjustWalletForm } from "./adjust-wallet-form";
 import { LineBindingSection } from "./line-binding-section";
 import { HealthSectionWrapper } from "./health-section";
 import { HealthSummarySection } from "./health-summary";
+import { HealthHistorySection } from "./health-history";
 import { CustomerStageForm } from "./customer-stage-form";
 import { getCustomerTags, getCustomerScript } from "@/server/queries/customer-tags";
 import { getOpsActionLogs } from "@/server/actions/ops-action-log";
@@ -60,6 +63,10 @@ export default async function CustomerDetailPage({ params }: PageProps) {
   ]);
 
   timer.finish();
+
+  // PricingPlan: check AI health features
+  const pricingPlan = await getCurrentStorePlan();
+  const hasAiHealth = hasPricingFeature(pricingPlan, FF.AI_HEALTH_SUMMARY);
 
   // For transfer form, only pass staff list to Owner
   const staffList =
@@ -182,18 +189,25 @@ export default async function CustomerDetailPage({ params }: PageProps) {
         )}
       </div>
 
-      {/* AI健康評估（串接健康管理系統） */}
-      <HealthSectionWrapper
-        customerId={id}
-        customerEmail={customer.email}
-        customerPhone={customer.phone}
-        healthLinkStatus={customer.healthLinkStatus}
-        healthProfileId={customer.healthProfileId}
-      >
-        {customer.healthProfileId && (
-          <HealthSummarySection healthProfileId={customer.healthProfileId} />
-        )}
-      </HealthSectionWrapper>
+      {/* AI健康評估（串接健康管理系統）— 需 GROWTH+ */}
+      {hasAiHealth && (
+        <HealthSectionWrapper
+          customerId={id}
+          customerEmail={customer.email}
+          customerPhone={customer.phone}
+          healthLinkStatus={customer.healthLinkStatus}
+          healthProfileId={customer.healthProfileId}
+        >
+          {customer.healthProfileId && (
+            <HealthSummarySection healthProfileId={customer.healthProfileId} customerId={id} />
+          )}
+        </HealthSectionWrapper>
+      )}
+
+      {/* AI健康評估歷程（教練/店長視角）— 需 GROWTH+ */}
+      {hasAiHealth && customer.healthProfileId && customer.healthLinkStatus === "linked" && (
+        <HealthHistorySection healthProfileId={customer.healthProfileId} customerId={id} />
+      )}
 
       {/* Ops Panel (staff only) */}
       {user.role !== "CUSTOMER" && (

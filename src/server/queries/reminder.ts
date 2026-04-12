@@ -49,17 +49,22 @@ export interface ListMessageLogsOptions {
   pageSize?: number;
 }
 
-export async function listMessageLogs(options: ListMessageLogsOptions = {}) {
+export async function listMessageLogs(options: ListMessageLogsOptions & { activeStoreId?: string | null } = {}) {
   const user = await requireStaffSession();
-  const storeFilter = getStoreFilter(user);
+  // MessageLog 沒有 storeId，需透過 customer relation 篩選
+  const customerStoreFilter = getStoreFilter(user, options.activeStoreId);
   const { status, search, page = 1, pageSize = 30 } = options;
 
-  const where: Record<string, unknown> = { ...storeFilter };
+  const where: Record<string, unknown> = {};
+  const customerWhere: Record<string, unknown> = { ...customerStoreFilter };
   if (status && status !== "ALL") {
     where.status = status;
   }
   if (search) {
-    where.customer = { name: { contains: search, mode: "insensitive" } };
+    customerWhere.name = { contains: search, mode: "insensitive" };
+  }
+  if (Object.keys(customerWhere).length > 0) {
+    where.customer = customerWhere;
   }
 
   const [logs, total] = await Promise.all([
@@ -84,9 +89,13 @@ export async function listMessageLogs(options: ListMessageLogsOptions = {}) {
 // Dashboard stats
 // ============================================================
 
-export async function getReminderStats() {
+export async function getReminderStats(activeStoreId?: string | null) {
   const user = await requireStaffSession();
-  const storeFilter = getStoreFilter(user);
+  // MessageLog 沒有 storeId，需透過 customer relation 篩選
+  const customerStoreFilter = getStoreFilter(user, activeStoreId);
+  const logStoreWhere = Object.keys(customerStoreFilter).length > 0
+    ? { customer: customerStoreFilter }
+    : {};
   const today = toLocalDateStr();
 
   const [enabledRules, todayPending, todaySent, todayFailed] = await Promise.all([
@@ -98,7 +107,7 @@ export async function getReminderStats() {
           gte: new Date(today + "T00:00:00+08:00"),
           lt: new Date(today + "T23:59:59+08:00"),
         },
-        ...storeFilter,
+        ...logStoreWhere,
       },
     }),
     prisma.messageLog.count({
@@ -108,7 +117,7 @@ export async function getReminderStats() {
           gte: new Date(today + "T00:00:00+08:00"),
           lt: new Date(today + "T23:59:59+08:00"),
         },
-        ...storeFilter,
+        ...logStoreWhere,
       },
     }),
     prisma.messageLog.count({
@@ -118,7 +127,7 @@ export async function getReminderStats() {
           gte: new Date(today + "T00:00:00+08:00"),
           lt: new Date(today + "T23:59:59+08:00"),
         },
-        ...storeFilter,
+        ...logStoreWhere,
       },
     }),
   ]);

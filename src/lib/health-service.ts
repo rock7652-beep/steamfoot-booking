@@ -181,7 +181,7 @@ export async function getHealthSummary(
   const cached = getCached(cacheKey);
   if (cached) return cached;
 
-  // 打 API
+  // 打 API — 若失敗會 throw，由呼叫端 safeApi 處理
   const result = await healthFetch<HealthSummary>(
     `/api/health/summary?profileId=${profileId}`
   );
@@ -260,4 +260,37 @@ export function generateBusinessInsights(
   }
 
   return insights;
+}
+
+// ============================================================
+// Safe wrappers — 頁面層必須用這些，不可直接呼叫原始函式
+// ============================================================
+
+import { safeApi } from "@/lib/safe-api";
+
+/** 安全版 lookupHealthProfile — 失敗回傳 { found: false, profiles: [] } */
+export async function lookupHealthProfileSafe(
+  email?: string | null,
+  phone?: string | null,
+  context?: { customerId?: string; storeId?: string }
+) {
+  return safeApi({
+    name: "health.lookupProfile",
+    fn: () => lookupHealthProfile(email, phone),
+    fallback: { found: false as const, profiles: [] as HealthProfile[] },
+    context,
+  });
+}
+
+/** 安全版 getHealthSummary — 失敗回傳 null */
+export async function getHealthSummarySafe(
+  profileId: string,
+  context?: { customerId?: string; storeId?: string }
+) {
+  return safeApi({
+    name: "health.getSummary",
+    fn: () => getHealthSummary(profileId),
+    fallback: null,
+    context: { ...context, customerId: context?.customerId ?? profileId },
+  });
 }

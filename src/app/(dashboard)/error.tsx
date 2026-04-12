@@ -18,8 +18,14 @@ function categorizeError(error: Error & { digest?: string }): {
   if (msg.includes("NOT_FOUND") || msg.includes("不存在")) {
     return { title: "資料不存在", description: "找不到請求的資料，可能已被刪除或從未建立。" };
   }
+  if (msg.includes("缺少 storeId") || msg.includes("缺少店舖")) {
+    return { title: "店舖資訊遺失", description: "登入資訊中缺少店舖資料，請登出後重新登入。" };
+  }
   if (msg.includes("Null constraint") || msg.includes("storeId")) {
     return { title: "系統設定不完整", description: "店舖資料或系統設定可能尚未初始化，請聯繫管理員檢查資料庫。" };
+  }
+  if (msg.includes("connect") && (msg.includes("ECONNREFUSED") || msg.includes("timed out") || msg.includes("pool"))) {
+    return { title: "資料庫連線異常", description: "無法連線至資料庫，可能是暫時性問題，請稍後再試。" };
   }
   if (msg.includes("Foreign key") || msg.includes("foreign key")) {
     return { title: "資料關聯錯誤", description: "相關資料不存在或已被刪除，請聯繫管理員檢查。" };

@@ -22,7 +22,7 @@ export interface ListTransactionsOptions {
 // Manager: 只有自己名下顧客的交易（revenueStaffId = user.staffId）
 // ============================================================
 
-export async function listTransactions(options: ListTransactionsOptions = {}) {
+export async function listTransactions(options: ListTransactionsOptions & { activeStoreId?: string | null } = {}) {
   const user = await requireStaffSession();
   const {
     customerId,
@@ -32,12 +32,13 @@ export async function listTransactions(options: ListTransactionsOptions = {}) {
     dateFrom,
     dateTo,
     excludeSessionDeduction = false,
+    activeStoreId,
     page = 1,
     pageSize = 30,
   } = options;
 
   // Manager 篩選（讀取型：受 visibility mode 控制）
-  const visibilityFilter = getManagerReadFilter(user.role, user.staffId, "revenueStaffId", user.storeId);
+  const visibilityFilter = getManagerReadFilter(user.role, user.staffId, "revenueStaffId", activeStoreId ?? user.storeId);
   // 若 UI 層有傳入 revenueStaffId 篩選，且 visibility 沒有強制篩選 → 使用 UI 篩選
   const staffFilter = Object.keys(visibilityFilter).length > 0
     ? visibilityFilter
@@ -46,7 +47,7 @@ export async function listTransactions(options: ListTransactionsOptions = {}) {
     : {};
 
   const where = {
-    ...getStoreFilter(user),
+    ...getStoreFilter(user, activeStoreId),
     ...staffFilter,
     ...(customerId ? { customerId } : {}),
     ...(transactionType ? { transactionType } : {}),

@@ -20,9 +20,9 @@ export interface ListBookingsOptions {
 // Customer: 只有自己的預約
 // ============================================================
 
-export async function listBookings(options: ListBookingsOptions = {}) {
+export async function listBookings(options: ListBookingsOptions & { activeStoreId?: string | null } = {}) {
   const user = await requireSession();
-  const { dateFrom, dateTo, status, customerId, page = 1, pageSize = 30 } = options;
+  const { dateFrom, dateTo, status, customerId, activeStoreId, page = 1, pageSize = 30 } = options;
 
   // 後端強制資料隔離（讀取型：受 visibility mode 控制）
   let whereCustomer: Record<string, unknown> = {};
@@ -31,7 +31,7 @@ export async function listBookings(options: ListBookingsOptions = {}) {
     if (!user.customerId) return { bookings: [], total: 0, page, pageSize };
     whereCustomer = { id: user.customerId };
   } else if (user.role !== "ADMIN" && user.staffId) {
-    const customerFilter = getManagerCustomerFilter(user.role, user.staffId, user.storeId);
+    const customerFilter = getManagerCustomerFilter(user.role, user.staffId, activeStoreId ?? user.storeId);
     // getManagerCustomerFilter 回傳 { customer: { assignedStaffId: ... } } 或 {}
     // 這裡需要取出 customer 層級的 where
     const nested = customerFilter.customer as Record<string, unknown> | undefined;
@@ -39,7 +39,7 @@ export async function listBookings(options: ListBookingsOptions = {}) {
   }
 
   const where: Record<string, unknown> = {
-    ...getStoreFilter(user),
+    ...getStoreFilter(user, activeStoreId),
     ...(Object.keys(whereCustomer).length > 0 && { customer: whereCustomer }),
     ...(customerId ? { customerId } : {}),
     ...(status ? { bookingStatus: status } : {}),
@@ -123,7 +123,7 @@ export async function getBookingDetail(bookingId: string) {
 // getDayBookings — 取某天的完整預約清單（後台日曆用）
 // ============================================================
 
-export async function getDayBookings(date: string) {
+export async function getDayBookings(date: string, activeStoreId?: string | null) {
   const user = await requireStaffSession();
 
   const dateObj = new Date(date + "T00:00:00Z");
@@ -131,7 +131,7 @@ export async function getDayBookings(date: string) {
   // 所有店長可看全部預約（共享查看）
   return prisma.booking.findMany({
     where: {
-      ...getStoreFilter(user),
+      ...getStoreFilter(user, activeStoreId),
       bookingDate: dateObj,
       bookingStatus: { in: ["PENDING", "CONFIRMED", "COMPLETED", "NO_SHOW"] },
     },
@@ -157,7 +157,7 @@ export async function getDayBookings(date: string) {
 // Owner: 全部 / Manager: 自己的
 // ============================================================
 
-export async function getMonthlyRevenueSummary(year: number, month: number) {
+export async function getMonthlyRevenueSummary(year: number, month: number, activeStoreId?: string | null) {
   const user = await requireStaffSession();
 
   const startDate = new Date(Date.UTC(year, month - 1, 1));
@@ -171,7 +171,7 @@ export async function getMonthlyRevenueSummary(year: number, month: number) {
   const result = await prisma.transaction.groupBy({
     by: ["revenueStaffId"],
     where: {
-      ...getStoreFilter(user),
+      ...getStoreFilter(user, activeStoreId),
       ...staffFilter,
       createdAt: { gte: startDate, lte: endDate },
       transactionType: {
@@ -202,7 +202,7 @@ export async function getMonthlyRevenueSummary(year: number, month: number) {
 // getMonthBookingSummary — 取月份日曆資料（含各日期的預約統計）
 // ============================================================
 
-export async function getMonthBookingSummary(year: number, month: number) {
+export async function getMonthBookingSummary(year: number, month: number, activeStoreId?: string | null) {
   const user = await requireStaffSession();
 
   const startDate = new Date(Date.UTC(year, month - 1, 1));
@@ -213,7 +213,7 @@ export async function getMonthBookingSummary(year: number, month: number) {
     prisma.booking.groupBy({
       by: ["bookingDate"],
       where: {
-        ...getStoreFilter(user),
+        ...getStoreFilter(user, activeStoreId),
         bookingDate: { gte: startDate, lte: endDate },
         bookingStatus: { in: ["PENDING", "CONFIRMED", "COMPLETED", "NO_SHOW"] },
       },
@@ -223,7 +223,7 @@ export async function getMonthBookingSummary(year: number, month: number) {
     prisma.booking.groupBy({
       by: ["bookingDate", "revenueStaffId"],
       where: {
-        ...getStoreFilter(user),
+        ...getStoreFilter(user, activeStoreId),
         bookingDate: { gte: startDate, lte: endDate },
         bookingStatus: { in: ["PENDING", "CONFIRMED", "COMPLETED", "NO_SHOW"] },
         revenueStaffId: { not: null },

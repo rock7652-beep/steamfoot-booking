@@ -2,6 +2,8 @@ import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { redirect } from "next/navigation";
 import { getDutyByDate } from "@/server/queries/duty";
+import { getActiveStoreForRead } from "@/lib/store";
+import { getStoreFilter } from "@/lib/manager-visibility";
 import { prisma } from "@/lib/db";
 import { generateSlots } from "@/lib/slot-generator";
 import { DutyDayEditor } from "./duty-day-editor";
@@ -18,9 +20,11 @@ export default async function DutyDayPage({ params }: PageProps) {
 
   const { date } = await params;
   const canManage = user.role === "ADMIN" || await checkPermission(user.role, user.staffId, "duty.manage");
+  const activeStoreId = await getActiveStoreForRead(user);
+  const storeFilter = getStoreFilter(user, activeStoreId);
 
   // 取值班資料
-  const assignments = await getDutyByDate(date);
+  const assignments = await getDutyByDate(date, activeStoreId);
 
   // 取該日營業時段
   const dateObj = new Date(date + "T00:00:00Z");
@@ -85,7 +89,7 @@ export default async function DutyDayPage({ params }: PageProps) {
 
   const [staffList, weekAssignmentCounts, allBusinessHours, weekSpecialDays] = await Promise.all([
     prisma.staff.findMany({
-      where: { status: "ACTIVE" },
+      where: { status: "ACTIVE", ...storeFilter },
       select: {
         id: true,
         displayName: true,
@@ -97,6 +101,7 @@ export default async function DutyDayPage({ params }: PageProps) {
     prisma.dutyAssignment.groupBy({
       by: ["date"],
       where: {
+        ...storeFilter,
         date: {
           gte: new Date(weekDates[0] + "T00:00:00Z"),
           lte: new Date(weekDates[6] + "T00:00:00Z"),

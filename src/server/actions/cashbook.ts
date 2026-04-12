@@ -10,6 +10,7 @@ import { FEATURES } from "@/lib/shop-plan";
 import type { ActionResult } from "@/types";
 import type { CashbookEntryType } from "@prisma/client";
 import { assertStoreAccess } from "@/lib/manager-visibility";
+import { currentStoreId } from "@/lib/store";
 
 // ============================================================
 // Validators
@@ -65,7 +66,7 @@ export async function createCashbookEntry(
         staffId,
         note: data.note || null,
         createdByUserId: user.id,
-        storeId: user.storeId ?? "default-store",
+        storeId: currentStoreId(user),
       },
     });
 

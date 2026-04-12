@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { ServerTiming, withTiming } from "@/lib/perf";
+import { getActiveStoreForRead } from "@/lib/store";
 import { redirect } from "next/navigation";
 import { BookingsManager } from "./bookings-manager";
 
@@ -22,8 +23,9 @@ export default async function BookingsPage({ searchParams }: PageProps) {
   const year = params.year ? parseInt(params.year) : todayY;
   const month = params.month ? parseInt(params.month) : todayM;
 
+  const activeStoreId = await getActiveStoreForRead(user);
   const timer = new ServerTiming("/dashboard/bookings");
-  const monthData = await withTiming("getMonthBookingSummary", timer, () => getMonthBookingSummary(year, month));
+  const monthData = await withTiming("getMonthBookingSummary", timer, () => getMonthBookingSummary(year, month, activeStoreId));
   timer.finish();
 
   return (

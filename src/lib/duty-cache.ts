@@ -11,6 +11,7 @@ import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/db";
 import type { ServerTiming } from "@/lib/perf";
+import { getShopConfig, isDutySchedulingEnabled } from "@/lib/shop-config";
 
 /**
  * request-level 快取：同一次 server render 內只查一次 businessHours
@@ -22,9 +23,9 @@ export const getBusinessHoursOnce = cache(async () => {
 /**
  * request-level 快取：同一次 server render 內只查一次 ShopConfig
  */
-export const getShopConfigOnce = cache(async () => {
-  const config = await prisma.shopConfig.findUnique({ where: { storeId: "default-store" } });
-  return config ?? { dutySchedulingEnabled: false };
+export const getShopConfigOnce = cache(async (storeId?: string) => {
+  const config = await getShopConfig(storeId);
+  return config;
 });
 
 /**
@@ -77,12 +78,8 @@ export const getCachedSpecialDays = unstable_cache(
  * 跨 request 快取：dutySchedulingEnabled（revalidate 30s）
  */
 export const getCachedDutyEnabled = unstable_cache(
-  async () => {
-    const config = await prisma.shopConfig.findUnique({
-      where: { storeId: "default-store" },
-      select: { dutySchedulingEnabled: true },
-    });
-    return config?.dutySchedulingEnabled ?? false;
+  async (storeId?: string) => {
+    return isDutySchedulingEnabled(storeId);
   },
   ["duty-scheduling-enabled"],
   { revalidate: 30, tags: ["duty-scheduling"] }

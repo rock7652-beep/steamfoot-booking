@@ -3,6 +3,7 @@ import { checkPermission } from "@/lib/permissions";
 import { getShopPlan } from "@/lib/shop-config";
 import { FEATURES } from "@/lib/shop-plan";
 import { FeatureGate } from "@/components/feature-gate";
+import { getActiveStoreForRead } from "@/lib/store";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import {
@@ -67,9 +68,10 @@ export default async function RemindersPage({ searchParams }: PageProps) {
 
   const shopPlan = await getShopPlan();
   const activeTab = params.tab ?? "rules";
+  const activeStoreId = await getActiveStoreForRead(user);
 
   const [stats, rules, templates] = await Promise.all([
-    getReminderStats(),
+    getReminderStats(activeStoreId),
     listReminderRules(),
     listMessageTemplates(),
   ]);
@@ -80,6 +82,7 @@ export default async function RemindersPage({ searchParams }: PageProps) {
         status: params.status,
         search: params.search,
         page: Number(params.page ?? 1),
+        activeStoreId,
       })
     : { logs: [], total: 0, pageSize: 30 };
 

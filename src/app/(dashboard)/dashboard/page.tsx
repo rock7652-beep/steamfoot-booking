@@ -1,9 +1,11 @@
+import { cookies } from "next/headers";
 import { getCurrentUser } from "@/lib/session";
 import { getMonthBookingSummary } from "@/server/queries/booking";
 import { getLatestReconciliationRun } from "@/server/queries/reconciliation";
 import { getDailyTrend } from "@/server/queries/ops-dashboard";
 import { todayRange, monthRange, toLocalDateStr, bookingDateToday } from "@/lib/date-utils";
-import { getManagerCustomerWhere } from "@/lib/manager-visibility";
+import { getManagerCustomerWhere, getStoreFilter } from "@/lib/manager-visibility";
+import { resolveActiveStoreId } from "@/lib/store";
 import { prisma } from "@/lib/db";
 import Link from "next/link";
 import { DashboardCalendar } from "./dashboard-calendar";
@@ -16,6 +18,8 @@ import {
   ACTIVE_BOOKING_STATUSES,
   REVENUE_TRANSACTION_TYPES,
 } from "@/lib/booking-constants";
+import { getLatestResolvedRequest } from "@/server/queries/upgrade-request";
+import { UpgradeResultBanner } from "@/components/upgrade-result-banner";
 
 // Owner-only: lazy import trend tabs
 import { TrendTabs } from "./ops/trend-tabs";
@@ -30,6 +34,12 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   if (!user) return null;
   const isOwner = user.role === "ADMIN";
 
+  // 多店視角：讀取 cookie 解析 activeStoreId
+  const cookieStore = await cookies();
+  const cookieStoreId = cookieStore.get("active-store-id")?.value ?? null;
+  const activeStoreId = resolveActiveStoreId(user, cookieStoreId);
+  const storeFilter = getStoreFilter(user, activeStoreId);
+
   const today = todayRange();
   const todayStart = today.start;
   const todayEnd = today.end;
@@ -41,8 +51,8 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   const year = params.year ? parseInt(params.year) : parseInt(toLocalDateStr().slice(0, 4));
   const month = params.month ? parseInt(params.month) : parseInt(toLocalDateStr().slice(5, 7));
 
-  // P0-3: 「顧客屬於店」— 今日預約 / KPI 全店共享
-  const staffCustomerWhere = getManagerCustomerWhere(user.role, user.staffId);
+  // P0-3: 「顧客屬於店」— 今日預約 / KPI，依 activeStoreId 篩選
+  const staffCustomerWhere = getManagerCustomerWhere(user.role, user.staffId, activeStoreId);
 
   // ── Last week same day for comparison ──
   const lastWeekDate = new Date(todayBookingDate.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -69,6 +79,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
           where: {
             bookingDate: todayBookingDate,
             bookingStatus: { in: [...ACTIVE_BOOKING_STATUSES] },
+            ...storeFilter,
           },
           _count: { id: true },
           _sum: { people: true },
@@ -78,6 +89,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
               where: {
                 createdAt: { gte: monthStart },
                 transactionType: { in: [...REVENUE_TRANSACTION_TYPES] },
+                ...storeFilter,
               },
               _sum: { amount: true },
             })
@@ -86,6 +98,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
           where: {
             bookingDate: todayBookingDate,
             bookingStatus: "COMPLETED",
+            ...storeFilter,
           },
           _count: { id: true },
           _sum: { people: true },
@@ -95,6 +108,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
               where: {
                 createdAt: { gte: todayStart, lte: todayEnd },
                 transactionType: { in: [...REVENUE_TRANSACTION_TYPES] },
+                ...storeFilter,
               },
               _sum: { amount: true },
             })
@@ -104,6 +118,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
               where: {
                 createdAt: { gte: prevMonth.start, lt: monthStart },
                 transactionType: { in: [...REVENUE_TRANSACTION_TYPES] },
+                ...storeFilter,
               },
               _sum: { amount: true },
             })
@@ -112,6 +127,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
           where: {
             bookingDate: todayBookingDate,
             bookingStatus: "NO_SHOW",
+            ...storeFilter,
           },
         }),
       ]);
@@ -134,6 +150,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       where: {
         bookingDate: todayBookingDate,
         bookingStatus: { in: [...ACTIVE_BOOKING_STATUSES] },
+        ...storeFilter,
       },
       include: {
         customer: { select: { name: true, phone: true } },
@@ -143,7 +160,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     }),
 
     // Month calendar data
-    getMonthBookingSummary(year, month),
+    getMonthBookingSummary(year, month, activeStoreId),
 
     // Latest reconciliation run
     getLatestReconciliationRun().catch(() => null),
@@ -153,14 +170,20 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       where: {
         bookingDate: lastWeekDate,
         bookingStatus: { in: [...ACTIVE_BOOKING_STATUSES] },
+        ...storeFilter,
       },
       _count: { id: true },
     }),
 
     // Trend data (owner only — null for staff)
-    isOwner ? getDailyTrend(7).catch(() => []) : Promise.resolve(null),
-    isOwner ? getDailyTrend(30).catch(() => []) : Promise.resolve(null),
+    isOwner ? getDailyTrend(7, activeStoreId).catch(() => []) : Promise.resolve(null),
+    isOwner ? getDailyTrend(30, activeStoreId).catch(() => []) : Promise.resolve(null),
   ]);
+
+  // 升級結果 banner（核准 or 拒絕，24hr 內）
+  const resolvedRequest = user.storeId
+    ? await getLatestResolvedRequest(user.storeId)
+    : null;
 
   // Busyness level
   const busyLevel = stats.todayPeople === 0 ? "idle" : stats.todayPeople <= 8 ? "normal" : stats.todayPeople <= 15 ? "busy" : "full";
@@ -197,6 +220,15 @@ export default async function DashboardPage({ searchParams }: PageProps) {
           </span>
         </div>
       </div>
+
+      {/* ── 升級結果提示 ── */}
+      {resolvedRequest && (
+        <UpgradeResultBanner
+          status={resolvedRequest.status}
+          requestedPlan={resolvedRequest.requestedPlan}
+          reviewNote={resolvedRequest.reviewNote}
+        />
+      )}
 
       {/* ═══════════════════════════════════════════════ */}
       {/* 2. 警示區                                       */}
