@@ -32,23 +32,28 @@ export function ReviewActions({ requestId, planChanged, billingStatus }: Props) 
     }
 
     setPending(true);
-    const result = await reviewUpgradeRequest({
-      requestId,
-      action,
-      reviewNote: note.trim() || undefined,
-      requiresPayment: action === "APPROVED" ? requiresPayment : undefined,
-    });
-    setPending(false);
+    try {
+      const result = await reviewUpgradeRequest({
+        requestId,
+        action,
+        reviewNote: note.trim() || undefined,
+        requiresPayment: action === "APPROVED" ? requiresPayment : undefined,
+      });
 
-    if (result.success) {
-      setDone(true);
-      if (action === "APPROVED" && requiresPayment) {
-        toast.success("已核准，等待付款確認");
+      if (result.success) {
+        setDone(true);
+        if (action === "APPROVED" && requiresPayment) {
+          toast.success("已核准，等待付款確認");
+        } else {
+          toast.success(action === "APPROVED" ? "已核准" : "已拒絕");
+        }
       } else {
-        toast.success(action === "APPROVED" ? "已核准" : "已拒絕");
+        toast.error(result.error ?? "操作失敗");
       }
-    } else {
-      toast.error(result.error);
+    } catch {
+      toast.error("操作失敗，請稍後再試");
+    } finally {
+      setPending(false);
     }
   }
 
@@ -105,14 +110,19 @@ function PaymentConfirmAction({ requestId }: { requestId: string }) {
     if (!confirmed) return;
 
     setPending(true);
-    const result = await confirmUpgradePayment({ requestId });
-    setPending(false);
+    try {
+      const result = await confirmUpgradePayment({ requestId });
 
-    if (result.success) {
-      setDone(true);
-      toast.success("付款已確認，方案已啟用");
-    } else {
-      toast.error(result.error);
+      if (result.success) {
+        setDone(true);
+        toast.success("付款已確認，方案已啟用");
+      } else {
+        toast.error(result.error ?? "操作失敗");
+      }
+    } catch {
+      toast.error("操作失敗，請稍後再試");
+    } finally {
+      setPending(false);
     }
   }
 
