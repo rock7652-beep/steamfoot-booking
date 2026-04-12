@@ -32,18 +32,25 @@ export function AdminPlanOverride({ storeId, storeName, currentPlan }: Props) {
     if (!confirmed) return;
 
     setPending(true);
-    const result = await adminChangeStorePlan({
-      storeId,
-      newPlan: selected,
-      reason: reason.trim(),
-    });
-    setPending(false);
+    try {
+      const result = await adminChangeStorePlan({
+        storeId,
+        newPlan: selected,
+        reason: reason.trim(),
+      });
 
-    if (result.success) {
-      toast.success("方案已調整");
-      setTimeout(() => window.location.reload(), 1000);
-    } else {
-      toast.error(result.error);
+      if (result.success) {
+        toast.success("方案已調整");
+        setReason("");
+        setTimeout(() => window.location.reload(), 1000);
+      } else {
+        toast.error(result.error ?? "操作失敗");
+      }
+    } catch (err) {
+      console.error("adminChangeStorePlan error:", err);
+      toast.error(err instanceof Error ? err.message : "操作失敗，請稍後再試");
+    } finally {
+      setPending(false);
     }
   }
 
