@@ -10,7 +10,7 @@ import {
   hasFeature,
 } from "@/lib/shop-plan";
 import { PRICING_PLAN_INFO } from "@/lib/feature-flags";
-import { getAllStoresUsage, type StoreUsage } from "@/server/queries/usage";
+import { getAllStoresUsage, getPlatformStoreStats, type StoreUsage } from "@/server/queries/usage";
 import { getPendingUpgradeRequest } from "@/server/queries/upgrade-request";
 import type { ShopPlan } from "@prisma/client";
 import { PlanSwitcher } from "./plan-switcher";
@@ -227,7 +227,12 @@ export default async function PlanSettingsPage() {
 // ============================================================
 
 async function StorePlanSection() {
-  const storesUsage = await getAllStoresUsage();
+  const [storesUsage, platformStats] = await Promise.all([
+    getAllStoresUsage(),
+    getPlatformStoreStats(),
+  ]);
+
+  const isOverLimit = platformStats.maxStores !== null && platformStats.totalStores > platformStats.maxStores;
 
   return (
     <div className="space-y-6 border-t border-earth-200 pt-8">
@@ -236,6 +241,20 @@ async function StorePlanSection() {
         <p className="mt-1 text-xs text-earth-400">
           管理各店舖的收費方案與功能權限，用量接近上限時會顯示警示
         </p>
+        {/* 平台級分店摘要 */}
+        <div className={`mt-3 rounded-lg px-3 py-2 text-xs ${
+          isOverLimit
+            ? "border border-amber-200 bg-amber-50 text-amber-800"
+            : "border border-earth-200 bg-earth-50 text-earth-600"
+        }`}>
+          {isOverLimit ? (
+            <>⚠ 已使用 {platformStats.totalStores} 間店舖（目前平台上限為 {platformStats.maxStores} 間 · {platformStats.bestPlanLabel}），建議升級至聯盟版以支援更多分店</>
+          ) : platformStats.maxStores !== null ? (
+            <>目前共 {platformStats.totalStores} 間店舖（平台上限：{platformStats.maxStores} 間 · {platformStats.bestPlanLabel}）</>
+          ) : (
+            <>目前共 {platformStats.totalStores} 間店舖（{platformStats.bestPlanLabel} · 無上限）</>
+          )}
+        </div>
       </div>
 
       {storesUsage.map((store) => (
@@ -278,7 +297,7 @@ async function StorePlanSection() {
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               {store.metrics.map((m) => (
                 <UsageCard key={m.label} metric={m} />
               ))}

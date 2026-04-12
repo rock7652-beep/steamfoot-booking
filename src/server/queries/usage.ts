@@ -3,7 +3,7 @@
  */
 
 import { prisma } from "@/lib/db";
-import { getPlanLimits, type PlanLimits } from "@/lib/feature-flags";
+import { getPlanLimits, PRICING_PLAN_INFO, type PlanLimits } from "@/lib/feature-flags";
 import type { PricingPlan } from "@prisma/client";
 
 export interface UsageMetric {
@@ -70,7 +70,7 @@ export async function getStoreUsage(storeId: string): Promise<StoreUsage | null>
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
 
-  const [staffCount, customerCount, monthlyBookingCount, storeCount] =
+  const [staffCount, customerCount, monthlyBookingCount] =
     await Promise.all([
       prisma.staff.count({ where: { storeId, status: "ACTIVE" } }),
       prisma.customer.count({ where: { storeId } }),
@@ -80,9 +80,9 @@ export async function getStoreUsage(storeId: string): Promise<StoreUsage | null>
           createdAt: { gte: monthStart, lte: monthEnd },
         },
       }),
-      prisma.store.count(),
     ]);
 
+  // 分店數為平台級指標，不放在 per-store metrics 中
   const metrics: UsageMetric[] = [
     {
       label: "員工數",
@@ -104,13 +104,6 @@ export async function getStoreUsage(storeId: string): Promise<StoreUsage | null>
       limit: limits.maxMonthlyBookings,
       pct: calcPct(monthlyBookingCount, limits.maxMonthlyBookings),
       status: calcStatus(monthlyBookingCount, limits.maxMonthlyBookings),
-    },
-    {
-      label: "分店數",
-      current: storeCount,
-      limit: limits.maxStores,
-      pct: calcPct(storeCount, limits.maxStores),
-      status: calcStatus(storeCount, limits.maxStores),
     },
   ];
 
@@ -140,4 +133,31 @@ export async function getAllStoresUsage(): Promise<StoreUsage[]> {
   );
 
   return results.filter((r): r is StoreUsage => r !== null);
+}
+
+/**
+ * 取得平台級分店統計（供方案設定頁顯示）
+ */
+export async function getPlatformStoreStats(): Promise<{
+  totalStores: number;
+  maxStores: number | null;
+  bestPlanLabel: string;
+}> {
+  const stores = await prisma.store.findMany({
+    select: { plan: true, maxStoresOverride: true },
+  });
+  const totalStores = stores.length;
+
+  // 以最高方案的 maxStores 為平台上限
+  const bestStore = stores.reduce((best, s) => {
+    const order: PricingPlan[] = ["EXPERIENCE", "BASIC", "GROWTH", "ALLIANCE"];
+    return order.indexOf(s.plan) > order.indexOf(best.plan) ? s : best;
+  }, stores[0]);
+
+  const limits = getPlanLimits(bestStore as Parameters<typeof getPlanLimits>[0]);
+  return {
+    totalStores,
+    maxStores: limits.maxStores,
+    bestPlanLabel: PRICING_PLAN_INFO[bestStore.plan].label,
+  };
 }
