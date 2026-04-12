@@ -29,8 +29,12 @@ export function OpsHistoryPopover({ module, refId }: Props) {
     setOpen(true);
     if (!history) {
       startTransition(async () => {
-        const data = await getOpsActionHistory(module, refId);
-        setHistory(data);
+        try {
+          const data = await getOpsActionHistory(module, refId);
+          setHistory(data);
+        } catch {
+          setHistory([]);
+        }
       });
     }
   }

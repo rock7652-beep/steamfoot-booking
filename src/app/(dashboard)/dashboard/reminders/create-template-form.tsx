@@ -39,21 +39,26 @@ export function CreateTemplateForm() {
     setError(null);
 
     const form = new FormData(e.currentTarget);
-    const result = await createMessageTemplate({
-      name: form.get("name") as string,
-      body,
-      isDefault: form.get("isDefault") === "on",
-    });
+    try {
+      const result = await createMessageTemplate({
+        name: form.get("name") as string,
+        body,
+        isDefault: form.get("isDefault") === "on",
+      });
 
-    if (result.success) {
-      toast.success("訊息模板已建立");
-      setOpen(false);
-      setBody(DEFAULT_BODY);
-    } else {
-      toast.error(result.error);
-      setError(result.error);
+      if (result.success) {
+        toast.success("訊息模板已建立");
+        setOpen(false);
+        setBody(DEFAULT_BODY);
+      } else {
+        toast.error(result.error);
+        setError(result.error);
+      }
+    } catch {
+      toast.error("操作失敗，請稍後再試");
+    } finally {
+      setPending(false);
     }
-    setPending(false);
   }
 
   if (!open) {

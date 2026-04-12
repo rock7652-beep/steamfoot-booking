@@ -48,13 +48,17 @@ export function DutySchedulingToggle({
     }
 
     startTransition(async () => {
-      const result = await updateDutyScheduling(newValue);
-      if (result.success) {
-        setIsEnabled(newValue);
-        showMessage("success", newValue ? "已啟用值班排班聯動" : "已關閉值班排班聯動");
-        router.refresh();
-      } else {
-        showMessage("error", result.error);
+      try {
+        const result = await updateDutyScheduling(newValue);
+        if (result.success) {
+          setIsEnabled(newValue);
+          showMessage("success", newValue ? "已啟用值班排班聯動" : "已關閉值班排班聯動");
+          router.refresh();
+        } else {
+          showMessage("error", result.error);
+        }
+      } catch {
+        showMessage("error", "操作失敗，請稍後再試");
       }
     });
   }

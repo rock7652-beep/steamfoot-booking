@@ -10,14 +10,19 @@ export function RuleToggle({ ruleId, isEnabled }: { ruleId: string; isEnabled: b
 
   async function handleToggle() {
     setPending(true);
-    const result = await toggleReminderRule(ruleId, !enabled);
-    if (result.success) {
-      setEnabled(!enabled);
-      toast.success(!enabled ? "規則已啟用" : "規則已停用");
-    } else {
-      toast.error(result.error ?? "操作失敗");
+    try {
+      const result = await toggleReminderRule(ruleId, !enabled);
+      if (result.success) {
+        setEnabled(!enabled);
+        toast.success(!enabled ? "規則已啟用" : "規則已停用");
+      } else {
+        toast.error(result.error ?? "操作失敗");
+      }
+    } catch {
+      toast.error("操作失敗，請稍後再試");
+    } finally {
+      setPending(false);
     }
-    setPending(false);
   }
 
   return (

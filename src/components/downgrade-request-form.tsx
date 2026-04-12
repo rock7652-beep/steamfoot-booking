@@ -46,19 +46,24 @@ export function DowngradeRequestForm({ currentPlan, hasPending }: Props) {
 
   async function handleSubmit() {
     setPending(true);
-    const result = await submitUpgradeRequest({
-      requestedPlan: selected,
-      requestType: "DOWNGRADE",
-      source: "SETTINGS",
-      reason: reason.trim() || undefined,
-    });
-    setPending(false);
+    try {
+      const result = await submitUpgradeRequest({
+        requestedPlan: selected,
+        requestType: "DOWNGRADE",
+        source: "SETTINGS",
+        reason: reason.trim() || undefined,
+      });
 
-    if (result.success) {
-      setSubmitted(true);
-      toast.success("降級申請已送出");
-    } else {
-      toast.error(result.error);
+      if (result.success) {
+        setSubmitted(true);
+        toast.success("降級申請已送出");
+      } else {
+        toast.error(result.error ?? "操作失敗");
+      }
+    } catch {
+      toast.error("操作失敗，請稍後再試");
+    } finally {
+      setPending(false);
     }
   }
 

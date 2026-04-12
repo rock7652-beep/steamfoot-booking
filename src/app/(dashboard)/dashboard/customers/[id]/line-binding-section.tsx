@@ -99,15 +99,20 @@ export function LineBindingSection({
   async function handleGenerateCode() {
     setPending(true);
     setMessage(null);
-    const result = await generateLineBindingCode(customerId);
-    if (result.success) {
-      setBindingCode(result.data.code);
-      setCodeCreatedAt(new Date().toISOString());
-      setMessage({ text: "綁定碼已產生（舊碼已失效）", type: "success" });
-    } else {
-      setMessage({ text: result.error, type: "error" });
+    try {
+      const result = await generateLineBindingCode(customerId);
+      if (result.success) {
+        setBindingCode(result.data.code);
+        setCodeCreatedAt(new Date().toISOString());
+        setMessage({ text: "綁定碼已產生（舊碼已失效）", type: "success" });
+      } else {
+        setMessage({ text: result.error, type: "error" });
+      }
+    } catch {
+      setMessage({ text: "操作失敗，請稍後再試", type: "error" });
+    } finally {
+      setPending(false);
     }
-    setPending(false);
   }
 
   // ── 解除綁定 ──
@@ -115,16 +120,21 @@ export function LineBindingSection({
     if (!confirm("確定要解除此顧客的 LINE 綁定嗎？\n解除後顧客將無法收到 LINE 通知。")) return;
     setPending(true);
     setMessage(null);
-    const result = await unlinkLineAccount(customerId);
-    if (result.success) {
-      setStatus("UNLINKED");
-      setBindingCode(null);
-      setCodeCreatedAt(null);
-      setMessage({ text: "已解除綁定", type: "success" });
-    } else {
-      setMessage({ text: result.error, type: "error" });
+    try {
+      const result = await unlinkLineAccount(customerId);
+      if (result.success) {
+        setStatus("UNLINKED");
+        setBindingCode(null);
+        setCodeCreatedAt(null);
+        setMessage({ text: "已解除綁定", type: "success" });
+      } else {
+        setMessage({ text: result.error, type: "error" });
+      }
+    } catch {
+      setMessage({ text: "操作失敗，請稍後再試", type: "error" });
+    } finally {
+      setPending(false);
     }
-    setPending(false);
   }
 
   // ── 複製綁定指令 ──

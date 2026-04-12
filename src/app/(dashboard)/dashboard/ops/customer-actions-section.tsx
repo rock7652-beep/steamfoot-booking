@@ -77,8 +77,16 @@ export function CustomerActionsSection({ actions, actionLogs, staffList }: Props
       },
     }));
     startTransition(async () => {
-      const res = await markCustomerAction(actionId, status);
-      if (!res.success) {
+      try {
+        const res = await markCustomerAction(actionId, status);
+        if (!res.success) {
+          setLocalLogs((prev) => {
+            const next = { ...prev };
+            delete next[actionId];
+            return next;
+          });
+        }
+      } catch {
         setLocalLogs((prev) => {
           const next = { ...prev };
           delete next[actionId];
@@ -106,7 +114,11 @@ export function CustomerActionsSection({ actions, actionLogs, staffList }: Props
     setNoteEditing(null);
     setNoteText("");
     startTransition(async () => {
-      await updateCustomerActionNote(actionId, text);
+      try {
+        await updateCustomerActionNote(actionId, text);
+      } catch {
+        // 備註儲存失敗 — optimistic UI 已顯示
+      }
     });
   }
 

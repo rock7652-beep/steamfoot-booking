@@ -27,19 +27,25 @@ export function AdminTrialStart({ storeId, storeName }: Props) {
     if (!confirmed) return;
 
     setPending(true);
-    const result = await adminStartTrial({
-      storeId,
-      trialPlan: selected,
-      trialDays: days,
-      reason: reason.trim() || undefined,
-    });
-    setPending(false);
+    try {
+      const result = await adminStartTrial({
+        storeId,
+        trialPlan: selected,
+        trialDays: days,
+        reason: reason.trim() || undefined,
+      });
 
-    if (result.success) {
-      toast.success("試用已開通");
-      setTimeout(() => window.location.reload(), 1000);
-    } else {
-      toast.error(result.error);
+      if (result.success) {
+        toast.success("試用已開通");
+        setReason("");
+        setTimeout(() => window.location.reload(), 1000);
+      } else {
+        toast.error(result.error ?? "操作失敗");
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "操作失敗，請稍後再試");
+    } finally {
+      setPending(false);
     }
   }
 

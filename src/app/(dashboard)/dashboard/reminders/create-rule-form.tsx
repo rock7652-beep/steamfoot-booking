@@ -38,27 +38,32 @@ export function CreateRuleForm({ templates }: Props) {
           : offsetMinutes
         : undefined;
 
-    const result = await createReminderRule({
-      name,
-      type,
-      offsetMinutes: finalOffsetMinutes,
-      offsetDays: type === "fixed" ? Number(form.get("offsetDays") ?? 1) : undefined,
-      fixedTime: type === "fixed" ? (form.get("fixedTime") as string) || "20:00" : undefined,
-      templateId,
-      isEnabled: true,
-    });
+    try {
+      const result = await createReminderRule({
+        name,
+        type,
+        offsetMinutes: finalOffsetMinutes,
+        offsetDays: type === "fixed" ? Number(form.get("offsetDays") ?? 1) : undefined,
+        fixedTime: type === "fixed" ? (form.get("fixedTime") as string) || "20:00" : undefined,
+        templateId,
+        isEnabled: true,
+      });
 
-    if (result.success) {
-      toast.success("提醒規則已建立");
-      setOpen(false);
-      setType("relative");
-      setOffsetMinutes(1440);
-      setCustomHours("");
-    } else {
-      toast.error(result.error);
-      setError(result.error);
+      if (result.success) {
+        toast.success("提醒規則已建立");
+        setOpen(false);
+        setType("relative");
+        setOffsetMinutes(1440);
+        setCustomHours("");
+      } else {
+        toast.error(result.error);
+        setError(result.error);
+      }
+    } catch {
+      toast.error("操作失敗，請稍後再試");
+    } finally {
+      setPending(false);
     }
-    setPending(false);
   }
 
   if (!open) {

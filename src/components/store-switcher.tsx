@@ -47,8 +47,12 @@ export default function StoreSwitcher({
   function handleSelect(value: string) {
     setOpen(false);
     startTransition(async () => {
-      await switchActiveStore(value);
-      router.refresh();
+      try {
+        await switchActiveStore(value);
+        router.refresh();
+      } catch {
+        // switchActiveStore 失敗時回退 UI — 不阻斷使用者
+      }
     });
   }
 

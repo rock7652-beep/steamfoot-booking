@@ -17,16 +17,20 @@ export function StaffStatusToggle({ staffId, currentStatus }: StaffStatusToggleP
 
   function handleToggle() {
     startTransition(async () => {
-      const result = isActive
-        ? await deactivateStaff(staffId)
-        : await activateStaff(staffId);
+      try {
+        const result = isActive
+          ? await deactivateStaff(staffId)
+          : await activateStaff(staffId);
 
-      if (!result.success) {
-        toast.error(result.error || "操作失敗");
-        return;
+        if (!result.success) {
+          toast.error(result.error || "操作失敗");
+          return;
+        }
+        toast.success(isActive ? "已停用員工" : "已啟用員工");
+        router.refresh();
+      } catch {
+        toast.error("操作失敗，請稍後再試");
       }
-      toast.success(isActive ? "已停用員工" : "已啟用員工");
-      router.refresh();
     });
   }
 

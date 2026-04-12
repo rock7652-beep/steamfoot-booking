@@ -51,8 +51,16 @@ export function AlertsSection({ alerts, actionLogs, staffList }: Props) {
       },
     }));
     startTransition(async () => {
-      const res = await markAlert(alertId, status);
-      if (!res.success) {
+      try {
+        const res = await markAlert(alertId, status);
+        if (!res.success) {
+          setLocalLogs((prev) => {
+            const next = { ...prev };
+            delete next[alertId];
+            return next;
+          });
+        }
+      } catch {
         setLocalLogs((prev) => {
           const next = { ...prev };
           delete next[alertId];
