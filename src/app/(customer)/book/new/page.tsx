@@ -20,6 +20,7 @@ export default async function NewBookingPage() {
             id: true,
             totalSessions: true,
             remainingSessions: true,
+            expiryDate: true,
             plan: { select: { name: true } },
             bookings: {
               where: { isMakeup: false },
@@ -148,6 +149,7 @@ export default async function NewBookingPage() {
             id: w.id,
             planName: w.plan.name,
             remainingSessions: w.computedRemaining,
+            expiryDate: w.expiryDate?.toISOString().slice(0, 10) ?? null,
           }))}
           makeupCredits={makeupCredits.map((c) => ({
             id: c.id,

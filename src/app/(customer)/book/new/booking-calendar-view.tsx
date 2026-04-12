@@ -11,6 +11,7 @@ interface ActiveWallet {
   id: string;
   planName: string;
   remainingSessions: number;
+  expiryDate: string | null;
 }
 
 interface MakeupCreditInfo {
@@ -358,6 +359,31 @@ export function BookingCalendarView({ customerId, activeWallets, makeupCredits =
   );
 }
 
+// ── 錯誤訊息友善化 ──
+
+/** 判斷是否為技術性錯誤（不應直接暴露給顧客） */
+function isTechnicalError(msg: string): boolean {
+  return /FORBIDDEN|UNAUTHORIZED|STORE_ACCESS|Prisma|prisma|null|undefined|constraint|storeId/i.test(msg);
+}
+
+/** 將 server error 轉為顧客可理解文案 */
+function friendlyError(msg: string): string {
+  if (/FORBIDDEN_STORE_ACCESS|無權存取/i.test(msg)) {
+    return "目前預約資料載入異常，請重新整理後再試";
+  }
+  if (/UNAUTHORIZED|登入|session/i.test(msg)) {
+    return "登入已過期，請重新登入後再試";
+  }
+  if (/storeId|店舖資訊/i.test(msg)) {
+    return "系統設定異常，請登出後重新登入";
+  }
+  if (/Prisma|prisma|constraint|null/i.test(msg)) {
+    return "目前預約資料載入異常，請稍後再試";
+  }
+  // 業務規則錯誤直接顯示（已是中文友善文案）
+  return msg;
+}
+
 // ── 時段選擇 + 預約表單（含補課支援） ──
 function SlotBookingForm({
   customerId,
@@ -406,6 +432,34 @@ function SlotBookingForm({
 
   const availableSlots = slots.filter((s) => s.isEnabled && !s.isPast && s.available >= people);
 
+  // ── 客端 blocking validation ──
+  const totalRemaining = activeWallets.reduce((s, w) => s + w.remainingSessions, 0);
+
+  // 票券期限檢查
+  const walletsForDate = activeWallets.filter(
+    (w) => w.remainingSessions > 0 && (!w.expiryDate || w.expiryDate >= selectedDate)
+  );
+  const hasWalletForDate = useMakeup || walletsForDate.length > 0;
+
+  // 人數 vs 剩餘堂數
+  const hasEnoughSessions = useMakeup || totalRemaining >= people;
+
+  // 最晚到期日（用於提示）
+  const latestExpiry = activeWallets
+    .filter((w) => w.remainingSessions > 0 && w.expiryDate)
+    .map((w) => w.expiryDate!)
+    .sort()
+    .pop();
+
+  // 是否有 blocking error
+  const blockingError = !useMakeup && !hasWalletForDate
+    ? (latestExpiry
+        ? `票券期限不足，您目前方案有效期限至 ${latestExpiry}，請選擇期限內日期或聯繫店家`
+        : "票券已超過可使用期限，請聯繫店家協助")
+    : !useMakeup && !hasEnoughSessions
+    ? `方案次數不足，無法預約 ${people} 人。目前可使用次數僅剩 ${totalRemaining} 次，請調整預約人數或聯繫店家`
+    : null;
+
   if (state.success) {
     return (
       <div className="rounded-2xl bg-white p-8 text-center shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
@@ -448,7 +502,12 @@ function SlotBookingForm({
   return (
     <form action={action} className="space-y-3 rounded-xl border border-earth-200 bg-white p-4 shadow-sm">
       {state.error && (
-        <div className="rounded-lg bg-red-50 px-4 py-2 text-sm text-red-600">{state.error}</div>
+        <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+          <p className="font-medium">{friendlyError(state.error)}</p>
+          {isTechnicalError(state.error) && (
+            <p className="mt-1 text-xs text-red-500">若問題持續，請聯繫店家協助</p>
+          )}
+        </div>
       )}
 
       {/* 補課切換 */}
@@ -551,8 +610,19 @@ function SlotBookingForm({
         </div>
       )}
 
+      {/* 阻擋性驗證提示 */}
+      {blockingError && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+          <p className="text-sm font-medium text-red-700">{blockingError}</p>
+        </div>
+      )}
+
       {availableSlots.length > 0 && (
-        <button type="submit" disabled={pending} className={`w-full rounded-xl py-3 text-sm font-semibold text-white disabled:opacity-60 ${useMakeup ? "bg-amber-600 hover:bg-amber-700" : "bg-primary-600 hover:bg-primary-700"}`}>
+        <button
+          type="submit"
+          disabled={pending || !!blockingError}
+          className={`w-full rounded-xl py-3 text-sm font-semibold text-white disabled:opacity-60 ${useMakeup ? "bg-amber-600 hover:bg-amber-700" : "bg-primary-600 hover:bg-primary-700"}`}
+        >
           {pending ? "預約中..." : useMakeup ? `確認補課預約（${people} 人）` : `確認預約（${people} 人）`}
         </button>
       )}

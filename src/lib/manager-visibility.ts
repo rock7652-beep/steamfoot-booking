@@ -67,7 +67,7 @@ export function assertStoreAccess(
 ): void {
   if (isOwner(user.role)) return;
   if (user.storeId !== recordStoreId) {
-    throw new AppError("FORBIDDEN", "FORBIDDEN_STORE_ACCESS: 無權存取其他店舖的資料");
+    throw new AppError("FORBIDDEN", "無權存取其他店舖的資料");
   }
 }
 

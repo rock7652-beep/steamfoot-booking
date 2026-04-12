@@ -122,16 +122,19 @@ export async function createBooking(
       },
     });
     if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
-    assertStoreAccess(user, customer.storeId);
 
     // ── 2. 權限檢查
     if (user.role === "CUSTOMER") {
+      // 顧客自助預約：驗證 customerId 歸屬（不做跨店檢查，因為顧客只能為自己預約）
       if (!user.customerId || user.customerId !== data.customerId) {
         throw new AppError("FORBIDDEN", "顧客只能為自己建立預約");
       }
       if (!customer.selfBookingEnabled) {
-        throw new AppError("BUSINESS_RULE", "尚未開放自助預約，請聯繫店長");
+        throw new AppError("BUSINESS_RULE", "尚未開放自助預約，請聯繫店長協助安排");
       }
+    } else {
+      // 後台員工/管理員代約：才做跨店存取檢查
+      assertStoreAccess(user, customer.storeId);
     }
 
     // ── 3. 補課驗證
@@ -153,7 +156,7 @@ export async function createBooking(
       makeupCreditId = credit.id;
     }
 
-    // ── 4. 一般預約：需有有效課程
+    // ── 4. 一般預約：需有有效課程 + 票券期限 + 人數檢查
     if (!isMakeup && user.role === "CUSTOMER") {
       const hasValidWallet = customer.planWallets.some(
         (w) => w.remainingSessions > 0
@@ -161,7 +164,41 @@ export async function createBooking(
       if (!hasValidWallet) {
         throw new AppError(
           "BUSINESS_RULE",
-          "尚無有效課程或剩餘堂數不足，請先購買課程方案"
+          "目前沒有可使用的方案，請先購買課程方案或聯繫店家協助"
+        );
+      }
+
+      // 票券期限檢查：所有 ACTIVE wallet 都過期 → 阻擋
+      const bookingDateObj2 = new Date(data.bookingDate + "T00:00:00Z");
+      const hasWalletCoveringDate = customer.planWallets.some(
+        (w) =>
+          w.remainingSessions > 0 &&
+          (!w.expiryDate || w.expiryDate >= bookingDateObj2)
+      );
+      if (!hasWalletCoveringDate) {
+        // 找最晚到期日用於提示
+        const latestExpiry = customer.planWallets
+          .filter((w) => w.remainingSessions > 0 && w.expiryDate)
+          .map((w) => w.expiryDate!.toISOString().slice(0, 10))
+          .sort()
+          .pop();
+        throw new AppError(
+          "BUSINESS_RULE",
+          latestExpiry
+            ? `票券期限不足，您目前方案有效期限至 ${latestExpiry}，請選擇期限內日期或聯繫店家`
+            : "票券已超過可使用期限，請聯繫店家協助"
+        );
+      }
+
+      // 人數 vs 剩餘堂數檢查
+      const totalRemaining = customer.planWallets.reduce(
+        (sum, w) => sum + w.remainingSessions,
+        0
+      );
+      if (bookingPeople > totalRemaining) {
+        throw new AppError(
+          "BUSINESS_RULE",
+          `方案次數不足，無法預約 ${bookingPeople} 人。目前可使用次數僅剩 ${totalRemaining} 次，請調整預約人數或聯繫店家`
         );
       }
     }
@@ -315,7 +352,9 @@ export async function createBooking(
           makeupCreditId,
           bookingStatus: "PENDING", // 統一為「待到店」
           notes: data.notes,
-          storeId: currentStoreId(user),
+          // 顧客自助預約 → 使用 customer 所屬 storeId（避免 session storeId 與 customer storeId 不一致）
+          // 後台代約 → 使用 session storeId
+          storeId: user.role === "CUSTOMER" ? customer.storeId : currentStoreId(user),
         },
       });
     });
