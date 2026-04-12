@@ -295,7 +295,7 @@ export const NAV_GROUPS: NavGroup[] = [
       },
       {
         href: "/dashboard/system-status",
-        label: "系統狀態",
+        label: "營運健康中心",
         ownerOnly: true,
         icon: (
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>

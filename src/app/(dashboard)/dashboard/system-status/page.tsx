@@ -8,7 +8,7 @@ import { notFound } from "next/navigation";
 // Types
 // ============================================================
 
-type Status = "ok" | "warn" | "error";
+type Status = "ok" | "attention" | "inactive" | "error";
 
 interface CheckResult {
   label: string;
@@ -17,178 +17,110 @@ interface CheckResult {
 }
 
 // ============================================================
-// Checks
+// Checks — 分三層：核心營運 / 進階模組 / 總部監控
 // ============================================================
 
-async function checkEnvVars(): Promise<CheckResult[]> {
-  const required: [string, string][] = [
-    ["DATABASE_URL", "資料庫連線"],
-    ["DIRECT_URL", "資料庫直連"],
-    ["NEXTAUTH_SECRET", "NextAuth 密鑰"],
-    ["NEXTAUTH_URL", "NextAuth URL"],
-  ];
-
-  const optional: [string, string][] = [
-    ["LINE_CHANNEL_ACCESS_TOKEN", "LINE 推播 Token"],
-    ["LINE_CHANNEL_SECRET", "LINE Channel Secret"],
-    ["LINE_LOGIN_CHANNEL_ID", "LINE Login Channel ID"],
-    ["LINE_LOGIN_CHANNEL_SECRET", "LINE Login Channel Secret"],
-    ["GOOGLE_CLIENT_ID", "Google OAuth Client ID"],
-    ["GOOGLE_CLIENT_SECRET", "Google OAuth Client Secret"],
-    ["HEALTH_API_BASE_URL", "健康數據 API"],
-  ];
-
+async function checkCoreOperations(): Promise<{ results: CheckResult[]; dbLatency: number }> {
   const results: CheckResult[] = [];
+  let dbLatency = 0;
 
-  for (const [key, label] of required) {
-    const val = process.env[key];
-    results.push({
-      label: `${label} (${key})`,
-      status: val ? "ok" : "error",
-      detail: val ? "已設定" : "未設定（必要）",
-    });
-  }
-
-  for (const [key, label] of optional) {
-    const val = process.env[key];
-    results.push({
-      label: `${label} (${key})`,
-      status: val ? "ok" : "warn",
-      detail: val ? "已設定" : "未設定（選用）",
-    });
-  }
-
-  return results;
-}
-
-async function checkDatabase(): Promise<CheckResult[]> {
-  const results: CheckResult[] = [];
+  // 1. 資料庫連線
   const start = Date.now();
-
   try {
     await prisma.$queryRaw`SELECT 1`;
-    const latency = Date.now() - start;
+    dbLatency = Date.now() - start;
     results.push({
-      label: "資料庫連線",
-      status: latency > 3000 ? "warn" : "ok",
-      detail: `連線正常 (${latency}ms)`,
-    });
-  } catch (e) {
-    results.push({
-      label: "資料庫連線",
-      status: "error",
-      detail: `連線失敗: ${e instanceof Error ? e.message : String(e)}`,
-    });
-    return results;
-  }
-
-  // Store record
-  try {
-    const store = await prisma.store.findUnique({ where: { id: DEFAULT_STORE_ID } });
-    results.push({
-      label: "Store 記錄",
-      status: store ? "ok" : "error",
-      detail: store ? `${store.name} (${store.id})` : "找不到 Store 記錄",
+      label: "資料庫",
+      status: dbLatency > 3000 ? "attention" : "ok",
+      detail: dbLatency > 3000 ? `回應較慢（${dbLatency}ms）` : `連線正常（${dbLatency}ms）`,
     });
   } catch {
-    results.push({ label: "Store 記錄", status: "error", detail: "查詢失敗" });
+    dbLatency = Date.now() - start;
+    results.push({ label: "資料庫", status: "error", detail: "資料庫連線異常，營運功能可能受影響" });
+    return { results, dbLatency };
   }
 
-  // ShopConfig
+  // 2. 預約系統
   try {
-    const config = await prisma.shopConfig.findUnique({ where: { storeId: DEFAULT_STORE_ID } });
-    results.push({
-      label: "ShopConfig",
-      status: config ? "ok" : "error",
-      detail: config ? `方案: ${config.plan}, 排班: ${config.dutySchedulingEnabled ? "啟用" : "停用"}` : "找不到 ShopConfig",
-    });
+    const bookingCount = await prisma.booking.count();
+    results.push({ label: "預約系統", status: "ok", detail: `運作正常，累計 ${bookingCount.toLocaleString()} 筆預約` });
   } catch {
-    results.push({ label: "ShopConfig", status: "error", detail: "查詢失敗" });
+    results.push({ label: "預約系統", status: "error", detail: "預約資料查詢異常" });
   }
 
-  // Data counts
+  // 3. 顧客資料
   try {
-    const [users, staff, customers, bookings] = await Promise.all([
-      prisma.user.count(),
-      prisma.staff.count(),
-      prisma.customer.count(),
-      prisma.booking.count(),
-    ]);
-    results.push({
-      label: "資料量概覽",
-      status: "ok",
-      detail: `使用者: ${users}, 員工: ${staff}, 顧客: ${customers}, 預約: ${bookings}`,
-    });
+    const customerCount = await prisma.customer.count();
+    results.push({ label: "顧客資料", status: "ok", detail: `運作正常，共 ${customerCount.toLocaleString()} 位顧客` });
   } catch {
-    results.push({ label: "資料量概覽", status: "warn", detail: "查詢失敗" });
+    results.push({ label: "顧客資料", status: "error", detail: "顧客資料查詢異常" });
   }
 
-  // Null storeId check
+  // 4. 交易紀錄
   try {
-    const [nullCustomers, nullBookings, nullStaff] = await Promise.all([
-      prisma.customer.count({ where: { storeId: { equals: null as unknown as string } } }),
-      prisma.booking.count({ where: { storeId: { equals: null as unknown as string } } }),
-      prisma.staff.count({ where: { storeId: { equals: null as unknown as string } } }),
-    ]);
-    const total = nullCustomers + nullBookings + nullStaff;
-    results.push({
-      label: "Null storeId 記錄",
-      status: total > 0 ? "warn" : "ok",
-      detail: total > 0
-        ? `Customer: ${nullCustomers}, Booking: ${nullBookings}, Staff: ${nullStaff}`
-        : "無 (正常)",
-    });
+    const txCount = await prisma.transaction.count();
+    results.push({ label: "交易紀錄", status: "ok", detail: `運作正常，累計 ${txCount.toLocaleString()} 筆交易` });
   } catch {
-    results.push({ label: "Null storeId 記錄", status: "warn", detail: "查詢失敗" });
+    results.push({ label: "交易紀錄", status: "error", detail: "交易資料查詢異常" });
   }
 
-  return results;
-}
-
-async function checkExternalServices(): Promise<CheckResult[]> {
-  const results: CheckResult[] = [];
-
+  // 5. LINE 通知
   const lineToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
   if (lineToken) {
     try {
-      const start = Date.now();
       const res = await fetch("https://api.line.me/v2/bot/info", {
         headers: { Authorization: `Bearer ${lineToken}` },
         signal: AbortSignal.timeout(5000),
       });
-      const latency = Date.now() - start;
       results.push({
-        label: "LINE Messaging API",
-        status: res.ok ? "ok" : "warn",
-        detail: res.ok ? `正常 (${latency}ms)` : `HTTP ${res.status}`,
+        label: "LINE 通知",
+        status: res.ok ? "ok" : "attention",
+        detail: res.ok ? "LINE 推播服務正常" : "LINE 服務回應異常，通知可能延遲",
       });
-    } catch (e) {
-      results.push({
-        label: "LINE Messaging API",
-        status: "error",
-        detail: `連線失敗: ${e instanceof Error ? e.message : "timeout"}`,
-      });
+    } catch {
+      results.push({ label: "LINE 通知", status: "attention", detail: "LINE 服務暫時無法連線，通知可能延遲" });
     }
   } else {
-    results.push({ label: "LINE Messaging API", status: "warn", detail: "未設定 Token（跳過）" });
+    results.push({ label: "LINE 通知", status: "inactive", detail: "LINE 推播尚未設定，不影響預約與營運" });
   }
 
+  return { results, dbLatency };
+}
+
+async function checkAdvancedModules(): Promise<CheckResult[]> {
+  const results: CheckResult[] = [];
+
+  // 健康數據 API
   const healthUrl = process.env.HEALTH_API_BASE_URL;
   if (healthUrl) {
     try {
-      const start = Date.now();
       const res = await fetch(`${healthUrl}/health`, { signal: AbortSignal.timeout(5000) });
-      const latency = Date.now() - start;
       results.push({
-        label: "健康數據 API",
-        status: res.ok ? "ok" : "warn",
-        detail: res.ok ? `正常 (${latency}ms)` : `HTTP ${res.status}`,
+        label: "健康分析模組",
+        status: res.ok ? "ok" : "attention",
+        detail: res.ok ? "健康分析 API 正常運作" : "健康分析 API 回應異常",
       });
     } catch {
-      results.push({ label: "健康數據 API", status: "warn", detail: "連線失敗或未啟用" });
+      results.push({ label: "健康分析模組", status: "attention", detail: "健康分析 API 暫時無法連線" });
     }
   } else {
-    results.push({ label: "健康數據 API", status: "warn", detail: "未設定（跳過）" });
+    results.push({ label: "健康分析模組", status: "inactive", detail: "未啟用，此為進階功能，不影響日常營運" });
+  }
+
+  // AI 健康分析
+  const healthApiKey = process.env.HEALTH_API_KEY;
+  if (healthApiKey) {
+    results.push({ label: "AI 健康分析", status: "ok", detail: "AI 分析服務已啟用" });
+  } else {
+    results.push({ label: "AI 健康分析", status: "inactive", detail: "未啟用，此為選配功能" });
+  }
+
+  // Google OAuth
+  const googleId = process.env.GOOGLE_CLIENT_ID;
+  if (googleId) {
+    results.push({ label: "Google 登入", status: "ok", detail: "Google OAuth 已設定" });
+  } else {
+    results.push({ label: "Google 登入", status: "inactive", detail: "未啟用，顧客可透過其他方式登入" });
   }
 
   return results;
@@ -198,120 +130,89 @@ async function checkExternalServices(): Promise<CheckResult[]> {
 // UI Components
 // ============================================================
 
-const STATUS_ICON: Record<Status, string> = { ok: "🟢", warn: "🟡", error: "🔴" };
+const STATUS_CONFIG: Record<Status, { icon: React.ReactNode; bg: string; border: string; text: string }> = {
+  ok: {
+    icon: <svg className="h-4 w-4 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>,
+    bg: "bg-green-50", border: "border-green-200", text: "text-green-700",
+  },
+  attention: {
+    icon: <svg className="h-4 w-4 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" /></svg>,
+    bg: "bg-amber-50", border: "border-amber-200", text: "text-amber-700",
+  },
+  inactive: {
+    icon: <svg className="h-4 w-4 text-earth-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>,
+    bg: "bg-earth-50", border: "border-earth-200", text: "text-earth-500",
+  },
+  error: {
+    icon: <svg className="h-4 w-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.008v.008H12v-.008z" /></svg>,
+    bg: "bg-red-50", border: "border-red-200", text: "text-red-700",
+  },
+};
 
 function StatusRow({ result }: { result: CheckResult }) {
+  const cfg = STATUS_CONFIG[result.status];
   return (
-    <div className="flex items-start gap-2 rounded-lg border border-earth-100 bg-white px-4 py-3">
-      <span className="mt-0.5 text-sm">{STATUS_ICON[result.status]}</span>
+    <div className={`flex items-center gap-3 rounded-lg border px-4 py-3 ${cfg.border} ${cfg.bg}`}>
+      <div className="shrink-0">{cfg.icon}</div>
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium text-earth-800">{result.label}</p>
-        <p className="text-xs text-earth-500 break-all">{result.detail}</p>
+        <p className={`text-sm font-medium ${cfg.text}`}>{result.label}</p>
+        <p className="text-xs text-earth-500">{result.detail}</p>
       </div>
     </div>
   );
 }
 
-function Section({ title, results }: { title: string; results: CheckResult[] }) {
-  return (
-    <section className="space-y-2">
-      <h2 className="text-sm font-semibold text-earth-700">{title}</h2>
-      <div className="space-y-1.5">
-        {results.map((r, i) => (
-          <StatusRow key={i} result={r} />
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function HealthScoreCard({
-  score,
+function OverviewCard({
+  coreOk,
+  coreTotal,
   dbLatency,
   totalErrors24h,
 }: {
-  score: number;
+  coreOk: number;
+  coreTotal: number;
   dbLatency: number;
   totalErrors24h: number;
 }) {
-  const color =
-    score >= 80 ? "text-green-600 border-green-200 bg-green-50" :
-    score >= 50 ? "text-yellow-600 border-yellow-200 bg-yellow-50" :
-    "text-red-600 border-red-200 bg-red-50";
+  const allOk = coreOk === coreTotal;
+  const hasError = coreOk < coreTotal - 1; // 容許 1 項非 ok（如 LINE 未設定）
 
-  const label = score >= 80 ? "健康" : score >= 50 ? "注意" : "異常";
-
-  return (
-    <div className={`rounded-xl border-2 p-5 ${color}`}>
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-xs font-medium opacity-70">系統健康分數</p>
-          <p className="text-4xl font-bold">{score}</p>
-          <p className="text-sm font-medium">{label}</p>
-        </div>
-        <div className="space-y-2 text-right text-sm">
-          <div>
-            <p className="text-xs opacity-60">DB Latency</p>
-            <p className="font-mono font-semibold">{dbLatency}ms</p>
-          </div>
-          <div>
-            <p className="text-xs opacity-60">24h 錯誤</p>
-            <p className="font-mono font-semibold">{totalErrors24h}</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-const CATEGORY_LABELS: Record<string, string> = {
-  DB_CONNECTION: "DB 連線",
-  STORE_MISSING: "StoreId 遺失",
-  ENV_MISSING: "環境變數缺失",
-  EXTERNAL_API: "外部 API",
-  PERMISSION: "權限",
-  AUTH: "認證",
-  FK_VIOLATION: "FK 違反",
-  MISSING_FIELD: "欄位缺失",
-  UNIQUE_VIOLATION: "唯一值衝突",
-  UNKNOWN: "未分類",
-};
-
-const CATEGORY_COLORS: Record<string, string> = {
-  DB_CONNECTION: "bg-red-100 text-red-700",
-  STORE_MISSING: "bg-orange-100 text-orange-700",
-  ENV_MISSING: "bg-yellow-100 text-yellow-700",
-  EXTERNAL_API: "bg-purple-100 text-purple-700",
-  PERMISSION: "bg-blue-100 text-blue-700",
-  AUTH: "bg-indigo-100 text-indigo-700",
-  FK_VIOLATION: "bg-pink-100 text-pink-700",
-  MISSING_FIELD: "bg-amber-100 text-amber-700",
-  UNIQUE_VIOLATION: "bg-teal-100 text-teal-700",
-  UNKNOWN: "bg-gray-100 text-gray-700",
-};
-
-function ErrorStatsGrid({ stats }: { stats: Record<ErrorCategory, number> }) {
-  const entries = Object.entries(stats).filter(([, count]) => count > 0);
-
-  if (entries.length === 0) {
-    return (
-      <div className="rounded-lg border border-earth-100 bg-white px-4 py-6 text-center">
-        <p className="text-sm text-earth-400">過去 24 小時無錯誤記錄</p>
-      </div>
-    );
-  }
+  const statusLabel = allOk ? "正常運作" : hasError ? "需進一步處理" : "需留意";
+  const statusColor = allOk
+    ? "border-green-200 bg-gradient-to-br from-green-50 to-emerald-50"
+    : hasError
+    ? "border-red-200 bg-gradient-to-br from-red-50 to-orange-50"
+    : "border-amber-200 bg-gradient-to-br from-amber-50 to-yellow-50";
+  const statusTextColor = allOk ? "text-green-700" : hasError ? "text-red-700" : "text-amber-700";
+  const statusIcon = allOk
+    ? <svg className="h-8 w-8 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+    : hasError
+    ? <svg className="h-8 w-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.008v.008H12v-.008z" /></svg>
+    : <svg className="h-8 w-8 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" /></svg>;
 
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-      {entries.map(([cat, count]) => (
-        <div
-          key={cat}
-          className={`rounded-lg px-3 py-2.5 ${CATEGORY_COLORS[cat] ?? "bg-gray-100 text-gray-700"}`}
-        >
-          <p className="text-xs font-medium opacity-70">{CATEGORY_LABELS[cat] ?? cat}</p>
-          <p className="text-xl font-bold">{count}</p>
+    <div className={`rounded-xl border-2 p-5 ${statusColor}`}>
+      <div className="flex items-start gap-4">
+        <div className="shrink-0">{statusIcon}</div>
+        <div className="flex-1">
+          <p className={`text-lg font-bold ${statusTextColor}`}>平台狀態：{statusLabel}</p>
+          <p className="mt-1 text-sm text-earth-600">
+            核心功能 {coreOk}/{coreTotal} 項正常
+          </p>
         </div>
-      ))}
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-3">
+        <div className="rounded-lg bg-white/60 px-3 py-2">
+          <p className="text-[10px] text-earth-500">資料庫回應</p>
+          <p className="text-base font-bold text-earth-800">{dbLatency}ms</p>
+          <p className="text-[10px] text-earth-400">{dbLatency < 200 ? "非常快" : dbLatency < 1000 ? "正常" : "較慢"}</p>
+        </div>
+        <div className="rounded-lg bg-white/60 px-3 py-2">
+          <p className="text-[10px] text-earth-500">24 小時警示</p>
+          <p className="text-base font-bold text-earth-800">{totalErrors24h}</p>
+          <p className="text-[10px] text-earth-400">{totalErrors24h === 0 ? "無異常" : "筆系統記錄"}</p>
+        </div>
+      </div>
     </div>
   );
 }
@@ -323,52 +224,60 @@ function RecentErrorsList({
     id: string;
     category: string;
     message: string;
-    userId: string | null;
-    storeId: string | null;
     createdAt: Date;
   }[];
 }) {
   if (errors.length === 0) {
     return (
-      <div className="rounded-lg border border-earth-100 bg-white px-4 py-6 text-center">
-        <p className="text-sm text-earth-400">無最近錯誤記錄</p>
+      <div className="rounded-lg border border-earth-200 bg-white px-4 py-6 text-center">
+        <p className="text-sm text-earth-400">過去 24 小時無系統警示</p>
       </div>
     );
   }
 
+  const FRIENDLY_CATEGORY: Record<string, string> = {
+    DB_CONNECTION: "資料庫連線",
+    STORE_MISSING: "店舖資訊",
+    ENV_MISSING: "系統設定",
+    EXTERNAL_API: "外部服務",
+    PERMISSION: "權限",
+    AUTH: "登入驗證",
+    FK_VIOLATION: "資料關聯",
+    MISSING_FIELD: "資料欄位",
+    UNIQUE_VIOLATION: "資料重複",
+    UNKNOWN: "其他",
+  };
+
   return (
     <div className="space-y-1.5">
-      {errors.map((err) => (
-        <div
-          key={err.id}
-          className="rounded-lg border border-earth-100 bg-white px-4 py-3"
-        >
-          <div className="flex items-center gap-2 mb-1">
-            <span
-              className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold ${
-                CATEGORY_COLORS[err.category] ?? "bg-gray-100 text-gray-700"
-              }`}
-            >
-              {CATEGORY_LABELS[err.category] ?? err.category}
+      {errors.slice(0, 10).map((err) => (
+        <div key={err.id} className="rounded-lg border border-earth-100 bg-white px-4 py-2.5">
+          <div className="flex items-center justify-between">
+            <span className="rounded bg-earth-100 px-1.5 py-0.5 text-[10px] font-medium text-earth-600">
+              {FRIENDLY_CATEGORY[err.category] ?? err.category}
             </span>
-            <span className="text-[10px] text-earth-400 font-mono">
-              {err.createdAt.toLocaleString("zh-TW", { timeZone: "Asia/Taipei" })}
+            <span className="text-[10px] text-earth-400">
+              {err.createdAt.toLocaleString("zh-TW", { timeZone: "Asia/Taipei", hour: "2-digit", minute: "2-digit" })}
             </span>
           </div>
-          <p className="text-xs text-earth-700 break-all line-clamp-2">
-            {err.message}
-          </p>
-          {(err.userId || err.storeId) && (
-            <p className="mt-1 text-[10px] text-earth-400 font-mono">
-              {err.userId && `user: ${err.userId.substring(0, 12)}...`}
-              {err.userId && err.storeId && " | "}
-              {err.storeId && `store: ${err.storeId}`}
-            </p>
-          )}
+          <p className="mt-1 text-xs text-earth-600 line-clamp-1">{friendlyMessage(err.message)}</p>
         </div>
       ))}
     </div>
   );
+}
+
+/** 將技術訊息轉為白話 */
+function friendlyMessage(msg: string): string {
+  if (msg.includes("connect") || msg.includes("ECONNREFUSED")) return "資料庫連線暫時中斷";
+  if (msg.includes("storeId") || msg.includes("STORE_MISSING")) return "店舖資訊不完整";
+  if (msg.includes("Null constraint")) return "部分資料欄位缺失";
+  if (msg.includes("Foreign key")) return "相關資料不存在";
+  if (msg.includes("Unique constraint")) return "資料重複衝突";
+  if (msg.includes("UNAUTHORIZED") || msg.includes("登入")) return "登入驗證異常";
+  if (msg.includes("FORBIDDEN") || msg.includes("權限")) return "權限不足操作";
+  if (msg.includes("timeout") || msg.includes("Timeout")) return "外部服務回應逾時";
+  return msg.length > 60 ? msg.slice(0, 57) + "..." : msg;
 }
 
 // ============================================================
@@ -379,63 +288,68 @@ export default async function SystemStatusPage() {
   const user = await requireAdminSession().catch(() => null);
   if (!user) notFound();
 
-  const [envResults, dbResults, extResults, healthScore, errorStats, recentErrors] =
+  const [{ results: coreResults, dbLatency }, advancedResults, healthScore, errorStats, recentErrors] =
     await Promise.all([
-      checkEnvVars(),
-      checkDatabase(),
-      checkExternalServices(),
+      checkCoreOperations(),
+      checkAdvancedModules(),
       getHealthScore(),
       getErrorStats24h(),
-      getRecentErrors(15),
+      getRecentErrors(10),
     ]);
 
-  const allResults = [...envResults, ...dbResults, ...extResults];
-  const errorCount = allResults.filter((r) => r.status === "error").length;
-  const warnCount = allResults.filter((r) => r.status === "warn").length;
-
-  const overallStatus: Status = errorCount > 0 ? "error" : warnCount > 0 ? "warn" : "ok";
-  const overallLabel =
-    overallStatus === "ok" ? "系統正常" : overallStatus === "warn" ? "部分警告" : "有錯誤需處理";
+  // 核心營運中，只計算 ok 和 error（inactive 不算扣分）
+  const coreOkCount = coreResults.filter((r) => r.status === "ok").length;
+  const coreScoredCount = coreResults.filter((r) => r.status !== "inactive").length;
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <span className="text-2xl">{STATUS_ICON[overallStatus]}</span>
-        <div>
-          <h1 className="text-lg font-bold text-earth-900">系統狀態</h1>
-          <p className="text-sm text-earth-500">
-            {overallLabel} — {allResults.length} 項檢查, {errorCount} 錯誤, {warnCount} 警告
-          </p>
-        </div>
+      <div>
+        <h1 className="text-lg font-bold text-earth-900">營運健康中心</h1>
+        <p className="mt-0.5 text-sm text-earth-500">
+          即時監控核心營運功能，確保平台穩定運作
+        </p>
       </div>
 
-      {/* Health Score */}
-      <HealthScoreCard
-        score={healthScore.score}
-        dbLatency={healthScore.dbLatency}
+      {/* Overview Card */}
+      <OverviewCard
+        coreOk={coreOkCount}
+        coreTotal={coreScoredCount}
+        dbLatency={dbLatency}
         totalErrors24h={healthScore.totalErrors24h}
       />
 
-      {/* Error Stats */}
+      {/* 核心營運 */}
       <section className="space-y-2">
-        <h2 className="text-sm font-semibold text-earth-700">錯誤統計（最近 24 小時）</h2>
-        <ErrorStatsGrid stats={errorStats} />
+        <h2 className="text-sm font-semibold text-earth-800">核心營運</h2>
+        <p className="text-xs text-earth-400">預約、顧客、交易、通知等核心功能狀態</p>
+        <div className="space-y-1.5">
+          {coreResults.map((r, i) => (
+            <StatusRow key={i} result={r} />
+          ))}
+        </div>
       </section>
 
-      {/* Recent Errors */}
+      {/* 進階模組 */}
       <section className="space-y-2">
-        <h2 className="text-sm font-semibold text-earth-700">最近錯誤</h2>
+        <h2 className="text-sm font-semibold text-earth-800">進階模組</h2>
+        <p className="text-xs text-earth-400">選配功能，未啟用不影響日常營運</p>
+        <div className="space-y-1.5">
+          {advancedResults.map((r, i) => (
+            <StatusRow key={i} result={r} />
+          ))}
+        </div>
+      </section>
+
+      {/* 總部監控 */}
+      <section className="space-y-2">
+        <h2 className="text-sm font-semibold text-earth-800">系統監控紀錄</h2>
+        <p className="text-xs text-earth-400">最近 24 小時的系統異常記錄</p>
         <RecentErrorsList errors={recentErrors} />
       </section>
 
-      {/* System Checks */}
-      <Section title="環境變數" results={envResults} />
-      <Section title="資料庫" results={dbResults} />
-      <Section title="外部服務" results={extResults} />
-
-      <p className="text-xs text-earth-400 text-center">
-        檢查時間: {new Date().toLocaleString("zh-TW", { timeZone: "Asia/Taipei" })}
+      <p className="text-[10px] text-earth-300 text-center">
+        檢查時間：{new Date().toLocaleString("zh-TW", { timeZone: "Asia/Taipei" })}
       </p>
     </div>
   );
