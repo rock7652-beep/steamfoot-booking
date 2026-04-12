@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/session";
 import { logoutAction } from "@/server/actions/auth";
 import Link from "next/link";
 import { MobileNav } from "./mobile-nav";
+import { NavProgress } from "./nav-progress";
 import BuildFooter from "@/components/build-footer";
 
 // SVG icon paths (Heroicons outline, 24x24 viewBox) — 拆成多段 path 確保正確渲染
@@ -79,6 +80,9 @@ export default async function CustomerLayout({
 
   return (
     <div className="min-h-screen bg-earth-50">
+      {/* Navigation progress bar */}
+      <NavProgress />
+
       {/* Mobile hamburger menu */}
       <MobileNav userName={user.name ?? "顧客"} pathname={pathname} customerId={user.customerId} />
 

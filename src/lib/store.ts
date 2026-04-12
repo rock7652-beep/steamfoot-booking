@@ -82,3 +82,14 @@ export async function getActiveStoreForRead(
   const cookieStoreId = cookieStore.get("active-store-id")?.value ?? null;
   return resolveActiveStoreId(user, cookieStoreId);
 }
+
+/**
+ * 從 middleware 設定的 cookie 取得網域對應的 storeId。
+ * 用於前台公開頁面（如 /book），在無 session 時判斷歸屬店。
+ * 回傳 null 代表不是自訂網域，走一般流程。
+ */
+export async function getDomainStoreId(): Promise<string | null> {
+  const { cookies } = await import("next/headers");
+  const cookieStore = await cookies();
+  return cookieStore.get("domain-store-id")?.value ?? null;
+}

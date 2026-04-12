@@ -305,6 +305,7 @@ model Store {
   id             String      @id @default(cuid())
   name           String
   slug           String      @unique
+  domain         String?     @unique   // 自訂網域，如 "steamfoot-zhubei.com"
   isDefault      Boolean     @default(false)
   parentStoreId  String?
   plan           PricingPlan @default(EXPERIENCE)

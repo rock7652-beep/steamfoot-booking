@@ -675,20 +675,34 @@ async function main() {
   // 8. ShopConfig（店家設定 — 方案預設 BASIC）
   // ============================================================
 
-  // 先確保 Store 存在
+  // 先確保 Store 存在 — 竹北店（暖暖蒸足）正式營運店
   await prisma.store.upsert({
     where: { id: "default-store" },
-    create: { id: "default-store", name: "蒸足", slug: "default", isDefault: true, plan: "ALLIANCE" },
-    update: { plan: "ALLIANCE" },
+    create: {
+      id: "default-store",
+      name: "暖暖蒸足",
+      slug: "zhubei",
+      isDefault: true,
+      plan: "GROWTH",
+      planStatus: "ACTIVE",
+      domain: "steamfoot-zhubei.com",
+    },
+    update: {
+      name: "暖暖蒸足",
+      slug: "zhubei",
+      plan: "GROWTH",
+      planStatus: "ACTIVE",
+      domain: "steamfoot-zhubei.com",
+    },
   });
 
   await prisma.shopConfig.upsert({
     where: { storeId: "default-store" },
-    create: { storeId: "default-store", shopName: "蒸足", plan: "BASIC" },
-    update: {},  // 已存在則不覆蓋
+    create: { storeId: "default-store", shopName: "暖暖蒸足", plan: "PRO" },
+    update: { shopName: "暖暖蒸足", plan: "PRO" },
   });
 
-  console.log("  ShopConfig: default (plan=BASIC)");
+  console.log("  Store: 暖暖蒸足 (plan=GROWTH, shopPlan=PRO)");
 
   // ============================================================
   // Done

@@ -3,12 +3,25 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { isStaffRole } from "@/lib/permissions";
 
+/**
+ * 網域 → Store ID 映射
+ * steamfoot-zhubei.com → 竹北店（暖暖蒸足）
+ */
+const DOMAIN_STORE_MAP: Record<string, string> = {
+  "steamfoot-zhubei.com": "default-store",
+  "www.steamfoot-zhubei.com": "default-store",
+};
+
 // Next.js 16: proxy.ts（前身為 middleware.ts）
 export const proxy = auth((req: NextRequest & { auth: { user?: { role?: string } } | null }) => {
   const { pathname } = req.nextUrl;
   const session = req.auth;
   const isLoggedIn = !!session?.user;
   const role = session?.user?.role;
+
+  // ── 自訂網域路由 — 設定 domain-store-id cookie ──
+  const host = req.headers.get("host")?.split(":")[0] ?? "";
+  const domainStoreId = DOMAIN_STORE_MAP[host];
 
   // ── Public routes — 任何人皆可訪問 ──
   const publicRoutes = [
@@ -36,7 +49,7 @@ export const proxy = auth((req: NextRequest & { auth: { user?: { role?: string }
       const dest = role === "CUSTOMER" ? "/book" : "/dashboard";
       return NextResponse.redirect(new URL(dest, req.url));
     }
-    return NextResponse.next();
+    return withDomainCookie(NextResponse.next(), domainStoreId);
   }
 
   // ── Protected customer routes — 需要登入 ──
@@ -55,7 +68,7 @@ export const proxy = auth((req: NextRequest & { auth: { user?: { role?: string }
     // 注入 pathname header（sidebar 高亮用）
     const response = NextResponse.next();
     response.headers.set("x-next-pathname", pathname);
-    return response;
+    return withDomainCookie(response, domainStoreId);
   }
 
   // ── Admin routes (/dashboard/**) — 需要登入 + staff 身份 + storeId ──
@@ -73,15 +86,28 @@ export const proxy = auth((req: NextRequest & { auth: { user?: { role?: string }
       loginUrl.searchParams.set("error", "missing-store");
       return NextResponse.redirect(loginUrl);
     }
-    return NextResponse.next();
+    return withDomainCookie(NextResponse.next(), domainStoreId);
   }
 
   // ── 其他未知路由 ──
   if (!isLoggedIn) {
     return NextResponse.redirect(new URL("/", req.url));
   }
-  return NextResponse.next();
+  return withDomainCookie(NextResponse.next(), domainStoreId);
 });
+
+/** 將 domain-store-id cookie 注入 response（供 SSR server components 讀取） */
+function withDomainCookie(response: NextResponse, storeId: string | undefined): NextResponse {
+  if (storeId) {
+    response.cookies.set("domain-store-id", storeId, {
+      path: "/",
+      httpOnly: true,
+      sameSite: "lax",
+      maxAge: 60 * 60 * 24,
+    });
+  }
+  return response;
+}
 
 export const config = {
   matcher: [
