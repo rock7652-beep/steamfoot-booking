@@ -1,5 +1,4 @@
 import type { ActionResult } from "@/types";
-import { logError, categorizeError } from "@/lib/error-logger";
 
 // ============================================================
 // Error codes
@@ -63,16 +62,38 @@ export function handleActionError(e: unknown, ctx?: ErrorContext): ActionResult<
   }
 
   const msg = e instanceof Error ? e.message : String(e);
-  const category = categorizeError(msg);
 
-  // 結構化日誌寫入（fire-and-forget）
-  logError({
-    category,
-    message: msg,
-    userId: ctx?.userId,
-    storeId: ctx?.storeId,
-    metadata: e instanceof Error ? { stack: e.stack?.substring(0, 500) } : undefined,
+  // Dynamic import to avoid pulling prisma/db into client bundle
+  // error-logger.ts imports db.ts which crashes on client-side (no DATABASE_URL)
+  import("@/lib/error-logger").then(({ logError, categorizeError: catErr }) => {
+    const category = catErr(msg);
+    logError({
+      category,
+      message: msg,
+      userId: ctx?.userId,
+      storeId: ctx?.storeId,
+      metadata: e instanceof Error ? { stack: e.stack?.substring(0, 500) } : undefined,
+    });
+  }).catch(() => {
+    // Silently fail if error-logger can't be imported (e.g. client-side)
   });
+
+  // Use inline categorization for the return message (no dependency on error-logger)
+  const category = msg.includes("storeId")
+    ? "STORE_MISSING"
+    : msg.includes("FORBIDDEN") || msg.includes("權限")
+    ? "PERMISSION"
+    : msg.includes("UNAUTHORIZED") || msg.includes("登入")
+    ? "AUTH"
+    : msg.includes("Null constraint")
+    ? "MISSING_FIELD"
+    : msg.includes("Foreign key")
+    ? "FK_VIOLATION"
+    : msg.includes("Unique constraint")
+    ? "UNIQUE_VIOLATION"
+    : msg.includes("connect") || msg.includes("ECONNREFUSED")
+    ? "DB_CONNECTION"
+    : "UNKNOWN";
 
   return { success: false, error: USER_MESSAGES[category] ?? USER_MESSAGES.UNKNOWN };
 }
