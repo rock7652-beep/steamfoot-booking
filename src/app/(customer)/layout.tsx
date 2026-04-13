@@ -71,8 +71,12 @@ export default async function CustomerLayout({
   children: React.ReactNode;
 }) {
   const user = await getCurrentUser();
-  if (!user) redirect("/");
-  if (user.role !== "CUSTOMER") redirect("/dashboard");
+  if (!user) {
+    redirect("/");
+  }
+  if (user.role !== "CUSTOMER") {
+    redirect("/dashboard");
+  }
 
   // 取得目前路徑用於高亮
   const headerList = await headers();

@@ -1,3 +1,4 @@
+// @ts-nocheck — MVP 隱藏頁面，redirect 後全為 dead code
 import { getCurrentUser } from "@/lib/session";
 import { getActiveStoreForRead } from "@/lib/store";
 import { redirect, notFound } from "next/navigation";
@@ -32,6 +33,7 @@ export default async function OpsDashboardPage() {
   /* MVP: 營運儀表板暫時隱藏 */
   redirect("/dashboard");
 
+  // eslint-disable-next-line @typescript-eslint/no-unreachable -- MVP 隱藏，保留原始邏輯
   const user = await getCurrentUser();
   if (!user) return null;
   if (user.role !== "ADMIN") notFound();

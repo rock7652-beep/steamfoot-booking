@@ -14,8 +14,12 @@ export default async function DashboardLayout({
   children: React.ReactNode;
 }) {
   const user = await getCurrentUser();
-  if (!user) redirect("/login");
-  if (user.role === "CUSTOMER") redirect("/book");
+  if (!user) {
+    redirect("/login");
+  }
+  if (user.role === "CUSTOMER") {
+    redirect("/book");
+  }
 
   const roleLabel = ROLE_LABELS[user.role] ?? "";
   const isOwnerRole = user.role === "ADMIN";
