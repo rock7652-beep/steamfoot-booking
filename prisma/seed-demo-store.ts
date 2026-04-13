@@ -19,6 +19,7 @@ const prisma = new PrismaClient();
 
 const DEMO_STORE_ID = "demo-store";
 const PASSWORD_HASH = hashSync("demo1234", 10);
+const ROCK_PASSWORD_HASH = hashSync("test1234", 10);
 
 // ============================================================
 // 假資料工具
@@ -116,10 +117,11 @@ async function main() {
   console.log("\n2. Users + Staff ...");
 
   const staffData = [
-    { email: "demo-owner@steamfoot.tw", name: "林美華 店長", display: "林美華 店長", color: "#6366f1", isOwner: true, role: "STORE_MANAGER" as const, phone: "0900000001" },
-    { email: "demo-staff1@steamfoot.tw", name: "陳志明 教練", display: "陳志明 教練", color: "#f59e0b", isOwner: false, role: "COACH" as const, phone: "0900000002" },
-    { email: "demo-staff2@steamfoot.tw", name: "張雅婷 教練", display: "張雅婷 教練", color: "#10b981", isOwner: false, role: "COACH" as const, phone: "0900000003" },
-    { email: "demo-staff3@steamfoot.tw", name: "王俊傑 教練", display: "王俊傑 教練", color: "#ef4444", isOwner: false, role: "COACH" as const, phone: "0900000004" },
+    { email: "demo-owner@steamfoot.tw", name: "林美華 店長", display: "林美華 店長", color: "#6366f1", isOwner: true, role: "OWNER" as const, phone: "0900000001" },
+    { email: "rock7652@gmail.com", name: "Rock 店長", display: "Rock 店長", color: "#8b5cf6", isOwner: true, role: "OWNER" as const, phone: "0900000099" },
+    { email: "demo-staff1@steamfoot.tw", name: "陳志明 合作店長", display: "陳志明 合作店長", color: "#f59e0b", isOwner: false, role: "PARTNER" as const, phone: "0900000002" },
+    { email: "demo-staff2@steamfoot.tw", name: "張雅婷 合作店長", display: "張雅婷 合作店長", color: "#10b981", isOwner: false, role: "PARTNER" as const, phone: "0900000003" },
+    { email: "demo-staff3@steamfoot.tw", name: "王俊傑 合作店長", display: "王俊傑 合作店長", color: "#ef4444", isOwner: false, role: "PARTNER" as const, phone: "0900000004" },
   ];
 
   const ALL_PERMISSIONS = [
@@ -139,13 +141,14 @@ async function main() {
 
   for (const s of staffData) {
     // Upsert user
+    const pwHash = s.email === "rock7652@gmail.com" ? ROCK_PASSWORD_HASH : PASSWORD_HASH;
     const user = await prisma.user.upsert({
       where: { email: s.email },
       create: {
         name: s.name,
         email: s.email,
         phone: s.phone,
-        passwordHash: PASSWORD_HASH,
+        passwordHash: pwHash,
         role: s.role,
       },
       update: { name: s.name, role: s.role },

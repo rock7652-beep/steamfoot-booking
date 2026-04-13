@@ -21,8 +21,8 @@ export default async function CoachRevenuePage() {
   if (!hasPricingFeature(pricingPlan, FF.ADVANCED_REPORTS)) {
     return (
       <UpgradeNoticePage
-        title="教練營收報表需升級方案"
-        description="此功能需要 PRO 方案才能使用，升級後可查看完整教練營收數據。"
+        title="合作店長營收報表需升級方案"
+        description="此功能需要 PRO 方案才能使用，升級後可查看完整合作店長營收數據。"
       />
     );
   }
@@ -60,8 +60,8 @@ export default async function CoachRevenuePage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-bold text-earth-800">教練營收報表</h1>
-        <p className="text-sm text-earth-500">查看各教練歸屬營收、新舊客分析，並匯出 Excel</p>
+        <h1 className="text-xl font-bold text-earth-800">合作店長營收報表</h1>
+        <p className="text-sm text-earth-500">查看各合作店長歸屬營收、新舊客分析，並匯出 Excel</p>
       </div>
 
       <RevenueReportClient

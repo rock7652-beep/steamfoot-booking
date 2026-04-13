@@ -22,7 +22,7 @@ export async function updateTalentStage(
 
     const customer = await prisma.customer.findUnique({
       where: { id: data.customerId },
-      select: { id: true, storeId: true, talentStage: true },
+      select: { id: true, storeId: true, talentStage: true, sponsorId: true },
     });
     if (!customer) throw new AppError("NOT_FOUND", "找不到此顧客");
     assertStoreAccess(user, customer.storeId);
@@ -52,18 +52,17 @@ export async function updateTalentStage(
       }),
     ]);
 
-    // 🆕 自動給分：升為 PARTNER 時 +100（僅首次，防止階段重入重複發放）
-    if (data.newStage === "PARTNER") {
-      try {
+    // 自動給分邏輯
+    const { awardPoints } = await import("@/server/actions/points");
+
+    try {
+      // 升為 PARTNER → +100（僅首次）
+      if (data.newStage === "PARTNER") {
         const alreadyAwarded = await prisma.pointRecord.findFirst({
-          where: {
-            customerId: data.customerId,
-            type: "BECAME_PARTNER",
-          },
+          where: { customerId: data.customerId, type: "BECAME_PARTNER" },
           select: { id: true },
         });
         if (!alreadyAwarded) {
-          const { awardPoints } = await import("@/server/actions/points");
           await awardPoints({
             customerId: data.customerId,
             storeId: customer.storeId,
@@ -71,9 +70,51 @@ export async function updateTalentStage(
             note: "升為合作店長",
           });
         }
-      } catch {
-        console.error("[Points] Failed to award BECAME_PARTNER points for", data.customerId);
+
+        // 推薦人獲得 REFERRAL_PARTNER +100（僅首次）
+        if (customer.sponsorId) {
+          const sponsorAlreadyAwarded = await prisma.pointRecord.findFirst({
+            where: {
+              customerId: customer.sponsorId,
+              type: "REFERRAL_PARTNER",
+              note: { contains: data.customerId },
+            },
+            select: { id: true },
+          });
+          if (!sponsorAlreadyAwarded) {
+            const sponsor = await prisma.customer.findUnique({
+              where: { id: customer.sponsorId },
+              select: { storeId: true },
+            });
+            if (sponsor) {
+              await awardPoints({
+                customerId: customer.sponsorId,
+                storeId: sponsor.storeId,
+                type: "REFERRAL_PARTNER",
+                note: `推薦的人升為合作店長 (${data.customerId})`,
+              });
+            }
+          }
+        }
       }
+
+      // 升為 FUTURE_OWNER → +200（僅首次）
+      if (data.newStage === "FUTURE_OWNER") {
+        const alreadyAwarded = await prisma.pointRecord.findFirst({
+          where: { customerId: data.customerId, type: "BECAME_FUTURE_OWNER" },
+          select: { id: true },
+        });
+        if (!alreadyAwarded) {
+          await awardPoints({
+            customerId: data.customerId,
+            storeId: customer.storeId,
+            type: "BECAME_FUTURE_OWNER",
+            note: "升為準店長",
+          });
+        }
+      }
+    } catch {
+      console.error("[Points] Failed to award stage change points for", data.customerId);
     }
 
     revalidatePath("/dashboard/talent");
@@ -128,6 +169,46 @@ export async function setSponsor(
     revalidatePath(`/dashboard/customers/${data.customerId}`);
 
     return { success: true, data: { customerId: data.customerId } };
+  } catch (e) {
+    return handleActionError(e);
+  }
+}
+
+// ── 手動調整積分 ─────────────────────────────
+
+export async function manualAdjustPoints(
+  input: { customerId: string; points: number; note: string },
+): Promise<ActionResult<{ customerId: string }>> {
+  try {
+    const user = await requirePermission("talent.manage");
+
+    if (!input.points || input.points === 0) {
+      throw new AppError("VALIDATION", "調整分數不可為 0");
+    }
+    if (!input.note?.trim()) {
+      throw new AppError("VALIDATION", "手動調整必須填寫原因");
+    }
+
+    const customer = await prisma.customer.findUnique({
+      where: { id: input.customerId },
+      select: { id: true, storeId: true },
+    });
+    if (!customer) throw new AppError("NOT_FOUND", "找不到此顧客");
+    assertStoreAccess(user, customer.storeId);
+
+    const { awardPoints } = await import("@/server/actions/points");
+    await awardPoints({
+      customerId: input.customerId,
+      storeId: customer.storeId,
+      type: "MANUAL_ADJUSTMENT",
+      note: input.note,
+      pointsOverride: input.points,
+    });
+
+    revalidatePath(`/dashboard/customers/${input.customerId}`);
+    revalidatePath("/dashboard/talent");
+
+    return { success: true, data: { customerId: input.customerId } };
   } catch (e) {
     return handleActionError(e);
   }

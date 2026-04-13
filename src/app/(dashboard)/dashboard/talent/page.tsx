@@ -2,18 +2,23 @@ import { cookies } from "next/headers";
 import { getCurrentUser } from "@/lib/session";
 import { resolveActiveStoreId } from "@/lib/store";
 import { notFound } from "next/navigation";
-import { getTalentDashboard } from "@/server/queries/talent";
+import { getTalentDashboard, getNextOwnerCandidates, getTopPartnerMentors } from "@/server/queries/talent";
+import { getPointsLeaderboard, getMonthlyPointsLeaderboard } from "@/server/queries/points";
+import { getMonthlyReferralLeaderboard, getReferralConvertedLeaderboard, getReferralStats } from "@/server/queries/referral";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { SectionCard } from "@/components/ui/section-card";
 import { TalentFunnel } from "./talent-funnel";
 import { NearReadyList } from "./near-ready-list";
+import { LeaderboardSection } from "./leaderboard-section";
+import Link from "next/link";
+import { READINESS_LEVEL_CONFIG, TALENT_STAGE_LABELS } from "@/types/talent";
 
 export default async function TalentDashboardPage() {
   const user = await getCurrentUser();
   if (!user) return null;
 
-  // OWNER (ADMIN / STORE_MANAGER) only
-  if (user.role !== "ADMIN" && user.role !== "STORE_MANAGER") {
+  // OWNER (ADMIN / OWNER) only
+  if (user.role !== "ADMIN" && user.role !== "OWNER") {
     notFound();
   }
 
@@ -21,12 +26,34 @@ export default async function TalentDashboardPage() {
   const cookieStoreId = cookieStore.get("active-store-id")?.value ?? null;
   const activeStoreId = resolveActiveStoreId(user, cookieStoreId);
 
-  const data = await getTalentDashboard(activeStoreId);
+  const [data, candidates, referralStats, pointsAll, pointsMonth, referralMonth, referralConverted, mentorTop] =
+    await Promise.all([
+      getTalentDashboard(activeStoreId),
+      getNextOwnerCandidates(activeStoreId, 10),
+      getReferralStats(activeStoreId).catch(() => null),
+      getPointsLeaderboard(activeStoreId, 10),
+      getMonthlyPointsLeaderboard(activeStoreId, 10),
+      getMonthlyReferralLeaderboard(activeStoreId, 10),
+      getReferralConvertedLeaderboard(activeStoreId, 10),
+      getTopPartnerMentors(activeStoreId, 10),
+    ]);
 
   const totalPeople = data.pipeline.stages.reduce((s, st) => s + st.count, 0);
   const readyCount = data.nearReady.filter(
     (s) => s.readinessLevel === "READY",
   ).length;
+
+  // readiness TOP 10 for leaderboard
+  const readinessTop = data.readinessScores
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 10)
+    .map((s) => ({
+      customerId: s.customerId,
+      customerName: s.customerName,
+      score: s.score,
+      readinessLevel: s.readinessLevel,
+      talentStage: s.talentStage,
+    }));
 
   return (
     <div className="mx-auto max-w-5xl space-y-5 px-4 py-4">
@@ -60,6 +87,74 @@ export default async function TalentDashboardPage() {
           color="green"
         />
       </div>
+
+      {/* 下一個店長候選人 TOP 10 */}
+      {candidates.length > 0 && (
+        <div className="rounded-2xl border border-green-200 bg-gradient-to-br from-green-50 to-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+          <h2 className="text-sm font-bold text-earth-800">
+            下一個店長候選人
+          </h2>
+          <p className="mt-0.5 text-[11px] text-earth-400">
+            依準備度、積分、帶出人數綜合排序
+          </p>
+          <div className="mt-3 space-y-1">
+            {candidates.map((c, i) => {
+              const config = READINESS_LEVEL_CONFIG[c.readinessLevel];
+              const isEligible =
+                c.talentStage === "PARTNER" &&
+                (c.readinessLevel === "HIGH" || c.readinessLevel === "READY") &&
+                c.totalPoints >= 100 &&
+                c.referralCount >= 2;
+              return (
+                <Link
+                  key={c.customerId}
+                  href={`/dashboard/customers/${c.customerId}`}
+                  className="flex items-center justify-between rounded-lg bg-white px-3 py-2.5 shadow-sm transition-colors hover:bg-earth-50"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ${
+                      i === 0 ? "bg-amber-100 text-amber-700" : i === 1 ? "bg-gray-100 text-gray-600" : i === 2 ? "bg-orange-100 text-orange-600" : "bg-earth-100 text-earth-500"
+                    }`}>
+                      {i + 1}
+                    </span>
+                    <span className="text-sm font-medium text-earth-800">
+                      {c.name}
+                    </span>
+                    <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${config.bg} ${config.color}`}>
+                      {config.label}
+                    </span>
+                    <span className="text-[10px] text-earth-400">
+                      {TALENT_STAGE_LABELS[c.talentStage]}
+                    </span>
+                    {isEligible && (
+                      <span className="rounded bg-green-100 px-1.5 py-0.5 text-[10px] font-medium text-green-700">
+                        可升級
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 text-[11px]">
+                    <span className="text-earth-500">{c.readinessScore}分</span>
+                    <span className="text-primary-500">{c.totalPoints}積分</span>
+                    <span className="text-blue-500">{c.referralCount}轉介</span>
+                    <span className="text-amber-600">{c.referralPartnerCount}帶出</span>
+                    <span className="text-green-600">{c.attendanceCount}出席</span>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* 排行榜 */}
+      <LeaderboardSection
+        pointsAll={pointsAll}
+        pointsMonth={pointsMonth}
+        referralMonth={referralMonth}
+        referralConverted={referralConverted}
+        readinessTop={readinessTop}
+        mentorTop={mentorTop}
+      />
 
       {/* 人才漏斗 */}
       <SectionCard title="成長漏斗" subtitle="各階段人數分佈">

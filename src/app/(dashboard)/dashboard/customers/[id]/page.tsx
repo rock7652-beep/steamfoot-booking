@@ -32,6 +32,7 @@ import { ReferralWrapper } from "./referral-wrapper";
 import { PointsSection } from "./points-section";
 import { getReferralsByReferrer } from "@/server/queries/referral";
 import { getPointHistory } from "@/server/queries/points";
+import { getUpgradeEligibility } from "@/server/queries/talent";
 
 const STAGE_LABEL: Record<string, string> = {
   LEAD: "名單", TRIAL: "體驗", ACTIVE: "已購課", INACTIVE: "已停用",
@@ -58,7 +59,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
 
   const timer = new ServerTiming(`/dashboard/customers/${id}`);
 
-  const [customer, plans, staffOptions, tags, scripts, customerActionLogs, canDiscount, customerReferrals, customerPoints] = await Promise.all([
+  const [customer, plans, staffOptions, tags, scripts, customerActionLogs, canDiscount, customerReferrals, customerPoints, upgradeEligibility] = await Promise.all([
     withTiming("getCustomerDetail", timer, () => getCustomerDetail(id)),
     withTiming("getCachedPlans", timer, () => getCachedPlans(user.storeId!)),
     withTiming("getCachedStaffOptions", timer, () => getCachedStaffOptions()),
@@ -68,6 +69,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
     checkPermission(user.role, user.staffId, "transaction.discount"),
     user.role !== "CUSTOMER" ? getReferralsByReferrer(id).catch(() => []) : Promise.resolve([]),
     user.role !== "CUSTOMER" ? getPointHistory(id, { limit: 10 }).catch(() => []) : Promise.resolve([]),
+    (user.role === "ADMIN" || user.role === "OWNER") ? getUpgradeEligibility(id).catch(() => null) : Promise.resolve(null),
   ]);
 
   timer.finish();
@@ -183,7 +185,8 @@ export default async function CustomerDetailPage({ params }: PageProps) {
             sponsor={customer.sponsor}
             referralCount={customer.sponsoredCustomers.length}
             stageNote={customer.stageNote}
-            isOwner={user.role === "ADMIN" || user.role === "STORE_MANAGER"}
+            isOwner={user.role === "ADMIN" || user.role === "OWNER"}
+            upgradeEligibility={upgradeEligibility}
           />
         )}
 
@@ -224,7 +227,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
               note: r.note,
               createdAt: r.createdAt instanceof Date ? r.createdAt.toISOString() : String(r.createdAt),
             }))}
-            canManage={user.role === "ADMIN" || user.role === "STORE_MANAGER"}
+            canManage={user.role === "ADMIN" || user.role === "OWNER"}
           />
         </div>
       )}

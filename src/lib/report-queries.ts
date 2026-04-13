@@ -263,7 +263,7 @@ export async function getCoachRevenueSummary(
     if (!coachMap.has(cid)) {
       coachMap.set(cid, {
         coachName: tx.coachNameSnapshot ?? tx.revenueStaff?.displayName ?? "未知教練",
-        coachRole: tx.coachRoleSnapshot ?? tx.revenueStaff?.user?.role ?? "COACH",
+        coachRole: tx.coachRoleSnapshot ?? tx.revenueStaff?.user?.role ?? "PARTNER",
         storeName: tx.storeNameSnapshot ?? tx.store?.name ?? "未知店舖",
         revenue: 0,
         refund: 0,

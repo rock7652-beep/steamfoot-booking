@@ -5,6 +5,9 @@ import { hasFeature, FEATURES } from "@/lib/shop-plan";
 import { FeatureGate } from "@/components/feature-gate";
 
 export default async function AnalyticsPage() {
+  /* MVP: 聯盟數據暫時隱藏 */
+  redirect("/dashboard");
+
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   if (user.role !== "ADMIN") notFound();

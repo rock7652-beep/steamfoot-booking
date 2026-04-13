@@ -281,9 +281,9 @@ function formatStatus(status: string): string {
 function formatCoachRole(role: string | null): string {
   if (!role) return "";
   const map: Record<string, string> = {
-    ADMIN: "系統管理員",
-    STORE_MANAGER: "店長",
-    COACH: "教練",
+    ADMIN: "總部",
+    OWNER: "店長",
+    PARTNER: "合作店長",
   };
   return map[role] ?? role;
 }

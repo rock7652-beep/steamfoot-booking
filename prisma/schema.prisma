@@ -13,9 +13,9 @@ datasource db {
 // ============================================================
 
 enum UserRole {
-  ADMIN            // 系統管理者 / HQ（跨店管理）
-  STORE_MANAGER    // 店長（主要經營者）
-  COACH            // 教練（合作協助經營者 / 實習）
+  ADMIN            // 總部（跨店管理）
+  OWNER            // 店長（主要經營者）
+  PARTNER          // 合作店長
   CUSTOMER
 }
 
@@ -54,12 +54,16 @@ enum ReferralStatus {
 }
 
 enum PointType {
-  // ── MVP 第一版（僅 5 種）──
-  REFERRAL_CREATED   // 轉介紹登記 → +10
-  REFERRAL_VISITED   // 被介紹人到店 → +20
-  REFERRAL_CONVERTED // 被介紹人成為顧客 → +30
-  ATTENDANCE         // 出席（Booking COMPLETED）→ +5
-  BECAME_PARTNER     // 升為合作店長 → +100
+  REFERRAL_CREATED    // 轉介紹登記 → +10
+  REFERRAL_VISITED    // 被介紹人到店 → +20
+  REFERRAL_CONVERTED  // 被介紹人成為顧客 → +30
+  ATTENDANCE          // 出席（Booking COMPLETED）→ +5
+  BECAME_PARTNER      // 升為合作店長 → +100
+  REFERRAL_PARTNER    // 自己推薦的人升為合作店長 → +100
+  SERVICE             // 完成服務 → +5
+  SERVICE_NOTE        // 寫服務紀錄 → +3
+  BECAME_FUTURE_OWNER // 升為準店長 → +200
+  MANUAL_ADJUSTMENT   // 手動調整（可正可負）
 }
 
 enum AuthSource {
@@ -787,8 +791,8 @@ model Transaction {
   transactionNo        String?         // 交易編號 TXN-YYYYMMDD-NNN
   transactionDate      DateTime        @default(now()) // 交易業務日期
   status               TransactionStatus @default(SUCCESS)
-  coachNameSnapshot    String?         // 教練姓名快照
-  coachRoleSnapshot    String?         // 教練角色快照（STORE_MANAGER / COACH）
+  coachNameSnapshot    String?         // 合作店長姓名快照
+  coachRoleSnapshot    String?         // 合作店長角色快照（OWNER / PARTNER）
   storeNameSnapshot    String?         // 店名快照
   planId               String?         // 直接關聯 ServicePlan
   planNameSnapshot     String?         // 方案名稱快照

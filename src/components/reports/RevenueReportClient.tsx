@@ -119,7 +119,7 @@ function fmtStatus(s: string): string {
 
 function fmtRole(r: string | null): string {
   if (!r) return "-";
-  const map: Record<string, string> = { ADMIN: "管理員", STORE_MANAGER: "店長", COACH: "教練" };
+  const map: Record<string, string> = { ADMIN: "總部", OWNER: "店長", PARTNER: "合作店長" };
   return map[r] ?? r;
 }
 
@@ -373,8 +373,8 @@ export function RevenueReportClient({
                   className="block rounded-lg border border-earth-300 bg-white px-2.5 py-1.5 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-300"
                 >
                   <option value="">全部</option>
-                  <option value="STORE_MANAGER">店長</option>
-                  <option value="COACH">教練</option>
+                  <option value="OWNER">店長</option>
+                  <option value="PARTNER">合作店長</option>
                 </select>
               </div>
             </>

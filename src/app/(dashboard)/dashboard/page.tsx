@@ -23,9 +23,10 @@ import { UpgradeResultBanner } from "@/components/upgrade-result-banner";
 
 // Owner-only: lazy import trend tabs
 import { TrendTabs } from "./ops/trend-tabs";
-import { TalentKpiSection } from "./talent-kpi-section";
-import { getTalentDashboard } from "@/server/queries/talent";
+import { TalentKpiSection, PartnerDashboardSection } from "./talent-kpi-section";
+import { getTalentDashboard, getNextOwnerCandidates, getUpgradeEligibility } from "@/server/queries/talent";
 import { getReferralStats } from "@/server/queries/referral";
+import { computeReadinessScores } from "@/server/queries/talent";
 
 interface PageProps {
   searchParams: Promise<{ year?: string; month?: string }>;
@@ -35,7 +36,8 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const user = await getCurrentUser();
   if (!user) return null;
-  const isOwner = user.role === "ADMIN" || user.role === "STORE_MANAGER";
+  const isOwner = user.role === "ADMIN" || user.role === "OWNER";
+  const isPartner = user.role === "PARTNER";
 
   // 多店視角：讀取 cookie 解析 activeStoreId
   const cookieStore = await cookies();
@@ -61,7 +63,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   const lastWeekDate = new Date(todayBookingDate.getTime() - 7 * 24 * 60 * 60 * 1000);
 
   // Parallel queries
-  const [stats, todayBookings, monthData, latestRecon, lastWeekBookings, trend7, trend30, talentData, referralStats] = await Promise.all([
+  const [stats, todayBookings, monthData, latestRecon, lastWeekBookings, trend7, trend30, talentData, referralStats, ownerCandidates, partnerData] = await Promise.all([
     // KPI stats
     (async () => {
       const currentMonth = monthRange(toLocalDateStr().slice(0, 7));
@@ -75,7 +77,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       })();
       const prevMonth = monthRange(prevMonthStr);
 
-      const [customerCount, activeCount, todayAgg, monthRevenue, todayCompleted, todayRevenue, prevMonthRevenue, noShowCount, partnerCount, futureOwnerCount] = await Promise.all([
+      const [customerCount, activeCount, todayAgg, monthRevenue, todayCompleted, todayRevenue, prevMonthRevenue, noShowCount] = await Promise.all([
         prisma.customer.count({ where: staffCustomerWhere }),
         prisma.customer.count({ where: { ...staffCustomerWhere, customerStage: "ACTIVE" } }),
         prisma.booking.aggregate({
@@ -133,17 +135,6 @@ export default async function DashboardPage({ searchParams }: PageProps) {
             ...storeFilter,
           },
         }),
-        // 人才管道 KPI（owner only）
-        isOwner
-          ? prisma.customer.count({
-              where: { ...storeFilter, talentStage: "PARTNER" },
-            })
-          : Promise.resolve(null),
-        isOwner
-          ? prisma.customer.count({
-              where: { ...storeFilter, talentStage: "FUTURE_OWNER" },
-            })
-          : Promise.resolve(null),
       ]);
       return {
         customerCount,
@@ -156,8 +147,6 @@ export default async function DashboardPage({ searchParams }: PageProps) {
         todayCompletedPeople: todayCompleted._sum.people ?? 0,
         todayRevenue: todayRevenue ? Number(todayRevenue._sum.amount ?? 0) : null,
         noShowCount,
-        partnerCount,
-        futureOwnerCount,
       };
     })(),
 
@@ -198,6 +187,59 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     // 人才 Dashboard data (owner only)
     isOwner ? getTalentDashboard(activeStoreId).catch(() => null) : Promise.resolve(null),
     isOwner ? getReferralStats(activeStoreId).catch(() => null) : Promise.resolve(null),
+    isOwner ? getNextOwnerCandidates(activeStoreId, 3).catch(() => []) : Promise.resolve([]),
+
+    // PARTNER 個人資料
+    isPartner
+      ? (async () => {
+          const customer = user.customerId
+            ? await prisma.customer.findUnique({
+                where: { id: user.customerId },
+                select: {
+                  totalPoints: true,
+                  talentStage: true,
+                  _count: { select: { sponsoredCustomers: true, referralsMade: true } },
+                },
+              })
+            : null;
+
+          // 查 staff 關聯的 customer（fallback：用 user.staffId 查 staff → 再找該 staff 的 customer count）
+          const staffCustomerCount = user.staffId
+            ? await prisma.customer.count({
+                where: { assignedStaffId: user.staffId },
+              })
+            : 0;
+
+          const referralCount = customer?._count.referralsMade ?? 0;
+
+          // 取得自己的 readiness
+          let readinessScore: number | null = null;
+          let readinessLevel: string | null = null;
+          if (customer && ["PARTNER", "FUTURE_OWNER"].includes(customer.talentStage)) {
+            const scores = await computeReadinessScores(activeStoreId).catch(() => []);
+            const mine = scores.find((s) => s.customerId === user.customerId);
+            if (mine) {
+              readinessScore = mine.score;
+              readinessLevel = mine.readinessLevel;
+            }
+          }
+
+          // 取得升級資格
+          const eligibility = user.customerId
+            ? await getUpgradeEligibility(user.customerId, activeStoreId).catch(() => null)
+            : null;
+
+          return {
+            totalPoints: customer?.totalPoints ?? 0,
+            referralCount,
+            customerCount: staffCustomerCount,
+            talentStage: customer?.talentStage ?? "CUSTOMER",
+            readinessScore,
+            readinessLevel,
+            upgradeEligibility: eligibility,
+          };
+        })().catch(() => null)
+      : Promise.resolve(null),
   ]);
 
   // 升級結果 banner（核准 or 拒絕，24hr 內）
@@ -268,19 +310,36 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       />
 
       {/* ═══════════════════════════════════════════════ */}
-      {/* 2b. 🔥 人才核心指標（Owner only, 最顯眼位置）     */}
+      {/* 2b. PARTNER 個人成長概況                          */}
+      {/* ═══════════════════════════════════════════════ */}
+      {isPartner && partnerData && (
+        <PartnerDashboardSection
+          totalPoints={partnerData.totalPoints}
+          referralCount={partnerData.referralCount}
+          customerCount={partnerData.customerCount}
+          talentStage={partnerData.talentStage}
+          readinessScore={partnerData.readinessScore}
+          readinessLevel={partnerData.readinessLevel}
+          upgradeEligibility={partnerData.upgradeEligibility}
+        />
+      )}
+
+      {/* ═══════════════════════════════════════════════ */}
+      {/* 2c. OWNER 人才核心指標 + 候選人 + 漏斗             */}
       {/* ═══════════════════════════════════════════════ */}
       {isOwner && talentData && referralStats && (
         <TalentKpiSection
           partnerCount={talentData.pipeline.totalPartners}
           futureOwnerCount={talentData.pipeline.totalFutureOwners}
-          nearReady={talentData.nearReady}
+          highReadyCount={talentData.nearReady.length}
           referralThisMonth={referralStats.totalThisMonth}
+          candidates={ownerCandidates}
+          pipeline={talentData.pipeline}
         />
       )}
 
       {/* ═══════════════════════════════════════════════ */}
-      {/* 3. KPI 摘要列                                   */}
+      {/* 3. KPI 摘要列（營運，往下方移動）                   */}
       {/* ═══════════════════════════════════════════════ */}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
         <KpiCard
@@ -330,22 +389,6 @@ export default async function DashboardPage({ searchParams }: PageProps) {
             color="earth"
           />
         )}
-        {isOwner && stats.partnerCount !== null && (
-          <>
-            <KpiCard
-              label="合作店長"
-              value={stats.partnerCount}
-              unit="位"
-              color="blue"
-            />
-            <KpiCard
-              label="準店長"
-              value={stats.futureOwnerCount ?? 0}
-              unit="位"
-              color="amber"
-            />
-          </>
-        )}
       </div>
 
       {/* ═══════════════════════════════════════════════ */}
@@ -385,7 +428,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
         <SectionCard
           title="趨勢分析"
           subtitle="營收與預約趨勢"
-          action={{ label: "營運儀表板", href: "/dashboard/ops" }}
+          /* MVP: 營運儀表板入口暫時隱藏 */
         >
           <TrendTabs data7={trend7} data30={trend30} />
         </SectionCard>

@@ -21,7 +21,7 @@ export async function requireSession() {
   return user;
 }
 
-/** 要求任意員工身份（ADMIN / STORE_MANAGER / COACH） */
+/** 要求任意員工身份（ADMIN / OWNER / PARTNER） */
 export async function requireStaffSession() {
   const user = await requireSession();
   if (!isStaffRole(user.role)) {

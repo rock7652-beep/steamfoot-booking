@@ -13,6 +13,7 @@ import { hasFeature, type Feature, FEATURES } from "@/lib/shop-plan";
 import { APP_VERSION } from "@/lib/version";
 import type { ShopPlan, PricingPlan } from "@prisma/client";
 import StoreSwitcher from "@/components/store-switcher";
+import { MVP_HIDDEN_ROUTES } from "@/lib/mvp-hidden-features";
 
 // ============================================================
 // Types
@@ -229,7 +230,7 @@ export const NAV_GROUPS: NavGroup[] = [
       },
       {
         href: "/dashboard/coach-revenue",
-        label: "教練營收報表",
+        label: "合作店長營收報表",
         permission: "report.read",
         requiredFeature: FEATURES.ADVANCED_REPORTS,
         upgradeTo: "PRO",
@@ -433,7 +434,9 @@ export default function DashboardShell({
   // Determine which groups have visible items and which group contains the active item
   const { visibleGroups, activeGroupId } = useMemo(() => {
     const groups = NAV_GROUPS.map((group) => {
-      const categorizedItems = group.items.map((item) => {
+      const categorizedItems = group.items
+        .filter((item) => !MVP_HIDDEN_ROUTES.includes(item.href))
+        .map((item) => {
         if (item.ownerOnly && !isOwner) return { item, visible: false, locked: false };
         if (item.permission && !isOwner && !permissions.includes(item.permission))
           return { item, visible: false, locked: false };

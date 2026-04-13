@@ -58,6 +58,38 @@ export const TALENT_STAGE_ORDER: TalentStage[] = [
   "OWNER",
 ];
 
+export interface NextOwnerCandidate {
+  customerId: string;
+  name: string;
+  talentStage: TalentStage;
+  readinessScore: number;
+  readinessLevel: ReadinessLevel;
+  totalPoints: number;
+  referralCount: number;
+  referralPartnerCount: number;
+  attendanceCount: number;
+  daysInStage: number;
+}
+
+// ── 升級判斷 ──
+
+export interface UpgradeProgressItem {
+  met: boolean;
+  current: number | string;
+  required: number | string;
+}
+
+export interface UpgradeEligibility {
+  isEligibleForFutureOwner: boolean;
+  upgradeReasons: string[];
+  upgradeProgress: {
+    readiness: UpgradeProgressItem;
+    points: UpgradeProgressItem;
+    referrals: UpgradeProgressItem;
+  };
+  guidance: string[];
+}
+
 export const READINESS_LEVEL_CONFIG: Record<
   ReadinessLevel,
   { label: string; color: string; bg: string }

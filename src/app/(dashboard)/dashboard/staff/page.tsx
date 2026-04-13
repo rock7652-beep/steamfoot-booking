@@ -25,7 +25,7 @@ export default async function StaffPage({}: PageProps) {
 
   async function handleCreateStaff(formData: FormData) {
     "use server";
-    const roleValue = (formData.get("role") as string) || "STORE_MANAGER";
+    const roleValue = (formData.get("role") as string) || "OWNER";
     const result = await createStaff({
       name: formData.get("name") as string,
       displayName: formData.get("displayName") as string,
@@ -36,7 +36,7 @@ export default async function StaffPage({}: PageProps) {
       monthlySpaceFee: formData.get("monthlySpaceFee")
         ? Number(formData.get("monthlySpaceFee"))
         : 0,
-      role: roleValue as "STORE_MANAGER" | "COACH",
+      role: roleValue as "OWNER" | "PARTNER",
     });
 
     if (!result.success) {
@@ -73,11 +73,11 @@ export default async function StaffPage({}: PageProps) {
             <label className="block text-sm font-medium text-earth-700">角色</label>
             <select
               name="role"
-              defaultValue="STORE_MANAGER"
+              defaultValue="OWNER"
               className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
             >
-              <option value="STORE_MANAGER">店長（主要經營者）</option>
-              <option value="COACH">教練（合作協助經營者）</option>
+              <option value="OWNER">店長（主要經營者）</option>
+              <option value="PARTNER">合作店長</option>
             </select>
             <p className="mt-1 text-xs text-earth-400">系統會根據角色自動帶入預設權限，建立後可在編輯頁調整</p>
           </div>
@@ -218,8 +218,8 @@ export default async function StaffPage({}: PageProps) {
                     <td className="px-4 py-3">
                       <span className={`rounded px-2 py-0.5 text-xs font-medium ${
                         staff.isOwner ? "bg-yellow-100 text-yellow-700" :
-                        staff.user.role === "STORE_MANAGER" ? "bg-primary-100 text-primary-700" :
-                        staff.user.role === "COACH" ? "bg-blue-100 text-blue-700" :
+                        staff.user.role === "OWNER" ? "bg-primary-100 text-primary-700" :
+                        staff.user.role === "PARTNER" ? "bg-blue-100 text-blue-700" :
                         "bg-earth-100 text-earth-700"
                       }`}>
                         {staff.isOwner ? "系統管理者" : ROLE_LABELS[staff.user.role as UserRole] ?? staff.user.role}

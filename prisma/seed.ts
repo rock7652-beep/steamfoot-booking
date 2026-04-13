@@ -75,7 +75,7 @@ async function main() {
       email: "bob@steamfoot.tw",
       phone: "0923456789",
       passwordHash,
-      role: "STORE_MANAGER",
+      role: "OWNER",
       staff: {
         create: {
           storeId: "default-store",
@@ -97,7 +97,7 @@ async function main() {
       email: "carol@steamfoot.tw",
       phone: "0934567890",
       passwordHash,
-      role: "STORE_MANAGER",
+      role: "OWNER",
       staff: {
         create: {
           storeId: "default-store",

@@ -7,25 +7,25 @@ import { prisma } from "@/lib/db";
 
 /** 所有「店員級」角色（不含 ADMIN / CUSTOMER） */
 export const STAFF_ROLES: UserRole[] = [
-  "STORE_MANAGER",
-  "COACH",
+  "OWNER",
+  "PARTNER",
 ];
 
 /** 角色中文標籤 */
 export const ROLE_LABELS: Record<UserRole, string> = {
-  ADMIN: "系統管理者",
-  STORE_MANAGER: "店長",
-  COACH: "教練",
+  ADMIN: "總部",
+  OWNER: "店長",
+  PARTNER: "合作店長",
   CUSTOMER: "顧客",
 };
 
 /** 可指派給員工的角色（建立/編輯員工時選擇） */
 export const ASSIGNABLE_STAFF_ROLES: UserRole[] = [
-  "STORE_MANAGER",
-  "COACH",
+  "OWNER",
+  "PARTNER",
 ];
 
-/** 判斷是否為 Admin（原 Owner） */
+/** 判斷是否為 Admin */
 export function isOwner(role: UserRole | string): boolean {
   return role === "ADMIN";
 }
@@ -169,7 +169,7 @@ export const PERMISSION_LABELS: Record<PermissionCode, string> = {
 // ============================================================
 
 /** 店長 預設權限（接近完整營運權限） */
-export const DEFAULT_STORE_MANAGER_PERMISSIONS: PermissionCode[] = [
+export const DEFAULT_OWNER_PERMISSIONS: PermissionCode[] = [
   "customer.read",
   "customer.create",
   "customer.update",
@@ -198,8 +198,8 @@ export const DEFAULT_STORE_MANAGER_PERMISSIONS: PermissionCode[] = [
   "talent.manage",
 ];
 
-/** 教練 預設權限（日常操作） */
-export const DEFAULT_COACH_PERMISSIONS: PermissionCode[] = [
+/** 合作店長 預設權限（日常操作，不含營收報表/系統設定/人才管理） */
+export const DEFAULT_PARTNER_PERMISSIONS: PermissionCode[] = [
   "customer.read",
   "customer.create",
   "customer.update",
@@ -212,19 +212,19 @@ export const DEFAULT_COACH_PERMISSIONS: PermissionCode[] = [
   "wallet.read",
   "wallet.create",
   "business_hours.view",
-  "report.read",
   "cashbook.read",
   "cashbook.create",
   "duty.read",
+  "talent.read",
 ];
 
 /** 根據角色取得預設權限列表 */
 export function getDefaultPermissionsForRole(role: UserRole): PermissionCode[] {
   switch (role) {
-    case "STORE_MANAGER":
-      return DEFAULT_STORE_MANAGER_PERMISSIONS;
-    case "COACH":
-      return DEFAULT_COACH_PERMISSIONS;
+    case "OWNER":
+      return DEFAULT_OWNER_PERMISSIONS;
+    case "PARTNER":
+      return DEFAULT_PARTNER_PERMISSIONS;
     default:
       return [];
   }
@@ -249,7 +249,7 @@ export async function checkPermission(
   // Customer 不在此系統中
   if (role === "CUSTOMER") return false;
 
-  // 所有員工角色（STORE_MANAGER / COACH）查 StaffPermission 表
+  // 所有員工角色（OWNER / PARTNER）查 StaffPermission 表
   if (!staffId) return false;
 
   const record = await prisma.staffPermission.findUnique({
@@ -302,7 +302,7 @@ export async function updateStaffPermissions(
  */
 export async function createDefaultPermissions(
   staffId: string,
-  role: UserRole = "STORE_MANAGER"
+  role: UserRole = "OWNER"
 ): Promise<void> {
   const defaults = getDefaultPermissionsForRole(role);
   const data = ALL_PERMISSIONS.map((perm) => ({

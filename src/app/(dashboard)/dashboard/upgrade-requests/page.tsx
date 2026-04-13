@@ -63,6 +63,9 @@ interface PageProps {
 }
 
 export default async function UpgradeRequestsPage({ searchParams }: PageProps) {
+  /* MVP: 升級申請管理暫時隱藏 */
+  redirect("/dashboard");
+
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   if (user.role !== "ADMIN") notFound();

@@ -13,6 +13,7 @@ type TxClient = Prisma.TransactionClient;
  * 確保快取一致性。
  *
  * 可傳入 `tx` 以加入外層事務（例如 markCompleted 的 booking transaction）。
+ * 可傳入 `pointsOverride` 覆蓋預設分數（MANUAL_ADJUSTMENT 使用）。
  */
 export async function awardPoints(opts: {
   customerId: string;
@@ -20,9 +21,10 @@ export async function awardPoints(opts: {
   type: PointType;
   note?: string;
   tx?: TxClient;
+  pointsOverride?: number;
 }): Promise<void> {
-  const points = POINT_VALUES[opts.type];
-  if (!points || points <= 0) return;
+  const points = opts.pointsOverride ?? POINT_VALUES[opts.type];
+  if (points === 0) return;
 
   const client = opts.tx ?? prisma;
 

@@ -27,7 +27,7 @@ const createStaffSchema = z.object({
   colorCode: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
   monthlySpaceFee: z.number().int().min(0).optional(),
   spaceFeeEnabled: z.boolean().optional(),
-  role: z.enum(["STORE_MANAGER", "COACH"]).optional(),
+  role: z.enum(["OWNER", "PARTNER"]).optional(),
 });
 
 const updateStaffSchema = z.object({
@@ -35,7 +35,7 @@ const updateStaffSchema = z.object({
   colorCode: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
   monthlySpaceFee: z.number().int().min(0).optional(),
   spaceFeeEnabled: z.boolean().optional(),
-  role: z.enum(["STORE_MANAGER", "COACH"]).optional(),
+  role: z.enum(["OWNER", "PARTNER"]).optional(),
 });
 
 // ============================================================
@@ -62,7 +62,7 @@ export async function createStaff(
     if (existing) throw new AppError("CONFLICT", "此 Email 已被使用");
 
     const passwordHash = hashSync(data.password, 10);
-    const staffRole: UserRole = data.role ?? "STORE_MANAGER";
+    const staffRole: UserRole = data.role ?? "OWNER";
 
     const user = await prisma.user.create({
       data: {

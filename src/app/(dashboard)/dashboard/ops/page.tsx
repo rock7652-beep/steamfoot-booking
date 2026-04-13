@@ -1,6 +1,6 @@
 import { getCurrentUser } from "@/lib/session";
 import { getActiveStoreForRead } from "@/lib/store";
-import { notFound } from "next/navigation";
+import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { EmptyState } from "@/components/ui/empty-state";
 import {
@@ -29,6 +29,9 @@ import { RecommendationsSection } from "./recommendations-section";
 import { EffectivenessSection } from "./effectiveness-section";
 
 export default async function OpsDashboardPage() {
+  /* MVP: 營運儀表板暫時隱藏 */
+  redirect("/dashboard");
+
   const user = await getCurrentUser();
   if (!user) return null;
   if (user.role !== "ADMIN") notFound();

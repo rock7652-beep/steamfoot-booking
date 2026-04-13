@@ -112,3 +112,97 @@ export async function getReferralStats(
     convertedCount: statusMap.get("CONVERTED") ?? 0,
   };
 }
+
+// ── 轉介紹排行榜 ──────────────────────────────
+
+export interface ReferralLeaderboardItem {
+  customerId: string;
+  name: string;
+  count: number;
+  talentStage: string;
+}
+
+/**
+ * 本月轉介紹數排行 TOP N
+ */
+export async function getMonthlyReferralLeaderboard(
+  activeStoreId?: string | null,
+  limit: number = 10,
+): Promise<ReferralLeaderboardItem[]> {
+  const user = await requireStaffSession();
+  const storeFilter = getStoreFilter(user, activeStoreId);
+
+  const currentMonth = monthRange(toLocalMonthStr());
+
+  const agg = await prisma.referral.groupBy({
+    by: ["referrerId"],
+    where: {
+      ...storeFilter,
+      createdAt: { gte: currentMonth.start },
+      status: { not: "CANCELLED" },
+    },
+    _count: { id: true },
+    orderBy: { _count: { id: "desc" } },
+    take: limit,
+  });
+
+  if (agg.length === 0) return [];
+
+  const ids = agg.map((a) => a.referrerId);
+  const customers = await prisma.customer.findMany({
+    where: { id: { in: ids } },
+    select: { id: true, name: true, talentStage: true },
+  });
+  const map = new Map(customers.map((c) => [c.id, c]));
+
+  return agg.map((a) => {
+    const c = map.get(a.referrerId);
+    return {
+      customerId: a.referrerId,
+      name: c?.name ?? "未知",
+      count: a._count.id,
+      talentStage: c?.talentStage ?? "CUSTOMER",
+    };
+  });
+}
+
+/**
+ * 轉介紹已轉換數排行 TOP N（全時間）
+ */
+export async function getReferralConvertedLeaderboard(
+  activeStoreId?: string | null,
+  limit: number = 10,
+): Promise<ReferralLeaderboardItem[]> {
+  const user = await requireStaffSession();
+  const storeFilter = getStoreFilter(user, activeStoreId);
+
+  const agg = await prisma.referral.groupBy({
+    by: ["referrerId"],
+    where: {
+      ...storeFilter,
+      status: "CONVERTED",
+    },
+    _count: { id: true },
+    orderBy: { _count: { id: "desc" } },
+    take: limit,
+  });
+
+  if (agg.length === 0) return [];
+
+  const ids = agg.map((a) => a.referrerId);
+  const customers = await prisma.customer.findMany({
+    where: { id: { in: ids } },
+    select: { id: true, name: true, talentStage: true },
+  });
+  const map = new Map(customers.map((c) => [c.id, c]));
+
+  return agg.map((a) => {
+    const c = map.get(a.referrerId);
+    return {
+      customerId: a.referrerId,
+      name: c?.name ?? "未知",
+      count: a._count.id,
+      talentStage: c?.talentStage ?? "CUSTOMER",
+    };
+  });
+}

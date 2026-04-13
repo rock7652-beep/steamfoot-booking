@@ -9,7 +9,7 @@
  *
  * 多店隔離：
  * - ADMIN: 不加 storeId 篩選（跨店管理）
- * - STORE_MANAGER / COACH: 強制 storeId = user.storeId
+ * - OWNER / PARTNER: 強制 storeId = user.storeId
  * - CUSTOMER: 只看自己的資料（storeId 作為額外保護）
  */
 

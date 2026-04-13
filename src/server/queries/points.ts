@@ -70,3 +70,50 @@ export async function getPointsLeaderboard(
     talentStage: r.talentStage,
   }));
 }
+
+/**
+ * 本月積分排行 TOP N（依 PointRecord 加總）
+ */
+export async function getMonthlyPointsLeaderboard(
+  activeStoreId?: string | null,
+  limit: number = 10,
+): Promise<Array<{ customerId: string; name: string; monthPoints: number; talentStage: string }>> {
+  const user = await requireStaffSession();
+  const storeFilter = getStoreFilter(user, activeStoreId);
+  const { monthRange, toLocalMonthStr } = await import("@/lib/date-utils");
+
+  const currentMonth = monthRange(toLocalMonthStr());
+
+  const agg = await prisma.pointRecord.groupBy({
+    by: ["customerId"],
+    where: {
+      ...storeFilter,
+      createdAt: { gte: currentMonth.start },
+      points: { gt: 0 },
+    },
+    _sum: { points: true },
+    orderBy: { _sum: { points: "desc" } },
+    take: limit,
+  });
+
+  if (agg.length === 0) return [];
+
+  const customerIds = agg.map((a) => a.customerId);
+  const customers = await prisma.customer.findMany({
+    where: { id: { in: customerIds } },
+    select: { id: true, name: true, talentStage: true },
+  });
+  const customerMap = new Map(customers.map((c) => [c.id, c]));
+
+  return agg
+    .map((a) => {
+      const c = customerMap.get(a.customerId);
+      return {
+        customerId: a.customerId,
+        name: c?.name ?? "未知",
+        monthPoints: a._sum.points ?? 0,
+        talentStage: c?.talentStage ?? "CUSTOMER",
+      };
+    })
+    .filter((r) => r.monthPoints > 0);
+}
