@@ -8,8 +8,9 @@ import { getStoreFilter } from "@/lib/manager-visibility";
 // ============================================================
 
 export async function listReminderRules() {
-  await requireStaffSession();
+  const user = await requireStaffSession();
   return prisma.reminderRule.findMany({
+    where: { storeId: user.storeId! },
     include: {
       template: { select: { id: true, name: true } },
       _count: { select: { logs: true } },
@@ -23,19 +24,24 @@ export async function listReminderRules() {
 // ============================================================
 
 export async function listMessageTemplates() {
-  await requireStaffSession();
+  const user = await requireStaffSession();
   return prisma.messageTemplate.findMany({
+    where: { storeId: user.storeId! },
     include: { _count: { select: { logs: true, rules: true } } },
     orderBy: { createdAt: "desc" },
   });
 }
 
 export async function getMessageTemplate(id: string) {
-  await requireStaffSession();
-  return prisma.messageTemplate.findUnique({
+  const user = await requireStaffSession();
+  const template = await prisma.messageTemplate.findUnique({
     where: { id },
     include: { rules: { select: { id: true, name: true } } },
   });
+  if (template && template.storeId !== user.storeId!) {
+    return null; // ownership check: don't expose other store's templates
+  }
+  return template;
 }
 
 // ============================================================
@@ -51,20 +57,15 @@ export interface ListMessageLogsOptions {
 
 export async function listMessageLogs(options: ListMessageLogsOptions & { activeStoreId?: string | null } = {}) {
   const user = await requireStaffSession();
-  // MessageLog 沒有 storeId，需透過 customer relation 篩選
-  const customerStoreFilter = getStoreFilter(user, options.activeStoreId);
+  const storeFilter = getStoreFilter(user, options.activeStoreId);
   const { status, search, page = 1, pageSize = 30 } = options;
 
-  const where: Record<string, unknown> = {};
-  const customerWhere: Record<string, unknown> = { ...customerStoreFilter };
+  const where: Record<string, unknown> = { ...storeFilter };
   if (status && status !== "ALL") {
     where.status = status;
   }
   if (search) {
-    customerWhere.name = { contains: search, mode: "insensitive" };
-  }
-  if (Object.keys(customerWhere).length > 0) {
-    where.customer = customerWhere;
+    where.customer = { name: { contains: search, mode: "insensitive" } };
   }
 
   const [logs, total] = await Promise.all([
@@ -91,15 +92,11 @@ export async function listMessageLogs(options: ListMessageLogsOptions & { active
 
 export async function getReminderStats(activeStoreId?: string | null) {
   const user = await requireStaffSession();
-  // MessageLog 沒有 storeId，需透過 customer relation 篩選
-  const customerStoreFilter = getStoreFilter(user, activeStoreId);
-  const logStoreWhere = Object.keys(customerStoreFilter).length > 0
-    ? { customer: customerStoreFilter }
-    : {};
+  const storeFilter = getStoreFilter(user, activeStoreId);
   const today = toLocalDateStr();
 
   const [enabledRules, todayPending, todaySent, todayFailed] = await Promise.all([
-    prisma.reminderRule.count({ where: { isEnabled: true } }),
+    prisma.reminderRule.count({ where: { isEnabled: true, storeId: user.storeId! } }),
     prisma.messageLog.count({
       where: {
         status: "PENDING",
@@ -107,7 +104,7 @@ export async function getReminderStats(activeStoreId?: string | null) {
           gte: new Date(today + "T00:00:00+08:00"),
           lt: new Date(today + "T23:59:59+08:00"),
         },
-        ...logStoreWhere,
+        ...storeFilter,
       },
     }),
     prisma.messageLog.count({
@@ -117,7 +114,7 @@ export async function getReminderStats(activeStoreId?: string | null) {
           gte: new Date(today + "T00:00:00+08:00"),
           lt: new Date(today + "T23:59:59+08:00"),
         },
-        ...logStoreWhere,
+        ...storeFilter,
       },
     }),
     prisma.messageLog.count({
@@ -127,7 +124,7 @@ export async function getReminderStats(activeStoreId?: string | null) {
           gte: new Date(today + "T00:00:00+08:00"),
           lt: new Date(today + "T23:59:59+08:00"),
         },
-        ...logStoreWhere,
+        ...storeFilter,
       },
     }),
   ]);

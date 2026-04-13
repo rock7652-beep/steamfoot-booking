@@ -23,6 +23,9 @@ import { UpgradeResultBanner } from "@/components/upgrade-result-banner";
 
 // Owner-only: lazy import trend tabs
 import { TrendTabs } from "./ops/trend-tabs";
+import { TalentKpiSection } from "./talent-kpi-section";
+import { getTalentDashboard } from "@/server/queries/talent";
+import { getReferralStats } from "@/server/queries/referral";
 
 interface PageProps {
   searchParams: Promise<{ year?: string; month?: string }>;
@@ -32,7 +35,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const user = await getCurrentUser();
   if (!user) return null;
-  const isOwner = user.role === "ADMIN";
+  const isOwner = user.role === "ADMIN" || user.role === "STORE_MANAGER";
 
   // 多店視角：讀取 cookie 解析 activeStoreId
   const cookieStore = await cookies();
@@ -58,7 +61,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   const lastWeekDate = new Date(todayBookingDate.getTime() - 7 * 24 * 60 * 60 * 1000);
 
   // Parallel queries
-  const [stats, todayBookings, monthData, latestRecon, lastWeekBookings, trend7, trend30] = await Promise.all([
+  const [stats, todayBookings, monthData, latestRecon, lastWeekBookings, trend7, trend30, talentData, referralStats] = await Promise.all([
     // KPI stats
     (async () => {
       const currentMonth = monthRange(toLocalDateStr().slice(0, 7));
@@ -72,7 +75,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       })();
       const prevMonth = monthRange(prevMonthStr);
 
-      const [customerCount, activeCount, todayAgg, monthRevenue, todayCompleted, todayRevenue, prevMonthRevenue, noShowCount] = await Promise.all([
+      const [customerCount, activeCount, todayAgg, monthRevenue, todayCompleted, todayRevenue, prevMonthRevenue, noShowCount, partnerCount, futureOwnerCount] = await Promise.all([
         prisma.customer.count({ where: staffCustomerWhere }),
         prisma.customer.count({ where: { ...staffCustomerWhere, customerStage: "ACTIVE" } }),
         prisma.booking.aggregate({
@@ -130,6 +133,17 @@ export default async function DashboardPage({ searchParams }: PageProps) {
             ...storeFilter,
           },
         }),
+        // 人才管道 KPI（owner only）
+        isOwner
+          ? prisma.customer.count({
+              where: { ...storeFilter, talentStage: "PARTNER" },
+            })
+          : Promise.resolve(null),
+        isOwner
+          ? prisma.customer.count({
+              where: { ...storeFilter, talentStage: "FUTURE_OWNER" },
+            })
+          : Promise.resolve(null),
       ]);
       return {
         customerCount,
@@ -142,6 +156,8 @@ export default async function DashboardPage({ searchParams }: PageProps) {
         todayCompletedPeople: todayCompleted._sum.people ?? 0,
         todayRevenue: todayRevenue ? Number(todayRevenue._sum.amount ?? 0) : null,
         noShowCount,
+        partnerCount,
+        futureOwnerCount,
       };
     })(),
 
@@ -178,6 +194,10 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     // Trend data (owner only — null for staff)
     isOwner ? getDailyTrend(7, activeStoreId).catch(() => []) : Promise.resolve(null),
     isOwner ? getDailyTrend(30, activeStoreId).catch(() => []) : Promise.resolve(null),
+
+    // 人才 Dashboard data (owner only)
+    isOwner ? getTalentDashboard(activeStoreId).catch(() => null) : Promise.resolve(null),
+    isOwner ? getReferralStats(activeStoreId).catch(() => null) : Promise.resolve(null),
   ]);
 
   // 升級結果 banner（核准 or 拒絕，24hr 內）
@@ -248,6 +268,18 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       />
 
       {/* ═══════════════════════════════════════════════ */}
+      {/* 2b. 🔥 人才核心指標（Owner only, 最顯眼位置）     */}
+      {/* ═══════════════════════════════════════════════ */}
+      {isOwner && talentData && referralStats && (
+        <TalentKpiSection
+          partnerCount={talentData.pipeline.totalPartners}
+          futureOwnerCount={talentData.pipeline.totalFutureOwners}
+          nearReady={talentData.nearReady}
+          referralThisMonth={referralStats.totalThisMonth}
+        />
+      )}
+
+      {/* ═══════════════════════════════════════════════ */}
       {/* 3. KPI 摘要列                                   */}
       {/* ═══════════════════════════════════════════════ */}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -297,6 +329,22 @@ export default async function DashboardPage({ searchParams }: PageProps) {
             unit="位"
             color="earth"
           />
+        )}
+        {isOwner && stats.partnerCount !== null && (
+          <>
+            <KpiCard
+              label="合作店長"
+              value={stats.partnerCount}
+              unit="位"
+              color="blue"
+            />
+            <KpiCard
+              label="準店長"
+              value={stats.futureOwnerCount ?? 0}
+              unit="位"
+              color="amber"
+            />
+          </>
         )}
       </div>
 

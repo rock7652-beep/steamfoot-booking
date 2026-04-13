@@ -7,9 +7,15 @@ import { AppError } from "@/lib/errors";
 // ============================================================
 
 export async function listPlans(includeInactive = false) {
-  await requireStaffSession();
+  const user = await requireStaffSession();
+  const where: { storeId: string; isActive?: boolean } = {
+    storeId: user.storeId!,
+  };
+  if (!includeInactive) {
+    where.isActive = true;
+  }
   return prisma.servicePlan.findMany({
-    where: includeInactive ? undefined : { isActive: true },
+    where,
     orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
   });
 }
@@ -19,8 +25,9 @@ export async function listPlans(includeInactive = false) {
 // ============================================================
 
 export async function getPlanDetail(planId: string) {
-  await requireStaffSession();
+  const user = await requireStaffSession();
   const plan = await prisma.servicePlan.findUnique({ where: { id: planId } });
   if (!plan) throw new AppError("NOT_FOUND", "課程方案不存在");
+  if (plan.storeId !== user.storeId) throw new AppError("FORBIDDEN", "無權限存取此方案");
   return plan;
 }

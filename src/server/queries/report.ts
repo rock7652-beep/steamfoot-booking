@@ -162,13 +162,8 @@ export async function monthlyStoreSummary(
   const staffIdFilter = getManagerReadFilter(user.role, user.staffId, "staffId", activeStoreId ?? user.storeId);
   const assignedFilter = getManagerReadFilter(user.role, user.staffId, "assignedStaffId", activeStoreId ?? user.storeId);
 
-  // SpaceFeeRecord has no storeId — filter via staff relation instead
-  const spaceFeeFilter: Record<string, unknown> = { ...staffIdFilter };
-  if ("storeId" in spaceFeeFilter) {
-    const sid = spaceFeeFilter.storeId;
-    delete spaceFeeFilter.storeId;
-    spaceFeeFilter.staff = { storeId: sid };
-  }
+  // SpaceFeeRecord now has storeId — use staffIdFilter directly
+  const spaceFeeFilter = staffIdFilter;
 
   // All staff visible to this user
   const allStaff = await prisma.staff.findMany({

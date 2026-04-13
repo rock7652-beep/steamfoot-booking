@@ -3,24 +3,24 @@
  */
 import { prisma } from "@/lib/db";
 
-/** Type can include storeId suffix, e.g. "STORE_SUMMARY:store-abc" */
 type SnapshotType = string;
 
-export async function getReportSnapshot(month: string, type: SnapshotType) {
+export async function getReportSnapshot(storeId: string, month: string, type: SnapshotType) {
   const snapshot = await prisma.reportSnapshot.findUnique({
-    where: { month_type: { month, type } },
+    where: { storeId_month_type: { storeId, month, type } },
   });
   return snapshot?.data ?? null;
 }
 
 export async function upsertReportSnapshot(
+  storeId: string,
   month: string,
   type: SnapshotType,
   data: unknown,
 ) {
   await prisma.reportSnapshot.upsert({
-    where: { month_type: { month, type } },
-    create: { month, type, data: data as never },
+    where: { storeId_month_type: { storeId, month, type } },
+    create: { storeId, month, type, data: data as never },
     update: { data: data as never },
   });
 }

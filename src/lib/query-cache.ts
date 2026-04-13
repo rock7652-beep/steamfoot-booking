@@ -34,16 +34,18 @@ export const getCachedShopPlan = unstable_cache(
  * 快取 active plans — 60s TTL，tag: "plans"
  * 注意：呼叫端仍需自行做 session 檢查
  */
-export const getCachedPlans = unstable_cache(
-  async () => {
-    return prisma.servicePlan.findMany({
-      where: { isActive: true },
-      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
-    });
-  },
-  ["active-plans"],
-  { revalidate: 60, tags: ["plans"] },
-);
+export function getCachedPlans(storeId: string) {
+  return unstable_cache(
+    async () => {
+      return prisma.servicePlan.findMany({
+        where: { storeId, isActive: true },
+        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+      });
+    },
+    [`active-plans-${storeId}`],
+    { revalidate: 60, tags: ["plans"] },
+  )();
+}
 
 /**
  * 快取 staff select options — 60s TTL，tag: "staff"

@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/db";
-import { requireSession } from "@/lib/session";
+import { requireStaffSession } from "@/lib/session";
 import { requirePermission } from "@/lib/permissions";
 import { AppError, handleActionError } from "@/lib/errors";
 import { generateSlots, validateTimeRange } from "@/lib/slot-generator";
@@ -17,7 +17,10 @@ const DAY_NAMES = ["週日", "週一", "週二", "週三", "週四", "週五", "
 
 /** 取得每週固定營業時間（7 筆，已排序） */
 export async function getBusinessHours() {
+  const user = await requireStaffSession();
+  const storeId = user.storeId!;
   const rows = await prisma.businessHours.findMany({
+    where: { storeId },
     orderBy: { dayOfWeek: "asc" },
   });
   return rows.map((r) => ({
@@ -28,22 +31,26 @@ export async function getBusinessHours() {
 
 /** 取得特殊日期列表（未來 + 最近 30 天） */
 export async function getSpecialDays() {
+  const user = await requireStaffSession();
+  const storeId = user.storeId!;
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
   return prisma.specialBusinessDay.findMany({
-    where: { date: { gte: thirtyDaysAgo } },
+    where: { storeId, date: { gte: thirtyDaysAgo } },
     orderBy: { date: "asc" },
   });
 }
 
 /** 取得指定月份的特殊日期 map */
 export async function getMonthSpecialDays(year: number, month: number) {
+  const user = await requireStaffSession();
+  const storeId = user.storeId!;
   const start = new Date(Date.UTC(year, month - 1, 1));
   const end = new Date(Date.UTC(year, month, 0)); // last day
 
   const rows = await prisma.specialBusinessDay.findMany({
-    where: { date: { gte: start, lte: end } },
+    where: { storeId, date: { gte: start, lte: end } },
     orderBy: { date: "asc" },
   });
 
@@ -59,17 +66,19 @@ export async function getMonthSpecialDays(year: number, month: number) {
 
 /** 取得整月每日營業摘要（月曆格用） */
 export async function getMonthScheduleSummary(year: number, month: number) {
+  const user = await requireStaffSession();
+  const storeId = user.storeId!;
   const start = new Date(Date.UTC(year, month - 1, 1));
   const end = new Date(Date.UTC(year, month, 0));
   const daysInMonth = end.getUTCDate();
 
   const [businessHoursRows, specialDaysRows, slotOverrideRows] = await Promise.all([
-    prisma.businessHours.findMany(),
+    prisma.businessHours.findMany({ where: { storeId } }),
     prisma.specialBusinessDay.findMany({
-      where: { date: { gte: start, lte: end } },
+      where: { storeId, date: { gte: start, lte: end } },
     }),
     prisma.slotOverride.findMany({
-      where: { date: { gte: start, lte: end } },
+      where: { storeId, date: { gte: start, lte: end } },
       select: { date: true, type: true },
     }),
   ]);
@@ -151,15 +160,17 @@ export async function getMonthScheduleSummary(year: number, month: number) {
 
 /** 取得某天的可預約時段（規則即時運算 + SlotOverride） */
 export async function getDaySlotDetails(dateStr: string) {
+  const user = await requireStaffSession();
+  const storeId = user.storeId!;
   const dateObj = new Date(dateStr + "T00:00:00Z");
   const dow = dateObj.getUTCDay();
 
   // 並行查詢
   const [specialDay, businessHour, slotOverrides] = await Promise.all([
-    prisma.specialBusinessDay.findUnique({ where: { date: dateObj } }),
-    prisma.businessHours.findUnique({ where: { dayOfWeek: dow } }),
+    prisma.specialBusinessDay.findFirst({ where: { storeId, date: dateObj } }),
+    prisma.businessHours.findFirst({ where: { storeId, dayOfWeek: dow } }),
     prisma.slotOverride.findMany({
-      where: { date: dateObj },
+      where: { storeId, date: dateObj },
       orderBy: { startTime: "asc" },
     }),
   ]);
@@ -277,15 +288,15 @@ export async function getDaySlotDetails(dateStr: string) {
 }
 
 /** 判斷指定日期是否營業，回傳 { open, openTime, closeTime, reason } */
-export async function getDayStatus(date: Date): Promise<{
+export async function getDayStatus(storeId: string, date: Date): Promise<{
   open: boolean;
   openTime: string | null;
   closeTime: string | null;
   reason: string | null;
 }> {
   const dateOnly = new Date(date.toISOString().slice(0, 10));
-  const special = await prisma.specialBusinessDay.findUnique({
-    where: { date: dateOnly },
+  const special = await prisma.specialBusinessDay.findFirst({
+    where: { storeId, date: dateOnly },
   });
   if (special) {
     if (special.type === "closed" || special.type === "training") {
@@ -295,8 +306,8 @@ export async function getDayStatus(date: Date): Promise<{
   }
 
   const dayOfWeek = dateOnly.getUTCDay();
-  const hours = await prisma.businessHours.findUnique({
-    where: { dayOfWeek },
+  const hours = await prisma.businessHours.findFirst({
+    where: { storeId, dayOfWeek },
   });
   if (!hours || !hours.isOpen) {
     return { open: false, openTime: null, closeTime: null, reason: "固定公休" };
@@ -320,6 +331,7 @@ export async function updateBusinessHours(
 ): Promise<ActionResult<void>> {
   try {
     const user = await requirePermission("business_hours.manage");
+    const storeId = user.storeId!;
 
     // 基本規則驗證（時間範圍、間隔、名額）
     if (input.isOpen) {
@@ -339,6 +351,7 @@ export async function updateBusinessHours(
       const maxBooked = await prisma.booking.groupBy({
         by: ["bookingDate", "slotTime"],
         where: {
+          storeId,
           bookingDate: { gte: today },
           bookingStatus: { in: ["PENDING", "CONFIRMED"] },
         },
@@ -367,6 +380,7 @@ export async function updateBusinessHours(
       today.setHours(0, 0, 0, 0);
       const futureBookings = await prisma.booking.findMany({
         where: {
+          storeId,
           bookingDate: { gte: today },
           bookingStatus: { in: ["PENDING", "CONFIRMED"] },
         },
@@ -389,7 +403,7 @@ export async function updateBusinessHours(
         // 過濾掉有 SpecialBusinessDay 的日期（那些日期有自己的規則）
         const orphanDates = [...new Set(orphans.map((o) => o.dateStr))];
         const specialDays = await prisma.specialBusinessDay.findMany({
-          where: { date: { in: orphanDates.map((d) => new Date(d)) } },
+          where: { storeId, date: { in: orphanDates.map((d) => new Date(d)) } },
           select: { date: true },
         });
         const specialDateSet = new Set(specialDays.map((s) => s.date.toISOString().slice(0, 10)));
@@ -411,6 +425,7 @@ export async function updateBusinessHours(
       today.setHours(0, 0, 0, 0);
       const futureBookingsOnDay = await prisma.booking.findMany({
         where: {
+          storeId,
           bookingDate: { gte: today },
           bookingStatus: { in: ["PENDING", "CONFIRMED"] },
         },
@@ -427,7 +442,7 @@ export async function updateBusinessHours(
     }
 
     await prisma.businessHours.upsert({
-      where: { dayOfWeek },
+      where: { storeId_dayOfWeek: { storeId, dayOfWeek } },
       update: {
         isOpen: input.isOpen,
         openTime: input.isOpen ? input.openTime : null,
@@ -436,6 +451,7 @@ export async function updateBusinessHours(
         ...(input.defaultCapacity != null ? { defaultCapacity: input.defaultCapacity } : {}),
       },
       create: {
+        storeId,
         dayOfWeek,
         isOpen: input.isOpen,
         openTime: input.isOpen ? input.openTime : null,
@@ -450,6 +466,7 @@ export async function updateBusinessHours(
     const todayUTC = new Date(toLocalDateStr() + "T00:00:00Z");
     const futureCustomDays = await prisma.specialBusinessDay.findMany({
       where: {
+        storeId,
         type: "custom",
         date: { gte: todayUTC },
       },
@@ -485,6 +502,7 @@ export async function addSpecialDay(input: {
 }): Promise<ActionResult<void>> {
   try {
     const user = await requirePermission("business_hours.manage");
+    const storeId = user.storeId!;
 
     const dateObj = new Date(input.date);
     const isCustom = input.type === "custom";
@@ -504,6 +522,7 @@ export async function addSpecialDay(input: {
       const maxBookedSlot = await prisma.booking.groupBy({
         by: ["slotTime"],
         where: {
+          storeId,
           bookingDate: dateObj,
           bookingStatus: { in: ["PENDING", "CONFIRMED"] },
         },
@@ -526,6 +545,7 @@ export async function addSpecialDay(input: {
     if (input.type === "closed" || input.type === "training") {
       const activeBookings = await prisma.booking.count({
         where: {
+          storeId,
           bookingDate: dateObj,
           bookingStatus: { in: ["PENDING", "CONFIRMED"] },
         },
@@ -539,7 +559,7 @@ export async function addSpecialDay(input: {
     }
 
     await prisma.specialBusinessDay.upsert({
-      where: { date: dateObj },
+      where: { storeId_date: { storeId, date: dateObj } },
       update: {
         type: input.type,
         reason: input.reason ?? null,
@@ -548,6 +568,7 @@ export async function addSpecialDay(input: {
         defaultCapacity: isCustom && input.defaultCapacity != null ? input.defaultCapacity : null,
       },
       create: {
+        storeId,
         date: dateObj,
         type: input.type,
         reason: input.reason ?? null,
@@ -567,6 +588,13 @@ export async function addSpecialDay(input: {
 export async function removeSpecialDay(id: string): Promise<ActionResult<void>> {
   try {
     const user = await requirePermission("business_hours.manage");
+    const storeId = user.storeId!;
+
+    // 確認該記錄屬於此店
+    const existing = await prisma.specialBusinessDay.findFirst({
+      where: { id, storeId },
+    });
+    if (!existing) throw new AppError("VALIDATION", "找不到該特殊日期設定");
 
     await prisma.specialBusinessDay.delete({ where: { id } });
 
@@ -581,9 +609,10 @@ export async function removeSpecialDay(id: string): Promise<ActionResult<void>> 
 export async function removeSpecialDayByDate(dateStr: string): Promise<ActionResult<void>> {
   try {
     const user = await requirePermission("business_hours.manage");
+    const storeId = user.storeId!;
 
     const dateObj = new Date(dateStr);
-    await prisma.specialBusinessDay.deleteMany({ where: { date: dateObj } });
+    await prisma.specialBusinessDay.deleteMany({ where: { storeId, date: dateObj } });
 
     revalidateSpecialDays();
     return { success: true, data: undefined };
@@ -607,6 +636,7 @@ export async function copySettingsToFutureWeeks(input: {
 }): Promise<ActionResult<{ count: number }>> {
   try {
     const user = await requirePermission("business_hours.manage");
+    const storeId = user.storeId!;
 
     if (input.weeks < 1 || input.weeks > 52) {
       throw new AppError("VALIDATION", "複製週數需在 1-52 之間");
@@ -635,7 +665,7 @@ export async function copySettingsToFutureWeeks(input: {
     // 批次 upsert
     const upserts = dates.map((d) =>
       prisma.specialBusinessDay.upsert({
-        where: { date: d },
+        where: { storeId_date: { storeId, date: d } },
         update: {
           type: input.type,
           reason: input.reason ?? null,
@@ -644,6 +674,7 @@ export async function copySettingsToFutureWeeks(input: {
           defaultCapacity: isCustom && input.defaultCapacity != null ? input.defaultCapacity : null,
         },
         create: {
+          storeId,
           date: d,
           type: input.type,
           reason: input.reason ?? null,
@@ -668,10 +699,10 @@ export async function copySettingsToFutureWeeks(input: {
 // ============================================================
 
 /** 取得某天的所有 slot override */
-export async function getDaySlotOverrides(dateStr: string) {
+export async function getDaySlotOverrides(storeId: string, dateStr: string) {
   const dateObj = new Date(dateStr + "T00:00:00Z");
   return prisma.slotOverride.findMany({
-    where: { date: dateObj },
+    where: { storeId, date: dateObj },
     orderBy: { startTime: "asc" },
   });
 }
@@ -685,6 +716,7 @@ export async function toggleSlotOverride(input: {
 }): Promise<ActionResult<void>> {
   try {
     const user = await requirePermission("business_hours.manage");
+    const storeId = user.storeId!;
 
     const dateObj = new Date(input.date + "T00:00:00Z");
 
@@ -692,6 +724,7 @@ export async function toggleSlotOverride(input: {
     if (input.action === "disable") {
       const bookedAgg = await prisma.booking.aggregate({
         where: {
+          storeId,
           bookingDate: dateObj,
           slotTime: input.startTime,
           bookingStatus: { in: ["PENDING", "CONFIRMED"] },
@@ -706,16 +739,17 @@ export async function toggleSlotOverride(input: {
 
     if (input.action === "remove") {
       await prisma.slotOverride.deleteMany({
-        where: { date: dateObj, startTime: input.startTime },
+        where: { storeId, date: dateObj, startTime: input.startTime },
       });
     } else {
       await prisma.slotOverride.upsert({
-        where: { date_startTime: { date: dateObj, startTime: input.startTime } },
+        where: { storeId_date_startTime: { storeId, date: dateObj, startTime: input.startTime } },
         update: {
           type: input.action === "disable" ? "disabled" : "enabled",
           reason: input.reason ?? null,
         },
         create: {
+          storeId,
           date: dateObj,
           startTime: input.startTime,
           type: input.action === "disable" ? "disabled" : "enabled",
@@ -740,6 +774,7 @@ export async function overrideSlotCapacity(input: {
 }): Promise<ActionResult<void>> {
   try {
     const user = await requirePermission("business_hours.manage");
+    const storeId = user.storeId!;
 
     if (input.capacity < 0 || input.capacity > 99) {
       throw new AppError("VALIDATION", "容量需在 0-99 之間");
@@ -750,6 +785,7 @@ export async function overrideSlotCapacity(input: {
     // ② 容量下限防呆：不可低於該時段已預約人數
     const bookedAgg = await prisma.booking.aggregate({
       where: {
+        storeId,
         bookingDate: dateObj,
         slotTime: input.startTime,
         bookingStatus: { in: ["PENDING", "CONFIRMED"] },
@@ -762,13 +798,14 @@ export async function overrideSlotCapacity(input: {
     }
 
     await prisma.slotOverride.upsert({
-      where: { date_startTime: { date: dateObj, startTime: input.startTime } },
+      where: { storeId_date_startTime: { storeId, date: dateObj, startTime: input.startTime } },
       update: {
         type: "capacity_change",
         capacity: input.capacity,
         reason: input.reason ?? null,
       },
       create: {
+        storeId,
         date: dateObj,
         startTime: input.startTime,
         type: "capacity_change",
@@ -809,7 +846,8 @@ export async function applyWeeklyTemplate(input: {
   weeks: number;         // 套用到未來幾週（1-52）
 }): Promise<ActionResult<{ count: number }>> {
   try {
-    await requirePermission("business_hours.manage");
+    const user = await requirePermission("business_hours.manage");
+    const storeId = user.storeId!;
 
     if (input.weeks < 1 || input.weeks > 104) {
       throw new AppError("VALIDATION", "週數需在 1-104 之間");
@@ -830,7 +868,7 @@ export async function applyWeeklyTemplate(input: {
     }
 
     await prisma.businessHours.upsert({
-      where: { dayOfWeek },
+      where: { storeId_dayOfWeek: { storeId, dayOfWeek } },
       update: {
         isOpen: input.isOpen,
         openTime: input.isOpen ? input.openTime : null,
@@ -839,6 +877,7 @@ export async function applyWeeklyTemplate(input: {
         defaultCapacity: input.defaultCapacity,
       },
       create: {
+        storeId,
         dayOfWeek,
         isOpen: input.isOpen,
         openTime: input.isOpen ? input.openTime : null,
@@ -850,7 +889,7 @@ export async function applyWeeklyTemplate(input: {
 
     // 2. 讀取來源日的 SlotOverride
     const sourceOverrides = await prisma.slotOverride.findMany({
-      where: { date: sourceDate },
+      where: { storeId, date: sourceDate },
     });
 
     // 3. 計算目標日期
@@ -863,16 +902,17 @@ export async function applyWeeklyTemplate(input: {
 
     // 4. 批次清除：用 date IN (...) 一次刪完（不用逐日 deleteMany）
     await prisma.slotOverride.deleteMany({
-      where: { date: { in: targetDates } },
+      where: { storeId, date: { in: targetDates } },
     });
     await prisma.specialBusinessDay.deleteMany({
-      where: { date: { in: targetDates }, type: "custom" },
+      where: { storeId, date: { in: targetDates }, type: "custom" },
     });
 
     // 5. 批次建立：用 createMany 一次寫入所有 override
     if (sourceOverrides.length > 0) {
       const createData = targetDates.flatMap((targetDate) =>
         sourceOverrides.map((src) => ({
+          storeId,
           date: targetDate,
           startTime: src.startTime,
           type: src.type,
@@ -885,11 +925,80 @@ export async function applyWeeklyTemplate(input: {
 
     // 6. 清除來源日的 custom SpecialBusinessDay
     await prisma.specialBusinessDay.deleteMany({
-      where: { date: sourceDate, type: "custom" },
+      where: { storeId, date: sourceDate, type: "custom" },
     });
 
     revalidateBusinessHours();
     return { success: true, data: { count: targetDates.length } };
+  } catch (e) {
+    return handleActionError(e);
+  }
+}
+
+// ============================================================
+// syncFromHeadquarters — 套用總部營業時間與時段設定
+// ============================================================
+
+export async function syncFromHeadquarters(): Promise<
+  ActionResult<{ businessHours: number; bookingSlots: number }>
+> {
+  try {
+    const user = await requirePermission("business_hours.manage");
+    const storeId = user.storeId!;
+
+    // 找到總部（isDefault = true）
+    const hq = await prisma.store.findFirst({ where: { isDefault: true } });
+    if (!hq) throw new AppError("NOT_FOUND", "找不到總部店");
+    if (storeId === hq.id) {
+      throw new AppError("VALIDATION", "總部不需要同步自己的設定");
+    }
+
+    // 讀取總部的 BusinessHours 和 BookingSlot
+    const [hqHours, hqSlots] = await Promise.all([
+      prisma.businessHours.findMany({ where: { storeId: hq.id } }),
+      prisma.bookingSlot.findMany({ where: { storeId: hq.id } }),
+    ]);
+
+    // 使用 transaction 確保原子性
+    await prisma.$transaction(async (tx) => {
+      // 清空該店現有設定
+      await tx.businessHours.deleteMany({ where: { storeId } });
+      await tx.bookingSlot.deleteMany({ where: { storeId } });
+
+      // 從總部複製 BusinessHours
+      if (hqHours.length > 0) {
+        await tx.businessHours.createMany({
+          data: hqHours.map((h) => ({
+            storeId,
+            dayOfWeek: h.dayOfWeek,
+            isOpen: h.isOpen,
+            openTime: h.openTime,
+            closeTime: h.closeTime,
+            slotInterval: h.slotInterval,
+            defaultCapacity: h.defaultCapacity,
+          })),
+        });
+      }
+
+      // 從總部複製 BookingSlot
+      if (hqSlots.length > 0) {
+        await tx.bookingSlot.createMany({
+          data: hqSlots.map((s) => ({
+            storeId,
+            dayOfWeek: s.dayOfWeek,
+            startTime: s.startTime,
+            capacity: s.capacity,
+            isEnabled: s.isEnabled,
+          })),
+        });
+      }
+    });
+
+    revalidateBusinessHours();
+    return {
+      success: true,
+      data: { businessHours: hqHours.length, bookingSlots: hqSlots.length },
+    };
   } catch (e) {
     return handleActionError(e);
   }

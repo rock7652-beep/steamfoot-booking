@@ -20,14 +20,14 @@ import type { ActionResult } from "@/types";
 // 共用：取得某天的營業時段列表
 // ============================================================
 
-async function getBusinessSlotsForDate(dateStr: string): Promise<string[]> {
+async function getBusinessSlotsForDate(dateStr: string, storeId: string): Promise<string[]> {
   const dateObj = new Date(dateStr + "T00:00:00Z");
   const dow = dateObj.getUTCDay();
 
   const [specialDay, businessHour, slotOverrides] = await Promise.all([
-    prisma.specialBusinessDay.findUnique({ where: { date: dateObj } }),
-    prisma.businessHours.findUnique({ where: { dayOfWeek: dow } }),
-    prisma.slotOverride.findMany({ where: { date: dateObj } }),
+    prisma.specialBusinessDay.findFirst({ where: { date: dateObj, storeId } }),
+    prisma.businessHours.findFirst({ where: { dayOfWeek: dow, storeId } }),
+    prisma.slotOverride.findMany({ where: { date: dateObj, storeId } }),
   ]);
 
   // 公休 / 進修
@@ -89,7 +89,8 @@ export async function upsertDutyAssignment(
     assertStoreAccess(user, staff.storeId);
 
     // 驗證是營業日且時段合法
-    const validSlots = await getBusinessSlotsForDate(data.date);
+    const storeId = currentStoreId(user);
+    const validSlots = await getBusinessSlotsForDate(data.date, storeId);
     if (validSlots.length === 0) {
       return { success: false, error: "該日為公休日，無法安排值班" };
     }
@@ -153,7 +154,8 @@ export async function batchCreateDutyAssignments(
     }
     assertStoreAccess(user, staff.storeId);
 
-    const validSlots = await getBusinessSlotsForDate(data.date);
+    const storeId = currentStoreId(user);
+    const validSlots = await getBusinessSlotsForDate(data.date, storeId);
     if (validSlots.length === 0) {
       return { success: false, error: "該日為公休日，無法安排值班" };
     }
@@ -208,18 +210,19 @@ export async function copySlotToAllSlots(
     const user = await requirePermission("duty.manage");
     const data = copySlotToAllSlotsSchema.parse(input);
 
+    const storeId = currentStoreId(user);
     const dateObj = new Date(data.date + "T00:00:00Z");
 
     // 取來源時段的安排
     const sourceAssignments = await prisma.dutyAssignment.findMany({
-      where: { date: dateObj, slotTime: data.sourceSlotTime },
+      where: { date: dateObj, slotTime: data.sourceSlotTime, storeId },
     });
     if (sourceAssignments.length === 0) {
       return { success: false, error: "來源時段沒有值班安排" };
     }
 
     // 取該日所有營業時段
-    const validSlots = await getBusinessSlotsForDate(data.date);
+    const validSlots = await getBusinessSlotsForDate(data.date, storeId);
     const targetSlots = validSlots.filter((s) => s !== data.sourceSlotTime);
 
     if (targetSlots.length === 0) {
@@ -276,11 +279,12 @@ export async function copyFromPreviousBusinessDay(
     const user = await requirePermission("duty.manage");
     const data = copyFromPreviousBusinessDaySchema.parse(input);
 
+    const storeId = currentStoreId(user);
     const targetDateObj = new Date(data.targetDate + "T00:00:00Z");
 
     // 當天必須無安排
     const existingCount = await prisma.dutyAssignment.count({
-      where: { date: targetDateObj },
+      where: { date: targetDateObj, storeId },
     });
     if (existingCount > 0) {
       return { success: false, error: "今天已有值班安排，請手動調整" };
@@ -292,7 +296,7 @@ export async function copyFromPreviousBusinessDay(
     for (let i = 0; i < 14; i++) {
       cursor.setUTCDate(cursor.getUTCDate() - 1);
       const dateStr = cursor.toISOString().slice(0, 10);
-      const slots = await getBusinessSlotsForDate(dateStr);
+      const slots = await getBusinessSlotsForDate(dateStr, storeId);
       if (slots.length > 0) {
         sourceDate = dateStr;
         break;
@@ -305,7 +309,7 @@ export async function copyFromPreviousBusinessDay(
 
     const sourceDateObj = new Date(sourceDate + "T00:00:00Z");
     const sourceAssignments = await prisma.dutyAssignment.findMany({
-      where: { date: sourceDateObj },
+      where: { date: sourceDateObj, storeId },
     });
 
     if (sourceAssignments.length === 0) {
@@ -313,7 +317,7 @@ export async function copyFromPreviousBusinessDay(
     }
 
     // 取目標日的營業時段，只複製雙方都存在的
-    const targetSlots = new Set(await getBusinessSlotsForDate(data.targetDate));
+    const targetSlots = new Set(await getBusinessSlotsForDate(data.targetDate, storeId));
     const creates = sourceAssignments
       .filter((a) => targetSlots.has(a.slotTime))
       .map((a) => ({
@@ -349,9 +353,10 @@ export async function copyToWeekDates(
     const user = await requirePermission("duty.manage");
     const data = copyToWeekDatesSchema.parse(input);
 
+    const storeId = currentStoreId(user);
     const sourceDateObj = new Date(data.sourceDate + "T00:00:00Z");
     const sourceAssignments = await prisma.dutyAssignment.findMany({
-      where: { date: sourceDateObj },
+      where: { date: sourceDateObj, storeId },
     });
 
     if (sourceAssignments.length === 0) {
@@ -364,13 +369,13 @@ export async function copyToWeekDates(
       if (targetDate === data.sourceDate) continue;
 
       const targetDateObj = new Date(targetDate + "T00:00:00Z");
-      const targetSlots = new Set(await getBusinessSlotsForDate(targetDate));
+      const targetSlots = new Set(await getBusinessSlotsForDate(targetDate, storeId));
 
       if (targetSlots.size === 0) continue; // 非營業日跳過
 
       // 覆蓋模式：先清除目標日所有安排
       await prisma.dutyAssignment.deleteMany({
-        where: { date: targetDateObj },
+        where: { date: targetDateObj, storeId },
       });
 
       // 寫入（只複製雙方都存在的時段）

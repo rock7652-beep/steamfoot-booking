@@ -11,7 +11,7 @@ async function main() {
   const targetDate = "2026-04-21"; // 未來的週二
 
   console.log("=== A. BusinessHours 週二 (dayOfWeek=2) — 寫入證據 ===");
-  const bh = await prisma.businessHours.findUnique({ where: { dayOfWeek: targetDow } });
+  const bh = await prisma.businessHours.findFirst({ where: { storeId: "default-store", dayOfWeek: targetDow } });
   if (bh) {
     console.log(`  isOpen: ${bh.isOpen}`);
     console.log(`  openTime: ${bh.openTime}`);
@@ -45,7 +45,7 @@ async function main() {
   console.log("\n  C1. getMonthScheduleSummary 模擬:");
   const dateObj21 = new Date("2026-04-21T00:00:00Z");
   const dow21 = dateObj21.getUTCDay();
-  const special21 = await prisma.specialBusinessDay.findUnique({ where: { date: dateObj21 } });
+  const special21 = await prisma.specialBusinessDay.findFirst({ where: { storeId: "default-store", date: dateObj21 } });
   console.log(`    dayOfWeek: ${dow21} (should be 2=Tuesday)`);
   console.log(`    SpecialBusinessDay: ${special21 ? `YES type=${special21.type}` : "null (使用 BusinessHours)"}`);
   if (!special21 && bh) {
@@ -54,7 +54,7 @@ async function main() {
 
   // C2: fetchDaySlots 模擬
   console.log("\n  C2. fetchDaySlots 模擬:");
-  const bh21 = await prisma.businessHours.findUnique({ where: { dayOfWeek: dow21 } });
+  const bh21 = await prisma.businessHours.findFirst({ where: { storeId: "default-store", dayOfWeek: dow21 } });
   const overrides21 = await prisma.slotOverride.findMany({ where: { date: dateObj21 } });
   console.log(`    BusinessHours match: ${bh21 ? `open=${bh21.openTime} close=${bh21.closeTime}` : "null"}`);
   console.log(`    SlotOverrides: ${overrides21.length}`);

@@ -121,7 +121,7 @@ export async function runReminders(): Promise<SendResult> {
           where: {
             status: "SENT",
             sentAt: { gte: monthStart, lte: monthEnd },
-            booking: { storeId: bookingStoreId },
+            storeId: bookingStoreId,
           },
         });
         storeSendCountCache.set(bookingStoreId, cnt);
@@ -176,6 +176,7 @@ export async function runReminders(): Promise<SendResult> {
           renderedBody,
           errorMessage: sendResult.error ?? null,
           sentAt: sendResult.success ? new Date() : null,
+          storeId: bookingStoreId,
         },
       });
 

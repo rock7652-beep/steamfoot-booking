@@ -60,12 +60,13 @@ export async function createReminderRule(
   input: z.input<typeof createRuleSchema>
 ): Promise<ActionResult<{ ruleId: string }>> {
   try {
-    await requireAdminSession();
+    const user = await requireAdminSession();
     await requireFeature(FEATURES.AUTO_REMINDER);
     const data = createRuleSchema.parse(input);
 
     const rule = await prisma.reminderRule.create({
       data: {
+        storeId: user.storeId!,
         name: data.name,
         triggerType: data.triggerType,
         type: data.type,
@@ -90,9 +91,15 @@ export async function updateReminderRule(
   input: z.input<typeof updateRuleSchema>
 ): Promise<ActionResult<void>> {
   try {
-    await requireAdminSession();
+    const user = await requireAdminSession();
     await requireFeature(FEATURES.AUTO_REMINDER);
     const data = updateRuleSchema.parse(input);
+
+    // Ownership check
+    const existing = await prisma.reminderRule.findUnique({ where: { id: ruleId } });
+    if (!existing || existing.storeId !== user.storeId) {
+      throw new AppError("NOT_FOUND", "提醒規則不存在");
+    }
 
     await prisma.reminderRule.update({
       where: { id: ruleId },
@@ -111,8 +118,14 @@ export async function toggleReminderRule(
   isEnabled: boolean
 ): Promise<ActionResult<void>> {
   try {
-    await requireAdminSession();
+    const user = await requireAdminSession();
     await requireFeature(FEATURES.AUTO_REMINDER);
+
+    // Ownership check
+    const existing = await prisma.reminderRule.findUnique({ where: { id: ruleId } });
+    if (!existing || existing.storeId !== user.storeId) {
+      throw new AppError("NOT_FOUND", "提醒規則不存在");
+    }
 
     await prisma.reminderRule.update({
       where: { id: ruleId },
@@ -134,20 +147,21 @@ export async function createMessageTemplate(
   input: z.input<typeof createTemplateSchema>
 ): Promise<ActionResult<{ templateId: string }>> {
   try {
-    await requireAdminSession();
+    const user = await requireAdminSession();
     await requireFeature(FEATURES.AUTO_REMINDER);
     const data = createTemplateSchema.parse(input);
 
-    // If setting as default, unset others
+    // If setting as default, unset others (scoped to store)
     if (data.isDefault) {
       await prisma.messageTemplate.updateMany({
-        where: { channel: data.channel, isDefault: true },
+        where: { channel: data.channel, isDefault: true, storeId: user.storeId! },
         data: { isDefault: false },
       });
     }
 
     const template = await prisma.messageTemplate.create({
       data: {
+        storeId: user.storeId!,
         name: data.name,
         channel: data.channel,
         body: data.body,
@@ -167,18 +181,21 @@ export async function updateMessageTemplate(
   input: z.input<typeof updateTemplateSchema>
 ): Promise<ActionResult<void>> {
   try {
-    await requireAdminSession();
+    const user = await requireAdminSession();
     await requireFeature(FEATURES.AUTO_REMINDER);
     const data = updateTemplateSchema.parse(input);
 
+    // Ownership check
+    const existing = await prisma.messageTemplate.findUnique({ where: { id: templateId } });
+    if (!existing || existing.storeId !== user.storeId) {
+      throw new AppError("NOT_FOUND", "訊息模板不存在");
+    }
+
     if (data.isDefault) {
-      const existing = await prisma.messageTemplate.findUnique({ where: { id: templateId } });
-      if (existing) {
-        await prisma.messageTemplate.updateMany({
-          where: { channel: existing.channel, isDefault: true, NOT: { id: templateId } },
-          data: { isDefault: false },
-        });
-      }
+      await prisma.messageTemplate.updateMany({
+        where: { channel: existing.channel, isDefault: true, NOT: { id: templateId }, storeId: user.storeId! },
+        data: { isDefault: false },
+      });
     }
 
     await prisma.messageTemplate.update({
@@ -217,6 +234,7 @@ export async function testSendLineMessage(
     if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
     assertStoreAccess(adminUser, customer.storeId);
     if (!template) throw new AppError("NOT_FOUND", "模板不存在");
+    if (template.storeId !== adminUser.storeId) throw new AppError("NOT_FOUND", "模板不存在");
     if (!customer.lineUserId) {
       throw new AppError("BUSINESS_RULE", "此顧客尚未綁定 LINE");
     }
@@ -246,6 +264,7 @@ export async function testSendLineMessage(
         renderedBody,
         errorMessage: result.error ?? null,
         sentAt: result.success ? new Date() : null,
+        storeId: customer.storeId,
       },
     });
 

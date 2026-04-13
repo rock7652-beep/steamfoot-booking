@@ -197,12 +197,15 @@ async function main() {
   const plans: Record<string, { id: string; price: number; sessions: number; validity: number | null }> = {};
 
   for (const p of planDefs) {
-    const existing = await prisma.servicePlan.findFirst({ where: { name: p.name } });
+    const existing = await prisma.servicePlan.findFirst({
+      where: { storeId: DEMO_STORE_ID, name: p.name },
+    });
     if (existing) {
       plans[p.name] = { id: existing.id, price: p.price, sessions: p.sessions, validity: p.validity };
     } else {
       const created = await prisma.servicePlan.create({
         data: {
+          storeId: DEMO_STORE_ID,
           name: p.name,
           category: p.category,
           price: p.price,

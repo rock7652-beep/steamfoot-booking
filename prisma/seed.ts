@@ -7,6 +7,40 @@ async function main() {
   console.log("Seeding database...");
 
   // ============================================================
+  // 0. 清理既有 seed 資料（讓 seed 可重複執行）
+  //    使用 TRUNCATE CASCADE 一次清除所有資料表
+  //    ⚠️ 僅限 dev 環境使用
+  // ============================================================
+  console.log("Cleaning up existing seed data...");
+
+  const tablenames = await prisma.$queryRaw<
+    Array<{ tablename: string }>
+  >`SELECT tablename FROM pg_tables WHERE schemaname='public'`;
+
+  const tables = tablenames
+    .map(({ tablename }) => tablename)
+    .filter((name) => name !== "_prisma_migrations")
+    .map((name) => `"${name}"`)
+    .join(", ");
+
+  if (tables.length > 0) {
+    await prisma.$executeRawUnsafe(`TRUNCATE TABLE ${tables} CASCADE`);
+  }
+
+  // 重新插入 default store（被 TRUNCATE 清掉了）
+  // 後面 Section 8 的 upsert 會補齊完整資料
+  await prisma.store.create({
+    data: {
+      id: "default-store",
+      name: "暖暖蒸足",
+      slug: "zhubei",
+      isDefault: true,
+    },
+  });
+
+  console.log("Cleanup done. Creating seed data...");
+
+  // ============================================================
   // 1. Users + Staff
   // ============================================================
 
@@ -138,6 +172,7 @@ async function main() {
   const plans = await Promise.all([
     prisma.servicePlan.create({
       data: {
+        storeId: "default-store",
         name: "體驗",
         category: "TRIAL",
         price: 500,
@@ -149,6 +184,7 @@ async function main() {
     }),
     prisma.servicePlan.create({
       data: {
+        storeId: "default-store",
         name: "單次",
         category: "SINGLE",
         price: 800,
@@ -160,6 +196,7 @@ async function main() {
     }),
     prisma.servicePlan.create({
       data: {
+        storeId: "default-store",
         name: "3堂套餐",
         category: "PACKAGE",
         price: 2100,
@@ -171,6 +208,7 @@ async function main() {
     }),
     prisma.servicePlan.create({
       data: {
+        storeId: "default-store",
         name: "5堂套餐",
         category: "PACKAGE",
         price: 3250,
@@ -182,6 +220,7 @@ async function main() {
     }),
     prisma.servicePlan.create({
       data: {
+        storeId: "default-store",
         name: "10堂套餐",
         category: "PACKAGE",
         price: 6000,
@@ -193,6 +232,7 @@ async function main() {
     }),
     prisma.servicePlan.create({
       data: {
+        storeId: "default-store",
         name: "22堂套餐",
         category: "PACKAGE",
         price: 11000,
@@ -217,6 +257,7 @@ async function main() {
     for (const time of slotTimes) {
       await prisma.bookingSlot.create({
         data: {
+          storeId: "default-store",
           dayOfWeek: day,
           startTime: time,
           capacity: 6,
@@ -670,6 +711,233 @@ async function main() {
   });
 
   console.log("  Bookings created: 8");
+
+  // ============================================================
+  // 7b. Talent Pipeline（人才階段 + 推薦關係）
+  // ============================================================
+
+  // 王小明 → PARTNER（合作店長），推薦人=Alice（透過 ownerStaff 的 Customer）
+  // 陳大偉 → REGULAR（常客）
+  // 李小華 → POTENTIAL_PARTNER（潛在合夥人），推薦人=王小明
+  await prisma.customer.update({
+    where: { id: customerActive1.id },
+    data: {
+      talentStage: "PARTNER",
+      stageChangedAt: new Date("2026-03-01"),
+      stageNote: "已正式成為合作店長",
+      totalPoints: 185,
+    },
+  });
+
+  await prisma.customer.update({
+    where: { id: customerActive3.id },
+    data: {
+      talentStage: "REGULAR",
+      stageChangedAt: new Date("2026-02-15"),
+      stageNote: "穩定回訪中",
+      totalPoints: 25,
+    },
+  });
+
+  await prisma.customer.update({
+    where: { id: customerActive2.id },
+    data: {
+      talentStage: "POTENTIAL_PARTNER",
+      stageChangedAt: new Date("2026-03-20"),
+      sponsorId: customerActive1.id, // 王小明推薦
+      stageNote: "有意願合作，持續觀察",
+      totalPoints: 45,
+    },
+  });
+
+  // 吳家豪：推薦人=王小明
+  await prisma.customer.update({
+    where: { id: customerActive4.id },
+    data: {
+      sponsorId: customerActive1.id,
+      totalPoints: 15,
+    },
+  });
+
+  // TalentStageLog 紀錄
+  await prisma.talentStageLog.createMany({
+    data: [
+      {
+        customerId: customerActive1.id,
+        storeId: "default-store",
+        fromStage: "CUSTOMER",
+        toStage: "REGULAR",
+        changedById: ownerUser.id,
+        note: "穩定回訪",
+        createdAt: new Date("2026-01-15"),
+      },
+      {
+        customerId: customerActive1.id,
+        storeId: "default-store",
+        fromStage: "REGULAR",
+        toStage: "POTENTIAL_PARTNER",
+        changedById: ownerUser.id,
+        note: "積極帶人",
+        createdAt: new Date("2026-02-01"),
+      },
+      {
+        customerId: customerActive1.id,
+        storeId: "default-store",
+        fromStage: "POTENTIAL_PARTNER",
+        toStage: "PARTNER",
+        changedById: ownerUser.id,
+        note: "正式成為合作店長",
+        createdAt: new Date("2026-03-01"),
+      },
+      {
+        customerId: customerActive3.id,
+        storeId: "default-store",
+        fromStage: "CUSTOMER",
+        toStage: "REGULAR",
+        changedById: ownerUser.id,
+        note: "穩定回訪",
+        createdAt: new Date("2026-02-15"),
+      },
+      {
+        customerId: customerActive2.id,
+        storeId: "default-store",
+        fromStage: "CUSTOMER",
+        toStage: "POTENTIAL_PARTNER",
+        changedById: ownerUser.id,
+        note: "有合作意願",
+        createdAt: new Date("2026-03-20"),
+      },
+    ],
+  });
+
+  console.log("  Talent stages & sponsors set");
+
+  // ============================================================
+  // 7c. Referrals（轉介紹紀錄）
+  // ============================================================
+
+  // 王小明介紹了 3 個人
+  await prisma.referral.createMany({
+    data: [
+      {
+        storeId: "default-store",
+        referrerId: customerActive1.id,
+        referredName: "趙六",
+        referredPhone: "0955111111",
+        status: "CONVERTED",
+        convertedCustomerId: customerActive4.id, // 轉成吳家豪（模擬）
+        note: "王小明的朋友",
+        createdAt: new Date("2026-02-05"),
+      },
+      {
+        storeId: "default-store",
+        referrerId: customerActive1.id,
+        referredName: "錢七",
+        referredPhone: "0955222222",
+        status: "VISITED",
+        note: "已到店體驗，考慮中",
+        createdAt: new Date("2026-03-10"),
+      },
+      {
+        storeId: "default-store",
+        referrerId: customerActive1.id,
+        referredName: "孫八",
+        referredPhone: "0955333333",
+        status: "PENDING",
+        note: "預計下週到店",
+        createdAt: new Date("2026-04-08"),
+      },
+    ],
+  });
+
+  // 李小華介紹了 1 個人
+  await prisma.referral.create({
+    data: {
+      storeId: "default-store",
+      referrerId: customerActive2.id,
+      referredName: "周九",
+      referredPhone: "0966111111",
+      status: "VISITED",
+      note: "李小華的同事",
+      createdAt: new Date("2026-04-01"),
+    },
+  });
+
+  console.log("  Referrals created: 4");
+
+  // ============================================================
+  // 7d. PointRecords（行動積分紀錄）
+  // ============================================================
+
+  // 王小明的積分紀錄（totalPoints = 185）
+  await prisma.pointRecord.createMany({
+    data: [
+      // 出席 x3 = +15
+      { customerId: customerActive1.id, storeId: "default-store", type: "ATTENDANCE", points: 5, note: "第1次出席", createdAt: new Date("2026-01-10") },
+      { customerId: customerActive1.id, storeId: "default-store", type: "ATTENDANCE", points: 5, note: "第2次出席", createdAt: new Date("2026-01-17") },
+      { customerId: customerActive1.id, storeId: "default-store", type: "ATTENDANCE", points: 5, note: "第3次出席", createdAt: new Date("2026-01-24") },
+      // 轉介紹趙六：+10 +20 +30 = +60
+      { customerId: customerActive1.id, storeId: "default-store", type: "REFERRAL_CREATED", points: 10, note: "介紹趙六", createdAt: new Date("2026-02-05") },
+      { customerId: customerActive1.id, storeId: "default-store", type: "REFERRAL_VISITED", points: 20, note: "趙六到店", createdAt: new Date("2026-02-08") },
+      { customerId: customerActive1.id, storeId: "default-store", type: "REFERRAL_CONVERTED", points: 30, note: "趙六成為顧客", createdAt: new Date("2026-02-15") },
+      // 轉介紹錢七：+10 +20 = +30
+      { customerId: customerActive1.id, storeId: "default-store", type: "REFERRAL_CREATED", points: 10, note: "介紹錢七", createdAt: new Date("2026-03-10") },
+      { customerId: customerActive1.id, storeId: "default-store", type: "REFERRAL_VISITED", points: 20, note: "錢七到店", createdAt: new Date("2026-03-15") },
+      // 轉介紹孫八：+10
+      { customerId: customerActive1.id, storeId: "default-store", type: "REFERRAL_CREATED", points: 10, note: "介紹孫八", createdAt: new Date("2026-04-08") },
+      // 成為合作店長：+100
+      { customerId: customerActive1.id, storeId: "default-store", type: "BECAME_PARTNER", points: 100, note: "升為合作店長", createdAt: new Date("2026-03-01") },
+      // 15 + 60 + 30 + 10 + 100 = 215… 調整：已扣除一些重複，最終 185
+      // 修正：讓數字吻合 → 移除一筆出席，185 = 10+10+30+20+10+20+10+100-25?
+      // 實際上：5*3 + 10+20+30 + 10+20 + 10 + 100 = 15+60+30+10+100 = 215
+      // 更新 totalPoints 為 215
+    ],
+  });
+
+  // 修正王小明 totalPoints 為正確加總
+  await prisma.customer.update({
+    where: { id: customerActive1.id },
+    data: { totalPoints: 215 },
+  });
+
+  // 李小華的積分紀錄（totalPoints = 45）
+  await prisma.pointRecord.createMany({
+    data: [
+      { customerId: customerActive2.id, storeId: "default-store", type: "ATTENDANCE", points: 5, note: "出席", createdAt: new Date("2026-02-05") },
+      { customerId: customerActive2.id, storeId: "default-store", type: "REFERRAL_CREATED", points: 10, note: "介紹周九", createdAt: new Date("2026-04-01") },
+      { customerId: customerActive2.id, storeId: "default-store", type: "REFERRAL_VISITED", points: 20, note: "周九到店", createdAt: new Date("2026-04-05") },
+      // 5 + 10 + 20 = 35
+    ],
+  });
+
+  await prisma.customer.update({
+    where: { id: customerActive2.id },
+    data: { totalPoints: 35 },
+  });
+
+  // 陳大偉的積分紀錄（totalPoints = 25）
+  await prisma.pointRecord.createMany({
+    data: [
+      { customerId: customerActive3.id, storeId: "default-store", type: "ATTENDANCE", points: 5, note: "出席1", createdAt: new Date("2026-02-10") },
+      { customerId: customerActive3.id, storeId: "default-store", type: "ATTENDANCE", points: 5, note: "出席2", createdAt: new Date("2026-02-17") },
+      { customerId: customerActive3.id, storeId: "default-store", type: "ATTENDANCE", points: 5, note: "出席3", createdAt: new Date("2026-02-24") },
+      { customerId: customerActive3.id, storeId: "default-store", type: "ATTENDANCE", points: 5, note: "出席4", createdAt: new Date("2026-03-03") },
+      { customerId: customerActive3.id, storeId: "default-store", type: "ATTENDANCE", points: 5, note: "出席5", createdAt: new Date("2026-03-10") },
+      // 5*5 = 25
+    ],
+  });
+
+  // 吳家豪的積分紀錄（totalPoints = 15）
+  await prisma.pointRecord.createMany({
+    data: [
+      { customerId: customerActive4.id, storeId: "default-store", type: "ATTENDANCE", points: 5, note: "出席1", createdAt: new Date("2026-03-01") },
+      { customerId: customerActive4.id, storeId: "default-store", type: "ATTENDANCE", points: 5, note: "出席2", createdAt: new Date("2026-03-08") },
+      { customerId: customerActive4.id, storeId: "default-store", type: "ATTENDANCE", points: 5, note: "出席3", createdAt: new Date("2026-03-15") },
+      // 5*3 = 15
+    ],
+  });
+
+  console.log("  PointRecords created, totalPoints updated");
 
   // ============================================================
   // 8. ShopConfig（店家設定 — 方案預設 BASIC）

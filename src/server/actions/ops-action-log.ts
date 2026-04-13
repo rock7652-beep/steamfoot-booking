@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireStaffSession } from "@/lib/session";
+import { currentStoreId } from "@/lib/store";
 import { handleActionError } from "@/lib/errors";
 import type { ActionResult } from "@/types";
 
@@ -56,14 +57,16 @@ async function upsertOpsAction(
 ): Promise<ActionResult<OpsActionLogEntry>> {
   try {
     const user = await requireStaffSession();
+    const storeId = currentStoreId(user);
 
     const existing = await prisma.opsActionLog.findUnique({
-      where: { module_refId: { module, refId } },
+      where: { storeId_module_refId: { storeId, module, refId } },
     });
 
     const log = await prisma.opsActionLog.upsert({
-      where: { module_refId: { module, refId } },
+      where: { storeId_module_refId: { storeId, module, refId } },
       create: {
+        storeId,
         module,
         refId,
         status,
@@ -147,9 +150,10 @@ export async function updateCustomerActionNote(
 ): Promise<ActionResult<OpsActionLogEntry>> {
   try {
     const user = await requireStaffSession();
+    const storeId = currentStoreId(user);
 
     const existing = await prisma.opsActionLog.findUnique({
-      where: { module_refId: { module: "customer_action", refId } },
+      where: { storeId_module_refId: { storeId, module: "customer_action", refId } },
     });
 
     if (!existing) {
@@ -157,7 +161,7 @@ export async function updateCustomerActionNote(
     }
 
     const log = await prisma.opsActionLog.update({
-      where: { module_refId: { module: "customer_action", refId } },
+      where: { storeId_module_refId: { storeId, module: "customer_action", refId } },
       data: { note, actorUserId: user.id },
       include: {
         actor: { select: { name: true } },
@@ -210,16 +214,18 @@ export async function assignOpsAction(
 ): Promise<ActionResult<OpsActionLogEntry>> {
   try {
     const user = await requireStaffSession();
+    const storeId = currentStoreId(user);
 
     // Ensure the log exists (create with initial status if not)
     let existing = await prisma.opsActionLog.findUnique({
-      where: { module_refId: { module, refId } },
+      where: { storeId_module_refId: { storeId, module, refId } },
       include: { assignee: { select: { displayName: true } } },
     });
 
     if (!existing) {
       await prisma.opsActionLog.create({
         data: {
+          storeId,
           module,
           refId,
           status: "tracking",
@@ -228,12 +234,12 @@ export async function assignOpsAction(
         },
       });
       existing = await prisma.opsActionLog.findUnique({
-        where: { module_refId: { module, refId } },
+        where: { storeId_module_refId: { storeId, module, refId } },
         include: { assignee: { select: { displayName: true } } },
       });
     } else {
       await prisma.opsActionLog.update({
-        where: { module_refId: { module, refId } },
+        where: { storeId_module_refId: { storeId, module, refId } },
         data: { assigneeStaffId: staffId, actorUserId: user.id },
       });
     }
@@ -260,7 +266,7 @@ export async function assignOpsAction(
     });
 
     const updated = await prisma.opsActionLog.findUnique({
-      where: { module_refId: { module, refId } },
+      where: { storeId_module_refId: { storeId, module, refId } },
       include: {
         actor: { select: { name: true } },
         assignee: { select: { displayName: true } },
@@ -289,15 +295,17 @@ export async function setOpsActionDueDate(
 ): Promise<ActionResult<OpsActionLogEntry>> {
   try {
     const user = await requireStaffSession();
+    const storeId = currentStoreId(user);
     const dueDateVal = dueDate ? new Date(dueDate) : null;
 
     let existing = await prisma.opsActionLog.findUnique({
-      where: { module_refId: { module, refId } },
+      where: { storeId_module_refId: { storeId, module, refId } },
     });
 
     if (!existing) {
       existing = await prisma.opsActionLog.create({
         data: {
+          storeId,
           module,
           refId,
           status: "tracking",
@@ -307,7 +315,7 @@ export async function setOpsActionDueDate(
       });
     } else {
       await prisma.opsActionLog.update({
-        where: { module_refId: { module, refId } },
+        where: { storeId_module_refId: { storeId, module, refId } },
         data: { dueDate: dueDateVal, actorUserId: user.id },
       });
     }
@@ -324,7 +332,7 @@ export async function setOpsActionDueDate(
     });
 
     const updated = await prisma.opsActionLog.findUnique({
-      where: { module_refId: { module, refId } },
+      where: { storeId_module_refId: { storeId, module, refId } },
       include: {
         actor: { select: { name: true } },
         assignee: { select: { displayName: true } },
@@ -353,10 +361,11 @@ export async function setOpsActionDueDate(
 export async function getOpsActionLogs(
   module: OpsModule,
 ): Promise<Map<string, OpsActionLogEntry>> {
-  await requireStaffSession();
+  const user = await requireStaffSession();
+  const storeId = currentStoreId(user);
 
   const logs = await prisma.opsActionLog.findMany({
-    where: { module },
+    where: { storeId, module },
     include: {
       actor: { select: { name: true } },
       assignee: { select: { displayName: true } },
@@ -382,10 +391,11 @@ export async function getOpsActionHistory(
   module: OpsModule,
   refId: string,
 ): Promise<OpsHistoryEntry[]> {
-  await requireStaffSession();
+  const user = await requireStaffSession();
+  const storeId = currentStoreId(user);
 
   const log = await prisma.opsActionLog.findUnique({
-    where: { module_refId: { module, refId } },
+    where: { storeId_module_refId: { storeId, module, refId } },
   });
 
   if (!log) return [];
@@ -415,10 +425,11 @@ export async function getOpsActionHistory(
 export async function getActiveStaffList(): Promise<
   { id: string; displayName: string; colorCode: string }[]
 > {
-  await requireStaffSession();
+  const user = await requireStaffSession();
+  const storeId = currentStoreId(user);
 
   return prisma.staff.findMany({
-    where: { status: "ACTIVE" },
+    where: { storeId, status: "ACTIVE" },
     select: { id: true, displayName: true, colorCode: true },
     orderBy: { displayName: "asc" },
   });
@@ -439,9 +450,10 @@ export async function recordOutcome(
 ): Promise<ActionResult<OpsActionLogEntry>> {
   try {
     const user = await requireStaffSession();
+    const storeId = currentStoreId(user);
 
     const existing = await prisma.opsActionLog.findUnique({
-      where: { module_refId: { module, refId } },
+      where: { storeId_module_refId: { storeId, module, refId } },
     });
 
     if (!existing) {
@@ -449,7 +461,7 @@ export async function recordOutcome(
     }
 
     const log = await prisma.opsActionLog.update({
-      where: { module_refId: { module, refId } },
+      where: { storeId_module_refId: { storeId, module, refId } },
       data: {
         outcomeStatus,
         outcomeNote: outcomeNote ?? null,
@@ -517,10 +529,12 @@ export interface EffectivenessSummary {
 }
 
 export async function getEffectivenessSummary(): Promise<EffectivenessSummary> {
-  await requireStaffSession();
+  const user = await requireStaffSession();
+  const storeId = currentStoreId(user);
 
   const allLogs = await prisma.opsActionLog.findMany({
     where: {
+      storeId,
       status: { notIn: ["snoozed"] }, // only count actually actioned items
     },
     select: {

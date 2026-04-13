@@ -23,6 +23,7 @@ export async function sendOpsLineMessage(
       select: {
         id: true,
         name: true,
+        storeId: true,
         lineUserId: true,
         lineLinkStatus: true,
       },
@@ -49,6 +50,7 @@ export async function sendOpsLineMessage(
         renderedBody: messageText,
         errorMessage: result.error ?? null,
         sentAt: result.success ? new Date() : null,
+        storeId: customer.storeId,
       },
     });
 

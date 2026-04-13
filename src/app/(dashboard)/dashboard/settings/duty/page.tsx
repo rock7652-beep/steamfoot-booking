@@ -6,7 +6,7 @@ import { toLocalDateStr } from "@/lib/date-utils";
 import { DutySchedulingToggle } from "./duty-toggle";
 
 /** 取得本週（週一～週日）未排班營業日數量 */
-async function getUnscheduledDaysThisWeek(): Promise<{
+async function getUnscheduledDaysThisWeek(storeId: string): Promise<{
   total: number;
   unscheduled: number;
   unscheduledDates: string[];
@@ -27,9 +27,10 @@ async function getUnscheduledDaysThisWeek(): Promise<{
 
   // 查營業時間 + 特殊日
   const [businessHours, specialDays] = await Promise.all([
-    prisma.businessHours.findMany(),
+    prisma.businessHours.findMany({ where: { storeId } }),
     prisma.specialBusinessDay.findMany({
       where: {
+        storeId,
         date: {
           gte: new Date(weekDates[0] + "T00:00:00Z"),
           lte: new Date(weekDates[6] + "T23:59:59Z"),
@@ -55,6 +56,7 @@ async function getUnscheduledDaysThisWeek(): Promise<{
   // 查哪些營業日有排班
   const dutyDates = await prisma.dutyAssignment.findMany({
     where: {
+      storeId,
       date: {
         in: businessDates.map((d) => new Date(d + "T00:00:00Z")),
       },
@@ -78,8 +80,9 @@ export default async function DutySettingsPage() {
   if (!user) redirect("/login");
   if (user.role !== "ADMIN") notFound();
 
+  const storeId = user.storeId!;
   const config = await getShopConfig();
-  const weekInfo = await getUnscheduledDaysThisWeek();
+  const weekInfo = await getUnscheduledDaysThisWeek(storeId);
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">

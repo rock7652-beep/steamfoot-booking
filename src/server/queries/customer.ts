@@ -126,6 +126,11 @@ export async function getCustomerDetail(customerId: string) {
       assignedStaff: {
         select: { id: true, displayName: true, colorCode: true },
       },
+      sponsor: { select: { id: true, name: true, phone: true } },
+      sponsoredCustomers: {
+        select: { id: true, name: true, talentStage: true },
+        take: 50,
+      },
       planWallets: {
         include: { plan: true },
         orderBy: { createdAt: "desc" },

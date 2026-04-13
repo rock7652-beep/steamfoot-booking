@@ -35,7 +35,10 @@ interface CheckResult {
 // 主執行函式
 // ============================================================
 
-export async function runReconciliation(triggeredBy: "manual" | "cron" = "manual") {
+export async function runReconciliation(
+  storeId: string,
+  triggeredBy: "manual" | "cron" = "manual",
+) {
   const startTime = Date.now();
   const targetDate = toLocalDateStr();
   const targetMonth = toLocalMonthStr();
@@ -43,6 +46,7 @@ export async function runReconciliation(triggeredBy: "manual" | "cron" = "manual
   // 建立 run 記錄
   const run = await prisma.reconciliationRun.create({
     data: {
+      storeId,
       triggeredBy,
       status: "running",
       targetDate,
@@ -64,7 +68,7 @@ export async function runReconciliation(triggeredBy: "manual" | "cron" = "manual
 
   for (const checkFn of checks) {
     try {
-      const result = await checkFn(targetDate, targetMonth);
+      const result = await checkFn(storeId, targetDate, targetMonth);
       results.push(result);
     } catch (err) {
       results.push({
@@ -134,12 +138,13 @@ export async function runReconciliation(triggeredBy: "manual" | "cron" = "manual
 // Dashboard 今日營收 vs 交易紀錄直接 aggregate
 // ============================================================
 
-async function checkTodayRevenue(targetDate: string, _targetMonth: string): Promise<CheckResult> {
+async function checkTodayRevenue(storeId: string, targetDate: string, _targetMonth: string): Promise<CheckResult> {
   const { start: todayStart, end: todayEnd } = todayRange();
 
   // Source A: Dashboard 邏輯 — transaction aggregate (REVENUE_TYPES)
   const dashboardAgg = await prisma.transaction.aggregate({
     where: {
+      storeId,
       transactionType: { in: REVENUE_TYPES as never },
       createdAt: { gte: todayStart, lte: todayEnd },
     },
@@ -150,6 +155,7 @@ async function checkTodayRevenue(targetDate: string, _targetMonth: string): Prom
   // Source B: 逐筆加總驗證
   const allTxToday = await prisma.transaction.findMany({
     where: {
+      storeId,
       transactionType: { in: REVENUE_TYPES as never },
       createdAt: { gte: todayStart, lte: todayEnd },
     },
@@ -187,12 +193,13 @@ async function checkTodayRevenue(targetDate: string, _targetMonth: string): Prom
 // Dashboard 本月營收 vs 報表 monthlyStoreSummary 邏輯
 // ============================================================
 
-async function checkMonthRevenue(_targetDate: string, targetMonth: string): Promise<CheckResult> {
+async function checkMonthRevenue(storeId: string, _targetDate: string, targetMonth: string): Promise<CheckResult> {
   const { start: monthStart, end: monthEnd } = monthRange(targetMonth);
 
   // Source A: Dashboard 邏輯 — aggregate
   const dashboardAgg = await prisma.transaction.aggregate({
     where: {
+      storeId,
       transactionType: { in: REVENUE_TYPES as never },
       createdAt: { gte: monthStart, lte: monthEnd },
     },
@@ -204,6 +211,7 @@ async function checkMonthRevenue(_targetDate: string, targetMonth: string): Prom
   const reportRows = await prisma.transaction.groupBy({
     by: ["revenueStaffId"],
     where: {
+      storeId,
       transactionType: { in: REVENUE_TYPES as never },
       createdAt: { gte: monthStart, lte: monthEnd },
     },
@@ -218,6 +226,7 @@ async function checkMonthRevenue(_targetDate: string, targetMonth: string): Prom
   const csvRows = await prisma.transaction.groupBy({
     by: ["revenueStaffId", "transactionType"],
     where: {
+      storeId,
       transactionType: { in: REVENUE_TYPES as never },
       createdAt: { gte: monthStart, lte: monthEnd },
     },
@@ -261,12 +270,13 @@ async function checkMonthRevenue(_targetDate: string, targetMonth: string): Prom
 // 對帳項目 3：今日預約筆數
 // ============================================================
 
-async function checkTodayBookingCount(targetDate: string, _targetMonth: string): Promise<CheckResult> {
+async function checkTodayBookingCount(storeId: string, targetDate: string, _targetMonth: string): Promise<CheckResult> {
   const { start: todayStart, end: todayEnd } = todayRange();
 
   // Source A: Dashboard aggregate
   const aggResult = await prisma.booking.aggregate({
     where: {
+      storeId,
       bookingDate: { gte: todayStart, lte: todayEnd },
       bookingStatus: { in: ["PENDING", "CONFIRMED"] },
     },
@@ -277,6 +287,7 @@ async function checkTodayBookingCount(targetDate: string, _targetMonth: string):
   // Source B: 逐筆 count 驗證
   const rowCount = await prisma.booking.count({
     where: {
+      storeId,
       bookingDate: { gte: todayStart, lte: todayEnd },
       bookingStatus: { in: ["PENDING", "CONFIRMED"] },
     },
@@ -311,12 +322,13 @@ async function checkTodayBookingCount(targetDate: string, _targetMonth: string):
 // 對帳項目 4：今日預約人數
 // ============================================================
 
-async function checkTodayBookingPeople(targetDate: string, _targetMonth: string): Promise<CheckResult> {
+async function checkTodayBookingPeople(storeId: string, targetDate: string, _targetMonth: string): Promise<CheckResult> {
   const { start: todayStart, end: todayEnd } = todayRange();
 
   // Source A: Dashboard aggregate
   const aggResult = await prisma.booking.aggregate({
     where: {
+      storeId,
       bookingDate: { gte: todayStart, lte: todayEnd },
       bookingStatus: { in: ["PENDING", "CONFIRMED"] },
     },
@@ -327,6 +339,7 @@ async function checkTodayBookingPeople(targetDate: string, _targetMonth: string)
   // Source B: 逐筆加總驗證
   const bookings = await prisma.booking.findMany({
     where: {
+      storeId,
       bookingDate: { gte: todayStart, lte: todayEnd },
       bookingStatus: { in: ["PENDING", "CONFIRMED"] },
     },
@@ -363,13 +376,14 @@ async function checkTodayBookingPeople(targetDate: string, _targetMonth: string)
 // 模擬 CSV 邏輯的合計列 vs 報表邏輯
 // ============================================================
 
-async function checkMonthCsvTotals(_targetDate: string, targetMonth: string): Promise<CheckResult> {
+async function checkMonthCsvTotals(storeId: string, _targetDate: string, targetMonth: string): Promise<CheckResult> {
   const { start: monthStart, end: monthEnd } = monthRange(targetMonth);
 
   // Source A: 報表邏輯 — 直接 aggregate
   const [revenueAgg, refundAgg, completedCount] = await Promise.all([
     prisma.transaction.aggregate({
       where: {
+        storeId,
         transactionType: { in: REVENUE_TYPES as never },
         createdAt: { gte: monthStart, lte: monthEnd },
       },
@@ -377,6 +391,7 @@ async function checkMonthCsvTotals(_targetDate: string, targetMonth: string): Pr
     }),
     prisma.transaction.aggregate({
       where: {
+        storeId,
         transactionType: "REFUND",
         createdAt: { gte: monthStart, lte: monthEnd },
       },
@@ -384,6 +399,7 @@ async function checkMonthCsvTotals(_targetDate: string, targetMonth: string): Pr
     }),
     prisma.booking.count({
       where: {
+        storeId,
         bookingStatus: "COMPLETED",
         bookingDate: { gte: monthStart, lte: monthEnd },
       },
@@ -399,6 +415,7 @@ async function checkMonthCsvTotals(_targetDate: string, targetMonth: string): Pr
   const csvRevenueRows = await prisma.transaction.groupBy({
     by: ["revenueStaffId", "transactionType"],
     where: {
+      storeId,
       transactionType: { in: [...REVENUE_TYPES, "REFUND"] as never },
       createdAt: { gte: monthStart, lte: monthEnd },
     },
@@ -420,6 +437,7 @@ async function checkMonthCsvTotals(_targetDate: string, targetMonth: string): Pr
   const csvCompletedRows = await prisma.booking.groupBy({
     by: ["revenueStaffId"],
     where: {
+      storeId,
       bookingStatus: "COMPLETED",
       bookingDate: { gte: monthStart, lte: monthEnd },
     },

@@ -5,6 +5,7 @@ import { requireSession } from "@/lib/session";
 import { getNowTaipeiHHmm, toLocalDateStr } from "@/lib/date-utils";
 import { generateSlots } from "@/lib/slot-generator";
 import { getStoreFilter } from "@/lib/manager-visibility";
+import { currentStoreId } from "@/lib/store";
 import type { SlotAvailability } from "@/types";
 
 // ============================================================
@@ -107,14 +108,16 @@ export async function fetchMonthAvailability(
   const startDate = new Date(Date.UTC(year, month - 1, 1));
   const endDate = new Date(Date.UTC(year, month, 0));
 
+  const storeId = currentStoreId(user);
+
   // 並行取得營業時間 + 特殊日期 + 時段覆寫 + 值班安排
   const [businessHoursRows, specialDaysRows, slotOverrideRows, dutyAssignmentRows] = await Promise.all([
-    prisma.businessHours.findMany(),
+    prisma.businessHours.findMany({ where: { storeId } }),
     prisma.specialBusinessDay.findMany({
-      where: { date: { gte: startDate, lte: endDate } },
+      where: { storeId, date: { gte: startDate, lte: endDate } },
     }),
     prisma.slotOverride.findMany({
-      where: { date: { gte: startDate, lte: endDate } },
+      where: { storeId, date: { gte: startDate, lte: endDate } },
     }),
     prisma.dutyAssignment.findMany({
       where: { date: { gte: startDate, lte: endDate } },
@@ -249,12 +252,13 @@ export async function fetchDaySlots(date: string): Promise<{
 
   const dateObj = new Date(date + "T00:00:00Z");
   const dayOfWeek = dateObj.getUTCDay();
+  const storeId = currentStoreId(user);
 
   // 查營業狀態
   const [specialDay, businessHour, slotOverrides, existingBookings, dutySlots] = await Promise.all([
-    prisma.specialBusinessDay.findUnique({ where: { date: dateObj } }),
-    prisma.businessHours.findUnique({ where: { dayOfWeek } }),
-    prisma.slotOverride.findMany({ where: { date: dateObj } }),
+    prisma.specialBusinessDay.findFirst({ where: { storeId, date: dateObj } }),
+    prisma.businessHours.findFirst({ where: { storeId, dayOfWeek } }),
+    prisma.slotOverride.findMany({ where: { storeId, date: dateObj } }),
     prisma.booking.groupBy({
       by: ["slotTime"],
       where: {

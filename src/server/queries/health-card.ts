@@ -9,6 +9,8 @@ import { getHealthSummarySafe } from "@/lib/health-service";
 import { computeHealthScore, type HealthScoreResult } from "@/lib/health-score";
 import { hasFeature, FEATURES } from "@/lib/feature-flags";
 import { getStorePlanById } from "@/lib/store-plan";
+import { getCurrentUser } from "@/lib/session";
+import { isOwner } from "@/lib/permissions";
 
 export interface HealthCardData {
   available: true;
@@ -44,6 +46,12 @@ export async function getHealthCardData(
     });
 
     if (!customer) {
+      return { available: false, reason: "no-customer" };
+    }
+
+    // Store ownership check: non-ADMIN users can only access their own store's customers
+    const user = await getCurrentUser();
+    if (user && !isOwner(user.role) && user.storeId && customer.storeId !== user.storeId) {
       return { available: false, reason: "no-customer" };
     }
 

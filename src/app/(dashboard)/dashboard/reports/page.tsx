@@ -89,8 +89,8 @@ export default async function ReportsPage({ searchParams }: PageProps) {
 
   if (isFullPastMonth) {
     const [ssSnap, rcSnap, sp] = await Promise.all([
-      withTiming("snapshotStoreSummary", timer, () => getReportSnapshot(month, "STORE_SUMMARY")),
-      withTiming("snapshotRevenueByCategory", timer, () => getReportSnapshot(month, "REVENUE_BY_CATEGORY")),
+      withTiming("snapshotStoreSummary", timer, () => getReportSnapshot(activeStoreId || user.storeId!, month, "STORE_SUMMARY")),
+      withTiming("snapshotRevenueByCategory", timer, () => getReportSnapshot(activeStoreId || user.storeId!, month, "REVENUE_BY_CATEGORY")),
       withTiming("getCachedShopPlan", timer, () => getCachedShopPlan()),
     ]);
     shopPlan = sp;

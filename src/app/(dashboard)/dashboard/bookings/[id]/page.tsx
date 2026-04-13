@@ -52,7 +52,10 @@ export default async function BookingDetailPage({ params }: PageProps) {
   const booking = await getBooking(id);
   if (!booking) notFound();
 
-  // 「顧客屬於店」：所有 Manager 可查看任何預約詳情
+  // 驗證 storeId：非 ADMIN 只能查看自己店的預約
+  if (user.role !== "ADMIN" && booking.storeId !== user.storeId) {
+    notFound();
+  }
 
   const isActive =
     booking.bookingStatus === "CONFIRMED" || booking.bookingStatus === "PENDING";

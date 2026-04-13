@@ -30,10 +30,11 @@ export default async function DutyDayPage({ params }: PageProps) {
   const dateObj = new Date(date + "T00:00:00Z");
   const dow = dateObj.getUTCDay();
 
+  const storeId = user.storeId!;
   const [specialDay, businessHour, slotOverrides] = await Promise.all([
-    prisma.specialBusinessDay.findUnique({ where: { date: dateObj } }),
-    prisma.businessHours.findUnique({ where: { dayOfWeek: dow } }),
-    prisma.slotOverride.findMany({ where: { date: dateObj } }),
+    prisma.specialBusinessDay.findFirst({ where: { date: dateObj, storeId } }),
+    prisma.businessHours.findFirst({ where: { dayOfWeek: dow, storeId } }),
+    prisma.slotOverride.findMany({ where: { date: dateObj, storeId } }),
   ]);
 
   let isClosed = false;
@@ -109,9 +110,10 @@ export default async function DutyDayPage({ params }: PageProps) {
       },
       _count: { id: true },
     }),
-    prisma.businessHours.findMany(),
+    prisma.businessHours.findMany({ where: { storeId } }),
     prisma.specialBusinessDay.findMany({
       where: {
+        storeId,
         date: {
           gte: new Date(weekDates[0] + "T00:00:00Z"),
           lte: new Date(weekDates[6] + "T00:00:00Z"),

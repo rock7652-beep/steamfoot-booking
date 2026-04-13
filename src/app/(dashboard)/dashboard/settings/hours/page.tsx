@@ -3,6 +3,7 @@ import { checkPermission } from "@/lib/permissions";
 import { notFound } from "next/navigation";
 import { getBusinessHours, getMonthSpecialDays } from "@/server/actions/business-hours";
 import { toLocalDateStr } from "@/lib/date-utils";
+import { prisma } from "@/lib/db";
 import Link from "next/link";
 import { ScheduleManager } from "./schedule-manager";
 
@@ -16,10 +17,12 @@ export default async function ScheduleSettingsPage() {
   // 取得初始資料（使用台灣時間判斷當前月份）
   const todayStr = toLocalDateStr();
   const [nowYear, nowMonth] = todayStr.split("-").map(Number);
-  const [weeklyHours, specialDays] = await Promise.all([
+  const [weeklyHours, specialDays, currentStore] = await Promise.all([
     getBusinessHours(),
     getMonthSpecialDays(nowYear, nowMonth),
+    prisma.store.findUnique({ where: { id: user.storeId! }, select: { isDefault: true } }),
   ]);
+  const isHeadquarters = currentStore?.isDefault ?? false;
 
   return (
     <div className="space-y-4">
@@ -43,6 +46,7 @@ export default async function ScheduleSettingsPage() {
         initialYear={nowYear}
         initialMonth={nowMonth}
         canManage={canManage}
+        isHeadquarters={isHeadquarters}
       />
     </div>
   );

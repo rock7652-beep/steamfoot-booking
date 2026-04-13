@@ -79,6 +79,9 @@ export const ALL_PERMISSIONS = [
   // 值班安排
   "duty.read",
   "duty.manage",
+  // 人才管道
+  "talent.read",
+  "talent.manage",
 ] as const;
 
 export type PermissionCode = (typeof ALL_PERMISSIONS)[number];
@@ -125,6 +128,10 @@ export const PERMISSION_GROUPS: Record<string, { label: string; codes: Permissio
     label: "值班安排",
     codes: ["duty.read", "duty.manage"],
   },
+  talent: {
+    label: "人才管道",
+    codes: ["talent.read", "talent.manage"],
+  },
 };
 
 // 權限代碼 → 中文說明
@@ -153,6 +160,8 @@ export const PERMISSION_LABELS: Record<PermissionCode, string> = {
   "staff.view": "查看店員資料",
   "duty.read": "查看值班安排",
   "duty.manage": "管理值班安排",
+  "talent.read": "查看人才管道",
+  "talent.manage": "管理人才階段",
 };
 
 // ============================================================
@@ -185,6 +194,8 @@ export const DEFAULT_STORE_MANAGER_PERMISSIONS: PermissionCode[] = [
   "staff.view",
   "duty.read",
   "duty.manage",
+  "talent.read",
+  "talent.manage",
 ];
 
 /** 教練 預設權限（日常操作） */

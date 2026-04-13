@@ -1,14 +1,16 @@
 import { prisma } from "@/lib/db";
-import { requireAdminSession } from "@/lib/session";
+import { requireStaffSession } from "@/lib/session";
+import { currentStoreId } from "@/lib/store";
 
 /**
  * 取得最新一筆對帳結果（供 Dashboard 警示條用）
  */
 export async function getLatestReconciliationRun() {
-  await requireAdminSession();
+  const user = await requireStaffSession();
+  const storeId = currentStoreId(user);
 
   const run = await prisma.reconciliationRun.findFirst({
-    where: { status: { not: "running" } },
+    where: { storeId, status: { not: "running" } },
     orderBy: { startedAt: "desc" },
     include: {
       checks: {
@@ -25,9 +27,11 @@ export async function getLatestReconciliationRun() {
  * 取得對帳歷史列表
  */
 export async function listReconciliationRuns(limit = 20) {
-  await requireAdminSession();
+  const user = await requireStaffSession();
+  const storeId = currentStoreId(user);
 
   return prisma.reconciliationRun.findMany({
+    where: { storeId },
     orderBy: { startedAt: "desc" },
     take: limit,
     include: {
@@ -42,10 +46,11 @@ export async function listReconciliationRuns(limit = 20) {
  * 取得指定 run 的完整 check 列表
  */
 export async function getReconciliationRunDetail(runId: string) {
-  await requireAdminSession();
+  const user = await requireStaffSession();
+  const storeId = currentStoreId(user);
 
   const run = await prisma.reconciliationRun.findUnique({
-    where: { id: runId },
+    where: { id: runId, storeId },
     include: {
       checks: {
         orderBy: { status: "asc" }, // mismatch/error first

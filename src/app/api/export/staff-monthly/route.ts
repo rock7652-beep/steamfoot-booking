@@ -65,13 +65,8 @@ export async function GET(req: NextRequest) {
   const revenueFilter = getManagerReadFilter(session.user.role, session.user.staffId, "revenueStaffId", activeStoreId);
   const staffIdFilter = getManagerReadFilter(session.user.role, session.user.staffId, "staffId", activeStoreId);
 
-  // SpaceFeeRecord has no storeId — filter via staff relation instead
-  const spaceFeeFilter: Record<string, unknown> = { ...staffIdFilter };
-  if ("storeId" in spaceFeeFilter) {
-    const sid = spaceFeeFilter.storeId;
-    delete spaceFeeFilter.storeId;
-    spaceFeeFilter.staff = { storeId: sid };
-  }
+  // SpaceFeeRecord now has storeId — use staffIdFilter directly
+  const spaceFeeFilter = staffIdFilter;
 
   const [txRows, completedRows, spaceFees] = await Promise.all([
     prisma.transaction.groupBy({

@@ -26,6 +26,12 @@ import {
   STATUS_COLOR,
   WALLET_STATUS_LABEL,
 } from "@/lib/booking-constants";
+import { TALENT_STAGE_LABELS } from "@/types/talent";
+import { TalentPipelineSection } from "./talent-pipeline-section";
+import { ReferralWrapper } from "./referral-wrapper";
+import { PointsSection } from "./points-section";
+import { getReferralsByReferrer } from "@/server/queries/referral";
+import { getPointHistory } from "@/server/queries/points";
 
 const STAGE_LABEL: Record<string, string> = {
   LEAD: "名單", TRIAL: "體驗", ACTIVE: "已購課", INACTIVE: "已停用",
@@ -52,14 +58,16 @@ export default async function CustomerDetailPage({ params }: PageProps) {
 
   const timer = new ServerTiming(`/dashboard/customers/${id}`);
 
-  const [customer, plans, staffOptions, tags, scripts, customerActionLogs, canDiscount] = await Promise.all([
+  const [customer, plans, staffOptions, tags, scripts, customerActionLogs, canDiscount, customerReferrals, customerPoints] = await Promise.all([
     withTiming("getCustomerDetail", timer, () => getCustomerDetail(id)),
-    withTiming("getCachedPlans", timer, () => getCachedPlans()),
+    withTiming("getCachedPlans", timer, () => getCachedPlans(user.storeId!)),
     withTiming("getCachedStaffOptions", timer, () => getCachedStaffOptions()),
     user.role !== "CUSTOMER" ? withTiming("getCustomerTags", timer, () => getCustomerTags(id)) : Promise.resolve([]),
     user.role !== "CUSTOMER" ? withTiming("getCustomerScript", timer, () => getCustomerScript(id)) : Promise.resolve([]),
     user.role !== "CUSTOMER" ? withTiming("getOpsActionLogs", timer, () => getOpsActionLogs("customer_action")) : Promise.resolve(new Map()),
     checkPermission(user.role, user.staffId, "transaction.discount"),
+    user.role !== "CUSTOMER" ? getReferralsByReferrer(id).catch(() => []) : Promise.resolve([]),
+    user.role !== "CUSTOMER" ? getPointHistory(id, { limit: 10 }).catch(() => []) : Promise.resolve([]),
   ]);
 
   timer.finish();
@@ -167,6 +175,18 @@ export default async function CustomerDetailPage({ params }: PageProps) {
         {/* Stage change — optimistic client component */}
         <CustomerStageForm customerId={id} currentStage={customer.customerStage} />
 
+        {/* 人才管道 — sponsor & talentStage */}
+        {user.role !== "CUSTOMER" && (
+          <TalentPipelineSection
+            customerId={id}
+            talentStage={customer.talentStage}
+            sponsor={customer.sponsor}
+            referralCount={customer.sponsoredCustomers.length}
+            stageNote={customer.stageNote}
+            isOwner={user.role === "ADMIN" || user.role === "STORE_MANAGER"}
+          />
+        )}
+
         {/* LINE 綁定 */}
         <LineBindingSection
           customerId={id}
@@ -188,6 +208,44 @@ export default async function CustomerDetailPage({ params }: PageProps) {
           </div>
         )}
       </div>
+
+      {/* ═══════════════════════════════════════════════ */}
+      {/* 轉介紹紀錄（獨立區塊）                          */}
+      {/* ═══════════════════════════════════════════════ */}
+      {user.role !== "CUSTOMER" && (
+        <div className="rounded-xl border bg-white p-6 shadow-sm">
+          <ReferralWrapper
+            customerId={id}
+            referrals={(customerReferrals ?? []).map((r) => ({
+              id: r.id,
+              referredName: r.referredName,
+              referredPhone: r.referredPhone,
+              status: r.status,
+              note: r.note,
+              createdAt: r.createdAt instanceof Date ? r.createdAt.toISOString() : String(r.createdAt),
+            }))}
+            canManage={user.role === "ADMIN" || user.role === "STORE_MANAGER"}
+          />
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════ */}
+      {/* 行動積分（獨立區塊）                            */}
+      {/* ═══════════════════════════════════════════════ */}
+      {user.role !== "CUSTOMER" && (
+        <div className="rounded-xl border bg-white p-6 shadow-sm">
+          <PointsSection
+            totalPoints={customer.totalPoints ?? 0}
+            recentPoints={(customerPoints ?? []).map((p) => ({
+              id: p.id,
+              type: p.type,
+              points: p.points,
+              note: p.note,
+              createdAt: p.createdAt instanceof Date ? p.createdAt.toISOString() : String(p.createdAt),
+            }))}
+          />
+        </div>
+      )}
 
       {/* AI健康評估（串接健康管理系統）— 需 GROWTH+ */}
       {hasAiHealth && (

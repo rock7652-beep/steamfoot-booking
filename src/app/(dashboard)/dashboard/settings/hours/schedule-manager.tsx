@@ -13,6 +13,7 @@ import {
   toggleSlotOverride,
   overrideSlotCapacity,
   applyWeeklyTemplate,
+  syncFromHeadquarters,
 } from "@/server/actions/business-hours";
 import { SLOT_INTERVAL_OPTIONS, CAPACITY_OPTIONS } from "@/lib/slot-generator";
 
@@ -78,6 +79,7 @@ interface Props {
   initialYear: number;
   initialMonth: number;
   canManage: boolean;
+  isHeadquarters: boolean;
 }
 
 const DAY_NAMES = ["日", "一", "二", "三", "四", "五", "六"];
@@ -92,6 +94,7 @@ export function ScheduleManager({
   initialYear,
   initialMonth,
   canManage,
+  isHeadquarters,
 }: Props) {
   const [year, setYear] = useState(initialYear);
   const [month, setMonth] = useState(initialMonth);
@@ -372,10 +375,49 @@ export function ScheduleManager({
   }, [canManage, year, month, selectedDate, selectDate]);
 
   // ── 渲染 ──
+  // ── 同步總部設定 ──
+  const [syncing, setSyncing] = useState(false);
+  const handleSync = useCallback(async () => {
+    if (!confirm("確定要套用總部的營業時間與時段設定？\n\n此操作會清除本店目前的設定，並從總部重新複製。")) return;
+    setSyncing(true);
+    try {
+      const result = await syncFromHeadquarters();
+      if (result.success) {
+        toast.success(`已套用總部設定（${result.data.businessHours} 筆營業時間、${result.data.bookingSlots} 筆時段）`);
+        window.location.reload();
+      } else {
+        toast.error(result.error || "同步失敗");
+      }
+    } catch {
+      toast.error("同步失敗");
+    } finally {
+      setSyncing(false);
+    }
+  }, []);
+
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr,360px]">
       {/* ===== 左側：月曆 ===== */}
       <div className="space-y-4">
+        {/* 套用總部設定（僅非總部店顯示） */}
+        {canManage && !isHeadquarters && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-amber-800">同步總部設定</p>
+                <p className="text-xs text-amber-600">清除本店設定，套用總部的營業時間與時段</p>
+              </div>
+              <button
+                onClick={handleSync}
+                disabled={syncing}
+                className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-50"
+              >
+                {syncing ? "同步中..." : "套用總部設定"}
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="rounded-xl border bg-white p-4 shadow-sm">
           {/* 月份切換 */}
           <div className="mb-3 flex items-center justify-between">

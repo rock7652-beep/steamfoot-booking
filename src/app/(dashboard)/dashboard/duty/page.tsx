@@ -69,11 +69,12 @@ function DutyWeekSkeleton() {
   );
 }
 
-async function DutyWeekContent({ weekStart, userRole, userStaffId, activeStoreId }: {
+async function DutyWeekContent({ weekStart, userRole, userStaffId, activeStoreId, storeId }: {
   weekStart: string;
   userRole: UserRole;
   userStaffId: string | null;
   activeStoreId: string | null;
+  storeId: string;
 }) {
   const timer = new ServerTiming("/dashboard/duty");
 
@@ -97,16 +98,16 @@ async function DutyWeekContent({ weekStart, userRole, userStaffId, activeStoreId
     _nextSpecialDays,
   ] = await Promise.all([
     withTiming("getDutyByWeek", timer, () => getDutyByWeek(weekStart, activeStoreId)),
-    getBusinessHoursWithTiming(timer),
-    getSpecialDaysWithTiming(weekStartDate.toISOString(), weekEndISO, timer),
+    getBusinessHoursWithTiming(storeId, timer),
+    getSpecialDaysWithTiming(storeId, weekStartDate.toISOString(), weekEndISO, timer),
     getDutyEnabledWithTiming(timer),
     userRole === "ADMIN"
       ? Promise.resolve(true)
       : checkPermission(userRole, userStaffId, "duty.manage"),
     getDutyByDateRange(prevWeekStart, 6, undefined, activeStoreId).catch(() => []),
     getDutyByDateRange(nextWeekStart, 6, undefined, activeStoreId).catch(() => []),
-    getCachedSpecialDays(new Date(prevWeekStart + "T00:00:00Z").toISOString(), prevWeekEnd).catch(() => []),
-    getCachedSpecialDays(new Date(nextWeekStart + "T00:00:00Z").toISOString(), nextWeekEnd).catch(() => []),
+    getCachedSpecialDays(storeId, new Date(prevWeekStart + "T00:00:00Z").toISOString(), prevWeekEnd).catch(() => []),
+    getCachedSpecialDays(storeId, new Date(nextWeekStart + "T00:00:00Z").toISOString(), nextWeekEnd).catch(() => []),
   ]);
 
   const perfLog = timer.finish();
@@ -171,6 +172,7 @@ export default async function DutyPage({ searchParams }: PageProps) {
           userRole={user.role}
           userStaffId={user.staffId}
           activeStoreId={activeStoreId}
+          storeId={activeStoreId ?? user.storeId!}
         />
       </Suspense>
     </div>

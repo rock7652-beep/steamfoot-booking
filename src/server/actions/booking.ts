@@ -70,9 +70,10 @@ export async function createBooking(
 
     // ── 0.5 檢查營業日 / 公休
     const closureDateObj = new Date(data.bookingDate + "T00:00:00Z");
+    const storeId = currentStoreId(user);
     const [specialDay, businessHour] = await Promise.all([
-      prisma.specialBusinessDay.findUnique({ where: { date: closureDateObj } }),
-      prisma.businessHours.findUnique({ where: { dayOfWeek: closureDateObj.getUTCDay() } }),
+      prisma.specialBusinessDay.findFirst({ where: { storeId, date: closureDateObj } }),
+      prisma.businessHours.findFirst({ where: { storeId, dayOfWeek: closureDateObj.getUTCDay() } }),
     ]);
     if (specialDay && (specialDay.type === "closed" || specialDay.type === "training")) {
       return {
@@ -89,8 +90,8 @@ export async function createBooking(
 
     // 檢查 SlotOverride（單一時段覆寫，最高優先）
     const slotOverride = data.slotTime
-      ? await prisma.slotOverride.findUnique({
-          where: { date_startTime: { date: closureDateObj, startTime: data.slotTime } },
+      ? await prisma.slotOverride.findFirst({
+          where: { storeId, date: closureDateObj, startTime: data.slotTime },
         })
       : null;
 
@@ -250,7 +251,7 @@ export async function createBooking(
 
     // ── 7. 時段可用性檢查（規則即時運算，不查 BookingSlot）
     // 用營業規則生成該日可用時段
-    const bhForSlot = await prisma.businessHours.findUnique({ where: { dayOfWeek: bookingDateObj.getUTCDay() } });
+    const bhForSlot = await prisma.businessHours.findFirst({ where: { storeId, dayOfWeek: bookingDateObj.getUTCDay() } });
     const effectiveOpen = specialDay?.type === "custom" ? specialDay.openTime : (bhForSlot?.openTime ?? null);
     const effectiveClose = specialDay?.type === "custom" ? specialDay.closeTime : (bhForSlot?.closeTime ?? null);
     const effectiveInterval = (specialDay?.type === "custom" ? specialDay.slotInterval : null) ?? bhForSlot?.slotInterval ?? 60;
@@ -404,11 +405,12 @@ export async function updateBooking(
       if (newDate < td) throw new AppError("VALIDATION", "不能改到過去的日期");
 
       // 檢查營業狀態（與 createBooking 同邏輯）
+      const updStoreId = booking.storeId ?? currentStoreId(user);
       const [specialDay, businessHour, slotOverride] = await Promise.all([
-        prisma.specialBusinessDay.findUnique({ where: { date: newDate } }),
-        prisma.businessHours.findUnique({ where: { dayOfWeek: newDate.getUTCDay() } }),
-        prisma.slotOverride.findUnique({
-          where: { date_startTime: { date: newDate, startTime: newSlot } },
+        prisma.specialBusinessDay.findFirst({ where: { storeId: updStoreId, date: newDate } }),
+        prisma.businessHours.findFirst({ where: { storeId: updStoreId, dayOfWeek: newDate.getUTCDay() } }),
+        prisma.slotOverride.findFirst({
+          where: { storeId: updStoreId, date: newDate, startTime: newSlot },
         }),
       ]);
 
@@ -644,6 +646,20 @@ export async function markCompleted(
           }
         }
       }
+      // 🆕 自動給分：出席 +5（在同一事務內）
+      try {
+        const { awardPoints } = await import("@/server/actions/points");
+        await awardPoints({
+          customerId: booking.customerId,
+          storeId: booking.storeId,
+          type: "ATTENDANCE",
+          note: `出席（${booking.bookingDate.toISOString().slice(0, 10)} ${booking.slotTime}）`,
+          tx,
+        });
+      } catch {
+        // 積分發放失敗不應阻擋主流程（但仍在事務內，若 tx 出錯會回滾）
+        console.error("[Points] Failed to award ATTENDANCE points for booking", bookingId);
+      }
     });
 
     revalidateAll(booking.customerId);
@@ -746,6 +762,7 @@ export async function markNoShow(
             originalBookingId: booking.id,
             isUsed: false,
             expiredAt,
+            storeId: booking.storeId,
           },
         });
       }

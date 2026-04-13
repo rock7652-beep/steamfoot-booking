@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { ShopPlan } from "@prisma/client";
 import { hasFeature, getRequiredPlan, PLAN_INFO, UPGRADE_BENEFITS, type Feature } from "@/lib/shop-plan";
 import type { TrialStatus } from "@/lib/shop-config";
+import { getFeatureGateCopy, TRIAL_CONVERSION_COPY } from "@/lib/upgrade-copy";
 
 // ============================================================
 // FeatureGate — 功能門禁元件
@@ -33,6 +34,7 @@ function UpgradeCard({ feature }: { feature: Feature }) {
   const requiredPlan = getRequiredPlan(feature);
   const info = PLAN_INFO[requiredPlan];
   const benefits = UPGRADE_BENEFITS[requiredPlan as "BASIC" | "PRO"] ?? [];
+  const gateCopy = getFeatureGateCopy(requiredPlan as import("@prisma/client").PricingPlan);
 
   return (
     <div className="rounded-2xl border border-earth-200 bg-white p-8 text-center shadow-sm">
@@ -41,9 +43,14 @@ function UpgradeCard({ feature }: { feature: Feature }) {
           <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
         </svg>
       </div>
-      <h3 className="text-lg font-semibold text-earth-900">此功能需要升級</h3>
+      <div className={`mx-auto mb-2 inline-flex rounded-lg px-3 py-1 text-xs font-medium ${info.bgColor} ${info.color}`}>
+        {info.label}
+      </div>
+      <h3 className="text-lg font-semibold text-earth-900">
+        升級至{info.label}即可使用此功能
+      </h3>
       <p className="mt-1 text-sm text-earth-500">
-        升級至 <span className={`font-medium ${info.color}`}>{info.label}</span> 即可解鎖
+        {gateCopy.description}
       </p>
       {benefits.length > 0 && (
         <ul className="mx-auto mt-4 max-w-xs space-y-1.5 text-left text-sm text-earth-600">
@@ -57,15 +64,23 @@ function UpgradeCard({ feature }: { feature: Feature }) {
           ))}
         </ul>
       )}
-      <a
-        href="/dashboard/settings/plan"
-        className="mt-5 inline-flex items-center gap-1.5 rounded-lg bg-primary-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-primary-700"
-      >
-        查看方案
-        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-        </svg>
-      </a>
+      <div className="mt-5 flex items-center justify-center gap-2">
+        <a
+          href="/dashboard/settings/plan"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-primary-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-primary-700"
+        >
+          {gateCopy.primaryCta}
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18" />
+          </svg>
+        </a>
+        <a
+          href="/dashboard/settings/plan"
+          className="inline-flex items-center rounded-lg border border-earth-200 px-4 py-2.5 text-sm text-earth-600 transition hover:bg-earth-50"
+        >
+          {gateCopy.secondaryCta}
+        </a>
+      </div>
     </div>
   );
 }
@@ -104,10 +119,10 @@ export function UpgradePrompt({ open, onClose, targetPlan, featureLabel }: Upgra
             {info.label}
           </div>
           <h3 className="text-lg font-bold text-earth-900">
-            {featureLabel ? `「${featureLabel}」需要升級` : "升級方案"}
+            {featureLabel ? `「${featureLabel}」需要${info.label}方案` : `升級至${info.label}`}
           </h3>
           <p className="mt-1 text-sm text-earth-500">
-            升級 {info.label} 即可解鎖以下功能：
+            升級後可立即解鎖以下能力：
           </p>
         </div>
 
@@ -122,18 +137,26 @@ export function UpgradePrompt({ open, onClose, targetPlan, featureLabel }: Upgra
           ))}
         </ul>
 
-        <div className="mt-5 flex gap-2">
-          <a
-            href="/dashboard/settings/plan"
-            className="flex-1 rounded-lg bg-primary-600 py-2.5 text-center text-sm font-medium text-white transition hover:bg-primary-700"
-          >
-            查看方案
-          </a>
+        <div className="mt-5 space-y-2">
+          <div className="flex gap-2">
+            <a
+              href="/dashboard/settings/plan"
+              className="flex-1 rounded-lg bg-primary-600 py-2.5 text-center text-sm font-medium text-white transition hover:bg-primary-700"
+            >
+              立即升級
+            </a>
+            <a
+              href="/dashboard/settings/plan"
+              className="rounded-lg border border-earth-200 px-4 py-2.5 text-sm text-earth-600 transition hover:bg-earth-50"
+            >
+              查看方案比較
+            </a>
+          </div>
           <button
             onClick={onClose}
-            className="rounded-lg border border-earth-200 px-4 py-2.5 text-sm text-earth-600 transition hover:bg-earth-50"
+            className="w-full py-1.5 text-xs text-earth-400 transition hover:text-earth-600"
           >
-            稍後
+            稍後再說
           </button>
         </div>
       </div>
@@ -187,23 +210,37 @@ export function TrialLimitModal({
             ))}
           </div>
           <p className="mt-2 text-sm text-earth-500">
-            升級方案後即可繼續新增，已有資料不受影響
+            {TRIAL_CONVERSION_COPY.modalRetainNote}
           </p>
         </div>
 
-        <div className="mt-5 flex gap-2">
-          <a
-            href="/dashboard/settings/plan"
-            className="flex-1 rounded-lg bg-primary-600 py-2.5 text-center text-sm font-medium text-white transition hover:bg-primary-700"
-          >
-            升級方案
-          </a>
-          <button
-            onClick={onClose}
-            className="rounded-lg border border-earth-200 px-4 py-2.5 text-sm text-earth-600 transition hover:bg-earth-50"
-          >
-            我知道了
-          </button>
+        {/* 升級後可解鎖的能力 */}
+        <ul className="mt-3 space-y-1.5">
+          {["LINE 提醒通知，不漏接每筆預約", "交易與帳務管理，掌握營收", "基礎營運報表，了解經營狀況"].map((b) => (
+            <li key={b} className="flex items-start gap-2 text-sm text-earth-600">
+              <svg className="mt-0.5 h-4 w-4 shrink-0 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+              {b}
+            </li>
+          ))}
+        </ul>
+
+        <div className="mt-5 space-y-2">
+          <div className="flex gap-2">
+            <a
+              href="/dashboard/settings/plan"
+              className="flex-1 rounded-lg bg-primary-600 py-2.5 text-center text-sm font-medium text-white transition hover:bg-primary-700"
+            >
+              {TRIAL_CONVERSION_COPY.modalCta}
+            </a>
+            <button
+              onClick={onClose}
+              className="rounded-lg border border-earth-200 px-4 py-2.5 text-sm text-earth-600 transition hover:bg-earth-50"
+            >
+              我知道了
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -257,10 +294,10 @@ export function PlanLimitNotice({
       <div className="flex items-center justify-between">
         <span>
           {isAtLimit
-            ? `已達上限（${label} ${current}/${limit}），升級後可解除限制`
+            ? `${label}已達 ${limit} 上限，升級後可立即擴充容量並繼續使用`
             : isWarning
-              ? `${label}已使用 ${current}/${limit}（${pct}%），接近上限`
-              : `${label}已使用 ${current}/${limit}（${pct}%）`}
+              ? `${label}已使用 ${current}/${limit}（${pct}%），建議升級以確保營運不中斷`
+              : `${label}已使用 ${current}/${limit}（${pct}%），升級可擴充容量`}
         </span>
         <a
           href="/dashboard/settings/plan"
@@ -268,7 +305,7 @@ export function PlanLimitNotice({
             isAtLimit ? "text-red-600" : isWarning ? "text-amber-600" : "text-blue-500"
           }`}
         >
-          升級方案
+          查看升級方案
         </a>
       </div>
       <div className="mt-1.5 h-1.5 rounded-full bg-white/50">
@@ -306,9 +343,14 @@ export function TrialProgressBar({ trial }: { trial: TrialStatus }) {
             體驗版
           </span>
           {trial.stage === "blocked" && (
-            <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-medium text-red-600">
-              已達上限
-            </span>
+            <>
+              <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-medium text-red-600">
+                已達上限
+              </span>
+              <span className="text-[10px] text-red-500">
+                {TRIAL_CONVERSION_COPY.blockedAction}
+              </span>
+            </>
           )}
         </div>
         <a
@@ -321,9 +363,18 @@ export function TrialProgressBar({ trial }: { trial: TrialStatus }) {
                 : "text-primary-600"
           }`}
         >
-          升級方案
+          {trial.stage === "warning" || trial.stage === "blocked"
+            ? TRIAL_CONVERSION_COPY.retainCta
+            : "升級方案"}
         </a>
       </div>
+
+      {/* 到期降級提醒 */}
+      {(trial.stage === "warning" || trial.stage === "blocked") && (
+        <p className={`mt-1 text-[10px] ${trial.stage === "blocked" ? "text-red-500" : "text-amber-500"}`}>
+          {TRIAL_CONVERSION_COPY.expiryWarning}
+        </p>
+      )}
 
       <div className="mt-2 grid grid-cols-3 gap-3">
         {/* 天數 */}
@@ -348,6 +399,13 @@ export function TrialProgressBar({ trial }: { trial: TrialStatus }) {
           stage={trial.bookings.pct >= 100 ? "blocked" : trial.stage}
         />
       </div>
+
+      {/* 升級保留提示 */}
+      {(trial.stage === "warning" || trial.stage === "blocked") && (
+        <p className="mt-2 text-[10px] text-earth-400">
+          {TRIAL_CONVERSION_COPY.retainHint}
+        </p>
+      )}
     </div>
   );
 }

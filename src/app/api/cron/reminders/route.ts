@@ -49,8 +49,8 @@ export async function GET(request: NextRequest) {
       ]);
 
       await Promise.all([
-        upsertReportSnapshot(prevMonth, `STORE_SUMMARY:${sid}`, storeSummary),
-        upsertReportSnapshot(prevMonth, `REVENUE_BY_CATEGORY:${sid}`, revenueByCategory),
+        upsertReportSnapshot(sid, prevMonth, "STORE_SUMMARY", storeSummary),
+        upsertReportSnapshot(sid, prevMonth, "REVENUE_BY_CATEGORY", revenueByCategory),
       ]);
     }
 

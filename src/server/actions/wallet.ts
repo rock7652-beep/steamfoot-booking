@@ -68,11 +68,12 @@ export async function assignPlanToCustomer(
     if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
     assertStoreAccess(user, customer.storeId);
 
-    // 取方案
+    // 取方案（限同店）
     const plan = await prisma.servicePlan.findUnique({
       where: { id: data.planId, isActive: true },
     });
     if (!plan) throw new AppError("NOT_FOUND", "課程方案不存在或已停用");
+    if (plan.storeId !== user.storeId) throw new AppError("FORBIDDEN", "無權限使用此方案");
 
     // 折扣驗證
     const originalPrice = Number(plan.price);
