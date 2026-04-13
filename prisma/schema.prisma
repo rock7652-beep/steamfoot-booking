@@ -87,6 +87,12 @@ enum TransactionType {
   ADJUSTMENT          // 手動調整
 }
 
+enum TransactionStatus {
+  SUCCESS
+  CANCELLED
+  REFUNDED
+}
+
 enum PaymentMethod {
   CASH
   TRANSFER
@@ -475,8 +481,9 @@ model ServicePlan {
   updatedAt    DateTime     @updatedAt
 
   // 顧客購買記錄
-  wallets  CustomerPlanWallet[]
-  bookings Booking[]
+  wallets      CustomerPlanWallet[]
+  bookings     Booking[]
+  transactions Transaction[] @relation("TransactionPlan")
 }
 
 // ============================================================
@@ -635,6 +642,22 @@ model Transaction {
   createdAt            DateTime        @default(now())
   updatedAt            DateTime        @updatedAt
 
+  // === 報表用欄位（快照 + 歸屬鎖定）===
+  transactionNo        String?         // 交易編號 TXN-YYYYMMDD-NNN
+  transactionDate      DateTime        @default(now()) // 交易業務日期
+  status               TransactionStatus @default(SUCCESS)
+  coachNameSnapshot    String?         // 教練姓名快照
+  coachRoleSnapshot    String?         // 教練角色快照（STORE_MANAGER / COACH）
+  storeNameSnapshot    String?         // 店名快照
+  planId               String?         // 直接關聯 ServicePlan
+  planNameSnapshot     String?         // 方案名稱快照
+  planType             String?         // 方案類型快照（TRIAL / SINGLE / PACKAGE）
+  grossAmount          Decimal?        @db.Decimal(10, 0) // 原價（始終填入）
+  discountAmount       Decimal?        @db.Decimal(10, 0) // 折扣金額
+  netAmount            Decimal         @db.Decimal(10, 0) @default(0) // 實收金額（報表用）
+  refundAmount         Decimal         @db.Decimal(10, 0) @default(0) // 已退款金額
+  isFirstPurchase      Boolean         @default(false) // 是否新客首次購買
+
   customer           Customer            @relation(fields: [customerId], references: [id])
   store              Store               @relation(fields: [storeId], references: [id])
   booking            Booking?            @relation(fields: [bookingId], references: [id])
@@ -642,6 +665,7 @@ model Transaction {
   serviceStaff       Staff?              @relation("ServiceStaff", fields: [serviceStaffId], references: [id])
   soldByStaff        Staff?              @relation("SoldByStaff", fields: [soldByStaffId], references: [id])
   customerPlanWallet CustomerPlanWallet? @relation(fields: [customerPlanWalletId], references: [id])
+  servicePlan        ServicePlan?        @relation("TransactionPlan", fields: [planId], references: [id])
 
   @@index([storeId])
   @@index([customerId])
@@ -649,6 +673,12 @@ model Transaction {
   @@index([revenueStaffId, createdAt])    // 店長月營收查詢
   @@index([createdAt])
   @@index([transactionType])
+  @@index([transactionDate])
+  @@index([storeId, transactionDate])
+  @@index([revenueStaffId, transactionDate])
+  @@index([customerId, transactionDate])
+  @@index([status])
+  @@index([planType])
 }
 
 // ============================================================

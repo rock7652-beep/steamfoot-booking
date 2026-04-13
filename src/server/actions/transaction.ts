@@ -11,6 +11,7 @@ import type { ActionResult } from "@/types";
 import type { PaymentMethod, TransactionType } from "@prisma/client";
 import { assertStoreAccess } from "@/lib/manager-visibility";
 import { currentStoreId } from "@/lib/store";
+import { buildTransactionSnapshot, buildRefundSnapshot } from "@/lib/transaction-snapshot";
 
 // ============================================================
 // Validators
@@ -82,24 +83,40 @@ export async function createTransaction(
       if (!wallet) throw new AppError("NOT_FOUND", "課程錢包不存在或不屬於該顧客");
     }
 
-    const tx = await prisma.transaction.create({
-      data: {
+    const revenueStaffId = customer.assignedStaffId ?? user.staffId ?? (() => { throw new AppError("FORBIDDEN", "顧客尚未指派店長，無法建立交易"); })();
+    const storeId = currentStoreId(user);
+    const amountNum = Math.abs(data.amount);
+
+    const result = await prisma.$transaction(async (txClient) => {
+      const snapshot = await buildTransactionSnapshot(txClient, {
         customerId: data.customerId,
-        bookingId: data.bookingId ?? null,
-        revenueStaffId: customer.assignedStaffId ?? user.staffId ?? (() => { throw new AppError("FORBIDDEN", "顧客尚未指派店長，無法建立交易"); })(),
-        serviceStaffId: user.staffId ?? null,
-        customerPlanWalletId: data.customerPlanWalletId ?? null,
-        transactionType: data.transactionType as TransactionType,
-        paymentMethod: data.paymentMethod as PaymentMethod,
-        amount: data.amount,
-        quantity: data.quantity ?? null,
-        note: data.note ?? null,
-        storeId: currentStoreId(user),
-      },
+        storeId,
+        revenueStaffId,
+        planId: null,
+        grossAmount: amountNum,
+        netAmount: amountNum,
+      });
+
+      return txClient.transaction.create({
+        data: {
+          customerId: data.customerId,
+          bookingId: data.bookingId ?? null,
+          revenueStaffId,
+          serviceStaffId: user.staffId ?? null,
+          customerPlanWalletId: data.customerPlanWalletId ?? null,
+          transactionType: data.transactionType as TransactionType,
+          paymentMethod: data.paymentMethod as PaymentMethod,
+          amount: data.amount,
+          quantity: data.quantity ?? null,
+          note: data.note ?? null,
+          storeId,
+          ...snapshot,
+        },
+      });
     });
 
     revalidateTransactions(data.customerId);
-    return { success: true, data: { transactionId: tx.id } };
+    return { success: true, data: { transactionId: result.id } };
   } catch (e) {
     return handleActionError(e);
   }
@@ -134,18 +151,33 @@ export async function refundTransaction(
       throw new AppError("BUSINESS_RULE", "扣堂紀錄不適用退款，請改用堂數調整");
     }
 
-    const refund = await prisma.transaction.create({
-      data: {
-        customerId: original.customerId,
-        bookingId: original.bookingId ?? null,
-        revenueStaffId: original.revenueStaffId, // 維持原始快照
-        customerPlanWalletId: original.customerPlanWalletId ?? null,
-        transactionType: "REFUND",
-        paymentMethod: data.paymentMethod as PaymentMethod,
-        amount: -data.amount, // 負數
-        note: data.note ? `[退款] ${data.note}` : `[退款] 原交易 ${originalTransactionId}`,
-        storeId: currentStoreId(user),
-      },
+    const refundSnapshot = buildRefundSnapshot(original);
+
+    const refund = await prisma.$transaction(async (txClient) => {
+      // 更新原始交易狀態 + 累計退款金額
+      await txClient.transaction.update({
+        where: { id: originalTransactionId },
+        data: {
+          status: "REFUNDED",
+          refundAmount: { increment: data.amount },
+        },
+      });
+
+      return txClient.transaction.create({
+        data: {
+          customerId: original.customerId,
+          bookingId: original.bookingId ?? null,
+          revenueStaffId: original.revenueStaffId, // 維持原始快照
+          customerPlanWalletId: original.customerPlanWalletId ?? null,
+          transactionType: "REFUND",
+          paymentMethod: data.paymentMethod as PaymentMethod,
+          amount: -data.amount, // 負數
+          note: data.note ? `[退款] ${data.note}` : `[退款] 原交易 ${originalTransactionId}`,
+          storeId: currentStoreId(user),
+          ...refundSnapshot,
+          netAmount: -data.amount,
+        },
+      });
     });
 
     revalidateTransactions(original.customerId);
@@ -175,21 +207,37 @@ export async function createAdjustment(
     if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
     assertStoreAccess(user, customer.storeId);
 
-    const tx = await prisma.transaction.create({
-      data: {
+    const revenueStaffId = customer.assignedStaffId ?? user.staffId ?? (() => { throw new AppError("FORBIDDEN", "顧客尚未指派店長，無法建立交易"); })();
+    const storeId = currentStoreId(user);
+    const amountNum = Math.abs(data.amount);
+
+    const result = await prisma.$transaction(async (txClient) => {
+      const snapshot = await buildTransactionSnapshot(txClient, {
         customerId: data.customerId,
-        revenueStaffId: customer.assignedStaffId ?? user.staffId ?? (() => { throw new AppError("FORBIDDEN", "顧客尚未指派店長，無法建立交易"); })(),
-        serviceStaffId: user.staffId ?? null,
-        transactionType: data.amount >= 0 ? "SUPPLEMENT" : "ADJUSTMENT",
-        paymentMethod: "CASH",
-        amount: data.amount,
-        note: data.note,
-        storeId: currentStoreId(user),
-      },
+        storeId,
+        revenueStaffId,
+        planId: null,
+        grossAmount: amountNum,
+        netAmount: amountNum,
+      });
+
+      return txClient.transaction.create({
+        data: {
+          customerId: data.customerId,
+          revenueStaffId,
+          serviceStaffId: user.staffId ?? null,
+          transactionType: data.amount >= 0 ? "SUPPLEMENT" : "ADJUSTMENT",
+          paymentMethod: "CASH",
+          amount: data.amount,
+          note: data.note,
+          storeId,
+          ...snapshot,
+        },
+      });
     });
 
     revalidateTransactions(data.customerId);
-    return { success: true, data: { transactionId: tx.id } };
+    return { success: true, data: { transactionId: result.id } };
   } catch (e) {
     return handleActionError(e);
   }

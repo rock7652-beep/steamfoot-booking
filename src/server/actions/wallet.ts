@@ -10,6 +10,7 @@ import type { z } from "zod";
 import { addDays } from "date-fns";
 import { assertStoreAccess } from "@/lib/manager-visibility";
 import { currentStoreId } from "@/lib/store";
+import { buildTransactionSnapshot } from "@/lib/transaction-snapshot";
 
 // ============================================================
 // 折扣計算
@@ -118,10 +119,22 @@ export async function assignPlanToCustomer(
       });
 
       // 2. 建立交易紀錄
+      const revenueStaffId = customer.assignedStaffId ?? user.staffId!;
+      const storeId = currentStoreId(user);
+
+      const snapshot = await buildTransactionSnapshot(tx, {
+        customerId: data.customerId,
+        storeId,
+        revenueStaffId,
+        planId: data.planId,
+        grossAmount: originalPrice,
+        netAmount: finalAmount,
+      });
+
       const transaction = await tx.transaction.create({
         data: {
           customerId: data.customerId,
-          revenueStaffId: customer.assignedStaffId ?? user.staffId!, // 快照：營收歸屬
+          revenueStaffId, // 快照：營收歸屬
           soldByStaffId: user.staffId ?? null, // 紀錄本次操作/成交店長
           transactionType: txType,
           paymentMethod: data.paymentMethod,
@@ -132,7 +145,8 @@ export async function assignPlanToCustomer(
           discountReason: data.discountReason || null,
           customerPlanWalletId: wallet.id,
           note: data.note,
-          storeId: currentStoreId(user),
+          storeId,
+          ...snapshot,
         },
       });
 
@@ -190,6 +204,9 @@ export async function adjustRemainingSessions(
 
     const diff = newRemaining - wallet.remainingSessions;
 
+    const revenueStaffId = customer.assignedStaffId ?? user.staffId!;
+    const storeId = currentStoreId(user);
+
     await prisma.$transaction(async (tx) => {
       await tx.customerPlanWallet.update({
         where: { id: walletId },
@@ -199,11 +216,20 @@ export async function adjustRemainingSessions(
         },
       });
 
+      const snapshot = await buildTransactionSnapshot(tx, {
+        customerId: wallet.customerId,
+        storeId,
+        revenueStaffId,
+        planId: null,
+        grossAmount: 0,
+        netAmount: 0,
+      });
+
       // 建立調整交易紀錄（amount = 0，僅記錄）
       await tx.transaction.create({
         data: {
           customerId: wallet.customerId,
-          revenueStaffId: customer.assignedStaffId ?? user.staffId!,
+          revenueStaffId,
           soldByStaffId: user.staffId ?? null,
           transactionType: "ADJUSTMENT",
           paymentMethod: "CASH",
@@ -211,7 +237,8 @@ export async function adjustRemainingSessions(
           quantity: diff,
           customerPlanWalletId: walletId,
           note: note ?? `手動調整：${wallet.remainingSessions} → ${newRemaining} 堂`,
-          storeId: currentStoreId(user),
+          storeId,
+          ...snapshot,
         },
       });
     });
