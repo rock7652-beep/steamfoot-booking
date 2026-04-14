@@ -9,6 +9,7 @@
     "lint": "eslint",
     "seed": "npx tsx prisma/seed.ts",
     "seed:demo": "npx tsx prisma/seed-demo-store.ts",
+    "seed:production-demo": "npx tsx prisma/seed-production-demo.ts",
     "db:push": "npx prisma db push",
     "db:studio": "npx prisma studio",
     "db:reset": "npx prisma db push --force-reset && npm run seed",

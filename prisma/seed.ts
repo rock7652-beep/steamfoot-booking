@@ -11,6 +11,20 @@ async function main() {
   //    使用 TRUNCATE CASCADE 一次清除所有資料表
   //    ⚠️ 僅限 dev 環境使用
   // ============================================================
+
+  // 🛡️ Production 安全護欄 — 禁止在正式環境執行全量 seed
+  // 必須設定 ALLOW_SEED_RESET=1 才能執行（防止誤跑）
+  if (process.env.ALLOW_SEED_RESET !== "1") {
+    console.error("🚫 seed.ts 會 TRUNCATE 所有資料，預設禁止執行");
+    console.error("   若確定要重建全部資料，請使用：");
+    console.error("   ALLOW_SEED_RESET=1 npm run seed");
+    console.error("");
+    console.error("   若只要補建展示資料（不清除現有資料），請用：");
+    console.error("   npm run seed:production-demo  → 安全重建 100 位 Demo 顧客");
+    console.error("   npm run seed:demo             → Demo 展示店");
+    process.exit(1);
+  }
+
   console.log("Cleaning up existing seed data...");
 
   const tablenames = await prisma.$queryRaw<
@@ -938,6 +952,294 @@ async function main() {
   });
 
   console.log("  PointRecords created, totalPoints updated");
+
+  // ============================================================
+  // 7e. 100 Demo Customers for Talent System
+  // ============================================================
+
+  const surnames = [
+    "林", "黃", "張", "劉", "蔡", "楊", "吳", "謝", "鄭", "許",
+    "曾", "彭", "簡", "賴", "洪", "廖", "郭", "邱", "周", "徐",
+    "蘇", "葉", "江", "呂", "何", "高", "潘", "盧", "范", "余",
+    "傅", "戴", "魏", "方", "石", "丁", "姚", "程", "康", "沈",
+    "宋", "溫", "田", "韓", "施", "馬", "唐", "鍾", "董", "游",
+  ];
+  const givenNames = [
+    "雅婷", "怡君", "淑芬", "美玲", "佳蓉", "家豪", "志明", "建宏", "俊傑", "宗翰",
+    "詩涵", "宜蓁", "欣怡", "雅琪", "靜宜", "冠宇", "柏翰", "承恩", "宇翔", "品睿",
+    "雅雯", "佩珊", "秀娟", "淑惠", "慧敏", "文傑", "明哲", "國豪", "政憲", "信宏",
+    "思妤", "玉芳", "麗華", "素蘭", "月娥", "嘉偉", "啟文", "振忠", "耀德", "鴻儒",
+    "筱涵", "語彤", "芷晴", "紫涵", "若瑜", "彥廷", "睿恩", "鎮宇", "浩然", "柏霖",
+  ];
+
+  // Define talent stage distribution for 100 customers
+  // Indices: 0-34 CUSTOMER, 35-59 REGULAR, 60-79 POTENTIAL_PARTNER, 80-91 PARTNER, 92-97 FUTURE_OWNER, 98-99 OWNER
+  type DemoStage = "CUSTOMER" | "REGULAR" | "POTENTIAL_PARTNER" | "PARTNER" | "FUTURE_OWNER" | "OWNER";
+  const stageRanges: { stage: DemoStage; start: number; end: number }[] = [
+    { stage: "CUSTOMER",           start: 0,  end: 34 },
+    { stage: "REGULAR",            start: 35, end: 59 },
+    { stage: "POTENTIAL_PARTNER",  start: 60, end: 79 },
+    { stage: "PARTNER",            start: 80, end: 91 },
+    { stage: "FUTURE_OWNER",       start: 92, end: 97 },
+    { stage: "OWNER",              start: 98, end: 99 },
+  ];
+
+  function getStage(i: number): DemoStage {
+    for (const r of stageRanges) {
+      if (i >= r.start && i <= r.end) return r.stage;
+    }
+    return "CUSTOMER";
+  }
+
+  // Points ranges by stage
+  function getPoints(stage: DemoStage, i: number): number {
+    const seed = ((i * 7 + 13) % 50); // deterministic pseudo-random 0-49
+    switch (stage) {
+      case "CUSTOMER":          return seed < 25 ? 0 : 5 + (seed % 15);
+      case "REGULAR":           return 15 + (seed % 40);         // 15-54
+      case "POTENTIAL_PARTNER":  return 35 + (seed % 80);         // 35-114
+      case "PARTNER":           return 120 + (seed % 130);        // 120-249
+      case "FUTURE_OWNER":      return 250 + (seed % 150);        // 250-399
+      case "OWNER":             return 350 + (seed % 200);        // 350-549
+    }
+  }
+
+  // CustomerStage mapping
+  function getCustomerStage(stage: DemoStage, i: number): "LEAD" | "TRIAL" | "ACTIVE" | "INACTIVE" {
+    if (stage === "CUSTOMER") return i % 3 === 0 ? "LEAD" : i % 3 === 1 ? "TRIAL" : "ACTIVE";
+    if (stage === "REGULAR") return "ACTIVE";
+    return "ACTIVE";
+  }
+
+  // Stage change date (earlier for higher stages)
+  function getStageChangedAt(stage: DemoStage, i: number): Date {
+    const baseMonth = stage === "OWNER" ? 0 : stage === "FUTURE_OWNER" ? 1 : stage === "PARTNER" ? 1 : stage === "POTENTIAL_PARTNER" ? 2 : stage === "REGULAR" ? 2 : 3;
+    const day = 1 + (i % 28);
+    return new Date(2026, baseMonth, day);
+  }
+
+  // Gender
+  function getGender(i: number): string {
+    // givenNames 0-4,10-14,20-24,30-34,40-44 = female-like
+    const nameIdx = i % 50;
+    return (nameIdx % 10) < 5 ? "female" : "male";
+  }
+
+  // Build 100 demo customers
+  const demoCustomers: Array<{
+    id: string; storeId: string; name: string; phone: string;
+    gender: string; customerStage: "LEAD" | "TRIAL" | "ACTIVE" | "INACTIVE";
+    talentStage: DemoStage; stageChangedAt: Date | null; stageNote: string | null;
+    totalPoints: number; firstVisitAt: Date | null; convertedAt: Date | null;
+    selfBookingEnabled: boolean; sponsorId: string | null;
+  }> = [];
+
+  for (let i = 0; i < 100; i++) {
+    const stage = getStage(i);
+    const points = getPoints(stage, i);
+    const custStage = getCustomerStage(stage, i);
+    const idx = String(i + 1).padStart(3, "0");
+    const surnameIdx = i % surnames.length;
+    const givenIdx = i % givenNames.length;
+    const name = surnames[surnameIdx] + givenNames[givenIdx];
+    const phone = `09${String(70000000 + i * 111).padStart(8, "0")}`;
+
+    const isAdvanced = stage !== "CUSTOMER";
+    const stageChangedAt = isAdvanced ? getStageChangedAt(stage, i) : null;
+
+    const stageNotes: Record<DemoStage, string> = {
+      CUSTOMER: "",
+      REGULAR: "穩定回訪",
+      POTENTIAL_PARTNER: "有合作意願，觀察中",
+      PARTNER: "已成為合作店長",
+      FUTURE_OWNER: "積極籌備中，準備開店",
+      OWNER: "已開設加盟店",
+    };
+
+    // Sponsor: POTENTIAL_PARTNER+ can have a sponsor from PARTNER/FUTURE_OWNER/OWNER pool
+    let sponsorId: string | null = null;
+    if (stage === "POTENTIAL_PARTNER" && i % 3 === 0) {
+      sponsorId = `demo-cust-${String(80 + (i % 12) + 1).padStart(3, "0")}`;
+    } else if (stage === "PARTNER" && i % 2 === 0) {
+      sponsorId = `demo-cust-${String(92 + (i % 6) + 1).padStart(3, "0")}`;
+    }
+
+    const firstVisitDate = custStage !== "LEAD"
+      ? new Date(2025, 10 + (i % 3), 1 + (i % 28))
+      : null;
+    const convertedDate = custStage === "ACTIVE"
+      ? new Date(2025, 11 + (i % 2), 1 + (i % 28))
+      : null;
+
+    demoCustomers.push({
+      id: `demo-cust-${idx}`,
+      storeId: "default-store",
+      name,
+      phone,
+      gender: getGender(i),
+      customerStage: custStage,
+      talentStage: stage,
+      stageChangedAt,
+      stageNote: stageNotes[stage] || null,
+      totalPoints: points,
+      firstVisitAt: firstVisitDate,
+      convertedAt: convertedDate,
+      selfBookingEnabled: custStage === "ACTIVE",
+      sponsorId,
+    });
+  }
+
+  // Create all 100 demo customers
+  await prisma.customer.createMany({ data: demoCustomers });
+  console.log("  Demo customers created: 100");
+
+  // ---- Referrals for demo customers ----
+  // PARTNER/FUTURE_OWNER/OWNER customers each make 2-5 referrals
+  const demoReferrals: Array<{
+    storeId: string; referrerId: string; referredName: string;
+    referredPhone: string; status: "PENDING" | "VISITED" | "CONVERTED" | "CANCELLED";
+    convertedCustomerId: string | null; note: string; createdAt: Date;
+  }> = [];
+
+  const referralNames = [
+    "方立偉", "陳宥安", "蔡昕穎", "張育萱", "林志豪",
+    "黃梓涵", "鄭博文", "周怡萱", "吳承翰", "楊佳霖",
+    "許瑞芳", "郭靖宜", "劉冠廷", "曾品萱", "蘇俊宇",
+    "謝宛蓉", "簡立群", "洪嘉慧", "彭浩宇", "廖思琪",
+    "賴柏均", "盧宜靜", "范文豪", "余雅琳", "傅啟明",
+    "韓曉雯", "馬振宏", "唐碧蓮", "宋志遠", "溫淑芬",
+    "游思聰", "石佳琪", "丁建華", "姚美如", "程家維",
+    "康雅玲", "沈俊賢", "戴慧珍", "魏國棟", "田曉芳",
+    "高瑋倫", "潘雅文", "何品宏", "江佳穎", "呂明達",
+    "葉淑華", "徐逸凡", "鍾佩君", "董文昌", "施慧玲",
+  ];
+  const statuses: Array<"PENDING" | "VISITED" | "CONVERTED"> = ["PENDING", "VISITED", "CONVERTED"];
+  let refIdx = 0;
+
+  for (let i = 60; i < 100; i++) {
+    const stage = getStage(i);
+    const refCount = stage === "OWNER" ? 5 : stage === "FUTURE_OWNER" ? 4 : stage === "PARTNER" ? 3 : 2;
+
+    for (let r = 0; r < refCount; r++) {
+      const status = statuses[(refIdx + r) % 3];
+      // For CONVERTED referrals, link to a CUSTOMER-stage demo customer
+      const convertedId = status === "CONVERTED" && refIdx < 35
+        ? `demo-cust-${String(refIdx + 1).padStart(3, "0")}`
+        : null;
+
+      demoReferrals.push({
+        storeId: "default-store",
+        referrerId: `demo-cust-${String(i + 1).padStart(3, "0")}`,
+        referredName: referralNames[refIdx % referralNames.length],
+        referredPhone: `09${String(80000000 + refIdx * 111).padStart(8, "0")}`,
+        status,
+        convertedCustomerId: convertedId,
+        note: `Demo 轉介紹 #${refIdx + 1}`,
+        createdAt: new Date(2026, 1 + (refIdx % 3), 1 + (refIdx % 28)),
+      });
+      refIdx++;
+    }
+  }
+
+  await prisma.referral.createMany({ data: demoReferrals });
+  console.log(`  Demo referrals created: ${demoReferrals.length}`);
+
+  // ---- PointRecords for demo customers ----
+  const demoPointRecords: Array<{
+    customerId: string; storeId: string;
+    type: "REFERRAL_CREATED" | "REFERRAL_CONVERTED" | "REFERRAL_VISITED" | "ATTENDANCE" | "BECAME_PARTNER" | "BECAME_FUTURE_OWNER" | "REFERRAL_PARTNER" | "SERVICE";
+    points: number; note: string; createdAt: Date;
+  }> = [];
+
+  for (let i = 0; i < 100; i++) {
+    const stage = getStage(i);
+    const custId = `demo-cust-${String(i + 1).padStart(3, "0")}`;
+
+    // Attendance records (more for higher stages)
+    const attendanceCount = stage === "CUSTOMER" ? (i % 3) : stage === "REGULAR" ? 3 + (i % 5) : stage === "POTENTIAL_PARTNER" ? 5 + (i % 4) : stage === "PARTNER" ? 8 + (i % 5) : stage === "FUTURE_OWNER" ? 10 + (i % 4) : 12 + (i % 3);
+    for (let a = 0; a < attendanceCount; a++) {
+      demoPointRecords.push({
+        customerId: custId, storeId: "default-store", type: "ATTENDANCE",
+        points: 5, note: `出席 #${a + 1}`,
+        createdAt: new Date(2026, 0 + Math.floor(a / 4), 1 + ((a * 7 + i) % 28)),
+      });
+    }
+
+    // Referral points for advanced stages
+    if (i >= 60) {
+      const refCount = stage === "OWNER" ? 5 : stage === "FUTURE_OWNER" ? 4 : stage === "PARTNER" ? 3 : 2;
+      for (let r = 0; r < refCount; r++) {
+        demoPointRecords.push({
+          customerId: custId, storeId: "default-store", type: "REFERRAL_CREATED",
+          points: 10, note: `介紹朋友 #${r + 1}`,
+          createdAt: new Date(2026, 1 + (r % 3), 5 + (r * 3)),
+        });
+        if (r % 2 === 0) {
+          demoPointRecords.push({
+            customerId: custId, storeId: "default-store", type: "REFERRAL_VISITED",
+            points: 20, note: `朋友到店 #${r + 1}`,
+            createdAt: new Date(2026, 1 + (r % 3), 10 + (r * 3)),
+          });
+        }
+        if (r % 3 === 0) {
+          demoPointRecords.push({
+            customerId: custId, storeId: "default-store", type: "REFERRAL_CONVERTED",
+            points: 30, note: `朋友轉換 #${r + 1}`,
+            createdAt: new Date(2026, 1 + (r % 3), 15 + (r * 3)),
+          });
+        }
+      }
+    }
+
+    // Milestone points
+    if (stage === "PARTNER" || stage === "FUTURE_OWNER" || stage === "OWNER") {
+      demoPointRecords.push({
+        customerId: custId, storeId: "default-store", type: "BECAME_PARTNER",
+        points: 100, note: "升為合作店長",
+        createdAt: new Date(2026, 1, 1 + (i % 28)),
+      });
+    }
+    if (stage === "FUTURE_OWNER" || stage === "OWNER") {
+      demoPointRecords.push({
+        customerId: custId, storeId: "default-store", type: "BECAME_FUTURE_OWNER",
+        points: 200, note: "升為準店長",
+        createdAt: new Date(2026, 2, 1 + (i % 28)),
+      });
+    }
+  }
+
+  await prisma.pointRecord.createMany({ data: demoPointRecords });
+  console.log(`  Demo point records created: ${demoPointRecords.length}`);
+
+  // ---- TalentStageLogs for demo customers ----
+  const demoStageLogs: Array<{
+    customerId: string; storeId: string;
+    fromStage: DemoStage; toStage: DemoStage;
+    changedById: string; note: string; createdAt: Date;
+  }> = [];
+
+  const stageProgression: DemoStage[] = ["CUSTOMER", "REGULAR", "POTENTIAL_PARTNER", "PARTNER", "FUTURE_OWNER", "OWNER"];
+
+  for (let i = 35; i < 100; i++) {
+    const finalStage = getStage(i);
+    const finalIdx = stageProgression.indexOf(finalStage);
+    const custId = `demo-cust-${String(i + 1).padStart(3, "0")}`;
+
+    for (let s = 0; s < finalIdx; s++) {
+      demoStageLogs.push({
+        customerId: custId,
+        storeId: "default-store",
+        fromStage: stageProgression[s],
+        toStage: stageProgression[s + 1],
+        changedById: ownerUser.id,
+        note: `Demo 階段晉升 → ${stageProgression[s + 1]}`,
+        createdAt: new Date(2026, s, 10 + (i % 20)),
+      });
+    }
+  }
+
+  await prisma.talentStageLog.createMany({ data: demoStageLogs });
+  console.log(`  Demo talent stage logs created: ${demoStageLogs.length}`);
 
   // ============================================================
   // 8. ShopConfig（店家設定 — 方案預設 BASIC）
