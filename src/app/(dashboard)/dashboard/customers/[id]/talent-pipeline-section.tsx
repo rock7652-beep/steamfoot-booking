@@ -67,10 +67,16 @@ export function TalentPipelineSection({
               className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${
                 elig.isEligibleForFutureOwner
                   ? "bg-green-100 text-green-700"
-                  : "bg-earth-100 text-earth-500"
+                  : talentStage === "FUTURE_OWNER"
+                    ? "bg-blue-100 text-blue-700"
+                    : "bg-earth-100 text-earth-500"
               }`}
             >
-              {elig.isEligibleForFutureOwner ? "可升級" : "培養中"}
+              {elig.isEligibleForFutureOwner
+                ? "可升級"
+                : talentStage === "FUTURE_OWNER"
+                  ? "開店準備中"
+                  : "培養中"}
             </span>
           )}
         </div>
@@ -128,10 +134,12 @@ export function TalentPipelineSection({
         )}
       </div>
 
-      {/* 升級進度條 — 僅 PARTNER 顯示 */}
+      {/* 升級進度條 — PARTNER / FUTURE_OWNER 顯示 */}
       {elig && (
         <div className="mt-3 space-y-2 rounded-lg bg-white p-3">
-          <h4 className="text-xs font-semibold text-earth-600">升級進度</h4>
+          <h4 className="text-xs font-semibold text-earth-600">
+            {talentStage === "FUTURE_OWNER" ? "開店準備度" : "升級進度"}
+          </h4>
           <div className="space-y-1.5">
             <ProgressRow
               label="準備度"

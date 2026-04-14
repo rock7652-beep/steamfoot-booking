@@ -429,8 +429,8 @@ export async function getUpgradeEligibility(
 
   if (!customer) return null;
 
-  // 只有 PARTNER 才計算升級資格（其他階段不適用）
-  if (customer.talentStage !== "PARTNER") return null;
+  // PARTNER / FUTURE_OWNER 顯示升級進度（其他階段不適用）
+  if (customer.talentStage !== "PARTNER" && customer.talentStage !== "FUTURE_OWNER") return null;
 
   // 取得 readiness
   const scores = await computeReadinessScores(activeStoreId);
@@ -474,12 +474,14 @@ export async function getUpgradeEligibility(
   if (!referralsMet) {
     guidance.push(`轉介紹還差 ${UPGRADE_THRESHOLDS.referralsRequired - referralCount} 次，邀請朋友來體驗`);
   }
-  if (isEligible) {
+  if (isEligible && customer.talentStage === "PARTNER") {
     guidance.push("所有條件已達成，可申請升為準店長！");
+  } else if (isEligible && customer.talentStage === "FUTURE_OWNER") {
+    guidance.push("開店準備度優秀，持續保持！");
   }
 
   return {
-    isEligibleForFutureOwner: isEligible,
+    isEligibleForFutureOwner: isEligible && customer.talentStage === "PARTNER",
     upgradeReasons,
     upgradeProgress: {
       readiness: {
