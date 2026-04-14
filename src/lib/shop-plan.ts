@@ -19,7 +19,7 @@ export const FEATURES = {
   TRANSACTION_BASIC: "TRANSACTION_BASIC",     // 基本交易紀錄
   PLAN_BASIC: "PLAN_BASIC",                   // 基本課程方案
 
-  // ── 基礎營運（BASIC）── 穩定管理單店
+  // ── 基礎版（BASIC）── 穩定管理單店
   STAFF_MANAGEMENT: "STAFF_MANAGEMENT",
   TRANSACTION_MANAGEMENT: "TRANSACTION_MANAGEMENT", // 完整交易管理
   PLAN_MANAGEMENT: "PLAN_MANAGEMENT",         // 進階課程方案
@@ -28,9 +28,10 @@ export const FEATURES = {
   RECONCILIATION: "RECONCILIATION",
   AUTO_REMINDER: "AUTO_REMINDER",
   OPS_DASHBOARD_BASIC: "OPS_DASHBOARD_BASIC", // 簡版營運 KPI
+  STORE_REVENUE: "STORE_REVENUE",             // 店營收報表
 
-  // ── 成長版（PRO）── 提升營收與回訪
-  OPS_DASHBOARD: "OPS_DASHBOARD",             // 完整營運儀表板 (v2.0+)
+  // ── 專業版（PRO）── 人才經營 + 顧客成長
+  OPS_DASHBOARD: "OPS_DASHBOARD",             // 完整營運儀表板
   CUSTOMER_ACTIONS: "CUSTOMER_ACTIONS",       // 顧客經營清單
   CUSTOMER_TAGS: "CUSTOMER_TAGS",             // 自動標籤
   CUSTOMER_OPS_PANEL: "CUSTOMER_OPS_PANEL",   // 顧客一頁式營運面板
@@ -39,8 +40,15 @@ export const FEATURES = {
   RANKING: "RANKING",                         // 排行榜
   LINE_OPS: "LINE_OPS",                       // LINE 經營動作
   ADVANCED_REPORTS: "ADVANCED_REPORTS",
-  CROSS_BRANCH_ANALYTICS: "CROSS_BRANCH_ANALYTICS",
   TRAINING_CONTENT: "TRAINING_CONTENT",
+  TALENT_PIPELINE: "TALENT_PIPELINE",         // 人才管道
+  REFERRAL_ANALYTICS: "REFERRAL_ANALYTICS",   // 轉介紹分析
+
+  // ── 聯盟版（ALLIANCE）── 多店複製 + 深度人才分析
+  CROSS_BRANCH_ANALYTICS: "CROSS_BRANCH_ANALYTICS",
+  TALENT_READINESS: "TALENT_READINESS",       // 完整開店準備度
+  COACH_REVENUE: "COACH_REVENUE",             // 合作店長營收報表
+  SPONSOR_TREE: "SPONSOR_TREE",               // sponsor tree 深層分析
 } as const;
 
 export type Feature = (typeof FEATURES)[keyof typeof FEATURES];
@@ -73,6 +81,7 @@ const PLAN_FEATURES: Record<ShopPlan, Set<Feature>> = {
     FEATURES.RECONCILIATION,
     FEATURES.AUTO_REMINDER,
     FEATURES.OPS_DASHBOARD_BASIC,
+    FEATURES.STORE_REVENUE,
   ]),
   PRO: new Set([
     // 包含所有 BASIC
@@ -89,7 +98,8 @@ const PLAN_FEATURES: Record<ShopPlan, Set<Feature>> = {
     FEATURES.RECONCILIATION,
     FEATURES.AUTO_REMINDER,
     FEATURES.OPS_DASHBOARD_BASIC,
-    // PRO 專屬
+    FEATURES.STORE_REVENUE,
+    // PRO 專屬 — 人才經營 + 顧客成長
     FEATURES.OPS_DASHBOARD,
     FEATURES.CUSTOMER_ACTIONS,
     FEATURES.CUSTOMER_TAGS,
@@ -99,8 +109,14 @@ const PLAN_FEATURES: Record<ShopPlan, Set<Feature>> = {
     FEATURES.RANKING,
     FEATURES.LINE_OPS,
     FEATURES.ADVANCED_REPORTS,
-    FEATURES.CROSS_BRANCH_ANALYTICS,
     FEATURES.TRAINING_CONTENT,
+    FEATURES.TALENT_PIPELINE,
+    FEATURES.REFERRAL_ANALYTICS,
+    // ALLIANCE 專屬 — 多店複製 + 深度分析
+    FEATURES.CROSS_BRANCH_ANALYTICS,
+    FEATURES.TALENT_READINESS,
+    FEATURES.COACH_REVENUE,
+    FEATURES.SPONSOR_TREE,
   ]),
 };
 
@@ -141,6 +157,7 @@ export const FREE_LIMITS = {
 
 export const PLAN_INFO: Record<ShopPlan, {
   label: string;
+  shortLabel: string;
   color: string;
   bgColor: string;
   description: string;
@@ -149,6 +166,7 @@ export const PLAN_INFO: Record<ShopPlan, {
 }> = {
   FREE: {
     label: "體驗版",
+    shortLabel: "體驗",
     color: "text-earth-600",
     bgColor: "bg-earth-100",
     description: "先開始用，零門檻上手",
@@ -161,34 +179,34 @@ export const PLAN_INFO: Record<ShopPlan, {
     ],
   },
   BASIC: {
-    label: "基礎營運",
+    label: "基礎版",
+    shortLabel: "BASIC",
     color: "text-primary-700",
     bgColor: "bg-primary-100",
-    description: "穩定管理單店，日常營運不漏接",
+    description: "適合單店日常營運",
     audience: "有固定客源、需要完整管理的單店",
     highlights: [
       "員工管理與排班",
       "完整交易與現金帳",
-      "對帳中心",
+      "對帳中心與店營收報表",
       "自動提醒（LINE / 簡訊）",
-      "基礎報表",
-      "簡版營運 KPI",
+      "基礎報表與營運 KPI",
     ],
   },
   PRO: {
-    label: "成長版",
+    label: "專業版",
+    shortLabel: "PRO",
     color: "text-amber-700",
     bgColor: "bg-amber-100",
-    description: "用數據驅動營收成長",
-    audience: "想提升營收、降低流失的經營者",
+    description: "適合想培養人才、提升轉介紹與顧客經營的店家",
+    audience: "想做人才經營、提升團隊複製力的經營者",
     highlights: [
-      "完整營運儀表板",
+      "人才管道與升級進度",
+      "轉介紹管理與分析",
       "顧客經營清單 + 自動標籤",
-      "一頁式顧客營運面板",
+      "完整營運儀表板",
       "LINE 一鍵經營動作",
-      "操作歷史 + 成效追蹤",
-      "店長排行榜",
-      "聯盟數據分析",
+      "進階報表與成效追蹤",
     ],
   },
 };
@@ -202,18 +220,17 @@ export const UPGRADE_BENEFITS: Record<"BASIC" | "PRO", string[]> = {
     "員工排班與管理",
     "完整交易紀錄管理",
     "現金帳管理",
-    "對帳中心",
+    "對帳中心與店營收報表",
     "自動提醒（LINE 預約提醒）",
-    "基礎報表",
-    "簡版營運 KPI",
+    "基礎報表與營運 KPI",
   ],
   PRO: [
-    "提升回訪率 — 自動標籤 + 經營清單精準追蹤流失客",
-    "提高客單價 — 套票潛力顧客辨識 + 升級推薦",
-    "找出營運問題 — 異常警報 + 營運儀表板即時監控",
-    "追蹤經營成效 — 每個動作可追蹤後續改善",
+    "人才管道 — 追蹤團隊成員升級進度與轉介紹成果",
+    "顧客經營清單 — 自動標籤 + 精準追蹤流失客",
+    "營運儀表板 — 即時監控營運狀態與異常警報",
+    "成效追蹤 — 每個動作可追蹤後續改善",
     "LINE 一鍵經營動作",
-    "店長排行榜 + 聯盟數據",
+    "進階報表與排行榜",
   ],
 };
 
@@ -228,7 +245,7 @@ export interface FeatureGroup {
 
 export const FEATURE_COMPARISON: FeatureGroup[] = [
   {
-    group: "預約與顧客",
+    group: "核心營運",
     features: [
       { key: FEATURES.BOOKING_BASIC, label: "預約管理" },
       { key: FEATURES.CUSTOMER_BASIC, label: "顧客管理" },
@@ -238,7 +255,7 @@ export const FEATURE_COMPARISON: FeatureGroup[] = [
     ],
   },
   {
-    group: "日常營運",
+    group: "日常營運（BASIC）",
     features: [
       { key: FEATURES.STAFF_MANAGEMENT, label: "員工管理" },
       { key: FEATURES.TRANSACTION_MANAGEMENT, label: "完整交易管理" },
@@ -248,11 +265,14 @@ export const FEATURE_COMPARISON: FeatureGroup[] = [
       { key: FEATURES.AUTO_REMINDER, label: "自動提醒（LINE）" },
       { key: FEATURES.BASIC_REPORTS, label: "基礎報表" },
       { key: FEATURES.OPS_DASHBOARD_BASIC, label: "簡版營運 KPI" },
+      { key: FEATURES.STORE_REVENUE, label: "店營收報表" },
     ],
   },
   {
-    group: "營收成長",
+    group: "人才經營（PRO）",
     features: [
+      { key: FEATURES.TALENT_PIPELINE, label: "人才管道" },
+      { key: FEATURES.REFERRAL_ANALYTICS, label: "轉介紹管理與分析" },
       { key: FEATURES.OPS_DASHBOARD, label: "完整營運儀表板" },
       { key: FEATURES.CUSTOMER_ACTIONS, label: "顧客經營清單" },
       { key: FEATURES.CUSTOMER_TAGS, label: "自動標籤系統" },
@@ -260,10 +280,18 @@ export const FEATURE_COMPARISON: FeatureGroup[] = [
       { key: FEATURES.LINE_OPS, label: "LINE 經營動作" },
       { key: FEATURES.OPS_HISTORY, label: "操作歷史" },
       { key: FEATURES.EFFECTIVENESS_TRACKING, label: "成效追蹤" },
-      { key: FEATURES.RANKING, label: "店長排行榜" },
+      { key: FEATURES.RANKING, label: "排行榜" },
       { key: FEATURES.ADVANCED_REPORTS, label: "進階報表" },
-      { key: FEATURES.CROSS_BRANCH_ANALYTICS, label: "聯盟數據" },
       { key: FEATURES.TRAINING_CONTENT, label: "學習中心" },
+    ],
+  },
+  {
+    group: "聯盟複製（ALLIANCE）",
+    features: [
+      { key: FEATURES.TALENT_READINESS, label: "完整開店準備度" },
+      { key: FEATURES.COACH_REVENUE, label: "合作店長營收報表" },
+      { key: FEATURES.SPONSOR_TREE, label: "帶出人數與複製鏈路" },
+      { key: FEATURES.CROSS_BRANCH_ANALYTICS, label: "聯盟數據分析" },
     ],
   },
 ];

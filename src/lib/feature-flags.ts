@@ -28,18 +28,24 @@ export const FEATURES = {
   CASHBOOK: "cashbook",
   BASIC_REPORTS: "basic_reports",
 
-  // ── GROWTH（成長版）──
+  // ── GROWTH / PRO（專業版）── 人才經營 + 進階分析
   ADVANCED_REPORTS: "advanced_reports",
   AI_HEALTH_SUMMARY: "ai_health_summary",
   AI_HEALTH_HISTORY: "ai_health_history",
   AI_REPORT_PDF: "ai_report_pdf",
   RETENTION_REMINDER: "retention_reminder",
   KPI_DASHBOARD: "kpi_dashboard",
+  TALENT_PIPELINE: "talent_pipeline",           // 人才管道
+  REFERRAL_ANALYTICS: "referral_analytics",     // 轉介紹分析
+  TALENT_UPGRADE_PROGRESS: "talent_upgrade_progress", // 升級進度
 
-  // ── ALLIANCE（聯盟版）──
+  // ── ALLIANCE（聯盟版）── 多店複製 + 深度人才分析
   MULTI_STORE: "multi_store",
   HEADQUARTER_VIEW: "headquarter_view",
   ALLIANCE_ANALYTICS: "alliance_analytics",
+  TALENT_READINESS: "talent_readiness",         // 完整開店準備度
+  COACH_REVENUE: "coach_revenue",               // 合作店長營收報表
+  SPONSOR_TREE: "sponsor_tree",                 // sponsor tree 深層分析
 } as const;
 
 export type FeatureKey = (typeof FEATURES)[keyof typeof FEATURES];
@@ -74,12 +80,16 @@ export const PLAN_FEATURES: Record<PricingPlan, FeatureKey[]> = {
     "transaction",
     "cashbook",
     "basic_reports",
+    // PRO 專屬
     "advanced_reports",
     "ai_health_summary",
     "ai_health_history",
     "ai_report_pdf",
     "retention_reminder",
     "kpi_dashboard",
+    "talent_pipeline",
+    "referral_analytics",
+    "talent_upgrade_progress",
   ],
   ALLIANCE: [
     "basic_booking",
@@ -90,15 +100,23 @@ export const PLAN_FEATURES: Record<PricingPlan, FeatureKey[]> = {
     "transaction",
     "cashbook",
     "basic_reports",
+    // PRO 全部
     "advanced_reports",
     "ai_health_summary",
     "ai_health_history",
     "ai_report_pdf",
     "retention_reminder",
     "kpi_dashboard",
+    "talent_pipeline",
+    "referral_analytics",
+    "talent_upgrade_progress",
+    // ALLIANCE 專屬
     "multi_store",
     "headquarter_view",
     "alliance_analytics",
+    "talent_readiness",
+    "coach_revenue",
+    "sponsor_tree",
   ],
 };
 
@@ -156,33 +174,43 @@ export const PLAN_LIMITS: Record<PricingPlan, PlanLimits> = {
 
 export const PRICING_PLAN_INFO: Record<PricingPlan, {
   label: string;
+  shortLabel: string;
   color: string;
   bgColor: string;
   description: string;
+  audience: string;
 }> = {
   EXPERIENCE: {
     label: "體驗版",
+    shortLabel: "體驗",
     color: "text-earth-600",
     bgColor: "bg-earth-100",
     description: "零門檻上手，基礎預約管理",
+    audience: "剛起步、想先試用的店家",
   },
   BASIC: {
     label: "基礎版",
+    shortLabel: "BASIC",
     color: "text-primary-700",
     bgColor: "bg-primary-100",
-    description: "穩定營運，日常管理不漏接",
+    description: "適合單店日常營運",
+    audience: "有固定客源、需要完整管理的單店",
   },
   GROWTH: {
-    label: "成長版",
+    label: "專業版",
+    shortLabel: "PRO",
     color: "text-amber-700",
     bgColor: "bg-amber-100",
-    description: "AI 驅動，提升營收與回訪",
+    description: "適合想培養人才、提升轉介紹與顧客經營的店家",
+    audience: "想做人才經營、提升團隊複製力的經營者",
   },
   ALLIANCE: {
     label: "聯盟版",
+    shortLabel: "ALLIANCE",
     color: "text-indigo-700",
     bgColor: "bg-indigo-100",
-    description: "多店管理，聯盟數據分析",
+    description: "適合想建立準店長、複製分店與擴大團隊的店家",
+    audience: "想建立開店系統、複製團隊的聯盟經營者",
   },
 };
 
