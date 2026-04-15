@@ -249,15 +249,25 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
 
         // Try to find existing Customer
+        // TEMP: 竹北店 LINE 登入 hotfix — 明確限定 storeId
+        // TODO: B7-4 改為 resolveStoreFromRequest() 動態判斷
+        const targetStoreId = DEFAULT_STORE_ID;
+
         let customer = null;
         if (provider === "line" && lineUserId) {
-          customer = await prisma.customer.findFirst({ where: { lineUserId } });
+          customer = await prisma.customer.findFirst({
+            where: { lineUserId, storeId: targetStoreId },
+          });
         }
         if (!customer && provider === "google" && googleId) {
-          customer = await prisma.customer.findFirst({ where: { googleId } });
+          customer = await prisma.customer.findFirst({
+            where: { googleId, storeId: targetStoreId },
+          });
         }
         if (!customer && oauthEmail) {
-          customer = await prisma.customer.findFirst({ where: { email: oauthEmail } });
+          customer = await prisma.customer.findFirst({
+            where: { email: oauthEmail, storeId: targetStoreId },
+          });
         }
 
         if (customer?.userId) {
