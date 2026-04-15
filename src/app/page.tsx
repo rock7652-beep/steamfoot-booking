@@ -1,6 +1,4 @@
-import { auth } from "@/lib/auth";
 import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
 import Link from "next/link";
 import { OAuthButtons } from "./oauth-buttons";
 import { CustomerLoginForm } from "./customer-login-form";
@@ -18,25 +16,20 @@ const ERROR_MESSAGES: Record<string, string> = {
   default: "登入時發生錯誤，請重試。",
 };
 
+/**
+ * 顧客登入頁 — 純 public page，不呼叫 auth() 也不查 DB。
+ *
+ * 已登入用戶由 proxy.ts 在 rewrite 前 redirect（CUSTOMER → /book，Staff → /admin），
+ * 進到這裡的一定是未登入狀態，不需要再檢查 session。
+ *
+ * storeSlug 由 proxy 注入 cookie，storeId 在 form submit 時由 server action 解析。
+ */
 export default async function HomePage({ searchParams }: PageProps) {
   const params = await searchParams;
-  const session = await auth();
 
-  // B7-4.5: 從 cookie 讀 slug，storeId 從 DB 解析
   const cookieStore = await cookies();
   const storeSlug = cookieStore.get("store-slug")?.value ?? "zhubei";
   const prefix = `/s/${storeSlug}`;
-
-  // 從 DB 解析 storeId（用於傳給子元件）
-  const { resolveStoreBySlug } = await import("@/lib/store-resolver");
-  const storeInfo = await resolveStoreBySlug(storeSlug);
-  const storeId = storeInfo?.id ?? "default-store";
-
-  if (session?.user) {
-    const role = (session.user as { role?: string }).role;
-    if (role === "CUSTOMER") redirect(`${prefix}/book`);
-    redirect(`${prefix}/admin/dashboard`);
-  }
 
   const errorMessage = params.error
     ? ERROR_MESSAGES[params.error] ?? ERROR_MESSAGES.default
@@ -73,7 +66,7 @@ export default async function HomePage({ searchParams }: PageProps) {
             </div>
           </div>
 
-          <CustomerLoginForm storeSlug={storeSlug} storeId={storeId} />
+          <CustomerLoginForm storeSlug={storeSlug} />
 
           <div className="mt-4 text-center">
             <Link
