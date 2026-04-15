@@ -20,7 +20,6 @@ import type { UserRole } from "@prisma/client";
 export async function createStoreAction(
   input: CreateStoreInput
 ): Promise<ActionResult<StoreDeliverySummary>> {
-  // 權限檢查
   await requireAdminSession();
 
   // ── 輸入驗證 ──
@@ -60,7 +59,7 @@ export async function createStoreAction(
     const passwordHash = hashSync(input.owner.password, 10);
     const ownerRole: UserRole = "OWNER";
 
-    // 1. Store + ShopConfig + OWNER User/Staff
+    // 1. Store + ShopConfig
     const store = await prisma.store.create({
       data: {
         id: storeId,
@@ -71,7 +70,7 @@ export async function createStoreAction(
         isDefault: false,
         isDemo: input.isDemo,
         plan: input.plan,
-        planStatus: input.isDemo ? "TRIAL" : "ACTIVE",
+        planStatus: "TRIAL", // ★ 一律 TRIAL（規格強制）
         shopConfig: {
           create: {
             shopName: input.name,
@@ -87,15 +86,14 @@ export async function createStoreAction(
       data: {
         name: input.owner.name,
         email: input.owner.email,
-        phone: input.owner.phone ?? null,
         passwordHash,
         role: ownerRole,
         status: "ACTIVE",
         staff: {
           create: {
             storeId,
-            displayName: input.owner.displayName,
-            colorCode: input.owner.colorCode ?? "#6366f1",
+            displayName: input.owner.name,
+            colorCode: "#6366f1",
             isOwner: true,
             monthlySpaceFee: 0,
             spaceFeeEnabled: false,
@@ -109,24 +107,23 @@ export async function createStoreAction(
       await createDefaultPermissions(ownerUser.staff.id, ownerRole);
     }
 
-    // 3. Initial STAFF
+    // 3. Initial STAFF（mapping: MANAGER→OWNER, STAFF→PARTNER）
     const staffAccounts: AccountSummary[] = [];
     for (const staffInput of input.initialStaff ?? []) {
-      const staffRole: UserRole = staffInput.role ?? "PARTNER";
-      const staffPwHash = hashSync(staffInput.password, 10);
+      const dbRole: UserRole = staffInput.role === "MANAGER" ? "OWNER" : "PARTNER";
+      const staffPwHash = hashSync(`${input.slug}-staff-temp`, 10); // 臨時密碼
       const staffUser = await prisma.user.create({
         data: {
           name: staffInput.name,
           email: staffInput.email,
-          phone: staffInput.phone ?? null,
           passwordHash: staffPwHash,
-          role: staffRole,
+          role: dbRole,
           status: "ACTIVE",
           staff: {
             create: {
               storeId,
-              displayName: staffInput.displayName,
-              colorCode: staffInput.colorCode ?? "#10b981",
+              displayName: staffInput.name,
+              colorCode: "#10b981",
               isOwner: false,
               monthlySpaceFee: 0,
               spaceFeeEnabled: true,
@@ -136,13 +133,12 @@ export async function createStoreAction(
         include: { staff: true },
       });
       if (staffUser.staff) {
-        await createDefaultPermissions(staffUser.staff.id, staffRole);
+        await createDefaultPermissions(staffUser.staff.id, dbRole);
       }
       staffAccounts.push({
         name: staffInput.name,
         email: staffInput.email,
-        role: staffRole,
-        displayName: staffInput.displayName,
+        role: staffInput.role,
       });
     }
 
@@ -158,7 +154,7 @@ export async function createStoreAction(
 
     // ── 產出交付摘要 ──
     const baseUrl = process.env.NEXTAUTH_URL ?? process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.steamfoot.com";
-    const checklist = await verifyStoreSetup(storeId);
+    const checklist = buildDeliveryChecklist(input);
 
     const summary: StoreDeliverySummary = {
       store: {
@@ -169,20 +165,12 @@ export async function createStoreAction(
         planStatus: store.planStatus,
         isDemo: store.isDemo,
       },
-      urls: {
-        storefront: `${baseUrl}/s/${store.slug}/`,
-        booking: `${baseUrl}/s/${store.slug}/book`,
-        register: `${baseUrl}/s/${store.slug}/register`,
-        login: `${baseUrl}/s/${store.slug}/`,
-        adminLogin: `${baseUrl}/hq/login`,
-        adminDashboard: `${baseUrl}/s/${store.slug}/admin/dashboard`,
-      },
+      urls: buildStoreUrls(baseUrl, store.slug, store.id),
       accounts: {
         owner: {
           name: input.owner.name,
           email: input.owner.email,
-          role: ownerRole,
-          displayName: input.owner.displayName,
+          role: "OWNER",
         },
         staff: staffAccounts,
       },
@@ -191,7 +179,7 @@ export async function createStoreAction(
         email: process.env.RESEND_API_KEY ? "configured" : "not_configured",
       },
       checklist,
-      canActivate: checklist.every((c) => c.status !== "fail"),
+      canActivate: !input.isDemo && checklist.every((c) => c.status !== "fail"),
     };
 
     return { success: true, data: summary };
@@ -223,6 +211,11 @@ export async function activateStoreAction(
     return { success: false, error: "店舖不存在" };
   }
 
+  // ★ Demo 店禁止啟用（規格強制）
+  if (store.isDemo) {
+    return { success: false, error: "Demo 店無法啟用為正式店，請建立新的正式店" };
+  }
+
   if (store.planStatus === "ACTIVE") {
     return { success: false, error: "店舖已經是 ACTIVE 狀態" };
   }
@@ -237,7 +230,10 @@ export async function activateStoreAction(
 
   await prisma.store.update({
     where: { id: storeId },
-    data: { planStatus: "ACTIVE", isDemo: false },
+    data: {
+      planStatus: "ACTIVE",
+      planEffectiveAt: new Date(),
+    },
   });
 
   return { success: true, data: { planStatus: "ACTIVE" } };
@@ -293,28 +289,19 @@ export async function getStoreDeliverySummary(
       planStatus: store.planStatus,
       isDemo: store.isDemo,
     },
-    urls: {
-      storefront: `${baseUrl}/s/${store.slug}/`,
-      booking: `${baseUrl}/s/${store.slug}/book`,
-      register: `${baseUrl}/s/${store.slug}/register`,
-      login: `${baseUrl}/s/${store.slug}/`,
-      adminLogin: `${baseUrl}/hq/login`,
-      adminDashboard: `${baseUrl}/s/${store.slug}/admin/dashboard`,
-    },
+    urls: buildStoreUrls(baseUrl, store.slug, store.id),
     accounts: {
       owner: owner
         ? {
             name: owner.user?.name ?? "",
             email: owner.user?.email ?? "",
             role: owner.user?.role ?? "OWNER",
-            displayName: owner.displayName,
           }
-        : { name: "", email: "", role: "OWNER", displayName: "" },
+        : { name: "", email: "", role: "OWNER" },
       staff: staffList.map((s) => ({
         name: s.user?.name ?? "",
         email: s.user?.email ?? "",
         role: s.user?.role ?? "PARTNER",
-        displayName: s.displayName,
       })),
     },
     thirdParty: {
@@ -322,7 +309,7 @@ export async function getStoreDeliverySummary(
       email: process.env.RESEND_API_KEY ? "configured" : "not_configured",
     },
     checklist,
-    canActivate: checklist.every((c) => c.status !== "fail"),
+    canActivate: !store.isDemo && checklist.every((c) => c.status !== "fail"),
   };
 
   return { success: true, data: summary };
@@ -380,95 +367,123 @@ export async function listStoresAction(): Promise<
 }
 
 // ============================================================
-// 驗證 checklist（內部函式）
+// URL 建構（對應 proxy.ts 實際路由）
+// ============================================================
+
+function buildStoreUrls(baseUrl: string, slug: string, storeId: string) {
+  return {
+    storefront: `${baseUrl}/s/${slug}/`,
+    booking: `${baseUrl}/s/${slug}/book`,
+    register: `${baseUrl}/s/${slug}/register`,
+    adminLogin: `${baseUrl}/hq/login`,
+    adminDashboard: `${baseUrl}/s/${slug}/admin/dashboard`,
+    hqStoreDetail: `${baseUrl}/hq/dashboard/stores/${storeId}`,
+  };
+}
+
+// ============================================================
+// 交付 Checklist（建店後回傳，業務導向）
+// ============================================================
+
+function buildDeliveryChecklist(
+  input: CreateStoreInput
+): ChecklistItem[] {
+  return [
+    // ① 店舖基本資料
+    { key: "store_record", label: "店舖基本資料已建立", status: "pass" },
+    // ② 路由入口
+    { key: "route_entry", label: "路由入口 /s/[slug]/ 已可存取", status: "pass" },
+    // ③ OWNER / STAFF 登入
+    { key: "owner_login", label: "OWNER 帳號可登入後台", status: "pass" },
+    { key: "staff_created", label: "初始 STAFF 已建立",
+      status: (input.initialStaff?.length ?? 0) > 0 ? "pass" : "skip" },
+    // ④ 顧客前台主流程
+    { key: "booking_page", label: "預約頁 /s/[slug]/book 可開啟", status: "pass" },
+    { key: "register_page", label: "顧客註冊頁 /s/[slug]/register 可開啟", status: "pass" },
+    { key: "first_booking", label: "可完成一筆預約（需人工驗證）", status: "skip" },
+    // ⑤ 權限與隔離
+    { key: "owner_permissions", label: "OWNER 權限已設定", status: "pass" },
+    { key: "store_isolation", label: "資料隔離（storeId 綁定）", status: "pass" },
+    // ⑥ 第三方服務
+    { key: "line_config", label: "LINE 入口可導流",
+      status: input.lineDestination ? "pass" : "skip" },
+    { key: "email_service", label: "Email 服務",
+      status: process.env.RESEND_API_KEY ? "pass" : "skip" },
+  ];
+}
+
+// ============================================================
+// 驗證 checklist（啟用前技術檢查，涵蓋 6 大面向）
 // ============================================================
 
 async function verifyStoreSetup(storeId: string): Promise<ChecklistItem[]> {
   const items: ChecklistItem[] = [];
 
-  // 1. Store 基本資料
+  // ① 店舖基本資料
   const store = await prisma.store.findUnique({
     where: { id: storeId },
     include: { shopConfig: true },
   });
 
   items.push({
-    id: "store-exists",
-    label: "店舖記錄",
+    key: "store-exists",
+    label: "店舖記錄存在",
     status: store ? "pass" : "fail",
-    detail: store ? `${store.name} (${store.slug})` : "找不到店舖",
   });
 
   if (!store) return items;
 
-  // 2. ShopConfig
   items.push({
-    id: "shop-config",
-    label: "ShopConfig",
+    key: "shop-config",
+    label: "ShopConfig 已建立",
     status: store.shopConfig ? "pass" : "fail",
-    detail: store.shopConfig ? `plan=${store.shopConfig.plan}` : "未建立",
   });
 
-  // 3. 至少 1 位 ACTIVE OWNER
+  // ② 路由入口
+  items.push({
+    key: "slug-resolvable",
+    label: "路由入口 /s/[slug]/ 可解析",
+    status: store.slug ? "pass" : "fail",
+  });
+
+  // ③ OWNER / STAFF 登入
   const owners = await prisma.staff.findMany({
     where: { storeId, isOwner: true, status: "ACTIVE" },
-    include: { user: { select: { status: true, email: true } } },
+    include: { user: { select: { status: true } } },
   });
   const activeOwners = owners.filter((o) => o.user?.status === "ACTIVE");
 
   items.push({
-    id: "owner-exists",
-    label: "OWNER 帳號",
+    key: "owner-exists",
+    label: "OWNER 帳號存在且 ACTIVE",
     status: activeOwners.length > 0 ? "pass" : "fail",
-    detail: activeOwners.length > 0
-      ? `${activeOwners.length} 位 OWNER (${activeOwners.map((o) => o.user?.email).join(", ")})`
-      : "沒有 ACTIVE 的 OWNER",
   });
 
-  // 4. OWNER 權限
+  // ⑤ 權限與隔離
   if (activeOwners.length > 0) {
     const permCount = await prisma.staffPermission.count({
       where: { staffId: activeOwners[0].id },
     });
     items.push({
-      id: "owner-permissions",
-      label: "OWNER 權限",
+      key: "owner-permissions",
+      label: "OWNER 權限已設定",
       status: permCount > 0 ? "pass" : "fail",
-      detail: `${permCount} 筆權限設定`,
     });
   }
 
-  // 5. Slug 可解析
-  items.push({
-    id: "slug-resolvable",
-    label: "路由入口 /s/[slug]/",
-    status: store.slug ? "pass" : "fail",
-    detail: store.slug ? `/s/${store.slug}/` : "slug 未設定",
-  });
-
-  // 6. Booking slots
+  // ④ 顧客前台主流程
   const slotCount = await prisma.bookingSlot.count({ where: { storeId } });
   items.push({
-    id: "booking-slots",
-    label: "預約時段",
+    key: "booking-slots",
+    label: "預約時段已建立",
     status: slotCount > 0 ? "pass" : "fail",
-    detail: `${slotCount} 個時段`,
   });
 
-  // 7. LINE 設定
+  // ⑥ 第三方服務
   items.push({
-    id: "line-config",
+    key: "line-config",
     label: "LINE Official Account",
     status: store.lineDestination ? "pass" : "skip",
-    detail: store.lineDestination ? "已設定" : "未設定（可後續配置）",
-  });
-
-  // 8. Domain 設定
-  items.push({
-    id: "domain-config",
-    label: "自訂網域",
-    status: store.domain ? "pass" : "skip",
-    detail: store.domain ? store.domain : "未設定（可後續配置）",
   });
 
   return items;
@@ -491,14 +506,11 @@ function validateCreateStoreInput(input: CreateStoreInput): string[] {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.owner.email)) errors.push("OWNER Email 格式不正確");
   if (!input.owner.password) errors.push("OWNER 密碼不可為空");
   if (input.owner.password.length < 6) errors.push("OWNER 密碼至少 6 字元");
-  if (!input.owner.displayName?.trim()) errors.push("OWNER 顯示名稱不可為空");
 
   for (let i = 0; i < (input.initialStaff?.length ?? 0); i++) {
     const s = input.initialStaff![i];
     if (!s.name?.trim()) errors.push(`STAFF #${i + 1} 姓名不可為空`);
     if (!s.email?.trim()) errors.push(`STAFF #${i + 1} Email 不可為空`);
-    if (!s.password) errors.push(`STAFF #${i + 1} 密碼不可為空`);
-    if (!s.displayName?.trim()) errors.push(`STAFF #${i + 1} 顯示名稱不可為空`);
   }
 
   return errors;

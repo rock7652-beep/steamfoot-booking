@@ -176,7 +176,11 @@ export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | n
         }
         return NextResponse.redirect(new URL("/hq/login?error=admin-required", req.url));
       }
-      // Rewrite /hq/dashboard/... → /dashboard/...
+      // B7-5: HQ-only 頁面（如 /hq/dashboard/stores）不 rewrite，直接 pass-through
+      if (pathname.startsWith("/hq/dashboard/stores")) {
+        return withDomainCookie(NextResponse.next(), domainStoreId);
+      }
+      // Rewrite /hq/dashboard/... → /dashboard/...（共用 dashboard 頁面）
       const dashboardPath = pathname.slice("/hq".length);
       return hqRewrite(req, dashboardPath, domainStoreId);
     }
