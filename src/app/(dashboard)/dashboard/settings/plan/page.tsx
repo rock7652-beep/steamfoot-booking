@@ -33,7 +33,7 @@ import type { StorePlanStatus } from "@prisma/client";
 export default async function PlanSettingsPage() {
   const user = await getCurrentUser();
   if (!user) {
-    redirect("/login");
+    redirect("/hq/login");
   }
   if (user.role !== "ADMIN") {
     notFound();

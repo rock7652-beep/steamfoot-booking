@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { SubmitButton } from "@/components/submit-button";
+import { getStoreContext } from "@/lib/store-context";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -21,7 +22,11 @@ function getBookingDateTime(bookingDate: Date, slotTime: string): Date {
 export default async function CancelBookingPage({ params }: PageProps) {
   const { id } = await params;
   const user = await getCurrentUser();
-  if (!user || !user.customerId) redirect("/login");
+  if (!user || !user.customerId) {
+    const ctx = await getStoreContext();
+    const slug = ctx?.storeSlug ?? "zhubei";
+    redirect(`/s/${slug}/`);
+  }
 
   const booking = await prisma.booking.findUnique({
     where: { id },

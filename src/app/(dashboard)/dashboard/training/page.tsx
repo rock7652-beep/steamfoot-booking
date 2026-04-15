@@ -7,7 +7,7 @@ import { FeatureGate } from "@/components/feature-gate";
 export default async function TrainingPage() {
   const user = await getCurrentUser();
   if (!user) {
-    redirect("/login");
+    redirect("/hq/login");
   }
   if (user.role !== "ADMIN") {
     notFound();

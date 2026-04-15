@@ -566,8 +566,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
 
   pages: {
-    signIn: "/login",
-    // OAuth 錯誤導向顧客首頁（/），而非員工後台登入頁（/login）
+    // B7-4.5: 導向根路徑，由 proxy 依身份分流：
+    //   未登入 → /s/zhubei/（顧客登入）
+    //   已登入 CUSTOMER → /s/{slug}/book
+    //   已登入 Staff → /s/{slug}/admin/dashboard
+    signIn: "/",
     error: "/",
   },
 

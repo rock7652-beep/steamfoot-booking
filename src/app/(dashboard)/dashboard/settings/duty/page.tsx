@@ -78,7 +78,7 @@ async function getUnscheduledDaysThisWeek(storeId: string): Promise<{
 export default async function DutySettingsPage() {
   const user = await getCurrentUser();
   if (!user) {
-    redirect("/login");
+    redirect("/hq/login");
   }
   if (user.role !== "ADMIN") {
     notFound();
