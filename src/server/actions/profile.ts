@@ -48,16 +48,16 @@ export async function updateProfileAction(
   }
 
   try {
-    // 檢查 phone unique（排除自己）
+    // 檢查 phone unique（排除自己，限同店）
     const currentCustomer = await prisma.customer.findUnique({
       where: { id: user.customerId },
-      select: { phone: true, userId: true },
+      select: { phone: true, userId: true, storeId: true },
     });
     if (!currentCustomer) return { error: "找不到帳號", success: false };
 
     if (phone !== currentCustomer.phone) {
       const existingPhone = await prisma.customer.findFirst({
-        where: { phone, id: { not: user.customerId } },
+        where: { phone, id: { not: user.customerId }, storeId: currentCustomer.storeId },
       });
       if (existingPhone) {
         return { error: "此手機號碼已被其他帳號使用", success: false };
@@ -77,10 +77,10 @@ export async function updateProfileAction(
       }
     }
 
-    // 檢查 email unique
+    // 檢查 email unique（限同店）
     if (email) {
       const existingEmail = await prisma.customer.findFirst({
-        where: { email, id: { not: user.customerId } },
+        where: { email, id: { not: user.customerId }, storeId: currentCustomer.storeId },
       });
       if (existingEmail) {
         return { error: "此 Email 已被其他帳號使用", success: false };

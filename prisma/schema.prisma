@@ -455,8 +455,8 @@ model Customer {
   storeId            String
   name               String
   phone              String
-  email              String?       @unique // 用於 Google 綁定比對（unique 確保一對一綁定）
-  googleId           String?       @unique // Google sub ID，避免 email 變更造成重複
+  email              String?       // 用於 Google 綁定比對（per-store unique）
+  googleId           String?       // Google sub ID（per-store unique）
   avatar             String?       // Google 大頭貼 URL（未來 UI 用）
   authSource         AuthSource    @default(MANUAL) // 顧客來源（分析用）
   gender             String?       // 性別（選填）
@@ -464,10 +464,10 @@ model Customer {
   height             Float?        // 身高 cm（選填）
   address            String?       // 地址（選填）
   lineName           String?       // LINE 顯示名稱
-  lineUserId         String?       @unique // LINE user ID (from webhook)
+  lineUserId         String?       // LINE user ID (per-store unique)
   lineLinkedAt       DateTime?     // LINE 綁定時間
   lineLinkStatus            LineLinkStatus @default(UNLINKED)
-  lineBindingCode           String?        @unique // 6 ��綁定碼
+  lineBindingCode           String?        // 6 碼綁定碼（per-store unique）
   lineBindingCodeCreatedAt  DateTime?      // 綁定碼產生時間
   notes              String?       // 內部備註
   // AI 健康評估系統連結
@@ -518,13 +518,17 @@ model Customer {
   // 訊息紀錄
   messageLogs MessageLog[]
 
+  @@unique([storeId, phone], name: "uq_store_customer_phone")
+  @@unique([storeId, email], name: "uq_store_customer_email")
+  @@unique([storeId, googleId], name: "uq_store_customer_google")
+  @@unique([storeId, lineUserId], name: "uq_store_customer_line")
+  @@unique([storeId, lineBindingCode], name: "uq_store_customer_binding_code")
   @@index([storeId])
   @@index([assignedStaffId])
   @@index([customerStage])
   @@index([talentStage])
   @@index([sponsorId])
   @@index([phone])
-  // email 和 googleId 已有 @unique，自帶索引
 }
 
 // ============================================================

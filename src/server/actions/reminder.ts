@@ -311,7 +311,7 @@ export async function generateLineBindingCode(
     let code = "";
     for (let attempt = 0; attempt < 10; attempt++) {
       code = generateBindingCode();
-      const existing = await prisma.customer.findUnique({
+      const existing = await prisma.customer.findFirst({
         where: { lineBindingCode: code },
       });
       if (!existing) break;

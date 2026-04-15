@@ -203,7 +203,7 @@ async function handleBindingRequest(
   }
 
   // 2. 查詢綁定碼
-  const customer = await prisma.customer.findUnique({
+  const customer = await prisma.customer.findFirst({
     where: { lineBindingCode: bindingCode },
   });
 

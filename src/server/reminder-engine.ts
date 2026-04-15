@@ -221,9 +221,9 @@ async function findTriggeredBookings(
   windowEnd: Date,
 ): Promise<BookingWithCustomer[]> {
   if (rule.type === "relative") {
-    return findRelativeBookings(rule.offsetMinutes ?? 0, windowStart, windowEnd);
+    return findRelativeBookings(rule.offsetMinutes ?? 0, windowStart, windowEnd, rule.storeId);
   }
-  return findFixedBookings(rule.offsetDays, rule.fixedTime ?? "20:00", windowStart, windowEnd);
+  return findFixedBookings(rule.offsetDays, rule.fixedTime ?? "20:00", windowStart, windowEnd, rule.storeId);
 }
 
 /**
@@ -237,6 +237,7 @@ async function findRelativeBookings(
   offsetMinutes: number,
   windowStart: Date,
   windowEnd: Date,
+  storeId: string,
 ) {
   const offsetMs = offsetMinutes * 60 * 1000;
 
@@ -258,6 +259,7 @@ async function findRelativeBookings(
 
   const bookings = await prisma.booking.findMany({
     where: {
+      storeId,
       bookingDate: { gte: dateStart, lte: dateEnd },
       bookingStatus: { in: ["PENDING", "CONFIRMED"] },
       customer: {
@@ -291,6 +293,7 @@ async function findFixedBookings(
   fixedTime: string,
   windowStart: Date,
   windowEnd: Date,
+  storeId: string,
 ) {
   const [fixedH, fixedM] = fixedTime.split(":").map(Number);
   // 台灣時間 → UTC offset: -8 hours
@@ -329,6 +332,7 @@ async function findFixedBookings(
 
   const bookings = await prisma.booking.findMany({
     where: {
+      storeId,
       bookingDate: bookingDate,
       bookingStatus: { in: ["PENDING", "CONFIRMED"] },
       customer: {

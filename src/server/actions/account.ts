@@ -52,9 +52,9 @@ export async function checkPhoneStatus(phone: string): Promise<PhoneStatus> {
     };
   }
 
-  // 查 Customer（可能由後台建立，無 User）
+  // 查 Customer（可能由後台建立，無 User）— 限同店
   const customer = await prisma.customer.findFirst({
-    where: { phone, userId: null },
+    where: { phone, userId: null, storeId: (await import("@/lib/store")).DEFAULT_STORE_ID },
     select: { name: true, email: true },
     orderBy: { createdAt: "desc" },
   });
@@ -88,9 +88,10 @@ export async function requestActivation(
       return { success: false, error: "Email 格式不正確" };
     }
 
-    // 找到未開通的 Customer
+    // 找到未開通的 Customer — 限同店
+    const { DEFAULT_STORE_ID } = await import("@/lib/store");
     const customer = await prisma.customer.findFirst({
-      where: { phone, userId: null },
+      where: { phone, userId: null, storeId: DEFAULT_STORE_ID },
       orderBy: { createdAt: "desc" },
     });
 
@@ -98,10 +99,10 @@ export async function requestActivation(
       return { success: false, error: "找不到此手機號碼的顧客資料，或帳號已開通" };
     }
 
-    // 檢查 email 是否被其他顧客使用
+    // 檢查 email 是否被同店其他顧客使用
     if (email) {
       const emailTakenByCustomer = await prisma.customer.findFirst({
-        where: { email, id: { not: customer.id } },
+        where: { email, id: { not: customer.id }, storeId: DEFAULT_STORE_ID },
       });
       if (emailTakenByCustomer) {
         return { success: false, error: "此 Email 已被其他顧客使用" };

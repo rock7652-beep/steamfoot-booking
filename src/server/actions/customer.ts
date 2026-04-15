@@ -55,18 +55,19 @@ export async function createCustomer(
     }
     // 不再強制指派 — 顧客可稍後由店長指派
 
-    // 檢查電話是否重複（僅當有填寫電話時）
+    // 檢查電話是否重複（僅當有填寫電話時，限同店）
+    const storeId = currentStoreId(user);
     if (data.phone) {
       const existingPhone = await prisma.customer.findFirst({
-        where: { phone: data.phone },
+        where: { phone: data.phone, storeId },
       });
       if (existingPhone) throw new AppError("CONFLICT", "此電話號碼已存在於系統中");
     }
 
-    // 檢查 email 是否重複（僅當有填寫時）
+    // 檢查 email 是否重複（僅當有填寫時，限同店）
     if (data.email) {
       const existingEmail = await prisma.customer.findFirst({
-        where: { email: data.email },
+        where: { email: data.email, storeId },
       });
       if (existingEmail) throw new AppError("CONFLICT", "此 Email 已存在於系統中");
     }

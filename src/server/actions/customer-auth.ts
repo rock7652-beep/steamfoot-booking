@@ -85,7 +85,7 @@ export async function customerRegisterAction(
     return { error: "此手機號碼已註冊，請直接登入" };
   }
 
-  const existingCustomer = await prisma.customer.findFirst({ where: { phone } });
+  const existingCustomer = await prisma.customer.findFirst({ where: { phone, storeId: DEFAULT_STORE_ID } });
   if (existingCustomer) {
     if (!existingCustomer.userId) {
       // 後台建立的顧客，導向帳號開通
