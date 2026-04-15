@@ -82,7 +82,8 @@ export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | n
           return NextResponse.redirect(new URL(`/s/${userSlug}/admin${adminSubPath}`, req.url));
         }
         if (!sessionStoreId) {
-          return NextResponse.redirect(new URL("/hq/login?error=missing-store", req.url));
+          // stale JWT（storeId 遺失）→ 導回顧客登入頁，不進後台
+          return NextResponse.redirect(new URL(`/s/${storeSlug}/`, req.url));
         }
       }
       // Rewrite /s/[slug]/admin/dashboard/... → /dashboard/...
@@ -141,10 +142,14 @@ export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | n
         if (role === "ADMIN") {
           return NextResponse.redirect(new URL("/hq/dashboard", req.url));
         }
-        const slug = userSlug;
-        return NextResponse.redirect(new URL(`/s/${slug}/admin/dashboard`, req.url));
+        // OWNER / PARTNER — 僅在 session 有 storeId 時才導向後台
+        // stale JWT（storeId 遺失）→ 不攔截，直接顯示顧客登入頁
+        if (sessionStoreId) {
+          const slug = userSlug;
+          return NextResponse.redirect(new URL(`/s/${slug}/admin/dashboard`, req.url));
+        }
       }
-      // Rewrite /s/[slug]/ → / (root page = customer login)
+      // 未登入 or stale staff session → 顧客登入頁
       return storeRewrite(req, "/", storeSlug, domainStoreId);
     }
 
