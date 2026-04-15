@@ -360,6 +360,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
 
         // No existing Customer - create new Customer + User
+        // TEMP: OAuth 新顧客 phone 使用唯一佔位符，避免 compound unique (storeId, phone) 衝突
+        // TODO: B7-4 讓顧客後續補填真實手機
+        const oauthPlaceholderPhone = `_oauth_${provider}_${account.providerAccountId.slice(-8)}`;
+
         const newUser = await prisma.user.create({
           data: {
             name: oauthName,
@@ -373,7 +377,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         await prisma.customer.create({
           data: {
             name: oauthName,
-            phone: "",
+            phone: oauthPlaceholderPhone,
             email: oauthEmail,
             authSource: provider === "line" ? "LINE" : "GOOGLE",
             userId: newUser.id,
