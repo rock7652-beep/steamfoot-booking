@@ -379,7 +379,7 @@ export default function PricingPage() {
               免費體驗
             </Link>
             <Link
-              href="/dashboard/settings/plan"
+              href="/register"
               className="rounded-xl bg-amber-500 px-7 py-3 text-sm font-semibold text-white shadow-md transition hover:bg-amber-600"
             >
               升級我的方案
@@ -631,7 +631,7 @@ function UpgradeScenario({
       <p className="mt-3 text-sm leading-relaxed text-earth-700">{pain}</p>
       <p className="mt-2 text-sm font-semibold text-earth-900">{solution}</p>
       <Link
-        href="/dashboard/settings/plan"
+        href="#plans"
         className={`mt-4 inline-flex rounded-lg px-5 py-2 text-sm font-medium text-white transition ${btnColor}`}
       >
         {cta}

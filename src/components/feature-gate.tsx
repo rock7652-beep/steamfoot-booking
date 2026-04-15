@@ -66,7 +66,7 @@ function UpgradeCard({ feature }: { feature: Feature }) {
       )}
       <div className="mt-5 flex items-center justify-center gap-2">
         <a
-          href="/dashboard/settings/plan"
+          href="/pricing"
           className="inline-flex items-center gap-1.5 rounded-lg bg-primary-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-primary-700"
         >
           {gateCopy.primaryCta}
@@ -75,7 +75,7 @@ function UpgradeCard({ feature }: { feature: Feature }) {
           </svg>
         </a>
         <a
-          href="/dashboard/settings/plan"
+          href="/pricing"
           className="inline-flex items-center rounded-lg border border-earth-200 px-4 py-2.5 text-sm text-earth-600 transition hover:bg-earth-50"
         >
           {gateCopy.secondaryCta}
@@ -140,13 +140,13 @@ export function UpgradePrompt({ open, onClose, targetPlan, featureLabel }: Upgra
         <div className="mt-5 space-y-2">
           <div className="flex gap-2">
             <a
-              href="/dashboard/settings/plan"
+              href="/pricing"
               className="flex-1 rounded-lg bg-primary-600 py-2.5 text-center text-sm font-medium text-white transition hover:bg-primary-700"
             >
               立即升級
             </a>
             <a
-              href="/dashboard/settings/plan"
+              href="/pricing"
               className="rounded-lg border border-earth-200 px-4 py-2.5 text-sm text-earth-600 transition hover:bg-earth-50"
             >
               查看方案比較
@@ -229,7 +229,7 @@ export function TrialLimitModal({
         <div className="mt-5 space-y-2">
           <div className="flex gap-2">
             <a
-              href="/dashboard/settings/plan"
+              href="/pricing"
               className="flex-1 rounded-lg bg-primary-600 py-2.5 text-center text-sm font-medium text-white transition hover:bg-primary-700"
             >
               {TRIAL_CONVERSION_COPY.modalCta}
@@ -300,7 +300,7 @@ export function PlanLimitNotice({
               : `${label}已使用 ${current}/${limit}（${pct}%），升級可擴充容量`}
         </span>
         <a
-          href="/dashboard/settings/plan"
+          href="/pricing"
           className={`ml-2 shrink-0 text-xs font-medium underline ${
             isAtLimit ? "text-red-600" : isWarning ? "text-amber-600" : "text-blue-500"
           }`}
@@ -354,7 +354,7 @@ export function TrialProgressBar({ trial }: { trial: TrialStatus }) {
           )}
         </div>
         <a
-          href="/dashboard/settings/plan"
+          href="/pricing"
           className={`text-xs font-medium underline ${
             trial.stage === "blocked"
               ? "text-red-600"

@@ -20,7 +20,7 @@ interface UpgradeNoticeProps {
   showCta?: boolean;
   /** CTA 按鈕文字（預設「立即升級」） */
   ctaLabel?: string;
-  /** CTA 連結（預設 /dashboard/settings/plan） */
+  /** CTA 連結（預設 /pricing） */
   ctaHref?: string;
   /** 傳入後顯示升級申請表單 */
   currentPlan?: PricingPlan;
@@ -37,7 +37,7 @@ export function UpgradeNotice({
   description,
   showCta = true,
   ctaLabel = "立即升級",
-  ctaHref = "/dashboard/settings/plan",
+  ctaHref = "/pricing",
   currentPlan,
   hasPending,
   targetPlan,
@@ -86,7 +86,7 @@ export function UpgradeNotice({
                 </svg>
               </Link>
               <Link
-                href="/dashboard/settings/plan"
+                href="/pricing"
                 className="text-xs text-amber-600 underline transition hover:text-amber-700"
               >
                 查看方案比較
@@ -114,7 +114,7 @@ export function UpgradeNoticePage({
   description,
   showCta = true,
   ctaLabel = "立即升級",
-  ctaHref = "/dashboard/settings/plan",
+  ctaHref = "/pricing",
   currentPlan,
   hasPending,
   targetPlan,
