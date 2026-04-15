@@ -399,9 +399,24 @@ export default function DashboardShell({
   storeOptions,
   activeStoreId,
 }: DashboardShellProps) {
-  const pathname = usePathname();
+  const rawPathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  // B7-4: 從 URL 推導 dashboard prefix
+  // /s/zhubei/admin/dashboard/bookings → prefix="/s/zhubei/admin", normalizedPathname="/dashboard/bookings"
+  // /hq/dashboard/bookings → prefix="/hq", normalizedPathname="/dashboard/bookings"
+  // /dashboard/bookings → prefix="", normalizedPathname="/dashboard/bookings" (legacy)
+  const dashboardPrefix = useMemo(() => {
+    const storeMatch = rawPathname.match(/^(\/s\/[^/]+\/admin)\/dashboard/);
+    if (storeMatch) return storeMatch[1];
+    const hqMatch = rawPathname.match(/^(\/hq)\/dashboard/);
+    if (hqMatch) return hqMatch[1];
+    return "";
+  }, [rawPathname]);
+  const pathname = dashboardPrefix
+    ? rawPathname.slice(dashboardPrefix.length)
+    : rawPathname;
 
   // 左上角顯示目前店名（ADMIN 切店時動態更新）
   const headerTitle = (() => {
@@ -460,7 +475,7 @@ export default function DashboardShell({
   // Close mobile sidebar on route change
   useEffect(() => {
     setMobileOpen(false); // eslint-disable-line react-hooks/set-state-in-effect
-  }, [pathname]);
+  }, [rawPathname]);
 
   // Prevent body scroll when mobile sidebar is open
   useEffect(() => {
@@ -513,7 +528,7 @@ export default function DashboardShell({
     return (
       <li key={item.href}>
         <Link
-          href={item.href}
+          href={`${dashboardPrefix}${item.href}`}
           className={`group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
             active
               ? "bg-primary-100 text-primary-800"

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
+import { getStoreContext } from "@/lib/store-context";
 import BuildFooter from "@/components/build-footer";
 
 export default async function AuthLayout({
@@ -9,7 +10,9 @@ export default async function AuthLayout({
 }) {
   const user = await getCurrentUser();
   if (user) {
-    redirect(user.role === "CUSTOMER" ? "/book" : "/dashboard");
+    const store = await getStoreContext();
+    const slug = store?.storeSlug ?? "zhubei";
+    redirect(user.role === "CUSTOMER" ? `/s/${slug}/book` : `/s/${slug}/admin/dashboard`);
   }
   return (
     <div className="flex min-h-screen flex-col bg-earth-50">

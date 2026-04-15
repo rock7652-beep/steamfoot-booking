@@ -8,6 +8,10 @@ import { requestPasswordReset } from "@/server/actions/account";
 export default function ForgotPasswordPage() {
   const searchParams = useSearchParams();
   const initialPhone = searchParams.get("phone") ?? "";
+  const storeSlug = typeof window !== "undefined"
+    ? window.location.pathname.match(/^\/s\/([^/]+)/)?.[1] ?? "zhubei"
+    : "zhubei";
+  const prefix = `/s/${storeSlug}`;
 
   const [phone, setPhone] = useState(initialPhone);
   const [sent, setSent] = useState(false);
@@ -53,7 +57,7 @@ export default function ForgotPasswordPage() {
               重新送出
             </button>
             <Link
-              href="/"
+              href={prefix + "/"}
               className="block w-full text-center text-sm text-primary-600 hover:underline"
             >
               返回登入

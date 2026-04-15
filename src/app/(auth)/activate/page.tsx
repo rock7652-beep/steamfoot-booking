@@ -12,6 +12,12 @@ export default function ActivatePage() {
   const searchParams = useSearchParams();
   const initialPhone = searchParams.get("phone") ?? "";
 
+  // B7-4: store-aware links
+  const storeSlug = typeof window !== "undefined"
+    ? window.location.pathname.match(/^\/s\/([^/]+)/)?.[1] ?? "zhubei"
+    : "zhubei";
+  const prefix = `/s/${storeSlug}`;
+
   const [phone, setPhone] = useState(initialPhone);
   const [email, setEmail] = useState("");
   const [step, setStep] = useState<"form" | "sent">("form");
@@ -88,7 +94,7 @@ export default function ActivatePage() {
               重新寄送
             </button>
             <Link
-              href="/"
+              href={prefix + "/"}
               className="block w-full text-center text-sm text-primary-600 hover:underline"
             >
               返回登入
@@ -113,7 +119,7 @@ export default function ActivatePage() {
           <div className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
             <p>{error}</p>
             {error.includes("已開通") && (
-              <Link href="/" className="mt-1 inline-block font-medium text-primary-600 hover:underline">
+              <Link href={prefix + "/"} className="mt-1 inline-block font-medium text-primary-600 hover:underline">
                 返回登入 →
               </Link>
             )}
@@ -188,7 +194,7 @@ export default function ActivatePage() {
         )}
 
         <div className="mt-4 text-center">
-          <Link href="/" className="text-sm text-earth-500 hover:text-earth-700">
+          <Link href={prefix + "/"} className="text-sm text-earth-500 hover:text-earth-700">
             ← 返回登入
           </Link>
         </div>

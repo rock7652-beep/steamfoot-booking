@@ -15,10 +15,14 @@ export default async function DashboardLayout({
 }) {
   const user = await getCurrentUser();
   if (!user) {
-    redirect("/login");
+    redirect("/hq/login");
   }
   if (user.role === "CUSTOMER") {
-    redirect("/book");
+    // B7-4: 顧客不可進後台，導回所屬店
+    const { cookies: getCookies } = await import("next/headers");
+    const ck = await getCookies();
+    const slug = ck.get("store-slug")?.value ?? "zhubei";
+    redirect(`/s/${slug}/book`);
   }
 
   const roleLabel = ROLE_LABELS[user.role] ?? "";

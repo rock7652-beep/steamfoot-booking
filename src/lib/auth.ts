@@ -17,6 +17,7 @@ declare module "next-auth" {
     staffId: string | null;
     customerId: string | null;
     storeId: string | null;
+    storeSlug: string | null;
   }
   interface Session {
     user: {
@@ -27,6 +28,7 @@ declare module "next-auth" {
       staffId: string | null;
       customerId: string | null;
       storeId: string | null;
+      storeSlug: string | null;
     };
   }
 }
@@ -37,6 +39,7 @@ interface AppJWT {
   staffId: string | null;
   customerId: string | null;
   storeId: string | null;
+  storeSlug: string | null;
 }
 
 // ============================================================
@@ -73,8 +76,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             passwordHash: true,
             role: true,
             status: true,
-            staff: { select: { id: true, storeId: true } },
-            customer: { select: { id: true, storeId: true } },
+            staff: { select: { id: true, storeId: true, store: { select: { slug: true } } } },
+            customer: { select: { id: true, storeId: true, store: { select: { slug: true } } } },
           },
         });
 
@@ -92,24 +95,62 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           staffId: user.staff?.id ?? null,
           customerId: user.customer?.id ?? null,
           storeId: user.staff?.storeId ?? user.customer?.storeId ?? null,
+          storeSlug: user.staff?.store?.slug ?? user.customer?.store?.slug ?? null,
         };
       },
     }),
 
     // ── 顧客登入（手機 + 密碼）──
+    // B7-4: 加入 storeId credential，依店查詢顧客
     Credentials({
       id: "customer-phone",
       name: "customer-phone",
       credentials: {
         phone: { label: "手機", type: "tel" },
         password: { label: "密碼", type: "password" },
+        storeId: { label: "Store", type: "hidden" },
       },
       async authorize(credentials) {
         const phone = credentials?.phone as string | undefined;
         const password = credentials?.password as string | undefined;
+        const storeId = credentials?.storeId as string | undefined;
 
         if (!phone || !password) return null;
 
+        // B7-4: 若有 storeId，先從 Customer 表按店查找對應 User
+        if (storeId) {
+          const customer = await prisma.customer.findFirst({
+            where: { phone, storeId },
+            select: {
+              id: true,
+              storeId: true,
+              store: { select: { slug: true } },
+              user: {
+                select: {
+                  id: true, name: true, email: true,
+                  passwordHash: true, role: true, status: true,
+                },
+              },
+            },
+          });
+
+          if (!customer?.user || !customer.user.passwordHash) return null;
+          if (customer.user.status !== "ACTIVE") return null;
+          if (!compareSync(password, customer.user.passwordHash)) return null;
+
+          return {
+            id: customer.user.id,
+            name: customer.user.name,
+            email: customer.user.email ?? null,
+            role: customer.user.role,
+            staffId: null,
+            customerId: customer.id,
+            storeId: customer.storeId,
+            storeSlug: customer.store?.slug ?? null,
+          };
+        }
+
+        // Fallback（無 storeId）：舊流程 — 全域查 User
         const user = await prisma.user.findFirst({
           where: { phone, role: "CUSTOMER" },
           select: {
@@ -119,7 +160,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             passwordHash: true,
             role: true,
             status: true,
-            customer: { select: { id: true, storeId: true } },
+            customer: { select: { id: true, storeId: true, store: { select: { slug: true } } } },
           },
         });
 
@@ -137,6 +178,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           staffId: null,
           customerId: user.customer?.id ?? null,
           storeId: user.customer?.storeId ?? null,
+          storeSlug: user.customer?.store?.slug ?? null,
         };
       },
     }),
@@ -217,6 +259,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           staffId: null,
           customerId: null,
           storeId: null,
+          storeSlug: null,
         };
       },
     } satisfies Provider,
@@ -248,10 +291,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           }
         }
 
-        // Try to find existing Customer
-        // TEMP: 竹北店 LINE 登入 hotfix — 明確限定 storeId
-        // TODO: B7-4 改為 resolveStoreFromRequest() 動態判斷
-        const targetStoreId = DEFAULT_STORE_ID;
+        // B7-4: 從 cookie 動態解析 store context
+        let targetStoreId: string;
+        try {
+          const { resolveStoreFromOAuthCookie } = await import("@/lib/store-resolver");
+          const storeCtx = await resolveStoreFromOAuthCookie();
+          targetStoreId = storeCtx.storeId;
+        } catch {
+          targetStoreId = DEFAULT_STORE_ID;
+        }
 
         let customer = null;
         if (provider === "line" && lineUserId) {
@@ -360,8 +408,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
 
         // No existing Customer - create new Customer + User
-        // TEMP: OAuth 新顧客 phone 使用唯一佔位符，避免 compound unique (storeId, phone) 衝突
-        // TODO: B7-4 讓顧客後續補填真實手機
+        // OAuth 新顧客 phone 使用唯一佔位符，避免 compound unique (storeId, phone) 衝突
+        // 顧客可後續於 profile 補填真實手機
         const oauthPlaceholderPhone = `_oauth_${provider}_${account.providerAccountId.slice(-8)}`;
 
         const newUser = await prisma.user.create({
@@ -381,7 +429,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             email: oauthEmail,
             authSource: provider === "line" ? "LINE" : "GOOGLE",
             userId: newUser.id,
-            storeId: DEFAULT_STORE_ID,
+            storeId: targetStoreId,
             ...(provider === "line" && lineUserId
               ? {
                   lineUserId,
@@ -471,28 +519,34 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           // 因為 signIn callback 已建立/綁定 User，DB 資料才是正確的
           const dbUser = await prisma.user.findUnique({
             where: { id: user.id! },
-            select: { role: true, staff: { select: { id: true, storeId: true } }, customer: { select: { id: true, storeId: true } } },
+            select: {
+              role: true,
+              staff: { select: { id: true, storeId: true, store: { select: { slug: true } } } },
+              customer: { select: { id: true, storeId: true, store: { select: { slug: true } } } },
+            },
           });
           if (dbUser) {
             appToken.role = dbUser.role;
             appToken.staffId = dbUser.staff?.id ?? null;
             appToken.customerId = dbUser.customer?.id ?? null;
             appToken.storeId = dbUser.staff?.storeId ?? dbUser.customer?.storeId ?? null;
+            appToken.storeSlug = dbUser.staff?.store?.slug ?? dbUser.customer?.store?.slug ?? null;
           } else {
-            // DB 查不到（不應發生）— 預設為 CUSTOMER
             console.error("[auth] jwt: DB user not found for OAuth login", { userId: user.id });
             appToken.role = "CUSTOMER";
             appToken.staffId = null;
             appToken.customerId = null;
             appToken.storeId = null;
+            appToken.storeSlug = null;
           }
         } else {
-          // Credentials login — authorize() 已回傳正確的 role/staffId/customerId/storeId
-          const appUser = user as { role: UserRole; staffId: string | null; customerId: string | null; storeId: string | null };
+          // Credentials login — authorize() 已回傳正確值
+          const appUser = user as { role: UserRole; staffId: string | null; customerId: string | null; storeId: string | null; storeSlug: string | null };
           appToken.role = appUser.role;
           appToken.staffId = appUser.staffId ?? null;
           appToken.customerId = appUser.customerId ?? null;
           appToken.storeId = appUser.storeId ?? null;
+          appToken.storeSlug = appUser.storeSlug ?? null;
         }
       }
       return token;
@@ -506,6 +560,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       session.user.staffId = appToken.staffId ?? null;
       session.user.customerId = appToken.customerId ?? null;
       session.user.storeId = appToken.storeId ?? null;
+      session.user.storeSlug = appToken.storeSlug ?? null;
       return session;
     },
   },

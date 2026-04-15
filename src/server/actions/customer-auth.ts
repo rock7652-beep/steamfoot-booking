@@ -4,7 +4,6 @@ import { prisma } from "@/lib/db";
 import { hashSync } from "bcryptjs";
 import { signIn } from "@/lib/auth";
 import { AuthError } from "next-auth";
-import { DEFAULT_STORE_ID } from "@/lib/store";
 
 // ============================================================
 // 顧客手機登入
@@ -18,6 +17,8 @@ export async function customerLoginAction(
 ): Promise<CustomerLoginState> {
   const phone = (formData.get("phone") as string)?.trim();
   const password = formData.get("password") as string;
+  const storeId = (formData.get("storeId") as string) || undefined;
+  const storeSlug = (formData.get("storeSlug") as string) || "zhubei";
 
   if (!phone || !password) {
     return { error: "請輸入手機號碼和密碼" };
@@ -27,7 +28,8 @@ export async function customerLoginAction(
     await signIn("customer-phone", {
       phone,
       password,
-      redirectTo: "/book",
+      storeId,
+      redirectTo: `/s/${storeSlug}/book`,
     });
   } catch (e) {
     if (e instanceof AuthError) {
@@ -58,6 +60,10 @@ export async function customerRegisterAction(
   const birthdayStr = (formData.get("birthday") as string)?.trim() || null;
   const notes = (formData.get("notes") as string)?.trim() || null;
 
+  // B7-4: 從表單讀取 store context
+  const storeId = (formData.get("storeId") as string) || (await getStoreIdFromCookie());
+  const storeSlug = (formData.get("storeSlug") as string) || "zhubei";
+
   // 必填驗證
   if (!name) return { error: "請輸入姓名" };
   if (!phone) return { error: "請輸入手機號碼" };
@@ -77,20 +83,22 @@ export async function customerRegisterAction(
     return { error: "兩次密碼不一致" };
   }
 
-  // 檢查手機是否已有顧客帳號（店長帳號不影響）
-  const existingUser = await prisma.user.findFirst({
-    where: { phone, role: "CUSTOMER" },
-  });
-  if (existingUser) {
-    return { error: "此手機號碼已註冊，請直接登入" };
-  }
-
-  const existingCustomer = await prisma.customer.findFirst({ where: { phone, storeId: DEFAULT_STORE_ID } });
+  // 檢查手機是否已有顧客帳號（同店）
+  const existingCustomer = await prisma.customer.findFirst({ where: { phone, storeId } });
   if (existingCustomer) {
     if (!existingCustomer.userId) {
       // 後台建立的顧客，導向帳號開通
       return { error: "NEEDS_ACTIVATION" };
     }
+    return { error: "此手機號碼已註冊，請直接登入" };
+  }
+
+  // 也檢查 User 表（跨店同手機的 CUSTOMER User）
+  const existingUser = await prisma.user.findFirst({
+    where: { phone, role: "CUSTOMER" },
+    include: { customer: { select: { storeId: true } } },
+  });
+  if (existingUser?.customer?.storeId === storeId) {
     return { error: "此手機號碼已註冊，請直接登入" };
   }
 
@@ -117,7 +125,7 @@ export async function customerRegisterAction(
             notes,
             authSource: "EMAIL",
             customerStage: "LEAD",
-            storeId: DEFAULT_STORE_ID,
+            storeId,
           },
         },
       },
@@ -127,7 +135,8 @@ export async function customerRegisterAction(
     await signIn("customer-phone", {
       phone,
       password,
-      redirectTo: "/book",
+      storeId,
+      redirectTo: `/s/${storeSlug}/book`,
     });
   } catch (e) {
     if (e instanceof AuthError) {
@@ -138,4 +147,23 @@ export async function customerRegisterAction(
   }
 
   return { error: null };
+}
+
+// ============================================================
+// Helper: 從 cookie slug 解析 storeId（fallback）
+// ============================================================
+async function getStoreIdFromCookie(): Promise<string> {
+  try {
+    const { cookies } = await import("next/headers");
+    const cookieStore = await cookies();
+    const slug = cookieStore.get("store-slug")?.value;
+    if (slug) {
+      const { resolveStoreBySlug } = await import("@/lib/store-resolver");
+      const store = await resolveStoreBySlug(slug);
+      if (store) return store.id;
+    }
+    return "default-store";
+  } catch {
+    return "default-store";
+  }
 }

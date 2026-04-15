@@ -14,7 +14,8 @@ import {
 
 type Step = "phone" | "password" | "needs_activation";
 
-export function CustomerLoginForm() {
+export function CustomerLoginForm({ storeSlug = "zhubei", storeId = "default-store" }: { storeSlug?: string; storeId?: string }) {
+  const prefix = `/s/${storeSlug}`;
   const [step, setStep] = useState<Step>("phone");
   const [phone, setPhone] = useState("");
   const [phoneError, setPhoneError] = useState<string | null>(null);
@@ -36,7 +37,7 @@ export function CustomerLoginForm() {
     setPhoneError(null);
 
     startCheck(async () => {
-      const result = await checkPhoneStatus(trimmed);
+      const result = await checkPhoneStatus(trimmed, storeId);
       setStatusInfo(result);
       switch (result.status) {
         case "not_found":
@@ -61,7 +62,7 @@ export function CustomerLoginForm() {
             <p>{phoneError}</p>
             {statusInfo?.status === "not_found" && (
               <Link
-                href="/register"
+                href={`${prefix}/register`}
                 className="mt-1 inline-block font-medium text-primary-600 hover:underline"
               >
                 前往註冊 →
@@ -120,7 +121,7 @@ export function CustomerLoginForm() {
         </div>
 
         <Link
-          href={`/activate?phone=${encodeURIComponent(phone.trim())}`}
+          href={`${prefix}/activate?phone=${encodeURIComponent(phone.trim())}`}
           className="block w-full rounded-lg bg-primary-600 px-4 py-2.5 text-center text-sm font-medium text-white hover:bg-primary-700"
         >
           開通帳號
@@ -154,8 +155,10 @@ export function CustomerLoginForm() {
         <p className="font-medium text-earth-800">{phone.trim()}</p>
       </div>
 
-      {/* Hidden phone field for form submission */}
+      {/* Hidden fields for form submission */}
       <input type="hidden" name="phone" value={phone.trim()} />
+      <input type="hidden" name="storeId" value={storeId} />
+      <input type="hidden" name="storeSlug" value={storeSlug} />
 
       <div>
         <label
@@ -196,7 +199,7 @@ export function CustomerLoginForm() {
           ← 換號碼
         </button>
         <Link
-          href={`/forgot-password?phone=${encodeURIComponent(phone.trim())}`}
+          href={`${prefix}/forgot-password?phone=${encodeURIComponent(phone.trim())}`}
           className="text-primary-600 hover:underline"
         >
           忘記密碼

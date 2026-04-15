@@ -1,4 +1,5 @@
 import { auth } from "@/lib/auth";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { OAuthButtons } from "./oauth-buttons";
@@ -21,10 +22,20 @@ export default async function HomePage({ searchParams }: PageProps) {
   const params = await searchParams;
   const session = await auth();
 
+  // B7-4.5: 從 cookie 讀 slug，storeId 從 DB 解析
+  const cookieStore = await cookies();
+  const storeSlug = cookieStore.get("store-slug")?.value ?? "zhubei";
+  const prefix = `/s/${storeSlug}`;
+
+  // 從 DB 解析 storeId（用於傳給子元件）
+  const { resolveStoreBySlug } = await import("@/lib/store-resolver");
+  const storeInfo = await resolveStoreBySlug(storeSlug);
+  const storeId = storeInfo?.id ?? "default-store";
+
   if (session?.user) {
     const role = (session.user as { role?: string }).role;
-    if (role === "CUSTOMER") redirect("/book");
-    redirect("/dashboard");
+    if (role === "CUSTOMER") redirect(`${prefix}/book`);
+    redirect(`${prefix}/admin/dashboard`);
   }
 
   const errorMessage = params.error
@@ -48,7 +59,7 @@ export default async function HomePage({ searchParams }: PageProps) {
             </div>
           )}
 
-          <OAuthButtons />
+          <OAuthButtons storeSlug={storeSlug} />
 
           {/* Divider */}
           <div className="relative my-5">
@@ -62,11 +73,11 @@ export default async function HomePage({ searchParams }: PageProps) {
             </div>
           </div>
 
-          <CustomerLoginForm />
+          <CustomerLoginForm storeSlug={storeSlug} storeId={storeId} />
 
           <div className="mt-4 text-center">
             <Link
-              href="/register"
+              href={`${prefix}/register`}
               className="text-sm text-primary-600 hover:text-primary-700"
             >
               註冊新帳號
@@ -77,7 +88,7 @@ export default async function HomePage({ searchParams }: PageProps) {
         {/* 後台入口 */}
         <div className="mt-8 text-center">
           <Link
-            href="/login"
+            href="/hq/login"
             className="text-xs text-gray-400 hover:text-gray-500"
           >
             後台登入

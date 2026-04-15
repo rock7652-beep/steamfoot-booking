@@ -3,14 +3,15 @@
 import { signIn, signOut } from "@/lib/auth";
 import { AuthError } from "next-auth";
 import { prisma } from "@/lib/db";
+import { getStoreSlugById } from "@/lib/store-resolver";
 
 // ============================================================
-// loginAction
+// hqLoginAction — 後台登入（/hq/login）
 // ============================================================
 
 export type LoginState = { error: string | null };
 
-export async function loginAction(
+export async function hqLoginAction(
   _prev: LoginState,
   formData: FormData
 ): Promise<LoginState> {
@@ -21,19 +22,33 @@ export async function loginAction(
     return { error: "請輸入 Email 和密碼" };
   }
 
-  // 登入前先查 role，決定登入後導向
-  // CUSTOMER → /book，其他角色 → /dashboard
-  let redirectTo = "/dashboard";
+  // 查 role + storeId，決定登入後導向
+  let redirectTo = "/hq/dashboard";
   try {
     const user = await prisma.user.findUnique({
       where: { email },
-      select: { role: true },
+      select: {
+        role: true,
+        staff: { select: { storeId: true } },
+        customer: { select: { storeId: true } },
+      },
     });
-    if (user?.role === "CUSTOMER") {
-      redirectTo = "/book";
+    if (user) {
+      if (user.role === "CUSTOMER") {
+        const storeId = user.customer?.storeId;
+        const slug = storeId ? await getStoreSlugById(storeId) : null;
+        redirectTo = `/s/${slug ?? "zhubei"}/book`;
+      } else if (user.role === "ADMIN") {
+        redirectTo = "/hq/dashboard";
+      } else {
+        // OWNER / PARTNER → 導向所屬店的 admin
+        const storeId = user.staff?.storeId;
+        const slug = storeId ? await getStoreSlugById(storeId) : null;
+        redirectTo = `/s/${slug ?? "zhubei"}/admin/dashboard`;
+      }
     }
   } catch {
-    // DB 查詢失敗時 fallback 到 /dashboard（dashboard layout 會再 redirect）
+    // DB 查詢失敗時 fallback
   }
 
   try {
@@ -46,11 +61,22 @@ export async function loginAction(
     if (e instanceof AuthError) {
       return { error: "Email 或密碼錯誤，請重新確認" };
     }
-    // Re-throw Next.js redirect error so the browser follows it
     throw e;
   }
 
   return { error: null };
+}
+
+// ============================================================
+// loginAction — 保留相容性（legacy /login redirect 到 /hq/login）
+// ============================================================
+
+/** @deprecated 使用 hqLoginAction 代替 */
+export async function loginAction(
+  _prev: LoginState,
+  formData: FormData
+): Promise<LoginState> {
+  return hqLoginAction(_prev, formData);
 }
 
 // ============================================================

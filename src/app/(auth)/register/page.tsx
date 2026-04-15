@@ -12,15 +12,21 @@ export default function RegisterPage() {
     { error: null }
   );
 
+  // B7-4: 從 URL 路徑讀取 storeSlug
+  const storeSlug = typeof window !== "undefined"
+    ? window.location.pathname.match(/^\/s\/([^/]+)/)?.[1] ?? "zhubei"
+    : "zhubei";
+  const prefix = `/s/${storeSlug}`;
+
   // 若後台建立的顧客，導向開通頁面
   useEffect(() => {
     if (state.error === "NEEDS_ACTIVATION") {
       const form = document.querySelector("form");
       const phoneInput = form?.querySelector<HTMLInputElement>('input[name="phone"]');
       const phone = phoneInput?.value ?? "";
-      router.push(`/activate?phone=${encodeURIComponent(phone)}`);
+      router.push(`${prefix}/activate?phone=${encodeURIComponent(phone)}`);
     }
-  }, [state.error, router]);
+  }, [state.error, router, prefix]);
 
   return (
     <div className="w-full max-w-sm">
@@ -153,7 +159,7 @@ export default function RegisterPage() {
         </form>
 
         <div className="mt-4 text-center">
-          <Link href="/" className="text-sm text-earth-500 hover:text-earth-700">
+          <Link href={`${prefix}/`} className="text-sm text-earth-500 hover:text-earth-700">
             已有帳號？返回登入
           </Link>
         </div>

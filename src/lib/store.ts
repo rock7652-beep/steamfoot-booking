@@ -6,6 +6,9 @@ type SessionLike = { role: string; storeId?: string | null };
 /**
  * 系統預設 storeId — 用於無 user context 的系統查詢（cron、cache preload 等）。
  * Cron jobs 使用 getAllActiveStoreIds() 迭代各店。
+ *
+ * @deprecated B7-4: 前台流程請改用 resolveStoreBySlug() / resolveStoreFromOAuthCookie()。
+ * 此常數僅保留給 cron jobs、seed、系統層級查詢使用。
  */
 export const DEFAULT_STORE_ID = "default-store";
 

@@ -34,32 +34,34 @@ export type PhoneStatus =
   | { status: "needs_activation"; customerName: string; hasEmail: boolean }
   | { status: "active"; customerName: string };
 
-export async function checkPhoneStatus(phone: string): Promise<PhoneStatus> {
+export async function checkPhoneStatus(phone: string, storeId?: string): Promise<PhoneStatus> {
   if (!phone || !/^09\d{8}$/.test(phone)) {
     return { status: "not_found" };
   }
 
-  // 先查 User — 只查 CUSTOMER 角色（店長帳號不影響顧客）
-  const user = await prisma.user.findFirst({
-    where: { phone, role: "CUSTOMER" },
-    select: { id: true, role: true, status: true, customer: { select: { name: true } } },
-  });
+  // B7-4: 使用傳入的 storeId，fallback 從 cookie 讀取
+  const effectiveStoreId = storeId || await getStoreIdFromCookie();
 
-  if (user && user.status === "ACTIVE") {
-    return {
-      status: "active",
-      customerName: user.customer?.name ?? "",
-    };
-  }
-
-  // 查 Customer（可能由後台建立，無 User）— 限同店
+  // 先查同店 Customer 是否有對應的 ACTIVE User
   const customer = await prisma.customer.findFirst({
-    where: { phone, userId: null, storeId: (await import("@/lib/store")).DEFAULT_STORE_ID },
-    select: { name: true, email: true },
+    where: { phone, storeId: effectiveStoreId },
+    select: {
+      name: true,
+      email: true,
+      userId: true,
+      user: { select: { status: true } },
+    },
     orderBy: { createdAt: "desc" },
   });
 
-  if (customer) {
+  if (customer?.userId && customer.user?.status === "ACTIVE") {
+    return {
+      status: "active",
+      customerName: customer.name,
+    };
+  }
+
+  if (customer && !customer.userId) {
     return {
       status: "needs_activation",
       customerName: customer.name,
@@ -78,7 +80,8 @@ export type ActivationRequestResult = ActionResult<{ masked: string }>;
 
 export async function requestActivation(
   phone: string,
-  email: string
+  email: string,
+  storeId?: string
 ): Promise<ActivationRequestResult> {
   try {
     if (!phone || !/^09\d{8}$/.test(phone)) {
@@ -88,10 +91,11 @@ export async function requestActivation(
       return { success: false, error: "Email 格式不正確" };
     }
 
-    // 找到未開通的 Customer — 限同店
-    const { DEFAULT_STORE_ID } = await import("@/lib/store");
+    // B7-4: 使用傳入的 storeId，fallback 從 cookie 讀取
+    const effectiveStoreId = storeId || await getStoreIdFromCookie();
+
     const customer = await prisma.customer.findFirst({
-      where: { phone, userId: null, storeId: DEFAULT_STORE_ID },
+      where: { phone, userId: null, storeId: effectiveStoreId },
       orderBy: { createdAt: "desc" },
     });
 
@@ -102,7 +106,7 @@ export async function requestActivation(
     // 檢查 email 是否被同店其他顧客使用
     if (email) {
       const emailTakenByCustomer = await prisma.customer.findFirst({
-        where: { email, id: { not: customer.id }, storeId: DEFAULT_STORE_ID },
+        where: { email, id: { not: customer.id }, storeId: effectiveStoreId },
       });
       if (emailTakenByCustomer) {
         return { success: false, error: "此 Email 已被其他顧客使用" };
@@ -138,9 +142,13 @@ export async function requestActivation(
       },
     });
 
+    // B7-4.5: 從 storeId 反查 slug，email 連結帶 /s/[slug]/
+    const { getStoreSlugById } = await import("@/lib/store-resolver");
+    const resolvedSlug = await getStoreSlugById(effectiveStoreId);
+
     // 寄出 email（URL 帶 raw token）
     try {
-      await sendActivationEmail(email, rawToken, customer.name);
+      await sendActivationEmail(email, rawToken, customer.name, resolvedSlug ?? undefined);
     } catch (mailErr) {
       console.error("[requestActivation] email send failed:", mailErr);
       const msg = mailErr instanceof Error ? mailErr.message : String(mailErr);
@@ -318,7 +326,7 @@ export async function requestPasswordReset(
 
     const user = await prisma.user.findFirst({
       where: { phone, role: "CUSTOMER" },
-      select: { id: true, role: true, status: true, customer: { select: { id: true, name: true, email: true } } },
+      select: { id: true, role: true, status: true, customer: { select: { id: true, name: true, email: true, storeId: true } } },
     });
 
     // 不論是否找到，都回傳成功（防列舉攻擊）
@@ -347,10 +355,18 @@ export async function requestPasswordReset(
       },
     });
 
+    // B7-4.5: 從 customer.storeId 反查 slug
+    let resetSlug: string | undefined;
+    if (user.customer?.storeId) {
+      const { getStoreSlugById } = await import("@/lib/store-resolver");
+      resetSlug = (await getStoreSlugById(user.customer.storeId)) ?? undefined;
+    }
+
     await sendPasswordResetEmail(
       email,
       rawToken,
-      user.customer?.name ?? "顧客"
+      user.customer?.name ?? "顧客",
+      resetSlug
     );
 
     return { success: true, data: undefined };
@@ -424,13 +440,18 @@ export async function resetPassword(
 
 export async function autoLoginAfterActivation(
   phone: string,
-  password: string
+  password: string,
+  storeId?: string,
+  storeSlug?: string
 ): Promise<{ error: string | null }> {
+  const effectiveSlug = storeSlug || await getStoreSlugFromCookie();
+  const effectiveStoreId = storeId || await getStoreIdFromCookie();
   try {
     await signIn("customer-phone", {
       phone,
       password,
-      redirectTo: "/book",
+      storeId: effectiveStoreId,
+      redirectTo: `/s/${effectiveSlug}/book`,
     });
   } catch (e) {
     if (e instanceof AuthError) {
@@ -444,6 +465,32 @@ export async function autoLoginAfterActivation(
 // ============================================================
 // Helpers
 // ============================================================
+
+async function getStoreIdFromCookie(): Promise<string> {
+  try {
+    const { cookies } = await import("next/headers");
+    const cookieStore = await cookies();
+    const slug = cookieStore.get("store-slug")?.value;
+    if (slug) {
+      const { resolveStoreBySlug } = await import("@/lib/store-resolver");
+      const store = await resolveStoreBySlug(slug);
+      if (store) return store.id;
+    }
+    return "default-store";
+  } catch {
+    return "default-store";
+  }
+}
+
+async function getStoreSlugFromCookie(): Promise<string> {
+  try {
+    const { cookies } = await import("next/headers");
+    const cookieStore = await cookies();
+    return cookieStore.get("store-slug")?.value ?? "zhubei";
+  } catch {
+    return "zhubei";
+  }
+}
 
 function maskEmail(email: string): string {
   const [local, domain] = email.split("@");

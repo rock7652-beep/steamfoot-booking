@@ -11,6 +11,10 @@ import {
 export default function ActivateVerifyForm() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token") ?? "";
+  const storeSlug = typeof window !== "undefined"
+    ? window.location.pathname.match(/^\/s\/([^/]+)/)?.[1] ?? "zhubei"
+    : "zhubei";
+  const prefix = `/s/${storeSlug}`;
 
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -23,7 +27,7 @@ export default function ActivateVerifyForm() {
       <div className="w-full max-w-sm">
         <div className="rounded-2xl border border-earth-200 bg-white p-6 shadow-sm text-center">
           <p className="text-sm text-red-600">無效的連結，請重新申請帳號開通。</p>
-          <Link href="/activate" className="mt-4 inline-block text-sm text-primary-600 hover:underline">
+          <Link href={`${prefix}/activate`} className="mt-4 inline-block text-sm text-primary-600 hover:underline">
             重新開通 →
           </Link>
         </div>
@@ -80,7 +84,7 @@ export default function ActivateVerifyForm() {
           </div>
           <h2 className="text-lg font-bold text-earth-900">帳號開通成功！</h2>
           <p className="mt-2 text-sm text-earth-600">正在為您自動登入...</p>
-          <Link href="/" className="mt-4 inline-block text-sm text-primary-600 hover:underline">
+          <Link href={prefix + "/"} className="mt-4 inline-block text-sm text-primary-600 hover:underline">
             手動登入 →
           </Link>
         </div>
@@ -102,7 +106,7 @@ export default function ActivateVerifyForm() {
           <div className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
             <p>{error}</p>
             {(error.includes("過期") || error.includes("無效")) && (
-              <Link href="/activate" className="mt-1 inline-block font-medium text-primary-600 hover:underline">
+              <Link href={`${prefix}/activate`} className="mt-1 inline-block font-medium text-primary-600 hover:underline">
                 重新申請 →
               </Link>
             )}
@@ -156,7 +160,7 @@ export default function ActivateVerifyForm() {
         </div>
 
         <div className="mt-4 text-center">
-          <Link href="/" className="text-sm text-earth-500 hover:text-earth-700">
+          <Link href={prefix + "/"} className="text-sm text-earth-500 hover:text-earth-700">
             ← 返回登入
           </Link>
         </div>

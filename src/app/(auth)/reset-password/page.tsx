@@ -8,6 +8,10 @@ import { resetPassword } from "@/server/actions/account";
 export default function ResetPasswordPage() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token") ?? "";
+  const storeSlug = typeof window !== "undefined"
+    ? window.location.pathname.match(/^\/s\/([^/]+)/)?.[1] ?? "zhubei"
+    : "zhubei";
+  const prefix = `/s/${storeSlug}`;
 
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -20,7 +24,7 @@ export default function ResetPasswordPage() {
       <div className="w-full max-w-sm">
         <div className="rounded-2xl border border-earth-200 bg-white p-6 shadow-sm text-center">
           <p className="text-sm text-red-600">無效的連結，請重新申請密碼重設。</p>
-          <Link href="/forgot-password" className="mt-4 inline-block text-sm text-primary-600 hover:underline">
+          <Link href={`${prefix}/forgot-password`} className="mt-4 inline-block text-sm text-primary-600 hover:underline">
             重新申請 →
           </Link>
         </div>
@@ -64,7 +68,7 @@ export default function ResetPasswordPage() {
             您的密碼已更新，請使用新密碼登入。
           </p>
           <Link
-            href="/"
+            href={prefix + "/"}
             className="mt-4 inline-block rounded-lg bg-primary-600 px-6 py-2 text-sm font-medium text-white hover:bg-primary-700"
           >
             前往登入
@@ -86,7 +90,7 @@ export default function ResetPasswordPage() {
           <div className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
             <p>{error}</p>
             {(error.includes("過期") || error.includes("無效")) && (
-              <Link href="/forgot-password" className="mt-1 inline-block font-medium text-primary-600 hover:underline">
+              <Link href={`${prefix}/forgot-password`} className="mt-1 inline-block font-medium text-primary-600 hover:underline">
                 重新申請 →
               </Link>
             )}
