@@ -71,10 +71,13 @@ async function sendMail(to: string, subject: string, html: string) {
 export async function sendActivationEmail(
   email: string,
   token: string,
-  customerName: string
+  customerName: string,
+  /** B7-4.5: store slug for store-scoped link */
+  storeSlug?: string
 ) {
   const baseUrl = getBaseUrl();
-  const link = `${baseUrl}/activate/verify?token=${token}`;
+  const storePath = storeSlug ? `/s/${storeSlug}` : "";
+  const link = `${baseUrl}${storePath}/activate/verify?token=${token}`;
   const subject = "蒸足健康站 — 帳號開通";
   const html = `
     <div style="max-width:480px;margin:0 auto;font-family:sans-serif;color:#333">
@@ -102,10 +105,13 @@ export async function sendActivationEmail(
 export async function sendPasswordResetEmail(
   email: string,
   token: string,
-  customerName: string
+  customerName: string,
+  /** B7-4.5: store slug for store-scoped link */
+  storeSlug?: string
 ) {
   const baseUrl = getBaseUrl();
-  const link = `${baseUrl}/reset-password?token=${token}`;
+  const storePath = storeSlug ? `/s/${storeSlug}` : "";
+  const link = `${baseUrl}${storePath}/reset-password?token=${token}`;
   const subject = "蒸足健康站 — 密碼重設";
   const html = `
     <div style="max-width:480px;margin:0 auto;font-family:sans-serif;color:#333">

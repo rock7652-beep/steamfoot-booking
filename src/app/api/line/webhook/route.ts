@@ -1,10 +1,11 @@
 // ============================================================
-// LINE Webhook — 完整事件處理
+// LINE Webhook — 完整事件處理（B7-4.5: store-aware）
 //
 // ⚠️ 規則：
 //   1. 使用原生 Response，不使用 NextResponse（避免 307）
 //   2. POST 最後一定 return 200
 //   3. 所有錯誤在 try-catch 內處理，不外拋
+//   4. B7-4.5: 每個 webhook 必須先 resolve store，失敗則安全中止
 // ============================================================
 
 import { verifyLineSignature, replyMessage } from "@/lib/line";
@@ -35,9 +36,20 @@ export async function POST(req: Request) {
     const data = JSON.parse(body);
     const events: LineWebhookEvent[] = data.events ?? [];
 
+    // B7-4.5: 從 destination 解析 store
+    const destination: string | undefined = data.destination;
+    const storeId = await resolveStoreFromDestination(destination);
+
+    if (!storeId) {
+      console.warn("[LINE Webhook] Cannot resolve store — aborting", { destination });
+      return new Response("OK", { status: 200 });
+    }
+
+    console.log("[LINE Webhook] Resolved store", { destination, storeId });
+
     for (const event of events) {
       try {
-        await handleLineEvent(event);
+        await handleLineEvent(event, storeId);
       } catch (err) {
         console.error("[LINE Webhook] Event handler error:", err);
       }
@@ -58,14 +70,50 @@ export async function GET() {
 }
 
 // ============================================================
+// Store resolution — 從 LINE webhook destination 解析 store
+// ============================================================
+
+/**
+ * 從 LINE webhook payload 的 destination 解析 storeId。
+ * destination 是 LINE Official Account 的 bot userId，每個 OA 唯一。
+ *
+ * 解析順序：
+ * 1. 查 DB: Store.lineDestination
+ * 2. 失敗 → return null（caller 負責安全中止）
+ *
+ * 不可 fallback 到 DEFAULT_STORE_ID。
+ */
+async function resolveStoreFromDestination(
+  destination: string | undefined
+): Promise<string | null> {
+  if (!destination) {
+    console.warn("[LINE Webhook] No destination in payload");
+    return null;
+  }
+
+  const store = await prisma.store.findFirst({
+    where: { lineDestination: destination },
+    select: { id: true },
+  });
+
+  if (!store) {
+    console.warn("[LINE Webhook] No store found for destination:", destination);
+    return null;
+  }
+
+  return store.id;
+}
+
+// ============================================================
 // Event dispatcher
 // ============================================================
 
-async function handleLineEvent(event: LineWebhookEvent) {
+async function handleLineEvent(event: LineWebhookEvent, storeId: string) {
   const lineUserId = event.source?.userId;
   console.log("[LINE] Event:", {
     type: event.type,
     userId: lineUserId,
+    storeId,
     hasReplyToken: !!event.replyToken,
     messageType: event.message?.type,
     messageText: event.message?.text,
@@ -74,11 +122,11 @@ async function handleLineEvent(event: LineWebhookEvent) {
 
   switch (event.type) {
     case "follow":
-      await handleFollow(lineUserId, event.replyToken);
+      await handleFollow(lineUserId, storeId, event.replyToken);
       break;
 
     case "unfollow":
-      await handleUnfollow(lineUserId);
+      await handleUnfollow(lineUserId, storeId);
       break;
 
     case "message":
@@ -86,6 +134,7 @@ async function handleLineEvent(event: LineWebhookEvent) {
         await handleTextMessage(
           lineUserId,
           event.message.text.trim(),
+          storeId,
           event.replyToken
         );
       }
@@ -97,12 +146,12 @@ async function handleLineEvent(event: LineWebhookEvent) {
 // follow — 新好友加入 / 封鎖後重新加入
 // ============================================================
 
-async function handleFollow(lineUserId: string, replyToken?: string) {
-  console.log(`[LINE] Follow from ${lineUserId}`);
+async function handleFollow(lineUserId: string, storeId: string, replyToken?: string) {
+  console.log(`[LINE] Follow from ${lineUserId} (store: ${storeId})`);
 
-  // 若之前被封鎖，自動恢復綁定
+  // 若之前被封鎖，自動恢復綁定（限同店）
   const blocked = await prisma.customer.findFirst({
-    where: { lineUserId, lineLinkStatus: "BLOCKED" },
+    where: { lineUserId, storeId, lineLinkStatus: "BLOCKED" },
   });
 
   if (blocked) {
@@ -138,15 +187,16 @@ async function handleFollow(lineUserId: string, replyToken?: string) {
 // unfollow — 封鎖 / 取消好友
 // ============================================================
 
-async function handleUnfollow(lineUserId: string) {
-  console.log(`[LINE] Unfollow from ${lineUserId}`);
+async function handleUnfollow(lineUserId: string, storeId: string) {
+  console.log(`[LINE] Unfollow from ${lineUserId} (store: ${storeId})`);
 
+  // B7-4.5: 只更新同店的 customer
   const result = await prisma.customer.updateMany({
-    where: { lineUserId },
+    where: { lineUserId, storeId },
     data: { lineLinkStatus: "BLOCKED" },
   });
 
-  console.log(`[LINE] Marked ${result.count} customer(s) as BLOCKED`);
+  console.log(`[LINE] Marked ${result.count} customer(s) as BLOCKED (store: ${storeId})`);
 }
 
 // ============================================================
@@ -156,9 +206,10 @@ async function handleUnfollow(lineUserId: string) {
 async function handleTextMessage(
   lineUserId: string,
   text: string,
+  storeId: string,
   replyToken?: string
 ) {
-  console.log(`[LINE] Message from ${lineUserId}: ${text}`);
+  console.log(`[LINE] Message from ${lineUserId}: ${text} (store: ${storeId})`);
 
   // 解析「綁定 XXXXXX」格式（大小寫不敏感）
   const bindMatch = text.match(/^綁定\s*([A-Z0-9]{6})$/i);
@@ -166,6 +217,7 @@ async function handleTextMessage(
     await handleBindingRequest(
       lineUserId,
       bindMatch[1].toUpperCase(),
+      storeId,
       replyToken
     );
   }
@@ -179,13 +231,14 @@ async function handleTextMessage(
 async function handleBindingRequest(
   lineUserId: string,
   bindingCode: string,
+  storeId: string,
   replyToken?: string
 ) {
-  console.log(`[LINE] Binding request: code=${bindingCode}, lineUser=${lineUserId}`);
+  console.log(`[LINE] Binding request: code=${bindingCode}, lineUser=${lineUserId}, store=${storeId}`);
 
-  // 1. 此 LINE 是否已綁定其他顧客
+  // 1. 此 LINE 是否已綁定同店其他顧客
   const existingLinked = await prisma.customer.findFirst({
-    where: { lineUserId, lineLinkStatus: "LINKED" },
+    where: { lineUserId, storeId, lineLinkStatus: "LINKED" },
   });
 
   if (existingLinked) {
@@ -202,13 +255,13 @@ async function handleBindingRequest(
     return;
   }
 
-  // 2. 查詢綁定碼
+  // 2. 查詢綁定碼（限同店）
   const customer = await prisma.customer.findFirst({
-    where: { lineBindingCode: bindingCode },
+    where: { lineBindingCode: bindingCode, storeId },
   });
 
   if (!customer) {
-    console.log(`[LINE] Invalid binding code: ${bindingCode}`);
+    console.log(`[LINE] Invalid binding code: ${bindingCode} (store: ${storeId})`);
     if (replyToken) {
       const result = await replyMessage(replyToken, [
         {
@@ -266,11 +319,10 @@ async function handleBindingRequest(
       lineUserId,
       lineLinkStatus: "LINKED",
       lineLinkedAt: new Date(),
-      // 保留綁定碼（方便紀錄），但已綁定後不再可用
     },
   });
 
-  console.log(`[LINE] Binding success: ${customer.name} (${customer.id}) <-> ${lineUserId}`);
+  console.log(`[LINE] Binding success: ${customer.name} (${customer.id}) <-> ${lineUserId} (store: ${storeId})`);
 
   if (replyToken) {
     const result = await replyMessage(replyToken, [
