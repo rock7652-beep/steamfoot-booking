@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { headers } from "next/headers";
+import { headers, cookies } from "next/headers";
 import { getCurrentUser } from "@/lib/session";
 import { logoutAction } from "@/server/actions/auth";
 import Link from "next/link";
@@ -57,7 +57,7 @@ function NavIcon({ name, className = "" }: { name: string; className?: string })
   );
 }
 
-const NAV_ITEMS = [
+const NAV_ITEMS_BASE = [
   { href: "/book", label: "首頁", icon: "home" },
   { href: "/book/new", label: "新增預約", icon: "plus" },
   { href: "/my-bookings", label: "我的預約", icon: "calendar" },
@@ -71,16 +71,27 @@ export default async function CustomerLayout({
   children: React.ReactNode;
 }) {
   const user = await getCurrentUser();
+  const cookieStore = await cookies();
+  const storeSlug = cookieStore.get("store-slug")?.value ?? "zhubei";
+  const prefix = `/s/${storeSlug}`;
+
   if (!user) {
-    redirect("/");
+    redirect(`${prefix}/`);
   }
   if (user.role !== "CUSTOMER") {
-    redirect("/dashboard");
+    redirect(`${prefix}/admin/dashboard`);
   }
 
-  // 取得目前路徑用於高亮
+  // 取得目前路徑用於高亮（proxy.ts 會注入原始 pathname）
   const headerList = await headers();
-  const pathname = headerList.get("x-next-pathname") || "/book";
+  const rawPathname = headerList.get("x-next-pathname") || `${prefix}/book`;
+  // 去掉 /s/[slug] 前綴，還原成 /book、/my-bookings 等格式供比對
+  const pathname = rawPathname.replace(/^\/s\/[^/]+/, "") || "/book";
+
+  const NAV_ITEMS = NAV_ITEMS_BASE.map((item) => ({
+    ...item,
+    fullHref: `${prefix}${item.href}`,
+  }));
 
   return (
     <div className="min-h-screen bg-earth-50">
@@ -88,14 +99,14 @@ export default async function CustomerLayout({
       <NavProgress />
 
       {/* Mobile hamburger menu */}
-      <MobileNav userName={user.name ?? "顧客"} pathname={pathname} customerId={user.customerId} />
+      <MobileNav userName={user.name ?? "顧客"} pathname={pathname} customerId={user.customerId} storeSlug={storeSlug} />
 
       <div className="lg:flex">
         {/* Desktop sidebar — fixed narrow design */}
         <aside className="hidden lg:flex lg:w-[200px] lg:flex-shrink-0 lg:flex-col lg:border-r lg:border-earth-100 lg:bg-white lg:min-h-screen">
           {/* Brand */}
           <div className="px-4 pb-3 pt-5">
-            <Link href="/book" className="text-sm font-bold tracking-tight text-earth-900">
+            <Link href={`${prefix}/book`} className="text-sm font-bold tracking-tight text-earth-900">
               蒸足健康站
             </Link>
             <p className="mt-0.5 text-[11px] text-earth-400 truncate">{user.name}</p>
@@ -111,7 +122,7 @@ export default async function CustomerLayout({
               return (
                 <Link
                   key={item.href}
-                  href={item.href}
+                  href={item.fullHref}
                   className={`relative mb-0.5 flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors ${
                     isActive
                       ? "bg-primary-50 font-semibold text-primary-700"
@@ -128,7 +139,7 @@ export default async function CustomerLayout({
             })}
 
             <a
-              href={`https://health-tracker-eight-rosy.vercel.app/${user.customerId ? `?customerId=${user.customerId}` : ""}`}
+              href={`https://www.healthflow-ai.com/liff${user.customerId ? `?customerId=${user.customerId}` : ""}`}
               target="_blank"
               rel="noopener noreferrer"
               className="mb-0.5 flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] text-earth-500 hover:bg-earth-50 hover:text-earth-800 transition"

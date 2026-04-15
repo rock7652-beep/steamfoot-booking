@@ -200,7 +200,7 @@ export function HealthSectionWrapper({
       {/* 外部連結提示 */}
       {showExternalWarning && (
         <ExternalLinkWarning
-          url="https://health-tracker-eight-rosy.vercel.app"
+          url="https://www.healthflow-ai.com/liff"
           onClose={() => setShowExternalWarning(false)}
         />
       )}

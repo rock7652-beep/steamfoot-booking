@@ -44,7 +44,7 @@ export async function HealthSummarySection({ healthProfileId, customerId }: Heal
           )}
         </p>
         <a
-          href="https://health-tracker-eight-rosy.vercel.app"
+          href="https://www.healthflow-ai.com/liff"
           target="_blank"
           rel="noopener noreferrer"
           className="text-xs text-primary-600 hover:underline"

@@ -34,7 +34,7 @@ export function HealthAssessmentCard({ score, customerId }: HealthAssessmentCard
         </div>
         {customerId && (
           <a
-            href={`https://health-tracker-eight-rosy.vercel.app/?customerId=${customerId}`}
+            href={`https://www.healthflow-ai.com/liff?customerId=${customerId}`}
             target="_blank"
             rel="noopener noreferrer"
             className="text-xs text-primary-600 hover:underline"

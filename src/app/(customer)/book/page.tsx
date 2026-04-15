@@ -172,7 +172,7 @@ export default async function CustomerHomePage() {
         </Link>
 
         <a
-          href={`https://health-tracker-eight-rosy.vercel.app/?customerId=${user.customerId}`}
+          href={`https://www.healthflow-ai.com/liff?customerId=${user.customerId}`}
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center gap-3.5 rounded-xl bg-white px-4 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition hover:shadow-[0_1px_4px_rgba(0,0,0,0.1)]"

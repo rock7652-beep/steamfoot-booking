@@ -1,6 +1,6 @@
 import type { NextConfig } from "next";
 
-const HEALTH_TRACKER_URL = "https://health-tracker-eight-rosy.vercel.app";
+const HEALTH_TRACKER_URL = "https://www.healthflow-ai.com/liff";
 
 const nextConfig: NextConfig = {
   env: {

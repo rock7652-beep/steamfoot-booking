@@ -54,7 +54,7 @@ function NavIcon({ name, className = "" }: { name: string; className?: string })
   );
 }
 
-const NAV_ITEMS = [
+const NAV_ITEMS_BASE = [
   { href: "/book", label: "首頁", icon: "home" },
   { href: "/book/new", label: "新增預約", icon: "plus" },
   { href: "/my-bookings", label: "我的預約", icon: "calendar" },
@@ -62,7 +62,9 @@ const NAV_ITEMS = [
   { href: "/profile", label: "我的資料", icon: "user" },
 ];
 
-export function MobileNav({ userName, pathname, customerId }: { userName: string; pathname: string; customerId?: string | null }) {
+export function MobileNav({ userName, pathname, customerId, storeSlug = "zhubei" }: { userName: string; pathname: string; customerId?: string | null; storeSlug?: string }) {
+  const prefix = `/s/${storeSlug}`;
+  const NAV_ITEMS = NAV_ITEMS_BASE.map((item) => ({ ...item, fullHref: `${prefix}${item.href}` }));
   const [open, setOpen] = useState(false);
 
   return (
@@ -81,7 +83,7 @@ export function MobileNav({ userName, pathname, customerId }: { userName: string
               <line x1="3" y1="18" x2="21" y2="18" />
             </svg>
           </button>
-          <Link href="/book" className="text-base font-bold text-earth-900">
+          <Link href={`${prefix}/book`} className="text-base font-bold text-earth-900">
             蒸足健康站
           </Link>
           <span className="text-xs text-earth-500 max-w-[80px] truncate">{userName}</span>
@@ -128,7 +130,7 @@ export function MobileNav({ userName, pathname, customerId }: { userName: string
             return (
               <Link
                 key={item.href}
-                href={item.href}
+                href={item.fullHref}
                 onClick={() => setOpen(false)}
                 className={`mb-1 flex items-center gap-3 rounded-lg px-4 py-3 text-sm transition ${
                   isActive
@@ -143,7 +145,7 @@ export function MobileNav({ userName, pathname, customerId }: { userName: string
           })}
 
           <a
-            href={`https://health-tracker-eight-rosy.vercel.app/${customerId ? `?customerId=${customerId}` : ""}`}
+            href={`https://www.healthflow-ai.com/liff${customerId ? `?customerId=${customerId}` : ""}`}
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => setOpen(false)}
