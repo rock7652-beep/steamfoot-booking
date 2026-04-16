@@ -9,7 +9,7 @@ export default async function TrainingPage() {
   if (!user) {
     redirect("/hq/login");
   }
-  if (user.role !== "ADMIN") {
+  if (user.role !== "ADMIN" && user.role !== "OWNER" && user.role !== "PARTNER") {
     notFound();
   }
 

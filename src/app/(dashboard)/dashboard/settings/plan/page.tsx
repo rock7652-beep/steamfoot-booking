@@ -28,7 +28,7 @@ export default async function PlanSettingsPage() {
   if (!user) {
     redirect("/hq/login");
   }
-  if (user.role !== "ADMIN") {
+  if (user.role !== "ADMIN" && user.role !== "OWNER" && user.role !== "PARTNER") {
     notFound();
   }
 
@@ -277,14 +277,14 @@ export default async function PlanSettingsPage() {
       </div>
 
       {/* ═══════════════════════════════════════════ */}
-      {/* HQ 方案總覽                                  */}
+      {/* HQ 方案總覽（ADMIN only）                    */}
       {/* ═══════════════════════════════════════════ */}
-      <PlanOverviewStats />
+      {user.role === "ADMIN" && <PlanOverviewStats />}
 
       {/* ═══════════════════════════════════════════ */}
-      {/* PricingPlan — 店舖方案管理 + 用量儀表板      */}
+      {/* PricingPlan — 店舖方案管理 + 用量儀表板（ADMIN only） */}
       {/* ═══════════════════════════════════════════ */}
-      <StorePlanSection />
+      {user.role === "ADMIN" && <StorePlanSection />}
     </div>
   );
 }

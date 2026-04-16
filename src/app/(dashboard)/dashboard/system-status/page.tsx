@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { requireAdminSession } from "@/lib/session";
+import { requireStaffSession } from "@/lib/session";
 import { DEFAULT_STORE_ID } from "@/lib/store";
 import { getHealthScore, getErrorStats24h, getRecentErrors, type ErrorCategory } from "@/lib/error-logger";
 import { notFound } from "next/navigation";
@@ -285,8 +285,8 @@ function friendlyMessage(msg: string): string {
 // ============================================================
 
 export default async function SystemStatusPage() {
-  const user = await requireAdminSession().catch(() => null);
-  if (!user) notFound();
+  const user = await requireStaffSession().catch(() => null);
+  if (!user || (user.role !== "ADMIN" && user.role !== "OWNER" && user.role !== "PARTNER")) notFound();
 
   const [{ results: coreResults, dbLatency }, advancedResults, healthScore, errorStats, recentErrors] =
     await Promise.all([
