@@ -18,7 +18,27 @@ export default async function BonusRulesPage() {
   }
 
   const activeStoreId = await getActiveStoreForRead(user);
-  if (!activeStoreId) notFound();
+
+  // ADMIN 在「全部分店」模式下無法管理獎勵項目 — 需切換到特定店
+  if (!activeStoreId) {
+    return (
+      <div className="max-w-3xl space-y-6">
+        <div className="flex items-center gap-3">
+          <Link href="/dashboard/talent" className="text-sm text-earth-500 hover:text-earth-700">
+            ← 人才管道
+          </Link>
+        </div>
+        <div className="flex items-center justify-between">
+          <h1 className="text-xl font-bold text-earth-900">獎勵項目管理</h1>
+        </div>
+        <div className="rounded-xl border border-yellow-200 bg-yellow-50 p-6 text-center">
+          <p className="text-sm text-yellow-800">
+            請先在右上角切換到特定分店，才能管理該店的獎勵項目
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const rules = await getBonusRules(activeStoreId);
 

@@ -94,7 +94,7 @@ export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | n
     }
 
     // ── 分店 customer routes ──
-    const customerPrefixes = ["/book", "/my-bookings", "/my-plans", "/profile"];
+    const customerPrefixes = ["/book", "/my-bookings", "/my-plans", "/my-points", "/profile"];
     const isCustomerRoute = customerPrefixes.some(
       (p) => subPath === p || subPath.startsWith(p + "/")
     );
