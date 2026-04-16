@@ -5,6 +5,7 @@ import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { SubmitButton } from "@/components/submit-button";
 import { getStoreContext } from "@/lib/store-context";
+import { FormErrorToast } from "@/components/form-error-toast";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -52,12 +53,16 @@ export default async function CancelBookingPage({ params }: PageProps) {
 
   async function doCancelAction() {
     "use server";
-    await cancelBooking(id, "顧客自行取消");
+    const result = await cancelBooking(id, "顧客自行取消");
+    if (!result.success) {
+      redirect(`/my-bookings/${id}/cancel?error=${encodeURIComponent(result.error || "取消失敗")}`);
+    }
     redirect("/my-bookings");
   }
 
   return (
     <div className="py-8">
+      <FormErrorToast />
       <div className="rounded-xl border border-red-100 bg-white p-6 shadow-sm">
         <h1 className="mb-4 text-lg font-bold text-earth-900">取消預約確認</h1>
         <div className="mb-6 rounded-lg bg-earth-50 p-4 text-sm">

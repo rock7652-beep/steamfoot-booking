@@ -88,5 +88,16 @@ export async function loginAction(
 export async function logoutAction(formData?: FormData) {
   const storeSlug = formData?.get("storeSlug") as string | null;
   const redirectTo = storeSlug ? `/s/${storeSlug}/` : "/";
-  await signOut({ redirectTo });
+  try {
+    await signOut({ redirectTo });
+  } catch (e) {
+    // signOut throws a NEXT_REDIRECT — re-throw it so Next.js handles the redirect
+    if (e instanceof Error && e.message?.includes("NEXT_REDIRECT")) {
+      throw e;
+    }
+    console.error("[logout] signOut failed:", e);
+    // Fallback: force redirect even if signOut errored
+    const { redirect } = await import("next/navigation");
+    redirect(redirectTo);
+  }
 }

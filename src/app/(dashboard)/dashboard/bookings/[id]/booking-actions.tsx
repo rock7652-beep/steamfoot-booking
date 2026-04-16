@@ -1,6 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
+import { toast } from "sonner";
 
 interface NoShowButtonProps {
   isMakeup: boolean;
@@ -16,7 +17,13 @@ export function NoShowButton({ isMakeup, action }: NoShowButtonProps) {
       : "確定標記未到？已預扣堂數不會退回，但會自動產生一次補課資格。";
     if (!confirm(msg)) return;
     startTransition(async () => {
-      await action();
+      try {
+        await action();
+        toast.success("已標記未到");
+      } catch (e) {
+        console.error("[booking] markNoShow failed:", e);
+        toast.error(e instanceof Error ? e.message : "標記未到失敗，請重試");
+      }
     });
   }
 
@@ -50,7 +57,13 @@ export function CancelButton({ isMakeup, action }: CancelButtonProps) {
     const formData = new FormData(e.currentTarget);
     const note = formData.get("note") as string | undefined;
     startTransition(async () => {
-      await action(note ?? undefined);
+      try {
+        await action(note ?? undefined);
+        toast.success("預約已取消");
+      } catch (e) {
+        console.error("[booking] cancel failed:", e);
+        toast.error(e instanceof Error ? e.message : "取消預約失敗，請重試");
+      }
     });
   }
 
@@ -90,7 +103,13 @@ export function RevertButton({ status, action }: RevertButtonProps) {
     const msg = REVERT_MSG[status] ?? "確定回退此預約？";
     if (!confirm(msg)) return;
     startTransition(async () => {
-      await action();
+      try {
+        await action();
+        toast.success("預約狀態已回退");
+      } catch (e) {
+        console.error("[booking] revert failed:", e);
+        toast.error(e instanceof Error ? e.message : "回退失敗，請重試");
+      }
     });
   }
 

@@ -1,5 +1,6 @@
 "use server";
 
+import { cache } from "react";
 import { prisma } from "@/lib/db";
 import { requireStaffSession } from "@/lib/session";
 import { getStoreFilter } from "@/lib/manager-visibility";
@@ -55,7 +56,13 @@ function computeReadinessLevel(score: number): ReadinessLevel {
   return "LOW";
 }
 
-export async function computeReadinessScores(
+/**
+ * React.cache 包裝版 — 同一 SSR 請求中多處呼叫只查一次
+ * （例如 getTalentDashboard + getUpgradeEligibility 同頁呼叫）
+ */
+export const computeReadinessScores = cache(computeReadinessScoresImpl);
+
+async function computeReadinessScoresImpl(
   activeStoreId?: string | null,
 ): Promise<ReadinessScore[]> {
   const user = await requireStaffSession();

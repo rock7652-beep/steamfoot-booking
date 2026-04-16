@@ -6,6 +6,7 @@ import { toLocalDateStr } from "@/lib/date-utils";
 import { SubmitButton } from "@/components/submit-button";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
+import { FormErrorToast } from "@/components/form-error-toast";
 
 type CashbookEntryType = "INCOME" | "EXPENSE" | "WITHDRAW" | "ADJUSTMENT";
 
@@ -52,11 +53,7 @@ export default async function NewCashbookPage({ searchParams }: PageProps) {
         </Link>
       </div>
 
-      {params.error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {params.error}
-        </div>
-      )}
+      <FormErrorToast />
 
       {/* Form Card */}
       <div className="rounded-xl border bg-white p-6 shadow-sm">

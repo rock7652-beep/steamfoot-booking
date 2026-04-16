@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { logoutAction } from "@/server/actions/auth";
+import { LogoutButton } from "@/components/logout-button";
 
 // SVG icon paths (Heroicons outline, 24x24 viewBox) — 與桌面版 sidebar 共用同一套
 const ICON_PATHS: Record<string, string[]> = {
@@ -159,13 +160,11 @@ export function MobileNav({ userName, pathname, customerId, storeSlug = "zhubei"
         <div className="absolute bottom-0 left-0 right-0 border-t border-earth-200 px-3 py-4">
           <form action={logoutAction}>
             <input type="hidden" name="storeSlug" value={storeSlug} />
-            <button
-              type="submit"
+            <LogoutButton
               className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-sm text-earth-400 hover:bg-earth-50 hover:text-earth-600 transition"
-            >
-              <NavIcon name="logout" className="text-earth-300" />
-              登出
-            </button>
+              iconClassName="text-earth-300"
+              iconSize={20}
+            />
           </form>
         </div>
       </nav>

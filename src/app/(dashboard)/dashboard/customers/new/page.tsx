@@ -5,6 +5,7 @@ import { checkPermission } from "@/lib/permissions";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { SubmitButton } from "@/components/submit-button";
+import { FormErrorToast } from "@/components/form-error-toast";
 
 interface PageProps {}
 
@@ -34,7 +35,7 @@ export default async function NewCustomerPage({}: PageProps) {
     });
 
     if (!result.success) {
-      throw new Error(result.error || "新增顧客失敗");
+      redirect(`/dashboard/customers/new?error=${encodeURIComponent(result.error || "新增顧客失敗")}`);
     }
 
     redirect(`/dashboard/customers/${result.data?.customerId ?? ""}`);
@@ -42,6 +43,7 @@ export default async function NewCustomerPage({}: PageProps) {
 
   return (
     <div className="max-w-2xl space-y-6">
+      <FormErrorToast />
       {/* Header */}
       <div className="flex items-center gap-3">
         <Link href="/dashboard/customers" className="text-sm text-earth-500 hover:text-earth-700">

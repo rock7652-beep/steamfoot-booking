@@ -4,6 +4,7 @@ import { checkPermission } from "@/lib/permissions";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { SubmitButton } from "@/components/submit-button";
+import { FormErrorToast } from "@/components/form-error-toast";
 
 type PlanCategory = "TRIAL" | "SINGLE" | "PACKAGE";
 
@@ -32,7 +33,7 @@ export default async function NewPlanPage({}: PageProps) {
     });
 
     if (!result.success) {
-      throw new Error(result.error || "新增方案失敗");
+      redirect(`/dashboard/plans/new?error=${encodeURIComponent(result.error || "新增方案失敗")}`);
     }
 
     redirect("/dashboard/plans");
@@ -40,6 +41,7 @@ export default async function NewPlanPage({}: PageProps) {
 
   return (
     <div className="max-w-2xl space-y-6">
+      <FormErrorToast />
       {/* Header */}
       <div className="flex items-center gap-3">
         <Link href="/dashboard/plans" className="text-sm text-earth-500 hover:text-earth-700">

@@ -3,6 +3,7 @@
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { triggerReconciliation } from "@/server/actions/reconciliation";
+import { toast } from "sonner";
 
 export function RunReconciliationButton() {
   const [isPending, startTransition] = useTransition();
@@ -10,8 +11,14 @@ export function RunReconciliationButton() {
 
   function handleClick() {
     startTransition(async () => {
-      await triggerReconciliation();
-      router.refresh();
+      try {
+        await triggerReconciliation();
+        router.refresh();
+        toast.success("對帳完成");
+      } catch (e) {
+        console.error("[reconciliation] trigger failed:", e);
+        toast.error(e instanceof Error ? e.message : "對帳失敗，請重試");
+      }
     });
   }
 

@@ -6,6 +6,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import CustomerSearch from "./customer-search";
 import { DashboardBookingForm } from "./booking-form";
+import { FormErrorToast } from "@/components/form-error-toast";
+import { SubmitButton } from "@/components/submit-button";
 
 function getNextDays(n: number): string[] {
   const days: string[] = [];
@@ -45,7 +47,7 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
     const skipDutyCheck = formData.get("skipDutyCheck") === "on";
 
     if (!customerId) {
-      throw new Error("請選擇顧客");
+      redirect(`/dashboard/bookings/new?date=${bookingDate}&error=${encodeURIComponent("請選擇顧客")}`);
     }
 
     const result = await createBooking({
@@ -59,7 +61,7 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
     });
 
     if (!result.success) {
-      throw new Error(result.error || "預約建立失敗");
+      redirect(`/dashboard/bookings/new?date=${bookingDate}&error=${encodeURIComponent(result.error || "預約建立失敗")}`);
     }
 
     redirect(`/dashboard/bookings?view=day&date=${bookingDate}`);
@@ -67,6 +69,7 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
 
   return (
     <div className="mx-auto max-w-lg space-y-6">
+      <FormErrorToast />
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-earth-500">
         <Link href="/dashboard/bookings" className="hover:text-earth-700">月曆</Link>
@@ -158,12 +161,11 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
 
           {/* Buttons */}
           <div className="flex gap-3 border-t border-earth-200 pt-5">
-            <button
-              type="submit"
-              className="flex-1 rounded-lg bg-primary-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-primary-700 active:bg-primary-800 transition-colors"
-            >
-              確認建立
-            </button>
+            <SubmitButton
+              label="確認建立"
+              pendingLabel="建立中..."
+              className="flex-1 bg-primary-600 text-white hover:bg-primary-700 active:bg-primary-800"
+            />
             <Link
               href={`/dashboard/bookings?view=day&date=${defaultDate}`}
               className="rounded-lg border border-earth-300 px-5 py-2.5 text-sm font-medium text-earth-700 hover:bg-earth-50 transition-colors"

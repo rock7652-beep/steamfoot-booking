@@ -342,13 +342,14 @@ export async function getCustomerActions(limit = 20, activeStoreId?: string | nu
       take: 20,
     }),
 
-    // 生日關懷：7 天內生日
+    // 生日關懷：7 天內生日（限制筆數避免大量資料載入）
     prisma.customer.findMany({
       where: {
         birthday: { not: null },
         ...storeFilter,
       },
       select: { id: true, name: true, phone: true, birthday: true, lineLinkStatus: true },
+      take: 500,
     }),
   ]);
 

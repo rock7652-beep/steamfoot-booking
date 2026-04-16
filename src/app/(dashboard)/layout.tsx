@@ -8,6 +8,7 @@ import { getStoreOptions, resolveActiveStoreId } from "@/lib/store";
 import { getActiveStoreCookie } from "@/server/actions/store-switch";
 import { getStorePlanById } from "@/lib/store-plan";
 import DashboardShell from "@/components/sidebar";
+import { LogoutButton } from "@/components/logout-button";
 
 export default async function DashboardLayout({
   children,
@@ -58,15 +59,11 @@ export default async function DashboardLayout({
           {dashStoreSlug && dashStoreSlug !== "__hq__" && (
             <input type="hidden" name="storeSlug" value={dashStoreSlug} />
           )}
-          <button
-            type="submit"
+          <LogoutButton
             className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-earth-600 hover:bg-earth-50"
-          >
-            <svg className="h-3.5 w-3.5 text-earth-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
-            </svg>
-            登出
-          </button>
+            iconClassName="text-earth-400"
+            iconSize={14}
+          />
         </form>
       }
       trialStatus={trialStatus}

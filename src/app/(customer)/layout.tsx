@@ -6,6 +6,7 @@ import Link from "next/link";
 import { MobileNav } from "./mobile-nav";
 import { NavProgress } from "./nav-progress";
 import BuildFooter from "@/components/build-footer";
+import { LogoutButton } from "@/components/logout-button";
 
 // SVG icon paths (Heroicons outline, 24x24 viewBox) — 拆成多段 path 確保正確渲染
 const ICON_PATHS: Record<string, string[]> = {
@@ -153,13 +154,11 @@ export default async function CustomerLayout({
           <div className="border-t border-earth-100 px-2.5 py-3">
             <form action={logoutAction}>
               <input type="hidden" name="storeSlug" value={storeSlug} />
-              <button
-                type="submit"
+              <LogoutButton
                 className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] text-earth-400 hover:bg-earth-50 hover:text-earth-600 transition"
-              >
-                <NavIcon name="logout" className="text-earth-300" />
-                登出
-              </button>
+                iconClassName="text-earth-300"
+                iconSize={18}
+              />
             </form>
           </div>
         </aside>

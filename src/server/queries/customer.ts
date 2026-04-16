@@ -133,7 +133,11 @@ export async function getCustomerDetail(customerId: string) {
         take: 50,
       },
       planWallets: {
-        include: { plan: true },
+        include: {
+          plan: {
+            select: { id: true, name: true, category: true, sessionCount: true, price: true },
+          },
+        },
         orderBy: { createdAt: "desc" },
       },
       bookings: {
