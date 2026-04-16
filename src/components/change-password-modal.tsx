@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useRef } from "react";
+import { useActionState, useEffect, useRef, useCallback } from "react";
 import { toast } from "sonner";
 import {
   staffChangePasswordAction,
@@ -22,15 +22,24 @@ export default function ChangePasswordModal({
   );
   const formRef = useRef<HTMLFormElement>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
+  const handledRef = useRef(false);
 
-  // Success → toast + close
+  // Success → toast + close（只觸發一次）
   useEffect(() => {
-    if (state.success) {
+    if (state.success && !handledRef.current) {
+      handledRef.current = true;
       toast.success("密碼已更新");
       formRef.current?.reset();
       onClose();
     }
   }, [state.success, onClose]);
+
+  // Reset handled flag when modal re-opens
+  useEffect(() => {
+    if (open) {
+      handledRef.current = false;
+    }
+  }, [open]);
 
   if (!open) return null;
 
