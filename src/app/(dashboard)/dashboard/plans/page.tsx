@@ -1,8 +1,8 @@
 import { listPlans } from "@/server/queries/plan";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
-import { getShopPlan } from "@/lib/shop-config";
-import { FEATURES } from "@/lib/shop-plan";
+import { getCurrentStorePlan } from "@/lib/store-plan";
+import { FEATURES } from "@/lib/feature-flags";
 import { FeatureGate } from "@/components/feature-gate";
 import { redirect } from "next/navigation";
 import Link from "next/link";
@@ -34,10 +34,10 @@ export default async function PlansPage({ searchParams }: PageProps) {
   }
   const isOwner = user.role === "ADMIN";
 
-  const [plans, shopPlan] = await Promise.all([listPlans(showAll), getShopPlan()]);
+  const [plans, storePlan] = await Promise.all([listPlans(showAll), getCurrentStorePlan()]);
 
   return (
-    <FeatureGate plan={shopPlan} feature={FEATURES.PLAN_MANAGEMENT}>
+    <FeatureGate plan={storePlan} feature={FEATURES.PLAN_MANAGEMENT}>
     <div>
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-3">

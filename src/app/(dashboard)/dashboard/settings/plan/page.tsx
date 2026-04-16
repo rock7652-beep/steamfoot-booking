@@ -1,15 +1,9 @@
 import { getCurrentUser } from "@/lib/session";
-import { getShopConfig } from "@/lib/shop-config";
 import { prisma } from "@/lib/db";
 import { Fragment } from "react";
 import { redirect, notFound } from "next/navigation";
-import {
-  PLAN_INFO,
-  UPGRADE_BENEFITS,
-  FEATURE_COMPARISON,
-  hasFeature,
-} from "@/lib/shop-plan";
-import { PRICING_PLAN_INFO } from "@/lib/feature-flags";
+import { PRICING_PLAN_INFO, hasFeature, type FeatureKey } from "@/lib/feature-flags";
+import { getCurrentStorePlan } from "@/lib/store-plan";
 import { getAllStoresUsage, getPlatformStoreStats, type StoreUsage } from "@/server/queries/usage";
 import {
   getPlatformOverLimitCopy,
@@ -18,8 +12,7 @@ import {
   getNextPlanInfo,
 } from "@/lib/upgrade-copy";
 import { getPendingUpgradeRequest } from "@/server/queries/upgrade-request";
-import type { ShopPlan } from "@prisma/client";
-import { PlanSwitcher } from "./plan-switcher";
+import type { PricingPlan } from "@prisma/client";
 import { PricingPlanSwitcher } from "./pricing-plan-switcher";
 import { UpgradeRequestForm } from "@/components/upgrade-request-form";
 import { StoreRequestHistory } from "./store-request-history";
@@ -39,9 +32,60 @@ export default async function PlanSettingsPage() {
     notFound();
   }
 
-  const config = await getShopConfig();
+  const currentPlan = await getCurrentStorePlan();
 
-  const plans: ShopPlan[] = ["FREE", "BASIC", "PRO"];
+  const plans: PricingPlan[] = ["EXPERIENCE", "BASIC", "GROWTH", "ALLIANCE"];
+
+  /** Plan highlights for the hero cards */
+  const PLAN_HIGHLIGHTS: Record<PricingPlan, string[]> = {
+    EXPERIENCE: ["基礎預約管理", "顧客資料管理", "教練排班"],
+    BASIC: ["LINE 提醒通知", "金流與帳務", "基礎營運報表"],
+    GROWTH: ["進階報表分析", "AI 健康摘要", "人才管道與 KPI"],
+    ALLIANCE: ["多店管理", "聯盟分析", "完整開店準備度"],
+  };
+
+  /** Feature comparison groups for the table */
+  const FEATURE_GROUPS: { group: string; features: { key: FeatureKey; label: string }[] }[] = [
+    {
+      group: "基礎功能",
+      features: [
+        { key: "basic_booking", label: "預約管理" },
+        { key: "customer_management", label: "顧客管理" },
+        { key: "staff_management", label: "教練管理" },
+        { key: "duty_scheduling", label: "值班排程" },
+      ],
+    },
+    {
+      group: "營運管理",
+      features: [
+        { key: "line_reminder", label: "LINE 提醒" },
+        { key: "transaction", label: "交易紀錄" },
+        { key: "plan_management", label: "方案管理" },
+        { key: "cashbook", label: "帳簿" },
+        { key: "reconciliation", label: "對帳" },
+        { key: "basic_reports", label: "基礎報表" },
+      ],
+    },
+    {
+      group: "進階分析",
+      features: [
+        { key: "advanced_reports", label: "進階報表" },
+        { key: "ai_health_summary", label: "AI 健康摘要" },
+        { key: "kpi_dashboard", label: "KPI 儀表板" },
+        { key: "talent_pipeline", label: "人才管道" },
+        { key: "retention_reminder", label: "回訪提醒" },
+      ],
+    },
+    {
+      group: "聯盟功能",
+      features: [
+        { key: "multi_store", label: "多店管理" },
+        { key: "alliance_analytics", label: "聯盟分析" },
+        { key: "talent_readiness", label: "開店準備度" },
+        { key: "coach_revenue", label: "合作店長營收" },
+      ],
+    },
+  ];
 
   return (
     <div className="mx-auto max-w-4xl space-y-8">
@@ -60,25 +104,31 @@ export default async function PlanSettingsPage() {
         </div>
         <p className="mt-1 text-sm text-earth-500">
           目前方案：
-          <span className={`font-medium ${PLAN_INFO[config.plan].color}`}>
-            {PLAN_INFO[config.plan].label}
+          <span className={`font-medium ${PRICING_PLAN_INFO[currentPlan].color}`}>
+            {PRICING_PLAN_INFO[currentPlan].label}
           </span>
           　｜　管理方案權限、用量與功能比較
         </p>
       </div>
 
       {/* ── Plan Hero Cards ── */}
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {plans.map((plan) => {
-          const info = PLAN_INFO[plan];
-          const isCurrent = plan === config.plan;
+          const info = PRICING_PLAN_INFO[plan];
+          const isCurrent = plan === currentPlan;
+          const highlights = PLAN_HIGHLIGHTS[plan];
+          const checkColor =
+            plan === "ALLIANCE" ? "text-indigo-500"
+            : plan === "GROWTH" ? "text-amber-500"
+            : plan === "BASIC" ? "text-primary-500"
+            : "text-green-500";
           return (
             <div
               key={plan}
               className={`relative flex flex-col rounded-xl border-2 p-5 transition ${
                 isCurrent
                   ? "border-primary-400 bg-primary-50/30 shadow-md"
-                  : plan === "PRO"
+                  : plan === "GROWTH"
                     ? "border-amber-200 bg-amber-50/20"
                     : "border-earth-200 bg-white"
               }`}
@@ -88,7 +138,7 @@ export default async function PlanSettingsPage() {
                   目前方案
                 </span>
               )}
-              {plan === "PRO" && !isCurrent && (
+              {plan === "GROWTH" && !isCurrent && (
                 <span className="absolute -top-2.5 right-3 rounded-full bg-amber-500 px-2.5 py-0.5 text-[10px] font-medium text-white">
                   推薦
                 </span>
@@ -105,17 +155,15 @@ export default async function PlanSettingsPage() {
               <p className="mt-1 text-xs text-earth-400">{info.audience}</p>
 
               <div className="mt-3 text-2xl font-bold text-earth-900">
-                {plan === "FREE" ? "免費" : "洽詢"}
+                {plan === "EXPERIENCE" ? "免費" : "洽詢"}
               </div>
 
               {/* Highlights */}
               <ul className="mt-4 flex-1 space-y-1.5">
-                {info.highlights.map((h, i) => (
+                {highlights.map((h, i) => (
                   <li key={i} className="flex items-start gap-2 text-xs text-earth-600">
                     <svg
-                      className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${
-                        plan === "PRO" ? "text-amber-500" : plan === "BASIC" ? "text-primary-500" : "text-green-500"
-                      }`}
+                      className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${checkColor}`}
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
@@ -173,11 +221,11 @@ export default async function PlanSettingsPage() {
                   <th
                     key={plan}
                     className={`px-4 py-2.5 text-center font-medium ${
-                      plan === config.plan ? "text-primary-700" : "text-earth-600"
+                      plan === currentPlan ? "text-primary-700" : "text-earth-600"
                     }`}
                   >
-                    {PLAN_INFO[plan].label}
-                    {plan === config.plan && (
+                    {PRICING_PLAN_INFO[plan].label}
+                    {plan === currentPlan && (
                       <span className="ml-1 text-[10px] text-primary-400">*</span>
                     )}
                   </th>
@@ -185,11 +233,11 @@ export default async function PlanSettingsPage() {
               </tr>
             </thead>
             <tbody>
-              {FEATURE_COMPARISON.map((group) => (
+              {FEATURE_GROUPS.map((group) => (
                 <Fragment key={group.group}>
                   <tr className="bg-earth-50/50">
                     <td
-                      colSpan={4}
+                      colSpan={5}
                       className="px-5 py-2 text-xs font-semibold text-earth-500 uppercase tracking-wide"
                     >
                       {group.group}
@@ -227,9 +275,6 @@ export default async function PlanSettingsPage() {
           </table>
         </div>
       </div>
-
-      {/* Plan Switcher (Owner only) */}
-      <PlanSwitcher currentPlan={config.plan} />
 
       {/* ═══════════════════════════════════════════ */}
       {/* HQ 方案總覽                                  */}

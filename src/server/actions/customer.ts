@@ -27,7 +27,7 @@ export async function createCustomer(
     const user = await requirePermission("customer.create");
     const data = createCustomerSchema.parse(input);
 
-    // FREE 方案顧客數限制（legacy ShopPlan）
+    // FREE 方案顧客數限制
     const customerLimit = await checkCustomerLimit();
     if (!customerLimit.allowed) {
       return {

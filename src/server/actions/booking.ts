@@ -47,7 +47,7 @@ export async function createBooking(
     const bookingPeople = data.people ?? 1;
     const isMakeup = data.isMakeup ?? false;
 
-    // ── 0. FREE 方案預約數限制（legacy ShopPlan）
+    // ── 0. FREE 方案預約數限制
     const bookingLimit = await checkBookingLimit();
     if (!bookingLimit.allowed) {
       return {

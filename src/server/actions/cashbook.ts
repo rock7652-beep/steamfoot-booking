@@ -5,8 +5,8 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/permissions";
 import { AppError, handleActionError } from "@/lib/errors";
-import { requireFeature } from "@/lib/shop-config";
-import { FEATURES } from "@/lib/shop-plan";
+import { checkCurrentStoreFeature } from "@/lib/feature-gate";
+import { FEATURES } from "@/lib/feature-flags";
 import type { ActionResult } from "@/types";
 import type { CashbookEntryType } from "@prisma/client";
 import { assertStoreAccess } from "@/lib/manager-visibility";
@@ -47,7 +47,7 @@ export async function createCashbookEntry(
 ): Promise<ActionResult<{ entryId: string }>> {
   try {
     const user = await requirePermission("cashbook.create");
-    await requireFeature(FEATURES.CASHBOOK);
+    await checkCurrentStoreFeature(FEATURES.CASHBOOK);
     const data = createCashbookEntrySchema.parse(input);
 
     // 非 Owner 員工若未指定 staffId，自動綁定自己

@@ -1,8 +1,8 @@
 import { listCashbookEntries, getMonthlySummary } from "@/server/queries/cashbook";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
-import { getShopPlan } from "@/lib/shop-config";
-import { FEATURES } from "@/lib/shop-plan";
+import { getCurrentStorePlan } from "@/lib/store-plan";
+import { FEATURES } from "@/lib/feature-flags";
 import { FeatureGate } from "@/components/feature-gate";
 import { getActiveStoreForRead } from "@/lib/store";
 import { redirect } from "next/navigation";
@@ -52,7 +52,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
   const dateTo = `${month}-${String(lastDay).padStart(2, "0")}`;
 
   const activeStoreId = await getActiveStoreForRead(user);
-  const [{ entries, total, pageSize }, summary, shopPlan] = await Promise.all([
+  const [{ entries, total, pageSize }, summary, plan] = await Promise.all([
     listCashbookEntries({
       dateFrom,
       dateTo,
@@ -62,13 +62,13 @@ export default async function CashbookPage({ searchParams }: PageProps) {
       activeStoreId,
     }),
     getMonthlySummary(month, activeStoreId),
-    getShopPlan(),
+    getCurrentStorePlan(),
   ]);
 
   const totalPages = Math.ceil(total / pageSize);
 
   return (
-    <FeatureGate plan={shopPlan} feature={FEATURES.CASHBOOK}>
+    <FeatureGate plan={plan} feature={FEATURES.CASHBOOK}>
     <div>
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-xl font-bold text-earth-900">現金帳</h1>

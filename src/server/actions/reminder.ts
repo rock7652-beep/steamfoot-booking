@@ -4,9 +4,9 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireAdminSession, requireStaffSession } from "@/lib/session";
-import { requireFeature } from "@/lib/shop-config";
+import { checkCurrentStoreFeature } from "@/lib/feature-gate";
 import { requirePermission } from "@/lib/permissions";
-import { FEATURES } from "@/lib/shop-plan";
+import { FEATURES } from "@/lib/feature-flags";
 import { AppError, handleActionError } from "@/lib/errors";
 import { assertStoreAccess } from "@/lib/manager-visibility";
 import { pushMessage, renderTemplate, type TemplateVariables } from "@/lib/line";
@@ -61,7 +61,7 @@ export async function createReminderRule(
 ): Promise<ActionResult<{ ruleId: string }>> {
   try {
     const user = await requireAdminSession();
-    await requireFeature(FEATURES.AUTO_REMINDER);
+    await checkCurrentStoreFeature(FEATURES.LINE_REMINDER);
     const data = createRuleSchema.parse(input);
 
     const rule = await prisma.reminderRule.create({
@@ -92,7 +92,7 @@ export async function updateReminderRule(
 ): Promise<ActionResult<void>> {
   try {
     const user = await requireAdminSession();
-    await requireFeature(FEATURES.AUTO_REMINDER);
+    await checkCurrentStoreFeature(FEATURES.LINE_REMINDER);
     const data = updateRuleSchema.parse(input);
 
     // Ownership check
@@ -119,7 +119,7 @@ export async function toggleReminderRule(
 ): Promise<ActionResult<void>> {
   try {
     const user = await requireAdminSession();
-    await requireFeature(FEATURES.AUTO_REMINDER);
+    await checkCurrentStoreFeature(FEATURES.LINE_REMINDER);
 
     // Ownership check
     const existing = await prisma.reminderRule.findUnique({ where: { id: ruleId } });
@@ -148,7 +148,7 @@ export async function createMessageTemplate(
 ): Promise<ActionResult<{ templateId: string }>> {
   try {
     const user = await requireAdminSession();
-    await requireFeature(FEATURES.AUTO_REMINDER);
+    await checkCurrentStoreFeature(FEATURES.LINE_REMINDER);
     const data = createTemplateSchema.parse(input);
 
     // If setting as default, unset others (scoped to store)
@@ -182,7 +182,7 @@ export async function updateMessageTemplate(
 ): Promise<ActionResult<void>> {
   try {
     const user = await requireAdminSession();
-    await requireFeature(FEATURES.AUTO_REMINDER);
+    await checkCurrentStoreFeature(FEATURES.LINE_REMINDER);
     const data = updateTemplateSchema.parse(input);
 
     // Ownership check
@@ -220,7 +220,7 @@ export async function testSendLineMessage(
 ): Promise<ActionResult<void>> {
   try {
     const adminUser = await requireAdminSession();
-    await requireFeature(FEATURES.AUTO_REMINDER);
+    await checkCurrentStoreFeature(FEATURES.LINE_REMINDER);
 
     const [customer, template] = await Promise.all([
       prisma.customer.findUnique({

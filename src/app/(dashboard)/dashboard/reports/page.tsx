@@ -5,11 +5,8 @@ import {
 import { getReportSnapshot } from "@/server/queries/report-snapshot";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
-import { getCachedShopPlan } from "@/lib/query-cache";
-import { FEATURES } from "@/lib/shop-plan";
-import { FEATURES as FF } from "@/lib/feature-flags";
 import { getCurrentStorePlan } from "@/lib/store-plan";
-import { hasFeature as hasPricingFeature } from "@/lib/feature-flags";
+import { hasFeature, FEATURES } from "@/lib/feature-flags";
 import { ServerTiming, withTiming } from "@/lib/perf";
 import { FeatureGate } from "@/components/feature-gate";
 import { UpgradeNoticePage } from "@/components/upgrade-notice";
@@ -37,7 +34,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
 
   // PricingPlan feature gate: 進階報表需 GROWTH+
   const pricingPlan = await getCurrentStorePlan();
-  if (!hasPricingFeature(pricingPlan, FF.ADVANCED_REPORTS)) {
+  if (!hasFeature(pricingPlan, FEATURES.ADVANCED_REPORTS)) {
     return (
       <UpgradeNoticePage
         title="進階報表需升級方案"
@@ -85,15 +82,15 @@ export default async function ReportsPage({ searchParams }: PageProps) {
 
   let storeSummary: StoreSummary;
   let revenueByCategory: RevenueByCategory;
-  let shopPlan: Awaited<ReturnType<typeof getCachedShopPlan>>;
+  let plan: Awaited<ReturnType<typeof getCurrentStorePlan>>;
 
   if (isFullPastMonth) {
     const [ssSnap, rcSnap, sp] = await Promise.all([
       withTiming("snapshotStoreSummary", timer, () => getReportSnapshot(activeStoreId || user.storeId!, month, "STORE_SUMMARY")),
       withTiming("snapshotRevenueByCategory", timer, () => getReportSnapshot(activeStoreId || user.storeId!, month, "REVENUE_BY_CATEGORY")),
-      withTiming("getCachedShopPlan", timer, () => getCachedShopPlan()),
+      withTiming("getCurrentStorePlan", timer, () => getCurrentStorePlan()),
     ]);
-    shopPlan = sp;
+    plan = sp;
     if (ssSnap && rcSnap) {
       storeSummary = ssSnap as StoreSummary;
       revenueByCategory = rcSnap as RevenueByCategory;
@@ -104,17 +101,17 @@ export default async function ReportsPage({ searchParams }: PageProps) {
       ]);
     }
   } else {
-    [storeSummary, revenueByCategory, shopPlan] = await Promise.all([
+    [storeSummary, revenueByCategory, plan] = await Promise.all([
       withTiming("monthlyStoreSummary", timer, () => monthlyStoreSummary(month, dateRangeOpts)),
       withTiming("monthlyRevenueByCategory", timer, () => monthlyRevenueByCategory(month, dateRangeOpts)),
-      withTiming("getCachedShopPlan", timer, () => getCachedShopPlan()),
+      withTiming("getCurrentStorePlan", timer, () => getCurrentStorePlan()),
     ]);
   }
 
   timer.finish();
 
   return (
-    <FeatureGate plan={shopPlan} feature={FEATURES.BASIC_REPORTS}>
+    <FeatureGate plan={plan} feature={FEATURES.BASIC_REPORTS}>
     <div className="mx-auto max-w-2xl">
       <div className="mb-5 flex items-center justify-between">
         <h1 className="text-lg font-bold text-earth-900">報表</h1>

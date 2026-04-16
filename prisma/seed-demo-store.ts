@@ -101,12 +101,10 @@ async function main() {
     create: {
       storeId: DEMO_STORE_ID,
       shopName: "蒸足 Demo 展示店",
-      plan: "PRO",
       dutySchedulingEnabled: true,
     },
     update: {
       shopName: "蒸足 Demo 展示店",
-      plan: "PRO",
       dutySchedulingEnabled: true,
     },
   });

@@ -2,8 +2,8 @@ import { listTransactions } from "@/server/queries/transaction";
 import { listStaffSelectOptions } from "@/server/queries/staff";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
-import { getShopPlan } from "@/lib/shop-config";
-import { FEATURES } from "@/lib/shop-plan";
+import { getCurrentStorePlan } from "@/lib/store-plan";
+import { FEATURES } from "@/lib/feature-flags";
 import { FeatureGate } from "@/components/feature-gate";
 import { getActiveStoreForRead } from "@/lib/store";
 import { redirect } from "next/navigation";
@@ -67,7 +67,7 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
   const dateTo = params.dateTo ?? today;
 
   const activeStoreId = await getActiveStoreForRead(user);
-  const [{ transactions, total, pageSize }, staffOptions, shopPlan] = await Promise.all([
+  const [{ transactions, total, pageSize }, staffOptions, plan] = await Promise.all([
     listTransactions({
       dateFrom,
       dateTo,
@@ -79,7 +79,7 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
       activeStoreId,
     }),
     listStaffSelectOptions(activeStoreId),
-    getShopPlan(),
+    getCurrentStorePlan(),
   ]);
 
   const totalPages = Math.ceil(total / pageSize);
@@ -97,7 +97,7 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
     .reduce((sum, t) => sum + Number(t.amount), 0);
 
   return (
-    <FeatureGate plan={shopPlan} feature={FEATURES.TRANSACTION_MANAGEMENT}>
+    <FeatureGate plan={plan} feature={FEATURES.TRANSACTION_MANAGEMENT}>
     <div>
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-3">

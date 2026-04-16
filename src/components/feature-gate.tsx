@@ -1,19 +1,24 @@
 "use client";
 
 import { useState } from "react";
-import type { ShopPlan } from "@prisma/client";
-import { hasFeature, getRequiredPlan, PLAN_INFO, UPGRADE_BENEFITS, type Feature } from "@/lib/shop-plan";
+import type { PricingPlan } from "@prisma/client";
+import {
+  hasFeature,
+  getRequiredPlan,
+  PRICING_PLAN_INFO,
+  type FeatureKey,
+} from "@/lib/feature-flags";
 import type { TrialStatus } from "@/lib/shop-config";
 import { getFeatureGateCopy, TRIAL_CONVERSION_COPY } from "@/lib/upgrade-copy";
 
 // ============================================================
 // FeatureGate — 功能門禁元件
-// 有權限時顯示 children，無權限時顯示升級提示
+// Source of truth: Store.plan (PricingPlan)
 // ============================================================
 
 interface FeatureGateProps {
-  plan: ShopPlan;
-  feature: Feature;
+  plan: PricingPlan;
+  feature: FeatureKey;
   children: React.ReactNode;
   /** 無權限時的替代內容（預設：升級提示卡片） */
   fallback?: React.ReactNode;
@@ -30,11 +35,10 @@ export function FeatureGate({ plan, feature, children, fallback }: FeatureGatePr
 // UpgradeCard — 升級提示卡片（嵌入式）
 // ============================================================
 
-function UpgradeCard({ feature }: { feature: Feature }) {
+function UpgradeCard({ feature }: { feature: FeatureKey }) {
   const requiredPlan = getRequiredPlan(feature);
-  const info = PLAN_INFO[requiredPlan];
-  const benefits = UPGRADE_BENEFITS[requiredPlan as "BASIC" | "PRO"] ?? [];
-  const gateCopy = getFeatureGateCopy(requiredPlan as import("@prisma/client").PricingPlan);
+  const info = PRICING_PLAN_INFO[requiredPlan];
+  const gateCopy = getFeatureGateCopy(requiredPlan);
 
   return (
     <div className="rounded-2xl border border-earth-200 bg-white p-8 text-center shadow-sm">
@@ -52,18 +56,6 @@ function UpgradeCard({ feature }: { feature: Feature }) {
       <p className="mt-1 text-sm text-earth-500">
         {gateCopy.description}
       </p>
-      {benefits.length > 0 && (
-        <ul className="mx-auto mt-4 max-w-xs space-y-1.5 text-left text-sm text-earth-600">
-          {benefits.map((b) => (
-            <li key={b} className="flex items-start gap-2">
-              <svg className="mt-0.5 h-4 w-4 shrink-0 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-              </svg>
-              {b}
-            </li>
-          ))}
-        </ul>
-      )}
       <div className="mt-5 flex items-center justify-center gap-2">
         <a
           href="/pricing"
@@ -92,14 +84,13 @@ function UpgradeCard({ feature }: { feature: Feature }) {
 interface UpgradePromptProps {
   open: boolean;
   onClose: () => void;
-  targetPlan: "BASIC" | "PRO";
+  targetPlan: PricingPlan;
   featureLabel?: string;
 }
 
 export function UpgradePrompt({ open, onClose, targetPlan, featureLabel }: UpgradePromptProps) {
   if (!open) return null;
-  const info = PLAN_INFO[targetPlan];
-  const benefits = UPGRADE_BENEFITS[targetPlan];
+  const info = PRICING_PLAN_INFO[targetPlan];
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center">
@@ -122,20 +113,9 @@ export function UpgradePrompt({ open, onClose, targetPlan, featureLabel }: Upgra
             {featureLabel ? `「${featureLabel}」需要${info.label}方案` : `升級至${info.label}`}
           </h3>
           <p className="mt-1 text-sm text-earth-500">
-            升級後可立即解鎖以下能力：
+            升級後可立即解鎖更多營運能力
           </p>
         </div>
-
-        <ul className="mt-4 space-y-2">
-          {benefits.map((b) => (
-            <li key={b} className="flex items-start gap-2 text-sm text-earth-700">
-              <svg className="mt-0.5 h-4 w-4 shrink-0 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-              </svg>
-              {b}
-            </li>
-          ))}
-        </ul>
 
         <div className="mt-5 space-y-2">
           <div className="flex gap-2">
@@ -249,10 +229,11 @@ export function TrialLimitModal({
 
 // ============================================================
 // PlanBadge — 方案標籤
+// Source of truth: Store.plan (PricingPlan)
 // ============================================================
 
-export function PlanBadge({ plan }: { plan: ShopPlan }) {
-  const info = PLAN_INFO[plan];
+export function PlanBadge({ plan }: { plan: PricingPlan }) {
+  const info = PRICING_PLAN_INFO[plan];
   return (
     <span className={`inline-flex rounded-md px-2 py-0.5 text-[11px] font-medium ${info.bgColor} ${info.color}`}>
       {info.label}
@@ -261,7 +242,7 @@ export function PlanBadge({ plan }: { plan: ShopPlan }) {
 }
 
 // ============================================================
-// PlanLimitNotice — FREE 限制提示（分階段）
+// PlanLimitNotice — EXPERIENCE 限制提示（分階段）
 // 60%: 輕提醒  80%: Banner  100%: 強提醒
 // ============================================================
 
@@ -459,7 +440,7 @@ export function LockedNavItem({
   label: string;
   icon: React.ReactNode;
   collapsed: boolean;
-  targetPlan: "BASIC" | "PRO";
+  targetPlan: PricingPlan;
 }) {
   const [showPrompt, setShowPrompt] = useState(false);
 

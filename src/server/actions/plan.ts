@@ -4,8 +4,8 @@ import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/permissions";
 import { requireStaffSession } from "@/lib/session";
 import { AppError, handleActionError } from "@/lib/errors";
-import { requireFeature } from "@/lib/shop-config";
-import { FEATURES } from "@/lib/shop-plan";
+import { checkCurrentStoreFeature } from "@/lib/feature-gate";
+import { FEATURES } from "@/lib/feature-flags";
 import { createPlanSchema, updatePlanSchema } from "@/lib/validators/plan";
 import { revalidatePlans } from "@/lib/revalidation";
 import type { ActionResult } from "@/types";
@@ -20,7 +20,7 @@ export async function createPlan(
 ): Promise<ActionResult<{ planId: string }>> {
   try {
     await requirePermission("wallet.create");
-    await requireFeature(FEATURES.PLAN_MANAGEMENT);
+    await checkCurrentStoreFeature(FEATURES.PLAN_MANAGEMENT);
     const user = await requireStaffSession();
     const storeId = user.storeId!;
     const data = createPlanSchema.parse(input);

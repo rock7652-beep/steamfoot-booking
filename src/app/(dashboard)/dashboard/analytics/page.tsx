@@ -1,8 +1,8 @@
 // @ts-nocheck — MVP 隱藏頁面，redirect 後全為 dead code
 import { getCurrentUser } from "@/lib/session";
-import { getShopPlan } from "@/lib/shop-config";
+import { getCurrentStorePlan } from "@/lib/store-plan";
 import { redirect, notFound } from "next/navigation";
-import { hasFeature, FEATURES } from "@/lib/shop-plan";
+import { hasFeature, FEATURES } from "@/lib/feature-flags";
 import { FeatureGate } from "@/components/feature-gate";
 
 export default async function AnalyticsPage() {
@@ -14,10 +14,10 @@ export default async function AnalyticsPage() {
   if (!user) return null;
   if (user.role !== "ADMIN") notFound();
 
-  const plan = await getShopPlan();
+  const plan = await getCurrentStorePlan();
 
   return (
-    <FeatureGate plan={plan} feature={FEATURES.CROSS_BRANCH_ANALYTICS}>
+    <FeatureGate plan={plan} feature={FEATURES.ALLIANCE_ANALYTICS}>
       <div className="space-y-5">
         <h1 className="text-lg font-bold text-earth-900">聯盟數據</h1>
 

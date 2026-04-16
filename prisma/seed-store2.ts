@@ -48,7 +48,6 @@ async function main() {
     data: {
       storeId: STORE_ID,
       shopName: "蒸足 台中測試店",
-      plan: "PRO",
     },
   });
   console.log("✅ ShopConfig created");

@@ -184,12 +184,6 @@ enum ParticipationType {
   SUPPORT          // 現場支援
 }
 
-enum ShopPlan {
-  FREE
-  BASIC
-  PRO
-}
-
 enum PricingPlan {
   EXPERIENCE
   BASIC
@@ -992,7 +986,6 @@ model ShopConfig {
   id                    String   @id @default(cuid())
   storeId               String   @unique
   shopName              String   @default("蒸足")
-  plan                  ShopPlan @default(FREE)
   dutySchedulingEnabled Boolean  @default(false)
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt

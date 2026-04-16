@@ -1,7 +1,7 @@
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
-import { getCachedShopPlan } from "@/lib/query-cache";
-import { FEATURES } from "@/lib/shop-plan";
+import { getCurrentStorePlan } from "@/lib/store-plan";
+import { FEATURES } from "@/lib/feature-flags";
 import { ServerTiming, withTiming } from "@/lib/perf";
 import { FeatureGate } from "@/components/feature-gate";
 import { redirect } from "next/navigation";
@@ -29,10 +29,10 @@ export default async function ReconciliationPage({ searchParams }: PageProps) {
 
   const params = await searchParams;
   const timer = new ServerTiming("/dashboard/reconciliation");
-  const [runs, selectedRun, shopPlan] = await Promise.all([
+  const [runs, selectedRun, plan] = await Promise.all([
     withTiming("listReconciliationRuns", timer, () => listReconciliationRuns(20)),
     params.runId ? withTiming("getReconciliationRunDetail", timer, () => getReconciliationRunDetail(params.runId!)) : null,
-    withTiming("getCachedShopPlan", timer, () => getCachedShopPlan()),
+    withTiming("getCurrentStorePlan", timer, () => getCurrentStorePlan()),
   ]);
   timer.finish();
 
@@ -44,7 +44,7 @@ export default async function ReconciliationPage({ searchParams }: PageProps) {
   const failedChecks = displayRun?.checks.filter((c) => c.status !== "pass") ?? [];
 
   return (
-    <FeatureGate plan={shopPlan} feature={FEATURES.RECONCILIATION}>
+    <FeatureGate plan={plan} feature={FEATURES.RECONCILIATION}>
     <div className="mx-auto max-w-3xl space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">

@@ -24,11 +24,11 @@ async function main() {
 
   const config = await prisma.shopConfig.upsert({
     where: { storeId: "default-store" },
-    create: { storeId: "default-store", shopName: "暖暖蒸足", plan: "PRO" },
-    update: { shopName: "暖暖蒸足", plan: "PRO" },
+    create: { storeId: "default-store", shopName: "暖暖蒸足" },
+    update: { shopName: "暖暖蒸足" },
   });
 
-  console.log("  ShopConfig updated: shopName=", config.shopName, "plan=", config.plan);
+  console.log("  ShopConfig updated: shopName=", config.shopName);
   console.log("\nDone! 竹北店設定完成。");
 }
 

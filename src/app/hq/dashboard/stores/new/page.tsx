@@ -14,7 +14,6 @@ export default function NewStorePage() {
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [plan, setPlan] = useState<"EXPERIENCE" | "BASIC" | "GROWTH" | "ALLIANCE">("GROWTH");
-  const [shopPlan, setShopPlan] = useState<"FREE" | "BASIC" | "PRO">("PRO");
   const [isDemo, setIsDemo] = useState(false);
   const [domain, setDomain] = useState("");
   const [lineDestination, setLineDestination] = useState("");
@@ -32,7 +31,6 @@ export default function NewStorePage() {
       name: name.trim(),
       slug: slug.trim().toLowerCase(),
       plan,
-      shopPlan,
       isDemo,
       domain: domain.trim() || undefined,
       lineDestination: lineDestination.trim() || undefined,
@@ -172,13 +170,6 @@ export default function NewStorePage() {
                 { value: "BASIC", label: "BASIC" },
                 { value: "GROWTH", label: "GROWTH" },
                 { value: "ALLIANCE", label: "ALLIANCE" },
-              ]}
-            />
-            <SelectField label="ShopPlan" value={shopPlan} onChange={setShopPlan as (v: string) => void}
-              options={[
-                { value: "FREE", label: "FREE（試用）" },
-                { value: "BASIC", label: "BASIC" },
-                { value: "PRO", label: "PRO" },
               ]}
             />
             <Field label="自訂網域" value={domain} onChange={setDomain} placeholder="steamfoot-xx.com" />

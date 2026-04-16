@@ -15,7 +15,6 @@ async function main() {
     create: {
       storeId: "default-store",
       shopName: "蒸足",
-      plan: "BASIC",
     },
     update: {}, // 已存在則保留現有值
   });

@@ -15,8 +15,6 @@ export interface CreateStoreInput {
   slug: string;
   /** 方案等級 */
   plan: PricingPlan;
-  /** ShopConfig plan（功能開關層級） */
-  shopPlan: "FREE" | "BASIC" | "PRO";
   /** 是否為 Demo 店 */
   isDemo: boolean;
 

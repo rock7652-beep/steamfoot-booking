@@ -5,8 +5,8 @@ import { hashSync } from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { requireAdminSession } from "@/lib/session";
 import { AppError, handleActionError } from "@/lib/errors";
-import { requireFeature } from "@/lib/shop-config";
-import { FEATURES } from "@/lib/shop-plan";
+import { checkCurrentStoreFeature } from "@/lib/feature-gate";
+import { FEATURES } from "@/lib/feature-flags";
 import { createDefaultPermissions, ASSIGNABLE_STAFF_ROLES } from "@/lib/permissions";
 import { currentStoreId } from "@/lib/store";
 import { assertStoreAccess } from "@/lib/manager-visibility";
@@ -47,7 +47,7 @@ export async function createStaff(
 ): Promise<ActionResult<{ staffId: string }>> {
   try {
     const adminUser = await requireAdminSession();
-    await requireFeature(FEATURES.STAFF_MANAGEMENT);
+    await checkCurrentStoreFeature(FEATURES.STAFF_MANAGEMENT);
     const data = createStaffSchema.parse(input);
 
     // 用量限制：檢查員工數量上限

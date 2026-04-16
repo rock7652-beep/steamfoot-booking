@@ -4,8 +4,7 @@
  * 四種方案：EXPERIENCE / BASIC / GROWTH / ALLIANCE
  * 綁定在 Store.plan，供 server-side 與 client-side 共用
  *
- * 與舊版 shop-plan.ts (ShopPlan: FREE/BASIC/PRO on ShopConfig) 共存。
- * 新功能一律使用此檔案；舊系統逐步遷移。
+ * 唯一方案分級系統，綁定 Store.plan。
  */
 
 import type { PricingPlan, Store } from "@prisma/client";
@@ -25,11 +24,18 @@ export const FEATURES = {
   // ── BASIC（基礎版）──
   LINE_REMINDER: "line_reminder",
   TRANSACTION: "transaction",
+  TRANSACTION_MANAGEMENT: "transaction_management",
+  PLAN_MANAGEMENT: "plan_management",
   CASHBOOK: "cashbook",
+  RECONCILIATION: "reconciliation",
   BASIC_REPORTS: "basic_reports",
+  OPS_DASHBOARD_BASIC: "ops_dashboard_basic",
+  STORE_REVENUE: "store_revenue",
 
   // ── GROWTH / PRO（專業版）── 人才經營 + 進階分析
   ADVANCED_REPORTS: "advanced_reports",
+  TRAINING_CONTENT: "training_content",
+  RANKING: "ranking",
   AI_HEALTH_SUMMARY: "ai_health_summary",
   AI_HEALTH_HISTORY: "ai_health_history",
   AI_REPORT_PDF: "ai_report_pdf",
@@ -68,8 +74,13 @@ export const PLAN_FEATURES: Record<PricingPlan, FeatureKey[]> = {
     "duty_scheduling",
     "line_reminder",
     "transaction",
+    "transaction_management",
+    "plan_management",
     "cashbook",
+    "reconciliation",
     "basic_reports",
+    "ops_dashboard_basic",
+    "store_revenue",
   ],
   GROWTH: [
     "basic_booking",
@@ -78,10 +89,17 @@ export const PLAN_FEATURES: Record<PricingPlan, FeatureKey[]> = {
     "duty_scheduling",
     "line_reminder",
     "transaction",
+    "transaction_management",
+    "plan_management",
     "cashbook",
+    "reconciliation",
     "basic_reports",
+    "ops_dashboard_basic",
+    "store_revenue",
     // PRO 專屬
     "advanced_reports",
+    "training_content",
+    "ranking",
     "ai_health_summary",
     "ai_health_history",
     "ai_report_pdf",
@@ -98,10 +116,17 @@ export const PLAN_FEATURES: Record<PricingPlan, FeatureKey[]> = {
     "duty_scheduling",
     "line_reminder",
     "transaction",
+    "transaction_management",
+    "plan_management",
     "cashbook",
+    "reconciliation",
     "basic_reports",
+    "ops_dashboard_basic",
+    "store_revenue",
     // PRO 全部
     "advanced_reports",
+    "training_content",
+    "ranking",
     "ai_health_summary",
     "ai_health_history",
     "ai_report_pdf",

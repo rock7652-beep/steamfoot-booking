@@ -2,8 +2,8 @@ import { listStaff } from "@/server/queries/staff";
 import { createStaff } from "@/server/actions/staff";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission, ROLE_LABELS } from "@/lib/permissions";
-import { getShopPlan } from "@/lib/shop-config";
-import { FEATURES } from "@/lib/shop-plan";
+import { getCurrentStorePlan } from "@/lib/store-plan";
+import { FEATURES } from "@/lib/feature-flags";
 import { FeatureGate } from "@/components/feature-gate";
 import { getActiveStoreForRead } from "@/lib/store";
 import Link from "next/link";
@@ -21,7 +21,7 @@ export default async function StaffPage({}: PageProps) {
 
   const isOwner = user.role === "ADMIN";
   const activeStoreId = await getActiveStoreForRead(user);
-  const [staffList, shopPlan] = await Promise.all([listStaff(activeStoreId), getShopPlan()]);
+  const [staffList, plan] = await Promise.all([listStaff(activeStoreId), getCurrentStorePlan()]);
 
   async function handleCreateStaff(formData: FormData) {
     "use server";
@@ -53,7 +53,7 @@ export default async function StaffPage({}: PageProps) {
   };
 
   return (
-    <FeatureGate plan={shopPlan} feature={FEATURES.STAFF_MANAGEMENT}>
+    <FeatureGate plan={plan} feature={FEATURES.STAFF_MANAGEMENT}>
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-3">

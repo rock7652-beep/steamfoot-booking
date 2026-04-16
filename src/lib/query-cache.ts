@@ -2,7 +2,7 @@
  * 共用快取查詢
  *
  * 用於跨頁面重複讀取的靜態/低頻資料：
- * - shopPlan（方案設定）
+ * - storePlan（Store.plan — 唯一方案真相）
  * - plans（服務方案列表）
  * - staff options（員工選項）
  *
@@ -11,24 +11,26 @@
 
 import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/db";
-import { getTrialStatus, getShopPlan } from "@/lib/shop-config";
-import type { ShopPlan } from "@prisma/client";
+import { getTrialStatus } from "@/lib/shop-config";
+import { getStorePlanById } from "@/lib/store-plan";
+import type { PricingPlan } from "@prisma/client";
 
 /**
- * 快取 shopPlan — 60s TTL，tag: "shop-config"
- * 免 session（僅讀單筆 config），適合 layout / feature gate
- * storeId 為空時使用 DEFAULT_STORE_ID
+ * 快取 Store.plan — 60s TTL，tag: "store-plan"
+ * Source of truth: Store.plan (PricingPlan)
  *
  * ⚠ storeId 作為函式參數，自動成為 cache key 的一部分，
  *   不同 storeId 會產生獨立的快取條目。
  */
-export const getCachedShopPlan = unstable_cache(
-  async (storeId?: string): Promise<ShopPlan> => {
-    return getShopPlan(storeId);
+export const getCachedStorePlan = unstable_cache(
+  async (storeId?: string): Promise<PricingPlan> => {
+    if (!storeId) return "EXPERIENCE";
+    return getStorePlanById(storeId);
   },
-  ["shop-plan"],
-  { revalidate: 60, tags: ["shop-config"] },
+  ["store-plan"],
+  { revalidate: 60, tags: ["store-plan"] },
 );
+
 
 /**
  * 快取 active plans — 60s TTL，tag: "plans"
@@ -65,13 +67,13 @@ export const getCachedStaffOptions = unstable_cache(
 );
 
 /**
- * 快取 trialStatus — 60s TTL，tag: "shop-config"
+ * 快取 trialStatus — 60s TTL，tag: "store-plan"
  * 用於 layout 的試用期狀態顯示
  */
 export const getCachedTrialStatus = unstable_cache(
-  async () => {
-    return getTrialStatus();
+  async (storeId?: string) => {
+    return getTrialStatus(storeId);
   },
   ["trial-status"],
-  { revalidate: 60, tags: ["shop-config"] },
+  { revalidate: 60, tags: ["store-plan"] },
 );

@@ -74,7 +74,6 @@ export async function createStoreAction(
         shopConfig: {
           create: {
             shopName: input.name,
-            plan: input.shopPlan,
             dutySchedulingEnabled: input.dutySchedulingEnabled ?? false,
           },
         },

@@ -1268,11 +1268,11 @@ async function main() {
 
   await prisma.shopConfig.upsert({
     where: { storeId: "default-store" },
-    create: { storeId: "default-store", shopName: "暖暖蒸足", plan: "PRO" },
-    update: { shopName: "暖暖蒸足", plan: "PRO" },
+    create: { storeId: "default-store", shopName: "暖暖蒸足" },
+    update: { shopName: "暖暖蒸足" },
   });
 
-  console.log("  Store: 暖暖蒸足 (plan=GROWTH, shopPlan=PRO)");
+  console.log("  Store: 暖暖蒸足 (plan=GROWTH)");
 
   // ============================================================
   // Done

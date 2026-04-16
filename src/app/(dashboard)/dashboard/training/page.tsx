@@ -1,7 +1,7 @@
 import { getCurrentUser } from "@/lib/session";
-import { getShopPlan } from "@/lib/shop-config";
+import { getCurrentStorePlan } from "@/lib/store-plan";
 import { redirect, notFound } from "next/navigation";
-import { FEATURES } from "@/lib/shop-plan";
+import { FEATURES } from "@/lib/feature-flags";
 import { FeatureGate } from "@/components/feature-gate";
 
 export default async function TrainingPage() {
@@ -13,7 +13,7 @@ export default async function TrainingPage() {
     notFound();
   }
 
-  const plan = await getShopPlan();
+  const plan = await getCurrentStorePlan();
 
   return (
     <FeatureGate plan={plan} feature={FEATURES.TRAINING_CONTENT}>

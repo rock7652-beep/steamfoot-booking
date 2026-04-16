@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { getCurrentUser } from "@/lib/session";
 import { logoutAction } from "@/server/actions/auth";
 import { getUserPermissions, ROLE_LABELS, isStaffRole } from "@/lib/permissions";
-import { getCachedShopPlan, getCachedTrialStatus } from "@/lib/query-cache";
+import { getCachedTrialStatus } from "@/lib/query-cache";
 import { getStoreOptions, resolveActiveStoreId } from "@/lib/store";
 import { getActiveStoreCookie } from "@/server/actions/store-switch";
 import { getStorePlanById } from "@/lib/store-plan";
@@ -29,11 +29,11 @@ export default async function DashboardLayout({
   const roleLabel = ROLE_LABELS[user.role] ?? "";
   const isOwnerRole = user.role === "ADMIN";
 
-  const [permissions, shopPlan, trialStatus, storeOptions, cookieStoreId, pricingPlan] =
+  // Source of truth: Store.plan (PricingPlan)
+  const [permissions, trialStatus, storeOptions, cookieStoreId, pricingPlan] =
     await Promise.all([
       getUserPermissions(user.role, user.staffId),
-      getCachedShopPlan(),
-      getCachedTrialStatus(),
+      getCachedTrialStatus(user.storeId ?? undefined),
       isOwnerRole ? getStoreOptions() : Promise.resolve([]),
       isOwnerRole ? getActiveStoreCookie() : Promise.resolve(null),
       user.storeId ? getStorePlanById(user.storeId) : Promise.resolve("EXPERIENCE" as const),
@@ -50,7 +50,6 @@ export default async function DashboardLayout({
     <DashboardShell
       isOwner={isOwnerRole}
       permissions={permissions}
-      shopPlan={shopPlan}
       pricingPlan={pricingPlan}
       userName={user.name ?? ""}
       roleLabel={roleLabel}

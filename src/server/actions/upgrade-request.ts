@@ -14,6 +14,7 @@ const VALID_PLANS: PricingPlan[] = ["EXPERIENCE", "BASIC", "GROWTH", "ALLIANCE"]
 const PLAN_ORDER: PricingPlan[] = ["EXPERIENCE", "BASIC", "GROWTH", "ALLIANCE"];
 const SUBMIT_ROLES = ["ADMIN", "OWNER"];
 
+
 /** 計算下月 1 日 00:00 (UTC+8) */
 function getNextMonthFirstDay(): Date {
   const now = new Date();

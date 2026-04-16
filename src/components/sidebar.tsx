@@ -8,10 +8,10 @@ import UpdateBanner from "@/components/update-banner";
 import { PlanBadge, LockedNavItem, TrialProgressBar } from "@/components/feature-gate";
 import { DashboardBreadcrumb } from "@/components/breadcrumb";
 import type { TrialStatus } from "@/lib/shop-config";
-import { hasFeature, type Feature, FEATURES } from "@/lib/shop-plan";
+import { hasFeature, type FeatureKey, FEATURES } from "@/lib/feature-flags";
 
 import { APP_VERSION } from "@/lib/version";
-import type { ShopPlan, PricingPlan } from "@prisma/client";
+import type { PricingPlan } from "@prisma/client";
 import StoreSwitcher from "@/components/store-switcher";
 import ChangePasswordModal from "@/components/change-password-modal";
 import { MVP_HIDDEN_ROUTES } from "@/lib/mvp-hidden-features";
@@ -26,8 +26,8 @@ interface NavItem {
   icon: React.ReactNode;
   ownerOnly?: boolean;
   permission?: string;
-  requiredFeature?: Feature;
-  upgradeTo?: "BASIC" | "PRO";
+  requiredFeature?: FeatureKey;
+  upgradeTo?: PricingPlan;
   /** Visual emphasis for key features (e.g. 人才管道) */
   highlighted?: boolean;
 }
@@ -95,7 +95,7 @@ export const NAV_GROUPS: NavGroup[] = [
         ownerOnly: true,
         highlighted: true,
         requiredFeature: FEATURES.TALENT_PIPELINE,
-        upgradeTo: "PRO",
+        upgradeTo: "GROWTH",
         icon: (
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M15.59 14.37a6 6 0 01-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 006.16-12.12A14.98 14.98 0 009.631 8.41m5.96 5.96a14.926 14.926 0 01-5.841 2.58m-.119-8.54a6 6 0 00-7.381 5.84h4.8m2.581-5.84a14.927 14.927 0 00-2.58 5.84m2.699 2.7c-.103.021-.207.041-.311.06a15.09 15.09 0 01-2.448-2.448 14.9 14.9 0 01.06-.312m-2.24 2.39a4.493 4.493 0 00-1.757 4.306 4.493 4.493 0 004.306-1.758M16.5 9a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
@@ -311,7 +311,7 @@ export const NAV_GROUPS: NavGroup[] = [
         href: "/dashboard/reminders",
         label: "提醒管理",
         ownerOnly: true,
-        requiredFeature: FEATURES.AUTO_REMINDER,
+        requiredFeature: FEATURES.LINE_REMINDER,
         upgradeTo: "BASIC",
         icon: (
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
@@ -324,7 +324,7 @@ export const NAV_GROUPS: NavGroup[] = [
         label: "學習中心",
         ownerOnly: true,
         requiredFeature: FEATURES.TRAINING_CONTENT,
-        upgradeTo: "PRO",
+        upgradeTo: "GROWTH",
         icon: (
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M4.26 10.147a60.438 60.438 0 00-.491 6.347A48.62 48.62 0 0112 20.904a48.62 48.62 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.636 50.636 0 00-2.658-.813A59.906 59.906 0 0112 3.493a59.903 59.903 0 0110.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.717 50.717 0 0112 13.489a50.702 50.702 0 017.74-3.342" />
@@ -336,7 +336,7 @@ export const NAV_GROUPS: NavGroup[] = [
         label: "合作店長營收報表",
         permission: "report.read",
         requiredFeature: FEATURES.COACH_REVENUE,
-        upgradeTo: "PRO",
+        upgradeTo: "ALLIANCE",
         icon: (
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
@@ -348,7 +348,7 @@ export const NAV_GROUPS: NavGroup[] = [
         label: "排行榜",
         ownerOnly: true,
         requiredFeature: FEATURES.RANKING,
-        upgradeTo: "PRO",
+        upgradeTo: "GROWTH",
         icon: (
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M18.75 4.236c.982.143 1.954.317 2.916.52A6.003 6.003 0 0016.27 9.728M18.75 4.236V4.5c0 2.108-.966 3.99-2.48 5.228m0 0a6.003 6.003 0 01-3.77 1.522m0 0a6.003 6.003 0 01-3.77-1.522" />
@@ -359,8 +359,8 @@ export const NAV_GROUPS: NavGroup[] = [
         href: "/dashboard/analytics",
         label: "聯盟數據",
         ownerOnly: true,
-        requiredFeature: FEATURES.CROSS_BRANCH_ANALYTICS,
-        upgradeTo: "PRO",
+        requiredFeature: FEATURES.ALLIANCE_ANALYTICS,
+        upgradeTo: "ALLIANCE",
         icon: (
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5" />
@@ -384,8 +384,7 @@ interface StoreOption {
 interface DashboardShellProps {
   isOwner: boolean;
   permissions: string[];
-  shopPlan: ShopPlan;
-  pricingPlan?: PricingPlan;
+  pricingPlan: PricingPlan;
   userName: string;
   roleLabel: string;
   logoutButton: React.ReactNode;
@@ -402,7 +401,6 @@ interface DashboardShellProps {
 export default function DashboardShell({
   isOwner,
   permissions,
-  shopPlan,
   pricingPlan,
   userName,
   roleLabel,
@@ -467,7 +465,7 @@ export default function DashboardShell({
         if (item.ownerOnly && !isOwner) return { item, visible: false, locked: false };
         if (item.permission && !isOwner && !permissions.includes(item.permission))
           return { item, visible: false, locked: false };
-        if (item.requiredFeature && !hasFeature(shopPlan, item.requiredFeature))
+        if (item.requiredFeature && !hasFeature(pricingPlan, item.requiredFeature))
           return { item, visible: true, locked: true };
         return { item, visible: true, locked: false };
       });
@@ -486,7 +484,7 @@ export default function DashboardShell({
     const activeGid = groups.find((g) => g.hasActive)?.group.id ?? null;
 
     return { visibleGroups: groups, activeGroupId: activeGid };
-  }, [pathname, isOwner, permissions, shopPlan]);
+  }, [pathname, isOwner, permissions, pricingPlan]);
 
   // Group expand/collapse state — core always open; others collapsed unless they contain active item
   const [openGroups, setOpenGroups] = useState<Set<string>>(() => {
@@ -699,7 +697,7 @@ export default function DashboardShell({
               <Link href="/dashboard" className="text-sm font-bold text-earth-800 truncate" title={headerTitle}>
                 {headerTitle}
               </Link>
-              <PlanBadge plan={shopPlan} />
+              <PlanBadge plan={pricingPlan} />
             </div>
           )}
           <button
@@ -737,7 +735,7 @@ export default function DashboardShell({
                 <Link href="/dashboard" className="text-sm font-bold text-earth-800 truncate" title={headerTitle}>
                   {headerTitle}
                 </Link>
-                <PlanBadge plan={shopPlan} />
+                <PlanBadge plan={pricingPlan} />
               </div>
               <button
                 type="button"

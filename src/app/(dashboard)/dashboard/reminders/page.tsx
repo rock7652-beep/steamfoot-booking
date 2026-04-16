@@ -1,7 +1,7 @@
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
-import { getShopPlan } from "@/lib/shop-config";
-import { FEATURES } from "@/lib/shop-plan";
+import { getCurrentStorePlan } from "@/lib/store-plan";
+import { FEATURES } from "@/lib/feature-flags";
 import { FeatureGate } from "@/components/feature-gate";
 import { getActiveStoreForRead } from "@/lib/store";
 import { redirect } from "next/navigation";
@@ -66,7 +66,7 @@ export default async function RemindersPage({ searchParams }: PageProps) {
     redirect("/dashboard");
   }
 
-  const shopPlan = await getShopPlan();
+  const plan = await getCurrentStorePlan();
   const activeTab = params.tab ?? "rules";
   const activeStoreId = await getActiveStoreForRead(user);
 
@@ -87,7 +87,7 @@ export default async function RemindersPage({ searchParams }: PageProps) {
     : { logs: [], total: 0, pageSize: 30 };
 
   return (
-    <FeatureGate plan={shopPlan} feature={FEATURES.AUTO_REMINDER}>
+    <FeatureGate plan={plan} feature={FEATURES.LINE_REMINDER}>
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-bold text-earth-900">提醒管理</h1>
