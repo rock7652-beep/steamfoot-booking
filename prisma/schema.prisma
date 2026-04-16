@@ -387,6 +387,7 @@ model Store {
   talentStageLogs     TalentStageLog[]
   referrals           Referral[]
   pointRecords        PointRecord[]
+  bonusRules          BonusRule[]
 
   @@index([parentStoreId])
 }
@@ -595,6 +596,29 @@ model PointRecord {
   @@index([customerId])
   @@index([storeId])
   @@index([createdAt])
+}
+
+// ============================================================
+// BonusRule（獎勵積分項目 — 手動加分時選用）
+// ============================================================
+
+model BonusRule {
+  id          String    @id @default(cuid())
+  storeId     String
+  name        String    // e.g. "參加說明會", "邀請家人參加活動"
+  points      Int       // 預設加分值
+  description String?   // 前台顯示的說明文字
+  isActive    Boolean   @default(true)
+  startDate   DateTime? // 活動開始（null = 無期限）
+  endDate     DateTime? // 活動結束（null = 無期限）
+  sortOrder   Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  store Store @relation(fields: [storeId], references: [id])
+
+  @@index([storeId])
+  @@index([isActive])
 }
 
 // ============================================================

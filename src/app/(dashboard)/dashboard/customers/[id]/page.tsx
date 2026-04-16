@@ -34,6 +34,7 @@ import { PointsSection } from "./points-section";
 import { getReferralsByReferrer } from "@/server/queries/referral";
 import { getPointHistory } from "@/server/queries/points";
 import { getUpgradeEligibility } from "@/server/queries/talent";
+import { getActiveBonusRules } from "@/server/queries/bonus-rule";
 
 const STAGE_LABEL: Record<string, string> = {
   LEAD: "名單", TRIAL: "體驗", ACTIVE: "已購課", INACTIVE: "已停用",
@@ -92,7 +93,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
   const effectiveStoreId = customer.storeId;
 
   // ── Step 2: 並行載入各 section（各自 catch 避免全頁炸裂）──
-  const [plans, staffOptions, tags, scripts, customerActionLogs, canDiscount, customerReferrals, customerPoints, upgradeEligibility] = await Promise.all([
+  const [plans, staffOptions, tags, scripts, customerActionLogs, canDiscount, customerReferrals, customerPoints, upgradeEligibility, activeBonusRules] = await Promise.all([
     withTiming("getCachedPlans", timer, () => getCachedPlans(effectiveStoreId)).catch((e) => {
       console.error("[customer-detail] plans query failed", { ...logCtx, step: "plans", error: e instanceof Error ? e.message : String(e) });
       return [] as Awaited<ReturnType<typeof getCachedPlans>>;
@@ -132,6 +133,10 @@ export default async function CustomerDetailPage({ params }: PageProps) {
       console.error("[customer-detail] upgradeEligibility query failed", { ...logCtx, step: "upgradeEligibility", error: e instanceof Error ? e.message : String(e) });
       return null;
     }) : Promise.resolve(null),
+    user.role !== "CUSTOMER" ? getActiveBonusRules(effectiveStoreId).catch((e) => {
+      console.error("[customer-detail] bonusRules query failed", { ...logCtx, step: "bonusRules", error: e instanceof Error ? e.message : String(e) });
+      return [];
+    }) : Promise.resolve([]),
   ]);
 
   timer.finish();
@@ -303,6 +308,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
       {user.role !== "CUSTOMER" && (
         <div className="rounded-xl border bg-white p-6 shadow-sm">
           <PointsSection
+            customerId={id}
             totalPoints={customer.totalPoints || 0}
             recentPoints={(customerPoints ?? []).map((p) => ({
               id: p.id,
@@ -311,6 +317,12 @@ export default async function CustomerDetailPage({ params }: PageProps) {
               note: p.note,
               createdAt: p.createdAt instanceof Date ? p.createdAt.toISOString() : String(p.createdAt),
             }))}
+            bonusRules={(activeBonusRules ?? []).map((r) => ({
+              id: r.id,
+              name: r.name,
+              points: r.points,
+            }))}
+            canManualAward={user.role === "ADMIN" || user.role === "OWNER"}
           />
         </div>
       )}

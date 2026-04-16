@@ -1,5 +1,6 @@
 import { POINT_LABELS } from "@/lib/points-config";
 import type { PointType } from "@prisma/client";
+import { ManualPointsForm } from "./manual-points-form";
 
 interface PointItem {
   id: string;
@@ -9,17 +10,31 @@ interface PointItem {
   createdAt: string; // ISO string
 }
 
-interface Props {
-  totalPoints: number;
-  recentPoints: PointItem[];
+interface BonusRuleOption {
+  id: string;
+  name: string;
+  points: number;
 }
 
-export function PointsSection({ totalPoints, recentPoints }: Props) {
+interface Props {
+  customerId: string;
+  totalPoints: number;
+  recentPoints: PointItem[];
+  bonusRules: BonusRuleOption[];
+  canManualAward: boolean;
+}
+
+export function PointsSection({ customerId, totalPoints, recentPoints, bonusRules, canManualAward }: Props) {
   return (
     <div className="mt-4 rounded-lg border border-earth-100 bg-earth-50/50 p-4">
       <div className="flex items-center justify-between">
         <h3 className="text-xs font-semibold text-earth-500">行動積分</h3>
-        <span className="text-lg font-bold text-primary-600">{totalPoints} 分</span>
+        <div className="flex items-center gap-3">
+          <span className="text-lg font-bold text-primary-600">{totalPoints} 分</span>
+          {canManualAward && (
+            <ManualPointsForm customerId={customerId} bonusRules={bonusRules} />
+          )}
+        </div>
       </div>
 
       {recentPoints.length === 0 ? (
@@ -44,7 +59,9 @@ export function PointsSection({ totalPoints, recentPoints }: Props) {
                     <span className="text-earth-400">· {p.note}</span>
                   )}
                 </div>
-                <span className="font-bold text-green-600">+{p.points}</span>
+                <span className={`font-bold ${p.points >= 0 ? "text-green-600" : "text-red-500"}`}>
+                  {p.points >= 0 ? "+" : ""}{p.points}
+                </span>
               </div>
             );
           })}
