@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import BuildFooter from "@/components/build-footer";
@@ -390,6 +390,8 @@ interface DashboardShellProps {
   logoutButton: React.ReactNode;
   children: React.ReactNode;
   trialStatus?: TrialStatus;
+  /** OWNER/STAFF 的店名（ADMIN 為 null，由 storeOptions 動態決定） */
+  storeName?: string | null;
   /** ADMIN only — store options for switcher */
   storeOptions?: StoreOption[];
   /** Current active store cookie value (null = all stores) */
@@ -406,12 +408,15 @@ export default function DashboardShell({
   logoutButton,
   children,
   trialStatus,
+  storeName,
   storeOptions,
   activeStoreId,
 }: DashboardShellProps) {
   const rawPathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
 
   // B7-4: 從 URL 推導 dashboard prefix
   // /s/zhubei/admin/dashboard/bookings → prefix="/s/zhubei/admin", normalizedPathname="/dashboard/bookings"
@@ -428,15 +433,28 @@ export default function DashboardShell({
     ? rawPathname.slice(dashboardPrefix.length)
     : rawPathname;
 
-  // 左上角顯示目前店名（ADMIN 切店時動態更新）
-  const headerTitle = (() => {
-    if (isOwner && storeOptions && storeOptions.length > 1) {
+  // 側邊欄標題永遠顯示品牌名
+  const headerTitle = "蒸足管理";
+
+  // Header 層級顯示：ADMIN 動態顯示目前檢視店名，OWNER/STAFF 顯示固定店名
+  const activeStoreName = (() => {
+    if (isOwner && storeOptions) {
       if (activeStoreId === null || activeStoreId === undefined) return "全部分店";
-      const current = storeOptions.find((s) => s.id === activeStoreId);
-      return current?.name ?? "蒸足管理";
+      return storeOptions.find((s) => s.id === activeStoreId)?.name ?? null;
     }
-    return "蒸足管理";
+    return storeName ?? null;
   })();
+
+  // 關閉 user menu on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    }
+    if (userMenuOpen) document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [userMenuOpen]);
 
   // Determine which groups have visible items and which group contains the active item
   const { visibleGroups, activeGroupId } = useMemo(() => {
@@ -693,16 +711,6 @@ export default function DashboardShell({
             </svg>
           </button>
         </div>
-        {/* Store Switcher — ADMIN only, multi-store */}
-        {isOwner && storeOptions && storeOptions.length > 1 && (
-          <div className="border-b border-earth-200">
-            <StoreSwitcher
-              stores={storeOptions}
-              activeStoreId={activeStoreId ?? null}
-              collapsed={collapsed}
-            />
-          </div>
-        )}
         {renderNavGroups()}
         {/* Sidebar version footer */}
         <div className="border-t border-earth-100 px-3 py-2 text-center">
@@ -740,15 +748,6 @@ export default function DashboardShell({
                 </svg>
               </button>
             </div>
-            {/* Store Switcher — mobile ADMIN only */}
-            {isOwner && storeOptions && storeOptions.length > 1 && (
-              <div className="border-b border-earth-200">
-                <StoreSwitcher
-                  stores={storeOptions}
-                  activeStoreId={activeStoreId ?? null}
-                />
-              </div>
-            )}
             {renderNavGroups()}
           </aside>
         </div>
@@ -760,36 +759,97 @@ export default function DashboardShell({
           collapsed ? "lg:pl-(--sidebar-collapsed-width)" : "lg:pl-(--sidebar-width)"
         }`}
       >
-        {/* Header */}
-        <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-earth-200 bg-white/95 px-4 backdrop-blur-sm sm:px-6">
-          <div className="flex items-center gap-2">
+        {/* Header — 層級導向：系統層級 > 店別 > 使用者 */}
+        <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-earth-200 bg-white/95 px-3 backdrop-blur-sm sm:px-6">
+          {/* Left: hamburger + breadcrumb */}
+          <div className="flex items-center gap-2 min-w-0">
             <button
               type="button"
               onClick={() => setMobileOpen(true)}
-              className="lg:hidden rounded-lg p-1.5 text-earth-600 hover:bg-earth-100 hover:text-earth-800"
+              className="lg:hidden shrink-0 rounded-lg p-1.5 text-earth-600 hover:bg-earth-100 hover:text-earth-800"
               aria-label="開啟選單"
             >
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
-            {/* Mobile: show breadcrumb instead of plain title */}
-            <div className="lg:hidden">
+            <div className="lg:hidden min-w-0">
               <DashboardBreadcrumb mobile />
             </div>
-            {/* Desktop: full breadcrumb */}
             <div className="hidden lg:block">
               <DashboardBreadcrumb />
             </div>
           </div>
-          <div className="flex items-center gap-2 sm:gap-4">
-            <span className="text-xs text-earth-600 sm:text-sm">
-              {userName}
-              <span className="ml-1.5 rounded-md bg-primary-100 px-1.5 py-0.5 text-[10px] font-medium text-primary-700 sm:text-xs">
-                {roleLabel}
+
+          {/* Right: store context + user menu */}
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            {/* Store context indicator */}
+            {isOwner ? (
+              /* ADMIN: HQ label + store switcher */
+              <div className="hidden sm:flex items-center gap-1.5">
+                <span className="text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-0.5">
+                  HQ 總部
+                </span>
+                {storeOptions && storeOptions.length > 0 && (
+                  <StoreSwitcher
+                    stores={storeOptions}
+                    activeStoreId={activeStoreId ?? null}
+                    inline
+                  />
+                )}
+              </div>
+            ) : activeStoreName ? (
+              /* OWNER/STAFF: 固定店名 */
+              <span className="hidden sm:inline-flex items-center gap-1 text-xs text-earth-500">
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 21v-7.5a.75.75 0 01.75-.75h3a.75.75 0 01.75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349m-16.5 11.65V9.35m0 0a3.001 3.001 0 003.75-.615A2.993 2.993 0 009.75 9.75c.896 0 1.7-.393 2.25-1.016a2.993 2.993 0 002.25 1.016c.896 0 1.7-.393 2.25-1.016a3.001 3.001 0 003.75.614m-16.5 0a3.004 3.004 0 01-.621-4.72L4.318 3.44A1.5 1.5 0 015.378 3h13.243a1.5 1.5 0 011.06.44l1.19 1.189a3 3 0 01-.621 4.72" />
+                </svg>
+                <span className="font-medium text-earth-700">{activeStoreName}</span>
+                <span className="text-earth-400">後台</span>
               </span>
-            </span>
-            {logoutButton}
+            ) : null}
+
+            {/* Divider */}
+            <div className="hidden sm:block h-5 w-px bg-earth-200" />
+
+            {/* User menu */}
+            <div ref={userMenuRef} className="relative">
+              <button
+                type="button"
+                onClick={() => setUserMenuOpen(!userMenuOpen)}
+                className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs text-earth-600 hover:bg-earth-50 hover:text-earth-800 transition-colors"
+              >
+                <span className="hidden sm:inline max-w-[120px] truncate">{userName}</span>
+                <span className="rounded-md bg-primary-100 px-1.5 py-0.5 text-[10px] font-medium text-primary-700 sm:text-xs">
+                  {roleLabel}
+                </span>
+                <svg className={`h-3 w-3 text-earth-400 transition-transform ${userMenuOpen ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {userMenuOpen && (
+                <div className="absolute right-0 top-full mt-1 w-48 overflow-hidden rounded-lg border border-earth-200 bg-white shadow-lg z-30">
+                  {/* User info */}
+                  <div className="border-b border-earth-100 px-3 py-2">
+                    <p className="text-xs font-medium text-earth-800 truncate">{userName}</p>
+                    <p className="text-[10px] text-earth-400">{isOwner ? "系統管理者" : roleLabel}</p>
+                  </div>
+                  {/* Mobile-only: show store context */}
+                  {(isOwner || activeStoreName) && (
+                    <div className="sm:hidden border-b border-earth-100 px-3 py-2">
+                      <p className="text-[10px] text-earth-400">
+                        {isOwner ? "HQ 總部後台" : `${activeStoreName} 後台`}
+                      </p>
+                    </div>
+                  )}
+                  {/* Menu items */}
+                  <div className="py-1" onClick={() => setUserMenuOpen(false)}>
+                    {logoutButton}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </header>
 

@@ -59,6 +59,7 @@ export async function customerRegisterAction(
   const gender = (formData.get("gender") as string)?.trim() || null;
   const birthdayStr = (formData.get("birthday") as string)?.trim() || null;
   const notes = (formData.get("notes") as string)?.trim() || null;
+  const referrerId = (formData.get("referrerId") as string)?.trim() || null;
 
   // B7-4: 從表單讀取 store context
   const storeId = (formData.get("storeId") as string) || (await getStoreIdFromCookie());
@@ -105,6 +106,16 @@ export async function customerRegisterAction(
   // 選填欄位
   const birthday = birthdayStr ? new Date(birthdayStr) : null;
 
+  // B8: 驗證推薦人存在且同 store
+  let sponsorId: string | null = null;
+  if (referrerId) {
+    const sponsor = await prisma.customer.findFirst({
+      where: { id: referrerId, storeId },
+      select: { id: true },
+    });
+    if (sponsor) sponsorId = sponsor.id;
+  }
+
   const passwordHash = hashSync(password, 10);
 
   try {
@@ -126,6 +137,7 @@ export async function customerRegisterAction(
             authSource: "EMAIL",
             customerStage: "LEAD",
             storeId,
+            sponsorId,
           },
         },
       },

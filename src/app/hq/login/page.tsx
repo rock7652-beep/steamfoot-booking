@@ -27,6 +27,7 @@ function HqLoginForm() {
   const searchParams = useSearchParams();
   const urlError = searchParams.get("error");
   const urlErrorMessage = urlError ? URL_ERROR_MESSAGES[urlError] : null;
+  const storeSlug = searchParams.get("store");
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-earth-50 px-4">
@@ -44,6 +45,8 @@ function HqLoginForm() {
         )}
 
         <form action={action} className="space-y-4">
+          {/* 保留 store context，讓 OWNER/STAFF 登入後導向該店後台 */}
+          {storeSlug && <input type="hidden" name="storeSlug" value={storeSlug} />}
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-earth-700">
               Email

@@ -45,6 +45,7 @@ export async function listCustomers(options: ListCustomersOptions & { activeStor
       include: {
         user: { select: { email: true } },
         assignedStaff: { select: { id: true, displayName: true, colorCode: true } },
+        sponsor: { select: { id: true, name: true } },
         planWallets: {
           where: { status: "ACTIVE" },
           select: { remainingSessions: true },

@@ -14,6 +14,8 @@ interface StoreSwitcherProps {
   stores: StoreOption[];
   activeStoreId: string | null; // null = "__all__"
   collapsed?: boolean;
+  /** Header 內嵌模式 — 更緊湊，dropdown 右對齊 */
+  inline?: boolean;
 }
 
 const ALL_STORES_VALUE = "__all__";
@@ -22,6 +24,7 @@ export default function StoreSwitcher({
   stores,
   activeStoreId,
   collapsed = false,
+  inline = false,
 }: StoreSwitcherProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -54,6 +57,68 @@ export default function StoreSwitcher({
         // switchActiveStore 失敗時回退 UI — 不阻斷使用者
       }
     });
+  }
+
+  // Inline header mode: compact dropdown
+  if (inline) {
+    return (
+      <div ref={ref} className="relative">
+        <button
+          type="button"
+          onClick={() => setOpen(!open)}
+          disabled={isPending}
+          className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-earth-600 hover:bg-earth-100 hover:text-earth-800 disabled:opacity-50 transition-colors"
+        >
+          <span className="max-w-[140px] truncate font-medium">{currentLabel}</span>
+          {isPending ? (
+            <svg className="h-3 w-3 animate-spin text-earth-400 shrink-0" viewBox="0 0 24 24" fill="none">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+          ) : (
+            <svg className={`h-3 w-3 text-earth-400 shrink-0 transition-transform ${open ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          )}
+        </button>
+
+        {open && (
+          <div className="absolute right-0 top-full mt-1 w-52 overflow-hidden rounded-lg border border-earth-200 bg-white shadow-lg z-30">
+            <button
+              type="button"
+              onClick={() => handleSelect(ALL_STORES_VALUE)}
+              className={`flex w-full items-center gap-2 px-3 py-2 text-left text-xs hover:bg-earth-50 ${
+                activeStoreId === null ? "bg-primary-50 font-medium text-primary-700" : "text-earth-600"
+              }`}
+            >
+              <span className="h-1.5 w-1.5 rounded-full bg-earth-300" />
+              全部分店
+            </button>
+            <div className="border-t border-earth-100" />
+            {stores.map((store) => (
+              <button
+                key={store.id}
+                type="button"
+                onClick={() => handleSelect(store.id)}
+                className={`flex w-full items-center gap-2 px-3 py-2 text-left text-xs hover:bg-earth-50 ${
+                  activeStoreId === store.id ? "bg-primary-50 font-medium text-primary-700" : "text-earth-600"
+                }`}
+              >
+                <span
+                  className={`h-1.5 w-1.5 rounded-full ${
+                    activeStoreId === store.id ? "bg-primary-500" : "bg-earth-300"
+                  }`}
+                />
+                {store.name}
+                {store.isDefault && (
+                  <span className="ml-auto text-[10px] text-earth-400">主店</span>
+                )}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    );
   }
 
   // Collapsed: show icon only

@@ -20,10 +20,21 @@ export async function getPointHistory(
   customerId: string,
   opts?: { limit?: number },
 ): Promise<PointHistoryItem[]> {
-  await requireStaffSession();
+  const user = await requireStaffSession();
+  const storeFilter = getStoreFilter(user);
+
+  // 確認顧客屬於當前店鋪
+  const customer = await prisma.customer.findFirst({
+    where: { id: customerId, ...storeFilter },
+    select: { id: true },
+  });
+  if (!customer) {
+    const { AppError } = await import("@/lib/errors");
+    throw new AppError("NOT_FOUND", "顧客不存在");
+  }
 
   const rows = await prisma.pointRecord.findMany({
-    where: { customerId },
+    where: { customerId, ...storeFilter },
     orderBy: { createdAt: "desc" },
     take: opts?.limit ?? 50,
     select: {
@@ -100,7 +111,7 @@ export async function getMonthlyPointsLeaderboard(
 
   const customerIds = agg.map((a) => a.customerId);
   const customers = await prisma.customer.findMany({
-    where: { id: { in: customerIds } },
+    where: { id: { in: customerIds }, ...storeFilter },
     select: { id: true, name: true, talentStage: true },
   });
   const customerMap = new Map(customers.map((c) => [c.id, c]));

@@ -84,11 +84,13 @@ async function main() {
       id: DEMO_STORE_ID,
       name: "蒸足 Demo 展示店",
       slug: "demo",
+      isDemo: true,
       plan: "ALLIANCE",
       planStatus: "ACTIVE",
     },
     update: {
       name: "蒸足 Demo 展示店",
+      isDemo: true,
       plan: "ALLIANCE",
       planStatus: "ACTIVE",
     },
@@ -659,6 +661,187 @@ async function main() {
   });
 
   console.log(`  Subscription: ALLIANCE (ACTIVE)`);
+
+  // ----------------------------------------------------------
+  // 11. TalentStage 升級 + Sponsor 關係
+  // ----------------------------------------------------------
+  console.log("\n11. TalentStage + Sponsor ...");
+
+  const activeCustomers2 = customers.filter(c => c.stage === "ACTIVE");
+
+  // Top 3 → PARTNER, next 3 → FUTURE_OWNER, next 9 → POTENTIAL_PARTNER, next 15 → REGULAR
+  const talentMapping: Array<{ range: [number, number]; stage: "PARTNER" | "FUTURE_OWNER" | "POTENTIAL_PARTNER" | "REGULAR" }> = [
+    { range: [0, 3], stage: "PARTNER" },
+    { range: [3, 6], stage: "FUTURE_OWNER" },
+    { range: [6, 15], stage: "POTENTIAL_PARTNER" },
+    { range: [15, 30], stage: "REGULAR" },
+  ];
+
+  for (const { range, stage } of talentMapping) {
+    for (let i = range[0]; i < range[1]; i++) {
+      const c = activeCustomers2[i];
+      if (!c) continue;
+      await prisma.customer.update({
+        where: { id: c.id },
+        data: {
+          talentStage: stage,
+          stageChangedAt: daysAgo(40 - i),
+          ...(i >= 3 && i < 6 ? { sponsorId: activeCustomers2[i % 3].id } : {}),
+          ...(i >= 6 && i < 15 ? { sponsorId: activeCustomers2[i % 6].id } : {}),
+        },
+      });
+    }
+  }
+
+  console.log("  PARTNER: 3, FUTURE_OWNER: 3, POTENTIAL_PARTNER: 9, REGULAR: 15");
+
+  // ----------------------------------------------------------
+  // 12. TalentStageLogs（階段異動紀錄）
+  // ----------------------------------------------------------
+  console.log("\n12. TalentStageLogs ...");
+
+  type TSL = "CUSTOMER" | "REGULAR" | "POTENTIAL_PARTNER" | "PARTNER" | "FUTURE_OWNER";
+  const stageProgressions: Record<string, TSL[]> = {
+    PARTNER: ["CUSTOMER", "REGULAR", "POTENTIAL_PARTNER", "PARTNER"],
+    FUTURE_OWNER: ["CUSTOMER", "REGULAR", "POTENTIAL_PARTNER", "PARTNER", "FUTURE_OWNER"],
+    POTENTIAL_PARTNER: ["CUSTOMER", "REGULAR", "POTENTIAL_PARTNER"],
+    REGULAR: ["CUSTOMER", "REGULAR"],
+  };
+
+  const tslData: Array<{
+    customerId: string; storeId: string; fromStage: TSL; toStage: TSL;
+    changedById: string; note: string; createdAt: Date;
+  }> = [];
+
+  for (let i = 0; i < 30; i++) {
+    const c = activeCustomers2[i];
+    if (!c) continue;
+    const stage = i < 3 ? "PARTNER" : i < 6 ? "FUTURE_OWNER" : i < 15 ? "POTENTIAL_PARTNER" : "REGULAR";
+    const progression = stageProgressions[stage];
+    for (let j = 1; j < progression.length; j++) {
+      tslData.push({
+        customerId: c.id,
+        storeId: DEMO_STORE_ID,
+        fromStage: progression[j - 1],
+        toStage: progression[j],
+        changedById: operatorId,
+        note: "系統自動判定",
+        createdAt: daysAgo(90 - i * 2 - j * 10),
+      });
+    }
+  }
+
+  await prisma.talentStageLog.createMany({ data: tslData });
+  console.log(`  TalentStageLogs: ${tslData.length}`);
+
+  // ----------------------------------------------------------
+  // 13. Referrals（轉介紹）
+  // ----------------------------------------------------------
+  console.log("\n13. Referrals ...");
+
+  const REF_NAMES = [
+    "陳大明", "李小花", "張美玲", "林志豪", "王淑芬",
+    "黃雅婷", "周建宏", "吳秀英", "趙冠廷", "許靜宜",
+    "孫品睿", "馬怡君", "朱佩珊", "鄭宗翰", "韓詩涵",
+    "曹筱婷", "高宇翔", "謝心怡", "宋耀文", "梁家銘",
+  ];
+
+  const trialCustomers = customers.filter(c => c.stage === "TRIAL");
+
+  const refData: Array<{
+    storeId: string; referrerId: string; referredName: string;
+    referredPhone: string; status: "PENDING" | "VISITED" | "CONVERTED" | "CANCELLED";
+    convertedCustomerId: string | null; note: string | null; createdAt: Date;
+  }> = [];
+
+  for (let i = 0; i < 8; i++) {
+    const referrer = activeCustomers2[i];
+    const refCount = i < 3 ? 4 : 2;
+    for (let r = 0; r < refCount; r++) {
+      const roll = (i * 4 + r) % 10;
+      let status: "PENDING" | "VISITED" | "CONVERTED" | "CANCELLED";
+      let convertedId: string | null = null;
+      if (roll < 4) { status = "CONVERTED"; convertedId = trialCustomers[r % trialCustomers.length]?.id ?? null; }
+      else if (roll < 7) status = "VISITED";
+      else if (roll < 9) status = "PENDING";
+      else status = "CANCELLED";
+
+      refData.push({
+        storeId: DEMO_STORE_ID,
+        referrerId: referrer.id,
+        referredName: REF_NAMES[(i * 4 + r) % REF_NAMES.length],
+        referredPhone: `09${String(80000000 + i * 100 + r).padStart(8, "0")}`,
+        status,
+        convertedCustomerId: status === "CONVERTED" ? convertedId : null,
+        note: status === "CONVERTED" ? "已成為顧客" : null,
+        createdAt: daysAgo(60 - i * 5 - r * 3),
+      });
+    }
+  }
+
+  await prisma.referral.createMany({ data: refData });
+  console.log(`  Referrals: ${refData.length}`);
+
+  // ----------------------------------------------------------
+  // 14. PointRecords（積分紀錄）
+  // ----------------------------------------------------------
+  console.log("\n14. PointRecords ...");
+
+  type PT = "ATTENDANCE" | "REFERRAL_CREATED" | "REFERRAL_VISITED" | "REFERRAL_CONVERTED" | "BECAME_PARTNER" | "BECAME_FUTURE_OWNER";
+  const ptData: Array<{
+    customerId: string; storeId: string; type: PT; points: number;
+    note: string; createdAt: Date;
+  }> = [];
+
+  for (let i = 0; i < 40; i++) {
+    const c = activeCustomers2[i];
+    if (!c) continue;
+    const attendanceCount = i < 15 ? 20 + (i * 7 % 15) : 5 + (i * 3 % 10);
+    for (let j = 0; j < attendanceCount; j++) {
+      ptData.push({
+        customerId: c.id, storeId: DEMO_STORE_ID, type: "ATTENDANCE",
+        points: 5, note: "出席加分", createdAt: daysAgo(90 - j * 2),
+      });
+    }
+
+    if (i < 8) {
+      const refPts = i < 3 ? 4 : 2;
+      for (let r = 0; r < refPts; r++) {
+        ptData.push({
+          customerId: c.id, storeId: DEMO_STORE_ID, type: "REFERRAL_CREATED",
+          points: 10, note: "轉介紹登記", createdAt: daysAgo(55 - r * 5),
+        });
+        if ((i + r) % 3 !== 0) {
+          ptData.push({
+            customerId: c.id, storeId: DEMO_STORE_ID, type: "REFERRAL_VISITED",
+            points: 20, note: "被介紹人到店", createdAt: daysAgo(50 - r * 5),
+          });
+        }
+        if ((i + r) % 5 < 2) {
+          ptData.push({
+            customerId: c.id, storeId: DEMO_STORE_ID, type: "REFERRAL_CONVERTED",
+            points: 30, note: "被介紹人轉為顧客", createdAt: daysAgo(45 - r * 5),
+          });
+        }
+      }
+    }
+
+    if (i < 3) {
+      ptData.push({
+        customerId: c.id, storeId: DEMO_STORE_ID, type: "BECAME_PARTNER",
+        points: 100, note: "升為合作店長", createdAt: daysAgo(30),
+      });
+    }
+    if (i >= 3 && i < 6) {
+      ptData.push({
+        customerId: c.id, storeId: DEMO_STORE_ID, type: "BECAME_FUTURE_OWNER",
+        points: 200, note: "升為準店長", createdAt: daysAgo(20),
+      });
+    }
+  }
+
+  await prisma.pointRecord.createMany({ data: ptData });
+  console.log(`  PointRecords: ${ptData.length}`);
 
   // ----------------------------------------------------------
   // Done

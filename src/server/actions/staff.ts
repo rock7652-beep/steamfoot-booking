@@ -126,6 +126,15 @@ export async function updateStaff(
 
     // 如果角色變更，同步更新 User.role
     if (newRole) {
+      // 防呆：不允許降級最後一位 ADMIN
+      const currentUser = await prisma.user.findUnique({
+        where: { id: staff.user.id },
+        select: { role: true },
+      });
+      if (currentUser?.role === "ADMIN") {
+        const { assertNotLastAdmin } = await import("@/lib/permissions");
+        await assertNotLastAdmin(staff.user.id);
+      }
       await prisma.user.update({
         where: { id: staff.user.id },
         data: { role: newRole },

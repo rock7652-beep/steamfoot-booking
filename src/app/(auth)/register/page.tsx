@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { customerRegisterAction, type RegisterState } from "@/server/actions/customer-auth";
 import Link from "next/link";
@@ -11,12 +11,26 @@ export default function RegisterPage() {
     customerRegisterAction,
     { error: null }
   );
+  const [referrerId, setReferrerId] = useState("");
 
   // B7-4: 從 URL 路徑讀取 storeSlug
   const storeSlug = typeof window !== "undefined"
     ? window.location.pathname.match(/^\/s\/([^/]+)/)?.[1] ?? "zhubei"
     : "zhubei";
   const prefix = `/s/${storeSlug}`;
+
+  // B8: 讀取推薦人 ID（從 URL ?ref= 或 localStorage）
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get("ref");
+    if (ref) {
+      localStorage.setItem("referrerId", ref);
+      setReferrerId(ref);
+    } else {
+      const stored = localStorage.getItem("referrerId");
+      if (stored) setReferrerId(stored);
+    }
+  }, []);
 
   // 若後台建立的顧客，導向開通頁面
   useEffect(() => {
@@ -37,6 +51,9 @@ export default function RegisterPage() {
 
       <div className="rounded-2xl border border-earth-200 bg-white p-6 shadow-sm">
         <form action={formAction} className="space-y-4">
+          {/* B8: 推薦人 hidden field */}
+          {referrerId && <input type="hidden" name="referrerId" value={referrerId} />}
+
           {state.error && state.error !== "NEEDS_ACTIVATION" && (
             <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
               {state.error}

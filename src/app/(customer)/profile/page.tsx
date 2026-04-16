@@ -1,17 +1,23 @@
 import { getCurrentUser } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { getHealthCardData } from "@/server/queries/health-card";
+import { getStoreContext } from "@/lib/store-context";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { HealthAssessmentCard } from "@/components/health-assessment-card";
 import { ProfileForm } from "./profile-form";
 import { ChangePasswordForm } from "./change-password-form";
+import { ReferralSection } from "./referral-section";
+import { ReadinessCard } from "@/components/readiness-card";
 
 export default async function ProfilePage() {
   const user = await getCurrentUser();
   if (!user || user.role !== "CUSTOMER" || !user.customerId) redirect("/");
 
-  const [customer, healthCard] = await Promise.all([
+  const storeCtx = await getStoreContext();
+  const storeSlug = storeCtx?.storeSlug ?? "zhubei";
+
+  const [customer, healthCard, referralCount] = await Promise.all([
     prisma.customer.findUnique({
       where: { id: user.customerId },
       select: {
@@ -26,6 +32,7 @@ export default async function ProfilePage() {
       },
     }),
     getHealthCardData(user.customerId),
+    prisma.customer.count({ where: { sponsorId: user.customerId } }),
   ]);
   if (!customer) redirect("/");
 
@@ -60,6 +67,9 @@ export default async function ProfilePage() {
           <HealthAssessmentCard score={healthCard.score} customerId={user.customerId} />
         )}
 
+        {/* B8: 教練準備度 */}
+        <ReadinessCard />
+
         {/* 基本資料 */}
         <div className="rounded-2xl border border-earth-200 bg-white p-6 shadow-sm">
           <h2 className="mb-4 text-sm font-semibold text-earth-700">基本資料</h2>
@@ -82,6 +92,15 @@ export default async function ProfilePage() {
         <div className="rounded-2xl border border-earth-200 bg-white p-6 shadow-sm">
           <h2 className="mb-4 text-sm font-semibold text-earth-700">修改密碼</h2>
           <ChangePasswordForm />
+        </div>
+
+        {/* B8: 邀請朋友 */}
+        <div className="rounded-2xl border border-earth-200 bg-white p-6 shadow-sm">
+          <h2 className="mb-4 text-sm font-semibold text-earth-700">邀請朋友一起體驗</h2>
+          <ReferralSection
+            referralUrl={`/s/${storeSlug}?ref=${user.customerId}`}
+            referralCount={referralCount}
+          />
         </div>
       </div>
     </div>

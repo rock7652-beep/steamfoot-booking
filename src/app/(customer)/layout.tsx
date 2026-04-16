@@ -152,6 +152,7 @@ export default async function CustomerLayout({
           {/* Logout */}
           <div className="border-t border-earth-100 px-2.5 py-3">
             <form action={logoutAction}>
+              <input type="hidden" name="storeSlug" value={storeSlug} />
               <button
                 type="submit"
                 className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] text-earth-400 hover:bg-earth-50 hover:text-earth-600 transition"

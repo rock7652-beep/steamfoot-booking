@@ -196,6 +196,7 @@ export default async function CustomersPage({ searchParams }: PageProps) {
                 <th className="px-4 py-3 text-left font-medium text-earth-600">電話</th>
                 <th className="px-4 py-3 text-left font-medium text-earth-600">Email</th>
                 <th className="px-4 py-3 text-left font-medium text-earth-600">直屬店長</th>
+                <th className="px-4 py-3 text-left font-medium text-earth-600">推薦人</th>
                 <th className="px-4 py-3 text-center font-medium text-earth-600">狀態</th>
                 <th className="px-4 py-3 text-right font-medium text-earth-600">剩餘堂數</th>
                 <th className="px-4 py-3 text-right font-medium text-earth-600">最近消費</th>
@@ -228,6 +229,9 @@ export default async function CustomersPage({ searchParams }: PageProps) {
                     ) : (
                       <span className="text-earth-400">未指派</span>
                     )}
+                  </td>
+                  <td className="px-4 py-3 text-earth-600 text-xs">
+                    {c.sponsor?.name ?? "—"}
                   </td>
                   <td className="px-4 py-3 text-center">
                     <span className={`inline-block rounded-md px-2 py-0.5 text-xs font-medium ${STAGE_COLOR[c.customerStage]}`}>

@@ -158,6 +158,7 @@ export function MobileNav({ userName, pathname, customerId, storeSlug = "zhubei"
 
         <div className="absolute bottom-0 left-0 right-0 border-t border-earth-200 px-3 py-4">
           <form action={logoutAction}>
+            <input type="hidden" name="storeSlug" value={storeSlug} />
             <button
               type="submit"
               className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-sm text-earth-400 hover:bg-earth-50 hover:text-earth-600 transition"

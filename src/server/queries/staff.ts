@@ -29,7 +29,11 @@ export async function listStaff(activeStoreId?: string | null) {
 export async function listStaffSelectOptions(activeStoreId?: string | null) {
   const user = await requireStaffSession();
   return prisma.staff.findMany({
-    where: { status: "ACTIVE", ...getStoreFilter(user, activeStoreId) },
+    where: {
+      status: "ACTIVE",
+      ...getStoreFilter(user, activeStoreId),
+      user: { role: { not: "ADMIN" } },
+    },
     select: { id: true, displayName: true },
     orderBy: [{ isOwner: "desc" }, { createdAt: "asc" }],
   });

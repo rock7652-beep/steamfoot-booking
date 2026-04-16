@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import Link from "next/link";
 import { OAuthButtons } from "./oauth-buttons";
 import { CustomerLoginForm } from "./customer-login-form";
+import { RefCapture } from "@/components/ref-capture";
 
 interface PageProps {
   searchParams: Promise<{ error?: string }>;
@@ -37,6 +38,7 @@ export default async function HomePage({ searchParams }: PageProps) {
 
   return (
     <main className="flex min-h-dvh flex-col items-center justify-center bg-earth-50 px-4">
+      <RefCapture />
       <div className="w-full max-w-sm">
         {/* Logo / Brand */}
         <div className="mb-8 text-center">
@@ -78,10 +80,10 @@ export default async function HomePage({ searchParams }: PageProps) {
           </div>
         </div>
 
-        {/* 後台入口 */}
+        {/* 後台入口 — 保留 store context */}
         <div className="mt-8 text-center">
           <Link
-            href="/hq/login"
+            href={storeSlug && storeSlug !== "__hq__" ? `/hq/login?store=${storeSlug}` : "/hq/login"}
             className="text-xs text-gray-400 hover:text-gray-500"
           >
             後台登入

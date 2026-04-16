@@ -315,6 +315,24 @@ export async function createDefaultPermissions(
 }
 
 // ============================================================
+// assertNotLastAdmin — 防止刪除/降級最後一位 ADMIN
+// ============================================================
+
+/**
+ * 確認系統中除了指定 userId 外，還有其他 ACTIVE ADMIN。
+ * 若沒有，拋出 FORBIDDEN 阻止操作。
+ */
+export async function assertNotLastAdmin(userId: string): Promise<void> {
+  const otherAdminCount = await prisma.user.count({
+    where: { role: "ADMIN", status: "ACTIVE", id: { not: userId } },
+  });
+  if (otherAdminCount === 0) {
+    const { AppError } = await import("@/lib/errors");
+    throw new AppError("FORBIDDEN", "無法移除最後一位系統管理者");
+  }
+}
+
+// ============================================================
 // requirePermission — 結合 session + 權限檢查
 // 用於 server actions / queries，無權限時拋 FORBIDDEN
 // ============================================================

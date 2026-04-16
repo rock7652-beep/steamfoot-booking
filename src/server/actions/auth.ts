@@ -17,6 +17,8 @@ export async function hqLoginAction(
 ): Promise<LoginState> {
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
+  // 從表單取得 store context（由 /hq/login?store=X 傳入）
+  const fromStoreSlug = formData.get("storeSlug") as string | null;
 
   if (!email || !password) {
     return { error: "請輸入 Email 和密碼" };
@@ -37,13 +39,13 @@ export async function hqLoginAction(
       if (user.role === "CUSTOMER") {
         const storeId = user.customer?.storeId;
         const slug = storeId ? await getStoreSlugById(storeId) : null;
-        redirectTo = `/s/${slug ?? "zhubei"}/book`;
+        redirectTo = `/s/${slug ?? fromStoreSlug ?? "zhubei"}/book`;
       } else if (user.role === "ADMIN") {
         redirectTo = "/hq/dashboard";
       } else {
-        // OWNER / PARTNER → 導向所屬店的 admin
+        // OWNER / PARTNER → 優先使用 URL 傳入的 storeSlug，否則查 DB
         const storeId = user.staff?.storeId;
-        const slug = storeId ? await getStoreSlugById(storeId) : null;
+        const slug = fromStoreSlug ?? (storeId ? await getStoreSlugById(storeId) : null);
         redirectTo = `/s/${slug ?? "zhubei"}/admin/dashboard`;
       }
     }
@@ -83,6 +85,8 @@ export async function loginAction(
 // logoutAction
 // ============================================================
 
-export async function logoutAction() {
-  await signOut({ redirectTo: "/" });
+export async function logoutAction(formData?: FormData) {
+  const storeSlug = formData?.get("storeSlug") as string | null;
+  const redirectTo = storeSlug ? `/s/${storeSlug}/` : "/";
+  await signOut({ redirectTo });
 }

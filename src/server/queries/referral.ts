@@ -150,7 +150,7 @@ export async function getMonthlyReferralLeaderboard(
 
   const ids = agg.map((a) => a.referrerId);
   const customers = await prisma.customer.findMany({
-    where: { id: { in: ids } },
+    where: { id: { in: ids }, ...storeFilter },
     select: { id: true, name: true, talentStage: true },
   });
   const map = new Map(customers.map((c) => [c.id, c]));
@@ -191,7 +191,7 @@ export async function getReferralConvertedLeaderboard(
 
   const ids = agg.map((a) => a.referrerId);
   const customers = await prisma.customer.findMany({
-    where: { id: { in: ids } },
+    where: { id: { in: ids }, ...storeFilter },
     select: { id: true, name: true, talentStage: true },
   });
   const map = new Map(customers.map((c) => [c.id, c]));

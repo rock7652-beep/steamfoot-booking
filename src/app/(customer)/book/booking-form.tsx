@@ -1,8 +1,10 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { createBooking } from "@/server/actions/booking";
 import { toast } from "sonner";
+import { ShareReferral } from "@/components/share-referral";
+import { useStoreSlugRequired } from "@/lib/store-context";
 import type { SlotAvailability } from "@/types";
 
 interface ActiveWallet {
@@ -46,27 +48,55 @@ export function BookingForm({ customerId, selectedDate, slots, activeWallets }: 
   const availableSlots = slots.filter((s) => s.isEnabled && s.available > 0);
   const fullSlots = slots.filter((s) => s.isEnabled && s.available === 0);
 
+  const storeSlug = useStoreSlugRequired();
+  const [showShare, setShowShare] = useState(false);
+  const referralUrl = `/s/${storeSlug}?ref=${customerId}`;
+
   if (state.success) {
     return (
-      <div className="rounded-xl border border-green-200 bg-green-50 p-6 text-center">
-        <div className="mb-2 text-3xl">✅</div>
-        <h2 className="text-base font-semibold text-green-800">預約成功！</h2>
-        <p className="mt-1 text-sm text-green-600">
-          {selectedDate} {state.bookedTime} 已完成預約
-        </p>
-        <div className="mt-4 flex justify-center gap-3">
-          <a
-            href={`/book/new?date=${selectedDate}`}
-            className="rounded-lg bg-white px-4 py-2 text-sm text-green-700 border border-green-300 hover:bg-green-50"
-          >
-            再次預約
-          </a>
-          <a
-            href="/my-bookings"
-            className="rounded-lg bg-green-600 px-4 py-2 text-sm text-white hover:bg-green-700"
-          >
-            查看我的預約
-          </a>
+      <div className="space-y-4">
+        <div className="rounded-xl border border-green-200 bg-green-50 p-6 text-center">
+          <div className="mb-2 text-3xl">✅</div>
+          <h2 className="text-base font-semibold text-green-800">預約成功！</h2>
+          <p className="mt-1 text-sm text-green-600">
+            {selectedDate} {state.bookedTime} 已完成預約
+          </p>
+          <p className="mt-1 text-xs text-green-500">我們會為你保留時段</p>
+          <div className="mt-4 flex justify-center gap-3">
+            <a
+              href={`/book/new?date=${selectedDate}`}
+              className="rounded-lg bg-white px-4 py-2 text-sm text-green-700 border border-green-300 hover:bg-green-50"
+            >
+              再次預約
+            </a>
+            <a
+              href="/my-bookings"
+              className="rounded-lg bg-green-600 px-4 py-2 text-sm text-white hover:bg-green-700"
+            >
+              查看我的預約
+            </a>
+          </div>
+        </div>
+
+        {/* B8: 邀請朋友 */}
+        <div className="rounded-xl border border-earth-200 bg-white p-5 text-center">
+          <p className="text-sm text-earth-600">
+            如果你身邊有人也有一樣的狀況
+          </p>
+          <p className="text-sm text-earth-600">可以邀請他一起來體驗</p>
+
+          {showShare ? (
+            <div className="mt-4">
+              <ShareReferral referralUrl={referralUrl} variant="compact" />
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowShare(true)}
+              className="mt-4 w-full rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700"
+            >
+              邀請朋友
+            </button>
+          )}
         </div>
       </div>
     );

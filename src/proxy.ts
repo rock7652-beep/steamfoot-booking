@@ -69,7 +69,8 @@ export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | n
     // ── 分店 admin routes (/s/[slug]/admin/*) ──
     if (subPath.startsWith("/admin")) {
       if (!isLoggedIn) {
-        return NextResponse.redirect(new URL("/hq/login", req.url));
+        // 保留 storeSlug，讓 /hq/login 登入後導向該店後台
+        return NextResponse.redirect(new URL(`/hq/login?store=${storeSlug}`, req.url));
       }
       if (role === "CUSTOMER") {
         return NextResponse.redirect(new URL(`/s/${storeSlug}/book`, req.url));
@@ -163,8 +164,16 @@ export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | n
   if (pathname.startsWith("/hq")) {
     // /hq/login → public
     if (pathname === "/hq/login" || pathname.startsWith("/hq/login/")) {
-      if (isLoggedIn && role === "ADMIN") {
-        return NextResponse.redirect(new URL("/hq/dashboard", req.url));
+      if (isLoggedIn) {
+        if (role === "ADMIN") {
+          return NextResponse.redirect(new URL("/hq/dashboard", req.url));
+        }
+        // 已登入的 OWNER/STAFF 不應停留在 /hq/login，導回其店後台
+        const storeParam = req.nextUrl.searchParams.get("store");
+        const slug = storeParam || userSlug;
+        if (sessionStoreId) {
+          return NextResponse.redirect(new URL(`/s/${slug}/admin/dashboard`, req.url));
+        }
       }
       return withDomainCookie(NextResponse.next(), domainStoreId);
     }

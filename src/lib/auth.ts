@@ -87,6 +87,20 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const valid = compareSync(password, user.passwordHash);
         if (!valid) return null;
 
+        // ADMIN 是平台管理者，不綁定任何 store — storeId/staffId 永遠為 null
+        if (user.role === "ADMIN") {
+          return {
+            id: user.id,
+            name: user.name,
+            email: user.email ?? null,
+            role: user.role,
+            staffId: null,
+            customerId: null,
+            storeId: null,
+            storeSlug: null,
+          };
+        }
+
         return {
           id: user.id,
           name: user.name,
@@ -492,9 +506,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           });
           if (dbUser) {
             appToken.role = dbUser.role;
-            appToken.staffId = dbUser.staff?.id ?? null;
-            appToken.customerId = dbUser.customer?.id ?? null;
-            appToken.storeId = (dbUser.staff as any)?.storeId ?? (dbUser.customer as any)?.storeId ?? null;
+            if (dbUser.role === "ADMIN") {
+              appToken.staffId = null;
+              appToken.customerId = null;
+              appToken.storeId = null;
+            } else {
+              appToken.staffId = dbUser.staff?.id ?? null;
+              appToken.customerId = dbUser.customer?.id ?? null;
+              appToken.storeId = (dbUser.staff as any)?.storeId ?? (dbUser.customer as any)?.storeId ?? null;
+            }
           }
         } catch {
           // Middleware Prisma client may be stale — just update the role from DB without storeId
@@ -527,10 +547,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           });
           if (dbUser) {
             appToken.role = dbUser.role;
-            appToken.staffId = dbUser.staff?.id ?? null;
-            appToken.customerId = dbUser.customer?.id ?? null;
-            appToken.storeId = dbUser.staff?.storeId ?? dbUser.customer?.storeId ?? null;
-            appToken.storeSlug = dbUser.staff?.store?.slug ?? dbUser.customer?.store?.slug ?? null;
+            // ADMIN 不綁定 store — 永遠 null
+            if (dbUser.role === "ADMIN") {
+              appToken.staffId = null;
+              appToken.customerId = null;
+              appToken.storeId = null;
+              appToken.storeSlug = null;
+            } else {
+              appToken.staffId = dbUser.staff?.id ?? null;
+              appToken.customerId = dbUser.customer?.id ?? null;
+              appToken.storeId = dbUser.staff?.storeId ?? dbUser.customer?.storeId ?? null;
+              appToken.storeSlug = dbUser.staff?.store?.slug ?? dbUser.customer?.store?.slug ?? null;
+            }
           } else {
             console.error("[auth] jwt: DB user not found for OAuth login", { userId: user.id });
             appToken.role = "CUSTOMER";
