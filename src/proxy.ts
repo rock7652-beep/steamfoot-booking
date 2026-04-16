@@ -334,6 +334,8 @@ function storeRewrite(
   });
   // 保留原始 pathname 供 sidebar 高亮
   response.headers.set("x-next-pathname", req.nextUrl.pathname);
+  // 注入 store slug header — Server Component 可靠讀取（不受 stale cookie 影響）
+  response.headers.set("x-store-slug", slug);
   if (domainStoreId) {
     response.cookies.set("domain-store-id", domainStoreId, {
       path: "/",

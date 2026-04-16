@@ -1,4 +1,4 @@
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import Link from "next/link";
 import { OAuthButtons } from "./oauth-buttons";
 import { CustomerLoginForm } from "./customer-login-form";
@@ -28,8 +28,10 @@ const ERROR_MESSAGES: Record<string, string> = {
 export default async function HomePage({ searchParams }: PageProps) {
   const params = await searchParams;
 
+  // 優先讀 proxy 注入的 header（當次請求準確值），fallback 到 cookie
+  const headerList = await headers();
   const cookieStore = await cookies();
-  const storeSlug = cookieStore.get("store-slug")?.value ?? "zhubei";
+  const storeSlug = headerList.get("x-store-slug") ?? cookieStore.get("store-slug")?.value ?? "zhubei";
   const prefix = `/s/${storeSlug}`;
 
   const errorMessage = params.error
