@@ -1,9 +1,10 @@
 import { getCustomerDetail } from "@/server/queries/customer";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
-import { getCurrentStorePlan } from "@/lib/store-plan";
+import { getStorePlanById } from "@/lib/store-plan";
 import { hasFeature as hasPricingFeature, FEATURES as FF } from "@/lib/feature-flags";
 import { getCachedPlans, getCachedStaffOptions } from "@/lib/query-cache";
+import { getActiveStoreForRead } from "@/lib/store";
 import { ServerTiming, withTiming } from "@/lib/perf";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
@@ -57,25 +58,86 @@ export default async function CustomerDetailPage({ params }: PageProps) {
     redirect("/dashboard");
   }
 
+  // ── 統一 store context ──────────────────────────────────
+  // ADMIN: 從 cookie store switcher 取得 activeStoreId
+  // OWNER/PARTNER: 使用 session storeId
+  const activeStoreId = await getActiveStoreForRead(user);
+
+  const logCtx = {
+    page: "customer-detail" as const,
+    customerId: id,
+    activeStoreId,
+    sessionRole: user.role,
+    sessionStoreId: user.storeId ?? null,
+  };
+
   const timer = new ServerTiming(`/dashboard/customers/${id}`);
 
-  const [customer, plans, staffOptions, tags, scripts, customerActionLogs, canDiscount, customerReferrals, customerPoints, upgradeEligibility] = await Promise.all([
-    withTiming("getCustomerDetail", timer, () => getCustomerDetail(id)),
-    withTiming("getCachedPlans", timer, () => getCachedPlans(user.storeId!)),
-    withTiming("getCachedStaffOptions", timer, () => getCachedStaffOptions()),
-    user.role !== "CUSTOMER" ? withTiming("getCustomerTags", timer, () => getCustomerTags(id)) : Promise.resolve([]),
-    user.role !== "CUSTOMER" ? withTiming("getCustomerScript", timer, () => getCustomerScript(id)) : Promise.resolve([]),
-    user.role !== "CUSTOMER" ? withTiming("getOpsActionLogs", timer, () => getOpsActionLogs("customer_action")) : Promise.resolve(new Map()),
-    checkPermission(user.role, user.staffId, "transaction.discount"),
-    user.role !== "CUSTOMER" ? getReferralsByReferrer(id).catch(() => []) : Promise.resolve([]),
-    user.role !== "CUSTOMER" ? getPointHistory(id, { limit: 10 }).catch(() => []) : Promise.resolve([]),
-    (user.role === "ADMIN" || user.role === "OWNER") ? getUpgradeEligibility(id).catch(() => null) : Promise.resolve(null),
+  // ── Step 1: 先取 customer 基本資料（後續 section 依賴此結果）──
+  let customer: Awaited<ReturnType<typeof getCustomerDetail>>;
+  try {
+    customer = await withTiming("getCustomerDetail", timer, () => getCustomerDetail(id));
+  } catch (e) {
+    console.error("[customer-detail] base query failed", { ...logCtx, step: "base", error: e instanceof Error ? e.message : String(e) });
+    notFound();
+  }
+
+  // 確認 customer 屬於 activeStoreId（若有指定）
+  if (activeStoreId && customer.storeId !== activeStoreId) {
+    console.warn("[customer-detail] cross-store access blocked", { ...logCtx, step: "store-guard", customerStoreId: customer.storeId });
+    notFound();
+  }
+
+  // 以已驗證的 customer.storeId 作為所有後續查詢的 store context
+  const effectiveStoreId = customer.storeId;
+
+  // ── Step 2: 並行載入各 section（各自 catch 避免全頁炸裂）──
+  const [plans, staffOptions, tags, scripts, customerActionLogs, canDiscount, customerReferrals, customerPoints, upgradeEligibility] = await Promise.all([
+    withTiming("getCachedPlans", timer, () => getCachedPlans(effectiveStoreId)).catch((e) => {
+      console.error("[customer-detail] plans query failed", { ...logCtx, step: "plans", error: e instanceof Error ? e.message : String(e) });
+      return [] as Awaited<ReturnType<typeof getCachedPlans>>;
+    }),
+    withTiming("getCachedStaffOptions", timer, () => getCachedStaffOptions()).catch((e) => {
+      console.error("[customer-detail] staffOptions query failed", { ...logCtx, step: "staffOptions", error: e instanceof Error ? e.message : String(e) });
+      return [] as Awaited<ReturnType<typeof getCachedStaffOptions>>;
+    }),
+    user.role !== "CUSTOMER"
+      ? withTiming("getCustomerTags", timer, () => getCustomerTags(id)).catch((e) => {
+          console.error("[customer-detail] tags query failed", { ...logCtx, step: "tags", error: e instanceof Error ? e.message : String(e) });
+          return [];
+        })
+      : Promise.resolve([]),
+    user.role !== "CUSTOMER"
+      ? withTiming("getCustomerScript", timer, () => getCustomerScript(id)).catch((e) => {
+          console.error("[customer-detail] scripts query failed", { ...logCtx, step: "scripts", error: e instanceof Error ? e.message : String(e) });
+          return [];
+        })
+      : Promise.resolve([]),
+    user.role !== "CUSTOMER"
+      ? withTiming("getOpsActionLogs", timer, () => getOpsActionLogs("customer_action", effectiveStoreId)).catch((e) => {
+          console.error("[customer-detail] opsLogs query failed", { ...logCtx, step: "opsLogs", error: e instanceof Error ? e.message : String(e) });
+          return new Map() as Awaited<ReturnType<typeof getOpsActionLogs>>;
+        })
+      : Promise.resolve(new Map() as Awaited<ReturnType<typeof getOpsActionLogs>>),
+    checkPermission(user.role, user.staffId, "transaction.discount").catch(() => false),
+    user.role !== "CUSTOMER" ? getReferralsByReferrer(id).catch((e) => {
+      console.error("[customer-detail] referrals query failed", { ...logCtx, step: "referrals", error: e instanceof Error ? e.message : String(e) });
+      return [];
+    }) : Promise.resolve([]),
+    user.role !== "CUSTOMER" ? getPointHistory(id, { limit: 10 }).catch((e) => {
+      console.error("[customer-detail] points query failed", { ...logCtx, step: "points", error: e instanceof Error ? e.message : String(e) });
+      return [];
+    }) : Promise.resolve([]),
+    (user.role === "ADMIN" || user.role === "OWNER") ? getUpgradeEligibility(id).catch((e) => {
+      console.error("[customer-detail] upgradeEligibility query failed", { ...logCtx, step: "upgradeEligibility", error: e instanceof Error ? e.message : String(e) });
+      return null;
+    }) : Promise.resolve(null),
   ]);
 
   timer.finish();
 
-  // PricingPlan: check AI health features
-  const pricingPlan = await getCurrentStorePlan();
+  // PricingPlan: 使用已驗證的 effectiveStoreId 查詢（避免 ADMIN 無 storeId 時 throw）
+  const pricingPlan = await getStorePlanById(effectiveStoreId).catch(() => "EXPERIENCE" as const);
   const hasAiHealth = hasPricingFeature(pricingPlan, FF.AI_HEALTH_SUMMARY);
 
   // For transfer form, only pass staff list to Owner
@@ -84,16 +146,19 @@ export default async function CustomerDetailPage({ params }: PageProps) {
       ? staffOptions.map((s) => ({ id: s.id, displayName: s.displayName }))
       : [];
 
-  const activeWallets = customer.planWallets.filter((w) => w.status === "ACTIVE");
-  const inactiveWallets = customer.planWallets.filter((w) => w.status !== "ACTIVE");
+  const wallets = customer.planWallets ?? [];
+  const activeWallets = wallets.filter((w) => w.status === "ACTIVE");
+  const inactiveWallets = wallets.filter((w) => w.status !== "ACTIVE");
   const totalRemaining = activeWallets.reduce((s, w) => s + w.remainingSessions, 0);
 
-  const upcomingBookings = customer.bookings.filter(
+  const bookings = customer.bookings ?? [];
+  const upcomingBookings = bookings.filter(
     (b) => b.bookingStatus === "PENDING" || b.bookingStatus === "CONFIRMED"
   );
-  const historyBookings = customer.bookings.filter(
+  const historyBookings = bookings.filter(
     (b) => b.bookingStatus !== "PENDING" && b.bookingStatus !== "CONFIRMED"
   );
+  const transactions = customer.transactions ?? [];
 
 
   return (
@@ -183,7 +248,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
             customerId={id}
             talentStage={customer.talentStage}
             sponsor={customer.sponsor}
-            referralCount={customer.sponsoredCustomers.length}
+            referralCount={(customer.sponsoredCustomers ?? []).length}
             stageNote={customer.stageNote}
             isOwner={user.role === "ADMIN" || user.role === "OWNER"}
             upgradeEligibility={upgradeEligibility}
@@ -238,7 +303,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
       {user.role !== "CUSTOMER" && (
         <div className="rounded-xl border bg-white p-6 shadow-sm">
           <PointsSection
-            totalPoints={customer.totalPoints ?? 0}
+            totalPoints={customer.totalPoints || 0}
             recentPoints={(customerPoints ?? []).map((p) => ({
               id: p.id,
               type: p.type,
@@ -301,7 +366,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
             sessionCount: p.sessionCount,
           }))} />
         </div>
-        {customer.planWallets.length === 0 ? (
+        {wallets.length === 0 ? (
           <EmptyState
             icon="empty"
             title="尚未購買課程"
@@ -431,7 +496,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
       <div className="rounded-xl border bg-white p-6 shadow-sm">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="font-semibold text-earth-800">
-            消費紀錄（最近 {customer.transactions.length} 筆）
+            消費紀錄（最近 {transactions.length} 筆）
           </h2>
           <Link
             href={`/dashboard/transactions?customerId=${id}`}
@@ -440,7 +505,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
             查看全部
           </Link>
         </div>
-        {customer.transactions.length === 0 ? (
+        {transactions.length === 0 ? (
           <EmptyState icon="empty" title="尚無消費紀錄" description="此顧客還沒有消費記錄" />
         ) : (
           <table className="min-w-full text-sm">
@@ -453,7 +518,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
               </tr>
             </thead>
             <tbody className="divide-y divide-earth-100">
-              {customer.transactions.map((t) => {
+              {transactions.map((t) => {
                 const hasDiscount = t.originalAmount && t.discountType && t.discountType !== "none";
                 return (
                 <tr key={t.id}>

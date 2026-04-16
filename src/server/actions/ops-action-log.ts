@@ -360,9 +360,10 @@ export async function setOpsActionDueDate(
 
 export async function getOpsActionLogs(
   module: OpsModule,
+  explicitStoreId?: string,
 ): Promise<Map<string, OpsActionLogEntry>> {
   const user = await requireStaffSession();
-  const storeId = currentStoreId(user);
+  const storeId = explicitStoreId ?? currentStoreId(user);
 
   const logs = await prisma.opsActionLog.findMany({
     where: { storeId, module },
