@@ -66,9 +66,19 @@ export default async function RemindersPage({ searchParams }: PageProps) {
     redirect("/dashboard");
   }
 
+  const activeStoreId = await getActiveStoreForRead(user);
+
+  // ADMIN 須先選擇特定店才能進入店舖設定
+  if (!activeStoreId && user.role === "ADMIN") {
+    return (
+      <div className="py-12 text-center">
+        <p className="text-sm text-earth-500">請先從右上角切換到特定店舖，才能管理提醒設定。</p>
+      </div>
+    );
+  }
+
   const plan = await getCurrentStorePlan();
   const activeTab = params.tab ?? "rules";
-  const activeStoreId = await getActiveStoreForRead(user);
 
   const [stats, rules, templates] = await Promise.all([
     getReminderStats(activeStoreId),

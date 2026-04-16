@@ -84,7 +84,18 @@ export default async function DutySettingsPage() {
     notFound();
   }
 
-  const storeId = user.storeId!;
+  // ADMIN 須先選擇特定店才能進入店舖設定
+  const { getActiveStoreForRead } = await import("@/lib/store");
+  const storeId = user.role === "ADMIN"
+    ? await getActiveStoreForRead(user)
+    : user.storeId;
+  if (!storeId) {
+    return (
+      <div className="mx-auto max-w-2xl py-12 text-center">
+        <p className="text-sm text-earth-500">請先從右上角切換到特定店舖，才能管理值班排班設定。</p>
+      </div>
+    );
+  }
   const config = await getShopConfig();
   const weekInfo = await getUnscheduledDaysThisWeek(storeId);
 

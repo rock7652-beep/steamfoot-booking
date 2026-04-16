@@ -115,10 +115,13 @@ export function EditCustomerModal({ customer }: { customer: CustomerData }) {
 
             {/* 電話 */}
             <div>
-              <label className="block text-sm font-medium text-earth-700">手機號碼</label>
+              <label className="block text-sm font-medium text-earth-700">
+                手機號碼 <span className="text-red-500">*</span>
+              </label>
               <input
                 name="phone"
                 type="tel"
+                required
                 defaultValue={customer.phone}
                 className="mt-1 w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
               />
@@ -126,10 +129,13 @@ export function EditCustomerModal({ customer }: { customer: CustomerData }) {
 
             {/* Email */}
             <div>
-              <label className="block text-sm font-medium text-earth-700">Email</label>
+              <label className="block text-sm font-medium text-earth-700">
+                Email <span className="text-red-500">*</span>
+              </label>
               <input
                 name="email"
                 type="email"
+                required
                 defaultValue={customer.email ?? ""}
                 className="mt-1 w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
               />
@@ -138,13 +144,16 @@ export function EditCustomerModal({ customer }: { customer: CustomerData }) {
             <div className="grid grid-cols-2 gap-3">
               {/* 性別 */}
               <div>
-                <label className="block text-sm font-medium text-earth-700">性別</label>
+                <label className="block text-sm font-medium text-earth-700">
+                  性別 <span className="text-red-500">*</span>
+                </label>
                 <select
                   name="gender"
+                  required
                   defaultValue={customer.gender ?? ""}
                   className="mt-1 w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
                 >
-                  <option value="">未填寫</option>
+                  <option value="" disabled>請選擇</option>
                   <option value="male">男</option>
                   <option value="female">女</option>
                   <option value="other">其他</option>
@@ -153,10 +162,13 @@ export function EditCustomerModal({ customer }: { customer: CustomerData }) {
 
               {/* 生日 */}
               <div>
-                <label className="block text-sm font-medium text-earth-700">生日</label>
+                <label className="block text-sm font-medium text-earth-700">
+                  生日 <span className="text-red-500">*</span>
+                </label>
                 <input
                   name="birthday"
                   type="date"
+                  required
                   defaultValue={customer.birthday ?? ""}
                   className="mt-1 w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
                 />
@@ -165,13 +177,16 @@ export function EditCustomerModal({ customer }: { customer: CustomerData }) {
 
             {/* 身高 */}
             <div>
-              <label className="block text-sm font-medium text-earth-700">身高 (cm)</label>
+              <label className="block text-sm font-medium text-earth-700">
+                身高 (cm) <span className="text-red-500">*</span>
+              </label>
               <input
                 name="height"
                 type="number"
                 step="0.1"
                 min="50"
                 max="250"
+                required
                 defaultValue={customer.height ?? ""}
                 className="mt-1 w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
               />
@@ -179,10 +194,13 @@ export function EditCustomerModal({ customer }: { customer: CustomerData }) {
 
             {/* LINE 名稱 */}
             <div>
-              <label className="block text-sm font-medium text-earth-700">LINE 名稱</label>
+              <label className="block text-sm font-medium text-earth-700">
+                LINE 名稱 <span className="text-red-500">*</span>
+              </label>
               <input
                 name="lineName"
                 type="text"
+                required
                 defaultValue={customer.lineName ?? ""}
                 className="mt-1 w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
               />

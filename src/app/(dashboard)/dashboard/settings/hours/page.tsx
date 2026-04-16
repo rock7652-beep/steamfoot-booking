@@ -14,13 +14,31 @@ export default async function ScheduleSettingsPage() {
 
   const canManage = await checkPermission(user.role, user.staffId, "business_hours.manage");
 
+  // ADMIN 須先選擇特定店才能進入店舖設定
+  const { getActiveStoreForRead } = await import("@/lib/store");
+  const effectiveStoreId = user.role === "ADMIN"
+    ? await getActiveStoreForRead(user)
+    : user.storeId;
+  if (!effectiveStoreId) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-3">
+          <Link href="/dashboard" className="text-sm text-earth-500 hover:text-earth-700">← 首頁</Link>
+        </div>
+        <div className="py-12 text-center">
+          <p className="text-sm text-earth-500">請先從右上角切換到特定店舖，才能管理預約開放設定。</p>
+        </div>
+      </div>
+    );
+  }
+
   // 取得初始資料（使用台灣時間判斷當前月份）
   const todayStr = toLocalDateStr();
   const [nowYear, nowMonth] = todayStr.split("-").map(Number);
   const [weeklyHours, specialDays, currentStore] = await Promise.all([
     getBusinessHours(),
     getMonthSpecialDays(nowYear, nowMonth),
-    prisma.store.findUnique({ where: { id: user.storeId! }, select: { isDefault: true } }),
+    prisma.store.findUnique({ where: { id: effectiveStoreId }, select: { isDefault: true } }),
   ]);
   const isHeadquarters = currentStore?.isDefault ?? false;
 
