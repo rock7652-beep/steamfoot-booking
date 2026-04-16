@@ -33,17 +33,25 @@ export default async function DashboardLayout({
   const isOwnerLevel = isAdmin || user.role === "OWNER" || user.role === "PARTNER";
 
   // Source of truth: Store.plan (PricingPlan)
-  const [permissions, trialStatus, storeOptions, cookieStoreId, pricingPlan] =
+  const [permissions, trialStatus, storeOptions, cookieStoreId] =
     await Promise.all([
       getUserPermissions(user.role, user.staffId),
       getCachedTrialStatus(user.storeId ?? undefined),
       isAdmin ? getStoreOptions() : Promise.resolve([]),
       isAdmin ? getActiveStoreCookie() : Promise.resolve(null),
-      user.storeId ? getStorePlanById(user.storeId) : Promise.resolve("EXPERIENCE" as const),
     ]);
 
   // Resolve the effective active store for read views（ADMIN 可切店）
   const activeStoreId = resolveActiveStoreId(user, cookieStoreId);
+
+  // ADMIN 看到的 plan：切到特定店時用該店 plan，全部分店時解鎖全部功能（ALLIANCE）
+  // OWNER/PARTNER：用自己店的 plan
+  const effectiveStoreId = isAdmin ? (activeStoreId ?? undefined) : (user.storeId ?? undefined);
+  const pricingPlan = isAdmin && !activeStoreId
+    ? ("ALLIANCE" as const)
+    : effectiveStoreId
+      ? await getStorePlanById(effectiveStoreId)
+      : ("EXPERIENCE" as const);
 
   // 讀取 store-slug 用於 logout redirect（ADMIN 不帶 slug，回 /）
   const ckStore = await cookies();

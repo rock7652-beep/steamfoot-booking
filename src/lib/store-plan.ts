@@ -37,8 +37,16 @@ const STORE_PLAN_SELECT = {
 /** 取得當前 staff 所屬 store 的 PricingPlan */
 export async function getCurrentStorePlan(): Promise<PricingPlan> {
   const user = await requireStaffSession();
-  const storeId = currentStoreId(user);
 
+  // ADMIN 沒有 storeId — 用 active-store-id cookie 或解鎖全部
+  if (user.role === "ADMIN") {
+    const { getActiveStoreForRead } = await import("@/lib/store");
+    const activeStoreId = await getActiveStoreForRead(user);
+    if (!activeStoreId) return "ALLIANCE"; // 全部分店 → 解鎖全部功能
+    return getStorePlanById(activeStoreId);
+  }
+
+  const storeId = currentStoreId(user);
   const store = await prisma.store.findUnique({
     where: { id: storeId },
     select: { plan: true },
@@ -50,8 +58,32 @@ export async function getCurrentStorePlan(): Promise<PricingPlan> {
 /** 取得當前 staff 所屬 store 的完整 plan 資訊（含 override） */
 export async function getCurrentStoreForPlan(): Promise<StorePlanFields> {
   const user = await requireStaffSession();
-  const storeId = currentStoreId(user);
 
+  // ADMIN: 用 active-store-id 或回傳 ALLIANCE 預設值
+  if (user.role === "ADMIN") {
+    const { getActiveStoreForRead } = await import("@/lib/store");
+    const activeStoreId = await getActiveStoreForRead(user);
+    if (activeStoreId) {
+      const store = await prisma.store.findUnique({
+        where: { id: activeStoreId },
+        select: STORE_PLAN_SELECT,
+      });
+      if (store) return store;
+    }
+    // 全部分店 → 回傳最高級別虛擬值
+    return {
+      id: "__all__",
+      plan: "ALLIANCE",
+      maxStaffOverride: null,
+      maxCustomersOverride: null,
+      maxMonthlyBookingsOverride: null,
+      maxMonthlyReportsOverride: null,
+      maxReminderSendsOverride: null,
+      maxStoresOverride: null,
+    };
+  }
+
+  const storeId = currentStoreId(user);
   const store = await prisma.store.findUnique({
     where: { id: storeId },
     select: STORE_PLAN_SELECT,
