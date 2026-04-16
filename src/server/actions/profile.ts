@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/db";
-import { requireSession } from "@/lib/session";
+import { requireSession, requireStaffSession } from "@/lib/session";
 import { compareSync, hashSync } from "bcryptjs";
 import { revalidatePath } from "next/cache";
 
@@ -163,6 +163,51 @@ export async function changePasswordAction(
     return { error: null, success: true };
   } catch (error) {
     console.error("[changePasswordAction] Error:", error);
+    return { error: "修改失敗，請稍後再試", success: false };
+  }
+}
+
+// ============================================================
+// 後台修改密碼（ADMIN / OWNER / STAFF）
+// ============================================================
+
+export async function staffChangePasswordAction(
+  _prev: ChangePasswordState,
+  formData: FormData,
+): Promise<ChangePasswordState> {
+  const user = await requireStaffSession();
+
+  const currentPassword = formData.get("currentPassword") as string;
+  const newPassword = formData.get("newPassword") as string;
+  const confirmPassword = formData.get("confirmPassword") as string;
+
+  if (!currentPassword) return { error: "請輸入目前密碼", success: false };
+  if (!newPassword) return { error: "請輸入新密碼", success: false };
+  if (newPassword.length < 8) return { error: "新密碼至少 8 碼", success: false };
+  if (newPassword !== confirmPassword) return { error: "兩次密碼不一致", success: false };
+
+  try {
+    const dbUser = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { passwordHash: true },
+    });
+
+    if (!dbUser?.passwordHash) {
+      return { error: "帳號異常，請聯繫管理者", success: false };
+    }
+
+    if (!compareSync(currentPassword, dbUser.passwordHash)) {
+      return { error: "目前密碼不正確", success: false };
+    }
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { passwordHash: hashSync(newPassword, 10) },
+    });
+
+    return { error: null, success: true };
+  } catch (error) {
+    console.error("[staffChangePasswordAction] Error:", error);
     return { error: "修改失敗，請稍後再試", success: false };
   }
 }

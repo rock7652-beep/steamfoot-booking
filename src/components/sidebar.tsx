@@ -13,6 +13,7 @@ import { hasFeature, type Feature, FEATURES } from "@/lib/shop-plan";
 import { APP_VERSION } from "@/lib/version";
 import type { ShopPlan, PricingPlan } from "@prisma/client";
 import StoreSwitcher from "@/components/store-switcher";
+import ChangePasswordModal from "@/components/change-password-modal";
 import { MVP_HIDDEN_ROUTES } from "@/lib/mvp-hidden-features";
 
 // ============================================================
@@ -416,6 +417,7 @@ export default function DashboardShell({
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [pwModalOpen, setPwModalOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
   // B7-4: 從 URL 推導 dashboard prefix
@@ -844,8 +846,20 @@ export default function DashboardShell({
                     </div>
                   )}
                   {/* Menu items */}
-                  <div className="py-1" onClick={() => setUserMenuOpen(false)}>
-                    {logoutButton}
+                  <div className="py-1">
+                    <button
+                      type="button"
+                      onClick={() => { setUserMenuOpen(false); setPwModalOpen(true); }}
+                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-earth-600 hover:bg-earth-50"
+                    >
+                      <svg className="h-3.5 w-3.5 text-earth-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                      </svg>
+                      修改密碼
+                    </button>
+                    <div onClick={() => setUserMenuOpen(false)}>
+                      {logoutButton}
+                    </div>
                   </div>
                 </div>
               )}
@@ -866,6 +880,9 @@ export default function DashboardShell({
 
         <BuildFooter />
       </div>
+
+      {/* 修改密碼 Modal */}
+      <ChangePasswordModal open={pwModalOpen} onClose={() => setPwModalOpen(false)} />
     </div>
   );
 }
