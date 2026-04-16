@@ -28,28 +28,30 @@ export default async function DashboardLayout({
   }
 
   const roleLabel = ROLE_LABELS[user.role] ?? "";
-  const isOwnerRole = user.role === "ADMIN";
+  const isAdmin = user.role === "ADMIN";
+  // isOwnerLevel: ADMIN + 店長 + 合作店長 — 用於 sidebar ownerOnly 功能項顯示
+  const isOwnerLevel = isAdmin || user.role === "OWNER" || user.role === "PARTNER";
 
   // Source of truth: Store.plan (PricingPlan)
   const [permissions, trialStatus, storeOptions, cookieStoreId, pricingPlan] =
     await Promise.all([
       getUserPermissions(user.role, user.staffId),
       getCachedTrialStatus(user.storeId ?? undefined),
-      isOwnerRole ? getStoreOptions() : Promise.resolve([]),
-      isOwnerRole ? getActiveStoreCookie() : Promise.resolve(null),
+      isAdmin ? getStoreOptions() : Promise.resolve([]),
+      isAdmin ? getActiveStoreCookie() : Promise.resolve(null),
       user.storeId ? getStorePlanById(user.storeId) : Promise.resolve("EXPERIENCE" as const),
     ]);
 
-  // Resolve the effective active store for read views
+  // Resolve the effective active store for read views（ADMIN 可切店）
   const activeStoreId = resolveActiveStoreId(user, cookieStoreId);
 
   // 讀取 store-slug 用於 logout redirect（ADMIN 不帶 slug，回 /）
   const ckStore = await cookies();
-  const dashStoreSlug = user.role !== "ADMIN" ? (ckStore.get("store-slug")?.value ?? null) : null;
+  const dashStoreSlug = !isAdmin ? (ckStore.get("store-slug")?.value ?? null) : null;
 
   return (
     <DashboardShell
-      isOwner={isOwnerRole}
+      isOwner={isOwnerLevel}
       permissions={permissions}
       pricingPlan={pricingPlan}
       userName={user.name ?? ""}
@@ -67,8 +69,8 @@ export default async function DashboardLayout({
         </form>
       }
       trialStatus={trialStatus}
-      storeOptions={isOwnerRole ? storeOptions : undefined}
-      activeStoreId={isOwnerRole ? activeStoreId : undefined}
+      storeOptions={isAdmin ? storeOptions : undefined}
+      activeStoreId={isAdmin ? activeStoreId : undefined}
     >
       {children}
     </DashboardShell>

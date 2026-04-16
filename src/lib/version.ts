@@ -4,8 +4,8 @@
  * 登入頁、Dashboard sidebar、更新橫幅、Changelog 頁面統一引用此檔
  */
 
-export const APP_VERSION = "2.6.0";
-export const APP_VERSION_DATE = "2026-04-12";
+export const APP_VERSION = "2.7.0";
+export const APP_VERSION_DATE = "2026-04-16";
 
 export type ChangelogTag = "新功能" | "修正" | "優化";
 export type AffectedRole = "全部" | "店長" | "員工" | "顧客";
@@ -26,6 +26,38 @@ export interface ChangelogEntry {
  * 更新橫幅顯示第一筆
  */
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: "2.7.0",
+    date: "2026-04-16",
+    highlights: "全站巡檢修復 — 登出、表單回饋、效能優化",
+    changes: [
+      {
+        tag: "修正",
+        text: "登出按鈕加入 loading 狀態，修復點擊無反應問題",
+        roles: ["全部"],
+      },
+      {
+        tag: "修正",
+        text: "所有表單操作加入成功/失敗 toast 提示，不再出現「點了沒反應」",
+        roles: ["全部"],
+      },
+      {
+        tag: "修正",
+        text: "預約未到/取消/回退按鈕加入 toast 回饋",
+        roles: ["店長"],
+      },
+      {
+        tag: "優化",
+        text: "Dashboard 人才準備度查詢去重（React.cache），減少重複 DB 查詢",
+        roles: ["店長"],
+      },
+      {
+        tag: "優化",
+        text: "顧客詳情頁查詢優化 — 減少不必要欄位載入",
+        roles: ["店長"],
+      },
+    ],
+  },
   {
     version: "2.6.0",
     date: "2026-04-12",

@@ -88,16 +88,7 @@ export async function loginAction(
 export async function logoutAction(formData?: FormData) {
   const storeSlug = formData?.get("storeSlug") as string | null;
   const redirectTo = storeSlug ? `/s/${storeSlug}/` : "/";
-  try {
-    await signOut({ redirectTo });
-  } catch (e) {
-    // signOut throws a NEXT_REDIRECT — re-throw it so Next.js handles the redirect
-    if (e instanceof Error && e.message?.includes("NEXT_REDIRECT")) {
-      throw e;
-    }
-    console.error("[logout] signOut failed:", e);
-    // Fallback: force redirect even if signOut errored
-    const { redirect } = await import("next/navigation");
-    redirect(redirectTo);
-  }
+  // signOut() 內部會呼叫 redirect()，Next.js redirect 以 throw 實現，
+  // 不可包 try/catch，否則 redirect 會被攔截導致登出無反應。
+  await signOut({ redirectTo });
 }

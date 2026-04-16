@@ -436,9 +436,12 @@ export default function DashboardShell({
   // 側邊欄標題永遠顯示品牌名
   const headerTitle = "蒸足管理";
 
+  // isAdmin: ADMIN 才有 storeOptions（用於 HQ 專屬 UI）
+  const isAdmin = !!storeOptions?.length;
+
   // Header 層級顯示：ADMIN 動態顯示目前檢視店名，OWNER/STAFF 顯示固定店名
   const activeStoreName = (() => {
-    if (isOwner && storeOptions) {
+    if (isAdmin && storeOptions) {
       if (activeStoreId === null || activeStoreId === undefined) return "全部分店";
       return storeOptions.find((s) => s.id === activeStoreId)?.name ?? null;
     }
@@ -784,7 +787,7 @@ export default function DashboardShell({
           {/* Right: store context + user menu */}
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             {/* Store context indicator */}
-            {isOwner ? (
+            {isAdmin ? (
               /* ADMIN: HQ label + store switcher */
               <div className="hidden sm:flex items-center gap-1.5">
                 <span className="text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-0.5">
@@ -833,13 +836,13 @@ export default function DashboardShell({
                   {/* User info */}
                   <div className="border-b border-earth-100 px-3 py-2">
                     <p className="text-xs font-medium text-earth-800 truncate">{userName}</p>
-                    <p className="text-[10px] text-earth-400">{isOwner ? "系統管理者" : roleLabel}</p>
+                    <p className="text-[10px] text-earth-400">{isAdmin ? "系統管理者" : roleLabel}</p>
                   </div>
                   {/* Mobile-only: show store context */}
-                  {(isOwner || activeStoreName) && (
+                  {(isAdmin || activeStoreName) && (
                     <div className="sm:hidden border-b border-earth-100 px-3 py-2">
                       <p className="text-[10px] text-earth-400">
-                        {isOwner ? "HQ 總部後台" : `${activeStoreName} 後台`}
+                        {isAdmin ? "HQ 總部後台" : `${activeStoreName} 後台`}
                       </p>
                     </div>
                   )}
