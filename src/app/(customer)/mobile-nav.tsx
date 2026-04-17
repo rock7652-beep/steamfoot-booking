@@ -64,7 +64,6 @@ const NAV_ITEMS_BASE = [
   { href: "/book/new", label: "新增預約", icon: "plus" },
   { href: "/my-bookings", label: "我的預約", icon: "calendar" },
   { href: "/my-plans", label: "我的方案", icon: "wallet" },
-  { href: "/my-points", label: "我的積分", icon: "trophy" },
   { href: "/profile", label: "我的資料", icon: "user" },
 ];
 

@@ -117,7 +117,7 @@ export async function updateTalentStage(
       console.error("[Points] Failed to award stage change points for", data.customerId);
     }
 
-    revalidatePath("/dashboard/talent");
+    revalidatePath("/dashboard/growth");
     revalidatePath("/dashboard");
     revalidatePath(`/dashboard/customers/${data.customerId}`);
 
@@ -165,7 +165,7 @@ export async function setSponsor(
       data: { sponsorId: data.sponsorId },
     });
 
-    revalidatePath("/dashboard/talent");
+    revalidatePath("/dashboard/growth");
     revalidatePath(`/dashboard/customers/${data.customerId}`);
 
     return { success: true, data: { customerId: data.customerId } };
@@ -206,7 +206,7 @@ export async function manualAdjustPoints(
     });
 
     revalidatePath(`/dashboard/customers/${input.customerId}`);
-    revalidatePath("/dashboard/talent");
+    revalidatePath("/dashboard/growth");
 
     return { success: true, data: { customerId: input.customerId } };
   } catch (e) {

@@ -1,30 +1,41 @@
 "use client";
 
 import { useState } from "react";
+import {
+  buildShareText,
+  buildLineShareUrl,
+  copyToClipboard,
+  toAbsoluteUrl,
+} from "@/lib/share";
 
 interface ShareReferralProps {
+  /** 推薦中繼頁 URL（應由呼叫端用 buildReferralEntryUrl 組好） */
   referralUrl: string;
   /** 完整模式顯示連結文字 + 統計；精簡模式只顯示按鈕 */
   variant?: "full" | "compact";
   /** 已邀請人數（full 模式顯示） */
   referralCount?: number;
+  /** 邀請人姓名（預設文案目前不帶入，保留給未來 A/B） */
+  inviterName?: string | null;
 }
 
-const SHARE_TEXT = "我最近在這邊做身體調整\n覺得還不錯，你可以試試看👇\n\n";
-
-export function ShareReferral({ referralUrl, variant = "compact", referralCount }: ShareReferralProps) {
+export function ShareReferral({
+  referralUrl,
+  variant = "compact",
+  referralCount,
+  inviterName,
+}: ShareReferralProps) {
   const [copied, setCopied] = useState(false);
-  const absoluteUrl = referralUrl.startsWith("http")
-    ? referralUrl
-    : `${typeof window !== "undefined" ? window.location.origin : ""}${referralUrl}`;
+  const absoluteUrl = toAbsoluteUrl(referralUrl);
+  const shareText = buildShareText({ inviterName });
+  const lineShareUrl = buildLineShareUrl(shareText, absoluteUrl);
 
-  const lineShareUrl = `https://line.me/R/share?text=${encodeURIComponent(SHARE_TEXT + absoluteUrl)}`;
-
-  function handleCopy() {
-    navigator.clipboard.writeText(absoluteUrl).then(() => {
+  async function handleCopy() {
+    const ok = await copyToClipboard(absoluteUrl);
+    if (ok) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    });
+    }
   }
 
   if (variant === "full") {

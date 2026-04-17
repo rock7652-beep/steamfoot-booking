@@ -82,7 +82,7 @@ export async function createReferral(
       note: `介紹 ${data.referredName}`,
     });
 
-    revalidatePath("/dashboard/talent");
+    revalidatePath("/dashboard/growth");
     revalidatePath("/dashboard");
     revalidatePath(`/dashboard/customers/${data.referrerId}`);
 
@@ -149,7 +149,7 @@ export async function updateReferralStatus(
       });
     }
 
-    revalidatePath("/dashboard/talent");
+    revalidatePath("/dashboard/growth");
     revalidatePath("/dashboard");
     revalidatePath(`/dashboard/customers/${referral.referrerId}`);
 
@@ -247,7 +247,7 @@ export async function convertReferral(
       });
     }
 
-    revalidatePath("/dashboard/talent");
+    revalidatePath("/dashboard/growth");
     revalidatePath("/dashboard");
     revalidatePath(`/dashboard/customers/${referral.referrerId}`);
     revalidatePath(`/dashboard/customers/${data.convertedCustomerId}`);
