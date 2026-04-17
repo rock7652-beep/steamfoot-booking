@@ -56,11 +56,15 @@ export default function DashboardError({
   }, [error]);
 
   const { title, description } = categorizeError(error);
+  // 顯示 digest 讓使用者回報時可以對到 server log
+  const desc = error.digest
+    ? `${description}（錯誤代碼：${error.digest}）`
+    : description;
 
   return (
     <ErrorState
       title={title}
-      description={description}
+      description={desc}
       retry={reset}
       backHref="/dashboard"
     />

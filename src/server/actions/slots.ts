@@ -5,8 +5,25 @@ import { requireSession } from "@/lib/session";
 import { getNowTaipeiHHmm, toLocalDateStr } from "@/lib/date-utils";
 import { generateSlots } from "@/lib/slot-generator";
 import { getStoreFilter } from "@/lib/manager-visibility";
-import { currentStoreId } from "@/lib/store";
+import { currentStoreId, getActiveStoreForRead } from "@/lib/store";
+import { AppError } from "@/lib/errors";
 import type { SlotAvailability } from "@/types";
+
+/**
+ * 解析當前讀取視角的 storeId：
+ * - ADMIN: 讀 active-store-id cookie（無特定店時拋錯，提示先切店）
+ * - 其他角色: 用 user.storeId（缺失則 throw UNAUTHORIZED）
+ */
+async function resolveReadStoreIdOrThrow(user: { role: string; storeId?: string | null }): Promise<string> {
+  if (user.role === "ADMIN") {
+    const sid = await getActiveStoreForRead(user);
+    if (!sid) {
+      throw new AppError("UNAUTHORIZED", "請先從右上角切換到特定店舖");
+    }
+    return sid;
+  }
+  return currentStoreId(user);
+}
 
 // ============================================================
 // 共用：取得某天的有效營業規則（規則即時運算，不查 BookingSlot）
@@ -108,7 +125,7 @@ export async function fetchMonthAvailability(
   const startDate = new Date(Date.UTC(year, month - 1, 1));
   const endDate = new Date(Date.UTC(year, month, 0));
 
-  const storeId = currentStoreId(user);
+  const storeId = await resolveReadStoreIdOrThrow(user);
 
   // 並行取得營業時間 + 特殊日期 + 時段覆寫 + 值班安排
   const [businessHoursRows, specialDaysRows, slotOverrideRows, dutyAssignmentRows] = await Promise.all([
@@ -252,7 +269,7 @@ export async function fetchDaySlots(date: string): Promise<{
 
   const dateObj = new Date(date + "T00:00:00Z");
   const dayOfWeek = dateObj.getUTCDay();
-  const storeId = currentStoreId(user);
+  const storeId = await resolveReadStoreIdOrThrow(user);
 
   // 查營業狀態
   const [specialDay, businessHour, slotOverrides, existingBookings, dutySlots] = await Promise.all([
@@ -264,7 +281,8 @@ export async function fetchDaySlots(date: string): Promise<{
       where: {
         bookingDate: dateObj,
         bookingStatus: { in: ["PENDING", "CONFIRMED"] },
-        ...getStoreFilter(user),
+        // 用已解析的 storeId 確保 ADMIN 也只看當前視角店
+        storeId,
       },
       _sum: { people: true },
     }),
@@ -366,12 +384,14 @@ export async function fetchDayDetail(date: string) {
   const user = await requireStaffSession();
 
   const dateObj = new Date(date + "T00:00:00Z");
+  // ADMIN 要依 active-store-id cookie 篩選，避免跨店 bookings 污染當日詳情
+  const activeStoreId = user.role === "ADMIN" ? await getActiveStoreForRead(user) : null;
 
   const [slotResult, bookings] = await Promise.all([
     fetchDaySlots(date),
     prisma.booking.findMany({
       where: {
-        ...getStoreFilter(user),
+        ...getStoreFilter(user, activeStoreId),
         bookingDate: dateObj,
         bookingStatus: { in: ["PENDING", "CONFIRMED", "COMPLETED", "NO_SHOW"] },
       },
