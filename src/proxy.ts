@@ -94,7 +94,15 @@ export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | n
     }
 
     // ── 分店 customer routes ──
-    const customerPrefixes = ["/book", "/my-bookings", "/my-plans", "/my-points", "/profile"];
+    const customerPrefixes = [
+      "/book",
+      "/my-bookings",
+      "/my-plans",
+      "/my-points",
+      "/my-referrals",
+      "/my-growth",
+      "/profile",
+    ];
     const isCustomerRoute = customerPrefixes.some(
       (p) => subPath === p || subPath.startsWith(p + "/")
     );
@@ -117,8 +125,8 @@ export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | n
       return storeRewrite(req, subPath, storeSlug, domainStoreId);
     }
 
-    // ── 分店 public routes (登入/註冊/開通/忘記密碼等) ──
-    const storePublicPrefixes = ["/register", "/activate", "/forgot-password", "/reset-password"];
+    // ── 分店 public routes (登入/註冊/開通/忘記密碼/LINE 推薦中繼等) ──
+    const storePublicPrefixes = ["/register", "/activate", "/forgot-password", "/reset-password", "/line-entry"];
     const isStorePublic = storePublicPrefixes.some(
       (p) => subPath === p || subPath.startsWith(p + "/")
     );

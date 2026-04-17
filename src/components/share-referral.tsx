@@ -1,30 +1,71 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
+import {
+  buildShareText,
+  buildLineShareUrl,
+  copyToClipboard,
+  toAbsoluteUrl,
+} from "@/lib/share";
+import { trackReferralEvent } from "@/server/actions/referral-events";
 
 interface ShareReferralProps {
+  /** 推薦中繼頁 URL（應由呼叫端用 buildReferralEntryUrl 組好） */
   referralUrl: string;
   /** 完整模式顯示連結文字 + 統計；精簡模式只顯示按鈕 */
   variant?: "full" | "compact";
   /** 已邀請人數（full 模式顯示） */
   referralCount?: number;
+  /** 邀請人姓名（預設文案目前不帶入，保留給未來 A/B） */
+  inviterName?: string | null;
+  /** 分享人的 store（用於事件埋點） */
+  storeId?: string;
+  /** 分享人的 customer id（用於事件埋點） */
+  referrerId?: string;
+  /** 分享事件來源標記，例如 "my-referrals", "book-home", "booking-success" */
+  source?: string;
 }
 
-const SHARE_TEXT = "我最近在這邊做身體調整\n覺得還不錯，你可以試試看👇\n\n";
-
-export function ShareReferral({ referralUrl, variant = "compact", referralCount }: ShareReferralProps) {
+export function ShareReferral({
+  referralUrl,
+  variant = "compact",
+  referralCount,
+  inviterName,
+  storeId,
+  referrerId,
+  source,
+}: ShareReferralProps) {
   const [copied, setCopied] = useState(false);
-  const absoluteUrl = referralUrl.startsWith("http")
-    ? referralUrl
-    : `${typeof window !== "undefined" ? window.location.origin : ""}${referralUrl}`;
+  const absoluteUrl = toAbsoluteUrl(referralUrl);
+  const shareText = buildShareText({ inviterName });
+  const lineShareUrl = buildLineShareUrl(shareText, absoluteUrl);
 
-  const lineShareUrl = `https://line.me/R/share?text=${encodeURIComponent(SHARE_TEXT + absoluteUrl)}`;
+  /** 分享事件埋點（fire-and-forget；埋點失敗不影響使用者體驗） */
+  function trackShare(channel: "copy" | "line") {
+    if (!storeId || !referrerId) return;
+    // 不 await；trackReferralEvent 本身靜默失敗
+    void trackReferralEvent({
+      storeId,
+      referrerId,
+      type: "SHARE",
+      source: source ? `${source}:${channel}` : channel,
+    });
+  }
 
-  function handleCopy() {
-    navigator.clipboard.writeText(absoluteUrl).then(() => {
+  async function handleCopy() {
+    const ok = await copyToClipboard(absoluteUrl);
+    if (ok) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    });
+      trackShare("copy");
+      toast.success("已幫你準備好了，傳給想到的朋友就可以。");
+    }
+  }
+
+  function handleLineShareClick() {
+    trackShare("line");
+    toast.success("已幫你準備好了，傳給想到的朋友就可以。");
   }
 
   if (variant === "full") {
@@ -39,15 +80,16 @@ export function ShareReferral({ referralUrl, variant = "compact", referralCount 
             onClick={handleCopy}
             className="flex-1 rounded-lg border border-earth-300 bg-white px-3 py-2 text-sm text-earth-700 hover:bg-earth-50"
           >
-            {copied ? "已複製" : "複製連結"}
+            {copied ? "已複製" : "複製分享文字"}
           </button>
           <a
             href={lineShareUrl}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={handleLineShareClick}
             className="flex-1 rounded-lg bg-[#06C755] px-3 py-2 text-center text-sm font-medium text-white hover:bg-[#05b54d]"
           >
-            LINE 分享
+            LINE 分享給朋友
           </a>
         </div>
         {typeof referralCount === "number" && (

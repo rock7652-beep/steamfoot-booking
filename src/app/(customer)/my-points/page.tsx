@@ -239,9 +239,9 @@ function getRuleDescription(type: PointType): string {
     REFERRAL_CREATED: "介紹新朋友登記",
     REFERRAL_VISITED: "你介紹的朋友到店體驗",
     REFERRAL_CONVERTED: "你介紹的朋友成為正式顧客",
-    BECAME_PARTNER: "晉升為合作店長",
-    REFERRAL_PARTNER: "你推薦的人成為合作店長",
-    BECAME_FUTURE_OWNER: "晉升為準店長",
+    BECAME_PARTNER: "達成成長里程碑",
+    REFERRAL_PARTNER: "你推薦的朋友達成成長里程碑",
+    BECAME_FUTURE_OWNER: "解鎖下一階段成長",
   };
   return map[type] ?? "";
 }

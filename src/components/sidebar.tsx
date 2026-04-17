@@ -89,8 +89,8 @@ export const NAV_GROUPS: NavGroup[] = [
         ),
       },
       {
-        href: "/dashboard/talent",
-        label: "人才管道",
+        href: "/dashboard/growth",
+        label: "高潛力名單",
         permission: "talent.read",
         ownerOnly: true,
         highlighted: true,

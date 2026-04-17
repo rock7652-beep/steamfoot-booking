@@ -1,39 +1,27 @@
 import { getCurrentUser } from "@/lib/session";
 import { prisma } from "@/lib/db";
-import { getHealthCardData } from "@/server/queries/health-card";
-import { getStoreContext } from "@/lib/store-context";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { HealthAssessmentCard } from "@/components/health-assessment-card";
 import { ProfileForm } from "./profile-form";
 import { ChangePasswordForm } from "./change-password-form";
-import { ReferralSection } from "./referral-section";
-import { ReadinessCard } from "@/components/readiness-card";
 
 export default async function ProfilePage() {
   const user = await getCurrentUser();
   if (!user || user.role !== "CUSTOMER" || !user.customerId) redirect("/");
 
-  const storeCtx = await getStoreContext();
-  const storeSlug = storeCtx?.storeSlug ?? "zhubei";
-
-  const [customer, healthCard, referralCount] = await Promise.all([
-    prisma.customer.findUnique({
-      where: { id: user.customerId },
-      select: {
-        name: true,
-        phone: true,
-        email: true,
-        gender: true,
-        birthday: true,
-        height: true,
-        address: true,
-        notes: true,
-      },
-    }),
-    getHealthCardData(user.customerId),
-    prisma.customer.count({ where: { sponsorId: user.customerId } }),
-  ]);
+  const customer = await prisma.customer.findUnique({
+    where: { id: user.customerId },
+    select: {
+      name: true,
+      phone: true,
+      email: true,
+      gender: true,
+      birthday: true,
+      height: true,
+      address: true,
+      notes: true,
+    },
+  });
   if (!customer) redirect("/");
 
   const birthdayStr = customer.birthday
@@ -62,14 +50,6 @@ export default async function ProfilePage() {
       </div>
 
       <div className="space-y-6">
-        {/* AI 健康評估 */}
-        {healthCard.available && (
-          <HealthAssessmentCard score={healthCard.score} customerId={user.customerId} />
-        )}
-
-        {/* B8: 教練準備度 */}
-        <ReadinessCard />
-
         {/* 基本資料 */}
         <div className="rounded-2xl border border-earth-200 bg-white p-6 shadow-sm">
           <h2 className="mb-4 text-sm font-semibold text-earth-700">基本資料</h2>
@@ -94,13 +74,39 @@ export default async function ProfilePage() {
           <ChangePasswordForm />
         </div>
 
-        {/* B8: 邀請朋友 */}
+        {/* 帳號安全提醒 */}
         <div className="rounded-2xl border border-earth-200 bg-white p-6 shadow-sm">
-          <h2 className="mb-4 text-sm font-semibold text-earth-700">邀請朋友一起體驗</h2>
-          <ReferralSection
-            referralUrl={`/s/${storeSlug}?ref=${user.customerId}`}
-            referralCount={referralCount}
-          />
+          <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold text-earth-700">
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="text-primary-600"
+            >
+              <path d="M12 2l8 4v6c0 5-3.5 9-8 10-4.5-1-8-5-8-10V6l8-4z" />
+              <path d="M9 12l2 2 4-4" />
+            </svg>
+            帳號安全提醒
+          </h2>
+          <ul className="space-y-2 text-sm leading-relaxed text-earth-600">
+            <li className="flex items-start gap-2">
+              <span className="mt-1.5 h-1 w-1 flex-shrink-0 rounded-full bg-earth-400" />
+              <span>建議定期更換密碼，並使用不易被猜到的組合。</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="mt-1.5 h-1 w-1 flex-shrink-0 rounded-full bg-earth-400" />
+              <span>請勿將帳號密碼分享給他人，包含店家工作人員。</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="mt-1.5 h-1 w-1 flex-shrink-0 rounded-full bg-earth-400" />
+              <span>若發現異常登入，請立即更換密碼並聯繫店家。</span>
+            </li>
+          </ul>
         </div>
       </div>
     </div>

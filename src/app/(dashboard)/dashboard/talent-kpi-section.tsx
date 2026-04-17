@@ -29,10 +29,10 @@ export function TalentKpiSection({
             人才核心指標
           </h2>
           <Link
-            href="/dashboard/talent"
+            href="/dashboard/growth"
             className="text-[11px] text-primary-600 hover:text-primary-700"
           >
-            人才管道 →
+            高潛力名單 →
           </Link>
         </div>
 

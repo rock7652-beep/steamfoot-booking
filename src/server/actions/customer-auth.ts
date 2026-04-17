@@ -4,6 +4,10 @@ import { prisma } from "@/lib/db";
 import { hashSync } from "bcryptjs";
 import { signIn } from "@/lib/auth";
 import { AuthError } from "next-auth";
+import { cookies } from "next/headers";
+import { createRegisterEvent } from "@/server/services/referral-events";
+
+const PENDING_REF_COOKIE = "pending-ref";
 
 // ============================================================
 // 顧客手機登入
@@ -59,7 +63,12 @@ export async function customerRegisterAction(
   const gender = (formData.get("gender") as string)?.trim() || null;
   const birthdayStr = (formData.get("birthday") as string)?.trim() || null;
   const notes = (formData.get("notes") as string)?.trim() || null;
-  const referrerId = (formData.get("referrerId") as string)?.trim() || null;
+  const formReferrerId = (formData.get("referrerId") as string)?.trim() || null;
+
+  // fallback：若表單沒帶 referrerId，改讀 pending-ref cookie
+  const cookieStore = await cookies();
+  const cookieRef = cookieStore.get(PENDING_REF_COOKIE)?.value?.trim() || null;
+  const referrerId = formReferrerId || cookieRef;
 
   // B7-4: 從表單讀取 store context
   const storeId = (formData.get("storeId") as string) || (await getStoreIdFromCookie());
@@ -120,7 +129,7 @@ export async function customerRegisterAction(
 
   try {
     // 建立 User + Customer
-    await prisma.user.create({
+    const created = await prisma.user.create({
       data: {
         name,
         phone,
@@ -141,7 +150,26 @@ export async function customerRegisterAction(
           },
         },
       },
+      include: { customer: { select: { id: true } } },
     });
+
+    // REGISTER 事件埋點（在 signIn 拋 NEXT_REDIRECT 前寫入）
+    // 寫入失敗不應阻擋註冊 — 包 try/catch 靜默失敗
+    try {
+      await createRegisterEvent({
+        storeId,
+        customerId: created.customer?.id ?? null,
+        referrerId: referrerId ?? null,
+        source: cookieRef && !formReferrerId ? "pending-ref-cookie" : "register-form",
+      });
+    } catch {
+      // 埋點失敗不影響註冊流程
+    }
+
+    // 清除 pending-ref cookie（無論有沒有用到，註冊完成就失效）
+    if (cookieRef) {
+      cookieStore.delete(PENDING_REF_COOKIE);
+    }
 
     // 自動登入
     await signIn("customer-phone", {

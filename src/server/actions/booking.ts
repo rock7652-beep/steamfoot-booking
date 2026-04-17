@@ -21,6 +21,10 @@ import type { ActionResult } from "@/types";
 import { checkBookingLimit } from "@/lib/shop-config";
 import { assertStoreAccess } from "@/lib/manager-visibility";
 import { currentStoreId } from "@/lib/store";
+import {
+  createBookingCreatedEvent,
+  createBookingCompletedEvent,
+} from "@/server/services/referral-events";
 import type { z } from "zod";
 
 // 共用 revalidate
@@ -360,6 +364,19 @@ export async function createBooking(
       });
     });
 
+    // BOOKING_CREATED 事件埋點（fire-and-forget，失敗不影響預約）
+    try {
+      await createBookingCreatedEvent({
+        storeId: booking.storeId,
+        customerId: booking.customerId,
+        referrerId: customer.sponsorId ?? null,
+        bookingId: booking.id,
+        source: user.role === "CUSTOMER" ? "self-booking" : "staff-booking",
+      });
+    } catch {
+      // 埋點失敗不影響主流程
+    }
+
     revalidateAll(data.customerId);
     return { success: true, data: { bookingId: booking.id } };
   } catch (e) {
@@ -661,6 +678,19 @@ export async function markCompleted(
         console.error("[Points] Failed to award ATTENDANCE points for booking", bookingId);
       }
     });
+
+    // BOOKING_COMPLETED 事件埋點（交易外 fire-and-forget；埋點失敗不回滾業務）
+    try {
+      await createBookingCompletedEvent({
+        storeId: booking.storeId,
+        customerId: booking.customerId,
+        referrerId: booking.customer.sponsorId ?? null,
+        bookingId: booking.id,
+        source: "mark-completed",
+      });
+    } catch {
+      // 埋點失敗不影響主流程
+    }
 
     revalidateAll(booking.customerId);
     return { success: true, data: undefined };

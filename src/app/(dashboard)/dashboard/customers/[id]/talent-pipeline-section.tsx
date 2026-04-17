@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import type { TalentStage } from "@prisma/client";
 import { TALENT_STAGE_LABELS } from "@/types/talent";
 import type { UpgradeEligibility } from "@/types/talent";
-import { StageUpdateDialog } from "../../talent/stage-update-dialog";
+import { StageUpdateDialog } from "../../growth/stage-update-dialog";
 import { updateTalentStage } from "@/server/actions/talent";
 
 const TALENT_STAGE_COLOR: Record<TalentStage, string> = {

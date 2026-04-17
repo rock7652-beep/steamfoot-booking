@@ -18,9 +18,11 @@ interface Props {
   selectedDate: string;
   slots: SlotAvailability[];
   activeWallets: ActiveWallet[];
+  /** 用於分享事件埋點 */
+  storeId?: string;
 }
 
-export function BookingForm({ customerId, selectedDate, slots, activeWallets }: Props) {
+export function BookingForm({ customerId, selectedDate, slots, activeWallets, storeId }: Props) {
   type FormState = { error: string | null; success: boolean; bookedTime: string };
   const [state, action, pending] = useActionState(
     async (prev: FormState, formData: FormData): Promise<FormState> => {
@@ -87,7 +89,13 @@ export function BookingForm({ customerId, selectedDate, slots, activeWallets }: 
 
           {showShare ? (
             <div className="mt-4">
-              <ShareReferral referralUrl={referralUrl} variant="compact" />
+              <ShareReferral
+                referralUrl={referralUrl}
+                variant="compact"
+                storeId={storeId}
+                referrerId={customerId}
+                source="booking-success"
+              />
             </div>
           ) : (
             <button
