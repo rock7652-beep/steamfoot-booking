@@ -22,10 +22,14 @@ import { POINT_VALUES } from "@/lib/points-config";
  *
  * 多店隔離：以 customer.storeId 為主；呼叫端可提供 activeStoreId 覆寫（通常不需要）。
  */
+/**
+ * 欄位排序：以 BOOKING_COMPLETED → REGISTER → SHARE 為優先順序呈現
+ *（語意上最有成效訊號的放最前；單純是型別宣告的順序，不影響行為）。
+ */
 export interface MyReferralSummary {
-  shareCount: number;
-  lineJoinCount: number;
   visitedCount: number;
+  lineJoinCount: number;
+  shareCount: number;
   convertedCount: number;
   totalPoints: number;
   nextMilestone: {
@@ -54,12 +58,12 @@ export async function getMyReferralSummary(
   // 決定聚合時的 storeId — 預設用 customer.storeId，保持多店隔離
   const storeId = opts?.activeStoreId ?? customer?.storeId ?? null;
 
-  // 若 customer 找不到，退回空狀態
+  // 若 customer 找不到，退回空狀態（欄位順序依 BOOKING_COMPLETED → REGISTER → SHARE）
   if (!storeId) {
     return {
-      shareCount: 0,
-      lineJoinCount: 0,
       visitedCount: 0,
+      lineJoinCount: 0,
+      shareCount: 0,
       convertedCount: 0,
       totalPoints: customer?.totalPoints ?? 0,
       nextMilestone: null,
@@ -129,9 +133,9 @@ export async function getMyReferralSummary(
     visitedCount >= GROWTH_THRESHOLDS.visited;
 
   return {
-    shareCount,
-    lineJoinCount,
     visitedCount,
+    lineJoinCount,
+    shareCount,
     convertedCount,
     totalPoints,
     nextMilestone,

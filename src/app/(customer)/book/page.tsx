@@ -8,6 +8,7 @@ import Link from "next/link";
 import { HealthAssessmentCard } from "@/components/health-assessment-card";
 import { ShareReferral } from "@/components/share-referral";
 import { buildReferralEntryUrl } from "@/lib/share";
+import { todayRange } from "@/lib/date-utils";
 
 /** 計算距離提醒文案 */
 function getReminderText(bookingDate: Date, slotTime: string): string {
@@ -44,9 +45,12 @@ export default async function CustomerHomePage() {
   let makeupCount = 0;
   let healthCard: Awaited<ReturnType<typeof getHealthCardData>> | null = null;
   let referralSummary: Awaited<ReturnType<typeof getMyReferralSummary>> | null = null;
+  let todayShareCount = 0;
+
+  const today = todayRange();
 
   try {
-    const [wallets, upcoming, credits, hc, summary] = await Promise.all([
+    const [wallets, upcoming, credits, hc, summary, todayShares] = await Promise.all([
       prisma.customerPlanWallet.findMany({
         where: { customerId: user.customerId, status: "ACTIVE" },
         select: {
@@ -78,6 +82,15 @@ export default async function CustomerHomePage() {
       }),
       getHealthCardData(user.customerId),
       getMyReferralSummary(user.customerId, { activeStoreId: storeId }),
+      // 今日 SHARE 事件數（顯示「今天一件事」動態文案用）
+      prisma.referralEvent.count({
+        where: {
+          referrerId: user.customerId,
+          type: "SHARE",
+          createdAt: { gte: today.start, lt: today.end },
+          ...(storeId ? { storeId } : {}),
+        },
+      }),
     ]);
     remaining = wallets.reduce((sum, w) => {
       const used = w.bookings
@@ -92,6 +105,7 @@ export default async function CustomerHomePage() {
     makeupCount = credits;
     healthCard = hc;
     referralSummary = summary;
+    todayShareCount = todayShares;
   } catch {
     // 資料庫查詢失敗時顯示空狀態，不讓整頁掛掉
   }
@@ -208,11 +222,12 @@ export default async function CustomerHomePage() {
         </div>
       </section>
 
-      {/* ═══ 主 CTA：分享給朋友（首頁唯一主 CTA） ═══ */}
+      {/* ═══ 主 CTA：剛剛想到誰？傳給他（首頁唯一主 CTA） ═══ */}
       <section className="rounded-2xl border border-primary-100 bg-gradient-to-br from-white to-primary-50/40 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-        <p className="text-base font-semibold text-earth-900">分享給朋友</p>
+        <p className="text-[11px] text-earth-400">今天身體有比較輕鬆嗎？</p>
+        <p className="mt-1 text-base font-semibold text-earth-900">剛剛想到誰？傳給他</p>
         <p className="mt-0.5 text-xs text-earth-500">
-          如果你覺得這邊對身體有幫助，也讓朋友有機會試試看
+          不用想太多，覺得他可能會喜歡就傳
         </p>
 
         <div className="mt-4">
@@ -277,15 +292,28 @@ export default async function CustomerHomePage() {
         </section>
       )}
 
-      {/* ═══ 底部：今天可以做的一件事 ═══ */}
+      {/* ═══ 底部：今天一件事（動態） ═══ */}
       <section className="rounded-2xl border border-dashed border-earth-200 bg-white/60 p-5 text-center">
-        <p className="text-xs font-medium text-earth-400">今天可以做的一件事</p>
-        <p className="mt-1.5 text-base font-semibold text-earth-800">
-          分享給 1 位朋友
-        </p>
-        <p className="mt-1 text-xs text-earth-500">
-          想到誰就傳給誰，不用有壓力。
-        </p>
+        <p className="text-xs font-medium text-earth-400">今天一件事</p>
+        {todayShareCount === 0 ? (
+          <>
+            <p className="mt-1.5 text-base font-semibold text-earth-800">
+              分享給 1 位朋友
+            </p>
+            <p className="mt-1 text-xs text-earth-500">
+              想到誰就傳給誰，不用想太多。
+            </p>
+          </>
+        ) : (
+          <>
+            <p className="mt-1.5 text-base font-semibold text-earth-800">
+              今天已經分享了 👍
+            </p>
+            <p className="mt-1 text-xs text-earth-500">
+              慢慢來，有想到再傳就好。
+            </p>
+          </>
+        )}
       </section>
     </div>
   );

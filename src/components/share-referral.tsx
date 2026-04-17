@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import {
   buildShareText,
   buildLineShareUrl,
@@ -58,7 +59,13 @@ export function ShareReferral({
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
       trackShare("copy");
+      toast.success("已複製 👍 傳給他就好");
     }
+  }
+
+  function handleLineShareClick() {
+    trackShare("line");
+    toast.success("已複製 👍 傳給他就好");
   }
 
   if (variant === "full") {
@@ -79,7 +86,7 @@ export function ShareReferral({
             href={lineShareUrl}
             target="_blank"
             rel="noopener noreferrer"
-            onClick={() => trackShare("line")}
+            onClick={handleLineShareClick}
             className="flex-1 rounded-lg bg-[#06C755] px-3 py-2 text-center text-sm font-medium text-white hover:bg-[#05b54d]"
           >
             LINE 分享

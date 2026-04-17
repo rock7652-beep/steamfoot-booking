@@ -27,10 +27,6 @@ export default async function MyGrowthPage() {
   });
   if (!summary.growthEligible) redirect("/book");
 
-  // 進度條：以 5 位朋友來店為一個象徵性里程碑
-  const visitGoal = Math.max(5, summary.visitedCount);
-  const visitProgress = Math.min(100, (summary.visitedCount / visitGoal) * 100);
-
   return (
     <div>
       <div className="mb-6 flex items-center gap-3">
@@ -52,29 +48,18 @@ export default async function MyGrowthPage() {
           </p>
         </section>
 
-        {/* ═══ 三項指標（輕成就區，不顯示業績/轉換率）═══ */}
+        {/* ═══ 三項指標（輕成就區，排序：來店 → 加入 → 分享，不顯示業績/轉換率/進度壓力數字）═══ */}
         <section className="grid grid-cols-3 gap-3">
-          <Metric label="分享次數" value={summary.shareCount} unit="次" />
-          <Metric label="朋友加入" value={summary.lineJoinCount} unit="位" />
           <Metric label="朋友來店" value={summary.visitedCount} unit="位" highlight />
+          <Metric label="朋友加入" value={summary.lineJoinCount} unit="位" />
+          <Metric label="分享次數" value={summary.shareCount} unit="次" />
         </section>
 
-        {/* ═══ 進步進度條 ═══ */}
+        {/* ═══ 鼓勵區（取代原進度條，不放壓力數字） ═══ */}
         <section className="rounded-2xl border border-earth-200 bg-white p-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-semibold text-earth-700">我的進步</p>
-            <p className="text-xs text-earth-500">
-              {summary.visitedCount} / {visitGoal} 位朋友到店
-            </p>
-          </div>
-          <div className="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-earth-100">
-            <div
-              className="h-full bg-gradient-to-r from-amber-400 to-amber-600 transition-all"
-              style={{ width: `${visitProgress}%` }}
-            />
-          </div>
-          <p className="mt-3 text-xs leading-relaxed text-earth-500">
-            每一位朋友到店，都是你那次分享真的發揮作用。不用急，慢慢來。
+          <p className="text-sm font-semibold text-earth-700">慢慢累積就好</p>
+          <p className="mt-2 text-xs leading-relaxed text-earth-500">
+            不用急，照自己的節奏。哪天想到朋友，再傳一個連結給他就好。
           </p>
         </section>
 
@@ -82,7 +67,7 @@ export default async function MyGrowthPage() {
         <section className="rounded-2xl border border-earth-200 bg-white p-5 shadow-sm">
           <p className="text-sm font-semibold text-earth-700">想多聊聊</p>
           <p className="mt-2 text-xs leading-relaxed text-earth-500">
-            如果你喜歡這樣幫助身邊的朋友，未來有新的分享方式，我們會讓你先知道。
+            如果你喜歡這樣讓朋友試試看，未來有新的分享方式，我們會讓你先知道。
             想先聊聊？歡迎直接到店。
           </p>
           <div className="mt-4 grid grid-cols-2 gap-2">
