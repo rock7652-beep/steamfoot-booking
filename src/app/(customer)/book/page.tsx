@@ -140,33 +140,28 @@ export default async function CustomerHomePage() {
           )}
         </div>
 
-        {/* Hero CTA：立即預約 + 查看方案 + AI健康評估 */}
-        <div className="mt-4 space-y-2">
+        {/* 次要功能：預約、方案、AI 健康評估（降低視覺比重，主 CTA 在下方分享區） */}
+        <div className="mt-4 grid grid-cols-3 gap-2">
           <Link
             href="/book/new"
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary-600 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-700 active:scale-[0.98]"
+            className="flex items-center justify-center gap-1.5 rounded-xl border border-earth-200 bg-white py-2.5 text-sm font-medium text-earth-700 hover:bg-earth-50"
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-              <path d="M12 4.5v15m7.5-7.5h-15" />
-            </svg>
-            立即預約下一次
+            預約下一次
           </Link>
-          <div className="grid grid-cols-2 gap-2">
-            <Link
-              href="/my-plans"
-              className="flex items-center justify-center gap-1.5 rounded-xl border border-earth-200 bg-white py-2.5 text-sm font-medium text-earth-700 hover:bg-earth-50"
-            >
-              查看我的方案
-            </Link>
-            <a
-              href={aiHealthUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-center gap-1.5 rounded-xl border border-earth-200 bg-white py-2.5 text-sm font-medium text-earth-700 hover:bg-earth-50"
-            >
-              AI健康評估
-            </a>
-          </div>
+          <Link
+            href="/my-plans"
+            className="flex items-center justify-center gap-1.5 rounded-xl border border-earth-200 bg-white py-2.5 text-sm font-medium text-earth-700 hover:bg-earth-50"
+          >
+            我的方案
+          </Link>
+          <a
+            href={aiHealthUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-1.5 rounded-xl border border-earth-200 bg-white py-2.5 text-sm font-medium text-earth-700 hover:bg-earth-50"
+          >
+            健康評估
+          </a>
         </div>
       </section>
 
@@ -213,25 +208,22 @@ export default async function CustomerHomePage() {
         </div>
       </section>
 
-      {/* ═══ 推薦朋友卡（主推） ═══ */}
+      {/* ═══ 主 CTA：分享給朋友（首頁唯一主 CTA） ═══ */}
       <section className="rounded-2xl border border-primary-100 bg-gradient-to-br from-white to-primary-50/40 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-        <div className="mb-3 flex items-start justify-between">
-          <div>
-            <p className="text-base font-semibold text-earth-900">推薦朋友一起體驗</p>
-            <p className="mt-0.5 text-xs text-earth-500">分享專屬連結，給朋友一次安心的選擇</p>
-          </div>
-          <span className="rounded-full bg-primary-600 px-2 py-0.5 text-[10px] font-semibold text-white">
-            主推
-          </span>
-        </div>
+        <p className="text-base font-semibold text-earth-900">分享給朋友</p>
+        <p className="mt-0.5 text-xs text-earth-500">
+          如果你覺得這邊對身體有幫助，也讓朋友有機會試試看
+        </p>
 
-        <ShareReferral
-          referralUrl={referralUrl}
-          variant="compact"
-          storeId={storeId ?? undefined}
-          referrerId={user.customerId}
-          source="book-home"
-        />
+        <div className="mt-4">
+          <ShareReferral
+            referralUrl={referralUrl}
+            variant="compact"
+            storeId={storeId ?? undefined}
+            referrerId={user.customerId}
+            source="book-home"
+          />
+        </div>
 
         <Link
           href="/my-referrals"
@@ -242,7 +234,7 @@ export default async function CustomerHomePage() {
               <path d="M16 17l5-5-5-5M21 12H9" />
               <path d="M14 4H6a2 2 0 00-2 2v12a2 2 0 002 2h8" />
             </svg>
-            查看我的推薦
+            我分享的朋友
             {referralSummary && referralSummary.shareCount > 0 && (
               <span className="rounded-full bg-primary-100 px-2 py-0.5 text-[10px] font-medium text-primary-700">
                 已分享 {referralSummary.shareCount}
@@ -255,7 +247,7 @@ export default async function CustomerHomePage() {
         </Link>
       </section>
 
-      {/* ═══ 條件式成長卡 (OR：shareCount>=1 OR lineJoinCount>=1 OR visitedCount>=1) ═══ */}
+      {/* ═══ 輕成就卡（條件式，OR：shareCount>=1 或 lineJoinCount>=1 或 visitedCount>=1） ═══ */}
       {referralSummary?.growthEligible && (
         <section className="rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 to-amber-100/40 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
           <div className="flex items-start gap-3">
@@ -266,24 +258,35 @@ export default async function CustomerHomePage() {
               </svg>
             </span>
             <div className="flex-1 min-w-0">
-              <p className="text-base font-semibold text-amber-900">你已經開始影響身邊的人</p>
+              <p className="text-base font-semibold text-amber-900">你的分享帶來了一點改變</p>
               <p className="mt-0.5 text-xs text-amber-800/80">
-                你帶動了 {referralSummary.lineJoinCount} 位朋友加入，{referralSummary.visitedCount} 位實際到店
+                {referralSummary.lineJoinCount} 位朋友加入 · {referralSummary.visitedCount} 位已經來店
               </p>
             </div>
           </div>
 
           <Link
             href="/my-growth"
-            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-amber-600 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-amber-700"
+            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-amber-300 bg-white py-2.5 text-sm font-semibold text-amber-800 hover:bg-amber-50"
           >
-            查看我的成長
+            看看我的進步
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
               <path d="M9 5l7 7-7 7" />
             </svg>
           </Link>
         </section>
       )}
+
+      {/* ═══ 底部：今天可以做的一件事 ═══ */}
+      <section className="rounded-2xl border border-dashed border-earth-200 bg-white/60 p-5 text-center">
+        <p className="text-xs font-medium text-earth-400">今天可以做的一件事</p>
+        <p className="mt-1.5 text-base font-semibold text-earth-800">
+          分享給 1 位朋友
+        </p>
+        <p className="mt-1 text-xs text-earth-500">
+          想到誰就傳給誰，不用有壓力。
+        </p>
+      </section>
     </div>
   );
 }

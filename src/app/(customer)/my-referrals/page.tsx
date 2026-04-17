@@ -31,19 +31,21 @@ export default async function MyReferralsPage() {
         <Link href="/book" className="text-earth-400 hover:text-earth-600 lg:hidden">
           &larr;
         </Link>
-        <h1 className="text-xl font-bold text-earth-900">我的推薦</h1>
+        <h1 className="text-xl font-bold text-earth-900">我分享的朋友</h1>
       </div>
 
       <div className="space-y-6">
-        {/* ═══ 統計卡片 ═══ */}
+        {/* ═══ 輕成就區：只顯示行為數，不顯示轉換率/業績 ═══ */}
         <section className="rounded-2xl border border-earth-200 bg-white p-5 shadow-sm">
-          <p className="text-sm font-semibold text-earth-700">推薦進度</p>
-          <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <StatCell label="已分享" value={summary.shareCount} unit="次" />
-            <StatCell label="已加入" value={summary.lineJoinCount} unit="位" />
-            <StatCell label="已來店" value={summary.visitedCount} unit="位" highlight />
-            <StatCell label="目前點數" value={summary.totalPoints} unit="點" highlight />
+          <p className="text-sm font-semibold text-earth-700">朋友因你做了這些事</p>
+          <div className="mt-3 grid grid-cols-3 gap-3">
+            <StatCell label="我分享過" value={summary.shareCount} unit="次" />
+            <StatCell label="朋友加入" value={summary.lineJoinCount} unit="位" />
+            <StatCell label="朋友來店" value={summary.visitedCount} unit="位" highlight />
           </div>
+          <p className="mt-3 text-[11px] leading-relaxed text-earth-400">
+            每一次分享都是一次善意，不用有壓力。
+          </p>
         </section>
 
         {/* ═══ 下一個回饋 ═══ */}
@@ -52,7 +54,7 @@ export default async function MyReferralsPage() {
             <div className="flex items-center justify-between">
               <p className="text-sm font-semibold text-amber-900">{milestone.label}</p>
               <p className="text-xs text-amber-700">
-                還差 <span className="font-bold">{milestone.remaining}</span> 點解鎖
+                還差 <span className="font-bold">{milestone.remaining}</span> 點
               </p>
             </div>
             <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-white">
@@ -62,7 +64,7 @@ export default async function MyReferralsPage() {
               />
             </div>
             <p className="mt-2 text-[11px] text-amber-700/80">
-              目標 {milestone.target} 點 · 目前 {summary.totalPoints} 點
+              目前 {summary.totalPoints} 點 · 目標 {milestone.target} 點
             </p>
           </section>
         )}
@@ -71,7 +73,7 @@ export default async function MyReferralsPage() {
         <section className="rounded-2xl border border-earth-200 bg-white p-5 shadow-sm">
           <p className="text-sm font-semibold text-earth-700">分享給朋友</p>
           <p className="mt-1 text-xs text-earth-500">
-            一鍵 LINE 分享，或複製連結貼到任何地方。
+            一鍵 LINE 分享，或複製連結貼給想到的朋友。
           </p>
           <div className="mt-3">
             <ShareReferral
