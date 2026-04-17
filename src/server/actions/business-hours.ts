@@ -15,10 +15,25 @@ const DAY_NAMES = ["週日", "週一", "週二", "週三", "週四", "週五", "
 // 查詢
 // ============================================================
 
+/**
+ * 解析當前讀取視角的 storeId。
+ * - ADMIN: 優先用 active-store-id cookie
+ * - 其他員工: user.storeId
+ * 回傳 null 代表 ADMIN 選了「全部分店」視角（業務上需由呼叫端阻擋）
+ */
+async function resolveReadStoreId(user: { role: string; storeId?: string | null }): Promise<string | null> {
+  if (user.role === "ADMIN") {
+    const { getActiveStoreForRead } = await import("@/lib/store");
+    return getActiveStoreForRead(user);
+  }
+  return user.storeId ?? null;
+}
+
 /** 取得每週固定營業時間（7 筆，已排序） */
 export async function getBusinessHours() {
   const user = await requireStaffSession();
-  const storeId = user.storeId!;
+  const storeId = await resolveReadStoreId(user);
+  if (!storeId) return [];
   const rows = await prisma.businessHours.findMany({
     where: { storeId },
     orderBy: { dayOfWeek: "asc" },
@@ -32,7 +47,8 @@ export async function getBusinessHours() {
 /** 取得特殊日期列表（未來 + 最近 30 天） */
 export async function getSpecialDays() {
   const user = await requireStaffSession();
-  const storeId = user.storeId!;
+  const storeId = await resolveReadStoreId(user);
+  if (!storeId) return [];
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
@@ -45,7 +61,8 @@ export async function getSpecialDays() {
 /** 取得指定月份的特殊日期 map */
 export async function getMonthSpecialDays(year: number, month: number) {
   const user = await requireStaffSession();
-  const storeId = user.storeId!;
+  const storeId = await resolveReadStoreId(user);
+  if (!storeId) return [];
   const start = new Date(Date.UTC(year, month - 1, 1));
   const end = new Date(Date.UTC(year, month, 0)); // last day
 
@@ -67,7 +84,11 @@ export async function getMonthSpecialDays(year: number, month: number) {
 /** 取得整月每日營業摘要（月曆格用） */
 export async function getMonthScheduleSummary(year: number, month: number) {
   const user = await requireStaffSession();
-  const storeId = user.storeId!;
+  const storeId = await resolveReadStoreId(user);
+  if (!storeId) {
+    // ADMIN 全部分店模式：沒有特定店可匯總，回傳空摘要
+    return {};
+  }
   const start = new Date(Date.UTC(year, month - 1, 1));
   const end = new Date(Date.UTC(year, month, 0));
   const daysInMonth = end.getUTCDate();
@@ -161,7 +182,10 @@ export async function getMonthScheduleSummary(year: number, month: number) {
 /** 取得某天的可預約時段（規則即時運算 + SlotOverride） */
 export async function getDaySlotDetails(dateStr: string) {
   const user = await requireStaffSession();
-  const storeId = user.storeId!;
+  const storeId = await resolveReadStoreId(user);
+  if (!storeId) {
+    throw new AppError("UNAUTHORIZED", "請先從右上角切換到特定店舖");
+  }
   const dateObj = new Date(dateStr + "T00:00:00Z");
   const dow = dateObj.getUTCDay();
 
