@@ -59,13 +59,13 @@ export function ShareReferral({
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
       trackShare("copy");
-      toast.success("已複製 👍 傳給他就好");
+      toast.success("已幫你準備好了，傳給想到的朋友就可以。");
     }
   }
 
   function handleLineShareClick() {
     trackShare("line");
-    toast.success("已複製 👍 傳給他就好");
+    toast.success("已幫你準備好了，傳給想到的朋友就可以。");
   }
 
   if (variant === "full") {
@@ -80,7 +80,7 @@ export function ShareReferral({
             onClick={handleCopy}
             className="flex-1 rounded-lg border border-earth-300 bg-white px-3 py-2 text-sm text-earth-700 hover:bg-earth-50"
           >
-            {copied ? "已複製" : "複製連結"}
+            {copied ? "已複製" : "複製分享文字"}
           </button>
           <a
             href={lineShareUrl}
@@ -89,7 +89,7 @@ export function ShareReferral({
             onClick={handleLineShareClick}
             className="flex-1 rounded-lg bg-[#06C755] px-3 py-2 text-center text-sm font-medium text-white hover:bg-[#05b54d]"
           >
-            LINE 分享
+            LINE 分享給朋友
           </a>
         </div>
         {typeof referralCount === "number" && (

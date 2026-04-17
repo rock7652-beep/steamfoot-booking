@@ -116,14 +116,20 @@ export default async function CustomerHomePage() {
 
   return (
     <div className="space-y-5">
-      {/* ═══ Hero：歡迎回來 + 主要 CTA ═══ */}
+      {/* ═══ Hero ═══ */}
       <section className="rounded-2xl bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-        <p className="text-lg font-semibold text-earth-900">歡迎回來，{user.name}</p>
+        <p className="text-lg font-semibold text-earth-900">
+          歡迎回來，今天想怎麼照顧自己？
+        </p>
+        <p className="mt-1.5 text-sm leading-relaxed text-earth-500">
+          可以先安排下一次放鬆，也可以看看最近的體驗與健康狀況。
+        </p>
 
+        {/* 個人狀態區（可選） */}
         {nextBooking ? (
           <div className="mt-3 rounded-xl bg-primary-50/70 px-4 py-3">
             <p className="text-sm font-medium text-primary-800">
-              最近一次預約：
+              你的下一次預約在{" "}
               {new Date(nextBooking.bookingDate).toLocaleDateString("zh-TW", {
                 month: "long",
                 day: "numeric",
@@ -136,7 +142,7 @@ export default async function CustomerHomePage() {
             )}
           </div>
         ) : (
-          <p className="mt-2 text-sm text-earth-400">目前沒有即將到來的預約</p>
+          <p className="mt-3 text-sm text-earth-400">目前沒有即將到來的預約</p>
         )}
 
         <div className="mt-3 flex items-center gap-4 text-sm text-earth-500">
@@ -154,19 +160,24 @@ export default async function CustomerHomePage() {
           )}
         </div>
 
-        {/* 次要功能：預約、方案、AI 健康評估（降低視覺比重，主 CTA 在下方分享區） */}
-        <div className="mt-4 grid grid-cols-3 gap-2">
-          <Link
-            href="/book/new"
-            className="flex items-center justify-center gap-1.5 rounded-xl border border-earth-200 bg-white py-2.5 text-sm font-medium text-earth-700 hover:bg-earth-50"
-          >
-            預約下一次
-          </Link>
+        {/* 主按鈕：立即預約 */}
+        <Link
+          href="/book/new"
+          className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-primary-600 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-700 active:scale-[0.98]"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+            <path d="M12 4.5v15m7.5-7.5h-15" />
+          </svg>
+          立即預約
+        </Link>
+
+        {/* 次按鈕：查看我的方案 / AI 健康評估 */}
+        <div className="mt-2 grid grid-cols-2 gap-2">
           <Link
             href="/my-plans"
             className="flex items-center justify-center gap-1.5 rounded-xl border border-earth-200 bg-white py-2.5 text-sm font-medium text-earth-700 hover:bg-earth-50"
           >
-            我的方案
+            查看我的方案
           </Link>
           <a
             href={aiHealthUrl}
@@ -174,7 +185,7 @@ export default async function CustomerHomePage() {
             rel="noopener noreferrer"
             className="flex items-center justify-center gap-1.5 rounded-xl border border-earth-200 bg-white py-2.5 text-sm font-medium text-earth-700 hover:bg-earth-50"
           >
-            健康評估
+            AI 健康評估
           </a>
         </div>
       </section>
@@ -208,7 +219,7 @@ export default async function CustomerHomePage() {
           />
           <QuickLink
             href={aiHealthUrl}
-            label="AI健康評估"
+            label="AI 健康評估"
             description="查看您的 AI 健康分析報告"
             icon="external"
             external
@@ -222,12 +233,14 @@ export default async function CustomerHomePage() {
         </div>
       </section>
 
-      {/* ═══ 主 CTA：剛剛想到誰？傳給他（首頁唯一主 CTA） ═══ */}
+      {/* ═══ 分享卡：分享給剛好需要的朋友 ═══ */}
       <section className="rounded-2xl border border-primary-100 bg-gradient-to-br from-white to-primary-50/40 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-        <p className="text-[11px] text-earth-400">今天身體有比較輕鬆嗎？</p>
-        <p className="mt-1 text-base font-semibold text-earth-900">剛剛想到誰？傳給他</p>
-        <p className="mt-0.5 text-xs text-earth-500">
-          不用想太多，覺得他可能會喜歡就傳
+        <p className="text-base font-semibold text-earth-900">
+          分享給剛好需要的朋友
+        </p>
+        <p className="mt-1 text-xs leading-relaxed text-earth-500">
+          如果你覺得這次體驗不錯，也可以把官方 LINE 分享給朋友。
+          對方有興趣時，再自己了解就好。
         </p>
 
         <div className="mt-4">
@@ -250,11 +263,6 @@ export default async function CustomerHomePage() {
               <path d="M14 4H6a2 2 0 00-2 2v12a2 2 0 002 2h8" />
             </svg>
             我分享的朋友
-            {referralSummary && referralSummary.shareCount > 0 && (
-              <span className="rounded-full bg-primary-100 px-2 py-0.5 text-[10px] font-medium text-primary-700">
-                已分享 {referralSummary.shareCount}
-              </span>
-            )}
           </span>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="text-earth-300">
             <path d="M9 5l7 7-7 7" />
@@ -273,9 +281,15 @@ export default async function CustomerHomePage() {
               </svg>
             </span>
             <div className="flex-1 min-w-0">
-              <p className="text-base font-semibold text-amber-900">你的分享帶來了一點改變</p>
-              <p className="mt-0.5 text-xs text-amber-800/80">
-                {referralSummary.lineJoinCount} 位朋友加入 · {referralSummary.visitedCount} 位已經來店
+              <p className="text-base font-semibold text-amber-900">
+                你的分享，慢慢帶來一些改變
+              </p>
+              <div className="mt-1 space-y-0.5 text-xs text-amber-800/85">
+                <p>有 {referralSummary.lineJoinCount} 位朋友開始了解</p>
+                <p>有 {referralSummary.visitedCount} 位朋友來店體驗</p>
+              </div>
+              <p className="mt-2 text-[11px] leading-relaxed text-amber-700/80">
+                有些人只是先看看，有些人會真的來體驗，慢慢來就好。
               </p>
             </div>
           </div>
@@ -292,25 +306,24 @@ export default async function CustomerHomePage() {
         </section>
       )}
 
-      {/* ═══ 底部：今天一件事（動態） ═══ */}
+      {/* ═══ 今日提醒卡（最底部，動態） ═══ */}
       <section className="rounded-2xl border border-dashed border-earth-200 bg-white/60 p-5 text-center">
-        <p className="text-xs font-medium text-earth-400">今天一件事</p>
         {todayShareCount === 0 ? (
           <>
-            <p className="mt-1.5 text-base font-semibold text-earth-800">
-              分享給 1 位朋友
+            <p className="text-base font-semibold text-earth-800">
+              今天想到誰了嗎？
             </p>
             <p className="mt-1 text-xs text-earth-500">
-              想到誰就傳給誰，不用想太多。
+              分享給 1 位朋友就好
             </p>
           </>
         ) : (
           <>
-            <p className="mt-1.5 text-base font-semibold text-earth-800">
+            <p className="text-base font-semibold text-earth-800">
               今天已經分享了 👍
             </p>
             <p className="mt-1 text-xs text-earth-500">
-              慢慢來，有想到再傳就好。
+              慢慢來就很好
             </p>
           </>
         )}

@@ -37,53 +37,41 @@ export default async function MyGrowthPage() {
       </div>
 
       <div className="space-y-6">
-        {/* ═══ 主視覺：你的分享正在改變朋友 ═══ */}
+        {/* ═══ 開頭文案 ═══ */}
         <section className="rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 to-amber-100/40 p-6 shadow-sm">
-          <p className="text-base font-semibold text-amber-900">
-            你的分享帶來了一點改變
-          </p>
-          <p className="mt-2 text-sm leading-relaxed text-amber-800/90">
-            你分享過的連結，讓 {summary.lineJoinCount} 位朋友願意試試看，{summary.visitedCount} 位已經走進店裡感受。
-            一份輕輕的好意，慢慢在朋友身上發生。
+          <p className="text-base leading-relaxed text-amber-900">
+            每一次照顧自己、每一次分享，都是生活裡一點點好的改變。
           </p>
         </section>
 
-        {/* ═══ 三項指標（輕成就區，排序：來店 → 加入 → 分享，不顯示業績/轉換率/進度壓力數字）═══ */}
+        {/* ═══ 三項指標（排序依 spec：我分享過 → 朋友開始了解 → 朋友來店體驗）═══ */}
         <section className="grid grid-cols-3 gap-3">
-          <Metric label="朋友來店" value={summary.visitedCount} unit="位" highlight />
-          <Metric label="朋友加入" value={summary.lineJoinCount} unit="位" />
-          <Metric label="分享次數" value={summary.shareCount} unit="次" />
+          <Metric label="我分享過" value={summary.shareCount} unit="次" />
+          <Metric label="朋友開始了解" value={summary.lineJoinCount} unit="位" />
+          <Metric label="朋友來店體驗" value={summary.visitedCount} unit="位" highlight />
         </section>
 
-        {/* ═══ 鼓勵區（取代原進度條，不放壓力數字） ═══ */}
+        {/* ═══ 底部文案 ═══ */}
         <section className="rounded-2xl border border-earth-200 bg-white p-5 shadow-sm">
-          <p className="text-sm font-semibold text-earth-700">慢慢累積就好</p>
-          <p className="mt-2 text-xs leading-relaxed text-earth-500">
-            不用急，照自己的節奏。哪天想到朋友，再傳一個連結給他就好。
+          <p className="text-sm leading-relaxed text-earth-600">
+            不用特別做什麼，想到適合的人時，再分享就很好。
           </p>
         </section>
 
-        {/* ═══ 了解更多 ═══ */}
-        <section className="rounded-2xl border border-earth-200 bg-white p-5 shadow-sm">
-          <p className="text-sm font-semibold text-earth-700">想多聊聊</p>
-          <p className="mt-2 text-xs leading-relaxed text-earth-500">
-            如果你喜歡這樣讓朋友試試看，未來有新的分享方式，我們會讓你先知道。
-            想先聊聊？歡迎直接到店。
-          </p>
-          <div className="mt-4 grid grid-cols-2 gap-2">
-            <Link
-              href="/my-referrals"
-              className="flex items-center justify-center rounded-xl border border-earth-200 bg-white py-2.5 text-sm font-medium text-earth-700 hover:bg-earth-50"
-            >
-              我分享的朋友
-            </Link>
-            <Link
-              href="/my-points"
-              className="flex items-center justify-center rounded-xl border border-earth-200 bg-white py-2.5 text-sm font-medium text-earth-700 hover:bg-earth-50"
-            >
-              積分紀錄
-            </Link>
-          </div>
+        {/* ═══ 導航連結 ═══ */}
+        <section className="grid grid-cols-2 gap-2">
+          <Link
+            href="/my-referrals"
+            className="flex items-center justify-center rounded-xl border border-earth-200 bg-white py-2.5 text-sm font-medium text-earth-700 hover:bg-earth-50"
+          >
+            我分享的朋友
+          </Link>
+          <Link
+            href="/my-points"
+            className="flex items-center justify-center rounded-xl border border-earth-200 bg-white py-2.5 text-sm font-medium text-earth-700 hover:bg-earth-50"
+          >
+            積分紀錄
+          </Link>
         </section>
       </div>
     </div>

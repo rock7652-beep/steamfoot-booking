@@ -39,8 +39,8 @@ export default async function MyReferralsPage() {
         <section className="rounded-2xl border border-earth-200 bg-white p-5 shadow-sm">
           <p className="text-sm font-semibold text-earth-700">朋友因你做了這些事</p>
           <div className="mt-3 grid grid-cols-3 gap-3">
-            <StatCell label="朋友來店" value={summary.visitedCount} unit="位" highlight />
-            <StatCell label="朋友加入" value={summary.lineJoinCount} unit="位" />
+            <StatCell label="朋友來店體驗" value={summary.visitedCount} unit="位" highlight />
+            <StatCell label="朋友開始了解" value={summary.lineJoinCount} unit="位" />
             <StatCell label="我分享過" value={summary.shareCount} unit="次" />
           </div>
           <p className="mt-3 text-[11px] leading-relaxed text-earth-400">
