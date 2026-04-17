@@ -2,9 +2,19 @@
 
 import { prisma } from "@/lib/db";
 import { requireStaffSession } from "@/lib/session";
-import { currentStoreId } from "@/lib/store";
+import { getActiveStoreForRead } from "@/lib/store";
 import { awardPoints } from "./points";
 import { revalidatePath } from "next/cache";
+
+/**
+ * ADMIN 沒有 session.storeId，需從 cookie 取得目前切換的店。
+ */
+async function resolveStoreId(user: { role: string; storeId?: string | null }): Promise<string> {
+  if (user.role !== "ADMIN" && user.storeId) return user.storeId;
+  const storeId = await getActiveStoreForRead(user);
+  if (!storeId) throw new Error("請先切換到特定分店");
+  return storeId;
+}
 
 /**
  * 手動為顧客加分（後台操作）
@@ -14,7 +24,7 @@ import { revalidatePath } from "next/cache";
  */
 export async function manualAwardPoints(formData: FormData) {
   const user = await requireStaffSession();
-  const storeId = currentStoreId(user);
+  const storeId = await resolveStoreId(user);
 
   const customerId = formData.get("customerId") as string;
   const pointsStr = formData.get("points") as string;
