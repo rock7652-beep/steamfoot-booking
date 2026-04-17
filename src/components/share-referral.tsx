@@ -7,6 +7,7 @@ import {
   copyToClipboard,
   toAbsoluteUrl,
 } from "@/lib/share";
+import { trackReferralEvent } from "@/server/actions/referral-events";
 
 interface ShareReferralProps {
   /** 推薦中繼頁 URL（應由呼叫端用 buildReferralEntryUrl 組好） */
@@ -17,6 +18,12 @@ interface ShareReferralProps {
   referralCount?: number;
   /** 邀請人姓名（預設文案目前不帶入，保留給未來 A/B） */
   inviterName?: string | null;
+  /** 分享人的 store（用於事件埋點） */
+  storeId?: string;
+  /** 分享人的 customer id（用於事件埋點） */
+  referrerId?: string;
+  /** 分享事件來源標記，例如 "my-referrals", "book-home", "booking-success" */
+  source?: string;
 }
 
 export function ShareReferral({
@@ -24,17 +31,33 @@ export function ShareReferral({
   variant = "compact",
   referralCount,
   inviterName,
+  storeId,
+  referrerId,
+  source,
 }: ShareReferralProps) {
   const [copied, setCopied] = useState(false);
   const absoluteUrl = toAbsoluteUrl(referralUrl);
   const shareText = buildShareText({ inviterName });
   const lineShareUrl = buildLineShareUrl(shareText, absoluteUrl);
 
+  /** 分享事件埋點（fire-and-forget；埋點失敗不影響使用者體驗） */
+  function trackShare(channel: "copy" | "line") {
+    if (!storeId || !referrerId) return;
+    // 不 await；trackReferralEvent 本身靜默失敗
+    void trackReferralEvent({
+      storeId,
+      referrerId,
+      type: "SHARE",
+      source: source ? `${source}:${channel}` : channel,
+    });
+  }
+
   async function handleCopy() {
     const ok = await copyToClipboard(absoluteUrl);
     if (ok) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+      trackShare("copy");
     }
   }
 
@@ -56,6 +79,7 @@ export function ShareReferral({
             href={lineShareUrl}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={() => trackShare("line")}
             className="flex-1 rounded-lg bg-[#06C755] px-3 py-2 text-center text-sm font-medium text-white hover:bg-[#05b54d]"
           >
             LINE 分享

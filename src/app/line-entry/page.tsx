@@ -2,6 +2,10 @@ import { cookies, headers } from "next/headers";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { LineEntryAutoRedirect } from "./auto-redirect";
+import {
+  createLinkClickEvent,
+  createLineEntryEvent,
+} from "@/server/services/referral-events";
 
 /**
  * /s/[slug]/line-entry?ref=xxx — LINE 推薦中繼頁（公開）
@@ -26,10 +30,11 @@ const LINE_OFFICIAL_URL = "https://lin.ee/u3DuNiu";
 export default async function LineEntryPage({
   searchParams,
 }: {
-  searchParams: Promise<{ ref?: string }>;
+  searchParams: Promise<{ ref?: string; source?: string }>;
 }) {
   const params = await searchParams;
   const ref = params.ref?.trim() || null;
+  const source = params.source?.trim() || null;
 
   // 讀取店家資訊（從 proxy 注入的 x-active-store-id 或 cookie）
   const headerList = await headers();
@@ -38,6 +43,21 @@ export default async function LineEntryPage({
     headerList.get("x-active-store-id") ??
     cookieStore.get("domain-store-id")?.value ??
     null;
+
+  // 事件埋點：進頁即視為 LINK_CLICK + LINE_ENTRY（fire-and-forget）
+  // 若 storeId 還無法解析（網域與 cookie 都沒有），就跳過 — 避免寫入不明歸屬的事件
+  if (storeId) {
+    const eventInput = {
+      storeId,
+      referrerId: ref,
+      source: source ?? "line-entry",
+    };
+    // 不阻擋頁面渲染；寫入失敗靜默
+    void Promise.allSettled([
+      createLinkClickEvent(eventInput),
+      createLineEntryEvent(eventInput),
+    ]).catch(() => {});
+  }
 
   // 嘗試找出推薦人姓名（給中繼頁做信任感，若查不到也沒關係）
   let inviterName: string | null = null;
@@ -69,7 +89,13 @@ export default async function LineEntryPage({
 
   return (
     <>
-      <LineEntryAutoRedirect lineUrl={LINE_OFFICIAL_URL} delayMs={2500} refCode={ref} />
+      <LineEntryAutoRedirect
+        lineUrl={LINE_OFFICIAL_URL}
+        delayMs={2500}
+        refCode={ref}
+        storeId={storeId}
+        source={source ?? "line-entry"}
+      />
       <div className="min-h-screen bg-gradient-to-b from-primary-50 to-white">
         <div className="mx-auto max-w-md px-5 py-10">
           {/* ── 品牌區 ── */}
