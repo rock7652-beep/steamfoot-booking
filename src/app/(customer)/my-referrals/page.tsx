@@ -15,7 +15,9 @@ export default async function MyReferralsPage() {
   const storeId = storeCtx?.storeId ?? null;
   const referralUrl = buildReferralEntryUrl(storeSlug, user.customerId);
 
-  const summary = await getMyReferralSummary(user.customerId);
+  const summary = await getMyReferralSummary(user.customerId, {
+    activeStoreId: storeId,
+  });
 
   // 進度條：朝下一個里程碑推進
   const milestone = summary.nextMilestone;

@@ -4,6 +4,7 @@ import { resolveActiveStoreId } from "@/lib/store";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getNextOwnerCandidates } from "@/server/queries/talent";
+import { getTopReferrersByEventCount } from "@/server/queries/referral-events";
 import { READINESS_LEVEL_CONFIG, TALENT_STAGE_LABELS } from "@/types/talent";
 
 /**
@@ -24,7 +25,19 @@ export default async function TopCandidatesPage() {
   const cookieStoreId = cookieStore.get("active-store-id")?.value ?? null;
   const activeStoreId = resolveActiveStoreId(user, cookieStoreId);
 
-  const candidates = await getNextOwnerCandidates(activeStoreId, 10);
+  const [candidates, topByEvents] = await Promise.all([
+    getNextOwnerCandidates(activeStoreId, 10),
+    // 事件層排行：以 BOOKING_COMPLETED 為主要成效訊號（真正帶人到店）
+    getTopReferrersByEventCount(activeStoreId, {
+      limit: 50,
+      filterType: "BOOKING_COMPLETED",
+    }),
+  ]);
+
+  // 把事件數合進 candidate map，供 UI 新增欄位
+  const eventCountMap = new Map(
+    topByEvents.map((r) => [r.referrerId, r.count]),
+  );
 
   return (
     <div className="mx-auto max-w-4xl space-y-5 px-4 py-4">
@@ -116,12 +129,17 @@ export default async function TopCandidatesPage() {
                   </div>
 
                   {/* 指標 */}
-                  <div className="mt-3 grid grid-cols-5 gap-2 border-t border-earth-100 pt-3 text-center">
+                  <div className="mt-3 grid grid-cols-6 gap-2 border-t border-earth-100 pt-3 text-center">
                     <MetricCell label="分數" value={c.readinessScore} color="earth" />
                     <MetricCell label="積分" value={c.totalPoints} color="primary" />
                     <MetricCell label="轉介" value={c.referralCount} color="blue" />
                     <MetricCell label="帶出" value={c.referralPartnerCount} color="amber" />
                     <MetricCell label="出席" value={c.attendanceCount} color="green" />
+                    <MetricCell
+                      label="事件"
+                      value={eventCountMap.get(c.customerId) ?? 0}
+                      color="primary"
+                    />
                   </div>
                 </Link>
               </li>

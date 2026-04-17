@@ -8,16 +8,19 @@ import { POINT_VALUES } from "@/lib/points-config";
  *
  * 對應前台「我的推薦」頁與首頁的推薦/成長卡。
  *
+ * v2 變更：改以 ReferralEvent 聚合統計，原本依 Referral / Customer.sponsorId 的查詢保留給
+ *   convertedCount（Referral 表仍為「正式轉介紹紀錄」的來源）。
+ *
  * 欄位語意：
- * - shareCount     已分享/登記的朋友數 (Referral 紀錄，排除 CANCELLED)
- * - lineJoinCount  已加入並完成註冊的朋友數 (Customer.sponsorId = me)
- * - visitedCount   已實際到店體驗的朋友數 (sponsored Customer.firstVisitAt 不為 null)
- * - convertedCount 已成交的朋友數 (Referral.status = CONVERTED)
+ * - shareCount     使用者分享次數 (ReferralEvent.type = SHARE)
+ * - lineJoinCount  因此註冊的不重複顧客數 (distinct customerId of REGISTER events with referrerId=me)
+ * - visitedCount   因此完成預約（出席）的不重複顧客數 (distinct customerId of BOOKING_COMPLETED)
+ * - convertedCount 已正式成為顧客 (Referral.status = CONVERTED) — 維持舊語意
  * - totalPoints    顧客目前累計點數 (取自 Customer.totalPoints 快取)
  * - nextMilestone  下一個解鎖回饋（成長里程碑）的點數差距
- * - growthEligible 是否達到「我的成長」卡的顯示條件
- *                   OR: shareCount>=1 OR lineJoinCount>=1 OR visitedCount>=1
- *                   （任一「實際推薦行為」即顯示，不使用 readiness / tier）
+ * - growthEligible 是否達到「我的成長」卡的顯示條件（OR）
+ *
+ * 多店隔離：以 customer.storeId 為主；呼叫端可提供 activeStoreId 覆寫（通常不需要）。
  */
 export interface MyReferralSummary {
   shareCount: number;
@@ -41,34 +44,65 @@ const GROWTH_THRESHOLDS = {
 
 export async function getMyReferralSummary(
   customerId: string,
+  opts?: { activeStoreId?: string | null },
 ): Promise<MyReferralSummary> {
+  const customer = await prisma.customer.findUnique({
+    where: { id: customerId },
+    select: { totalPoints: true, storeId: true },
+  });
+
+  // 決定聚合時的 storeId — 預設用 customer.storeId，保持多店隔離
+  const storeId = opts?.activeStoreId ?? customer?.storeId ?? null;
+
+  // 若 customer 找不到，退回空狀態
+  if (!storeId) {
+    return {
+      shareCount: 0,
+      lineJoinCount: 0,
+      visitedCount: 0,
+      convertedCount: 0,
+      totalPoints: customer?.totalPoints ?? 0,
+      nextMilestone: null,
+      growthEligible: false,
+    };
+  }
+
+  const commonWhere = { referrerId: customerId, storeId };
+
   const [
-    customer,
     shareCount,
-    sponsoredCustomers,
+    registerCustomers,
+    completedCustomers,
     convertedCount,
   ] = await Promise.all([
-    prisma.customer.findUnique({
-      where: { id: customerId },
-      select: { totalPoints: true },
+    // 分享次數（每次分享都計一次）
+    prisma.referralEvent.count({
+      where: { ...commonWhere, type: "SHARE" },
     }),
-    prisma.referral.count({
-      where: { referrerId: customerId, status: { not: "CANCELLED" } },
+    // 透過我註冊的不重複顧客
+    prisma.referralEvent.findMany({
+      where: { ...commonWhere, type: "REGISTER", customerId: { not: null } },
+      distinct: ["customerId"],
+      select: { customerId: true },
     }),
-    prisma.customer.findMany({
-      where: { sponsorId: customerId },
-      select: { firstVisitAt: true },
+    // 透過我預約且完成出席的不重複顧客
+    prisma.referralEvent.findMany({
+      where: {
+        ...commonWhere,
+        type: "BOOKING_COMPLETED",
+        customerId: { not: null },
+      },
+      distinct: ["customerId"],
+      select: { customerId: true },
     }),
+    // 已轉換為顧客的 Referral（維持舊語意）
     prisma.referral.count({
       where: { referrerId: customerId, status: "CONVERTED" },
     }),
   ]);
 
-  const lineJoinCount = sponsoredCustomers.length;
-  const visitedCount = sponsoredCustomers.filter(
-    (c) => c.firstVisitAt !== null,
-  ).length;
-
+  const lineJoinCount = registerCustomers.length;
+  const visitedCount = completedCustomers.length;
   const totalPoints = customer?.totalPoints ?? 0;
 
   // 下一個里程碑：100 點 → 200 點。已超過則回 null

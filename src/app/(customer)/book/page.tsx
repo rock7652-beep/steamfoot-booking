@@ -77,7 +77,7 @@ export default async function CustomerHomePage() {
         },
       }),
       getHealthCardData(user.customerId),
-      getMyReferralSummary(user.customerId),
+      getMyReferralSummary(user.customerId, { activeStoreId: storeId }),
     ]);
     remaining = wallets.reduce((sum, w) => {
       const used = w.bookings

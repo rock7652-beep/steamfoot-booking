@@ -1,4 +1,5 @@
 import { getCurrentUser } from "@/lib/session";
+import { getStoreContext } from "@/lib/store-context";
 import { getMyReferralSummary } from "@/server/queries/my-referral-summary";
 import { redirect } from "next/navigation";
 import Link from "next/link";
@@ -18,7 +19,12 @@ export default async function MyGrowthPage() {
   const user = await getCurrentUser();
   if (!user || user.role !== "CUSTOMER" || !user.customerId) redirect("/");
 
-  const summary = await getMyReferralSummary(user.customerId);
+  const storeCtx = await getStoreContext();
+  const storeId = storeCtx?.storeId ?? null;
+
+  const summary = await getMyReferralSummary(user.customerId, {
+    activeStoreId: storeId,
+  });
   if (!summary.growthEligible) redirect("/book");
 
   // 成長進度條：以 5 位朋友來店為一個象徵性里程碑
