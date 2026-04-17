@@ -12,6 +12,7 @@ export default async function MyReferralsPage() {
 
   const storeCtx = await getStoreContext();
   const storeSlug = storeCtx?.storeSlug ?? "zhubei";
+  const storeId = storeCtx?.storeId ?? null;
   const referralUrl = buildReferralEntryUrl(storeSlug, user.customerId);
 
   const summary = await getMyReferralSummary(user.customerId);
@@ -71,7 +72,14 @@ export default async function MyReferralsPage() {
             一鍵 LINE 分享，或複製連結貼到任何地方。
           </p>
           <div className="mt-3">
-            <ShareReferral referralUrl={referralUrl} variant="full" referralCount={summary.lineJoinCount} />
+            <ShareReferral
+              referralUrl={referralUrl}
+              variant="full"
+              referralCount={summary.lineJoinCount}
+              storeId={storeId ?? undefined}
+              referrerId={user.customerId}
+              source="my-referrals"
+            />
           </div>
         </section>
 

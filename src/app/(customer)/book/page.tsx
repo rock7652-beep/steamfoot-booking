@@ -36,6 +36,7 @@ export default async function CustomerHomePage() {
 
   const storeCtx = await getStoreContext();
   const storeSlug = storeCtx?.storeSlug ?? "zhubei";
+  const storeId = storeCtx?.storeId ?? null;
 
   // ── 並行查詢 ──────────────────────────────────────
   let remaining = 0;
@@ -224,7 +225,13 @@ export default async function CustomerHomePage() {
           </span>
         </div>
 
-        <ShareReferral referralUrl={referralUrl} variant="compact" />
+        <ShareReferral
+          referralUrl={referralUrl}
+          variant="compact"
+          storeId={storeId ?? undefined}
+          referrerId={user.customerId}
+          source="book-home"
+        />
 
         <Link
           href="/my-referrals"
