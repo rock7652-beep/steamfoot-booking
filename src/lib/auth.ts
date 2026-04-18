@@ -305,7 +305,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           }
         }
 
-        // B7-4: 從 cookie 動態解析 store context
+        // B7-4: 從 cookie 動態解析 store context（可能因 Safari 第三方 cookie 政策
+        // 在 OAuth redirect 過程被吃掉，這時會 fallback 到 DEFAULT_STORE_ID）
         let targetStoreId: string;
         try {
           const { resolveStoreFromOAuthCookie } = await import("@/lib/store-resolver");
@@ -315,16 +316,51 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           targetStoreId = DEFAULT_STORE_ID;
         }
 
+        // lineUserId / googleId 先做「全域唯一」查找 — 避免 storeId fallback 時錯過既有
+        // 顧客而誤建新 User。若全域找到多筆（跨店重複，理論罕見）則 fallback 到同店查找。
         let customer = null;
         if (provider === "line" && lineUserId) {
-          customer = await prisma.customer.findFirst({
-            where: { lineUserId, storeId: targetStoreId },
+          const candidates = await prisma.customer.findMany({
+            where: { lineUserId },
+            take: 2,
           });
+          if (candidates.length === 1) {
+            customer = candidates[0];
+            if (customer.storeId !== targetStoreId) {
+              console.info("[auth] signIn: line user cross-store — using existing customer", {
+                lineUserId,
+                customerStoreId: customer.storeId,
+                cookieStoreId: targetStoreId,
+              });
+              targetStoreId = customer.storeId; // 以 Customer 所在店為準
+            }
+          } else if (candidates.length > 1) {
+            console.warn("[auth] signIn: line user found in multiple stores, using target", {
+              lineUserId,
+              count: candidates.length,
+              targetStoreId,
+            });
+            customer = candidates.find((c) => c.storeId === targetStoreId) ?? null;
+          }
         }
         if (!customer && provider === "google" && googleId) {
-          customer = await prisma.customer.findFirst({
-            where: { googleId, storeId: targetStoreId },
+          const candidates = await prisma.customer.findMany({
+            where: { googleId },
+            take: 2,
           });
+          if (candidates.length === 1) {
+            customer = candidates[0];
+            if (customer.storeId !== targetStoreId) {
+              console.info("[auth] signIn: google user cross-store — using existing customer", {
+                googleId,
+                customerStoreId: customer.storeId,
+                cookieStoreId: targetStoreId,
+              });
+              targetStoreId = customer.storeId;
+            }
+          } else if (candidates.length > 1) {
+            customer = candidates.find((c) => c.storeId === targetStoreId) ?? null;
+          }
         }
         if (!customer && oauthEmail) {
           customer = await prisma.customer.findFirst({
@@ -492,8 +528,44 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     // Persist custom fields to JWT
     // 🔧 效能優化：只在登入時寫入 JWT，後續請求直接從 token 讀取
     // 不再每次 request 都查 DB。若需要即時反映 role 變更，使用者重新登入即可。
-    async jwt({ token, user, account }) {
+    //
+    // trigger === "update" 例外：client 呼叫 useSession().update() 時觸發，
+    // 從 DB 重讀 customer 資訊刷新 JWT（profile 補資料成功後使用）。
+    async jwt({ token, user, account, trigger }) {
       const appToken = token as unknown as AppJWT;
+
+      if (trigger === "update" && appToken.sub) {
+        try {
+          const dbUser = await prisma.user.findUnique({
+            where: { id: appToken.sub },
+            select: {
+              role: true,
+              staff: { select: { id: true, storeId: true, store: { select: { slug: true } } } },
+              customer: { select: { id: true, storeId: true, store: { select: { slug: true } } } },
+            },
+          });
+          if (dbUser) {
+            appToken.role = dbUser.role;
+            if (dbUser.role === "ADMIN") {
+              appToken.staffId = null;
+              appToken.customerId = null;
+              appToken.storeId = null;
+              appToken.storeSlug = null;
+            } else {
+              appToken.staffId = dbUser.staff?.id ?? null;
+              appToken.customerId = dbUser.customer?.id ?? null;
+              appToken.storeId = dbUser.staff?.storeId ?? dbUser.customer?.storeId ?? null;
+              appToken.storeSlug = dbUser.staff?.store?.slug ?? dbUser.customer?.store?.slug ?? null;
+            }
+          }
+        } catch (err) {
+          console.error("[auth] jwt update trigger failed", {
+            userId: appToken.sub,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+        return token;
+      }
 
       // Handle stale JWTs with deprecated role values — force re-read from DB
       // Uses try-catch because the middleware Prisma client may not support new fields yet
