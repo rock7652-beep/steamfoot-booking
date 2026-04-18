@@ -113,7 +113,8 @@ export async function updateProfileAction(
         success: false,
       };
     }
-    // not_found — 這時允許新建（但需有 storeId）
+    // not_found — 以 userId 做 upsert，涵蓋「auth.ts signIn 已在某店建立 customer
+    // 但 resolver 因 storeId 不匹配沒撈到」的情境（Customer.userId @unique 全域）
     if (!storeId) {
       return {
         error: "無法判斷您的所屬店舖，請重新進入店家入口再試",
@@ -121,6 +122,42 @@ export async function updateProfileAction(
       };
     }
     try {
+      const existingByUserId = await prisma.customer.findUnique({
+        where: { userId: user.id },
+        select: { id: true, storeId: true },
+      });
+
+      if (existingByUserId) {
+        // 已有 customer（可能在別店或 OAuth 自動建立的佔位）→ 更新到當前 store context
+        console.info(
+          "[updateProfileAction] existing customer found via userId unique — updating in place",
+          {
+            userId: user.id,
+            existingStoreId: existingByUserId.storeId,
+            sessionStoreId: storeId,
+            customerId: existingByUserId.id,
+          },
+        );
+        await prisma.customer.update({
+          where: { id: existingByUserId.id },
+          data: {
+            name,
+            phone,
+            email,
+            gender,
+            birthday,
+            height,
+            address,
+            notes,
+            // 若當初建錯 store，以當前 session storeId 校正
+            storeId,
+          },
+        });
+        revalidatePath("/profile");
+        return { error: null, success: true };
+      }
+
+      // 真的沒有 → 建立
       const created = await prisma.customer.create({
         data: {
           name,
@@ -146,7 +183,29 @@ export async function updateProfileAction(
       revalidatePath("/profile");
       return { error: null, success: true };
     } catch (err) {
-      console.error("[updateProfileAction] create failed", { userId: user.id, err });
+      // 印出具體原因（Prisma error code），供後台排查
+      const errMsg = err instanceof Error ? err.message : String(err);
+      const prismaCode = (err as { code?: string })?.code;
+      console.error("[updateProfileAction] create/upsert failed", {
+        userId: user.id,
+        storeId,
+        payloadEmail: email,
+        payloadPhone: phone,
+        prismaCode,
+        error: errMsg,
+      });
+
+      // 常見 unique violation：依 code=P2002 與 meta.target 給使用者具體提示
+      if (prismaCode === "P2002") {
+        const target = (err as { meta?: { target?: string[] } })?.meta?.target;
+        if (target?.includes("email") || target?.includes("uq_store_customer_email")) {
+          return { error: "此 Email 已被其他帳號使用", success: false };
+        }
+        if (target?.includes("phone") || target?.includes("uq_store_customer_phone")) {
+          return { error: "此聯絡電話已被其他帳號使用", success: false };
+        }
+      }
+
       return {
         error: "建立顧客資料失敗，請稍後再試或聯繫店家",
         success: false,
