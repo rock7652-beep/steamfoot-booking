@@ -69,14 +69,21 @@ export default async function MyPerksPage() {
       </div>
 
       <div className="space-y-5">
-        {/* ═══ 區塊 1：今天幫朋友放鬆一下（含分享 CTA） ═══ */}
+        {/* ═══ 區塊 1：今天幫朋友放鬆一下（利他 + 無壓力 + 點數誘因 + 分享 CTA） ═══ */}
         <section className="rounded-2xl border border-primary-100 bg-gradient-to-br from-white to-primary-50/40 p-5 shadow-sm">
+          {/* 利他文案 */}
           <p className="text-base font-semibold text-earth-900">
             今天幫朋友放鬆一下
           </p>
           <p className="mt-1.5 text-sm leading-relaxed text-earth-600">
             把你的專屬體驗連結分享給朋友，他來體驗，你拿回饋。
           </p>
+          {/* 無壓力提示 */}
+          <p className="mt-2 text-xs leading-relaxed text-earth-500">
+            不用推銷，對方有興趣再自己了解就好。
+          </p>
+
+          {/* 分享 CTA */}
           <div className="mt-4">
             <ShareReferral
               referralUrl={referralUrl}
@@ -86,6 +93,22 @@ export default async function MyPerksPage() {
               source="my-perks"
             />
           </div>
+
+          {/* 點數誘因提示（動態：依 milestone.remaining） */}
+          {milestone && milestone.remaining > 0 && (
+            <div className="mt-3 flex items-start gap-2 rounded-xl bg-amber-50/70 px-3 py-2">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mt-0.5 flex-shrink-0 text-amber-600">
+                <path d="M20 12V22H4V12" />
+                <path d="M2 7h20v5H2z" />
+                <path d="M12 22V7" />
+                <path d="M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7z" />
+                <path d="M12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z" />
+              </svg>
+              <p className="text-xs leading-relaxed text-amber-800">
+                再 <span className="font-bold">{milestone.remaining}</span> 點就能解鎖小禮！
+              </p>
+            </div>
+          )}
         </section>
 
         {/* ═══ 區塊 2：點數進度（大數字 + 進度條 + 差距提示） ═══ */}

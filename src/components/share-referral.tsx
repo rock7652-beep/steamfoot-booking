@@ -93,7 +93,7 @@ export function ShareReferral({
             onClick={handleLineShareClick}
             className="flex-1 rounded-lg bg-[#06C755] px-3 py-2 text-center text-sm font-medium text-white hover:bg-[#05b54d]"
           >
-            LINE 分享給朋友
+            立即用 LINE 分享
           </a>
         </div>
         {typeof referralCount === "number" && (
@@ -118,7 +118,7 @@ export function ShareReferral({
         rel="noopener noreferrer"
         className="flex-1 rounded-lg bg-[#06C755] px-3 py-2 text-center text-sm font-medium text-white hover:bg-[#05b54d]"
       >
-        LINE 分享
+        立即用 LINE 分享
       </a>
     </div>
   );
