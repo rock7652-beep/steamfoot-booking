@@ -7,6 +7,8 @@ import { MobileNav } from "./mobile-nav";
 import { NavProgress } from "./nav-progress";
 import BuildFooter from "@/components/build-footer";
 import { LogoutButton } from "@/components/logout-button";
+import { getStoreContext } from "@/lib/store-context";
+import { resolveCustomerCompletionStatus } from "@/server/queries/customer-completion";
 
 // SVG icon paths (Heroicons outline, 24x24 viewBox) — 拆成多段 path 確保正確渲染
 const ICON_PATHS: Record<string, string[]> = {
@@ -101,6 +103,25 @@ export default async function CustomerLayout({
   const rawPathname = headerList.get("x-next-pathname") || `${prefix}/book`;
   // 去掉 /s/[slug] 前綴，還原成 /book、/my-bookings 等格式供比對
   const pathname = rawPathname.replace(/^\/s\/[^/]+/, "") || "/book";
+
+  // ── 完成註冊 gate ──────────────────────────────────────
+  // 顧客若尚未完成基本資料（姓名/電話/Email/生日/性別），強制導至 /profile 補齊
+  // 白名單：/profile 本身允許進入；其餘顧客頁皆受控
+  const storeCtx = await getStoreContext();
+  const completion = await resolveCustomerCompletionStatus({
+    userId: user.id,
+    customerId: user.customerId ?? null,
+    email: user.email ?? null,
+    storeId: storeCtx?.storeId ?? null,
+    storeSlug,
+  });
+  const isOnProfile = pathname === "/profile" || pathname.startsWith("/profile/");
+  if (!completion.isComplete && !isOnProfile) {
+    const nextPath = rawPathname; // 保留原始 /s/{slug}/... 供儲存後跳回
+    const params = new URLSearchParams({ complete: "1" });
+    if (nextPath && nextPath !== `${prefix}/book`) params.set("next", nextPath);
+    redirect(`${prefix}/profile?${params.toString()}`);
+  }
 
   const aiHealthUrl = `https://www.healthflow-ai.com/liff${user.customerId ? `?customerId=${user.customerId}` : ""}`;
 

@@ -3,16 +3,29 @@ import { prisma } from "@/lib/db";
 import Link from "next/link";
 import { ProfileForm } from "./profile-form";
 import { ChangePasswordForm } from "./change-password-form";
+import { missingRequiredFields } from "@/lib/customer-completion";
+
+interface PageProps {
+  searchParams: Promise<{ complete?: string; next?: string }>;
+}
 
 /**
  * 我的資料
  *
+ * 兼任「完成註冊」入口：
+ *   - ?complete=1 → 顯示 onboarding 提示，按鈕文案改「完成註冊」
+ *   - ?next=/s/... → 儲存成功後自動跳回原路徑
+ *
  * Hardening:
  *   - 不做 role 檢查（由 (customer)/layout.tsx 處理）
- *   - 不對 !customer 做 redirect("/")（會因 proxy 把 CUSTOMER 導回 /book → 看起來像「跳回首頁」）
- *   - 找不到 Customer 時顯示提示並提供空表單，讓顧客仍可看到基本資料頁
+ *   - 不對 !customer 做 redirect("/")（會被 proxy 導回 /book → 看起來像「跳回首頁」）
+ *   - 找不到 Customer 時顯示 onboarding 提示並提供空表單，讓顧客完成資料
  */
-export default async function ProfilePage() {
+export default async function ProfilePage({ searchParams }: PageProps) {
+  const sp = await searchParams;
+  const onboardingMode = sp?.complete === "1";
+  const nextPath = sp?.next ?? null;
+
   const user = await getCurrentUser();
 
   // 若 session 沒有 customerId（stale JWT 等）— 顯示友善訊息，不 redirect
@@ -66,7 +79,11 @@ export default async function ProfilePage() {
   const customerForForm = customer
     ? {
         name: customer.name ?? "",
-        phone: customer.phone ?? "",
+        // OAuth 佔位 phone（_oauth_xxx）不顯示給使用者，讓他們自己填
+        phone:
+          customer.phone && !customer.phone.startsWith("_oauth_")
+            ? customer.phone
+            : "",
         email: customer.email,
         gender: customer.gender,
         birthday: birthdayStr,
@@ -77,7 +94,7 @@ export default async function ProfilePage() {
     : {
         name: user?.name ?? "",
         phone: "",
-        email: null,
+        email: user?.email ?? null,
         gender: null,
         birthday: null,
         height: null,
@@ -85,27 +102,63 @@ export default async function ProfilePage() {
         notes: null,
       };
 
+  const missing = missingRequiredFields({
+    name: customerForForm.name,
+    phone: customerForForm.phone,
+    email: customerForForm.email,
+    birthday: customer?.birthday ?? null,
+    gender: customerForForm.gender,
+  });
+  const needsCompletion = missing.length > 0;
+  const showOnboardingBanner = onboardingMode || needsCompletion;
+
   return (
     <div>
       <div className="mb-6 flex items-center gap-3">
-        <Link href="/book" className="text-earth-400 hover:text-earth-600 lg:hidden">
-          &larr;
-        </Link>
+        {/* 補件模式：不顯示返回連結，避免顧客繞過 */}
+        {!showOnboardingBanner && (
+          <Link href="/book" className="text-earth-400 hover:text-earth-600 lg:hidden">
+            &larr;
+          </Link>
+        )}
         <h1 className="text-xl font-bold text-earth-900">我的資料</h1>
       </div>
 
       <div className="space-y-6">
-        {/* 若找不到顧客資料，顯示提示（但仍 render form，讓顧客可補填） */}
-        {!customer && (
-          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-            目前找不到您的顧客資料，請補齊下列基本資料後儲存；或聯繫店家協助。
+        {/* 完成註冊 / 補件 onboarding 提示 */}
+        {showOnboardingBanner && (
+          <div className="rounded-2xl border border-primary-200 bg-primary-50/60 px-5 py-4 text-sm">
+            {!customer ? (
+              <>
+                <p className="font-semibold text-primary-800">
+                  歡迎使用暖暖蒸足
+                </p>
+                <p className="mt-1 text-primary-700/90">
+                  請先完成基本資料，才能開始預約與使用服務。
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="font-semibold text-primary-800">
+                  首次使用請完成基本資料
+                </p>
+                <p className="mt-1 text-primary-700/90">
+                  為了方便預約與聯繫，請先補齊基本資料後再繼續。
+                </p>
+              </>
+            )}
           </div>
         )}
 
         {/* 基本資料 */}
         <div className="rounded-2xl border border-earth-200 bg-white p-6 shadow-sm">
           <h2 className="mb-4 text-sm font-semibold text-earth-700">基本資料</h2>
-          <ProfileForm customer={customerForForm} age={age} />
+          <ProfileForm
+            customer={customerForForm}
+            age={age}
+            onboardingMode={showOnboardingBanner}
+            nextPath={nextPath}
+          />
         </div>
 
         {/* 修改密碼 */}

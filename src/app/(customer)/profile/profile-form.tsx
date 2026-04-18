@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { updateProfileAction, type ProfileState } from "@/server/actions/profile";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -17,19 +18,36 @@ interface Props {
     notes: string | null;
   };
   age: number | null;
+  onboardingMode?: boolean;
+  nextPath?: string | null;
 }
 
-export function ProfileForm({ customer, age }: Props) {
+export function ProfileForm({ customer, age, onboardingMode = false, nextPath = null }: Props) {
+  const router = useRouter();
   const [state, formAction, pending] = useActionState<ProfileState, FormData>(
     updateProfileAction,
     { error: null, success: false }
   );
 
-  // toast 提示
+  // toast 提示 + 成功後可能跳回 next
   useEffect(() => {
-    if (state.success) toast.success("個人資料已儲存");
+    if (state.success) {
+      toast.success(onboardingMode ? "完成註冊，開始使用吧！" : "個人資料已儲存");
+      const dest = nextPath || (onboardingMode ? "/book" : null);
+      if (dest) {
+        // 稍微延遲讓 toast 有時間顯示
+        const t = setTimeout(() => {
+          router.push(dest);
+          router.refresh();
+        }, 600);
+        return () => clearTimeout(t);
+      } else {
+        // 非 onboarding 且無 next：重新整理本頁以帶入最新資料
+        router.refresh();
+      }
+    }
     if (state.error) toast.error(state.error);
-  }, [state.success, state.error]);
+  }, [state.success, state.error, onboardingMode, nextPath, router]);
 
   return (
     <form action={formAction} className="space-y-4">
@@ -139,19 +157,25 @@ export function ProfileForm({ customer, age }: Props) {
         />
       </div>
 
+      {/* onboarding 模式帶上 next，server action 無需讀，但保留給表單顯示/未來擴充 */}
+      {nextPath && <input type="hidden" name="next" value={nextPath} />}
+
       <div className="flex gap-3">
         <button
           type="submit" disabled={pending}
           className="flex-1 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-60"
         >
-          {pending ? "儲存中..." : "儲存變更"}
+          {pending ? "儲存中..." : onboardingMode ? "完成註冊並開始使用" : "儲存變更"}
         </button>
-        <Link
-          href="/book"
-          className="flex items-center justify-center rounded-lg border border-earth-300 px-4 py-2.5 text-sm text-earth-600 hover:bg-earth-50"
-        >
-          取消
-        </Link>
+        {/* onboarding 模式下不顯示取消，避免顧客繞過補件 */}
+        {!onboardingMode && (
+          <Link
+            href="/book"
+            className="flex items-center justify-center rounded-lg border border-earth-300 px-4 py-2.5 text-sm text-earth-600 hover:bg-earth-50"
+          >
+            取消
+          </Link>
+        )}
       </div>
     </form>
   );
