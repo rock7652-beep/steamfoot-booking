@@ -216,11 +216,51 @@ export async function updateProfileAction(
             },
           }),
         );
-        await prisma.$transaction(ops);
-        await prisma.user.update({
-          where: { id: user.id },
-          data: { name },
-        });
+        try {
+          await prisma.$transaction(ops);
+        } catch (txErr) {
+          const txCode = (txErr as { code?: string })?.code;
+          const txMeta = (txErr as { meta?: { target?: string[] } })?.meta;
+          console.error("[updateProfileAction] Case A transaction failed", {
+            userId: user.id,
+            placeholderId: existingByUserId?.id ?? null,
+            realId: real.id,
+            prismaCode: txCode,
+            prismaTarget: txMeta?.target,
+            error: txErr instanceof Error ? txErr.message : String(txErr),
+            stack: txErr instanceof Error ? txErr.stack : undefined,
+          });
+          if (txCode === "P2002") {
+            const target = txMeta?.target;
+            if (target?.includes("userId")) {
+              return {
+                error: "系統偵測到此登入帳號已綁定另一筆顧客資料，請聯繫店家協助合併。",
+                success: false,
+              };
+            }
+            if (target?.includes("email") || target?.includes("uq_store_customer_email")) {
+              return { error: "此 Email 已被其他帳號使用", success: false };
+            }
+            if (target?.includes("phone") || target?.includes("uq_store_customer_phone")) {
+              return { error: "此聯絡電話已被其他帳號使用", success: false };
+            }
+          }
+          throw txErr; // 交給外層 catch
+        }
+
+        // User.name 同步為 nice-to-have，失敗不影響整體成功
+        try {
+          await prisma.user.update({
+            where: { id: user.id },
+            data: { name },
+          });
+        } catch (userUpdateErr) {
+          console.warn("[updateProfileAction] user.name sync failed (non-fatal)", {
+            userId: user.id,
+            error: userUpdateErr instanceof Error ? userUpdateErr.message : String(userUpdateErr),
+          });
+        }
+
         console.info("[updateProfileAction] merged (not_found path)", {
           userId: user.id,
           placeholderId: existingByUserId?.id ?? null,
@@ -301,6 +341,7 @@ export async function updateProfileAction(
       return { error: null, success: true };
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
+      const errStack = err instanceof Error ? err.stack : undefined;
       const prismaCode = (err as { code?: string })?.code;
       const prismaMeta = (err as { meta?: { target?: string[] } })?.meta;
       console.error("[updateProfileAction] not_found branch failed", {
@@ -311,10 +352,17 @@ export async function updateProfileAction(
         prismaCode,
         prismaTarget: prismaMeta?.target,
         error: errMsg,
+        stack: errStack,
       });
 
       if (prismaCode === "P2002") {
         const target = prismaMeta?.target;
+        if (target?.includes("userId")) {
+          return {
+            error: "系統偵測到此登入帳號已綁定另一筆顧客資料，請聯繫店家協助合併。",
+            success: false,
+          };
+        }
         if (target?.includes("email") || target?.includes("uq_store_customer_email")) {
           return { error: "此 Email 已被其他帳號使用", success: false };
         }
@@ -322,9 +370,15 @@ export async function updateProfileAction(
           return { error: "此聯絡電話已被其他帳號使用", success: false };
         }
       }
+      if (prismaCode === "P2025") {
+        return {
+          error: "系統找不到對應資料，請重新整理頁面後再試。",
+          success: false,
+        };
+      }
 
       return {
-        error: "建立顧客資料失敗，請稍後再試或聯繫店家",
+        error: `建立顧客資料失敗（${prismaCode ?? "unknown"}），請稍後再試或聯繫店家`,
         success: false,
       };
     }
