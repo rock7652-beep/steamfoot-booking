@@ -42,10 +42,8 @@ const DEFAULT_SHARE_BODY_TEMPLATE = [
   "可以去放鬆一下👇",
   "{url}",
   "",
-  "現在好像有體驗價",
-  "我記得是 $499",
-  "",
-  "有去的話再跟我說感覺 😆",
+  "現在還有體驗價$499",
+  "想去趕快約喔",
 ].join("\n");
 
 export interface BuildShareTextOpts {
