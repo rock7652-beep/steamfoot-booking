@@ -467,7 +467,7 @@ export async function getUpgradeEligibility(
   // 組裝符合原因
   const upgradeReasons: string[] = [];
   if (readinessMet) upgradeReasons.push(`準備度已達 ${readinessLevel}`);
-  if (pointsMet) upgradeReasons.push(`積分已達 ${customer.totalPoints} 分`);
+  if (pointsMet) upgradeReasons.push(`點數已達 ${customer.totalPoints} 點`);
   if (referralsMet) upgradeReasons.push(`轉介紹已達 ${referralCount} 次`);
 
   // 組裝引導建議
@@ -476,7 +476,7 @@ export async function getUpgradeEligibility(
     guidance.push("持續穩定參與、提升出席率，讓準備度達到 HIGH 以上");
   }
   if (!pointsMet) {
-    guidance.push(`積分還差 ${UPGRADE_THRESHOLDS.pointsRequired - customer.totalPoints} 分，建議多參加服務或轉介紹`);
+    guidance.push(`點數還差 ${UPGRADE_THRESHOLDS.pointsRequired - customer.totalPoints} 點，建議多參加服務或轉介紹`);
   }
   if (!referralsMet) {
     guidance.push(`轉介紹還差 ${UPGRADE_THRESHOLDS.referralsRequired - referralCount} 次，邀請朋友來體驗`);

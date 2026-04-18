@@ -71,7 +71,7 @@ export default async function TalentDashboardPage() {
           <div>
             <h1 className="text-lg font-bold text-earth-900">人才培育</h1>
             <p className="mt-0.5 text-sm text-earth-500">
-              整併 readiness / 積分 / 轉介 / 準店長視角，掌握誰會成為下一個店長
+              整併 readiness / 點數 / 轉介 / 準店長視角，掌握誰會成為下一個店長
             </p>
           </div>
           <Link
@@ -115,7 +115,7 @@ export default async function TalentDashboardPage() {
                 下一個店長候選人 (TOP 5)
               </h2>
               <p className="mt-0.5 text-[11px] text-earth-400">
-                依準備度、積分、帶出人數綜合排序
+                依準備度、點數、帶出人數綜合排序
               </p>
             </div>
             <Link
@@ -163,7 +163,7 @@ export default async function TalentDashboardPage() {
                   </div>
                   <div className="flex items-center gap-2 text-[11px]">
                     <span className="text-earth-500">{c.readinessScore}分</span>
-                    <span className="text-primary-500">{c.totalPoints}積分</span>
+                    <span className="text-primary-500">{c.totalPoints} 點</span>
                     <span className="text-blue-500">{c.referralCount}轉介</span>
                     <span className="text-amber-600">{c.referralPartnerCount}帶出</span>
                     <span className="text-green-600">{c.attendanceCount}出席</span>

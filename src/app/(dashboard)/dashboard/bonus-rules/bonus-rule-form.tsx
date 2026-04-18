@@ -45,7 +45,7 @@ export function BonusRuleForm() {
         </div>
         <div>
           <label className="mb-1 block text-xs font-medium text-earth-600">
-            積分 <span className="text-red-500">*</span>
+            點數 <span className="text-red-500">*</span>
           </label>
           <input
             type="number"
@@ -63,7 +63,7 @@ export function BonusRuleForm() {
         <input
           type="text"
           name="description"
-          placeholder="例如：參加每月舉辦的創業說明會即可獲得積分"
+          placeholder="例如：參加每月舉辦的創業說明會即可獲得點數"
           className="w-full rounded-lg border border-earth-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
         />
       </div>

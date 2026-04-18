@@ -85,7 +85,7 @@ export function TalentKpiSection({
                   </div>
                   <div className="flex items-center gap-2 text-[11px]">
                     <span className="text-earth-500">{c.readinessScore}分</span>
-                    <span className="text-primary-500">{c.totalPoints}積分</span>
+                    <span className="text-primary-500">{c.totalPoints} 點</span>
                     <span className="text-blue-500">{c.referralCount}轉介</span>
                     <span className="text-amber-600">{c.referralPartnerCount}帶出</span>
                   </div>
@@ -167,7 +167,7 @@ export function PartnerDashboardSection({
       </div>
 
       <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
-        <MiniKpi label="我的積分" value={totalPoints} unit="分" color="text-primary-600" />
+        <MiniKpi label="我的點數" value={totalPoints} unit="點" color="text-primary-600" />
         <MiniKpi label="轉介紹數" value={referralCount} unit="次" color="text-blue-600" />
         <MiniKpi label="顧客數" value={customerCount} unit="位" color="text-earth-600" />
       </div>
@@ -200,7 +200,7 @@ export function PartnerDashboardSection({
             text={`${elig.upgradeProgress.readiness.current}（需 ${elig.upgradeProgress.readiness.required}+）`}
           />
           <UpgradeProgressRow
-            label="積分"
+            label="點數"
             met={elig.upgradeProgress.points.met}
             text={`${elig.upgradeProgress.points.current} / ${elig.upgradeProgress.points.required}`}
             pct={Math.min(
@@ -318,7 +318,7 @@ function GrowthAdvice({
       tips.push("準備度尚在培養中，建議提升出席次數與轉介紹數");
     }
     if (totalPoints < 100) {
-      tips.push("累積更多積分，展現行動力");
+      tips.push("累積更多點數，展現行動力");
     }
   }
 

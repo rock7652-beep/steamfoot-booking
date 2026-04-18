@@ -101,17 +101,17 @@ export function ManualPointsForm({ customerId, bonusRules }: Props) {
                     <option value="">自由輸入</option>
                     {bonusRules.map((rule) => (
                       <option key={rule.id} value={rule.id}>
-                        {rule.name}（+{rule.points} 分）
+                        {rule.name}（+{rule.points} 點）
                       </option>
                     ))}
                   </select>
                 </div>
               )}
 
-              {/* 積分 */}
+              {/* 點數 */}
               <div>
                 <label className="mb-1 block text-xs font-medium text-earth-600">
-                  積分 <span className="text-red-500">*</span>
+                  點數 <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="number"
@@ -122,7 +122,7 @@ export function ManualPointsForm({ customerId, bonusRules }: Props) {
                   required
                   className="w-full rounded-lg border border-earth-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
                 />
-                <p className="mt-1 text-[11px] text-earth-400">正數為加分，負數為扣分</p>
+                <p className="mt-1 text-[11px] text-earth-400">正數為加點，負數為扣點</p>
               </div>
 
               {/* 備註 */}

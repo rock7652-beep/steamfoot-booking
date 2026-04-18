@@ -344,7 +344,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
       )}
 
       {/* ═══════════════════════════════════════════════ */}
-      {/* 行動積分（獨立區塊）                            */}
+      {/* 集點（獨立區塊）                                */}
       {/* ═══════════════════════════════════════════════ */}
       {user.role !== "CUSTOMER" && (
         <div className="rounded-xl border bg-white p-6 shadow-sm">

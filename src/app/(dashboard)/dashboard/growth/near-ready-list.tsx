@@ -51,7 +51,7 @@ export function NearReadyList({ scores, showAll }: Props) {
                   {s.score}
                 </span>
                 <span className="text-[11px] text-earth-400">/100</span>
-                <p className="text-[10px] text-primary-500">{s.metrics.totalPoints}積分</p>
+                <p className="text-[10px] text-primary-500">{s.metrics.totalPoints} 點</p>
               </div>
 
               {/* Badge */}
@@ -102,8 +102,8 @@ export function NearReadyList({ scores, showAll }: Props) {
                   score={s.metrics.timeScore}
                 />
                 <div>
-                  <p className="text-earth-400">行動積分</p>
-                  <p className="font-bold text-primary-600">{s.metrics.totalPoints} 分</p>
+                  <p className="text-earth-400">集點</p>
+                  <p className="font-bold text-primary-600">{s.metrics.totalPoints} 點</p>
                   <p className="mt-1 text-[10px] text-earth-400">參考值</p>
                 </div>
               </div>

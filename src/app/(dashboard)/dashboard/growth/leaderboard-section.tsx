@@ -77,7 +77,7 @@ export function LeaderboardSection({
   const [activeTab, setActiveTab] = useState<Tab>("points");
 
   const tabs: { key: Tab; label: string }[] = [
-    { key: "points", label: "積分排行" },
+    { key: "points", label: "集點排行" },
     { key: "referral", label: "轉介紹排行" },
     { key: "growth", label: "成長排行" },
   ];
@@ -146,10 +146,10 @@ function PointsTab({
             id: m.customerId,
             name: m.name,
             value: m.monthPoints,
-            unit: "分",
+            unit: "點",
             stage: m.talentStage,
           }))}
-          emptyText="本月尚無積分紀錄"
+          emptyText="本月尚無集點紀錄"
         />
       ) : (
         <RankList
@@ -157,10 +157,10 @@ function PointsTab({
             id: m.customerId,
             name: m.name,
             value: m.totalPoints,
-            unit: "分",
+            unit: "點",
             stage: m.talentStage,
           }))}
-          emptyText="尚無積分紀錄"
+          emptyText="尚無集點紀錄"
         />
       )}
     </div>

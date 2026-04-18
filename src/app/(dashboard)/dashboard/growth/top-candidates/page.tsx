@@ -59,7 +59,7 @@ export default async function TopCandidatesPage() {
       <div className="rounded-2xl bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
         <h1 className="text-lg font-bold text-earth-900">TOP 10 高潛力候選人</h1>
         <p className="mt-0.5 text-sm text-earth-500">
-          依準備度分數、累積積分、帶出人數與出席率綜合排序
+          依準備度分數、累積點數、帶出人數與出席率綜合排序
         </p>
       </div>
 
@@ -67,7 +67,7 @@ export default async function TopCandidatesPage() {
         <div className="rounded-2xl border border-earth-200 bg-white p-8 text-center shadow-sm">
           <p className="text-sm text-earth-500">目前尚無足夠資料的候選人。</p>
           <p className="mt-1 text-xs text-earth-400">
-            當成員累積推薦、積分與出席後，會自動出現在這裡。
+            當成員累積推薦、點數與出席後，會自動出現在這裡。
           </p>
         </div>
       ) : (
@@ -140,7 +140,7 @@ export default async function TopCandidatesPage() {
                   {/* 指標 */}
                   <div className="mt-3 grid grid-cols-6 gap-2 border-t border-earth-100 pt-3 text-center">
                     <MetricCell label="分數" value={c.readinessScore} color="earth" />
-                    <MetricCell label="積分" value={c.totalPoints} color="primary" />
+                    <MetricCell label="點數" value={c.totalPoints} color="primary" />
                     <MetricCell label="轉介" value={c.referralCount} color="blue" />
                     <MetricCell label="帶出" value={c.referralPartnerCount} color="amber" />
                     <MetricCell label="出席" value={c.attendanceCount} color="green" />
