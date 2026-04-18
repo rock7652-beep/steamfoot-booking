@@ -1,7 +1,9 @@
 import { getCurrentUser } from "@/lib/session";
 import { getStoreContext } from "@/lib/store-context";
-import { getMyReferralSummary } from "@/server/queries/my-referral-summary";
-import { redirect } from "next/navigation";
+import {
+  getMyReferralSummary,
+  type MyReferralSummary,
+} from "@/server/queries/my-referral-summary";
 import Link from "next/link";
 import { ShareReferral } from "@/components/share-referral";
 import { buildReferralEntryUrl } from "@/lib/share";
@@ -9,19 +11,42 @@ import { buildReferralEntryUrl } from "@/lib/share";
 /**
  * 我的好康 — 把既有 referral / points / growth 資料用更輕鬆的語言整合呈現。
  * 不新增任務系統、不改 schema。
+ *
+ * Hardening:
+ *   - 不做 role 檢查（由 (customer)/layout.tsx 處理）
+ *   - 不對沒有 customerId 的情況 redirect("/") — 顯示穩定的 empty state
+ *   - DB 查詢失敗時 fallback 空 summary，避免整頁 500
  */
+const EMPTY_SUMMARY: MyReferralSummary = {
+  visitedCount: 0,
+  lineJoinCount: 0,
+  shareCount: 0,
+  convertedCount: 0,
+  totalPoints: 0,
+  nextMilestone: { label: "下一個回饋", target: 100, remaining: 100 },
+  growthEligible: false,
+};
+
 export default async function MyPerksPage() {
   const user = await getCurrentUser();
-  if (!user || user.role !== "CUSTOMER" || !user.customerId) redirect("/");
 
   const storeCtx = await getStoreContext();
   const storeSlug = storeCtx?.storeSlug ?? "zhubei";
   const storeId = storeCtx?.storeId ?? null;
-  const referralUrl = buildReferralEntryUrl(storeSlug, user.customerId);
 
-  const summary = await getMyReferralSummary(user.customerId, {
-    activeStoreId: storeId,
-  });
+  // 若取不到 customerId（stale session 等邊界情況）— 顯示靜態 empty state，不 redirect
+  const customerId = user?.customerId ?? null;
+  const referralUrl = customerId ? buildReferralEntryUrl(storeSlug, customerId) : "#";
+
+  let summary: MyReferralSummary = EMPTY_SUMMARY;
+  if (customerId) {
+    try {
+      summary = await getMyReferralSummary(customerId, { activeStoreId: storeId });
+    } catch (err) {
+      console.error("[my-referrals] getMyReferralSummary failed", err);
+      // 保留 EMPTY_SUMMARY，頁面繼續渲染
+    }
+  }
 
   const milestone = summary.nextMilestone;
   const progress = milestone
@@ -113,7 +138,7 @@ export default async function MyPerksPage() {
               variant="full"
               referralCount={summary.lineJoinCount}
               storeId={storeId ?? undefined}
-              referrerId={user.customerId}
+              referrerId={customerId ?? undefined}
               source="my-perks"
             />
           </div>

@@ -77,9 +77,11 @@ export function ProfileForm({ customer, age }: Props) {
       </div>
 
       <div>
-        <label htmlFor="email" className="mb-1 block text-sm font-medium text-earth-700">Email（選填）</label>
+        <label htmlFor="email" className="mb-1 block text-sm font-medium text-earth-700">
+          Email <span className="text-red-500">*</span>
+        </label>
         <input
-          id="email" name="email" type="email"
+          id="email" name="email" type="email" required
           defaultValue={customer.email ?? ""}
           placeholder="example@email.com"
           className="w-full rounded-lg border border-earth-300 px-3 py-2.5 text-sm text-earth-900 placeholder:text-earth-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
@@ -88,9 +90,11 @@ export function ProfileForm({ customer, age }: Props) {
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label htmlFor="birthday" className="mb-1 block text-sm font-medium text-earth-700">生日</label>
+          <label htmlFor="birthday" className="mb-1 block text-sm font-medium text-earth-700">
+            生日 <span className="text-red-500">*</span>
+          </label>
           <input
-            id="birthday" name="birthday" type="date"
+            id="birthday" name="birthday" type="date" required
             defaultValue={customer.birthday ?? ""}
             className="w-full rounded-lg border border-earth-300 px-3 py-2.5 text-sm text-earth-900 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
           />
@@ -100,13 +104,15 @@ export function ProfileForm({ customer, age }: Props) {
         </div>
 
         <div>
-          <label htmlFor="gender" className="mb-1 block text-sm font-medium text-earth-700">性別</label>
+          <label htmlFor="gender" className="mb-1 block text-sm font-medium text-earth-700">
+            性別 <span className="text-red-500">*</span>
+          </label>
           <select
-            id="gender" name="gender"
+            id="gender" name="gender" required
             defaultValue={customer.gender ?? ""}
             className="w-full rounded-lg border border-earth-300 px-3 py-2.5 text-sm text-earth-900 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
           >
-            <option value="">不指定</option>
+            <option value="" disabled>請選擇</option>
             <option value="male">男</option>
             <option value="female">女</option>
             <option value="other">其他</option>
@@ -115,9 +121,11 @@ export function ProfileForm({ customer, age }: Props) {
       </div>
 
       <div>
-        <label htmlFor="height" className="mb-1 block text-sm font-medium text-earth-700">身高（cm）</label>
+        <label htmlFor="height" className="mb-1 block text-sm font-medium text-earth-700">
+          身高（cm）<span className="text-red-500">*</span>
+        </label>
         <input
-          id="height" name="height" type="number" min="50" max="250" step="0.1"
+          id="height" name="height" type="number" min="50" max="250" step="0.1" required
           defaultValue={customer.height ?? ""}
           placeholder="例：165"
           className="w-full rounded-lg border border-earth-300 px-3 py-2.5 text-sm text-earth-900 placeholder:text-earth-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
@@ -125,9 +133,11 @@ export function ProfileForm({ customer, age }: Props) {
       </div>
 
       <div>
-        <label htmlFor="address" className="mb-1 block text-sm font-medium text-earth-700">地址（選填）</label>
+        <label htmlFor="address" className="mb-1 block text-sm font-medium text-earth-700">
+          地址 <span className="text-red-500">*</span>
+        </label>
         <input
-          id="address" name="address" type="text"
+          id="address" name="address" type="text" required
           defaultValue={customer.address ?? ""}
           placeholder="請輸入地址"
           className="w-full rounded-lg border border-earth-300 px-3 py-2.5 text-sm text-earth-900 placeholder:text-earth-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
@@ -139,7 +149,7 @@ export function ProfileForm({ customer, age }: Props) {
         <textarea
           id="notes" name="notes" rows={2}
           defaultValue={customer.notes ?? ""}
-          placeholder="個人備註"
+          placeholder="個人備註（若資料有缺請忽略必填，可先提交其他欄位）"
           className="w-full rounded-lg border border-earth-300 px-3 py-2.5 text-sm text-earth-900 placeholder:text-earth-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
         />
       </div>

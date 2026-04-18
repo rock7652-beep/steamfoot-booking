@@ -16,6 +16,15 @@
 const DEFAULT_SHARE_BODY =
   "我最近去這間放鬆，真的蠻舒服的\n\n如果你最近也有點累\n可以去試試看👇\n";
 
+/**
+ * 官方 LINE 分享連結（含 ref tracking）。
+ * 使用 lin.ee 短網址讓朋友直接加 LINE 好友，ref 供 webhook 端解析。
+ */
+const OFFICIAL_LINE_BASE_URL = "https://lin.ee/8ohprFv";
+
+/** 分享完 URL 之後附加的尾句（留空；避免強迫推銷感） */
+const DEFAULT_SHARE_TAIL = "\n跟他們說是我介紹的就好 😊";
+
 export interface BuildShareTextOpts {
   /** 邀請人姓名（可選，目前預設不帶入文案中；保留以利未來 A/B） */
   inviterName?: string | null;
@@ -31,31 +40,43 @@ export function buildShareText(opts: BuildShareTextOpts = {}): string {
 }
 
 /**
- * 組合推薦中繼頁的完整 URL。
- * 統一走 /s/[storeSlug]/line-entry?ref={code}，
- * 避免各處各自拼 ?ref= 到不同入口。
+ * 組合推薦分享的完整 URL。
  *
- * @param storeSlug 店家 slug（必填，不 fallback zhubei，避免誤導流到別店）
+ * v3: 改為官方 LINE 好友連結 https://lin.ee/... 並以 query 帶 ref。
+ *     朋友點擊後直接加 LINE 官方帳號；ref 由 LINE webhook 端解析（後續實作）。
+ *
+ * @param storeSlug 保留簽名相容（這版本不使用，但維持介面以免打破呼叫端）
  * @param code      推薦碼（通常是 customerId）
- * @param origin    可選的絕對 origin（server-side 使用）；省略則回傳相對路徑
+ * @param origin    保留簽名相容
  */
 export function buildReferralEntryUrl(
+  _storeSlug: string,
+  code: string,
+  _origin?: string,
+): string {
+  return `${OFFICIAL_LINE_BASE_URL}?ref=${encodeURIComponent(code)}`;
+}
+
+/**
+ * 內部用：店內 line-entry 頁連結（bot 歡迎訊息用）。
+ * 前台分享已不再使用此 URL，但註冊/綁定頁仍會從 ref cookie 讀取。
+ */
+export function buildStoreLineEntryUrl(
   storeSlug: string,
   code: string,
   origin?: string,
 ): string {
   const path = `/s/${storeSlug}/line-entry?ref=${encodeURIComponent(code)}`;
   if (!origin) return path;
-  const trimmed = origin.replace(/\/$/, "");
-  return `${trimmed}${path}`;
+  return `${origin.replace(/\/$/, "")}${path}`;
 }
 
 /**
  * 組合 LINE share URL（可直接放在 <a href>）。
- * 會把文字 + 連結串起來 → encodeURIComponent → 套進 line.me/R/share。
+ * 會把文字 + 連結 + 尾句串起來 → encodeURIComponent → 套進 line.me/R/share。
  */
 export function buildLineShareUrl(text: string, shareUrl: string): string {
-  const full = `${text}${shareUrl}`;
+  const full = `${text}${shareUrl}${DEFAULT_SHARE_TAIL}`;
   return `https://line.me/R/share?text=${encodeURIComponent(full)}`;
 }
 

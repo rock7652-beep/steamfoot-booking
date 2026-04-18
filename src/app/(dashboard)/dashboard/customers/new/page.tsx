@@ -22,13 +22,14 @@ export default async function NewCustomerPage({}: PageProps) {
     "use server";
     const assignedStaffIdRaw = formData.get("assignedStaffId") as string;
     const lineNameRaw = formData.get("lineName") as string;
-    const emailRaw = formData.get("email") as string;
     const notesRaw = formData.get("notes") as string;
 
     const result = await createCustomer({
       name: formData.get("name") as string,
       phone: formData.get("phone") as string,
-      email: emailRaw || undefined,
+      email: formData.get("email") as string,
+      gender: formData.get("gender") as "male" | "female" | "other",
+      birthday: formData.get("birthday") as string,
       lineName: lineNameRaw || undefined,
       notes: notesRaw || undefined,
       assignedStaffId: assignedStaffIdRaw || undefined,
@@ -58,7 +59,9 @@ export default async function NewCustomerPage({}: PageProps) {
         <form action={handleSubmit} className="space-y-4">
           {/* Name */}
           <div>
-            <label className="block text-sm font-medium text-earth-700">姓名</label>
+            <label className="block text-sm font-medium text-earth-700">
+              姓名 <span className="text-red-500">*</span>
+            </label>
             <input
               type="text"
               name="name"
@@ -70,17 +73,68 @@ export default async function NewCustomerPage({}: PageProps) {
 
           {/* Phone */}
           <div>
-            <label className="block text-sm font-medium text-earth-700">電話</label>
+            <label className="block text-sm font-medium text-earth-700">
+              電話 <span className="text-red-500">*</span>
+            </label>
             <input
               type="tel"
               name="phone"
               required
+              pattern="^09\d{8}$"
+              title="09 開頭共 10 碼"
               className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
-              placeholder="輸入電話號碼"
+              placeholder="09 開頭共 10 碼"
             />
           </div>
 
-          {/* Line Name */}
+          {/* Email */}
+          <div>
+            <label className="block text-sm font-medium text-earth-700">
+              Email <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="email"
+              name="email"
+              required
+              className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
+              placeholder="example@email.com"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            {/* Gender */}
+            <div>
+              <label className="block text-sm font-medium text-earth-700">
+                性別 <span className="text-red-500">*</span>
+              </label>
+              <select
+                name="gender"
+                required
+                defaultValue=""
+                className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
+              >
+                <option value="" disabled>請選擇</option>
+                <option value="male">男</option>
+                <option value="female">女</option>
+                <option value="other">其他</option>
+              </select>
+            </div>
+
+            {/* Birthday */}
+            <div>
+              <label className="block text-sm font-medium text-earth-700">
+                生日 <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="date"
+                name="birthday"
+                required
+                className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
+              />
+            </div>
+          </div>
+
+          {/* Line Name — optional */}
           <div>
             <label className="block text-sm font-medium text-earth-700">LINE 名稱</label>
             <input
@@ -91,7 +145,7 @@ export default async function NewCustomerPage({}: PageProps) {
             />
           </div>
 
-          {/* Notes */}
+          {/* Notes — optional */}
           <div>
             <label className="block text-sm font-medium text-earth-700">備註</label>
             <textarea
@@ -99,17 +153,6 @@ export default async function NewCustomerPage({}: PageProps) {
               rows={3}
               className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
               placeholder="輸入備註（選填）"
-            />
-          </div>
-
-          {/* Email */}
-          <div>
-            <label className="block text-sm font-medium text-earth-700">Email</label>
-            <input
-              type="email"
-              name="email"
-              className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
-              placeholder="輸入 Email（選填，供 Google 綁定比對）"
             />
           </div>
 

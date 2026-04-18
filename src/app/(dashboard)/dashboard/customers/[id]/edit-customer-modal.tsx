@@ -24,23 +24,18 @@ export function EditCustomerModal({ customer }: { customer: CustomerData }) {
       const form = document.getElementById("edit-customer-form") as HTMLFormElement;
       const fd = new FormData(form);
 
-      const input: Record<string, unknown> = {
-        name: fd.get("name") as string,
-        phone: fd.get("phone") as string,
-        email: (fd.get("email") as string) || null,
-        gender: (fd.get("gender") as string) || null,
-        birthday: (fd.get("birthday") as string) || null,
-        notes: (fd.get("notes") as string) || null,
-        lineName: (fd.get("lineName") as string) || null,
-      };
-
       const heightStr = fd.get("height") as string;
-      if (heightStr) {
-        const h = parseFloat(heightStr);
-        if (!isNaN(h)) input.height = h;
-      } else {
-        input.height = null;
-      }
+      const height = parseFloat(heightStr);
+      const input = {
+        name: (fd.get("name") as string) ?? "",
+        phone: (fd.get("phone") as string) ?? "",
+        email: (fd.get("email") as string) ?? "",
+        gender: (fd.get("gender") as string) as "male" | "female" | "other",
+        birthday: (fd.get("birthday") as string) ?? "",
+        height: isNaN(height) ? 0 : height,
+        lineName: (fd.get("lineName") as string) || null,
+        notes: (fd.get("notes") as string) || null,
+      };
 
       const result = await updateCustomer(customer.id, input);
       if (result.success) {
@@ -192,15 +187,12 @@ export function EditCustomerModal({ customer }: { customer: CustomerData }) {
               />
             </div>
 
-            {/* LINE 名稱 */}
+            {/* LINE 名稱（自動由 LINE 綁定填入，可空） */}
             <div>
-              <label className="block text-sm font-medium text-earth-700">
-                LINE 名稱 <span className="text-red-500">*</span>
-              </label>
+              <label className="block text-sm font-medium text-earth-700">LINE 名稱</label>
               <input
                 name="lineName"
                 type="text"
-                required
                 defaultValue={customer.lineName ?? ""}
                 className="mt-1 w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
               />
