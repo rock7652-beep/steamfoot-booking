@@ -128,7 +128,82 @@ export async function updateProfileAction(
       });
 
       if (existingByUserId) {
-        // 已有 customer（可能在別店或 OAuth 自動建立的佔位）→ 更新到當前 store context
+        // existingByUserId 可能是 auth.ts 建的佔位（phone=_oauth_xxx）
+        // 或在別店的殘留 Customer。要更新到當前 store + 真實 phone/email 前，
+        // 先檢查當前 store 是否有另一筆 real Customer 已用同 phone / email。
+        const phoneConflict = await prisma.customer.findFirst({
+          where: { phone, storeId, id: { not: existingByUserId.id } },
+          select: { id: true, userId: true },
+        });
+        const emailConflict =
+          !phoneConflict
+            ? await prisma.customer.findFirst({
+                where: { email, storeId, id: { not: existingByUserId.id } },
+                select: { id: true, userId: true },
+              })
+            : null;
+        const realConflict = phoneConflict ?? emailConflict;
+
+        if (realConflict) {
+          // 同店已有真人 Customer 用這組 phone/email。安全條件下做 merge。
+          if (realConflict.userId && realConflict.userId !== user.id) {
+            console.warn(
+              "[updateProfileAction] merge blocked (not_found path) — real owned by another",
+              {
+                userId: user.id,
+                placeholderId: existingByUserId.id,
+                realId: realConflict.id,
+                realUserId: realConflict.userId,
+              },
+            );
+            return {
+              error:
+                "此聯絡電話/Email 已綁定其他登入帳號。若確認是您本人，請聯繫店家協助。",
+              success: false,
+            };
+          }
+
+          await prisma.$transaction([
+            prisma.customer.update({
+              where: { id: existingByUserId.id },
+              data: { userId: null },
+            }),
+            prisma.customer.update({
+              where: { id: realConflict.id },
+              data: {
+                userId: user.id,
+                name,
+                phone,
+                email,
+                gender,
+                birthday,
+                height,
+                address,
+                notes,
+              },
+            }),
+          ]);
+
+          await prisma.user.update({
+            where: { id: user.id },
+            data: { name },
+          });
+
+          console.info(
+            "[updateProfileAction] placeholder merged into real (not_found path)",
+            {
+              userId: user.id,
+              placeholderId: existingByUserId.id,
+              realId: realConflict.id,
+              mergedBy: phoneConflict ? "phone" : "email",
+            },
+          );
+
+          revalidatePath("/profile");
+          return { error: null, success: true };
+        }
+
+        // 沒有 conflict → 正常更新 existingByUserId 到當前 store
         console.info(
           "[updateProfileAction] existing customer found via userId unique — updating in place",
           {
