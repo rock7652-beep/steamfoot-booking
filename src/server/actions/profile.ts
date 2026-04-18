@@ -16,8 +16,24 @@ export async function updateProfileAction(
   formData: FormData
 ): Promise<ProfileState> {
   const user = await requireSession();
-  if (user.role !== "CUSTOMER" || !user.customerId) {
+  if (user.role !== "CUSTOMER") {
     return { error: "權限不足", success: false };
+  }
+
+  // session.customerId 若為 null（OAuth 剛綁定後，JWT 尚未刷新）→ fallback 以 userId 找
+  let customerId: string | null = user.customerId ?? null;
+  if (!customerId) {
+    const linked = await prisma.customer.findFirst({
+      where: { userId: user.id },
+      select: { id: true },
+    });
+    customerId = linked?.id ?? null;
+  }
+  if (!customerId) {
+    return {
+      error: "找不到您的顧客資料，請聯繫店家協助建立",
+      success: false,
+    };
   }
 
   const name = (formData.get("name") as string)?.trim();
@@ -59,16 +75,21 @@ export async function updateProfileAction(
   try {
     // 檢查 phone unique（排除自己，限同店）
     const currentCustomer = await prisma.customer.findUnique({
-      where: { id: user.customerId },
+      where: { id: customerId },
       select: { phone: true, userId: true, storeId: true },
     });
-    if (!currentCustomer) return { error: "找不到帳號", success: false };
+    if (!currentCustomer) {
+      return {
+        error: "找不到您的顧客資料，請重新整理頁面或聯繫店家",
+        success: false,
+      };
+    }
 
     // 聯絡電話 — 用途：預約聯繫。不再視為登入帳號，不會強迫登出。
     // 仍檢查同店 unique 避免重複。
     if (phone !== currentCustomer.phone) {
       const existingPhone = await prisma.customer.findFirst({
-        where: { phone, id: { not: user.customerId }, storeId: currentCustomer.storeId },
+        where: { phone, id: { not: customerId }, storeId: currentCustomer.storeId },
       });
       if (existingPhone) {
         return { error: "此聯絡電話已被其他帳號使用", success: false };
@@ -78,7 +99,7 @@ export async function updateProfileAction(
     // 檢查 email unique（限同店）
     if (email) {
       const existingEmail = await prisma.customer.findFirst({
-        where: { email, id: { not: user.customerId }, storeId: currentCustomer.storeId },
+        where: { email, id: { not: customerId }, storeId: currentCustomer.storeId },
       });
       if (existingEmail) {
         return { error: "此 Email 已被其他帳號使用", success: false };
@@ -86,7 +107,7 @@ export async function updateProfileAction(
     }
 
     await prisma.customer.update({
-      where: { id: user.customerId },
+      where: { id: customerId },
       data: { name, phone, email, gender, birthday, height, address, notes },
     });
 
