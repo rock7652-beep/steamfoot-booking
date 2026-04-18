@@ -217,6 +217,96 @@ export async function updateProfileAction(
   const customerId = resolved.customer.id;
   const customerStoreId = resolved.customer.storeId;
 
+  // ── Placeholder → Real merge 偵測 ─────────────────
+  // 情境：auth.ts 在 LINE/Google 首次登入時建了佔位 Customer（phone=_oauth_xxx），
+  // 但後台早已有一筆「真人 Customer」（staff 建的）存在，phone/email 對得上。
+  // 這時 update 佔位會撞到同店 phone/email unique。
+  // 安全條件：真人 Customer 的 userId 為 null（未被佔用）或等於當前使用者。
+  const isResolvedPlaceholder =
+    resolved.customer.phone.startsWith("_oauth_");
+
+  if (isResolvedPlaceholder) {
+    try {
+      const realByPhone = await prisma.customer.findFirst({
+        where: { phone, id: { not: customerId }, storeId: customerStoreId },
+        select: { id: true, userId: true },
+      });
+      const realByEmail =
+        !realByPhone
+          ? await prisma.customer.findFirst({
+              where: { email, id: { not: customerId }, storeId: customerStoreId },
+              select: { id: true, userId: true },
+            })
+          : null;
+      const real = realByPhone ?? realByEmail;
+
+      if (real) {
+        if (real.userId && real.userId !== user.id) {
+          console.warn(
+            "[updateProfileAction] merge blocked — real customer owned by another user",
+            {
+              userId: user.id,
+              placeholderId: customerId,
+              realId: real.id,
+              realUserId: real.userId,
+            },
+          );
+          return {
+            error:
+              "此聯絡電話/Email 已綁定其他登入帳號。若確認是您本人，請聯繫店家協助。",
+            success: false,
+          };
+        }
+
+        // Merge: 先把佔位的 userId 釋放，再把真人 Customer 綁到當前 userId 並更新欄位
+        await prisma.$transaction([
+          prisma.customer.update({
+            where: { id: customerId },
+            data: { userId: null },
+          }),
+          prisma.customer.update({
+            where: { id: real.id },
+            data: {
+              userId: user.id,
+              name,
+              phone,
+              email,
+              gender,
+              birthday,
+              height,
+              address,
+              notes,
+            },
+          }),
+        ]);
+
+        console.info("[updateProfileAction] placeholder merged into real", {
+          userId: user.id,
+          placeholderId: customerId,
+          realId: real.id,
+          mergedBy: realByPhone ? "phone" : "email",
+        });
+
+        // 同步 User.name
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { name },
+        });
+
+        revalidatePath("/profile");
+        return { error: null, success: true };
+      }
+      // real 不存在 → 放行繼續下方正常 update（更新佔位並換成使用者輸入的真資料）
+    } catch (err) {
+      console.error("[updateProfileAction] merge probe failed", {
+        userId: user.id,
+        customerId,
+        err,
+      });
+      // 不中斷，繼續往下走正常 update；若撞 unique 會由下方 catch 處理
+    }
+  }
+
   try {
     // 額外的 unique 檢查：phone/email 是否被「其他」人佔用（同店）
     if (phone !== resolved.customer.phone) {
