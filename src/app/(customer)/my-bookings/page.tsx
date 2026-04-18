@@ -1,4 +1,5 @@
 import { getCurrentUser } from "@/lib/session";
+import { prisma } from "@/lib/db";
 import { listBookings } from "@/server/queries/booking";
 import { getHealthCardData } from "@/server/queries/health-card";
 import { redirect } from "next/navigation";
@@ -23,11 +24,17 @@ export default async function MyBookingsPage({ searchParams }: PageProps) {
 
   const tab = params.tab ?? "upcoming";
 
-  // 並行取預約 + 健康卡片資料
-  const [{ bookings }, healthCard] = await Promise.all([
+  // 並行取預約 + 健康卡片 + 方案錢包（供頂部方案摘要顯示）
+  const [{ bookings }, healthCard, planSummary] = await Promise.all([
     listBookings({ pageSize: 50 }),
     getHealthCardData(user.customerId),
+    prisma.customerPlanWallet.findMany({
+      where: { customerId: user.customerId, status: "ACTIVE" },
+      select: { remainingSessions: true },
+    }),
   ]);
+
+  const totalRemaining = planSummary.reduce((s, w) => s + w.remainingSessions, 0);
 
   // ── 依日期+時間拆分，而非僅依狀態 ──
   // upcoming = 未來 + 今日未過時段 的 PENDING/CONFIRMED
@@ -54,7 +61,7 @@ export default async function MyBookingsPage({ searchParams }: PageProps) {
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Link href="/book" className="text-earth-400 hover:text-earth-600 lg:hidden">&larr;</Link>
-          <h1 className="text-xl font-bold text-earth-900">我的預約</h1>
+          <h1 className="text-xl font-bold text-earth-900">預約與方案</h1>
         </div>
         <Link
           href="/book/new"
@@ -63,6 +70,32 @@ export default async function MyBookingsPage({ searchParams }: PageProps) {
           <span>＋</span>
           新增預約
         </Link>
+      </div>
+
+      {/* 方案摘要（將「我的方案」的重點資訊合併進同一主選單）*/}
+      <div className="mb-5 rounded-2xl bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs text-earth-500">目前方案</p>
+            {totalRemaining > 0 ? (
+              <p className="mt-0.5 text-lg font-bold text-earth-900">
+                剩餘 <span className="text-primary-700">{totalRemaining}</span>
+                <span className="ml-1 text-sm font-medium text-earth-400">堂可預約</span>
+              </p>
+            ) : (
+              <p className="mt-0.5 text-sm text-earth-500">尚未購買方案</p>
+            )}
+          </div>
+          <Link
+            href="/my-plans"
+            className="flex items-center gap-1 text-xs font-medium text-primary-700 hover:underline"
+          >
+            我的方案
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <path d="M9 5l7 7-7 7" />
+            </svg>
+          </Link>
+        </div>
       </div>
 
       {/* Health Assessment Card */}

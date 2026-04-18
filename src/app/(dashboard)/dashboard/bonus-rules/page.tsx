@@ -25,7 +25,7 @@ export default async function BonusRulesPage() {
       <div className="max-w-3xl space-y-6">
         <div className="flex items-center gap-3">
           <Link href="/dashboard/growth" className="text-sm text-earth-500 hover:text-earth-700">
-            ← 高潛力名單
+            ← 人才培育
           </Link>
         </div>
         <div className="flex items-center justify-between">
@@ -46,7 +46,7 @@ export default async function BonusRulesPage() {
     <div className="max-w-3xl space-y-6">
       <div className="flex items-center gap-3">
         <Link href="/dashboard/growth" className="text-sm text-earth-500 hover:text-earth-700">
-          ← 高潛力名單
+          ← 人才培育
         </Link>
       </div>
 

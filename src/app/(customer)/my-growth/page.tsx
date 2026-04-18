@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 
 /**
- * 我的進步 — 條件式顯示
+ * 我的進度 — 條件式顯示
  *
  * 觸發條件 (OR)：
  *   shareCount >= 1
@@ -33,44 +33,52 @@ export default async function MyGrowthPage() {
         <Link href="/book" className="text-earth-400 hover:text-earth-600 lg:hidden">
           &larr;
         </Link>
-        <h1 className="text-xl font-bold text-earth-900">我的進步</h1>
+        <h1 className="text-xl font-bold text-earth-900">我的進度</h1>
       </div>
 
       <div className="space-y-6">
-        {/* ═══ 開頭文案 ═══ */}
+        {/* ═══ 開頭文案（輕語氣，不用經營/培育） ═══ */}
         <section className="rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 to-amber-100/40 p-6 shadow-sm">
           <p className="text-base leading-relaxed text-amber-900">
-            每一次照顧自己、每一次分享，都是生活裡一點點好的改變。
+            你最近的變化，其實比你想像的多。
+          </p>
+          <p className="mt-1 text-xs text-amber-800/80">
+            每一次照顧自己、每一次分享，都是一點點好的改變。
           </p>
         </section>
 
-        {/* ═══ 三項指標（排序依 spec：我分享過 → 朋友開始了解 → 朋友來店體驗）═══ */}
+        {/* ═══ 三項指標（前台中性語言：已分享 / 朋友加入 / 來體驗） ═══ */}
         <section className="grid grid-cols-3 gap-3">
-          <Metric label="我分享過" value={summary.shareCount} unit="次" />
-          <Metric label="朋友開始了解" value={summary.lineJoinCount} unit="位" />
-          <Metric label="朋友來店體驗" value={summary.visitedCount} unit="位" highlight />
+          <Metric label="已分享" value={summary.shareCount} unit="次" />
+          <Metric label="朋友加入" value={summary.lineJoinCount} unit="位" />
+          <Metric label="來體驗" value={summary.visitedCount} unit="位" highlight />
         </section>
 
-        {/* ═══ 底部文案 ═══ */}
+        {/* ═══ 累積點數（既有資料，不新增） ═══ */}
         <section className="rounded-2xl border border-earth-200 bg-white p-5 shadow-sm">
-          <p className="text-sm leading-relaxed text-earth-600">
-            不用特別做什麼，想到適合的人時，再分享就很好。
+          <p className="text-xs text-earth-500">累積點數</p>
+          <p className="mt-1 text-2xl font-bold text-primary-700">
+            {summary.totalPoints}
+            <span className="ml-1 text-sm font-medium text-earth-400">點</span>
+          </p>
+          <p className="mt-2 text-sm leading-relaxed text-earth-600">
+            你已經開始影響身邊的人了，再多一點點，你會看到更不一樣的結果。
           </p>
         </section>
 
-        {/* ═══ 導航連結 ═══ */}
+        {/* ═══ 導航連結（用更輕的語言） ═══ */}
         <section className="grid grid-cols-2 gap-2">
           <Link
             href="/my-referrals"
             className="flex items-center justify-center rounded-xl border border-earth-200 bg-white py-2.5 text-sm font-medium text-earth-700 hover:bg-earth-50"
           >
-            我分享的朋友
+            我的好康
           </Link>
           <Link
             href="/my-points"
             className="flex items-center justify-center rounded-xl border border-earth-200 bg-white py-2.5 text-sm font-medium text-earth-700 hover:bg-earth-50"
           >
-            積分紀錄
+            點數紀錄
           </Link>
         </section>
       </div>

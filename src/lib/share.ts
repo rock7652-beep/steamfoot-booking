@@ -12,9 +12,9 @@
  *   const line = buildLineShareUrl(text, url);
  */
 
-/** 預設分享文案（中性語氣，不出現教練 / 店長字眼） */
+/** 預設分享文案（自然、像朋友間分享；不使用「幫我推薦」「支持我」等推銷語氣） */
 const DEFAULT_SHARE_BODY =
-  "我最近在這裡做身體調整，整體感受很不錯。\n如果你最近也想放鬆一下、調理身體，可以先加他們官方 LINE 看看👇\n";
+  "我最近去這間放鬆，真的蠻舒服的\n\n如果你最近也有點累\n可以去試試看👇\n";
 
 export interface BuildShareTextOpts {
   /** 邀請人姓名（可選，目前預設不帶入文案中；保留以利未來 A/B） */
