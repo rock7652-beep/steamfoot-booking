@@ -1,13 +1,16 @@
 import { getCurrentUser } from "@/lib/session";
 import { prisma } from "@/lib/db";
-import { redirect } from "next/navigation";
 import Link from "next/link";
 import { BookingCalendarView } from "./booking-calendar-view";
 import { PENDING_STATUSES } from "@/lib/booking-constants";
+import { NoPlanEmptyState } from "@/components/no-plan-empty-state";
 
 export default async function NewBookingPage() {
   const user = await getCurrentUser();
-  if (!user || !user.customerId) redirect("/");
+  // stale session / 沒有 customerId 時顯示 empty state，不 redirect
+  if (!user || !user.customerId) {
+    return <NoPlanEmptyState title="新增預約" />;
+  }
 
   const [customer, makeupCredits] = await Promise.all([
     prisma.customer.findUnique({
@@ -47,7 +50,7 @@ export default async function NewBookingPage() {
       orderBy: { createdAt: "asc" },
     }),
   ]);
-  if (!customer) redirect("/");
+  if (!customer) return <NoPlanEmptyState title="新增預約" />;
 
   // 新扣堂模型：remainingSessions = 購買 - COMPLETED - NO_SHOW(DEDUCTED)
   // 可預約 = remainingSessions - count(PENDING 非補課)
@@ -63,41 +66,7 @@ export default async function NewBookingPage() {
     customer.selfBookingEnabled && (activeWallets.length > 0 || makeupCredits.length > 0);
 
   if (!hasValidWallet) {
-    return (
-      <div>
-        <div className="mb-4 flex items-center gap-3">
-          <Link href="/book" className="text-earth-400 hover:text-earth-600">
-            &larr;
-          </Link>
-          <h1 className="text-xl font-bold text-earth-900">新增預約</h1>
-        </div>
-        <div className="rounded-2xl bg-white p-8 text-center shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-earth-100">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-earth-400"><path d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" /></svg>
-          </div>
-          <p className="text-sm font-medium text-earth-700">
-            尚未開放自助預約
-          </p>
-          <p className="mt-1 text-xs text-earth-400">
-            請聯繫您的直屬店長，協助安排預約或購買課程方案
-          </p>
-          <div className="mt-4 flex justify-center gap-2">
-            <Link
-              href="/my-plans"
-              className="rounded-lg border border-earth-200 px-4 py-2 text-sm text-earth-600 transition hover:bg-earth-50"
-            >
-              查看我的方案
-            </Link>
-            <Link
-              href="/book"
-              className="rounded-lg bg-primary-600 px-4 py-2 text-sm text-white transition hover:bg-primary-700"
-            >
-              返回首頁
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
+    return <NoPlanEmptyState title="新增預約" />;
   }
 
   // 新模型：computedRemaining 已減去待到店預約數

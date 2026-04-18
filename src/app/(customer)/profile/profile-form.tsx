@@ -1,8 +1,6 @@
 "use client";
 
 import { useActionState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { signOut } from "next-auth/react";
 import { updateProfileAction, type ProfileState } from "@/server/actions/profile";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -33,27 +31,12 @@ export function ProfileForm({ customer, age }: Props) {
     if (state.error) toast.error(state.error);
   }, [state.success, state.error]);
 
-  // 手機變更後自動登出
-  useEffect(() => {
-    if (state.success && state.phoneChanged) {
-      const timer = setTimeout(() => {
-        signOut({ callbackUrl: "/" });
-      }, 2000);
-      return () => clearTimeout(timer);
-    }
-  }, [state.success, state.phoneChanged]);
-
   return (
     <form action={formAction} className="space-y-4">
       {state.error && (
         <div className="rounded-lg bg-red-50 px-4 py-2 text-sm text-red-600">{state.error}</div>
       )}
-      {state.success && state.phoneChanged && (
-        <div className="rounded-lg bg-yellow-50 px-4 py-2 text-sm text-yellow-700">
-          手機號碼已更新，請使用新手機號碼重新登入。即將自動登出...
-        </div>
-      )}
-      {state.success && !state.phoneChanged && (
+      {state.success && (
         <div className="rounded-lg bg-green-50 px-4 py-2 text-sm text-green-600">資料已更新</div>
       )}
 
@@ -67,13 +50,15 @@ export function ProfileForm({ customer, age }: Props) {
       </div>
 
       <div>
-        <label htmlFor="phone" className="mb-1 block text-sm font-medium text-earth-700">手機號碼（登入帳號）</label>
+        <label htmlFor="phone" className="mb-1 block text-sm font-medium text-earth-700">
+          聯絡電話 <span className="text-red-500">*</span>
+        </label>
         <input
           id="phone" name="phone" type="tel" required
           defaultValue={customer.phone}
           className="w-full rounded-lg border border-earth-300 px-3 py-2.5 text-sm text-earth-900 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
         />
-        <p className="mt-1 text-xs text-earth-400">修改後將自動登出，需用新號碼重新登入</p>
+        <p className="mt-1 text-xs text-earth-400">用於預約聯繫使用</p>
       </div>
 
       <div>

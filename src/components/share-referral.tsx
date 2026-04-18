@@ -38,10 +38,11 @@ export function ShareReferral({
 }: ShareReferralProps) {
   const [copied, setCopied] = useState(false);
   const absoluteUrl = toAbsoluteUrl(referralUrl);
-  const shareText = buildShareText({ inviterName });
-  const lineShareUrl = buildLineShareUrl(shareText, absoluteUrl);
-  // 完整文案（複製分享文字用）— 與 LINE 分享出去的文字一致
-  const fullShareText = `${shareText}${absoluteUrl}\n跟他們說是我介紹的就好 😊`;
+  // v2: URL 已內嵌於 shareText 中間
+  const shareText = buildShareText({ inviterName, url: absoluteUrl });
+  const lineShareUrl = buildLineShareUrl(shareText);
+  // 複製分享文字 = LINE 分享出去的文字（完全一致）
+  const fullShareText = shareText;
 
   /** 分享事件埋點（fire-and-forget；埋點失敗不影響使用者體驗） */
   function trackShare(channel: "copy" | "line") {

@@ -1,6 +1,5 @@
 import { getCurrentUser } from "@/lib/session";
 import { prisma } from "@/lib/db";
-import { redirect } from "next/navigation";
 import Link from "next/link";
 import type { WalletStatus } from "@prisma/client";
 import {
@@ -8,10 +7,13 @@ import {
   PLAN_CATEGORY_LABEL,
   PENDING_STATUSES,
 } from "@/lib/booking-constants";
+import { NoPlanEmptyState } from "@/components/no-plan-empty-state";
 
 export default async function MyPlansPage() {
   const user = await getCurrentUser();
-  if (!user || !user.customerId) redirect("/");
+  if (!user || !user.customerId) {
+    return <NoPlanEmptyState title="我的方案" variant="plan" />;
+  }
 
   const customer = await prisma.customer.findUnique({
     where: { id: user.customerId },
@@ -36,7 +38,9 @@ export default async function MyPlansPage() {
       },
     },
   });
-  if (!customer) redirect("/");
+  if (!customer) {
+    return <NoPlanEmptyState title="我的方案" variant="plan" />;
+  }
 
   // ── 3 區分類 ──
   const activeWallets = customer.planWallets.filter((w) => w.status === "ACTIVE");
@@ -99,19 +103,7 @@ export default async function MyPlansPage() {
       )}
 
       {customer.planWallets.length === 0 ? (
-        <div className="rounded-2xl bg-white p-8 text-center shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-earth-100">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-earth-400"><path d="M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 110-6h5.25A2.25 2.25 0 0121 6v6z" /><path d="M21 12v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18V6a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 6" /></svg>
-          </div>
-          <p className="text-sm font-medium text-earth-700">尚未購買課程</p>
-          <p className="mt-1 text-xs text-earth-400">請聯繫您的直屬店長購買課程方案</p>
-          <Link
-            href="/book"
-            className="mt-4 inline-block rounded-lg border border-earth-200 px-4 py-2 text-sm text-earth-600 transition hover:bg-earth-50"
-          >
-            返回首頁
-          </Link>
-        </div>
+        <NoPlanEmptyState variant="plan" />
       ) : (
         <div className="space-y-5">
           {/* ── 有效課程 ── */}

@@ -12,31 +12,59 @@
  *   const line = buildLineShareUrl(text, url);
  */
 
-/** 預設分享文案（自然、像朋友間分享；不使用「幫我推薦」「支持我」等推銷語氣） */
-const DEFAULT_SHARE_BODY =
-  "我最近去這間放鬆，真的蠻舒服的\n\n如果你最近也有點累\n可以去試試看👇\n";
-
 /**
  * 官方 LINE 分享連結（含 ref tracking）。
  * 使用 lin.ee 短網址讓朋友直接加 LINE 好友，ref 供 webhook 端解析。
  */
 const OFFICIAL_LINE_BASE_URL = "https://lin.ee/8ohprFv";
 
-/** 分享完 URL 之後附加的尾句（留空；避免強迫推銷感） */
-const DEFAULT_SHARE_TAIL = "\n跟他們說是我介紹的就好 😊";
+/**
+ * 預設分享文案（v2）— 像真人聊天，不像廣告
+ *
+ * 必要元素：
+ *   - 個人情境（我最近…）
+ *   - 店名（暖暖蒸足）
+ *   - 地點（竹北）
+ *   - 官方 LINE 連結（URL 嵌在文案中間，讓訊息讀起來自然）
+ *
+ * 禁止元素：幫我推薦 / 支持我 / 任務 / 過度銷售
+ *
+ * URL 以 `{url}` 佔位符表示；buildShareText() 會替換成實際的 lin.ee 連結（含 ref）。
+ */
+const DEFAULT_SHARE_BODY_TEMPLATE = [
+  "我最近去竹北這間蒸足店",
+  "坐著45分鐘居然有點像慢跑完的感覺 😂",
+  "而且蒸完真的很好睡",
+  "",
+  "📍暖暖蒸足",
+  "",
+  "如果你最近也有點累",
+  "可以去放鬆一下👇",
+  "{url}",
+  "",
+  "現在好像有體驗價",
+  "我記得是 $499",
+  "",
+  "有去的話再跟我說感覺 😆",
+].join("\n");
 
 export interface BuildShareTextOpts {
-  /** 邀請人姓名（可選，目前預設不帶入文案中；保留以利未來 A/B） */
+  /** 邀請人姓名（可選，保留給未來 A/B） */
   inviterName?: string | null;
-  /** 覆寫預設 body 文案 */
+  /** 覆寫預設 body 文案（若傳入則不做 {url} 替換） */
   body?: string;
+  /** 要嵌入文案中的分享 URL（含 ref）。預設使用 OFFICIAL_LINE_BASE_URL */
+  url?: string;
 }
 
 /**
- * 組合 LINE/複製 用的分享文字（不含 URL — 呼叫 buildLineShareUrl 時才串接）。
+ * 組合完整分享文字（URL 已內嵌於中間位置）。
+ * 供 LINE 分享與複製使用，輸出完全一致。
  */
 export function buildShareText(opts: BuildShareTextOpts = {}): string {
-  return opts.body ?? DEFAULT_SHARE_BODY;
+  if (opts.body) return opts.body;
+  const url = opts.url ?? OFFICIAL_LINE_BASE_URL;
+  return DEFAULT_SHARE_BODY_TEMPLATE.replace("{url}", url);
 }
 
 /**
@@ -73,11 +101,11 @@ export function buildStoreLineEntryUrl(
 
 /**
  * 組合 LINE share URL（可直接放在 <a href>）。
- * 會把文字 + 連結 + 尾句串起來 → encodeURIComponent → 套進 line.me/R/share。
+ *
+ * v2: 分享 URL 已內嵌在 text 中間，shareUrl 參數保留僅為向下相容，不再追加尾端。
  */
-export function buildLineShareUrl(text: string, shareUrl: string): string {
-  const full = `${text}${shareUrl}${DEFAULT_SHARE_TAIL}`;
-  return `https://line.me/R/share?text=${encodeURIComponent(full)}`;
+export function buildLineShareUrl(text: string, _shareUrl?: string): string {
+  return `https://line.me/R/share?text=${encodeURIComponent(text)}`;
 }
 
 /**
