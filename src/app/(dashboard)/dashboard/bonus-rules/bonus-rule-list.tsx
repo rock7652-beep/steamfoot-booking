@@ -69,7 +69,7 @@ function RuleCard({ rule }: { rule: RuleItem }) {
           <div className="flex items-center gap-2">
             <span className="font-medium text-earth-900">{rule.name}</span>
             <span className="rounded-full bg-primary-100 px-2 py-0.5 text-xs font-bold text-primary-700">
-              +{rule.points} 分
+              +{rule.points} 點
             </span>
             {!rule.isActive && (
               <span className="rounded bg-earth-200 px-1.5 py-0.5 text-[10px] text-earth-500">已停用</span>

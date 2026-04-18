@@ -36,7 +36,7 @@ export async function createBonusRule(formData: FormData) {
 
   if (!name) throw new Error("名稱不可為空");
   const points = parseInt(pointsStr, 10);
-  if (!points || points <= 0) throw new Error("積分必須大於 0");
+  if (!points || points <= 0) throw new Error("點數必須大於 0");
 
   await prisma.bonusRule.create({
     data: {
@@ -73,7 +73,7 @@ export async function updateBonusRule(formData: FormData) {
   if (!id) throw new Error("缺少 ID");
   if (!name) throw new Error("名稱不可為空");
   const points = parseInt(pointsStr, 10);
-  if (!points || points <= 0) throw new Error("積分必須大於 0");
+  if (!points || points <= 0) throw new Error("點數必須大於 0");
 
   // 確認屬於此店
   const existing = await prisma.bonusRule.findFirst({

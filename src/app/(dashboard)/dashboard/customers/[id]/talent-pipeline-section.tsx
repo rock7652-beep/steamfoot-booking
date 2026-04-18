@@ -148,7 +148,7 @@ export function TalentPipelineSection({
               required={`${elig.upgradeProgress.readiness.required}+`}
             />
             <ProgressRow
-              label="積分"
+              label="點數"
               met={elig.upgradeProgress.points.met}
               current={String(elig.upgradeProgress.points.current)}
               required={String(elig.upgradeProgress.points.required)}
@@ -206,7 +206,7 @@ export function TalentPipelineSection({
                     確定要將此人升為「準店長」嗎？
                   </p>
                   <p className="mt-0.5 text-xs text-green-600">
-                    將自動加 200 積分並建立階段變更紀錄
+                    將自動加 200 點並建立階段變更紀錄
                   </p>
                   <div className="mt-2 flex gap-2">
                     <button

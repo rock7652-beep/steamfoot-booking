@@ -126,11 +126,9 @@ export default async function MyPerksPage() {
                   style={{ width: `${progress}%` }}
                 />
               </div>
+              {/* 進度資訊（中性，不重複上方分享卡的誘因句） */}
               <p className="mt-2 text-xs text-amber-700/90">
-                再 <span className="font-bold">{milestone.remaining}</span> 點就可以解鎖小禮
-              </p>
-              <p className="mt-0.5 text-[11px] text-amber-700/70">
-                目前 {summary.totalPoints} 點 · 下一階 {milestone.target} 點
+                目前 {summary.totalPoints} 點 · 下一階 {milestone.target} 點（小禮）
               </p>
             </>
           ) : (

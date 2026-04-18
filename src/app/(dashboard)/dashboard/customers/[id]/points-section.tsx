@@ -28,9 +28,9 @@ export function PointsSection({ customerId, totalPoints, recentPoints, bonusRule
   return (
     <div className="mt-4 rounded-lg border border-earth-100 bg-earth-50/50 p-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-xs font-semibold text-earth-500">行動積分</h3>
+        <h3 className="text-xs font-semibold text-earth-500">集點</h3>
         <div className="flex items-center gap-3">
-          <span className="text-lg font-bold text-primary-600">{totalPoints} 分</span>
+          <span className="text-lg font-bold text-primary-600">{totalPoints} 點</span>
           {canManualAward && (
             <ManualPointsForm customerId={customerId} bonusRules={bonusRules} />
           )}
@@ -38,7 +38,7 @@ export function PointsSection({ customerId, totalPoints, recentPoints, bonusRule
       </div>
 
       {recentPoints.length === 0 ? (
-        <p className="mt-3 text-center text-xs text-earth-400">尚無積分紀錄</p>
+        <p className="mt-3 text-center text-xs text-earth-400">尚無集點紀錄</p>
       ) : (
         <div className="mt-3 space-y-1.5">
           {recentPoints.map((p) => {

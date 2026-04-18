@@ -54,7 +54,7 @@ export default async function BonusRulesPage() {
         <div>
           <h1 className="text-xl font-bold text-earth-900">獎勵項目管理</h1>
           <p className="mt-1 text-sm text-earth-500">
-            設定活動獎勵積分項目，啟用後會顯示在前台積分攻略及手動加分選單中
+            設定活動獎勵點數項目，啟用後會顯示在前台「額外活動」與後台手動加點選單中
           </p>
         </div>
       </div>

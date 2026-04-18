@@ -34,7 +34,7 @@ export async function manualAwardPoints(formData: FormData) {
   if (!customerId) throw new Error("缺少顧客 ID");
 
   const points = parseInt(pointsStr, 10);
-  if (!points || points === 0) throw new Error("積分不可為 0");
+  if (!points || points === 0) throw new Error("點數不可為 0");
 
   // 驗證顧客存在且屬於此店
   const customer = await prisma.customer.findFirst({

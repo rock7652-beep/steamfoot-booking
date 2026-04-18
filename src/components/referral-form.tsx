@@ -25,7 +25,7 @@ export function ReferralFormDialog({ referrerId, onClose }: Props) {
         note: note.trim() || undefined,
       });
       if (result.success) {
-        toast.success("轉介紹已登記（+10 積分）");
+        toast.success("轉介紹已登記（+10 點）");
         onClose();
       } else {
         toast.error(result.error);
