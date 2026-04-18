@@ -9,7 +9,7 @@ import { revalidatePath } from "next/cache";
 // 更新個人資料
 // ============================================================
 
-export type ProfileState = { error: string | null; success: boolean; phoneChanged?: boolean };
+export type ProfileState = { error: string | null; success: boolean };
 
 export async function updateProfileAction(
   _prev: ProfileState,
@@ -64,25 +64,14 @@ export async function updateProfileAction(
     });
     if (!currentCustomer) return { error: "找不到帳號", success: false };
 
+    // 聯絡電話 — 用途：預約聯繫。不再視為登入帳號，不會強迫登出。
+    // 仍檢查同店 unique 避免重複。
     if (phone !== currentCustomer.phone) {
       const existingPhone = await prisma.customer.findFirst({
         where: { phone, id: { not: user.customerId }, storeId: currentCustomer.storeId },
       });
       if (existingPhone) {
-        return { error: "此手機號碼已被其他帳號使用", success: false };
-      }
-      // 同步更新 User.phone（登入用）— 只檢查同角色（CUSTOMER）
-      if (currentCustomer.userId) {
-        const existingUserPhone = await prisma.user.findFirst({
-          where: { phone, role: "CUSTOMER", id: { not: currentCustomer.userId } },
-        });
-        if (existingUserPhone) {
-          return { error: "此手機號碼已被其他帳號使用", success: false };
-        }
-        await prisma.user.update({
-          where: { id: currentCustomer.userId },
-          data: { phone },
-        });
+        return { error: "此聯絡電話已被其他帳號使用", success: false };
       }
     }
 
@@ -109,9 +98,8 @@ export async function updateProfileAction(
       });
     }
 
-    const phoneChanged = phone !== currentCustomer.phone;
     revalidatePath("/profile");
-    return { error: null, success: true, phoneChanged };
+    return { error: null, success: true };
   } catch (error) {
     console.error("[updateProfileAction] Error:", error);
     return { error: "儲存失敗，請稍後再試", success: false };
