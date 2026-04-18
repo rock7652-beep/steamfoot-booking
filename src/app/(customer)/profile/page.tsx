@@ -4,6 +4,8 @@ import Link from "next/link";
 import { ProfileForm } from "./profile-form";
 import { ChangePasswordForm } from "./change-password-form";
 import { missingRequiredFields } from "@/lib/customer-completion";
+import { getStoreContext } from "@/lib/store-context";
+import { resolveCustomerForUser } from "@/server/queries/customer-completion";
 
 interface PageProps {
   searchParams: Promise<{ complete?: string; next?: string }>;
@@ -28,8 +30,10 @@ export default async function ProfilePage({ searchParams }: PageProps) {
 
   const user = await getCurrentUser();
 
-  // 若 session 沒有 customerId（stale JWT 等）— 顯示友善訊息，不 redirect
+  // ── 以統一 resolver 找出本 session 對應的 customer ──────
+  // 同一份邏輯也用於 updateProfileAction，確保「顯示看到的人」= 「儲存更新的人」
   type ProfileCustomer = {
+    id: string;
     name: string;
     phone: string;
     email: string | null;
@@ -40,23 +44,47 @@ export default async function ProfilePage({ searchParams }: PageProps) {
     notes: string | null;
   };
   let customer: ProfileCustomer | null = null;
-  if (user?.customerId) {
+  let resolvedReason: string | null = null;
+  if (user) {
     try {
-      customer = await prisma.customer.findUnique({
-        where: { id: user.customerId },
-        select: {
-          name: true,
-          phone: true,
-          email: true,
-          gender: true,
-          birthday: true,
-          height: true,
-          address: true,
-          notes: true,
-        },
+      const storeCtx = await getStoreContext();
+      const storeId = user.storeId ?? storeCtx?.storeId ?? null;
+      const resolved = await resolveCustomerForUser({
+        userId: user.id,
+        sessionCustomerId: user.customerId ?? null,
+        sessionEmail: user.email ?? null,
+        storeId,
+        storeSlug: storeCtx?.storeSlug ?? null,
       });
+      resolvedReason = resolved.reason;
+      console.info("[profile.page] resolved", {
+        userId: user.id,
+        sessionCustomerId: user.customerId ?? null,
+        sessionEmail: user.email ?? null,
+        storeId,
+        resolvedCustomerId: resolved.customer?.id ?? null,
+        reason: resolved.reason,
+      });
+      if (resolved.customer) {
+        // 取完整欄位（resolver 只回必要欄位）
+        const full = await prisma.customer.findUnique({
+          where: { id: resolved.customer.id },
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            email: true,
+            gender: true,
+            birthday: true,
+            height: true,
+            address: true,
+            notes: true,
+          },
+        });
+        if (full) customer = full;
+      }
     } catch (err) {
-      console.error("[profile] fetch customer failed", err);
+      console.error("[profile.page] resolve failed", err);
     }
   }
 
