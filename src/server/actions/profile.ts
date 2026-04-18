@@ -101,13 +101,15 @@ export async function updateProfileAction(
     }
     if (resolved.reason === "conflict_already_linked_email") {
       return {
-        error: "此 Email 已綁定其他登入帳號，請聯繫店家協助",
+        error:
+          "此 Email 已綁定其他登入帳號。請確認聯絡電話也與您過去留給店家的一致；若確認無誤請聯繫店家協助。",
         success: false,
       };
     }
     if (resolved.reason === "conflict_already_linked_phone") {
       return {
-        error: "此聯絡電話已綁定其他登入帳號，請聯繫店家協助",
+        error:
+          "此聯絡電話已綁定其他登入帳號。請確認 Email 也與您過去留給店家的一致；若確認無誤請聯繫店家協助。",
         success: false,
       };
     }
