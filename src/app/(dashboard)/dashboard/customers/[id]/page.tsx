@@ -35,6 +35,8 @@ import { getReferralsByReferrer } from "@/server/queries/referral";
 import { getPointHistory } from "@/server/queries/points";
 import { getUpgradeEligibility } from "@/server/queries/talent";
 import { getActiveBonusRules } from "@/server/queries/bonus-rule";
+import { getMyReferralSummary } from "@/server/queries/my-referral-summary";
+import { CustomerPotentialBadge } from "@/components/customer-potential-badge";
 
 const STAGE_LABEL: Record<string, string> = {
   LEAD: "名單", TRIAL: "體驗", ACTIVE: "已購課", INACTIVE: "已停用",
@@ -144,6 +146,11 @@ export default async function CustomerDetailPage({ params }: PageProps) {
   // PricingPlan: 使用已驗證的 effectiveStoreId 查詢（避免 ADMIN 無 storeId 時 throw）
   const pricingPlan = await getStorePlanById(effectiveStoreId).catch(() => "EXPERIENCE" as const);
   const hasAiHealth = hasPricingFeature(pricingPlan, FF.AI_HEALTH_SUMMARY);
+
+  // 「分享與回饋」小區塊 — 沿用前台同一份 summary，不新增 query
+  const perksSummary = user.role !== "CUSTOMER"
+    ? await getMyReferralSummary(id, { activeStoreId: effectiveStoreId }).catch(() => null)
+    : null;
 
   // For transfer form, only pass staff list to Owner
   const staffList =
@@ -281,6 +288,40 @@ export default async function CustomerDetailPage({ params }: PageProps) {
           </div>
         )}
       </div>
+
+      {/* ═══════════════════════════════════════════════ */}
+      {/* 分享與回饋（小區塊）— 沿用前台 getMyReferralSummary */}
+      {/* ═══════════════════════════════════════════════ */}
+      {user.role !== "CUSTOMER" && perksSummary && (
+        <div className="rounded-xl border bg-white p-5 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm font-semibold text-earth-800">分享與回饋</h2>
+              <CustomerPotentialBadge
+                input={{
+                  shareCount: perksSummary.shareCount,
+                  visitCount: perksSummary.visitedCount,
+                  totalPoints: perksSummary.totalPoints,
+                }}
+                size="md"
+              />
+            </div>
+            <span className="text-[11px] text-earth-400">好康互動概況</span>
+          </div>
+          <div className="mt-3 grid grid-cols-4 gap-3 text-center">
+            <PerkCell label="分享" value={perksSummary.shareCount} unit="次" />
+            <PerkCell label="加入" value={perksSummary.lineJoinCount} unit="位" />
+            <PerkCell label="來店" value={perksSummary.visitedCount} unit="位" highlight />
+            <PerkCell label="點數" value={perksSummary.totalPoints} unit="點" />
+          </div>
+          {perksSummary.nextMilestone && (
+            <p className="mt-3 text-[11px] text-earth-500">
+              距離下一個回饋還差 <span className="font-semibold text-amber-700">{perksSummary.nextMilestone.remaining}</span> 點
+              （目標 {perksSummary.nextMilestone.target} 點）
+            </p>
+          )}
+        </div>
+      )}
 
       {/* ═══════════════════════════════════════════════ */}
       {/* 轉介紹紀錄（獨立區塊）                          */}
@@ -591,6 +632,28 @@ function WalletItem({ w, userRole }: { w: { id: string; plan: { name: string }; 
           <AdjustWalletForm walletId={w.id} currentRemaining={w.remainingSessions} />
         </div>
       )}
+    </div>
+  );
+}
+
+function PerkCell({
+  label,
+  value,
+  unit,
+  highlight = false,
+}: {
+  label: string;
+  value: number;
+  unit: string;
+  highlight?: boolean;
+}) {
+  return (
+    <div className={`rounded-lg px-2 py-2 ${highlight ? "bg-primary-50" : "bg-earth-50"}`}>
+      <p className="text-[11px] text-earth-500">{label}</p>
+      <p className={`mt-0.5 text-xl font-bold ${highlight ? "text-primary-700" : "text-earth-800"}`}>
+        {value}
+      </p>
+      <p className="text-[10px] text-earth-400">{unit}</p>
     </div>
   );
 }

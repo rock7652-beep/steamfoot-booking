@@ -27,6 +27,13 @@ const ICON_PATHS: Record<string, string[]> = {
     "M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172",
     "M5.25 4.236c-.996.178-1.768.621-2.134 1.1a1.097 1.097 0 00.058 1.37c.588.694 2.09.851 3.143.338m12.433-.738c.996.178 1.768.621 2.134 1.1a1.097 1.097 0 01-.058 1.37c-.588.694-2.09.851-3.143.338M12 2.25c2.386 0 4.5 2.015 4.5 4.5s-2.114 4.5-4.5 4.5-4.5-2.015-4.5-4.5 2.114-4.5 4.5-4.5z",
   ],
+  gift: [
+    "M21 11.25v8.25a1.5 1.5 0 01-1.5 1.5H4.5a1.5 1.5 0 01-1.5-1.5v-8.25",
+    "M12 4.875A2.625 2.625 0 109.375 7.5H12m0-2.625V7.5m0-2.625A2.625 2.625 0 1114.625 7.5H12m0 0V21m-8.625-9.75h18c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125h-18c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z",
+  ],
+  heart: [
+    "M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z",
+  ],
   user: [
     "M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z",
     "M4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z",
@@ -62,11 +69,13 @@ function NavIcon({ name, className = "" }: { name: string; className?: string })
   );
 }
 
+// 主選單 5 項：首頁 / 預約與方案 / 我的好康 / 健康評估 / 我的資料
+// 健康評估為外部連結 (HealthFlow LIFF)，於 render 時特殊處理。
 const NAV_ITEMS_BASE = [
   { href: "/book", label: "首頁", icon: "home" },
-  { href: "/book/new", label: "新增預約", icon: "plus" },
-  { href: "/my-bookings", label: "我的預約", icon: "calendar" },
-  { href: "/my-plans", label: "我的方案", icon: "wallet" },
+  { href: "/my-bookings", label: "預約與方案", icon: "calendar" },
+  { href: "/my-referrals", label: "我的好康", icon: "gift" },
+  { href: "__health__", label: "健康評估", icon: "heart", external: true },
   { href: "/profile", label: "我的資料", icon: "user" },
 ];
 
@@ -93,9 +102,11 @@ export default async function CustomerLayout({
   // 去掉 /s/[slug] 前綴，還原成 /book、/my-bookings 等格式供比對
   const pathname = rawPathname.replace(/^\/s\/[^/]+/, "") || "/book";
 
+  const aiHealthUrl = `https://www.healthflow-ai.com/liff${user.customerId ? `?customerId=${user.customerId}` : ""}`;
+
   const NAV_ITEMS = NAV_ITEMS_BASE.map((item) => ({
     ...item,
-    fullHref: `${prefix}${item.href}`,
+    fullHref: item.external ? aiHealthUrl : `${prefix}${item.href}`,
   }));
 
   return (
@@ -120,6 +131,20 @@ export default async function CustomerLayout({
           {/* Nav */}
           <nav className="flex-1 px-2.5 py-1">
             {NAV_ITEMS.map((item) => {
+              if (item.external) {
+                return (
+                  <a
+                    key={item.href}
+                    href={item.fullHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mb-0.5 flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] text-earth-500 hover:bg-earth-100/60 hover:text-earth-800 transition"
+                  >
+                    <NavIcon name={item.icon} className="text-earth-400" />
+                    {item.label}
+                  </a>
+                );
+              }
               const isActive =
                 item.href === "/book"
                   ? pathname === "/book"
@@ -142,16 +167,6 @@ export default async function CustomerLayout({
                 </Link>
               );
             })}
-
-            <a
-              href={`https://www.healthflow-ai.com/liff${user.customerId ? `?customerId=${user.customerId}` : ""}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mb-0.5 flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] text-earth-500 hover:bg-earth-50 hover:text-earth-800 transition"
-            >
-              <NavIcon name="external" className="text-earth-400" />
-              AI健康評估
-            </a>
           </nav>
 
           {/* Logout */}

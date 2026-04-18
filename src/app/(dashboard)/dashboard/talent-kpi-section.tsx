@@ -32,7 +32,7 @@ export function TalentKpiSection({
             href="/dashboard/growth"
             className="text-[11px] text-primary-600 hover:text-primary-700"
           >
-            高潛力名單 →
+            人才培育 →
           </Link>
         </div>
 

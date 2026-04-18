@@ -5,6 +5,8 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getNextOwnerCandidates } from "@/server/queries/talent";
 import { getTopReferrersByEventCount } from "@/server/queries/referral-events";
+import { getPotentialTagsForCustomers } from "@/server/queries/customer-potential";
+import { CustomerPotentialBadge } from "@/components/customer-potential-badge";
 import { READINESS_LEVEL_CONFIG, TALENT_STAGE_LABELS } from "@/types/talent";
 
 /**
@@ -39,12 +41,18 @@ export default async function TopCandidatesPage() {
     topByEvents.map((r) => [r.referrerId, r.count]),
   );
 
+  // 批次取潛力 badge（依規則判讀）
+  const potentialTags = await getPotentialTagsForCustomers(
+    candidates.map((c) => c.customerId),
+    { storeId: activeStoreId },
+  );
+
   return (
     <div className="mx-auto max-w-4xl space-y-5 px-4 py-4">
       {/* 返回 + 標題 */}
       <div className="flex items-center gap-3 text-sm text-earth-500">
         <Link href="/dashboard/growth" className="hover:text-earth-800">
-          ← 高潛力名單
+          ← 人才培育
         </Link>
       </div>
 
@@ -98,6 +106,7 @@ export default async function TopCandidatesPage() {
                           <span className="text-sm font-semibold text-earth-900">
                             {c.name}
                           </span>
+                          <CustomerPotentialBadge tag={potentialTags.get(c.customerId)} size="sm" />
                           <span
                             className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${config.bg} ${config.color}`}
                           >

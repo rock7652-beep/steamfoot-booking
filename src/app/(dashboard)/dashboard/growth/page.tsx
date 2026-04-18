@@ -5,8 +5,10 @@ import { notFound } from "next/navigation";
 import { getTalentDashboard, getNextOwnerCandidates, getTopPartnerMentors } from "@/server/queries/talent";
 import { getPointsLeaderboard, getMonthlyPointsLeaderboard } from "@/server/queries/points";
 import { getMonthlyReferralLeaderboard, getReferralConvertedLeaderboard, getReferralStats } from "@/server/queries/referral";
+import { getPotentialTagsForCustomers } from "@/server/queries/customer-potential";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { SectionCard } from "@/components/ui/section-card";
+import { CustomerPotentialBadge } from "@/components/customer-potential-badge";
 import { TalentFunnel } from "./talent-funnel";
 import { NearReadyList } from "./near-ready-list";
 import { LeaderboardSection } from "./leaderboard-section";
@@ -38,6 +40,12 @@ export default async function TalentDashboardPage() {
       getTopPartnerMentors(activeStoreId, 10),
     ]);
 
+  // 批次取前 5 位候選人的潛力 badge
+  const top5Ids = candidates.slice(0, 5).map((c) => c.customerId);
+  const potentialTags = await getPotentialTagsForCustomers(top5Ids, {
+    storeId: activeStoreId,
+  });
+
   const totalPeople = data.pipeline.stages.reduce((s, st) => s + st.count, 0);
   const readyCount = data.nearReady.filter(
     (s) => s.readinessLevel === "READY",
@@ -61,7 +69,7 @@ export default async function TalentDashboardPage() {
       <div className="rounded-2xl bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h1 className="text-lg font-bold text-earth-900">高潛力名單</h1>
+            <h1 className="text-lg font-bold text-earth-900">人才培育</h1>
             <p className="mt-0.5 text-sm text-earth-500">
               整併 readiness / 積分 / 轉介 / 準店長視角，掌握誰會成為下一個店長
             </p>
@@ -140,6 +148,7 @@ export default async function TalentDashboardPage() {
                     <span className="text-sm font-medium text-earth-800">
                       {c.name}
                     </span>
+                    <CustomerPotentialBadge tag={potentialTags.get(c.customerId)} size="sm" />
                     <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${config.bg} ${config.color}`}>
                       {config.label}
                     </span>
