@@ -113,8 +113,7 @@ export async function updateProfileAction(
         success: false,
       };
     }
-    // not_found — 以 userId 做 upsert，涵蓋「auth.ts signIn 已在某店建立 customer
-    // 但 resolver 因 storeId 不匹配沒撈到」的情境（Customer.userId @unique 全域）
+    // not_found — 統一處理：先查「目標店內真人 Customer」再決定 merge / update / create
     if (!storeId) {
       return {
         error: "無法判斷您的所屬店舖，請重新進入店家入口再試",
@@ -122,97 +121,109 @@ export async function updateProfileAction(
       };
     }
     try {
+      // 1) 目標店內，是否已有 phone 或 email 吻合的真人 Customer
+      const realByPhone = await prisma.customer.findFirst({
+        where: { phone, storeId },
+        select: { id: true, userId: true, phone: true, email: true },
+      });
+      const realByEmail = !realByPhone
+        ? await prisma.customer.findFirst({
+            where: { email, storeId },
+            select: { id: true, userId: true, phone: true, email: true },
+          })
+        : null;
+      const real = realByPhone ?? realByEmail;
+
+      // 2) 當前 user 是否已有 Customer（可能是 auth.ts 首登建的佔位，可能在同/別店）
       const existingByUserId = await prisma.customer.findUnique({
         where: { userId: user.id },
-        select: { id: true, storeId: true },
+        select: { id: true, storeId: true, phone: true },
       });
 
-      if (existingByUserId) {
-        // existingByUserId 可能是 auth.ts 建的佔位（phone=_oauth_xxx）
-        // 或在別店的殘留 Customer。要更新到當前 store + 真實 phone/email 前，
-        // 先檢查當前 store 是否有另一筆 real Customer 已用同 phone / email。
-        const phoneConflict = await prisma.customer.findFirst({
-          where: { phone, storeId, id: { not: existingByUserId.id } },
-          select: { id: true, userId: true },
-        });
-        const emailConflict =
-          !phoneConflict
-            ? await prisma.customer.findFirst({
-                where: { email, storeId, id: { not: existingByUserId.id } },
-                select: { id: true, userId: true },
-              })
-            : null;
-        const realConflict = phoneConflict ?? emailConflict;
+      console.info("[updateProfileAction] not_found analysis", {
+        userId: user.id,
+        sessionStoreId: storeId,
+        realId: real?.id ?? null,
+        realUserId: real?.userId ?? null,
+        realMatchedBy: realByPhone ? "phone" : realByEmail ? "email" : null,
+        existingByUserIdId: existingByUserId?.id ?? null,
+        existingByUserIdStoreId: existingByUserId?.storeId ?? null,
+      });
 
-        if (realConflict) {
-          // 同店已有真人 Customer 用這組 phone/email。安全條件下做 merge。
-          if (realConflict.userId && realConflict.userId !== user.id) {
-            console.warn(
-              "[updateProfileAction] merge blocked (not_found path) — real owned by another",
-              {
-                userId: user.id,
-                placeholderId: existingByUserId.id,
-                realId: realConflict.id,
-                realUserId: realConflict.userId,
-              },
-            );
-            return {
-              error:
-                "此聯絡電話/Email 已綁定其他登入帳號。若確認是您本人，請聯繫店家協助。",
-              success: false,
-            };
-          }
-
-          await prisma.$transaction([
+      // ── Case A: 有 real，且 real 與當前使用者的 existing 是不同 row → merge ──
+      if (real && (!existingByUserId || existingByUserId.id !== real.id)) {
+        if (real.userId && real.userId !== user.id) {
+          console.warn(
+            "[updateProfileAction] merge blocked — real owned by another user",
+            {
+              userId: user.id,
+              realId: real.id,
+              realUserId: real.userId,
+            },
+          );
+          return {
+            error:
+              "此聯絡電話/Email 已綁定其他登入帳號。若確認是您本人，請聯繫店家協助。",
+            success: false,
+          };
+        }
+        // 安全 merge：先釋放 existing 的 userId，再綁定 real 並寫入資料
+        const ops = [];
+        if (existingByUserId) {
+          ops.push(
             prisma.customer.update({
               where: { id: existingByUserId.id },
               data: { userId: null },
             }),
-            prisma.customer.update({
-              where: { id: realConflict.id },
-              data: {
-                userId: user.id,
-                name,
-                phone,
-                email,
-                gender,
-                birthday,
-                height,
-                address,
-                notes,
-              },
-            }),
-          ]);
-
-          await prisma.user.update({
-            where: { id: user.id },
-            data: { name },
-          });
-
-          console.info(
-            "[updateProfileAction] placeholder merged into real (not_found path)",
-            {
-              userId: user.id,
-              placeholderId: existingByUserId.id,
-              realId: realConflict.id,
-              mergedBy: phoneConflict ? "phone" : "email",
-            },
           );
-
-          revalidatePath("/profile");
-          return { error: null, success: true };
         }
-
-        // 沒有 conflict → 正常更新 existingByUserId 到當前 store
-        console.info(
-          "[updateProfileAction] existing customer found via userId unique — updating in place",
-          {
-            userId: user.id,
-            existingStoreId: existingByUserId.storeId,
-            sessionStoreId: storeId,
-            customerId: existingByUserId.id,
-          },
+        ops.push(
+          prisma.customer.update({
+            where: { id: real.id },
+            data: {
+              userId: user.id,
+              name,
+              phone,
+              email,
+              gender,
+              birthday,
+              height,
+              address,
+              notes,
+            },
+          }),
         );
+        await prisma.$transaction(ops);
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { name },
+        });
+        console.info("[updateProfileAction] merged (not_found path)", {
+          userId: user.id,
+          placeholderId: existingByUserId?.id ?? null,
+          realId: real.id,
+          mergedBy: realByPhone ? "phone" : "email",
+        });
+        revalidatePath("/profile");
+        return { error: null, success: true };
+      }
+
+      // ── Case B: 有 real，且就是 existing 自己（例如前一次已 merge 綁過）→ 直接 update ──
+      if (real && existingByUserId && existingByUserId.id === real.id) {
+        await prisma.customer.update({
+          where: { id: real.id },
+          data: { name, phone, email, gender, birthday, height, address, notes, storeId },
+        });
+        console.info("[updateProfileAction] updated self (real === existing)", {
+          userId: user.id,
+          customerId: real.id,
+        });
+        revalidatePath("/profile");
+        return { error: null, success: true };
+      }
+
+      // ── Case C: 目標店無 real，但有 existing（通常是佔位）→ 就地 update 並校正 storeId ──
+      if (existingByUserId) {
         await prisma.customer.update({
           where: { id: existingByUserId.id },
           data: {
@@ -224,15 +235,23 @@ export async function updateProfileAction(
             height,
             address,
             notes,
-            // 若當初建錯 store，以當前 session storeId 校正
             storeId,
           },
         });
+        console.info(
+          "[updateProfileAction] updated existing-by-userId (no real conflict)",
+          {
+            userId: user.id,
+            customerId: existingByUserId.id,
+            existingStoreId: existingByUserId.storeId,
+            sessionStoreId: storeId,
+          },
+        );
         revalidatePath("/profile");
         return { error: null, success: true };
       }
 
-      // 真的沒有 → 建立
+      // ── Case D: 全無既有資料 → create ──
       const created = await prisma.customer.create({
         data: {
           name,
@@ -258,21 +277,21 @@ export async function updateProfileAction(
       revalidatePath("/profile");
       return { error: null, success: true };
     } catch (err) {
-      // 印出具體原因（Prisma error code），供後台排查
       const errMsg = err instanceof Error ? err.message : String(err);
       const prismaCode = (err as { code?: string })?.code;
-      console.error("[updateProfileAction] create/upsert failed", {
+      const prismaMeta = (err as { meta?: { target?: string[] } })?.meta;
+      console.error("[updateProfileAction] not_found branch failed", {
         userId: user.id,
         storeId,
         payloadEmail: email,
         payloadPhone: phone,
         prismaCode,
+        prismaTarget: prismaMeta?.target,
         error: errMsg,
       });
 
-      // 常見 unique violation：依 code=P2002 與 meta.target 給使用者具體提示
       if (prismaCode === "P2002") {
-        const target = (err as { meta?: { target?: string[] } })?.meta?.target;
+        const target = prismaMeta?.target;
         if (target?.includes("email") || target?.includes("uq_store_customer_email")) {
           return { error: "此 Email 已被其他帳號使用", success: false };
         }
