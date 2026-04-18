@@ -69,12 +69,23 @@ export default async function MyPerksPage() {
       </div>
 
       <div className="space-y-5">
-        {/* ═══ 區塊 1：今日小好康（行動列表，對應既有 referral 事件點數） ═══ */}
+        {/* ═══ 區塊 1：今天幫朋友放鬆一下（含分享 CTA） ═══ */}
         <section className="rounded-2xl border border-primary-100 bg-gradient-to-br from-white to-primary-50/40 p-5 shadow-sm">
-          <p className="text-sm font-semibold text-earth-800">今天的小好康</p>
-          <p className="mt-2 text-sm leading-relaxed text-earth-600">
-            把這個傳給朋友，你們都有機會拿到小回饋。
+          <p className="text-base font-semibold text-earth-900">
+            今天幫朋友放鬆一下
           </p>
+          <p className="mt-1.5 text-sm leading-relaxed text-earth-600">
+            把你的專屬體驗連結分享給朋友，他來體驗，你拿回饋。
+          </p>
+          <div className="mt-4">
+            <ShareReferral
+              referralUrl={referralUrl}
+              variant="compact"
+              storeId={storeId ?? undefined}
+              referrerId={customerId ?? undefined}
+              source="my-perks"
+            />
+          </div>
         </section>
 
         {/* ═══ 區塊 2：點數進度（大數字 + 進度條 + 差距提示） ═══ */}
@@ -111,7 +122,7 @@ export default async function MyPerksPage() {
           </div>
         </section>
 
-        {/* ═══ 區塊 3：分享成果（輕語言；不提轉介紹 / 成交 / 漏斗） ═══ */}
+        {/* ═══ 區塊 3：數據區（已分享 / 朋友加入 / 來體驗） ═══ */}
         <section className="rounded-2xl border border-earth-200 bg-white p-5 shadow-sm">
           <p className="text-sm font-semibold text-earth-700">我的分享</p>
           <div className="mt-3 grid grid-cols-3 gap-3">
@@ -124,27 +135,7 @@ export default async function MyPerksPage() {
           </p>
         </section>
 
-        {/* ═══ 區塊 4：行動區（LINE / 複製連結） ═══ */}
-        <section className="rounded-2xl border border-earth-200 bg-white p-5 shadow-sm">
-          <p className="text-sm font-semibold text-earth-700">
-            有朋友最近也想放鬆一下嗎？
-          </p>
-          <p className="mt-1 text-xs text-earth-500">
-            可以把這個傳給他，對方有興趣再自己了解就好。
-          </p>
-          <div className="mt-3">
-            <ShareReferral
-              referralUrl={referralUrl}
-              variant="full"
-              referralCount={summary.lineJoinCount}
-              storeId={storeId ?? undefined}
-              referrerId={customerId ?? undefined}
-              source="my-perks"
-            />
-          </div>
-        </section>
-
-        {/* ═══ 區塊 5：點數紀錄入口 ═══ */}
+        {/* ═══ 區塊 4：點數紀錄入口 ═══ */}
         <Link
           href="/my-points"
           className="flex items-center justify-between rounded-xl bg-white px-4 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition hover:shadow-[0_1px_4px_rgba(0,0,0,0.1)]"

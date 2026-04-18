@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { updateProfileAction, type ProfileState } from "@/server/actions/profile";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -24,30 +25,40 @@ interface Props {
 
 export function ProfileForm({ customer, age, onboardingMode = false, nextPath = null }: Props) {
   const router = useRouter();
+  const { update: updateSession } = useSession();
   const [state, formAction, pending] = useActionState<ProfileState, FormData>(
     updateProfileAction,
     { error: null, success: false }
   );
 
-  // toast 提示 + 成功後可能跳回 next
+  // toast 提示 + 成功後：刷新 JWT（customerId 可能剛被 auto-bind）→ 跳 next
   useEffect(() => {
     if (state.success) {
       toast.success(onboardingMode ? "完成註冊，開始使用吧！" : "個人資料已儲存");
-      const dest = nextPath || (onboardingMode ? "/book" : null);
-      if (dest) {
-        // 稍微延遲讓 toast 有時間顯示
-        const t = setTimeout(() => {
-          router.push(dest);
+
+      // 觸發 next-auth session update → jwt callback trigger='update' 重讀 DB，
+      // 刷新 session 裡的 customerId / storeId（避免 stale JWT 造成誤導）。
+      const run = async () => {
+        try {
+          await updateSession();
+        } catch (err) {
+          console.warn("[profile-form] session update failed", err);
+        }
+        const dest = nextPath || (onboardingMode ? "/book" : null);
+        if (dest) {
+          // 稍微延遲讓 toast 有時間顯示
+          setTimeout(() => {
+            router.push(dest);
+            router.refresh();
+          }, 600);
+        } else {
           router.refresh();
-        }, 600);
-        return () => clearTimeout(t);
-      } else {
-        // 非 onboarding 且無 next：重新整理本頁以帶入最新資料
-        router.refresh();
-      }
+        }
+      };
+      void run();
     }
     if (state.error) toast.error(state.error);
-  }, [state.success, state.error, onboardingMode, nextPath, router]);
+  }, [state.success, state.error, onboardingMode, nextPath, router, updateSession]);
 
   return (
     <form action={formAction} className="space-y-4">

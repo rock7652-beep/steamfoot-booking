@@ -73,6 +73,15 @@ export async function getMyReferralSummary(
 
   const commonWhere = { referrerId: customerId, storeId };
 
+  // 各 query 獨立容錯：任一步失敗用 0/[] 替補，避免整個 summary throw
+  const logErr = (name: string, err: unknown) => {
+    console.error(`[getMyReferralSummary] ${name} failed`, {
+      customerId,
+      storeId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  };
+
   const [
     shareCount,
     registerCustomers,
@@ -80,29 +89,49 @@ export async function getMyReferralSummary(
     convertedCount,
   ] = await Promise.all([
     // 分享次數（每次分享都計一次）
-    prisma.referralEvent.count({
-      where: { ...commonWhere, type: "SHARE" },
-    }),
+    prisma.referralEvent
+      .count({
+        where: { ...commonWhere, type: "SHARE" },
+      })
+      .catch((err) => {
+        logErr("shareCount", err);
+        return 0;
+      }),
     // 透過我註冊的不重複顧客
-    prisma.referralEvent.findMany({
-      where: { ...commonWhere, type: "REGISTER", customerId: { not: null } },
-      distinct: ["customerId"],
-      select: { customerId: true },
-    }),
+    prisma.referralEvent
+      .findMany({
+        where: { ...commonWhere, type: "REGISTER", customerId: { not: null } },
+        distinct: ["customerId"],
+        select: { customerId: true },
+      })
+      .catch((err) => {
+        logErr("registerCustomers", err);
+        return [] as { customerId: string | null }[];
+      }),
     // 透過我預約且完成出席的不重複顧客
-    prisma.referralEvent.findMany({
-      where: {
-        ...commonWhere,
-        type: "BOOKING_COMPLETED",
-        customerId: { not: null },
-      },
-      distinct: ["customerId"],
-      select: { customerId: true },
-    }),
+    prisma.referralEvent
+      .findMany({
+        where: {
+          ...commonWhere,
+          type: "BOOKING_COMPLETED",
+          customerId: { not: null },
+        },
+        distinct: ["customerId"],
+        select: { customerId: true },
+      })
+      .catch((err) => {
+        logErr("completedCustomers", err);
+        return [] as { customerId: string | null }[];
+      }),
     // 已轉換為顧客的 Referral（維持舊語意）
-    prisma.referral.count({
-      where: { referrerId: customerId, status: "CONVERTED" },
-    }),
+    prisma.referral
+      .count({
+        where: { referrerId: customerId, status: "CONVERTED" },
+      })
+      .catch((err) => {
+        logErr("convertedCount", err);
+        return 0;
+      }),
   ]);
 
   const lineJoinCount = registerCustomers.length;
