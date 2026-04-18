@@ -158,11 +158,38 @@ export async function resolveCustomerForUser(
         // 繼續嘗試 phone
       } else if (candidates.length === 1) {
         const c = candidates[0];
+        if (c.userId === opts.userId) {
+          // 已綁定同一 user，直接返回
+          console.info("[resolveCustomer] bound_by_email (already)", {
+            ...logCtx,
+            customerId: c.id,
+          });
+          return { customer: c, reason: "bound_by_email" };
+        }
         if (c.userId && c.userId !== opts.userId) {
+          // 有人綁過：需要雙因子（email + phone 皆對）才允許 rebind，防止帳號劫持
+          const phoneMatches =
+            !!opts.payloadPhone && c.phone === opts.payloadPhone;
+          if (phoneMatches) {
+            console.warn("[resolveCustomer] rebind_by_email (phone matched)", {
+              ...logCtx,
+              customerId: c.id,
+              previousUserId: c.userId,
+            });
+            await prisma.customer.update({
+              where: { id: c.id },
+              data: { userId: opts.userId },
+            });
+            return {
+              customer: { ...c, userId: opts.userId },
+              reason: "bound_by_email",
+            };
+          }
           console.warn("[resolveCustomer] conflict_already_linked_email", {
             ...logCtx,
             customerId: c.id,
             existingUserId: c.userId,
+            phoneProvided: !!opts.payloadPhone,
           });
           return {
             customer: null,
@@ -170,12 +197,11 @@ export async function resolveCustomerForUser(
             conflict: true,
           };
         }
-        if (!c.userId) {
-          await prisma.customer.update({
-            where: { id: c.id },
-            data: { userId: opts.userId },
-          });
-        }
+        // c.userId 為 null → 安全直綁
+        await prisma.customer.update({
+          where: { id: c.id },
+          data: { userId: opts.userId },
+        });
         console.info("[resolveCustomer] bound_by_email", {
           ...logCtx,
           customerId: c.id,
@@ -210,7 +236,33 @@ export async function resolveCustomerForUser(
       }
       if (candidates.length === 1) {
         const c = candidates[0];
+        if (c.userId === opts.userId) {
+          console.info("[resolveCustomer] bound_by_phone (already)", {
+            ...logCtx,
+            customerId: c.id,
+          });
+          return { customer: c, reason: "bound_by_phone" };
+        }
         if (c.userId && c.userId !== opts.userId) {
+          // 雙因子：email + phone 皆對才允許 rebind
+          const emailMatches =
+            !!(opts.payloadEmail ?? opts.sessionEmail) &&
+            c.email === (opts.payloadEmail ?? opts.sessionEmail);
+          if (emailMatches) {
+            console.warn("[resolveCustomer] rebind_by_phone (email matched)", {
+              ...logCtx,
+              customerId: c.id,
+              previousUserId: c.userId,
+            });
+            await prisma.customer.update({
+              where: { id: c.id },
+              data: { userId: opts.userId },
+            });
+            return {
+              customer: { ...c, userId: opts.userId },
+              reason: "bound_by_phone",
+            };
+          }
           console.warn("[resolveCustomer] conflict_already_linked_phone", {
             ...logCtx,
             customerId: c.id,
@@ -222,12 +274,11 @@ export async function resolveCustomerForUser(
             conflict: true,
           };
         }
-        if (!c.userId) {
-          await prisma.customer.update({
-            where: { id: c.id },
-            data: { userId: opts.userId },
-          });
-        }
+        // c.userId 為 null → 安全直綁
+        await prisma.customer.update({
+          where: { id: c.id },
+          data: { userId: opts.userId },
+        });
         console.info("[resolveCustomer] bound_by_phone", {
           ...logCtx,
           customerId: c.id,
