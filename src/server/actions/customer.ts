@@ -75,8 +75,10 @@ export async function createCustomer(
     const customer = await prisma.customer.create({
       data: {
         name: data.name,
-        phone: data.phone || "",
-        email: data.email || null,
+        phone: data.phone,
+        email: data.email,
+        gender: data.gender,
+        birthday: data.birthday ? new Date(data.birthday) : null,
         lineName: data.lineName,
         notes: data.notes,
         assignedStaffId: assignedStaffId || null,

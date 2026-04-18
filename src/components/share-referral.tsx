@@ -40,6 +40,8 @@ export function ShareReferral({
   const absoluteUrl = toAbsoluteUrl(referralUrl);
   const shareText = buildShareText({ inviterName });
   const lineShareUrl = buildLineShareUrl(shareText, absoluteUrl);
+  // 完整文案（複製分享文字用）— 與 LINE 分享出去的文字一致
+  const fullShareText = `${shareText}${absoluteUrl}\n跟他們說是我介紹的就好 😊`;
 
   /** 分享事件埋點（fire-and-forget；埋點失敗不影響使用者體驗） */
   function trackShare(channel: "copy" | "line") {
@@ -53,8 +55,9 @@ export function ShareReferral({
     });
   }
 
-  async function handleCopy() {
-    const ok = await copyToClipboard(absoluteUrl);
+  async function handleCopy(mode: "url" | "text" = "url") {
+    const payload = mode === "text" ? fullShareText : absoluteUrl;
+    const ok = await copyToClipboard(payload);
     if (ok) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
@@ -77,7 +80,7 @@ export function ShareReferral({
         </div>
         <div className="flex gap-2">
           <button
-            onClick={handleCopy}
+            onClick={() => handleCopy("text")}
             className="flex-1 rounded-lg border border-earth-300 bg-white px-3 py-2 text-sm text-earth-700 hover:bg-earth-50"
           >
             {copied ? "已複製" : "複製分享文字"}
@@ -103,7 +106,7 @@ export function ShareReferral({
   return (
     <div className="flex gap-2">
       <button
-        onClick={handleCopy}
+        onClick={() => handleCopy("url")}
         className="flex-1 rounded-lg border border-earth-300 bg-white px-3 py-2 text-sm text-earth-700 hover:bg-earth-50"
       >
         {copied ? "已複製" : "複製連結"}

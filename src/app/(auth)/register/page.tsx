@@ -118,51 +118,50 @@ export default function RegisterPage() {
             />
           </div>
 
-          {/* 選填 */}
-          <div className="border-t border-earth-200 pt-4">
-            <p className="mb-3 text-xs text-earth-400">以下為選填</p>
+          {/* 基本資料（必填，除備註外） */}
+          <div className="border-t border-earth-200 pt-4 space-y-4">
+            <div>
+              <label htmlFor="gender" className="block text-sm font-medium text-earth-700">
+                性別 <span className="text-red-500">*</span>
+              </label>
+              <select
+                id="gender"
+                name="gender"
+                required
+                defaultValue=""
+                className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              >
+                <option value="" disabled>請選擇</option>
+                <option value="male">男</option>
+                <option value="female">女</option>
+                <option value="other">其他</option>
+              </select>
+            </div>
 
-            <div className="space-y-4">
-              <div>
-                <label htmlFor="gender" className="block text-sm font-medium text-earth-700">
-                  性別
-                </label>
-                <select
-                  id="gender"
-                  name="gender"
-                  className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-                >
-                  <option value="">不指定</option>
-                  <option value="male">男</option>
-                  <option value="female">女</option>
-                  <option value="other">其他</option>
-                </select>
-              </div>
+            <div>
+              <label htmlFor="birthday" className="block text-sm font-medium text-earth-700">
+                生日 <span className="text-red-500">*</span>
+              </label>
+              <input
+                id="birthday"
+                name="birthday"
+                type="date"
+                required
+                className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              />
+            </div>
 
-              <div>
-                <label htmlFor="birthday" className="block text-sm font-medium text-earth-700">
-                  生日
-                </label>
-                <input
-                  id="birthday"
-                  name="birthday"
-                  type="date"
-                  className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="notes" className="block text-sm font-medium text-earth-700">
-                  備註
-                </label>
-                <input
-                  id="notes"
-                  name="notes"
-                  type="text"
-                  placeholder="選填"
-                  className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-                />
-              </div>
+            <div>
+              <label htmlFor="notes" className="block text-sm font-medium text-earth-700">
+                備註（選填）
+              </label>
+              <input
+                id="notes"
+                name="notes"
+                type="text"
+                placeholder="選填"
+                className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              />
             </div>
           </div>
 

@@ -22,28 +22,37 @@ export async function updateProfileAction(
 
   const name = (formData.get("name") as string)?.trim();
   const phone = (formData.get("phone") as string)?.trim();
-  const email = (formData.get("email") as string)?.trim() || null;
-  const gender = (formData.get("gender") as string)?.trim() || null;
-  const birthdayStr = (formData.get("birthday") as string)?.trim() || null;
-  const heightStr = (formData.get("height") as string)?.trim() || null;
-  const address = (formData.get("address") as string)?.trim() || null;
-  const notes = (formData.get("notes") as string)?.trim() || null;
+  const email = (formData.get("email") as string)?.trim();
+  const gender = (formData.get("gender") as string)?.trim();
+  const birthdayStr = (formData.get("birthday") as string)?.trim();
+  const heightStr = (formData.get("height") as string)?.trim();
+  const address = (formData.get("address") as string)?.trim();
+  const notes = (formData.get("notes") as string)?.trim() || null; // 僅 notes 保持可空
 
+  // 必填驗證（除 notes 外皆必填）
   if (!name) return { error: "請輸入姓名", success: false };
   if (!phone) return { error: "請輸入手機號碼", success: false };
+  if (!email) return { error: "請輸入 Email", success: false };
+  if (!gender) return { error: "請選擇性別", success: false };
+  if (!birthdayStr) return { error: "請選擇生日", success: false };
+  if (!heightStr) return { error: "請輸入身高", success: false };
+  if (!address) return { error: "請輸入地址", success: false };
 
   if (!/^09\d{8}$/.test(phone)) {
     return { error: "手機號碼格式不正確（09 開頭共 10 碼）", success: false };
   }
 
-  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return { error: "Email 格式不正確", success: false };
   }
 
-  const birthday = birthdayStr ? new Date(birthdayStr) : null;
-  const height = heightStr ? parseFloat(heightStr) : null;
+  const birthday = new Date(birthdayStr);
+  if (isNaN(birthday.getTime())) {
+    return { error: "生日格式不正確", success: false };
+  }
 
-  if (height !== null && (isNaN(height) || height < 50 || height > 250)) {
+  const height = parseFloat(heightStr);
+  if (isNaN(height) || height < 50 || height > 250) {
     return { error: "身高數值不合理（50-250 cm）", success: false };
   }
 

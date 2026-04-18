@@ -74,10 +74,12 @@ export async function customerRegisterAction(
   const storeId = (formData.get("storeId") as string) || (await getStoreIdFromCookie());
   const storeSlug = (formData.get("storeSlug") as string) || "zhubei";
 
-  // 必填驗證
+  // 必填驗證（除 notes 外皆必填）
   if (!name) return { error: "請輸入姓名" };
   if (!phone) return { error: "請輸入手機號碼" };
   if (!password) return { error: "請輸入密碼" };
+  if (!gender) return { error: "請選擇性別" };
+  if (!birthdayStr) return { error: "請選擇生日" };
 
   // 手機格式
   if (!/^09\d{8}$/.test(phone)) {
