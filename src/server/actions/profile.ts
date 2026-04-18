@@ -153,19 +153,42 @@ export async function updateProfileAction(
       // ── Case A: 有 real，且 real 與當前使用者的 existing 是不同 row → merge ──
       if (real && (!existingByUserId || existingByUserId.id !== real.id)) {
         if (real.userId && real.userId !== user.id) {
+          // 雙因子校驗：若 payload.phone 與 payload.email 皆與 real 吻合，
+          // 視為 onboarding 本人認領 → 允許覆寫 stale userId
+          const emailNorm = (s: string | null) =>
+            (s ?? "").trim().toLowerCase();
+          const phoneNorm = (s: string | null) => (s ?? "").trim();
+          const twoFactorMatch =
+            phoneNorm(real.phone) === phoneNorm(phone) &&
+            emailNorm(real.email) === emailNorm(email);
+
+          if (!twoFactorMatch) {
+            console.warn(
+              "[updateProfileAction] merge blocked — real owned by another user (single-factor)",
+              {
+                userId: user.id,
+                realId: real.id,
+                realUserId: real.userId,
+                phoneMatch: phoneNorm(real.phone) === phoneNorm(phone),
+                emailMatch: emailNorm(real.email) === emailNorm(email),
+              },
+            );
+            return {
+              error:
+                "此聯絡電話或 Email 之一與店家紀錄不一致。請再確認兩者皆為您留給店家的資料；若確認無誤請聯繫店家協助。",
+              success: false,
+            };
+          }
+
           console.warn(
-            "[updateProfileAction] merge blocked — real owned by another user",
+            "[updateProfileAction] two-factor rebind overriding stale userId",
             {
               userId: user.id,
               realId: real.id,
-              realUserId: real.userId,
+              previousUserId: real.userId,
             },
           );
-          return {
-            error:
-              "此聯絡電話/Email 已綁定其他登入帳號。若確認是您本人，請聯繫店家協助。",
-            success: false,
-          };
+          // 繼續往下做 merge transaction；second update 會覆寫 real.userId
         }
         // 安全 merge：先釋放 existing 的 userId，再綁定 real 並寫入資料
         const ops = [];
@@ -336,20 +359,47 @@ export async function updateProfileAction(
 
       if (real) {
         if (real.userId && real.userId !== user.id) {
+          const emailNorm = (s: string | null) =>
+            (s ?? "").trim().toLowerCase();
+          const phoneNorm = (s: string | null) => (s ?? "").trim();
+          const realFull = await prisma.customer.findUnique({
+            where: { id: real.id },
+            select: { email: true },
+          });
+          const twoFactorMatch =
+            phoneNorm((real as { phone?: string | null }).phone ?? null) === phoneNorm(phone) ||
+            emailNorm(realFull?.email ?? null) === emailNorm(email);
+          // Path 1 較嚴格：必須 phone + email 皆對（resolver 已用過一次 factor 匹配到 real）
+          const bothMatch =
+            phoneNorm((real as { phone?: string | null }).phone ?? null) === phoneNorm(phone) &&
+            emailNorm(realFull?.email ?? null) === emailNorm(email);
+
+          if (!bothMatch) {
+            console.warn(
+              "[updateProfileAction] placeholder-merge blocked (single-factor)",
+              {
+                userId: user.id,
+                placeholderId: customerId,
+                realId: real.id,
+                realUserId: real.userId,
+                twoFactorMatch,
+              },
+            );
+            return {
+              error:
+                "此聯絡電話或 Email 之一與店家紀錄不一致。請再確認兩者皆為您留給店家的資料；若確認無誤請聯繫店家協助。",
+              success: false,
+            };
+          }
           console.warn(
-            "[updateProfileAction] merge blocked — real customer owned by another user",
+            "[updateProfileAction] placeholder-merge: two-factor rebind overriding stale userId",
             {
               userId: user.id,
               placeholderId: customerId,
               realId: real.id,
-              realUserId: real.userId,
+              previousUserId: real.userId,
             },
           );
-          return {
-            error:
-              "此聯絡電話/Email 已綁定其他登入帳號。若確認是您本人，請聯繫店家協助。",
-            success: false,
-          };
         }
 
         // Merge: 先把佔位的 userId 釋放，再把真人 Customer 綁到當前 userId 並更新欄位
