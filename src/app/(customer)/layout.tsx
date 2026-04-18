@@ -110,9 +110,9 @@ export default async function CustomerLayout({
   const storeCtx = await getStoreContext();
   const completion = await resolveCustomerCompletionStatus({
     userId: user.id,
-    customerId: user.customerId ?? null,
-    email: user.email ?? null,
-    storeId: storeCtx?.storeId ?? null,
+    sessionCustomerId: user.customerId ?? null,
+    sessionEmail: user.email ?? null,
+    storeId: user.storeId ?? storeCtx?.storeId ?? null,
     storeSlug,
   });
   const isOnProfile = pathname === "/profile" || pathname.startsWith("/profile/");

@@ -4,6 +4,8 @@ import { prisma } from "@/lib/db";
 import { requireSession, requireStaffSession } from "@/lib/session";
 import { compareSync, hashSync } from "bcryptjs";
 import { revalidatePath } from "next/cache";
+import { getStoreContext } from "@/lib/store-context";
+import { resolveCustomerForUser } from "@/server/queries/customer-completion";
 
 // ============================================================
 // 更新個人資料
@@ -18,22 +20,6 @@ export async function updateProfileAction(
   const user = await requireSession();
   if (user.role !== "CUSTOMER") {
     return { error: "權限不足", success: false };
-  }
-
-  // session.customerId 若為 null（OAuth 剛綁定後，JWT 尚未刷新）→ fallback 以 userId 找
-  let customerId: string | null = user.customerId ?? null;
-  if (!customerId) {
-    const linked = await prisma.customer.findFirst({
-      where: { userId: user.id },
-      select: { id: true },
-    });
-    customerId = linked?.id ?? null;
-  }
-  if (!customerId) {
-    return {
-      error: "找不到您的顧客資料，請聯繫店家協助建立",
-      success: false,
-    };
   }
 
   const name = (formData.get("name") as string)?.trim();
@@ -72,34 +58,117 @@ export async function updateProfileAction(
     return { error: "身高數值不合理（50-250 cm）", success: false };
   }
 
-  try {
-    // 檢查 phone unique（排除自己，限同店）
-    const currentCustomer = await prisma.customer.findUnique({
-      where: { id: customerId },
-      select: { phone: true, userId: true, storeId: true },
-    });
-    if (!currentCustomer) {
+  // ── 統一 resolver ───────────────────────────────────
+  // 與 profile page render 使用同一支；submit 額外提供 payload email/phone
+  // 供 email/phone 唯一匹配 auto-bind。
+  const storeCtx = await getStoreContext();
+  const storeId = user.storeId ?? storeCtx?.storeId ?? null;
+
+  const resolved = await resolveCustomerForUser({
+    userId: user.id,
+    sessionCustomerId: user.customerId ?? null,
+    sessionEmail: user.email ?? null,
+    storeId,
+    storeSlug: storeCtx?.storeSlug ?? null,
+    payloadEmail: email,
+    payloadPhone: phone,
+  });
+
+  console.info("[updateProfileAction] resolved", {
+    userId: user.id,
+    sessionCustomerId: user.customerId ?? null,
+    sessionEmail: user.email ?? null,
+    storeId,
+    payloadEmail: email,
+    payloadPhone: phone,
+    resolvedCustomerId: resolved.customer?.id ?? null,
+    reason: resolved.reason,
+  });
+
+  // 錯誤訊息分流 — 不要一律顯示「找不到」
+  if (!resolved.customer) {
+    if (resolved.reason === "conflict_multiple_email") {
       return {
-        error: "找不到您的顧客資料，請重新整理頁面或聯繫店家",
+        error: "系統偵測到同店有多筆相同 Email 的顧客資料，請聯繫店家協助確認",
         success: false,
       };
     }
+    if (resolved.reason === "conflict_multiple_phone") {
+      return {
+        error: "系統偵測到同店有多筆相同聯絡電話的顧客資料，請聯繫店家協助確認",
+        success: false,
+      };
+    }
+    if (resolved.reason === "conflict_already_linked_email") {
+      return {
+        error: "此 Email 已綁定其他登入帳號，請聯繫店家協助",
+        success: false,
+      };
+    }
+    if (resolved.reason === "conflict_already_linked_phone") {
+      return {
+        error: "此聯絡電話已綁定其他登入帳號，請聯繫店家協助",
+        success: false,
+      };
+    }
+    // not_found — 這時允許新建（但需有 storeId）
+    if (!storeId) {
+      return {
+        error: "無法判斷您的所屬店舖，請重新進入店家入口再試",
+        success: false,
+      };
+    }
+    try {
+      const created = await prisma.customer.create({
+        data: {
+          name,
+          phone,
+          email,
+          gender,
+          birthday,
+          height,
+          address,
+          notes,
+          storeId,
+          userId: user.id,
+          authSource: "EMAIL",
+          customerStage: "LEAD",
+        },
+        select: { id: true },
+      });
+      console.info("[updateProfileAction] customer created on-demand", {
+        userId: user.id,
+        storeId,
+        customerId: created.id,
+      });
+      revalidatePath("/profile");
+      return { error: null, success: true };
+    } catch (err) {
+      console.error("[updateProfileAction] create failed", { userId: user.id, err });
+      return {
+        error: "建立顧客資料失敗，請稍後再試或聯繫店家",
+        success: false,
+      };
+    }
+  }
 
-    // 聯絡電話 — 用途：預約聯繫。不再視為登入帳號，不會強迫登出。
-    // 仍檢查同店 unique 避免重複。
-    if (phone !== currentCustomer.phone) {
+  // resolved.customer 存在 → update
+  const customerId = resolved.customer.id;
+  const customerStoreId = resolved.customer.storeId;
+
+  try {
+    // 額外的 unique 檢查：phone/email 是否被「其他」人佔用（同店）
+    if (phone !== resolved.customer.phone) {
       const existingPhone = await prisma.customer.findFirst({
-        where: { phone, id: { not: customerId }, storeId: currentCustomer.storeId },
+        where: { phone, id: { not: customerId }, storeId: customerStoreId },
       });
       if (existingPhone) {
         return { error: "此聯絡電話已被其他帳號使用", success: false };
       }
     }
-
-    // 檢查 email unique（限同店）
-    if (email) {
+    if (email !== resolved.customer.email) {
       const existingEmail = await prisma.customer.findFirst({
-        where: { email, id: { not: customerId }, storeId: currentCustomer.storeId },
+        where: { email, id: { not: customerId }, storeId: customerStoreId },
       });
       if (existingEmail) {
         return { error: "此 Email 已被其他帳號使用", success: false };
@@ -112,9 +181,9 @@ export async function updateProfileAction(
     });
 
     // 同步 User.name
-    if (currentCustomer.userId) {
+    if (resolved.customer.userId) {
       await prisma.user.update({
-        where: { id: currentCustomer.userId },
+        where: { id: resolved.customer.userId },
         data: { name },
       });
     }
@@ -122,7 +191,11 @@ export async function updateProfileAction(
     revalidatePath("/profile");
     return { error: null, success: true };
   } catch (error) {
-    console.error("[updateProfileAction] Error:", error);
+    console.error("[updateProfileAction] update failed", {
+      userId: user.id,
+      customerId,
+      error,
+    });
     return { error: "儲存失敗，請稍後再試", success: false };
   }
 }
