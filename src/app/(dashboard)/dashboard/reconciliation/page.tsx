@@ -5,7 +5,7 @@ import { FEATURES } from "@/lib/feature-flags";
 import { ServerTiming, withTiming } from "@/lib/perf";
 import { FeatureGate } from "@/components/feature-gate";
 import { redirect } from "next/navigation";
-import Link from "next/link";
+import { DashboardLink as Link } from "@/components/dashboard-link";
 import { EmptyState } from "@/components/ui/empty-state";
 import { listReconciliationRuns, getReconciliationRunDetail } from "@/server/queries/reconciliation";
 import { RunReconciliationButton } from "./run-button";

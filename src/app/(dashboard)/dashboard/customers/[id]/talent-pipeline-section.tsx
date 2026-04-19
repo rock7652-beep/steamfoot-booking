@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import Link from "next/link";
+import { DashboardLink as Link } from "@/components/dashboard-link";
 import { useRouter } from "next/navigation";
 import type { TalentStage } from "@prisma/client";
 import { TALENT_STAGE_LABELS } from "@/types/talent";

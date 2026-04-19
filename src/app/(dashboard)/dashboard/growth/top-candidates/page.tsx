@@ -2,19 +2,18 @@ import { cookies } from "next/headers";
 import { getCurrentUser } from "@/lib/session";
 import { resolveActiveStoreId } from "@/lib/store";
 import { notFound } from "next/navigation";
-import Link from "next/link";
-import { getNextOwnerCandidates } from "@/server/queries/talent";
-import { getTopReferrersByEventCount } from "@/server/queries/referral-events";
-import { getPotentialTagsForCustomers } from "@/server/queries/customer-potential";
-import { CustomerPotentialBadge } from "@/components/customer-potential-badge";
-import { READINESS_LEVEL_CONFIG, TALENT_STAGE_LABELS } from "@/types/talent";
+import { DashboardLink as Link } from "@/components/dashboard-link";
+import { getGrowthTopCandidates } from "@/server/queries/growth";
+import { GrowthCandidateCard } from "../_components/growth-candidate-card";
+import { RelativeLink } from "../_components/relative-link";
 
 /**
- * /dashboard/growth/top-candidates — TOP 10 高潛力候選人
+ * /dashboard/growth/top-candidates — TOP 10 高潛力候選人（v2）
  *
- * 獨立頁呈現 readiness / points / referral / future-owner 整併後的 TOP 10，
- * 供 OWNER 單獨檢視、點進顧客卡。
- * 主頁 /dashboard/growth 的 funnel / leaderboard 保留，TOP 10 在該頁只顯示摘要。
+ * v2：排序改用 growthScore desc（readiness × 0.5 + 近30d活躍 + 積分 + 階段）。
+ * 每張卡統一用 GrowthCandidateCard — 顯示 growthScore / tags / nextAction，可展開 breakdown。
+ *
+ * Resilience：getGrowthTopCandidates 內部每支子 query 都有 safe() 包 try/catch，單一失敗回 fallback。
  */
 export default async function TopCandidatesPage() {
   const user = await getCurrentUser();
@@ -27,163 +26,69 @@ export default async function TopCandidatesPage() {
   const cookieStoreId = cookieStore.get("active-store-id")?.value ?? null;
   const activeStoreId = resolveActiveStoreId(user, cookieStoreId);
 
-  const [candidates, topByEvents] = await Promise.all([
-    getNextOwnerCandidates(activeStoreId, 10),
-    // 事件層排行：以 BOOKING_COMPLETED 為主要成效訊號（真正帶人到店）
-    getTopReferrersByEventCount(activeStoreId, {
-      limit: 50,
-      filterType: "BOOKING_COMPLETED",
-    }),
-  ]);
-
-  // 把事件數合進 candidate map，供 UI 新增欄位
-  const eventCountMap = new Map(
-    topByEvents.map((r) => [r.referrerId, r.count]),
+  const reqId = Math.random().toString(36).slice(2, 10);
+  const t0 = performance.now();
+  console.log(
+    `[GROWTH:TOP_CANDIDATES] start ${JSON.stringify({
+      reqId,
+      role: user.role,
+      userId: user.id,
+      storeId: user.storeId ?? null,
+      activeStoreId: activeStoreId ?? null,
+    })}`,
   );
 
-  // 批次取潛力 badge（依規則判讀）
-  const potentialTags = await getPotentialTagsForCustomers(
-    candidates.map((c) => c.customerId),
-    { storeId: activeStoreId },
+  let candidates: Awaited<ReturnType<typeof getGrowthTopCandidates>> = [];
+  try {
+    candidates = await getGrowthTopCandidates(activeStoreId, 10);
+  } catch (e) {
+    const err = e instanceof Error ? e : new Error(String(e));
+    console.error(
+      `[GROWTH:TOP_CANDIDATES] fail getGrowthTopCandidates reqId=${reqId} msg=${err.message}`,
+    );
+    if (err.stack) console.error(err.stack);
+  }
+
+  const totalMs = Math.round(performance.now() - t0);
+  console.log(
+    `[GROWTH:TOP_CANDIDATES] done ${totalMs}ms reqId=${reqId} candidates=${candidates.length}`,
   );
 
   return (
     <div className="mx-auto max-w-4xl space-y-5 px-4 py-4">
-      {/* 返回 + 標題 */}
       <div className="flex items-center gap-3 text-sm text-earth-500">
-        <Link href="/dashboard/growth" className="hover:text-earth-800">
-          ← 人才培育
-        </Link>
+        <RelativeLink to="/dashboard/growth" className="hover:text-earth-800">
+          ← 成長系統
+        </RelativeLink>
       </div>
 
       <div className="rounded-2xl bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-        <h1 className="text-lg font-bold text-earth-900">TOP 10 高潛力候選人</h1>
+        <h1 className="text-lg font-bold text-earth-900">潛力名單 TOP 10</h1>
         <p className="mt-0.5 text-sm text-earth-500">
-          依準備度分數、累積點數、帶出人數與出席率綜合排序
+          以成長分數排序（readiness × 0.5 + 近 30 天活躍 30 + 積分 10 + 階段 10）
         </p>
       </div>
 
       {candidates.length === 0 ? (
         <div className="rounded-2xl border border-earth-200 bg-white p-8 text-center shadow-sm">
-          <p className="text-sm text-earth-500">目前尚無足夠資料的候選人。</p>
+          <p className="text-sm text-earth-500">目前尚無足夠資料的候選人</p>
           <p className="mt-1 text-xs text-earth-400">
-            當成員累積推薦、點數與出席後，會自動出現在這裡。
+            當成員累積推薦、點數與出席後，會自動出現在這裡
           </p>
         </div>
       ) : (
         <ol className="space-y-2">
-          {candidates.map((c, i) => {
-            const config = READINESS_LEVEL_CONFIG[c.readinessLevel];
-            const isEligible =
-              c.talentStage === "PARTNER" &&
-              (c.readinessLevel === "HIGH" || c.readinessLevel === "READY") &&
-              c.totalPoints >= 100 &&
-              c.referralCount >= 2;
-            const rankBg =
-              i === 0
-                ? "bg-amber-100 text-amber-700"
-                : i === 1
-                ? "bg-gray-100 text-gray-600"
-                : i === 2
-                ? "bg-orange-100 text-orange-600"
-                : "bg-earth-100 text-earth-500";
-
-            return (
-              <li key={c.customerId}>
-                <Link
-                  href={`/dashboard/customers/${c.customerId}`}
-                  className="block rounded-xl border border-earth-200 bg-white p-4 shadow-sm transition hover:border-primary-200 hover:shadow"
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <span
-                        className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${rankBg}`}
-                      >
-                        {i + 1}
-                      </span>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-semibold text-earth-900">
-                            {c.name}
-                          </span>
-                          <CustomerPotentialBadge tag={potentialTags.get(c.customerId)} size="sm" />
-                          <span
-                            className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${config.bg} ${config.color}`}
-                          >
-                            {config.label}
-                          </span>
-                          {isEligible && (
-                            <span className="rounded bg-green-100 px-1.5 py-0.5 text-[10px] font-medium text-green-700">
-                              可升級
-                            </span>
-                          )}
-                        </div>
-                        <p className="mt-0.5 text-[11px] text-earth-400">
-                          {TALENT_STAGE_LABELS[c.talentStage]}
-                        </p>
-                      </div>
-                    </div>
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      className="text-earth-300"
-                    >
-                      <path d="M9 5l7 7-7 7" />
-                    </svg>
-                  </div>
-
-                  {/* 指標 */}
-                  <div className="mt-3 grid grid-cols-6 gap-2 border-t border-earth-100 pt-3 text-center">
-                    <MetricCell label="分數" value={c.readinessScore} color="earth" />
-                    <MetricCell label="點數" value={c.totalPoints} color="primary" />
-                    <MetricCell label="轉介" value={c.referralCount} color="blue" />
-                    <MetricCell label="帶出" value={c.referralPartnerCount} color="amber" />
-                    <MetricCell label="出席" value={c.attendanceCount} color="green" />
-                    <MetricCell
-                      label="事件"
-                      value={eventCountMap.get(c.customerId) ?? 0}
-                      color="primary"
-                    />
-                  </div>
-                </Link>
-              </li>
-            );
-          })}
+          {candidates.map((c, i) => (
+            <li key={c.customerId}>
+              <GrowthCandidateCard candidate={c} rank={i + 1} />
+            </li>
+          ))}
         </ol>
       )}
 
       <p className="text-center text-[11px] text-earth-400">
-        資料每小時更新一次 · 可點候選人卡片進入完整顧客資料
+        成長分數每次頁面載入重新計算 · 點卡片展開看分數組成
       </p>
-    </div>
-  );
-}
-
-function MetricCell({
-  label,
-  value,
-  color,
-}: {
-  label: string;
-  value: number;
-  color: "earth" | "primary" | "blue" | "amber" | "green";
-}) {
-  const colorMap = {
-    earth: "text-earth-700",
-    primary: "text-primary-600",
-    blue: "text-blue-600",
-    amber: "text-amber-600",
-    green: "text-green-600",
-  };
-  return (
-    <div>
-      <p className="text-[10px] text-earth-400">{label}</p>
-      <p className={`mt-0.5 text-sm font-semibold ${colorMap[color]}`}>{value}</p>
     </div>
   );
 }

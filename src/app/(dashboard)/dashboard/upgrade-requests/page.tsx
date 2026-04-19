@@ -5,7 +5,7 @@ import { getUpgradeRequests } from "@/server/queries/upgrade-request";
 import { PRICING_PLAN_INFO } from "@/lib/feature-flags";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ReviewActions } from "./review-actions";
-import Link from "next/link";
+import { DashboardLink as Link } from "@/components/dashboard-link";
 import type { UpgradeRequestStatus } from "@prisma/client";
 
 // ── 狀態標籤 ──

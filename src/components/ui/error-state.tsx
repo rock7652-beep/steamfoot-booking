@@ -7,7 +7,7 @@
 
 "use client";
 
-import Link from "next/link";
+import { DashboardLink as Link } from "@/components/dashboard-link";
 
 interface ErrorStateProps {
   /** 錯誤標題（預設：載入失敗） */

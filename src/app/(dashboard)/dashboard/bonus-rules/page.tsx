@@ -3,7 +3,7 @@ import { checkPermission } from "@/lib/permissions";
 import { getActiveStoreForRead } from "@/lib/store";
 import { getBonusRules } from "@/server/queries/bonus-rule";
 import { redirect, notFound } from "next/navigation";
-import Link from "next/link";
+import { DashboardLink as Link } from "@/components/dashboard-link";
 import { BonusRuleList } from "./bonus-rule-list";
 import { BonusRuleForm } from "./bonus-rule-form";
 

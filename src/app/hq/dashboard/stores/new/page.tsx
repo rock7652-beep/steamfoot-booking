@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import Link from "next/link";
+import { DashboardLink as Link } from "@/components/dashboard-link";
 import { createStoreAction } from "@/server/actions/store-onboarding";
 import type { CreateStoreInput, StoreDeliverySummary } from "@/types/store-onboarding";
 

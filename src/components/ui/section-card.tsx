@@ -5,7 +5,7 @@
  * 包含標題、副標題、右上角動作連結。
  */
 
-import Link from "next/link";
+import { DashboardLink as Link } from "@/components/dashboard-link";
 
 interface SectionCardProps {
   title: string;

@@ -41,7 +41,98 @@ export interface NavGroup {
 }
 
 // ============================================================
-// Navigation Groups — 產品導覽架構 (B7-1)
+// Store Admin Navigation — 店家後台 v1（OWNER / PARTNER / Staff）
+// ============================================================
+// 扁平 7 個一級入口：首頁 / 預約管理 / 顧客管理 / 成長系統 / 營收 / 報表 / 設定
+// ADMIN 進入時另以 NAV_GROUPS 呈現完整總部視角。
+// 原有獨立路徑（bonus-rules、cashbook、reconciliation、transactions、
+// store-revenue、staff、plans、settings/*、reminders、duty）保留，由
+// 整併頁 tab 或 URL 直接進入，不在店家 sidebar 頂層顯示。
+// ============================================================
+
+export const STORE_ADMIN_NAV: NavItem[] = [
+  {
+    href: "/dashboard",
+    label: "首頁",
+    icon: (
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+      </svg>
+    ),
+  },
+  {
+    href: "/dashboard/bookings",
+    label: "預約管理",
+    permission: "booking.read",
+    icon: (
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+      </svg>
+    ),
+  },
+  {
+    href: "/dashboard/customers",
+    label: "顧客管理",
+    permission: "customer.read",
+    icon: (
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+      </svg>
+    ),
+  },
+  {
+    href: "/dashboard/growth",
+    label: "成長系統",
+    permission: "talent.read",
+    ownerOnly: true,
+    highlighted: true,
+    requiredFeature: FEATURES.TALENT_PIPELINE,
+    upgradeTo: "GROWTH",
+    icon: (
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M15.59 14.37a6 6 0 01-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 006.16-12.12A14.98 14.98 0 009.631 8.41m5.96 5.96a14.926 14.926 0 01-5.841 2.58m-.119-8.54a6 6 0 00-7.381 5.84h4.8m2.581-5.84a14.927 14.927 0 00-2.58 5.84m2.699 2.7c-.103.021-.207.041-.311.06a15.09 15.09 0 01-2.448-2.448 14.9 14.9 0 01.06-.312m-2.24 2.39a4.493 4.493 0 00-1.757 4.306 4.493 4.493 0 004.306-1.758M16.5 9a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
+      </svg>
+    ),
+  },
+  {
+    href: "/dashboard/revenue",
+    label: "營收",
+    permission: "transaction.read",
+    requiredFeature: FEATURES.TRANSACTION_MANAGEMENT,
+    upgradeTo: "BASIC",
+    icon: (
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    ),
+  },
+  {
+    href: "/dashboard/reports",
+    label: "報表",
+    permission: "report.read",
+    requiredFeature: FEATURES.BASIC_REPORTS,
+    upgradeTo: "BASIC",
+    icon: (
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+      </svg>
+    ),
+  },
+  {
+    href: "/dashboard/settings",
+    label: "設定",
+    ownerOnly: true,
+    icon: (
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+      </svg>
+    ),
+  },
+];
+
+// ============================================================
+// Navigation Groups — HQ / ADMIN 完整視角（B7-1）
 // ============================================================
 // 【Design System 規範】四層產品導覽：
 //   1. core        — 主選單（永遠展開，無分組標題）
@@ -473,9 +564,42 @@ export default function DashboardShell({
     return () => document.removeEventListener("mousedown", handleClick);
   }, [userMenuOpen]);
 
+  // Sidebar 選用依「目前所在 route」決定，不依角色：
+  //   /hq/*              → HQ NAV_GROUPS（完整版）
+  //   /s/{slug}/admin/*  → 店家後台 STORE_ADMIN_NAV（7 項扁平）
+  //   legacy /dashboard/*（未經 proxy 進入）→ 沿用舊邏輯以 isAdmin 判斷，避免破壞既有入口
+  const isHqRoute = rawPathname.startsWith("/hq");
+  const isStoreAdminRoute = /^\/s\/[^/]+\/admin(\/|$)/.test(rawPathname);
+
+  const navGroupsToRender: NavGroup[] = useMemo(() => {
+    if (isHqRoute) return NAV_GROUPS;
+    if (isStoreAdminRoute) {
+      return [
+        {
+          id: "core",
+          label: "",
+          defaultOpen: true,
+          icon: <></>,
+          items: STORE_ADMIN_NAV,
+        },
+      ];
+    }
+    // Legacy fallback（未透過 proxy 的直連 /dashboard/*）
+    if (isAdmin) return NAV_GROUPS;
+    return [
+      {
+        id: "core",
+        label: "",
+        defaultOpen: true,
+        icon: <></>,
+        items: STORE_ADMIN_NAV,
+      },
+    ];
+  }, [isHqRoute, isStoreAdminRoute, isAdmin]);
+
   // Determine which groups have visible items and which group contains the active item
   const { visibleGroups, activeGroupId } = useMemo(() => {
-    const groups = NAV_GROUPS.map((group) => {
+    const groups = navGroupsToRender.map((group) => {
       const categorizedItems = group.items
         .filter((item) => !MVP_HIDDEN_ROUTES.includes(item.href))
         .map((item) => {
@@ -501,7 +625,7 @@ export default function DashboardShell({
     const activeGid = groups.find((g) => g.hasActive)?.group.id ?? null;
 
     return { visibleGroups: groups, activeGroupId: activeGid };
-  }, [pathname, isOwner, permissions, pricingPlan]);
+  }, [pathname, isOwner, permissions, pricingPlan, navGroupsToRender]);
 
   // Group expand/collapse state — core always open; others collapsed unless they contain active item
   const [openGroups, setOpenGroups] = useState<Set<string>>(() => {

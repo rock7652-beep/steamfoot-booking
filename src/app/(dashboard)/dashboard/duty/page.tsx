@@ -13,6 +13,7 @@ import {
 } from "@/lib/duty-cache";
 import { ServerTiming, withTiming } from "@/lib/perf";
 import { DutyWeekView } from "./duty-week-view";
+import { DashboardLink as Link } from "@/components/dashboard-link";
 import type { UserRole } from "@prisma/client";
 
 interface PageProps {
@@ -128,12 +129,12 @@ async function DutyWeekContent({ weekStart, userRole, userStaffId, activeStoreId
           </span>
         )}
         {userRole === "ADMIN" && (
-          <a
+          <Link
             href="/dashboard/settings/duty"
             className="text-xs text-primary-600 hover:text-primary-800 hover:underline"
           >
             設定
-          </a>
+          </Link>
         )}
         {/* Server timing（開發模式可見） */}
         {process.env.NODE_ENV === "development" && (

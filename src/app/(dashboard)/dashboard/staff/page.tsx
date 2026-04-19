@@ -6,7 +6,7 @@ import { getCurrentStorePlan } from "@/lib/store-plan";
 import { FEATURES } from "@/lib/feature-flags";
 import { FeatureGate } from "@/components/feature-gate";
 import { getActiveStoreForRead } from "@/lib/store";
-import Link from "next/link";
+import { DashboardLink as Link } from "@/components/dashboard-link";
 import { EmptyState } from "@/components/ui/empty-state";
 import { notFound, redirect } from "next/navigation";
 import { StaffStatusToggle } from "./staff-status-toggle";

@@ -1,6 +1,6 @@
 import { getCurrentUser } from "@/lib/session";
 import { notFound } from "next/navigation";
-import Link from "next/link";
+import { DashboardLink as Link } from "@/components/dashboard-link";
 import { CHANGELOG } from "@/lib/version";
 import type { ChangelogTag, AffectedRole } from "@/lib/version";
 

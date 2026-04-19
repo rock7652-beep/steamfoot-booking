@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import Link from "next/link";
+import { DashboardLink as Link } from "@/components/dashboard-link";
 import type { CustomerTag } from "@/server/queries/customer-tags";
 import type { OpsActionLogEntry } from "@/server/actions/ops-action-log";
 import { sendOpsLineMessage } from "@/server/actions/ops-line";

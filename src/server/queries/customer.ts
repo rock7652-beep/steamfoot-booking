@@ -50,11 +50,8 @@ export async function listCustomers(options: ListCustomersOptions & { activeStor
           where: { status: "ACTIVE" },
           select: { remainingSessions: true },
         },
-        _count: {
-          select: {
-            bookings: { where: { bookingStatus: { in: ["PENDING", "CONFIRMED"] } } },
-          },
-        },
+        // 註：原本的 `_count.bookings (PENDING/CONFIRMED)` 列表 UI 沒有使用，
+        // v1 精簡後移除以避免每筆 row 附帶一次 Booking 子查詢。需要時再加回。
       },
       orderBy: { createdAt: "desc" },
       skip: (page - 1) * pageSize,
@@ -128,10 +125,8 @@ export async function getCustomerDetail(customerId: string) {
         select: { id: true, displayName: true, colorCode: true },
       },
       sponsor: { select: { id: true, name: true, phone: true } },
-      sponsoredCustomers: {
-        select: { id: true, name: true, talentStage: true },
-        take: 50,
-      },
+      // UI 只用 referralCount —— 改用 _count 避免抓 50 筆完整資料
+      _count: { select: { sponsoredCustomers: true } },
       planWallets: {
         include: {
           plan: {

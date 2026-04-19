@@ -12,7 +12,7 @@ import {
   type PermissionCode,
 } from "@/lib/permissions";
 import type { UserRole } from "@prisma/client";
-import Link from "next/link";
+import { DashboardLink as Link } from "@/components/dashboard-link";
 import { notFound, redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 

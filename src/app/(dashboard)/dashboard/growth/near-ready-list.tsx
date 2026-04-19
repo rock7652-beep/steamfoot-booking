@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
+import { DashboardLink as Link } from "@/components/dashboard-link";
 import type { ReadinessScore } from "@/types/talent";
 import {
   TALENT_STAGE_LABELS,
