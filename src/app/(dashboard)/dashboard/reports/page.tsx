@@ -2,7 +2,10 @@ import {
   monthlyStoreSummary,
   monthlyRevenueByCategory,
 } from "@/server/queries/report";
-import { getReportSnapshot } from "@/server/queries/report-snapshot";
+import {
+  getReportSnapshotWithMeta,
+  upsertReportSnapshot,
+} from "@/server/queries/report-snapshot";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { getCurrentStorePlan } from "@/lib/store-plan";
@@ -73,32 +76,60 @@ export default async function ReportsPage({ searchParams }: PageProps) {
 
   const timer = new ServerTiming("/dashboard/reports");
 
-  // For past complete months with default preset, try pre-computed snapshot first
-  const isFullPastMonth = month < currentMonth && activePreset === "month";
-  const dateRangeOpts = { startDate, endDate, activeStoreId };
-
   type StoreSummary = Awaited<ReturnType<typeof monthlyStoreSummary>>;
   type RevenueByCategory = Awaited<ReturnType<typeof monthlyRevenueByCategory>>;
+
+  // Snapshot 策略（擴大覆蓋）：
+  // - 過去月份 "month" preset → snapshot 永不過期（資料已定）
+  // - 當月 "month" preset → snapshot 命中且 updatedAt < 1h → 用 snapshot；否則重算後寫回
+  // - 自訂日期 / quarter / today → 永遠即時計算，不走 snapshot
+  const snapshotStoreId = activeStoreId || user.storeId!;
+  const isMonthPreset = activePreset === "month";
+  const isPastMonth = month < currentMonth;
+  const isCurrentMonth = month === currentMonth;
+  const CURRENT_MONTH_TTL_MS = 60 * 60 * 1000; // 1 小時
+
+  const dateRangeOpts = { startDate, endDate, activeStoreId };
 
   let storeSummary: StoreSummary;
   let revenueByCategory: RevenueByCategory;
   let plan: Awaited<ReturnType<typeof getCurrentStorePlan>>;
+  let snapshotHit = false;
 
-  if (isFullPastMonth) {
+  if (isMonthPreset && (isPastMonth || isCurrentMonth)) {
     const [ssSnap, rcSnap, sp] = await Promise.all([
-      withTiming("snapshotStoreSummary", timer, () => getReportSnapshot(activeStoreId || user.storeId!, month, "STORE_SUMMARY")),
-      withTiming("snapshotRevenueByCategory", timer, () => getReportSnapshot(activeStoreId || user.storeId!, month, "REVENUE_BY_CATEGORY")),
+      withTiming("snapshotStoreSummary", timer, () =>
+        getReportSnapshotWithMeta(snapshotStoreId, month, "STORE_SUMMARY"),
+      ),
+      withTiming("snapshotRevenueByCategory", timer, () =>
+        getReportSnapshotWithMeta(snapshotStoreId, month, "REVENUE_BY_CATEGORY"),
+      ),
       withTiming("getCurrentStorePlan", timer, () => getCurrentStorePlan()),
     ]);
     plan = sp;
-    if (ssSnap && rcSnap) {
-      storeSummary = ssSnap as StoreSummary;
-      revenueByCategory = rcSnap as RevenueByCategory;
+
+    const fresh = (m: { updatedAt: Date } | null) => {
+      if (!m) return false;
+      if (isPastMonth) return true; // 過去月份永不過期
+      return Date.now() - m.updatedAt.getTime() < CURRENT_MONTH_TTL_MS;
+    };
+
+    if (ssSnap && rcSnap && fresh(ssSnap) && fresh(rcSnap)) {
+      storeSummary = ssSnap.data as StoreSummary;
+      revenueByCategory = rcSnap.data as RevenueByCategory;
+      snapshotHit = true;
     } else {
       [storeSummary, revenueByCategory] = await Promise.all([
         withTiming("monthlyStoreSummary", timer, () => monthlyStoreSummary(month, dateRangeOpts)),
         withTiming("monthlyRevenueByCategory", timer, () => monthlyRevenueByCategory(month, dateRangeOpts)),
       ]);
+      // 寫回 snapshot — fire & forget，不拖首屏
+      void upsertReportSnapshot(snapshotStoreId, month, "STORE_SUMMARY", storeSummary).catch(
+        (e) => console.error("[reports] snapshot store summary upsert failed", e),
+      );
+      void upsertReportSnapshot(snapshotStoreId, month, "REVENUE_BY_CATEGORY", revenueByCategory).catch(
+        (e) => console.error("[reports] snapshot revenue by category upsert failed", e),
+      );
     }
   } else {
     [storeSummary, revenueByCategory, plan] = await Promise.all([
@@ -108,6 +139,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
     ]);
   }
 
+  timer.cacheStatus("reports-snapshot", snapshotHit ? "hit" : "miss");
   timer.finish();
 
   return (

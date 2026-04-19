@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { DashboardLink as Link } from "@/components/dashboard-link";
 import type { SlotAvailability } from "@/types";
 import { EmptyState } from "@/components/ui/empty-state";
 import { BookingQuickActions } from "../booking-quick-actions";

@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
+import { DashboardLink as Link } from "@/components/dashboard-link";
 import {
   DUTY_ROLE_LABELS,
   PARTICIPATION_TYPE_LABELS,

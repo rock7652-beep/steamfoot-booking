@@ -6,7 +6,7 @@
  * 每個空狀態必須提供說明 + 下一步動作。
  */
 
-import Link from "next/link";
+import { DashboardLink as Link } from "@/components/dashboard-link";
 
 const ICONS = {
   empty: (

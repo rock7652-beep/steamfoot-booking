@@ -7,7 +7,7 @@ import { getCachedPlans, getCachedStaffOptions } from "@/lib/query-cache";
 import { getActiveStoreForRead } from "@/lib/store";
 import { ServerTiming, withTiming } from "@/lib/perf";
 import { notFound, redirect } from "next/navigation";
-import Link from "next/link";
+import { DashboardLink as Link } from "@/components/dashboard-link";
 import { EmptyState } from "@/components/ui/empty-state";
 import { AssignPlanForm } from "./assign-plan-form";
 import { TransferCustomerForm } from "./transfer-customer-form";
@@ -18,7 +18,7 @@ import { HealthSectionWrapper } from "./health-section";
 import { HealthSummarySection } from "./health-summary";
 import { HealthHistorySection } from "./health-history";
 import { CustomerStageForm } from "./customer-stage-form";
-import { getCustomerTags, getCustomerScript } from "@/server/queries/customer-tags";
+import { getCustomerTagsAndScripts } from "@/server/queries/customer-tags";
 import { getOpsActionLogs } from "@/server/actions/ops-action-log";
 import { OpsPanel } from "./ops-panel";
 import { EditCustomerModal } from "./edit-customer-modal";
@@ -95,7 +95,21 @@ export default async function CustomerDetailPage({ params }: PageProps) {
   const effectiveStoreId = customer.storeId;
 
   // ── Step 2: 並行載入各 section（各自 catch 避免全頁炸裂）──
-  const [plans, staffOptions, tags, scripts, customerActionLogs, canDiscount, customerReferrals, customerPoints, upgradeEligibility, activeBonusRules] = await Promise.all([
+  // getCustomerTagsAndScripts 合併原本 tags+scripts 兩支 query。
+  // getMyReferralSummary 與 getStorePlanById 從 Step 3 提前，改為 Promise.all 內並行。
+  const [
+    plans,
+    staffOptions,
+    tagsAndScripts,
+    customerActionLogs,
+    canDiscount,
+    customerReferrals,
+    customerPoints,
+    upgradeEligibility,
+    activeBonusRules,
+    pricingPlan,
+    perksSummary,
+  ] = await Promise.all([
     withTiming("getCachedPlans", timer, () => getCachedPlans(effectiveStoreId)).catch((e) => {
       console.error("[customer-detail] plans query failed", { ...logCtx, step: "plans", error: e instanceof Error ? e.message : String(e) });
       return [] as Awaited<ReturnType<typeof getCachedPlans>>;
@@ -105,17 +119,11 @@ export default async function CustomerDetailPage({ params }: PageProps) {
       return [] as Awaited<ReturnType<typeof getCachedStaffOptions>>;
     }),
     user.role !== "CUSTOMER"
-      ? withTiming("getCustomerTags", timer, () => getCustomerTags(id)).catch((e) => {
-          console.error("[customer-detail] tags query failed", { ...logCtx, step: "tags", error: e instanceof Error ? e.message : String(e) });
-          return [];
+      ? withTiming("getCustomerTagsAndScripts", timer, () => getCustomerTagsAndScripts(id)).catch((e) => {
+          console.error("[customer-detail] tagsAndScripts query failed", { ...logCtx, step: "tagsAndScripts", error: e instanceof Error ? e.message : String(e) });
+          return { tags: [], scripts: [] } as Awaited<ReturnType<typeof getCustomerTagsAndScripts>>;
         })
-      : Promise.resolve([]),
-    user.role !== "CUSTOMER"
-      ? withTiming("getCustomerScript", timer, () => getCustomerScript(id)).catch((e) => {
-          console.error("[customer-detail] scripts query failed", { ...logCtx, step: "scripts", error: e instanceof Error ? e.message : String(e) });
-          return [];
-        })
-      : Promise.resolve([]),
+      : Promise.resolve({ tags: [], scripts: [] } as Awaited<ReturnType<typeof getCustomerTagsAndScripts>>),
     user.role !== "CUSTOMER"
       ? withTiming("getOpsActionLogs", timer, () => getOpsActionLogs("customer_action", effectiveStoreId)).catch((e) => {
           console.error("[customer-detail] opsLogs query failed", { ...logCtx, step: "opsLogs", error: e instanceof Error ? e.message : String(e) });
@@ -139,18 +147,17 @@ export default async function CustomerDetailPage({ params }: PageProps) {
       console.error("[customer-detail] bonusRules query failed", { ...logCtx, step: "bonusRules", error: e instanceof Error ? e.message : String(e) });
       return [];
     }) : Promise.resolve([]),
+    withTiming("getStorePlanById", timer, () => getStorePlanById(effectiveStoreId)).catch(() => "EXPERIENCE" as const),
+    user.role !== "CUSTOMER"
+      ? withTiming("getMyReferralSummary", timer, () => getMyReferralSummary(id, { activeStoreId: effectiveStoreId })).catch(() => null)
+      : Promise.resolve(null),
   ]);
 
   timer.finish();
 
-  // PricingPlan: 使用已驗證的 effectiveStoreId 查詢（避免 ADMIN 無 storeId 時 throw）
-  const pricingPlan = await getStorePlanById(effectiveStoreId).catch(() => "EXPERIENCE" as const);
+  const tags = tagsAndScripts.tags;
+  const scripts = tagsAndScripts.scripts;
   const hasAiHealth = hasPricingFeature(pricingPlan, FF.AI_HEALTH_SUMMARY);
-
-  // 「分享與回饋」小區塊 — 沿用前台同一份 summary，不新增 query
-  const perksSummary = user.role !== "CUSTOMER"
-    ? await getMyReferralSummary(id, { activeStoreId: effectiveStoreId }).catch(() => null)
-    : null;
 
   // For transfer form, only pass staff list to Owner
   const staffList =
@@ -260,7 +267,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
             customerId={id}
             talentStage={customer.talentStage}
             sponsor={customer.sponsor}
-            referralCount={(customer.sponsoredCustomers ?? []).length}
+            referralCount={customer._count?.sponsoredCustomers ?? 0}
             stageNote={customer.stageNote}
             isOwner={user.role === "ADMIN" || user.role === "OWNER"}
             upgradeEligibility={upgradeEligibility}

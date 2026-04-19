@@ -1,7 +1,7 @@
 "use client";
 
 import { useOptimistic } from "react";
-import Link from "next/link";
+import { DashboardLink as Link } from "@/components/dashboard-link";
 import { BookingQuickActions } from "./booking-quick-actions";
 import {
   STATUS_LABEL,

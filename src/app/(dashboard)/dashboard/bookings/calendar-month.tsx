@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { DashboardLink as Link } from "@/components/dashboard-link";
 
 const WEEKDAY_LABELS = ["日", "一", "二", "三", "四", "五", "六"];
 

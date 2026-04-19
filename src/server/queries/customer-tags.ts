@@ -44,6 +44,139 @@ function getTagDef(id: CustomerTagId): CustomerTag {
 }
 
 /**
+ * 合併版：一次查詢同時產出 tags + scripts，節省 detail 頁的一次 DB round-trip。
+ *
+ * 資料來源和 getCustomerTags / getCustomerScript 相同，只是改用更大的 select 覆蓋兩者所需欄位。
+ * customer detail 頁請改用這支，個別舊 API 保留供其他呼叫點使用。
+ */
+export async function getCustomerTagsAndScripts(
+  customerId: string,
+): Promise<{ tags: CustomerTag[]; scripts: string[] }> {
+  const user = await requireStaffSession();
+  const storeFilter = getStoreFilter(user);
+
+  const now = new Date();
+  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
+  const fourteenDaysFromNow = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
+
+  const customer = await prisma.customer.findFirst({
+    where: { id: customerId, ...storeFilter },
+    select: {
+      name: true,
+      firstVisitAt: true,
+      lastVisitAt: true,
+      birthday: true,
+      planWallets: {
+        where: { status: "ACTIVE" },
+        select: {
+          expiryDate: true,
+          remainingSessions: true,
+          plan: { select: { name: true } },
+        },
+      },
+      bookings: {
+        where: { bookingStatus: "COMPLETED" },
+        select: { id: true, bookingDate: true },
+        orderBy: { bookingDate: "desc" },
+      },
+      transactions: {
+        where: { transactionType: { in: [...REVENUE_TRANSACTION_TYPES] } },
+        select: { amount: true, createdAt: true },
+      },
+    },
+  });
+
+  if (!customer) return { tags: [], scripts: [] };
+
+  // ── Tags 計算 ──────────────────────────────────────
+  const tags: CustomerTag[] = [];
+  const completedCount = customer.bookings.length;
+  const hasActivePlan = customer.planWallets.length > 0;
+  const totalSpent = customer.transactions.reduce((s, t) => s + Number(t.amount), 0);
+
+  if (customer.firstVisitAt && customer.firstVisitAt >= sevenDaysAgo) {
+    tags.push(getTagDef("new_customer"));
+  }
+  if (customer.lastVisitAt) {
+    if (customer.lastVisitAt < sixtyDaysAgo) tags.push(getTagDef("dormant"));
+    else if (customer.lastVisitAt < thirtyDaysAgo) tags.push(getTagDef("at_risk"));
+  }
+  if (hasActivePlan || totalSpent >= 10000) tags.push(getTagDef("high_value"));
+  if (totalSpent >= 30000) tags.push(getTagDef("vip"));
+  if (completedCount >= 3 && !hasActivePlan) tags.push(getTagDef("plan_potential"));
+
+  const expiringPlan = customer.planWallets.find(
+    (w) => w.expiryDate && w.expiryDate <= fourteenDaysFromNow,
+  );
+  if (expiringPlan) tags.push(getTagDef("plan_expiring"));
+
+  if (customer.birthday) {
+    const bMD = customer.birthday.toISOString().slice(5, 10);
+    const bThisYear = new Date(`${toLocalDateStr().slice(0, 4)}-${bMD}T00:00:00.000Z`);
+    const diffDays = Math.round(
+      (bThisYear.getTime() - new Date(toLocalDateStr() + "T00:00:00.000Z").getTime()) /
+        (1000 * 60 * 60 * 24),
+    );
+    if (diffDays >= -1 && diffDays <= 7) tags.push(getTagDef("birthday_soon"));
+  }
+
+  // ── Scripts 計算 ─────────────────────────────────
+  const scripts: string[] = [];
+  const daysSinceVisit = customer.lastVisitAt
+    ? Math.round((now.getTime() - customer.lastVisitAt.getTime()) / (1000 * 60 * 60 * 24))
+    : null;
+
+  if (daysSinceVisit !== null && daysSinceVisit > 30) {
+    scripts.push(
+      `${customer.name} 您好，好久不見！上次到店是 ${daysSinceVisit} 天前，最近身體還好嗎？`,
+    );
+  } else if (daysSinceVisit !== null && daysSinceVisit <= 7) {
+    scripts.push(`${customer.name} 您好，上次消費感覺如何？有需要調整的地方嗎？`);
+  } else {
+    scripts.push(`${customer.name} 您好！`);
+  }
+
+  if (hasActivePlan) {
+    const wallet = customer.planWallets[0];
+    const daysToExpiry = wallet.expiryDate
+      ? Math.round((wallet.expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+      : null;
+    if (wallet.remainingSessions <= 2) {
+      scripts.push(
+        `您的「${wallet.plan.name}」剩餘 ${wallet.remainingSessions} 堂，建議趁優惠續購喔！`,
+      );
+    }
+    if (daysToExpiry !== null && daysToExpiry <= 14) {
+      scripts.push(`套票將在 ${daysToExpiry} 天後到期，記得把握時間使用！`);
+    }
+  } else if (totalSpent > 0) {
+    scripts.push("目前還沒有套票，購買套票平均可省 30%，有興趣了解嗎？");
+  }
+
+  if (customer.birthday) {
+    const bMD = customer.birthday.toISOString().slice(5, 10);
+    const bThisYear = new Date(`${toLocalDateStr().slice(0, 4)}-${bMD}T00:00:00.000Z`);
+    const diffDays = Math.round(
+      (bThisYear.getTime() - new Date(toLocalDateStr() + "T00:00:00.000Z").getTime()) /
+        (1000 * 60 * 60 * 24),
+    );
+    if (diffDays === 0) {
+      scripts.push("今天是您的生日，祝生日快樂！我們有專屬生日優惠喔！");
+    } else if (diffDays > 0 && diffDays <= 7) {
+      scripts.push(`您的生日快到了（${diffDays} 天後），我們有生日專屬優惠，歡迎來店慶祝！`);
+    }
+  }
+
+  if (daysSinceVisit !== null && daysSinceVisit > 60) {
+    scripts.push("很想念您！我們最近有新的方案，可以約個時間體驗看看嗎？");
+  }
+
+  return { tags, scripts };
+}
+
+/**
  * Compute auto-tags for a single customer.
  * Used on the customer detail page for real-time display.
  */

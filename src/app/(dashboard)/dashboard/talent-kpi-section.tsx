@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { DashboardLink as Link } from "@/components/dashboard-link";
 import type { NextOwnerCandidate, UpgradeEligibility } from "@/types/talent";
 import type { TalentPipelineSummary } from "@/types/talent";
 import { READINESS_LEVEL_CONFIG, TALENT_STAGE_LABELS } from "@/types/talent";

@@ -5,7 +5,7 @@
  * 三種級別：info（藍）、warning（琥珀）、error（紅）。
  */
 
-import Link from "next/link";
+import { DashboardLink as Link } from "@/components/dashboard-link";
 
 const SEVERITY_MAP = {
   info: {

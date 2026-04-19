@@ -1,0 +1,1416 @@
+enum ReferralEventType {
+  SHARE
+  LINK_CLICK
+  LINE_JOIN
+  LINE_ENTRY
+  REGISTER
+  BOOKING_CREATED
+  BOOKING_COMPLETED
+}
+
+model ReferralEvent {
+  id           String   @id @default(cuid())
+  storeId      String
+  customerId   String?
+  referrerId   String?
+  bookingId    String?
+
+  type         ReferralEventType
+  source       String?
+
+  createdAt    DateTime @default(now())
+
+  // relations
+  store        Store    @relation(fields: [storeId], references: [id])
+  customer     Customer? @relation("ReferralEventCustomer", fields: [referralEventsAsCustomer ReferralEvent[] @relation("ReferralEventCustomer")
+referralEventsAsReferrer ReferralEvent[] @relation("ReferralEventReferrer")], references: [id])
+  referrer     Customer? @relation("ReferralEventReferrer", fields: [referrerId], references: [id])
+  booking      Booking?  @relation(fields: [referralEvents ReferralEvent[referralEventsAsCustomer ReferralEvent[] @relation("ReferralEventCu$
+referralEventsAsReferrer ReferralEvent[] @relation("ReferralEventReferrer")], references: [id])
+
+  @@index([storeId])
+  @@index([customerId])
+  @@index([referrerId])
+  @@index([bookingId])
+  @@index([type])
+}
+referralEventsAsCustomer ReferralEvent[] @relation("ReferralEventCustomer")
+referralEventsAsReferrer ReferralEvent[] @relation("ReferralEventReferrer")
+referralEvents ReferralEvent[]
+referralEventsAsCustomer ReferralEvent[] @relation("ReferralEventCustomer")
+referralEventsAsReferrer ReferralEvent[] @relation("ReferralEventReferrer")generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ============================================================
+// Enums
+// ============================================================
+
+enum UserRole {
+  ADMIN            // 總部（跨店管理）
+  OWNER            // 店長（主要經營者）
+  PARTNER          // 合作店長
+  CUSTOMER
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+enum StaffStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum CustomerStage {
+  LEAD      // 名單，尚未到店
+  TRIAL     // 已體驗，未購課
+  ACTIVE    // 已購課，可自助預約
+  INACTIVE  // 曾購課但目前無有效課程
+}
+
+enum TalentStage {
+  CUSTOMER          // 一般顧客
+  REGULAR           // 常客（穩定回訪）
+  POTENTIAL_PARTNER // 潛在合夥人（有意願合作）
+  PARTNER           // 合作店長
+  FUTURE_OWNER      // 準店長（準備開店）
+  OWNER             // 已開店
+}
+
+enum ReferralStatus {
+  PENDING    // 已登記，尚未到店
+  VISITED    // 已到店
+  CONVERTED  // 已成為顧客
+  CANCELLED  // 取消/無效
+}
+
+enum PointType {
+  REFERRAL_CREATED    // 轉介紹登記 → +10
+  REFERRAL_VISITED    // 被介紹人到店 → +20
+  REFERRAL_CONVERTED  // 被介紹人成為顧客 → +30
+  ATTENDANCE          // 出席（Booking COMPLETED）→ +5
+  BECAME_PARTNER      // 升為合作店長 → +100
+  REFERRAL_PARTNER    // 自己推薦的人升為合作店長 → +100
+  SERVICE             // 完成服務 → +5
+  SERVICE_NOTE        // 寫服務紀錄 → +3
+  BECAME_FUTURE_OWNER // 升為準店長 → +200
+  MANUAL_ADJUSTMENT   // 手動調整（可正可負）
+}
+
+enum AuthSource {
+  GOOGLE    // Google OAuth 註冊
+  LINE      // LINE Login 註冊
+  EMAIL     // Email/密碼註冊
+  MANUAL    // 店長手動建立
+}
+
+enum PlanCategory {
+  TRIAL     // 體驗
+  SINGLE    // 單次
+  PACKAGE   // 套餐（3堂、5堂、10堂、22堂）
+}
+
+enum WalletStatus {
+  ACTIVE
+  USED_UP
+  EXPIRED
+  CANCELLED
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum BookedByType {
+  CUSTOMER
+  STAFF
+  ADMIN
+}
+
+enum BookingType {
+  FIRST_TRIAL
+  SINGLE
+  PACKAGE_SESSION
+}
+
+enum TransactionType {
+  TRIAL_PURCHASE      // 體驗購買
+  SINGLE_PURCHASE     // 單次消費
+  PACKAGE_PURCHASE    // 套餐購買
+  SESSION_DEDUCTION   // 堂數扣抵
+  SUPPLEMENT          // 補差額
+  REFUND              // 退款
+  ADJUSTMENT          // 手動調整
+}
+
+enum TransactionStatus {
+  SUCCESS
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  CASH
+  TRANSFER
+  LINE_PAY
+  CREDIT_CARD
+  OTHER
+  UNPAID
+}
+
+enum CashbookEntryType {
+  INCOME
+  EXPENSE
+  WITHDRAW
+  ADJUSTMENT
+}
+
+enum ReminderChannel {
+  EMAIL
+  LINE
+  SMS
+}
+
+enum ReminderStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+enum LineLinkStatus {
+  UNLINKED
+  LINKED
+  BLOCKED
+}
+
+enum MessageLogStatus {
+  PENDING
+  SENT
+  FAILED
+  SKIPPED
+}
+
+enum SpaceFeeStatus {
+  PENDING
+  PAID
+  OVERDUE
+  WAIVED
+}
+
+enum DutyRole {
+  STORE_MANAGER    // 店長
+  BRANCH_MANAGER   // 分店長
+  INTERN_COACH     // 實習教練
+  HOURLY_STAFF     // 計時人員
+}
+
+enum ParticipationType {
+  PRIMARY          // 主服務
+  ASSIST           // 協助服務
+  SHADOW           // 學習跟班
+  SUPPORT          // 現場支援
+}
+
+enum PricingPlan {
+  EXPERIENCE
+  BASIC
+  GROWTH
+  ALLIANCE
+}
+
+enum UpgradeRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+  EXPIRED
+}
+
+enum StorePlanStatus {
+  TRIAL
+  ACTIVE
+  PAYMENT_PENDING
+  PAST_DUE
+  SCHEDULED_DOWNGRADE
+  CANCELLED
+  EXPIRED
+}
+
+enum BillingStatus {
+  NOT_REQUIRED
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+  WAIVED
+}
+
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVE
+  PAYMENT_PENDING
+  PAST_DUE
+  CANCELLED
+  EXPIRED
+}
+
+enum PlanChangeType {
+  TRIAL_STARTED
+  UPGRADE_APPROVED
+  DOWNGRADE_SCHEDULED
+  DOWNGRADE_EXECUTED
+  PLAN_ACTIVATED
+  PLAN_RENEWED
+  PLAN_CANCELLED
+  ADMIN_MANUAL_CHANGE
+  PAYMENT_CONFIRMED
+  PAYMENT_FAILED
+}
+
+enum RequestType {
+  UPGRADE
+  DOWNGRADE
+  TRIAL
+  RENEW
+}
+
+enum RequestSource {
+  PRICING
+  FEATURE_GATE
+  SETTINGS
+  ADMIN_CREATED
+}
+
+// ============================================================
+// Auth - NextAuth.js Models
+// ============================================================
+
+model User {
+  id            String     @id @default(cuid())
+  name          String
+  email         String?    @unique
+  phone         String?
+  emailVerified DateTime?
+  image         String?
+  passwordHash  String?
+  role          UserRole   @default(CUSTOMER)
+  status        UserStatus @default(ACTIVE)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  // NextAuth relations
+  accounts Account[]
+  sessions Session[]
+
+  // Domain relations
+  staff    Staff?
+  customer Customer?
+
+  // Audit
+  auditLogs       AuditLog[]
+  cashbookEntries  CashbookEntry[] @relation("CashbookCreatedBy")
+  opsActionLogs       OpsActionLog[]
+  opsActionHistories  OpsActionHistory[]
+  talentStageChanges  TalentStageLog[] @relation("TalentStageChangedBy")
+
+  // 同一角色內手機不重複，但不同角色可共用手機
+  @@unique([phone, role])
+  @@index([phone])
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ============================================================
+// Store（店舖）— 多店基礎結構
+// ============================================================
+
+model Store {
+  id             String      @id @default(cuid())
+  name           String
+  slug           String      @unique
+  domain         String?     @unique   // 自訂網域，如 "steamfoot-zhubei.com"
+  lineDestination String?    @unique   // LINE Official Account bot userId (webhook destination)
+  isDefault      Boolean     @default(false)
+  isDemo         Boolean     @default(false)  // Demo 店 — 僅供展示或測試
+  parentStoreId  String?
+  plan           PricingPlan @default(EXPERIENCE)
+  planStatus     StorePlanStatus @default(ACTIVE)
+  planEffectiveAt DateTime?
+  planExpiresAt   DateTime?
+  currentSubscriptionId String? @unique
+  // Override fields — 客製方案用量上限（null = 走方案預設）
+  maxStaffOverride           Int?
+  maxCustomersOverride       Int?
+  maxMonthlyBookingsOverride Int?
+  maxMonthlyReportsOverride  Int?
+  maxReminderSendsOverride   Int?
+  maxStoresOverride          Int?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  parentStore  Store?  @relation("StoreHierarchy", fields: [parentStoreId], references: [id])
+  childStores  Store[] @relation("StoreHierarchy")
+
+  currentSubscription StoreSubscription? @relation("CurrentSubscription", fields: [currentSubscriptionId], references: [id])
+  subscriptions       StoreSubscription[] @relation("StoreSubscriptions")
+  planChanges         StorePlanChange[]
+
+  staff               Staff[]
+  customers           Customer[]
+  bookings            Booking[]
+  transactions        Transaction[]
+  servicePlans        ServicePlan[]
+  customerPlanWallets CustomerPlanWallet[]
+  cashbookEntries     CashbookEntry[]
+  dutyAssignments     DutyAssignment[]
+  bookingSlots        BookingSlot[]
+  businessHours       BusinessHours[]
+  specialBusinessDays SpecialBusinessDay[]
+  slotOverrides       SlotOverride[]
+  reportSnapshots     ReportSnapshot[]
+  shopConfig          ShopConfig?
+  upgradeRequests     UpgradeRequest[]
+  reminderRules       ReminderRule[]
+  messageTemplates    MessageTemplate[]
+  opsActionLogs       OpsActionLog[]
+  reconciliationRuns  ReconciliationRun[]
+  makeupCredits       MakeupCredit[]
+  spaceFeeRecords     SpaceFeeRecord[]
+  messageLogs         MessageLog[]
+  talentStageLogs     TalentStageLog[]
+  referrals           Referral[]
+  pointRecords        PointRecord[]
+  bonusRules          BonusRule[]
+
+  @@index([parentStoreId])
+}
+
+// ============================================================
+// Staff（店長）
+// ============================================================
+
+model Staff {
+  id              String      @id @default(cuid())
+  userId          String      @unique
+  storeId         String
+  displayName     String
+  colorCode       String      @default("#6366f1") // 後台日曆識別色
+  isOwner         Boolean     @default(false)
+  monthlySpaceFee Decimal     @default(0) @db.Decimal(10, 0) // 每月固定空間分租費
+  spaceFeeEnabled Boolean     @default(false)
+  status          StaffStatus @default(ACTIVE)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  store Store @relation(fields: [storeId], references: [id])
+
+  // 名下顧客
+  assignedCustomers Customer[] @relation("AssignedStaff")
+
+  // 動態權限設定（key-value）
+  permissions StaffPermission[]
+
+  // 營收歸屬（快照在 booking/transaction 上）
+  revenueBookings      Booking[]     @relation("RevenueStaff")
+  serviceBookings      Booking[]     @relation("ServiceStaff")
+  bookedByStaff        Booking[]     @relation("BookedByStaff")
+  revenueTransactions  Transaction[] @relation("RevenueStaff")
+  serviceTransactions  Transaction[] @relation("ServiceStaff")
+  soldTransactions     Transaction[] @relation("SoldByStaff")
+
+  // 空間分租費
+  spaceFeeRecords SpaceFeeRecord[]
+
+  // 現金帳
+  cashbookEntries CashbookEntry[] @relation("CashbookStaff")
+
+  // 營運儀表板指派
+  opsAssignments OpsActionLog[] @relation("OpsAssignee")
+
+  // 值班安排
+  dutyAssignments    DutyAssignment[] @relation("DutyStaff")
+  dutyCreatedBy      DutyAssignment[] @relation("DutyCreatedBy")
+
+  @@index([storeId])
+}
+
+// ============================================================
+// Customer（顧客）
+// ============================================================
+
+model Customer {
+  id                 String        @id @default(cuid())
+  userId             String?       @unique // nullable: 有些顧客不一定有登入帳號
+  storeId            String
+  name               String
+  phone              String
+  email              String?       // 用於 Google 綁定比對（per-store unique）
+  googleId           String?       // Google sub ID（per-store unique）
+  avatar             String?       // Google 大頭貼 URL（未來 UI 用）
+  authSource         AuthSource    @default(MANUAL) // 顧客來源（分析用）
+  gender             String?       // 性別（選填）
+  birthday           DateTime?     @db.Date // 出生年月日（選填）
+  height             Float?        // 身高 cm（選填）
+  address            String?       // 地址（選填）
+  lineName           String?       // LINE 顯示名稱
+  lineUserId         String?       // LINE user ID (per-store unique)
+  lineLinkedAt       DateTime?     // LINE 綁定時間
+  lineLinkStatus            LineLinkStatus @default(UNLINKED)
+  lineBindingCode           String?        // 6 碼綁定碼（per-store unique）
+  lineBindingCodeCreatedAt  DateTime?      // 綁定碼產生時間
+  notes              String?       // 內部備註
+  // AI 健康評估系統連結
+  healthProfileId    String?       // AI 健康評估系統的 profile UUID
+  healthLinkStatus   String        @default("unlinked") // "unlinked" | "linked" | "not_found" | "error"
+  healthSyncedAt     DateTime?     // 最後一次同步健康評估的時間
+  assignedStaffId    String?       // 直屬店長（nullable: 建立時可不指派）
+  customerStage      CustomerStage @default(LEAD)
+  // 人才管道
+  sponsorId          String?       // 推薦人（自我參照）
+  talentStage        TalentStage   @default(CUSTOMER)
+  stageChangedAt     DateTime?     // 階段最後變更時間
+  stageNote          String?       // 店長對此人的備註
+  selfBookingEnabled Boolean       @default(false)
+  firstVisitAt       DateTime?     // 首次到店日期
+  convertedAt        DateTime?     // 首次購課日期
+  lastVisitAt        DateTime?     // 最近消費日期（方便列表顯示）
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  user          User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+  store         Store  @relation(fields: [storeId], references: [id])
+  assignedStaff Staff? @relation("AssignedStaff", fields: [assignedStaffId], references: [id])
+
+  // 人才管道 — 推薦關係（自我參照）
+  sponsor       Customer?  @relation("SponsorTree", fields: [sponsorId], references: [id], onDelete: SetNull)
+  sponsoredCustomers Customer[] @relation("SponsorTree")
+  talentStageLogs TalentStageLog[]
+
+  // 人才管道 — 轉介紹 + 積分
+  totalPoints        Int           @default(0)  // 行動積分快取
+  referralsMade      Referral[]    @relation("ReferralsMade")
+  referralsConverted Referral[]    @relation("ReferralConverted")
+  pointRecords       PointRecord[]
+
+  // 課程錢包
+  planWallets CustomerPlanWallet[]
+
+  // 預約
+  bookings Booking[]
+
+  // 補課資格
+  makeupCredits MakeupCredit[]
+
+  // 交易
+  transactions Transaction[]
+
+  // 訊息紀錄
+  messageLogs MessageLog[]
+
+  @@unique([storeId, phone], name: "uq_store_customer_phone")
+  @@unique([storeId, email], name: "uq_store_customer_email")
+  @@unique([storeId, googleId], name: "uq_store_customer_google")
+  @@unique([storeId, lineUserId], name: "uq_store_customer_line")
+  @@unique([storeId, lineBindingCode], name: "uq_store_customer_binding_code")
+  @@index([storeId])
+  @@index([assignedStaffId])
+  @@index([customerStage])
+  @@index([talentStage])
+  @@index([sponsorId])
+  @@index([phone])
+}
+
+// ============================================================
+// TalentStageLog（人才階段變更紀錄）
+// ============================================================
+
+model TalentStageLog {
+  id          String      @id @default(cuid())
+  customerId  String
+  storeId     String
+  fromStage   TalentStage
+  toStage     TalentStage
+  changedById String      // 操作者 userId
+  note        String?
+  createdAt   DateTime    @default(now())
+
+  customer    Customer    @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  store       Store       @relation(fields: [storeId], references: [id])
+  changedBy   User        @relation("TalentStageChangedBy", fields: [changedById], references: [id])
+
+  @@index([customerId])
+  @@index([storeId])
+  @@index([createdAt])
+}
+
+// ============================================================
+// Referral（轉介紹 — 單次帶人行為追蹤）
+// ============================================================
+
+model Referral {
+  id                  String         @id @default(cuid())
+  storeId             String
+  referrerId          String         // 誰介紹的（Customer.id）
+  referredName        String         // 被介紹人姓名
+  referredPhone       String?        // 被介紹人電話
+  status              ReferralStatus @default(PENDING)
+  convertedCustomerId String?        // 轉為顧客後連接（不自動設 sponsor，保留人工判斷）
+  note                String?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  store              Store     @relation(fields: [storeId], references: [id])
+  referrer           Customer  @relation("ReferralsMade", fields: [referrerId], references: [id])
+  convertedCustomer  Customer? @relation("ReferralConverted", fields: [convertedCustomerId], references: [id])
+
+  @@index([storeId])
+  @@index([referrerId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// ============================================================
+// PointRecord（行動積分紀錄）
+// ============================================================
+
+model PointRecord {
+  id         String    @id @default(cuid())
+  customerId String    // 積分對象（Customer.id）
+  storeId    String
+  type       PointType
+  points     Int       // 正數=加分
+  note       String?
+  createdAt  DateTime  @default(now())
+
+  customer  Customer  @relation(fields: [customerId], references: [id])
+  store     Store     @relation(fields: [storeId], references: [id])
+
+  @@index([customerId])
+  @@index([storeId])
+  @@index([createdAt])
+}
+
+// ============================================================
+// BonusRule（獎勵積分項目 — 手動加分時選用）
+// ============================================================
+
+model BonusRule {
+  id          String    @id @default(cuid())
+  storeId     String
+  name        String    // e.g. "參加說明會", "邀請家人參加活動"
+  points      Int       // 預設加分值
+  description String?   // 前台顯示的說明文字
+  isActive    Boolean   @default(true)
+  startDate   DateTime? // 活動開始（null = 無期限）
+  endDate     DateTime? // 活動結束（null = 無期限）
+  sortOrder   Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  store Store @relation(fields: [storeId], references: [id])
+
+  @@index([storeId])
+  @@index([isActive])
+}
+
+// ============================================================
+// ServicePlan（課程方案）
+// ============================================================
+
+model ServicePlan {
+  id           String       @id @default(cuid())
+  storeId      String
+  name         String       // e.g. "體驗", "單次", "3堂套餐"
+  category     PlanCategory
+  price        Decimal      @db.Decimal(10, 0)
+  sessionCount Int          // 堂數
+  validityDays Int?         // 有效天數（null = 無期限）
+  isActive     Boolean      @default(true)
+  sortOrder    Int          @default(0) // 排序
+  description  String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  store        Store        @relation(fields: [storeId], references: [id])
+  // 顧客購買記錄
+  wallets      CustomerPlanWallet[]
+  bookings     Booking[]
+  transactions Transaction[] @relation("TransactionPlan")
+
+  @@unique([storeId, name], name: "uq_store_plan_name")
+  @@index([storeId])
+}
+
+// ============================================================
+// CustomerPlanWallet（顧客課程錢包）
+// ============================================================
+
+model CustomerPlanWallet {
+  id                String       @id @default(cuid())
+  customerId        String
+  storeId           String
+  planId            String
+  purchasedPrice    Decimal      @db.Decimal(10, 0) // 快照：購買當時價格
+  totalSessions     Int          // 總堂數
+  remainingSessions Int          // 剩餘堂數
+  startDate         DateTime     @db.Date
+  expiryDate        DateTime?    @db.Date // null = 無期限
+  status            WalletStatus @default(ACTIVE)
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  customer Customer    @relation(fields: [customerId], references: [id])
+  store    Store       @relation(fields: [storeId], references: [id])
+  plan     ServicePlan @relation(fields: [planId], references: [id])
+
+  // 使用此錢包的預約
+  bookings Booking[]
+
+  // 相關交易
+  transactions Transaction[]
+
+  @@index([storeId])
+  @@index([customerId])
+  @@index([customerId, status])
+}
+
+// ============================================================
+// BookingSlot（可配置時段）
+// ============================================================
+
+model BookingSlot {
+  id        String   @id @default(cuid())
+  storeId   String
+  dayOfWeek Int      // 0=Sunday, 1=Monday, ..., 6=Saturday
+  startTime String   // "HH:mm" 格式，e.g. "10:00"
+  capacity  Int      @default(6) // 該時段最大預約數（足甕數量）
+  isEnabled Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  store Store @relation(fields: [storeId], references: [id])
+
+  @@unique([storeId, dayOfWeek, startTime])
+  @@index([storeId])
+}
+
+// ============================================================
+// Booking（預約）
+// ============================================================
+
+model Booking {
+  id                   String        @id @default(cuid())
+  customerId           String
+  storeId              String
+  bookingDate          DateTime      @db.Date
+  slotTime             String        // "HH:mm"，對應 BookingSlot.startTime
+  revenueStaffId       String?       // 冗餘快照：營收歸屬店長（nullable: 顧客可能尚未指派）
+  serviceStaffId       String?       // 當天實際服務/值班店長（nullable, 可後補）
+  bookedByType         BookedByType  @default(CUSTOMER)
+  bookedByStaffId      String?       // 若由店長代約，記錄是哪位店長
+  bookingType          BookingType   @default(PACKAGE_SESSION)
+  servicePlanId        String?       // 使用哪個方案（nullable for flexibility）
+  customerPlanWalletId String?       // 若使用套餐，對應哪個錢包
+  people               Int           @default(1) // 預約人數（1~4）
+  isMakeup             Boolean       @default(false) // 是否為補課預約
+  makeupCreditId       String?       @unique // 若為補課，關聯使用的補課資格
+  isCheckedIn          Boolean       @default(false) // 已棄用，保留向後相容
+  bookingStatus        BookingStatus @default(PENDING)
+  noShowPolicy         String?       // "DEDUCTED" | "NOT_DEDUCTED"，僅 NO_SHOW 時有值
+  noShowMakeupGranted  Boolean?      // 是否有發補課資格（true=有發, false=沒發, null=非NO_SHOW）
+  reminderSent         Boolean       @default(false)
+  notes                String?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+
+  customer           Customer            @relation(fields: [customerId], references: [id])
+  store              Store               @relation(fields: [storeId], references: [id])
+  revenueStaff       Staff?              @relation("RevenueStaff", fields: [revenueStaffId], references: [id])
+  serviceStaff       Staff?              @relation("ServiceStaff", fields: [serviceStaffId], references: [id])
+  bookedByStaff      Staff?              @relation("BookedByStaff", fields: [bookedByStaffId], references: [id])
+  servicePlan        ServicePlan?        @relation(fields: [servicePlanId], references: [id])
+  customerPlanWallet CustomerPlanWallet? @relation(fields: [customerPlanWalletId], references: [id])
+
+  // 補課關聯
+  makeupCredit    MakeupCredit? @relation("MakeupBooking", fields: [makeupCreditId], references: [id])
+  generatedCredit MakeupCredit? @relation("OriginalBooking")
+
+  // 交易
+  transactions Transaction[]
+
+  // 提醒
+  reminders Reminder[]
+
+  // 訊息紀錄
+  messageLogs MessageLog[]
+
+  @@index([storeId])
+  @@index([bookingDate])
+  @@index([bookingDate, slotTime])          // 查詢某天某時段預約數
+  @@index([bookingDate, bookingStatus])     // ⚡ 月曆統計（groupBy date + status filter）
+  @@index([customerId])
+  @@index([customerId, bookingStatus])      // ⚡ 顧客未來預約數查詢
+  @@index([revenueStaffId])
+  @@index([revenueStaffId, bookingDate])    // 店長月報查詢
+  @@index([bookingStatus])
+  @@index([customerPlanWalletId])            // ⚡ 方案使用紀錄查詢
+}
+
+// ============================================================
+// MakeupCredit（補課資格）
+// ============================================================
+
+model MakeupCredit {
+  id                String    @id @default(cuid())
+  customerId        String
+  originalBookingId String    @unique // 產生此資格的原始預約（NO_SHOW）
+  isUsed            Boolean   @default(false)
+  expiredAt         DateTime? // 補課有效期限（如 30 天後到期）
+  createdAt         DateTime  @default(now())
+
+  storeId           String
+  customer        Customer @relation(fields: [customerId], references: [id])
+  originalBooking Booking  @relation("OriginalBooking", fields: [originalBookingId], references: [id])
+  usedBooking     Booking? @relation("MakeupBooking")
+  store           Store    @relation(fields: [storeId], references: [id])
+
+  @@index([customerId, isUsed])
+  @@index([storeId])
+}
+
+// ============================================================
+// Transaction（交易紀錄）
+// ============================================================
+
+model Transaction {
+  id                   String          @id @default(cuid())
+  customerId           String
+  storeId              String
+  bookingId            String?         // nullable: 購課交易不一定綁定預約
+  revenueStaffId       String          // 冗餘快照：營收歸屬店長
+  serviceStaffId       String?         // 服務/值班店長
+  soldByStaffId        String?         // 本次操作/成交店長（紀錄誰開通）
+  customerPlanWalletId String?         // 若為堂數扣抵或套餐購買，關聯到錢包
+  transactionType      TransactionType
+  paymentMethod        PaymentMethod   @default(CASH)
+  amount               Decimal         @db.Decimal(10, 0) // 實收金額（折扣後）
+  originalAmount       Decimal?        @db.Decimal(10, 0) // 原價（null = 無折扣）
+  discountType         String?         // "none" | "fixed" | "percentage"
+  discountValue        Decimal?        @db.Decimal(10, 2) // 折扣值（金額 or 百分比）
+  discountReason       String?         // 折扣原因 / 活動名稱
+  quantity             Int?            // 堂數（用於 SESSION_DEDUCTION）
+  note                 String?
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+
+  // === 報表用欄位（快照 + 歸屬鎖定）===
+  transactionNo        String?         // 交易編號 TXN-YYYYMMDD-NNN
+  transactionDate      DateTime        @default(now()) // 交易業務日期
+  status               TransactionStatus @default(SUCCESS)
+  coachNameSnapshot    String?         // 合作店長姓名快照
+  coachRoleSnapshot    String?         // 合作店長角色快照（OWNER / PARTNER）
+  storeNameSnapshot    String?         // 店名快照
+  planId               String?         // 直接關聯 ServicePlan
+  planNameSnapshot     String?         // 方案名稱快照
+  planType             String?         // 方案類型快照（TRIAL / SINGLE / PACKAGE）
+  grossAmount          Decimal?        @db.Decimal(10, 0) // 原價（始終填入）
+  discountAmount       Decimal?        @db.Decimal(10, 0) // 折扣金額
+  netAmount            Decimal         @db.Decimal(10, 0) @default(0) // 實收金額（報表用）
+  refundAmount         Decimal         @db.Decimal(10, 0) @default(0) // 已退款金額
+  isFirstPurchase      Boolean         @default(false) // 是否新客首次購買
+
+  customer           Customer            @relation(fields: [customerId], references: [id])
+  store              Store               @relation(fields: [storeId], references: [id])
+  booking            Booking?            @relation(fields: [bookingId], references: [id])
+  revenueStaff       Staff               @relation("RevenueStaff", fields: [revenueStaffId], references: [id])
+  serviceStaff       Staff?              @relation("ServiceStaff", fields: [serviceStaffId], references: [id])
+  soldByStaff        Staff?              @relation("SoldByStaff", fields: [soldByStaffId], references: [id])
+  customerPlanWallet CustomerPlanWallet? @relation(fields: [customerPlanWalletId], references: [id])
+  servicePlan        ServicePlan?        @relation("TransactionPlan", fields: [planId], references: [id])
+
+  @@index([storeId])
+  @@index([customerId])
+  @@index([revenueStaffId])
+  @@index([revenueStaffId, createdAt])    // 店長月營收查詢
+  @@index([createdAt])
+  @@index([transactionType])
+  @@index([transactionDate])
+  @@index([storeId, transactionDate])
+  @@index([revenueStaffId, transactionDate])
+  @@index([customerId, transactionDate])
+  @@index([status])
+  @@index([planType])
+}
+
+// ============================================================
+// CashbookEntry（現金帳）— Phase 2 但先建 schema
+// ============================================================
+
+model CashbookEntry {
+  id              String             @id @default(cuid())
+  storeId         String
+  entryDate       DateTime           @db.Date
+  type            CashbookEntryType
+  category        String?            // 自由分類：水電、材料、雜支...
+  amount          Decimal            @db.Decimal(10, 0)
+  staffId         String?            // 歸屬店長（nullable）
+  note            String?
+  createdByUserId String
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  store     Store  @relation(fields: [storeId], references: [id])
+  staff     Staff? @relation("CashbookStaff", fields: [staffId], references: [id])
+  createdBy User   @relation("CashbookCreatedBy", fields: [createdByUserId], references: [id])
+
+  @@index([storeId])
+  @@index([entryDate])
+  @@index([staffId])
+}
+
+// ============================================================
+// Reminder（提醒紀錄）— Phase 2 但先建 schema
+// ============================================================
+
+model Reminder {
+  id          String          @id @default(cuid())
+  bookingId   String
+  channel     ReminderChannel @default(LINE)
+  scheduledAt DateTime
+  sentAt      DateTime?
+  status      ReminderStatus  @default(PENDING)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  booking Booking @relation(fields: [bookingId], references: [id])
+
+  @@index([status, scheduledAt])
+}
+
+// ============================================================
+// AuditLog（稽核紀錄）— Phase 2 但先建 schema
+// ============================================================
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  actorUserId String
+  targetType  String   // e.g. "Customer", "Booking", "Transaction"
+  targetId    String
+  action      String   // e.g. "CREATE", "UPDATE", "DELETE", "TRANSFER"
+  beforeJson  Json?    // 變更前資料快照
+  afterJson   Json?    // 變更後資料快照
+  createdAt   DateTime @default(now())
+
+  actor User @relation(fields: [actorUserId], references: [id])
+
+  @@index([targetType, targetId])
+  @@index([actorUserId])
+  @@index([createdAt])
+}
+
+// ============================================================
+// StaffPermission（店長權限設定，key-value 表）
+// ============================================================
+
+model StaffPermission {
+  id         String  @id @default(cuid())
+  staffId    String
+  permission String  // e.g. "customer.read", "booking.create", "report.read"
+  granted    Boolean @default(true)
+
+  staff Staff @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@unique([staffId, permission])
+  @@index([staffId])
+}
+
+// ============================================================
+// ReconciliationRun（對帳執行記錄）
+// ============================================================
+
+model ReconciliationRun {
+  id          String   @id @default(cuid())
+  storeId     String
+  triggeredBy String   // "manual" | "cron"
+  status      String   // "running" | "pass" | "mismatch" | "error"
+  targetDate  String   // 對帳目標日期 "YYYY-MM-DD"
+  targetMonth String   // 對帳目標月份 "YYYY-MM"
+  timezone    String   @default("Asia/Taipei")
+  totalChecks Int      @default(0)
+  passCount   Int      @default(0)
+  mismatchCount Int    @default(0)
+  errorCount  Int      @default(0)
+  durationMs  Int?     // 執行耗時
+  startedAt   DateTime @default(now())
+  finishedAt  DateTime?
+
+  store  Store @relation(fields: [storeId], references: [id])
+  checks ReconciliationCheck[]
+
+  @@index([storeId])
+  @@index([startedAt])
+  @@index([status])
+}
+
+model ReconciliationCheck {
+  id           String  @id @default(cuid())
+  runId        String
+  checkCode    String  // e.g. "today_revenue", "month_revenue", "today_booking_count"
+  checkName    String  // 中文名稱
+  status       String  // "pass" | "mismatch" | "error"
+  sources      Json    // { sourceName: value } 各來源數值
+  expected     String? // 期望值描述
+  errorMessage String? // error 時的錯誤訊息
+  debugPayload Json    // 完整 debug 資訊
+
+  run ReconciliationRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId])
+  @@index([status])
+}
+
+// ============================================================
+// SpaceFeeRecord（空間分租費紀錄）— Phase 2 但先建 schema
+// ============================================================
+
+model SpaceFeeRecord {
+  id        String         @id @default(cuid())
+  staffId   String
+  month     String         // "YYYY-MM" 格式
+  feeAmount Decimal        @db.Decimal(10, 0)
+  status    SpaceFeeStatus @default(PENDING)
+  paidAt    DateTime?
+  note      String?
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  storeId   String
+  staff Staff @relation(fields: [staffId], references: [id])
+  store Store @relation(fields: [storeId], references: [id])
+
+  @@unique([staffId, month])
+  @@index([storeId])
+  @@index([staffId])
+  @@index([month])
+}
+
+// ============================================================
+// ShopConfig（店家設定 — 方案分級用，全域唯一一筆）
+// ============================================================
+
+model ShopConfig {
+  id                    String   @id @default(cuid())
+  storeId               String   @unique
+  shopName              String   @default("蒸足")
+  dutySchedulingEnabled Boolean  @default(false)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  store Store @relation(fields: [storeId], references: [id])
+}
+
+// ============================================================
+// ReminderRule（提醒規則）
+// ============================================================
+
+model ReminderRule {
+  id            String   @id @default(cuid())
+  storeId       String
+  name          String   // "預約前一天提醒"
+  triggerType   String   // "BEFORE_BOOKING_1D", "BEFORE_BOOKING_2H", "AFTER_SERVICE_7D", "INACTIVE_30D" (legacy)
+  type          String   @default("fixed")  // "relative" | "fixed"
+  offsetMinutes Int?     // relative: 預約前 N 分鐘（例：720=12hr, 1440=24hr）
+  offsetDays    Int      @default(1)         // fixed: 預約前 N 天
+  fixedTime     String?  // fixed: 發送時間 "HH:mm"（例："20:00"）
+  channel       ReminderChannel @default(LINE)
+  templateId    String?
+  isEnabled     Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  store       Store            @relation(fields: [storeId], references: [id])
+  template    MessageTemplate? @relation(fields: [templateId], references: [id])
+  logs        MessageLog[]
+
+  @@index([storeId])
+}
+
+// ============================================================
+// MessageTemplate（訊息模板）
+// ============================================================
+
+model MessageTemplate {
+  id        String   @id @default(cuid())
+  storeId   String
+  name      String   // "預約提醒 - 基本"
+  channel   ReminderChannel @default(LINE)
+  body      String   // 含變數的模板內容
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  store Store          @relation(fields: [storeId], references: [id])
+  rules ReminderRule[]
+  logs  MessageLog[]
+
+  @@index([storeId])
+}
+
+// ============================================================
+// MessageLog（訊息發送紀錄）
+// ============================================================
+
+model MessageLog {
+  id            String           @id @default(cuid())
+  ruleId        String?
+  templateId    String?
+  customerId    String
+  bookingId     String?
+  channel       ReminderChannel  @default(LINE)
+  status        MessageLogStatus @default(PENDING)
+  renderedBody  String?          // 替換變數後的實際內容
+  errorMessage  String?
+  sentAt        DateTime?
+  createdAt     DateTime         @default(now())
+
+  storeId       String
+  rule     ReminderRule?    @relation(fields: [ruleId], references: [id])
+  template MessageTemplate? @relation(fields: [templateId], references: [id])
+  customer Customer         @relation(fields: [customerId], references: [id])
+  booking  Booking?         @relation(fields: [bookingId], references: [id])
+  store    Store            @relation(fields: [storeId], references: [id])
+
+  @@index([customerId])
+  @@index([bookingId])
+  @@index([status])
+  @@index([storeId])
+  @@index([createdAt])
+  @@index([ruleId, bookingId], name: "idx_rule_booking") // 防重複發送
+}
+
+// ============================================================
+// OpsActionLog（營運儀表板執行閉環追蹤）
+// ============================================================
+
+model OpsActionLog {
+  id              String    @id @default(cuid())
+  storeId         String
+  module          String    // "alert" | "customer_action" | "recommendation"
+  refId           String    // alert id / customer action id / recommendation id
+  status          String    // alert: resolved/ignored/snoozed | customer_action: contacted/tracking/closed/skipped | recommendation: adopted/rejected
+  note            String?   // 追蹤備註
+  actorUserId     String
+  assigneeStaffId String?   // 指派負責店長
+  dueDate         DateTime? // 到期日
+  // Effectiveness tracking (v2.3)
+  outcomeStatus   String?   // "improved" | "no_change" | "pending"
+  outcomeNote     String?   // 成效備註
+  outcomeMetric   String?   // e.g. "回訪 1 次", "$3,200 營收"
+  outcomeAt       DateTime? // 成效確認時間
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  store    Store  @relation(fields: [storeId], references: [id])
+  actor    User   @relation(fields: [actorUserId], references: [id])
+  assignee Staff? @relation("OpsAssignee", fields: [assigneeStaffId], references: [id])
+
+  history OpsActionHistory[]
+
+  @@unique([storeId, module, refId]) // 每個項目只追蹤最新狀態（per store）
+  @@index([storeId])
+  @@index([module])
+  @@index([actorUserId])
+  @@index([assigneeStaffId])
+  @@index([createdAt])
+}
+
+// ============================================================
+// OpsActionHistory（營運儀表板操作歷史）
+// ============================================================
+
+model OpsActionHistory {
+  id            String   @id @default(cuid())
+  opsActionLogId String
+  actorUserId   String
+  action        String   // "status_change" | "assign" | "due_date" | "note"
+  oldValue      String?
+  newValue      String?
+  note          String?
+  createdAt     DateTime @default(now())
+
+  opsActionLog OpsActionLog @relation(fields: [opsActionLogId], references: [id], onDelete: Cascade)
+  actor        User         @relation(fields: [actorUserId], references: [id])
+
+  @@index([opsActionLogId])
+  @@index([createdAt])
+}
+
+// ============================================================
+// BusinessHours（每週固定營業時間）
+// ============================================================
+
+model BusinessHours {
+  id              String   @id @default(cuid())
+  storeId         String
+  dayOfWeek       Int      // 0=Sunday ... 6=Saturday
+  isOpen          Boolean  @default(true)
+  openTime        String?  // "HH:mm"，null 表示公休
+  closeTime       String?  // "HH:mm"，null 表示公休
+  slotInterval    Int      @default(60)  // 時段間隔（分鐘）：30/60/90/120
+  defaultCapacity Int      @default(6)   // 每時段預設名額
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  store Store @relation(fields: [storeId], references: [id])
+
+  @@unique([storeId, dayOfWeek])
+  @@index([storeId])
+}
+
+// ============================================================
+// SpecialBusinessDay（特殊日期覆寫：公休 / 進修 / 調整營業時段）
+// ============================================================
+
+model SpecialBusinessDay {
+  id              String   @id @default(cuid())
+  storeId         String
+  date            DateTime @db.Date
+  type            String   // "closed" | "training" | "custom"
+  reason          String?  // 公休原因、進修說明
+  openTime        String?  // type=custom 時的特殊營業開始
+  closeTime       String?  // type=custom 時的特殊營業結束
+  slotInterval    Int?     // 覆寫時段間隔（null=沿用每週規則）
+  defaultCapacity Int?     // 覆寫每時段名額（null=沿用每週規則）
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  store Store @relation(fields: [storeId], references: [id])
+
+  @@unique([storeId, date])
+  @@index([storeId])
+  @@index([date])
+}
+
+// ============================================================
+// SlotOverride（單日時段覆寫：手動關閉/開放/調整容量）
+// ============================================================
+
+model SlotOverride {
+  id        String   @id @default(cuid())
+  storeId   String
+  date      DateTime @db.Date
+  startTime String   // "HH:mm"
+  type      String   // "disabled" | "enabled" | "capacity_change"
+  capacity  Int?     // type=capacity_change 時覆寫容量
+  reason    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  store Store @relation(fields: [storeId], references: [id])
+
+  @@unique([storeId, date, startTime])
+  @@index([storeId])
+  @@index([date])
+}
+
+// ============================================================
+// DutyAssignment（值班人員安排）
+// ============================================================
+
+model DutyAssignment {
+  id                String            @id @default(cuid())
+  storeId           String
+  date              DateTime          @db.Date        // 值班日期（與 Booking.bookingDate 同格式）
+  slotTime          String            // "HH:mm"，對齊現有 slot 時間格式
+  staffId           String            // 值班人員
+  dutyRole          DutyRole          // 該人員在此時段的身份
+  participationType ParticipationType // 參與方式
+  notes             String?           // 備註
+  createdByStaffId  String?           // 誰安排的（審計用）
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  store        Store  @relation(fields: [storeId], references: [id])
+  staff        Staff  @relation("DutyStaff", fields: [staffId], references: [id])
+  createdBy    Staff? @relation("DutyCreatedBy", fields: [createdByStaffId], references: [id])
+
+  @@unique([date, slotTime, staffId])  // 同一時段同一人只能有一筆
+  @@index([storeId])
+  @@index([date])                      // 查某天所有值班
+  @@index([date, slotTime])            // 查某天某時段的值班人員
+  @@index([staffId])                   // 查某人的值班紀錄
+  @@index([staffId, date])             // 查某人某天的值班
+}
+
+// ── 報表快照（Pre-compute）──
+model ReportSnapshot {
+  id        String   @id @default(cuid())
+  storeId   String
+  month     String   // "2026-04" 格式
+  type      String   // "STORE_SUMMARY" | "REVENUE_BY_CATEGORY"
+  data      Json     // 快照數據
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  store Store @relation(fields: [storeId], references: [id])
+
+  @@unique([storeId, month, type])
+  @@index([storeId])
+  @@index([month])
+}
+
+// ── 錯誤日誌（系統可觀測性）──
+model ErrorLog {
+  id        String   @id @default(cuid())
+  category  String   // DB_CONNECTION, STORE_MISSING, ENV_MISSING, EXTERNAL_API, PERMISSION, AUTH, FK_VIOLATION, MISSING_FIELD, UNIQUE_VIOLATION, UNKNOWN
+  message   String
+  userId    String?
+  storeId   String?
+  metadata  Json?    // 額外資訊（stack trace 摘要、request path 等）
+  createdAt DateTime @default(now())
+
+  @@index([category])
+  @@index([createdAt])
+  @@index([userId])
+}
+
+// ============================================================
+// UpgradeRequest（方案升級申請）
+// ============================================================
+
+model UpgradeRequest {
+  id            String               @id @default(cuid())
+  storeId       String
+  currentPlan   PricingPlan
+  requestedPlan PricingPlan
+  reason        String?
+  status        UpgradeRequestStatus @default(PENDING)
+  requestedBy   String               // userId
+  reviewedBy    String?              // admin userId
+  reviewedAt    DateTime?
+  reviewNote    String?
+  // v2 補欄位
+  requestType   RequestType          @default(UPGRADE)
+  source        RequestSource?
+  contactName   String?
+  contactPhone  String?
+  contactEmail  String?
+  billingStatus BillingStatus        @default(NOT_REQUIRED)
+  effectiveAt   DateTime?
+  expiredAt     DateTime?
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+
+  store Store @relation(fields: [storeId], references: [id])
+
+  @@index([storeId])
+  @@index([status])
+  @@index([requestedBy])
+}
+
+// ============================================================
+// StoreSubscription（店家方案訂閱主表）
+// ============================================================
+
+model StoreSubscription {
+  id              String             @id @default(cuid())
+  storeId         String
+  plan            PricingPlan
+  status          SubscriptionStatus @default(ACTIVE)
+  startedAt       DateTime           @default(now())
+  effectiveAt     DateTime?
+  expiresAt       DateTime?
+  cancelledAt     DateTime?
+  isTrial         Boolean            @default(false)
+  billingCycle    String?            // MONTHLY | YEARLY | ONE_TIME
+  billingStatus   BillingStatus      @default(NOT_REQUIRED)
+  priceAmount     Int?
+  priceCurrency   String?            @default("TWD")
+  sourceRequestId String?
+  createdBy       String?
+  note            String?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  store           Store              @relation("StoreSubscriptions", fields: [storeId], references: [id])
+  currentForStore Store?             @relation("CurrentSubscription")
+  planChanges     StorePlanChange[]
+
+  @@index([storeId])
+  @@index([status])
+}
+
+// ============================================================
+// StorePlanChange（方案異動紀錄）
+// ============================================================
+
+model StorePlanChange {
+  id              String          @id @default(cuid())
+  storeId         String
+  changeType      PlanChangeType
+  fromPlan        PricingPlan?
+  toPlan          PricingPlan
+  fromStatus      StorePlanStatus?
+  toStatus        StorePlanStatus
+  requestId       String?
+  subscriptionId  String?
+  operatorUserId  String?
+  reason          String?
+  metadataJson    Json?
+  createdAt       DateTime        @default(now())
+
+  store           Store              @relation(fields: [storeId], references: [id])
+  subscription    StoreSubscription? @relation(fields: [subscriptionId], references: [id])
+
+  @@index([storeId])
+  @@index([changeType])
+  @@index([createdAt])
+}

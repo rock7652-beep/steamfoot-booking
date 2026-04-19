@@ -3,7 +3,7 @@ import { requireStaffSession } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { markCompleted, cancelBooking, markNoShow, checkInBooking, revertBookingStatus } from "@/server/actions/booking";
 import { notFound, redirect } from "next/navigation";
-import Link from "next/link";
+import { DashboardLink as Link } from "@/components/dashboard-link";
 import { NoShowButton, CancelButton, RevertButton } from "./booking-actions";
 
 // Status/type labels

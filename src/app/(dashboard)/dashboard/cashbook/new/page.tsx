@@ -5,7 +5,7 @@ import { checkPermission } from "@/lib/permissions";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { SubmitButton } from "@/components/submit-button";
 import { notFound, redirect } from "next/navigation";
-import Link from "next/link";
+import { DashboardLink as Link } from "@/components/dashboard-link";
 import { FormErrorToast } from "@/components/form-error-toast";
 
 type CashbookEntryType = "INCOME" | "EXPENSE" | "WITHDRAW" | "ADJUSTMENT";

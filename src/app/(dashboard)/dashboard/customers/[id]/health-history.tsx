@@ -10,7 +10,7 @@ import {
   type TrendPoint,
 } from "@/lib/health-service";
 import { computeHealthScore, type RiskLevel } from "@/lib/health-score";
-import Link from "next/link";
+import { DashboardLink as Link } from "@/components/dashboard-link";
 
 interface Props {
   healthProfileId: string;

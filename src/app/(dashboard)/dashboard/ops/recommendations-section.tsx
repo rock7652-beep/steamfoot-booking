@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import Link from "next/link";
+import { DashboardLink as Link } from "@/components/dashboard-link";
 import type { Recommendation, RecommendationType } from "@/server/queries/ops-dashboard-v2";
 import { markRecommendation } from "@/server/actions/ops-action-log";
 import type { RecommendationStatus, OpsActionLogEntry } from "@/server/actions/ops-action-log";

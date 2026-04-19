@@ -2,7 +2,7 @@ import { createPlan } from "@/server/actions/plan";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { notFound, redirect } from "next/navigation";
-import Link from "next/link";
+import { DashboardLink as Link } from "@/components/dashboard-link";
 import { SubmitButton } from "@/components/submit-button";
 import { FormErrorToast } from "@/components/form-error-toast";
 

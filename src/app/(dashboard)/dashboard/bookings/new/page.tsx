@@ -2,7 +2,7 @@ import { createBooking } from "@/server/actions/booking";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { toLocalDateStr } from "@/lib/date-utils";
-import Link from "next/link";
+import { DashboardLink as Link } from "@/components/dashboard-link";
 import { redirect } from "next/navigation";
 import CustomerSearch from "./customer-search";
 import { DashboardBookingForm } from "./booking-form";

@@ -8,7 +8,7 @@
  * - 可帶升級申請表單（inline）
  */
 
-import Link from "next/link";
+import { DashboardLink as Link } from "@/components/dashboard-link";
 import type { PricingPlan } from "@prisma/client";
 import { PRICING_PLAN_INFO } from "@/lib/feature-flags";
 import { UpgradeRequestForm } from "@/components/upgrade-request-form";

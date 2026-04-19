@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import Link from "next/link";
+import { DashboardLink as Link } from "@/components/dashboard-link";
 import type { OpsAlert, AlertLevel } from "@/server/queries/ops-dashboard-v2";
 import { markAlert } from "@/server/actions/ops-action-log";
 import type { AlertStatus, OpsActionLogEntry } from "@/server/actions/ops-action-log";

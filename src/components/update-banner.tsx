@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Link from "next/link";
+import { DashboardLink as Link } from "@/components/dashboard-link";
 import { APP_VERSION, getLatestChangelog } from "@/lib/version";
 import type { ChangelogTag } from "@/lib/version";
 

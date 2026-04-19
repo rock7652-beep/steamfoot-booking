@@ -1,25 +1,32 @@
+import { Suspense } from "react";
 import { cookies } from "next/headers";
 import { getCurrentUser } from "@/lib/session";
 import { resolveActiveStoreId } from "@/lib/store";
 import { notFound } from "next/navigation";
-import { getTalentDashboard, getNextOwnerCandidates, getTopPartnerMentors } from "@/server/queries/talent";
-import { getPointsLeaderboard, getMonthlyPointsLeaderboard } from "@/server/queries/points";
-import { getMonthlyReferralLeaderboard, getReferralConvertedLeaderboard, getReferralStats } from "@/server/queries/referral";
-import { getPotentialTagsForCustomers } from "@/server/queries/customer-potential";
+import { DashboardLink as Link } from "@/components/dashboard-link";
+import { getGrowthOverviewSummary } from "@/server/queries/growth";
+
 import { KpiCard } from "@/components/ui/kpi-card";
 import { SectionCard } from "@/components/ui/section-card";
-import { CustomerPotentialBadge } from "@/components/customer-potential-badge";
+import { SectionSkeleton, KpiCardSkeleton } from "@/components/section-skeleton";
 import { TalentFunnel } from "./talent-funnel";
-import { NearReadyList } from "./near-ready-list";
-import { LeaderboardSection } from "./leaderboard-section";
-import Link from "next/link";
-import { READINESS_LEVEL_CONFIG, TALENT_STAGE_LABELS } from "@/types/talent";
+import { GrowthCandidateCard } from "./_components/growth-candidate-card";
 
-export default async function TalentDashboardPage() {
+/**
+ * 成長系統 v2 — Phase A overview
+ *
+ * 核心目的：店長一打開就知道誰值得培養。
+ * 顯示：
+ *   - 6 張 KPI（高潛力 / 接近升級 / 本月推薦 / 本月轉化 / 新合作夥伴 / 新未來店長）
+ *   - Top 5 成長分候選人（含 tag / nextAction / breakdown 展開）
+ *   - 停滯名單（limit 5）
+ *   - 漏斗（沿用 TalentFunnel）
+ *
+ * Phase B/C（下輪）：完整潛力名單頁 / 推薦追蹤頁 / funnel 視覺化 / leaderboard 調整
+ */
+export default async function GrowthOverviewPage() {
   const user = await getCurrentUser();
   if (!user) return null;
-
-  // OWNER (ADMIN / OWNER) only
   if (user.role !== "ADMIN" && user.role !== "OWNER") {
     notFound();
   }
@@ -28,193 +35,149 @@ export default async function TalentDashboardPage() {
   const cookieStoreId = cookieStore.get("active-store-id")?.value ?? null;
   const activeStoreId = resolveActiveStoreId(user, cookieStoreId);
 
-  const [data, candidates, referralStats, pointsAll, pointsMonth, referralMonth, referralConverted, mentorTop] =
-    await Promise.all([
-      getTalentDashboard(activeStoreId),
-      getNextOwnerCandidates(activeStoreId, 10),
-      getReferralStats(activeStoreId).catch(() => null),
-      getPointsLeaderboard(activeStoreId, 10),
-      getMonthlyPointsLeaderboard(activeStoreId, 10),
-      getMonthlyReferralLeaderboard(activeStoreId, 10),
-      getReferralConvertedLeaderboard(activeStoreId, 10),
-      getTopPartnerMentors(activeStoreId, 10),
-    ]);
-
-  // 批次取前 5 位候選人的潛力 badge
-  const top5Ids = candidates.slice(0, 5).map((c) => c.customerId);
-  const potentialTags = await getPotentialTagsForCustomers(top5Ids, {
-    storeId: activeStoreId,
-  });
-
-  const totalPeople = data.pipeline.stages.reduce((s, st) => s + st.count, 0);
-  const readyCount = data.nearReady.filter(
-    (s) => s.readinessLevel === "READY",
-  ).length;
-
-  // readiness TOP 10 for leaderboard
-  const readinessTop = data.readinessScores
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 10)
-    .map((s) => ({
-      customerId: s.customerId,
-      customerName: s.customerName,
-      score: s.score,
-      readinessLevel: s.readinessLevel,
-      talentStage: s.talentStage,
-    }));
-
   return (
     <div className="mx-auto max-w-5xl space-y-5 px-4 py-4">
-      {/* 頁面標題 */}
+      {/* 頁面標題 + tab nav */}
       <div className="rounded-2xl bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h1 className="text-lg font-bold text-earth-900">人才培育</h1>
+            <h1 className="text-lg font-bold text-earth-900">成長系統</h1>
             <p className="mt-0.5 text-sm text-earth-500">
-              整併 readiness / 點數 / 轉介 / 準店長視角，掌握誰會成為下一個店長
+              找出下一個教練 / 合作夥伴 / 未來店長 — 誰值得現在約談
             </p>
           </div>
           <Link
-            href="/dashboard/growth/top-candidates"
+            href="/dashboard/growth/candidates"
             className="whitespace-nowrap rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-primary-700"
           >
-            TOP 10 候選人 →
+            完整潛力名單 →
+          </Link>
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          <span className="rounded-lg bg-earth-100 px-3 py-1.5 text-xs font-medium text-earth-800">
+            成長總覽
+          </span>
+          <Link
+            href="/dashboard/growth/candidates"
+            className="rounded-lg border border-earth-200 px-3 py-1.5 text-xs font-medium text-earth-600 hover:bg-earth-50"
+          >
+            潛力名單
+          </Link>
+          <Link
+            href="/dashboard/growth/referrals"
+            className="rounded-lg border border-earth-200 px-3 py-1.5 text-xs font-medium text-earth-600 hover:bg-earth-50"
+          >
+            推薦追蹤
+          </Link>
+          <Link
+            href="/dashboard/growth/stagnation"
+            className="rounded-lg border border-earth-200 px-3 py-1.5 text-xs font-medium text-earth-600 hover:bg-earth-50"
+          >
+            停滯名單
+          </Link>
+          <Link
+            href="/dashboard/bonus-rules"
+            className="rounded-lg border border-earth-200 px-3 py-1.5 text-xs font-medium text-earth-600 hover:bg-earth-50"
+          >
+            獎勵制度
           </Link>
         </div>
       </div>
 
+      {/* Overview data — Suspense 包裹，空資料 / 部分失敗都不拖整頁 */}
+      <Suspense fallback={<OverviewFallback />}>
+        <OverviewBlock activeStoreId={activeStoreId} />
+      </Suspense>
+    </div>
+  );
+}
+
+function OverviewFallback() {
+  return (
+    <>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <KpiCardSkeleton key={i} />
+        ))}
+      </div>
+      <SectionSkeleton heightClass="h-56" />
+      <SectionSkeleton heightClass="h-40" />
+      <SectionSkeleton heightClass="h-40" />
+    </>
+  );
+}
+
+async function OverviewBlock({ activeStoreId }: { activeStoreId: string | null }) {
+  const overview = await getGrowthOverviewSummary(activeStoreId);
+  const { kpi, top5, stagnation, funnelStages, totalPartners, totalFutureOwners } = overview;
+
+  return (
+    <>
       {/* KPI 摘要 */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <KpiCard label="總人數" value={totalPeople} unit="位" color="earth" />
-        <KpiCard
-          label="合作店長"
-          value={data.pipeline.totalPartners}
-          unit="位"
-          color="blue"
-        />
-        <KpiCard
-          label="準店長"
-          value={data.pipeline.totalFutureOwners}
-          unit="位"
-          color="amber"
-        />
-        <KpiCard
-          label="準備就緒"
-          value={readyCount}
-          unit="位"
-          color="green"
-        />
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        <KpiCard label="高潛力" value={kpi.highPotentialCount} unit="位" color="amber" />
+        <KpiCard label="接近升級" value={kpi.nearPromotionCount} unit="位" color="green" />
+        <KpiCard label="本月推薦" value={kpi.monthReferralEvents} unit="件" color="blue" />
+        <KpiCard label="本月轉化" value={kpi.monthConvertedReferrals} unit="人" color="primary" />
+        <KpiCard label="新合作夥伴（月）" value={kpi.newPartnerThisMonth} unit="位" color="earth" />
+        <KpiCard label="新未來店長（月）" value={kpi.newFutureOwnerThisMonth} unit="位" color="earth" />
       </div>
 
-      {/* 下一個店長候選人 — 摘要 TOP 5，完整 TOP 10 在子頁 */}
-      {candidates.length > 0 && (
-        <div className="rounded-2xl border border-green-200 bg-gradient-to-br from-green-50 to-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h2 className="text-sm font-bold text-earth-800">
-                下一個店長候選人 (TOP 5)
-              </h2>
-              <p className="mt-0.5 text-[11px] text-earth-400">
-                依準備度、點數、帶出人數綜合排序
-              </p>
-            </div>
-            <Link
-              href="/dashboard/growth/top-candidates"
-              className="whitespace-nowrap text-[11px] font-medium text-primary-600 hover:text-primary-700"
-            >
-              完整 TOP 10 →
-            </Link>
-          </div>
-          <div className="mt-3 space-y-1">
-            {candidates.slice(0, 5).map((c, i) => {
-              const config = READINESS_LEVEL_CONFIG[c.readinessLevel];
-              const isEligible =
-                c.talentStage === "PARTNER" &&
-                (c.readinessLevel === "HIGH" || c.readinessLevel === "READY") &&
-                c.totalPoints >= 100 &&
-                c.referralCount >= 2;
-              return (
-                <Link
-                  key={c.customerId}
-                  href={`/dashboard/customers/${c.customerId}`}
-                  className="flex items-center justify-between rounded-lg bg-white px-3 py-2.5 shadow-sm transition-colors hover:bg-earth-50"
-                >
-                  <div className="flex items-center gap-2">
-                    <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ${
-                      i === 0 ? "bg-amber-100 text-amber-700" : i === 1 ? "bg-gray-100 text-gray-600" : i === 2 ? "bg-orange-100 text-orange-600" : "bg-earth-100 text-earth-500"
-                    }`}>
-                      {i + 1}
-                    </span>
-                    <span className="text-sm font-medium text-earth-800">
-                      {c.name}
-                    </span>
-                    <CustomerPotentialBadge tag={potentialTags.get(c.customerId)} size="sm" />
-                    <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${config.bg} ${config.color}`}>
-                      {config.label}
-                    </span>
-                    <span className="text-[10px] text-earth-400">
-                      {TALENT_STAGE_LABELS[c.talentStage]}
-                    </span>
-                    {isEligible && (
-                      <span className="rounded bg-green-100 px-1.5 py-0.5 text-[10px] font-medium text-green-700">
-                        可升級
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 text-[11px]">
-                    <span className="text-earth-500">{c.readinessScore}分</span>
-                    <span className="text-primary-500">{c.totalPoints} 點</span>
-                    <span className="text-blue-500">{c.referralCount}轉介</span>
-                    <span className="text-amber-600">{c.referralPartnerCount}帶出</span>
-                    <span className="text-green-600">{c.attendanceCount}出席</span>
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* 排行榜 */}
-      <LeaderboardSection
-        pointsAll={pointsAll}
-        pointsMonth={pointsMonth}
-        referralMonth={referralMonth}
-        referralConverted={referralConverted}
-        readinessTop={readinessTop}
-        mentorTop={mentorTop}
-      />
-
-      {/* 人才漏斗 */}
-      <SectionCard title="成長漏斗" subtitle="各階段人數分佈">
-        <TalentFunnel stages={data.pipeline.stages} />
-      </SectionCard>
-
-      {/* 接近開店名單 */}
+      {/* Top 5 候選人 */}
       <SectionCard
-        title="接近開店"
-        subtitle="HIGH / READY 準備度的合作店長與準店長"
+        title="本月建議關注 Top 5"
+        subtitle="依成長分數（readiness + 近期活躍 + 積分 + 階段）排序"
+        action={{ label: "完整名單 →", href: "/dashboard/growth/candidates" }}
       >
-        {data.nearReady.length === 0 ? (
+        {top5.length === 0 ? (
           <div className="rounded-xl bg-earth-50 py-6 text-center">
-            <p className="text-sm text-earth-400">
-              目前沒有接近開店的人才
+            <p className="text-sm text-earth-400">目前尚無合作店長或準店長候選</p>
+            <p className="mt-1 text-[11px] text-earth-400">
+              當成員累積推薦、點數與出席後，會自動出現在這裡
             </p>
           </div>
         ) : (
-          <NearReadyList scores={data.nearReady} />
+          <div className="space-y-2">
+            {top5.map((c, i) => (
+              <GrowthCandidateCard key={c.customerId} candidate={c} rank={i + 1} />
+            ))}
+          </div>
         )}
       </SectionCard>
 
-      {/* 全部準備度評分 */}
-      {data.readinessScores.length > 0 && (
-        <SectionCard
-          title="全部準備度評分"
-          subtitle="PARTNER / FUTURE_OWNER 的開店準備度"
-        >
-          <NearReadyList scores={data.readinessScores} showAll />
-        </SectionCard>
-      )}
-    </div>
+      {/* 停滯名單 */}
+      <SectionCard
+        title="停滯警示"
+        subtitle="合作店長 / 準店長 近 30 天無到店且無推薦行動"
+        action={{ label: "完整停滯名單 →", href: "/dashboard/growth/stagnation" }}
+      >
+        {stagnation.length === 0 ? (
+          <div className="rounded-xl bg-earth-50 py-6 text-center">
+            <p className="text-sm text-earth-400">目前無停滯名單，所有成員都在動 ✨</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {stagnation.map((c) => (
+              <GrowthCandidateCard key={c.customerId} candidate={c} />
+            ))}
+          </div>
+        )}
+      </SectionCard>
+
+      {/* 漏斗 */}
+      <SectionCard
+        title="成長漏斗"
+        subtitle={`合作店長 ${totalPartners} 位 · 準店長 ${totalFutureOwners} 位`}
+      >
+        {funnelStages.length === 0 ? (
+          <div className="rounded-xl bg-earth-50 py-6 text-center">
+            <p className="text-sm text-earth-400">尚無資料</p>
+          </div>
+        ) : (
+          <TalentFunnel stages={funnelStages} />
+        )}
+      </SectionCard>
+    </>
   );
 }

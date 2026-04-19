@@ -4,7 +4,7 @@ import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { notFound, redirect } from "next/navigation";
 import { SubmitButton } from "@/components/submit-button";
-import Link from "next/link";
+import { DashboardLink as Link } from "@/components/dashboard-link";
 import { prisma } from "@/lib/db";
 
 type CashbookEntryType = "INCOME" | "EXPENSE" | "WITHDRAW" | "ADJUSTMENT";

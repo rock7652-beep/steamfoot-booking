@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { CalendarMonth } from "./calendar-month";
 import { DayView } from "./day-view";
 import { fetchDayDetail } from "@/server/actions/slots";
-import Link from "next/link";
+import { DashboardLink as Link } from "@/components/dashboard-link";
 import type { SlotAvailability } from "@/types";
 
 interface MonthSummaryDay {

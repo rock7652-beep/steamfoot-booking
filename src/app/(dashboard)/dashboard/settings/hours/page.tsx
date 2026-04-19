@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { getBusinessHours, getMonthSpecialDays } from "@/server/actions/business-hours";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { prisma } from "@/lib/db";
-import Link from "next/link";
+import { DashboardLink as Link } from "@/components/dashboard-link";
 import { ScheduleManager } from "./schedule-manager";
 
 export default async function ScheduleSettingsPage() {

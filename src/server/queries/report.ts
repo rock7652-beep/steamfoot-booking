@@ -240,18 +240,30 @@ export async function monthlyStoreSummary(
       },
       select: { staffId: true, feeAmount: true },
     }),
-    // Customer count per staff
+    // Customer count per staff — 只計算「該期間有預約」的顧客，避免整張 Customer 表掃描
     prisma.customer.groupBy({
       by: ["assignedStaffId"],
-      where: assignedFilter,
+      where: {
+        ...assignedFilter,
+        bookings: {
+          some: {
+            bookingDate: { gte: monthStart, lte: monthEnd },
+          },
+        },
+      },
       _count: { id: true },
     }),
-    // Active customer count per staff
+    // Active customer count per staff — 同上 + ACTIVE stage
     prisma.customer.groupBy({
       by: ["assignedStaffId"],
       where: {
         ...assignedFilter,
         customerStage: "ACTIVE",
+        bookings: {
+          some: {
+            bookingDate: { gte: monthStart, lte: monthEnd },
+          },
+        },
       },
       _count: { id: true },
     }),

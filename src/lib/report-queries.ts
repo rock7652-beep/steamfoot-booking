@@ -131,44 +131,69 @@ export async function getStoreRevenueSummary(
 ): Promise<StoreRevenueSummary[]> {
   const where = buildWhereClause(filters);
 
-  const transactions = await prisma.transaction.findMany({
-    where,
-    select: {
-      storeId: true,
-      storeNameSnapshot: true,
-      netAmount: true,
-      refundAmount: true,
-      transactionType: true,
-      planType: true,
-      customerId: true,
-      status: true,
-      amount: true,
-      store: { select: { name: true } },
+  // 排除 CANCELLED / REFUND — 交由 DB 層過濾，不再於 JS 端 skip
+  const whereActive: Prisma.TransactionWhereInput = {
+    ...where,
+    status: { not: "CANCELLED" },
+    transactionType: {
+      ...((where.transactionType as Prisma.EnumTransactionTypeFilter | undefined) ?? {}),
+      // buildWhereClause 已排除 SESSION_DEDUCTION；這裡再疊上排除 REFUND
+      notIn: ["SESSION_DEDUCTION", "REFUND"],
     },
-  });
+  };
 
-  // Group by storeId
+  // 三支 DB-side 聚合平行跑，取代一次 findMany + in-memory group
+  const [byStoreAndPlan, distinctPairs, storeMetaRaw] = await Promise.all([
+    // 1. 每店 x planType 的 revenue / refund / tx count（groupBy 直接回聚合數字）
+    prisma.transaction.groupBy({
+      by: ["storeId", "planType"],
+      where: whereActive,
+      _sum: { netAmount: true, refundAmount: true },
+      _count: { id: true },
+    }),
+    // 2. 每店去重顧客 — 只抓 (storeId, customerId) 配對，不拉其他欄位
+    prisma.transaction.findMany({
+      where: whereActive,
+      distinct: ["storeId", "customerId"],
+      select: { storeId: true, customerId: true },
+    }),
+    // 3. 店名 fallback：先抓每店第一筆 snapshot + store name，避免 N+1
+    prisma.transaction.findMany({
+      where: whereActive,
+      distinct: ["storeId"],
+      select: { storeId: true, storeNameSnapshot: true, store: { select: { name: true } } },
+    }),
+  ]);
+
+  // 組 storeMap：以 groupBy 結果為主，in-memory 只做加總而不做 row-by-row scan
   const storeMap = new Map<string, {
     storeName: string;
     revenue: number;
     refund: number;
     count: number;
-    customers: Set<string>;
     trial: number;
     pkg: number;
     single: number;
     other: number;
   }>();
 
-  for (const tx of transactions) {
-    const sid = tx.storeId;
+  const storeMeta = new Map<string, string>();
+  for (const m of storeMetaRaw) {
+    storeMeta.set(m.storeId, m.storeNameSnapshot ?? m.store?.name ?? "未知店舖");
+  }
+
+  for (const row of byStoreAndPlan) {
+    const sid = row.storeId;
+    const net = Number(row._sum.netAmount ?? 0);
+    const refund = Number(row._sum.refundAmount ?? 0);
+    const cnt = row._count.id;
+
     if (!storeMap.has(sid)) {
       storeMap.set(sid, {
-        storeName: tx.storeNameSnapshot ?? tx.store?.name ?? "未知店舖",
+        storeName: storeMeta.get(sid) ?? "未知店舖",
         revenue: 0,
         refund: 0,
         count: 0,
-        customers: new Set(),
         trial: 0,
         pkg: 0,
         single: 0,
@@ -176,27 +201,24 @@ export async function getStoreRevenueSummary(
       });
     }
     const s = storeMap.get(sid)!;
+    s.revenue += net;
+    s.refund += refund;
+    s.count += cnt;
+    if (row.planType === "TRIAL") s.trial += net;
+    else if (row.planType === "PACKAGE") s.pkg += net;
+    else if (row.planType === "SINGLE") s.single += net;
+    else s.other += net;
+  }
 
-    if (tx.status === "CANCELLED") continue;
-
-    const net = Number(tx.netAmount);
-    const refund = Number(tx.refundAmount);
-
-    if (tx.transactionType !== "REFUND") {
-      s.revenue += net;
-      s.refund += refund;
-      s.count++;
-      s.customers.add(tx.customerId);
-
-      if (tx.planType === "TRIAL") s.trial += net;
-      else if (tx.planType === "PACKAGE") s.pkg += net;
-      else if (tx.planType === "SINGLE") s.single += net;
-      else s.other += net;
-    }
+  // 去重顧客數：distinct pairs 計數
+  const customerCountByStore = new Map<string, number>();
+  for (const p of distinctPairs) {
+    customerCountByStore.set(p.storeId, (customerCountByStore.get(p.storeId) ?? 0) + 1);
   }
 
   return Array.from(storeMap.entries()).map(([storeId, s]) => {
     const netRevenue = s.revenue - s.refund;
+    const customerCount = customerCountByStore.get(storeId) ?? 0;
     return {
       storeId,
       storeName: s.storeName,
@@ -204,8 +226,8 @@ export async function getStoreRevenueSummary(
       refundAmount: s.refund,
       netRevenue,
       txCount: s.count,
-      customerCount: s.customers.size,
-      avgPerCustomer: s.customers.size > 0 ? Math.round(netRevenue / s.customers.size) : 0,
+      customerCount,
+      avgPerCustomer: customerCount > 0 ? Math.round(netRevenue / customerCount) : 0,
       trialRevenue: s.trial,
       packageRevenue: s.pkg,
       singleRevenue: s.single,
@@ -223,85 +245,118 @@ export async function getCoachRevenueSummary(
 ): Promise<CoachRevenueSummary[]> {
   const where = buildWhereClause(filters);
 
-  const transactions = await prisma.transaction.findMany({
-    where,
-    select: {
-      revenueStaffId: true,
-      coachNameSnapshot: true,
-      coachRoleSnapshot: true,
-      storeNameSnapshot: true,
-      netAmount: true,
-      refundAmount: true,
-      transactionType: true,
-      planType: true,
-      customerId: true,
-      isFirstPurchase: true,
-      status: true,
-      revenueStaff: { select: { displayName: true, user: { select: { role: true } } } },
-      store: { select: { name: true } },
+  const whereActive: Prisma.TransactionWhereInput = {
+    ...where,
+    status: { not: "CANCELLED" },
+    transactionType: {
+      ...((where.transactionType as Prisma.EnumTransactionTypeFilter | undefined) ?? {}),
+      notIn: ["SESSION_DEDUCTION", "REFUND"],
     },
-  });
+  };
 
-  const coachMap = new Map<string, {
-    coachName: string;
-    coachRole: string;
-    storeName: string;
-    revenue: number;
-    refund: number;
-    count: number;
-    customers: Set<string>;
-    newRevenue: number;
-    existingRevenue: number;
-    trial: number;
-    pkg: number;
-    single: number;
-    other: number;
-  }>();
+  const [byCoachPlan, byCoachFirstPurchase, distinctCustomerPairs, coachMetaRaw] =
+    await Promise.all([
+      // 每教練 x planType 的 revenue/refund/count
+      prisma.transaction.groupBy({
+        by: ["revenueStaffId", "planType"],
+        where: whereActive,
+        _sum: { netAmount: true, refundAmount: true },
+        _count: { id: true },
+      }),
+      // 每教練 x isFirstPurchase 的 revenue — 用於 new / existing 分流
+      prisma.transaction.groupBy({
+        by: ["revenueStaffId", "isFirstPurchase"],
+        where: whereActive,
+        _sum: { netAmount: true },
+      }),
+      // 每教練去重顧客
+      prisma.transaction.findMany({
+        where: whereActive,
+        distinct: ["revenueStaffId", "customerId"],
+        select: { revenueStaffId: true, customerId: true },
+      }),
+      // 每教練 meta（名稱 / 角色 / 店名）— 第一筆 snapshot
+      prisma.transaction.findMany({
+        where: whereActive,
+        distinct: ["revenueStaffId"],
+        select: {
+          revenueStaffId: true,
+          coachNameSnapshot: true,
+          coachRoleSnapshot: true,
+          storeNameSnapshot: true,
+          revenueStaff: { select: { displayName: true, user: { select: { role: true } } } },
+          store: { select: { name: true } },
+        },
+      }),
+    ]);
 
-  for (const tx of transactions) {
-    const cid = tx.revenueStaffId;
-    if (!coachMap.has(cid)) {
-      coachMap.set(cid, {
-        coachName: tx.coachNameSnapshot ?? tx.revenueStaff?.displayName ?? "未知教練",
-        coachRole: tx.coachRoleSnapshot ?? tx.revenueStaff?.user?.role ?? "PARTNER",
-        storeName: tx.storeNameSnapshot ?? tx.store?.name ?? "未知店舖",
-        revenue: 0,
-        refund: 0,
-        count: 0,
-        customers: new Set(),
-        newRevenue: 0,
-        existingRevenue: 0,
-        trial: 0,
-        pkg: 0,
-        single: 0,
-        other: 0,
-      });
+  const coachMap = new Map<
+    string,
+    {
+      coachName: string;
+      coachRole: string;
+      storeName: string;
+      revenue: number;
+      refund: number;
+      count: number;
+      newRevenue: number;
+      existingRevenue: number;
+      trial: number;
+      pkg: number;
+      single: number;
+      other: number;
     }
-    const c = coachMap.get(cid)!;
+  >();
 
-    if (tx.status === "CANCELLED") continue;
+  for (const m of coachMetaRaw) {
+    coachMap.set(m.revenueStaffId, {
+      coachName: m.coachNameSnapshot ?? m.revenueStaff?.displayName ?? "未知教練",
+      coachRole: m.coachRoleSnapshot ?? m.revenueStaff?.user?.role ?? "PARTNER",
+      storeName: m.storeNameSnapshot ?? m.store?.name ?? "未知店舖",
+      revenue: 0,
+      refund: 0,
+      count: 0,
+      newRevenue: 0,
+      existingRevenue: 0,
+      trial: 0,
+      pkg: 0,
+      single: 0,
+      other: 0,
+    });
+  }
 
-    const net = Number(tx.netAmount);
-    const refund = Number(tx.refundAmount);
+  for (const row of byCoachPlan) {
+    const cid = row.revenueStaffId;
+    const c = coachMap.get(cid);
+    if (!c) continue;
+    const net = Number(row._sum.netAmount ?? 0);
+    const refund = Number(row._sum.refundAmount ?? 0);
+    c.revenue += net;
+    c.refund += refund;
+    c.count += row._count.id;
+    if (row.planType === "TRIAL") c.trial += net;
+    else if (row.planType === "PACKAGE") c.pkg += net;
+    else if (row.planType === "SINGLE") c.single += net;
+    else c.other += net;
+  }
 
-    if (tx.transactionType !== "REFUND") {
-      c.revenue += net;
-      c.refund += refund;
-      c.count++;
-      c.customers.add(tx.customerId);
+  for (const row of byCoachFirstPurchase) {
+    const cid = row.revenueStaffId;
+    const c = coachMap.get(cid);
+    if (!c) continue;
+    const net = Number(row._sum.netAmount ?? 0);
+    if (row.isFirstPurchase) c.newRevenue += net;
+    else c.existingRevenue += net;
+  }
 
-      if (tx.isFirstPurchase) c.newRevenue += net;
-      else c.existingRevenue += net;
-
-      if (tx.planType === "TRIAL") c.trial += net;
-      else if (tx.planType === "PACKAGE") c.pkg += net;
-      else if (tx.planType === "SINGLE") c.single += net;
-      else c.other += net;
-    }
+  const customerCountByCoach = new Map<string, number>();
+  for (const p of distinctCustomerPairs) {
+    customerCountByCoach.set(p.revenueStaffId, (customerCountByCoach.get(p.revenueStaffId) ?? 0) + 1);
   }
 
   return Array.from(coachMap.entries()).map(([coachId, c]) => {
     const netRevenue = c.revenue - c.refund;
+    const customerCount = customerCountByCoach.get(coachId) ?? 0;
     return {
       coachId,
       coachName: c.coachName,
@@ -311,7 +366,7 @@ export async function getCoachRevenueSummary(
       refundAmount: c.refund,
       netRevenue,
       txCount: c.count,
-      customerCount: c.customers.size,
+      customerCount,
       avgPerTx: c.count > 0 ? Math.round(netRevenue / c.count) : 0,
       newCustomerRevenue: c.newRevenue,
       existingCustomerRevenue: c.existingRevenue,
@@ -396,52 +451,63 @@ export async function getRevenueKpi(
 ): Promise<RevenueKpi> {
   const where = buildWhereClause(filters);
 
-  const transactions = await prisma.transaction.findMany({
-    where,
-    select: {
-      netAmount: true,
-      refundAmount: true,
-      transactionType: true,
-      customerId: true,
-      isFirstPurchase: true,
-      status: true,
+  // 排除 CANCELLED / REFUND — DB-side 處理，不再拉全量 rows
+  const whereActive: Prisma.TransactionWhereInput = {
+    ...where,
+    status: { not: "CANCELLED" },
+    transactionType: {
+      ...((where.transactionType as Prisma.EnumTransactionTypeFilter | undefined) ?? {}),
+      notIn: ["SESSION_DEDUCTION", "REFUND"],
     },
-  });
+  };
 
-  let totalRevenue = 0;
-  let refundAmount = 0;
+  // 三支聚合平行：整體總和 / 去重顧客數 /（選）新客 vs 既有客
+  const newExistingPromise: Promise<Array<{ isFirstPurchase: boolean; _sum: { netAmount: unknown } }>> =
+    includeNewExisting
+      ? (prisma.transaction.groupBy({
+          by: ["isFirstPurchase"],
+          where: whereActive,
+          _sum: { netAmount: true },
+        }) as unknown as Promise<Array<{ isFirstPurchase: boolean; _sum: { netAmount: unknown } }>>)
+      : Promise.resolve([]);
+
+  const [totals, distinctCustomers, newExistingRaw] = await Promise.all([
+    prisma.transaction.aggregate({
+      where: whereActive,
+      _sum: { netAmount: true, refundAmount: true },
+      _count: { id: true },
+    }),
+    prisma.transaction.findMany({
+      where: whereActive,
+      distinct: ["customerId"],
+      select: { customerId: true },
+    }),
+    newExistingPromise,
+  ]);
+
+  const totalRevenue = Number(totals._sum.netAmount ?? 0);
+  const refundAmount = Number(totals._sum.refundAmount ?? 0);
+  const txCount = totals._count.id;
+  const customerCount = distinctCustomers.length;
+  const netRevenue = totalRevenue - refundAmount;
+
   let newCustomerRevenue = 0;
   let existingCustomerRevenue = 0;
-  let txCount = 0;
-  const customers = new Set<string>();
-
-  for (const tx of transactions) {
-    if (tx.status === "CANCELLED") continue;
-    if (tx.transactionType === "REFUND") continue;
-
-    const net = Number(tx.netAmount);
-    const refund = Number(tx.refundAmount);
-
-    totalRevenue += net;
-    refundAmount += refund;
-    txCount++;
-    customers.add(tx.customerId);
-
-    if (includeNewExisting) {
-      if (tx.isFirstPurchase) newCustomerRevenue += net;
-      else existingCustomerRevenue += net;
+  if (includeNewExisting) {
+    for (const row of newExistingRaw) {
+      const sum = Number(row._sum.netAmount ?? 0);
+      if (row.isFirstPurchase) newCustomerRevenue += sum;
+      else existingCustomerRevenue += sum;
     }
   }
-
-  const netRevenue = totalRevenue - refundAmount;
 
   return {
     totalRevenue,
     refundAmount,
     netRevenue,
     txCount,
-    customerCount: customers.size,
-    avgPerCustomer: customers.size > 0 ? Math.round(netRevenue / customers.size) : 0,
+    customerCount,
+    avgPerCustomer: customerCount > 0 ? Math.round(netRevenue / customerCount) : 0,
     ...(includeNewExisting && { newCustomerRevenue, existingCustomerRevenue }),
   };
 }

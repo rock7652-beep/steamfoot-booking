@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useCallback } from "react";
-import Link from "next/link";
+import { DashboardLink as Link } from "@/components/dashboard-link";
 import { PARTICIPATION_TYPE_SHORT } from "@/lib/duty-constants";
 import type { ParticipationType } from "@prisma/client";
 import type { DutyWeekItem } from "@/server/queries/duty";
