@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="zh-TW">
+<head>
+  <meta charset="utf-8" />
+  <title>成長系統 v2 桌機預覽（1440px）</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    // 把專案 earth / primary palette 注入 Tailwind Play CDN
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            earth: {
+              50: "#faf8f5", 100: "#f3efe8", 200: "#e8e0d4",
+              300: "#d4c8b8", 400: "#b8a68e", 500: "#9c8b72",
+              600: "#7d6e58", 700: "#655a48", 800: "#4a4235", 900: "#342f27",
+            },
+            primary: {
+              50: "#f6f7f4", 100: "#e8ebe2", 200: "#d1d8c5",
+              300: "#b0bc9e", 400: "#8fa17a", 500: "#6f8558",
+              600: "#5a6c47", 700: "#475639", 800: "#3a4530", 900: "#2d3526",
+            },
+          },
+          fontFamily: {
+            sans: ['-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', '"PingFang TC"', '"Noto Sans TC"', 'sans-serif'],
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    body { background:#faf8f5; }
+    .frame-label { font-family: ui-monospace, SFMono-Regular, monospace; }
+  </style>
+</head>
+<body class="text-earth-900">
+
+<div class="mx-auto max-w-[1480px] px-4 py-6 space-y-10">
+
+  <!-- HERO -->
+  <header class="flex items-end justify-between">
+    <div>
+      <h1 class="text-xl font-bold">成長系統 v2 — 桌機版預覽（v2.1 微調）</h1>
+      <p class="text-xs text-earth-500">1440px — KPI 去卡片 / 次要欄位降權重 / 活躍度單 pill / 建議改行動語氣 / 主 CTA 指名 Top 1</p>
+    </div>
+    <p class="frame-label text-[11px] text-earth-400">design/growth-v2-preview.html</p>
+  </header>
+
+  <!-- ============================================================ -->
+  <!-- STATE 1: 有資料 -->
+  <!-- ============================================================ -->
+  <section>
+    <div class="mb-2 flex items-center gap-2">
+      <span class="rounded bg-primary-100 px-2 py-0.5 text-[11px] font-semibold text-primary-700">State A</span>
+      <span class="text-sm font-medium text-earth-800">有資料（典型門市）</span>
+      <span class="frame-label text-[11px] text-earth-400">— 10 位候選、4 位停滯、KPI 有量</span>
+    </div>
+
+    <div class="rounded-lg border border-earth-200 bg-earth-50 p-3">
+      <div class="mx-auto bg-earth-50" style="width:1440px">
+        <div class="space-y-3 px-4 py-3">
+
+          <!-- Page Header（無底線，和 KPI 合成一塊 info 區） -->
+          <div class="flex items-center justify-between pb-1">
+            <div>
+              <h1 class="text-lg font-bold text-earth-900">成長系統</h1>
+              <p class="text-[11px] text-earth-500">找出下一位教練 / 店長 — 誰值得現在約談</p>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <button class="rounded-md border border-earth-200 bg-white px-3 py-1.5 text-xs font-medium text-earth-700">完整名單</button>
+              <button class="rounded-md border border-earth-200 bg-white px-3 py-1.5 text-xs font-medium text-earth-700">推薦追蹤</button>
+              <button class="rounded-md border border-earth-200 bg-white px-3 py-1.5 text-xs font-medium text-earth-700">獎勵制度</button>
+            </div>
+          </div>
+
+          <!-- KPI Inline Strip — 無卡片感、只底線 -->
+          <div class="flex h-10 items-center gap-x-1 border-b border-earth-200 text-sm">
+            <div class="flex items-center gap-1 whitespace-nowrap">
+              <span class="text-[11px] text-earth-500">高潛力</span>
+              <span class="text-[15px] font-bold tabular-nums text-amber-700">3</span>
+            </div>
+            <div class="flex items-center gap-1 whitespace-nowrap">
+              <span class="px-2 text-earth-200">｜</span>
+              <span class="text-[11px] text-earth-500">可升級</span>
+              <span class="text-[15px] font-bold tabular-nums text-green-700">2</span>
+            </div>
+            <div class="flex items-center gap-1 whitespace-nowrap">
+              <span class="px-2 text-earth-200">｜</span>
+              <span class="text-[11px] text-earth-500">本月推薦</span>
+              <span class="text-[15px] font-bold tabular-nums text-blue-700">5</span>
+            </div>
+            <div class="flex items-center gap-1 whitespace-nowrap">
+              <span class="px-2 text-earth-200">｜</span>
+              <span class="text-[11px] text-earth-500">新合作夥伴</span>
+              <span class="text-[15px] font-bold tabular-nums text-primary-700">1</span>
+            </div>
+            <div class="flex items-center gap-1 whitespace-nowrap">
+              <span class="px-2 text-earth-200">｜</span>
+              <span class="text-[11px] text-earth-500">新店長</span>
+              <span class="text-[15px] font-bold tabular-nums text-earth-900">0</span>
+            </div>
+          </div>
+
+          <!-- Main Grid 12 欄 -->
+          <div class="grid grid-cols-12 gap-3">
+
+            <!-- 左側 col-8：Top 10 Table -->
+            <div class="col-span-8">
+              <section class="rounded-xl border border-earth-200 bg-white">
+                <div class="flex items-center justify-between border-b border-earth-100 px-4 py-2.5">
+                  <div>
+                    <h3 class="text-sm font-semibold text-earth-900">高潛力名單 · Top 10</h3>
+                    <p class="text-[11px] text-earth-400">依成長分數排序（沉澱 + 近期活躍 + 積分 + 階段）</p>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <label class="text-[11px] text-earth-500">篩選</label>
+                    <select class="rounded border border-earth-200 bg-white px-2 py-1 text-xs text-earth-700">
+                      <option>全部</option>
+                      <option>高潛力</option>
+                      <option>接近升級</option>
+                      <option>停滯中</option>
+                      <option>推薦活躍</option>
+                    </select>
+                    <a class="text-[11px] font-medium text-primary-600">完整名單 →</a>
+                  </div>
+                </div>
+
+                <table class="w-full text-left text-sm">
+                  <thead class="bg-earth-50 text-[11px] font-medium text-earth-500">
+                    <tr>
+                      <th class="w-8 px-3 py-2 text-center">#</th>
+                      <th class="px-3 py-2">顧客</th>
+                      <th class="px-3 py-2">活躍度</th>
+                      <th class="px-3 py-2 text-right">最近來店</th>
+                      <th class="px-3 py-2 text-right">分享推薦</th>
+                      <th class="px-3 py-2 text-right">積分</th>
+                      <th class="px-3 py-2 text-right">成長指數</th>
+                      <th class="px-3 py-2">狀態</th>
+                      <th class="w-32 px-3 py-2 text-right">操作</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tbodyA" class="divide-y divide-earth-100"></tbody>
+                </table>
+              </section>
+            </div>
+
+            <!-- 右側 col-4：行動區 -->
+            <aside class="col-span-4 space-y-3">
+              <!-- 今日該做 — 行動語氣 -->
+              <div class="rounded-xl border border-earth-200 bg-white px-3 py-2.5">
+                <h3 class="mb-1.5 text-xs font-semibold text-earth-800">今日該做</h3>
+                <ul class="space-y-1.5">
+                  <li class="flex items-baseline gap-2 text-[12px] leading-snug">
+                    <span class="shrink-0 rounded bg-primary-100 px-1.5 py-0.5 text-[11px] font-semibold text-primary-700">約談</span>
+                    <span class="text-earth-700">3 位高潛力顧客（本週排入行事曆）</span>
+                  </li>
+                  <li class="flex items-baseline gap-2 text-[12px] leading-snug">
+                    <span class="shrink-0 rounded bg-primary-100 px-1.5 py-0.5 text-[11px] font-semibold text-primary-700">推一把</span>
+                    <span class="text-earth-700">2 位接近升級（差最後一步）</span>
+                  </li>
+                  <li class="flex items-baseline gap-2 text-[12px] leading-snug">
+                    <span class="shrink-0 rounded bg-primary-100 px-1.5 py-0.5 text-[11px] font-semibold text-primary-700">喚回</span>
+                    <span class="text-earth-700">4 位停滯 30 天顧客（今日私訊）</span>
+                  </li>
+                </ul>
+              </div>
+
+              <!-- 停滯 mini table -->
+              <div class="rounded-xl border border-earth-200 bg-white">
+                <div class="flex items-center justify-between border-b border-earth-100 px-3 py-2">
+                  <div>
+                    <h3 class="text-xs font-semibold text-earth-800">停滯名單</h3>
+                    <p class="text-[10px] text-earth-400">30 天無到店與推薦</p>
+                  </div>
+                  <a class="text-[11px] text-primary-600">全部 →</a>
+                </div>
+                <table class="w-full text-sm">
+                  <tbody class="divide-y divide-earth-100">
+                    <tr class="h-10"><td class="px-3 text-xs font-medium text-earth-800">王小明</td><td class="px-3 text-right text-xs tabular-nums text-red-600">32 天</td></tr>
+                    <tr class="h-10"><td class="px-3 text-xs font-medium text-earth-800">李小姐</td><td class="px-3 text-right text-xs tabular-nums text-red-600">28 天</td></tr>
+                    <tr class="h-10"><td class="px-3 text-xs font-medium text-earth-800">陳大偉</td><td class="px-3 text-right text-xs tabular-nums text-red-600">36 天</td></tr>
+                    <tr class="h-10"><td class="px-3 text-xs font-medium text-earth-800">林小芸</td><td class="px-3 text-right text-xs tabular-nums text-red-600">41 天</td></tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- 快速操作 — 主 CTA 指名 Top 1 -->
+              <div class="rounded-xl border border-earth-200 bg-white px-3 py-2.5">
+                <h3 class="mb-1.5 text-xs font-semibold text-earth-800">快速操作</h3>
+                <div class="flex flex-col gap-1.5">
+                  <a class="flex items-center justify-between rounded-md bg-primary-600 px-3 py-2 text-xs font-semibold text-white shadow-sm">
+                    <span class="truncate">約談 Top 1 · 陳雅婷</span>
+                    <span class="ml-2 shrink-0">→</span>
+                  </a>
+                  <a class="flex items-center justify-between rounded-md border border-earth-200 px-3 py-1.5 text-xs font-medium text-earth-700"><span>登錄今日推薦</span><span>→</span></a>
+                  <a class="flex items-center justify-between rounded-md border border-earth-200 px-3 py-1.5 text-xs font-medium text-earth-700"><span>喚回停滯顧客</span><span>→</span></a>
+                </div>
+              </div>
+            </aside>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- STATE 2: 空資料 -->
+  <!-- ============================================================ -->
+  <section>
+    <div class="mb-2 flex items-center gap-2">
+      <span class="rounded bg-earth-200 px-2 py-0.5 text-[11px] font-semibold text-earth-700">State B</span>
+      <span class="text-sm font-medium text-earth-800">空資料（新上線 / 新開店）</span>
+      <span class="frame-label text-[11px] text-earth-400">— 全部指標 0、名單皆空</span>
+    </div>
+
+    <div class="rounded-lg border border-earth-200 bg-earth-50 p-3">
+      <div class="mx-auto bg-earth-50" style="width:1440px">
+        <div class="space-y-3 px-4 py-3">
+
+          <!-- Page Header -->
+          <div class="flex items-center justify-between pb-1">
+            <div>
+              <h1 class="text-lg font-bold text-earth-900">成長系統</h1>
+              <p class="text-[11px] text-earth-500">找出下一位教練 / 店長 — 誰值得現在約談</p>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <button class="rounded-md border border-earth-200 bg-white px-3 py-1.5 text-xs font-medium text-earth-700">完整名單</button>
+              <button class="rounded-md border border-earth-200 bg-white px-3 py-1.5 text-xs font-medium text-earth-700">推薦追蹤</button>
+              <button class="rounded-md border border-earth-200 bg-white px-3 py-1.5 text-xs font-medium text-earth-700">獎勵制度</button>
+            </div>
+          </div>
+
+          <!-- KPI Strip（全 0） -->
+          <div class="flex h-10 items-center gap-x-1 border-b border-earth-200 text-sm">
+            <div class="flex items-center gap-1"><span class="text-[11px] text-earth-500">高潛力</span><span class="text-[15px] font-bold tabular-nums text-amber-700">0</span></div>
+            <div class="flex items-center gap-1"><span class="px-2 text-earth-200">｜</span><span class="text-[11px] text-earth-500">可升級</span><span class="text-[15px] font-bold tabular-nums text-green-700">0</span></div>
+            <div class="flex items-center gap-1"><span class="px-2 text-earth-200">｜</span><span class="text-[11px] text-earth-500">本月推薦</span><span class="text-[15px] font-bold tabular-nums text-blue-700">0</span></div>
+            <div class="flex items-center gap-1"><span class="px-2 text-earth-200">｜</span><span class="text-[11px] text-earth-500">新合作夥伴</span><span class="text-[15px] font-bold tabular-nums text-primary-700">0</span></div>
+            <div class="flex items-center gap-1"><span class="px-2 text-earth-200">｜</span><span class="text-[11px] text-earth-500">新店長</span><span class="text-[15px] font-bold tabular-nums text-earth-900">0</span></div>
+          </div>
+
+          <!-- Main Grid -->
+          <div class="grid grid-cols-12 gap-3">
+            <div class="col-span-8">
+              <section class="rounded-xl border border-earth-200 bg-white">
+                <div class="flex items-center justify-between border-b border-earth-100 px-4 py-2.5">
+                  <div>
+                    <h3 class="text-sm font-semibold text-earth-900">高潛力名單 · Top 10</h3>
+                    <p class="text-[11px] text-earth-400">依成長分數排序（沉澱 + 近期活躍 + 積分 + 階段）</p>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <label class="text-[11px] text-earth-500">篩選</label>
+                    <select class="rounded border border-earth-200 bg-white px-2 py-1 text-xs text-earth-700">
+                      <option>全部</option>
+                    </select>
+                    <a class="text-[11px] font-medium text-primary-600">完整名單 →</a>
+                  </div>
+                </div>
+                <div class="px-4 py-10 text-center">
+                  <p class="text-sm text-earth-700">目前沒有高潛力名單</p>
+                  <p class="mt-1 text-[11px] text-earth-400">引導顧客 增加來店 / 分享體驗 / 累積積分，系統會自動把高潛力者排進來</p>
+                </div>
+              </section>
+            </div>
+
+            <aside class="col-span-4 space-y-3">
+              <div class="rounded-xl border border-earth-200 bg-white px-3 py-2.5">
+                <h3 class="mb-1.5 text-xs font-semibold text-earth-800">今日該做</h3>
+                <ul class="space-y-1.5">
+                  <li class="flex items-baseline gap-2 text-[12px] leading-snug">
+                    <span class="shrink-0 rounded bg-primary-100 px-1.5 py-0.5 text-[11px] font-semibold text-primary-700">維持</span>
+                    <span class="text-earth-700">常態關懷（目前沒有急迫待辦）</span>
+                  </li>
+                </ul>
+              </div>
+
+              <div class="rounded-xl border border-earth-200 bg-white">
+                <div class="flex items-center justify-between border-b border-earth-100 px-3 py-2">
+                  <div>
+                    <h3 class="text-xs font-semibold text-earth-800">停滯名單</h3>
+                    <p class="text-[10px] text-earth-400">30 天無到店與推薦</p>
+                  </div>
+                  <a class="text-[11px] text-primary-600">全部 →</a>
+                </div>
+                <div class="px-3 py-6 text-center">
+                  <p class="text-xs text-earth-500">暫無停滯名單</p>
+                  <p class="mt-0.5 text-[10px] text-earth-400">成員都在動</p>
+                </div>
+              </div>
+
+              <div class="rounded-xl border border-earth-200 bg-white px-3 py-2.5">
+                <h3 class="mb-1.5 text-xs font-semibold text-earth-800">快速操作</h3>
+                <div class="flex flex-col gap-1.5">
+                  <a class="flex items-center justify-between rounded-md bg-primary-600 px-3 py-2 text-xs font-semibold text-white shadow-sm">
+                    <span class="truncate">開始建立潛力名單</span>
+                    <span class="ml-2 shrink-0">→</span>
+                  </a>
+                  <a class="flex items-center justify-between rounded-md border border-earth-200 px-3 py-1.5 text-xs font-medium text-earth-700"><span>登錄今日推薦</span><span>→</span></a>
+                  <a class="flex items-center justify-between rounded-md border border-earth-200 px-3 py-1.5 text-xs font-medium text-earth-700"><span>喚回停滯顧客</span><span>→</span></a>
+                </div>
+              </div>
+            </aside>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+// 模擬 Top 10 資料 — 活躍度改為單一彩色 pill（高/中/低/冷）
+// 次要欄位（最近來店 / 積分）用淡色小字降權重
+const rows = [
+  { name:"陳雅婷", stage:"準店長",     heatScore:28, visits:6, refs:4, pts:180, score:92, tag:["高潛力","bg-amber-100","text-amber-700"] },
+  { name:"林志豪", stage:"合作店長",   heatScore:24, visits:5, refs:3, pts:140, score:87, tag:["接近升級","bg-green-100","text-green-700"] },
+  { name:"王佩芸", stage:"準店長",     heatScore:18, visits:4, refs:2, pts:120, score:81, tag:["高潛力","bg-amber-100","text-amber-700"] },
+  { name:"張家豪", stage:"合作店長",   heatScore:15, visits:3, refs:2, pts:110, score:76, tag:["推薦活躍","bg-blue-100","text-blue-700"] },
+  { name:"李美惠", stage:"合作店長",   heatScore:12, visits:3, refs:1, pts:95,  score:71, tag:["值得約談","bg-orange-100","text-orange-700"] },
+  { name:"吳俊宏", stage:"準店長",     heatScore:10, visits:2, refs:1, pts:85,  score:68, tag:["本月重點","bg-primary-100","text-primary-700"] },
+  { name:"黃淑芳", stage:"合作店長",   heatScore:8,  visits:2, refs:0, pts:70,  score:62, tag:["推薦品質高","bg-purple-100","text-purple-700"] },
+  { name:"蔡宗翰", stage:"合作店長",   heatScore:6,  visits:1, refs:0, pts:55,  score:56, tag:["本月重點","bg-primary-100","text-primary-700"] },
+  { name:"劉怡君", stage:"合作店長",   heatScore:3,  visits:1, refs:0, pts:40,  score:48, tag:["—","",""] },
+  { name:"鄭宇翔", stage:"合作店長",   heatScore:0,  visits:0, refs:0, pts:25,  score:39, tag:["停滯中","bg-red-100","text-red-700"] },
+];
+
+function heatPill(score) {
+  let bg, text, dot, label;
+  if (score >= 20)      { bg="bg-red-50";    text="text-red-700";    dot="bg-red-500";    label="高"; }
+  else if (score >= 10) { bg="bg-amber-50";  text="text-amber-700";  dot="bg-amber-500";  label="中"; }
+  else if (score >= 1)  { bg="bg-earth-100"; text="text-earth-700";  dot="bg-earth-400";  label="低"; }
+  else                  { bg="bg-earth-50";  text="text-earth-400";  dot="bg-earth-300";  label="冷"; }
+  return `<span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[12px] font-semibold ${bg} ${text}" title="30 天活躍分：${score}">
+    <span class="h-1.5 w-1.5 rounded-full ${dot}"></span>${label}</span>`;
+}
+
+const tbody = document.getElementById("tbodyA");
+rows.forEach((r,i)=>{
+  const tr = document.createElement("tr");
+  tr.className = "h-11 hover:bg-primary-50/40";
+  const tag = r.tag[0]==="—"
+    ? `<span class="text-[11px] text-earth-400">—</span>`
+    : `<span class="rounded px-1.5 py-0.5 text-[11px] font-medium ${r.tag[1]} ${r.tag[2]}">${r.tag[0]}</span>`;
+
+  tr.innerHTML = `
+    <td class="px-3 text-center text-[11px] tabular-nums text-earth-400">${i+1}</td>
+    <td class="px-3">
+      <a class="font-medium text-earth-900">${r.name}</a>
+      <span class="ml-2 text-[10px] text-earth-400">${r.stage}</span>
+    </td>
+    <td class="px-3">${heatPill(r.heatScore)}</td>
+    <td class="px-3 text-right text-[11px] tabular-nums text-earth-500">${r.visits}</td>
+    <td class="px-3 text-right text-sm font-semibold tabular-nums text-earth-800">${r.refs}<span class="ml-0.5 text-[10px] font-normal text-earth-400">件</span></td>
+    <td class="px-3 text-right text-[11px] tabular-nums text-earth-500">${r.pts}</td>
+    <td class="px-3 text-right"><span class="text-lg font-bold tabular-nums text-primary-700">${r.score}</span></td>
+    <td class="px-3">${tag}</td>
+    <td class="px-3 text-right">
+      <div class="flex items-center justify-end gap-1">
+        <a class="rounded border border-earth-200 px-2 py-0.5 text-[11px] text-earth-700">查看</a>
+        <a class="rounded bg-primary-600 px-2 py-0.5 text-[11px] font-medium text-white">聯絡</a>
+      </div>
+    </td>`;
+  tbody.appendChild(tr);
+});
+</script>
+
+</body>
+</html>
