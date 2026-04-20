@@ -46,11 +46,11 @@ export function ProfileForm({ customer, age, onboardingMode = false, nextPath = 
         }
         const dest = nextPath || (onboardingMode ? "/book" : null);
         if (dest) {
-          // 稍微延遲讓 toast 有時間顯示
+          // 用 full navigation（非 router.push）確保更新後的 JWT cookie 生效再進目的頁，
+          // 避免 layout 的 completion gate 用 stale session 判定錯誤又把人彈回 /profile。
           setTimeout(() => {
-            router.push(dest);
-            router.refresh();
-          }, 600);
+            window.location.assign(dest);
+          }, 500);
         } else {
           router.refresh();
         }
@@ -84,10 +84,13 @@ export function ProfileForm({ customer, age, onboardingMode = false, nextPath = 
         </label>
         <input
           id="phone" name="phone" type="tel" required
+          inputMode="numeric"
+          pattern="09[0-9]{8}"
+          maxLength={10}
           defaultValue={customer.phone}
           className="w-full rounded-lg border border-earth-300 px-3 py-2.5 text-sm text-earth-900 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
         />
-        <p className="mt-1 text-xs text-earth-400">用於預約聯繫使用</p>
+        <p className="mt-1 text-xs text-earth-400">09 開頭共 10 碼，無需輸入空格或連字號</p>
       </div>
 
       <div>

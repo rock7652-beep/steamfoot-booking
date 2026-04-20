@@ -5,7 +5,10 @@ import { requireSession, requireStaffSession } from "@/lib/session";
 import { compareSync, hashSync } from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { getStoreContext } from "@/lib/store-context";
-import { resolveCustomerForUser } from "@/server/queries/customer-completion";
+import {
+  resolveCustomerForUser,
+  resolveCustomerCompletionStatus,
+} from "@/server/queries/customer-completion";
 
 // ============================================================
 // 更新個人資料
@@ -17,14 +20,30 @@ export async function updateProfileAction(
   _prev: ProfileState,
   formData: FormData
 ): Promise<ProfileState> {
+  // 包一層 outer try/catch 保證 client 一定拿到明確訊息，不再 silent fail
+  try {
+    return await updateProfileActionInner(formData);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[updateProfileAction] uncaught", {
+      error: msg,
+      stack: err instanceof Error ? err.stack : undefined,
+    });
+    return { error: `系統忙碌請稍後再試（${msg.slice(0, 80)}）`, success: false };
+  }
+}
+
+async function updateProfileActionInner(formData: FormData): Promise<ProfileState> {
   const user = await requireSession();
   if (user.role !== "CUSTOMER") {
     return { error: "權限不足", success: false };
   }
 
   const name = (formData.get("name") as string)?.trim();
-  const phone = (formData.get("phone") as string)?.trim();
-  const email = (formData.get("email") as string)?.trim();
+  // 電話輸入寬容：允許夾帶空白 / 連字號；server 端先 normalize 再驗證
+  const phoneRaw = (formData.get("phone") as string)?.trim() ?? "";
+  const phone = phoneRaw.replace(/[\s-]/g, "");
+  const email = (formData.get("email") as string)?.trim().toLowerCase();
   const gender = (formData.get("gender") as string)?.trim();
   const birthdayStr = (formData.get("birthday") as string)?.trim();
   const heightStr = (formData.get("height") as string)?.trim();
@@ -41,7 +60,10 @@ export async function updateProfileAction(
   if (!address) return { error: "請輸入地址", success: false };
 
   if (!/^09\d{8}$/.test(phone)) {
-    return { error: "手機號碼格式不正確（09 開頭共 10 碼）", success: false };
+    return {
+      error: `手機號碼格式不正確（09 開頭共 10 碼，實際收到：${phoneRaw.slice(0, 20)}）`,
+      success: false,
+    };
   }
 
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -63,6 +85,45 @@ export async function updateProfileAction(
   // 供 email/phone 唯一匹配 auto-bind。
   const storeCtx = await getStoreContext();
   const storeId = user.storeId ?? storeCtx?.storeId ?? null;
+  const storeSlug = storeCtx?.storeSlug ?? null;
+
+  // ── 存檔後完成度驗證 ─────────────────────────────────
+  // 防止「DB 寫完但 layout gate 仍然判定未完成」— 用 layout 同一支 resolver 驗證，
+  // 若偵測到仍缺，回傳明確錯誤，不讓 client 收到誤導性的 success=true。
+  const verifySuccess = async (savedCustomerId: string): Promise<ProfileState> => {
+    revalidatePath("/profile");
+    try {
+      const status = await resolveCustomerCompletionStatus({
+        userId: user.id,
+        sessionCustomerId: savedCustomerId,
+        sessionEmail: user.email ?? null,
+        storeId,
+        storeSlug,
+      });
+      console.info("[updateProfileAction] post-save verify", {
+        userId: user.id,
+        savedCustomerId,
+        isComplete: status.isComplete,
+        missing: status.missingFields,
+        reason: status.reason,
+      });
+      if (!status.isComplete) {
+        return {
+          error: `資料已儲存但 gate 仍判定未完成（缺 ${status.missingFields.join("、")}）。請重新整理頁面，若持續發生請聯繫店家。`,
+          success: false,
+        };
+      }
+      return { error: null, success: true };
+    } catch (err) {
+      console.error("[updateProfileAction] post-save verify threw (treat as success)", {
+        userId: user.id,
+        savedCustomerId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      // verify 階段出錯不應阻擋已成功的 DB 寫入；回傳 success，讓 layout 做最後把關
+      return { error: null, success: true };
+    }
+  };
 
   const resolved = await resolveCustomerForUser({
     userId: user.id,
@@ -267,8 +328,7 @@ export async function updateProfileAction(
           realId: real.id,
           mergedBy: realByPhone ? "phone" : "email",
         });
-        revalidatePath("/profile");
-        return { error: null, success: true };
+        return verifySuccess(real.id);
       }
 
       // ── Case B: 有 real，且就是 existing 自己（例如前一次已 merge 綁過）→ 直接 update ──
@@ -281,8 +341,7 @@ export async function updateProfileAction(
           userId: user.id,
           customerId: real.id,
         });
-        revalidatePath("/profile");
-        return { error: null, success: true };
+        return verifySuccess(real.id);
       }
 
       // ── Case C: 目標店無 real，但有 existing（通常是佔位）→ 就地 update 並校正 storeId ──
@@ -310,8 +369,7 @@ export async function updateProfileAction(
             sessionStoreId: storeId,
           },
         );
-        revalidatePath("/profile");
-        return { error: null, success: true };
+        return verifySuccess(existingByUserId.id);
       }
 
       // ── Case D: 全無既有資料 → create ──
@@ -337,8 +395,7 @@ export async function updateProfileAction(
         storeId,
         customerId: created.id,
       });
-      revalidatePath("/profile");
-      return { error: null, success: true };
+      return verifySuccess(created.id);
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
       const errStack = err instanceof Error ? err.stack : undefined;
@@ -491,8 +548,7 @@ export async function updateProfileAction(
           data: { name },
         });
 
-        revalidatePath("/profile");
-        return { error: null, success: true };
+        return verifySuccess(real.id);
       }
       // real 不存在 → 放行繼續下方正常 update（更新佔位並換成使用者輸入的真資料）
     } catch (err) {
@@ -537,8 +593,7 @@ export async function updateProfileAction(
       });
     }
 
-    revalidatePath("/profile");
-    return { error: null, success: true };
+    return verifySuccess(customerId);
   } catch (error) {
     console.error("[updateProfileAction] update failed", {
       userId: user.id,

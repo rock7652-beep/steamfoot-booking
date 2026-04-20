@@ -36,10 +36,14 @@ interface Props {
   basePath: string;
 }
 
-function phoneTail(phone: string): string {
-  if (!phone) return "";
-  const digits = phone.replace(/\D/g, "");
-  return digits.slice(-4);
+/**
+ * 顯示用完整電話 — 後台列表店長需能撥打辨識顧客，不遮罩。
+ * OAuth 佔位（`_oauth_line_xxx`）或空值回 `—`。
+ */
+function formatPhoneForStaff(phone: string | null | undefined): string {
+  if (!phone) return "—";
+  if (phone.startsWith("_oauth_")) return "—";
+  return phone;
 }
 
 export function CustomersTable({ rows, searchQuery, hasActiveFilters, basePath }: Props) {
@@ -48,9 +52,9 @@ export function CustomersTable({ rows, searchQuery, hasActiveFilters, basePath }
       key: "customer",
       header: "顧客",
       accessor: (c) => {
-        const tail = phoneTail(c.phone);
+        const phoneDisplay = formatPhoneForStaff(c.phone);
         const subtitle = [
-          tail ? `☎ ${tail}` : null,
+          phoneDisplay !== "—" ? `☎ ${phoneDisplay}` : null,
           c.lineName ? `LINE ${c.lineName}` : null,
         ]
           .filter(Boolean)
@@ -59,8 +63,10 @@ export function CustomersTable({ rows, searchQuery, hasActiveFilters, basePath }
           <div className="flex flex-col leading-tight">
             <span className="text-sm font-medium text-earth-900">{c.name}</span>
             {subtitle ? (
-              <span className="text-[11px] text-earth-400">{subtitle}</span>
-            ) : null}
+              <span className="text-[11px] text-earth-400 tabular-nums">{subtitle}</span>
+            ) : (
+              <span className="text-[11px] text-earth-300">—</span>
+            )}
           </div>
         );
       },
