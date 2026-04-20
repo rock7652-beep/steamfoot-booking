@@ -5,6 +5,12 @@ import { getBusinessHours, getMonthSpecialDays } from "@/server/actions/business
 import { toLocalDateStr } from "@/lib/date-utils";
 import { prisma } from "@/lib/db";
 import { DashboardLink as Link } from "@/components/dashboard-link";
+import {
+  PageShell,
+  PageHeader,
+  InfoList,
+  type InfoListItem,
+} from "@/components/desktop";
 import { ScheduleManager } from "./schedule-manager";
 
 export default async function ScheduleSettingsPage() {
@@ -14,25 +20,31 @@ export default async function ScheduleSettingsPage() {
 
   const canManage = await checkPermission(user.role, user.staffId, "business_hours.manage");
 
-  // ADMIN 須先選擇特定店才能進入店舖設定
   const { getActiveStoreForRead } = await import("@/lib/store");
   const effectiveStoreId = user.role === "ADMIN"
     ? await getActiveStoreForRead(user)
     : user.storeId;
   if (!effectiveStoreId) {
     return (
-      <div className="space-y-4">
-        <div className="flex items-center gap-3">
-          <Link href="/dashboard" className="text-sm text-earth-500 hover:text-earth-700">← 首頁</Link>
-        </div>
-        <div className="py-12 text-center">
+      <PageShell>
+        <PageHeader
+          title="預約開放設定"
+          actions={
+            <Link
+              href="/dashboard/settings"
+              className="rounded-lg border border-earth-200 px-3 py-1.5 text-xs font-medium text-earth-600 hover:bg-earth-50"
+            >
+              ← 返回設定
+            </Link>
+          }
+        />
+        <div className="rounded-xl border border-earth-200 bg-white p-8 text-center">
           <p className="text-sm text-earth-500">請先從右上角切換到特定店舖，才能管理預約開放設定。</p>
         </div>
-      </div>
+      </PageShell>
     );
   }
 
-  // 取得初始資料（使用台灣時間判斷當前月份）
   const todayStr = toLocalDateStr();
   const [nowYear, nowMonth] = todayStr.split("-").map(Number);
   const [weeklyHours, specialDays, currentStore] = await Promise.all([
@@ -42,13 +54,43 @@ export default async function ScheduleSettingsPage() {
   ]);
   const isHeadquarters = currentStore?.isDefault ?? false;
 
+  // Summary 資料
+  const openDays = weeklyHours.filter((h) => h.isOpen);
+  const sampleOpen = openDays[0];
+  const hoursRange = sampleOpen
+    ? `${sampleOpen.openTime}–${sampleOpen.closeTime}`
+    : "尚未設定";
+  const summary: InfoListItem[] = [
+    { label: "營業時間", value: hoursRange },
+    { label: "營業天數", value: `${openDays.length} 天 / 週` },
+    {
+      label: "本月特殊日",
+      value:
+        specialDays.length === 0
+          ? "無"
+          : `${specialDays.length} 筆（休假／特殊營業）`,
+    },
+  ];
+
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-3">
-        <Link href="/dashboard" className="text-sm text-earth-500 hover:text-earth-700">← 首頁</Link>
-        <h1 className="text-lg font-bold text-earth-900">預約開放設定</h1>
-      </div>
-      <p className="text-xs text-earth-400">管理每日可預約時段，設定店休、進修日或特殊營業時間</p>
+    <PageShell>
+      <PageHeader
+        title="預約開放設定"
+        subtitle="管理每日可預約時段，設定店休、進修日或特殊營業時間"
+        actions={
+          <Link
+            href="/dashboard/settings"
+            className="rounded-lg border border-earth-200 px-3 py-1.5 text-xs font-medium text-earth-600 hover:bg-earth-50"
+          >
+            ← 返回設定
+          </Link>
+        }
+      />
+
+      <section className="rounded-xl border border-earth-200 bg-white p-4 shadow-sm">
+        <h2 className="mb-3 text-sm font-semibold text-earth-900">目前狀態</h2>
+        <InfoList items={summary} />
+      </section>
 
       <ScheduleManager
         weeklyHours={weeklyHours.map((h) => ({
@@ -66,6 +108,6 @@ export default async function ScheduleSettingsPage() {
         canManage={canManage}
         isHeadquarters={isHeadquarters}
       />
-    </div>
+    </PageShell>
   );
 }

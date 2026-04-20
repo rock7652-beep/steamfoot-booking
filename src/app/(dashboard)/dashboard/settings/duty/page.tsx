@@ -3,6 +3,13 @@ import { getShopConfig } from "@/lib/shop-config";
 import { redirect, notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { toLocalDateStr } from "@/lib/date-utils";
+import { DashboardLink as Link } from "@/components/dashboard-link";
+import {
+  PageShell,
+  PageHeader,
+  InfoList,
+  type InfoListItem,
+} from "@/components/desktop";
 import { DutySchedulingToggle } from "./duty-toggle";
 
 /** 取得本週（週一～週日）未排班營業日數量 */
@@ -25,7 +32,6 @@ async function getUnscheduledDaysThisWeek(storeId: string): Promise<{
     weekDates.push(d.toISOString().slice(0, 10));
   }
 
-  // 查營業時間 + 特殊日
   const [businessHours, specialDays] = await Promise.all([
     prisma.businessHours.findMany({ where: { storeId } }),
     prisma.specialBusinessDay.findMany({
@@ -44,7 +50,6 @@ async function getUnscheduledDaysThisWeek(storeId: string): Promise<{
     specialDays.map((s) => [s.date.toISOString().slice(0, 10), s.type])
   );
 
-  // 找出營業日
   const businessDates = weekDates.filter((dateStr) => {
     const specialType = specialMap.get(dateStr);
     if (specialType === "closed") return false;
@@ -53,7 +58,6 @@ async function getUnscheduledDaysThisWeek(storeId: string): Promise<{
     return bhMap.get(d.getUTCDay()) ?? false;
   });
 
-  // 查哪些營業日有排班
   const dutyDates = await prisma.dutyAssignment.findMany({
     where: {
       storeId,
@@ -84,29 +88,74 @@ export default async function DutySettingsPage() {
     notFound();
   }
 
-  // ADMIN 須先選擇特定店才能進入店舖設定
   const { getActiveStoreForRead } = await import("@/lib/store");
   const storeId = user.role === "ADMIN"
     ? await getActiveStoreForRead(user)
     : user.storeId;
   if (!storeId) {
     return (
-      <div className="mx-auto max-w-2xl py-12 text-center">
-        <p className="text-sm text-earth-500">請先從右上角切換到特定店舖，才能管理值班排班設定。</p>
-      </div>
+      <PageShell>
+        <PageHeader
+          title="值班排班設定"
+          actions={
+            <Link
+              href="/dashboard/settings"
+              className="rounded-lg border border-earth-200 px-3 py-1.5 text-xs font-medium text-earth-600 hover:bg-earth-50"
+            >
+              ← 返回設定
+            </Link>
+          }
+        />
+        <div className="rounded-xl border border-earth-200 bg-white p-8 text-center">
+          <p className="text-sm text-earth-500">請先從右上角切換到特定店舖，才能管理值班排班設定。</p>
+        </div>
+      </PageShell>
     );
   }
   const config = await getShopConfig();
   const weekInfo = await getUnscheduledDaysThisWeek(storeId);
 
+  const summary: InfoListItem[] = [
+    {
+      label: "聯動狀態",
+      value: config.dutySchedulingEnabled ? (
+        <span className="text-primary-700">已啟用</span>
+      ) : (
+        <span className="text-earth-500">停用中</span>
+      ),
+    },
+    {
+      label: "本週營業日",
+      value: `${weekInfo.total} 天`,
+    },
+    {
+      label: "本週已排班",
+      value:
+        weekInfo.total === 0
+          ? "—"
+          : `${weekInfo.total - weekInfo.unscheduled} / ${weekInfo.total} 天`,
+    },
+  ];
+
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
-      <div>
-        <h1 className="text-lg font-bold text-earth-900">值班排班設定</h1>
-        <p className="mt-1 text-sm text-earth-500">
-          控制值班排班是否與預約系統聯動
-        </p>
-      </div>
+    <PageShell>
+      <PageHeader
+        title="值班排班設定"
+        subtitle="控制值班排班是否與預約系統聯動"
+        actions={
+          <Link
+            href="/dashboard/settings"
+            className="rounded-lg border border-earth-200 px-3 py-1.5 text-xs font-medium text-earth-600 hover:bg-earth-50"
+          >
+            ← 返回設定
+          </Link>
+        }
+      />
+
+      <section className="rounded-xl border border-earth-200 bg-white p-4 shadow-sm">
+        <h2 className="mb-3 text-sm font-semibold text-earth-900">目前狀態</h2>
+        <InfoList items={summary} />
+      </section>
 
       <DutySchedulingToggle
         enabled={config.dutySchedulingEnabled}
@@ -114,6 +163,6 @@ export default async function DutySettingsPage() {
         totalBusinessDays={weekInfo.total}
         unscheduledDates={weekInfo.unscheduledDates}
       />
-    </div>
+    </PageShell>
   );
 }

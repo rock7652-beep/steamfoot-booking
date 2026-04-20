@@ -9,12 +9,25 @@ import { getActiveStoreForRead } from "@/lib/store";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { EmptyState } from "@/components/ui/empty-state";
 import { notFound, redirect } from "next/navigation";
+import {
+  PageShell,
+  PageHeader,
+  KpiStrip,
+  FormShell,
+  FormSection,
+  FormGrid,
+  StickyFormActions,
+  type KpiStripItem,
+} from "@/components/desktop";
+import { SubmitButton } from "@/components/submit-button";
 import { StaffStatusToggle } from "./staff-status-toggle";
 import type { UserRole } from "@prisma/client";
 
-interface PageProps {}
+const inputCls =
+  "block w-full rounded-lg border border-earth-300 bg-white px-3 py-2 text-sm text-earth-800 placeholder:text-earth-400 focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400";
+const labelCls = "block text-sm font-medium text-earth-700";
 
-export default async function StaffPage({}: PageProps) {
+export default async function StaffPage() {
   const user = await getCurrentUser();
   if (!user) notFound();
   if (!(await checkPermission(user.role, user.staffId, "staff.view"))) notFound();
@@ -49,221 +62,237 @@ export default async function StaffPage({}: PageProps) {
   const STATUS_COLOR: Record<string, string> = {
     ACTIVE: "bg-green-100 text-green-700",
     INACTIVE: "bg-red-100 text-red-700",
-    SUSPENDED: "bg-yellow-100 text-yellow-700",
   };
+
+  const totalCount = staffList.length;
+  const activeCount = staffList.filter((s) => s.status === "ACTIVE").length;
+  const inactiveCount = totalCount - activeCount;
+
+  const kpis: KpiStripItem[] = [
+    { label: "員工總數", value: totalCount, tone: "earth" },
+    { label: "啟用中", value: activeCount, tone: "primary" },
+    { label: "停用中", value: inactiveCount, tone: "amber" },
+  ];
 
   return (
     <FeatureGate plan={plan} feature={FEATURES.STAFF_MANAGEMENT}>
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <Link href="/dashboard" className="text-sm text-earth-500 hover:text-earth-700">
-          ← 首頁
-        </Link>
-      </div>
-
-      {/* Create Form Card — OWNER only */}
-      {isOwner && (
-      <div className="rounded-xl border bg-white p-6 shadow-sm">
-        <h2 className="mb-4 text-lg font-bold text-earth-900">新增員工</h2>
-
-        <form action={handleCreateStaff} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {/* Role Selection */}
-          <div className="sm:col-span-2">
-            <label className="block text-sm font-medium text-earth-700">角色</label>
-            <select
-              name="role"
-              defaultValue="OWNER"
-              className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
+      <PageShell>
+        <PageHeader
+          title="人員管理"
+          subtitle="建立員工、指派角色與可視範圍"
+          actions={
+            <Link
+              href="/dashboard/settings"
+              className="rounded-lg border border-earth-200 px-3 py-1.5 text-xs font-medium text-earth-600 hover:bg-earth-50"
             >
-              <option value="OWNER">店長（主要經營者）</option>
-              <option value="PARTNER">合作店長</option>
-            </select>
-            <p className="mt-1 text-xs text-earth-400">系統會根據角色自動帶入預設權限，建立後可在編輯頁調整</p>
-          </div>
+              ← 返回設定
+            </Link>
+          }
+        />
 
-          {/* Real Name */}
-          <div>
-            <label className="block text-sm font-medium text-earth-700">真實姓名</label>
-            <input
-              type="text"
-              name="name"
-              required
-              className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
-              placeholder="輸入真實姓名"
-            />
-          </div>
+        <KpiStrip items={kpis} />
 
-          {/* Display Name */}
-          <div>
-            <label className="block text-sm font-medium text-earth-700">顯示名稱</label>
-            <input
-              type="text"
-              name="displayName"
-              required
-              className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
-              placeholder="輸入顯示名稱（客戶端顯示用）"
-            />
-          </div>
+        {isOwner && (
+          <FormShell width="md">
+            <form action={handleCreateStaff} className="space-y-6 pb-4">
+              <FormSection
+                title="新增員工"
+                description="系統會根據角色自動帶入預設權限，建立後可在編輯頁調整"
+              >
+                <div>
+                  <label className={labelCls}>角色</label>
+                  <select name="role" defaultValue="OWNER" className={`mt-1 ${inputCls}`}>
+                    <option value="OWNER">店長（主要經營者）</option>
+                    <option value="PARTNER">合作店長</option>
+                  </select>
+                </div>
 
-          {/* Email */}
-          <div>
-            <label className="block text-sm font-medium text-earth-700">Email</label>
-            <input
-              type="email"
-              name="email"
-              required
-              className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
-              placeholder="輸入 Email"
-            />
-          </div>
+                <FormGrid>
+                  <div>
+                    <label className={labelCls}>
+                      真實姓名 <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="name"
+                      required
+                      className={`mt-1 ${inputCls}`}
+                      placeholder="輸入真實姓名"
+                    />
+                  </div>
+                  <div>
+                    <label className={labelCls}>
+                      顯示名稱 <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="displayName"
+                      required
+                      className={`mt-1 ${inputCls}`}
+                      placeholder="顧客端顯示用"
+                    />
+                  </div>
+                </FormGrid>
 
-          {/* Phone */}
-          <div>
-            <label className="block text-sm font-medium text-earth-700">電話（選填）</label>
-            <input
-              type="tel"
-              name="phone"
-              className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
-              placeholder="輸入電話"
-            />
-          </div>
+                <FormGrid>
+                  <div>
+                    <label className={labelCls}>
+                      Email <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="email"
+                      name="email"
+                      required
+                      className={`mt-1 ${inputCls}`}
+                      placeholder="登入用 Email"
+                    />
+                  </div>
+                  <div>
+                    <label className={labelCls}>
+                      電話 <span className="text-xs text-earth-400">（選填）</span>
+                    </label>
+                    <input
+                      type="tel"
+                      name="phone"
+                      className={`mt-1 ${inputCls}`}
+                      placeholder="09 開頭共 10 碼"
+                    />
+                  </div>
+                </FormGrid>
 
-          {/* Password */}
-          <div>
-            <label className="block text-sm font-medium text-earth-700">密碼</label>
-            <input
-              type="password"
-              name="password"
-              required
-              minLength={6}
-              className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
-              placeholder="至少 6 個字元"
-            />
-          </div>
+                <FormGrid>
+                  <div>
+                    <label className={labelCls}>
+                      密碼 <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="password"
+                      name="password"
+                      required
+                      minLength={6}
+                      className={`mt-1 ${inputCls}`}
+                      placeholder="至少 6 個字元"
+                    />
+                  </div>
+                  <div>
+                    <label className={labelCls}>
+                      顏色代碼 <span className="text-xs text-earth-400">（預約卡顯示用）</span>
+                    </label>
+                    <input
+                      type="color"
+                      name="colorCode"
+                      defaultValue="#6366f1"
+                      className="mt-1 block h-10 w-full rounded-lg border border-earth-300"
+                    />
+                  </div>
+                </FormGrid>
 
-          {/* Color Code */}
-          <div>
-            <label className="block text-sm font-medium text-earth-700">顏色代碼（選填）</label>
-            <input
-              type="color"
-              name="colorCode"
-              defaultValue="#6366f1"
-              className="mt-1 block h-10 w-full rounded-lg border border-earth-300"
-            />
-          </div>
+                <div>
+                  <label className={labelCls}>
+                    月度空間費 <span className="text-xs text-earth-400">（元，選填，預設 0）</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="monthlySpaceFee"
+                    min="0"
+                    step="1"
+                    className={`mt-1 ${inputCls}`}
+                    placeholder="0"
+                  />
+                </div>
+              </FormSection>
 
-          {/* Monthly Space Fee */}
-          <div className="sm:col-span-2">
-            <label className="block text-sm font-medium text-earth-700">
-              月度空間費（元，選填）
-            </label>
-            <input
-              type="number"
-              name="monthlySpaceFee"
-              min="0"
-              step="1"
-              className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
-              placeholder="輸入月度費用，預設 0"
-            />
-          </div>
-
-          {/* Submit Button */}
-          <div className="sm:col-span-2">
-            <button
-              type="submit"
-              className="w-full rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
-            >
-              新增店長
-            </button>
-          </div>
-        </form>
-      </div>
-      )}
-
-      {/* Staff List Card */}
-      <div className="rounded-xl border bg-white p-6 shadow-sm">
-        <h2 className="mb-4 text-lg font-bold text-earth-900">員工列表</h2>
-
-        {staffList.length === 0 ? (
-          <EmptyState
-            icon="empty"
-            title="暫無員工"
-            description="使用上方表單新增第一位員工"
-          />
-        ) : (
-          <div className="overflow-hidden rounded-lg border border-earth-200">
-            <table className="min-w-full divide-y divide-gray-200 text-sm">
-              <thead className="bg-earth-50">
-                <tr>
-                  <th className="px-4 py-3 text-left font-medium text-earth-600">姓名</th>
-                  <th className="px-4 py-3 text-left font-medium text-earth-600">角色</th>
-                  <th className="px-4 py-3 text-left font-medium text-earth-600">Email</th>
-                  <th className="px-4 py-3 text-left font-medium text-earth-600">狀態</th>
-                  <th className="px-4 py-3 text-left font-medium text-earth-600">顧客數</th>
-                  <th className="px-4 py-3 text-left font-medium text-earth-600">操作</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-earth-100">
-                {staffList.map((staff) => (
-                  <tr key={staff.id} className="hover:bg-earth-50">
-                    <td className="px-4 py-3">
-                      <div>
-                        <div className="font-medium text-earth-900">
-                          {staff.displayName}
-                        </div>
-                        <div className="text-xs text-earth-500">{staff.user.name}</div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`rounded px-2 py-0.5 text-xs font-medium ${
-                        staff.isOwner ? "bg-yellow-100 text-yellow-700" :
-                        staff.user.role === "OWNER" ? "bg-primary-100 text-primary-700" :
-                        staff.user.role === "PARTNER" ? "bg-blue-100 text-blue-700" :
-                        "bg-earth-100 text-earth-700"
-                      }`}>
-                        {staff.isOwner ? "系統管理者" : ROLE_LABELS[staff.user.role as UserRole] ?? staff.user.role}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-earth-600">{staff.user.email}</td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`rounded px-2 py-1 text-xs font-medium ${
-                          STATUS_COLOR[staff.status] ||
-                          "bg-earth-100 text-earth-700"
-                        }`}
-                      >
-                        {staff.status === "ACTIVE"
-                          ? "啟用"
-                          : staff.status === "INACTIVE"
-                            ? "停用"
-                            : "已停權"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-earth-600">
-                      {staff._count.assignedCustomers}
-                    </td>
-                    <td className="px-4 py-3">
-                      {isOwner && !staff.isOwner && (
-                        <div className="flex items-center gap-2">
-                          <Link
-                            href={`/dashboard/staff/${staff.id}/edit`}
-                            className="text-sm text-primary-600 hover:underline"
-                          >
-                            編輯
-                          </Link>
-                          <StaffStatusToggle staffId={staff.id} currentStatus={staff.status} />
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              <StickyFormActions info={<span>建立後會回到人員清單</span>}>
+                <SubmitButton
+                  label="新增店長"
+                  pendingLabel="建立中..."
+                  className="bg-primary-600 text-white hover:bg-primary-700"
+                />
+              </StickyFormActions>
+            </form>
+          </FormShell>
         )}
-      </div>
-    </div>
+
+        {/* 員工清單 */}
+        <section className="rounded-xl border border-earth-200 bg-white shadow-sm">
+          <header className="flex items-center justify-between border-b border-earth-100 px-4 py-3">
+            <h2 className="text-sm font-semibold text-earth-900">員工列表</h2>
+            <span className="text-xs text-earth-500">{totalCount} 位</span>
+          </header>
+
+          {staffList.length === 0 ? (
+            <div className="p-8">
+              <EmptyState icon="empty" title="暫無員工" description="使用上方表單新增第一位員工" />
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-earth-100 text-sm">
+                <thead className="bg-earth-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left font-medium text-earth-600">姓名</th>
+                    <th className="px-4 py-3 text-left font-medium text-earth-600">角色</th>
+                    <th className="px-4 py-3 text-left font-medium text-earth-600">Email</th>
+                    <th className="px-4 py-3 text-left font-medium text-earth-600">狀態</th>
+                    <th className="px-4 py-3 text-left font-medium text-earth-600">顧客數</th>
+                    <th className="px-4 py-3 text-left font-medium text-earth-600">操作</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-earth-100">
+                  {staffList.map((staff) => (
+                    <tr key={staff.id} className="hover:bg-earth-50">
+                      <td className="px-4 py-3">
+                        <div className="font-medium text-earth-900">{staff.displayName}</div>
+                        <div className="text-xs text-earth-500">{staff.user.name}</div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`rounded px-2 py-0.5 text-xs font-medium ${
+                            staff.isOwner
+                              ? "bg-yellow-100 text-yellow-700"
+                              : staff.user.role === "OWNER"
+                                ? "bg-primary-100 text-primary-700"
+                                : staff.user.role === "PARTNER"
+                                  ? "bg-blue-100 text-blue-700"
+                                  : "bg-earth-100 text-earth-700"
+                          }`}
+                        >
+                          {staff.isOwner
+                            ? "系統管理者"
+                            : (ROLE_LABELS[staff.user.role as UserRole] ?? staff.user.role)}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-earth-600">{staff.user.email}</td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`rounded px-2 py-0.5 text-xs font-medium ${
+                            STATUS_COLOR[staff.status] || "bg-earth-100 text-earth-700"
+                          }`}
+                        >
+                          {staff.status === "ACTIVE" ? "啟用" : "停用"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-earth-600">{staff._count.assignedCustomers}</td>
+                      <td className="px-4 py-3">
+                        {isOwner && !staff.isOwner && (
+                          <div className="flex items-center gap-2">
+                            <Link
+                              href={`/dashboard/staff/${staff.id}/edit`}
+                              className="text-sm text-primary-600 hover:underline"
+                            >
+                              編輯
+                            </Link>
+                            <StaffStatusToggle staffId={staff.id} currentStatus={staff.status} />
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      </PageShell>
     </FeatureGate>
   );
 }

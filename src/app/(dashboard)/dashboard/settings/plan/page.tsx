@@ -22,6 +22,13 @@ import { AdminTrialStart } from "./admin-trial-start";
 import { PlanOverviewStats } from "./plan-overview-stats";
 import { DowngradeRequestForm } from "@/components/downgrade-request-form";
 import type { StorePlanStatus } from "@prisma/client";
+import { DashboardLink as DashLink } from "@/components/dashboard-link";
+import {
+  PageShell,
+  PageHeader,
+  InfoList,
+  type InfoListItem,
+} from "@/components/desktop";
 
 export default async function PlanSettingsPage() {
   const user = await getCurrentUser();
@@ -87,29 +94,43 @@ export default async function PlanSettingsPage() {
     },
   ];
 
+  const planSummary: InfoListItem[] = [
+    { label: "目前方案", value: (
+      <span className={`font-medium ${PRICING_PLAN_INFO[currentPlan].color}`}>
+        {PRICING_PLAN_INFO[currentPlan].label}
+      </span>
+    ) },
+    { label: "定位", value: PRICING_PLAN_INFO[currentPlan].audience },
+    { label: "說明", value: PRICING_PLAN_INFO[currentPlan].description },
+  ];
+
   return (
-    <div className="mx-auto max-w-4xl space-y-8">
-      <div>
-        <div className="flex items-center justify-between">
-          <h1 className="text-lg font-bold text-earth-900">目前方案</h1>
-          <a
-            href="/pricing"
-            className="inline-flex items-center gap-1.5 rounded-lg bg-primary-600 px-4 py-2 text-xs font-medium text-white shadow-sm transition hover:bg-primary-700"
-          >
-            查看完整方案介紹
-            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
-            </svg>
-          </a>
-        </div>
-        <p className="mt-1 text-sm text-earth-500">
-          目前方案：
-          <span className={`font-medium ${PRICING_PLAN_INFO[currentPlan].color}`}>
-            {PRICING_PLAN_INFO[currentPlan].label}
-          </span>
-          　｜　管理方案權限、用量與功能比較
-        </p>
-      </div>
+    <PageShell>
+      <PageHeader
+        title="方案設定"
+        subtitle="管理方案權限、用量與功能比較"
+        actions={
+          <>
+            <DashLink
+              href="/dashboard/settings"
+              className="rounded-lg border border-earth-200 px-3 py-1.5 text-xs font-medium text-earth-600 hover:bg-earth-50"
+            >
+              ← 返回設定
+            </DashLink>
+            <a
+              href="/pricing"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-primary-700"
+            >
+              查看完整方案
+            </a>
+          </>
+        }
+      />
+
+      <section className="rounded-xl border border-earth-200 bg-white p-4 shadow-sm">
+        <h2 className="mb-3 text-sm font-semibold text-earth-900">目前方案</h2>
+        <InfoList items={planSummary} />
+      </section>
 
       {/* ── Plan Hero Cards ── */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -285,7 +306,7 @@ export default async function PlanSettingsPage() {
       {/* PricingPlan — 店舖方案管理 + 用量儀表板（ADMIN only） */}
       {/* ═══════════════════════════════════════════ */}
       {user.role === "ADMIN" && <StorePlanSection />}
-    </div>
+    </PageShell>
   );
 }
 
