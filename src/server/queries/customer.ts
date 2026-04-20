@@ -208,10 +208,13 @@ export async function getCustomerDetail(customerId: string) {
       },
       sponsor: { select: { id: true, name: true, phone: true } },
       // UI 使用的 count：sponsoredCustomers 推薦人數、bookings 累積到店次數
+      // 注意：若使用不存在的 enum 值（例如尚未 merge 的 CHECKED_IN），Prisma 型別會
+      // 退化成 base Customer，導致 `.planWallets` 等 relation 在 build 時消失。
+      // 目前 main schema 的「完成到店」終態就是 COMPLETED。
       _count: {
         select: {
           sponsoredCustomers: true,
-          bookings: { where: { bookingStatus: { in: ["CHECKED_IN", "COMPLETED"] } } },
+          bookings: { where: { bookingStatus: "COMPLETED" } },
         },
       },
       planWallets: {
