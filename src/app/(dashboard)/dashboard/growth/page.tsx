@@ -6,23 +6,23 @@ import { notFound } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { getGrowthOverviewSummary } from "@/server/queries/growth";
 
-import { KpiCard } from "@/components/ui/kpi-card";
-import { SectionCard } from "@/components/ui/section-card";
-import { SectionSkeleton, KpiCardSkeleton } from "@/components/section-skeleton";
-import { TalentFunnel } from "./talent-funnel";
-import { GrowthCandidateCard } from "./_components/growth-candidate-card";
+import { GrowthKpiInline } from "./_components/kpi-inline";
+import { GrowthTopCandidatesTable } from "./_components/top-candidates-table";
+import { StagnationMiniTable } from "./_components/stagnation-mini-table";
 
 /**
- * 成長系統 v2 — Phase A overview
+ * 成長系統 v2 — 桌機版重畫 v2.0（決策頁，非展示頁）
  *
- * 核心目的：店長一打開就知道誰值得培養。
- * 顯示：
- *   - 6 張 KPI（高潛力 / 接近升級 / 本月推薦 / 本月轉化 / 新合作夥伴 / 新未來店長）
- *   - Top 5 成長分候選人（含 tag / nextAction / breakdown 展開）
- *   - 停滯名單（limit 5）
- *   - 漏斗（沿用 TalentFunnel）
+ * 設計原則：
+ * - 一屏完成（1440px 下第一屏看到 KPI + 高潛力名單 + 行動區）
+ * - 去卡片化（KPI inline、名單改 Table）
+ * - 資訊密度 > 視覺舒服
+ * - 每一塊都要回答「這是讓店長做什麼決策？」
  *
- * Phase B/C（下輪）：完整潛力名單頁 / 推薦追蹤頁 / funnel 視覺化 / leaderboard 調整
+ * Layout：
+ *   Page Header（精簡）
+ *   KPI Row（inline / ≤ 48px）
+ *   Main Grid（col-8 Top10 Table ｜ col-4 行動區 = 提醒 + 停滯 + 快速操作）
  */
 export default async function GrowthOverviewPage() {
   const user = await getCurrentUser();
@@ -36,56 +36,11 @@ export default async function GrowthOverviewPage() {
   const activeStoreId = resolveActiveStoreId(user, cookieStoreId);
 
   return (
-    <div className="mx-auto max-w-5xl space-y-5 px-4 py-4">
-      {/* 頁面標題 + tab nav */}
-      <div className="rounded-2xl bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h1 className="text-lg font-bold text-earth-900">成長系統</h1>
-            <p className="mt-0.5 text-sm text-earth-500">
-              找出下一個教練 / 合作夥伴 / 未來店長 — 誰值得現在約談
-            </p>
-          </div>
-          <Link
-            href="/dashboard/growth/candidates"
-            className="whitespace-nowrap rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-primary-700"
-          >
-            完整潛力名單 →
-          </Link>
-        </div>
+    <div className="mx-auto max-w-[1440px] space-y-3 px-4 py-3">
+      {/* Page Header（精簡） */}
+      <PageHeader />
 
-        <div className="mt-4 flex flex-wrap gap-2">
-          <span className="rounded-lg bg-earth-100 px-3 py-1.5 text-xs font-medium text-earth-800">
-            成長總覽
-          </span>
-          <Link
-            href="/dashboard/growth/candidates"
-            className="rounded-lg border border-earth-200 px-3 py-1.5 text-xs font-medium text-earth-600 hover:bg-earth-50"
-          >
-            潛力名單
-          </Link>
-          <Link
-            href="/dashboard/growth/referrals"
-            className="rounded-lg border border-earth-200 px-3 py-1.5 text-xs font-medium text-earth-600 hover:bg-earth-50"
-          >
-            推薦追蹤
-          </Link>
-          <Link
-            href="/dashboard/growth/stagnation"
-            className="rounded-lg border border-earth-200 px-3 py-1.5 text-xs font-medium text-earth-600 hover:bg-earth-50"
-          >
-            停滯名單
-          </Link>
-          <Link
-            href="/dashboard/bonus-rules"
-            className="rounded-lg border border-earth-200 px-3 py-1.5 text-xs font-medium text-earth-600 hover:bg-earth-50"
-          >
-            獎勵制度
-          </Link>
-        </div>
-      </div>
-
-      {/* Overview data — Suspense 包裹，空資料 / 部分失敗都不拖整頁 */}
+      {/* Overview 資料區 — Suspense 包裹，失敗/空資料都不拖整頁 */}
       <Suspense fallback={<OverviewFallback />}>
         <OverviewBlock activeStoreId={activeStoreId} />
       </Suspense>
@@ -93,91 +48,162 @@ export default async function GrowthOverviewPage() {
   );
 }
 
+// ============================================================
+// Page Header（精簡版）
+// ============================================================
+
+function PageHeader() {
+  return (
+    <div className="flex items-center justify-between pb-1">
+      <div>
+        <h1 className="text-lg font-bold text-earth-900">成長系統</h1>
+        <p className="text-[11px] text-earth-500">找出下一位教練 / 店長 — 誰值得現在約談</p>
+      </div>
+      <div className="flex items-center gap-1.5">
+        <Link
+          href="/dashboard/growth/candidates"
+          className="rounded-md border border-earth-200 bg-white px-3 py-1.5 text-xs font-medium text-earth-700 hover:bg-earth-50"
+        >
+          完整名單
+        </Link>
+        <Link
+          href="/dashboard/growth/referrals"
+          className="rounded-md border border-earth-200 bg-white px-3 py-1.5 text-xs font-medium text-earth-700 hover:bg-earth-50"
+        >
+          推薦追蹤
+        </Link>
+        <Link
+          href="/dashboard/bonus-rules"
+          className="rounded-md border border-earth-200 bg-white px-3 py-1.5 text-xs font-medium text-earth-700 hover:bg-earth-50"
+        >
+          獎勵制度
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// Overview Fallback（skeleton）
+// ============================================================
+
 function OverviewFallback() {
   return (
     <>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <KpiCardSkeleton key={i} />
-        ))}
+      <div className="h-12 animate-pulse rounded-xl border border-earth-200 bg-white" />
+      <div className="grid grid-cols-12 gap-3">
+        <div className="col-span-8 h-[440px] animate-pulse rounded-xl border border-earth-200 bg-white" />
+        <div className="col-span-4 space-y-3">
+          <div className="h-[140px] animate-pulse rounded-xl border border-earth-200 bg-white" />
+          <div className="h-[200px] animate-pulse rounded-xl border border-earth-200 bg-white" />
+          <div className="h-[80px] animate-pulse rounded-xl border border-earth-200 bg-white" />
+        </div>
       </div>
-      <SectionSkeleton heightClass="h-56" />
-      <SectionSkeleton heightClass="h-40" />
-      <SectionSkeleton heightClass="h-40" />
     </>
   );
 }
 
+// ============================================================
+// Overview Block
+// ============================================================
+
 async function OverviewBlock({ activeStoreId }: { activeStoreId: string | null }) {
   const overview = await getGrowthOverviewSummary(activeStoreId);
-  const { kpi, top5, stagnation, funnelStages, totalPartners, totalFutureOwners } = overview;
+  const { kpi, allSorted, stagnation } = overview;
+
+  // 今日建議 — 從 kpi / stagnation 派生；用行動語氣（動詞開頭），不額外查詢
+  const reminders: Array<{ verb: string; rest: string }> = [];
+  if (kpi.highPotentialCount > 0) {
+    reminders.push({ verb: "約談", rest: `${kpi.highPotentialCount} 位高潛力顧客（本週排入行事曆）` });
+  }
+  if (kpi.nearPromotionCount > 0) {
+    reminders.push({ verb: "推一把", rest: `${kpi.nearPromotionCount} 位接近升級（差最後一步）` });
+  }
+  if (stagnation.length > 0) {
+    reminders.push({ verb: "喚回", rest: `${stagnation.length} 位停滯 30 天顧客（今日私訊）` });
+  }
+  if (kpi.monthConvertedReferrals === 0 && kpi.monthReferralEvents > 0) {
+    reminders.push({ verb: "追蹤", rest: `${kpi.monthReferralEvents} 件推薦未轉化（追進度）` });
+  }
+  if (reminders.length === 0) {
+    reminders.push({ verb: "維持", rest: "常態關懷（目前沒有急迫待辦）" });
+  }
+
+  // 主 CTA — 有候選人時直接指名 Top 1，讓店長一鍵進入聯絡頁
+  const top1 = allSorted[0];
+  const primaryCta = top1
+    ? { label: `約談 Top 1 · ${top1.name}`, href: `/dashboard/customers/${top1.customerId}#contact` }
+    : { label: "開始建立潛力名單", href: "/dashboard/growth/candidates" };
 
   return (
     <>
-      {/* KPI 摘要 */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-        <KpiCard label="高潛力" value={kpi.highPotentialCount} unit="位" color="amber" />
-        <KpiCard label="接近升級" value={kpi.nearPromotionCount} unit="位" color="green" />
-        <KpiCard label="本月推薦" value={kpi.monthReferralEvents} unit="件" color="blue" />
-        <KpiCard label="本月轉化" value={kpi.monthConvertedReferrals} unit="人" color="primary" />
-        <KpiCard label="新合作夥伴（月）" value={kpi.newPartnerThisMonth} unit="位" color="earth" />
-        <KpiCard label="新未來店長（月）" value={kpi.newFutureOwnerThisMonth} unit="位" color="earth" />
+      {/* KPI Inline Row */}
+      <GrowthKpiInline
+        items={[
+          { label: "高潛力", value: kpi.highPotentialCount, tone: "amber" },
+          { label: "可升級", value: kpi.nearPromotionCount, tone: "green" },
+          { label: "本月推薦", value: kpi.monthReferralEvents, tone: "blue" },
+          { label: "新合作夥伴", value: kpi.newPartnerThisMonth, tone: "primary" },
+          { label: "新店長", value: kpi.newFutureOwnerThisMonth, tone: "earth" },
+        ]}
+      />
+
+      {/* Main Grid：col-8 主決策區 / col-4 行動區 */}
+      <div className="grid grid-cols-12 gap-3">
+        {/* 左側（col-8）— Top 10 高潛力名單 */}
+        <div className="col-span-12 lg:col-span-8">
+          <GrowthTopCandidatesTable candidates={allSorted} />
+        </div>
+
+        {/* 右側（col-4）— 行動區 */}
+        <aside className="col-span-12 space-y-3 lg:col-span-4">
+          {/* 區塊 1：今日該做 — 行動語氣（動詞 + 對象） */}
+          <div className="rounded-xl border border-earth-200 bg-white px-3 py-2.5">
+            <h3 className="mb-1.5 text-xs font-semibold text-earth-800">今日該做</h3>
+            <ul className="space-y-1.5">
+              {reminders.map((r, i) => (
+                <li key={i} className="flex items-baseline gap-2 text-[12px] leading-snug">
+                  <span className="shrink-0 rounded bg-primary-100 px-1.5 py-0.5 text-[11px] font-semibold text-primary-700">
+                    {r.verb}
+                  </span>
+                  <span className="text-earth-700">{r.rest}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* 區塊 2：停滯名單 mini table */}
+          <StagnationMiniTable items={stagnation} />
+
+          {/* 區塊 3：快速操作 — 動詞開頭 */}
+          <div className="rounded-xl border border-earth-200 bg-white px-3 py-2.5">
+            <h3 className="mb-1.5 text-xs font-semibold text-earth-800">快速操作</h3>
+            <div className="flex flex-col gap-1.5">
+              <Link
+                href={primaryCta.href}
+                className="flex items-center justify-between rounded-md bg-primary-600 px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-primary-700"
+              >
+                <span className="truncate">{primaryCta.label}</span>
+                <span className="ml-2 shrink-0">→</span>
+              </Link>
+              <Link
+                href="/dashboard/growth/referrals"
+                className="flex items-center justify-between rounded-md border border-earth-200 px-3 py-1.5 text-xs font-medium text-earth-700 hover:bg-earth-50"
+              >
+                <span>登錄今日推薦</span>
+                <span>→</span>
+              </Link>
+              <Link
+                href="/dashboard/growth/stagnation"
+                className="flex items-center justify-between rounded-md border border-earth-200 px-3 py-1.5 text-xs font-medium text-earth-700 hover:bg-earth-50"
+              >
+                <span>喚回停滯顧客</span>
+                <span>→</span>
+              </Link>
+            </div>
+          </div>
+        </aside>
       </div>
-
-      {/* Top 5 候選人 */}
-      <SectionCard
-        title="本月建議關注 Top 5"
-        subtitle="依成長分數（readiness + 近期活躍 + 積分 + 階段）排序"
-        action={{ label: "完整名單 →", href: "/dashboard/growth/candidates" }}
-      >
-        {top5.length === 0 ? (
-          <div className="rounded-xl bg-earth-50 py-6 text-center">
-            <p className="text-sm text-earth-400">目前尚無合作店長或準店長候選</p>
-            <p className="mt-1 text-[11px] text-earth-400">
-              當成員累積推薦、點數與出席後，會自動出現在這裡
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {top5.map((c, i) => (
-              <GrowthCandidateCard key={c.customerId} candidate={c} rank={i + 1} />
-            ))}
-          </div>
-        )}
-      </SectionCard>
-
-      {/* 停滯名單 */}
-      <SectionCard
-        title="停滯警示"
-        subtitle="合作店長 / 準店長 近 30 天無到店且無推薦行動"
-        action={{ label: "完整停滯名單 →", href: "/dashboard/growth/stagnation" }}
-      >
-        {stagnation.length === 0 ? (
-          <div className="rounded-xl bg-earth-50 py-6 text-center">
-            <p className="text-sm text-earth-400">目前無停滯名單，所有成員都在動 ✨</p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {stagnation.map((c) => (
-              <GrowthCandidateCard key={c.customerId} candidate={c} />
-            ))}
-          </div>
-        )}
-      </SectionCard>
-
-      {/* 漏斗 */}
-      <SectionCard
-        title="成長漏斗"
-        subtitle={`合作店長 ${totalPartners} 位 · 準店長 ${totalFutureOwners} 位`}
-      >
-        {funnelStages.length === 0 ? (
-          <div className="rounded-xl bg-earth-50 py-6 text-center">
-            <p className="text-sm text-earth-400">尚無資料</p>
-          </div>
-        ) : (
-          <TalentFunnel stages={funnelStages} />
-        )}
-      </SectionCard>
     </>
   );
 }
