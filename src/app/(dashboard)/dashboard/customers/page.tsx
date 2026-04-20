@@ -6,6 +6,7 @@ import { getActiveStoreForRead } from "@/lib/store";
 import { redirect } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { PageShell, PageHeader } from "@/components/desktop";
+import { FormSuccessToast } from "@/components/form-success-toast";
 import type { CustomerStage } from "@prisma/client";
 
 import { CustomersToolbar } from "./_components/customers-toolbar";
@@ -96,6 +97,7 @@ export default async function CustomersPage({ searchParams }: PageProps) {
 
   return (
     <PageShell>
+      <FormSuccessToast />
       <PageHeader
         title="顧客管理"
         subtitle="查詢顧客、追蹤來店、快速進入詳情"

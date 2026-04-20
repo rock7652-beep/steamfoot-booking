@@ -8,6 +8,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { PageShell, PageHeader } from "@/components/desktop";
+import { FormSuccessToast } from "@/components/form-success-toast";
 import { BookingsManager } from "./bookings-manager";
 
 /**
@@ -52,6 +53,7 @@ export default async function BookingsPage({ searchParams }: PageProps) {
 
   return (
     <PageShell>
+      <FormSuccessToast />
       <PageHeader
         title="預約管理"
         subtitle={`${year} 年 ${month} 月`}

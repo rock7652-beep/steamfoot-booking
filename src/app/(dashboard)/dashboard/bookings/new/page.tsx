@@ -8,6 +8,13 @@ import CustomerSearch from "./customer-search";
 import { DashboardBookingForm } from "./booking-form";
 import { FormErrorToast } from "@/components/form-error-toast";
 import { SubmitButton } from "@/components/submit-button";
+import {
+  PageShell,
+  PageHeader,
+  FormShell,
+  FormSection,
+  StickyFormActions,
+} from "@/components/desktop";
 
 function getNextDays(n: number): string[] {
   const days: string[] = [];
@@ -23,6 +30,10 @@ function getNextDays(n: number): string[] {
 interface PageProps {
   searchParams: Promise<{ date?: string }>;
 }
+
+const inputCls =
+  "block w-full rounded-lg border border-earth-300 bg-white px-3 py-2 text-sm text-earth-800 placeholder:text-earth-400 focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400";
+const labelCls = "block text-sm font-medium text-earth-700";
 
 export default async function NewBookingPage({ searchParams }: PageProps) {
   const user = await getCurrentUser();
@@ -41,13 +52,18 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
     const customerId = formData.get("customerId") as string;
     const bookingDate = formData.get("bookingDate") as string;
     const slotTime = formData.get("slotTime") as string;
-    const bookingType = formData.get("bookingType") as "FIRST_TRIAL" | "SINGLE" | "PACKAGE_SESSION";
+    const bookingType = formData.get("bookingType") as
+      | "FIRST_TRIAL"
+      | "SINGLE"
+      | "PACKAGE_SESSION";
     const people = Number(formData.get("people")) || 1;
     const notes = (formData.get("notes") as string) || undefined;
     const skipDutyCheck = formData.get("skipDutyCheck") === "on";
 
     if (!customerId) {
-      redirect(`/dashboard/bookings/new?date=${bookingDate}&error=${encodeURIComponent("請選擇顧客")}`);
+      redirect(
+        `/dashboard/bookings/new?date=${bookingDate}&error=${encodeURIComponent("請選擇顧客")}`,
+      );
     }
 
     const result = await createBooking({
@@ -61,120 +77,130 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
     });
 
     if (!result.success) {
-      redirect(`/dashboard/bookings/new?date=${bookingDate}&error=${encodeURIComponent(result.error || "預約建立失敗")}`);
+      redirect(
+        `/dashboard/bookings/new?date=${bookingDate}&error=${encodeURIComponent(result.error || "預約建立失敗")}`,
+      );
     }
 
-    redirect(`/dashboard/bookings?view=day&date=${bookingDate}`);
+    redirect(
+      `/dashboard/bookings?view=day&date=${bookingDate}&saved=${encodeURIComponent("已建立預約")}`,
+    );
   }
 
   return (
-    <div className="mx-auto max-w-lg space-y-6">
+    <PageShell>
       <FormErrorToast />
-      {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-sm text-earth-500">
-        <Link href="/dashboard/bookings" className="hover:text-earth-700">月曆</Link>
-        <span>/</span>
-        <span className="text-earth-700">新增預約</span>
-      </div>
 
-      <div className="rounded-xl border border-earth-200 bg-white p-5 shadow-sm">
-        <h1 className="mb-5 text-lg font-bold text-earth-900">新增預約</h1>
-
-        <form action={handleCreate} className="space-y-5">
-          <DashboardBookingForm
-            days={days}
-            defaultDate={defaultDate}
-            todayStr={todayStr}
+      <PageHeader
+        title="新增預約"
+        subtitle="左側選時段、右側選顧客與方案，確認後建立"
+        actions={
+          <Link
+            href="/dashboard/bookings"
+            className="rounded-lg border border-earth-200 px-3 py-1.5 text-xs font-medium text-earth-600 hover:bg-earth-50"
           >
-            {/* Customer — Autocomplete Search */}
-            <div>
-              <label className="block text-sm font-medium text-earth-700">
-                顧客 <span className="text-red-500">*</span>
-              </label>
-              <div className="mt-1.5">
-                <CustomerSearch />
-              </div>
-              <p className="mt-1 text-xs text-earth-400">
-                輸入姓名、電話或 Email 搜尋
-              </p>
+            ← 預約總覽
+          </Link>
+        }
+      />
+
+      <FormShell width="lg">
+        <form action={handleCreate} className="space-y-6 pb-4">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+            {/* 左欄：預約資訊 */}
+            <div className="space-y-6">
+              <FormSection title="預約資訊" description="日期、時段與人數">
+                <DashboardBookingForm
+                  days={days}
+                  defaultDate={defaultDate}
+                  todayStr={todayStr}
+                />
+                <div>
+                  <label className={labelCls}>預約人數</label>
+                  <select
+                    name="people"
+                    defaultValue="1"
+                    className={`mt-1 ${inputCls}`}
+                  >
+                    <option value="1">1 人</option>
+                    <option value="2">2 人</option>
+                    <option value="3">3 人</option>
+                    <option value="4">4 人</option>
+                  </select>
+                </div>
+              </FormSection>
             </div>
-          </DashboardBookingForm>
 
-          {/* Booking Type */}
-          <div>
-            <label className="block text-sm font-medium text-earth-700">
-              預約類型 <span className="text-red-500">*</span>
-            </label>
-            <select
-              name="bookingType"
-              required
-              className="mt-1.5 block w-full rounded-lg border border-earth-300 bg-white px-3 py-2 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
-            >
-              <option value="PACKAGE_SESSION">課程堂數</option>
-              <option value="FIRST_TRIAL">體驗</option>
-              <option value="SINGLE">單次</option>
-            </select>
+            {/* 右欄：顧客 / 方案 */}
+            <div className="space-y-6">
+              <FormSection title="顧客資訊" description="輸入姓名、電話或 Email 搜尋">
+                <div>
+                  <label className={labelCls}>
+                    顧客 <span className="text-red-500">*</span>
+                  </label>
+                  <div className="mt-1">
+                    <CustomerSearch />
+                  </div>
+                </div>
+              </FormSection>
+
+              <FormSection title="服務 / 方案">
+                <div>
+                  <label className={labelCls}>
+                    預約類型 <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    name="bookingType"
+                    required
+                    className={`mt-1 ${inputCls}`}
+                  >
+                    <option value="PACKAGE_SESSION">課程堂數</option>
+                    <option value="FIRST_TRIAL">體驗</option>
+                    <option value="SINGLE">單次</option>
+                  </select>
+                </div>
+              </FormSection>
+            </div>
           </div>
 
-          {/* People */}
-          <div>
-            <label className="block text-sm font-medium text-earth-700">
-              預約人數
-            </label>
-            <select
-              name="people"
-              defaultValue="1"
-              className="mt-1.5 block w-full rounded-lg border border-earth-300 bg-white px-3 py-2 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
-            >
-              <option value="1">1 人</option>
-              <option value="2">2 人</option>
-              <option value="3">3 人</option>
-              <option value="4">4 人</option>
-            </select>
-          </div>
-
-          {/* Notes */}
-          <div>
-            <label className="block text-sm font-medium text-earth-700">備註（選填）</label>
+          {/* 備註 — 滿版 */}
+          <FormSection title="備註 / 其他">
             <textarea
               name="notes"
-              rows={2}
-              className="mt-1.5 block w-full rounded-lg border border-earth-300 bg-white px-3 py-2 text-sm text-earth-800 placeholder:text-earth-400 focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
-              placeholder="特殊需求、備忘事項..."
+              rows={3}
+              className={inputCls}
+              placeholder="特殊需求、備忘事項...（選填）"
             />
-          </div>
 
-          {/* OWNER: 略過值班檢查 */}
-          {isOwner && (
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                name="skipDutyCheck"
-                id="skipDutyCheck"
-                className="h-4 w-4 rounded border-earth-300 text-primary-600 focus:ring-primary-500"
-              />
-              <label htmlFor="skipDutyCheck" className="text-sm text-earth-600">
+            {isOwner ? (
+              <label className="flex items-center gap-2 pt-1 text-sm text-earth-600">
+                <input
+                  type="checkbox"
+                  name="skipDutyCheck"
+                  className="h-4 w-4 rounded border-earth-300 text-primary-600 focus:ring-primary-500"
+                />
                 略過值班檢查（該時段無值班人員時仍可建立預約）
               </label>
-            </div>
-          )}
+            ) : null}
+          </FormSection>
 
-          {/* Buttons */}
-          <div className="flex gap-3 border-t border-earth-200 pt-5">
-            <SubmitButton
-              label="確認建立"
-              pendingLabel="建立中..."
-              className="flex-1 bg-primary-600 text-white hover:bg-primary-700 active:bg-primary-800"
-            />
+          <StickyFormActions
+            info={<span>成功後會回到預約當日總覽</span>}
+          >
             <Link
               href={`/dashboard/bookings?view=day&date=${defaultDate}`}
-              className="rounded-lg border border-earth-300 px-5 py-2.5 text-sm font-medium text-earth-700 hover:bg-earth-50 transition-colors"
+              className="rounded-lg border border-earth-300 bg-white px-4 py-2 text-sm font-medium text-earth-700 hover:bg-earth-50"
             >
               取消
             </Link>
-          </div>
+            <SubmitButton
+              label="確認建立"
+              pendingLabel="建立中..."
+              className="bg-primary-600 text-white hover:bg-primary-700"
+            />
+          </StickyFormActions>
         </form>
-      </div>
-    </div>
+      </FormShell>
+    </PageShell>
   );
 }

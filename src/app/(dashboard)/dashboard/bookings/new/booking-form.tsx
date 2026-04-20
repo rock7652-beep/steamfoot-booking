@@ -9,7 +9,6 @@ interface Props {
   days: string[];
   defaultDate: string;
   todayStr: string;
-  children: React.ReactNode; // customer search + other fields before slots
 }
 
 /**
@@ -25,7 +24,6 @@ export function DashboardBookingForm({
   days,
   defaultDate,
   todayStr,
-  children,
 }: Props) {
   const [selectedDate, setSelectedDate] = useState(
     days.includes(defaultDate) ? defaultDate : days[0]
@@ -65,8 +63,6 @@ export function DashboardBookingForm({
 
   return (
     <>
-      {children}
-
       {/* Date */}
       <div>
         <label className="block text-sm font-medium text-earth-700">

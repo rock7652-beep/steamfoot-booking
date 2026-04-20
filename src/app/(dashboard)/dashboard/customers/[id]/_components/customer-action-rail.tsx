@@ -7,7 +7,6 @@ import type {
   LineLinkStatus,
   TalentStage,
 } from "@prisma/client";
-import { EditCustomerModal } from "../edit-customer-modal";
 
 /**
  * 顧客詳情右側 Action Rail (col-4)
@@ -39,18 +38,6 @@ const CUSTOMER_STAGE_COLOR: Record<CustomerStage, string> = {
   INACTIVE: "bg-yellow-50 text-yellow-700",
 };
 
-interface EditTarget {
-  id: string;
-  name: string;
-  phone: string;
-  email: string | null;
-  gender: string | null;
-  birthday: string | null;
-  height: number | null;
-  notes: string | null;
-  lineName: string | null;
-}
-
 interface Props {
   customerId: string;
   customerStage: CustomerStage;
@@ -63,7 +50,6 @@ interface Props {
   authSource: AuthSource;
   createdAt: Date;
   updatedAt: Date;
-  editTarget: EditTarget;
   /** 是否可操作 write 動作（某些角色僅能讀） */
   canEdit: boolean;
 }
@@ -80,7 +66,6 @@ export function CustomerActionRail({
   authSource,
   createdAt,
   updatedAt,
-  editTarget,
   canEdit,
 }: Props) {
   const systemItems: InfoListItem[] = [
@@ -145,7 +130,13 @@ export function CustomerActionRail({
       <SideCard title="快速操作" subtitle="常用動作直接進入">
         <div className="flex flex-col gap-1.5">
           {canEdit ? (
-            <EditCustomerModal customer={editTarget} />
+            <Link
+              href={`/dashboard/customers/${customerId}/edit`}
+              className={actionBase}
+            >
+              <span>編輯資料</span>
+              <span>→</span>
+            </Link>
           ) : (
             <span className={`${actionBase} cursor-not-allowed opacity-50`}>
               <span>編輯資料</span>
