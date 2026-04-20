@@ -36,10 +36,11 @@ interface ServicePlanOption {
   name: string;
 }
 
+// main schema BookingStatus 僅有 PENDING / CONFIRMED / COMPLETED / CANCELLED / NO_SHOW
+// （CHECKED_IN 在未 merge 的 migration 裡，本輪不引入）
 const STATUS_OPTIONS = [
   { value: "PENDING", label: "預約中" },
   { value: "CONFIRMED", label: "已確認" },
-  { value: "CHECKED_IN", label: "已到店" },
   { value: "COMPLETED", label: "已完成" },
   { value: "NO_SHOW", label: "未到" },
 ] as const;

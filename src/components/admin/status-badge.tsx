@@ -28,24 +28,23 @@ export function StatusBadge({ variant, children, dot = true }: StatusBadgeProps)
   );
 }
 
+// main schema BookingStatus 僅有下列五個；CHECKED_IN 在未 merge 的 migration 才存在，
+// 本檔不出現 "CHECKED_IN" literal 以免型別與 Prisma enum 脫鉤。
 export type BookingStatus =
   | "PENDING"
   | "CONFIRMED"
-  | "CHECKED_IN"
   | "COMPLETED"
   | "CANCELLED"
   | "NO_SHOW";
 
 export function bookingStatusMeta(
   status: BookingStatus | string,
-  // isCheckedIn 是 legacy boolean，僅對舊資料生效；新資料以 CHECKED_IN status 為準
+  // isCheckedIn 是 legacy boolean，對舊資料 / 未來 schema 升級都保留顯示為「已到店」
   isCheckedIn?: boolean,
 ): { label: string; variant: StatusVariant } {
   switch (status) {
     case "COMPLETED":
       return { label: "已完成", variant: "success" };
-    case "CHECKED_IN":
-      return { label: "已到店", variant: "warning" };
     case "CONFIRMED":
       return { label: "已確認", variant: "info" };
     case "PENDING":
@@ -55,7 +54,7 @@ export function bookingStatusMeta(
     case "NO_SHOW":
       return { label: "未到", variant: "danger" };
     default:
-      // legacy 資料：status 不在預期集合，但 isCheckedIn=true 表示到店
+      // 未知 status（含未來 migration 的 CHECKED_IN）或 legacy isCheckedIn=true → 顯示已到店
       if (isCheckedIn) return { label: "已到店", variant: "warning" };
       return { label: String(status), variant: "neutral" };
   }

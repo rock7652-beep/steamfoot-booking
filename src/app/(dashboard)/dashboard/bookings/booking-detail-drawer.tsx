@@ -11,7 +11,6 @@ import {
   type BookingDrawerPayload,
 } from "@/server/actions/booking-drawer";
 import {
-  checkInBooking,
   markCompleted,
   markNoShow,
   cancelBooking,
@@ -99,11 +98,6 @@ export function BookingDetailDrawer({
     });
   }
 
-  function handleCheckIn() {
-    if (!bookingId) return;
-    wrapAction("已標記為到店", () => checkInBooking(bookingId));
-  }
-
   function handleComplete() {
     if (!bookingId) return;
     wrapAction("已完成服務", () => markCompleted(bookingId));
@@ -156,7 +150,6 @@ export function BookingDetailDrawer({
             isActing={isActing}
             onClose={onClose}
             actions={{
-              checkIn: handleCheckIn,
               complete: handleComplete,
               noShow: () => setNoShowOpen(true),
               cancel: handleCancel,
@@ -192,7 +185,6 @@ export function BookingDetailDrawer({
 // ============================================================
 
 interface DrawerActions {
-  checkIn: () => void;
   complete: () => void;
   noShow: () => void;
   cancel: () => void;
@@ -415,14 +407,13 @@ function ActionFooter({
   const primaries: Array<{ label: string; onClick: () => void }> = [];
   const secondaries: Array<{ label: string; onClick: () => void; tone?: "danger" }> = [];
 
+  // main schema 無 CHECKED_IN：PENDING/CONFIRMED 直接走「完成服務」→ COMPLETED。
+  // （checkInBooking server action 實際上就是 markCompleted 的 alias，保留舊命名無意義。）
   if (status === "PENDING" || status === "CONFIRMED") {
-    primaries.push({ label: "標記已到店", onClick: actions.checkIn });
+    primaries.push({ label: "完成服務", onClick: actions.complete });
     secondaries.push({ label: "改時間", onClick: actions.reschedule });
     secondaries.push({ label: "標記未到", onClick: actions.noShow });
     secondaries.push({ label: "取消預約", onClick: actions.cancel, tone: "danger" });
-  } else if (status === "CHECKED_IN") {
-    primaries.push({ label: "完成服務", onClick: actions.complete });
-    secondaries.push({ label: "還原狀態", onClick: actions.revert });
   } else if (status === "COMPLETED") {
     secondaries.push({ label: "還原狀態", onClick: actions.revert });
   } else if (status === "NO_SHOW") {

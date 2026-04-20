@@ -2,7 +2,7 @@ import { prisma } from "@/lib/db";
 import { requireSession, requireStaffSession } from "@/lib/session";
 import { AppError } from "@/lib/errors";
 import { getManagerCustomerFilter, getStoreFilter } from "@/lib/manager-visibility";
-import type { BookingStatus } from "@prisma/client";
+import type { BookingStatus, Prisma } from "@prisma/client";
 
 export interface ListBookingsOptions {
   dateFrom?: string; // "YYYY-MM-DD"
@@ -209,26 +209,39 @@ export async function getMonthBookingSummary(year: number, month: number, active
   const endDate = new Date(Date.UTC(year, month, 0));
 
   // ⚡ 優化：用 groupBy 取每日統計，避免 fetch 整月所有 booking 行
-  const [dailyCounts, staffCounts] = await Promise.all([
+  // 月曆 cell 要顯示各日 booking strips，所以另外拉一次輕量 findMany（select 最小欄位）。
+  const monthWhere: Prisma.BookingWhereInput = {
+    ...getStoreFilter(user, activeStoreId),
+    bookingDate: { gte: startDate, lte: endDate },
+    bookingStatus: { in: ["PENDING", "CONFIRMED", "COMPLETED", "NO_SHOW"] },
+  };
+  const [dailyCounts, staffCounts, monthBookings] = await Promise.all([
     prisma.booking.groupBy({
       by: ["bookingDate"],
-      where: {
-        ...getStoreFilter(user, activeStoreId),
-        bookingDate: { gte: startDate, lte: endDate },
-        bookingStatus: { in: ["PENDING", "CONFIRMED", "COMPLETED", "NO_SHOW"] },
-      },
+      where: monthWhere,
       _count: { id: true },
       _sum: { people: true },
     }),
     prisma.booking.groupBy({
       by: ["bookingDate", "revenueStaffId"],
-      where: {
-        ...getStoreFilter(user, activeStoreId),
-        bookingDate: { gte: startDate, lte: endDate },
-        bookingStatus: { in: ["PENDING", "CONFIRMED", "COMPLETED", "NO_SHOW"] },
-        revenueStaffId: { not: null },
-      },
+      where: { ...monthWhere, revenueStaffId: { not: null } },
       _count: { id: true },
+    }),
+    prisma.booking.findMany({
+      where: monthWhere,
+      select: {
+        id: true,
+        bookingDate: true,
+        slotTime: true,
+        bookingStatus: true,
+        isMakeup: true,
+        people: true,
+        customer: { select: { name: true } },
+        revenueStaff: {
+          select: { id: true, displayName: true, colorCode: true },
+        },
+      },
+      orderBy: [{ bookingDate: "asc" }, { slotTime: "asc" }],
     }),
   ]);
 
@@ -243,11 +256,45 @@ export async function getMonthBookingSummary(year: number, month: number, active
   const staffMap = new Map(staffList.map((s) => [s.id, s]));
 
   // 組裝每日資料
-  const dailyMap = new Map<string, { total: number; totalPeople: number; staffBookings: { staffName: string; colorCode: string; count: number }[] }>();
+  interface DayEntry {
+    total: number;
+    totalPeople: number;
+    staffBookings: { staffName: string; colorCode: string; count: number }[];
+    bookings: Array<{
+      id: string;
+      slotTime: string;
+      bookingStatus: string;
+      isMakeup: boolean;
+      people: number;
+      customerName: string;
+      staffId: string | null;
+      staffName: string | null;
+      staffColor: string | null;
+    }>;
+  }
+  const dailyMap = new Map<string, DayEntry>();
 
   for (let day = 1; day <= endDate.getUTCDate(); day++) {
     const dateKey = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    dailyMap.set(dateKey, { total: 0, totalPeople: 0, staffBookings: [] });
+    dailyMap.set(dateKey, { total: 0, totalPeople: 0, staffBookings: [], bookings: [] });
+  }
+
+  // 將輕量 booking list groupBy date 後塞入 dailyMap
+  for (const b of monthBookings) {
+    const dateKey = b.bookingDate.toISOString().slice(0, 10);
+    const entry = dailyMap.get(dateKey);
+    if (!entry) continue;
+    entry.bookings.push({
+      id: b.id,
+      slotTime: b.slotTime,
+      bookingStatus: b.bookingStatus,
+      isMakeup: b.isMakeup,
+      people: b.people,
+      customerName: b.customer.name,
+      staffId: b.revenueStaff?.id ?? null,
+      staffName: b.revenueStaff?.displayName ?? null,
+      staffColor: b.revenueStaff?.colorCode ?? null,
+    });
   }
 
   for (const row of dailyCounts) {
@@ -285,5 +332,6 @@ export async function getMonthBookingSummary(year: number, month: number, active
     totalBookingCount: data.total,
     totalPeople: data.totalPeople,
     staffBookings: data.staffBookings,
+    bookings: data.bookings,
   }));
 }

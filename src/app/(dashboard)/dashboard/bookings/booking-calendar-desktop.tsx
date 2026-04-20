@@ -32,7 +32,6 @@ const STATUS_STYLE: Record<
 > = {
   PENDING: { bg: "bg-earth-100", border: "border-l-earth-400" },
   CONFIRMED: { bg: "bg-blue-50", border: "border-l-blue-500" },
-  CHECKED_IN: { bg: "bg-amber-50", border: "border-l-amber-500" },
   COMPLETED: { bg: "bg-green-50", border: "border-l-green-500" },
   NO_SHOW: { bg: "bg-red-50", border: "border-l-red-500" },
   CANCELLED: { bg: "bg-earth-50", border: "border-l-earth-300", textMuted: "text-earth-400" },
@@ -67,9 +66,16 @@ export function BookingCalendarDesktop({
   const daysInMonth = new Date(year, month, 0).getDate();
   const prevMonthLastDay = new Date(year, month - 1, 0).getDate();
 
-  const now = new Date();
-  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-  const isCurrentMonth = year === now.getFullYear() && month === now.getMonth() + 1;
+  // 今日判定一律以台灣時區為準（client 端若在非台北時區會算錯月曆高亮）
+  // Intl 的 "en-CA" locale 回傳 YYYY-MM-DD 格式，穩定可比對。
+  const todayStr = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Taipei",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+  const [todayY, todayM] = todayStr.split("-").map(Number);
+  const isCurrentMonth = year === todayY && month === todayM;
 
   const monthLabel = `${year} 年 ${month} 月`;
   const prevMonth = month === 1 ? 12 : month - 1;
@@ -185,25 +191,32 @@ export function BookingCalendarDesktop({
           const visibleBookings = allBookings.slice(0, 3);
           const remainingBookings = allBookings.slice(3);
 
-          const handleClick = () => {
+          const handleDaySelect = () => {
             if (cell.isoDate) onDaySelect(cell.isoDate);
           };
+          const handleKey = (e: React.KeyboardEvent) => {
+            if (!cell.isoDate) return;
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              onDaySelect(cell.isoDate);
+            }
+          };
 
+          // 用 role="button" div 代替外層 <button>，避免與內層 BookingStrip 的 <button>
+          // 構成 nested <button>（HTML 無效，React 19 會報 hydration error）。
           return (
             <div
               key={cell.key}
+              role={cell.isoDate ? "button" : undefined}
+              tabIndex={cell.isoDate ? 0 : -1}
+              aria-label={cell.isoDate ? `${cell.isoDate} 的預約` : undefined}
+              onClick={handleDaySelect}
+              onKeyDown={handleKey}
               className={`relative flex min-h-[96px] flex-col text-left transition-colors ${borderCls} ${bgCls} ${
                 isDimmed ? "opacity-40" : ""
-              }`}
+              } ${cell.isoDate ? "cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-inset" : "cursor-default"}`}
             >
-              <button
-                type="button"
-                onClick={handleClick}
-                disabled={!cell.isoDate}
-                className={`flex flex-1 flex-col gap-1 px-1.5 py-1.5 text-left ${
-                  cell.isoDate ? "cursor-pointer" : "cursor-default"
-                }`}
-              >
+              <div className="flex flex-1 flex-col gap-1 px-1.5 py-1.5">
                 <div className="flex items-start justify-between">
                   <span
                     className={`inline-flex h-6 min-w-6 items-center justify-center text-sm font-semibold tabular-nums ${
@@ -240,7 +253,7 @@ export function BookingCalendarDesktop({
                     ))}
                   </div>
                 )}
-              </button>
+              </div>
               {remainingBookings.length > 0 && cell.inMonth && cell.isoDate && (
                 <MoreBookingsPopover
                   dateKey={cell.isoDate}
