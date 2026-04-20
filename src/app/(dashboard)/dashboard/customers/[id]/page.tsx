@@ -351,17 +351,6 @@ export default async function CustomerDetailPage({ params }: PageProps) {
           createdAt={customer.createdAt}
           updatedAt={customer.updatedAt}
           canEdit={canEdit}
-          editTarget={{
-            id,
-            name: customer.name,
-            phone: customer.phone,
-            email: customer.email,
-            gender: customer.gender,
-            birthday: customer.birthday?.toISOString().slice(0, 10) ?? null,
-            height: customer.height,
-            notes: customer.notes,
-            lineName: customer.lineName,
-          }}
         />
       </div>
 
