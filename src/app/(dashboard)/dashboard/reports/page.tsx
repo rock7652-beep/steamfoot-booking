@@ -15,9 +15,29 @@ import { FeatureGate } from "@/components/feature-gate";
 import { UpgradeNoticePage } from "@/components/upgrade-notice";
 import { getActiveStoreForRead } from "@/lib/store";
 import { redirect } from "next/navigation";
-import { EmptyState } from "@/components/ui/empty-state";
 import ReportDateRange from "@/components/report-date-range";
 import { toLocalDateStr, getPresetDateRange, type DateRangePreset } from "@/lib/date-utils";
+import {
+  PageShell,
+  PageHeader,
+  KpiStrip,
+  DataTable,
+  EmptyRow,
+  type Column,
+} from "@/components/desktop";
+
+/**
+ * /dashboard/reports — 報表決策頁（Phase 2 桌機版 PR3）
+ *
+ * 對照 design/04-phase2-plan.md §3①：Decision Page
+ *   PageHeader → 日期篩選 → KpiStrip → 店長明細 DataTable → 收入類型 DataTable → 匯出
+ *
+ * 沿用：
+ *   - monthlyStoreSummary / monthlyRevenueByCategory（不改計算邏輯）
+ *   - snapshot 快取策略（過去月份永不過期 / 當月 1h TTL）
+ *   - FeatureGate + ADVANCED_REPORTS pricing plan 判斷
+ *   - ReportDateRange（共用日期範圍 client 元件）
+ */
 
 interface PageProps {
   searchParams: Promise<{
@@ -35,7 +55,6 @@ export default async function ReportsPage({ searchParams }: PageProps) {
     redirect("/dashboard");
   }
 
-  // PricingPlan feature gate: 進階報表需 GROWTH+
   const pricingPlan = await getCurrentStorePlan();
   if (!hasFeature(pricingPlan, FEATURES.ADVANCED_REPORTS)) {
     return (
@@ -45,8 +64,6 @@ export default async function ReportsPage({ searchParams }: PageProps) {
       />
     );
   }
-
-  const today = toLocalDateStr();
 
   let startDate: string;
   let endDate: string;
@@ -79,15 +96,11 @@ export default async function ReportsPage({ searchParams }: PageProps) {
   type StoreSummary = Awaited<ReturnType<typeof monthlyStoreSummary>>;
   type RevenueByCategory = Awaited<ReturnType<typeof monthlyRevenueByCategory>>;
 
-  // Snapshot 策略（擴大覆蓋）：
-  // - 過去月份 "month" preset → snapshot 永不過期（資料已定）
-  // - 當月 "month" preset → snapshot 命中且 updatedAt < 1h → 用 snapshot；否則重算後寫回
-  // - 自訂日期 / quarter / today → 永遠即時計算，不走 snapshot
   const snapshotStoreId = activeStoreId || user.storeId!;
   const isMonthPreset = activePreset === "month";
   const isPastMonth = month < currentMonth;
   const isCurrentMonth = month === currentMonth;
-  const CURRENT_MONTH_TTL_MS = 60 * 60 * 1000; // 1 小時
+  const CURRENT_MONTH_TTL_MS = 60 * 60 * 1000;
 
   const dateRangeOpts = { startDate, endDate, activeStoreId };
 
@@ -108,10 +121,13 @@ export default async function ReportsPage({ searchParams }: PageProps) {
     ]);
     plan = sp;
 
+    // Server component render — Date.now() 在此是單次 request-time 計算，非 client render
+    // eslint-disable-next-line react-hooks/purity
+    const nowMs = Date.now();
     const fresh = (m: { updatedAt: Date } | null) => {
       if (!m) return false;
-      if (isPastMonth) return true; // 過去月份永不過期
-      return Date.now() - m.updatedAt.getTime() < CURRENT_MONTH_TTL_MS;
+      if (isPastMonth) return true;
+      return nowMs - m.updatedAt.getTime() < CURRENT_MONTH_TTL_MS;
     };
 
     if (ssSnap && rcSnap && fresh(ssSnap) && fresh(rcSnap)) {
@@ -121,20 +137,28 @@ export default async function ReportsPage({ searchParams }: PageProps) {
     } else {
       [storeSummary, revenueByCategory] = await Promise.all([
         withTiming("monthlyStoreSummary", timer, () => monthlyStoreSummary(month, dateRangeOpts)),
-        withTiming("monthlyRevenueByCategory", timer, () => monthlyRevenueByCategory(month, dateRangeOpts)),
+        withTiming("monthlyRevenueByCategory", timer, () =>
+          monthlyRevenueByCategory(month, dateRangeOpts),
+        ),
       ]);
-      // 寫回 snapshot — fire & forget，不拖首屏
-      void upsertReportSnapshot(snapshotStoreId, month, "STORE_SUMMARY", storeSummary).catch(
-        (e) => console.error("[reports] snapshot store summary upsert failed", e),
+      void upsertReportSnapshot(snapshotStoreId, month, "STORE_SUMMARY", storeSummary).catch((e) =>
+        console.error("[reports] snapshot store summary upsert failed", e),
       );
-      void upsertReportSnapshot(snapshotStoreId, month, "REVENUE_BY_CATEGORY", revenueByCategory).catch(
-        (e) => console.error("[reports] snapshot revenue by category upsert failed", e),
+      void upsertReportSnapshot(
+        snapshotStoreId,
+        month,
+        "REVENUE_BY_CATEGORY",
+        revenueByCategory,
+      ).catch((e) =>
+        console.error("[reports] snapshot revenue by category upsert failed", e),
       );
     }
   } else {
     [storeSummary, revenueByCategory, plan] = await Promise.all([
       withTiming("monthlyStoreSummary", timer, () => monthlyStoreSummary(month, dateRangeOpts)),
-      withTiming("monthlyRevenueByCategory", timer, () => monthlyRevenueByCategory(month, dateRangeOpts)),
+      withTiming("monthlyRevenueByCategory", timer, () =>
+        monthlyRevenueByCategory(month, dateRangeOpts),
+      ),
       withTiming("getCurrentStorePlan", timer, () => getCurrentStorePlan()),
     ]);
   }
@@ -142,142 +166,226 @@ export default async function ReportsPage({ searchParams }: PageProps) {
   timer.cacheStatus("reports-snapshot", snapshotHit ? "hit" : "miss");
   timer.finish();
 
+  const totalOrders = storeSummary.staffBreakdown.reduce(
+    (s, r) => s + r.transactionCount,
+    0,
+  );
+
+  type StaffRow = StoreSummary["staffBreakdown"][number];
+  const staffColumns: Column<StaffRow>[] = [
+    {
+      key: "name",
+      header: "店長",
+      accessor: (r) => <span className="text-sm font-medium text-earth-900">{r.staffName}</span>,
+    },
+    {
+      key: "customers",
+      header: "顧客",
+      align: "right",
+      priority: "secondary",
+      accessor: (r) => (
+        <span className="tabular-nums">
+          {r.customerCount}
+          <span className="ml-0.5 text-[10px] text-earth-400">/{r.activeCustomerCount}</span>
+        </span>
+      ),
+    },
+    {
+      key: "completed",
+      header: "完成服務",
+      align: "right",
+      accessor: (r) => <span className="tabular-nums">{r.completedBookings} 堂</span>,
+    },
+    {
+      key: "orders",
+      header: "訂單",
+      align: "right",
+      priority: "secondary",
+      accessor: (r) => <span className="tabular-nums">{r.transactionCount}</span>,
+    },
+    {
+      key: "revenue",
+      header: "總收入",
+      align: "right",
+      accessor: (r) => (
+        <span className="tabular-nums text-earth-900">
+          NT$ {r.totalRevenue.toLocaleString()}
+        </span>
+      ),
+    },
+    {
+      key: "fee",
+      header: "空間費",
+      align: "right",
+      priority: "secondary",
+      accessor: (r) =>
+        r.spaceFee > 0 ? (
+          <span className="tabular-nums text-red-600">
+            -NT$ {r.spaceFee.toLocaleString()}
+          </span>
+        ) : (
+          <span className="text-earth-300">—</span>
+        ),
+    },
+    {
+      key: "net",
+      header: "淨收",
+      align: "right",
+      accessor: (r) => (
+        <span className="font-semibold tabular-nums text-primary-700">
+          NT$ {r.netRevenue.toLocaleString()}
+        </span>
+      ),
+    },
+  ];
+
+  type CategoryRow = RevenueByCategory[number];
+  const categoryColumns: Column<CategoryRow>[] = [
+    {
+      key: "name",
+      header: "店長",
+      accessor: (r) => <span className="text-sm font-medium text-earth-900">{r.staffName}</span>,
+    },
+    {
+      key: "trial",
+      header: "體驗",
+      align: "right",
+      accessor: (r) =>
+        r.trialRevenue > 0 ? (
+          <span className="tabular-nums">NT$ {r.trialRevenue.toLocaleString()}</span>
+        ) : (
+          <span className="text-earth-300">—</span>
+        ),
+    },
+    {
+      key: "single",
+      header: "單次",
+      align: "right",
+      accessor: (r) =>
+        r.singleRevenue > 0 ? (
+          <span className="tabular-nums">NT$ {r.singleRevenue.toLocaleString()}</span>
+        ) : (
+          <span className="text-earth-300">—</span>
+        ),
+    },
+    {
+      key: "package",
+      header: "課程",
+      align: "right",
+      accessor: (r) =>
+        r.packageRevenue > 0 ? (
+          <span className="tabular-nums">NT$ {r.packageRevenue.toLocaleString()}</span>
+        ) : (
+          <span className="text-earth-300">—</span>
+        ),
+    },
+    {
+      key: "net",
+      header: "淨收",
+      align: "right",
+      accessor: (r) => (
+        <span className="font-semibold tabular-nums text-primary-700">
+          NT$ {r.netRevenue.toLocaleString()}
+        </span>
+      ),
+    },
+  ];
+
   return (
     <FeatureGate plan={plan} feature={FEATURES.BASIC_REPORTS}>
-    <div className="mx-auto max-w-2xl">
-      <div className="mb-5 flex items-center justify-between">
-        <h1 className="text-lg font-bold text-earth-900">報表</h1>
-      </div>
+      <PageShell>
+        <PageHeader
+          title="報表"
+          subtitle={`${displayLabel} 營收摘要`}
+          actions={
+            <>
+              <a
+                href={`/api/export/store-monthly?month=${month}`}
+                className="rounded-md border border-earth-200 bg-white px-3 py-1.5 text-xs font-medium text-earth-700 hover:bg-earth-50"
+                download
+              >
+                全店 CSV
+              </a>
+              <a
+                href={`/api/export/staff-monthly?month=${month}`}
+                className="rounded-md border border-earth-200 bg-white px-3 py-1.5 text-xs font-medium text-earth-700 hover:bg-earth-50"
+                download
+              >
+                店長 CSV
+              </a>
+            </>
+          }
+        />
 
-      {/* Date range filter */}
-      <ReportDateRange
-        activePreset={activePreset}
-        startDate={startDate}
-        endDate={endDate}
-      />
+        <ReportDateRange
+          activePreset={activePreset}
+          startDate={startDate}
+          endDate={endDate}
+        />
 
-      {/* Period label */}
-      <p className="mt-4 mb-4 text-sm text-earth-500">
-        {displayLabel} 營收摘要
-      </p>
+        <KpiStrip
+          items={[
+            {
+              label: "本月營收",
+              value: `NT$ ${storeSummary.netCourseRevenue.toLocaleString()}`,
+              tone: "primary",
+            },
+            {
+              label: "完成服務",
+              value: `${storeSummary.completedBookings} 堂`,
+              tone: "green",
+            },
+            { label: "訂單數", value: `${totalOrders} 筆`, tone: "blue" },
+            {
+              label: "退款",
+              value: `NT$ ${Math.abs(storeSummary.totalRefund).toLocaleString()}`,
+              tone: storeSummary.totalRefund < 0 ? "amber" : "earth",
+            },
+          ]}
+        />
 
-      {/* Summary cards */}
-      <div className="mb-6 grid grid-cols-2 gap-3">
-        <div className="rounded-xl border border-earth-200 bg-white p-3.5 shadow-sm">
-          <p className="text-xs text-earth-500">課程總收入</p>
-          <p className="text-lg font-bold text-earth-900">
-            ${storeSummary.totalCourseRevenue.toLocaleString()}
-          </p>
-        </div>
-        <div className="rounded-xl border border-earth-200 bg-white p-3.5 shadow-sm">
-          <p className="text-xs text-earth-500">退款</p>
-          <p className="text-lg font-bold text-red-600">
-            ${Math.abs(storeSummary.totalRefund).toLocaleString()}
-          </p>
-        </div>
-        <div className="rounded-xl border border-earth-200 bg-white p-3.5 shadow-sm">
-          <p className="text-xs text-earth-500">完成服務</p>
-          <p className="text-lg font-bold text-earth-900">{storeSummary.completedBookings} 堂</p>
-        </div>
-        <div className="rounded-xl border border-primary-200 bg-primary-50 p-3.5 shadow-sm">
-          <p className="text-xs text-primary-600">淨收入</p>
-          <p className="text-lg font-bold text-primary-700">
-            ${storeSummary.netCourseRevenue.toLocaleString()}
-          </p>
-        </div>
-      </div>
-
-      {/* Staff breakdown */}
-      <section className="mb-6">
-        <h2 className="mb-2 text-sm font-semibold text-earth-800">店長明細</h2>
-        <div className="space-y-2">
-          {storeSummary.staffBreakdown.length === 0 ? (
-            <EmptyState icon="empty" title="本期無資料" description="選擇的期間內沒有店長績效資料" />
-          ) : (
-            storeSummary.staffBreakdown.map((r) => (
-              <div key={r.staffId} className="rounded-xl border border-earth-200 bg-white p-3.5 shadow-sm">
-                <div className="flex items-center justify-between">
-                  <span className="font-medium text-earth-900">{r.staffName}</span>
-                  <span className="text-sm font-semibold text-primary-700">
-                    ${r.netRevenue.toLocaleString()}
-                  </span>
-                </div>
-                <div className="mt-1 flex items-center gap-3 text-xs text-earth-500">
-                  <span>顧客 {r.customerCount}</span>
-                  <span>有效 {r.activeCustomerCount}</span>
-                  <span>服務 {r.completedBookings} 堂</span>
-                  {r.spaceFee > 0 && (
-                    <span className="text-red-500">空間費 ${r.spaceFee.toLocaleString()}</span>
-                  )}
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      </section>
-
-      {/* Revenue by category */}
-      <section className="mb-6">
-        <h2 className="mb-2 text-sm font-semibold text-earth-800">收入類型</h2>
-        {revenueByCategory.length === 0 ? (
-          <EmptyState icon="empty" title="本期無資料" description="選擇的期間內沒有收入類型資料" />
-        ) : (
-          <div className="overflow-x-auto rounded-xl border border-earth-200 bg-white shadow-sm">
-            <table className="w-full text-sm">
-              <thead className="border-b border-earth-100 bg-earth-50/50">
-                <tr>
-                  <th className="px-3 py-2.5 text-left font-medium text-earth-600">店長</th>
-                  <th className="px-3 py-2.5 text-right font-medium text-earth-600">體驗</th>
-                  <th className="px-3 py-2.5 text-right font-medium text-earth-600">單次</th>
-                  <th className="px-3 py-2.5 text-right font-medium text-earth-600">課程</th>
-                  <th className="px-3 py-2.5 text-right font-medium text-earth-600">淨收</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-earth-100">
-                {revenueByCategory.map((r) => (
-                  <tr key={r.staffId} className="hover:bg-earth-50/50 transition-colors">
-                    <td className="px-3 py-2.5 font-medium text-earth-800">{r.staffName}</td>
-                    <td className="px-3 py-2.5 text-right text-earth-600">
-                      {r.trialRevenue > 0 ? `$${r.trialRevenue.toLocaleString()}` : "—"}
-                    </td>
-                    <td className="px-3 py-2.5 text-right text-earth-600">
-                      {r.singleRevenue > 0 ? `$${r.singleRevenue.toLocaleString()}` : "—"}
-                    </td>
-                    <td className="px-3 py-2.5 text-right text-earth-600">
-                      {r.packageRevenue > 0 ? `$${r.packageRevenue.toLocaleString()}` : "—"}
-                    </td>
-                    <td className="px-3 py-2.5 text-right font-semibold text-primary-700">
-                      ${r.netRevenue.toLocaleString()}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        {/* 店長明細 — 主表 */}
+        <section className="rounded-xl border border-earth-200 bg-white">
+          <div className="flex items-center justify-between px-3 py-2">
+            <div>
+              <h2 className="text-sm font-semibold text-earth-800">店長明細</h2>
+              <p className="text-[11px] text-earth-400">
+                顧客數（總 / 有效）· 完成服務 · 總收入 · 淨收
+              </p>
+            </div>
           </div>
-        )}
-      </section>
+          {storeSummary.staffBreakdown.length === 0 ? (
+            <EmptyRow title="本期無資料" hint="選擇的期間內沒有店長績效資料" />
+          ) : (
+            <DataTable
+              columns={staffColumns}
+              rows={storeSummary.staffBreakdown}
+              rowKey={(r) => r.staffId}
+              className="rounded-none border-0 border-t border-earth-100"
+            />
+          )}
+        </section>
 
-      {/* Export */}
-      <section className="mb-4">
-        <h2 className="mb-2 text-sm font-semibold text-earth-800">匯出</h2>
-        <div className="flex flex-wrap gap-2">
-          <a
-            href={`/api/export/store-monthly?month=${month}`}
-            className="rounded-lg border border-earth-300 bg-white px-3 py-1.5 text-sm font-medium text-earth-700 hover:bg-earth-50 transition-colors"
-            download
-          >
-            全店月報 CSV
-          </a>
-          <a
-            href={`/api/export/staff-monthly?month=${month}`}
-            className="rounded-lg border border-earth-300 bg-white px-3 py-1.5 text-sm font-medium text-earth-700 hover:bg-earth-50 transition-colors"
-            download
-          >
-            店長月報 CSV
-          </a>
-        </div>
-      </section>
-    </div>
+        {/* 收入類型 — 次表 */}
+        <section className="rounded-xl border border-earth-200 bg-white">
+          <div className="flex items-center justify-between px-3 py-2">
+            <div>
+              <h2 className="text-sm font-semibold text-earth-800">收入類型</h2>
+              <p className="text-[11px] text-earth-400">體驗 / 單次 / 課程 拆分 · 依店長彙總</p>
+            </div>
+          </div>
+          {revenueByCategory.length === 0 ? (
+            <EmptyRow title="本期無資料" hint="選擇的期間內沒有收入類型資料" />
+          ) : (
+            <DataTable
+              columns={categoryColumns}
+              rows={revenueByCategory}
+              rowKey={(r) => r.staffId}
+              className="rounded-none border-0 border-t border-earth-100"
+            />
+          )}
+        </section>
+      </PageShell>
     </FeatureGate>
   );
 }
