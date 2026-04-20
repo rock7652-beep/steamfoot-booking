@@ -111,7 +111,7 @@ export default async function SettingsIndexPage() {
   const quickActions = [
     { label: "新增預約", href: "/dashboard/bookings/new" },
     { label: "新增顧客", href: "/dashboard/customers/new" },
-    { label: "今日預約", href: "/dashboard/bookings?view=day" },
+    { label: "預約月曆", href: "/dashboard/bookings" },
   ];
 
   const systemInfo: InfoListItem[] = [
