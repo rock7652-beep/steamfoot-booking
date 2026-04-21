@@ -15,15 +15,15 @@ export function EmptyStateCompact({
   cta,
   size = "inline",
 }: EmptyStateCompactProps) {
-  const h = size === "inline" ? "min-h-[140px]" : "min-h-[220px]";
+  const h = size === "inline" ? "min-h-[160px]" : "min-h-[240px]";
   return (
     <div
-      className={`flex ${h} flex-col items-center justify-center gap-2 rounded-md border border-dashed border-earth-200 bg-earth-50 px-6 py-6 text-center`}
+      className={`flex ${h} flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-earth-200 bg-earth-50 px-6 py-8 text-center`}
     >
-      {icon && <div className="text-earth-300">{icon}</div>}
-      <p className="text-sm font-semibold text-earth-700">{title}</p>
-      {hint && <p className="text-xs text-earth-500">{hint}</p>}
-      {cta && <div className="mt-1">{cta}</div>}
+      {icon && <div className="text-earth-400">{icon}</div>}
+      <p className="text-base font-semibold text-earth-800">{title}</p>
+      {hint && <p className="text-sm text-earth-700">{hint}</p>}
+      {cta && <div className="mt-2">{cta}</div>}
     </div>
   );
 }
