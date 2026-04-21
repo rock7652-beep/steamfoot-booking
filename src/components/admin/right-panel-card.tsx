@@ -24,21 +24,21 @@ export function RightPanelCard({
         ? "bg-amber-50 text-amber-700"
         : "bg-earth-100 text-earth-700";
   return (
-    <div className={`rounded-xl border border-earth-200 bg-white p-5 ${className}`}>
+    <div className={`rounded-lg border border-earth-200 bg-white p-4 ${className}`}>
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <h3 className="text-lg font-bold text-earth-900">{title}</h3>
+          <h3 className="text-base font-semibold text-earth-900">{title}</h3>
           {count != null && (
             <span
-              className={`inline-flex h-6 min-w-6 items-center justify-center rounded px-2 text-sm font-semibold tabular-nums ${countClass}`}
+              className={`inline-flex h-5 min-w-5 items-center justify-center rounded px-1.5 text-xs font-semibold tabular-nums ${countClass}`}
             >
               {count}
             </span>
           )}
         </div>
-        {rightLink && <div className="text-sm font-semibold text-primary-700">{rightLink}</div>}
+        {rightLink && <div className="text-sm text-primary-600">{rightLink}</div>}
       </div>
-      <div className="mt-4">{children}</div>
+      <div className="mt-3">{children}</div>
     </div>
   );
 }

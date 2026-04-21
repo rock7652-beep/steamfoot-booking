@@ -8,7 +8,7 @@ interface DataTableProps {
 export function DataTable({ children, className = "" }: DataTableProps) {
   return (
     <div className={`w-full overflow-x-auto ${className}`}>
-      <table className="w-full border-collapse text-base">{children}</table>
+      <table className="w-full border-collapse text-sm">{children}</table>
     </div>
   );
 }
@@ -22,7 +22,7 @@ export function TH({ className = "", align = "left", children, ...rest }: THProp
     align === "right" ? "text-right" : align === "center" ? "text-center" : "text-left";
   return (
     <th
-      className={`h-12 border-b border-earth-200 bg-earth-50 px-3 text-sm font-semibold text-earth-700 ${alignClass} ${className}`}
+      className={`h-10 border-b border-earth-200 bg-earth-50 px-3 text-xs font-semibold uppercase tracking-wide text-earth-500 ${alignClass} ${className}`}
       {...rest}
     >
       {children}
@@ -52,7 +52,7 @@ export function TD({
   const numberClass = number ? "tabular-nums" : "";
   return (
     <td
-      className={`h-14 border-b border-earth-100 px-3 align-middle text-earth-800 ${alignClass} ${numberClass} ${className}`}
+      className={`h-12 border-b border-earth-100 px-3 align-middle text-earth-700 ${alignClass} ${numberClass} ${className}`}
       {...rest}
     >
       {children}

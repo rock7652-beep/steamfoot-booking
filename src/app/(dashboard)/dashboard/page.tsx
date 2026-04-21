@@ -49,11 +49,11 @@ export default async function DashboardHomePage() {
   ]);
 
   return (
-    <div className="mx-auto max-w-[1280px] space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-[1280px] space-y-4 px-4 py-4 sm:px-6">
       {/* 頁首 */}
-      <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-bold text-earth-900">今日工作台</h1>
-        <p className="text-base text-earth-700">
+      <header className="flex flex-col gap-0.5">
+        <h1 className="text-lg font-bold text-earth-900">今日工作台</h1>
+        <p className="text-xs text-earth-500">
           {todayLabel}　歡迎回來，{user.name ?? "店長"}
         </p>
       </header>
@@ -101,9 +101,9 @@ export default async function DashboardHomePage() {
       <BottomSummary isOwner={isOwner} />
 
       {/* Footer tip */}
-      <p className="pb-6 text-center text-sm text-earth-700">
+      <p className="pb-4 text-center text-xs text-earth-500">
         想看更深入的資料？
-        <Link href="/dashboard/revenue" className="ml-1 font-semibold text-primary-700 hover:underline">
+        <Link href="/dashboard/revenue" className="ml-1 font-medium text-primary-600 hover:underline">
           前往完整分析
         </Link>
       </p>

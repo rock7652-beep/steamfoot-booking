@@ -47,23 +47,23 @@ export function BottomSummary({ isOwner }: BottomSummaryProps) {
   const visible = LINKS.filter((l) => !l.ownerOnly || isOwner);
 
   return (
-    <section className="rounded-xl border border-earth-200 bg-earth-50/60 p-5">
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-base font-semibold text-earth-700">深入分析與設定</h2>
-        <span className="text-sm text-earth-700">有空再看</span>
+    <section className="rounded-lg border border-earth-200 bg-earth-50/60 p-4">
+      <div className="mb-2 flex items-center justify-between">
+        <h2 className="text-sm font-semibold text-earth-700">深入分析與設定</h2>
+        <span className="text-xs text-earth-500">有空再看</span>
       </div>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
         {visible.map((l) => (
           <Link
             key={l.href}
             href={l.href}
-            className="flex min-h-[64px] items-center justify-between rounded-lg border border-earth-200 bg-white px-4 py-3 hover:border-primary-300 hover:bg-primary-50"
+            className="flex items-center justify-between rounded-md border border-earth-200 bg-white px-3 py-2 hover:border-primary-300 hover:bg-primary-50"
           >
             <div className="min-w-0">
-              <p className="text-base font-semibold text-earth-900">{l.label}</p>
-              <p className="mt-0.5 truncate text-sm text-earth-700">{l.description}</p>
+              <p className="text-sm font-medium text-earth-800">{l.label}</p>
+              <p className="mt-0.5 truncate text-xs text-earth-500">{l.description}</p>
             </div>
-            <span className="ml-2 flex-shrink-0 text-earth-700">→</span>
+            <span className="ml-2 flex-shrink-0 text-earth-400">→</span>
           </Link>
         ))}
       </div>

@@ -25,44 +25,57 @@ export async function KpiRow({ activeStoreId, isOwner: _isOwner }: KpiRowProps) 
   if (!user) return null;
   const storeFilter = getStoreFilter(user, activeStoreId);
 
-  // 並行查詢：today summary + 近 7 日新客 + 今日預約時段分布（for insight）
+  // 並行查詢：today summary + 近 7 日新客（含 delta + 資料完整度） + 今日預約時段分布（for insight）
   const { start: todayStart, end: todayEnd } = todayRange();
   const sevenDaysAgo = new Date(todayStart);
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+  const fourteenDaysAgo = new Date(todayStart);
+  fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 13);
 
-  const [summary, newCustomerCount, todaySlots, incompleteCustomers] = await Promise.all([
-    getDashboardTodaySummary(activeStoreId),
-    prisma.customer.count({
-      where: {
-        createdAt: { gte: sevenDaysAgo, lt: todayEnd },
-        ...storeFilter,
-      },
-    }).catch(() => 0),
-    prisma.booking
-      .findMany({
-        where: {
-          bookingDate: bookingDateToday(),
-          bookingStatus: { in: [...ACTIVE_BOOKING_STATUSES] },
-          ...storeFilter,
-        },
-        select: { slotTime: true },
-      })
-      .catch(() => []),
-    prisma.customer
-      .count({
-        where: {
-          OR: [
-            { birthday: null },
-            { gender: null },
-            { email: null },
-            { height: null },
-          ],
-          createdAt: { gte: sevenDaysAgo, lt: todayEnd },
-          ...storeFilter,
-        },
-      })
-      .catch(() => 0),
-  ]);
+  const [summary, newCustomerCount, prevWeekNewCount, todaySlots, incompleteCustomers] =
+    await Promise.all([
+      getDashboardTodaySummary(activeStoreId),
+      prisma.customer
+        .count({
+          where: {
+            createdAt: { gte: sevenDaysAgo, lt: todayEnd },
+            ...storeFilter,
+          },
+        })
+        .catch(() => 0),
+      prisma.customer
+        .count({
+          where: {
+            createdAt: { gte: fourteenDaysAgo, lt: sevenDaysAgo },
+            ...storeFilter,
+          },
+        })
+        .catch(() => 0),
+      prisma.booking
+        .findMany({
+          where: {
+            bookingDate: bookingDateToday(),
+            bookingStatus: { in: [...ACTIVE_BOOKING_STATUSES] },
+            ...storeFilter,
+          },
+          select: { slotTime: true },
+        })
+        .catch(() => []),
+      prisma.customer
+        .count({
+          where: {
+            OR: [
+              { birthday: null },
+              { gender: null },
+              { email: null },
+              { height: null },
+            ],
+            createdAt: { gte: sevenDaysAgo, lt: todayEnd },
+            ...storeFilter,
+          },
+        })
+        .catch(() => 0),
+    ]);
 
   const pending = summary.todayUnassignedCount + summary.noShowCount;
   const bookingChange = summary.todayBookingCount - summary.lastWeekBookingCount;
@@ -149,14 +162,39 @@ export async function KpiRow({ activeStoreId, isOwner: _isOwner }: KpiRowProps) 
             : `未指派 ${summary.todayUnassignedCount} · 未到 ${summary.noShowCount}`
         }
       />
-      <KpiCard
-        label="新顧客（近 7 日）"
-        value={newCustomerCount}
-        hint={newCustomerCount > 0 ? "查看最近加入的顧客" : "近 7 日無新顧客加入"}
-      />
-      {/* 第 4 卡：insight 風格（非數字 KPI） */}
+      {/* 第 3 卡：新顧客 — 加判斷點（delta + 資料完整度） */}
+      {(() => {
+        const weekChange = newCustomerCount - prevWeekNewCount;
+        let hint: string;
+        if (newCustomerCount === 0) {
+          hint = "近 7 日無新顧客加入";
+        } else if (incompleteCustomers > 0) {
+          // 可行動 hint：呼應 B 區的「新客資料待補」task card
+          hint = `其中 ${incompleteCustomers} 位資料待補`;
+        } else if (weekChange === 0) {
+          hint = "與前一週持平";
+        } else {
+          hint = `較前一週 ${weekChange > 0 ? "+" : ""}${weekChange}`;
+        }
+        return (
+          <KpiCard
+            label="新顧客（近 7 日）"
+            value={newCustomerCount}
+            hint={hint}
+            delta={
+              newCustomerCount > 0 && weekChange !== 0
+                ? {
+                    value: `${weekChange > 0 ? "+" : ""}${weekChange}`,
+                    trend: weekChange > 0 ? "up" : "down",
+                  }
+                : null
+            }
+          />
+        );
+      })()}
+      {/* 第 4 卡：insight 風格（非數字 KPI）— 對齊 admin/KpiCard 原尺寸 */}
       <div
-        className={`relative flex min-h-[108px] flex-col justify-center gap-1.5 rounded-lg border bg-white px-5 py-4 ${
+        className={`relative flex h-[88px] flex-col justify-center gap-1 rounded-md border bg-white px-4 py-3 ${
           insight.tone === "warning"
             ? "border-amber-200 border-l-[3px] border-l-amber-500"
             : insight.tone === "info"
@@ -167,18 +205,18 @@ export async function KpiRow({ activeStoreId, isOwner: _isOwner }: KpiRowProps) 
         <div className="flex items-center gap-1.5">
           {insight.tone !== "neutral" && (
             <span
-              className={`h-2 w-2 rounded-full ${
+              className={`h-1.5 w-1.5 rounded-full ${
                 insight.tone === "warning" ? "bg-amber-500" : "bg-blue-500"
               }`}
               aria-hidden
             />
           )}
-          <p className="text-base font-medium text-earth-700">今日營運重點</p>
+          <p className="text-xs font-medium text-earth-500">今日營運重點</p>
         </div>
-        <p className="text-xl font-bold leading-snug text-earth-900">
+        <p className="text-[15px] font-bold leading-snug text-earth-900">
           {insight.title}
         </p>
-        <p className="text-sm text-earth-700">{insight.hint}</p>
+        <p className="text-xs text-earth-500">{insight.hint}</p>
       </div>
     </div>
   );

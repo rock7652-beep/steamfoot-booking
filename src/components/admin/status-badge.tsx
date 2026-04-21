@@ -20,9 +20,9 @@ export function StatusBadge({ variant, children, dot = true }: StatusBadgeProps)
   const v = VARIANT[variant];
   return (
     <span
-      className={`inline-flex h-[26px] items-center gap-1.5 rounded-md px-2.5 text-sm font-semibold ${v.bg} ${v.text}`}
+      className={`inline-flex h-[22px] items-center gap-1 rounded px-2 text-xs font-semibold ${v.bg} ${v.text}`}
     >
-      {dot && <span className={`h-2 w-2 rounded-full ${v.dot}`} aria-hidden />}
+      {dot && <span className={`h-1.5 w-1.5 rounded-full ${v.dot}`} aria-hidden />}
       {children}
     </span>
   );

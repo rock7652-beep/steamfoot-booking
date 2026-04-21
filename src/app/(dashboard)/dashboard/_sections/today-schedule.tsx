@@ -35,31 +35,31 @@ export async function TodaySchedule({ activeStoreId }: TodayScheduleProps) {
     .catch(() => []);
 
   return (
-    <section className="flex h-full flex-col rounded-xl border border-earth-200 bg-white">
-      <div className="flex items-center justify-between gap-3 border-b border-earth-100 px-5 py-4">
+    <section className="flex h-full flex-col rounded-lg border border-earth-200 bg-white">
+      <div className="flex items-center justify-between gap-3 border-b border-earth-100 px-4 py-3">
         <div className="flex items-center gap-2">
-          <h2 className="text-xl font-bold text-earth-900">今日預約</h2>
-          <span className="inline-flex h-7 min-w-7 items-center justify-center rounded-md bg-earth-100 px-2 text-base font-semibold tabular-nums text-earth-800">
+          <h2 className="text-base font-semibold text-earth-900">今日預約</h2>
+          <span className="inline-flex h-5 min-w-5 items-center justify-center rounded bg-earth-100 px-1.5 text-xs font-semibold tabular-nums text-earth-700">
             {bookings.length}
           </span>
         </div>
         <Link
           href="/dashboard/bookings"
-          className="flex min-h-[36px] items-center rounded-md px-2 text-base font-semibold text-primary-700 hover:bg-earth-50 hover:text-primary-800"
+          className="text-sm text-primary-600 hover:text-primary-700"
         >
           查看全部 →
         </Link>
       </div>
 
       {bookings.length === 0 ? (
-        <div className="flex-1 p-5">
+        <div className="flex-1 p-4">
           <EmptyStateCompact
             title="今日沒有預約"
             hint="客人預約時會顯示在這裡"
             cta={
               <Link
                 href="/dashboard/bookings/new"
-                className="inline-flex min-h-[44px] items-center rounded-xl bg-primary-600 px-5 text-base font-semibold text-white hover:bg-primary-700"
+                className="inline-flex h-8 items-center rounded-md bg-primary-600 px-3 text-sm font-medium text-white hover:bg-primary-700"
               >
                 ＋ 新增預約
               </Link>
@@ -73,13 +73,13 @@ export async function TodaySchedule({ activeStoreId }: TodayScheduleProps) {
             <DataTable>
               <thead>
                 <tr>
-                  <TH className="w-24">時間</TH>
+                  <TH className="w-20">時間</TH>
                   <TH>顧客</TH>
                   <TH>項目</TH>
-                  <TH className="w-28">教練</TH>
-                  <TH className="w-28">狀態</TH>
+                  <TH className="w-24">教練</TH>
+                  <TH className="w-24">狀態</TH>
                   <TH align="right" className="w-24">金額</TH>
-                  <TH align="right" className="w-24">操作</TH>
+                  <TH align="right" className="w-20">操作</TH>
                 </tr>
               </thead>
               <tbody>
@@ -91,27 +91,25 @@ export async function TodaySchedule({ activeStoreId }: TodayScheduleProps) {
                   const people = b.people > 1 ? ` ×${b.people}` : "";
                   return (
                     <TR key={b.id}>
-                      <TD className="text-lg font-bold text-earth-900 tabular-nums">
+                      <TD className="font-semibold text-earth-900 tabular-nums">
                         {b.slotTime}
                       </TD>
                       <TD>
-                        <div className="truncate font-medium">
+                        <div className="truncate">
                           {b.customer?.name ?? "（無名）"}
                           {people && (
-                            <span className="ml-1 text-sm text-earth-700">{people}</span>
+                            <span className="ml-1 text-xs text-earth-400">{people}</span>
                           )}
                         </div>
                       </TD>
                       <TD>
-                        <span className="truncate text-earth-800">
+                        <span className="truncate text-earth-700">
                           {b.servicePlan?.name ?? (b.isMakeup ? "補課" : "—")}
                         </span>
                       </TD>
                       <TD>
-                        <span className="truncate text-earth-800">
-                          {b.revenueStaff?.displayName ?? (
-                            <span className="text-earth-700">未指派</span>
-                          )}
+                        <span className="truncate text-earth-600">
+                          {b.revenueStaff?.displayName ?? "未指派"}
                         </span>
                       </TD>
                       <TD>
@@ -127,7 +125,7 @@ export async function TodaySchedule({ activeStoreId }: TodayScheduleProps) {
                       <TD align="right">
                         <Link
                           href={`/dashboard/bookings/${b.id}`}
-                          className="text-base font-semibold text-primary-700 hover:text-primary-800"
+                          className="text-sm text-primary-600 hover:text-primary-700"
                         >
                           查看 →
                         </Link>
@@ -150,29 +148,29 @@ export async function TodaySchedule({ activeStoreId }: TodayScheduleProps) {
                 <Link
                   key={b.id}
                   href={`/dashboard/bookings/${b.id}`}
-                  className="flex min-h-[72px] items-center gap-3 px-5 py-4 hover:bg-earth-50"
+                  className="flex items-center gap-3 px-4 py-3 hover:bg-earth-50"
                 >
-                  <div className="flex-shrink-0 w-16 text-center">
-                    <div className="text-xl font-bold text-earth-900 tabular-nums">
+                  <div className="flex-shrink-0 w-14 text-center">
+                    <div className="text-sm font-semibold text-earth-900 tabular-nums">
                       {b.slotTime}
                     </div>
                     {b.people > 1 && (
-                      <div className="text-sm text-earth-700">×{b.people}</div>
+                      <div className="text-xs text-earth-500">×{b.people}</div>
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="truncate text-base font-semibold text-earth-900">
+                      <span className="truncate text-sm font-medium text-earth-900">
                         {b.customer?.name ?? "（無名）"}
                       </span>
                       <StatusBadge variant={meta.variant}>{meta.label}</StatusBadge>
                     </div>
-                    <p className="mt-1 truncate text-sm text-earth-700">
+                    <p className="mt-0.5 truncate text-xs text-earth-500">
                       {b.servicePlan?.name ?? (b.isMakeup ? "補課" : "—")}
                       {b.revenueStaff?.displayName && ` · ${b.revenueStaff.displayName}`}
                     </p>
                   </div>
-                  <span className="flex-shrink-0 text-earth-700">›</span>
+                  <span className="flex-shrink-0 text-earth-300">›</span>
                 </Link>
               );
             })}
@@ -193,37 +191,37 @@ function BookingAmount({
   plan: { price: unknown; sessionCount: number } | null;
 }) {
   if (isMakeup) {
-    return <span className="text-sm text-earth-700">補課</span>;
+    return <span className="text-xs text-earth-400">補課</span>;
   }
   if (!plan) {
-    return <span className="text-earth-700">—</span>;
+    return <span className="text-earth-400">—</span>;
   }
   const planPrice = Number(plan.price ?? 0);
   if (!planPrice) {
-    return <span className="text-earth-700">—</span>;
+    return <span className="text-earth-400">—</span>;
   }
   if (bookingType === "PACKAGE_SESSION" && plan.sessionCount > 1) {
     const perSession = Math.round(planPrice / plan.sessionCount);
     return (
-      <span className="text-earth-800" title={`方案定價 NT$ ${planPrice.toLocaleString()} / ${plan.sessionCount} 堂`}>
-        <span className="text-sm text-earth-700">≈ </span>
+      <span className="text-earth-600" title={`方案定價 NT$ ${planPrice.toLocaleString()} / ${plan.sessionCount} 堂`}>
+        <span className="text-xs text-earth-400">≈ </span>
         NT$ {perSession.toLocaleString()}
       </span>
     );
   }
-  return <span className="text-earth-900">NT$ {planPrice.toLocaleString()}</span>;
+  return <span className="text-earth-700">NT$ {planPrice.toLocaleString()}</span>;
 }
 
 export function TodayScheduleSkeleton() {
   return (
-    <div className="rounded-xl border border-earth-200 bg-white">
-      <div className="flex items-center justify-between border-b border-earth-100 px-5 py-4">
-        <div className="h-6 w-24 rounded bg-earth-100" />
-        <div className="h-5 w-20 rounded bg-earth-100" />
+    <div className="rounded-lg border border-earth-200 bg-white">
+      <div className="flex items-center justify-between border-b border-earth-100 px-4 py-3">
+        <div className="h-5 w-24 rounded bg-earth-100" />
+        <div className="h-4 w-20 rounded bg-earth-100" />
       </div>
-      <div className="space-y-2 p-5">
+      <div className="space-y-2 p-4">
         {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="h-14 animate-pulse rounded bg-earth-50" />
+          <div key={i} className="h-10 animate-pulse rounded bg-earth-50" />
         ))}
       </div>
     </div>

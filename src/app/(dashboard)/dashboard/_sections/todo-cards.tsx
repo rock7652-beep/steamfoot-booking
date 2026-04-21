@@ -167,28 +167,28 @@ export async function TodoCards({ activeStoreId }: TodoCardsProps) {
   // 全部沒有 → 顯示正向狀態
   if (displayed.length === 0) {
     return (
-      <section className="rounded-xl border border-earth-200 bg-white p-6">
-        <div className="mb-4 flex items-center gap-2">
-          <h2 className="text-xl font-bold text-earth-900">今天先做這些事</h2>
+      <section className="rounded-lg border border-earth-200 bg-white p-4">
+        <div className="mb-3 flex items-center gap-2">
+          <h2 className="text-base font-semibold text-earth-900">今天先做這些事</h2>
         </div>
-        <div className="flex flex-col items-center gap-3 py-8 text-center">
-          <span className="text-4xl">☀️</span>
-          <p className="text-lg font-semibold text-earth-800">
+        <div className="flex flex-col items-center gap-2 py-6 text-center">
+          <span className="text-2xl">☀️</span>
+          <p className="text-sm font-semibold text-earth-700">
             今天沒有需要立即處理的事
           </p>
-          <p className="text-base text-earth-700">
+          <p className="text-xs text-earth-500">
             可以先看看今日預約，或新增一筆預約
           </p>
           <div className="mt-2 flex flex-col gap-2 sm:flex-row">
             <Link
               href="/dashboard/bookings"
-              className="flex min-h-[48px] items-center justify-center rounded-xl border border-earth-300 bg-white px-6 text-base font-semibold text-earth-800 hover:bg-earth-50"
+              className="inline-flex h-8 items-center rounded-md border border-earth-300 bg-white px-3 text-sm font-medium text-earth-700 hover:bg-earth-50"
             >
               查看今日預約
             </Link>
             <Link
               href="/dashboard/bookings/new"
-              className="flex min-h-[48px] items-center justify-center rounded-xl bg-primary-600 px-6 text-base font-semibold text-white hover:bg-primary-700"
+              className="inline-flex h-8 items-center rounded-md bg-primary-600 px-3 text-sm font-medium text-white hover:bg-primary-700"
             >
               ＋ 新增預約
             </Link>
@@ -200,37 +200,37 @@ export async function TodoCards({ activeStoreId }: TodoCardsProps) {
 
   return (
     <section>
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-xl font-bold text-earth-900">今天先做這些事</h2>
-        <span className="rounded-md bg-earth-100 px-2.5 py-1 text-sm font-semibold text-earth-800">
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="text-base font-semibold text-earth-900">今天先做這些事</h2>
+        <span className="rounded bg-earth-100 px-2 py-0.5 text-xs font-semibold text-earth-700">
           {displayed.length} 項
         </span>
       </div>
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
         {displayed.map((item) => {
           const s = TONE_STYLE[item.tone];
           return (
             <div
               key={item.key}
-              className={`flex flex-col gap-3 rounded-xl border border-earth-200 bg-white p-5 ${s.bar} sm:flex-row sm:items-center sm:justify-between`}
+              className={`flex flex-col gap-2 rounded-lg border border-earth-200 bg-white p-3 ${s.bar} sm:flex-row sm:items-center sm:justify-between`}
             >
-              <div className="flex items-start gap-3 min-w-0">
+              <div className="flex items-start gap-2.5 min-w-0">
                 <span
-                  className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg text-lg font-bold ${s.badge}`}
+                  className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded text-sm font-bold ${s.badge}`}
                   aria-hidden
                 >
                   {item.icon}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="text-base font-bold leading-snug text-earth-900">
+                  <p className="text-sm font-semibold leading-snug text-earth-900">
                     {item.title}
                   </p>
-                  <p className="mt-1 text-sm text-earth-700">{item.description}</p>
+                  <p className="mt-0.5 text-xs text-earth-500">{item.description}</p>
                 </div>
               </div>
               <Link
                 href={item.ctaHref}
-                className={`flex min-h-[44px] flex-shrink-0 items-center justify-center rounded-xl px-5 text-base font-semibold shadow-sm transition ${s.cta}`}
+                className={`inline-flex h-8 flex-shrink-0 items-center justify-center rounded-md px-3 text-sm font-medium transition ${s.cta}`}
               >
                 {item.ctaLabel}
               </Link>
@@ -245,15 +245,15 @@ export async function TodoCards({ activeStoreId }: TodoCardsProps) {
 export function TodoCardsSkeleton() {
   return (
     <section>
-      <div className="mb-4 h-7 w-40 rounded bg-earth-100" />
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+      <div className="mb-3 h-5 w-32 rounded bg-earth-100" />
+      <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
         {Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="h-[100px] rounded-xl border border-earth-200 bg-white p-5">
-            <div className="flex animate-pulse gap-3">
-              <div className="h-10 w-10 rounded-lg bg-earth-100" />
-              <div className="flex-1 space-y-2">
-                <div className="h-4 w-3/4 rounded bg-earth-100" />
-                <div className="h-3 w-1/2 rounded bg-earth-100" />
+          <div key={i} className="h-[72px] rounded-lg border border-earth-200 bg-white p-3">
+            <div className="flex animate-pulse gap-2">
+              <div className="h-7 w-7 rounded bg-earth-100" />
+              <div className="flex-1 space-y-1.5">
+                <div className="h-3 w-3/4 rounded bg-earth-100" />
+                <div className="h-2.5 w-1/2 rounded bg-earth-100" />
               </div>
             </div>
           </div>

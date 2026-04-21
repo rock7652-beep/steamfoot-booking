@@ -45,39 +45,39 @@ export function KpiCard({
   return (
     <div
       onClick={onClick}
-      className={`relative flex min-h-[108px] flex-col justify-center gap-1.5 rounded-lg border border-earth-200 bg-white px-5 py-4 ${borderLeft} ${
+      className={`relative flex h-[88px] flex-col justify-center gap-1 rounded-md border border-earth-200 bg-white px-4 py-3 ${borderLeft} ${
         clickable
-          ? "cursor-pointer transition-shadow hover:shadow-[0_1px_3px_rgba(20,24,31,0.08)]"
+          ? "cursor-pointer transition-shadow hover:shadow-[0_1px_2px_rgba(20,24,31,0.06)]"
           : ""
       }`}
     >
       <div className="flex items-center gap-1.5">
         {emphasis === "warning" && (
-          <span className={`h-2 w-2 rounded-full ${dotColor}`} aria-hidden />
+          <span className={`h-1.5 w-1.5 rounded-full ${dotColor}`} aria-hidden />
         )}
-        <p className="text-base font-medium text-earth-700">{label}</p>
+        <p className="text-xs font-medium text-earth-500">{label}</p>
       </div>
       <div className="flex items-baseline gap-2">
-        <p className="text-[28px] font-bold leading-8 tabular-nums text-earth-900">
+        <p className="text-[22px] font-bold leading-7 tabular-nums text-earth-900">
           {value}
         </p>
         {delta && (
-          <span className={`text-sm font-semibold ${TREND[delta.trend].color}`}>
+          <span className={`text-xs font-semibold ${TREND[delta.trend].color}`}>
             {TREND[delta.trend].icon} {delta.value}
           </span>
         )}
       </div>
-      {hint && <p className="text-sm text-earth-700">{hint}</p>}
+      {hint && <p className="text-xs text-earth-500">{hint}</p>}
     </div>
   );
 }
 
 export function KpiCardSkeleton() {
   return (
-    <div className="flex min-h-[108px] animate-pulse flex-col justify-center gap-2 rounded-lg border border-earth-200 bg-white px-5 py-4">
-      <div className="h-4 w-20 rounded bg-earth-100" />
-      <div className="h-7 w-24 rounded bg-earth-100" />
-      <div className="h-4 w-16 rounded bg-earth-100" />
+    <div className="flex h-[88px] animate-pulse flex-col justify-center gap-2 rounded-md border border-earth-200 bg-white px-4 py-3">
+      <div className="h-3 w-16 rounded bg-earth-100" />
+      <div className="h-6 w-20 rounded bg-earth-100" />
+      <div className="h-3 w-14 rounded bg-earth-100" />
     </div>
   );
 }

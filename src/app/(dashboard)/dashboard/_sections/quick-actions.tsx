@@ -48,32 +48,32 @@ const ACTIONS: QuickAction[] = [
 export function QuickActions() {
   return (
     <section>
-      <h2 className="mb-4 text-xl font-bold text-earth-900">快捷操作</h2>
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <h2 className="mb-3 text-base font-semibold text-earth-900">快捷操作</h2>
+      <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
         {ACTIONS.map((a) => (
           <Link
             key={a.href}
             href={a.href}
-            className={`flex min-h-[96px] flex-col justify-center gap-1.5 rounded-xl border px-5 py-4 shadow-sm transition active:scale-[0.98] ${
+            className={`flex min-h-[72px] flex-col justify-center gap-1 rounded-lg border px-4 py-3 transition ${
               a.tone === "primary"
                 ? "border-primary-300 bg-primary-600 text-white hover:bg-primary-700"
-                : "border-earth-300 bg-white text-earth-900 hover:bg-earth-50"
+                : "border-earth-200 bg-white text-earth-900 hover:bg-earth-50"
             }`}
           >
             <div className="flex items-center gap-2">
               <span
-                className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg text-xl font-bold ${
+                className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded text-base font-bold ${
                   a.tone === "primary" ? "bg-white/20 text-white" : "bg-primary-50 text-primary-700"
                 }`}
                 aria-hidden
               >
                 {a.icon}
               </span>
-              <span className="text-lg font-bold leading-tight">{a.label}</span>
+              <span className="text-sm font-semibold leading-tight">{a.label}</span>
             </div>
             <p
-              className={`text-sm ${
-                a.tone === "primary" ? "text-white/90" : "text-earth-700"
+              className={`text-xs ${
+                a.tone === "primary" ? "text-white/80" : "text-earth-500"
               }`}
             >
               {a.description}
