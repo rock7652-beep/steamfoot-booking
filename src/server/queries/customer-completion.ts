@@ -12,10 +12,15 @@ import {
  * 不得各自用不同 key 查 customer，避免「顯示看得到、儲存找不到」。
  *
  * 查找順序（嚴格同店；任一命中即回）：
- *   A. session.customerId 直查
+ *   A. session.customerId 直查（會驗證 DB 是否存在，stale 則 fall through）
  *   B. Customer.userId = session.userId（auto-bind 已完成但 JWT 尚未刷新）
  *   C. 同店 email 唯一匹配（來源：session.email 或 payload.email）
  *   D. 同店 phone 唯一匹配（僅 payload.phone；session 無 phone）
+ *
+ * 穩定性保證：
+ *   - sessionCustomerId 可能 stale（顧客被刪、清庫後 cookie 殘留、跨環境 JWT），
+ *     A 路徑會驗 DB；找不到時 log warning 並 fall through 到 B/C/D，不會直接失敗
+ *   - B/C/D 都找不到 → 回傳 reason: "not_found"，由 caller 走 create / re-bind
  *
  * 安全規則：
  *   - 嚴格 store-scoped（storeId 必符）
@@ -94,6 +99,10 @@ export async function resolveCustomerForUser(
   };
 
   // ── A. 直接用 session.customerId ─────────────────────
+  // 穩定性：sessionCustomerId 可能是 stale JWT（例如顧客資料被店家刪除、跨環境
+  // session、清庫後 cookie 殘留）。此處務必驗 DB；若 stale 不直接失敗，clear
+  // stale 指向（不再回傳此 row）後 fall through 到 B/C/D，由 userId / email /
+  // phone 路徑重新 resolve；都不命中再交給 caller 走 create / re-bind 流程。
   if (opts.sessionCustomerId) {
     try {
       const c = await prisma.customer.findUnique({
@@ -108,9 +117,17 @@ export async function resolveCustomerForUser(
         });
         return { customer: c, reason: "found_by_id" };
       }
-      console.warn("[resolveCustomer] sessionCustomerId set but record missing", logCtx);
+      // ★ stale：sessionCustomerId 指向不存在的 row → 記 warn 並繼續走 B/C/D
+      console.warn(
+        "[resolveCustomer] sessionCustomerId STALE — falling through to userId/email/phone resolver",
+        { ...logCtx, staleCustomerId: opts.sessionCustomerId },
+      );
     } catch (err) {
-      console.error("[resolveCustomer] lookup by id failed", { ...logCtx, err });
+      console.error("[resolveCustomer] lookup by id failed (treating as stale, fallthrough)", {
+        ...logCtx,
+        staleCustomerId: opts.sessionCustomerId,
+        err,
+      });
     }
   }
 
