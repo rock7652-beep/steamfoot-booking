@@ -68,6 +68,15 @@ export interface ResolveResult {
   customer: ResolvedCustomer | null;
   reason: ResolveReason;
   conflict?: boolean;
+  /**
+   * 救援訊號：true 表示 session.sessionCustomerId 雖然存在但對應 DB row 已不存在。
+   * resolver 已自動 fall through 到後續路徑（B/C/D）。
+   * caller 看到此 flag 應：
+   *   - 永遠不可 throw / 直接失敗（已被自動處理）
+   *   - 若 reason 為 not_found，必須走 create / re-bind 流程，不可中止
+   *   - 寫日誌 + 後續 useSession().update() 把 stale customerId 從 JWT 清掉
+   */
+  staleSessionCleared?: boolean;
 }
 
 const CUSTOMER_SELECT = {
@@ -99,10 +108,13 @@ export async function resolveCustomerForUser(
   };
 
   // ── A. 直接用 session.customerId ─────────────────────
-  // 穩定性：sessionCustomerId 可能是 stale JWT（例如顧客資料被店家刪除、跨環境
-  // session、清庫後 cookie 殘留）。此處務必驗 DB；若 stale 不直接失敗，clear
-  // stale 指向（不再回傳此 row）後 fall through 到 B/C/D，由 userId / email /
-  // phone 路徑重新 resolve；都不命中再交給 caller 走 create / re-bind 流程。
+  // 救援機制：sessionCustomerId 可能是 stale JWT（顧客資料被刪、跨環境 session、
+  // 清庫後 cookie 殘留）。
+  //   - 驗 DB；若 row 存在 → 回傳
+  //   - 若 row 不存在 → 視為「session 已 stale，已自動清除」，
+  //     設 staleSessionCleared=true 標記，繼續走 B/C/D；
+  //     全 miss 則回 not_found（caller 必須走 create / re-bind，永不 throw）
+  let staleSessionCleared = false;
   if (opts.sessionCustomerId) {
     try {
       const c = await prisma.customer.findUnique({
@@ -117,12 +129,15 @@ export async function resolveCustomerForUser(
         });
         return { customer: c, reason: "found_by_id" };
       }
-      // ★ stale：sessionCustomerId 指向不存在的 row → 記 warn 並繼續走 B/C/D
+      // ★ stale：sessionCustomerId 指向不存在的 row → 標記 + fall through
+      staleSessionCleared = true;
       console.warn(
-        "[resolveCustomer] sessionCustomerId STALE — falling through to userId/email/phone resolver",
+        "[resolveCustomer] sessionCustomerId STALE — auto-cleared, falling through to userId/email/phone resolver",
         { ...logCtx, staleCustomerId: opts.sessionCustomerId },
       );
     } catch (err) {
+      // 連查詢都炸 → 同樣視為 stale，繼續救援
+      staleSessionCleared = true;
       console.error("[resolveCustomer] lookup by id failed (treating as stale, fallthrough)", {
         ...logCtx,
         staleCustomerId: opts.sessionCustomerId,
@@ -307,9 +322,12 @@ export async function resolveCustomerForUser(
     }
   }
 
-  // 全部找不到
-  console.info("[resolveCustomer] not_found", logCtx);
-  return { customer: null, reason: "not_found" };
+  // 全部找不到 — 帶上 staleSessionCleared 訊號讓 caller 知道：
+  //   * 若為 true：原 sessionCustomerId 是 stale，已自動 fall through，
+  //                caller 必須走 create，永不可 throw / 失敗
+  //   * 若為 false：純粹新使用者沒既有 customer，caller 同樣走 create
+  console.info("[resolveCustomer] not_found", { ...logCtx, staleSessionCleared });
+  return { customer: null, reason: "not_found", staleSessionCleared };
 }
 
 /**

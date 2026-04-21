@@ -399,7 +399,23 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
     payloadPhone: phone,
     resolvedCustomerId: resolved.customer?.id ?? null,
     reason: resolved.reason,
+    staleSessionCleared: resolved.staleSessionCleared ?? false,
   });
+
+  // 救援契約：resolver 已對 stale customerId 自動 fall through。
+  // 若同時 resolved.staleSessionCleared=true 且 reason=not_found，
+  // 必須走 create / re-bind 流程（已在下面 not_found 分支實作），絕不可 throw。
+  if (resolved.staleSessionCleared) {
+    console.warn(
+      "[updateProfileAction] sessionCustomerId was stale — recovery path will create or re-bind customer",
+      {
+        requestPath,
+        userId: user.id,
+        staleCustomerId: user.customerId,
+        nextReason: resolved.reason,
+      },
+    );
+  }
 
   // 錯誤訊息分流 — 不要一律顯示「找不到」
   if (!resolved.customer) {

@@ -31,28 +31,33 @@ export function ProfileForm({ customer, age, onboardingMode = false, nextPath = 
     { error: null, success: false }
   );
 
-  // toast 提示 + 成功後：刷新 JWT（customerId 可能剛被 auto-bind）→ 跳 next
+  // toast 提示 + 成功後：強制刷新 JWT + 重新整理 server components
   useEffect(() => {
     if (state.success) {
       toast.success(onboardingMode ? "完成註冊，開始使用吧！" : "個人資料已儲存");
 
-      // 觸發 next-auth session update → jwt callback trigger='update' 重讀 DB，
-      // 刷新 session 裡的 customerId / storeId（避免 stale JWT 造成誤導）。
+      // 完整 session 同步流程（雙保險，防 client / server 不一致）：
+      //   1. await updateSession() — 觸發 NextAuth jwt callback trigger='update'，
+      //      重讀 DB 並把新的 customerId / storeId / role 寫回 cookie
+      //   2. router.refresh() — 強制 server components 用新 cookie 重新 render
+      //   3. 若有 dest（onboarding 或 next 參數）— 用 full navigation 進目的頁，
+      //      確保 layout completion gate 拿到最新 cookie，不會誤把人彈回 /profile
       const run = async () => {
         try {
           await updateSession();
         } catch (err) {
           console.warn("[profile-form] session update failed", err);
         }
+        // router.refresh 不論有無 dest 都先做一次 — 即使下面馬上 navigate，
+        // 也保證萬一 navigation 失敗（網路慢 / 用戶切到背景 tab）時，
+        // 當前 page 的 server-rendered 區塊已經是新 session 視角。
+        router.refresh();
+
         const dest = nextPath || (onboardingMode ? "/book" : null);
         if (dest) {
-          // 用 full navigation（非 router.push）確保更新後的 JWT cookie 生效再進目的頁，
-          // 避免 layout 的 completion gate 用 stale session 判定錯誤又把人彈回 /profile。
           setTimeout(() => {
             window.location.assign(dest);
           }, 500);
-        } else {
-          router.refresh();
         }
       };
       void run();
