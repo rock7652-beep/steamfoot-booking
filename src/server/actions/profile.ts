@@ -9,6 +9,68 @@ import {
   resolveCustomerForUser,
   resolveCustomerCompletionStatus,
 } from "@/server/queries/customer-completion";
+import type { UserRole } from "@prisma/client";
+
+// ============================================================
+// Stale session 自癒：保證 User row 存在
+// ============================================================
+// 場景：清庫 / staff 手動刪 user 後，舊 JWT cookie 仍帶 session.user.id 指向
+// 已不存在的 User row。Case D create customer 會撞 FK (userId 對不到 User) → P2003。
+// 對策：把該 user.id 重新建出來（同 id），後續 create/update 就能成功。
+// 一定的安全考量：
+//   - 用同一個 id（保留原 JWT.sub），避免改 session
+//   - 角色用 session.role（CUSTOMER）
+//   - email 撞 unique 時清掉重試（顧客之後可在 profile 補）
+async function ensureUserExists(user: {
+  id: string;
+  name: string | null;
+  email: string | null;
+  role: UserRole;
+}): Promise<{ recreated: boolean }> {
+  const existing = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { id: true },
+  });
+  if (existing) return { recreated: false };
+
+  console.warn(
+    "[ensureUserExists] session user.id STALE — recreating User row to recover",
+    { userId: user.id, sessionRole: user.role, sessionEmail: user.email },
+  );
+
+  try {
+    await prisma.user.create({
+      data: {
+        id: user.id,
+        name: user.name ?? "顧客",
+        email: user.email,
+        role: user.role,
+        status: "ACTIVE",
+      },
+    });
+    return { recreated: true };
+  } catch (err) {
+    const code = (err as { code?: string })?.code;
+    if (code === "P2002") {
+      // email 已被別人佔（罕見：清庫後 staff 拿同 email 建了帳號）
+      // → 不帶 email 重建；顧客之後可在 profile 補正確 email
+      console.warn(
+        "[ensureUserExists] P2002 on email — retrying without email",
+        { userId: user.id, conflictEmail: user.email },
+      );
+      await prisma.user.create({
+        data: {
+          id: user.id,
+          name: user.name ?? "顧客",
+          role: user.role,
+          status: "ACTIVE",
+        },
+      });
+      return { recreated: true };
+    }
+    throw err;
+  }
+}
 
 // ============================================================
 // 更新個人資料
@@ -259,28 +321,25 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
     }
   }
 
-  // ── User FK 軟驗證：log 不擋 ──────────────────────────
-  // 之前的 hard fail (return 「登入狀態異常」) 在合法新登入流程下也會誤殺，
-  // 因為 NextAuth session cookie 寫入與後續第一次 server action 之間若有 cache /
-  // replica lag，user.id 雖然合法但這支 prisma client 暫時讀不到。改為：
-  //   - 只記 warning，不 return；
-  //   - 信任 session.user.id，繼續 resolve / create；
-  //   - 若真的 FK 失敗會被下游 P2003 catch 接住，回傳人類可讀訊息。
-  // session.user.id 為空已在最上層攔截，此處 user.id 必為非空字串。
-  const userExists = await prisma.user.findUnique({
-    where: { id: user.id },
-    select: { id: true },
+  // ── Stale session 自癒 — 確保 User row 存在 ──────────
+  // 替代原本的「軟驗證 + 等 P2003 catch」做法。原本顧客被刪庫後，舊 cookie 帶
+  // 來的 user.id 對 DB 不存在，create customer 會撞 FK 失敗，使用者卡在
+  // 「資料儲存失敗」。現在主動補建 User row（同 id），讓下游 create/update 能成功。
+  // resolveCustomerForUser 自身已對 stale customerId 做 fall-through。
+  const userRecovery = await ensureUserExists({
+    id: user.id,
+    name: user.name ?? null,
+    email: user.email ?? null,
+    role: user.role,
   });
-  if (!userExists) {
-    console.warn("[updateProfileAction] user.id not found in DB (continuing — P2003 catch will handle if FK fails)", {
+  if (userRecovery.recreated) {
+    console.info("[updateProfileAction] user recovered from stale session", {
       requestPath,
       userId: user.id,
-      hasAuthToken,
-      sessionRole: user.role,
       sessionCustomerId: user.customerId ?? null,
-      sessionStoreId: user.storeId ?? null,
+      note:
+        "session.customerId（若有）也視為 stale；resolver 會 fall-through 到 not_found，走 create 流程",
     });
-    // 不 return — 繼續 resolve / create 流程
   }
 
   // ── 存檔後完成度驗證 ─────────────────────────────────
