@@ -9,6 +9,10 @@ import {
   resolveCustomerForUser,
   resolveCustomerCompletionStatus,
 } from "@/server/queries/customer-completion";
+import {
+  mergePlaceholderCustomerIntoRealCustomer,
+  resolveAuthSourceFromAccounts,
+} from "@/server/services/customer-merge";
 import type { UserRole } from "@prisma/client";
 
 // ============================================================
@@ -520,34 +524,23 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
           realPreviousUserId: real.userId,
           mergedBy: realByPhone ? "phone" : "email",
         });
-        // 安全 merge：先釋放 existing 的 userId，再綁定 real 並寫入資料
-        const ops = [];
-        if (existingByUserId) {
-          ops.push(
-            prisma.customer.update({
-              where: { id: existingByUserId.id },
-              data: { userId: null },
-            }),
-          );
-        }
-        ops.push(
-          prisma.customer.update({
-            where: { id: real.id },
-            data: {
-              userId: user.id,
-              name,
-              phone,
-              email,
-              gender,
-              birthday,
-              height,
-              address,
-              notes,
-            },
-          }),
-        );
+        // 透過共用 helper 搬 LINE/Google 身份欄位到 real row，並清空/刪除 placeholder
         try {
-          await prisma.$transaction(ops);
+          const mergeResult = await mergePlaceholderCustomerIntoRealCustomer({
+            placeholderCustomerId: existingByUserId?.id ?? null,
+            realCustomerId: real.id,
+            userId: user.id,
+            basicProfile: { name, phone, email, gender, birthday, height, address, notes },
+          });
+          console.info("[updateProfileAction] Case A merge result", {
+            userId: user.id,
+            placeholderId: existingByUserId?.id ?? null,
+            realId: real.id,
+            mergedIdentityKeys: Object.keys(mergeResult.mergedIdentity),
+            placeholderDeleted: mergeResult.placeholderDeleted,
+            placeholderClearedInPlace: mergeResult.placeholderClearedInPlace,
+            skippedReason: mergeResult.skippedReason,
+          });
         } catch (txErr) {
           const txCode = (txErr as { code?: string })?.code;
           const txMeta = (txErr as { meta?: { target?: string[] } })?.meta;
@@ -642,6 +635,9 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
       }
 
       // ── Case D: 全無既有資料 → create ──
+      // authSource 以 user 的 OAuth Account 推定（LINE/GOOGLE/EMAIL），
+      // 不再硬寫成 EMAIL 把 LINE/Google 使用者標錯來源。
+      const authSource = await resolveAuthSourceFromAccounts(user.id);
       const created = await prisma.customer.create({
         data: {
           name,
@@ -654,7 +650,7 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
           notes,
           storeId,
           userId: user.id,
-          authSource: "EMAIL",
+          authSource,
           customerStage: "LEAD",
         },
         select: { id: true },
@@ -804,33 +800,23 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
           mergedBy: realByPhone ? "phone" : "email",
         });
 
-        // Merge: 先把佔位的 userId 釋放，再把真人 Customer 綁到當前 userId 並更新欄位
-        await prisma.$transaction([
-          prisma.customer.update({
-            where: { id: customerId },
-            data: { userId: null },
-          }),
-          prisma.customer.update({
-            where: { id: real.id },
-            data: {
-              userId: user.id,
-              name,
-              phone,
-              email,
-              gender,
-              birthday,
-              height,
-              address,
-              notes,
-            },
-          }),
-        ]);
+        // 透過共用 helper 搬 LINE/Google 身份欄位到 real row，並清空/刪除 placeholder
+        const mergeResult = await mergePlaceholderCustomerIntoRealCustomer({
+          placeholderCustomerId: customerId,
+          realCustomerId: real.id,
+          userId: user.id,
+          basicProfile: { name, phone, email, gender, birthday, height, address, notes },
+        });
 
         console.info("[updateProfileAction] placeholder merged into real", {
           userId: user.id,
           placeholderId: customerId,
           realId: real.id,
           mergedBy: realByPhone ? "phone" : "email",
+          mergedIdentityKeys: Object.keys(mergeResult.mergedIdentity),
+          placeholderDeleted: mergeResult.placeholderDeleted,
+          placeholderClearedInPlace: mergeResult.placeholderClearedInPlace,
+          skippedReason: mergeResult.skippedReason,
         });
 
         // 同步 User.name
