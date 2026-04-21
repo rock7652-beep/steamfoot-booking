@@ -24,12 +24,12 @@ export function HealthAssessmentCard({ score, customerId }: HealthAssessmentCard
   const { advice } = score;
 
   return (
-    <div className="rounded-2xl border border-earth-200 bg-white p-5 shadow-sm">
+    <div className="rounded-2xl border border-earth-200 bg-white p-6 shadow-sm">
       {/* Header */}
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-5 flex items-start justify-between gap-3">
         <div>
-          <h3 className="text-sm font-semibold text-earth-800">AI 健康評估</h3>
-          <p className="mt-0.5 text-xs text-earth-400">
+          <h3 className="text-lg font-bold text-earth-900">AI 健康評估</h3>
+          <p className="mt-1 text-sm text-earth-700">
             根據您的身體狀況提供個人化建議
           </p>
         </div>
@@ -38,7 +38,7 @@ export function HealthAssessmentCard({ score, customerId }: HealthAssessmentCard
             href={getHealthAssessmentUrl(customerId)}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-xs text-primary-600 hover:underline"
+            className="flex min-h-[44px] items-center rounded-md px-2 text-sm font-semibold text-primary-700 hover:bg-earth-50 hover:underline"
           >
             詳細報告 &rarr;
           </a>
@@ -46,14 +46,14 @@ export function HealthAssessmentCard({ score, customerId }: HealthAssessmentCard
       </div>
 
       {/* Score + Risk row */}
-      <div className="mb-4 flex items-center gap-5">
+      <div className="mb-5 flex items-center gap-5">
         <ScoreRing score={score.score} riskLevel={score.riskLevel} />
         <div className="flex-1">
-          <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium ${config.bg} ${config.color}`}>
+          <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-base font-semibold ${config.bg} ${config.color}`}>
             {config.emoji} {score.riskLabel}
           </span>
           {score.lastMeasuredAt && (
-            <p className="mt-2 text-xs text-earth-400">
+            <p className="mt-2 text-sm text-earth-700">
               最近量測：{score.lastMeasuredAt}
               {score.daysSinceLastMeasure != null && (
                 <span className="ml-1">({score.daysSinceLastMeasure} 天前)</span>
@@ -66,30 +66,30 @@ export function HealthAssessmentCard({ score, customerId }: HealthAssessmentCard
       {/* 三段式建議 */}
       <div className="space-y-3">
         {/* 風險判讀 */}
-        <div className="rounded-xl bg-earth-50 px-4 py-3">
-          <div className="mb-1.5 flex items-center gap-1.5">
-            <span className="text-xs">&#x1F50D;</span>
-            <p className="text-xs font-medium text-earth-600">風險判讀</p>
+        <div className="rounded-xl bg-earth-50 px-4 py-4">
+          <div className="mb-2 flex items-center gap-1.5">
+            <span className="text-base">&#x1F50D;</span>
+            <p className="text-base font-semibold text-earth-800">風險判讀</p>
           </div>
-          <p className="text-[13px] leading-relaxed text-earth-800">
+          <p className="text-base leading-relaxed text-earth-900">
             {advice.riskSummary}
           </p>
         </div>
 
         {/* 護理建議 */}
         {advice.careAdvice.length > 0 && (
-          <div className="rounded-xl bg-primary-50/50 px-4 py-3">
-            <div className="mb-2 flex items-center gap-1.5">
-              <span className="text-xs">&#x1F49A;</span>
-              <p className="text-xs font-medium text-primary-700">護理建議</p>
+          <div className="rounded-xl bg-primary-50/70 px-4 py-4">
+            <div className="mb-3 flex items-center gap-1.5">
+              <span className="text-base">&#x1F49A;</span>
+              <p className="text-base font-semibold text-primary-800">護理建議</p>
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-2.5">
               {advice.careAdvice.map((text, i) => (
-                <div key={i} className="flex items-start gap-2">
-                  <span className="mt-[3px] flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-primary-100 text-[10px] font-bold text-primary-700">
+                <div key={i} className="flex items-start gap-2.5">
+                  <span className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-primary-100 text-sm font-bold text-primary-800">
                     {i + 1}
                   </span>
-                  <p className="text-xs leading-relaxed text-earth-700">{text}</p>
+                  <p className="text-base leading-relaxed text-earth-900">{text}</p>
                 </div>
               ))}
             </div>
@@ -97,12 +97,12 @@ export function HealthAssessmentCard({ score, customerId }: HealthAssessmentCard
         )}
 
         {/* 回訪建議 */}
-        <div className="rounded-xl bg-blue-50/50 px-4 py-3">
-          <div className="mb-1.5 flex items-center gap-1.5">
-            <span className="text-xs">&#x1F4C5;</span>
-            <p className="text-xs font-medium text-blue-700">回訪建議</p>
+        <div className="rounded-xl bg-blue-50/70 px-4 py-4">
+          <div className="mb-2 flex items-center gap-1.5">
+            <span className="text-base">&#x1F4C5;</span>
+            <p className="text-base font-semibold text-blue-800">回訪建議</p>
           </div>
-          <p className="text-[13px] leading-relaxed text-earth-800">
+          <p className="text-base leading-relaxed text-earth-900">
             {advice.revisitSuggestion}
           </p>
         </div>
@@ -147,8 +147,8 @@ function ScoreRing({ score, riskLevel }: { score: number; riskLevel: RiskLevel }
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-lg font-bold text-earth-900">{score}</span>
-        <span className="text-[10px] text-earth-400">/ 100</span>
+        <span className="text-xl font-bold text-earth-900">{score}</span>
+        <span className="text-xs font-medium text-earth-700">/ 100</span>
       </div>
     </div>
   );

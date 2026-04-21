@@ -30,19 +30,19 @@ export default async function MyGrowthPage() {
   return (
     <div>
       <div className="mb-6 flex items-center gap-3">
-        <Link href="/book" className="text-earth-400 hover:text-earth-600 lg:hidden">
+        <Link href="/book" className="flex min-h-[44px] min-w-[44px] items-center justify-center text-earth-700 hover:text-earth-900 lg:hidden">
           &larr;
         </Link>
-        <h1 className="text-xl font-bold text-earth-900">我的進度</h1>
+        <h1 className="text-2xl font-bold text-earth-900">我的進度</h1>
       </div>
 
       <div className="space-y-6">
         {/* ═══ 開頭文案（輕語氣，不用經營/培育） ═══ */}
         <section className="rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 to-amber-100/40 p-6 shadow-sm">
-          <p className="text-base leading-relaxed text-amber-900">
+          <p className="text-lg leading-relaxed font-semibold text-amber-900">
             你最近的變化，其實比你想像的多。
           </p>
-          <p className="mt-1 text-xs text-amber-800/80">
+          <p className="mt-2 text-base text-amber-900">
             每一次照顧自己、每一次分享，都是一點點好的改變。
           </p>
         </section>
@@ -55,28 +55,28 @@ export default async function MyGrowthPage() {
         </section>
 
         {/* ═══ 累積點數（既有資料，不新增） ═══ */}
-        <section className="rounded-2xl border border-earth-200 bg-white p-5 shadow-sm">
-          <p className="text-xs text-earth-500">累積點數</p>
-          <p className="mt-1 text-2xl font-bold text-primary-700">
+        <section className="rounded-2xl border border-earth-200 bg-white p-6 shadow-sm">
+          <p className="text-base font-medium text-earth-700">累積點數</p>
+          <p className="mt-1 text-4xl font-bold text-primary-700">
             {summary.totalPoints}
-            <span className="ml-1 text-sm font-medium text-earth-400">點</span>
+            <span className="ml-2 text-lg font-medium text-earth-800">點</span>
           </p>
-          <p className="mt-2 text-sm leading-relaxed text-earth-600">
+          <p className="mt-3 text-base leading-relaxed text-earth-800">
             你已經開始影響身邊的人了，再多一點點，你會看到更不一樣的結果。
           </p>
         </section>
 
         {/* ═══ 導航連結（用更輕的語言） ═══ */}
-        <section className="grid grid-cols-2 gap-2">
+        <section className="grid grid-cols-2 gap-3">
           <Link
             href="/my-referrals"
-            className="flex items-center justify-center rounded-xl border border-earth-200 bg-white py-2.5 text-sm font-medium text-earth-700 hover:bg-earth-50"
+            className="flex min-h-[52px] items-center justify-center rounded-xl border border-earth-300 bg-white text-base font-semibold text-earth-800 hover:bg-earth-50"
           >
             我的好康
           </Link>
           <Link
             href="/my-points"
-            className="flex items-center justify-center rounded-xl border border-earth-200 bg-white py-2.5 text-sm font-medium text-earth-700 hover:bg-earth-50"
+            className="flex min-h-[52px] items-center justify-center rounded-xl border border-earth-300 bg-white text-base font-semibold text-earth-800 hover:bg-earth-50"
           >
             點數紀錄
           </Link>
@@ -105,15 +105,15 @@ function Metric({
           : "border-earth-200 bg-white"
       }`}
     >
-      <p className="text-[11px] text-earth-500">{label}</p>
+      <p className="text-sm font-medium text-earth-700">{label}</p>
       <p
-        className={`mt-1 text-2xl font-bold ${
-          highlight ? "text-amber-700" : "text-earth-800"
+        className={`mt-1 text-3xl font-bold ${
+          highlight ? "text-amber-700" : "text-earth-900"
         }`}
       >
         {value}
       </p>
-      <p className="text-[11px] text-earth-400">{unit}</p>
+      <p className="mt-1 text-sm text-earth-700">{unit}</p>
     </div>
   );
 }

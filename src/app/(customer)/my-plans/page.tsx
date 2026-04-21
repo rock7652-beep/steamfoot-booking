@@ -66,37 +66,37 @@ export default async function MyPlansPage() {
   return (
     <div>
       <div className="mb-6 flex items-center gap-3">
-        <Link href="/book" className="text-earth-400 hover:text-earth-600 lg:hidden">&larr;</Link>
-        <h1 className="text-xl font-bold text-earth-900">我的方案</h1>
+        <Link href="/book" className="flex min-h-[44px] min-w-[44px] items-center justify-center text-earth-700 hover:text-earth-900 lg:hidden">&larr;</Link>
+        <h1 className="text-2xl font-bold text-earth-900">我的方案</h1>
       </div>
 
       {/* Summary */}
       {activeWallets.length > 0 && (
-        <div className="mb-6 rounded-2xl bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-          <p className="text-sm text-earth-500">你還有</p>
-          <p className="mt-0.5 text-3xl font-bold text-primary-700">
-            {availableToBook} <span className="text-base font-medium text-earth-400">堂可以預約</span>
+        <div className="mb-6 rounded-2xl bg-white p-6 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+          <p className="text-base font-medium text-earth-700">你還有</p>
+          <p className="mt-1 text-4xl font-bold text-primary-700">
+            {availableToBook} <span className="text-lg font-medium text-earth-700">堂可以預約</span>
           </p>
           {totalPendingCount > 0 && (
-            <p className="mt-1.5 text-sm text-earth-500">
-              其中 <strong className="text-blue-600">{totalPendingCount}</strong> 堂已預約、等待到店
+            <p className="mt-2 text-base text-earth-800">
+              其中 <strong className="text-blue-700">{totalPendingCount}</strong> 堂已預約、等待到店
             </p>
           )}
           {availableToBook < totalRemaining && (
-            <p className="mt-0.5 text-xs text-earth-400">
+            <p className="mt-1 text-sm text-earth-700">
               剩餘堂數 {totalRemaining}（含已預約未用 {totalPendingCount}）
             </p>
           )}
-          <div className="mt-3 flex items-center gap-3">
+          <div className="mt-4 flex items-center gap-3">
             {customer.selfBookingEnabled ? (
               <Link
                 href="/book/new"
-                className="rounded-lg bg-primary-600 px-5 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-primary-700"
+                className="flex min-h-[48px] items-center justify-center rounded-xl bg-primary-600 px-6 text-base font-semibold text-white shadow-sm transition hover:bg-primary-700"
               >
                 立即預約
               </Link>
             ) : (
-              <p className="text-xs text-yellow-600">自助預約功能由店長開啟，請聯繫店長</p>
+              <p className="text-sm text-yellow-700">自助預約功能由店長開啟，請聯繫店長</p>
             )}
           </div>
         </div>
@@ -105,11 +105,11 @@ export default async function MyPlansPage() {
       {customer.planWallets.length === 0 ? (
         <NoPlanEmptyState variant="plan" />
       ) : (
-        <div className="space-y-5">
+        <div className="space-y-6">
           {/* ── 有效課程 ── */}
           {activePackageWallets.length > 0 && (
             <section>
-              <h2 className="mb-2 text-sm font-semibold text-earth-700">有效課程</h2>
+              <h2 className="mb-3 text-lg font-bold text-earth-900">有效課程</h2>
               <div className="space-y-3">
                 {activePackageWallets.map((w) => (
                   <WalletCard key={w.id} wallet={w} isActive />
@@ -121,7 +121,7 @@ export default async function MyPlansPage() {
           {/* ── 有效體驗 ── */}
           {activeTrialWallets.length > 0 && (
             <section>
-              <h2 className="mb-2 text-sm font-semibold text-earth-700">體驗方案</h2>
+              <h2 className="mb-3 text-lg font-bold text-earth-900">體驗方案</h2>
               <div className="space-y-3">
                 {activeTrialWallets.map((w) => (
                   <WalletCard key={w.id} wallet={w} isActive />
@@ -133,8 +133,8 @@ export default async function MyPlansPage() {
           {/* ── 已過期 ── */}
           {expiredWallets.length > 0 && (
             <section>
-              <h2 className="mb-2 text-sm font-semibold text-earth-500">已過期</h2>
-              <div className="space-y-3 opacity-60">
+              <h2 className="mb-3 text-base font-semibold text-earth-700">已過期</h2>
+              <div className="space-y-3 opacity-70">
                 {expiredWallets.map((w) => (
                   <WalletCard key={w.id} wallet={w} isActive={false} />
                 ))}
@@ -145,8 +145,8 @@ export default async function MyPlansPage() {
           {/* ── 已用完 / 已取消 ── */}
           {historyWallets.length > 0 && (
             <section>
-              <h2 className="mb-2 text-sm font-semibold text-earth-500">歷史課程</h2>
-              <div className="space-y-3 opacity-60">
+              <h2 className="mb-3 text-base font-semibold text-earth-700">歷史課程</h2>
+              <div className="space-y-3 opacity-70">
                 {historyWallets.map((w) => (
                   <WalletCard key={w.id} wallet={w} isActive={false} />
                 ))}
@@ -213,47 +213,47 @@ function WalletCard({
     : 0;
 
   return (
-    <div className="rounded-xl bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+    <div className="rounded-2xl bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
       {/* Header: name + remaining big number */}
-      <div className="flex items-start justify-between">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-earth-900">{wallet.plan.name}</span>
-            <span className="rounded-md bg-earth-100 px-1.5 py-0.5 text-[10px] text-earth-500">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-base font-bold text-earth-900">{wallet.plan.name}</span>
+            <span className="rounded-md bg-earth-100 px-2 py-0.5 text-sm font-medium text-earth-800">
               {PLAN_CATEGORY_LABEL[wallet.plan.category] ?? wallet.plan.category}
             </span>
           </div>
         </div>
         <div className="text-right">
-          <span className="text-2xl font-bold text-primary-700">{wallet.remainingSessions}</span>
-          <span className="text-xs text-earth-400"> / {wallet.totalSessions}</span>
+          <span className="text-3xl font-bold text-primary-700">{wallet.remainingSessions}</span>
+          <span className="text-base text-earth-700"> / {wallet.totalSessions}</span>
         </div>
       </div>
 
       {/* Progress bar */}
-      <div className="mt-2.5 h-1.5 w-full rounded-full bg-earth-100">
+      <div className="mt-3 h-2 w-full rounded-full bg-earth-100">
         <div
-          className={`h-1.5 rounded-full transition-all ${
-            isActive ? "bg-primary-500" : "bg-earth-300"
+          className={`h-2 rounded-full transition-all ${
+            isActive ? "bg-primary-500" : "bg-earth-400"
           }`}
           style={{ width: `${progressPct}%` }}
         />
       </div>
 
       {/* 堂數明細 */}
-      <div className="mt-2.5 flex items-center gap-4 text-xs text-earth-500">
-        <span>已使用 <strong className="text-earth-700">{usedCount}</strong></span>
+      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-earth-700">
+        <span>已使用 <strong className="text-earth-900">{usedCount}</strong></span>
         {pendingCount > 0 && (
-          <span>待到店 <strong className="text-blue-600">{pendingCount}</strong></span>
+          <span>待到店 <strong className="text-blue-700">{pendingCount}</strong></span>
         )}
         <span>可預約 <strong className="text-primary-700">{availableToBook}</strong></span>
       </div>
 
       {/* Session usage grid */}
       {wallet.totalSessions > 0 && usedBookings.length > 0 && (
-        <div className="mt-3">
-          <p className="mb-1.5 text-[10px] font-medium text-earth-400 uppercase tracking-wider">使用紀錄</p>
-          <div className="flex flex-wrap gap-1.5">
+        <div className="mt-4">
+          <p className="mb-2 text-sm font-semibold text-earth-700">使用紀錄</p>
+          <div className="flex flex-wrap gap-2">
             {usedBookings.map((b, i) => {
               const dateLabel = new Date(b.bookingDate).toLocaleDateString("zh-TW", { month: "numeric", day: "numeric" });
               const isNoShow = b.bookingStatus === "NO_SHOW";
@@ -261,19 +261,19 @@ function WalletCard({
               return (
                 <div
                   key={i}
-                  className={`flex h-8 min-w-[3rem] items-center justify-center rounded-md px-1.5 text-[10px] font-medium ${
+                  className={`flex h-9 min-w-[3.5rem] items-center justify-center rounded-md px-2 text-sm font-medium ${
                     isNoShow
                       ? isDeducted
-                        ? "bg-red-100 text-red-600"
-                        : "bg-amber-100 text-amber-600"
-                      : "bg-green-100 text-green-700"
+                        ? "bg-red-100 text-red-700"
+                        : "bg-amber-100 text-amber-800"
+                      : "bg-green-100 text-green-800"
                   }`}
                   title={`${dateLabel} ${b.slotTime} ${
                     isNoShow ? (isDeducted ? "未到(扣堂)" : "未到(不扣堂)") : "出席"
                   }`}
                 >
                   {dateLabel}
-                  {isNoShow && <span className="ml-0.5">{isDeducted ? "!" : "↩"}</span>}
+                  {isNoShow && <span className="ml-1">{isDeducted ? "!" : "↩"}</span>}
                 </div>
               );
             })}
@@ -281,12 +281,12 @@ function WalletCard({
         </div>
       )}
 
-      <div className="mt-2.5 flex items-center justify-between text-[11px] text-earth-400">
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm text-earth-700">
         <span>{new Date(wallet.startDate).toLocaleDateString("zh-TW")} ~ {wallet.expiryDate ? new Date(wallet.expiryDate).toLocaleDateString("zh-TW") : "無期限"}</span>
-        <span className={`rounded-md px-1.5 py-0.5 text-[10px] ${
+        <span className={`rounded-md px-2 py-0.5 text-sm font-medium ${
           wallet.status === "ACTIVE"
-            ? "bg-green-50 text-green-600"
-            : "bg-earth-100 text-earth-500"
+            ? "bg-green-50 text-green-700"
+            : "bg-earth-100 text-earth-800"
         }`}>
           {WALLET_STATUS_LABEL[wallet.status] ?? wallet.status}
         </span>

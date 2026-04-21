@@ -132,7 +132,7 @@ export default async function CustomerLayout({
   }));
 
   return (
-    <div className="min-h-screen bg-earth-50">
+    <div className="min-h-screen bg-earth-50 text-[17px] leading-[1.7] text-[color:var(--color-text-primary)]">
       {/* Navigation progress bar */}
       <NavProgress />
 
@@ -144,10 +144,10 @@ export default async function CustomerLayout({
         <aside className="hidden lg:flex lg:w-[200px] lg:flex-shrink-0 lg:flex-col lg:border-r lg:border-earth-100 lg:bg-white lg:min-h-screen">
           {/* Brand */}
           <div className="px-4 pb-3 pt-5">
-            <Link href={`${prefix}/book`} className="text-sm font-bold tracking-tight text-earth-900">
+            <Link href={`${prefix}/book`} className="text-base font-bold tracking-tight text-earth-900">
               蒸足健康站
             </Link>
-            <p className="mt-0.5 text-[11px] text-earth-400 truncate">{user.name}</p>
+            <p className="mt-1 text-sm text-earth-700 truncate">{user.name}</p>
           </div>
 
           {/* Nav */}
@@ -160,9 +160,9 @@ export default async function CustomerLayout({
                     href={item.fullHref}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="mb-0.5 flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] text-earth-500 hover:bg-earth-100/60 hover:text-earth-800 transition"
+                    className="mb-1 flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-[15px] text-earth-700 hover:bg-earth-100/60 hover:text-earth-900 transition"
                   >
-                    <NavIcon name={item.icon} className="text-earth-400" />
+                    <NavIcon name={item.icon} className="text-earth-600" />
                     {item.label}
                   </a>
                 );
@@ -175,16 +175,16 @@ export default async function CustomerLayout({
                 <Link
                   key={item.href}
                   href={item.fullHref}
-                  className={`relative mb-0.5 flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors ${
+                  className={`relative mb-1 flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-[15px] transition-colors ${
                     isActive
                       ? "bg-primary-50 font-semibold text-primary-700"
-                      : "text-earth-500 hover:bg-earth-100/60 hover:text-earth-800"
+                      : "text-earth-700 hover:bg-earth-100/60 hover:text-earth-900"
                   }`}
                 >
                   {isActive && (
                     <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full bg-primary-600" />
                   )}
-                  <NavIcon name={item.icon} className={isActive ? "text-primary-600" : "text-earth-400"} />
+                  <NavIcon name={item.icon} className={isActive ? "text-primary-600" : "text-earth-600"} />
                   {item.label}
                 </Link>
               );
@@ -196,8 +196,8 @@ export default async function CustomerLayout({
             <form action={logoutAction}>
               <input type="hidden" name="storeSlug" value={storeSlug} />
               <LogoutButton
-                className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] text-earth-400 hover:bg-earth-50 hover:text-earth-600 transition"
-                iconClassName="text-earth-300"
+                className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-[15px] text-earth-700 hover:bg-earth-50 hover:text-earth-900 transition"
+                iconClassName="text-earth-600"
                 iconSize={18}
               />
             </form>

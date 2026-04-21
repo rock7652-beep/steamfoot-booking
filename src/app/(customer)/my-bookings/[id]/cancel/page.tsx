@@ -61,12 +61,12 @@ export default async function CancelBookingPage({ params }: PageProps) {
   }
 
   return (
-    <div className="py-8">
+    <div className="py-6">
       <FormErrorToast />
-      <div className="rounded-xl border border-red-100 bg-white p-6 shadow-sm">
-        <h1 className="mb-4 text-lg font-bold text-earth-900">取消預約確認</h1>
-        <div className="mb-6 rounded-lg bg-earth-50 p-4 text-sm">
-          <p className="text-earth-700">
+      <div className="rounded-2xl border border-red-100 bg-white p-6 shadow-sm">
+        <h1 className="mb-5 text-2xl font-bold text-earth-900">取消預約確認</h1>
+        <div className="mb-6 rounded-xl bg-earth-50 p-5 text-base">
+          <p className="text-earth-800">
             <strong>日期：</strong>
             {new Date(booking.bookingDate).toLocaleDateString("zh-TW", {
               year: "numeric",
@@ -75,23 +75,23 @@ export default async function CancelBookingPage({ params }: PageProps) {
               weekday: "short",
             })}
           </p>
-          <p className="mt-1 text-earth-700">
+          <p className="mt-2 text-earth-800">
             <strong>時段：</strong>{booking.slotTime}
           </p>
         </div>
 
         {canCancel ? (
           <>
-            <p className="mb-6 text-sm text-earth-500">
+            <p className="mb-6 text-base leading-relaxed text-earth-800">
               取消後課程堂數不會扣除，但請盡量提早通知以便安排其他顧客。
             </p>
-            <div className="flex gap-3">
+            <div className="flex flex-col gap-3 sm:flex-row">
               <form action={doCancelAction}>
-                <SubmitButton label="確認取消" pendingLabel="取消中..." className="bg-red-600 text-white hover:bg-red-700" />
+                <SubmitButton label="確認取消" pendingLabel="取消中..." className="w-full bg-red-600 text-white hover:bg-red-700 sm:w-auto" />
               </form>
               <Link
                 href="/my-bookings"
-                className="rounded-lg border border-earth-300 px-5 py-2 text-sm font-medium text-earth-600 hover:bg-earth-50"
+                className="flex min-h-[48px] items-center justify-center rounded-xl border border-earth-300 px-6 text-base font-semibold text-earth-800 hover:bg-earth-50"
               >
                 返回
               </Link>
@@ -99,17 +99,17 @@ export default async function CancelBookingPage({ params }: PageProps) {
           </>
         ) : (
           <>
-            <div className="mb-6 rounded-lg bg-yellow-50 border border-yellow-200 p-4">
-              <p className="text-sm font-medium text-yellow-800">
+            <div className="mb-6 rounded-xl bg-yellow-50 border border-yellow-200 p-5">
+              <p className="text-base font-semibold text-yellow-900">
                 開課前 12 小時內無法自行取消
               </p>
-              <p className="mt-1 text-xs text-yellow-700">
+              <p className="mt-2 text-base text-yellow-900">
                 如需取消，請直接聯繫店家處理。造成不便敬請見諒。
               </p>
             </div>
             <Link
               href="/my-bookings"
-              className="inline-block rounded-lg border border-earth-300 px-5 py-2 text-sm font-medium text-earth-600 hover:bg-earth-50"
+              className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-earth-300 px-6 text-base font-semibold text-earth-800 hover:bg-earth-50"
             >
               返回我的預約
             </Link>

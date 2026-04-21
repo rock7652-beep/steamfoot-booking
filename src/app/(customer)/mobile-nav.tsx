@@ -92,19 +92,19 @@ export function MobileNav({ userName, pathname, customerId, storeSlug = "zhubei"
         <div className="flex items-center justify-between">
           <button
             onClick={() => setOpen(true)}
-            className="flex h-9 w-9 items-center justify-center rounded-lg text-earth-600 hover:bg-earth-100"
+            className="flex h-11 w-11 items-center justify-center rounded-lg text-earth-700 hover:bg-earth-100"
             aria-label="開啟選單"
           >
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
               <line x1="3" y1="6" x2="21" y2="6" />
               <line x1="3" y1="12" x2="21" y2="12" />
               <line x1="3" y1="18" x2="21" y2="18" />
             </svg>
           </button>
-          <Link href={`${prefix}/book`} className="text-base font-bold text-earth-900">
+          <Link href={`${prefix}/book`} className="text-lg font-bold text-earth-900">
             蒸足健康站
           </Link>
-          <span className="text-xs text-earth-500 max-w-[80px] truncate">{userName}</span>
+          <span className="text-sm text-earth-700 max-w-[96px] truncate">{userName}</span>
         </div>
       </header>
 
@@ -124,15 +124,15 @@ export function MobileNav({ userName, pathname, customerId, storeSlug = "zhubei"
       >
         <div className="flex items-center justify-between border-b border-earth-200 px-5 py-4">
           <div>
-            <p className="text-base font-bold text-earth-900">蒸足健康站</p>
-            <p className="mt-0.5 text-xs text-earth-400">{userName}</p>
+            <p className="text-lg font-bold text-earth-900">蒸足健康站</p>
+            <p className="mt-1 text-sm text-earth-700">{userName}</p>
           </div>
           <button
             onClick={() => setOpen(false)}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-earth-400 hover:bg-earth-100"
+            className="flex h-11 w-11 items-center justify-center rounded-lg text-earth-700 hover:bg-earth-100"
             aria-label="關閉選單"
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
               <line x1="18" y1="6" x2="6" y2="18" />
               <line x1="6" y1="6" x2="18" y2="18" />
             </svg>
@@ -149,9 +149,9 @@ export function MobileNav({ userName, pathname, customerId, storeSlug = "zhubei"
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={() => setOpen(false)}
-                  className="mb-1 flex items-center gap-3 rounded-lg px-4 py-3 text-sm text-earth-600 hover:bg-earth-50 transition"
+                  className="mb-1 flex min-h-[48px] items-center gap-3 rounded-lg px-4 py-3 text-base text-earth-800 hover:bg-earth-50 transition"
                 >
-                  <NavIcon name={item.icon} className="text-earth-400" />
+                  <NavIcon name={item.icon} className="text-earth-600" />
                   {item.label}
                 </a>
               );
@@ -165,13 +165,13 @@ export function MobileNav({ userName, pathname, customerId, storeSlug = "zhubei"
                 key={item.href}
                 href={item.fullHref}
                 onClick={() => setOpen(false)}
-                className={`mb-1 flex items-center gap-3 rounded-lg px-4 py-3 text-sm transition ${
+                className={`mb-1 flex min-h-[48px] items-center gap-3 rounded-lg px-4 py-3 text-base transition ${
                   isActive
-                    ? "bg-primary-50 font-medium text-primary-700"
-                    : "text-earth-600 hover:bg-earth-50"
+                    ? "bg-primary-50 font-semibold text-primary-700"
+                    : "text-earth-800 hover:bg-earth-50"
                 }`}
               >
-                <NavIcon name={item.icon} className={isActive ? "text-primary-600" : "text-earth-400"} />
+                <NavIcon name={item.icon} className={isActive ? "text-primary-600" : "text-earth-600"} />
                 {item.label}
               </Link>
             );
@@ -182,8 +182,8 @@ export function MobileNav({ userName, pathname, customerId, storeSlug = "zhubei"
           <form action={logoutAction}>
             <input type="hidden" name="storeSlug" value={storeSlug} />
             <LogoutButton
-              className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-sm text-earth-400 hover:bg-earth-50 hover:text-earth-600 transition"
-              iconClassName="text-earth-300"
+              className="flex w-full min-h-[48px] items-center gap-3 rounded-lg px-4 py-3 text-base text-earth-700 hover:bg-earth-50 hover:text-earth-900 transition"
+              iconClassName="text-earth-600"
               iconSize={20}
             />
           </form>

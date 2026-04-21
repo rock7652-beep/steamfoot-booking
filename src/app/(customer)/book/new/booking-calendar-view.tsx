@@ -159,45 +159,47 @@ export function BookingCalendarView({ customerId, activeWallets, makeupCredits =
   return (
     <div>
       {/* 人數選擇 — 放在月曆上方，影響整個月曆顯示 */}
-      <div className="mb-3 flex items-center gap-3 rounded-xl border border-earth-200 bg-white px-4 py-3 shadow-sm">
-        <span className="text-sm font-medium text-earth-700">預約人數</span>
+      <div className="mb-4 flex items-center gap-3 rounded-xl border border-earth-200 bg-white px-4 py-4 shadow-sm">
+        <span className="text-base font-semibold text-earth-800">預約人數</span>
         <button
           type="button"
           onClick={() => setPeople((p) => Math.max(1, p - 1))}
           disabled={people <= 1}
-          className="flex h-7 w-7 items-center justify-center rounded-lg border border-earth-300 text-sm text-earth-600 hover:bg-earth-100 disabled:opacity-40"
+          className="flex h-11 w-11 items-center justify-center rounded-lg border border-earth-300 text-xl text-earth-800 hover:bg-earth-100 disabled:opacity-40"
+          aria-label="減少人數"
         >
           &minus;
         </button>
-        <span className="min-w-[1.5rem] text-center text-base font-bold text-earth-800">{people}</span>
+        <span className="min-w-[2rem] text-center text-2xl font-bold text-earth-900">{people}</span>
         <button
           type="button"
           onClick={() => setPeople((p) => Math.min(4, p + 1))}
           disabled={people >= 4}
-          className="flex h-7 w-7 items-center justify-center rounded-lg border border-earth-300 text-sm text-earth-600 hover:bg-earth-100 disabled:opacity-40"
+          className="flex h-11 w-11 items-center justify-center rounded-lg border border-earth-300 text-xl text-earth-800 hover:bg-earth-100 disabled:opacity-40"
+          aria-label="增加人數"
         >
           +
         </button>
-        <span className="text-xs text-earth-400">（最多 4 人）</span>
+        <span className="text-sm text-earth-700">（最多 4 人）</span>
       </div>
 
       {/* 月曆 */}
-      <div className="mb-4 rounded-xl border border-earth-200 bg-white shadow-sm overflow-hidden">
+      <div className="mb-5 rounded-2xl border border-earth-200 bg-white shadow-sm overflow-hidden">
         {/* 月份切換 */}
         <div className="flex items-center justify-between border-b border-earth-100 px-4 py-3">
-          <button onClick={prevMonth} className="flex h-8 w-8 items-center justify-center rounded-lg text-earth-500 hover:bg-earth-100 transition">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="15 18 9 12 15 6" /></svg>
+          <button onClick={prevMonth} className="flex h-11 w-11 items-center justify-center rounded-lg text-earth-800 hover:bg-earth-100 transition" aria-label="上個月">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="15 18 9 12 15 6" /></svg>
           </button>
-          <span className="text-sm font-bold text-earth-800">{monthLabel}</span>
-          <button onClick={nextMonth} className="flex h-8 w-8 items-center justify-center rounded-lg text-earth-500 hover:bg-earth-100 transition">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="9 18 15 12 9 6" /></svg>
+          <span className="text-lg font-bold text-earth-900">{monthLabel}</span>
+          <button onClick={nextMonth} className="flex h-11 w-11 items-center justify-center rounded-lg text-earth-800 hover:bg-earth-100 transition" aria-label="下個月">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="9 18 15 12 9 6" /></svg>
           </button>
         </div>
 
         {/* 星期標頭 */}
         <div className="grid grid-cols-7 border-b border-earth-100 bg-earth-50">
           {weekLabels.map((w) => (
-            <div key={w} className="py-2 text-center text-xs font-medium text-earth-400">{w}</div>
+            <div key={w} className="py-2 text-center text-sm font-semibold text-earth-700">{w}</div>
           ))}
         </div>
 
@@ -221,36 +223,36 @@ export function BookingCalendarView({ customerId, activeWallets, makeupCredits =
                 key={day}
                 disabled={disabled}
                 onClick={() => handleSelectDate(dateStr)}
-                className={`relative flex min-h-[72px] flex-col items-start border-b border-r border-earth-100 p-1 transition ${
+                className={`relative flex min-h-[92px] flex-col items-start border-b border-r border-earth-100 p-1.5 transition ${
                   isSelected
                     ? "bg-primary-600 text-white"
                     : disabled
-                      ? "bg-earth-50 text-earth-300"
-                      : "bg-white text-earth-700 hover:bg-primary-50"
+                      ? "bg-earth-50 text-earth-400"
+                      : "bg-white text-earth-800 hover:bg-primary-50"
                 }`}
               >
                 {/* 日期數字 + 狀態點 */}
-                <div className="flex w-full items-center gap-0.5">
-                  <span className={`text-xs leading-none ${
-                    isSelected ? "font-bold text-white" : isToday ? "font-bold text-primary-600" : ""
+                <div className="flex w-full items-center gap-1">
+                  <span className={`text-base font-bold leading-none ${
+                    isSelected ? "text-white" : isToday ? "text-primary-700" : ""
                   }`}>
                     {day}
                   </span>
                   {indicator && !isSelected && (
-                    <span className={`h-1.5 w-1.5 rounded-full ${indicatorColors[indicator]}`} />
+                    <span className={`h-2 w-2 rounded-full ${indicatorColors[indicator]}`} />
                   )}
                   {indicator && isSelected && (
-                    <span className="h-1.5 w-1.5 rounded-full bg-white/70" />
+                    <span className="h-2 w-2 rounded-full bg-white/80" />
                   )}
                   {isToday && !isSelected && (
-                    <span className="text-[7px] leading-none text-primary-400 ml-auto">今天</span>
+                    <span className="ml-auto rounded bg-primary-100 px-1 text-xs font-bold leading-none text-primary-800">今</span>
                   )}
                 </div>
 
                 {/* 公休 badge */}
                 {!disabled && isClosed && (
-                  <span className={`mt-0.5 rounded px-1 text-[8px] leading-tight ${
-                    isSelected ? "bg-white/20 text-white/80" : "bg-earth-100 text-earth-400"
+                  <span className={`mt-1 rounded px-1.5 py-0.5 text-xs font-semibold leading-tight ${
+                    isSelected ? "bg-white/20 text-white" : "bg-earth-100 text-earth-800"
                   }`}>
                     公休
                   </span>
@@ -258,24 +260,24 @@ export function BookingCalendarView({ customerId, activeWallets, makeupCredits =
 
                 {/* 時段 badges */}
                 {!disabled && !isClosed && badges.length > 0 && (
-                  <div className="mt-0.5 flex w-full flex-col gap-px overflow-hidden">
+                  <div className="mt-1 flex w-full flex-col gap-0.5 overflow-hidden">
                     {badges.map((b) => (
                       <span
                         key={b.time}
-                        className={`truncate rounded px-0.5 text-[7px] leading-tight ${
+                        className={`truncate rounded px-1 py-0.5 text-xs font-semibold leading-tight ${
                           isSelected
-                            ? b.isFull ? "bg-white/20 text-white/60" : "bg-white/25 text-white"
+                            ? b.isFull ? "bg-white/20 text-white/80" : "bg-white/30 text-white"
                             : b.isFull
-                              ? "bg-red-50 text-red-400"
-                              : "bg-green-50 text-green-600"
+                              ? "bg-red-50 text-red-700"
+                              : "bg-green-50 text-green-800"
                         }`}
                       >
                         {b.time} {b.label}
                       </span>
                     ))}
                     {extra > 0 && (
-                      <span className={`text-[7px] leading-tight ${
-                        isSelected ? "text-white/60" : "text-earth-300"
+                      <span className={`text-xs font-semibold leading-tight ${
+                        isSelected ? "text-white/80" : "text-earth-700"
                       }`}>
                         +{extra}
                       </span>
@@ -289,22 +291,22 @@ export function BookingCalendarView({ customerId, activeWallets, makeupCredits =
 
         {/* 圖例 */}
         {!loadingMonth && (
-          <div className="flex items-center justify-center gap-4 border-t border-earth-100 px-4 py-2">
-            <div className="flex items-center gap-1">
-              <span className="h-2 w-2 rounded-full bg-green-400" />
-              <span className="text-[10px] text-earth-400">充裕</span>
+          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 border-t border-earth-100 px-4 py-3">
+            <div className="flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full bg-green-500" />
+              <span className="text-sm text-earth-700">充裕</span>
             </div>
-            <div className="flex items-center gap-1">
-              <span className="h-2 w-2 rounded-full bg-yellow-400" />
-              <span className="text-[10px] text-earth-400">快滿</span>
+            <div className="flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full bg-yellow-500" />
+              <span className="text-sm text-earth-700">快滿</span>
             </div>
-            <div className="flex items-center gap-1">
-              <span className="h-2 w-2 rounded-full bg-red-300" />
-              <span className="text-[10px] text-earth-400">額滿</span>
+            <div className="flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full bg-red-400" />
+              <span className="text-sm text-earth-700">額滿</span>
             </div>
-            <div className="flex items-center gap-1">
-              <span className="rounded bg-earth-100 px-1 text-[8px] text-earth-400">公休</span>
-              <span className="text-[10px] text-earth-400">無時段</span>
+            <div className="flex items-center gap-1.5">
+              <span className="rounded bg-earth-100 px-1.5 text-sm font-medium text-earth-700">公休</span>
+              <span className="text-sm text-earth-700">無時段</span>
             </div>
           </div>
         )}
@@ -313,8 +315,8 @@ export function BookingCalendarView({ customerId, activeWallets, makeupCredits =
       {/* 時段展開區 */}
       {selectedDate && (
         <div className="animate-in slide-in-from-top-2 fade-in duration-200">
-          <div className="mb-2 flex items-center gap-2">
-            <h3 className="text-sm font-bold text-earth-800">
+          <div className="mb-3 flex items-center gap-2">
+            <h3 className="text-lg font-bold text-earth-900">
               {new Date(selectedDate + "T12:00:00").toLocaleDateString("zh-TW", {
                 month: "long",
                 day: "numeric",
@@ -323,18 +325,18 @@ export function BookingCalendarView({ customerId, activeWallets, makeupCredits =
             </h3>
             <button
               onClick={() => { setSelectedDate(null); setSlots([]); }}
-              className="ml-auto text-xs text-earth-400 hover:text-earth-600"
+              className="ml-auto flex min-h-[36px] items-center rounded-md px-2 text-sm font-medium text-earth-700 hover:bg-earth-100 hover:text-earth-900"
             >
               收合
             </button>
           </div>
 
           {loadingSlots ? (
-            <div className="rounded-xl border border-earth-200 bg-white py-8 text-center text-sm text-earth-400">
+            <div className="rounded-2xl border border-earth-200 bg-white py-10 text-center text-base text-earth-700">
               載入時段中...
             </div>
           ) : slots.length === 0 ? (
-            <div className="rounded-xl border border-earth-200 bg-white py-8 text-center text-sm text-earth-400">
+            <div className="rounded-2xl border border-earth-200 bg-white py-10 text-center text-base text-earth-700">
               該日無可用時段
             </div>
           ) : (
@@ -351,7 +353,7 @@ export function BookingCalendarView({ customerId, activeWallets, makeupCredits =
       )}
 
       {!selectedDate && (
-        <div className="py-6 text-center text-sm text-earth-400">
+        <div className="py-8 text-center text-base text-earth-700">
           請點選日期查看時段
         </div>
       )}
@@ -463,34 +465,34 @@ function SlotBookingForm({
   if (state.success) {
     return (
       <div className="rounded-2xl bg-white p-8 text-center shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-        <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-green-50">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-600"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-50">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-600"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
         </div>
-        <h2 className="text-lg font-semibold text-earth-900">
+        <h2 className="text-xl font-bold text-earth-900">
           {state.wasMakeup ? "補課預約成功" : "預約成功"}
         </h2>
-        <p className="mt-1.5 text-sm text-earth-500">
+        <p className="mt-3 text-base text-earth-800">
           {selectedDate} {state.bookedTime}
           {state.bookedPeople > 1 && ` / ${state.bookedPeople} 人`}
           {state.wasMakeup && " / 補課不扣堂"}
         </p>
-        <p className="mt-1 text-xs text-earth-400">記得準時到喔</p>
-        <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-center">
+        <p className="mt-1 text-sm text-earth-700">記得準時到喔</p>
+        <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
           <a
             href="/my-bookings"
-            className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-primary-700"
+            className="inline-flex min-h-[48px] items-center justify-center gap-1.5 rounded-xl bg-primary-600 px-6 text-base font-semibold text-white shadow-sm transition hover:bg-primary-700"
           >
             查看我的預約
           </a>
           <a
             href="/book/new"
-            className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-earth-200 px-5 py-2.5 text-sm font-medium text-earth-600 transition hover:bg-earth-50"
+            className="inline-flex min-h-[48px] items-center justify-center gap-1.5 rounded-xl border border-earth-300 px-6 text-base font-semibold text-earth-800 transition hover:bg-earth-50"
           >
             繼續預約
           </a>
           <a
             href="/book"
-            className="inline-flex items-center justify-center rounded-lg px-5 py-2.5 text-sm text-earth-400 transition hover:text-earth-600"
+            className="inline-flex min-h-[48px] items-center justify-center rounded-xl px-5 text-base text-earth-700 transition hover:text-earth-900"
           >
             返回首頁
           </a>
@@ -500,34 +502,34 @@ function SlotBookingForm({
   }
 
   return (
-    <form action={action} className="space-y-3 rounded-xl border border-earth-200 bg-white p-4 shadow-sm">
+    <form action={action} className="space-y-4 rounded-2xl border border-earth-200 bg-white p-5 shadow-sm">
       {state.error && (
-        <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
-          <p className="font-medium">{friendlyError(state.error)}</p>
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+          <p className="text-base font-semibold text-red-700">{friendlyError(state.error)}</p>
           {isTechnicalError(state.error) && (
-            <p className="mt-1 text-xs text-red-500">若問題持續，請聯繫店家協助</p>
+            <p className="mt-1 text-sm text-red-700">若問題持續，請聯繫店家協助</p>
           )}
         </div>
       )}
 
       {/* 補課切換 */}
       {makeupCredits.length > 0 && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
-          <label className="flex items-center gap-2 text-sm">
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-4">
+          <label className="flex items-center gap-3 text-base">
             <input
               type="checkbox"
               checked={useMakeup}
               onChange={(e) => setUseMakeup(e.target.checked)}
-              className="h-4 w-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500"
+              className="h-5 w-5 rounded border-amber-400 text-amber-600 focus:ring-amber-500"
             />
-            <span className="font-medium text-amber-800">使用補課資格（不扣堂）</span>
+            <span className="font-semibold text-amber-900">使用補課資格（不扣堂）</span>
           </label>
           {useMakeup && (
-            <div className="mt-2">
+            <div className="mt-3">
               <select
                 value={selectedCreditId}
                 onChange={(e) => setSelectedCreditId(e.target.value)}
-                className="w-full rounded border border-amber-300 bg-white px-2 py-1.5 text-sm text-amber-800"
+                className="w-full rounded-xl border border-amber-300 bg-white px-4 h-12 text-base text-amber-900"
               >
                 {makeupCredits.map((c) => (
                   <option key={c.id} value={c.id}>
@@ -545,15 +547,15 @@ function SlotBookingForm({
       <input type="hidden" name="people" value={people} />
 
       {/* 人數顯示（從月曆帶入） */}
-      <div className="flex items-center gap-2 text-sm text-earth-600">
-        <span>預約人數：<strong className="text-earth-800">{people} 人</strong></span>
-        <span className="text-[10px] text-earth-400">（可於上方月曆區調整）</span>
+      <div className="flex flex-wrap items-center gap-2 text-base text-earth-800">
+        <span>預約人數：<strong className="text-earth-900">{people} 人</strong></span>
+        <span className="text-sm text-earth-700">（可於上方月曆區調整）</span>
       </div>
 
       {/* 時段卡片 */}
       <div>
-        <p className="mb-2 text-xs text-earth-500">選擇時段</p>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <p className="mb-2 text-base font-semibold text-earth-800">選擇時段</p>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {slots.filter((s) => s.isEnabled).map((slot) => {
             const isPast = !!slot.isPast;
             const isFull = !isPast && slot.available === 0;
@@ -562,16 +564,16 @@ function SlotBookingForm({
             return (
               <label
                 key={slot.startTime}
-                className={`relative flex cursor-pointer flex-col items-center rounded-xl border p-3 text-center transition-colors ${
+                className={`relative flex min-h-[72px] cursor-pointer flex-col items-center justify-center rounded-xl border-2 p-3 text-center transition-colors ${
                   disabled
-                    ? "cursor-not-allowed border-earth-200 bg-earth-50 opacity-50"
-                    : "border-earth-200 bg-white hover:border-primary-400 hover:bg-primary-50 has-[:checked]:border-primary-500 has-[:checked]:bg-primary-600 has-[:checked]:text-white"
+                    ? "cursor-not-allowed border-earth-200 bg-earth-50 opacity-60"
+                    : "border-earth-200 bg-white hover:border-primary-400 hover:bg-primary-50 has-[:checked]:border-primary-600 has-[:checked]:bg-primary-600 has-[:checked]:text-white"
                 }`}
               >
                 <input type="radio" name="slotTime" value={slot.startTime} disabled={disabled} className="sr-only" required onChange={() => setSelectedSlot(slot.startTime)} />
-                <span className="text-base font-bold">{slot.startTime}</span>
-                <span className={`mt-0.5 text-xs ${isPast ? "text-earth-400" : isFull ? "text-red-500" : notEnough ? "text-red-400" : "text-earth-400"}`}>
-                  {isPast ? "已過時段" : isFull ? "滿" : notEnough ? "滿" : `${slot.available}位`}
+                <span className="text-lg font-bold">{slot.startTime}</span>
+                <span className={`mt-1 text-sm font-medium ${isPast ? "text-earth-700" : isFull ? "text-red-600" : notEnough ? "text-red-600" : "text-earth-700 has-[:checked]:text-primary-100"}`}>
+                  {isPast ? "已過時段" : isFull ? "已額滿" : notEnough ? "不足" : `${slot.available}位`}
                 </span>
               </label>
             );
@@ -580,13 +582,13 @@ function SlotBookingForm({
       </div>
 
       {availableSlots.length === 0 && (
-        <p className="text-center text-sm text-earth-400">今日所有時段已額滿</p>
+        <p className="text-center text-base text-earth-700">今日所有時段已額滿</p>
       )}
 
       {!useMakeup && activeWallets.length > 1 && (
         <div>
-          <label className="mb-1 block text-xs text-earth-500">使用課程</label>
-          <select name="customerPlanWalletId" className="w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500">
+          <label className="mb-2 block text-base font-medium text-earth-800">使用課程</label>
+          <select name="customerPlanWalletId" className="w-full rounded-xl border border-earth-300 px-4 h-12 text-base focus:outline-none focus:ring-2 focus:ring-primary-500">
             {activeWallets.map((w) => (
               <option key={w.id} value={w.id}>{w.planName}（剩 {w.remainingSessions} 堂）</option>
             ))}
@@ -599,21 +601,21 @@ function SlotBookingForm({
 
       {/* 預約確認摘要 */}
       {selectedSlot && availableSlots.length > 0 && (
-        <div className={`rounded-lg border px-4 py-3 text-sm ${useMakeup ? "border-amber-200 bg-amber-50 text-amber-800" : "border-primary-200 bg-primary-50 text-primary-800"}`}>
-          <p className="font-medium">{useMakeup ? "補課預約確認" : "預約確認"}</p>
-          <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5">
+        <div className={`rounded-xl border px-4 py-3 text-base ${useMakeup ? "border-amber-200 bg-amber-50 text-amber-900" : "border-primary-200 bg-primary-50 text-primary-800"}`}>
+          <p className="font-semibold">{useMakeup ? "補課預約確認" : "預約確認"}</p>
+          <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
             <span>日期：{selectedDate}</span>
             <span>時間：{selectedSlot}</span>
             <span>人數：{people} 人</span>
-            {useMakeup && <span className="font-medium">（不扣堂）</span>}
+            {useMakeup && <span className="font-semibold">（不扣堂）</span>}
           </div>
         </div>
       )}
 
       {/* 阻擋性驗證提示 */}
       {blockingError && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3">
-          <p className="text-sm font-medium text-red-700">{blockingError}</p>
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+          <p className="text-base font-semibold text-red-700">{blockingError}</p>
         </div>
       )}
 
@@ -621,7 +623,7 @@ function SlotBookingForm({
         <button
           type="submit"
           disabled={pending || !!blockingError}
-          className={`w-full rounded-xl py-3 text-sm font-semibold text-white disabled:opacity-60 ${useMakeup ? "bg-amber-600 hover:bg-amber-700" : "bg-primary-600 hover:bg-primary-700"}`}
+          className={`w-full min-h-[52px] rounded-xl px-4 text-base font-semibold text-white disabled:opacity-60 ${useMakeup ? "bg-amber-600 hover:bg-amber-700" : "bg-primary-600 hover:bg-primary-700"}`}
         >
           {pending ? "預約中..." : useMakeup ? `確認補課預約（${people} 人）` : `確認預約（${people} 人）`}
         </button>

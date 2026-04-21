@@ -37,7 +37,7 @@ export function SubmitButton({
     <button
       type="submit"
       disabled={isDisabled}
-      className={`relative inline-flex items-center justify-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60 ${className}`}
+      className={`relative inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl px-5 text-base font-medium transition disabled:cursor-not-allowed disabled:opacity-60 ${className}`}
     >
       {pending && <Spinner />}
       {pending ? pendingLabel : label}
@@ -56,8 +56,8 @@ const VARIANT_STYLES = {
 } as const;
 
 const SIZE_STYLES = {
-  sm: "px-3 py-1.5 text-xs",
-  md: "px-4 py-2 text-sm",
+  sm: "min-h-[44px] px-4 text-sm",
+  md: "min-h-[48px] px-5 text-base",
 } as const;
 
 interface ActionButtonProps {
@@ -113,7 +113,7 @@ export function ActionButton({
       type="button"
       disabled={isDisabled}
       onClick={handleClick}
-      className={`relative inline-flex items-center justify-center gap-1.5 rounded-lg font-medium transition disabled:cursor-not-allowed disabled:opacity-60 ${VARIANT_STYLES[variant]} ${SIZE_STYLES[size]} ${className}`}
+      className={`relative inline-flex items-center justify-center gap-2 rounded-xl font-medium transition disabled:cursor-not-allowed disabled:opacity-60 ${VARIANT_STYLES[variant]} ${SIZE_STYLES[size]} ${className}`}
     >
       {state === "loading" && <Spinner />}
       {state === "success" && <CheckIcon />}

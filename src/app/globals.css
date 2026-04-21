@@ -28,6 +28,22 @@
   /* Sidebar width tokens */
   --sidebar-width: 15rem;
   --sidebar-collapsed-width: 4rem;
+
+  /* Typography — 40+ friendly readability (customer-facing) */
+  --font-size-body: 17px;
+  --font-size-secondary: 15px;
+  --font-size-card-title: 18px;
+  --font-size-section: 20px;
+  --font-size-title: 24px;
+  --line-height-body: 1.7;
+  --line-height-heading: 1.3;
+
+  /* Text color — readability first */
+  --color-text-primary: #1a1a1a;
+  --color-text-secondary: #444444;
+
+  /* Touch target / spacing */
+  --touch-target-min: 44px;
 }
 
 :root {

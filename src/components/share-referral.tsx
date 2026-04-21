@@ -75,14 +75,14 @@ export function ShareReferral({
   if (variant === "full") {
     return (
       <div className="space-y-3">
-        <p className="text-xs text-earth-500">你的專屬邀請連結：</p>
-        <div className="rounded-lg border border-earth-200 bg-earth-50 px-3 py-2">
-          <p className="break-all text-xs text-earth-600 font-mono">{absoluteUrl}</p>
+        <p className="text-base font-medium text-earth-800">你的專屬邀請連結：</p>
+        <div className="rounded-xl border border-earth-200 bg-earth-50 px-4 py-3">
+          <p className="break-all text-sm text-earth-800 font-mono">{absoluteUrl}</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-3 sm:flex-row">
           <button
             onClick={() => handleCopy("text")}
-            className="flex-1 rounded-lg border border-earth-300 bg-white px-3 py-2 text-sm text-earth-700 hover:bg-earth-50"
+            className="flex-1 min-h-[48px] rounded-xl border border-earth-300 bg-white px-4 text-base font-semibold text-earth-800 hover:bg-earth-50"
           >
             {copied ? "已複製" : "複製分享文字"}
           </button>
@@ -91,13 +91,13 @@ export function ShareReferral({
             target="_blank"
             rel="noopener noreferrer"
             onClick={handleLineShareClick}
-            className="flex-1 rounded-lg bg-[#06C755] px-3 py-2 text-center text-sm font-medium text-white hover:bg-[#05b54d]"
+            className="flex-1 min-h-[48px] flex items-center justify-center rounded-xl bg-[#06C755] px-4 text-base font-semibold text-white hover:bg-[#05b54d]"
           >
             立即用 LINE 分享
           </a>
         </div>
         {typeof referralCount === "number" && (
-          <p className="text-sm text-earth-500">你已邀請：{referralCount} 人</p>
+          <p className="text-base text-earth-700">你已邀請：{referralCount} 人</p>
         )}
       </div>
     );
@@ -105,10 +105,10 @@ export function ShareReferral({
 
   // compact: 分享選單按鈕組
   return (
-    <div className="flex gap-2">
+    <div className="flex flex-col gap-3 sm:flex-row">
       <button
         onClick={() => handleCopy("url")}
-        className="flex-1 rounded-lg border border-earth-300 bg-white px-3 py-2 text-sm text-earth-700 hover:bg-earth-50"
+        className="flex-1 min-h-[48px] rounded-xl border border-earth-300 bg-white px-4 text-base font-semibold text-earth-800 hover:bg-earth-50"
       >
         {copied ? "已複製" : "複製連結"}
       </button>
@@ -116,7 +116,7 @@ export function ShareReferral({
         href={lineShareUrl}
         target="_blank"
         rel="noopener noreferrer"
-        className="flex-1 rounded-lg bg-[#06C755] px-3 py-2 text-center text-sm font-medium text-white hover:bg-[#05b54d]"
+        className="flex-1 min-h-[48px] flex items-center justify-center rounded-xl bg-[#06C755] px-4 text-base font-semibold text-white hover:bg-[#05b54d]"
       >
         立即用 LINE 分享
       </a>

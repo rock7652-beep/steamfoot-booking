@@ -118,20 +118,20 @@ export default async function CustomerHomePage() {
     (referralSummary.visitedCount >= 1 || referralSummary.totalPoints >= 100);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {/* ═══ 1. Hero（預約）═══ */}
-      <section className="rounded-2xl bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-        <p className="text-xl font-bold text-earth-900">
+      <section className="rounded-2xl bg-white p-6 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+        <p className="text-[24px] font-bold leading-tight text-earth-900">
           今天讓自己更舒服一點
         </p>
-        <p className="mt-1.5 text-sm leading-relaxed text-earth-500">
+        <p className="mt-2 text-base leading-relaxed text-earth-700">
           你的放鬆時間，已經幫你準備好了
         </p>
 
         {/* 下次預約提醒（有才顯示） */}
         {nextBooking && (
-          <div className="mt-3 rounded-xl bg-primary-50/70 px-4 py-3">
-            <p className="text-sm font-medium text-primary-800">
+          <div className="mt-4 rounded-xl bg-primary-50 px-4 py-3">
+            <p className="text-base font-semibold text-primary-800">
               你的下一次預約在{" "}
               {new Date(nextBooking.bookingDate).toLocaleDateString("zh-TW", {
                 month: "long",
@@ -141,14 +141,14 @@ export default async function CustomerHomePage() {
               {nextBooking.slotTime}
             </p>
             {reminderText && (
-              <p className="mt-0.5 text-xs text-primary-600">{reminderText}</p>
+              <p className="mt-1 text-sm text-primary-700">{reminderText}</p>
             )}
           </div>
         )}
 
         {/* 剩餘堂數 / 補課 */}
         {(remaining > 0 || makeupCount > 0) && (
-          <div className="mt-3 flex items-center gap-4 text-sm text-earth-500">
+          <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-1 text-base text-earth-800">
             {remaining > 0 && (
               <span>
                 剩餘可預約 <strong className="text-primary-700">{remaining}</strong> 堂
@@ -156,7 +156,7 @@ export default async function CustomerHomePage() {
             )}
             {makeupCount > 0 && (
               <span>
-                補課 <strong className="text-amber-600">{makeupCount}</strong> 次
+                補課 <strong className="text-amber-700">{makeupCount}</strong> 次
               </span>
             )}
           </div>
@@ -165,9 +165,9 @@ export default async function CustomerHomePage() {
         {/* 主按鈕：立即預約 */}
         <Link
           href="/book/new"
-          className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-primary-600 py-3.5 text-base font-semibold text-white shadow-sm transition hover:bg-primary-700 active:scale-[0.98]"
+          className="mt-5 flex w-full min-h-[56px] items-center justify-center gap-2 rounded-2xl bg-primary-600 text-lg font-semibold text-white shadow-sm transition hover:bg-primary-700 active:scale-[0.98]"
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
             <path d="M12 4.5v15m7.5-7.5h-15" />
           </svg>
           立即預約
@@ -175,22 +175,22 @@ export default async function CustomerHomePage() {
       </section>
 
       {/* ═══ 2. AI 健康評估（主推）═══ */}
-      <section className="rounded-2xl border-2 border-primary-200 bg-gradient-to-br from-primary-50 via-white to-primary-50/30 p-5 shadow-[0_2px_8px_rgba(0,0,0,0.08)]">
+      <section className="rounded-2xl border-2 border-primary-200 bg-gradient-to-br from-primary-50 via-white to-primary-50/30 p-6 shadow-[0_2px_8px_rgba(0,0,0,0.08)]">
         <div className="flex items-start gap-3">
-          <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-primary-600 text-white">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <span className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-primary-600 text-white">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
             </svg>
           </span>
           <div className="flex-1 min-w-0">
-            <p className="text-lg font-bold text-earth-900">
+            <p className="text-xl font-bold text-earth-900">
               看看你最近的身體狀態
             </p>
-            <p className="mt-1 text-sm leading-relaxed text-earth-600">
+            <p className="mt-1.5 text-base leading-relaxed text-earth-800">
               用 1 分鐘了解目前的身體指數
             </p>
             {healthCard?.available && typeof healthCard.score === "number" && (
-              <p className="mt-2 text-xs text-primary-700">
+              <p className="mt-2 text-base text-primary-700">
                 目前分數：<span className="font-bold">{healthCard.score}</span>
               </p>
             )}
@@ -201,19 +201,19 @@ export default async function CustomerHomePage() {
           href={aiHealthUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-primary-600 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-700 active:scale-[0.98]"
+          className="mt-5 flex w-full min-h-[52px] items-center justify-center gap-2 rounded-2xl bg-primary-600 text-base font-semibold text-white shadow-sm transition hover:bg-primary-700 active:scale-[0.98]"
         >
           開始健康評估
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
             <path d="M7.5 16.5L21 3m0 0h-5.25M21 3v5.25" />
           </svg>
         </a>
       </section>
 
       {/* ═══ 3. 今日小好康（去任務化，不顯示 +10/+5） ═══ */}
-      <section className="rounded-2xl bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-        <p className="text-base font-semibold text-earth-900">今天有一個小好康</p>
-        <p className="mt-1.5 text-sm leading-relaxed text-earth-500">
+      <section className="rounded-2xl bg-white p-6 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+        <p className="text-xl font-bold text-earth-900">今天有一個小好康</p>
+        <p className="mt-2 text-base leading-relaxed text-earth-700">
           把這個傳給朋友，你們都有機會拿到小回饋。
         </p>
 
@@ -229,10 +229,10 @@ export default async function CustomerHomePage() {
 
         <Link
           href="/my-referrals"
-          className="mt-3 flex items-center justify-between rounded-xl bg-earth-50 px-3 py-2 text-sm text-earth-700 hover:bg-earth-100/60"
+          className="mt-4 flex min-h-[48px] items-center justify-between rounded-xl bg-earth-50 px-4 text-base font-medium text-earth-800 hover:bg-earth-100/60"
         >
           <span>查看我的好康</span>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="text-earth-400">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="text-earth-600">
             <path d="M9 5l7 7-7 7" />
           </svg>
         </Link>
@@ -240,15 +240,15 @@ export default async function CustomerHomePage() {
 
       {/* ═══ 4. 回饋進度（關鍵轉換，totalPoints > 0 才顯示） ═══ */}
       {showPerkProgress && referralSummary && (
-        <section className="rounded-2xl border border-amber-200 bg-amber-50/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-          <p className="text-sm font-medium text-amber-900">你已經累積了一些回饋</p>
-          <p className="mt-2 text-4xl font-bold text-amber-800">
+        <section className="rounded-2xl border border-amber-200 bg-amber-50/60 p-6 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+          <p className="text-base font-semibold text-amber-900">你已經累積了一些回饋</p>
+          <p className="mt-2 text-5xl font-bold text-amber-800">
             {referralSummary.totalPoints}
-            <span className="ml-1.5 text-lg font-medium text-amber-700/70">點</span>
+            <span className="ml-2 text-xl font-medium text-amber-800">點</span>
           </p>
           {referralSummary.nextMilestone ? (
             <>
-              <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-white">
+              <div className="mt-4 h-3 w-full overflow-hidden rounded-full bg-white">
                 <div
                   className="h-full bg-amber-500 transition-all"
                   style={{
@@ -260,15 +260,15 @@ export default async function CustomerHomePage() {
                   }}
                 />
               </div>
-              <p className="mt-2 text-sm text-amber-800">
+              <p className="mt-3 text-base text-amber-900">
                 再 <span className="font-bold">{referralSummary.nextMilestone.remaining}</span> 點就可以解鎖小禮
               </p>
-              <p className="mt-1 text-xs text-amber-700/80">
+              <p className="mt-1 text-sm text-amber-800">
                 再傳給一位朋友，就更接近了
               </p>
             </>
           ) : (
-            <p className="mt-2 text-sm text-amber-800">
+            <p className="mt-3 text-base text-amber-900">
               已累積到目前上限，持續分享還會再累積好康。
             </p>
           )}
@@ -277,17 +277,17 @@ export default async function CustomerHomePage() {
 
       {/* ═══ 5. 我的進度（條件式：visitedCount >= 1 || totalPoints >= 100） ═══ */}
       {showMyGrowth && (
-        <section className="rounded-2xl bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-          <p className="text-base font-semibold text-earth-900">你最近的分享開始有成果了</p>
-          <p className="mt-1.5 text-sm leading-relaxed text-earth-500">
+        <section className="rounded-2xl bg-white p-6 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+          <p className="text-xl font-bold text-earth-900">你最近的分享開始有成果了</p>
+          <p className="mt-2 text-base leading-relaxed text-earth-700">
             已經有朋友來體驗，也慢慢累積自己的小成果。
           </p>
           <Link
             href="/my-growth"
-            className="mt-4 flex w-full items-center justify-center gap-1 rounded-xl border border-earth-200 bg-white py-2.5 text-sm font-medium text-earth-700 hover:bg-earth-50"
+            className="mt-5 flex w-full min-h-[48px] items-center justify-center gap-1.5 rounded-xl border border-earth-300 bg-white text-base font-semibold text-earth-800 hover:bg-earth-50"
           >
             查看我的進度
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
               <path d="M9 5l7 7-7 7" />
             </svg>
           </Link>

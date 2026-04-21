@@ -52,28 +52,30 @@ export function MonthCalendar({ selectedDate }: Props) {
   const monthLabel = `${year} 年 ${month + 1} 月`;
 
   return (
-    <div className="mb-4 rounded-xl border border-earth-200 bg-white p-4 shadow-sm">
+    <div className="mb-4 rounded-2xl border border-earth-200 bg-white p-5 shadow-sm">
       {/* Header */}
-      <div className="mb-3 flex items-center justify-between">
+      <div className="mb-4 flex items-center justify-between">
         <button
           onClick={handlePrevMonth}
-          className="rounded px-2 py-1 text-sm text-earth-500 hover:bg-earth-100"
+          className="flex h-11 w-11 items-center justify-center rounded-lg text-lg text-earth-800 hover:bg-earth-100"
+          aria-label="上個月"
         >
           &lt;
         </button>
-        <span className="text-sm font-semibold text-earth-800">{monthLabel}</span>
+        <span className="text-lg font-bold text-earth-900">{monthLabel}</span>
         <button
           onClick={handleNextMonth}
-          className="rounded px-2 py-1 text-sm text-earth-500 hover:bg-earth-100"
+          className="flex h-11 w-11 items-center justify-center rounded-lg text-lg text-earth-800 hover:bg-earth-100"
+          aria-label="下個月"
         >
           &gt;
         </button>
       </div>
 
       {/* Week labels */}
-      <div className="grid grid-cols-7 text-center text-xs text-earth-400">
+      <div className="grid grid-cols-7 text-center text-sm font-semibold text-earth-700">
         {weekLabels.map((w) => (
-          <div key={w} className="py-1">{w}</div>
+          <div key={w} className="py-2">{w}</div>
         ))}
       </div>
 
@@ -101,14 +103,14 @@ export function MonthCalendar({ selectedDate }: Props) {
               key={day}
               disabled={disabled}
               onClick={() => handleSelect(day)}
-              className={`mx-auto my-0.5 flex h-9 w-9 items-center justify-center rounded-full text-sm transition ${
+              className={`mx-auto my-1 flex h-11 w-11 items-center justify-center rounded-full text-base transition ${
                 isSelected
                   ? "bg-primary-600 font-bold text-white"
                   : disabled
-                    ? "text-earth-300"
+                    ? "text-earth-400"
                     : isToday
-                      ? "font-semibold text-primary-600 hover:bg-primary-50"
-                      : "text-earth-700 hover:bg-earth-100"
+                      ? "font-bold text-primary-700 hover:bg-primary-50"
+                      : "text-earth-800 hover:bg-earth-100"
               }`}
             >
               {day}

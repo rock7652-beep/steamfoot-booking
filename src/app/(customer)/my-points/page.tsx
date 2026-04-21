@@ -59,22 +59,22 @@ export default async function MyPointsPage() {
   return (
     <div>
       <div className="mb-6 flex items-center gap-3">
-        <Link href="/book" className="text-earth-400 hover:text-earth-600 lg:hidden">
+        <Link href="/book" className="flex min-h-[44px] min-w-[44px] items-center justify-center text-earth-700 hover:text-earth-900 lg:hidden">
           &larr;
         </Link>
-        <h1 className="text-xl font-bold text-earth-900">我的點數</h1>
+        <h1 className="text-2xl font-bold text-earth-900">我的點數</h1>
       </div>
 
       <div className="space-y-6">
         {/* ═══ 區塊 A：目前點數 ═══ */}
         <div className="rounded-2xl border border-primary-200 bg-gradient-to-br from-primary-50 to-primary-100/50 p-6 shadow-sm">
-          <p className="text-xs font-medium text-primary-600">目前點數</p>
-          <p className="mt-1 text-4xl font-bold text-primary-700">
+          <p className="text-base font-semibold text-primary-800">目前點數</p>
+          <p className="mt-2 text-5xl font-bold text-primary-700">
             {totalPoints}
-            <span className="ml-1 text-lg font-medium text-primary-500">點</span>
+            <span className="ml-2 text-xl font-medium text-primary-700">點</span>
           </p>
-          <div className="mt-3 flex items-center gap-2 text-sm text-primary-600">
-            <span className="inline-flex items-center rounded-full bg-white/70 px-2.5 py-0.5 text-xs font-medium">
+          <div className="mt-4 flex items-center gap-2">
+            <span className="inline-flex items-center rounded-full bg-white px-3 py-1 text-sm font-semibold text-primary-800">
               本月 +{monthlyPoints}
             </span>
           </div>
@@ -82,8 +82,8 @@ export default async function MyPointsPage() {
 
         {/* ═══ 區塊 B：集點方式 ═══ */}
         <div className="rounded-2xl border border-earth-200 bg-white p-6 shadow-sm">
-          <h2 className="mb-4 text-sm font-semibold text-earth-700">集點方式</h2>
-          <div className="space-y-2">
+          <h2 className="mb-4 text-lg font-bold text-earth-900">集點方式</h2>
+          <div className="space-y-3">
             {COLLECTION_RULES.map((rule) => (
               <PointRuleCard
                 key={rule.label}
@@ -99,26 +99,26 @@ export default async function MyPointsPage() {
         {/* ═══ 額外活動（bonus rules，選填） ═══ */}
         {bonusRules.length > 0 && (
           <div className="rounded-2xl border border-primary-100 bg-primary-50/40 p-6 shadow-sm">
-            <h2 className="mb-4 text-sm font-semibold text-primary-700">額外活動</h2>
-            <div className="space-y-2">
+            <h2 className="mb-4 text-lg font-bold text-primary-800">額外活動</h2>
+            <div className="space-y-3">
               {bonusRules.map((rule) => {
                 const hasDateRange = rule.startDate || rule.endDate;
                 return (
                   <div
                     key={rule.id}
-                    className="flex items-center justify-between rounded-xl border border-primary-100 bg-white px-4 py-3"
+                    className="flex items-center justify-between rounded-xl border border-primary-100 bg-white px-4 py-4"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-100">
-                        <IconSvg name="gift" className="text-primary-600" />
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-100">
+                        <IconSvg name="gift" className="text-primary-700" />
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-earth-800">{rule.name}</p>
+                        <p className="text-base font-semibold text-earth-900">{rule.name}</p>
                         {rule.description && (
-                          <p className="text-xs text-earth-500">{rule.description}</p>
+                          <p className="mt-0.5 text-sm text-earth-700">{rule.description}</p>
                         )}
                         {hasDateRange && (
-                          <p className="mt-0.5 text-[10px] text-primary-500">
+                          <p className="mt-1 text-sm font-medium text-primary-700">
                             {rule.endDate
                               ? `截止 ${new Date(rule.endDate).toLocaleDateString("zh-TW", { timeZone: "Asia/Taipei", month: "numeric", day: "numeric" })}`
                               : "進行中"}
@@ -126,7 +126,7 @@ export default async function MyPointsPage() {
                         )}
                       </div>
                     </div>
-                    <span className="rounded-full bg-primary-600 px-3 py-1 text-xs font-bold text-white">
+                    <span className="rounded-full bg-primary-600 px-3 py-1.5 text-base font-bold text-white">
                       +{rule.points}
                     </span>
                   </div>
@@ -138,14 +138,14 @@ export default async function MyPointsPage() {
 
         {/* ═══ 區塊 D：集點紀錄 ═══ */}
         <div className="rounded-2xl border border-earth-200 bg-white p-6 shadow-sm">
-          <h2 className="mb-4 text-sm font-semibold text-earth-700">集點紀錄</h2>
+          <h2 className="mb-4 text-lg font-bold text-earth-900">集點紀錄</h2>
 
           {pointHistory.length === 0 ? (
-            <p className="py-6 text-center text-sm text-earth-400">
+            <p className="py-8 text-center text-base text-earth-700">
               尚無集點紀錄，開始行動吧！
             </p>
           ) : (
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               {pointHistory.map((p) => {
                 const dateStr = new Date(p.createdAt).toLocaleDateString("zh-TW", {
                   timeZone: "Asia/Taipei",
@@ -155,19 +155,19 @@ export default async function MyPointsPage() {
                 return (
                   <div
                     key={p.id}
-                    className="flex items-center justify-between rounded-lg bg-earth-50/80 px-3 py-2 text-sm"
+                    className="flex items-center justify-between rounded-xl bg-earth-50 px-4 py-3 text-base"
                   >
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-earth-400">{dateStr}</span>
-                      <span className="text-earth-700">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
+                      <span className="text-sm font-semibold text-earth-800">{dateStr}</span>
+                      <span className="text-earth-900">
                         {CUSTOMER_POINT_LABELS[p.type]}
                       </span>
                       {p.note && (
-                        <span className="text-xs text-earth-400">· {p.note}</span>
+                        <span className="text-sm text-earth-700">· {p.note}</span>
                       )}
                     </div>
                     <span
-                      className={`font-bold ${p.points >= 0 ? "text-green-600" : "text-red-500"}`}
+                      className={`text-lg font-bold ${p.points >= 0 ? "text-green-700" : "text-red-600"}`}
                     >
                       {p.points >= 0 ? "+" : ""}
                       {p.points}
@@ -199,17 +199,17 @@ function PointRuleCard({
   description: string;
 }) {
   return (
-    <div className="flex items-center justify-between rounded-xl border border-earth-100 bg-earth-50/50 px-4 py-3">
+    <div className="flex items-center justify-between rounded-xl border border-earth-100 bg-earth-50/50 px-4 py-4">
       <div className="flex items-center gap-3">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-earth-100">
-          <IconSvg name={icon} className="text-earth-500" />
+        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-earth-100">
+          <IconSvg name={icon} className="text-earth-700" />
         </div>
         <div>
-          <p className="text-sm font-medium text-earth-800">{label}</p>
-          <p className="text-xs text-earth-500">{description}</p>
+          <p className="text-base font-semibold text-earth-900">{label}</p>
+          <p className="mt-0.5 text-sm text-earth-700">{description}</p>
         </div>
       </div>
-      <span className="rounded-full bg-earth-700 px-3 py-1 text-xs font-bold text-white">
+      <span className="rounded-full bg-earth-800 px-3 py-1.5 text-base font-bold text-white">
         +{points}
       </span>
     </div>
@@ -232,8 +232,8 @@ function IconSvg({ name, className = "" }: { name: string; className?: string })
   const d = icons[name] ?? icons.calendar;
   return (
     <svg
-      width="16"
-      height="16"
+      width="20"
+      height="20"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"

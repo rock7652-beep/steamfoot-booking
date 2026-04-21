@@ -145,32 +145,32 @@ export default async function ProfilePage({ searchParams }: PageProps) {
       <div className="mb-6 flex items-center gap-3">
         {/* 補件模式：不顯示返回連結，避免顧客繞過 */}
         {!showOnboardingBanner && (
-          <Link href="/book" className="text-earth-400 hover:text-earth-600 lg:hidden">
+          <Link href="/book" className="flex min-h-[44px] min-w-[44px] items-center justify-center text-earth-700 hover:text-earth-900 lg:hidden">
             &larr;
           </Link>
         )}
-        <h1 className="text-xl font-bold text-earth-900">我的資料</h1>
+        <h1 className="text-2xl font-bold text-earth-900">我的資料</h1>
       </div>
 
       <div className="space-y-6">
         {/* 完成註冊 / 補件 onboarding 提示 */}
         {showOnboardingBanner && (
-          <div className="rounded-2xl border border-primary-200 bg-primary-50/60 px-5 py-4 text-sm">
+          <div className="rounded-2xl border border-primary-200 bg-primary-50/60 px-5 py-5 text-base">
             {!customer ? (
               <>
-                <p className="font-semibold text-primary-800">
+                <p className="text-lg font-bold text-primary-800">
                   歡迎使用暖暖蒸足
                 </p>
-                <p className="mt-1 text-primary-700/90">
+                <p className="mt-2 text-base text-primary-800">
                   請先完成基本資料，才能開始預約與使用服務。
                 </p>
               </>
             ) : (
               <>
-                <p className="font-semibold text-primary-800">
+                <p className="text-lg font-bold text-primary-800">
                   首次使用請完成基本資料
                 </p>
-                <p className="mt-1 text-primary-700/90">
+                <p className="mt-2 text-base text-primary-800">
                   為了方便預約與聯繫，請先補齊基本資料後再繼續。
                 </p>
               </>
@@ -180,7 +180,7 @@ export default async function ProfilePage({ searchParams }: PageProps) {
 
         {/* 基本資料 */}
         <div className="rounded-2xl border border-earth-200 bg-white p-6 shadow-sm">
-          <h2 className="mb-4 text-sm font-semibold text-earth-700">基本資料</h2>
+          <h2 className="mb-5 text-lg font-bold text-earth-900">基本資料</h2>
           <ProfileForm
             customer={customerForForm}
             age={age}
@@ -191,16 +191,16 @@ export default async function ProfilePage({ searchParams }: PageProps) {
 
         {/* 修改密碼 */}
         <div className="rounded-2xl border border-earth-200 bg-white p-6 shadow-sm">
-          <h2 className="mb-4 text-sm font-semibold text-earth-700">修改密碼</h2>
+          <h2 className="mb-5 text-lg font-bold text-earth-900">修改密碼</h2>
           <ChangePasswordForm />
         </div>
 
         {/* 帳號安全提醒 */}
         <div className="rounded-2xl border border-earth-200 bg-white p-6 shadow-sm">
-          <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold text-earth-700">
+          <h2 className="mb-5 flex items-center gap-2 text-lg font-bold text-earth-900">
             <svg
-              width="18"
-              height="18"
+              width="22"
+              height="22"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -214,17 +214,17 @@ export default async function ProfilePage({ searchParams }: PageProps) {
             </svg>
             帳號安全提醒
           </h2>
-          <ul className="space-y-2 text-sm leading-relaxed text-earth-600">
+          <ul className="space-y-3 text-base leading-relaxed text-earth-800">
             <li className="flex items-start gap-2">
-              <span className="mt-1.5 h-1 w-1 flex-shrink-0 rounded-full bg-earth-400" />
+              <span className="mt-2.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-primary-600" />
               <span>建議定期更換密碼，並使用不易被猜到的組合。</span>
             </li>
             <li className="flex items-start gap-2">
-              <span className="mt-1.5 h-1 w-1 flex-shrink-0 rounded-full bg-earth-400" />
+              <span className="mt-2.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-primary-600" />
               <span>請勿將帳號密碼分享給他人，包含店家工作人員。</span>
             </li>
             <li className="flex items-start gap-2">
-              <span className="mt-1.5 h-1 w-1 flex-shrink-0 rounded-full bg-earth-400" />
+              <span className="mt-2.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-primary-600" />
               <span>若發現異常登入，請立即更換密碼並聯繫店家。</span>
             </li>
           </ul>
