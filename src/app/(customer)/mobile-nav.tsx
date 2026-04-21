@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { logoutAction } from "@/server/actions/auth";
 import { LogoutButton } from "@/components/logout-button";
+import { getHealthAssessmentUrl } from "@/lib/health-assessment";
 
 // SVG icon paths (Heroicons outline, 24x24 viewBox) — 與桌面版 sidebar 共用同一套
 const ICON_PATHS: Record<string, string[]> = {
@@ -77,7 +78,7 @@ const NAV_ITEMS_BASE = [
 
 export function MobileNav({ userName, pathname, customerId, storeSlug = "zhubei" }: { userName: string; pathname: string; customerId?: string | null; storeSlug?: string }) {
   const prefix = `/s/${storeSlug}`;
-  const aiHealthUrl = `https://www.healthflow-ai.com/liff${customerId ? `?customerId=${customerId}` : ""}`;
+  const aiHealthUrl = getHealthAssessmentUrl(customerId);
   const NAV_ITEMS = NAV_ITEMS_BASE.map((item) => ({
     ...item,
     fullHref: item.external ? aiHealthUrl : `${prefix}${item.href}`,

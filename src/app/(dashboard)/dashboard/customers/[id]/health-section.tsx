@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { tryAutoLinkHealth } from "@/server/actions/health";
 import { HealthLinkModal } from "./health-link-modal";
+import { HEALTH_ASSESSMENT_URL } from "@/lib/health-assessment";
 
 // ── 外部連結提示 Modal ──
 function ExternalLinkWarning({ url, onClose }: { url: string; onClose: () => void }) {
@@ -200,7 +201,7 @@ export function HealthSectionWrapper({
       {/* 外部連結提示 */}
       {showExternalWarning && (
         <ExternalLinkWarning
-          url="https://www.healthflow-ai.com/liff"
+          url={HEALTH_ASSESSMENT_URL}
           onClose={() => setShowExternalWarning(false)}
         />
       )}

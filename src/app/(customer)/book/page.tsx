@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ShareReferral } from "@/components/share-referral";
 import { buildReferralEntryUrl } from "@/lib/share";
+import { getHealthAssessmentUrl } from "@/lib/health-assessment";
 
 /** 計算距離提醒文案 */
 function getReminderText(bookingDate: Date, slotTime: string): string {
@@ -107,7 +108,7 @@ export default async function CustomerHomePage() {
 
   const reminderText = nextBooking ? getReminderText(nextBooking.bookingDate, nextBooking.slotTime) : "";
   const referralUrl = buildReferralEntryUrl(storeSlug, user.customerId);
-  const aiHealthUrl = `https://www.healthflow-ai.com/liff?customerId=${user.customerId}`;
+  const aiHealthUrl = getHealthAssessmentUrl(user.customerId);
 
   // 條件式：回饋進度（totalPoints > 0）
   const showPerkProgress = !!referralSummary && referralSummary.totalPoints > 0;

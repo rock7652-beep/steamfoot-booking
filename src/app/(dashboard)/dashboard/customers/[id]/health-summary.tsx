@@ -4,6 +4,7 @@ import {
   type HealthSummary,
   type BusinessInsight,
 } from "@/lib/health-service";
+import { HEALTH_ASSESSMENT_URL } from "@/lib/health-assessment";
 
 interface HealthSummaryProps {
   healthProfileId: string;
@@ -44,7 +45,7 @@ export async function HealthSummarySection({ healthProfileId, customerId }: Heal
           )}
         </p>
         <a
-          href="https://www.healthflow-ai.com/liff"
+          href={HEALTH_ASSESSMENT_URL}
           target="_blank"
           rel="noopener noreferrer"
           className="text-xs text-primary-600 hover:underline"

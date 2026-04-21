@@ -6,6 +6,7 @@
  */
 
 import type { HealthScoreResult, RiskLevel } from "@/lib/health-score";
+import { getHealthAssessmentUrl } from "@/lib/health-assessment";
 
 interface HealthAssessmentCardProps {
   score: HealthScoreResult;
@@ -34,7 +35,7 @@ export function HealthAssessmentCard({ score, customerId }: HealthAssessmentCard
         </div>
         {customerId && (
           <a
-            href={`https://www.healthflow-ai.com/liff?customerId=${customerId}`}
+            href={getHealthAssessmentUrl(customerId)}
             target="_blank"
             rel="noopener noreferrer"
             className="text-xs text-primary-600 hover:underline"

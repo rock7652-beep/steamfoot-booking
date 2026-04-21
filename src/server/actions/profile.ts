@@ -25,11 +25,19 @@ export async function updateProfileAction(
     return await updateProfileActionInner(formData);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
+    const prismaCode = (err as { code?: string })?.code;
+    const prismaMeta = (err as { meta?: { target?: string[]; field_name?: string } })?.meta;
     console.error("[updateProfileAction] uncaught", {
+      prismaCode,
+      prismaTarget: prismaMeta?.target,
+      prismaFieldName: prismaMeta?.field_name,
       error: msg,
       stack: err instanceof Error ? err.stack : undefined,
     });
-    return { error: `系統忙碌請稍後再試（${msg.slice(0, 80)}）`, success: false };
+    return {
+      error: "系統忙碌中，請稍後再試。若持續發生請聯繫店家。",
+      success: false,
+    };
   }
 }
 
@@ -84,8 +92,61 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
   // 與 profile page render 使用同一支；submit 額外提供 payload email/phone
   // 供 email/phone 唯一匹配 auto-bind。
   const storeCtx = await getStoreContext();
-  const storeId = user.storeId ?? storeCtx?.storeId ?? null;
+  let storeId = user.storeId ?? storeCtx?.storeId ?? null;
   const storeSlug = storeCtx?.storeSlug ?? null;
+
+  // ── 預先驗證 FK：避免 P2003 ─────────────────────────
+  // 任何寫入 customer.storeId 前必須確認 Store row 存在，否則 Prisma 會丟 P2003。
+  // 常見成因：JWT 內 storeId 指向已刪除的店、或 cookie/session 不一致。
+  if (storeId) {
+    const storeExists = await prisma.store.findUnique({
+      where: { id: storeId },
+      select: { id: true },
+    });
+    if (!storeExists) {
+      console.error("[updateProfileAction] storeId in session is stale", {
+        userId: user.id,
+        sessionStoreId: user.storeId,
+        ctxStoreId: storeCtx?.storeId ?? null,
+        resolvedStoreId: storeId,
+      });
+      // 嘗試 fallback 到 cookie store context；都不行才放棄
+      if (storeCtx?.storeId && storeCtx.storeId !== storeId) {
+        const fallback = await prisma.store.findUnique({
+          where: { id: storeCtx.storeId },
+          select: { id: true },
+        });
+        if (fallback) {
+          storeId = storeCtx.storeId;
+        } else {
+          return {
+            error: "店舖資訊異常，請重新登入後再試。若持續發生請聯繫店家。",
+            success: false,
+          };
+        }
+      } else {
+        return {
+          error: "店舖資訊異常，請重新登入後再試。若持續發生請聯繫店家。",
+          success: false,
+        };
+      }
+    }
+  }
+
+  // ── 預先驗證 User FK：避免 stale JWT 造成 P2003 ──────
+  const userExists = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { id: true },
+  });
+  if (!userExists) {
+    console.error("[updateProfileAction] session userId points to deleted user", {
+      userId: user.id,
+    });
+    return {
+      error: "登入狀態異常，請重新登入後再試",
+      success: false,
+    };
+  }
 
   // ── 存檔後完成度驗證 ─────────────────────────────────
   // 防止「DB 寫完但 layout gate 仍然判定未完成」— 用 layout 同一支 resolver 驗證，
@@ -433,9 +494,17 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
           success: false,
         };
       }
+      if (prismaCode === "P2003") {
+        // FK constraint 失敗 — 通常是 storeId 或 userId 對不到。
+        // 前置驗證已經擋住絕大多數情況；走到這裡代表罕見競態（例如儲存當下 store 被刪）。
+        return {
+          error: "資料儲存失敗，請重新整理頁面後再試一次。若持續發生請聯繫店家協助處理。",
+          success: false,
+        };
+      }
 
       return {
-        error: `建立顧客資料失敗（${prismaCode ?? "unknown"}），請稍後再試或聯繫店家`,
+        error: "資料儲存失敗，請稍後再試。若持續發生請聯繫店家。",
         success: false,
       };
     }
@@ -595,12 +664,39 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
 
     return verifySuccess(customerId);
   } catch (error) {
+    const prismaCode = (error as { code?: string })?.code;
+    const prismaMeta = (error as { meta?: { target?: string[]; field_name?: string } })?.meta;
     console.error("[updateProfileAction] update failed", {
       userId: user.id,
       customerId,
-      error,
+      prismaCode,
+      prismaTarget: prismaMeta?.target,
+      prismaFieldName: prismaMeta?.field_name,
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
     });
-    return { error: "儲存失敗，請稍後再試", success: false };
+    if (prismaCode === "P2002") {
+      const target = prismaMeta?.target;
+      if (target?.includes("email") || target?.includes("uq_store_customer_email")) {
+        return { error: "此 Email 已被其他帳號使用", success: false };
+      }
+      if (target?.includes("phone") || target?.includes("uq_store_customer_phone")) {
+        return { error: "此聯絡電話已被其他帳號使用", success: false };
+      }
+    }
+    if (prismaCode === "P2003") {
+      return {
+        error: "資料儲存失敗，請重新整理頁面後再試一次。若持續發生請聯繫店家協助處理。",
+        success: false,
+      };
+    }
+    if (prismaCode === "P2025") {
+      return {
+        error: "系統找不到對應資料，請重新整理頁面後再試。",
+        success: false,
+      };
+    }
+    return { error: "資料儲存失敗，請稍後再試。若持續發生請聯繫店家。", success: false };
   }
 }
 

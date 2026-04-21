@@ -9,6 +9,7 @@ import BuildFooter from "@/components/build-footer";
 import { LogoutButton } from "@/components/logout-button";
 import { getStoreContext } from "@/lib/store-context";
 import { resolveCustomerCompletionStatus } from "@/server/queries/customer-completion";
+import { getHealthAssessmentUrl } from "@/lib/health-assessment";
 
 // SVG icon paths (Heroicons outline, 24x24 viewBox) — 拆成多段 path 確保正確渲染
 const ICON_PATHS: Record<string, string[]> = {
@@ -123,7 +124,7 @@ export default async function CustomerLayout({
     redirect(`${prefix}/profile?${params.toString()}`);
   }
 
-  const aiHealthUrl = `https://www.healthflow-ai.com/liff${user.customerId ? `?customerId=${user.customerId}` : ""}`;
+  const aiHealthUrl = getHealthAssessmentUrl(user.customerId);
 
   const NAV_ITEMS = NAV_ITEMS_BASE.map((item) => ({
     ...item,
