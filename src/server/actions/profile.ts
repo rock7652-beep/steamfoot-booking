@@ -43,8 +43,43 @@ export async function updateProfileAction(
 
 async function updateProfileActionInner(formData: FormData): Promise<ProfileState> {
   const user = await requireSession();
+
+  // ── Diagnostic context — 一次取齊 request / cookie / session 全貌 ──────
+  // 任何 early return 之前都先有這份 log，便於排查「登入狀態異常 / 店舖異常」等
+  // 抽象訊息背後的真實原因。
+  const { headers, cookies } = await import("next/headers");
+  const headerList = await headers();
+  const cookieStore = await cookies();
+  const requestPath = headerList.get("x-next-pathname") ?? "(unknown)";
+  // NextAuth session cookie 名稱在 v5 / v4 / secure / non-secure 變體
+  const hasAuthToken = !!(
+    cookieStore.get("authjs.session-token")?.value ||
+    cookieStore.get("__Secure-authjs.session-token")?.value ||
+    cookieStore.get("next-auth.session-token")?.value ||
+    cookieStore.get("__Secure-next-auth.session-token")?.value
+  );
+  const storeSlugCookie = cookieStore.get("store-slug")?.value ?? null;
+
   if (user.role !== "CUSTOMER") {
+    console.warn("[updateProfileAction] non-customer attempt", {
+      requestPath,
+      userId: user.id,
+      role: user.role,
+    });
     return { error: "權限不足", success: false };
+  }
+
+  // session.user.id 必為非空才能寫 DB；NextAuth 應保證但 defensive
+  if (!user.id) {
+    console.error("[updateProfileAction] session has empty user.id", {
+      requestPath,
+      hasAuthToken,
+      storeSlugCookie,
+      sessionRole: user.role,
+      sessionCustomerId: user.customerId ?? null,
+      sessionStoreId: user.storeId ?? null,
+    });
+    return { error: "請重新登入後再試", success: false };
   }
 
   const name = (formData.get("name") as string)?.trim();
@@ -95,6 +130,24 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
   let storeId = user.storeId ?? storeCtx?.storeId ?? null;
   const storeSlug = storeCtx?.storeSlug ?? null;
 
+  // ── 完整 context log — submit 進入 resolve 前統一印一次 ──────────
+  console.info("[updateProfileAction] context", {
+    action: "updateProfileAction",
+    requestPath,
+    hasAuthToken,
+    storeSlugCookie,
+    userId: user.id,
+    sessionRole: user.role,
+    sessionCustomerId: user.customerId ?? null,
+    sessionStoreId: user.storeId ?? null,
+    sessionEmail: user.email ?? null,
+    ctxStoreSlug: storeCtx?.storeSlug ?? null,
+    ctxStoreId: storeCtx?.storeId ?? null,
+    resolvedStoreId: storeId,
+    payloadEmail: email,
+    payloadPhone: phone,
+  });
+
   // ── 預先驗證 FK：避免 P2003 ─────────────────────────
   // 任何寫入 customer.storeId 前必須確認 Store row 存在，否則 Prisma 會丟 P2003。
   // 常見成因：JWT 內 storeId 指向已刪除的店、或 cookie/session 不一致。
@@ -105,6 +158,7 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
     });
     if (!storeExists) {
       console.error("[updateProfileAction] storeId in session is stale", {
+        requestPath,
         userId: user.id,
         sessionStoreId: user.storeId,
         ctxStoreId: storeCtx?.storeId ?? null,
@@ -133,19 +187,28 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
     }
   }
 
-  // ── 預先驗證 User FK：避免 stale JWT 造成 P2003 ──────
+  // ── User FK 軟驗證：log 不擋 ──────────────────────────
+  // 之前的 hard fail (return 「登入狀態異常」) 在合法新登入流程下也會誤殺，
+  // 因為 NextAuth session cookie 寫入與後續第一次 server action 之間若有 cache /
+  // replica lag，user.id 雖然合法但這支 prisma client 暫時讀不到。改為：
+  //   - 只記 warning，不 return；
+  //   - 信任 session.user.id，繼續 resolve / create；
+  //   - 若真的 FK 失敗會被下游 P2003 catch 接住，回傳人類可讀訊息。
+  // session.user.id 為空已在最上層攔截，此處 user.id 必為非空字串。
   const userExists = await prisma.user.findUnique({
     where: { id: user.id },
     select: { id: true },
   });
   if (!userExists) {
-    console.error("[updateProfileAction] session userId points to deleted user", {
+    console.warn("[updateProfileAction] user.id not found in DB (continuing — P2003 catch will handle if FK fails)", {
+      requestPath,
       userId: user.id,
+      hasAuthToken,
+      sessionRole: user.role,
+      sessionCustomerId: user.customerId ?? null,
+      sessionStoreId: user.storeId ?? null,
     });
-    return {
-      error: "登入狀態異常，請重新登入後再試",
-      success: false,
-    };
+    // 不 return — 繼續 resolve / create 流程
   }
 
   // ── 存檔後完成度驗證 ─────────────────────────────────
