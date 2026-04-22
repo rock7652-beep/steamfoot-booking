@@ -14,6 +14,9 @@ const nextConfig: NextConfig = {
       minute: "2-digit",
       hour12: false,
     }),
+    // TODO(PR2): relies on env — verify against docs/deployment.md matrix.
+    // 此處為 build-time inline 計算，無法直接 import runtime-env helper
+    // （next.config.ts 在 Next.js 編譯前執行）。若規則變動需同步 src/lib/runtime-env.ts。
     NEXT_PUBLIC_BUILD_ENV:
       process.env.VERCEL_ENV === "production"
         ? "prod"

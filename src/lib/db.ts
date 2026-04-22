@@ -26,6 +26,10 @@ function buildDatabaseUrl(): string {
 
   const isPooler =
     /pooler\.supabase\.com$/i.test(url.hostname) || url.port === '6543'
+  // TODO(PR2): relies on env — verify against docs/deployment.md matrix.
+  // 此 flag 用於偵測 "是否跑在 Vercel serverless"（preview + production 都算），
+  // 與 runtime-env.ts 的 isProduction/isPreview 語意不同（後者區分兩個 Vercel 環境），
+  // 故不改用 helper。若未來要獨立 "isVercelRuntime()" 再抽出。
   const isServerless =
     process.env.VERCEL === '1' || !!process.env.VERCEL_ENV
 
