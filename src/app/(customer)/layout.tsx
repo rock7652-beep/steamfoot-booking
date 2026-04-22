@@ -105,10 +105,35 @@ export default async function CustomerLayout({
   // 去掉 /s/[slug] 前綴，還原成 /book、/my-bookings 等格式供比對
   const pathname = rawPathname.replace(/^\/s\/[^/]+/, "") || "/book";
 
+  const storeCtx = await getStoreContext();
+
+  // ── Store context gate ──────────────────────────────────
+  // 若 store context 解析失敗（cookie 遺失 / slug 在 DB 找不到對應店），
+  // 不可繼續渲染顧客頁面 — 否則上方 `storeSlug ?? "zhubei"` fallback 會讓
+  // 使用者看到「錯店的資料」，而且畫面看起來完全正常（silent data corruption）。
+  // 顯示明確保底訊息，請使用者從正確入口重入。
+  if (!storeCtx) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-earth-50 px-4 py-12">
+        <div className="w-full max-w-sm rounded-xl border border-earth-200 bg-white p-6 text-center shadow-sm sm:p-8">
+          <h1 className="mb-3 text-xl font-bold text-earth-900">無法確認店舖資訊</h1>
+          <p className="mb-6 text-sm leading-relaxed text-earth-600">
+            請從店舖專屬連結重新進入，或重新登入後再試一次。
+          </p>
+          <a
+            href="/"
+            className="inline-flex min-h-[44px] items-center justify-center rounded-lg bg-primary-600 px-6 text-sm font-semibold text-white hover:bg-primary-700"
+          >
+            回首頁
+          </a>
+        </div>
+      </div>
+    );
+  }
+
   // ── 完成註冊 gate ──────────────────────────────────────
   // 顧客若尚未完成基本資料（姓名/電話/Email/生日/性別），強制導至 /profile 補齊
   // 白名單：/profile 本身允許進入；其餘顧客頁皆受控
-  const storeCtx = await getStoreContext();
   const completion = await resolveCustomerCompletionStatus({
     userId: user.id,
     sessionCustomerId: user.customerId ?? null,
