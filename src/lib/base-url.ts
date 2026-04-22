@@ -14,16 +14,27 @@ import { isPreview, isProduction } from "./runtime-env";
  * 參考：docs/deployment.md（Environment Matrix）
  */
 export function deriveBaseUrl(): string {
-  // Env-aware sanity warning — preview 若誤設 NEXTAUTH_URL 會導致登入 / redirect
-  // 被導到錯誤 host，這是 Preview auth 最常見的破口
+  // Env-aware sanity check
+  //
+  // Preview 若誤設 NEXTAUTH_URL 會導致登入 / redirect 跑到錯誤 host — warn（不 throw，
+  // 因為 Preview 誤設雖然是破口但還能跑）
   if (isPreview() && process.env.NEXTAUTH_URL) {
     console.warn(
       "[base-url] NEXTAUTH_URL 不應在 Preview 設定 — 應依賴 VERCEL_URL，見 docs/deployment.md"
     );
   }
-  if (isProduction() && !process.env.NEXTAUTH_URL && !process.env.VERCEL_URL) {
-    console.error(
-      "[base-url] Production 必須設 NEXTAUTH_URL — 目前無法決定 base URL"
+
+  // Production 缺 NEXTAUTH_URL 是重大組態錯誤：
+  //   - Vercel production 會自動注入 VERCEL_URL（ephemeral domain，如
+  //     steamfoot-booking-abc123.vercel.app），所以原本「兩者都缺才警告」的檢查
+  //     永遠不觸發。
+  //   - 若沒設 NEXTAUTH_URL，email 連結、auth callback 會用那個 ephemeral URL，
+  //     造成使用者跳轉到錯誤網址。
+  // 因此直接 throw，讓錯誤在第一次呼叫時立刻爆出來，而不是悄悄污染 production。
+  if (isProduction() && !process.env.NEXTAUTH_URL) {
+    throw new Error(
+      "[base-url] Missing NEXTAUTH_URL in production — aborting to prevent invalid redirects. " +
+      "Set NEXTAUTH_URL to the canonical production domain (e.g. https://www.steamfoot.com)."
     );
   }
 
