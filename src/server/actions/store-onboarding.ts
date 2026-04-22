@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { hashSync } from "bcryptjs";
 import { createDefaultPermissions } from "@/lib/permissions";
 import { requireAdminSession } from "@/lib/session";
+import { deriveBaseUrl } from "@/lib/base-url";
 import type { ActionResult } from "@/types";
 import type {
   CreateStoreInput,
@@ -152,7 +153,7 @@ export async function createStoreAction(
     await prisma.bookingSlot.createMany({ data: slotData });
 
     // ── 產出交付摘要 ──
-    const baseUrl = process.env.NEXTAUTH_URL ?? process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.steamfoot.com";
+    const baseUrl = deriveBaseUrl();
     const checklist = buildDeliveryChecklist(input);
 
     const summary: StoreDeliverySummary = {
@@ -273,7 +274,7 @@ export async function getStoreDeliverySummary(
     return { success: false, error: "店舖不存在" };
   }
 
-  const baseUrl = process.env.NEXTAUTH_URL ?? process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.steamfoot.com";
+  const baseUrl = deriveBaseUrl();
   const checklist = await verifyStoreSetup(storeId);
 
   const owner = store.staff.find((s) => s.isOwner);

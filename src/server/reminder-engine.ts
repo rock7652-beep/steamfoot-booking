@@ -13,6 +13,7 @@ import { pushMessage, renderTemplate, type TemplateVariables } from "@/lib/line"
 import { getShopConfig } from "@/lib/shop-config";
 import { checkReminderSendLimit } from "@/lib/usage-gate";
 import type { StorePlanFields } from "@/lib/store-plan";
+import { deriveBaseUrl } from "@/lib/base-url";
 
 const DEFAULT_TEMPLATE = `{{customerName}} 您好！
 
@@ -59,7 +60,7 @@ export async function runReminders(): Promise<SendResult> {
   const windowEnd = new Date(now.getTime() + WINDOW_MINUTES * 60 * 1000);
 
   // 3. 基礎設定（shopName 在迴圈內依各 booking 的 storeId 取得）
-  const baseUrl = process.env.NEXTAUTH_URL ?? process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.steamfoot.com";
+  const baseUrl = deriveBaseUrl();
   // Cache shopName per storeId to avoid repeated DB queries
   const shopNameCache = new Map<string, string>();
   // Cache store plan + send count for usage gate

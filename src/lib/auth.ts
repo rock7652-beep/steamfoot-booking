@@ -663,6 +663,22 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       session.user.storeSlug = appToken.storeSlug ?? null;
       return session;
     },
+
+    // ── Redirect safety ──
+    // 只允許相對路徑（接在 baseUrl 後）或同 origin 絕對 URL。
+    // 這是 NextAuth v5 預設行為的顯式版本 — 若未來被錯誤 env（例如誤設的
+    // NEXTAUTH_URL）或惡意參數觸發跨 host 跳轉，log 會明確提示。
+    async redirect({ url, baseUrl }) {
+      if (url.startsWith("/")) return `${baseUrl}${url}`;
+      try {
+        const parsed = new URL(url);
+        if (parsed.origin === baseUrl) return url;
+      } catch {
+        // fallthrough
+      }
+      console.warn("[auth] blocked cross-origin redirect", { url, baseUrl });
+      return baseUrl;
+    },
   },
 
   pages: {

@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import { deriveBaseUrl } from "@/lib/base-url";
 
 // ============================================================
 // Email utility — Resend API
@@ -6,20 +7,14 @@ import { Resend } from "resend";
 // 環境變數：
 //   RESEND_API_KEY — Resend API Key（必要）
 //   RESEND_FROM    — 寄件人（預設 noreply@steamfoot.tw）
-//   NEXTAUTH_URL   — 用於信件連結的 base URL
+//   NEXTAUTH_URL   — 用於信件連結的 base URL（見 deriveBaseUrl()）
 //
 // 如果未設定 RESEND_API_KEY，會 fallback 到 console.log
 // ============================================================
 
-/** 每次呼叫時即時讀取環境變數，避免 build-time 快取 */
+/** 每次呼叫時即時取 base URL — 避免 build-time 快取造成 preview 指回 prod */
 function getBaseUrl(): string {
-  const url =
-    process.env.NEXTAUTH_URL ??
-    process.env.NEXT_PUBLIC_APP_URL ??
-    process.env.NEXT_PUBLIC_BASE_URL ??
-    "https://www.steamfoot.com";
-  // 移除尾端斜線
-  return url.replace(/\/+$/, "");
+  return deriveBaseUrl();
 }
 
 function getResendApiKey(): string | undefined {

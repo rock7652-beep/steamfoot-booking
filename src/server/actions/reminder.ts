@@ -12,6 +12,7 @@ import { assertStoreAccess } from "@/lib/manager-visibility";
 import { pushMessage, renderTemplate, type TemplateVariables } from "@/lib/line";
 import type { ActionResult } from "@/types";
 import { getShopConfig } from "@/lib/shop-config";
+import { deriveBaseUrl } from "@/lib/base-url";
 
 // ============================================================
 // Validators
@@ -245,7 +246,7 @@ export async function testSendLineMessage(
       bookingTime: "14:00",
       shopName: shopConfig?.shopName ?? "蒸足",
       staffName: customer.assignedStaff?.displayName ?? "店長",
-      bookingLink: `${process.env.NEXTAUTH_URL ?? process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.steamfoot.com"}/my-bookings`,
+      bookingLink: `${deriveBaseUrl()}/my-bookings`,
     };
 
     const renderedBody = renderTemplate(template.body, vars);
