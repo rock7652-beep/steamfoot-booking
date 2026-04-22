@@ -113,6 +113,10 @@ export default async function CustomerLayout({
   // 使用者看到「錯店的資料」，而且畫面看起來完全正常（silent data corruption）。
   // 顯示明確保底訊息，請使用者從正確入口重入。
   if (!storeCtx) {
+    // 兩個 action：
+    //   primary「回首頁」— 99% 場景有效（session.storeSlug 正常時 proxy 會導到正確店）
+    //   secondary「登出重試」— 逃生艙；防止 stale JWT + DB 缺預設店時的 fallback loop
+    //   （例：preview DB 沒 seed zhubei 時，/ → /s/zhubei/* → gate → fallback → /...）
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-earth-50 px-4 py-12">
         <div className="w-full max-w-sm rounded-xl border border-earth-200 bg-white p-6 text-center shadow-sm sm:p-8">
@@ -120,12 +124,22 @@ export default async function CustomerLayout({
           <p className="mb-6 text-sm leading-relaxed text-earth-600">
             請從店舖專屬連結重新進入，或重新登入後再試一次。
           </p>
-          <a
-            href="/"
-            className="inline-flex min-h-[44px] items-center justify-center rounded-lg bg-primary-600 px-6 text-sm font-semibold text-white hover:bg-primary-700"
-          >
-            回首頁
-          </a>
+          <div className="flex flex-col items-center gap-3">
+            <a
+              href="/"
+              className="inline-flex min-h-[44px] items-center justify-center rounded-lg bg-primary-600 px-6 text-sm font-semibold text-white hover:bg-primary-700"
+            >
+              回首頁
+            </a>
+            <form action={logoutAction}>
+              <button
+                type="submit"
+                className="text-xs text-earth-500 underline hover:text-earth-700"
+              >
+                若持續無法進入，請點此登出重試
+              </button>
+            </form>
+          </div>
         </div>
       </div>
     );
