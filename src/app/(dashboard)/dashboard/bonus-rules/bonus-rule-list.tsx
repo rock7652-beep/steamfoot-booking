@@ -20,17 +20,40 @@ interface Props {
 export function BonusRuleList({ rules }: Props) {
   if (rules.length === 0) {
     return (
-      <p className="text-center text-sm text-earth-400 py-6">
-        尚未建立任何獎勵項目，請在上方新增
-      </p>
+      <div className="rounded-[12px] border border-dashed border-earth-200 bg-earth-50/40 px-4 py-6 text-center">
+        <p className="text-sm text-earth-600">尚未建立任何獎勵規則</p>
+        <p className="mt-1 text-[12px] text-earth-400">
+          從上方「推薦玩法」點一鍵套用，或用「進階自訂規則」自建
+        </p>
+      </div>
     );
   }
 
+  const active = rules.filter((r) => r.isActive);
+  const inactive = rules.filter((r) => !r.isActive);
+
   return (
     <div className="space-y-3">
-      {rules.map((rule) => (
-        <RuleCard key={rule.id} rule={rule} />
-      ))}
+      {active.length > 0 && (
+        <div className="space-y-2">
+          {active.map((rule) => (
+            <RuleCard key={rule.id} rule={rule} />
+          ))}
+        </div>
+      )}
+
+      {inactive.length > 0 && (
+        <div>
+          <p className="mb-2 mt-1 text-[11px] font-semibold uppercase tracking-wide text-earth-400">
+            已停用（{inactive.length}）
+          </p>
+          <div className="space-y-2">
+            {inactive.map((rule) => (
+              <RuleCard key={rule.id} rule={rule} />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -54,7 +77,7 @@ function RuleCard({ rule }: { rule: RuleItem }) {
   }
 
   function handleDelete() {
-    if (!confirm(`確定要停用「${rule.name}」嗎？`)) return;
+    if (!confirm(`確定要刪除「${rule.name}」嗎？`)) return;
     const fd = new FormData();
     fd.set("id", rule.id);
     startTransition(async () => {
@@ -62,42 +85,59 @@ function RuleCard({ rule }: { rule: RuleItem }) {
     });
   }
 
+  const hasPeriod = rule.startDate || rule.endDate;
+
   return (
-    <div className={`rounded-lg border p-4 ${rule.isActive ? "bg-white" : "bg-earth-50 opacity-60"}`}>
-      <div className="flex items-start justify-between">
-        <div className="flex-1">
-          <div className="flex items-center gap-2">
-            <span className="font-medium text-earth-900">{rule.name}</span>
-            <span className="rounded-full bg-primary-100 px-2 py-0.5 text-xs font-bold text-primary-700">
+    <div
+      className={`rounded-[14px] border p-4 transition ${
+        rule.isActive
+          ? "border-earth-200 bg-white hover:border-primary-200"
+          : "border-earth-200 bg-earth-50/60"
+      }`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm font-semibold text-earth-900">{rule.name}</span>
+            <span className="rounded-full bg-primary-100 px-2 py-0.5 text-[11px] font-bold text-primary-700">
               +{rule.points} 點
             </span>
-            {!rule.isActive && (
-              <span className="rounded bg-earth-200 px-1.5 py-0.5 text-[10px] text-earth-500">已停用</span>
+            {rule.isActive ? (
+              <span className="rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-semibold text-green-700">
+                ● 啟用
+              </span>
+            ) : (
+              <span className="rounded-full bg-earth-200 px-2 py-0.5 text-[11px] font-semibold text-earth-500">
+                ○ 停用
+              </span>
             )}
           </div>
+
           {rule.description && (
-            <p className="mt-1 text-xs text-earth-500">{rule.description}</p>
+            <p className="mt-1.5 text-[12px] text-earth-600">{rule.description}</p>
           )}
-          {(rule.startDate || rule.endDate) && (
+
+          {hasPeriod && (
             <p className="mt-1 text-[11px] text-earth-400">
-              {rule.startDate && `${rule.startDate}`}
+              有效期間 ·{" "}
+              {rule.startDate && <span className="tabular-nums">{rule.startDate}</span>}
               {rule.startDate && rule.endDate && " ~ "}
-              {rule.endDate && `${rule.endDate}`}
-              {!rule.startDate && rule.endDate && `截止 ${rule.endDate}`}
+              {rule.endDate && !rule.startDate && "截止 "}
+              {rule.endDate && <span className="tabular-nums">{rule.endDate}</span>}
             </p>
           )}
         </div>
 
-        <div className="flex items-center gap-2 ml-3">
+        <div className="flex shrink-0 items-center gap-1.5">
           <button
             type="button"
             onClick={handleToggle}
             disabled={isPending}
-            className={`rounded px-2.5 py-1 text-xs font-medium transition ${
+            className={
               rule.isActive
-                ? "bg-earth-100 text-earth-600 hover:bg-earth-200"
-                : "bg-green-100 text-green-700 hover:bg-green-200"
-            }`}
+                ? "rounded-md border border-earth-200 bg-white px-3 py-1.5 text-[12px] font-medium text-earth-700 transition hover:bg-earth-50 disabled:opacity-50"
+                : "rounded-md bg-green-600 px-3 py-1.5 text-[12px] font-semibold text-white transition hover:bg-green-700 disabled:opacity-50"
+            }
           >
             {rule.isActive ? "停用" : "啟用"}
           </button>
@@ -106,7 +146,7 @@ function RuleCard({ rule }: { rule: RuleItem }) {
               type="button"
               onClick={handleDelete}
               disabled={isPending}
-              className="rounded px-2.5 py-1 text-xs font-medium text-red-600 hover:bg-red-50 transition"
+              className="rounded-md border border-red-200 bg-white px-3 py-1.5 text-[12px] font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-50"
             >
               刪除
             </button>
