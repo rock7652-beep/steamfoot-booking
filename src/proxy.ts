@@ -117,11 +117,14 @@ export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | n
         }
         return NextResponse.redirect(new URL(`/s/${storeSlug}/admin/dashboard`, req.url));
       }
-      // Session store mismatch → redirect to correct store（用 slug 比對）
-      if (userSlug && userSlug !== storeSlug) {
-        return NextResponse.redirect(new URL(`/s/${userSlug}${subPath}`, req.url));
-      }
-      // Rewrite /s/[slug]/book → /book etc.
+      // 不再做 session.storeSlug vs URL slug 的 mismatch redirect —
+      // 舊邏輯 `if (userSlug && userSlug !== storeSlug)` 會把任何與 session 不符的
+      // URL（含不存在於 DB 的無效 slug）靜默導向 userSlug。因 userSlug fallback
+      // 到 DEFAULT_STORE_SLUG（"zhubei"），會造成：
+      //   /s/wrong-store/book → /s/zhubei/book（使用者看似正常，其實被改站）
+      // 現在讓 URL slug 原樣放行；無效 slug 由 customer layout 的 store context
+      // gate（PR3）擋下並顯示 fallback UI，有 logout escape hatch 可回登入流程。
+      // Data 安全仍由 server query 以 session.storeId 為準保護，不受 URL slug 影響。
       return storeRewrite(req, subPath, storeSlug, domainStoreId);
     }
 
@@ -145,8 +148,9 @@ export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | n
     if (subPath === "/") {
       if (isLoggedIn) {
         if (role === "CUSTOMER") {
-          const correctSlug = userSlug;
-          return NextResponse.redirect(new URL(`/s/${correctSlug}/book`, req.url));
+          // 使用 URL slug 而非 session's userSlug（含 zhubei fallback）:
+          // 無效 URL slug 會被 customer layout gate（PR3）擋下，不會靜默改站。
+          return NextResponse.redirect(new URL(`/s/${storeSlug}/book`, req.url));
         }
         if (role === "ADMIN") {
           return NextResponse.redirect(new URL("/hq/dashboard", req.url));
