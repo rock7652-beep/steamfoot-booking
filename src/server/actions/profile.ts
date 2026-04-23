@@ -13,6 +13,7 @@ import {
   mergePlaceholderCustomerIntoRealCustomer,
   resolveAuthSourceFromAccounts,
 } from "@/server/services/customer-merge";
+import { bindReferralToCustomer } from "@/server/services/referral-binding";
 import type { UserRole } from "@prisma/client";
 
 // ============================================================
@@ -660,6 +661,31 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
         storeId,
         customerId: created.id,
       });
+
+      // 推薦綁定（從 pending-ref cookie 讀取；靜默失敗）
+      // 這個流程處理「補資料／啟用」時首次建立 Customer 的情況，
+      // 若使用者曾從 line-entry?ref= 進站，cookie 內會有推薦人 id。
+      //
+      // Cookie 清除規則（統一）：只要走過 create customer 就清，無論 bind 成功與否
+      // — 避免後續 flow 誤用舊 ref、避免重複綁定嘗試。
+      try {
+        const { cookies } = await import("next/headers");
+        const cookieStore = await cookies();
+        const pendingRef =
+          cookieStore.get("pending-ref")?.value?.trim() || null;
+        if (pendingRef) {
+          await bindReferralToCustomer({
+            customerId: created.id,
+            storeId,
+            referrerRef: pendingRef,
+            source: "profile-activate",
+          });
+          cookieStore.delete("pending-ref");
+        }
+      } catch {
+        // 綁定失敗不影響主流程
+      }
+
       return verifySuccess(created.id);
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);

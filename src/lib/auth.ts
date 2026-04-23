@@ -472,7 +472,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           },
         });
 
-        await prisma.customer.create({
+        const newCustomer = await prisma.customer.create({
           data: {
             name: oauthName,
             phone: oauthPlaceholderPhone,
@@ -495,7 +495,34 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 }
               : {}),
           },
+          select: { id: true },
         });
+
+        // 推薦綁定（從 pending-ref cookie；靜默失敗）
+        // 使用者從 line-entry?ref= 進站後透過 Google/LINE OAuth 建立帳號時，
+        // 這裡是唯一綁 sponsorId 的機會。任何失敗都不阻擋登入。
+        //
+        // Cookie 清除規則（統一）：只要走過 create customer 就清，無論 bind 成功與否。
+        try {
+          const { cookies } = await import("next/headers");
+          const { bindReferralToCustomer } = await import(
+            "@/server/services/referral-binding"
+          );
+          const cookieStore = await cookies();
+          const pendingRef =
+            cookieStore.get("pending-ref")?.value?.trim() || null;
+          if (pendingRef) {
+            await bindReferralToCustomer({
+              customerId: newCustomer.id,
+              storeId: targetStoreId,
+              referrerRef: pendingRef,
+              source: `oauth-${provider}`,
+            });
+            cookieStore.delete("pending-ref");
+          }
+        } catch {
+          // 綁定失敗不影響 OAuth 登入主流程
+        }
 
         await prisma.account.create({
           data: {

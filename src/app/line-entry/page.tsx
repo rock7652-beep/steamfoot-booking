@@ -6,6 +6,7 @@ import {
   createLinkClickEvent,
   createLineEntryEvent,
 } from "@/server/services/referral-events";
+import { isReferralCodeFormat } from "@/lib/referral-code";
 
 /**
  * /s/[slug]/line-entry?ref=xxx — LINE 推薦中繼頁（公開）
@@ -16,8 +17,12 @@ import {
  *   2. 顯示品牌/店家資訊 + 「加入官方 LINE」CTA（不直接 redirect）
  *   3. Fallback：即便沒有 ref 也能正常顯示並提供 LINE 入口
  *
+ * `?ref=` 接受兩種格式（backward compat）：
+ *   - 新：6 碼 referralCode（`Customer.referralCode`）
+ *   - 舊：customer.id（cuid，Phase 1 之前已在用）
+ *   兩者以 OR 查詢，任一命中即視為有效推薦人。無效 ref 完全不擋流程。
+ *
  * 不做的事：
- *   - 不寫 DB 的 Referral 事件表（目前 schema 無 ReferralEvent；待有 migration 再擴充）
  *   - 不強制登入
  *   - 不在 Server Component 直接 cookies().set()（Next.js 不允許，改由 client 寫）
  *
@@ -33,7 +38,7 @@ export default async function LineEntryPage({
   searchParams: Promise<{ ref?: string; source?: string }>;
 }) {
   const params = await searchParams;
-  const ref = params.ref?.trim() || null;
+  const rawRef = params.ref?.trim() || null;
   const source = params.source?.trim() || null;
 
   // 讀取店家資訊（從 proxy 注入的 x-active-store-id 或 cookie）
@@ -44,12 +49,43 @@ export default async function LineEntryPage({
     cookieStore.get("domain-store-id")?.value ??
     null;
 
+  // 解析 ref → referrerCustomerId
+  // 依 ref 格式分派查詢：
+  //   - 6 碼 referralCode 格式 → 查 Customer.referralCode
+  //   - 其他（通常是 25 碼 cuid / customer.id）→ 查 Customer.id
+  // 用 isReferralCodeFormat 擋一層，避免 migration 前去查不存在的欄位造成 log 噪音。
+  // 無效 ref = null，不擋流程。
+  let referrerCustomerId: string | null = null;
+  let inviterName: string | null = null;
+  if (rawRef) {
+    try {
+      const normalized = rawRef.toUpperCase();
+      const inviter = isReferralCodeFormat(normalized)
+        ? await prisma.customer.findUnique({
+            where: { referralCode: normalized },
+            select: { id: true, name: true },
+          })
+        : await prisma.customer.findUnique({
+            where: { id: rawRef },
+            select: { id: true, name: true },
+          });
+      if (inviter) {
+        referrerCustomerId = inviter.id;
+        inviterName = inviter.name;
+      }
+    } catch {
+      // 查詢失敗一律降級為一般進站
+      referrerCustomerId = null;
+      inviterName = null;
+    }
+  }
+
   // 事件埋點：進頁即視為 LINK_CLICK + LINE_ENTRY（fire-and-forget）
-  // 若 storeId 還無法解析（網域與 cookie 都沒有），就跳過 — 避免寫入不明歸屬的事件
+  // 只有在 storeId 可解析 + ref 命中時才寫 referrerId（欄位是 FK 到 Customer.id）
   if (storeId) {
     const eventInput = {
       storeId,
-      referrerId: ref,
+      referrerId: referrerCustomerId,
       source: source ?? "line-entry",
     };
     // 不阻擋頁面渲染；寫入失敗靜默
@@ -57,20 +93,6 @@ export default async function LineEntryPage({
       createLinkClickEvent(eventInput),
       createLineEntryEvent(eventInput),
     ]).catch(() => {});
-  }
-
-  // 嘗試找出推薦人姓名（給中繼頁做信任感，若查不到也沒關係）
-  let inviterName: string | null = null;
-  if (ref) {
-    try {
-      const inviter = await prisma.customer.findUnique({
-        where: { id: ref },
-        select: { name: true },
-      });
-      inviterName = inviter?.name ?? null;
-    } catch {
-      inviterName = null;
-    }
   }
 
   // 嘗試找出店家名稱
@@ -92,7 +114,7 @@ export default async function LineEntryPage({
       <LineEntryAutoRedirect
         lineUrl={LINE_OFFICIAL_URL}
         delayMs={2500}
-        refCode={ref}
+        referrerCustomerId={referrerCustomerId}
         storeId={storeId}
         source={source ?? "line-entry"}
       />
@@ -156,7 +178,9 @@ export default async function LineEntryPage({
               加入官方 LINE
             </a>
             <p className="mt-3 text-center text-[11px] text-earth-400">
-              {ref ? "系統已記錄推薦人，下次註冊時自動綁定" : "將自動為您導向 LINE"}
+              {referrerCustomerId
+                ? "系統已記錄推薦人，下次註冊時自動綁定"
+                : "將自動為您導向 LINE"}
             </p>
           </section>
 
