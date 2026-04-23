@@ -2,14 +2,17 @@
  * backfill-referral-code.ts — 冪等腳本：為舊會員補上 referralCode
  *
  * Usage:
- *   npx tsx scripts/backfill-referral-code.ts            # dry-run（只印統計）
- *   npx tsx scripts/backfill-referral-code.ts --execute  # 實際寫入
+ *   npx tsx scripts/backfill-referral-code.ts                        # dry-run（只印統計）
+ *   npx tsx scripts/backfill-referral-code.ts --execute              # 實際寫入（全量）
+ *   npx tsx scripts/backfill-referral-code.ts --execute --limit 10   # 只寫前 10 筆（小量驗證）
+ *   npx tsx scripts/backfill-referral-code.ts --limit 10             # dry-run，但顯示僅會處理 10 筆
  *
  * 行為：
  *   - 只掃 referralCode IS NULL 的 Customer，逐筆生成唯一 6 碼
  *   - 生成時碰撞 → 重試（最多 8 次），極小機率失敗直接印 warning 略過
  *   - 完全不碰 sponsorId、不回推推薦關係、不改任何其他欄位
  *   - 可重複執行：只會處理尚未補碼的顧客
+ *   - --limit N：只處理前 N 筆（以 id asc 排序後取前 N）。適合小量驗證。
  *
  * 前置條件：
  *   - prisma/migrations/20260423_referral_points_system 已 deploy
@@ -25,6 +28,24 @@ const prisma = new PrismaClient();
 const DRY_RUN = !process.argv.includes("--execute");
 const BATCH_SIZE = 500;
 const MAX_COLLISION_RETRIES = 8;
+
+function parseLimit(): number | null {
+  const idx = process.argv.indexOf("--limit");
+  if (idx < 0) return null;
+  const raw = process.argv[idx + 1];
+  if (!raw) {
+    console.error("ERROR: --limit requires a positive integer (e.g. --limit 10)");
+    process.exit(1);
+  }
+  const n = Number.parseInt(raw, 10);
+  if (!Number.isFinite(n) || n < 1) {
+    console.error(`ERROR: invalid --limit value: ${raw}`);
+    process.exit(1);
+  }
+  return n;
+}
+
+const LIMIT: number | null = parseLimit();
 
 async function generateUniqueCode(
   existing: Set<string>,
@@ -47,9 +68,9 @@ async function generateUniqueCode(
 }
 
 async function main() {
-  console.log(
-    `\n=== Backfill Customer.referralCode (${DRY_RUN ? "DRY-RUN" : "EXECUTE"}) ===\n`,
-  );
+  const mode = DRY_RUN ? "DRY-RUN" : "EXECUTE";
+  const limitLabel = LIMIT !== null ? `, LIMIT=${LIMIT}` : "";
+  console.log(`\n=== Backfill Customer.referralCode (${mode}${limitLabel}) ===\n`);
 
   // 先盤點：多少顧客還沒 code、總共多少顧客
   const [pending, total, alreadyFilled] = await Promise.all([
@@ -58,9 +79,15 @@ async function main() {
     prisma.customer.count({ where: { referralCode: { not: null } } }),
   ]);
 
+  const willProcess = LIMIT !== null ? Math.min(LIMIT, pending) : pending;
+
   console.log(`Total customers:          ${total}`);
   console.log(`Already have referralCode: ${alreadyFilled}`);
-  console.log(`Pending backfill:         ${pending}\n`);
+  console.log(`Pending backfill:         ${pending}`);
+  if (LIMIT !== null) {
+    console.log(`Will process this run:    ${willProcess} (--limit ${LIMIT})`);
+  }
+  console.log();
 
   if (pending === 0) {
     console.log("Nothing to backfill. Exiting.");
@@ -88,12 +115,17 @@ async function main() {
   let succeeded = 0;
   let failed = 0;
 
-  while (true) {
+  outer: while (true) {
+    // 若有 --limit，本批次 take 不超過「還能處理的量」
+    const remaining = LIMIT !== null ? LIMIT - processed : BATCH_SIZE;
+    if (remaining <= 0) break;
+    const take = Math.min(BATCH_SIZE, remaining);
+
     const batch = await prisma.customer.findMany({
       where: { referralCode: null },
       select: { id: true },
       orderBy: { id: "asc" },
-      take: BATCH_SIZE,
+      take,
       ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
     });
 
@@ -107,6 +139,7 @@ async function main() {
           `[WARN] Could not generate unique code for customer ${cust.id} after ${MAX_COLLISION_RETRIES} retries. Skipping.`,
         );
         failed += 1;
+        if (LIMIT !== null && processed >= LIMIT) break outer;
         continue;
       }
 
@@ -130,6 +163,7 @@ async function main() {
                 data: { referralCode: retry },
               });
               succeeded += 1;
+              if (LIMIT !== null && processed >= LIMIT) break outer;
               continue;
             } catch {
               /* fall through to failed */
@@ -139,6 +173,8 @@ async function main() {
         console.warn(`[WARN] Update failed for ${cust.id}:`, err);
         failed += 1;
       }
+
+      if (LIMIT !== null && processed >= LIMIT) break outer;
     }
 
     cursor = batch[batch.length - 1]?.id;
