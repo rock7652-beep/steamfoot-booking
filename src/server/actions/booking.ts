@@ -25,6 +25,7 @@ import {
   createBookingCreatedEvent,
   createBookingCompletedEvent,
 } from "@/server/services/referral-events";
+import { awardFirstBookingReferralPointsIfEligible } from "@/server/services/referral-points";
 import type { z } from "zod";
 
 // 共用 revalidate
@@ -677,6 +678,15 @@ export async function markCompleted(
         // 積分發放失敗不應阻擋主流程（但仍在事務內，若 tx 出錯會回滾）
         console.error("[Points] Failed to award ATTENDANCE points for booking", bookingId);
       }
+
+      // 🆕 推薦獎勵（疊加於 ATTENDANCE +5 之上，不取代）
+      // 首次完成 + 有 sponsor → 邀請者 +10、被邀請者 +5
+      // sourceKey 以 customerId 為主鍵，確保每位被邀請人只觸發一次
+      await awardFirstBookingReferralPointsIfEligible({
+        customerId: booking.customerId,
+        storeId: booking.storeId,
+        tx,
+      });
     });
 
     // BOOKING_COMPLETED 事件埋點（交易外 fire-and-forget；埋點失敗不回滾業務）

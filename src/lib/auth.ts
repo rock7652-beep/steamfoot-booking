@@ -392,11 +392,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
           // Update Customer with provider-specific IDs
           const updateData: Record<string, unknown> = {};
+          let justLinkedLine = false;
           if (provider === "line" && lineUserId && !customer.lineUserId) {
             updateData.lineUserId = lineUserId;
             updateData.lineLinkStatus = "LINKED";
             updateData.lineLinkedAt = new Date();
             if (oauthName && !customer.lineName) updateData.lineName = oauthName;
+            justLinkedLine = true;
           }
           if (provider === "google" && googleId && !customer.googleId) {
             updateData.googleId = googleId;
@@ -404,6 +406,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           }
           if (Object.keys(updateData).length > 0) {
             await prisma.customer.update({ where: { id: customer.id }, data: updateData });
+          }
+
+          // 🆕 LINE 剛綁定 + 有 sponsor → 邀請者 +1（sourceKey dedupe 保證只發一次）
+          if (justLinkedLine) {
+            try {
+              const { awardLineJoinReferrerIfEligible } = await import(
+                "@/server/services/referral-points"
+              );
+              await awardLineJoinReferrerIfEligible({
+                customerId: customer.id,
+                storeId: customer.storeId,
+              });
+            } catch {
+              // 發點失敗不阻擋登入
+            }
           }
 
           user.id = customer.userId;
@@ -441,17 +458,34 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
           // Update Customer
           const updateData: Record<string, unknown> = { authSource: provider === "line" ? "LINE" : "GOOGLE" };
+          let justLinkedLine = false;
           if (provider === "line" && lineUserId) {
             updateData.lineUserId = lineUserId;
             updateData.lineLinkStatus = "LINKED";
             updateData.lineLinkedAt = new Date();
             if (oauthName) updateData.lineName = oauthName;
+            justLinkedLine = true;
           }
           if (provider === "google" && googleId) {
             updateData.googleId = googleId;
             if (oauthImage) updateData.avatar = oauthImage;
           }
           await prisma.customer.update({ where: { id: customer.id }, data: updateData });
+
+          // 🆕 LINE 剛綁定 + 有 sponsor → 邀請者 +1
+          if (justLinkedLine) {
+            try {
+              const { awardLineJoinReferrerIfEligible } = await import(
+                "@/server/services/referral-points"
+              );
+              await awardLineJoinReferrerIfEligible({
+                customerId: customer.id,
+                storeId: customer.storeId,
+              });
+            } catch {
+              // 發點失敗不阻擋登入
+            }
+          }
 
           user.id = newUser.id;
           return true;
@@ -472,7 +506,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           },
         });
 
-        await prisma.customer.create({
+        const newCustomer = await prisma.customer.create({
           data: {
             name: oauthName,
             phone: oauthPlaceholderPhone,
@@ -495,7 +529,50 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 }
               : {}),
           },
+          select: { id: true },
         });
+
+        // 推薦綁定（從 pending-ref cookie；靜默失敗）
+        // 使用者從 line-entry?ref= 進站後透過 Google/LINE OAuth 建立帳號時，
+        // 這裡是唯一綁 sponsorId 的機會。任何失敗都不阻擋登入。
+        //
+        // Cookie 清除規則（統一）：只要走過 create customer 就清，無論 bind 成功與否。
+        try {
+          const { cookies } = await import("next/headers");
+          const { bindReferralToCustomer } = await import(
+            "@/server/services/referral-binding"
+          );
+          const cookieStore = await cookies();
+          const pendingRef =
+            cookieStore.get("pending-ref")?.value?.trim() || null;
+          if (pendingRef) {
+            await bindReferralToCustomer({
+              customerId: newCustomer.id,
+              storeId: targetStoreId,
+              referrerRef: pendingRef,
+              source: `oauth-${provider}`,
+            });
+            cookieStore.delete("pending-ref");
+          }
+        } catch {
+          // 綁定失敗不影響 OAuth 登入主流程
+        }
+
+        // 🆕 若是 LINE OAuth（customer 剛以 lineLinkStatus=LINKED 建立）+ sponsor 已綁
+        //    → 邀請者 +1。放在 bindReferralToCustomer 之後才有機會抓到剛綁的 sponsorId。
+        if (provider === "line" && lineUserId) {
+          try {
+            const { awardLineJoinReferrerIfEligible } = await import(
+              "@/server/services/referral-points"
+            );
+            await awardLineJoinReferrerIfEligible({
+              customerId: newCustomer.id,
+              storeId: targetStoreId,
+            });
+          } catch {
+            // 發點失敗不阻擋登入
+          }
+        }
 
         await prisma.account.create({
           data: {

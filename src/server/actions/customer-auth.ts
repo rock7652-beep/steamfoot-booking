@@ -6,6 +6,7 @@ import { signIn } from "@/lib/auth";
 import { AuthError } from "next-auth";
 import { cookies } from "next/headers";
 import { createRegisterEvent } from "@/server/services/referral-events";
+import { bindReferralToCustomer } from "@/server/services/referral-binding";
 
 const PENDING_REF_COOKIE = "pending-ref";
 
@@ -117,20 +118,10 @@ export async function customerRegisterAction(
   // 選填欄位
   const birthday = birthdayStr ? new Date(birthdayStr) : null;
 
-  // B8: 驗證推薦人存在且同 store
-  let sponsorId: string | null = null;
-  if (referrerId) {
-    const sponsor = await prisma.customer.findFirst({
-      where: { id: referrerId, storeId },
-      select: { id: true },
-    });
-    if (sponsor) sponsorId = sponsor.id;
-  }
-
   const passwordHash = hashSync(password, 10);
 
   try {
-    // 建立 User + Customer
+    // 建立 User + Customer（sponsorId 先留空，由 bindReferralToCustomer 在下方補）
     const created = await prisma.user.create({
       data: {
         name,
@@ -148,12 +139,22 @@ export async function customerRegisterAction(
             authSource: "EMAIL",
             customerStage: "LEAD",
             storeId,
-            sponsorId,
           },
         },
       },
       include: { customer: { select: { id: true } } },
     });
+
+    // 推薦綁定（靜默失敗；不覆蓋既有 sponsorId、不自綁）
+    if (created.customer?.id) {
+      await bindReferralToCustomer({
+        customerId: created.customer.id,
+        storeId,
+        referrerRef: referrerId,
+        source:
+          cookieRef && !formReferrerId ? "pending-ref-cookie" : "register-form",
+      });
+    }
 
     // REGISTER 事件埋點（在 signIn 拋 NEXT_REDIRECT 前寫入）
     // 寫入失敗不應阻擋註冊 — 包 try/catch 靜默失敗

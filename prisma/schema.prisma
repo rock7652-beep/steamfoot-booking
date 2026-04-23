@@ -65,15 +65,24 @@ enum ReferralEventType {
 
 enum PointType {
   REFERRAL_CREATED // 轉介紹登記 → +10
-  REFERRAL_VISITED // 被介紹人到店 → +20
-  REFERRAL_CONVERTED // 被介紹人成為顧客 → +30
+  REFERRAL_VISITED // 被介紹人首次完成體驗（邀請者側）→ +10
+  REFERRAL_VISITED_SELF // 被介紹人首次完成體驗（被邀請者側）→ +5
+  REFERRAL_CONVERTED // 被介紹人首次儲值/開課（邀請者側）→ +15
+  REFERRAL_CONVERTED_SELF // 被介紹人首次儲值/開課（被邀請者側）→ +5
+  LINE_JOIN_REFERRER // 朋友透過分享加入官方 LINE（邀請者側）→ +1
   ATTENDANCE // 出席（Booking COMPLETED）→ +5
   BECAME_PARTNER // 升為合作店長 → +100
   REFERRAL_PARTNER // 自己推薦的人升為合作店長 → +100
   SERVICE // 完成服務 → +5
-  SERVICE_NOTE // 寫服務紀錄 → +3
+  SERVICE_NOTE // 寫服務紀錄 / 蒸足心得 → +3
   BECAME_FUTURE_OWNER // 升為準店長 → +200
   MANUAL_ADJUSTMENT // 手動調整（可正可負）
+}
+
+enum CheckinPostStatus {
+  PENDING // 顧客提交後等待店家確認
+  APPROVED // 店家確認（已發點）
+  REJECTED // 店家未採納（不發點）
 }
 
 enum AuthSource {
@@ -290,11 +299,12 @@ model User {
   customer Customer?
 
   // Audit
-  auditLogs          AuditLog[]
-  cashbookEntries    CashbookEntry[]    @relation("CashbookCreatedBy")
-  opsActionLogs      OpsActionLog[]
-  opsActionHistories OpsActionHistory[]
-  talentStageChanges TalentStageLog[]   @relation("TalentStageChangedBy")
+  auditLogs            AuditLog[]
+  cashbookEntries      CashbookEntry[]    @relation("CashbookCreatedBy")
+  opsActionLogs        OpsActionLog[]
+  opsActionHistories   OpsActionHistory[]
+  talentStageChanges   TalentStageLog[]   @relation("TalentStageChangedBy")
+  reviewedCheckinPosts CheckinPost[]      @relation("CheckinPostReviewedBy")
 
   // 同一角色內手機不重複，但不同角色可共用手機
   @@unique([phone, role])
@@ -399,6 +409,7 @@ model Store {
   pointRecords        PointRecord[]
   bonusRules          BonusRule[]
   referralEvents      ReferralEvent[]
+  checkinPosts        CheckinPost[]
 
   @@index([parentStoreId])
 }
@@ -486,6 +497,7 @@ model Customer {
   customerStage            CustomerStage  @default(LEAD)
   // 人才管道
   sponsorId                String? // 推薦人（自我參照）
+  referralCode             String? // 顧客專屬推薦碼（lazy + backfill；nullable 以相容舊會員）
   talentStage              TalentStage    @default(CUSTOMER)
   stageChangedAt           DateTime? // 階段最後變更時間
   stageNote                String? // 店長對此人的備註
@@ -528,11 +540,15 @@ model Customer {
   // 訊息紀錄
   messageLogs MessageLog[]
 
+  // 蒸足心得 / 打卡貼文
+  checkinPosts CheckinPost[]
+
   @@unique([storeId, phone], name: "uq_store_customer_phone")
   @@unique([storeId, email], name: "uq_store_customer_email")
   @@unique([storeId, googleId], name: "uq_store_customer_google")
   @@unique([storeId, lineUserId], name: "uq_store_customer_line")
   @@unique([storeId, lineBindingCode], name: "uq_store_customer_binding_code")
+  @@unique([referralCode], name: "uq_customer_referral_code")
   @@index([storeId])
   @@index([assignedStaffId])
   @@index([customerStage])
@@ -601,11 +617,17 @@ model PointRecord {
   type       PointType
   points     Int // 正數=加分
   note       String?
+  // 事件去重：sourceType + sourceKey 組成「一次事件」的唯一識別。
+  // 例如 first_visit_referrer + bookingId，確保同事件不重複發點。
+  // 保持 nullable 以相容舊 record 與不需要去重的手動加分。
+  sourceType String?
+  sourceKey  String?
   createdAt  DateTime  @default(now())
 
   customer Customer @relation(fields: [customerId], references: [id])
   store    Store    @relation(fields: [storeId], references: [id])
 
+  @@unique([customerId, sourceType, sourceKey], name: "uq_point_dedupe")
   @@index([customerId])
   @@index([storeId])
   @@index([createdAt])
@@ -632,6 +654,33 @@ model BonusRule {
 
   @@index([storeId])
   @@index([isActive])
+}
+
+// ============================================================
+// CheckinPost（蒸足心得 / 打卡貼文 — 人工審核後記點）
+// ============================================================
+
+model CheckinPost {
+  id           String            @id @default(cuid())
+  storeId      String
+  customerId   String
+  content      String            @db.Text // 心得文字
+  imageUrl     String? // 可選附圖
+  status       CheckinPostStatus @default(PENDING)
+  reviewedById String? // 店家審核者（User.id）
+  reviewedAt   DateTime?
+  note         String? // 店家備註（未採納原因等）
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  store      Store    @relation(fields: [storeId], references: [id])
+  customer   Customer @relation(fields: [customerId], references: [id])
+  reviewedBy User?    @relation("CheckinPostReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([storeId])
+  @@index([customerId])
+  @@index([status])
+  @@index([createdAt])
 }
 
 // ============================================================
