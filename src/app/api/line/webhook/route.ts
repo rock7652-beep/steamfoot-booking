@@ -160,6 +160,19 @@ async function handleFollow(lineUserId: string, storeId: string, replyToken?: st
       data: { lineLinkStatus: "LINKED", lineLinkedAt: new Date() },
     });
     console.log(`[LINE] Re-linked blocked customer: ${blocked.name} (${blocked.id})`);
+
+    // 🆕 若此 customer 曾有 sponsor → 邀請者 +1（sourceKey dedupe：僅首次生效）
+    try {
+      const { awardLineJoinReferrerIfEligible } = await import(
+        "@/server/services/referral-points"
+      );
+      await awardLineJoinReferrerIfEligible({
+        customerId: blocked.id,
+        storeId: blocked.storeId,
+      });
+    } catch {
+      // 發點失敗不影響 re-link 流程
+    }
   }
 
   // 回覆歡迎訊息
@@ -323,6 +336,19 @@ async function handleBindingRequest(
   });
 
   console.log(`[LINE] Binding success: ${customer.name} (${customer.id}) <-> ${lineUserId} (store: ${storeId})`);
+
+  // 🆕 若此 customer 有 sponsor → 邀請者 +1（sourceKey dedupe：僅首次生效）
+  try {
+    const { awardLineJoinReferrerIfEligible } = await import(
+      "@/server/services/referral-points"
+    );
+    await awardLineJoinReferrerIfEligible({
+      customerId: customer.id,
+      storeId: customer.storeId,
+    });
+  } catch {
+    // 發點失敗不影響綁定流程
+  }
 
   if (replyToken) {
     const result = await replyMessage(replyToken, [
