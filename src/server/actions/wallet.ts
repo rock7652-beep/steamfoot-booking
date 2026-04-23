@@ -11,6 +11,7 @@ import { addDays } from "date-fns";
 import { assertStoreAccess } from "@/lib/manager-visibility";
 import { currentStoreId } from "@/lib/store";
 import { buildTransactionSnapshot } from "@/lib/transaction-snapshot";
+import { awardFirstTopupReferralPointsIfEligible } from "@/server/services/referral-points";
 
 // ============================================================
 // 折扣計算
@@ -160,6 +161,15 @@ export async function assignPlanToCustomer(
           selfBookingEnabled: true,
           ...(isFirstPurchase && { convertedAt: now }),
         },
+      });
+
+      // 🆕 推薦獎勵：首次購課 + 有 sponsor → 邀請者 +15、被邀請者 +5
+      // sourceKey 以 customerId 為主鍵；靜默失敗
+      await awardFirstTopupReferralPointsIfEligible({
+        customerId: data.customerId,
+        storeId: currentStoreId(user),
+        isFirstPurchase,
+        tx,
       });
 
       return { wallet, transaction };
