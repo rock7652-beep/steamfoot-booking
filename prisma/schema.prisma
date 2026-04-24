@@ -705,6 +705,10 @@ model ServicePlan {
   sessionCount Int // 堂數
   validityDays Int? // 有效天數（null = 無期限）
   isActive     Boolean      @default(true)
+  // PR-2：僅用於前台 /book/shop 展示開關
+  // ⚠️ 必須搭配 isActive=true 才會出現在前台（前台 query: isActive AND publicVisible）
+  // ⚠️ 後台 assign / 選方案 flow 不可依賴此欄位（後台只看 isActive）
+  publicVisible Boolean     @default(false)
   sortOrder    Int          @default(0) // 排序
   description  String?
   createdAt    DateTime     @default(now())
@@ -1096,6 +1100,11 @@ model ShopConfig {
   storeId               String   @unique
   shopName              String   @default("蒸足")
   dutySchedulingEnabled Boolean  @default(false)
+  // === PR-2 新增：前台購買頁顯示用（全 nullable；格式驗證交給 app layer）===
+  bankName              String? // 銀行名稱，例：「永豐銀行」
+  bankCode              String? // 銀行代號，例：「807」
+  bankAccountNumber     String? // 帳號，例：「19301800020681」
+  lineOfficialUrl       String? // LINE@ 連結，例：「https://lin.ee/UvRnFFK」
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 
