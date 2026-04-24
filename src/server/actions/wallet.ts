@@ -8,7 +8,7 @@ import { assignPlanSchema } from "@/lib/validators/plan";
 import type { ActionResult } from "@/types";
 import type { z } from "zod";
 import { addDays } from "date-fns";
-import { assertStoreAccess } from "@/lib/manager-visibility";
+import { assertStoreAccess, getStoreFilter } from "@/lib/manager-visibility";
 import { currentStoreId } from "@/lib/store";
 import { buildTransactionSnapshot } from "@/lib/transaction-snapshot";
 import { awardFirstTopupReferralPointsIfEligible } from "@/server/services/referral-points";
@@ -275,4 +275,55 @@ export async function adjustRemainingSessions(
   } catch (e) {
     return handleActionError(e);
   }
+}
+
+// ============================================================
+// getLatestActiveWalletSummary — PR-5.5 drawer 用
+//
+// 快速指派 drawer 讀取顧客最近一筆 ACTIVE wallet，用於：
+//   - 顯示「目前方案」精簡卡片（方案名 / 剩餘堂數 / 到期日）
+//   - 「續購同方案」按鈕的 planId 來源
+//
+// 權限：wallet.read（OWNER / PARTNER 皆有）
+// 作用域：依 getStoreFilter 做店隔離
+// 回傳序列化形態：expiryDate 轉 ISO string，避免 server action RPC 邊界問題
+// ============================================================
+
+export interface DrawerWalletSummary {
+  id: string;
+  remainingSessions: number;
+  expiryDate: string | null;
+  plan: { id: string; name: string };
+}
+
+export async function getLatestActiveWalletSummary(
+  customerId: string
+): Promise<DrawerWalletSummary | null> {
+  const user = await requirePermission("wallet.read");
+
+  const customer = await prisma.customer.findFirst({
+    where: { id: customerId, ...getStoreFilter(user) },
+    select: { id: true },
+  });
+  if (!customer) return null;
+
+  const wallet = await prisma.customerPlanWallet.findFirst({
+    where: { customerId, status: "ACTIVE" },
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      remainingSessions: true,
+      expiryDate: true,
+      plan: { select: { id: true, name: true } },
+    },
+  });
+
+  if (!wallet) return null;
+
+  return {
+    id: wallet.id,
+    remainingSessions: wallet.remainingSessions,
+    expiryDate: wallet.expiryDate ? wallet.expiryDate.toISOString() : null,
+    plan: wallet.plan,
+  };
 }

@@ -20,13 +20,15 @@ interface Props {
   alwaysOpen?: boolean;
   /** PR-5.5：drawer 成功時額外執行（如 router.refresh()） */
   onSuccess?: () => void;
+  /** PR-5.5：預選方案（用於「續購同方案」）。改變時需要搭配 key 強制重 mount。 */
+  defaultPlanId?: string;
 }
 
 type PaymentMethod = "CASH" | "TRANSFER" | "LINE_PAY" | "CREDIT_CARD" | "OTHER" | "UNPAID";
 
-export function AssignPlanForm({ customerId, plans, canDiscount = false, alwaysOpen = false, onSuccess }: Props) {
+export function AssignPlanForm({ customerId, plans, canDiscount = false, alwaysOpen = false, onSuccess, defaultPlanId }: Props) {
   const [open, setOpen] = useState(alwaysOpen);
-  const [selectedPlanId, setSelectedPlanId] = useState("");
+  const [selectedPlanId, setSelectedPlanId] = useState(defaultPlanId ?? "");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("CASH");
   const [referenceNo, setReferenceNo] = useState("");
   const [bankLast5, setBankLast5] = useState("");
