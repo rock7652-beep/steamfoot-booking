@@ -1,4 +1,5 @@
 import { getCurrentUser } from "@/lib/session";
+import { getStoreContext } from "@/lib/store-context";
 import { prisma } from "@/lib/db";
 import Link from "next/link";
 import type { WalletStatus } from "@prisma/client";
@@ -11,8 +12,11 @@ import { NoPlanEmptyState } from "@/components/no-plan-empty-state";
 
 export default async function MyPlansPage() {
   const user = await getCurrentUser();
+  const storeCtx = await getStoreContext();
+  const shopHref = storeCtx ? `/s/${storeCtx.storeSlug}/book/shop` : "/book/shop";
+
   if (!user || !user.customerId) {
-    return <NoPlanEmptyState title="我的方案" variant="plan" />;
+    return <NoPlanEmptyState title="我的方案" variant="plan" shopHref={shopHref} />;
   }
 
   const customer = await prisma.customer.findUnique({
@@ -39,7 +43,7 @@ export default async function MyPlansPage() {
     },
   });
   if (!customer) {
-    return <NoPlanEmptyState title="我的方案" variant="plan" />;
+    return <NoPlanEmptyState title="我的方案" variant="plan" shopHref={shopHref} />;
   }
 
   // ── 3 區分類 ──
@@ -103,7 +107,7 @@ export default async function MyPlansPage() {
       )}
 
       {customer.planWallets.length === 0 ? (
-        <NoPlanEmptyState variant="plan" />
+        <NoPlanEmptyState variant="plan" shopHref={shopHref} />
       ) : (
         <div className="space-y-6">
           {/* ── 有效課程 ── */}

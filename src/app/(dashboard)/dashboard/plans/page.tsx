@@ -150,9 +150,9 @@ export default async function PlansPage({ searchParams }: PageProps) {
                             <span className="rounded bg-red-100 px-2 py-0.5 text-xs font-medium text-red-600">下架</span>
                           )}
                           {plan.publicVisible ? (
-                            <span className="rounded bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">前台顯示</span>
+                            <span className="rounded bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">顧客可購買</span>
                           ) : (
-                            <span className="rounded bg-earth-100 px-2 py-0.5 text-xs text-earth-500">後台專用</span>
+                            <span className="rounded bg-earth-100 px-2 py-0.5 text-xs text-earth-500">僅後台指派</span>
                           )}
                         </div>
                       </td>
@@ -195,7 +195,7 @@ export default async function PlansPage({ searchParams }: PageProps) {
                         <span className="rounded bg-red-100 px-2 py-0.5 text-xs text-red-600">下架</span>
                       )}
                       {plan.isActive && plan.publicVisible && (
-                        <span className="rounded bg-blue-100 px-2 py-0.5 text-xs text-blue-700">前台</span>
+                        <span className="rounded bg-blue-100 px-2 py-0.5 text-xs text-blue-700">顧客可購買</span>
                       )}
                     </div>
                   </div>

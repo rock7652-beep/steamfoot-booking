@@ -16,17 +16,19 @@ import Link from "next/link";
 interface Props {
   title?: string;
   variant?: "booking" | "plan";
+  /** Store-aware shop link，例：`/s/zhubei/book/shop`。Fallback 為 `/book/shop`。 */
+  shopHref?: string;
 }
 
 const OFFICIAL_LINE_URL = "https://lin.ee/8ohprFv";
 
-export function NoPlanEmptyState({ title, variant = "booking" }: Props) {
+export function NoPlanEmptyState({ title, variant = "booking", shopHref = "/book/shop" }: Props) {
   const isPlan = variant === "plan";
   const headline = isPlan ? "目前尚未購買方案" : "目前尚未開通課程方案";
   const description = isPlan
     ? "開通後可：線上預約、查看剩餘堂數、查看使用紀錄"
     : "請先聯繫店長協助儲值或開通後，再進行預約";
-  const secondaryLabel = isPlan ? "了解課程方案" : "查看課程方案";
+  const secondaryLabel = isPlan ? "購買課程方案" : "查看課程方案";
 
   return (
     <div>
@@ -64,7 +66,7 @@ export function NoPlanEmptyState({ title, variant = "booking" }: Props) {
             聯繫店長（LINE）
           </a>
           <Link
-            href="/my-plans"
+            href={shopHref}
             className="flex w-full min-h-[48px] items-center justify-center rounded-xl border border-earth-300 bg-white text-base font-semibold text-earth-800 hover:bg-earth-50"
           >
             {secondaryLabel}
