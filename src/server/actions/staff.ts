@@ -3,16 +3,27 @@
 import { z } from "zod";
 import { hashSync } from "bcryptjs";
 import { prisma } from "@/lib/db";
-import { requireAdminSession } from "@/lib/session";
+import { requireStaffSession } from "@/lib/session";
 import { AppError, handleActionError } from "@/lib/errors";
 import { checkCurrentStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
-import { createDefaultPermissions, ASSIGNABLE_STAFF_ROLES } from "@/lib/permissions";
-import { currentStoreId } from "@/lib/store";
-import { assertStoreAccess } from "@/lib/manager-visibility";
+import { createDefaultPermissions } from "@/lib/permissions";
+import { resolveWriteStoreId } from "@/lib/store";
 import { revalidateStaff } from "@/lib/revalidation";
 import type { UserRole } from "@prisma/client";
 import type { ActionResult } from "@/types";
+
+/**
+ * 要求可管理人員的身份：OWNER（店長）或 ADMIN（系統管理者，需已選定分店）。
+ * PARTNER / CUSTOMER 一律拒絕。
+ */
+async function requireStaffManageSession() {
+  const user = await requireStaffSession();
+  if (user.role !== "OWNER" && user.role !== "ADMIN") {
+    throw new AppError("FORBIDDEN", "此功能僅限店長或系統管理者使用");
+  }
+  return user;
+}
 
 // ============================================================
 // Schemas
@@ -46,14 +57,15 @@ export async function createStaff(
   input: z.infer<typeof createStaffSchema>
 ): Promise<ActionResult<{ staffId: string }>> {
   try {
-    const adminUser = await requireAdminSession();
+    const sessionUser = await requireStaffManageSession();
     await checkCurrentStoreFeature(FEATURES.STAFF_MANAGEMENT);
     const data = createStaffSchema.parse(input);
+    const writeStoreId = await resolveWriteStoreId(sessionUser);
 
     // 用量限制：檢查員工數量上限
     const { checkStaffLimitOrThrow } = await import("@/lib/usage-gate");
     const currentStaffCount = await prisma.staff.count({
-      where: { storeId: currentStoreId(adminUser), status: "ACTIVE" },
+      where: { storeId: writeStoreId, status: "ACTIVE" },
     });
     await checkStaffLimitOrThrow(currentStaffCount);
 
@@ -78,7 +90,7 @@ export async function createStaff(
             isOwner: false,
             monthlySpaceFee: data.monthlySpaceFee ?? 0,
             spaceFeeEnabled: data.spaceFeeEnabled ?? true,
-            storeId: currentStoreId(adminUser),
+            storeId: writeStoreId,
           },
         },
       },
@@ -106,15 +118,18 @@ export async function updateStaff(
   input: z.infer<typeof updateStaffSchema>
 ): Promise<ActionResult<void>> {
   try {
-    const adminUser = await requireAdminSession();
+    const sessionUser = await requireStaffManageSession();
     const data = updateStaffSchema.parse(input);
+    const writeStoreId = await resolveWriteStoreId(sessionUser);
 
     const staff = await prisma.staff.findUnique({
       where: { id: staffId },
       include: { user: { select: { id: true } } },
     });
     if (!staff) throw new AppError("NOT_FOUND", "員工不存在");
-    assertStoreAccess(adminUser, staff.storeId);
+    if (staff.storeId !== writeStoreId) {
+      throw new AppError("FORBIDDEN", "無權存取其他店舖的員工資料");
+    }
     if (staff.isOwner) throw new AppError("FORBIDDEN", "無法修改系統管理者帳號");
 
     // 更新 Staff 基本資料
@@ -154,11 +169,14 @@ export async function updateStaff(
 
 export async function deactivateStaff(staffId: string): Promise<ActionResult<void>> {
   try {
-    const adminUser = await requireAdminSession();
+    const sessionUser = await requireStaffManageSession();
+    const writeStoreId = await resolveWriteStoreId(sessionUser);
 
     const staff = await prisma.staff.findUnique({ where: { id: staffId } });
     if (!staff) throw new AppError("NOT_FOUND", "員工不存在");
-    assertStoreAccess(adminUser, staff.storeId);
+    if (staff.storeId !== writeStoreId) {
+      throw new AppError("FORBIDDEN", "無權存取其他店舖的員工資料");
+    }
     if (staff.isOwner) throw new AppError("FORBIDDEN", "無法停用系統管理者帳號");
 
     await prisma.$transaction([
@@ -179,11 +197,14 @@ export async function deactivateStaff(staffId: string): Promise<ActionResult<voi
 
 export async function activateStaff(staffId: string): Promise<ActionResult<void>> {
   try {
-    const adminUser = await requireAdminSession();
+    const sessionUser = await requireStaffManageSession();
+    const writeStoreId = await resolveWriteStoreId(sessionUser);
 
     const staff = await prisma.staff.findUnique({ where: { id: staffId } });
     if (!staff) throw new AppError("NOT_FOUND", "員工不存在");
-    assertStoreAccess(adminUser, staff.storeId);
+    if (staff.storeId !== writeStoreId) {
+      throw new AppError("FORBIDDEN", "無權存取其他店舖的員工資料");
+    }
     if (staff.isOwner) throw new AppError("FORBIDDEN", "無法修改系統管理者帳號");
 
     await prisma.$transaction([

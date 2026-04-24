@@ -6,6 +6,7 @@ import { getCurrentStorePlan } from "@/lib/store-plan";
 import { FEATURES } from "@/lib/feature-flags";
 import { FeatureGate } from "@/components/feature-gate";
 import { getActiveStoreForRead } from "@/lib/store";
+import { cookies } from "next/headers";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { EmptyState } from "@/components/ui/empty-state";
 import { notFound, redirect } from "next/navigation";
@@ -32,8 +33,15 @@ export default async function StaffPage() {
   if (!user) notFound();
   if (!(await checkPermission(user.role, user.staffId, "staff.view"))) notFound();
 
-  const isOwner = user.role === "ADMIN";
   const activeStoreId = await getActiveStoreForRead(user);
+  const adminActiveStoreCookie =
+    user.role === "ADMIN"
+      ? (await cookies()).get("active-store-id")?.value ?? null
+      : null;
+  const adminMissingStore =
+    user.role === "ADMIN" && (!adminActiveStoreCookie || adminActiveStoreCookie === "__all__");
+  const canManageStaff =
+    user.role === "OWNER" || (user.role === "ADMIN" && !adminMissingStore);
   const [staffList, plan] = await Promise.all([listStaff(activeStoreId), getCurrentStorePlan()]);
 
   async function handleCreateStaff(formData: FormData) {
@@ -92,7 +100,13 @@ export default async function StaffPage() {
 
         <KpiStrip items={kpis} />
 
-        {isOwner && (
+        {adminMissingStore && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+            目前尚未選擇操作店家，請從 HQ 選擇店家後再管理人員。
+          </div>
+        )}
+
+        {canManageStaff && (
           <FormShell width="md">
             <form action={handleCreateStaff} className="space-y-6 pb-4">
               <FormSection
@@ -273,7 +287,7 @@ export default async function StaffPage() {
                       </td>
                       <td className="px-4 py-3 text-earth-600">{staff._count.assignedCustomers}</td>
                       <td className="px-4 py-3">
-                        {isOwner && !staff.isOwner && (
+                        {canManageStaff && !staff.isOwner && (
                           <div className="flex items-center gap-2">
                             <Link
                               href={`/dashboard/staff/${staff.id}/edit`}
