@@ -25,10 +25,6 @@ export async function hqLoginAction(
     return { error: "請輸入 Email 和密碼" };
   }
 
-  // 清除殘留的 store context cookie — 避免上一個店後台 session 污染登入流程。
-  // signIn 成功後會 redirect()（以 throw 實現），因此這裡先清，失敗路徑也能保持乾淨。
-  await clearStoreContextCookies();
-
   // 查 user — 同時決定 redirectTo、提供錯誤訊息辨識
   // 後台登入（/hq/login）細分錯誤，方便 debug；顧客登入保持模糊以防帳號列舉攻擊
   let user: {
@@ -86,6 +82,17 @@ export async function hqLoginAction(
     // redirectTo 維持預設值
   }
 
+  // 清除殘留 store context 的條件：
+  //   - 沒有 ?store= 參數（純 HQ 登入入口）
+  //   - 或登入成 ADMIN（ADMIN 不綁 store，任何殘留 store-slug 都會誤導後續）
+  // OWNER/PARTNER 透過 ?store=X 進入者不能清，否則登入後 proxy 會因 store-slug
+  // 缺失誤判為未知 store；redirect 目標 /s/{slug}/admin/dashboard 會由 proxy
+  // 的 storeRewrite 重設 store-slug cookie。
+  const shouldClearStoreContext = !fromStoreSlug || user.role === "ADMIN";
+  if (shouldClearStoreContext) {
+    await clearStoreContextCookies();
+  }
+
   try {
     await signIn("credentials", {
       email,
@@ -93,12 +100,6 @@ export async function hqLoginAction(
       redirectTo,
     });
   } catch (e) {
-    if (isRedirectError(e)) {
-      // signIn 成功 → redirect throw。再清一次 store context cookie 作為防呆，
-      // 避免任何 signIn 期間被其他流程注入的殘留值進入新 session。
-      await clearStoreContextCookies();
-      throw e;
-    }
     if (e instanceof AuthError) {
       // user 已確認存在 + ACTIVE → AuthError 代表密碼錯
       return { error: "密碼錯誤，請重新輸入" };

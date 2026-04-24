@@ -176,18 +176,29 @@ export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | n
   if (pathname.startsWith("/hq")) {
     // /hq/login → public
     if (pathname === "/hq/login" || pathname.startsWith("/hq/login/")) {
+      const storeParam = req.nextUrl.searchParams.get("store");
+
       if (isLoggedIn) {
         if (role === "ADMIN") {
           return NextResponse.redirect(new URL("/hq/dashboard", req.url));
         }
         // 已登入的 OWNER/STAFF 不應停留在 /hq/login，導回其店後台
-        const storeParam = req.nextUrl.searchParams.get("store");
         const slug = storeParam || userSlug;
         if (sessionStoreId) {
           return NextResponse.redirect(new URL(`/s/${slug}/admin/dashboard`, req.url));
         }
       }
-      return withDomainCookie(NextResponse.next(), domainStoreId);
+      const response = withDomainCookie(NextResponse.next(), domainStoreId);
+      // 無 ?store= 參數 = HQ 專用登入入口 → 清除殘留 store context，避免
+      // 舊店後台 session 的 store-slug/active-store-id 污染 HQ 登入流程。
+      // 有 ?store=X 參數 = 店長登入入口（例如從 /s/X/ 點「後台登入」），
+      // 必須保留 store context 讓 OWNER/PARTNER 登入後能正確導回該店後台。
+      if (!storeParam) {
+        response.cookies.delete("store-slug");
+        response.cookies.delete("active-store-id");
+        response.cookies.delete("oauth-store-slug");
+      }
+      return response;
     }
 
     // /hq/dashboard/* → 需要 ADMIN
