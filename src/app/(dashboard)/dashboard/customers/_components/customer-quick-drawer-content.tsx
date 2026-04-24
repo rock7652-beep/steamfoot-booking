@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { AssignPlanForm } from "../[id]/assign-plan-form";
 import type { CustomerRow } from "./customers-table";
@@ -10,6 +11,11 @@ import {
   getLatestActiveWalletSummary,
   type DrawerWalletSummary,
 } from "@/server/actions/wallet";
+import {
+  updateCustomerAssignment,
+  lookupCustomerByPhone,
+} from "@/server/actions/customer";
+import { normalizePhone } from "@/lib/normalize";
 import { formatTWTime } from "@/lib/date-utils";
 
 interface Plan {
@@ -20,10 +26,17 @@ interface Plan {
   sessionCount: number;
 }
 
+interface StaffOption {
+  id: string;
+  displayName: string;
+}
+
 interface Props {
   customer: CustomerRow;
   plans: Plan[];
   canDiscount: boolean;
+  staffOptions: StaffOption[];
+  canAssign: boolean;
   onClose: () => void;
   titleId: string;
 }
@@ -37,6 +50,8 @@ export function CustomerQuickDrawerContent({
   customer,
   plans,
   canDiscount,
+  staffOptions,
+  canAssign,
   onClose,
   titleId,
 }: Props) {
@@ -112,6 +127,19 @@ export function CustomerQuickDrawerContent({
 
       {/* Body */}
       <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+        {/* 歸屬設定（店長 + 推薦人） */}
+        <section>
+          <h3 className="mb-2 text-sm font-semibold text-earth-800">歸屬設定</h3>
+          <AttributionForm
+            customerId={customer.id}
+            currentStaffId={customer.assignedStaff?.id ?? null}
+            currentSponsor={customer.sponsor}
+            staffOptions={staffOptions}
+            canAssign={canAssign}
+            onSaved={() => router.refresh()}
+          />
+        </section>
+
         {/* 目前方案（精簡）*/}
         <section>
           <h3 className="mb-2 text-sm font-semibold text-earth-800">目前方案</h3>
@@ -168,6 +196,191 @@ export function CustomerQuickDrawerContent({
         >
           查看完整詳情 →
         </Link>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// AttributionForm — 歸屬店長 + 推薦人
+//
+// 店長：下拉選單（必填），由父層以 storeId 預先 scope 好 staff 清單
+// 推薦人：電話查詢 → 顯示查到的顧客名 → 存檔時一起送出
+// 權限：canAssign=false 時唯讀顯示
+// ============================================================
+
+function AttributionForm({
+  customerId,
+  currentStaffId,
+  currentSponsor,
+  staffOptions,
+  canAssign,
+  onSaved,
+}: {
+  customerId: string;
+  currentStaffId: string | null;
+  currentSponsor: { id: string; name: string } | null;
+  staffOptions: StaffOption[];
+  canAssign: boolean;
+  onSaved?: () => void;
+}) {
+  const [staffId, setStaffId] = useState<string>(currentStaffId ?? "");
+  const [sponsor, setSponsor] = useState<{ id: string; name: string } | null>(
+    currentSponsor,
+  );
+  const [phone, setPhone] = useState("");
+  const [looking, setLooking] = useState(false);
+  const [lookupMsg, setLookupMsg] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const dirty =
+    staffId !== (currentStaffId ?? "") ||
+    (sponsor?.id ?? null) !== (currentSponsor?.id ?? null);
+
+  async function handleLookup() {
+    const normalized = normalizePhone(phone);
+    if (!/^09\d{8}$/.test(normalized)) {
+      setLookupMsg("格式：09 開頭共 10 碼");
+      return;
+    }
+    setLooking(true);
+    setLookupMsg(null);
+    try {
+      const result = await lookupCustomerByPhone(normalized, customerId);
+      if (!result.success) {
+        setLookupMsg(result.error ?? "查詢失敗");
+        return;
+      }
+      if (!result.data) {
+        setLookupMsg("查無此顧客");
+        return;
+      }
+      setSponsor(result.data);
+      setPhone("");
+      setLookupMsg(null);
+    } finally {
+      setLooking(false);
+    }
+  }
+
+  async function handleSave() {
+    if (!staffId) {
+      toast.error("請選擇歸屬店長");
+      return;
+    }
+    setSaving(true);
+    try {
+      const result = await updateCustomerAssignment({
+        customerId,
+        assignedStaffId: staffId,
+        referredByCustomerId: sponsor?.id ?? null,
+      });
+      if (result.success) {
+        toast.success("已更新歸屬設定");
+        onSaved?.();
+      } else {
+        toast.error(result.error ?? "儲存失敗");
+      }
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!canAssign) {
+    return (
+      <div className="rounded-lg border border-earth-100 bg-earth-50 p-3 text-xs text-earth-600 space-y-1">
+        <div>
+          <span className="text-earth-500">歸屬店長：</span>
+          <span className="font-medium text-earth-800">
+            {staffOptions.find((s) => s.id === currentStaffId)?.displayName ?? "未指派"}
+          </span>
+        </div>
+        <div>
+          <span className="text-earth-500">推薦人：</span>
+          <span className="text-earth-800">{currentSponsor?.name ?? "—"}</span>
+        </div>
+        <p className="pt-1 text-[11px] text-earth-400">您沒有指派權限，無法修改</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3 rounded-lg border border-earth-200 bg-white p-3">
+      {/* 歸屬店長 */}
+      <div>
+        <label className="block text-xs font-medium text-earth-600">
+          歸屬店長 <span className="text-red-500">*</span>
+        </label>
+        <select
+          value={staffId}
+          onChange={(e) => setStaffId(e.target.value)}
+          className="mt-1 w-full rounded-md border border-earth-300 bg-white px-2 py-1.5 text-sm"
+        >
+          <option value="">請選擇店長</option>
+          {staffOptions.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.displayName}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* 推薦人 */}
+      <div>
+        <label className="block text-xs font-medium text-earth-600">
+          推薦人（選填）
+        </label>
+        {sponsor ? (
+          <div className="mt-1 flex items-center justify-between rounded-md border border-earth-200 bg-earth-50 px-2 py-1.5">
+            <span className="text-sm text-earth-800">{sponsor.name}</span>
+            <button
+              type="button"
+              onClick={() => setSponsor(null)}
+              className="text-[11px] text-earth-500 hover:text-red-600"
+            >
+              清除
+            </button>
+          </div>
+        ) : (
+          <div className="mt-1 flex items-center gap-1.5">
+            <input
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="輸入推薦人手機（09 開頭）"
+              className="flex-1 rounded-md border border-earth-300 bg-white px-2 py-1.5 text-sm"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleLookup();
+                }
+              }}
+            />
+            <button
+              type="button"
+              onClick={handleLookup}
+              disabled={looking || !phone.trim()}
+              className="rounded-md border border-earth-300 bg-white px-2 py-1.5 text-xs text-earth-700 hover:bg-earth-50 disabled:opacity-50"
+            >
+              {looking ? "查詢中…" : "查詢"}
+            </button>
+          </div>
+        )}
+        {lookupMsg ? (
+          <p className="mt-1 text-[11px] text-amber-700">{lookupMsg}</p>
+        ) : null}
+      </div>
+
+      {/* Save */}
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={!dirty || saving || !staffId}
+          className="rounded-md bg-primary-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {saving ? "儲存中…" : "儲存歸屬"}
+        </button>
       </div>
     </div>
   );

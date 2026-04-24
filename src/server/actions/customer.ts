@@ -9,6 +9,7 @@ import {
   createCustomerSchema,
   updateCustomerSchema,
   transferCustomerSchema,
+  updateCustomerAssignmentSchema,
 } from "@/lib/validators/customer";
 import type { ActionResult } from "@/types";
 import { checkCustomerLimit } from "@/lib/shop-config";
@@ -170,6 +171,111 @@ export async function transferCustomer(
 
     revalidatePath("/dashboard/customers");
     return { success: true, data: undefined };
+  } catch (e) {
+    return handleActionError(e);
+  }
+}
+
+// ============================================================
+// updateCustomerAssignment — 顧客列表 drawer 「歸屬設定」專用
+//
+// 寫入兩個欄位：
+//   - assignedStaffId：必填，需為同店 ACTIVE staff
+//   - referredByCustomerId (→ Customer.sponsorId)：選填，null 代表清除
+//
+// 權限：customer.assign（OWNER 預設有；PARTNER 預設無）
+// 與 transferCustomer 的差異：本 action 同時處理推薦人，且允許空 → 已指派。
+// ============================================================
+
+export async function updateCustomerAssignment(
+  input: z.infer<typeof updateCustomerAssignmentSchema>,
+): Promise<ActionResult<void>> {
+  try {
+    const user = await requirePermission("customer.assign");
+    const data = updateCustomerAssignmentSchema.parse(input);
+
+    const customer = await prisma.customer.findUnique({
+      where: { id: data.customerId },
+      select: { id: true, storeId: true },
+    });
+    if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
+    assertStoreAccess(user, customer.storeId);
+
+    // 店長必須同店 + ACTIVE
+    const staff = await prisma.staff.findUnique({
+      where: { id: data.assignedStaffId },
+      select: { id: true, storeId: true, status: true },
+    });
+    if (!staff || staff.status !== "ACTIVE") {
+      throw new AppError("NOT_FOUND", "指定店長不存在或已停用");
+    }
+    if (staff.storeId !== customer.storeId) {
+      throw new AppError("VALIDATION", "店長不屬於此店別");
+    }
+
+    // 推薦人（若指定）：同店、不可指向自己
+    const sponsorId = data.referredByCustomerId ?? null;
+    if (sponsorId) {
+      if (sponsorId === customer.id) {
+        throw new AppError("VALIDATION", "推薦人不可為顧客本人");
+      }
+      const sponsor = await prisma.customer.findUnique({
+        where: { id: sponsorId },
+        select: { id: true, storeId: true },
+      });
+      if (!sponsor) throw new AppError("NOT_FOUND", "找不到推薦人");
+      if (sponsor.storeId !== customer.storeId) {
+        throw new AppError("VALIDATION", "推薦人不屬於此店別");
+      }
+    }
+
+    await prisma.customer.update({
+      where: { id: data.customerId },
+      data: {
+        assignedStaffId: data.assignedStaffId,
+        sponsorId,
+      },
+    });
+
+    revalidatePath("/dashboard/customers");
+    revalidatePath(`/dashboard/customers/${data.customerId}`);
+    return { success: true, data: undefined };
+  } catch (e) {
+    return handleActionError(e);
+  }
+}
+
+// ============================================================
+// lookupCustomerByPhone — drawer 推薦人欄位查詢用
+//
+// 顧客端輸入電話（09 開頭 10 碼），在當前店內找對應顧客回傳 id + name。
+// 不找到回傳 null（不丟 error，UI 呈現「查無此顧客」）。
+// 排除自己（excludeCustomerId）避免把顧客設成自己的推薦人。
+// 需要 customer.read 權限。
+// ============================================================
+
+export async function lookupCustomerByPhone(
+  phone: string,
+  excludeCustomerId?: string,
+): Promise<ActionResult<{ id: string; name: string } | null>> {
+  try {
+    const user = await requirePermission("customer.read");
+    const normalized = phone.replace(/[\s-]/g, "");
+    if (!/^09\d{8}$/.test(normalized)) {
+      throw new AppError("VALIDATION", "手機號碼格式不正確");
+    }
+
+    const storeId = currentStoreId(user);
+    const match = await prisma.customer.findFirst({
+      where: {
+        phone: normalized,
+        storeId,
+        ...(excludeCustomerId ? { id: { not: excludeCustomerId } } : {}),
+      },
+      select: { id: true, name: true },
+    });
+
+    return { success: true, data: match };
   } catch (e) {
     return handleActionError(e);
   }

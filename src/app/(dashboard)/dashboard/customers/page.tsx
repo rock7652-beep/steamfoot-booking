@@ -53,24 +53,26 @@ export default async function CustomersPage({ searchParams }: PageProps) {
   }
 
   const activeStoreId = await getActiveStoreForRead(user);
-  const [{ customers, total, pageSize }, staffOptions, plans, canDiscount] = await Promise.all([
-    listCustomers({
-      stage: params.stage,
-      status: normalizeStatus(params.status),
-      visit: normalizeVisit(params.visit),
-      referral: normalizeReferral(params.referral),
-      search: params.search,
-      assignedStaffId: params.staff,
-      sort: normalizeSort(params.sort),
-      page,
-      pageSize: 20,
-      activeStoreId,
-    }),
-    listStaffSelectOptions(activeStoreId),
-    // PR-5.5：快速指派 drawer 需要的資料
-    listPlans().catch(() => []),
-    checkPermission(user.role, user.staffId, "transaction.discount").catch(() => false),
-  ]);
+  const [{ customers, total, pageSize }, staffOptions, plans, canDiscount, canAssign] =
+    await Promise.all([
+      listCustomers({
+        stage: params.stage,
+        status: normalizeStatus(params.status),
+        visit: normalizeVisit(params.visit),
+        referral: normalizeReferral(params.referral),
+        search: params.search,
+        assignedStaffId: params.staff,
+        sort: normalizeSort(params.sort),
+        page,
+        pageSize: 20,
+        activeStoreId,
+      }),
+      listStaffSelectOptions(activeStoreId),
+      // PR-5.5：快速指派 drawer 需要的資料
+      listPlans().catch(() => []),
+      checkPermission(user.role, user.staffId, "transaction.discount").catch(() => false),
+      checkPermission(user.role, user.staffId, "customer.assign").catch(() => false),
+    ]);
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const hasActiveFilters = !!(
@@ -148,6 +150,8 @@ export default async function CustomersPage({ searchParams }: PageProps) {
           sessionCount: p.sessionCount,
         }))}
         canDiscount={canDiscount}
+        staffOptions={staffOptions}
+        canAssign={canAssign}
       />
 
       {totalPages > 1 ? (
