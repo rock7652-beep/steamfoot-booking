@@ -1,12 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requirePermission, checkPermission } from "@/lib/permissions";
+import { getCurrentUser } from "@/lib/session";
 import { AppError, handleActionError } from "@/lib/errors";
 import { assignPlanSchema } from "@/lib/validators/plan";
 import type { ActionResult } from "@/types";
-import type { z } from "zod";
 import { addDays } from "date-fns";
 import { assertStoreAccess, getStoreFilter } from "@/lib/manager-visibility";
 import { currentStoreId } from "@/lib/store";
@@ -326,4 +327,122 @@ export async function getLatestActiveWalletSummary(
     expiryDate: wallet.expiryDate ? wallet.expiryDate.toISOString() : null,
     plan: wallet.plan,
   };
+}
+
+// ============================================================
+// initiateCustomerPlanPurchase — PR-6
+//
+// 顧客端自助購買入口（前台 /book/shop/[planId]/checkout）。
+//
+// 嚴格限制（和 assignPlanToCustomer 區分的護欄）：
+//   - 只接受 planId；不接受 paymentMethod / 折扣 / referenceNo / bankLast5
+//   - paymentMethod 強制 TRANSFER
+//   - paymentStatus 強制 PENDING；paidAt = null（待店長在 /dashboard/payments 確認）
+//   - 不觸發 customer 升等、不發首儲推薦獎勵（PR-3 gate 沿用）
+//   - 三向同店：user.customerId → customer.storeId === plan.storeId
+//   - 僅允許 isActive=true AND publicVisible=true 的方案
+// ============================================================
+
+const initiateCustomerPurchaseSchema = z.object({
+  planId: z.string().cuid(),
+});
+
+export async function initiateCustomerPlanPurchase(
+  input: z.infer<typeof initiateCustomerPurchaseSchema>
+): Promise<ActionResult<{ transactionId: string; walletId: string }>> {
+  try {
+    const user = await getCurrentUser();
+    if (!user?.customerId) throw new AppError("FORBIDDEN", "請先登入後再購買");
+    const data = initiateCustomerPurchaseSchema.parse(input);
+
+    const customer = await prisma.customer.findUnique({
+      where: { id: user.customerId },
+      select: {
+        id: true,
+        storeId: true,
+        assignedStaffId: true,
+        convertedAt: true,
+      },
+    });
+    if (!customer) throw new AppError("NOT_FOUND", "顧客資料不存在");
+
+    const plan = await prisma.servicePlan.findUnique({ where: { id: data.planId } });
+    if (!plan) throw new AppError("NOT_FOUND", "方案不存在");
+    if (plan.storeId !== customer.storeId) {
+      throw new AppError("FORBIDDEN", "此方案不屬於您的店別");
+    }
+    if (!plan.isActive || !plan.publicVisible) {
+      throw new AppError("BUSINESS_RULE", "此方案目前不開放購買");
+    }
+
+    const revenueStaffId = customer.assignedStaffId;
+    if (!revenueStaffId) {
+      throw new AppError("VALIDATION", "系統尚未指派店長，請聯絡客服");
+    }
+
+    const originalPrice = Number(plan.price);
+    const now = new Date();
+    const expiryDate = plan.validityDays ? addDays(now, plan.validityDays) : null;
+
+    const txType =
+      plan.category === "TRIAL"
+        ? "TRIAL_PURCHASE"
+        : plan.category === "SINGLE"
+        ? "SINGLE_PURCHASE"
+        : "PACKAGE_PURCHASE";
+
+    const result = await prisma.$transaction(async (tx) => {
+      const wallet = await tx.customerPlanWallet.create({
+        data: {
+          customerId: customer.id,
+          planId: plan.id,
+          purchasedPrice: originalPrice,
+          totalSessions: plan.sessionCount,
+          remainingSessions: plan.sessionCount,
+          startDate: now,
+          expiryDate,
+          status: "ACTIVE",
+          storeId: customer.storeId,
+        },
+      });
+
+      const snapshot = await buildTransactionSnapshot(tx, {
+        customerId: customer.id,
+        storeId: customer.storeId,
+        revenueStaffId,
+        planId: plan.id,
+        grossAmount: originalPrice,
+        netAmount: originalPrice,
+      });
+
+      const transaction = await tx.transaction.create({
+        data: {
+          customerId: customer.id,
+          revenueStaffId,
+          soldByStaffId: null, // 顧客自助購買，無操作店長
+          transactionType: txType,
+          paymentMethod: "TRANSFER",
+          paymentStatus: "PENDING",
+          paidAt: null,
+          amount: originalPrice,
+          customerPlanWalletId: wallet.id,
+          note: "顧客線上申請購買（轉帳待確認）",
+          storeId: customer.storeId,
+          ...snapshot,
+        },
+      });
+
+      // PR-3 gate：PENDING 不動 customer 狀態、不發獎，等 PR-4 confirmTransactionPayment 觸發
+      return { wallet, transaction };
+    });
+
+    revalidatePath("/my-plans");
+    revalidatePath("/dashboard/payments"); // 店長端即時看到
+    return {
+      success: true,
+      data: { transactionId: result.transaction.id, walletId: result.wallet.id },
+    };
+  } catch (e) {
+    return handleActionError(e);
+  }
 }
