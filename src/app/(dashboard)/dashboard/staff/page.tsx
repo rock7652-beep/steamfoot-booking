@@ -22,6 +22,7 @@ import {
 } from "@/components/desktop";
 import { SubmitButton } from "@/components/submit-button";
 import { StaffStatusToggle } from "./staff-status-toggle";
+import { ResetPasswordButton } from "./reset-password-button";
 import type { UserRole } from "@prisma/client";
 
 const inputCls =
@@ -296,6 +297,14 @@ export default async function StaffPage() {
                               編輯
                             </Link>
                             <StaffStatusToggle staffId={staff.id} currentStatus={staff.status} />
+                            {staff.user.id !== user.id &&
+                              staff.user.role !== "ADMIN" &&
+                              !(user.role === "OWNER" && staff.user.role === "OWNER") && (
+                                <ResetPasswordButton
+                                  userId={staff.user.id}
+                                  displayName={staff.displayName}
+                                />
+                              )}
                           </div>
                         )}
                       </td>
