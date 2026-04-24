@@ -49,6 +49,11 @@ const updateStaffSchema = z.object({
   role: z.enum(["OWNER", "PARTNER"]).optional(),
 });
 
+const resetStaffPasswordSchema = z.object({
+  userId: z.string().min(1),
+  newPassword: z.string().min(8, "新密碼至少需要 8 碼"),
+});
+
 // ============================================================
 // createStaff — Owner only
 // ============================================================
@@ -185,6 +190,58 @@ export async function deactivateStaff(staffId: string): Promise<ActionResult<voi
     ]);
 
     revalidateStaff();
+    return { success: true, data: undefined };
+  } catch (e) {
+    return handleActionError(e);
+  }
+}
+
+// ============================================================
+// resetStaffPasswordAction — 店長 / ADMIN 可替他人重設密碼
+// ============================================================
+
+export async function resetStaffPasswordAction(
+  input: z.infer<typeof resetStaffPasswordSchema>
+): Promise<ActionResult<void>> {
+  try {
+    const sessionUser = await requireStaffManageSession();
+    const data = resetStaffPasswordSchema.parse(input);
+
+    // 禁止自己重設自己（走個人設定頁）
+    if (data.userId === sessionUser.id) {
+      throw new AppError("FORBIDDEN", "請由個人設定頁修改自己的密碼");
+    }
+
+    const writeStoreId = await resolveWriteStoreId(sessionUser);
+
+    // 透過 staff 表驗證目標使用者屬於當前寫入 store
+    const targetStaff = await prisma.staff.findFirst({
+      where: { userId: data.userId, storeId: writeStoreId },
+      include: { user: { select: { id: true, role: true } } },
+    });
+    if (!targetStaff) throw new AppError("NOT_FOUND", "員工不存在");
+    if (targetStaff.isOwner) {
+      throw new AppError("FORBIDDEN", "無法重設系統管理者帳號");
+    }
+
+    const targetRole = targetStaff.user.role;
+
+    // ADMIN 身份目標一律拒絕（系統管理者不應透過此流程）
+    if (targetRole === "ADMIN") {
+      throw new AppError("FORBIDDEN", "無法重設系統管理者帳號");
+    }
+
+    // OWNER 僅能重設 PARTNER；不得重設其他 OWNER
+    if (sessionUser.role === "OWNER" && targetRole !== "PARTNER") {
+      throw new AppError("FORBIDDEN", "店長僅可重設合作店長 / 員工帳號的密碼");
+    }
+
+    const passwordHash = hashSync(data.newPassword, 10);
+    await prisma.user.update({
+      where: { id: data.userId },
+      data: { passwordHash },
+    });
+
     return { success: true, data: undefined };
   } catch (e) {
     return handleActionError(e);
