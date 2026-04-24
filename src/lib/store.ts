@@ -26,6 +26,26 @@ export function currentStoreId(user: SessionLike): string {
 }
 
 /**
+ * 取得寫入用的 storeId。
+ * - OWNER / PARTNER：回傳 JWT session.storeId
+ * - ADMIN：fallback 讀 cookie `active-store-id`，必須為具體 storeId（非 __all__）
+ *   沒選定分店 → 拒絕寫入，回傳明確錯誤
+ */
+export async function resolveWriteStoreId(user: SessionLike): Promise<string> {
+  if (user.storeId) return user.storeId;
+  if (!isOwner(user.role)) {
+    throw new AppError("UNAUTHORIZED", "缺少 storeId，請重新登入");
+  }
+  const { cookies } = await import("next/headers");
+  const cookieStore = await cookies();
+  const cookieStoreId = cookieStore.get("active-store-id")?.value;
+  if (!cookieStoreId || cookieStoreId === "__all__") {
+    throw new AppError("VALIDATION", "請先在上方切換到指定分店，再執行此操作");
+  }
+  return cookieStoreId;
+}
+
+/**
  * 取得所有 active store 的 ID（供 cron / background jobs 使用）
  */
 export async function getAllActiveStoreIds(): Promise<string[]> {

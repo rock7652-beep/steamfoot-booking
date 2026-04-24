@@ -1,6 +1,8 @@
 import { getStaffDetail } from "@/server/queries/staff";
 import { updateStaff } from "@/server/actions/staff";
 import { getCurrentUser } from "@/lib/session";
+import { getActiveStoreForRead } from "@/lib/store";
+import { cookies } from "next/headers";
 import { SubmitButton } from "@/components/submit-button";
 import {
   getStaffPermissions,
@@ -22,11 +24,19 @@ interface PageProps {
 
 export default async function EditStaffPage({ params }: PageProps) {
   const user = await getCurrentUser();
-  if (!user || user.role !== "ADMIN") notFound();
+  if (!user) notFound();
+  const adminActiveStoreCookie =
+    user.role === "ADMIN"
+      ? (await cookies()).get("active-store-id")?.value ?? null
+      : null;
+  const adminHasStore =
+    user.role === "ADMIN" && !!adminActiveStoreCookie && adminActiveStoreCookie !== "__all__";
+  if (user.role !== "OWNER" && !adminHasStore) notFound();
 
   const { id } = await params;
 
-  const staff = await getStaffDetail(id).catch(() => null);
+  const activeStoreId = await getActiveStoreForRead(user);
+  const staff = await getStaffDetail(id, activeStoreId).catch(() => null);
   if (!staff) notFound();
 
   // 取得該店長的現有權限
