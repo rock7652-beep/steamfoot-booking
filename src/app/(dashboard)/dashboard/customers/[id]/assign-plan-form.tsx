@@ -203,8 +203,8 @@ export function AssignPlanForm({ customerId, plans, canDiscount = false, alwaysO
                 className="w-full rounded border border-earth-300 px-2 py-1.5 text-sm"
               >
                 <option value="none">無折扣</option>
-                <option value="fixed">固定金額折扣</option>
-                <option value="percentage">百分比折扣</option>
+                <option value="fixed">折抵金額（$）</option>
+                <option value="percentage">打折（%）</option>
               </select>
             </div>
 
@@ -219,7 +219,7 @@ export function AssignPlanForm({ customerId, plans, canDiscount = false, alwaysO
                     step="1"
                     value={discountValue}
                     onChange={(e) => setDiscountValue(e.target.value)}
-                    placeholder="折扣金額"
+                    placeholder="例：100 = 折抵100元"
                     className="w-full rounded border border-earth-300 py-1.5 pl-7 pr-2 text-sm"
                   />
                 </div>
@@ -233,7 +233,7 @@ export function AssignPlanForm({ customerId, plans, canDiscount = false, alwaysO
                     step="1"
                     value={discountValue}
                     onChange={(e) => setDiscountValue(e.target.value)}
-                    placeholder="例: 80 = 8折"
+                    placeholder="例：90 = 9折"
                     className="w-full rounded border border-earth-300 px-2 py-1.5 pr-8 text-sm"
                   />
                   <span className="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-earth-400">%</span>

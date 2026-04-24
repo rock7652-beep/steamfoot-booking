@@ -44,6 +44,7 @@ export async function createPlan(
         description: data.description ?? null,
         sortOrder: data.sortOrder ?? 0,
         isActive: true,
+        publicVisible: data.publicVisible ?? false,
       },
     });
 
