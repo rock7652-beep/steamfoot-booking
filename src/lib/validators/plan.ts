@@ -17,6 +17,7 @@ export const updatePlanSchema = z.object({
   validityDays: z.number().int().min(1).nullable().optional(),
   description: z.string().max(500).nullable().optional(),
   isActive: z.boolean().optional(),
+  publicVisible: z.boolean().optional(), // PR-5：前台 /book/shop 展示開關（需搭配 isActive=true）
   sortOrder: z.number().int().optional(),
 });
 
