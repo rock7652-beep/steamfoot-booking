@@ -8,6 +8,7 @@ export const createPlanSchema = z.object({
   validityDays: z.number().int().min(1).optional(),
   description: z.string().max(500).optional(),
   sortOrder: z.number().int().optional(),
+  publicVisible: z.boolean().optional(), // 新增時可預設勾選，不指定則走 schema default false
 });
 
 export const updatePlanSchema = z.object({

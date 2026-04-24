@@ -9,6 +9,7 @@ import { DashboardLink as Link } from "@/components/dashboard-link";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { PlanCategory } from "@prisma/client";
 import { PlanPublishToggle } from "./plan-publish-toggle";
+import { PlanActiveToggle } from "./plan-active-toggle";
 
 const CATEGORY_LABEL: Record<PlanCategory, string> = {
   TRIAL: "體驗",
@@ -145,11 +146,11 @@ export default async function PlansPage({ searchParams }: PageProps) {
                       </td>
                       <td className="px-4 py-3 text-center">
                         <div className="flex flex-col items-center gap-1">
-                          {plan.isActive ? (
-                            <span className="rounded bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">上架</span>
-                          ) : (
-                            <span className="rounded bg-red-100 px-2 py-0.5 text-xs font-medium text-red-600">下架</span>
-                          )}
+                          <PlanActiveToggle
+                            planId={plan.id}
+                            planName={plan.name}
+                            isActive={plan.isActive}
+                          />
                           <PlanPublishToggle
                             planId={plan.id}
                             planName={plan.name}
@@ -193,9 +194,12 @@ export default async function PlansPage({ searchParams }: PageProps) {
                       <span className="font-medium text-earth-900">{plan.name}</span>
                     </div>
                     <div className="flex items-center gap-1">
-                      {!plan.isActive && (
-                        <span className="rounded bg-red-100 px-2 py-0.5 text-xs text-red-600">下架</span>
-                      )}
+                      <PlanActiveToggle
+                        planId={plan.id}
+                        planName={plan.name}
+                        isActive={plan.isActive}
+                        compact
+                      />
                       {plan.isActive && (
                         <PlanPublishToggle
                           planId={plan.id}

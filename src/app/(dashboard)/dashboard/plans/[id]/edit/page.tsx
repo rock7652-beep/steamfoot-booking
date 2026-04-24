@@ -34,6 +34,7 @@ export default async function EditPlanPage({ params }: PageProps) {
       sortOrder: formData.get("sortOrder")
         ? Number(formData.get("sortOrder"))
         : 0,
+      isActive: formData.get("isActive") === "on",
       publicVisible: formData.get("publicVisible") === "on",
     });
 
@@ -71,19 +72,22 @@ export default async function EditPlanPage({ params }: PageProps) {
             />
           </div>
 
-          {/* Category */}
+          {/* Category — 不可變更（已購買此方案的顧客 Transaction 快照了 planType） */}
           <div>
             <label className="block text-sm font-medium text-earth-700">類別</label>
             <select
               name="category"
-              required
               defaultValue={plan.category}
-              className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
+              disabled
+              className="mt-1 block w-full rounded-lg border border-earth-200 bg-earth-50 px-3 py-2 text-sm text-earth-500 cursor-not-allowed"
             >
               <option value="TRIAL">體驗</option>
               <option value="SINGLE">單次</option>
               <option value="PACKAGE">課程</option>
             </select>
+            <p className="mt-1 text-xs text-earth-400">
+              類別不可變更（會影響歷史交易分類）。如需不同類別，請新增一個替代方案。
+            </p>
           </div>
 
           {/* Price */}
@@ -154,6 +158,24 @@ export default async function EditPlanPage({ params }: PageProps) {
               className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
               placeholder="數字越小越靠前"
             />
+          </div>
+
+          {/* Active (上架/下架) */}
+          <div className="rounded-lg border border-earth-200 bg-earth-50 p-3">
+            <label className="flex items-start gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                name="isActive"
+                defaultChecked={plan.isActive}
+                className="mt-0.5 h-4 w-4 rounded border-earth-300 text-primary-600 focus:ring-primary-500"
+              />
+              <div>
+                <div className="text-sm font-medium text-earth-800">上架中</div>
+                <div className="mt-0.5 text-xs text-earth-500">
+                  上架後方案可被後台指派 / 前台購買（視下方「顧客可購買」而定）。下架後既有顧客的錢包不受影響。
+                </div>
+              </div>
+            </label>
           </div>
 
           {/* Public Visible */}
