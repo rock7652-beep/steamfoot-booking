@@ -4,6 +4,7 @@ import { signIn, signOut } from "@/lib/auth";
 import { AuthError } from "next-auth";
 import { prisma } from "@/lib/db";
 import { getStoreSlugById } from "@/lib/store-resolver";
+import { clearStoreContextCookies } from "@/server/auth/clear-store-context";
 
 // ============================================================
 // hqLoginAction — 後台登入（/hq/login）
@@ -23,6 +24,10 @@ export async function hqLoginAction(
   if (!email || !password) {
     return { error: "請輸入 Email 和密碼" };
   }
+
+  // 清除殘留的 store context cookie — 避免上一個店後台 session 污染登入流程。
+  // signIn 成功後會 redirect()（以 throw 實現），因此這裡先清，失敗路徑也能保持乾淨。
+  await clearStoreContextCookies();
 
   // 查 user — 同時決定 redirectTo、提供錯誤訊息辨識
   // 後台登入（/hq/login）細分錯誤，方便 debug；顧客登入保持模糊以防帳號列舉攻擊
@@ -88,6 +93,12 @@ export async function hqLoginAction(
       redirectTo,
     });
   } catch (e) {
+    if (isRedirectError(e)) {
+      // signIn 成功 → redirect throw。再清一次 store context cookie 作為防呆，
+      // 避免任何 signIn 期間被其他流程注入的殘留值進入新 session。
+      await clearStoreContextCookies();
+      throw e;
+    }
     if (e instanceof AuthError) {
       // user 已確認存在 + ACTIVE → AuthError 代表密碼錯
       return { error: "密碼錯誤，請重新輸入" };
@@ -117,13 +128,20 @@ export async function loginAction(
 export async function logoutAction(formData?: FormData) {
   const storeSlug = formData?.get("storeSlug") as string | null;
   const redirectTo = storeSlug ? `/s/${storeSlug}/` : "/";
+  // 清除 store context cookie，避免登出後殘留的 store-slug / active-store-id
+  // 污染下一次 HQ 登入流程。signOut() 僅清 NextAuth session cookie。
+  await clearStoreContextCookies();
   // signOut() 內部會呼叫 redirect()，Next.js redirect 以 throw 實現。
   // 只 catch 非 redirect error 以加 log；redirect error 必須原樣重拋，
   // 否則登出會卡在 server action 不會跳頁。
   try {
     await signOut({ redirectTo });
   } catch (err) {
-    if (isRedirectError(err)) throw err;
+    if (isRedirectError(err)) {
+      // signOut 成功 → redirect throw。再清一次 store context cookie 作為防呆。
+      await clearStoreContextCookies();
+      throw err;
+    }
     console.error("[logoutAction] signOut failed (non-redirect)", {
       redirectTo,
       error: err instanceof Error ? err.message : String(err),
