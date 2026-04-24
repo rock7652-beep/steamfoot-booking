@@ -34,7 +34,9 @@ export default async function PlansPage({ searchParams }: PageProps) {
   if (!user || !(await checkPermission(user.role, user.staffId, "wallet.read"))) {
     redirect("/dashboard");
   }
-  const isOwner = user.role === "ADMIN";
+  // 可以管理方案（新增 / 編輯 / 切換上架與顧客可購買）= wallet.create permission
+  // ADMIN 永遠放行；OWNER + PARTNER 預設都有 wallet.create，所以店長也看得到入口
+  const canManage = await checkPermission(user.role, user.staffId, "wallet.create");
 
   const [plans, storePlan] = await Promise.all([listPlans(showAll), getCurrentStorePlan()]);
 
@@ -49,7 +51,7 @@ export default async function PlansPage({ searchParams }: PageProps) {
           <h1 className="text-xl font-bold text-earth-900">課程方案</h1>
         </div>
         <div className="flex gap-2">
-          {isOwner && (
+          {canManage && (
             <Link
               href="/dashboard/plans/new"
               className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
@@ -105,7 +107,7 @@ export default async function PlansPage({ searchParams }: PageProps) {
                   <th className="px-4 py-3 text-right font-medium text-earth-500">單堂均價</th>
                   <th className="px-4 py-3 text-right font-medium text-earth-500">有效天數</th>
                   <th className="px-4 py-3 text-center font-medium text-earth-500">狀態</th>
-                  {isOwner && (
+                  {canManage && (
                     <th className="px-4 py-3 text-center font-medium text-earth-500">操作</th>
                   )}
                 </tr>
@@ -159,7 +161,7 @@ export default async function PlansPage({ searchParams }: PageProps) {
                           />
                         </div>
                       </td>
-                      {isOwner && (
+                      {canManage && (
                         <td className="px-4 py-3 text-center">
                           <Link
                             href={`/dashboard/plans/${plan.id}/edit`}
@@ -218,7 +220,7 @@ export default async function PlansPage({ searchParams }: PageProps) {
                       <span>均 ${avgPrice.toLocaleString()}/堂</span>
                       {plan.validityDays && <span>{plan.validityDays} 天</span>}
                     </div>
-                    {isOwner && (
+                    {canManage && (
                       <Link
                         href={`/dashboard/plans/${plan.id}/edit`}
                         className="text-primary-600 hover:underline"
