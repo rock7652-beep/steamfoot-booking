@@ -13,6 +13,7 @@ import { assertStoreAccess, getStoreFilter } from "@/lib/manager-visibility";
 import { currentStoreId } from "@/lib/store";
 import { buildTransactionSnapshot } from "@/lib/transaction-snapshot";
 import { awardFirstTopupReferralPointsIfEligible } from "@/server/services/referral-points";
+import { resolveCustomerStaffAssignment } from "@/server/services/customer-assignment";
 
 // ============================================================
 // 折扣計算
@@ -360,7 +361,6 @@ export async function initiateCustomerPlanPurchase(
       select: {
         id: true,
         storeId: true,
-        assignedStaffId: true,
         convertedAt: true,
       },
     });
@@ -375,11 +375,6 @@ export async function initiateCustomerPlanPurchase(
       throw new AppError("BUSINESS_RULE", "此方案目前不開放購買");
     }
 
-    const revenueStaffId = customer.assignedStaffId;
-    if (!revenueStaffId) {
-      throw new AppError("VALIDATION", "系統尚未指派店長，請聯絡客服");
-    }
-
     const originalPrice = Number(plan.price);
     const now = new Date();
     const expiryDate = plan.validityDays ? addDays(now, plan.validityDays) : null;
@@ -392,6 +387,15 @@ export async function initiateCustomerPlanPurchase(
         : "PACKAGE_PURCHASE";
 
     const result = await prisma.$transaction(async (tx) => {
+      // 解析顧客歸屬店長（existing / referral_staff / sponsor_staff / store_owner）
+      // 若 customer.assignedStaffId 為空或失效，helper 會自動寫回 store owner 等 fallback
+      const assignment = await resolveCustomerStaffAssignment(
+        customer.id,
+        customer.storeId,
+        { tx }
+      );
+      const revenueStaffId = assignment.staffId;
+
       const wallet = await tx.customerPlanWallet.create({
         data: {
           customerId: customer.id,
@@ -433,8 +437,17 @@ export async function initiateCustomerPlanPurchase(
       });
 
       // PR-3 gate：PENDING 不動 customer 狀態、不發獎，等 PR-4 confirmTransactionPayment 觸發
-      return { wallet, transaction };
+      return { wallet, transaction, assignmentSource: assignment.source };
     });
+
+    // 紀錄歸屬解析結果（Vercel logs），方便未來 audit 顧客歸屬異常
+    if (result.assignmentSource !== "existing") {
+      console.info("[initiateCustomerPlanPurchase] customer staff auto-assigned", {
+        customerId: customer.id,
+        source: result.assignmentSource,
+        transactionId: result.transaction.id,
+      });
+    }
 
     revalidatePath("/my-plans");
     revalidatePath("/dashboard/payments"); // 店長端即時看到
