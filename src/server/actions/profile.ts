@@ -84,17 +84,21 @@ async function ensureUserExists(user: {
 export type ProfileState = { error: string | null; success: boolean };
 
 // ============================================================
-// Auto-merge 候選查找（同店 + phone OR email 匹配）
+// Auto-merge 候選查找（同店 + 優先順序匹配）
 // ============================================================
 // LINE/Google OAuth 首登若無 LINE-provided email，auth.ts 只會建出 phone=_oauth_xxx
-// 的佔位 Customer。等顧客在 profile 補資料時，這支 helper 才能用 phone/email 找到
-// staff 早就建好的真人 Customer，由 caller 呼叫 mergePlaceholder 合併。
+// 的佔位 Customer。等顧客在 profile 補資料時，這支 helper 才能用 phone / lineUserId /
+// email 找到 staff 早就建好的真人 Customer，由 caller 呼叫 mergePlaceholder 合併。
 //
-// 規則（P0 修正：放寬原本「phone+email 都要對 / 任一 factor mismatch 即擋」的硬性檢查）：
-//   - 同 storeId 內以 OR(phone, email) 找候選（嚴格 store-scoped）
+// 匹配優先順序（同店內逐層嘗試；上一層命中即回，不再往下看）：
+//   1. storeId + normalizedPhone   — 使用者主動輸入，最強信號
+//   2. storeId + lineUserId        — LINE OAuth 身分
+//   3. storeId + normalizedEmail   — OAuth/輸入的 email
+//
+// 結果：
 //   - 0 筆 → 無 candidate（caller 走 update / create）
 //   - 1 筆 → 該 candidate（matchedBy 標明命中欄位）
-//   - 2+ 筆 → 優先選 phone+email 都對的；都沒有 → ambiguous（請使用者聯繫店家）
+//   - 2+ 筆 同一層 → ambiguous（請使用者聯繫店家）
 //
 // 安全 guard 在 caller 端：若 real.userId 已被另一 user 佔用（!== current user），
 // caller 必須 BLOCK 並請顧客聯繫店家人工協助，並以 console.warn 留 HIGH_RISK audit log。
@@ -105,48 +109,79 @@ type MergeCandidate = {
   userId: string | null;
   phone: string | null;
   email: string | null;
+  lineUserId: string | null;
 };
+
+type MergeMatchedBy = "phone" | "lineUserId" | "email";
 
 type MergeProbe =
   | { kind: "none" }
-  | { kind: "found"; real: MergeCandidate; matchedBy: "phone" | "email" | "both" }
-  | { kind: "ambiguous"; candidates: MergeCandidate[] };
+  | { kind: "found"; real: MergeCandidate; matchedBy: MergeMatchedBy }
+  | { kind: "ambiguous"; matchedBy: MergeMatchedBy; candidates: MergeCandidate[] };
+
+const MERGE_CANDIDATE_SELECT = {
+  id: true,
+  userId: true,
+  phone: true,
+  email: true,
+  lineUserId: true,
+} as const;
 
 async function findRealCustomerForMerge(opts: {
   storeId: string;
   phone: string;
   email: string;
+  lineUserId?: string | null;
   excludeCustomerId?: string | null;
 }): Promise<MergeProbe> {
-  const { storeId, phone, email, excludeCustomerId } = opts;
-  const candidates = await prisma.customer.findMany({
-    where: {
-      storeId,
-      ...(excludeCustomerId ? { id: { not: excludeCustomerId } } : {}),
-      OR: [{ phone }, { email }],
-    },
-    select: { id: true, userId: true, phone: true, email: true },
-    take: 5,
+  const { storeId, phone, email, lineUserId, excludeCustomerId } = opts;
+  const baseWhere = {
+    storeId,
+    ...(excludeCustomerId ? { id: { not: excludeCustomerId } } : {}),
+  };
+
+  const tryLayer = async (
+    matchedBy: MergeMatchedBy,
+    where: Record<string, unknown>,
+  ): Promise<MergeProbe | null> => {
+    const candidates = await prisma.customer.findMany({
+      where: { ...baseWhere, ...where },
+      select: MERGE_CANDIDATE_SELECT,
+      take: 2,
+    });
+    if (candidates.length === 0) return null;
+    if (candidates.length === 1) {
+      return { kind: "found", real: candidates[0], matchedBy };
+    }
+    return { kind: "ambiguous", matchedBy, candidates };
+  };
+
+  // 1. phone — 即使 placeholder 自身帶 _oauth_ phone 也不會誤中（excludeCustomerId 排除）
+  const byPhone = await tryLayer("phone", { phone });
+  if (byPhone) return byPhone;
+
+  // 2. lineUserId — 僅 LINE OAuth user 有；其他身分 skip
+  if (lineUserId) {
+    const byLine = await tryLayer("lineUserId", { lineUserId });
+    if (byLine) return byLine;
+  }
+
+  // 3. email — 最後一層
+  if (email) {
+    const byEmail = await tryLayer("email", { email });
+    if (byEmail) return byEmail;
+  }
+
+  return { kind: "none" };
+}
+
+// 從 user 的 OAuth Account 取出 LINE user id（若有）— merge 優先順序 #2 需要
+async function getLineUserIdForUser(userId: string): Promise<string | null> {
+  const acct = await prisma.account.findFirst({
+    where: { userId, provider: "line" },
+    select: { providerAccountId: true },
   });
-
-  if (candidates.length === 0) return { kind: "none" };
-
-  const classify = (c: MergeCandidate): "phone" | "email" | "both" =>
-    c.phone === phone && c.email === email
-      ? "both"
-      : c.phone === phone
-        ? "phone"
-        : "email";
-
-  if (candidates.length === 1) {
-    return { kind: "found", real: candidates[0], matchedBy: classify(candidates[0]) };
-  }
-  // 多筆 — 優先選 phone+email 都命中的一筆
-  const both = candidates.find((c) => c.phone === phone && c.email === email);
-  if (both) {
-    return { kind: "found", real: both, matchedBy: "both" };
-  }
-  return { kind: "ambiguous", candidates };
+  return acct?.providerAccountId ?? null;
 }
 
 export async function updateProfileAction(
