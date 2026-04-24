@@ -9,6 +9,10 @@ import { resolveActiveStoreId, currentStoreId } from "@/lib/store";
 import { checkReportLimit } from "@/lib/usage-gate";
 import { getStorePlanById } from "@/lib/store-plan";
 
+// TODO(PR-payment-confirm): PR-3/4 上線後，CSV 匯出的 Transaction groupBy 必須加
+// paymentStatus: { in: ["SUCCESS", "CONFIRMED"] }，否則匯出會含 PENDING 交易誤差。
+// 本 PR-1 不加：歷史 backfill=SUCCESS，匯出數字與上線前一致。
+
 function toCsv(rows: string[][]): string {
   return rows.map((row) => row.map((cell) => {
     const str = String(cell ?? "");

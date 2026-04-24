@@ -4,6 +4,11 @@
  * 店營收 / 教練營收的 summary + details 查詢，供 API route 使用。
  */
 
+// TODO(PR-payment-confirm): PR-3/4 上線「轉帳待確認」後，本檔內所有 Transaction 營收查詢
+// （groupBy/aggregate/findMany 帶 status: { not: "CANCELLED" }）必須加 paymentStatus filter：
+//   where: { paymentStatus: { in: ["SUCCESS", "CONFIRMED"] } }
+// 本 PR-1 不加：歷史交易 backfill=SUCCESS，現行報表語意與上線前完全一致。
+
 import { prisma } from "@/lib/db";
 import { Prisma } from "@prisma/client";
 

@@ -133,6 +133,8 @@ export async function assignPlanToCustomer(
         netAmount: finalAmount,
       });
 
+      // TODO(PR-3): paymentMethod === "TRANSFER" 時需顯式傳 paymentStatus: "PENDING"
+      // （schema default = SUCCESS 僅為歷史 backfill 安全網；轉帳需店長確認後才能進營收）
       const transaction = await tx.transaction.create({
         data: {
           customerId: data.customerId,

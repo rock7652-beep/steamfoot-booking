@@ -13,6 +13,11 @@ import { REVENUE_TRANSACTION_TYPES } from "@/lib/booking-constants";
 
 const REVENUE_TYPES = [...REVENUE_TRANSACTION_TYPES];
 
+// TODO(PR-payment-confirm): PR-3/4 上線「轉帳待確認」後，本檔內所有 Transaction 營收查詢
+// （groupBy/aggregate with transactionType ∈ REVENUE_TYPES）必須加 paymentStatus filter：
+//   where: { paymentStatus: { in: ["SUCCESS", "CONFIRMED"] } }
+// 本 PR-1 不加：歷史交易已 backfill=SUCCESS，現行報表語意與上線前完全一致。
+
 // 使用共用日期工具
 function monthRange(month: string) {
   const { start, end } = sharedMonthRange(month);

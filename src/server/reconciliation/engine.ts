@@ -17,6 +17,10 @@ const REVENUE_TYPES = [
   "SUPPLEMENT",
 ];
 
+// TODO(PR-payment-confirm): PR-3/4 上線後，本引擎 3 個對帳 source（dashboard aggregate / 報表 groupBy / CSV groupBy）
+// 必須同步加 paymentStatus: { in: ["SUCCESS", "CONFIRMED"] } 排除 PENDING，否則對帳會出現誤判。
+// 本 PR-1 不加：歷史交易 backfill=SUCCESS，三 source 當前仍完全一致。
+
 // ============================================================
 // Types
 // ============================================================

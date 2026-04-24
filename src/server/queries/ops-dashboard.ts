@@ -11,6 +11,10 @@ import {
 import { REVENUE_TRANSACTION_TYPES } from "@/lib/booking-constants";
 import { getStoreFilter } from "@/lib/manager-visibility";
 
+// TODO(PR-payment-confirm): PR-3/4 上線後，本檔 Transaction 營收 aggregate
+// 必須加 paymentStatus: { in: ["SUCCESS", "CONFIRMED"] }，否則 Ops 面板會顯示 PENDING 誤差。
+// 本 PR-1 不加：歷史 backfill=SUCCESS，現行數字與上線前一致。
+
 // ============================================================
 // 1. 今日營運總覽
 // ============================================================
