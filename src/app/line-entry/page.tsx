@@ -71,22 +71,21 @@ export default async function LineEntryPage({
   // 依 ref 格式分派查詢：
   //   - 6 碼 referralCode 格式 → 查 Customer.referralCode
   //   - 其他（通常是 25 碼 cuid / customer.id）→ 查 Customer.id
-  // 用 isReferralCodeFormat 擋一層，避免 migration 前去查不存在的欄位造成 log 噪音。
-  // 無效 ref = null，不擋流程。
+  // 必須同時比對 storeId：referralCode 雖然 @@unique(referralCode) 全域唯一，
+  // 但若命中跨店顧客會把「別店推薦人」綁在這店新用戶上（跨店資料外洩）。
+  // storeId 未解析時直接不綁推薦人（不擋流程）。
   let referrerCustomerId: string | null = null;
   let inviterName: string | null = null;
-  if (rawRef) {
+  if (rawRef && storeId) {
     try {
       const normalized = rawRef.toUpperCase();
-      // referralCode 是 nullable，Prisma 的 findUnique 對 named @@unique 的型別組合較挑，
-      // 用 findFirst 走同一個 unique index，避免 type 難點；id 分支仍可 findUnique。
       const inviter = isReferralCodeFormat(normalized)
         ? await prisma.customer.findFirst({
-            where: { referralCode: normalized },
+            where: { referralCode: normalized, storeId },
             select: { id: true, name: true },
           })
-        : await prisma.customer.findUnique({
-            where: { id: rawRef },
+        : await prisma.customer.findFirst({
+            where: { id: rawRef, storeId },
             select: { id: true, name: true },
           });
       if (inviter) {
