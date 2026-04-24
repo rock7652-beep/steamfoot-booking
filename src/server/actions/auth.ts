@@ -5,6 +5,7 @@ import { AuthError } from "next-auth";
 import { prisma } from "@/lib/db";
 import { getStoreSlugById } from "@/lib/store-resolver";
 import { clearStoreContextCookies } from "@/server/auth/clear-store-context";
+import { resolveLoginRedirect } from "@/server/auth/resolve-login-redirect";
 
 // ============================================================
 // hqLoginAction — 後台登入（/hq/login）
@@ -27,22 +28,9 @@ export async function hqLoginAction(
 
   // 查 user — 同時決定 redirectTo、提供錯誤訊息辨識
   // 後台登入（/hq/login）細分錯誤，方便 debug；顧客登入保持模糊以防帳號列舉攻擊
-  let user: {
-    role: "ADMIN" | "OWNER" | "PARTNER" | "CUSTOMER" | string;
-    status: string;
-    staff: { storeId: string } | null;
-    customer: { storeId: string } | null;
-  } | null = null;
+  let user: Awaited<ReturnType<typeof findLoginUser>> = null;
   try {
-    user = await prisma.user.findUnique({
-      where: { email },
-      select: {
-        role: true,
-        status: true,
-        staff: { select: { storeId: true } },
-        customer: { select: { storeId: true } },
-      },
-    });
+    user = await findLoginUser(email);
   } catch (err) {
     console.error("[hqLoginAction] DB lookup failed", {
       email,
@@ -59,37 +47,27 @@ export async function hqLoginAction(
     return { error: "此帳號已停用，請聯絡管理員" };
   }
 
-  // 決定登入後導向
-  let redirectTo = "/hq/dashboard";
+  // 解析 user 所屬店 slug — 給 resolver 用
+  let userStoreSlug: string | null = null;
   try {
-    if (user.role === "CUSTOMER") {
-      const storeId = user.customer?.storeId;
-      const slug = storeId ? await getStoreSlugById(storeId) : null;
-      redirectTo = `/s/${slug ?? fromStoreSlug ?? "zhubei"}/book`;
-    } else if (user.role === "ADMIN") {
-      redirectTo = "/hq/dashboard";
-    } else {
-      // OWNER / PARTNER → 優先使用 URL 傳入的 storeSlug，否則查 DB
-      const storeId = user.staff?.storeId;
-      const slug = fromStoreSlug ?? (storeId ? await getStoreSlugById(storeId) : null);
-      redirectTo = `/s/${slug ?? "zhubei"}/admin/dashboard`;
-    }
+    const storeId = user.staff?.storeId ?? user.customer?.storeId ?? null;
+    userStoreSlug = storeId ? await getStoreSlugById(storeId) : null;
   } catch (err) {
-    console.warn("[hqLoginAction] resolve redirect failed, using fallback", {
+    console.warn("[hqLoginAction] resolve userStoreSlug failed", {
       email,
       error: err instanceof Error ? err.message : String(err),
     });
-    // redirectTo 維持預設值
   }
 
-  // 清除殘留 store context 的條件：
-  //   - 沒有 ?store= 參數（純 HQ 登入入口）
-  //   - 或登入成 ADMIN（ADMIN 不綁 store，任何殘留 store-slug 都會誤導後續）
-  // OWNER/PARTNER 透過 ?store=X 進入者不能清，否則登入後 proxy 會因 store-slug
-  // 缺失誤判為未知 store；redirect 目標 /s/{slug}/admin/dashboard 會由 proxy
-  // 的 storeRewrite 重設 store-slug cookie。
-  const shouldClearStoreContext = !fromStoreSlug || user.role === "ADMIN";
-  if (shouldClearStoreContext) {
+  // 中樞 redirect 決策 — 所有 role × entry 組合集中在 resolver 處理
+  const decision = resolveLoginRedirect({
+    userRole: user.role,
+    entry: "hq",
+    targetStoreSlug: fromStoreSlug,
+    userStoreSlug,
+  });
+
+  if (decision.clearStoreContext) {
     await clearStoreContextCookies();
   }
 
@@ -97,7 +75,7 @@ export async function hqLoginAction(
     await signIn("credentials", {
       email,
       password,
-      redirectTo,
+      redirectTo: decision.redirectTo,
     });
   } catch (e) {
     if (e instanceof AuthError) {
@@ -108,6 +86,18 @@ export async function hqLoginAction(
   }
 
   return { error: null };
+}
+
+async function findLoginUser(email: string) {
+  return prisma.user.findUnique({
+    where: { email },
+    select: {
+      role: true,
+      status: true,
+      staff: { select: { storeId: true } },
+      customer: { select: { storeId: true } },
+    },
+  });
 }
 
 // ============================================================

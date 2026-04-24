@@ -12,6 +12,7 @@ const URL_ERROR_MESSAGES: Record<string, string> = {
   "missing-store": "您的登入資訊缺少店舖資料，請重新登入。",
   "admin-required": "此區域僅限系統管理者使用。",
   "store-mismatch": "您的帳號與該店舖不符，請從正確入口登入。",
+  "wrong-entry": "請從對應身份的登入入口進入。",
 };
 
 export default function HqLoginPage() {
