@@ -166,10 +166,10 @@ export default async function EditPlanPage({ params }: PageProps) {
                 className="mt-0.5 h-4 w-4 rounded border-earth-300 text-primary-600 focus:ring-primary-500"
               />
               <div>
-                <div className="text-sm font-medium text-earth-800">前台可見</div>
+                <div className="text-sm font-medium text-earth-800">顧客可購買（前台可見）</div>
                 <div className="mt-0.5 text-xs text-earth-500">
                   勾選後顧客會在前台 <code className="rounded bg-earth-100 px-1">/book/shop</code> 看到此方案。
-                  需搭配「上架中」狀態（isActive=true）才會顯示。
+                  需搭配「上架中」狀態才會顯示；不勾選則僅能在後台由店長指派。
                 </div>
               </div>
             </label>

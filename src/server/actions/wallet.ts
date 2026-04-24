@@ -189,15 +189,6 @@ export async function assignPlanToCustomer(
         });
       }
 
-      // 🆕 推薦獎勵：首次購課 + 有 sponsor → 邀請者 +15、被邀請者 +5
-      // sourceKey 以 customerId 為主鍵；靜默失敗
-      await awardFirstTopupReferralPointsIfEligible({
-        customerId: data.customerId,
-        storeId: currentStoreId(user),
-        isFirstPurchase,
-        tx,
-      });
-
       return { wallet, transaction };
     });
 

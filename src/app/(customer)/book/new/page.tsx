@@ -1,4 +1,5 @@
 import { getCurrentUser } from "@/lib/session";
+import { getStoreContext } from "@/lib/store-context";
 import { prisma } from "@/lib/db";
 import Link from "next/link";
 import { BookingCalendarView } from "./booking-calendar-view";
@@ -7,9 +8,12 @@ import { NoPlanEmptyState } from "@/components/no-plan-empty-state";
 
 export default async function NewBookingPage() {
   const user = await getCurrentUser();
+  const storeCtx = await getStoreContext();
+  const shopHref = storeCtx ? `/s/${storeCtx.storeSlug}/book/shop` : "/book/shop";
+
   // stale session / 沒有 customerId 時顯示 empty state，不 redirect
   if (!user || !user.customerId) {
-    return <NoPlanEmptyState title="新增預約" />;
+    return <NoPlanEmptyState title="新增預約" shopHref={shopHref} />;
   }
 
   const [customer, makeupCredits] = await Promise.all([
@@ -50,7 +54,7 @@ export default async function NewBookingPage() {
       orderBy: { createdAt: "asc" },
     }),
   ]);
-  if (!customer) return <NoPlanEmptyState title="新增預約" />;
+  if (!customer) return <NoPlanEmptyState title="新增預約" shopHref={shopHref} />;
 
   // 新扣堂模型：remainingSessions = 購買 - COMPLETED - NO_SHOW(DEDUCTED)
   // 可預約 = remainingSessions - count(PENDING 非補課)
@@ -66,7 +70,7 @@ export default async function NewBookingPage() {
     customer.selfBookingEnabled && (activeWallets.length > 0 || makeupCredits.length > 0);
 
   if (!hasValidWallet) {
-    return <NoPlanEmptyState title="新增預約" />;
+    return <NoPlanEmptyState title="新增預約" shopHref={shopHref} />;
   }
 
   // 新模型：computedRemaining 已減去待到店預約數
