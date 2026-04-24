@@ -34,6 +34,7 @@ export default async function EditPlanPage({ params }: PageProps) {
       sortOrder: formData.get("sortOrder")
         ? Number(formData.get("sortOrder"))
         : 0,
+      publicVisible: formData.get("publicVisible") === "on",
     });
 
     if (!result.success) {
@@ -153,6 +154,25 @@ export default async function EditPlanPage({ params }: PageProps) {
               className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
               placeholder="數字越小越靠前"
             />
+          </div>
+
+          {/* Public Visible */}
+          <div className="rounded-lg border border-earth-200 bg-earth-50 p-3">
+            <label className="flex items-start gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                name="publicVisible"
+                defaultChecked={plan.publicVisible}
+                className="mt-0.5 h-4 w-4 rounded border-earth-300 text-primary-600 focus:ring-primary-500"
+              />
+              <div>
+                <div className="text-sm font-medium text-earth-800">前台可見</div>
+                <div className="mt-0.5 text-xs text-earth-500">
+                  勾選後顧客會在前台 <code className="rounded bg-earth-100 px-1">/book/shop</code> 看到此方案。
+                  需搭配「上架中」狀態（isActive=true）才會顯示。
+                </div>
+              </div>
+            </label>
           </div>
 
           {/* Buttons */}

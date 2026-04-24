@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useActionState } from "react";
 import { fetchDaySlots } from "@/server/actions/slots";
 import { fetchMonthAvailability } from "@/server/actions/slots";
 import { createBooking } from "@/server/actions/booking";
+import { parseLocalDate, formatWeekdayZh } from "@/lib/date-utils";
 import type { SlotAvailability } from "@/types";
 import type { MonthSlotInfo } from "@/server/actions/slots";
 
@@ -317,11 +318,10 @@ export function BookingCalendarView({ customerId, activeWallets, makeupCredits =
         <div className="animate-in slide-in-from-top-2 fade-in duration-200">
           <div className="mb-3 flex items-center gap-2">
             <h3 className="text-lg font-bold text-earth-900">
-              {new Date(selectedDate + "T12:00:00").toLocaleDateString("zh-TW", {
+              {parseLocalDate(selectedDate).toLocaleDateString("zh-TW", {
                 month: "long",
                 day: "numeric",
-                weekday: "short",
-              })}
+              })}（{formatWeekdayZh(selectedDate)}）
             </h3>
             <button
               onClick={() => { setSelectedDate(null); setSlots([]); }}

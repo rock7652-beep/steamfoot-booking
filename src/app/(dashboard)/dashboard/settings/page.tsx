@@ -46,7 +46,13 @@ export default async function SettingsIndexPage() {
   const [plan, shopConfig, staffList, rules, weeklyHours, store] =
     await Promise.all([
       getCurrentStorePlan().catch(() => "EXPERIENCE" as const),
-      getShopConfig().catch(() => ({ dutySchedulingEnabled: false })),
+      getShopConfig().catch(() => ({
+        dutySchedulingEnabled: false,
+        bankName: null as string | null,
+        bankCode: null as string | null,
+        bankAccountNumber: null as string | null,
+        lineOfficialUrl: null as string | null,
+      })),
       listStaff(activeStoreId).catch(() => []),
       listReminderRules().catch(() => []),
       getBusinessHours().catch(() => []),
@@ -98,6 +104,7 @@ export default async function SettingsIndexPage() {
       title: "營運設定",
       items: [
         { label: "方案設定", href: "/dashboard/settings/plan" },
+        { label: "付款設定", href: "/dashboard/settings/payment" },
         { label: "提醒管理", href: "/dashboard/reminders" },
       ],
     },
@@ -106,6 +113,12 @@ export default async function SettingsIndexPage() {
       items: [{ label: "人員管理", href: "/dashboard/staff" }],
     },
   ];
+
+  // ==== 付款設定 summary ====
+  const bankLine = shopConfig.bankAccountNumber
+    ? `${shopConfig.bankName ?? ""}${shopConfig.bankCode ? ` (${shopConfig.bankCode})` : ""} ${shopConfig.bankAccountNumber}`.trim()
+    : "尚未設定";
+  const lineOfficialLine = shopConfig.lineOfficialUrl ? "已設定" : "尚未設定";
 
   // ==== 右欄資料 ====
   const quickActions = [
@@ -249,7 +262,24 @@ export default async function SettingsIndexPage() {
           }
         />
 
-        {/* 5. 提醒管理 */}
+        {/* 5. 付款設定 */}
+        <SettingsActionCard
+          title="付款設定"
+          description="前台購買頁顯示的銀行轉帳資訊與 LINE@ 連結"
+          iconPath="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z"
+          primaryHref="/dashboard/settings/payment"
+          primaryLabel="編輯付款設定"
+          summary={
+            <InfoList
+              items={[
+                { label: "銀行帳戶", value: bankLine },
+                { label: "LINE@ 連結", value: lineOfficialLine },
+              ]}
+            />
+          }
+        />
+
+        {/* 6. 提醒管理 */}
         <SettingsActionCard
           title="提醒管理"
           description="LINE 提醒模板與自動通知"

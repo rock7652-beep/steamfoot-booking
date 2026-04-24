@@ -56,6 +56,10 @@ export async function getShopConfig(storeId?: string | null) {
     storeId: sid,
     shopName: SYSTEM_DEFAULTS.shopName,
     dutySchedulingEnabled: SYSTEM_DEFAULTS.dutySchedulingEnabled,
+    bankName: null,
+    bankCode: null,
+    bankAccountNumber: null,
+    lineOfficialUrl: null,
     createdAt: new Date(),
     updatedAt: new Date(),
   };

@@ -143,11 +143,18 @@ export default async function PlansPage({ searchParams }: PageProps) {
                         {plan.validityDays ? `${plan.validityDays} 天` : "—"}
                       </td>
                       <td className="px-4 py-3 text-center">
-                        {plan.isActive ? (
-                          <span className="rounded bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">上架</span>
-                        ) : (
-                          <span className="rounded bg-red-100 px-2 py-0.5 text-xs font-medium text-red-600">下架</span>
-                        )}
+                        <div className="flex flex-col items-center gap-1">
+                          {plan.isActive ? (
+                            <span className="rounded bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">上架</span>
+                          ) : (
+                            <span className="rounded bg-red-100 px-2 py-0.5 text-xs font-medium text-red-600">下架</span>
+                          )}
+                          {plan.publicVisible ? (
+                            <span className="rounded bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">前台顯示</span>
+                          ) : (
+                            <span className="rounded bg-earth-100 px-2 py-0.5 text-xs text-earth-500">後台專用</span>
+                          )}
+                        </div>
                       </td>
                       {isOwner && (
                         <td className="px-4 py-3 text-center">
@@ -183,9 +190,14 @@ export default async function PlansPage({ searchParams }: PageProps) {
                       </span>
                       <span className="font-medium text-earth-900">{plan.name}</span>
                     </div>
-                    {!plan.isActive && (
-                      <span className="rounded bg-red-100 px-2 py-0.5 text-xs text-red-600">下架</span>
-                    )}
+                    <div className="flex gap-1">
+                      {!plan.isActive && (
+                        <span className="rounded bg-red-100 px-2 py-0.5 text-xs text-red-600">下架</span>
+                      )}
+                      {plan.isActive && plan.publicVisible && (
+                        <span className="rounded bg-blue-100 px-2 py-0.5 text-xs text-blue-700">前台</span>
+                      )}
+                    </div>
                   </div>
                   <div className="mt-2 flex items-center justify-between text-sm">
                     <div className="flex gap-3 text-earth-500">

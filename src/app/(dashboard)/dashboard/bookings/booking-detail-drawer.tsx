@@ -19,6 +19,7 @@ import {
 } from "@/server/actions/booking";
 import { NoShowModal, type NoShowChoice } from "./no-show-modal";
 import { RescheduleModal } from "./reschedule-modal";
+import { formatWeekdayZh } from "@/lib/date-utils";
 
 interface BookingDetailDrawerProps {
   open: boolean;
@@ -601,7 +602,5 @@ function computeEndTime(start: string, durationMinutes: number): string {
 
 function formatDateLabel(iso: string): string {
   const [y, m, d] = iso.split("-").map(Number);
-  const dt = new Date(y, m - 1, d);
-  const weekdays = ["日", "一", "二", "三", "四", "五", "六"];
-  return `${y}/${String(m).padStart(2, "0")}/${String(d).padStart(2, "0")}（週${weekdays[dt.getDay()]}）`;
+  return `${y}/${String(m).padStart(2, "0")}/${String(d).padStart(2, "0")}（${formatWeekdayZh(iso)}）`;
 }

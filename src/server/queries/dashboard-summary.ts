@@ -28,6 +28,11 @@ import {
   REVENUE_TRANSACTION_TYPES,
 } from "@/lib/booking-constants";
 
+// TODO(PR-payment-confirm): PR-3/4 上線後，本檔今日/本月營收 aggregate
+// （transactionType ∈ REVENUE_TRANSACTION_TYPES）必須加 paymentStatus: { in: ["SUCCESS", "CONFIRMED"] }
+// 否則首頁卡片會把 PENDING 轉帳誤算進營收。
+// 本 PR-1 不加：歷史交易 backfill=SUCCESS，現行語意與上線前一致。
+
 // ============================================================
 // helpers
 // ============================================================

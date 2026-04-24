@@ -1,5 +1,6 @@
 import { listCustomers } from "@/server/queries/customer";
 import { listStaffSelectOptions } from "@/server/queries/staff";
+import { listPlans } from "@/server/queries/plan";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { getActiveStoreForRead } from "@/lib/store";
@@ -10,7 +11,8 @@ import { FormSuccessToast } from "@/components/form-success-toast";
 import type { CustomerStage } from "@prisma/client";
 
 import { CustomersToolbar } from "./_components/customers-toolbar";
-import { CustomersTable, type CustomerRow } from "./_components/customers-table";
+import { CustomersListWithDrawer } from "./_components/customers-list-with-drawer";
+import type { CustomerRow } from "./_components/customers-table";
 import type {
   CustomerListStatus,
   CustomerListVisit,
@@ -51,7 +53,7 @@ export default async function CustomersPage({ searchParams }: PageProps) {
   }
 
   const activeStoreId = await getActiveStoreForRead(user);
-  const [{ customers, total, pageSize }, staffOptions] = await Promise.all([
+  const [{ customers, total, pageSize }, staffOptions, plans, canDiscount] = await Promise.all([
     listCustomers({
       stage: params.stage,
       status: normalizeStatus(params.status),
@@ -65,6 +67,9 @@ export default async function CustomersPage({ searchParams }: PageProps) {
       activeStoreId,
     }),
     listStaffSelectOptions(activeStoreId),
+    // PR-5.5：快速指派 drawer 需要的資料
+    listPlans().catch(() => []),
+    checkPermission(user.role, user.staffId, "transaction.discount").catch(() => false),
   ]);
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -130,11 +135,19 @@ export default async function CustomersPage({ searchParams }: PageProps) {
         ) : null}
       </div>
 
-      <CustomersTable
+      <CustomersListWithDrawer
         rows={rows}
         searchQuery={params.search}
         hasActiveFilters={hasActiveFilters}
         basePath={basePath}
+        plans={plans.map((p) => ({
+          id: p.id,
+          name: p.name,
+          category: p.category,
+          price: Number(p.price),
+          sessionCount: p.sessionCount,
+        }))}
+        canDiscount={canDiscount}
       />
 
       {totalPages > 1 ? (

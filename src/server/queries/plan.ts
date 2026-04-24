@@ -31,3 +31,32 @@ export async function getPlanDetail(planId: string) {
   if (plan.storeId !== user.storeId) throw new AppError("FORBIDDEN", "無權限存取此方案");
   return plan;
 }
+
+// ============================================================
+// getFrontendPlans — PR-6 前台 /book/shop 購買頁
+//
+// 僅回傳顧客端可見的方案：isActive=true AND publicVisible=true
+// 無 auth 檢查（前台購買頁本來就是半公開），但 storeId 必填做店隔離。
+// 呼叫者（page）須從 getStoreContext() 取得 storeId 後傳入。
+// ============================================================
+
+export async function getFrontendPlans(storeId: string) {
+  return prisma.servicePlan.findMany({
+    where: {
+      storeId,
+      isActive: true,
+      publicVisible: true,
+    },
+    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+    select: {
+      id: true,
+      name: true,
+      category: true,
+      price: true,
+      sessionCount: true,
+      validityDays: true,
+      description: true,
+      sortOrder: true,
+    },
+  });
+}

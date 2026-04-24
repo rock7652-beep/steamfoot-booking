@@ -150,6 +150,15 @@ enum PaymentMethod {
   UNPAID
 }
 
+// 付款狀態（與 status 獨立：status = 交易生命週期；paymentStatus = 收款確認狀態）
+enum PaymentStatus {
+  SUCCESS // 現金 / 刷卡 / LINE Pay 等即時付款；或歷史 backfill 值
+  PENDING // 轉帳建單後待店長確認入帳（TRANSFER 預設應為此）
+  CONFIRMED // 店長確認轉帳入帳（PENDING → CONFIRMED）
+  FAILED // 保留：確認失敗 / 轉帳未到
+  CANCELLED // 保留：交易取消後的付款取消
+}
+
 enum CashbookEntryType {
   INCOME
   EXPENSE
@@ -696,6 +705,10 @@ model ServicePlan {
   sessionCount Int // 堂數
   validityDays Int? // 有效天數（null = 無期限）
   isActive     Boolean      @default(true)
+  // PR-2：僅用於前台 /book/shop 展示開關
+  // ⚠️ 必須搭配 isActive=true 才會出現在前台（前台 query: isActive AND publicVisible）
+  // ⚠️ 後台 assign / 選方案 flow 不可依賴此欄位（後台只看 isActive）
+  publicVisible Boolean     @default(false)
   sortOrder    Int          @default(0) // 排序
   description  String?
   createdAt    DateTime     @default(now())
@@ -876,6 +889,16 @@ model Transaction {
   createdAt            DateTime        @default(now())
   updatedAt            DateTime        @updatedAt
 
+  // === 付款確認（PR-1 新增）===
+  // ⚠️ TRANSFER 交易必須由 application layer 明確寫入 paymentStatus = "PENDING"。
+  // schema default "SUCCESS" 僅作為歷史資料 backfill 的安全網，不可用於新 TRANSFER 建單。
+  // 非 TRANSFER（CASH / LINE_PAY / CREDIT_CARD / OTHER）才可使用 default SUCCESS。
+  // 後續 PR-3 會在 assignPlanToCustomer / createTransaction 加強制規則。
+  paymentStatus        PaymentStatus   @default(SUCCESS)
+  paidAt               DateTime? // 實際確認入帳時間；歷史 backfill=createdAt；新 PENDING 保持 null
+  referenceNo          String? // 轉帳參考號 / 外部參考編號
+  bankLast5            String? // 轉帳帳號末五碼（對帳輔助）
+
   // === 報表用欄位（快照 + 歸屬鎖定）===
   transactionNo     String? // 交易編號 TXN-YYYYMMDD-NNN
   transactionDate   DateTime          @default(now()) // 交易業務日期
@@ -913,6 +936,7 @@ model Transaction {
   @@index([customerId, transactionDate])
   @@index([status])
   @@index([planType])
+  @@index([storeId, paymentStatus, createdAt]) // PR-1: 支援「待確認付款」清單 + 店別篩選
 }
 
 // ============================================================
@@ -1076,6 +1100,11 @@ model ShopConfig {
   storeId               String   @unique
   shopName              String   @default("蒸足")
   dutySchedulingEnabled Boolean  @default(false)
+  // === PR-2 新增：前台購買頁顯示用（全 nullable；格式驗證交給 app layer）===
+  bankName              String? // 銀行名稱，例：「永豐銀行」
+  bankCode              String? // 銀行代號，例：「807」
+  bankAccountNumber     String? // 帳號，例：「19301800020681」
+  lineOfficialUrl       String? // LINE@ 連結，例：「https://lin.ee/UvRnFFK」
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 
