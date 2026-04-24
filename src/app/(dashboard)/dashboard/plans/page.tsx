@@ -8,6 +8,7 @@ import { redirect } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { PlanCategory } from "@prisma/client";
+import { PlanPublishToggle } from "./plan-publish-toggle";
 
 const CATEGORY_LABEL: Record<PlanCategory, string> = {
   TRIAL: "體驗",
@@ -149,11 +150,12 @@ export default async function PlansPage({ searchParams }: PageProps) {
                           ) : (
                             <span className="rounded bg-red-100 px-2 py-0.5 text-xs font-medium text-red-600">下架</span>
                           )}
-                          {plan.publicVisible ? (
-                            <span className="rounded bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">顧客可購買</span>
-                          ) : (
-                            <span className="rounded bg-earth-100 px-2 py-0.5 text-xs text-earth-500">僅後台指派</span>
-                          )}
+                          <PlanPublishToggle
+                            planId={plan.id}
+                            planName={plan.name}
+                            publicVisible={plan.publicVisible}
+                            isActive={plan.isActive}
+                          />
                         </div>
                       </td>
                       {isOwner && (
@@ -190,12 +192,18 @@ export default async function PlansPage({ searchParams }: PageProps) {
                       </span>
                       <span className="font-medium text-earth-900">{plan.name}</span>
                     </div>
-                    <div className="flex gap-1">
+                    <div className="flex items-center gap-1">
                       {!plan.isActive && (
                         <span className="rounded bg-red-100 px-2 py-0.5 text-xs text-red-600">下架</span>
                       )}
-                      {plan.isActive && plan.publicVisible && (
-                        <span className="rounded bg-blue-100 px-2 py-0.5 text-xs text-blue-700">顧客可購買</span>
+                      {plan.isActive && (
+                        <PlanPublishToggle
+                          planId={plan.id}
+                          planName={plan.name}
+                          publicVisible={plan.publicVisible}
+                          isActive={plan.isActive}
+                          compact
+                        />
                       )}
                     </div>
                   </div>
