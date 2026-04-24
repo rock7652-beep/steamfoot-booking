@@ -103,6 +103,14 @@ export async function assignPlanToCustomer(
     const startDate = now;
     const expiryDate = plan.validityDays ? addDays(now, plan.validityDays) : null;
 
+    // PR-3：付款確認語意
+    // TRANSFER / UNPAID → 需店長在 PR-4 confirmTransactionPayment 確認後才算入帳
+    // 其他付款方式（CASH / LINE_PAY / CREDIT_CARD / OTHER）→ 建單即視為成功收款
+    const isPending =
+      data.paymentMethod === "TRANSFER" || data.paymentMethod === "UNPAID";
+    const paymentStatus = isPending ? "PENDING" : "SUCCESS";
+    const paidAt = isPending ? null : now;
+
     // 使用 Prisma transaction 確保原子性
     const result = await prisma.$transaction(async (tx) => {
       // 1. 建立課程錢包（快照購買時的價格 = 實收金額）
@@ -133,8 +141,6 @@ export async function assignPlanToCustomer(
         netAmount: finalAmount,
       });
 
-      // TODO(PR-3): paymentMethod === "TRANSFER" 時需顯式傳 paymentStatus: "PENDING"
-      // （schema default = SUCCESS 僅為歷史 backfill 安全網；轉帳需店長確認後才能進營收）
       const transaction = await tx.transaction.create({
         data: {
           customerId: data.customerId,
@@ -142,6 +148,10 @@ export async function assignPlanToCustomer(
           soldByStaffId: user.staffId ?? null, // 紀錄本次操作/成交店長
           transactionType: txType,
           paymentMethod: data.paymentMethod,
+          paymentStatus,                          // PR-3：PENDING (TRANSFER/UNPAID) or SUCCESS
+          paidAt,                                  // PR-3：null (PENDING) or now
+          referenceNo: data.referenceNo ?? null,   // PR-3：轉帳參考號
+          bankLast5: data.bankLast5 ?? null,       // PR-3：轉帳帳號末五碼
           amount: finalAmount,                    // 實收金額
           originalAmount: hasDiscount ? originalPrice : null,  // 有折扣才記原價
           discountType: hasDiscount ? discountType : null,
@@ -154,25 +164,29 @@ export async function assignPlanToCustomer(
         },
       });
 
-      // 3. 更新顧客狀態
+      // 3. 更新顧客狀態 + 發首儲推薦獎勵
+      // PR-3：PENDING 交易（轉帳待確認 / 未付款）先不鎖 convertedAt、不升等、不發獎勵
+      // 這些邏輯留給 PR-4 confirmTransactionPayment 在 PENDING → CONFIRMED 時統一觸發
       const isFirstPurchase = !customer.convertedAt;
-      await tx.customer.update({
-        where: { id: data.customerId },
-        data: {
-          customerStage: "ACTIVE",
-          selfBookingEnabled: true,
-          ...(isFirstPurchase && { convertedAt: now }),
-        },
-      });
+      if (!isPending) {
+        await tx.customer.update({
+          where: { id: data.customerId },
+          data: {
+            customerStage: "ACTIVE",
+            selfBookingEnabled: true,
+            ...(isFirstPurchase && { convertedAt: now }),
+          },
+        });
 
-      // 🆕 推薦獎勵：首次購課 + 有 sponsor → 邀請者 +15、被邀請者 +5
-      // sourceKey 以 customerId 為主鍵；靜默失敗
-      await awardFirstTopupReferralPointsIfEligible({
-        customerId: data.customerId,
-        storeId: currentStoreId(user),
-        isFirstPurchase,
-        tx,
-      });
+        // 推薦獎勵：首次購課 + 有 sponsor → 邀請者 +15、被邀請者 +5
+        // sourceKey 以 customerId 為主鍵；靜默失敗
+        await awardFirstTopupReferralPointsIfEligible({
+          customerId: data.customerId,
+          storeId: currentStoreId(user),
+          isFirstPurchase,
+          tx,
+        });
+      }
 
       return { wallet, transaction };
     });
