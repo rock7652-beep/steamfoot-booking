@@ -1,3 +1,5 @@
+"use client";
+
 import type { CustomerStage, LineLinkStatus } from "@prisma/client";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { DataTable, EmptyRow, type Column } from "@/components/desktop";
@@ -34,6 +36,8 @@ interface Props {
   searchQuery?: string;
   hasActiveFilters: boolean;
   basePath: string;
+  /** PR-5.5：傳入後於末欄多渲染「＋指派」按鈕 → 觸發快速指派 drawer（不跳頁） */
+  onQuickAssign?: (row: CustomerRow) => void;
 }
 
 /**
@@ -46,7 +50,7 @@ function formatPhoneForStaff(phone: string | null | undefined): string {
   return phone;
 }
 
-export function CustomersTable({ rows, searchQuery, hasActiveFilters, basePath }: Props) {
+export function CustomersTable({ rows, searchQuery, hasActiveFilters, basePath, onQuickAssign }: Props) {
   const columns: Column<CustomerRow>[] = [
     {
       key: "customer",
@@ -145,14 +149,29 @@ export function CustomersTable({ rows, searchQuery, hasActiveFilters, basePath }
       key: "actions",
       header: "",
       align: "right",
-      width: "w-20",
+      width: onQuickAssign ? "w-32" : "w-20",
       accessor: (c) => (
-        <Link
-          href={`/dashboard/customers/${c.id}`}
-          className="rounded border border-earth-200 px-2 py-0.5 text-[11px] text-earth-700 hover:bg-earth-50"
-        >
-          查看
-        </Link>
+        <div className="flex items-center justify-end gap-1.5">
+          {onQuickAssign ? (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                onQuickAssign(c);
+              }}
+              className="rounded bg-primary-600 px-2 py-0.5 text-[11px] font-medium text-white hover:bg-primary-700"
+            >
+              ＋指派
+            </button>
+          ) : null}
+          <Link
+            href={`/dashboard/customers/${c.id}`}
+            className="rounded border border-earth-200 px-2 py-0.5 text-[11px] text-earth-700 hover:bg-earth-50"
+          >
+            查看
+          </Link>
+        </div>
       ),
     },
   ];

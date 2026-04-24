@@ -16,12 +16,16 @@ interface Props {
   customerId: string;
   plans: Plan[];
   canDiscount?: boolean; // 是否有折扣權限
+  /** PR-5.5：drawer 模式 — 表單常開，隱藏 toggle/取消按鈕（drawer 本身有關閉鈕） */
+  alwaysOpen?: boolean;
+  /** PR-5.5：drawer 成功時額外執行（如 router.refresh()） */
+  onSuccess?: () => void;
 }
 
 type PaymentMethod = "CASH" | "TRANSFER" | "LINE_PAY" | "CREDIT_CARD" | "OTHER" | "UNPAID";
 
-export function AssignPlanForm({ customerId, plans, canDiscount = false }: Props) {
-  const [open, setOpen] = useState(false);
+export function AssignPlanForm({ customerId, plans, canDiscount = false, alwaysOpen = false, onSuccess }: Props) {
+  const [open, setOpen] = useState(alwaysOpen);
   const [selectedPlanId, setSelectedPlanId] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("CASH");
   const [referenceNo, setReferenceNo] = useState("");
@@ -77,7 +81,7 @@ export function AssignPlanForm({ customerId, plans, canDiscount = false }: Props
           ? "方案已建立，請至「待確認付款」確認入帳"
           : "方案已成功指派";
         toast.success(msg);
-        setOpen(false);
+        if (!alwaysOpen) setOpen(false);
         setSelectedPlanId("");
         setPaymentMethod("CASH");
         setReferenceNo("");
@@ -85,6 +89,7 @@ export function AssignPlanForm({ customerId, plans, canDiscount = false }: Props
         setDiscountType("none");
         setDiscountValue("");
         setDiscountReason("");
+        onSuccess?.();
         return { error: null };
       }
       toast.error(result.error ?? "指派失敗");
@@ -93,7 +98,7 @@ export function AssignPlanForm({ customerId, plans, canDiscount = false }: Props
     { error: null }
   );
 
-  if (!open) {
+  if (!open && !alwaysOpen) {
     return (
       <button
         onClick={() => setOpen(true)}
@@ -306,21 +311,23 @@ export function AssignPlanForm({ customerId, plans, canDiscount = false }: Props
             "確認購買"
           )}
         </button>
-        <button
-          type="button"
-          onClick={() => {
-            setOpen(false);
-            setPaymentMethod("CASH");
-            setReferenceNo("");
-            setBankLast5("");
-            setDiscountType("none");
-            setDiscountValue("");
-            setDiscountReason("");
-          }}
-          className="rounded-lg bg-earth-100 px-4 py-2 text-sm text-earth-600 hover:bg-earth-200"
-        >
-          取消
-        </button>
+        {!alwaysOpen && (
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false);
+              setPaymentMethod("CASH");
+              setReferenceNo("");
+              setBankLast5("");
+              setDiscountType("none");
+              setDiscountValue("");
+              setDiscountReason("");
+            }}
+            className="rounded-lg bg-earth-100 px-4 py-2 text-sm text-earth-600 hover:bg-earth-200"
+          >
+            取消
+          </button>
+        )}
       </div>
     </form>
   );
