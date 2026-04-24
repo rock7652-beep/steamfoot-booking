@@ -347,18 +347,23 @@ function storeRewrite(
 ): NextResponse {
   const url = new URL(internalPath, req.url);
   url.search = req.nextUrl.search;
-  const response = NextResponse.rewrite(url);
-  // B7-4.5: 僅注入 store-slug cookie，storeId 由 page-level DB resolver 提供
+  // Forward x-store-slug / x-next-pathname to the rewritten destination via
+  // REQUEST headers — `response.headers.set(...)` only affects the client-bound
+  // response and is invisible to Server Components. URL slug is the source of
+  // truth; cookie is only an aid.
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.set("x-store-slug", slug);
+  requestHeaders.set("x-next-pathname", req.nextUrl.pathname);
+  const response = NextResponse.rewrite(url, {
+    request: { headers: requestHeaders },
+  });
+  // Keep cookie for client-side hooks and multi-request continuity.
   response.cookies.set("store-slug", slug, {
     path: "/",
     httpOnly: false,
     sameSite: "lax",
     maxAge: 60 * 60 * 24,
   });
-  // 保留原始 pathname 供 sidebar 高亮
-  response.headers.set("x-next-pathname", req.nextUrl.pathname);
-  // 注入 store slug header — Server Component 可靠讀取（不受 stale cookie 影響）
-  response.headers.set("x-store-slug", slug);
   if (domainStoreId) {
     response.cookies.set("domain-store-id", domainStoreId, {
       path: "/",
@@ -380,15 +385,18 @@ function hqRewrite(
 ): NextResponse {
   const url = new URL(internalPath, req.url);
   url.search = req.nextUrl.search;
-  const response = NextResponse.rewrite(url);
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.set("x-next-pathname", req.nextUrl.pathname);
+  requestHeaders.set("x-store-slug", "__hq__");
+  const response = NextResponse.rewrite(url, {
+    request: { headers: requestHeaders },
+  });
   response.cookies.set("store-slug", "__hq__", {
     path: "/",
     httpOnly: false,
     sameSite: "lax",
     maxAge: 60 * 60 * 24,
   });
-  // HQ 不設 store-id cookie（ADMIN 用 active-store-id 切換）
-  response.headers.set("x-next-pathname", req.nextUrl.pathname);
   if (domainStoreId) {
     response.cookies.set("domain-store-id", domainStoreId, {
       path: "/",

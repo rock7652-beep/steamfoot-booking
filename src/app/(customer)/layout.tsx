@@ -89,8 +89,14 @@ export default async function CustomerLayout({
   children: React.ReactNode;
 }) {
   const user = await getCurrentUser();
+  // URL slug（proxy 注入 header）優先於 cookie —— LINE in-app webview 不保留
+  // cookie 時仍能正確解析店舖。
+  const headerListEarly = await headers();
   const cookieStore = await cookies();
-  const storeSlug = cookieStore.get("store-slug")?.value ?? "zhubei";
+  const storeSlug =
+    headerListEarly.get("x-store-slug") ??
+    cookieStore.get("store-slug")?.value ??
+    "zhubei";
   const prefix = `/s/${storeSlug}`;
 
   if (!user) {
@@ -101,7 +107,7 @@ export default async function CustomerLayout({
   }
 
   // 取得目前路徑用於高亮（proxy.ts 會注入原始 pathname）
-  const headerList = await headers();
+  const headerList = headerListEarly;
   const rawPathname = headerList.get("x-next-pathname") || `${prefix}/book`;
   // 去掉 /s/[slug] 前綴，還原成 /book、/my-bookings 等格式供比對
   const pathname = rawPathname.replace(/^\/s\/[^/]+/, "") || "/book";

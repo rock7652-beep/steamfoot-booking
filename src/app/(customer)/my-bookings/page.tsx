@@ -1,5 +1,6 @@
 import { getCurrentUser } from "@/lib/session";
 import { prisma } from "@/lib/db";
+import { getStoreContext } from "@/lib/store-context";
 import { listBookings } from "@/server/queries/booking";
 import { getHealthCardData } from "@/server/queries/health-card";
 import { redirect } from "next/navigation";
@@ -23,13 +24,19 @@ export default async function MyBookingsPage({ searchParams }: PageProps) {
   if (!user || !user.customerId) redirect("/");
 
   const tab = params.tab ?? "upcoming";
+  const storeCtx = await getStoreContext();
+  const storeId = storeCtx?.storeId ?? user.storeId ?? null;
 
   // 並行取預約 + 健康卡片 + 方案錢包（供頂部方案摘要顯示）
   const [{ bookings }, healthCard, planSummary] = await Promise.all([
     listBookings({ pageSize: 50 }),
     getHealthCardData(user.customerId),
     prisma.customerPlanWallet.findMany({
-      where: { customerId: user.customerId, status: "ACTIVE" },
+      where: {
+        customerId: user.customerId,
+        status: "ACTIVE",
+        ...(storeId ? { storeId } : {}),
+      },
       select: { remainingSessions: true },
     }),
   ]);

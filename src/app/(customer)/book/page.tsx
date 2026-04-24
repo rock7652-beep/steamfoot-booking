@@ -58,7 +58,11 @@ export default async function CustomerHomePage() {
   try {
     const [wallets, upcoming, credits, hc, summary] = await Promise.all([
       prisma.customerPlanWallet.findMany({
-        where: { customerId: user.customerId, status: "ACTIVE" },
+        where: {
+          customerId: user.customerId,
+          status: "ACTIVE",
+          ...(storeId ? { storeId } : {}),
+        },
         select: {
           totalSessions: true,
           bookings: {

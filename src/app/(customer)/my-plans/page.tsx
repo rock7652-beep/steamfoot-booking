@@ -1,6 +1,7 @@
 import { getCurrentUser } from "@/lib/session";
 import { getStoreContext } from "@/lib/store-context";
 import { prisma } from "@/lib/db";
+import { resolveCustomer } from "@/server/queries/customer-resolver";
 import Link from "next/link";
 import type { WalletStatus } from "@prisma/client";
 import {
@@ -15,41 +16,71 @@ export default async function MyPlansPage() {
   const storeCtx = await getStoreContext();
   const shopHref = storeCtx ? `/s/${storeCtx.storeSlug}/book/shop` : "/book/shop";
 
-  if (!user || !user.customerId) {
+  if (!user) {
     return <NoPlanEmptyState title="我的方案" variant="plan" shopHref={shopHref} />;
   }
 
-  const customer = await prisma.customer.findUnique({
-    where: { id: user.customerId },
-    include: {
-      planWallets: {
-        include: {
-          plan: { select: { name: true, category: true, sessionCount: true } },
-          bookings: {
-            where: { bookingStatus: { in: ["COMPLETED", "NO_SHOW", "CONFIRMED", "PENDING"] } },
-            select: {
-              bookingDate: true,
-              slotTime: true,
-              bookingStatus: true,
-              isMakeup: true,
-              people: true,
-              noShowPolicy: true,
-            },
-            orderBy: { bookingDate: "asc" },
-          },
-        },
-        orderBy: { createdAt: "desc" },
-      },
-    },
-  });
+  const storeId = storeCtx?.storeId ?? user.storeId ?? null;
+
+  // 1) 優先吃 session.customerId（快路徑）
+  // 2) Stale / 未綁：用同店 userId / lineUserId / phone / email 回查（救援路徑）
+  //    避免「session 指向舊佔位 row → 後台真正的 wallet 查不到」
+  let customer = user.customerId
+    ? await prisma.customer.findUnique({
+        where: { id: user.customerId },
+        select: { id: true, storeId: true, selfBookingEnabled: true },
+      })
+    : null;
+
+  if (storeId && (!customer || customer.storeId !== storeId)) {
+    const resolved = await resolveCustomer({
+      storeId,
+      userId: user.id,
+      lineUserId: null,
+      phone: null,
+      email: user.email ?? null,
+    });
+    if (resolved) {
+      customer = {
+        id: resolved.id,
+        storeId: resolved.storeId,
+        selfBookingEnabled: resolved.selfBookingEnabled,
+      };
+    }
+  }
+
   if (!customer) {
     return <NoPlanEmptyState title="我的方案" variant="plan" shopHref={shopHref} />;
   }
 
+  // 查堂數一律帶 storeId 做 belt-and-suspenders，即便 customerId 1:1 對應 store
+  const planWallets = await prisma.customerPlanWallet.findMany({
+    where: {
+      customerId: customer.id,
+      ...(storeId ? { storeId } : {}),
+    },
+    include: {
+      plan: { select: { name: true, category: true, sessionCount: true } },
+      bookings: {
+        where: { bookingStatus: { in: ["COMPLETED", "NO_SHOW", "CONFIRMED", "PENDING"] } },
+        select: {
+          bookingDate: true,
+          slotTime: true,
+          bookingStatus: true,
+          isMakeup: true,
+          people: true,
+          noShowPolicy: true,
+        },
+        orderBy: { bookingDate: "asc" },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
   // ── 3 區分類 ──
-  const activeWallets = customer.planWallets.filter((w) => w.status === "ACTIVE");
-  const expiredWallets = customer.planWallets.filter((w) => w.status === "EXPIRED");
-  const historyWallets = customer.planWallets.filter(
+  const activeWallets = planWallets.filter((w) => w.status === "ACTIVE");
+  const expiredWallets = planWallets.filter((w) => w.status === "EXPIRED");
+  const historyWallets = planWallets.filter(
     (w) => w.status === "USED_UP" || w.status === "CANCELLED"
   );
 
@@ -106,7 +137,7 @@ export default async function MyPlansPage() {
         </div>
       )}
 
-      {customer.planWallets.length === 0 ? (
+      {planWallets.length === 0 ? (
         <NoPlanEmptyState variant="plan" shopHref={shopHref} />
       ) : (
         <div className="space-y-6">

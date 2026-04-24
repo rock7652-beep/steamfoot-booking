@@ -44,16 +44,23 @@ export function storeHref(storeSlug: string, path: string): string {
 // ============================================================
 
 /**
- * 從 cookies 讀取 store context（Server Component / Server Action 用）。
- * B7-4.5: proxy 僅注入 store-slug cookie，storeId 從 DB 解析。
+ * 取得 store context（Server Component / Server Action 用）。
+ *
+ * 優先順序（URL slug > cookie）：
+ *   1. proxy 注入的 `x-store-slug` request header（當次請求準確值，即便 cookie
+ *      遺失也能用；LINE in-app webview 不保留 cookie 時的關鍵救援）
+ *   2. `store-slug` cookie（client-side 導航的常態來源）
+ *
+ * 找不到或 slug 在 DB 不存在 → 回傳 null，由呼叫者決定顯示 fallback 或 404。
  */
 export async function getStoreContext(): Promise<{ storeSlug: string; storeId: string } | null> {
-  const { cookies } = await import("next/headers");
-  const cookieStore = await cookies();
-  const storeSlug = cookieStore.get("store-slug")?.value;
+  const { cookies, headers } = await import("next/headers");
+  const [cookieStore, headerList] = await Promise.all([cookies(), headers()]);
+  const headerSlug = headerList.get("x-store-slug");
+  const cookieSlug = cookieStore.get("store-slug")?.value;
+  const storeSlug = headerSlug ?? cookieSlug;
   if (!storeSlug || storeSlug === "__hq__") return null;
 
-  // B7-4.5: 從 DB 解析 storeId（不依賴靜態 map）
   const { resolveStoreBySlug } = await import("@/lib/store-resolver");
   const store = await resolveStoreBySlug(storeSlug);
   if (!store) return null;
