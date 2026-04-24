@@ -13,6 +13,11 @@ interface Plan {
   sessionCount: number;
 }
 
+interface StaffOption {
+  id: string;
+  displayName: string;
+}
+
 interface Props {
   rows: CustomerRow[];
   searchQuery?: string;
@@ -20,6 +25,8 @@ interface Props {
   basePath: string;
   plans: Plan[];
   canDiscount: boolean;
+  staffOptions: StaffOption[];
+  canAssign: boolean;
 }
 
 export function CustomersListWithDrawer({
@@ -29,6 +36,8 @@ export function CustomersListWithDrawer({
   basePath,
   plans,
   canDiscount,
+  staffOptions,
+  canAssign,
 }: Props) {
   const [selected, setSelected] = useState<CustomerRow | null>(null);
   const titleId = useId();
@@ -41,6 +50,7 @@ export function CustomersListWithDrawer({
         hasActiveFilters={hasActiveFilters}
         basePath={basePath}
         onQuickAssign={(row) => setSelected(row)}
+        onEditAssignment={canAssign ? (row) => setSelected(row) : undefined}
       />
 
       <RightSheet
@@ -55,6 +65,8 @@ export function CustomersListWithDrawer({
             customer={selected}
             plans={plans}
             canDiscount={canDiscount}
+            staffOptions={staffOptions}
+            canAssign={canAssign}
             onClose={() => setSelected(null)}
             titleId={titleId}
           />

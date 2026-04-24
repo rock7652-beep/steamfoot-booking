@@ -38,6 +38,8 @@ interface Props {
   basePath: string;
   /** PR-5.5：傳入後於末欄多渲染「＋指派」按鈕 → 觸發快速指派 drawer（不跳頁） */
   onQuickAssign?: (row: CustomerRow) => void;
+  /** 傳入後於「歸屬店長」欄位渲染「指派 / 修改」按鈕 → 開啟同一個 drawer */
+  onEditAssignment?: (row: CustomerRow) => void;
 }
 
 /**
@@ -50,7 +52,14 @@ function formatPhoneForStaff(phone: string | null | undefined): string {
   return phone;
 }
 
-export function CustomersTable({ rows, searchQuery, hasActiveFilters, basePath, onQuickAssign }: Props) {
+export function CustomersTable({
+  rows,
+  searchQuery,
+  hasActiveFilters,
+  basePath,
+  onQuickAssign,
+  onEditAssignment,
+}: Props) {
   const columns: Column<CustomerRow>[] = [
     {
       key: "customer",
@@ -81,6 +90,37 @@ export function CustomersTable({ rows, searchQuery, hasActiveFilters, basePath, 
       accessor: (c) => (
         <CustomerStatusBadge stage={c.customerStage} lineLinkStatus={c.lineLinkStatus} />
       ),
+    },
+    {
+      key: "assignedStaff",
+      header: "歸屬店長",
+      accessor: (c) => {
+        const name = c.assignedStaff?.displayName ?? null;
+        return (
+          <div className="flex items-center justify-between gap-2 leading-tight">
+            {name ? (
+              <span className="text-sm text-earth-800">{name}</span>
+            ) : (
+              <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-700">
+                未指派
+              </span>
+            )}
+            {onEditAssignment ? (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  onEditAssignment(c);
+                }}
+                className="rounded border border-earth-200 px-2 py-0.5 text-[11px] text-earth-600 hover:bg-earth-50"
+              >
+                {name ? "修改" : "指派"}
+              </button>
+            ) : null}
+          </div>
+        );
+      },
     },
     {
       key: "lastVisit",

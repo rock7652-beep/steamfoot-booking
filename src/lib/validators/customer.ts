@@ -49,3 +49,12 @@ export const transferCustomerSchema = z.object({
   customerId: z.string().cuid(),
   newStaffId: z.string().cuid(),
 });
+
+// 顧客歸屬設定（列表 drawer 用）
+//   - assignedStaffId：直屬店長（必填）
+//   - referredByCustomerId：推薦人（選填；null = 清除）
+export const updateCustomerAssignmentSchema = z.object({
+  customerId: z.string().cuid(),
+  assignedStaffId: z.string().cuid({ message: "請選擇歸屬店長" }),
+  referredByCustomerId: z.string().cuid().nullable().optional(),
+});
