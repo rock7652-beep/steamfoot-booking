@@ -220,19 +220,9 @@ export async function resetStaffPasswordAction(
       include: { user: { select: { id: true, role: true } } },
     });
     if (!targetStaff) throw new AppError("NOT_FOUND", "員工不存在");
-    if (targetStaff.isOwner) {
-      throw new AppError("FORBIDDEN", "無法重設系統管理者帳號");
-    }
 
-    const targetRole = targetStaff.user.role;
-
-    // ADMIN 身份目標一律拒絕（系統管理者不應透過此流程）
-    if (targetRole === "ADMIN") {
-      throw new AppError("FORBIDDEN", "無法重設系統管理者帳號");
-    }
-
-    // OWNER 僅能重設 PARTNER；不得重設其他 OWNER
-    if (sessionUser.role === "OWNER" && targetRole !== "PARTNER") {
+    // OWNER 僅能重設 PARTNER；不得重設其他 OWNER / ADMIN / 系統管理者
+    if (sessionUser.role === "OWNER" && targetStaff.user.role !== "PARTNER") {
       throw new AppError("FORBIDDEN", "店長僅可重設合作店長 / 員工帳號的密碼");
     }
 
