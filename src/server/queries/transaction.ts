@@ -185,3 +185,56 @@ export async function getCustomerTransactionSummary(customerId: string) {
     deductionCount, // 已消耗堂數
   };
 }
+
+// ============================================================
+// getPendingPaymentTransactions — PR-4
+// 後台待確認付款清單（TRANSFER / UNPAID 且 paymentStatus=PENDING）
+// 按 createdAt asc（最舊的先顯示，督促店長處理）
+// 附 totalAmount 聚合供 KPI 卡片使用
+// ============================================================
+
+export async function getPendingPaymentTransactions(options?: {
+  activeStoreId?: string | null;
+  page?: number;
+  pageSize?: number;
+}) {
+  const user = await requireStaffSession();
+  const { activeStoreId, page = 1, pageSize = 30 } = options ?? {};
+
+  const where = {
+    ...getStoreFilter(user, activeStoreId),
+    paymentStatus: "PENDING" as const,
+    paymentMethod: { in: ["TRANSFER", "UNPAID"] as PaymentMethod[] },
+    status: { notIn: ["CANCELLED", "REFUNDED"] as ("CANCELLED" | "REFUNDED")[] },
+  };
+
+  const [transactions, total, sum] = await Promise.all([
+    prisma.transaction.findMany({
+      where,
+      include: {
+        customer: { select: { id: true, name: true, phone: true } },
+        revenueStaff: { select: { id: true, displayName: true } },
+        soldByStaff: { select: { id: true, displayName: true } },
+        customerPlanWallet: {
+          select: { id: true, plan: { select: { name: true } } },
+        },
+      },
+      orderBy: { createdAt: "asc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.transaction.count({ where }),
+    prisma.transaction.aggregate({
+      where,
+      _sum: { amount: true },
+    }),
+  ]);
+
+  return {
+    transactions,
+    total,
+    totalAmount: Number(sum._sum?.amount ?? 0),
+    page,
+    pageSize,
+  };
+}

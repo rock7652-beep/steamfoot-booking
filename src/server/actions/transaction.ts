@@ -12,6 +12,7 @@ import type { PaymentMethod, TransactionType } from "@prisma/client";
 import { assertStoreAccess } from "@/lib/manager-visibility";
 import { currentStoreId } from "@/lib/store";
 import { buildTransactionSnapshot, buildRefundSnapshot } from "@/lib/transaction-snapshot";
+import { awardFirstTopupReferralPointsIfEligible } from "@/server/services/referral-points";
 
 // ============================================================
 // Validators
@@ -50,6 +51,12 @@ const adjustmentSchema = z.object({
   customerId: z.string().min(1),
   amount: z.number(),
   note: z.string().min(1, "調整備註不能為空"),
+});
+
+// PR-4：確認付款 input（皆 optional；格式驗證留待 UI）
+const confirmPaymentSchema = z.object({
+  referenceNo: z.string().max(100).optional(),
+  bankLast5: z.string().max(10).optional(),
 });
 
 // ============================================================
@@ -238,6 +245,122 @@ export async function createAdjustment(
 
     revalidateTransactions(data.customerId);
     return { success: true, data: { transactionId: result.id } };
+  } catch (e) {
+    return handleActionError(e);
+  }
+}
+
+// ============================================================
+// confirmTransactionPayment — PR-4
+//
+// 店長確認轉帳 / UNPAID 交易入帳：
+//   - Guard 1：只允許 paymentMethod ∈ {TRANSFER, UNPAID}
+//   - Guard 2：只允許 paymentStatus === PENDING 且 status ∉ {CANCELLED, REFUNDED}
+//   - CAS（updateMany WHERE paymentStatus=PENDING）防並行重複確認
+//   - 成功 CAS 後才做：customer 升等 + convertedAt + 首儲推薦獎勵
+//   - dedup key 沿用 PR-3：first_topup_{referrer,self}:{customerId}
+//     → PointRecord @@unique 是第三層保險
+//   - 同一 prisma.$transaction 原子性
+// ============================================================
+
+export async function confirmTransactionPayment(
+  transactionId: string,
+  input?: z.infer<typeof confirmPaymentSchema>
+): Promise<ActionResult<{ transactionId: string }>> {
+  try {
+    const user = await requirePermission("transaction.create");
+    const data = input ? confirmPaymentSchema.parse(input) : {};
+
+    // Pre-check：讀取原交易 + store 隔離
+    const original = await prisma.transaction.findUnique({
+      where: { id: transactionId },
+      select: {
+        id: true,
+        storeId: true,
+        customerId: true,
+        paymentStatus: true,
+        paymentMethod: true,
+        status: true,
+      },
+    });
+    if (!original) throw new AppError("NOT_FOUND", "交易紀錄不存在");
+    assertStoreAccess(user, original.storeId);
+
+    // Guard 1：只有 TRANSFER / UNPAID 可確認
+    if (original.paymentMethod !== "TRANSFER" && original.paymentMethod !== "UNPAID") {
+      throw new AppError(
+        "BUSINESS_RULE",
+        `付款方式為 ${original.paymentMethod}，不需要確認付款`
+      );
+    }
+
+    // Guard 2a：只有 PENDING 可確認
+    if (original.paymentStatus !== "PENDING") {
+      throw new AppError(
+        "BUSINESS_RULE",
+        `交易當前付款狀態為 ${original.paymentStatus}，無法確認`
+      );
+    }
+
+    // Guard 2b：交易生命週期不可為取消 / 退款
+    if (original.status === "CANCELLED" || original.status === "REFUNDED") {
+      throw new AppError(
+        "BUSINESS_RULE",
+        `交易狀態為 ${original.status}，無法確認付款`
+      );
+    }
+
+    const now = new Date();
+
+    await prisma.$transaction(async (tx) => {
+      // CAS：只有 paymentStatus 仍為 PENDING 時才更新（防並行重複確認）
+      const result = await tx.transaction.updateMany({
+        where: {
+          id: transactionId,
+          paymentStatus: "PENDING",
+          status: { notIn: ["CANCELLED", "REFUNDED"] },
+        },
+        data: {
+          paymentStatus: "CONFIRMED",
+          paidAt: now,
+          ...(data.referenceNo !== undefined && { referenceNo: data.referenceNo }),
+          ...(data.bankLast5 !== undefined && { bankLast5: data.bankLast5 }),
+        },
+      });
+
+      if (result.count === 0) {
+        // CAS 失敗：被別人搶先確認 / 被取消 / 已退款
+        throw new AppError("CONFLICT", "此交易已被確認或狀態已變更，無法重複確認");
+      }
+
+      // CAS 成功 → 重現 PR-3 skip 掉的狀態升等 + 首儲推薦獎勵
+      const customer = await tx.customer.findUnique({
+        where: { id: original.customerId },
+        select: { convertedAt: true },
+      });
+      const isFirstPurchase = !customer?.convertedAt;
+
+      await tx.customer.update({
+        where: { id: original.customerId },
+        data: {
+          customerStage: "ACTIVE",
+          selfBookingEnabled: true,
+          ...(isFirstPurchase && { convertedAt: now }),
+        },
+      });
+
+      // 首儲推薦獎勵（僅首次購課且有 sponsor 才觸發）
+      // 靜默失敗；dedup key 同 PR-3：PointRecord @@unique 擋重複發獎
+      await awardFirstTopupReferralPointsIfEligible({
+        customerId: original.customerId,
+        storeId: original.storeId,
+        isFirstPurchase,
+        tx,
+      });
+    });
+
+    revalidateTransactions(original.customerId);
+    return { success: true, data: { transactionId: original.id } };
   } catch (e) {
     return handleActionError(e);
   }
