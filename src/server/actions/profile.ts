@@ -84,75 +84,69 @@ async function ensureUserExists(user: {
 export type ProfileState = { error: string | null; success: boolean };
 
 // ============================================================
-// Merge / Bind 認領判定
+// Auto-merge 候選查找（同店 + phone OR email 匹配）
 // ============================================================
-// 舊會員背景：
-//   - 經常只有 phone 沒 email（staff 早期建檔時沒填 email）
-//   - 經常 customer.userId 為 null（從未線上登入過）
-//   - 偶爾 customer.userId 已被舊 credentials 帳號綁了（後改 LINE 登入會撞）
+// LINE/Google OAuth 首登若無 LINE-provided email，auth.ts 只會建出 phone=_oauth_xxx
+// 的佔位 Customer。等顧客在 profile 補資料時，這支 helper 才能用 phone/email 找到
+// staff 早就建好的真人 Customer，由 caller 呼叫 mergePlaceholder 合併。
 //
-// 我們的判定原則（替代原本「phone AND email 同時對」的硬性 bothMatch）：
-//   - real 上「非 null 的 factor」一律不能 mismatch（防 hijack）
-//   - 至少要有一個 factor 正向 match（找到 real 的 lookup 已用過 phone 或 email 其一）
-//   - real.email 為 null/空 → 用 phone-only 即可（沒第二 factor 可比；但 phone 必對）
-//   - phone / email 比對不分大小寫；空白 trim
-//   - 排除 placeholder 假值（_oauth_xxx phone、line_xxx@line.local email）
-type ClaimableReal = {
+// 規則（P0 修正：放寬原本「phone+email 都要對 / 任一 factor mismatch 即擋」的硬性檢查）：
+//   - 同 storeId 內以 OR(phone, email) 找候選（嚴格 store-scoped）
+//   - 0 筆 → 無 candidate（caller 走 update / create）
+//   - 1 筆 → 該 candidate（matchedBy 標明命中欄位）
+//   - 2+ 筆 → 優先選 phone+email 都對的；都沒有 → ambiguous（請使用者聯繫店家）
+//
+// 安全 guard 在 caller 端：若 real.userId 已被另一 user 佔用（!== current user），
+// caller 必須 BLOCK 並請顧客聯繫店家人工協助，並以 console.warn 留 HIGH_RISK audit log。
+// 理由：LINE OAuth 只能證明 LINE 身分，不能證明輸入的 phone/email 是本人。
+// 已知髒資料案例由 cleanup script 明確 merge，不走自動流程。
+type MergeCandidate = {
   id: string;
   userId: string | null;
-  phone?: string | null;
-  email?: string | null;
+  phone: string | null;
+  email: string | null;
 };
 
-type ClaimEval = {
-  allow: boolean;
-  reason: "both_match" | "phone_only_real_no_email" | "email_only_real_no_phone" | "factor_mismatch" | "no_positive_match";
-  realPhonePresent: boolean;
-  realEmailPresent: boolean;
-  phoneMatches: boolean;
-  emailMatches: boolean;
-};
+type MergeProbe =
+  | { kind: "none" }
+  | { kind: "found"; real: MergeCandidate; matchedBy: "phone" | "email" | "both" }
+  | { kind: "ambiguous"; candidates: MergeCandidate[] };
 
-function evaluateClaim(
-  real: ClaimableReal,
-  payloadPhone: string,
-  payloadEmail: string,
-): ClaimEval {
-  const trim = (s: string | null | undefined) => (s ?? "").trim();
-  const lower = (s: string | null | undefined) => trim(s).toLowerCase();
+async function findRealCustomerForMerge(opts: {
+  storeId: string;
+  phone: string;
+  email: string;
+  excludeCustomerId?: string | null;
+}): Promise<MergeProbe> {
+  const { storeId, phone, email, excludeCustomerId } = opts;
+  const candidates = await prisma.customer.findMany({
+    where: {
+      storeId,
+      ...(excludeCustomerId ? { id: { not: excludeCustomerId } } : {}),
+      OR: [{ phone }, { email }],
+    },
+    select: { id: true, userId: true, phone: true, email: true },
+    take: 5,
+  });
 
-  const realPhone = trim(real.phone);
-  const realEmail = lower(real.email);
+  if (candidates.length === 0) return { kind: "none" };
 
-  // 排除佔位假值
-  const realPhonePresent = !!realPhone && !realPhone.startsWith("_oauth_");
-  const realEmailPresent = !!realEmail && !realEmail.endsWith("@line.local");
+  const classify = (c: MergeCandidate): "phone" | "email" | "both" =>
+    c.phone === phone && c.email === email
+      ? "both"
+      : c.phone === phone
+        ? "phone"
+        : "email";
 
-  const phoneMatches = realPhonePresent && realPhone === trim(payloadPhone);
-  const emailMatches = realEmailPresent && realEmail === lower(payloadEmail);
-
-  // 任一存在的 factor 不能 mismatch
-  const phoneOK = !realPhonePresent || phoneMatches;
-  const emailOK = !realEmailPresent || emailMatches;
-  const noMismatch = phoneOK && emailOK;
-
-  if (!noMismatch) {
-    return { allow: false, reason: "factor_mismatch", realPhonePresent, realEmailPresent, phoneMatches, emailMatches };
+  if (candidates.length === 1) {
+    return { kind: "found", real: candidates[0], matchedBy: classify(candidates[0]) };
   }
-  // 至少一個正向 match
-  const positive = phoneMatches || emailMatches;
-  if (!positive) {
-    return { allow: false, reason: "no_positive_match", realPhonePresent, realEmailPresent, phoneMatches, emailMatches };
+  // 多筆 — 優先選 phone+email 都命中的一筆
+  const both = candidates.find((c) => c.phone === phone && c.email === email);
+  if (both) {
+    return { kind: "found", real: both, matchedBy: "both" };
   }
-  // 三種 allow 細分
-  if (phoneMatches && emailMatches) {
-    return { allow: true, reason: "both_match", realPhonePresent, realEmailPresent, phoneMatches, emailMatches };
-  }
-  if (phoneMatches && !realEmailPresent) {
-    return { allow: true, reason: "phone_only_real_no_email", realPhonePresent, realEmailPresent, phoneMatches, emailMatches };
-  }
-  // emailMatches && !realPhonePresent
-  return { allow: true, reason: "email_only_real_no_phone", realPhonePresent, realEmailPresent, phoneMatches, emailMatches };
+  return { kind: "ambiguous", candidates };
 }
 
 export async function updateProfileAction(
@@ -458,18 +452,26 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
       };
     }
     try {
-      // 1) 目標店內，是否已有 phone 或 email 吻合的真人 Customer
-      const realByPhone = await prisma.customer.findFirst({
-        where: { phone, storeId },
-        select: { id: true, userId: true, phone: true, email: true },
-      });
-      const realByEmail = !realByPhone
-        ? await prisma.customer.findFirst({
-            where: { email, storeId },
-            select: { id: true, userId: true, phone: true, email: true },
-          })
-        : null;
-      const real = realByPhone ?? realByEmail;
+      // 1) 同 storeId + (phone OR email) 找真人 Customer（單一 OR 查詢，避免「phone 命中但 email 對不上」誤擋）
+      const probe = await findRealCustomerForMerge({ storeId, phone, email });
+
+      if (probe.kind === "ambiguous") {
+        console.warn("[updateProfileAction] not_found: ambiguous merge candidates", {
+          requestPath,
+          userId: user.id,
+          storeId,
+          payloadPhone: phone,
+          payloadEmail: email,
+          candidateIds: probe.candidates.map((c) => c.id),
+        });
+        return {
+          error: "系統偵測到同店有多筆顧客資料符合您的電話或 Email，請聯繫店家協助確認。",
+          success: false,
+        };
+      }
+
+      const real = probe.kind === "found" ? probe.real : null;
+      const matchedBy = probe.kind === "found" ? probe.matchedBy : null;
 
       // 2) 當前 user 是否已有 Customer（可能是 auth.ts 首登建的佔位，可能在同/別店）
       const existingByUserId = await prisma.customer.findUnique({
@@ -482,40 +484,38 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
         sessionStoreId: storeId,
         realId: real?.id ?? null,
         realUserId: real?.userId ?? null,
-        realMatchedBy: realByPhone ? "phone" : realByEmail ? "email" : null,
+        realMatchedBy: matchedBy,
         existingByUserIdId: existingByUserId?.id ?? null,
         existingByUserIdStoreId: existingByUserId?.storeId ?? null,
       });
 
       // ── Case A: 有 real，且 real 與當前使用者的 existing 是不同 row → merge ──
       if (real && (!existingByUserId || existingByUserId.id !== real.id)) {
+        // ── 安全 guard：real 已被另一 user 佔用 → BLOCK + 高風險 log ──
+        // LINE OAuth 只能證明 LINE 身分，不能證明輸入的 phone/email 是本人。
+        // 拒絕靜默覆蓋既有 user 綁定，避免「知道別人電話就能綁進別人顧客資料」的劫持風險。
+        // 已知髒資料案例由 cleanup script 明確 merge，不走自動流程。
         if (real.userId && real.userId !== user.id) {
-          // 用 evaluateClaim 取代原本「phone AND email 都要對」的硬性 bothMatch；
-          // 對 real.email 為 null 的舊會員 staff 建檔場景容錯（接受 phone-only）。
-          const claim = evaluateClaim(real, phone, email);
-          console.info("[updateProfileAction] Case A claim eval", {
-            requestPath,
-            userId: user.id,
-            realId: real.id,
-            realUserId: real.userId,
-            realPhonePresent: claim.realPhonePresent,
-            realEmailPresent: claim.realEmailPresent,
-            phoneMatches: claim.phoneMatches,
-            emailMatches: claim.emailMatches,
-            decision: claim.allow ? "ALLOW_OVERRIDE" : "BLOCK",
-            reason: claim.reason,
-          });
-
-          if (!claim.allow) {
-            return {
-              error:
-                claim.reason === "factor_mismatch"
-                  ? "此聯絡電話或 Email 與店家紀錄不一致。請再確認資料無誤後再試。"
-                  : "您的資料與店家既有紀錄無法對上，請聯繫店家協助確認。",
-              success: false,
-            };
-          }
-          // 繼續往下做 merge transaction；second update 會覆寫 real.userId
+          console.warn(
+            "[updateProfileAction] HIGH_RISK Case A: real already linked to another user — blocking auto-merge",
+            {
+              requestPath,
+              userId: user.id,
+              placeholderId: existingByUserId?.id ?? null,
+              realId: real.id,
+              previousUserId: real.userId,
+              matchedBy,
+              realPhone: real.phone,
+              realEmail: real.email,
+              payloadPhone: phone,
+              payloadEmail: email,
+            },
+          );
+          return {
+            error:
+              "此電話或 Email 已綁定另一個登入帳號。為保護您的資料安全，請聯繫店家協助合併或確認身分。",
+            success: false,
+          };
         }
         console.info("[updateProfileAction] Case A → merge", {
           requestPath,
@@ -523,7 +523,7 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
           placeholderId: existingByUserId?.id ?? null,
           realId: real.id,
           realPreviousUserId: real.userId,
-          mergedBy: realByPhone ? "phone" : "email",
+          mergedBy: matchedBy,
         });
         // 透過共用 helper 搬 LINE/Google 身份欄位到 real row，並清空/刪除 placeholder
         try {
@@ -589,7 +589,7 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
           userId: user.id,
           placeholderId: existingByUserId?.id ?? null,
           realId: real.id,
-          mergedBy: realByPhone ? "phone" : "email",
+          mergedBy: matchedBy,
         });
         return verifySuccess(real.id);
       }
@@ -765,57 +765,67 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
 
   if (isResolvedPlaceholder) {
     try {
-      // 抓 real 同時抓 phone/email 才能丟給 evaluateClaim
-      const realByPhone = await prisma.customer.findFirst({
-        where: { phone, id: { not: customerId }, storeId: customerStoreId },
-        select: { id: true, userId: true, phone: true, email: true },
+      // 同 storeId + (phone OR email) 找 real（排除目前 placeholder 自身），單一 OR 查詢
+      const probe = await findRealCustomerForMerge({
+        storeId: customerStoreId,
+        phone,
+        email,
+        excludeCustomerId: customerId,
       });
-      const realByEmail =
-        !realByPhone
-          ? await prisma.customer.findFirst({
-              where: { email, id: { not: customerId }, storeId: customerStoreId },
-              select: { id: true, userId: true, phone: true, email: true },
-            })
-          : null;
-      const real = realByPhone ?? realByEmail;
+
+      if (probe.kind === "ambiguous") {
+        console.warn("[updateProfileAction] placeholder-merge: ambiguous candidates", {
+          requestPath,
+          userId: user.id,
+          placeholderId: customerId,
+          placeholderStoreId: customerStoreId,
+          payloadPhone: phone,
+          payloadEmail: email,
+          candidateIds: probe.candidates.map((c) => c.id),
+        });
+        return {
+          error: "系統偵測到同店有多筆顧客資料符合您的電話或 Email，請聯繫店家協助確認。",
+          success: false,
+        };
+      }
 
       console.info("[updateProfileAction] placeholder-merge probe", {
         requestPath,
         userId: user.id,
         placeholderId: customerId,
         placeholderStoreId: customerStoreId,
-        realFound: !!real,
-        realId: real?.id ?? null,
-        realUserId: real?.userId ?? null,
-        realMatchedBy: realByPhone ? "phone" : realByEmail ? "email" : null,
+        realFound: probe.kind === "found",
+        realId: probe.kind === "found" ? probe.real.id : null,
+        realUserId: probe.kind === "found" ? probe.real.userId : null,
+        realMatchedBy: probe.kind === "found" ? probe.matchedBy : null,
       });
 
-      if (real) {
+      if (probe.kind === "found") {
+        const real = probe.real;
+        // ── 安全 guard：real 已被另一 user 佔用 → BLOCK + 高風險 log ──
+        // LINE OAuth 只能證明 LINE 身分，不能證明輸入的 phone/email 是本人。
+        // 拒絕靜默覆蓋既有 user 綁定。已知髒資料案例由 cleanup script 明確 merge。
         if (real.userId && real.userId !== user.id) {
-          const claim = evaluateClaim(real, phone, email);
-          console.info("[updateProfileAction] placeholder-merge claim eval", {
-            requestPath,
-            userId: user.id,
-            placeholderId: customerId,
-            realId: real.id,
-            realUserId: real.userId,
-            realPhonePresent: claim.realPhonePresent,
-            realEmailPresent: claim.realEmailPresent,
-            phoneMatches: claim.phoneMatches,
-            emailMatches: claim.emailMatches,
-            decision: claim.allow ? "ALLOW_OVERRIDE" : "BLOCK",
-            reason: claim.reason,
-          });
-
-          if (!claim.allow) {
-            return {
-              error:
-                claim.reason === "factor_mismatch"
-                  ? "此聯絡電話或 Email 與店家紀錄不一致。請再確認資料無誤後再試。"
-                  : "您的資料與店家既有紀錄無法對上，請聯繫店家協助確認。",
-              success: false,
-            };
-          }
+          console.warn(
+            "[updateProfileAction] HIGH_RISK placeholder-merge: real already linked to another user — blocking auto-merge",
+            {
+              requestPath,
+              userId: user.id,
+              placeholderId: customerId,
+              realId: real.id,
+              previousUserId: real.userId,
+              matchedBy: probe.matchedBy,
+              realPhone: real.phone,
+              realEmail: real.email,
+              payloadPhone: phone,
+              payloadEmail: email,
+            },
+          );
+          return {
+            error:
+              "此電話或 Email 已綁定另一個登入帳號。為保護您的資料安全，請聯繫店家協助合併或確認身分。",
+            success: false,
+          };
         }
         console.info("[updateProfileAction] placeholder-merge → merging", {
           requestPath,
@@ -823,7 +833,7 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
           placeholderId: customerId,
           realId: real.id,
           realPreviousUserId: real.userId,
-          mergedBy: realByPhone ? "phone" : "email",
+          mergedBy: probe.matchedBy,
         });
 
         // 透過共用 helper 搬 LINE/Google 身份欄位到 real row，並清空/刪除 placeholder
@@ -838,7 +848,7 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
           userId: user.id,
           placeholderId: customerId,
           realId: real.id,
-          mergedBy: realByPhone ? "phone" : "email",
+          mergedBy: probe.matchedBy,
           mergedIdentityKeys: Object.keys(mergeResult.mergedIdentity),
           placeholderDeleted: mergeResult.placeholderDeleted,
           placeholderClearedInPlace: mergeResult.placeholderClearedInPlace,
