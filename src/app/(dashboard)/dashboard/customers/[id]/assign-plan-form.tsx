@@ -18,12 +18,19 @@ interface Props {
   canDiscount?: boolean; // 是否有折扣權限
 }
 
+type PaymentMethod = "CASH" | "TRANSFER" | "LINE_PAY" | "CREDIT_CARD" | "OTHER" | "UNPAID";
+
 export function AssignPlanForm({ customerId, plans, canDiscount = false }: Props) {
   const [open, setOpen] = useState(false);
   const [selectedPlanId, setSelectedPlanId] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("CASH");
+  const [referenceNo, setReferenceNo] = useState("");
+  const [bankLast5, setBankLast5] = useState("");
   const [discountType, setDiscountType] = useState<"none" | "fixed" | "percentage">("none");
   const [discountValue, setDiscountValue] = useState("");
   const [discountReason, setDiscountReason] = useState("");
+
+  const isPending = paymentMethod === "TRANSFER" || paymentMethod === "UNPAID";
 
   const selectedPlan = useMemo(
     () => plans.find((p) => p.id === selectedPlanId),
@@ -53,21 +60,28 @@ export function AssignPlanForm({ customerId, plans, canDiscount = false }: Props
   const [state, action, pending] = useActionState(
     async (_prev: { error: string | null }, formData: FormData) => {
       const planId = formData.get("planId") as string;
-      const paymentMethod = formData.get("paymentMethod") as string;
       const note = (formData.get("note") as string) || undefined;
       const result = await assignPlanToCustomer({
         customerId,
         planId,
-        paymentMethod: paymentMethod as "CASH" | "TRANSFER" | "LINE_PAY" | "CREDIT_CARD" | "OTHER" | "UNPAID",
+        paymentMethod,
         note,
         discountType: discountType,
         discountValue: hasDiscount ? parseFloat(discountValue) : undefined,
         discountReason: discountReason || undefined,
+        referenceNo: isPending && referenceNo.trim() ? referenceNo.trim() : undefined,
+        bankLast5: isPending && bankLast5.trim() ? bankLast5.trim() : undefined,
       });
       if (result.success) {
-        toast.success("方案已成功指派");
+        const msg = isPending
+          ? "方案已建立，請至「待確認付款」確認入帳"
+          : "方案已成功指派";
+        toast.success(msg);
         setOpen(false);
         setSelectedPlanId("");
+        setPaymentMethod("CASH");
+        setReferenceNo("");
+        setBankLast5("");
         setDiscountType("none");
         setDiscountValue("");
         setDiscountReason("");
@@ -119,7 +133,11 @@ export function AssignPlanForm({ customerId, plans, canDiscount = false }: Props
       {/* 付款方式 */}
       <div className="mb-3">
         <label className="block text-xs font-medium text-earth-600">付款方式</label>
-        <select name="paymentMethod" className="mt-1 w-full rounded-lg border border-earth-300 px-2.5 py-1.5 text-sm">
+        <select
+          value={paymentMethod}
+          onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
+          className="mt-1 w-full rounded-lg border border-earth-300 px-2.5 py-1.5 text-sm"
+        >
           <option value="CASH">現金</option>
           <option value="TRANSFER">匯款</option>
           <option value="LINE_PAY">LINE Pay</option>
@@ -128,6 +146,39 @@ export function AssignPlanForm({ customerId, plans, canDiscount = false }: Props
           <option value="UNPAID">未付款</option>
         </select>
       </div>
+
+      {/* 轉帳參考資訊（TRANSFER / UNPAID 才顯示；optional）*/}
+      {isPending && (
+        <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+          <p className="mb-2 text-xs text-amber-800">
+            此筆會進入「待確認付款」，需在 <code className="rounded bg-amber-100 px-1">/dashboard/payments</code> 確認入帳後才算成功。
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block text-xs font-medium text-earth-600">轉帳參考號（選填）</label>
+              <input
+                type="text"
+                value={referenceNo}
+                onChange={(e) => setReferenceNo(e.target.value)}
+                maxLength={100}
+                placeholder="例：XXXXXX1234"
+                className="mt-1 w-full rounded border border-earth-300 px-2 py-1.5 text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-earth-600">末五碼（選填）</label>
+              <input
+                type="text"
+                value={bankLast5}
+                onChange={(e) => setBankLast5(e.target.value)}
+                maxLength={10}
+                placeholder="例：12345"
+                className="mt-1 w-full rounded border border-earth-300 px-2 py-1.5 text-sm"
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 折扣區塊 */}
       {canDiscount && selectedPlan && (
@@ -259,6 +310,9 @@ export function AssignPlanForm({ customerId, plans, canDiscount = false }: Props
           type="button"
           onClick={() => {
             setOpen(false);
+            setPaymentMethod("CASH");
+            setReferenceNo("");
+            setBankLast5("");
             setDiscountType("none");
             setDiscountValue("");
             setDiscountReason("");
