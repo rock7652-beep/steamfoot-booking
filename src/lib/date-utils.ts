@@ -35,6 +35,64 @@ export function toLocalMonthStr(date?: Date): string {
 }
 
 // ============================================================
+// 純日期字串解析與顯示（YYYY-MM-DD → Date / 週X / 顯示字串）
+// ============================================================
+
+const WEEKDAY_ZH_SHORT = ["日", "一", "二", "三", "四", "五", "六"] as const;
+
+/**
+ * 將 "YYYY-MM-DD" 解析為「本地時區當日 00:00」的 Date
+ *
+ * 避免 `new Date("YYYY-MM-DD")`（會被視為 UTC）在非 UTC 伺服器上偏移日期。
+ * 適用於 DB 日期欄位（bookingDate 等）以外的、使用者輸入或格子選擇的純日期字串。
+ *
+ * @example
+ * parseLocalDate("2026-04-30").getDay() // 4 (週四)
+ */
+export function parseLocalDate(dateString: string): Date {
+  const [year, month, day] = dateString.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
+/**
+ * "YYYY-MM-DD" → "週X"（以本地日期計算）
+ * @example formatWeekdayZh("2026-04-30") // "週四"
+ */
+export function formatWeekdayZh(dateString: string): string {
+  return `週${WEEKDAY_ZH_SHORT[parseLocalDate(dateString).getDay()]}`;
+}
+
+/**
+ * "YYYY-MM-DD" → "YYYY/M/D"（不含星期）
+ */
+export function formatDateZh(dateString: string): string {
+  const [y, m, d] = dateString.split("-").map(Number);
+  return `${y}/${m}/${d}`;
+}
+
+/**
+ * "YYYY-MM-DD" → "YYYY-MM-DD（週X）"
+ */
+export function formatDateWithWeekdayZh(dateString: string): string {
+  return `${dateString}（${formatWeekdayZh(dateString)}）`;
+}
+
+/**
+ * Date → "YYYY-MM-DD"（本地時區），適合 input[type=date] value 綁定
+ */
+export function toDateInputValue(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+/** 今天（台灣時區）"YYYY-MM-DD" — toLocalDateStr() 的語意別名 */
+export function todayLocalDateString(): string {
+  return toLocalDateStr();
+}
+
+// ============================================================
 // 日期邊界（用於查詢 createdAt 等 UTC 時間戳記）
 // ============================================================
 

@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { fetchDaySlots } from "@/server/actions/slots";
 import { isSlotPastToday } from "@/lib/booking-constants";
+import { formatWeekdayZh } from "@/lib/date-utils";
 import type { SlotAvailability } from "@/types";
 
 interface Props {
@@ -75,15 +76,11 @@ export function DashboardBookingForm({
           onChange={(e) => setSelectedDate(e.target.value)}
           className="mt-1.5 block w-full rounded-lg border border-earth-300 bg-white px-3 py-2 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
         >
-          {days.map((d) => {
-            const dateObj = new Date(d + "T12:00:00");
-            const weekDay = ["日", "一", "二", "三", "四", "五", "六"][dateObj.getDay()];
-            return (
-              <option key={d} value={d}>
-                {d}（{weekDay}）{d === todayStr ? " — 今天" : ""}
-              </option>
-            );
-          })}
+          {days.map((d) => (
+            <option key={d} value={d}>
+              {d}（{formatWeekdayZh(d)}）{d === todayStr ? " — 今天" : ""}
+            </option>
+          ))}
         </select>
       </div>
 
