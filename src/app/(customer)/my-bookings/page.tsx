@@ -222,7 +222,7 @@ export default async function MyBookingsPage({ searchParams }: PageProps) {
 
                     return canCancel ? (
                       <Link
-                        href={`/my-bookings/${b.id}/cancel`}
+                        href={`${prefix}/my-bookings/${b.id}/cancel`}
                         className="flex min-h-[32px] items-center rounded-md px-2 text-sm font-medium text-red-600 hover:bg-red-50 hover:underline"
                       >
                         取消
