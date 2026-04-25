@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useStoreSlugRequired } from "@/lib/store-context";
 
 interface Props {
   selectedDate: string; // "YYYY-MM-DD"
@@ -8,6 +9,8 @@ interface Props {
 
 export function MonthCalendar({ selectedDate }: Props) {
   const router = useRouter();
+  const storeSlug = useStoreSlugRequired();
+  const prefix = `/s/${storeSlug}`;
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -36,17 +39,17 @@ export function MonthCalendar({ selectedDate }: Props) {
 
   const handleSelect = (day: number) => {
     const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    router.push(`/book/new?date=${dateStr}`);
+    router.push(`${prefix}/book/new?date=${dateStr}`);
   };
 
   const handlePrevMonth = () => {
     const d = new Date(prevMonth);
-    router.push(`/book/new?date=${d.toISOString().slice(0, 10)}`);
+    router.push(`${prefix}/book/new?date=${d.toISOString().slice(0, 10)}`);
   };
 
   const handleNextMonth = () => {
     const d = new Date(nextMonth);
-    router.push(`/book/new?date=${d.toISOString().slice(0, 10)}`);
+    router.push(`${prefix}/book/new?date=${d.toISOString().slice(0, 10)}`);
   };
 
   const monthLabel = `${year} 年 ${month + 1} 月`;

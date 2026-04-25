@@ -1,5 +1,6 @@
 import { getCurrentUser } from "@/lib/session";
 import { prisma } from "@/lib/db";
+import { getStoreContext } from "@/lib/store-context";
 import { listBookings } from "@/server/queries/booking";
 import { getHealthCardData } from "@/server/queries/health-card";
 import { redirect } from "next/navigation";
@@ -23,6 +24,8 @@ export default async function MyBookingsPage({ searchParams }: PageProps) {
   if (!user || !user.customerId) redirect("/");
 
   const tab = params.tab ?? "upcoming";
+  const storeCtx = await getStoreContext();
+  const prefix = `/s/${storeCtx?.storeSlug ?? "zhubei"}`;
 
   // 並行取預約 + 健康卡片 + 方案錢包（供頂部方案摘要顯示）
   const [{ bookings }, healthCard, planSummary] = await Promise.all([
@@ -60,11 +63,11 @@ export default async function MyBookingsPage({ searchParams }: PageProps) {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Link href="/book" className="flex min-h-[44px] min-w-[44px] items-center justify-center text-earth-700 hover:text-earth-900 lg:hidden">&larr;</Link>
+          <Link href={`${prefix}/book`} className="flex min-h-[44px] min-w-[44px] items-center justify-center text-earth-700 hover:text-earth-900 lg:hidden">&larr;</Link>
           <h1 className="text-2xl font-bold text-earth-900">預約與方案</h1>
         </div>
         <Link
-          href="/book/new"
+          href={`${prefix}/book/new`}
           className="flex min-h-[44px] items-center gap-1.5 rounded-xl bg-primary-600 px-4 text-base font-semibold text-white shadow-sm hover:bg-primary-700 transition"
         >
           <span className="text-lg">＋</span>
@@ -87,7 +90,7 @@ export default async function MyBookingsPage({ searchParams }: PageProps) {
             )}
           </div>
           <Link
-            href="/my-plans"
+            href={`${prefix}/my-plans`}
             className="flex min-h-[44px] items-center gap-1 rounded-lg px-3 text-base font-semibold text-primary-700 hover:bg-earth-50"
           >
             我的方案
@@ -145,7 +148,7 @@ export default async function MyBookingsPage({ searchParams }: PageProps) {
               <p className="text-lg font-semibold text-earth-900">還沒有預約</p>
               <p className="mt-2 text-base text-earth-700">選擇一個時段，開始你的療程吧</p>
               <Link
-                href="/book/new"
+                href={`${prefix}/book/new`}
                 className="mt-5 inline-flex min-h-[48px] items-center gap-1.5 rounded-xl bg-primary-600 px-6 text-base font-semibold text-white shadow-sm transition hover:bg-primary-700"
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 4.5v15m7.5-7.5h-15" /></svg>

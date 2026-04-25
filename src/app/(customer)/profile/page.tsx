@@ -29,6 +29,8 @@ export default async function ProfilePage({ searchParams }: PageProps) {
   const nextPath = sp?.next ?? null;
 
   const user = await getCurrentUser();
+  const profileStoreCtx = await getStoreContext();
+  const prefix = `/s/${profileStoreCtx?.storeSlug ?? "zhubei"}`;
 
   // ── 以統一 resolver 找出本 session 對應的 customer ──────
   // 同一份邏輯也用於 updateProfileAction，確保「顯示看到的人」= 「儲存更新的人」
@@ -47,14 +49,13 @@ export default async function ProfilePage({ searchParams }: PageProps) {
   let resolvedReason: string | null = null;
   if (user) {
     try {
-      const storeCtx = await getStoreContext();
-      const storeId = user.storeId ?? storeCtx?.storeId ?? null;
+      const storeId = user.storeId ?? profileStoreCtx?.storeId ?? null;
       const resolved = await resolveCustomerForUser({
         userId: user.id,
         sessionCustomerId: user.customerId ?? null,
         sessionEmail: user.email ?? null,
         storeId,
-        storeSlug: storeCtx?.storeSlug ?? null,
+        storeSlug: profileStoreCtx?.storeSlug ?? null,
       });
       resolvedReason = resolved.reason;
       console.info("[profile.page] resolved", {
@@ -145,7 +146,7 @@ export default async function ProfilePage({ searchParams }: PageProps) {
       <div className="mb-6 flex items-center gap-3">
         {/* 補件模式：不顯示返回連結，避免顧客繞過 */}
         {!showOnboardingBanner && (
-          <Link href="/book" className="flex min-h-[44px] min-w-[44px] items-center justify-center text-earth-700 hover:text-earth-900 lg:hidden">
+          <Link href={`${prefix}/book`} className="flex min-h-[44px] min-w-[44px] items-center justify-center text-earth-700 hover:text-earth-900 lg:hidden">
             &larr;
           </Link>
         )}

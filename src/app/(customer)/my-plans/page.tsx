@@ -13,7 +13,9 @@ import { NoPlanEmptyState } from "@/components/no-plan-empty-state";
 export default async function MyPlansPage() {
   const user = await getCurrentUser();
   const storeCtx = await getStoreContext();
-  const shopHref = storeCtx ? `/s/${storeCtx.storeSlug}/book/shop` : "/book/shop";
+  const storeSlug = storeCtx?.storeSlug ?? "zhubei";
+  const prefix = `/s/${storeSlug}`;
+  const shopHref = `${prefix}/book/shop`;
 
   if (!user || !user.customerId) {
     return <NoPlanEmptyState title="我的方案" variant="plan" shopHref={shopHref} />;
@@ -70,7 +72,7 @@ export default async function MyPlansPage() {
   return (
     <div>
       <div className="mb-6 flex items-center gap-3">
-        <Link href="/book" className="flex min-h-[44px] min-w-[44px] items-center justify-center text-earth-700 hover:text-earth-900 lg:hidden">&larr;</Link>
+        <Link href={`${prefix}/book`} className="flex min-h-[44px] min-w-[44px] items-center justify-center text-earth-700 hover:text-earth-900 lg:hidden">&larr;</Link>
         <h1 className="text-2xl font-bold text-earth-900">我的方案</h1>
       </div>
 
@@ -94,7 +96,7 @@ export default async function MyPlansPage() {
           <div className="mt-4 flex items-center gap-3">
             {customer.selfBookingEnabled ? (
               <Link
-                href="/book/new"
+                href={`${prefix}/book/new`}
                 className="flex min-h-[48px] items-center justify-center rounded-xl bg-primary-600 px-6 text-base font-semibold text-white shadow-sm transition hover:bg-primary-700"
               >
                 立即預約

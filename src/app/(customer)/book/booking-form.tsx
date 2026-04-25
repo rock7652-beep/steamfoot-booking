@@ -51,6 +51,7 @@ export function BookingForm({ customerId, selectedDate, slots, activeWallets, st
   const fullSlots = slots.filter((s) => s.isEnabled && s.available === 0);
 
   const storeSlug = useStoreSlugRequired();
+  const prefix = `/s/${storeSlug}`;
   const [showShare, setShowShare] = useState(false);
   const referralUrl = `/s/${storeSlug}?ref=${customerId}`;
 
@@ -66,13 +67,13 @@ export function BookingForm({ customerId, selectedDate, slots, activeWallets, st
           <p className="mt-1 text-sm text-green-700">我們會為你保留時段</p>
           <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:justify-center">
             <a
-              href={`/book/new?date=${selectedDate}`}
+              href={`${prefix}/book/new?date=${selectedDate}`}
               className="flex min-h-[48px] items-center justify-center rounded-xl border border-green-300 bg-white px-5 text-base font-medium text-green-700 hover:bg-green-50"
             >
               再次預約
             </a>
             <a
-              href="/my-bookings"
+              href={`${prefix}/my-bookings`}
               className="flex min-h-[48px] items-center justify-center rounded-xl bg-green-600 px-5 text-base font-semibold text-white hover:bg-green-700"
             >
               查看我的預約

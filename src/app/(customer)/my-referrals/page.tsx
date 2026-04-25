@@ -33,6 +33,7 @@ export default async function MyPerksPage() {
   const storeCtx = await getStoreContext();
   const storeSlug = storeCtx?.storeSlug ?? "zhubei";
   const storeId = storeCtx?.storeId ?? null;
+  const prefix = `/s/${storeSlug}`;
 
   // 若取不到 customerId（stale session 等邊界情況）— 顯示靜態 empty state，不 redirect
   const customerId = user?.customerId ?? null;
@@ -57,7 +58,7 @@ export default async function MyPerksPage() {
     <div>
       {/* ═══ Header ═══ */}
       <div className="mb-6 flex items-center gap-3">
-        <Link href="/book" className="flex min-h-[44px] min-w-[44px] items-center justify-center text-earth-700 hover:text-earth-900 lg:hidden">
+        <Link href={`${prefix}/book`} className="flex min-h-[44px] min-w-[44px] items-center justify-center text-earth-700 hover:text-earth-900 lg:hidden">
           &larr;
         </Link>
         <div>
@@ -158,7 +159,7 @@ export default async function MyPerksPage() {
 
         {/* ═══ 區塊 4：點數紀錄入口 ═══ */}
         <Link
-          href="/my-points"
+          href={`${prefix}/my-points`}
           className="flex min-h-[64px] items-center justify-between rounded-xl bg-white px-5 py-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition hover:shadow-[0_1px_4px_rgba(0,0,0,0.1)]"
         >
           <div>

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useStoreSlugRequired } from "@/lib/store-context";
 
 export default function CustomerError({
   error,
@@ -9,6 +10,8 @@ export default function CustomerError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const storeSlug = useStoreSlugRequired();
+  const prefix = `/s/${storeSlug}`;
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center px-4 text-center">
       <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-red-50">
@@ -31,7 +34,7 @@ export default function CustomerError({
           重新載入
         </button>
         <Link
-          href="/book"
+          href={`${prefix}/book`}
           className="flex min-h-[48px] items-center justify-center rounded-xl bg-primary-600 px-6 text-base font-semibold text-white transition hover:bg-primary-700"
         >
           回到首頁
