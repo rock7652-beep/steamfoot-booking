@@ -15,17 +15,26 @@ import type { ActionResult } from "@/types";
 import { checkCustomerLimit } from "@/lib/shop-config";
 import { assertStoreAccess } from "@/lib/manager-visibility";
 import { currentStoreId } from "@/lib/store";
+import { normalizePhone } from "@/lib/normalize";
 import type { z } from "zod";
 
 // ============================================================
 // createCustomer — Owner（可指定 assignedStaffId）/ Manager（自動綁自己）
 // ============================================================
+// 返回型別覆寫 ActionResult — 重複 phone/email 時額外帶 existingCustomerId
+// 讓前端可導到既有顧客頁，避免店長盲目重試或誤建第二筆。
+// （UI 目前只用 .error 顯示訊息；existingCustomerId 為前端後續導頁準備。）
+
+type CreateCustomerResult =
+  | { success: true; data: { customerId: string } }
+  | { success: false; error: string; existingCustomerId?: string };
 
 export async function createCustomer(
   input: z.infer<typeof createCustomerSchema>
-): Promise<ActionResult<{ customerId: string }>> {
+): Promise<CreateCustomerResult> {
   try {
     const user = await requirePermission("customer.create");
+    // schema.parse 內含 normalizePhone transform — data.phone 一律 09xxxxxxxx
     const data = createCustomerSchema.parse(input);
 
     // FREE 方案顧客數限制
@@ -56,21 +65,35 @@ export async function createCustomer(
     }
     // 不再強制指派 — 顧客可稍後由店長指派
 
-    // 檢查電話是否重複（僅當有填寫電話時，限同店）
+    // 檢查電話是否重複（同店；_oauth_xxx 佔位 phone 不會撞，因為 data.phone 已 normalize 為 09xx）
     const storeId = currentStoreId(user);
     if (data.phone) {
       const existingPhone = await prisma.customer.findFirst({
         where: { phone: data.phone, storeId },
+        select: { id: true },
       });
-      if (existingPhone) throw new AppError("CONFLICT", "此電話號碼已存在於系統中");
+      if (existingPhone) {
+        return {
+          success: false,
+          error: "此手機號碼已存在於本店，請改為編輯既有顧客或更換手機號碼。",
+          existingCustomerId: existingPhone.id,
+        };
+      }
     }
 
-    // 檢查 email 是否重複（僅當有填寫時，限同店）
+    // 檢查 email 是否重複（限同店）
     if (data.email) {
       const existingEmail = await prisma.customer.findFirst({
         where: { email: data.email, storeId },
+        select: { id: true },
       });
-      if (existingEmail) throw new AppError("CONFLICT", "此 Email 已存在於系統中");
+      if (existingEmail) {
+        return {
+          success: false,
+          error: "此 Email 已存在於本店，請改為編輯既有顧客或更換 Email。",
+          existingCustomerId: existingEmail.id,
+        };
+      }
     }
 
     const customer = await prisma.customer.create({
@@ -99,13 +122,20 @@ export async function createCustomer(
 // ============================================================
 // updateCustomer — Owner（任意）/ Manager（自己名下）
 // ============================================================
+// 同 createCustomer：phone/email 撞同店其他顧客時，回 existingCustomerId，
+// 不再讓使用者只看到 P2002 generic 訊息。
+
+type UpdateCustomerResult =
+  | { success: true; data: undefined }
+  | { success: false; error: string; existingCustomerId?: string };
 
 export async function updateCustomer(
   customerId: string,
   input: z.infer<typeof updateCustomerSchema>
-): Promise<ActionResult<void>> {
+): Promise<UpdateCustomerResult> {
   try {
     const user = await requirePermission("customer.update");
+    // schema.parse 內含 normalizePhone — data.phone 一律 09xxxxxxxx
     const data = updateCustomerSchema.parse(input);
 
     const customer = await prisma.customer.findUnique({
@@ -116,6 +146,36 @@ export async function updateCustomer(
 
     // 同店員工皆可操作（權限已由 requirePermission 把關）
     // assignedStaffId 僅用於歸屬/報表，不限制寫入操作
+
+    // 改 phone → 先查同店有沒有其他顧客已用這支（_oauth_xxx 佔位不會撞）
+    if (data.phone && data.phone !== customer.phone) {
+      const existingPhone = await prisma.customer.findFirst({
+        where: { phone: data.phone, storeId: customer.storeId, id: { not: customerId } },
+        select: { id: true },
+      });
+      if (existingPhone) {
+        return {
+          success: false,
+          error: "此手機號碼已被本店其他顧客使用，請改用編輯既有顧客或更換手機號碼。",
+          existingCustomerId: existingPhone.id,
+        };
+      }
+    }
+
+    // 改 email → 同邏輯
+    if (data.email && data.email !== customer.email) {
+      const existingEmail = await prisma.customer.findFirst({
+        where: { email: data.email, storeId: customer.storeId, id: { not: customerId } },
+        select: { id: true },
+      });
+      if (existingEmail) {
+        return {
+          success: false,
+          error: "此 Email 已被本店其他顧客使用，請改用編輯既有顧客或更換 Email。",
+          existingCustomerId: existingEmail.id,
+        };
+      }
+    }
 
     // birthday: string → Date 轉換
     const prismaData: Record<string, unknown> = { ...data };
@@ -260,7 +320,7 @@ export async function lookupCustomerByPhone(
 ): Promise<ActionResult<{ id: string; name: string } | null>> {
   try {
     const user = await requirePermission("customer.read");
-    const normalized = phone.replace(/[\s-]/g, "");
+    const normalized = normalizePhone(phone ?? "");
     if (!/^09\d{8}$/.test(normalized)) {
       throw new AppError("VALIDATION", "手機號碼格式不正確");
     }

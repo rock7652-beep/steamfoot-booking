@@ -6,6 +6,7 @@ import { hashSync } from "bcryptjs";
 import { signIn } from "@/lib/auth";
 import { AuthError } from "next-auth";
 import { sendActivationEmail, sendPasswordResetEmail } from "@/lib/email";
+import { normalizePhone } from "@/lib/normalize";
 import type { ActionResult } from "@/types";
 
 // ============================================================
@@ -35,7 +36,8 @@ export type PhoneStatus =
   | { status: "active"; customerName: string };
 
 export async function checkPhoneStatus(phone: string, storeId?: string): Promise<PhoneStatus> {
-  if (!phone || !/^09\d{8}$/.test(phone)) {
+  const normalizedPhone = normalizePhone(phone ?? "");
+  if (!normalizedPhone || !/^09\d{8}$/.test(normalizedPhone)) {
     return { status: "not_found" };
   }
 
@@ -44,7 +46,7 @@ export async function checkPhoneStatus(phone: string, storeId?: string): Promise
 
   // 先查同店 Customer 是否有對應的 ACTIVE User
   const customer = await prisma.customer.findFirst({
-    where: { phone, storeId: effectiveStoreId },
+    where: { phone: normalizedPhone, storeId: effectiveStoreId },
     select: {
       name: true,
       email: true,
@@ -84,7 +86,8 @@ export async function requestActivation(
   storeId?: string
 ): Promise<ActivationRequestResult> {
   try {
-    if (!phone || !/^09\d{8}$/.test(phone)) {
+    const normalizedPhone = normalizePhone(phone ?? "");
+    if (!normalizedPhone || !/^09\d{8}$/.test(normalizedPhone)) {
       return { success: false, error: "手機號碼格式不正確" };
     }
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -95,7 +98,7 @@ export async function requestActivation(
     const effectiveStoreId = storeId || await getStoreIdFromCookie();
 
     const customer = await prisma.customer.findFirst({
-      where: { phone, userId: null, storeId: effectiveStoreId },
+      where: { phone: normalizedPhone, userId: null, storeId: effectiveStoreId },
       orderBy: { createdAt: "desc" },
     });
 
@@ -319,13 +322,15 @@ export async function requestPasswordReset(
   phone: string
 ): Promise<ActionResult<void>> {
   try {
-    if (!phone || !/^09\d{8}$/.test(phone)) {
+    // 統一吸成 09xxxxxxxx；DB 存的也是 09xxxxxxxx
+    const normalizedPhone = normalizePhone(phone ?? "");
+    if (!normalizedPhone || !/^09\d{8}$/.test(normalizedPhone)) {
       // 不要洩漏是否存在 — 統一成功訊息
       return { success: true, data: undefined };
     }
 
     const user = await prisma.user.findFirst({
-      where: { phone, role: "CUSTOMER" },
+      where: { phone: normalizedPhone, role: "CUSTOMER" },
       select: { id: true, role: true, status: true, customer: { select: { id: true, name: true, email: true, storeId: true } } },
     });
 

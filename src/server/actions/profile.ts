@@ -14,6 +14,7 @@ import {
   resolveAuthSourceFromAccounts,
 } from "@/server/services/customer-merge";
 import { bindReferralToCustomer } from "@/server/services/referral-binding";
+import { normalizePhone } from "@/lib/normalize";
 import type { UserRole } from "@prisma/client";
 
 // ============================================================
@@ -251,9 +252,10 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
   }
 
   const name = (formData.get("name") as string)?.trim();
-  // 電話輸入寬容：允許夾帶空白 / 連字號；server 端先 normalize 再驗證
-  const phoneRaw = (formData.get("phone") as string)?.trim() ?? "";
-  const phone = phoneRaw.replace(/[\s-]/g, "");
+  // 電話輸入寬容：0912-345-678 / 0912 345 678 / +886912345678 / 0912345678
+  // 一律經 normalizePhone 吸成 09xxxxxxxx 後存 / 查
+  const phoneRaw = (formData.get("phone") as string) ?? "";
+  const phone = normalizePhone(phoneRaw);
   const email = (formData.get("email") as string)?.trim().toLowerCase();
   const gender = (formData.get("gender") as string)?.trim();
   const birthdayStr = (formData.get("birthday") as string)?.trim();

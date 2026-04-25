@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db";
 import type { Provider } from "next-auth/providers";
 import type { UserRole } from "@prisma/client";
 import { DEFAULT_STORE_ID } from "@/lib/store";
+import { normalizePhone } from "@/lib/normalize";
 
 // ============================================================
 // NextAuth v5 type augmentation
@@ -125,11 +126,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         storeId: { label: "Store", type: "hidden" },
       },
       async authorize(credentials) {
-        const phone = credentials?.phone as string | undefined;
+        const phoneRaw = credentials?.phone as string | undefined;
         const password = credentials?.password as string | undefined;
         const storeId = credentials?.storeId as string | undefined;
 
-        if (!phone || !password) return null;
+        if (!phoneRaw || !password) return null;
+        // 統一吸成 09xxxxxxxx；DB 存的也是 09xxxxxxxx
+        const phone = normalizePhone(phoneRaw);
+        if (!phone) return null;
 
         // B7-4: 若有 storeId，先從 Customer 表按店查找對應 User
         if (storeId) {

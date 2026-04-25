@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { normalizePhone } from "@/lib/normalize";
 
 /**
  * 顧客基本資料 validator
@@ -8,13 +9,18 @@ import { z } from "zod";
  * - 這層 zod 是 app-level 必填，新資料從此必須完整
  */
 
+// phone：先把 0912-345-678 / +886... / 多餘空白都吸成 0912345678，再驗 09xxxxxxxx
+const phoneSchema = z
+  .string()
+  .transform((v) => normalizePhone(v ?? ""))
+  .refine((v) => /^09\d{8}$/.test(v), {
+    message: "手機號碼格式不正確（09 開頭共 10 碼）",
+  });
+
 // 後台新增顧客（staff 建立）
 export const createCustomerSchema = z.object({
   name: z.string().trim().min(1, "請輸入姓名").max(100),
-  phone: z
-    .string()
-    .trim()
-    .regex(/^09\d{8}$/, "手機號碼格式不正確（09 開頭共 10 碼）"),
+  phone: phoneSchema,
   email: z.string().trim().email("Email 格式不正確").max(200),
   gender: z.enum(["male", "female", "other"], { required_error: "請選擇性別" }),
   birthday: z.string().trim().min(1, "請選擇生日"), // ISO date string
@@ -28,10 +34,7 @@ export const createCustomerSchema = z.object({
 // 後台編輯顧客（全欄位更新）
 export const updateCustomerSchema = z.object({
   name: z.string().trim().min(1, "請輸入姓名").max(100),
-  phone: z
-    .string()
-    .trim()
-    .regex(/^09\d{8}$/, "手機號碼格式不正確（09 開頭共 10 碼）"),
+  phone: phoneSchema,
   email: z.string().trim().email("Email 格式不正確").max(200),
   gender: z.enum(["male", "female", "other"], { required_error: "請選擇性別" }),
   birthday: z.string().trim().min(1, "請選擇生日"),

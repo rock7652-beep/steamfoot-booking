@@ -4,6 +4,7 @@ import {
   missingRequiredFields,
   type RequiredCustomerField,
 } from "@/lib/customer-completion";
+import { normalizePhone } from "@/lib/normalize";
 
 /**
  * 前台顧客「目前 session 對應到哪一筆 customer」的唯一 resolver
@@ -96,6 +97,12 @@ const CUSTOMER_SELECT = {
 export async function resolveCustomerForUser(
   opts: ResolveOpts,
 ): Promise<ResolveResult> {
+  // 防呆 normalize — caller 即使忘了 normalize，所有 phone match / rebind 雙因子比對
+  // 都拿這個 normalized 值跟 DB 的 09xxxxxxxx 比，不會因格式差異漏比中
+  const normalizedPayloadPhone = opts.payloadPhone
+    ? normalizePhone(opts.payloadPhone)
+    : null;
+
   const logCtx = {
     userId: opts.userId,
     storeId: opts.storeId,
@@ -201,7 +208,7 @@ export async function resolveCustomerForUser(
         if (c.userId && c.userId !== opts.userId) {
           // 有人綁過：需要雙因子（email + phone 皆對）才允許 rebind，防止帳號劫持
           const phoneMatches =
-            !!opts.payloadPhone && c.phone === opts.payloadPhone;
+            !!normalizedPayloadPhone && c.phone === normalizedPayloadPhone;
           if (phoneMatches) {
             console.warn("[resolveCustomer] rebind_by_email (phone matched)", {
               ...logCtx,
@@ -247,17 +254,17 @@ export async function resolveCustomerForUser(
   }
 
   // ── D. 同店 phone 唯一匹配（僅 submit 路徑有 payloadPhone） ──
-  if (opts.payloadPhone && opts.storeId) {
+  if (normalizedPayloadPhone && opts.storeId) {
     try {
       const candidates = await prisma.customer.findMany({
-        where: { phone: opts.payloadPhone, storeId: opts.storeId },
+        where: { phone: normalizedPayloadPhone, storeId: opts.storeId },
         select: CUSTOMER_SELECT,
         take: 2,
       });
       if (candidates.length > 1) {
         console.warn("[resolveCustomer] conflict_multiple_phone", {
           ...logCtx,
-          phone: opts.payloadPhone,
+          phone: normalizedPayloadPhone,
           count: candidates.length,
         });
         return {
