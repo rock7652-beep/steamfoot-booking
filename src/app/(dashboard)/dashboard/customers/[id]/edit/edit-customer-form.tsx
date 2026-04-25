@@ -33,7 +33,10 @@ export function EditCustomerForm({ customer }: { customer: CustomerData }) {
   const router = useRouter();
 
   const [state, action, pending] = useActionState(
-    async (_prev: { error: string | null }, formData: FormData) => {
+    async (
+      _prev: { error: string | null; existingCustomerId: string | null },
+      formData: FormData,
+    ) => {
       const heightStr = (formData.get("height") as string) ?? "";
       const height = parseFloat(heightStr);
       const input = {
@@ -52,12 +55,15 @@ export function EditCustomerForm({ customer }: { customer: CustomerData }) {
         toast.success("已儲存");
         router.push(`/dashboard/customers/${customer.id}`);
         router.refresh();
-        return { error: null };
+        return { error: null, existingCustomerId: null };
       }
       toast.error(result.error ?? "更新失敗");
-      return { error: result.error ?? "更新失敗" };
+      return {
+        error: result.error ?? "更新失敗",
+        existingCustomerId: result.existingCustomerId ?? null,
+      };
     },
-    { error: null },
+    { error: null, existingCustomerId: null },
   );
 
   return (
@@ -194,7 +200,17 @@ export function EditCustomerForm({ customer }: { customer: CustomerData }) {
         </FormSection>
 
         {state.error ? (
-          <p className="text-sm text-red-600">{state.error}</p>
+          <div className="space-y-2">
+            <p className="text-sm text-red-600">{state.error}</p>
+            {state.existingCustomerId ? (
+              <Link
+                href={`/dashboard/customers/${state.existingCustomerId}`}
+                className="inline-flex items-center gap-1 rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm font-medium text-amber-800 hover:bg-amber-100"
+              >
+                前往既有顧客 →
+              </Link>
+            ) : null}
+          </div>
         ) : null}
 
         <StickyFormActions info={<span>儲存後會回到顧客詳情</span>}>
