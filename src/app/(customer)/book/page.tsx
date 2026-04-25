@@ -47,6 +47,7 @@ export default async function CustomerHomePage() {
   const storeCtx = await getStoreContext();
   const storeSlug = storeCtx?.storeSlug ?? "zhubei";
   const storeId = storeCtx?.storeId ?? null;
+  const prefix = `/s/${storeSlug}`;
 
   // ── 並行查詢 ──────────────────────────────────────
   let remaining = 0;
@@ -164,7 +165,7 @@ export default async function CustomerHomePage() {
 
         {/* 主按鈕：立即預約 */}
         <Link
-          href="/book/new"
+          href={`${prefix}/book/new`}
           className="mt-5 flex w-full min-h-[56px] items-center justify-center gap-2 rounded-2xl bg-primary-600 text-lg font-semibold text-white shadow-sm transition hover:bg-primary-700 active:scale-[0.98]"
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
@@ -228,7 +229,7 @@ export default async function CustomerHomePage() {
         </div>
 
         <Link
-          href="/my-referrals"
+          href={`${prefix}/my-referrals`}
           className="mt-4 flex min-h-[48px] items-center justify-between rounded-xl bg-earth-50 px-4 text-base font-medium text-earth-800 hover:bg-earth-100/60"
         >
           <span>查看我的好康</span>
@@ -283,7 +284,7 @@ export default async function CustomerHomePage() {
             已經有朋友來體驗，也慢慢累積自己的小成果。
           </p>
           <Link
-            href="/my-growth"
+            href={`${prefix}/my-growth`}
             className="mt-5 flex w-full min-h-[48px] items-center justify-center gap-1.5 rounded-xl border border-earth-300 bg-white text-base font-semibold text-earth-800 hover:bg-earth-50"
           >
             查看我的進度

@@ -43,6 +43,7 @@ export default async function MyPointsPage() {
 
   const storeCtx = await getStoreContext();
   const storeId = storeCtx?.storeId;
+  const prefix = `/s/${storeCtx?.storeSlug ?? "zhubei"}`;
 
   const [customer, pointHistory, monthlyPoints, bonusRules] = await Promise.all([
     prisma.customer.findUnique({
@@ -59,7 +60,7 @@ export default async function MyPointsPage() {
   return (
     <div>
       <div className="mb-6 flex items-center gap-3">
-        <Link href="/book" className="flex min-h-[44px] min-w-[44px] items-center justify-center text-earth-700 hover:text-earth-900 lg:hidden">
+        <Link href={`${prefix}/book`} className="flex min-h-[44px] min-w-[44px] items-center justify-center text-earth-700 hover:text-earth-900 lg:hidden">
           &larr;
         </Link>
         <h1 className="text-2xl font-bold text-earth-900">我的點數</h1>

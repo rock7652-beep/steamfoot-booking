@@ -21,16 +21,17 @@ export default async function MyGrowthPage() {
 
   const storeCtx = await getStoreContext();
   const storeId = storeCtx?.storeId ?? null;
+  const prefix = `/s/${storeCtx?.storeSlug ?? "zhubei"}`;
 
   const summary = await getMyReferralSummary(user.customerId, {
     activeStoreId: storeId,
   });
-  if (!summary.growthEligible) redirect("/book");
+  if (!summary.growthEligible) redirect(`${prefix}/book`);
 
   return (
     <div>
       <div className="mb-6 flex items-center gap-3">
-        <Link href="/book" className="flex min-h-[44px] min-w-[44px] items-center justify-center text-earth-700 hover:text-earth-900 lg:hidden">
+        <Link href={`${prefix}/book`} className="flex min-h-[44px] min-w-[44px] items-center justify-center text-earth-700 hover:text-earth-900 lg:hidden">
           &larr;
         </Link>
         <h1 className="text-2xl font-bold text-earth-900">我的進度</h1>
@@ -69,13 +70,13 @@ export default async function MyGrowthPage() {
         {/* ═══ 導航連結（用更輕的語言） ═══ */}
         <section className="grid grid-cols-2 gap-3">
           <Link
-            href="/my-referrals"
+            href={`${prefix}/my-referrals`}
             className="flex min-h-[52px] items-center justify-center rounded-xl border border-earth-300 bg-white text-base font-semibold text-earth-800 hover:bg-earth-50"
           >
             我的好康
           </Link>
           <Link
-            href="/my-points"
+            href={`${prefix}/my-points`}
             className="flex min-h-[52px] items-center justify-center rounded-xl border border-earth-300 bg-white text-base font-semibold text-earth-800 hover:bg-earth-50"
           >
             點數紀錄

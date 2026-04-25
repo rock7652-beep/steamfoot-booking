@@ -9,7 +9,8 @@ import { NoPlanEmptyState } from "@/components/no-plan-empty-state";
 export default async function NewBookingPage() {
   const user = await getCurrentUser();
   const storeCtx = await getStoreContext();
-  const shopHref = storeCtx ? `/s/${storeCtx.storeSlug}/book/shop` : "/book/shop";
+  const prefix = `/s/${storeCtx?.storeSlug ?? "zhubei"}`;
+  const shopHref = `${prefix}/book/shop`;
 
   // stale session / 沒有 customerId 時顯示 empty state，不 redirect
   if (!user || !user.customerId) {
@@ -83,7 +84,7 @@ export default async function NewBookingPage() {
   return (
     <div>
       <div className="mb-5 flex items-center gap-3">
-        <Link href="/book" className="flex min-h-[44px] min-w-[44px] items-center justify-center text-earth-700 hover:text-earth-900 lg:hidden">
+        <Link href={`${prefix}/book`} className="flex min-h-[44px] min-w-[44px] items-center justify-center text-earth-700 hover:text-earth-900 lg:hidden">
           &larr;
         </Link>
         <h1 className="text-2xl font-bold text-earth-900">新增預約</h1>
@@ -109,7 +110,7 @@ export default async function NewBookingPage() {
           <p className="text-lg font-semibold text-earth-900">預約已達堂數上限</p>
           <p className="mt-2 text-base text-earth-700">請先完成已預約的課程，再繼續預約新時段</p>
           <Link
-            href="/my-bookings"
+            href={`${prefix}/my-bookings`}
             className="mt-5 inline-flex min-h-[48px] items-center justify-center rounded-xl bg-primary-600 px-6 text-base font-semibold text-white transition hover:bg-primary-700"
           >
             查看我的預約

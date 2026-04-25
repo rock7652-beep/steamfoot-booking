@@ -5,6 +5,7 @@ import { fetchDaySlots } from "@/server/actions/slots";
 import { fetchMonthAvailability } from "@/server/actions/slots";
 import { createBooking } from "@/server/actions/booking";
 import { parseLocalDate, formatWeekdayZh } from "@/lib/date-utils";
+import { useStoreSlugRequired } from "@/lib/store-context";
 import type { SlotAvailability } from "@/types";
 import type { MonthSlotInfo } from "@/server/actions/slots";
 
@@ -402,6 +403,8 @@ function SlotBookingForm({
   makeupCredits: MakeupCreditInfo[];
   initialPeople: number;
 }) {
+  const storeSlug = useStoreSlugRequired();
+  const prefix = `/s/${storeSlug}`;
   const [people] = useState(initialPeople);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [useMakeup, setUseMakeup] = useState(false);
@@ -479,19 +482,19 @@ function SlotBookingForm({
         <p className="mt-1 text-sm text-earth-700">記得準時到喔</p>
         <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
           <a
-            href="/my-bookings"
+            href={`${prefix}/my-bookings`}
             className="inline-flex min-h-[48px] items-center justify-center gap-1.5 rounded-xl bg-primary-600 px-6 text-base font-semibold text-white shadow-sm transition hover:bg-primary-700"
           >
             查看我的預約
           </a>
           <a
-            href="/book/new"
+            href={`${prefix}/book/new`}
             className="inline-flex min-h-[48px] items-center justify-center gap-1.5 rounded-xl border border-earth-300 px-6 text-base font-semibold text-earth-800 transition hover:bg-earth-50"
           >
             繼續預約
           </a>
           <a
-            href="/book"
+            href={`${prefix}/book`}
             className="inline-flex min-h-[48px] items-center justify-center rounded-xl px-5 text-base text-earth-700 transition hover:text-earth-900"
           >
             返回首頁

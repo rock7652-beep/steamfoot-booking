@@ -23,10 +23,11 @@ function getBookingDateTime(bookingDate: Date, slotTime: string): Date {
 export default async function CancelBookingPage({ params }: PageProps) {
   const { id } = await params;
   const user = await getCurrentUser();
+  const ctx = await getStoreContext();
+  const slug = ctx?.storeSlug ?? "zhubei";
+  const prefix = `/s/${slug}`;
   if (!user || !user.customerId) {
-    const ctx = await getStoreContext();
-    const slug = ctx?.storeSlug ?? "zhubei";
-    redirect(`/s/${slug}/`);
+    redirect(`${prefix}/`);
   }
 
   const booking = await prisma.booking.findUnique({
@@ -43,7 +44,7 @@ export default async function CancelBookingPage({ params }: PageProps) {
   if (!booking || booking.customerId !== user.customerId) notFound();
 
   if (booking.bookingStatus !== "PENDING" && booking.bookingStatus !== "CONFIRMED") {
-    redirect("/my-bookings");
+    redirect(`${prefix}/my-bookings`);
   }
 
   // 計算距離開課的時間
@@ -55,9 +56,9 @@ export default async function CancelBookingPage({ params }: PageProps) {
     "use server";
     const result = await cancelBooking(id, "顧客自行取消");
     if (!result.success) {
-      redirect(`/my-bookings/${id}/cancel?error=${encodeURIComponent(result.error || "取消失敗")}`);
+      redirect(`${prefix}/my-bookings/${id}/cancel?error=${encodeURIComponent(result.error || "取消失敗")}`);
     }
-    redirect("/my-bookings");
+    redirect(`${prefix}/my-bookings`);
   }
 
   return (
@@ -90,7 +91,7 @@ export default async function CancelBookingPage({ params }: PageProps) {
                 <SubmitButton label="確認取消" pendingLabel="取消中..." className="w-full bg-red-600 text-white hover:bg-red-700 sm:w-auto" />
               </form>
               <Link
-                href="/my-bookings"
+                href={`${prefix}/my-bookings`}
                 className="flex min-h-[48px] items-center justify-center rounded-xl border border-earth-300 px-6 text-base font-semibold text-earth-800 hover:bg-earth-50"
               >
                 返回
@@ -108,7 +109,7 @@ export default async function CancelBookingPage({ params }: PageProps) {
               </p>
             </div>
             <Link
-              href="/my-bookings"
+              href={`${prefix}/my-bookings`}
               className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-earth-300 px-6 text-base font-semibold text-earth-800 hover:bg-earth-50"
             >
               返回我的預約

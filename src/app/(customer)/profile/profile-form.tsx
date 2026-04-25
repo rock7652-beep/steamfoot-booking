@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { updateProfileAction, type ProfileState } from "@/server/actions/profile";
 import { useOneShotActionState } from "@/hooks/use-one-shot-action-state";
+import { useStoreSlugRequired } from "@/lib/store-context";
 import Link from "next/link";
 
 interface Props {
@@ -26,6 +27,8 @@ interface Props {
 export function ProfileForm({ customer, age, onboardingMode = false, nextPath = null }: Props) {
   const router = useRouter();
   const { update: updateSession } = useSession();
+  const storeSlug = useStoreSlugRequired();
+  const prefix = `/s/${storeSlug}`;
   const [state, formAction, pending] = useActionState<ProfileState, FormData>(
     updateProfileAction,
     { error: null, success: false }
@@ -188,7 +191,7 @@ export function ProfileForm({ customer, age, onboardingMode = false, nextPath = 
         {/* onboarding 模式下不顯示取消，避免顧客繞過補件 */}
         {!onboardingMode && (
           <Link
-            href="/book"
+            href={`${prefix}/book`}
             className="flex min-h-[52px] items-center justify-center rounded-xl border border-earth-300 px-5 text-base text-earth-800 hover:bg-earth-50"
           >
             取消
