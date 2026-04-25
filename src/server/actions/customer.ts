@@ -100,8 +100,9 @@ export async function createCustomer(
       data: {
         name: data.name,
         phone: data.phone,
-        email: data.email,
-        gender: data.gender,
+        // email/gender/birthday 都改為 optional；缺時寫 null（DB 已是 nullable）
+        email: data.email ?? null,
+        gender: data.gender ?? null,
         birthday: data.birthday ? new Date(data.birthday) : null,
         lineName: data.lineName,
         notes: data.notes,

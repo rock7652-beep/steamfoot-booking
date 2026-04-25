@@ -17,13 +17,23 @@ const phoneSchema = z
     message: "手機號碼格式不正確（09 開頭共 10 碼）",
   });
 
-// 後台新增顧客（staff 建立）
+// 空字串 → undefined：caller 從 FormData 拿到的多半是 ""，先吸成 undefined 再交給 .optional()
+const emptyToUndef = z.preprocess(
+  (v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
+  z.unknown(),
+);
+
+// 後台新增顧客（staff 建立）— 快速建檔：只 name + phone 必填
+// email / gender / birthday 改為 optional，店長可以 10 秒內建好一筆顧客；
+// 其他欄位之後在編輯頁補。Customer.email/gender/birthday DB 已是 nullable。
 export const createCustomerSchema = z.object({
   name: z.string().trim().min(1, "請輸入姓名").max(100),
   phone: phoneSchema,
-  email: z.string().trim().email("Email 格式不正確").max(200),
-  gender: z.enum(["male", "female", "other"], { required_error: "請選擇性別" }),
-  birthday: z.string().trim().min(1, "請選擇生日"), // ISO date string
+  email: emptyToUndef.pipe(
+    z.string().trim().email("Email 格式不正確").max(200).optional(),
+  ),
+  gender: emptyToUndef.pipe(z.enum(["male", "female", "other"]).optional()),
+  birthday: emptyToUndef.pipe(z.string().trim().optional()),
   // lineName / notes 可空
   lineName: z.string().max(100).optional(),
   notes: z.string().max(1000).optional(),

@@ -39,13 +39,20 @@ export default async function NewCustomerPage({
     const assignedStaffIdRaw = (formData.get("assignedStaffId") as string) || "";
     const lineNameRaw = (formData.get("lineName") as string) || "";
     const notesRaw = (formData.get("notes") as string) || "";
+    const emailRaw = normalizeEmail((formData.get("email") as string) ?? "");
+    const genderRaw = (formData.get("gender") as string) || "";
+    const birthdayRaw = ((formData.get("birthday") as string) ?? "").trim();
 
+    // optional 欄位：空字串轉 undefined，schema 才會跳過驗證
     const result = await createCustomer({
       name: ((formData.get("name") as string) ?? "").trim(),
       phone: normalizePhone((formData.get("phone") as string) ?? ""),
-      email: normalizeEmail((formData.get("email") as string) ?? ""),
-      gender: formData.get("gender") as "male" | "female" | "other",
-      birthday: (formData.get("birthday") as string) ?? "",
+      email: emailRaw || undefined,
+      gender:
+        genderRaw === "male" || genderRaw === "female" || genderRaw === "other"
+          ? genderRaw
+          : undefined,
+      birthday: birthdayRaw || undefined,
       lineName: lineNameRaw || undefined,
       notes: notesRaw || undefined,
       assignedStaffId: assignedStaffIdRaw || undefined,
@@ -99,99 +106,87 @@ export default async function NewCustomerPage({
 
       <FormShell width="md">
         <form action={handleSubmit} className="space-y-6 pb-4">
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-            {/* 左欄：基本資料 + 個人資訊 */}
-            <div className="space-y-6">
-              <FormSection title="基本資料" description="姓名與聯絡方式（必填）">
-                <div>
-                  <label className={labelCls}>
-                    姓名 <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="name"
-                    required
-                    className={`mt-1 ${inputCls}`}
-                    placeholder="輸入顧客姓名"
-                  />
-                </div>
+          {/* 快速建立 — 預設顯示，10 秒可建一筆 */}
+          <FormSection title="快速建立" description="只需姓名 + 手機，其餘可稍後補">
+            <div>
+              <label className={labelCls}>
+                姓名 <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                name="name"
+                required
+                className={`mt-1 ${inputCls}`}
+                placeholder="輸入顧客姓名"
+              />
+            </div>
 
+            <div>
+              <label className={labelCls}>
+                電話 <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="tel"
+                name="phone"
+                required
+                pattern="^(09\d{8}|09\d{2}[\s-]?\d{3}[\s-]?\d{3}|\+?886\d{9})$"
+                title="09 開頭共 10 碼，可含空格 / - / +886"
+                className={`mt-1 ${inputCls}`}
+                placeholder="0912345678"
+              />
+              <p className="mt-1 text-[11px] text-earth-400">
+                可直接貼上 0912-345-678 / +886912345678，系統會自動轉成 10 碼
+              </p>
+            </div>
+          </FormSection>
+
+          {/* 進階資料 — 預設收起 */}
+          <details className="group rounded-lg border border-earth-200 bg-white">
+            <summary className="flex cursor-pointer list-none items-center justify-between rounded-lg px-4 py-3 text-sm font-medium text-earth-700 hover:bg-earth-50">
+              <span>進階資料（選填）</span>
+              <span className="text-xs text-earth-400 transition group-open:rotate-180">
+                ▾
+              </span>
+            </summary>
+            <div className="space-y-6 border-t border-earth-100 px-4 py-5">
+              <FormSection title="個人資訊">
                 <FormGrid>
                   <div>
-                    <label className={labelCls}>
-                      電話 <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="tel"
-                      name="phone"
-                      required
-                      pattern="^(09\d{8}|09\d{2}[\s-]?\d{3}[\s-]?\d{3})$"
-                      title="09 開頭共 10 碼，可含空格或 -"
-                      className={`mt-1 ${inputCls}`}
-                      placeholder="0912345678"
-                    />
-                    <p className="mt-1 text-[11px] text-earth-400">
-                      可直接貼上 0912-345-678，系統會自動轉成 10 碼
-                    </p>
-                  </div>
-                  <div>
-                    <label className={labelCls}>
-                      Email <span className="text-red-500">*</span>
-                    </label>
+                    <label className={labelCls}>Email</label>
                     <input
                       type="email"
                       name="email"
-                      required
                       className={`mt-1 ${inputCls}`}
                       placeholder="example@email.com"
                     />
                   </div>
-                </FormGrid>
-              </FormSection>
-
-              <FormSection title="個人資訊">
-                <FormGrid>
                   <div>
-                    <label className={labelCls}>
-                      性別 <span className="text-red-500">*</span>
-                    </label>
+                    <label className={labelCls}>性別</label>
                     <select
                       name="gender"
-                      required
                       defaultValue=""
                       className={`mt-1 ${inputCls}`}
                     >
-                      <option value="" disabled>
-                        請選擇
-                      </option>
+                      <option value="">未設定</option>
                       <option value="male">男</option>
                       <option value="female">女</option>
                       <option value="other">其他</option>
                     </select>
                   </div>
-                  <div>
-                    <label className={labelCls}>
-                      生日 <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="date"
-                      name="birthday"
-                      required
-                      className={`mt-1 ${inputCls}`}
-                    />
-                  </div>
                 </FormGrid>
+                <div>
+                  <label className={labelCls}>生日</label>
+                  <input
+                    type="date"
+                    name="birthday"
+                    className={`mt-1 ${inputCls}`}
+                  />
+                </div>
               </FormSection>
-            </div>
 
-            {/* 右欄：系統關聯 */}
-            <div className="space-y-6">
               <FormSection title="系統關聯" description="可稍後再指派">
                 <div>
-                  <label className={labelCls}>
-                    直屬店長 / 教練
-                    <span className="ml-1 text-xs text-earth-400">（選填）</span>
-                  </label>
+                  <label className={labelCls}>直屬店長 / 教練</label>
                   <select name="assignedStaffId" className={`mt-1 ${inputCls}`}>
                     <option value="">暫不指派</option>
                     {staffOptions.map((s) => (
@@ -203,10 +198,7 @@ export default async function NewCustomerPage({
                 </div>
 
                 <div>
-                  <label className={labelCls}>
-                    LINE 名稱
-                    <span className="ml-1 text-xs text-earth-400">（選填）</span>
-                  </label>
+                  <label className={labelCls}>LINE 名稱</label>
                   <input
                     type="text"
                     name="lineName"
@@ -215,18 +207,17 @@ export default async function NewCustomerPage({
                   />
                 </div>
               </FormSection>
-            </div>
-          </div>
 
-          {/* 備註 — 滿版 */}
-          <FormSection title="備註">
-            <textarea
-              name="notes"
-              rows={4}
-              className={inputCls}
-              placeholder="特殊需求、健康狀況、偏好時段（選填）"
-            />
-          </FormSection>
+              <FormSection title="備註">
+                <textarea
+                  name="notes"
+                  rows={4}
+                  className={inputCls}
+                  placeholder="特殊需求、健康狀況、偏好時段"
+                />
+              </FormSection>
+            </div>
+          </details>
 
           <StickyFormActions
             info={<span>儲存後會回到顧客列表</span>}
