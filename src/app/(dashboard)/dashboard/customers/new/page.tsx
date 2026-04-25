@@ -20,7 +20,11 @@ const inputCls =
   "block w-full rounded-lg border border-earth-300 bg-white px-3 py-2 text-sm text-earth-800 placeholder:text-earth-400 focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400";
 const labelCls = "block text-sm font-medium text-earth-700";
 
-export default async function NewCustomerPage() {
+export default async function NewCustomerPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ existingCustomerId?: string }>;
+}) {
   const user = await getCurrentUser();
   if (!user) notFound();
   if (!(await checkPermission(user.role, user.staffId, "customer.create"))) {
@@ -28,6 +32,7 @@ export default async function NewCustomerPage() {
   }
 
   const staffOptions = await listStaffSelectOptions();
+  const { existingCustomerId } = await searchParams;
 
   async function handleSubmit(formData: FormData) {
     "use server";
@@ -47,9 +52,12 @@ export default async function NewCustomerPage() {
     });
 
     if (!result.success) {
-      redirect(
-        `/dashboard/customers/new?error=${encodeURIComponent(result.error || "新增顧客失敗")}`,
-      );
+      const params = new URLSearchParams();
+      params.set("error", result.error || "新增顧客失敗");
+      if (result.existingCustomerId) {
+        params.set("existingCustomerId", result.existingCustomerId);
+      }
+      redirect(`/dashboard/customers/new?${params.toString()}`);
     }
 
     redirect(`/dashboard/customers?saved=${encodeURIComponent("已新增顧客")}`);
@@ -71,6 +79,23 @@ export default async function NewCustomerPage() {
           </Link>
         }
       />
+
+      {existingCustomerId ? (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm">
+          <p className="font-medium text-amber-900">
+            此手機或 Email 已存在於本店
+          </p>
+          <p className="mt-1 text-amber-800">
+            請前往既有顧客資料確認，避免建立重複的客戶。
+          </p>
+          <Link
+            href={`/dashboard/customers/${existingCustomerId}`}
+            className="mt-3 inline-flex items-center gap-1 rounded-lg bg-amber-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-700"
+          >
+            前往既有顧客 →
+          </Link>
+        </div>
+      ) : null}
 
       <FormShell width="md">
         <form action={handleSubmit} className="space-y-6 pb-4">
