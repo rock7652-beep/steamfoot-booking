@@ -14,6 +14,12 @@ import { currentStoreId } from "@/lib/store";
 import { buildTransactionSnapshot } from "@/lib/transaction-snapshot";
 import { awardFirstTopupReferralPointsIfEligible } from "@/server/services/referral-points";
 import { resolveCustomerStaffAssignment } from "@/server/services/customer-assignment";
+import {
+  seedWalletSessions,
+  reconcileForManualAdjust,
+  voidAvailableSession,
+  WalletSessionError,
+} from "@/server/services/wallet-session";
 import { getStoreContext } from "@/lib/store-context";
 import { resolveCustomerForUser } from "@/server/queries/customer-completion";
 
@@ -132,6 +138,9 @@ export async function assignPlanToCustomer(
         },
       });
 
+      // 1b. 建立 N 筆 AVAILABLE 單堂明細（PR-1 wallet-session）
+      await seedWalletSessions(tx, wallet.id, plan.sessionCount);
+
       // 2. 建立交易紀錄
       const revenueStaffId = customer.assignedStaffId ?? user.staffId!;
       const storeId = currentStoreId(user);
@@ -239,13 +248,21 @@ export async function adjustRemainingSessions(
     const storeId = currentStoreId(user);
 
     await prisma.$transaction(async (tx) => {
-      await tx.customerPlanWallet.update({
-        where: { id: walletId },
-        data: {
-          remainingSessions: newRemaining,
-          status: newRemaining === 0 ? "USED_UP" : "ACTIVE",
-        },
-      });
+      // 同步 session row（保持 remainingSessions == AVAILABLE+RESERVED 不變式）
+      // reconcileForManualAdjust 結束時會內部呼叫 refreshWalletCounter，
+      // 因此 wallet.remainingSessions / status 由 service 寫入，不需另呼 update。
+      try {
+        await reconcileForManualAdjust(tx, {
+          walletId,
+          newRemaining,
+          voidedByStaffId: user.staffId ?? null,
+        });
+      } catch (e) {
+        if (e instanceof WalletSessionError) {
+          throw new AppError("BUSINESS_RULE", e.message);
+        }
+        throw e;
+      }
 
       const snapshot = await buildTransactionSnapshot(tx, {
         customerId: wallet.customerId,
@@ -277,6 +294,98 @@ export async function adjustRemainingSessions(
     revalidatePath(`/dashboard/customers/${wallet.customerId}`);
     return { success: true, data: undefined };
   } catch (e) {
+    return handleActionError(e);
+  }
+}
+
+// ============================================================
+// voidWalletSession — 店長手動註銷單一堂（AVAILABLE → VOIDED）
+//
+// 用途：顧客退費 / 補償調整 / 部分作廢時，註銷尚未使用的堂數。
+// 權限：wallet.adjust（與 adjustRemainingSessions 同層級，OWNER 才有）
+// 限制：
+//   - 必須 AVAILABLE 才可註銷（COMPLETED / RESERVED / VOIDED 拒絕）
+//   - 已綁定預約 (RESERVED) 需先取消預約
+//   - 註銷不可逆，不會自動產生退費 Transaction（退費另由財務模組處理）
+//
+// 副作用：
+//   - WalletSession.status = VOIDED, voidedAt/voidReason/voidedByStaffId
+//   - wallet.remainingSessions 同步遞減（service 內部處理）
+//   - 寫一筆 Transaction(ADJUSTMENT, amount=0) 作 audit
+// ============================================================
+
+const voidSessionSchema = z.object({
+  sessionId: z.string().min(1),
+  reason: z.string().min(1, "註銷原因不能為空").max(200),
+});
+
+export async function voidWalletSession(
+  input: z.infer<typeof voidSessionSchema>
+): Promise<ActionResult<{ walletId: string; sessionNo: number }>> {
+  try {
+    const user = await requirePermission("wallet.adjust");
+    const data = voidSessionSchema.parse(input);
+
+    const session = await prisma.walletSession.findUnique({
+      where: { id: data.sessionId },
+      select: {
+        id: true,
+        sessionNo: true,
+        status: true,
+        wallet: {
+          select: { id: true, customerId: true, storeId: true },
+        },
+      },
+    });
+    if (!session) throw new AppError("NOT_FOUND", "找不到此堂明細");
+    assertStoreAccess(user, session.wallet.storeId);
+
+    const result = await prisma.$transaction(async (tx) => {
+      const voided = await voidAvailableSession(tx, {
+        sessionId: data.sessionId,
+        voidReason: data.reason,
+        voidedByStaffId: user.staffId!,
+      });
+
+      // Audit transaction（amount=0，僅紀錄）
+      const customer = await tx.customer.findUnique({
+        where: { id: session.wallet.customerId },
+        select: { assignedStaffId: true },
+      });
+      const revenueStaffId = customer?.assignedStaffId ?? user.staffId!;
+      const snapshot = await buildTransactionSnapshot(tx, {
+        customerId: session.wallet.customerId,
+        storeId: session.wallet.storeId,
+        revenueStaffId,
+        planId: null,
+        grossAmount: 0,
+        netAmount: 0,
+      });
+      await tx.transaction.create({
+        data: {
+          customerId: session.wallet.customerId,
+          revenueStaffId,
+          soldByStaffId: user.staffId ?? null,
+          transactionType: "ADJUSTMENT",
+          paymentMethod: "CASH",
+          amount: 0,
+          quantity: -1,
+          customerPlanWalletId: session.wallet.id,
+          note: `註銷第 ${voided.sessionNo} 堂：${data.reason}`,
+          storeId: session.wallet.storeId,
+          ...snapshot,
+        },
+      });
+
+      return voided;
+    });
+
+    revalidatePath(`/dashboard/customers/${session.wallet.customerId}`);
+    return { success: true, data: result };
+  } catch (e) {
+    if (e instanceof WalletSessionError) {
+      return { success: false, error: e.message };
+    }
     return handleActionError(e);
   }
 }
@@ -432,6 +541,9 @@ export async function initiateCustomerPlanPurchase(
           storeId: customer.storeId,
         },
       });
+
+      // 建立 N 筆 AVAILABLE 單堂明細（PR-1 wallet-session）
+      await seedWalletSessions(tx, wallet.id, plan.sessionCount);
 
       const snapshot = await buildTransactionSnapshot(tx, {
         customerId: customer.id,
