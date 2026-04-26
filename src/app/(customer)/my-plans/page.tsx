@@ -1,6 +1,7 @@
 import { getCurrentUser } from "@/lib/session";
 import { getStoreContext } from "@/lib/store-context";
 import { prisma } from "@/lib/db";
+import { resolveCustomerForUser } from "@/server/queries/customer-completion";
 import Link from "next/link";
 import type { WalletStatus } from "@prisma/client";
 import {
@@ -17,12 +18,26 @@ export default async function MyPlansPage() {
   const prefix = `/s/${storeSlug}`;
   const shopHref = `${prefix}/book/shop`;
 
-  if (!user || !user.customerId) {
+  if (!user) {
+    return <NoPlanEmptyState title="我的方案" variant="plan" shopHref={shopHref} />;
+  }
+
+  // session.customerId 可能 stale（顧客被 merge / staff 後建 / userId 還沒回填），
+  // 直接用會看不到後台剛指派的方案。走 resolver（與 /profile 同一份邏輯）拿 canonical customerId。
+  const resolved = await resolveCustomerForUser({
+    userId: user.id,
+    sessionCustomerId: user.customerId ?? null,
+    sessionEmail: user.email ?? null,
+    storeId: user.storeId ?? storeCtx?.storeId ?? null,
+    storeSlug: storeCtx?.storeSlug ?? null,
+  });
+  const customerId = resolved.customer?.id ?? null;
+  if (!customerId) {
     return <NoPlanEmptyState title="我的方案" variant="plan" shopHref={shopHref} />;
   }
 
   const customer = await prisma.customer.findUnique({
-    where: { id: user.customerId },
+    where: { id: customerId },
     include: {
       planWallets: {
         include: {

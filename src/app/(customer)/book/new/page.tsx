@@ -1,6 +1,7 @@
 import { getCurrentUser } from "@/lib/session";
 import { getStoreContext } from "@/lib/store-context";
 import { prisma } from "@/lib/db";
+import { resolveCustomerForUser } from "@/server/queries/customer-completion";
 import Link from "next/link";
 import { BookingCalendarView } from "./booking-calendar-view";
 import { PENDING_STATUSES } from "@/lib/booking-constants";
@@ -12,14 +13,26 @@ export default async function NewBookingPage() {
   const prefix = `/s/${storeCtx?.storeSlug ?? "zhubei"}`;
   const shopHref = `${prefix}/book/shop`;
 
-  // stale session / 沒有 customerId 時顯示 empty state，不 redirect
-  if (!user || !user.customerId) {
+  if (!user) {
+    return <NoPlanEmptyState title="新增預約" shopHref={shopHref} />;
+  }
+
+  // session.customerId 可能 stale；走 resolver 拿到後台指派方案所附的 canonical customer
+  const resolved = await resolveCustomerForUser({
+    userId: user.id,
+    sessionCustomerId: user.customerId ?? null,
+    sessionEmail: user.email ?? null,
+    storeId: user.storeId ?? storeCtx?.storeId ?? null,
+    storeSlug: storeCtx?.storeSlug ?? null,
+  });
+  const customerId = resolved.customer?.id ?? null;
+  if (!customerId) {
     return <NoPlanEmptyState title="新增預約" shopHref={shopHref} />;
   }
 
   const [customer, makeupCredits] = await Promise.all([
     prisma.customer.findUnique({
-      where: { id: user.customerId },
+      where: { id: customerId },
       select: {
         selfBookingEnabled: true,
         planWallets: {
@@ -41,7 +54,7 @@ export default async function NewBookingPage() {
     }),
     prisma.makeupCredit.findMany({
       where: {
-        customerId: user.customerId,
+        customerId,
         isUsed: false,
         OR: [{ expiredAt: null }, { expiredAt: { gte: new Date() } }],
       },
@@ -118,7 +131,7 @@ export default async function NewBookingPage() {
         </div>
       ) : (
         <BookingCalendarView
-          customerId={user.customerId}
+          customerId={customerId}
           activeWallets={activeWallets.map((w) => ({
             id: w.id,
             planName: w.plan.name,
