@@ -3,15 +3,14 @@ import Link from "next/link";
 /**
  * 無方案 empty state — 顧客端使用
  *
- * 場景：顧客尚未購買課程 / 堂數為 0 / self-booking 未開通
- * 規則：
+ * 場景（v2）：顧客可用堂數為 0
  *   - 不誤導進入預約流程
  *   - 不跳回首頁
- *   - 提供「聯繫店長」(官方 LINE) 與「查看課程方案」兩個明確出口
+ *   - 提供「聯繫店長」(官方 LINE) 與「購買 / 查看課程方案」兩個明確出口
  *
  * variant:
- *   - "booking" (預設)：新增預約 / 預約第一堂 入口
- *   - "plan"：我的方案頁
+ *   - "booking" (預設)：新增預約入口（沒堂數可預約）
+ *   - "plan"：我的方案頁（從未購買）
  */
 interface Props {
   title?: string;
@@ -24,10 +23,10 @@ const OFFICIAL_LINE_URL = "https://lin.ee/8ohprFv";
 
 export function NoPlanEmptyState({ title, variant = "booking", shopHref = "/book/shop" }: Props) {
   const isPlan = variant === "plan";
-  const headline = isPlan ? "目前尚未購買方案" : "目前尚未開通課程方案";
+  const headline = isPlan ? "目前尚未購買方案" : "目前尚未有可預約堂數";
   const description = isPlan
     ? "開通後可：線上預約、查看剩餘堂數、查看使用紀錄"
-    : "請先聯繫店長協助儲值或開通後，再進行預約";
+    : "請先購買方案或聯繫店長協助開通";
   const secondaryLabel = isPlan ? "購買課程方案" : "查看課程方案";
 
   return (

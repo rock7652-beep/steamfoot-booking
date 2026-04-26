@@ -109,16 +109,13 @@ export default async function MyPlansPage() {
             </p>
           )}
           <div className="mt-4 flex items-center gap-3">
-            {customer.selfBookingEnabled ? (
-              <Link
-                href={`${prefix}/book/new`}
-                className="flex min-h-[48px] items-center justify-center rounded-xl bg-primary-600 px-6 text-base font-semibold text-white shadow-sm transition hover:bg-primary-700"
-              >
-                立即預約
-              </Link>
-            ) : (
-              <p className="text-sm text-yellow-700">自助預約功能由店長開啟，請聯繫店長</p>
-            )}
+            {/* v2：有可用堂數即顯示預約入口；selfBookingEnabled 不再參與入口判斷 */}
+            <Link
+              href={`${prefix}/book/new`}
+              className="flex min-h-[48px] items-center justify-center rounded-xl bg-primary-600 px-6 text-base font-semibold text-white shadow-sm transition hover:bg-primary-700"
+            >
+              立即預約
+            </Link>
           </div>
         </div>
       )}
