@@ -63,10 +63,13 @@ export function revalidateBookings(customerId?: string) {
 
 // ── 交易 ───────────────────────────────────────────────
 
-/** 交易異動後呼叫 */
+/** 交易異動後呼叫（含確認付款 → 顧客方案/預約頁） */
 export function revalidateTransactions(customerId?: string) {
   updateTag("report-store");
   revalidatePath("/dashboard/transactions");
+  revalidatePath("/dashboard/payments");
+  revalidatePath("/my-plans");
+  revalidatePath("/book");
   if (customerId) revalidatePath(`/dashboard/customers/${customerId}`);
 }
 
