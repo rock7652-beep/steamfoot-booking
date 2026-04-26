@@ -34,7 +34,6 @@ export default async function NewBookingPage() {
     prisma.customer.findUnique({
       where: { id: customerId },
       select: {
-        selfBookingEnabled: true,
         planWallets: {
           where: { status: "ACTIVE" },
           select: {
@@ -80,10 +79,11 @@ export default async function NewBookingPage() {
   });
   const activeWallets = walletsWithRemaining.filter((w) => w.computedRemaining > 0);
 
-  const hasValidWallet =
-    customer.selfBookingEnabled && (activeWallets.length > 0 || makeupCredits.length > 0);
+  // v2 入口判斷：只看「顧客有可用堂數（含補課資格）」。
+  // 不再用 selfBookingEnabled / duty / staff schedule 擋顧客進入預約流程。
+  const hasAvailableSessions = activeWallets.length > 0 || makeupCredits.length > 0;
 
-  if (!hasValidWallet) {
+  if (!hasAvailableSessions) {
     return <NoPlanEmptyState title="新增預約" shopHref={shopHref} />;
   }
 
