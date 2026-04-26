@@ -104,3 +104,19 @@ export async function getStorePlanById(storeId: string): Promise<PricingPlan> {
   });
   return store?.plan ?? "EXPERIENCE";
 }
+
+/**
+ * 依 storeId 取得完整 StorePlanFields（含 override）— 不依賴 session。
+ *
+ * 用途：顧客自助流程（如 createBooking）需檢查店舖方案上限時，session 為 CUSTOMER，
+ * 不能走 getCurrentStoreForPlan（內含 requireStaffSession 會拒絕顧客）。
+ * 改由呼叫端從 session/customer 拿到 storeId 後傳入此 helper。
+ */
+export async function getStoreForPlanByStoreId(storeId: string): Promise<StorePlanFields> {
+  const store = await prisma.store.findUnique({
+    where: { id: storeId },
+    select: STORE_PLAN_SELECT,
+  });
+  if (!store) throw new Error(`Store not found: ${storeId}`);
+  return store;
+}

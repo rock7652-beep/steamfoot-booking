@@ -6,15 +6,41 @@
  */
 
 import { AppError } from "@/lib/errors";
-import { getCurrentStoreLimits } from "@/lib/feature-gate";
-import { getCurrentStoreForPlan, type StorePlanFields } from "@/lib/store-plan";
+import { getCurrentStoreLimits, getStoreLimitsByStoreId } from "@/lib/feature-gate";
+import {
+  getCurrentStoreForPlan,
+  getStoreForPlanByStoreId,
+  type StorePlanFields,
+} from "@/lib/store-plan";
 import { getPlanLimits, PRICING_PLAN_INFO } from "@/lib/feature-flags";
 
+/**
+ * 取得用量檢查所需的 store + limits。
+ * - 若呼叫端傳入 storeId（顧客自助流程） → 直接以 storeId 查，跳過 staff session
+ * - 否則沿用舊行為（需 staff session，dashboard 使用）
+ */
+async function resolveStoreContext(storeId?: string) {
+  if (storeId) {
+    const [limits, store] = await Promise.all([
+      getStoreLimitsByStoreId(storeId),
+      getStoreForPlanByStoreId(storeId),
+    ]);
+    return { limits, store };
+  }
+  const [limits, store] = await Promise.all([
+    getCurrentStoreLimits(),
+    getCurrentStoreForPlan(),
+  ]);
+  return { limits, store };
+}
+
 /** 檢查員工數量是否超過上限 */
-export async function checkStaffLimitOrThrow(currentCount: number): Promise<void> {
-  const limits = await getCurrentStoreLimits();
+export async function checkStaffLimitOrThrow(
+  currentCount: number,
+  storeId?: string,
+): Promise<void> {
+  const { limits, store } = await resolveStoreContext(storeId);
   if (limits.maxStaff !== null && currentCount >= limits.maxStaff) {
-    const store = await getCurrentStoreForPlan();
     const label = PRICING_PLAN_INFO[store.plan].label;
     throw new AppError(
       "FORBIDDEN",
@@ -24,10 +50,12 @@ export async function checkStaffLimitOrThrow(currentCount: number): Promise<void
 }
 
 /** 檢查顧客數量是否超過上限 */
-export async function checkCustomerLimitOrThrow(currentCount: number): Promise<void> {
-  const limits = await getCurrentStoreLimits();
+export async function checkCustomerLimitOrThrow(
+  currentCount: number,
+  storeId?: string,
+): Promise<void> {
+  const { limits, store } = await resolveStoreContext(storeId);
   if (limits.maxCustomers !== null && currentCount >= limits.maxCustomers) {
-    const store = await getCurrentStoreForPlan();
     const label = PRICING_PLAN_INFO[store.plan].label;
     throw new AppError(
       "FORBIDDEN",
@@ -36,11 +64,18 @@ export async function checkCustomerLimitOrThrow(currentCount: number): Promise<v
   }
 }
 
-/** 檢查月度預約數量是否超過上限 */
-export async function checkMonthlyBookingLimitOrThrow(currentMonthCount: number): Promise<void> {
-  const limits = await getCurrentStoreLimits();
+/**
+ * 檢查月度預約數量是否超過上限。
+ *
+ * ⚠ 顧客自助預約路徑必須傳入 storeId — 否則會落入 getCurrentStoreForPlan() 的
+ * requireStaffSession() 並把 staff-only AppError 漏給顧客 UI（已被 sanitize 但行為不通）。
+ */
+export async function checkMonthlyBookingLimitOrThrow(
+  currentMonthCount: number,
+  storeId?: string,
+): Promise<void> {
+  const { limits, store } = await resolveStoreContext(storeId);
   if (limits.maxMonthlyBookings !== null && currentMonthCount >= limits.maxMonthlyBookings) {
-    const store = await getCurrentStoreForPlan();
     const label = PRICING_PLAN_INFO[store.plan].label;
     throw new AppError(
       "FORBIDDEN",

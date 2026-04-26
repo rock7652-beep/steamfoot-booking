@@ -65,6 +65,8 @@ export async function createBooking(
     }
 
     // ── 0.1 PricingPlan 月度預約數限制
+    // 必須傳 user.storeId — 否則 checkMonthlyBookingLimitOrThrow 會走
+    // getCurrentStoreForPlan() 內的 requireStaffSession()，CUSTOMER 自助預約即被擋。
     if (user.storeId) {
       const { checkMonthlyBookingLimitOrThrow } = await import("@/lib/usage-gate");
       const now = new Date();
@@ -73,7 +75,7 @@ export async function createBooking(
       const monthlyCount = await prisma.booking.count({
         where: { storeId: user.storeId, createdAt: { gte: monthStart, lte: monthEnd } },
       });
-      await checkMonthlyBookingLimitOrThrow(monthlyCount);
+      await checkMonthlyBookingLimitOrThrow(monthlyCount, user.storeId);
     }
 
     // ── 0.5 檢查營業日 / 公休（共用 resolver，與後台/前台月曆同源）
