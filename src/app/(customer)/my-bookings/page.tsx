@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { getStoreContext } from "@/lib/store-context";
 import { listBookings } from "@/server/queries/booking";
 import { getHealthCardData } from "@/server/queries/health-card";
+import { resolveCustomerForUser } from "@/server/queries/customer-completion";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { HealthAssessmentCard } from "@/components/health-assessment-card";
@@ -21,23 +22,35 @@ interface PageProps {
 export default async function MyBookingsPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const user = await getCurrentUser();
-  if (!user || !user.customerId) redirect("/");
+  if (!user) redirect("/");
 
   const tab = params.tab ?? "upcoming";
   const storeCtx = await getStoreContext();
   const prefix = `/s/${storeCtx?.storeSlug ?? "zhubei"}`;
 
+  // 與 /my-plans 同一份 resolver，避免 session.customerId stale 時方案卡片顯示 0
+  const resolved = await resolveCustomerForUser({
+    userId: user.id,
+    sessionCustomerId: user.customerId ?? null,
+    sessionEmail: user.email ?? null,
+    storeId: user.storeId ?? storeCtx?.storeId ?? null,
+    storeSlug: storeCtx?.storeSlug ?? null,
+  });
+  const customerId = resolved.customer?.id ?? null;
+  if (!customerId) redirect("/");
+
   // 並行取預約 + 健康卡片 + 方案錢包（供頂部方案摘要顯示）
   const [{ bookings }, healthCard, planSummary] = await Promise.all([
     listBookings({ pageSize: 50 }),
-    getHealthCardData(user.customerId),
+    getHealthCardData(customerId),
     prisma.customerPlanWallet.findMany({
-      where: { customerId: user.customerId, status: "ACTIVE" },
+      where: { customerId, status: "ACTIVE" },
       select: { remainingSessions: true },
     }),
   ]);
 
   const totalRemaining = planSummary.reduce((s, w) => s + w.remainingSessions, 0);
+  const hasSessions = totalRemaining > 0;
 
   // ── 依日期+時間拆分，而非僅依狀態 ──
   // upcoming = 未來 + 今日未過時段 的 PENDING/CONFIRMED
@@ -66,45 +79,59 @@ export default async function MyBookingsPage({ searchParams }: PageProps) {
           <Link href={`${prefix}/book`} className="flex min-h-[44px] min-w-[44px] items-center justify-center text-earth-700 hover:text-earth-900 lg:hidden">&larr;</Link>
           <h1 className="text-2xl font-bold text-earth-900">預約與方案</h1>
         </div>
-        <Link
-          href={`${prefix}/book/new`}
-          className="flex min-h-[44px] items-center gap-1.5 rounded-xl bg-primary-600 px-4 text-base font-semibold text-white shadow-sm hover:bg-primary-700 transition"
-        >
-          <span className="text-lg">＋</span>
-          新增預約
-        </Link>
+        {hasSessions ? (
+          <Link
+            href={`${prefix}/book/new`}
+            className="flex min-h-[44px] items-center gap-1.5 rounded-xl bg-primary-600 px-4 text-base font-semibold text-white shadow-sm hover:bg-primary-700 transition"
+          >
+            <span className="text-lg">＋</span>
+            新增預約
+          </Link>
+        ) : (
+          <Link
+            href={`${prefix}/book/shop`}
+            className="flex min-h-[44px] items-center rounded-xl bg-primary-600 px-4 text-base font-semibold text-white shadow-sm hover:bg-primary-700 transition"
+          >
+            購買方案
+          </Link>
+        )}
       </div>
 
-      {/* 方案摘要（將「我的方案」的重點資訊合併進同一主選單）*/}
-      <div className="mb-5 rounded-2xl bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+      {/* 方案摘要 — 整張卡可點，導到 /my-plans */}
+      <Link
+        href={`${prefix}/my-plans`}
+        className="mb-5 block rounded-2xl bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)] transition hover:bg-earth-50/40"
+      >
         <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="text-sm font-medium text-earth-700">目前方案</p>
-            {totalRemaining > 0 ? (
-              <p className="mt-1 text-xl font-bold text-earth-900">
-                剩餘 <span className="text-primary-700">{totalRemaining}</span>
-                <span className="ml-1 text-base font-medium text-earth-700">堂可預約</span>
-              </p>
+            {hasSessions ? (
+              <>
+                <p className="text-sm font-medium text-earth-700">目前可預約</p>
+                <p className="mt-1">
+                  <span className="text-3xl font-bold text-primary-700">{totalRemaining}</span>
+                  <span className="ml-1 text-base font-medium text-earth-700">堂</span>
+                </p>
+              </>
             ) : (
-              <p className="mt-1 text-base text-earth-700">尚未購買方案</p>
+              <>
+                <p className="text-sm font-medium text-earth-700">目前方案</p>
+                <p className="mt-1 text-base text-earth-700">尚未購買方案</p>
+              </>
             )}
           </div>
-          <Link
-            href={`${prefix}/my-plans`}
-            className="flex min-h-[44px] items-center gap-1 rounded-lg px-3 text-base font-semibold text-primary-700 hover:bg-earth-50"
-          >
-            我的方案
+          <span className="flex items-center gap-1 text-base font-semibold text-primary-700">
+            查看我的方案
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
               <path d="M9 5l7 7-7 7" />
             </svg>
-          </Link>
+          </span>
         </div>
-      </div>
+      </Link>
 
       {/* Health Assessment Card */}
       {healthCard.available && (
         <div className="mb-5">
-          <HealthAssessmentCard score={healthCard.score} customerId={user.customerId} />
+          <HealthAssessmentCard score={healthCard.score} customerId={customerId} />
         </div>
       )}
 
