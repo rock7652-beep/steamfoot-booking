@@ -126,6 +126,15 @@ vi.mock("@/server/services/referral-points", () => ({
   awardFirstBookingReferralPointsIfEligible: vi.fn(async () => undefined),
 }));
 
+// PR #46 wallet-session helpers — 由 createBooking tx 內呼叫；對本檔測試無關，stub 為 no-op
+vi.mock("@/server/services/wallet-session", () => ({
+  allocateSession: vi.fn(async () => null),
+  releaseSession: vi.fn(async () => true),
+  completeSession: vi.fn(async () => true),
+  uncompleteSession: vi.fn(async () => true),
+  reReserveSession: vi.fn(async () => null),
+}));
+
 // ── 預設好 customer + business hours ──
 function setupDefaults() {
   mockBusinessHoursFindMany.mockResolvedValue(

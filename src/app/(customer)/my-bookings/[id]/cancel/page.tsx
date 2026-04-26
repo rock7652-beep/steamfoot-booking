@@ -6,6 +6,7 @@ import Link from "next/link";
 import { SubmitButton } from "@/components/submit-button";
 import { getStoreContext } from "@/lib/store-context";
 import { FormErrorToast } from "@/components/form-error-toast";
+import { resolveCustomerForUser } from "@/server/queries/customer-completion";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -26,7 +27,20 @@ export default async function CancelBookingPage({ params }: PageProps) {
   const ctx = await getStoreContext();
   const slug = ctx?.storeSlug ?? "zhubei";
   const prefix = `/s/${slug}`;
-  if (!user || !user.customerId) {
+  if (!user) {
+    redirect(`${prefix}/`);
+  }
+
+  // 走 canonical resolver — session.customerId 可能 stale
+  const resolved = await resolveCustomerForUser({
+    userId: user.id,
+    sessionCustomerId: user.customerId ?? null,
+    sessionEmail: user.email ?? null,
+    storeId: user.storeId ?? ctx?.storeId ?? null,
+    storeSlug: ctx?.storeSlug ?? null,
+  });
+  const canonicalCustomerId = resolved.customer?.id ?? null;
+  if (!canonicalCustomerId) {
     redirect(`${prefix}/`);
   }
 
@@ -41,7 +55,7 @@ export default async function CancelBookingPage({ params }: PageProps) {
     },
   });
 
-  if (!booking || booking.customerId !== user.customerId) notFound();
+  if (!booking || booking.customerId !== canonicalCustomerId) notFound();
 
   if (booking.bookingStatus !== "PENDING" && booking.bookingStatus !== "CONFIRMED") {
     redirect(`${prefix}/my-bookings`);
