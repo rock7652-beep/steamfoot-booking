@@ -7,6 +7,13 @@ import { AppError, handleActionError } from "@/lib/errors";
 import { generateSlots, validateTimeRange } from "@/lib/slot-generator";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { revalidateBusinessHours, revalidateSpecialDays } from "@/lib/revalidation";
+import {
+  applySlotOverrides,
+  enumerateMonthDates,
+  loadDayBusinessHoursContext,
+  loadMonthBusinessHoursContext,
+  type DayStatus,
+} from "@/lib/business-hours-resolver";
 import type { ActionResult } from "@/types";
 
 const DAY_NAMES = ["週日", "週一", "週二", "週三", "週四", "週五", "週六"];
@@ -81,7 +88,7 @@ export async function getMonthSpecialDays(year: number, month: number) {
   }));
 }
 
-/** 取得整月每日營業摘要（月曆格用） */
+/** 取得整月每日營業摘要（月曆格用，與前台同源 resolver） */
 export async function getMonthScheduleSummary(year: number, month: number) {
   const user = await requireStaffSession();
   const storeId = await resolveReadStoreId(user);
@@ -89,29 +96,12 @@ export async function getMonthScheduleSummary(year: number, month: number) {
     // ADMIN 全部分店模式：沒有特定店可匯總，回傳空摘要
     return {};
   }
-  const start = new Date(Date.UTC(year, month - 1, 1));
-  const end = new Date(Date.UTC(year, month, 0));
-  const daysInMonth = end.getUTCDate();
 
-  const [businessHoursRows, specialDaysRows, slotOverrideRows] = await Promise.all([
-    prisma.businessHours.findMany({ where: { storeId } }),
-    prisma.specialBusinessDay.findMany({
-      where: { storeId, date: { gte: start, lte: end } },
-    }),
-    prisma.slotOverride.findMany({
-      where: { storeId, date: { gte: start, lte: end } },
-      select: { date: true, type: true },
-    }),
-  ]);
+  const ctx = await loadMonthBusinessHoursContext(storeId, year, month);
 
-  const bhMap = new Map(businessHoursRows.map((r) => [r.dayOfWeek, r]));
-  const specialMap = new Map(
-    specialDaysRows.map((r) => [r.date.toISOString().slice(0, 10), r])
-  );
-
-  // 按日聚合 override 數量
+  // 按日聚合 override 數量（後台需顯示「該日有 N 個時段覆寫」徽章）
   const overrideCounts = new Map<string, number>();
-  for (const o of slotOverrideRows) {
+  for (const o of ctx.slotOverrides) {
     const key = o.date.toISOString().slice(0, 10);
     overrideCounts.set(key, (overrideCounts.get(key) ?? 0) + 1);
   }
@@ -119,7 +109,7 @@ export async function getMonthScheduleSummary(year: number, month: number) {
   const days: Record<
     string,
     {
-      status: "open" | "closed" | "training" | "custom";
+      status: DayStatus;
       openTime: string | null;
       closeTime: string | null;
       slotCount: number;
@@ -127,50 +117,15 @@ export async function getMonthScheduleSummary(year: number, month: number) {
     }
   > = {};
 
-  for (let d = 1; d <= daysInMonth; d++) {
-    const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-    const dow = new Date(Date.UTC(year, month - 1, d)).getUTCDay();
-    const special = specialMap.get(dateStr);
-    const bh = bhMap.get(dow);
-
-    let status: "open" | "closed" | "training" | "custom" = "open";
-    let openTime: string | null = null;
-    let closeTime: string | null = null;
-    let slotInterval = bh?.slotInterval ?? 60;
-
-    if (special) {
-      if (special.type === "closed") {
-        status = "closed";
-      } else if (special.type === "training") {
-        status = "training";
-      } else {
-        status = "custom";
-        openTime = special.openTime;
-        closeTime = special.closeTime;
-        if (special.slotInterval != null) slotInterval = special.slotInterval;
-      }
-    } else if (bh) {
-      if (!bh.isOpen) {
-        status = "closed";
-      } else {
-        openTime = bh.openTime;
-        closeTime = bh.closeTime;
-      }
-    } else {
-      status = "closed";
-    }
-
-    // 計算 slot 數量
-    let slotCount = 0;
-    if (openTime && closeTime) {
-      const generated = generateSlots(openTime, closeTime, slotInterval, 1);
-      slotCount = generated.length;
-    }
-
+  for (const { dateStr } of enumerateMonthDates(year, month)) {
+    const rule = ctx.rules.get(dateStr)!;
+    const slotCount = rule.openTime && rule.closeTime
+      ? generateSlots(rule.openTime, rule.closeTime, rule.slotInterval, 1).length
+      : 0;
     days[dateStr] = {
-      status,
-      openTime,
-      closeTime,
+      status: rule.status,
+      openTime: rule.openTime,
+      closeTime: rule.closeTime,
       slotCount,
       overrideCount: overrideCounts.get(dateStr) ?? 0,
     };
@@ -179,7 +134,7 @@ export async function getMonthScheduleSummary(year: number, month: number) {
   return days;
 }
 
-/** 取得某天的可預約時段（規則即時運算 + SlotOverride） */
+/** 取得某天的可預約時段（與前台同源 resolver；額外帶後台需要的欄位） */
 export async function getDaySlotDetails(dateStr: string) {
   const user = await requireStaffSession();
   const storeId = await resolveReadStoreId(user);
@@ -189,116 +144,44 @@ export async function getDaySlotDetails(dateStr: string) {
   const dateObj = new Date(dateStr + "T00:00:00Z");
   const dow = dateObj.getUTCDay();
 
-  // 並行查詢
-  const [specialDay, businessHour, slotOverrides] = await Promise.all([
+  // 後台額外需要的原始 row（供 weeklyDefault / specialDayId 等回傳用）
+  const [specialDay, businessHour, ctx] = await Promise.all([
     prisma.specialBusinessDay.findFirst({ where: { storeId, date: dateObj } }),
     prisma.businessHours.findFirst({ where: { storeId, dayOfWeek: dow } }),
-    prisma.slotOverride.findMany({
-      where: { storeId, date: dateObj },
-      orderBy: { startTime: "asc" },
-    }),
+    loadDayBusinessHoursContext(storeId, dateStr),
   ]);
 
-  // 決定該日狀態
-  let status: "open" | "closed" | "training" | "custom" = "open";
-  let openTime: string | null = null;
-  let closeTime: string | null = null;
-  let reason: string | null = null;
-  let specialDayId: string | null = null;
-  let slotInterval = businessHour?.slotInterval ?? 60;
-  let defaultCapacity = businessHour?.defaultCapacity ?? 6;
+  const rule = ctx.rule;
+  const resolvedSlots = applySlotOverrides(rule, ctx.slotOverrides);
 
-  if (specialDay) {
-    specialDayId = specialDay.id;
-    if (specialDay.type === "closed") {
-      status = "closed";
-      reason = specialDay.reason;
-    } else if (specialDay.type === "training") {
-      status = "training";
-      reason = specialDay.reason;
-    } else {
-      status = "custom";
-      openTime = specialDay.openTime;
-      closeTime = specialDay.closeTime;
-      reason = specialDay.reason;
-      if (specialDay.slotInterval != null) slotInterval = specialDay.slotInterval;
-      if (specialDay.defaultCapacity != null) defaultCapacity = specialDay.defaultCapacity;
-    }
-  } else if (businessHour) {
-    if (!businessHour.isOpen) {
-      status = "closed";
-      reason = "固定公休";
-    } else {
-      openTime = businessHour.openTime;
-      closeTime = businessHour.closeTime;
+  // 後台需要 templateCapacity（覆寫前的容量），故沿用 generateSlots 計算原始容量做對照
+  const templateMap = new Map<string, number>();
+  if (rule.openTime && rule.closeTime) {
+    for (const g of generateSlots(rule.openTime, rule.closeTime, rule.slotInterval, rule.defaultCapacity)) {
+      templateMap.set(g.startTime, g.capacity);
     }
   }
 
-  // 用規則生成時段
-  const generated = (openTime && closeTime)
-    ? generateSlots(openTime, closeTime, slotInterval, defaultCapacity)
-    : [];
-
-  // 建立 slot override map
-  const overrideMap = new Map(slotOverrides.map((o) => [o.startTime, o]));
-
-  // 套用 override
-  const filteredSlots = generated.map((s) => {
-    const override = overrideMap.get(s.startTime);
-
-    let effectiveEnabled = true;
-    let effectiveCapacity = s.capacity;
-    let overrideType: string | null = null;
-    let overrideReason: string | null = null;
-
-    if (override) {
-      overrideType = override.type;
-      overrideReason = override.reason;
-      if (override.type === "disabled") {
-        effectiveEnabled = false;
-      } else if (override.type === "capacity_change") {
-        effectiveCapacity = override.capacity ?? s.capacity;
-      }
-    }
-
-    return {
-      startTime: s.startTime,
-      capacity: effectiveCapacity,
-      templateCapacity: s.capacity,
-      isEnabled: effectiveEnabled,
-      inRange: true,
-      override: overrideType,
-      overrideReason,
-    };
-  });
-
-  // 加入 "enabled" 覆寫（強制開放不在範圍內的時段）
-  for (const [startTime, override] of overrideMap) {
-    if (override.type !== "enabled") continue;
-    if (filteredSlots.some((s) => s.startTime === startTime)) continue;
-    filteredSlots.push({
-      startTime,
-      capacity: override.capacity ?? defaultCapacity,
-      templateCapacity: defaultCapacity,
-      isEnabled: true,
-      inRange: false,
-      override: "enabled",
-      overrideReason: override.reason,
-    });
-  }
-
-  filteredSlots.sort((a, b) => a.startTime.localeCompare(b.startTime));
+  const filteredSlots = resolvedSlots.map((s) => ({
+    startTime: s.startTime,
+    capacity: s.capacity,
+    templateCapacity: templateMap.get(s.startTime) ?? rule.defaultCapacity,
+    isEnabled: s.isEnabled,
+    inRange: s.inRange,
+    override: s.override,
+    overrideReason: s.overrideReason,
+  }));
 
   return {
-    status,
-    openTime,
-    closeTime,
-    reason,
-    specialDayId,
+    status: rule.status,
+    openTime: rule.openTime,
+    closeTime: rule.closeTime,
+    reason: rule.reason,
+    specialDayId: specialDay?.id ?? null,
     dayOfWeek: dow,
     dayName: DAY_NAMES[dow],
-    slotInterval,
-    defaultCapacity,
+    slotInterval: rule.slotInterval,
+    defaultCapacity: rule.defaultCapacity,
     slots: filteredSlots,
     hasWeeklyDefault: !!businessHour,
     weeklyDefault: businessHour ? {
@@ -311,32 +194,21 @@ export async function getDaySlotDetails(dateStr: string) {
   };
 }
 
-/** 判斷指定日期是否營業，回傳 { open, openTime, closeTime, reason } */
+/** 判斷指定日期是否營業，回傳 { open, openTime, closeTime, reason }（共用 resolver） */
 export async function getDayStatus(storeId: string, date: Date): Promise<{
   open: boolean;
   openTime: string | null;
   closeTime: string | null;
   reason: string | null;
 }> {
-  const dateOnly = new Date(date.toISOString().slice(0, 10));
-  const special = await prisma.specialBusinessDay.findFirst({
-    where: { storeId, date: dateOnly },
-  });
-  if (special) {
-    if (special.type === "closed" || special.type === "training") {
-      return { open: false, openTime: null, closeTime: null, reason: special.reason ?? (special.type === "training" ? "進修日" : "公休") };
-    }
-    return { open: true, openTime: special.openTime, closeTime: special.closeTime, reason: special.reason };
-  }
-
-  const dayOfWeek = dateOnly.getUTCDay();
-  const hours = await prisma.businessHours.findFirst({
-    where: { storeId, dayOfWeek },
-  });
-  if (!hours || !hours.isOpen) {
-    return { open: false, openTime: null, closeTime: null, reason: "固定公休" };
-  }
-  return { open: true, openTime: hours.openTime, closeTime: hours.closeTime, reason: null };
+  const dateStr = date.toISOString().slice(0, 10);
+  const ctx = await loadDayBusinessHoursContext(storeId, dateStr);
+  return {
+    open: !ctx.rule.closed,
+    openTime: ctx.rule.openTime,
+    closeTime: ctx.rule.closeTime,
+    reason: ctx.rule.reason,
+  };
 }
 
 // ============================================================

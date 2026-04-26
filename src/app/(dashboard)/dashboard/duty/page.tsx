@@ -101,7 +101,7 @@ async function DutyWeekContent({ weekStart, userRole, userStaffId, activeStoreId
     withTiming("getDutyByWeek", timer, () => getDutyByWeek(weekStart, activeStoreId)),
     getBusinessHoursWithTiming(storeId, timer),
     getSpecialDaysWithTiming(storeId, weekStartDate.toISOString(), weekEndISO, timer),
-    getDutyEnabledWithTiming(timer),
+    getDutyEnabledWithTiming(storeId, timer),
     userRole === "ADMIN"
       ? Promise.resolve(true)
       : checkPermission(userRole, userStaffId, "duty.manage"),

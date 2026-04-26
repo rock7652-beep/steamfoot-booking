@@ -79,14 +79,15 @@ export const getCachedSpecialDays = (storeId: string, weekStartISO: string, week
 
 /**
  * 跨 request 快取：dutySchedulingEnabled（revalidate 30s）
+ *
+ * 注意：cache key 必須含 storeId，避免不同店共用同一筆 cache（會導致跨店設定污染）
  */
-export const getCachedDutyEnabled = unstable_cache(
-  async (storeId?: string) => {
-    return isDutySchedulingEnabled(storeId);
-  },
-  ["duty-scheduling-enabled"],
-  { revalidate: 30, tags: ["duty-scheduling"] }
-);
+export const getCachedDutyEnabled = (storeId?: string | null) =>
+  unstable_cache(
+    async () => isDutySchedulingEnabled(storeId),
+    [`duty-scheduling-enabled-${storeId ?? "default"}`],
+    { revalidate: 30, tags: ["duty-scheduling"] },
+  )();
 
 // ── 帶計時的包裝（供 ServerTiming 使用） ──────────────
 
@@ -117,9 +118,9 @@ export async function getSpecialDaysWithTiming(
   return result;
 }
 
-export async function getDutyEnabledWithTiming(timer?: ServerTiming) {
+export async function getDutyEnabledWithTiming(storeId?: string | null, timer?: ServerTiming) {
   const t0 = performance.now();
-  const result = await getCachedDutyEnabled();
+  const result = await getCachedDutyEnabled(storeId);
   const ms = performance.now() - t0;
   if (timer) {
     timer.record("getCachedDutyEnabled", ms);
