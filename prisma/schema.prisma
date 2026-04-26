@@ -105,6 +105,13 @@ enum WalletStatus {
   CANCELLED
 }
 
+enum WalletSessionStatus {
+  AVAILABLE // 尚未綁定預約，可供分配
+  RESERVED // 已綁定預約（PENDING / CONFIRMED）
+  COMPLETED // 已使用（COMPLETED 或 NO_SHOW(DEDUCTED)）
+  VOIDED // 店長手動註銷（不可再用、不可預約）
+}
+
 enum BookingStatus {
   PENDING
   CONFIRMED
@@ -470,6 +477,9 @@ model Staff {
   dutyAssignments DutyAssignment[] @relation("DutyStaff")
   dutyCreatedBy   DutyAssignment[] @relation("DutyCreatedBy")
 
+  // 註銷的單堂明細
+  voidedSessions WalletSession[] @relation("VoidedSessions")
+
   @@index([storeId])
 }
 
@@ -752,9 +762,52 @@ model CustomerPlanWallet {
   // 相關交易
   transactions Transaction[]
 
+  // 單堂明細（每張錢包 totalSessions 個 row）
+  sessions WalletSession[]
+
   @@index([storeId])
   @@index([customerId])
   @@index([customerId, status])
+}
+
+// ============================================================
+// WalletSession（單堂明細）
+//
+// 目的：提供每張錢包「第 N 堂」的可追蹤狀態與 audit。
+// remainingSessions 仍維持為 cached 欄位（= AVAILABLE + RESERVED 數），
+// 由 wallet-session service 同步更新；UI 既有讀取點不受影響。
+//
+// 狀態機：
+//   AVAILABLE ──createBooking──▶ RESERVED
+//   RESERVED  ──cancelBooking / NO_SHOW(NOT_DEDUCTED)──▶ AVAILABLE
+//   RESERVED  ──markCompleted / NO_SHOW(DEDUCTED)──▶ COMPLETED
+//   COMPLETED ──revertBookingStatus──▶ RESERVED
+//   AVAILABLE ──voidWalletSession──▶ VOIDED  (店長手動，不可逆)
+//
+// 不允許：RESERVED / COMPLETED / VOIDED 直接 void。
+// ============================================================
+
+model WalletSession {
+  id              String              @id @default(cuid())
+  walletId        String
+  sessionNo       Int // 1..totalSessions，UI 顯示「第 N 堂」
+  status          WalletSessionStatus @default(AVAILABLE)
+  bookingId       String? // RESERVED / COMPLETED 時掛預約
+  reservedAt      DateTime?
+  completedAt     DateTime? // 來店報到日期（= booking checked-in time）
+  voidedAt        DateTime?
+  voidReason      String? // 註銷原因
+  voidedByStaffId String? // 註銷操作者
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  wallet        CustomerPlanWallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  booking       Booking?           @relation(fields: [bookingId], references: [id])
+  voidedByStaff Staff?             @relation("VoidedSessions", fields: [voidedByStaffId], references: [id])
+
+  @@unique([walletId, sessionNo])
+  @@index([walletId, status])
+  @@index([bookingId])
 }
 
 // ============================================================
@@ -829,6 +882,9 @@ model Booking {
 
   // 轉介紹事件
   referralEvents ReferralEvent[]
+
+  // 對應的單堂明細（一對一：RESERVED / COMPLETED 時掛上）
+  walletSessions WalletSession[]
 
   @@index([storeId])
   @@index([bookingDate])
