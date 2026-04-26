@@ -72,12 +72,11 @@ function NavIcon({ name, className = "" }: { name: string; className?: string })
   );
 }
 
-// 主選單 6 項：首頁 / 預約與方案 / 購買方案 / 我的好康 / 健康評估 / 我的資料
+// 主選單 5 項：首頁 / 預約與方案（含購買方案 tab）/ 我的好康 / 健康評估 / 我的資料
 // 健康評估為外部連結 (HealthFlow LIFF)，於 render 時特殊處理。
 const NAV_ITEMS_BASE = [
   { href: "/book", label: "首頁", icon: "home" },
   { href: "/my-bookings", label: "預約與方案", icon: "calendar" },
-  { href: "/book/shop", label: "購買方案", icon: "gift" },
   { href: "/my-referrals", label: "我的好康", icon: "trophy" },
   { href: "__health__", label: "健康評估", icon: "heart", external: true },
   { href: "/profile", label: "我的資料", icon: "user" },

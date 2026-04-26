@@ -4,8 +4,11 @@ import { getStoreContext } from "@/lib/store-context";
 import { listBookings } from "@/server/queries/booking";
 import { getHealthCardData } from "@/server/queries/health-card";
 import { resolveCustomerForUser } from "@/server/queries/customer-completion";
+import { getFrontendPlans } from "@/server/queries/plan";
+import { getShopConfig } from "@/lib/shop-config";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import type { PlanCategory } from "@prisma/client";
 import { HealthAssessmentCard } from "@/components/health-assessment-card";
 import {
   STATUS_LABEL,
@@ -15,8 +18,22 @@ import {
   PENDING_STATUSES,
 } from "@/lib/booking-constants";
 
+const PLAN_CATEGORY_LABEL: Record<PlanCategory, string> = {
+  TRIAL: "體驗",
+  SINGLE: "單次",
+  PACKAGE: "課程",
+};
+
+const PLAN_CATEGORY_COLOR: Record<PlanCategory, string> = {
+  TRIAL: "bg-purple-100 text-purple-700",
+  SINGLE: "bg-blue-100 text-blue-700",
+  PACKAGE: "bg-green-100 text-green-700",
+};
+
+type Tab = "upcoming" | "history" | "plans";
+
 interface PageProps {
-  searchParams: Promise<{ tab?: "upcoming" | "history" }>;
+  searchParams: Promise<{ tab?: Tab }>;
 }
 
 export default async function MyBookingsPage({ searchParams }: PageProps) {
@@ -24,7 +41,7 @@ export default async function MyBookingsPage({ searchParams }: PageProps) {
   const user = await getCurrentUser();
   if (!user) redirect("/");
 
-  const tab = params.tab ?? "upcoming";
+  const tab: Tab = params.tab ?? "upcoming";
   const storeCtx = await getStoreContext();
   const prefix = `/s/${storeCtx?.storeSlug ?? "zhubei"}`;
 
@@ -51,6 +68,17 @@ export default async function MyBookingsPage({ searchParams }: PageProps) {
 
   const totalRemaining = planSummary.reduce((s, w) => s + w.remainingSessions, 0);
   const hasSessions = totalRemaining > 0;
+
+  // 購買方案 tab — 只在切到此 tab 才查詢方案 / 店家匯款資訊
+  const isPlansTab = tab === "plans";
+  const storeId = storeCtx?.storeId ?? null;
+  const [shopPlans, shopConfig] = isPlansTab && storeId
+    ? await Promise.all([getFrontendPlans(storeId), getShopConfig(storeId)])
+    : [[], null];
+
+  // 卡片導向：有堂數 → 我的方案詳情；無堂數 → 購買方案 tab
+  const cardHref = hasSessions ? `${prefix}/my-plans` : `${prefix}/my-bookings?tab=plans`;
+  const cardCtaLabel = hasSessions ? "查看我的方案" : "購買方案";
 
   // ── 依日期+時間拆分，而非僅依狀態 ──
   // upcoming = 未來 + 今日未過時段 的 PENDING/CONFIRMED
@@ -89,7 +117,7 @@ export default async function MyBookingsPage({ searchParams }: PageProps) {
           </Link>
         ) : (
           <Link
-            href={`${prefix}/book/shop`}
+            href={`${prefix}/my-bookings?tab=plans`}
             className="flex min-h-[44px] items-center rounded-xl bg-primary-600 px-4 text-base font-semibold text-white shadow-sm hover:bg-primary-700 transition"
           >
             購買方案
@@ -97,9 +125,9 @@ export default async function MyBookingsPage({ searchParams }: PageProps) {
         )}
       </div>
 
-      {/* 方案摘要 — 整張卡可點，導到 /my-plans */}
+      {/* 方案摘要 — 整張卡可點 */}
       <Link
-        href={`${prefix}/my-plans`}
+        href={cardHref}
         className="mb-5 block rounded-2xl bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)] transition hover:bg-earth-50/40"
       >
         <div className="flex items-center justify-between gap-3">
@@ -120,7 +148,7 @@ export default async function MyBookingsPage({ searchParams }: PageProps) {
             )}
           </div>
           <span className="flex items-center gap-1 text-base font-semibold text-primary-700">
-            查看我的方案
+            {cardCtaLabel}
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
               <path d="M9 5l7 7-7 7" />
             </svg>
@@ -162,10 +190,111 @@ export default async function MyBookingsPage({ searchParams }: PageProps) {
         >
           歷史紀錄
         </Link>
+        <Link
+          href="?tab=plans"
+          className={`px-5 py-3 text-base font-semibold ${
+            tab === "plans"
+              ? "border-b-2 border-primary-600 text-primary-700"
+              : "text-earth-700 hover:text-earth-900"
+          }`}
+        >
+          購買方案
+        </Link>
       </div>
 
-      {/* Booking list */}
-      {displayed.length === 0 ? (
+      {/* 購買方案 Tab */}
+      {isPlansTab ? (
+        <div>
+          <p className="mb-4 text-base text-earth-700">
+            選擇適合你的方案，完成付款後店長會為你開通堂數。
+          </p>
+
+          {shopPlans.length === 0 ? (
+            <div className="rounded-2xl bg-white p-8 text-center shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+              <p className="text-base text-earth-700">目前沒有可購買的方案</p>
+              <p className="mt-1 text-sm text-earth-500">請聯絡店長了解優惠方案</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {shopPlans.map((plan) => {
+                const price = Number(plan.price);
+                const avgPerSession = plan.sessionCount > 0 ? Math.round(price / plan.sessionCount) : 0;
+                return (
+                  <Link
+                    key={plan.id}
+                    href={`${prefix}/book/shop/${plan.id}/checkout`}
+                    className="block rounded-2xl border border-earth-200 bg-white p-4 shadow-sm transition hover:border-primary-300 hover:shadow"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className={`rounded px-2 py-0.5 text-xs font-medium ${PLAN_CATEGORY_COLOR[plan.category]}`}>
+                            {PLAN_CATEGORY_LABEL[plan.category]}
+                          </span>
+                          <h3 className="text-base font-semibold text-earth-900">{plan.name}</h3>
+                        </div>
+                        {plan.description && (
+                          <p className="mt-1.5 text-sm text-earth-600">{plan.description}</p>
+                        )}
+                        <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-sm text-earth-600">
+                          <span>{plan.sessionCount} 堂</span>
+                          {avgPerSession > 0 && plan.sessionCount > 1 && (
+                            <span>均 NT$ {avgPerSession.toLocaleString()}/堂</span>
+                          )}
+                          {plan.validityDays && <span>{plan.validityDays} 天有效</span>}
+                        </div>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <div className="text-xl font-bold text-primary-700">
+                          NT$ {price.toLocaleString()}
+                        </div>
+                        <div className="mt-1 text-sm text-primary-700">購買 →</div>
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+
+          {/* 匯款資訊 + LINE 聯繫 */}
+          {(shopConfig?.bankAccountNumber || shopConfig?.lineOfficialUrl) && (
+            <div className="mt-5 rounded-2xl border border-primary-200 bg-primary-50/60 p-5">
+              {shopConfig?.bankAccountNumber && (
+                <>
+                  <p className="text-base font-semibold text-primary-900">匯款資訊</p>
+                  <div className="mt-2 space-y-1 text-base text-earth-800">
+                    {shopConfig.bankName && (
+                      <p>
+                        銀行：<span className="font-medium">{shopConfig.bankName}</span>
+                        {shopConfig.bankCode && (
+                          <span className="ml-1 font-mono text-earth-700">({shopConfig.bankCode})</span>
+                        )}
+                      </p>
+                    )}
+                    <p>
+                      帳號：<span className="font-mono font-semibold">{shopConfig.bankAccountNumber}</span>
+                    </p>
+                  </div>
+                </>
+              )}
+              {shopConfig?.lineOfficialUrl && (
+                <a
+                  href={shopConfig.lineOfficialUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`flex w-full min-h-[48px] items-center justify-center gap-2 rounded-xl bg-[#06C755] text-base font-semibold text-white shadow-sm transition hover:bg-[#05b54d] active:scale-[0.98] ${shopConfig?.bankAccountNumber ? "mt-4" : ""}`}
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19.365 9.863c.349 0 .63.285.63.631 0 .345-.281.63-.63.63H17.61v1.125h1.755c.349 0 .63.283.63.63 0 .344-.281.629-.63.629h-2.386c-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63h2.386c.346 0 .627.285.627.63 0 .349-.281.63-.63.63H17.61v1.125h1.755zm-3.855 3.016c0 .27-.174.51-.432.596-.064.021-.133.031-.199.031-.211 0-.391-.09-.51-.25l-2.443-3.317v2.94c0 .344-.279.629-.631.629-.346 0-.626-.285-.626-.629V8.108c0-.27.173-.51.43-.595.06-.023.136-.033.194-.033.195 0 .375.104.495.254l2.462 3.33V8.108c0-.345.282-.63.63-.63.345 0 .63.285.63.63v4.771zm-5.741 0c0 .344-.282.629-.631.629-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63.346 0 .628.285.628.63v4.771zm-2.466.629H4.917c-.345 0-.63-.285-.63-.629V8.108c0-.345.285-.63.63-.63.348 0 .63.285.63.63v4.141h1.756c.348 0 .629.283.629.63 0 .344-.282.629-.629.629M24 10.314C24 4.943 18.615.572 12 .572S0 4.943 0 10.314c0 4.811 4.27 8.842 10.035 9.608.391.082.923.258 1.058.59.12.301.079.766.038 1.08l-.164 1.02c-.045.301-.24 1.186 1.049.645 1.291-.539 6.916-4.078 9.436-6.975C23.176 14.393 24 12.458 24 10.314"/>
+                  </svg>
+                  聯繫店長（LINE）
+                </a>
+              )}
+            </div>
+          )}
+        </div>
+      ) : displayed.length === 0 ? (
         <div className="rounded-2xl bg-white p-8 text-center shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
           {tab === "upcoming" ? (
             <>
