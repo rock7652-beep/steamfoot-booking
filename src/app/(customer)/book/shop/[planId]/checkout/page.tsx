@@ -160,14 +160,14 @@ export default async function CheckoutPage({ params }: PageProps) {
       <section className="mb-5 rounded-lg border border-earth-100 bg-white p-3 text-sm text-earth-600">
         <p className="font-medium text-earth-800">購買流程</p>
         <ol className="mt-2 list-inside list-decimal space-y-1 text-xs">
-          <li>按下方「送出購買申請」→ 系統建立待確認訂單</li>
           <li>轉帳至上方銀行帳號</li>
-          <li>到 LINE@ 提供轉帳末五碼</li>
+          <li>填寫下方「轉帳末四碼」+「備註」</li>
+          <li>按「送出購買申請」→ 系統建立待確認訂單</li>
           <li>店長確認入帳後，方案立即啟用</li>
         </ol>
       </section>
 
-      {/* Submit */}
+      {/* Submit + 顧客自填欄位 */}
       <PurchaseButton planId={plan.id} routePrefix={prefix} />
 
       <p className="mt-3 text-center text-xs text-earth-400">

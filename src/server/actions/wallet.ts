@@ -348,6 +348,13 @@ export async function getLatestActiveWalletSummary(
 
 const initiateCustomerPurchaseSchema = z.object({
   planId: z.string().cuid(),
+  // 顧客自填轉帳末四碼（必填，4 位數字）
+  transferLastFour: z
+    .string()
+    .trim()
+    .regex(/^\d{4}$/, "末四碼需為 4 位數字"),
+  // 顧客自填備註（選填，最長 500 字）
+  customerNote: z.string().trim().max(500).optional(),
 });
 
 export async function initiateCustomerPlanPurchase(
@@ -447,6 +454,8 @@ export async function initiateCustomerPlanPurchase(
           amount: originalPrice,
           customerPlanWalletId: wallet.id,
           note: "顧客線上申請購買（轉帳待確認）",
+          transferLastFour: data.transferLastFour,
+          customerNote: data.customerNote ?? null,
           storeId: customer.storeId,
           ...snapshot,
         },
