@@ -1,8 +1,6 @@
 import { getCustomerDetail } from "@/server/queries/customer";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
-import { getStorePlanById } from "@/lib/store-plan";
-import { hasFeature as hasPricingFeature, FEATURES as FF } from "@/lib/feature-flags";
 import { getCachedPlans, getCachedStaffOptions } from "@/lib/query-cache";
 import { getActiveStoreForRead } from "@/lib/store";
 import { ServerTiming, withTiming } from "@/lib/perf";
@@ -19,14 +17,7 @@ import {
   WalletSessionDetail,
   type SessionRow,
 } from "@/components/wallet-session-detail";
-import { LineBindingSection } from "./line-binding-section";
-import { HealthSectionWrapper } from "./health-section";
-import { HealthSummarySection } from "./health-summary";
-import { HealthHistorySection } from "./health-history";
 import { CustomerStageForm } from "./customer-stage-form";
-import { getCustomerTagsAndScripts } from "@/server/queries/customer-tags";
-import { getOpsActionLogs } from "@/server/actions/ops-action-log";
-import { OpsPanel } from "./ops-panel";
 import {
   STATUS_LABEL,
   WALLET_STATUS_LABEL,
@@ -107,14 +98,11 @@ export default async function CustomerDetailPage({ params }: PageProps) {
   const [
     plans,
     staffOptions,
-    tagsAndScripts,
-    customerActionLogs,
     canDiscount,
     customerReferrals,
     customerPoints,
     upgradeEligibility,
     activeBonusRules,
-    pricingPlan,
     perksSummary,
   ] = await Promise.all([
     withTiming("getCachedPlans", timer, () => getCachedPlans(effectiveStoreId)).catch((e) => {
@@ -133,34 +121,6 @@ export default async function CustomerDetailPage({ params }: PageProps) {
       });
       return [] as Awaited<ReturnType<typeof getCachedStaffOptions>>;
     }),
-    user.role !== "CUSTOMER"
-      ? withTiming("getCustomerTagsAndScripts", timer, () => getCustomerTagsAndScripts(id)).catch(
-          (e) => {
-            console.error("[customer-detail] tagsAndScripts query failed", {
-              ...logCtx,
-              step: "tagsAndScripts",
-              error: e instanceof Error ? e.message : String(e),
-            });
-            return { tags: [], scripts: [] } as Awaited<
-              ReturnType<typeof getCustomerTagsAndScripts>
-            >;
-          },
-        )
-      : Promise.resolve({ tags: [], scripts: [] } as Awaited<
-          ReturnType<typeof getCustomerTagsAndScripts>
-        >),
-    user.role !== "CUSTOMER"
-      ? withTiming("getOpsActionLogs", timer, () =>
-          getOpsActionLogs("customer_action", effectiveStoreId),
-        ).catch((e) => {
-          console.error("[customer-detail] opsLogs query failed", {
-            ...logCtx,
-            step: "opsLogs",
-            error: e instanceof Error ? e.message : String(e),
-          });
-          return new Map() as Awaited<ReturnType<typeof getOpsActionLogs>>;
-        })
-      : Promise.resolve(new Map() as Awaited<ReturnType<typeof getOpsActionLogs>>),
     checkPermission(user.role, user.staffId, "transaction.discount").catch(() => false),
     user.role !== "CUSTOMER"
       ? getReferralsByReferrer(id).catch((e) => {
@@ -202,9 +162,6 @@ export default async function CustomerDetailPage({ params }: PageProps) {
           return [];
         })
       : Promise.resolve([]),
-    withTiming("getStorePlanById", timer, () => getStorePlanById(effectiveStoreId)).catch(
-      () => "EXPERIENCE" as const,
-    ),
     user.role !== "CUSTOMER"
       ? withTiming("getMyReferralSummary", timer, () =>
           getMyReferralSummary(id, { activeStoreId: effectiveStoreId }),
@@ -214,9 +171,6 @@ export default async function CustomerDetailPage({ params }: PageProps) {
 
   timer.finish();
 
-  const tags = tagsAndScripts.tags;
-  const scripts = tagsAndScripts.scripts;
-  const hasAiHealth = hasPricingFeature(pricingPlan, FF.AI_HEALTH_SUMMARY);
   const isOwnerRole = user.role === "ADMIN" || user.role === "OWNER";
   const canEdit = user.role !== "CUSTOMER";
 
@@ -388,19 +342,6 @@ export default async function CustomerDetailPage({ params }: PageProps) {
         </section>
       )}
 
-      {/* LINE 綁定 */}
-      <section className="rounded-xl border border-earth-200 bg-white p-4">
-        <h2 className="mb-2 text-sm font-semibold text-earth-800">LINE 綁定</h2>
-        <LineBindingSection
-          customerId={id}
-          lineLinkStatus={customer.lineLinkStatus}
-          lineUserId={customer.lineUserId ?? null}
-          lineLinkedAt={customer.lineLinkedAt?.toISOString() ?? null}
-          lineBindingCode={customer.lineBindingCode ?? null}
-          lineBindingCodeCreatedAt={customer.lineBindingCodeCreatedAt?.toISOString() ?? null}
-        />
-      </section>
-
       {/* Transfer (Admin only) */}
       {user.role === "ADMIN" && staffList.length > 0 && (
         <section className="rounded-xl border border-earth-200 bg-white p-4">
@@ -492,43 +433,6 @@ export default async function CustomerDetailPage({ params }: PageProps) {
             canManualAward={isOwnerRole}
           />
         </section>
-      )}
-
-      {/* AI 健康評估 */}
-      {hasAiHealth && (
-        <HealthSectionWrapper
-          customerId={id}
-          customerEmail={customer.email}
-          customerPhone={customer.phone}
-          healthLinkStatus={customer.healthLinkStatus}
-          healthProfileId={customer.healthProfileId}
-        >
-          {customer.healthProfileId && (
-            <HealthSummarySection healthProfileId={customer.healthProfileId} customerId={id} />
-          )}
-        </HealthSectionWrapper>
-      )}
-
-      {hasAiHealth && customer.healthProfileId && customer.healthLinkStatus === "linked" && (
-        <HealthHistorySection healthProfileId={customer.healthProfileId} customerId={id} />
-      )}
-
-      {/* Ops Panel */}
-      {user.role !== "CUSTOMER" && (
-        <OpsPanel
-          customerId={id}
-          customerName={customer.name}
-          phone={customer.phone}
-          lineLinked={customer.lineLinkStatus === "LINKED" && !!customer.lineUserId}
-          tags={tags}
-          scripts={scripts}
-          followUp={(() => {
-            for (const [, log] of customerActionLogs) {
-              if (log.refId.includes(id)) return log;
-            }
-            return null;
-          })()}
-        />
       )}
 
       {/* 課程方案 */}
