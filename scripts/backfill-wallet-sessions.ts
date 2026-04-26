@@ -2,9 +2,23 @@
  * backfill-wallet-sessions.ts — 為既有 CustomerPlanWallet 建立 WalletSession 列
  *
  * Usage:
- *   npx tsx scripts/backfill-wallet-sessions.ts                    # dry-run（只印統計與 anomaly）
- *   npx tsx scripts/backfill-wallet-sessions.ts --execute          # 實際寫入
+ *   # 全量
+ *   npx tsx scripts/backfill-wallet-sessions.ts                    # dry-run（全量，只印統計與 anomaly）
+ *   npx tsx scripts/backfill-wallet-sessions.ts --execute          # 實際寫入（全量）
+ *
+ *   # 限筆數（小量驗證）
+ *   npx tsx scripts/backfill-wallet-sessions.ts --limit 5          # dry-run，前 5 筆 wallet
  *   npx tsx scripts/backfill-wallet-sessions.ts --execute --limit 5
+ *
+ *   # 單一 wallet（最安全，先針對特定 wallet 驗證）
+ *   npx tsx scripts/backfill-wallet-sessions.ts --wallet <walletId>
+ *   npx tsx scripts/backfill-wallet-sessions.ts --wallet <walletId> --execute
+ *
+ *   # 單一顧客（該顧客所有 wallet）
+ *   npx tsx scripts/backfill-wallet-sessions.ts --customer <customerId>
+ *   npx tsx scripts/backfill-wallet-sessions.ts --customer <customerId> --execute
+ *
+ * --wallet / --customer / --limit 三選一（不可並用）
  *
  * 行為（每張 wallet 獨立 transaction，安全可重跑）：
  *   1. 跳過已有 WalletSession 的 wallet（冪等）
@@ -18,9 +32,9 @@
  *        sessionNo k+1..k+m    → RESERVED row（m = activeBookings 數，依 createdAt asc）
  *        sessionNo k+m+1..N    → AVAILABLE row（N = wallet.totalSessions）
  *   4. Anomaly 不中斷，全部 log：
- *        - completed + active > totalSessions → 多出來的 booking 被忽略，狀態仍保留在 booking 自己
+ *        - completed + active > totalSessions → 多出來的 booking 被忽略
  *        - completed + active < totalSessions - remainingSessions → drift，多餘空位給 AVAILABLE
- *   5. wallet.remainingSessions 同步刷成 = AVAILABLE + RESERVED 數
+ *   5. wallet.remainingSessions 同步刷成 = AVAILABLE + RESERVED 數（路線 A：以 booking 為準）
  *
  * 前置條件：
  *   - migration 20260426_add_wallet_session 已 deploy（WalletSession 表已存在）
@@ -31,20 +45,53 @@ import { PrismaClient, type Prisma } from "@prisma/client";
 const prisma = new PrismaClient();
 const DRY_RUN = !process.argv.includes("--execute");
 
-function parseLimit(): number | null {
-  const idx = process.argv.indexOf("--limit");
+function parseFlagValue(flag: string): string | null {
+  const idx = process.argv.indexOf(flag);
   if (idx < 0) return null;
   const raw = process.argv[idx + 1];
-  if (!raw) {
-    console.error("ERROR: --limit 需要正整數");
+  if (!raw || raw.startsWith("--")) {
+    console.error(`ERROR: ${flag} 需要參數（例：${flag} cmoXXXX...）`);
     process.exit(1);
   }
+  return raw;
+}
+
+function parseLimit(): number | null {
+  const raw = parseFlagValue("--limit");
+  if (raw === null) return null;
   const n = Number.parseInt(raw, 10);
   if (!Number.isFinite(n) || n <= 0) {
     console.error("ERROR: --limit 必須為正整數");
     process.exit(1);
   }
   return n;
+}
+
+interface ScopeFilter {
+  label: string;
+  where: Prisma.CustomerPlanWalletWhereInput;
+  take?: number;
+}
+
+function resolveScope(): ScopeFilter {
+  const walletId = parseFlagValue("--wallet");
+  const customerId = parseFlagValue("--customer");
+  const limit = parseLimit();
+  const flagsUsed = [
+    walletId ? "--wallet" : null,
+    customerId ? "--customer" : null,
+    limit !== null ? "--limit" : null,
+  ].filter(Boolean) as string[];
+
+  if (flagsUsed.length > 1) {
+    console.error(`ERROR: ${flagsUsed.join(" / ")} 不可並用，請只擇一`);
+    process.exit(1);
+  }
+
+  if (walletId) return { label: `wallet=${walletId}`, where: { id: walletId } };
+  if (customerId) return { label: `customer=${customerId}`, where: { customerId } };
+  if (limit !== null) return { label: `limit=${limit}`, where: {}, take: limit };
+  return { label: "ALL", where: {} };
 }
 
 interface AnomalyLog {
@@ -60,10 +107,11 @@ interface AnomalyLog {
 }
 
 async function main() {
-  const limit = parseLimit();
-  console.log(`[backfill-wallet-sessions] mode=${DRY_RUN ? "DRY-RUN" : "EXECUTE"}${limit ? ` limit=${limit}` : ""}`);
+  const scope = resolveScope();
+  console.log(`[backfill-wallet-sessions] mode=${DRY_RUN ? "DRY-RUN" : "EXECUTE"} scope=${scope.label}`);
 
   const wallets = await prisma.customerPlanWallet.findMany({
+    where: scope.where,
     select: {
       id: true,
       customerId: true,
@@ -72,8 +120,15 @@ async function main() {
       _count: { select: { sessions: true } },
     },
     orderBy: { createdAt: "asc" },
-    ...(limit ? { take: limit } : {}),
+    ...(scope.take ? { take: scope.take } : {}),
   });
+
+  if (wallets.length === 0) {
+    console.warn(
+      `\n[WARN] 找不到符合條件的 wallet（scope=${scope.label}）。請確認 ID 正確、且 migration 已 deploy。`
+    );
+    return;
+  }
 
   const stats = {
     total: wallets.length,
@@ -178,6 +233,17 @@ async function main() {
         kind: "REMAINING_DRIFT",
         detail: `wallet.remainingSessions=${w.remainingSessions} → recompute=${expectedRemaining} (will overwrite)`,
       });
+    }
+
+    // 小範圍 (≤3 wallets) 列出每張的行為細節，方便單筆驗證
+    if (wallets.length <= 3) {
+      console.log(`\n  wallet=${w.id} (customer=${w.customerId})`);
+      console.log(
+        `    totalSessions=${w.totalSessions} | OLD remaining=${w.remainingSessions} | NEW remaining=${expectedRemaining} (delta ${expectedRemaining - w.remainingSessions >= 0 ? "+" : ""}${expectedRemaining - w.remainingSessions})`
+      );
+      console.log(
+        `    plan: COMPLETED=${k}, RESERVED=${m}, AVAILABLE=${availableCount}`
+      );
     }
 
     if (DRY_RUN) {
