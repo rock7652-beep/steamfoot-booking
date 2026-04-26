@@ -7,6 +7,7 @@ import Link from "next/link";
 import type { PlanCategory } from "@prisma/client";
 import { PurchaseButton } from "./purchase-button";
 import { CopyButton } from "./copy-button";
+import { resolveCustomerForUser } from "@/server/queries/customer-completion";
 
 const CATEGORY_LABEL: Record<PlanCategory, string> = {
   TRIAL: "體驗",
@@ -22,21 +23,19 @@ export default async function CheckoutPage({ params }: PageProps) {
   const { planId } = await params;
 
   const user = await getCurrentUser();
-  if (!user || !user.customerId) redirect("/");
+  if (!user) redirect("/");
 
   const storeCtx = await getStoreContext();
-  const storeId = storeCtx?.storeId;
   const storeSlug = storeCtx?.storeSlug ?? "zhubei";
-  if (!storeId) notFound();
+  const prefix = `/s/${storeSlug}`;
+  if (!storeCtx) notFound();
+  const storeId = storeCtx.storeId;
 
-  // 驗證顧客 + 方案
-  const [customer, plan, shopConfig] = await Promise.all([
-    prisma.customer.findUnique({
-      where: { id: user.customerId },
-      select: { id: true, storeId: true, name: true },
-    }),
-    prisma.servicePlan.findUnique({
-      where: { id: planId },
+  // ── 方案查詢：以 URL store 為準（不靠 session customer 的 store） ──
+  // 這樣即便 session.customerId 是別店的舊佔位，店內方案仍能正確顯示。
+  const [plan, shopConfig, resolved] = await Promise.all([
+    prisma.servicePlan.findFirst({
+      where: { id: planId, storeId },
       select: {
         id: true,
         storeId: true,
@@ -51,13 +50,25 @@ export default async function CheckoutPage({ params }: PageProps) {
       },
     }),
     getShopConfig(storeId),
+    resolveCustomerForUser({
+      userId: user.id,
+      sessionCustomerId: user.customerId ?? null,
+      sessionEmail: user.email ?? null,
+      storeId,
+      storeSlug,
+    }),
   ]);
 
-  if (!customer || !plan) notFound();
-  if (customer.storeId !== plan.storeId) notFound();
+  if (!plan) notFound();
   if (!plan.isActive || !plan.publicVisible) notFound();
 
-  const prefix = `/s/${storeSlug}`;
+  // ── 顧客解析失敗（同店無對應 customer） → 補完資料後再回購買 ──
+  // 不 404，給使用者明確的下一步出口（avoid silent dead-end）。
+  if (!resolved.customer) {
+    const sp = new URLSearchParams({ complete: "1", next: `${prefix}/book/shop/${planId}/checkout` });
+    redirect(`${prefix}/profile?${sp.toString()}`);
+  }
+
   const price = Number(plan.price);
 
   return (

@@ -14,6 +14,8 @@ import { currentStoreId } from "@/lib/store";
 import { buildTransactionSnapshot } from "@/lib/transaction-snapshot";
 import { awardFirstTopupReferralPointsIfEligible } from "@/server/services/referral-points";
 import { resolveCustomerStaffAssignment } from "@/server/services/customer-assignment";
+import { getStoreContext } from "@/lib/store-context";
+import { resolveCustomerForUser } from "@/server/queries/customer-completion";
 
 // ============================================================
 // 折扣計算
@@ -353,26 +355,40 @@ export async function initiateCustomerPlanPurchase(
 ): Promise<ActionResult<{ transactionId: string; walletId: string }>> {
   try {
     const user = await getCurrentUser();
-    if (!user?.customerId) throw new AppError("FORBIDDEN", "請先登入後再購買");
+    if (!user) throw new AppError("FORBIDDEN", "請先登入後再購買");
     const data = initiateCustomerPurchaseSchema.parse(input);
 
-    const customer = await prisma.customer.findUnique({
-      where: { id: user.customerId },
-      select: {
-        id: true,
-        storeId: true,
-        convertedAt: true,
-      },
-    });
-    if (!customer) throw new AppError("NOT_FOUND", "顧客資料不存在");
+    // ── URL store 為主：方案必須屬於本店；顧客也以本店 scoped resolver 找出 ──
+    // 修正前邏輯用 customer.storeId 對照 plan.storeId，session 殘留別店 customerId 時整頁 404。
+    const storeCtx = await getStoreContext();
+    if (!storeCtx) throw new AppError("UNAUTHORIZED", "缺少店舖 context，請從正確的分店入口進入");
+    const urlStoreId = storeCtx.storeId;
 
-    const plan = await prisma.servicePlan.findUnique({ where: { id: data.planId } });
-    if (!plan) throw new AppError("NOT_FOUND", "方案不存在");
-    if (plan.storeId !== customer.storeId) {
-      throw new AppError("FORBIDDEN", "此方案不屬於您的店別");
-    }
+    const plan = await prisma.servicePlan.findFirst({
+      where: { id: data.planId, storeId: urlStoreId },
+    });
+    if (!plan) throw new AppError("NOT_FOUND", "方案不存在或不屬於本店");
     if (!plan.isActive || !plan.publicVisible) {
       throw new AppError("BUSINESS_RULE", "此方案目前不開放購買");
+    }
+
+    const resolved = await resolveCustomerForUser({
+      userId: user.id,
+      sessionCustomerId: user.customerId ?? null,
+      sessionEmail: user.email ?? null,
+      storeId: urlStoreId,
+      storeSlug: storeCtx.storeSlug,
+    });
+    if (!resolved.customer) {
+      throw new AppError("NOT_FOUND", "請先到「我的資料」完成本店顧客資料後再購買");
+    }
+    const customer = await prisma.customer.findUnique({
+      where: { id: resolved.customer.id },
+      select: { id: true, storeId: true, convertedAt: true },
+    });
+    if (!customer) throw new AppError("NOT_FOUND", "顧客資料不存在");
+    if (customer.storeId !== urlStoreId) {
+      throw new AppError("FORBIDDEN", "此方案不屬於您的店別");
     }
 
     const originalPrice = Number(plan.price);
