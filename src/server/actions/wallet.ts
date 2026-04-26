@@ -16,7 +16,9 @@ import { awardFirstTopupReferralPointsIfEligible } from "@/server/services/refer
 import { resolveCustomerStaffAssignment } from "@/server/services/customer-assignment";
 import { getStoreContext } from "@/lib/store-context";
 import { resolveCustomerForUser } from "@/server/queries/customer-completion";
-import { sendPurchaseRequestNotification } from "@/lib/email";
+// Email 通知 — 暫時停用（避免 Resend 設定影響購買主流程穩定性）。
+// 後台 /dashboard 的 🔔 提醒卡仍正常運作，店長靠那個發現待確認付款。
+// 之後重啟通知時，把 sendPurchaseRequestNotification 重新接回 initiateCustomerPlanPurchase 即可。
 
 // ============================================================
 // 折扣計算
@@ -475,23 +477,8 @@ export async function initiateCustomerPlanPurchase(
       });
     }
 
-    // ── 通知店長（OWNER + ADMIN） — fire-and-forget ──
-    // Email 失敗不可影響顧客送單成功訊號；錯誤 swallow 並 log warning。
-    void notifyOwnersOfPurchaseRequest({
-      transactionId: result.transaction.id,
-      storeId: customer.storeId,
-      storeSlug: storeCtx.storeSlug,
-      customerId: customer.id,
-      planName: plan.name,
-      amount: originalPrice,
-      transferLastFour: data.transferLastFour,
-      customerNote: data.customerNote ?? null,
-    }).catch((err) => {
-      console.warn("[initiateCustomerPlanPurchase] notification dispatch failed", {
-        transactionId: result.transaction.id,
-        err,
-      });
-    });
+    // 通知店長 — 暫時停用 email；店長靠 /dashboard 首頁的 🔔 提醒卡發現待確認付款。
+    // 重啟方法：把 notifyOwnersOfPurchaseRequest helper + sendPurchaseRequestNotification 接回。
 
     revalidatePath("/my-plans");
     revalidatePath("/dashboard/payments"); // 店長端即時看到
@@ -504,65 +491,3 @@ export async function initiateCustomerPlanPurchase(
   }
 }
 
-// ============================================================
-// notifyOwnersOfPurchaseRequest — 內部 helper
-//   - 撈本店 ACTIVE OWNER（Staff.isOwner=true）+ ACTIVE ADMIN 的 email
-//   - 過濾掉 null email；若無人可通知，僅 console.warn 不 throw
-//   - 發送錯誤一律 swallow（emails 是 best-effort，不能擋住購買主流程）
-// ============================================================
-
-async function notifyOwnersOfPurchaseRequest(opts: {
-  transactionId: string;
-  storeId: string;
-  storeSlug: string;
-  customerId: string;
-  planName: string;
-  amount: number;
-  transferLastFour: string;
-  customerNote: string | null;
-}): Promise<void> {
-  const [store, ownerStaff, adminUsers, customer] = await Promise.all([
-    prisma.store.findUnique({
-      where: { id: opts.storeId },
-      select: { name: true },
-    }),
-    prisma.staff.findMany({
-      where: { storeId: opts.storeId, isOwner: true, status: "ACTIVE" },
-      select: { user: { select: { email: true } } },
-    }),
-    prisma.user.findMany({
-      where: { role: "ADMIN", status: "ACTIVE" },
-      select: { email: true },
-    }),
-    prisma.customer.findUnique({
-      where: { id: opts.customerId },
-      select: { name: true, phone: true },
-    }),
-  ]);
-
-  const recipients = [
-    ...ownerStaff.map((s) => s.user.email),
-    ...adminUsers.map((u) => u.email),
-  ].filter((email): email is string => !!email);
-
-  if (recipients.length === 0) {
-    console.warn("[notifyOwnersOfPurchaseRequest] no recipients (no OWNER/ADMIN with email)", {
-      transactionId: opts.transactionId,
-      storeId: opts.storeId,
-    });
-    return;
-  }
-
-  await sendPurchaseRequestNotification({
-    recipients,
-    storeName: store?.name ?? "—",
-    storeSlug: opts.storeSlug,
-    customerName: customer?.name ?? "—",
-    customerPhone: customer?.phone ?? null,
-    planName: opts.planName,
-    amount: opts.amount,
-    transferLastFour: opts.transferLastFour,
-    customerNote: opts.customerNote,
-    transactionId: opts.transactionId,
-  });
-}
