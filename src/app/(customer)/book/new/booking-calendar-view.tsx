@@ -374,6 +374,12 @@ function friendlyError(msg: string): string {
   if (/FORBIDDEN_STORE_ACCESS|無權存取/i.test(msg)) {
     return "目前預約資料載入異常，請重新整理後再試";
   }
+  // 顧客流程不該觸發任何「僅限員工 / 僅限管理者 / 沒有此操作的權限」訊息；
+  // 若仍出現，視為登入狀態異常或誤觸 staff guard，給顧客可懂的指引。
+  // server 端 handleActionError 會 log 警告 + 堆疊，可後續追查實際 action。
+  if (/僅限員工|僅限.*管理者|僅限店主|沒有此操作的權限/.test(msg)) {
+    return "登入狀態異常，請登出後重新登入；若持續發生，請聯繫店家協助";
+  }
   if (/UNAUTHORIZED|登入|session/i.test(msg)) {
     return "登入已過期，請重新登入後再試";
   }

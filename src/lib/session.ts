@@ -25,6 +25,16 @@ export async function requireSession() {
 export async function requireStaffSession() {
   const user = await requireSession();
   if (!isStaffRole(user.role)) {
+    // 記下呼叫堆疊，方便將來找出哪個 server action / query 在顧客流程裡誤用了 staff guard。
+    // 直接走 console（伺服器端）即可，避免帶入 logger 的循環依賴。
+    if (process.env.NODE_ENV !== "production" || process.env.LOG_STAFF_GUARD_LEAK === "1") {
+      console.warn("[requireStaffSession] non-staff hit staff guard", {
+        role: user.role,
+        userId: user.id,
+        customerId: user.customerId ?? null,
+        stack: new Error("staff-guard-stack").stack?.split("\n").slice(1, 6).join("\n"),
+      });
+    }
     throw new AppError("FORBIDDEN", "此功能僅限員工使用");
   }
   if (!user.storeId && user.role !== "ADMIN") {
