@@ -467,6 +467,13 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
         success: false,
       };
     }
+    if (resolved.reason === "conflict_already_linked_line_user_id") {
+      return {
+        error:
+          "此 LINE 帳號已綁定其他顧客資料。請聯繫店家協助確認或合併。",
+        success: false,
+      };
+    }
     if (resolved.reason === "conflict_already_linked_email") {
       return {
         error:
@@ -489,8 +496,16 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
       };
     }
     try {
-      // 1) 同 storeId + (phone OR email) 找真人 Customer（單一 OR 查詢，避免「phone 命中但 email 對不上」誤擋）
-      const probe = await findRealCustomerForMerge({ storeId, phone, email });
+      // 1) 同 storeId + (phone | lineUserId | email) 找真人 Customer。
+      //    findRealCustomerForMerge 已支援 lineUserId 為第 2 層信號 — 必須帶進去，
+      //    否則 LINE 第一次補資料命中真人 phone 不上時會繼續走 create 多開一筆。
+      const lineUserIdForMerge = await getLineUserIdForUser(user.id);
+      const probe = await findRealCustomerForMerge({
+        storeId,
+        phone,
+        email,
+        lineUserId: lineUserIdForMerge,
+      });
 
       if (probe.kind === "ambiguous") {
         console.warn("[updateProfileAction] not_found: ambiguous merge candidates", {
@@ -802,11 +817,15 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
 
   if (isResolvedPlaceholder) {
     try {
-      // 同 storeId + (phone OR email) 找 real（排除目前 placeholder 自身），單一 OR 查詢
+      // 同 storeId + (phone | lineUserId | email) 找 real（排除目前 placeholder 自身）。
+      // lineUserId 必帶 — placeholder 雖然帶 _oauth_ phone，但若使用者輸入錯 phone /
+      // 跳過 phone，仍要靠 LINE 身份找回真人。
+      const lineUserIdForMerge = await getLineUserIdForUser(user.id);
       const probe = await findRealCustomerForMerge({
         storeId: customerStoreId,
         phone,
         email,
+        lineUserId: lineUserIdForMerge,
         excludeCustomerId: customerId,
       });
 

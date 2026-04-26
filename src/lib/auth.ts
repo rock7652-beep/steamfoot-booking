@@ -320,31 +320,33 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           targetStoreId = DEFAULT_STORE_ID;
         }
 
-        // lineUserId / googleId 先做「全域唯一」查找 — 避免 storeId fallback 時錯過既有
-        // 顧客而誤建新 User。若全域找到多筆（跨店重複，理論罕見）則 fallback 到同店查找。
+        // lineUserId / googleId 同店唯一查找 — 必須先於任何 placeholder create。
+        //
+        // LINE 路徑採嚴格同店：schema 上 (storeId, lineUserId) 是 unique，這裡只認
+        // 同 store 的命中。若全站他店有同 lineUserId（罕見：同一人同時綁兩家店），
+        // 留 diagnostic log，但仍在 targetStoreId 下處理（不再切 storeId — 否則
+        // session 會被推到 cookie 不指的店，profile 補資料會落到錯店）。
         let customer = null;
         if (provider === "line" && lineUserId) {
-          const candidates = await prisma.customer.findMany({
-            where: { lineUserId },
-            take: 2,
+          customer = await prisma.customer.findFirst({
+            where: { storeId: targetStoreId, lineUserId },
           });
-          if (candidates.length === 1) {
-            customer = candidates[0];
-            if (customer.storeId !== targetStoreId) {
-              console.info("[auth] signIn: line user cross-store — using existing customer", {
-                lineUserId,
-                customerStoreId: customer.storeId,
-                cookieStoreId: targetStoreId,
-              });
-              targetStoreId = customer.storeId; // 以 Customer 所在店為準
-            }
-          } else if (candidates.length > 1) {
-            console.warn("[auth] signIn: line user found in multiple stores, using target", {
-              lineUserId,
-              count: candidates.length,
-              targetStoreId,
+          if (!customer) {
+            const crossStore = await prisma.customer.findFirst({
+              where: { lineUserId },
+              select: { id: true, storeId: true },
             });
-            customer = candidates.find((c) => c.storeId === targetStoreId) ?? null;
+            if (crossStore) {
+              console.warn(
+                "[auth] signIn: line user has customer in different store — keeping target store",
+                {
+                  lineUserId,
+                  existingCustomerId: crossStore.id,
+                  existingStoreId: crossStore.storeId,
+                  targetStoreId,
+                },
+              );
+            }
           }
         }
         if (!customer && provider === "google" && googleId) {

@@ -15,17 +15,19 @@ import { normalizePhone } from "@/lib/normalize";
  * 查找順序（嚴格同店；任一命中即回）：
  *   A. session.customerId 直查（會驗證 DB 是否存在，stale 則 fall through）
  *   B. Customer.userId = session.userId（auto-bind 已完成但 JWT 尚未刷新）
- *   C. 同店 email 唯一匹配（來源：session.email 或 payload.email）
- *   D. 同店 phone 唯一匹配（僅 payload.phone；session 無 phone）
+ *   C. 同店 (lineUserId) 唯一匹配 — LINE OAuth user 即使 session.email 為 null
+ *      也能命中既有 Customer（避免被誤判 not_found 後再建一筆 placeholder）
+ *   D. 同店 email 唯一匹配（來源：session.email 或 payload.email）
+ *   E. 同店 phone 唯一匹配（僅 payload.phone；session 無 phone）
  *
  * 穩定性保證：
  *   - sessionCustomerId 可能 stale（顧客被刪、清庫後 cookie 殘留、跨環境 JWT），
- *     A 路徑會驗 DB；找不到時 log warning 並 fall through 到 B/C/D，不會直接失敗
- *   - B/C/D 都找不到 → 回傳 reason: "not_found"，由 caller 走 create / re-bind
+ *     A 路徑會驗 DB；找不到時 log warning 並 fall through 到 B/C/D/E，不會直接失敗
+ *   - B/C/D/E 都找不到 → 回傳 reason: "not_found"，由 caller 走 create / re-bind
  *
  * 安全規則：
  *   - 嚴格 store-scoped（storeId 必符）
- *   - C / D 僅在 candidates.length === 1 才綁
+ *   - C/D/E 僅在 candidates.length === 1 才綁
  *   - 若目標已有 userId 且非當前 user → conflict_already_linked，不綁
  *   - 每一步皆 log，含 reason 便於後台排查
  */
@@ -33,11 +35,13 @@ import { normalizePhone } from "@/lib/normalize";
 export type ResolveReason =
   | "found_by_id"
   | "found_by_userid"
+  | "bound_by_line_user_id"
   | "bound_by_email"
   | "bound_by_phone"
   | "not_found"
   | "conflict_multiple_email"
   | "conflict_multiple_phone"
+  | "conflict_already_linked_line_user_id"
   | "conflict_already_linked_email"
   | "conflict_already_linked_phone";
 
@@ -179,7 +183,65 @@ export async function resolveCustomerForUser(
     console.error("[resolveCustomer] lookup by userId failed", { ...logCtx, err });
   }
 
-  // ── C. 同店 email 唯一匹配 ───────────────────────────
+  // ── C. 同店 (lineUserId) 唯一匹配 ───────────────────
+  // LINE OAuth 顧客的 session.email 常常是 null，B path 又只在 Customer.userId
+  // 已被回填時才能命中。先用 lineUserId 救一輪，避免 LINE 重綁 / 手動 merge 後
+  // userId 為 null 時被誤判 not_found 重新跳「補資料」。
+  if (opts.storeId) {
+    try {
+      const lineAcct = await prisma.account.findFirst({
+        where: { userId: opts.userId, provider: "line" },
+        select: { providerAccountId: true },
+      });
+      const lineUserId = lineAcct?.providerAccountId ?? null;
+      if (lineUserId) {
+        const c = await prisma.customer.findFirst({
+          where: { storeId: opts.storeId, lineUserId },
+          select: CUSTOMER_SELECT,
+        });
+        if (c) {
+          if (c.userId === opts.userId) {
+            console.info("[resolveCustomer] bound_by_line_user_id (already)", {
+              ...logCtx,
+              customerId: c.id,
+            });
+            return { customer: c, reason: "bound_by_line_user_id" };
+          }
+          if (!c.userId) {
+            // 安全直綁：lineUserId 是 OAuth 簽出的不可偽造身份，
+            // userId 為 null 表示 staff 建好顧客後第一次 LINE 登入回流。
+            await prisma.customer.update({
+              where: { id: c.id },
+              data: { userId: opts.userId },
+            });
+            console.info("[resolveCustomer] bound_by_line_user_id", {
+              ...logCtx,
+              customerId: c.id,
+            });
+            return {
+              customer: { ...c, userId: opts.userId },
+              reason: "bound_by_line_user_id",
+            };
+          }
+          // c.userId 已綁到別人 — 不能搶 LINE 身份，回 conflict
+          console.warn("[resolveCustomer] conflict_already_linked_line_user_id", {
+            ...logCtx,
+            customerId: c.id,
+            existingUserId: c.userId,
+          });
+          return {
+            customer: null,
+            reason: "conflict_already_linked_line_user_id",
+            conflict: true,
+          };
+        }
+      }
+    } catch (err) {
+      console.error("[resolveCustomer] lineUserId lookup failed", { ...logCtx, err });
+    }
+  }
+
+  // ── D. 同店 email 唯一匹配 ───────────────────────────
   const emailForLookup = opts.payloadEmail ?? opts.sessionEmail;
   if (emailForLookup && opts.storeId) {
     try {
@@ -253,7 +315,7 @@ export async function resolveCustomerForUser(
     }
   }
 
-  // ── D. 同店 phone 唯一匹配（僅 submit 路徑有 payloadPhone） ──
+  // ── E. 同店 phone 唯一匹配（僅 submit 路徑有 payloadPhone） ──
   if (normalizedPayloadPhone && opts.storeId) {
     try {
       const candidates = await prisma.customer.findMany({
