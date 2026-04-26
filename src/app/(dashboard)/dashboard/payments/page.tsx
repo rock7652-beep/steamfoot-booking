@@ -109,8 +109,21 @@ export default async function PendingPaymentsPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-xs text-earth-500">
-                        {tx.referenceNo || tx.bankLast5 ? (
+                        {tx.referenceNo || tx.bankLast5 || tx.transferLastFour || tx.customerNote ? (
                           <div className="space-y-0.5">
+                            {tx.transferLastFour && (
+                              <div>
+                                顧客末四碼：
+                                <span className="font-mono font-semibold text-earth-800">
+                                  {tx.transferLastFour}
+                                </span>
+                              </div>
+                            )}
+                            {tx.customerNote && (
+                              <div className="whitespace-pre-wrap break-words text-earth-600">
+                                備註：{tx.customerNote}
+                              </div>
+                            )}
                             {tx.referenceNo && <div>參考：{tx.referenceNo}</div>}
                             {tx.bankLast5 && <div>末五：{tx.bankLast5}</div>}
                           </div>
@@ -130,6 +143,8 @@ export default async function PendingPaymentsPage() {
                           paymentMethodLabel={PAYMENT_METHOD_LABEL[tx.paymentMethod] ?? tx.paymentMethod}
                           initialReferenceNo={tx.referenceNo ?? ""}
                           initialBankLast5={tx.bankLast5 ?? ""}
+                          customerTransferLastFour={tx.transferLastFour}
+                          customerNote={tx.customerNote}
                         />
                       </td>
                     </tr>
@@ -169,8 +184,21 @@ export default async function PendingPaymentsPage() {
                       {formatTWTime(tx.createdAt, { style: "short" })}
                     </span>
                   </div>
-                  {(tx.referenceNo || tx.bankLast5) && (
+                  {(tx.referenceNo || tx.bankLast5 || tx.transferLastFour || tx.customerNote) && (
                     <div className="mb-2 space-y-0.5 text-xs text-earth-500">
+                      {tx.transferLastFour && (
+                        <div>
+                          顧客末四碼：
+                          <span className="font-mono font-semibold text-earth-800">
+                            {tx.transferLastFour}
+                          </span>
+                        </div>
+                      )}
+                      {tx.customerNote && (
+                        <div className="whitespace-pre-wrap break-words text-earth-600">
+                          備註：{tx.customerNote}
+                        </div>
+                      )}
                       {tx.referenceNo && <div>參考：{tx.referenceNo}</div>}
                       {tx.bankLast5 && <div>末五：{tx.bankLast5}</div>}
                     </div>

@@ -897,7 +897,9 @@ model Transaction {
   paymentStatus        PaymentStatus   @default(SUCCESS)
   paidAt               DateTime? // 實際確認入帳時間；歷史 backfill=createdAt；新 PENDING 保持 null
   referenceNo          String? // 轉帳參考號 / 外部參考編號
-  bankLast5            String? // 轉帳帳號末五碼（對帳輔助）
+  bankLast5            String? // 轉帳帳號末五碼（對帳輔助，店長確認時填）
+  transferLastFour     String? // 顧客自助購買時自填的轉帳帳號末四碼（自報）
+  customerNote         String? // 顧客自助購買時自填的備註（匯款人姓名 / 補充事項）
 
   // === 報表用欄位（快照 + 歸屬鎖定）===
   transactionNo     String? // 交易編號 TXN-YYYYMMDD-NNN

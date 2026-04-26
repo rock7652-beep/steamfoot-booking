@@ -13,6 +13,10 @@ interface Props {
   paymentMethodLabel: string;
   initialReferenceNo?: string;
   initialBankLast5?: string;
+  /** 顧客自助購買時自填的末四碼（顯示用，不可在此編輯） */
+  customerTransferLastFour?: string | null;
+  /** 顧客自助購買時自填的備註（顯示用） */
+  customerNote?: string | null;
 }
 
 export function ConfirmPaymentButton({
@@ -23,6 +27,8 @@ export function ConfirmPaymentButton({
   paymentMethodLabel,
   initialReferenceNo = "",
   initialBankLast5 = "",
+  customerTransferLastFour = null,
+  customerNote = null,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [referenceNo, setReferenceNo] = useState(initialReferenceNo);
@@ -32,7 +38,9 @@ export function ConfirmPaymentButton({
 
   function handleOpen() {
     setReferenceNo(initialReferenceNo);
-    setBankLast5(initialBankLast5);
+    // 預填顧客自報的末四碼（store 在 transferLastFour），方便店長對帳後直接確認；
+    // 若資料已先有 bankLast5（之前部分輸入過）則優先用那個。
+    setBankLast5(initialBankLast5 || customerTransferLastFour || "");
     setOpen(true);
   }
 
@@ -93,6 +101,29 @@ export function ConfirmPaymentButton({
                 </span>
               </div>
             </div>
+
+            {/* 顧客自報資訊（自助購買時才有） */}
+            {(customerTransferLastFour || customerNote) && (
+              <div className="mb-4 space-y-1.5 rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm">
+                <p className="text-xs font-medium text-blue-800">顧客送單時自填</p>
+                {customerTransferLastFour && (
+                  <div className="flex justify-between">
+                    <span className="text-blue-700">末四碼</span>
+                    <span className="font-mono font-semibold text-blue-900">
+                      {customerTransferLastFour}
+                    </span>
+                  </div>
+                )}
+                {customerNote && (
+                  <div>
+                    <div className="text-blue-700">備註</div>
+                    <div className="mt-0.5 whitespace-pre-wrap break-words text-blue-900">
+                      {customerNote}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Editable fields */}
             <div className="mb-4 space-y-3">
