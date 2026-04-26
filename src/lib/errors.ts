@@ -49,9 +49,40 @@ export interface ErrorContext {
   storeId?: string | null;
 }
 
+/**
+ * Staff-only 訊息守門：
+ * 來自 requireStaffSession / requirePermission 的訊息語義針對員工，
+ * 流到顧客 UI 會變成「此功能僅限員工使用」「您沒有此操作的權限」之類的紅框。
+ * 顧客自助流程不該看到這些字，因為他們的入口就不應該觸發 staff guard。
+ *
+ * 守門策略：
+ *   - 偵測到 staff-only 訊息 → 一律改回顧客可理解的訊息
+ *   - 同時 server log 警告，附上堆疊，便於追查實際發起的 server action
+ *   - 不破壞員工後台流程（員工本來就會看到這類訊息，只是員工 UI 自有處理）
+ *     — 員工 UI 也會改成讀 friendly 訊息，但 staff layout 已 gate 過，極少觸發。
+ */
+const STAFF_ONLY_MESSAGES = new Set([
+  "此功能僅限員工使用",
+  "此功能僅限系統管理者使用",
+  "此功能僅限店主使用",
+  "您沒有此操作的權限",
+]);
+
+function sanitizeStaffOnlyMessage(msg: string): string | null {
+  if (STAFF_ONLY_MESSAGES.has(msg)) {
+    console.warn("[handleActionError] staff-only message reached customer-facing path", {
+      originalMessage: msg,
+      stack: new Error("staff-msg-leak-stack").stack?.split("\n").slice(2, 7).join("\n"),
+    });
+    return "目前無法完成此操作，請重新整理頁面再試；若持續發生，請聯繫店家協助";
+  }
+  return null;
+}
+
 export function handleActionError(e: unknown, ctx?: ErrorContext): ActionResult<never> {
   if (e instanceof AppError) {
-    return { success: false, error: e.message };
+    const sanitized = sanitizeStaffOnlyMessage(e.message);
+    return { success: false, error: sanitized ?? e.message };
   }
   // Re-throw Next.js internal errors (e.g. redirect, notFound)
   if (
