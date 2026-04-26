@@ -1,6 +1,5 @@
 import { getCurrentUser } from "@/lib/session";
 import { getStoreContext } from "@/lib/store-context";
-import { getShopConfig } from "@/lib/shop-config";
 import { prisma } from "@/lib/db";
 import { redirect } from "next/navigation";
 import Link from "next/link";
@@ -41,7 +40,6 @@ export default async function ThankYouPage({ searchParams }: PageProps) {
         })
       : null;
 
-  const shopConfig = storeId ? await getShopConfig(storeId) : null;
   const prefix = `/s/${storeSlug}`;
   const planName = tx?.planNameSnapshot ?? tx?.servicePlan?.name ?? "—";
 
@@ -55,7 +53,7 @@ export default async function ThankYouPage({ searchParams }: PageProps) {
           </svg>
         </div>
         <h1 className="text-2xl font-bold text-earth-900">已收到您的購買申請</h1>
-        <p className="mt-1 text-sm text-earth-500">請按下列步驟完成付款</p>
+        <p className="mt-1 text-sm text-earth-500">店長確認入帳後，方案就會啟用</p>
       </div>
 
       {/* Tx summary */}
@@ -87,7 +85,7 @@ export default async function ThankYouPage({ searchParams }: PageProps) {
         </section>
       ) : (
         <section className="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-          找不到對應的訂單，但您的申請已送出。請透過 LINE@ 聯繫店長確認。
+          您的購買申請已送出，店長確認入帳後，方案就會啟用。
         </section>
       )}
 
@@ -100,16 +98,10 @@ export default async function ThankYouPage({ searchParams }: PageProps) {
               1
             </span>
             <div>
-              <p className="font-medium text-earth-900">轉帳至店家帳戶</p>
-              {shopConfig?.bankAccountNumber ? (
-                <p className="mt-0.5 font-mono text-xs text-earth-600">
-                  {shopConfig.bankName ?? ""}
-                  {shopConfig.bankCode ? ` (${shopConfig.bankCode})` : ""}{" "}
-                  {shopConfig.bankAccountNumber}
-                </p>
-              ) : (
-                <p className="mt-0.5 text-xs text-earth-500">請聯繫店家取得帳戶資訊</p>
-              )}
+              <p className="font-medium text-earth-900">等待店長確認入帳</p>
+              <p className="mt-0.5 text-xs text-earth-500">
+                店長會依您填寫的轉帳末四碼與備註進行確認。
+              </p>
             </div>
           </li>
           <li className="flex gap-3">
@@ -117,31 +109,13 @@ export default async function ThankYouPage({ searchParams }: PageProps) {
               2
             </span>
             <div>
-              <p className="font-medium text-earth-900">到 LINE@ 提供轉帳末五碼</p>
+              <p className="font-medium text-earth-900">確認完成後，方案會啟用</p>
               <p className="mt-0.5 text-xs text-earth-500">
-                店長會幫您確認入帳，方案立即啟用
+                您可以到「我的方案」查看狀態。
               </p>
             </div>
           </li>
         </ol>
-
-        {shopConfig?.lineOfficialUrl ? (
-          <a
-            href={shopConfig.lineOfficialUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-[#06C755] px-4 py-3 font-semibold text-white hover:bg-[#05b34c]"
-          >
-            <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M19.365 9.89c.50 0 .906.41.906.91s-.406.91-.906.91h-2.54v1.631h2.54c.5 0 .906.41.906.91 0 .5-.406.91-.906.91h-3.448a.91.91 0 01-.906-.91V8.235a.91.91 0 01.906-.91h3.448c.5 0 .906.41.906.91 0 .5-.406.91-.906.91h-2.54v1.631h2.54zm-5.777 4.412a.91.91 0 01-.906.91.903.903 0 01-.726-.362l-3.531-4.805v4.257a.91.91 0 01-.906.91.91.91 0 01-.906-.91V8.235a.91.91 0 01.906-.91c.287 0 .551.136.726.362l3.531 4.805V8.235a.91.91 0 01.906-.91.91.91 0 01.906.91v6.067zm-8.16 0a.91.91 0 01-.906.91.91.91 0 01-.906-.91V8.235a.91.91 0 01.906-.91.91.91 0 01.906.91v6.067zM12 0C5.373 0 0 4.975 0 11.111c0 5.497 4.263 10.098 10.022 10.969.39.084.921.258 1.055.593.121.305.079.783.039 1.097 0 0-.141.843-.171 1.024-.053.305-.243 1.193 1.045.651 1.288-.543 6.942-4.088 9.471-6.997C23.155 16.524 24 13.947 24 11.111 24 4.975 18.627 0 12 0" />
-            </svg>
-            <span>開啟 LINE@</span>
-          </a>
-        ) : (
-          <p className="mt-4 rounded bg-white/60 p-2 text-center text-xs text-earth-600">
-            店家尚未設定 LINE@ 連結
-          </p>
-        )}
       </section>
 
       {/* Secondary links */}
