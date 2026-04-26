@@ -127,5 +127,95 @@ export async function sendPasswordResetEmail(
   await sendMail(email, subject, html);
 }
 
+// ============================================================
+// 顧客自助購買 — 通知店長 Email
+// ============================================================
+
+export interface PurchaseRequestEmailData {
+  /** 收件人 — store owners + admins，去重後傳入 */
+  recipients: string[];
+  /** 店名（顯示在主旨/內文） */
+  storeName: string;
+  storeSlug: string;
+  customerName: string;
+  customerPhone: string | null;
+  planName: string;
+  amount: number;
+  transferLastFour: string;
+  customerNote: string | null;
+  transactionId: string;
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+export async function sendPurchaseRequestNotification(
+  data: PurchaseRequestEmailData,
+): Promise<void> {
+  const baseUrl = getBaseUrl();
+  const paymentsUrl = `${baseUrl}/s/${data.storeSlug}/admin/dashboard/payments`;
+
+  const subject = `[蒸足系統] 新購買申請待確認 — ${data.customerName} / ${data.planName}`;
+
+  const noteBlock = data.customerNote
+    ? `<tr><td style="padding:6px 0;color:#666;width:96px">備註</td><td style="padding:6px 0;color:#222;white-space:pre-wrap">${escapeHtml(data.customerNote)}</td></tr>`
+    : `<tr><td style="padding:6px 0;color:#666">備註</td><td style="padding:6px 0;color:#999">無</td></tr>`;
+
+  const phoneBlock = data.customerPhone
+    ? `<tr><td style="padding:6px 0;color:#666">電話</td><td style="padding:6px 0;color:#222">${escapeHtml(data.customerPhone)}</td></tr>`
+    : "";
+
+  const html = `
+    <div style="max-width:520px;margin:0 auto;font-family:-apple-system,BlinkMacSystemFont,sans-serif;color:#333">
+      <h2 style="color:#6366f1;margin:0 0 4px">📥 新購買申請</h2>
+      <p style="margin:0 0 20px;color:#666;font-size:14px">${escapeHtml(data.storeName)} — 顧客剛送出購買申請，等待您確認入帳。</p>
+
+      <table style="width:100%;border-collapse:collapse;font-size:14px;border:1px solid #eee;border-radius:8px;overflow:hidden">
+        <tr style="background:#fafafa">
+          <td colspan="2" style="padding:10px 14px;font-weight:600;color:#333;border-bottom:1px solid #eee">訂單摘要</td>
+        </tr>
+        <tr><td style="padding:8px 14px;color:#666;width:96px">顧客</td><td style="padding:8px 14px;color:#222;font-weight:500">${escapeHtml(data.customerName)}</td></tr>
+        ${phoneBlock ? phoneBlock.replace(/padding:6px 0/g, "padding:8px 14px") : ""}
+        <tr><td style="padding:8px 14px;color:#666">方案</td><td style="padding:8px 14px;color:#222">${escapeHtml(data.planName)}</td></tr>
+        <tr><td style="padding:8px 14px;color:#666">金額</td><td style="padding:8px 14px;color:#6366f1;font-weight:700">NT$ ${data.amount.toLocaleString()}</td></tr>
+        <tr><td style="padding:8px 14px;color:#666">末四碼</td><td style="padding:8px 14px;color:#222;font-family:monospace;font-weight:600">${escapeHtml(data.transferLastFour)}</td></tr>
+        ${noteBlock.replace(/padding:6px 0/g, "padding:8px 14px")}
+      </table>
+
+      <p style="margin:24px 0 8px">
+        <a href="${paymentsUrl}"
+           style="display:inline-block;background:#6366f1;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600">
+          前往後台確認入帳
+        </a>
+      </p>
+      <p style="margin:0;font-size:12px;color:#999">${paymentsUrl}</p>
+
+      <hr style="border:none;border-top:1px solid #eee;margin:24px 0" />
+      <p style="font-size:12px;color:#aaa;margin:0">此信由系統自動發送；交易單號 <span style="font-family:monospace">${escapeHtml(data.transactionId)}</span>。</p>
+    </div>
+  `;
+
+  // 收件人去重 + 過濾空值，逐筆發送（Resend 單收件人格式較穩，且失敗不互相影響）
+  const seen = new Set<string>();
+  const targets = data.recipients
+    .map((r) => r?.trim().toLowerCase())
+    .filter((r): r is string => !!r && !seen.has(r) && (seen.add(r), true));
+
+  for (const to of targets) {
+    try {
+      await sendMail(to, subject, html);
+    } catch (err) {
+      console.error("[Email][purchase-request] send failed", { to, err });
+      // 不重拋 — 單一收件人失敗不應影響其他人或業務流程
+    }
+  }
+}
+
 /** 檢查 email service 是否已設定 */
 export const isEmailConfigured = !!getResendApiKey();
