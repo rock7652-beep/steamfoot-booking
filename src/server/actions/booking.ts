@@ -530,7 +530,16 @@ export async function cancelBooking(
 
     // 顧客只能取消自己的 + 12hr 限制
     if (user.role === "CUSTOMER") {
-      if (!user.customerId || booking.customerId !== user.customerId)
+      // 走 canonical resolver — session.customerId 可能 stale
+      const { resolveCustomerForUser } = await import("@/server/queries/customer-completion");
+      const resolved = await resolveCustomerForUser({
+        userId: user.id,
+        sessionCustomerId: user.customerId ?? null,
+        sessionEmail: user.email ?? null,
+        storeId: user.storeId ?? null,
+      });
+      const canonicalId = resolved.customer?.id ?? null;
+      if (!canonicalId || booking.customerId !== canonicalId)
         throw new AppError("FORBIDDEN", "只能取消自己的預約");
 
       const bookingDateTime = getBookingDateTime(

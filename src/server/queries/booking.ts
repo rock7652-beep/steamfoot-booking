@@ -2,7 +2,29 @@ import { prisma } from "@/lib/db";
 import { requireSession, requireStaffSession } from "@/lib/session";
 import { AppError } from "@/lib/errors";
 import { getManagerCustomerFilter, getStoreFilter } from "@/lib/manager-visibility";
+import { resolveCustomerForUser } from "@/server/queries/customer-completion";
 import type { BookingStatus, Prisma } from "@prisma/client";
+
+/**
+ * 顧客自助流程查詢時 canonical customerId 來源。
+ *
+ * session.user.customerId 可能 stale（顧客 merge / placeholder 重綁 / 跨環境 JWT），
+ * 直接拿來 query 會「資料寫入正常但前台讀不到」。所有 customer-facing 讀取
+ * 統一走 resolveCustomerForUser，與 createBooking 寫入用的同一個 resolver 對齊。
+ *
+ * 回傳 null 代表 session 無法對應到任何 customer — caller 應回傳空結果而非錯誤。
+ */
+async function resolveCanonicalCustomerIdForSession(
+  user: { id: string; customerId?: string | null; email?: string | null; storeId?: string | null },
+): Promise<string | null> {
+  const resolved = await resolveCustomerForUser({
+    userId: user.id,
+    sessionCustomerId: user.customerId ?? null,
+    sessionEmail: user.email ?? null,
+    storeId: user.storeId ?? null,
+  });
+  return resolved.customer?.id ?? null;
+}
 
 export interface ListBookingsOptions {
   dateFrom?: string; // "YYYY-MM-DD"
@@ -27,9 +49,10 @@ export async function listBookings(options: ListBookingsOptions & { activeStoreI
   // 後端強制資料隔離（讀取型：受 visibility mode 控制）
   let whereCustomer: Record<string, unknown> = {};
   if (user.role === "CUSTOMER") {
-    // Customer 必須有 customerId，否則不回傳任何資料
-    if (!user.customerId) return { bookings: [], total: 0, page, pageSize };
-    whereCustomer = { id: user.customerId };
+    // 走 canonical resolver — session.customerId 可能 stale（與 createBooking 寫入路徑同源）
+    const canonicalId = await resolveCanonicalCustomerIdForSession(user);
+    if (!canonicalId) return { bookings: [], total: 0, page, pageSize };
+    whereCustomer = { id: canonicalId };
   } else if (user.role !== "ADMIN" && user.staffId) {
     const customerFilter = getManagerCustomerFilter(user.role, user.staffId, activeStoreId ?? user.storeId);
     // getManagerCustomerFilter 回傳 { customer: { assignedStaffId: ... } } 或 {}
@@ -111,7 +134,9 @@ export async function getBookingDetail(bookingId: string) {
 
   // 「顧客屬於店」：所有 Manager 可查看任何預約詳情
   if (user.role === "CUSTOMER") {
-    if (!user.customerId || booking.customerId !== user.customerId) {
+    // 走 canonical resolver — session.customerId 可能 stale
+    const canonicalId = await resolveCanonicalCustomerIdForSession(user);
+    if (!canonicalId || booking.customerId !== canonicalId) {
       throw new AppError("FORBIDDEN", "只能查看自己的預約");
     }
   }
