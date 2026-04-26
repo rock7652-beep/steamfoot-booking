@@ -193,6 +193,26 @@ export async function getCustomerTransactionSummary(customerId: string) {
 // 附 totalAmount 聚合供 KPI 卡片使用
 // ============================================================
 
+// ============================================================
+// countPendingPaymentTransactions
+// 後台首頁通知卡用 — 與 getPendingPaymentTransactions 同一組 where 條件，
+// 只回傳 count，避免 dashboard 首頁載入整批 row。
+// ============================================================
+
+export async function countPendingPaymentTransactions(options?: {
+  activeStoreId?: string | null;
+}): Promise<number> {
+  const user = await requireStaffSession();
+  return prisma.transaction.count({
+    where: {
+      ...getStoreFilter(user, options?.activeStoreId ?? null),
+      paymentStatus: "PENDING" as const,
+      paymentMethod: { in: ["TRANSFER", "UNPAID"] as PaymentMethod[] },
+      status: { notIn: ["CANCELLED", "REFUNDED"] as ("CANCELLED" | "REFUNDED")[] },
+    },
+  });
+}
+
 export async function getPendingPaymentTransactions(options?: {
   activeStoreId?: string | null;
   page?: number;
