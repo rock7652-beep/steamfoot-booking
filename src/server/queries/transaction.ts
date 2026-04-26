@@ -213,6 +213,45 @@ export async function countPendingPaymentTransactions(options?: {
   });
 }
 
+// 處理狀態（店長視角）：
+// - complete：可直接確認入帳（匯款 + 有轉帳資訊）
+// - review  ：匯款但缺轉帳資訊，需先核對
+// - unpaid  ：尚未付款
+// - anomaly ：缺關鍵欄位（customerId / planId / amount），不可處理
+export type PendingRowStatus = "complete" | "review" | "unpaid" | "anomaly";
+
+function computeRowStatus(tx: {
+  customerId: string | null;
+  customerPlanWalletId: string | null;
+  planNameSnapshot: string | null;
+  amount: { toString(): string } | null;
+  paymentMethod: PaymentMethod;
+  transferLastFour: string | null;
+  customerNote: string | null;
+  bankLast5: string | null;
+  referenceNo: string | null;
+}): PendingRowStatus {
+  const amountNum = tx.amount ? Number(tx.amount.toString()) : 0;
+  const hasPlanRef = !!tx.customerPlanWalletId || !!tx.planNameSnapshot;
+  if (!tx.customerId || !hasPlanRef || !amountNum || amountNum <= 0) {
+    return "anomaly";
+  }
+  if (tx.paymentMethod === "UNPAID") return "unpaid";
+  if (tx.paymentMethod === "TRANSFER") {
+    const hasTransferInfo =
+      !!tx.transferLastFour || !!tx.customerNote || !!tx.bankLast5 || !!tx.referenceNo;
+    return hasTransferInfo ? "complete" : "review";
+  }
+  return "review";
+}
+
+const ROW_STATUS_ORDER: Record<PendingRowStatus, number> = {
+  complete: 0,
+  review: 1,
+  unpaid: 2,
+  anomaly: 3,
+};
+
 export async function getPendingPaymentTransactions(options?: {
   activeStoreId?: string | null;
   page?: number;
@@ -228,7 +267,7 @@ export async function getPendingPaymentTransactions(options?: {
     status: { notIn: ["CANCELLED", "REFUNDED"] as ("CANCELLED" | "REFUNDED")[] },
   };
 
-  const [transactions, total, sum] = await Promise.all([
+  const [rows, total, sum] = await Promise.all([
     prisma.transaction.findMany({
       where,
       include: {
@@ -250,10 +289,22 @@ export async function getPendingPaymentTransactions(options?: {
     }),
   ]);
 
+  // 標註處理狀態並依「complete → review → unpaid → anomaly，組內 createdAt asc」排序
+  const transactions = rows
+    .map((tx) => ({ ...tx, rowStatus: computeRowStatus(tx) }))
+    .sort((a, b) => {
+      const diff = ROW_STATUS_ORDER[a.rowStatus] - ROW_STATUS_ORDER[b.rowStatus];
+      if (diff !== 0) return diff;
+      return a.createdAt.getTime() - b.createdAt.getTime();
+    });
+
+  const confirmableCount = transactions.filter((t) => t.rowStatus === "complete").length;
+
   return {
     transactions,
     total,
     totalAmount: Number(sum._sum?.amount ?? 0),
+    confirmableCount,
     page,
     pageSize,
   };

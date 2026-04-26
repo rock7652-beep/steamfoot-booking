@@ -11,11 +11,12 @@ interface Props {
   planName: string;
   amount: number;
   paymentMethodLabel: string;
+  /** 顯示用：優先用店長對帳完成的末五碼，否則顧客自報的末四碼 */
+  transferLast5?: string;
+  /** 預留：保持與表頁面一致的傳值，目前不在彈窗內編輯 */
   initialReferenceNo?: string;
   initialBankLast5?: string;
-  /** 顧客自助購買時自填的末四碼（顯示用，不可在此編輯） */
   customerTransferLastFour?: string | null;
-  /** 顧客自助購買時自填的備註（顯示用） */
   customerNote?: string | null;
 }
 
@@ -25,33 +26,17 @@ export function ConfirmPaymentButton({
   planName,
   amount,
   paymentMethodLabel,
-  initialReferenceNo = "",
-  initialBankLast5 = "",
-  customerTransferLastFour = null,
-  customerNote = null,
+  transferLast5 = "",
 }: Props) {
   const [open, setOpen] = useState(false);
-  const [referenceNo, setReferenceNo] = useState(initialReferenceNo);
-  const [bankLast5, setBankLast5] = useState(initialBankLast5);
   const [pending, startTransition] = useTransition();
   const router = useRouter();
 
-  function handleOpen() {
-    setReferenceNo(initialReferenceNo);
-    // 預填顧客自報的末四碼（store 在 transferLastFour），方便店長對帳後直接確認；
-    // 若資料已先有 bankLast5（之前部分輸入過）則優先用那個。
-    setBankLast5(initialBankLast5 || customerTransferLastFour || "");
-    setOpen(true);
-  }
-
   function handleConfirm() {
     startTransition(async () => {
-      const result = await confirmTransactionPayment(transactionId, {
-        referenceNo: referenceNo.trim() || undefined,
-        bankLast5: bankLast5.trim() || undefined,
-      });
+      const result = await confirmTransactionPayment(transactionId);
       if (result.success) {
-        toast.success("已確認入帳");
+        toast.success("已確認入帳，顧客方案已開通");
         setOpen(false);
         router.refresh();
       } else {
@@ -63,7 +48,7 @@ export function ConfirmPaymentButton({
   return (
     <>
       <button
-        onClick={handleOpen}
+        onClick={() => setOpen(true)}
         className="rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-700"
       >
         確認入帳
@@ -78,9 +63,8 @@ export function ConfirmPaymentButton({
             className="w-full max-w-md rounded-xl bg-white p-5 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="mb-3 text-lg font-semibold text-earth-900">確認付款入帳</h3>
+            <h3 className="mb-3 text-lg font-semibold text-earth-900">確認已收到款項？</h3>
 
-            {/* Tx summary */}
             <div className="mb-4 space-y-1.5 rounded-lg bg-earth-50 p-3 text-sm">
               <div className="flex justify-between">
                 <span className="text-earth-500">顧客</span>
@@ -100,63 +84,16 @@ export function ConfirmPaymentButton({
                   NT$ {amount.toLocaleString()}
                 </span>
               </div>
-            </div>
-
-            {/* 顧客自報資訊（自助購買時才有） */}
-            {(customerTransferLastFour || customerNote) && (
-              <div className="mb-4 space-y-1.5 rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm">
-                <p className="text-xs font-medium text-blue-800">顧客送單時自填</p>
-                {customerTransferLastFour && (
-                  <div className="flex justify-between">
-                    <span className="text-blue-700">末四碼</span>
-                    <span className="font-mono font-semibold text-blue-900">
-                      {customerTransferLastFour}
-                    </span>
-                  </div>
-                )}
-                {customerNote && (
-                  <div>
-                    <div className="text-blue-700">備註</div>
-                    <div className="mt-0.5 whitespace-pre-wrap break-words text-blue-900">
-                      {customerNote}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Editable fields */}
-            <div className="mb-4 space-y-3">
-              <div>
-                <label className="block text-xs font-medium text-earth-600">
-                  轉帳參考號（選填）
-                </label>
-                <input
-                  type="text"
-                  value={referenceNo}
-                  onChange={(e) => setReferenceNo(e.target.value)}
-                  maxLength={100}
-                  placeholder="例：XXXXXX1234"
-                  className="mt-1 w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-earth-600">
-                  轉帳帳號末五碼（選填）
-                </label>
-                <input
-                  type="text"
-                  value={bankLast5}
-                  onChange={(e) => setBankLast5(e.target.value)}
-                  maxLength={10}
-                  placeholder="例：12345"
-                  className="mt-1 w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300"
-                />
+              <div className="flex justify-between">
+                <span className="text-earth-500">轉帳末五碼</span>
+                <span className={transferLast5 ? "font-mono font-semibold text-earth-800" : "text-earth-400"}>
+                  {transferLast5 || "未填"}
+                </span>
               </div>
             </div>
 
             <p className="mb-4 rounded bg-amber-50 px-3 py-2 text-xs text-amber-700">
-              ⚠️ 確認後此交易會進入營收；若為首次購課且有推薦人，系統會自動發放首儲獎勵。
+              提醒：確認後會立即開通顧客方案與堂數，顧客前台會看得到。
             </p>
 
             <div className="flex justify-end gap-2">
@@ -172,7 +109,7 @@ export function ConfirmPaymentButton({
                 disabled={pending}
                 className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-60"
               >
-                {pending ? "確認中..." : "確認入帳"}
+                {pending ? "處理中..." : "確認入帳並開通"}
               </button>
             </div>
           </div>
