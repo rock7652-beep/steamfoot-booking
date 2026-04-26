@@ -1,13 +1,11 @@
 import { getCurrentUser } from "@/lib/session";
 import { getStoreContext } from "@/lib/store-context";
 import { prisma } from "@/lib/db";
-import { resolveCustomerForUser } from "@/server/queries/customer-completion";
+import { getCustomerPlanSummaryForSession } from "@/lib/customer-plan-contract";
 import Link from "next/link";
-import type { WalletStatus } from "@prisma/client";
 import {
   WALLET_STATUS_LABEL,
   PLAN_CATEGORY_LABEL,
-  PENDING_STATUSES,
 } from "@/lib/booking-constants";
 import { NoPlanEmptyState } from "@/components/no-plan-empty-state";
 
@@ -22,67 +20,38 @@ export default async function MyPlansPage() {
     return <NoPlanEmptyState title="我的方案" variant="plan" shopHref={shopHref} />;
   }
 
-  // session.customerId 可能 stale（顧客被 merge / staff 後建 / userId 還沒回填），
-  // 直接用會看不到後台剛指派的方案。走 resolver（與 /profile 同一份邏輯）拿 canonical customerId。
-  const resolved = await resolveCustomerForUser({
-    userId: user.id,
-    sessionCustomerId: user.customerId ?? null,
-    sessionEmail: user.email ?? null,
+  // 走 customer-plan-contract（自帶 canonical resolver） — 全站唯一真相來源
+  const summary = await getCustomerPlanSummaryForSession({
+    id: user.id,
+    customerId: user.customerId ?? null,
+    email: user.email ?? null,
     storeId: user.storeId ?? storeCtx?.storeId ?? null,
-    storeSlug: storeCtx?.storeSlug ?? null,
   });
-  const customerId = resolved.customer?.id ?? null;
-  if (!customerId) {
+  if (!summary) {
     return <NoPlanEmptyState title="我的方案" variant="plan" shopHref={shopHref} />;
   }
 
+  // 額外撈 selfBookingEnabled（保留 main branch 的 「立即預約」 gate）
   const customer = await prisma.customer.findUnique({
-    where: { id: customerId },
-    include: {
-      planWallets: {
-        include: {
-          plan: { select: { name: true, category: true, sessionCount: true } },
-          bookings: {
-            where: { bookingStatus: { in: ["COMPLETED", "NO_SHOW", "CONFIRMED", "PENDING"] } },
-            select: {
-              bookingDate: true,
-              slotTime: true,
-              bookingStatus: true,
-              isMakeup: true,
-              people: true,
-              noShowPolicy: true,
-            },
-            orderBy: { bookingDate: "asc" },
-          },
-        },
-        orderBy: { createdAt: "desc" },
-      },
-    },
+    where: { id: summary.customerId },
+    select: { selfBookingEnabled: true },
   });
   if (!customer) {
     return <NoPlanEmptyState title="我的方案" variant="plan" shopHref={shopHref} />;
   }
 
-  // ── 3 區分類 ──
-  const activeWallets = customer.planWallets.filter((w) => w.status === "ACTIVE");
-  const expiredWallets = customer.planWallets.filter((w) => w.status === "EXPIRED");
-  const historyWallets = customer.planWallets.filter(
-    (w) => w.status === "USED_UP" || w.status === "CANCELLED"
-  );
+  const { activeWallets, expiredWallets, historyWallets } = summary;
+  const totalRemaining = summary.totalRemainingSessions;
+  const totalPendingCount = summary.reservedPendingSessions;
+  const availableToBook = summary.availableSessions;
 
-  // ── 新扣堂模型：remainingSessions = 購買 - COMPLETED - NO_SHOW(DEDUCTED) ──
-  // 可預約堂數 = remainingSessions - count(PENDING bookings that aren't makeup)
-  const totalRemaining = activeWallets.reduce((sum, w) => sum + w.remainingSessions, 0);
-  const totalPendingCount = activeWallets.reduce((sum, w) => {
-    return sum + w.bookings
-      .filter((b) => !b.isMakeup && (PENDING_STATUSES as readonly string[]).includes(b.bookingStatus))
-      .length;
-  }, 0);
-  const availableToBook = Math.max(0, totalRemaining - totalPendingCount);
-
-  // 再依體驗 vs 課程分組
+  // 再依體驗 vs 課程分組（純展示分類，不影響數字）
   const activeTrialWallets = activeWallets.filter((w) => w.plan.category === "TRIAL");
   const activePackageWallets = activeWallets.filter((w) => w.plan.category !== "TRIAL");
+
+  if (activeWallets.length === 0 && expiredWallets.length === 0 && historyWallets.length === 0) {
+    return <NoPlanEmptyState title="我的方案" variant="plan" shopHref={shopHref} />;
+  }
 
   return (
     <div>
@@ -123,7 +92,7 @@ export default async function MyPlansPage() {
         </div>
       )}
 
-      {customer.planWallets.length === 0 ? (
+      {activeWallets.length === 0 && expiredWallets.length === 0 && historyWallets.length === 0 ? (
         <NoPlanEmptyState variant="plan" shopHref={shopHref} />
       ) : (
         <div className="space-y-6">
@@ -184,35 +153,14 @@ function WalletCard({
   wallet,
   isActive,
 }: {
-  wallet: {
-    id: string;
-    plan: { name: string; category: string; sessionCount: number };
-    purchasedPrice: unknown;
-    totalSessions: number;
-    remainingSessions: number;
-    startDate: Date;
-    expiryDate: Date | null;
-    status: WalletStatus;
-    bookings: {
-      bookingDate: Date;
-      slotTime: string;
-      bookingStatus: string;
-      isMakeup: boolean;
-      people: number;
-      noShowPolicy: string | null;
-    }[];
-  };
+  wallet: import("@/lib/customer-plan-contract").CustomerPlanWalletSummary;
   isActive: boolean;
 }) {
-  // ── 新扣堂模型 ──
-  // remainingSessions = totalSessions - COMPLETED count - NO_SHOW(DEDUCTED) count
-  // 已預約待到店 = PENDING + CONFIRMED（非補課）
-  const pendingBookings = wallet.bookings.filter(
-    (b) => !b.isMakeup && (PENDING_STATUSES as readonly string[]).includes(b.bookingStatus)
-  );
-  const pendingCount = pendingBookings.length;
+  // 數字全部來自 customer-plan-contract（唯一真相） — 不在此 inline 計算
+  const pendingCount = wallet.reservedPending;
+  const availableToBook = wallet.availableToBook;
 
-  // 已消耗 = COMPLETED + NO_SHOW(DEDUCTED)
+  // 已消耗 = COMPLETED + NO_SHOW(DEDUCTED) — 顯示用，不影響 available 算式
   const completedCount = wallet.bookings.filter(
     (b) => !b.isMakeup && b.bookingStatus === "COMPLETED"
   ).length;
@@ -220,9 +168,6 @@ function WalletCard({
     (b) => !b.isMakeup && b.bookingStatus === "NO_SHOW" && b.noShowPolicy === "DEDUCTED"
   ).length;
   const usedCount = completedCount + noShowDeductedCount;
-
-  // 可預約 = remainingSessions - 待到店筆數
-  const availableToBook = Math.max(0, wallet.remainingSessions - pendingCount);
 
   // 已使用紀錄（含 COMPLETED + 所有 NO_SHOW）
   const usedBookings = wallet.bookings.filter(

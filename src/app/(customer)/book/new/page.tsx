@@ -1,10 +1,9 @@
 import { getCurrentUser } from "@/lib/session";
 import { getStoreContext } from "@/lib/store-context";
 import { prisma } from "@/lib/db";
-import { resolveCustomerForUser } from "@/server/queries/customer-completion";
+import { getCustomerPlanSummaryForSession } from "@/lib/customer-plan-contract";
 import Link from "next/link";
 import { BookingCalendarView } from "./booking-calendar-view";
-import { PENDING_STATUSES } from "@/lib/booking-constants";
 import { NoPlanEmptyState } from "@/components/no-plan-empty-state";
 
 export default async function NewBookingPage() {
@@ -17,40 +16,23 @@ export default async function NewBookingPage() {
     return <NoPlanEmptyState title="新增預約" shopHref={shopHref} />;
   }
 
-  // session.customerId 可能 stale；走 resolver 拿到後台指派方案所附的 canonical customer
-  const resolved = await resolveCustomerForUser({
-    userId: user.id,
-    sessionCustomerId: user.customerId ?? null,
-    sessionEmail: user.email ?? null,
+  // 走 customer-plan-contract（自帶 canonical resolver）— 唯一真相來源
+  const summary = await getCustomerPlanSummaryForSession({
+    id: user.id,
+    customerId: user.customerId ?? null,
+    email: user.email ?? null,
     storeId: user.storeId ?? storeCtx?.storeId ?? null,
-    storeSlug: storeCtx?.storeSlug ?? null,
   });
-  const customerId = resolved.customer?.id ?? null;
-  if (!customerId) {
+  if (!summary) {
     return <NoPlanEmptyState title="新增預約" shopHref={shopHref} />;
   }
+  const customerId = summary.customerId;
 
+  // 額外撈 selfBookingEnabled（保留 main branch 的 gate）+ makeupCredits
   const [customer, makeupCredits] = await Promise.all([
     prisma.customer.findUnique({
       where: { id: customerId },
-      select: {
-        selfBookingEnabled: true,
-        planWallets: {
-          where: { status: "ACTIVE" },
-          select: {
-            id: true,
-            totalSessions: true,
-            remainingSessions: true,
-            expiryDate: true,
-            plan: { select: { name: true } },
-            bookings: {
-              where: { isMakeup: false },
-              select: { people: true, bookingStatus: true },
-            },
-          },
-          orderBy: { createdAt: "asc" },
-        },
-      },
+      select: { selfBookingEnabled: true },
     }),
     prisma.makeupCredit.findMany({
       where: {
@@ -70,29 +52,18 @@ export default async function NewBookingPage() {
   ]);
   if (!customer) return <NoPlanEmptyState title="新增預約" shopHref={shopHref} />;
 
-  // 新扣堂模型：remainingSessions = 購買 - COMPLETED - NO_SHOW(DEDUCTED)
-  // 可預約 = remainingSessions - count(PENDING 非補課)
-  const walletsWithRemaining = customer.planWallets.map((w) => {
-    const pendingCount = w.bookings
-      .filter((b) => (PENDING_STATUSES as readonly string[]).includes(b.bookingStatus))
-      .length;
-    return { ...w, computedRemaining: Math.max(0, w.remainingSessions - pendingCount) };
-  });
-  const activeWallets = walletsWithRemaining.filter((w) => w.computedRemaining > 0);
+  // 從契約取「可預約」wallet（availableToBook > 0）
+  const bookableWallets = summary.activeWallets.filter((w) => w.availableToBook > 0);
 
   const hasValidWallet =
-    customer.selfBookingEnabled && (activeWallets.length > 0 || makeupCredits.length > 0);
+    customer.selfBookingEnabled && (bookableWallets.length > 0 || makeupCredits.length > 0);
 
   if (!hasValidWallet) {
     return <NoPlanEmptyState title="新增預約" shopHref={shopHref} />;
   }
 
-  // 新模型：computedRemaining 已減去待到店預約數
-  const totalRemaining = activeWallets.reduce(
-    (s, w) => s + w.computedRemaining,
-    0
-  );
-  const remainingQuota = Math.max(0, totalRemaining);
+  // 唯一定義：剩餘配額 = availableSessions（已 max(0, total - reserved)）
+  const remainingQuota = summary.availableSessions;
 
   return (
     <div>
@@ -132,10 +103,11 @@ export default async function NewBookingPage() {
       ) : (
         <BookingCalendarView
           customerId={customerId}
-          activeWallets={activeWallets.map((w) => ({
+          activeWallets={bookableWallets.map((w) => ({
             id: w.id,
             planName: w.plan.name,
-            remainingSessions: w.computedRemaining,
+            // 傳給 client 的「可預約堂數」走契約 availableToBook（已扣 reserved pending）
+            remainingSessions: w.availableToBook,
             expiryDate: w.expiryDate?.toISOString().slice(0, 10) ?? null,
           }))}
           makeupCredits={makeupCredits.map((c) => ({

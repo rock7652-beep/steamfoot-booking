@@ -4,6 +4,8 @@ import { getStoreContext } from "@/lib/store-context";
 import { getShopConfig } from "@/lib/shop-config";
 import { getHealthCardData } from "@/server/queries/health-card";
 import { getMyReferralSummary } from "@/server/queries/my-referral-summary";
+import { getCustomerPlanSummaryForSession } from "@/lib/customer-plan-contract";
+import { BOOKING_UPCOMING } from "@/lib/booking-constants";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ShareContactActions } from "./share-contact-actions";
@@ -63,24 +65,20 @@ export default async function CustomerHomePage() {
   let lineOfficialUrl = FALLBACK_LINE_URL;
 
   try {
-    const [wallets, upcoming, credits, hc, summary, shopConfig] = await Promise.all([
-      prisma.customerPlanWallet.findMany({
-        where: { customerId: user.customerId, status: "ACTIVE" },
-        select: {
-          totalSessions: true,
-          bookings: {
-            where: {
-              bookingStatus: { in: ["COMPLETED", "NO_SHOW", "CONFIRMED", "PENDING"] },
-              isMakeup: false,
-            },
-            select: { bookingStatus: true, people: true },
-          },
-        },
+    // 走 customer-plan-contract（與 my-plans 同一份計算） — 不再 inline 自算 totalSessions - used - preDeducted
+    const [planSummary, upcoming, credits, hc, summary, shopConfig] = await Promise.all([
+      getCustomerPlanSummaryForSession({
+        id: user.id,
+        customerId: user.customerId ?? null,
+        email: user.email ?? null,
+        storeId: user.storeId ?? storeId,
       }),
       prisma.booking.findFirst({
         where: {
+          // 走 canonical customerId 的 query 在 listBookings/getBookingDetail 已修；
+          // 此處 home hero 顯示用，仍用 session.customerId（display-only，無 ownership 風險）
           customerId: user.customerId,
-          bookingStatus: { in: ["CONFIRMED", "PENDING"] },
+          bookingStatus: { in: [...BOOKING_UPCOMING] },
           bookingDate: { gte: new Date() },
         },
         select: { bookingDate: true, slotTime: true },
@@ -97,15 +95,8 @@ export default async function CustomerHomePage() {
       getMyReferralSummary(user.customerId, { activeStoreId: storeId }),
       getShopConfig(storeId),
     ]);
-    remaining = wallets.reduce((sum, w) => {
-      const used = w.bookings
-        .filter((b) => b.bookingStatus === "COMPLETED" || b.bookingStatus === "NO_SHOW")
-        .reduce((s, b) => s + b.people, 0);
-      const preDeducted = w.bookings
-        .filter((b) => b.bookingStatus === "CONFIRMED" || b.bookingStatus === "PENDING")
-        .reduce((s, b) => s + b.people, 0);
-      return sum + (w.totalSessions - used - preDeducted);
-    }, 0);
+    // 唯一定義：剩餘可預約 = availableSessions（contract 已套 max(0,...)）
+    remaining = planSummary?.availableSessions ?? 0;
     nextBooking = upcoming;
     makeupCount = credits;
     healthCard = hc;

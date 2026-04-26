@@ -1,9 +1,8 @@
 import { getCurrentUser } from "@/lib/session";
-import { prisma } from "@/lib/db";
 import { getStoreContext } from "@/lib/store-context";
 import { listBookings } from "@/server/queries/booking";
 import { getHealthCardData } from "@/server/queries/health-card";
-import { resolveCustomerForUser } from "@/server/queries/customer-completion";
+import { getCustomerPlanSummaryForSession } from "@/lib/customer-plan-contract";
 import { getFrontendPlans } from "@/server/queries/plan";
 import { getShopConfig } from "@/lib/shop-config";
 import { redirect } from "next/navigation";
@@ -45,29 +44,25 @@ export default async function MyBookingsPage({ searchParams }: PageProps) {
   const storeCtx = await getStoreContext();
   const prefix = `/s/${storeCtx?.storeSlug ?? "zhubei"}`;
 
-  // 與 /my-plans 同一份 resolver，避免 session.customerId stale 時方案卡片顯示 0
-  const resolved = await resolveCustomerForUser({
-    userId: user.id,
-    sessionCustomerId: user.customerId ?? null,
-    sessionEmail: user.email ?? null,
+  // 走 customer-plan-contract（自帶 canonical resolver）— 唯一真相來源
+  const planSummary = await getCustomerPlanSummaryForSession({
+    id: user.id,
+    customerId: user.customerId ?? null,
+    email: user.email ?? null,
     storeId: user.storeId ?? storeCtx?.storeId ?? null,
-    storeSlug: storeCtx?.storeSlug ?? null,
   });
-  const customerId = resolved.customer?.id ?? null;
-  if (!customerId) redirect("/");
+  if (!planSummary) redirect("/");
+  const customerId = planSummary.customerId;
 
-  // 並行取預約 + 健康卡片 + 方案錢包（供頂部方案摘要顯示）
-  const [{ bookings }, healthCard, planSummary] = await Promise.all([
+  // 並行取預約 + 健康卡片
+  const [{ bookings }, healthCard] = await Promise.all([
     listBookings({ pageSize: 50 }),
     getHealthCardData(customerId),
-    prisma.customerPlanWallet.findMany({
-      where: { customerId, status: "ACTIVE" },
-      select: { remainingSessions: true },
-    }),
   ]);
 
-  const totalRemaining = planSummary.reduce((s, w) => s + w.remainingSessions, 0);
-  const hasSessions = totalRemaining > 0;
+  // 唯一定義：頂部「目前可預約」= availableSessions（與 my-plans 同源）
+  const availableForBooking = planSummary.availableSessions;
+  const hasSessions = availableForBooking > 0 || planSummary.totalRemainingSessions > 0;
 
   // 購買方案 tab — 只在切到此 tab 才查詢方案 / 店家匯款資訊
   const isPlansTab = tab === "plans";
@@ -136,7 +131,7 @@ export default async function MyBookingsPage({ searchParams }: PageProps) {
               <>
                 <p className="text-sm font-medium text-earth-700">目前可預約</p>
                 <p className="mt-1">
-                  <span className="text-3xl font-bold text-primary-700">{totalRemaining}</span>
+                  <span className="text-3xl font-bold text-primary-700">{availableForBooking}</span>
                   <span className="ml-1 text-base font-medium text-earth-700">堂</span>
                 </p>
               </>
