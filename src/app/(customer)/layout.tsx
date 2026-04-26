@@ -244,7 +244,7 @@ export default async function CustomerLayout({
         </aside>
 
         {/* Main content */}
-        <main className="flex-1 px-4 py-6 lg:px-8 lg:py-8">
+        <main className="flex-1 px-4 pt-4 pb-24 lg:px-8 lg:py-8">
           <div className="mx-auto max-w-2xl">{children}</div>
         </main>
       </div>

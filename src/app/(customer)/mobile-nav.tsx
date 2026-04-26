@@ -87,24 +87,24 @@ export function MobileNav({ userName, pathname, customerId, storeSlug = "zhubei"
 
   return (
     <>
-      {/* Header bar */}
-      <header className="sticky top-0 z-40 border-b border-earth-200 bg-white px-4 py-3 lg:hidden">
+      {/* Header bar — 56px 高度 */}
+      <header className="sticky top-0 z-40 border-b border-earth-200 bg-white px-4 py-1.5 lg:hidden">
         <div className="flex items-center justify-between">
           <button
             onClick={() => setOpen(true)}
             className="flex h-11 w-11 items-center justify-center rounded-lg text-earth-700 hover:bg-earth-100"
             aria-label="開啟選單"
           >
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
               <line x1="3" y1="6" x2="21" y2="6" />
               <line x1="3" y1="12" x2="21" y2="12" />
               <line x1="3" y1="18" x2="21" y2="18" />
             </svg>
           </button>
-          <Link href={`${prefix}/book`} className="text-lg font-bold text-earth-900">
+          <Link href={`${prefix}/book`} className="text-base font-bold text-earth-900">
             蒸足健康站
           </Link>
-          <span className="text-sm text-earth-700 max-w-[96px] truncate">{userName}</span>
+          <span className="text-[13px] text-earth-700 max-w-[88px] truncate">{userName}</span>
         </div>
       </header>
 
