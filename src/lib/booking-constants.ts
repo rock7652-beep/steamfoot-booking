@@ -8,9 +8,22 @@
 import { getNowTaipeiHHmm, toLocalDateStr } from "@/lib/date-utils";
 
 // ============================================================
-// 1. 預約狀態定義
+// 1. 預約狀態定義（單一真相來源）
 //    簡化為 4 狀態：PENDING / COMPLETED / NO_SHOW / CANCELLED
 //    舊的 CONFIRMED 在 DB 中可能仍存在，統一視為 PENDING
+//
+// 語意分組（Booking Status Contract）：
+//
+//   BOOKING_UPCOMING — 顧客「即將到來」/ 後台「今日預約」可見
+//     ↓（出席或店長處理後）
+//   BOOKING_TERMINAL — 已結束（出席 / 未到 / 取消），歷史記錄
+//
+//   BOOKING_VISIBLE_TO_CUSTOMER = UPCOMING ∪ TERMINAL（排除 CANCELLED 之外的）
+//   BOOKING_HISTORY            = TERMINAL
+//
+// ⚠️ 守則：所有 query / page 的 status 篩選必須引用這些常數，禁止直接寫字串陣列。
+//   理由：寫入端與讀取端使用同一份集合，避免「建立成 PENDING 但查詢只看 CONFIRMED」
+//   這類 drift bug。
 // ============================================================
 
 /** 代表「有效預約」的狀態集合（排除 CANCELLED） */
@@ -18,6 +31,26 @@ export const ACTIVE_BOOKING_STATUSES = ["PENDING", "CONFIRMED", "COMPLETED", "NO
 
 /** 代表「待到店」的狀態（PENDING + 舊的 CONFIRMED 都算） */
 export const PENDING_STATUSES = ["PENDING", "CONFIRMED"] as const;
+
+/**
+ * **BOOKING_UPCOMING** — 顧客 upcoming tab、後台今日/月曆 cell 可見的預約。
+ *
+ * 與 PENDING_STATUSES 同集合；提供語意化命名，呼叫端優先使用此別名以表達意圖。
+ */
+export const BOOKING_UPCOMING = PENDING_STATUSES;
+
+/**
+ * **BOOKING_HISTORY** — 已結束狀態，歷史紀錄 / 報表 / 點數結算根據。
+ *
+ * 包含 COMPLETED、NO_SHOW、CANCELLED。
+ */
+export const BOOKING_HISTORY = ["COMPLETED", "NO_SHOW", "CANCELLED"] as const;
+
+/**
+ * **BOOKING_VISIBLE_TO_CUSTOMER** — 顧客「我的預約」全頁面（含 upcoming + history）。
+ * 排除 CANCELLED 不顯示，但保留 NO_SHOW（顧客需要看到）。
+ */
+export const BOOKING_VISIBLE_TO_CUSTOMER = ["PENDING", "CONFIRMED", "COMPLETED", "NO_SHOW"] as const;
 
 /** 顯示用狀態標籤 */
 export const STATUS_LABEL: Record<string, string> = {

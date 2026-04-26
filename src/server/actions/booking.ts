@@ -112,27 +112,22 @@ export async function createBooking(
     // ── 0.7 解析 canonical customerId（顧客自助流程不信任 client 傳入）
     //
     // 顧客自助場景：session.customerId 可能 stale（顧客資料 merge / placeholder /
-    // 跨環境 JWT），用 resolveCustomerForUser 取得當前 user 對應的真實 Customer。
+    // 跨環境 JWT），透過 customer-identity contract 取得當前 user 對應的真實 Customer。
     // 客戶端傳什麼 customerId 都不影響 — server 強制覆寫成 session 對應的那筆。
     //
     // 員工/管理員代約：input.customerId 才是要操作的 target，照舊使用。
     let effectiveCustomerId = data.customerId;
     if (user.role === "CUSTOMER") {
-      const { resolveCustomerForUser } = await import("@/server/queries/customer-completion");
-      const resolved = await resolveCustomerForUser({
-        userId: user.id,
-        sessionCustomerId: user.customerId ?? null,
-        sessionEmail: user.email ?? null,
-        storeId: user.storeId ?? null,
-      });
-      if (!resolved.customer) {
+      const { getCanonicalCustomerIdForSession } = await import("@/lib/customer-identity");
+      const canonicalId = await getCanonicalCustomerIdForSession(user);
+      if (!canonicalId) {
         throw new AppError(
           "UNAUTHORIZED",
           "找不到您的顧客資料，請重新登入後再試",
         );
       }
       // ⚠ 強制覆寫 — 不信任 client 傳入的 customerId
-      effectiveCustomerId = resolved.customer.id;
+      effectiveCustomerId = canonicalId;
     }
 
     // ── 1. 取顧客（含 ACTIVE wallets）— 使用 canonical customerId
@@ -531,14 +526,8 @@ export async function cancelBooking(
     // 顧客只能取消自己的 + 12hr 限制
     if (user.role === "CUSTOMER") {
       // 走 canonical resolver — session.customerId 可能 stale
-      const { resolveCustomerForUser } = await import("@/server/queries/customer-completion");
-      const resolved = await resolveCustomerForUser({
-        userId: user.id,
-        sessionCustomerId: user.customerId ?? null,
-        sessionEmail: user.email ?? null,
-        storeId: user.storeId ?? null,
-      });
-      const canonicalId = resolved.customer?.id ?? null;
+      const { getCanonicalCustomerIdForSession } = await import("@/lib/customer-identity");
+      const canonicalId = await getCanonicalCustomerIdForSession(user);
       if (!canonicalId || booking.customerId !== canonicalId)
         throw new AppError("FORBIDDEN", "只能取消自己的預約");
 
