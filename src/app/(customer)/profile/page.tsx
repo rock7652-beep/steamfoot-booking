@@ -2,7 +2,6 @@ import { getCurrentUser } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import Link from "next/link";
 import { ProfileForm } from "./profile-form";
-import { ChangePasswordForm } from "./change-password-form";
 import { missingRequiredFields } from "@/lib/customer-completion";
 import { getStoreContext } from "@/lib/store-context";
 import { resolveCustomerForUser } from "@/server/queries/customer-completion";
@@ -190,46 +189,6 @@ export default async function ProfilePage({ searchParams }: PageProps) {
           />
         </div>
 
-        {/* 修改密碼 */}
-        <div className="rounded-2xl border border-earth-200 bg-white p-6 shadow-sm">
-          <h2 className="mb-5 text-lg font-bold text-earth-900">修改密碼</h2>
-          <ChangePasswordForm />
-        </div>
-
-        {/* 帳號安全提醒 */}
-        <div className="rounded-2xl border border-earth-200 bg-white p-6 shadow-sm">
-          <h2 className="mb-5 flex items-center gap-2 text-lg font-bold text-earth-900">
-            <svg
-              width="22"
-              height="22"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="text-primary-600"
-            >
-              <path d="M12 2l8 4v6c0 5-3.5 9-8 10-4.5-1-8-5-8-10V6l8-4z" />
-              <path d="M9 12l2 2 4-4" />
-            </svg>
-            帳號安全提醒
-          </h2>
-          <ul className="space-y-3 text-base leading-relaxed text-earth-800">
-            <li className="flex items-start gap-2">
-              <span className="mt-2.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-primary-600" />
-              <span>建議定期更換密碼，並使用不易被猜到的組合。</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="mt-2.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-primary-600" />
-              <span>請勿將帳號密碼分享給他人，包含店家工作人員。</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="mt-2.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-primary-600" />
-              <span>若發現異常登入，請立即更換密碼並聯繫店家。</span>
-            </li>
-          </ul>
-        </div>
       </div>
     </div>
   );

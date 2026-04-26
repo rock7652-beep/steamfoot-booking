@@ -982,66 +982,10 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
 }
 
 // ============================================================
-// 修改密碼
+// 後台修改密碼（ADMIN / OWNER / STAFF）
 // ============================================================
 
 export type ChangePasswordState = { error: string | null; success: boolean };
-
-export async function changePasswordAction(
-  _prev: ChangePasswordState,
-  formData: FormData
-): Promise<ChangePasswordState> {
-  const user = await requireSession();
-  if (user.role !== "CUSTOMER") {
-    return { error: "權限不足", success: false };
-  }
-
-  const currentPassword = formData.get("currentPassword") as string;
-  const newPassword = formData.get("newPassword") as string;
-  const confirmPassword = formData.get("confirmPassword") as string;
-
-  if (!currentPassword) return { error: "請輸入目前密碼", success: false };
-  if (!newPassword) return { error: "請輸入新密碼", success: false };
-
-  if (!/^\d{4,}$/.test(newPassword)) {
-    return { error: "新密碼需為純數字，至少 4 碼", success: false };
-  }
-
-  if (newPassword !== confirmPassword) {
-    return { error: "兩次密碼不一致", success: false };
-  }
-
-  try {
-    const dbUser = await prisma.user.findUnique({
-      where: { id: user.id },
-      select: { passwordHash: true },
-    });
-
-    if (!dbUser?.passwordHash) {
-      return { error: "帳號異常，請聯繫客服", success: false };
-    }
-
-    const valid = compareSync(currentPassword, dbUser.passwordHash);
-    if (!valid) {
-      return { error: "目前密碼不正確", success: false };
-    }
-
-    const newHash = hashSync(newPassword, 10);
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { passwordHash: newHash },
-    });
-
-    return { error: null, success: true };
-  } catch (error) {
-    console.error("[changePasswordAction] Error:", error);
-    return { error: "修改失敗，請稍後再試", success: false };
-  }
-}
-
-// ============================================================
-// 後台修改密碼（ADMIN / OWNER / STAFF）
-// ============================================================
 
 export async function staffChangePasswordAction(
   _prev: ChangePasswordState,
