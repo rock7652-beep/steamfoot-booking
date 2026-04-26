@@ -6,7 +6,7 @@ import Link from "next/link";
 import { SubmitButton } from "@/components/submit-button";
 import { getStoreContext } from "@/lib/store-context";
 import { FormErrorToast } from "@/components/form-error-toast";
-import { resolveCustomerForUser } from "@/server/queries/customer-completion";
+import { getCanonicalCustomerIdForSession } from "@/lib/customer-identity";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -31,15 +31,13 @@ export default async function CancelBookingPage({ params }: PageProps) {
     redirect(`${prefix}/`);
   }
 
-  // 走 canonical resolver — session.customerId 可能 stale
-  const resolved = await resolveCustomerForUser({
-    userId: user.id,
-    sessionCustomerId: user.customerId ?? null,
-    sessionEmail: user.email ?? null,
+  // 走 customer-identity contract — session.customerId 可能 stale
+  const canonicalCustomerId = await getCanonicalCustomerIdForSession({
+    id: user.id,
+    customerId: user.customerId ?? null,
+    email: user.email ?? null,
     storeId: user.storeId ?? ctx?.storeId ?? null,
-    storeSlug: ctx?.storeSlug ?? null,
   });
-  const canonicalCustomerId = resolved.customer?.id ?? null;
   if (!canonicalCustomerId) {
     redirect(`${prefix}/`);
   }

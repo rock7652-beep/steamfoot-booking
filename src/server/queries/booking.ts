@@ -2,29 +2,9 @@ import { prisma } from "@/lib/db";
 import { requireSession, requireStaffSession } from "@/lib/session";
 import { AppError } from "@/lib/errors";
 import { getManagerCustomerFilter, getStoreFilter } from "@/lib/manager-visibility";
-import { resolveCustomerForUser } from "@/server/queries/customer-completion";
+import { getCanonicalCustomerIdForSession } from "@/lib/customer-identity";
+import { ACTIVE_BOOKING_STATUSES } from "@/lib/booking-constants";
 import type { BookingStatus, Prisma } from "@prisma/client";
-
-/**
- * 顧客自助流程查詢時 canonical customerId 來源。
- *
- * session.user.customerId 可能 stale（顧客 merge / placeholder 重綁 / 跨環境 JWT），
- * 直接拿來 query 會「資料寫入正常但前台讀不到」。所有 customer-facing 讀取
- * 統一走 resolveCustomerForUser，與 createBooking 寫入用的同一個 resolver 對齊。
- *
- * 回傳 null 代表 session 無法對應到任何 customer — caller 應回傳空結果而非錯誤。
- */
-async function resolveCanonicalCustomerIdForSession(
-  user: { id: string; customerId?: string | null; email?: string | null; storeId?: string | null },
-): Promise<string | null> {
-  const resolved = await resolveCustomerForUser({
-    userId: user.id,
-    sessionCustomerId: user.customerId ?? null,
-    sessionEmail: user.email ?? null,
-    storeId: user.storeId ?? null,
-  });
-  return resolved.customer?.id ?? null;
-}
 
 export interface ListBookingsOptions {
   dateFrom?: string; // "YYYY-MM-DD"
@@ -50,7 +30,7 @@ export async function listBookings(options: ListBookingsOptions & { activeStoreI
   let whereCustomer: Record<string, unknown> = {};
   if (user.role === "CUSTOMER") {
     // 走 canonical resolver — session.customerId 可能 stale（與 createBooking 寫入路徑同源）
-    const canonicalId = await resolveCanonicalCustomerIdForSession(user);
+    const canonicalId = await getCanonicalCustomerIdForSession(user);
     if (!canonicalId) return { bookings: [], total: 0, page, pageSize };
     whereCustomer = { id: canonicalId };
   } else if (user.role !== "ADMIN" && user.staffId) {
@@ -135,7 +115,7 @@ export async function getBookingDetail(bookingId: string) {
   // 「顧客屬於店」：所有 Manager 可查看任何預約詳情
   if (user.role === "CUSTOMER") {
     // 走 canonical resolver — session.customerId 可能 stale
-    const canonicalId = await resolveCanonicalCustomerIdForSession(user);
+    const canonicalId = await getCanonicalCustomerIdForSession(user);
     if (!canonicalId || booking.customerId !== canonicalId) {
       throw new AppError("FORBIDDEN", "只能查看自己的預約");
     }
@@ -158,7 +138,7 @@ export async function getDayBookings(date: string, activeStoreId?: string | null
     where: {
       ...getStoreFilter(user, activeStoreId),
       bookingDate: dateObj,
-      bookingStatus: { in: ["PENDING", "CONFIRMED", "COMPLETED", "NO_SHOW"] },
+      bookingStatus: { in: [...ACTIVE_BOOKING_STATUSES] },
     },
     include: {
       customer: {
@@ -238,7 +218,7 @@ export async function getMonthBookingSummary(year: number, month: number, active
   const monthWhere: Prisma.BookingWhereInput = {
     ...getStoreFilter(user, activeStoreId),
     bookingDate: { gte: startDate, lte: endDate },
-    bookingStatus: { in: ["PENDING", "CONFIRMED", "COMPLETED", "NO_SHOW"] },
+    bookingStatus: { in: [...ACTIVE_BOOKING_STATUSES] },
   };
   const [dailyCounts, staffCounts, monthBookings] = await Promise.all([
     prisma.booking.groupBy({
