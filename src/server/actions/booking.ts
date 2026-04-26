@@ -109,9 +109,35 @@ export async function createBooking(
       };
     }
 
-    // ── 1. 取顧客（含 ACTIVE wallets）
+    // ── 0.7 解析 canonical customerId（顧客自助流程不信任 client 傳入）
+    //
+    // 顧客自助場景：session.customerId 可能 stale（顧客資料 merge / placeholder /
+    // 跨環境 JWT），用 resolveCustomerForUser 取得當前 user 對應的真實 Customer。
+    // 客戶端傳什麼 customerId 都不影響 — server 強制覆寫成 session 對應的那筆。
+    //
+    // 員工/管理員代約：input.customerId 才是要操作的 target，照舊使用。
+    let effectiveCustomerId = data.customerId;
+    if (user.role === "CUSTOMER") {
+      const { resolveCustomerForUser } = await import("@/server/queries/customer-completion");
+      const resolved = await resolveCustomerForUser({
+        userId: user.id,
+        sessionCustomerId: user.customerId ?? null,
+        sessionEmail: user.email ?? null,
+        storeId: user.storeId ?? null,
+      });
+      if (!resolved.customer) {
+        throw new AppError(
+          "UNAUTHORIZED",
+          "找不到您的顧客資料，請重新登入後再試",
+        );
+      }
+      // ⚠ 強制覆寫 — 不信任 client 傳入的 customerId
+      effectiveCustomerId = resolved.customer.id;
+    }
+
+    // ── 1. 取顧客（含 ACTIVE wallets）— 使用 canonical customerId
     const customer = await prisma.customer.findUnique({
-      where: { id: data.customerId },
+      where: { id: effectiveCustomerId },
       include: {
         planWallets: { where: { status: "ACTIVE" } },
       },
@@ -120,10 +146,7 @@ export async function createBooking(
 
     // ── 2. 權限檢查
     if (user.role === "CUSTOMER") {
-      // 顧客自助預約：驗證 customerId 歸屬（不做跨店檢查，因為顧客只能為自己預約）
-      if (!user.customerId || user.customerId !== data.customerId) {
-        throw new AppError("FORBIDDEN", "顧客只能為自己建立預約");
-      }
+      // CUSTOMER：身份已由 resolveCustomerForUser 驗過 — 這裡只剩 selfBookingEnabled 業務開關
       if (!customer.selfBookingEnabled) {
         throw new AppError("BUSINESS_RULE", "尚未開放自助預約，請聯繫店長協助安排");
       }
@@ -142,7 +165,7 @@ export async function createBooking(
         where: { id: data.makeupCreditId },
       });
       if (!credit) throw new AppError("NOT_FOUND", "補課資格不存在");
-      if (credit.customerId !== data.customerId)
+      if (credit.customerId !== effectiveCustomerId)
         throw new AppError("FORBIDDEN", "此補課資格不屬於該顧客");
       if (credit.isUsed)
         throw new AppError("BUSINESS_RULE", "此補課資格已使用");
@@ -152,6 +175,19 @@ export async function createBooking(
     }
 
     // ── 4. 一般預約：需有有效課程 + 票券期限 + 人數檢查
+    // 不信任 client 傳入的 customerPlanWalletId — 必須屬於 effectiveCustomerId
+    // （customer.planWallets 已用 effectiveCustomerId 撈，所以同表比對即可）
+    if (!isMakeup && data.customerPlanWalletId) {
+      const walletBelongs = customer.planWallets.some(
+        (w) => w.id === data.customerPlanWalletId,
+      );
+      if (!walletBelongs) {
+        throw new AppError(
+          "FORBIDDEN",
+          "指定的方案不屬於該顧客",
+        );
+      }
+    }
     if (!isMakeup && user.role === "CUSTOMER") {
       const hasValidWallet = customer.planWallets.some(
         (w) => w.remainingSessions > 0
@@ -226,7 +262,7 @@ export async function createBooking(
     if (!isMakeup && user.role === "CUSTOMER") {
       const pendingCount = await prisma.booking.count({
         where: {
-          customerId: data.customerId,
+          customerId: effectiveCustomerId,
           bookingStatus: { in: [...PENDING_STATUSES] },
           isMakeup: false,
         },
@@ -324,7 +360,7 @@ export async function createBooking(
 
       const created = await tx.booking.create({
         data: {
-          customerId: data.customerId,
+          customerId: effectiveCustomerId,
           bookingDate: bookingDateObj,
           slotTime: data.slotTime,
           revenueStaffId: customer.assignedStaffId ?? null,
@@ -365,7 +401,7 @@ export async function createBooking(
       // 埋點失敗不影響主流程
     }
 
-    revalidateAll(data.customerId);
+    revalidateAll(effectiveCustomerId);
     return { success: true, data: { bookingId: booking.id } };
   } catch (e) {
     return handleActionError(e);
