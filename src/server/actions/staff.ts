@@ -206,12 +206,6 @@ export async function resetStaffPasswordAction(
   try {
     const sessionUser = await requireStaffManageSession();
     const data = resetStaffPasswordSchema.parse(input);
-
-    // 禁止自己重設自己（走個人設定頁）
-    if (data.userId === sessionUser.id) {
-      throw new AppError("FORBIDDEN", "請由個人設定頁修改自己的密碼");
-    }
-
     const writeStoreId = await resolveWriteStoreId(sessionUser);
 
     // 透過 staff 表驗證目標使用者屬於當前寫入 store
@@ -220,19 +214,19 @@ export async function resetStaffPasswordAction(
       include: { user: { select: { id: true, role: true } } },
     });
     if (!targetStaff) throw new AppError("NOT_FOUND", "員工不存在");
-    if (targetStaff.isOwner) {
-      throw new AppError("FORBIDDEN", "無法重設系統管理者帳號");
+
+    // 店家管理員 = User.role=ADMIN 或 Staff.isOwner=true
+    let isStoreAdmin = sessionUser.role === "ADMIN";
+    if (!isStoreAdmin && sessionUser.staffId) {
+      const me = await prisma.staff.findUnique({
+        where: { id: sessionUser.staffId },
+        select: { isOwner: true },
+      });
+      isStoreAdmin = !!me?.isOwner;
     }
 
-    const targetRole = targetStaff.user.role;
-
-    // ADMIN 身份目標一律拒絕（系統管理者不應透過此流程）
-    if (targetRole === "ADMIN") {
-      throw new AppError("FORBIDDEN", "無法重設系統管理者帳號");
-    }
-
-    // OWNER 僅能重設 PARTNER；不得重設其他 OWNER
-    if (sessionUser.role === "OWNER" && targetRole !== "PARTNER") {
+    // 非店家管理員（OWNER + 非 isOwner）只能重設 PARTNER
+    if (!isStoreAdmin && targetStaff.user.role !== "PARTNER") {
       throw new AppError("FORBIDDEN", "店長僅可重設合作店長 / 員工帳號的密碼");
     }
 

@@ -1,6 +1,7 @@
 import { listStaff } from "@/server/queries/staff";
 import { createStaff } from "@/server/actions/staff";
 import { getCurrentUser } from "@/lib/session";
+import { prisma } from "@/lib/db";
 import { checkPermission, ROLE_LABELS } from "@/lib/permissions";
 import { getCurrentStorePlan } from "@/lib/store-plan";
 import { FEATURES } from "@/lib/feature-flags";
@@ -43,6 +44,17 @@ export default async function StaffPage() {
     user.role === "ADMIN" && (!adminActiveStoreCookie || adminActiveStoreCookie === "__all__");
   const canManageStaff =
     user.role === "OWNER" || (user.role === "ADMIN" && !adminMissingStore);
+
+  // 店家管理員 = User.role=ADMIN 或 自己 staff.isOwner=true
+  let currentUserIsStoreAdmin = user.role === "ADMIN";
+  if (!currentUserIsStoreAdmin && user.staffId) {
+    const me = await prisma.staff.findUnique({
+      where: { id: user.staffId },
+      select: { isOwner: true },
+    });
+    currentUserIsStoreAdmin = !!me?.isOwner;
+  }
+
   const [staffList, plan] = await Promise.all([listStaff(activeStoreId), getCurrentStorePlan()]);
 
   async function handleCreateStaff(formData: FormData) {
@@ -288,23 +300,29 @@ export default async function StaffPage() {
                       </td>
                       <td className="px-4 py-3 text-earth-600">{staff._count.assignedCustomers}</td>
                       <td className="px-4 py-3">
-                        {canManageStaff && !staff.isOwner && (
+                        {canManageStaff && (
                           <div className="flex items-center gap-2">
-                            <Link
-                              href={`/dashboard/staff/${staff.id}/edit`}
-                              className="text-sm text-primary-600 hover:underline"
-                            >
-                              編輯
-                            </Link>
-                            <StaffStatusToggle staffId={staff.id} currentStatus={staff.status} />
-                            {staff.user.id !== user.id &&
-                              staff.user.role !== "ADMIN" &&
-                              !(user.role === "OWNER" && staff.user.role === "OWNER") && (
-                                <ResetPasswordButton
-                                  userId={staff.user.id}
-                                  displayName={staff.displayName}
+                            {!staff.isOwner && (
+                              <>
+                                <Link
+                                  href={`/dashboard/staff/${staff.id}/edit`}
+                                  className="text-sm text-primary-600 hover:underline"
+                                >
+                                  編輯
+                                </Link>
+                                <StaffStatusToggle
+                                  staffId={staff.id}
+                                  currentStatus={staff.status}
                                 />
-                              )}
+                              </>
+                            )}
+                            {(currentUserIsStoreAdmin ||
+                              staff.user.role === "PARTNER") && (
+                              <ResetPasswordButton
+                                userId={staff.user.id}
+                                displayName={staff.displayName}
+                              />
+                            )}
                           </div>
                         )}
                       </td>
