@@ -381,6 +381,8 @@ export async function voidWalletSession(
     });
 
     revalidatePath(`/dashboard/customers/${session.wallet.customerId}`);
+    revalidatePath("/my-plans");
+    revalidatePath("/book");
     return { success: true, data: result };
   } catch (e) {
     if (e instanceof WalletSessionError) {
