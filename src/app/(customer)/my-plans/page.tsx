@@ -10,6 +10,10 @@ import {
   PENDING_STATUSES,
 } from "@/lib/booking-constants";
 import { NoPlanEmptyState } from "@/components/no-plan-empty-state";
+import {
+  WalletSessionDetail,
+  type SessionRow,
+} from "@/components/wallet-session-detail";
 
 export default async function MyPlansPage() {
   const user = await getCurrentUser();
@@ -53,6 +57,12 @@ export default async function MyPlansPage() {
               noShowPolicy: true,
             },
             orderBy: { bookingDate: "asc" },
+          },
+          sessions: {
+            orderBy: { sessionNo: "asc" },
+            include: {
+              booking: { select: { bookingDate: true, slotTime: true } },
+            },
           },
         },
         orderBy: { createdAt: "desc" },
@@ -198,6 +208,7 @@ function WalletCard({
       people: number;
       noShowPolicy: string | null;
     }[];
+    sessions: SessionRow[];
   };
   isActive: boolean;
 }) {
@@ -309,6 +320,18 @@ function WalletCard({
           {WALLET_STATUS_LABEL[wallet.status] ?? wallet.status}
         </span>
       </div>
+
+      {wallet.sessions.length > 0 && (
+        <details className="mt-3 group">
+          <summary className="cursor-pointer text-sm font-semibold text-earth-700 hover:text-earth-900">
+            <span className="group-open:hidden">查看堂數明細 ▾</span>
+            <span className="hidden group-open:inline">收合堂數明細 ▴</span>
+          </summary>
+          <div className="mt-2">
+            <WalletSessionDetail sessions={wallet.sessions} />
+          </div>
+        </details>
+      )}
     </div>
   );
 }

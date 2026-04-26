@@ -14,6 +14,11 @@ import { AssignPlanForm } from "./assign-plan-form";
 import { TransferCustomerForm } from "./transfer-customer-form";
 import { CreateBookingForm } from "./create-booking-form";
 import { AdjustWalletForm } from "./adjust-wallet-form";
+import { VoidSessionButton } from "./void-session-button";
+import {
+  WalletSessionDetail,
+  type SessionRow,
+} from "@/components/wallet-session-detail";
 import { LineBindingSection } from "./line-binding-section";
 import { HealthSectionWrapper } from "./health-section";
 import { HealthSummarySection } from "./health-summary";
@@ -777,9 +782,14 @@ function WalletItem({
     purchasedPrice: unknown;
     startDate: Date;
     expiryDate: Date | null;
+    sessions: SessionRow[];
   };
   userRole: string;
 }) {
+  // PR-2 wallet-session-ui：所有非 CUSTOMER 角色都可見註銷按鈕；
+  // wallet.adjust 權限由 server action 把關，UI 只負責顯示。
+  const canVoid = userRole !== "CUSTOMER";
+
   return (
     <div className="rounded-lg border border-earth-200 p-3">
       <div className="flex items-start justify-between">
@@ -809,6 +819,35 @@ function WalletItem({
         <div className="mt-2 border-t pt-2">
           <AdjustWalletForm walletId={w.id} currentRemaining={w.remainingSessions} />
         </div>
+      )}
+
+      {w.sessions.length > 0 && (
+        <details className="mt-3 group">
+          <summary className="cursor-pointer text-xs font-semibold text-earth-700 hover:text-earth-900">
+            <span className="group-open:hidden">堂數明細 ▾</span>
+            <span className="hidden group-open:inline">收合 ▴</span>
+          </summary>
+          <div className="mt-2">
+            <WalletSessionDetail
+              sessions={w.sessions}
+              adminVoid={
+                canVoid
+                  ? {
+                      walletId: w.id,
+                      walletPlanName: w.plan.name,
+                      renderButton: (s) => (
+                        <VoidSessionButton
+                          sessionId={s.id}
+                          sessionNo={s.sessionNo}
+                          walletPlanName={w.plan.name}
+                        />
+                      ),
+                    }
+                  : undefined
+              }
+            />
+          </div>
+        </details>
       )}
     </div>
   );

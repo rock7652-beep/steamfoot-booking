@@ -222,6 +222,14 @@ export async function getCustomerDetail(customerId: string) {
           plan: {
             select: { id: true, name: true, category: true, sessionCount: true, price: true },
           },
+          // PR-2 wallet-session-ui：每張錢包的單堂明細
+          sessions: {
+            orderBy: { sessionNo: "asc" },
+            include: {
+              booking: { select: { bookingDate: true, slotTime: true } },
+              voidedByStaff: { select: { displayName: true } },
+            },
+          },
         },
         orderBy: { createdAt: "desc" },
       },
