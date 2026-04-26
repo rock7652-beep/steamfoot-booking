@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { formatTWTime } from "@/lib/date-utils";
 import { ConfirmPaymentButton } from "./confirm-button";
+import { VoidPaymentButton } from "./void-button";
 
 const PAYMENT_METHOD_LABEL: Record<string, string> = {
   TRANSFER: "匯款",
@@ -38,39 +39,41 @@ function ActionCell({
   status,
   customerId,
   confirmProps,
+  voidProps,
 }: {
   status: PendingRowStatus;
   customerId: string | null;
   confirmProps: React.ComponentProps<typeof ConfirmPaymentButton>;
+  voidProps: React.ComponentProps<typeof VoidPaymentButton>;
 }) {
-  if (status === "complete") {
-    return <ConfirmPaymentButton {...confirmProps} />;
-  }
-  if (status === "review") {
-    return customerId ? (
-      <Link
-        href={`/dashboard/customers/${customerId}`}
-        className="inline-block rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-50"
-      >
-        查看資料
-      </Link>
-    ) : (
-      <span className="inline-block rounded-lg bg-earth-100 px-3 py-1.5 text-xs text-earth-400">
-        待核對
-      </span>
-    );
-  }
-  if (status === "unpaid") {
-    return (
-      <span className="inline-block cursor-not-allowed rounded-lg bg-earth-100 px-3 py-1.5 text-xs text-earth-400">
-        尚未付款
-      </span>
-    );
-  }
   return (
-    <span className="inline-block cursor-not-allowed rounded-lg bg-earth-100 px-3 py-1.5 text-xs text-earth-400">
-      不可處理
-    </span>
+    <div className="flex flex-wrap items-center justify-center gap-1.5">
+      {status === "complete" ? (
+        <ConfirmPaymentButton {...confirmProps} />
+      ) : status === "review" ? (
+        customerId ? (
+          <Link
+            href={`/dashboard/customers/${customerId}`}
+            className="inline-block rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-50"
+          >
+            查看資料
+          </Link>
+        ) : (
+          <span className="inline-block rounded-lg bg-earth-100 px-3 py-1.5 text-xs text-earth-400">
+            待核對
+          </span>
+        )
+      ) : status === "unpaid" ? (
+        <span className="inline-block cursor-not-allowed rounded-lg bg-earth-100 px-3 py-1.5 text-xs text-earth-400">
+          尚未付款
+        </span>
+      ) : (
+        <span className="inline-block cursor-not-allowed rounded-lg bg-earth-100 px-3 py-1.5 text-xs text-earth-400">
+          不可處理
+        </span>
+      )}
+      <VoidPaymentButton {...voidProps} />
+    </div>
   );
 }
 
@@ -227,6 +230,14 @@ export default async function PendingPaymentsPage() {
                             customerTransferLastFour: tx.transferLastFour,
                             customerNote: tx.customerNote,
                           }}
+                          voidProps={{
+                            transactionId: tx.id,
+                            customerName: tx.customer?.name ?? "—",
+                            planName,
+                            amount,
+                            paymentMethodLabel:
+                              PAYMENT_METHOD_LABEL[tx.paymentMethod] ?? tx.paymentMethod,
+                          }}
                         />
                       </td>
                     </tr>
@@ -314,6 +325,14 @@ export default async function PendingPaymentsPage() {
                       initialBankLast5: tx.bankLast5 ?? "",
                       customerTransferLastFour: tx.transferLastFour,
                       customerNote: tx.customerNote,
+                    }}
+                    voidProps={{
+                      transactionId: tx.id,
+                      customerName: tx.customer?.name ?? "—",
+                      planName,
+                      amount,
+                      paymentMethodLabel:
+                        PAYMENT_METHOD_LABEL[tx.paymentMethod] ?? tx.paymentMethod,
                     }}
                   />
                 </div>

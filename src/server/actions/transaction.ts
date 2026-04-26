@@ -59,6 +59,10 @@ const confirmPaymentSchema = z.object({
   bankLast5: z.string().max(10).optional(),
 });
 
+const voidPendingPaymentSchema = z.object({
+  reason: z.string().max(200).optional(),
+});
+
 // ============================================================
 // createTransaction — Owner only（手動補登交易）
 //
@@ -358,6 +362,86 @@ export async function confirmTransactionPayment(
         tx,
       });
     });
+
+    revalidateTransactions(original.customerId);
+    return { success: true, data: { transactionId: original.id } };
+  } catch (e) {
+    return handleActionError(e);
+  }
+}
+
+// ============================================================
+// voidPendingTransaction
+//
+// 作廢一筆「待確認付款」交易（測試資料、誤建單）。只允許：
+//   - paymentMethod ∈ {TRANSFER, UNPAID}
+//   - paymentStatus === PENDING
+//   - status ∉ {CANCELLED, REFUNDED}
+// 設為 status=CANCELLED, paymentStatus=CANCELLED；不會開通任何方案/堂數，
+// 也會從待確認清單消失（getPendingPaymentTransactions 已過濾 CANCELLED）。
+// ============================================================
+
+export async function voidPendingTransaction(
+  transactionId: string,
+  input?: z.infer<typeof voidPendingPaymentSchema>
+): Promise<ActionResult<{ transactionId: string }>> {
+  try {
+    const user = await requirePermission("transaction.create");
+    const data = input ? voidPendingPaymentSchema.parse(input) : {};
+
+    const original = await prisma.transaction.findUnique({
+      where: { id: transactionId },
+      select: {
+        id: true,
+        storeId: true,
+        customerId: true,
+        paymentStatus: true,
+        paymentMethod: true,
+        status: true,
+        note: true,
+      },
+    });
+    if (!original) throw new AppError("NOT_FOUND", "交易紀錄不存在");
+    assertStoreAccess(user, original.storeId);
+
+    if (original.paymentMethod !== "TRANSFER" && original.paymentMethod !== "UNPAID") {
+      throw new AppError(
+        "BUSINESS_RULE",
+        `付款方式為 ${original.paymentMethod}，不在待確認清單，無法作廢`
+      );
+    }
+    if (original.paymentStatus !== "PENDING") {
+      throw new AppError(
+        "BUSINESS_RULE",
+        `交易付款狀態為 ${original.paymentStatus}，無法作廢`
+      );
+    }
+    if (original.status === "CANCELLED" || original.status === "REFUNDED") {
+      throw new AppError(
+        "BUSINESS_RULE",
+        `交易狀態為 ${original.status}，無法作廢`
+      );
+    }
+
+    const voidNote = `[作廢 ${new Date().toISOString().slice(0, 10)}${data.reason ? ` ${data.reason}` : ""}]`;
+    const newNote = original.note ? `${original.note}\n${voidNote}` : voidNote;
+
+    const result = await prisma.transaction.updateMany({
+      where: {
+        id: transactionId,
+        paymentStatus: "PENDING",
+        status: { notIn: ["CANCELLED", "REFUNDED"] },
+      },
+      data: {
+        status: "CANCELLED",
+        paymentStatus: "CANCELLED",
+        note: newNote,
+      },
+    });
+
+    if (result.count === 0) {
+      throw new AppError("CONFLICT", "此交易狀態已變更，無法作廢");
+    }
 
     revalidateTransactions(original.customerId);
     return { success: true, data: { transactionId: original.id } };

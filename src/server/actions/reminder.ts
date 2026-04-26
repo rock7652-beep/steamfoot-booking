@@ -13,6 +13,7 @@ import { pushMessage, renderTemplate, type TemplateVariables } from "@/lib/line"
 import type { ActionResult } from "@/types";
 import { getShopConfig } from "@/lib/shop-config";
 import { deriveBaseUrl } from "@/lib/base-url";
+import { resolveWriteStoreId } from "@/lib/store";
 
 // ============================================================
 // Validators
@@ -61,13 +62,14 @@ export async function createReminderRule(
   input: z.input<typeof createRuleSchema>
 ): Promise<ActionResult<{ ruleId: string }>> {
   try {
-    const user = await requireAdminSession();
+    const user = await requireStaffSession();
     await checkCurrentStoreFeature(FEATURES.LINE_REMINDER);
     const data = createRuleSchema.parse(input);
+    const storeId = await resolveWriteStoreId(user);
 
     const rule = await prisma.reminderRule.create({
       data: {
-        storeId: user.storeId!,
+        storeId,
         name: data.name,
         triggerType: data.triggerType,
         type: data.type,
@@ -92,13 +94,14 @@ export async function updateReminderRule(
   input: z.input<typeof updateRuleSchema>
 ): Promise<ActionResult<void>> {
   try {
-    const user = await requireAdminSession();
+    const user = await requireStaffSession();
     await checkCurrentStoreFeature(FEATURES.LINE_REMINDER);
     const data = updateRuleSchema.parse(input);
+    const storeId = await resolveWriteStoreId(user);
 
     // Ownership check
     const existing = await prisma.reminderRule.findUnique({ where: { id: ruleId } });
-    if (!existing || existing.storeId !== user.storeId) {
+    if (!existing || existing.storeId !== storeId) {
       throw new AppError("NOT_FOUND", "提醒規則不存在");
     }
 
@@ -119,12 +122,13 @@ export async function toggleReminderRule(
   isEnabled: boolean
 ): Promise<ActionResult<void>> {
   try {
-    const user = await requireAdminSession();
+    const user = await requireStaffSession();
     await checkCurrentStoreFeature(FEATURES.LINE_REMINDER);
+    const storeId = await resolveWriteStoreId(user);
 
     // Ownership check
     const existing = await prisma.reminderRule.findUnique({ where: { id: ruleId } });
-    if (!existing || existing.storeId !== user.storeId) {
+    if (!existing || existing.storeId !== storeId) {
       throw new AppError("NOT_FOUND", "提醒規則不存在");
     }
 
@@ -148,21 +152,22 @@ export async function createMessageTemplate(
   input: z.input<typeof createTemplateSchema>
 ): Promise<ActionResult<{ templateId: string }>> {
   try {
-    const user = await requireAdminSession();
+    const user = await requireStaffSession();
     await checkCurrentStoreFeature(FEATURES.LINE_REMINDER);
     const data = createTemplateSchema.parse(input);
+    const storeId = await resolveWriteStoreId(user);
 
     // If setting as default, unset others (scoped to store)
     if (data.isDefault) {
       await prisma.messageTemplate.updateMany({
-        where: { channel: data.channel, isDefault: true, storeId: user.storeId! },
+        where: { channel: data.channel, isDefault: true, storeId },
         data: { isDefault: false },
       });
     }
 
     const template = await prisma.messageTemplate.create({
       data: {
-        storeId: user.storeId!,
+        storeId,
         name: data.name,
         channel: data.channel,
         body: data.body,
@@ -182,19 +187,20 @@ export async function updateMessageTemplate(
   input: z.input<typeof updateTemplateSchema>
 ): Promise<ActionResult<void>> {
   try {
-    const user = await requireAdminSession();
+    const user = await requireStaffSession();
     await checkCurrentStoreFeature(FEATURES.LINE_REMINDER);
     const data = updateTemplateSchema.parse(input);
+    const storeId = await resolveWriteStoreId(user);
 
     // Ownership check
     const existing = await prisma.messageTemplate.findUnique({ where: { id: templateId } });
-    if (!existing || existing.storeId !== user.storeId) {
+    if (!existing || existing.storeId !== storeId) {
       throw new AppError("NOT_FOUND", "訊息模板不存在");
     }
 
     if (data.isDefault) {
       await prisma.messageTemplate.updateMany({
-        where: { channel: existing.channel, isDefault: true, NOT: { id: templateId }, storeId: user.storeId! },
+        where: { channel: existing.channel, isDefault: true, NOT: { id: templateId }, storeId },
         data: { isDefault: false },
       });
     }
