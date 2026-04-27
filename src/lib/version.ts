@@ -4,8 +4,8 @@
  * 登入頁、Dashboard sidebar、更新橫幅、Changelog 頁面統一引用此檔
  */
 
-export const APP_VERSION = "2.7.0";
-export const APP_VERSION_DATE = "2026-04-16";
+export const APP_VERSION = "2.8.0";
+export const APP_VERSION_DATE = "2026-04-27";
 
 export type ChangelogTag = "新功能" | "修正" | "優化";
 export type AffectedRole = "全部" | "店長" | "員工" | "顧客";
@@ -26,6 +26,73 @@ export interface ChangelogEntry {
  * 更新橫幅顯示第一筆
  */
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: "2.8.0",
+    date: "2026-04-27",
+    highlights: "顧客自助預約 v2 修復、轉帳末四碼、員工密碼重置、錢包明細",
+    changes: [
+      {
+        tag: "新功能",
+        text: "員工密碼重置 — 店長可從員工管理頁重置任何員工（含其他店長）的登入密碼",
+        roles: ["店長"],
+      },
+      {
+        tag: "新功能",
+        text: "顧客方案購買改為銀行轉帳流程，付款時填寫末四碼供店家對帳",
+        roles: ["顧客"],
+      },
+      {
+        tag: "新功能",
+        text: "Dashboard 待付款通知 — 顧客提交轉帳資訊後，店長首頁立即看到待確認筆數",
+        roles: ["店長"],
+      },
+      {
+        tag: "新功能",
+        text: "錢包明細頁 — 每筆堂數/點數扣抵與儲值來源逐筆顯示，並支援手動沖銷單筆異動",
+        roles: ["店長"],
+      },
+      {
+        tag: "新功能",
+        text: "顧客抽屜內可直接指派／調整負責員工，不需開另一頁",
+        roles: ["店長"],
+      },
+      {
+        tag: "優化",
+        text: "顧客頁面資訊架構整併 — 商城併入預約／方案，首頁主要操作鈕統一",
+        roles: ["顧客"],
+      },
+      {
+        tag: "優化",
+        text: "全站登入導向集中管理，HQ ↔ 店後台切換時自動清除前一個店家 context",
+        roles: ["全部"],
+      },
+      {
+        tag: "修正",
+        text: "顧客自助預約 P0：入口判斷與員工守門邏輯解耦，不再出現「員工專用」錯誤訊息漏到顧客端",
+        roles: ["顧客"],
+      },
+      {
+        tag: "修正",
+        text: "顧客可用堂數與預約讀取統一使用 server 端 canonical customerId，避免跨身份資料漂移",
+        roles: ["顧客"],
+      },
+      {
+        tag: "修正",
+        text: "LINE 登入身份解析 — 在 profile 完成前即可比對既有顧客（手機／Email），不再被擋在註冊流程外",
+        roles: ["顧客"],
+      },
+      {
+        tag: "修正",
+        text: "跨店資料隔離強化 — LINE 入口推薦人查詢、顧客結帳連結改為 store-scoped",
+        roles: ["顧客"],
+      },
+      {
+        tag: "修正",
+        text: "重複手機號自動連結到既有顧客資料，方案購買後同步顯示於 LINE 端",
+        roles: ["店長", "顧客"],
+      },
+    ],
+  },
   {
     version: "2.7.0",
     date: "2026-04-16",
