@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { DashboardLink as Link } from "@/components/dashboard-link";
 import { TALENT_STAGE_LABELS, READINESS_LEVEL_CONFIG } from "@/types/talent";
 import type { GrowthCandidate } from "@/types/talent";
+import { GrowthCustomerDrawer } from "./customer-drawer";
 
 interface Props {
   candidate: GrowthCandidate;
@@ -20,6 +20,8 @@ interface Props {
  */
 export function GrowthCandidateCard({ candidate: c, rank, defaultExpanded = false }: Props) {
   const [expanded, setExpanded] = useState(defaultExpanded);
+  // Drawer state per-card — page is gated to ADMIN/OWNER, so isOwner=true.
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   const rankBg =
     rank === 1
@@ -46,12 +48,13 @@ export function GrowthCandidateCard({ candidate: c, rank, defaultExpanded = fals
 
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <Link
-              href={`/dashboard/customers/${c.customerId}`}
-              className="truncate text-sm font-semibold text-earth-900 hover:text-primary-700"
+            <button
+              type="button"
+              onClick={() => setDrawerOpen(true)}
+              className="truncate text-left text-sm font-semibold text-earth-900 hover:text-primary-700 hover:underline"
             >
               {c.name}
-            </Link>
+            </button>
             <span
               className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${readinessConfig.bg} ${readinessConfig.color}`}
             >
@@ -151,6 +154,14 @@ export function GrowthCandidateCard({ candidate: c, rank, defaultExpanded = fals
           </div>
         </div>
       )}
+
+      <GrowthCustomerDrawer
+        open={drawerOpen}
+        customerId={drawerOpen ? c.customerId : null}
+        summary={{ name: c.name, talentStage: c.talentStage }}
+        isOwner
+        onClose={() => setDrawerOpen(false)}
+      />
     </div>
   );
 }
