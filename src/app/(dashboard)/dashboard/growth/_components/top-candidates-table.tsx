@@ -4,6 +4,8 @@ import { useMemo, useState } from "react";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { TALENT_STAGE_LABELS } from "@/types/talent";
 import type { GrowthCandidate, GrowthStatusTagId } from "@/types/talent";
+import { GrowthCustomerDrawer } from "./customer-drawer";
+import type { TalentStage } from "@prisma/client";
 
 /**
  * 成長系統 v2 — Top 10 Candidates Table (桌機版重畫 v2.0)
@@ -31,6 +33,8 @@ const FILTER_OPTIONS: Array<{ key: FilterKey; label: string }> = [
 interface Props {
   /** 完整排序候選人（已依 growthScore desc），table 僅取前 10 顯示 */
   candidates: GrowthCandidate[];
+  /** ADMIN / OWNER 才能在 drawer 內做階段變更 / 手動發點 / 轉介紹狀態變更。 */
+  isOwner?: boolean;
 }
 
 /** 30d 行為 → 熱度分（0-30），用於決定 pill 等級 */
@@ -94,8 +98,13 @@ function StatusBadge({ tags }: { tags: GrowthCandidate["tags"] }) {
   );
 }
 
-export function GrowthTopCandidatesTable({ candidates }: Props) {
+export function GrowthTopCandidatesTable({ candidates, isOwner = false }: Props) {
   const [filter, setFilter] = useState<FilterKey>("all");
+  const [drawerCustomer, setDrawerCustomer] = useState<{
+    id: string;
+    name: string;
+    talentStage: TalentStage;
+  } | null>(null);
 
   const filtered = useMemo(() => {
     if (filter === "all") return candidates;
@@ -136,6 +145,18 @@ export function GrowthTopCandidatesTable({ candidates }: Props) {
         </div>
       </div>
 
+      <GrowthCustomerDrawer
+        open={!!drawerCustomer}
+        customerId={drawerCustomer?.id ?? null}
+        summary={
+          drawerCustomer
+            ? { name: drawerCustomer.name, talentStage: drawerCustomer.talentStage }
+            : null
+        }
+        isOwner={isOwner}
+        onClose={() => setDrawerCustomer(null)}
+      />
+
       {/* Table */}
       {top10.length === 0 ? (
         <EmptyState filter={filter} hasAny={candidates.length > 0} />
@@ -162,12 +183,19 @@ export function GrowthTopCandidatesTable({ candidates }: Props) {
                     {i + 1}
                   </td>
                   <td className="px-3">
-                    <Link
-                      href={`/dashboard/customers/${c.customerId}`}
-                      className="font-medium text-earth-900 hover:text-primary-700"
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setDrawerCustomer({
+                          id: c.customerId,
+                          name: c.name,
+                          talentStage: c.talentStage,
+                        })
+                      }
+                      className="text-left font-medium text-earth-900 hover:text-primary-700 hover:underline"
                     >
                       {c.name}
-                    </Link>
+                    </button>
                     <span className="ml-2 text-[10px] text-earth-400">
                       {TALENT_STAGE_LABELS[c.talentStage]}
                     </span>

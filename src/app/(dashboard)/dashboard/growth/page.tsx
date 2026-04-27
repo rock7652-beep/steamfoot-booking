@@ -152,7 +152,8 @@ async function OverviewBlock({ activeStoreId }: { activeStoreId: string | null }
       <div className="grid grid-cols-12 gap-3">
         {/* 左側（col-8）— Top 10 高潛力名單 */}
         <div className="col-span-12 lg:col-span-8">
-          <GrowthTopCandidatesTable candidates={allSorted} />
+          {/* 走 drawer：頁面 gate 已限 ADMIN/OWNER，所以 isOwner 恆為 true */}
+          <GrowthTopCandidatesTable candidates={allSorted} isOwner />
         </div>
 
         {/* 右側（col-4）— 行動區 */}
