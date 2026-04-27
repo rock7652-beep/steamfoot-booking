@@ -3,10 +3,9 @@ import { cookies } from "next/headers";
 import { getCurrentUser } from "@/lib/session";
 import { logoutAction } from "@/server/actions/auth";
 import { getUserPermissions, ROLE_LABELS, isStaffRole } from "@/lib/permissions";
-import { getCachedTrialStatus } from "@/lib/query-cache";
+import { getCachedStorePlan, getCachedTrialStatus } from "@/lib/query-cache";
 import { getStoreOptions, resolveActiveStoreId } from "@/lib/store";
 import { getActiveStoreCookie } from "@/server/actions/store-switch";
-import { getStorePlanById } from "@/lib/store-plan";
 import DashboardShell from "@/components/sidebar";
 import { LogoutButton } from "@/components/logout-button";
 
@@ -46,11 +45,14 @@ export default async function DashboardLayout({
 
   // ADMIN 看到的 plan：切到特定店時用該店 plan，全部分店時解鎖全部功能（ALLIANCE）
   // OWNER/PARTNER：用自己店的 plan
+  // 走 unstable_cache（60s TTL, tag: "store-plan"）— 之前直接呼叫
+  // getStorePlanById 是同步阻塞，每次切頁都打一次 prisma，現在多人切頁
+  // 共享 cache。Mutation 路徑已透過 revalidation.ts 失效對應 tag。
   const effectiveStoreId = isAdmin ? (activeStoreId ?? undefined) : (user.storeId ?? undefined);
   const pricingPlan = isAdmin && !activeStoreId
     ? ("ALLIANCE" as const)
     : effectiveStoreId
-      ? await getStorePlanById(effectiveStoreId)
+      ? await getCachedStorePlan(effectiveStoreId)
       : ("EXPERIENCE" as const);
 
   // 讀取 store-slug 用於 logout redirect（ADMIN 不帶 slug，回 /）
