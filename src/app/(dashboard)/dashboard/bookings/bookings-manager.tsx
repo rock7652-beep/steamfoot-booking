@@ -1,8 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import { toast } from "sonner";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { fetchDayDetail } from "@/server/actions/slots";
+import {
+  markCompleted,
+  markCompletedBatch,
+} from "@/server/actions/booking";
 import type { SlotAvailability } from "@/types";
 import { BookingCalendarDesktop } from "./booking-calendar-desktop";
 import { DayDetailPanel, type DayBooking } from "./day-detail-panel";
@@ -11,6 +16,8 @@ import {
   type BookingSummary,
 } from "./booking-detail-drawer";
 import { ACTIVE_BOOKING_STATUSES } from "@/lib/booking-constants";
+
+const COMPLETABLE_STATUSES = new Set(["PENDING", "CONFIRMED"]);
 
 interface BookingEntry {
   id: string;
@@ -93,6 +100,15 @@ export function BookingsManager({
     null,
   );
 
+  // Batch / inline action state
+  const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+  const [actingIds, setActingIds] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+  const [batchActing, setBatchActing] = useState(false);
+
   // Staff options extracted from monthData (unique staff names)
   const staffOptions = useMemo(() => {
     const map = new Map<string, string>();
@@ -169,6 +185,9 @@ export function BookingsManager({
   const handleDaySelect = useCallback(
     (dateKey: string) => {
       setSelectedDate(dateKey);
+      // Switching day discards the prior selection — those bookings are no
+      // longer visible, batch action would be confusing.
+      setSelectedIds(new Set());
       startTransition(async () => {
         const result = await fetchDayDetail(dateKey);
         setDayBookings(result.bookings as DayBooking[]);
@@ -248,6 +267,113 @@ export function BookingsManager({
     [selectedDate],
   );
 
+  // ── Batch / inline complete wiring ────────────────────────────
+
+  const toggleSelect = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const selectAllActionable = useCallback(() => {
+    setSelectedIds(
+      new Set(
+        dayBookings
+          .filter((b) => COMPLETABLE_STATUSES.has(b.bookingStatus))
+          .map((b) => b.id),
+      ),
+    );
+  }, [dayBookings]);
+
+  const clearSelection = useCallback(() => {
+    setSelectedIds(new Set());
+  }, []);
+
+  const completeSingle = useCallback(
+    async (id: string) => {
+      // Lock just this row — batch UI bar won't show anything if no selection.
+      setActingIds((prev) => {
+        const next = new Set(prev);
+        next.add(id);
+        return next;
+      });
+      try {
+        const r = await markCompleted(id);
+        if (r.success) {
+          toast.success("已完成服務");
+          handleBookingUpdated(id, "COMPLETED");
+          setSelectedIds((prev) => {
+            if (!prev.has(id)) return prev;
+            const next = new Set(prev);
+            next.delete(id);
+            return next;
+          });
+        } else {
+          toast.error(r.error ?? "操作失敗");
+        }
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "操作失敗");
+      } finally {
+        setActingIds((prev) => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
+      }
+    },
+    [handleBookingUpdated],
+  );
+
+  const completeBatch = useCallback(async () => {
+    // Defensive: only ids whose current row is still actionable.
+    const ids = dayBookings
+      .filter(
+        (b) =>
+          selectedIds.has(b.id) && COMPLETABLE_STATUSES.has(b.bookingStatus),
+      )
+      .map((b) => b.id);
+    if (ids.length === 0) return;
+    setBatchActing(true);
+    try {
+      const { results } = await markCompletedBatch(ids);
+      let okCount = 0;
+      const failed: Array<{ id: string; error: string }> = [];
+      const succeededIds: string[] = [];
+      for (const r of results) {
+        if (r.success) {
+          okCount += 1;
+          succeededIds.push(r.id);
+          handleBookingUpdated(r.id, "COMPLETED");
+        } else {
+          failed.push({ id: r.id, error: r.error ?? "操作失敗" });
+        }
+      }
+      if (okCount > 0) {
+        toast.success(`已完成 ${okCount} 位`);
+      }
+      if (failed.length > 0) {
+        // Per-id detail isn't useful in toast; aggregate label + first reason.
+        toast.error(
+          `${failed.length} 筆失敗${failed[0].error ? `：${failed[0].error}` : ""}`,
+        );
+      }
+      // Drop succeeded ids from selection; failed ones stay so the店長 can
+      // see what's still selected and retry / inspect.
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        for (const id of succeededIds) next.delete(id);
+        return next;
+      });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "批次操作失敗");
+    } finally {
+      setBatchActing(false);
+    }
+  }, [dayBookings, selectedIds, handleBookingUpdated]);
+
   return (
     <div className="flex flex-col gap-4">
       <Toolbar
@@ -286,6 +412,14 @@ export function BookingsManager({
                 ? dayBookings.length
                 : null
             }
+            selectedIds={selectedIds}
+            onToggleSelect={toggleSelect}
+            onSelectAllActionable={selectAllActionable}
+            onClearSelection={clearSelection}
+            onCompleteBatch={completeBatch}
+            onCompleteSingle={completeSingle}
+            actingIds={actingIds}
+            batchActing={batchActing}
           />
         </div>
       </div>
