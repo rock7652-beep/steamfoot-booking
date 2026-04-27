@@ -1,6 +1,6 @@
 import { listCustomers } from "@/server/queries/customer";
 import { listStaffSelectOptions } from "@/server/queries/staff";
-import { listPlans } from "@/server/queries/plan";
+import { getCachedPlans } from "@/lib/query-cache";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { getActiveStoreForRead } from "@/lib/store";
@@ -68,8 +68,11 @@ export default async function CustomersPage({ searchParams }: PageProps) {
         activeStoreId,
       }),
       listStaffSelectOptions(activeStoreId),
-      // PR-5.5：快速指派 drawer 需要的資料
-      listPlans().catch(() => []),
+      // PR-5.5：快速指派 drawer 需要的資料 — 走 unstable_cache（60s TTL,
+      // tag: "plans"）。同 store 的 plans 在 customers / 其他頁共享 cache。
+      activeStoreId
+        ? getCachedPlans(activeStoreId).catch(() => [])
+        : Promise.resolve([]),
       checkPermission(user.role, user.staffId, "transaction.discount").catch(() => false),
       checkPermission(user.role, user.staffId, "customer.assign").catch(() => false),
     ]);
