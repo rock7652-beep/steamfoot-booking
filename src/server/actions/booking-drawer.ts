@@ -59,13 +59,14 @@ export async function fetchBookingDetail(
   const user = await requireStaffSession();
   const booking = await getBookingDetail(bookingId);
 
-  // 顧客近況：累積完成 + 最近到店
-  const [completedAgg, lastVisit] = await Promise.all([
+  // 顧客近況：累積完成 + 最近到店 + 是否新客 — 三查詢並行
+  const storeFilter = getStoreFilter(user);
+  const [completedAgg, lastVisit, firstBookingCount] = await Promise.all([
     prisma.booking.count({
       where: {
         customerId: booking.customerId,
         bookingStatus: "COMPLETED",
-        ...getStoreFilter(user),
+        ...storeFilter,
       },
     }),
     prisma.booking.findFirst({
@@ -73,20 +74,19 @@ export async function fetchBookingDetail(
         customerId: booking.customerId,
         bookingStatus: "COMPLETED",
         id: { not: bookingId },
-        ...getStoreFilter(user),
+        ...storeFilter,
       },
       select: { bookingDate: true },
       orderBy: { bookingDate: "desc" },
     }),
+    prisma.booking.count({
+      where: {
+        customerId: booking.customerId,
+        bookingStatus: { in: [...ACTIVE_BOOKING_STATUSES] },
+        ...storeFilter,
+      },
+    }),
   ]);
-
-  const firstBookingCount = await prisma.booking.count({
-    where: {
-      customerId: booking.customerId,
-      bookingStatus: { in: [...ACTIVE_BOOKING_STATUSES] },
-      ...getStoreFilter(user),
-    },
-  });
 
   return {
     booking: {
