@@ -232,6 +232,12 @@ export async function getMonthBookingSummary(year: number, month: number, active
       where: { ...monthWhere, revenueStaffId: { not: null } },
       _count: { id: true },
     }),
+    // Per-booking detail rich enough to power the day-detail panel
+    // **without** a second per-day round-trip — phone for tel: link,
+    // assignedStaff/serviceStaff for the panel's staff fallback chain,
+    // servicePlan.name for the row's service label, isCheckedIn for the
+    // KPI counter. Selects are still flat (`select` not `include`) so
+    // the wire payload stays bounded.
     prisma.booking.findMany({
       where: monthWhere,
       select: {
@@ -240,10 +246,26 @@ export async function getMonthBookingSummary(year: number, month: number, active
         slotTime: true,
         bookingStatus: true,
         isMakeup: true,
+        isCheckedIn: true,
         people: true,
-        customer: { select: { name: true } },
+        customer: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            assignedStaff: {
+              select: { id: true, displayName: true, colorCode: true },
+            },
+          },
+        },
         revenueStaff: {
           select: { id: true, displayName: true, colorCode: true },
+        },
+        serviceStaff: {
+          select: { id: true, displayName: true },
+        },
+        servicePlan: {
+          select: { name: true },
         },
       },
       orderBy: [{ bookingDate: "asc" }, { slotTime: "asc" }],
@@ -260,22 +282,40 @@ export async function getMonthBookingSummary(year: number, month: number, active
     : [];
   const staffMap = new Map(staffList.map((s) => [s.id, s]));
 
-  // 組裝每日資料
+  // 組裝每日資料 — 每筆 booking 一次寫入完整 detail，讓前端 day panel
+  // 直接從 monthData 篩出當日，不需要再打 fetchDayDetail。
+  interface DayBookingEntry {
+    id: string;
+    slotTime: string;
+    bookingStatus: string;
+    isMakeup: boolean;
+    isCheckedIn: boolean;
+    people: number;
+    // 前端 calendar strip 用的扁平欄位（避免每筆都做 nested optional chain）
+    customerName: string;
+    staffId: string | null;
+    staffName: string | null;
+    staffColor: string | null;
+    // 完整 nested 欄位 — day panel render + 篩選 fallback chain 用
+    customer: {
+      id: string;
+      name: string;
+      phone: string;
+      assignedStaff: {
+        id: string;
+        displayName: string;
+        colorCode: string;
+      } | null;
+    };
+    revenueStaff: { id: string; displayName: string; colorCode: string } | null;
+    serviceStaff: { id: string; displayName: string } | null;
+    servicePlan: { name: string } | null;
+  }
   interface DayEntry {
     total: number;
     totalPeople: number;
     staffBookings: { staffName: string; colorCode: string; count: number }[];
-    bookings: Array<{
-      id: string;
-      slotTime: string;
-      bookingStatus: string;
-      isMakeup: boolean;
-      people: number;
-      customerName: string;
-      staffId: string | null;
-      staffName: string | null;
-      staffColor: string | null;
-    }>;
+    bookings: DayBookingEntry[];
   }
   const dailyMap = new Map<string, DayEntry>();
 
@@ -284,7 +324,7 @@ export async function getMonthBookingSummary(year: number, month: number, active
     dailyMap.set(dateKey, { total: 0, totalPeople: 0, staffBookings: [], bookings: [] });
   }
 
-  // 將輕量 booking list groupBy date 後塞入 dailyMap
+  // 將完整 booking list groupBy date 後塞入 dailyMap
   for (const b of monthBookings) {
     const dateKey = b.bookingDate.toISOString().slice(0, 10);
     const entry = dailyMap.get(dateKey);
@@ -294,11 +334,38 @@ export async function getMonthBookingSummary(year: number, month: number, active
       slotTime: b.slotTime,
       bookingStatus: b.bookingStatus,
       isMakeup: b.isMakeup,
+      isCheckedIn: b.isCheckedIn,
       people: b.people,
       customerName: b.customer.name,
       staffId: b.revenueStaff?.id ?? null,
       staffName: b.revenueStaff?.displayName ?? null,
       staffColor: b.revenueStaff?.colorCode ?? null,
+      customer: {
+        id: b.customer.id,
+        name: b.customer.name,
+        phone: b.customer.phone,
+        assignedStaff: b.customer.assignedStaff
+          ? {
+              id: b.customer.assignedStaff.id,
+              displayName: b.customer.assignedStaff.displayName,
+              colorCode: b.customer.assignedStaff.colorCode,
+            }
+          : null,
+      },
+      revenueStaff: b.revenueStaff
+        ? {
+            id: b.revenueStaff.id,
+            displayName: b.revenueStaff.displayName,
+            colorCode: b.revenueStaff.colorCode,
+          }
+        : null,
+      serviceStaff: b.serviceStaff
+        ? {
+            id: b.serviceStaff.id,
+            displayName: b.serviceStaff.displayName,
+          }
+        : null,
+      servicePlan: b.servicePlan ? { name: b.servicePlan.name } : null,
     });
   }
 
