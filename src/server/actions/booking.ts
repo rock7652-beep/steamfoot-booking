@@ -1029,3 +1029,47 @@ export async function checkInBooking(
   // 直接 noop，避免呼叫端報錯
   return markCompleted(bookingId);
 }
+
+// ============================================================
+// markCompletedBatch — 批次完成服務
+//
+// 現場「一次處理多筆預約」的入口（取代讓店長一筆一筆開 drawer）。
+//
+// 設計：
+// - 序列處理（for-loop）— 同 wallet 多筆預約若並行扣堂可能撞 row lock，
+//   而且現場一次幾筆量小，序列已足夠快。
+// - 不 fail-fast：一筆出錯仍然繼續處理其他，回傳 per-id 結果讓 UI
+//   針對失敗那筆顯示錯誤。
+// - 不另開 transaction：每筆 markCompleted 自己有完整的 $transaction，
+//   失敗不會污染其他筆。
+// ============================================================
+
+export interface BatchActionItemResult {
+  id: string;
+  success: boolean;
+  error?: string;
+}
+
+export async function markCompletedBatch(
+  ids: string[]
+): Promise<{ results: BatchActionItemResult[] }> {
+  // 權限檢查交給每筆 markCompleted（內部會 requirePermission）。
+  const results: BatchActionItemResult[] = [];
+  for (const id of ids) {
+    try {
+      const r = await markCompleted(id);
+      if (r.success) {
+        results.push({ id, success: true });
+      } else {
+        results.push({ id, success: false, error: r.error ?? "操作失敗" });
+      }
+    } catch (e) {
+      results.push({
+        id,
+        success: false,
+        error: e instanceof Error ? e.message : "操作失敗",
+      });
+    }
+  }
+  return { results };
+}
