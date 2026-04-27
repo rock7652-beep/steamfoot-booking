@@ -31,7 +31,13 @@ interface DayDetailPanelProps {
   date: string | null;
   bookings: DayBooking[];
   slots: SlotAvailability[];
-  loading: boolean;
+  /** Slots availability has been resolved for this date (cache hit or fetch
+   *  finished). Used to gate the "該日不營業" hint — without it we'd flash
+   *  that label briefly while slots load on first click. */
+  slotsKnown?: boolean;
+  /** Slots fetch is in flight for the currently selected date. Lets the
+   *  empty-state branch show a soft "檢查中" instead of a wrong empty hint. */
+  slotsLoading?: boolean;
   /** 若有篩選，原始筆數（>0 代表已套篩選） */
   filteredFrom?: number | null;
   /** 點 timeline row 時觸發（取代原本 link 到詳情頁） */
@@ -52,7 +58,8 @@ export function DayDetailPanel({
   date,
   bookings,
   slots,
-  loading,
+  slotsKnown = true,
+  slotsLoading = false,
   filteredFrom = null,
   onBookingClick,
   selectedIds,
@@ -184,13 +191,7 @@ export function DayDetailPanel({
           </div>
         )}
 
-        {loading ? (
-          <div className="space-y-2 p-4">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="h-14 animate-pulse rounded bg-earth-50" />
-            ))}
-          </div>
-        ) : bookings.length === 0 ? (
+        {bookings.length === 0 ? (
           <div className="p-4">
             <EmptyStateCompact
               title={
@@ -201,11 +202,15 @@ export function DayDetailPanel({
               hint={
                 filteredFrom != null && filteredFrom > 0
                   ? `原有 ${filteredFrom} 筆被目前篩選排除`
-                  : slots.length === 0
-                    ? "該日不營業"
-                    : "點上方 ＋ 新增一筆"
+                  : slotsLoading || !slotsKnown
+                    ? "檢查當日營業時段中..."
+                    : slots.length === 0
+                      ? "該日不營業"
+                      : "點上方 ＋ 新增一筆"
               }
               cta={
+                slotsKnown &&
+                !slotsLoading &&
                 slots.length > 0 &&
                 !(filteredFrom != null && filteredFrom > 0) && (
                   <Link

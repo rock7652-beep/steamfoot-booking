@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { DashboardLink as Link } from "@/components/dashboard-link";
-import { fetchDayDetail } from "@/server/actions/slots";
+import { fetchDaySlots } from "@/server/actions/slots";
 import {
   markCompleted,
   markCompletedBatch,
@@ -19,16 +19,37 @@ import { ACTIVE_BOOKING_STATUSES } from "@/lib/booking-constants";
 
 const COMPLETABLE_STATUSES = new Set(["PENDING", "CONFIRMED"]);
 
+/**
+ * monthData entry — server returns a flat-summary-plus-nested-detail shape
+ * so the day panel can render directly from cached month data without a
+ * second per-day round-trip. Flat fields (customerName / staffId / etc.)
+ * power the calendar strip; nested objects mirror the DayBooking shape so
+ * we can derive `dayBookings` via `useMemo`.
+ */
 interface BookingEntry {
   id: string;
   slotTime: string;
-  customerName: string;
   bookingStatus: string;
   isMakeup: boolean;
+  isCheckedIn: boolean;
   people: number;
+  customerName: string;
   staffId: string | null;
   staffName: string | null;
   staffColor: string | null;
+  customer: {
+    id: string;
+    name: string;
+    phone: string;
+    assignedStaff: {
+      id: string;
+      displayName: string;
+      colorCode: string;
+    } | null;
+  };
+  revenueStaff: { id: string; displayName: string; colorCode: string } | null;
+  serviceStaff: { id: string; displayName: string } | null;
+  servicePlan: { name: string } | null;
 }
 
 interface MonthSummaryDay {
@@ -91,9 +112,22 @@ export function BookingsManager({
   }, [initialMonthData]);
 
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [dayBookings, setDayBookings] = useState<DayBooking[]>([]);
-  const [daySlots, setDaySlots] = useState<SlotAvailability[]>([]);
-  const [isPending, startTransition] = useTransition();
+  // Slots cache, keyed by date string. Bookings are derived from monthData
+  // (no per-day fetch); slots are still fetched on demand because they
+  // require business-hours / duty / overrides resolution that isn't part of
+  // the month query — but each date is fetched at most once per session.
+  const [slotsCache, setSlotsCache] = useState<Map<string, SlotAvailability[]>>(
+    () => new Map(),
+  );
+  // Mirror cache in a ref so handleDaySelect can read latest cache without
+  // depending on it (avoids the callback identity churning every fetch and
+  // re-issuing startTransition during the resulting cascade re-render).
+  const slotsCacheRef = useRef(slotsCache);
+  useEffect(() => {
+    slotsCacheRef.current = slotsCache;
+  }, [slotsCache]);
+  const [slotsLoadingDate, setSlotsLoadingDate] = useState<string | null>(null);
+  const [, startTransition] = useTransition();
   const [filters, setFilters] = useState<BookingFilters>(EMPTY_FILTERS);
   const [activeBookingId, setActiveBookingId] = useState<string | null>(null);
   const [activeSummary, setActiveSummary] = useState<BookingSummary | null>(
@@ -122,9 +156,9 @@ export function BookingsManager({
       .sort((a, b) => a.name.localeCompare(b.name, "zh-Hant"));
   }, [monthData]);
 
-  // bookingId → summary lookup (calendar entries first, day panel as fallback).
-  // Used to render the drawer header instantly on click without waiting for
-  // fetchBookingDetail.
+  // bookingId → summary lookup. Drives the drawer's instant header render
+  // — calendar / day panel hand the click straight to the drawer with the
+  // summary already in hand, so there's no fetch latency on open.
   const summaryById = useMemo(() => {
     const map = new Map<string, BookingSummary>();
     for (const day of monthData) {
@@ -132,13 +166,37 @@ export function BookingsManager({
         map.set(b.id, monthEntryToSummary(b, day.date));
       }
     }
-    if (selectedDate) {
-      for (const b of dayBookings) {
-        map.set(b.id, dayBookingToSummary(b, selectedDate));
-      }
-    }
     return map;
-  }, [monthData, dayBookings, selectedDate]);
+  }, [monthData]);
+
+  /**
+   * Day panel bookings — derived from already-loaded `monthData`. Switching
+   * date is now a pure client-side `useMemo` (no server round-trip), which
+   * was the dominant cost of the old `fetchDayDetail` path.
+   */
+  const dayBookings = useMemo<DayBooking[]>(() => {
+    if (!selectedDate) return [];
+    const day = monthData.find((d) => d.date === selectedDate);
+    if (!day?.bookings) return [];
+    return day.bookings.map((b) => ({
+      id: b.id,
+      slotTime: b.slotTime,
+      people: b.people,
+      isMakeup: b.isMakeup,
+      isCheckedIn: b.isCheckedIn,
+      bookingStatus: b.bookingStatus,
+      customer: b.customer,
+      revenueStaff: b.revenueStaff,
+      serviceStaff: b.serviceStaff,
+      servicePlan: b.servicePlan,
+    }));
+  }, [monthData, selectedDate]);
+
+  const daySlots: SlotAvailability[] = selectedDate
+    ? (slotsCache.get(selectedDate) ?? [])
+    : [];
+  const slotsKnown = !!selectedDate && slotsCache.has(selectedDate);
+  const slotsLoadingForSelected = slotsLoadingDate === selectedDate;
 
   // Filter bookings for day-detail panel (client-side)
   const filteredDayBookings = useMemo(() => {
@@ -188,10 +246,25 @@ export function BookingsManager({
       // Switching day discards the prior selection — those bookings are no
       // longer visible, batch action would be confusing.
       setSelectedIds(new Set());
+
+      // Fire slots fetch only on cache miss; consecutive clicks on a date
+      // we've already loaded touch nothing on the server. Read via ref so
+      // the callback identity stays stable — otherwise the calendar
+      // re-renders on every cache update and React 19 reports the
+      // resulting startTransition as render-phase.
+      if (slotsCacheRef.current.has(dateKey)) return;
+      setSlotsLoadingDate(dateKey);
       startTransition(async () => {
-        const result = await fetchDayDetail(dateKey);
-        setDayBookings(result.bookings as DayBooking[]);
-        setDaySlots(result.slots);
+        try {
+          const result = await fetchDaySlots(dateKey);
+          setSlotsCache((prev) => {
+            const next = new Map(prev);
+            next.set(dateKey, result.slots);
+            return next;
+          });
+        } finally {
+          setSlotsLoadingDate((cur) => (cur === dateKey ? null : cur));
+        }
       });
     },
     [],
@@ -210,61 +283,50 @@ export function BookingsManager({
     setActiveSummary(null);
   }, []);
 
-  // Apply optimistic status change to monthData & dayBookings; re-fetch day panel
-  // for canonical wallet / counter values. Replaces the old `router.refresh()`
-  // path which re-ran getMonthBookingSummary (3 queries + staff lookup).
+  // Apply optimistic status change to monthData; dayBookings re-derives via
+  // useMemo. Replaces the old `router.refresh()` + `fetchDayDetail` re-run
+  // (which together fired 5+ DB queries per action).
+  //
+  // Reschedule (newStatus = null) is left as-is — monthData stays stale
+  // for the moved booking until next nav. Trade-off worth taking: the
+  // operations that happen many times a day (完成 / 取消 / 標記未到) all
+  // have a known target status and are fully covered.
   const handleBookingUpdated = useCallback(
     (bookingId: string, newStatus: string | null) => {
-      if (newStatus) {
-        setMonthData((prev) =>
-          prev.map((day) => {
-            if (!day.bookings) return day;
-            const idx = day.bookings.findIndex((b) => b.id === bookingId);
-            if (idx === -1) return day;
-            const isStillActive = ACTIVE_STATUS_SET.has(newStatus);
-            const targetBooking = day.bookings[idx];
-            if (!isStillActive) {
-              const nextBookings = day.bookings.filter(
-                (b) => b.id !== bookingId,
-              );
-              return {
-                ...day,
-                bookings: nextBookings,
-                totalBookingCount: Math.max(0, day.totalBookingCount - 1),
-                totalPeople: Math.max(
-                  0,
-                  day.totalPeople - targetBooking.people,
-                ),
-              };
-            }
-            const nextBookings = [...day.bookings];
-            nextBookings[idx] = { ...targetBooking, bookingStatus: newStatus };
-            return { ...day, bookings: nextBookings };
-          }),
-        );
-        setDayBookings((prev) => {
-          const idx = prev.findIndex((b) => b.id === bookingId);
-          if (idx === -1) return prev;
-          if (!ACTIVE_STATUS_SET.has(newStatus)) {
-            return prev.filter((b) => b.id !== bookingId);
+      if (!newStatus) return;
+      setMonthData((prev) =>
+        prev.map((day) => {
+          if (!day.bookings) return day;
+          const idx = day.bookings.findIndex((b) => b.id === bookingId);
+          if (idx === -1) return day;
+          const isStillActive = ACTIVE_STATUS_SET.has(newStatus);
+          const targetBooking = day.bookings[idx];
+          if (!isStillActive) {
+            const nextBookings = day.bookings.filter(
+              (b) => b.id !== bookingId,
+            );
+            return {
+              ...day,
+              bookings: nextBookings,
+              totalBookingCount: Math.max(0, day.totalBookingCount - 1),
+              totalPeople: Math.max(
+                0,
+                day.totalPeople - targetBooking.people,
+              ),
+            };
           }
-          const next = [...prev];
-          next[idx] = { ...next[idx], bookingStatus: newStatus };
-          return next;
-        });
-      }
-
-      // Re-fetch the active day for canonical state (wallet remaining,
-      // session counters, makeup credit). Cheap — single day query.
-      if (selectedDate) {
-        startTransition(async () => {
-          const result = await fetchDayDetail(selectedDate);
-          setDayBookings(result.bookings as DayBooking[]);
-          setDaySlots(result.slots);
-        });
-      }
+          const nextBookings = [...day.bookings];
+          nextBookings[idx] = {
+            ...targetBooking,
+            bookingStatus: newStatus,
+            isCheckedIn:
+              newStatus === "COMPLETED" ? true : targetBooking.isCheckedIn,
+          };
+          return { ...day, bookings: nextBookings };
+        }),
+      );
     },
-    [selectedDate],
+    [],
   );
 
   // ── Batch / inline complete wiring ────────────────────────────
@@ -405,7 +467,8 @@ export function BookingsManager({
             date={selectedDate}
             bookings={filteredDayBookings}
             slots={daySlots}
-            loading={isPending}
+            slotsKnown={slotsKnown}
+            slotsLoading={slotsLoadingForSelected}
             onBookingClick={openBooking}
             filteredFrom={
               dayBookings.length !== filteredDayBookings.length
@@ -444,20 +507,6 @@ function monthEntryToSummary(b: BookingEntry, date: string): BookingSummary {
     isMakeup: b.isMakeup,
     people: b.people,
     customerName: b.customerName,
-    servicePlanName: null,
-    servicePlanCategory: null,
-  };
-}
-
-function dayBookingToSummary(b: DayBooking, date: string): BookingSummary {
-  return {
-    id: b.id,
-    bookingDate: date,
-    slotTime: b.slotTime,
-    bookingStatus: b.bookingStatus,
-    isMakeup: b.isMakeup,
-    people: b.people,
-    customerName: b.customer?.name ?? "（無名）",
     servicePlanName: b.servicePlan?.name ?? null,
     servicePlanCategory: null,
   };
