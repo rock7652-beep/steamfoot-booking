@@ -494,7 +494,7 @@ export function ScheduleManager({
 
           {showWeekly && (
             <div className="border-t px-4 pb-4">
-              <p className="mb-3 pt-3 text-xs text-earth-400">設定每週預設營業時間，個別日期的特殊設定會覆蓋此規則</p>
+              <p className="mb-3 pt-3 text-xs text-green-700">✓ 設定一次永久套用，每週自動循環，不需每月重新設定</p>
               <div className="space-y-2">
                 {weeklyHours.map((w) => (
                   <WeeklyDayRow
@@ -533,6 +533,10 @@ export function ScheduleManager({
               <h3 className="mb-2 text-base font-bold text-earth-900">
                 {selectedDate} ({dayDetail.dayName})
               </h3>
+
+              <p className="mb-3 text-[11px] text-amber-700">
+                僅單次有效，會覆蓋當週規則；用於國定假日、進修日等
+              </p>
 
               {/* 規則推導 */}
               <CascadeInfo dayDetail={dayDetail} />
