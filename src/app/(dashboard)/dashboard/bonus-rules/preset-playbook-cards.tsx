@@ -99,7 +99,11 @@ function PresetCard({ preset, alreadyApplied }: { preset: Preset; alreadyApplied
 
     startTransition(async () => {
       try {
-        await createBonusRule(fd);
+        const result = await createBonusRule(fd);
+        if (!result.success) {
+          toast.error(result.error || "套用失敗");
+          return;
+        }
         toast.success(`已套用「${preset.name}」+${preset.points} 點 · 已加入下方規則列表`);
         router.refresh();
       } catch (e) {
