@@ -118,6 +118,12 @@ export default async function RemindersPage({ searchParams }: PageProps) {
     { label: "發送失敗", value: stats.todayFailed, tone: "earth" },
   ];
 
+  const tabs = [
+    { key: "rules", label: "提醒規則", count: rules.length },
+    { key: "templates", label: "訊息模板", count: templates.length },
+    { key: "logs", label: "發送紀錄", count: null as number | null },
+  ];
+
   return (
     <FeatureGate plan={plan} feature={FEATURES.LINE_REMINDER}>
       <PageShell>
@@ -136,103 +142,155 @@ export default async function RemindersPage({ searchParams }: PageProps) {
 
         <KpiStrip items={kpis} />
 
-        {/* Tabs */}
-        <div className="flex gap-1 border-b border-earth-200">
-          {[
-            { key: "rules", label: "提醒規則" },
-            { key: "templates", label: "訊息模板" },
-            { key: "logs", label: "發送紀錄" },
-          ].map((tab) => (
-            <Link
-              key={tab.key}
-              href={`/dashboard/reminders?tab=${tab.key}`}
-              className={`px-4 py-2 text-sm font-medium transition ${
-                activeTab === tab.key
-                  ? "border-b-2 border-primary-600 text-primary-700"
-                  : "text-earth-500 hover:text-earth-700"
-              }`}
-            >
-              {tab.label}
-            </Link>
-          ))}
+        {/* Tab row with inline action */}
+        <div className="flex flex-wrap items-end justify-between gap-3 border-b border-earth-200">
+          <div className="flex gap-1">
+            {tabs.map((tab) => {
+              const active = activeTab === tab.key;
+              return (
+                <Link
+                  key={tab.key}
+                  href={`/dashboard/reminders?tab=${tab.key}`}
+                  className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition ${
+                    active
+                      ? "border-b-2 border-primary-600 text-primary-700"
+                      : "border-b-2 border-transparent text-earth-500 hover:text-earth-700"
+                  }`}
+                >
+                  <span>{tab.label}</span>
+                  {tab.count !== null && (
+                    <span
+                      className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                        active
+                          ? "bg-primary-100 text-primary-700"
+                          : "bg-earth-100 text-earth-500"
+                      }`}
+                    >
+                      {tab.count}
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
+          </div>
+          <div className="pb-1.5">
+            {activeTab === "rules" && (
+              <CreateRuleForm
+                templates={templates.map((t) => ({ id: t.id, name: t.name }))}
+              />
+            )}
+            {activeTab === "templates" && <CreateTemplateForm />}
+          </div>
         </div>
 
-        {/* Rules */}
+        {/* Rules — compact rows */}
         {activeTab === "rules" && (
-          <section className="space-y-3">
-            <div className="flex justify-end">
-              <CreateRuleForm templates={templates.map((t) => ({ id: t.id, name: t.name }))} />
-            </div>
+          <section>
             {rules.length === 0 ? (
               <div className="rounded-xl border border-earth-200 bg-white p-8 text-center text-sm text-earth-400">
                 尚未建立提醒規則
               </div>
             ) : (
-              <div className="space-y-3">
-                {rules.map((rule) => (
-                  <div key={rule.id} className="rounded-xl border border-earth-200 bg-white p-4 shadow-sm">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <h3 className="text-sm font-semibold text-earth-800">{rule.name}</h3>
-                          <span className={`rounded px-1.5 py-0.5 text-xs ${
-                            rule.isEnabled ? "bg-green-100 text-green-700" : "bg-earth-100 text-earth-500"
-                          }`}>
+              <div className="overflow-x-auto rounded-xl border border-earth-200 bg-white shadow-sm">
+                <table className="w-full text-sm">
+                  <thead className="bg-earth-50 text-[11px] font-medium text-earth-500">
+                    <tr>
+                      <th className="px-3 py-2 text-left">規則名稱</th>
+                      <th className="px-3 py-2 text-left">觸發條件</th>
+                      <th className="px-3 py-2 text-left">通路</th>
+                      <th className="px-3 py-2 text-left">模板</th>
+                      <th className="px-3 py-2 text-right">狀態</th>
+                      <th className="px-3 py-2 text-right">啟用</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-earth-100">
+                    {rules.map((rule) => (
+                      <tr
+                        key={rule.id}
+                        className="h-12 transition hover:bg-primary-50/40"
+                      >
+                        <td className="px-3 font-medium text-earth-900">
+                          {rule.name}
+                        </td>
+                        <td className="px-3 text-[13px] text-earth-600">
+                          {formatTriggerLabel(rule)}
+                        </td>
+                        <td className="px-3">
+                          <span className="rounded bg-earth-50 px-2 py-0.5 text-[11px] font-medium text-earth-600">
+                            {rule.channel}
+                          </span>
+                        </td>
+                        <td className="px-3 text-[13px] text-earth-600">
+                          {rule.template?.name ?? (
+                            <span className="text-earth-300">未綁定</span>
+                          )}
+                        </td>
+                        <td className="px-3 text-right">
+                          <span
+                            className={`rounded px-1.5 py-0.5 text-[11px] font-medium ${
+                              rule.isEnabled
+                                ? "bg-green-100 text-green-700"
+                                : "bg-earth-100 text-earth-500"
+                            }`}
+                          >
                             {rule.isEnabled ? "啟用" : "停用"}
                           </span>
-                        </div>
-                        <p className="mt-1 text-xs text-earth-500">
-                          觸發條件：{formatTriggerLabel(rule)}
-                          {" · "}通路：{rule.channel}
-                          {rule.template && <>{" · "}模板：{rule.template.name}</>}
-                        </p>
-                      </div>
-                      <RuleToggle ruleId={rule.id} isEnabled={rule.isEnabled} />
-                    </div>
-                  </div>
-                ))}
+                        </td>
+                        <td className="px-3 text-right">
+                          <div className="flex justify-end">
+                            <RuleToggle
+                              ruleId={rule.id}
+                              isEnabled={rule.isEnabled}
+                            />
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </section>
         )}
 
-        {/* Templates */}
+        {/* Templates — denser grid */}
         {activeTab === "templates" && (
-          <section className="space-y-3">
-            <div className="flex justify-end">
-              <CreateTemplateForm />
-            </div>
+          <section>
             {templates.length === 0 ? (
               <div className="rounded-xl border border-earth-200 bg-white p-8 text-center text-sm text-earth-400">
                 尚未建立訊息模板
               </div>
             ) : (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {templates.map((t) => (
-                  <div key={t.id} className="rounded-xl border border-earth-200 bg-white p-4 shadow-sm">
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-sm font-semibold text-earth-800">{t.name}</h3>
+                  <div
+                    key={t.id}
+                    className="flex flex-col rounded-xl border border-earth-200 bg-white p-3 shadow-sm"
+                  >
+                    <div className="mb-2 flex items-center gap-1.5">
+                      <h3 className="flex-1 truncate text-sm font-semibold text-earth-800">
+                        {t.name}
+                      </h3>
                       {t.isDefault && (
-                        <span className="rounded bg-primary-100 px-1.5 py-0.5 text-xs text-primary-700">預設</span>
+                        <span className="rounded bg-primary-100 px-1.5 py-0.5 text-[10px] font-medium text-primary-700">
+                          預設
+                        </span>
                       )}
-                      <span className="rounded bg-earth-100 px-1.5 py-0.5 text-xs text-earth-500">{t.channel}</span>
+                      <span className="rounded bg-earth-100 px-1.5 py-0.5 text-[10px] font-medium text-earth-500">
+                        {t.channel}
+                      </span>
                     </div>
-                    <div className="mt-3 rounded-lg bg-earth-50 p-3">
-                      <div className="mx-auto max-w-[240px] rounded-2xl bg-white p-3 shadow-sm">
-                        <div className="mb-1 text-[10px] text-earth-400">LINE 預覽</div>
-                        <div className="rounded-lg bg-[#06C755]/10 p-2.5 text-xs leading-relaxed text-earth-700">
-                          {t.body.split("\n").map((line, i) => (
-                            <span key={i}>
-                              {line}
-                              {i < t.body.split("\n").length - 1 && <br />}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
+                    <div className="rounded-lg bg-[#06C755]/10 p-2.5 text-[11px] leading-relaxed text-earth-700">
+                      {t.body.split("\n").map((line, i, arr) => (
+                        <span key={i}>
+                          {line}
+                          {i < arr.length - 1 && <br />}
+                        </span>
+                      ))}
                     </div>
-                    <div className="mt-2 flex items-center gap-3 text-xs text-earth-400">
-                      <span>使用中規則: {t._count.rules}</span>
-                      <span>發送次數: {t._count.logs}</span>
+                    <div className="mt-2 flex items-center justify-between border-t border-earth-100 pt-2 text-[11px] text-earth-400">
+                      <span>規則 {t._count.rules}</span>
+                      <span>發送 {t._count.logs}</span>
                     </div>
                   </div>
                 ))}
@@ -244,18 +302,18 @@ export default async function RemindersPage({ searchParams }: PageProps) {
         {/* Logs */}
         {activeTab === "logs" && (
           <section className="space-y-3">
-            <form className="flex flex-wrap gap-2">
+            <form className="flex flex-wrap items-center gap-2 rounded-xl border border-earth-200 bg-white px-3 py-2 shadow-sm">
               <input type="hidden" name="tab" value="logs" />
               <input
                 name="search"
                 placeholder="搜尋顧客姓名"
                 defaultValue={params.search ?? ""}
-                className="rounded-lg border border-earth-300 px-3 py-1.5 text-sm"
+                className="h-8 w-44 rounded-md border border-earth-200 px-2 text-xs text-earth-800 placeholder:text-earth-400 focus:outline-none focus:ring-1 focus:ring-primary-300"
               />
               <select
                 name="status"
                 defaultValue={params.status ?? "ALL"}
-                className="rounded-lg border border-earth-300 px-3 py-1.5 text-sm"
+                className="h-8 rounded-md border border-earth-200 px-2 text-xs text-earth-800 focus:outline-none focus:ring-1 focus:ring-primary-300"
               >
                 <option value="ALL">全部狀態</option>
                 <option value="SENT">已發送</option>
@@ -263,51 +321,66 @@ export default async function RemindersPage({ searchParams }: PageProps) {
                 <option value="PENDING">待發送</option>
                 <option value="SKIPPED">已跳過</option>
               </select>
-              <button type="submit" className="rounded-lg bg-earth-100 px-3 py-1.5 text-sm hover:bg-earth-200">
+              <button
+                type="submit"
+                className="h-8 rounded-md border border-earth-200 bg-earth-50 px-3 text-xs font-medium text-earth-700 hover:bg-earth-100"
+              >
                 篩選
               </button>
+              <span className="ml-auto text-[11px] text-earth-400">
+                共 {logsData.total} 筆
+              </span>
             </form>
 
-            <div className="overflow-x-auto rounded-xl border border-earth-200 bg-white">
+            <div className="overflow-x-auto rounded-xl border border-earth-200 bg-white shadow-sm">
               <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-earth-100 bg-earth-50">
-                    <th className="px-4 py-3 text-left font-medium text-earth-600">發送時間</th>
-                    <th className="px-4 py-3 text-left font-medium text-earth-600">顧客</th>
-                    <th className="px-4 py-3 text-left font-medium text-earth-600">規則</th>
-                    <th className="px-4 py-3 text-left font-medium text-earth-600">通路</th>
-                    <th className="px-4 py-3 text-left font-medium text-earth-600">狀態</th>
-                    <th className="px-4 py-3 text-left font-medium text-earth-600">失敗原因</th>
+                <thead className="bg-earth-50 text-[11px] font-medium text-earth-500">
+                  <tr>
+                    <th className="px-3 py-2 text-left">發送時間</th>
+                    <th className="px-3 py-2 text-left">顧客</th>
+                    <th className="px-3 py-2 text-left">規則</th>
+                    <th className="px-3 py-2 text-left">通路</th>
+                    <th className="px-3 py-2 text-left">狀態</th>
+                    <th className="px-3 py-2 text-left">失敗原因</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-earth-100">
                   {logsData.logs.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-4 py-8 text-center text-earth-400">
+                      <td colSpan={6} className="px-3 py-8 text-center text-earth-400">
                         尚無發送紀錄
                       </td>
                     </tr>
                   ) : (
                     logsData.logs.map((log) => (
-                      <tr key={log.id}>
-                        <td className="px-4 py-3 text-earth-600">
+                      <tr
+                        key={log.id}
+                        className="h-11 transition hover:bg-primary-50/40"
+                      >
+                        <td className="px-3 text-[13px] text-earth-600">
                           {log.sentAt
                             ? new Date(log.sentAt).toLocaleString("zh-TW", { timeZone: "Asia/Taipei" })
                             : new Date(log.createdAt).toLocaleString("zh-TW", { timeZone: "Asia/Taipei" })}
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-3">
                           <Link href={`/dashboard/customers/${log.customer.id}`} className="text-primary-600 hover:underline">
                             {log.customer.name}
                           </Link>
                         </td>
-                        <td className="px-4 py-3 text-earth-600">{log.rule?.name ?? "手動發送"}</td>
-                        <td className="px-4 py-3 text-earth-600">{log.channel}</td>
-                        <td className="px-4 py-3">
-                          <span className={`rounded px-1.5 py-0.5 text-xs font-medium ${LOG_STATUS_COLOR[log.status] ?? ""}`}>
+                        <td className="px-3 text-[13px] text-earth-600">
+                          {log.rule?.name ?? "手動發送"}
+                        </td>
+                        <td className="px-3 text-[13px] text-earth-600">
+                          {log.channel}
+                        </td>
+                        <td className="px-3">
+                          <span
+                            className={`rounded px-1.5 py-0.5 text-[11px] font-medium ${LOG_STATUS_COLOR[log.status] ?? ""}`}
+                          >
                             {LOG_STATUS_LABEL[log.status] ?? log.status}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-xs text-red-500">
+                        <td className="px-3 text-[11px] text-red-500">
                           {log.errorMessage ?? "—"}
                         </td>
                       </tr>
@@ -318,13 +391,15 @@ export default async function RemindersPage({ searchParams }: PageProps) {
             </div>
 
             {logsData.total > logsData.pageSize && (
-              <div className="flex justify-center gap-2">
+              <div className="flex justify-center gap-1">
                 {Array.from({ length: Math.ceil(logsData.total / logsData.pageSize) }, (_, i) => (
                   <Link
                     key={i}
                     href={`/dashboard/reminders?tab=logs&page=${i + 1}${params.status ? `&status=${params.status}` : ""}${params.search ? `&search=${params.search}` : ""}`}
-                    className={`rounded px-3 py-1 text-sm ${
-                      Number(params.page ?? 1) === i + 1 ? "bg-primary-600 text-white" : "bg-earth-100 text-earth-600"
+                    className={`rounded px-2.5 py-1 text-xs ${
+                      Number(params.page ?? 1) === i + 1
+                        ? "bg-primary-600 text-white"
+                        : "bg-earth-100 text-earth-600 hover:bg-earth-200"
                     }`}
                   >
                     {i + 1}
