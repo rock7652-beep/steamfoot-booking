@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 
 const WEEKDAY_LABELS = ["日", "一", "二", "三", "四", "五", "六"];
@@ -241,14 +241,7 @@ export function BookingCalendarDesktop({
                         key={b.id}
                         booking={b}
                         highlightStaff={highlightStaff}
-                        onClick={
-                          onBookingClick
-                            ? (e) => {
-                                e.stopPropagation();
-                                onBookingClick(b.id);
-                              }
-                            : undefined
-                        }
+                        onSelect={onBookingClick}
                       />
                     ))}
                   </div>
@@ -270,14 +263,24 @@ export function BookingCalendarDesktop({
   );
 }
 
-function BookingStrip({
+/**
+ * Day-cell booking row. Wrapped in `memo` so the 42-cell grid doesn't
+ * re-render every strip when only the parent's drawer / day-panel state
+ * changes — this is the dominant re-render path on heavy months.
+ *
+ * Memo identity is per-strip booking + highlightStaff + onClick handler,
+ * so parents must keep their click handler stable (`useCallback`).
+ */
+const BookingStrip = memo(function BookingStrip({
   booking,
   highlightStaff,
-  onClick,
+  onSelect,
 }: {
   booking: BookingEntry;
   highlightStaff: string | null;
-  onClick?: (e: React.MouseEvent) => void;
+  /** Stable handler from parent; receives booking id. Component handles
+   *  stopPropagation so memo identity stays clean. */
+  onSelect?: (id: string) => void;
 }) {
   const dimmed = !!(highlightStaff && booking.staffName !== highlightStaff);
   const style =
@@ -285,12 +288,19 @@ function BookingStrip({
 
   const staffAccent = booking.staffColor ?? "#CBD0DA";
   const border = dimmed ? "#E3E6EC" : staffAccent;
-  const clickable = !!onClick;
+  const clickable = !!onSelect;
 
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={
+        onSelect
+          ? (e) => {
+              e.stopPropagation();
+              onSelect(booking.id);
+            }
+          : undefined
+      }
       disabled={!clickable}
       className={`flex h-[18px] w-full items-center gap-1 truncate rounded-[3px] pr-1.5 text-left text-[11px] font-medium ${style.bg} ${
         dimmed ? "opacity-50" : ""
@@ -306,7 +316,7 @@ function BookingStrip({
       </span>
     </button>
   );
-}
+});
 
 function MoreBookingsPopover({
   dateKey,
@@ -365,12 +375,11 @@ function MoreBookingsPopover({
                 key={b.id}
                 booking={b}
                 highlightStaff={highlightStaff}
-                onClick={
+                onSelect={
                   onBookingClick
-                    ? (e) => {
-                        e.stopPropagation();
+                    ? (id) => {
                         setOpen(false);
-                        onBookingClick(b.id);
+                        onBookingClick(id);
                       }
                     : undefined
                 }
