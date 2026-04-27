@@ -4,7 +4,7 @@ const HEALTH_TRACKER_URL = "https://www.healthflow-ai.com/liff";
 
 const nextConfig: NextConfig = {
   env: {
-    NEXT_PUBLIC_BUILD_VERSION: "2.6.0",
+    NEXT_PUBLIC_BUILD_VERSION: "2.8.0",
     NEXT_PUBLIC_BUILD_TIME: new Date().toLocaleString("zh-TW", {
       timeZone: "Asia/Taipei",
       year: "numeric",
