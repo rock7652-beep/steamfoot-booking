@@ -6,8 +6,12 @@ import { getActiveStoreForRead } from "@/lib/store";
 import { ServerTiming, withTiming } from "@/lib/perf";
 import { notFound, redirect } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
-import { PageShell, PageHeader, EmptyRow } from "@/components/desktop";
-import { EmptyState } from "@/components/ui/empty-state";
+import {
+  PageShell,
+  PageHeader,
+  EmptyRow,
+  SideCard,
+} from "@/components/desktop";
 import { AssignPlanForm } from "./assign-plan-form";
 import { TransferCustomerForm } from "./transfer-customer-form";
 import { CreateBookingForm } from "./create-booking-form";
@@ -22,22 +26,12 @@ import {
   STATUS_LABEL,
   WALLET_STATUS_LABEL,
 } from "@/lib/booking-constants";
-import { TalentPipelineSection } from "./talent-pipeline-section";
-import { ReferralWrapper } from "./referral-wrapper";
-import { PointsSection } from "./points-section";
-import { getReferralsByReferrer } from "@/server/queries/referral";
-import { getPointHistory } from "@/server/queries/points";
-import { getUpgradeEligibility } from "@/server/queries/talent";
-import { getActiveBonusRules } from "@/server/queries/bonus-rule";
 import { getMyReferralSummary } from "@/server/queries/my-referral-summary";
-import { CustomerPotentialBadge } from "@/components/customer-potential-badge";
 import { formatTWTime } from "@/lib/date-utils";
+import { TALENT_STAGE_LABELS } from "@/types/talent";
+import type { CustomerStage, TalentStage } from "@prisma/client";
 
-import { CustomerSummaryStrip } from "./_components/customer-summary-strip";
 import { CustomerBasicInfo } from "./_components/customer-basic-info";
-import { CustomerActivitySummary } from "./_components/customer-activity-summary";
-import { CustomerGrowthSummary } from "./_components/customer-growth-summary";
-import { CustomerActionRail } from "./_components/customer-action-rail";
 
 const TX_TYPE_LABEL: Record<string, string> = {
   TRIAL_PURCHASE: "體驗購買",
@@ -47,6 +41,29 @@ const TX_TYPE_LABEL: Record<string, string> = {
   SUPPLEMENT: "補差額",
   REFUND: "退款",
   ADJUSTMENT: "手動調整",
+};
+
+const CUSTOMER_STAGE_LABEL: Record<CustomerStage, string> = {
+  LEAD: "名單",
+  TRIAL: "體驗",
+  ACTIVE: "已購課",
+  INACTIVE: "已停用",
+};
+
+const CUSTOMER_STAGE_COLOR: Record<CustomerStage, string> = {
+  LEAD: "bg-earth-100 text-earth-700",
+  TRIAL: "bg-blue-50 text-blue-700",
+  ACTIVE: "bg-primary-100 text-primary-700",
+  INACTIVE: "bg-yellow-50 text-yellow-700",
+};
+
+const TALENT_STAGE_COLOR: Record<TalentStage, string> = {
+  CUSTOMER: "bg-earth-100 text-earth-700",
+  REGULAR: "bg-earth-200 text-earth-700",
+  POTENTIAL_PARTNER: "bg-blue-50 text-blue-700",
+  PARTNER: "bg-blue-100 text-blue-800",
+  FUTURE_OWNER: "bg-amber-100 text-amber-700",
+  OWNER: "bg-green-100 text-green-700",
 };
 
 interface PageProps {
@@ -95,16 +112,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
 
   const effectiveStoreId = customer.storeId;
 
-  const [
-    plans,
-    staffOptions,
-    canDiscount,
-    customerReferrals,
-    customerPoints,
-    upgradeEligibility,
-    activeBonusRules,
-    perksSummary,
-  ] = await Promise.all([
+  const [plans, staffOptions, canDiscount, perksSummary] = await Promise.all([
     withTiming("getCachedPlans", timer, () => getCachedPlans(effectiveStoreId)).catch((e) => {
       console.error("[customer-detail] plans query failed", {
         ...logCtx,
@@ -123,46 +131,6 @@ export default async function CustomerDetailPage({ params }: PageProps) {
     }),
     checkPermission(user.role, user.staffId, "transaction.discount").catch(() => false),
     user.role !== "CUSTOMER"
-      ? getReferralsByReferrer(id).catch((e) => {
-          console.error("[customer-detail] referrals query failed", {
-            ...logCtx,
-            step: "referrals",
-            error: e instanceof Error ? e.message : String(e),
-          });
-          return [];
-        })
-      : Promise.resolve([]),
-    user.role !== "CUSTOMER"
-      ? getPointHistory(id, { limit: 10 }).catch((e) => {
-          console.error("[customer-detail] points query failed", {
-            ...logCtx,
-            step: "points",
-            error: e instanceof Error ? e.message : String(e),
-          });
-          return [];
-        })
-      : Promise.resolve([]),
-    user.role === "ADMIN" || user.role === "OWNER"
-      ? getUpgradeEligibility(id).catch((e) => {
-          console.error("[customer-detail] upgradeEligibility query failed", {
-            ...logCtx,
-            step: "upgradeEligibility",
-            error: e instanceof Error ? e.message : String(e),
-          });
-          return null;
-        })
-      : Promise.resolve(null),
-    user.role !== "CUSTOMER"
-      ? getActiveBonusRules(effectiveStoreId).catch((e) => {
-          console.error("[customer-detail] bonusRules query failed", {
-            ...logCtx,
-            step: "bonusRules",
-            error: e instanceof Error ? e.message : String(e),
-          });
-          return [];
-        })
-      : Promise.resolve([]),
-    user.role !== "CUSTOMER"
       ? withTiming("getMyReferralSummary", timer, () =>
           getMyReferralSummary(id, { activeStoreId: effectiveStoreId }),
         ).catch(() => null)
@@ -171,7 +139,6 @@ export default async function CustomerDetailPage({ params }: PageProps) {
 
   timer.finish();
 
-  const isOwnerRole = user.role === "ADMIN" || user.role === "OWNER";
   const canEdit = user.role !== "CUSTOMER";
 
   const staffList =
@@ -191,23 +158,28 @@ export default async function CustomerDetailPage({ params }: PageProps) {
   const historyBookings = bookings.filter(
     (b) => b.bookingStatus !== "PENDING" && b.bookingStatus !== "CONFIRMED",
   );
+  const recentHistory = historyBookings.slice(0, 5);
   const transactions = customer.transactions ?? [];
+  const recentTransactions = transactions.slice(0, 5);
 
   const referralCount = customer._count?.sponsoredCustomers ?? 0;
   const totalVisits = customer._count?.bookings ?? 0;
+  const totalPoints = customer.totalPoints ?? 0;
 
-  // For summary / compact activity section
-  const recentBookings = bookings.slice(0, 5).map((b) => ({
-    id: b.id,
-    bookingDate: b.bookingDate,
-    slotTime: b.slotTime,
-    bookingType: b.bookingType as string,
-    bookingStatus: b.bookingStatus as string,
-  }));
+  const customerStageLabel = CUSTOMER_STAGE_LABEL[customer.customerStage];
+  const customerStageColor = CUSTOMER_STAGE_COLOR[customer.customerStage];
+  const talentStageLabel = TALENT_STAGE_LABELS[customer.talentStage];
+  const talentStageColor = TALENT_STAGE_COLOR[customer.talentStage];
+
+  const headerActionBase =
+    "rounded-md border border-earth-200 bg-white px-3 py-1.5 text-xs font-medium text-earth-700 hover:bg-earth-50";
+
+  const quickActionBase =
+    "flex items-center justify-between rounded-md border border-earth-200 px-3 py-1.5 text-xs font-medium text-earth-700 hover:bg-earth-50";
 
   return (
     <PageShell>
-      {/* ========== 頁首 ========== */}
+      {/* Breadcrumb */}
       <div className="flex items-center gap-1.5 text-[11px] text-earth-500">
         <Link href="/dashboard/customers" className="hover:text-earth-700">
           顧客管理
@@ -218,41 +190,369 @@ export default async function CustomerDetailPage({ params }: PageProps) {
 
       <PageHeader
         title={customer.name}
-        subtitle={[customer.phone, customer.lineName ? `LINE ${customer.lineName}` : null]
+        subtitle={[
+          customer.phone,
+          customer.lineName ? `LINE ${customer.lineName}` : null,
+        ]
           .filter(Boolean)
           .join(" · ")}
         actions={
           <>
-            <Link
-              href="/dashboard/customers"
-              className="rounded-md border border-earth-200 bg-white px-3 py-1.5 text-xs font-medium text-earth-700 hover:bg-earth-50"
-            >
+            <Link href="/dashboard/customers" className={headerActionBase}>
               ← 顧客列表
             </Link>
             <Link
               href={`/dashboard/bookings?customerId=${id}`}
-              className="rounded-md border border-earth-200 bg-white px-3 py-1.5 text-xs font-medium text-earth-700 hover:bg-earth-50"
+              className={headerActionBase}
             >
               查看預約
+            </Link>
+            {canEdit && (
+              <Link
+                href={`/dashboard/customers/${id}/edit`}
+                className={headerActionBase}
+              >
+                編輯資料
+              </Link>
+            )}
+            <Link
+              href="#booking"
+              className="rounded-md bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary-700"
+            >
+              + 新增預約
             </Link>
           </>
         }
       />
 
-      {/* ========== 摘要列 ========== */}
-      <CustomerSummaryStrip
-        lastVisitAt={customer.lastVisitAt}
-        totalVisits={totalVisits}
-        referralCount={referralCount}
-        totalPoints={customer.totalPoints ?? 0}
-        totalRemainingSessions={totalRemaining}
-        talentStage={customer.talentStage}
-      />
+      {/* Header chips — quick state at a glance */}
+      <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1.5 border-b border-earth-200 pb-2">
+        <span
+          className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${customerStageColor}`}
+        >
+          {customerStageLabel}
+        </span>
+        <span
+          className={
+            customer.lineLinkStatus === "LINKED"
+              ? "rounded-full bg-green-50 px-2 py-0.5 text-[11px] font-medium text-green-700"
+              : "rounded-full bg-earth-100 px-2 py-0.5 text-[11px] font-medium text-earth-500"
+          }
+        >
+          {customer.lineLinkStatus === "LINKED" ? "LINE 已綁定" : "LINE 未綁定"}
+        </span>
+        <span
+          className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${talentStageColor}`}
+        >
+          {talentStageLabel}
+        </span>
+        <span className="ml-2 text-earth-200">｜</span>
+        <span className="inline-flex items-center gap-1 text-[12px] text-earth-700">
+          <span className="text-[11px] text-earth-500">剩餘堂數</span>
+          <span
+            className={`text-[14px] font-bold tabular-nums ${
+              totalRemaining > 0 ? "text-primary-700" : "text-earth-500"
+            }`}
+          >
+            {totalRemaining}
+          </span>
+          <span className="text-[11px] text-earth-500">堂</span>
+        </span>
+        <span className="text-earth-200">｜</span>
+        <span className="inline-flex items-center gap-1 text-[12px] text-earth-700">
+          <span className="text-[11px] text-earth-500">點數</span>
+          <span className="text-[14px] font-bold tabular-nums text-amber-700">
+            {totalPoints}
+          </span>
+        </span>
+        <span className="text-earth-200">｜</span>
+        <span className="inline-flex items-center gap-1 text-[12px] text-earth-700">
+          <span className="text-[11px] text-earth-500">累積來店</span>
+          <span className="text-[14px] font-bold tabular-nums text-earth-800">
+            {totalVisits}
+          </span>
+          <span className="text-[11px] text-earth-500">次</span>
+        </span>
+      </div>
 
-      {/* ========== 主 Grid 8 + 4 ========== */}
-      <div className="grid grid-cols-12 gap-3">
-        {/* 左側主內容 (col-8) */}
-        <div className="col-span-12 space-y-3 lg:col-span-8">
+      {/* Main 8/4 grid */}
+      <div className="grid grid-cols-1 gap-3 xl:grid-cols-12">
+        {/* ========== Left 8 — primary operations ========== */}
+        <div className="space-y-3 xl:col-span-8">
+          {/* 1. Plans */}
+          <section
+            id="plan"
+            className="scroll-mt-16 rounded-xl border border-earth-200 bg-white p-4"
+          >
+            <div className="mb-3 flex items-center justify-between">
+              <div>
+                <h2 className="text-sm font-semibold text-earth-800">課程方案</h2>
+                <p className="text-[11px] text-earth-400">
+                  目前有效方案、剩餘堂數、到期日
+                </p>
+              </div>
+              {canEdit && (
+                <AssignPlanForm
+                  customerId={id}
+                  canDiscount={canDiscount}
+                  plans={plans.map((p) => ({
+                    id: p.id,
+                    name: p.name,
+                    category: p.category,
+                    price: Number(p.price),
+                    sessionCount: p.sessionCount,
+                  }))}
+                />
+              )}
+            </div>
+
+            {wallets.length === 0 ? (
+              <div className="flex items-center justify-between rounded-lg border border-earth-100 bg-earth-50/40 px-4 py-3 text-xs text-earth-500">
+                <span>尚未指派方案</span>
+                <span className="text-[11px] text-earth-400">
+                  使用右上方「+ 指派方案」開始
+                </span>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {activeWallets.map((w) => (
+                  <WalletItem key={w.id} w={w} userRole={user.role} />
+                ))}
+                {inactiveWallets.length > 0 && (
+                  <details className="group">
+                    <summary className="cursor-pointer text-[11px] font-medium text-earth-500 hover:text-earth-700">
+                      <span className="group-open:hidden">
+                        歷史方案 ({inactiveWallets.length}) ▾
+                      </span>
+                      <span className="hidden group-open:inline">收合 ▴</span>
+                    </summary>
+                    <div className="mt-2 space-y-2 opacity-70">
+                      {inactiveWallets.map((w) => (
+                        <WalletItem key={w.id} w={w} userRole={user.role} />
+                      ))}
+                    </div>
+                  </details>
+                )}
+              </div>
+            )}
+          </section>
+
+          {/* 2. Create booking */}
+          <section
+            id="booking"
+            className="scroll-mt-16 rounded-xl border border-earth-200 bg-white p-4"
+          >
+            <h2 className="mb-3 text-sm font-semibold text-earth-800">建立預約</h2>
+            {activeWallets.length === 0 ? (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+                <p className="text-xs font-medium text-amber-800">
+                  需先指派方案，才能建立課程堂數預約
+                </p>
+                <p className="mt-1 text-[11px] text-amber-700">
+                  完成指派後可在此建立 PACKAGE 堂數預約。體驗或單次預約請至「預約管理」頁面建立。
+                </p>
+                <Link
+                  href="#plan"
+                  className="mt-3 inline-flex items-center rounded-md bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700"
+                >
+                  前往指派方案 →
+                </Link>
+              </div>
+            ) : (
+              <CreateBookingForm
+                customerId={id}
+                activeWallets={activeWallets.map((w) => ({
+                  id: w.id,
+                  planName: w.plan.name,
+                  remainingSessions: w.remainingSessions,
+                }))}
+              />
+            )}
+
+            {/* Upcoming bookings — kept compact below create form */}
+            {upcomingBookings.length > 0 && (
+              <div className="mt-3 border-t border-earth-100 pt-3">
+                <p className="mb-1.5 text-[11px] font-medium text-earth-500">
+                  未來預約 ({upcomingBookings.length})
+                </p>
+                <div className="space-y-1">
+                  {upcomingBookings.map((b) => (
+                    <div
+                      key={b.id}
+                      className="flex items-center justify-between rounded-md bg-blue-50/60 px-3 py-1.5 text-xs"
+                    >
+                      <span className="tabular-nums text-earth-800">
+                        {formatTWTime(b.bookingDate, { dateOnly: true })} · {b.slotTime}
+                      </span>
+                      <span className="text-[11px] text-blue-700">
+                        {STATUS_LABEL[b.bookingStatus] ?? b.bookingStatus}
+                      </span>
+                      <Link
+                        href={`/dashboard/bookings/${b.id}`}
+                        className="text-primary-700 hover:underline"
+                      >
+                        操作 →
+                      </Link>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
+
+          {/* 3. Booking history (recent 5) */}
+          <section
+            id="bookings-history"
+            className="scroll-mt-16 rounded-xl border border-earth-200 bg-white"
+          >
+            <div className="flex items-center justify-between px-4 py-3">
+              <div>
+                <h2 className="text-sm font-semibold text-earth-800">預約紀錄</h2>
+                <p className="text-[11px] text-earth-400">
+                  最近 {recentHistory.length} / {historyBookings.length} 筆
+                </p>
+              </div>
+              <Link
+                href={`/dashboard/bookings?customerId=${id}`}
+                className="text-[11px] text-primary-600 hover:text-primary-700"
+              >
+                查看全部 →
+              </Link>
+            </div>
+            {recentHistory.length === 0 ? (
+              <EmptyRow title="尚無預約紀錄" dense />
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-earth-50 text-[11px] font-medium text-earth-500">
+                    <tr>
+                      <th className="px-3 py-2">日期</th>
+                      <th className="px-3 py-2">時段</th>
+                      <th className="px-3 py-2">類型</th>
+                      <th className="px-3 py-2">狀態</th>
+                      <th className="w-12 px-3 py-2 text-right">詳情</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-earth-100">
+                    {recentHistory.map((b) => (
+                      <tr key={b.id} className="h-11 hover:bg-primary-50/40">
+                        <td className="px-3 text-sm tabular-nums text-earth-800">
+                          {formatTWTime(b.bookingDate, { dateOnly: true })}
+                        </td>
+                        <td className="px-3 text-[13px] text-earth-600">
+                          {b.slotTime}
+                        </td>
+                        <td className="px-3 text-[13px] text-earth-600">
+                          {b.bookingType}
+                        </td>
+                        <td className="px-3">
+                          <span
+                            className={`rounded px-1.5 py-0.5 text-[11px] font-medium ${
+                              b.bookingStatus === "COMPLETED"
+                                ? "bg-green-50 text-green-700"
+                                : b.bookingStatus === "CANCELLED"
+                                  ? "bg-earth-100 text-earth-500"
+                                  : "bg-earth-100 text-earth-600"
+                            }`}
+                          >
+                            {STATUS_LABEL[b.bookingStatus] ?? b.bookingStatus}
+                          </span>
+                        </td>
+                        <td className="px-3 text-right">
+                          <Link
+                            href={`/dashboard/bookings/${b.id}`}
+                            className="text-[11px] text-primary-600 hover:text-primary-700"
+                          >
+                            →
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+
+          {/* 4. Transactions (recent 5) */}
+          <section className="rounded-xl border border-earth-200 bg-white">
+            <div className="flex items-center justify-between px-4 py-3">
+              <div>
+                <h2 className="text-sm font-semibold text-earth-800">消費紀錄</h2>
+                <p className="text-[11px] text-earth-400">
+                  最近 {recentTransactions.length} / {transactions.length} 筆
+                </p>
+              </div>
+              <Link
+                href={`/dashboard/transactions?customerId=${id}`}
+                className="text-[11px] text-primary-600 hover:text-primary-700"
+              >
+                查看全部 →
+              </Link>
+            </div>
+            {recentTransactions.length === 0 ? (
+              <EmptyRow title="尚無消費紀錄" dense />
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-earth-50 text-[11px] font-medium text-earth-500">
+                    <tr>
+                      <th className="px-3 py-2">日期</th>
+                      <th className="px-3 py-2">類型</th>
+                      <th className="px-3 py-2 text-right">金額</th>
+                      <th className="px-3 py-2">付款方式</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-earth-100">
+                    {recentTransactions.map((t) => {
+                      const hasDiscount =
+                        t.originalAmount && t.discountType && t.discountType !== "none";
+                      return (
+                        <tr key={t.id} className="h-11">
+                          <td className="px-3 text-[13px] tabular-nums text-earth-600">
+                            {formatTWTime(t.createdAt, { dateOnly: true })}
+                          </td>
+                          <td className="px-3 text-sm text-earth-800">
+                            {TX_TYPE_LABEL[t.transactionType] ?? t.transactionType}
+                          </td>
+                          <td
+                            className={`px-3 text-right text-sm font-medium tabular-nums ${
+                              Number(t.amount) < 0 ? "text-red-600" : "text-earth-900"
+                            }`}
+                          >
+                            {hasDiscount ? (
+                              <div className="leading-tight">
+                                <span className="text-[11px] text-earth-400 line-through">
+                                  NT$ {Number(t.originalAmount).toLocaleString()}
+                                </span>
+                                <br />
+                                <span>NT$ {Number(t.amount).toLocaleString()}</span>
+                                {t.discountReason && (
+                                  <span className="ml-1 text-[10px] text-amber-600">
+                                    ({t.discountReason})
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <>NT$ {Number(t.amount).toLocaleString()}</>
+                            )}
+                          </td>
+                          <td className="px-3 text-[13px] text-earth-500">
+                            {t.paymentMethod}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        </div>
+
+        {/* ========== Right 4 — info & quick actions ========== */}
+        <aside className="space-y-3 xl:col-span-4">
+          {/* Basic info */}
           <CustomerBasicInfo
             name={customer.name}
             phone={customer.phone}
@@ -268,408 +568,218 @@ export default async function CustomerDetailPage({ params }: PageProps) {
             notes={customer.notes}
           />
 
-          <CustomerActivitySummary
-            lastVisitAt={customer.lastVisitAt}
-            firstVisitAt={customer.firstVisitAt}
-            convertedAt={customer.convertedAt}
-            totalVisits={totalVisits}
-            totalRemaining={totalRemaining}
-            activeWallets={activeWallets.map((w) => ({
-              id: w.id,
-              planName: w.plan.name,
-              remainingSessions: w.remainingSessions,
-              totalSessions: w.totalSessions,
-            }))}
-            recentBookings={recentBookings}
-          />
-
-          {user.role !== "CUSTOMER" && (
-            <CustomerGrowthSummary
-              customerStage={customer.customerStage}
-              talentStage={customer.talentStage}
-              stageChangedAt={customer.stageChangedAt}
-              stageNote={customer.stageNote}
-              sponsor={customer.sponsor}
-              referralCount={referralCount}
-              upgradeEligible={upgradeEligibility?.isEligibleForFutureOwner ?? false}
-            />
-          )}
-        </div>
-
-        {/* 右側 Action Rail (col-4) */}
-        <CustomerActionRail
-          customerId={id}
-          customerStage={customer.customerStage}
-          talentStage={customer.talentStage}
-          lineLinkStatus={customer.lineLinkStatus}
-          lineLinkedAt={customer.lineLinkedAt}
-          selfBookingEnabled={customer.selfBookingEnabled}
-          accountActive={!!customer.user}
-          isHighPotential={upgradeEligibility?.isEligibleForFutureOwner ?? false}
-          authSource={customer.authSource}
-          createdAt={customer.createdAt}
-          updatedAt={customer.updatedAt}
-          canEdit={canEdit}
-        />
-      </div>
-
-      {/* ========== 詳細 section — 以下為既有完整 UI，維持 operation / admin 功能 ========== */}
-
-      {/* 調整顧客階段 (anchor: #stage) */}
-      <section id="stage" className="scroll-mt-16 rounded-xl border border-earth-200 bg-white p-4">
-        <h2 className="text-sm font-semibold text-earth-800">階段與狀態</h2>
-        <p className="mt-0.5 text-[11px] text-earth-400">
-          調整此顧客的購課階段（LEAD / 體驗 / 已購課 / 已停用）
-        </p>
-        <CustomerStageForm customerId={id} currentStage={customer.customerStage} />
-      </section>
-
-      {/* 人才管道 full */}
-      {user.role !== "CUSTOMER" && (
-        <section
-          id="talent"
-          className="scroll-mt-16 rounded-xl border border-earth-200 bg-white p-4"
-        >
-          <TalentPipelineSection
-            customerId={id}
-            talentStage={customer.talentStage}
-            sponsor={customer.sponsor}
-            referralCount={referralCount}
-            stageNote={customer.stageNote}
-            isOwner={isOwnerRole}
-            upgradeEligibility={upgradeEligibility}
-          />
-        </section>
-      )}
-
-      {/* Transfer (Admin only) */}
-      {user.role === "ADMIN" && staffList.length > 0 && (
-        <section className="rounded-xl border border-earth-200 bg-white p-4">
-          <h2 className="mb-2 text-sm font-semibold text-earth-800">轉移顧客</h2>
-          <TransferCustomerForm
-            customerId={id}
-            currentStaffId={customer.assignedStaffId}
-            staffList={staffList}
-          />
-        </section>
-      )}
-
-      {/* 分享與回饋（小區塊） */}
-      {user.role !== "CUSTOMER" && perksSummary && (
-        <section className="rounded-xl border border-earth-200 bg-white p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <h2 className="text-sm font-semibold text-earth-800">分享與回饋</h2>
-              <CustomerPotentialBadge
-                input={{
-                  shareCount: perksSummary.shareCount,
-                  visitCount: perksSummary.visitedCount,
-                  totalPoints: perksSummary.totalPoints,
-                }}
-                size="md"
-              />
-            </div>
-            <span className="text-[11px] text-earth-400">好康互動概況</span>
-          </div>
-          <div className="mt-3 grid grid-cols-4 gap-3 text-center">
-            <PerkCell label="分享" value={perksSummary.shareCount} unit="次" />
-            <PerkCell label="加入" value={perksSummary.lineJoinCount} unit="位" />
-            <PerkCell label="來店" value={perksSummary.visitedCount} unit="位" highlight />
-            <PerkCell label="點數" value={perksSummary.totalPoints} unit="點" />
-          </div>
-          {perksSummary.nextMilestone && (
-            <p className="mt-3 text-[11px] text-earth-500">
-              距離下一個回饋還差{" "}
-              <span className="font-semibold text-amber-700">
-                {perksSummary.nextMilestone.remaining}
-              </span>{" "}
-              點（目標 {perksSummary.nextMilestone.target} 點）
-            </p>
-          )}
-        </section>
-      )}
-
-      {/* 轉介紹紀錄 (anchor: #referrals) */}
-      {user.role !== "CUSTOMER" && (
-        <section
-          id="referrals"
-          className="scroll-mt-16 rounded-xl border border-earth-200 bg-white p-4"
-        >
-          <ReferralWrapper
-            customerId={id}
-            referrals={(customerReferrals ?? []).map((r) => ({
-              id: r.id,
-              referredName: r.referredName,
-              referredPhone: r.referredPhone,
-              status: r.status,
-              note: r.note,
-              createdAt:
-                r.createdAt instanceof Date ? r.createdAt.toISOString() : String(r.createdAt),
-            }))}
-            canManage={isOwnerRole}
-          />
-        </section>
-      )}
-
-      {/* 集點 */}
-      {user.role !== "CUSTOMER" && (
-        <section className="rounded-xl border border-earth-200 bg-white p-4">
-          <PointsSection
-            customerId={id}
-            totalPoints={customer.totalPoints || 0}
-            recentPoints={(customerPoints ?? []).map((p) => ({
-              id: p.id,
-              type: p.type,
-              points: p.points,
-              note: p.note,
-              createdAt:
-                p.createdAt instanceof Date ? p.createdAt.toISOString() : String(p.createdAt),
-            }))}
-            bonusRules={(activeBonusRules ?? []).map((r) => ({
-              id: r.id,
-              name: r.name,
-              points: r.points,
-            }))}
-            canManualAward={isOwnerRole}
-          />
-        </section>
-      )}
-
-      {/* 課程方案 */}
-      <section id="plan" className="scroll-mt-16 rounded-xl border border-earth-200 bg-white p-4">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-earth-800">課程方案</h2>
-          <AssignPlanForm
-            customerId={id}
-            canDiscount={canDiscount}
-            plans={plans.map((p) => ({
-              id: p.id,
-              name: p.name,
-              category: p.category,
-              price: Number(p.price),
-              sessionCount: p.sessionCount,
-            }))}
-          />
-        </div>
-        {wallets.length === 0 ? (
-          <EmptyState
-            icon="empty"
-            title="尚未購買課程"
-            description="可在上方指派課程方案給此顧客"
-          />
-        ) : (
-          <div className="space-y-3">
-            {activeWallets.length > 0 && (
-              <div className="space-y-2">
-                {activeWallets.map((w) => (
-                  <WalletItem key={w.id} w={w} userRole={user.role} />
-                ))}
-              </div>
-            )}
-            {inactiveWallets.length > 0 && (
-              <div>
-                <p className="mb-2 text-xs font-medium text-earth-400">歷史方案</p>
-                <div className="space-y-2 opacity-60">
-                  {inactiveWallets.map((w) => (
-                    <WalletItem key={w.id} w={w} userRole={user.role} />
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </section>
-
-      {/* 建立新預約 */}
-      <section id="booking" className="scroll-mt-16 rounded-xl border border-earth-200 bg-white p-4">
-        <h2 className="mb-3 text-sm font-semibold text-earth-800">建立新預約</h2>
-        {activeWallets.length === 0 ? (
-          <div className="rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3 text-xs text-yellow-800">
-            <p className="font-medium">此顧客尚無有效課程方案</p>
-            <p className="mt-1 text-yellow-700">
-              體驗或單次預約請直接建立；課程堂數預約需先在上方「課程方案」區塊指派方案。
-            </p>
-            <div className="mt-3">
-              <CreateBookingForm customerId={id} activeWallets={[]} />
-            </div>
-          </div>
-        ) : (
-          <CreateBookingForm
-            customerId={id}
-            activeWallets={activeWallets.map((w) => ({
-              id: w.id,
-              planName: w.plan.name,
-              remainingSessions: w.remainingSessions,
-            }))}
-          />
-        )}
-      </section>
-
-      {/* 未來預約 */}
-      {upcomingBookings.length > 0 && (
-        <section className="rounded-xl border border-earth-200 bg-white p-4">
-          <h2 className="mb-2 text-sm font-semibold text-earth-800">
-            未來預約（{upcomingBookings.length}）
-          </h2>
-          <div className="space-y-1.5">
-            {upcomingBookings.map((b) => (
-              <div
-                key={b.id}
-                className="flex items-center justify-between rounded-md bg-blue-50/60 px-3 py-1.5 text-xs"
+          {/* Status badges */}
+          <SideCard title="狀態" subtitle="目前系統狀態">
+            <div className="flex flex-wrap gap-1.5">
+              <span
+                className={`rounded px-1.5 py-0.5 text-[11px] font-medium ${customerStageColor}`}
               >
-                <span className="tabular-nums text-earth-800">
-                  {formatTWTime(b.bookingDate, { dateOnly: true })} · {b.slotTime}
+                {customerStageLabel}
+              </span>
+              {customer.lineLinkStatus === "LINKED" ? (
+                <span className="rounded bg-green-50 px-1.5 py-0.5 text-[11px] font-medium text-green-700">
+                  LINE 已綁定
                 </span>
-                <span className="text-[11px] text-blue-700">
-                  {STATUS_LABEL[b.bookingStatus] ?? b.bookingStatus}
+              ) : (
+                <span className="rounded bg-earth-100 px-1.5 py-0.5 text-[11px] font-medium text-earth-500">
+                  LINE 未綁定
                 </span>
+              )}
+              {customer.user ? (
+                <span className="rounded bg-primary-50 px-1.5 py-0.5 text-[11px] font-medium text-primary-700">
+                  帳號已啟用
+                </span>
+              ) : (
+                <span className="rounded bg-orange-50 px-1.5 py-0.5 text-[11px] font-medium text-orange-700">
+                  帳號未開通
+                </span>
+              )}
+              {customer.selfBookingEnabled && (
+                <span className="rounded bg-blue-50 px-1.5 py-0.5 text-[11px] font-medium text-blue-700">
+                  自助預約
+                </span>
+              )}
+              <span
+                className={`rounded px-1.5 py-0.5 text-[11px] font-medium ${talentStageColor}`}
+              >
+                {talentStageLabel}
+              </span>
+            </div>
+          </SideCard>
+
+          {/* Quick actions — links + inline stage form */}
+          <SideCard title="快速操作" subtitle="常用動作直接進入">
+            <div className="flex flex-col gap-1.5">
+              {canEdit ? (
                 <Link
-                  href={`/dashboard/bookings/${b.id}`}
-                  className="text-primary-700 hover:underline"
+                  href={`/dashboard/customers/${id}/edit`}
+                  className={quickActionBase}
                 >
-                  操作
+                  <span>編輯資料</span>
+                  <span>→</span>
                 </Link>
+              ) : (
+                <span className={`${quickActionBase} cursor-not-allowed opacity-50`}>
+                  <span>編輯資料</span>
+                  <span>→</span>
+                </span>
+              )}
+              <Link href="#booking" className={quickActionBase}>
+                <span>新增預約</span>
+                <span>→</span>
+              </Link>
+              <Link
+                href={`/dashboard/bookings?customerId=${id}`}
+                className={quickActionBase}
+              >
+                <span>查看預約紀錄</span>
+                <span>→</span>
+              </Link>
+              <Link href="#plan" className={quickActionBase}>
+                <span>指派方案</span>
+                <span>→</span>
+              </Link>
+              {canEdit && (
+                <div className="mt-1 rounded-md border border-earth-200 px-3 py-2">
+                  <CustomerStageForm
+                    customerId={id}
+                    currentStage={customer.customerStage}
+                  />
+                </div>
+              )}
+            </div>
+          </SideCard>
+
+          {/* Transfer customer (ADMIN only) */}
+          {user.role === "ADMIN" && staffList.length > 0 && (
+            <SideCard title="轉移顧客" subtitle="指派給其他店長">
+              <TransferCustomerForm
+                customerId={id}
+                currentStaffId={customer.assignedStaffId}
+                staffList={staffList}
+              />
+            </SideCard>
+          )}
+
+          {/* Growth summary — compact, full management on Growth page */}
+          {user.role !== "CUSTOMER" && (
+            <SideCard
+              title="成長摘要"
+              subtitle="完整成長系統將於 Growth 頁管理"
+            >
+              <div className="grid grid-cols-2 gap-2">
+                <GrowthMetric label="推薦人數" value={referralCount} unit="人" />
+                <GrowthMetric
+                  label="分享次數"
+                  value={perksSummary?.shareCount ?? 0}
+                  unit="次"
+                />
+                <GrowthMetric
+                  label="來店人數"
+                  value={perksSummary?.visitedCount ?? 0}
+                  unit="位"
+                />
+                <GrowthMetric
+                  label="目前點數"
+                  value={totalPoints}
+                  unit="點"
+                  tone="amber"
+                />
               </div>
-            ))}
-          </div>
-        </section>
-      )}
+              <div className="mt-2 flex items-center justify-between rounded-md bg-earth-50 px-2.5 py-1.5">
+                <span className="text-[11px] text-earth-500">人才階段</span>
+                <span
+                  className={`rounded px-1.5 py-0.5 text-[11px] font-medium ${talentStageColor}`}
+                >
+                  {talentStageLabel}
+                </span>
+              </div>
+            </SideCard>
+          )}
 
-      {/* 預約歷史 (anchor: #bookings-history) */}
-      <section
-        id="bookings-history"
-        className="scroll-mt-16 rounded-xl border border-earth-200 bg-white"
-      >
-        <div className="flex items-center justify-between px-4 py-3">
-          <div>
-            <h2 className="text-sm font-semibold text-earth-800">預約紀錄</h2>
-            <p className="text-[11px] text-earth-400">最近 {historyBookings.length} 筆</p>
-          </div>
-          <Link
-            href={`/dashboard/bookings?customerId=${id}`}
-            className="text-[11px] text-primary-600 hover:text-primary-700"
-          >
-            查看全部 →
-          </Link>
-        </div>
-        {historyBookings.length === 0 ? (
-          <EmptyRow title="尚無歷史預約" hint="此顧客還沒有預約紀錄" />
-        ) : (
-          <table className="w-full text-left text-sm">
-            <thead className="bg-earth-50 text-[11px] font-medium text-earth-500">
-              <tr>
-                <th className="px-3 py-2">日期</th>
-                <th className="px-3 py-2">時段</th>
-                <th className="px-3 py-2">類型</th>
-                <th className="px-3 py-2">狀態</th>
-                <th className="w-16 px-3 py-2 text-right">詳情</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-earth-100">
-              {historyBookings.map((b) => (
-                <tr key={b.id} className="h-11 hover:bg-primary-50/40">
-                  <td className="px-3 text-sm tabular-nums text-earth-800">
-                    {formatTWTime(b.bookingDate, { dateOnly: true })}
-                  </td>
-                  <td className="px-3 text-[13px] text-earth-600">{b.slotTime}</td>
-                  <td className="px-3 text-[13px] text-earth-600">{b.bookingType}</td>
-                  <td className="px-3">
-                    <span
-                      className={`rounded px-1.5 py-0.5 text-[11px] font-medium ${
-                        b.bookingStatus === "COMPLETED"
-                          ? "bg-green-50 text-green-700"
-                          : b.bookingStatus === "CANCELLED"
-                            ? "bg-earth-100 text-earth-500"
-                            : "bg-earth-100 text-earth-600"
-                      }`}
-                    >
-                      {STATUS_LABEL[b.bookingStatus] ?? b.bookingStatus}
-                    </span>
-                  </td>
-                  <td className="px-3 text-right">
-                    <Link
-                      href={`/dashboard/bookings/${b.id}`}
-                      className="text-[11px] text-primary-600 hover:text-primary-700"
-                    >
-                      →
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </section>
-
-      {/* 消費紀錄 */}
-      <section className="rounded-xl border border-earth-200 bg-white">
-        <div className="flex items-center justify-between px-4 py-3">
-          <div>
-            <h2 className="text-sm font-semibold text-earth-800">消費紀錄</h2>
-            <p className="text-[11px] text-earth-400">最近 {transactions.length} 筆</p>
-          </div>
-          <Link
-            href={`/dashboard/transactions?customerId=${id}`}
-            className="text-[11px] text-primary-600 hover:text-primary-700"
-          >
-            查看全部 →
-          </Link>
-        </div>
-        {transactions.length === 0 ? (
-          <EmptyRow title="尚無消費紀錄" hint="此顧客還沒有消費記錄" />
-        ) : (
-          <table className="w-full text-left text-sm">
-            <thead className="bg-earth-50 text-[11px] font-medium text-earth-500">
-              <tr>
-                <th className="px-3 py-2">日期</th>
-                <th className="px-3 py-2">類型</th>
-                <th className="px-3 py-2 text-right">金額</th>
-                <th className="px-3 py-2">付款方式</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-earth-100">
-              {transactions.map((t) => {
-                const hasDiscount =
-                  t.originalAmount && t.discountType && t.discountType !== "none";
-                return (
-                  <tr key={t.id} className="h-11">
-                    <td className="px-3 text-[13px] tabular-nums text-earth-600">
-                      {formatTWTime(t.createdAt, { dateOnly: true })}
-                    </td>
-                    <td className="px-3 text-sm text-earth-800">
-                      {TX_TYPE_LABEL[t.transactionType] ?? t.transactionType}
-                    </td>
-                    <td
-                      className={`px-3 text-right text-sm font-medium tabular-nums ${
-                        Number(t.amount) < 0 ? "text-red-600" : "text-earth-900"
-                      }`}
-                    >
-                      {hasDiscount ? (
-                        <div className="leading-tight">
-                          <span className="text-[11px] text-earth-400 line-through">
-                            NT$ {Number(t.originalAmount).toLocaleString()}
-                          </span>
-                          <br />
-                          <span>NT$ {Number(t.amount).toLocaleString()}</span>
-                          {t.discountReason && (
-                            <span className="ml-1 text-[10px] text-amber-600">
-                              ({t.discountReason})
-                            </span>
-                          )}
-                        </div>
-                      ) : (
-                        <>NT$ {Number(t.amount).toLocaleString()}</>
-                      )}
-                    </td>
-                    <td className="px-3 text-[13px] text-earth-500">{t.paymentMethod}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
-      </section>
+          {/* System info */}
+          <SideCard title="系統資訊" subtitle="營運除錯用">
+            <dl className="flex flex-col">
+              <SystemRow
+                label="ID"
+                value={
+                  <span className="font-mono text-[11px]">{id.slice(-8)}</span>
+                }
+              />
+              <SystemRow
+                label="建立"
+                value={formatTWTime(customer.createdAt, { dateOnly: true })}
+              />
+              <SystemRow
+                label="最後更新"
+                value={formatTWTime(customer.updatedAt, { dateOnly: true })}
+              />
+              <SystemRow
+                label="LINE 綁定"
+                value={
+                  customer.lineLinkedAt
+                    ? formatTWTime(customer.lineLinkedAt, { dateOnly: true })
+                    : null
+                }
+              />
+              <SystemRow
+                label="來源"
+                value={
+                  customer.authSource === "MANUAL"
+                    ? "店長手動"
+                    : customer.authSource
+                }
+              />
+            </dl>
+          </SideCard>
+        </aside>
+      </div>
     </PageShell>
+  );
+}
+
+function GrowthMetric({
+  label,
+  value,
+  unit,
+  tone = "earth",
+}: {
+  label: string;
+  value: number;
+  unit: string;
+  tone?: "earth" | "amber" | "primary";
+}) {
+  const valueClass =
+    tone === "amber"
+      ? "text-amber-700"
+      : tone === "primary"
+        ? "text-primary-700"
+        : "text-earth-800";
+  return (
+    <div className="rounded-md bg-earth-50 px-2.5 py-1.5">
+      <div className="text-[10px] text-earth-500">{label}</div>
+      <div className={`text-base font-bold tabular-nums ${valueClass}`}>
+        {value}
+        <span className="ml-0.5 text-[10px] font-normal text-earth-400">
+          {unit}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function SystemRow({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between py-1">
+      <dt className="text-[11px] text-earth-500">{label}</dt>
+      <dd className="text-[12px] text-earth-700">
+        {value == null || value === "" ? (
+          <span className="text-earth-400">—</span>
+        ) : (
+          value
+        )}
+      </dd>
+    </div>
   );
 }
 
@@ -753,32 +863,6 @@ function WalletItem({
           </div>
         </details>
       )}
-    </div>
-  );
-}
-
-function PerkCell({
-  label,
-  value,
-  unit,
-  highlight = false,
-}: {
-  label: string;
-  value: number;
-  unit: string;
-  highlight?: boolean;
-}) {
-  return (
-    <div className={`rounded-md px-2 py-2 ${highlight ? "bg-primary-50" : "bg-earth-50"}`}>
-      <p className="text-[11px] text-earth-500">{label}</p>
-      <p
-        className={`mt-0.5 text-lg font-bold tabular-nums ${
-          highlight ? "text-primary-700" : "text-earth-800"
-        }`}
-      >
-        {value}
-      </p>
-      <p className="text-[10px] text-earth-400">{unit}</p>
     </div>
   );
 }
