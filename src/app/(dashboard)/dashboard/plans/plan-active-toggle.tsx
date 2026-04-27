@@ -11,9 +11,14 @@ interface Props {
   isActive: boolean;
   /** compact 版（手機列表用）*/
   compact?: boolean;
+  /**
+   * 桌機版 manager 路徑：傳入後不打 `router.refresh()`，由 caller 用
+   * 回傳的 next 值更新本地 plans 狀態（避免整頁 RSC re-fetch）。
+   */
+  onChange?: (next: boolean) => void;
 }
 
-export function PlanActiveToggle({ planId, planName, isActive, compact = false }: Props) {
+export function PlanActiveToggle({ planId, planName, isActive, compact = false, onChange }: Props) {
   const [pending, startTransition] = useTransition();
   const router = useRouter();
 
@@ -27,7 +32,11 @@ export function PlanActiveToggle({ planId, planName, isActive, compact = false }
             ? `「${planName}」已上架`
             : `「${planName}」已下架（既有顧客錢包不受影響）`
         );
-        router.refresh();
+        if (onChange) {
+          onChange(next);
+        } else {
+          router.refresh();
+        }
       } else {
         toast.error(result.error ?? "切換失敗");
       }

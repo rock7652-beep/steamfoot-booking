@@ -17,6 +17,9 @@ export async function listPlans(includeInactive = false) {
   return prisma.servicePlan.findMany({
     where,
     orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+    // _count.wallets — used by the desktop manage page to show a 「使用中」
+    // hint, and to gate "下架後仍有錢包" warnings without an extra query.
+    include: { _count: { select: { wallets: true } } },
   });
 }
 
