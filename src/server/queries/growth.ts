@@ -16,7 +16,9 @@
  * - 每支子 query `safe()` 包 try/catch；失敗回 fallback，不拋錯。
  */
 
+import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/db";
+import { CACHE_TAGS } from "@/lib/cache-tags";
 import { requireStaffSession } from "@/lib/session";
 import { getStoreFilter } from "@/lib/manager-visibility";
 import { computeReadinessScores, getTalentPipeline } from "@/server/queries/talent";
@@ -286,11 +288,18 @@ async function buildAllGrowthCandidates(activeStoreId?: string | null): Promise<
 // Public: getGrowthOverviewSummary
 // ============================================================
 
-export async function getGrowthOverviewSummary(
-  activeStoreId?: string | null,
+/**
+ * Pure compute for growth overview — 不查 session，由 caller 把 effectiveStoreId
+ * 解析好傳進來。供 unstable_cache 包裹。
+ *
+ * effectiveStoreId === null → ADMIN __all__ 視角（不限店）。
+ */
+async function computeGrowthOverviewSummary(
+  effectiveStoreId: string | null,
 ): Promise<GrowthOverview> {
-  const user = await requireStaffSession();
-  const storeFilter = getStoreFilter(user, activeStoreId);
+  const storeFilter: Record<string, unknown> = effectiveStoreId
+    ? { storeId: effectiveStoreId }
+    : {};
 
   const monthStart = (() => {
     const d = new Date();
@@ -299,8 +308,8 @@ export async function getGrowthOverviewSummary(
 
   const [built, pipeline, monthReferralEvents, monthConvertedSet, newPartnerCount, newFutureOwnerCount] =
     await Promise.all([
-      buildAllGrowthCandidates(activeStoreId),
-      safe("pipeline", () => getTalentPipeline(activeStoreId), {
+      buildAllGrowthCandidates(effectiveStoreId),
+      safe("pipeline", () => getTalentPipeline(effectiveStoreId), {
         stages: [],
         totalPartners: 0,
         totalFutureOwners: 0,
@@ -377,6 +386,35 @@ export async function getGrowthOverviewSummary(
     totalPartners: pipeline.totalPartners,
     totalFutureOwners: pipeline.totalFutureOwners,
   };
+}
+
+/**
+ * Cross-request cache: 60s TTL，tag: bookings-summary + report-store。
+ * Key 含 effectiveStoreId（ADMIN __all__ → "__all__"）。Mutation 失效路徑沿用既有的
+ * revalidateBookings / revalidateTransactions（前者帶 bookings-summary tag）。
+ *
+ * 60s 是為了讓 referral / talent stage 變動最多 stale 1 分鐘 — 對「找下一位
+ * 候選人」決策足夠新，但成本低很多（同店 60s 內第二人秒開）。
+ */
+const _cachedGrowthOverviewSummary = unstable_cache(
+  async (effectiveStoreId: string | null): Promise<GrowthOverview> => {
+    return computeGrowthOverviewSummary(effectiveStoreId);
+  },
+  ["growth-overview-summary"],
+  {
+    revalidate: 60,
+    tags: [CACHE_TAGS.bookingsSummary, CACHE_TAGS.reportStore],
+  },
+);
+
+export async function getGrowthOverviewSummary(
+  activeStoreId?: string | null,
+): Promise<GrowthOverview> {
+  const user = await requireStaffSession();
+  const storeFilter = getStoreFilter(user, activeStoreId);
+  const effectiveStoreId =
+    (storeFilter.storeId as string | undefined) ?? null;
+  return _cachedGrowthOverviewSummary(effectiveStoreId);
 }
 
 // ============================================================
