@@ -5,9 +5,11 @@
  * - relative: 預約前 N 分鐘（例：720=12hr, 1440=24hr, 180=3hr）
  * - fixed: 預約前 N 天的固定時間（例：1 天前 20:00）
  *
- * Cron 每 5 分鐘執行一次，引擎計算哪些預約落在觸發視窗內
+ * Cron 每 30 分鐘執行一次（/api/cron/reminders-tick），
+ * 引擎計算哪些預約的 triggerAt 落在 [now, now + 30 min) 內
  */
 
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { pushMessage, renderTemplate, type TemplateVariables } from "@/lib/line";
 import { getShopConfig } from "@/lib/shop-config";
@@ -38,11 +40,12 @@ export interface SendResult {
 }
 
 /** 每次 cron 的時間視窗（分鐘）— 必須與 cron 間隔一致 */
-const WINDOW_MINUTES = 5;
+const WINDOW_MINUTES = 30;
 
 /**
  * 主入口：處理所有啟用的提醒規則
- * 每 5 分鐘被 cron 呼叫一次
+ * 每 30 分鐘被 cron 呼叫一次
+ * 查詢區間：now <= triggerAt < now + 30 min
  */
 export async function runReminders(): Promise<SendResult> {
   const result: SendResult = { total: 0, sent: 0, skipped: 0, failed: 0, details: [] };
@@ -74,19 +77,20 @@ export async function runReminders(): Promise<SendResult> {
     // 只處理 booking 相關的提醒（relative / fixed）
     if (rule.type !== "relative" && rule.type !== "fixed") continue;
 
-    const bookings = await findTriggeredBookings(rule, now, windowEnd);
-    result.total += bookings.length;
+    const triggered = await findTriggeredBookings(rule, now, windowEnd);
+    result.total += triggered.length;
 
     const templateBody = rule.template?.body ?? DEFAULT_TEMPLATE;
 
-    for (const booking of bookings) {
+    for (const { booking, triggerAt } of triggered) {
       const customer = booking.customer;
 
-      // 防重複
+      // 防重複（同 ruleId + bookingId + triggerAt）— 改期後 triggerAt 變更可重新發送
       const existingLog = await prisma.messageLog.findFirst({
         where: {
           ruleId: rule.id,
           bookingId: booking.id,
+          triggerAt,
           status: { in: ["SENT", "PENDING"] },
         },
       });
@@ -165,21 +169,41 @@ export async function runReminders(): Promise<SendResult> {
         { type: "text", text: renderedBody },
       ]);
 
-      // 寫入 MessageLog
-      await prisma.messageLog.create({
-        data: {
-          ruleId: rule.id,
-          templateId: rule.templateId,
-          customerId: customer.id,
-          bookingId: booking.id,
-          channel: "LINE",
-          status: sendResult.success ? "SENT" : "FAILED",
-          renderedBody,
-          errorMessage: sendResult.error ?? null,
-          sentAt: sendResult.success ? new Date() : null,
-          storeId: bookingStoreId,
-        },
-      });
+      // 寫入 MessageLog（unique 索引 ruleId+bookingId+triggerAt 為 race condition 保險）
+      try {
+        await prisma.messageLog.create({
+          data: {
+            ruleId: rule.id,
+            templateId: rule.templateId,
+            customerId: customer.id,
+            bookingId: booking.id,
+            triggerAt,
+            channel: "LINE",
+            status: sendResult.success ? "SENT" : "FAILED",
+            renderedBody,
+            errorMessage: sendResult.error ?? null,
+            sentAt: sendResult.success ? new Date() : null,
+            storeId: bookingStoreId,
+          },
+        });
+      } catch (err) {
+        if (
+          err instanceof Prisma.PrismaClientKnownRequestError &&
+          err.code === "P2002"
+        ) {
+          // 並行 tick 已寫入相同 (ruleId, bookingId, triggerAt) — 視為 skipped
+          result.skipped++;
+          result.details.push({
+            customerId: customer.id,
+            bookingId: booking.id,
+            ruleName: rule.name,
+            status: "SKIPPED",
+            error: "Concurrent duplicate (unique constraint)",
+          });
+          continue;
+        }
+        throw err;
+      }
 
       if (sendResult.success) {
         result.sent++;
@@ -216,11 +240,16 @@ type BookingWithCustomer = Awaited<ReturnType<typeof prisma.booking.findFirst>> 
   };
 };
 
+interface TriggeredBooking {
+  booking: BookingWithCustomer;
+  triggerAt: Date;
+}
+
 async function findTriggeredBookings(
   rule: NonNullable<RuleWithTemplate>,
   windowStart: Date,
   windowEnd: Date,
-): Promise<BookingWithCustomer[]> {
+): Promise<TriggeredBooking[]> {
   if (rule.type === "relative") {
     return findRelativeBookings(rule.offsetMinutes ?? 0, windowStart, windowEnd, rule.storeId);
   }
@@ -239,7 +268,7 @@ async function findRelativeBookings(
   windowStart: Date,
   windowEnd: Date,
   storeId: string,
-) {
+): Promise<TriggeredBooking[]> {
   const offsetMs = offsetMinutes * 60 * 1000;
 
   // 需要的預約時間範圍
@@ -273,13 +302,17 @@ async function findRelativeBookings(
     },
   });
 
-  // 精確過濾：計算每筆預約的 bookingDateTime，確認 triggerTime 在視窗內
-  return bookings.filter((b) => {
+  // 精確過濾：計算每筆預約的 triggerAt，留下視窗內的
+  const triggered: TriggeredBooking[] = [];
+  for (const b of bookings) {
     const bookingDateTime = combineDateAndTime(b.bookingDate, b.slotTime);
-    const triggerTime = new Date(bookingDateTime.getTime() - offsetMs);
-    return triggerTime >= windowStart && triggerTime < windowEnd;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  }) as any[];
+    const triggerAt = new Date(bookingDateTime.getTime() - offsetMs);
+    if (triggerAt >= windowStart && triggerAt < windowEnd) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      triggered.push({ booking: b as any, triggerAt });
+    }
+  }
+  return triggered;
 }
 
 /**
@@ -295,7 +328,7 @@ async function findFixedBookings(
   windowStart: Date,
   windowEnd: Date,
   storeId: string,
-) {
+): Promise<TriggeredBooking[]> {
   const [fixedH, fixedM] = fixedTime.split(":").map(Number);
   // 台灣時間 → UTC offset: -8 hours
   const fixedTimeUTCMinutes = fixedH * 60 + fixedM - 8 * 60;
@@ -315,12 +348,12 @@ async function findFixedBookings(
   }
 
   // 精確的觸發時間
-  const triggerUTC = new Date(triggerDateStart);
+  const triggerAt = new Date(triggerDateStart);
   const actualMinutes = fixedTimeUTCMinutes < 0 ? fixedTimeUTCMinutes + 24 * 60 : fixedTimeUTCMinutes;
-  triggerUTC.setUTCHours(Math.floor(actualMinutes / 60), actualMinutes % 60, 0, 0);
+  triggerAt.setUTCHours(Math.floor(actualMinutes / 60), actualMinutes % 60, 0, 0);
 
   // 檢查觸發時間是否在視窗內
-  if (triggerUTC < windowStart || triggerUTC >= windowEnd) {
+  if (triggerAt < windowStart || triggerAt >= windowEnd) {
     return [];
   }
 
@@ -347,7 +380,7 @@ async function findFixedBookings(
   });
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return bookings as any[];
+  return bookings.map((b) => ({ booking: b as any, triggerAt }));
 }
 
 /** 合併 bookingDate (Date @db.Date) + slotTime ("HH:mm") → UTC DateTime */
