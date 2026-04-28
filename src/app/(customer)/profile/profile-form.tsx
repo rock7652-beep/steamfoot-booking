@@ -15,16 +15,23 @@ interface Props {
     email: string | null;
     gender: string | null;
     birthday: string | null;
-    height: number | null;
     address: string | null;
     notes: string | null;
   };
   age: number | null;
+  /** 是否已設定登入密碼 — 控制密碼欄位是必填還是「留空＝不變更」 */
+  hasPassword: boolean;
   onboardingMode?: boolean;
   nextPath?: string | null;
 }
 
-export function ProfileForm({ customer, age, onboardingMode = false, nextPath = null }: Props) {
+export function ProfileForm({
+  customer,
+  age,
+  hasPassword,
+  onboardingMode = false,
+  nextPath = null,
+}: Props) {
   const router = useRouter();
   const { update: updateSession } = useSession();
   const storeSlug = useStoreSlugRequired();
@@ -101,11 +108,32 @@ export function ProfileForm({ customer, age, onboardingMode = false, nextPath = 
       </div>
 
       <div>
-        <label htmlFor="email" className={labelCls}>
-          Email <span className="text-red-600">*</span>
+        <label htmlFor="password" className={labelCls}>
+          登入密碼{!hasPassword && <span className="text-red-600"> *</span>}
         </label>
         <input
-          id="email" name="email" type="email" required
+          id="password"
+          name="password"
+          type="password"
+          required={!hasPassword}
+          minLength={6}
+          autoComplete={hasPassword ? "new-password" : "new-password"}
+          placeholder={hasPassword ? "留空表示不變更" : "至少 6 碼"}
+          className={inputCls}
+        />
+        <p className={hintCls}>
+          {hasPassword
+            ? "已設定密碼，可用手機號碼＋密碼登入。如要更換，輸入新密碼即可。"
+            : "首次設定後，可用手機號碼＋密碼登入。"}
+        </p>
+      </div>
+
+      <div>
+        <label htmlFor="email" className={labelCls}>
+          Email <span className="text-earth-500 text-sm">（選填）</span>
+        </label>
+        <input
+          id="email" name="email" type="email"
           defaultValue={customer.email ?? ""}
           placeholder="example@email.com"
           className={inputCls}
@@ -115,10 +143,10 @@ export function ProfileForm({ customer, age, onboardingMode = false, nextPath = 
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label htmlFor="birthday" className={labelCls}>
-            生日 <span className="text-red-600">*</span>
+            生日 <span className="text-earth-500 text-sm">（選填）</span>
           </label>
           <input
-            id="birthday" name="birthday" type="date" required
+            id="birthday" name="birthday" type="date"
             defaultValue={customer.birthday ?? ""}
             className={inputCls}
           />
@@ -129,14 +157,14 @@ export function ProfileForm({ customer, age, onboardingMode = false, nextPath = 
 
         <div>
           <label htmlFor="gender" className={labelCls}>
-            性別 <span className="text-red-600">*</span>
+            性別 <span className="text-earth-500 text-sm">（選填）</span>
           </label>
           <select
-            id="gender" name="gender" required
+            id="gender" name="gender"
             defaultValue={customer.gender ?? ""}
             className={inputCls}
           >
-            <option value="" disabled>請選擇</option>
+            <option value="">不填</option>
             <option value="male">男</option>
             <option value="female">女</option>
             <option value="other">其他</option>
@@ -145,23 +173,11 @@ export function ProfileForm({ customer, age, onboardingMode = false, nextPath = 
       </div>
 
       <div>
-        <label htmlFor="height" className={labelCls}>
-          身高（cm）<span className="text-red-600">*</span>
-        </label>
-        <input
-          id="height" name="height" type="number" min="50" max="250" step="0.1" required
-          defaultValue={customer.height ?? ""}
-          placeholder="例:165"
-          className={inputCls}
-        />
-      </div>
-
-      <div>
         <label htmlFor="address" className={labelCls}>
-          地址 <span className="text-red-600">*</span>
+          地址 <span className="text-earth-500 text-sm">（選填）</span>
         </label>
         <input
-          id="address" name="address" type="text" required
+          id="address" name="address" type="text"
           defaultValue={customer.address ?? ""}
           placeholder="請輸入地址"
           className={inputCls}
