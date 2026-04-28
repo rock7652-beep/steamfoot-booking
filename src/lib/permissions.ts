@@ -1,3 +1,5 @@
+import { cache } from "react";
+import { unstable_cache } from "next/cache";
 import { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/db";
 
@@ -235,8 +237,39 @@ export function getDefaultPermissionsForRole(role: UserRole): PermissionCode[] {
 // ============================================================
 
 /**
+ * 跨請求快取的權限代碼陣列（unstable_cache 不支援 Set 序列化，故用陣列）。
+ * 60s TTL，tag: "staff-permissions"。Mutation 路徑 revalidateStaffPermissions() 失效。
+ */
+const getStaffPermissionCodes = unstable_cache(
+  async (staffId: string): Promise<PermissionCode[]> => {
+    const records = await prisma.staffPermission.findMany({
+      where: { staffId, granted: true },
+      select: { permission: true },
+    });
+    return records.map((r) => r.permission as PermissionCode);
+  },
+  ["staff-permission-codes"],
+  { revalidate: 60, tags: ["staff-permissions"] },
+);
+
+/**
+ * 取得某 staff 的所有已授權權限
+ * 雙層快取：
+ * - 跨請求：unstable_cache（60s TTL + tag 失效）
+ * - 同請求：React cache 把 array 轉成 Set 並 memoize，sidebar / 各 page guard 共用
+ */
+export const getStaffPermissions = cache(
+  async (staffId: string): Promise<Set<PermissionCode>> => {
+    const codes = await getStaffPermissionCodes(staffId);
+    return new Set(codes);
+  },
+);
+
+/**
  * 檢查某 staff 是否有某權限
- * Admin 永遠有所有權限
+ * Admin 永遠有所有權限。
+ * 內部讀 cache 過的 getStaffPermissions Set，
+ * 同一 request 內檢查 N 個權限只會打一次 DB。
  */
 export async function checkPermission(
   role: UserRole,
@@ -252,29 +285,8 @@ export async function checkPermission(
   // 所有員工角色（OWNER / PARTNER）查 StaffPermission 表
   if (!staffId) return false;
 
-  const record = await prisma.staffPermission.findUnique({
-    where: {
-      staffId_permission: {
-        staffId,
-        permission,
-      },
-    },
-  });
-
-  return record?.granted ?? false;
-}
-
-/**
- * 取得某 staff 的所有已授權權限
- */
-export async function getStaffPermissions(
-  staffId: string
-): Promise<Set<PermissionCode>> {
-  const records = await prisma.staffPermission.findMany({
-    where: { staffId, granted: true },
-    select: { permission: true },
-  });
-  return new Set(records.map((r) => r.permission as PermissionCode));
+  const perms = await getStaffPermissions(staffId);
+  return perms.has(permission);
 }
 
 /**
@@ -295,6 +307,10 @@ export async function updateStaffPermissions(
   );
 
   await prisma.$transaction(upserts);
+
+  // 立即清掉跨請求快取，確保被改的權限不會在 60s TTL 內仍生效。
+  const { revalidateStaffPermissions } = await import("@/lib/revalidation");
+  revalidateStaffPermissions();
 }
 
 /**
@@ -351,12 +367,14 @@ export async function requirePermission(permission: PermissionCode) {
 // getUserPermissions — 取得使用者的所有已授權權限（供 layout 傳給 sidebar）
 // ============================================================
 
-export async function getUserPermissions(
-  role: UserRole,
-  staffId: string | null
-): Promise<PermissionCode[]> {
-  if (role === "ADMIN") return [...ALL_PERMISSIONS];
-  if (!isNonOwnerStaff(role) || !staffId) return [];
-  const perms = await getStaffPermissions(staffId);
-  return Array.from(perms);
-}
+export const getUserPermissions = cache(
+  async (
+    role: UserRole,
+    staffId: string | null,
+  ): Promise<PermissionCode[]> => {
+    if (role === "ADMIN") return [...ALL_PERMISSIONS];
+    if (!isNonOwnerStaff(role) || !staffId) return [];
+    const perms = await getStaffPermissions(staffId);
+    return Array.from(perms);
+  },
+);

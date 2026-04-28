@@ -3,7 +3,7 @@
 import { prisma } from "@/lib/db";
 import { requireStaffSession } from "@/lib/session";
 import { getActiveStoreForRead } from "@/lib/store";
-import { revalidatePath } from "next/cache";
+import { revalidateBonusRules } from "@/lib/revalidation";
 
 /**
  * ADMIN 沒有 session.storeId，需從 cookie 取得目前切換的店。
@@ -57,7 +57,7 @@ export async function createBonusRule(
       },
     });
 
-    revalidatePath("/dashboard/bonus-rules");
+    revalidateBonusRules();
     return { success: true, id: created.id };
   } catch (e) {
     return {
@@ -112,7 +112,7 @@ export async function updateBonusRule(
       },
     });
 
-    revalidatePath("/dashboard/bonus-rules");
+    revalidateBonusRules();
     return { success: true };
   } catch (e) {
     return {
@@ -158,7 +158,7 @@ export async function deleteBonusRule(
 
     await prisma.bonusRule.delete({ where: { id } });
 
-    revalidatePath("/dashboard/bonus-rules");
+    revalidateBonusRules();
     return { success: true };
   } catch (e) {
     return {
