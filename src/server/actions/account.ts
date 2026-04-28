@@ -35,6 +35,23 @@ export type PhoneStatus =
   | { status: "needs_activation"; customerName: string; hasEmail: boolean }
   | { status: "active"; customerName: string };
 
+/**
+ * 判斷此手機在當店是否可登入。
+ *
+ * 三態判定（同店規則：storeId + phone = 同一位顧客）：
+ *   1. Customer 完全不存在                 → not_found（前台顯示「尚未註冊」）
+ *   2. Customer 存在但無法登入             → needs_activation
+ *      子情境：
+ *        - 沒有 userId（店長手動建立、尚未綁帳號）
+ *        - 有 userId 但 user row 已刪除
+ *        - 有 user 但 status !== ACTIVE
+ *        - 有 user 但 passwordHash 為 null（OAuth 登入過、還沒設密碼）
+ *   3. Customer + active user + 已設密碼   → active（顯示密碼欄位）
+ *
+ * 修補背景：先前用 if/if/return 的鏈式判定會把「子情境 2 後三項」漏到 not_found，
+ * 導致店長已建好的會員按手機登入時被錯誤告知「尚未註冊」，違反同店同手機 = 同一位
+ * 顧客的契約。
+ */
 export async function checkPhoneStatus(phone: string, storeId?: string): Promise<PhoneStatus> {
   const normalizedPhone = normalizePhone(phone ?? "");
   if (!normalizedPhone || !/^09\d{8}$/.test(normalizedPhone)) {
@@ -44,34 +61,38 @@ export async function checkPhoneStatus(phone: string, storeId?: string): Promise
   // B7-4: 使用傳入的 storeId，fallback 從 cookie 讀取
   const effectiveStoreId = storeId || await getStoreIdFromCookie();
 
-  // 先查同店 Customer 是否有對應的 ACTIVE User
+  // 先查同店 Customer 是否有對應的 ACTIVE User + passwordHash
   const customer = await prisma.customer.findFirst({
     where: { phone: normalizedPhone, storeId: effectiveStoreId },
     select: {
       name: true,
       email: true,
       userId: true,
-      user: { select: { status: true } },
+      user: { select: { status: true, passwordHash: true } },
     },
     orderBy: { createdAt: "desc" },
   });
 
-  if (customer?.userId && customer.user?.status === "ACTIVE") {
-    return {
-      status: "active",
-      customerName: customer.name,
-    };
+  // 1. Customer 不存在 — 才是真的「尚未註冊」
+  if (!customer) {
+    return { status: "not_found" };
   }
 
-  if (customer && !customer.userId) {
-    return {
-      status: "needs_activation",
-      customerName: customer.name,
-      hasEmail: !!customer.email,
-    };
+  // 3. 完整可登入 — 有 userId、user ACTIVE、且設了密碼
+  const canLogIn =
+    !!customer.userId &&
+    customer.user?.status === "ACTIVE" &&
+    !!customer.user?.passwordHash;
+  if (canLogIn) {
+    return { status: "active", customerName: customer.name };
   }
 
-  return { status: "not_found" };
+  // 2. Customer 存在但 User/密碼 不齊（含 userId=null、user 已刪、INACTIVE、無密碼）
+  return {
+    status: "needs_activation",
+    customerName: customer.name,
+    hasEmail: !!customer.email,
+  };
 }
 
 // ============================================================
