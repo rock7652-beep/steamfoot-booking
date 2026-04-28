@@ -1,7 +1,8 @@
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { notFound } from "next/navigation";
-import { getBusinessHours, getMonthSpecialDays } from "@/server/actions/business-hours";
+import { getMonthSpecialDays } from "@/server/actions/business-hours";
+import { getCachedBusinessHours } from "@/lib/query-cache";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { prisma } from "@/lib/db";
 import { DashboardLink as Link } from "@/components/dashboard-link";
@@ -9,6 +10,7 @@ import { PageShell, PageHeader } from "@/components/desktop";
 import { ScheduleManager } from "./schedule-manager";
 
 const DAY_LABELS = ["日", "一", "二", "三", "四", "五", "六"];
+const WEEK_DAY_NAMES = ["週日", "週一", "週二", "週三", "週四", "週五", "週六"];
 const SPECIAL_TYPE_LABEL: Record<string, string> = {
   closed: "公休",
   training: "進修",
@@ -62,11 +64,18 @@ export default async function ScheduleSettingsPage() {
 
   const todayStr = toLocalDateStr();
   const [nowYear, nowMonth] = todayStr.split("-").map(Number);
-  const [weeklyHours, specialDays, currentStore] = await Promise.all([
-    getBusinessHours(),
+  // weeklyHours 走 unstable_cache（60s TTL + tag: business-hours），
+  // 取代原本 getBusinessHours()（每次都打 prisma.findMany）。
+  // 缺 dayName 一欄，下方手動補。
+  const [weeklyRows, specialDays, currentStore] = await Promise.all([
+    getCachedBusinessHours(effectiveStoreId),
     getMonthSpecialDays(nowYear, nowMonth),
     prisma.store.findUnique({ where: { id: effectiveStoreId }, select: { isDefault: true } }),
   ]);
+  const weeklyHours = weeklyRows.map((h) => ({
+    ...h,
+    dayName: WEEK_DAY_NAMES[h.dayOfWeek],
+  }));
   const isHeadquarters = currentStore?.isDefault ?? false;
 
   const openDays = weeklyHours.filter((h) => h.isOpen);
