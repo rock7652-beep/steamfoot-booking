@@ -183,14 +183,24 @@ export async function createBooking(
         );
       }
     }
-    if (!isMakeup && user.role === "CUSTOMER") {
+    // P0：PACKAGE_SESSION 預約一律要求有效方案（看資料，不看角色）
+    // ────────────────────────────────────────────────────────────
+    // 系統規則：「只要是 PACKAGE_SESSION，就一定要有可扣堂數」
+    //
+    // 先前用 `user.role === "CUSTOMER"` gate → STAFF/ADMIN 後台代約完全 bypass
+    //   → 沒方案的顧客可被建立 PACKAGE_SESSION → markCompleted 時 wallet=null
+    //   → 不扣堂卻顯示為套餐扣堂 → 污染堂數與報表。
+    // 改成 bookingType gate → 不論誰操作，PACKAGE_SESSION 都要過 wallet 檢查。
+    if (!isMakeup && data.bookingType === "PACKAGE_SESSION") {
       const hasValidWallet = customer.planWallets.some(
         (w) => w.remainingSessions > 0
       );
       if (!hasValidWallet) {
         throw new AppError(
           "BUSINESS_RULE",
-          "目前沒有可使用的方案，請先購買課程方案或聯繫店家協助"
+          user.role === "CUSTOMER"
+            ? "目前沒有可使用的方案，請先購買課程方案或聯繫店家協助"
+            : "此顧客目前沒有可用方案，請先指派或購買方案後再建立預約"
         );
       }
 
@@ -211,8 +221,8 @@ export async function createBooking(
         throw new AppError(
           "BUSINESS_RULE",
           latestExpiry
-            ? `票券期限不足，您目前方案有效期限至 ${latestExpiry}，請選擇期限內日期或聯繫店家`
-            : "票券已超過可使用期限，請聯繫店家協助"
+            ? `票券期限不足，方案有效期限至 ${latestExpiry}，請選擇期限內日期`
+            : "方案已超過可使用期限，請聯繫店家協助"
         );
       }
 
@@ -226,6 +236,25 @@ export async function createBooking(
           "BUSINESS_RULE",
           `方案次數不足，無法預約 ${bookingPeople} 人。目前可使用次數僅剩 ${totalRemaining} 次，請調整預約人數或聯繫店家`
         );
+      }
+
+      // 沒指定 wallet → 自動綁定第一個可用 wallet（FIFO 消費原則）
+      // 防止 booking 建立後 customerPlanWalletId=null → markCompleted 時不扣堂
+      if (!data.customerPlanWalletId) {
+        const firstUsable = [...customer.planWallets]
+          .filter(
+            (w) =>
+              w.remainingSessions > 0 &&
+              (!w.expiryDate || w.expiryDate >= bookingDateObj2)
+          )
+          .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())[0];
+        if (!firstUsable) {
+          throw new AppError(
+            "BUSINESS_RULE",
+            "找不到可用方案，請先指派或購買方案後再建立預約"
+          );
+        }
+        data.customerPlanWalletId = firstUsable.id;
       }
     }
 
@@ -254,22 +283,25 @@ export async function createBooking(
     }
 
     // ── 6. 預約數限制（出席才扣堂制：remainingSessions - 待到店筆數 > 0）
-    if (!isMakeup && user.role === "CUSTOMER") {
+    // P0：原本 `user.role === "CUSTOMER"` gate 讓店長後台可超量代約 PACKAGE_SESSION
+    //     → 完成時超出部分無 session 可扣 → 報表錯誤。改為 bookingType gate。
+    if (!isMakeup && data.bookingType === "PACKAGE_SESSION") {
       const pendingCount = await prisma.booking.count({
         where: {
           customerId: effectiveCustomerId,
           bookingStatus: { in: [...PENDING_STATUSES] },
           isMakeup: false,
+          bookingType: "PACKAGE_SESSION",
         },
       });
       const totalRemaining = customer.planWallets.reduce(
         (sum, w) => sum + w.remainingSessions,
         0
       );
-      if (pendingCount + 1 > totalRemaining) {
+      if (pendingCount + bookingPeople > totalRemaining) {
         throw new AppError(
           "BUSINESS_RULE",
-          `預約數（${pendingCount + 1}）超過剩餘堂數（${totalRemaining}），請先等待現有預約完成`
+          `預約數（${pendingCount + bookingPeople}）超過剩餘堂數（${totalRemaining}），請先等待現有預約完成或補充方案`
         );
       }
     }
@@ -604,6 +636,20 @@ export async function markCompleted(
       throw new AppError("VALIDATION", "已標記為出席");
     if (booking.bookingStatus === "CANCELLED")
       throw new AppError("BUSINESS_RULE", "已取消的預約無法標記出席");
+
+    // P0：PACKAGE_SESSION 預約必須綁定有效方案才能完成
+    // 防止舊資料 / 跨環境 import 留下無方案的 PACKAGE_SESSION booking 被靜默
+    // 標記出席而不扣堂、卻在報表顯示為「套餐扣堂」
+    if (
+      booking.bookingType === "PACKAGE_SESSION" &&
+      !booking.isMakeup &&
+      !booking.customerPlanWallet
+    ) {
+      throw new AppError(
+        "BUSINESS_RULE",
+        "此預約沒有綁定可扣堂方案，請先修正方案資料"
+      );
+    }
 
     const serviceStaffId =
       data.serviceStaffId ?? booking.serviceStaffId ?? null;
