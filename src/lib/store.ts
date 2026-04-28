@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { AppError } from "@/lib/errors";
 import { isOwner } from "@/lib/permissions";
 
@@ -59,14 +60,17 @@ export async function getAllActiveStoreIds(): Promise<string[]> {
 
 /**
  * 取得 ADMIN 可選的店舖清單（含「全部」選項）
+ * React cache 同一 request 多處呼叫只查一次（layout / 各頁面共享）。
  */
-export async function getStoreOptions(): Promise<Array<{ id: string; name: string; isDefault: boolean }>> {
-  const { prisma } = await import("@/lib/db");
-  return prisma.store.findMany({
-    select: { id: true, name: true, isDefault: true },
-    orderBy: { createdAt: "asc" },
-  });
-}
+export const getStoreOptions = cache(
+  async (): Promise<Array<{ id: string; name: string; isDefault: boolean }>> => {
+    const { prisma } = await import("@/lib/db");
+    return prisma.store.findMany({
+      select: { id: true, name: true, isDefault: true },
+      orderBy: { createdAt: "asc" },
+    });
+  },
+);
 
 /**
  * 取得使用者的有效查詢 storeId
@@ -96,15 +100,15 @@ export function resolveActiveStoreId(
  *
  * ⚠ 使用 next/headers cookies() 直接讀取，避免動態 import "use server" 模組的問題。
  */
-export async function getActiveStoreForRead(
-  user: SessionLike
-): Promise<string | null> {
-  if (!isOwner(user.role)) return user.storeId ?? null;
-  const { cookies } = await import("next/headers");
-  const cookieStore = await cookies();
-  const cookieStoreId = cookieStore.get("active-store-id")?.value ?? null;
-  return resolveActiveStoreId(user, cookieStoreId);
-}
+export const getActiveStoreForRead = cache(
+  async (user: SessionLike): Promise<string | null> => {
+    if (!isOwner(user.role)) return user.storeId ?? null;
+    const { cookies } = await import("next/headers");
+    const cookieStore = await cookies();
+    const cookieStoreId = cookieStore.get("active-store-id")?.value ?? null;
+    return resolveActiveStoreId(user, cookieStoreId);
+  },
+);
 
 /**
  * 從 middleware 設定的 cookie 取得網域對應的 storeId。

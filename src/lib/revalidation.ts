@@ -89,6 +89,19 @@ export function revalidateStaff() {
   revalidatePath("/dashboard/staff");
 }
 
+/** Staff 權限異動後呼叫（清掉 staff-permission-codes cache） */
+export function revalidateStaffPermissions() {
+  updateTag("staff-permissions");
+}
+
+// ── 獎勵項目 ──────────────────────────────────────────
+
+/** 獎勵項目異動後呼叫 */
+export function revalidateBonusRules() {
+  updateTag("bonus-rules");
+  revalidatePath("/dashboard/bonus-rules");
+}
+
 // ── 店鋪設定 ──────────────────────────────────────────
 
 /** 店鋪方案異動後呼叫 */

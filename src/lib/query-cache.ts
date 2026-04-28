@@ -11,7 +11,7 @@
 
 import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/db";
-import { getTrialStatus } from "@/lib/shop-config";
+import { getShopConfig, getTrialStatus } from "@/lib/shop-config";
 import { getStorePlanById } from "@/lib/store-plan";
 import type { PricingPlan } from "@prisma/client";
 
@@ -76,4 +76,58 @@ export const getCachedTrialStatus = unstable_cache(
   },
   ["trial-status"],
   { revalidate: 60, tags: ["store-plan"] },
+);
+
+/**
+ * 快取 ShopConfig — 60s TTL，tag: "shop-config"
+ * 設定 / 預約 / dashboard layout 都會讀，每次都打 DB 浪費。
+ * mutation 路徑：revalidateShopConfig() 失效。
+ */
+export const getCachedShopConfig = unstable_cache(
+  async (storeId?: string | null) => {
+    return getShopConfig(storeId);
+  },
+  ["shop-config"],
+  { revalidate: 60, tags: ["shop-config"] },
+);
+
+/**
+ * 快取每週固定營業時間 — 60s TTL，tag: "business-hours"
+ * 設定頁 / 預約頁 / 顧客 /book 都會讀。
+ * mutation 路徑：revalidateBusinessHours() 失效。
+ */
+export const getCachedBusinessHours = unstable_cache(
+  async (storeId: string) => {
+    return prisma.businessHours.findMany({
+      where: { storeId },
+      orderBy: { dayOfWeek: "asc" },
+    });
+  },
+  ["business-hours-by-store"],
+  { revalidate: 60, tags: ["business-hours"] },
+);
+
+/**
+ * 快取獎勵項目（後台管理用） — 60s TTL，tag: "bonus-rules"
+ * mutation 路徑：revalidateBonusRules() 失效。
+ */
+export const getCachedBonusRules = unstable_cache(
+  async (storeId: string) => {
+    return prisma.bonusRule.findMany({
+      where: { storeId },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
+      select: {
+        id: true,
+        name: true,
+        points: true,
+        description: true,
+        isActive: true,
+        startDate: true,
+        endDate: true,
+        sortOrder: true,
+      },
+    });
+  },
+  ["bonus-rules-by-store"],
+  { revalidate: 60, tags: ["bonus-rules"] },
 );

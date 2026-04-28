@@ -1,10 +1,9 @@
 import { getCurrentUser } from "@/lib/session";
 import { getActiveStoreForRead } from "@/lib/store";
 import { getCurrentStorePlan } from "@/lib/store-plan";
-import { getShopConfig } from "@/lib/shop-config";
+import { getCachedShopConfig, getCachedBusinessHours } from "@/lib/query-cache";
 import { listStaff } from "@/server/queries/staff";
 import { listReminderRules } from "@/server/queries/reminder";
-import { getBusinessHours } from "@/server/actions/business-hours";
 import { PRICING_PLAN_INFO } from "@/lib/feature-flags";
 import { prisma } from "@/lib/db";
 import { notFound } from "next/navigation";
@@ -46,7 +45,7 @@ export default async function SettingsIndexPage() {
   const [plan, shopConfig, staffList, rules, weeklyHours, store] =
     await Promise.all([
       getCurrentStorePlan().catch(() => "EXPERIENCE" as const),
-      getShopConfig().catch(() => ({
+      getCachedShopConfig(activeStoreId).catch(() => ({
         dutySchedulingEnabled: false,
         bankName: null as string | null,
         bankCode: null as string | null,
@@ -55,7 +54,9 @@ export default async function SettingsIndexPage() {
       })),
       listStaff(activeStoreId).catch(() => []),
       listReminderRules().catch(() => []),
-      getBusinessHours().catch(() => []),
+      activeStoreId
+        ? getCachedBusinessHours(activeStoreId).catch(() => [])
+        : Promise.resolve([]),
       activeStoreId
         ? prisma.store.findUnique({
             where: { id: activeStoreId },

@@ -55,14 +55,14 @@ export async function requireAdminSession() {
 /** @deprecated 使用 requireAdminSession() 代替 */
 export const requireOwnerSession = requireAdminSession;
 
-/** 取得當前 Staff 記錄（所有員工角色皆有） */
-export async function getCurrentStaff() {
+/** 取得當前 Staff 記錄（所有員工角色皆有）— React cache 同一 request 只查一次 */
+export const getCurrentStaff = cache(async () => {
   const user = await getCurrentUser();
   if (!user?.staffId) return null;
   return prisma.staff.findUnique({
     where: { id: user.staffId },
   });
-}
+});
 
 /**
  * 取得當前 Customer 記錄。

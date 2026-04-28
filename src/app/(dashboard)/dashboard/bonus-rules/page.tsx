@@ -1,7 +1,7 @@
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { getActiveStoreForRead } from "@/lib/store";
-import { getBonusRules } from "@/server/queries/bonus-rule";
+import { getCachedBonusRules } from "@/lib/query-cache";
 import { redirect, notFound } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { PageShell, PageHeader } from "@/components/desktop";
@@ -43,7 +43,7 @@ export default async function BonusRulesPage() {
     );
   }
 
-  const rules = await getBonusRules(activeStoreId);
+  const rules = await getCachedBonusRules(activeStoreId);
   const ruleRows: BonusRuleRow[] = rules.map((r) => ({
     id: r.id,
     name: r.name,
