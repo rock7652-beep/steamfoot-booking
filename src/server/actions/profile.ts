@@ -131,7 +131,7 @@ const MERGE_CANDIDATE_SELECT = {
 async function findRealCustomerForMerge(opts: {
   storeId: string;
   phone: string;
-  email: string;
+  email: string | null;
   lineUserId?: string | null;
   excludeCustomerId?: string | null;
 }): Promise<MergeProbe> {
@@ -256,21 +256,20 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
   // 一律經 normalizePhone 吸成 09xxxxxxxx 後存 / 查
   const phoneRaw = (formData.get("phone") as string) ?? "";
   const phone = normalizePhone(phoneRaw);
-  const email = (formData.get("email") as string)?.trim().toLowerCase();
-  const gender = (formData.get("gender") as string)?.trim();
-  const birthdayStr = (formData.get("birthday") as string)?.trim();
-  const heightStr = (formData.get("height") as string)?.trim();
-  const address = (formData.get("address") as string)?.trim();
-  const notes = (formData.get("notes") as string)?.trim() || null; // 僅 notes 保持可空
+  // 選填欄位：空字串 → null（避免空字串撞 unique 或留下歧義）
+  const emailInput = (formData.get("email") as string)?.trim().toLowerCase() || "";
+  const email: string | null = emailInput || null;
+  const genderInput = (formData.get("gender") as string)?.trim() || "";
+  const gender: string | null = genderInput || null;
+  const birthdayStr = (formData.get("birthday") as string)?.trim() || "";
+  const addressInput = (formData.get("address") as string)?.trim() || "";
+  const address: string | null = addressInput || null;
+  const notes = (formData.get("notes") as string)?.trim() || null;
+  const passwordInput = (formData.get("password") as string) ?? "";
 
-  // 必填驗證（除 notes 外皆必填）
+  // 必填欄位：name / phone（密碼必填規則在拿到 User 後才能判斷，見下方）
   if (!name) return { error: "請輸入姓名", success: false };
   if (!phone) return { error: "請輸入手機號碼", success: false };
-  if (!email) return { error: "請輸入 Email", success: false };
-  if (!gender) return { error: "請選擇性別", success: false };
-  if (!birthdayStr) return { error: "請選擇生日", success: false };
-  if (!heightStr) return { error: "請輸入身高", success: false };
-  if (!address) return { error: "請輸入地址", success: false };
 
   if (!/^09\d{8}$/.test(phone)) {
     return {
@@ -279,18 +278,41 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
     };
   }
 
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+  // 選填欄位 — 有給才驗格式
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return { error: "Email 格式不正確", success: false };
   }
 
-  const birthday = new Date(birthdayStr);
-  if (isNaN(birthday.getTime())) {
-    return { error: "生日格式不正確", success: false };
+  let birthday: Date | null = null;
+  if (birthdayStr) {
+    birthday = new Date(birthdayStr);
+    if (isNaN(birthday.getTime())) {
+      return { error: "生日格式不正確", success: false };
+    }
   }
 
-  const height = parseFloat(heightStr);
-  if (isNaN(height) || height < 50 || height > 250) {
-    return { error: "身高數值不合理（50-250 cm）", success: false };
+  // 密碼：首次設定（User 還沒有 passwordHash）必填，已有 hash 則留空＝不變更。
+  // 規則統一在後端：≥ 6 碼。實際 hash 寫入點在 customer 建立／更新成功之後（見下方）。
+  // 注意：existingPasswordHash 在這裡只查 User row 一次，避免重複往返。
+  const userPasswordRow = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { passwordHash: true },
+  });
+  const existingPasswordHash = userPasswordRow?.passwordHash ?? null;
+  const password = passwordInput.trim();
+  if (!existingPasswordHash) {
+    if (!password) {
+      return {
+        error: "請設定至少 6 碼密碼，之後可用手機號碼登入。",
+        success: false,
+      };
+    }
+    if (password.length < 6) {
+      return { error: "密碼至少需要 6 碼", success: false };
+    }
+  } else if (password && password.length < 6) {
+    // 已有密碼 → 留空＝不變更；輸入了就驗證長度
+    return { error: "密碼至少需要 6 碼", success: false };
   }
 
   // ── 統一 resolver ───────────────────────────────────
@@ -382,6 +404,29 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
   // 防止「DB 寫完但 layout gate 仍然判定未完成」— 用 layout 同一支 resolver 驗證，
   // 若偵測到仍缺，回傳明確錯誤，不讓 client 收到誤導性的 success=true。
   const verifySuccess = async (savedCustomerId: string): Promise<ProfileState> => {
+    // 密碼設定／更新：所有 customer 寫入路徑都經過 verifySuccess，集中在這裡寫，
+    // 避免每個 case 重複貼程式碼。語意：
+    //   - 既無 hash + 表單有輸入 → 設定（首次必經此路徑，前面已驗證 ≥6 碼）
+    //   - 已有 hash + 表單有輸入 → 覆蓋（顧客主動改密碼）
+    //   - 已有 hash + 表單留空   → 不變更（編輯資料常見路徑）
+    if (password) {
+      try {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { passwordHash: hashSync(password, 10) },
+        });
+      } catch (pwErr) {
+        // 密碼寫入失敗：登入仍可走 OAuth；但要回報，不能假裝成功。
+        console.error("[updateProfileAction] passwordHash sync failed", {
+          userId: user.id,
+          error: pwErr instanceof Error ? pwErr.message : String(pwErr),
+        });
+        return {
+          error: "資料已儲存，但密碼設定失敗，請稍後再試或聯繫店家。",
+          success: false,
+        };
+      }
+    }
     revalidatePath("/profile");
     try {
       const status = await resolveCustomerCompletionStatus({
@@ -583,7 +628,7 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
             placeholderCustomerId: existingByUserId?.id ?? null,
             realCustomerId: real.id,
             userId: user.id,
-            basicProfile: { name, phone, email, gender, birthday, height, address, notes },
+            basicProfile: { name, phone, email, gender, birthday, address, notes },
           });
           console.info("[updateProfileAction] Case A merge result", {
             userId: user.id,
@@ -650,7 +695,7 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
       if (real && existingByUserId && existingByUserId.id === real.id) {
         await prisma.customer.update({
           where: { id: real.id },
-          data: { name, phone, email, gender, birthday, height, address, notes, storeId },
+          data: { name, phone, email, gender, birthday, address, notes, storeId },
         });
         console.info("[updateProfileAction] updated self (real === existing)", {
           userId: user.id,
@@ -669,7 +714,6 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
             email,
             gender,
             birthday,
-            height,
             address,
             notes,
             storeId,
@@ -698,7 +742,6 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
           email,
           gender,
           birthday,
-          height,
           address,
           notes,
           storeId,
@@ -897,7 +940,7 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
           placeholderCustomerId: customerId,
           realCustomerId: real.id,
           userId: user.id,
-          basicProfile: { name, phone, email, gender, birthday, height, address, notes },
+          basicProfile: { name, phone, email, gender, birthday, address, notes },
         });
 
         console.info("[updateProfileAction] placeholder merged into real", {
@@ -940,7 +983,8 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
         return { error: "此聯絡電話已被其他帳號使用", success: false };
       }
     }
-    if (email !== resolved.customer.email) {
+    // email 為選填，只有實際輸入了才檢查唯一（null vs null 不算衝突）
+    if (email && email !== resolved.customer.email) {
       const existingEmail = await prisma.customer.findFirst({
         where: { email, id: { not: customerId }, storeId: customerStoreId },
       });
@@ -951,7 +995,7 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
 
     await prisma.customer.update({
       where: { id: customerId },
-      data: { name, phone, email, gender, birthday, height, address, notes },
+      data: { name, phone, email, gender, birthday, address, notes },
     });
 
     // 同步 User.name

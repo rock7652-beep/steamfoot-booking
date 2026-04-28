@@ -40,23 +40,31 @@ export default async function ProfilePage({ searchParams }: PageProps) {
     email: string | null;
     gender: string | null;
     birthday: Date | null;
-    height: number | null;
     address: string | null;
     notes: string | null;
   };
   let customer: ProfileCustomer | null = null;
   let resolvedReason: string | null = null;
+  // 表單需要知道 User 是否已有 passwordHash —— 控制密碼欄位是必填還是「留空＝不變更」
+  let hasPassword = false;
   if (user) {
     try {
       const storeId = user.storeId ?? profileStoreCtx?.storeId ?? null;
-      const resolved = await resolveCustomerForUser({
-        userId: user.id,
-        sessionCustomerId: user.customerId ?? null,
-        sessionEmail: user.email ?? null,
-        storeId,
-        storeSlug: profileStoreCtx?.storeSlug ?? null,
-      });
+      const [resolved, userPwRow] = await Promise.all([
+        resolveCustomerForUser({
+          userId: user.id,
+          sessionCustomerId: user.customerId ?? null,
+          sessionEmail: user.email ?? null,
+          storeId,
+          storeSlug: profileStoreCtx?.storeSlug ?? null,
+        }),
+        prisma.user.findUnique({
+          where: { id: user.id },
+          select: { passwordHash: true },
+        }),
+      ]);
       resolvedReason = resolved.reason;
+      hasPassword = !!userPwRow?.passwordHash;
       console.info("[profile.page] resolved", {
         userId: user.id,
         sessionCustomerId: user.customerId ?? null,
@@ -64,6 +72,7 @@ export default async function ProfilePage({ searchParams }: PageProps) {
         storeId,
         resolvedCustomerId: resolved.customer?.id ?? null,
         reason: resolved.reason,
+        hasPassword,
       });
       if (resolved.customer) {
         // 取完整欄位（resolver 只回必要欄位）
@@ -76,7 +85,6 @@ export default async function ProfilePage({ searchParams }: PageProps) {
             email: true,
             gender: true,
             birthday: true,
-            height: true,
             address: true,
             notes: true,
           },
@@ -115,7 +123,6 @@ export default async function ProfilePage({ searchParams }: PageProps) {
         email: customer.email,
         gender: customer.gender,
         birthday: birthdayStr,
-        height: customer.height,
         address: customer.address,
         notes: customer.notes,
       }
@@ -125,7 +132,6 @@ export default async function ProfilePage({ searchParams }: PageProps) {
         email: user?.email ?? null,
         gender: null,
         birthday: null,
-        height: null,
         address: null,
         notes: null,
       };
@@ -184,6 +190,7 @@ export default async function ProfilePage({ searchParams }: PageProps) {
           <ProfileForm
             customer={customerForForm}
             age={age}
+            hasPassword={hasPassword}
             onboardingMode={showOnboardingBanner}
             nextPath={nextPath}
           />
