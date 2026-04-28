@@ -212,6 +212,52 @@ export function ScheduleManager({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ── Day detail client cache ──────────────────────────
+  // 點同一天第二次直接從 Map 拿，不打 server。
+  // bypassCache: true 用於 mutation 後強制重抓（slot toggle / capacity / saveDay）。
+  // 月份切換不清這份 cache — 切回同月再點同一天也是秒開。
+  const dayDetailCacheRef = useRef<Map<string, DayDetail>>(new Map());
+
+  /**
+   * 用 monthSummary + weeklyHours 組出「點下去立刻顯示」的預覽 DayDetail，
+   * 讓上方資訊卡（日期 / 狀態 / 營業時間 / 規則推導）在等 server 期間
+   * 不是空白 loading。slots 仍維持空陣列，由下方 skeleton 用
+   * monthSummary.slotCount 算出佔位格數，server 回來再覆蓋。
+   */
+  const WEEK_DAY_FULL = ["週日", "週一", "週二", "週三", "週四", "週五", "週六"];
+  const buildPreviewDayDetail = useCallback(
+    (dateStr: string): DayDetail | null => {
+      const summary = monthSummary[dateStr];
+      if (!summary) return null;
+      const dateObj = new Date(dateStr + "T00:00:00Z");
+      const dow = dateObj.getUTCDay();
+      const weekly = weeklyHours.find((w) => w.dayOfWeek === dow) ?? null;
+      return {
+        status: summary.status,
+        openTime: summary.openTime,
+        closeTime: summary.closeTime,
+        reason: null,
+        specialDayId: null,
+        dayOfWeek: dow,
+        dayName: WEEK_DAY_FULL[dow],
+        slots: [],
+        slotInterval: weekly?.slotInterval ?? 60,
+        defaultCapacity: weekly?.defaultCapacity ?? 6,
+        weeklyDefault: weekly
+          ? {
+              isOpen: weekly.isOpen,
+              openTime: weekly.openTime,
+              closeTime: weekly.closeTime,
+              slotInterval: weekly.slotInterval,
+              defaultCapacity: weekly.defaultCapacity,
+            }
+          : null,
+      };
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [monthSummary, weeklyHours],
+  );
+
   // ── 月曆資料計算 ──
   const firstDay = new Date(Date.UTC(year, month - 1, 1));
   const lastDay = new Date(Date.UTC(year, month, 0));
@@ -259,27 +305,76 @@ export function ScheduleManager({
   }, [year, month, loadMonth]);
 
   // ── 選擇日期 ──
-  const selectDate = useCallback(async (dateStr: string) => {
-    setSelectedDate(dateStr);
-    setSelectedSlot(null);
-    setLoadingDay(true);
-    try {
-      const detail = await getDaySlotDetails(dateStr);
-      setDayDetail(detail);
-      setEditStatus(detail.status);
-      setEditOpenTime(detail.openTime ?? "10:00");
-      setEditCloseTime(detail.closeTime ?? "22:00");
-      setEditReason(detail.reason ?? "");
-      setEditInterval(detail.slotInterval);
-      setEditCapacity(detail.defaultCapacity);
-      setCopyWeeks(0);
-      setApplyMode("day");
-    } catch {
-      toast.error("載入日期設定失敗");
-    } finally {
-      setLoadingDay(false);
-    }
-  }, []);
+  // 流程：
+  //  1) 同一個 requestId 防 race（快速連點不同日期不會錯位）
+  //  2) cache hit（除非 bypassCache）→ 同步 setState，不打 server
+  //  3) cache miss → 從 monthSummary 拼預覽 DayDetail 立即顯示，slots 空著
+  //     由下方 skeleton 用 slotCount 撐版面；同時背景 fetch server，
+  //     回來後 race-guard 過濾、寫 cache、覆蓋 dayDetail
+  const selectDate = useCallback(
+    async (dateStr: string, opts: { bypassCache?: boolean } = {}) => {
+      setSelectedDate(dateStr);
+      setSelectedSlot(null);
+
+      const requestId = ++requestIdRef.current;
+
+      // Cache hit → instant
+      if (!opts.bypassCache) {
+        const cached = dayDetailCacheRef.current.get(dateStr);
+        if (cached) {
+          setDayDetail(cached);
+          setEditStatus(cached.status);
+          setEditOpenTime(cached.openTime ?? "10:00");
+          setEditCloseTime(cached.closeTime ?? "22:00");
+          setEditReason(cached.reason ?? "");
+          setEditInterval(cached.slotInterval);
+          setEditCapacity(cached.defaultCapacity);
+          setCopyWeeks(0);
+          setApplyMode("day");
+          setLoadingDay(false);
+          return;
+        }
+      } else {
+        dayDetailCacheRef.current.delete(dateStr);
+      }
+
+      // Optimistic preview from monthSummary（避免下方面板空白）
+      const preview = buildPreviewDayDetail(dateStr);
+      if (preview) {
+        setDayDetail(preview);
+        setEditStatus(preview.status);
+        setEditOpenTime(preview.openTime ?? "10:00");
+        setEditCloseTime(preview.closeTime ?? "22:00");
+        setEditReason(preview.reason ?? "");
+        setEditInterval(preview.slotInterval);
+        setEditCapacity(preview.defaultCapacity);
+        setCopyWeeks(0);
+        setApplyMode("day");
+      }
+      setLoadingDay(true);
+
+      try {
+        const detail = await getDaySlotDetails(dateStr);
+        // 慢回來的舊請求 — 使用者已經切到別的日期，丟掉結果
+        if (requestId !== requestIdRef.current) return;
+        dayDetailCacheRef.current.set(dateStr, detail);
+        setDayDetail(detail);
+        setEditStatus(detail.status);
+        setEditOpenTime(detail.openTime ?? "10:00");
+        setEditCloseTime(detail.closeTime ?? "22:00");
+        setEditReason(detail.reason ?? "");
+        setEditInterval(detail.slotInterval);
+        setEditCapacity(detail.defaultCapacity);
+      } catch {
+        if (requestId === requestIdRef.current) {
+          toast.error("載入日期設定失敗");
+        }
+      } finally {
+        if (requestId === requestIdRef.current) setLoadingDay(false);
+      }
+    },
+    [buildPreviewDayDetail],
+  );
 
   // ── 儲存日設定 ──
   const saveDay = useCallback(async () => {
@@ -392,9 +487,17 @@ export function ScheduleManager({
           }
         }
 
+        // Day-detail cache 失效：
+        //  - applyMode=day → 只清這一天（其他天的 detail 沒被影響）
+        //  - copy / permanent / template → 多天或週規則被改，blast radius 大，清光
+        if (applyMode === "day") {
+          dayDetailCacheRef.current.delete(selectedDate);
+        } else {
+          dayDetailCacheRef.current.clear();
+        }
         // 失效當月 cache 並重抓（其他月份保留 cache，不必清）
         await invalidateAndReloadCurrentMonth();
-        await selectDate(selectedDate);
+        await selectDate(selectedDate, { bypassCache: true });
       } catch {
         toast.error("儲存失敗");
       }
@@ -427,10 +530,12 @@ export function ScheduleManager({
             slotInterval, defaultCapacity,
           } : w)
         );
+        // 每週規則改動會影響所有同 dow 的日期 → blast radius 是整個 cache
+        dayDetailCacheRef.current.clear();
         // 失效當月 cache 並重抓（每週規則改動會反映到本月所有同 dow 的日期）
         await invalidateAndReloadCurrentMonth();
         if (selectedDate) {
-          await selectDate(selectedDate);
+          await selectDate(selectedDate, { bypassCache: true });
         }
       } else {
         toast.error(result.error);
@@ -608,13 +713,17 @@ export function ScheduleManager({
         </div>
       </div>
 
-      {/* ===== 右側：日設定面板 ===== */}
+      {/* ===== 右側：日設定面板 =====
+          有 dayDetail（可能是 cache hit、preview 或 server-fetched 完整版）就直接 render；
+          loadingDay 不再 short-circuit 整面成 spinner — slot 區自己用 skeleton 撐版面，
+          上半部用 monthSummary 預覽資訊立即顯示，店長不會看到空白。
+          fallback：preview 也組不出來時（極少見）才走全 spinner。 */}
       <div className="lg:sticky lg:top-20 lg:self-start">
         {!selectedDate ? (
           <div className="rounded-xl border bg-white p-6 shadow-sm">
             <p className="text-center text-sm text-earth-400">← 點選月曆上的日期來檢視或設定</p>
           </div>
-        ) : loadingDay ? (
+        ) : !dayDetail && loadingDay ? (
           <div className="rounded-xl border bg-white p-6 shadow-sm">
             <div className="flex items-center justify-center gap-2 py-8">
               <svg className="h-5 w-5 animate-spin text-primary-500" viewBox="0 0 24 24" fill="none">
@@ -853,14 +962,32 @@ export function ScheduleManager({
             <div className="rounded-xl border bg-white p-4 shadow-sm">
               <div className="mb-2 flex items-center justify-between">
                 <h4 className="text-xs font-semibold text-earth-700">該日可預約時段</h4>
-                {canManage && dayDetail.slots.length > 0 && editStatus !== "closed" && editStatus !== "training" && (
+                {loadingDay && dayDetail.slots.length === 0 ? (
+                  <span className="text-[10px] text-earth-400">載入中…</span>
+                ) : canManage && dayDetail.slots.length > 0 && editStatus !== "closed" && editStatus !== "training" ? (
                   <span className="text-[10px] text-earth-400">點擊切換開/關</span>
-                )}
+                ) : null}
               </div>
               {editStatus === "closed" || editStatus === "training" ? (
                 <p className="py-4 text-center text-sm text-earth-400">
                   {editStatus === "closed" ? "店休日 — 不開放預約" : "進修日 — 不開放預約"}
                 </p>
+              ) : loadingDay && dayDetail.slots.length === 0 ? (
+                // Skeleton：用 monthSummary[date].slotCount 撐出對的格數，
+                // 避免店長看到「此日尚未設定...」誤以為真的空。
+                <div className="grid grid-cols-3 gap-1.5">
+                  {Array.from({
+                    length: Math.max(
+                      1,
+                      monthSummary[selectedDate]?.slotCount ?? 9,
+                    ),
+                  }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="h-7 animate-pulse rounded-lg bg-earth-100"
+                    />
+                  ))}
+                </div>
               ) : dayDetail.slots.length === 0 ? (
                 <p className="py-4 text-center text-sm text-earth-400">
                   此日尚未設定預約時段模板
@@ -878,7 +1005,11 @@ export function ScheduleManager({
                         editCloseTime={editCloseTime}
                         canManage={canManage}
                         isSelected={selectedSlot === s.startTime}
-                        onToggled={() => { setSelectedSlot(null); selectDate(selectedDate); }}
+                        onToggled={() => {
+                          setSelectedSlot(null);
+                          // mutation 已落 DB，本地 day cache 過時 → bypass
+                          selectDate(selectedDate, { bypassCache: true });
+                        }}
                         onSelect={(startTime) => {
                           if (selectedSlot === startTime) {
                             setSelectedSlot(null);
@@ -924,7 +1055,7 @@ export function ScheduleManager({
                                 toast.success(`${selectedSlot} 名額已調整為 ${slotCapacityInput} 位`);
                                 setSelectedSlot(null);
                                 await Promise.all([
-                                  selectDate(selectedDate),
+                                  selectDate(selectedDate, { bypassCache: true }),
                                   invalidateAndReloadCurrentMonth(),
                                 ]);
                               } else {
@@ -951,7 +1082,7 @@ export function ScheduleManager({
                                   toast.success(`${selectedSlot} 已回復預設名額`);
                                   setSelectedSlot(null);
                                   await Promise.all([
-                                    selectDate(selectedDate),
+                                    selectDate(selectedDate, { bypassCache: true }),
                                     invalidateAndReloadCurrentMonth(),
                                   ]);
                                 } else {
