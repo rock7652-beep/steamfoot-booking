@@ -2,7 +2,10 @@ import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { notFound } from "next/navigation";
 import { getMonthSpecialDays } from "@/server/actions/business-hours";
-import { getCachedBusinessHours } from "@/lib/query-cache";
+import {
+  getCachedBusinessHours,
+  getCachedMonthScheduleSummary,
+} from "@/lib/query-cache";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { prisma } from "@/lib/db";
 import { DashboardLink as Link } from "@/components/dashboard-link";
@@ -64,13 +67,17 @@ export default async function ScheduleSettingsPage() {
 
   const todayStr = toLocalDateStr();
   const [nowYear, nowMonth] = todayStr.split("-").map(Number);
-  // weeklyHours 走 unstable_cache（60s TTL + tag: business-hours），
-  // 取代原本 getBusinessHours()（每次都打 prisma.findMany）。
-  // 缺 dayName 一欄，下方手動補。
-  const [weeklyRows, specialDays, currentStore] = await Promise.all([
+  // 全部走 unstable_cache（60s TTL + tag: business-hours / special-days）。
+  // 第一個進來的人付出 DB 成本，60s 內後續所有人秒開；
+  // 任一 mutation 都會打對應 tag 失效，看到的不會是 stale 資料。
+  // weeklyHours 缺 dayName 一欄，下方手動補。
+  // initialSummary 直接從 server cache 拿，傳給 client manager 當啟動值，
+  // 避免 client mount 後再打一次 server 補抓 summary。
+  const [weeklyRows, specialDays, currentStore, initialSummary] = await Promise.all([
     getCachedBusinessHours(effectiveStoreId),
     getMonthSpecialDays(nowYear, nowMonth),
     prisma.store.findUnique({ where: { id: effectiveStoreId }, select: { isDefault: true } }),
+    getCachedMonthScheduleSummary(effectiveStoreId, nowYear, nowMonth),
   ]);
   const weeklyHours = weeklyRows.map((h) => ({
     ...h,
@@ -171,6 +178,7 @@ export default async function ScheduleSettingsPage() {
               defaultCapacity: h.defaultCapacity,
             }))}
             initialSpecialDays={specialDays}
+            initialSummary={initialSummary}
             initialYear={nowYear}
             initialMonth={nowMonth}
             canManage={canManage}

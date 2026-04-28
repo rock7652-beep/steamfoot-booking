@@ -88,6 +88,12 @@ const monthKey = (year: number, month: number) =>
 interface Props {
   weeklyHours: WeeklyHour[];
   initialSpecialDays: SpecialDay[];
+  /**
+   * Server-cache 算好的初始月份摘要（getCachedMonthScheduleSummary）。
+   * 傳進來後 client mount 不必再打 server 補抓 summary，第一個進來的人
+   * 也是秒開；client cache 也直接用這份 seed。
+   */
+  initialSummary: MonthSummary;
   initialYear: number;
   initialMonth: number;
   canManage: boolean;
@@ -103,6 +109,7 @@ const DAY_NAMES = ["日", "一", "二", "三", "四", "五", "六"];
 export function ScheduleManager({
   weeklyHours: initialWeekly,
   initialSpecialDays,
+  initialSummary,
   initialYear,
   initialMonth,
   canManage,
@@ -132,8 +139,8 @@ export function ScheduleManager({
   const [applyMode, setApplyMode] = useState<"day" | "copy" | "permanent" | "template">("day");
   const [templateWeeks, setTemplateWeeks] = useState(52);
 
-  // 月曆摘要
-  const [monthSummary, setMonthSummary] = useState<MonthSummary>({});
+  // 月曆摘要 — 用 server-cache 給的 initialSummary 當啟動值，第一次 render 已正確
+  const [monthSummary, setMonthSummary] = useState<MonthSummary>(initialSummary);
 
   // 單時段名額調整 - 選中的時段
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
@@ -194,24 +201,13 @@ export function ScheduleManager({
     }
   }, []);
 
-  // 初次掛載：specialDays 已從 props 拿到，只需補抓 summary 並 seed cache
+  // 初次掛載：seed cache 用 props（specialDays + initialSummary 都從 server cache 拿到）。
+  // 不再打 server 補抓 — initialSummary 已是正確值。
   useEffect(() => {
-    const key = monthKey(initialYear, initialMonth);
-    const requestId = ++requestIdRef.current;
-    setIsMonthLoading(true);
-    getMonthScheduleSummary(initialYear, initialMonth)
-      .then((summary) => {
-        if (requestId !== requestIdRef.current) return;
-        monthCacheRef.current.set(key, {
-          summary,
-          specialDays: initialSpecialDays,
-        });
-        setMonthSummary(summary);
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (requestId === requestIdRef.current) setIsMonthLoading(false);
-      });
+    monthCacheRef.current.set(monthKey(initialYear, initialMonth), {
+      summary: initialSummary,
+      specialDays: initialSpecialDays,
+    });
     // 只在 mount 時執行一次；後續 month 變化由 changeMonth 觸發 loadMonth
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
