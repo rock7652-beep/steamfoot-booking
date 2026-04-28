@@ -2,6 +2,7 @@ import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { CACHE_TAGS } from "@/lib/cache-tags";
 
 // ============================================================
 // 角色常數 & 輔助函式
@@ -249,7 +250,7 @@ const getStaffPermissionCodes = unstable_cache(
     return records.map((r) => r.permission as PermissionCode);
   },
   ["staff-permission-codes"],
-  { revalidate: 60, tags: ["staff-permissions"] },
+  { revalidate: 60, tags: [CACHE_TAGS.staffPermissions] },
 );
 
 /**
@@ -307,10 +308,10 @@ export async function updateStaffPermissions(
   );
 
   await prisma.$transaction(upserts);
-
-  // 立即清掉跨請求快取，確保被改的權限不會在 60s TTL 內仍生效。
-  const { revalidateStaffPermissions } = await import("@/lib/revalidation");
-  revalidateStaffPermissions();
+  // ⚠ 失效跨請求 cache（tag: "staff-permissions"）由 caller 負責呼叫
+  // revalidateStaffPermissions()。本檔不能 import @/lib/revalidation，
+  // 否則 revalidatePath/updateTag 會被連帶拉進 middleware / client bundle，
+  // 造成 build 失敗（permissions.ts 是 proxy.ts / customer error.tsx 的依賴）。
 }
 
 /**
