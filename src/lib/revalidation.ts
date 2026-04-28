@@ -5,16 +5,23 @@
  * 確保 unstable_cache tags + 路由都正確失效。
  *
  * Next.js 16: updateTag() 限 server action 內呼叫（read-your-own-writes）
+ *
+ * ⚠ 此檔 import 了 next/cache (revalidatePath / updateTag)，**只能在
+ *   server action / app router server component 內被 import**。不可被
+ *   permissions.ts 等會被 middleware (proxy.ts) 或 client bundle
+ *   transitively import 的模組引用，否則 build 會失敗。
+ *   tag 字串常數請從 cache-tags.ts 取，避免 typo。
  */
 
 import { revalidatePath, updateTag } from "next/cache";
+import { CACHE_TAGS } from "@/lib/cache-tags";
 
 // ── 營業時間（週設定 + 時段） ──────────────────────────
 
 /** 更新每週固定營業時間後呼叫 */
 export function revalidateBusinessHours() {
-  updateTag("business-hours");
-  updateTag("special-days");
+  updateTag(CACHE_TAGS.businessHours);
+  updateTag(CACHE_TAGS.specialDays);
   revalidatePath("/dashboard/settings/hours");
   revalidatePath("/dashboard/duty");
   revalidatePath("/book");
@@ -22,7 +29,7 @@ export function revalidateBusinessHours() {
 
 /** 更新特殊日期（公休 / 訓練 / 自訂）後呼叫 */
 export function revalidateSpecialDays() {
-  updateTag("special-days");
+  updateTag(CACHE_TAGS.specialDays);
   revalidatePath("/dashboard/settings/hours");
   revalidatePath("/dashboard/duty");
   revalidatePath("/book");
@@ -32,7 +39,7 @@ export function revalidateSpecialDays() {
 
 /** 切換 dutySchedulingEnabled 後呼叫 */
 export function revalidateDutyScheduling() {
-  updateTag("duty-scheduling");
+  updateTag(CACHE_TAGS.dutyScheduling);
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/duty");
   revalidatePath("/dashboard/settings/duty");
@@ -51,8 +58,8 @@ export function revalidateDuty() {
 
 /** 預約異動後呼叫 */
 export function revalidateBookings(customerId?: string) {
-  updateTag("bookings-summary");
-  updateTag("report-store");
+  updateTag(CACHE_TAGS.bookingsSummary);
+  updateTag(CACHE_TAGS.reportStore);
   revalidatePath("/dashboard/bookings");
   revalidatePath("/dashboard");
   revalidatePath("/book");
@@ -65,7 +72,7 @@ export function revalidateBookings(customerId?: string) {
 
 /** 交易異動後呼叫（含確認付款 → 顧客方案/預約頁） */
 export function revalidateTransactions(customerId?: string) {
-  updateTag("report-store");
+  updateTag(CACHE_TAGS.reportStore);
   revalidatePath("/dashboard/transactions");
   revalidatePath("/dashboard/payments");
   revalidatePath("/my-plans");
@@ -77,7 +84,7 @@ export function revalidateTransactions(customerId?: string) {
 
 /** 方案異動後呼叫 */
 export function revalidatePlans() {
-  updateTag("plans");
+  updateTag(CACHE_TAGS.plans);
   revalidatePath("/dashboard/plans");
 }
 
@@ -85,20 +92,20 @@ export function revalidatePlans() {
 
 /** 員工異動後呼叫 */
 export function revalidateStaff() {
-  updateTag("staff");
+  updateTag(CACHE_TAGS.staff);
   revalidatePath("/dashboard/staff");
 }
 
 /** Staff 權限異動後呼叫（清掉 staff-permission-codes cache） */
 export function revalidateStaffPermissions() {
-  updateTag("staff-permissions");
+  updateTag(CACHE_TAGS.staffPermissions);
 }
 
 // ── 獎勵項目 ──────────────────────────────────────────
 
 /** 獎勵項目異動後呼叫 */
 export function revalidateBonusRules() {
-  updateTag("bonus-rules");
+  updateTag(CACHE_TAGS.bonusRules);
   revalidatePath("/dashboard/bonus-rules");
 }
 
@@ -106,15 +113,15 @@ export function revalidateBonusRules() {
 
 /** 店鋪方案異動後呼叫 */
 export function revalidateShopConfig() {
-  updateTag("shop-config");
+  updateTag(CACHE_TAGS.shopConfig);
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/settings/plan");
 }
 
 /** 店舖方案 / 訂閱 / 升級申請變更後呼叫 */
 export function revalidateStorePlan() {
-  updateTag("store-plan");
-  updateTag("upgrade-requests");
+  updateTag(CACHE_TAGS.storePlan);
+  updateTag(CACHE_TAGS.upgradeRequests);
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/settings/plan");
   revalidatePath("/dashboard/upgrade-requests");

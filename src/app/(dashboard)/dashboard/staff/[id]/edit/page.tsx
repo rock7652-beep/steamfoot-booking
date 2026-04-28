@@ -17,6 +17,7 @@ import type { UserRole } from "@prisma/client";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { notFound, redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { revalidateStaffPermissions } from "@/lib/revalidation";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -71,6 +72,8 @@ export default async function EditStaffPage({ params }: PageProps) {
       perms[code] = formData.get(`perm_${code}`) === "on";
     }
     await updateStaffPermissions(id, perms as Record<PermissionCode, boolean>);
+    // 立即清掉跨請求快取（tag: "staff-permissions"），不留 60s TTL 漏洞。
+    revalidateStaffPermissions();
 
     revalidatePath(`/dashboard/staff/${id}/edit`);
     redirect(`/dashboard/staff/${id}/edit`);

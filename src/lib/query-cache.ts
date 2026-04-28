@@ -11,6 +11,7 @@
 
 import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/db";
+import { CACHE_TAGS } from "@/lib/cache-tags";
 import { getShopConfig, getTrialStatus } from "@/lib/shop-config";
 import { getStorePlanById } from "@/lib/store-plan";
 import type { PricingPlan } from "@prisma/client";
@@ -28,7 +29,7 @@ export const getCachedStorePlan = unstable_cache(
     return getStorePlanById(storeId);
   },
   ["store-plan"],
-  { revalidate: 60, tags: ["store-plan"] },
+  { revalidate: 60, tags: [CACHE_TAGS.storePlan] },
 );
 
 
@@ -45,7 +46,7 @@ export function getCachedPlans(storeId: string) {
       });
     },
     [`active-plans-${storeId}`],
-    { revalidate: 60, tags: ["plans"] },
+    { revalidate: 60, tags: [CACHE_TAGS.plans] },
   )();
 }
 
@@ -63,7 +64,7 @@ export const getCachedStaffOptions = unstable_cache(
     });
   },
   ["staff-options"],
-  { revalidate: 60, tags: ["staff"] },
+  { revalidate: 60, tags: [CACHE_TAGS.staff] },
 );
 
 /**
@@ -75,7 +76,7 @@ export const getCachedTrialStatus = unstable_cache(
     return getTrialStatus(storeId);
   },
   ["trial-status"],
-  { revalidate: 60, tags: ["store-plan"] },
+  { revalidate: 60, tags: [CACHE_TAGS.storePlan] },
 );
 
 /**
@@ -88,7 +89,7 @@ export const getCachedShopConfig = unstable_cache(
     return getShopConfig(storeId);
   },
   ["shop-config"],
-  { revalidate: 60, tags: ["shop-config"] },
+  { revalidate: 60, tags: [CACHE_TAGS.shopConfig] },
 );
 
 /**
@@ -104,7 +105,7 @@ export const getCachedBusinessHours = unstable_cache(
     });
   },
   ["business-hours-by-store"],
-  { revalidate: 60, tags: ["business-hours"] },
+  { revalidate: 60, tags: [CACHE_TAGS.businessHours] },
 );
 
 /**
@@ -129,5 +130,5 @@ export const getCachedBonusRules = unstable_cache(
     });
   },
   ["bonus-rules-by-store"],
-  { revalidate: 60, tags: ["bonus-rules"] },
+  { revalidate: 60, tags: [CACHE_TAGS.bonusRules] },
 );
