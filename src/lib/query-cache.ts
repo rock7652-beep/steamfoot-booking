@@ -12,6 +12,10 @@
 import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/db";
 import { CACHE_TAGS } from "@/lib/cache-tags";
+import {
+  computeMonthScheduleSummary,
+  type MonthSummary,
+} from "@/lib/business-hours-resolver";
 import { getShopConfig, getTrialStatus } from "@/lib/shop-config";
 import { getStorePlanById } from "@/lib/store-plan";
 import type { PricingPlan } from "@prisma/client";
@@ -107,6 +111,33 @@ export const getCachedBusinessHours = unstable_cache(
   ["business-hours-by-store"],
   { revalidate: 60, tags: [CACHE_TAGS.businessHours] },
 );
+
+/**
+ * 快取整月排班摘要 — 60s TTL，tag: business-hours + special-days
+ *
+ * key 自動含 (storeId, year, month)。多個 admin 同時看同一店的同一月，
+ * 第一個進來的人付出整月解析的成本，60s 內後續所有 request 直接從 cache 拿。
+ *
+ * 失效路徑（涵蓋所有可能改動該月顯示的 mutation）：
+ * - revalidateBusinessHours：updateTag("business-hours") + updateTag("special-days")
+ * - revalidateSpecialDays：updateTag("special-days")
+ * 兩個 tag 都加，確保 BusinessHours / SpecialBusinessDay / SlotOverride
+ * 任一改動都會清掉這份月份摘要 cache。
+ */
+export function getCachedMonthScheduleSummary(
+  storeId: string,
+  year: number,
+  month: number,
+): Promise<MonthSummary> {
+  return unstable_cache(
+    async () => computeMonthScheduleSummary(storeId, year, month),
+    [`month-schedule-summary-${storeId}-${year}-${month}`],
+    {
+      revalidate: 60,
+      tags: [CACHE_TAGS.businessHours, CACHE_TAGS.specialDays],
+    },
+  )();
+}
 
 /**
  * 快取獎勵項目（後台管理用） — 60s TTL，tag: "bonus-rules"

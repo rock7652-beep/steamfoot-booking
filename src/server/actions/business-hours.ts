@@ -7,13 +7,10 @@ import { AppError, handleActionError } from "@/lib/errors";
 import { generateSlots, validateTimeRange } from "@/lib/slot-generator";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { revalidateBusinessHours, revalidateSpecialDays } from "@/lib/revalidation";
-import { getCachedBusinessHours } from "@/lib/query-cache";
+import { getCachedMonthScheduleSummary } from "@/lib/query-cache";
 import {
   applySlotOverrides,
-  enumerateMonthDates,
   loadDayBusinessHoursContext,
-  loadMonthBusinessHoursContext,
-  type DayStatus,
 } from "@/lib/business-hours-resolver";
 import type { ActionResult } from "@/types";
 
@@ -89,7 +86,14 @@ export async function getMonthSpecialDays(year: number, month: number) {
   }));
 }
 
-/** 取得整月每日營業摘要（月曆格用，與前台同源 resolver） */
+/**
+ * 取得整月每日營業摘要（月曆格用，與前台同源 resolver）
+ *
+ * 走 unstable_cache（60s TTL + tag: business-hours / special-days）。
+ * 第一個進來的人付出整月解析的 DB 成本，60s 內後續所有 request 直接讀 cache；
+ * 任一 BusinessHours / SpecialBusinessDay / SlotOverride 異動都會觸發
+ * revalidation 把所有相關月份的 cache 清掉。
+ */
 export async function getMonthScheduleSummary(year: number, month: number) {
   const user = await requireStaffSession();
   const storeId = await resolveReadStoreId(user);
@@ -97,45 +101,7 @@ export async function getMonthScheduleSummary(year: number, month: number) {
     // ADMIN 全部分店模式：沒有特定店可匯總，回傳空摘要
     return {};
   }
-
-  // 月份切換時 BusinessHours 整月不變 — 走 unstable_cache（60s TTL +
-  // tag 失效），同店 60s 內切月份省 1 次 prisma.businessHours.findMany。
-  const weeklyRows = await getCachedBusinessHours(storeId);
-  const ctx = await loadMonthBusinessHoursContext(storeId, year, month, weeklyRows);
-
-  // 按日聚合 override 數量（後台需顯示「該日有 N 個時段覆寫」徽章）
-  const overrideCounts = new Map<string, number>();
-  for (const o of ctx.slotOverrides) {
-    const key = o.date.toISOString().slice(0, 10);
-    overrideCounts.set(key, (overrideCounts.get(key) ?? 0) + 1);
-  }
-
-  const days: Record<
-    string,
-    {
-      status: DayStatus;
-      openTime: string | null;
-      closeTime: string | null;
-      slotCount: number;
-      overrideCount: number;
-    }
-  > = {};
-
-  for (const { dateStr } of enumerateMonthDates(year, month)) {
-    const rule = ctx.rules.get(dateStr)!;
-    const slotCount = rule.openTime && rule.closeTime
-      ? generateSlots(rule.openTime, rule.closeTime, rule.slotInterval, 1).length
-      : 0;
-    days[dateStr] = {
-      status: rule.status,
-      openTime: rule.openTime,
-      closeTime: rule.closeTime,
-      slotCount,
-      overrideCount: overrideCounts.get(dateStr) ?? 0,
-    };
-  }
-
-  return days;
+  return getCachedMonthScheduleSummary(storeId, year, month);
 }
 
 /** 取得某天的可預約時段（與前台同源 resolver；額外帶後台需要的欄位） */

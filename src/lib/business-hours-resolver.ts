@@ -439,3 +439,64 @@ export async function loadDayBusinessHoursContext(
       : null,
   };
 }
+
+// ============================================================
+// 月份摘要：給後台月曆每格用的 status / openTime / slotCount / overrideCount
+// ============================================================
+
+export interface MonthSummaryDay {
+  status: DayStatus;
+  openTime: string | null;
+  closeTime: string | null;
+  slotCount: number;
+  overrideCount: number;
+}
+
+/** "YYYY-MM-DD" → 該日摘要 */
+export type MonthSummary = Record<string, MonthSummaryDay>;
+
+/**
+ * 計算該店該月的逐日營業摘要（後台月曆色塊 / 時段數 / override 標記用）。
+ * 不檢查 session — 呼叫端負責權限。
+ *
+ * 抽出此函式是為了讓 query-cache.ts 能用 unstable_cache 包它，
+ * 把第一個進來的人付出的解析成本快取 60s 給後續所有並發 request。
+ */
+export async function computeMonthScheduleSummary(
+  storeId: string,
+  year: number,
+  month: number,
+  weeklyHoursOverride?: BusinessHoursRow[],
+): Promise<MonthSummary> {
+  const ctx = await loadMonthBusinessHoursContext(
+    storeId,
+    year,
+    month,
+    weeklyHoursOverride,
+  );
+
+  // 按日聚合 override 數量（後台需顯示「該日有 N 個時段覆寫」徽章）
+  const overrideCounts = new Map<string, number>();
+  for (const o of ctx.slotOverrides) {
+    const key = o.date.toISOString().slice(0, 10);
+    overrideCounts.set(key, (overrideCounts.get(key) ?? 0) + 1);
+  }
+
+  const days: MonthSummary = {};
+  for (const { dateStr } of enumerateMonthDates(year, month)) {
+    const rule = ctx.rules.get(dateStr)!;
+    const slotCount =
+      rule.openTime && rule.closeTime
+        ? generateSlots(rule.openTime, rule.closeTime, rule.slotInterval, 1).length
+        : 0;
+    days[dateStr] = {
+      status: rule.status,
+      openTime: rule.openTime,
+      closeTime: rule.closeTime,
+      slotCount,
+      overrideCount: overrideCounts.get(dateStr) ?? 0,
+    };
+  }
+
+  return days;
+}

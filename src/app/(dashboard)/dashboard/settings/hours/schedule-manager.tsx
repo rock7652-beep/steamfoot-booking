@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useTransition, useEffect } from "react";
+import { useState, useCallback, useTransition, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import {
   updateBusinessHours,
@@ -73,9 +73,27 @@ type MonthSummary = Record<string, {
   overrideCount: number;
 }>;
 
+/**
+ * Phase B 月份 client cache 條目。
+ * summary 與 specialDays 配對 — 兩者都是「per-月」資料，總是一起讀取/失效。
+ */
+type MonthCacheEntry = {
+  summary: MonthSummary;
+  specialDays: SpecialDay[];
+};
+
+const monthKey = (year: number, month: number) =>
+  `${year}-${String(month).padStart(2, "0")}`;
+
 interface Props {
   weeklyHours: WeeklyHour[];
   initialSpecialDays: SpecialDay[];
+  /**
+   * Server-cache 算好的初始月份摘要（getCachedMonthScheduleSummary）。
+   * 傳進來後 client mount 不必再打 server 補抓 summary，第一個進來的人
+   * 也是秒開；client cache 也直接用這份 seed。
+   */
+  initialSummary: MonthSummary;
   initialYear: number;
   initialMonth: number;
   canManage: boolean;
@@ -91,6 +109,7 @@ const DAY_NAMES = ["日", "一", "二", "三", "四", "五", "六"];
 export function ScheduleManager({
   weeklyHours: initialWeekly,
   initialSpecialDays,
+  initialSummary,
   initialYear,
   initialMonth,
   canManage,
@@ -120,17 +139,78 @@ export function ScheduleManager({
   const [applyMode, setApplyMode] = useState<"day" | "copy" | "permanent" | "template">("day");
   const [templateWeeks, setTemplateWeeks] = useState(52);
 
-  // 月曆摘要
-  const [monthSummary, setMonthSummary] = useState<MonthSummary>({});
+  // 月曆摘要 — 用 server-cache 給的 initialSummary 當啟動值，第一次 render 已正確
+  const [monthSummary, setMonthSummary] = useState<MonthSummary>(initialSummary);
 
   // 單時段名額調整 - 選中的時段
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [slotCapacityInput, setSlotCapacityInput] = useState<number>(0);
 
-  // 載入月曆摘要
-  useEffect(() => {
-    getMonthScheduleSummary(year, month).then(setMonthSummary).catch(() => {});
+  // ── Phase B: client 月份 cache + race guard ──────────
+  // 月份切換時不要每次都打 server。已看過的月份直接從 Map 拿；
+  // 切到新月份才打 server，期間顯示 loading overlay 並 disable 上下月按鈕。
+  // requestIdRef 防止使用者快速連點：較慢回來的請求不會覆蓋當前狀態。
+  const monthCacheRef = useRef<Map<string, MonthCacheEntry>>(new Map());
+  const requestIdRef = useRef(0);
+  const [isMonthLoading, setIsMonthLoading] = useState(false);
+
+  /** 失效並強制重抓「目前月份」cache（mutation 後使用） */
+  const invalidateAndReloadCurrentMonth = useCallback(async () => {
+    const key = monthKey(year, month);
+    monthCacheRef.current.delete(key);
+    const requestId = ++requestIdRef.current;
+    try {
+      const [specials, summary] = await Promise.all([
+        getMonthSpecialDays(year, month),
+        getMonthScheduleSummary(year, month),
+      ]);
+      if (requestId !== requestIdRef.current) return;
+      monthCacheRef.current.set(key, { summary, specialDays: specials });
+      setSpecialDays(specials);
+      setMonthSummary(summary);
+    } catch {
+      // 失敗時保持舊狀態，由各 mutation 的 toast 自行回報錯誤
+    }
   }, [year, month]);
+
+  /** 載入指定月份：cache hit 秒開、cache miss 走 server + race guard */
+  const loadMonth = useCallback(async (targetYear: number, targetMonth: number) => {
+    const key = monthKey(targetYear, targetMonth);
+    const cached = monthCacheRef.current.get(key);
+    if (cached) {
+      setSpecialDays(cached.specialDays);
+      setMonthSummary(cached.summary);
+      return;
+    }
+    const requestId = ++requestIdRef.current;
+    setIsMonthLoading(true);
+    try {
+      const [specials, summary] = await Promise.all([
+        getMonthSpecialDays(targetYear, targetMonth),
+        getMonthScheduleSummary(targetYear, targetMonth),
+      ]);
+      // 慢回來的舊請求不要覆蓋已經切到下一個月的狀態
+      if (requestId !== requestIdRef.current) return;
+      monthCacheRef.current.set(key, { summary, specialDays: specials });
+      setSpecialDays(specials);
+      setMonthSummary(summary);
+    } catch {
+      // ignore — 保留舊狀態
+    } finally {
+      if (requestId === requestIdRef.current) setIsMonthLoading(false);
+    }
+  }, []);
+
+  // 初次掛載：seed cache 用 props（specialDays + initialSummary 都從 server cache 拿到）。
+  // 不再打 server 補抓 — initialSummary 已是正確值。
+  useEffect(() => {
+    monthCacheRef.current.set(monthKey(initialYear, initialMonth), {
+      summary: initialSummary,
+      specialDays: initialSpecialDays,
+    });
+    // 只在 mount 時執行一次；後續 month 變化由 changeMonth 觸發 loadMonth
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── 月曆資料計算 ──
   const firstDay = new Date(Date.UTC(year, month - 1, 1));
@@ -174,15 +254,9 @@ export function ScheduleManager({
     setMonth(newMonth);
     setSelectedDate(null);
     setDayDetail(null);
-
-    // 載入新月份的特殊日期 + 摘要
-    const [data, summary] = await Promise.all([
-      getMonthSpecialDays(newYear, newMonth),
-      getMonthScheduleSummary(newYear, newMonth),
-    ]);
-    setSpecialDays(data);
-    setMonthSummary(summary);
-  }, [year, month]);
+    // cache hit: 立即同步顯示；cache miss: loadMonth 內部走 server + race guard
+    await loadMonth(newYear, newMonth);
+  }, [year, month, loadMonth]);
 
   // ── 選擇日期 ──
   const selectDate = useCallback(async (dateStr: string) => {
@@ -318,19 +392,14 @@ export function ScheduleManager({
           }
         }
 
-        // 重新載入月份資料
-        const [newSpecials, newSummary] = await Promise.all([
-          getMonthSpecialDays(year, month),
-          getMonthScheduleSummary(year, month),
-        ]);
-        setSpecialDays(newSpecials);
-        setMonthSummary(newSummary);
+        // 失效當月 cache 並重抓（其他月份保留 cache，不必清）
+        await invalidateAndReloadCurrentMonth();
         await selectDate(selectedDate);
       } catch {
         toast.error("儲存失敗");
       }
     });
-  }, [selectedDate, canManage, editStatus, editReason, editOpenTime, editCloseTime, editInterval, editCapacity, applyMode, copyWeeks, templateWeeks, year, month, selectDate, dayDetail]);
+  }, [selectedDate, canManage, editStatus, editReason, editOpenTime, editCloseTime, editInterval, editCapacity, applyMode, copyWeeks, templateWeeks, selectDate, dayDetail, invalidateAndReloadCurrentMonth]);
 
   // ── 儲存每週固定設定 ──
   const saveWeeklyDay = useCallback(async (
@@ -358,13 +427,8 @@ export function ScheduleManager({
             slotInterval, defaultCapacity,
           } : w)
         );
-        // 重新載入月份摘要 + 當前選中日期，讓月曆即時反映新規則
-        const [newSpecials, newSummary] = await Promise.all([
-          getMonthSpecialDays(year, month),
-          getMonthScheduleSummary(year, month),
-        ]);
-        setSpecialDays(newSpecials);
-        setMonthSummary(newSummary);
+        // 失效當月 cache 並重抓（每週規則改動會反映到本月所有同 dow 的日期）
+        await invalidateAndReloadCurrentMonth();
         if (selectedDate) {
           await selectDate(selectedDate);
         }
@@ -372,7 +436,7 @@ export function ScheduleManager({
         toast.error(result.error);
       }
     });
-  }, [canManage, year, month, selectedDate, selectDate]);
+  }, [canManage, selectedDate, selectDate, invalidateAndReloadCurrentMonth]);
 
   // ── 渲染 ──
   // ── 同步總部設定 ──
@@ -418,12 +482,24 @@ export function ScheduleManager({
           </div>
         )}
 
-        <div className="rounded-xl border bg-white p-4 shadow-sm">
-          {/* 月份切換 */}
+        <div className="relative rounded-xl border bg-white p-4 shadow-sm">
+          {/* 月份切換 — loading 時 disable 防止快速連點造成 race */}
           <div className="mb-3 flex items-center justify-between">
-            <button onClick={() => changeMonth(-1)} className="rounded-lg px-3 py-1.5 text-sm text-earth-600 hover:bg-earth-100">← 上月</button>
+            <button
+              onClick={() => changeMonth(-1)}
+              disabled={isMonthLoading}
+              className="rounded-lg px-3 py-1.5 text-sm text-earth-600 hover:bg-earth-100 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
+            >
+              ← 上月
+            </button>
             <h2 className="text-base font-bold text-earth-900">{year} 年 {month} 月</h2>
-            <button onClick={() => changeMonth(1)} className="rounded-lg px-3 py-1.5 text-sm text-earth-600 hover:bg-earth-100">下月 →</button>
+            <button
+              onClick={() => changeMonth(1)}
+              disabled={isMonthLoading}
+              className="rounded-lg px-3 py-1.5 text-sm text-earth-600 hover:bg-earth-100 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
+            >
+              下月 →
+            </button>
           </div>
 
           {/* 圖例 */}
@@ -434,8 +510,16 @@ export function ScheduleManager({
             <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full bg-blue-200" /> 特殊時段</span>
           </div>
 
-          {/* 日曆格子 */}
-          <div className="grid grid-cols-7 gap-1">
+          {/* 日曆格子 — key 含 year/month，切月份時 React 重新掛載觸發
+              CSS transition；loading 時降低 opacity，給輕微淡入效果。 */}
+          <div
+            key={`cal-${year}-${month}`}
+            className={`grid grid-cols-7 gap-1 transition duration-200 ${
+              isMonthLoading
+                ? "translate-y-1 opacity-60 motion-reduce:translate-y-0"
+                : "translate-y-0 opacity-100"
+            }`}
+          >
             {DAY_NAMES.map((d) => (
               <div key={d} className="py-1 text-center text-xs font-medium text-earth-500">{d}</div>
             ))}
@@ -477,6 +561,19 @@ export function ScheduleManager({
               );
             })}
           </div>
+
+          {/* Loading overlay — 月曆保留高度，淡淡浮層 + 文字，不白屏 */}
+          {isMonthLoading && (
+            <div
+              className="pointer-events-none absolute inset-x-4 top-12 flex justify-center"
+              role="status"
+              aria-live="polite"
+            >
+              <span className="rounded-full bg-white/95 px-3 py-1 text-[11px] font-medium text-earth-600 shadow ring-1 ring-earth-200">
+                載入月份資料中…
+              </span>
+            </div>
+          )}
         </div>
 
         {/* ===== 每週固定規則（可摺疊）===== */}
@@ -826,11 +923,10 @@ export function ScheduleManager({
                               if (result.success) {
                                 toast.success(`${selectedSlot} 名額已調整為 ${slotCapacityInput} 位`);
                                 setSelectedSlot(null);
-                                const [, newSummary] = await Promise.all([
+                                await Promise.all([
                                   selectDate(selectedDate),
-                                  getMonthScheduleSummary(year, month),
+                                  invalidateAndReloadCurrentMonth(),
                                 ]);
-                                setMonthSummary(newSummary);
                               } else {
                                 toast.error(result.error);
                               }
@@ -854,11 +950,10 @@ export function ScheduleManager({
                                 if (result.success) {
                                   toast.success(`${selectedSlot} 已回復預設名額`);
                                   setSelectedSlot(null);
-                                  const [, newSummary] = await Promise.all([
+                                  await Promise.all([
                                     selectDate(selectedDate),
-                                    getMonthScheduleSummary(year, month),
+                                    invalidateAndReloadCurrentMonth(),
                                   ]);
-                                  setMonthSummary(newSummary);
                                 } else {
                                   toast.error(result.error);
                                 }
