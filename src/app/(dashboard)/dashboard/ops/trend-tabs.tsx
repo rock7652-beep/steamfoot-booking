@@ -1,9 +1,26 @@
 "use client";
 
 import { useState } from "react";
+import dynamic from "next/dynamic";
 import { PeriodToggle } from "@/components/ui/period-toggle";
-import { TrendChart } from "./trend-chart";
 import type { DayTrend } from "@/server/queries/ops-dashboard";
+
+// recharts 約 ~80KB；只 /ops 一頁用得到，但每頁都載很浪費。
+// 改 next/dynamic 後 recharts 從初始 bundle 移除，僅在 /ops 進入時 fetch。
+// ssr:false 因為 recharts 內部用 ResizeObserver / window，server render 也算不出尺寸。
+const TrendChart = dynamic(
+  () => import("./trend-chart").then((mod) => ({ default: mod.TrendChart })),
+  {
+    ssr: false,
+    loading: () => (
+      <div
+        className="h-64 w-full animate-pulse rounded-lg bg-earth-50"
+        role="status"
+        aria-label="載入圖表中…"
+      />
+    ),
+  },
+);
 
 interface TrendTabsProps {
   data7: DayTrend[];

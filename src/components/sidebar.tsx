@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import BuildFooter from "@/components/build-footer";
@@ -13,8 +14,15 @@ import { hasFeature, type FeatureKey, FEATURES } from "@/lib/feature-flags";
 import { APP_VERSION } from "@/lib/version";
 import type { PricingPlan } from "@prisma/client";
 import StoreSwitcher from "@/components/store-switcher";
-import ChangePasswordModal from "@/components/change-password-modal";
 import { MVP_HIDDEN_ROUTES } from "@/lib/mvp-hidden-features";
+
+// 修改密碼 modal 一年用不到一次，但每次切後台頁都被掛在 sidebar 樹裡 → 浪費 ~20KB JS。
+// 改 next/dynamic + 條件 mount，只有 user menu 點擊「修改密碼」才會 fetch chunk + render。
+// ssr:false 因為它純 client 互動 + useActionState。
+const ChangePasswordModal = dynamic(
+  () => import("@/components/change-password-modal"),
+  { ssr: false },
+);
 
 // ============================================================
 // Types
@@ -1030,8 +1038,13 @@ export default function DashboardShell({
         <BuildFooter />
       </div>
 
-      {/* 修改密碼 Modal */}
-      <ChangePasswordModal open={pwModalOpen} onClose={() => setPwModalOpen(false)} />
+      {/* 修改密碼 Modal — 只有開啟時才掛載，避免每次切頁都 hydrate / 載入 chunk */}
+      {pwModalOpen && (
+        <ChangePasswordModal
+          open={pwModalOpen}
+          onClose={() => setPwModalOpen(false)}
+        />
+      )}
     </div>
   );
 }
