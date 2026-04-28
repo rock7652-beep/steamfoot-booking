@@ -4,19 +4,28 @@
  * Dashboard Summary Queries
  *
  * 店家後台 v1：為首頁兩個模式提供輕量聚合 query，**不做 findMany 列表資料**。
- * 首頁呼叫以下三支 summary 即可組完 UI；列表資料各自由列表頁獨立 fetch。
+ * 首頁呼叫以下兩支 summary 即可組完 UI；列表資料各自由列表頁獨立 fetch。
  *
  * - getDashboardTodaySummary  — Mode A（今日營運）
  * - getDashboardOverviewSummary — Mode B（經營總覽）
- * - getGrowthSummary           — Mode B 使用（Top 3 候選人簡化資訊）
  *
  * 所有查詢均透過 requireStaffSession + getStoreFilter 做店隔離，
  * 內部各子 query 獨立 try/catch，單筆失敗回 null/0，不拋錯。
+ *
+ * Today summary 走 unstable_cache（30s TTL，tag: bookings-summary + report-store）。
+ * 第一個進來的人付出 7 個 aggregate 的 DB 成本，30s 內後續所有 admin/owner 看
+ * 同一店都從 cache 拿，不打 DB。Mutation 失效路徑沿用 revalidateBookings /
+ * revalidateTransactions 已在跑的 tag 系統。
  */
 
+import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/db";
+import { CACHE_TAGS } from "@/lib/cache-tags";
 import { requireStaffSession } from "@/lib/session";
-import { getStoreFilter, getManagerCustomerWhere } from "@/lib/manager-visibility";
+import {
+  getStoreFilter,
+  getVisibilityMode,
+} from "@/lib/manager-visibility";
 import {
   todayRange,
   monthRange,
@@ -90,34 +99,29 @@ export interface DashboardOverviewSummary {
   monthLabel: string;
 }
 
-export interface GrowthSummaryTop3 {
-  customerId: string;
-  name: string;
-  readinessScore: number;
-  totalPoints: number;
-  referralCount: number;
-}
-
-export interface GrowthSummary {
-  /** PARTNER 總數 */
-  partnerCount: number;
-  /** FUTURE_OWNER 總數 */
-  futureOwnerCount: number;
-  /** Top 3 候選（簡化資訊） */
-  top3: GrowthSummaryTop3[];
-}
-
 // ============================================================
 // Mode A — 今日營運
 // ============================================================
 
-export async function getDashboardTodaySummary(
-  activeStoreId?: string | null,
+/**
+ * Pure compute — 不做 session check，由 caller 負責把 scope 已解析過的
+ * effectiveStoreId / scopeStaffId 傳進來。供 unstable_cache 包裹用。
+ *
+ * Revenue 永遠計算（不再以 isOwner gate），讓 cache 結果可跨 viewer 共享；
+ * action 層遇到非 owner 再把 todayRevenue 罩成 null。
+ */
+async function computeDashboardTodaySummary(
+  effectiveStoreId: string | null,
+  scopeStaffId: string | null,
 ): Promise<DashboardTodaySummary> {
-  const user = await requireStaffSession();
-  const storeFilter = getStoreFilter(user, activeStoreId);
-  const staffCustomerWhere = getManagerCustomerWhere(user.role, user.staffId, activeStoreId);
-  const isOwner = user.role === "ADMIN" || user.role === "OWNER";
+  const storeFilter: Record<string, unknown> = effectiveStoreId
+    ? { storeId: effectiveStoreId }
+    : {};
+  // 名下顧客：STORE_SHARED 模式所有 viewer 看到一樣（沿用 storeFilter）；
+  // SELF_ONLY 模式 PARTNER 才會帶 assignedStaffId（caller 已決定 scopeStaffId）。
+  const customerWhere: Record<string, unknown> = scopeStaffId
+    ? { ...storeFilter, assignedStaffId: scopeStaffId }
+    : storeFilter;
 
   const today = todayRange();
   const todayStart = today.start;
@@ -187,21 +191,19 @@ export async function getDashboardTodaySummary(
         }),
       0,
     ),
-    isOwner
-      ? safe<{ _sum: { amount: unknown } } | null>(
-          "todayRevenue",
-          () =>
-            prisma.transaction.aggregate({
-              where: {
-                createdAt: { gte: todayStart, lte: todayEnd },
-                transactionType: { in: [...REVENUE_TRANSACTION_TYPES] },
-                ...storeFilter,
-              },
-              _sum: { amount: true },
-            }),
-          null,
-        )
-      : Promise.resolve(null),
+    safe<{ _sum: { amount: unknown } } | null>(
+      "todayRevenue",
+      () =>
+        prisma.transaction.aggregate({
+          where: {
+            createdAt: { gte: todayStart, lte: todayEnd },
+            transactionType: { in: [...REVENUE_TRANSACTION_TYPES] },
+            ...storeFilter,
+          },
+          _sum: { amount: true },
+        }),
+      null,
+    ),
     safe(
       "lastWeekAgg",
       () =>
@@ -215,7 +217,7 @@ export async function getDashboardTodaySummary(
         }),
       { _count: { id: 0 } },
     ),
-    safe("customerCount", () => prisma.customer.count({ where: staffCustomerWhere }), 0),
+    safe("customerCount", () => prisma.customer.count({ where: customerWhere }), 0),
   ]);
 
   return {
@@ -231,6 +233,50 @@ export async function getDashboardTodaySummary(
     lastWeekBookingCount: lastWeekAgg._count.id,
     customerCount,
   };
+}
+
+/**
+ * Cross-request cache: 30s TTL，tag: bookings-summary + report-store。
+ * Key 含 (effectiveStoreId, scopeStaffId)：
+ *   - STORE_SHARED 預設模式 scopeStaffId=null → 同店所有 owner / partner 共用
+ *   - SELF_ONLY 模式 scopeStaffId=staffId → per-staff entry
+ * Revenue 永遠在 cache 裡，action 層按 viewer 罩 null。
+ */
+const _cachedDashboardTodaySummary = unstable_cache(
+  async (
+    effectiveStoreId: string | null,
+    scopeStaffId: string | null,
+  ): Promise<DashboardTodaySummary> => {
+    return computeDashboardTodaySummary(effectiveStoreId, scopeStaffId);
+  },
+  ["dashboard-today-summary"],
+  {
+    revalidate: 30,
+    tags: [CACHE_TAGS.bookingsSummary, CACHE_TAGS.reportStore],
+  },
+);
+
+export async function getDashboardTodaySummary(
+  activeStoreId?: string | null,
+): Promise<DashboardTodaySummary> {
+  const user = await requireStaffSession();
+  const storeFilter = getStoreFilter(user, activeStoreId);
+  const effectiveStoreId =
+    (storeFilter.storeId as string | undefined) ?? null;
+  const isOwner = user.role === "ADMIN" || user.role === "OWNER";
+  const visibilityMode = getVisibilityMode();
+  // SELF_ONLY 模式下，非 owner 員工的「名下顧客數」需 per-staff cache；
+  // STORE_SHARED 預設則大家共用 (scopeStaffId=null)，cache 命中率最大化。
+  const scopeStaffId =
+    !isOwner && visibilityMode === "SELF_ONLY" ? user.staffId : null;
+
+  const raw = await _cachedDashboardTodaySummary(effectiveStoreId, scopeStaffId);
+
+  // Cache 永遠算 revenue；只 owner / admin 看得到，其餘 viewer 罩 null。
+  if (!isOwner) {
+    return { ...raw, todayRevenue: null };
+  }
+  return raw;
 }
 
 // ============================================================
@@ -365,75 +411,3 @@ export async function getDashboardOverviewSummary(
   };
 }
 
-// ============================================================
-// Growth Summary — 僅 Top 3 簡化（首頁用）
-// ============================================================
-
-export async function getGrowthSummary(
-  activeStoreId?: string | null,
-): Promise<GrowthSummary> {
-  const user = await requireStaffSession();
-  const storeFilter = getStoreFilter(user, activeStoreId);
-
-  const [stages, top3Raw] = await Promise.all([
-    safe(
-      "talent.groupBy",
-      () =>
-        prisma.customer.groupBy({
-          by: ["talentStage"],
-          where: storeFilter,
-          _count: { id: true },
-        }),
-      [] as Array<{ talentStage: string; _count: { id: number } }>,
-    ),
-    // 直接挑 totalPoints 高的 PARTNER/FUTURE_OWNER，不做完整 readiness 運算
-    safe(
-      "top3Candidates",
-      () =>
-        prisma.customer.findMany({
-          where: {
-            ...storeFilter,
-            talentStage: { in: ["PARTNER", "FUTURE_OWNER"] },
-          },
-          select: { id: true, name: true, totalPoints: true },
-          orderBy: { totalPoints: "desc" },
-          take: 3,
-        }),
-      [] as Array<{ id: string; name: string; totalPoints: number }>,
-    ),
-  ]);
-
-  const stageMap = new Map<string, number>();
-  for (const s of stages) stageMap.set(s.talentStage, s._count.id);
-
-  // 為 top3 補 referral count（各自單獨 query，限 3 筆不致成為 N+1 瓶頸）
-  const top3: GrowthSummaryTop3[] = await Promise.all(
-    top3Raw.map(async (c) => {
-      const refCount = await safe(
-        `top3.ref.${c.id}`,
-        () =>
-          prisma.referral.count({
-            where: {
-              referrerId: c.id,
-              status: { in: ["VISITED", "CONVERTED"] },
-              ...storeFilter,
-            },
-          }),
-        0,
-      );
-      return {
-        customerId: c.id,
-        name: c.name,
-        readinessScore: 0, // 首頁 summary 不做完整 readiness 計算；要完整請進 /dashboard/growth/top-candidates
-        totalPoints: c.totalPoints,
-        referralCount: refCount,
-      };
-    }),
-  );
-
-  return {
-    partnerCount: stageMap.get("PARTNER") ?? 0,
-    futureOwnerCount: stageMap.get("FUTURE_OWNER") ?? 0,
-    top3,
-  };
-}
