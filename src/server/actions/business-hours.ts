@@ -7,6 +7,7 @@ import { AppError, handleActionError } from "@/lib/errors";
 import { generateSlots, validateTimeRange } from "@/lib/slot-generator";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { revalidateBusinessHours, revalidateSpecialDays } from "@/lib/revalidation";
+import { getCachedBusinessHours } from "@/lib/query-cache";
 import {
   applySlotOverrides,
   enumerateMonthDates,
@@ -97,7 +98,10 @@ export async function getMonthScheduleSummary(year: number, month: number) {
     return {};
   }
 
-  const ctx = await loadMonthBusinessHoursContext(storeId, year, month);
+  // 月份切換時 BusinessHours 整月不變 — 走 unstable_cache（60s TTL +
+  // tag 失效），同店 60s 內切月份省 1 次 prisma.businessHours.findMany。
+  const weeklyRows = await getCachedBusinessHours(storeId);
+  const ctx = await loadMonthBusinessHoursContext(storeId, year, month, weeklyRows);
 
   // 按日聚合 override 數量（後台需顯示「該日有 N 個時段覆寫」徽章）
   const overrideCounts = new Map<string, number>();
@@ -144,14 +148,12 @@ export async function getDaySlotDetails(dateStr: string) {
   const dateObj = new Date(dateStr + "T00:00:00Z");
   const dow = dateObj.getUTCDay();
 
-  // 後台額外需要的原始 row（供 weeklyDefault / specialDayId 等回傳用）
-  const [specialDay, businessHour, ctx] = await Promise.all([
-    prisma.specialBusinessDay.findFirst({ where: { storeId, date: dateObj } }),
-    prisma.businessHours.findFirst({ where: { storeId, dayOfWeek: dow } }),
-    loadDayBusinessHoursContext(storeId, dateStr),
-  ]);
-
+  // resolver 內部已經查過 specialDay / businessHour 兩張表，
+  // 之前再外層 findFirst 一次等於每點一日打 4 次 DB（重複 2 次）。
+  // 改成只走 loadDayBusinessHoursContext，並從回傳值讀取原始 row id / 欄位。
+  const ctx = await loadDayBusinessHoursContext(storeId, dateStr);
   const rule = ctx.rule;
+  const businessHour = ctx.businessHour;
   const resolvedSlots = applySlotOverrides(rule, ctx.slotOverrides);
 
   // 後台需要 templateCapacity（覆寫前的容量），故沿用 generateSlots 計算原始容量做對照
@@ -177,7 +179,7 @@ export async function getDaySlotDetails(dateStr: string) {
     openTime: rule.openTime,
     closeTime: rule.closeTime,
     reason: rule.reason,
-    specialDayId: specialDay?.id ?? null,
+    specialDayId: ctx.specialDay?.id ?? null,
     dayOfWeek: dow,
     dayName: DAY_NAMES[dow],
     slotInterval: rule.slotInterval,

@@ -320,17 +320,24 @@ export interface MonthBusinessHoursContext {
  * 撈該店指定月份的所有營業規則資料，並計算每日 DayRule。
  *
  * 不查 DutyAssignment / Booking — 那是「可預約」的範疇，由呼叫端自行決定。
+ *
+ * @param weeklyHoursOverride 已經拿到的 BusinessHours rows（例如從 unstable_cache
+ *   getCachedBusinessHours 取來），傳入後本函式會跳過 businessHours 查詢，
+ *   改月份切換時可省 1 次 DB（每週規則整月不變，沒必要每次重抓）。
  */
 export async function loadMonthBusinessHoursContext(
   storeId: string,
   year: number,
   month: number, // 1-based
+  weeklyHoursOverride?: BusinessHoursRow[],
 ): Promise<MonthBusinessHoursContext> {
   const start = new Date(Date.UTC(year, month - 1, 1));
   const end = new Date(Date.UTC(year, month, 0));
 
   const [businessHoursRows, specialDaysRows, slotOverrideRows] = await Promise.all([
-    prisma.businessHours.findMany({ where: { storeId } }),
+    weeklyHoursOverride !== undefined
+      ? Promise.resolve(weeklyHoursOverride)
+      : prisma.businessHours.findMany({ where: { storeId } }),
     prisma.specialBusinessDay.findMany({
       where: { storeId, date: { gte: start, lte: end } },
     }),
@@ -368,6 +375,17 @@ export interface DayBusinessHoursContext {
   slotOverrides: SlotOverrideRow[];
   /** "YYYY-MM-DD" 對應的 UTC midnight Date 物件，方便呼叫端做 booking 查詢 */
   dateObj: Date;
+  /**
+   * 該日的原始 SpecialBusinessDay row（含 id），若無特殊設定為 null。
+   * 後台 getDaySlotDetails 等需要 row id 的呼叫端可直接讀取，
+   * 不必為了取 id 再打一次 prisma.specialBusinessDay.findFirst。
+   */
+  specialDay: { id: string } | null;
+  /**
+   * 該星期的原始 BusinessHours row，若該星期未設定為 null。
+   * 後台「每週預設」面板需要 isOpen 等欄位，避免重複查詢。
+   */
+  businessHour: BusinessHoursRow | null;
 }
 
 /**
@@ -408,5 +426,16 @@ export async function loadDayBusinessHoursContext(
       reason: o.reason,
     })),
     dateObj,
+    specialDay: specialDay ? { id: specialDay.id } : null,
+    businessHour: businessHour
+      ? {
+          dayOfWeek: businessHour.dayOfWeek,
+          isOpen: businessHour.isOpen,
+          openTime: businessHour.openTime,
+          closeTime: businessHour.closeTime,
+          slotInterval: businessHour.slotInterval,
+          defaultCapacity: businessHour.defaultCapacity,
+        }
+      : null,
   };
 }
