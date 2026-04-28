@@ -14,7 +14,18 @@ import {
 
 type Step = "phone" | "password" | "needs_activation";
 
-export function CustomerLoginForm({ storeSlug = "zhubei", storeId = "default-store" }: { storeSlug?: string; storeId?: string }) {
+export function CustomerLoginForm({
+  storeSlug = "zhubei",
+  storeId,
+}: {
+  storeSlug?: string;
+  /**
+   * 可省略；省略時 server action 會 fallback 到 cookie/slug resolver。
+   * 不再用 "default-store" 字串當 default，避免在多店環境（store id 為 UUID）
+   * 把查詢打到不存在的 storeId、被誤判成「尚未註冊」。
+   */
+  storeId?: string;
+}) {
   const prefix = `/s/${storeSlug}`;
   const [step, setStep] = useState<Step>("phone");
   const [phone, setPhone] = useState("");
@@ -113,10 +124,11 @@ export function CustomerLoginForm({ storeSlug = "zhubei", storeId = "default-sto
     return (
       <div className="space-y-4">
         <div className="rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3">
-          <p className="text-sm font-medium text-yellow-800">帳號尚未開通</p>
+          <p className="text-sm font-medium text-yellow-800">
+            店家已有您的會員資料
+          </p>
           <p className="mt-1 text-xs text-yellow-700">
-            {statusInfo.customerName}
-            ，您的帳號已由店家建立，但尚未設定密碼。請先完成帳號開通。
+            {statusInfo.customerName}，請設定密碼啟用帳號。
           </p>
         </div>
 
@@ -124,7 +136,7 @@ export function CustomerLoginForm({ storeSlug = "zhubei", storeId = "default-sto
           href={`${prefix}/activate?phone=${encodeURIComponent(phone.trim())}`}
           className="block w-full rounded-lg bg-primary-600 px-4 py-2.5 text-center text-sm font-medium text-white hover:bg-primary-700"
         >
-          開通帳號
+          設定密碼並登入
         </Link>
 
         <button
