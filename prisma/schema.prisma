@@ -524,12 +524,21 @@ model Customer {
   firstVisitAt             DateTime? // 首次到店日期
   convertedAt              DateTime? // 首次購課日期
   lastVisitAt              DateTime? // 最近消費日期（方便列表顯示）
+  // ── 顧客合併追蹤（Phase 1：店家手動合併兩筆同人 Customer）──
+  // 來源被合併進另一筆 customer 後，這兩個欄位被填上；列表預設過濾 mergedIntoCustomerId IS NULL。
+  // FK 全部已搬到 target；source 保留 row 純粹是 audit / 不破壞歷史 join。
+  mergedIntoCustomerId     String? // 若被合併，指向 target Customer.id
+  mergedAt                 DateTime? // 合併執行時間
   createdAt                DateTime       @default(now())
   updatedAt                DateTime       @updatedAt
 
   user          User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
   store         Store  @relation(fields: [storeId], references: [id])
   assignedStaff Staff? @relation("AssignedStaff", fields: [assignedStaffId], references: [id])
+
+  // 顧客合併（自我參照）— SetNull 避免 target 之後被刪時誤刪 source
+  mergedInto Customer?  @relation("CustomerMerge", fields: [mergedIntoCustomerId], references: [id], onDelete: SetNull)
+  mergedFrom Customer[] @relation("CustomerMerge")
 
   // 人才管道 — 推薦關係（自我參照）
   sponsor            Customer?        @relation("SponsorTree", fields: [sponsorId], references: [id], onDelete: SetNull)
@@ -574,6 +583,7 @@ model Customer {
   @@index([talentStage])
   @@index([sponsorId])
   @@index([phone])
+  @@index([mergedIntoCustomerId]) // 列表過濾 mergedIntoCustomerId IS NULL 用
 }
 
 // ============================================================
