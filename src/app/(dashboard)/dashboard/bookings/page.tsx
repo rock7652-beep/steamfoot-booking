@@ -4,6 +4,7 @@ import { checkPermission } from "@/lib/permissions";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { ServerTiming, withTiming } from "@/lib/perf";
 import { getActiveStoreForRead } from "@/lib/store";
+import { getCachedMonthScheduleSummary } from "@/lib/query-cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { DashboardLink as Link } from "@/components/dashboard-link";
@@ -35,9 +36,17 @@ export default async function BookingsPage({ searchParams }: PageProps) {
 
   const activeStoreId = await getActiveStoreForRead(user);
   const timer = new ServerTiming("/dashboard/bookings");
-  const [monthData, servicePlans] = await Promise.all([
+  const [monthData, monthSchedule, servicePlans] = await Promise.all([
     withTiming("getMonthBookingSummary", timer, () =>
       getMonthBookingSummary(year, month, activeStoreId),
+    ),
+    // 月份營業狀態摘要 — 讓月曆可分辨「沒預約」vs「沒營業」。
+    // ADMIN 全店視角（無 activeStoreId）跨店無法匯總一份排班 → 給空表
+    // 退化為「無法判斷」，UI 端會落到 generic 文案不會誤標公休。
+    withTiming("monthSchedule", timer, () =>
+      activeStoreId
+        ? getCachedMonthScheduleSummary(activeStoreId, year, month)
+        : Promise.resolve({}),
     ),
     withTiming("servicePlans", timer, () =>
       activeStoreId
@@ -70,6 +79,7 @@ export default async function BookingsPage({ searchParams }: PageProps) {
         year={year}
         month={month}
         monthData={monthData}
+        monthSchedule={monthSchedule}
         servicePlans={servicePlans}
       />
     </PageShell>

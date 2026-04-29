@@ -65,6 +65,20 @@ interface ServicePlanOption {
   name: string;
 }
 
+/**
+ * 該日營業狀態摘要 — 從 server 端 getCachedMonthScheduleSummary 來。
+ * status: open / custom = 開放預約；closed / training = 不開放
+ * slotCount: 該日可預約時段數（0 代表沒設營業時間）
+ *
+ * 全店視角（ADMIN __all__）會收到空 map → UI 會視為「無法判斷」，
+ * 不會誤標成公休。
+ */
+type DayScheduleInfo = {
+  status: "open" | "closed" | "training" | "custom";
+  slotCount: number;
+};
+export type MonthScheduleMap = Record<string, DayScheduleInfo>;
+
 // main schema BookingStatus 僅有 PENDING / CONFIRMED / COMPLETED / CANCELLED / NO_SHOW
 // （CHECKED_IN 在未 merge 的 migration 裡，本輪不引入）
 const STATUS_OPTIONS = [
@@ -94,6 +108,7 @@ interface BookingsManagerProps {
   year: number;
   month: number;
   monthData: MonthSummaryDay[];
+  monthSchedule: MonthScheduleMap;
   servicePlans: ServicePlanOption[];
 }
 
@@ -101,6 +116,7 @@ export function BookingsManager({
   year,
   month,
   monthData: initialMonthData,
+  monthSchedule,
   servicePlans,
 }: BookingsManagerProps) {
   // monthData lifted into client state so we can patch a single booking
@@ -455,6 +471,7 @@ export function BookingsManager({
             year={year}
             month={month}
             monthData={monthData}
+            monthSchedule={monthSchedule}
             selectedDate={selectedDate}
             onDaySelect={handleDaySelect}
             onBookingClick={openBooking}
@@ -469,6 +486,12 @@ export function BookingsManager({
             slots={daySlots}
             slotsKnown={slotsKnown}
             slotsLoading={slotsLoadingForSelected}
+            daySchedule={
+              selectedDate ? (monthSchedule[selectedDate] ?? null) : null
+            }
+            monthHasAnyBookings={monthData.some(
+              (d) => d.totalBookingCount > 0,
+            )}
             onBookingClick={openBooking}
             filteredFrom={
               dayBookings.length !== filteredDayBookings.length

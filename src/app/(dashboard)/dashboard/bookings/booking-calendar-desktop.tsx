@@ -26,6 +26,19 @@ interface MonthSummaryDay {
   bookings?: BookingEntry[];
 }
 
+type DayScheduleInfo = {
+  status: "open" | "closed" | "training" | "custom";
+  slotCount: number;
+};
+type MonthScheduleMap = Record<string, DayScheduleInfo>;
+
+const SCHEDULE_LABEL: Record<DayScheduleInfo["status"], string | null> = {
+  open: null,
+  custom: null,
+  closed: "公休",
+  training: "進修",
+};
+
 const STATUS_STYLE: Record<
   string,
   { bg: string; border: string; textMuted?: string }
@@ -41,6 +54,9 @@ interface BookingCalendarDesktopProps {
   year: number;
   month: number;
   monthData: MonthSummaryDay[];
+  /** 該月每日營業狀態（open/closed/training/custom）+ slotCount。
+   *  空 map 代表「無法判斷」（例如 ADMIN __all__），UI 退化為 generic 樣式。 */
+  monthSchedule?: MonthScheduleMap;
   selectedDate: string | null;
   onDaySelect: (dateKey: string) => void;
   onBookingClick?: (bookingId: string) => void;
@@ -55,6 +71,7 @@ export function BookingCalendarDesktop({
   year,
   month,
   monthData,
+  monthSchedule,
   selectedDate,
   onDaySelect,
   onBookingClick,
@@ -162,6 +179,10 @@ export function BookingCalendarDesktop({
       <div className="grid grid-cols-7">
         {cells.map((cell) => {
           const data = cell.isoDate ? byDate.get(cell.isoDate) : null;
+          const schedule = cell.isoDate ? monthSchedule?.[cell.isoDate] : null;
+          const isClosed =
+            !!schedule &&
+            (schedule.status === "closed" || schedule.status === "training");
           const isToday = cell.isoDate === todayStr;
           const isSelected = cell.isoDate === selectedDate;
           const isDimmed = !!(cell.isoDate && dimmedDates?.has(cell.isoDate));
@@ -177,19 +198,25 @@ export function BookingCalendarDesktop({
               ? "bg-primary-50 ring-2 ring-inset ring-primary-500"
               : isToday
                 ? "bg-primary-50/60"
-                : "bg-white hover:bg-earth-50";
+                : isClosed
+                  ? "bg-earth-100/60 hover:bg-earth-100"
+                  : "bg-white hover:bg-earth-50";
 
           const dateNumberCls = !cell.inMonth
             ? "text-earth-300"
-            : weekdayIdx === 0
-              ? "text-red-500"
-              : weekdayIdx === 6
-                ? "text-blue-500"
-                : "text-earth-700";
+            : isClosed
+              ? "text-earth-400"
+              : weekdayIdx === 0
+                ? "text-red-500"
+                : weekdayIdx === 6
+                  ? "text-blue-500"
+                  : "text-earth-700";
 
           const allBookings = data?.bookings ?? [];
           const visibleBookings = allBookings.slice(0, 3);
           const remainingBookings = allBookings.slice(3);
+          const bookingCount = data?.totalBookingCount ?? 0;
+          const scheduleLabel = schedule ? SCHEDULE_LABEL[schedule.status] : null;
 
           const handleDaySelect = () => {
             if (cell.isoDate) onDaySelect(cell.isoDate);
@@ -217,7 +244,7 @@ export function BookingCalendarDesktop({
               } ${cell.isoDate ? "cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-inset" : "cursor-default"}`}
             >
               <div className="flex flex-1 flex-col gap-1 px-1.5 py-1.5">
-                <div className="flex items-start justify-between">
+                <div className="flex items-start justify-between gap-1">
                   <span
                     className={`inline-flex h-6 min-w-6 items-center justify-center text-sm font-semibold tabular-nums ${
                       isToday && cell.inMonth
@@ -227,14 +254,17 @@ export function BookingCalendarDesktop({
                   >
                     {cell.dayNum}
                   </span>
-                  {data && data.totalBookingCount > 0 && (
-                    <span className="text-[10px] font-medium text-earth-400 tabular-nums">
-                      {data.totalPeople}人
-                    </span>
+                  {cell.inMonth && (
+                    <CellMeta
+                      bookingCount={bookingCount}
+                      totalPeople={data?.totalPeople ?? 0}
+                      scheduleLabel={scheduleLabel}
+                      isClosed={isClosed}
+                    />
                   )}
                 </div>
 
-                {cell.inMonth && data && data.totalBookingCount > 0 && (
+                {cell.inMonth && bookingCount > 0 && (
                   <div className="flex flex-col gap-0.5">
                     {visibleBookings.map((b) => (
                       <BookingStrip
@@ -260,6 +290,41 @@ export function BookingCalendarDesktop({
         })}
       </div>
     </div>
+  );
+}
+
+/**
+ * 右上角資訊塊：closed/training → 灰底文字標籤；
+ * 開放日 + 有預約 → 「N筆 · M人」；開放日 + 0 預約 → 淡灰「0筆」。
+ * 沒有 schedule 資料時退化成只顯示有預約的情況（與舊行為一致）。
+ */
+function CellMeta({
+  bookingCount,
+  totalPeople,
+  scheduleLabel,
+  isClosed,
+}: {
+  bookingCount: number;
+  totalPeople: number;
+  scheduleLabel: string | null;
+  isClosed: boolean;
+}) {
+  if (isClosed && scheduleLabel) {
+    return (
+      <span className="rounded bg-earth-200 px-1 text-[10px] font-medium text-earth-500">
+        {scheduleLabel}
+      </span>
+    );
+  }
+  if (bookingCount > 0) {
+    return (
+      <span className="text-[10px] font-medium text-earth-500 tabular-nums">
+        {bookingCount}筆 · {totalPeople}人
+      </span>
+    );
+  }
+  return (
+    <span className="text-[10px] text-earth-300 tabular-nums">0筆</span>
   );
 }
 
