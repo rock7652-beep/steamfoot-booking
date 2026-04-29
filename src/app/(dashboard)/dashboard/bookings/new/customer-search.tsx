@@ -19,6 +19,15 @@ interface CustomerSearchProps {
   defaultCustomerLabel?: string;
 }
 
+/** Client search cache：keyword → results。
+ *  - 同 session 內同關鍵字第二次秒回，不打 server
+ *  - 不需要 storeId 當 key — server 端 searchCustomers 已用 getStoreFilter
+ *    隔離（顧客不會跨店外洩），且本元件每次 mount 都是新的 Map（換店重新建）
+ *  - cache 鍵用「正規化過的 query」(trim + lower)，避免大小寫和空白浪費 entry
+ */
+const MIN_QUERY_LENGTH = 2;
+const SEARCH_DEBOUNCE_MS = 250;
+
 export default function CustomerSearch({
   defaultCustomerId,
   defaultCustomerLabel,
@@ -30,32 +39,52 @@ export default function CustomerSearch({
   const [loading, setLoading] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<NodeJS.Timeout>(undefined);
+  // Cache 與 race guard
+  const searchCacheRef = useRef<Map<string, CustomerResult[]>>(new Map());
+  const requestIdRef = useRef(0);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
-    if (!query || query.length < 1) {
+    const normalized = query.trim().toLowerCase();
+    if (normalized.length < MIN_QUERY_LENGTH) {
       setResults([]);
+      setLoading(false);
+      return;
+    }
+
+    // Cache hit → 同步顯示、不打 server
+    const cached = searchCacheRef.current.get(normalized);
+    if (cached) {
+      setResults(cached);
+      setIsOpen(true);
+      setLoading(false);
       return;
     }
 
     debounceRef.current = setTimeout(async () => {
+      const requestId = ++requestIdRef.current;
       setLoading(true);
       try {
         const res = await fetch(
           `/api/customers/search?q=${encodeURIComponent(query)}&limit=10`
         );
+        // 慢回來的舊 request — 使用者已經改字了，丟掉結果
+        if (requestId !== requestIdRef.current) return;
         if (res.ok) {
-          const data = await res.json();
+          const data = (await res.json()) as CustomerResult[];
+          searchCacheRef.current.set(normalized, data);
           setResults(data);
           setIsOpen(true);
         }
       } catch {
-        toast.error("搜尋顧客失敗，請重試");
+        if (requestId === requestIdRef.current) {
+          toast.error("搜尋顧客失敗，請重試");
+        }
       } finally {
-        setLoading(false);
+        if (requestId === requestIdRef.current) setLoading(false);
       }
-    }, 250);
+    }, SEARCH_DEBOUNCE_MS);
 
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -139,7 +168,7 @@ export default function CustomerSearch({
         </div>
       )}
 
-      {isOpen && results.length === 0 && query.length >= 1 && !loading && (
+      {isOpen && results.length === 0 && query.trim().length >= MIN_QUERY_LENGTH && !loading && (
         <div className="absolute z-20 mt-1 w-full rounded-lg border border-earth-200 bg-white p-3 shadow-lg text-center text-sm text-earth-400">
           找不到匹配的顧客
         </div>
