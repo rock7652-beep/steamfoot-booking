@@ -1,14 +1,91 @@
 "use client";
 
 import { useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import {
+  markCompleted,
+  checkInBooking,
+  markNoShow,
+  cancelBooking,
+  revertBookingStatus,
+} from "@/server/actions/booking";
 
-interface NoShowButtonProps {
-  isMakeup: boolean;
-  action: () => Promise<void>;
+// Each button calls the server action directly and inspects ActionResult,
+// so business-rule failures (e.g. PR #76: PACKAGE_SESSION 無方案 → BUSINESS_RULE)
+// surface as toast, not Next.js red box. router.refresh() refreshes the RSC
+// data in place, so the page stays put — no redirect to other pages.
+
+interface BaseProps {
+  bookingId: string;
 }
 
-export function NoShowButton({ isMakeup, action }: NoShowButtonProps) {
+export function CheckInButton({ bookingId }: BaseProps) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+
+  function handleClick() {
+    startTransition(async () => {
+      const r = await checkInBooking(bookingId);
+      if (r.success) {
+        toast.success("已報到");
+        router.refresh();
+      } else {
+        toast.error(r.error ?? "報到失敗");
+      }
+    });
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      disabled={isPending}
+      className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+    >
+      {isPending ? "處理中..." : "報到"}
+    </button>
+  );
+}
+
+interface CompleteButtonProps extends BaseProps {
+  isMakeup: boolean;
+}
+
+export function CompleteButton({ bookingId, isMakeup }: CompleteButtonProps) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+
+  function handleClick() {
+    startTransition(async () => {
+      const r = await markCompleted(bookingId);
+      if (r.success) {
+        toast.success("已標記完成");
+        router.refresh();
+      } else {
+        toast.error(r.error ?? "標記完成失敗");
+      }
+    });
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      disabled={isPending}
+      className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
+    >
+      {isPending ? "處理中..." : isMakeup ? "標記完成" : "標記完成（已預扣堂數）"}
+    </button>
+  );
+}
+
+interface NoShowButtonProps extends BaseProps {
+  isMakeup: boolean;
+}
+
+export function NoShowButton({ bookingId, isMakeup }: NoShowButtonProps) {
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
   function handleClick() {
@@ -17,12 +94,12 @@ export function NoShowButton({ isMakeup, action }: NoShowButtonProps) {
       : "確定標記未到？已預扣堂數不會退回，但會自動產生一次補課資格。";
     if (!confirm(msg)) return;
     startTransition(async () => {
-      try {
-        await action();
+      const r = await markNoShow(bookingId);
+      if (r.success) {
         toast.success("已標記未到");
-      } catch (e) {
-        console.error("[booking] markNoShow failed:", e);
-        toast.error(e instanceof Error ? e.message : "標記未到失敗，請重試");
+        router.refresh();
+      } else {
+        toast.error(r.error ?? "標記未到失敗");
       }
     });
   }
@@ -39,12 +116,12 @@ export function NoShowButton({ isMakeup, action }: NoShowButtonProps) {
   );
 }
 
-interface CancelButtonProps {
+interface CancelButtonProps extends BaseProps {
   isMakeup: boolean;
-  action: (note?: string) => Promise<void>;
 }
 
-export function CancelButton({ isMakeup, action }: CancelButtonProps) {
+export function CancelButton({ bookingId, isMakeup }: CancelButtonProps) {
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -55,14 +132,14 @@ export function CancelButton({ isMakeup, action }: CancelButtonProps) {
     if (!confirm(msg)) return;
 
     const formData = new FormData(e.currentTarget);
-    const note = formData.get("note") as string | undefined;
+    const note = (formData.get("note") as string | null) ?? undefined;
     startTransition(async () => {
-      try {
-        await action(note ?? undefined);
+      const r = await cancelBooking(bookingId, note);
+      if (r.success) {
         toast.success("預約已取消");
-      } catch (e) {
-        console.error("[booking] cancel failed:", e);
-        toast.error(e instanceof Error ? e.message : "取消預約失敗，請重試");
+        router.refresh();
+      } else {
+        toast.error(r.error ?? "取消預約失敗");
       }
     });
   }
@@ -91,24 +168,24 @@ const REVERT_MSG: Record<string, string> = {
   CANCELLED: "確定回退？預約將恢復，狀態改回「待確認」。",
 };
 
-interface RevertButtonProps {
+interface RevertButtonProps extends BaseProps {
   status: string;
-  action: () => Promise<void>;
 }
 
-export function RevertButton({ status, action }: RevertButtonProps) {
+export function RevertButton({ bookingId, status }: RevertButtonProps) {
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
   function handleClick() {
     const msg = REVERT_MSG[status] ?? "確定回退此預約？";
     if (!confirm(msg)) return;
     startTransition(async () => {
-      try {
-        await action();
+      const r = await revertBookingStatus(bookingId);
+      if (r.success) {
         toast.success("預約狀態已回退");
-      } catch (e) {
-        console.error("[booking] revert failed:", e);
-        toast.error(e instanceof Error ? e.message : "回退失敗，請重試");
+        router.refresh();
+      } else {
+        toast.error(r.error ?? "回退失敗");
       }
     });
   }

@@ -1,10 +1,15 @@
 import { prisma } from "@/lib/db";
 import { requireStaffSession } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
-import { markCompleted, cancelBooking, markNoShow, checkInBooking, revertBookingStatus } from "@/server/actions/booking";
 import { notFound, redirect } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
-import { NoShowButton, CancelButton, RevertButton } from "./booking-actions";
+import {
+  CheckInButton,
+  CompleteButton,
+  NoShowButton,
+  CancelButton,
+  RevertButton,
+} from "./booking-actions";
 
 // Status/type labels
 const STATUS_LABEL: Record<string, string> = {
@@ -60,33 +65,6 @@ export default async function BookingDetailPage({ params }: PageProps) {
   const isActive =
     booking.bookingStatus === "CONFIRMED" || booking.bookingStatus === "PENDING";
   const canCheckIn = isActive && !booking.isCheckedIn;
-
-  // Server action wrappers
-  async function checkInAction() {
-    "use server";
-    await checkInBooking(id);
-    redirect(`/dashboard/bookings/${id}`);
-  }
-  async function completeAction() {
-    "use server";
-    await markCompleted(id);
-    redirect(`/dashboard/bookings/${id}`);
-  }
-  async function cancelAction(note?: string) {
-    "use server";
-    await cancelBooking(id, note ?? undefined);
-    redirect(`/dashboard/bookings/${id}`);
-  }
-  async function noShowAction() {
-    "use server";
-    await markNoShow(id);
-    redirect(`/dashboard/bookings/${id}`);
-  }
-  async function revertAction() {
-    "use server";
-    await revertBookingStatus(id);
-    redirect(`/dashboard/bookings/${id}`);
-  }
 
   return (
     <div className="max-w-2xl">
@@ -199,28 +177,12 @@ export default async function BookingDetailPage({ params }: PageProps) {
         {isActive && (
           <div className="mt-6 space-y-3 border-t pt-4">
             <div className="flex flex-wrap gap-3">
-              {canCheckIn && (
-                <form action={checkInAction}>
-                  <button
-                    type="submit"
-                    className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-                  >
-                    報到
-                  </button>
-                </form>
-              )}
-              <form action={completeAction}>
-                <button
-                  type="submit"
-                  className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
-                >
-                  {booking.isMakeup ? "標記完成" : "標記完成（已預扣堂數）"}
-                </button>
-              </form>
+              {canCheckIn && <CheckInButton bookingId={id} />}
+              <CompleteButton bookingId={id} isMakeup={booking.isMakeup} />
             </div>
             <div className="flex flex-wrap items-center gap-3">
-              <NoShowButton isMakeup={booking.isMakeup} action={noShowAction} />
-              <CancelButton isMakeup={booking.isMakeup} action={cancelAction} />
+              <NoShowButton bookingId={id} isMakeup={booking.isMakeup} />
+              <CancelButton bookingId={id} isMakeup={booking.isMakeup} />
             </div>
           </div>
         )}
@@ -233,10 +195,7 @@ export default async function BookingDetailPage({ params }: PageProps) {
               {booking.bookingStatus === "NO_SHOW" && "回退將還原扣堂（若有）並移除補課資格，狀態改回「待確認」"}
               {booking.bookingStatus === "CANCELLED" && "回退將恢復預約，狀態改回「待確認」"}
             </p>
-            <RevertButton
-              status={booking.bookingStatus}
-              action={revertAction}
-            />
+            <RevertButton bookingId={id} status={booking.bookingStatus} />
           </div>
         )}
       </div>
