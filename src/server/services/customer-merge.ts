@@ -239,6 +239,358 @@ export async function mergePlaceholderCustomerIntoRealCustomer(
 }
 
 // ============================================================
+// mergeCustomerIntoCustomer (Phase 1 — manual customer→customer merge)
+// ============================================================
+//
+// 用途：店家發現兩筆同店 Customer 是同一個人（例如一筆有 LINE 登入 + 新手機，
+// 另一筆有 booking / wallet / points 紀錄），透過後台 /dashboard/customers/merge
+// 手動把 source 合併進 target。與 mergePlaceholderCustomerIntoRealCustomer 不同：
+//
+//   - 必須處理「兩筆都是真人 Customer + FK 已散落各表」的狀況
+//   - 在 transaction 內把所有 customerId FK relocate 到 target
+//   - source 不刪除，只標記 mergedIntoCustomerId / mergedAt（archive）
+//   - source 的 unique 身份欄位（phone / email / lineUserId / googleId / userId）
+//     被搬走或清空，避免下次登入 / 建檔誤撞
+//   - 兩筆都有 userId 是危險案例，Phase 1 直接 throw（rare；Phase 2 才處理）
+//
+// FK 清單（請對照 schema.prisma 的 Customer 反向 relations）：
+//   - Booking.customerId
+//   - Transaction.customerId
+//   - CustomerPlanWallet.customerId   （WalletSession 透過 walletId 自動跟著走）
+//   - MakeupCredit.customerId
+//   - Referral.referrerId / Referral.convertedCustomerId
+//   - PointRecord.customerId
+//   - MessageLog.customerId
+//   - CheckinPost.customerId
+//   - TalentStageLog.customerId
+//   - ReferralEvent.customerId / ReferralEvent.referrerId
+//   - Customer.sponsorId（自我參照：把以 source 為 sponsor 的子 customer 改指向 target）
+//
+// healthProfileId 僅是 Customer 上的字串欄位（非外鍵），由 identity-merge 區段處理。
+
+export type CustomerMergeMovedCounts = {
+  bookings: number;
+  transactions: number;
+  customerPlanWallets: number;
+  makeupCredits: number;
+  referralsAsReferrer: number;
+  referralsAsConverted: number;
+  pointRecords: number;
+  messageLogs: number;
+  checkinPosts: number;
+  talentStageLogs: number;
+  referralEventsAsCustomer: number;
+  referralEventsAsReferrer: number;
+  sponsoredCustomers: number;
+};
+
+export type CustomerMergeOutcome = {
+  targetId: string;
+  sourceId: string;
+  movedCounts: CustomerMergeMovedCounts;
+  mergedIdentityFields: string[];
+  mergedAt: Date;
+};
+
+export type CustomerMergeInput = {
+  sourceCustomerId: string;
+  targetCustomerId: string;
+  performedByUserId: string;
+};
+
+// 身份欄位：unique 限制下 source 必須讓位（搬到 target 後在 source 清空）
+const UNIQUE_IDENTITY_KEYS = [
+  "phone",
+  "email",
+  "lineUserId",
+  "googleId",
+  "lineBindingCode",
+] as const;
+
+// 非 unique 但屬於「身份/帳號」級別的欄位 — null 不覆寫已有值
+const NON_UNIQUE_IDENTITY_KEYS = [
+  "lineName",
+  "lineLinkStatus",
+  "lineLinkedAt",
+  "lineBindingCodeCreatedAt",
+  "avatar",
+  "authSource",
+] as const;
+
+// Profile 補位欄位 — target 沒值且 source 有值才補
+const PROFILE_FALLBACK_KEYS = [
+  "gender",
+  "birthday",
+  "height",
+  "address",
+  "notes",
+  "healthProfileId",
+  "healthLinkStatus",
+  "healthSyncedAt",
+] as const;
+
+type FullCustomer = Prisma.CustomerGetPayload<Record<string, never>>;
+
+function buildIdentityMerge(
+  source: FullCustomer,
+  target: FullCustomer,
+): {
+  targetUpdate: Prisma.CustomerUncheckedUpdateInput;
+  sourceClear: Prisma.CustomerUncheckedUpdateInput;
+  mergedFields: string[];
+} {
+  const targetUpdate: Prisma.CustomerUncheckedUpdateInput = {};
+  const sourceClear: Prisma.CustomerUncheckedUpdateInput = {};
+  const mergedFields: string[] = [];
+
+  // unique 欄位：target 為空且 source 有值 → 搬過去 + source 清空
+  for (const key of UNIQUE_IDENTITY_KEYS) {
+    const sVal = source[key];
+    const tVal = target[key];
+    if (sVal != null && tVal == null) {
+      (targetUpdate as Record<string, unknown>)[key] = sVal;
+      mergedFields.push(key);
+    }
+    // 不論是否被 target 採用，source 一律清空避免之後 unique 撞牆
+    if (sVal != null) {
+      (sourceClear as Record<string, unknown>)[key] = null;
+    }
+  }
+
+  // 非 unique 身份：target 為空且 source 有值 → 補；source 不清（保留 audit）
+  for (const key of NON_UNIQUE_IDENTITY_KEYS) {
+    const sVal = source[key];
+    const tVal = target[key];
+    if (key === "lineLinkStatus") {
+      // 取「最綁定」的：LINKED > BLOCKED > UNLINKED
+      const merged = pickLinkStatus(source.lineLinkStatus, target.lineLinkStatus);
+      if (merged !== target.lineLinkStatus) {
+        targetUpdate.lineLinkStatus = merged;
+        mergedFields.push("lineLinkStatus");
+      }
+      continue;
+    }
+    if (sVal != null && tVal == null) {
+      (targetUpdate as Record<string, unknown>)[key] = sVal;
+      mergedFields.push(key);
+    }
+  }
+
+  // Profile 補位
+  for (const key of PROFILE_FALLBACK_KEYS) {
+    const sVal = source[key];
+    const tVal = target[key];
+    if (sVal != null && (tVal == null || tVal === "" || tVal === "unlinked")) {
+      (targetUpdate as Record<string, unknown>)[key] = sVal;
+      mergedFields.push(key);
+    }
+  }
+
+  return { targetUpdate, sourceClear, mergedFields };
+}
+
+export async function mergeCustomerIntoCustomer(
+  input: CustomerMergeInput,
+): Promise<CustomerMergeOutcome> {
+  const { sourceCustomerId, targetCustomerId, performedByUserId } = input;
+
+  if (!sourceCustomerId || !targetCustomerId) {
+    throw new Error("mergeCustomer: sourceCustomerId 和 targetCustomerId 皆為必填");
+  }
+  if (sourceCustomerId === targetCustomerId) {
+    throw new Error("mergeCustomer: 來源與目標不可相同");
+  }
+  if (!performedByUserId) {
+    throw new Error("mergeCustomer: performedByUserId 必填（audit 用）");
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const [source, target] = await Promise.all([
+      tx.customer.findUnique({ where: { id: sourceCustomerId } }),
+      tx.customer.findUnique({ where: { id: targetCustomerId } }),
+    ]);
+
+    if (!source) {
+      throw new Error(`mergeCustomer: 找不到來源顧客 ${sourceCustomerId}`);
+    }
+    if (!target) {
+      throw new Error(`mergeCustomer: 找不到目標顧客 ${targetCustomerId}`);
+    }
+    if (source.storeId !== target.storeId) {
+      throw new Error("mergeCustomer: 不允許跨店合併（來源與目標 storeId 不同）");
+    }
+    if (source.mergedIntoCustomerId != null) {
+      throw new Error(
+        `mergeCustomer: 來源顧客已被合併進 ${source.mergedIntoCustomerId}，無法再次合併`,
+      );
+    }
+    if (target.mergedIntoCustomerId != null) {
+      throw new Error(
+        `mergeCustomer: 目標顧客本身已被合併進 ${target.mergedIntoCustomerId}，請改用該筆作為目標`,
+      );
+    }
+
+    // userId 衝突保險：兩邊都有 userId → Phase 1 直接拒絕
+    if (source.userId != null && target.userId != null && source.userId !== target.userId) {
+      throw new Error(
+        "mergeCustomer: 來源與目標皆已綁定不同的登入帳號（userId）；Phase 1 不自動處理，請先人工取消其中一邊的登入綁定後再合併",
+      );
+    }
+
+    // ── Step 1: FK relocation ──
+    // 注意：每個 updateMany 在跨店資料下也是安全的，因為 source/target 同 storeId 已驗證；
+    // 直接以 customerId === sourceId 找出所有 row 搬到 targetId。
+    const [
+      bookingsResult,
+      transactionsResult,
+      walletsResult,
+      makeupResult,
+      referralsAsReferrerResult,
+      referralsAsConvertedResult,
+      pointRecordsResult,
+      messageLogsResult,
+      checkinPostsResult,
+      talentStageLogsResult,
+      referralEventsAsCustomerResult,
+      referralEventsAsReferrerResult,
+      sponsoredResult,
+    ] = await Promise.all([
+      tx.booking.updateMany({
+        where: { customerId: source.id },
+        data: { customerId: target.id },
+      }),
+      tx.transaction.updateMany({
+        where: { customerId: source.id },
+        data: { customerId: target.id },
+      }),
+      tx.customerPlanWallet.updateMany({
+        where: { customerId: source.id },
+        data: { customerId: target.id },
+      }),
+      tx.makeupCredit.updateMany({
+        where: { customerId: source.id },
+        data: { customerId: target.id },
+      }),
+      tx.referral.updateMany({
+        where: { referrerId: source.id },
+        data: { referrerId: target.id },
+      }),
+      tx.referral.updateMany({
+        where: { convertedCustomerId: source.id },
+        data: { convertedCustomerId: target.id },
+      }),
+      tx.pointRecord.updateMany({
+        where: { customerId: source.id },
+        data: { customerId: target.id },
+      }),
+      tx.messageLog.updateMany({
+        where: { customerId: source.id },
+        data: { customerId: target.id },
+      }),
+      tx.checkinPost.updateMany({
+        where: { customerId: source.id },
+        data: { customerId: target.id },
+      }),
+      tx.talentStageLog.updateMany({
+        where: { customerId: source.id },
+        data: { customerId: target.id },
+      }),
+      tx.referralEvent.updateMany({
+        where: { customerId: source.id },
+        data: { customerId: target.id },
+      }),
+      tx.referralEvent.updateMany({
+        where: { referrerId: source.id },
+        data: { referrerId: target.id },
+      }),
+      tx.customer.updateMany({
+        where: { sponsorId: source.id },
+        data: { sponsorId: target.id },
+      }),
+    ]);
+
+    const movedCounts: CustomerMergeMovedCounts = {
+      bookings: bookingsResult.count,
+      transactions: transactionsResult.count,
+      customerPlanWallets: walletsResult.count,
+      makeupCredits: makeupResult.count,
+      referralsAsReferrer: referralsAsReferrerResult.count,
+      referralsAsConverted: referralsAsConvertedResult.count,
+      pointRecords: pointRecordsResult.count,
+      messageLogs: messageLogsResult.count,
+      checkinPosts: checkinPostsResult.count,
+      talentStageLogs: talentStageLogsResult.count,
+      referralEventsAsCustomer: referralEventsAsCustomerResult.count,
+      referralEventsAsReferrer: referralEventsAsReferrerResult.count,
+      sponsoredCustomers: sponsoredResult.count,
+    };
+
+    // ── Step 2: 身份欄位合併 ──
+    const { targetUpdate, sourceClear, mergedFields } = buildIdentityMerge(source, target);
+
+    // userId 特殊處理：target 為 null 且 source 有 → 搬過去
+    if (target.userId == null && source.userId != null) {
+      targetUpdate.userId = source.userId;
+      sourceClear.userId = null;
+      mergedFields.push("userId");
+    }
+
+    // sponsorId：若 source 有 sponsor 且 target 沒，順便補上（避免推薦關係遺失）
+    if (source.sponsorId != null && target.sponsorId == null && source.sponsorId !== target.id) {
+      targetUpdate.sponsorId = source.sponsorId;
+      mergedFields.push("sponsorId");
+    }
+
+    // ── Step 3: 先清 source 的 unique 欄位 + userId（讓 target 的 update 不撞 unique）──
+    if (Object.keys(sourceClear).length > 0) {
+      await tx.customer.update({
+        where: { id: source.id },
+        data: sourceClear,
+      });
+    }
+
+    // ── Step 4: 更新 target ──
+    if (Object.keys(targetUpdate).length > 0) {
+      await tx.customer.update({
+        where: { id: target.id },
+        data: targetUpdate,
+      });
+    }
+
+    // ── Step 5: archive source（標記 mergedInto + mergedAt）──
+    const mergedAt = new Date();
+    await tx.customer.update({
+      where: { id: source.id },
+      data: {
+        mergedIntoCustomerId: target.id,
+        mergedAt,
+        // 來源停權，避免後續 UI / API 仍把它當活的顧客處理
+        selfBookingEnabled: false,
+        lineLinkStatus: "UNLINKED",
+      },
+    });
+
+    // 簡單 audit log（實際 AuditLog 模型存在但需要更完整 schema；先 server log 留痕）
+    console.info("[mergeCustomerIntoCustomer] merge completed", {
+      sourceId: source.id,
+      targetId: target.id,
+      storeId: target.storeId,
+      performedByUserId,
+      movedCounts,
+      mergedFields,
+    });
+
+    return {
+      sourceId: source.id,
+      targetId: target.id,
+      movedCounts,
+      mergedIdentityFields: mergedFields,
+      mergedAt,
+    };
+  });
+}
+
+// ============================================================
 // resolveAuthSourceFromAccounts
 // ============================================================
 // 給 Case D create 用 — 根據 user 現有的 OAuth Account 推定 authSource，
