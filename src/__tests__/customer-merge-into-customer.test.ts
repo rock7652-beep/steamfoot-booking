@@ -347,16 +347,14 @@ describe("mergeCustomerIntoCustomer — identity merge", () => {
     expect(out.mergedIdentityFields).toContain("lineUserId");
   });
 
-  it("target.phone 為 null → source.phone 搬過去；source phone 清空", async () => {
+  it("target.phone 為 null → source.phone 搬過去；source phone 蓋成 tombstone（NOT NULL）", async () => {
     const { mergeCustomerIntoCustomer } = await import("@/server/services/customer-merge");
 
     tables.customer.push(
       makeCustomer({ id: "src", phone: "0911111111" }) as Customer,
-      // target 用空字串模擬「沒填」（Customer.phone 不可為 null，schema 是 String not String?）
       makeCustomer({ id: "tgt", phone: "" }) as Customer,
     );
-    // 改用真正 null 邏輯——因為 service 用 == null 判斷，空字串不會觸發補位；
-    // 改測 target 已經有值不會被覆蓋
+    // schema 上 phone 是 NOT NULL，但 mock 不檢查；用 null 模擬 target 沒填
     (tables.customer.find((c) => c.id === "tgt") as Row).phone = null;
 
     const out = await mergeCustomerIntoCustomer({
@@ -368,11 +366,12 @@ describe("mergeCustomerIntoCustomer — identity merge", () => {
     const src = tables.customer.find((c) => c.id === "src")!;
     const tgt = tables.customer.find((c) => c.id === "tgt")!;
     expect(tgt.phone).toBe("0911111111");
-    expect(src.phone).toBe(null);
+    // 不能設成 null（schema NOT NULL），改用 tombstone
+    expect(src.phone).toBe("_merged_src");
     expect(out.mergedIdentityFields).toContain("phone");
   });
 
-  it("target 已有 phone → 不被覆蓋", async () => {
+  it("target 已有 phone → 不被覆蓋；source 仍蓋成 tombstone", async () => {
     const { mergeCustomerIntoCustomer } = await import("@/server/services/customer-merge");
 
     tables.customer.push(
@@ -389,8 +388,7 @@ describe("mergeCustomerIntoCustomer — identity merge", () => {
     const src = tables.customer.find((c) => c.id === "src")!;
     const tgt = tables.customer.find((c) => c.id === "tgt")!;
     expect(tgt.phone).toBe("0922222222");
-    // source 仍會清空 unique 欄位避免後續撞 unique
-    expect(src.phone).toBe(null);
+    expect(src.phone).toBe("_merged_src");
   });
 });
 
@@ -417,7 +415,7 @@ describe("mergeCustomerIntoCustomer — archive source", () => {
     const src = tables.customer.find((c) => c.id === "src")!;
     expect(src.mergedIntoCustomerId).toBe("tgt");
     expect(src.mergedAt).toBeInstanceOf(Date);
-    expect(src.phone).toBe(null);
+    expect(src.phone).toBe("_merged_src");
     expect(src.lineUserId).toBe(null);
     expect(src.email).toBe(null);
     expect(src.lineLinkStatus).toBe("UNLINKED");
