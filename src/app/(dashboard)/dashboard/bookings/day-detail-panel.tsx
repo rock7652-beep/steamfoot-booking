@@ -38,6 +38,12 @@ interface DayDetailPanelProps {
   /** Slots fetch is in flight for the currently selected date. Lets the
    *  empty-state branch show a soft "檢查中" instead of a wrong empty hint. */
   slotsLoading?: boolean;
+  /** 該日營業狀態（從月份摘要 derive 出來）。null 代表無法判斷（例如 ADMIN
+   *  全店視角無 store-specific 摘要）。用於 0 預約時的文案分流：
+   *  open/custom → 「可預約（尚無預約）」；closed/training → 「不可預約 — 公休 / 進修」。 */
+  daySchedule?: { status: "open" | "closed" | "training" | "custom"; slotCount: number } | null;
+  /** 整個月是否完全沒有任何預約 — 控制「未選日期」時的引導文案 */
+  monthHasAnyBookings?: boolean;
   /** 若有篩選，原始筆數（>0 代表已套篩選） */
   filteredFrom?: number | null;
   /** 點 timeline row 時觸發（取代原本 link 到詳情頁） */
@@ -60,6 +66,8 @@ export function DayDetailPanel({
   slots,
   slotsKnown = true,
   slotsLoading = false,
+  daySchedule = null,
+  monthHasAnyBookings = false,
   filteredFrom = null,
   onBookingClick,
   selectedIds,
@@ -76,8 +84,16 @@ export function DayDetailPanel({
       <div className="flex flex-col gap-4">
         <div className="rounded-lg border border-earth-200 bg-white p-4">
           <EmptyStateCompact
-            title="點選日期以查看詳情"
-            hint="左側月曆點任一天會在此顯示當日預約"
+            title={
+              monthHasAnyBookings
+                ? "點選日期以查看詳情"
+                : "本月尚無預約紀錄"
+            }
+            hint={
+              monthHasAnyBookings
+                ? "左側月曆點任一天會在此顯示當日預約"
+                : "點月曆任一日期 → 從右上角「＋ 新增預約」建立"
+            }
             size="section"
           />
         </div>
@@ -194,33 +210,15 @@ export function DayDetailPanel({
         {bookings.length === 0 ? (
           <div className="p-4">
             <EmptyStateCompact
-              title={
-                filteredFrom != null && filteredFrom > 0
-                  ? "沒有符合篩選的預約"
-                  : "該日無預約"
-              }
-              hint={
-                filteredFrom != null && filteredFrom > 0
-                  ? `原有 ${filteredFrom} 筆被目前篩選排除`
-                  : slotsLoading || !slotsKnown
-                    ? "檢查當日營業時段中..."
-                    : slots.length === 0
-                      ? "該日不營業"
-                      : "點上方 ＋ 新增一筆"
-              }
-              cta={
-                slotsKnown &&
-                !slotsLoading &&
-                slots.length > 0 &&
-                !(filteredFrom != null && filteredFrom > 0) && (
-                  <Link
-                    href={`/dashboard/bookings/new?date=${date}`}
-                    className="inline-flex h-8 items-center rounded-md bg-primary-600 px-3 text-sm font-medium text-white hover:bg-primary-700"
-                  >
-                    ＋ 新增預約於 {monthDay}
-                  </Link>
-                )
-              }
+              {...buildEmptyStateProps({
+                date,
+                monthDay,
+                filteredFrom,
+                daySchedule,
+                slotsKnown,
+                slotsLoading,
+                slotsCount: slots.length,
+              })}
             />
           </div>
         ) : (
@@ -428,6 +426,106 @@ function MiniKpi({
       <p className={`text-lg font-bold tabular-nums ${valueColor}`}>{value}</p>
     </div>
   );
+}
+
+/**
+ * 該日 0 預約時的 EmptyState 文案 — 把「沒人訂」「公休」「沒設營業時段」分開講。
+ *
+ * 優先序：
+ *   1. 篩選排除（filteredFrom > 0）→ 提示是篩選造成
+ *   2. 公休 / 進修 → 不可預約，無 CTA
+ *   3. 開放但 slotCount=0 → 未設營業時段，引導去設定
+ *   4. 開放 + 有時段 → 「可預約（尚無預約）」+ 新增 CTA
+ *   5. 不知道（daySchedule null，例如全店視角）→ 退化到舊邏輯（看 slots）
+ */
+function buildEmptyStateProps(input: {
+  date: string;
+  monthDay: string;
+  filteredFrom: number | null;
+  daySchedule: DayDetailPanelProps["daySchedule"];
+  slotsKnown: boolean;
+  slotsLoading: boolean;
+  slotsCount: number;
+}) {
+  const {
+    date,
+    monthDay,
+    filteredFrom,
+    daySchedule,
+    slotsKnown,
+    slotsLoading,
+    slotsCount,
+  } = input;
+
+  if (filteredFrom != null && filteredFrom > 0) {
+    return {
+      title: "沒有符合篩選的預約",
+      hint: `原有 ${filteredFrom} 筆被目前篩選排除`,
+      cta: undefined,
+    };
+  }
+
+  if (daySchedule) {
+    if (daySchedule.status === "closed") {
+      return {
+        title: "公休 — 不可預約",
+        hint: "若需臨時開放，請至「預約開放設定」調整",
+        cta: undefined,
+      };
+    }
+    if (daySchedule.status === "training") {
+      return {
+        title: "進修日 — 不可預約",
+        hint: "進修日期間不開放預約",
+        cta: undefined,
+      };
+    }
+    if (daySchedule.slotCount === 0) {
+      return {
+        title: "未設定可預約時段",
+        hint: "請先到「預約開放設定」設定當日營業時間",
+        cta: (
+          <Link
+            href="/dashboard/settings/hours"
+            className="inline-flex h-8 items-center rounded-md border border-earth-300 bg-white px-3 text-sm font-medium text-earth-700 hover:bg-earth-50"
+          >
+            前往預約開放設定
+          </Link>
+        ),
+      };
+    }
+    return {
+      title: "可預約 — 尚無預約",
+      hint: `${monthDay} 共 ${daySchedule.slotCount} 個可預約時段，點下方按鈕新增`,
+      cta: (
+        <Link
+          href={`/dashboard/bookings/new?date=${date}`}
+          className="inline-flex h-8 items-center rounded-md bg-primary-600 px-3 text-sm font-medium text-white hover:bg-primary-700"
+        >
+          ＋ 新增預約於 {monthDay}
+        </Link>
+      ),
+    };
+  }
+
+  // 退化：daySchedule 缺席（ADMIN __all__）— 沿用既有 slots-based 提示
+  return {
+    title: "該日無預約",
+    hint: slotsLoading || !slotsKnown
+      ? "檢查當日營業時段中..."
+      : slotsCount === 0
+        ? "該日不營業"
+        : "點上方 ＋ 新增一筆",
+    cta:
+      slotsKnown && !slotsLoading && slotsCount > 0 ? (
+        <Link
+          href={`/dashboard/bookings/new?date=${date}`}
+          className="inline-flex h-8 items-center rounded-md bg-primary-600 px-3 text-sm font-medium text-white hover:bg-primary-700"
+        >
+          ＋ 新增預約於 {monthDay}
+        </Link>
+      ) : undefined,
+  };
 }
 
 function computeStats(bookings: DayBooking[]) {
