@@ -41,6 +41,9 @@ const USER_MESSAGES: Record<string, string> = {
   DB_CONNECTION: "資料庫連線異常，請稍後再試",
   ENV_MISSING: "系統設定缺失，請聯繫管理員",
   EXTERNAL_API: "外部服務異常，請稍後再試",
+  // Prisma P2021 (table not found) / P2022 (column not found)：
+  // Code 期望的 schema 與 DB 不一致，通常代表 migration 尚未 deploy
+  SCHEMA_DRIFT: "資料表結構尚未更新，請先執行 migration 後再使用此功能",
   UNKNOWN: "系統錯誤，請稍後再試",
 };
 
@@ -109,8 +112,20 @@ export function handleActionError(e: unknown, ctx?: ErrorContext): ActionResult<
     // Silently fail if error-logger can't be imported (e.g. client-side)
   });
 
+  // Prisma error codes (P2021 / P2022) 也可能在 e.code 上，但 PrismaClientKnownRequestError
+  // 的 message 也含 "P2021"/"P2022" 字串，用 message 匹配最簡單且不需 import @prisma/client
+  const code = e instanceof Error && "code" in e ? String((e as { code: unknown }).code ?? "") : "";
+  const isSchemaDrift =
+    code === "P2021" ||
+    code === "P2022" ||
+    msg.includes("P2021") ||
+    msg.includes("P2022") ||
+    msg.includes("does not exist in the current database");
+
   // Use inline categorization for the return message (no dependency on error-logger)
-  const category = msg.includes("storeId")
+  const category = isSchemaDrift
+    ? "SCHEMA_DRIFT"
+    : msg.includes("storeId")
     ? "STORE_MISSING"
     : msg.includes("FORBIDDEN") || msg.includes("權限")
     ? "PERMISSION"

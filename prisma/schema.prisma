@@ -146,6 +146,14 @@ enum TransactionStatus {
   SUCCESS
   CANCELLED
   REFUNDED
+  VOIDED // 作廢：不計入營收、不可再次操作；用於「取消交易」流程
+}
+
+enum TransactionAuditAction {
+  UPDATE_NOTE
+  UPDATE_PAYMENT_METHOD
+  UPDATE_OWNER_STAFF
+  VOID
 }
 
 enum PaymentMethod {
@@ -322,6 +330,10 @@ model User {
   talentStageChanges   TalentStageLog[]   @relation("TalentStageChangedBy")
   reviewedCheckinPosts CheckinPost[]      @relation("CheckinPostReviewedBy")
 
+  // Transaction void / audit
+  voidedTransactions   Transaction[]         @relation("VoidedTransactions")
+  transactionAuditLogs TransactionAuditLog[]
+
   // 同一角色內手機不重複，但不同角色可共用手機
   @@unique([phone, role])
   @@index([phone])
@@ -398,34 +410,35 @@ model Store {
   subscriptions       StoreSubscription[] @relation("StoreSubscriptions")
   planChanges         StorePlanChange[]
 
-  staff               Staff[]
-  customers           Customer[]
-  bookings            Booking[]
-  transactions        Transaction[]
-  servicePlans        ServicePlan[]
-  customerPlanWallets CustomerPlanWallet[]
-  cashbookEntries     CashbookEntry[]
-  dutyAssignments     DutyAssignment[]
-  bookingSlots        BookingSlot[]
-  businessHours       BusinessHours[]
-  specialBusinessDays SpecialBusinessDay[]
-  slotOverrides       SlotOverride[]
-  reportSnapshots     ReportSnapshot[]
-  shopConfig          ShopConfig?
-  upgradeRequests     UpgradeRequest[]
-  reminderRules       ReminderRule[]
-  messageTemplates    MessageTemplate[]
-  opsActionLogs       OpsActionLog[]
-  reconciliationRuns  ReconciliationRun[]
-  makeupCredits       MakeupCredit[]
-  spaceFeeRecords     SpaceFeeRecord[]
-  messageLogs         MessageLog[]
-  talentStageLogs     TalentStageLog[]
-  referrals           Referral[]
-  pointRecords        PointRecord[]
-  bonusRules          BonusRule[]
-  referralEvents      ReferralEvent[]
-  checkinPosts        CheckinPost[]
+  staff                Staff[]
+  customers            Customer[]
+  bookings             Booking[]
+  transactions         Transaction[]
+  servicePlans         ServicePlan[]
+  customerPlanWallets  CustomerPlanWallet[]
+  cashbookEntries      CashbookEntry[]
+  dutyAssignments      DutyAssignment[]
+  bookingSlots         BookingSlot[]
+  businessHours        BusinessHours[]
+  specialBusinessDays  SpecialBusinessDay[]
+  slotOverrides        SlotOverride[]
+  reportSnapshots      ReportSnapshot[]
+  shopConfig           ShopConfig?
+  upgradeRequests      UpgradeRequest[]
+  reminderRules        ReminderRule[]
+  messageTemplates     MessageTemplate[]
+  opsActionLogs        OpsActionLog[]
+  reconciliationRuns   ReconciliationRun[]
+  makeupCredits        MakeupCredit[]
+  spaceFeeRecords      SpaceFeeRecord[]
+  messageLogs          MessageLog[]
+  talentStageLogs      TalentStageLog[]
+  referrals            Referral[]
+  pointRecords         PointRecord[]
+  bonusRules           BonusRule[]
+  referralEvents       ReferralEvent[]
+  checkinPosts         CheckinPost[]
+  transactionAuditLogs TransactionAuditLog[]
 
   @@index([parentStoreId])
 }
@@ -717,22 +730,22 @@ model CheckinPost {
 // ============================================================
 
 model ServicePlan {
-  id           String       @id @default(cuid())
-  storeId      String
-  name         String // e.g. "體驗", "單次", "3堂套餐"
-  category     PlanCategory
-  price        Decimal      @db.Decimal(10, 0)
-  sessionCount Int // 堂數
-  validityDays Int? // 有效天數（null = 無期限）
-  isActive     Boolean      @default(true)
+  id            String       @id @default(cuid())
+  storeId       String
+  name          String // e.g. "體驗", "單次", "3堂套餐"
+  category      PlanCategory
+  price         Decimal      @db.Decimal(10, 0)
+  sessionCount  Int // 堂數
+  validityDays  Int? // 有效天數（null = 無期限）
+  isActive      Boolean      @default(true)
   // PR-2：僅用於前台 /book/shop 展示開關
   // ⚠️ 必須搭配 isActive=true 才會出現在前台（前台 query: isActive AND publicVisible）
   // ⚠️ 後台 assign / 選方案 flow 不可依賴此欄位（後台只看 isActive）
-  publicVisible Boolean     @default(false)
-  sortOrder    Int          @default(0) // 排序
-  description  String?
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
+  publicVisible Boolean      @default(false)
+  sortOrder     Int          @default(0) // 排序
+  description   String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 
   store        Store                @relation(fields: [storeId], references: [id])
   // 顧客購買記錄
@@ -960,12 +973,12 @@ model Transaction {
   // schema default "SUCCESS" 僅作為歷史資料 backfill 的安全網，不可用於新 TRANSFER 建單。
   // 非 TRANSFER（CASH / LINE_PAY / CREDIT_CARD / OTHER）才可使用 default SUCCESS。
   // 後續 PR-3 會在 assignPlanToCustomer / createTransaction 加強制規則。
-  paymentStatus        PaymentStatus   @default(SUCCESS)
-  paidAt               DateTime? // 實際確認入帳時間；歷史 backfill=createdAt；新 PENDING 保持 null
-  referenceNo          String? // 轉帳參考號 / 外部參考編號
-  bankLast5            String? // 轉帳帳號末五碼（對帳輔助，店長確認時填）
-  transferLastFour     String? // 顧客自助購買時自填的轉帳帳號末四碼（自報）
-  customerNote         String? // 顧客自助購買時自填的備註（匯款人姓名 / 補充事項）
+  paymentStatus    PaymentStatus @default(SUCCESS)
+  paidAt           DateTime? // 實際確認入帳時間；歷史 backfill=createdAt；新 PENDING 保持 null
+  referenceNo      String? // 轉帳參考號 / 外部參考編號
+  bankLast5        String? // 轉帳帳號末五碼（對帳輔助，店長確認時填）
+  transferLastFour String? // 顧客自助購買時自填的轉帳帳號末四碼（自報）
+  customerNote     String? // 顧客自助購買時自填的備註（匯款人姓名 / 補充事項）
 
   // === 報表用欄位（快照 + 歸屬鎖定）===
   transactionNo     String? // 交易編號 TXN-YYYYMMDD-NNN
@@ -983,14 +996,21 @@ model Transaction {
   refundAmount      Decimal           @default(0) @db.Decimal(10, 0) // 已退款金額
   isFirstPurchase   Boolean           @default(false) // 是否新客首次購買
 
-  customer           Customer            @relation(fields: [customerId], references: [id])
-  store              Store               @relation(fields: [storeId], references: [id])
-  booking            Booking?            @relation(fields: [bookingId], references: [id])
-  revenueStaff       Staff               @relation("RevenueStaff", fields: [revenueStaffId], references: [id])
-  serviceStaff       Staff?              @relation("ServiceStaff", fields: [serviceStaffId], references: [id])
-  soldByStaff        Staff?              @relation("SoldByStaff", fields: [soldByStaffId], references: [id])
-  customerPlanWallet CustomerPlanWallet? @relation(fields: [customerPlanWalletId], references: [id])
-  servicePlan        ServicePlan?        @relation("TransactionPlan", fields: [planId], references: [id])
+  // === Void 相關（v1：取消交易）===
+  voidedAt       DateTime?
+  voidedByUserId String?
+  voidReason     String?
+
+  customer           Customer              @relation(fields: [customerId], references: [id])
+  store              Store                 @relation(fields: [storeId], references: [id])
+  booking            Booking?              @relation(fields: [bookingId], references: [id])
+  revenueStaff       Staff                 @relation("RevenueStaff", fields: [revenueStaffId], references: [id])
+  serviceStaff       Staff?                @relation("ServiceStaff", fields: [serviceStaffId], references: [id])
+  soldByStaff        Staff?                @relation("SoldByStaff", fields: [soldByStaffId], references: [id])
+  customerPlanWallet CustomerPlanWallet?   @relation(fields: [customerPlanWalletId], references: [id])
+  servicePlan        ServicePlan?          @relation("TransactionPlan", fields: [planId], references: [id])
+  voidedBy           User?                 @relation("VoidedTransactions", fields: [voidedByUserId], references: [id])
+  auditLogs          TransactionAuditLog[]
 
   @@index([storeId])
   @@index([customerId])
@@ -1005,6 +1025,7 @@ model Transaction {
   @@index([status])
   @@index([planType])
   @@index([storeId, paymentStatus, createdAt]) // PR-1: 支援「待確認付款」清單 + 店別篩選
+  @@index([status, transactionDate]) // v1 取消交易：營收統計濾掉 VOIDED
 }
 
 // ============================================================
@@ -1071,6 +1092,31 @@ model AuditLog {
   @@index([targetType, targetId])
   @@index([actorUserId])
   @@index([createdAt])
+}
+
+// ============================================================
+// TransactionAuditLog（交易稽核紀錄）— v1 交易模組專用
+// ============================================================
+// 記錄交易的所有後續異動：備註修改、付款方式更正、歸屬店長更正、作廢
+// store-scoped；reason 必填（VOID / 付款方式 / 歸屬店長），只記錄非 SELECT 操作
+model TransactionAuditLog {
+  id            String                 @id @default(cuid())
+  storeId       String
+  transactionId String
+  actorUserId   String
+  action        TransactionAuditAction
+  beforeJson    Json?
+  afterJson     Json?
+  reason        String?
+  createdAt     DateTime               @default(now())
+
+  store       Store       @relation(fields: [storeId], references: [id])
+  transaction Transaction @relation(fields: [transactionId], references: [id])
+  actor       User        @relation(fields: [actorUserId], references: [id])
+
+  @@index([transactionId, createdAt])
+  @@index([storeId, createdAt])
+  @@index([actorUserId])
 }
 
 // ============================================================

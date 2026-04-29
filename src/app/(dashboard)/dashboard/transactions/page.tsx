@@ -12,6 +12,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { CASH_TRANSACTION_TYPES } from "@/lib/booking-constants";
 import type { TransactionType, PaymentMethod } from "@prisma/client";
+import { TransactionRowActions } from "./_components/TransactionRowActions";
 
 /** 交易頁面只顯示有金額的類型（排除 SESSION_DEDUCTION） */
 const TX_TYPE_LABEL: Record<string, string> = {
@@ -41,6 +42,14 @@ const PAY_METHOD_LABEL: Record<PaymentMethod, string> = {
   UNPAID: "未付款",
 };
 
+// v1 取消交易：列表 status badge
+const STATUS_BADGE: Record<string, { text: string; color: string }> = {
+  SUCCESS: { text: "已完成", color: "bg-green-100 text-green-700" },
+  VOIDED: { text: "已作廢", color: "bg-gray-200 text-gray-600" },
+  CANCELLED: { text: "已取消", color: "bg-red-100 text-red-700" },
+  REFUNDED: { text: "已退款", color: "bg-amber-100 text-amber-700" },
+};
+
 interface PageProps {
   searchParams: Promise<{
     dateFrom?: string;
@@ -67,7 +76,7 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
   const dateTo = params.dateTo ?? today;
 
   const activeStoreId = await getActiveStoreForRead(user);
-  const [{ transactions, total, pageSize }, staffOptions, plan] = await Promise.all([
+  const [{ transactions, total, pageSize }, staffOptions, plan, canVoid, canEdit] = await Promise.all([
     listTransactions({
       dateFrom,
       dateTo,
@@ -80,6 +89,8 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
     }),
     listStaffSelectOptions(activeStoreId),
     getCurrentStorePlan(),
+    checkPermission(user.role, user.staffId, "transaction.void"),
+    checkPermission(user.role, user.staffId, "transaction.create"),
   ]);
 
   const totalPages = Math.ceil(total / pageSize);
@@ -87,12 +98,13 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
   const hasActiveFilters = !!(params.transactionType || params.staff);
   const activeFilterCount = [params.transactionType, params.staff].filter(Boolean).length;
 
-  // 統計本頁收入
+  // 統計本頁收入（規格 v1：排除 VOIDED）
   const pageRevenue = transactions
-    .filter((t) =>
-      ["TRIAL_PURCHASE", "SINGLE_PURCHASE", "PACKAGE_PURCHASE", "SUPPLEMENT"].includes(
-        t.transactionType
-      )
+    .filter(
+      (t) =>
+        ["TRIAL_PURCHASE", "SINGLE_PURCHASE", "PACKAGE_PURCHASE", "SUPPLEMENT"].includes(
+          t.transactionType
+        ) && t.status === "SUCCESS"
     )
     .reduce((sum, t) => sum + Number(t.amount), 0);
 
@@ -216,16 +228,18 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
               <th className="px-4 py-3 text-left font-medium text-earth-600">日期</th>
               <th className="px-4 py-3 text-left font-medium text-earth-600">顧客</th>
               <th className="px-4 py-3 text-left font-medium text-earth-600">類型</th>
+              <th className="px-4 py-3 text-left font-medium text-earth-600">狀態</th>
               <th className="px-4 py-3 text-right font-medium text-earth-600">金額</th>
               <th className="px-4 py-3 text-left font-medium text-earth-600">付款方式</th>
               <th className="px-4 py-3 text-left font-medium text-earth-600">歸屬店長</th>
               <th className="px-4 py-3 text-left font-medium text-earth-600">備註</th>
+              <th className="px-4 py-3 text-right font-medium text-earth-600">操作</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-earth-100">
             {transactions.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-0">
+                <td colSpan={9} className="px-4 py-0">
                   <EmptyState
                     icon="search"
                     title="沒有符合條件的交易紀錄"
@@ -234,53 +248,81 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
                 </td>
               </tr>
             )}
-            {transactions.map((t) => (
-              <tr key={t.id} className="hover:bg-earth-50">
-                <td className="px-4 py-3 text-earth-600">
-                  {new Date(t.createdAt).toLocaleDateString("zh-TW", { timeZone: "Asia/Taipei" })}
-                </td>
-                <td className="px-4 py-3 text-earth-900">{t.customer.name}</td>
-                <td className="px-4 py-3">
-                  <span
-                    className={`rounded px-2 py-0.5 text-xs font-medium ${
-                      TX_TYPE_COLOR[t.transactionType]
+            {transactions.map((t) => {
+              const isVoided = t.status === "VOIDED";
+              const badge = STATUS_BADGE[t.status] ?? { text: t.status, color: "bg-earth-100 text-earth-600" };
+              return (
+                <tr
+                  key={t.id}
+                  className={`hover:bg-earth-50 ${isVoided ? "bg-earth-50/60 text-earth-400" : ""}`}
+                >
+                  <td className={`px-4 py-3 ${isVoided ? "text-earth-400" : "text-earth-600"}`}>
+                    {new Date(t.createdAt).toLocaleDateString("zh-TW", { timeZone: "Asia/Taipei" })}
+                  </td>
+                  <td className={`px-4 py-3 ${isVoided ? "text-earth-500 line-through" : "text-earth-900"}`}>
+                    {t.customer.name}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span
+                      className={`rounded px-2 py-0.5 text-xs font-medium ${
+                        TX_TYPE_COLOR[t.transactionType]
+                      } ${isVoided ? "opacity-60" : ""}`}
+                    >
+                      {TX_TYPE_LABEL[t.transactionType]}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={`rounded px-2 py-0.5 text-xs font-medium ${badge.color}`}>
+                      {badge.text}
+                    </span>
+                  </td>
+                  <td
+                    className={`px-4 py-3 text-right font-medium ${
+                      isVoided
+                        ? "text-earth-400 line-through"
+                        : Number(t.amount) < 0
+                        ? "text-red-600"
+                        : "text-earth-900"
                     }`}
                   >
-                    {TX_TYPE_LABEL[t.transactionType]}
-                  </span>
-                </td>
-                <td
-                  className={`px-4 py-3 text-right font-medium ${
-                    Number(t.amount) < 0 ? "text-red-600" : "text-earth-900"
-                  }`}
-                >
-                  {t.originalAmount && t.discountType && t.discountType !== "none" ? (
-                    <div>
-                      <span className="text-xs text-earth-400 line-through">
-                        NT$ {Number(t.originalAmount).toLocaleString()}
-                      </span>
-                      <br />
-                      NT$ {Math.abs(Number(t.amount)).toLocaleString()}
-                      {t.discountReason && (
-                        <span className="ml-1 text-[10px] text-amber-600">({t.discountReason})</span>
-                      )}
-                    </div>
-                  ) : (
-                    <>
-                      {Number(t.amount) < 0 ? "-" : ""}
-                      NT$ {Math.abs(Number(t.amount)).toLocaleString()}
-                    </>
-                  )}
-                </td>
-                <td className="px-4 py-3 text-earth-600">
-                  {PAY_METHOD_LABEL[t.paymentMethod]}
-                </td>
-                <td className="px-4 py-3 text-earth-600">{t.revenueStaff.displayName}</td>
-                <td className="max-w-xs truncate px-4 py-3 text-earth-400">
-                  {t.note ?? "—"}
-                </td>
-              </tr>
-            ))}
+                    {t.originalAmount && t.discountType && t.discountType !== "none" ? (
+                      <div>
+                        <span className="text-xs text-earth-400 line-through">
+                          NT$ {Number(t.originalAmount).toLocaleString()}
+                        </span>
+                        <br />
+                        NT$ {Math.abs(Number(t.amount)).toLocaleString()}
+                        {t.discountReason && (
+                          <span className="ml-1 text-[10px] text-amber-600">({t.discountReason})</span>
+                        )}
+                      </div>
+                    ) : (
+                      <>
+                        {Number(t.amount) < 0 ? "-" : ""}
+                        NT$ {Math.abs(Number(t.amount)).toLocaleString()}
+                      </>
+                    )}
+                  </td>
+                  <td className={`px-4 py-3 ${isVoided ? "text-earth-400" : "text-earth-600"}`}>
+                    {PAY_METHOD_LABEL[t.paymentMethod]}
+                  </td>
+                  <td className={`px-4 py-3 ${isVoided ? "text-earth-400" : "text-earth-600"}`}>
+                    {t.revenueStaff.displayName}
+                  </td>
+                  <td className="max-w-xs truncate px-4 py-3 text-earth-400">
+                    {t.note ?? "—"}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <TransactionRowActions
+                      transactionId={t.id}
+                      staffOptions={staffOptions}
+                      canVoid={canVoid}
+                      canEdit={canEdit}
+                    />
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

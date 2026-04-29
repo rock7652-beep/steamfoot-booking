@@ -9,6 +9,7 @@
 
 import { prisma } from "@/lib/db";
 import { toLocalDateStr, toLocalMonthStr, todayRange, monthRange } from "@/lib/date-utils";
+import { REVENUE_VALID_STATUS } from "@/lib/booking-constants";
 
 const REVENUE_TYPES = [
   "TRIAL_PURCHASE",
@@ -16,6 +17,10 @@ const REVENUE_TYPES = [
   "PACKAGE_PURCHASE",
   "SUPPLEMENT",
 ];
+
+// v1 取消交易：對帳必須與 dashboard / report / CSV 三 source 用同一個 filter，
+// 否則會把 VOIDED 算進對帳基準導致 false-positive mismatch
+const REVENUE_STATUS_FILTER = { status: REVENUE_VALID_STATUS } as const;
 
 // TODO(PR-payment-confirm): PR-3/4 上線後，本引擎 3 個對帳 source（dashboard aggregate / 報表 groupBy / CSV groupBy）
 // 必須同步加 paymentStatus: { in: ["SUCCESS", "CONFIRMED"] } 排除 PENDING，否則對帳會出現誤判。
@@ -150,6 +155,7 @@ async function checkTodayRevenue(storeId: string, targetDate: string, _targetMon
     where: {
       storeId,
       transactionType: { in: REVENUE_TYPES as never },
+      ...REVENUE_STATUS_FILTER,
       createdAt: { gte: todayStart, lte: todayEnd },
     },
     _sum: { amount: true },
@@ -161,6 +167,7 @@ async function checkTodayRevenue(storeId: string, targetDate: string, _targetMon
     where: {
       storeId,
       transactionType: { in: REVENUE_TYPES as never },
+      ...REVENUE_STATUS_FILTER,
       createdAt: { gte: todayStart, lte: todayEnd },
     },
     select: { amount: true, transactionType: true },
@@ -205,6 +212,7 @@ async function checkMonthRevenue(storeId: string, _targetDate: string, targetMon
     where: {
       storeId,
       transactionType: { in: REVENUE_TYPES as never },
+      ...REVENUE_STATUS_FILTER,
       createdAt: { gte: monthStart, lte: monthEnd },
     },
     _sum: { amount: true },
@@ -217,6 +225,7 @@ async function checkMonthRevenue(storeId: string, _targetDate: string, targetMon
     where: {
       storeId,
       transactionType: { in: REVENUE_TYPES as never },
+      ...REVENUE_STATUS_FILTER,
       createdAt: { gte: monthStart, lte: monthEnd },
     },
     _sum: { amount: true },
@@ -232,6 +241,7 @@ async function checkMonthRevenue(storeId: string, _targetDate: string, targetMon
     where: {
       storeId,
       transactionType: { in: REVENUE_TYPES as never },
+      ...REVENUE_STATUS_FILTER,
       createdAt: { gte: monthStart, lte: monthEnd },
     },
     _sum: { amount: true },
@@ -389,6 +399,7 @@ async function checkMonthCsvTotals(storeId: string, _targetDate: string, targetM
       where: {
         storeId,
         transactionType: { in: REVENUE_TYPES as never },
+        ...REVENUE_STATUS_FILTER,
         createdAt: { gte: monthStart, lte: monthEnd },
       },
       _sum: { amount: true },
@@ -397,6 +408,7 @@ async function checkMonthCsvTotals(storeId: string, _targetDate: string, targetM
       where: {
         storeId,
         transactionType: "REFUND",
+        ...REVENUE_STATUS_FILTER,
         createdAt: { gte: monthStart, lte: monthEnd },
       },
       _sum: { amount: true },
@@ -421,6 +433,7 @@ async function checkMonthCsvTotals(storeId: string, _targetDate: string, targetM
     where: {
       storeId,
       transactionType: { in: [...REVENUE_TYPES, "REFUND"] as never },
+      ...REVENUE_STATUS_FILTER,
       createdAt: { gte: monthStart, lte: monthEnd },
     },
     _sum: { amount: true },

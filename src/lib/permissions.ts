@@ -62,6 +62,7 @@ export const ALL_PERMISSIONS = [
   "transaction.read",
   "transaction.create",
   "transaction.discount", // 使用折扣
+  "transaction.void", // 取消交易 / 修改付款方式 / 修改歸屬店長（敏感操作）
   // 課程錢包
   "wallet.read",
   "wallet.create",
@@ -101,7 +102,7 @@ export const PERMISSION_GROUPS: Record<string, { label: string; codes: Permissio
   },
   transaction: {
     label: "交易紀錄",
-    codes: ["transaction.read", "transaction.create", "transaction.discount"],
+    codes: ["transaction.read", "transaction.create", "transaction.discount", "transaction.void"],
   },
   wallet: {
     label: "課程方案",
@@ -150,6 +151,7 @@ export const PERMISSION_LABELS: Record<PermissionCode, string> = {
   "transaction.read": "查看交易",
   "transaction.create": "新增交易",
   "transaction.discount": "使用折扣",
+  "transaction.void": "取消交易 / 更正付款方式 / 更正歸屬店長",
   "wallet.read": "查看課程方案",
   "wallet.create": "指派課程方案",
   "wallet.adjust": "調整剩餘堂數",
@@ -184,6 +186,7 @@ export const DEFAULT_OWNER_PERMISSIONS: PermissionCode[] = [
   "transaction.read",
   "transaction.create",
   "transaction.discount",
+  "transaction.void",
   "wallet.read",
   "wallet.create",
   "wallet.adjust",

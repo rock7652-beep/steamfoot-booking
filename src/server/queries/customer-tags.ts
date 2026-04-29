@@ -3,7 +3,7 @@
 import { prisma } from "@/lib/db";
 import { requireStaffSession } from "@/lib/session";
 import { toLocalDateStr } from "@/lib/date-utils";
-import { REVENUE_TRANSACTION_TYPES } from "@/lib/booking-constants";
+import { REVENUE_TRANSACTION_TYPES, REVENUE_VALID_STATUS } from "@/lib/booking-constants";
 import { getStoreFilter } from "@/lib/manager-visibility";
 
 // ============================================================
@@ -82,7 +82,10 @@ export async function getCustomerTagsAndScripts(
         orderBy: { bookingDate: "desc" },
       },
       transactions: {
-        where: { transactionType: { in: [...REVENUE_TRANSACTION_TYPES] } },
+        where: {
+          transactionType: { in: [...REVENUE_TRANSACTION_TYPES] },
+          status: REVENUE_VALID_STATUS,
+        },
         select: { amount: true, createdAt: true },
       },
     },
@@ -205,7 +208,10 @@ export async function getCustomerTags(customerId: string): Promise<CustomerTag[]
         select: { id: true },
       },
       transactions: {
-        where: { transactionType: { in: [...REVENUE_TRANSACTION_TYPES] } },
+        where: {
+          transactionType: { in: [...REVENUE_TRANSACTION_TYPES] },
+          status: REVENUE_VALID_STATUS,
+        },
         select: { amount: true, createdAt: true },
       },
     },
@@ -300,7 +306,10 @@ export async function getCustomerScript(customerId: string): Promise<string[]> {
         select: { bookingDate: true },
       },
       transactions: {
-        where: { transactionType: { in: [...REVENUE_TRANSACTION_TYPES] } },
+        where: {
+          transactionType: { in: [...REVENUE_TRANSACTION_TYPES] },
+          status: REVENUE_VALID_STATUS,
+        },
         select: { amount: true },
       },
     },

@@ -36,7 +36,53 @@ import {
   uncompleteSession,
   reReserveSession,
 } from "@/server/services/wallet-session";
+import { Prisma } from "@prisma/client";
 import type { z } from "zod";
+
+// ============================================================
+// voidSessionDeductionTxs — 將某筆 booking 的所有 SESSION_DEDUCTION 標為 VOIDED
+// （取代既有 deleteMany；交易不可硬刪除，全部走軟刪除 + audit log）
+// 規格：交易模組 v1
+// ============================================================
+async function voidSessionDeductionTxs(
+  tx: Prisma.TransactionClient,
+  params: { bookingId: string; actorUserId: string; reason: string },
+) {
+  const targets = await tx.transaction.findMany({
+    where: {
+      bookingId: params.bookingId,
+      transactionType: "SESSION_DEDUCTION",
+      status: { not: "VOIDED" },
+    },
+    select: { id: true, storeId: true, status: true },
+  });
+  if (targets.length === 0) return;
+
+  const now = new Date();
+  await tx.transaction.updateMany({
+    where: { id: { in: targets.map((t) => t.id) } },
+    data: {
+      status: "VOIDED",
+      voidedAt: now,
+      voidedByUserId: params.actorUserId,
+      voidReason: params.reason,
+    },
+  });
+
+  for (const t of targets) {
+    await tx.transactionAuditLog.create({
+      data: {
+        storeId: t.storeId,
+        transactionId: t.id,
+        actorUserId: params.actorUserId,
+        action: "VOID",
+        beforeJson: { status: t.status } as Prisma.InputJsonValue,
+        afterJson: { status: "VOIDED", voidedAt: now.toISOString() } as Prisma.InputJsonValue,
+        reason: params.reason,
+      },
+    });
+  }
+}
 
 // 共用 revalidate
 function revalidateAll(customerId?: string) {
@@ -932,12 +978,11 @@ export async function revertBookingStatus(
             });
           }
 
-          // 刪除此預約的 SESSION_DEDUCTION 交易
-          await tx.transaction.deleteMany({
-            where: {
-              bookingId: booking.id,
-              transactionType: "SESSION_DEDUCTION",
-            },
+          // 將此預約的 SESSION_DEDUCTION 交易標為 VOIDED（不硬刪除）
+          await voidSessionDeductionTxs(tx, {
+            bookingId: booking.id,
+            actorUserId: user.id,
+            reason: "預約由 COMPLETED 回滾為 PENDING",
           });
 
           // 若顧客被標為 INACTIVE，恢復為 ACTIVE
@@ -975,11 +1020,10 @@ export async function revertBookingStatus(
               },
             });
           }
-          await tx.transaction.deleteMany({
-            where: {
-              bookingId: booking.id,
-              transactionType: "SESSION_DEDUCTION",
-            },
+          await voidSessionDeductionTxs(tx, {
+            bookingId: booking.id,
+            actorUserId: user.id,
+            reason: "預約由 NO_SHOW (DEDUCTED) 回滾為 PENDING",
           });
 
           if (booking.customer.customerStage === "INACTIVE") {
