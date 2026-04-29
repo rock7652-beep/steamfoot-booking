@@ -299,8 +299,11 @@ export type CustomerMergeInput = {
 };
 
 // 身份欄位：unique 限制下 source 必須讓位（搬到 target 後在 source 清空）
-const UNIQUE_IDENTITY_KEYS = [
-  "phone",
+//
+// `phone` 在 schema 是 NOT NULL（其他欄位皆 nullable），不能設為 null。
+// 改用 tombstone：`_merged_<sourceId>` — 唯一、非 null、明顯可識別已被合併。
+// schema 上 phone 走 @@unique([storeId, phone])，sourceId 為 cuid 保證 tombstone 唯一。
+const UNIQUE_NULLABLE_IDENTITY_KEYS = [
   "email",
   "lineUserId",
   "googleId",
@@ -343,8 +346,8 @@ function buildIdentityMerge(
   const sourceClear: Prisma.CustomerUncheckedUpdateInput = {};
   const mergedFields: string[] = [];
 
-  // unique 欄位：target 為空且 source 有值 → 搬過去 + source 清空
-  for (const key of UNIQUE_IDENTITY_KEYS) {
+  // unique 且 nullable 的欄位：target 為空且 source 有值 → 搬過去 + source 清成 null
+  for (const key of UNIQUE_NULLABLE_IDENTITY_KEYS) {
     const sVal = source[key];
     const tVal = target[key];
     if (sVal != null && tVal == null) {
@@ -355,6 +358,16 @@ function buildIdentityMerge(
     if (sVal != null) {
       (sourceClear as Record<string, unknown>)[key] = null;
     }
+  }
+
+  // phone 特殊處理：schema NOT NULL + @@unique([storeId, phone])
+  // → 用 tombstone 取代 null，避免違反 NOT NULL
+  if (source.phone != null) {
+    if (target.phone == null) {
+      targetUpdate.phone = source.phone;
+      mergedFields.push("phone");
+    }
+    sourceClear.phone = `_merged_${source.id}`;
   }
 
   // 非 unique 身份：target 為空且 source 有值 → 補；source 不清（保留 audit）
