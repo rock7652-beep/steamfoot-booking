@@ -35,6 +35,7 @@ import {
 import {
   ACTIVE_BOOKING_STATUSES,
   REVENUE_TRANSACTION_TYPES,
+  REVENUE_VALID_STATUS,
 } from "@/lib/booking-constants";
 
 // TODO(PR-payment-confirm): PR-3/4 上線後，本檔今日/本月營收 aggregate
@@ -198,6 +199,7 @@ async function computeDashboardTodaySummary(
           where: {
             createdAt: { gte: todayStart, lte: todayEnd },
             transactionType: { in: [...REVENUE_TRANSACTION_TYPES] },
+            status: REVENUE_VALID_STATUS,
             ...storeFilter,
           },
           _sum: { amount: true },
@@ -318,6 +320,7 @@ export async function getDashboardOverviewSummary(
               where: {
                 createdAt: { gte: monthStart },
                 transactionType: { in: [...REVENUE_TRANSACTION_TYPES] },
+                status: REVENUE_VALID_STATUS,
                 ...storeFilter,
               },
               _sum: { amount: true },
@@ -333,6 +336,7 @@ export async function getDashboardOverviewSummary(
               where: {
                 createdAt: { gte: prevMonth.start, lt: monthStart },
                 transactionType: { in: [...REVENUE_TRANSACTION_TYPES] },
+                status: REVENUE_VALID_STATUS,
                 ...storeFilter,
               },
               _sum: { amount: true },

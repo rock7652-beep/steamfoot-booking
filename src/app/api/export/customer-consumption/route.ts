@@ -94,8 +94,9 @@ export async function GET(req: NextRequest) {
     w.expiryDate ? new Date(w.expiryDate).toLocaleDateString("zh-TW") : "無期限",
   ]);
 
+  // 規格 v1：總消費金額排除 VOIDED；CSV 列表仍顯示作廢交易供透明
   const totalSpent = transactions
-    .filter((t) => ["TRIAL_PURCHASE", "SINGLE_PURCHASE", "PACKAGE_PURCHASE", "SUPPLEMENT"].includes(t.transactionType))
+    .filter((t) => ["TRIAL_PURCHASE", "SINGLE_PURCHASE", "PACKAGE_PURCHASE", "SUPPLEMENT"].includes(t.transactionType) && t.status === "SUCCESS")
     .reduce((s, t) => s + Number(t.amount), 0);
 
   const rows: string[][] = [

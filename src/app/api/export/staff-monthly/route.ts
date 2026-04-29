@@ -7,6 +7,7 @@ import { toLocalMonthStr, monthRange } from "@/lib/date-utils";
 import { getManagerReadFilter, getStoreFilter } from "@/lib/manager-visibility";
 import { resolveActiveStoreId } from "@/lib/store";
 import { checkReportLimit } from "@/lib/usage-gate";
+import { REVENUE_VALID_STATUS } from "@/lib/booking-constants";
 
 // TODO(PR-payment-confirm): PR-3/4 上線後，CSV 匯出的 Transaction groupBy 必須加
 // paymentStatus: { in: ["SUCCESS", "CONFIRMED"] }，避免匯出含 PENDING 誤差。
@@ -79,6 +80,7 @@ export async function GET(req: NextRequest) {
         ...revenueFilter,
         ...storeFilter,
         transactionType: { in: REVENUE_TYPES as never },
+        status: REVENUE_VALID_STATUS,
         createdAt: { gte: monthStart, lte: monthEnd },
       },
       _sum: { amount: true },

@@ -8,7 +8,7 @@ import {
   bookingDateToday,
   toLocalDateStr,
 } from "@/lib/date-utils";
-import { REVENUE_TRANSACTION_TYPES } from "@/lib/booking-constants";
+import { REVENUE_TRANSACTION_TYPES, REVENUE_VALID_STATUS } from "@/lib/booking-constants";
 import { getStoreFilter } from "@/lib/manager-visibility";
 
 // TODO(PR-payment-confirm): PR-3/4 上線後，本檔 Transaction 營收 aggregate
@@ -46,6 +46,7 @@ export async function getTodaySummary(activeStoreId?: string | null): Promise<To
       where: {
         createdAt: { gte: today.start, lte: today.end },
         transactionType: { in: [...REVENUE_TRANSACTION_TYPES] },
+        status: REVENUE_VALID_STATUS,
         ...storeFilter,
       },
       _sum: { amount: true },
@@ -129,6 +130,7 @@ export async function getDailyTrend(days: number, activeStoreId?: string | null)
         where: {
           createdAt: { gte: startRange.start, lte: endRange.end },
           transactionType: { in: [...REVENUE_TRANSACTION_TYPES] },
+          status: REVENUE_VALID_STATUS,
           ...storeFilter,
         },
         select: { createdAt: true, amount: true },
@@ -266,6 +268,7 @@ export async function getOperationsFunnel(days: number, activeStoreId?: string |
       where: {
         createdAt: { gte: startRange.start, lte: endRange.end },
         transactionType: { in: [...REVENUE_TRANSACTION_TYPES] },
+        status: REVENUE_VALID_STATUS,
         ...storeFilter,
       },
     }),
@@ -338,7 +341,10 @@ export async function getTopCustomers(limit = 10, activeStoreId?: string | null)
         },
       },
       transactions: {
-        where: { transactionType: { in: [...REVENUE_TRANSACTION_TYPES] } },
+        where: {
+          transactionType: { in: [...REVENUE_TRANSACTION_TYPES] },
+          status: REVENUE_VALID_STATUS,
+        },
         select: { amount: true },
       },
       planWallets: {
@@ -510,6 +516,7 @@ export async function getStaffPerformance(days = 30, activeStoreId?: string | nu
         where: {
           createdAt: { gte: startRange.start, lte: endRange.end },
           transactionType: { in: [...REVENUE_TRANSACTION_TYPES] },
+          status: REVENUE_VALID_STATUS,
         },
         select: { amount: true },
       },

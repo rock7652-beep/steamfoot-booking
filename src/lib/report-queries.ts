@@ -139,7 +139,7 @@ export async function getStoreRevenueSummary(
   // 排除 CANCELLED / REFUND — 交由 DB 層過濾，不再於 JS 端 skip
   const whereActive: Prisma.TransactionWhereInput = {
     ...where,
-    status: { not: "CANCELLED" },
+    status: { notIn: ["CANCELLED", "VOIDED"] },
     transactionType: {
       ...((where.transactionType as Prisma.EnumTransactionTypeFilter | undefined) ?? {}),
       // buildWhereClause 已排除 SESSION_DEDUCTION；這裡再疊上排除 REFUND
@@ -252,7 +252,7 @@ export async function getCoachRevenueSummary(
 
   const whereActive: Prisma.TransactionWhereInput = {
     ...where,
-    status: { not: "CANCELLED" },
+    status: { notIn: ["CANCELLED", "VOIDED"] },
     transactionType: {
       ...((where.transactionType as Prisma.EnumTransactionTypeFilter | undefined) ?? {}),
       notIn: ["SESSION_DEDUCTION", "REFUND"],
@@ -459,7 +459,7 @@ export async function getRevenueKpi(
   // 排除 CANCELLED / REFUND — DB-side 處理，不再拉全量 rows
   const whereActive: Prisma.TransactionWhereInput = {
     ...where,
-    status: { not: "CANCELLED" },
+    status: { notIn: ["CANCELLED", "VOIDED"] },
     transactionType: {
       ...((where.transactionType as Prisma.EnumTransactionTypeFilter | undefined) ?? {}),
       notIn: ["SESSION_DEDUCTION", "REFUND"],

@@ -9,7 +9,7 @@ import { requireStaffSession, requireSession } from "@/lib/session";
 import { AppError } from "@/lib/errors";
 import { monthRange as sharedMonthRange, dayRange } from "@/lib/date-utils";
 import { getManagerReadFilter, getVisibilityMode, getStoreFilter } from "@/lib/manager-visibility";
-import { REVENUE_TRANSACTION_TYPES } from "@/lib/booking-constants";
+import { REVENUE_TRANSACTION_TYPES, REVENUE_VALID_STATUS } from "@/lib/booking-constants";
 
 const REVENUE_TYPES = [...REVENUE_TRANSACTION_TYPES];
 
@@ -49,6 +49,7 @@ export async function monthlyStaffRevenueSummary(month: string, activeStoreId?: 
       where: {
         ...revenueFilter,
         transactionType: { in: REVENUE_TYPES as never },
+        status: REVENUE_VALID_STATUS,
         createdAt: { gte: monthStart, lte: monthEnd },
       },
       _sum: { amount: true },
@@ -109,6 +110,7 @@ export async function monthlyStaffNetSummary(month: string, activeStoreId?: stri
     where: {
       ...revenueFilter,
       transactionType: { in: REVENUE_TYPES as never },
+      status: REVENUE_VALID_STATUS,
       createdAt: { gte: monthStart, lte: monthEnd },
     },
     _sum: { amount: true },
@@ -198,6 +200,7 @@ export async function monthlyStoreSummary(
       where: {
         ...revenueFilter,
         transactionType: { in: REVENUE_TYPES as never },
+        status: REVENUE_VALID_STATUS,
         createdAt: { gte: monthStart, lte: monthEnd },
       },
       _sum: { amount: true },
@@ -208,6 +211,7 @@ export async function monthlyStoreSummary(
       where: {
         ...revenueFilter,
         transactionType: "REFUND",
+        status: REVENUE_VALID_STATUS,
         createdAt: { gte: monthStart, lte: monthEnd },
       },
       _sum: { amount: true },
@@ -382,6 +386,7 @@ export async function monthlyRevenueByCategory(
     where: {
       ...revenueFilter,
       transactionType: { in: REVENUE_TYPES as never },
+      status: REVENUE_VALID_STATUS,
       createdAt: { gte: monthStart, lte: monthEnd },
     },
     _sum: { amount: true },
@@ -394,6 +399,7 @@ export async function monthlyRevenueByCategory(
     where: {
       ...revenueFilter,
       transactionType: "REFUND",
+      status: REVENUE_VALID_STATUS,
       createdAt: { gte: monthStart, lte: monthEnd },
     },
     _sum: { amount: true },
@@ -503,13 +509,16 @@ export async function customerConsumptionDetail(customerId: string, month?: stri
     }),
   ]);
 
+  // 規格 v1：營收/退款金額排除 VOIDED；列表顯示仍含 VOIDED 供透明
   const totalPurchased = transactions
-    .filter((t) => (REVENUE_TYPES as string[]).includes(t.transactionType))
+    .filter((t) => (REVENUE_TYPES as string[]).includes(t.transactionType) && t.status === REVENUE_VALID_STATUS)
     .reduce((sum, t) => sum + Number(t.amount), 0);
   const totalRefunded = transactions
-    .filter((t) => t.transactionType === "REFUND")
+    .filter((t) => t.transactionType === "REFUND" && t.status === REVENUE_VALID_STATUS)
     .reduce((sum, t) => sum + Number(t.amount), 0);
-  const totalDeductions = transactions.filter((t) => t.transactionType === "SESSION_DEDUCTION").length;
+  const totalDeductions = transactions
+    .filter((t) => t.transactionType === "SESSION_DEDUCTION" && t.status === REVENUE_VALID_STATUS)
+    .length;
   const totalRemainingSessions = wallets
     .filter((w) => w.status === "ACTIVE")
     .reduce((sum, w) => sum + w.remainingSessions, 0);

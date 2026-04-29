@@ -116,6 +116,22 @@ export const REVENUE_TRANSACTION_TYPES = [
   "SUPPLEMENT",
 ] as const;
 
+/**
+ * 營收統計的有效交易狀態
+ *
+ * 規格（交易模組 v1）：營收只統計有效交易 SUCCESS；
+ * 排除：VOIDED（取消交易）/ CANCELLED / REFUNDED
+ *
+ * 所有 prisma.transaction 的 groupBy/aggregate/findMany/count 用於營收統計時
+ * 必須加 `status: REVENUE_VALID_STATUS` 條件。
+ *
+ * v2 規劃：
+ *   - 引入「部分退款」(PARTIAL_REFUNDED) 後，本常數需擴成 `[SUCCESS, PARTIAL_REFUNDED]`，
+ *     並在報表計算 net = amount - refundAmount 而非全有/全無
+ *   - 退款流程上線前先把 status 與 amount 解耦，避免一次大 refactor
+ */
+export const REVENUE_VALID_STATUS = "SUCCESS" as const;
+
 // ============================================================
 // 3. 預約時間 helper
 // ============================================================
