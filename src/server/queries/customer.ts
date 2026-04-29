@@ -93,8 +93,10 @@ export async function listCustomers(options: ListCustomersOptions & { activeStor
         : {};
 
   // 不再依 Manager 隔離 — 所有店長都能看全部顧客
+  // mergedIntoCustomerId IS NULL：被合併進其他顧客的 row 是 audit 殘留，列表不顯示
   const where: Prisma.CustomerWhereInput = {
     ...getStoreFilter(user, activeStoreId),
+    mergedIntoCustomerId: null,
     ...(stage ? { customerStage: stage } : {}),
     ...(assignedStaffId ? { assignedStaffId } : {}),
     ...statusWhere,
@@ -166,6 +168,7 @@ export async function searchCustomers(query: string, limit = 10, activeStoreId?:
   return prisma.customer.findMany({
     where: {
       ...getStoreFilter(user, activeStoreId),
+      mergedIntoCustomerId: null, // 過濾被合併的 source row
       OR: [
         { name: { contains: query, mode: "insensitive" } },
         { phone: { contains: query } },
@@ -249,6 +252,12 @@ export async function getCustomerDetail(customerId: string) {
   });
   if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
 
+  // 已被合併進其他顧客的 source row → 視為不存在（Phase 1 行為）
+  // 之後可選擇導到 target；目前最安全的處理是讓 staff 直接走列表搜尋。
+  if (customer.mergedIntoCustomerId) {
+    throw new AppError("NOT_FOUND", "此顧客已合併進其他顧客");
+  }
+
   // Manager 現在可以查看所有顧客（共享查看）
   // 只有 CUSTOMER 角色限制只看自己
   if (user.role === "CUSTOMER") {
@@ -258,4 +267,90 @@ export async function getCustomerDetail(customerId: string) {
   }
 
   return customer;
+}
+
+// ============================================================
+// getCustomerMergePreview — 後台合併頁的 side-by-side 預覽
+// 回傳 source / target 兩筆 customer 摘要 + booking / wallet / transaction 數量。
+// 與 getCustomerDetail 不同：本 query 不會 NOT_FOUND 已合併的 source（merge 工具
+// 的職責就是看見已合併過的歷史，但 source 必須是 active 才能進 merge action）。
+// 權限：要求 staff session + 相同 store；本身不直接操作資料，僅提供視覺確認。
+// ============================================================
+
+export type CustomerMergePreviewRow = {
+  id: string;
+  name: string;
+  phone: string;
+  email: string | null;
+  lineName: string | null;
+  lineLinkStatus: string;
+  storeId: string;
+  storeName: string;
+  customerStage: string;
+  totalPoints: number;
+  hasUserId: boolean;
+  mergedIntoCustomerId: string | null;
+  bookingCount: number;
+  walletCount: number;
+  transactionCount: number;
+  createdAt: Date;
+};
+
+export async function getCustomerMergePreview(
+  sourceCustomerId: string,
+  targetCustomerId: string,
+): Promise<{ source: CustomerMergePreviewRow; target: CustomerMergePreviewRow }> {
+  const user = await requireStaffSession();
+
+  const ids = [sourceCustomerId, targetCustomerId];
+  const customers = await prisma.customer.findMany({
+    where: { id: { in: ids } },
+    include: {
+      store: { select: { id: true, name: true } },
+      _count: {
+        select: {
+          bookings: true,
+          planWallets: true,
+          transactions: true,
+        },
+      },
+    },
+  });
+
+  const map = new Map(customers.map((c) => [c.id, c]));
+  const source = map.get(sourceCustomerId);
+  const target = map.get(targetCustomerId);
+  if (!source) throw new AppError("NOT_FOUND", `找不到來源顧客 ${sourceCustomerId}`);
+  if (!target) throw new AppError("NOT_FOUND", `找不到目標顧客 ${targetCustomerId}`);
+
+  // store access：兩筆都必須 user 看得到
+  const userStoreFilter = getStoreFilter(user);
+  const allowedStoreId = (userStoreFilter as { storeId?: string }).storeId;
+  // ADMIN getStoreFilter() 會回 {}（無篩選），不擋；非 ADMIN 才比對
+  if (user.role !== "ADMIN") {
+    if (allowedStoreId && (source.storeId !== allowedStoreId || target.storeId !== allowedStoreId)) {
+      throw new AppError("FORBIDDEN", "無權存取其他店舖的顧客");
+    }
+  }
+
+  const toRow = (c: (typeof customers)[number]): CustomerMergePreviewRow => ({
+    id: c.id,
+    name: c.name,
+    phone: c.phone,
+    email: c.email,
+    lineName: c.lineName,
+    lineLinkStatus: c.lineLinkStatus,
+    storeId: c.storeId,
+    storeName: c.store.name,
+    customerStage: c.customerStage,
+    totalPoints: c.totalPoints,
+    hasUserId: c.userId != null,
+    mergedIntoCustomerId: c.mergedIntoCustomerId,
+    bookingCount: c._count.bookings,
+    walletCount: c._count.planWallets,
+    transactionCount: c._count.transactions,
+    createdAt: c.createdAt,
+  });
+
+  return { source: toRow(source), target: toRow(target) };
 }
