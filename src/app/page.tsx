@@ -86,6 +86,7 @@ export default async function HomePage({ searchParams }: PageProps) {
         <div className="mt-8 text-center">
           <Link
             href={storeSlug && storeSlug !== "__hq__" ? `/hq/login?store=${storeSlug}` : "/hq/login"}
+            prefetch={false}
             className="text-xs text-gray-400 hover:text-gray-500"
           >
             後台登入
