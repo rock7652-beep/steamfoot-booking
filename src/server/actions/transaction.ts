@@ -8,7 +8,9 @@ import { checkCurrentStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
 import { revalidateTransactions } from "@/lib/revalidation";
 import type { ActionResult } from "@/types";
-import type { PaymentMethod, TransactionType } from "@prisma/client";
+import { Prisma } from "@prisma/client";
+import type { PaymentMethod, TransactionType, TransactionAuditAction } from "@prisma/client";
+import { getTransactionDetail } from "@/server/queries/transaction";
 import { assertStoreAccess } from "@/lib/manager-visibility";
 import { currentStoreId } from "@/lib/store";
 import { buildTransactionSnapshot, buildRefundSnapshot } from "@/lib/transaction-snapshot";
@@ -449,3 +451,518 @@ export async function voidPendingTransaction(
     return handleActionError(e);
   }
 }
+
+// ============================================================
+// === v1 取消交易模組（safe corrections + VOID） ===
+// ============================================================
+//
+// 設計原則：
+//   1. 交易不可硬刪除；金額/顧客/方案不可改
+//   2. 可改：備註（permission "transaction.create"）
+//          / 付款方式 / 歸屬店長 / 取消交易（permission "transaction.void"）
+//   3. 所有異動寫 TransactionAuditLog
+//   4. VOIDED 後不可再編輯
+//   5. voidTransaction 必須 prisma.$transaction 包裹（一致性）
+//   6. PACKAGE_PURCHASE 取消時：
+//        全 AVAILABLE → 連動 wallet=CANCELLED, walletSession=VOIDED
+//        有 RESERVED → 拒絕
+//        有 COMPLETED → 拒絕
+//   7. CAS pattern：updateMany where status=SUCCESS，count=0 拋 CONFLICT 防併發
+// ============================================================
+
+const updateNoteSchema = z.object({
+  transactionId: z.string().min(1),
+  note: z.string().max(500),
+});
+
+const updatePaymentMethodSchema = z.object({
+  transactionId: z.string().min(1),
+  paymentMethod: z.enum(["CASH", "TRANSFER", "LINE_PAY", "CREDIT_CARD", "OTHER", "UNPAID"]),
+  reason: z.string().min(1, "請填寫修改原因").max(200),
+});
+
+const updateOwnerStaffSchema = z.object({
+  transactionId: z.string().min(1),
+  staffId: z.string().min(1),
+  reason: z.string().min(1, "請填寫修改原因").max(200),
+});
+
+const voidTransactionSchema = z.object({
+  transactionId: z.string().min(1),
+  reason: z.string().min(1, "請填寫取消原因").max(500),
+});
+
+/**
+ * 取「可序列化」交易快照供 audit log JSON 欄位使用
+ * 只取會變動的欄位 + 必要識別資訊；Decimal/Date 轉成 primitive
+ */
+function pickAuditFields(
+  source: {
+    status?: string | null;
+    paymentMethod?: string | null;
+    paymentStatus?: string | null;
+    revenueStaffId?: string | null;
+    note?: string | null;
+    voidedAt?: Date | null;
+    voidedByUserId?: string | null;
+    voidReason?: string | null;
+  },
+  keys: ReadonlyArray<keyof typeof source>,
+) {
+  const out: Record<string, unknown> = {};
+  for (const k of keys) {
+    const v = source[k];
+    out[k as string] = v instanceof Date ? v.toISOString() : v ?? null;
+  }
+  return out;
+}
+
+async function writeTransactionAuditLog(
+  tx: Prisma.TransactionClient,
+  params: {
+    storeId: string;
+    transactionId: string;
+    actorUserId: string;
+    action: TransactionAuditAction;
+    before?: Record<string, unknown> | null;
+    after?: Record<string, unknown> | null;
+    reason?: string | null;
+  },
+) {
+  await tx.transactionAuditLog.create({
+    data: {
+      storeId: params.storeId,
+      transactionId: params.transactionId,
+      actorUserId: params.actorUserId,
+      action: params.action,
+      beforeJson: params.before ? (params.before as Prisma.InputJsonValue) : Prisma.DbNull,
+      afterJson: params.after ? (params.after as Prisma.InputJsonValue) : Prisma.DbNull,
+      reason: params.reason ?? null,
+    },
+  });
+}
+
+/**
+ * updateTransactionNote — 修改備註
+ * Permission: transaction.create（編輯權限即可）
+ * VOIDED 不可改
+ */
+export async function updateTransactionNote(
+  input: z.infer<typeof updateNoteSchema>,
+): Promise<ActionResult<{ transactionId: string }>> {
+  try {
+    const user = await requirePermission("transaction.create");
+    const data = updateNoteSchema.parse(input);
+
+    const original = await prisma.transaction.findUnique({
+      where: { id: data.transactionId },
+      select: { id: true, storeId: true, customerId: true, status: true, note: true },
+    });
+    if (!original) throw new AppError("NOT_FOUND", "交易紀錄不存在");
+    assertStoreAccess(user, original.storeId);
+    if (original.status === "VOIDED") {
+      throw new AppError("BUSINESS_RULE", "已作廢的交易不可再編輯");
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.transaction.update({
+        where: { id: data.transactionId },
+        data: { note: data.note },
+      });
+      await writeTransactionAuditLog(tx, {
+        storeId: original.storeId,
+        transactionId: original.id,
+        actorUserId: user.id,
+        action: "UPDATE_NOTE",
+        before: { note: original.note },
+        after: { note: data.note },
+      });
+    });
+
+    revalidateTransactions(original.customerId);
+    return { success: true, data: { transactionId: original.id } };
+  } catch (e) {
+    return handleActionError(e);
+  }
+}
+
+/**
+ * updateTransactionPaymentMethod — 更正付款方式
+ * Permission: transaction.void
+ * Reason 必填；VOIDED 不可改
+ */
+export async function updateTransactionPaymentMethod(
+  input: z.infer<typeof updatePaymentMethodSchema>,
+): Promise<ActionResult<{ transactionId: string }>> {
+  try {
+    const user = await requirePermission("transaction.void");
+    const data = updatePaymentMethodSchema.parse(input);
+
+    const original = await prisma.transaction.findUnique({
+      where: { id: data.transactionId },
+      select: {
+        id: true,
+        storeId: true,
+        customerId: true,
+        status: true,
+        paymentMethod: true,
+      },
+    });
+    if (!original) throw new AppError("NOT_FOUND", "交易紀錄不存在");
+    assertStoreAccess(user, original.storeId);
+    if (original.status === "VOIDED") {
+      throw new AppError("BUSINESS_RULE", "已作廢的交易不可再編輯");
+    }
+    if (original.paymentMethod === data.paymentMethod) {
+      throw new AppError("VALIDATION", "付款方式未變更");
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.transaction.update({
+        where: { id: data.transactionId },
+        data: { paymentMethod: data.paymentMethod as PaymentMethod },
+      });
+      await writeTransactionAuditLog(tx, {
+        storeId: original.storeId,
+        transactionId: original.id,
+        actorUserId: user.id,
+        action: "UPDATE_PAYMENT_METHOD",
+        before: { paymentMethod: original.paymentMethod },
+        after: { paymentMethod: data.paymentMethod },
+        reason: data.reason,
+      });
+    });
+
+    revalidateTransactions(original.customerId);
+    return { success: true, data: { transactionId: original.id } };
+  } catch (e) {
+    return handleActionError(e);
+  }
+}
+
+/**
+ * updateTransactionOwnerStaff — 更正歸屬店長（revenueStaffId）
+ * Permission: transaction.void
+ * Reason 必填；目標 staff 必須同店；VOIDED 不可改
+ */
+export async function updateTransactionOwnerStaff(
+  input: z.infer<typeof updateOwnerStaffSchema>,
+): Promise<ActionResult<{ transactionId: string }>> {
+  try {
+    const user = await requirePermission("transaction.void");
+    const data = updateOwnerStaffSchema.parse(input);
+
+    const original = await prisma.transaction.findUnique({
+      where: { id: data.transactionId },
+      select: {
+        id: true,
+        storeId: true,
+        customerId: true,
+        status: true,
+        revenueStaffId: true,
+      },
+    });
+    if (!original) throw new AppError("NOT_FOUND", "交易紀錄不存在");
+    assertStoreAccess(user, original.storeId);
+    if (original.status === "VOIDED") {
+      throw new AppError("BUSINESS_RULE", "已作廢的交易不可再編輯");
+    }
+    if (original.revenueStaffId === data.staffId) {
+      throw new AppError("VALIDATION", "歸屬店長未變更");
+    }
+
+    const staff = await prisma.staff.findUnique({
+      where: { id: data.staffId },
+      select: { id: true, storeId: true, displayName: true },
+    });
+    if (!staff) throw new AppError("NOT_FOUND", "目標店長不存在");
+    if (staff.storeId !== original.storeId) {
+      throw new AppError("BUSINESS_RULE", "店長不屬於此交易所在店舖");
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.transaction.update({
+        where: { id: data.transactionId },
+        data: {
+          revenueStaffId: data.staffId,
+          coachNameSnapshot: staff.displayName,
+        },
+      });
+      await writeTransactionAuditLog(tx, {
+        storeId: original.storeId,
+        transactionId: original.id,
+        actorUserId: user.id,
+        action: "UPDATE_OWNER_STAFF",
+        before: { revenueStaffId: original.revenueStaffId },
+        after: { revenueStaffId: data.staffId },
+        reason: data.reason,
+      });
+    });
+
+    revalidateTransactions(original.customerId);
+    return { success: true, data: { transactionId: original.id } };
+  } catch (e) {
+    return handleActionError(e);
+  }
+}
+
+/**
+ * voidTransaction — v1 取消交易
+ *
+ * Permission: transaction.void
+ *
+ * 行為：
+ *   - SINGLE_PURCHASE / TRIAL_PURCHASE：直接 VOID
+ *   - PACKAGE_PURCHASE：
+ *       * 全 AVAILABLE → wallet=CANCELLED, walletSessions=VOIDED, transaction=VOIDED
+ *       * 有 RESERVED → 拒絕（請先取消預約）
+ *       * 有 COMPLETED → 拒絕（需走退款流程）
+ *   - 其他 type：v1 範圍外，拒絕
+ *
+ * 並發保護：updateMany WHERE status=SUCCESS，count===1 才繼續，避免同時兩人 void
+ *
+ * 一致性：整段在 prisma.$transaction 裡
+ */
+export async function voidTransaction(
+  input: z.infer<typeof voidTransactionSchema>,
+): Promise<ActionResult<{ transactionId: string }>> {
+  try {
+    const user = await requirePermission("transaction.void");
+    const data = voidTransactionSchema.parse(input);
+
+    const original = await prisma.transaction.findUnique({
+      where: { id: data.transactionId },
+      select: {
+        id: true,
+        storeId: true,
+        customerId: true,
+        status: true,
+        transactionType: true,
+        customerPlanWalletId: true,
+        amount: true,
+        note: true,
+      },
+    });
+    if (!original) throw new AppError("NOT_FOUND", "交易紀錄不存在");
+    assertStoreAccess(user, original.storeId);
+
+    if (original.status !== "SUCCESS") {
+      throw new AppError("BUSINESS_RULE", `交易狀態為 ${original.status}，無法取消`);
+    }
+
+    // v1 範圍外的交易型別
+    const ALLOWED_TYPES: TransactionType[] = [
+      "TRIAL_PURCHASE",
+      "SINGLE_PURCHASE",
+      "PACKAGE_PURCHASE",
+    ];
+    if (!ALLOWED_TYPES.includes(original.transactionType)) {
+      throw new AppError(
+        "BUSINESS_RULE",
+        `${original.transactionType} 不支援取消交易（v1 範圍：購買類交易）`,
+      );
+    }
+
+    const now = new Date();
+
+    await prisma.$transaction(async (tx) => {
+      // ── PACKAGE_PURCHASE：先檢查 walletSession 狀態 ──
+      if (original.transactionType === "PACKAGE_PURCHASE") {
+        if (!original.customerPlanWalletId) {
+          throw new AppError("BUSINESS_RULE", "套餐購買缺少錢包關聯，無法取消");
+        }
+        const sessions = await tx.walletSession.findMany({
+          where: { walletId: original.customerPlanWalletId },
+          select: { id: true, status: true },
+        });
+        const completedCount = sessions.filter((s) => s.status === "COMPLETED").length;
+        const reservedCount = sessions.filter((s) => s.status === "RESERVED").length;
+
+        if (completedCount > 0) {
+          throw new AppError(
+            "BUSINESS_RULE",
+            "此方案已有完成堂數，不能直接取消交易。如需退款，請使用退款流程。",
+          );
+        }
+        if (reservedCount > 0) {
+          throw new AppError(
+            "BUSINESS_RULE",
+            "此方案已有預約佔用堂數，請先取消相關預約後，再取消交易。",
+          );
+        }
+
+        // 全部 AVAILABLE → 連動作廢
+        await tx.walletSession.updateMany({
+          where: {
+            walletId: original.customerPlanWalletId,
+            status: "AVAILABLE",
+          },
+          data: {
+            status: "VOIDED",
+            voidedAt: now,
+            voidReason: `交易取消：${data.reason}`,
+          },
+        });
+        await tx.customerPlanWallet.update({
+          where: { id: original.customerPlanWalletId },
+          data: {
+            status: "CANCELLED",
+            remainingSessions: 0,
+          },
+        });
+      }
+
+      // ── CAS：交易標記 VOIDED ──
+      const result = await tx.transaction.updateMany({
+        where: { id: original.id, status: "SUCCESS" },
+        data: {
+          status: "VOIDED",
+          voidedAt: now,
+          voidedByUserId: user.id,
+          voidReason: data.reason,
+        },
+      });
+      if (result.count === 0) {
+        throw new AppError("CONFLICT", "此交易狀態已變更，無法取消");
+      }
+
+      await writeTransactionAuditLog(tx, {
+        storeId: original.storeId,
+        transactionId: original.id,
+        actorUserId: user.id,
+        action: "VOID",
+        before: pickAuditFields(
+          { status: original.status, voidedAt: null, voidedByUserId: null, voidReason: null },
+          ["status", "voidedAt", "voidedByUserId", "voidReason"],
+        ),
+        after: pickAuditFields(
+          { status: "VOIDED", voidedAt: now, voidedByUserId: user.id, voidReason: data.reason },
+          ["status", "voidedAt", "voidedByUserId", "voidReason"],
+        ),
+        reason: data.reason,
+      });
+    });
+
+    revalidateTransactions(original.customerId);
+    return { success: true, data: { transactionId: original.id } };
+  } catch (e) {
+    return handleActionError(e);
+  }
+}
+
+// ============================================================
+// fetchTransactionDetailDTO — server action wrapper for client Drawer
+// 將 Prisma 物件轉成 plain DTO（Decimal/Date → primitive）方便 client 使用
+// ============================================================
+
+export async function fetchTransactionDetailDTO(
+  transactionId: string,
+): Promise<ActionResult<TransactionDetailDTO>> {
+  try {
+    const tx = await getTransactionDetail(transactionId);
+
+    const sessions = tx.customerPlanWallet?.sessions ?? [];
+    const breakdown = {
+      available: sessions.filter((s) => s.status === "AVAILABLE").length,
+      reserved: sessions.filter((s) => s.status === "RESERVED").length,
+      completed: sessions.filter((s) => s.status === "COMPLETED").length,
+      voided: sessions.filter((s) => s.status === "VOIDED").length,
+    };
+
+    const data: TransactionDetailDTO = {
+      id: tx.id,
+      customerId: tx.customerId,
+      customerName: tx.customer.name,
+      storeId: tx.storeId,
+      status: tx.status,
+      transactionType: tx.transactionType,
+      paymentMethod: tx.paymentMethod,
+      paymentStatus: tx.paymentStatus,
+      amount: Number(tx.amount),
+      originalAmount: tx.originalAmount ? Number(tx.originalAmount) : null,
+      note: tx.note,
+      revenueStaffId: tx.revenueStaffId,
+      revenueStaffName: tx.revenueStaff.displayName,
+      serviceStaffName: tx.serviceStaff?.displayName ?? null,
+      createdAt: tx.createdAt.toISOString(),
+      voidedAt: tx.voidedAt?.toISOString() ?? null,
+      voidedByName: tx.voidedBy?.name ?? null,
+      voidReason: tx.voidReason,
+      customerPlanWallet: tx.customerPlanWallet
+        ? {
+            id: tx.customerPlanWallet.id,
+            planName: tx.customerPlanWallet.plan.name,
+            totalSessions: tx.customerPlanWallet.totalSessions,
+            remainingSessions: tx.customerPlanWallet.remainingSessions,
+            walletStatus: tx.customerPlanWallet.status,
+            sessionsBreakdown: breakdown,
+          }
+        : null,
+      booking: tx.booking
+        ? {
+            id: tx.booking.id,
+            bookingDate: tx.booking.bookingDate.toISOString(),
+            slotTime: tx.booking.slotTime,
+            bookingStatus: tx.booking.bookingStatus,
+          }
+        : null,
+      auditLogs: tx.auditLogs.map((log) => ({
+        id: log.id,
+        action: log.action,
+        actorName: log.actor.name,
+        reason: log.reason,
+        beforeJson: log.beforeJson as unknown,
+        afterJson: log.afterJson as unknown,
+        createdAt: log.createdAt.toISOString(),
+      })),
+    };
+
+    return { success: true, data };
+  } catch (e) {
+    return handleActionError(e);
+  }
+}
+
+export type TransactionDetailDTO = {
+  id: string;
+  customerId: string;
+  customerName: string;
+  storeId: string;
+  status: string;
+  transactionType: string;
+  paymentMethod: string;
+  paymentStatus: string;
+  amount: number;
+  originalAmount: number | null;
+  note: string | null;
+  revenueStaffId: string;
+  revenueStaffName: string;
+  serviceStaffName: string | null;
+  createdAt: string;
+  voidedAt: string | null;
+  voidedByName: string | null;
+  voidReason: string | null;
+  customerPlanWallet: {
+    id: string;
+    planName: string;
+    totalSessions: number;
+    remainingSessions: number;
+    walletStatus: string;
+    sessionsBreakdown: { available: number; reserved: number; completed: number; voided: number };
+  } | null;
+  booking: {
+    id: string;
+    bookingDate: string;
+    slotTime: string;
+    bookingStatus: string;
+  } | null;
+  auditLogs: Array<{
+    id: string;
+    action: string;
+    actorName: string;
+    reason: string | null;
+    beforeJson: unknown;
+    afterJson: unknown;
+    createdAt: string;
+  }>;
+};

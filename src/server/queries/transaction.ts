@@ -105,7 +105,10 @@ export async function getTransactionDetail(transactionId: string) {
       revenueStaff: { select: { id: true, displayName: true } },
       serviceStaff: { select: { id: true, displayName: true } },
       customerPlanWallet: {
-        include: { plan: true },
+        include: {
+          plan: true,
+          sessions: { select: { id: true, status: true } },
+        },
       },
       booking: {
         select: {
@@ -114,6 +117,11 @@ export async function getTransactionDetail(transactionId: string) {
           slotTime: true,
           bookingStatus: true,
         },
+      },
+      voidedBy: { select: { id: true, name: true } },
+      auditLogs: {
+        orderBy: { createdAt: "asc" },
+        include: { actor: { select: { id: true, name: true } } },
       },
     },
   });
