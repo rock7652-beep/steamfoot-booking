@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { fetchDaySlots } from "@/server/actions/slots";
 import { isSlotPastToday } from "@/lib/booking-constants";
 import { formatWeekdayZh } from "@/lib/date-utils";
@@ -20,6 +20,12 @@ interface Props {
  * - 縮短營業時間 → 只顯示範圍內時段
  * - SlotOverride disabled → 該時段消失
  * - SlotOverride enabled → 強制顯示
+ *
+ * Client cache：dateStr → SlotAvailability[]
+ * 切回看過的日期同步秒開、不打 server。Race guard 確保快速切日期時最後選擇
+ * 的日期才會顯示。Form 被 submit 後 page.tsx 走 redirect，本元件 unmount，
+ * cache 自然失效；不需要手動 clear（也沒辦法 — submit 是 server action，client
+ * 拿不到成功訊號）。
  */
 export function DashboardBookingForm({
   days,
@@ -32,21 +38,33 @@ export function DashboardBookingForm({
   const [slots, setSlots] = useState<SlotAvailability[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+  const slotCacheRef = useRef<Map<string, SlotAvailability[]>>(new Map());
+  const requestIdRef = useRef(0);
 
   // 過去日期整天不可預約
   const isPastDate = selectedDate < todayStr;
 
-  // 載入時段
+  // 載入時段（cache hit 秒開、cache miss 走 server + race guard）
   const loadSlots = useCallback(async (date: string) => {
-    setLoading(true);
     setSelectedSlot(null);
+    const cached = slotCacheRef.current.get(date);
+    if (cached) {
+      setSlots(cached);
+      setLoading(false);
+      return;
+    }
+    const requestId = ++requestIdRef.current;
+    setLoading(true);
     try {
       const result = await fetchDaySlots(date);
+      // 慢回來的舊請求 — 使用者已經切到別的日期，丟掉結果
+      if (requestId !== requestIdRef.current) return;
+      slotCacheRef.current.set(date, result.slots);
       setSlots(result.slots);
     } catch {
-      setSlots([]);
+      if (requestId === requestIdRef.current) setSlots([]);
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) setLoading(false);
     }
   }, []);
 
@@ -105,12 +123,19 @@ export function DashboardBookingForm({
         </label>
 
         {loading ? (
-          <div className="mt-1.5 flex items-center gap-2 py-4 text-sm text-earth-400">
-            <svg className="h-4 w-4 animate-spin text-primary-500" viewBox="0 0 24 24" fill="none">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-            </svg>
-            載入時段中...
+          // Slot skeleton：8 個 placeholder tile（同 grid-cols-4 兩列），保持版面高度
+          // 不跳動，比 spinner 視覺上更明確且不打斷店長視線。
+          <div
+            className="mt-1.5 grid grid-cols-4 gap-2"
+            role="status"
+            aria-label="載入時段中…"
+          >
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div
+                key={i}
+                className="flex h-[58px] animate-pulse flex-col items-center justify-center rounded-lg border border-earth-200 bg-earth-50"
+              />
+            ))}
           </div>
         ) : slots.length === 0 ? (
           <p className="mt-1.5 py-4 text-center text-sm text-earth-400">
