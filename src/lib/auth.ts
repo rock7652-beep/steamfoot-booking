@@ -7,6 +7,7 @@ import type { Provider } from "next-auth/providers";
 import type { UserRole } from "@prisma/client";
 import { DEFAULT_STORE_ID } from "@/lib/store";
 import { normalizePhone } from "@/lib/normalize";
+import { repairCustomerIdentityOnLogin } from "@/lib/identity-repair";
 
 // ============================================================
 // NextAuth v5 type augmentation
@@ -155,6 +156,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           if (!customer?.user || !customer.user.passwordHash) return null;
           if (customer.user.status !== "ACTIVE") return null;
           if (!compareSync(password, customer.user.passwordHash)) return null;
+
+          // Defensive identity repair: if any other Customer in the same store
+          // matches by phone/email but lost its userId binding, rebind it.
+          // 99% of the time this is a no-op (the Customer we just authenticated
+          // against is already correctly bound). Best-effort — never blocks login.
+          await repairCustomerIdentityOnLogin({
+            userId: customer.user.id,
+            storeId: customer.storeId,
+            phone,
+            email: customer.user.email ?? null,
+          });
 
           return {
             id: customer.user.id,
@@ -429,6 +441,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             }
           }
 
+          await repairCustomerIdentityOnLogin({
+            userId: customer.userId,
+            storeId: customer.storeId,
+            phone: customer.phone ?? null,
+            lineUserId,
+            googleId,
+            email: oauthEmail ?? null,
+          });
+
           user.id = customer.userId;
           return true;
         }
@@ -492,6 +513,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               // 發點失敗不阻擋登入
             }
           }
+
+          await repairCustomerIdentityOnLogin({
+            userId: newUser.id,
+            storeId: customer.storeId,
+            phone: customer.phone ?? null,
+            lineUserId,
+            googleId,
+            email: oauthEmail ?? null,
+          });
 
           user.id = newUser.id;
           return true;
@@ -593,6 +623,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             scope: account.scope,
             id_token: account.id_token as string | undefined,
           },
+        });
+
+        await repairCustomerIdentityOnLogin({
+          userId: newUser.id,
+          storeId: targetStoreId,
+          lineUserId,
+          googleId,
+          email: oauthEmail ?? null,
         });
 
         user.id = newUser.id;
