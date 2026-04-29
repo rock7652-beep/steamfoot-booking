@@ -22,8 +22,9 @@ export async function customerLoginAction(
 ): Promise<CustomerLoginState> {
   const phone = (formData.get("phone") as string)?.trim();
   const password = formData.get("password") as string;
-  const storeId = (formData.get("storeId") as string) || undefined;
+  const submittedStoreId = (formData.get("storeId") as string) || undefined;
   const storeSlug = (formData.get("storeSlug") as string) || "zhubei";
+  const storeId = await resolveStoreIdForCustomerAuth(submittedStoreId, storeSlug);
 
   if (!phone || !password) {
     return { error: "請輸入手機號碼和密碼" };
@@ -72,8 +73,13 @@ export async function customerRegisterAction(
   const referrerId = formReferrerId || cookieRef;
 
   // B7-4: 從表單讀取 store context
-  const storeId = (formData.get("storeId") as string) || (await getStoreIdFromCookie());
   const storeSlug = (formData.get("storeSlug") as string) || "zhubei";
+  const submittedStoreId = (formData.get("storeId") as string) || undefined;
+  const storeId = await resolveStoreIdForCustomerAuth(submittedStoreId, storeSlug);
+
+  if (!storeId) {
+    return { error: "找不到店舖資料，請重新整理後再試" };
+  }
 
   // 必填驗證（除 notes 外皆必填）
   if (!name) return { error: "請輸入姓名" };
@@ -209,4 +215,47 @@ async function getStoreIdFromCookie(): Promise<string> {
   } catch {
     return "default-store";
   }
+}
+
+async function resolveStoreIdForCustomerAuth(
+  submittedStoreId: string | undefined,
+  storeSlug: string
+): Promise<string | undefined> {
+  // Hidden input 在未帶值時可能傳空字串；防呆也排除字串 "undefined"。
+  if (submittedStoreId && submittedStoreId !== "undefined") {
+    return submittedStoreId;
+  }
+
+  // 顧客頁本身已知道 /s/[slug]，登入時應該用這個 slug 解析同店顧客，
+  // 不要落到 customer-phone provider 的全域 User.phone fallback。
+  try {
+    const { resolveStoreBySlug } = await import("@/lib/store-resolver");
+    const store = await resolveStoreBySlug(storeSlug);
+    if (store?.id) return store.id;
+  } catch {
+    // fallback below
+  }
+
+  const cookieStoreId = await getStoreIdFromCookie();
+  return cookieStoreId === "default-store" ? undefined : cookieStoreId;
+}
+
+async function getStoreSlugFromCookie(): Promise<string> {
+  try {
+    const { cookies } = await import("next/headers");
+    const cookieStore = await cookies();
+    return cookieStore.get("store-slug")?.value ?? "zhubei";
+  } catch {
+    return "zhubei";
+  }
+}
+
+function maskEmail(email: string): string {
+  const [local, domain] = email.split("@");
+  if (!domain) return "***";
+  const maskedLocal =
+    local.length <= 2
+      ? local[0] + "***"
+      : local[0] + "***" + local[local.length - 1];
+  return `${maskedLocal}@${domain}`;
 }
