@@ -54,16 +54,20 @@ export default async function MyBookingsPage({ searchParams }: PageProps) {
     storeSlug: storeCtx?.storeSlug ?? null,
   });
   const customerId = resolved.customer?.id ?? null;
-  if (!customerId) redirect("/");
+  // 若 resolver miss（stale JWT / 後台未綁 / email conflict 等）— 不再 redirect("/")
+  // 把人無聲踢回首頁。對齊 /my-plans、/book/new 的 graceful empty state，
+  // 並讓 tab=plans 仍可顯示公開方案（購買流程不依賴既有 customer 記錄）。
 
-  // 並行取預約 + 健康卡片 + 方案錢包（供頂部方案摘要顯示）
+  // 並行取預約 + 健康卡片 + 方案錢包（customerId 為 null 時皆回空集合）
   const [{ bookings }, healthCard, planSummary] = await Promise.all([
     listBookings({ pageSize: 50 }),
     getHealthCardData(customerId),
-    prisma.customerPlanWallet.findMany({
-      where: { customerId, status: "ACTIVE" },
-      select: { remainingSessions: true },
-    }),
+    customerId
+      ? prisma.customerPlanWallet.findMany({
+          where: { customerId, status: "ACTIVE" },
+          select: { remainingSessions: true },
+        })
+      : Promise.resolve([] as { remainingSessions: number }[]),
   ]);
 
   const totalRemaining = planSummary.reduce((s, w) => s + w.remainingSessions, 0);
@@ -156,10 +160,17 @@ export default async function MyBookingsPage({ searchParams }: PageProps) {
         </div>
       </Link>
 
-      {/* Health Assessment Card */}
-      {healthCard.available && (
+      {/* Health Assessment Card — 需 customerId */}
+      {customerId && healthCard.available && (
         <div className="mb-5">
           <HealthAssessmentCard score={healthCard.score} customerId={customerId} />
+        </div>
+      )}
+
+      {/* 提示：resolver miss（顧客資料尚未建立 / 與 session 未綁）— 不擋畫面，只提示 */}
+      {!customerId && (
+        <div className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          會員資料尚未建立或同步中，可先瀏覽方案；如有疑問請聯絡店長協助綁定。
         </div>
       )}
 
