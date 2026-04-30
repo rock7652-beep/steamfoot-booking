@@ -538,17 +538,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         // callbackUrl 預設 "/"（首頁），不從 NextAuth cookie 讀取，先求穩。
         // ─────────────────────────────────────────────────────────────────
         if (provider === "line" && lineUserId) {
-          const { setOAuthTempSession } = await import(
-            "@/lib/oauth-temp-session"
-          );
-          await setOAuthTempSession({
+          // 不在 auth.ts 直接 setOAuthTempSession（會把 next/headers 透過
+          // middleware/client bundle chain 打進不該去的地方 → build error）。
+          // 改 sign HMAC token 後 redirect 到 /api/oauth-line-stage，由那支
+          // Route Handler 寫 cookie + 再 redirect /oauth-confirm。
+          const { signStageToken } = await import("@/lib/oauth-stage-token");
+          const token = await signStageToken({
             lineUserId,
             displayName: oauthName,
             storeId: targetStoreId,
           });
           // Return URL string → NextAuth 把 user redirect 到此 URL 但不寫 JWT。
           // 與上方 StaffEmailBlocked 同樣模式（拒絕 signin 但 redirect 到指定頁）。
-          return "/oauth-confirm";
+          return `/api/oauth-line-stage?t=${encodeURIComponent(token)}`;
         }
 
         // No existing Customer - create new Customer + User

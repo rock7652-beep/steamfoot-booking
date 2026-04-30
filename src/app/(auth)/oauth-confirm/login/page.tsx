@@ -1,4 +1,4 @@
-import { getOAuthTempSession } from "@/lib/oauth-temp-session";
+import { getOAuthTempSession } from "@/lib/server/oauth-temp-session";
 import { OAuthConfirmLoginForm } from "./_components/login-form";
 
 /**

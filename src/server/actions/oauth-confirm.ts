@@ -8,7 +8,7 @@ import { normalizePhone } from "@/lib/normalize";
 import {
   getOAuthTempSession,
   clearOAuthTempSession,
-} from "@/lib/oauth-temp-session";
+} from "@/lib/server/oauth-temp-session";
 
 /**
  * resolveLineLogin — PR-2 step 3b

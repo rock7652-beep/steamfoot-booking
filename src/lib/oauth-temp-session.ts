@@ -1,25 +1,21 @@
 /**
- * OAuth Temp Session — 短期 cookie 在 LINE OAuth callback → /oauth-confirm
- * → finalize 之間傳遞身份。
+ * OAuth Temp Session — 純 type / const / 純函式，**不可 import next/headers**。
  *
- * 為什麼不用 NextAuth session？
- *   LINE OAuth callback 找不到既有 Customer 時，我們**不**完成 NextAuth signIn
- *   （否則就靜默建分裂帳號）。需要一個獨立的短期 cookie 把 lineUserId 帶到
- *   /oauth-confirm，等使用者輸入手機後再決定怎麼處理。
+ * 為什麼拆檔？
+ *   原本這個檔同時包含 `cookies()` 操作 + 型別宣告。auth.ts 動態 import 此檔，
+ *   而 auth.ts 又被 NextAuth middleware / proxy / client chain 間接 import →
+ *   bundler 把 `next/headers` 打進不該去的 bundle，觸發 build error。
  *
- * 安全（4 道閘）：
- *   1. TTL 5 分鐘（資料層 + cookie maxAge 兩層）
- *   2. nonce — 每次建立 randomUUID；finalize 用完強制 clear，禁止 reuse
- *   3. storeId 綁定 — 跨 store 不可用
- *   4. LINE-already-bound check（在 resolveLineLogin 第一步處理，本檔不重複）
+ *   分成兩個檔：
+ *     - 本檔：純型別 / 常數 / 不依賴 cookies 的 helper（client / middleware 可 import）
+ *     - src/lib/server/oauth-temp-session.ts：cookies() 操作（僅 server side）
  *
  * 設計文件：docs/identity-flow.md §5
  */
-import { cookies } from "next/headers";
 
-const COOKIE_NAME = "oauth_line_session";
-const TTL_SECONDS = 5 * 60;
-const TTL_MS = TTL_SECONDS * 1000;
+export const OAUTH_TEMP_COOKIE_NAME = "oauth_line_session";
+export const OAUTH_TEMP_TTL_SECONDS = 5 * 60;
+export const OAUTH_TEMP_TTL_MS = OAUTH_TEMP_TTL_SECONDS * 1000;
 
 export type OAuthTempSession = {
   lineUserId: string;
@@ -32,60 +28,19 @@ export type OAuthTempSession = {
 export type OAuthTempSessionInput = Omit<OAuthTempSession, "nonce" | "createdAt">;
 
 /**
- * 寫入 temp session cookie。
- *
- * 注意：Next.js Server Component 不可直接 cookies().set()；必須在 Server Action /
- * Route Handler / Middleware 中呼叫。auth.ts 的 NextAuth callback 透過 redirect()
- * 觸發，等同 Route Handler 範圍，可以呼叫此函式。
+ * 形狀驗證 — 從 cookie 解析回來的 unknown 是否為合法 OAuthTempSession。
+ * 純函式，不依賴 cookies()，可在任何環境執行。
  */
-export async function setOAuthTempSession(input: OAuthTempSessionInput): Promise<void> {
-  const session: OAuthTempSession = {
-    ...input,
-    nonce: crypto.randomUUID(),
-    createdAt: Date.now(),
-  };
-  const cookieStore = await cookies();
-  cookieStore.set(COOKIE_NAME, JSON.stringify(session), {
-    httpOnly: true,
-    secure: true,
-    sameSite: "lax",
-    path: "/",
-    maxAge: TTL_SECONDS,
-  });
-}
-
-/**
- * 讀取 temp session（含 TTL 檢查）。
- *
- * 任何驗證失敗（缺 cookie / JSON 壞 / 過期 / 缺欄位）皆回 null，呼叫方自行決定要 throw 或 redirect。
- * 不在這裡 throw 是為了讓呼叫方能自訂錯誤訊息（過期 vs 從未開始）。
- */
-export async function getOAuthTempSession(): Promise<OAuthTempSession | null> {
-  const cookieStore = await cookies();
-  const raw = cookieStore.get(COOKIE_NAME)?.value;
-  if (!raw) return null;
-
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    return null;
-  }
-
-  if (!isOAuthTempSessionShape(parsed)) return null;
-
-  // TTL 檢查（雙保險，cookie maxAge 已設過但別信使用者端時鐘）
-  if (Date.now() - parsed.createdAt > TTL_MS) return null;
-
-  return parsed;
-}
-
-/**
- * 清除 temp session — finalize / 任何成功路徑用完必呼叫，防 nonce reuse。
- */
-export async function clearOAuthTempSession(): Promise<void> {
-  const cookieStore = await cookies();
-  cookieStore.delete(COOKIE_NAME);
+export function isOAuthTempSessionShape(v: unknown): v is OAuthTempSession {
+  if (typeof v !== "object" || v === null) return false;
+  const o = v as Record<string, unknown>;
+  return (
+    typeof o.lineUserId === "string" &&
+    typeof o.displayName === "string" &&
+    typeof o.storeId === "string" &&
+    typeof o.nonce === "string" &&
+    typeof o.createdAt === "number"
+  );
 }
 
 /**
@@ -101,16 +56,4 @@ export function assertOAuthTempSessionStore(
       `oauth_temp_session store mismatch: session=${session.storeId}, expected=${expectedStoreId}`,
     );
   }
-}
-
-function isOAuthTempSessionShape(v: unknown): v is OAuthTempSession {
-  if (typeof v !== "object" || v === null) return false;
-  const o = v as Record<string, unknown>;
-  return (
-    typeof o.lineUserId === "string" &&
-    typeof o.displayName === "string" &&
-    typeof o.storeId === "string" &&
-    typeof o.nonce === "string" &&
-    typeof o.createdAt === "number"
-  );
 }
