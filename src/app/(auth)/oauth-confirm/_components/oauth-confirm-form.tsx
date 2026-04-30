@@ -76,8 +76,8 @@ export function OAuthConfirmForm({ callbackUrl }: Props) {
         case "NEED_LOGIN": {
           // 已啟用顧客 → 強制密碼登入；登入後 finalize 才寫 lineUserId
           setTransitioning("此手機已有會員資料，正在帶你完成 LINE 綁定…");
-          const finalizePath = `/oauth-confirm/finalize?customerId=${encodeURIComponent(result.customerId)}&callbackUrl=${encodeURIComponent(callbackUrl)}`;
-          const loginUrl = `/login?phone=${encodeURIComponent(result.phone)}&callbackUrl=${encodeURIComponent(finalizePath)}`;
+          // 用 /oauth-confirm/login（自有頁面）而非 /login（後台 email 登入）
+          const loginUrl = `/oauth-confirm/login?phone=${encodeURIComponent(result.phone)}&customerId=${encodeURIComponent(result.customerId)}&callbackUrl=${encodeURIComponent(callbackUrl)}`;
           window.location.href = loginUrl;
           break;
         }

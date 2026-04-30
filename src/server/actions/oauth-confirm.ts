@@ -2,6 +2,8 @@
 
 import { prisma } from "@/lib/db";
 import { Prisma } from "@prisma/client";
+import { AuthError } from "next-auth";
+import { auth, signIn } from "@/lib/auth";
 import { normalizePhone } from "@/lib/normalize";
 import {
   getOAuthTempSession,
@@ -157,4 +159,147 @@ export async function resolveLineLogin(input: {
     }
     throw err;
   }
+}
+
+// ============================================================
+// oauthConfirmLogin — PR-2 step 4a
+// ============================================================
+// NEED_LOGIN 路徑的密碼登入。簽進 customer-phone 之後，redirect 到
+// /oauth-confirm/finalize（NextAuth signIn 已寫好 JWT cookie，下一個請求 auth()
+// 就讀得到 → finalize 頁可以 verify session 後 call finalizeLineBind）。
+//
+// 為什麼不直接在這裡做 finalize？
+//   signIn() 在 server action 內設 cookie，但同一個 request 內 auth() 讀不到剛
+//   寫的 cookie（NextAuth 的 JWT 取自 request cookies，不是 response）。所以
+//   bind 操作必須在「下一個 request」做 — 也就是 redirect 後的 finalize 頁。
+
+export type OAuthConfirmLoginState = { error: string | null };
+
+export async function oauthConfirmLoginAction(
+  _prev: OAuthConfirmLoginState,
+  formData: FormData,
+): Promise<OAuthConfirmLoginState> {
+  const password = (formData.get("password") as string) ?? "";
+  const customerId = (formData.get("customerId") as string) ?? "";
+  const callbackUrl = (formData.get("callbackUrl") as string) ?? "/";
+
+  // phone 從 temp session 拿（不從 form 帶，避免 client tamper）
+  const session = await getOAuthTempSession();
+  if (!session) {
+    return { error: "登入流程已過期，請重新從 LINE 登入" };
+  }
+
+  // 拿 customer 的 phone — 必須 belong to session.storeId
+  const customer = await prisma.customer.findFirst({
+    where: { id: customerId, storeId: session.storeId },
+    select: { phone: true },
+  });
+  if (!customer) {
+    return { error: "顧客資料不存在或跨店錯誤，請重新嘗試" };
+  }
+
+  if (!password) {
+    return { error: "請輸入密碼" };
+  }
+
+  // signIn redirect 到 /oauth-confirm/finalize；finalize 頁負責呼叫 finalizeLineBind
+  const finalizePath = `/oauth-confirm/finalize?customerId=${encodeURIComponent(customerId)}&callbackUrl=${encodeURIComponent(callbackUrl)}`;
+
+  try {
+    await signIn("customer-phone", {
+      phone: customer.phone,
+      password,
+      storeId: session.storeId,
+      redirectTo: finalizePath,
+    });
+  } catch (e) {
+    if (e instanceof AuthError) {
+      return { error: "密碼錯誤，請重新輸入" };
+    }
+    // Next.js redirect 會 throw 一個 NEXT_REDIRECT error — 讓它往上傳
+    throw e;
+  }
+
+  return { error: null };
+}
+
+// ============================================================
+// finalizeLineBind — PR-2 step 4b
+// ============================================================
+// /oauth-confirm/finalize 頁載入後呼叫。NEED_LOGIN 流程在這裡才寫 lineUserId，
+// 因為要先確保使用者已通過密碼登入（auth() session 已建立）。
+//
+// 安全閘：
+//   1. 必須有 NextAuth session（auth().user.id 存在）
+//   2. 必須有 OAuth temp session（lineUserId 來源）
+//   3. session.user 必須是 customerId 的擁有者（防 URL 篡改）
+//   4. 同 store 的 lineUserId 不可已綁定其他 Customer（Step 0 防身份轉移）
+//   5. 寫完強制 clearOAuthTempSession 防 nonce reuse
+
+export type FinalizeLineBindResult =
+  | { status: "BOUND"; action: "RELOGIN"; callbackUrl: string }
+  | { error: "session_expired" | "auth_required" | "customer_mismatch" | "line_already_bound_other" };
+
+export async function finalizeLineBind(input: {
+  customerId: string;
+  callbackUrl: string;
+}): Promise<FinalizeLineBindResult> {
+  // ── 1. NextAuth session ──
+  const nextAuthSession = await auth();
+  if (!nextAuthSession?.user?.id) {
+    return { error: "auth_required" };
+  }
+
+  // ── 2. OAuth temp session ──
+  const tempSession = await getOAuthTempSession();
+  if (!tempSession) {
+    return { error: "session_expired" };
+  }
+
+  // ── 3. 防 URL 篡改：customerId 必須屬於當前 user，且同 store ──
+  const customer = await prisma.customer.findFirst({
+    where: {
+      id: input.customerId,
+      storeId: tempSession.storeId,
+      userId: nextAuthSession.user.id,
+    },
+    select: { id: true, lineUserId: true },
+  });
+  if (!customer) {
+    return { error: "customer_mismatch" };
+  }
+
+  // ── 4. Step 0 防身份轉移：lineUserId 不可已綁其他 Customer ──
+  // 在這個 request 路徑罕見（resolveLineLogin Step 0 已過濾），但 finalize 是
+  // 寫入點，必須再驗一次。
+  if (customer.lineUserId && customer.lineUserId !== tempSession.lineUserId) {
+    return { error: "line_already_bound_other" };
+  }
+  const otherWithSameLine = await prisma.customer.findFirst({
+    where: {
+      storeId: tempSession.storeId,
+      lineUserId: tempSession.lineUserId,
+      id: { not: customer.id },
+    },
+    select: { id: true },
+  });
+  if (otherWithSameLine) {
+    return { error: "line_already_bound_other" };
+  }
+
+  // ── 5. 寫入 + 清 temp session ──
+  await prisma.customer.update({
+    where: { id: customer.id },
+    data: {
+      lineUserId: tempSession.lineUserId,
+      lineLinkStatus: "LINKED",
+      lineLinkedAt: new Date(),
+      lineName: tempSession.displayName,
+      // authSource 不變 — 此 Customer 原本是 EMAIL/PHONE_PASSWORD 註冊，
+      // 後來綁了 LINE。derived source helper（PR-1）會推導真實標籤。
+    },
+  });
+  await clearOAuthTempSession();
+
+  return { status: "BOUND", action: "RELOGIN", callbackUrl: input.callbackUrl };
 }
