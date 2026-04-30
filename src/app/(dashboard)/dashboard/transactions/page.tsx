@@ -76,7 +76,7 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
   const dateTo = params.dateTo ?? today;
 
   const activeStoreId = await getActiveStoreForRead(user);
-  const [{ transactions, total, pageSize }, staffOptions, plan, canVoid, canEdit] = await Promise.all([
+  const [{ transactions, total, pageSize }, staffOptions, plan, canVoid, canEdit, canRefund] = await Promise.all([
     listTransactions({
       dateFrom,
       dateTo,
@@ -91,6 +91,7 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
     getCurrentStorePlan(),
     checkPermission(user.role, user.staffId, "transaction.void"),
     checkPermission(user.role, user.staffId, "transaction.create"),
+    checkPermission(user.role, user.staffId, "transaction.refund"),
   ]);
 
   const totalPages = Math.ceil(total / pageSize);
@@ -318,6 +319,7 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
                       staffOptions={staffOptions}
                       canVoid={canVoid}
                       canEdit={canEdit}
+                      canRefund={canRefund}
                     />
                   </td>
                 </tr>
