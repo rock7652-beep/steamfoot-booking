@@ -154,6 +154,7 @@ enum TransactionAuditAction {
   UPDATE_PAYMENT_METHOD
   UPDATE_OWNER_STAFF
   VOID
+  REFUND // v2 退款（記錄在 inverse REFUND tx 上；audit log 寫一筆）
 }
 
 enum PaymentMethod {
@@ -333,6 +334,9 @@ model User {
   // Transaction void / audit
   voidedTransactions   Transaction[]         @relation("VoidedTransactions")
   transactionAuditLogs TransactionAuditLog[]
+
+  // v2 退款
+  refundedTransactions Transaction[] @relation("RefundedTransactions")
 
   // 同一角色內手機不重複，但不同角色可共用手機
   @@unique([phone, role])
@@ -993,7 +997,9 @@ model Transaction {
   grossAmount       Decimal?          @db.Decimal(10, 0) // 原價（始終填入）
   discountAmount    Decimal?          @db.Decimal(10, 0) // 折扣金額
   netAmount         Decimal           @default(0) @db.Decimal(10, 0) // 實收金額（報表用）
-  refundAmount      Decimal           @default(0) @db.Decimal(10, 0) // 已退款金額
+  /// @deprecated v2 起不再寫入；報表改靠 refunds back-relation sum 計算
+  /// 既有歷史 row 保留為 legacy snapshot；refundTransactionLegacy 仍會更新
+  refundAmount      Decimal           @default(0) @db.Decimal(10, 0)
   isFirstPurchase   Boolean           @default(false) // 是否新客首次購買
 
   // === Void 相關（v1：取消交易）===
@@ -1001,16 +1007,27 @@ model Transaction {
   voidedByUserId String?
   voidReason     String?
 
-  customer           Customer              @relation(fields: [customerId], references: [id])
-  store              Store                 @relation(fields: [storeId], references: [id])
-  booking            Booking?              @relation(fields: [bookingId], references: [id])
-  revenueStaff       Staff                 @relation("RevenueStaff", fields: [revenueStaffId], references: [id])
-  serviceStaff       Staff?                @relation("ServiceStaff", fields: [serviceStaffId], references: [id])
-  soldByStaff        Staff?                @relation("SoldByStaff", fields: [soldByStaffId], references: [id])
-  customerPlanWallet CustomerPlanWallet?   @relation(fields: [customerPlanWalletId], references: [id])
-  servicePlan        ServicePlan?          @relation("TransactionPlan", fields: [planId], references: [id])
-  voidedBy           User?                 @relation("VoidedTransactions", fields: [voidedByUserId], references: [id])
-  auditLogs          TransactionAuditLog[]
+  // === Refund 相關（v2：退款追溯）===
+  // ⚠️ 規格：退款不修改原交易；以下欄位只填在「新建的 REFUND tx」上
+  // 原交易透過 refunds back-relation 反向找出所有退款紀錄
+  refundOfTransactionId String?
+  refundReason          String?
+  refundedAt            DateTime?
+  refundedByUserId      String?
+
+  customer            Customer              @relation(fields: [customerId], references: [id])
+  store               Store                 @relation(fields: [storeId], references: [id])
+  booking             Booking?              @relation(fields: [bookingId], references: [id])
+  revenueStaff        Staff                 @relation("RevenueStaff", fields: [revenueStaffId], references: [id])
+  serviceStaff        Staff?                @relation("ServiceStaff", fields: [serviceStaffId], references: [id])
+  soldByStaff         Staff?                @relation("SoldByStaff", fields: [soldByStaffId], references: [id])
+  customerPlanWallet  CustomerPlanWallet?   @relation(fields: [customerPlanWalletId], references: [id])
+  servicePlan         ServicePlan?          @relation("TransactionPlan", fields: [planId], references: [id])
+  voidedBy            User?                 @relation("VoidedTransactions", fields: [voidedByUserId], references: [id])
+  auditLogs           TransactionAuditLog[]
+  refundOfTransaction Transaction?          @relation("TransactionRefunds", fields: [refundOfTransactionId], references: [id], onDelete: Restrict)
+  refunds             Transaction[]         @relation("TransactionRefunds")
+  refundedBy          User?                 @relation("RefundedTransactions", fields: [refundedByUserId], references: [id])
 
   @@index([storeId])
   @@index([customerId])
@@ -1026,6 +1043,9 @@ model Transaction {
   @@index([planType])
   @@index([storeId, paymentStatus, createdAt]) // PR-1: 支援「待確認付款」清單 + 店別篩選
   @@index([status, transactionDate]) // v1 取消交易：營收統計濾掉 VOIDED
+  @@index([refundOfTransactionId]) // v2: 反查某原交易的所有 refund tx
+  @@index([refundOfTransactionId, transactionType]) // v2: 報表 / Drawer 同時 filter refund + type 查詢
+  @@index([transactionType, transactionDate]) // v2: 報表「總收入 / 退款 / 淨收入」分類聚合
 }
 
 // ============================================================
