@@ -9,10 +9,10 @@ import { prisma } from "@/lib/db";
 import { getDashboardTodaySummary } from "@/server/queries/dashboard-summary";
 import { getLatestResolvedRequest } from "@/server/queries/upgrade-request";
 import { getLatestReconciliationRun } from "@/server/queries/reconciliation";
-import { countPendingPaymentTransactions } from "@/server/queries/transaction";
-import { checkPermission } from "@/lib/permissions";
+import { getStoreTodos } from "@/server/queries/store-todos";
 import { ReconciliationBanner } from "@/components/reconciliation-banner";
 import { UpgradeResultBanner } from "@/components/upgrade-result-banner";
+import { StoreTodoCard } from "./store-todo-card";
 import {
   PageShell,
   PageHeader,
@@ -56,9 +56,7 @@ export default async function DashboardHomePage() {
   const storeFilter = getStoreFilter(user, activeStoreId);
   const todayBooking = bookingDateToday();
 
-  const canSeePayments = await checkPermission(user.role, user.staffId, "transaction.create");
-
-  const [summary, todayBookings, resolvedRequest, reconciliation, pendingPaymentCount] = await Promise.all([
+  const [summary, todayBookings, resolvedRequest, reconciliation, todos] = await Promise.all([
     getDashboardTodaySummary(activeStoreId),
     prisma.booking.findMany({
       where: {
@@ -81,9 +79,7 @@ export default async function DashboardHomePage() {
       ? getLatestResolvedRequest(user.storeId).catch(() => null)
       : Promise.resolve(null),
     getLatestReconciliationRun().catch(() => null),
-    canSeePayments
-      ? countPendingPaymentTransactions({ activeStoreId }).catch(() => 0)
-      : Promise.resolve(0),
+    getStoreTodos({ activeStoreId }).catch(() => ({ items: [], total: 0 })),
   ]);
 
   const rows: TodayBookingRow[] = todayBookings.map((b) => ({
@@ -196,31 +192,7 @@ export default async function DashboardHomePage() {
         }
       />
 
-      {pendingPaymentCount > 0 && canSeePayments ? (
-        <Link
-          href="/dashboard/payments"
-          className="flex items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 transition hover:border-amber-300 hover:bg-amber-100"
-          aria-label={`有 ${pendingPaymentCount} 筆購買申請待確認`}
-        >
-          <div className="flex items-start gap-3 min-w-0">
-            <span aria-hidden="true" className="mt-0.5 text-lg">🔔</span>
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-amber-900">
-                有新的購買申請待確認
-              </p>
-              <p className="mt-0.5 text-xs text-amber-800">
-                目前有 <strong className="font-bold">{pendingPaymentCount}</strong> 筆付款待確認
-              </p>
-            </div>
-          </div>
-          <span className="flex shrink-0 items-center gap-1 rounded-md bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm">
-            查看付款申請
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-              <path d="M9 5l7 7-7 7" />
-            </svg>
-          </span>
-        </Link>
-      ) : null}
+      <StoreTodoCard items={todos.items} total={todos.total} />
 
       {resolvedRequest ? (
         <UpgradeResultBanner
