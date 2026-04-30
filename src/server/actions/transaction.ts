@@ -1106,8 +1106,11 @@ export async function refundTransaction(
           refundReason: data.reason,
           refundedAt: now,
           refundedByUserId: user.id,
-          // status 預設 SUCCESS，paymentStatus 預設 SUCCESS — 報表會把 amount 負數計入
           ...refundSnapshot,
+          // ⚠️ buildRefundSnapshot 會把 status 預設成 "REFUNDED"（v1 legacy 語意），
+          // v2 不適用：原交易維持 SUCCESS，新 REFUND tx 本身也應該是 SUCCESS（
+          // 代表「這筆退款交易成功完成」）。明確 override，避免報表 status 過濾把它擋掉。
+          status: "SUCCESS",
           netAmount: new Prisma.Decimal(-plan.refundAmount),
         },
       });
