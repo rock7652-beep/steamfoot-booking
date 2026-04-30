@@ -527,6 +527,32 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return true;
         }
 
+        // ─────────────────────────────────────────────────────────────────
+        // PR-2: LINE 找不到既有 Customer → 不靜默 create
+        // 改為 setOAuthTempSession + redirect /oauth-confirm 讓使用者輸入手機
+        // 完成「身份確認」流程（防止分裂帳號）。詳見 docs/identity-flow.md。
+        //
+        // Google 不動：Google OAuth 100% 提供 email，找不到代表真新客；
+        // 維持原本 placeholder create 行為。Google 防分裂另開 PR 處理。
+        //
+        // callbackUrl 預設 "/"（首頁），不從 NextAuth cookie 讀取，先求穩。
+        // ─────────────────────────────────────────────────────────────────
+        if (provider === "line" && lineUserId) {
+          // 不在 auth.ts 直接 setOAuthTempSession（會把 next/headers 透過
+          // middleware/client bundle chain 打進不該去的地方 → build error）。
+          // 改 sign HMAC token 後 redirect 到 /api/oauth-line-stage，由那支
+          // Route Handler 寫 cookie + 再 redirect /oauth-confirm。
+          const { signStageToken } = await import("@/lib/oauth-stage-token");
+          const token = await signStageToken({
+            lineUserId,
+            displayName: oauthName,
+            storeId: targetStoreId,
+          });
+          // Return URL string → NextAuth 把 user redirect 到此 URL 但不寫 JWT。
+          // 與上方 StaffEmailBlocked 同樣模式（拒絕 signin 但 redirect 到指定頁）。
+          return `/api/oauth-line-stage?t=${encodeURIComponent(token)}`;
+        }
+
         // No existing Customer - create new Customer + User
         // OAuth 新顧客 phone 使用唯一佔位符，避免 compound unique (storeId, phone) 衝突
         // 顧客可後續於 profile 補填真實手機
