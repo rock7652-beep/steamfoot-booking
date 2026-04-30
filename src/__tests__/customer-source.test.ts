@@ -74,7 +74,10 @@ describe("deriveCustomerSource — 9 種情境", () => {
     expect(r.kind).toBe("PHONE_PASSWORD");
     expect(r.label).toBe("手機/密碼註冊");
     expect(r.inconsistent).toBe(true);
-    expect(r.inconsistencyReason).toContain("EMAIL");
+    expect(r.inconsistencyReason).toContain("手機/密碼註冊");
+    expect(r.inconsistencyReason).toContain("Email 註冊");
+    // 必須帶安撫語句 + 後續建議（避免店長 panic）
+    expect(r.inconsistencyReason).toContain("不影響使用");
   });
 
   it("4. 手機+密碼（含 email）— 林彥佑型 → 同樣 PHONE_PASSWORD + 不一致", () => {
@@ -129,7 +132,8 @@ describe("deriveCustomerSource — 9 種情境", () => {
     );
     expect(r.kind).toBe("MANUAL");
     expect(r.inconsistent).toBe(true);
-    expect(r.inconsistencyReason).toContain("後台手建");
+    expect(r.inconsistencyReason).toContain("後台手動建立");
+    expect(r.inconsistencyReason).toContain("不影響使用");
   });
 
   it("8. authSource=LINE 但無 Account[line] 也無 lineUserId（資料漂移）→ derived 不是 LINE + 不一致", () => {

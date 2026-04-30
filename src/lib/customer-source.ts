@@ -61,6 +61,17 @@ const KIND_LABEL: Record<DerivedSourceKind, string> = {
   UNKNOWN: "來源未知",
 };
 
+const AUTH_SOURCE_LABEL_FRIENDLY: Record<string, string> = {
+  LINE: "LINE 登入",
+  GOOGLE: "Google 登入",
+  EMAIL: "Email 註冊",
+  MANUAL: "店長手建",
+};
+
+function friendlyAuthSource(s: string): string {
+  return AUTH_SOURCE_LABEL_FRIENDLY[s] ?? s;
+}
+
 export function getDerivedSourceLabel(kind: DerivedSourceKind): string {
   return KIND_LABEL[kind];
 }
@@ -88,23 +99,25 @@ export function deriveCustomerSource(
   }
 
   // ── Step 2: 偵測不一致 ──
+  // 訊息採「店長視角」用語：先說真實狀況、再說資料標記、最後給「不影響使用 / 建議動作」。
+  // 工程師細節（Account[line] / passwordHash …）留在 IdentityDiagnosticPanel 的證據欄位。
   let inconsistencyReason: string | null = null;
 
-  // 證據顯示 LINE，但 authSource 不是 LINE → 合併殘留
+  // 證據顯示 LINE，但 authSource 不是 LINE → 多半是合併殘留
   if (kind === "LINE" && s.authSource !== "LINE") {
-    inconsistencyReason = `證據顯示 LINE 登入（有 Account[line] 與 lineUserId），但 authSource=${s.authSource}。可能是合併後 authSource 未升級。`;
+    inconsistencyReason = `此顧客實際為「LINE 登入」，但資料標記為「${friendlyAuthSource(s.authSource)}」。\n不影響使用，可能是先前合併操作的殘留。`;
   }
   // 證據顯示 Google，但 authSource 不是 GOOGLE
   else if (kind === "GOOGLE" && s.authSource !== "GOOGLE") {
-    inconsistencyReason = `證據顯示 Google 登入，但 authSource=${s.authSource}。`;
+    inconsistencyReason = `此顧客實際為「Google 登入」，但資料標記為「${friendlyAuthSource(s.authSource)}」。\n不影響使用。`;
   }
   // 證據顯示手機+密碼，但 authSource=EMAIL → /register 硬寫 EMAIL 的歷史問題
   else if (kind === "PHONE_PASSWORD" && s.authSource === "EMAIL") {
-    inconsistencyReason = `實際是手機+密碼註冊（User 有 passwordHash，無 OAuth Account），但 authSource 被標為 EMAIL。`;
+    inconsistencyReason = `此顧客實際為「手機/密碼註冊」，但資料標記為「Email 註冊」。\n不影響使用，建議後續引導綁定 LINE 以避免重複帳號。`;
   }
   // 證據顯示無 User，但 authSource 不是 MANUAL
   else if (kind === "MANUAL" && s.authSource !== "MANUAL") {
-    inconsistencyReason = `Customer 無 User 連結（後台手建未啟用），但 authSource=${s.authSource}。`;
+    inconsistencyReason = `此顧客為後台手動建立、尚未啟用登入，但資料標記為「${friendlyAuthSource(s.authSource)}」。\n不影響使用，可能是建立過程的標記錯誤。`;
   }
   // authSource=LINE 但實際無 LINE 證據 → 資料漂移
   else if (
@@ -113,7 +126,7 @@ export function deriveCustomerSource(
     !hasLineAccount &&
     !s.lineUserId
   ) {
-    inconsistencyReason = `authSource 標為 LINE，但 User 無 Account[line] 且 Customer 無 lineUserId。`;
+    inconsistencyReason = `資料標記為「LINE 登入」，但找不到對應的 LINE 綁定紀錄。\n可能是合併或同步時的資料漂移，建議重新確認綁定狀態。`;
   }
   // authSource=GOOGLE 但實際無 Google 證據
   else if (
@@ -122,11 +135,11 @@ export function deriveCustomerSource(
     !hasGoogleAccount &&
     !s.googleId
   ) {
-    inconsistencyReason = `authSource 標為 GOOGLE，但 User 無 Account[google] 且 Customer 無 googleId。`;
+    inconsistencyReason = `資料標記為「Google 登入」，但找不到對應的 Google 帳號綁定紀錄。\n可能是同步時的資料漂移。`;
   }
   // 證據未知（活著的 User 但沒密碼也沒 OAuth）
   else if (kind === "UNKNOWN") {
-    inconsistencyReason = `無法判斷來源：User 存在但既無 passwordHash 也無 OAuth Account。`;
+    inconsistencyReason = `無法判斷此顧客的註冊方式（既無密碼也無社群登入紀錄）。\n可能是舊資料殘留，建議聯繫技術人員確認。`;
   }
 
   return {
