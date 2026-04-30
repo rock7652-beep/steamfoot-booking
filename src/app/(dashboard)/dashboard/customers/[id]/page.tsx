@@ -35,6 +35,7 @@ import { deriveCustomerSource, type CustomerSourceSnapshot } from "@/lib/custome
 
 import { CustomerBasicInfo } from "./_components/customer-basic-info";
 import { IdentityDiagnosticPanel } from "./_components/identity-diagnostic-panel";
+import { LineBindingSection } from "./line-binding-section";
 
 const TX_TYPE_LABEL: Record<string, string> = {
   TRIAL_PURCHASE: "體驗購買",
@@ -583,6 +584,22 @@ export default async function CustomerDetailPage({ params }: PageProps) {
             snapshot={identitySnapshot}
             customerPhone={customer.phone}
           />
+
+          {/* LINE 綁定操作（產生綁定碼 / 解除綁定）*/}
+          {canEdit && (
+            <SideCard title="LINE 綁定操作" subtitle="產生綁定碼或解除既有綁定">
+              <LineBindingSection
+                customerId={id}
+                lineLinkStatus={customer.lineLinkStatus}
+                lineUserId={customer.lineUserId ?? null}
+                lineLinkedAt={customer.lineLinkedAt?.toISOString() ?? null}
+                lineBindingCode={customer.lineBindingCode ?? null}
+                lineBindingCodeCreatedAt={
+                  customer.lineBindingCodeCreatedAt?.toISOString() ?? null
+                }
+              />
+            </SideCard>
+          )}
 
           {/* Status badges */}
           <SideCard title="狀態" subtitle="目前系統狀態">
