@@ -8,7 +8,11 @@ import {
   bookingDateToday,
   toLocalDateStr,
 } from "@/lib/date-utils";
-import { REVENUE_TRANSACTION_TYPES, REVENUE_VALID_STATUS } from "@/lib/booking-constants";
+import {
+  REVENUE_TRANSACTION_TYPES,
+  REVENUE_NET_TYPES,
+  REVENUE_VALID_STATUS,
+} from "@/lib/booking-constants";
 import { getStoreFilter } from "@/lib/manager-visibility";
 
 // TODO(PR-payment-confirm): PR-3/4 上線後，本檔 Transaction 營收 aggregate
@@ -45,7 +49,8 @@ export async function getTodaySummary(activeStoreId?: string | null): Promise<To
     prisma.transaction.aggregate({
       where: {
         createdAt: { gte: today.start, lte: today.end },
-        transactionType: { in: [...REVENUE_TRANSACTION_TYPES] },
+        // v2: 包含 REFUND（負數）→ sum 即為淨營收
+        transactionType: { in: [...REVENUE_NET_TYPES] },
         status: REVENUE_VALID_STATUS,
         ...storeFilter,
       },
@@ -125,11 +130,11 @@ export async function getDailyTrend(days: number, activeStoreId?: string | null)
         select: { bookingDate: true, bookingStatus: true },
       }),
 
-      // Daily revenue
+      // Daily revenue（趨勢圖：含退款顯示 net）
       prisma.transaction.findMany({
         where: {
           createdAt: { gte: startRange.start, lte: endRange.end },
-          transactionType: { in: [...REVENUE_TRANSACTION_TYPES] },
+          transactionType: { in: [...REVENUE_NET_TYPES] },
           status: REVENUE_VALID_STATUS,
           ...storeFilter,
         },
@@ -342,7 +347,8 @@ export async function getTopCustomers(limit = 10, activeStoreId?: string | null)
       },
       transactions: {
         where: {
-          transactionType: { in: [...REVENUE_TRANSACTION_TYPES] },
+          // v2: 含 REFUND，per-customer revenue sum 取淨值
+          transactionType: { in: [...REVENUE_NET_TYPES] },
           status: REVENUE_VALID_STATUS,
         },
         select: { amount: true },
@@ -515,7 +521,8 @@ export async function getStaffPerformance(days = 30, activeStoreId?: string | nu
       revenueTransactions: {
         where: {
           createdAt: { gte: startRange.start, lte: endRange.end },
-          transactionType: { in: [...REVENUE_TRANSACTION_TYPES] },
+          // v2: 含 REFUND，per-staff KPI sum 取淨值
+          transactionType: { in: [...REVENUE_NET_TYPES] },
           status: REVENUE_VALID_STATUS,
         },
         select: { amount: true },

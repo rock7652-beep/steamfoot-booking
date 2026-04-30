@@ -132,6 +132,21 @@ export const REVENUE_TRANSACTION_TYPES = [
  */
 export const REVENUE_VALID_STATUS = "SUCCESS" as const;
 
+/**
+ * 計算「淨營收 KPI」用的交易型別清單
+ *
+ * 規格（交易模組 v2）：首頁 / 工作台 / Ops 面板的「營收」KPI 必須是淨額，
+ * 不能只計 gross。因 REFUND tx 的 amount 為負數，把它包進 type filter 後
+ * sum() 自然產出「總收入 - 退款 = 淨收入」。
+ *
+ * 與 REVENUE_TRANSACTION_TYPES 的差異：
+ *   - REVENUE_TRANSACTION_TYPES：只列「正向收入」(用於拆欄顯示 / per-type 統計)
+ *   - REVENUE_NET_TYPES         ：含 REFUND，sum 結果即為 net
+ *
+ * 配合 REVENUE_VALID_STATUS 使用。
+ */
+export const REVENUE_NET_TYPES = [...REVENUE_TRANSACTION_TYPES, "REFUND"] as const;
+
 // ============================================================
 // 3. 預約時間 helper
 // ============================================================

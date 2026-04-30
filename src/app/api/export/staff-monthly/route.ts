@@ -66,6 +66,8 @@ export async function GET(req: NextRequest) {
   const { start: monthStart, end: monthEnd } = monthRange(month);
 
   const REVENUE_TYPES = ["TRIAL_PURCHASE", "SINGLE_PURCHASE", "PACKAGE_PURCHASE", "SUPPLEMENT"];
+  // v2 報表：把 REFUND 一起撈進來，CSV 顯示「課程總收入 / 退款 / 淨收」三欄
+  const TYPES_INCL_REFUND = [...REVENUE_TYPES, "REFUND"];
 
   const revenueFilter = getManagerReadFilter(session.user.role, session.user.staffId, "revenueStaffId", activeStoreId);
   const staffIdFilter = getManagerReadFilter(session.user.role, session.user.staffId, "staffId", activeStoreId);
@@ -79,7 +81,7 @@ export async function GET(req: NextRequest) {
       where: {
         ...revenueFilter,
         ...storeFilter,
-        transactionType: { in: REVENUE_TYPES as never },
+        transactionType: { in: TYPES_INCL_REFUND as never },
         status: REVENUE_VALID_STATUS,
         createdAt: { gte: monthStart, lte: monthEnd },
       },
@@ -114,21 +116,26 @@ export async function GET(req: NextRequest) {
 
   // Build by-staff summary
   const byStaff: Record<string, {
-    name: string; trial: number; single: number; package: number; supplement: number; total: number; spaceFee: number; net: number; completed: number;
+    name: string; trial: number; single: number; package: number; supplement: number;
+    refund: number; total: number; spaceFee: number; net: number; completed: number;
   }> = {};
 
   for (const r of txRows) {
     const sid = r.revenueStaffId ?? "unassigned";
     if (!byStaff[sid]) {
-      byStaff[sid] = { name: staffMap[sid] ?? "未指派", trial: 0, single: 0, package: 0, supplement: 0, total: 0, spaceFee: 0, net: 0, completed: 0 };
+      byStaff[sid] = {
+        name: staffMap[sid] ?? "未指派",
+        trial: 0, single: 0, package: 0, supplement: 0,
+        refund: 0, total: 0, spaceFee: 0, net: 0, completed: 0,
+      };
     }
     const amt = Number((r._sum as { amount: unknown }).amount ?? 0);
     const s = byStaff[sid];
-    if (r.transactionType === "TRIAL_PURCHASE") s.trial += amt;
-    else if (r.transactionType === "SINGLE_PURCHASE") s.single += amt;
-    else if (r.transactionType === "PACKAGE_PURCHASE") s.package += amt;
-    else if (r.transactionType === "SUPPLEMENT") s.supplement += amt;
-    s.total += amt;
+    if (r.transactionType === "TRIAL_PURCHASE") { s.trial += amt; s.total += amt; }
+    else if (r.transactionType === "SINGLE_PURCHASE") { s.single += amt; s.total += amt; }
+    else if (r.transactionType === "PACKAGE_PURCHASE") { s.package += amt; s.total += amt; }
+    else if (r.transactionType === "SUPPLEMENT") { s.supplement += amt; s.total += amt; }
+    else if (r.transactionType === "REFUND") { s.refund += amt; } // negative，不加進 total
   }
   for (const b of completedRows) {
     const cnt = b._count as { id: number };
@@ -138,19 +145,16 @@ export async function GET(req: NextRequest) {
   for (const f of spaceFees) {
     if (byStaff[f.staffId]) {
       byStaff[f.staffId].spaceFee = Number(f.feeAmount);
-      byStaff[f.staffId].net = byStaff[f.staffId].total - Number(f.feeAmount);
     }
   }
-  // Fix net for those without space fee
+  // 淨收 = 課程總收入 + 退款（負）- 空間分租費
   for (const id of Object.keys(byStaff)) {
-    if (!byStaff[id].net && byStaff[id].spaceFee === 0) {
-      byStaff[id].net = byStaff[id].total;
-    }
+    byStaff[id].net = byStaff[id].total + byStaff[id].refund - byStaff[id].spaceFee;
   }
 
-  const headers = ["店長", "體驗收入", "單次收入", "課程收入", "補差額", "課程總收入", "空間分租費", "淨收", "完成服務堂數"];
+  const headers = ["店長", "體驗收入", "單次收入", "課程收入", "補差額", "課程總收入", "退款", "空間分租費", "淨收", "完成服務堂數"];
   const dataRows = Object.values(byStaff).map((s) => [
-    s.name, s.trial, s.single, s.package, s.supplement, s.total, s.spaceFee, s.net, s.completed
+    s.name, s.trial, s.single, s.package, s.supplement, s.total, s.refund, s.spaceFee, s.net, s.completed
   ].map(String));
 
   const csv = toCsv([headers, ...dataRows]);

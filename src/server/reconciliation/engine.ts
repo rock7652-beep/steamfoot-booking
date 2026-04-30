@@ -18,6 +18,12 @@ const REVENUE_TYPES = [
   "SUPPLEMENT",
 ];
 
+// v2 報表：dashboard / Ops 面板的營收 KPI 改成 net（含 REFUND）。
+// 為了讓對帳跟使用者看到的數字一致，本引擎的「today/month revenue」3 source
+// 也改用 NET_TYPES（含 REFUND，sum 自然產出 net）。
+// 否則：dashboard 顯示 net，reconciliation 比 gross → 每次有退款都會 false-positive mismatch。
+const REVENUE_NET_TYPES = [...REVENUE_TYPES, "REFUND"];
+
 // v1 取消交易：對帳必須與 dashboard / report / CSV 三 source 用同一個 filter，
 // 否則會把 VOIDED 算進對帳基準導致 false-positive mismatch
 const REVENUE_STATUS_FILTER = { status: REVENUE_VALID_STATUS } as const;
@@ -150,11 +156,11 @@ export async function runReconciliation(
 async function checkTodayRevenue(storeId: string, targetDate: string, _targetMonth: string): Promise<CheckResult> {
   const { start: todayStart, end: todayEnd } = todayRange();
 
-  // Source A: Dashboard 邏輯 — transaction aggregate (REVENUE_TYPES)
+  // Source A: Dashboard 邏輯 — transaction aggregate (NET：含 REFUND)
   const dashboardAgg = await prisma.transaction.aggregate({
     where: {
       storeId,
-      transactionType: { in: REVENUE_TYPES as never },
+      transactionType: { in: REVENUE_NET_TYPES as never },
       ...REVENUE_STATUS_FILTER,
       createdAt: { gte: todayStart, lte: todayEnd },
     },
@@ -162,11 +168,11 @@ async function checkTodayRevenue(storeId: string, targetDate: string, _targetMon
   });
   const dashboardValue = Number(dashboardAgg._sum.amount ?? 0);
 
-  // Source B: 逐筆加總驗證
+  // Source B: 逐筆加總驗證（同樣含 REFUND，確保 net 計算對齊）
   const allTxToday = await prisma.transaction.findMany({
     where: {
       storeId,
-      transactionType: { in: REVENUE_TYPES as never },
+      transactionType: { in: REVENUE_NET_TYPES as never },
       ...REVENUE_STATUS_FILTER,
       createdAt: { gte: todayStart, lte: todayEnd },
     },
@@ -175,24 +181,24 @@ async function checkTodayRevenue(storeId: string, targetDate: string, _targetMon
   const rowSumValue = allTxToday.reduce((sum, t) => sum + Number(t.amount), 0);
 
   const sources = {
-    "Dashboard aggregate": dashboardValue,
-    "逐筆加總": rowSumValue,
+    "Dashboard aggregate (net)": dashboardValue,
+    "逐筆加總 (net)": rowSumValue,
   };
 
   const allMatch = dashboardValue === rowSumValue;
 
   return {
     checkCode: "today_revenue",
-    checkName: "今日營收",
+    checkName: "今日營收（淨額）",
     status: allMatch ? "pass" : "mismatch",
     sources,
-    expected: "所有來源數字完全一致",
+    expected: "所有來源 net 數字完全一致",
     debugPayload: {
       targetDate,
       dateRange: { start: todayStart.toISOString(), end: todayEnd.toISOString() },
       timezone: "Asia/Taipei (UTC+8)",
-      formula: "SUM(transaction.amount) WHERE type IN REVENUE_TYPES AND createdAt IN today",
-      revenueTypes: REVENUE_TYPES,
+      formula: "SUM(transaction.amount) WHERE type IN REVENUE_NET_TYPES AND createdAt IN today",
+      revenueTypes: REVENUE_NET_TYPES,
       transactionCount: allTxToday.length,
       tolerance: 0,
     },
@@ -207,11 +213,11 @@ async function checkTodayRevenue(storeId: string, targetDate: string, _targetMon
 async function checkMonthRevenue(storeId: string, _targetDate: string, targetMonth: string): Promise<CheckResult> {
   const { start: monthStart, end: monthEnd } = monthRange(targetMonth);
 
-  // Source A: Dashboard 邏輯 — aggregate
+  // Source A: Dashboard 邏輯 — aggregate (NET：含 REFUND)
   const dashboardAgg = await prisma.transaction.aggregate({
     where: {
       storeId,
-      transactionType: { in: REVENUE_TYPES as never },
+      transactionType: { in: REVENUE_NET_TYPES as never },
       ...REVENUE_STATUS_FILTER,
       createdAt: { gte: monthStart, lte: monthEnd },
     },
@@ -219,12 +225,12 @@ async function checkMonthRevenue(storeId: string, _targetDate: string, targetMon
   });
   const dashboardValue = Number(dashboardAgg._sum.amount ?? 0);
 
-  // Source B: 報表邏輯 — groupBy + sum（與 monthlyStoreSummary 相同）
+  // Source B: 報表邏輯 — groupBy + sum（對應 monthlyStoreSummary.netCourseRevenue）
   const reportRows = await prisma.transaction.groupBy({
     by: ["revenueStaffId"],
     where: {
       storeId,
-      transactionType: { in: REVENUE_TYPES as never },
+      transactionType: { in: REVENUE_NET_TYPES as never },
       ...REVENUE_STATUS_FILTER,
       createdAt: { gte: monthStart, lte: monthEnd },
     },
@@ -235,12 +241,12 @@ async function checkMonthRevenue(storeId: string, _targetDate: string, targetMon
     0
   );
 
-  // Source C: CSV 邏輯 — groupBy transactionType（與 store-monthly route 相同）
+  // Source C: CSV 邏輯 — groupBy transactionType（對應 store-monthly route 的「淨收」合計）
   const csvRows = await prisma.transaction.groupBy({
     by: ["revenueStaffId", "transactionType"],
     where: {
       storeId,
-      transactionType: { in: REVENUE_TYPES as never },
+      transactionType: { in: REVENUE_NET_TYPES as never },
       ...REVENUE_STATUS_FILTER,
       createdAt: { gte: monthStart, lte: monthEnd },
     },
@@ -252,25 +258,25 @@ async function checkMonthRevenue(storeId: string, _targetDate: string, targetMon
   );
 
   const sources = {
-    "Dashboard aggregate": dashboardValue,
-    "報表 groupBy staff": reportValue,
-    "CSV groupBy staff+type": csvValue,
+    "Dashboard aggregate (net)": dashboardValue,
+    "報表 groupBy staff (net)": reportValue,
+    "CSV groupBy staff+type (net)": csvValue,
   };
 
   const allMatch = dashboardValue === reportValue && reportValue === csvValue;
 
   return {
     checkCode: "month_revenue",
-    checkName: "本月營收",
+    checkName: "本月營收（淨額）",
     status: allMatch ? "pass" : "mismatch",
     sources,
-    expected: "Dashboard = 報表 = CSV 三源完全一致",
+    expected: "Dashboard = 報表 = CSV 三源 net 數字完全一致",
     debugPayload: {
       targetMonth,
       dateRange: { start: monthStart.toISOString(), end: monthEnd.toISOString() },
       timezone: "Asia/Taipei (UTC+8)",
-      formula: "SUM(transaction.amount) WHERE type IN REVENUE_TYPES AND createdAt IN month",
-      revenueTypes: REVENUE_TYPES,
+      formula: "SUM(transaction.amount) WHERE type IN REVENUE_NET_TYPES AND createdAt IN month",
+      revenueTypes: REVENUE_NET_TYPES,
       staffBreakdown: reportRows.map((r) => ({
         staffId: r.revenueStaffId,
         amount: Number((r._sum as { amount: unknown }).amount ?? 0),
