@@ -1,19 +1,16 @@
 import { formatTWTime } from "@/lib/date-utils";
 import { SideCard, InfoList, type InfoListItem } from "@/components/desktop";
-import type { AuthSource, LineLinkStatus } from "@prisma/client";
+import type { LineLinkStatus } from "@prisma/client";
+import type { DerivedCustomerSource } from "@/lib/customer-source";
 
 /**
  * 顧客詳情 — 基本資料 section (左側 col-8)
  *
  * 資訊面板樣式；無資料一律顯示 `—`，不省略行。
+ *
+ * 「來源」改用 deriveCustomerSource() 推導 — 不直接信 Customer.authSource，
+ * 因為實務上 authSource 會與證據不一致（/register 硬寫 EMAIL、合併殘留⋯）。
  */
-
-const AUTH_SOURCE_LABEL: Record<AuthSource, string> = {
-  MANUAL: "店長手動建立",
-  GOOGLE: "Google 註冊",
-  LINE: "LINE 註冊",
-  EMAIL: "Email 註冊",
-};
 
 const GENDER_LABEL: Record<string, string> = {
   male: "男",
@@ -30,7 +27,7 @@ interface Props {
   height: number | null;
   lineName: string | null;
   lineLinkStatus: LineLinkStatus;
-  authSource: AuthSource;
+  derivedSource: DerivedCustomerSource;
   createdAt: Date;
   assignedStaff: { id: string; displayName: string; colorCode: string } | null;
   notes: string | null;
@@ -44,7 +41,7 @@ export function CustomerBasicInfo({
   height,
   lineName,
   lineLinkStatus,
-  authSource,
+  derivedSource,
   createdAt,
   assignedStaff,
   notes,
@@ -87,7 +84,22 @@ export function CustomerBasicInfo({
         <span className="text-earth-400">未指派</span>
       ),
     },
-    { label: "來源", value: AUTH_SOURCE_LABEL[authSource] },
+    {
+      label: "來源",
+      value: (
+        <span className="inline-flex items-center gap-1.5">
+          <span>{derivedSource.label}</span>
+          {derivedSource.inconsistent && (
+            <span
+              className="cursor-help rounded bg-red-50 px-1.5 py-0.5 text-[10px] font-medium text-red-700"
+              title={derivedSource.inconsistencyReason ?? "來源欄位與資料證據不符"}
+            >
+              來源異常
+            </span>
+          )}
+        </span>
+      ),
+    },
     {
       label: "建立時間",
       value: formatTWTime(createdAt, { dateOnly: true }),

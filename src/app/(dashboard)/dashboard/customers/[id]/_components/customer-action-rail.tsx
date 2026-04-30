@@ -1,12 +1,8 @@
 import { formatTWTime } from "@/lib/date-utils";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { SideCard, InfoList, type InfoListItem } from "@/components/desktop";
-import type {
-  AuthSource,
-  CustomerStage,
-  LineLinkStatus,
-  TalentStage,
-} from "@prisma/client";
+import type { CustomerStage, LineLinkStatus, TalentStage } from "@prisma/client";
+import type { DerivedCustomerSource } from "@/lib/customer-source";
 
 /**
  * 顧客詳情右側 Action Rail (col-4)
@@ -15,14 +11,9 @@ import type {
  *   A. 狀態 badges（顧客階段 / LINE / 人才階段 / 高潛力）
  *   B. 快速操作（編輯 / 新增預約 / 查看預約 / 查看推薦 / 調整階段）
  *   C. 系統資訊（建立 / 更新 / ID 縮寫 / 綁定日期 / 來源）
+ *
+ * 來源以 deriveCustomerSource() 推導，不直接讀 Customer.authSource。
  */
-
-const AUTH_SOURCE_LABEL: Record<AuthSource, string> = {
-  MANUAL: "店長手動",
-  GOOGLE: "Google",
-  LINE: "LINE",
-  EMAIL: "Email",
-};
 
 const CUSTOMER_STAGE_LABEL: Record<CustomerStage, string> = {
   LEAD: "名單",
@@ -47,7 +38,7 @@ interface Props {
   selfBookingEnabled: boolean;
   accountActive: boolean;
   isHighPotential: boolean;
-  authSource: AuthSource;
+  derivedSource: DerivedCustomerSource;
   createdAt: Date;
   updatedAt: Date;
   /** 是否可操作 write 動作（某些角色僅能讀） */
@@ -63,7 +54,7 @@ export function CustomerActionRail({
   selfBookingEnabled,
   accountActive,
   isHighPotential,
-  authSource,
+  derivedSource,
   createdAt,
   updatedAt,
   canEdit,
@@ -76,7 +67,22 @@ export function CustomerActionRail({
       label: "LINE 綁定",
       value: lineLinkedAt ? formatTWTime(lineLinkedAt, { dateOnly: true }) : null,
     },
-    { label: "來源", value: AUTH_SOURCE_LABEL[authSource] },
+    {
+      label: "來源",
+      value: (
+        <span className="inline-flex items-center gap-1.5">
+          <span>{derivedSource.label}</span>
+          {derivedSource.inconsistent && (
+            <span
+              className="cursor-help rounded bg-red-50 px-1.5 py-0.5 text-[10px] font-medium text-red-700"
+              title={derivedSource.inconsistencyReason ?? "來源欄位與資料證據不符"}
+            >
+              來源異常
+            </span>
+          )}
+        </span>
+      ),
+    },
   ];
 
   const actionBase =
