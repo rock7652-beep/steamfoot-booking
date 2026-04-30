@@ -4,6 +4,7 @@ import { checkPermission } from "@/lib/permissions";
 import { getCachedPlans, getCachedStaffOptions } from "@/lib/query-cache";
 import { getActiveStoreForRead } from "@/lib/store";
 import { ServerTiming, withTiming } from "@/lib/perf";
+import { prisma } from "@/lib/db";
 import { notFound, redirect } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import {
@@ -30,8 +31,10 @@ import { getMyReferralSummary } from "@/server/queries/my-referral-summary";
 import { formatTWTime } from "@/lib/date-utils";
 import { TALENT_STAGE_LABELS } from "@/types/talent";
 import type { CustomerStage, TalentStage } from "@prisma/client";
+import { deriveCustomerSource, type CustomerSourceSnapshot } from "@/lib/customer-source";
 
 import { CustomerBasicInfo } from "./_components/customer-basic-info";
+import { IdentityDiagnosticPanel } from "./_components/identity-diagnostic-panel";
 
 const TX_TYPE_LABEL: Record<string, string> = {
   TRIAL_PURCHASE: "體驗購買",
@@ -138,6 +141,12 @@ export default async function CustomerDetailPage({ params }: PageProps) {
   ]);
 
   timer.finish();
+
+  // ── 身分證據快照（用於 deriveCustomerSource）──
+  // 不從 getCustomerDetail 直接撈（避免 leak passwordHash 給其他 consumer），
+  // 在頁面層做一次小查詢，取「是否有 passwordHash」+ 「Account 的 provider 列表」
+  const identitySnapshot = await buildIdentitySnapshot(customer);
+  const derivedSource = deriveCustomerSource(identitySnapshot);
 
   const canEdit = user.role !== "CUSTOMER";
 
@@ -562,10 +571,17 @@ export default async function CustomerDetailPage({ params }: PageProps) {
             height={customer.height}
             lineName={customer.lineName}
             lineLinkStatus={customer.lineLinkStatus}
-            authSource={customer.authSource}
+            derivedSource={derivedSource}
             createdAt={customer.createdAt}
             assignedStaff={customer.assignedStaff}
             notes={customer.notes}
+          />
+
+          {/* 身分診斷（協助店長判斷真實註冊方式 + 偵測來源異常）*/}
+          <IdentityDiagnosticPanel
+            derivedSource={derivedSource}
+            snapshot={identitySnapshot}
+            customerPhone={customer.phone}
           />
 
           {/* Status badges */}
@@ -722,14 +738,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
                     : null
                 }
               />
-              <SystemRow
-                label="來源"
-                value={
-                  customer.authSource === "MANUAL"
-                    ? "店長手動"
-                    : customer.authSource
-                }
-              />
+              <SystemRow label="來源" value={derivedSource.label} />
             </dl>
           </SideCard>
         </aside>
@@ -766,6 +775,42 @@ function GrowthMetric({
       </div>
     </div>
   );
+}
+
+// 取得身分證據快照供 deriveCustomerSource 使用。
+// 拆出小查詢、不污染 getCustomerDetail 的回傳形狀；同時避免把 passwordHash
+// 本身洩漏到其他頁面 consumer — 這裡只用 boolean 表示「是否設定」。
+async function buildIdentitySnapshot(
+  customer: Awaited<ReturnType<typeof getCustomerDetail>>,
+): Promise<CustomerSourceSnapshot> {
+  let hasPassword = false;
+  let accountProviders: string[] = [];
+
+  if (customer.userId) {
+    const [userRow, accounts] = await Promise.all([
+      prisma.user.findUnique({
+        where: { id: customer.userId },
+        select: { passwordHash: true },
+      }),
+      prisma.account.findMany({
+        where: { userId: customer.userId },
+        select: { provider: true },
+      }),
+    ]);
+    hasPassword = !!userRow?.passwordHash;
+    accountProviders = accounts.map((a) => a.provider);
+  }
+
+  return {
+    authSource: customer.authSource,
+    email: customer.email ?? null,
+    lineUserId: customer.lineUserId ?? null,
+    lineLinkStatus: customer.lineLinkStatus,
+    googleId: customer.googleId ?? null,
+    hasUser: !!customer.userId,
+    hasPassword,
+    accountProviders,
+  };
 }
 
 function SystemRow({ label, value }: { label: string; value: React.ReactNode }) {
