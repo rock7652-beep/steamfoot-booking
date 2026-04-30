@@ -21,9 +21,13 @@ import {
 const PHONE_RE = /^09\d{8}$/;
 
 export type ResolveLineLoginResult =
-  | { status: "NEW_USER"; customerId: string }
-  | { status: "BOUND_EXISTING"; customerId: string }
-  | { status: "NEED_LOGIN"; phone: string; customerId: string };
+  // 寫入完成、需要 RELOGIN 取得 NextAuth session
+  | { status: "NEW_USER"; action: "RELOGIN"; customerId: string }
+  | { status: "BOUND_EXISTING"; action: "RELOGIN"; customerId: string }
+  // 已啟用顧客必須先過密碼閘
+  | { status: "NEED_LOGIN"; phone: string; customerId: string }
+  // 占位符 + 已預載資產（wallet/booking/transactions/points）→ 不可 silent claim
+  | { status: "BLOCKED_NEEDS_STAFF"; customerId: string };
 
 export type ResolveLineLoginError = {
   error: "session_expired" | "invalid_phone" | "line_already_bound_other";
@@ -53,17 +57,22 @@ export async function resolveLineLogin(input: {
   });
   if (byLine) {
     await clearOAuthTempSession();
-    return { status: "BOUND_EXISTING", customerId: byLine.id };
+    return { status: "BOUND_EXISTING", action: "RELOGIN", customerId: byLine.id };
   }
 
   // ── Step 1：用 phone + storeId 查既有 Customer ──
+  // 一次撈完啟用判斷與資產數量，避免多次 round-trip。
   const byPhone = await prisma.customer.findFirst({
     where: { storeId: session.storeId, phone },
     select: {
       id: true,
       userId: true,
       lineUserId: true,
+      totalPoints: true,
       user: { select: { passwordHash: true } },
+      _count: {
+        select: { planWallets: true, bookings: true, transactions: true },
+      },
     },
   });
 
@@ -87,11 +96,21 @@ export async function resolveLineLogin(input: {
       return { status: "NEED_LOGIN", phone, customerId: byPhone.id };
     }
 
-    // 🟡 未啟用（占位符 / 後台手建）→ 直接綁
-    // 安全性說明：占位符 Customer 沒有 password 也沒有 OAuth，無人擁有；
-    // 攻擊者需精確猜中此 phone 才能 claim，且其 LINE 帳號可被稽核。
-    // 已知接受風險：若占位符已預載 wallet / 點數，被認領後即歸屬該人；
-    // 風險可由「店長建檔時 phone 必填且核對」緩解。
+    // 🟠 占位符 + 有資產（wallet/booking/transactions/points）→ BLOCKED_NEEDS_STAFF
+    // 防誤 claim：若店長已預載課程方案 / 預約 / 點數，可能正等本人來認領，
+    // 此時不可被「猜中 phone 的陌生人」綁走。導向店家協助流程而非 silent bind。
+    const hasAssets =
+      byPhone.totalPoints > 0 ||
+      byPhone._count.planWallets > 0 ||
+      byPhone._count.bookings > 0 ||
+      byPhone._count.transactions > 0;
+    if (hasAssets) {
+      return { status: "BLOCKED_NEEDS_STAFF", customerId: byPhone.id };
+    }
+
+    // 🟡 占位符 + 無資產 → 可直接綁
+    // 純占位符 Customer（純 phone + 姓名占位，沒任何業務資料），讓 LINE 認領是
+    // 安全的：攻擊者就算猜中 phone，claim 到的 Customer 也沒任何資產可拿。
     await prisma.customer.update({
       where: { id: byPhone.id },
       data: {
@@ -104,7 +123,7 @@ export async function resolveLineLogin(input: {
       },
     });
     await clearOAuthTempSession();
-    return { status: "BOUND_EXISTING", customerId: byPhone.id };
+    return { status: "BOUND_EXISTING", action: "RELOGIN", customerId: byPhone.id };
   }
 
   // ── Step 2：找不到 phone → 建新 Customer（NEW_USER） ──
@@ -126,7 +145,7 @@ export async function resolveLineLogin(input: {
       select: { id: true },
     });
     await clearOAuthTempSession();
-    return { status: "NEW_USER", customerId: created.id };
+    return { status: "NEW_USER", action: "RELOGIN", customerId: created.id };
   } catch (err) {
     // 競態（多 tab / 雙擊）：另一個請求剛搶先建出同 phone 或同 lineUserId
     if (
