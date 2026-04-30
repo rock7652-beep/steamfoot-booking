@@ -102,7 +102,8 @@ export const CACHE_INVENTORY: CacheEntry[] = [
       "cancelBooking",
       "markCompleted",
       "createTransaction",
-      "refundTransaction",
+      "refundTransaction", // v2 新版（inverse REFUND tx 連動 wallet）
+      "refundTransactionLegacy", // 既有單純負向 tx 流程
       "createAdjustment",
     ],
     consumers: ["/dashboard/reports"],

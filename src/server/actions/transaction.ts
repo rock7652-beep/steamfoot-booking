@@ -15,6 +15,7 @@ import { assertStoreAccess } from "@/lib/manager-visibility";
 import { currentStoreId } from "@/lib/store";
 import { buildTransactionSnapshot, buildRefundSnapshot } from "@/lib/transaction-snapshot";
 import { awardFirstTopupReferralPointsIfEligible } from "@/server/services/referral-points";
+import { computeRefundPlan, type RefundMode } from "@/lib/refund-plan";
 
 // ============================================================
 // Validators
@@ -41,7 +42,7 @@ const createTransactionSchema = z.object({
   note: z.string().optional(),
 });
 
-const refundTransactionSchema = z.object({
+const refundTransactionLegacySchema = z.object({
   amount: z.number().positive("退款金額必須為正數"),
   paymentMethod: z
     .enum(["CASH", "TRANSFER", "LINE_PAY", "CREDIT_CARD", "OTHER"])
@@ -136,19 +137,25 @@ export async function createTransaction(
 }
 
 // ============================================================
-// refundTransaction — Owner only
+// refundTransactionLegacy — 既有「不連動 wallet」退款流程（保留供既有資料 / 工具使用）
 //
 // 針對一筆既有交易建立對應的 REFUND 紀錄（負數 amount）
 // 不自動修改 wallet；退款後若需調整堂數，用 adjustRemainingSessions
+//
+// ⚠️ 新顧客流程請改用 v2 refundTransaction（檔案下方），它會：
+//   - 連動 wallet status / WalletSession status
+//   - 建立 inverse REFUND tx，refundOfTransactionId 反向關聯
+//   - 原交易保留 SUCCESS（不改 REFUNDED）
+//   - 寫 TransactionAuditLog (action=REFUND)
 // ============================================================
 
-export async function refundTransaction(
+export async function refundTransactionLegacy(
   originalTransactionId: string,
-  input: z.infer<typeof refundTransactionSchema>
+  input: z.infer<typeof refundTransactionLegacySchema>
 ): Promise<ActionResult<{ refundId: string }>> {
   try {
     const user = await requirePermission("transaction.create");
-    const data = refundTransactionSchema.parse(input);
+    const data = refundTransactionLegacySchema.parse(input);
 
     const original = await prisma.transaction.findUnique({
       where: { id: originalTransactionId },
@@ -966,3 +973,171 @@ export type TransactionDetailDTO = {
     createdAt: string;
   }>;
 };
+
+// ============================================================
+// === v2 退款（refundTransaction） ===
+// ============================================================
+//
+// 規格原則：退款不修改原交易；新增一筆負向 REFUND tx，靠 inverse 反查。
+//
+// 行為：
+//   - 原交易必須 status=SUCCESS, transactionType=PACKAGE_PURCHASE
+//   - 任何模式下有 RESERVED → 拒絕「請先取消預約」
+//   - FULL_UNUSED 模式 + completed > 0 → 拒絕「不能全額退款」
+//   - availableCount = 0 → 拒絕「沒可退款堂數」（CAS 等價：擋重複退款）
+//   - 通過後：建立 REFUND tx (negative amount) + WalletSession 標 VOIDED
+//     + Wallet 若無剩餘 AVAILABLE → CANCELLED + 寫 audit log REFUND
+//
+// 並發保護：CAS pattern — wallet.update WHERE status=ACTIVE，count=0 拋 CONFLICT
+// 一致性：整段在 prisma.$transaction 內
+//
+// Permission: transaction.refund
+// ============================================================
+
+const refundTransactionSchema = z.object({
+  transactionId: z.string().min(1),
+  reason: z.string().min(1, "請填寫退款原因").max(500),
+  refundMode: z.enum(["FULL_UNUSED", "REMAINING_SESSIONS"]),
+});
+
+export async function refundTransaction(
+  input: z.infer<typeof refundTransactionSchema>,
+): Promise<ActionResult<{ refundTransactionId: string; refundAmount: number }>> {
+  try {
+    const user = await requirePermission("transaction.refund");
+    const data = refundTransactionSchema.parse(input);
+
+    // Pre-load 原交易 + wallet + sessions（read-only，後面在 tx 內 re-validate）
+    const original = await prisma.transaction.findUnique({
+      where: { id: data.transactionId },
+      include: {
+        customerPlanWallet: {
+          include: {
+            sessions: { select: { id: true, status: true } },
+          },
+        },
+      },
+    });
+    if (!original) throw new AppError("NOT_FOUND", "原始交易不存在");
+    assertStoreAccess(user, original.storeId);
+
+    // Guard 1：必須 SUCCESS（不能對 VOIDED / REFUNDED / CANCELLED 退款；防重複退款）
+    if (original.status !== "SUCCESS") {
+      throw new AppError("BUSINESS_RULE", `交易狀態為 ${original.status}，不能退款`);
+    }
+
+    // Guard 2：v2 範圍只支援 PACKAGE_PURCHASE
+    if (original.transactionType !== "PACKAGE_PURCHASE") {
+      throw new AppError(
+        "BUSINESS_RULE",
+        `${original.transactionType} 不支援 v2 退款流程（僅限 PACKAGE_PURCHASE）`,
+      );
+    }
+
+    // Guard 3：套餐必有 wallet
+    const wallet = original.customerPlanWallet;
+    if (!wallet || !original.customerPlanWalletId) {
+      throw new AppError("BUSINESS_RULE", "套餐交易缺少錢包關聯，無法退款");
+    }
+
+    // 算退款計畫（pure helper）
+    const plan = computeRefundPlan({
+      originalAmount: Number(original.amount),
+      totalSessions: wallet.totalSessions,
+      mode: data.refundMode as RefundMode,
+      sessions: wallet.sessions,
+    });
+    if (!plan.ok) {
+      throw new AppError(plan.errorCode, plan.message);
+    }
+
+    const now = new Date();
+    const refundSnapshot = buildRefundSnapshot(original);
+
+    const refundTx = await prisma.$transaction(async (tx) => {
+      // ── 1. CAS：將指定 AVAILABLE sessions 標為 VOIDED ──
+      const voidResult = await tx.walletSession.updateMany({
+        where: {
+          id: { in: plan.sessionIdsToVoid },
+          status: "AVAILABLE", // 防併發：他人剛把 session 變成 RESERVED 就會更新失敗
+        },
+        data: {
+          status: "VOIDED",
+          voidedAt: now,
+          voidReason: `退款：${data.reason}`,
+        },
+      });
+      if (voidResult.count !== plan.sessionIdsToVoid.length) {
+        throw new AppError(
+          "CONFLICT",
+          "方案堂數狀態已變更，請重新整理後再退款",
+        );
+      }
+
+      // ── 2. Wallet 連動 ──
+      // 重算剩餘可用堂數（用 DB 真值，不 trust pre-load）
+      const remainingAvailable = await tx.walletSession.count({
+        where: { walletId: wallet.id, status: "AVAILABLE" },
+      });
+      const newWalletStatus = remainingAvailable === 0 ? "CANCELLED" : "ACTIVE";
+      await tx.customerPlanWallet.update({
+        where: { id: wallet.id },
+        data: {
+          status: newWalletStatus,
+          remainingSessions: remainingAvailable,
+        },
+      });
+
+      // ── 3. 建立 inverse REFUND tx（amount 負數，狀態 SUCCESS） ──
+      const created = await tx.transaction.create({
+        data: {
+          customerId: original.customerId,
+          storeId: original.storeId,
+          revenueStaffId: original.revenueStaffId, // 維持原始歸屬
+          serviceStaffId: user.staffId ?? null,
+          customerPlanWalletId: original.customerPlanWalletId,
+          bookingId: null, // refund tx 不綁 booking
+          transactionType: "REFUND",
+          paymentMethod: original.paymentMethod, // 退回原付款方式
+          amount: new Prisma.Decimal(-plan.refundAmount),
+          note: `[退款 v2 ${data.refundMode}] ${data.reason}`,
+          // v2 refund 反向關聯 + meta
+          refundOfTransactionId: original.id,
+          refundReason: data.reason,
+          refundedAt: now,
+          refundedByUserId: user.id,
+          // status 預設 SUCCESS，paymentStatus 預設 SUCCESS — 報表會把 amount 負數計入
+          ...refundSnapshot,
+          netAmount: new Prisma.Decimal(-plan.refundAmount),
+        },
+      });
+
+      // ── 4. Audit log: REFUND ──
+      await writeTransactionAuditLog(tx, {
+        storeId: original.storeId,
+        transactionId: original.id, // log 掛在「原交易」上，方便追溯
+        actorUserId: user.id,
+        action: "REFUND",
+        before: { availableCount: plan.breakdown.availableCount, walletStatus: wallet.status },
+        after: {
+          availableCount: 0,
+          walletStatus: newWalletStatus,
+          refundTransactionId: created.id,
+          refundAmount: plan.refundAmount,
+          refundMode: data.refundMode,
+        },
+        reason: data.reason,
+      });
+
+      return created;
+    });
+
+    revalidateTransactions(original.customerId);
+    return {
+      success: true,
+      data: { refundTransactionId: refundTx.id, refundAmount: plan.refundAmount },
+    };
+  } catch (e) {
+    return handleActionError(e);
+  }
+}
