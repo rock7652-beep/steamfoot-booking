@@ -338,7 +338,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
             { label: "訂單數", value: `${totalOrders} 筆`, tone: "blue" },
             {
               label: "退款",
-              value: `NT$ ${Math.abs(storeSummary.totalRefund).toLocaleString()}`,
+              value: `${storeSummary.totalRefund < 0 ? "-" : ""}NT$ ${Math.abs(storeSummary.totalRefund).toLocaleString()}`,
               tone: storeSummary.totalRefund < 0 ? "amber" : "earth",
             },
           ]}

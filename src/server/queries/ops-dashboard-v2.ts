@@ -8,7 +8,7 @@ import {
   bookingDateToday,
   toLocalDateStr,
 } from "@/lib/date-utils";
-import { REVENUE_TRANSACTION_TYPES, REVENUE_VALID_STATUS } from "@/lib/booking-constants";
+import { REVENUE_NET_TYPES, REVENUE_VALID_STATUS } from "@/lib/booking-constants";
 import { getStoreFilter } from "@/lib/manager-visibility";
 
 // TODO(PR-payment-confirm): PR-3/4 上線後，本檔 Transaction 營收 aggregate
@@ -107,7 +107,7 @@ export async function getOpsAlerts(activeStoreId?: string | null): Promise<OpsAl
       return prisma.transaction.aggregate({
         where: {
           createdAt: { gte: monthStart },
-          transactionType: { in: [...REVENUE_TRANSACTION_TYPES] },
+          transactionType: { in: [...REVENUE_NET_TYPES] },
           status: REVENUE_VALID_STATUS,
           ...storeFilter,
         },
@@ -124,7 +124,7 @@ export async function getOpsAlerts(activeStoreId?: string | null): Promise<OpsAl
       return prisma.transaction.aggregate({
         where: {
           createdAt: { gte: start, lt: end },
-          transactionType: { in: [...REVENUE_TRANSACTION_TYPES] },
+          transactionType: { in: [...REVENUE_NET_TYPES] },
           status: REVENUE_VALID_STATUS,
           ...storeFilter,
         },
@@ -503,7 +503,7 @@ export async function getStaffRankings(days = 30, activeStoreId?: string | null)
       revenueTransactions: {
         where: {
           createdAt: { gte: startRange.start, lte: endRange.end },
-          transactionType: { in: [...REVENUE_TRANSACTION_TYPES] },
+          transactionType: { in: [...REVENUE_NET_TYPES] },
           status: REVENUE_VALID_STATUS,
         },
         select: { amount: true },
@@ -528,7 +528,7 @@ export async function getStaffRankings(days = 30, activeStoreId?: string | null)
     by: ["revenueStaffId"],
     where: {
       createdAt: { gte: prevStartRange.start, lt: startRange.start },
-      transactionType: { in: [...REVENUE_TRANSACTION_TYPES] },
+      transactionType: { in: [...REVENUE_NET_TYPES] },
       status: REVENUE_VALID_STATUS,
       ...storeFilter,
     },

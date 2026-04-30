@@ -34,7 +34,7 @@ import {
 } from "@/lib/date-utils";
 import {
   ACTIVE_BOOKING_STATUSES,
-  REVENUE_TRANSACTION_TYPES,
+  REVENUE_NET_TYPES,
   REVENUE_VALID_STATUS,
 } from "@/lib/booking-constants";
 
@@ -198,7 +198,7 @@ async function computeDashboardTodaySummary(
         prisma.transaction.aggregate({
           where: {
             createdAt: { gte: todayStart, lte: todayEnd },
-            transactionType: { in: [...REVENUE_TRANSACTION_TYPES] },
+            transactionType: { in: [...REVENUE_NET_TYPES] },
             status: REVENUE_VALID_STATUS,
             ...storeFilter,
           },
@@ -319,7 +319,7 @@ export async function getDashboardOverviewSummary(
             prisma.transaction.aggregate({
               where: {
                 createdAt: { gte: monthStart },
-                transactionType: { in: [...REVENUE_TRANSACTION_TYPES] },
+                transactionType: { in: [...REVENUE_NET_TYPES] },
                 status: REVENUE_VALID_STATUS,
                 ...storeFilter,
               },
@@ -335,7 +335,7 @@ export async function getDashboardOverviewSummary(
             prisma.transaction.aggregate({
               where: {
                 createdAt: { gte: prevMonth.start, lt: monthStart },
-                transactionType: { in: [...REVENUE_TRANSACTION_TYPES] },
+                transactionType: { in: [...REVENUE_NET_TYPES] },
                 status: REVENUE_VALID_STATUS,
                 ...storeFilter,
               },

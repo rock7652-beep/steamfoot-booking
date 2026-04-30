@@ -98,6 +98,11 @@ export async function GET(req: NextRequest) {
   const totalSpent = transactions
     .filter((t) => ["TRIAL_PURCHASE", "SINGLE_PURCHASE", "PACKAGE_PURCHASE", "SUPPLEMENT"].includes(t.transactionType) && t.status === "SUCCESS")
     .reduce((s, t) => s + Number(t.amount), 0);
+  // v2 報表：退款（負數）+ 淨消費
+  const totalRefund = transactions
+    .filter((t) => t.transactionType === "REFUND" && t.status === "SUCCESS")
+    .reduce((s, t) => s + Number(t.amount), 0);
+  const netSpent = totalSpent + totalRefund;
 
   const rows: string[][] = [
     [`顧客消費明細 — ${customer.name}（${customer.phone}）${month ? ` / ${month}` : ""}`],
@@ -106,7 +111,9 @@ export async function GET(req: NextRequest) {
     headers,
     ...txRows,
     [],
-    [`總消費金額（不含退款）: ${totalSpent}`],
+    [`課程總收入: ${totalSpent}`],
+    [`退款: ${totalRefund}`],
+    [`淨消費: ${netSpent}`],
     [],
     ["=== 課程錢包 ==="],
     walletHeaders,

@@ -234,7 +234,7 @@ export default async function RevenuePage() {
               <SummaryRow label="課程總收入" value={`NT$ ${monthSummary.totalCourseRevenue.toLocaleString()}`} />
               <SummaryRow
                 label="退款"
-                value={`NT$ ${Math.abs(monthSummary.totalRefund).toLocaleString()}`}
+                value={`${monthSummary.totalRefund < 0 ? "-" : ""}NT$ ${Math.abs(monthSummary.totalRefund).toLocaleString()}`}
                 tone="red"
               />
               <SummaryRow label="淨收入" value={`NT$ ${monthNet.toLocaleString()}`} tone="primary" />

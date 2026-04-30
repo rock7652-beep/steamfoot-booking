@@ -9,9 +9,11 @@ import {
   updateTransactionPaymentMethod,
   updateTransactionOwnerStaff,
   voidTransaction,
+  refundTransaction,
   type TransactionDetailDTO,
 } from "@/server/actions/transaction";
 import { formatTWTime } from "@/lib/date-utils";
+import { computeRefundPlan, type RefundMode } from "@/lib/refund-plan";
 
 // ============================================================
 // Drawer for transaction detail / safe corrections / void
@@ -49,6 +51,7 @@ const ACTION_LABEL: Record<string, string> = {
   UPDATE_PAYMENT_METHOD: "更正付款方式",
   UPDATE_OWNER_STAFF: "更正歸屬店長",
   VOID: "取消交易",
+  REFUND: "退款",
 };
 
 const PAYMENT_METHOD_OPTIONS: Array<{ value: string; label: string }> = [
@@ -67,9 +70,10 @@ interface DrawerProps {
   staffOptions: Array<{ id: string; displayName: string }>;
   canVoid: boolean;
   canEdit: boolean;
+  canRefund: boolean;
 }
 
-type View = "main" | "void-confirm";
+type View = "main" | "void-confirm" | "refund-confirm";
 
 export function TransactionDrawer({
   open,
@@ -78,6 +82,7 @@ export function TransactionDrawer({
   staffOptions,
   canVoid,
   canEdit,
+  canRefund,
 }: DrawerProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -96,6 +101,9 @@ export function TransactionDrawer({
   const [staffReason, setStaffReason] = useState<string>("");
   const [editingStaff, setEditingStaff] = useState(false);
   const [voidReason, setVoidReason] = useState<string>("");
+  // v2 退款 state
+  const [refundMode, setRefundMode] = useState<RefundMode>("FULL_UNUSED");
+  const [refundReasonInput, setRefundReasonInput] = useState<string>("");
 
   // Reload data when opening — async fetch effect, all setState happens
   // inside the awaited promise so it doesn't trigger react-hooks/set-state-in-effect
@@ -119,6 +127,8 @@ export function TransactionDrawer({
         setPaymentReason("");
         setStaffReason("");
         setVoidReason("");
+        setRefundMode("FULL_UNUSED");
+        setRefundReasonInput("");
         setEditingNote(false);
         setEditingPayment(false);
         setEditingStaff(false);
@@ -211,6 +221,52 @@ export function TransactionDrawer({
       }
     });
   };
+
+  const handleRefundConfirm = () => {
+    if (!transactionId) return;
+    setError(null);
+    startTransition(async () => {
+      const res = await refundTransaction({
+        transactionId,
+        reason: refundReasonInput,
+        refundMode,
+      });
+      if (res.success) {
+        setView("main");
+        refresh();
+      } else {
+        // 防呆文案沿用 server action 回傳，前端不另外發明
+        setError(res.error ?? "退款失敗");
+      }
+    });
+  };
+
+  // 退款試算（pure helper；server action 會以同樣 logic 再驗一次）
+  const refundPlan =
+    data &&
+    data.transactionType === "PACKAGE_PURCHASE" &&
+    data.customerPlanWallet
+      ? computeRefundPlan({
+          originalAmount: data.amount,
+          totalSessions: data.customerPlanWallet.totalSessions,
+          mode: refundMode,
+          // 把 sessionsBreakdown 攤回成 SessionLite[]（id 用 index 代替；不送回 server）
+          sessions: [
+            ...Array(data.customerPlanWallet.sessionsBreakdown.available).fill({
+              status: "AVAILABLE",
+            }),
+            ...Array(data.customerPlanWallet.sessionsBreakdown.reserved).fill({
+              status: "RESERVED",
+            }),
+            ...Array(data.customerPlanWallet.sessionsBreakdown.completed).fill({
+              status: "COMPLETED",
+            }),
+            ...Array(data.customerPlanWallet.sessionsBreakdown.voided).fill({
+              status: "VOIDED",
+            }),
+          ].map((s, i) => ({ id: `preview-${i}`, status: s.status as "AVAILABLE" | "RESERVED" | "COMPLETED" | "VOIDED" })),
+        })
+      : null;
 
   return (
     <RightSheet open={open} onClose={onClose} width={520}>
@@ -463,6 +519,24 @@ export function TransactionDrawer({
                 </Section>
               )}
 
+              {/* 退款區（v2 — 只對 PACKAGE_PURCHASE 且 SUCCESS 顯示）*/}
+              {data.status === "SUCCESS" &&
+                data.transactionType === "PACKAGE_PURCHASE" &&
+                canRefund && (
+                  <Section title="退款">
+                    <p className="mb-2 text-xs text-earth-500">
+                      建立一筆負向 REFUND 交易，原交易不變。
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setView("refund-confirm")}
+                      className="rounded border border-amber-300 bg-white px-3 py-1.5 text-sm text-amber-700 hover:bg-amber-50"
+                    >
+                      退款
+                    </button>
+                  </Section>
+                )}
+
               {/* 危險區（VOIDED 不顯示） */}
               {data.status !== "VOIDED" && canVoid && (
                 <Section title="危險操作" tone="danger">
@@ -546,6 +620,111 @@ export function TransactionDrawer({
                     className="rounded bg-red-600 px-3 py-1.5 text-sm text-white hover:bg-red-700 disabled:opacity-50"
                   >
                     {isPending ? "處理中…" : "確認取消交易"}
+                  </button>
+                </div>
+              </Section>
+            </div>
+          )}
+
+          {data && view === "refund-confirm" && data.customerPlanWallet && (
+            <div>
+              <Section title="退款">
+                <p className="mb-3 text-xs text-earth-500">
+                  退款不修改原交易；新增一筆負向 REFUND 交易並連動方案堂數。
+                </p>
+
+                {/* 退款方式 */}
+                <div className="mb-3">
+                  <label className="mb-1 block text-xs font-medium text-earth-700">退款方式</label>
+                  <div className="flex flex-col gap-1 text-sm text-earth-700">
+                    <label className="inline-flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="refundMode"
+                        value="FULL_UNUSED"
+                        checked={refundMode === "FULL_UNUSED"}
+                        onChange={() => setRefundMode("FULL_UNUSED")}
+                      />
+                      <span>全額退款（未使用方案）</span>
+                    </label>
+                    <label className="inline-flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="refundMode"
+                        value="REMAINING_SESSIONS"
+                        checked={refundMode === "REMAINING_SESSIONS"}
+                        onChange={() => setRefundMode("REMAINING_SESSIONS")}
+                      />
+                      <span>退剩餘堂數</span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* 試算 */}
+                <div className="mb-3 rounded border border-earth-200 bg-earth-50/50 px-3 py-2 text-sm">
+                  <Row
+                    label="原購買金額"
+                    value={`NT$ ${data.amount.toLocaleString()}`}
+                  />
+                  <Row label="總堂數" value={`${data.customerPlanWallet.totalSessions}`} />
+                  <Row
+                    label="已使用"
+                    value={`${data.customerPlanWallet.sessionsBreakdown.completed}`}
+                  />
+                  <Row
+                    label="預約佔用"
+                    value={`${data.customerPlanWallet.sessionsBreakdown.reserved}`}
+                  />
+                  <Row
+                    label="可退款堂數"
+                    value={`${data.customerPlanWallet.sessionsBreakdown.available}`}
+                  />
+                  {refundPlan?.ok ? (
+                    <Row
+                      label="預計退款"
+                      value={`NT$ ${refundPlan.refundAmount.toLocaleString()}`}
+                    />
+                  ) : (
+                    refundPlan && (
+                      <div className="mt-2 rounded border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-amber-700">
+                        {refundPlan.message}
+                      </div>
+                    )
+                  )}
+                </div>
+
+                {/* 原因 */}
+                <textarea
+                  value={refundReasonInput}
+                  onChange={(e) => setRefundReasonInput(e.target.value)}
+                  placeholder="退款原因（必填）"
+                  rows={3}
+                  maxLength={500}
+                  className="w-full rounded border border-earth-300 px-2 py-1 text-sm focus:outline-none focus:border-primary-400"
+                />
+
+                {/* 操作 */}
+                <div className="mt-3 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setView("main")}
+                    className="rounded border border-earth-300 px-3 py-1.5 text-sm text-earth-600 hover:bg-earth-50"
+                  >
+                    返回
+                  </button>
+                  <button
+                    type="button"
+                    disabled={
+                      isPending ||
+                      !refundReasonInput.trim() ||
+                      // 試算失敗時 disabled，避免送出明知會被擋的請求
+                      // server action 仍會以同樣 logic 再驗一次（防 race）
+                      !refundPlan?.ok
+                    }
+                    onClick={handleRefundConfirm}
+                    className="rounded bg-amber-600 px-3 py-1.5 text-sm text-white hover:bg-amber-700 disabled:opacity-50"
+                  >
+                    {isPending ? "處理中…" : "確認退款"}
                   </button>
                 </div>
               </Section>

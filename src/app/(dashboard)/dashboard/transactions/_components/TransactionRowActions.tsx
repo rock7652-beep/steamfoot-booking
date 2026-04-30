@@ -12,6 +12,7 @@ interface RowActionsProps {
   staffOptions: Array<{ id: string; displayName: string }>;
   canVoid: boolean;
   canEdit: boolean;
+  canRefund: boolean;
 }
 
 export function TransactionRowActions({
@@ -19,6 +20,7 @@ export function TransactionRowActions({
   staffOptions,
   canVoid,
   canEdit,
+  canRefund,
 }: RowActionsProps) {
   const [open, setOpen] = useState(false);
 
@@ -40,6 +42,7 @@ export function TransactionRowActions({
           staffOptions={staffOptions}
           canVoid={canVoid}
           canEdit={canEdit}
+          canRefund={canRefund}
         />
       )}
     </>
