@@ -64,6 +64,13 @@ vi.mock("@/lib/normalize", () => ({
   normalizePhone: (s: string) => s,
 }));
 
+// Hotfix line-account-sync wiring: 把 helper mock 起來確認被呼叫；helper 自身
+// 由 src/__tests__/line-account-sync.test.ts 獨立覆蓋。
+const mockSyncLineAccount = vi.fn();
+vi.mock("@/server/services/line-account-sync", () => ({
+  syncLineAccountForUser: (...args: unknown[]) => mockSyncLineAccount(...args),
+}));
+
 // 必須在 mocks 之後 import（vi.mock 會 hoist，但動態 reference 才會吃到 mock）
 import { resolveLineLogin, finalizeLineBind } from "@/server/actions/oauth-confirm";
 
@@ -208,6 +215,39 @@ describe("resolveLineLogin", () => {
       }),
     );
     expect(mockClearOAuthTempSession).toHaveBeenCalledOnce();
+    // userId=null → 不應呼叫 syncLineAccountForUser（沒 user 可綁 Account）
+    expect(mockSyncLineAccount).not.toHaveBeenCalled();
+  });
+
+  it("Case 3 變體: phone 命中 + 已有 userId 但 placeholder phone → BOUND_EXISTING + 補建 Account", async () => {
+    // 模擬 staff 早就建了 Customer（已啟用：有 passwordHash）但 lineUserId 還沒寫，
+    // 然後 LINE OAuth 走進 oauth-confirm 補手機 → resolveLineLogin Step 1 命中。
+    // 此時 byPhone.userId 存在，必須同步 syncLineAccountForUser 補建 Account[line]。
+    mockGetOAuthTempSession.mockResolvedValue(validTempSession);
+    mockCustomerFindFirst
+      .mockResolvedValueOnce(null) // Step 0 miss
+      .mockResolvedValueOnce({
+        id: CUSTOMER_ID,
+        userId: NEXT_AUTH_USER_ID, // 已啟用 user
+        lineUserId: null,
+        totalPoints: 0,
+        user: { passwordHash: null }, // hasPassword=false
+        _count: { planWallets: 0, bookings: 0, transactions: 0 },
+      });
+    mockAccountCount.mockResolvedValue(0); // hasOAuth=false → 視為未啟用 → 走 BOUND_EXISTING bind 路徑
+    mockSyncLineAccount.mockResolvedValue({ status: "created" });
+
+    const r = await resolveLineLogin({ phone: VALID_PHONE });
+
+    expect(r).toEqual({
+      status: "BOUND_EXISTING",
+      action: "RELOGIN",
+      customerId: CUSTOMER_ID,
+    });
+    expect(mockSyncLineAccount).toHaveBeenCalledWith({
+      userId: NEXT_AUTH_USER_ID,
+      lineUserId: LINE_USER_ID,
+    });
   });
 
   it("Case 4: phone 命中 + 未啟用 + 有 wallet → BLOCKED_NEEDS_STAFF（不寫 DB）", async () => {
@@ -409,13 +449,14 @@ describe("finalizeLineBind", () => {
     expect(mockCustomerUpdate).not.toHaveBeenCalled();
   });
 
-  it("happy path：寫入 lineUserId + clearTemp + return RELOGIN signal", async () => {
+  it("happy path：寫入 lineUserId + clearTemp + return RELOGIN signal + 同步 Account", async () => {
     mockAuth.mockResolvedValue({ user: { id: NEXT_AUTH_USER_ID } });
     mockGetOAuthTempSession.mockResolvedValue(validTempSession);
     mockCustomerFindFirst
       .mockResolvedValueOnce({ id: CUSTOMER_ID, lineUserId: null })
       .mockResolvedValueOnce(null); // 同 store 沒人撞同 lineUserId
     mockCustomerUpdate.mockResolvedValue({});
+    mockSyncLineAccount.mockResolvedValue({ status: "created" });
 
     const r = await finalizeLineBind({ customerId: CUSTOMER_ID, callbackUrl: "/profile" });
 
@@ -435,5 +476,10 @@ describe("finalizeLineBind", () => {
       }),
     );
     expect(mockClearOAuthTempSession).toHaveBeenCalledOnce();
+    // finalize 必呼叫 sync — NextAuth session.user.id 已存在，這是 hotfix 主修點
+    expect(mockSyncLineAccount).toHaveBeenCalledWith({
+      userId: NEXT_AUTH_USER_ID,
+      lineUserId: LINE_USER_ID,
+    });
   });
 });

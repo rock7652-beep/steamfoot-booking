@@ -10,6 +10,7 @@
 
 import { verifyLineSignature, replyMessage } from "@/lib/line";
 import { prisma } from "@/lib/db";
+import { syncLineAccountForUser } from "@/server/services/line-account-sync";
 
 export const dynamic = "force-dynamic";
 
@@ -336,6 +337,19 @@ async function handleBindingRequest(
   });
 
   console.log(`[LINE] Binding success: ${customer.name} (${customer.id}) <-> ${lineUserId} (store: ${storeId})`);
+
+  // 同步 NextAuth Account[line]：webhook 只設 Customer.lineUserId 不同步 Account 會造成
+  // 「後台看似已綁定但 LINE OAuth 仍走新身份建立流程」的分裂。Customer.userId 為 null
+  // 時無 user 可綁，跳過（顧客之後若走 /profile 啟用流程仍可在那條鏈補上）。
+  if (customer.userId) {
+    const syncResult = await syncLineAccountForUser({
+      userId: customer.userId,
+      lineUserId,
+    });
+    console.log(`[LINE] Account sync result for ${customer.name}: ${syncResult.status}`);
+  } else {
+    console.log(`[LINE] Account sync skipped: Customer.userId is null (customer not yet activated)`);
+  }
 
   // 🆕 若此 customer 有 sponsor → 邀請者 +1（sourceKey dedupe：僅首次生效）
   try {
