@@ -9,6 +9,7 @@ import {
   getOAuthTempSession,
   clearOAuthTempSession,
 } from "@/lib/server/oauth-temp-session";
+import { syncLineAccountForUser } from "@/server/services/line-account-sync";
 
 /**
  * resolveLineLogin — PR-2 step 3b
@@ -124,6 +125,14 @@ export async function resolveLineLogin(input: {
         authSource: "LINE",
       },
     });
+    // 同步 NextAuth Account[line]：避免 Customer.lineUserId 已設但 Account 缺失的分裂狀態。
+    // byPhone.userId 為 null 時跳過（純佔位 Customer 還沒有 User 可綁）。
+    if (byPhone.userId) {
+      await syncLineAccountForUser({
+        userId: byPhone.userId,
+        lineUserId: session.lineUserId,
+      });
+    }
     await clearOAuthTempSession();
     return { status: "BOUND_EXISTING", action: "RELOGIN", customerId: byPhone.id };
   }
@@ -298,6 +307,12 @@ export async function finalizeLineBind(input: {
       // authSource 不變 — 此 Customer 原本是 EMAIL/PHONE_PASSWORD 註冊，
       // 後來綁了 LINE。derived source helper（PR-1）會推導真實標籤。
     },
+  });
+  // 同步 NextAuth Account[line]：finalize 必走密碼登入後，nextAuthSession.user.id 必有，
+  // 此處同步可保證 RELOGIN 後 LINE OAuth callback 能命中既有 user，不再分裂。
+  await syncLineAccountForUser({
+    userId: nextAuthSession.user.id,
+    lineUserId: tempSession.lineUserId,
   });
   await clearOAuthTempSession();
 

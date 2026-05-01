@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import type { AuthSource, LineLinkStatus, Prisma } from "@prisma/client";
+import { syncLineAccountForUser } from "@/server/services/line-account-sync";
 
 // 第三方身份欄位 — 這些欄位在 placeholder → real 合併時必須搬家。
 // 修正欄位時請同步更新 repair script (scripts/repair-line-merge-orphans.ts)。
@@ -119,6 +120,14 @@ export async function mergePlaceholderCustomerIntoRealCustomer(
       where: { id: realCustomerId },
       data: { userId, ...(basicProfile ?? {}) },
     });
+    // 同步 NextAuth Account[line]：若該 Customer 帶 lineUserId，須與當前 user 對齊。
+    const realRow = await prisma.customer.findUnique({
+      where: { id: realCustomerId },
+      select: { lineUserId: true },
+    });
+    if (realRow?.lineUserId) {
+      await syncLineAccountForUser({ userId, lineUserId: realRow.lineUserId });
+    }
     return {
       realId: realCustomerId,
       mergedIdentity: {},
@@ -151,6 +160,9 @@ export async function mergePlaceholderCustomerIntoRealCustomer(
         where: { id: realCustomerId },
         data: { userId, ...(basicProfile ?? {}) },
       });
+      if (real.lineUserId) {
+        await syncLineAccountForUser({ userId, lineUserId: real.lineUserId, tx });
+      }
       return {
         realId: realCustomerId,
         mergedIdentity: {},
@@ -175,6 +187,10 @@ export async function mergePlaceholderCustomerIntoRealCustomer(
         where: { id: realCustomerId },
         data: { userId, ...(basicProfile ?? {}) },
       });
+      // 跨店：real 保留自己 lineUserId（若有），同步 Account
+      if (real.lineUserId) {
+        await syncLineAccountForUser({ userId, lineUserId: real.lineUserId, tx });
+      }
       return {
         realId: realCustomerId,
         mergedIdentity: {},
@@ -207,6 +223,15 @@ export async function mergePlaceholderCustomerIntoRealCustomer(
         ...(basicProfile ?? {}),
       },
     });
+
+    // 同步 NextAuth Account[line]：取最終 lineUserId（mergedIdentity 優先於 real 原值）。
+    // 必須與此次 transaction 同 tx，避免 partial commit 時 Account 與 Customer 不一致。
+    const finalLineUserId =
+      (mergedIdentity as { lineUserId?: string | null }).lineUserId ??
+      real.lineUserId;
+    if (finalLineUserId) {
+      await syncLineAccountForUser({ userId, lineUserId: finalLineUserId, tx });
+    }
 
     // Step 3: 嘗試刪 placeholder；有關聯資料擋到就保留清空的 row
     let placeholderDeleted = false;
