@@ -527,72 +527,84 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
 
         // ─────────────────────────────────────────────────────────────────
-        // PR-2: LINE 找不到既有 Customer → 不靜默 create
-        // 改為 setOAuthTempSession + redirect /oauth-confirm 讓使用者輸入手機
-        // 完成「身份確認」流程（防止分裂帳號）。詳見 docs/identity-flow.md。
+        // 找不到既有 Customer → 在 transaction 內直接建立完整身份鏈
         //
-        // Google 不動：Google OAuth 100% 提供 email，找不到代表真新客；
-        // 維持原本 placeholder create 行為。Google 防分裂另開 PR 處理。
+        // 設計變更（原 PR-2 stage flow 已撤）：
+        //   PR-2 原本把 LINE 找不到 Customer 的情況導去 /oauth-confirm 要求
+        //   使用者輸入手機，目的是「防止分裂帳號」。實務上造成：
+        //     - 顧客 LINE 登入後沒回網站、卡 oauth-confirm 表單
+        //     - 顧客中斷 → 留下無 Customer 的 orphan User
+        //     - 後台看不到 LINE badge（lineUserId 從未寫入）
+        //   現改為：signIn callback 一次把 User + Customer + Account[line]
+        //   在同 transaction 內建好，登入完成 100% 有完整身份鏈。
         //
-        // callbackUrl 預設 "/"（首頁），不從 NextAuth cookie 讀取，先求穩。
+        // Trade-off: 同一人若已在 DB 有非 LINE 來源的 Customer（staff 匯入 /
+        //   電話註冊），又從 LINE 第一次登入，會產生第二筆 Customer。
+        //   由後台合併工具處理（profile 補手機時的 merge 也仍會幫忙）。
         // ─────────────────────────────────────────────────────────────────
-        if (provider === "line" && lineUserId) {
-          // 不在 auth.ts 直接 setOAuthTempSession（會把 next/headers 透過
-          // middleware/client bundle chain 打進不該去的地方 → build error）。
-          // 改 sign HMAC token 後 redirect 到 /api/oauth-line-stage，由那支
-          // Route Handler 寫 cookie + 再 redirect /oauth-confirm。
-          const { signStageToken } = await import("@/lib/oauth-stage-token");
-          const token = await signStageToken({
-            lineUserId,
-            displayName: oauthName,
-            storeId: targetStoreId,
-          });
-          // Return URL string → NextAuth 把 user redirect 到此 URL 但不寫 JWT。
-          // 與上方 StaffEmailBlocked 同樣模式（拒絕 signin 但 redirect 到指定頁）。
-          return `/api/oauth-line-stage?t=${encodeURIComponent(token)}`;
-        }
 
-        // No existing Customer - create new Customer + User
         // OAuth 新顧客 phone 使用唯一佔位符，避免 compound unique (storeId, phone) 衝突
         // 顧客可後續於 profile 補填真實手機
         const oauthPlaceholderPhone = `_oauth_${provider}_${account.providerAccountId.slice(-8)}`;
 
-        const newUser = await prisma.user.create({
-          data: {
-            name: oauthName,
-            email: oauthEmail,
-            role: "CUSTOMER",
-            status: "ACTIVE",
-            image: oauthImage,
-          },
+        // Transaction：User + Customer + Account 三者必須同生同滅
+        // 任一失敗 → 全部回滾，不會產生 orphan User / 半綁 Customer
+        const { newUser, newCustomer } = await prisma.$transaction(async (tx) => {
+          const u = await tx.user.create({
+            data: {
+              name: oauthName,
+              email: oauthEmail,
+              role: "CUSTOMER",
+              status: "ACTIVE",
+              image: oauthImage,
+            },
+          });
+
+          const c = await tx.customer.create({
+            data: {
+              name: oauthName,
+              phone: oauthPlaceholderPhone,
+              email: oauthEmail,
+              authSource: provider === "line" ? "LINE" : "GOOGLE",
+              userId: u.id,
+              storeId: targetStoreId,
+              ...(provider === "line" && lineUserId
+                ? {
+                    lineUserId,
+                    lineLinkStatus: "LINKED" as const,
+                    lineLinkedAt: new Date(),
+                    lineName: oauthName,
+                  }
+                : {}),
+              ...(provider === "google" && googleId
+                ? {
+                    googleId,
+                    avatar: oauthImage,
+                  }
+                : {}),
+            },
+            select: { id: true },
+          });
+
+          await tx.account.create({
+            data: {
+              userId: u.id,
+              type: account.type,
+              provider: account.provider,
+              providerAccountId: account.providerAccountId,
+              access_token: account.access_token as string | undefined,
+              refresh_token: account.refresh_token as string | undefined,
+              expires_at: account.expires_at,
+              token_type: account.token_type,
+              scope: account.scope,
+              id_token: account.id_token as string | undefined,
+            },
+          });
+
+          return { newUser: u, newCustomer: c };
         });
 
-        const newCustomer = await prisma.customer.create({
-          data: {
-            name: oauthName,
-            phone: oauthPlaceholderPhone,
-            email: oauthEmail,
-            authSource: provider === "line" ? "LINE" : "GOOGLE",
-            userId: newUser.id,
-            storeId: targetStoreId,
-            ...(provider === "line" && lineUserId
-              ? {
-                  lineUserId,
-                  lineLinkStatus: "LINKED" as const,
-                  lineLinkedAt: new Date(),
-                  lineName: oauthName,
-                }
-              : {}),
-            ...(provider === "google" && googleId
-              ? {
-                  googleId,
-                  avatar: oauthImage,
-                }
-              : {}),
-          },
-          select: { id: true },
-        });
-
+        // 以下三段是 best-effort，失敗不擋登入，故放 transaction 外
         // 推薦綁定（從 pending-ref cookie；靜默失敗）
         // 使用者從 line-entry?ref= 進站後透過 Google/LINE OAuth 建立帳號時，
         // 這裡是唯一綁 sponsorId 的機會。任何失敗都不阻擋登入。
@@ -634,21 +646,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             // 發點失敗不阻擋登入
           }
         }
-
-        await prisma.account.create({
-          data: {
-            userId: newUser.id,
-            type: account.type,
-            provider: account.provider,
-            providerAccountId: account.providerAccountId,
-            access_token: account.access_token as string | undefined,
-            refresh_token: account.refresh_token as string | undefined,
-            expires_at: account.expires_at,
-            token_type: account.token_type,
-            scope: account.scope,
-            id_token: account.id_token as string | undefined,
-          },
-        });
 
         await repairCustomerIdentityOnLogin({
           userId: newUser.id,
