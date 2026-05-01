@@ -176,26 +176,40 @@ export async function resolveCustomerForUser(
   }
 
   // ── B. Customer.userId = session.userId ─────────────
+  // Customer.userId 是 1:1 unique（schema: `userId String? @unique`）— userId 命中
+  // 的 Customer 必定是該 user 唯一的 Customer，無論 session storeId 是否相符。
+  //
+  // 為什麼不再對 storeId mismatch fallthrough：
+  //   實務上 JWT.storeId 可能因為 legacy register / OAuth fallback / 已刪 Customer
+  //   而帶到 stale 值（例如字串 "default-store" 而非 UUID）。在這種情境下，
+  //   原本的 fallthrough 會讓 layout gate 命中 not_found，把已完成註冊的顧客推進
+  //   /profile loop，這比「同店 assertion」本身的價值更傷使用者體驗。
+  //
+  //   保留 storeId mismatch warning log 作 audit，但仍 return Customer，
+  //   讓 caller 拿到正確的 storeId（c.storeId）做後續查詢。
   try {
     const c = await prisma.customer.findFirst({
       where: { userId: opts.userId },
       select: CUSTOMER_SELECT,
     });
     if (c) {
-      // 同店 assertion — 若 storeId 不符，不要誤綁（理論上不該發生，因為 userId 是 1:1）
       if (opts.storeId && c.storeId !== opts.storeId) {
-        console.warn("[resolveCustomer] userId match but store mismatch", {
-          ...logCtx,
-          customerId: c.id,
-          customerStoreId: c.storeId,
-        });
+        console.warn(
+          "[resolveCustomer] userId matched customer but session storeId stale — accepting (userId is unique)",
+          {
+            ...logCtx,
+            customerId: c.id,
+            customerStoreId: c.storeId,
+            sessionStoreId: opts.storeId,
+          },
+        );
       } else {
         console.info("[resolveCustomer] found_by_userid", {
           ...logCtx,
           customerId: c.id,
         });
-        return { customer: c, reason: "found_by_userid" };
       }
+      return { customer: c, reason: "found_by_userid" };
     }
   } catch (err) {
     console.error("[resolveCustomer] lookup by userId failed", { ...logCtx, err });

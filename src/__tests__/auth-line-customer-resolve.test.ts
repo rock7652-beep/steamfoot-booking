@@ -214,6 +214,34 @@ describe("resolveCustomerForUser — Step C (lineUserId)", () => {
     expect(mockAccountFindFirst).not.toHaveBeenCalled();
   });
 
+  it("regression：path B userId 命中但 session storeId stale（例：'default-store' 字串）→ 仍 return found_by_userid（userId 1:1 unique）", async () => {
+    // Scenario: 顧客註冊或 OAuth fallback 留下 JWT.storeId="default-store" 字面字串，
+    // Customer.storeId 卻是真實 UUID。原本 path B 對 storeId mismatch 直接 fallthrough，
+    // 導致 not_found → /profile 死循環。修法：userId 是 unique，命中即 return，
+    // 即使 session storeId 與 Customer.storeId 不一致也接受。
+    mockCustomerFindUnique.mockResolvedValue(null); // path A miss
+    mockCustomerFindFirst.mockImplementation(async ({ where }: { where: Record<string, unknown> }) => {
+      if (where.userId === USER_ID && !where.lineUserId) {
+        // path B：找到 Customer，storeId 是真實 UUID（與 opts.storeId="default-store" 不同）
+        return { ...baseCustomer, userId: USER_ID, storeId: "real-store-uuid" };
+      }
+      return null;
+    });
+
+    const result = await resolveCustomerForUser({
+      userId: USER_ID,
+      sessionCustomerId: null,
+      sessionEmail: null,
+      storeId: "default-store", // ← stale 字串值
+    });
+
+    expect(result.reason).toBe("found_by_userid");
+    expect(result.customer?.id).toBe(REAL_CUSTOMER_ID);
+    expect(result.customer?.storeId).toBe("real-store-uuid"); // 回傳真實 storeId 不是 stale 值
+    // 不應該誤觸 path C (LINE Account lookup)
+    expect(mockAccountFindFirst).not.toHaveBeenCalled();
+  });
+
   it("regression：sessionCustomerId 命中 row 但 userId 不符（merge 後 placeholder）→ 視為 stale，fall through 不回傳 placeholder", async () => {
     // Scenario: OAuth 首登建 placeholder（userId=user.id, phone=_oauth_xxx），
     // /profile merge 進真人 row 後 placeholder.userId 被清成 null（phone 仍是
