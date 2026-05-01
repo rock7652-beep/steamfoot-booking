@@ -133,19 +133,37 @@ export async function resolveCustomerForUser(
         select: CUSTOMER_SELECT,
       });
       if (c) {
-        console.info("[resolveCustomer] found_by_id", {
-          ...logCtx,
-          customerId: c.id,
-          customerStoreId: c.storeId,
-        });
-        return { customer: c, reason: "found_by_id" };
+        // 額外驗 userId 仍綁在當前 user。merge 後 placeholder 仍會留在 DB（FK 擋住 delete），
+        // 它的 userId 已被清成 null，但 phone 仍是 `_oauth_xxx`；JWT customerId 來不及刷新時
+        // 會命中這筆 placeholder → completion gate 判定 phone 缺漏 → 死循環跳回 /profile。
+        // 這裡視 userId 不符為 stale，fall through 到 path B (Customer.userId = opts.userId)
+        // 找出真正綁定的 row。
+        if (c.userId === opts.userId) {
+          console.info("[resolveCustomer] found_by_id", {
+            ...logCtx,
+            customerId: c.id,
+            customerStoreId: c.storeId,
+          });
+          return { customer: c, reason: "found_by_id" };
+        }
+        staleSessionCleared = true;
+        console.warn(
+          "[resolveCustomer] sessionCustomerId points to row whose userId no longer matches — likely post-merge placeholder; falling through",
+          {
+            ...logCtx,
+            staleCustomerId: c.id,
+            rowUserId: c.userId,
+            expectedUserId: opts.userId,
+          },
+        );
+      } else {
+        // ★ stale：sessionCustomerId 指向不存在的 row → 標記 + fall through
+        staleSessionCleared = true;
+        console.warn(
+          "[resolveCustomer] sessionCustomerId STALE — auto-cleared, falling through to userId/email/phone resolver",
+          { ...logCtx, staleCustomerId: opts.sessionCustomerId },
+        );
       }
-      // ★ stale：sessionCustomerId 指向不存在的 row → 標記 + fall through
-      staleSessionCleared = true;
-      console.warn(
-        "[resolveCustomer] sessionCustomerId STALE — auto-cleared, falling through to userId/email/phone resolver",
-        { ...logCtx, staleCustomerId: opts.sessionCustomerId },
-      );
     } catch (err) {
       // 連查詢都炸 → 同樣視為 stale，繼續救援
       staleSessionCleared = true;

@@ -200,8 +200,8 @@ describe("resolveCustomerForUser — Step C (lineUserId)", () => {
     expect(result.customer?.id).toBe(REAL_CUSTOMER_ID);
   });
 
-  it("regression：sessionCustomerId 直查命中時，不應觸發 LINE Account 查詢（A 路徑優先）", async () => {
-    mockCustomerFindUnique.mockResolvedValue(baseCustomer);
+  it("regression：sessionCustomerId 直查命中且 userId 已綁當前 user → reason=found_by_id（不觸發 LINE Account 查詢）", async () => {
+    mockCustomerFindUnique.mockResolvedValue({ ...baseCustomer, userId: USER_ID });
 
     const result = await resolveCustomerForUser({
       userId: USER_ID,
@@ -212,5 +212,32 @@ describe("resolveCustomerForUser — Step C (lineUserId)", () => {
 
     expect(result.reason).toBe("found_by_id");
     expect(mockAccountFindFirst).not.toHaveBeenCalled();
+  });
+
+  it("regression：sessionCustomerId 命中 row 但 userId 不符（merge 後 placeholder）→ 視為 stale，fall through 不回傳 placeholder", async () => {
+    // Scenario: OAuth 首登建 placeholder（userId=user.id, phone=_oauth_xxx），
+    // /profile merge 進真人 row 後 placeholder.userId 被清成 null（phone 仍是
+    // _oauth_xxx），但 JWT.customerId 還沒刷新仍指向 placeholder。
+    // 必須 fall through 到 path B/C，避免命中已沒綁定的 placeholder 造成 gate
+    // 誤判 phone 缺漏 → /profile 死循環。
+    const placeholder = { ...baseCustomer, userId: null, phone: "_oauth_line_xxxx" };
+    mockCustomerFindUnique.mockResolvedValue(placeholder);
+    // path B：userId 找到真人 row（merge 後 userId 從 placeholder 搬到 real）
+    mockCustomerFindFirst.mockImplementation(async ({ where }: { where: Record<string, unknown> }) => {
+      if (where.userId === USER_ID && !where.lineUserId) {
+        return { ...baseCustomer, userId: USER_ID, phone: "0988009145" };
+      }
+      return null;
+    });
+
+    const result = await resolveCustomerForUser({
+      userId: USER_ID,
+      sessionCustomerId: "ck_old_placeholder_id",
+      sessionEmail: null,
+      storeId: STORE_A,
+    });
+
+    expect(result.reason).toBe("found_by_userid");
+    expect(result.customer?.phone).toBe("0988009145");
   });
 });
