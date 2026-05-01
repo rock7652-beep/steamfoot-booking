@@ -182,7 +182,9 @@ const NO_PLAN_CUSTOMER_RECORD = {
   name: "No Plan Customer",
   birthday: null,
   gender: null,
-  userId: null,
+  // 必須與 mockRequireSession 的 user.id 一致 — resolveCustomerForUser path A
+  // 現在會驗 userId 必符當前 session（防 merge 後 placeholder 被誤判為當前綁定）。
+  userId: "ck0000000000000000000010",
   planWallets: [], // ⚠ 沒有方案
 };
 
@@ -197,7 +199,7 @@ const PLAN_CUSTOMER_RECORD = {
   name: "Plan Customer",
   birthday: null,
   gender: null,
-  userId: null,
+  userId: "ck0000000000000000000010",
   planWallets: [
     {
       id: WALLET_ID,
