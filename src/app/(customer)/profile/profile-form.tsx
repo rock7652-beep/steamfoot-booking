@@ -60,11 +60,13 @@ export function ProfileForm({
       }
       router.refresh();
 
-      const dest = nextPath || (onboardingMode ? "/book" : null);
+      // dest 必須帶 /s/{slug} 前綴 — 否則裸 "/book" 在 LIFF 內建瀏覽器
+      // 經 middleware 解析時若沒拿到 store-slug cookie 會 fallback / 404，
+      // 看起來就像「停在 profile 沒跳走」。
+      // 用 location.replace 立即同步導頁，避免 setTimeout 在 LIFF 被中斷。
+      const dest = nextPath || (onboardingMode ? `${prefix}/book` : null);
       if (dest) {
-        setTimeout(() => {
-          window.location.assign(dest);
-        }, 500);
+        window.location.replace(dest);
       }
     },
   });
