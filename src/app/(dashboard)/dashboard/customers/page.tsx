@@ -151,6 +151,7 @@ export default async function CustomersPage({ searchParams }: PageProps) {
           category: p.category,
           price: Number(p.price),
           sessionCount: p.sessionCount,
+          validityDays: p.validityDays,
         }))}
         canDiscount={canDiscount}
         staffOptions={staffOptions}

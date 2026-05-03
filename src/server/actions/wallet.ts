@@ -9,6 +9,11 @@ import { AppError, handleActionError } from "@/lib/errors";
 import { assignPlanSchema } from "@/lib/validators/plan";
 import type { ActionResult } from "@/types";
 import { addDays } from "date-fns";
+import {
+  toLocalDateStr,
+  parseTaiwanDateToDbDate,
+  addTaiwanDuration,
+} from "@/lib/date-utils";
 import { assertStoreAccess, getStoreFilter } from "@/lib/manager-visibility";
 import { currentStoreId } from "@/lib/store";
 import { buildTransactionSnapshot } from "@/lib/transaction-snapshot";
@@ -57,7 +62,9 @@ function calculateFinalAmount(
 // ============================================================
 
 export async function assignPlanToCustomer(
-  input: z.infer<typeof assignPlanSchema>
+  // 用 z.input 而非 z.infer：讓帶 .default() 的欄位（discountType / expiryMode）
+  // 對 caller 維持可選，但 server 端 parse 後會獲得完整 default 值。
+  input: z.input<typeof assignPlanSchema>
 ): Promise<ActionResult<{ walletId: string; transactionId: string }>> {
   try {
     const user = await requirePermission("wallet.create");
@@ -111,7 +118,34 @@ export async function assignPlanToCustomer(
 
     const now = new Date();
     const startDate = now;
-    const expiryDate = plan.validityDays ? addDays(now, plan.validityDays) : null;
+
+    // 計算 wallet expiryDate（一律以「台灣今天」為基準，避免 UTC 伺服器跨日偏移）
+    // PLAN_DEFAULT 也改走台灣日期 helper（修正原本 new Date() + addDays + @db.Date 在
+    // 半夜 0~8 點台灣時可能少一天的瑕疵）
+    const todayTW = toLocalDateStr();
+    let expiryDateStr: string | null;
+    switch (data.expiryMode) {
+      case "CUSTOM_DURATION":
+        expiryDateStr = addTaiwanDuration(
+          todayTW,
+          data.customExpiryValue!,
+          data.customExpiryUnit!,
+        );
+        break;
+      case "CUSTOM_DATE":
+        if (data.customExpiryDate! < todayTW) {
+          throw new AppError("VALIDATION", "到期日不可早於今天");
+        }
+        expiryDateStr = data.customExpiryDate!;
+        break;
+      case "PLAN_DEFAULT":
+      default:
+        expiryDateStr = plan.validityDays
+          ? addTaiwanDuration(todayTW, plan.validityDays, "DAY")
+          : null;
+        break;
+    }
+    const expiryDate = expiryDateStr ? parseTaiwanDateToDbDate(expiryDateStr) : null;
 
     // PR-3：付款確認語意
     // TRANSFER / UNPAID → 需店長在 PR-4 confirmTransactionPayment 確認後才算入帳
