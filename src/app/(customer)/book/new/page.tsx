@@ -6,6 +6,7 @@ import Link from "next/link";
 import { BookingCalendarView } from "./booking-calendar-view";
 import { PENDING_STATUSES } from "@/lib/booking-constants";
 import { NoPlanEmptyState } from "@/components/no-plan-empty-state";
+import { sortWalletsByFEFO } from "@/lib/wallet-sort";
 
 export default async function NewBookingPage() {
   const user = await getCurrentUser();
@@ -38,6 +39,7 @@ export default async function NewBookingPage() {
           where: { status: "ACTIVE" },
           select: {
             id: true,
+            createdAt: true,
             totalSessions: true,
             remainingSessions: true,
             expiryDate: true,
@@ -47,7 +49,6 @@ export default async function NewBookingPage() {
               select: { people: true, bookingStatus: true },
             },
           },
-          orderBy: { createdAt: "asc" },
         },
       },
     }),
@@ -77,7 +78,10 @@ export default async function NewBookingPage() {
       .length;
     return { ...w, computedRemaining: Math.max(0, w.remainingSessions - pendingCount) };
   });
-  const activeWallets = walletsWithRemaining.filter((w) => w.computedRemaining > 0);
+  // FEFO 排序：與 server 自動選擇規則一致（最早到期優先）
+  const activeWallets = sortWalletsByFEFO(
+    walletsWithRemaining.filter((w) => w.computedRemaining > 0)
+  );
 
   // v2 入口判斷：只看「顧客有可用堂數（含補課資格）」。
   // 不再用 selfBookingEnabled / duty / staff schedule 擋顧客進入預約流程。

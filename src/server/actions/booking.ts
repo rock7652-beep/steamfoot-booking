@@ -16,6 +16,7 @@ import {
   type NoShowChoice,
 } from "@/lib/booking-constants";
 import { revalidateBookings } from "@/lib/revalidation";
+import { sortWalletsByFEFO } from "@/lib/wallet-sort";
 import {
   applySlotOverrides,
   loadDayBusinessHoursContext,
@@ -284,16 +285,17 @@ export async function createBooking(
         );
       }
 
-      // 沒指定 wallet → 自動綁定第一個可用 wallet（FIFO 消費原則）
+      // 沒指定 wallet → 自動綁定 FEFO 第一個可用 wallet（最早到期優先）
       // 防止 booking 建立後 customerPlanWalletId=null → markCompleted 時不扣堂
+      // 排序規則：expiryDate ASC（NULL 排最後）→ createdAt ASC → id ASC（穩定）
       if (!data.customerPlanWalletId) {
-        const firstUsable = [...customer.planWallets]
-          .filter(
+        const firstUsable = sortWalletsByFEFO(
+          customer.planWallets.filter(
             (w) =>
               w.remainingSessions > 0 &&
               (!w.expiryDate || w.expiryDate >= bookingDateObj2)
           )
-          .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())[0];
+        )[0];
         if (!firstUsable) {
           throw new AppError(
             "BUSINESS_RULE",

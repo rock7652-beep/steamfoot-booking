@@ -11,6 +11,8 @@ interface ActiveWallet {
   id: string;
   planName: string;
   remainingSessions: number;
+  /** YYYY-MM-DD；null = 無期限 */
+  expiryDate: string | null;
 }
 
 interface Props {
@@ -153,13 +155,16 @@ export function CreateBookingForm({ customerId, activeWallets }: Props) {
         <div>
           <label className="block text-xs text-earth-500">使用課程</label>
           <select name="customerPlanWalletId" className="mt-1 w-full rounded border border-earth-300 px-2 py-1 text-sm">
-            <option value="">不指定</option>
+            <option value="">不指定（自動選最早到期方案）</option>
             {activeWallets.map((w) => (
               <option key={w.id} value={w.id}>
-                {w.planName}（剩 {w.remainingSessions} 堂）
+                {w.planName}（剩 {w.remainingSessions} 堂{w.expiryDate ? `・到 ${w.expiryDate}` : "・無期限"}）
               </option>
             ))}
           </select>
+          <p className="mt-1 text-[11px] text-earth-500">
+            不指定時，系統將自動使用最早到期的可用方案
+          </p>
         </div>
       )}
 
