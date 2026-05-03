@@ -313,6 +313,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
                     category: p.category,
                     price: Number(p.price),
                     sessionCount: p.sessionCount,
+                    validityDays: p.validityDays,
                   }))}
                 />
               )}

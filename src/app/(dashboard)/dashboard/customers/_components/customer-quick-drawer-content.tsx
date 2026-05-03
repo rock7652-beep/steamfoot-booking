@@ -24,6 +24,7 @@ interface Plan {
   category: string;
   price: number;
   sessionCount: number;
+  validityDays: number | null;
 }
 
 interface StaffOption {

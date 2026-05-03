@@ -3,6 +3,11 @@
 import { useState, useActionState, useMemo } from "react";
 import { assignPlanToCustomer } from "@/server/actions/wallet";
 import { toast } from "sonner";
+import {
+  toLocalDateStr,
+  addTaiwanDuration,
+  formatDateZh,
+} from "@/lib/date-utils";
 
 interface Plan {
   id: string;
@@ -10,7 +15,12 @@ interface Plan {
   category: string;
   price: number;
   sessionCount: number;
+  /** 方案預設有效期限（天）；null = 無期限 */
+  validityDays: number | null;
 }
+
+type ExpiryMode = "PLAN_DEFAULT" | "CUSTOM_DURATION" | "CUSTOM_DATE";
+type ExpiryUnit = "DAY" | "WEEK" | "MONTH";
 
 interface Props {
   customerId: string;
@@ -35,6 +45,12 @@ export function AssignPlanForm({ customerId, plans, canDiscount = false, alwaysO
   const [discountType, setDiscountType] = useState<"none" | "fixed" | "percentage">("none");
   const [discountValue, setDiscountValue] = useState("");
   const [discountReason, setDiscountReason] = useState("");
+  // 有效期限設定（紙本卡轉線上時可覆寫此次指派的 wallet 到期日）
+  const todayTW = toLocalDateStr();
+  const [expiryMode, setExpiryMode] = useState<ExpiryMode>("PLAN_DEFAULT");
+  const [customExpiryValue, setCustomExpiryValue] = useState("30");
+  const [customExpiryUnit, setCustomExpiryUnit] = useState<ExpiryUnit>("DAY");
+  const [customExpiryDate, setCustomExpiryDate] = useState(todayTW);
 
   const isPending = paymentMethod === "TRANSFER" || paymentMethod === "UNPAID";
 
@@ -63,6 +79,30 @@ export function AssignPlanForm({ customerId, plans, canDiscount = false, alwaysO
   const hasDiscount = discountType !== "none" && parseFloat(discountValue) > 0;
   const discountAmount = selectedPlan ? selectedPlan.price - finalAmount : 0;
 
+  // 預計到期日預覽（純展示，不影響 server 計算）
+  const previewExpiryDateStr = useMemo<string | null>(() => {
+    if (!selectedPlan) return null;
+    if (expiryMode === "PLAN_DEFAULT") {
+      return selectedPlan.validityDays
+        ? addTaiwanDuration(todayTW, selectedPlan.validityDays, "DAY")
+        : null;
+    }
+    if (expiryMode === "CUSTOM_DURATION") {
+      const v = parseInt(customExpiryValue, 10);
+      if (!Number.isFinite(v) || v <= 0) return null;
+      return addTaiwanDuration(todayTW, v, customExpiryUnit);
+    }
+    if (expiryMode === "CUSTOM_DATE") {
+      return /^\d{4}-\d{2}-\d{2}$/.test(customExpiryDate) ? customExpiryDate : null;
+    }
+    return null;
+  }, [selectedPlan, expiryMode, customExpiryValue, customExpiryUnit, customExpiryDate, todayTW]);
+
+  const isCustomDateInPast =
+    expiryMode === "CUSTOM_DATE" &&
+    /^\d{4}-\d{2}-\d{2}$/.test(customExpiryDate) &&
+    customExpiryDate < todayTW;
+
   const [state, action, pending] = useActionState(
     async (_prev: { error: string | null }, formData: FormData) => {
       const planId = formData.get("planId") as string;
@@ -77,6 +117,15 @@ export function AssignPlanForm({ customerId, plans, canDiscount = false, alwaysO
         discountReason: discountReason || undefined,
         referenceNo: isPending && referenceNo.trim() ? referenceNo.trim() : undefined,
         bankLast5: isPending && bankLast5.trim() ? bankLast5.trim() : undefined,
+        expiryMode,
+        customExpiryValue:
+          expiryMode === "CUSTOM_DURATION"
+            ? parseInt(customExpiryValue, 10)
+            : undefined,
+        customExpiryUnit:
+          expiryMode === "CUSTOM_DURATION" ? customExpiryUnit : undefined,
+        customExpiryDate:
+          expiryMode === "CUSTOM_DATE" ? customExpiryDate : undefined,
       });
       if (result.success) {
         const msg = isPending
@@ -91,6 +140,10 @@ export function AssignPlanForm({ customerId, plans, canDiscount = false, alwaysO
         setDiscountType("none");
         setDiscountValue("");
         setDiscountReason("");
+        setExpiryMode("PLAN_DEFAULT");
+        setCustomExpiryValue("30");
+        setCustomExpiryUnit("DAY");
+        setCustomExpiryDate(todayTW);
         onSuccess?.();
         return { error: null };
       }
@@ -184,6 +237,106 @@ export function AssignPlanForm({ customerId, plans, canDiscount = false, alwaysO
               />
             </div>
           </div>
+        </div>
+      )}
+
+      {/* 有效期限設定 */}
+      {selectedPlan && (
+        <div className="mb-3 rounded-lg border border-earth-200 bg-white p-3">
+          <label className="mb-2 block text-xs font-medium text-earth-600">
+            有效期限設定
+          </label>
+          <div className="space-y-2 text-sm">
+            <label className="flex cursor-pointer items-start gap-2">
+              <input
+                type="radio"
+                name="expiryMode"
+                value="PLAN_DEFAULT"
+                checked={expiryMode === "PLAN_DEFAULT"}
+                onChange={() => setExpiryMode("PLAN_DEFAULT")}
+                className="mt-1"
+              />
+              <div>
+                <span>使用方案預設期限</span>
+                <span className="ml-2 text-xs text-earth-500">
+                  {selectedPlan.validityDays
+                    ? `（${selectedPlan.validityDays} 天）`
+                    : "（無期限）"}
+                </span>
+              </div>
+            </label>
+
+            <label className="flex cursor-pointer items-start gap-2">
+              <input
+                type="radio"
+                name="expiryMode"
+                value="CUSTOM_DURATION"
+                checked={expiryMode === "CUSTOM_DURATION"}
+                onChange={() => setExpiryMode("CUSTOM_DURATION")}
+                className="mt-1"
+              />
+              <span>自訂期限</span>
+            </label>
+            {expiryMode === "CUSTOM_DURATION" && (
+              <div className="ml-6 flex items-center gap-2">
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={customExpiryValue}
+                  onChange={(e) => setCustomExpiryValue(e.target.value)}
+                  className="w-24 rounded border border-earth-300 px-2 py-1 text-sm"
+                />
+                <select
+                  value={customExpiryUnit}
+                  onChange={(e) =>
+                    setCustomExpiryUnit(e.target.value as ExpiryUnit)
+                  }
+                  className="rounded border border-earth-300 px-2 py-1 text-sm"
+                >
+                  <option value="DAY">天</option>
+                  <option value="WEEK">週</option>
+                  <option value="MONTH">月</option>
+                </select>
+              </div>
+            )}
+
+            <label className="flex cursor-pointer items-start gap-2">
+              <input
+                type="radio"
+                name="expiryMode"
+                value="CUSTOM_DATE"
+                checked={expiryMode === "CUSTOM_DATE"}
+                onChange={() => setExpiryMode("CUSTOM_DATE")}
+                className="mt-1"
+              />
+              <span>指定到期日</span>
+            </label>
+            {expiryMode === "CUSTOM_DATE" && (
+              <div className="ml-6">
+                <input
+                  type="date"
+                  min={todayTW}
+                  value={customExpiryDate}
+                  onChange={(e) => setCustomExpiryDate(e.target.value)}
+                  className="rounded border border-earth-300 px-2 py-1 text-sm"
+                />
+                {isCustomDateInPast && (
+                  <p className="mt-1 text-xs text-red-600">
+                    到期日不可早於今天
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+          <p className="mt-2 text-xs text-earth-600">
+            預計到期日：
+            <strong>
+              {previewExpiryDateStr
+                ? formatDateZh(previewExpiryDateStr)
+                : "無期限"}
+            </strong>
+          </p>
         </div>
       )}
 
@@ -298,7 +451,7 @@ export function AssignPlanForm({ customerId, plans, canDiscount = false, alwaysO
       <div className="flex gap-2">
         <button
           type="submit"
-          disabled={pending || !selectedPlanId}
+          disabled={pending || !selectedPlanId || isCustomDateInPast}
           className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-60"
         >
           {pending ? (
@@ -324,6 +477,10 @@ export function AssignPlanForm({ customerId, plans, canDiscount = false, alwaysO
               setDiscountType("none");
               setDiscountValue("");
               setDiscountReason("");
+              setExpiryMode("PLAN_DEFAULT");
+              setCustomExpiryValue("30");
+              setCustomExpiryUnit("DAY");
+              setCustomExpiryDate(todayTW);
             }}
             className="rounded-lg bg-earth-100 px-4 py-2 text-sm text-earth-600 hover:bg-earth-200"
           >

@@ -240,6 +240,62 @@ export function bookingDateToday(): Date {
 // 報表日期範圍 preset
 // ============================================================
 
+// ============================================================
+// 期限計算（用於 wallet expiryDate 等「以台灣日期為準」的情境）
+//
+// 設計原則：
+//   - 一律以「台灣 YYYY-MM-DD」字串為計算基準
+//   - 月份運算採用「target month 末日 clamp」語意（1/31 + 1 月 → 2/28）
+//   - 寫入 @db.Date 欄位時用 parseTaiwanDateToDbDate() 轉成 UTC midnight
+//
+// 為何不用 date-fns/addMonths：date-fns 用 local timezone fields 計算，
+// 在非 UTC+8 伺服器（如 Vercel）會產生跨日偏移。這裡全程用 UTC 整數運算。
+// ============================================================
+
+/**
+ * 將「台灣 YYYY-MM-DD」字串轉成可寫入 Prisma `@db.Date` 欄位的 Date。
+ * Prisma 對 @db.Date 會截掉時間部分，所以 UTC midnight 是穩定寫法。
+ */
+export function parseTaiwanDateToDbDate(dateStr: string): Date {
+  return new Date(dateStr + "T00:00:00.000Z");
+}
+
+/**
+ * 對「台灣 YYYY-MM-DD」字串加上一段期間，回傳「台灣 YYYY-MM-DD」字串。
+ *
+ * 月份語意：1/31 + 1 月 → 2/28（clamp 到目標月份的最後一天）。
+ * 全程用 UTC 整數運算，與伺服器時區無關。
+ *
+ * @example
+ * addTaiwanDuration("2026-01-31", 1, "MONTH") // "2026-02-28"
+ * addTaiwanDuration("2026-05-03", 30, "DAY")  // "2026-06-02"
+ * addTaiwanDuration("2026-05-03", 8, "WEEK")  // "2026-06-28"
+ */
+export function addTaiwanDuration(
+  baseDateStr: string,
+  value: number,
+  unit: "DAY" | "WEEK" | "MONTH",
+): string {
+  const [y, m, d] = baseDateStr.split("-").map(Number);
+
+  if (unit === "DAY" || unit === "WEEK") {
+    const days = unit === "WEEK" ? value * 7 : value;
+    const result = new Date(Date.UTC(y, m - 1, d + days));
+    return formatUtcYmd(result);
+  }
+
+  // MONTH：先加月份，再 clamp day 到目標月份末日
+  const targetMonthIdx = m - 1 + value;
+  const lastDayOfTargetMonth = new Date(Date.UTC(y, targetMonthIdx + 1, 0)).getUTCDate();
+  const clampedDay = Math.min(d, lastDayOfTargetMonth);
+  const result = new Date(Date.UTC(y, targetMonthIdx, clampedDay));
+  return formatUtcYmd(result);
+}
+
+function formatUtcYmd(d: Date): string {
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+}
+
 export type DateRangePreset = "today" | "month" | "quarter";
 
 export function getPresetDateRange(preset: DateRangePreset): {
