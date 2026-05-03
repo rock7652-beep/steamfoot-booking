@@ -32,6 +32,7 @@ import { formatTWTime } from "@/lib/date-utils";
 import { TALENT_STAGE_LABELS } from "@/types/talent";
 import type { CustomerStage, TalentStage } from "@prisma/client";
 import { deriveCustomerSource, type CustomerSourceSnapshot } from "@/lib/customer-source";
+import { sortWalletsByFEFO } from "@/lib/wallet-sort";
 
 import { CustomerBasicInfo } from "./_components/customer-basic-info";
 import { IdentityDiagnosticPanel } from "./_components/identity-diagnostic-panel";
@@ -157,7 +158,8 @@ export default async function CustomerDetailPage({ params }: PageProps) {
       : [];
 
   const wallets = customer.planWallets ?? [];
-  const activeWallets = wallets.filter((w) => w.status === "ACTIVE");
+  // FEFO 排序：與 server 自動選擇規則一致（最早到期優先）
+  const activeWallets = sortWalletsByFEFO(wallets.filter((w) => w.status === "ACTIVE"));
   const inactiveWallets = wallets.filter((w) => w.status !== "ACTIVE");
   const totalRemaining = activeWallets.reduce((s, w) => s + w.remainingSessions, 0);
 
@@ -375,6 +377,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
                   id: w.id,
                   planName: w.plan.name,
                   remainingSessions: w.remainingSessions,
+                  expiryDate: w.expiryDate?.toISOString().slice(0, 10) ?? null,
                 }))}
               />
             )}

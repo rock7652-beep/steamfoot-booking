@@ -12,7 +12,7 @@
  *   1. createBooking({ bookingType: "PACKAGE_SESSION" }) 對所有角色（CUSTOMER /
  *      STAFF / OWNER / ADMIN）都要檢查顧客有 ACTIVE wallet + remainingSessions > 0
  *   2. 沒方案 → 拒絕並回 error
- *   3. 有方案但呼叫端沒指定 walletId → server 自動綁定第一個可用 wallet（FIFO）
+ *   3. 有方案但呼叫端沒指定 walletId → server 自動綁定第一個可用 wallet（FEFO 最早到期優先）
  *   4. markCompleted 對 PACKAGE_SESSION + 無 wallet 的 booking 必須拒絕
  *   5. 補課（isMakeup）不受此限制
  *   6. FIRST_TRIAL / SINGLE 不需方案
@@ -349,7 +349,7 @@ describe("createBooking — PACKAGE_SESSION 有方案：可建立並綁 wallet",
     });
   });
 
-  it("有方案、沒指定 walletId → server 自動 FIFO 綁定", async () => {
+  it("有方案、沒指定 walletId → server 自動 FEFO 綁定", async () => {
     const { createBooking } = await import("@/server/actions/booking");
     const result = await createBooking({
       customerId: PLAN_CUSTOMER_ID,
