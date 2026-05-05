@@ -187,12 +187,10 @@ export async function createBooking(
     if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
 
     // ── 2. 權限檢查
-    if (user.role === "CUSTOMER") {
-      // CUSTOMER：身份已由 resolveCustomerForUser 驗過 — 這裡只剩 selfBookingEnabled 業務開關
-      if (!customer.selfBookingEnabled) {
-        throw new AppError("BUSINESS_RULE", "尚未開放自助預約，請聯繫店長協助安排");
-      }
-    } else {
+    // CUSTOMER：身份已由 resolveCustomerForUser 驗過；自助預約入口能否使用，
+    // 由下方 PACKAGE_SESSION wallet / 期限 / 人數驗證決定，不再用 customer.selfBookingEnabled 擋
+    // （該欄位等同「曾經有 wallet」的衍生旗標，會把有方案的顧客誤判為未開放預約）。
+    if (user.role !== "CUSTOMER") {
       // 後台員工/管理員代約：才做跨店存取檢查
       assertStoreAccess(user, customer.storeId);
     }
