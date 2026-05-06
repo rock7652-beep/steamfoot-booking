@@ -35,17 +35,41 @@ export default async function BookingsPage({ searchParams }: PageProps) {
   const month = params.month ? parseInt(params.month) : todayM;
 
   const activeStoreId = await getActiveStoreForRead(user);
+  const logCtx = {
+    page: "bookings" as const,
+    activeStoreId,
+    year,
+    month,
+    userId: user.id,
+    sessionRole: user.role,
+  };
   const timer = new ServerTiming("/dashboard/bookings");
   const [monthData, monthSchedule, servicePlans] = await Promise.all([
+    // 月曆主資料失敗時回空陣列 — 月曆 cell 顯示為「無預約」，UI 不會 crash。
+    // 各 cell 仍可被點開，僅是當下無資料；保守於假造任何預約。
     withTiming("getMonthBookingSummary", timer, () =>
-      getMonthBookingSummary(year, month, activeStoreId),
+      getMonthBookingSummary(year, month, activeStoreId).catch((e) => {
+        console.error("[bookings] getMonthBookingSummary failed", {
+          ...logCtx,
+          step: "getMonthBookingSummary",
+          error: e instanceof Error ? e.message : String(e),
+        });
+        return [] as Awaited<ReturnType<typeof getMonthBookingSummary>>;
+      }),
     ),
     // 月份營業狀態摘要 — 讓月曆可分辨「沒預約」vs「沒營業」。
     // ADMIN 全店視角（無 activeStoreId）跨店無法匯總一份排班 → 給空表
     // 退化為「無法判斷」，UI 端會落到 generic 文案不會誤標公休。
     withTiming("monthSchedule", timer, () =>
       activeStoreId
-        ? getCachedMonthScheduleSummary(activeStoreId, year, month)
+        ? getCachedMonthScheduleSummary(activeStoreId, year, month).catch((e) => {
+            console.error("[bookings] getCachedMonthScheduleSummary failed", {
+              ...logCtx,
+              step: "monthSchedule",
+              error: e instanceof Error ? e.message : String(e),
+            });
+            return {} as Awaited<ReturnType<typeof getCachedMonthScheduleSummary>>;
+          })
         : Promise.resolve({}),
     ),
     withTiming("servicePlans", timer, () =>
@@ -54,6 +78,13 @@ export default async function BookingsPage({ searchParams }: PageProps) {
             where: { storeId: activeStoreId, isActive: true },
             select: { id: true, name: true },
             orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+          }).catch((e) => {
+            console.error("[bookings] servicePlans query failed", {
+              ...logCtx,
+              step: "servicePlans",
+              error: e instanceof Error ? e.message : String(e),
+            });
+            return [] as Array<{ id: string; name: string }>;
           })
         : Promise.resolve([]),
     ),

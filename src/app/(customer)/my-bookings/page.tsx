@@ -57,12 +57,44 @@ export default async function MyBookingsPage({ searchParams }: PageProps) {
   if (!customerId) redirect("/");
 
   // 並行取預約 + 健康卡片 + 方案錢包（供頂部方案摘要顯示）
+  // 各區塊獨立 catch — 預約 / 健康卡 / 方案任一 DB 失敗，其他區塊照常顯示
+  const logCtx = {
+    page: "my-bookings" as const,
+    userId: user.id,
+    customerId,
+  };
   const [{ bookings }, healthCard, planSummary] = await Promise.all([
-    listBookings({ pageSize: 50 }),
-    getHealthCardData(customerId),
+    listBookings({ pageSize: 50 }).catch((e) => {
+      console.error("[my-bookings] listBookings failed", {
+        ...logCtx,
+        step: "listBookings",
+        error: e instanceof Error ? e.message : String(e),
+      });
+      return { bookings: [], total: 0, page: 1, pageSize: 50 } as Awaited<
+        ReturnType<typeof listBookings>
+      >;
+    }),
+    // getHealthCardData 內部已做 try/catch，這層多包一道防止意外
+    getHealthCardData(customerId).catch((e) => {
+      console.error("[my-bookings] getHealthCardData failed", {
+        ...logCtx,
+        step: "getHealthCardData",
+        error: e instanceof Error ? e.message : String(e),
+      });
+      return { available: false, reason: "error" } as Awaited<
+        ReturnType<typeof getHealthCardData>
+      >;
+    }),
     prisma.customerPlanWallet.findMany({
       where: { customerId, status: "ACTIVE" },
       select: { remainingSessions: true },
+    }).catch((e) => {
+      console.error("[my-bookings] planSummary query failed", {
+        ...logCtx,
+        step: "planSummary",
+        error: e instanceof Error ? e.message : String(e),
+      });
+      return [] as Array<{ remainingSessions: number }>;
     }),
   ]);
 

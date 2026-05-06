@@ -56,8 +56,29 @@ export default async function DashboardHomePage() {
   const storeFilter = getStoreFilter(user, activeStoreId);
   const todayBooking = bookingDateToday();
 
+  // 各區塊獨立 catch — 任一塊失敗（DB 連線不穩、缺 store / config 等）不影響其他區塊
+  // fallback 一律保守值（0、空陣列、null），不偽造任何營運數據
+  const SUMMARY_FALLBACK = {
+    todayBookingCount: 0,
+    todayPeople: 0,
+    todayCompletedCount: 0,
+    todayCompletedPeople: 0,
+    noShowCount: 0,
+    todayUnassignedCount: 0,
+    todayRevenue: null,
+    lastWeekBookingCount: 0,
+    customerCount: 0,
+  } as const;
+
   const [summary, todayBookings, resolvedRequest, reconciliation, todos] = await Promise.all([
-    getDashboardTodaySummary(activeStoreId),
+    getDashboardTodaySummary(activeStoreId).catch((e) => {
+      console.error("[dashboard-home] getDashboardTodaySummary failed", {
+        activeStoreId,
+        userId: user.id,
+        error: e instanceof Error ? e.message : String(e),
+      });
+      return SUMMARY_FALLBACK;
+    }),
     prisma.booking.findMany({
       where: {
         bookingDate: todayBooking,
@@ -74,6 +95,20 @@ export default async function DashboardHomePage() {
       },
       orderBy: { slotTime: "asc" },
       take: 10,
+    }).catch((e) => {
+      console.error("[dashboard-home] todayBookings query failed", {
+        activeStoreId,
+        userId: user.id,
+        error: e instanceof Error ? e.message : String(e),
+      });
+      return [] as Array<{
+        id: string;
+        slotTime: string;
+        bookingStatus: string;
+        people: number;
+        customer: { id: string; name: string };
+        revenueStaff: { displayName: string; colorCode: string | null } | null;
+      }>;
     }),
     user.storeId
       ? getLatestResolvedRequest(user.storeId).catch(() => null)
