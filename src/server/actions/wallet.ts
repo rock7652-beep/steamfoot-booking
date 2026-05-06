@@ -448,9 +448,20 @@ export async function voidWalletSession(
 const backfillUsedSessionsSchema = z.object({
   walletId: z.string().min(1),
   count: z.number().int().positive("補登堂數需為正整數"),
+  // 既有 regex 只擋格式，但 new Date("2026-02-31") 在 JS 會無聲 normalize 成 03-03，
+  // 之後 paidAt / completedAt / 邊界比較都會走錯日期。這裡額外驗證真實的日曆日期。
   occurredAt: z
     .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, "補登日期格式需為 YYYY-MM-DD"),
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "補登日期格式需為 YYYY-MM-DD")
+    .refine((s) => {
+      const [y, m, d] = s.split("-").map(Number);
+      const dt = new Date(Date.UTC(y, m - 1, d));
+      return (
+        dt.getUTCFullYear() === y &&
+        dt.getUTCMonth() === m - 1 &&
+        dt.getUTCDate() === d
+      );
+    }, "補登日期不是有效日期"),
   reason: z.string().trim().min(1, "補登原因不能為空").max(200),
 });
 
