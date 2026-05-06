@@ -119,7 +119,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
 
   const effectiveStoreId = customer.storeId;
 
-  const [plans, staffOptions, canDiscount, perksSummary] = await Promise.all([
+  const [plans, staffOptions, canDiscount, canAdjustWallet, perksSummary] = await Promise.all([
     withTiming("getCachedPlans", timer, () => getCachedPlans(effectiveStoreId)).catch((e) => {
       console.error("[customer-detail] plans query failed", {
         ...logCtx,
@@ -137,6 +137,10 @@ export default async function CustomerDetailPage({ params }: PageProps) {
       return [] as Awaited<ReturnType<typeof getCachedStaffOptions>>;
     }),
     checkPermission(user.role, user.staffId, "transaction.discount").catch(() => false),
+    // wallet.adjust 權限：用來 gate「調整堂數」/「補登已使用堂數」UI 的顯示。
+    // OWNER 預設有此權限；ADMIN 也有；過去 UI 寫死 userRole === "ADMIN"
+    // 把店長擋掉是 bug。server action 端仍以 requirePermission("wallet.adjust") 把關。
+    checkPermission(user.role, user.staffId, "wallet.adjust").catch(() => false),
     user.role !== "CUSTOMER"
       ? withTiming("getMyReferralSummary", timer, () =>
           getMyReferralSummary(id, { activeStoreId: effectiveStoreId }),
@@ -331,7 +335,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
             ) : (
               <div className="space-y-2">
                 {activeWallets.map((w) => (
-                  <WalletItem key={w.id} w={w} userRole={user.role} />
+                  <WalletItem key={w.id} w={w} userRole={user.role} canAdjustWallet={canAdjustWallet} />
                 ))}
                 {inactiveWallets.length > 0 && (
                   <details className="group">
@@ -343,7 +347,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
                     </summary>
                     <div className="mt-2 space-y-2 opacity-70">
                       {inactiveWallets.map((w) => (
-                        <WalletItem key={w.id} w={w} userRole={user.role} />
+                        <WalletItem key={w.id} w={w} userRole={user.role} canAdjustWallet={canAdjustWallet} />
                       ))}
                     </div>
                   </details>
@@ -854,6 +858,7 @@ function SystemRow({ label, value }: { label: string; value: React.ReactNode }) 
 function WalletItem({
   w,
   userRole,
+  canAdjustWallet,
 }: {
   w: {
     id: string;
@@ -867,6 +872,7 @@ function WalletItem({
     sessions: SessionRow[];
   };
   userRole: string;
+  canAdjustWallet: boolean;
 }) {
   // PR-2 wallet-session-ui：所有非 CUSTOMER 角色都可見註銷按鈕；
   // wallet.adjust 權限由 server action 把關，UI 只負責顯示。
@@ -901,7 +907,7 @@ function WalletItem({
         <span>開始 {formatTWTime(w.startDate, { dateOnly: true })}</span>
         {w.expiryDate && <span>到期 {formatTWTime(w.expiryDate, { dateOnly: true })}</span>}
       </div>
-      {userRole === "ADMIN" && w.status === "ACTIVE" && (
+      {canAdjustWallet && w.status === "ACTIVE" && (
         <div className="mt-2 space-y-2 border-t pt-2">
           <AdjustWalletForm walletId={w.id} currentRemaining={w.remainingSessions} />
           {availableCount > 0 && (
