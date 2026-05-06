@@ -53,6 +53,12 @@ export default async function CustomersPage({ searchParams }: PageProps) {
   }
 
   const activeStoreId = await getActiveStoreForRead(user);
+  const logCtx = {
+    page: "customers" as const,
+    activeStoreId,
+    userId: user.id,
+    sessionRole: user.role,
+  };
   const [{ customers, total, pageSize }, staffOptions, plans, canDiscount, canAssign] =
     await Promise.all([
       listCustomers({
@@ -66,8 +72,24 @@ export default async function CustomersPage({ searchParams }: PageProps) {
         page,
         pageSize: 20,
         activeStoreId,
+      }).catch((e) => {
+        console.error("[customers] listCustomers failed", {
+          ...logCtx,
+          step: "listCustomers",
+          error: e instanceof Error ? e.message : String(e),
+        });
+        return { customers: [], total: 0, page, pageSize: 20 } as Awaited<
+          ReturnType<typeof listCustomers>
+        >;
       }),
-      listStaffSelectOptions(activeStoreId),
+      listStaffSelectOptions(activeStoreId).catch((e) => {
+        console.error("[customers] listStaffSelectOptions failed", {
+          ...logCtx,
+          step: "listStaffSelectOptions",
+          error: e instanceof Error ? e.message : String(e),
+        });
+        return [] as Awaited<ReturnType<typeof listStaffSelectOptions>>;
+      }),
       // PR-5.5：快速指派 drawer 需要的資料 — 走 unstable_cache（60s TTL,
       // tag: "plans"）。同 store 的 plans 在 customers / 其他頁共享 cache。
       activeStoreId

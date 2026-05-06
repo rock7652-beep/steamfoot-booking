@@ -21,9 +21,26 @@ export default async function PlansPage() {
 
   // 桌機版 manager 自己處理 status / category / visibility 篩選，所以
   // 一律抓 includeInactive，client 再 filter — 不再依賴 ?showAll 參數。
+  const logCtx = { page: "plans" as const, userId: user.id, sessionRole: user.role };
   const [plans, storePlan] = await Promise.all([
-    listPlans(true),
-    getCurrentStorePlan(),
+    listPlans(true).catch((e) => {
+      console.error("[plans] listPlans failed", {
+        ...logCtx,
+        step: "listPlans",
+        error: e instanceof Error ? e.message : String(e),
+      });
+      return [] as Awaited<ReturnType<typeof listPlans>>;
+    }),
+    // 缺 store 時退回 EXPERIENCE，等於只解鎖最低方案功能 — 比整頁掛掉好；
+    // FeatureGate 會根據此值決定是否顯示升級提示。
+    getCurrentStorePlan().catch((e) => {
+      console.error("[plans] getCurrentStorePlan failed", {
+        ...logCtx,
+        step: "getCurrentStorePlan",
+        error: e instanceof Error ? e.message : String(e),
+      });
+      return "EXPERIENCE" as const;
+    }),
   ]);
 
   // Prisma Decimal can't cross the RSC → client component boundary;

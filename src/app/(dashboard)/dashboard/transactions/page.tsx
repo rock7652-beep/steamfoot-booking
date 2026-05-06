@@ -76,6 +76,12 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
   const dateTo = params.dateTo ?? today;
 
   const activeStoreId = await getActiveStoreForRead(user);
+  const logCtx = {
+    page: "transactions" as const,
+    activeStoreId,
+    userId: user.id,
+    sessionRole: user.role,
+  };
   const [{ transactions, total, pageSize }, staffOptions, plan, canVoid, canEdit, canRefund] = await Promise.all([
     listTransactions({
       dateFrom,
@@ -86,12 +92,35 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
       page,
       pageSize: 30,
       activeStoreId,
+    }).catch((e) => {
+      console.error("[transactions] listTransactions failed", {
+        ...logCtx,
+        step: "listTransactions",
+        error: e instanceof Error ? e.message : String(e),
+      });
+      return { transactions: [], total: 0, page, pageSize: 30 } as Awaited<
+        ReturnType<typeof listTransactions>
+      >;
     }),
-    listStaffSelectOptions(activeStoreId),
-    getCurrentStorePlan(),
-    checkPermission(user.role, user.staffId, "transaction.void"),
-    checkPermission(user.role, user.staffId, "transaction.create"),
-    checkPermission(user.role, user.staffId, "transaction.refund"),
+    listStaffSelectOptions(activeStoreId).catch((e) => {
+      console.error("[transactions] listStaffSelectOptions failed", {
+        ...logCtx,
+        step: "listStaffSelectOptions",
+        error: e instanceof Error ? e.message : String(e),
+      });
+      return [] as Awaited<ReturnType<typeof listStaffSelectOptions>>;
+    }),
+    getCurrentStorePlan().catch((e) => {
+      console.error("[transactions] getCurrentStorePlan failed", {
+        ...logCtx,
+        step: "getCurrentStorePlan",
+        error: e instanceof Error ? e.message : String(e),
+      });
+      return "EXPERIENCE" as const;
+    }),
+    checkPermission(user.role, user.staffId, "transaction.void").catch(() => false),
+    checkPermission(user.role, user.staffId, "transaction.create").catch(() => false),
+    checkPermission(user.role, user.staffId, "transaction.refund").catch(() => false),
   ]);
 
   const totalPages = Math.ceil(total / pageSize);
