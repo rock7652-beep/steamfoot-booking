@@ -93,10 +93,11 @@ export async function listCustomers(options: ListCustomersOptions & { activeStor
         : {};
 
   // 不再依 Manager 隔離 — 所有店長都能看全部顧客
-  // mergedIntoCustomerId IS NULL：被合併進其他顧客的 row 是 audit 殘留，列表不顯示
+  // 已合併（mergedIntoCustomerId != null）/ User=SUSPENDED 的 row 仍出現在列表，
+  // 由 UI 灰掉並隱藏「+指派/查看」操作（防店長誤操作 placeholder/duplicate）。
+  // searchCustomers (autocomplete) / getCustomerDetail 仍會擋掉，這裡只是列表呈現。
   const where: Prisma.CustomerWhereInput = {
     ...getStoreFilter(user, activeStoreId),
-    mergedIntoCustomerId: null,
     ...(stage ? { customerStage: stage } : {}),
     ...(assignedStaffId ? { assignedStaffId } : {}),
     ...statusWhere,
@@ -127,7 +128,7 @@ export async function listCustomers(options: ListCustomersOptions & { activeStor
     prisma.customer.findMany({
       where,
       include: {
-        user: { select: { email: true } },
+        user: { select: { email: true, status: true } },
         assignedStaff: { select: { id: true, displayName: true, colorCode: true } },
         sponsor: { select: { id: true, name: true } },
         planWallets: {
@@ -165,10 +166,14 @@ export async function searchCustomers(query: string, limit = 10, activeStoreId?:
 
   if (!query || query.length < 1) return [];
 
+  // autocomplete / booking 新增 / 指派方案皆走這支查詢；不能讓店長選到
+  // 已合併或登入帳號已停用的 placeholder/duplicate 顧客（與 customers-table
+  // 的 isInactiveRow 對齊：mergedIntoCustomerId != null 或 user.status=SUSPENDED）。
   return prisma.customer.findMany({
     where: {
       ...getStoreFilter(user, activeStoreId),
-      mergedIntoCustomerId: null, // 過濾被合併的 source row
+      mergedIntoCustomerId: null,
+      NOT: { user: { is: { status: "SUSPENDED" } } },
       OR: [
         { name: { contains: query, mode: "insensitive" } },
         { phone: { contains: query } },
@@ -256,6 +261,13 @@ export async function getCustomerDetail(customerId: string) {
   // 之後可選擇導到 target；目前最安全的處理是讓 staff 直接走列表搜尋。
   if (customer.mergedIntoCustomerId) {
     throw new AppError("NOT_FOUND", "此顧客已合併進其他顧客");
+  }
+
+  // 對應 User 已停用（孤兒 placeholder 或人工 SUSPEND）→ 同樣視為不存在，
+  // 與 customers-table 的 isInactiveRow / searchCustomers 過濾對齊，
+  // 防店長從直連網址或預約 / 指派方案流程繞進來操作。
+  if (customer.user?.status === "SUSPENDED") {
+    throw new AppError("NOT_FOUND", "此顧客的登入帳號已停用");
   }
 
   // Manager 現在可以查看所有顧客（共享查看）
