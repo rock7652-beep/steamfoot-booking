@@ -17,6 +17,7 @@ import { AssignPlanForm } from "./assign-plan-form";
 import { TransferCustomerForm } from "./transfer-customer-form";
 import { CreateBookingForm } from "./create-booking-form";
 import { AdjustWalletForm } from "./adjust-wallet-form";
+import { BackfillUsedSessionsForm } from "./backfill-used-sessions-form";
 import { VoidSessionButton } from "./void-session-button";
 import {
   WalletSessionDetail,
@@ -28,7 +29,7 @@ import {
   WALLET_STATUS_LABEL,
 } from "@/lib/booking-constants";
 import { getMyReferralSummary } from "@/server/queries/my-referral-summary";
-import { formatTWTime } from "@/lib/date-utils";
+import { formatTWTime, toLocalDateStr } from "@/lib/date-utils";
 import { TALENT_STAGE_LABELS } from "@/types/talent";
 import type { CustomerStage, TalentStage } from "@prisma/client";
 import { deriveCustomerSource, type CustomerSourceSnapshot } from "@/lib/customer-source";
@@ -46,6 +47,7 @@ const TX_TYPE_LABEL: Record<string, string> = {
   SUPPLEMENT: "補差額",
   REFUND: "退款",
   ADJUSTMENT: "手動調整",
+  MANUAL_USED_BACKFILL: "補登已使用",
 };
 
 const CUSTOMER_STAGE_LABEL: Record<CustomerStage, string> = {
@@ -870,6 +872,10 @@ function WalletItem({
   // wallet.adjust 權限由 server action 把關，UI 只負責顯示。
   const canVoid = userRole !== "CUSTOMER";
 
+  // 從 sessions 推 available / reserved 計數，給補登 form 即時 preview 用。
+  const availableCount = w.sessions.filter((s) => s.status === "AVAILABLE").length;
+  const reservedCount = w.sessions.filter((s) => s.status === "RESERVED").length;
+
   return (
     <div className="rounded-lg border border-earth-200 p-3">
       <div className="flex items-start justify-between">
@@ -896,8 +902,16 @@ function WalletItem({
         {w.expiryDate && <span>到期 {formatTWTime(w.expiryDate, { dateOnly: true })}</span>}
       </div>
       {userRole === "ADMIN" && w.status === "ACTIVE" && (
-        <div className="mt-2 border-t pt-2">
+        <div className="mt-2 space-y-2 border-t pt-2">
           <AdjustWalletForm walletId={w.id} currentRemaining={w.remainingSessions} />
+          {availableCount > 0 && (
+            <BackfillUsedSessionsForm
+              walletId={w.id}
+              available={availableCount}
+              reserved={reservedCount}
+              startDateLocal={toLocalDateStr(w.startDate)}
+            />
+          )}
         </div>
       )}
 

@@ -2,8 +2,9 @@
  * 單堂明細表（顧客端 + 後台共用）
  *
  * 文案：
- *   AVAILABLE → 可使用    RESERVED → 已預約
- *   COMPLETED → 已使用    VOIDED   → 已註銷
+ *   AVAILABLE  → 可使用       RESERVED → 已預約
+ *   COMPLETED  → 已使用       VOIDED   → 已註銷
+ *   BACKFILLED → 已使用（補登）— 紙本卡轉線上補登，無 booking 連結
  */
 
 import { formatTWTime } from "@/lib/date-utils";
@@ -14,6 +15,7 @@ const STATUS_LABEL: Record<WalletSessionStatus, string> = {
   RESERVED: "已預約",
   COMPLETED: "已使用",
   VOIDED: "已註銷",
+  BACKFILLED: "已使用（補登）",
 };
 
 const STATUS_BADGE: Record<WalletSessionStatus, string> = {
@@ -21,6 +23,7 @@ const STATUS_BADGE: Record<WalletSessionStatus, string> = {
   RESERVED: "bg-blue-50 text-blue-700",
   COMPLETED: "bg-green-50 text-green-700",
   VOIDED: "bg-earth-200 text-earth-600 line-through",
+  BACKFILLED: "bg-amber-50 text-amber-700",
 };
 
 export interface SessionRow {

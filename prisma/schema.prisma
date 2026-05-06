@@ -110,6 +110,7 @@ enum WalletSessionStatus {
   RESERVED // 已綁定預約（PENDING / CONFIRMED）
   COMPLETED // 已使用（COMPLETED 或 NO_SHOW(DEDUCTED)）
   VOIDED // 店長手動註銷（不可再用、不可預約）
+  BACKFILLED // 紙本卡轉線上補登已使用：占用堂數但無 booking 連結
 }
 
 enum BookingStatus {
@@ -140,6 +141,7 @@ enum TransactionType {
   SUPPLEMENT // 補差額
   REFUND // 退款
   ADJUSTMENT // 手動調整
+  MANUAL_USED_BACKFILL // 補登已使用堂數（紙本卡轉線上）：不進營收 / 現金帳 / 教練業績
 }
 
 enum TransactionStatus {

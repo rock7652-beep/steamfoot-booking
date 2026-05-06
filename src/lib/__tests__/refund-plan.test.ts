@@ -180,3 +180,44 @@ describe("computeRefundPlan — 計算 edge cases", () => {
     expect(result.errorCode).toBe("VALIDATION");
   });
 });
+
+describe("computeRefundPlan — BACKFILLED 視同 COMPLETED", () => {
+  it("FULL_UNUSED 模式 + 有 BACKFILLED → 拒絕（與 COMPLETED 同樣處理）", () => {
+    const result = computeRefundPlan({
+      originalAmount: 1500,
+      totalSessions: 3,
+      mode: "FULL_UNUSED",
+      sessions: sessions({ BACKFILLED: 1, AVAILABLE: 2 }),
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.message).toBe(REFUND_ERROR_MESSAGES.HAS_COMPLETED_FULL);
+  });
+
+  it("REMAINING_SESSIONS 模式：BACKFILLED 計入 completedCount，可退剩餘可用堂", () => {
+    const result = computeRefundPlan({
+      originalAmount: 1500,
+      totalSessions: 3,
+      mode: "REMAINING_SESSIONS",
+      sessions: sessions({ BACKFILLED: 1, AVAILABLE: 2 }),
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.refundAmount).toBe(1000); // 500 × 2 available
+    expect(result.breakdown.completedCount).toBe(1); // BACKFILLED counted as completed
+    expect(result.sessionIdsToVoid).toHaveLength(2); // only AVAILABLE voided
+  });
+
+  it("混合 COMPLETED + BACKFILLED：completedCount 加總", () => {
+    const result = computeRefundPlan({
+      originalAmount: 2500,
+      totalSessions: 5,
+      mode: "REMAINING_SESSIONS",
+      sessions: sessions({ COMPLETED: 1, BACKFILLED: 2, AVAILABLE: 2 }),
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.breakdown.completedCount).toBe(3); // 1 COMPLETED + 2 BACKFILLED
+    expect(result.refundAmount).toBe(1000); // 500 × 2 available
+  });
+});

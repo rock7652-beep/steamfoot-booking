@@ -286,6 +286,80 @@ export async function voidAvailableSession(
 // 不更新 wallet.totalSessions（保留呼叫端原有語意）。
 // ──────────────────────────────────────────────────────────────
 
+// ──────────────────────────────────────────────────────────────
+// backfillAvailableSessions — 補登已使用堂數（紙本卡轉線上）
+//
+// 從最小 sessionNo 的 AVAILABLE 挑 N 筆 → 改為 BACKFILLED：
+//   - completedAt = occurredAt（補登日期）
+//   - voidReason = reason 文字
+//   - voidedByStaffId = 操作人
+//
+// Guards：
+//   - count 必須為正整數
+//   - 不可超過 AVAILABLE 堂數（保護 RESERVED 已預約堂）
+//   - CAS 防並行：updateMany WHERE status='AVAILABLE'，count 不符即丟錯
+//
+// 副作用：
+//   - WalletSession 改 BACKFILLED；BACKFILLED 不在 AVAILABLE+RESERVED 計算內
+//     → refreshWalletCounter 會把 wallet.remainingSessions 自動扣 N
+//   - 不寫 Transaction / AuditLog（呼叫端 server action 負責）
+// ──────────────────────────────────────────────────────────────
+
+export async function backfillAvailableSessions(
+  tx: Tx,
+  params: {
+    walletId: string;
+    count: number;
+    occurredAt: Date;
+    reason: string;
+    operatorStaffId: string;
+  }
+): Promise<{ backfilledSessionNos: number[] }> {
+  const { walletId, count, occurredAt, reason, operatorStaffId } = params;
+
+  if (!Number.isInteger(count) || count <= 0) {
+    throw new WalletSessionError("VALIDATION", "補登堂數必須為正整數");
+  }
+  const trimmedReason = reason.trim();
+  if (!trimmedReason) {
+    throw new WalletSessionError("VALIDATION", "補登原因不能為空");
+  }
+
+  const candidates = await tx.walletSession.findMany({
+    where: { walletId, status: "AVAILABLE" },
+    orderBy: { sessionNo: "asc" },
+    take: count,
+    select: { id: true, sessionNo: true },
+  });
+
+  if (candidates.length < count) {
+    throw new WalletSessionError(
+      "VALIDATION",
+      `可用堂數不足：本次補登 ${count} 堂，但僅剩 ${candidates.length} 堂可用（已預約保留的堂數不可補登）`
+    );
+  }
+
+  const ids = candidates.map((c) => c.id);
+  const result = await tx.walletSession.updateMany({
+    where: { id: { in: ids }, status: "AVAILABLE" },
+    data: {
+      status: "BACKFILLED",
+      completedAt: occurredAt,
+      voidReason: trimmedReason,
+      voidedByStaffId: operatorStaffId,
+    },
+  });
+  if (result.count !== count) {
+    throw new WalletSessionError(
+      "NOT_AVAILABLE",
+      "並行衝突：部分堂數狀態已變更，請重新整理後再試"
+    );
+  }
+
+  await refreshWalletCounter(tx, walletId);
+  return { backfilledSessionNos: candidates.map((c) => c.sessionNo) };
+}
+
 export async function reconcileForManualAdjust(
   tx: Tx,
   params: { walletId: string; newRemaining: number; voidedByStaffId: string | null }

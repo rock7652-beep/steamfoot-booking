@@ -23,6 +23,7 @@ import {
   seedWalletSessions,
   reconcileForManualAdjust,
   voidAvailableSession,
+  backfillAvailableSessions,
   WalletSessionError,
 } from "@/server/services/wallet-session";
 import { getStoreContext } from "@/lib/store-context";
@@ -422,6 +423,160 @@ export async function voidWalletSession(
     if (e instanceof WalletSessionError) {
       return { success: false, error: e.message };
     }
+    return handleActionError(e);
+  }
+}
+
+// ============================================================
+// backfillUsedSessions — 補登已使用堂數（紙本卡轉線上）
+//
+// 用途：店家從紙本卡 / 舊系統轉線上時，把顧客「過去已用 N 堂」記入系統，
+//      讓剩餘堂數正確反映實際情況。
+//
+// 權限：wallet.adjust（與 adjustRemainingSessions / voidWalletSession 同把關）
+//
+// 護欄（保護顧客既有權益 / 既有報表）：
+//   - 只動指定 walletId 的 AVAILABLE 堂；不碰 RESERVED / COMPLETED / VOIDED
+//   - count 不可超過 AVAILABLE 數（service 層會擋）
+//   - occurredAt 不可晚於今天台灣日期、不可早於 wallet.startDate
+//   - 寫一筆 Transaction(MANUAL_USED_BACKFILL, amount=0, quantity=-N)
+//     → 不在 REVENUE_* / CASH_TRANSACTION_TYPES 任何白名單，
+//       自動不進營收 / 現金帳 / 教練業績 / 今日完成服務
+//   - 寫一筆 AuditLog(action="MANUAL_USED_BACKFILL", targetType="CustomerPlanWallet")
+// ============================================================
+
+const backfillUsedSessionsSchema = z.object({
+  walletId: z.string().min(1),
+  count: z.number().int().positive("補登堂數需為正整數"),
+  occurredAt: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "補登日期格式需為 YYYY-MM-DD"),
+  reason: z.string().trim().min(1, "補登原因不能為空").max(200),
+});
+
+export async function backfillUsedSessions(
+  input: z.infer<typeof backfillUsedSessionsSchema>
+): Promise<ActionResult<{ backfilledCount: number; remainingAfter: number }>> {
+  try {
+    const user = await requirePermission("wallet.adjust");
+    const data = backfillUsedSessionsSchema.parse(input);
+
+    const wallet = await prisma.customerPlanWallet.findUnique({
+      where: { id: data.walletId },
+      select: {
+        id: true,
+        customerId: true,
+        storeId: true,
+        startDate: true,
+        status: true,
+      },
+    });
+    if (!wallet) throw new AppError("NOT_FOUND", "課程錢包不存在");
+    assertStoreAccess(user, wallet.storeId);
+    if (wallet.status !== "ACTIVE") {
+      throw new AppError("BUSINESS_RULE", "僅有效（ACTIVE）的方案可補登已使用堂數");
+    }
+
+    // 補登日期上下界檢查（台灣日期字串比較）
+    const todayTW = toLocalDateStr();
+    if (data.occurredAt > todayTW) {
+      throw new AppError("VALIDATION", "補登日期不可晚於今天");
+    }
+    const startTW = toLocalDateStr(wallet.startDate);
+    if (data.occurredAt < startTW) {
+      throw new AppError(
+        "VALIDATION",
+        `補登日期不可早於方案開始日（${startTW}）`
+      );
+    }
+
+    const customer = await prisma.customer.findUnique({
+      where: { id: wallet.customerId },
+      select: { assignedStaffId: true },
+    });
+    if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
+
+    const occurredAtDate = parseTaiwanDateToDbDate(data.occurredAt);
+    const revenueStaffId = customer.assignedStaffId ?? user.staffId!;
+    // 用 wallet.storeId（已通過 assertStoreAccess 驗證）；
+    // 不能用 currentStoreId(user)，因 ADMIN session 的 storeId 為 null。
+    const storeId = wallet.storeId;
+
+    const result = await prisma.$transaction(async (tx) => {
+      try {
+        await backfillAvailableSessions(tx, {
+          walletId: wallet.id,
+          count: data.count,
+          occurredAt: occurredAtDate,
+          reason: data.reason,
+          operatorStaffId: user.staffId!,
+        });
+      } catch (e) {
+        if (e instanceof WalletSessionError) {
+          throw new AppError("BUSINESS_RULE", e.message);
+        }
+        throw e;
+      }
+
+      const snapshot = await buildTransactionSnapshot(tx, {
+        customerId: wallet.customerId,
+        storeId,
+        revenueStaffId,
+        planId: null,
+        grossAmount: 0,
+        netAmount: 0,
+      });
+
+      await tx.transaction.create({
+        data: {
+          customerId: wallet.customerId,
+          revenueStaffId,
+          soldByStaffId: user.staffId ?? null,
+          transactionType: "MANUAL_USED_BACKFILL",
+          paymentMethod: "CASH",
+          paymentStatus: "SUCCESS",
+          paidAt: occurredAtDate,
+          amount: 0,
+          quantity: -data.count,
+          customerPlanWalletId: wallet.id,
+          note: `補登已使用 ${data.count} 堂：${data.reason}（補登日期 ${data.occurredAt}）`,
+          storeId,
+          ...snapshot,
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          actorUserId: user.id,
+          targetType: "CustomerPlanWallet",
+          targetId: wallet.id,
+          action: "MANUAL_USED_BACKFILL",
+          afterJson: {
+            count: data.count,
+            occurredAt: data.occurredAt,
+            reason: data.reason,
+          },
+        },
+      });
+
+      const updated = await tx.customerPlanWallet.findUnique({
+        where: { id: wallet.id },
+        select: { remainingSessions: true },
+      });
+
+      return { remainingAfter: updated?.remainingSessions ?? 0 };
+    });
+
+    revalidatePath(`/dashboard/customers/${wallet.customerId}`);
+    revalidatePath("/my-plans");
+    return {
+      success: true,
+      data: {
+        backfilledCount: data.count,
+        remainingAfter: result.remainingAfter,
+      },
+    };
+  } catch (e) {
     return handleActionError(e);
   }
 }
