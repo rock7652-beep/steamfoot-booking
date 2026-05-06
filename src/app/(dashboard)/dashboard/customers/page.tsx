@@ -103,6 +103,8 @@ export default async function CustomersPage({ searchParams }: PageProps) {
     sponsoredCount: c.sponsoredCount,
     sponsor: c.sponsor ? { id: c.sponsor.id, name: c.sponsor.name } : null,
     assignedStaff: c.assignedStaff,
+    mergedIntoCustomerId: c.mergedIntoCustomerId,
+    userStatus: c.user?.status ?? null,
   }));
 
   return (

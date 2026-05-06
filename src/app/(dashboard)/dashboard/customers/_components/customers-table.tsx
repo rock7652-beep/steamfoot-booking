@@ -1,6 +1,6 @@
 "use client";
 
-import type { CustomerStage, LineLinkStatus } from "@prisma/client";
+import type { CustomerStage, LineLinkStatus, UserStatus } from "@prisma/client";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { DataTable, EmptyRow, type Column } from "@/components/desktop";
 import { formatTWTime } from "@/lib/date-utils";
@@ -28,6 +28,14 @@ export interface CustomerRow {
   sponsoredCount: number;
   sponsor: { id: string; name: string } | null;
   assignedStaff: { id: string; displayName: string; colorCode: string } | null;
+  /** 被合併進其他顧客的 audit 殘留 row。UI 應 disable「+指派 / 查看」並顯示「已合併帳號」。 */
+  mergedIntoCustomerId: string | null;
+  /** 對應 NextAuth User 狀態；SUSPENDED 視同 disabled，避免店長誤操作 placeholder/duplicate。 */
+  userStatus: UserStatus | null;
+}
+
+function isInactiveRow(c: CustomerRow): boolean {
+  return !!c.mergedIntoCustomerId || c.userStatus === "SUSPENDED";
 }
 
 interface Props {
@@ -72,9 +80,24 @@ export function CustomersTable({
         ]
           .filter(Boolean)
           .join(" · ");
+        const inactive = isInactiveRow(c);
         return (
-          <div className="flex flex-col leading-tight">
-            <span className="text-sm font-medium text-earth-900">{c.name}</span>
+          <div className={`flex flex-col leading-tight ${inactive ? "opacity-60" : ""}`}>
+            <span className="flex items-center gap-1.5 text-sm font-medium text-earth-900">
+              <span className={inactive ? "line-through decoration-earth-300" : ""}>{c.name}</span>
+              {inactive ? (
+                <span
+                  className="rounded bg-earth-100 px-1.5 py-0.5 text-[10px] font-medium text-earth-500"
+                  title={
+                    c.mergedIntoCustomerId
+                      ? "此顧客已被合併進其他顧客（audit 殘留）"
+                      : "對應的登入帳號已停用"
+                  }
+                >
+                  已合併帳號
+                </span>
+              ) : null}
+            </span>
             {subtitle ? (
               <span className="text-[11px] text-earth-400 tabular-nums">{subtitle}</span>
             ) : (
@@ -96,16 +119,19 @@ export function CustomersTable({
       header: "歸屬店長",
       accessor: (c) => {
         const name = c.assignedStaff?.displayName ?? null;
+        const inactive = isInactiveRow(c);
         return (
-          <div className="flex items-center justify-between gap-2 leading-tight">
+          <div className={`flex items-center justify-between gap-2 leading-tight ${inactive ? "opacity-60" : ""}`}>
             {name ? (
               <span className="text-sm text-earth-800">{name}</span>
+            ) : inactive ? (
+              <span className="text-[11px] text-earth-400">—</span>
             ) : (
               <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-700">
                 未指派
               </span>
             )}
-            {onEditAssignment ? (
+            {onEditAssignment && !inactive ? (
               <button
                 type="button"
                 onClick={(e) => {
@@ -190,29 +216,36 @@ export function CustomersTable({
       header: "",
       align: "right",
       width: onQuickAssign ? "w-32" : "w-20",
-      accessor: (c) => (
-        <div className="flex items-center justify-end gap-1.5">
-          {onQuickAssign ? (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                e.preventDefault();
-                onQuickAssign(c);
-              }}
-              className="rounded bg-primary-600 px-2 py-0.5 text-[11px] font-medium text-white hover:bg-primary-700"
+      accessor: (c) => {
+        if (isInactiveRow(c)) {
+          return (
+            <span className="text-[11px] text-earth-400">—</span>
+          );
+        }
+        return (
+          <div className="flex items-center justify-end gap-1.5">
+            {onQuickAssign ? (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  onQuickAssign(c);
+                }}
+                className="rounded bg-primary-600 px-2 py-0.5 text-[11px] font-medium text-white hover:bg-primary-700"
+              >
+                ＋指派
+              </button>
+            ) : null}
+            <Link
+              href={`/dashboard/customers/${c.id}`}
+              className="rounded border border-earth-200 px-2 py-0.5 text-[11px] text-earth-700 hover:bg-earth-50"
             >
-              ＋指派
-            </button>
-          ) : null}
-          <Link
-            href={`/dashboard/customers/${c.id}`}
-            className="rounded border border-earth-200 px-2 py-0.5 text-[11px] text-earth-700 hover:bg-earth-50"
-          >
-            查看
-          </Link>
-        </div>
-      ),
+              查看
+            </Link>
+          </div>
+        );
+      },
     },
   ];
 
@@ -239,7 +272,7 @@ export function CustomersTable({
       columns={columns}
       rows={rows}
       rowKey={(c) => c.id}
-      rowHref={(c) => `/dashboard/customers/${c.id}`}
+      rowHref={(c) => (isInactiveRow(c) ? "" : `/dashboard/customers/${c.id}`)}
       empty={emptyNode}
     />
   );
