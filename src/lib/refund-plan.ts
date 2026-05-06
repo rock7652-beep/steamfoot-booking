@@ -12,7 +12,7 @@ export type RefundMode = "FULL_UNUSED" | "REMAINING_SESSIONS";
 
 export interface SessionLite {
   id: string;
-  status: "AVAILABLE" | "RESERVED" | "COMPLETED" | "VOIDED";
+  status: "AVAILABLE" | "RESERVED" | "COMPLETED" | "VOIDED" | "BACKFILLED";
 }
 
 export interface RefundPlanInput {
@@ -74,6 +74,7 @@ export const REFUND_ERROR_MESSAGES = {
  *
  * 注意：
  *   - 既有 VOIDED session 不影響本次計算（已退過 / 已作廢）
+ *   - BACKFILLED 視同 COMPLETED：紙本卡轉線上補登，已實際使用，不可作為「未使用」退款
  *   - REMAINING_SESSIONS 模式不檢查 completedCount > 0；可以「有用過、退剩下的」
  */
 export function computeRefundPlan(input: RefundPlanInput): RefundPlanResult {
@@ -86,7 +87,10 @@ export function computeRefundPlan(input: RefundPlanInput): RefundPlanResult {
 
   const availableCount = input.sessions.filter((s) => s.status === "AVAILABLE").length;
   const reservedCount = input.sessions.filter((s) => s.status === "RESERVED").length;
-  const completedCount = input.sessions.filter((s) => s.status === "COMPLETED").length;
+  // BACKFILLED 視同 COMPLETED：補登已使用堂數已視為實際消耗，不可退「未使用」
+  const completedCount = input.sessions.filter(
+    (s) => s.status === "COMPLETED" || s.status === "BACKFILLED",
+  ).length;
 
   // 任何模式：有預約就先取消
   if (reservedCount > 0) {

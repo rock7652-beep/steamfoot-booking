@@ -28,6 +28,7 @@ const TX_TYPE_LABEL: Record<string, string> = {
   SUPPLEMENT: "補差額",
   REFUND: "退款",
   ADJUSTMENT: "手動調整",
+  MANUAL_USED_BACKFILL: "補登已使用",
 };
 
 const PAY_METHOD_LABEL: Record<string, string> = {

@@ -782,7 +782,10 @@ export async function voidTransaction(
           where: { walletId: original.customerPlanWalletId },
           select: { id: true, status: true },
         });
-        const completedCount = sessions.filter((s) => s.status === "COMPLETED").length;
+        // BACKFILLED 視同 COMPLETED：已實際消耗，不可作廢交易（會掩蓋使用紀錄）
+        const completedCount = sessions.filter(
+          (s) => s.status === "COMPLETED" || s.status === "BACKFILLED",
+        ).length;
         const reservedCount = sessions.filter((s) => s.status === "RESERVED").length;
 
         if (completedCount > 0) {
@@ -872,7 +875,10 @@ export async function fetchTransactionDetailDTO(
     const breakdown = {
       available: sessions.filter((s) => s.status === "AVAILABLE").length,
       reserved: sessions.filter((s) => s.status === "RESERVED").length,
-      completed: sessions.filter((s) => s.status === "COMPLETED").length,
+      // BACKFILLED 視同 COMPLETED：drawer 退款/作廢計算需要把補登已使用算入消耗
+      completed: sessions.filter(
+        (s) => s.status === "COMPLETED" || s.status === "BACKFILLED",
+      ).length,
       voided: sessions.filter((s) => s.status === "VOIDED").length,
     };
 

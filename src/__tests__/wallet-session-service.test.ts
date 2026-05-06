@@ -20,6 +20,7 @@ import {
   uncompleteSession,
   voidAvailableSession,
   reconcileForManualAdjust,
+  backfillAvailableSessions,
   WalletSessionError,
 } from "@/server/services/wallet-session";
 
@@ -27,7 +28,7 @@ import {
 // In-memory Prisma transaction mock (only what's needed)
 // ────────────────────────────────────────────────
 
-type SessionStatus = "AVAILABLE" | "RESERVED" | "COMPLETED" | "VOIDED";
+type SessionStatus = "AVAILABLE" | "RESERVED" | "COMPLETED" | "VOIDED" | "BACKFILLED";
 
 interface SessionRow {
   id: string;
@@ -104,9 +105,14 @@ function makeTx(initialWallets: WalletRow[]) {
         const ordered = filterByOrder(matching, args.orderBy);
         return ordered[0] ?? null;
       },
-      findMany: async (args: { where?: Record<string, unknown>; orderBy?: { sessionNo?: "asc" | "desc" } }) => {
+      findMany: async (args: {
+        where?: Record<string, unknown>;
+        orderBy?: { sessionNo?: "asc" | "desc" };
+        take?: number;
+      }) => {
         const matching = args.where ? sessions.filter((s) => matches(s, args.where!)) : sessions;
-        return filterByOrder(matching, args.orderBy);
+        const ordered = filterByOrder(matching, args.orderBy);
+        return typeof args.take === "number" ? ordered.slice(0, args.take) : ordered;
       },
       findUnique: async (args: { where: { id: string } }) => {
         return sessions.find((s) => s.id === args.where.id) ?? null;
@@ -397,5 +403,148 @@ describe("wallet-session service", () => {
     await expect(
       reconcileForManualAdjust(tx, { walletId: W, newRemaining: 2, voidedByStaffId: "s" })
     ).rejects.toThrow(/已預約/);
+  });
+
+  // ──────────────────────────────────────────────
+  // backfillAvailableSessions — 補登已使用堂數
+  // ──────────────────────────────────────────────
+
+  describe("backfillAvailableSessions", () => {
+    const occurredAt = new Date("2026-04-01");
+
+    it("marks N AVAILABLE rows as BACKFILLED with FIFO order", async () => {
+      await seedWalletSessions(tx, W, 5);
+      tx._wallets[0].remainingSessions = 5;
+
+      const { backfilledSessionNos } = await backfillAvailableSessions(tx, {
+        walletId: W,
+        count: 3,
+        occurredAt,
+        reason: "紙本卡轉線上",
+        operatorStaffId: "staff-1",
+      });
+
+      expect(backfilledSessionNos).toEqual([1, 2, 3]); // FIFO smallest first
+      const backfilled = tx._sessions.filter(
+        (s: SessionRow) => s.status === "BACKFILLED",
+      );
+      expect(backfilled).toHaveLength(3);
+      for (const s of backfilled) {
+        expect(s.completedAt).toEqual(occurredAt);
+        expect(s.voidReason).toBe("紙本卡轉線上");
+        expect(s.voidedByStaffId).toBe("staff-1");
+      }
+      const inv = invariant(tx);
+      expect(inv.available).toBe(2);
+      expect(inv.reserved).toBe(0);
+      expect(inv.remaining).toBe(2); // 5 - 3 backfilled
+    });
+
+    it("does not touch RESERVED / COMPLETED / VOIDED rows", async () => {
+      await seedWalletSessions(tx, W, 5);
+      tx._wallets[0].remainingSessions = 5;
+      // session 1 → RESERVED via booking-A
+      await allocateSession(tx, W, "booking-A");
+      // session 2 → COMPLETED via booking-B
+      await allocateSession(tx, W, "booking-B");
+      await completeSession(tx, "booking-B");
+      // session 3 → VOIDED
+      const s3 = tx._sessions.find((s: SessionRow) => s.sessionNo === 3)!;
+      await voidAvailableSession(tx, {
+        sessionId: s3.id,
+        voidReason: "test",
+        voidedByStaffId: "staff-x",
+      });
+      // remaining AVAILABLE: sessionNo 4, 5
+
+      const { backfilledSessionNos } = await backfillAvailableSessions(tx, {
+        walletId: W,
+        count: 2,
+        occurredAt,
+        reason: "transfer",
+        operatorStaffId: "staff-1",
+      });
+
+      expect(backfilledSessionNos).toEqual([4, 5]); // skipped RESERVED/COMPLETED/VOIDED
+      const reserved = tx._sessions.find((s: SessionRow) => s.sessionNo === 1)!;
+      const completed = tx._sessions.find((s: SessionRow) => s.sessionNo === 2)!;
+      const voided = tx._sessions.find((s: SessionRow) => s.sessionNo === 3)!;
+      expect(reserved.status).toBe("RESERVED");
+      expect(completed.status).toBe("COMPLETED");
+      expect(voided.status).toBe("VOIDED");
+    });
+
+    it("rejects when count > availableCount (protects RESERVED)", async () => {
+      await seedWalletSessions(tx, W, 3);
+      tx._wallets[0].remainingSessions = 3;
+      await allocateSession(tx, W, "booking-A"); // 1 RESERVED, 2 AVAILABLE
+
+      await expect(
+        backfillAvailableSessions(tx, {
+          walletId: W,
+          count: 3, // > 2 available
+          occurredAt,
+          reason: "x",
+          operatorStaffId: "staff-1",
+        }),
+      ).rejects.toThrow(WalletSessionError);
+    });
+
+    it("rejects count <= 0", async () => {
+      await seedWalletSessions(tx, W, 3);
+      tx._wallets[0].remainingSessions = 3;
+
+      await expect(
+        backfillAvailableSessions(tx, {
+          walletId: W,
+          count: 0,
+          occurredAt,
+          reason: "x",
+          operatorStaffId: "staff-1",
+        }),
+      ).rejects.toThrow(/正整數/);
+
+      await expect(
+        backfillAvailableSessions(tx, {
+          walletId: W,
+          count: -1,
+          occurredAt,
+          reason: "x",
+          operatorStaffId: "staff-1",
+        }),
+      ).rejects.toThrow(/正整數/);
+    });
+
+    it("rejects empty reason", async () => {
+      await seedWalletSessions(tx, W, 3);
+      tx._wallets[0].remainingSessions = 3;
+
+      await expect(
+        backfillAvailableSessions(tx, {
+          walletId: W,
+          count: 1,
+          occurredAt,
+          reason: "   ",
+          operatorStaffId: "staff-1",
+        }),
+      ).rejects.toThrow(/原因/);
+    });
+
+    it("flips wallet.status to USED_UP when all available consumed via backfill", async () => {
+      await seedWalletSessions(tx, W, 2);
+      tx._wallets[0].remainingSessions = 2;
+
+      await backfillAvailableSessions(tx, {
+        walletId: W,
+        count: 2,
+        occurredAt,
+        reason: "all used",
+        operatorStaffId: "staff-1",
+      });
+
+      const inv = invariant(tx);
+      expect(inv.remaining).toBe(0);
+      expect(tx._wallets[0].status).toBe("USED_UP");
+    });
   });
 });

@@ -22,6 +22,7 @@ const TX_TYPE_LABEL: Record<string, string> = {
   SUPPLEMENT: "補差額",
   REFUND: "退款",
   ADJUSTMENT: "手動調整",
+  MANUAL_USED_BACKFILL: "補登已使用",
 };
 
 const TX_TYPE_COLOR: Record<string, string> = {
@@ -31,6 +32,7 @@ const TX_TYPE_COLOR: Record<string, string> = {
   SUPPLEMENT: "bg-yellow-100 text-yellow-700",
   REFUND: "bg-red-100 text-red-700",
   ADJUSTMENT: "bg-orange-100 text-orange-700",
+  MANUAL_USED_BACKFILL: "bg-amber-100 text-amber-700",
 };
 
 const PAY_METHOD_LABEL: Record<PaymentMethod, string> = {
