@@ -12,6 +12,8 @@ import type { CustomerStage } from "@prisma/client";
 
 import { CustomersToolbar } from "./_components/customers-toolbar";
 import { CustomersListWithDrawer } from "./_components/customers-list-with-drawer";
+import { PageSizeSelector } from "./_components/page-size-selector";
+import { DEFAULT_PAGE_SIZE, normalizePageSize } from "./page-size";
 import type { CustomerRow } from "./_components/customers-table";
 import type {
   CustomerListStatus,
@@ -40,12 +42,14 @@ interface PageProps {
     search?: string;
     staff?: string;
     page?: string;
+    pageSize?: string;
   }>;
 }
 
 export default async function CustomersPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const page = Number(params.page ?? 1);
+  const pageSize = normalizePageSize(params.pageSize);
 
   const user = await getCurrentUser();
   if (!user || !(await checkPermission(user.role, user.staffId, "customer.read"))) {
@@ -59,7 +63,7 @@ export default async function CustomersPage({ searchParams }: PageProps) {
     userId: user.id,
     sessionRole: user.role,
   };
-  const [{ customers, total, pageSize }, staffOptions, plans, canDiscount, canAssign] =
+  const [{ customers, total }, staffOptions, plans, canDiscount, canAssign] =
     await Promise.all([
       listCustomers({
         stage: params.stage,
@@ -70,7 +74,7 @@ export default async function CustomersPage({ searchParams }: PageProps) {
         assignedStaffId: params.staff,
         sort: normalizeSort(params.sort),
         page,
-        pageSize: 20,
+        pageSize,
         activeStoreId,
       }).catch((e) => {
         console.error("[customers] listCustomers failed", {
@@ -78,7 +82,7 @@ export default async function CustomersPage({ searchParams }: PageProps) {
           step: "listCustomers",
           error: e instanceof Error ? e.message : String(e),
         });
-        return { customers: [], total: 0, page, pageSize: 20 } as Awaited<
+        return { customers: [], total: 0, page, pageSize } as Awaited<
           ReturnType<typeof listCustomers>
         >;
       }),
@@ -182,14 +186,18 @@ export default async function CustomersPage({ searchParams }: PageProps) {
         canAssign={canAssign}
       />
 
-      {totalPages > 1 ? (
-        <Pagination
-          page={page}
-          totalPages={totalPages}
-          params={params}
-          basePath={basePath}
-        />
-      ) : null}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <PageSizeSelector pageSize={pageSize} />
+        {totalPages > 1 ? (
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            params={params}
+            basePath={basePath}
+          />
+        ) : null}
+      </div>
     </PageShell>
   );
 }
@@ -233,11 +241,13 @@ interface PaginationParams {
 function Pagination({
   page,
   totalPages,
+  pageSize,
   params,
   basePath,
 }: {
   page: number;
   totalPages: number;
+  pageSize: number;
   params: PaginationParams;
   basePath: string;
 }) {
@@ -250,6 +260,7 @@ function Pagination({
     if (params.sort) qs.set("sort", params.sort);
     if (params.stage) qs.set("stage", params.stage);
     if (params.staff) qs.set("staff", params.staff);
+    if (pageSize !== DEFAULT_PAGE_SIZE) qs.set("pageSize", String(pageSize));
     qs.set("page", String(p));
     return `${basePath}?${qs.toString()}`;
   };
