@@ -1,4 +1,4 @@
-import { listCustomers } from "@/server/queries/customer";
+import { listCustomers, getCustomerDetail } from "@/server/queries/customer";
 import { listStaffSelectOptions } from "@/server/queries/staff";
 import { getCachedPlans } from "@/lib/query-cache";
 import { getCurrentUser } from "@/lib/session";
@@ -43,6 +43,9 @@ interface PageProps {
     staff?: string;
     page?: string;
     pageSize?: string;
+    // 顧客詳情 drawer
+    customerId?: string;
+    drawerFocus?: string;
   }>;
 }
 
@@ -102,6 +105,19 @@ export default async function CustomersPage({ searchParams }: PageProps) {
       checkPermission(user.role, user.staffId, "transaction.discount").catch(() => false),
       checkPermission(user.role, user.staffId, "customer.assign").catch(() => false),
     ]);
+
+  // Drawer 詳情：?customerId= 帶值才抓，且抓不到時靜默關閉 drawer（避免出錯）
+  const customerDetail = params.customerId
+    ? await getCustomerDetail(params.customerId).catch((e) => {
+        console.warn("[customers] getCustomerDetail failed", {
+          ...logCtx,
+          customerId: params.customerId,
+          error: e instanceof Error ? e.message : String(e),
+        });
+        return null;
+      })
+    : null;
+  const drawerFocus = params.drawerFocus === "plan" ? "plan" : null;
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const hasActiveFilters = !!(
@@ -184,6 +200,8 @@ export default async function CustomersPage({ searchParams }: PageProps) {
         canDiscount={canDiscount}
         staffOptions={staffOptions}
         canAssign={canAssign}
+        customerDetail={customerDetail}
+        drawerFocus={drawerFocus}
       />
 
       <div className="flex flex-wrap items-center justify-between gap-2">

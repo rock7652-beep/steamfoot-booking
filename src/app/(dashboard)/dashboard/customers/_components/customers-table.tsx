@@ -1,7 +1,6 @@
 "use client";
 
 import type { CustomerStage, LineLinkStatus, UserStatus } from "@prisma/client";
-import { DashboardLink as Link } from "@/components/dashboard-link";
 import { DataTable, EmptyRow, type Column } from "@/components/desktop";
 import { formatTWTime } from "@/lib/date-utils";
 import { CustomerStatusBadge } from "./customer-status-badge";
@@ -10,9 +9,10 @@ import { CustomerStatusBadge } from "./customer-status-badge";
  * 顧客列表主表格 — 桌機版重構
  *
  * 對照 design/04-phase2-plan.md §2.4：統一用 `DataTable` primitive。
- * 主欄：顧客 / 狀態 / 最近來店 / 推薦
- * 次欄：建立時間 / 點數
- * 操作：查看
+ * 主欄：顧客 / 狀態 / 最近來店
+ * 操作：查看（開 drawer）/ ＋指派（開 drawer + 展開方案區）
+ *
+ * 其他資訊（歸屬店長、推薦、點數、建立日、Email、LINE ID、身份診斷）統一收進 drawer。
  */
 
 export interface CustomerRow {
@@ -44,10 +44,12 @@ interface Props {
   searchQuery?: string;
   hasActiveFilters: boolean;
   basePath: string;
-  /** PR-5.5：傳入後於末欄多渲染「＋指派」按鈕 → 觸發快速指派 drawer（不跳頁） */
+  /** 「查看」→ 開啟顧客詳情 drawer */
+  onView: (row: CustomerRow) => void;
+  /** 整 row 點擊用的 href（同步 ?customerId=）；點擊後 page 會重抓並打開 drawer */
+  buildViewHref: (row: CustomerRow) => string;
+  /** 「＋指派」→ 開啟同一個 drawer，並展開方案區 */
   onQuickAssign?: (row: CustomerRow) => void;
-  /** 傳入後於「歸屬店長」欄位渲染「指派 / 修改」按鈕 → 開啟同一個 drawer */
-  onEditAssignment?: (row: CustomerRow) => void;
 }
 
 /**
@@ -65,8 +67,9 @@ export function CustomersTable({
   searchQuery,
   hasActiveFilters,
   basePath,
+  onView,
+  buildViewHref,
   onQuickAssign,
-  onEditAssignment,
 }: Props) {
   const columns: Column<CustomerRow>[] = [
     {
@@ -115,40 +118,6 @@ export function CustomersTable({
       ),
     },
     {
-      key: "assignedStaff",
-      header: "歸屬店長",
-      accessor: (c) => {
-        const name = c.assignedStaff?.displayName ?? null;
-        const inactive = isInactiveRow(c);
-        return (
-          <div className={`flex items-center justify-between gap-2 leading-tight ${inactive ? "opacity-60" : ""}`}>
-            {name ? (
-              <span className="text-sm text-earth-800">{name}</span>
-            ) : inactive ? (
-              <span className="text-[11px] text-earth-400">—</span>
-            ) : (
-              <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-700">
-                未指派
-              </span>
-            )}
-            {onEditAssignment && !inactive ? (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  e.preventDefault();
-                  onEditAssignment(c);
-                }}
-                className="rounded border border-earth-200 px-2 py-0.5 text-[11px] text-earth-600 hover:bg-earth-50"
-              >
-                {name ? "修改" : "指派"}
-              </button>
-            ) : null}
-          </div>
-        );
-      },
-    },
-    {
       key: "lastVisit",
       header: "最近來店",
       align: "right",
@@ -159,55 +128,6 @@ export function CustomersTable({
           ) : (
             <span className="text-earth-400">—</span>
           )}
-        </span>
-      ),
-    },
-    {
-      key: "referral",
-      header: "推薦",
-      align: "right",
-      accessor: (c) => {
-        const count = c.sponsoredCount;
-        const hasCount = count > 0;
-        const hasSponsor = !!c.sponsor;
-        if (!hasCount && !hasSponsor) {
-          return <span className="text-earth-400">—</span>;
-        }
-        return (
-          <div className="flex flex-col items-end leading-tight">
-            {hasCount ? (
-              <span className="text-sm font-semibold tabular-nums text-primary-700">
-                {count} 人
-              </span>
-            ) : null}
-            {hasSponsor ? (
-              <span className="text-[10px] text-earth-400">
-                由 {c.sponsor!.name}
-              </span>
-            ) : null}
-          </div>
-        );
-      },
-    },
-    {
-      key: "points",
-      header: "點數",
-      align: "right",
-      priority: "secondary",
-      accessor: (c) => (
-        <span className="tabular-nums">
-          {c.totalPoints > 0 ? c.totalPoints : <span className="text-earth-300">0</span>}
-        </span>
-      ),
-    },
-    {
-      key: "createdAt",
-      header: "建立",
-      align: "right",
-      priority: "secondary",
-      accessor: (c) => (
-        <span className="tabular-nums">
-          {formatTWTime(c.createdAt, { dateOnly: true })}
         </span>
       ),
     },
@@ -237,12 +157,17 @@ export function CustomersTable({
                 ＋指派
               </button>
             ) : null}
-            <Link
-              href={`/dashboard/customers/${c.id}`}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                onView(c);
+              }}
               className="rounded border border-earth-200 px-2 py-0.5 text-[11px] text-earth-700 hover:bg-earth-50"
             >
               查看
-            </Link>
+            </button>
           </div>
         );
       },
@@ -272,7 +197,7 @@ export function CustomersTable({
       columns={columns}
       rows={rows}
       rowKey={(c) => c.id}
-      rowHref={(c) => (isInactiveRow(c) ? "" : `/dashboard/customers/${c.id}`)}
+      rowHref={(c) => (isInactiveRow(c) ? "" : buildViewHref(c))}
       empty={emptyNode}
     />
   );

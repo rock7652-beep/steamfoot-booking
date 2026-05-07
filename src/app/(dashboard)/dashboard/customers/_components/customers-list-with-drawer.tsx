@@ -1,9 +1,13 @@
 "use client";
 
-import { useState, useId } from "react";
+import { useId, useCallback } from "react";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { RightSheet } from "@/components/admin/right-sheet";
 import { CustomersTable, type CustomerRow } from "./customers-table";
-import { CustomerQuickDrawerContent } from "./customer-quick-drawer-content";
+import { CustomerDetailDrawerContent } from "./customer-detail-drawer-content";
+import type { getCustomerDetail } from "@/server/queries/customer";
+
+type CustomerDetail = Awaited<ReturnType<typeof getCustomerDetail>>;
 
 interface Plan {
   id: string;
@@ -28,6 +32,10 @@ interface Props {
   canDiscount: boolean;
   staffOptions: StaffOption[];
   canAssign: boolean;
+  /** Server 已依 ?customerId= 抓好的詳情；null = drawer 關閉 */
+  customerDetail: CustomerDetail | null;
+  /** ?drawerFocus=plan → 自動展開指派方案區並滾到該位置 */
+  drawerFocus: "plan" | null;
 }
 
 export function CustomersListWithDrawer({
@@ -39,9 +47,43 @@ export function CustomersListWithDrawer({
   canDiscount,
   staffOptions,
   canAssign,
+  customerDetail,
+  drawerFocus,
 }: Props) {
-  const [selected, setSelected] = useState<CustomerRow | null>(null);
   const titleId = useId();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const buildHref = useCallback(
+    (customerId: string | null, focus: "plan" | null) => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (customerId) {
+        params.set("customerId", customerId);
+      } else {
+        params.delete("customerId");
+      }
+      if (focus) {
+        params.set("drawerFocus", focus);
+      } else {
+        params.delete("drawerFocus");
+      }
+      const qs = params.toString();
+      return qs ? `${pathname}?${qs}` : pathname;
+    },
+    [pathname, searchParams],
+  );
+
+  const openCustomer = useCallback(
+    (customerId: string, focus: "plan" | null = null) => {
+      router.push(buildHref(customerId, focus), { scroll: false });
+    },
+    [router, buildHref],
+  );
+
+  const closeDrawer = useCallback(() => {
+    router.push(buildHref(null, null), { scroll: false });
+  }, [router, buildHref]);
 
   return (
     <>
@@ -50,25 +92,27 @@ export function CustomersListWithDrawer({
         searchQuery={searchQuery}
         hasActiveFilters={hasActiveFilters}
         basePath={basePath}
-        onQuickAssign={(row) => setSelected(row)}
-        onEditAssignment={canAssign ? (row) => setSelected(row) : undefined}
+        onView={(row) => openCustomer(row.id)}
+        buildViewHref={(row) => buildHref(row.id, null)}
+        onQuickAssign={canAssign ? (row) => openCustomer(row.id, "plan") : undefined}
       />
 
       <RightSheet
-        open={selected !== null}
-        onClose={() => setSelected(null)}
+        open={customerDetail !== null}
+        onClose={closeDrawer}
         labelledById={titleId}
-        width={480}
+        width={520}
       >
-        {selected && (
-          <CustomerQuickDrawerContent
-            key={selected.id}
-            customer={selected}
+        {customerDetail && (
+          <CustomerDetailDrawerContent
+            key={customerDetail.id}
+            customer={customerDetail}
             plans={plans}
             canDiscount={canDiscount}
             staffOptions={staffOptions}
             canAssign={canAssign}
-            onClose={() => setSelected(null)}
+            focus={drawerFocus}
+            onClose={closeDrawer}
             titleId={titleId}
           />
         )}
