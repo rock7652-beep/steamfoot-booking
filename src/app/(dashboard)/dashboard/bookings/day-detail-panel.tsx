@@ -347,8 +347,8 @@ function TimelineItem({
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-2">
-            <span className="min-w-0 flex-1 whitespace-normal break-words text-sm font-semibold leading-snug text-earth-900 line-clamp-2">
+          <div className="flex flex-col items-start gap-1">
+            <span className="whitespace-normal break-words text-sm font-semibold leading-snug text-earth-900 line-clamp-2">
               {booking.customer?.name ?? "—"}
             </span>
             <StatusBadge variant={meta.variant} dot={false}>
