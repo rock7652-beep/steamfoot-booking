@@ -12,8 +12,8 @@ import { isStaffRole } from "@/lib/permissions";
  * 此為自訂網域專用，與 slug 解析無關。
  */
 const DOMAIN_STORE_MAP: Record<string, string> = {
-  "steamfoot-zhubei.com": "default-store",
-  "www.steamfoot-zhubei.com": "default-store",
+  "steamfoot-zhubei.com": "e182e256-98ca-4c78-970b-d4b118066c51",
+  "www.steamfoot-zhubei.com": "e182e256-98ca-4c78-970b-d4b118066c51",
 };
 
 /** 預設店 slug — 僅用於 legacy redirect 和未登入 fallback */
