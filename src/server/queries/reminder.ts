@@ -1,7 +1,8 @@
 import { prisma } from "@/lib/db";
 import { requireStaffSession } from "@/lib/session";
-import { toLocalDateStr } from "@/lib/date-utils";
+import { dayRange, toLocalDateStr } from "@/lib/date-utils";
 import { getStoreFilter } from "@/lib/manager-visibility";
+import { findTriggeredBookings } from "@/server/reminder-engine";
 
 // ============================================================
 // ReminderRule queries
@@ -90,44 +91,65 @@ export async function listMessageLogs(options: ListMessageLogsOptions & { active
 // Dashboard stats
 // ============================================================
 
+/**
+ * Dashboard 提醒統計
+ *
+ * 「今日待發送」採即時計算：遍歷啟用規則，對每筆規則找出 triggerAt ∈ [now, 今日 TW 結束]
+ * 的預約，扣掉已 SENT 的 MessageLog。
+ *
+ * ⚠ 不能用 status="PENDING" 計數 — 引擎只寫入 SENT/FAILED，不會留 pending row。
+ */
 export async function getReminderStats(activeStoreId?: string | null) {
   const user = await requireStaffSession();
   const storeFilter = getStoreFilter(user, activeStoreId);
   const today = toLocalDateStr();
+  const { start: todayStart, end: todayEnd } = dayRange(today);
 
-  const [enabledRules, todayPending, todaySent, todayFailed] = await Promise.all([
-    prisma.reminderRule.count({ where: { isEnabled: true, storeId: user.storeId! } }),
+  const [enabledRules, todaySent, todayFailed] = await Promise.all([
+    prisma.reminderRule.count({ where: { isEnabled: true, ...storeFilter } }),
     prisma.messageLog.count({
-      where: {
-        status: "PENDING",
-        createdAt: {
-          gte: new Date(today + "T00:00:00+08:00"),
-          lt: new Date(today + "T23:59:59+08:00"),
-        },
-        ...storeFilter,
-      },
+      where: { status: "SENT", createdAt: { gte: todayStart, lte: todayEnd }, ...storeFilter },
     }),
     prisma.messageLog.count({
-      where: {
-        status: "SENT",
-        createdAt: {
-          gte: new Date(today + "T00:00:00+08:00"),
-          lt: new Date(today + "T23:59:59+08:00"),
-        },
-        ...storeFilter,
-      },
-    }),
-    prisma.messageLog.count({
-      where: {
-        status: "FAILED",
-        createdAt: {
-          gte: new Date(today + "T00:00:00+08:00"),
-          lt: new Date(today + "T23:59:59+08:00"),
-        },
-        ...storeFilter,
-      },
+      where: { status: "FAILED", createdAt: { gte: todayStart, lte: todayEnd }, ...storeFilter },
     }),
   ]);
+
+  // 今日待發送：即時依啟用規則計算 triggerAt ∈ [now, todayEnd] 的預約，扣掉已 SENT
+  const now = new Date();
+  let todayPending = 0;
+  if (now <= todayEnd) {
+    const rules = await prisma.reminderRule.findMany({
+      where: { isEnabled: true, ...storeFilter },
+      include: { template: true },
+    });
+
+    for (const rule of rules) {
+      if (rule.type !== "relative" && rule.type !== "fixed") continue;
+      const triggered = await findTriggeredBookings(rule, now, todayEnd);
+      if (triggered.length === 0) continue;
+
+      // 批次查 (ruleId, bookingId, triggerAt) 已 SENT 的紀錄
+      const sentLogs = await prisma.messageLog.findMany({
+        where: {
+          ruleId: rule.id,
+          bookingId: { in: triggered.map((t) => t.booking.id) },
+          status: "SENT",
+        },
+        select: { bookingId: true, triggerAt: true },
+      });
+      const sentKeys = new Set(
+        sentLogs
+          .filter((l) => l.bookingId && l.triggerAt)
+          .map((l) => `${l.bookingId}:${l.triggerAt!.getTime()}`),
+      );
+
+      for (const t of triggered) {
+        const key = `${t.booking.id}:${t.triggerAt.getTime()}`;
+        if (!sentKeys.has(key)) todayPending++;
+      }
+    }
+  }
 
   return { enabledRules, todayPending, todaySent, todayFailed };
 }
