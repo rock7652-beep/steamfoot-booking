@@ -1,12 +1,16 @@
 /**
- * 提醒引擎 + Dashboard stats 測試
+ * 提醒引擎 + Dashboard stats 測試（v3：daily next-day batch）
  *
  * 覆蓋驗收條件：
- *   - window 命中 / 不在 window 內不發送
- *   - idempotent：重複執行同 trigger 不重複發送
- *   - triggerAt dedup（並行 P2002 → SKIPPED）
- *   - 預約改期 → 新 triggerAt → 可重發
- *   - getReminderStats: 不再永遠 pending=0；正確排除已 SENT
+ *   - 每天 18:00 命中明天預約 → SENT
+ *   - 今天預約不提醒
+ *   - 後天預約不提醒
+ *   - CANCELLED / NO_SHOW 不提醒
+ *   - 未綁 LINE 不提醒
+ *   - 重複執行不重複提醒（idempotent）
+ *   - dashboard pending 18:00 前正確反映明日預約數
+ *   - dashboard pending 18:00 後一律 0
+ *   - SENT 從 pending 扣除
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
@@ -14,12 +18,12 @@ import type { ReminderChannel } from "@prisma/client";
 
 // ── Test fixtures ──
 const STORE_ID = "store-test";
-const RULE_ID = "rule-12hr";
+const RULE_ID = "rule-1";
 const BOOKING_ID = "booking-1";
 const CUSTOMER_ID = "customer-1";
 const LINE_USER_ID = "U1234567890";
 
-// ── In-memory stores（每個 test 重置）──
+// ── In-memory stores ──
 type BookingRow = {
   id: string;
   storeId: string;
@@ -208,6 +212,9 @@ const mockPrisma = {
       return messageLogs.filter((l) => {
         if (where.ruleId && l.ruleId !== where.ruleId) return false;
         if (where.status && l.status !== where.status) return false;
+        if (where.triggerAt instanceof Date) {
+          if (!l.triggerAt || l.triggerAt.getTime() !== where.triggerAt.getTime()) return false;
+        }
         const bookingIdFilter = where.bookingId as { in?: string[] } | undefined;
         if (bookingIdFilter?.in && (!l.bookingId || !bookingIdFilter.in.includes(l.bookingId))) {
           return false;
@@ -251,7 +258,6 @@ vi.mock("@/lib/manager-visibility", () => ({
   getStoreFilter: () => ({ storeId: STORE_ID }),
 }));
 
-// 以動態 import 確保 mocks 生效
 async function loadModules() {
   const engine = await import("@/server/reminder-engine");
   const reminderQueries = await import("@/server/queries/reminder");
@@ -260,11 +266,11 @@ async function loadModules() {
 
 // ── Helpers ──
 
-/** 建立一個顧客掛 LINE 的 PENDING booking */
+/** 建立一個 PENDING booking（指定 bookingDate） */
 function makeBooking(opts: {
   id?: string;
   bookingDate: Date;
-  slotTime: string;
+  slotTime?: string;
   status?: string;
   hasLine?: boolean;
 }): BookingRow {
@@ -272,7 +278,7 @@ function makeBooking(opts: {
     id: opts.id ?? BOOKING_ID,
     storeId: STORE_ID,
     bookingDate: opts.bookingDate,
-    slotTime: opts.slotTime,
+    slotTime: opts.slotTime ?? "14:00",
     bookingStatus: opts.status ?? "CONFIRMED",
     customer: {
       id: CUSTOMER_ID,
@@ -284,17 +290,16 @@ function makeBooking(opts: {
   };
 }
 
-/** 12 小時前提醒規則 */
-function makeRelativeRule(offsetMinutes = 720): RuleRow {
+function makeRule(): RuleRow {
   return {
     id: RULE_ID,
     storeId: STORE_ID,
-    name: "預約12小時前提醒",
-    triggerType: "BEFORE_BOOKING_12H",
-    type: "relative",
-    offsetMinutes,
-    offsetDays: 0,
-    fixedTime: null,
+    name: "預約前一天 18:00 提醒",
+    triggerType: "BEFORE_BOOKING_1D",
+    type: "fixed",
+    offsetMinutes: null,
+    offsetDays: 1,
+    fixedTime: "18:00",
     isEnabled: true,
     channel: "LINE" as ReminderChannel,
     templateId: null,
@@ -310,6 +315,15 @@ beforeEach(() => {
   messageLogs = [];
   pushMessageMock.mockClear();
   pushMessageMock.mockResolvedValue({ success: true });
+  // Reset call records on prisma mocks（讓 not.toHaveBeenCalled() 斷言可靠）
+  mockPrisma.reminderRule.findMany.mockClear();
+  mockPrisma.reminderRule.count.mockClear();
+  mockPrisma.booking.findMany.mockClear();
+  mockPrisma.messageLog.findFirst.mockClear();
+  mockPrisma.messageLog.create.mockClear();
+  mockPrisma.messageLog.count.mockClear();
+  mockPrisma.messageLog.findMany.mockClear();
+  mockPrisma.store.findUnique.mockClear();
   vi.useFakeTimers();
 });
 
@@ -318,106 +332,20 @@ afterEach(() => {
 });
 
 // ============================================================
-// 1. findTriggeredBookings — window 邊界
+// runReminders — daily next-day batch
 // ============================================================
 
-describe("findTriggeredBookings (relative 12hr)", () => {
-  it("命中：triggerAt 在 [now, now+30min) 內 → 回傳", async () => {
-    // now = 2026-05-11 12:00 UTC（= 2026-05-11 20:00 TW）
-    const now = new Date("2026-05-11T12:00:00.000Z");
-    vi.setSystemTime(now);
-    const windowEnd = new Date(now.getTime() + 30 * 60 * 1000);
-
-    // booking on 5/12 08:00 TW = 5/12 00:00 UTC
-    // triggerAt (12hr earlier) = 5/11 12:00 UTC = 命中 windowStart
+describe("runReminders (daily next-day batch)", () => {
+  it("命中：明天 (TW) 的有效預約 → SENT，triggerAt = 今天 18:00 TW", async () => {
+    // now = 5/11 12:00 TW = 5/11 04:00 UTC（假設 cron 提早觸發）
+    vi.setSystemTime(new Date("2026-05-11T04:00:00.000Z"));
     bookings.push(
       makeBooking({
-        bookingDate: new Date("2026-05-12T00:00:00.000Z"),
-        slotTime: "08:00",
+        bookingDate: new Date("2026-05-12T00:00:00.000Z"), // 明天
+        slotTime: "14:00",
       }),
     );
-    rules.push(makeRelativeRule());
-
-    const { engine } = await loadModules();
-    const result = await engine.findTriggeredBookings(rules[0], now, windowEnd);
-    expect(result).toHaveLength(1);
-    expect(result[0].triggerAt.toISOString()).toBe("2026-05-11T12:00:00.000Z");
-  });
-
-  it("不命中：triggerAt 在 window 外 → 排除", async () => {
-    const now = new Date("2026-05-11T12:00:00.000Z");
-    vi.setSystemTime(now);
-    const windowEnd = new Date(now.getTime() + 30 * 60 * 1000);
-
-    // booking 24hr 後 → triggerAt 12hr 後 = 不在 [now, now+30min)
-    bookings.push(
-      makeBooking({
-        bookingDate: new Date("2026-05-12T00:00:00.000Z"),
-        slotTime: "20:00", // 5/12 12:00 UTC
-      }),
-    );
-    rules.push(makeRelativeRule());
-
-    const { engine } = await loadModules();
-    const result = await engine.findTriggeredBookings(rules[0], now, windowEnd);
-    expect(result).toHaveLength(0);
-  });
-
-  it("不命中：booking 已 CANCELLED → 排除", async () => {
-    const now = new Date("2026-05-11T12:00:00.000Z");
-    vi.setSystemTime(now);
-    const windowEnd = new Date(now.getTime() + 30 * 60 * 1000);
-
-    bookings.push(
-      makeBooking({
-        bookingDate: new Date("2026-05-12T00:00:00.000Z"),
-        slotTime: "08:00",
-        status: "CANCELLED",
-      }),
-    );
-    rules.push(makeRelativeRule());
-
-    const { engine } = await loadModules();
-    const result = await engine.findTriggeredBookings(rules[0], now, windowEnd);
-    expect(result).toHaveLength(0);
-  });
-
-  it("不命中：顧客未綁 LINE → 排除", async () => {
-    const now = new Date("2026-05-11T12:00:00.000Z");
-    vi.setSystemTime(now);
-    const windowEnd = new Date(now.getTime() + 30 * 60 * 1000);
-
-    bookings.push(
-      makeBooking({
-        bookingDate: new Date("2026-05-12T00:00:00.000Z"),
-        slotTime: "08:00",
-        hasLine: false,
-      }),
-    );
-    rules.push(makeRelativeRule());
-
-    const { engine } = await loadModules();
-    const result = await engine.findTriggeredBookings(rules[0], now, windowEnd);
-    expect(result).toHaveLength(0);
-  });
-});
-
-// ============================================================
-// 2. runReminders — 端到端
-// ============================================================
-
-describe("runReminders", () => {
-  it("命中：MessageLog SENT + triggerAt 寫入", async () => {
-    const now = new Date("2026-05-11T12:00:00.000Z");
-    vi.setSystemTime(now);
-
-    bookings.push(
-      makeBooking({
-        bookingDate: new Date("2026-05-12T00:00:00.000Z"),
-        slotTime: "08:00",
-      }),
-    );
-    rules.push(makeRelativeRule());
+    rules.push(makeRule());
 
     const { engine } = await loadModules();
     const result = await engine.runReminders();
@@ -425,27 +353,106 @@ describe("runReminders", () => {
     expect(result.failed).toBe(0);
     expect(messageLogs).toHaveLength(1);
     expect(messageLogs[0].status).toBe("SENT");
-    expect(messageLogs[0].triggerAt?.toISOString()).toBe("2026-05-11T12:00:00.000Z");
+    // triggerAt = 今天 18:00 TW = 今天 10:00 UTC
+    expect(messageLogs[0].triggerAt?.toISOString()).toBe("2026-05-11T10:00:00.000Z");
     expect(pushMessageMock).toHaveBeenCalledTimes(1);
   });
 
-  it("idempotent：第二次執行同一 window → SKIPPED，不重複寫入", async () => {
-    const now = new Date("2026-05-11T12:00:00.000Z");
-    vi.setSystemTime(now);
+  it("不命中：今天的預約（不是明天）→ 不發送", async () => {
+    vi.setSystemTime(new Date("2026-05-11T04:00:00.000Z"));
+    bookings.push(
+      makeBooking({
+        bookingDate: new Date("2026-05-11T00:00:00.000Z"), // 今天
+      }),
+    );
+    rules.push(makeRule());
 
+    const { engine } = await loadModules();
+    const result = await engine.runReminders();
+    expect(result.total).toBe(0);
+    expect(result.sent).toBe(0);
+    expect(messageLogs).toHaveLength(0);
+  });
+
+  it("不命中：後天的預約 → 不發送", async () => {
+    vi.setSystemTime(new Date("2026-05-11T04:00:00.000Z"));
+    bookings.push(
+      makeBooking({
+        bookingDate: new Date("2026-05-13T00:00:00.000Z"), // 後天
+      }),
+    );
+    rules.push(makeRule());
+
+    const { engine } = await loadModules();
+    const result = await engine.runReminders();
+    expect(result.total).toBe(0);
+    expect(messageLogs).toHaveLength(0);
+  });
+
+  it("不命中：CANCELLED 預約 → 不發送", async () => {
+    vi.setSystemTime(new Date("2026-05-11T04:00:00.000Z"));
     bookings.push(
       makeBooking({
         bookingDate: new Date("2026-05-12T00:00:00.000Z"),
-        slotTime: "08:00",
+        status: "CANCELLED",
       }),
     );
-    rules.push(makeRelativeRule());
+    rules.push(makeRule());
+
+    const { engine } = await loadModules();
+    const result = await engine.runReminders();
+    expect(result.sent).toBe(0);
+    expect(messageLogs).toHaveLength(0);
+  });
+
+  it("不命中：NO_SHOW 預約 → 不發送", async () => {
+    vi.setSystemTime(new Date("2026-05-11T04:00:00.000Z"));
+    bookings.push(
+      makeBooking({
+        bookingDate: new Date("2026-05-12T00:00:00.000Z"),
+        status: "NO_SHOW",
+      }),
+    );
+    rules.push(makeRule());
+
+    const { engine } = await loadModules();
+    const result = await engine.runReminders();
+    expect(result.sent).toBe(0);
+    expect(messageLogs).toHaveLength(0);
+  });
+
+  it("不命中：顧客未綁 LINE → 不發送", async () => {
+    vi.setSystemTime(new Date("2026-05-11T04:00:00.000Z"));
+    bookings.push(
+      makeBooking({
+        bookingDate: new Date("2026-05-12T00:00:00.000Z"),
+        hasLine: false,
+      }),
+    );
+    rules.push(makeRule());
+
+    const { engine } = await loadModules();
+    const result = await engine.runReminders();
+    expect(result.sent).toBe(0);
+    expect(messageLogs).toHaveLength(0);
+  });
+
+  it("idempotent：同一天重跑兩次 → 第二次 SKIPPED 不重複寫入", async () => {
+    vi.setSystemTime(new Date("2026-05-11T10:00:00.000Z")); // 剛好 18:00 TW
+    bookings.push(
+      makeBooking({
+        bookingDate: new Date("2026-05-12T00:00:00.000Z"),
+      }),
+    );
+    rules.push(makeRule());
 
     const { engine } = await loadModules();
     const r1 = await engine.runReminders();
     expect(r1.sent).toBe(1);
     expect(messageLogs).toHaveLength(1);
 
+    // 模擬同一天稍晚再 hit cron endpoint（手動觸發 / GitHub Actions retry）
+    vi.setSystemTime(new Date("2026-05-11T14:00:00.000Z"));
     const r2 = await engine.runReminders();
     expect(r2.sent).toBe(0);
     expect(r2.skipped).toBe(1);
@@ -454,24 +461,16 @@ describe("runReminders", () => {
   });
 
   it("並行 race（unique constraint P2002）→ SKIPPED 不 throw", async () => {
-    const now = new Date("2026-05-11T12:00:00.000Z");
-    vi.setSystemTime(now);
-
+    vi.setSystemTime(new Date("2026-05-11T10:00:00.000Z"));
     bookings.push(
       makeBooking({
         bookingDate: new Date("2026-05-12T00:00:00.000Z"),
-        slotTime: "08:00",
       }),
     );
-    rules.push(makeRelativeRule());
+    rules.push(makeRule());
 
-    // 預先塞一筆「另一個並行 tick 已寫入」的 SENT log
-    // 但用 status FAILED 讓 findFirst（status in [SENT, PENDING]）找不到 → 進到 create 階段
-    // 然後 unique constraint 在 create 時觸發
-    // ── 為了測 P2002，讓 mock create 第一次 throw
     const originalCreate = mockPrisma.messageLog.create;
     mockPrisma.messageLog.create = vi.fn(async () => {
-      // 直接 throw P2002，模擬另一個 tick 在 findFirst 與 create 之間插入了同 key
       throw new MockPrismaError("Unique constraint failed", { code: "P2002" });
     });
 
@@ -486,50 +485,14 @@ describe("runReminders", () => {
     }
   });
 
-  it("改期：bookingDate 變更 → 新 triggerAt → 可重發", async () => {
-    // Run #1: now = 5/11 12:00, booking on 5/12 08:00 → triggerAt = 5/11 12:00
-    const now1 = new Date("2026-05-11T12:00:00.000Z");
-    vi.setSystemTime(now1);
+  it("LINE push 失敗 → MessageLog FAILED", async () => {
+    vi.setSystemTime(new Date("2026-05-11T10:00:00.000Z"));
     bookings.push(
       makeBooking({
         bookingDate: new Date("2026-05-12T00:00:00.000Z"),
-        slotTime: "08:00",
       }),
     );
-    rules.push(makeRelativeRule());
-
-    const { engine } = await loadModules();
-    const r1 = await engine.runReminders();
-    expect(r1.sent).toBe(1);
-    expect(messageLogs).toHaveLength(1);
-    const firstTriggerAt = messageLogs[0].triggerAt!.toISOString();
-
-    // 改期：booking 改到 5/13 08:00
-    bookings[0].bookingDate = new Date("2026-05-13T00:00:00.000Z");
-
-    // Run #2: now = 5/12 12:00 → triggerAt = 5/12 12:00（與 #1 不同）
-    const now2 = new Date("2026-05-12T12:00:00.000Z");
-    vi.setSystemTime(now2);
-
-    const r2 = await engine.runReminders();
-    expect(r2.sent).toBe(1);
-    expect(messageLogs).toHaveLength(2); // 新增一筆
-    expect(messageLogs[1].triggerAt?.toISOString()).toBe("2026-05-12T12:00:00.000Z");
-    expect(messageLogs[1].triggerAt?.toISOString()).not.toBe(firstTriggerAt);
-    expect(pushMessageMock).toHaveBeenCalledTimes(2);
-  });
-
-  it("LINE push 失敗 → MessageLog FAILED + 不重試（下個 tick 仍 SKIPPED 因 unique）", async () => {
-    const now = new Date("2026-05-11T12:00:00.000Z");
-    vi.setSystemTime(now);
-
-    bookings.push(
-      makeBooking({
-        bookingDate: new Date("2026-05-12T00:00:00.000Z"),
-        slotTime: "08:00",
-      }),
-    );
-    rules.push(makeRelativeRule());
+    rules.push(makeRule());
     pushMessageMock.mockResolvedValueOnce({ success: false, error: "LINE 401" });
 
     const { engine } = await loadModules();
@@ -538,81 +501,111 @@ describe("runReminders", () => {
     expect(result.failed).toBe(1);
     expect(messageLogs[0].status).toBe("FAILED");
     expect(messageLogs[0].errorMessage).toBe("LINE 401");
-    // FAILED log 也佔了 (ruleId, bookingId, triggerAt) 唯一鍵 → 不會被自動重試
-    // 這是設計選擇：失敗交由人工重發或 monitoring 處理
+  });
+
+  it("沒啟用規則 → 0 sent，不查 booking", async () => {
+    vi.setSystemTime(new Date("2026-05-11T10:00:00.000Z"));
+    bookings.push(
+      makeBooking({ bookingDate: new Date("2026-05-12T00:00:00.000Z") }),
+    );
+    // rules 為空
+
+    const { engine } = await loadModules();
+    const result = await engine.runReminders();
+    expect(result.total).toBe(0);
+    expect(result.sent).toBe(0);
+    expect(mockPrisma.booking.findMany).not.toHaveBeenCalled();
+  });
+
+  it("一筆 booking 多筆預約：每筆都觸發一則提醒", async () => {
+    vi.setSystemTime(new Date("2026-05-11T10:00:00.000Z"));
+    bookings.push(
+      makeBooking({
+        id: "b1",
+        bookingDate: new Date("2026-05-12T00:00:00.000Z"),
+        slotTime: "10:00",
+      }),
+      makeBooking({
+        id: "b2",
+        bookingDate: new Date("2026-05-12T00:00:00.000Z"),
+        slotTime: "16:00",
+      }),
+    );
+    rules.push(makeRule());
+
+    const { engine } = await loadModules();
+    const result = await engine.runReminders();
+    expect(result.sent).toBe(2);
+    expect(messageLogs).toHaveLength(2);
   });
 });
 
 // ============================================================
-// 3. getReminderStats — 即時 pending 計算
+// getReminderStats — daily-batch dashboard 計算
 // ============================================================
 
-describe("getReminderStats", () => {
-  it("有命中規則但無 SENT log → todayPending > 0（不再永遠是 0）", async () => {
-    // now = 5/11 09:00 TW = 5/11 01:00 UTC（早上才開工）
-    const now = new Date("2026-05-11T01:00:00.000Z");
-    vi.setSystemTime(now);
-
-    // 預約：今天 5/11 21:00 TW = 5/11 13:00 UTC
-    // triggerAt (12hr earlier) = 5/11 01:00 UTC = 命中 [now, end-of-today TW]
+describe("getReminderStats (daily-batch model)", () => {
+  it("18:00 前 + 有明日預約 + 無 SENT → todayPending = 預約數", async () => {
+    vi.setSystemTime(new Date("2026-05-11T04:00:00.000Z")); // 12:00 TW
     bookings.push(
-      makeBooking({
-        bookingDate: new Date("2026-05-11T00:00:00.000Z"),
-        slotTime: "21:00",
-      }),
+      makeBooking({ id: "b1", bookingDate: new Date("2026-05-12T00:00:00.000Z") }),
+      makeBooking({ id: "b2", bookingDate: new Date("2026-05-12T00:00:00.000Z") }),
     );
-    rules.push(makeRelativeRule());
+    rules.push(makeRule());
 
     const { reminderQueries } = await loadModules();
     const stats = await reminderQueries.getReminderStats();
     expect(stats.enabledRules).toBe(1);
-    expect(stats.todayPending).toBe(1);
+    expect(stats.todayPending).toBe(2);
     expect(stats.todaySent).toBe(0);
     expect(stats.todayFailed).toBe(0);
   });
 
-  it("已 SENT 的 (ruleId, bookingId, triggerAt) → 從 pending 扣掉", async () => {
-    const now = new Date("2026-05-11T01:00:00.000Z");
-    vi.setSystemTime(now);
-
+  it("18:00 前 + 已 SENT 的預約 → 從 pending 扣除", async () => {
+    vi.setSystemTime(new Date("2026-05-11T04:00:00.000Z"));
     bookings.push(
-      makeBooking({
-        bookingDate: new Date("2026-05-11T00:00:00.000Z"),
-        slotTime: "21:00",
-      }),
+      makeBooking({ id: "b1", bookingDate: new Date("2026-05-12T00:00:00.000Z") }),
+      makeBooking({ id: "b2", bookingDate: new Date("2026-05-12T00:00:00.000Z") }),
     );
-    rules.push(makeRelativeRule());
+    rules.push(makeRule());
 
-    // 先塞一筆 SENT log（matching triggerAt = 5/11 01:00 UTC）
+    // b1 已經有 SENT log（matching today's triggerAt）
     messageLogs.push({
-      id: "log-pre-sent",
+      id: "log-pre",
       ruleId: RULE_ID,
-      bookingId: BOOKING_ID,
+      bookingId: "b1",
       customerId: CUSTOMER_ID,
-      triggerAt: new Date("2026-05-11T01:00:00.000Z"),
+      triggerAt: new Date("2026-05-11T10:00:00.000Z"),
       status: "SENT",
       storeId: STORE_ID,
-      createdAt: now,
-      sentAt: now,
+      createdAt: new Date("2026-05-11T04:00:00.000Z"),
+      sentAt: new Date("2026-05-11T04:00:00.000Z"),
     });
 
     const { reminderQueries } = await loadModules();
     const stats = await reminderQueries.getReminderStats();
-    expect(stats.todayPending).toBe(0);
+    expect(stats.todayPending).toBe(1); // b2 still pending
     expect(stats.todaySent).toBe(1);
   });
 
-  it("規則未啟用 → 不計入 pending", async () => {
-    const now = new Date("2026-05-11T01:00:00.000Z");
-    vi.setSystemTime(now);
-
+  it("18:00 後 → todayPending 一律 0（即使有未發送的明日預約）", async () => {
+    vi.setSystemTime(new Date("2026-05-11T12:00:00.000Z")); // 20:00 TW
     bookings.push(
-      makeBooking({
-        bookingDate: new Date("2026-05-11T00:00:00.000Z"),
-        slotTime: "21:00",
-      }),
+      makeBooking({ bookingDate: new Date("2026-05-12T00:00:00.000Z") }),
     );
-    const r = makeRelativeRule();
+    rules.push(makeRule());
+
+    const { reminderQueries } = await loadModules();
+    const stats = await reminderQueries.getReminderStats();
+    expect(stats.todayPending).toBe(0);
+  });
+
+  it("規則未啟用 → todayPending = 0", async () => {
+    vi.setSystemTime(new Date("2026-05-11T04:00:00.000Z"));
+    bookings.push(
+      makeBooking({ bookingDate: new Date("2026-05-12T00:00:00.000Z") }),
+    );
+    const r = makeRule();
     r.isEnabled = false;
     rules.push(r);
 
@@ -622,24 +615,17 @@ describe("getReminderStats", () => {
     expect(stats.todayPending).toBe(0);
   });
 
-  it("triggerAt 已過今日（earlier 觸發但未發） → 不計入今日 pending", async () => {
-    // now = 5/11 23:00 TW = 5/11 15:00 UTC（接近今日結束）
-    const now = new Date("2026-05-11T15:00:00.000Z");
-    vi.setSystemTime(now);
-
-    // booking 在明天早上 → triggerAt 在明天凌晨 → 不在今日 [now, todayEnd]
+  it("CANCELLED / 未綁 LINE 的明日預約 → 不算入 pending", async () => {
+    vi.setSystemTime(new Date("2026-05-11T04:00:00.000Z"));
     bookings.push(
-      makeBooking({
-        bookingDate: new Date("2026-05-12T00:00:00.000Z"),
-        slotTime: "20:00", // 5/12 12:00 UTC，triggerAt = 5/12 00:00 UTC（明日凌晨）
-      }),
+      makeBooking({ id: "b1", bookingDate: new Date("2026-05-12T00:00:00.000Z"), status: "CANCELLED" }),
+      makeBooking({ id: "b2", bookingDate: new Date("2026-05-12T00:00:00.000Z"), hasLine: false }),
+      makeBooking({ id: "b3", bookingDate: new Date("2026-05-12T00:00:00.000Z") }), // 唯一有效
     );
-    rules.push(makeRelativeRule());
+    rules.push(makeRule());
 
     const { reminderQueries } = await loadModules();
     const stats = await reminderQueries.getReminderStats();
-    // todayEnd ≈ 5/11 15:59:59 UTC（台灣 5/11 23:59:59）
-    // triggerAt = 5/12 00:00 UTC > todayEnd → 不算今日 pending
-    expect(stats.todayPending).toBe(0);
+    expect(stats.todayPending).toBe(1); // 只有 b3
   });
 });

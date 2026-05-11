@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { runReminders } from "@/server/reminder-engine";
 import { computeStoreSummary, computeRevenueByCategory } from "@/server/queries/report-compute";
 import { upsertReportSnapshot } from "@/server/queries/report-snapshot";
 import { toLocalDateStr } from "@/lib/date-utils";
@@ -8,14 +9,16 @@ import { getAllActiveStoreIds } from "@/lib/store";
 export const dynamic = "force-dynamic";
 
 /**
- * 每日 Cron Job（UTC 01:00 = 台灣 09:00）
+ * 每日 Cron Job（UTC 10:00 = 台灣 18:00）
  *
- * 1. Pre-compute 上月報表快照
- * 2. 處理排程降級
- * 3. 處理試用到期
- * 4. ErrorLog 清理
+ * 1. 提醒引擎 — 發送「明天 (TW)」的所有有效預約提醒
+ * 2. Pre-compute 上月報表快照
+ * 3. 處理排程降級
+ * 4. 處理試用到期
+ * 5. ErrorLog 清理
  *
- * 提醒引擎已拆出至 /api/cron/reminders-tick（每 30 分鐘）。
+ * 為何 18:00 而非 09:00：Vercel Hobby plan 不支援分鐘級 cron（每 30 分鐘會被拒絕），
+ * 改用 daily next-day batch 發提醒，挑 18:00 顧客比較會看 LINE 的時段。
  *
  * 認證：要求 `Authorization: Bearer ${CRON_SECRET}`，未設定時拒絕（避免外部任意觸發）。
  */
@@ -33,7 +36,20 @@ export async function GET(request: NextRequest) {
 
   const results: Record<string, unknown> = {};
 
-  // ── 1. Report snapshot pre-compute (all stores) ──
+  // ── 1. Reminders (next-day batch) ──
+  try {
+    console.log("[Cron] Running next-day reminders...");
+    const reminderResult = await runReminders();
+    console.log(
+      `[Cron] Reminders: ${reminderResult.sent} sent, ${reminderResult.skipped} skipped, ${reminderResult.failed} failed`,
+    );
+    results.reminders = reminderResult;
+  } catch (error) {
+    console.error("[Cron] Reminder error:", error);
+    results.reminders = { error: error instanceof Error ? error.message : "Unknown error" };
+  }
+
+  // ── 2. Report snapshot pre-compute (all stores) ──
   try {
     const today = toLocalDateStr();
     const prevMonth = getPreviousMonth(today);
@@ -59,7 +75,7 @@ export async function GET(request: NextRequest) {
     results.reportSnapshot = { error: error instanceof Error ? error.message : "Unknown error" };
   }
 
-  // ── 2. Scheduled downgrades ──
+  // ── 3. Scheduled downgrades ──
   try {
     const { processScheduledDowngrades } = await import("@/server/actions/upgrade-request");
     console.log("[Cron] Processing scheduled downgrades...");
@@ -71,7 +87,7 @@ export async function GET(request: NextRequest) {
     results.downgrades = { error: error instanceof Error ? error.message : "Unknown error" };
   }
 
-  // ── 3. Expired trials ──
+  // ── 4. Expired trials ──
   try {
     const { processExpiredTrials } = await import("@/server/actions/upgrade-request");
     console.log("[Cron] Processing expired trials...");
@@ -83,7 +99,7 @@ export async function GET(request: NextRequest) {
     results.expiredTrials = { error: error instanceof Error ? error.message : "Unknown error" };
   }
 
-  // ── 4. ErrorLog cleanup (30 days) ──
+  // ── 5. ErrorLog cleanup (30 days) ──
   try {
     const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     const deleted = await prisma.errorLog.deleteMany({
