@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { requireStaffSession } from "@/lib/session";
-import { DEFAULT_STORE_ID } from "@/lib/store";
+import { getActiveStoreForRead } from "@/lib/store";
 import { getHealthScore, getErrorStats24h, getRecentErrors, type ErrorCategory } from "@/lib/error-logger";
 import { notFound } from "next/navigation";
 
@@ -20,9 +20,14 @@ interface CheckResult {
 // Checks — 分三層：核心營運 / 進階模組 / 總部監控
 // ============================================================
 
-async function checkCoreOperations(): Promise<{ results: CheckResult[]; dbLatency: number }> {
+async function checkCoreOperations(storeId: string | null): Promise<{ results: CheckResult[]; dbLatency: number }> {
   const results: CheckResult[] = [];
   let dbLatency = 0;
+
+  // 多店隔離：storeId 為 null 代表 ADMIN 全站視角，其餘角色（OWNER/PARTNER）
+  // 已透過 page 解析為自己分店的 storeId，count 必須加 where filter。
+  const scopeSuffix = storeId ? "（本分店）" : "（全站）";
+  const where = storeId ? { storeId } : undefined;
 
   // 1. 資料庫連線
   const start = Date.now();
@@ -42,24 +47,24 @@ async function checkCoreOperations(): Promise<{ results: CheckResult[]; dbLatenc
 
   // 2. 預約系統
   try {
-    const bookingCount = await prisma.booking.count();
-    results.push({ label: "預約系統", status: "ok", detail: `運作正常，累計 ${bookingCount.toLocaleString()} 筆預約` });
+    const bookingCount = await prisma.booking.count({ where });
+    results.push({ label: "預約系統", status: "ok", detail: `運作正常，累計 ${bookingCount.toLocaleString()} 筆預約${scopeSuffix}` });
   } catch {
     results.push({ label: "預約系統", status: "error", detail: "預約資料查詢異常" });
   }
 
   // 3. 顧客資料
   try {
-    const customerCount = await prisma.customer.count();
-    results.push({ label: "顧客資料", status: "ok", detail: `運作正常，共 ${customerCount.toLocaleString()} 位顧客` });
+    const customerCount = await prisma.customer.count({ where });
+    results.push({ label: "顧客資料", status: "ok", detail: `運作正常，共 ${customerCount.toLocaleString()} 位顧客${scopeSuffix}` });
   } catch {
     results.push({ label: "顧客資料", status: "error", detail: "顧客資料查詢異常" });
   }
 
   // 4. 交易紀錄
   try {
-    const txCount = await prisma.transaction.count();
-    results.push({ label: "交易紀錄", status: "ok", detail: `運作正常，累計 ${txCount.toLocaleString()} 筆交易` });
+    const txCount = await prisma.transaction.count({ where });
+    results.push({ label: "交易紀錄", status: "ok", detail: `運作正常，累計 ${txCount.toLocaleString()} 筆交易${scopeSuffix}` });
   } catch {
     results.push({ label: "交易紀錄", status: "error", detail: "交易資料查詢異常" });
   }
@@ -288,9 +293,13 @@ export default async function SystemStatusPage() {
   const user = await requireStaffSession().catch(() => null);
   if (!user || (user.role !== "ADMIN" && user.role !== "OWNER" && user.role !== "PARTNER")) notFound();
 
+  // ADMIN 全站視角時為 null（顯示全站合計）；
+  // ADMIN 指定店 + OWNER/PARTNER 一律以自己分店為準，不可洩漏他店資料。
+  const scopedStoreId = await getActiveStoreForRead(user);
+
   const [{ results: coreResults, dbLatency }, advancedResults, healthScore, errorStats, recentErrors] =
     await Promise.all([
-      checkCoreOperations(),
+      checkCoreOperations(scopedStoreId),
       checkAdvancedModules(),
       getHealthScore(),
       getErrorStats24h(),
