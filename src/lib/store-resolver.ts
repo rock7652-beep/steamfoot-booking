@@ -61,26 +61,22 @@ export async function getStoreFromHeaders(): Promise<{ storeId: string; storeSlu
 
 /**
  * 從 OAuth cookie 讀取 store slug（LINE / Google 登入用）
- * 回傳 storeId，找不到時 fallback 到 DEFAULT_STORE_ID
+ *
+ * 回傳 null 代表無法判定店別（cookie 遺失 或 slug 在 DB 中不存在）。
+ * 多店環境下不可靜默 fallback 到 DEFAULT_STORE_ID — 否則 Safari 第三方 cookie
+ * 政策吃掉 cookie 時，新店顧客會被建立到預設店，造成跨店資料污染。
+ * Caller 必須處理 null：中止登入並導向錯誤頁，請使用者重新從 /s/{slug}/ 入口進入。
  */
-export async function resolveStoreFromOAuthCookie(): Promise<{ storeId: string; storeSlug: string }> {
+export async function resolveStoreFromOAuthCookie(): Promise<{ storeId: string; storeSlug: string } | null> {
   const { cookies } = await import("next/headers");
-  const { DEFAULT_STORE_ID } = await import("@/lib/store");
 
   const cookieStore = await cookies();
   const oauthSlug = cookieStore.get("oauth-store-slug")?.value;
 
-  if (oauthSlug) {
-    const store = await resolveStoreBySlug(oauthSlug);
-    if (store) {
-      return { storeId: store.id, storeSlug: store.slug };
-    }
-  }
+  if (!oauthSlug) return null;
 
-  // Fallback: DEFAULT_STORE_ID
-  const fallbackStore = await getStoreSlugById(DEFAULT_STORE_ID);
-  return {
-    storeId: DEFAULT_STORE_ID,
-    storeSlug: fallbackStore ?? "zhubei",
-  };
+  const store = await resolveStoreBySlug(oauthSlug);
+  if (!store) return null;
+
+  return { storeId: store.id, storeSlug: store.slug };
 }

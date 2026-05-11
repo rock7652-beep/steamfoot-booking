@@ -128,7 +128,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
       });
       return [] as Awaited<ReturnType<typeof getCachedPlans>>;
     }),
-    withTiming("getCachedStaffOptions", timer, () => getCachedStaffOptions()).catch((e) => {
+    withTiming("getCachedStaffOptions", timer, () => getCachedStaffOptions(effectiveStoreId)).catch((e) => {
       console.error("[customer-detail] staffOptions query failed", {
         ...logCtx,
         step: "staffOptions",

@@ -8,18 +8,21 @@ import { AppError, handleActionError } from "@/lib/errors";
 import { revalidateDutyScheduling, revalidateShopConfig } from "@/lib/revalidation";
 import type { PricingPlan } from "@prisma/client";
 import type { ActionResult } from "@/types";
-import { DEFAULT_STORE_ID } from "@/lib/store";
+import { resolveWriteStoreId } from "@/lib/store";
 import { updateTag, revalidatePath } from "next/cache";
 
 export async function updateDutyScheduling(
   enabled: boolean
 ): Promise<ActionResult<void>> {
   try {
-    await requireAdminSession();
+    // duty.manage 對齊頁面開放給 ADMIN / OWNER 的範圍。
+    // OWNER 用 session.storeId；ADMIN 用 active-store-id cookie（必須是具體店，非 __all__）。
+    const user = await requirePermission("duty.manage");
+    const storeId = await resolveWriteStoreId(user);
 
     await prisma.shopConfig.upsert({
-      where: { storeId: DEFAULT_STORE_ID },
-      create: { storeId: DEFAULT_STORE_ID, dutySchedulingEnabled: enabled },
+      where: { storeId },
+      create: { storeId, dutySchedulingEnabled: enabled },
       update: { dutySchedulingEnabled: enabled },
     });
 

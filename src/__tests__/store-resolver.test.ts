@@ -129,24 +129,31 @@ describe("store-resolver", () => {
       });
 
       const result = await resolveStoreFromOAuthCookie();
-      expect(result.storeId).toBe("taichung-store");
-      expect(result.storeSlug).toBe("taichung");
+      expect(result).not.toBeNull();
+      expect(result?.storeId).toBe("taichung-store");
+      expect(result?.storeSlug).toBe("taichung");
     });
 
-    it("should fallback to DEFAULT_STORE_ID when cookie is missing", async () => {
+    it("should return null when cookie is missing (no silent DEFAULT_STORE_ID fallback)", async () => {
       const { resolveStoreFromOAuthCookie } = await import("@/lib/store-resolver");
 
       mockCookieGet.mockReturnValue(undefined);
-      mockFindUnique.mockImplementation(({ where }: { where: { slug?: string; id?: string } }) => {
-        if (where.id === "default-store") {
-          return Promise.resolve({ slug: "zhubei" });
-        }
-        return Promise.resolve(null);
-      });
 
       const result = await resolveStoreFromOAuthCookie();
-      expect(result.storeId).toBe("default-store");
-      expect(result.storeSlug).toBe("zhubei");
+      expect(result).toBeNull();
+    });
+
+    it("should return null when cookie slug does not exist in DB", async () => {
+      const { resolveStoreFromOAuthCookie } = await import("@/lib/store-resolver");
+
+      mockCookieGet.mockImplementation((name: string) => {
+        if (name === "oauth-store-slug") return { value: "unknown-store" };
+        return undefined;
+      });
+      mockFindUnique.mockResolvedValue(null);
+
+      const result = await resolveStoreFromOAuthCookie();
+      expect(result).toBeNull();
     });
   });
 });

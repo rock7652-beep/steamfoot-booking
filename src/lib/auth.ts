@@ -5,7 +5,6 @@ import { compareSync } from "bcryptjs";
 import { prisma } from "@/lib/db";
 import type { Provider } from "next-auth/providers";
 import type { UserRole } from "@prisma/client";
-import { DEFAULT_STORE_ID } from "@/lib/store";
 import { normalizePhone } from "@/lib/normalize";
 import { repairCustomerIdentityOnLogin } from "@/lib/identity-repair";
 
@@ -320,15 +319,31 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           }
         }
 
-        // B7-4: 從 cookie 動態解析 store context（可能因 Safari 第三方 cookie 政策
-        // 在 OAuth redirect 過程被吃掉，這時會 fallback 到 DEFAULT_STORE_ID）
+        // 多店環境下從 cookie 動態解析 store context。
+        // 若 cookie 遺失（Safari 第三方 cookie 政策、跨網域 redirect 等）或 slug
+        // 不在 DB，**不可** 靜默 fallback 到 DEFAULT_STORE_ID — 否則新店顧客會被
+        // 建立到預設店，造成跨店資料污染。中止登入並導向錯誤訊息，請使用者重新
+        // 從 /s/{slug}/ 入口進入。
         let targetStoreId: string;
         try {
           const { resolveStoreFromOAuthCookie } = await import("@/lib/store-resolver");
           const storeCtx = await resolveStoreFromOAuthCookie();
+          if (!storeCtx) {
+            console.error("[auth] OAuth signIn aborted: missing store context", {
+              provider: account.provider,
+              providerAccountId: account.providerAccountId,
+              reason: "oauth-store-slug cookie missing or slug not in DB",
+            });
+            return "/?error=OAuthStoreContextLost";
+          }
           targetStoreId = storeCtx.storeId;
-        } catch {
-          targetStoreId = DEFAULT_STORE_ID;
+        } catch (err) {
+          console.error("[auth] OAuth signIn aborted: store resolver threw", {
+            provider: account.provider,
+            providerAccountId: account.providerAccountId,
+            error: err instanceof Error ? err.message : String(err),
+          });
+          return "/?error=OAuthStoreContextLost";
         }
 
         // lineUserId / googleId 同店唯一查找 — 必須先於任何 placeholder create。
