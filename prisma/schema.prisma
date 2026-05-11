@@ -1304,6 +1304,9 @@ model MessageLog {
   templateId   String?
   customerId   String
   bookingId    String?
+  // 觸發時間（UTC）— 改期後 triggerAt 變更可重新發送
+  // 規範：自動規則路徑（ruleId + bookingId 同時有值）必須寫入；純手動發送可為 NULL
+  triggerAt    DateTime?
   channel      ReminderChannel  @default(LINE)
   status       MessageLogStatus @default(PENDING)
   renderedBody String? // 替換變數後的實際內容
@@ -1318,12 +1321,12 @@ model MessageLog {
   booking  Booking?         @relation(fields: [bookingId], references: [id])
   store    Store            @relation(fields: [storeId], references: [id])
 
+  @@unique([ruleId, bookingId, triggerAt], map: "uniq_rule_booking_trigger") // 防重複（含改期重發）— map: 對齊 DB index 名稱
   @@index([customerId])
   @@index([bookingId])
   @@index([status])
   @@index([storeId])
   @@index([createdAt])
-  @@index([ruleId, bookingId], name: "idx_rule_booking") // 防重複發送
 }
 
 // ============================================================
