@@ -23,7 +23,7 @@ export const getBusinessHoursOnce = cache(async (storeId: string) => {
 /**
  * request-level 快取：同一次 server render 內只查一次 ShopConfig
  */
-export const getShopConfigOnce = cache(async (storeId?: string) => {
+export const getShopConfigOnce = cache(async (storeId: string) => {
   const config = await getShopConfig(storeId);
   return config;
 });
@@ -80,12 +80,12 @@ export const getCachedSpecialDays = (storeId: string, weekStartISO: string, week
 /**
  * 跨 request 快取：dutySchedulingEnabled（revalidate 30s）
  *
- * 注意：cache key 必須含 storeId，避免不同店共用同一筆 cache（會導致跨店設定污染）
+ * 注意：cache key 含 storeId，不同店 cache 獨立，避免跨店設定污染。
  */
-export const getCachedDutyEnabled = (storeId?: string | null) =>
+export const getCachedDutyEnabled = (storeId: string) =>
   unstable_cache(
     async () => isDutySchedulingEnabled(storeId),
-    [`duty-scheduling-enabled-${storeId ?? "default"}`],
+    [`duty-scheduling-enabled-${storeId}`],
     { revalidate: 30, tags: ["duty-scheduling"] },
   )();
 
@@ -118,7 +118,7 @@ export async function getSpecialDaysWithTiming(
   return result;
 }
 
-export async function getDutyEnabledWithTiming(storeId?: string | null, timer?: ServerTiming) {
+export async function getDutyEnabledWithTiming(storeId: string, timer?: ServerTiming) {
   const t0 = performance.now();
   const result = await getCachedDutyEnabled(storeId);
   const ms = performance.now() - t0;

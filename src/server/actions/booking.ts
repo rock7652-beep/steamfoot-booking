@@ -110,7 +110,7 @@ export async function createBooking(
     const isMakeup = data.isMakeup ?? false;
 
     // ── 0. FREE 方案預約數限制
-    const bookingLimit = await checkBookingLimit();
+    const bookingLimit = await checkBookingLimit(currentStoreId(user));
     if (!bookingLimit.allowed) {
       return {
         success: false,

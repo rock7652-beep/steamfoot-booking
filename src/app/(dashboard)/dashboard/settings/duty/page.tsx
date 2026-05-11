@@ -118,7 +118,7 @@ export default async function DutySettingsPage() {
       </PageShell>
     );
   }
-  const config = await getShopConfig();
+  const config = await getShopConfig(storeId);
   const weekInfo = await getUnscheduledDaysThisWeek(storeId);
   const enabled = config.dutySchedulingEnabled;
   const scheduledDays = weekInfo.total - weekInfo.unscheduled;
