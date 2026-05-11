@@ -38,7 +38,7 @@ export async function createCustomer(
     const data = createCustomerSchema.parse(input);
 
     // FREE 方案顧客數限制
-    const customerLimit = await checkCustomerLimit();
+    const customerLimit = await checkCustomerLimit(currentStoreId(user));
     if (!customerLimit.allowed) {
       return {
         success: false,
