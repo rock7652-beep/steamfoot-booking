@@ -187,15 +187,20 @@ booking 建立流程**只能**透過此 helper 寫入 `revenueStaffId`。
 
 | PR | 內容 | 是否動 schema | 是否動 UI |
 |---|---|---|---|
-| **PR-1**（本 PR） | 本規格文件 + read-only 統計腳本 | ❌ | ❌ |
-| 🔴 PR-2（**BLOCKED**） | `src/server/queries/staff-settlement.ts` + vitest 測試 | ❌ | ❌ |
+| PR-1 ✅ | 規格文件 + read-only 統計腳本（已 merge #120） | ❌ | ❌ |
+| 顧客指派側鏈 ✅ | 單筆 + 批次指派 + UI hotfix（#121 / #122 / #123 / #124）| ❌ | 部分 |
+| PR-1.5 ✅ | 重新 audit assignment / booking 快照狀態（本 PR / #125）| ❌ | ❌ |
+| PR-1.5a（next）| **future-only fix**：新建 booking 套用 `resolveCustomerStaffAssignment` 寫入 revenueStaffId 快照 | ❌ | ❌ |
+| PR-1.5b（after 1.5a）| 歷史 23 筆 backfill **dry-run** read-only 腳本 | ❌ | ❌ |
+| PR-2 | `src/server/queries/staff-settlement.ts` + vitest（PR-1.5a 上線後解 BLOCK） | ❌ | ❌ |
 | PR-3 | `/dashboard/settlements` 頁面（server component + 彙總/明細表） | ❌ | ✅ |
 | PR-4 | `/api/settlements/export` xlsx 匯出 | ❌ | ✅ |
 | PR-5（Phase 2）| StaffSettlement / StaffSettlementLine schema + 鎖定流程 | ✅ | ✅ |
 
-> **PR-2 blocker**：prod 100% COMPLETED booking 的 `revenueStaffId = null`（見 §8.2）。
-> 必須先決定如何處理「歸屬主鍵全空」的問題，才能進 PR-2。下一個 task 預定盤點：
-> 為何 prod 既有 booking 沒有 revenueStaffId（舊資料 vs 現行流程 vs 業務性質）。
+> **PR-2 解 BLOCK 條件**：PR-1.5a 上線後，新建 booking 都會帶 revenueStaffId 快照。
+> PR-1.5 audit 已確認 root cause 在 [booking.ts:439](../src/server/actions/booking.ts:439)
+> 沒套用 `resolveCustomerStaffAssignment` helper（helper 的 JSDoc 早已標註此處為待辦）。
+> 歷史 23 筆 booking 是否要 backfill 由 PR-1.5b dry-run 後另外決策。
 
 ---
 
@@ -291,6 +296,62 @@ prod 過去 6 個月無補課 booking，與「補課僅由 NO_SHOW 補課流程�
 23 筆 / 6 個月 ≈ 月均 4 筆完成服務。這是竹北店實際 prod 數字。
 Phase 1 模組設計應考慮「小資料量友善」的展示（例如就算只有幾筆也要看得清）。
 
+### 8.3 PR-1.5 重新 audit 結果（2026-05-12，顧客指派側鏈完工後）
+
+執行：[scripts/staff-settlement-assignment-audit.ts](../scripts/staff-settlement-assignment-audit.ts)（PR #125）。
+範圍：2025-11-13 ~ 2026-05-12，prod 竹北店。
+
+```
+【全顧客 assignedStaffId 覆蓋率】
+- 區間內有 COMPLETED booking 的顧客：100.0% 已有 assignedStaffId ✓
+
+【COMPLETED bookings】
+- 總筆數：23
+- Booking.revenueStaffId 有值：0   (0.0%) 🔴
+- Booking.serviceStaffId 有值：0   (0.0%)
+
+【交叉分析】
+- revenueStaffId=null AND customer.assignedStaffId!=null
+  → 23 筆 (100%)：全部都是 backfill candidates
+- revenueStaffId=null AND customer.assignedStaffId=null
+  → 0 筆：沒有「真正歸店家」的案例
+- revenueStaffId=null AND serviceStaffId!=null
+  → 0 筆
+
+【groupBy customer.assignedStaffId → completed booking 數】
+- 芊芊店長：23 筆 (100.0%)
+
+【groupBy serviceStaffId → completed booking 數】
+- (unassigned)：23 筆 (100.0%)
+
+【跨店異常】
+- booking.storeId != customer.storeId：0 ✓
+- booking.revenueStaffId staff 不同店：0 ✓
+- customer.assignedStaffId staff 不同店：0 ✓
+```
+
+#### 判讀：走 **路線 A + 路線 D**
+
+**路線 A — future-only fix（PR-1.5a，next）**：
+
+- 顧客 assignedStaffId 覆蓋率 100%，但 Booking.revenueStaffId 仍 0%。
+- Root cause 在 [src/server/actions/booking.ts:439](../src/server/actions/booking.ts:439)
+  寫入 `customer.assignedStaffId ?? null`，**沒有套用** helper
+  [`resolveCustomerStaffAssignment`](../src/server/services/customer-assignment.ts)。
+- Helper 自己的 JSDoc 早已標註 booking creation 為待補項，從未實作。
+- PR-1.5a 把該行替換成 resolver 呼叫，自此未來每筆新 booking 都有快照。
+
+**路線 D — backfill dry-run（PR-1.5b，after 1.5a）**：
+
+- 23 筆 backfill candidates 全部對應一位店長（芊芊），語意明確。
+- 但仍須先 dry-run 列明細給業主確認，**不直接寫入**。
+- 真正 backfill 必須再開獨立 PR，PR description 含 rollback 計畫。
+
+**沒走的路線**：
+
+- B：覆蓋率已 100%，不需先補齊顧客。
+- C：serviceStaffId 全 null，沒有「以 serviceStaff 代替 revenueStaff」的誤用風險。
+
 ---
 
 ## 9. Phase 2 概要（不在本 PR 範圍）
@@ -314,3 +375,11 @@ Phase 1 模組設計應考慮「小資料量友善」的展示（例如就算只
   (1) prod COMPLETED booking 100% `revenueStaffId = null`，PR-2 已標記為 BLOCKED；
   (2) amount=0 ADJUSTMENT 月均 13.8 筆，免費服務漏洞高頻使用。
   §5.1 補上實際數據。
+- 2026-05-12（PR-1.5 re-audit，本次）：顧客指派側鏈（#121/#122/#123/#124）
+  上線後重新 audit。結論 §8.3：
+  - 顧客 assignedStaffId 覆蓋率 100%（有 booking 的顧客）
+  - Booking.revenueStaffId 仍 0% — root cause 鎖定在 booking.ts:439
+    沒套 `resolveCustomerStaffAssignment` helper
+  - 23 筆全部是 backfill candidates，無跨店異常
+  - 路線決策：A + D（PR-1.5a future-only fix → PR-1.5b backfill dry-run）
+  §7 PR 路線圖加入 PR-1.5 / 1.5a / 1.5b，PR-2 解 BLOCK 條件改寫。
