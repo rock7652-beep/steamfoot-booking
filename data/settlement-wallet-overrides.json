@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "_comment": "Operator wallet-level overrides for staff settlement amount calculation. Populated by running scripts/csv-to-settlement-overrides.ts against the wallet-review CSV that operator has filled in. Do NOT include PII (customerName, reviewNote). See docs/staff-settlement-phase1-spec.md §3.7.",
+  "_schema": {
+    "walletId": "string, required, the CustomerPlanWallet.id this override applies to",
+    "decision": "one of: CONFIRM_AS_IS | OVERRIDE_TOTAL | EXCLUDE_FROM_SETTLEMENT",
+    "overrideTotalSessions": "integer > 0, required only when decision = OVERRIDE_TOTAL",
+    "overrideUnitPrice": "number > 0, required only when decision = OVERRIDE_TOTAL"
+  },
+  "_workflow": [
+    "1. Operator runs scripts/plan-amortization-wallet-review.ts --csv > wallet-review.csv (against prod, read-only).",
+    "2. Operator fills the four review columns in Excel/Sheets and saves as wallet-review-reviewed.csv.",
+    "3. Run scripts/csv-to-settlement-overrides.ts wallet-review-reviewed.csv > data/settlement-wallet-overrides.json (locally).",
+    "4. Commit the populated JSON to the repo. The /dashboard/settlements page picks it up automatically.",
+    "5. To update overrides: edit the CSV, re-run the converter, commit the new JSON."
+  ],
+  "_updatedAt": null,
+  "overrides": []
+}

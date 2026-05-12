@@ -1,12 +1,13 @@
 "use client";
 
-import { useMemo, useState, useCallback } from "react";
+import { useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import ReportDateRange from "@/components/report-date-range";
 import { DataTable, EmptyRow, type Column } from "@/components/desktop";
 import type {
   SettlementSummaryRow,
   SettlementDetailRow,
+  AmountSource,
 } from "@/server/queries/staff-settlement";
 
 interface StaffOption {
@@ -21,14 +22,19 @@ interface Props {
   /** null = 全部 */
   staffId: string | null;
   staffOptions: StaffOption[];
-  /** server 端定義的 sentinel，避免 client 寫死 */
+  /** server 端定義的 sentinel */
   unassignedToken: string;
   summary: SettlementSummaryRow[];
   details: SettlementDetailRow[];
 }
 
-function fmtTwd(amount: number): string {
-  return `$${amount.toLocaleString("zh-Hant")}`;
+function fmtTwd(amount: number | null): string {
+  if (amount === null) return "—";
+  // 金額用小數點 2 位呈現（攤提結果可能有小數）
+  return `$${amount.toLocaleString("zh-Hant", {
+    minimumFractionDigits: amount % 1 === 0 ? 0 : 2,
+    maximumFractionDigits: 2,
+  })}`;
 }
 
 function fmtDate(d: Date | string): string {
@@ -40,6 +46,20 @@ const BOOKING_TYPE_LABEL: Record<string, string> = {
   FIRST_TRIAL: "體驗",
   SINGLE: "單堂",
   PACKAGE_SESSION: "套餐",
+};
+
+/** 金額來源 → UI label + 是否需要 ⚠️ 標示 */
+const AMOUNT_SOURCE_INFO: Record<AmountSource, { label: string; flag: boolean }> = {
+  formula_clean: { label: "公式", flag: false },
+  formula_confirmed: { label: "公式 (已確認)", flag: false },
+  override: { label: "人工指定", flag: false },
+  operator_excluded: { label: "已排除", flag: true },
+  trial_no_wallet: { label: "試用", flag: false },
+  single_no_wallet: { label: "單次", flag: false },
+  missing_wallet: { label: "缺 wallet", flag: true },
+  needs_operator_review: { label: "需人工確認", flag: true },
+  data_missing: { label: "資料殘缺", flag: true },
+  confirmed_but_data_missing: { label: "已確認但資料殘缺", flag: true },
 };
 
 export function SettlementsView({
@@ -54,7 +74,6 @@ export function SettlementsView({
 }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [feePerSession, setFeePerSession] = useState<number>(0);
 
   const handleStaffChange = useCallback(
     (value: string) => {
@@ -69,32 +88,28 @@ export function SettlementsView({
     [router, searchParams],
   );
 
-  // ── 計算金額（純 client 計算，不打 server）──
-  const summaryWithAmount = useMemo(() => {
-    return summary.map((row) => ({
-      ...row,
-      // 歸店家 row：金額永遠 $0
-      amount: row.staffId === null ? 0 : row.totalCount * feePerSession,
-    }));
-  }, [summary, feePerSession]);
+  // ── KPI ─────────────────────────────────────────────────────────────
+  const totalBookings = details.length;
+  const countedBookings = details.filter((d) => d.counted).length;
+  const needsReviewBookings = details.filter((d) => d.needsReview).length;
+  const totalCountedAmount = summary.reduce((s, r) => s + r.countedAmount, 0);
+  const billableStaffCount = summary.filter(
+    (s) => s.staffId !== null && s.countedAmount > 0,
+  ).length;
 
-  const totalCountedAmount = summaryWithAmount.reduce(
-    (sum, row) => sum + row.amount,
-    0,
-  );
-  const totalCompletedBookings = summary.reduce(
-    (sum, row) => sum + row.totalCount,
-    0,
-  );
-
-  // ── Summary table columns ──
-  type SummaryRowWithAmount = SettlementSummaryRow & { amount: number };
-  const summaryColumns: Column<SummaryRowWithAmount>[] = [
+  // ── Summary table columns ──────────────────────────────────────────
+  const summaryColumns: Column<SettlementSummaryRow>[] = [
     {
       key: "staff",
       header: "店長",
       accessor: (r) => (
-        <span className={r.staffId === null ? "text-earth-500" : "text-earth-800 font-medium"}>
+        <span
+          className={
+            r.staffId === null
+              ? "text-earth-500"
+              : "text-earth-800 font-medium"
+          }
+        >
           {r.staffName}
         </span>
       ),
@@ -113,22 +128,11 @@ export function SettlementsView({
     },
     {
       key: "total",
-      header: "可結算",
+      header: "可結算次數",
       align: "right",
       accessor: (r) => (
         <span className="tabular-nums font-medium">{r.totalCount}</span>
       ),
-    },
-    {
-      key: "fee",
-      header: "單次服務費",
-      align: "right",
-      accessor: (r) =>
-        r.staffId === null ? (
-          <span className="text-earth-300">—</span>
-        ) : (
-          <span className="tabular-nums text-earth-500">{fmtTwd(feePerSession)}</span>
-        ),
     },
     {
       key: "amount",
@@ -140,13 +144,27 @@ export function SettlementsView({
             r.staffId === null ? "text-earth-300" : "text-primary-700"
           }`}
         >
-          {fmtTwd(r.amount)}
+          {fmtTwd(r.countedAmount)}
+        </span>
+      ),
+    },
+    {
+      key: "needsReview",
+      header: "需人工確認",
+      align: "right",
+      accessor: (r) => (
+        <span
+          className={`tabular-nums ${
+            r.needsReviewCount > 0 ? "text-amber-700 font-medium" : "text-earth-300"
+          }`}
+        >
+          {r.needsReviewCount}
         </span>
       ),
     },
   ];
 
-  // ── Detail table columns ──
+  // ── Detail table columns ───────────────────────────────────────────
   const detailColumns: Column<SettlementDetailRow>[] = [
     {
       key: "date",
@@ -198,7 +216,9 @@ export function SettlementsView({
       accessor: (r) => (
         <span
           className={
-            r.counted ? "text-earth-800 font-medium" : "text-earth-400 italic"
+            r.revenueStaffId
+              ? "text-earth-800 font-medium"
+              : "text-earth-400 italic"
           }
         >
           {r.revenueStaffName}
@@ -210,44 +230,50 @@ export function SettlementsView({
       header: "實際服務 (參考)",
       width: "w-28",
       accessor: (r) => (
-        <span className="text-[11px] text-earth-400">
-          {r.serviceStaffName}
-        </span>
-      ),
-    },
-    {
-      key: "counted",
-      header: "計入",
-      width: "w-12",
-      align: "center",
-      accessor: (r) => (
-        <span
-          className={`text-[11px] font-medium ${
-            r.counted ? "text-green-700" : "text-earth-400"
-          }`}
-        >
-          {r.counted ? "Y" : "N"}
-        </span>
+        <span className="text-[11px] text-earth-400">{r.serviceStaffName}</span>
       ),
     },
     {
       key: "amount",
       header: "金額",
       align: "right",
-      width: "w-20",
+      width: "w-24",
       accessor: (r) => (
         <span
           className={`tabular-nums ${
-            r.counted ? "text-earth-800" : "text-earth-300"
+            r.counted
+              ? "text-earth-800 font-medium"
+              : r.needsReview
+                ? "text-amber-700"
+                : "text-earth-300"
           }`}
         >
-          {r.counted ? fmtTwd(feePerSession) : fmtTwd(0)}
+          {fmtTwd(r.amount)}
         </span>
       ),
     },
+    {
+      key: "source",
+      header: "來源",
+      width: "w-32",
+      accessor: (r) => {
+        const info = AMOUNT_SOURCE_INFO[r.amountSource];
+        return (
+          <span
+            className={`whitespace-nowrap text-[11px] ${
+              info.flag ? "text-amber-700 font-medium" : "text-earth-500"
+            }`}
+            title={r.amountSource}
+          >
+            {info.flag ? "⚠️ " : ""}
+            {info.label}
+          </span>
+        );
+      },
+    },
   ];
 
-  // ── Render ──
+  // ── Render ─────────────────────────────────────────────────────────
   return (
     <div className="space-y-4">
       {/* Filter bar */}
@@ -280,47 +306,36 @@ export function SettlementsView({
               ))}
             </select>
           </div>
-          <div>
-            <label
-              htmlFor="fee-input"
-              className="block text-xs text-earth-500 mb-0.5"
-            >
-              單次服務費（試算用，不入庫）
-            </label>
-            <input
-              id="fee-input"
-              type="number"
-              min={0}
-              step={1}
-              value={feePerSession}
-              onChange={(e) => {
-                const n = Number(e.target.value);
-                setFeePerSession(Number.isFinite(n) && n >= 0 ? n : 0);
-              }}
-              className="w-32 rounded-lg border border-earth-300 bg-white px-2.5 py-1.5 text-sm tabular-nums focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
-            />
-          </div>
         </div>
       </section>
 
       {/* KPIs */}
-      <section className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+      <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div className="rounded-xl border border-earth-200 bg-white p-3">
           <p className="text-[11px] text-earth-500">完成服務總筆數</p>
           <p className="mt-1 text-xl font-semibold text-earth-900 tabular-nums">
-            {totalCompletedBookings}
+            {totalBookings}
           </p>
         </div>
         <div className="rounded-xl border border-earth-200 bg-white p-3">
-          <p className="text-[11px] text-earth-500">可結算店長數</p>
+          <p className="text-[11px] text-earth-500">可計算筆數</p>
           <p className="mt-1 text-xl font-semibold text-earth-900 tabular-nums">
-            {summary.filter((s) => s.staffId !== null).length}
+            {countedBookings}
           </p>
         </div>
-        <div className="rounded-xl border border-earth-200 bg-white p-3">
-          <p className="text-[11px] text-earth-500">應結總額（試算）</p>
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
+          <p className="text-[11px] text-amber-700">需人工確認</p>
+          <p className="mt-1 text-xl font-semibold text-amber-800 tabular-nums">
+            {needsReviewBookings}
+          </p>
+        </div>
+        <div className="rounded-xl border border-primary-200 bg-primary-50 p-3">
+          <p className="text-[11px] text-primary-700">應結總額（試算）</p>
           <p className="mt-1 text-xl font-semibold text-primary-700 tabular-nums">
             {fmtTwd(totalCountedAmount)}
+          </p>
+          <p className="mt-0.5 text-[10px] text-primary-600">
+            可結算店長 {billableStaffCount} 位
           </p>
         </div>
       </section>
@@ -330,7 +345,7 @@ export function SettlementsView({
         <h3 className="text-sm font-medium text-earth-700">店長彙總</h3>
         <DataTable
           columns={summaryColumns}
-          rows={summaryWithAmount}
+          rows={summary}
           rowKey={(r) => r.staffId ?? "__unassigned__"}
           empty={
             <EmptyRow
