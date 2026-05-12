@@ -85,7 +85,15 @@ export function CustomersListWithDrawer({
   );
 
   const closeDrawer = useCallback(() => {
+    // 診斷 log：用以確認 X 按鈕的 onClick 是否真的觸發（瀏覽器 DevTools 可見）。
+    if (typeof window !== "undefined") {
+      console.log("[customers drawer] close clicked");
+    }
     router.push(buildHref(null, null), { scroll: false });
+    // Next.js 16 RSC：純 query string 的 push 在某些 cache 情境下可能不會
+    // 重新 fetch server component（customerDetail 仍有值 → drawer 不關）。
+    // 顯式 refresh 強制 server 重新計算 customerDetail = null。
+    router.refresh();
   }, [router, buildHref]);
 
   // ── 批次選取 state（僅 canAssign 才啟用） ─────────────────────────
