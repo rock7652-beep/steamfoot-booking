@@ -71,3 +71,14 @@ export const updateCustomerAssignmentSchema = z.object({
   assignedStaffId: z.string().cuid({ message: "請選擇歸屬店長" }),
   referredByCustomerId: z.string().cuid().nullable().optional(),
 });
+
+// 批次指派直屬店長（顧客列表 sticky bar）
+//   - 只動 Customer.assignedStaffId，不動 sponsorId / Booking / Transaction / Wallet
+//   - 單次上限 100 筆，UI 透過當頁全選餵入
+export const bulkUpdateCustomerAssignmentSchema = z.object({
+  customerIds: z
+    .array(z.string().cuid())
+    .min(1, "請選擇至少一位顧客")
+    .max(100, "單次最多 100 位"),
+  assignedStaffId: z.string().cuid({ message: "請選擇歸屬店長" }),
+});
