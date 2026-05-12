@@ -40,6 +40,12 @@ export interface Column<Row> {
   priority?: ColumnPriority;
   /** Tailwind width class，如 "w-8" / "w-32" / "w-[200px]"；不給則自動 */
   width?: string;
+  /**
+   * 不把這個 cell 包進整 row 的 `<Link>`（行為：cell 內仍可放 input/button/checkbox）。
+   * 用於 checkbox / 互動 icon 等元素。包進 `<a>` 會產生巢狀 interactive element。
+   * 設了 `noLink` 的欄會被跳過；Link 改包到「第一個沒有 noLink 的欄位」。
+   */
+  noLink?: boolean;
 }
 
 interface DataTableProps<Row> {
@@ -96,66 +102,66 @@ export function DataTable<Row>({
           </tr>
         </thead>
         <tbody className="divide-y divide-earth-100">
-          {rows.map((row, i) => {
-            const href = rowHref?.(row);
-            const content = columns.map((c) => {
-              const priorityClass =
-                c.priority === "secondary"
-                  ? "text-[11px] text-earth-500"
-                  : "text-sm text-earth-800";
-              return (
-                <td
-                  key={c.key}
-                  className={`px-3 ${c.align ? ALIGN_CLASS[c.align] : ""} ${priorityClass}`}
-                >
-                  {c.accessor(row, i)}
-                </td>
-              );
-            });
+          {(() => {
+            // Link 改包到「第一個非 noLink 欄」；無 noLink 時等同舊行為（col 0）。
+            const firstLinkColIdx = columns.findIndex((c) => !c.noLink);
+            return rows.map((row, i) => {
+              const href = rowHref?.(row);
+              const content = columns.map((c) => {
+                const priorityClass =
+                  c.priority === "secondary"
+                    ? "text-[11px] text-earth-500"
+                    : "text-sm text-earth-800";
+                return (
+                  <td
+                    key={c.key}
+                    className={`px-3 ${c.align ? ALIGN_CLASS[c.align] : ""} ${priorityClass}`}
+                  >
+                    {c.accessor(row, i)}
+                  </td>
+                );
+              });
 
-            if (href) {
+              if (href) {
+                return (
+                  <tr
+                    key={rowKey(row)}
+                    className="h-11 cursor-pointer transition hover:bg-primary-50/40"
+                  >
+                    {columns.map((c, colIdx) => {
+                      const priorityClass =
+                        c.priority === "secondary"
+                          ? "text-[11px] text-earth-500"
+                          : "text-sm text-earth-800";
+                      return (
+                        <td
+                          key={c.key}
+                          className={`px-3 ${c.align ? ALIGN_CLASS[c.align] : ""} ${priorityClass}`}
+                        >
+                          {colIdx === firstLinkColIdx ? (
+                            <Link href={href} className="block w-full text-earth-800 hover:text-primary-700">
+                              {c.accessor(row, i)}
+                            </Link>
+                          ) : (
+                            c.accessor(row, i)
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              }
+
               return (
                 <tr
                   key={rowKey(row)}
-                  className="h-11 cursor-pointer transition hover:bg-primary-50/40"
+                  className="h-11 transition hover:bg-primary-50/40"
                 >
-                  {/* 整 row 可點：每個 cell 內 absolute positioning link over 太干擾，
-                      改用簡單 onClick → router.push 客戶端元件；這支是 server-safe primitive，
-                      目前提供 Link wrapper on first cell，整 row 樣式 hover 存在即可。
-                      若呼叫端需要完整 clickable row，請用 DataTableWithClickableRow（client）。 */}
-                  {columns.map((c, colIdx) => {
-                    const priorityClass =
-                      c.priority === "secondary"
-                        ? "text-[11px] text-earth-500"
-                        : "text-sm text-earth-800";
-                    return (
-                      <td
-                        key={c.key}
-                        className={`px-3 ${c.align ? ALIGN_CLASS[c.align] : ""} ${priorityClass}`}
-                      >
-                        {colIdx === 0 ? (
-                          <Link href={href} className="block w-full text-earth-800 hover:text-primary-700">
-                            {c.accessor(row, i)}
-                          </Link>
-                        ) : (
-                          c.accessor(row, i)
-                        )}
-                      </td>
-                    );
-                  })}
+                  {content}
                 </tr>
               );
-            }
-
-            return (
-              <tr
-                key={rowKey(row)}
-                className="h-11 transition hover:bg-primary-50/40"
-              >
-                {content}
-              </tr>
-            );
-          })}
+            });
+          })()}
         </tbody>
       </table>
     </div>

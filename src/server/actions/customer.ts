@@ -10,6 +10,7 @@ import {
   updateCustomerSchema,
   transferCustomerSchema,
   updateCustomerAssignmentSchema,
+  bulkUpdateCustomerAssignmentSchema,
 } from "@/lib/validators/customer";
 import type { ActionResult } from "@/types";
 import { checkCustomerLimit } from "@/lib/shop-config";
@@ -303,6 +304,106 @@ export async function updateCustomerAssignment(
     return { success: true, data: undefined };
   } catch (e) {
     console.error("[updateCustomerAssignment] error:", e);
+    return handleActionError(e);
+  }
+}
+
+// ============================================================
+// bulkUpdateCustomerAssignment — 顧客列表批次指派直屬店長
+//
+// 只更新 Customer.assignedStaffId。不動 sponsorId、Booking、Transaction、Wallet。
+// staff 驗證一次（同店 + ACTIVE）失敗則整批中止。
+// 個別 customer 失敗（找不到 / 不同店）→ errors[]；
+// 個別 customer 已合併 / 帳號停用 → skipped（不算失敗）。
+//
+// 權限：customer.assign（與單筆 updateCustomerAssignment 一致）
+// ============================================================
+
+export interface BulkUpdateCustomerAssignmentResult {
+  successCount: number;
+  failedCount: number;
+  skippedCount: number;
+  errors: { customerId: string; reason: string }[];
+}
+
+export async function bulkUpdateCustomerAssignment(
+  input: z.infer<typeof bulkUpdateCustomerAssignmentSchema>,
+): Promise<ActionResult<BulkUpdateCustomerAssignmentResult>> {
+  try {
+    const user = await requirePermission("customer.assign");
+    const data = bulkUpdateCustomerAssignmentSchema.parse(input);
+    const storeId = currentStoreId(user);
+
+    // 1. 驗 staff（整批共用一次驗證，失敗即中止）
+    const staff = await prisma.staff.findUnique({
+      where: { id: data.assignedStaffId },
+      select: { id: true, storeId: true, status: true },
+    });
+    if (!staff || staff.status !== "ACTIVE") {
+      throw new AppError("NOT_FOUND", "指定店長不存在或已停用");
+    }
+    if (staff.storeId !== storeId) {
+      throw new AppError("VALIDATION", "店長不屬於此店別");
+    }
+
+    // 2. 一次 fetch 所有 target customers
+    const customers = await prisma.customer.findMany({
+      where: { id: { in: data.customerIds } },
+      select: {
+        id: true,
+        storeId: true,
+        mergedIntoCustomerId: true,
+        user: { select: { status: true } },
+      },
+    });
+    const customerMap = new Map(customers.map((c) => [c.id, c]));
+
+    // 3. 分類：valid / errors / skipped
+    const validIds: string[] = [];
+    const errors: { customerId: string; reason: string }[] = [];
+    let skippedCount = 0;
+
+    for (const cid of data.customerIds) {
+      const c = customerMap.get(cid);
+      if (!c) {
+        errors.push({ customerId: cid, reason: "顧客不存在" });
+        continue;
+      }
+      if (c.storeId !== storeId) {
+        errors.push({ customerId: cid, reason: "顧客不屬於此店別" });
+        continue;
+      }
+      if (c.mergedIntoCustomerId) {
+        skippedCount++;
+        continue;
+      }
+      if (c.user?.status === "SUSPENDED") {
+        skippedCount++;
+        continue;
+      }
+      validIds.push(cid);
+    }
+
+    // 4. 批次寫入（單一 updateMany，雙保險：where 再寫 storeId）
+    if (validIds.length > 0) {
+      await prisma.customer.updateMany({
+        where: { id: { in: validIds }, storeId },
+        data: { assignedStaffId: data.assignedStaffId },
+      });
+      revalidatePath("/dashboard/customers");
+    }
+
+    return {
+      success: true,
+      data: {
+        successCount: validIds.length,
+        failedCount: errors.length,
+        skippedCount,
+        errors,
+      },
+    };
+  } catch (e) {
+    console.error("[bulkUpdateCustomerAssignment] error:", e);
     return handleActionError(e);
   }
 }

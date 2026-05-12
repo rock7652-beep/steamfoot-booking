@@ -34,7 +34,7 @@ export interface CustomerRow {
   userStatus: UserStatus | null;
 }
 
-function isInactiveRow(c: CustomerRow): boolean {
+export function isInactiveRow(c: CustomerRow): boolean {
   return !!c.mergedIntoCustomerId || c.userStatus === "SUSPENDED";
 }
 
@@ -50,6 +50,17 @@ interface Props {
   buildViewHref: (row: CustomerRow) => string;
   /** 「＋指派」→ 開啟同一個 drawer，並展開方案區 */
   onQuickAssign?: (row: CustomerRow) => void;
+  /**
+   * 啟用批次選取模式（顯示 checkbox 欄）。只在 canAssign=true 時開啟。
+   * 啟用後：表頭顯示全選 checkbox（只選當頁可操作列）；每列顯示 row checkbox（合併/停用列為 disabled）。
+   */
+  selectionEnabled?: boolean;
+  /** 目前已選 customer id 集合 */
+  selectedIds?: Set<string>;
+  /** 切換單列選取 */
+  onToggleRow?: (customerId: string) => void;
+  /** 切換當頁可操作列的全選 / 全消 */
+  onToggleAll?: () => void;
 }
 
 /**
@@ -70,8 +81,60 @@ export function CustomersTable({
   onView,
   buildViewHref,
   onQuickAssign,
+  selectionEnabled = false,
+  selectedIds,
+  onToggleRow,
+  onToggleAll,
 }: Props) {
+  // 全選 header state：indeterminate / checked / unchecked，只看「當頁可操作列」
+  const selectableRows = rows.filter((r) => !isInactiveRow(r));
+  const selectableCount = selectableRows.length;
+  const selectedSelectableCount = selectedIds
+    ? selectableRows.filter((r) => selectedIds.has(r.id)).length
+    : 0;
+  const allSelected = selectableCount > 0 && selectedSelectableCount === selectableCount;
+  const someSelected = selectedSelectableCount > 0 && !allSelected;
+
+  const checkboxColumn: Column<CustomerRow> = {
+    key: "select",
+    noLink: true,
+    width: "w-10",
+    header: (
+      <input
+        type="checkbox"
+        aria-label="全選當頁可操作顧客"
+        className="h-4 w-4 cursor-pointer rounded border-earth-300 text-primary-600 focus:ring-primary-500"
+        checked={allSelected}
+        ref={(el) => {
+          if (el) el.indeterminate = someSelected;
+        }}
+        disabled={selectableCount === 0}
+        onChange={() => onToggleAll?.()}
+      />
+    ),
+    accessor: (c) => {
+      const inactive = isInactiveRow(c);
+      const checked = !!selectedIds?.has(c.id);
+      return (
+        <input
+          type="checkbox"
+          aria-label={inactive ? `${c.name}（無法選取：已合併或停用）` : `選取 ${c.name}`}
+          className="h-4 w-4 cursor-pointer rounded border-earth-300 text-primary-600 focus:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-40"
+          checked={checked}
+          disabled={inactive}
+          onChange={(e) => {
+            // 不讓事件冒泡到 row Link（DataTable 已經對 noLink 欄不包 Link，但保險起見）
+            e.stopPropagation();
+            onToggleRow?.(c.id);
+          }}
+          onClick={(e) => e.stopPropagation()}
+        />
+      );
+    },
+  };
+
   const columns: Column<CustomerRow>[] = [
+    ...(selectionEnabled ? [checkboxColumn] : []),
     {
       key: "customer",
       header: "顧客",
