@@ -37,7 +37,9 @@
     },
     {
       "walletId": "cmotrsp2b0001kv04snvpx1y2",
-      "decision": "EXCLUDE_FROM_SETTLEMENT"
+      "decision": "OVERRIDE_TOTAL",
+      "overrideTotalSessions": 22,
+      "overrideUnitPrice": 545.45
     },
     {
       "walletId": "cmowd2og30001lb04s1vy64c1",

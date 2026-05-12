@@ -225,6 +225,35 @@ walletId = booking.customerPlanWalletId
 - ADJUSTMENT 加 `reason` enum 區分（贈送 / 折抵 / 補登）
 - 加 `SettlementWalletOverride` 表（讓 operator 在 UI 改 override，取代 JSON）
 
+#### 3.7.9 制度面 follow-up：紙本舊客補登流程
+
+**問題情境**：2026-05-13 prod 驗收時發現有顧客 wallet
+`cmotrsp2b0001kv04snvpx1y2` 的 `purchasedPrice = 0`。原因不是免費方案，而是
+「舊客紙本資料補登 — 實收 12,000 已在系統外收過，操作者補登 wallet 時沒再次
+鍵入金額」。當下用 OVERRIDE_TOTAL 修正（22 堂 / 545.45），但這條漏洞不該靠
+人工 override 永久處理。
+
+**建議 Phase 2 加補登 UI**（系統允許 wallet 建立時明確標示「舊客補登」）：
+
+```
+[ 紙本舊客補登 ]
+顧客方案：________________
+已收金額：________________   ← 必填（與 purchasedPrice 寫入相同）
+總堂數：__________________   ← 含贈送堂
+起始剩餘堂數：____________   ← 顧客目前還剩幾堂可用
+備註：___________________   ← 自由文字，例：「2024-12 紙本，現金已收」
+```
+
+這條 UI 走 `assignPlanToCustomer` 但走「補登模式」分支：
+
+- 不產生 PACKAGE_PURCHASE Transaction（因為錢已收過）
+- 仍寫入 `wallet.purchasedPrice = 已收金額` + `totalSessions = 總堂數`
+- `remainingSessions = 起始剩餘`
+- Note / audit log 標示來源為「紙本補登」
+
+這樣未來 audit 不會把 purchasedPrice=0 誤判為「免費方案」，operator 也不用
+再開 settlement override PR 補救。
+
 ---
 
 ## 4. Phase 1 不做的事
