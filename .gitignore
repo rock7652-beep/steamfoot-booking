@@ -48,3 +48,4 @@ scripts/backup-before-cleanup.json
 
 # audit script outputs (may contain prod data)
 audit-*.csv
+*-audit-*.csv
