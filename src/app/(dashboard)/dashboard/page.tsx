@@ -346,12 +346,6 @@ export default async function DashboardHomePage() {
             >
               報表 →
             </Link>
-            <Link
-              href="/dashboard/settlements"
-              className="rounded-md border border-earth-200 bg-white px-3 py-1 text-[11px] font-medium text-earth-700 hover:bg-earth-50"
-            >
-              服務費試算 →
-            </Link>
           </div>
         </div>
       </section>
