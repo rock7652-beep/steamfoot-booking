@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import ReportDateRange from "@/components/report-date-range";
 import { DataTable, EmptyRow, type Column } from "@/components/desktop";
@@ -92,10 +92,54 @@ export function SettlementsView({
   const totalBookings = details.length;
   const countedBookings = details.filter((d) => d.counted).length;
   const needsReviewBookings = details.filter((d) => d.needsReview).length;
+  // 不計金額：剩餘部分（試用、SINGLE 無 wallet、歸店家有金額但無人歸屬等）
+  // 公式：total = counted + needsReview + noAmount，math 一定對得起來。
+  const noAmountBookings = totalBookings - countedBookings - needsReviewBookings;
   const totalCountedAmount = summary.reduce((s, r) => s + r.countedAmount, 0);
   const billableStaffCount = summary.filter(
     (s) => s.staffId !== null && s.countedAmount > 0,
   ).length;
+
+  // ── Pagination（client-side，driven by URL params）─────────────────
+  const ALLOWED_PAGE_SIZES = [20, 50, 100] as const;
+  const rawPageSize = Number(searchParams.get("pageSize") ?? "20");
+  const pageSize: (typeof ALLOWED_PAGE_SIZES)[number] =
+    ALLOWED_PAGE_SIZES.includes(rawPageSize as (typeof ALLOWED_PAGE_SIZES)[number])
+      ? (rawPageSize as (typeof ALLOWED_PAGE_SIZES)[number])
+      : 20;
+  const totalPages = Math.max(1, Math.ceil(totalBookings / pageSize));
+  const rawPage = Math.max(1, Number(searchParams.get("page") ?? "1") || 1);
+  const currentPage = Math.min(rawPage, totalPages);
+  const pageStart = (currentPage - 1) * pageSize;
+  const pagedDetails = details.slice(pageStart, pageStart + pageSize);
+
+  const handlePageSizeChange = useCallback(
+    (size: number) => {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("pageSize", String(size));
+      params.set("page", "1"); // 切換 pageSize 時回到第 1 頁
+      router.push(`?${params.toString()}`, { scroll: false });
+    },
+    [router, searchParams],
+  );
+
+  const handlePageChange = useCallback(
+    (page: number) => {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("page", String(page));
+      router.push(`?${params.toString()}`, { scroll: false });
+    },
+    [router, searchParams],
+  );
+
+  // ── Export URL（沿用既有 /api/.../export 模式）──────────────────────
+  const exportHref = useMemo(() => {
+    const params = new URLSearchParams();
+    params.set("startDate", startDate);
+    params.set("endDate", endDate);
+    if (staffId) params.set("staffId", staffId);
+    return `/api/settlements/export?${params.toString()}`;
+  }, [startDate, endDate, staffId]);
 
   // ── Summary table columns ──────────────────────────────────────────
   const summaryColumns: Column<SettlementSummaryRow>[] = [
@@ -309,8 +353,8 @@ export function SettlementsView({
         </div>
       </section>
 
-      {/* KPIs */}
-      <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      {/* KPIs — 5 卡讓 total = counted + noAmount + needsReview，數字對得起來 */}
+      <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         <div className="rounded-xl border border-earth-200 bg-white p-3">
           <p className="text-[11px] text-earth-500">完成服務總筆數</p>
           <p className="mt-1 text-xl font-semibold text-earth-900 tabular-nums">
@@ -321,6 +365,15 @@ export function SettlementsView({
           <p className="text-[11px] text-earth-500">可計算筆數</p>
           <p className="mt-1 text-xl font-semibold text-earth-900 tabular-nums">
             {countedBookings}
+          </p>
+        </div>
+        <div className="rounded-xl border border-earth-200 bg-white p-3">
+          <p className="text-[11px] text-earth-500">不計金額筆數</p>
+          <p className="mt-1 text-xl font-semibold text-earth-700 tabular-nums">
+            {noAmountBookings}
+          </p>
+          <p className="mt-0.5 text-[10px] text-earth-400">
+            體驗 / 單次 / 歸店家
           </p>
         </div>
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
@@ -356,12 +409,47 @@ export function SettlementsView({
         />
       </section>
 
-      {/* Detail table */}
+      {/* Detail table + pagination + export */}
       <section className="space-y-2">
-        <h3 className="text-sm font-medium text-earth-700">明細</h3>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="text-sm font-medium text-earth-700">明細</h3>
+          <div className="flex items-center gap-3">
+            {/* 每頁筆數 */}
+            <div className="flex items-center gap-1.5">
+              <label
+                htmlFor="page-size"
+                className="text-[11px] text-earth-500"
+              >
+                每頁
+              </label>
+              <select
+                id="page-size"
+                value={pageSize}
+                onChange={(e) => handlePageSizeChange(Number(e.target.value))}
+                className="rounded border border-earth-300 bg-white px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-primary-300"
+              >
+                {ALLOWED_PAGE_SIZES.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* 匯出 */}
+            <a
+              href={exportHref}
+              className="rounded-md border border-primary-200 bg-primary-50 px-3 py-1 text-xs font-medium text-primary-700 hover:bg-primary-100"
+              download
+            >
+              匯出 Excel
+            </a>
+          </div>
+        </div>
+
         <DataTable
           columns={detailColumns}
-          rows={details}
+          rows={pagedDetails}
           rowKey={(r) => r.bookingId}
           empty={
             <EmptyRow
@@ -370,6 +458,36 @@ export function SettlementsView({
             />
           }
         />
+
+        {/* Pagination controls — 僅當總筆數超過一頁時顯示 */}
+        {totalBookings > pageSize && (
+          <div className="flex items-center justify-between text-xs text-earth-600">
+            <span className="tabular-nums">
+              第 {pageStart + 1}–{Math.min(pageStart + pageSize, totalBookings)} 筆 ／ 共 {totalBookings} 筆
+            </span>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage <= 1}
+                className="rounded border border-earth-200 bg-white px-2 py-1 text-xs hover:bg-earth-50 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                上一頁
+              </button>
+              <span className="tabular-nums px-2 text-earth-700">
+                第 {currentPage} / {totalPages} 頁
+              </span>
+              <button
+                type="button"
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage >= totalPages}
+                className="rounded border border-earth-200 bg-white px-2 py-1 text-xs hover:bg-earth-50 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                下一頁
+              </button>
+            </div>
+          </div>
+        )}
       </section>
     </div>
   );

@@ -100,22 +100,17 @@ export default async function SettlementsPage({ searchParams }: PageProps) {
         }
       />
 
-      {/* PR-2.2：試算頁仍非正式結算單；標 ⚠️ 的列為「需人工確認」（未經 operator review 的 risk wallet）*/}
+      {/*
+        Banner 文案故意保持簡短、店長友善。
+        engineering 流程（plan-amortization-wallet-review.ts → CSV → csv-to-settlement-overrides.ts →
+        提 PR 更新 data/settlement-wallet-overrides.json）寫在 docs/staff-settlement-phase1-spec.md §3.7.4，
+        不在 UI 顯示，避免店長以為系統還在半成品狀態。
+      */}
       <div
-        role="alert"
-        className="rounded-lg border-2 border-amber-300 bg-amber-50 p-3 text-sm text-amber-900"
+        role="note"
+        className="rounded-lg border border-earth-200 bg-earth-50 p-3 text-sm text-earth-700"
       >
-        <p className="font-semibold">
-          ⚠️ 此頁為試算，並非正式結算單。
-        </p>
-        <p className="mt-1">
-          金額依「顧客方案實收金額 ÷ 總可使用堂數」攤提計算；標 ⚠️ 的列因 wallet 有 ADJUSTMENT
-          紀錄但尚未經 operator 人工確認，金額暫不顯示。
-        </p>
-        <p className="mt-1 text-xs text-amber-700">
-          人工確認流程：scripts/plan-amortization-wallet-review.ts → CSV → operator 填回 →
-          scripts/csv-to-settlement-overrides.ts → 提 PR 更新 data/settlement-wallet-overrides.json。
-        </p>
+        此頁為「服務金額試算」，依顧客方案金額與完成服務紀錄估算，僅供內部對帳參考，非正式結算單。
       </div>
 
       <SettlementsView
