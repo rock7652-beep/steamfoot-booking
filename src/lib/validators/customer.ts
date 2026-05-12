@@ -66,19 +66,25 @@ export const transferCustomerSchema = z.object({
 // 顧客歸屬設定（列表 drawer 用）
 //   - assignedStaffId：直屬店長（必填）
 //   - referredByCustomerId：推薦人（選填；null = 清除）
+//
+// 注意：ID 欄位用 `.min(1)`（非空字串）而非 `.cuid()`。
+// Zod cuid 是「格式檢查」，但實際存在性由 server action 內的 DB lookup 確認
+// （staff.findUnique / customer.findUnique）。歷史資料可能有非標準 cuid 的 ID
+// （seed / 不同工具產生），Zod 不該比 DB 還嚴格而誤拒真實存在的 ID。
 export const updateCustomerAssignmentSchema = z.object({
-  customerId: z.string().cuid(),
-  assignedStaffId: z.string().cuid({ message: "請選擇歸屬店長" }),
-  referredByCustomerId: z.string().cuid().nullable().optional(),
+  customerId: z.string().min(1),
+  assignedStaffId: z.string().min(1, { message: "請選擇歸屬店長" }),
+  referredByCustomerId: z.string().min(1).nullable().optional(),
 });
 
 // 批次指派直屬店長（顧客列表 sticky bar）
 //   - 只動 Customer.assignedStaffId，不動 sponsorId / Booking / Transaction / Wallet
 //   - 單次上限 100 筆，UI 透過當頁全選餵入
+// 注意：同上，ID 改用 `.min(1)`（非空字串）；DB lookup 才是真實檢查。
 export const bulkUpdateCustomerAssignmentSchema = z.object({
   customerIds: z
-    .array(z.string().cuid())
+    .array(z.string().min(1))
     .min(1, "請選擇至少一位顧客")
     .max(100, "單次最多 100 位"),
-  assignedStaffId: z.string().cuid({ message: "請選擇歸屬店長" }),
+  assignedStaffId: z.string().min(1, { message: "請選擇歸屬店長" }),
 });
