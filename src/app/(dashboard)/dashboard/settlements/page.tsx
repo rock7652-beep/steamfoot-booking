@@ -100,6 +100,20 @@ export default async function SettlementsPage({ searchParams }: PageProps) {
         }
       />
 
+      {/* PR-2.1 應急警示：金額邏輯尚未依方案攤提計算，避免店長誤用 */}
+      <div
+        role="alert"
+        className="rounded-lg border-2 border-amber-300 bg-amber-50 p-3 text-sm text-amber-900"
+      >
+        <p className="font-semibold">
+          ⚠️ 此頁目前僅供「服務次數與歸屬店長」檢查。
+        </p>
+        <p className="mt-1">
+          金額尚未依「顧客方案實收金額 ÷ 總可使用堂數」計算，請勿作為正式結算依據。
+        </p>
+        <p className="mt-1 text-xs text-amber-700">完整版方案攤提試算開發中。</p>
+      </div>
+
       <SettlementsView
         activePreset={activePreset}
         startDate={startDate}
