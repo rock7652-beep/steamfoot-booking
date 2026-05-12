@@ -140,13 +140,56 @@ describe("bulkUpdateCustomerAssignment — validator", () => {
     expect(mockCustomerUpdateMany).not.toHaveBeenCalled();
   });
 
-  it("customerIds 含非 cuid → 驗證失敗，updateMany 不被呼叫", async () => {
+  it("customerIds 含非 cuid 但非空 → 通過 schema 進到 DB 查驗階段", async () => {
+    // 歷史資料可能有非標準 cuid 的 ID（seed / 不同工具），schema 不該擋。
+    // 真實存在性交給 customer.findMany 結果分類（找不到 → errors[]）。
+    const UUID_LIKE = "abc-def-1234-5678-90ab";
+    mockCustomerFindMany.mockResolvedValueOnce([
+      { id: UUID_LIKE, storeId: STORE_A, mergedIntoCustomerId: null, user: null },
+    ]);
+    mockCustomerUpdateMany.mockResolvedValueOnce({ count: 1 });
+
     const r = await bulkUpdateCustomerAssignment({
-      customerIds: ["not-a-cuid"],
+      customerIds: [UUID_LIKE],
+      assignedStaffId: STAFF_ID,
+    });
+    expect(r.success).toBe(true);
+    if (!r.success) return;
+    expect(r.data.successCount).toBe(1);
+    expect(mockCustomerUpdateMany).toHaveBeenCalledTimes(1);
+  });
+
+  it("customerIds 含空字串 → schema 仍拒絕（單筆 id 不可空）", async () => {
+    const r = await bulkUpdateCustomerAssignment({
+      customerIds: [""],
       assignedStaffId: STAFF_ID,
     });
     expect(r.success).toBe(false);
     expect(mockCustomerUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("assignedStaffId 為 UUID 格式（含 hyphen）→ 通過 schema 進到 staff DB 查驗", async () => {
+    const UUID_STAFF = "12345678-1234-1234-1234-123456789012";
+    mockStaffFindUnique.mockResolvedValueOnce({
+      id: UUID_STAFF,
+      storeId: STORE_A,
+      status: "ACTIVE",
+    });
+    mockCustomerFindMany.mockResolvedValueOnce([
+      { id: C_OK_1, storeId: STORE_A, mergedIntoCustomerId: null, user: null },
+    ]);
+    mockCustomerUpdateMany.mockResolvedValueOnce({ count: 1 });
+
+    const r = await bulkUpdateCustomerAssignment({
+      customerIds: [C_OK_1],
+      assignedStaffId: UUID_STAFF,
+    });
+    expect(r.success).toBe(true);
+    if (!r.success) return;
+    expect(r.data.successCount).toBe(1);
+    // 確認 updateMany 真的用了該 UUID
+    const [callArg] = mockCustomerUpdateMany.mock.calls[0];
+    expect(callArg.data).toEqual({ assignedStaffId: UUID_STAFF });
   });
 });
 
