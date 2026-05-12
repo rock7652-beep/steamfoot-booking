@@ -96,17 +96,93 @@ booking 建立流程**只能**透過此 helper 寫入 `revenueStaffId`。
 - 若 prod 上發現大量 null，正解是用 drawer / 批次指派 UI 補齊（PR #122），
   或對歷史 booking 走 PR-1.5b backfill dry-run，由 operator review 後寫入。
 
-### 3.5 服務費單價（Phase 1 暫定）
+### 3.5 服務費單價（已停用，由 §3.7 取代）
 
-- 由頁面 input 提供（單一數字，例如 300）
-- **不入庫、不寫死、不依方案分流**
-- 「方案 × 店長」差異化單價留 Phase 2
+> ⚠️ **deprecated 2026-05-12**：原規格用「頁面 input 單一服務費 × 完成次數」試算，
+> 不符實際營運。改用 §3.7 方案攤提公式。原 PR-2 (#129) 的 fee input 為短期過渡，
+> 配 PR-#130 警示 banner，待 PR-2.2 修正後移除。
 
 ### 3.6 multi-store
 
 - 一律 store-scoped，沿用 `getManagerReadFilter()`
 - 店長角色只能看自己；OWNER / ADMIN 看全店
 - 不跨店讀取
+
+### 3.7 服務金額計算規則（方案攤提，2026-05-12 拍板）
+
+> 這條取代 §3.5 的「fee × count」。PR-2.2 會把試算頁的金額邏輯改成這個。
+
+**公式**：
+
+```
+方案單堂金額 = 顧客方案實收金額 ÷ 總可使用堂數
+
+店長當月服務金額 = Σ (該店長為 revenueStaffId 的每筆 completed booking 對應方案單堂金額)
+```
+
+**範例**：「20 堂 + 贈送 2 堂」、實收 12,000
+
+| 變數 | 值 |
+|---|---|
+| 顧客方案實收金額 | 12,000 |
+| 總可使用堂數 | **22**（20 + 2 贈送） |
+| 方案單堂金額 | 12,000 ÷ 22 = **545.45** |
+
+若該顧客 5 月完成 3 次服務 → 該月歸屬該店長 = 545.45 × 3 = 1,636.35。
+
+**這不是分潤 / 抽成比例**。是「方案收入按可用堂數攤提」。
+
+#### 3.7.1 資料來源（PR-2.1 audit 確認）
+
+| 欄位 | 來源 | 註 |
+|---|---|---|
+| 方案實收金額 | `CustomerPlanWallet.purchasedPrice` | Decimal(10, 0) 快照；方案改價不洗舊 wallet |
+| 總可使用堂數 | `CustomerPlanWallet.totalSessions` | ⚠️ 目前 schema **沒有獨立 bonusSessions 欄位**，見 §3.7.2 歧義 |
+| Booking 對應 wallet | `Booking.customerPlanWalletId` | 補課透過 `Booking.makeupCreditId → MakeupCredit.originalBookingId → 原 booking.customerPlanWalletId` 溯源 |
+| 歸屬店長 | `Booking.revenueStaffId`（PR-1.5a 鎖定） | null → 歸店家、金額 0 |
+
+#### 3.7.2 已知歧義：贈送堂可能不在 `totalSessions` 內
+
+`CustomerPlanWallet` 只有 `totalSessions` 一個欄位，**沒有獨立 bonusSessions**。
+所以贈送堂的歸屬看店家當時怎麼建：
+
+- **A 種寫法**（公式正確）：把贈送堂直接寫進 `ServicePlan.sessionCount`
+  - 「20+2 方案」設成 `sessionCount=22, price=12000` → wallet.totalSessions=22
+  - 公式：12000 / 22 = 545.45 ✅
+- **B 種寫法**（公式失準）：先設 `sessionCount=20`，購買後用 `adjustRemainingSessions` 加 2 堂
+  - wallet.totalSessions 停留在 20，只有 `remainingSessions` 被改成 22
+  - 公式：12000 / 20 = 600 ❌（實際單價應是 545.45）
+
+PR-1 audit 顯示 prod 過去 6 個月 **83 筆 ADJUSTMENT 全部 amount=0**（月均 13.8 筆）—
+代表 B 種寫法很可能正在發生。PR-2.1 audit script
+([scripts/plan-amortization-audit.ts](../scripts/plan-amortization-audit.ts))
+會把「wallet 曾被 amount=0 ADJUSTMENT」的 booking 標為 `CAN_COMPUTE_WITH_RISK`，
+PR-2.2 UI 對這類列加 ⚠️ 旗標供 operator 人工核對。
+
+#### 3.7.3 BookingType 與補課處理
+
+| BookingType / 補課 | 處理 |
+|---|---|
+| PACKAGE_SESSION + 有 wallet | 用公式計算 |
+| PACKAGE_SESSION + 無 wallet | **NEEDS_REVIEW**（PR-1 前舊資料、import 殘留） |
+| FIRST_TRIAL | 跳過（預期無方案金額） |
+| SINGLE 無 wallet | 跳過（業務常態） |
+| SINGLE 有 wallet | 用公式計算 |
+| isMakeup（補課）| 溯源 `MakeupCredit.originalBookingId` 的 wallet 計算 |
+| isMakeup 但原 booking 也沒 wallet | **NEEDS_REVIEW** |
+
+#### 3.7.4 頁面命名
+
+「店長服務費試算」（原 PR-2）→「**店長服務金額試算**」（PR-2.2 改名）。
+避免「分潤 / 抽成 / 固定費率」語意誤解。
+
+#### 3.7.5 Phase 2 schema 改造（不在 PR-2.x 範圍）
+
+- 加 `CustomerPlanWallet.bonusSessions Int @default(0)`（從 totalSessions 拆出）
+- 加 `CustomerPlanWallet.unitPriceAtPurchase Decimal(10, 2)` snapshot
+- 修 `assignPlanToCustomer` 寫入這些欄位
+- 舊資料 backfill 用「現有 totalSessions 當原始堂、bonusSessions=0」的保守假設
+- ADJUSTMENT 加 reason enum 區分（贈送 / 折抵 / 補登）
 
 ---
 
@@ -193,9 +269,12 @@ booking 建立流程**只能**透過此 helper 寫入 `revenueStaffId`。
 | PR-1.5a ✅ | future-only fix：booking 建立寫入 revenueStaffId 快照（#126，**禁止** resolver fallback / customer 副作用，已鎖 source guard） | ❌ | ❌ |
 | PR-1.5b ✅ | 歷史 backfill **dry-run** 腳本（#127） | ❌ | ❌ |
 | PR-1.5c | 歷史 backfill 真實寫入腳本（default dry-run；ops-only，不一定合進 main） | ❌ | ❌ |
-| PR-2 ✅（本支）| `src/server/queries/staff-settlement.ts` + `/dashboard/settlements` 試算頁（query + UI 同 PR） | ❌ | ✅ |
+| PR-2 ✅ | `src/server/queries/staff-settlement.ts` + `/dashboard/settlements` 試算頁（query + UI 同 PR / #129）| ❌ | ✅ |
+| **應急警示 banner** ✅ | PR #130 mini-PR：在 PR-2 頁面加紅色 banner，警告金額尚未依方案攤提計算 | ❌ | ✅ |
+| **PR-2.1**（本支）| read-only audit：`scripts/plan-amortization-audit.ts`，盤點每筆 COMPLETED booking 是否可用方案攤提公式計算單堂金額 | ❌ | ❌ |
+| PR-2.2 | 改寫試算頁金額邏輯：移除 fee input，改用 §3.7 攤提公式；UI 改名為「店長服務金額試算」；NEEDS_REVIEW 標籤 | ❌ | ✅ |
 | PR-3 | `/api/settlements/export` xlsx 匯出 | ❌ | ✅ |
-| PR-4（Phase 2）| StaffSettlement / StaffSettlementLine schema + 正式結算 / 付款 / 鎖帳 流程；切出獨立 `settlement.read / .confirm / .pay` 權限 | ✅ | ✅ |
+| PR-4（Phase 2）| `CustomerPlanWallet.bonusSessions` + `unitPriceAtPurchase` schema；StaffSettlement schema + 正式結算 / 付款 / 鎖帳；切出獨立 `settlement.*` 權限 | ✅ | ✅ |
 
 > **PR-2 動工前狀態**：PR-1.5a 已鎖死 booking 建立的快照規則，PR-1.5b 已產出
 > backfill dry-run 工具。本 PR 僅做「試算」UI，**不**做正式結算單 / 付款 / 鎖帳。
@@ -386,7 +465,7 @@ Phase 1 模組設計應考慮「小資料量友善」的展示（例如就算只
   - 23 筆全部是 backfill candidates，無跨店異常
   - 路線決策：A + D（PR-1.5a future-only fix → PR-1.5b backfill dry-run）
   §7 PR 路線圖加入 PR-1.5 / 1.5a / 1.5b，PR-2 解 BLOCK 條件改寫。
-- 2026-05-12（PR-2 試算頁，本次）：
+- 2026-05-12（PR-2 試算頁）：
   - 新增 `src/server/queries/staff-settlement.ts`（read-only query，依
     Booking.revenueStaffId 分組，不引入 resolver，PARTNER manager filter 不可
     被 URL staffId 覆蓋）
@@ -397,3 +476,16 @@ Phase 1 模組設計應考慮「小資料量友善」的展示（例如就算只
   - dashboard 首頁加「服務費試算 →」入口
   - §7 PR 路線圖更新：PR-3 改為 xlsx 匯出；Phase 2 PR-4 含正式結算單 + 獨立
     `settlement.*` 權限
+- 2026-05-12（PR-2 應急警示）：PR #130 mini-PR — 在 /dashboard/settlements
+  頁面加紅色 banner，警示金額目前是 fee × count 試算、不符實際營運的方案攤提
+  公式（§3.7）；待 PR-2.2 修正後移除。
+- 2026-05-12（PR-2.1 audit 規格，本次）：
+  - 新增 §3.7 服務金額計算規則（方案攤提公式 + 範例 + 已知歧義 +
+    BookingType / 補課處理 + 頁面改名 + Phase 2 schema 改造計畫）
+  - 標記 §3.5 為 deprecated（由 §3.7 取代）
+  - 新增 `scripts/plan-amortization-audit.ts`：盤點每筆 COMPLETED booking
+    是否能用方案攤提公式計算，分類為 9 種狀態（含 CAN_COMPUTE_WITH_RISK
+    標籤偵測 wallet 曾被 amount=0 ADJUSTMENT 的情況）
+  - §7 路線圖加入 PR-2.1 audit + PR-2.2 修正 query/UI；
+    Phase 2 PR-4 補上 `CustomerPlanWallet.bonusSessions` /
+    `unitPriceAtPurchase` schema 改造
