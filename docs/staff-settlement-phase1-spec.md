@@ -69,6 +69,33 @@
 - `revenueStaffId = null` 的 COMPLETED booking：標示「歸店家」，**不產生店長應付款**
 - **不做** `assignedStaffId` fallback —— 顧客後續轉店長不可改變歷史結算歸屬
 
+#### 3.4.1 建立 booking 時快照規則（PR-1.5a 鎖定）
+
+快照來源**只能**是 `customer.assignedStaffId`（operator 透過顧客 drawer 或
+批次指派 UI 明確設定的直屬店長）。實作位於 helper
+`snapshotRevenueStaffForBooking()`（[src/server/actions/booking-helpers.ts](../src/server/actions/booking-helpers.ts)），
+booking 建立流程**只能**透過此 helper 寫入 `revenueStaffId`。
+
+**禁止事項**（[src/__tests__/booking-revenue-staff-snapshot.test.ts](../src/__tests__/booking-revenue-staff-snapshot.test.ts)
+以 source-level guard 強制執行）：
+
+1. **不可** import 或呼叫 `resolveCustomerStaffAssignment`。
+   - 該 helper 的 4 層 fallback 含 store_owner，會把沒指派的顧客自動歸給
+     owner，**繞過 operator 的批次指派 UI**，等於 silent assignment。
+2. **不可**在 booking 建立流程中 update / upsert `Customer.assignedStaffId`。
+   - booking 是「快照」，不該影響被快照的顧客資料。
+   - 對應到 resolver 的 `persist: true` 副作用，本流程禁用。
+3. **不可**寫死 inline fallback（例如 `customer.assignedStaffId ?? someOwnerId`）。
+   - source guard 會檢查所有寫入都透過 helper。
+
+**`null` 是合法的快照值**：
+
+- 若顧客沒有 `assignedStaffId` → `revenueStaffId = null` → 該筆 booking
+  將被結算歸屬為「店家」。
+- 不假裝補一位店長讓結算數字漂亮。
+- 若 prod 上發現大量 null，正解是用 drawer / 批次指派 UI 補齊（PR #122），
+  或對歷史 booking 走 PR-1.5b backfill dry-run，由 operator review 後寫入。
+
 ### 3.5 服務費單價（Phase 1 暫定）
 
 - 由頁面 input 提供（單一數字，例如 300）
