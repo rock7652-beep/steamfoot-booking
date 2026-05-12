@@ -38,6 +38,9 @@ import {
   reReserveSession,
 } from "@/server/services/wallet-session";
 import { Prisma } from "@prisma/client";
+// PR-1.5a：Booking.revenueStaffId 快照規則 helper（鎖定 + 防回歸）。
+// 規則與禁止項見該 helper 的 JSDoc 與 spec §3.4。
+import { snapshotRevenueStaffForBooking } from "./booking-helpers";
 import type { z } from "zod";
 
 // ============================================================
@@ -436,7 +439,9 @@ export async function createBooking(
           customerId: effectiveCustomerId,
           bookingDate: bookingDateObj,
           slotTime: data.slotTime,
-          revenueStaffId: customer.assignedStaffId ?? null,
+          // PR-1.5a 設計鎖定：快照來源只能是 customer.assignedStaffId。
+          // 完整規則與禁止項見 snapshotRevenueStaffForBooking 的 JSDoc。
+          revenueStaffId: snapshotRevenueStaffForBooking(customer.assignedStaffId),
           bookedByType,
           bookedByStaffId,
           bookingType: data.bookingType,
