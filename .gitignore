@@ -45,3 +45,6 @@ next-env.d.ts
 
 /src/generated/prisma
 scripts/backup-before-cleanup.json
+
+# audit script outputs (may contain prod data)
+audit-*.csv

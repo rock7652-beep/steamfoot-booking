@@ -1,3 +1,4 @@
+import { ZodError } from "zod";
 import type { ActionResult } from "@/types";
 
 // ============================================================
@@ -86,6 +87,12 @@ export function handleActionError(e: unknown, ctx?: ErrorContext): ActionResult<
   if (e instanceof AppError) {
     const sanitized = sanitizeStaffOnlyMessage(e.message);
     return { success: false, error: sanitized ?? e.message };
+  }
+  // Zod validation errors: surface the first issue's message so users see the
+  // schema's custom message (e.g. "請選擇歸屬店長") instead of generic UNKNOWN.
+  if (e instanceof ZodError) {
+    const firstMessage = e.issues[0]?.message ?? "輸入格式有誤";
+    return { success: false, error: firstMessage };
   }
   // Re-throw Next.js internal errors (e.g. redirect, notFound)
   if (

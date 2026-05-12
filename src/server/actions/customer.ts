@@ -302,6 +302,7 @@ export async function updateCustomerAssignment(
     revalidatePath(`/dashboard/customers/${data.customerId}`);
     return { success: true, data: undefined };
   } catch (e) {
+    console.error("[updateCustomerAssignment] error:", e);
     return handleActionError(e);
   }
 }
