@@ -107,6 +107,9 @@
   該堂數預約完成後，Phase 1 仍會視為一般服務並計入店長服務費。
 - **Phase 1 不嘗試從 note 推斷**（任何 heuristic 都會誤判）。
 - 修復方案：等「免費服務」正式欄位上線（Phase 2+）。
+- **實際數據**（2026-05-12 prod audit）：過去 6 個月 83 筆 ADJUSTMENT
+  **全部 amount=0**，月均約 13.8 筆。此漏洞為高頻使用，
+  Phase 2 的免費服務正式欄位優先級為「必做」。詳見 §8.2。
 
 ### 5.2 服務費單價無業務規則
 
@@ -158,10 +161,14 @@
 | PR | 內容 | 是否動 schema | 是否動 UI |
 |---|---|---|---|
 | **PR-1**（本 PR） | 本規格文件 + read-only 統計腳本 | ❌ | ❌ |
-| PR-2 | `src/server/queries/staff-settlement.ts` + vitest 測試 | ❌ | ❌ |
+| 🔴 PR-2（**BLOCKED**） | `src/server/queries/staff-settlement.ts` + vitest 測試 | ❌ | ❌ |
 | PR-3 | `/dashboard/settlements` 頁面（server component + 彙總/明細表） | ❌ | ✅ |
 | PR-4 | `/api/settlements/export` xlsx 匯出 | ❌ | ✅ |
 | PR-5（Phase 2）| StaffSettlement / StaffSettlementLine schema + 鎖定流程 | ✅ | ✅ |
+
+> **PR-2 blocker**：prod 100% COMPLETED booking 的 `revenueStaffId = null`（見 §8.2）。
+> 必須先決定如何處理「歸屬主鍵全空」的問題，才能進 PR-2。下一個 task 預定盤點：
+> 為何 prod 既有 booking 沒有 revenueStaffId（舊資料 vs 現行流程 vs 業務性質）。
 
 ---
 
@@ -183,48 +190,79 @@ npx tsx scripts/staff-settlement-audit.ts --store <storeId>
 npx tsx scripts/staff-settlement-audit.ts --csv > audit.csv
 ```
 
-### 8.1 待回填欄位
-
-> 跑完後請把這段替換成實際數字。
+### 8.1 Audit 執行結果（2026-05-12 prod read-only audit）
 
 ```
-區間：____ ~ ____
-店家範圍：____
+區間：2025-11-13 ~ 2026-05-12（過去 6 個月）
+店家範圍：ALL（prod 目前僅竹北 1 店）
 
 【Booking 完成服務統計】
-- COMPLETED booking 總筆數              : ____
-- 其中 isMakeup = true（補課）          : ____
-- 其中 isMakeup = false（一般）         : ____
-- 其中 revenueStaffId = null（歸店家）  : ____
-- 其中 people > 1（多人預約）           : ____
+- COMPLETED booking 總筆數              : 23
+- 其中 isMakeup = true（補課）          : 0
+- 其中 isMakeup = false（一般）         : 23
+- 其中 revenueStaffId = null（歸店家）  : 23   ← 100.0% 🔴
+- 其中 people > 1（多人預約）           : 0
 
 【BookingType 分布】
-- FIRST_TRIAL                          : ____
-- SINGLE                               : ____
-- PACKAGE_SESSION                      : ____
+- FIRST_TRIAL                           : 1
+- SINGLE                                : 7
+- PACKAGE_SESSION                       : 15
 
 【ADJUSTMENT 交易（贈送漏洞觀察）】
-- ADJUSTMENT 總筆數                     : ____
-- ADJUSTMENT 且 amount = 0              : ____ ← 最像「贈送」特徵
-- ADJUSTMENT 且 amount ≠ 0              : ____ ← 補登/退費/帳調等
+- ADJUSTMENT 總筆數                     : 83
+- ADJUSTMENT 且 amount = 0              : 83   ← 100% 全部是 amount=0
+- ADJUSTMENT 且 amount ≠ 0              : 0
+- 月均                                  : ~13.8 筆 🔴
 
 【店長覆蓋率】
-- 不同 revenueStaffId 數                : ____
-- 完成服務分布最高的店長佔比             : ____%
+- 不同 revenueStaffId 數                : 0
+- 完成服務分布最高的店長佔比             : N/A（無任何 booking 有 revenueStaffId）
 ```
 
-### 8.2 數字出來後要回答的問題
+### 8.2 Sanity check 結論
 
-跑完統計後，要在合併 PR-1 前釐清下列三件事：
+#### 🔴 重大決策點：revenueStaffId 100% 為 null —— **PR-2 動工前必須解決**
 
-1. **「歸店家」比例**：若 `revenueStaffId = null` 比例 > 5%，
-   表示 Phase 1 結算試算會出現大量「不算給任何店長」的列，
-   需要與營運確認這部分如何展示與後續結算。
-2. **補課比例**：若 isMakeup 佔比過高（例如 > 15%），
-   要思考補課是否真的該與一般服務「同單價」結算（業主已拍板：同單價，但數據出來後再 sanity check）。
-3. **`adjustRemainingSessions` 使用頻率**：amount=0 的 ADJUSTMENT 筆數，
-   若顯著（> 月均 5 筆），代表「免費服務漏洞」實際正在被使用，
-   應優先排 Phase 2 的免費服務正式欄位。
+prod 過去 6 個月 23 筆 COMPLETED booking **全部** `revenueStaffId = null`。
+若 Phase 1 嚴格依 §3.4 規則「只用 `Booking.revenueStaffId` 當歸屬」，
+畫面會顯示**所有完成服務都歸店家、零店長可結算**，整個結算試算模組失去意義。
+
+可能成因（**尚未調查**，下一個 task 才會盤點）：
+- 舊資料：早期 Booking 建立流程沒有把 `Customer.assignedStaffId` 寫入 `revenueStaffId` 快照。
+- 現行流程：目前的 booking 建立 server action 是否仍漏寫此快照？
+- 業務性質：竹北店目前是否實際上每筆 booking 建立時顧客都還沒指派直屬店長？
+
+待決策（**任一選項都需業主拍板，PR-2 不可在此之前進行**）：
+- 選項 A：放寬 §3.4，允許 fallback 到 `Customer.assignedStaffId @ 完成服務當下`
+  - 風險：違反「歷史不被顧客轉店長洗掉」原則
+- 選項 B：先做一次性 `revenueStaffId` 歷史 backfill，再進 PR-2
+  - 風險：需要動 Booking 既有資料，違反目前 PR-1 邊界
+- 選項 C：先修現行 booking 建立流程確保未來新資料都有 `revenueStaffId`，
+  歷史資料維持 null（短期模組對舊資料無用，但隨時間自然好轉）
+- 選項 D：放棄 Phase 1 結算試算模組，直接跳 Phase 2 連同 schema 一起設計
+
+**Phase 1 在此決策做出前不進 PR-2。** §7 PR 路線圖中 PR-2 已標記為 🔴 blocked。
+
+#### 🔴 重大發現：amount=0 ADJUSTMENT 月均 13.8 筆 —— 贈送漏洞高頻使用
+
+prod 過去 6 個月 83 筆 ADJUSTMENT 交易**全部 amount=0**，月均約 13.8 筆，
+遠高於原預設 5 筆閾值。代表「免費服務 / 贈送堂數」繞路
+（[`adjustRemainingSessions()`](../src/server/actions/wallet.ts)）正在被高頻使用。
+
+影響：
+- Phase 1 仍然無法區分這些堂數（無正式欄位），完成預約後會被計入店長服務費。
+- Phase 2 的「免費服務」正式欄位（§3.3 建議的 `bookingNature` enum 或
+  `isComplimentary` + reason）**優先級需從「待辦」提升為「必做」**。
+
+#### ✓ 補課比例 0%（合理）
+
+prod 過去 6 個月無補課 booking，與「補課僅由 NO_SHOW 補課流程觸發」的設計相符。
+`isMakeup` 當分類標籤的安全性已驗證。
+
+#### 補充觀察：資料量小
+
+23 筆 / 6 個月 ≈ 月均 4 筆完成服務。這是竹北店實際 prod 數字。
+Phase 1 模組設計應考慮「小資料量友善」的展示（例如就算只有幾筆也要看得清）。
 
 ---
 
@@ -243,4 +281,9 @@ npx tsx scripts/staff-settlement-audit.ts --csv > audit.csv
 
 ## 10. 變更記錄
 
-- 2026-05-12：初稿（PR-1 規格 + audit 腳本）。Audit 數字尚未回填。
+- 2026-05-12（初稿）：PR-1 規格 + audit 腳本，audit 數字尚未回填。
+- 2026-05-12（audit 回填）：回填 prod read-only audit 數字到 §8.1。
+  Sanity check 結論寫入 §8.2，標記兩個 🔴 重大發現：
+  (1) prod COMPLETED booking 100% `revenueStaffId = null`，PR-2 已標記為 BLOCKED；
+  (2) amount=0 ADJUSTMENT 月均 13.8 筆，免費服務漏洞高頻使用。
+  §5.1 補上實際數據。
