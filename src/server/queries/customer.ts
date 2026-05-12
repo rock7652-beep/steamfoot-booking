@@ -144,9 +144,33 @@ export async function listCustomers(options: ListCustomersOptions & { activeStor
     prisma.customer.count({ where }),
   ]);
 
-  // 計算每位顧客的剩餘堂數總計 + 推薦數
+  // 「最近來店」顯示來源：當頁 customers 的最近一筆 COMPLETED booking。
+  // 為何不用 Customer.lastVisitAt：prod 該欄位多數 stale/null，但顧客其實有
+  // COMPLETED bookings。本 PR 範圍只修「列表顯示」，不 backfill、不改 booking
+  // 完成流程、不動 schema。Known limitation（PR description 已記）：
+  //   - visit filter（本月/30天未到/從未到）與 sort 仍使用 Customer.lastVisitAt
+  //     → 顯示值與 filter/sort 可能短暫不一致，待 Phase 2 處理。
+  const customerIds = customers.map((c) => c.id);
+  const latestCompletedBookings = customerIds.length
+    ? await prisma.booking.groupBy({
+        by: ["customerId"],
+        where: {
+          customerId: { in: customerIds },
+          bookingStatus: "COMPLETED",
+        },
+        _max: { bookingDate: true },
+      })
+    : [];
+  const lastVisitFromBooking = new Map<string, Date | null>(
+    latestCompletedBookings.map((r) => [r.customerId, r._max.bookingDate]),
+  );
+
+  // 計算每位顧客的剩餘堂數總計 + 推薦數；以 booking-derived 取代顯示用 lastVisitAt
   const customersWithStats = customers.map((c) => ({
     ...c,
+    // 顯示優先：booking-derived；若該顧客沒任何 COMPLETED booking，
+    // 退回 Customer.lastVisitAt 維持向後相容（極少數舊資料場景）
+    lastVisitAt: lastVisitFromBooking.get(c.id) ?? c.lastVisitAt,
     totalRemainingSessions: c.planWallets.reduce(
       (sum, w) => sum + w.remainingSessions,
       0
@@ -156,6 +180,9 @@ export async function listCustomers(options: ListCustomersOptions & { activeStor
 
   return { customers: customersWithStats, total, page, pageSize };
 }
+
+// Helper 抽到 ./customer-list-helpers.ts 供 vitest 直接 import 測試
+// （避免測試環境拉進 next-auth / session 等 side-effect）。
 
 // ============================================================
 // searchCustomers — 用於 autocomplete（輕量版）

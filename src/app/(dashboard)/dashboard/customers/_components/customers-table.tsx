@@ -176,16 +176,46 @@ export function CustomersTable({
     {
       key: "status",
       header: "狀態",
+      width: "w-24",
       accessor: (c) => (
-        <CustomerStatusBadge stage={c.customerStage} lineLinkStatus={c.lineLinkStatus} />
+        <span className="whitespace-nowrap">
+          <CustomerStatusBadge stage={c.customerStage} lineLinkStatus={c.lineLinkStatus} />
+        </span>
       ),
+    },
+    {
+      key: "assignedStaff",
+      header: "直屬店長",
+      width: "w-28",
+      accessor: (c) => {
+        if (isInactiveRow(c)) {
+          return <span className="text-[11px] text-earth-300">—</span>;
+        }
+        if (!c.assignedStaff) {
+          return <span className="text-[11px] text-earth-400">未指派</span>;
+        }
+        return (
+          <span
+            className="inline-flex max-w-full items-center gap-1.5 truncate text-[12px] text-earth-700"
+            title={c.assignedStaff.displayName}
+          >
+            <span
+              aria-hidden
+              className="inline-block h-2 w-2 shrink-0 rounded-full"
+              style={{ backgroundColor: c.assignedStaff.colorCode }}
+            />
+            <span className="truncate">{c.assignedStaff.displayName}</span>
+          </span>
+        );
+      },
     },
     {
       key: "lastVisit",
       header: "最近來店",
       align: "right",
+      width: "w-24",
       accessor: (c) => (
-        <span className="tabular-nums">
+        <span className="whitespace-nowrap tabular-nums">
           {c.lastVisitAt ? (
             formatTWTime(c.lastVisitAt, { dateOnly: true })
           ) : (
