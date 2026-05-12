@@ -190,17 +190,20 @@ booking 建立流程**只能**透過此 helper 寫入 `revenueStaffId`。
 | PR-1 ✅ | 規格文件 + read-only 統計腳本（已 merge #120） | ❌ | ❌ |
 | 顧客指派側鏈 ✅ | 單筆 + 批次指派 + UI hotfix（#121 / #122 / #123 / #124）| ❌ | 部分 |
 | PR-1.5 ✅ | 重新 audit assignment / booking 快照狀態（本 PR / #125）| ❌ | ❌ |
-| PR-1.5a（next）| **future-only fix**：新建 booking 套用 `resolveCustomerStaffAssignment` 寫入 revenueStaffId 快照 | ❌ | ❌ |
-| PR-1.5b（after 1.5a）| 歷史 23 筆 backfill **dry-run** read-only 腳本 | ❌ | ❌ |
-| PR-2 | `src/server/queries/staff-settlement.ts` + vitest（PR-1.5a 上線後解 BLOCK） | ❌ | ❌ |
-| PR-3 | `/dashboard/settlements` 頁面（server component + 彙總/明細表） | ❌ | ✅ |
-| PR-4 | `/api/settlements/export` xlsx 匯出 | ❌ | ✅ |
-| PR-5（Phase 2）| StaffSettlement / StaffSettlementLine schema + 鎖定流程 | ✅ | ✅ |
+| PR-1.5a ✅ | future-only fix：booking 建立寫入 revenueStaffId 快照（#126，**禁止** resolver fallback / customer 副作用，已鎖 source guard） | ❌ | ❌ |
+| PR-1.5b ✅ | 歷史 backfill **dry-run** 腳本（#127） | ❌ | ❌ |
+| PR-1.5c | 歷史 backfill 真實寫入腳本（default dry-run；ops-only，不一定合進 main） | ❌ | ❌ |
+| PR-2 ✅（本支）| `src/server/queries/staff-settlement.ts` + `/dashboard/settlements` 試算頁（query + UI 同 PR） | ❌ | ✅ |
+| PR-3 | `/api/settlements/export` xlsx 匯出 | ❌ | ✅ |
+| PR-4（Phase 2）| StaffSettlement / StaffSettlementLine schema + 正式結算 / 付款 / 鎖帳 流程；切出獨立 `settlement.read / .confirm / .pay` 權限 | ✅ | ✅ |
 
-> **PR-2 解 BLOCK 條件**：PR-1.5a 上線後，新建 booking 都會帶 revenueStaffId 快照。
-> PR-1.5 audit 已確認 root cause 在 [booking.ts:439](../src/server/actions/booking.ts:439)
-> 沒套用 `resolveCustomerStaffAssignment` helper（helper 的 JSDoc 早已標註此處為待辦）。
-> 歷史 23 筆 booking 是否要 backfill 由 PR-1.5b dry-run 後另外決策。
+> **PR-2 動工前狀態**：PR-1.5a 已鎖死 booking 建立的快照規則，PR-1.5b 已產出
+> backfill dry-run 工具。本 PR 僅做「試算」UI，**不**做正式結算單 / 付款 / 鎖帳。
+> 服務費單價由前端 input 即時計算，不入庫。
+>
+> **PR-2 不引入 `resolveCustomerStaffAssignment`**：與 PR-1.5a 的 source guard 一致，
+> 試算 query 也只讀 booking 的 `revenueStaffId` 快照，不對顧客 / 預約資料做任何
+> 寫回 fallback。
 
 ---
 
@@ -375,7 +378,7 @@ Phase 1 模組設計應考慮「小資料量友善」的展示（例如就算只
   (1) prod COMPLETED booking 100% `revenueStaffId = null`，PR-2 已標記為 BLOCKED；
   (2) amount=0 ADJUSTMENT 月均 13.8 筆，免費服務漏洞高頻使用。
   §5.1 補上實際數據。
-- 2026-05-12（PR-1.5 re-audit，本次）：顧客指派側鏈（#121/#122/#123/#124）
+- 2026-05-12（PR-1.5 re-audit）：顧客指派側鏈（#121/#122/#123/#124）
   上線後重新 audit。結論 §8.3：
   - 顧客 assignedStaffId 覆蓋率 100%（有 booking 的顧客）
   - Booking.revenueStaffId 仍 0% — root cause 鎖定在 booking.ts:439
@@ -383,3 +386,14 @@ Phase 1 模組設計應考慮「小資料量友善」的展示（例如就算只
   - 23 筆全部是 backfill candidates，無跨店異常
   - 路線決策：A + D（PR-1.5a future-only fix → PR-1.5b backfill dry-run）
   §7 PR 路線圖加入 PR-1.5 / 1.5a / 1.5b，PR-2 解 BLOCK 條件改寫。
+- 2026-05-12（PR-2 試算頁，本次）：
+  - 新增 `src/server/queries/staff-settlement.ts`（read-only query，依
+    Booking.revenueStaffId 分組，不引入 resolver，PARTNER manager filter 不可
+    被 URL staffId 覆蓋）
+  - 新增 `/dashboard/settlements`（試算頁，標題明確含「試算」二字）
+  - 重用 `report.read` 權限；歸店家 row 顯示在彙總表最下面，金額固定 $0；
+    服務費單價由 client input 即時計算，不入庫
+  - 補測 15 個 vitest case（含 PARTNER visibility lockdown）
+  - dashboard 首頁加「服務費試算 →」入口
+  - §7 PR 路線圖更新：PR-3 改為 xlsx 匯出；Phase 2 PR-4 含正式結算單 + 獨立
+    `settlement.*` 權限
