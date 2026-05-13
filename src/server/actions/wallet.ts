@@ -6,7 +6,7 @@ import { prisma } from "@/lib/db";
 import { requirePermission, checkPermission } from "@/lib/permissions";
 import { getCurrentUser } from "@/lib/session";
 import { AppError, handleActionError } from "@/lib/errors";
-import { assignPlanSchema } from "@/lib/validators/plan";
+import { assignPlanSchema, migratePaperPlanSchema } from "@/lib/validators/plan";
 import type { ActionResult } from "@/types";
 import { addDays } from "date-fns";
 import {
@@ -587,6 +587,208 @@ export async function backfillUsedSessions(
         remainingAfter: result.remainingAfter,
       },
     };
+  } catch (e) {
+    return handleActionError(e);
+  }
+}
+
+// ============================================================
+// migratePaperPlan — 紙本舊客轉入線上（PR-B of paper-customer migration）
+//
+// 用途：將顧客原本紙本卡 / 舊系統的方案資料一次性轉入線上。
+//   - 建立 CustomerPlanWallet（快照原始實收金額與原始總堂數）
+//   - seed totalSessions 筆 AVAILABLE 單堂明細
+//   - 把轉入前已用 N 堂標為 BACKFILLED（重用 backfillAvailableSessions service）
+//   - 寫一筆 PAPER_MIGRATION Transaction（amount = 原始實收金額；非今日新收款）
+//   - 寫一筆 AuditLog(action="PAPER_MIGRATION", targetType="CustomerPlanWallet")
+//
+// 與 backfillUsedSessions 的差異：
+//   - backfillUsedSessions：已有 wallet 在線上，補登「過去用了幾堂」。
+//   - migratePaperPlan：wallet 還沒在線上，把紙本卡完整建出來 + 記下原始金額；
+//     已用堂數一併標 BACKFILLED 是子步驟。
+//
+// 權限：wallet.adjust + role === OWNER / ADMIN
+//   - 高風險（補金額會影響「店長服務金額試算」單堂金額分母）→
+//     比照 customer-merge 的雙重檢查：先 requirePermission，再卡 role；
+//     即使 PARTNER 被 grant 了 wallet.adjust 也擋下。
+//
+// 護欄（保護報表 / 教練業績 / 現金帳 / 完成服務統計）：
+//   - PAPER_MIGRATION 不在 REVENUE_TRANSACTION_TYPES / CASH_TRANSACTION_TYPES 白名單
+//     → 自動不進營收 / 現金帳 / 教練業績 / 完成服務統計
+//   - 不可由 /dashboard/transactions 手動新增（createTransactionSchema enum 不含此值）
+//   - customer 狀態（customerStage / selfBookingEnabled / convertedAt）刻意不在此 PR 動，
+//     避免被誤判為「今天首購」觸發推薦獎勵；保留給 PR-C UI 由操作員顯式選擇。
+// ============================================================
+
+export async function migratePaperPlan(
+  input: z.input<typeof migratePaperPlanSchema>
+): Promise<
+  ActionResult<{
+    walletId: string;
+    transactionId: string;
+    remainingSessions: number;
+  }>
+> {
+  try {
+    const user = await requirePermission("wallet.adjust");
+    if (user.role !== "OWNER" && user.role !== "ADMIN") {
+      throw new AppError(
+        "FORBIDDEN",
+        "紙本舊客轉入僅限店長 / 系統管理者執行"
+      );
+    }
+
+    const data = migratePaperPlanSchema.parse(input);
+
+    const customer = await prisma.customer.findUnique({
+      where: { id: data.customerId },
+      select: {
+        id: true,
+        storeId: true,
+        assignedStaffId: true,
+      },
+    });
+    if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
+    assertStoreAccess(user, customer.storeId);
+
+    const plan = await prisma.servicePlan.findUnique({
+      where: { id: data.planId },
+      select: { id: true, storeId: true, category: true },
+    });
+    if (!plan) throw new AppError("NOT_FOUND", "課程方案不存在");
+    if (plan.storeId !== customer.storeId) {
+      throw new AppError("FORBIDDEN", "方案不屬於本顧客所在店家");
+    }
+
+    const remainingSessions = data.totalSessions - data.usedSessions;
+    const expiryDate = data.expiryDate
+      ? parseTaiwanDateToDbDate(data.expiryDate)
+      : null;
+    const now = new Date();
+    const startDate = now;
+
+    // 已用堂數的 occurredAt 用「轉入當天」— 紙本卡的真實使用日期未知，
+    // 統一用 migration date 即可（PAPER_MIGRATION 不入完成服務統計）
+    const todayTW = toLocalDateStr();
+    const occurredAt = parseTaiwanDateToDbDate(todayTW);
+
+    // PAPER_MIGRATION 不在 REVENUE_TRANSACTION_TYPES，但 Transaction 仍需要 revenueStaffId
+    // 用 customer.assignedStaffId 為主、user.staffId 為 fallback（與其他 wallet action 一致）
+    const revenueStaffId = customer.assignedStaffId ?? user.staffId!;
+    // 用 customer.storeId（已通過 assertStoreAccess 驗證）；
+    // 不能用 currentStoreId(user)，因 ADMIN session 的 storeId 為 null
+    const storeId = customer.storeId;
+
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. 建立 wallet（快照原始實收金額與原始總堂數）
+      const wallet = await tx.customerPlanWallet.create({
+        data: {
+          customerId: customer.id,
+          planId: plan.id,
+          purchasedPrice: data.originalAmount,
+          totalSessions: data.totalSessions,
+          remainingSessions, // 暫存值；下面 backfillAvailableSessions 會 refresh
+          startDate,
+          expiryDate,
+          status: "ACTIVE",
+          storeId,
+        },
+      });
+
+      // 2. seed N 筆 AVAILABLE 單堂明細
+      await seedWalletSessions(tx, wallet.id, data.totalSessions);
+
+      // 3. 把已用堂數標為 BACKFILLED（refreshWalletCounter 會把 remainingSessions
+      //    與 wallet.status 同步成 ACTIVE / USED_UP，不需另呼 update）
+      if (data.usedSessions > 0) {
+        try {
+          await backfillAvailableSessions(tx, {
+            walletId: wallet.id,
+            count: data.usedSessions,
+            occurredAt,
+            reason: `紙本轉入：${data.usedSessions}/${data.totalSessions} 堂於轉入前已使用`,
+            operatorStaffId: user.staffId!,
+          });
+        } catch (e) {
+          if (e instanceof WalletSessionError) {
+            throw new AppError("BUSINESS_RULE", e.message);
+          }
+          throw e;
+        }
+      }
+
+      // 4. 建立 PAPER_MIGRATION 交易（紀錄原始實收金額；非今日新收款）
+      const snapshot = await buildTransactionSnapshot(tx, {
+        customerId: customer.id,
+        storeId,
+        revenueStaffId,
+        planId: plan.id,
+        grossAmount: data.originalAmount,
+        netAmount: data.originalAmount,
+      });
+
+      const transaction = await tx.transaction.create({
+        data: {
+          customerId: customer.id,
+          revenueStaffId,
+          soldByStaffId: user.staffId ?? null,
+          transactionType: "PAPER_MIGRATION",
+          // 形式必填欄位；PAPER_MIGRATION 不在 CASH_TRANSACTION_TYPES，不會進現金帳
+          paymentMethod: "CASH",
+          // 歷史紀錄已完成；報表用 REVENUE_VALID_STATUS 過濾，PAPER_MIGRATION 不在
+          // REVENUE_TRANSACTION_TYPES，因此 SUCCESS 也不會被算入營收
+          paymentStatus: "SUCCESS",
+          // 真實付款日期未知 — 紙本卡可能是好幾年前的事；明確標 null 表示「不是今日新收款」
+          paidAt: null,
+          amount: data.originalAmount,
+          quantity: data.totalSessions,
+          customerPlanWalletId: wallet.id,
+          note:
+            `紙本轉入：原價 ${data.originalAmount} 元 / 共 ${data.totalSessions} 堂` +
+            (data.usedSessions > 0
+              ? ` / 轉入前已用 ${data.usedSessions} 堂`
+              : "") +
+            (data.note ? `（備註：${data.note}）` : ""),
+          storeId,
+          ...snapshot,
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          actorUserId: user.id,
+          targetType: "CustomerPlanWallet",
+          targetId: wallet.id,
+          action: "PAPER_MIGRATION",
+          afterJson: {
+            customerId: customer.id,
+            planId: plan.id,
+            originalAmount: data.originalAmount,
+            totalSessions: data.totalSessions,
+            usedSessions: data.usedSessions,
+            remainingSessions,
+            expiryDate: data.expiryDate ?? null,
+            note: data.note ?? null,
+          },
+        },
+      });
+
+      const refreshed = await tx.customerPlanWallet.findUnique({
+        where: { id: wallet.id },
+        select: { remainingSessions: true },
+      });
+
+      return {
+        walletId: wallet.id,
+        transactionId: transaction.id,
+        // 經 refreshWalletCounter 確認過的 remainingSessions（保險）
+        remainingSessions: refreshed?.remainingSessions ?? remainingSessions,
+      };
+    });
+
+    revalidatePath(`/dashboard/customers/${customer.id}`);
+    revalidatePath("/my-plans");
+    return { success: true, data: result };
   } catch (e) {
     return handleActionError(e);
   }

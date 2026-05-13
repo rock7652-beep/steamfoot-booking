@@ -78,3 +78,70 @@ export const assignPlanSchema = z
       }
     }
   });
+
+// ============================================================
+// migratePaperPlanSchema — PR-B 紙本舊客轉入線上
+//
+// 對應 server action：src/server/actions/wallet.ts → migratePaperPlan
+// 對應規格：docs/staff-settlement-phase1-spec.md §3.7.9
+//
+// 用途：店長從紙本卡 / 舊系統把顧客的方案資料完整轉入線上。
+//   - originalAmount → wallet.purchasedPrice（記錄原始實收金額；單堂金額試算用）
+//   - totalSessions  → wallet.totalSessions（原始總堂數，不可被後續行為改變）
+//   - usedSessions   → 轉入前已用堂數，會把對應數量的 WalletSession 標為 BACKFILLED
+//   - expiryDate     → 原始紙本卡的到期日（可早於今天、可為 null = 無期限）
+//
+// 護欄：
+//   - usedSessions ≤ totalSessions（schema superRefine）
+//   - 日曆日期真實性檢查（new Date 不會 normalize）
+//   - 「PAPER_MIGRATION 不可由 /dashboard/transactions 手動建立」靠
+//     `createTransactionSchema.transactionType` enum 不含此值來擋；
+//     本 schema 是 server action 端入口，UI 留待 PR-C。
+// ============================================================
+export const migratePaperPlanSchema = z
+  .object({
+    customerId: z.string().cuid(),
+    planId: z.string().cuid(),
+    // 原始實收金額（紙本卡上記載的客戶實際付款金額，非定價）
+    originalAmount: z
+      .number()
+      .int("原始實收金額需為整數")
+      .min(0, "原始實收金額不可為負數"),
+    // 原始總堂數（紙本卡的「總堂數」欄位；不是線上方案的 sessionCount）
+    totalSessions: z
+      .number()
+      .int("原始總堂數需為整數")
+      .positive("原始總堂數需為正整數"),
+    // 轉入前已用堂數（紙本卡上「已用」欄位；0 = 全新未開）
+    usedSessions: z
+      .number()
+      .int("已使用堂數需為整數")
+      .min(0, "已使用堂數不可為負數"),
+    // 到期日（YYYY-MM-DD；null = 紙本卡無期限）
+    // 紙本卡的原始到期可在過去（已過期的卡也允許入帳留紀錄）
+    expiryDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, "到期日格式需為 YYYY-MM-DD")
+      .refine((s) => {
+        const [y, m, d] = s.split("-").map(Number);
+        const dt = new Date(Date.UTC(y, m - 1, d));
+        return (
+          dt.getUTCFullYear() === y &&
+          dt.getUTCMonth() === m - 1 &&
+          dt.getUTCDate() === d
+        );
+      }, "到期日不是有效日期")
+      .nullable()
+      .optional(),
+    // 自由備註（轉入時的補充說明；e.g. 紙本卡編號、來源）
+    note: z.string().trim().max(500).optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.usedSessions > data.totalSessions) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["usedSessions"],
+        message: "已使用堂數不可超過原始總堂數",
+      });
+    }
+  });
