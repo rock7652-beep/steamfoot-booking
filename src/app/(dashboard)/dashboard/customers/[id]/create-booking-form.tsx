@@ -32,11 +32,16 @@ function getNextDays(n: number): string[] {
   return days;
 }
 
+type BookingType = "FIRST_TRIAL" | "SINGLE" | "PACKAGE_SESSION";
+
 export function CreateBookingForm({ customerId, activeWallets }: Props) {
   const days = getNextDays(14);
   const [selectedDate, setSelectedDate] = useState(days[0]);
   const [slots, setSlots] = useState<SlotAvailability[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(true);
+  // 防呆：有可用 wallet → bookingType 預設 PACKAGE_SESSION + 自動選 FEFO 首張
+  const [bookingType, setBookingType] = useState<BookingType>("PACKAGE_SESSION");
+  const [walletId, setWalletId] = useState<string>(activeWallets[0]?.id ?? "");
 
   const loadSlots = useCallback(async (date: string) => {
     setLoadingSlots(true);
@@ -134,10 +139,16 @@ export function CreateBookingForm({ customerId, activeWallets }: Props) {
 
       <div>
         <label className="block text-xs text-earth-500">類型</label>
-        <select name="bookingType" required className="mt-1 w-full rounded border border-earth-300 px-2 py-1 text-sm">
+        <select
+          name="bookingType"
+          required
+          value={bookingType}
+          onChange={(e) => setBookingType(e.target.value as BookingType)}
+          className="mt-1 w-full rounded border border-earth-300 px-2 py-1 text-sm"
+        >
           <option value="PACKAGE_SESSION">課程堂數</option>
           <option value="FIRST_TRIAL">體驗</option>
-          <option value="SINGLE">單次</option>
+          <option value="SINGLE">單次付費，不扣堂</option>
         </select>
       </div>
 
@@ -151,11 +162,15 @@ export function CreateBookingForm({ customerId, activeWallets }: Props) {
         </select>
       </div>
 
-      {activeWallets.length > 0 && (
+      {activeWallets.length > 0 && bookingType === "PACKAGE_SESSION" && (
         <div>
           <label className="block text-xs text-earth-500">使用課程</label>
-          <select name="customerPlanWalletId" className="mt-1 w-full rounded border border-earth-300 px-2 py-1 text-sm">
-            <option value="">不指定（自動選最早到期方案）</option>
+          <select
+            name="customerPlanWalletId"
+            value={walletId}
+            onChange={(e) => setWalletId(e.target.value)}
+            className="mt-1 w-full rounded border border-earth-300 px-2 py-1 text-sm"
+          >
             {activeWallets.map((w) => (
               <option key={w.id} value={w.id}>
                 {w.planName}（剩 {w.remainingSessions} 堂{w.expiryDate ? `・到 ${w.expiryDate}` : "・無期限"}）
@@ -163,7 +178,15 @@ export function CreateBookingForm({ customerId, activeWallets }: Props) {
             ))}
           </select>
           <p className="mt-1 text-[11px] text-earth-500">
-            不指定時，系統將自動使用最早到期的可用方案
+            已自動選最快到期的方案；如需手動指定可改下拉。
+          </p>
+        </div>
+      )}
+
+      {activeWallets.length > 0 && bookingType === "SINGLE" && (
+        <div className="col-span-2 sm:col-span-4">
+          <p className="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[11px] text-amber-800">
+            本次不會扣顧客方案，請確認是否另外收費。
           </p>
         </div>
       )}

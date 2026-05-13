@@ -4,7 +4,7 @@ import { checkPermission } from "@/lib/permissions";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { redirect } from "next/navigation";
-import CustomerSearch from "./customer-search";
+import { CustomerAndPlanFields } from "./customer-and-plan-fields";
 import { DashboardBookingForm } from "./booking-form";
 import { FormErrorToast } from "@/components/form-error-toast";
 import { SubmitButton } from "@/components/submit-button";
@@ -56,6 +56,8 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
       | "FIRST_TRIAL"
       | "SINGLE"
       | "PACKAGE_SESSION";
+    const customerPlanWalletId =
+      (formData.get("customerPlanWalletId") as string) || undefined;
     const people = Number(formData.get("people")) || 1;
     const notes = (formData.get("notes") as string) || undefined;
     const skipDutyCheck = formData.get("skipDutyCheck") === "on";
@@ -71,6 +73,7 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
       bookingDate,
       slotTime,
       bookingType,
+      customerPlanWalletId,
       people,
       notes,
       skipDutyCheck: skipDutyCheck || undefined,
@@ -131,35 +134,9 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
               </FormSection>
             </div>
 
-            {/* 右欄：顧客 / 方案 */}
+            {/* 右欄：顧客 / 方案 — 客戶端互動由 CustomerAndPlanFields 負責 */}
             <div className="space-y-6">
-              <FormSection title="顧客資訊" description="輸入姓名、電話或 Email 搜尋">
-                <div>
-                  <label className={labelCls}>
-                    顧客 <span className="text-red-500">*</span>
-                  </label>
-                  <div className="mt-1">
-                    <CustomerSearch />
-                  </div>
-                </div>
-              </FormSection>
-
-              <FormSection title="服務 / 方案">
-                <div>
-                  <label className={labelCls}>
-                    預約類型 <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    name="bookingType"
-                    required
-                    className={`mt-1 ${inputCls}`}
-                  >
-                    <option value="PACKAGE_SESSION">課程堂數</option>
-                    <option value="FIRST_TRIAL">體驗</option>
-                    <option value="SINGLE">單次</option>
-                  </select>
-                </div>
-              </FormSection>
+              <CustomerAndPlanFields />
             </div>
           </div>
 
