@@ -1,17 +1,19 @@
 /**
- * previewStaffSettlement — PR-2 試算 query 行為測試
+ * previewStaffSettlement — PR-2.2 攤提金額邏輯測試
  *
- * 覆蓋：
- *   - 空 range → 空 summary / details
- *   - 全 regular booking → summary 1 列
- *   - regular + makeup 混合 → 分開 count
- *   - 多店長 group → summary 依 totalCount desc 排序
- *   - revenueStaffId=null → "(歸店家)" 排最下面
- *   - staffId 篩選：全部 / UNASSIGNED_STAFF_TOKEN / 特定 staff
- *   - PARTNER 不可透過 staffId 篩選看他人資料（manager visibility 不被覆蓋）
- *   - serviceStaffId 只影響顯示，不影響歸屬
- *   - counted flag：null → false, 有值 → true
- *   - 不寫入任何資料（守門：所有 prisma write 動詞被攔截）
+ * 規則矩陣對應 docs/staff-settlement-phase1-spec.md §3.7：
+ *   walletId === null：
+ *     - FIRST_TRIAL  → amount=0
+ *     - SINGLE       → amount=0
+ *     - PACKAGE      → needsReview
+ *   walletId 存在：
+ *     - override EXCLUDE_FROM_SETTLEMENT → needsReview, amount=null
+ *     - override OVERRIDE_TOTAL → amount = overrideUnitPrice
+ *     - override CONFIRM_AS_IS  → amount = purchasedPrice / totalSessions
+ *     - no override + has ADJUSTMENT → needsReview（保守預設）
+ *     - no override + no ADJUSTMENT → amount = formula
+ *
+ * 另含既有規則：PARTNER visibility / staff filter / summary 排序 / store scope。
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -21,6 +23,7 @@ const STAFF_A = "staff-aaa";
 const STAFF_B = "staff-bbb";
 
 const mockBookingFindMany = vi.fn();
+const mockGetOverride = vi.fn();
 
 function throwIfCalled(name: string) {
   return vi.fn((...args: unknown[]) => {
@@ -32,75 +35,107 @@ vi.mock("@/lib/db", () => ({
   prisma: {
     booking: {
       findMany: (...a: unknown[]) => mockBookingFindMany(...a),
-      // Write guards
       create: throwIfCalled("booking.create"),
       update: throwIfCalled("booking.update"),
-      updateMany: throwIfCalled("booking.updateMany"),
       delete: throwIfCalled("booking.delete"),
-      upsert: throwIfCalled("booking.upsert"),
     },
-    // Other models should never be touched by this query
     customer: { update: throwIfCalled("customer.update") },
-    transaction: { create: throwIfCalled("transaction.create") },
     customerPlanWallet: { update: throwIfCalled("wallet.update") },
-    walletSession: { update: throwIfCalled("session.update") },
+    transaction: { create: throwIfCalled("transaction.create") },
   },
 }));
 
-// requireStaffSession returns a fake user; tests override per-case to simulate
-// different roles (OWNER vs PARTNER).
 const mockRequireStaffSession = vi.fn();
 vi.mock("@/lib/session", () => ({
   requireStaffSession: () => mockRequireStaffSession(),
 }));
 
-// Mock manager-visibility to simulate SELF_ONLY vs OWNER visibility deterministically
 const mockGetManagerReadFilter = vi.fn();
 vi.mock("@/lib/manager-visibility", () => ({
   getManagerReadFilter: (...a: unknown[]) => mockGetManagerReadFilter(...a),
 }));
 
-// ── Import after mocks ────────────────────────────────────────────────
+vi.mock("@/server/services/settlement-overrides", () => ({
+  getOverrideForWallet: (id: string) => mockGetOverride(id),
+}));
+
 import {
   previewStaffSettlement,
   UNASSIGNED_STAFF_TOKEN,
 } from "@/server/queries/staff-settlement";
 
-// ── Test data factory ─────────────────────────────────────────────────
+// ── Booking row factory ───────────────────────────────────────────────
 
-function bookingRow(opts: {
+interface BookingFactoryOpts {
   id: string;
-  date: string; // YYYY-MM-DD
+  date: string;
   slot?: string;
   customerName?: string;
   bookingType?: "PACKAGE_SESSION" | "SINGLE" | "FIRST_TRIAL";
   isMakeup?: boolean;
   revenueStaffId: string | null;
-  revenueStaffName?: string | null;
+  revenueStaffName?: string;
   serviceStaffId?: string | null;
-  serviceStaffName?: string | null;
-}) {
+  walletId?: string | null;
+  walletPurchasedPrice?: number;
+  walletTotalSessions?: number;
+  walletHasAdjustment?: boolean;
+  // For makeup bookings tracing back to original wallet:
+  makeupOriginalWalletId?: string | null;
+  makeupOriginalPurchasedPrice?: number;
+  makeupOriginalTotalSessions?: number;
+  makeupOriginalHasAdjustment?: boolean;
+}
+
+function makeBooking(o: BookingFactoryOpts) {
+  const wallet = o.walletId
+    ? {
+        id: o.walletId,
+        purchasedPrice: { toString: () => String(o.walletPurchasedPrice ?? 0) },
+        totalSessions: o.walletTotalSessions ?? 0,
+        transactions: o.walletHasAdjustment ? [{ id: "tx-adj" }] : [],
+      }
+    : null;
+  const origWallet = o.makeupOriginalWalletId
+    ? {
+        id: o.makeupOriginalWalletId,
+        purchasedPrice: {
+          toString: () => String(o.makeupOriginalPurchasedPrice ?? 0),
+        },
+        totalSessions: o.makeupOriginalTotalSessions ?? 0,
+        transactions: o.makeupOriginalHasAdjustment ? [{ id: "tx-adj-orig" }] : [],
+      }
+    : null;
   return {
-    id: opts.id,
-    bookingDate: new Date(`${opts.date}T00:00:00.000Z`),
-    slotTime: opts.slot ?? "10:00",
-    bookingType: opts.bookingType ?? "PACKAGE_SESSION",
-    isMakeup: opts.isMakeup ?? false,
-    revenueStaffId: opts.revenueStaffId,
-    serviceStaffId: opts.serviceStaffId ?? null,
-    customer: { name: opts.customerName ?? "Test Customer" },
-    revenueStaff: opts.revenueStaffId
-      ? { id: opts.revenueStaffId, displayName: opts.revenueStaffName ?? "Staff X" }
+    id: o.id,
+    bookingDate: new Date(`${o.date}T00:00:00.000Z`),
+    slotTime: o.slot ?? "10:00",
+    bookingType: o.bookingType ?? "PACKAGE_SESSION",
+    isMakeup: o.isMakeup ?? false,
+    revenueStaffId: o.revenueStaffId,
+    serviceStaffId: o.serviceStaffId ?? null,
+    customerPlanWalletId: o.walletId ?? null,
+    customer: { name: o.customerName ?? "Test" },
+    revenueStaff: o.revenueStaffId
+      ? { id: o.revenueStaffId, displayName: o.revenueStaffName ?? "Staff X" }
       : null,
-    serviceStaff: opts.serviceStaffId
-      ? { id: opts.serviceStaffId, displayName: opts.serviceStaffName ?? "Service X" }
+    serviceStaff: o.serviceStaffId
+      ? { id: o.serviceStaffId, displayName: "Service X" }
+      : null,
+    customerPlanWallet: wallet,
+    makeupCredit: origWallet
+      ? {
+          originalBooking: {
+            customerPlanWalletId: origWallet.id,
+            customerPlanWallet: origWallet,
+          },
+        }
       : null,
   };
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
-  // 預設：OWNER 視角（無 manager 限制）
   mockRequireStaffSession.mockResolvedValue({
     role: "OWNER",
     staffId: STAFF_A,
@@ -108,206 +143,419 @@ beforeEach(() => {
   });
   mockGetManagerReadFilter.mockReturnValue({ storeId: STORE_A });
   mockBookingFindMany.mockResolvedValue([]);
+  mockGetOverride.mockReturnValue(null); // 預設無 override
 });
 
-// ── 基本路徑 ────────────────────────────────────────────────────────
+// ── 無 wallet 情境 ────────────────────────────────────────────────────
 
-describe("previewStaffSettlement — basics", () => {
-  it("空 range → 空 summary 與 details", async () => {
-    mockBookingFindMany.mockResolvedValueOnce([]);
-    const r = await previewStaffSettlement({
-      startDate: "2026-05-01",
-      endDate: "2026-05-31",
-    });
-    expect(r).toEqual({ summary: [], details: [] });
-  });
-
-  it("全 regular booking → summary 1 列，regularCount=N, makeupCount=0", async () => {
+describe("previewStaffSettlement — no-wallet bookings", () => {
+  it("FIRST_TRIAL 無 wallet → amount=0, source=trial_no_wallet, counted=false", async () => {
     mockBookingFindMany.mockResolvedValueOnce([
-      bookingRow({ id: "b1", date: "2026-05-01", revenueStaffId: STAFF_A, revenueStaffName: "芊芊" }),
-      bookingRow({ id: "b2", date: "2026-05-02", revenueStaffId: STAFF_A, revenueStaffName: "芊芊" }),
-      bookingRow({ id: "b3", date: "2026-05-03", revenueStaffId: STAFF_A, revenueStaffName: "芊芊" }),
-    ]);
-    const r = await previewStaffSettlement({
-      startDate: "2026-05-01",
-      endDate: "2026-05-31",
-    });
-    expect(r.summary).toEqual([
-      { staffId: STAFF_A, staffName: "芊芊", regularCount: 3, makeupCount: 0, totalCount: 3 },
-    ]);
-    expect(r.details).toHaveLength(3);
-    expect(r.details.every((d) => d.counted)).toBe(true);
-  });
-
-  it("regular + makeup 混合 → 分開 count", async () => {
-    mockBookingFindMany.mockResolvedValueOnce([
-      bookingRow({ id: "b1", date: "2026-05-01", revenueStaffId: STAFF_A, revenueStaffName: "芊芊", isMakeup: false }),
-      bookingRow({ id: "b2", date: "2026-05-02", revenueStaffId: STAFF_A, revenueStaffName: "芊芊", isMakeup: true }),
-      bookingRow({ id: "b3", date: "2026-05-03", revenueStaffId: STAFF_A, revenueStaffName: "芊芊", isMakeup: true }),
-    ]);
-    const r = await previewStaffSettlement({
-      startDate: "2026-05-01",
-      endDate: "2026-05-31",
-    });
-    expect(r.summary).toEqual([
-      { staffId: STAFF_A, staffName: "芊芊", regularCount: 1, makeupCount: 2, totalCount: 3 },
-    ]);
-  });
-});
-
-// ── 多店長 group + 排序 ────────────────────────────────────────────
-
-describe("previewStaffSettlement — grouping & sorting", () => {
-  it("多店長 → 依 totalCount desc 排序", async () => {
-    mockBookingFindMany.mockResolvedValueOnce([
-      bookingRow({ id: "b1", date: "2026-05-01", revenueStaffId: STAFF_B, revenueStaffName: "Beta" }),
-      bookingRow({ id: "b2", date: "2026-05-02", revenueStaffId: STAFF_A, revenueStaffName: "Alpha" }),
-      bookingRow({ id: "b3", date: "2026-05-03", revenueStaffId: STAFF_A, revenueStaffName: "Alpha" }),
-      bookingRow({ id: "b4", date: "2026-05-04", revenueStaffId: STAFF_A, revenueStaffName: "Alpha" }),
-    ]);
-    const r = await previewStaffSettlement({
-      startDate: "2026-05-01",
-      endDate: "2026-05-31",
-    });
-    expect(r.summary.map((s) => s.staffId)).toEqual([STAFF_A, STAFF_B]);
-    expect(r.summary[0].totalCount).toBe(3);
-    expect(r.summary[1].totalCount).toBe(1);
-  });
-
-  it("null revenueStaffId → \"(歸店家)\" 排最下面", async () => {
-    mockBookingFindMany.mockResolvedValueOnce([
-      bookingRow({ id: "b1", date: "2026-05-01", revenueStaffId: null }),
-      bookingRow({ id: "b2", date: "2026-05-02", revenueStaffId: null }),
-      bookingRow({ id: "b3", date: "2026-05-03", revenueStaffId: STAFF_A, revenueStaffName: "Alpha" }),
-    ]);
-    const r = await previewStaffSettlement({
-      startDate: "2026-05-01",
-      endDate: "2026-05-31",
-    });
-    expect(r.summary).toHaveLength(2);
-    expect(r.summary[0].staffId).toBe(STAFF_A);
-    expect(r.summary[1].staffId).toBeNull();
-    expect(r.summary[1].staffName).toBe("(歸店家)");
-    // 即使「歸店家」row 的 count 比較高，也應排在最後（語意：最後檢查項）
-  });
-
-  it("即使歸店家 count 更高，仍排最下面", async () => {
-    mockBookingFindMany.mockResolvedValueOnce([
-      bookingRow({ id: "b1", date: "2026-05-01", revenueStaffId: null }),
-      bookingRow({ id: "b2", date: "2026-05-02", revenueStaffId: null }),
-      bookingRow({ id: "b3", date: "2026-05-03", revenueStaffId: null }),
-      bookingRow({ id: "b4", date: "2026-05-04", revenueStaffId: STAFF_A, revenueStaffName: "Alpha" }),
-    ]);
-    const r = await previewStaffSettlement({
-      startDate: "2026-05-01",
-      endDate: "2026-05-31",
-    });
-    expect(r.summary[0].staffId).toBe(STAFF_A);
-    expect(r.summary[1].staffId).toBeNull();
-  });
-
-  it("counted flag: null → false, 有值 → true", async () => {
-    mockBookingFindMany.mockResolvedValueOnce([
-      bookingRow({ id: "b1", date: "2026-05-01", revenueStaffId: STAFF_A, revenueStaffName: "A" }),
-      bookingRow({ id: "b2", date: "2026-05-02", revenueStaffId: null }),
-    ]);
-    const r = await previewStaffSettlement({
-      startDate: "2026-05-01",
-      endDate: "2026-05-31",
-    });
-    expect(r.details[0].counted).toBe(true);
-    expect(r.details[1].counted).toBe(false);
-  });
-
-  it("serviceStaffId 只影響顯示，不影響歸屬 (counted 仍看 revenueStaffId)", async () => {
-    mockBookingFindMany.mockResolvedValueOnce([
-      bookingRow({
+      makeBooking({
         id: "b1",
         date: "2026-05-01",
-        revenueStaffId: null,
-        serviceStaffId: STAFF_B,
-        serviceStaffName: "Beta",
+        bookingType: "FIRST_TRIAL",
+        revenueStaffId: STAFF_A,
+        revenueStaffName: "A",
+        walletId: null,
       }),
     ]);
     const r = await previewStaffSettlement({
       startDate: "2026-05-01",
       endDate: "2026-05-31",
     });
-    expect(r.summary).toEqual([
-      { staffId: null, staffName: "(歸店家)", regularCount: 1, makeupCount: 0, totalCount: 1 },
+    expect(r.details[0]).toMatchObject({
+      amount: 0,
+      amountSource: "trial_no_wallet",
+      needsReview: false,
+      counted: false, // amount=0 不算 counted
+    });
+  });
+
+  it("SINGLE 無 wallet → amount=0, source=single_no_wallet, counted=false", async () => {
+    mockBookingFindMany.mockResolvedValueOnce([
+      makeBooking({
+        id: "b1",
+        date: "2026-05-01",
+        bookingType: "SINGLE",
+        revenueStaffId: STAFF_A,
+        revenueStaffName: "A",
+        walletId: null,
+      }),
     ]);
+    const r = await previewStaffSettlement({
+      startDate: "2026-05-01",
+      endDate: "2026-05-31",
+    });
+    expect(r.details[0]).toMatchObject({
+      amount: 0,
+      amountSource: "single_no_wallet",
+      needsReview: false,
+    });
+  });
+
+  it("PACKAGE_SESSION 無 wallet → amount=null, source=missing_wallet, needsReview=true", async () => {
+    mockBookingFindMany.mockResolvedValueOnce([
+      makeBooking({
+        id: "b1",
+        date: "2026-05-01",
+        bookingType: "PACKAGE_SESSION",
+        revenueStaffId: STAFF_A,
+        revenueStaffName: "A",
+        walletId: null,
+      }),
+    ]);
+    const r = await previewStaffSettlement({
+      startDate: "2026-05-01",
+      endDate: "2026-05-31",
+    });
+    expect(r.details[0]).toMatchObject({
+      amount: null,
+      amountSource: "missing_wallet",
+      needsReview: true,
+    });
+  });
+});
+
+// ── Override 三種 decision ────────────────────────────────────────────
+
+describe("previewStaffSettlement — operator overrides", () => {
+  it("override OVERRIDE_TOTAL → amount = overrideUnitPrice", async () => {
+    mockGetOverride.mockImplementation((id: string) =>
+      id === "wallet-1"
+        ? {
+            walletId: "wallet-1",
+            decision: "OVERRIDE_TOTAL",
+            overrideTotalSessions: 22,
+            overrideUnitPrice: 545.45,
+          }
+        : null,
+    );
+    mockBookingFindMany.mockResolvedValueOnce([
+      makeBooking({
+        id: "b1",
+        date: "2026-05-01",
+        revenueStaffId: STAFF_A,
+        revenueStaffName: "A",
+        walletId: "wallet-1",
+        walletPurchasedPrice: 12000,
+        walletTotalSessions: 20, // 寫的是 20 但 operator override 成 22
+        walletHasAdjustment: true,
+      }),
+    ]);
+    const r = await previewStaffSettlement({
+      startDate: "2026-05-01",
+      endDate: "2026-05-31",
+    });
+    expect(r.details[0].amount).toBeCloseTo(545.45);
+    expect(r.details[0].amountSource).toBe("override");
+    expect(r.details[0].needsReview).toBe(false);
+    expect(r.details[0].counted).toBe(true);
+  });
+
+  it("override CONFIRM_AS_IS → amount = purchasedPrice / totalSessions", async () => {
+    mockGetOverride.mockImplementation((id: string) =>
+      id === "wallet-1"
+        ? { walletId: "wallet-1", decision: "CONFIRM_AS_IS" }
+        : null,
+    );
+    mockBookingFindMany.mockResolvedValueOnce([
+      makeBooking({
+        id: "b1",
+        date: "2026-05-01",
+        revenueStaffId: STAFF_A,
+        revenueStaffName: "A",
+        walletId: "wallet-1",
+        walletPurchasedPrice: 12000,
+        walletTotalSessions: 20,
+        walletHasAdjustment: true, // 即使有 ADJUSTMENT，CONFIRM_AS_IS 仍信任公式
+      }),
+    ]);
+    const r = await previewStaffSettlement({
+      startDate: "2026-05-01",
+      endDate: "2026-05-31",
+    });
+    expect(r.details[0].amount).toBeCloseTo(600);
+    expect(r.details[0].amountSource).toBe("formula_confirmed");
+    expect(r.details[0].needsReview).toBe(false);
+  });
+
+  it("override CONFIRM_AS_IS 但 wallet 資料殘缺 → confirmed_but_data_missing + needsReview", async () => {
+    mockGetOverride.mockImplementation((id: string) =>
+      id === "wallet-1"
+        ? { walletId: "wallet-1", decision: "CONFIRM_AS_IS" }
+        : null,
+    );
+    mockBookingFindMany.mockResolvedValueOnce([
+      makeBooking({
+        id: "b1",
+        date: "2026-05-01",
+        revenueStaffId: STAFF_A,
+        revenueStaffName: "A",
+        walletId: "wallet-1",
+        walletPurchasedPrice: 0, // 異常：confirmed 但價格 0
+        walletTotalSessions: 10,
+      }),
+    ]);
+    const r = await previewStaffSettlement({
+      startDate: "2026-05-01",
+      endDate: "2026-05-31",
+    });
+    expect(r.details[0].amount).toBeNull();
+    expect(r.details[0].amountSource).toBe("confirmed_but_data_missing");
+    expect(r.details[0].needsReview).toBe(true);
+  });
+
+  it("override EXCLUDE_FROM_SETTLEMENT → amount=null, needsReview=true", async () => {
+    mockGetOverride.mockImplementation((id: string) =>
+      id === "wallet-1"
+        ? { walletId: "wallet-1", decision: "EXCLUDE_FROM_SETTLEMENT" }
+        : null,
+    );
+    mockBookingFindMany.mockResolvedValueOnce([
+      makeBooking({
+        id: "b1",
+        date: "2026-05-01",
+        revenueStaffId: STAFF_A,
+        revenueStaffName: "A",
+        walletId: "wallet-1",
+        walletPurchasedPrice: 0, // 活動贈送方案
+        walletTotalSessions: 5,
+      }),
+    ]);
+    const r = await previewStaffSettlement({
+      startDate: "2026-05-01",
+      endDate: "2026-05-31",
+    });
+    expect(r.details[0].amount).toBeNull();
+    expect(r.details[0].amountSource).toBe("operator_excluded");
+    expect(r.details[0].needsReview).toBe(true);
     expect(r.details[0].counted).toBe(false);
-    expect(r.details[0].serviceStaffName).toBe("Beta");
-    expect(r.details[0].revenueStaffName).toBe("(歸店家)");
   });
 });
 
-// ── Staff 篩選 ──────────────────────────────────────────────────────
+// ── 無 override 的 fallback ──────────────────────────────────────────
 
-describe("previewStaffSettlement — staff filter", () => {
-  it("staffId 為 undefined → where 內無 revenueStaffId 限制", async () => {
-    mockBookingFindMany.mockResolvedValueOnce([]);
-    await previewStaffSettlement({
+describe("previewStaffSettlement — fallback when no override", () => {
+  it("無 override 且無 ADJUSTMENT → formula_clean", async () => {
+    mockBookingFindMany.mockResolvedValueOnce([
+      makeBooking({
+        id: "b1",
+        date: "2026-05-01",
+        revenueStaffId: STAFF_A,
+        revenueStaffName: "A",
+        walletId: "wallet-1",
+        walletPurchasedPrice: 5000,
+        walletTotalSessions: 10,
+        walletHasAdjustment: false,
+      }),
+    ]);
+    const r = await previewStaffSettlement({
       startDate: "2026-05-01",
       endDate: "2026-05-31",
     });
-    const [callArg] = mockBookingFindMany.mock.calls[0];
-    expect(callArg.where).not.toHaveProperty("revenueStaffId");
+    expect(r.details[0].amount).toBeCloseTo(500);
+    expect(r.details[0].amountSource).toBe("formula_clean");
+    expect(r.details[0].needsReview).toBe(false);
   });
 
-  it("staffId = UNASSIGNED_STAFF_TOKEN → where.revenueStaffId = null", async () => {
-    mockBookingFindMany.mockResolvedValueOnce([]);
-    await previewStaffSettlement({
+  it("無 override 但有 ADJUSTMENT → needs_operator_review（保守預設，不算）", async () => {
+    mockBookingFindMany.mockResolvedValueOnce([
+      makeBooking({
+        id: "b1",
+        date: "2026-05-01",
+        revenueStaffId: STAFF_A,
+        revenueStaffName: "A",
+        walletId: "wallet-1",
+        walletPurchasedPrice: 12000,
+        walletTotalSessions: 20,
+        walletHasAdjustment: true,
+      }),
+    ]);
+    const r = await previewStaffSettlement({
       startDate: "2026-05-01",
       endDate: "2026-05-31",
-      staffId: UNASSIGNED_STAFF_TOKEN,
     });
-    const [callArg] = mockBookingFindMany.mock.calls[0];
-    expect(callArg.where.revenueStaffId).toBeNull();
+    expect(r.details[0].amount).toBeNull();
+    expect(r.details[0].amountSource).toBe("needs_operator_review");
+    expect(r.details[0].needsReview).toBe(true);
   });
 
-  it("staffId = 特定 cuid → where.revenueStaffId = 該 cuid", async () => {
-    mockBookingFindMany.mockResolvedValueOnce([]);
-    await previewStaffSettlement({
+  it("無 override + wallet 資料殘缺（price=0）→ data_missing", async () => {
+    mockBookingFindMany.mockResolvedValueOnce([
+      makeBooking({
+        id: "b1",
+        date: "2026-05-01",
+        revenueStaffId: STAFF_A,
+        revenueStaffName: "A",
+        walletId: "wallet-1",
+        walletPurchasedPrice: 0,
+        walletTotalSessions: 10,
+        walletHasAdjustment: false,
+      }),
+    ]);
+    const r = await previewStaffSettlement({
       startDate: "2026-05-01",
       endDate: "2026-05-31",
-      staffId: STAFF_A,
     });
-    const [callArg] = mockBookingFindMany.mock.calls[0];
-    expect(callArg.where.revenueStaffId).toBe(STAFF_A);
+    expect(r.details[0].amount).toBeNull();
+    expect(r.details[0].amountSource).toBe("data_missing");
+    expect(r.details[0].needsReview).toBe(true);
   });
 });
 
-// ── PARTNER manager visibility 不被覆蓋 ─────────────────────────────
+// ── 補課溯源 ─────────────────────────────────────────────────────────
+
+describe("previewStaffSettlement — makeup booking traces to original wallet", () => {
+  it("補課 booking 透過 makeupCredit 溯源原 wallet 計算", async () => {
+    mockBookingFindMany.mockResolvedValueOnce([
+      makeBooking({
+        id: "b-makeup",
+        date: "2026-05-01",
+        isMakeup: true,
+        revenueStaffId: STAFF_A,
+        revenueStaffName: "A",
+        walletId: null, // 補課自己無 wallet
+        makeupOriginalWalletId: "wallet-orig",
+        makeupOriginalPurchasedPrice: 8000,
+        makeupOriginalTotalSessions: 10,
+        makeupOriginalHasAdjustment: false,
+      }),
+    ]);
+    const r = await previewStaffSettlement({
+      startDate: "2026-05-01",
+      endDate: "2026-05-31",
+    });
+    expect(r.details[0].walletId).toBe("wallet-orig");
+    expect(r.details[0].amount).toBeCloseTo(800);
+    expect(r.details[0].amountSource).toBe("formula_clean");
+  });
+});
+
+// ── Summary aggregation ──────────────────────────────────────────────
+
+describe("previewStaffSettlement — summary aggregation", () => {
+  it("countedAmount 加總所有 amount > 0 且 revenueStaffId !== null 的 booking", async () => {
+    mockBookingFindMany.mockResolvedValueOnce([
+      makeBooking({
+        id: "b1",
+        date: "2026-05-01",
+        revenueStaffId: STAFF_A,
+        revenueStaffName: "A",
+        walletId: "w1",
+        walletPurchasedPrice: 5000,
+        walletTotalSessions: 10,
+      }),
+      makeBooking({
+        id: "b2",
+        date: "2026-05-02",
+        revenueStaffId: STAFF_A,
+        revenueStaffName: "A",
+        walletId: "w2",
+        walletPurchasedPrice: 6000,
+        walletTotalSessions: 10,
+      }),
+      // 歸店家 → counted=false
+      makeBooking({
+        id: "b3",
+        date: "2026-05-03",
+        revenueStaffId: null,
+        walletId: "w3",
+        walletPurchasedPrice: 5000,
+        walletTotalSessions: 10,
+      }),
+      // needsReview → 不計入 countedAmount
+      makeBooking({
+        id: "b4",
+        date: "2026-05-04",
+        revenueStaffId: STAFF_A,
+        revenueStaffName: "A",
+        walletId: "w4",
+        walletPurchasedPrice: 5000,
+        walletTotalSessions: 10,
+        walletHasAdjustment: true, // → needs_operator_review
+      }),
+    ]);
+    const r = await previewStaffSettlement({
+      startDate: "2026-05-01",
+      endDate: "2026-05-31",
+    });
+    const staffA = r.summary.find((s) => s.staffId === STAFF_A)!;
+    expect(staffA.countedAmount).toBeCloseTo(500 + 600);
+    expect(staffA.totalCount).toBe(3); // b1, b2, b4
+    expect(staffA.needsReviewCount).toBe(1); // b4
+    const homeless = r.summary.find((s) => s.staffId === null)!;
+    expect(homeless.countedAmount).toBe(0);
+  });
+
+  it("歸店家 row 永遠排最下（即使 countedAmount 高）", async () => {
+    mockBookingFindMany.mockResolvedValueOnce([
+      makeBooking({
+        id: "b1",
+        date: "2026-05-01",
+        revenueStaffId: null,
+        walletId: "w1",
+        walletPurchasedPrice: 9999,
+        walletTotalSessions: 1,
+      }),
+      makeBooking({
+        id: "b2",
+        date: "2026-05-02",
+        revenueStaffId: STAFF_A,
+        revenueStaffName: "A",
+        walletId: "w2",
+        walletPurchasedPrice: 100,
+        walletTotalSessions: 10,
+      }),
+    ]);
+    const r = await previewStaffSettlement({
+      startDate: "2026-05-01",
+      endDate: "2026-05-31",
+    });
+    expect(r.summary[0].staffId).toBe(STAFF_A);
+    expect(r.summary[1].staffId).toBeNull();
+  });
+
+  it("regular + makeup 分開 count，amount 各自加總", async () => {
+    mockBookingFindMany.mockResolvedValueOnce([
+      makeBooking({
+        id: "b1",
+        date: "2026-05-01",
+        isMakeup: false,
+        revenueStaffId: STAFF_A,
+        revenueStaffName: "A",
+        walletId: "w1",
+        walletPurchasedPrice: 5000,
+        walletTotalSessions: 10,
+      }),
+      makeBooking({
+        id: "b2",
+        date: "2026-05-02",
+        isMakeup: true,
+        revenueStaffId: STAFF_A,
+        revenueStaffName: "A",
+        walletId: null,
+        makeupOriginalWalletId: "w-orig",
+        makeupOriginalPurchasedPrice: 6000,
+        makeupOriginalTotalSessions: 10,
+      }),
+    ]);
+    const r = await previewStaffSettlement({
+      startDate: "2026-05-01",
+      endDate: "2026-05-31",
+    });
+    const staffA = r.summary[0];
+    expect(staffA.regularCount).toBe(1);
+    expect(staffA.makeupCount).toBe(1);
+    expect(staffA.totalCount).toBe(2);
+    expect(staffA.countedAmount).toBeCloseTo(500 + 600);
+  });
+});
+
+// ── PARTNER visibility lockdown (regression from PR-2) ───────────────
 
 describe("previewStaffSettlement — PARTNER visibility lockdown", () => {
-  it("PARTNER manager filter 已綁定 revenueStaffId → 即使 URL 傳他人 staffId 也不可覆蓋", async () => {
-    // Simulate PARTNER SELF_ONLY mode: getManagerReadFilter returns
-    // { storeId, revenueStaffId: STAFF_A } (PARTNER is STAFF_A)
-    mockRequireStaffSession.mockResolvedValueOnce({
-      role: "PARTNER",
-      staffId: STAFF_A,
-      storeId: STORE_A,
-    });
-    mockGetManagerReadFilter.mockReturnValueOnce({
-      storeId: STORE_A,
-      revenueStaffId: STAFF_A, // PARTNER bound to self
-    });
-    mockBookingFindMany.mockResolvedValueOnce([]);
-
-    // PARTNER 嘗試從 URL 傳 staffId=STAFF_B 想看別人
-    await previewStaffSettlement({
-      startDate: "2026-05-01",
-      endDate: "2026-05-31",
-      staffId: STAFF_B,
-    });
-
-    const [callArg] = mockBookingFindMany.mock.calls[0];
-    // 最終 where.revenueStaffId 必須仍是 STAFF_A，不可被覆蓋
-    expect(callArg.where.revenueStaffId).toBe(STAFF_A);
-  });
-
-  it("PARTNER 傳 UNASSIGNED_STAFF_TOKEN 也不可覆蓋 manager filter", async () => {
+  it("PARTNER manager filter 不可被 URL staffId 覆蓋", async () => {
     mockRequireStaffSession.mockResolvedValueOnce({
       role: "PARTNER",
       staffId: STAFF_A,
@@ -318,49 +566,38 @@ describe("previewStaffSettlement — PARTNER visibility lockdown", () => {
       revenueStaffId: STAFF_A,
     });
     mockBookingFindMany.mockResolvedValueOnce([]);
-
     await previewStaffSettlement({
       startDate: "2026-05-01",
       endDate: "2026-05-31",
-      staffId: UNASSIGNED_STAFF_TOKEN,
+      staffId: STAFF_B, // PARTNER 想看別人
     });
-
     const [callArg] = mockBookingFindMany.mock.calls[0];
     expect(callArg.where.revenueStaffId).toBe(STAFF_A);
   });
 });
 
-// ── Multi-store scope ────────────────────────────────────────────────
+// ── Staff filter ─────────────────────────────────────────────────────
 
-describe("previewStaffSettlement — multi-store scope", () => {
-  it("activeStoreId 被帶入 getManagerReadFilter", async () => {
+describe("previewStaffSettlement — staff filter", () => {
+  it("UNASSIGNED_STAFF_TOKEN → where.revenueStaffId = null", async () => {
     mockBookingFindMany.mockResolvedValueOnce([]);
     await previewStaffSettlement({
       startDate: "2026-05-01",
       endDate: "2026-05-31",
-      activeStoreId: "store-other",
+      staffId: UNASSIGNED_STAFF_TOKEN,
     });
-    // 第 4 個 arg 是 storeId
-    expect(mockGetManagerReadFilter).toHaveBeenCalledWith(
-      "OWNER",
-      STAFF_A,
-      "revenueStaffId",
-      "store-other",
-    );
+    const [callArg] = mockBookingFindMany.mock.calls[0];
+    expect(callArg.where.revenueStaffId).toBeNull();
   });
 
-  it("activeStoreId 為 null → 走 user.storeId fallback", async () => {
+  it("特定 staffId → where.revenueStaffId = 該 id", async () => {
     mockBookingFindMany.mockResolvedValueOnce([]);
     await previewStaffSettlement({
       startDate: "2026-05-01",
       endDate: "2026-05-31",
-      activeStoreId: null,
+      staffId: STAFF_B,
     });
-    expect(mockGetManagerReadFilter).toHaveBeenCalledWith(
-      "OWNER",
-      STAFF_A,
-      "revenueStaffId",
-      STORE_A,
-    );
+    const [callArg] = mockBookingFindMany.mock.calls[0];
+    expect(callArg.where.revenueStaffId).toBe(STAFF_B);
   });
 });

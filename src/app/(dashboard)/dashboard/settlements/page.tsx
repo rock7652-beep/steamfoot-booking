@@ -94,24 +94,23 @@ export default async function SettlementsPage({ searchParams }: PageProps) {
   return (
     <PageShell>
       <PageHeader
-        title="店長服務費試算"
+        title="店長服務金額試算"
         subtitle={
-          "此為「試算」非正式結算單。輸入單次服務費即可即時看到當月每位店長應結金額；資料不會被寫入。"
+          "依顧客方案實收金額 ÷ 總可使用堂數攤提到每筆完成服務。此頁仍為試算，不會建立正式結算單，資料不會被寫入。"
         }
       />
 
-      {/* PR-2.1 應急警示：金額邏輯尚未依方案攤提計算，避免店長誤用 */}
+      {/*
+        Banner 文案故意保持簡短、店長友善。
+        engineering 流程（plan-amortization-wallet-review.ts → CSV → csv-to-settlement-overrides.ts →
+        提 PR 更新 data/settlement-wallet-overrides.json）寫在 docs/staff-settlement-phase1-spec.md §3.7.4，
+        不在 UI 顯示，避免店長以為系統還在半成品狀態。
+      */}
       <div
-        role="alert"
-        className="rounded-lg border-2 border-amber-300 bg-amber-50 p-3 text-sm text-amber-900"
+        role="note"
+        className="rounded-lg border border-earth-200 bg-earth-50 p-3 text-sm text-earth-700"
       >
-        <p className="font-semibold">
-          ⚠️ 此頁目前僅供「服務次數與歸屬店長」檢查。
-        </p>
-        <p className="mt-1">
-          金額尚未依「顧客方案實收金額 ÷ 總可使用堂數」計算，請勿作為正式結算依據。
-        </p>
-        <p className="mt-1 text-xs text-amber-700">完整版方案攤提試算開發中。</p>
+        此頁為「服務金額試算」，依顧客方案金額與完成服務紀錄估算，僅供內部對帳參考，非正式結算單。
       </div>
 
       <SettlementsView

@@ -96,17 +96,163 @@ booking 建立流程**只能**透過此 helper 寫入 `revenueStaffId`。
 - 若 prod 上發現大量 null，正解是用 drawer / 批次指派 UI 補齊（PR #122），
   或對歷史 booking 走 PR-1.5b backfill dry-run，由 operator review 後寫入。
 
-### 3.5 服務費單價（Phase 1 暫定）
+### 3.5 服務費單價（已停用，由 §3.7 取代）
 
-- 由頁面 input 提供（單一數字，例如 300）
-- **不入庫、不寫死、不依方案分流**
-- 「方案 × 店長」差異化單價留 Phase 2
+> ⚠️ **deprecated 2026-05-13**（原 PR-2 設計）：用「頁面 input 單一服務費 × 完成次數」試算，
+> 不符實際營運（不是分潤 / 抽成）。PR-2.2 改用 §3.7 攤提公式。
 
 ### 3.6 multi-store
 
 - 一律 store-scoped，沿用 `getManagerReadFilter()`
 - 店長角色只能看自己；OWNER / ADMIN 看全店
 - 不跨店讀取
+
+### 3.7 服務金額計算規則（方案攤提，2026-05-13 PR-2.2 上線）
+
+#### 3.7.1 公式
+
+```
+方案單堂金額 = 顧客方案實收金額 ÷ 總可使用堂數
+
+店長當月服務金額 = Σ (該店長為 revenueStaffId 的每筆 completed booking 對應方案單堂金額)
+```
+
+**範例**：「20 堂 + 贈送 2 堂、實收 12,000」
+
+| 變數 | 值 |
+|---|---|
+| 顧客方案實收金額 | 12,000 |
+| 總可使用堂數 | **22**（20 + 2 贈送） |
+| 方案單堂金額 | 12,000 ÷ 22 = **545.45** |
+
+該顧客 5 月完成 3 次服務 → 該月歸屬該店長 = 545.45 × 3 = 1,636.35。
+
+**這不是分潤 / 抽成比例。** 是「方案收入按可用堂數攤提」。
+
+#### 3.7.2 資料來源
+
+| 欄位 | 來源 |
+|---|---|
+| 方案實收金額 | `CustomerPlanWallet.purchasedPrice`（Decimal(10, 0) 快照） |
+| 總可使用堂數 | `CustomerPlanWallet.totalSessions` |
+| Booking 對應 wallet | `Booking.customerPlanWalletId`，補課透過 `Booking.makeupCreditId → MakeupCredit.originalBookingId → 原 booking.customerPlanWalletId` 溯源 |
+| 歸屬店長 | `Booking.revenueStaffId`（PR-1.5a 鎖定的快照） |
+
+#### 3.7.3 schema 已知限制：`totalSessions` 可能不含贈送
+
+`CustomerPlanWallet` **沒有獨立 `bonusSessions` 欄位**，只有 `totalSessions`。所以贈送堂歸入 `totalSessions` 與否，取決於 operator 當時建方案 / 加贈的方式：
+
+- **A 寫法**（公式正確）：贈送直接寫進 `ServicePlan.sessionCount`（22 = 20+2）→ wallet.totalSessions=22 → 12000/22=545.45 ✓
+- **B 寫法**（公式失準）：先設 sessionCount=20，購買後用 `adjustRemainingSessions` 加 2 堂（只動 remainingSessions，**不動** totalSessions）→ 12000/20=600 ❌
+
+PR-1 audit 顯示 prod 過去 6 個月 83 筆 ADJUSTMENT 全 amount=0（月均 13.8）— B 寫法可能正在發生。
+
+#### 3.7.4 Operator override 機制
+
+針對 risk wallet（有 ADJUSTMENT 紀錄者），operator 必須人工確認真實單堂金額。流程：
+
+1. 執行 [scripts/plan-amortization-wallet-review.ts](../scripts/plan-amortization-wallet-review.ts)（read-only）→ CSV
+2. Operator 在 Excel / Sheets 填四欄：`suggestedCorrectTotalSessions` / `suggestedUnitPrice` / `reviewNote` / `operatorDecision`
+3. 執行 [scripts/csv-to-settlement-overrides.ts](../scripts/csv-to-settlement-overrides.ts)（離線轉換）→ JSON
+4. 提 PR 更新 [data/settlement-wallet-overrides.json](../data/settlement-wallet-overrides.json)
+5. /dashboard/settlements 自動 pick up
+
+`operatorDecision` 三種值對應的計算規則：
+
+| Decision | UI 顯示 | 金額來源 |
+|---|---|---|
+| `OVERRIDE_TOTAL` | 用人工指定的 unit price | `override.overrideUnitPrice` |
+| `CONFIRM_AS_IS` | 用公式計算 | `wallet.purchasedPrice ÷ wallet.totalSessions` |
+| `EXCLUDE_FROM_SETTLEMENT` | 「需人工確認」、金額空白 | `null` |
+
+#### 3.7.5 計算決策樹（implementation 參考）
+
+對每筆 COMPLETED booking：
+
+```
+walletId = booking.customerPlanWalletId
+         ?? booking.makeupCredit.originalBooking.customerPlanWalletId
+
+若 walletId = null：
+  FIRST_TRIAL  → amount=0, source="trial_no_wallet"
+  SINGLE       → amount=0, source="single_no_wallet"
+  PACKAGE      → amount=null, source="missing_wallet", needsReview=true
+
+若 walletId 有值：
+  override = getOverrideForWallet(walletId)
+  
+  override?.decision === "EXCLUDE_FROM_SETTLEMENT"
+    → amount=null, source="operator_excluded", needsReview=true
+  
+  override?.decision === "OVERRIDE_TOTAL"
+    → amount = override.overrideUnitPrice, source="override"
+  
+  override?.decision === "CONFIRM_AS_IS"
+    → 若 wallet.purchasedPrice > 0 AND wallet.totalSessions > 0:
+        amount = wallet.purchasedPrice / wallet.totalSessions, source="formula_confirmed"
+      否則:
+        amount=null, source="confirmed_but_data_missing", needsReview=true
+  
+  override === null（沒被 operator review）:
+    若 wallet 有 ADJUSTMENT transaction:
+      → amount=null, source="needs_operator_review", needsReview=true
+        （**保守預設**：未經 review 的 risk wallet 不硬算）
+    否則:
+      → 若 wallet.purchasedPrice > 0 AND wallet.totalSessions > 0:
+          amount = wallet.purchasedPrice / wallet.totalSessions, source="formula_clean"
+        否則:
+          amount=null, source="data_missing", needsReview=true
+```
+
+#### 3.7.6 PII / 安全邊界
+
+- JSON 內**只**放 `walletId / decision / overrideTotalSessions / overrideUnitPrice`
+- **不**放 customerName / reviewNote / 電話 / email 等 PII
+- 原始填寫的 CSV 是營運資料，**不 commit 進 repo**
+- JSON 載入失敗或 schema 不通 → server boot 直接 throw（不沉默 fallback）
+
+#### 3.7.7 頁面命名
+
+「店長服務費試算」（PR-2）→ **「店長服務金額試算」**（PR-2.2）。
+避免「分潤 / 抽成 / 固定費率」語意誤解。
+
+#### 3.7.8 Phase 2 schema 改造（不在 PR-2.x 範圍）
+
+- 加 `CustomerPlanWallet.bonusSessions Int @default(0)`（從 totalSessions 拆出）
+- 加 `CustomerPlanWallet.unitPriceAtPurchase Decimal(10, 2)` snapshot
+- 修 `assignPlanToCustomer` 寫入這些欄位
+- 舊資料 backfill 用 wallet override JSON 為真實值
+- ADJUSTMENT 加 `reason` enum 區分（贈送 / 折抵 / 補登）
+- 加 `SettlementWalletOverride` 表（讓 operator 在 UI 改 override，取代 JSON）
+
+#### 3.7.9 制度面 follow-up：紙本舊客補登流程
+
+**問題情境**：2026-05-13 prod 驗收時發現有顧客 wallet
+`cmotrsp2b0001kv04snvpx1y2` 的 `purchasedPrice = 0`。原因不是免費方案，而是
+「舊客紙本資料補登 — 實收 12,000 已在系統外收過，操作者補登 wallet 時沒再次
+鍵入金額」。當下用 OVERRIDE_TOTAL 修正（22 堂 / 545.45），但這條漏洞不該靠
+人工 override 永久處理。
+
+**建議 Phase 2 加補登 UI**（系統允許 wallet 建立時明確標示「舊客補登」）：
+
+```
+[ 紙本舊客補登 ]
+顧客方案：________________
+已收金額：________________   ← 必填（與 purchasedPrice 寫入相同）
+總堂數：__________________   ← 含贈送堂
+起始剩餘堂數：____________   ← 顧客目前還剩幾堂可用
+備註：___________________   ← 自由文字，例：「2024-12 紙本，現金已收」
+```
+
+這條 UI 走 `assignPlanToCustomer` 但走「補登模式」分支：
+
+- 不產生 PACKAGE_PURCHASE Transaction（因為錢已收過）
+- 仍寫入 `wallet.purchasedPrice = 已收金額` + `totalSessions = 總堂數`
+- `remainingSessions = 起始剩餘`
+- Note / audit log 標示來源為「紙本補登」
+
+這樣未來 audit 不會把 purchasedPrice=0 誤判為「免費方案」，operator 也不用
+再開 settlement override PR 補救。
 
 ---
 
@@ -193,9 +339,13 @@ booking 建立流程**只能**透過此 helper 寫入 `revenueStaffId`。
 | PR-1.5a ✅ | future-only fix：booking 建立寫入 revenueStaffId 快照（#126，**禁止** resolver fallback / customer 副作用，已鎖 source guard） | ❌ | ❌ |
 | PR-1.5b ✅ | 歷史 backfill **dry-run** 腳本（#127） | ❌ | ❌ |
 | PR-1.5c | 歷史 backfill 真實寫入腳本（default dry-run；ops-only，不一定合進 main） | ❌ | ❌ |
-| PR-2 ✅（本支）| `src/server/queries/staff-settlement.ts` + `/dashboard/settlements` 試算頁（query + UI 同 PR） | ❌ | ✅ |
+| PR-2 ✅ | 試算頁初版（fee × count，#129） | ❌ | ✅ |
+| 警示 banner ✅ | mini-PR：在 PR-2 頁面加紅色 banner（#130） | ❌ | ✅ |
+| PR-2.1a ✅ | wallet-level sanity check（#131） | ❌ | ❌ |
+| PR-2.1b ✅ | operator review CSV worksheet（#132） | ❌ | ❌ |
+| **PR-2.2 ✅（本支）** | 攤提金額版：移除 fee input；用 wallet override JSON；頁面改名「店長服務金額試算」；NEEDS_REVIEW UI | ❌ | ✅ |
 | PR-3 | `/api/settlements/export` xlsx 匯出 | ❌ | ✅ |
-| PR-4（Phase 2）| StaffSettlement / StaffSettlementLine schema + 正式結算 / 付款 / 鎖帳 流程；切出獨立 `settlement.read / .confirm / .pay` 權限 | ✅ | ✅ |
+| PR-4（Phase 2）| `CustomerPlanWallet.bonusSessions` + `unitPriceAtPurchase` schema + `SettlementWalletOverride` table + 正式結算 / 付款 / 鎖帳 + 獨立 `settlement.*` 權限 | ✅ | ✅ |
 
 > **PR-2 動工前狀態**：PR-1.5a 已鎖死 booking 建立的快照規則，PR-1.5b 已產出
 > backfill dry-run 工具。本 PR 僅做「試算」UI，**不**做正式結算單 / 付款 / 鎖帳。
@@ -386,7 +536,7 @@ Phase 1 模組設計應考慮「小資料量友善」的展示（例如就算只
   - 23 筆全部是 backfill candidates，無跨店異常
   - 路線決策：A + D（PR-1.5a future-only fix → PR-1.5b backfill dry-run）
   §7 PR 路線圖加入 PR-1.5 / 1.5a / 1.5b，PR-2 解 BLOCK 條件改寫。
-- 2026-05-12（PR-2 試算頁，本次）：
+- 2026-05-12（PR-2 試算頁）：
   - 新增 `src/server/queries/staff-settlement.ts`（read-only query，依
     Booking.revenueStaffId 分組，不引入 resolver，PARTNER manager filter 不可
     被 URL staffId 覆蓋）
@@ -397,3 +547,32 @@ Phase 1 模組設計應考慮「小資料量友善」的展示（例如就算只
   - dashboard 首頁加「服務費試算 →」入口
   - §7 PR 路線圖更新：PR-3 改為 xlsx 匯出；Phase 2 PR-4 含正式結算單 + 獨立
     `settlement.*` 權限
+- 2026-05-12（警示 banner、PR-2.1a、PR-2.1b）：警示 banner 上線（#130）；
+  wallet-level sanity check 抽樣（#131）；operator review CSV worksheet（#132）。
+  Operator 對 11 個 risk wallet 完成人工 review，分布為
+  CONFIRM_AS_IS:6 / OVERRIDE_TOTAL:4 / EXCLUDE_FROM_SETTLEMENT:1。
+- 2026-05-13（PR-2.2 攤提金額，本次）：
+  - 新增 §3.7 服務金額計算規則（公式 + 範例 + 資料來源 + bonusSessions
+    schema 限制 + operator override 機制 + 計算決策樹 + PII 邊界 + 頁面改名 +
+    Phase 2 schema 改造計畫）
+  - 標記 §3.5 為 deprecated（由 §3.7 取代）
+  - 新增 `data/settlement-wallet-overrides.json`（空陣列預設，由 operator
+    review CSV 透過轉換腳本生成）
+  - 新增 `src/server/services/settlement-overrides.ts`：JSON 載入、Zod
+    驗證、`getOverrideForWallet()` lookup；模組 boot 時 fail-loud 不沉默
+    fallback
+  - 新增 `scripts/csv-to-settlement-overrides.ts`：CSV → JSON 離線轉換；
+    對非法 operatorDecision / 必填欄位缺失立刻 fail fast；不含 PII（不寫
+    reviewNote / customerName）
+  - 重寫 `src/server/queries/staff-settlement.ts`：每筆 booking 計算
+    `amount` / `amountSource` / `needsReview`；補課透過 makeupCredit 溯源
+    原 wallet；保守預設：有 ADJUSTMENT 但未經 review 一律 needsReview，不
+    硬算
+  - 改 `/dashboard/settlements`：移除 fee input、頁面改名「店長服務金額
+    試算」、KPI 多一個「需人工確認」、明細表多「金額來源」column、需人工
+    確認列加 ⚠️ flag；警示 banner 文案更新（仍為試算，但金額已依攤提算）
+  - reports 頁入口按鈕 → 「服務金額試算 →」
+  - 補測 17 個 vitest case（query 完全重寫）+ 15 個 settlement-overrides
+    schema 測試
+  - §7 PR 路線圖更新：PR-2.2 ✅；Phase 2 PR-4 加上 SettlementWalletOverride
+    table 取代 JSON
