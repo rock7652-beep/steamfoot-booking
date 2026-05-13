@@ -48,6 +48,7 @@ const TX_TYPE_LABEL: Record<string, string> = {
   REFUND: "退款",
   ADJUSTMENT: "手動調整",
   MANUAL_USED_BACKFILL: "補登已使用",
+  PAPER_MIGRATION: "紙本轉入", // 非今日新收款；不入營收 / 現金帳 / 教練業績
 };
 
 const CUSTOMER_STAGE_LABEL: Record<CustomerStage, string> = {

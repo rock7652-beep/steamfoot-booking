@@ -1,0 +1,25 @@
+-- ============================================================
+-- PAPER_MIGRATION TransactionType (紙本舊客轉入線上)
+-- ============================================================
+-- 規格：紙本舊客轉入線上時，要為新建的 CustomerPlanWallet 記下
+--   「原始實收金額」這筆歷史紀錄（amount = wallet.purchasedPrice），
+--   但這不是「今日新收款」，所以必須與既有 PURCHASE 類型嚴格區隔。
+--
+-- 安全性：純 ADD VALUE，向後相容。
+--   - 既有資料、既有 query、既有 enum 篩選都不受影響
+--   - PAPER_MIGRATION 不在以下任一白名單，自動不進對應流量：
+--       * REVENUE_TRANSACTION_TYPES（reports / coach-revenue / store-monthly / staff-monthly）
+--       * CASH_TRANSACTION_TYPES（cashbook）
+--       * 教練業績 / 完成服務統計
+--   - 不可手動透過 /dashboard/transactions 新增 — Zod schema
+--     `createTransactionSchema` 的 transactionType enum 不含此值；
+--     只能由未來 PR-B 的 `migratePaperPlan` server action 系統產生
+--
+-- 對應 commits / refs：
+--   - docs/staff-settlement-phase1-spec.md §3.7.9（紙本舊客補登流程）
+--   - 既有 MANUAL_USED_BACKFILL 補登「已用堂數」；PAPER_MIGRATION 補登
+--     「原始實收金額」。兩者一起描述完整的紙本卡狀態
+-- ============================================================
+
+-- AlterEnum: TransactionType 新增 PAPER_MIGRATION
+ALTER TYPE "TransactionType" ADD VALUE 'PAPER_MIGRATION';

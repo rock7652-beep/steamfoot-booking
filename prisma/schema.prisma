@@ -142,6 +142,7 @@ enum TransactionType {
   REFUND // 退款
   ADJUSTMENT // 手動調整
   MANUAL_USED_BACKFILL // 補登已使用堂數（紙本卡轉線上）：不進營收 / 現金帳 / 教練業績
+  PAPER_MIGRATION // 紙本舊客轉入線上：記錄原始實收金額；不進營收 / 現金帳 / 教練業績；非今日新收款
 }
 
 enum TransactionStatus {
