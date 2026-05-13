@@ -17,6 +17,8 @@ interface CustomerResult {
 interface CustomerSearchProps {
   defaultCustomerId?: string;
   defaultCustomerLabel?: string;
+  /** 顧客選取 / 清空時通知父層（用於拉方案資訊等） */
+  onSelect?: (customerId: string | null) => void;
 }
 
 /** Client search cache：keyword → results。
@@ -31,6 +33,7 @@ const SEARCH_DEBOUNCE_MS = 250;
 export default function CustomerSearch({
   defaultCustomerId,
   defaultCustomerLabel,
+  onSelect,
 }: CustomerSearchProps) {
   const [query, setQuery] = useState(defaultCustomerLabel ?? "");
   const [results, setResults] = useState<CustomerResult[]>([]);
@@ -105,6 +108,7 @@ export default function CustomerSearch({
     setSelectedId(c.id);
     setQuery(`${c.name}（${c.phone || c.email || ""}）`);
     setIsOpen(false);
+    onSelect?.(c.id);
   }
 
   return (
@@ -115,7 +119,10 @@ export default function CustomerSearch({
         value={query}
         onChange={(e) => {
           setQuery(e.target.value);
-          if (selectedId) setSelectedId("");
+          if (selectedId) {
+            setSelectedId("");
+            onSelect?.(null);
+          }
         }}
         onFocus={() => results.length > 0 && setIsOpen(true)}
         placeholder="搜尋姓名、電話或 Email..."
