@@ -185,6 +185,23 @@ enum CashbookEntryType {
   ADJUSTMENT
 }
 
+enum CashDrawerSessionStatus {
+  OPEN
+  CLOSED
+  NEED_REVIEW // 預留：未來覆核流程用；PR-2 階段不寫入
+}
+
+enum CashDrawerEntryType {
+  CASH_WITHDRAWAL
+  CASH_DEPOSIT
+  CASH_ADJUSTMENT
+}
+
+enum CashDrawerDirection {
+  IN
+  OUT
+}
+
 enum ReminderChannel {
   EMAIL
   LINE
@@ -341,6 +358,11 @@ model User {
   // v2 退款
   refundedTransactions Transaction[] @relation("RefundedTransactions")
 
+  // Cash Drawer（現金抽屜）
+  openedCashDrawerSessions CashDrawerSession[] @relation("CashDrawerOpenedBy")
+  closedCashDrawerSessions CashDrawerSession[] @relation("CashDrawerClosedBy")
+  createdCashDrawerEntries CashDrawerEntry[]   @relation("CashDrawerEntryCreatedBy")
+
   // 同一角色內手機不重複，但不同角色可共用手機
   @@unique([phone, role])
   @@index([phone])
@@ -446,6 +468,9 @@ model Store {
   referralEvents       ReferralEvent[]
   checkinPosts         CheckinPost[]
   transactionAuditLogs TransactionAuditLog[]
+
+  cashDrawerSessions CashDrawerSession[]
+  cashDrawerEntries  CashDrawerEntry[]
 
   @@index([parentStoreId])
 }
@@ -1635,4 +1660,84 @@ model ReferralEvent {
   @@index([referrerId])
   @@index([bookingId])
   @@index([type])
+}
+
+// ============================================================
+// Cash Drawer（現金抽屜）— 每店每營業日 1 個 session
+// ============================================================
+// 規格：docs/cash-drawer-spec.md
+//
+// 三大原則：
+//   1. Cash Drawer 是滾動結餘（finalBookBalance = expectedClosingCash）
+//   2. 現金提領不是支出（不影響營收 / 損益 / 服務費結算）
+//   3. 現金補入不是收入（不影響營收報表）
+//
+// 顧客現金交易：直接 query Transaction.paymentMethod=CASH，不複寫到 CashDrawerEntry
+// 閉店後 session 鎖定；發現錯誤走下日 OPEN session 的 CASH_ADJUSTMENT 留痕
+// ============================================================
+
+model CashDrawerSession {
+  id           String                  @id @default(cuid())
+  storeId      String
+  businessDate DateTime                @db.Date // UTC+8 邊界
+  status       CashDrawerSessionStatus @default(OPEN)
+
+  // 開店
+  openingBookBalance Decimal  @db.Decimal(10, 0) // 應有金額（昨日 finalBookBalance 或首次設定）
+  openingActualCash  Decimal  @db.Decimal(10, 0) // 實際點到金額
+  openingDifference  Decimal  @db.Decimal(10, 0) // actualCash - bookBalance（可正可負）
+  openingNote        String? // 差額非 0 時必填
+  openedByUserId     String
+  openedAt           DateTime @default(now())
+
+  // 閉店時快照（避免重複計算 + 提速）— 全部正數量級，cashAdjustmentTotal 例外（signed）
+  cashIncomeTotal     Decimal @default(0) @db.Decimal(10, 0)
+  cashExpenseTotal    Decimal @default(0) @db.Decimal(10, 0) // REFUND 負值翻正後存入
+  cashWithdrawalTotal Decimal @default(0) @db.Decimal(10, 0)
+  cashDepositTotal    Decimal @default(0) @db.Decimal(10, 0)
+  cashAdjustmentTotal Decimal @default(0) @db.Decimal(10, 0) // signed（IN 為正、OUT 為負）
+
+  // 閉店欄位 — CLOSED 後不可修改
+  expectedClosingCash Decimal?  @db.Decimal(10, 0)
+  closingActualCash   Decimal?  @db.Decimal(10, 0)
+  closingDifference   Decimal?  @db.Decimal(10, 0) // closingActualCash - expectedClosingCash
+  closingNote         String?
+  closedByUserId      String?
+  closedAt            DateTime?
+  finalBookBalance    Decimal?  @db.Decimal(10, 0) // = expectedClosingCash（維持帳面責任鏈）
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  store    Store             @relation(fields: [storeId], references: [id])
+  openedBy User              @relation("CashDrawerOpenedBy", fields: [openedByUserId], references: [id])
+  closedBy User?             @relation("CashDrawerClosedBy", fields: [closedByUserId], references: [id])
+  entries  CashDrawerEntry[]
+
+  @@unique([storeId, businessDate]) // 每店每日只能一個 session
+  @@index([storeId])
+  @@index([businessDate])
+  @@index([status])
+}
+
+model CashDrawerEntry {
+  id              String              @id @default(cuid())
+  storeId         String // 冗餘 — 便於 query / 報表
+  sessionId       String
+  businessDate    DateTime            @db.Date // 冗餘
+  type            CashDrawerEntryType
+  direction       CashDrawerDirection // 顯式儲存；CASH_ADJUSTMENT 可正可負
+  amount          Decimal             @db.Decimal(10, 0) // 永遠正數
+  reason          String // 必填
+  note            String?
+  createdByUserId String
+  createdAt       DateTime            @default(now())
+
+  session   CashDrawerSession @relation(fields: [sessionId], references: [id], onDelete: Restrict)
+  store     Store             @relation(fields: [storeId], references: [id])
+  createdBy User              @relation("CashDrawerEntryCreatedBy", fields: [createdByUserId], references: [id])
+
+  @@index([sessionId])
+  @@index([storeId, businessDate])
+  @@index([createdAt])
 }

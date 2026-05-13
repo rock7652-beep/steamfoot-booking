@@ -79,6 +79,11 @@ export const ALL_PERMISSIONS = [
   // 現金帳
   "cashbook.read",
   "cashbook.create",
+  // 現金抽屜
+  "cashDrawer.read",
+  "cashDrawer.open",
+  "cashDrawer.close",
+  "cashDrawer.entry", // 提領 / 補入 / 調整
   // 人員
   "staff.view",
   // 值班安排
@@ -125,6 +130,10 @@ export const PERMISSION_GROUPS: Record<string, { label: string; codes: Permissio
     label: "現金帳",
     codes: ["cashbook.read", "cashbook.create"],
   },
+  cashDrawer: {
+    label: "現金抽屜",
+    codes: ["cashDrawer.read", "cashDrawer.open", "cashDrawer.close", "cashDrawer.entry"],
+  },
   staff: {
     label: "人員管理",
     codes: ["staff.view"],
@@ -164,6 +173,10 @@ export const PERMISSION_LABELS: Record<PermissionCode, string> = {
   "report.export": "匯出報表",
   "cashbook.read": "查看現金帳",
   "cashbook.create": "新增現金帳",
+  "cashDrawer.read": "查看現金抽屜",
+  "cashDrawer.open": "開店點錢",
+  "cashDrawer.close": "閉店點錢",
+  "cashDrawer.entry": "現金抽屜異動（提領 / 補入 / 調整）",
   "staff.view": "查看店員資料",
   "duty.read": "查看值班安排",
   "duty.manage": "管理值班安排",
@@ -200,6 +213,10 @@ export const DEFAULT_OWNER_PERMISSIONS: PermissionCode[] = [
   "report.export",
   "cashbook.read",
   "cashbook.create",
+  "cashDrawer.read",
+  "cashDrawer.open",
+  "cashDrawer.close",
+  "cashDrawer.entry",
   "staff.view",
   "duty.read",
   "duty.manage",
@@ -223,6 +240,7 @@ export const DEFAULT_PARTNER_PERMISSIONS: PermissionCode[] = [
   "business_hours.view",
   "cashbook.read",
   "cashbook.create",
+  "cashDrawer.read",
   "duty.read",
   "talent.read",
 ];

@@ -99,7 +99,7 @@
 | `closingNote` | String? | 閉店差額原因 |
 | `closedByStaffId` | String? | 閉店操作員 |
 | `closedAt` | DateTime? | 閉店時間 |
-| `finalBookBalance` | Decimal? | 閉店帳面結餘 = `closingActualCash`（差額已留紀錄） |
+| `finalBookBalance` | Decimal? | 閉店帳面結餘 = `expectedClosingCash`（維持帳面責任鏈，差額不吃進結餘） |
 | `createdAt` / `updatedAt` | DateTime | 系統時間 |
 
 **唯一鍵：** `@@unique([storeId, businessDate])` — 每店每日只能有一個 session。
@@ -184,8 +184,14 @@ WHERE storeId = :storeId
   ± cashAdjustmentTotal       (CashDrawerEntry 調整)
 
 closingDifference = closingActualCash - expectedClosingCash
-finalBookBalance  = closingActualCash  // 以實點為準，差額已紀錄
+finalBookBalance  = expectedClosingCash  // 維持帳面責任鏈，差額不吃進結餘
 ```
+
+> **errata（PR-2 修正）**：原 spec 寫 `finalBookBalance = closingActualCash` 與「expectedClosingCash 用 openingBookBalance」的鐵則自相矛盾。
+>
+> 若 `finalBookBalance = closingActualCash`，隔日 `openingBookBalance` 會從實際金額起算，短溢被默默吃進結餘鏈，違背帳面責任鏈鐵則。
+>
+> 正確設計：`finalBookBalance = expectedClosingCash`。短溢由 `closingDifference / closingNote` 留痕；若 OWNER 要正式認列，請在下一個 OPEN session 新增 `CASH_ADJUSTMENT`（短少用 OUT、溢出用 IN），不修改歷史 session。
 
 > **設計細節：為什麼 expectedClosingCash 用 `openingBookBalance` 而非 `openingActualCash`**
 >
