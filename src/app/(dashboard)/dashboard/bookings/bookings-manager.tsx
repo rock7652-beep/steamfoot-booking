@@ -50,6 +50,7 @@ interface BookingEntry {
   revenueStaff: { id: string; displayName: string; colorCode: string } | null;
   serviceStaff: { id: string; displayName: string } | null;
   servicePlan: { name: string } | null;
+  customerPlanWallet: { plan: { name: string } } | null;
 }
 
 interface MonthSummaryDay {
@@ -205,6 +206,7 @@ export function BookingsManager({
       revenueStaff: b.revenueStaff,
       serviceStaff: b.serviceStaff,
       servicePlan: b.servicePlan,
+      customerPlanWallet: b.customerPlanWallet,
     }));
   }, [monthData, selectedDate]);
 

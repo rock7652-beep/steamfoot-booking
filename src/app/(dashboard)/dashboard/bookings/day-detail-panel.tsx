@@ -20,6 +20,9 @@ export interface DayBooking {
   revenueStaff: { id: string; displayName: string; colorCode: string } | null;
   serviceStaff: { id: string; displayName: string } | null;
   servicePlan: { name: string } | null;
+  /** PACKAGE_SESSION 預約實際使用的方案 — 來自 wallet 關聯（後台建立流程
+   *  不寫 servicePlanId，正解走 customerPlanWallet.plan.name）。 */
+  customerPlanWallet: { plan: { name: string } } | null;
 }
 
 /** Statuses that can still be moved to COMPLETED — defines who shows the
@@ -300,8 +303,15 @@ function TimelineItem({
   // 直屬店長 = customer.assignedStaff（不再 fallback 到 revenue/service staff）
   const assignedStaffName =
     booking.customer?.assignedStaff?.displayName ?? "未指派";
+  // 方案來源 fallback chain：
+  //   1) servicePlan.name — 罕見，僅在 caller 明確指定 servicePlanId 時有值
+  //   2) customerPlanWallet.plan.name — 後台 PACKAGE_SESSION 正解（FEFO 綁定的 wallet）
+  //   3) 補課（沒方案）→ 「補課」
+  //   4) 其他 → 「—」
   const planLabel =
-    booking.servicePlan?.name ?? (booking.isMakeup ? "補課" : "—");
+    booking.servicePlan?.name
+    ?? booking.customerPlanWallet?.plan?.name
+    ?? (booking.isMakeup ? "補課" : "—");
 
   function handleBodyClick() {
     if (isActing) return;

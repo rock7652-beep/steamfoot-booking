@@ -267,6 +267,11 @@ export async function getMonthBookingSummary(year: number, month: number, active
         servicePlan: {
           select: { name: true },
         },
+        // 後台預約建立流程不寫 servicePlanId，PACKAGE_SESSION 是用 wallet 帶方案，
+        // 真正方案名稱要從 wallet.plan 取（servicePlan 幾乎一律 null）。
+        customerPlanWallet: {
+          select: { plan: { select: { name: true } } },
+        },
       },
       orderBy: [{ bookingDate: "asc" }, { slotTime: "asc" }],
     }),
@@ -310,6 +315,7 @@ export async function getMonthBookingSummary(year: number, month: number, active
     revenueStaff: { id: string; displayName: string; colorCode: string } | null;
     serviceStaff: { id: string; displayName: string } | null;
     servicePlan: { name: string } | null;
+    customerPlanWallet: { plan: { name: string } } | null;
   }
   interface DayEntry {
     total: number;
@@ -366,6 +372,9 @@ export async function getMonthBookingSummary(year: number, month: number, active
           }
         : null,
       servicePlan: b.servicePlan ? { name: b.servicePlan.name } : null,
+      customerPlanWallet: b.customerPlanWallet
+        ? { plan: { name: b.customerPlanWallet.plan.name } }
+        : null,
     });
   }
 
