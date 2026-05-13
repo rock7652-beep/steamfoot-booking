@@ -553,15 +553,67 @@ describe("migratePaperPlan — 副作用：PAPER_MIGRATION transaction", () => {
     expect(data.note).not.toMatch(/備註：/);
   });
 
-  it("customer.assignedStaffId 為 null → revenueStaffId fallback user.staffId", async () => {
+  it("customer.assignedStaffId 為 null → 透過 resolver fallback 取得 staffId", async () => {
     mockCustomerFindUnique.mockResolvedValue({
       ...CUSTOMER,
       assignedStaffId: null,
+    });
+    // 預設 mock resolver 已回 STAFF_ID（source: "existing"）；
+    // 改為 "store_owner" 以反映實際 fallback 路徑
+    const { resolveCustomerStaffAssignment } = await import(
+      "@/server/services/customer-assignment"
+    );
+    (resolveCustomerStaffAssignment as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      staffId: STAFF_ID,
+      source: "store_owner",
     });
     const { migratePaperPlan } = await import("@/server/actions/wallet");
     await migratePaperPlan({ ...baseInput, usedSessions: 0 });
     const data = mockTransactionCreate.mock.calls[0][0].data;
     expect(data.revenueStaffId).toBe(STAFF_ID);
+  });
+
+  it("ADMIN session（staffId=null）+ customer 無歸屬 → revenueStaffId 來自 resolver、operatorStaffId 同步 fallback", async () => {
+    // ADMIN user：staffId null
+    mockRequirePermission.mockResolvedValue({
+      role: "ADMIN",
+      storeId: null,
+      staffId: null,
+      id: "ck0000000000000000000ad1",
+      email: "admin@x.com",
+    });
+    mockCustomerFindUnique.mockResolvedValue({
+      ...CUSTOMER,
+      assignedStaffId: null,
+    });
+    const STORE_OWNER_STAFF = "ck0000000000000000000so1";
+    const { resolveCustomerStaffAssignment } = await import(
+      "@/server/services/customer-assignment"
+    );
+    (resolveCustomerStaffAssignment as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      staffId: STORE_OWNER_STAFF,
+      source: "store_owner",
+    });
+
+    const { migratePaperPlan } = await import("@/server/actions/wallet");
+    const result = await migratePaperPlan({
+      ...baseInput,
+      totalSessions: 22,
+      usedSessions: 10,
+    });
+    expect(result.success).toBe(true);
+
+    // Transaction.revenueStaffId 是 NOT NULL；必須來自 resolver，不可為 null
+    const txData = mockTransactionCreate.mock.calls[0][0].data;
+    expect(txData.revenueStaffId).toBe(STORE_OWNER_STAFF);
+    expect(txData.revenueStaffId).not.toBeNull();
+    // ADMIN 沒 staffId，soldByStaffId 維持 null 是預期
+    expect(txData.soldByStaffId).toBeNull();
+
+    // backfill 的 operatorStaffId 也 fallback 至 resolver staffId（不可為 null）
+    const backfillCall = mockBackfillAvailableSessions.mock.calls[0] as unknown[];
+    const params = backfillCall[1] as { operatorStaffId: string };
+    expect(params.operatorStaffId).toBe(STORE_OWNER_STAFF);
   });
 });
 

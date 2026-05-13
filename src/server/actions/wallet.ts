@@ -672,14 +672,29 @@ export async function migratePaperPlan(
     const todayTW = toLocalDateStr();
     const occurredAt = parseTaiwanDateToDbDate(todayTW);
 
-    // PAPER_MIGRATION 不在 REVENUE_TRANSACTION_TYPES，但 Transaction 仍需要 revenueStaffId
-    // 用 customer.assignedStaffId 為主、user.staffId 為 fallback（與其他 wallet action 一致）
-    const revenueStaffId = customer.assignedStaffId ?? user.staffId!;
     // 用 customer.storeId（已通過 assertStoreAccess 驗證）；
     // 不能用 currentStoreId(user)，因 ADMIN session 的 storeId 為 null
     const storeId = customer.storeId;
 
     const result = await prisma.$transaction(async (tx) => {
+      // 0. 解析 revenueStaffId（Transaction.revenueStaffId 為 NOT NULL）
+      //   - customer.assignedStaffId 為主；若失效 / null → fallback 至 store_owner
+      //   - 這也覆蓋了 ADMIN（user.staffId 為 null）的情境：沿用 PR-6
+      //     initiateCustomerPlanPurchase 同一個 helper，行為一致
+      //   - resolver 會在 fallback 時把新 staffId 寫回 customer.assignedStaffId
+      //     （opts.persist 預設 true）— 與紙本轉入「補建線上歸屬」的語意一致
+      const assignment = await resolveCustomerStaffAssignment(
+        customer.id,
+        customer.storeId,
+        { tx }
+      );
+      const revenueStaffId = assignment.staffId;
+      // operatorStaffId 用於 WalletSession.voidedByStaffId（audit）。ADMIN session
+      // 沒有 staffId 時 fallback 至 revenueStaffId（同店 store_owner），確保
+      // 不會把 NOT NULL 的呼叫端 typing 撞成 runtime null。
+      // 真正精準的操作者紀錄在 AuditLog.actorUserId（= user.id），這裡只是 session 註記。
+      const operatorStaffId = user.staffId ?? revenueStaffId;
+
       // 1. 建立 wallet（快照原始實收金額與原始總堂數）
       const wallet = await tx.customerPlanWallet.create({
         data: {
@@ -707,7 +722,7 @@ export async function migratePaperPlan(
             count: data.usedSessions,
             occurredAt,
             reason: `紙本轉入：${data.usedSessions}/${data.totalSessions} 堂於轉入前已使用`,
-            operatorStaffId: user.staffId!,
+            operatorStaffId,
           });
         } catch (e) {
           if (e instanceof WalletSessionError) {
