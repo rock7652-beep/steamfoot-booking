@@ -23,6 +23,7 @@ const TX_TYPE_LABEL: Record<string, string> = {
   REFUND: "退款",
   ADJUSTMENT: "手動調整",
   MANUAL_USED_BACKFILL: "補登已使用",
+  PAPER_MIGRATION: "紙本轉入", // 非今日新收款；不入營收 / 現金帳 / 教練業績
 };
 
 const TX_TYPE_COLOR: Record<string, string> = {
@@ -33,6 +34,7 @@ const TX_TYPE_COLOR: Record<string, string> = {
   REFUND: "bg-red-100 text-red-700",
   ADJUSTMENT: "bg-orange-100 text-orange-700",
   MANUAL_USED_BACKFILL: "bg-amber-100 text-amber-700",
+  PAPER_MIGRATION: "bg-slate-100 text-slate-700", // 中性灰色：明確不是當期營收
 };
 
 const PAY_METHOD_LABEL: Record<PaymentMethod, string> = {
