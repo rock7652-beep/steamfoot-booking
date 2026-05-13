@@ -72,12 +72,20 @@ export default async function CashbookPage({ searchParams }: PageProps) {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-xl font-bold text-earth-900">現金帳</h1>
-        <Link
-          href="/dashboard/cashbook/new"
-          className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
-        >
-          + 新增記帳
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/dashboard/cash-drawer"
+            className="rounded-lg border border-earth-300 px-3 py-2 text-sm text-earth-700 hover:bg-earth-50"
+          >
+            現金抽屜
+          </Link>
+          <Link
+            href="/dashboard/cashbook/new"
+            className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
+          >
+            + 新增記帳
+          </Link>
+        </div>
       </div>
 
       {/* 月份選擇 */}
