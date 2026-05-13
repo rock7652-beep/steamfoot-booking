@@ -297,11 +297,11 @@ function TimelineItem({
             ? "border-l-blue-500"
             : "border-l-earth-300";
 
-  const staffName =
-    booking.revenueStaff?.displayName ??
-    booking.serviceStaff?.displayName ??
-    booking.customer?.assignedStaff?.displayName ??
-    "未指派";
+  // 直屬店長 = customer.assignedStaff（不再 fallback 到 revenue/service staff）
+  const assignedStaffName =
+    booking.customer?.assignedStaff?.displayName ?? "未指派";
+  const planLabel =
+    booking.servicePlan?.name ?? (booking.isMakeup ? "補課" : "—");
 
   function handleBodyClick() {
     if (isActing) return;
@@ -331,36 +331,39 @@ function TimelineItem({
         ) : null}
       </div>
 
-      {/* Body — opens drawer on click. Use a real button so keyboard works. */}
+      {/* Body — opens drawer on click. Use a real button so keyboard works.
+          兩排式版型：
+            第一排：時間 + 顧客姓名 + 直屬店長
+            第二排：預約狀態 + 本次使用方案 */}
       <button
         type="button"
         onClick={handleBodyClick}
         disabled={!onClick || isActing}
-        className="flex flex-1 items-start gap-3 py-2.5 text-left disabled:cursor-default"
+        className="flex min-w-0 flex-1 flex-col gap-1 py-2.5 text-left disabled:cursor-default"
       >
-        <div className="flex w-14 shrink-0 flex-col items-start">
-          <span className="text-sm font-bold tabular-nums text-earth-900">
+        <div className="flex items-center gap-2">
+          <span className="shrink-0 text-sm font-bold tabular-nums text-earth-900">
             {booking.slotTime}
           </span>
           {booking.people > 1 && (
-            <span className="text-[11px] text-earth-400">×{booking.people}</span>
+            <span className="shrink-0 text-[11px] text-earth-400">
+              ×{booking.people}
+            </span>
           )}
+          <span className="min-w-0 flex-1 truncate text-sm font-semibold text-earth-900">
+            {booking.customer?.name ?? "—"}
+          </span>
+          <span className="shrink-0 text-xs text-earth-500">
+            {assignedStaffName}
+          </span>
         </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-col items-start gap-1">
-            <span className="whitespace-normal break-words text-sm font-semibold leading-snug text-earth-900 line-clamp-2">
-              {booking.customer?.name ?? "—"}
-            </span>
-            <StatusBadge variant={meta.variant} dot={false}>
-              {meta.label}
-            </StatusBadge>
-          </div>
-          <div className="mt-0.5 flex items-center justify-between gap-2 text-xs text-earth-500">
-            <span className="truncate">
-              {booking.servicePlan?.name ?? (booking.isMakeup ? "補課" : "—")}
-            </span>
-            <span className="shrink-0">{staffName}</span>
-          </div>
+        <div className="flex items-center gap-2">
+          <StatusBadge variant={meta.variant} dot={false}>
+            {meta.label}
+          </StatusBadge>
+          <span className="min-w-0 flex-1 truncate text-xs text-earth-500">
+            {planLabel}
+          </span>
         </div>
       </button>
 
