@@ -18,6 +18,7 @@ import { TransferCustomerForm } from "./transfer-customer-form";
 import { CreateBookingForm } from "./create-booking-form";
 import { AdjustWalletForm } from "./adjust-wallet-form";
 import { BackfillUsedSessionsForm } from "./backfill-used-sessions-form";
+import { MigratePaperPlanDialog } from "./migrate-paper-plan-dialog";
 import { VoidSessionButton } from "./void-session-button";
 import {
   WalletSessionDetail,
@@ -311,18 +312,34 @@ export default async function CustomerDetailPage({ params }: PageProps) {
                 </p>
               </div>
               {canEdit && (
-                <AssignPlanForm
-                  customerId={id}
-                  canDiscount={canDiscount}
-                  plans={plans.map((p) => ({
-                    id: p.id,
-                    name: p.name,
-                    category: p.category,
-                    price: Number(p.price),
-                    sessionCount: p.sessionCount,
-                    validityDays: p.validityDays,
-                  }))}
-                />
+                <div className="flex items-center gap-2">
+                  {/* PR-C：紙本舊客轉入線上（OWNER / ADMIN only） */}
+                  {canAdjustWallet &&
+                    (user.role === "OWNER" || user.role === "ADMIN") && (
+                      <MigratePaperPlanDialog
+                        customerId={id}
+                        plans={plans.map((p) => ({
+                          id: p.id,
+                          name: p.name,
+                          category: p.category,
+                          price: Number(p.price),
+                          sessionCount: p.sessionCount,
+                        }))}
+                      />
+                    )}
+                  <AssignPlanForm
+                    customerId={id}
+                    canDiscount={canDiscount}
+                    plans={plans.map((p) => ({
+                      id: p.id,
+                      name: p.name,
+                      category: p.category,
+                      price: Number(p.price),
+                      sessionCount: p.sessionCount,
+                      validityDays: p.validityDays,
+                    }))}
+                  />
+                </div>
               )}
             </div>
 
