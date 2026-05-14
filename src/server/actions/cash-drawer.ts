@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requirePermission } from "@/lib/permissions";
 import { AppError, handleActionError } from "@/lib/errors";
@@ -92,6 +93,7 @@ export async function initializeCashDrawerAction(
       note: data.note,
       actorUserId: user.id,
     });
+    revalidatePath("/dashboard/cash-drawer");
     return { success: true, data: { sessionId: session.id } };
   } catch (e) {
     return handleActionError(e);
@@ -113,6 +115,7 @@ export async function openCashDrawerAction(
       note: data.note,
       actorUserId: user.id,
     });
+    revalidatePath("/dashboard/cash-drawer");
     return { success: true, data: { sessionId: session.id } };
   } catch (e) {
     return handleActionError(e);
@@ -165,6 +168,7 @@ export async function addCashDrawerEntryAction(
       note: data.note,
       actorUserId: user.id,
     });
+    revalidatePath("/dashboard/cash-drawer");
     return { success: true, data: { entryId: entry.id } };
   } catch (e) {
     return handleActionError(e);
@@ -184,6 +188,7 @@ export async function closeCashDrawerAction(
       note: data.note,
       actorUserId: user.id,
     });
+    revalidatePath("/dashboard/cash-drawer");
     return { success: true, data: { sessionId: session.id } };
   } catch (e) {
     return handleActionError(e);
