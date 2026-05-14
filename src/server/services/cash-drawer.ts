@@ -387,72 +387,81 @@ export type CloseInput = {
  *
  * finalBookBalance = expectedClosingCash（不是 closingActualCash），避免短溢被默默吃進結餘鏈。
  * 若實際與帳面有差，差額留在 closingDifference / closingNote 並要求填寫原因。
+ *
+ * 設計：讀取與計算階段在 transaction **外**進行（避免 Prisma interactive
+ * transaction 5s timeout，因為 Supabase pooler 上每個 connection 是分開的）。
+ * 寫入只用單一 update + `where: { status: "OPEN" }` 達成 optimistic concurrency：
+ * 若期間 status 變了，Prisma 會丟 P2025（rare race condition，由 caller 重試）。
  */
 export async function closeCashDrawer(input: CloseInput): Promise<CashDrawerSession> {
-  return prisma.$transaction(async (tx) => {
-    const session = await tx.cashDrawerSession.findUnique({ where: { id: input.sessionId } });
-    if (!session) {
-      throw new AppError("NOT_FOUND", "找不到指定的現金抽屜 session");
-    }
-    if (session.status === "CLOSED") {
-      throw new AppError("BUSINESS_RULE", "此 session 已閉店，不可重複關閉");
-    }
+  // ── 1. Read phase（不在 transaction 內）──
+  const session = await prisma.cashDrawerSession.findUnique({
+    where: { id: input.sessionId },
+  });
+  if (!session) {
+    throw new AppError("NOT_FOUND", "找不到指定的現金抽屜 session");
+  }
+  if (session.status === "CLOSED") {
+    throw new AppError("BUSINESS_RULE", "此 session 已閉店，不可重複關閉");
+  }
 
-    const closedAt = new Date();
+  const closedAt = new Date();
 
-    // 凍結快照所需的 income/expense/manual
-    const [cashIncomeTotal, cashExpenseTotal] = await Promise.all([
-      computeCashIncomeForSession({ ...session, closedAt }),
-      computeCashExpenseForSession({ ...session, closedAt }),
-    ]);
+  // ── 2. Compute phase（並行讀取 + 純函式計算）──
+  const [cashIncomeTotal, cashExpenseTotal] = await Promise.all([
+    computeCashIncomeForSession({ ...session, closedAt }),
+    computeCashExpenseForSession({ ...session, closedAt }),
+  ]);
 
-    const entries = await tx.cashDrawerEntry.findMany({
-      where: { sessionId: session.id },
-      select: { type: true, direction: true, amount: true },
-    });
-    let withdrawal = ZERO;
-    let deposit = ZERO;
-    let adjustment = ZERO;
-    for (const e of entries) {
-      if (e.type === "CASH_WITHDRAWAL") withdrawal = withdrawal.add(e.amount);
-      else if (e.type === "CASH_DEPOSIT") deposit = deposit.add(e.amount);
-      else if (e.type === "CASH_ADJUSTMENT")
-        adjustment = e.direction === "IN" ? adjustment.add(e.amount) : adjustment.sub(e.amount);
-    }
+  const entries = await prisma.cashDrawerEntry.findMany({
+    where: { sessionId: session.id },
+    select: { type: true, direction: true, amount: true },
+  });
+  let withdrawal = ZERO;
+  let deposit = ZERO;
+  let adjustment = ZERO;
+  for (const e of entries) {
+    if (e.type === "CASH_WITHDRAWAL") withdrawal = withdrawal.add(e.amount);
+    else if (e.type === "CASH_DEPOSIT") deposit = deposit.add(e.amount);
+    else if (e.type === "CASH_ADJUSTMENT")
+      adjustment = e.direction === "IN" ? adjustment.add(e.amount) : adjustment.sub(e.amount);
+  }
 
-    const expectedClosingCash = computeExpectedClosingCash({
-      openingBookBalance: session.openingBookBalance,
+  const expectedClosingCash = computeExpectedClosingCash({
+    openingBookBalance: session.openingBookBalance,
+    cashIncomeTotal,
+    cashExpenseTotal,
+    cashWithdrawalTotal: withdrawal,
+    cashDepositTotal: deposit,
+    cashAdjustmentTotal: adjustment,
+  });
+  const closingActualCash = new Prisma.Decimal(input.closingActualCash);
+  const closingDifference = computeClosingDifference(closingActualCash, expectedClosingCash);
+
+  if (!closingDifference.eq(ZERO) && !input.note) {
+    throw new AppError("VALIDATION", "閉店差額不為 0 時必須填寫備註");
+  }
+
+  // ── 3. Write phase（單一 atomic update，沒包 transaction）──
+  // where: { id, status: "OPEN" } 提供 optimistic concurrency；
+  // 若 race condition 期間 status 已被改 CLOSED，Prisma 丟 P2025 — caller 重試即可。
+  return prisma.cashDrawerSession.update({
+    where: { id: session.id, status: "OPEN" },
+    data: {
+      status: "CLOSED",
       cashIncomeTotal,
       cashExpenseTotal,
       cashWithdrawalTotal: withdrawal,
       cashDepositTotal: deposit,
       cashAdjustmentTotal: adjustment,
-    });
-    const closingActualCash = new Prisma.Decimal(input.closingActualCash);
-    const closingDifference = computeClosingDifference(closingActualCash, expectedClosingCash);
-
-    if (!closingDifference.eq(ZERO) && !input.note) {
-      throw new AppError("VALIDATION", "閉店差額不為 0 時必須填寫備註");
-    }
-
-    return tx.cashDrawerSession.update({
-      where: { id: session.id, status: "OPEN" },
-      data: {
-        status: "CLOSED",
-        cashIncomeTotal,
-        cashExpenseTotal,
-        cashWithdrawalTotal: withdrawal,
-        cashDepositTotal: deposit,
-        cashAdjustmentTotal: adjustment,
-        expectedClosingCash,
-        closingActualCash,
-        closingDifference,
-        closingNote: input.note,
-        closedByUserId: input.actorUserId,
-        closedAt,
-        // 維持帳面責任鏈：finalBookBalance 用 expected 而非 actual
-        finalBookBalance: expectedClosingCash,
-      },
-    });
+      expectedClosingCash,
+      closingActualCash,
+      closingDifference,
+      closingNote: input.note,
+      closedByUserId: input.actorUserId,
+      closedAt,
+      // 維持帳面責任鏈：finalBookBalance 用 expected 而非 actual
+      finalBookBalance: expectedClosingCash,
+    },
   });
 }

@@ -40,7 +40,14 @@ export function CashDrawerTodayCard({ view, canInit, canOpen }: CashDrawerTodayC
           canOpen={canOpen}
         />
       )}
-      {view.state === "OPENED_TODAY" && (
+      {view.state === "OPENED_TODAY" && view.session.status === "CLOSED" && (
+        <ClosedTodayCard
+          expectedClosingCash={view.session.expectedClosingCash?.toString() ?? "—"}
+          closingActualCash={view.session.closingActualCash?.toString() ?? "—"}
+          closingDifference={view.session.closingDifference?.toNumber() ?? 0}
+        />
+      )}
+      {view.state === "OPENED_TODAY" && view.session.status !== "CLOSED" && (
         <OpenedTodayCard
           bookBalance={view.session.openingBookBalance.toString()}
           actualCash={view.session.openingActualCash.toString()}
@@ -150,6 +157,61 @@ function OpenedTodayCard({
           </span>
           <span>
             實點 <span className="font-medium text-earth-900">NT$ {actualCash}</span>
+          </span>
+          <span>
+            差額 <span className={`font-medium ${diffClass}`}>NT$ {diffLabel}</span>
+          </span>
+        </div>
+      </div>
+      <Link
+        href={CASH_DRAWER_HREF}
+        className="shrink-0 rounded-md border border-earth-200 bg-white px-3 py-1.5 text-[11px] font-medium text-earth-700 hover:bg-earth-50"
+      >
+        查看現金抽屜
+      </Link>
+    </div>
+  );
+}
+
+// ============================================================
+// State C (CLOSED) — 今日已閉店
+// ============================================================
+
+function ClosedTodayCard({
+  expectedClosingCash,
+  closingActualCash,
+  closingDifference,
+}: {
+  expectedClosingCash: string;
+  closingActualCash: string;
+  closingDifference: number;
+}) {
+  const diffLabel =
+    closingDifference === 0
+      ? "0"
+      : closingDifference > 0
+        ? `+${closingDifference}`
+        : `${closingDifference}`;
+  const diffClass =
+    closingDifference === 0
+      ? "text-earth-600"
+      : closingDifference > 0
+        ? "text-green-700"
+        : "text-orange-700";
+
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-1 flex-col gap-1">
+        <p className="text-sm font-medium text-earth-800">
+          <span className="mr-1 inline-block h-2 w-2 rounded-full bg-earth-400 align-middle" />
+          今日已閉店
+        </p>
+        <div className="flex gap-4 text-[11px] text-earth-600">
+          <span>
+            應有 <span className="font-medium text-earth-900">NT$ {expectedClosingCash}</span>
+          </span>
+          <span>
+            實點 <span className="font-medium text-earth-900">NT$ {closingActualCash}</span>
           </span>
           <span>
             差額 <span className={`font-medium ${diffClass}`}>NT$ {diffLabel}</span>

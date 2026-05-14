@@ -6,17 +6,38 @@
  *
  * 4 種 state：
  *   - EMPTY：店家尚未啟用（沒有任何 session）
- *   - OPENED_TODAY：今日已有 session（不管 OPEN 或未來的 CLOSED）
+ *   - OPENED_TODAY：今日已有 session（不管 OPEN 或 CLOSED）
+ *       含 liveTotals：OPEN 狀態時包含 live 計算的 expectedClosingCash 等，給閉店表單預覽用
  *   - WARNING_LAST_OPEN：今日無 session，且最近的 session 仍 OPEN（上日尚未閉店）
  *   - NOT_OPENED_TODAY：今日無 session，且最近 session 是 CLOSED → 可開店
  */
 
 import { prisma } from "@/lib/db";
-import type { CashDrawerSession } from "@prisma/client";
+import type { CashDrawerSession, Prisma } from "@prisma/client";
+import {
+  computeCashIncomeForSession,
+  computeCashExpenseForSession,
+  computeManualEntryTotals,
+  computeExpectedClosingCash,
+} from "@/server/services/cash-drawer";
+
+export type CashDrawerLiveTotals = {
+  cashIncomeTotal: Prisma.Decimal;
+  cashExpenseTotal: Prisma.Decimal;
+  cashWithdrawalTotal: Prisma.Decimal;
+  cashDepositTotal: Prisma.Decimal;
+  cashAdjustmentTotal: Prisma.Decimal;
+  expectedClosingCash: Prisma.Decimal;
+};
 
 export type CashDrawerView =
   | { state: "EMPTY" }
-  | { state: "OPENED_TODAY"; session: CashDrawerSession }
+  | {
+      state: "OPENED_TODAY";
+      session: CashDrawerSession;
+      /** 僅 OPEN 狀態下計算的 live preview；CLOSED 時為 null（值已凍結在 session 欄位） */
+      liveTotals: CashDrawerLiveTotals | null;
+    }
   | { state: "WARNING_LAST_OPEN"; lastSession: CashDrawerSession }
   | { state: "NOT_OPENED_TODAY"; lastSession: CashDrawerSession };
 
@@ -24,9 +45,10 @@ export type CashDrawerView =
 export function deriveCashDrawerView(
   todaySession: CashDrawerSession | null,
   latestSessionOnOrBeforeToday: CashDrawerSession | null,
+  todayLiveTotals: CashDrawerLiveTotals | null = null,
 ): CashDrawerView {
   if (todaySession) {
-    return { state: "OPENED_TODAY", session: todaySession };
+    return { state: "OPENED_TODAY", session: todaySession, liveTotals: todayLiveTotals };
   }
   if (!latestSessionOnOrBeforeToday) {
     return { state: "EMPTY" };
@@ -38,7 +60,34 @@ export function deriveCashDrawerView(
   return { state: "NOT_OPENED_TODAY", lastSession: latestSessionOnOrBeforeToday };
 }
 
-/** DB query + state 推導，給 page 用。 */
+/** 對 OPEN 狀態的 session 算 live preview（給閉店表單用）。pure-ish — 只讀 DB 不寫。 */
+export async function computeLiveTotalsForOpenSession(
+  session: CashDrawerSession,
+): Promise<CashDrawerLiveTotals> {
+  const [income, expense, manual] = await Promise.all([
+    computeCashIncomeForSession(session),
+    computeCashExpenseForSession(session),
+    computeManualEntryTotals(session.id),
+  ]);
+  const expectedClosingCash = computeExpectedClosingCash({
+    openingBookBalance: session.openingBookBalance,
+    cashIncomeTotal: income,
+    cashExpenseTotal: expense,
+    cashWithdrawalTotal: manual.cashWithdrawalTotal,
+    cashDepositTotal: manual.cashDepositTotal,
+    cashAdjustmentTotal: manual.cashAdjustmentTotal,
+  });
+  return {
+    cashIncomeTotal: income,
+    cashExpenseTotal: expense,
+    cashWithdrawalTotal: manual.cashWithdrawalTotal,
+    cashDepositTotal: manual.cashDepositTotal,
+    cashAdjustmentTotal: manual.cashAdjustmentTotal,
+    expectedClosingCash,
+  };
+}
+
+/** DB query + state 推導，給 page 用。OPEN 的今日 session 會額外計算 liveTotals。 */
 export async function getCashDrawerView(
   storeId: string,
   todayBusinessDate: Date,
@@ -52,5 +101,11 @@ export async function getCashDrawerView(
       orderBy: { businessDate: "desc" },
     }),
   ]);
-  return deriveCashDrawerView(todaySession, latestSession);
+
+  const liveTotals =
+    todaySession && todaySession.status === "OPEN"
+      ? await computeLiveTotalsForOpenSession(todaySession)
+      : null;
+
+  return deriveCashDrawerView(todaySession, latestSession, liveTotals);
 }
