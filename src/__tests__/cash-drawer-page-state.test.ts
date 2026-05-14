@@ -55,6 +55,23 @@ describe("deriveCashDrawerView", () => {
     expect(view.state).toBe("OPENED_TODAY");
     if (view.state === "OPENED_TODAY") {
       expect(view.session.id).toBe(today.id);
+      // PR-4：未傳 entries 時預設為空陣列
+      expect(view.entries).toEqual([]);
+    }
+  });
+
+  it("OPENED_TODAY：entries 參數正確傳遞到 view（PR-4）", () => {
+    const today = stub({ status: "OPEN" });
+    const fakeEntries = [
+      { id: "e1", type: "CASH_WITHDRAWAL" } as never,
+      { id: "e2", type: "CASH_DEPOSIT" } as never,
+    ];
+    const view = deriveCashDrawerView(today, today, null, fakeEntries);
+    expect(view.state).toBe("OPENED_TODAY");
+    if (view.state === "OPENED_TODAY") {
+      expect(view.entries).toHaveLength(2);
+      expect(view.entries[0].id).toBe("e1");
+      expect(view.entries[1].id).toBe("e2");
     }
   });
 

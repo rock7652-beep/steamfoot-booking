@@ -13,7 +13,7 @@
  */
 
 import { prisma } from "@/lib/db";
-import type { CashDrawerSession, Prisma } from "@prisma/client";
+import type { CashDrawerSession, CashDrawerEntry, Prisma } from "@prisma/client";
 import {
   computeCashIncomeForSession,
   computeCashExpenseForSession,
@@ -37,6 +37,8 @@ export type CashDrawerView =
       session: CashDrawerSession;
       /** 僅 OPEN 狀態下計算的 live preview；CLOSED 時為 null（值已凍結在 session 欄位） */
       liveTotals: CashDrawerLiveTotals | null;
+      /** 今日所有手動異動（提領/補入/調整），最新在上 */
+      entries: CashDrawerEntry[];
     }
   | { state: "WARNING_LAST_OPEN"; lastSession: CashDrawerSession }
   | { state: "NOT_OPENED_TODAY"; lastSession: CashDrawerSession };
@@ -46,9 +48,15 @@ export function deriveCashDrawerView(
   todaySession: CashDrawerSession | null,
   latestSessionOnOrBeforeToday: CashDrawerSession | null,
   todayLiveTotals: CashDrawerLiveTotals | null = null,
+  todayEntries: CashDrawerEntry[] = [],
 ): CashDrawerView {
   if (todaySession) {
-    return { state: "OPENED_TODAY", session: todaySession, liveTotals: todayLiveTotals };
+    return {
+      state: "OPENED_TODAY",
+      session: todaySession,
+      liveTotals: todayLiveTotals,
+      entries: todayEntries,
+    };
   }
   if (!latestSessionOnOrBeforeToday) {
     return { state: "EMPTY" };
@@ -102,10 +110,20 @@ export async function getCashDrawerView(
     }),
   ]);
 
-  const liveTotals =
-    todaySession && todaySession.status === "OPEN"
-      ? await computeLiveTotalsForOpenSession(todaySession)
-      : null;
+  // 對今日 session（不論 OPEN/CLOSED）撈 entries 做列表顯示用
+  // OPEN：給異動區塊與 live preview 用
+  // CLOSED：給 read-only 歷史審視用
+  const [liveTotals, entries] = todaySession
+    ? await Promise.all([
+        todaySession.status === "OPEN"
+          ? computeLiveTotalsForOpenSession(todaySession)
+          : Promise.resolve(null),
+        prisma.cashDrawerEntry.findMany({
+          where: { sessionId: todaySession.id },
+          orderBy: { createdAt: "desc" },
+        }),
+      ])
+    : [null, [] as CashDrawerEntry[]];
 
-  return deriveCashDrawerView(todaySession, latestSession, liveTotals);
+  return deriveCashDrawerView(todaySession, latestSession, liveTotals, entries);
 }
