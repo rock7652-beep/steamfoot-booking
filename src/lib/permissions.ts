@@ -188,13 +188,6 @@ export const PERMISSION_LABELS: Record<PermissionCode, string> = {
 // 各角色預設權限
 // ============================================================
 
-// ============================================================
-// Cash Drawer PR-3 是 UI-ready 但暫時不對新建 staff 啟用 default 權限。
-// 既有已手動勾過 cashDrawer.* 的 staff 仍可用（StaffPermission 表 rows 不動）。
-// PR-5 閉店流程 ship 後，請把 cashDrawer.* 加回下方 default 清單。
-// 對應 git blame：PR #141 — UX revision phase。
-// ============================================================
-
 /** 店長 預設權限（接近完整營運權限） */
 export const DEFAULT_OWNER_PERMISSIONS: PermissionCode[] = [
   "customer.read",
@@ -220,11 +213,10 @@ export const DEFAULT_OWNER_PERMISSIONS: PermissionCode[] = [
   "report.export",
   "cashbook.read",
   "cashbook.create",
-  // TEMP（PR-5 閉店 ship 後加回）：
-  // "cashDrawer.read",
-  // "cashDrawer.open",
-  // "cashDrawer.close",
-  // "cashDrawer.entry",
+  "cashDrawer.read",
+  "cashDrawer.open",
+  "cashDrawer.close",
+  "cashDrawer.entry",
   "staff.view",
   "duty.read",
   "duty.manage",
@@ -248,8 +240,7 @@ export const DEFAULT_PARTNER_PERMISSIONS: PermissionCode[] = [
   "business_hours.view",
   "cashbook.read",
   "cashbook.create",
-  // TEMP（PR-5 閉店 ship 後加回）：
-  // "cashDrawer.read",
+  "cashDrawer.read",
   "duty.read",
   "talent.read",
 ];

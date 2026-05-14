@@ -1,0 +1,135 @@
+/**
+ * Cash Drawer liveTotals 組合邏輯測試
+ *
+ * 驗證 `computeLiveTotalsForOpenSession` 對 OPEN session 的計算組合：
+ *   - 正確呼叫 3 個 helper（income / expense / manual）
+ *   - 用 PR-2 鐵則公式組合 expectedClosingCash
+ *   - REFUND 負數翻正後當 expense
+ *
+ * 透過 mock prisma 層（既有 helper 內部會打 DB），不打真實 DB。
+ */
+
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { Prisma } from "@prisma/client";
+
+const {
+  mockTxAggregate,
+  mockEntryFindMany,
+  dbMock,
+} = vi.hoisted(() => {
+  const fns = {
+    mockTxAggregate: vi.fn(),
+    mockEntryFindMany: vi.fn(),
+  };
+  const db: Record<string, unknown> = {
+    transaction: { aggregate: (...a: unknown[]) => fns.mockTxAggregate(...a) },
+    cashDrawerEntry: {
+      findMany: (...a: unknown[]) => fns.mockEntryFindMany(...a),
+    },
+    cashDrawerSession: {
+      findUnique: vi.fn(),
+      findFirst: vi.fn(),
+    },
+  };
+  return { ...fns, dbMock: db };
+});
+
+vi.mock("@/lib/db", () => ({ prisma: dbMock }));
+
+import { computeLiveTotalsForOpenSession } from "@/server/queries/cash-drawer";
+
+const D = (n: number) => new Prisma.Decimal(n);
+
+function makeOpenSession(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "sess-1",
+    storeId: "store-zhubei",
+    businessDate: new Date(Date.UTC(2026, 4, 15)),
+    status: "OPEN",
+    openingBookBalance: D(5000),
+    openingActualCash: D(5000),
+    openingDifference: D(0),
+    openingNote: null,
+    openedByUserId: "user-1",
+    openedAt: new Date("2026-05-15T01:00:00Z"),
+    cashIncomeTotal: D(0),
+    cashExpenseTotal: D(0),
+    cashWithdrawalTotal: D(0),
+    cashDepositTotal: D(0),
+    cashAdjustmentTotal: D(0),
+    expectedClosingCash: null,
+    closingActualCash: null,
+    closingDifference: null,
+    closingNote: null,
+    closedByUserId: null,
+    closedAt: null,
+    finalBookBalance: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    ...overrides,
+  } as never;
+}
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
+
+describe("computeLiveTotalsForOpenSession", () => {
+  it("正確組合 income + expense + manual entries 並算 expectedClosingCash", async () => {
+    // income：CASH SUCCESS 加總 8000
+    // expense：REFUND 負數 -1000（翻正成 1000）
+    // entries：提領 3000 (OUT)、補入 500 (IN)、調整 IN 100、調整 OUT 50
+    mockTxAggregate
+      .mockResolvedValueOnce({ _sum: { amount: D(8000) } }) // income (REVENUE_TYPES)
+      .mockResolvedValueOnce({ _sum: { amount: D(-1000) } }); // expense (REFUND)
+    mockEntryFindMany.mockResolvedValue([
+      { type: "CASH_WITHDRAWAL", direction: "OUT", amount: D(3000) },
+      { type: "CASH_DEPOSIT", direction: "IN", amount: D(500) },
+      { type: "CASH_ADJUSTMENT", direction: "IN", amount: D(100) },
+      { type: "CASH_ADJUSTMENT", direction: "OUT", amount: D(50) },
+    ]);
+
+    const result = await computeLiveTotalsForOpenSession(
+      makeOpenSession({ openingBookBalance: D(5000) }),
+    );
+
+    // 公式：opening + income - expense - withdrawal + deposit + adjustment(signed)
+    //     = 5000 + 8000 - 1000 - 3000 + 500 + (100 - 50)
+    //     = 9550
+    expect(result.cashIncomeTotal.toNumber()).toBe(8000);
+    expect(result.cashExpenseTotal.toNumber()).toBe(1000); // 翻正
+    expect(result.cashWithdrawalTotal.toNumber()).toBe(3000);
+    expect(result.cashDepositTotal.toNumber()).toBe(500);
+    expect(result.cashAdjustmentTotal.toNumber()).toBe(50); // 100 - 50 = signed
+    expect(result.expectedClosingCash.toNumber()).toBe(9550);
+  });
+
+  it("無任何交易時 expectedClosingCash 等於 openingBookBalance", async () => {
+    mockTxAggregate.mockResolvedValue({ _sum: { amount: null } });
+    mockEntryFindMany.mockResolvedValue([]);
+
+    const result = await computeLiveTotalsForOpenSession(
+      makeOpenSession({ openingBookBalance: D(5050) }),
+    );
+
+    // Decimal.neg() on zero produces -0 — use .equals(0) for sign-agnostic compare
+    expect(result.cashIncomeTotal.equals(0)).toBe(true);
+    expect(result.cashExpenseTotal.equals(0)).toBe(true);
+    expect(result.expectedClosingCash.toNumber()).toBe(5050);
+  });
+
+  it("REFUND amount 為負數時 cashExpenseTotal 翻成正數量級（鐵則）", async () => {
+    mockTxAggregate
+      .mockResolvedValueOnce({ _sum: { amount: D(0) } }) // income
+      .mockResolvedValueOnce({ _sum: { amount: D(-500) } }); // expense (negative)
+    mockEntryFindMany.mockResolvedValue([]);
+
+    const result = await computeLiveTotalsForOpenSession(
+      makeOpenSession({ openingBookBalance: D(1000) }),
+    );
+
+    expect(result.cashExpenseTotal.toNumber()).toBe(500); // 翻正後是 500
+    // expectedClosingCash = 1000 - 500 = 500
+    expect(result.expectedClosingCash.toNumber()).toBe(500);
+  });
+});
