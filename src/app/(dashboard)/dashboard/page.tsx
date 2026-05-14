@@ -3,16 +3,19 @@ import { DashboardLink as Link } from "@/components/dashboard-link";
 import { getCurrentUser } from "@/lib/session";
 import { resolveActiveStoreId } from "@/lib/store";
 import { getStoreFilter } from "@/lib/manager-visibility";
-import { bookingDateToday, formatTWTime } from "@/lib/date-utils";
+import { bookingDateToday, formatTWTime, toLocalDateStr } from "@/lib/date-utils";
 import { ACTIVE_BOOKING_STATUSES, STATUS_LABEL } from "@/lib/booking-constants";
+import { checkPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
 import { getDashboardTodaySummary } from "@/server/queries/dashboard-summary";
 import { getLatestResolvedRequest } from "@/server/queries/upgrade-request";
 import { getLatestReconciliationRun } from "@/server/queries/reconciliation";
 import { getStoreTodos } from "@/server/queries/store-todos";
+import { getCashDrawerView, type CashDrawerView } from "@/server/queries/cash-drawer";
 import { ReconciliationBanner } from "@/components/reconciliation-banner";
 import { UpgradeResultBanner } from "@/components/upgrade-result-banner";
 import { StoreTodoCard } from "./store-todo-card";
+import { CashDrawerTodayCard } from "./cash-drawer-today-card";
 import {
   PageShell,
   PageHeader,
@@ -55,6 +58,25 @@ export default async function DashboardHomePage() {
   const todayLabel = formatTWTime(new Date(), { dateOnly: true });
   const storeFilter = getStoreFilter(user, activeStoreId);
   const todayBooking = bookingDateToday();
+
+  // 現金抽屜首頁卡（PR-3 UX revision）— 需 cashDrawer.read 權限 + 已選店
+  const canViewCashDrawer = await checkPermission(user.role, user.staffId, "cashDrawer.read");
+  const canInitCashDrawer = isOwner;
+  const canOpenCashDrawer = await checkPermission(user.role, user.staffId, "cashDrawer.open");
+  let cashDrawerView: CashDrawerView | null = null;
+  if (canViewCashDrawer && activeStoreId) {
+    const todayStr = toLocalDateStr();
+    const [y, m, d] = todayStr.split("-").map(Number);
+    const todayBusinessDate = new Date(Date.UTC(y, m - 1, d));
+    cashDrawerView = await getCashDrawerView(activeStoreId, todayBusinessDate).catch((e) => {
+      console.error("[dashboard-home] getCashDrawerView failed", {
+        activeStoreId,
+        userId: user.id,
+        error: e instanceof Error ? e.message : String(e),
+      });
+      return null;
+    });
+  }
 
   // 各區塊獨立 catch — 任一塊失敗（DB 連線不穩、缺 store / config 等）不影響其他區塊
   // fallback 一律保守值（0、空陣列、null），不偽造任何營運數據
@@ -226,6 +248,14 @@ export default async function DashboardHomePage() {
           </Link>
         }
       />
+
+      {cashDrawerView && (
+        <CashDrawerTodayCard
+          view={cashDrawerView}
+          canInit={canInitCashDrawer}
+          canOpen={canOpenCashDrawer}
+        />
+      )}
 
       <StoreTodoCard items={todos.items} total={todos.total} />
 
