@@ -39,6 +39,9 @@ export default async function CashbookPage({ searchParams }: PageProps) {
     redirect("/dashboard");
   }
 
+  // PR-3 UX: 現金抽屜 header 連結僅顯示給有權限者，避免死連結
+  const canViewCashDrawer = await checkPermission(user.role, user.staffId, "cashDrawer.read");
+
   const params = await searchParams;
   const page = Number(params.page ?? 1);
 
@@ -73,12 +76,14 @@ export default async function CashbookPage({ searchParams }: PageProps) {
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-xl font-bold text-earth-900">現金帳</h1>
         <div className="flex items-center gap-2">
-          <Link
-            href="/dashboard/cash-drawer"
-            className="rounded-lg border border-earth-300 px-3 py-2 text-sm text-earth-700 hover:bg-earth-50"
-          >
-            現金抽屜
-          </Link>
+          {canViewCashDrawer && (
+            <Link
+              href="/dashboard/cash-drawer"
+              className="rounded-lg border border-earth-300 px-3 py-2 text-sm text-earth-700 hover:bg-earth-50"
+            >
+              現金抽屜
+            </Link>
+          )}
           <Link
             href="/dashboard/cashbook/new"
             className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
