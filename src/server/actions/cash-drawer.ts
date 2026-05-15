@@ -94,6 +94,9 @@ export async function initializeCashDrawerAction(
       actorUserId: user.id,
     });
     revalidatePath("/dashboard/cash-drawer");
+    // PR-8: 現金抽屜工作台已嵌入 /dashboard/cashbook（現金管理主頁），
+    // 同時 revalidate 以保證從任一入口操作後另一個入口的快取也更新。
+    revalidatePath("/dashboard/cashbook");
     return { success: true, data: { sessionId: session.id } };
   } catch (e) {
     return handleActionError(e);
@@ -116,6 +119,9 @@ export async function openCashDrawerAction(
       actorUserId: user.id,
     });
     revalidatePath("/dashboard/cash-drawer");
+    // PR-8: 現金抽屜工作台已嵌入 /dashboard/cashbook（現金管理主頁），
+    // 同時 revalidate 以保證從任一入口操作後另一個入口的快取也更新。
+    revalidatePath("/dashboard/cashbook");
     return { success: true, data: { sessionId: session.id } };
   } catch (e) {
     return handleActionError(e);
@@ -169,6 +175,9 @@ export async function addCashDrawerEntryAction(
       actorUserId: user.id,
     });
     revalidatePath("/dashboard/cash-drawer");
+    // PR-8: 現金抽屜工作台已嵌入 /dashboard/cashbook（現金管理主頁），
+    // 同時 revalidate 以保證從任一入口操作後另一個入口的快取也更新。
+    revalidatePath("/dashboard/cashbook");
     return { success: true, data: { entryId: entry.id } };
   } catch (e) {
     return handleActionError(e);
@@ -189,6 +198,9 @@ export async function closeCashDrawerAction(
       actorUserId: user.id,
     });
     revalidatePath("/dashboard/cash-drawer");
+    // PR-8: 現金抽屜工作台已嵌入 /dashboard/cashbook（現金管理主頁），
+    // 同時 revalidate 以保證從任一入口操作後另一個入口的快取也更新。
+    revalidatePath("/dashboard/cashbook");
     return { success: true, data: { sessionId: session.id } };
   } catch (e) {
     return handleActionError(e);

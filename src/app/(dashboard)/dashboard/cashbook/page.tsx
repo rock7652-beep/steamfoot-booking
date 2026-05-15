@@ -1,15 +1,36 @@
+/**
+ * /dashboard/cashbook — 現金管理（一頁式工作台）
+ *
+ * PR-8：把原本 /dashboard/cashbook 升級成「現金管理」主頁。
+ * 上方嵌入 CashDrawerWorkspace（與 /dashboard/cash-drawer 共用同一元件）
+ * 讓店長在同頁完成每日現金抽屜操作 + 月度現金帳檢視，不再跳頁。
+ *
+ * 資料模型嚴格分離維持不變：
+ *   - CashDrawerSession / CashDrawerEntry：今日抽屜（上方 workspace 區）
+ *   - CashbookEntry：月度現金帳（下方 records 區）
+ *   - 提領 / 補入 / 調整 不寫入 CashbookEntry，不算損益
+ *
+ * 權限：
+ *   - cashbook.read 必需（page-level）
+ *   - cashDrawer.read 才會 render workspace section；否則只顯示下方現金帳
+ */
+
 import { listCashbookEntries, getMonthlySummary } from "@/server/queries/cashbook";
+import { getCashDrawerView } from "@/server/queries/cash-drawer";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { getCurrentStorePlan } from "@/lib/store-plan";
 import { FEATURES } from "@/lib/feature-flags";
 import { FeatureGate } from "@/components/feature-gate";
+import { FormErrorToast } from "@/components/form-error-toast";
 import { getActiveStoreForRead } from "@/lib/store";
 import { redirect } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { EmptyState } from "@/components/ui/empty-state";
+import { PageShell, PageHeader } from "@/components/desktop";
 import { toLocalDateStr } from "@/lib/date-utils";
 import type { CashbookEntryType } from "@prisma/client";
+import { CashDrawerWorkspace } from "../cash-drawer/cash-drawer-workspace";
 
 const ENTRY_TYPE_LABEL: Record<CashbookEntryType, string> = {
   INCOME: "收入",
@@ -30,6 +51,7 @@ interface PageProps {
     month?: string;
     type?: CashbookEntryType;
     page?: string;
+    cashDrawerError?: string;
   }>;
 }
 
@@ -39,7 +61,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
     redirect("/dashboard");
   }
 
-  // PR-3 UX: 現金抽屜 header 連結僅顯示給有權限者，避免死連結
+  // 是否能看現金抽屜工作台（PARTNER 等可能無此權限，仍能看現金帳紀錄）
   const canViewCashDrawer = await checkPermission(user.role, user.staffId, "cashDrawer.read");
 
   const params = await searchParams;
@@ -55,7 +77,9 @@ export default async function CashbookPage({ searchParams }: PageProps) {
   const dateTo = `${month}-${String(lastDay).padStart(2, "0")}`;
 
   const activeStoreId = await getActiveStoreForRead(user);
-  const [{ entries, total, pageSize }, summary, plan] = await Promise.all([
+
+  // 平行 fetch：cashbook（必要）+ cash drawer（依權限）
+  const [cashbookList, summary, plan, cashDrawerData] = await Promise.all([
     listCashbookEntries({
       dateFrom,
       dateTo,
@@ -66,186 +90,216 @@ export default async function CashbookPage({ searchParams }: PageProps) {
     }),
     getMonthlySummary(month, activeStoreId),
     getCurrentStorePlan(),
+    canViewCashDrawer && activeStoreId
+      ? (async () => {
+          const [y, m, d] = today.split("-").map(Number);
+          const todayBusinessDate = new Date(Date.UTC(y, m - 1, d));
+          const [view, canOpen, canClose, canAddEntry] = await Promise.all([
+            getCashDrawerView(activeStoreId, todayBusinessDate),
+            checkPermission(user.role, user.staffId, "cashDrawer.open"),
+            checkPermission(user.role, user.staffId, "cashDrawer.close"),
+            checkPermission(user.role, user.staffId, "cashDrawer.entry"),
+          ]);
+          const canInit = user.role === "ADMIN" || user.role === "OWNER";
+          return { view, canInit, canOpen, canClose, canAddEntry };
+        })()
+      : Promise.resolve(null),
   ]);
 
+  const { entries, total, pageSize } = cashbookList;
   const totalPages = Math.ceil(total / pageSize);
 
   return (
     <FeatureGate plan={plan} feature={FEATURES.CASHBOOK}>
-    <div>
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-xl font-bold text-earth-900">現金帳</h1>
-        <div className="flex items-center gap-2">
-          {canViewCashDrawer && (
+      <PageShell>
+        <FormErrorToast />
+
+        <PageHeader
+          title="現金管理"
+          subtitle="今日抽屜 + 月度現金帳紀錄"
+          actions={
             <Link
-              href="/dashboard/cash-drawer"
-              className="rounded-lg border border-earth-300 px-3 py-2 text-sm text-earth-700 hover:bg-earth-50"
+              href="/dashboard/cashbook/new"
+              className="rounded-lg bg-primary-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-primary-700"
             >
-              現金抽屜
+              + 新增記帳
             </Link>
-          )}
-          <Link
-            href="/dashboard/cashbook/new"
-            className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
-          >
-            + 新增記帳
-          </Link>
-        </div>
-      </div>
+          }
+        />
 
-      {/* 月份選擇 */}
-      <form method="GET" className="mb-4 flex flex-wrap items-end gap-2">
-        <div>
-          <label className="block text-xs text-earth-500">月份</label>
-          <input
-            name="month"
-            type="month"
-            defaultValue={month}
-            className="rounded-lg border border-earth-300 px-3 py-1.5 text-sm focus:outline-none"
-          />
-        </div>
-        <select
-          name="type"
-          defaultValue={params.type ?? ""}
-          className="rounded-lg border border-earth-300 px-3 py-1.5 text-sm focus:outline-none"
-        >
-          <option value="">所有類型</option>
-          {Object.entries(ENTRY_TYPE_LABEL).map(([k, v]) => (
-            <option key={k} value={k}>
-              {v}
-            </option>
-          ))}
-        </select>
-        <button
-          type="submit"
-          className="rounded-lg bg-earth-100 px-3 py-1.5 text-sm text-earth-700 hover:bg-earth-200"
-        >
-          查詢
-        </button>
-      </form>
+        {/* 上方：今日現金抽屜工作台（無權限者不 render） */}
+        {cashDrawerData && (
+          <section id="cash-drawer-workspace" className="space-y-3">
+            <CashDrawerWorkspace
+              view={cashDrawerData.view}
+              todayStr={today}
+              canInit={cashDrawerData.canInit}
+              canOpen={cashDrawerData.canOpen}
+              canClose={cashDrawerData.canClose}
+              canAddEntry={cashDrawerData.canAddEntry}
+              returnPath="/dashboard/cashbook#cash-drawer-workspace"
+            />
+          </section>
+        )}
 
-      {/* 月度統計 */}
-      <div className="mb-4 grid grid-cols-3 gap-4">
-        <div className="rounded-xl border bg-green-50 p-4">
-          <p className="text-xs text-green-600">收入</p>
-          <p className="text-xl font-bold text-green-700">
-            NT$ {summary.income.toLocaleString()}
-          </p>
-        </div>
-        <div className="rounded-xl border bg-red-50 p-4">
-          <p className="text-xs text-red-600">支出 + 提領</p>
-          <p className="text-xl font-bold text-red-700">
-            NT$ {summary.expense.toLocaleString()}
-          </p>
-        </div>
-        <div className={`rounded-xl border p-4 ${summary.net >= 0 ? "bg-primary-50" : "bg-orange-50"}`}>
-          <p className={`text-xs ${summary.net >= 0 ? "text-primary-600" : "text-orange-600"}`}>
-            淨額
-          </p>
-          <p
-            className={`text-xl font-bold ${
-              summary.net >= 0 ? "text-primary-700" : "text-orange-700"
-            }`}
-          >
-            NT$ {summary.net.toLocaleString()}
-          </p>
-        </div>
-      </div>
+        {/* 下方：月度現金帳紀錄（與 workspace 視覺分隔） */}
+        <section id="cashbook-records" className="space-y-4 border-t border-earth-200 pt-6">
+          <h2 className="text-lg font-semibold text-earth-900">現金帳紀錄</h2>
 
-      {/* 明細列表 */}
-      <div className="overflow-hidden rounded-xl border border-earth-200 bg-white shadow-sm">
-        <table className="min-w-full divide-y divide-gray-200 text-sm">
-          <thead className="bg-earth-50">
-            <tr>
-              <th className="px-4 py-3 text-left font-medium text-earth-600">日期</th>
-              <th className="px-4 py-3 text-left font-medium text-earth-600">類型</th>
-              <th className="px-4 py-3 text-left font-medium text-earth-600">分類</th>
-              <th className="px-4 py-3 text-right font-medium text-earth-600">金額</th>
-              <th className="px-4 py-3 text-left font-medium text-earth-600">登錄人</th>
-              <th className="px-4 py-3 text-left font-medium text-earth-600">備註</th>
-              <th className="px-4 py-3 text-left font-medium text-earth-600">操作</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-earth-100">
-            {entries.length === 0 && (
-              <tr>
-                <td colSpan={7} className="px-4 py-0">
-                  <EmptyState
-                    icon="empty"
-                    title="尚無現金帳記錄"
-                    description="新增第一筆現金帳記錄來開始追蹤"
-                  />
-                </td>
-              </tr>
-            )}
-            {entries.map((e) => (
-              <tr key={e.id} className="hover:bg-earth-50">
-                <td className="px-4 py-3 text-earth-600">
-                  {new Date(e.entryDate).toLocaleDateString("zh-TW")}
-                </td>
-                <td className="px-4 py-3">
-                  <span
-                    className={`rounded px-2 py-0.5 text-xs font-medium ${
-                      ENTRY_TYPE_COLOR[e.type]
-                    }`}
-                  >
-                    {ENTRY_TYPE_LABEL[e.type]}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-earth-600">{e.category ?? "—"}</td>
-                <td
-                  className={`px-4 py-3 text-right font-medium ${
-                    e.type === "INCOME" ? "text-green-700" : "text-red-700"
-                  }`}
-                >
-                  NT$ {Number(e.amount).toLocaleString()}
-                </td>
-                <td className="px-4 py-3 text-earth-600">
-                  {e.staff?.displayName ?? "未指定"}
-                </td>
-                <td className="max-w-xs truncate px-4 py-3 text-earth-400">
-                  {e.note ?? "—"}
-                </td>
-                <td className="px-4 py-3">
-                  <Link
-                    href={`/dashboard/cashbook/${e.id}/edit`}
-                    className="text-primary-600 hover:underline"
-                  >
-                    編輯
-                  </Link>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+          {/* 月份 / 類型 篩選 */}
+          <form method="GET" className="flex flex-wrap items-end gap-2">
+            <div>
+              <label className="block text-xs text-earth-500">月份</label>
+              <input
+                name="month"
+                type="month"
+                defaultValue={month}
+                className="rounded-lg border border-earth-300 px-3 py-1.5 text-sm focus:outline-none"
+              />
+            </div>
+            <select
+              name="type"
+              defaultValue={params.type ?? ""}
+              className="rounded-lg border border-earth-300 px-3 py-1.5 text-sm focus:outline-none"
+            >
+              <option value="">所有類型</option>
+              {Object.entries(ENTRY_TYPE_LABEL).map(([k, v]) => (
+                <option key={k} value={k}>
+                  {v}
+                </option>
+              ))}
+            </select>
+            <button
+              type="submit"
+              className="rounded-lg bg-earth-100 px-3 py-1.5 text-sm text-earth-700 hover:bg-earth-200"
+            >
+              查詢
+            </button>
+          </form>
 
-      {totalPages > 1 && (
-        <div className="mt-4 flex items-center justify-between text-sm text-earth-600">
-          <span>
-            共 {total} 筆，第 {page} / {totalPages} 頁
-          </span>
-          <div className="flex gap-2">
-            {page > 1 && (
-              <Link
-                href={`?${new URLSearchParams(Object.fromEntries(Object.entries({ ...params, page: String(page - 1) }).filter(([, v]) => v != null)))}`}
-                className="rounded border px-3 py-1 hover:bg-earth-50"
+          {/* 月度統計：手機 1 col、桌機 / iPad 橫向 3 col */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div className="rounded-xl border bg-green-50 p-4">
+              <p className="text-xs text-green-600">收入</p>
+              <p className="text-xl font-bold text-green-700">
+                NT$ {summary.income.toLocaleString()}
+              </p>
+            </div>
+            <div className="rounded-xl border bg-red-50 p-4">
+              <p className="text-xs text-red-600">支出 + 提領</p>
+              <p className="text-xl font-bold text-red-700">
+                NT$ {summary.expense.toLocaleString()}
+              </p>
+            </div>
+            <div className={`rounded-xl border p-4 ${summary.net >= 0 ? "bg-primary-50" : "bg-orange-50"}`}>
+              <p className={`text-xs ${summary.net >= 0 ? "text-primary-600" : "text-orange-600"}`}>
+                淨額
+              </p>
+              <p
+                className={`text-xl font-bold ${
+                  summary.net >= 0 ? "text-primary-700" : "text-orange-700"
+                }`}
               >
-                上一頁
-              </Link>
-            )}
-            {page < totalPages && (
-              <Link
-                href={`?${new URLSearchParams(Object.fromEntries(Object.entries({ ...params, page: String(page + 1) }).filter(([, v]) => v != null)))}`}
-                className="rounded border px-3 py-1 hover:bg-earth-50"
-              >
-                下一頁
-              </Link>
-            )}
+                NT$ {summary.net.toLocaleString()}
+              </p>
+            </div>
           </div>
-        </div>
-      )}
-    </div>
+
+          {/* 明細列表 */}
+          <div className="overflow-hidden rounded-xl border border-earth-200 bg-white shadow-sm">
+            <table className="min-w-full divide-y divide-gray-200 text-sm">
+              <thead className="bg-earth-50">
+                <tr>
+                  <th className="px-4 py-3 text-left font-medium text-earth-600">日期</th>
+                  <th className="px-4 py-3 text-left font-medium text-earth-600">類型</th>
+                  <th className="px-4 py-3 text-left font-medium text-earth-600">分類</th>
+                  <th className="px-4 py-3 text-right font-medium text-earth-600">金額</th>
+                  <th className="px-4 py-3 text-left font-medium text-earth-600">登錄人</th>
+                  <th className="px-4 py-3 text-left font-medium text-earth-600">備註</th>
+                  <th className="px-4 py-3 text-left font-medium text-earth-600">操作</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-earth-100">
+                {entries.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="px-4 py-0">
+                      <EmptyState
+                        icon="empty"
+                        title="尚無現金帳記錄"
+                        description="新增第一筆現金帳記錄來開始追蹤"
+                      />
+                    </td>
+                  </tr>
+                )}
+                {entries.map((e) => (
+                  <tr key={e.id} className="hover:bg-earth-50">
+                    <td className="px-4 py-3 text-earth-600">
+                      {new Date(e.entryDate).toLocaleDateString("zh-TW")}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`rounded px-2 py-0.5 text-xs font-medium ${
+                          ENTRY_TYPE_COLOR[e.type]
+                        }`}
+                      >
+                        {ENTRY_TYPE_LABEL[e.type]}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-earth-600">{e.category ?? "—"}</td>
+                    <td
+                      className={`px-4 py-3 text-right font-medium ${
+                        e.type === "INCOME" ? "text-green-700" : "text-red-700"
+                      }`}
+                    >
+                      NT$ {Number(e.amount).toLocaleString()}
+                    </td>
+                    <td className="px-4 py-3 text-earth-600">
+                      {e.staff?.displayName ?? "未指定"}
+                    </td>
+                    <td className="max-w-xs truncate px-4 py-3 text-earth-400">
+                      {e.note ?? "—"}
+                    </td>
+                    <td className="px-4 py-3">
+                      <Link
+                        href={`/dashboard/cashbook/${e.id}/edit`}
+                        className="text-primary-600 hover:underline"
+                      >
+                        編輯
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between text-sm text-earth-600">
+              <span>
+                共 {total} 筆，第 {page} / {totalPages} 頁
+              </span>
+              <div className="flex gap-2">
+                {page > 1 && (
+                  <Link
+                    href={`?${new URLSearchParams(Object.fromEntries(Object.entries({ ...params, page: String(page - 1) }).filter(([, v]) => v != null)))}`}
+                    className="rounded border px-3 py-1 hover:bg-earth-50"
+                  >
+                    上一頁
+                  </Link>
+                )}
+                {page < totalPages && (
+                  <Link
+                    href={`?${new URLSearchParams(Object.fromEntries(Object.entries({ ...params, page: String(page + 1) }).filter(([, v]) => v != null)))}`}
+                    className="rounded border px-3 py-1 hover:bg-earth-50"
+                  >
+                    下一頁
+                  </Link>
+                )}
+              </div>
+            </div>
+          )}
+        </section>
+      </PageShell>
     </FeatureGate>
   );
 }
