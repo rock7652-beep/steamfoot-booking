@@ -506,6 +506,16 @@ function ClosingForm({
           請現場清點抽屜內現金，輸入實際金額。閉店後 session 將鎖定。
         </p>
 
+        {/* PR-6：閉店前確認提醒（避免誤按閉店無法補登異動）*/}
+        <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+          <p className="text-sm font-medium text-amber-900">閉店前確認</p>
+          <ul className="mt-1 space-y-0.5 text-xs text-amber-800">
+            <li>若今日沒有提領、補入或調整，可直接閉店。</li>
+            <li>若有，請先完成登錄後再閉店。</li>
+            <li>閉店後今日紀錄將鎖定，無法再新增現金異動。</li>
+          </ul>
+        </div>
+
         {!canClose && (
           <div className="mt-4 rounded-lg bg-earth-50 px-4 py-3 text-sm text-earth-600">
             您沒有閉店點錢的權限。
