@@ -13,11 +13,13 @@ import { SubmitButton } from "@/components/submit-button";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 
 import { getCashDrawerView, type CashDrawerLiveTotals } from "@/server/queries/cash-drawer";
+import type { CashDrawerEntry } from "@prisma/client";
 import {
   initializeCashDrawerAction,
   openCashDrawerAction,
   closeCashDrawerAction,
 } from "@/server/actions/cash-drawer";
+import { EntrySection } from "./entry-section";
 
 interface PageProps {
   searchParams: Promise<{ error?: string }>;
@@ -44,6 +46,7 @@ export default async function CashDrawerPage({ searchParams }: PageProps) {
   const canInit = user.role === "ADMIN" || user.role === "OWNER";
   const canOpen = await checkPermission(user.role, user.staffId, "cashDrawer.open");
   const canClose = await checkPermission(user.role, user.staffId, "cashDrawer.close");
+  const canAddEntry = await checkPermission(user.role, user.staffId, "cashDrawer.entry");
 
   return (
     <FeatureGate plan={plan} feature={FEATURES.CASHBOOK}>
@@ -88,7 +91,9 @@ export default async function CashDrawerPage({ searchParams }: PageProps) {
           <OpenedToday
             session={view.session}
             liveTotals={view.liveTotals}
+            entries={view.entries}
             canClose={canClose}
+            canAddEntry={canAddEntry}
           />
         )}
       </div>
@@ -339,11 +344,15 @@ function formatDiff(value: number): { label: string; className: string } {
 function OpenedToday({
   session,
   liveTotals,
+  entries,
   canClose,
+  canAddEntry,
 }: {
   session: OpenedTodaySession;
   liveTotals: CashDrawerLiveTotals | null;
+  entries: CashDrawerEntry[];
   canClose: boolean;
+  canAddEntry: boolean;
 }) {
   const isClosed = session.status === "CLOSED";
   const openingDiff = formatDiff(session.openingDifference.toNumber());
@@ -402,13 +411,19 @@ function OpenedToday({
         </dl>
       </div>
 
-      {/* OPEN：閉店表單 */}
+      {/* OPEN：閉店表單（含現金異動區塊） */}
       {!isClosed && liveTotals && (
-        <ClosingForm sessionId={session.id} liveTotals={liveTotals} canClose={canClose} />
+        <ClosingForm
+          sessionId={session.id}
+          liveTotals={liveTotals}
+          entries={entries}
+          canClose={canClose}
+          canAddEntry={canAddEntry}
+        />
       )}
 
-      {/* CLOSED：閉店結算 summary */}
-      {isClosed && <ClosedSummary session={session} />}
+      {/* CLOSED：閉店結算 summary（含 read-only entries 列表） */}
+      {isClosed && <ClosedSummary session={session} entries={entries} />}
     </div>
   );
 }
@@ -420,11 +435,15 @@ function OpenedToday({
 function ClosingForm({
   sessionId,
   liveTotals,
+  entries,
   canClose,
+  canAddEntry,
 }: {
   sessionId: string;
   liveTotals: CashDrawerLiveTotals;
+  entries: CashDrawerEntry[];
   canClose: boolean;
+  canAddEntry: boolean;
 }) {
   async function handleClose(formData: FormData) {
     "use server";
@@ -476,6 +495,9 @@ function ClosingForm({
           </div>
         </dl>
       </div>
+
+      {/* 現金異動區塊（OPEN session，PR-4） */}
+      <EntrySection sessionId={sessionId} entries={entries} canAddEntry={canAddEntry} />
 
       {/* 閉店表單 */}
       <div className="rounded-xl border bg-white p-6 shadow-sm">
@@ -532,7 +554,13 @@ function ClosingForm({
 // 閉店結算 summary（CLOSED 狀態使用）
 // ============================================================
 
-function ClosedSummary({ session }: { session: OpenedTodaySession }) {
+function ClosedSummary({
+  session,
+  entries,
+}: {
+  session: OpenedTodaySession;
+  entries: CashDrawerEntry[];
+}) {
   const closingDiff = formatDiff(session.closingDifference?.toNumber() ?? 0);
 
   return (
@@ -609,6 +637,9 @@ function ClosedSummary({ session }: { session: OpenedTodaySession }) {
           </p>
         </div>
       </div>
+
+      {/* 現金異動（read-only，PR-4）— 即使 CLOSED 也讓 OWNER 審視當日異動明細 */}
+      <EntrySection sessionId={session.id} entries={entries} canAddEntry={false} />
     </>
   );
 }
