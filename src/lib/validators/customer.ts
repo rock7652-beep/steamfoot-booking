@@ -41,14 +41,32 @@ export const createCustomerSchema = z.object({
   assignedStaffId: z.string().cuid().optional(),
 });
 
-// 後台編輯顧客（全欄位更新）
+// 後台編輯顧客（店長補資料情境）：name + phone 必填，其餘皆選填。
+// 前台顧客自助 profile / onboarding 走 src/server/actions/profile.ts 的 inline
+// 驗證，不共用本 schema；放寬此 schema 不會影響前台流程。
+// email/gender/birthday/height 空字串會被 preprocess 成 undefined；
+// action 層會把 undefined 寫成 null 以清除 DB 欄位。
 export const updateCustomerSchema = z.object({
   name: z.string().trim().min(1, "請輸入姓名").max(100),
   phone: phoneSchema,
-  email: z.string().trim().email("Email 格式不正確").max(200),
-  gender: z.enum(["male", "female", "other"], { required_error: "請選擇性別" }),
-  birthday: z.string().trim().min(1, "請選擇生日"),
-  height: z.number().min(50).max(250),
+  email: emptyToUndef.pipe(
+    z.string().trim().email("Email 格式不正確").max(200).optional(),
+  ),
+  gender: emptyToUndef.pipe(z.enum(["male", "female", "other"]).optional()),
+  birthday: emptyToUndef.pipe(z.string().trim().optional()),
+  height: z.preprocess(
+    (v) => {
+      if (v === undefined || v === null) return undefined;
+      if (typeof v === "string") {
+        if (v.trim() === "") return undefined;
+        const n = Number(v);
+        return Number.isFinite(n) ? n : undefined;
+      }
+      if (typeof v === "number") return Number.isFinite(v) ? v : undefined;
+      return v;
+    },
+    z.number().min(50).max(250).optional(),
+  ),
   // lineName / notes 仍可空
   lineName: z.string().max(100).nullable().optional(),
   notes: z.string().max(1000).nullable().optional(),

@@ -79,8 +79,11 @@ export default async function EditStaffPage({ params }: PageProps) {
     redirect(`/dashboard/staff/${id}/edit`);
   }
 
+  // Owner（系統管理者）沒有權限設定區塊，維持原本窄版；其他員工 (含 PARTNER) 才用桌機版加寬。
+  const containerWidth = staff.isOwner ? "max-w-lg" : "max-w-6xl";
+
   return (
-    <div className="mx-auto max-w-lg space-y-6 px-4 py-4">
+    <div className={`mx-auto ${containerWidth} space-y-6 px-4 py-4`}>
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-earth-500">
         <Link href="/dashboard/staff" className="hover:text-earth-700">店長管理</Link>
@@ -88,8 +91,11 @@ export default async function EditStaffPage({ params }: PageProps) {
         <span className="text-earth-700">編輯</span>
       </div>
 
-      {/* 基本資料 */}
-      <div className="rounded-xl border bg-white p-5 shadow-sm">
+      {/* 桌機 / iPad 橫向：基本資料 + 權限並排（基本資料 1 欄、權限 2 欄寬）；
+          手機 / iPad 直向（< lg）：上下單欄堆疊維持既有體驗。 */}
+      <div className={`grid grid-cols-1 gap-6 ${!staff.isOwner ? "lg:grid-cols-3" : ""}`}>
+        {/* 基本資料 */}
+        <div className="rounded-xl border bg-white p-5 shadow-sm lg:col-span-1 lg:self-start">
         <h1 className="mb-1 text-lg font-bold text-earth-900">編輯員工資料</h1>
         <p className="mb-5 text-sm text-earth-400">
           {staff.user.name}（{staff.user.email}）
@@ -179,7 +185,7 @@ export default async function EditStaffPage({ params }: PageProps) {
 
       {/* 權限設定（僅非 Owner 的員工顯示） */}
       {!staff.isOwner && (
-        <div className="rounded-xl border bg-white p-5 shadow-sm">
+        <div className="rounded-xl border bg-white p-5 shadow-sm lg:col-span-2">
           <h2 className="mb-1 text-lg font-bold text-earth-900">操作權限</h2>
           <p className="mb-4 text-xs text-earth-400">
             設定此員工可操作的功能範圍，勾選為允許。角色預設權限已自動帶入，可依需求額外增減。
@@ -191,7 +197,8 @@ export default async function EditStaffPage({ params }: PageProps) {
                 <h3 className="mb-2 text-sm font-semibold text-earth-700">
                   {group.label}
                 </h3>
-                <div className="space-y-1.5">
+                {/* 桌機 / iPad 橫向（md 以上）兩欄排列，手機保持單欄 */}
+                <div className="grid grid-cols-1 gap-x-3 gap-y-1.5 md:grid-cols-2">
                   {group.codes.map((code) => (
                     <label
                       key={code}
@@ -218,6 +225,7 @@ export default async function EditStaffPage({ params }: PageProps) {
           </form>
         </div>
       )}
+      </div>
 
       {/* 統計 */}
       <div className="rounded-xl border bg-white p-4 shadow-sm">

@@ -37,15 +37,24 @@ export function EditCustomerForm({ customer }: { customer: CustomerData }) {
       _prev: { error: string | null; existingCustomerId: string | null },
       formData: FormData,
     ) => {
-      const heightStr = (formData.get("height") as string) ?? "";
-      const height = parseFloat(heightStr);
+      // 後台補資料情境：除 name + phone 必填外，其餘空白都送 undefined，
+      // 由 schema (emptyToUndef) 與 action (undefined → null) 接手清空。
+      const emailRaw = normalizeEmail((formData.get("email") as string) ?? "");
+      const genderRaw = (formData.get("gender") as string) ?? "";
+      const gender: "male" | "female" | "other" | undefined =
+        genderRaw === "male" || genderRaw === "female" || genderRaw === "other"
+          ? genderRaw
+          : undefined;
+      const birthdayRaw = ((formData.get("birthday") as string) ?? "").trim();
+      const heightStr = ((formData.get("height") as string) ?? "").trim();
+      const heightParsed = heightStr === "" ? NaN : parseFloat(heightStr);
       const input = {
         name: ((formData.get("name") as string) ?? "").trim(),
         phone: normalizePhone((formData.get("phone") as string) ?? ""),
-        email: normalizeEmail((formData.get("email") as string) ?? ""),
-        gender: (formData.get("gender") as string) as "male" | "female" | "other",
-        birthday: ((formData.get("birthday") as string) ?? "").trim(),
-        height: isNaN(height) ? 0 : height,
+        email: emailRaw || undefined,
+        gender,
+        birthday: birthdayRaw || undefined,
+        height: Number.isFinite(heightParsed) ? heightParsed : undefined,
         lineName: ((formData.get("lineName") as string) ?? "") || null,
         notes: ((formData.get("notes") as string) ?? "") || null,
       };
@@ -72,7 +81,7 @@ export function EditCustomerForm({ customer }: { customer: CustomerData }) {
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           {/* 左欄 */}
           <div className="space-y-6">
-            <FormSection title="基本資料" description="姓名與聯絡方式（必填）">
+            <FormSection title="基本資料" description="姓名與電話為必填，其餘欄位可稍後補">
               <div>
                 <label className={labelCls}>
                   姓名 <span className="text-red-500">*</span>
@@ -103,12 +112,12 @@ export function EditCustomerForm({ customer }: { customer: CustomerData }) {
                 </div>
                 <div>
                   <label className={labelCls}>
-                    Email <span className="text-red-500">*</span>
+                    Email
+                    <span className="ml-1 text-xs text-earth-400">（選填）</span>
                   </label>
                   <input
                     name="email"
                     type="email"
-                    required
                     defaultValue={customer.email}
                     className={`mt-1 ${inputCls}`}
                   />
@@ -120,17 +129,15 @@ export function EditCustomerForm({ customer }: { customer: CustomerData }) {
               <FormGrid>
                 <div>
                   <label className={labelCls}>
-                    性別 <span className="text-red-500">*</span>
+                    性別
+                    <span className="ml-1 text-xs text-earth-400">（選填）</span>
                   </label>
                   <select
                     name="gender"
-                    required
                     defaultValue={customer.gender}
                     className={`mt-1 ${inputCls}`}
                   >
-                    <option value="" disabled>
-                      請選擇
-                    </option>
+                    <option value="">未填寫</option>
                     <option value="male">男</option>
                     <option value="female">女</option>
                     <option value="other">其他</option>
@@ -138,12 +145,12 @@ export function EditCustomerForm({ customer }: { customer: CustomerData }) {
                 </div>
                 <div>
                   <label className={labelCls}>
-                    生日 <span className="text-red-500">*</span>
+                    生日
+                    <span className="ml-1 text-xs text-earth-400">（選填）</span>
                   </label>
                   <input
                     name="birthday"
                     type="date"
-                    required
                     defaultValue={customer.birthday}
                     className={`mt-1 ${inputCls}`}
                   />
@@ -151,7 +158,8 @@ export function EditCustomerForm({ customer }: { customer: CustomerData }) {
               </FormGrid>
               <div>
                 <label className={labelCls}>
-                  身高 (cm) <span className="text-red-500">*</span>
+                  身高 (cm)
+                  <span className="ml-1 text-xs text-earth-400">（選填）</span>
                 </label>
                 <input
                   name="height"
@@ -159,7 +167,6 @@ export function EditCustomerForm({ customer }: { customer: CustomerData }) {
                   step="0.1"
                   min="50"
                   max="250"
-                  required
                   defaultValue={customer.height ?? ""}
                   className={`mt-1 ${inputCls}`}
                 />

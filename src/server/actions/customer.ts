@@ -179,11 +179,27 @@ export async function updateCustomer(
       }
     }
 
-    // birthday: string → Date 轉換
-    const prismaData: Record<string, unknown> = { ...data };
-    if (data.birthday !== undefined) {
-      prismaData.birthday = data.birthday ? new Date(data.birthday) : null;
-    }
+    // 後台補資料情境：name + phone 之外，欄位空白 → 寫 null 清除 DB。
+    // 對「未提供」（其它 caller 不送這個欄位）與「使用者清空」這兩種情況，
+    // 表單一律送 undefined，這裡統一處理成「寫 null」。
+    // 其他純可選欄位（lineName / notes / customerStage / selfBookingEnabled /
+    // assignedStaffId）若 caller 完全沒提供（undefined），則略過不寫；提供 null
+    // 才視為清除。這讓 partial update caller 不會誤清欄位。
+    const prismaData: Record<string, unknown> = {
+      name: data.name,
+      phone: data.phone,
+      email: data.email ?? null,
+      gender: data.gender ?? null,
+      birthday: data.birthday ? new Date(data.birthday) : null,
+      height: data.height ?? null,
+    };
+    if (data.lineName !== undefined) prismaData.lineName = data.lineName;
+    if (data.notes !== undefined) prismaData.notes = data.notes;
+    if (data.customerStage !== undefined) prismaData.customerStage = data.customerStage;
+    if (data.selfBookingEnabled !== undefined)
+      prismaData.selfBookingEnabled = data.selfBookingEnabled;
+    if (data.assignedStaffId !== undefined)
+      prismaData.assignedStaffId = data.assignedStaffId;
 
     await prisma.customer.update({
       where: { id: customerId },
