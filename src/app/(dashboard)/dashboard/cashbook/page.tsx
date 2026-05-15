@@ -8,6 +8,7 @@ import { getActiveStoreForRead } from "@/lib/store";
 import { redirect } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { EmptyState } from "@/components/ui/empty-state";
+import { PageShell, PageHeader } from "@/components/desktop";
 import { toLocalDateStr } from "@/lib/date-utils";
 import type { CashbookEntryType } from "@prisma/client";
 
@@ -72,29 +73,31 @@ export default async function CashbookPage({ searchParams }: PageProps) {
 
   return (
     <FeatureGate plan={plan} feature={FEATURES.CASHBOOK}>
-    <div>
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-xl font-bold text-earth-900">現金帳</h1>
-        <div className="flex items-center gap-2">
-          {canViewCashDrawer && (
+    <PageShell>
+      <PageHeader
+        title="現金帳"
+        actions={
+          <>
+            {canViewCashDrawer && (
+              <Link
+                href="/dashboard/cash-drawer"
+                className="rounded-lg border border-earth-300 px-3 py-1.5 text-sm text-earth-700 hover:bg-earth-50"
+              >
+                現金抽屜
+              </Link>
+            )}
             <Link
-              href="/dashboard/cash-drawer"
-              className="rounded-lg border border-earth-300 px-3 py-2 text-sm text-earth-700 hover:bg-earth-50"
+              href="/dashboard/cashbook/new"
+              className="rounded-lg bg-primary-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-primary-700"
             >
-              現金抽屜
+              + 新增記帳
             </Link>
-          )}
-          <Link
-            href="/dashboard/cashbook/new"
-            className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
-          >
-            + 新增記帳
-          </Link>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       {/* 月份選擇 */}
-      <form method="GET" className="mb-4 flex flex-wrap items-end gap-2">
+      <form method="GET" className="flex flex-wrap items-end gap-2">
         <div>
           <label className="block text-xs text-earth-500">月份</label>
           <input
@@ -124,8 +127,8 @@ export default async function CashbookPage({ searchParams }: PageProps) {
         </button>
       </form>
 
-      {/* 月度統計 */}
-      <div className="mb-4 grid grid-cols-3 gap-4">
+      {/* 月度統計：手機 1 col、桌機 / iPad 橫向 3 col */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="rounded-xl border bg-green-50 p-4">
           <p className="text-xs text-green-600">收入</p>
           <p className="text-xl font-bold text-green-700">
@@ -221,7 +224,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
       </div>
 
       {totalPages > 1 && (
-        <div className="mt-4 flex items-center justify-between text-sm text-earth-600">
+        <div className="flex items-center justify-between text-sm text-earth-600">
           <span>
             共 {total} 筆，第 {page} / {totalPages} 頁
           </span>
@@ -245,7 +248,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
           </div>
         </div>
       )}
-    </div>
+    </PageShell>
     </FeatureGate>
   );
 }

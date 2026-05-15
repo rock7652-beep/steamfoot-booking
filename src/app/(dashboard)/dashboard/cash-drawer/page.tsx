@@ -11,6 +11,7 @@ import { FeatureGate } from "@/components/feature-gate";
 import { FormErrorToast } from "@/components/form-error-toast";
 import { SubmitButton } from "@/components/submit-button";
 import { DashboardLink as Link } from "@/components/dashboard-link";
+import { PageShell, PageHeader } from "@/components/desktop";
 
 import { getCashDrawerView, type CashDrawerLiveTotals } from "@/server/queries/cash-drawer";
 import type { CashDrawerEntry } from "@prisma/client";
@@ -50,43 +51,49 @@ export default async function CashDrawerPage({ searchParams }: PageProps) {
 
   return (
     <FeatureGate plan={plan} feature={FEATURES.CASHBOOK}>
-      <div className="max-w-3xl space-y-6">
+      <PageShell>
         <FormErrorToast />
 
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold text-earth-900">現金抽屜</h1>
-            <p className="mt-1 text-sm text-earth-500">
-              每日開店點錢 / 閉店點錢 / 滾動結餘核對
-            </p>
+        <PageHeader
+          title="現金抽屜"
+          subtitle="每日開店點錢 / 閉店點錢 / 滾動結餘核對"
+          actions={
+            <Link
+              href="/dashboard/cashbook"
+              className="rounded-lg border border-earth-200 px-3 py-1.5 text-xs font-medium text-earth-600 hover:bg-earth-50"
+            >
+              ← 現金帳
+            </Link>
+          }
+        />
+
+        {/* State A: 未啟用 — 單卡置中，避免在 1440px 容器內被拉太寬 */}
+        {view.state === "EMPTY" && (
+          <div className="mx-auto w-full max-w-2xl">
+            <EmptyState canInit={canInit} todayStr={todayStr} />
           </div>
-          <Link
-            href="/dashboard/cashbook"
-            className="text-sm text-earth-500 hover:text-earth-700"
-          >
-            ← 現金帳
-          </Link>
-        </div>
+        )}
 
-        {/* State A: 未啟用 */}
-        {view.state === "EMPTY" && <EmptyState canInit={canInit} todayStr={todayStr} />}
-
-        {/* State D: 上日尚未閉店 */}
+        {/* State D: 上日尚未閉店 — 單卡置中 */}
         {view.state === "WARNING_LAST_OPEN" && (
-          <WarningLastOpen lastSession={view.lastSession} />
+          <div className="mx-auto w-full max-w-2xl">
+            <WarningLastOpen lastSession={view.lastSession} />
+          </div>
         )}
 
-        {/* State B: 今日未開店 */}
+        {/* State B: 今日未開店 — 兩張窄卡上下堆疊置中 */}
         {view.state === "NOT_OPENED_TODAY" && (
-          <NotOpenedToday
-            lastSession={view.lastSession}
-            canOpen={canOpen}
-            todayStr={todayStr}
-          />
+          <div className="mx-auto w-full max-w-2xl">
+            <NotOpenedToday
+              lastSession={view.lastSession}
+              canOpen={canOpen}
+              todayStr={todayStr}
+            />
+          </div>
         )}
 
-        {/* State C: 今日已開店（OPEN 顯示閉店表單，CLOSED 顯示結算 summary） */}
+        {/* State C: 今日已開店（OPEN 顯示閉店表單，CLOSED 顯示結算 summary）
+            內部 OpenedToday 元件於 lg+ 切換為左 2 / 右 1 兩欄 layout */}
         {view.state === "OPENED_TODAY" && (
           <OpenedToday
             session={view.session}
@@ -96,7 +103,7 @@ export default async function CashDrawerPage({ searchParams }: PageProps) {
             canAddEntry={canAddEntry}
           />
         )}
-      </div>
+      </PageShell>
     </FeatureGate>
   );
 }
@@ -355,7 +362,6 @@ function OpenedToday({
   canAddEntry: boolean;
 }) {
   const isClosed = session.status === "CLOSED";
-  const openingDiff = formatDiff(session.openingDifference.toNumber());
 
   return (
     <div className="space-y-4">
@@ -372,78 +378,167 @@ function OpenedToday({
         </span>
       </div>
 
-      {/* 開店紀錄（OPEN 與 CLOSED 都顯示） */}
-      <div className="rounded-xl border bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-earth-900">開店紀錄</h2>
-        <dl className="mt-4 grid grid-cols-2 gap-4 text-sm">
-          <div>
-            <dt className="text-earth-500">開店帳面（應有）</dt>
-            <dd className="mt-1 text-lg font-medium text-earth-900">
-              NT$ {session.openingBookBalance.toString()}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-earth-500">實際點到</dt>
-            <dd className="mt-1 text-lg font-medium text-earth-900">
-              NT$ {session.openingActualCash.toString()}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-earth-500">差額</dt>
-            <dd className={`mt-1 text-lg font-medium ${openingDiff.className}`}>
-              NT$ {openingDiff.label}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-earth-500">開店時間</dt>
-            <dd className="mt-1 text-sm text-earth-900">
-              {formatTWTime(session.openedAt)}
-            </dd>
-          </div>
-          {session.openingNote && (
-            <div className="col-span-2">
-              <dt className="text-earth-500">開店備註</dt>
-              <dd className="mt-1 whitespace-pre-wrap text-sm text-earth-900">
-                {session.openingNote}
-              </dd>
-            </div>
+      {/* 桌機 / iPad 橫向 (lg+)：左 2 / 右 1 兩欄；手機 / iPad 直向 (< lg)：單欄堆疊 */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        {/* 左：開店紀錄 + 今日交易摘要 + 現金異動 */}
+        <div className="space-y-4 lg:col-span-2">
+          <OpeningRecordCard session={session} />
+
+          {/* 今日交易摘要 — OPEN 用 liveTotals、CLOSED 用 session snapshot */}
+          {!isClosed && liveTotals && (
+            <TransactionSummaryCard
+              live
+              cashIncome={liveTotals.cashIncomeTotal.toString()}
+              cashExpense={liveTotals.cashExpenseTotal.toString()}
+              cashWithdrawal={liveTotals.cashWithdrawalTotal.toString()}
+              cashDeposit={liveTotals.cashDepositTotal.toString()}
+              cashAdjustment={liveTotals.cashAdjustmentTotal.toString()}
+            />
           )}
-        </dl>
+          {isClosed && (
+            <TransactionSummaryCard
+              live={false}
+              cashIncome={session.cashIncomeTotal.toString()}
+              cashExpense={session.cashExpenseTotal.toString()}
+              cashWithdrawal={session.cashWithdrawalTotal.toString()}
+              cashDeposit={session.cashDepositTotal.toString()}
+              cashAdjustment={session.cashAdjustmentTotal.toString()}
+            />
+          )}
+
+          {/* 現金異動：OPEN 可新增 / CLOSED 唯讀 */}
+          <EntrySection
+            sessionId={session.id}
+            entries={entries}
+            canAddEntry={!isClosed && canAddEntry}
+          />
+        </div>
+
+        {/* 右：OPEN → 系統應有現金 + 閉店點錢 form；CLOSED → 閉店結算 */}
+        <div className="space-y-4 lg:col-span-1">
+          {!isClosed && liveTotals && (
+            <ClosingPanel
+              sessionId={session.id}
+              liveTotals={liveTotals}
+              canClose={canClose}
+            />
+          )}
+          {isClosed && <ClosedSettlementCard session={session} />}
+        </div>
       </div>
-
-      {/* OPEN：閉店表單（含現金異動區塊） */}
-      {!isClosed && liveTotals && (
-        <ClosingForm
-          sessionId={session.id}
-          liveTotals={liveTotals}
-          entries={entries}
-          canClose={canClose}
-          canAddEntry={canAddEntry}
-        />
-      )}
-
-      {/* CLOSED：閉店結算 summary（含 read-only entries 列表） */}
-      {isClosed && <ClosedSummary session={session} entries={entries} />}
     </div>
   );
 }
 
 // ============================================================
-// 閉店表單（OPEN 狀態使用）
+// 子卡：開店紀錄（OPEN / CLOSED 共用）
 // ============================================================
 
-function ClosingForm({
+function OpeningRecordCard({ session }: { session: OpenedTodaySession }) {
+  const openingDiff = formatDiff(session.openingDifference.toNumber());
+  return (
+    <div className="rounded-xl border bg-white p-6 shadow-sm">
+      <h2 className="text-lg font-semibold text-earth-900">開店紀錄</h2>
+      <dl className="mt-4 grid grid-cols-2 gap-4 text-sm">
+        <div>
+          <dt className="text-earth-500">開店帳面（應有）</dt>
+          <dd className="mt-1 text-lg font-medium text-earth-900">
+            NT$ {session.openingBookBalance.toString()}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-earth-500">實際點到</dt>
+          <dd className="mt-1 text-lg font-medium text-earth-900">
+            NT$ {session.openingActualCash.toString()}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-earth-500">差額</dt>
+          <dd className={`mt-1 text-lg font-medium ${openingDiff.className}`}>
+            NT$ {openingDiff.label}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-earth-500">開店時間</dt>
+          <dd className="mt-1 text-sm text-earth-900">
+            {formatTWTime(session.openedAt)}
+          </dd>
+        </div>
+        {session.openingNote && (
+          <div className="col-span-2">
+            <dt className="text-earth-500">開店備註</dt>
+            <dd className="mt-1 whitespace-pre-wrap text-sm text-earth-900">
+              {session.openingNote}
+            </dd>
+          </div>
+        )}
+      </dl>
+    </div>
+  );
+}
+
+// ============================================================
+// 子卡：今日交易摘要（OPEN 用 live、CLOSED 用 snapshot）
+// 系統應有現金 highlight 已抽到右欄獨立卡，本卡只保留收入 / 退款 / 異動 dl
+// ============================================================
+
+function TransactionSummaryCard({
+  live,
+  cashIncome,
+  cashExpense,
+  cashWithdrawal,
+  cashDeposit,
+  cashAdjustment,
+}: {
+  live: boolean;
+  cashIncome: string;
+  cashExpense: string;
+  cashWithdrawal: string;
+  cashDeposit: string;
+  cashAdjustment: string;
+}) {
+  return (
+    <div className="rounded-xl border bg-white p-6 shadow-sm">
+      <h2 className="text-lg font-semibold text-earth-900">今日交易摘要</h2>
+      <p className="mt-1 text-xs text-earth-500">
+        {live ? "系統即時計算，閉店時凍結進快照欄位" : "閉店時凍結的快照"}
+      </p>
+      <dl className="mt-4 grid grid-cols-2 gap-4 text-sm">
+        <div>
+          <dt className="text-earth-500">現金收入</dt>
+          <dd className="mt-1 text-base font-medium text-green-700">
+            + NT$ {cashIncome}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-earth-500">現金退款</dt>
+          <dd className="mt-1 text-base font-medium text-orange-700">
+            − NT$ {cashExpense}
+          </dd>
+        </div>
+        <div className="col-span-2">
+          <dt className="text-earth-500">手動異動</dt>
+          <dd className="mt-1 text-sm text-earth-700">
+            提領 NT$ {cashWithdrawal}．補入 NT$ {cashDeposit}．調整 NT$ {cashAdjustment}
+          </dd>
+        </div>
+      </dl>
+    </div>
+  );
+}
+
+// ============================================================
+// 右欄：OPEN 狀態決策區（系統應有現金 highlight + 閉店點錢表單 + PR-6 callout）
+// ============================================================
+
+function ClosingPanel({
   sessionId,
   liveTotals,
-  entries,
   canClose,
-  canAddEntry,
 }: {
   sessionId: string;
   liveTotals: CashDrawerLiveTotals;
-  entries: CashDrawerEntry[];
   canClose: boolean;
-  canAddEntry: boolean;
 }) {
   async function handleClose(formData: FormData) {
     "use server";
@@ -460,46 +555,15 @@ function ClosingForm({
 
   return (
     <>
-      {/* Live preview 區 */}
-      <div className="rounded-xl border bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-earth-900">今日交易摘要</h2>
-        <p className="mt-1 text-xs text-earth-500">
-          系統即時計算，閉店時凍結進快照欄位
+      {/* 系統應有現金 — 從今日交易摘要抽出獨立卡，靠近閉店表單方便對照 */}
+      <div className="rounded-xl border border-primary-200 bg-primary-50 p-5 shadow-sm">
+        <p className="text-xs text-primary-700">系統應有現金（含開店帳面）</p>
+        <p className="mt-1 text-2xl font-bold text-primary-900">
+          NT$ {liveTotals.expectedClosingCash.toString()}
         </p>
-        <dl className="mt-4 grid grid-cols-2 gap-4 text-sm">
-          <div>
-            <dt className="text-earth-500">現金收入</dt>
-            <dd className="mt-1 text-base font-medium text-green-700">
-              + NT$ {liveTotals.cashIncomeTotal.toString()}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-earth-500">現金退款</dt>
-            <dd className="mt-1 text-base font-medium text-orange-700">
-              − NT$ {liveTotals.cashExpenseTotal.toString()}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-earth-500">手動異動</dt>
-            <dd className="mt-1 text-sm text-earth-700">
-              提領 NT$ {liveTotals.cashWithdrawalTotal.toString()}．補入
-              NT$ {liveTotals.cashDepositTotal.toString()}．調整
-              NT$ {liveTotals.cashAdjustmentTotal.toString()}
-            </dd>
-          </div>
-          <div className="col-span-2 mt-2 rounded-lg bg-primary-50 px-4 py-3">
-            <dt className="text-xs text-primary-700">系統應有現金（含開店帳面）</dt>
-            <dd className="mt-1 text-2xl font-bold text-primary-900">
-              NT$ {liveTotals.expectedClosingCash.toString()}
-            </dd>
-          </div>
-        </dl>
       </div>
 
-      {/* 現金異動區塊（OPEN session，PR-4） */}
-      <EntrySection sessionId={sessionId} entries={entries} canAddEntry={canAddEntry} />
-
-      {/* 閉店表單 */}
+      {/* 閉店點錢 */}
       <div className="rounded-xl border bg-white p-6 shadow-sm">
         <h2 className="text-lg font-semibold text-earth-900">閉店點錢</h2>
         <p className="mt-1 text-sm text-earth-500">
@@ -561,95 +625,55 @@ function ClosingForm({
 }
 
 // ============================================================
-// 閉店結算 summary（CLOSED 狀態使用）
+// 右欄：CLOSED 狀態結算卡（系統應有 / 閉店實點 / 差額 / 帳面結餘）
 // ============================================================
 
-function ClosedSummary({
-  session,
-  entries,
-}: {
-  session: OpenedTodaySession;
-  entries: CashDrawerEntry[];
-}) {
+function ClosedSettlementCard({ session }: { session: OpenedTodaySession }) {
   const closingDiff = formatDiff(session.closingDifference?.toNumber() ?? 0);
 
   return (
-    <>
-      {/* 當日交易摘要（從快照欄位） */}
-      <div className="rounded-xl border bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-earth-900">今日交易摘要</h2>
-        <p className="mt-1 text-xs text-earth-500">閉店時凍結的快照</p>
-        <dl className="mt-4 grid grid-cols-2 gap-4 text-sm">
-          <div>
-            <dt className="text-earth-500">現金收入</dt>
-            <dd className="mt-1 text-base font-medium text-green-700">
-              + NT$ {session.cashIncomeTotal.toString()}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-earth-500">現金退款</dt>
-            <dd className="mt-1 text-base font-medium text-orange-700">
-              − NT$ {session.cashExpenseTotal.toString()}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-earth-500">手動異動</dt>
-            <dd className="mt-1 text-sm text-earth-700">
-              提領 NT$ {session.cashWithdrawalTotal.toString()}．補入
-              NT$ {session.cashDepositTotal.toString()}．調整
-              NT$ {session.cashAdjustmentTotal.toString()}
-            </dd>
-          </div>
-        </dl>
-      </div>
-
-      {/* 閉店結算 */}
-      <div className="rounded-xl border bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-earth-900">閉店結算</h2>
-        <dl className="mt-4 grid grid-cols-2 gap-4 text-sm">
-          <div>
-            <dt className="text-earth-500">系統應有</dt>
-            <dd className="mt-1 text-lg font-medium text-earth-900">
-              NT$ {session.expectedClosingCash?.toString() ?? "—"}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-earth-500">閉店實點</dt>
-            <dd className="mt-1 text-lg font-medium text-earth-900">
-              NT$ {session.closingActualCash?.toString() ?? "—"}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-earth-500">差額</dt>
-            <dd className={`mt-1 text-lg font-medium ${closingDiff.className}`}>
-              NT$ {closingDiff.label}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-earth-500">閉店時間</dt>
-            <dd className="mt-1 text-sm text-earth-900">
-              {session.closedAt ? formatTWTime(session.closedAt) : "—"}
-            </dd>
-          </div>
-          {session.closingNote && (
-            <div className="col-span-2">
-              <dt className="text-earth-500">閉店備註</dt>
-              <dd className="mt-1 whitespace-pre-wrap text-sm text-earth-900">
-                {session.closingNote}
-              </dd>
-            </div>
-          )}
-        </dl>
-        <div className="mt-6 rounded-lg bg-primary-50 px-4 py-3">
-          <p className="text-xs text-primary-700">帳面結餘（明日開店帳面起點）</p>
-          <p className="mt-1 text-2xl font-bold text-primary-900">
-            NT$ {session.finalBookBalance?.toString() ?? "—"}
-          </p>
+    <div className="rounded-xl border bg-white p-6 shadow-sm">
+      <h2 className="text-lg font-semibold text-earth-900">閉店結算</h2>
+      <dl className="mt-4 grid grid-cols-2 gap-4 text-sm">
+        <div>
+          <dt className="text-earth-500">系統應有</dt>
+          <dd className="mt-1 text-lg font-medium text-earth-900">
+            NT$ {session.expectedClosingCash?.toString() ?? "—"}
+          </dd>
         </div>
+        <div>
+          <dt className="text-earth-500">閉店實點</dt>
+          <dd className="mt-1 text-lg font-medium text-earth-900">
+            NT$ {session.closingActualCash?.toString() ?? "—"}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-earth-500">差額</dt>
+          <dd className={`mt-1 text-lg font-medium ${closingDiff.className}`}>
+            NT$ {closingDiff.label}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-earth-500">閉店時間</dt>
+          <dd className="mt-1 text-sm text-earth-900">
+            {session.closedAt ? formatTWTime(session.closedAt) : "—"}
+          </dd>
+        </div>
+        {session.closingNote && (
+          <div className="col-span-2">
+            <dt className="text-earth-500">閉店備註</dt>
+            <dd className="mt-1 whitespace-pre-wrap text-sm text-earth-900">
+              {session.closingNote}
+            </dd>
+          </div>
+        )}
+      </dl>
+      <div className="mt-6 rounded-lg bg-primary-50 px-4 py-3">
+        <p className="text-xs text-primary-700">帳面結餘（明日開店帳面起點）</p>
+        <p className="mt-1 text-2xl font-bold text-primary-900">
+          NT$ {session.finalBookBalance?.toString() ?? "—"}
+        </p>
       </div>
-
-      {/* 現金異動（read-only，PR-4）— 即使 CLOSED 也讓 OWNER 審視當日異動明細 */}
-      <EntrySection sessionId={session.id} entries={entries} canAddEntry={false} />
-    </>
+    </div>
   );
 }
