@@ -21,9 +21,24 @@ interface EntrySectionProps {
   entries: CashDrawerEntry[];
   /** OPEN 狀態才允許新增；CLOSED 一律無 */
   canAddEntry: boolean;
+  /** 表單成功 / 失敗 redirect 回的 URL（含 hash）。
+   *  CashDrawerWorkspace 嵌在 cashbook 時會傳
+   *  "/dashboard/cashbook#cash-drawer-workspace"，獨立 cash-drawer 頁傳
+   *  "/dashboard/cash-drawer"。預設值為後者以維持既有 caller 相容。
+   *  失敗時自動附 `?cashDrawerError=...` 給 <FormErrorToast /> 顯示。 */
+  returnPath?: string;
 }
 
-export function EntrySection({ sessionId, entries, canAddEntry }: EntrySectionProps) {
+export function EntrySection({
+  sessionId,
+  entries,
+  canAddEntry,
+  returnPath = "/dashboard/cash-drawer",
+}: EntrySectionProps) {
+  // 把 error message 安全地接在 returnPath 後面（保留既有 hash + query string）
+  const errorRedirect = (msg: string) =>
+    `${returnPath}${returnPath.includes("?") ? "&" : "?"}cashDrawerError=${encodeURIComponent(msg)}`;
+
   async function handleAddWithdrawal(formData: FormData) {
     "use server";
     const result = await addCashDrawerEntryAction({
@@ -34,11 +49,9 @@ export function EntrySection({ sessionId, entries, canAddEntry }: EntrySectionPr
       note: (formData.get("note") as string) || undefined,
     });
     if (!result.success) {
-      redirect(
-        `/dashboard/cash-drawer?error=${encodeURIComponent(result.error || "新增提領失敗")}`,
-      );
+      redirect(errorRedirect(result.error || "新增提領失敗"));
     }
-    redirect("/dashboard/cash-drawer");
+    redirect(returnPath);
   }
 
   async function handleAddDeposit(formData: FormData) {
@@ -51,20 +64,16 @@ export function EntrySection({ sessionId, entries, canAddEntry }: EntrySectionPr
       note: (formData.get("note") as string) || undefined,
     });
     if (!result.success) {
-      redirect(
-        `/dashboard/cash-drawer?error=${encodeURIComponent(result.error || "新增補入失敗")}`,
-      );
+      redirect(errorRedirect(result.error || "新增補入失敗"));
     }
-    redirect("/dashboard/cash-drawer");
+    redirect(returnPath);
   }
 
   async function handleAddAdjustment(formData: FormData) {
     "use server";
     const direction = formData.get("direction");
     if (direction !== "IN" && direction !== "OUT") {
-      redirect(
-        `/dashboard/cash-drawer?error=${encodeURIComponent("調整必須選擇方向（盤點溢出 / 盤點短少）")}`,
-      );
+      redirect(errorRedirect("調整必須選擇方向（盤點溢出 / 盤點短少）"));
     }
     const result = await addCashDrawerEntryAction({
       sessionId,
@@ -75,11 +84,9 @@ export function EntrySection({ sessionId, entries, canAddEntry }: EntrySectionPr
       note: (formData.get("note") as string) || undefined,
     });
     if (!result.success) {
-      redirect(
-        `/dashboard/cash-drawer?error=${encodeURIComponent(result.error || "新增調整失敗")}`,
-      );
+      redirect(errorRedirect(result.error || "新增調整失敗"));
     }
-    redirect("/dashboard/cash-drawer");
+    redirect(returnPath);
   }
 
   return (
