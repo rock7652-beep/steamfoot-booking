@@ -113,26 +113,33 @@ export default async function NewCashbookPage({ searchParams }: PageProps) {
             />
           </div>
 
-          {/* Staff */}
+          {/* Staff —「登錄人」= 這筆紀錄的可見與編輯範圍歸屬。
+              非 ADMIN 強制鎖定為自己；ADMIN 可指定其他店長（屬於 visibility 設定，
+              不影響任何店長個人月結 / 結算 / 報表）。 */}
           <div>
             <label className="block text-sm font-medium text-earth-700">
-              {user.role === "ADMIN" ? "歸屬店長（選填）" : "歸屬店長（自動分配）"}
+              {user.role === "ADMIN" ? "登錄人（選填）" : "登錄人"}
             </label>
             {user.role === "ADMIN" ? (
-              <select
-                name="staffId"
-                className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
-              >
-                <option value="">不指定</option>
-                {staffOptions.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.displayName}
-                  </option>
-                ))}
-              </select>
+              <>
+                <select
+                  name="staffId"
+                  className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
+                >
+                  <option value="">不指定</option>
+                  {staffOptions.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.displayName}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-earth-500">
+                  指定本筆紀錄的可見與編輯範圍。本筆金額不會算入該店長的個人支出。
+                </p>
+              </>
             ) : (
               <div className="mt-1 rounded-lg border border-earth-300 bg-earth-50 px-3 py-2 text-sm text-earth-600">
-                自動分配給您
+                自動記錄為您
               </div>
             )}
           </div>

@@ -161,7 +161,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
               <th className="px-4 py-3 text-left font-medium text-earth-600">類型</th>
               <th className="px-4 py-3 text-left font-medium text-earth-600">分類</th>
               <th className="px-4 py-3 text-right font-medium text-earth-600">金額</th>
-              <th className="px-4 py-3 text-left font-medium text-earth-600">歸屬店長</th>
+              <th className="px-4 py-3 text-left font-medium text-earth-600">登錄人</th>
               <th className="px-4 py-3 text-left font-medium text-earth-600">備註</th>
               <th className="px-4 py-3 text-left font-medium text-earth-600">操作</th>
             </tr>
