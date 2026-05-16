@@ -24,6 +24,7 @@ import { requireStaffSession } from "@/lib/session";
 import { getStoreFilter } from "@/lib/manager-visibility";
 import { bookingDateToday, toLocalDateStr } from "@/lib/date-utils";
 import { checkPermission } from "@/lib/permissions";
+import { customerIdFromTodoId } from "@/lib/store-todo-key";
 import type { PaymentMethod } from "@prisma/client";
 
 export type StoreTodoType = "PAYMENT" | "BOOKING" | "FOLLOW_UP" | "LOW_SESSIONS";
@@ -109,7 +110,9 @@ export async function getStoreTodos(opts: {
   }));
 
   const followUps: StoreTodoItem[] = followUpRaw.map((c) => ({
-    id: `followup:${c.customerId}`,
+    // key 內嵌 lastBookingDate：顧客再次回訪 → 日期變 → key 變 →
+    // 舊 dismiss 自動失效 → 重新提醒（「狀態改變才再出現」）
+    id: `followup:${c.customerId}:${c.lastBookingDate}`,
     type: "FOLLOW_UP",
     label: TYPE_LABEL.FOLLOW_UP,
     message: `${c.name} 已 ${c.daysSince} 天沒回來，可以提醒安排下一次`,
@@ -119,7 +122,9 @@ export async function getStoreTodos(opts: {
   }));
 
   const lowSessions: StoreTodoItem[] = lowSessionRaw.map((c) => ({
-    id: `lowsessions:${c.customerId}`,
+    // key 內嵌 activeWalletToken：補堂 / 換新錢包 → token 變 → key 變 →
+    // 舊 dismiss 自動失效 → 重新提醒
+    id: `lowsessions:${c.customerId}:${c.walletToken}`,
     type: "LOW_SESSIONS",
     label: TYPE_LABEL.LOW_SESSIONS,
     message: `${c.name} 剩 ${c.remaining} 堂，適合安排續約或下次預約`,
@@ -129,7 +134,20 @@ export async function getStoreTodos(opts: {
   }));
 
   const allItems = [...payments, ...bookings, ...followUps, ...lowSessions];
-  const deduped = dedupeByCustomer(allItems);
+
+  // 過濾掉當前 user 已 dismiss 的項目（per-user；只查本批 key，避免 table 長期累積拖慢）
+  const allKeys = allItems.map((i) => i.id);
+  const dismissedRows =
+    allKeys.length > 0
+      ? await prisma.todoDismiss.findMany({
+          where: { userId: user.id, todoKey: { in: allKeys } },
+          select: { todoKey: true },
+        })
+      : [];
+  const dismissedSet = new Set(dismissedRows.map((r) => r.todoKey));
+  const visibleItems = allItems.filter((i) => !dismissedSet.has(i.id));
+
+  const deduped = dedupeByCustomer(visibleItems);
   deduped.sort((a, b) => a.priority - b.priority);
 
   return {
@@ -227,9 +245,22 @@ async function fetchFollowUps(
         (todayBookingDate.getTime() - lastBooking.bookingDate.getTime()) /
           (1000 * 60 * 60 * 24)
       );
-      return { customerId: c.id, name: c.name, daysSince };
+      // DB date 欄位讀出後 toISOString().slice(0,10) 是安全用法（date-time-rules 例外）
+      const lastBookingDate = lastBooking.bookingDate
+        .toISOString()
+        .slice(0, 10);
+      return { customerId: c.id, name: c.name, daysSince, lastBookingDate };
     })
-    .filter((x): x is { customerId: string; name: string; daysSince: number } => x !== null)
+    .filter(
+      (
+        x
+      ): x is {
+        customerId: string;
+        name: string;
+        daysSince: number;
+        lastBookingDate: string;
+      } => x !== null
+    )
     .sort((a, b) => b.daysSince - a.daysSince)
     .slice(0, PER_TYPE_FETCH);
 }
@@ -254,14 +285,16 @@ async function fetchLowSessions(storeFilter: StoreFilter) {
 
   const byCustomer = new Map<
     string,
-    { name: string; remaining: number }
+    { name: string; remaining: number; walletIds: string[] }
   >();
   for (const w of wallets) {
     const cur = byCustomer.get(w.customer.id) ?? {
       name: w.customer.name,
       remaining: 0,
+      walletIds: [],
     };
     cur.remaining += w.sessions.length;
+    cur.walletIds.push(w.id);
     byCustomer.set(w.customer.id, cur);
   }
 
@@ -271,6 +304,9 @@ async function fetchLowSessions(storeFilter: StoreFilter) {
       customerId,
       name: v.name,
       remaining: v.remaining,
+      // 該顧客目前所有 ACTIVE 錢包 id 排序後串接 — 錢包組成變更（補堂 / 換錢包）
+      // → token 變 → todoKey 變 → 舊 dismiss 失效 → 重新提醒
+      walletToken: v.walletIds.slice().sort().join("+"),
     }))
     .sort((a, b) => a.remaining - b.remaining)
     .slice(0, PER_TYPE_FETCH);
@@ -279,14 +315,6 @@ async function fetchLowSessions(storeFilter: StoreFilter) {
 // ============================================================
 // dedupe
 // ============================================================
-
-function customerIdFromTodoId(todoId: string): string | null {
-  const idx = todoId.indexOf(":");
-  if (idx < 0) return null;
-  const tail = todoId.slice(idx + 1);
-  // PAYMENT 用 tx.id，無法穩定推 customerId；用 todoId 自身保證不被 dedupe
-  return tail.length > 0 ? tail : null;
-}
 
 function dedupeByCustomer(items: StoreTodoItem[]): StoreTodoItem[] {
   // PAYMENT 用 tx.id 為 key（無 customerId 可知，不跨型別合併）

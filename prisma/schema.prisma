@@ -363,6 +363,9 @@ model User {
   closedCashDrawerSessions CashDrawerSession[] @relation("CashDrawerClosedBy")
   createdCashDrawerEntries CashDrawerEntry[]   @relation("CashDrawerEntryCreatedBy")
 
+  // 首頁待處理 dismiss（個人工作台「我已知悉」狀態，per-user）
+  todoDismisses TodoDismiss[]
+
   // 同一角色內手機不重複，但不同角色可共用手機
   @@unique([phone, role])
   @@index([phone])
@@ -1740,4 +1743,29 @@ model CashDrawerEntry {
   @@index([sessionId])
   @@index([storeId, businessDate])
   @@index([createdAt])
+}
+
+// ============================================================
+// TodoDismiss（首頁待處理「我已知悉」— per-user 個人工作台狀態）
+//
+// PR-149：店長把首頁某筆待處理勾掉後，該筆從「他自己的」首頁消失。
+//   - per-user：userA dismiss 不影響 userB（這是「我知道了」非全店處理）
+//   - todoKey 由 store-todos 產生，FOLLOW_UP / LOW_SESSIONS 內嵌狀態 token，
+//     狀態改變 → key 改變 → 舊 dismiss 自動失效 → 重新提醒
+//   - 純新增 table，不改任何既有資料；不影響顧客 LINE / email 提醒
+// ============================================================
+
+model TodoDismiss {
+  id          String   @id @default(cuid())
+  userId      String // 誰 dismiss
+  storeId     String // 該 todo 所屬店 — 純 metadata；刻意不設 Store FK（ADMIN 跨店時 todo 可能跨店；安全性靠 userId）
+  todoKey     String // e.g. "lowsessions:cust123:wallet456"
+  todoType    String // PAYMENT | BOOKING | FOLLOW_UP | LOW_SESSIONS
+  dismissedAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, todoKey])
+  @@index([userId, storeId])
+  @@index([todoType])
 }
