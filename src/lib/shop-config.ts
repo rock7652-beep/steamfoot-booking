@@ -68,13 +68,28 @@ export async function getShopConfig(storeId?: string | null) {
       bankCode: null,
       bankAccountNumber: null,
       lineOfficialUrl: null,
-      ...TRIAL_DEFAULTS,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
   }
+  // 明確 select：此 accessor 被前台 checkout / 提醒引擎等大量路徑共用。
+  // 不可用 implicit full-model SELECT — 否則新增任一 ShopConfig 欄位後，
+  // 「新 client + 舊 DB」會 SELECT 不存在的欄位 → P2022 → 全站 blast radius。
+  // 體驗課設定不在此回傳，請改用 getTrialSettings()。
   const config = await prisma.shopConfig.findUnique({
     where: { storeId },
+    select: {
+      id: true,
+      storeId: true,
+      shopName: true,
+      dutySchedulingEnabled: true,
+      bankName: true,
+      bankCode: true,
+      bankAccountNumber: true,
+      lineOfficialUrl: true,
+      createdAt: true,
+      updatedAt: true,
+    },
   });
   if (config) return config;
 
@@ -87,7 +102,6 @@ export async function getShopConfig(storeId?: string | null) {
     bankCode: null,
     bankAccountNumber: null,
     lineOfficialUrl: null,
-    ...TRIAL_DEFAULTS,
     createdAt: new Date(),
     updatedAt: new Date(),
   };
