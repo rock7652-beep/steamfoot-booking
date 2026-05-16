@@ -92,6 +92,12 @@ export const ALL_PERMISSIONS = [
   // 人才管道
   "talent.read",
   "talent.manage",
+  // 體驗單
+  "trial.read",
+  "trial.create",
+  "trial.confirm", // 確認收款（開通堂數 / 計營收）
+  "trial.cancel",  // 取消體驗 / 退款取消
+  "trial.manage",  // 體驗課設定
 ] as const;
 
 export type PermissionCode = (typeof ALL_PERMISSIONS)[number];
@@ -146,6 +152,10 @@ export const PERMISSION_GROUPS: Record<string, { label: string; codes: Permissio
     label: "人才管道",
     codes: ["talent.read", "talent.manage"],
   },
+  trial: {
+    label: "體驗單",
+    codes: ["trial.read", "trial.create", "trial.confirm", "trial.cancel", "trial.manage"],
+  },
 };
 
 // 權限代碼 → 中文說明
@@ -182,6 +192,11 @@ export const PERMISSION_LABELS: Record<PermissionCode, string> = {
   "duty.manage": "管理值班安排",
   "talent.read": "查看人才管道",
   "talent.manage": "管理人才階段",
+  "trial.read": "查看體驗單",
+  "trial.create": "建立體驗單",
+  "trial.confirm": "確認體驗收款",
+  "trial.cancel": "取消體驗 / 退款取消",
+  "trial.manage": "管理體驗課設定",
 };
 
 // ============================================================
@@ -222,6 +237,11 @@ export const DEFAULT_OWNER_PERMISSIONS: PermissionCode[] = [
   "duty.manage",
   "talent.read",
   "talent.manage",
+  "trial.read",
+  "trial.create",
+  "trial.confirm",
+  "trial.cancel",
+  "trial.manage",
 ];
 
 /** 合作店長 預設權限（日常操作，不含營收報表/系統設定/人才管理） */
@@ -243,6 +263,8 @@ export const DEFAULT_PARTNER_PERMISSIONS: PermissionCode[] = [
   "cashDrawer.read",
   "duty.read",
   "talent.read",
+  "trial.read",
+  "trial.create",
 ];
 
 /** 根據角色取得預設權限列表 */

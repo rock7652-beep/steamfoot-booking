@@ -31,6 +31,16 @@ const SYSTEM_DEFAULTS = {
   dutySchedulingEnabled: false,
 } as const;
 
+// 體驗課設定 system defaults（對應 ShopConfig.trial* 欄位 default；
+// 注意：此處 trial 指「顧客體驗課」，與訂閱方案 EXPERIENCE 無關）
+const TRIAL_DEFAULTS = {
+  trialEnabled: true,
+  trialDefaultPrice: 499,
+  trialAllowPriceEdit: true,
+  trialMinPrice: 0,
+  trialMaxPrice: 3000,
+} as const;
+
 /** 值班排班聯動是否啟用 */
 export async function isDutySchedulingEnabled(storeId: string): Promise<boolean> {
   const config = await prisma.shopConfig.findUnique({
@@ -58,6 +68,7 @@ export async function getShopConfig(storeId?: string | null) {
       bankCode: null,
       bankAccountNumber: null,
       lineOfficialUrl: null,
+      ...TRIAL_DEFAULTS,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -76,9 +87,60 @@ export async function getShopConfig(storeId?: string | null) {
     bankCode: null,
     bankAccountNumber: null,
     lineOfficialUrl: null,
+    ...TRIAL_DEFAULTS,
     createdAt: new Date(),
     updatedAt: new Date(),
   };
+}
+
+// ============================================================
+// 體驗課設定（normalized；Decimal → number，含 clamp 工具）
+// ============================================================
+
+export interface TrialSettings {
+  trialEnabled: boolean;
+  trialDefaultPrice: number;
+  trialAllowPriceEdit: boolean;
+  trialMinPrice: number;
+  trialMaxPrice: number;
+}
+
+/**
+ * 取得正規化後的體驗課設定（價格為 number，非 Prisma Decimal）。
+ * 無 storeId 或無 ShopConfig row 時回傳 TRIAL_DEFAULTS。
+ */
+export async function getTrialSettings(storeId?: string | null): Promise<TrialSettings> {
+  if (!storeId) return { ...TRIAL_DEFAULTS };
+  const config = await prisma.shopConfig.findUnique({
+    where: { storeId },
+    select: {
+      trialEnabled: true,
+      trialDefaultPrice: true,
+      trialAllowPriceEdit: true,
+      trialMinPrice: true,
+      trialMaxPrice: true,
+    },
+  });
+  if (!config) return { ...TRIAL_DEFAULTS };
+  return {
+    trialEnabled: config.trialEnabled,
+    trialDefaultPrice: Number(config.trialDefaultPrice),
+    trialAllowPriceEdit: config.trialAllowPriceEdit,
+    trialMinPrice: Number(config.trialMinPrice),
+    trialMaxPrice: Number(config.trialMaxPrice),
+  };
+}
+
+/**
+ * 依設定 clamp 體驗價格。allowEdit=false 時強制回 default。
+ * 永遠回傳整數（Decimal(10,0)）。
+ */
+export function clampTrialPrice(input: number, settings: TrialSettings): number {
+  if (!settings.trialAllowPriceEdit) return settings.trialDefaultPrice;
+  const n = Number.isFinite(input) ? Math.round(input) : settings.trialDefaultPrice;
+  const lo = Math.min(settings.trialMinPrice, settings.trialMaxPrice);
+  const hi = Math.max(settings.trialMinPrice, settings.trialMaxPrice);
+  return Math.min(hi, Math.max(lo, n));
 }
 
 // ============================================================
