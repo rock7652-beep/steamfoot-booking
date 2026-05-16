@@ -10,6 +10,7 @@ import type { PricingPlan } from "@prisma/client";
 import type { ActionResult } from "@/types";
 import { resolveWriteStoreId } from "@/lib/store";
 import { updateTag, revalidatePath } from "next/cache";
+import { ensureTrialPlan } from "@/server/services/trial-plan";
 
 export async function updateDutyScheduling(
   enabled: boolean
@@ -113,6 +114,60 @@ export async function updateShopBankInfo(
     revalidateShopConfig();
     revalidatePath("/dashboard/settings");
     revalidatePath("/dashboard/settings/payment");
+    return { success: true, data: undefined };
+  } catch (e) {
+    return handleActionError(e);
+  }
+}
+
+// ============================================================
+// updateTrialSettings — 體驗課設定（體驗客流程 PR-1）
+//
+// 店長設定 ShopConfig 的 5 個體驗課欄位。權限：trial.manage（預設僅 OWNER）。
+// 存檔時順帶 ensureTrialPlan（idempotent；不會改動既有 plan 價格）。
+// 不影響既有交易：單筆體驗金額在建立當下快照，預設價調整不回溯。
+// ============================================================
+
+const PRICE_CAP = 1_000_000;
+
+const updateTrialSettingsSchema = z
+  .object({
+    trialEnabled: z.boolean(),
+    trialDefaultPrice: z.number().int().min(0).max(PRICE_CAP),
+    trialAllowPriceEdit: z.boolean(),
+    trialMinPrice: z.number().int().min(0).max(PRICE_CAP),
+    trialMaxPrice: z.number().int().min(0).max(PRICE_CAP),
+  })
+  .refine((d) => d.trialMinPrice <= d.trialMaxPrice, {
+    message: "最低價不可大於最高價",
+    path: ["trialMinPrice"],
+  })
+  .refine(
+    (d) => d.trialDefaultPrice >= d.trialMinPrice && d.trialDefaultPrice <= d.trialMaxPrice,
+    { message: "預設價必須介於最低價與最高價之間", path: ["trialDefaultPrice"] },
+  );
+
+export async function updateTrialSettings(
+  input: z.infer<typeof updateTrialSettingsSchema>
+): Promise<ActionResult<void>> {
+  try {
+    const user = await requirePermission("trial.manage");
+    const data = updateTrialSettingsSchema.parse(input);
+    const storeId = user.storeId;
+    if (!storeId) throw new AppError("FORBIDDEN", "使用者未綁定店別");
+
+    await prisma.shopConfig.upsert({
+      where: { storeId },
+      create: { storeId, ...data },
+      update: data,
+    });
+
+    // 確保該店有 canonical 體驗 ServicePlan（idempotent；不改既有 plan 價格）
+    await ensureTrialPlan(storeId, data.trialDefaultPrice);
+
+    revalidateShopConfig();
+    revalidatePath("/dashboard/settings");
+    revalidatePath("/dashboard/settings/trial");
     return { success: true, data: undefined };
   } catch (e) {
     return handleActionError(e);

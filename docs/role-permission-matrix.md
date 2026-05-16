@@ -34,6 +34,24 @@
 | 現金帳 | `cashbook.read` | 查看現金帳 |
 | | `cashbook.create` | 新增/編輯現金帳 |
 
+> ⚠️ 上表為 v1.2 快照，未含後續新增群組（`cashDrawer.*`、`talent.*`）。
+> 權限碼唯一真相為 `src/lib/permissions.ts` 的 `ALL_PERMISSIONS`。
+
+### 體驗單（體驗客流程 PR-trial 新增）
+
+| 權限碼 | 說明 | OWNER default | PARTNER default |
+|--------|------|:-------------:|:---------------:|
+| `trial.read` | 查看體驗單 | ✅ | ✅ |
+| `trial.create` | 建立體驗單 | ✅ | ✅ |
+| `trial.confirm` | 確認體驗收款（開通堂數 / 計營收） | ✅ | — |
+| `trial.cancel` | 取消體驗 / 退款取消 | ✅ | — |
+| `trial.manage` | 管理體驗課設定 | ✅ | — |
+
+> 既有 staff 需跑 `scripts/backfill-trial-permissions.ts --apply` 才會取得上述 default
+> （`checkPermission` 只讀 `StaffPermission` 表，無 role-default fallback）。
+> 體驗收款計入營收/業績/現金抽屜的時機：僅在 `trial.confirm` 確認收款後；
+> `UNPAID + PENDING` 一律不計（沿用既有 revenue/cash-drawer query 過濾）。
+
 ---
 
 ## 功能權限矩陣
