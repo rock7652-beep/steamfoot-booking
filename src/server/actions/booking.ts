@@ -452,6 +452,8 @@ export async function createBooking(
           makeupCreditId,
           bookingStatus: "PENDING", // 統一為「待到店」
           notes: data.notes,
+          // 體驗 499 PR-2：金額快照（additive；非體驗預約不傳 → null，行為不變）
+          expectedAmount: data.expectedAmount ?? null,
           // 顧客自助預約 → 使用 customer 所屬 storeId（避免 session storeId 與 customer storeId 不一致）
           // 後台代約 → 使用 session storeId
           storeId: user.role === "CUSTOMER" ? customer.storeId : currentStoreId(user),

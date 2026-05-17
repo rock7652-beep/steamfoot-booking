@@ -37,8 +37,12 @@ export const createCustomerSchema = z.object({
   // lineName / notes 可空
   lineName: z.string().max(100).optional(),
   notes: z.string().max(1000).optional(),
-  // 後台建立時可稍後指派
-  assignedStaffId: z.string().cuid().optional(),
+  // 後台建立時可稍後指派。
+  // ⚠️ 用 .min(1) 非 .cuid()（與本檔 §"ID 欄位用 min(1) 非 cuid" 慣例一致）：
+  // 既有/匯入/staging seed 的 staff ID 未必是 cuid（例：staging-staff-owner）。
+  // createCustomer 內 prisma.staff.findUnique({id,status:ACTIVE}) + NOT_FOUND 才是
+  // 真正安全邊界。修正 B（月曆快速建檔）/ C（後台新增顧客）的 Invalid cuid。
+  assignedStaffId: z.string().min(1).optional(),
 });
 
 // 後台編輯顧客（店長補資料情境）：name + phone 必填，其餘皆選填。

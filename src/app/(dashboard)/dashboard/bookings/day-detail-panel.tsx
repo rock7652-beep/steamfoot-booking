@@ -3,6 +3,7 @@
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { StatusBadge, bookingStatusMeta } from "@/components/admin/status-badge";
 import { EmptyStateCompact } from "@/components/admin/empty-state-compact";
+import { TrialBookingDrawer } from "../_components/trial-booking-drawer";
 import type { SlotAvailability } from "@/types";
 
 export interface DayBooking {
@@ -12,6 +13,9 @@ export interface DayBooking {
   isMakeup: boolean;
   isCheckedIn: boolean;
   bookingStatus: string;
+  /** 體驗 499 PR-2：FIRST_TRIAL → 顯示「體驗·未收款」badge；expectedAmount 為快照金額 */
+  bookingType: string;
+  expectedAmount: number | null;
   customer: {
     name: string;
     phone: string;
@@ -265,6 +269,12 @@ export function DayDetailPanel({
           >
             新增補課
           </Link>
+          {/* 體驗 499 PR-2：從月曆空時段建立未收款體驗預約（預填日期；同一 Drawer） */}
+          <TrialBookingDrawer
+            preset={{ date: date ?? undefined }}
+            triggerLabel="建立體驗預約"
+            triggerClassName="inline-flex h-8 items-center rounded-md border border-amber-300 bg-amber-50 px-3 text-sm font-medium text-amber-800 hover:bg-amber-100"
+          />
         </div>
       </div>
     </div>
@@ -371,6 +381,11 @@ function TimelineItem({
           <StatusBadge variant={meta.variant} dot={false}>
             {meta.label}
           </StatusBadge>
+          {booking.bookingType === "FIRST_TRIAL" ? (
+            <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-medium text-amber-800">
+              體驗·未收款｜NT${booking.expectedAmount ?? "—"}
+            </span>
+          ) : null}
           <span className="min-w-0 flex-1 truncate text-xs text-earth-500">
             {planLabel}
           </span>

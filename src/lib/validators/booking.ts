@@ -1,7 +1,11 @@
 import { z } from "zod";
 
 export const createBookingSchema = z.object({
-  customerId: z.string().cuid(),
+  // 不用 .cuid()：既有/匯入/staging seed 的 Customer ID 未必是 cuid。
+  // createBooking 內已有 customer.findUnique → NOT_FOUND + 跨店存取檢查作為
+  // 真正安全邊界；ID 格式不該是驗證關卡。（PR-2 體驗預約需求；shared validator
+  // 刻意放寬，非 silent scope creep。）
+  customerId: z.string().min(1),
   bookingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   slotTime: z.string().regex(/^\d{2}:\d{2}$/),
   bookingType: z.enum(["FIRST_TRIAL", "SINGLE", "PACKAGE_SESSION"]),
@@ -12,6 +16,9 @@ export const createBookingSchema = z.object({
   makeupCreditId: z.string().cuid().optional(),
   notes: z.string().max(500).optional(),
   skipDutyCheck: z.boolean().optional(), // OWNER 可略過值班檢查
+  // 體驗 499 PR-2：建立體驗預約時帶入的預計收款金額快照（選填）。
+  // 不傳時 → booking.expectedAmount = null，既有預約行為完全不變（additive）。
+  expectedAmount: z.number().int().min(0).max(1_000_000).optional(),
 });
 
 export const updateBookingSchema = z.object({

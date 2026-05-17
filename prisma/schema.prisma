@@ -914,6 +914,10 @@ model Booking {
   noShowMakeupGranted  Boolean? // 是否有發補課資格（true=有發, false=沒發, null=非NO_SHOW）
   reminderSent         Boolean       @default(false)
   notes                String?
+  // 體驗 499 PR-2：建立體驗預約當下的預計收款金額快照（僅 FIRST_TRIAL 設值）。
+  // nullable：其他預約型別 / 既有資料一律 NULL。未來體驗價調整不回寫舊預約。
+  // 實際收款金額在 PR-3 以 Transaction.amount 記錄，不存這裡。
+  expectedAmount       Decimal?      @db.Decimal(10, 0)
   createdAt            DateTime      @default(now())
   updatedAt            DateTime      @updatedAt
 

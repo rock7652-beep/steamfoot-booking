@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { AssignPlanForm } from "../[id]/assign-plan-form";
 import { CustomerStatusBadge } from "./customer-status-badge";
+import { TrialBookingDrawer } from "../../_components/trial-booking-drawer";
 import {
   updateCustomerAssignment,
   lookupCustomerByPhone,
@@ -150,9 +151,14 @@ export function CustomerDetailDrawerContent({
         {/* Quick actions */}
         <section>
           <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+            <TrialBookingDrawer
+              preset={{ customerId: customer.id, customerName: customer.name }}
+              triggerLabel="建立體驗預約"
+              triggerClassName="rounded-md bg-primary-600 px-3 py-2 text-center text-xs font-medium text-white hover:bg-primary-700"
+            />
             <Link
               href={`/dashboard/customers/${customer.id}#new-booking`}
-              className="rounded-md bg-primary-600 px-3 py-2 text-center text-xs font-medium text-white hover:bg-primary-700"
+              className="rounded-md border border-earth-200 bg-white px-3 py-2 text-center text-xs font-medium text-earth-700 hover:bg-earth-50"
             >
               ＋ 新增預約
             </Link>
