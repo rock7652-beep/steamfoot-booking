@@ -186,4 +186,17 @@ describe("validators accept non-cuid staging-style IDs (Invalid-cuid regression)
       }),
     ).toThrow();
   });
+  // B (calendar quick-create) / C (backend new customer) path: createTrialBooking
+  // → createCustomer(..., assignedStaffId). createCustomerSchema must accept the
+  // non-cuid staff id too, else Invalid cuid resurfaces on B/C only.
+  it("createCustomerSchema accepts non-cuid assignedStaffId (B/C regression)", async () => {
+    const { createCustomerSchema } = await import("@/lib/validators/customer");
+    expect(() =>
+      createCustomerSchema.parse({
+        name: "測試顧客 X",
+        phone: "0912345678",
+        assignedStaffId: "staging-staff-owner",
+      }),
+    ).not.toThrow();
+  });
 });
