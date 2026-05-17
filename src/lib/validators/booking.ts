@@ -12,6 +12,9 @@ export const createBookingSchema = z.object({
   makeupCreditId: z.string().cuid().optional(),
   notes: z.string().max(500).optional(),
   skipDutyCheck: z.boolean().optional(), // OWNER 可略過值班檢查
+  // 體驗 499 PR-2：建立體驗預約時帶入的預計收款金額快照（選填）。
+  // 不傳時 → booking.expectedAmount = null，既有預約行為完全不變（additive）。
+  expectedAmount: z.number().int().min(0).max(1_000_000).optional(),
 });
 
 export const updateBookingSchema = z.object({
