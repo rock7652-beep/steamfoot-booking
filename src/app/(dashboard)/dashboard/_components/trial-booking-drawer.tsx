@@ -8,6 +8,14 @@ import {
   createTrialBooking,
   loadTrialBookingFormData,
 } from "@/server/actions/trial-booking";
+import { fetchDaySlots } from "@/server/actions/slots";
+
+interface SlotOpt {
+  startTime: string;
+  available: number;
+  isEnabled: boolean;
+  isPast?: boolean;
+}
 
 interface TrialSettings {
   trialEnabled: boolean;
@@ -48,8 +56,30 @@ export function TrialBookingDrawer({
   const [assignedStaffId, setAssignedStaffId] = useState("");
   const [bookingDate, setBookingDate] = useState(preset?.date ?? "");
   const [slotTime, setSlotTime] = useState("");
+  const [slots, setSlots] = useState<SlotOpt[]>([]);
+  const [slotsLoading, setSlotsLoading] = useState(false);
+  const [slotsLoadedFor, setSlotsLoadedFor] = useState<string | null>(null);
   const [amount, setAmount] = useState("");
   const [notes, setNotes] = useState("");
+
+  async function loadSlots(date: string) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
+    setSlotsLoading(true);
+    setSlotTime("");
+    try {
+      const r = await fetchDaySlots(date);
+      const usable = (r?.slots ?? []).filter(
+        (s) => s.isEnabled && s.available > 0 && !s.isPast,
+      );
+      setSlots(usable);
+      setSlotsLoadedFor(date);
+    } catch {
+      setSlots([]);
+      setSlotsLoadedFor(date);
+    } finally {
+      setSlotsLoading(false);
+    }
+  }
 
   const isExisting = Boolean(preset?.customerId);
 
@@ -66,6 +96,7 @@ export function TrialBookingDrawer({
     setSettings(r.data.settings);
     setStaff(r.data.staffOptions);
     setAmount(String(r.data.settings.trialDefaultPrice));
+    if (preset?.date) void loadSlots(preset.date); // calendar entry → prefilled date
   }
 
   function reset() {
@@ -94,7 +125,7 @@ export function TrialBookingDrawer({
       return;
     }
     if (!/^\d{2}:\d{2}$/.test(slotTime)) {
-      toast.error("請輸入時段（HH:mm）");
+      toast.error("請選擇時段");
       return;
     }
     if (!isExisting && (!newName.trim() || !/^09\d{8}$/.test(newPhone.replace(/\D/g, "")))) {
@@ -192,11 +223,43 @@ export function TrialBookingDrawer({
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div>
                     <label className={labelCls}>預約日期</label>
-                    <input type="date" className={inputCls} value={bookingDate} onChange={(e) => setBookingDate(e.target.value)} />
+                    <input
+                      type="date"
+                      className={inputCls}
+                      value={bookingDate}
+                      onChange={(e) => {
+                        const dt = e.target.value;
+                        setBookingDate(dt);
+                        void loadSlots(dt);
+                      }}
+                    />
                   </div>
                   <div>
-                    <label className={labelCls}>時段（HH:mm）</label>
-                    <input className={inputCls} value={slotTime} onChange={(e) => setSlotTime(e.target.value)} placeholder="14:00" />
+                    <label className={labelCls}>時段</label>
+                    <select
+                      className={`${inputCls} disabled:bg-earth-50 disabled:text-earth-400`}
+                      value={slotTime}
+                      disabled={!bookingDate || slotsLoading}
+                      onChange={(e) => setSlotTime(e.target.value)}
+                    >
+                      <option value="">
+                        {!bookingDate
+                          ? "請先選日期"
+                          : slotsLoading
+                            ? "載入時段中…"
+                            : slots.length === 0
+                              ? (slotsLoadedFor === bookingDate ? "該日無可預約時段" : "請選擇")
+                              : "請選擇時段"}
+                      </option>
+                      {slots.map((s) => (
+                        <option key={s.startTime} value={s.startTime}>
+                          {s.startTime}（剩 {s.available}）
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-1 text-[11px] text-earth-400">
+                      只列出尚有名額的時段；體驗預約會佔用名額。
+                    </p>
                   </div>
                 </div>
 

@@ -15,14 +15,18 @@ const phoneSchema = z
 
 export const createTrialBookingSchema = z
   .object({
-    customerId: z.string().cuid().optional(),
+    // ⚠️ 不用 .cuid()：既有資料（staging seed / 可能的舊 prod / 匯入）ID 未必是
+    // cuid（例：staging-cust-005 / staging-staff-owner）。ID 格式不是安全邊界 —
+    // 真正的防線是 createTrialBooking 內的 store-scoped 查詢
+    // （customer/staff findFirst { id, storeId }）+ requirePermission("trial.create")。
+    customerId: z.string().min(1).optional(),
     newCustomer: z
       .object({
         name: z.string().trim().min(1, "請輸入姓名").max(100),
         phone: phoneSchema,
       })
       .optional(),
-    assignedStaffId: z.string().cuid(),
+    assignedStaffId: z.string().min(1),
     bookingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     slotTime: z.string().regex(/^\d{2}:\d{2}$/),
     expectedAmount: z.number().int().min(0).max(1_000_000).optional(),

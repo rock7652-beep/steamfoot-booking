@@ -8,11 +8,12 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 //  - expectedAmount：未傳帶店家預設、allowEdit=false 強制預設、皆 clamp
 //  - 直屬店長：既有顧客「未指派」才補、已指派不覆蓋
 
+// 用 staging seed 風格的「非 cuid」ID，確保放寬後的 validator 接受真實既有 ID
 const CUID = {
-  cust: "ckcustomer0000000000000aa",
-  custExisting: "ckcustexisting00000000aaa",
-  staff: "ckstaff000000000000000aaa",
-  plan: "ckplan0000000000000000aaa",
+  cust: "staging-cust-005",
+  custExisting: "staging-cust-009",
+  staff: "staging-staff-owner",
+  plan: "staging-plan-trial",
 };
 
 const h = vi.hoisted(() => ({
@@ -143,5 +144,46 @@ describe("createTrialBooking — 直屬店長 no-overwrite", () => {
     h.custFindUnique.mockResolvedValue({ assignedStaffId: "already" });
     await createTrialBooking({ ...base, customerId: CUID.cust });
     expect(h.custUpdate).not.toHaveBeenCalled();
+  });
+});
+
+// Regression: the "Invalid cuid" smoke failure. Validators must accept the
+// app's real existing ID formats (staging seed / imports), not assume cuid.
+describe("validators accept non-cuid staging-style IDs (Invalid-cuid regression)", () => {
+  it("createTrialBookingSchema accepts staging-cust / staging-staff IDs", async () => {
+    const { createTrialBookingSchema } = await import("@/lib/validators/trial-booking");
+    expect(() =>
+      createTrialBookingSchema.parse({
+        customerId: "staging-cust-005",
+        assignedStaffId: "staging-staff-owner",
+        bookingDate: "2026-05-18",
+        slotTime: "10:00",
+        expectedAmount: 499,
+      }),
+    ).not.toThrow();
+  });
+  it("createBookingSchema accepts a non-cuid customerId (FIRST_TRIAL)", async () => {
+    const { createBookingSchema } = await import("@/lib/validators/booking");
+    expect(() =>
+      createBookingSchema.parse({
+        customerId: "staging-cust-005",
+        bookingDate: "2026-05-18",
+        slotTime: "10:00",
+        bookingType: "FIRST_TRIAL",
+        servicePlanId: undefined,
+        expectedAmount: 499,
+      }),
+    ).not.toThrow();
+  });
+  it("still rejects empty customerId / assignedStaffId (min(1) guard intact)", async () => {
+    const { createTrialBookingSchema } = await import("@/lib/validators/trial-booking");
+    expect(() =>
+      createTrialBookingSchema.parse({
+        customerId: "",
+        assignedStaffId: "",
+        bookingDate: "2026-05-18",
+        slotTime: "10:00",
+      }),
+    ).toThrow();
   });
 });
