@@ -9,8 +9,34 @@ import { getTrialSettings, clampTrialPrice } from "@/lib/shop-config";
 import { ensureTrialPlan } from "@/server/services/trial-plan";
 import { createCustomer } from "@/server/actions/customer";
 import { createBooking } from "@/server/actions/booking";
+import { listStaffSelectOptions } from "@/server/queries/staff";
 import { createTrialBookingSchema } from "@/lib/validators/trial-booking";
+import type { TrialSettings } from "@/lib/shop-config";
 import type { ActionResult } from "@/types";
+
+// ============================================================
+// loadTrialBookingFormData — read-only：給「建立體驗預約」Drawer 用
+// 回傳體驗課設定 + 在職店長清單。純讀，不寫任何資料。
+// ============================================================
+
+export async function loadTrialBookingFormData(): Promise<
+  ActionResult<{
+    settings: TrialSettings;
+    staffOptions: { id: string; displayName: string }[];
+  }>
+> {
+  try {
+    const user = await requirePermission("trial.create");
+    const storeId = currentStoreId(user);
+    const [settings, staffOptions] = await Promise.all([
+      getTrialSettings(storeId),
+      listStaffSelectOptions(storeId),
+    ]);
+    return { success: true, data: { settings, staffOptions } };
+  } catch (e) {
+    return handleActionError(e);
+  }
+}
 
 // ============================================================
 // createTrialBooking — 體驗 499 PR-2

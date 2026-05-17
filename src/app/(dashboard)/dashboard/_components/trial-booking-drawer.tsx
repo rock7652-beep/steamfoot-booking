@@ -1,0 +1,262 @@
+"use client";
+
+import { useState, useTransition, useId } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { RightSheet } from "@/components/admin/right-sheet";
+import {
+  createTrialBooking,
+  loadTrialBookingFormData,
+} from "@/server/actions/trial-booking";
+
+interface TrialSettings {
+  trialEnabled: boolean;
+  trialDefaultPrice: number;
+  trialAllowPriceEdit: boolean;
+  trialMinPrice: number;
+  trialMaxPrice: number;
+}
+
+interface Props {
+  /** 從顧客頁進入時帶入既有顧客 */
+  preset?: { customerId?: string; customerName?: string; date?: string };
+  triggerLabel?: string;
+  triggerClassName?: string;
+}
+
+const inputCls =
+  "mt-1 block w-full rounded-lg border border-earth-300 bg-white px-3 py-2 text-sm text-earth-800 placeholder:text-earth-400 focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400";
+const labelCls = "block text-sm font-medium text-earth-700";
+
+export function TrialBookingDrawer({
+  preset,
+  triggerLabel = "建立體驗預約",
+  triggerClassName = "rounded-md bg-primary-600 px-3 py-2 text-center text-xs font-medium text-white hover:bg-primary-700",
+}: Props) {
+  const router = useRouter();
+  const titleId = useId();
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [settings, setSettings] = useState<TrialSettings | null>(null);
+  const [staff, setStaff] = useState<{ id: string; displayName: string }[]>([]);
+  const [loadErr, setLoadErr] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  // form state
+  const [newName, setNewName] = useState("");
+  const [newPhone, setNewPhone] = useState("");
+  const [assignedStaffId, setAssignedStaffId] = useState("");
+  const [bookingDate, setBookingDate] = useState(preset?.date ?? "");
+  const [slotTime, setSlotTime] = useState("");
+  const [amount, setAmount] = useState("");
+  const [notes, setNotes] = useState("");
+
+  const isExisting = Boolean(preset?.customerId);
+
+  async function handleOpen() {
+    setOpen(true);
+    setLoading(true);
+    setLoadErr(null);
+    const r = await loadTrialBookingFormData();
+    setLoading(false);
+    if (!r.success) {
+      setLoadErr(r.error);
+      return;
+    }
+    setSettings(r.data.settings);
+    setStaff(r.data.staffOptions);
+    setAmount(String(r.data.settings.trialDefaultPrice));
+  }
+
+  function reset() {
+    setNewName("");
+    setNewPhone("");
+    setAssignedStaffId("");
+    setBookingDate(preset?.date ?? "");
+    setSlotTime("");
+    setNotes("");
+    if (settings) setAmount(String(settings.trialDefaultPrice));
+  }
+
+  function close() {
+    setOpen(false);
+  }
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!settings) return;
+    if (!assignedStaffId) {
+      toast.error("請選擇直屬店長");
+      return;
+    }
+    if (!bookingDate || !/^\d{4}-\d{2}-\d{2}$/.test(bookingDate)) {
+      toast.error("請選擇預約日期");
+      return;
+    }
+    if (!/^\d{2}:\d{2}$/.test(slotTime)) {
+      toast.error("請輸入時段（HH:mm）");
+      return;
+    }
+    if (!isExisting && (!newName.trim() || !/^09\d{8}$/.test(newPhone.replace(/\D/g, "")))) {
+      toast.error("請填寫新顧客姓名與手機（09 開頭共 10 碼）");
+      return;
+    }
+
+    const amountNum = settings.trialAllowPriceEdit
+      ? Math.round(Number(amount))
+      : settings.trialDefaultPrice;
+
+    startTransition(async () => {
+      const r = await createTrialBooking({
+        ...(isExisting
+          ? { customerId: preset!.customerId }
+          : { newCustomer: { name: newName.trim(), phone: newPhone } }),
+        assignedStaffId,
+        bookingDate,
+        slotTime,
+        expectedAmount: Number.isFinite(amountNum) ? amountNum : undefined,
+        notes: notes.trim() || undefined,
+      });
+      if (r.success) {
+        toast.success("已建立體驗預約（未收款）");
+        reset();
+        setOpen(false);
+        router.refresh();
+      } else {
+        toast.error(r.error ?? "建立失敗");
+      }
+    });
+  }
+
+  return (
+    <>
+      <button type="button" onClick={handleOpen} className={triggerClassName}>
+        {triggerLabel}
+      </button>
+
+      <RightSheet open={open} onClose={close} labelledById={titleId}>
+        <div className="flex h-full flex-col">
+          <header className="flex items-center justify-between border-b border-earth-100 px-5 py-4">
+            <h2 id={titleId} className="text-sm font-semibold text-earth-900">
+              建立體驗預約
+            </h2>
+            <button
+              type="button"
+              onClick={close}
+              className="rounded-md p-1 text-earth-400 hover:bg-earth-50 hover:text-earth-600"
+              aria-label="關閉"
+            >
+              ✕
+            </button>
+          </header>
+
+          <div className="flex-1 overflow-y-auto px-5 py-4">
+            {loading ? (
+              <p className="text-sm text-earth-500">載入中…</p>
+            ) : loadErr ? (
+              <p className="rounded-md bg-red-50 px-3 py-3 text-sm text-red-700">{loadErr}</p>
+            ) : settings && !settings.trialEnabled ? (
+              <p className="rounded-md bg-earth-50 px-3 py-4 text-center text-sm text-earth-500">
+                體驗單功能已停用，請於「設定 → 體驗課設定」開啟。
+              </p>
+            ) : settings ? (
+              <form onSubmit={submit} className="space-y-4">
+                {isExisting ? (
+                  <div className="rounded-lg border border-earth-200 bg-earth-50/50 px-3 py-2 text-sm text-earth-700">
+                    顧客：<span className="font-medium">{preset?.customerName ?? "（既有顧客）"}</span>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div>
+                      <label className={labelCls}>顧客姓名</label>
+                      <input className={inputCls} value={newName} onChange={(e) => setNewName(e.target.value)} maxLength={100} />
+                    </div>
+                    <div>
+                      <label className={labelCls}>手機</label>
+                      <input className={inputCls} value={newPhone} onChange={(e) => setNewPhone(e.target.value)} placeholder="09xxxxxxxx" />
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <label className={labelCls}>直屬店長</label>
+                  <select className={inputCls} value={assignedStaffId} onChange={(e) => setAssignedStaffId(e.target.value)}>
+                    <option value="">請選擇</option>
+                    {staff.map((s) => (
+                      <option key={s.id} value={s.id}>{s.displayName}</option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-[11px] text-earth-400">每位體驗客必有直屬店長；既有顧客若已指派則不會被覆蓋。</p>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className={labelCls}>預約日期</label>
+                    <input type="date" className={inputCls} value={bookingDate} onChange={(e) => setBookingDate(e.target.value)} />
+                  </div>
+                  <div>
+                    <label className={labelCls}>時段（HH:mm）</label>
+                    <input className={inputCls} value={slotTime} onChange={(e) => setSlotTime(e.target.value)} placeholder="14:00" />
+                  </div>
+                </div>
+
+                <div>
+                  <label className={labelCls}>體驗金額（NT$）</label>
+                  <div className="mt-1 flex items-center gap-2">
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      className={`${inputCls} mt-0 disabled:bg-earth-50 disabled:text-earth-400`}
+                      value={amount}
+                      min={settings.trialMinPrice}
+                      max={settings.trialMaxPrice}
+                      disabled={!settings.trialAllowPriceEdit}
+                      onChange={(e) => setAmount(e.target.value)}
+                    />
+                    {settings.trialAllowPriceEdit ? (
+                      <button
+                        type="button"
+                        onClick={() => setAmount(String(settings.trialDefaultPrice))}
+                        className="shrink-0 rounded-md border border-earth-200 bg-white px-2 py-1.5 text-[11px] text-earth-600 hover:bg-earth-50"
+                      >
+                        恢復預設
+                      </button>
+                    ) : null}
+                  </div>
+                  <p className="mt-1 text-[11px] text-earth-400">
+                    {settings.trialAllowPriceEdit
+                      ? `可輸入 NT$${settings.trialMinPrice}–${settings.trialMaxPrice}；建立後快照，日後改價不影響本筆。雙人 899 可把其中一筆改 400。`
+                      : "店家設定不允許調整，將以預設價建立。"}
+                  </p>
+                </div>
+
+                <div>
+                  <label className={labelCls}>備註（選填）</label>
+                  <input className={inputCls} value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={500} placeholder="例：雙人同行 / 活動優惠" />
+                </div>
+
+                <div className="rounded-md bg-amber-50 px-3 py-2 text-[11px] leading-relaxed text-amber-800">
+                  此步驟僅建立「未收款」體驗預約：會佔用名額、出現在月曆，但
+                  <b>不建立交易、不產生營收</b>。現場到店收款於後續步驟處理。
+                </div>
+
+                <div className="flex items-center justify-end gap-3 border-t border-earth-100 pt-4">
+                  <button type="button" onClick={close} className="rounded-lg border border-earth-200 px-4 py-2 text-sm text-earth-600 hover:bg-earth-50">
+                    取消
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={pending}
+                    className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-60"
+                  >
+                    {pending ? "建立中…" : "建立體驗預約（未收款）"}
+                  </button>
+                </div>
+              </form>
+            ) : null}
+          </div>
+        </div>
+      </RightSheet>
+    </>
+  );
+}
