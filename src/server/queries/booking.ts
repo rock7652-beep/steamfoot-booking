@@ -248,6 +248,9 @@ export async function getMonthBookingSummary(year: number, month: number, active
         isMakeup: true,
         isCheckedIn: true,
         people: true,
+        // 體驗 499 PR-2：日面板 badge「體驗·未收款｜NT$xxx」用（最小新增 2 欄）
+        bookingType: true,
+        expectedAmount: true,
         customer: {
           select: {
             id: true,
@@ -296,6 +299,8 @@ export async function getMonthBookingSummary(year: number, month: number, active
     isMakeup: boolean;
     isCheckedIn: boolean;
     people: number;
+    bookingType: string;
+    expectedAmount: number | null;
     // 前端 calendar strip 用的扁平欄位（避免每筆都做 nested optional chain）
     customerName: string;
     staffId: string | null;
@@ -342,6 +347,9 @@ export async function getMonthBookingSummary(year: number, month: number, active
       isMakeup: b.isMakeup,
       isCheckedIn: b.isCheckedIn,
       people: b.people,
+      bookingType: b.bookingType,
+      // Decimal → number 在 server 邊界轉換，避免 RSC 序列化問題
+      expectedAmount: b.expectedAmount == null ? null : Number(b.expectedAmount),
       customerName: b.customer.name,
       staffId: b.revenueStaff?.id ?? null,
       staffName: b.revenueStaff?.displayName ?? null,

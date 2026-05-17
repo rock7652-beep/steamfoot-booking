@@ -33,6 +33,8 @@ interface BookingEntry {
   isMakeup: boolean;
   isCheckedIn: boolean;
   people: number;
+  bookingType: string;
+  expectedAmount: number | null;
   customerName: string;
   staffId: string | null;
   staffName: string | null;
@@ -202,6 +204,8 @@ export function BookingsManager({
       isMakeup: b.isMakeup,
       isCheckedIn: b.isCheckedIn,
       bookingStatus: b.bookingStatus,
+      bookingType: b.bookingType,
+      expectedAmount: b.expectedAmount,
       customer: b.customer,
       revenueStaff: b.revenueStaff,
       serviceStaff: b.serviceStaff,
