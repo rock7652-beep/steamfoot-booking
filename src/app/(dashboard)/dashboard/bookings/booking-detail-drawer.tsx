@@ -18,7 +18,16 @@ import {
 } from "@/server/actions/booking";
 import { NoShowModal, type NoShowChoice } from "./no-show-modal";
 import { RescheduleModal } from "./reschedule-modal";
+import { CollectTrialModal } from "./collect-trial-modal";
 import { formatWeekdayZh } from "@/lib/date-utils";
+
+const PAYMENT_METHOD_LABEL: Record<string, string> = {
+  CASH: "現金",
+  TRANSFER: "轉帳",
+  LINE_PAY: "LINE Pay",
+  CREDIT_CARD: "信用卡",
+  OTHER: "其他",
+};
 
 /**
  * Lightweight booking handle that the calendar / day panel passes to the
@@ -68,6 +77,9 @@ export function BookingDetailDrawer({
   const [isActing, startAction] = useTransition();
   const [noShowOpen, setNoShowOpen] = useState(false);
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
+  const [collectOpen, setCollectOpen] = useState(false);
+  // 收款成功後預約狀態不變、但 trial.collected 會翻轉 → 用 nonce 觸發重抓
+  const [reloadNonce, setReloadNonce] = useState(0);
 
   // Derived loading state — `data` is "fresh" when its bookingId matches the
   // currently open one. Lets the effect stay clean (no synchronous setState
@@ -91,7 +103,7 @@ export function BookingDetailDrawer({
     return () => {
       canceled = true;
     };
-  }, [open, bookingId]);
+  }, [open, bookingId, reloadNonce]);
 
   /**
    * Run a drawer action. Updates local drawer state optimistically with
@@ -187,6 +199,15 @@ export function BookingDetailDrawer({
     wrapAction("已還原狀態", () => revertBookingStatus(bookingId!), "PENDING");
   }
 
+  // 體驗 499 PR-3：現場收款成功 — 預約狀態不變，重抓 detail 讓
+  // 付款狀態 / badge 翻成「已收款」；onUpdated(null) 讓母層重整當日資料
+  // （月曆 strip 的 badge 一併更新）。
+  function handleCollected() {
+    setCollectOpen(false);
+    setReloadNonce((n) => n + 1);
+    if (bookingId) onUpdated?.(bookingId, null);
+  }
+
   // What we have to render:
   //   1. Full payload matching current bookingId — preferred when loaded.
   //   2. Pre-loaded summary — instant render of header band; body shows skeleton.
@@ -213,6 +234,7 @@ export function BookingDetailDrawer({
               cancel: handleCancel,
               revert: handleRevert,
               reschedule: () => setRescheduleOpen(true),
+              collect: () => setCollectOpen(true),
             }}
           />
         ) : showHeaderFromSummary && summary ? (
@@ -243,6 +265,18 @@ export function BookingDetailDrawer({
           loading={isActing}
         />
       )}
+      {data && data.trial && !data.trial.collected && (
+        <CollectTrialModal
+          open={collectOpen}
+          onClose={() => setCollectOpen(false)}
+          bookingId={data.booking.id}
+          customerName={data.booking.customer.name}
+          dateLabel={`${data.booking.bookingDate} ${data.booking.slotTime}`}
+          expectedAmount={data.booking.expectedAmount}
+          settings={data.trial.settings}
+          onCollected={handleCollected}
+        />
+      )}
     </>
   );
 }
@@ -257,6 +291,7 @@ interface DrawerActions {
   cancel: () => void;
   revert: () => void;
   reschedule: () => void;
+  collect: () => void;
 }
 
 function DrawerContent({
@@ -270,7 +305,7 @@ function DrawerContent({
   onClose: () => void;
   actions: DrawerActions;
 }) {
-  const { booking, customerSummary } = payload;
+  const { booking, customerSummary, trial } = payload;
   const meta = bookingStatusMeta(booking.bookingStatus, booking.isCheckedIn);
   const amount = computeAmount(booking);
   const duration = booking.servicePlan?.category === "TRIAL" ? 30 : 60;
@@ -434,11 +469,45 @@ function DrawerContent({
                 ? "補課（免費）"
                 : booking.bookingType === "PACKAGE_SESSION"
                   ? "套餐扣堂"
-                  : booking.servicePlan
-                    ? "現場收款"
-                    : "—"
+                  : trial
+                    ? trial.collected
+                      ? "已收款"
+                      : "未收款（現場收款）"
+                    : booking.servicePlan
+                      ? "現場收款"
+                      : "—"
             }
           />
+          {trial && trial.collected && (
+            <>
+              <KV
+                label="付款方式"
+                value={
+                  trial.collectedMethod
+                    ? (PAYMENT_METHOD_LABEL[trial.collectedMethod] ??
+                      trial.collectedMethod)
+                    : "—"
+                }
+              />
+              <KV
+                label="收款金額"
+                value={
+                  trial.collectedAmount == null
+                    ? "—"
+                    : `NT$ ${trial.collectedAmount.toLocaleString()}`
+                }
+              />
+              {trial.collectedAt && (
+                <KV label="收款日期" value={trial.collectedAt} />
+              )}
+            </>
+          )}
+          {trial && !trial.collected && booking.expectedAmount != null && (
+            <KV
+              label="預計收款"
+              value={`NT$ ${booking.expectedAmount.toLocaleString()}`}
+            />
+          )}
         </Section>
 
         {/* Section D: 備註 */}
@@ -454,6 +523,7 @@ function DrawerContent({
       {/* Section E: Actions */}
       <ActionFooter
         booking={booking}
+        trial={trial}
         isActing={isActing}
         actions={actions}
       />
@@ -545,10 +615,12 @@ function SummaryDrawerContent({
 
 function ActionFooter({
   booking,
+  trial,
   isActing,
   actions,
 }: {
   booking: BookingDrawerPayload["booking"];
+  trial: BookingDrawerPayload["trial"];
   isActing: boolean;
   actions: DrawerActions;
 }) {
@@ -556,9 +628,19 @@ function ActionFooter({
   const primaries: Array<{ label: string; onClick: () => void }> = [];
   const secondaries: Array<{ label: string; onClick: () => void; tone?: "danger" }> = [];
 
+  // 體驗 499 PR-3：FIRST_TRIAL 且尚未收款 + 預約仍 PENDING/CONFIRMED →
+  // 顯示「收款」主鈕（drawer-only：收款是營收動作，集中在預約明細操作）。
+  const canCollect =
+    trial != null &&
+    !trial.collected &&
+    (status === "PENDING" || status === "CONFIRMED");
+
   // main schema 無 CHECKED_IN：PENDING/CONFIRMED 直接走「完成服務」→ COMPLETED。
   // （checkInBooking server action 實際上就是 markCompleted 的 alias，保留舊命名無意義。）
   if (status === "PENDING" || status === "CONFIRMED") {
+    if (canCollect) {
+      primaries.push({ label: "收款", onClick: actions.collect });
+    }
     primaries.push({ label: "完成服務", onClick: actions.complete });
     secondaries.push({ label: "改時間", onClick: actions.reschedule });
     secondaries.push({ label: "標記未到", onClick: actions.noShow });

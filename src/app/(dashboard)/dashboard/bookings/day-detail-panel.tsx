@@ -13,9 +13,12 @@ export interface DayBooking {
   isMakeup: boolean;
   isCheckedIn: boolean;
   bookingStatus: string;
-  /** 體驗 499 PR-2：FIRST_TRIAL → 顯示「體驗·未收款」badge；expectedAmount 為快照金額 */
+  /** 體驗 499 PR-2/3：FIRST_TRIAL → badge 顯示「體驗·未收款 / 已收款」；
+   *  expectedAmount 為建立時快照、collectedAmount 為實收金額 */
   bookingType: string;
   expectedAmount: number | null;
+  collected: boolean;
+  collectedAmount: number | null;
   customer: {
     name: string;
     phone: string;
@@ -382,9 +385,16 @@ function TimelineItem({
             {meta.label}
           </StatusBadge>
           {booking.bookingType === "FIRST_TRIAL" ? (
-            <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-medium text-amber-800">
-              體驗·未收款｜NT${booking.expectedAmount ?? "—"}
-            </span>
+            booking.collected ? (
+              <span className="shrink-0 rounded bg-emerald-100 px-1.5 py-0.5 text-[11px] font-medium text-emerald-800">
+                體驗·已收款｜NT$
+                {booking.collectedAmount ?? booking.expectedAmount ?? "—"}
+              </span>
+            ) : (
+              <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-medium text-amber-800">
+                體驗·未收款｜NT${booking.expectedAmount ?? "—"}
+              </span>
+            )
           ) : null}
           <span className="min-w-0 flex-1 truncate text-xs text-earth-500">
             {planLabel}

@@ -35,6 +35,8 @@ interface BookingEntry {
   people: number;
   bookingType: string;
   expectedAmount: number | null;
+  collected: boolean;
+  collectedAmount: number | null;
   customerName: string;
   staffId: string | null;
   staffName: string | null;
@@ -206,6 +208,8 @@ export function BookingsManager({
       bookingStatus: b.bookingStatus,
       bookingType: b.bookingType,
       expectedAmount: b.expectedAmount,
+      collected: b.collected,
+      collectedAmount: b.collectedAmount,
       customer: b.customer,
       revenueStaff: b.revenueStaff,
       serviceStaff: b.serviceStaff,

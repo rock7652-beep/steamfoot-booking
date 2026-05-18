@@ -5,6 +5,7 @@ import { requireStaffSession } from "@/lib/session";
 import { getStoreFilter } from "@/lib/manager-visibility";
 import { getBookingDetail } from "@/server/queries/booking";
 import { ACTIVE_BOOKING_STATUSES } from "@/lib/booking-constants";
+import { getTrialSettings } from "@/lib/shop-config";
 
 export interface BookingDrawerPayload {
   booking: {
@@ -45,12 +46,29 @@ export interface BookingDrawerPayload {
       expiryDate: string | null;
       plan: { name: string };
     } | null;
+    // 體驗 499 PR-3：建立時的預計收款金額快照（僅 FIRST_TRIAL 有值）
+    expectedAmount: number | null;
   };
   customerSummary: {
     totalBookings: number;
     lastVisit: string | null;
     isNewCustomer: boolean;
   };
+  // 體驗 499 PR-3：僅 FIRST_TRIAL 預約有此區塊（其他型別一律 null）。
+  // collected=true → 已建立 TRIAL_PURCHASE SUCCESS 交易；settings 供收款
+  // Modal 決定金額是否可編輯 / 上下限。
+  trial: {
+    collected: boolean;
+    collectedAmount: number | null;
+    collectedMethod: string | null;
+    collectedAt: string | null;
+    settings: {
+      allowEdit: boolean;
+      defaultPrice: number;
+      minPrice: number;
+      maxPrice: number;
+    };
+  } | null;
 }
 
 export async function fetchBookingDetail(
@@ -58,6 +76,23 @@ export async function fetchBookingDetail(
 ): Promise<BookingDrawerPayload> {
   const user = await requireStaffSession();
   const booking = await getBookingDetail(bookingId);
+
+  // 體驗 499 PR-3：僅 FIRST_TRIAL 才查收款狀態 + 體驗價設定
+  const isTrial = booking.bookingType === "FIRST_TRIAL";
+  const [collectedTx, trialSettings] = isTrial
+    ? await Promise.all([
+        prisma.transaction.findFirst({
+          where: {
+            bookingId: booking.id,
+            transactionType: "TRIAL_PURCHASE",
+            status: "SUCCESS",
+          },
+          select: { amount: true, paymentMethod: true, paidAt: true },
+          orderBy: { createdAt: "desc" },
+        }),
+        getTrialSettings(booking.storeId),
+      ])
+    : [null, null];
 
   // 顧客近況：累積完成 + 最近到店 + 是否新客 — 三查詢並行
   const storeFilter = getStoreFilter(user);
@@ -138,6 +173,10 @@ export async function fetchBookingDetail(
             plan: { name: booking.customerPlanWallet.plan.name },
           }
         : null,
+      expectedAmount:
+        booking.expectedAmount == null
+          ? null
+          : Number(booking.expectedAmount),
     },
     customerSummary: {
       totalBookings: completedAgg,
@@ -146,5 +185,22 @@ export async function fetchBookingDetail(
         : null,
       isNewCustomer: firstBookingCount <= 1,
     },
+    trial:
+      isTrial && trialSettings
+        ? {
+            collected: collectedTx != null,
+            collectedAmount:
+              collectedTx == null ? null : Number(collectedTx.amount),
+            collectedMethod: collectedTx?.paymentMethod ?? null,
+            collectedAt:
+              collectedTx?.paidAt?.toISOString().slice(0, 10) ?? null,
+            settings: {
+              allowEdit: trialSettings.trialAllowPriceEdit,
+              defaultPrice: trialSettings.trialDefaultPrice,
+              minPrice: trialSettings.trialMinPrice,
+              maxPrice: trialSettings.trialMaxPrice,
+            },
+          }
+        : null,
   };
 }

@@ -36,3 +36,16 @@ export const createTrialBookingSchema = z
     message: "請擇一：選擇既有顧客，或填寫新顧客姓名與電話",
     path: ["customerId"],
   });
+
+// 體驗 499 PR-3：現場立即收款。
+// SUCCESS-only baseline：店長只在顧客「已付款」後按收款，當下即建立
+// status=SUCCESS + paymentStatus=SUCCESS 的真實營收交易（不做 PENDING /
+// 待確認 / 預收）。paymentMethod 必填且不含 UNPAID。
+// bookingId 用 .min(1) 非 .cuid()（與本系統慣例一致）：真正安全邊界是
+// collectTrialPayment 內 store-scoped 查詢 + requirePermission("trial.confirm")。
+// amount 選填；未傳時 server 帶 Booking.expectedAmount 快照 / 店家預設，一律 clamp。
+export const collectTrialPaymentSchema = z.object({
+  bookingId: z.string().min(1),
+  paymentMethod: z.enum(["CASH", "TRANSFER", "LINE_PAY", "CREDIT_CARD", "OTHER"]),
+  amount: z.number().int().min(0).max(1_000_000).optional(),
+});
