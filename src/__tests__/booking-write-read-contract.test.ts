@@ -166,6 +166,9 @@ const mockPrisma = {
   staff: {
     findMany: vi.fn(async () => []),
   },
+  shopConfig: {
+    findUnique: vi.fn(async () => null),
+  },
   makeupCredit: {
     findUnique: vi.fn(),
     update: vi.fn(),
@@ -200,6 +203,8 @@ vi.mock("@/lib/permissions", () => ({
 vi.mock("@/lib/shop-config", () => ({
   isDutySchedulingEnabled: vi.fn(async () => false),
   checkBookingLimit: vi.fn(async () => ({ allowed: true, current: 0, limit: 100 })),
+  // 本檔不測「可預約到日期」上限 → 回足夠遠的日期，不擋
+  resolveBookableUntilDate: () => "2099-12-31",
 }));
 
 vi.mock("@/lib/usage-gate", () => ({

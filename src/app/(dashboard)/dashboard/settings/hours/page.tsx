@@ -11,6 +11,8 @@ import { prisma } from "@/lib/db";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { PageShell, PageHeader } from "@/components/desktop";
 import { ScheduleManager } from "./schedule-manager";
+import { BookableUntilForm } from "./bookable-until-form";
+import { resolveBookableUntilDate } from "@/lib/shop-config";
 
 const DAY_LABELS = ["日", "一", "二", "三", "四", "五", "六"];
 const WEEK_DAY_NAMES = ["週日", "週一", "週二", "週三", "週四", "週五", "週六"];
@@ -73,12 +75,20 @@ export default async function ScheduleSettingsPage() {
   // weeklyHours 缺 dayName 一欄，下方手動補。
   // initialSummary 直接從 server cache 拿，傳給 client manager 當啟動值，
   // 避免 client mount 後再打一次 server 補抓 summary。
-  const [weeklyRows, specialDays, currentStore, initialSummary] = await Promise.all([
+  const [weeklyRows, specialDays, currentStore, initialSummary, shopConfig] = await Promise.all([
     getCachedBusinessHours(effectiveStoreId),
     getMonthSpecialDays(nowYear, nowMonth),
     prisma.store.findUnique({ where: { id: effectiveStoreId }, select: { isDefault: true } }),
     getCachedMonthScheduleSummary(effectiveStoreId, nowYear, nowMonth),
+    prisma.shopConfig.findUnique({
+      where: { storeId: effectiveStoreId },
+      select: { bookableUntilDate: true },
+    }),
   ]);
+  const bookableUntilInitial = shopConfig?.bookableUntilDate
+    ? shopConfig.bookableUntilDate.toISOString().slice(0, 10)
+    : null;
+  const bookableUntilDefault = resolveBookableUntilDate(null);
   const weeklyHours = weeklyRows.map((h) => ({
     ...h,
     dayName: WEEK_DAY_NAMES[h.dayOfWeek],
@@ -163,6 +173,14 @@ export default async function ScheduleSettingsPage() {
           </span>
         </div>
       </section>
+
+      {/* 顧客可預約到日期 */}
+      <BookableUntilForm
+        initialDate={bookableUntilInitial}
+        defaultUntil={bookableUntilDefault}
+        today={todayStr}
+        canManage={canManage}
+      />
 
       {/* Calendar + rules panel */}
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
