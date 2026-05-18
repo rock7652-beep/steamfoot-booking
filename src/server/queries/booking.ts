@@ -280,6 +280,28 @@ export async function getMonthBookingSummary(year: number, month: number, active
     }),
   ]);
 
+  // 體驗 499 PR-3：FIRST_TRIAL 預約是否「已收款」— 一次 batch 查詢
+  // （TRIAL_PURCHASE + status=SUCCESS 的交易），non-collected 不會有任何
+  // Transaction（PR-2 保證），collected 才有一筆。不是新欄位、純 derived。
+  const trialBookingIds = monthBookings
+    .filter((b) => b.bookingType === "FIRST_TRIAL")
+    .map((b) => b.id);
+  const collectedTx =
+    trialBookingIds.length > 0
+      ? await prisma.transaction.findMany({
+          where: {
+            bookingId: { in: trialBookingIds },
+            transactionType: "TRIAL_PURCHASE",
+            status: "SUCCESS",
+          },
+          select: { bookingId: true, amount: true },
+        })
+      : [];
+  const collectedMap = new Map<string, number>();
+  for (const t of collectedTx) {
+    if (t.bookingId) collectedMap.set(t.bookingId, Number(t.amount));
+  }
+
   // 取涉及的 staff 名稱
   const staffIds = [...new Set(staffCounts.map((s) => s.revenueStaffId!).filter(Boolean))];
   const staffList = staffIds.length > 0
@@ -301,6 +323,10 @@ export async function getMonthBookingSummary(year: number, month: number, active
     people: number;
     bookingType: string;
     expectedAmount: number | null;
+    // 體驗 499 PR-3：是否已現場收款 + 實收金額（derived from TRIAL_PURCHASE
+    // SUCCESS tx；badge 由「未收款」翻成「已收款」）
+    collected: boolean;
+    collectedAmount: number | null;
     // 前端 calendar strip 用的扁平欄位（避免每筆都做 nested optional chain）
     customerName: string;
     staffId: string | null;
@@ -350,6 +376,8 @@ export async function getMonthBookingSummary(year: number, month: number, active
       bookingType: b.bookingType,
       // Decimal → number 在 server 邊界轉換，避免 RSC 序列化問題
       expectedAmount: b.expectedAmount == null ? null : Number(b.expectedAmount),
+      collected: collectedMap.has(b.id),
+      collectedAmount: collectedMap.get(b.id) ?? null,
       customerName: b.customer.name,
       staffId: b.revenueStaff?.id ?? null,
       staffName: b.revenueStaff?.displayName ?? null,

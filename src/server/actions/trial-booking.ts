@@ -10,9 +10,15 @@ import { ensureTrialPlan } from "@/server/services/trial-plan";
 import { createCustomer } from "@/server/actions/customer";
 import { createBooking } from "@/server/actions/booking";
 import { listStaffSelectOptions } from "@/server/queries/staff";
-import { createTrialBookingSchema } from "@/lib/validators/trial-booking";
+import {
+  createTrialBookingSchema,
+  collectTrialPaymentSchema,
+} from "@/lib/validators/trial-booking";
+import { buildTransactionSnapshot } from "@/lib/transaction-snapshot";
+import { revalidateBookings, revalidateTransactions } from "@/lib/revalidation";
 import type { TrialSettings } from "@/lib/shop-config";
 import type { ActionResult } from "@/types";
+import type { PaymentMethod, TransactionType } from "@prisma/client";
 
 // ============================================================
 // loadTrialBookingFormData — read-only：給「建立體驗預約」Drawer 用
@@ -140,6 +146,144 @@ export async function createTrialBooking(
       success: true,
       data: { bookingId: result.data.bookingId, customerId },
     };
+  } catch (e) {
+    return handleActionError(e);
+  }
+}
+
+// ============================================================
+// collectTrialPayment — 體驗 499 PR-3：現場立即收款
+//
+// SUCCESS-only baseline。店長只有在顧客「已付款」後才按收款，此 action
+// 當下即建立一筆真實營收交易：
+//   - transactionType = TRIAL_PURCHASE
+//   - status = SUCCESS（由 buildTransactionSnapshot 寫入）
+//   - paymentStatus = SUCCESS（明確寫入，不用 default 隱含）
+//   - paidAt = now、bookingId 連到該 FIRST_TRIAL 預約、paymentMethod 必填
+//
+// 嚴格不做：
+//   - 不建 PENDING / UNPAID / 待確認 / 預收交易
+//   - 不碰 CustomerPlanWallet / WalletSession / 正式方案堂數
+//     （不呼叫 assignPlanToCustomer；它一律建 wallet+session）
+//   - 不自動寫 CashbookEntry / CashDrawerEntry（現金統計沿用 paymentMethod=CASH）
+//   - 不做退款 / void（已付款後取消走既有 voidTransaction 流程）
+//
+// 因此未收款前完全沒有 Transaction（PR-2 保證），已收款才有一筆 SUCCESS，
+// 既有 revenue/report 查詢（過濾 status=SUCCESS）本來就正確 → 那批
+// paymentStatus query 不需在 PR-3 修改。
+//
+// 防呆：
+//   - 僅 FIRST_TRIAL 且 bookingStatus ∈ {PENDING, CONFIRMED}
+//   - 已有 TRIAL_PURCHASE + SUCCESS 交易 → 拒絕重複收款
+//   - store-scoped 查詢 + requirePermission("trial.confirm") 為安全邊界
+//
+// 歸屬沿用既有規則（不重造）：
+//   revenueStaffId = customer.assignedStaffId ?? operator.staffId（建時快照）
+//   soldByStaffId / serviceStaffId = operator.staffId
+// ============================================================
+
+export async function collectTrialPayment(
+  input: z.infer<typeof collectTrialPaymentSchema>,
+): Promise<ActionResult<{ transactionId: string }>> {
+  try {
+    const user = await requirePermission("trial.confirm");
+    const data = collectTrialPaymentSchema.parse(input);
+    const storeId = currentStoreId(user);
+
+    const settings = await getTrialSettings(storeId);
+
+    // store-scoped 查詢即安全邊界（ID 格式非關卡）
+    const booking = await prisma.booking.findFirst({
+      where: { id: data.bookingId, storeId },
+      select: {
+        id: true,
+        bookingType: true,
+        bookingStatus: true,
+        customerId: true,
+        servicePlanId: true,
+        expectedAmount: true,
+        customer: { select: { assignedStaffId: true } },
+      },
+    });
+    if (!booking) throw new AppError("NOT_FOUND", "預約不存在或不屬於本店");
+    if (booking.bookingType !== "FIRST_TRIAL") {
+      throw new AppError("BUSINESS_RULE", "僅體驗預約可現場收款");
+    }
+    if (
+      booking.bookingStatus !== "PENDING" &&
+      booking.bookingStatus !== "CONFIRMED"
+    ) {
+      throw new AppError(
+        "BUSINESS_RULE",
+        "此預約狀態無法收款（僅未完成 / 未取消的預約可收款）",
+      );
+    }
+
+    // 防止重複收款：已有 TRIAL_PURCHASE + SUCCESS 即拒絕
+    const existing = await prisma.transaction.findFirst({
+      where: {
+        bookingId: booking.id,
+        transactionType: "TRIAL_PURCHASE",
+        status: "SUCCESS",
+      },
+      select: { id: true },
+    });
+    if (existing) {
+      throw new AppError("BUSINESS_RULE", "此預約已收款，請勿重複收款");
+    }
+
+    // 金額：未傳 → Booking.expectedAmount 快照 → 店家預設；一律 clamp
+    //（clampTrialPrice 在 allowEdit=false 時強制回店家預設，忽略傳入值）
+    const baseAmount =
+      data.amount ??
+      (booking.expectedAmount == null
+        ? settings.trialDefaultPrice
+        : Number(booking.expectedAmount));
+    const amount = clampTrialPrice(baseAmount, settings);
+
+    const revenueStaffId =
+      booking.customer.assignedStaffId ??
+      user.staffId ??
+      (() => {
+        throw new AppError(
+          "FORBIDDEN",
+          "顧客尚未指派直屬店長，無法判定營收歸屬",
+        );
+      })();
+
+    const result = await prisma.$transaction(async (txClient) => {
+      const snapshot = await buildTransactionSnapshot(txClient, {
+        customerId: booking.customerId,
+        storeId,
+        revenueStaffId,
+        planId: booking.servicePlanId ?? null,
+        grossAmount: amount,
+        netAmount: amount,
+      });
+
+      // wallet-free：不帶 customerPlanWalletId，不建 WalletSession，
+      // 不呼叫 assignPlanToCustomer。
+      return txClient.transaction.create({
+        data: {
+          customerId: booking.customerId,
+          bookingId: booking.id,
+          revenueStaffId,
+          serviceStaffId: user.staffId ?? null,
+          soldByStaffId: user.staffId ?? null,
+          transactionType: "TRIAL_PURCHASE" as TransactionType,
+          paymentMethod: data.paymentMethod as PaymentMethod,
+          paymentStatus: "SUCCESS",
+          paidAt: new Date(),
+          amount,
+          storeId,
+          ...snapshot,
+        },
+      });
+    });
+
+    revalidateBookings(booking.customerId);
+    revalidateTransactions(booking.customerId);
+    return { success: true, data: { transactionId: result.id } };
   } catch (e) {
     return handleActionError(e);
   }

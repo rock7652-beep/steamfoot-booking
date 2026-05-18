@@ -1,0 +1,361 @@
+import { describe, it, expect, vi, beforeEach } from "vitest";
+
+// 體驗 499 PR-3：collectTrialPayment 保證（SUCCESS-only baseline）
+//  - 只在「真的收款」時建立 1 筆 TRIAL_PURCHASE 交易
+//  - status=SUCCESS（snapshot）+ paymentStatus=SUCCESS（明確）+ paidAt 有值
+//  - bookingId 連到該 FIRST_TRIAL 預約、paymentMethod 必填
+//  - 不建 PENDING；@/lib/db mock 只暴露 booking + transaction，任何
+//    prisma.customerPlanWallet.* / walletSession.* 會 throw → 測試會 fail
+//    （= no Wallet / WalletSession ever）
+//  - 防重複收款、狀態/型別/跨店 guard、歸屬快照、金額 clamp
+
+const h = vi.hoisted(() => {
+  const txCreate = vi.fn(async () => ({ id: "tx_1" }));
+  return {
+    txCreate,
+    requirePermission: vi.fn(async () => ({
+      storeId: "store_1",
+      staffId: "op_staff",
+    })),
+    currentStoreId: vi.fn(() => "store_1"),
+    getTrialSettings: vi.fn(async () => ({
+      trialEnabled: true,
+      trialDefaultPrice: 499,
+      trialAllowPriceEdit: true,
+      trialMinPrice: 0,
+      trialMaxPrice: 3000,
+    })),
+    bookingFindFirst: vi.fn(
+      async () =>
+        ({
+          id: "bk_1",
+          bookingType: "FIRST_TRIAL",
+          bookingStatus: "PENDING",
+          customerId: "cust_1",
+          servicePlanId: "plan_trial",
+          expectedAmount: null as number | null,
+          customer: { assignedStaffId: null as string | null },
+        }) as unknown,
+    ),
+    txFindFirst: vi.fn(async () => null as { id: string } | null),
+    txRun: vi.fn(async (fn: (c: unknown) => unknown) =>
+      fn({ transaction: { create: txCreate } }),
+    ),
+    buildSnapshot: vi.fn(async () => ({
+      transactionNo: "TXN-1",
+      transactionDate: new Date(),
+      status: "SUCCESS" as const,
+      coachNameSnapshot: null,
+      coachRoleSnapshot: null,
+      storeNameSnapshot: null,
+      planId: "plan_trial",
+      planNameSnapshot: null,
+      planType: null,
+      grossAmount: 0,
+      discountAmount: 0,
+      netAmount: 0,
+      isFirstPurchase: true,
+    })),
+    revalidateBookings: vi.fn(),
+    revalidateTransactions: vi.fn(),
+  };
+});
+
+vi.mock("@/lib/db", () => ({
+  prisma: {
+    booking: { findFirst: h.bookingFindFirst },
+    transaction: { findFirst: h.txFindFirst },
+    $transaction: h.txRun,
+  },
+}));
+vi.mock("@/lib/permissions", () => ({ requirePermission: h.requirePermission }));
+vi.mock("@/lib/store", () => ({ currentStoreId: h.currentStoreId }));
+vi.mock("@/lib/shop-config", () => ({
+  getTrialSettings: h.getTrialSettings,
+  clampTrialPrice: (
+    input: number,
+    s: {
+      trialAllowPriceEdit: boolean;
+      trialDefaultPrice: number;
+      trialMinPrice: number;
+      trialMaxPrice: number;
+    },
+  ) =>
+    !s.trialAllowPriceEdit
+      ? s.trialDefaultPrice
+      : Math.min(
+          Math.max(Math.round(input), Math.min(s.trialMinPrice, s.trialMaxPrice)),
+          Math.max(s.trialMinPrice, s.trialMaxPrice),
+        ),
+}));
+vi.mock("@/lib/transaction-snapshot", () => ({
+  buildTransactionSnapshot: h.buildSnapshot,
+}));
+// trial-booking.ts module-level imports（collectTrialPayment 不用，但 import
+// 仍會 load）— mock 掉避免 vitest 解析 next-auth / next/cache
+vi.mock("@/server/services/trial-plan", () => ({
+  ensureTrialPlan: vi.fn(async () => ({ id: "plan_trial" })),
+}));
+vi.mock("@/server/actions/customer", () => ({
+  createCustomer: vi.fn(async () => ({
+    success: true,
+    data: { customerId: "cust_1" },
+  })),
+}));
+vi.mock("@/server/actions/booking", () => ({
+  createBooking: vi.fn(async () => ({
+    success: true,
+    data: { bookingId: "bk_1" },
+  })),
+}));
+vi.mock("@/server/queries/staff", () => ({
+  listStaffSelectOptions: vi.fn(async () => []),
+}));
+vi.mock("@/lib/revalidation", () => ({
+  revalidateBookings: h.revalidateBookings,
+  revalidateTransactions: h.revalidateTransactions,
+}));
+vi.mock("@/lib/errors", () => ({
+  AppError: class AppError extends Error {
+    code: string;
+    constructor(code: string, msg: string) {
+      super(msg);
+      this.code = code;
+    }
+  },
+  handleActionError: (e: unknown) => ({
+    success: false,
+    error: e instanceof Error ? e.message : "err",
+  }),
+}));
+
+import { collectTrialPayment } from "@/server/actions/trial-booking";
+
+type TxArg = {
+  customerId: string;
+  bookingId: string;
+  revenueStaffId: string;
+  serviceStaffId: string | null;
+  soldByStaffId: string | null;
+  transactionType: string;
+  paymentMethod: string;
+  paymentStatus: string;
+  paidAt: Date;
+  amount: number;
+  storeId: string;
+  status: string;
+};
+const lastTx = (): TxArg =>
+  (h.txCreate.mock.calls.at(-1) as unknown as [{ data: TxArg }])[0].data;
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  h.requirePermission.mockResolvedValue({
+    storeId: "store_1",
+    staffId: "op_staff",
+  });
+  h.currentStoreId.mockReturnValue("store_1");
+  h.getTrialSettings.mockResolvedValue({
+    trialEnabled: true,
+    trialDefaultPrice: 499,
+    trialAllowPriceEdit: true,
+    trialMinPrice: 0,
+    trialMaxPrice: 3000,
+  });
+  h.txFindFirst.mockResolvedValue(null);
+  h.txCreate.mockResolvedValue({ id: "tx_1" });
+  h.bookingFindFirst.mockResolvedValue({
+    id: "bk_1",
+    bookingType: "FIRST_TRIAL",
+    bookingStatus: "PENDING",
+    customerId: "cust_1",
+    servicePlanId: "plan_trial",
+    expectedAmount: null,
+    customer: { assignedStaffId: null },
+  } as unknown as never);
+});
+
+const base = { bookingId: "bk_1", paymentMethod: "CASH" as const };
+
+describe("collectTrialPayment — SUCCESS-only real-revenue tx", () => {
+  it("creates exactly ONE TRIAL_PURCHASE tx, SUCCESS+SUCCESS, paidAt set, bookingId linked", async () => {
+    const r = await collectTrialPayment(base);
+    expect(r.success).toBe(true);
+    expect(h.txCreate).toHaveBeenCalledTimes(1);
+    const t = lastTx();
+    expect(t.transactionType).toBe("TRIAL_PURCHASE");
+    expect(t.paymentStatus).toBe("SUCCESS");
+    expect(t.status).toBe("SUCCESS"); // from snapshot
+    expect(t.bookingId).toBe("bk_1");
+    expect(t.paymentMethod).toBe("CASH");
+    expect(t.paidAt).toBeInstanceOf(Date);
+    expect(h.revalidateBookings).toHaveBeenCalledTimes(1);
+    expect(h.revalidateTransactions).toHaveBeenCalledTimes(1);
+  });
+
+  it("never touches wallet/session prisma models (mock would throw on access)", async () => {
+    const r = await collectTrialPayment(base);
+    expect(r.success).toBe(true); // clean success ⇒ no customerPlanWallet/walletSession calls
+  });
+});
+
+describe("collectTrialPayment — double-collect guard", () => {
+  it("rejects when a TRIAL_PURCHASE SUCCESS tx already exists; no second create", async () => {
+    h.txFindFirst.mockResolvedValue({ id: "tx_old" });
+    const r = await collectTrialPayment(base);
+    expect(r.success).toBe(false);
+    expect(h.txCreate).not.toHaveBeenCalled();
+  });
+});
+
+describe("collectTrialPayment — status / type / store guards", () => {
+  it.each(["COMPLETED", "CANCELLED", "NO_SHOW"])(
+    "rejects bookingStatus=%s",
+    async (st) => {
+      h.bookingFindFirst.mockResolvedValue({
+        id: "bk_1",
+        bookingType: "FIRST_TRIAL",
+        bookingStatus: st,
+        customerId: "cust_1",
+        servicePlanId: "plan_trial",
+        expectedAmount: null,
+        customer: { assignedStaffId: null },
+      } as unknown as never);
+      const r = await collectTrialPayment(base);
+      expect(r.success).toBe(false);
+      expect(h.txCreate).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(["SINGLE", "PACKAGE_SESSION"])(
+    "rejects bookingType=%s (only FIRST_TRIAL)",
+    async (bt) => {
+      h.bookingFindFirst.mockResolvedValue({
+        id: "bk_1",
+        bookingType: bt,
+        bookingStatus: "PENDING",
+        customerId: "cust_1",
+        servicePlanId: null,
+        expectedAmount: null,
+        customer: { assignedStaffId: null },
+      } as unknown as never);
+      const r = await collectTrialPayment(base);
+      expect(r.success).toBe(false);
+      expect(h.txCreate).not.toHaveBeenCalled();
+    },
+  );
+
+  it("cross-store booking (store-scoped findFirst → null) → NOT_FOUND, no create", async () => {
+    h.bookingFindFirst.mockResolvedValue(null as unknown as never);
+    const r = await collectTrialPayment(base);
+    expect(r.success).toBe(false);
+    expect(h.txCreate).not.toHaveBeenCalled();
+  });
+});
+
+describe("collectTrialPayment — revenue staff attribution snapshot", () => {
+  it("uses customer.assignedStaffId when present", async () => {
+    h.bookingFindFirst.mockResolvedValue({
+      id: "bk_1",
+      bookingType: "FIRST_TRIAL",
+      bookingStatus: "PENDING",
+      customerId: "cust_1",
+      servicePlanId: "plan_trial",
+      expectedAmount: null,
+      customer: { assignedStaffId: "assigned_owner" },
+    } as unknown as never);
+    await collectTrialPayment(base);
+    const t = lastTx();
+    expect(t.revenueStaffId).toBe("assigned_owner");
+    expect(t.soldByStaffId).toBe("op_staff");
+    expect(t.serviceStaffId).toBe("op_staff");
+  });
+
+  it("falls back to operator when customer has no assignedStaffId", async () => {
+    await collectTrialPayment(base);
+    expect(lastTx().revenueStaffId).toBe("op_staff");
+  });
+
+  it("FORBIDDEN when neither assignedStaffId nor operator staffId resolves", async () => {
+    h.requirePermission.mockResolvedValue({
+      storeId: "store_1",
+      staffId: null,
+    } as unknown as { storeId: string; staffId: string });
+    const r = await collectTrialPayment(base);
+    expect(r.success).toBe(false);
+    expect(h.txCreate).not.toHaveBeenCalled();
+  });
+});
+
+describe("collectTrialPayment — amount snapshot / clamp", () => {
+  it("no amount + expectedAmount null → store default 499", async () => {
+    await collectTrialPayment(base);
+    expect(lastTx().amount).toBe(499);
+  });
+
+  it("no amount + expectedAmount snapshot (400) → 400", async () => {
+    h.bookingFindFirst.mockResolvedValue({
+      id: "bk_1",
+      bookingType: "FIRST_TRIAL",
+      bookingStatus: "PENDING",
+      customerId: "cust_1",
+      servicePlanId: "plan_trial",
+      expectedAmount: 400,
+      customer: { assignedStaffId: null },
+    } as unknown as never);
+    await collectTrialPayment(base);
+    expect(lastTx().amount).toBe(400);
+  });
+
+  it("allowEdit=false → forced to default, ignoring input amount", async () => {
+    h.getTrialSettings.mockResolvedValue({
+      trialEnabled: true,
+      trialDefaultPrice: 499,
+      trialAllowPriceEdit: false,
+      trialMinPrice: 0,
+      trialMaxPrice: 3000,
+    });
+    await collectTrialPayment({ ...base, amount: 999 });
+    expect(lastTx().amount).toBe(499);
+  });
+
+  it("clamps over-max (5000 → 3000)", async () => {
+    await collectTrialPayment({ ...base, amount: 5000 });
+    expect(lastTx().amount).toBe(3000);
+  });
+});
+
+// Validator: non-cuid bookingId accepted (staging/import IDs); empty rejected;
+// UNPAID payment method rejected (no 待確認 path).
+describe("collectTrialPaymentSchema", () => {
+  it("accepts non-cuid bookingId + valid method", async () => {
+    const { collectTrialPaymentSchema } = await import(
+      "@/lib/validators/trial-booking"
+    );
+    expect(() =>
+      collectTrialPaymentSchema.parse({
+        bookingId: "staging-bk-001",
+        paymentMethod: "TRANSFER",
+      }),
+    ).not.toThrow();
+  });
+  it("rejects empty bookingId", async () => {
+    const { collectTrialPaymentSchema } = await import(
+      "@/lib/validators/trial-booking"
+    );
+    expect(() =>
+      collectTrialPaymentSchema.parse({ bookingId: "", paymentMethod: "CASH" }),
+    ).toThrow();
+  });
+  it("rejects UNPAID payment method (SUCCESS-only: no 待確認)", async () => {
+    const { collectTrialPaymentSchema } = await import(
+      "@/lib/validators/trial-booking"
+    );
+    expect(() =>
+      collectTrialPaymentSchema.parse({
+        bookingId: "bk_1",
+        paymentMethod: "UNPAID",
+      }),
+    ).toThrow();
+  });
+});
