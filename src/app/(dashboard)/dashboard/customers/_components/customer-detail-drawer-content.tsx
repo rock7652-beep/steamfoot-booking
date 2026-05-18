@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { AssignPlanForm } from "../[id]/assign-plan-form";
@@ -13,9 +12,9 @@ import {
 } from "@/server/actions/customer";
 import { normalizePhone } from "@/lib/normalize";
 import { formatTWTime } from "@/lib/date-utils";
-import type { getCustomerDetail } from "@/server/queries/customer";
+import type { getCustomerDrawerDetail } from "@/server/queries/customer";
 
-type CustomerDetail = Awaited<ReturnType<typeof getCustomerDetail>>;
+type CustomerDetail = Awaited<ReturnType<typeof getCustomerDrawerDetail>>;
 
 interface Plan {
   id: string;
@@ -40,6 +39,8 @@ interface Props {
   /** "plan" → 自動展開「指派新方案」並滾到方案區 */
   focus?: "plan" | null;
   onClose: () => void;
+  /** drawer 內成功操作後 → 父層只 refetch 本人 slim 資料（不整頁 refresh） */
+  onMutated: () => void;
   titleId: string;
 }
 
@@ -70,9 +71,9 @@ export function CustomerDetailDrawerContent({
   canAssign,
   focus,
   onClose,
+  onMutated,
   titleId,
 }: Props) {
-  const router = useRouter();
   const headerRef = useRef<HTMLDivElement>(null);
   const planSectionRef = useRef<HTMLElement>(null);
 
@@ -104,8 +105,13 @@ export function CustomerDetailDrawerContent({
   const sponsor = customer.sponsor;
 
   // 有效方案：ACTIVE 且未過期（已過期會由 backend 標 EXPIRED，這裡只篩 ACTIVE）
+  // slim query 只回 ACTIVE 錢包 → filter 結果即全部；失效張數改用
+  // _count.planWallets（全部錢包數）− active 數，維持原顯示語意。
   const activeWallets = customer.planWallets.filter((w) => w.status === "ACTIVE");
-  const inactiveWalletCount = customer.planWallets.length - activeWallets.length;
+  const inactiveWalletCount = Math.max(
+    0,
+    customer._count.planWallets - activeWallets.length,
+  );
 
   // 身份異常旗標：來源是 LINE 但實際 LINE 未綁定時提示
   const lineBound = customer.lineLinkStatus === "LINKED";
@@ -263,7 +269,7 @@ export function CustomerDetailDrawerContent({
                   plans={plans}
                   canDiscount={canDiscount}
                   alwaysOpen
-                  onSuccess={() => router.refresh()}
+                  onSuccess={onMutated}
                   defaultPlanId={preselectedPlanId}
                 />
               </div>
@@ -289,7 +295,7 @@ export function CustomerDetailDrawerContent({
             }
             staffOptions={staffOptions}
             canAssign={canAssign}
-            onSaved={() => router.refresh()}
+            onSaved={onMutated}
           />
         </CollapsibleSection>
 
