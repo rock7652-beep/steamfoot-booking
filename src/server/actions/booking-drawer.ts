@@ -6,6 +6,7 @@ import { getStoreFilter } from "@/lib/manager-visibility";
 import { getBookingDetail } from "@/server/queries/booking";
 import { ACTIVE_BOOKING_STATUSES } from "@/lib/booking-constants";
 import { getTrialSettings } from "@/lib/shop-config";
+import { checkPermission } from "@/lib/permissions";
 
 export interface BookingDrawerPayload {
   booking: {
@@ -62,6 +63,9 @@ export interface BookingDrawerPayload {
     collectedAmount: number | null;
     collectedMethod: string | null;
     collectedAt: string | null;
+    // 體驗 499 PR-3b：收款更正用 —— 原 SUCCESS 交易 id + 操作者是否可更正
+    collectedTransactionId: string | null;
+    canCorrect: boolean;
     settings: {
       allowEdit: boolean;
       defaultPrice: number;
@@ -79,7 +83,7 @@ export async function fetchBookingDetail(
 
   // 體驗 499 PR-3：僅 FIRST_TRIAL 才查收款狀態 + 體驗價設定
   const isTrial = booking.bookingType === "FIRST_TRIAL";
-  const [collectedTx, trialSettings] = isTrial
+  const [collectedTx, trialSettings, canCorrect] = isTrial
     ? await Promise.all([
         prisma.transaction.findFirst({
           where: {
@@ -87,12 +91,14 @@ export async function fetchBookingDetail(
             transactionType: "TRIAL_PURCHASE",
             status: "SUCCESS",
           },
-          select: { amount: true, paymentMethod: true, paidAt: true },
+          select: { id: true, amount: true, paymentMethod: true, paidAt: true },
           orderBy: { createdAt: "desc" },
         }),
         getTrialSettings(booking.storeId),
+        // 收款更正 OWNER-only：gate = transaction.void（決策 A）
+        checkPermission(user.role, user.staffId, "transaction.void"),
       ])
-    : [null, null];
+    : [null, null, false];
 
   // 顧客近況：累積完成 + 最近到店 + 是否新客 — 三查詢並行
   const storeFilter = getStoreFilter(user);
@@ -194,6 +200,8 @@ export async function fetchBookingDetail(
             collectedMethod: collectedTx?.paymentMethod ?? null,
             collectedAt:
               collectedTx?.paidAt?.toISOString().slice(0, 10) ?? null,
+            collectedTransactionId: collectedTx?.id ?? null,
+            canCorrect: canCorrect === true,
             settings: {
               allowEdit: trialSettings.trialAllowPriceEdit,
               defaultPrice: trialSettings.trialDefaultPrice,

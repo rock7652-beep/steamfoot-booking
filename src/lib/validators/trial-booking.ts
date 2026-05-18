@@ -49,3 +49,15 @@ export const collectTrialPaymentSchema = z.object({
   paymentMethod: z.enum(["CASH", "TRANSFER", "LINE_PAY", "CREDIT_CARD", "OTHER"]),
   amount: z.number().int().min(0).max(1_000_000).optional(),
 });
+
+// 體驗 499 PR-3b：收款更正 = 作廢原 TRIAL_PURCHASE + 重建新 TRIAL_PURCHASE SUCCESS。
+// 不直接改舊交易、不刪、不退款。OWNER-only（server 端 requirePermission
+// "transaction.void"）、僅 PENDING/CONFIRMED booking。reason 必填（沿用
+// voidTransaction reason 上限 500，作為作廢理由與查帳軌跡）。
+export const correctTrialCollectionSchema = z.object({
+  bookingId: z.string().min(1),
+  originalTransactionId: z.string().min(1),
+  paymentMethod: z.enum(["CASH", "TRANSFER", "LINE_PAY", "CREDIT_CARD", "OTHER"]),
+  amount: z.number().int().min(0).max(1_000_000).optional(),
+  reason: z.string().min(1, "請填寫更正原因").max(500),
+});
