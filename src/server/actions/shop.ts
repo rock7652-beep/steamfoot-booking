@@ -9,6 +9,7 @@ import { revalidateDutyScheduling, revalidateShopConfig } from "@/lib/revalidati
 import type { PricingPlan } from "@prisma/client";
 import type { ActionResult } from "@/types";
 import { resolveWriteStoreId } from "@/lib/store";
+import { parseTaiwanDateToDbDate } from "@/lib/date-utils";
 import { updateTag, revalidatePath } from "next/cache";
 import { ensureTrialPlan } from "@/server/services/trial-plan";
 
@@ -168,6 +169,48 @@ export async function updateTrialSettings(
     revalidateShopConfig();
     revalidatePath("/dashboard/settings");
     revalidatePath("/dashboard/settings/trial");
+    return { success: true, data: undefined };
+  } catch (e) {
+    return handleActionError(e);
+  }
+}
+
+// ============================================================
+// updateBookableUntilDate — PR-1 次月預約開放控管
+//
+// 店長設定顧客自助預約「可預約到日期」（含當日，台灣時間）：
+//   - 傳入 "YYYY-MM-DD" → 開放到該日（顧客可訂當日，不可訂隔日）
+//   - 傳入 null → 清空，回到預設「今天 +14 天」
+//
+// 僅限制 role=CUSTOMER 自助預約；後台店長/管理者代約不受此限制。
+// 不回溯既有 Booking。權限：business_hours.manage（與「預約開放設定」頁同層級）。
+// ============================================================
+
+const updateBookableUntilDateSchema = z.object({
+  date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "日期格式須為 YYYY-MM-DD")
+    .nullable(),
+});
+
+export async function updateBookableUntilDate(
+  input: z.infer<typeof updateBookableUntilDateSchema>
+): Promise<ActionResult<void>> {
+  try {
+    const user = await requirePermission("business_hours.manage");
+    const { date } = updateBookableUntilDateSchema.parse(input);
+    const storeId = await resolveWriteStoreId(user);
+
+    const value = date ? parseTaiwanDateToDbDate(date) : null;
+
+    await prisma.shopConfig.upsert({
+      where: { storeId },
+      create: { storeId, bookableUntilDate: value },
+      update: { bookableUntilDate: value },
+    });
+
+    revalidateShopConfig();
+    revalidatePath("/dashboard/settings/hours");
     return { success: true, data: undefined };
   } catch (e) {
     return handleActionError(e);

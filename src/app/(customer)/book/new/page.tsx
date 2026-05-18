@@ -7,6 +7,7 @@ import { BookingCalendarView } from "./booking-calendar-view";
 import { PENDING_STATUSES } from "@/lib/booking-constants";
 import { NoPlanEmptyState } from "@/components/no-plan-empty-state";
 import { sortWalletsByFEFO } from "@/lib/wallet-sort";
+import { resolveBookableUntilDate } from "@/lib/shop-config";
 
 export default async function NewBookingPage() {
   const user = await getCurrentUser();
@@ -31,7 +32,10 @@ export default async function NewBookingPage() {
     return <NoPlanEmptyState title="新增預約" shopHref={shopHref} />;
   }
 
-  const [customer, makeupCredits] = await Promise.all([
+  // 與後端 createBooking gate 同源：currentStoreId(user) = user.storeId
+  const bookingStoreId = user.storeId ?? storeCtx?.storeId ?? null;
+
+  const [customer, makeupCredits, shopConfig] = await Promise.all([
     prisma.customer.findUnique({
       where: { id: customerId },
       select: {
@@ -67,8 +71,18 @@ export default async function NewBookingPage() {
       },
       orderBy: { createdAt: "asc" },
     }),
+    bookingStoreId
+      ? prisma.shopConfig.findUnique({
+          where: { storeId: bookingStoreId },
+          select: { bookableUntilDate: true },
+        })
+      : Promise.resolve(null),
   ]);
   if (!customer) return <NoPlanEmptyState title="新增預約" shopHref={shopHref} />;
+
+  // 顧客自助預約可預約到日期（含當日）；null = 預設今天 +14 天。
+  // 與後端 createBooking gate 共用 resolveBookableUntilDate，避免前後端分裂。
+  const bookableUntil = resolveBookableUntilDate(shopConfig?.bookableUntilDate);
 
   // 新扣堂模型：remainingSessions = 購買 - COMPLETED - NO_SHOW(DEDUCTED)
   // 可預約 = remainingSessions - count(PENDING 非補課)
@@ -136,6 +150,7 @@ export default async function NewBookingPage() {
       ) : (
         <BookingCalendarView
           customerId={customerId}
+          bookableUntil={bookableUntil}
           activeWallets={activeWallets.map((w) => ({
             id: w.id,
             planName: w.plan.name,

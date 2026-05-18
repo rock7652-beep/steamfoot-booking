@@ -1280,6 +1280,8 @@ model ShopConfig {
   trialAllowPriceEdit Boolean @default(true) // 建立體驗單時是否允許調整價格
   trialMinPrice       Decimal @default(0) @db.Decimal(10, 0) // 最低可輸入價格
   trialMaxPrice       Decimal @default(3000) @db.Decimal(10, 0) // 最高可輸入價格
+  // === PR-1 新增：顧客自助預約可預約到的日期（含當日）；null = 回到預設 +14 天 ===
+  bookableUntilDate   DateTime? @db.Date
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 

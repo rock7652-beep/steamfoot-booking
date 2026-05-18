@@ -22,7 +22,7 @@ import {
   loadDayBusinessHoursContext,
 } from "@/lib/business-hours-resolver";
 import type { ActionResult } from "@/types";
-import { checkBookingLimit } from "@/lib/shop-config";
+import { checkBookingLimit, resolveBookableUntilDate } from "@/lib/shop-config";
 import { assertStoreAccess } from "@/lib/manager-visibility";
 import { currentStoreId } from "@/lib/store";
 import {
@@ -313,11 +313,24 @@ export async function createBooking(
       throw new AppError("VALIDATION", "不可預約過去的日期");
     }
 
-    const [ty, tm, td] = todayStr.split("-").map(Number);
-    const maxDateObj = new Date(Date.UTC(ty, tm - 1, td + 14));
     const bookingDateObj = new Date(data.bookingDate + "T00:00:00Z");
-    if (bookingDateObj > maxDateObj) {
-      throw new AppError("BUSINESS_RULE", "只能預約未來 14 天內的時段");
+
+    // PR-1：顧客自助預約「可預約到日期」上限（含當日）。
+    // 僅限制 role=CUSTOMER；後台店長/管理者代客預約不受此上限限制，
+    // 以保留現場彈性（已電話/現場確認、特殊安排）。
+    if (user.role === "CUSTOMER") {
+      const sc = await prisma.shopConfig.findUnique({
+        where: { storeId },
+        select: { bookableUntilDate: true },
+      });
+      const bookableUntil = resolveBookableUntilDate(sc?.bookableUntilDate);
+      // 字串比較即年代順序；含當日 → 僅當超過上限才擋
+      if (data.bookingDate > bookableUntil) {
+        throw new AppError(
+          "BUSINESS_RULE",
+          "次月預約時段尚未開放，請等候店長通知。",
+        );
+      }
     }
 
     // 同日已過時段不可預約（後端強制擋）

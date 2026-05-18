@@ -6,8 +6,38 @@
  */
 
 import { prisma } from "@/lib/db";
+import { addTaiwanDuration, toLocalDateStr } from "@/lib/date-utils";
 import { PLAN_LIMITS } from "@/lib/feature-flags";
 import type { PricingPlan } from "@prisma/client";
+
+// ============================================================
+// 顧客自助預約「可預約到日期」（PR-1）
+// ============================================================
+
+/** 店家未設定 bookableUntilDate 時的預設：今天 +14 天（含當日） */
+export const DEFAULT_BOOKABLE_DAYS_AHEAD = 14;
+
+/**
+ * 解析顧客自助預約「可預約到日期」（含當日，"YYYY-MM-DD"，台灣時間）。
+ *
+ * - 店家有設 ShopConfig.bookableUntilDate → 用該日期（含當日）
+ * - 未設（null）→ 今天 +14 天
+ *
+ * 前台月曆（server component 傳 prop 給 client）與後端 createBooking gate
+ * 共用此單一邏輯，避免前後端再次分裂。
+ *
+ * 注意：bookableUntilDate 刻意不放進 getShopConfig() 的 select
+ * （沿用 #150 後的窄 select 慣例），各呼叫點以專用 select 取用。
+ */
+export function resolveBookableUntilDate(
+  bookableUntilDate: Date | null | undefined,
+): string {
+  if (bookableUntilDate) {
+    // @db.Date 讀出為 UTC midnight，.slice(0,10) 取日期是安全的（見 AGENTS.md）
+    return bookableUntilDate.toISOString().slice(0, 10);
+  }
+  return addTaiwanDuration(toLocalDateStr(), DEFAULT_BOOKABLE_DAYS_AHEAD, "DAY");
+}
 
 // ============================================================
 // 店舖方案讀取（Source of truth: Store.plan）

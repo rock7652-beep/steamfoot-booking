@@ -27,13 +27,19 @@ interface Props {
   customerId: string;
   activeWallets: ActiveWallet[];
   makeupCredits?: MakeupCreditInfo[];
+  /** 顧客可預約到的日期（含當日，"YYYY-MM-DD"，台灣時間）。與後端 gate 同源。 */
+  bookableUntil: string;
 }
 
 type MonthDayInfo = { totalCapacity: number; totalBooked: number; slots: MonthSlotInfo[] };
 
-export function BookingCalendarView({ customerId, activeWallets, makeupCredits = [] }: Props) {
+export function BookingCalendarView({ customerId, activeWallets, makeupCredits = [], bookableUntil }: Props) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+
+  // 可預約到日期（含當日）。超過此日的時段尚未開放。
+  const maxDate = parseLocalDate(bookableUntil);
+  maxDate.setHours(0, 0, 0, 0);
 
   const [people, setPeople] = useState(1);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -87,8 +93,6 @@ export function BookingCalendarView({ customerId, activeWallets, makeupCredits =
   const firstDay = new Date(calYear, calMonth, 1);
   const lastDay = new Date(calYear, calMonth + 1, 0);
   const startDow = firstDay.getDay();
-  const maxDate = new Date(today);
-  maxDate.setDate(maxDate.getDate() + 30);
 
   const days: (number | null)[] = [];
   for (let i = 0; i < startDow; i++) days.push(null);
@@ -312,6 +316,15 @@ export function BookingCalendarView({ customerId, activeWallets, makeupCredits =
             </div>
           </div>
         )}
+      </div>
+
+      {/* 可預約範圍提示 */}
+      <div className="mb-5 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        目前開放預約至{" "}
+        <strong>
+          {maxDate.toLocaleDateString("zh-TW", { year: "numeric", month: "long", day: "numeric" })}
+        </strong>
+        。次月預約時段尚未開放，請等候店長通知。
       </div>
 
       {/* 時段展開區 */}
