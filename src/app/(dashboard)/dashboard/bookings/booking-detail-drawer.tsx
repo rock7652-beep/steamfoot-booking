@@ -19,6 +19,7 @@ import {
 import { NoShowModal, type NoShowChoice } from "./no-show-modal";
 import { RescheduleModal } from "./reschedule-modal";
 import { CollectTrialModal } from "./collect-trial-modal";
+import { CorrectTrialCollectionModal } from "./correct-trial-collection-modal";
 import { formatWeekdayZh } from "@/lib/date-utils";
 
 const PAYMENT_METHOD_LABEL: Record<string, string> = {
@@ -78,7 +79,8 @@ export function BookingDetailDrawer({
   const [noShowOpen, setNoShowOpen] = useState(false);
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
   const [collectOpen, setCollectOpen] = useState(false);
-  // 收款成功後預約狀態不變、但 trial.collected 會翻轉 → 用 nonce 觸發重抓
+  const [correctOpen, setCorrectOpen] = useState(false);
+  // 收款 / 更正成功後預約狀態不變、但 trial.collected 會翻轉 → 用 nonce 觸發重抓
   const [reloadNonce, setReloadNonce] = useState(0);
 
   // Derived loading state — `data` is "fresh" when its bookingId matches the
@@ -208,6 +210,14 @@ export function BookingDetailDrawer({
     if (bookingId) onUpdated?.(bookingId, null);
   }
 
+  // 體驗 499 PR-3b：收款更正成功 — 同理重抓 detail（金額/付款方式翻新）
+  // 並通知母層重整當日資料。
+  function handleCorrected() {
+    setCorrectOpen(false);
+    setReloadNonce((n) => n + 1);
+    if (bookingId) onUpdated?.(bookingId, null);
+  }
+
   // What we have to render:
   //   1. Full payload matching current bookingId — preferred when loaded.
   //   2. Pre-loaded summary — instant render of header band; body shows skeleton.
@@ -235,6 +245,7 @@ export function BookingDetailDrawer({
               revert: handleRevert,
               reschedule: () => setRescheduleOpen(true),
               collect: () => setCollectOpen(true),
+              correct: () => setCorrectOpen(true),
             }}
           />
         ) : showHeaderFromSummary && summary ? (
@@ -277,6 +288,25 @@ export function BookingDetailDrawer({
           onCollected={handleCollected}
         />
       )}
+      {data &&
+        data.trial &&
+        data.trial.collected &&
+        data.trial.canCorrect &&
+        data.trial.collectedTransactionId && (
+          <CorrectTrialCollectionModal
+            open={correctOpen}
+            onClose={() => setCorrectOpen(false)}
+            bookingId={data.booking.id}
+            originalTransactionId={data.trial.collectedTransactionId}
+            customerName={data.booking.customer.name}
+            dateLabel={`${data.booking.bookingDate} ${data.booking.slotTime}`}
+            originalAmount={data.trial.collectedAmount}
+            originalMethod={data.trial.collectedMethod}
+            originalDate={data.trial.collectedAt}
+            settings={data.trial.settings}
+            onCorrected={handleCorrected}
+          />
+        )}
     </>
   );
 }
@@ -292,6 +322,7 @@ interface DrawerActions {
   revert: () => void;
   reschedule: () => void;
   collect: () => void;
+  correct: () => void;
 }
 
 function DrawerContent({
@@ -502,6 +533,14 @@ function DrawerContent({
               )}
             </>
           )}
+          {trial &&
+            trial.collected &&
+            booking.bookingStatus !== "PENDING" &&
+            booking.bookingStatus !== "CONFIRMED" && (
+              <div className="col-span-2 mt-1 rounded-md bg-earth-50 px-3 py-2 text-[11px] leading-relaxed text-earth-500">
+                此筆已完成服務，如需更正收款請改走交易作廢流程。
+              </div>
+            )}
           {trial && !trial.collected && booking.expectedAmount != null && (
             <KV
               label="預計收款"
@@ -637,11 +676,27 @@ function ActionFooter({
 
   // main schema 無 CHECKED_IN：PENDING/CONFIRMED 直接走「完成服務」→ COMPLETED。
   // （checkInBooking server action 實際上就是 markCompleted 的 alias，保留舊命名無意義。）
+  // 體驗 499 PR-3b：已收款 + 有 transaction.void 權限（OWNER）→ 顯示
+  // 「收款更正」（= 作廢原收款 + 重收）。僅 PENDING/CONFIRMED；COMPLETED
+  // 不提供一鍵更正（改於明細區顯示提示）。
+  const canCorrect =
+    trial != null &&
+    trial.collected &&
+    trial.canCorrect &&
+    (status === "PENDING" || status === "CONFIRMED");
+
   if (status === "PENDING" || status === "CONFIRMED") {
     if (canCollect) {
       primaries.push({ label: "收款", onClick: actions.collect });
     }
     primaries.push({ label: "完成服務", onClick: actions.complete });
+    if (canCorrect) {
+      secondaries.push({
+        label: "收款更正",
+        onClick: actions.correct,
+        tone: "danger",
+      });
+    }
     secondaries.push({ label: "改時間", onClick: actions.reschedule });
     secondaries.push({ label: "標記未到", onClick: actions.noShow });
     secondaries.push({ label: "取消預約", onClick: actions.cancel, tone: "danger" });

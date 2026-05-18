@@ -10,9 +10,11 @@ import { ensureTrialPlan } from "@/server/services/trial-plan";
 import { createCustomer } from "@/server/actions/customer";
 import { createBooking } from "@/server/actions/booking";
 import { listStaffSelectOptions } from "@/server/queries/staff";
+import { voidTransaction } from "@/server/actions/transaction";
 import {
   createTrialBookingSchema,
   collectTrialPaymentSchema,
+  correctTrialCollectionSchema,
 } from "@/lib/validators/trial-booking";
 import { buildTransactionSnapshot } from "@/lib/transaction-snapshot";
 import { revalidateBookings, revalidateTransactions } from "@/lib/revalidation";
@@ -284,6 +286,108 @@ export async function collectTrialPayment(
     revalidateBookings(booking.customerId);
     revalidateTransactions(booking.customerId);
     return { success: true, data: { transactionId: result.id } };
+  } catch (e) {
+    return handleActionError(e);
+  }
+}
+
+// ============================================================
+// correctTrialCollection — 體驗 499 PR-3b：收款更正
+//
+// 模型：收款更正 = 作廢原 TRIAL_PURCHASE + 重建新 TRIAL_PURCHASE SUCCESS。
+// 不改舊交易、不刪、不退款、不直接改金額。複用既有 voidTransaction +
+// collectTrialPayment（皆不修改）。
+//
+// 決策 A：OWNER-only —— gate = requirePermission("transaction.void")。
+// 決策 B：僅 bookingStatus ∈ {PENDING, CONFIRMED}（COMPLETED 不做一鍵更正）。
+//
+// 順序（server-side orchestration，非 client sequencing）：
+//   1. transaction.void 權限
+//   2. booking 同店 + FIRST_TRIAL + PENDING/CONFIRMED
+//   3. originalTransactionId 為同 booking 的 TRIAL_PURCHASE + SUCCESS
+//   4. voidTransaction(原交易, reason) —— 失敗即 return，無副作用
+//   5. collectTrialPayment(新金額/付款方式) —— 若此步失敗，原交易已 VOIDED，
+//      回傳明確訊息：此預約目前未收款，請重新收款（可從 drawer 重收）。
+//
+// 不做 atomic wrapper：voidTransaction / collectTrialPayment 各自已包
+// prisma.$transaction；中間態（已作廢、尚未重收）為合法可復原狀態。
+// ============================================================
+
+export async function correctTrialCollection(
+  input: z.infer<typeof correctTrialCollectionSchema>,
+): Promise<ActionResult<{ transactionId: string }>> {
+  try {
+    const user = await requirePermission("transaction.void");
+    const data = correctTrialCollectionSchema.parse(input);
+    const storeId = currentStoreId(user);
+
+    const booking = await prisma.booking.findFirst({
+      where: { id: data.bookingId, storeId },
+      select: { id: true, bookingType: true, bookingStatus: true },
+    });
+    if (!booking) throw new AppError("NOT_FOUND", "預約不存在或不屬於本店");
+    if (booking.bookingType !== "FIRST_TRIAL") {
+      throw new AppError("BUSINESS_RULE", "僅體驗預約可進行收款更正");
+    }
+    if (
+      booking.bookingStatus !== "PENDING" &&
+      booking.bookingStatus !== "CONFIRMED"
+    ) {
+      throw new AppError(
+        "BUSINESS_RULE",
+        "此預約已完成服務，收款更正請改走交易作廢流程",
+      );
+    }
+
+    const original = await prisma.transaction.findFirst({
+      where: { id: data.originalTransactionId, storeId },
+      select: {
+        id: true,
+        bookingId: true,
+        transactionType: true,
+        status: true,
+      },
+    });
+    if (!original) {
+      throw new AppError("NOT_FOUND", "原收款交易不存在或不屬於本店");
+    }
+    if (
+      original.bookingId !== booking.id ||
+      original.transactionType !== "TRIAL_PURCHASE" ||
+      original.status !== "SUCCESS"
+    ) {
+      throw new AppError(
+        "BUSINESS_RULE",
+        "原收款交易不符（需為此預約的有效體驗收款）",
+      );
+    }
+
+    // 1) 作廢原交易（含 CAS + TransactionAuditLog + voidReason）
+    const voided = await voidTransaction({
+      transactionId: data.originalTransactionId,
+      reason: data.reason,
+    });
+    if (!voided.success) {
+      return { success: false, error: voided.error };
+    }
+
+    // 2) 重新收款（double-collect guard 只擋 SUCCESS，原交易已 VOIDED → 可重收）
+    const recollected = await collectTrialPayment({
+      bookingId: data.bookingId,
+      paymentMethod: data.paymentMethod,
+      amount: data.amount,
+    });
+    if (!recollected.success) {
+      return {
+        success: false,
+        error: `原收款已作廢，但新收款建立失敗（${recollected.error}）。此預約目前為未收款，請重新收款。`,
+      };
+    }
+
+    return {
+      success: true,
+      data: { transactionId: recollected.data.transactionId },
+    };
   } catch (e) {
     return handleActionError(e);
   }

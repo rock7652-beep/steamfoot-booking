@@ -58,6 +58,9 @@ vi.mock("@/lib/shop-config", () => ({
 vi.mock("@/server/services/trial-plan", () => ({ ensureTrialPlan: h.ensureTrialPlan }));
 vi.mock("@/server/actions/customer", () => ({ createCustomer: h.createCustomer }));
 vi.mock("@/server/actions/booking", () => ({ createBooking: h.createBooking }));
+// PR-3b：trial-booking.ts 新增 module-level import @/server/actions/transaction
+// （voidTransaction）→ mock 掉，避免 vitest 解析 next-auth / next/server
+vi.mock("@/server/actions/transaction", () => ({ voidTransaction: vi.fn() }));
 vi.mock("@/server/queries/staff", () => ({ listStaffSelectOptions: vi.fn(async () => []) }));
 vi.mock("@/lib/errors", () => ({
   AppError: class AppError extends Error { code: string; constructor(code: string, msg: string) { super(msg); this.code = code; } },
