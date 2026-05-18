@@ -39,10 +39,6 @@ interface Props {
   canDiscount: boolean;
   staffOptions: StaffOption[];
   canAssign: boolean;
-  /** Deep-link：初次載入時 ?customerId= 的值（之後開關純 client state） */
-  initialCustomerId: string | null;
-  /** ?drawerFocus=plan → 自動展開指派方案區並滾到該位置 */
-  drawerFocus: "plan" | null;
 }
 
 export function CustomersListWithDrawer({
@@ -54,45 +50,29 @@ export function CustomersListWithDrawer({
   canDiscount,
   staffOptions,
   canAssign,
-  initialCustomerId,
-  drawerFocus,
 }: Props) {
   const titleId = useId();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  // ── Drawer：可見性與資料皆為 client state（與 server prop / RSC 脫鉤）──
-  // 這是避免「RSC 快取導致 drawer 關不掉」的關鍵：可見性只看 openId，
-  // 關閉 = setOpenId(null)，不依賴任何 server 重算，故該 bug 結構上不可能重現。
+  // ── Drawer：可見性與資料皆為 client state ──────────────────────────
+  // open 的唯一來源 = URL ?customerId= 的「實際變化」（整列 <Link> 點擊 /
+  // 「查看」鈕 router.push / 初次 deep-link）；close = 純 client state +
+  // history.replaceState（不 soft-nav、不 router.refresh、不重刷列表）。
   const cacheRef = useRef<Map<string, DrawerDetail>>(new Map());
-  const [openId, setOpenId] = useState<string | null>(initialCustomerId);
+  const [openId, setOpenId] = useState<string | null>(null);
   const [detail, setDetail] = useState<DrawerDetail | null>(null);
   const [loading, setLoading] = useState(false);
-  const [focus, setFocus] = useState<"plan" | null>(drawerFocus);
-
-  // 只同步 URL 的 ?customerId=（cosmetic / 可分享），用 history.replaceState
-  // 不走 Next 導航 → 不觸發 RSC 重算、不重刷列表。
-  const syncUrl = useCallback(
-    (customerId: string | null, f: "plan" | null) => {
-      if (typeof window === "undefined") return;
-      const params = new URLSearchParams(window.location.search);
-      if (customerId) params.set("customerId", customerId);
-      else params.delete("customerId");
-      if (f) params.set("drawerFocus", f);
-      else params.delete("drawerFocus");
-      const qs = params.toString();
-      window.history.replaceState(
-        null,
-        "",
-        qs ? `${window.location.pathname}?${qs}` : window.location.pathname,
-      );
-    },
-    [],
-  );
+  const [focus, setFocus] = useState<"plan" | null>(null);
 
   // 競態防護：只套用「最後一次請求」的結果（快速連點不同顧客時）
   const reqIdRef = useRef(0);
+  // 記錄「上次已處理的 URL customerId」。effect 只在此值「實際改變」時動作，
+  // 故 close（history.replaceState，不更新 Next searchParams）造成的 stale
+  // 殘值不會觸發重開（取代了 closedIdRef 的職責，且更穩：close 後重設為
+  // null，下次同一位的真實 URL 導航即可再次開啟，不會被殘值卡住）。
+  const lastUrlCidRef = useRef<string | null>(null);
 
   const fetchDetail = useCallback(async (customerId: string) => {
     const myReq = ++reqIdRef.current;
@@ -111,21 +91,58 @@ export function CustomersListWithDrawer({
     setDetail(res.data);
   }, []);
 
-  // 初次 deep-link：?customerId= 帶值 → 開 drawer 並抓資料
-  useEffect(() => {
-    if (initialCustomerId) void fetchDetail(initialCustomerId);
-    // 僅 mount 執行一次（deep-link 入口）
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // 開啟：cache 命中即時填入；未命中先 skeleton + 背景 fetch。
+  const applyOpen = useCallback(
+    (customerId: string, f: "plan" | null) => {
+      setOpenId(customerId);
+      setFocus(f);
+      const cached = cacheRef.current.get(customerId);
+      if (cached) {
+        setDetail(cached);
+        setLoading(false);
+        reqIdRef.current++; // 取消在途請求，避免覆蓋 cache
+      } else {
+        setDetail(null);
+        void fetchDetail(customerId);
+      }
+    },
+    [fetchDetail],
+  );
 
-  // 表格列的「在新分頁開啟」anchor href（cmd / 中鍵點擊）。
-  // 一般左鍵點擊走 onView → openCustomer（client 即時），不經此 href。
+  // 單一 open 來源：把「外部系統 URL ?customerId=」的實際變化同步成 client
+  // state（涵蓋整列 <Link> 點擊、「查看」鈕 router.push、初次 deep-link）。
+  //
+  // 這正是 react 文件允許的 effect 用途：「subscribe to an external system,
+  // call setState when it changes」。`lastUrlCidRef` early-return 讓本 effect
+  // 對同一 cid 冪等，不會 cascading render（rule 真正擔心的事不會發生）；且必須
+  // 用 effect 而非「render 時 setState」pattern：close 走 history.replaceState
+  // 不改 Next searchParams 物件，effect 不會因 close 重跑 → 重設 ref 安全；
+  // render-time pattern 則會在 close 後的 re-render 用 stale searchParams 誤重開。
+  // 因此於此處 scoped 關閉 set-state-in-effect（已用 guard 消除其風險）。
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    const cid = searchParams.get("customerId");
+    if (cid === lastUrlCidRef.current) return; // URL cid 沒真的變 → 忽略
+    lastUrlCidRef.current = cid;
+    const f = searchParams.get("drawerFocus") === "plan" ? "plan" : null;
+    if (cid) {
+      applyOpen(cid, f);
+    } else {
+      // 經由 Next 導航把 customerId 拿掉（例如改篩選）→ 確保關閉
+      setOpenId(null);
+      setDetail(null);
+      setFocus(null);
+    }
+  }, [searchParams, applyOpen]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  // 整列 <Link>（cmd / 中鍵新分頁）與 router.push 共用：保留既有篩選參數。
   const buildHref = useCallback(
-    (customerId: string | null, focus: "plan" | null) => {
+    (customerId: string | null, f: "plan" | null) => {
       const params = new URLSearchParams(searchParams.toString());
       if (customerId) params.set("customerId", customerId);
       else params.delete("customerId");
-      if (focus) params.set("drawerFocus", focus);
+      if (f) params.set("drawerFocus", f);
       else params.delete("drawerFocus");
       const qs = params.toString();
       return qs ? `${pathname}?${qs}` : pathname;
@@ -133,34 +150,47 @@ export function CustomersListWithDrawer({
     [pathname, searchParams],
   );
 
-  // 點顧客 → drawer 立即滑出（openId 同步設定）。已看過的顧客用 client
-  // cache 立即填入；未看過先 skeleton，背景 fetch 完成再填。
+  // 「查看」/「＋指派」鈕 → 與整列 <Link> 走同一條 URL→effect 路徑。
+  // 用 window.location 當前真實 search 組 href（close 後 Next searchParams
+  // 可能 stale），確保即使是「剛關閉的同一位」也能被視為真的 URL 變化而重開。
   const openCustomer = useCallback(
     (customerId: string, f: "plan" | null = null) => {
-      setOpenId(customerId);
-      setFocus(f);
-      syncUrl(customerId, f);
-      const cached = cacheRef.current.get(customerId);
-      if (cached) {
-        setDetail(cached);
-        setLoading(false);
-        reqIdRef.current++; // 取消任何在途請求，避免覆蓋快取
-      } else {
-        setDetail(null);
-        void fetchDetail(customerId);
-      }
+      const base =
+        typeof window !== "undefined"
+          ? window.location.search
+          : `?${searchParams.toString()}`;
+      const params = new URLSearchParams(base);
+      params.set("customerId", customerId);
+      if (f) params.set("drawerFocus", f);
+      else params.delete("drawerFocus");
+      const qs = params.toString();
+      router.push(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
     },
-    [syncUrl, fetchDetail],
+    [router, pathname, searchParams],
   );
 
-  // 關閉 = 純 client state，不 router.push / 不 router.refresh → 立即關閉。
+  // 關閉 = 純 client state；history.replaceState 移除 ?customerId=
+  // （不 soft-nav、不 router.refresh、不重刷列表）。lastUrlCidRef 重設為
+  // null：close 不更新 Next searchParams，stale 殘值不會觸發 effect 重開，
+  // 而下次「真的」導航到同一位（含剛關的那位）時 cid≠null 會被視為變化而開啟。
   const closeDrawer = useCallback(() => {
     setOpenId(null);
     setDetail(null);
     setFocus(null);
     reqIdRef.current++; // 丟棄在途請求
-    syncUrl(null, null);
-  }, [syncUrl]);
+    lastUrlCidRef.current = null;
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      params.delete("customerId");
+      params.delete("drawerFocus");
+      const qs = params.toString();
+      window.history.replaceState(
+        null,
+        "",
+        qs ? `${window.location.pathname}?${qs}` : window.location.pathname,
+      );
+    }
+  }, []);
 
   // drawer 內成功操作（指派方案 / 歸屬設定）後刷新本人資料，
   // 不整頁 refresh、不重刷列表（列表 _count 短暫 stale 為已知取捨）。

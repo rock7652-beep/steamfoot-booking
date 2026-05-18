@@ -106,11 +106,10 @@ export default async function CustomersPage({ searchParams }: PageProps) {
       checkPermission(user.role, user.staffId, "customer.assign").catch(() => false),
     ]);
 
-  // PR-4：drawer 詳情不再於 server 端依 ?customerId= 預抓。
-  // 改由 client（CustomersListWithDrawer）以 server action 取 slim 資料，
-  // 並用 client cache 重用；?customerId= 僅作為「初次 deep-link」入口。
-  const initialCustomerId = params.customerId ?? null;
-  const drawerFocus = params.drawerFocus === "plan" ? "plan" : null;
+  // PR-4：drawer 詳情不再於 server 端依 ?customerId= 預抓，也不再用 prop
+  // 傳入。CustomersListWithDrawer 直接讀 useSearchParams()，open 來源為
+  // URL ?customerId= 的實際變化（整列 <Link> / 查看鈕 router.push / deep-link），
+  // 並以 server action 取 slim 資料 + client cache 重用。
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const hasActiveFilters = !!(
@@ -193,8 +192,6 @@ export default async function CustomersPage({ searchParams }: PageProps) {
         canDiscount={canDiscount}
         staffOptions={staffOptions}
         canAssign={canAssign}
-        initialCustomerId={initialCustomerId}
-        drawerFocus={drawerFocus}
       />
 
       <div className="flex flex-wrap items-center justify-between gap-2">
