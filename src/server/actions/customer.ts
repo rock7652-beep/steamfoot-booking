@@ -13,6 +13,7 @@ import {
   bulkUpdateCustomerAssignmentSchema,
 } from "@/lib/validators/customer";
 import type { ActionResult } from "@/types";
+import { getCustomerDrawerDetail } from "@/server/queries/customer";
 import { checkCustomerLimit } from "@/lib/shop-config";
 import { assertStoreAccess } from "@/lib/manager-visibility";
 import { currentStoreId } from "@/lib/store";
@@ -515,6 +516,27 @@ export async function setSelfBookingEnabled(
 
     revalidatePath(`/dashboard/customers/${customerId}`);
     return { success: true, data: undefined };
+  } catch (e) {
+    return handleActionError(e);
+  }
+}
+
+// ============================================================
+// getCustomerDrawerDetailAction — 顧客管理右滑 Drawer 取詳情（PR-4）
+//
+// client 端（list-with-drawer）點顧客 / refreshDrawer 時呼叫。
+// 權限與跨店邊界完全由 getCustomerDrawerDetail 內部處理（requireSession +
+// getStoreFilter + merged/SUSPENDED/CUSTOMER 閘）；本 action 僅轉呼叫並
+// 以 handleActionError 把 AppError 轉成 ActionResult，不額外開洞。
+// 純讀取：不寫 DB、不 revalidatePath。
+// ============================================================
+
+export async function getCustomerDrawerDetailAction(
+  customerId: string,
+): Promise<ActionResult<Awaited<ReturnType<typeof getCustomerDrawerDetail>>>> {
+  try {
+    const data = await getCustomerDrawerDetail(customerId);
+    return { success: true, data };
   } catch (e) {
     return handleActionError(e);
   }

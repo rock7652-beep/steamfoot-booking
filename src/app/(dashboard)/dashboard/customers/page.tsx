@@ -1,4 +1,4 @@
-import { listCustomers, getCustomerDetail } from "@/server/queries/customer";
+import { listCustomers } from "@/server/queries/customer";
 import { listStaffSelectOptions } from "@/server/queries/staff";
 import { getCachedPlans } from "@/lib/query-cache";
 import { getCurrentUser } from "@/lib/session";
@@ -106,17 +106,10 @@ export default async function CustomersPage({ searchParams }: PageProps) {
       checkPermission(user.role, user.staffId, "customer.assign").catch(() => false),
     ]);
 
-  // Drawer 詳情：?customerId= 帶值才抓，且抓不到時靜默關閉 drawer（避免出錯）
-  const customerDetail = params.customerId
-    ? await getCustomerDetail(params.customerId).catch((e) => {
-        console.warn("[customers] getCustomerDetail failed", {
-          ...logCtx,
-          customerId: params.customerId,
-          error: e instanceof Error ? e.message : String(e),
-        });
-        return null;
-      })
-    : null;
+  // PR-4：drawer 詳情不再於 server 端依 ?customerId= 預抓。
+  // 改由 client（CustomersListWithDrawer）以 server action 取 slim 資料，
+  // 並用 client cache 重用；?customerId= 僅作為「初次 deep-link」入口。
+  const initialCustomerId = params.customerId ?? null;
   const drawerFocus = params.drawerFocus === "plan" ? "plan" : null;
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -200,7 +193,7 @@ export default async function CustomersPage({ searchParams }: PageProps) {
         canDiscount={canDiscount}
         staffOptions={staffOptions}
         canAssign={canAssign}
-        customerDetail={customerDetail}
+        initialCustomerId={initialCustomerId}
         drawerFocus={drawerFocus}
       />
 

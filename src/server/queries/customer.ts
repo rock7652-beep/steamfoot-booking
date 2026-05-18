@@ -309,6 +309,63 @@ export async function getCustomerDetail(customerId: string) {
 }
 
 // ============================================================
+// getCustomerDrawerDetail — 顧客管理「右滑 Drawer」專用 slim query（PR-4）
+//
+// 與 getCustomerDetail 的差異（僅取 drawer 實際 render 的欄位）：
+//   - 不抓 bookings[20]（含 revenue/serviceStaff join）
+//   - 不抓 transactions[20]
+//   - planWallets 只抓 status=ACTIVE，且 sessions 只取 status（不抓 booking /
+//     voidedByStaff nested include）；失效張數改由 _count.planWallets 計算
+//   - user 只取 email / status（status 供停用判斷與系統資訊顯示）
+// 權限 / 邊界與 getCustomerDetail 完全一致（getStoreFilter 跨店、merged、
+// SUSPENDED、CUSTOMER 只看自己）。不改 getCustomerDetail，[id] 詳情頁不受影響。
+// ============================================================
+
+export async function getCustomerDrawerDetail(customerId: string) {
+  const user = await requireSession();
+
+  const customer = await prisma.customer.findFirst({
+    where: { id: customerId, ...getStoreFilter(user) },
+    include: {
+      user: { select: { email: true, status: true } },
+      sponsor: { select: { id: true, name: true, phone: true } },
+      _count: {
+        select: {
+          sponsoredCustomers: true,
+          bookings: { where: { bookingStatus: "COMPLETED" } },
+          // 全部錢包數（含已失效）→ drawer 用 total - active 算失效張數
+          planWallets: true,
+        },
+      },
+      planWallets: {
+        where: { status: "ACTIVE" },
+        include: {
+          plan: { select: { id: true, name: true, sessionCount: true } },
+          sessions: { select: { status: true } },
+        },
+        orderBy: { createdAt: "desc" },
+      },
+    },
+  });
+  if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
+
+  // 與 getCustomerDetail 相同的安全閘（行為一致，防繞進來操作）
+  if (customer.mergedIntoCustomerId) {
+    throw new AppError("NOT_FOUND", "此顧客已合併進其他顧客");
+  }
+  if (customer.user?.status === "SUSPENDED") {
+    throw new AppError("NOT_FOUND", "此顧客的登入帳號已停用");
+  }
+  if (user.role === "CUSTOMER") {
+    if (!user.customerId || user.customerId !== customerId) {
+      throw new AppError("FORBIDDEN", "只能查看自己的資料");
+    }
+  }
+
+  return customer;
+}
+
+// ============================================================
 // getCustomerMergePreview — 後台合併頁的 side-by-side 預覽
 // 回傳 source / target 兩筆 customer 摘要 + booking / wallet / transaction 數量。
 // 與 getCustomerDetail 不同：本 query 不會 NOT_FOUND 已合併的 source（merge 工具
