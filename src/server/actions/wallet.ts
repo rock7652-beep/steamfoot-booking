@@ -6,7 +6,11 @@ import { prisma } from "@/lib/db";
 import { requirePermission, checkPermission } from "@/lib/permissions";
 import { getCurrentUser } from "@/lib/session";
 import { AppError, handleActionError } from "@/lib/errors";
-import { assignPlanSchema, migratePaperPlanSchema } from "@/lib/validators/plan";
+import {
+  assignPlanSchema,
+  migratePaperPlanSchema,
+  extendWalletExpirySchema,
+} from "@/lib/validators/plan";
 import type { ActionResult } from "@/types";
 import { addDays } from "date-fns";
 import {
@@ -1011,6 +1015,95 @@ export async function initiateCustomerPlanPurchase(
       success: true,
       data: { transactionId: result.transaction.id, walletId: result.wallet.id },
     };
+  } catch (e) {
+    return handleActionError(e);
+  }
+}
+
+// ============================================================
+// extendWalletExpiry — PR-2 顧客已持有方案「延長有效期限」
+//
+// 規格（鎖定）：
+//  - ACTIVE 可延長；EXPIRED 可延長並恢復為 ACTIVE（新到期日已保證 >= 今天）
+//  - USED_UP / CANCELLED 不可延長
+//  - 無期限（expiryDate=null）不可延長
+//  - 只能延長：新到期日須「嚴格晚於」目前到期日；且不可早於今天
+//  - 必填 reason；寫 AuditLog（before/after expiry+status+reason）
+//  - 不建立 Transaction；不動 remainingSessions/totalSessions/startDate/price
+//    → 不影響交易列表 / 收入報表 / 現金帳 / 零用金
+//  - 權限：wallet.adjust（OWNER 預設有、PARTNER 預設無；server 端把關）
+// ============================================================
+export async function extendWalletExpiry(
+  input: z.infer<typeof extendWalletExpirySchema>,
+): Promise<ActionResult<void>> {
+  try {
+    const user = await requirePermission("wallet.adjust");
+    const data = extendWalletExpirySchema.parse(input);
+
+    const wallet = await prisma.customerPlanWallet.findUnique({
+      where: { id: data.walletId },
+    });
+    if (!wallet) throw new AppError("NOT_FOUND", "課程錢包不存在");
+    assertStoreAccess(user, wallet.storeId);
+
+    if (wallet.status !== "ACTIVE" && wallet.status !== "EXPIRED") {
+      throw new AppError(
+        "BUSINESS_RULE",
+        "此方案狀態無法延長期限（已用完或已註銷）",
+      );
+    }
+    if (!wallet.expiryDate) {
+      throw new AppError("BUSINESS_RULE", "此方案無期限，無需延長");
+    }
+
+    const todayTW = toLocalDateStr();
+    // @db.Date 讀出為 UTC midnight，.slice(0,10) 取日期是安全的（見 AGENTS.md）
+    const currentExpiryStr = wallet.expiryDate.toISOString().slice(0, 10);
+
+    if (data.newExpiryDate < todayTW) {
+      throw new AppError("VALIDATION", "新到期日不可早於今天");
+    }
+    // 只能延長：字串比較即年代序（YYYY-MM-DD）
+    if (data.newExpiryDate <= currentExpiryStr) {
+      throw new AppError(
+        "VALIDATION",
+        `只能延長：新到期日須晚於目前到期日（${currentExpiryStr}）`,
+      );
+    }
+
+    const newExpiry = parseTaiwanDateToDbDate(data.newExpiryDate);
+    // EXPIRED → 恢復 ACTIVE（新到期日已 >= 今天，由上方守則保證）
+    const willReactivate = wallet.status === "EXPIRED";
+
+    await prisma.$transaction(async (tx) => {
+      await tx.customerPlanWallet.update({
+        where: { id: wallet.id },
+        data: {
+          expiryDate: newExpiry,
+          ...(willReactivate ? { status: "ACTIVE" as const } : {}),
+        },
+      });
+      await tx.auditLog.create({
+        data: {
+          actorUserId: user.id,
+          targetType: "CustomerPlanWallet",
+          targetId: wallet.id,
+          action: "EXTEND_EXPIRY",
+          beforeJson: {
+            expiryDate: currentExpiryStr,
+            status: wallet.status,
+          },
+          afterJson: {
+            expiryDate: data.newExpiryDate,
+            status: willReactivate ? "ACTIVE" : wallet.status,
+            reason: data.reason,
+          },
+        },
+      });
+    });
+
+    revalidatePath(`/dashboard/customers/${wallet.customerId}`);
+    return { success: true, data: undefined };
   } catch (e) {
     return handleActionError(e);
   }

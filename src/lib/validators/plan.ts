@@ -145,3 +145,33 @@ export const migratePaperPlanSchema = z
       });
     }
   });
+
+// ============================================================
+// extendWalletExpirySchema — PR-2 顧客已持有方案「延長有效期限」
+//
+// 只驗格式：walletId、新到期日（YYYY-MM-DD 且為有效日曆日）、必填原因。
+// 「只能延長 / 不可早於今天 / 狀態與無期限限制」屬需讀 DB 現值的商業規則，
+// 由 server action extendWalletExpiry 把關，不在 schema。
+// ============================================================
+export const extendWalletExpirySchema = z.object({
+  // 不限 cuid：正式/測試資料含非 cuid 固定 ID（如 staging seed）。
+  // 安全邊界由 server action 撈 wallet + assertStoreAccess 控制，不靠 ID 格式。
+  walletId: z.string().min(1, "缺少 walletId"),
+  newExpiryDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "到期日格式需為 YYYY-MM-DD")
+    .refine((s) => {
+      const [y, m, d] = s.split("-").map(Number);
+      const dt = new Date(Date.UTC(y, m - 1, d));
+      return (
+        dt.getUTCFullYear() === y &&
+        dt.getUTCMonth() === m - 1 &&
+        dt.getUTCDate() === d
+      );
+    }, "到期日不是有效日期"),
+  reason: z
+    .string()
+    .trim()
+    .min(1, "請填寫延長原因")
+    .max(500, "原因過長"),
+});
