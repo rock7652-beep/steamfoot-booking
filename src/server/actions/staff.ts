@@ -7,9 +7,15 @@ import { requireStaffSession } from "@/lib/session";
 import { AppError, handleActionError } from "@/lib/errors";
 import { checkCurrentStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
-import { createDefaultPermissions } from "@/lib/permissions";
+import {
+  createDefaultPermissions,
+  checkPermission,
+  assertNotLastStoreManager,
+  updateStaffPermissions,
+  type PermissionCode,
+} from "@/lib/permissions";
 import { resolveWriteStoreId } from "@/lib/store";
-import { revalidateStaff } from "@/lib/revalidation";
+import { revalidateStaff, revalidateStaffPermissions } from "@/lib/revalidation";
 import type { UserRole } from "@prisma/client";
 import type { ActionResult } from "@/types";
 
@@ -23,6 +29,55 @@ async function requireStaffManageSession() {
     throw new AppError("FORBIDDEN", "此功能僅限店長或系統管理者使用");
   }
   return user;
+}
+
+/**
+ * PR-3 帳號管理階層守則（server 端，非僅 UI）。
+ * 套用於：編輯權限 / 改 role / 停用 / 啟用 等「管理他人帳號」操作。
+ *
+ * - ADMIN（rock7652）：最高權限，可穿透 isOwner，管理所有分店 staff（pass/ggg）
+ * - 非 ADMIN：必須具 staff.manage（→ pass 有、ggg 無），且
+ *     · 不可管理 ADMIN 目標
+ *     · 不可管理 isOwner=true 的主要店長（pass）
+ * - 任何人不可對「自己」執行此類操作（防自鎖：停用自己 / 改自己 role /
+ *   移除自己 staff.manage）。
+ */
+async function assertCanManageStaff(
+  sessionUser: { id: string; role: UserRole; staffId: string | null },
+  targetStaff: {
+    userId: string;
+    isOwner: boolean;
+    user: { role: UserRole };
+  },
+): Promise<void> {
+  const isAdmin = sessionUser.role === "ADMIN";
+
+  // self-guard：不可管理自己（含 ADMIN-with-staff 的防呆）→ 防自鎖
+  if (targetStaff.userId === sessionUser.id) {
+    throw new AppError(
+      "FORBIDDEN",
+      "無法對自己的帳號執行此操作，請由其他管理者處理",
+    );
+  }
+
+  if (isAdmin) return; // ADMIN 最高權限：穿透 isOwner、可管理所有分店 staff
+
+  // 非 ADMIN：需具 staff.manage（ggg/合作店長無 → 全擋）
+  const ok = await checkPermission(
+    sessionUser.role,
+    sessionUser.staffId,
+    "staff.manage",
+  );
+  if (!ok) throw new AppError("FORBIDDEN", "您沒有店員管理權限");
+
+  // 非 ADMIN 不可管理 ADMIN 目標
+  if (targetStaff.user.role === "ADMIN") {
+    throw new AppError("FORBIDDEN", "無權管理系統管理者帳號");
+  }
+  // 非 ADMIN 不可管理 isOwner=true 的主要店長
+  if (targetStaff.isOwner) {
+    throw new AppError("FORBIDDEN", "無權管理主要店長帳號");
+  }
 }
 
 // ============================================================
@@ -129,13 +184,17 @@ export async function updateStaff(
 
     const staff = await prisma.staff.findUnique({
       where: { id: staffId },
-      include: { user: { select: { id: true } } },
+      include: { user: { select: { id: true, role: true } } },
     });
     if (!staff) throw new AppError("NOT_FOUND", "員工不存在");
     if (staff.storeId !== writeStoreId) {
       throw new AppError("FORBIDDEN", "無權存取其他店舖的員工資料");
     }
-    if (staff.isOwner) throw new AppError("FORBIDDEN", "無法修改系統管理者帳號");
+    await assertCanManageStaff(sessionUser, {
+      userId: staff.userId,
+      isOwner: staff.isOwner,
+      user: { role: staff.user.role },
+    });
 
     // 更新 Staff 基本資料
     const { role: newRole, ...staffData } = data;
@@ -177,12 +236,21 @@ export async function deactivateStaff(staffId: string): Promise<ActionResult<voi
     const sessionUser = await requireStaffManageSession();
     const writeStoreId = await resolveWriteStoreId(sessionUser);
 
-    const staff = await prisma.staff.findUnique({ where: { id: staffId } });
+    const staff = await prisma.staff.findUnique({
+      where: { id: staffId },
+      include: { user: { select: { role: true } } },
+    });
     if (!staff) throw new AppError("NOT_FOUND", "員工不存在");
     if (staff.storeId !== writeStoreId) {
       throw new AppError("FORBIDDEN", "無權存取其他店舖的員工資料");
     }
-    if (staff.isOwner) throw new AppError("FORBIDDEN", "無法停用系統管理者帳號");
+    await assertCanManageStaff(sessionUser, {
+      userId: staff.userId,
+      isOwner: staff.isOwner,
+      user: { role: staff.user.role },
+    });
+    // 最小防呆：停用後該店不可無人可管理（無 active ADMIN 時才擋）
+    await assertNotLastStoreManager(staff.storeId, staff.id);
 
     await prisma.$transaction([
       prisma.staff.update({ where: { id: staffId }, data: { status: "INACTIVE" } }),
@@ -257,18 +325,62 @@ export async function activateStaff(staffId: string): Promise<ActionResult<void>
     const sessionUser = await requireStaffManageSession();
     const writeStoreId = await resolveWriteStoreId(sessionUser);
 
-    const staff = await prisma.staff.findUnique({ where: { id: staffId } });
+    const staff = await prisma.staff.findUnique({
+      where: { id: staffId },
+      include: { user: { select: { role: true } } },
+    });
     if (!staff) throw new AppError("NOT_FOUND", "員工不存在");
     if (staff.storeId !== writeStoreId) {
       throw new AppError("FORBIDDEN", "無權存取其他店舖的員工資料");
     }
-    if (staff.isOwner) throw new AppError("FORBIDDEN", "無法修改系統管理者帳號");
+    await assertCanManageStaff(sessionUser, {
+      userId: staff.userId,
+      isOwner: staff.isOwner,
+      user: { role: staff.user.role },
+    });
 
     await prisma.$transaction([
       prisma.staff.update({ where: { id: staffId }, data: { status: "ACTIVE" } }),
       prisma.user.update({ where: { id: staff.userId }, data: { status: "ACTIVE" } }),
     ]);
 
+    revalidateStaff();
+    return { success: true, data: undefined };
+  } catch (e) {
+    return handleActionError(e);
+  }
+}
+
+// ============================================================
+// updateStaffPermissionsAction — PR-3
+// 編輯店員權限的「有守門」入口。取代編輯頁直呼 updateStaffPermissions
+// （原本 server 端零守門）。同階層規則：staff.manage + 非 ADMIN 不可管
+// ADMIN/主要店長 + 不可改自己（含不可移除自己 staff.manage 自鎖）。
+// ============================================================
+export async function updateStaffPermissionsAction(
+  staffId: string,
+  permissions: Record<PermissionCode, boolean>,
+): Promise<ActionResult<void>> {
+  try {
+    const sessionUser = await requireStaffManageSession();
+    const writeStoreId = await resolveWriteStoreId(sessionUser);
+
+    const staff = await prisma.staff.findUnique({
+      where: { id: staffId },
+      include: { user: { select: { role: true } } },
+    });
+    if (!staff) throw new AppError("NOT_FOUND", "員工不存在");
+    if (staff.storeId !== writeStoreId) {
+      throw new AppError("FORBIDDEN", "無權存取其他店舖的員工資料");
+    }
+    await assertCanManageStaff(sessionUser, {
+      userId: staff.userId,
+      isOwner: staff.isOwner,
+      user: { role: staff.user.role },
+    });
+
+    await updateStaffPermissions(staffId, permissions);
+    revalidateStaffPermissions();
     revalidateStaff();
     return { success: true, data: undefined };
   } catch (e) {

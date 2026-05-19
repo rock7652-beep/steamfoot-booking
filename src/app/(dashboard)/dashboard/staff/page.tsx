@@ -50,8 +50,12 @@ export default async function StaffPage({
       : null;
   const adminMissingStore =
     user.role === "ADMIN" && (!adminActiveStoreCookie || adminActiveStoreCookie === "__all__");
+  // 管理店長能力改為 permission-based：ADMIN（checkPermission 自動 true，
+  // 仍須選定 store）或具 staff.manage 者。OWNER 預設無 staff.manage →
+  // 只能檢視人員，不顯示新增 / 編輯 / 停用 / 重設密碼等管理 UI。
   const canManageStaff =
-    user.role === "OWNER" || (user.role === "ADMIN" && !adminMissingStore);
+    (await checkPermission(user.role, user.staffId, "staff.manage")) &&
+    !(user.role === "ADMIN" && adminMissingStore);
   const [staffList, plan] = await Promise.all([listStaff(activeStoreId), getCurrentStorePlan()]);
 
   async function handleCreateStaff(formData: FormData) {
@@ -431,6 +435,15 @@ export default async function StaffPage({
                                       displayName={staff.displayName}
                                     />
                                   )}
+                              </div>
+                            ) : !canManageStaff && !staff.isOwner ? (
+                              <div className="flex items-center justify-end">
+                                <Link
+                                  href={`/dashboard/staff/${staff.id}/edit`}
+                                  className="text-xs text-earth-500 hover:underline"
+                                >
+                                  查看
+                                </Link>
                               </div>
                             ) : (
                               <span className="block text-right text-[11px] text-earth-300">

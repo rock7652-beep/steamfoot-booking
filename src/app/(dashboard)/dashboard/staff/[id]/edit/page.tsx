@@ -1,12 +1,12 @@
 import { getStaffDetail } from "@/server/queries/staff";
-import { updateStaff } from "@/server/actions/staff";
+import { updateStaff, updateStaffPermissionsAction } from "@/server/actions/staff";
 import { getCurrentUser } from "@/lib/session";
 import { getActiveStoreForRead } from "@/lib/store";
 import { cookies } from "next/headers";
 import { SubmitButton } from "@/components/submit-button";
 import {
   getStaffPermissions,
-  updateStaffPermissions,
+  checkPermission,
   PERMISSION_GROUPS,
   PERMISSION_LABELS,
   ALL_PERMISSIONS,
@@ -17,13 +17,14 @@ import type { UserRole } from "@prisma/client";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { notFound, redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { revalidateStaffPermissions } from "@/lib/revalidation";
 
 interface PageProps {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ err?: string }>;
 }
 
-export default async function EditStaffPage({ params }: PageProps) {
+export default async function EditStaffPage({ params, searchParams }: PageProps) {
+  const { err } = await searchParams;
   const user = await getCurrentUser();
   if (!user) notFound();
   const adminActiveStoreCookie =
@@ -45,6 +46,14 @@ export default async function EditStaffPage({ params }: PageProps) {
     ? new Set<PermissionCode>(ALL_PERMISSIONS as unknown as PermissionCode[])
     : await getStaffPermissions(id);
 
+  // Layer 1：是否可管理店員（ADMIN 由 checkPermission 自動 true；
+  // 否則須具 staff.manage）。false → 頁面唯讀，不顯示變更用 UI。
+  const canManageStaff = await checkPermission(
+    user.role,
+    user.staffId,
+    "staff.manage",
+  );
+
   async function handleUpdate(formData: FormData) {
     "use server";
     const monthlyFeeRaw = formData.get("monthlySpaceFee") as string;
@@ -58,7 +67,10 @@ export default async function EditStaffPage({ params }: PageProps) {
     });
 
     if (!result.success) {
-      throw new Error(result.error || "更新失敗");
+      // Layer 2：不 throw（會炸 error boundary）→ 帶 err 導回本頁顯示紅字
+      redirect(
+        `/dashboard/staff/${id}/edit?err=${encodeURIComponent(result.error || "更新失敗")}`,
+      );
     }
 
     redirect("/dashboard/staff");
@@ -71,10 +83,18 @@ export default async function EditStaffPage({ params }: PageProps) {
     for (const code of ALL_PERMISSIONS) {
       perms[code] = formData.get(`perm_${code}`) === "on";
     }
-    await updateStaffPermissions(id, perms as Record<PermissionCode, boolean>);
-    // 立即清掉跨請求快取（tag: "staff-permissions"），不留 60s TTL 漏洞。
-    revalidateStaffPermissions();
-
+    // 走有守門的 action（server 端把關 staff.manage + 階層 + 防自鎖），
+    // 不再直呼 updateStaffPermissions（原本 server 端零守門）。
+    const result = await updateStaffPermissionsAction(
+      id,
+      perms as Record<PermissionCode, boolean>,
+    );
+    if (!result.success) {
+      // Layer 2：不 throw → 帶 err 導回本頁顯示紅字，不進 error boundary
+      redirect(
+        `/dashboard/staff/${id}/edit?err=${encodeURIComponent(result.error || "更新權限失敗")}`,
+      );
+    }
     revalidatePath(`/dashboard/staff/${id}/edit`);
     redirect(`/dashboard/staff/${id}/edit`);
   }
@@ -90,6 +110,18 @@ export default async function EditStaffPage({ params }: PageProps) {
         <span>/</span>
         <span className="text-earth-700">編輯</span>
       </div>
+
+      {err ? (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700">
+          {err}
+        </div>
+      ) : null}
+
+      {!canManageStaff ? (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
+          您沒有店員管理權限，僅可檢視；如需調整角色或權限，請聯繫具權限的管理者或系統管理者。
+        </div>
+      ) : null}
 
       {/* 桌機 / iPad 橫向：基本資料 + 權限並排（基本資料 1 欄、權限 2 欄寬）；
           手機 / iPad 直向（< lg）：上下單欄堆疊維持既有體驗。 */}
@@ -107,8 +139,8 @@ export default async function EditStaffPage({ params }: PageProps) {
         </p>
 
         <form action={handleUpdate} className="space-y-4">
-          {/* 角色選擇（僅非 Owner 可修改） */}
-          {!staff.isOwner && (
+          {/* 角色選擇（僅非 Owner 且具店員管理權限者可修改） */}
+          {!staff.isOwner && canManageStaff && (
             <div>
               <label className="block text-sm font-medium text-earth-700">角色</label>
               <select
@@ -172,19 +204,21 @@ export default async function EditStaffPage({ params }: PageProps) {
           </div>
 
           <div className="flex gap-3 border-t pt-4">
-            <SubmitButton label="儲存" pendingLabel="儲存中..." className="bg-primary-600 text-white hover:bg-primary-700" />
+            {canManageStaff && (
+              <SubmitButton label="儲存" pendingLabel="儲存中..." className="bg-primary-600 text-white hover:bg-primary-700" />
+            )}
             <Link
               href="/dashboard/staff"
               className="rounded-lg border border-earth-300 px-5 py-2 text-sm font-medium text-earth-700 hover:bg-earth-50"
             >
-              取消
+              {canManageStaff ? "取消" : "返回"}
             </Link>
           </div>
         </form>
       </div>
 
-      {/* 權限設定（僅非 Owner 的員工顯示） */}
-      {!staff.isOwner && (
+      {/* 權限設定（僅非 Owner 員工、且操作者具店員管理權限時顯示） */}
+      {!staff.isOwner && canManageStaff && (
         <div className="rounded-xl border bg-white p-5 shadow-sm lg:col-span-2">
           <h2 className="mb-1 text-lg font-bold text-earth-900">操作權限</h2>
           <p className="mb-4 text-xs text-earth-400">

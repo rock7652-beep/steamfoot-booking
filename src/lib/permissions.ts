@@ -86,6 +86,7 @@ export const ALL_PERMISSIONS = [
   "cashDrawer.entry", // 提領 / 補入 / 調整
   // 人員
   "staff.view",
+  "staff.manage", // 管理店員與權限（編輯權限 / 停用·啟用 / 改 role）— PR-3
   // 值班安排
   "duty.read",
   "duty.manage",
@@ -142,7 +143,7 @@ export const PERMISSION_GROUPS: Record<string, { label: string; codes: Permissio
   },
   staff: {
     label: "人員管理",
-    codes: ["staff.view"],
+    codes: ["staff.view", "staff.manage"],
   },
   duty: {
     label: "值班安排",
@@ -188,6 +189,7 @@ export const PERMISSION_LABELS: Record<PermissionCode, string> = {
   "cashDrawer.close": "閉店點錢",
   "cashDrawer.entry": "現金抽屜異動（提領 / 補入 / 調整）",
   "staff.view": "查看店員資料",
+  "staff.manage": "管理店員與權限",
   "duty.read": "查看值班安排",
   "duty.manage": "管理值班安排",
   "talent.read": "查看人才管道",
@@ -233,6 +235,8 @@ export const DEFAULT_OWNER_PERMISSIONS: PermissionCode[] = [
   "cashDrawer.close",
   "cashDrawer.entry",
   "staff.view",
+  // staff.manage 刻意「不」放入 OWNER 預設：只有 ADMIN（role 自動最高）
+  // 能管理店長帳號。未來若要開給特定分店管理者，由 ADMIN 在編輯頁手動授權。
   "duty.read",
   "duty.manage",
   "talent.read",
@@ -392,6 +396,43 @@ export async function assertNotLastAdmin(userId: string): Promise<void> {
   if (otherAdminCount === 0) {
     const { AppError } = await import("@/lib/errors");
     throw new AppError("FORBIDDEN", "無法移除最後一位系統管理者");
+  }
+}
+
+/**
+ * PR-3 最小防呆：避免某店「最後一位可管理者」被停用 / 失去 staff.manage
+ * 而導致無人能管理該店。
+ *
+ * 可管理者 = 該店 ACTIVE staff 且（isOwner=true 或 granted staff.manage）。
+ * 設計取捨（保持最小、不過度防呆）：只要系統仍有 ACTIVE ADMIN，
+ * ADMIN 為跨店最終救援者 → 不擋（呼應「ADMIN 仍是最終救援者」）。
+ * 僅在「無 ACTIVE ADMIN 且該店扣掉此人後再無可管理者」時擋下。
+ */
+export async function assertNotLastStoreManager(
+  storeId: string,
+  excludingStaffId: string,
+): Promise<void> {
+  const activeAdmin = await prisma.user.count({
+    where: { role: "ADMIN", status: "ACTIVE" },
+  });
+  if (activeAdmin > 0) return; // ADMIN 永遠可救 → 不過度防呆
+
+  const others = await prisma.staff.findMany({
+    where: { storeId, status: "ACTIVE", id: { not: excludingStaffId } },
+    select: {
+      isOwner: true,
+      permissions: {
+        where: { permission: "staff.manage", granted: true },
+        select: { id: true },
+      },
+    },
+  });
+  const stillManageable = others.some(
+    (s) => s.isOwner || s.permissions.length > 0,
+  );
+  if (!stillManageable) {
+    const { AppError } = await import("@/lib/errors");
+    throw new AppError("FORBIDDEN", "無法停用最後一位可管理本店的人");
   }
 }
 
