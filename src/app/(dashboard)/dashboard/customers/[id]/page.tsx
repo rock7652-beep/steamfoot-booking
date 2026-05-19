@@ -17,6 +17,7 @@ import { AssignPlanForm } from "./assign-plan-form";
 import { TransferCustomerForm } from "./transfer-customer-form";
 import { CreateBookingForm } from "./create-booking-form";
 import { AdjustWalletForm } from "./adjust-wallet-form";
+import { ExtendWalletExpiryForm } from "./extend-wallet-expiry-form";
 import { BackfillUsedSessionsForm } from "./backfill-used-sessions-form";
 import { MigratePaperPlanDialog } from "./migrate-paper-plan-dialog";
 import { VoidSessionButton } from "./void-session-button";
@@ -938,6 +939,18 @@ function WalletItem({
           )}
         </div>
       )}
+      {/* PR-2：延長有效期限 — ACTIVE / EXPIRED 且有期限者可延長 */}
+      {canAdjustWallet &&
+        w.expiryDate &&
+        (w.status === "ACTIVE" || w.status === "EXPIRED") && (
+          <div className="mt-2 border-t pt-2">
+            <ExtendWalletExpiryForm
+              walletId={w.id}
+              currentExpiry={w.expiryDate.toISOString().slice(0, 10)}
+              expired={w.status === "EXPIRED"}
+            />
+          </div>
+        )}
 
       {w.sessions.length > 0 && (
         <details className="mt-3 group">
