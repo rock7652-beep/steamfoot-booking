@@ -62,7 +62,6 @@ const FOLLOW_UP_DAYS = 14;
 const FOLLOW_UP_CANDIDATE_LIMIT = 50;
 const LOW_SESSIONS_THRESHOLD = 1;
 const PER_TYPE_FETCH = 10;
-const MAX_DISPLAY = 5;
 
 export async function getStoreTodos(opts: {
   activeStoreId: string | null;
@@ -150,8 +149,11 @@ export async function getStoreTodos(opts: {
   const deduped = dedupeByCustomer(visibleItems);
   deduped.sort((a, b) => a.priority - b.priority);
 
+  // 回完整（已過濾 dismissed、已去重、已排序）清單；首頁前 N 筆的呈現
+  // 上限改由 UI（StoreTodoList）以 client state 處理，server 不先丟棄資料，
+  // 「查看全部」才有資料可原地展開。
   return {
-    items: deduped.slice(0, MAX_DISPLAY),
+    items: deduped,
     total: deduped.length,
   };
 }
