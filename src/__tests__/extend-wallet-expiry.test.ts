@@ -186,6 +186,17 @@ describe("extendWalletExpiry — 正常延長", () => {
     expect(mockTxTransactionCreate).not.toHaveBeenCalled(); // 不建立 Transaction
   });
 
+  it("非 cuid 固定 ID（staging seed）也可延長 — 不被 schema 擋", async () => {
+    mockWalletFindUnique.mockResolvedValue(
+      wallet({ id: "staging-wallet-001" }),
+    );
+    const r = await run({ walletId: "staging-wallet-001", newExpiryDate: "2026-07-15" });
+    expect(r.success).toBe(true);
+    expect(mockWalletUpdate.mock.calls[0][0].where).toEqual({
+      id: "staging-wallet-001",
+    });
+  });
+
   it("EXPIRED 延長：恢復為 ACTIVE，audit after.status=ACTIVE", async () => {
     mockWalletFindUnique.mockResolvedValue(
       wallet({ status: "EXPIRED", expiryDate: new Date("2026-05-01T00:00:00.000Z") }),

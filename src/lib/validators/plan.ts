@@ -154,7 +154,9 @@ export const migratePaperPlanSchema = z
 // 由 server action extendWalletExpiry 把關，不在 schema。
 // ============================================================
 export const extendWalletExpirySchema = z.object({
-  walletId: z.string().cuid(),
+  // 不限 cuid：正式/測試資料含非 cuid 固定 ID（如 staging seed）。
+  // 安全邊界由 server action 撈 wallet + assertStoreAccess 控制，不靠 ID 格式。
+  walletId: z.string().min(1, "缺少 walletId"),
   newExpiryDate: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, "到期日格式需為 YYYY-MM-DD")
