@@ -72,6 +72,22 @@ body {
   grid-template-rows: 1fr;
 }
 
+/* 預約時段 bottom sheet 動畫（Tailwind v4 無 animate plugin，自定義） */
+@keyframes sheet-slide-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+@keyframes sheet-overlay-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.animate-sheet-up {
+  animation: sheet-slide-up 280ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.animate-sheet-overlay {
+  animation: sheet-overlay-fade 200ms ease-out;
+}
+
 /* Scrollbar styling for sidebar */
 .sidebar-scroll::-webkit-scrollbar {
   width: 4px;

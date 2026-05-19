@@ -2,14 +2,17 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { copyToClipboard, toAbsoluteUrl } from "@/lib/share";
+import {
+  buildShareText,
+  buildLineShareUrl,
+  copyToClipboard,
+  toAbsoluteUrl,
+} from "@/lib/share";
 import { trackReferralEvent } from "@/server/actions/referral-events";
 
 interface Props {
   /** 推薦中繼頁 URL（由 buildReferralEntryUrl 組好） */
   referralUrl: string;
-  /** 店家 LINE 官方帳號連結（聯繫店長用） */
-  lineOfficialUrl: string;
   /** 店家 ID — 用於分享事件埋點 */
   storeId?: string;
   /** 顧客 ID — 用於分享事件埋點 */
@@ -18,12 +21,24 @@ interface Props {
 
 export function ShareContactActions({
   referralUrl,
-  lineOfficialUrl,
   storeId,
   referrerId,
 }: Props) {
   const [copied, setCopied] = useState(false);
   const absoluteUrl = toAbsoluteUrl(referralUrl);
+  // 分享文字與 my-referrals 完全一致：URL 內嵌於文案中間
+  const shareText = buildShareText({ url: absoluteUrl });
+  const lineShareUrl = buildLineShareUrl(shareText);
+
+  function trackShare(channel: "copy" | "line") {
+    if (!storeId || !referrerId) return;
+    void trackReferralEvent({
+      storeId,
+      referrerId,
+      type: "SHARE",
+      source: `book-home:${channel}`,
+    });
+  }
 
   async function handleCopy() {
     const ok = await copyToClipboard(absoluteUrl);
@@ -33,19 +48,26 @@ export function ShareContactActions({
     }
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
-    if (storeId && referrerId) {
-      void trackReferralEvent({
-        storeId,
-        referrerId,
-        type: "SHARE",
-        source: "book-home:copy",
-      });
-    }
+    trackShare("copy");
     toast.success("已複製，傳給朋友就可以囉");
+  }
+
+  function handleLineShareClick() {
+    trackShare("line");
+    toast.success("已幫你準備好了，傳給想到的朋友就可以。");
   }
 
   return (
     <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+      <a
+        href={lineShareUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={handleLineShareClick}
+        className="inline-flex h-11 w-full items-center justify-center rounded-xl bg-[#06C755] text-[15px] font-semibold text-white hover:bg-[#05b54d]"
+      >
+        立即用 LINE 分享
+      </a>
       <button
         type="button"
         onClick={handleCopy}
@@ -53,14 +75,6 @@ export function ShareContactActions({
       >
         {copied ? "已複製" : "複製連結"}
       </button>
-      <a
-        href={lineOfficialUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="inline-flex h-11 w-full items-center justify-center rounded-xl bg-[#06C755] text-[15px] font-semibold text-white hover:bg-[#05b54d]"
-      >
-        LINE 聯繫店長
-      </a>
     </div>
   );
 }
