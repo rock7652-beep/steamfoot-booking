@@ -4,9 +4,9 @@ import { prisma } from "@/lib/db";
 import { resolveCustomerForUser } from "@/server/queries/customer-completion";
 import Link from "next/link";
 import { BookingCalendarView } from "./booking-calendar-view";
-import { PENDING_STATUSES } from "@/lib/booking-constants";
 import { NoPlanEmptyState } from "@/components/no-plan-empty-state";
 import { sortWalletsByFEFO } from "@/lib/wallet-sort";
+import { walletAvailableToBook } from "@/lib/wallet-availability";
 import { resolveBookableUntilDate } from "@/lib/shop-config";
 
 export default async function NewBookingPage() {
@@ -50,7 +50,7 @@ export default async function NewBookingPage() {
             plan: { select: { name: true } },
             bookings: {
               where: { isMakeup: false },
-              select: { people: true, bookingStatus: true },
+              select: { bookingStatus: true, isMakeup: true },
             },
           },
         },
@@ -84,14 +84,11 @@ export default async function NewBookingPage() {
   // 與後端 createBooking gate 共用 resolveBookableUntilDate，避免前後端分裂。
   const bookableUntil = resolveBookableUntilDate(shopConfig?.bookableUntilDate);
 
-  // 新扣堂模型：remainingSessions = 購買 - COMPLETED - NO_SHOW(DEDUCTED)
-  // 可預約 = remainingSessions - count(PENDING 非補課)
-  const walletsWithRemaining = customer.planWallets.map((w) => {
-    const pendingCount = w.bookings
-      .filter((b) => (PENDING_STATUSES as readonly string[]).includes(b.bookingStatus))
-      .length;
-    return { ...w, computedRemaining: Math.max(0, w.remainingSessions - pendingCount) };
-  });
+  // 可預約堂數一律走 wallet-availability helper（與首頁 / my-plans 一致）
+  const walletsWithRemaining = customer.planWallets.map((w) => ({
+    ...w,
+    computedRemaining: walletAvailableToBook(w),
+  }));
   // FEFO 排序：與 server 自動選擇規則一致（最早到期優先）
   const activeWallets = sortWalletsByFEFO(
     walletsWithRemaining.filter((w) => w.computedRemaining > 0)
