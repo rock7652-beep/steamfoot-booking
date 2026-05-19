@@ -50,8 +50,8 @@ vi.mock("@/lib/feature-gate", () => ({ checkCurrentStoreFeature: vi.fn() }));
 vi.mock("@/lib/feature-flags", () => ({ FEATURES: {} }));
 
 const mockCheckPermission = vi.fn();
-const mockUpdateStaffPermissions = vi.fn(async () => undefined);
-const mockAssertNotLastStoreManager = vi.fn(async () => undefined);
+const mockUpdateStaffPermissions = vi.fn();
+const mockAssertNotLastStoreManager = vi.fn();
 vi.mock("@/lib/permissions", () => ({
   createDefaultPermissions: vi.fn(),
   checkPermission: (...a: unknown[]) => mockCheckPermission(...a),
