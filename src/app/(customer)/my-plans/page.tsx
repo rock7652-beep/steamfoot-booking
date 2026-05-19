@@ -7,8 +7,13 @@ import type { WalletStatus } from "@prisma/client";
 import {
   WALLET_STATUS_LABEL,
   PLAN_CATEGORY_LABEL,
-  PENDING_STATUSES,
 } from "@/lib/booking-constants";
+import {
+  walletPendingCount,
+  walletAvailableToBook,
+  totalAvailableToBook,
+  ledgerUsage,
+} from "@/lib/wallet-availability";
 import { NoPlanEmptyState } from "@/components/no-plan-empty-state";
 import {
   WalletSessionDetail,
@@ -83,12 +88,8 @@ export default async function MyPlansPage() {
   // ── 新扣堂模型：remainingSessions = 購買 - COMPLETED - NO_SHOW(DEDUCTED) ──
   // 可預約堂數 = remainingSessions - count(PENDING bookings that aren't makeup)
   const totalRemaining = activeWallets.reduce((sum, w) => sum + w.remainingSessions, 0);
-  const totalPendingCount = activeWallets.reduce((sum, w) => {
-    return sum + w.bookings
-      .filter((b) => !b.isMakeup && (PENDING_STATUSES as readonly string[]).includes(b.bookingStatus))
-      .length;
-  }, 0);
-  const availableToBook = Math.max(0, totalRemaining - totalPendingCount);
+  const totalPendingCount = activeWallets.reduce((sum, w) => sum + walletPendingCount(w), 0);
+  const availableToBook = totalAvailableToBook(activeWallets);
 
   // 再依體驗 vs 課程分組
   const activeTrialWallets = activeWallets.filter((w) => w.plan.category === "TRIAL");
@@ -212,27 +213,13 @@ function WalletCard({
   };
   isActive: boolean;
 }) {
-  // ── 新扣堂模型 ──
-  // remainingSessions = totalSessions - COMPLETED count - NO_SHOW(DEDUCTED) count
-  // 已預約待到店 = PENDING + CONFIRMED（非補課）
-  const pendingBookings = wallet.bookings.filter(
-    (b) => !b.isMakeup && (PENDING_STATUSES as readonly string[]).includes(b.bookingStatus)
-  );
-  const pendingCount = pendingBookings.length;
+  // ── canonical：全部走 wallet-availability helper，與首頁 / my-plans 上方 / booking form 一致 ──
+  const pendingCount = walletPendingCount(wallet);
+  const availableToBook = walletAvailableToBook(wallet);
+  // 已使用 / 已註銷 由 WalletSession ledger 推導（含 BACKFILLED 補登；VOIDED 獨立呈現）
+  const { used: usedCount, voided: voidedCount } = ledgerUsage(wallet.sessions);
 
-  // 已消耗 = COMPLETED + NO_SHOW(DEDUCTED)
-  const completedCount = wallet.bookings.filter(
-    (b) => !b.isMakeup && b.bookingStatus === "COMPLETED"
-  ).length;
-  const noShowDeductedCount = wallet.bookings.filter(
-    (b) => !b.isMakeup && b.bookingStatus === "NO_SHOW" && b.noShowPolicy === "DEDUCTED"
-  ).length;
-  const usedCount = completedCount + noShowDeductedCount;
-
-  // 可預約 = remainingSessions - 待到店筆數
-  const availableToBook = Math.max(0, wallet.remainingSessions - pendingCount);
-
-  // 已使用紀錄（含 COMPLETED + 所有 NO_SHOW）
+  // 出席/未到 visit log（純呈現；BACKFILLED 補登無 booking，不在此列）
   const usedBookings = wallet.bookings.filter(
     (b) => !b.isMakeup && (b.bookingStatus === "COMPLETED" || b.bookingStatus === "NO_SHOW")
   );
@@ -276,6 +263,9 @@ function WalletCard({
           <span>待到店 <strong className="text-blue-700">{pendingCount}</strong></span>
         )}
         <span>可預約 <strong className="text-primary-700">{availableToBook}</strong></span>
+        {voidedCount > 0 && (
+          <span>已註銷 <strong className="text-earth-900">{voidedCount}</strong></span>
+        )}
       </div>
 
       {/* Session usage grid */}

@@ -8,6 +8,7 @@ import Link from "next/link";
 import { ShareContactActions } from "./share-contact-actions";
 import { buildReferralEntryUrl } from "@/lib/share";
 import { getHealthAssessmentUrl } from "@/lib/health-assessment";
+import { totalAvailableToBook } from "@/lib/wallet-availability";
 
 /** 計算距離提醒文案 */
 function getReminderText(bookingDate: Date, slotTime: string): string {
@@ -63,13 +64,13 @@ export default async function CustomerHomePage() {
       prisma.customerPlanWallet.findMany({
         where: { customerId: user.customerId, status: "ACTIVE" },
         select: {
-          totalSessions: true,
+          remainingSessions: true,
           bookings: {
             where: {
-              bookingStatus: { in: ["COMPLETED", "NO_SHOW", "CONFIRMED", "PENDING"] },
+              bookingStatus: { in: ["PENDING", "CONFIRMED"] },
               isMakeup: false,
             },
-            select: { bookingStatus: true, people: true },
+            select: { bookingStatus: true, isMakeup: true },
           },
         },
       }),
@@ -92,15 +93,7 @@ export default async function CustomerHomePage() {
       getHealthCardData(user.customerId),
       getMyReferralSummary(user.customerId, { activeStoreId: storeId }),
     ]);
-    remaining = wallets.reduce((sum, w) => {
-      const used = w.bookings
-        .filter((b) => b.bookingStatus === "COMPLETED" || b.bookingStatus === "NO_SHOW")
-        .reduce((s, b) => s + b.people, 0);
-      const preDeducted = w.bookings
-        .filter((b) => b.bookingStatus === "CONFIRMED" || b.bookingStatus === "PENDING")
-        .reduce((s, b) => s + b.people, 0);
-      return sum + (w.totalSessions - used - preDeducted);
-    }, 0);
+    remaining = totalAvailableToBook(wallets);
     nextBooking = upcoming;
     makeupCount = credits;
     healthCard = hc;
