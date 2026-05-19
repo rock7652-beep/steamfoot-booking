@@ -235,7 +235,8 @@ export const DEFAULT_OWNER_PERMISSIONS: PermissionCode[] = [
   "cashDrawer.close",
   "cashDrawer.entry",
   "staff.view",
-  "staff.manage",
+  // staff.manage 刻意「不」放入 OWNER 預設：只有 ADMIN（role 自動最高）
+  // 能管理店長帳號。未來若要開給特定分店管理者，由 ADMIN 在編輯頁手動授權。
   "duty.read",
   "duty.manage",
   "talent.read",
