@@ -1,12 +1,11 @@
 import { getStaffDetail } from "@/server/queries/staff";
-import { updateStaff } from "@/server/actions/staff";
+import { updateStaff, updateStaffPermissionsAction } from "@/server/actions/staff";
 import { getCurrentUser } from "@/lib/session";
 import { getActiveStoreForRead } from "@/lib/store";
 import { cookies } from "next/headers";
 import { SubmitButton } from "@/components/submit-button";
 import {
   getStaffPermissions,
-  updateStaffPermissions,
   PERMISSION_GROUPS,
   PERMISSION_LABELS,
   ALL_PERMISSIONS,
@@ -17,7 +16,6 @@ import type { UserRole } from "@prisma/client";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { notFound, redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { revalidateStaffPermissions } from "@/lib/revalidation";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -71,10 +69,15 @@ export default async function EditStaffPage({ params }: PageProps) {
     for (const code of ALL_PERMISSIONS) {
       perms[code] = formData.get(`perm_${code}`) === "on";
     }
-    await updateStaffPermissions(id, perms as Record<PermissionCode, boolean>);
-    // 立即清掉跨請求快取（tag: "staff-permissions"），不留 60s TTL 漏洞。
-    revalidateStaffPermissions();
-
+    // 走有守門的 action（server 端把關 staff.manage + 階層 + 防自鎖），
+    // 不再直呼 updateStaffPermissions（原本 server 端零守門）。
+    const result = await updateStaffPermissionsAction(
+      id,
+      perms as Record<PermissionCode, boolean>,
+    );
+    if (!result.success) {
+      throw new Error(result.error || "更新權限失敗");
+    }
     revalidatePath(`/dashboard/staff/${id}/edit`);
     redirect(`/dashboard/staff/${id}/edit`);
   }
