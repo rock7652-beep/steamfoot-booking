@@ -89,6 +89,22 @@ export function BookingCalendarView({ customerId, activeWallets, makeupCredits =
     loadSlots(dateStr);
   };
 
+  // 沿用原 teardown：關閉 bottom sheet
+  const closeSheet = useCallback(() => {
+    setSelectedDate(null);
+    setSlots([]);
+  }, []);
+
+  // bottom sheet 開啟時鎖定背景捲動
+  useEffect(() => {
+    if (!selectedDate) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [selectedDate]);
+
   // 月曆計算
   const firstDay = new Date(calYear, calMonth, 1);
   const lastDay = new Date(calYear, calMonth + 1, 0);
@@ -327,42 +343,61 @@ export function BookingCalendarView({ customerId, activeWallets, makeupCredits =
         。次月預約時段尚未開放，請等候店長通知。
       </div>
 
-      {/* 時段展開區 */}
+      {/* 時段選擇 — 由下方滑出的 bottom sheet */}
       {selectedDate && (
-        <div className="animate-in slide-in-from-top-2 fade-in duration-200">
-          <div className="mb-3 flex items-center gap-2">
-            <h3 className="text-lg font-bold text-earth-900">
-              {parseLocalDate(selectedDate).toLocaleDateString("zh-TW", {
-                month: "long",
-                day: "numeric",
-              })}（{formatWeekdayZh(selectedDate)}）
-            </h3>
-            <button
-              onClick={() => { setSelectedDate(null); setSlots([]); }}
-              className="ml-auto flex min-h-[36px] items-center rounded-md px-2 text-sm font-medium text-earth-700 hover:bg-earth-100 hover:text-earth-900"
-            >
-              收合
-            </button>
-          </div>
+        <div className="fixed inset-0 z-50 flex flex-col justify-end">
+          <div
+            className="absolute inset-0 bg-black/40 animate-sheet-overlay"
+            onClick={closeSheet}
+            aria-hidden="true"
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="relative mx-auto flex max-h-[85vh] w-full max-w-lg flex-col rounded-t-2xl bg-earth-50 shadow-xl animate-sheet-up"
+          >
+            {/* sticky 標題列 + 關閉 X */}
+            <div className="flex items-center gap-2 rounded-t-2xl border-b border-earth-100 bg-white px-4 py-3">
+              <h3 className="text-lg font-bold text-earth-900">
+                {parseLocalDate(selectedDate).toLocaleDateString("zh-TW", {
+                  month: "long",
+                  day: "numeric",
+                })}（{formatWeekdayZh(selectedDate)}）
+              </h3>
+              <button
+                type="button"
+                onClick={closeSheet}
+                aria-label="關閉"
+                className="ml-auto flex h-9 w-9 items-center justify-center rounded-full text-earth-600 hover:bg-earth-100 hover:text-earth-900"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                  <path d="M6 6l12 12M18 6L6 18" />
+                </svg>
+              </button>
+            </div>
 
-          {loadingSlots ? (
-            <div className="rounded-2xl border border-earth-200 bg-white py-10 text-center text-base text-earth-700">
-              載入時段中...
+            {/* 可捲動內容 */}
+            <div className="overflow-y-auto px-4 py-4">
+              {loadingSlots ? (
+                <div className="rounded-2xl border border-earth-200 bg-white py-10 text-center text-base text-earth-700">
+                  載入時段中...
+                </div>
+              ) : slots.length === 0 ? (
+                <div className="rounded-2xl border border-earth-200 bg-white py-10 text-center text-base text-earth-700">
+                  該日無可用時段
+                </div>
+              ) : (
+                <SlotBookingForm
+                  customerId={customerId}
+                  selectedDate={selectedDate}
+                  slots={slots}
+                  activeWallets={activeWallets}
+                  makeupCredits={makeupCredits}
+                  initialPeople={people}
+                />
+              )}
             </div>
-          ) : slots.length === 0 ? (
-            <div className="rounded-2xl border border-earth-200 bg-white py-10 text-center text-base text-earth-700">
-              該日無可用時段
-            </div>
-          ) : (
-            <SlotBookingForm
-              customerId={customerId}
-              selectedDate={selectedDate}
-              slots={slots}
-              activeWallets={activeWallets}
-              makeupCredits={makeupCredits}
-              initialPeople={people}
-            />
-          )}
+          </div>
         </div>
       )}
 
