@@ -257,7 +257,7 @@ export default async function DashboardHomePage() {
         />
       )}
 
-      <StoreTodoCard items={todos.items} total={todos.total} />
+      <StoreTodoCard items={todos.items} />
 
       {resolvedRequest ? (
         <UpgradeResultBanner
