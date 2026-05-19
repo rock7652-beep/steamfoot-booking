@@ -134,7 +134,7 @@ export function BookingCalendarView({ customerId, activeWallets, makeupCredits =
         // 可用名額不足以容納所選人數
         badges.push({ time: s.startTime, label: "滿", isFull: true });
       } else {
-        badges.push({ time: s.startTime, label: `${avail}位`, isFull: false });
+        badges.push({ time: s.startTime, label: `剩 ${avail} 位`, isFull: false });
       }
     }
 
@@ -595,7 +595,7 @@ function SlotBookingForm({
                 <input type="radio" name="slotTime" value={slot.startTime} disabled={disabled} className="sr-only" required onChange={() => setSelectedSlot(slot.startTime)} />
                 <span className="text-lg font-bold">{slot.startTime}</span>
                 <span className={`mt-1 text-sm font-medium ${isPast ? "text-earth-700" : isFull ? "text-red-600" : notEnough ? "text-red-600" : "text-earth-700 has-[:checked]:text-primary-100"}`}>
-                  {isPast ? "已過時段" : isFull ? "已額滿" : notEnough ? "不足" : `${slot.available}位`}
+                  {isPast ? "已過時段" : isFull ? "已額滿" : notEnough ? "不足" : `剩 ${slot.available} 位`}
                 </span>
               </label>
             );
