@@ -73,6 +73,19 @@ export interface BookingDrawerPayload {
       maxPrice: number;
     };
   } | null;
+  // 單次（SINGLE，不扣堂）：僅 SINGLE 預約有此區塊（其他型別一律 null）。
+  // collected=true → 已建立 SINGLE_PURCHASE SUCCESS 交易；defaultPrice 來自
+  // booking.servicePlan?.price ?? 799（與 collectSinglePayment 同源），給
+  // 收款 Modal 顯示原價 + 折扣計算用。
+  single: {
+    collected: boolean;
+    collectedAmount: number | null;
+    collectedOriginalAmount: number | null;
+    collectedDiscountAmount: number | null;
+    collectedMethod: string | null;
+    collectedAt: string | null;
+    defaultPrice: number;
+  } | null;
 }
 
 export async function fetchBookingDetail(
@@ -99,6 +112,28 @@ export async function fetchBookingDetail(
         checkPermission(user.role, user.staffId, "transaction.void"),
       ])
     : [null, null, false];
+
+  // 單次（SINGLE，不扣堂）：僅 SINGLE 才查收款狀態。取 grossAmount / discountAmount
+  // 供 Drawer 顯示「原價 / 實收 / 折扣」三段，與 collectSinglePayment 寫入欄位一致。
+  const isSingle = booking.bookingType === "SINGLE";
+  const collectedSingleTx = isSingle
+    ? await prisma.transaction.findFirst({
+        where: {
+          bookingId: booking.id,
+          transactionType: "SINGLE_PURCHASE",
+          status: "SUCCESS",
+        },
+        select: {
+          id: true,
+          amount: true,
+          grossAmount: true,
+          discountAmount: true,
+          paymentMethod: true,
+          paidAt: true,
+        },
+        orderBy: { createdAt: "desc" },
+      })
+    : null;
 
   // 顧客近況：累積完成 + 最近到店 + 是否新客 — 三查詢並行
   const storeFilter = getStoreFilter(user);
@@ -210,5 +245,27 @@ export async function fetchBookingDetail(
             },
           }
         : null,
+    single: isSingle
+      ? {
+          collected: collectedSingleTx != null,
+          collectedAmount:
+            collectedSingleTx == null ? null : Number(collectedSingleTx.amount),
+          collectedOriginalAmount:
+            collectedSingleTx == null
+              ? null
+              : Number(collectedSingleTx.grossAmount),
+          collectedDiscountAmount:
+            collectedSingleTx == null
+              ? null
+              : Number(collectedSingleTx.discountAmount),
+          collectedMethod: collectedSingleTx?.paymentMethod ?? null,
+          collectedAt:
+            collectedSingleTx?.paidAt?.toISOString().slice(0, 10) ?? null,
+          defaultPrice:
+            booking.servicePlan?.price != null
+              ? Number(booking.servicePlan.price)
+              : 799,
+        }
+      : null,
   };
 }

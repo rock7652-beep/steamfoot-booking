@@ -43,6 +43,8 @@ const mockDutyAssignmentCount = vi.fn();
 const mockStoreFindUnique = vi.fn();
 const mockTx = vi.fn();
 
+const mockTransactionFindFirst = vi.fn();
+
 vi.mock("@/lib/db", () => ({
   prisma: {
     customer: { findUnique: (...a: unknown[]) => mockCustomerFindUnique(...a) },
@@ -52,6 +54,9 @@ vi.mock("@/lib/db", () => ({
       aggregate: (...a: unknown[]) => mockBookingAggregate(...a),
       create: (...a: unknown[]) => mockBookingCreate(...a),
       update: (...a: unknown[]) => mockBookingUpdate(...a),
+    },
+    transaction: {
+      findFirst: (...a: unknown[]) => mockTransactionFindFirst(...a),
     },
     businessHours: {
       findMany: (...a: unknown[]) => mockBusinessHoursFindMany(...a),
@@ -524,5 +529,76 @@ describe("markCompleted — PACKAGE_SESSION 必須綁定方案才能完成", () 
     const result = await markCompleted("booking-3");
 
     expect(result.success).toBe(true);
+  });
+});
+
+// ────────────────────────────────────────────────────────────
+// markCompleted：SINGLE（不扣堂）必須先收款才能完成（P0 防漏帳）
+// ────────────────────────────────────────────────────────────
+describe("markCompleted — SINGLE 必須先收款才能完成", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setupBusinessHours();
+    mockRequirePermission.mockResolvedValue({
+      role: "OWNER",
+      storeId: STORE_A,
+      staffId: STAFF_ID,
+      id: OWNER_USER_ID,
+      email: "owner@x.com",
+    });
+  });
+
+  it("SINGLE + 尚未收款（無 SINGLE_PURCHASE SUCCESS）→ 拒絕完成", async () => {
+    mockBookingFindUnique.mockResolvedValue({
+      id: "booking-single-1",
+      storeId: STORE_A,
+      customerId: NO_PLAN_CUSTOMER_ID,
+      bookingDate: new Date("2026-04-27T00:00:00Z"),
+      slotTime: "11:00",
+      bookingStatus: "PENDING",
+      bookingType: "SINGLE",
+      isMakeup: false,
+      customerPlanWalletId: null,
+      customerPlanWallet: null,
+      revenueStaffId: null,
+      serviceStaffId: null,
+      customer: { sponsorId: null, customerStage: "ACTIVE" },
+    });
+    mockTransactionFindFirst.mockResolvedValue(null); // 沒收款
+
+    const { markCompleted } = await import("@/server/actions/booking");
+    const result = await markCompleted("booking-single-1");
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error).toMatch(/請先完成單次收款/);
+    }
+    expect(mockTx).not.toHaveBeenCalled();
+  });
+
+  it("SINGLE + 已收款（有 SINGLE_PURCHASE SUCCESS）→ 允許完成", async () => {
+    mockBookingFindUnique.mockResolvedValue({
+      id: "booking-single-2",
+      storeId: STORE_A,
+      customerId: NO_PLAN_CUSTOMER_ID,
+      bookingDate: new Date("2026-04-27T00:00:00Z"),
+      slotTime: "11:00",
+      bookingStatus: "PENDING",
+      bookingType: "SINGLE",
+      isMakeup: false,
+      customerPlanWalletId: null,
+      customerPlanWallet: null,
+      revenueStaffId: null,
+      serviceStaffId: null,
+      customer: { sponsorId: null, customerStage: "ACTIVE" },
+    });
+    mockTransactionFindFirst.mockResolvedValue({ id: "tx_paid" }); // 已收款
+
+    const { markCompleted } = await import("@/server/actions/booking");
+    const result = await markCompleted("booking-single-2");
+
+    expect(result.success).toBe(true);
+    // SINGLE 不應該 create SESSION_DEDUCTION（不扣堂）
+    expect(mockTransactionCreate).not.toHaveBeenCalled();
   });
 });
