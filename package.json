@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.9.0",
+    "@line/liff": "^2.29.0",
     "@prisma/client": "^6.19.2",
     "bcryptjs": "^3.0.3",
     "date-fns": "^4.1.0",
