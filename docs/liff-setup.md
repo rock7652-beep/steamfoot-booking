@@ -154,16 +154,73 @@ curl -sS -X POST https://www.steamfoot.com/api/liff/exchange \
 #       或 200 need_onboarding（若 Customer 沒綁 lineUserId）
 ```
 
-## 5. 不在 PR-B 範圍（保留給 PR-C/D）
+## 5. PR-C1 新增：bindLineToCustomerInStore() canonical helper
 
-- ❌ LiffShell UI 串接 exchange → PR-C
-- ❌ Customer binding → PR-C
-- ❌ 體驗預約 → PR-D
-- ❌ `Store.liffId` migration → PR-E
-- ❌ Rich Menu 模板 → PR-F
-- ❌ 每店一個 LINE Login channel → PR-G
+PR-C 拆成 C1 / C2 / C3 三包；本節為 C1 — **helper-only / dead code on prod**。
+PR-C2 (LIFF onboarding UI) 與 PR-C3 (webhook + signIn callback 切換熱路徑) 後續才 wire。
 
-## 5. 新增分店時要做的事（多店期）
+### 5.1 為什麼分三包
+
+| 子 PR | 內容 | 風險 |
+|---|---|---|
+| **C1 (本節)** | 純新增 `src/server/services/bind-line-to-customer.ts` + tests；無 caller | 🟢 低 — dead code |
+| C2 | LIFF onboarding page + LiffShell wire `/api/liff/exchange` need_onboarding | 🟡 中 — 新增 UI flow |
+| C3 | 切換 webhook `handleBindingRequest` + signIn callback Case 3 為呼叫 helper | 🔴 高 — prod 熱路徑，需 C2 prod 穩定 1-2 週後才動 |
+
+### 5.2 Helper interface
+
+```typescript
+import type { BindLineInput, BindLineResult } from "@/server/services/bind-line-to-customer";
+
+const result: BindLineResult = await bindLineToCustomerInStore({
+  storeId: string;        // 同店 scope（caller 已驗）
+  lineUserId: string;     // LINE verify 後的 sub
+  lineName: string | null;
+  phone: string;          // helper 會 normalizePhone
+  name: string;
+});
+```
+
+### 5.3 8 條 status 分支 + UI 文案 mapping（PR-C2 將實作對應 UX）
+
+| status | 場景 | PR-C2 預期 UX |
+|---|---|---|
+| `created_new` | 同店無此 phone → 建新 User+Customer+Account；綁 LINE | redirect 到 /book，顯示「歡迎加入」 |
+| `bound_existing` (userCreated=true) | staff 建檔的 Customer（userId=null, lineUserId=null）→ 建 User + 補綁 | redirect 到 /book，顯示「資料已連結 ✓」 |
+| `already_synced` | Customer 已綁同 lineUserId + 有 userId | redirect 到 /book，顯示「已綁定」 |
+| `already_bound_to_other_line` | phone 命中但已綁不同 LINE | 顯示「請聯繫店家換綁」（沿用 webhook 文案）|
+| `phone_taken_by_other_user` | phone 命中但已綁登入帳號（無 LINE）—**R1 hijack 防禦** | 顯示「請改用綁定碼流程」，引導到 LINE OA 索取 |
+| `ambiguous_multiple_candidates` | 髒資料 — 同店多筆同 phone | 顯示「請聯繫店家協助確認」 |
+| `validation_error` (`invalid_phone`) | 手機格式不對（normalizePhone 後仍非 09xxxxxxxx）| 表單 inline 錯誤訊息 |
+| `validation_error` (`missing_input`) | storeId/lineUserId/name 缺 | 不該到使用者面前（caller bug）|
+
+### 5.4 安全模型
+
+- **R1 (hijack)**：phone 已綁 userId → reject `phone_taken_by_other_user`，**不允許 LIFF onboarding 自動覆蓋既有登入帳號的 LINE 綁定**。改走 webhook 綁定碼（需 staff 驗證身份）。
+- **R5 (LINE 已綁別人)**：phone 已綁不同 lineUserId → reject `already_bound_to_other_line`，明確文案。
+- **R8 (Account sync)**：helper 內 `syncLineAccountForUser` 必呼，符合 [project_line_account_sync_rule](../memory/project_line_account_sync_rule.md)；sync 失敗以 status 欄位回報，不 throw。
+- **§7.1 (跨店手機)**：helper 只查 `(storeId, phone)`，跨店同手機自然不影響。
+
+### 5.5 Side effects（best-effort post-tx）
+
+| Helper | 何時呼叫 | 失敗處理 |
+|---|---|---|
+| `syncLineAccountForUser` | 寫 Customer.lineUserId 之後 | status 欄位回報，不影響主結果 |
+| `repairCustomerIdentityOnLogin` | tx 完成後 | swallow + console.warn |
+| `awardLineJoinReferrerIfEligible` | tx 完成後 | swallow + console.warn |
+
+**不接 referral binding（per §11.3 決策）**；PR-C 不處理 `bindReferralToCustomer` 流程。
+
+### 5.6 dead-code 狀態驗證
+
+PR-C1 merge 後在 prod：
+- ✅ helper module 存在 `src/server/services/bind-line-to-customer.ts`
+- ✅ vitest 26 + 既有身份測試 75 = 101 全綠
+- ✅ `grep -rn "bindLineToCustomerInStore" src/` 應該**只有 helper 自身 + test 兩個檔案**
+- ✅ build 不爆（dead export 仍會被 tree-shake；但因有 test 引用所以保留 module）
+- ✅ `/api/liff/exchange` 行為**完全不變**：仍回 `need_onboarding` 對未綁 customer，因為 onboarding action 還沒接
+
+## 6. 新增分店時要做的事（多店期）
 
 PR-E 之後，新增分店要 LIFF 入口時：
 
@@ -175,3 +232,4 @@ PR-E 之後，新增分店要 LIFF 入口時：
 已完成的事：
 - [x] **PR-A**：路由 `/s/[slug]/liff` 已就緒、proxy 公開白名單已加 `/liff`、`@line/liff` SDK 已安裝、LIFF shell + 三態 UI 已就緒
 - [x] **PR-B**：`/api/liff/exchange` API + `liff-token` NextAuth Credentials provider + 後端 idToken verify helper
+- [x] **PR-C1**：`bindLineToCustomerInStore()` canonical helper（dead code，待 PR-C2/C3 wire）
