@@ -11,8 +11,15 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const h = vi.hoisted(() => {
   const txCreate = vi.fn(async () => ({ id: "tx_1" }));
+  // Race-safe duplicate guard：findFirst 已移進 prisma.$transaction，
+  // 所以這支 mock 是給 txClient.transaction.findFirst 用，不是給外層 prisma 用。
+  const txFindFirstInTx = vi.fn(async () => null as { id: string } | null);
+  // FOR UPDATE row lock — 紀錄被呼叫即可，回傳值不重要。
+  const queryRaw: ReturnType<typeof vi.fn> = vi.fn();
   return {
     txCreate,
+    txFindFirstInTx,
+    queryRaw,
     requirePermission: vi.fn(async () => ({
       storeId: "store_1",
       staffId: "op_staff",
@@ -37,9 +44,11 @@ const h = vi.hoisted(() => {
           customer: { assignedStaffId: null as string | null },
         }) as unknown,
     ),
-    txFindFirst: vi.fn(async () => null as { id: string } | null),
     txRun: vi.fn(async (fn: (c: unknown) => unknown) =>
-      fn({ transaction: { create: txCreate } }),
+      fn({
+        transaction: { create: txCreate, findFirst: txFindFirstInTx },
+        $queryRaw: queryRaw,
+      }),
     ),
     buildSnapshot: vi.fn(async () => ({
       transactionNo: "TXN-1",
@@ -64,7 +73,6 @@ const h = vi.hoisted(() => {
 vi.mock("@/lib/db", () => ({
   prisma: {
     booking: { findFirst: h.bookingFindFirst },
-    transaction: { findFirst: h.txFindFirst },
     $transaction: h.txRun,
   },
 }));
@@ -165,7 +173,8 @@ beforeEach(() => {
     trialMinPrice: 0,
     trialMaxPrice: 3000,
   });
-  h.txFindFirst.mockResolvedValue(null);
+  h.txFindFirstInTx.mockResolvedValue(null);
+  h.queryRaw.mockResolvedValue([]);
   h.txCreate.mockResolvedValue({ id: "tx_1" });
   h.bookingFindFirst.mockResolvedValue({
     id: "bk_1",
@@ -202,12 +211,39 @@ describe("collectTrialPayment — SUCCESS-only real-revenue tx", () => {
   });
 });
 
-describe("collectTrialPayment — double-collect guard", () => {
+describe("collectTrialPayment — double-collect guard (race-safe)", () => {
   it("rejects when a TRIAL_PURCHASE SUCCESS tx already exists; no second create", async () => {
-    h.txFindFirst.mockResolvedValue({ id: "tx_old" });
+    h.txFindFirstInTx.mockResolvedValue({ id: "tx_old" });
     const r = await collectTrialPayment(base);
     expect(r.success).toBe(false);
+    if (!r.success) expect(r.error).toMatch(/重複收款/);
     expect(h.txCreate).not.toHaveBeenCalled();
+  });
+
+  it("acquires Booking row lock BEFORE checking duplicates (race-safe)", async () => {
+    await collectTrialPayment(base);
+    // 防 race condition：FOR UPDATE 必須先發、findFirst 之後發、create 最後發。
+    // 順序錯了 → race condition 還在。模式同 PR #166 collectSinglePayment。
+    expect(h.queryRaw).toHaveBeenCalledTimes(1);
+    expect(h.txFindFirstInTx).toHaveBeenCalledTimes(1);
+    expect(h.txCreate).toHaveBeenCalledTimes(1);
+    const queryRawOrder = h.queryRaw.mock.invocationCallOrder[0];
+    const findFirstOrder = h.txFindFirstInTx.mock.invocationCallOrder[0];
+    const createOrder = h.txCreate.mock.invocationCallOrder[0];
+    expect(queryRawOrder).toBeLessThan(findFirstOrder);
+    expect(findFirstOrder).toBeLessThan(createOrder);
+  });
+
+  it("FOR UPDATE query includes bookingId param + correct lock clause", async () => {
+    await collectTrialPayment(base);
+    const callArgs = h.queryRaw.mock.calls[0];
+    // Prisma tagged template: first arg is the TemplateStringsArray (strings),
+    // subsequent args are the interpolations. 確認 SQL 結構正確且 bookingId 有帶。
+    const strings = callArgs[0] as unknown as string[];
+    const joined = strings.join("?");
+    expect(joined).toContain("Booking");
+    expect(joined).toContain("FOR UPDATE");
+    expect(callArgs.slice(1)).toContain("bk_1");
   });
 });
 
