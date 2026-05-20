@@ -128,8 +128,8 @@ export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | n
       return storeRewrite(req, subPath, storeSlug, domainStoreId);
     }
 
-    // ── 分店 public routes (登入/註冊/開通/忘記密碼/LINE 推薦中繼等) ──
-    const storePublicPrefixes = ["/register", "/activate", "/forgot-password", "/reset-password", "/line-entry"];
+    // ── 分店 public routes (登入/註冊/開通/忘記密碼/LINE 推薦中繼/LIFF 入口) ──
+    const storePublicPrefixes = ["/register", "/activate", "/forgot-password", "/reset-password", "/line-entry", "/liff"];
     const isStorePublic = storePublicPrefixes.some(
       (p) => subPath === p || subPath.startsWith(p + "/")
     );
