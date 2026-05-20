@@ -50,8 +50,11 @@ export function CollectSingleModal({
 
   if (!open) return null;
 
-  const amountNum = Math.round(Number(amount));
-  const validAmount = Number.isFinite(amountNum) && amountNum >= 0;
+  // 空字串不能 coerce 成 0：Number("") === 0 會誤通過 finite 檢查、又會建立
+  // 0 元成功交易。明確要求輸入數字，min 1。
+  const trimmed = amount.trim();
+  const amountNum = trimmed === "" ? NaN : Math.round(Number(trimmed));
+  const validAmount = Number.isFinite(amountNum) && amountNum > 0;
   const discountAmount = validAmount
     ? Math.max(0, defaultPrice - amountNum)
     : 0;
@@ -134,18 +137,23 @@ export function CollectSingleModal({
           type="number"
           inputMode="numeric"
           value={amount}
-          min={0}
+          min={1}
           max={defaultPrice}
           disabled={pending}
           onChange={(e) => setAmount(e.target.value)}
           className="mb-1 w-full rounded-lg border border-earth-300 px-3 py-2 text-sm"
         />
         <p className="mb-3 text-[11px] text-earth-400">
-          {discountAmount > 0
-            ? `已折扣 NT$ ${discountAmount.toLocaleString()}（請填折扣原因）`
-            : "預設等於原價；若需折扣請改數字"}
-          {overPaid && (
-            <span className="ml-1 text-red-500">不可高於原價</span>
+          {trimmed === "" ? (
+            <span className="text-red-500">請輸入實收金額</span>
+          ) : !validAmount ? (
+            <span className="text-red-500">金額需為正整數</span>
+          ) : overPaid ? (
+            <span className="text-red-500">不可高於原價</span>
+          ) : discountAmount > 0 ? (
+            `已折扣 NT$ ${discountAmount.toLocaleString()}（請填折扣原因）`
+          ) : (
+            "預設等於原價；若需折扣請改數字"
           )}
         </p>
 

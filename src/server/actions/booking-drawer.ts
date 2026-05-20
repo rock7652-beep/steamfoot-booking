@@ -7,6 +7,7 @@ import { getBookingDetail } from "@/server/queries/booking";
 import { ACTIVE_BOOKING_STATUSES } from "@/lib/booking-constants";
 import { getTrialSettings } from "@/lib/shop-config";
 import { checkPermission } from "@/lib/permissions";
+import { toLocalDateStr } from "@/lib/date-utils";
 
 export interface BookingDrawerPayload {
   booking: {
@@ -259,8 +260,11 @@ export async function fetchBookingDetail(
               ? null
               : Number(collectedSingleTx.discountAmount),
           collectedMethod: collectedSingleTx?.paymentMethod ?? null,
-          collectedAt:
-            collectedSingleTx?.paidAt?.toISOString().slice(0, 10) ?? null,
+          // paidAt 是 timestamp（非 DB date 欄位），UTC toISOString().slice(0,10)
+          // 在 00:00-08:00 台北時間會跨日顯示成前一天。用 toLocalDateStr 換 +8。
+          collectedAt: collectedSingleTx?.paidAt
+            ? toLocalDateStr(collectedSingleTx.paidAt)
+            : null,
           defaultPrice:
             booking.servicePlan?.price != null
               ? Number(booking.servicePlan.price)

@@ -68,19 +68,6 @@ export async function collectSinglePayment(
       );
     }
 
-    // 防止重複收款：已有 SINGLE_PURCHASE + SUCCESS 即拒絕
-    const existing = await prisma.transaction.findFirst({
-      where: {
-        bookingId: booking.id,
-        transactionType: "SINGLE_PURCHASE",
-        status: "SUCCESS",
-      },
-      select: { id: true },
-    });
-    if (existing) {
-      throw new AppError("BUSINESS_RULE", "此預約已收款，請勿重複收款");
-    }
-
     // 原價：servicePlan.price 優先（未來改方案價直接生效），fallback 799。
     // 實收：未傳 amount → 預設等於原價（= 全價）。
     const originalAmount =
@@ -108,6 +95,28 @@ export async function collectSinglePayment(
       })();
 
     const result = await prisma.$transaction(async (txClient) => {
+      // P1 race-safe duplicate guard：用 Booking row lock 串行化同一 booking
+      // 的並發收款。原本 findFirst 在 transaction 外屬於 TOCTOU 漏洞 — 兩次
+      // 快速點擊或重送可能各自通過 guard 後各自 create → 同筆 booking 雙
+      // 收款、營收雙算。
+      //
+      // 鎖定後（任何同 bookingId 的並發 tx 會 block 在這行）才再次查
+      // SINGLE_PURCHASE SUCCESS：能看到任何 winner 已 commit 的交易並拒絕。
+      // 不同 bookingId 不互相影響（row-level lock）。
+      await txClient.$queryRaw`SELECT id FROM "Booking" WHERE id = ${booking.id} FOR UPDATE`;
+
+      const existing = await txClient.transaction.findFirst({
+        where: {
+          bookingId: booking.id,
+          transactionType: "SINGLE_PURCHASE",
+          status: "SUCCESS",
+        },
+        select: { id: true },
+      });
+      if (existing) {
+        throw new AppError("BUSINESS_RULE", "此預約已收款，請勿重複收款");
+      }
+
       const snapshot = await buildTransactionSnapshot(txClient, {
         customerId: booking.customerId,
         storeId,
