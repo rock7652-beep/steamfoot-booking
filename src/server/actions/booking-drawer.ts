@@ -234,8 +234,12 @@ export async function fetchBookingDetail(
             collectedAmount:
               collectedTx == null ? null : Number(collectedTx.amount),
             collectedMethod: collectedTx?.paymentMethod ?? null,
-            collectedAt:
-              collectedTx?.paidAt?.toISOString().slice(0, 10) ?? null,
+            // paidAt 是 timestamp（非 DB date 欄位），UTC toISOString().slice(0,10)
+            // 在 00:00-08:00 台北時間會跨日顯示成前一天。用 toLocalDateStr 換 +8。
+            // 模式同 PR #166 的 single.collectedAt 修法。
+            collectedAt: collectedTx?.paidAt
+              ? toLocalDateStr(collectedTx.paidAt)
+              : null,
             collectedTransactionId: collectedTx?.id ?? null,
             canCorrect: canCorrect === true,
             settings: {
