@@ -20,6 +20,7 @@ import { NoShowModal, type NoShowChoice } from "./no-show-modal";
 import { RescheduleModal } from "./reschedule-modal";
 import { CollectTrialModal } from "./collect-trial-modal";
 import { CorrectTrialCollectionModal } from "./correct-trial-collection-modal";
+import { CollectSingleModal } from "./collect-single-modal";
 import { formatWeekdayZh } from "@/lib/date-utils";
 
 const PAYMENT_METHOD_LABEL: Record<string, string> = {
@@ -80,6 +81,7 @@ export function BookingDetailDrawer({
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
   const [collectOpen, setCollectOpen] = useState(false);
   const [correctOpen, setCorrectOpen] = useState(false);
+  const [collectSingleOpen, setCollectSingleOpen] = useState(false);
   // 收款 / 更正成功後預約狀態不變、但 trial.collected 會翻轉 → 用 nonce 觸發重抓
   const [reloadNonce, setReloadNonce] = useState(0);
 
@@ -210,6 +212,14 @@ export function BookingDetailDrawer({
     if (bookingId) onUpdated?.(bookingId, null);
   }
 
+  // 單次（SINGLE，不扣堂）收款成功 — 同 trial 行為：重抓 detail 翻成
+  // 「已收款」，並通知母層當日資料重整。
+  function handleSingleCollected() {
+    setCollectSingleOpen(false);
+    setReloadNonce((n) => n + 1);
+    if (bookingId) onUpdated?.(bookingId, null);
+  }
+
   // 體驗 499 PR-3b：收款更正成功 — 同理重抓 detail（金額/付款方式翻新）
   // 並通知母層重整當日資料。
   function handleCorrected() {
@@ -246,6 +256,7 @@ export function BookingDetailDrawer({
               reschedule: () => setRescheduleOpen(true),
               collect: () => setCollectOpen(true),
               correct: () => setCorrectOpen(true),
+              collectSingle: () => setCollectSingleOpen(true),
             }}
           />
         ) : showHeaderFromSummary && summary ? (
@@ -307,6 +318,17 @@ export function BookingDetailDrawer({
             onCorrected={handleCorrected}
           />
         )}
+      {data && data.single && !data.single.collected && (
+        <CollectSingleModal
+          open={collectSingleOpen}
+          onClose={() => setCollectSingleOpen(false)}
+          bookingId={data.booking.id}
+          customerName={data.booking.customer.name}
+          dateLabel={`${data.booking.bookingDate} ${data.booking.slotTime}`}
+          defaultPrice={data.single.defaultPrice}
+          onCollected={handleSingleCollected}
+        />
+      )}
     </>
   );
 }
@@ -323,6 +345,7 @@ interface DrawerActions {
   reschedule: () => void;
   collect: () => void;
   correct: () => void;
+  collectSingle: () => void;
 }
 
 function DrawerContent({
@@ -336,7 +359,7 @@ function DrawerContent({
   onClose: () => void;
   actions: DrawerActions;
 }) {
-  const { booking, customerSummary, trial } = payload;
+  const { booking, customerSummary, trial, single } = payload;
   const meta = bookingStatusMeta(booking.bookingStatus, booking.isCheckedIn);
   const amount = computeAmount(booking);
   const duration = booking.servicePlan?.category === "TRIAL" ? 30 : 60;
@@ -504,9 +527,13 @@ function DrawerContent({
                     ? trial.collected
                       ? "已收款"
                       : "未收款（現場收款）"
-                    : booking.servicePlan
-                      ? "現場收款"
-                      : "—"
+                    : single
+                      ? single.collected
+                        ? "已收款"
+                        : "未收款（現場收款）"
+                      : booking.servicePlan
+                        ? "現場收款"
+                        : "—"
             }
           />
           {trial && trial.collected && (
@@ -533,6 +560,37 @@ function DrawerContent({
               )}
             </>
           )}
+          {single && single.collected && (
+            <>
+              <KV
+                label="付款方式"
+                value={
+                  single.collectedMethod
+                    ? (PAYMENT_METHOD_LABEL[single.collectedMethod] ??
+                      single.collectedMethod)
+                    : "—"
+                }
+              />
+              <KV
+                label="收款金額"
+                value={
+                  single.collectedAmount == null
+                    ? "—"
+                    : `NT$ ${single.collectedAmount.toLocaleString()}`
+                }
+              />
+              {single.collectedDiscountAmount != null &&
+                single.collectedDiscountAmount > 0 && (
+                  <KV
+                    label="折扣"
+                    value={`NT$ ${single.collectedDiscountAmount.toLocaleString()}`}
+                  />
+                )}
+              {single.collectedAt && (
+                <KV label="收款日期" value={single.collectedAt} />
+              )}
+            </>
+          )}
           {trial &&
             trial.collected &&
             booking.bookingStatus !== "PENDING" &&
@@ -545,6 +603,12 @@ function DrawerContent({
             <KV
               label="預計收款"
               value={`NT$ ${booking.expectedAmount.toLocaleString()}`}
+            />
+          )}
+          {single && !single.collected && (
+            <KV
+              label="預計收款"
+              value={`NT$ ${single.defaultPrice.toLocaleString()}`}
             />
           )}
         </Section>
@@ -563,6 +627,7 @@ function DrawerContent({
       <ActionFooter
         booking={booking}
         trial={trial}
+        single={single}
         isActing={isActing}
         actions={actions}
       />
@@ -655,11 +720,13 @@ function SummaryDrawerContent({
 function ActionFooter({
   booking,
   trial,
+  single,
   isActing,
   actions,
 }: {
   booking: BookingDrawerPayload["booking"];
   trial: BookingDrawerPayload["trial"];
+  single: BookingDrawerPayload["single"];
   isActing: boolean;
   actions: DrawerActions;
 }) {
@@ -672,6 +739,15 @@ function ActionFooter({
   const canCollect =
     trial != null &&
     !trial.collected &&
+    (status === "PENDING" || status === "CONFIRMED");
+
+  // SINGLE 不扣堂：尚未收款 + PENDING/CONFIRMED → 顯示「收款」主鈕。
+  // markCompleted 已加 server guard：未收款的 SINGLE 直接點完成服務會被擋
+  // （toast 顯示「請先完成單次收款後再完成服務」），此處的 client UI 只是把
+  // 主動線提示給店長，server 仍是最後防線。
+  const canCollectSingle =
+    single != null &&
+    !single.collected &&
     (status === "PENDING" || status === "CONFIRMED");
 
   // main schema 無 CHECKED_IN：PENDING/CONFIRMED 直接走「完成服務」→ COMPLETED。
@@ -688,6 +764,9 @@ function ActionFooter({
   if (status === "PENDING" || status === "CONFIRMED") {
     if (canCollect) {
       primaries.push({ label: "收款", onClick: actions.collect });
+    }
+    if (canCollectSingle) {
+      primaries.push({ label: "收款", onClick: actions.collectSingle });
     }
     primaries.push({ label: "完成服務", onClick: actions.complete });
     if (canCorrect) {

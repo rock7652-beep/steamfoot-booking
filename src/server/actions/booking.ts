@@ -717,6 +717,28 @@ export async function markCompleted(
       );
     }
 
+    // P0：SINGLE 預約必須先收款才能完成服務
+    // 防止「單次不扣堂」漏帳 — markCompleted 不會建 Transaction，沒有收款
+    // 直接完成等於白做。改由 collectSinglePayment 先建 SINGLE_PURCHASE
+    // SUCCESS 再回頭完成；server 是最後防線（client 顯示 / 隱藏「完成服務」
+    // 並非可靠保證）。
+    if (booking.bookingType === "SINGLE") {
+      const paidSingle = await prisma.transaction.findFirst({
+        where: {
+          bookingId: booking.id,
+          transactionType: "SINGLE_PURCHASE",
+          status: "SUCCESS",
+        },
+        select: { id: true },
+      });
+      if (!paidSingle) {
+        throw new AppError(
+          "BUSINESS_RULE",
+          "請先完成單次收款後再完成服務",
+        );
+      }
+    }
+
     const serviceStaffId =
       data.serviceStaffId ?? booking.serviceStaffId ?? null;
 
