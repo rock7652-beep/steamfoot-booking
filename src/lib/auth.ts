@@ -291,6 +291,104 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         };
       },
     } satisfies Provider,
+
+    // ── LIFF Session bootstrap (PR-B) ──
+    // LIFF webview 內透過 LINE idToken 換 NextAuth session。
+    //
+    // 安全：authorize() 內 *再做一次* idToken verify (即使 /api/liff/exchange
+    // 已經驗過)，這層是真正的 NextAuth 安全邊界。任何呼叫 signIn("liff-token", ...)
+    // 的程式碼，無論在哪 (server action / route handler / 直打 callback URL)，
+    // 都會走過這個 authorize()。LINE verify 是 stateless GET ~150ms 可接受。
+    //
+    // 不接受 client 傳的 lineUserId/storeId — 全部從 verify 後的 payload + slug
+    // 重新解析。
+    Credentials({
+      id: "liff-token",
+      name: "liff-token",
+      credentials: {
+        idToken: { label: "LIFF idToken", type: "text" },
+        storeSlug: { label: "Store slug", type: "text" },
+      },
+      async authorize(credentials) {
+        const idToken = credentials?.idToken as string | undefined;
+        const storeSlug = credentials?.storeSlug as string | undefined;
+        if (!idToken || !storeSlug) return null;
+
+        const expectedChannelId = process.env.LINE_LOGIN_CHANNEL_ID;
+        if (!expectedChannelId) {
+          console.error("[auth][liff-token] LINE_LOGIN_CHANNEL_ID env not set");
+          return null;
+        }
+
+        const { verifyLiffIdToken, LiffIdTokenError } = await import(
+          "@/lib/liff/verify-id-token"
+        );
+
+        let verified;
+        try {
+          verified = await verifyLiffIdToken(idToken, expectedChannelId);
+        } catch (err) {
+          if (err instanceof LiffIdTokenError) {
+            console.warn("[auth][liff-token] idToken verify failed", {
+              code: err.code,
+              message: err.message,
+            });
+          } else {
+            console.error("[auth][liff-token] unexpected verify error", err);
+          }
+          return null;
+        }
+
+        const { resolveStoreBySlug } = await import("@/lib/store-resolver");
+        const store = await resolveStoreBySlug(storeSlug);
+        if (!store) {
+          console.warn("[auth][liff-token] storeSlug not found", { storeSlug });
+          return null;
+        }
+
+        // Customer 必須 (storeId, lineUserId) 同時命中 — schema 上的 unique key
+        const customer = await prisma.customer.findFirst({
+          where: { storeId: store.id, lineUserId: verified.lineUserId },
+          select: {
+            id: true,
+            storeId: true,
+            store: { select: { slug: true } },
+            user: {
+              select: { id: true, name: true, email: true, role: true, status: true },
+            },
+          },
+        });
+
+        if (!customer || !customer.user || customer.user.status !== "ACTIVE") {
+          // race condition：exchange route 確認過後 customer 被解綁；視為認證失敗
+          console.warn("[auth][liff-token] customer not found or inactive", {
+            storeId: store.id,
+            lineUserId: verified.lineUserId,
+          });
+          return null;
+        }
+
+        // 員工帳號不該透過 LIFF 登入（與 OAuth signIn callback line 313-321 同理）
+        if (customer.user.role !== "CUSTOMER") {
+          console.warn("[auth][liff-token] non-customer role blocked", {
+            userId: customer.user.id,
+            role: customer.user.role,
+          });
+          return null;
+        }
+
+        return {
+          id: customer.user.id,
+          name: customer.user.name,
+          email: customer.user.email ?? null,
+          role: customer.user.role,
+          staffId: null,
+          customerId: customer.id,
+          storeId: customer.storeId,
+          storeSlug: customer.store?.slug ?? null,
+        };
+      },
+    }),
   ],
 
   callbacks: {
