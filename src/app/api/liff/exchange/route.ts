@@ -1,0 +1,193 @@
+/**
+ * POST /api/liff/exchange — LIFF idToken → NextAuth session bootstrap (PR-B)
+ *
+ * 接 LIFF client `liff.getIDToken()` 取得的 idToken，後端執行：
+ *   1. zod body 驗證
+ *   2. LINE `/oauth2/v2.1/verify` 驗 idToken (aud / exp / iss)
+ *   3. resolveStoreBySlug(slug) → storeId
+ *   4. 查 Customer(storeId, lineUserId)
+ *      - 有 → signIn("liff-token", { idToken, storeSlug }) 寫 session cookie
+ *             → 200 { status: "session_created", storeSlug, customerId, displayName }
+ *      - 無 → 200 { status: "need_onboarding", lineUserId, displayName, storeSlug }
+ *
+ * Note: 為深度防禦，authorize() 內會 *再做一次* verify。
+ *       LINE verify 是 stateless GET ~150ms，再一次的成本可接受。
+ *
+ * 不在此 PR 範圍：
+ *   - need_onboarding 後的補手機 / 建 Customer (PR-C)
+ *   - 預約 (PR-D)
+ *
+ * 路由公開：proxy.ts 對 /api/* 一律放行 (line 238-240)。
+ */
+
+import { z } from "zod";
+import { signIn } from "@/lib/auth";
+import { prisma } from "@/lib/db";
+import {
+  LiffIdTokenError,
+  verifyLiffIdToken,
+} from "@/lib/liff/verify-id-token";
+import { resolveStoreBySlug } from "@/lib/store-resolver";
+
+export const dynamic = "force-dynamic";
+
+const BodySchema = z.object({
+  idToken: z.string().min(1, "idToken is required"),
+  storeSlug: z.string().min(1, "storeSlug is required"),
+});
+
+type ResponseBody =
+  | {
+      status: "session_created";
+      storeSlug: string;
+      customerId: string;
+      displayName: string | null;
+    }
+  | {
+      status: "need_onboarding";
+      storeSlug: string;
+      lineUserId: string;
+      displayName: string | null;
+    }
+  | {
+      status: "error";
+      code:
+        | "INVALID_BODY"
+        | "MISSING_CHANNEL_CONFIG"
+        | "STORE_NOT_FOUND"
+        | "ID_TOKEN_INVALID"
+        | "ID_TOKEN_EXPIRED"
+        | "ID_TOKEN_AUD_MISMATCH"
+        | "ID_TOKEN_ISS_MISMATCH"
+        | "VERIFY_NETWORK"
+        | "SESSION_MINT_FAILED"
+        | "INTERNAL";
+      message: string;
+    };
+
+function json(body: ResponseBody, status: number): Response {
+  return Response.json(body, { status });
+}
+
+export async function POST(req: Request): Promise<Response> {
+  // ── 1. Parse + validate body ──
+  let parsed: z.infer<typeof BodySchema>;
+  try {
+    const raw = await req.json();
+    parsed = BodySchema.parse(raw);
+  } catch (err) {
+    return json(
+      {
+        status: "error",
+        code: "INVALID_BODY",
+        message: err instanceof z.ZodError ? err.issues[0]?.message ?? "invalid body" : "invalid body",
+      },
+      400
+    );
+  }
+  const { idToken, storeSlug } = parsed;
+
+  // ── 2. Config check ──
+  const expectedChannelId = process.env.LINE_LOGIN_CHANNEL_ID;
+  if (!expectedChannelId) {
+    console.error("[liff/exchange] LINE_LOGIN_CHANNEL_ID env not set");
+    return json(
+      {
+        status: "error",
+        code: "MISSING_CHANNEL_CONFIG",
+        message: "server config error",
+      },
+      500
+    );
+  }
+
+  // ── 3. Verify idToken ──
+  let verified;
+  try {
+    verified = await verifyLiffIdToken(idToken, expectedChannelId);
+  } catch (err) {
+    if (err instanceof LiffIdTokenError) {
+      const code =
+        err.code === "EXPIRED"
+          ? "ID_TOKEN_EXPIRED"
+          : err.code === "AUD_MISMATCH"
+            ? "ID_TOKEN_AUD_MISMATCH"
+            : err.code === "ISS_MISMATCH"
+              ? "ID_TOKEN_ISS_MISMATCH"
+              : err.code === "NETWORK"
+                ? "VERIFY_NETWORK"
+                : "ID_TOKEN_INVALID";
+      const status = err.code === "NETWORK" ? 502 : 401;
+      return json({ status: "error", code, message: err.message }, status);
+    }
+    console.error("[liff/exchange] unexpected verify error", err);
+    return json({ status: "error", code: "INTERNAL", message: "verify failed" }, 500);
+  }
+
+  // ── 4. Resolve store ──
+  const store = await resolveStoreBySlug(storeSlug);
+  if (!store) {
+    return json(
+      {
+        status: "error",
+        code: "STORE_NOT_FOUND",
+        message: `store not found: ${storeSlug}`,
+      },
+      404
+    );
+  }
+
+  // ── 5. Customer lookup ──
+  const customer = await prisma.customer.findFirst({
+    where: { storeId: store.id, lineUserId: verified.lineUserId },
+    select: { id: true, userId: true, name: true, lineName: true },
+  });
+
+  if (!customer || !customer.userId) {
+    // 沒 customer 或 customer 還沒綁 user → 走 onboarding 補手機 (PR-C)
+    return json(
+      {
+        status: "need_onboarding",
+        storeSlug: store.slug,
+        lineUserId: verified.lineUserId,
+        displayName: verified.displayName ?? customer?.lineName ?? customer?.name ?? null,
+      },
+      200
+    );
+  }
+
+  // ── 6. Mint session via Credentials provider ──
+  // authorize() 會 *再做一次* verify + Customer 查詢，這是 NextAuth 端的安全邊界。
+  try {
+    await signIn("liff-token", {
+      idToken,
+      storeSlug: store.slug,
+      redirect: false,
+    });
+  } catch (err) {
+    // authorize() 返回 null 會被 NextAuth 包成 CredentialsSignin AuthError
+    console.warn("[liff/exchange] signIn failed", {
+      lineUserId: verified.lineUserId,
+      storeId: store.id,
+      err: err instanceof Error ? err.message : String(err),
+    });
+    return json(
+      {
+        status: "error",
+        code: "SESSION_MINT_FAILED",
+        message: "failed to mint session",
+      },
+      401
+    );
+  }
+
+  return json(
+    {
+      status: "session_created",
+      storeSlug: store.slug,
+      customerId: customer.id,
+      displayName: verified.displayName ?? customer.lineName ?? customer.name ?? null,
+    },
+    200
+  );
+}

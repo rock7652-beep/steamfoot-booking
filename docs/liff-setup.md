@@ -79,9 +79,84 @@ open http://localhost:3000/s/zhubei/liff
 
 PR-A 不接登入、不接綁定、不接預約；上述行為足夠驗收。
 
-## 4. 不在 PR-A 範圍
+## 4. PR-B 新增：idToken exchange API
 
-- ❌ idToken exchange → PR-B
+PR-B 加了後端 session bootstrap，UI 流程仍由 PR-C 接管。本節純為 backend integrator 使用。
+
+### 4.1 端點
+
+```
+POST /api/liff/exchange
+Content-Type: application/json
+
+{ "idToken": "<from liff.getIDToken()>", "storeSlug": "zhubei" }
+```
+
+### 4.2 環境變數
+
+| 變數 | 用途 | 來源 |
+|---|---|---|
+| `LINE_LOGIN_CHANNEL_ID` | 驗 idToken `aud` 必須命中 | 已存在（NextAuth LINE OAuth 用同一個）|
+| `LINE_LOGIN_CHANNEL_SECRET` | (PR-B 不需要)| — |
+| `NEXT_PUBLIC_LIFF_ID_ZHUBEI` | client-side `liff.init()` 用 | PR-A 已加 |
+
+> ⚠️ Vercel preview / prod 必須有 `LINE_LOGIN_CHANNEL_ID`；缺則 exchange API 一律回 500 `MISSING_CHANNEL_CONFIG`。
+
+### 4.3 回應格式
+
+| HTTP | body.status | body.code | 場景 |
+|---|---|---|---|
+| 200 | `session_created` | — | Customer 命中、session cookie 已發 |
+| 200 | `need_onboarding` | — | Customer 不存在 / 未綁 userId（PR-C 接補手機）|
+| 400 | `error` | `INVALID_BODY` | zod 驗 body 失敗 |
+| 401 | `error` | `ID_TOKEN_INVALID` | LINE verify 回 400（非過期）|
+| 401 | `error` | `ID_TOKEN_EXPIRED` | idToken 過期 |
+| 401 | `error` | `ID_TOKEN_AUD_MISMATCH` | aud 不是本店 channel |
+| 401 | `error` | `ID_TOKEN_ISS_MISMATCH` | iss 不是 `https://access.line.me` |
+| 401 | `error` | `SESSION_MINT_FAILED` | authorize() 失敗（race）|
+| 404 | `error` | `STORE_NOT_FOUND` | storeSlug 在 DB 找不到 |
+| 500 | `error` | `MISSING_CHANNEL_CONFIG` | env 沒設 |
+| 500 | `error` | `INTERNAL` | 預期外錯誤 |
+| 502 | `error` | `VERIFY_NETWORK` | LINE verify 端點連線失敗 |
+
+成功時 response 含 `Set-Cookie: authjs.session-token=...; HttpOnly; SameSite=lax`，後續 NextAuth `useSession()` 自動讀取。
+
+### 4.4 安全模型
+
+- **三層 verify 設計**：exchange route 與 authorize() 各做一次 LINE verify（defense in depth）。即使有人略過 exchange 直打 NextAuth callback，authorize() 仍會擋下偽造 idToken。
+- **aud 鎖在 `LINE_LOGIN_CHANNEL_ID`**：MVP 期單一 channel；PR-G 多店時 swap 為 `Store.lineLoginChannelId` 動態查詢。
+- **Customer 同店唯一**：`@@unique([storeId, lineUserId])`，跨店相同 lineUserId 不會誤命中。
+- **員工帳號擋下**：authorize() 內 `role !== "CUSTOMER"` 拒絕（與 LINE OAuth signIn callback 同邏輯）。
+
+### 4.5 本地 / preview curl smoke
+
+```bash
+# A. 不該打到 LINE verify 的快速路徑
+curl -sS -X POST http://localhost:3001/api/liff/exchange \
+  -H "Content-Type: application/json" -d '{}' -w "\nHTTP %{http_code}\n"
+# 預期：400 INVALID_BODY
+
+# B. 真實打 LINE verify（fake idToken）
+curl -sS -X POST http://localhost:3001/api/liff/exchange \
+  -H "Content-Type: application/json" \
+  -d '{"idToken":"fake.jwt.string","storeSlug":"zhubei"}' \
+  -w "\nHTTP %{http_code}\n"
+# 預期（dev 有設 LINE_LOGIN_CHANNEL_ID）：401 ID_TOKEN_INVALID + "JWS format error"
+# 若 dev 沒設：500 MISSING_CHANNEL_CONFIG
+
+# C. 真實 idToken（從 LIFF debug=1 拿）
+TOKEN="$(從 LIFF 內取得)"
+curl -sS -X POST https://www.steamfoot.com/api/liff/exchange \
+  -H "Content-Type: application/json" \
+  -d "{\"idToken\":\"$TOKEN\",\"storeSlug\":\"zhubei\"}" \
+  -i  # -i 看 Set-Cookie header
+# 預期：200 session_created + Set-Cookie: authjs.session-token=...
+#       或 200 need_onboarding（若 Customer 沒綁 lineUserId）
+```
+
+## 5. 不在 PR-B 範圍（保留給 PR-C/D）
+
+- ❌ LiffShell UI 串接 exchange → PR-C
 - ❌ Customer binding → PR-C
 - ❌ 體驗預約 → PR-D
 - ❌ `Store.liffId` migration → PR-E
@@ -97,8 +172,6 @@ PR-E 之後，新增分店要 LIFF 入口時：
 3. 把 `src/app/(liff)/liff/page.tsx` 裡的 `LIFF_ID_BY_SLUG` dict 整段替換為 DB 查詢
 4. 不需要 fork 任何頁面
 
-PR-A 之前完成的事：
-- [x] 路由 `/s/[slug]/liff` 已就緒
-- [x] proxy 公開白名單已加 `/liff`
-- [x] `@line/liff` SDK 已安裝
-- [x] LIFF shell + 三態 UI 已就緒
+已完成的事：
+- [x] **PR-A**：路由 `/s/[slug]/liff` 已就緒、proxy 公開白名單已加 `/liff`、`@line/liff` SDK 已安裝、LIFF shell + 三態 UI 已就緒
+- [x] **PR-B**：`/api/liff/exchange` API + `liff-token` NextAuth Credentials provider + 後端 idToken verify helper
