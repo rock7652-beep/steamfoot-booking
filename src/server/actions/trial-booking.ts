@@ -221,19 +221,6 @@ export async function collectTrialPayment(
       );
     }
 
-    // 防止重複收款：已有 TRIAL_PURCHASE + SUCCESS 即拒絕
-    const existing = await prisma.transaction.findFirst({
-      where: {
-        bookingId: booking.id,
-        transactionType: "TRIAL_PURCHASE",
-        status: "SUCCESS",
-      },
-      select: { id: true },
-    });
-    if (existing) {
-      throw new AppError("BUSINESS_RULE", "此預約已收款，請勿重複收款");
-    }
-
     // 金額：未傳 → Booking.expectedAmount 快照 → 店家預設；一律 clamp
     //（clampTrialPrice 在 allowEdit=false 時強制回店家預設，忽略傳入值）
     const baseAmount =
@@ -254,6 +241,28 @@ export async function collectTrialPayment(
       })();
 
     const result = await prisma.$transaction(async (txClient) => {
+      // Race-safe duplicate guard：用 Booking row lock 串行化同一 booking
+      // 的並發收款。原本 findFirst 在 transaction 外屬於 TOCTOU 漏洞 — 兩次
+      // 快速點擊或重送可能各自通過 guard 後各自 create → 同筆 booking 雙
+      // 收款、營收雙算。模式同 collectSinglePayment（PR #166）。
+      //
+      // 鎖定後（任何同 bookingId 的並發 tx 會 block 在這行）才再次查
+      // TRIAL_PURCHASE SUCCESS：能看到任何 winner 已 commit 的交易並拒絕。
+      // 不同 bookingId 不互相影響（row-level lock）。
+      await txClient.$queryRaw`SELECT id FROM "Booking" WHERE id = ${booking.id} FOR UPDATE`;
+
+      const existing = await txClient.transaction.findFirst({
+        where: {
+          bookingId: booking.id,
+          transactionType: "TRIAL_PURCHASE",
+          status: "SUCCESS",
+        },
+        select: { id: true },
+      });
+      if (existing) {
+        throw new AppError("BUSINESS_RULE", "此預約已收款，請勿重複收款");
+      }
+
       const snapshot = await buildTransactionSnapshot(txClient, {
         customerId: booking.customerId,
         storeId,
