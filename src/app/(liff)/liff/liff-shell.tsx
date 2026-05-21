@@ -1,112 +1,295 @@
 "use client";
 
+/**
+ * LiffShell — LIFF 入口頁 client component (PR-A + PR-C2 wiring)
+ *
+ * State machine (plan §2.1)：
+ *   1. initializing            LIFF SDK 初始化中
+ *   2. not_in_line_app         liff.init() OK 但不在 LINE App 內
+ *   3. exchanging              正在呼 /api/liff/exchange
+ *   4. need_onboarding         exchange 回 need_onboarding → 顯示「開始使用」CTA
+ *   5. signed_in               exchange 回 session_created → 「歡迎回來」+ 3 顆 disabled CTA
+ *   6. expired                 ID_TOKEN_EXPIRED / INVALID / 無 idToken → 重新整理 CTA
+ *   7. service_unavailable     CONFIG / STORE_NOT_FOUND / NETWORK / SESSION_MINT_FAILED / INTERNAL / liff.init failed
+ *
+ * PR-C2 wiring (§11 決策)：
+ *   - 手動 CTA（§11.2）：need_onboarding 顯示「開始使用」按鈕，不自動 redirect
+ *   - 不自動 redirect：signed_in 也只顯示「歡迎回來」，不強跳預約
+ *
+ * 不做：
+ *   - 不呼叫 helper / 不呼叫 signIn（那是 onboarding-form 的事）
+ *   - 不接預約 / my-bookings / 剩餘堂數（PR-D；只放 disabled 按鈕）
+ *   - 不寫 inline 中文（一律從 liffMessages 取）
+ */
+
+import Link from "next/link";
 import { useEffect, useState } from "react";
-import { initLiff, isInLineClient, LiffInitError } from "@/lib/liff/client";
+import {
+  getIDToken,
+  initLiff,
+  isInLineClient,
+} from "@/lib/liff/client";
+import { contactStoreUrl, liffMessages } from "@/lib/liff/messages";
 
 type State =
-  | { status: "loading" }
-  | { status: "ready"; inClient: boolean }
-  | { status: "error"; message: string };
+  | { kind: "initializing" }
+  | { kind: "not_in_line_app" }
+  | { kind: "exchanging" }
+  | { kind: "need_onboarding"; displayName: string | null }
+  | { kind: "signed_in"; displayName: string | null }
+  | { kind: "expired" }
+  | { kind: "service_unavailable" };
 
-export function LiffShell({
-  storeName,
-  storeSlug,
-  liffId,
-}: {
+interface LiffShellProps {
   storeName: string;
   storeSlug: string;
   liffId: string;
-}) {
-  const [state, setState] = useState<State>({ status: "loading" });
+}
+
+export function LiffShell({ storeName, storeSlug, liffId }: LiffShellProps) {
+  const [state, setState] = useState<State>({ kind: "initializing" });
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      // ── 1. Init LIFF ──
       try {
         await initLiff(liffId);
-        if (cancelled) return;
-        setState({ status: "ready", inClient: isInLineClient() });
       } catch (err) {
         if (cancelled) return;
-        const message =
-          err instanceof LiffInitError
-            ? err.message
-            : err instanceof Error
-              ? err.message
-              : "LIFF 初始化失敗";
-        setState({ status: "error", message });
+        console.warn("[liff-shell] liff.init failed", err);
+        setState({ kind: "service_unavailable" });
+        return;
+      }
+      if (cancelled) return;
+
+      // ── 2. 環境檢查 ──
+      if (!isInLineClient()) {
+        setState({ kind: "not_in_line_app" });
+        return;
+      }
+      const idToken = getIDToken();
+      if (!idToken) {
+        setState({ kind: "expired" });
+        return;
+      }
+
+      // ── 3. /api/liff/exchange ──
+      setState({ kind: "exchanging" });
+      try {
+        const res = await fetch("/api/liff/exchange", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ idToken, storeSlug }),
+        });
+        if (cancelled) return;
+        const body = (await res.json().catch(() => null)) as
+          | { status: "session_created"; displayName: string | null }
+          | { status: "need_onboarding"; displayName: string | null }
+          | { status: "error"; code?: string }
+          | null;
+
+        if (!body) {
+          setState({ kind: "service_unavailable" });
+          return;
+        }
+
+        if (body.status === "session_created") {
+          setState({ kind: "signed_in", displayName: body.displayName });
+          return;
+        }
+        if (body.status === "need_onboarding") {
+          setState({ kind: "need_onboarding", displayName: body.displayName });
+          return;
+        }
+
+        // error path — 只區分 expired vs service_unavailable（顧客面）
+        if (
+          body.status === "error" &&
+          (body.code === "ID_TOKEN_EXPIRED" || body.code === "ID_TOKEN_INVALID")
+        ) {
+          setState({ kind: "expired" });
+          return;
+        }
+        setState({ kind: "service_unavailable" });
+      } catch (err) {
+        if (cancelled) return;
+        console.warn("[liff-shell] exchange fetch failed", err);
+        setState({ kind: "service_unavailable" });
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [liffId]);
+  }, [liffId, storeSlug]);
 
   return (
     <div className="mx-auto flex max-w-md flex-col gap-6 px-4 py-10">
       <header className="text-center">
-        <p className="text-xs uppercase tracking-widest text-earth-500">LINE Mini App</p>
-        <h1 className="mt-2 text-2xl font-semibold text-earth-900">{storeName}</h1>
-        <p className="mt-1 text-xs text-earth-500">/s/{storeSlug}/liff</p>
+        <p className="text-xs uppercase tracking-widest text-earth-500">{storeName}</p>
       </header>
 
-      {state.status === "loading" && <LoadingBlock />}
-      {state.status === "error" && <ErrorBlock message={state.message} />}
-      {state.status === "ready" && <ReadyBlock inClient={state.inClient} />}
+      {state.kind === "initializing" && (
+        <Loading text={liffMessages.shell.initializing} />
+      )}
+      {state.kind === "exchanging" && (
+        <Loading text={liffMessages.shell.exchanging} />
+      )}
+
+      {state.kind === "not_in_line_app" && (
+        <InfoBlock
+          tone="earth"
+          title={liffMessages.shell.notInLineApp.title}
+          body={liffMessages.shell.notInLineApp.body}
+          showContactStore
+        />
+      )}
+
+      {state.kind === "expired" && (
+        <InfoBlock
+          tone="yellow"
+          body={liffMessages.error.expired}
+          showRetry
+        />
+      )}
+
+      {state.kind === "service_unavailable" && (
+        <InfoBlock
+          tone="red"
+          body={liffMessages.error.serviceUnavailable}
+          showRetry
+          showContactStore
+        />
+      )}
+
+      {state.kind === "need_onboarding" && (
+        <WelcomeCta storeSlug={storeSlug} displayName={state.displayName} />
+      )}
+
+      {state.kind === "signed_in" && (
+        <WelcomeBack displayName={state.displayName} />
+      )}
     </div>
   );
 }
 
-function LoadingBlock() {
+// ──────────────────────────────────────────────────────────
+// Sub-blocks
+// ──────────────────────────────────────────────────────────
+
+function Loading({ text }: { text: string }) {
   return (
     <div className="flex flex-col items-center gap-3 rounded-xl border border-earth-200 bg-white px-4 py-8 text-center">
       <div
         className="h-8 w-8 animate-spin rounded-full border-2 border-earth-300 border-t-earth-700"
         aria-hidden
       />
-      <p className="text-sm text-earth-600">LIFF 初始化中…</p>
+      <p className="text-sm text-earth-600">{text}</p>
     </div>
   );
 }
 
-function ErrorBlock({ message }: { message: string }) {
+function InfoBlock({
+  tone,
+  title,
+  body,
+  showRetry,
+  showContactStore,
+}: {
+  tone: "green" | "red" | "yellow" | "earth";
+  title?: string;
+  body: string;
+  showRetry?: boolean;
+  showContactStore?: boolean;
+}) {
+  const toneClasses: Record<typeof tone, string> = {
+    green: "border-green-200 bg-green-50 text-green-900",
+    red: "border-red-200 bg-red-50 text-red-900",
+    yellow: "border-amber-200 bg-amber-50 text-amber-900",
+    earth: "border-earth-200 bg-earth-50 text-earth-900",
+  };
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-6 text-sm text-red-900">
-      <p className="font-medium">LIFF 無法載入</p>
-      <p className="text-xs text-red-700 break-words">{message}</p>
-      <button
-        type="button"
-        onClick={() => {
-          if (typeof window !== "undefined") window.location.reload();
-        }}
-        className="self-start rounded-md border border-red-300 bg-white px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100"
-      >
-        重新載入
-      </button>
-    </div>
-  );
-}
-
-function ReadyBlock({ inClient }: { inClient: boolean }) {
-  return (
-    <div className="flex flex-col gap-3">
-      <div className="rounded-xl border border-earth-200 bg-white px-4 py-4 text-xs text-earth-600">
-        {inClient
-          ? "已在 LINE App 內開啟。"
-          : "目前不在 LINE 內，部分功能（登入、關閉視窗）將無法使用。"}
+    <div className={`flex flex-col gap-3 rounded-xl border px-4 py-5 text-sm ${toneClasses[tone]}`}>
+      {title && <p className="font-medium">{title}</p>}
+      <p className="text-xs break-words opacity-90">{body}</p>
+      <div className="flex flex-wrap gap-2">
+        {showRetry && (
+          <button
+            type="button"
+            onClick={() => {
+              if (typeof window !== "undefined") window.location.reload();
+            }}
+            className="rounded-md border border-current bg-white/70 px-3 py-1.5 text-xs font-medium hover:bg-white"
+          >
+            {liffMessages.error.retryCta}
+          </button>
+        )}
+        {showContactStore && (
+          <a
+            href={contactStoreUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded-md border border-current bg-white/70 px-3 py-1.5 text-xs font-medium hover:bg-white"
+          >
+            {liffMessages.error.contactStoreCta}
+          </a>
+        )}
       </div>
+    </div>
+  );
+}
 
-      <DisabledCta label="預約體驗" hint="即將開放" />
-      <DisabledCta label="我的資料" hint="即將開放" />
-
-      <p className="px-1 text-xs text-earth-500">
-        LIFF MVP 階段：此入口僅驗證 SDK 初始化。預約、會員、綁定流程將於後續版本陸續上線。
+function WelcomeCta({
+  storeSlug,
+  displayName,
+}: {
+  storeSlug: string;
+  displayName: string | null;
+}) {
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="rounded-xl border border-earth-200 bg-white px-4 py-5">
+        <h2 className="text-lg font-semibold text-earth-900">
+          {liffMessages.shell.welcomeTitle}
+          {displayName ? `，${displayName}` : ""}
+        </h2>
+        <p className="mt-2 text-sm text-earth-700">
+          {liffMessages.shell.welcomeBody}
+        </p>
+      </div>
+      <Link
+        href={`/s/${storeSlug}/liff/onboarding`}
+        className="inline-flex w-full items-center justify-center rounded-xl bg-earth-800 px-4 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-earth-700 active:scale-[0.98]"
+      >
+        {liffMessages.shell.welcomeCta}
+      </Link>
+      <p className="px-1 text-center text-xs text-earth-500">
+        {liffMessages.shell.welcomeFootnote}
       </p>
     </div>
   );
 }
 
-function DisabledCta({ label, hint }: { label: string; hint: string }) {
+function WelcomeBack({ displayName }: { displayName: string | null }) {
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-4 text-sm text-green-900">
+        <p className="font-medium">
+          {liffMessages.shell.signedInTitle}
+          {displayName ? `，${displayName}` : ""}
+        </p>
+        <p className="mt-1 text-xs text-green-800/80">
+          {liffMessages.shell.signedInBody}
+        </p>
+      </div>
+      <DisabledCta label={liffMessages.shell.comingSoon.booking} />
+      <DisabledCta label={liffMessages.shell.comingSoon.myBookings} />
+      <DisabledCta label={liffMessages.shell.comingSoon.remainingSessions} />
+    </div>
+  );
+}
+
+function DisabledCta({ label }: { label: string }) {
   return (
     <button
       type="button"
@@ -115,7 +298,6 @@ function DisabledCta({ label, hint }: { label: string; hint: string }) {
       className="flex w-full items-center justify-between rounded-xl border border-earth-200 bg-earth-100 px-4 py-3 text-left text-earth-500"
     >
       <span className="text-base font-medium">{label}</span>
-      <span className="text-xs">{hint}</span>
     </button>
   );
 }
