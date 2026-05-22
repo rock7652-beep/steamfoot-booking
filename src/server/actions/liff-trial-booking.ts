@@ -185,9 +185,25 @@ export async function submitLiffTrialBooking(
 /**
  * 把 createBooking 的中文錯誤訊息 map 到顧客面 status。
  *
- * 注意：createBooking 是 prod 熱路徑、訊息可能會被改。本 mapping 必須對既有
- * 字串 pattern 做 inclusive match；mapping 失敗一律 fallback `service_unavailable`
- * 並 console.warn 留 audit log，PR-D1B UI 會引導顧客「請聯繫店家」。
+ * ⚠️ TODO (技術債紀錄)：
+ *   這是 **soft contract** — 用中文訊息 regex match `AppError` 的 message field。
+ *   `src/server/actions/booking.ts` 是 prod 熱路徑，若有人改文案（例如
+ *   「該時段已額滿」改成「該時間不可使用」），本 mapping 會 silent miss →
+ *   unmapped error 落到 `service_unavailable` + console.warn → 顧客看到的會
+ *   是「服務暫時無法使用」這個太籠統的訊息。
+ *
+ *   長期解（**不在 PR-D1A 範圍**，避免動 production 熱路徑）：
+ *     1. booking.ts 改丟 typed error：`new BookingError("SLOT_UNAVAILABLE", ...)`
+ *     2. 所有 booking error 統一 enum，code 即為 mapping key
+ *     3. 既有 staff 路徑（後台 / `createTrialBooking`）也統一拿 code 顯示
+ *
+ *   短期：本 PR 接受 regex mapping；測試已覆蓋當前 11 條 createBooking 錯誤訊息
+ *   pattern。若觀察期 (PR-D1B+) 出現大量 `service_unavailable` 而 console.warn
+ *   有 unmapped messages，代表 booking.ts 文案已 drift → 開 follow-up PR 同步
+ *   regex（或直接做 long-term 解）。
+ *
+ *   Reviewer 注意：本檔的 regex 必須與 src/server/actions/booking.ts 的 AppError
+ *   message 字串一致。修任何一邊都要同步另一邊；vitest 的 it.each 表是 truth source。
  */
 function mapCreateBookingErrorToStatus(
   errorMsg: string | undefined,
