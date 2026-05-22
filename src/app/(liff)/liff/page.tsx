@@ -23,6 +23,7 @@ import { LiffShell } from "./liff-shell";
  */
 const LIFF_ID_BY_SLUG: Record<string, string | undefined> = {
   zhubei: process.env.NEXT_PUBLIC_LIFF_ID_ZHUBEI,
+  staging: process.env.NEXT_PUBLIC_LIFF_ID_STAGING,
 };
 
 export const dynamic = "force-dynamic";
