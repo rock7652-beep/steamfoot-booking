@@ -112,6 +112,24 @@ export async function GET(request: NextRequest) {
     results.errorLogCleanup = { error: error instanceof Error ? error.message : "Unknown" };
   }
 
+  // 任一子任務在 results 寫入 { error } 代表該批次「整個拋出」（例：runReminders()
+  // 在第一個 Prisma query 就因 stale DATABASE_URL build-time snapshot 連線失敗）。
+  // 這類 infra 失敗過去被各自的 try/catch swallow 後，整體仍回 200，導致 Vercel
+  // cron run history 顯示成功、提醒實際停擺數天無人察覺（2026-05-16 事故）。
+  // 失敗不可假裝成功 → 只要有任一任務拋出就回 500，讓 cron run history 直接看得出。
+  //
+  // 注意分界：runReminders() 內部對「個別 LINE 發送失敗」已自行處理並回
+  // { failed: N }（不寫 error），那是正常營運狀態，不在此視為批次失敗，仍回 200。
+  // 唯有任務「整個 throw」才會在 results 留下 error 鍵 → 才算 500。
+  const failedTasks = Object.entries(results)
+    .filter(([, v]) => v != null && typeof v === "object" && "error" in v)
+    .map(([k]) => k);
+
+  if (failedTasks.length > 0) {
+    console.error(`[Cron] FAILED tasks: ${failedTasks.join(", ")}`);
+    return NextResponse.json({ ok: false, failedTasks, ...results }, { status: 500 });
+  }
+
   return NextResponse.json({ ok: true, ...results });
 }
 
