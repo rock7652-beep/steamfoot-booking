@@ -165,7 +165,7 @@ describe("submitLiffTrialBooking action (PR-D1A)", () => {
       expect(mockGetCanonicalId).toHaveBeenCalledWith(CUSTOMER_USER);
     });
 
-    it("queries duplicate trial scoped to canonical customerId + FIRST_TRIAL only", async () => {
+    it("queries duplicate trial scoped to canonical customerId + FIRST_TRIAL + A2 statuses", async () => {
       setupHappyPathPreconditions();
       mockCreateBooking.mockResolvedValue({
         success: true,
@@ -179,8 +179,9 @@ describe("submitLiffTrialBooking action (PR-D1A)", () => {
         customerId: CANONICAL_CUSTOMER_ID,
         bookingType: "FIRST_TRIAL",
       });
+      // A2 規則：PENDING / CONFIRMED / COMPLETED 擋；CANCELLED / NO_SHOW 不擋
       expect(findFirstCall.where.bookingStatus).toEqual({
-        in: ["PENDING", "CONFIRMED"],
+        in: ["PENDING", "CONFIRMED", "COMPLETED"],
       });
     });
   });
@@ -223,6 +224,76 @@ describe("submitLiffTrialBooking action (PR-D1A)", () => {
 
     expect(r.status).toBe("already_has_trial");
     expect(mockCreateBooking).not.toHaveBeenCalled();
+  });
+
+  // ── A2 規則新增 ────────────────────────────────────────
+  it("already COMPLETED trial → blocked (A2 規則：真的體驗過就不再自助)", async () => {
+    mockRequireSession.mockResolvedValue(CUSTOMER_USER);
+    mockGetCanonicalId.mockResolvedValue(CANONICAL_CUSTOMER_ID);
+    // 模擬 DB layer 已用 where filter 命中 COMPLETED row
+    mockBookingFindFirst.mockResolvedValue({
+      id: "book-completed",
+      bookingDate: new Date("2026-04-10T00:00:00Z"),
+      slotTime: "15:00",
+    });
+
+    const r = await submitLiffTrialBooking(VALID_INPUT);
+
+    expect(r).toEqual({
+      status: "already_has_trial",
+      existingBookingId: "book-completed",
+      existingBookingDate: "2026-04-10",
+      existingSlotTime: "15:00",
+    });
+    expect(mockEnsureTrialPlan).not.toHaveBeenCalled();
+    expect(mockCreateBooking).not.toHaveBeenCalled();
+  });
+
+  it("previous CANCELLED trial → NOT blocked, proceeds to createBooking (A2 規則)", async () => {
+    setupHappyPathPreconditions();
+    // CANCELLED 不在 where filter 內 → DB 不會回；mock null 模擬 filter 已剔除
+    mockBookingFindFirst.mockResolvedValue(null);
+    mockCreateBooking.mockResolvedValue({
+      success: true,
+      data: { bookingId: "book-retry" },
+    });
+
+    const r = await submitLiffTrialBooking(VALID_INPUT);
+
+    expect(r.status).toBe("ok");
+    expect(mockCreateBooking).toHaveBeenCalledTimes(1);
+  });
+
+  it("previous NO_SHOW trial → NOT blocked, proceeds to createBooking (A2 規則)", async () => {
+    setupHappyPathPreconditions();
+    mockBookingFindFirst.mockResolvedValue(null);
+    mockCreateBooking.mockResolvedValue({
+      success: true,
+      data: { bookingId: "book-retry" },
+    });
+
+    const r = await submitLiffTrialBooking(VALID_INPUT);
+
+    expect(r.status).toBe("ok");
+    expect(mockCreateBooking).toHaveBeenCalledTimes(1);
+  });
+
+  it("duplicate-check 不查 CANCELLED / NO_SHOW (where filter 合約)", async () => {
+    setupHappyPathPreconditions();
+    mockCreateBooking.mockResolvedValue({
+      success: true,
+      data: { bookingId: "book-001" },
+    });
+
+    await submitLiffTrialBooking(VALID_INPUT);
+
+    const findFirstCall = mockBookingFindFirst.mock.calls[0][0];
+    const statusList = findFirstCall.where.bookingStatus.in as string[];
+    expect(statusList).toContain("PENDING");
+    expect(statusList).toContain("CONFIRMED");
+    expect(statusList).toContain("COMPLETED");
+    expect(statusList).not.toContain("CANCELLED");
+    expect(statusList).not.toContain("NO_SHOW");
   });
 
   // ────────────────────────────────────────────────────────

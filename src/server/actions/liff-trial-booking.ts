@@ -104,12 +104,21 @@ export async function submitLiffTrialBooking(
   }
 
   // ── 4. Duplicate FIRST_TRIAL check ─────────────────
+  //
+  // 商業規則 (PR-D1A patch 拍板, "A2 規則")：
+  //   - PENDING / CONFIRMED → 擋（避免同顧客同時開兩張體驗單）
+  //   - COMPLETED           → 擋（已實際體驗過，不應自助再預約 first trial；
+  //                            特殊情況由店家後台 createTrialBooking 處理）
+  //   - CANCELLED / NO_SHOW → **不擋**（沒有真正完成體驗，給顧客再次預約機會）
+  //
+  // 語意：FIRST_TRIAL 是「第一次體驗」，COMPLETED 後就應該轉購買方案或單次預約，
+  // 不該再走自助體驗路徑。但取消或失約沒實際體驗，避免太硬，允許重來。
   try {
     const existing = await prisma.booking.findFirst({
       where: {
         customerId,
         bookingType: "FIRST_TRIAL",
-        bookingStatus: { in: ["PENDING", "CONFIRMED"] },
+        bookingStatus: { in: ["PENDING", "CONFIRMED", "COMPLETED"] },
       },
       select: { id: true, bookingDate: true, slotTime: true },
       orderBy: { createdAt: "desc" },
