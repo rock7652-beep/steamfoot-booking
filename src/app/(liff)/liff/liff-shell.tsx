@@ -167,7 +167,7 @@ export function LiffShell({ storeName, storeSlug, liffId }: LiffShellProps) {
       )}
 
       {state.kind === "signed_in" && (
-        <WelcomeBack displayName={state.displayName} />
+        <WelcomeBack storeSlug={storeSlug} displayName={state.displayName} />
       )}
     </div>
   );
@@ -270,7 +270,13 @@ function WelcomeCta({
   );
 }
 
-function WelcomeBack({ displayName }: { displayName: string | null }) {
+function WelcomeBack({
+  storeSlug,
+  displayName,
+}: {
+  storeSlug: string;
+  displayName: string | null;
+}) {
   return (
     <div className="flex flex-col gap-3">
       <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-4 text-sm text-green-900">
@@ -282,7 +288,25 @@ function WelcomeBack({ displayName }: { displayName: string | null }) {
           {liffMessages.shell.signedInBody}
         </p>
       </div>
-      <DisabledCta label={liffMessages.shell.comingSoon.booking} />
+      {/* PR-D1B：體驗預約 CTA 從 disabled 改為 Link → /liff/trial-booking */}
+      <Link
+        href={`/s/${storeSlug}/liff/trial-booking`}
+        className="flex w-full items-center justify-between rounded-xl bg-earth-800 px-4 py-3 text-left text-base font-semibold text-white shadow-sm transition hover:bg-earth-700 active:scale-[0.98]"
+      >
+        <span>{liffMessages.shell.comingSoon.booking}</span>
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          aria-hidden
+        >
+          <polyline points="9 18 15 12 9 6" />
+        </svg>
+      </Link>
       <DisabledCta label={liffMessages.shell.comingSoon.myBookings} />
       <DisabledCta label={liffMessages.shell.comingSoon.remainingSessions} />
     </div>

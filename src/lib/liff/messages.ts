@@ -28,7 +28,7 @@ export const liffMessages = {
     initializing: "正在連接 LINE…",
     exchanging: "正在確認您的會員資料…",
     comingSoon: {
-      booking: "體驗預約（即將開放）",
+      booking: "體驗預約",
       myBookings: "我的預約（即將開放）",
       remainingSessions: "剩餘堂數（即將開放）",
     },
@@ -36,6 +36,47 @@ export const liffMessages = {
       title: "請從 LINE 開啟此頁",
       body: "為了確認您的會員資料，請從 LINE 圖文選單或好友訊息開啟此頁。",
     },
+  },
+  trialBooking: {
+    // page header
+    title: "預約體驗",
+    body: "請選擇您方便到店體驗的日期與時段。",
+    initializing: "正在連接 LINE…",
+
+    // calendar
+    monthPrev: "上個月",
+    monthNext: "下個月",
+    weekLabels: ["日", "一", "二", "三", "四", "五", "六"] as const,
+    todayLabel: "今",
+    closedDayLabel: "公休",
+    monthEmpty: "本月沒有可預約的時段。",
+
+    // slot list
+    selectDatePrompt: "請先選擇日期",
+    noSlotsForDay: "本日沒有可預約的時段。",
+    slotsLoading: "載入時段中…",
+    slotFullLabel: "已額滿",
+    slotPastLabel: "已過",
+
+    // submit
+    submitPlaceholder: "請選擇日期與時段",
+    submit: "確認預約",
+    submitting: "預約中…",
+    footnote: "店家會於現場收取體驗費用。",
+
+    // success card
+    successTitle: "體驗預約已建立 ✓",
+    successFootnote: "店家會於現場收取體驗費用，期待您到店。",
+    successDateLabel: "日期",
+    successSlotLabel: "時段",
+    successStoreLabel: "店家",
+    successHomeCta: "回首頁",
+
+    // already_has_trial card
+    existingTitle: "您目前已有體驗預約",
+    existingBody: "如需調整請聯繫店家。",
+    existingDateLabel: "日期",
+    existingSlotLabel: "時段",
   },
   onboarding: {
     title: "確認您的會員資料",
@@ -63,5 +104,13 @@ export const liffMessages = {
     serviceUnavailable: "目前服務暫時無法使用，請稍後再試，或透過 LINE 聯繫我們。",
     contactStoreCta: "聯繫店家",
     retryCta: "重新整理",
+
+    // ── PR-D1B 體驗預約專用 ──
+    selectDateFirst: "請先選擇日期。",
+    selectSlotFirst: "請選擇時段。",
+    slotFull: "該時段已額滿，請選擇其他時段。",
+    slotUnavailable: "該時段目前無法預約，請選擇其他時段。",
+    bookingLimitReached: "店家暫不接受新預約，請聯繫我們。",
+    sessionLost: "登入狀態異常，請重新從 LINE 進入此頁。",
   },
 } as const;
