@@ -23,7 +23,7 @@
  *   - 不寫 inline 中文（一律從 liffMessages.trialBooking.* / liffMessages.error.*）
  */
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import Link from "next/link";
 import {
   initLiff,
@@ -100,6 +100,11 @@ export function TrialBookingForm({ storeSlug, storeName, liffId }: Props) {
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
 
+  // Slot fetch race guard：顧客快速切日期 A→B 時，A 的 fetch 後到不該覆蓋 B 的 slots。
+  // 每次新請求遞增 token；callback 比對自己拿到的 token 是否仍是 latest，
+  // 不是 (== stale) 就 silently 丟棄結果。
+  const slotRequestTokenRef = useRef(0);
+
   // ── 1. mount: init LIFF ────────────────────────────
   useEffect(() => {
     let cancelled = false;
@@ -163,17 +168,24 @@ export function TrialBookingForm({ storeSlug, storeName, liffId }: Props) {
   }, [calYear, calMonth, monthLoadable]);
 
   // ── 3. load slots when date selected ───────────────
+  //
+  // Race guard：用遞增 token 比對；只有自己仍是 latest request 才寫回 state。
+  // 範例：顧客點 A → token=1 fetch；點 B → token=2 fetch；A 後到 → token!=2
+  // → 丟棄。避免「日期 B header / 日期 A slot」的 UI mismatch。
   const loadSlots = useCallback(async (date: string) => {
+    const myToken = ++slotRequestTokenRef.current;
     setLoadingSlots(true);
     setSlots([]);
     try {
       const result = await fetchDaySlots(date);
+      if (slotRequestTokenRef.current !== myToken) return; // stale
       setSlots(result.slots);
     } catch (err) {
+      if (slotRequestTokenRef.current !== myToken) return;
       console.warn("[trial-booking-form] fetchDaySlots failed", err);
       setSlots([]);
     } finally {
-      setLoadingSlots(false);
+      if (slotRequestTokenRef.current === myToken) setLoadingSlots(false);
     }
   }, []);
 
