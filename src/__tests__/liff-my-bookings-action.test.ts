@@ -46,10 +46,8 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
-import {
-  fetchLiffBookings,
-  splitLiffBookings,
-} from "@/server/actions/liff-my-bookings";
+import { fetchLiffBookings } from "@/server/actions/liff-my-bookings";
+import { splitLiffBookings } from "@/lib/liff/my-bookings";
 
 // ── 共用 fixtures ──
 const CUSTOMER_USER = {
