@@ -4,6 +4,7 @@ import { DashboardLink as Link } from "@/components/dashboard-link";
 import { StatusBadge, bookingStatusMeta } from "@/components/admin/status-badge";
 import { EmptyStateCompact } from "@/components/admin/empty-state-compact";
 import { TrialBookingDrawer } from "../_components/trial-booking-drawer";
+import { resolveTrialDisplayAmount } from "./compute-amount";
 import type { SlotAvailability } from "@/types";
 
 export interface DayBooking {
@@ -17,6 +18,9 @@ export interface DayBooking {
    *  expectedAmount 為建立時快照、collectedAmount 為實收金額 */
   bookingType: string;
   expectedAmount: number | null;
+  /** PR-D1D：FIRST_TRIAL badge 顯示金額容錯來源（store 預設體驗價）；
+   *  其他 type 為 null。LIFF 建立的體驗 `expectedAmount=null` 時用此 fallback。 */
+  trialDefaultPrice: number | null;
   collected: boolean;
   collectedAmount: number | null;
   customer: {
@@ -316,6 +320,22 @@ function TimelineItem({
   // 直屬店長 = customer.assignedStaff（不再 fallback 到 revenue/service staff）
   const assignedStaffName =
     booking.customer?.assignedStaff?.displayName ?? "未指派";
+
+  // PR-D1D：FIRST_TRIAL badge 顯示金額容錯
+  //   collected   → collectedAmount → expectedAmount → trialDefaultPrice → "—"
+  //   未收款       → expectedAmount → trialDefaultPrice → "—"
+  // LIFF 建立的體驗 expectedAmount=null，需 fallback 到 trialDefaultPrice 才不會 render NT$—
+  let trialAmountText = "—";
+  if (booking.bookingType === "FIRST_TRIAL") {
+    const primary = booking.collected
+      ? booking.collectedAmount ?? booking.expectedAmount
+      : booking.expectedAmount;
+    const display = resolveTrialDisplayAmount({
+      planPrice: primary,
+      trialDefaultPrice: booking.trialDefaultPrice,
+    });
+    if (display != null) trialAmountText = display.toLocaleString();
+  }
   // 方案來源 fallback chain：
   //   1) servicePlan.name — 罕見，僅在 caller 明確指定 servicePlanId 時有值
   //   2) customerPlanWallet.plan.name — 後台 PACKAGE_SESSION 正解（FEFO 綁定的 wallet）
@@ -387,12 +407,11 @@ function TimelineItem({
           {booking.bookingType === "FIRST_TRIAL" ? (
             booking.collected ? (
               <span className="shrink-0 rounded bg-emerald-100 px-1.5 py-0.5 text-[11px] font-medium text-emerald-800">
-                體驗·已收款｜NT$
-                {booking.collectedAmount ?? booking.expectedAmount ?? "—"}
+                體驗·已收款｜NT${trialAmountText}
               </span>
             ) : (
               <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-medium text-amber-800">
-                體驗·未收款｜NT${booking.expectedAmount ?? "—"}
+                體驗·未收款｜NT${trialAmountText}
               </span>
             )
           ) : null}

@@ -4,6 +4,7 @@ import { AppError } from "@/lib/errors";
 import { getManagerCustomerFilter, getStoreFilter } from "@/lib/manager-visibility";
 import { getCanonicalCustomerIdForSession } from "@/lib/customer-identity";
 import { ACTIVE_BOOKING_STATUSES } from "@/lib/booking-constants";
+import { TRIAL_DEFAULTS } from "@/lib/shop-config";
 import type { BookingStatus, Prisma } from "@prisma/client";
 
 export interface ListBookingsOptions {
@@ -251,6 +252,9 @@ export async function getMonthBookingSummary(year: number, month: number, active
         // 體驗 499 PR-2：日面板 badge「體驗·未收款｜NT$xxx」用（最小新增 2 欄）
         bookingType: true,
         expectedAmount: true,
+        // PR-D1D：badge 顯示金額容錯 — LIFF 建立的 FIRST_TRIAL `expectedAmount=null`，
+        // 需照 storeId 退到 ShopConfig.trialDefaultPrice（batch fetch 於 collectedTx 之後）。
+        storeId: true,
         customer: {
           select: {
             id: true,
@@ -302,6 +306,27 @@ export async function getMonthBookingSummary(year: number, month: number, active
     if (t.bookingId) collectedMap.set(t.bookingId, Number(t.amount));
   }
 
+  // PR-D1D：FIRST_TRIAL badge fallback — 用 storeId 批次撈 ShopConfig.trialDefaultPrice。
+  // 缺 ShopConfig row 時用 TRIAL_DEFAULTS.trialDefaultPrice，與 getTrialSettings 一致。
+  // ADMIN __all__ 視角會包含多 store；非 ADMIN 永遠單店，N = 1。
+  const trialStoreIds = [
+    ...new Set(
+      monthBookings
+        .filter((b) => b.bookingType === "FIRST_TRIAL")
+        .map((b) => b.storeId),
+    ),
+  ];
+  const trialDefaultByStore = new Map<string, number>();
+  if (trialStoreIds.length > 0) {
+    const configs = await prisma.shopConfig.findMany({
+      where: { storeId: { in: trialStoreIds } },
+      select: { storeId: true, trialDefaultPrice: true },
+    });
+    for (const c of configs) {
+      trialDefaultByStore.set(c.storeId, Number(c.trialDefaultPrice));
+    }
+  }
+
   // 取涉及的 staff 名稱
   const staffIds = [...new Set(staffCounts.map((s) => s.revenueStaffId!).filter(Boolean))];
   const staffList = staffIds.length > 0
@@ -323,6 +348,9 @@ export async function getMonthBookingSummary(year: number, month: number, active
     people: number;
     bookingType: string;
     expectedAmount: number | null;
+    // PR-D1D：FIRST_TRIAL badge fallback 用，僅 FIRST_TRIAL 有值；其他 type = null。
+    // 為 LIFF 建立的體驗（expectedAmount=null）退回 store 預設體驗價。
+    trialDefaultPrice: number | null;
     // 體驗 499 PR-3：是否已現場收款 + 實收金額（derived from TRIAL_PURCHASE
     // SUCCESS tx；badge 由「未收款」翻成「已收款」）
     collected: boolean;
@@ -376,6 +404,10 @@ export async function getMonthBookingSummary(year: number, month: number, active
       bookingType: b.bookingType,
       // Decimal → number 在 server 邊界轉換，避免 RSC 序列化問題
       expectedAmount: b.expectedAmount == null ? null : Number(b.expectedAmount),
+      trialDefaultPrice:
+        b.bookingType === "FIRST_TRIAL"
+          ? trialDefaultByStore.get(b.storeId) ?? TRIAL_DEFAULTS.trialDefaultPrice
+          : null,
       collected: collectedMap.has(b.id),
       collectedAmount: collectedMap.get(b.id) ?? null,
       customerName: b.customer.name,

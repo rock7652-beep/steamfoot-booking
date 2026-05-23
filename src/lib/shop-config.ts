@@ -63,7 +63,8 @@ const SYSTEM_DEFAULTS = {
 
 // 體驗課設定 system defaults（對應 ShopConfig.trial* 欄位 default；
 // 注意：此處 trial 指「顧客體驗課」，與訂閱方案 EXPERIENCE 無關）
-const TRIAL_DEFAULTS = {
+// PR-D1D：export 讓 month-summary batch query 缺 ShopConfig row 時也能共用同一 fallback。
+export const TRIAL_DEFAULTS = {
   trialEnabled: true,
   trialDefaultPrice: 499,
   trialAllowPriceEdit: true,

@@ -35,6 +35,9 @@ interface BookingEntry {
   people: number;
   bookingType: string;
   expectedAmount: number | null;
+  // PR-D1D：FIRST_TRIAL badge fallback 來源；其他 type 為 null。鏡像
+  // getMonthBookingSummary 的 DayBookingEntry。
+  trialDefaultPrice: number | null;
   collected: boolean;
   collectedAmount: number | null;
   customerName: string;
@@ -208,6 +211,7 @@ export function BookingsManager({
       bookingStatus: b.bookingStatus,
       bookingType: b.bookingType,
       expectedAmount: b.expectedAmount,
+      trialDefaultPrice: b.trialDefaultPrice,
       collected: b.collected,
       collectedAmount: b.collectedAmount,
       customer: b.customer,

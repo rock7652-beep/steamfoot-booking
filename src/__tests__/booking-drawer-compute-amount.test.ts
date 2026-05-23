@@ -1,5 +1,8 @@
 /**
  * PR-D1C — booking-detail-drawer.computeAmount 顯示金額容錯測試
+ * PR-D1D — 同一 fallback 抽出 resolveTrialDisplayAmount，day-detail-panel
+ *          的 badge 共用。本檔保留 PR-D1C 6 case regression，下方新增
+ *          純函數 cases 鎖定 narrow helper 合約。
  *
  * 背景：
  *   LIFF FIRST_TRIAL 預約在後台 drawer 顯示「NT$—」，根因是歷史 trial
@@ -10,7 +13,7 @@
  *   不動 schema / 不動 server payload / 不動 collectTrialPayment / 不動
  *   createBooking。
  *
- * 本檔鎖定 6 種情境：
+ * 本檔鎖定 6 種情境（PR-D1C regression）：
  *   1. FIRST_TRIAL plan.price>0          → 用 plan.price
  *   2. FIRST_TRIAL plan.price=0          → 用 trial.settings.defaultPrice
  *   3. FIRST_TRIAL plan null & trial null → "—"（防禦：兩邊都沒有 → 不誇大）
@@ -20,7 +23,10 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { computeAmount } from "@/app/(dashboard)/dashboard/bookings/compute-amount";
+import {
+  computeAmount,
+  resolveTrialDisplayAmount,
+} from "@/app/(dashboard)/dashboard/bookings/compute-amount";
 import type { BookingDrawerPayload } from "@/server/actions/booking-drawer";
 
 type Booking = BookingDrawerPayload["booking"];
@@ -151,5 +157,70 @@ describe("computeAmount — PR-D1C FIRST_TRIAL fallback", () => {
     const trial = makeTrial();
     // makeup 永遠免費；不應該因為 PR-D1C fallback 而顯示 NT$499
     expect(computeAmount(booking, trial)).toBe("補課（免費）");
+  });
+});
+
+/**
+ * PR-D1D — resolveTrialDisplayAmount 純函數合約
+ *
+ * 這層 narrow helper 給 drawer (planPrice = servicePlan.price) 與
+ * day-detail-panel (planPrice = expectedAmount) 共用。語意：
+ *   planPrice > 0          → planPrice
+ *   else trialDefaultPrice > 0 → trialDefaultPrice
+ *   else                   → null（caller render "—"）
+ *
+ * 兩邊都接受 number | null | undefined，避免 caller 還要先 `?? 0`。
+ */
+describe("resolveTrialDisplayAmount — PR-D1D narrow helper", () => {
+  it("planPrice > 0 → 直接用 planPrice（不走 fallback）", () => {
+    expect(
+      resolveTrialDisplayAmount({ planPrice: 599, trialDefaultPrice: 499 }),
+    ).toBe(599);
+  });
+
+  it("planPrice = 0, trialDefaultPrice > 0 → 用 default（修 day-panel NT$— bug）", () => {
+    expect(
+      resolveTrialDisplayAmount({ planPrice: 0, trialDefaultPrice: 499 }),
+    ).toBe(499);
+  });
+
+  it("planPrice = null（LIFF 建立未填）, trialDefaultPrice > 0 → 用 default", () => {
+    // 這是 day-panel 觸發 bug 的 production case：
+    //   LIFF 建立的 FIRST_TRIAL Booking.expectedAmount=null（金額延後到收款）
+    expect(
+      resolveTrialDisplayAmount({ planPrice: null, trialDefaultPrice: 499 }),
+    ).toBe(499);
+  });
+
+  it("planPrice = undefined, trialDefaultPrice > 0 → 用 default", () => {
+    expect(
+      resolveTrialDisplayAmount({
+        planPrice: undefined,
+        trialDefaultPrice: 499,
+      }),
+    ).toBe(499);
+  });
+
+  it("planPrice = 0, trialDefaultPrice = 0 → null（兩邊都沒有，caller render '—'）", () => {
+    expect(
+      resolveTrialDisplayAmount({ planPrice: 0, trialDefaultPrice: 0 }),
+    ).toBeNull();
+  });
+
+  it("planPrice = null, trialDefaultPrice = null → null（防禦：店家完全沒設）", () => {
+    expect(
+      resolveTrialDisplayAmount({
+        planPrice: null,
+        trialDefaultPrice: null,
+      }),
+    ).toBeNull();
+  });
+
+  it("planPrice 負數（防禦不可能值）→ 退 fallback，不顯示負金額", () => {
+    // 防禦：若上游污染傳入負數，視為「無效」走 fallback；避免 badge 出現
+    // 「NT$ -100」這種荒謬顯示。
+    expect(
+      resolveTrialDisplayAmount({ planPrice: -100, trialDefaultPrice: 499 }),
+    ).toBe(499);
   });
 });
