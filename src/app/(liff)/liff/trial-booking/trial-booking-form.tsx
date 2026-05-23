@@ -40,7 +40,7 @@ import {
   type SubmitLiffTrialBookingResult,
 } from "@/server/actions/liff-trial-booking";
 import { contactStoreUrl, liffMessages } from "@/lib/liff/messages";
-import { parseLocalDate, formatWeekdayZh } from "@/lib/date-utils";
+import { parseLocalDate, formatWeekdayZh, toLocalDateStr } from "@/lib/date-utils";
 import type { SlotAvailability } from "@/types";
 import type { MonthSlotInfo } from "@/server/actions/slots";
 
@@ -84,12 +84,11 @@ interface Props {
 export function TrialBookingForm({ storeSlug, storeName, liffId }: Props) {
   const [state, setState] = useState<State>({ kind: "initializing" });
 
-  // calendar state — 台灣今日（client clock；server gate 才是 source of truth）
-  const today = (() => {
-    const d = new Date();
-    d.setHours(0, 0, 0, 0);
-    return d;
-  })();
+  // calendar state — 一律走 Taipei timezone（per AGENTS.md 全系統 UTC+8 規則 +
+  // docs/date-time-rules.md「禁止 new Date() 判斷今日」）。
+  // browser local TZ 若不是 UTC+8（顧客出國 / 系統 TZ 設錯）會與伺服器月曆 mismatch。
+  // toLocalDateStr() 與既有 booking-calendar-view / fetchMonthAvailability 同源。
+  const today = parseLocalDate(toLocalDateStr());
   const [calYear, setCalYear] = useState(today.getFullYear());
   const [calMonth, setCalMonth] = useState(today.getMonth()); // 0-based
   const [monthData, setMonthData] = useState<Record<string, MonthDayInfo>>({});
