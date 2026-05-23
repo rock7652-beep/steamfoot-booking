@@ -21,6 +21,7 @@ import { RescheduleModal } from "./reschedule-modal";
 import { CollectTrialModal } from "./collect-trial-modal";
 import { CorrectTrialCollectionModal } from "./correct-trial-collection-modal";
 import { CollectSingleModal } from "./collect-single-modal";
+import { computeAmount } from "./compute-amount";
 import { formatWeekdayZh } from "@/lib/date-utils";
 
 const PAYMENT_METHOD_LABEL: Record<string, string> = {
@@ -361,7 +362,7 @@ function DrawerContent({
 }) {
   const { booking, customerSummary, trial, single } = payload;
   const meta = bookingStatusMeta(booking.bookingStatus, booking.isCheckedIn);
-  const amount = computeAmount(booking);
+  const amount = computeAmount(booking, trial);
   const duration = booking.servicePlan?.category === "TRIAL" ? 30 : 60;
   const endTime = computeEndTime(booking.slotTime, duration);
   const dateLabel = formatDateLabel(booking.bookingDate);
@@ -926,21 +927,6 @@ function DrawerSkeleton({
 // ============================================================
 // pure helpers
 // ============================================================
-
-function computeAmount(booking: BookingDrawerPayload["booking"]): string {
-  if (booking.isMakeup) return "補課（免費）";
-  if (!booking.servicePlan) return "—";
-  const price = booking.servicePlan.price;
-  if (!price) return "—";
-  if (
-    booking.bookingType === "PACKAGE_SESSION" &&
-    booking.servicePlan.sessionCount > 1
-  ) {
-    const per = Math.round(price / booking.servicePlan.sessionCount);
-    return `≈ NT$ ${per.toLocaleString()} / 堂（方案 NT$ ${price.toLocaleString()}）`;
-  }
-  return `NT$ ${price.toLocaleString()}`;
-}
 
 function formatBookingType(booking: BookingDrawerPayload["booking"]): string {
   if (booking.isMakeup) return "補課";
