@@ -29,7 +29,8 @@ export const liffMessages = {
     exchanging: "正在確認您的會員資料…",
     comingSoon: {
       booking: "體驗預約",
-      myBookings: "我的預約（即將開放）",
+      // PR-D2：上線後 myBookings 從「即將開放」改 live 標題；保留 key 名減小 diff。
+      myBookings: "我的預約",
       remainingSessions: "剩餘堂數（即將開放）",
     },
     notInLineApp: {
@@ -77,6 +78,39 @@ export const liffMessages = {
     existingBody: "如需調整請聯繫店家。",
     existingDateLabel: "日期",
     existingSlotLabel: "時段",
+  },
+  bookings: {
+    // page header
+    title: "我的預約",
+    initializing: "正在連接 LINE…",
+    loading: "載入預約中…",
+
+    // tabs
+    tabUpcoming: "即將到來",
+    tabHistory: "歷史紀錄",
+
+    // empty states
+    emptyUpcomingTitle: "目前沒有即將到來的預約",
+    emptyUpcomingBody: "從會員首頁可以建立體驗預約。",
+    emptyHistoryTitle: "尚無歷史紀錄",
+    emptyHistoryBody: "已完成的預約會出現在這裡。",
+
+    // card labels — 顧客語言（不用 staff badge 字串）
+    typeFirstTrial: "體驗預約",
+    typePackage: "課程",
+    typeSingle: "單次",
+    typeMakeup: "補課",
+
+    // card footer hint —「需改時間請聯絡店家」
+    // PR-D2 的營運訊號收集器：顧客是否大量想改時間 → 決定 PR-D4 priority
+    contactStoreHint: "需改時間請聯絡店家",
+
+    // 回首頁
+    backHomeCta: "回首頁",
+
+    // 載入失敗 / no_customer
+    loadFailed: "載入預約失敗，請稍後再試。",
+    notSignedIn: "請從 LINE 重新進入會員首頁。",
   },
   onboarding: {
     title: "確認您的會員資料",
