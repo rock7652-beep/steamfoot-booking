@@ -75,6 +75,9 @@ export const liffMessages = {
     // PR-D4C-0：closing the loop — 體驗預約成立後，導顧客回我的預約確認新單。
     // 反映「lifecycle 已完整：看預約 → 取消 → 改時間 → 重訂 → 回查」。
     successMyBookingsCta: "查看我的預約",
+    // PR-E1-1：SuccessCard LINE-green「聯絡店家」CTA，插在 myBookings 與 home 之間。
+    // duplicate of bookings.contactStoreCta (per 拍板：不抽 shared)。
+    contactStoreCta: "聯絡店家",
 
     // already_has_trial card
     existingTitle: "您目前已有體驗預約",
@@ -114,6 +117,11 @@ export const liffMessages = {
     // 載入失敗 / no_customer
     loadFailed: "載入預約失敗，請稍後再試。",
     notSignedIn: "請從 LINE 重新進入會員首頁。",
+
+    // PR-E1-1：upcoming non-cancelled card 上「聯絡店家」LINE-green CTA。
+    // 與 error.contactStoreCta 同字串不同 namespace（per 拍板：duplicate 而非抽 shared，
+    // 避免動到既有 3 個 error.contactStoreCta caller）。
+    contactStoreCta: "聯絡店家",
   },
   // ── PR-D4A-1 顧客自助取消預約（D4A-2 wire UI 時消費）──
   cancelBooking: {
