@@ -536,24 +536,30 @@ function BookingCard({
                 </a>
               </div>
 
-              {/* PR-E1-3：「加入行事曆」outlined CTA — 解 lifecycle 最後一塊「不要忘記來」。
-                  純 client-side data URI ICS（RFC 5545），iOS/Android 各 OS 原生 calendar 接管。
-                  顧客點下去：iOS Calendar.app 跳出「新增事件」preview / Android 問用哪個 calendar app。
-                  下載檔名 = booking ID + .ics（顧客通常不會看到，OS 直接打開預覽）。
-                  Outlined 灰：calendar 是跨平台中性動作，不綁特定品牌色（避免與 LINE green / Google blue 撞色）。 */}
-              <a
-                href={generateBookingIcsDataUri({
-                  bookingId: booking.id,
-                  bookingDate: booking.bookingDate,
-                  slotTime: booking.slotTime,
-                  storeName,
-                })}
-                download={`steamfoot-${booking.id}.ics`}
+              {/* PR-E1-3b（hotfix #184）：「加入行事曆」outlined CTA。
+                  原 v1（PR #183, 912238e in main）用 ICS 檔案 data URI download 流程，
+                  LINE iOS webview 對 data URI dispatch 不穩 → 顧客點按鈕「沒反應」。
+                  改走 Google Calendar TEMPLATE URL（純 HTTP URL）+ 同頁導向：
+                    - button + onClick window.location.href 是最明確的 user-gesture
+                      → LINE webview 不會擋（vs target="_blank" 可能被 popup-blocker 擋）
+                    - LINE iOS webview → 開 calendar.google.com TEMPLATE 頁，顧客一鍵 save
+                    - Android with Google Calendar app → intent deep link 直開 app 預填
+                    - 未登入 Google → 先跳 accounts.google.com 登入頁（非 bug，是 Google auth gate）
+                  Outlined 灰：calendar 為跨平台中性動作，不綁品牌色。 */}
+              <button
+                type="button"
+                onClick={() => {
+                  window.location.href = generateGoogleCalendarUrl({
+                    bookingDate: booking.bookingDate,
+                    slotTime: booking.slotTime,
+                    storeName,
+                  });
+                }}
                 className="flex w-full min-h-[44px] items-center justify-center gap-2 rounded-xl border border-earth-300 bg-white px-4 py-2.5 text-sm font-medium text-earth-700 hover:bg-earth-50 active:scale-[0.98]"
               >
                 <CalendarIcon />
                 {liffMessages.bookings.calendarCta}
-              </a>
+              </button>
             </>
           )}
         </div>
@@ -646,26 +652,38 @@ function CalendarIcon() {
 }
 
 // ──────────────────────────────────────────────────────────
-// PR-E1-3：ICS 生成（RFC 5545 minimum viable，純 client-side）
+// PR-E1-3b：Google Calendar TEMPLATE URL 生成（hotfix #184）
 // ──────────────────────────────────────────────────────────
 
-/** 純函數：booking → ICS 字串（RFC 5545 compliant minimum）。
+/** 純函數：booking → Google Calendar 「新增事件」TEMPLATE URL。
  *
- * 細節：
- *   - 日期格式 UTC YYYYMMDDTHHMMSSZ（避免 TZID 跨平台相容問題）
- *   - 行末 CRLF（spec 強制；某些 calendar app 對 LF-only 會 reject）
- *   - SUMMARY / LOCATION / DESCRIPTION 內 `,;\` 轉義 + 真實 \n → 字面 \\n
- *   - duration hardcode 60 分鐘（per 拍板；體驗服務典型長度）
- *   - 不寫 RRULE / VALARM / ATTACH（minimum viable）
+ * 為何不用 ICS data URI（原 PR #183 v1 in main 之 912238e）：
+ *   LINE iOS webview 對 data URI MIME dispatch 不穩，
+ *   實機測試「沒反應」。改走純 HTTP URL 過 webview 永遠 OK。
+ *
+ * Google Calendar TEMPLATE URL 行為：
+ *   - LINE iOS webview（同頁導向）→ 開 calendar.google.com TEMPLATE 頁，
+ *     顧客一鍵 save 到 Google 行事曆（多數人 Google ↔ iCloud 已 sync → 自動進 Apple Calendar）
+ *   - Android with Google Calendar app → intent deep link 直接開 app 預填事件
+ *   - Android without app → 同 iOS：開 web 版
+ *   - 未登入 Google → 先跳 accounts.google.com 登入頁（非 bug，是 Google auth gate）
+ *
+ * URL params（per Google Calendar template doc）：
+ *   action=TEMPLATE       固定值
+ *   text=<title>          事件標題
+ *   dates=<start>/<end>   UTC YYYYMMDDTHHMMSSZ 格式，斜線分隔
+ *   details=<desc>        備註（多行 \n 自動 encode 為 %0A，Google 正確 render）
+ *   location=<addr>       地點（地圖會顯示 pin）
+ *
+ * URLSearchParams 自動處理所有 URL encoding（含中文 UTF-8 / 特殊字元）。
  */
-function generateBookingIcs(args: {
-  bookingId: string;
+function generateGoogleCalendarUrl(args: {
   bookingDate: string; // "YYYY-MM-DD"
   slotTime: string; // "HH:mm"
   storeName: string;
   durationMinutes?: number;
 }): string {
-  const { bookingId, bookingDate, slotTime, storeName } = args;
+  const { bookingDate, slotTime, storeName } = args;
   const durationMinutes = args.durationMinutes ?? 60;
 
   // Booking 時間是 Taipei +08:00；Date object 內部存 UTC，toISOString 自動產 UTC。
@@ -676,62 +694,19 @@ function generateBookingIcs(args: {
   const fmt = (d: Date) =>
     d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
 
-  // ICS escape: \ , ; → \\ \, \; ; real newline → literal \n
-  const esc = (s: string) =>
-    s
-      .replace(/\\/g, "\\\\")
-      .replace(/,/g, "\\,")
-      .replace(/;/g, "\\;")
-      .replace(/\n/g, "\\n");
+  const params = new URLSearchParams({
+    action: "TEMPLATE",
+    text: `${storeName} 預約`,
+    dates: `${fmt(startLocal)}/${fmt(endLocal)}`,
+    details: [
+      `地址：${storeAddress}`,
+      `導航：${storeMapUrl}`,
+      `聯絡店家：${contactStoreUrl}`,
+    ].join("\n"),
+    location: storeAddress,
+  });
 
-  const title = `${storeName} 預約`;
-  const description = [
-    `地址：${storeAddress}`,
-    `導航：${storeMapUrl}`,
-    `聯絡店家：${contactStoreUrl}`,
-  ].join("\n");
-
-  const lines = [
-    "BEGIN:VCALENDAR",
-    "VERSION:2.0",
-    "PRODID:-//Steamfoot//LIFF Booking//ZH-TW",
-    "CALSCALE:GREGORIAN",
-    "METHOD:PUBLISH",
-    "BEGIN:VEVENT",
-    `UID:${bookingId}@steamfoot.com`,
-    `DTSTAMP:${fmt(new Date())}`,
-    `DTSTART:${fmt(startLocal)}`,
-    `DTEND:${fmt(endLocal)}`,
-    `SUMMARY:${esc(title)}`,
-    `LOCATION:${esc(storeAddress)}`,
-    `DESCRIPTION:${esc(description)}`,
-    "END:VEVENT",
-    "END:VCALENDAR",
-  ];
-  // RFC 5545: lines MUST end with CRLF
-  return lines.join("\r\n");
-}
-
-/** ICS 字串 → `data:text/calendar;base64,...` URI。
- *
- * UTF-8 encoding：btoa 只吃 Latin-1，所以先 TextEncoder → Uint8Array →
- * String.fromCharCode 拼成 Latin-1 binary string → btoa。
- * 對小 ICS payload（< 1KB）安全，不會 hit 呼叫堆疊上限。
- */
-function generateBookingIcsDataUri(args: {
-  bookingId: string;
-  bookingDate: string;
-  slotTime: string;
-  storeName: string;
-}): string {
-  const ics = generateBookingIcs(args);
-  const utf8Bytes = new TextEncoder().encode(ics);
-  let binary = "";
-  for (let i = 0; i < utf8Bytes.length; i++) {
-    binary += String.fromCharCode(utf8Bytes[i]);
-  }
-  const base64 = btoa(binary);
-  return `data:text/calendar;charset=utf-8;base64,${base64}`;
+  return `https://calendar.google.com/calendar/render?${params.toString()}`;
 }
 
 /**
