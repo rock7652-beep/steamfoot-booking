@@ -29,7 +29,11 @@ import {
   initLiff,
   isInLineClient,
 } from "@/lib/liff/client";
-import { contactStoreUrl, liffMessages } from "@/lib/liff/messages";
+import {
+  contactStoreUrl,
+  healthFlowLiffUrl,
+  liffMessages,
+} from "@/lib/liff/messages";
 
 type State =
   | { kind: "initializing" }
@@ -317,6 +321,28 @@ function WelcomeBack({
         <span>{liffMessages.shell.comingSoon.remainingSessions}</span>
         <ChevronRightIcon />
       </Link>
+
+      {/* PR-F1A：HealthFlow AI 健康評估外部 LIFF 入口。
+          視覺與 3 個主流程入口分離 — border-t + pt-3 + mt-1 強調「次要 / 外部服務」。
+          Transport：button + onClick { window.location.href = ... } same-page nav。
+          per PR #184 教訓：LINE iOS webview 對 button + window.location.href 最穩；
+          不用 target="_blank"（popup blocker）/ liff.openWindow（LIFF context 衝突）/ <a href>（缺 user gesture 明確性）。
+          URL 不傳任何 query string — HealthFlow 用自己 LIFF ID 處理 LINE 身份。*/}
+      <div className="mt-1 flex flex-col gap-2 border-t border-earth-200 pt-3">
+        <button
+          type="button"
+          onClick={() => {
+            window.location.href = healthFlowLiffUrl;
+          }}
+          className="flex w-full items-center justify-between rounded-xl border border-earth-300 bg-white px-4 py-3 text-left text-base font-medium text-earth-900 shadow-sm transition hover:bg-earth-50 active:scale-[0.98]"
+        >
+          <span>{liffMessages.shell.healthAssessmentCta}</span>
+          <ChevronRightIcon />
+        </button>
+        <p className="px-1 text-xs text-earth-600">
+          {liffMessages.shell.healthAssessmentHint}
+        </p>
+      </div>
     </div>
   );
 }
