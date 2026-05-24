@@ -290,7 +290,7 @@ function WelcomeBack({
       </div>
       {/* PR-E3：簡短 helper copy 讓顧客知道 3 顆 CTA 可以做什麼。
           muted secondary tone — 不搶 primary CTA 焦點；mobile-first 小字。*/}
-      <p className="px-1 text-xs text-earth-500">
+      <p className="px-1 text-sm text-earth-700">
         {liffMessages.shell.welcomeHomeHint}
       </p>
       {/* PR-D1B：體驗預約 CTA 從 disabled 改為 Link → /liff/trial-booking */}
