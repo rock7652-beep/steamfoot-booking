@@ -15,7 +15,7 @@
  * PR-C2 階段：全店共用一個 LINE OA 連結；多店分流交給 PR-E
  * (Store.lineDestination 已存在，但 PR-C2 不動 schema/DB，待 PR-E 再 wire)
  */
-export const contactStoreUrl = "https://line.me/R/ti/p/@steamfoot";
+export const contactStoreUrl = "https://line.me/R/ti/p/@083vmikb";
 
 export const liffMessages = {
   shell: {
