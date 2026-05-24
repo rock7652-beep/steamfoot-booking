@@ -1,21 +1,25 @@
 "use client";
 
 /**
- * LIFF My Bookings List (PR-D2)
+ * LIFF My Bookings List (PR-D2 + PR-D4A-2)
  *
  * 流程：
  *   1. mount → initLiff → isInLineClient → ready
  *   2. ready → call fetchLiffBookings → 顯示 upcoming + history tabs
+ *   3. 點 upcoming card「取消此次預約」→ confirm modal → cancelLiffBooking
+ *      → 成功 → refetchBookings 替換 state（card 從 upcoming 移到 history）
  *
- * 範圍（per PR-D2 拍板）：
- *   ✅ upcoming / history 兩 tab
- *   ✅ status badge（reuse STATUS_LABEL / STATUS_COLOR）
- *   ✅ type badge（LIFF-specific：體驗預約 / 課程 / 單次 / 補課）
- *   ✅ 服務店長（null → 整行不顯示，不 fallback「未指派」）
- *   ✅ 「需改時間請聯絡店家」hint —— 營運訊號收集器
- *   ❌ 金額 / 付款狀態 / cancel / reschedule / push reminder
+ * 範圍（per PR-D2 + PR-D4A-2 拍板）：
+ *   ✅ upcoming / history 兩 tab (D2)
+ *   ✅ status badge（reuse STATUS_LABEL / STATUS_COLOR）(D2)
+ *   ✅ type badge（LIFF-specific：體驗預約 / 課程 / 單次 / 補課）(D2)
+ *   ✅ 服務店長（null → 整行不顯示，不 fallback「未指派」）(D2)
+ *   ✅ 「需改時間請聯絡店家」hint —— 營運訊號收集器 (D2，D4A-2 保留)
+ *   ✅ 「取消此次預約」按鈕 + inline confirm modal (D4A-2)
+ *   ✅ < 12h cutoff → 按鈕 disabled + 子文（client-derive，mirror server 規則）(D4A-2)
+ *   ❌ 金額 / 付款狀態 / reschedule / refund / push reminder
  *
- * Mobile-first：max-w-md。文案一律 `liffMessages.bookings.*`，不寫 inline 中文。
+ * Mobile-first：max-w-md。文案一律 `liffMessages.bookings.*` / `liffMessages.cancelBooking.*`，不寫 inline 中文。
  */
 
 import { useEffect, useState } from "react";
@@ -29,6 +33,7 @@ import {
   fetchLiffBookings,
   type LiffBookingRow,
 } from "@/server/actions/liff-my-bookings";
+import { cancelLiffBooking } from "@/server/actions/liff-cancel-booking";
 import { contactStoreUrl, liffMessages } from "@/lib/liff/messages";
 import { STATUS_LABEL, STATUS_COLOR } from "@/lib/booking-constants";
 
@@ -54,6 +59,68 @@ interface Props {
 export function BookingsList({ storeSlug, storeName, liffId }: Props) {
   const [state, setState] = useState<State>({ kind: "initializing" });
   const [tab, setTab] = useState<Tab>("upcoming");
+
+  // PR-D4A-2 cancel modal state — null = closed
+  const [cancelTarget, setCancelTarget] = useState<LiffBookingRow | null>(null);
+  const [cancelStatus, setCancelStatus] = useState<
+    "idle" | "submitting" | "error"
+  >("idle");
+  const [cancelError, setCancelError] = useState<string | null>(null);
+
+  function openCancelModal(booking: LiffBookingRow) {
+    setCancelTarget(booking);
+    setCancelStatus("idle");
+    setCancelError(null);
+  }
+
+  function closeCancelModal() {
+    if (cancelStatus === "submitting") return; // 不允許處理中 dismiss
+    setCancelTarget(null);
+    setCancelStatus("idle");
+    setCancelError(null);
+  }
+
+  /**
+   * 取消成功後重抓列表（per D4A-2 拍板選項 c：no flicker、explicit、accurate）。
+   * 失敗 silently — 不把使用者踢出 "ready" state（避免空白頁感）。
+   */
+  async function refetchBookings() {
+    try {
+      const r = await fetchLiffBookings();
+      if (r.status === "ok") {
+        setState({
+          kind: "ready",
+          upcoming: r.upcoming,
+          history: r.history,
+        });
+      }
+    } catch (err) {
+      console.warn("[liff-my-bookings] refetch after cancel failed", err);
+    }
+  }
+
+  async function handleConfirmCancel() {
+    if (!cancelTarget) return;
+    setCancelStatus("submitting");
+    setCancelError(null);
+    try {
+      const r = await cancelLiffBooking({ bookingId: cancelTarget.id });
+      if (r.status === "ok") {
+        // close 在 refetch 完成前先做，讓 modal 立刻消失；卡片靠 refetch 移到 history
+        setCancelTarget(null);
+        setCancelStatus("idle");
+        setCancelError(null);
+        await refetchBookings();
+        return;
+      }
+      setCancelStatus("error");
+      setCancelError(mapCancelStatusToMessage(r.status));
+    } catch (err) {
+      console.warn("[liff-my-bookings] cancelLiffBooking threw", err);
+      setCancelStatus("error");
+      setCancelError(liffMessages.cancelBooking.errorServiceUnavailable);
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -161,6 +228,18 @@ export function BookingsList({ storeSlug, storeName, liffId }: Props) {
           tab={tab}
           onTabChange={setTab}
           storeSlug={storeSlug}
+          onRequestCancel={openCancelModal}
+        />
+      )}
+
+      {/* PR-D4A-2 inline cancel confirm modal — 與 BookingsList state 同層 */}
+      {cancelTarget && (
+        <CancelConfirmModal
+          booking={cancelTarget}
+          status={cancelStatus}
+          errorMessage={cancelError}
+          onConfirm={handleConfirmCancel}
+          onDismiss={closeCancelModal}
         />
       )}
     </div>
@@ -177,12 +256,15 @@ function ReadyView({
   tab,
   onTabChange,
   storeSlug,
+  onRequestCancel,
 }: {
   upcoming: LiffBookingRow[];
   history: LiffBookingRow[];
   tab: Tab;
   onTabChange: (t: Tab) => void;
   storeSlug: string;
+  /** PR-D4A-2：upcoming card 點「取消此次預約」時 caller 開 modal */
+  onRequestCancel: (b: LiffBookingRow) => void;
 }) {
   const displayed = tab === "upcoming" ? upcoming : history;
   return (
@@ -195,7 +277,11 @@ function ReadyView({
         <ul className="flex flex-col gap-3">
           {displayed.map((b) => (
             <li key={b.id}>
-              <BookingCard booking={b} />
+              <BookingCard
+                booking={b}
+                tab={tab}
+                onRequestCancel={onRequestCancel}
+              />
             </li>
           ))}
         </ul>
@@ -272,9 +358,22 @@ function TabButton({
 // Card
 // ──────────────────────────────────────────────────────────
 
-function BookingCard({ booking }: { booking: LiffBookingRow }) {
+function BookingCard({
+  booking,
+  tab,
+  onRequestCancel,
+}: {
+  booking: LiffBookingRow;
+  tab: Tab;
+  /** PR-D4A-2：caller 開 cancel modal；history tab 不傳 = 不顯示按鈕 */
+  onRequestCancel?: (b: LiffBookingRow) => void;
+}) {
   const dateLabel = formatBookingDate(booking.bookingDate);
   const isCancelled = booking.bookingStatus === "CANCELLED";
+  // PR-D4A-2：只在 upcoming tab 的 non-cancelled card 顯示「取消」按鈕。
+  // history tab 一律不顯示（COMPLETED / NO_SHOW / 已取消的 / 過期 PENDING 都不該再取消）。
+  const showCancelControl = tab === "upcoming" && !isCancelled && !!onRequestCancel;
+  const canCancel = showCancelControl ? canCancelBooking(booking) : false;
   return (
     <div
       className={`flex flex-col gap-2 rounded-xl border border-earth-200 bg-white px-4 py-3 shadow-sm ${
@@ -309,9 +408,38 @@ function BookingCard({ booking }: { booking: LiffBookingRow }) {
       </div>
 
       {!isCancelled && (
-        <p className="border-t border-earth-100 pt-2 text-xs text-earth-500">
-          {liffMessages.bookings.contactStoreHint}
-        </p>
+        <div className="flex flex-col gap-2 border-t border-earth-100 pt-2">
+          {/* PR-D2 保留 hint —— 取消 ≠ 改時間，hint 仍然語義正確（per D4A-2 拍板選項 a）*/}
+          <p className="text-xs text-earth-500">
+            {liffMessages.bookings.contactStoreHint}
+          </p>
+
+          {/* PR-D4A-2：cancel control — disabled when <12h（client-derive，mirror server 規則）*/}
+          {showCancelControl &&
+            (canCancel ? (
+              <button
+                type="button"
+                onClick={() => onRequestCancel!(booking)}
+                className="w-full rounded-xl border border-red-200 bg-white px-4 py-2.5 text-sm font-medium text-red-700 hover:bg-red-50 active:scale-[0.98]"
+              >
+                {liffMessages.cancelBooking.cardCta}
+              </button>
+            ) : (
+              <div>
+                <button
+                  type="button"
+                  disabled
+                  aria-disabled
+                  className="w-full cursor-not-allowed rounded-xl border border-earth-200 bg-earth-50 px-4 py-2.5 text-sm font-medium text-earth-400"
+                >
+                  {liffMessages.cancelBooking.cardCta}
+                </button>
+                <p className="mt-1 text-center text-[11px] text-earth-500">
+                  {liffMessages.cancelBooking.cardHint}
+                </p>
+              </div>
+            ))}
+        </div>
       )}
     </div>
   );
@@ -347,6 +475,44 @@ function formatBookingDate(yyyymmdd: string): string {
     weekday: "short",
     timeZone: "Asia/Taipei",
   });
+}
+
+/**
+ * PR-D4A-2：client-side cutoff 判斷，mirror src/server/actions/booking.ts:638
+ * 的 12 小時規則（hoursUntilBooking < 12 → reject）。
+ *
+ * client 算只負責按鈕 enabled/disabled UX；最終 source of truth 仍是 server —
+ * 即使 client 漏判（時鐘漂移、跨日 edge case）讓使用者按下按鈕，cancelLiffBooking
+ * 也會回 cutoff_breach，modal 會顯示錯誤訊息。
+ */
+function canCancelBooking(b: LiffBookingRow): boolean {
+  const d = new Date(`${b.bookingDate}T${b.slotTime}:00+08:00`);
+  const hoursUntil = (d.getTime() - Date.now()) / (1000 * 60 * 60);
+  return hoursUntil >= 12;
+}
+
+/**
+ * PR-D4A-2：cancelLiffBooking discriminated-union status → 顧客面文案。
+ * no_customer / invalid_input 都歸入 service_unavailable —— 顧客面不細分
+ * 「身份失效」「輸入錯」這種技術細節（這兩個本 UI 也不太可能命中）。
+ */
+function mapCancelStatusToMessage(status: string): string {
+  const m = liffMessages.cancelBooking;
+  switch (status) {
+    case "not_found":
+      return m.errorNotFound;
+    case "forbidden":
+      return m.errorForbidden;
+    case "cutoff_breach":
+      return m.errorCutoffBreach;
+    case "status_blocked":
+      return m.errorStatusBlocked;
+    case "no_customer":
+    case "invalid_input":
+    case "service_unavailable":
+    default:
+      return m.errorServiceUnavailable;
+  }
 }
 
 /**
@@ -440,6 +606,95 @@ function InfoBlock({
         >
           {liffMessages.bookings.backHomeCta}
         </Link>
+      </div>
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────
+// PR-D4A-2 cancel confirm modal (inline，未抽獨立檔；per 拍板選項 a)
+// ──────────────────────────────────────────────────────────
+
+/**
+ * Bottom-sheet style modal（手機友善），desktop fallback 置中。
+ *   - backdrop 點擊可關閉，但 status === "submitting" 時 lock
+ *   - status 三態：idle (顯示 confirm/dismiss) / submitting (按鈕 spinner +
+ *     disabled) / error (額外顯示 errorMessage banner，confirm 按鈕仍可重試)
+ *   - 不做 success 階段：成功瞬間 caller 已 closeCancelModal + refetch，卡片
+ *     會直接從 upcoming 移到 history，視覺即是 feedback
+ */
+function CancelConfirmModal({
+  booking,
+  status,
+  errorMessage,
+  onConfirm,
+  onDismiss,
+}: {
+  booking: LiffBookingRow;
+  status: "idle" | "submitting" | "error";
+  errorMessage: string | null;
+  onConfirm: () => void;
+  onDismiss: () => void;
+}) {
+  const m = liffMessages.cancelBooking;
+  const dateLabel = formatBookingDate(booking.bookingDate);
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="cancel-modal-title"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 px-4 pb-6 sm:items-center sm:pb-0"
+      onClick={(e) => {
+        // backdrop click 才 dismiss；submitting 時 lock
+        if (e.target === e.currentTarget) onDismiss();
+      }}
+    >
+      <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl">
+        <h2
+          id="cancel-modal-title"
+          className="text-lg font-bold text-earth-900"
+        >
+          {m.confirmTitle}
+        </h2>
+        <p className="mt-2 text-sm text-earth-600">{m.confirmBody}</p>
+
+        {/* 預約 snapshot — 顧客最後確認一下是哪一筆 */}
+        <div className="mt-3 rounded-lg border border-earth-200 bg-earth-50 px-3 py-2 text-sm">
+          <p className="font-semibold text-earth-900">
+            {dateLabel} {booking.slotTime}
+          </p>
+          <p className="mt-0.5 text-xs text-earth-600">
+            {liffTypeLabel(booking.bookingType, booking.isMakeup)}
+          </p>
+        </div>
+
+        {status === "error" && errorMessage && (
+          <p
+            role="alert"
+            className="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700"
+          >
+            {errorMessage}
+          </p>
+        )}
+
+        <div className="mt-4 flex gap-2">
+          <button
+            type="button"
+            onClick={onDismiss}
+            disabled={status === "submitting"}
+            className="flex-1 rounded-xl border border-earth-300 bg-white px-4 py-3 text-sm font-medium text-earth-700 hover:bg-earth-50 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {m.dismissCta}
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={status === "submitting"}
+            className="flex-1 rounded-xl bg-red-600 px-4 py-3 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-wait disabled:opacity-60"
+          >
+            {status === "submitting" ? m.submitting : m.confirmCta}
+          </button>
+        </div>
       </div>
     </div>
   );
