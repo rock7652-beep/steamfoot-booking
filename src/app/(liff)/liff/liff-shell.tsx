@@ -304,7 +304,14 @@ function WelcomeBack({
         <span>{liffMessages.shell.comingSoon.myBookings}</span>
         <ChevronRightIcon />
       </Link>
-      <DisabledCta label={liffMessages.shell.comingSoon.remainingSessions} />
+      {/* PR-E2b：剩餘堂數 / 我的方案 CTA 從 disabled 改為 Link → /liff/wallets (PR-E2 page 已 ship) */}
+      <Link
+        href={`/s/${storeSlug}/liff/wallets`}
+        className="flex w-full items-center justify-between rounded-xl border border-earth-300 bg-white px-4 py-3 text-left text-base font-medium text-earth-900 shadow-sm transition hover:bg-earth-50 active:scale-[0.98]"
+      >
+        <span>{liffMessages.shell.comingSoon.remainingSessions}</span>
+        <ChevronRightIcon />
+      </Link>
     </div>
   );
 }
@@ -326,15 +333,5 @@ function ChevronRightIcon() {
   );
 }
 
-function DisabledCta({ label }: { label: string }) {
-  return (
-    <button
-      type="button"
-      disabled
-      aria-disabled
-      className="flex w-full items-center justify-between rounded-xl border border-earth-200 bg-earth-100 px-4 py-3 text-left text-earth-500"
-    >
-      <span className="text-base font-medium">{label}</span>
-    </button>
-  );
-}
+// PR-E2b：DisabledCta 元件移除 — 3 顆 CTA (booking / myBookings / wallets) 已全部 wire。
+// 若未來新增 disabled CTA 需求，可從 git history 找回。
