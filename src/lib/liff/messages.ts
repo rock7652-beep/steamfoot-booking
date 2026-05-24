@@ -18,6 +18,21 @@
 export const contactStoreUrl = "https://line.me/R/ti/p/@083vmikb";
 
 /**
+ * PR-F1A：HealthFlow AI 健康評估 LIFF URL（外部獨立 LIFF App）。
+ *
+ * 為何 hardcode global const（同 contactStoreUrl / storeAddress / storeMapUrl）：
+ *   - HealthFlow 是獨立 LIFF App，由 HealthFlow 用自己的 LIFF ID 處理 LINE 身分
+ *   - Steamfoot 不傳任何 identity 參數（customerId / storeId / lineUserId / phone / name）
+ *   - 純導流入口，URL 不含 query string，避免跨系統身份對錯與個資洩漏
+ *   - PR-E 階段未動 schema；多店若需差異化 HealthFlow 入口，後續 PR 改 per-store
+ *
+ * 為何用 liff.line.me URL 而非 www.healthflow-ai.com：
+ *   - liff.line.me redirector 是 LINE 官方基礎設施，自動 handle LINE Login + LIFF context
+ *   - 顧客在 LINE App 內無感登入；換用 web URL 會強迫顧客重新登入
+ */
+export const healthFlowLiffUrl = "https://liff.line.me/2009744225-9aSc04fR";
+
+/**
  * PR-E1-2：竹北店地址 + Google Maps 短網址（指到店家專屬 listing，含評論 / 照片）。
  * 同 contactStoreUrl 模式：PR-C2 階段全店共用 const；多店分流交給 PR-E
  * (Store.address schema 已存在但 prod 未填，待 PR-E 再 wire per-store)。
@@ -39,6 +54,11 @@ export const liffMessages = {
     // PR-E3：3 個 CTA 已全 live (E2b)，加 helper copy 一行讓顧客知道入口在做什麼。
     // 對應 3 顆 CTA：「快速預約」→體驗預約 / 「查詢預約」→我的預約 / 「剩餘堂數」→我的方案
     welcomeHomeHint: "快速預約、查詢預約與剩餘堂數。",
+    // PR-F1A：HealthFlow AI 健康評估外部 LIFF 入口。
+    // 文案避免「診斷 / 治療 / 保證改善」等醫療性語言，用「了解狀態」中性描述。
+    // 不暗示 Steamfoot 已同步 HealthFlow 資料（提供給店家「參考」≠ Steamfoot 已收到）。
+    healthAssessmentCta: "AI 健康評估",
+    healthAssessmentHint: "了解目前身體狀態，完成後可提供給店家參考。",
     initializing: "正在連接 LINE…",
     exchanging: "正在確認您的會員資料…",
     comingSoon: {
