@@ -17,6 +17,17 @@
  */
 export const contactStoreUrl = "https://line.me/R/ti/p/@083vmikb";
 
+/**
+ * PR-E1-2：竹北店地址 + Google Maps 短網址（指到店家專屬 listing，含評論 / 照片）。
+ * 同 contactStoreUrl 模式：PR-C2 階段全店共用 const；多店分流交給 PR-E
+ * (Store.address schema 已存在但 prod 未填，待 PR-E 再 wire per-store)。
+ *
+ * Map URL 為 Google Maps 官方分享短連結 — 點 deep link 在 iOS/Android 自動
+ * 跳原生 Maps app，不需額外做 Apple Maps 分流。
+ */
+export const storeAddress = "302新竹縣竹北市中崙里科大一路80號";
+export const storeMapUrl = "https://maps.app.goo.gl/EyqUvkAaHCxu6iWz5?g_st=ic";
+
 export const liffMessages = {
   shell: {
     welcomeTitle: "歡迎使用暖暖蒸足 LINE 會員服務",
@@ -122,6 +133,9 @@ export const liffMessages = {
     // 與 error.contactStoreCta 同字串不同 namespace（per 拍板：duplicate 而非抽 shared，
     // 避免動到既有 3 個 error.contactStoreCta caller）。
     contactStoreCta: "聯絡店家",
+    // PR-E1-2：upcoming non-cancelled card 上「導航到店」Google-blue CTA。
+    // 顧客出發前最自然位置；按下開 Google Maps 短網址 → iOS/Android 跳原生 Maps。
+    navigateCta: "導航到店",
   },
   // ── PR-D4A-1 顧客自助取消預約（D4A-2 wire UI 時消費）──
   cancelBooking: {
