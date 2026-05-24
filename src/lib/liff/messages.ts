@@ -141,6 +141,62 @@ export const liffMessages = {
     // 解 lifecycle 最後一塊：「不要忘記來」— 體驗客 forget rate 第一殺手。
     calendarCta: "加入行事曆",
   },
+  // ── PR-E2 我的方案 / 剩餘堂數 ──
+  // 文案策略 (per 拍板 A (c) LIFF-friendly 調整)：
+  //   大字 hero = walletAvailableToBook（顧客最想知道「我還能約幾次」）
+  //   下方拆分 = 方案剩餘 R/T + 待到店 / 已使用 / 已註銷（mirror /my-plans 細項）
+  //   raw remainingSessions 不單獨出現 — 一定配「待到店」拆分避免顧客誤解
+  wallets: {
+    // page header
+    title: "我的方案",
+    initializing: "正在連接 LINE…",
+    loading: "載入方案中…",
+
+    // section headers
+    activeSectionTitle: "有效方案",
+    expiredSectionTitle: "已過期",
+    historySectionTitle: "歷史方案",
+
+    // wallet card — hero (大字)
+    /** e.g. "可預約 3 堂" — 主視覺，用 walletAvailableToBook 結果 */
+    availableSuffix: "堂可預約",
+
+    // wallet card — 拆分（小字）
+    /** e.g. "方案剩餘 5 / 10 堂" — raw 揭露 + total 對標 */
+    remainingLabel: "方案剩餘",
+    sessionsUnit: "堂",
+    /** "待到店 2"（已預約未到店的非補課堂數） */
+    pendingLabel: "待到店",
+    /** "已使用 3"（含 BACKFILLED 補登） */
+    usedLabel: "已使用",
+    /** "已註銷 1"（VOIDED；獨立呈現） */
+    voidedLabel: "已註銷",
+
+    // wallet card — footer
+    /** e.g. "有效至 2026/05/24" — 有 expiryDate 時 */
+    validUntilLabel: "有效至",
+    /** expiryDate=null 時顯示 */
+    noExpiryLabel: "無期限",
+    /** 7 天內到期 badge */
+    expiringSoonBadge: "即將到期",
+    /** Expired section 卡片 badge */
+    expiredBadge: "已過期",
+    /** History section 卡片 badge（USED_UP / ACTIVE+0）*/
+    usedUpBadge: "已用完",
+    /** History section 卡片 badge（CANCELLED）*/
+    cancelledBadge: "已取消",
+
+    // empty state
+    emptyTitle: "目前沒有可使用的方案",
+    emptyBody: "若您已購買方案，請聯絡店家協助確認。",
+
+    // 回首頁
+    backHomeCta: "回首頁",
+
+    // error states
+    loadFailed: "載入方案失敗，請稍後再試。",
+    notSignedIn: "請從 LINE 重新進入會員首頁。",
+  },
   // ── PR-D4A-1 顧客自助取消預約（D4A-2 wire UI 時消費）──
   cancelBooking: {
     // confirm modal (D4A-2，PR-D4B-1 擴：新增 rescheduleCta 為第三顆 primary 按鈕)
