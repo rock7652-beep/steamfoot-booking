@@ -42,7 +42,10 @@ export const liffMessages = {
       booking: "體驗預約",
       // PR-D2：上線後 myBookings 從「即將開放」改 live 標題；保留 key 名減小 diff。
       myBookings: "我的預約",
-      remainingSessions: "剩餘堂數（即將開放）",
+      // PR-E2b：上線後 remainingSessions 從「即將開放」改 live 標題；保留 key 名減小 diff。
+      // 文案用「我的方案」對齊目的地 page header (liffMessages.wallets.title)，
+      // 與 PR-D2 myBookings 同 pattern (home button label == destination page title)。
+      remainingSessions: "我的方案",
     },
     notInLineApp: {
       title: "請從 LINE 開啟此頁",
