@@ -210,12 +210,26 @@ function ReadyView({
         </>
       )}
 
-      <Link
-        href={`/s/${storeSlug}/liff`}
-        className="mt-4 inline-flex items-center justify-center rounded-xl border border-earth-300 bg-white px-4 py-2.5 text-sm font-medium text-earth-700 hover:bg-earth-50"
-      >
-        {liffMessages.wallets.backHomeCta}
-      </Link>
+      {/* PR-E4：聯絡店家 + 回首頁 並排在頁腳。聯絡店家 LINE-green 與既有 LIFF
+          各處 contact CTA 一致；回首頁 outlined secondary，兩者視覺平衡，
+          顧客有問題（剩餘堂數 / 過期 / 用完）能直接找店家確認。 */}
+      <div className="mt-4 flex gap-2">
+        <a
+          href={contactStoreUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex flex-1 min-h-[44px] items-center justify-center gap-2 rounded-xl bg-[#06C755] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#05b54d] active:scale-[0.98]"
+        >
+          <LineIcon />
+          {liffMessages.bookings.contactStoreCta}
+        </a>
+        <Link
+          href={`/s/${storeSlug}/liff`}
+          className="flex flex-1 items-center justify-center rounded-xl border border-earth-300 bg-white px-4 py-2.5 text-sm font-medium text-earth-700 hover:bg-earth-50"
+        >
+          {liffMessages.wallets.backHomeCta}
+        </Link>
+      </div>
     </>
   );
 }
