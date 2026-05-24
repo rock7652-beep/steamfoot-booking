@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import type { CronRunStatus } from "@prisma/client";
 import { requireStaffSession } from "@/lib/session";
 import { dayRange, toLocalDateStr } from "@/lib/date-utils";
 import { getStoreFilter } from "@/lib/manager-visibility";
@@ -165,4 +166,115 @@ export async function getReminderStats(activeStoreId?: string | null) {
   }
 
   return { enabledRules, todayPending, todaySent, todayFailed };
+}
+
+// ============================================================
+// Today's cron run status — durable evidence for dashboard banner (PR-R1)
+// ============================================================
+
+/**
+ * Dashboard banner 用的 phase 旗標 — UI 完全照 phase 渲染顏色與文案，不再自行推理。
+ *
+ *   BEFORE_WINDOW   今天 < 18:00 TW — cron 還沒到時間
+ *   DURING_WINDOW   18:00–18:30 TW 之間且尚無紀錄 — 容許 cron 還在跑
+ *   OK              status=OK
+ *   OK_EMPTY        status=OK_EMPTY（合法的安靜日）
+ *   PARTIAL         status=PARTIAL（reminder 完成但其他子任務 fail）
+ *   FAILED          status=FAILED（reminder 子任務 throw）
+ *   MISSING         過了 18:30 仍無紀錄 — 推論 Vercel platform 沒 trigger 或 route 沒進場
+ *   STARTED_STUCK   有 STARTED 但過了 18:30 還沒 finishedAt — 跑到一半卡住
+ */
+export type CronRunBannerPhase =
+  | "BEFORE_WINDOW"
+  | "DURING_WINDOW"
+  | "OK"
+  | "OK_EMPTY"
+  | "PARTIAL"
+  | "FAILED"
+  | "MISSING"
+  | "STARTED_STUCK";
+
+export interface CronRunBannerData {
+  phase: CronRunBannerPhase;
+  /** 今天 18:00 TW（UTC）— cron 預定觸發時刻 */
+  scheduledAt: Date;
+  /** 今天 18:30 TW（UTC）— 容許窗結束、之後沒紀錄就算 MISSING */
+  graceUntil: Date;
+  /** 今天最新一筆 CronRunLog（jobName='reminders'），無紀錄為 null */
+  run: {
+    id: string;
+    startedAt: Date;
+    finishedAt: Date | null;
+    status: CronRunStatus;
+    bookingsScanned: number | null;
+    sent: number | null;
+    skipped: number | null;
+    failed: number | null;
+    errorMessage: string | null;
+  } | null;
+}
+
+const REMINDER_JOB_NAME = "reminders";
+
+/** 今天 18:30 TW（UTC）— scheduledAt + 30min grace */
+function todayGraceUntil(now: Date = new Date()): Date {
+  const todayStr = toLocalDateStr(now);
+  return new Date(`${todayStr}T10:30:00.000Z`);
+}
+
+/**
+ * 回傳今日 cron run 狀態給 dashboard banner 用。
+ *
+ * 注意：CronRunLog 是 cron 級別、非 store 級別（cron 一次跑全店）。所以這個
+ * helper 不依 storeId / activeStoreId 過濾 — 任何角色看到的都是「同一筆全店通用
+ * 的批次狀態」，這在語意上是正確的（cron 確實是全店一起跑）。
+ */
+export async function getTodayCronRunStatus(): Promise<CronRunBannerData> {
+  const now = new Date();
+  const scheduledAt = todayReminderTriggerAt(now); // 今天 18:00 TW (= UTC 10:00)
+  const graceUntil = todayGraceUntil(now); // 今天 18:30 TW
+
+  // 「今天」邊界用 TW，避免 UTC 切到隔天時錯把昨天 23:30 TW 的紀錄當成今天
+  const todayStr = toLocalDateStr(now);
+  const { start: todayStart, end: todayEnd } = dayRange(todayStr);
+
+  const latestRow = await prisma.cronRunLog.findFirst({
+    where: {
+      jobName: REMINDER_JOB_NAME,
+      startedAt: { gte: todayStart, lte: todayEnd },
+    },
+    orderBy: { startedAt: "desc" },
+    select: {
+      id: true,
+      startedAt: true,
+      finishedAt: true,
+      status: true,
+      bookingsScanned: true,
+      sent: true,
+      skipped: true,
+      failed: true,
+      errorMessage: true,
+    },
+  });
+
+  let phase: CronRunBannerPhase;
+  if (latestRow) {
+    // 有紀錄：直接照 status 對應 — 但要特別處理 STARTED 卡住
+    if (latestRow.status === "STARTED") {
+      phase = now >= graceUntil ? "STARTED_STUCK" : "DURING_WINDOW";
+    } else {
+      phase = latestRow.status as CronRunBannerPhase;
+    }
+  } else {
+    // 無紀錄：依時間切點
+    if (now < scheduledAt) {
+      phase = "BEFORE_WINDOW";
+    } else if (now < graceUntil) {
+      phase = "DURING_WINDOW";
+    } else {
+      phase = "MISSING";
+    }
+  }
+
+  return { phase, scheduledAt, graceUntil, run: latestRow };
 }

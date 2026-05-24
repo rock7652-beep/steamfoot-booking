@@ -1265,25 +1265,25 @@ model SpaceFeeRecord {
 // ============================================================
 
 model ShopConfig {
-  id                    String   @id @default(cuid())
-  storeId               String   @unique
-  shopName              String   @default("蒸足")
-  dutySchedulingEnabled Boolean  @default(false)
+  id                    String    @id @default(cuid())
+  storeId               String    @unique
+  shopName              String    @default("蒸足")
+  dutySchedulingEnabled Boolean   @default(false)
   // === PR-2 新增：前台購買頁顯示用（全 nullable；格式驗證交給 app layer）===
   bankName              String? // 銀行名稱，例：「永豐銀行」
   bankCode              String? // 銀行代號，例：「807」
   bankAccountNumber     String? // 帳號，例：「19301800020681」
   lineOfficialUrl       String? // LINE@ 連結，例：「https://lin.ee/UvRnFFK」
   // === PR-trial 新增：體驗課設定（全有 default；不影響既有店家營運）===
-  trialEnabled        Boolean @default(true) // 是否啟用體驗單功能（關閉則隱藏「建立體驗單」入口）
-  trialDefaultPrice   Decimal @default(499) @db.Decimal(10, 0) // 預設體驗價格
-  trialAllowPriceEdit Boolean @default(true) // 建立體驗單時是否允許調整價格
-  trialMinPrice       Decimal @default(0) @db.Decimal(10, 0) // 最低可輸入價格
-  trialMaxPrice       Decimal @default(3000) @db.Decimal(10, 0) // 最高可輸入價格
+  trialEnabled          Boolean   @default(true) // 是否啟用體驗單功能（關閉則隱藏「建立體驗單」入口）
+  trialDefaultPrice     Decimal   @default(499) @db.Decimal(10, 0) // 預設體驗價格
+  trialAllowPriceEdit   Boolean   @default(true) // 建立體驗單時是否允許調整價格
+  trialMinPrice         Decimal   @default(0) @db.Decimal(10, 0) // 最低可輸入價格
+  trialMaxPrice         Decimal   @default(3000) @db.Decimal(10, 0) // 最高可輸入價格
   // === PR-1 新增：顧客自助預約可預約到的日期（含當日）；null = 回到預設 +14 天 ===
-  bookableUntilDate   DateTime? @db.Date
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  bookableUntilDate     DateTime? @db.Date
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 
   store Store @relation(fields: [storeId], references: [id])
 }
@@ -1780,4 +1780,41 @@ model TodoDismiss {
   @@unique([userId, todoKey])
   @@index([userId, storeId])
   @@index([todoType])
+}
+
+// ============================================================
+// CronRunLog — durable evidence of cron invocations
+//
+// 動機：2026-05-23 / 5-24 提醒 cron 連續兩天沒成功跑，但 Vercel Hobby plan 的
+// runtime log 保留只有 ~1 小時，事後無法 forensic。MessageLog 也不夠 — 引擎掃到 0 筆
+// booking 時根本不會寫 MessageLog，從 DB 無法區分「cron 沒跑」vs「cron 跑了但沒事做」。
+//
+// CronRunLog 提供 durable record：
+//   - 進場寫 STARTED
+//   - 結束更新 OK / OK_EMPTY / PARTIAL / FAILED + counts
+//   - 若 cron 完全沒被 trigger，DB 連 STARTED 都不會有 → dashboard 用「過了 18:30 仍無紀錄」推論
+// ============================================================
+
+enum CronRunStatus {
+  STARTED // 進場寫入，尚未結束（finishedAt = null）
+  OK // 全部 sub-task 正常 + 至少送出 1 筆
+  OK_EMPTY // 全部正常但 bookingsScanned = 0（合法的安靜日）
+  PARTIAL // reminder 完成但其他 sub-task fail
+  FAILED // reminder 子任務 throw
+}
+
+model CronRunLog {
+  id              String        @id @default(cuid())
+  jobName         String // "reminders" — 為未來其他 cron 留 schema
+  startedAt       DateTime      @default(now())
+  finishedAt      DateTime?
+  status          CronRunStatus @default(STARTED)
+  bookingsScanned Int? // engine 掃到幾筆 booking（即使 sent=0）
+  sent            Int?
+  skipped         Int?
+  failed          Int?
+  summary         Json? // 5 個 sub-task 的完整 results（debug 用）
+  errorMessage    String?
+
+  @@index([jobName, startedAt(sort: Desc)])
 }

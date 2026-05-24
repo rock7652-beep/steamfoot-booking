@@ -16,10 +16,12 @@ import {
   listMessageTemplates,
   listMessageLogs,
   getReminderStats,
+  getTodayCronRunStatus,
 } from "@/server/queries/reminder";
 import { RuleToggle } from "./rule-toggle";
 import { CreateRuleForm } from "./create-rule-form";
 import { CreateTemplateForm } from "./create-template-form";
+import { CronRunBanner } from "./cron-run-banner";
 
 const LOG_STATUS_LABEL: Record<string, string> = {
   PENDING: "待發送",
@@ -96,10 +98,11 @@ export default async function RemindersPage({ searchParams }: PageProps) {
   const plan = await getCurrentStorePlan();
   const activeTab = params.tab ?? "rules";
 
-  const [stats, rules, templates] = await Promise.all([
+  const [stats, rules, templates, cronStatus] = await Promise.all([
     getReminderStats(activeStoreId),
     listReminderRules(),
     listMessageTemplates(),
+    getTodayCronRunStatus(),
   ]);
 
   const logsData = activeTab === "logs"
@@ -111,9 +114,10 @@ export default async function RemindersPage({ searchParams }: PageProps) {
       })
     : { logs: [], total: 0, pageSize: 30 };
 
+  // 「今日待發送」KPI 已移除：18:00 後寫死 0 會讓 cron 沒跑被誤判正常（2026-05-24 事故）。
+  // 改由頂部 CronRunBanner 顯示「今日批次有沒有跑 + 結果」這個唯一可信訊號（durable record）。
   const kpis: KpiStripItem[] = [
     { label: "啟用中規則", value: stats.enabledRules, tone: "primary" },
-    { label: "今日待發送", value: stats.todayPending, tone: "amber" },
     { label: "今日已發送", value: stats.todaySent, tone: "green" },
     { label: "發送失敗", value: stats.todayFailed, tone: "earth" },
   ];
@@ -139,6 +143,8 @@ export default async function RemindersPage({ searchParams }: PageProps) {
             </Link>
           }
         />
+
+        <CronRunBanner data={cronStatus} />
 
         <KpiStrip items={kpis} />
 

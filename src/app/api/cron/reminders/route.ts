@@ -5,8 +5,11 @@ import { upsertReportSnapshot } from "@/server/queries/report-snapshot";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { prisma } from "@/lib/db";
 import { getAllActiveStoreIds } from "@/lib/store";
+import { CronRunStatus } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
+
+const CRON_JOB_NAME = "reminders";
 
 /**
  * 每日 Cron Job（UTC 10:00 = 台灣 18:00）
@@ -21,6 +24,10 @@ export const dynamic = "force-dynamic";
  * 改用 daily next-day batch 發提醒，挑 18:00 顧客比較會看 LINE 的時段。
  *
  * 認證：要求 `Authorization: Bearer ${CRON_SECRET}`，未設定時拒絕（避免外部任意觸發）。
+ *
+ * 可觀測性（PR-R1）：本 route 進場寫一筆 CronRunLog(status=STARTED)，結束時 update
+ * 到 OK / OK_EMPTY / PARTIAL / FAILED。供 dashboard 反推「cron 今天有沒有跑」，
+ * 不再依賴 Vercel runtime log（Hobby plan 1 小時就過期）或 MessageLog 推論。
  */
 export async function GET(request: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
@@ -33,6 +40,10 @@ export async function GET(request: NextRequest) {
   if (authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  // 寫入 STARTED 紀錄 — 進場第一件事。寫入失敗只 console.error，不阻斷後續任務
+  // （DB 連不上時 reminders 本來就會 fail；CronRunLog 寫不下不該讓事情更糟）。
+  const runId = await safeCreateCronRunStart();
 
   const results: Record<string, unknown> = {};
 
@@ -125,12 +136,92 @@ export async function GET(request: NextRequest) {
     .filter(([, v]) => v != null && typeof v === "object" && "error" in v)
     .map(([k]) => k);
 
+  // 終態判定（dashboard 用）：
+  //   - reminders 子任務 throw          → FAILED
+  //   - reminders OK 但其他子任務 throw → PARTIAL
+  //   - 全部 OK 但 bookingsScanned = 0   → OK_EMPTY
+  //   - 全部 OK 且有送                   → OK
+  const reminderResult = results.reminders as
+    | { total?: number; sent?: number; skipped?: number; failed?: number; error?: string }
+    | undefined;
+  const reminderFailed = reminderResult?.error != null;
+  const otherFailed = failedTasks.some((k) => k !== "reminders");
+
+  let terminalStatus: CronRunStatus;
+  if (reminderFailed) {
+    terminalStatus = CronRunStatus.FAILED;
+  } else if (otherFailed) {
+    terminalStatus = CronRunStatus.PARTIAL;
+  } else if ((reminderResult?.total ?? 0) === 0) {
+    terminalStatus = CronRunStatus.OK_EMPTY;
+  } else {
+    terminalStatus = CronRunStatus.OK;
+  }
+
+  await safeFinalizeCronRun(runId, {
+    status: terminalStatus,
+    bookingsScanned: reminderResult?.total ?? null,
+    sent: reminderResult?.sent ?? null,
+    skipped: reminderResult?.skipped ?? null,
+    failed: reminderResult?.failed ?? null,
+    summary: results as Record<string, unknown>,
+    errorMessage: reminderFailed ? String(reminderResult?.error) : null,
+  });
+
   if (failedTasks.length > 0) {
     console.error(`[Cron] FAILED tasks: ${failedTasks.join(", ")}`);
     return NextResponse.json({ ok: false, failedTasks, ...results }, { status: 500 });
   }
 
   return NextResponse.json({ ok: true, ...results });
+}
+
+// CronRunLog 寫入 helpers — 失敗只記 console，絕不拋給 cron 主流程。
+// 寫不下 log 比 reminder 不發更不嚴重，不該讓兩個錯誤疊在一起。
+
+async function safeCreateCronRunStart(): Promise<string | null> {
+  try {
+    const row = await prisma.cronRunLog.create({
+      data: { jobName: CRON_JOB_NAME, status: CronRunStatus.STARTED },
+      select: { id: true },
+    });
+    return row.id;
+  } catch (err) {
+    console.error("[Cron] CronRunLog create(STARTED) failed:", err);
+    return null;
+  }
+}
+
+async function safeFinalizeCronRun(
+  runId: string | null,
+  data: {
+    status: CronRunStatus;
+    bookingsScanned: number | null;
+    sent: number | null;
+    skipped: number | null;
+    failed: number | null;
+    summary: Record<string, unknown>;
+    errorMessage: string | null;
+  },
+): Promise<void> {
+  if (!runId) return; // STARTED 寫入失敗，無 row 可 update
+  try {
+    await prisma.cronRunLog.update({
+      where: { id: runId },
+      data: {
+        finishedAt: new Date(),
+        status: data.status,
+        bookingsScanned: data.bookingsScanned,
+        sent: data.sent,
+        skipped: data.skipped,
+        failed: data.failed,
+        summary: data.summary as never,
+        errorMessage: data.errorMessage,
+      },
+    });
+  } catch (err) {
+    console.error(`[Cron] CronRunLog finalize(${runId}) failed:`, err);
+  }
 }
 
 function getPreviousMonth(dateStr: string): string {
