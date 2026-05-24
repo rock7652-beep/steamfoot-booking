@@ -136,6 +136,10 @@ export const liffMessages = {
     // PR-E1-2：upcoming non-cancelled card 上「導航到店」Google-blue CTA。
     // 顧客出發前最自然位置；按下開 Google Maps 短網址 → iOS/Android 跳原生 Maps。
     navigateCta: "導航到店",
+    // PR-E1-3：upcoming non-cancelled card 上「加入行事曆」outlined CTA。
+    // 純 client-side data URI ICS（RFC 5545），iOS/Android 各 OS 原生 calendar app 接管。
+    // 解 lifecycle 最後一塊：「不要忘記來」— 體驗客 forget rate 第一殺手。
+    calendarCta: "加入行事曆",
   },
   // ── PR-D4A-1 顧客自助取消預約（D4A-2 wire UI 時消費）──
   cancelBooking: {

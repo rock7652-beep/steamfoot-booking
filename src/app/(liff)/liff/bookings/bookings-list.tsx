@@ -282,6 +282,7 @@ export function BookingsList({ storeSlug, storeName, liffId }: Props) {
           tab={tab}
           onTabChange={setTab}
           storeSlug={storeSlug}
+          storeName={storeName}
           onRequestCancel={openCancelModal}
         />
       )}
@@ -312,6 +313,7 @@ function ReadyView({
   tab,
   onTabChange,
   storeSlug,
+  storeName,
   onRequestCancel,
 }: {
   upcoming: LiffBookingRow[];
@@ -319,6 +321,8 @@ function ReadyView({
   tab: Tab;
   onTabChange: (t: Tab) => void;
   storeSlug: string;
+  /** PR-E1-3：ICS event SUMMARY / 行事曆 title 用 */
+  storeName: string;
   /** PR-D4A-2：upcoming card 點「取消此次預約」時 caller 開 modal */
   onRequestCancel: (b: LiffBookingRow) => void;
 }) {
@@ -336,6 +340,7 @@ function ReadyView({
               <BookingCard
                 booking={b}
                 tab={tab}
+                storeName={storeName}
                 onRequestCancel={onRequestCancel}
               />
             </li>
@@ -417,10 +422,13 @@ function TabButton({
 function BookingCard({
   booking,
   tab,
+  storeName,
   onRequestCancel,
 }: {
   booking: LiffBookingRow;
   tab: Tab;
+  /** PR-E1-3：ICS event SUMMARY 用（e.g.「暖暖蒸足 預約」）*/
+  storeName: string;
   /** PR-D4A-2：caller 開 cancel modal；history tab 不傳 = 不顯示按鈕 */
   onRequestCancel?: (b: LiffBookingRow) => void;
 }) {
@@ -527,6 +535,25 @@ function BookingCard({
                   {liffMessages.bookings.navigateCta}
                 </a>
               </div>
+
+              {/* PR-E1-3：「加入行事曆」outlined CTA — 解 lifecycle 最後一塊「不要忘記來」。
+                  純 client-side data URI ICS（RFC 5545），iOS/Android 各 OS 原生 calendar 接管。
+                  顧客點下去：iOS Calendar.app 跳出「新增事件」preview / Android 問用哪個 calendar app。
+                  下載檔名 = booking ID + .ics（顧客通常不會看到，OS 直接打開預覽）。
+                  Outlined 灰：calendar 是跨平台中性動作，不綁特定品牌色（避免與 LINE green / Google blue 撞色）。 */}
+              <a
+                href={generateBookingIcsDataUri({
+                  bookingId: booking.id,
+                  bookingDate: booking.bookingDate,
+                  slotTime: booking.slotTime,
+                  storeName,
+                })}
+                download={`steamfoot-${booking.id}.ics`}
+                className="flex w-full min-h-[44px] items-center justify-center gap-2 rounded-xl border border-earth-300 bg-white px-4 py-2.5 text-sm font-medium text-earth-700 hover:bg-earth-50 active:scale-[0.98]"
+              >
+                <CalendarIcon />
+                {liffMessages.bookings.calendarCta}
+              </a>
             </>
           )}
         </div>
@@ -604,6 +631,107 @@ function MapPinIcon() {
       <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
     </svg>
   );
+}
+
+/**
+ * PR-E1-3：Material Design calendar icon。
+ * outlined 按鈕底白色，icon currentColor 跟 text earth-700。
+ */
+function CalendarIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10zM9 14H7v-2h2v2zm4 0h-2v-2h2v2zm4 0h-2v-2h2v2zm-8 4H7v-2h2v2zm4 0h-2v-2h2v2zm4 0h-2v-2h2v2z" />
+    </svg>
+  );
+}
+
+// ──────────────────────────────────────────────────────────
+// PR-E1-3：ICS 生成（RFC 5545 minimum viable，純 client-side）
+// ──────────────────────────────────────────────────────────
+
+/** 純函數：booking → ICS 字串（RFC 5545 compliant minimum）。
+ *
+ * 細節：
+ *   - 日期格式 UTC YYYYMMDDTHHMMSSZ（避免 TZID 跨平台相容問題）
+ *   - 行末 CRLF（spec 強制；某些 calendar app 對 LF-only 會 reject）
+ *   - SUMMARY / LOCATION / DESCRIPTION 內 `,;\` 轉義 + 真實 \n → 字面 \\n
+ *   - duration hardcode 60 分鐘（per 拍板；體驗服務典型長度）
+ *   - 不寫 RRULE / VALARM / ATTACH（minimum viable）
+ */
+function generateBookingIcs(args: {
+  bookingId: string;
+  bookingDate: string; // "YYYY-MM-DD"
+  slotTime: string; // "HH:mm"
+  storeName: string;
+  durationMinutes?: number;
+}): string {
+  const { bookingId, bookingDate, slotTime, storeName } = args;
+  const durationMinutes = args.durationMinutes ?? 60;
+
+  // Booking 時間是 Taipei +08:00；Date object 內部存 UTC，toISOString 自動產 UTC。
+  const startLocal = new Date(`${bookingDate}T${slotTime}:00+08:00`);
+  const endLocal = new Date(startLocal.getTime() + durationMinutes * 60 * 1000);
+
+  // "2026-05-24T02:00:00.000Z" → "20260524T020000Z"
+  const fmt = (d: Date) =>
+    d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
+
+  // ICS escape: \ , ; → \\ \, \; ; real newline → literal \n
+  const esc = (s: string) =>
+    s
+      .replace(/\\/g, "\\\\")
+      .replace(/,/g, "\\,")
+      .replace(/;/g, "\\;")
+      .replace(/\n/g, "\\n");
+
+  const title = `${storeName} 預約`;
+  const description = [
+    `地址：${storeAddress}`,
+    `導航：${storeMapUrl}`,
+    `聯絡店家：${contactStoreUrl}`,
+  ].join("\n");
+
+  const lines = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//Steamfoot//LIFF Booking//ZH-TW",
+    "CALSCALE:GREGORIAN",
+    "METHOD:PUBLISH",
+    "BEGIN:VEVENT",
+    `UID:${bookingId}@steamfoot.com`,
+    `DTSTAMP:${fmt(new Date())}`,
+    `DTSTART:${fmt(startLocal)}`,
+    `DTEND:${fmt(endLocal)}`,
+    `SUMMARY:${esc(title)}`,
+    `LOCATION:${esc(storeAddress)}`,
+    `DESCRIPTION:${esc(description)}`,
+    "END:VEVENT",
+    "END:VCALENDAR",
+  ];
+  // RFC 5545: lines MUST end with CRLF
+  return lines.join("\r\n");
+}
+
+/** ICS 字串 → `data:text/calendar;base64,...` URI。
+ *
+ * UTF-8 encoding：btoa 只吃 Latin-1，所以先 TextEncoder → Uint8Array →
+ * String.fromCharCode 拼成 Latin-1 binary string → btoa。
+ * 對小 ICS payload（< 1KB）安全，不會 hit 呼叫堆疊上限。
+ */
+function generateBookingIcsDataUri(args: {
+  bookingId: string;
+  bookingDate: string;
+  slotTime: string;
+  storeName: string;
+}): string {
+  const ics = generateBookingIcs(args);
+  const utf8Bytes = new TextEncoder().encode(ics);
+  let binary = "";
+  for (let i = 0; i < utf8Bytes.length; i++) {
+    binary += String.fromCharCode(utf8Bytes[i]);
+  }
+  const base64 = btoa(binary);
+  return `data:text/calendar;charset=utf-8;base64,${base64}`;
 }
 
 /**
