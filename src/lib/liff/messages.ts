@@ -72,6 +72,9 @@ export const liffMessages = {
     successSlotLabel: "時段",
     successStoreLabel: "店家",
     successHomeCta: "回首頁",
+    // PR-D4C-0：closing the loop — 體驗預約成立後，導顧客回我的預約確認新單。
+    // 反映「lifecycle 已完整：看預約 → 取消 → 改時間 → 重訂 → 回查」。
+    successMyBookingsCta: "查看我的預約",
 
     // already_has_trial card
     existingTitle: "您目前已有體驗預約",
