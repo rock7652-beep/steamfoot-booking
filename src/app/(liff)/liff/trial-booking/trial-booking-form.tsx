@@ -583,9 +583,18 @@ function SuccessCard({
           {liffMessages.trialBooking.successFootnote}
         </p>
       </div>
+      {/* PR-D4C-0：closing the loop — primary CTA「查看我的預約」放在最上方
+          讓顧客自然完成「建立 → 確認新單成立」的體感閉合。原「回首頁」降為
+          secondary，仍然保留作為備用出口（不 auto-redirect，per 拍板選項 b）。*/}
+      <Link
+        href={`/s/${storeSlug}/liff/bookings`}
+        className="inline-flex w-full items-center justify-center rounded-xl bg-earth-800 px-4 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-earth-700 active:scale-[0.98]"
+      >
+        {liffMessages.trialBooking.successMyBookingsCta}
+      </Link>
       <Link
         href={`/s/${storeSlug}/liff`}
-        className="inline-flex w-full items-center justify-center rounded-xl bg-earth-800 px-4 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-earth-700 active:scale-[0.98]"
+        className="inline-flex w-full items-center justify-center rounded-xl border border-earth-300 bg-white px-4 py-3 text-base font-medium text-earth-700 transition hover:bg-earth-50 active:scale-[0.98]"
       >
         {liffMessages.trialBooking.successHomeCta}
       </Link>
