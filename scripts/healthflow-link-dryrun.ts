@@ -39,11 +39,15 @@
  */
 
 import { PrismaClient } from "@prisma/client";
+import { fileURLToPath } from "node:url";
 import { lookupHealthProfile, type HealthProfile } from "@/lib/health-service";
 
-const prisma = new PrismaClient();
+// PR-H2b-2：classify / helpers / types 由 healthflow-link-execute.ts 重用，
+// 避免 dry-run 與 execute 用兩套分類邏輯（拍板 A：single source of truth）。
+// prisma instance 移入 main() — 確保 import 此檔不會 side-effect 開連線；
+// 直接執行（npx tsx ...）行為完全不變。
 
-type Bucket =
+export type Bucket =
   | "AUTO_LINK_CANDIDATE"
   | "NEEDS_REVIEW_EMAIL_ONLY"
   | "NEEDS_REVIEW_PHONE_ONLY"
@@ -53,7 +57,7 @@ type Bucket =
   | "SKIPPED_NO_CONTACT"
   | "SKIPPED_INVALID_CONTACT";
 
-interface Row {
+export interface Row {
   bucket: Bucket;
   customerId: string;
   customerName: string;
@@ -135,14 +139,14 @@ function parseArgs(argv: string[]): Args {
 // PII masking
 // ──────────────────────────────────────────
 
-function maskEmail(e: string | null): string {
+export function maskEmail(e: string | null): string {
   if (!e) return "(none)";
   const [local, domain] = e.split("@");
   if (!local || !domain) return "***";
   return `${local.slice(0, 1)}***@${domain}`;
 }
 
-function maskPhone(p: string | null): string {
+export function maskPhone(p: string | null): string {
   if (!p) return "(none)";
   if (p.length < 7) return p[0] + "***";
   return `${p.slice(0, 4)}***${p.slice(-3)}`;
@@ -157,13 +161,13 @@ function maskPhone(p: string | null): string {
 // ──────────────────────────────────────────
 
 /** 嚴格台灣手機：`09` 開頭共 10 碼數字。不接受 placeholder / 空字串 / 含非數字字元。 */
-function isValidPhone(p: string | null | undefined): boolean {
+export function isValidPhone(p: string | null | undefined): boolean {
   if (!p) return false;
   return /^09\d{8}$/.test(p);
 }
 
 /** 基本 email 格式：必含 `@` 且兩側皆有字元。不做嚴格 RFC 5322。 */
-function isValidEmail(e: string | null | undefined): boolean {
+export function isValidEmail(e: string | null | undefined): boolean {
   if (!e) return false;
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 }
@@ -200,7 +204,7 @@ function phoneHintMatches(custPhone: string | null, hint: string | null): boolea
 // Per-customer classification
 // ──────────────────────────────────────────
 
-interface CustomerSlim {
+export interface CustomerSlim {
   id: string;
   name: string;
   email: string | null;
@@ -209,7 +213,7 @@ interface CustomerSlim {
   store: { slug: string };
 }
 
-async function classify(c: CustomerSlim): Promise<Row> {
+export async function classify(c: CustomerSlim): Promise<Row> {
   const base = {
     customerId: c.id,
     customerName: c.name,
@@ -388,78 +392,87 @@ async function main() {
   }
   printBanner();
 
-  // 1. Build query — 目標：尚未綁定的 Customer
-  const baseWhere = {
-    mergedIntoCustomerId: null,
-    OR: [
-      { healthProfileId: null },
-      { healthLinkStatus: { in: ["unlinked", "not_found", "error"] } },
-    ],
-  };
+  // PR-H2b-2：prisma 移入 main() 確保 import 此檔不會建立 connection side effect。
+  // 直接執行行為與 PR #198 完全一致：開、查、關。
+  const prisma = new PrismaClient();
+  try {
+    // 1. Build query — 目標：尚未綁定的 Customer
+    const baseWhere = {
+      mergedIntoCustomerId: null,
+      OR: [
+        { healthProfileId: null },
+        { healthLinkStatus: { in: ["unlinked", "not_found", "error"] } },
+      ],
+    };
 
-  let where: Record<string, unknown> = baseWhere;
+    let where: Record<string, unknown> = baseWhere;
 
-  if (args.customerId) {
-    // 單顧客模式：忽略其他 filter（含 storeSlug、含 linkStatus filter）
-    where = { id: args.customerId };
-  } else if (args.storeSlug) {
-    const store = await prisma.store.findUnique({
-      where: { slug: args.storeSlug },
-      select: { id: true },
+    if (args.customerId) {
+      // 單顧客模式：忽略其他 filter（含 storeSlug、含 linkStatus filter）
+      where = { id: args.customerId };
+    } else if (args.storeSlug) {
+      const store = await prisma.store.findUnique({
+        where: { slug: args.storeSlug },
+        select: { id: true },
+      });
+      if (!store) {
+        console.error(`⛔  找不到 store slug=${args.storeSlug}`);
+        process.exit(1);
+      }
+      where = { ...baseWhere, storeId: store.id };
+    }
+
+    // 2. Fetch
+    const customers = await prisma.customer.findMany({
+      where,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        healthLinkStatus: true,
+        store: { select: { slug: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      take: args.limit,
     });
-    if (!store) {
-      console.error(`⛔  找不到 store slug=${args.storeSlug}`);
-      process.exit(1);
+
+    console.log(`掃描範圍：${customers.length} 筆 Customer`);
+    if (args.customerId) console.log(`  --customerId = ${args.customerId}`);
+    if (args.storeSlug) console.log(`  --storeSlug = ${args.storeSlug}`);
+    console.log(`  --limit = ${args.limit}`);
+    console.log("");
+
+    // 3. Classify — sequential to be polite to HealthFlow API
+    const rows: Row[] = [];
+    for (let i = 0; i < customers.length; i++) {
+      const c = customers[i];
+      if (args.output === "table") {
+        process.stderr.write(`\r  classifying ${i + 1}/${customers.length}...`);
+      }
+      const row = await classify(c);
+      rows.push(row);
+      // 50ms 緩衝 — 不對外部 API spike
+      if (i < customers.length - 1) await new Promise((r) => setTimeout(r, 50));
     }
-    where = { ...baseWhere, storeId: store.id };
-  }
+    if (args.output === "table") process.stderr.write("\n\n");
 
-  // 2. Fetch
-  const customers = await prisma.customer.findMany({
-    where,
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      phone: true,
-      healthLinkStatus: true,
-      store: { select: { slug: true } },
-    },
-    orderBy: { createdAt: "desc" },
-    take: args.limit,
-  });
-
-  console.log(`掃描範圍：${customers.length} 筆 Customer`);
-  if (args.customerId) console.log(`  --customerId = ${args.customerId}`);
-  if (args.storeSlug) console.log(`  --storeSlug = ${args.storeSlug}`);
-  console.log(`  --limit = ${args.limit}`);
-  console.log("");
-
-  // 3. Classify — sequential to be polite to HealthFlow API
-  const rows: Row[] = [];
-  for (let i = 0; i < customers.length; i++) {
-    const c = customers[i];
-    if (args.output === "table") {
-      process.stderr.write(`\r  classifying ${i + 1}/${customers.length}...`);
+    // 4. Output
+    if (args.output === "json") {
+      console.log(JSON.stringify(rows, null, 2));
+    } else {
+      renderTable(rows);
     }
-    const row = await classify(c);
-    rows.push(row);
-    // 50ms 緩衝 — 不對外部 API spike
-    if (i < customers.length - 1) await new Promise((r) => setTimeout(r, 50));
-  }
-  if (args.output === "table") process.stderr.write("\n\n");
-
-  // 4. Output
-  if (args.output === "json") {
-    console.log(JSON.stringify(rows, null, 2));
-  } else {
-    renderTable(rows);
+  } finally {
+    await prisma.$disconnect();
   }
 }
 
-main()
-  .catch((e) => {
+// PR-H2b-2：entrypoint gate — 只有直接執行 (npx tsx scripts/...) 才跑 main()。
+// 被 healthflow-link-execute.ts import 時不會觸發。
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  main().catch((e) => {
     console.error("[healthflow-link-dryrun] failed:", e);
     process.exit(1);
-  })
-  .finally(() => prisma.$disconnect());
+  });
+}
