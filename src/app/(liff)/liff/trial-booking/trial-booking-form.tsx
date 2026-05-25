@@ -42,13 +42,11 @@ import {
 import { contactStoreUrl, liffMessages } from "@/lib/liff/messages";
 import { parseLocalDate, formatWeekdayZh } from "@/lib/date-utils";
 import type { SlotAvailability } from "@/types";
-import type { MonthSlotInfo } from "@/server/actions/slots";
-
-type MonthDayInfo = {
-  totalCapacity: number;
-  totalBooked: number;
-  slots: MonthSlotInfo[];
-};
+import {
+  MonthCalendar,
+  SlotPicker,
+  type MonthDayInfo,
+} from "@/components/liff/booking-picker";
 
 type State =
   | { kind: "initializing" }
@@ -384,6 +382,14 @@ export function TrialBookingForm({ storeSlug, storeName, liffId }: Props) {
             onPrevMonth={handlePrevMonth}
             onNextMonth={handleNextMonth}
             disabled={state.kind === "submitting"}
+            labels={{
+              monthPrev: liffMessages.trialBooking.monthPrev,
+              monthNext: liffMessages.trialBooking.monthNext,
+              weekLabels: liffMessages.trialBooking.weekLabels,
+              todayLabel: liffMessages.trialBooking.todayLabel,
+              closedDayLabel: liffMessages.trialBooking.closedDayLabel,
+              fullDayLabel: liffMessages.trialBooking.slotFullLabel,
+            }}
           />
 
           {selectedDate && (
@@ -394,6 +400,12 @@ export function TrialBookingForm({ storeSlug, storeName, liffId }: Props) {
               selectedSlot={selectedSlot}
               onSelectSlot={setSelectedSlot}
               disabled={state.kind === "submitting"}
+              labels={{
+                loadingText: liffMessages.trialBooking.slotsLoading,
+                emptyText: liffMessages.trialBooking.noSlotsForDay,
+                pastLabel: liffMessages.trialBooking.slotPastLabel,
+                fullLabel: liffMessages.trialBooking.slotFullLabel,
+              }}
             />
           )}
 
@@ -680,257 +692,5 @@ function ExistingTrialCard({
   );
 }
 
-interface MonthCalendarProps {
-  calYear: number;
-  calMonth: number;
-  today: Date;
-  monthData: Record<string, MonthDayInfo>;
-  loadingMonth: boolean;
-  selectedDate: string | null;
-  onSelectDate: (dateStr: string) => void;
-  onPrevMonth: () => void;
-  onNextMonth: () => void;
-  disabled: boolean;
-}
-
-function MonthCalendar({
-  calYear,
-  calMonth,
-  today,
-  monthData,
-  loadingMonth,
-  selectedDate,
-  onSelectDate,
-  onPrevMonth,
-  onNextMonth,
-  disabled,
-}: MonthCalendarProps) {
-  const firstDay = new Date(calYear, calMonth, 1);
-  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
-  const firstDayOfWeek = firstDay.getDay();
-  const days: (number | null)[] = [];
-  for (let i = 0; i < firstDayOfWeek; i++) days.push(null);
-  for (let d = 1; d <= daysInMonth; d++) days.push(d);
-
-  const monthLabel = `${calYear} 年 ${calMonth + 1} 月`;
-
-  function dateStrFor(day: number) {
-    return `${calYear}-${String(calMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-  }
-  function isClosedDay(dateStr: string): boolean {
-    const info = monthData[dateStr];
-    if (!info) return false;
-    return info.totalCapacity === 0;
-  }
-  function isFullDay(dateStr: string): boolean {
-    const info = monthData[dateStr];
-    if (!info) return false;
-    return info.totalCapacity > 0 && info.totalBooked >= info.totalCapacity;
-  }
-
-  return (
-    <div className="rounded-2xl border border-earth-200 bg-white shadow-sm overflow-hidden">
-      <div className="flex items-center justify-between border-b border-earth-100 px-3 py-2">
-        <button
-          type="button"
-          onClick={onPrevMonth}
-          disabled={disabled}
-          className="flex h-11 w-11 items-center justify-center rounded-lg text-earth-800 hover:bg-earth-100 transition disabled:opacity-40"
-          aria-label={liffMessages.trialBooking.monthPrev}
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-            <polyline points="15 18 9 12 15 6" />
-          </svg>
-        </button>
-        <span className="text-lg font-bold text-earth-900">{monthLabel}</span>
-        <button
-          type="button"
-          onClick={onNextMonth}
-          disabled={disabled}
-          className="flex h-11 w-11 items-center justify-center rounded-lg text-earth-800 hover:bg-earth-100 transition disabled:opacity-40"
-          aria-label={liffMessages.trialBooking.monthNext}
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-            <polyline points="9 18 15 12 9 6" />
-          </svg>
-        </button>
-      </div>
-
-      <div className="grid grid-cols-7 border-b border-earth-100 bg-earth-50">
-        {liffMessages.trialBooking.weekLabels.map((w) => (
-          <div
-            key={w}
-            className="py-2 text-center text-sm font-semibold text-earth-700"
-          >
-            {w}
-          </div>
-        ))}
-      </div>
-
-      {loadingMonth ? (
-        <div className="flex items-center justify-center py-12 text-sm text-earth-500">
-          <div
-            className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-earth-300 border-t-earth-700"
-            aria-hidden
-          />
-          載入中…
-        </div>
-      ) : (
-        <div className="grid grid-cols-7">
-          {days.map((day, i) => {
-            if (day === null) {
-              return (
-                <div
-                  key={`e-${i}`}
-                  className="min-h-[72px] border-b border-r border-earth-100"
-                />
-              );
-            }
-            const dateObj = new Date(calYear, calMonth, day);
-            dateObj.setHours(0, 0, 0, 0);
-            const dateStr = dateStrFor(day);
-            const isPast = dateObj < today;
-            const isSelected = dateStr === selectedDate;
-            const isToday = dateObj.getTime() === today.getTime();
-            const closed = !isPast && isClosedDay(dateStr);
-            const full = !isPast && !closed && isFullDay(dateStr);
-            const cellDisabled = disabled || isPast || closed;
-
-            return (
-              <button
-                key={day}
-                type="button"
-                disabled={cellDisabled}
-                onClick={() => onSelectDate(dateStr)}
-                className={`relative flex min-h-[72px] flex-col items-start border-b border-r border-earth-100 p-1.5 transition ${
-                  isSelected
-                    ? "bg-earth-800 text-white"
-                    : isPast || closed
-                      ? "bg-earth-50 text-earth-400"
-                      : full
-                        ? "bg-earth-50 text-earth-500"
-                        : "bg-white text-earth-800 hover:bg-earth-50"
-                }`}
-              >
-                <div className="flex w-full items-center gap-1">
-                  <span className="text-base font-bold leading-none">{day}</span>
-                  {isToday && !isSelected && (
-                    <span className="ml-auto rounded bg-earth-200 px-1 text-[10px] font-bold leading-none text-earth-800">
-                      {liffMessages.trialBooking.todayLabel}
-                    </span>
-                  )}
-                </div>
-                {closed && (
-                  <span
-                    className={`mt-1 rounded px-1 py-0.5 text-[10px] font-medium leading-tight ${
-                      isSelected
-                        ? "bg-white/20 text-white"
-                        : "bg-earth-100 text-earth-600"
-                    }`}
-                  >
-                    {liffMessages.trialBooking.closedDayLabel}
-                  </span>
-                )}
-                {full && (
-                  <span
-                    className={`mt-1 rounded px-1 py-0.5 text-[10px] font-medium leading-tight ${
-                      isSelected
-                        ? "bg-white/20 text-white"
-                        : "bg-red-100 text-red-700"
-                    }`}
-                  >
-                    {liffMessages.trialBooking.slotFullLabel}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-interface SlotPickerProps {
-  date: string;
-  slots: SlotAvailability[];
-  loading: boolean;
-  selectedSlot: string | null;
-  onSelectSlot: (slot: string) => void;
-  disabled: boolean;
-}
-
-function SlotPicker({
-  date,
-  slots,
-  loading,
-  selectedSlot,
-  onSelectSlot,
-  disabled,
-}: SlotPickerProps) {
-  const dateObj = parseLocalDate(date);
-  const weekday = formatWeekdayZh(date);
-  const heading = `${dateObj.getMonth() + 1}/${dateObj.getDate()} (${weekday})`;
-
-  return (
-    <div className="rounded-2xl border border-earth-200 bg-white shadow-sm p-4">
-      <h2 className="mb-3 text-base font-bold text-earth-900">{heading}</h2>
-
-      {loading && (
-        <div className="flex items-center justify-center py-6 text-sm text-earth-500">
-          <div
-            className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-earth-300 border-t-earth-700"
-            aria-hidden
-          />
-          {liffMessages.trialBooking.slotsLoading}
-        </div>
-      )}
-
-      {!loading && slots.length === 0 && (
-        <p className="py-6 text-center text-sm text-earth-500">
-          {liffMessages.trialBooking.noSlotsForDay}
-        </p>
-      )}
-
-      {!loading && slots.length > 0 && (
-        <div className="grid grid-cols-3 gap-2">
-          {slots.map((s) => {
-            const isFull = s.available <= 0;
-            const isPast = s.isPast === true;
-            const isSelected = s.startTime === selectedSlot;
-            const slotDisabled = disabled || isFull || isPast;
-            return (
-              <button
-                key={s.startTime}
-                type="button"
-                disabled={slotDisabled}
-                onClick={() => onSelectSlot(s.startTime)}
-                className={`flex min-h-[52px] flex-col items-center justify-center rounded-lg border px-2 py-2 text-sm font-medium transition ${
-                  isSelected
-                    ? "border-earth-800 bg-earth-800 text-white"
-                    : isPast
-                      ? "border-earth-200 bg-earth-50 text-earth-400"
-                      : isFull
-                        ? "border-earth-200 bg-earth-50 text-earth-500"
-                        : "border-earth-300 bg-white text-earth-800 hover:bg-earth-50 hover:border-earth-500"
-                }`}
-              >
-                <span className="text-base leading-tight">{s.startTime}</span>
-                {isPast && (
-                  <span className="text-[10px] leading-tight">
-                    {liffMessages.trialBooking.slotPastLabel}
-                  </span>
-                )}
-                {!isPast && isFull && (
-                  <span className="text-[10px] leading-tight">
-                    {liffMessages.trialBooking.slotFullLabel}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
+// MonthCalendar + SlotPicker 已抽到 `@/components/liff/booking-picker`（PR-G3-pre）
+// 給 /liff/trial-booking 與 /liff/member-booking (PR-G3 主體) 共用同一份元件。
