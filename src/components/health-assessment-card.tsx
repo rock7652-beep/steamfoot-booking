@@ -1,37 +1,47 @@
 /**
- * AI 健康評估卡片 — 客戶端顯示用
+ * AI 健康評估卡片 — 客戶端顯示用 (PR-H2c 重構)
  *
- * 三段式顯示：風險判讀 + 護理建議 + 回訪頻率建議
- * 使用於 /my-bookings、/profile
+ * 用於 `/my-bookings`、`/book` 等顧客 web 頁面。
+ *
+ * PR-H2c：移除 self-computed score / riskLevel / advice。HealthFlow summary API
+ * 不回官方 score，Steamfoot 自算的 68 與 HealthFlow 原站 86 不一致會誤導顧客。
+ * 改顯示「最近量測時間 + 4 主指標 + 異常 alert badge」，CTA 導 HealthFlow 看官方分數。
  */
 
-import type { HealthScoreResult, RiskLevel } from "@/lib/health-score";
+import type { HealthSummary } from "@/lib/health-service";
 import { getHealthAssessmentUrl } from "@/lib/health-assessment";
 
 interface HealthAssessmentCardProps {
-  score: HealthScoreResult;
+  summary: HealthSummary;
   customerId?: string | null;
 }
 
-const RISK_CONFIG: Record<RiskLevel, { color: string; bg: string; ring: string; emoji: string }> = {
-  good: { color: "text-green-700", bg: "bg-green-50 border-green-200", ring: "stroke-green-500", emoji: "\uD83D\uDFE2" },
-  warning: { color: "text-yellow-700", bg: "bg-yellow-50 border-yellow-200", ring: "stroke-yellow-500", emoji: "\uD83D\uDFE1" },
-  danger: { color: "text-red-700", bg: "bg-red-50 border-red-200", ring: "stroke-red-500", emoji: "\uD83D\uDD34" },
-};
+export function HealthAssessmentCard({
+  summary,
+  customerId,
+}: HealthAssessmentCardProps) {
+  const latest = summary.latest;
+  if (!latest) {
+    // 不應發生（getHealthCardData 已 gate `!summary.latest`），保險空態
+    return null;
+  }
 
-export function HealthAssessmentCard({ score, customerId }: HealthAssessmentCardProps) {
-  const config = RISK_CONFIG[score.riskLevel];
-  const { advice } = score;
+  const daysAgo = summary.meta.daysSinceLastMeasure;
+  const alertsAbnormal = summary.alerts.filter(
+    (a) => a.status === "warning" || a.status === "danger",
+  );
+  const hasDanger = alertsAbnormal.some((a) => a.status === "danger");
+  const alertBadgeClass = hasDanger
+    ? "bg-red-50 border-red-200 text-red-700"
+    : "bg-amber-50 border-amber-200 text-amber-700";
 
   return (
     <div className="rounded-2xl border border-earth-200 bg-white p-6 shadow-sm">
       {/* Header */}
-      <div className="mb-5 flex items-start justify-between gap-3">
+      <div className="mb-4 flex items-start justify-between gap-3">
         <div>
           <h3 className="text-lg font-bold text-earth-900">AI 健康評估</h3>
-          <p className="mt-1 text-sm text-earth-700">
-            根據您的身體狀況提供個人化建議
-          </p>
+          <p className="mt-1 text-sm text-earth-700">最近一次量測摘要</p>
         </div>
         {customerId && (
           <a
@@ -40,116 +50,88 @@ export function HealthAssessmentCard({ score, customerId }: HealthAssessmentCard
             rel="noopener noreferrer"
             className="flex min-h-[44px] items-center rounded-md px-2 text-sm font-semibold text-primary-700 hover:bg-earth-50 hover:underline"
           >
-            詳細報告 &rarr;
+            查看完整評估 &rarr;
           </a>
         )}
       </div>
 
-      {/* Score + Risk row */}
-      <div className="mb-5 flex items-center gap-5">
-        <ScoreRing score={score.score} riskLevel={score.riskLevel} />
-        <div className="flex-1">
-          <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-base font-semibold ${config.bg} ${config.color}`}>
-            {config.emoji} {score.riskLabel}
+      {/* Latest measured date */}
+      <div className="mb-4 flex items-baseline justify-between rounded-xl bg-earth-50 px-4 py-3">
+        <span className="text-xs text-earth-500">最近量測</span>
+        <span className="text-sm">
+          <span className="font-semibold text-earth-900">
+            {formatDate(latest.measuredAt)}
           </span>
-          {score.lastMeasuredAt && (
-            <p className="mt-2 text-sm text-earth-700">
-              最近量測：{score.lastMeasuredAt}
-              {score.daysSinceLastMeasure != null && (
-                <span className="ml-1">({score.daysSinceLastMeasure} 天前)</span>
-              )}
-            </p>
+          {daysAgo !== null && (
+            <span className="ml-1 text-xs text-earth-500">
+              （{daysAgo} 天前）
+            </span>
           )}
-        </div>
+        </span>
       </div>
 
-      {/* 三段式建議 */}
-      <div className="space-y-3">
-        {/* 風險判讀 */}
-        <div className="rounded-xl bg-earth-50 px-4 py-4">
-          <div className="mb-2 flex items-center gap-1.5">
-            <span className="text-base">&#x1F50D;</span>
-            <p className="text-base font-semibold text-earth-800">風險判讀</p>
-          </div>
-          <p className="text-base leading-relaxed text-earth-900">
-            {advice.riskSummary}
-          </p>
-        </div>
-
-        {/* 護理建議 */}
-        {advice.careAdvice.length > 0 && (
-          <div className="rounded-xl bg-primary-50/70 px-4 py-4">
-            <div className="mb-3 flex items-center gap-1.5">
-              <span className="text-base">&#x1F49A;</span>
-              <p className="text-base font-semibold text-primary-800">護理建議</p>
-            </div>
-            <div className="space-y-2.5">
-              {advice.careAdvice.map((text, i) => (
-                <div key={i} className="flex items-start gap-2.5">
-                  <span className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-primary-100 text-sm font-bold text-primary-800">
-                    {i + 1}
-                  </span>
-                  <p className="text-base leading-relaxed text-earth-900">{text}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* 回訪建議 */}
-        <div className="rounded-xl bg-blue-50/70 px-4 py-4">
-          <div className="mb-2 flex items-center gap-1.5">
-            <span className="text-base">&#x1F4C5;</span>
-            <p className="text-base font-semibold text-blue-800">回訪建議</p>
-          </div>
-          <p className="text-base leading-relaxed text-earth-900">
-            {advice.revisitSuggestion}
-          </p>
-        </div>
+      {/* 4 主指標 inline */}
+      <div className="mb-4 grid grid-cols-2 gap-2">
+        <MetricCell label="體重" value={latest.weight} unit="kg" />
+        <MetricCell label="BMI" value={latest.bmi} unit="" />
+        <MetricCell label="體脂肪" value={latest.bodyFat} unit="%" />
+        <MetricCell label="內臟脂肪" value={latest.visceralFat} unit="" />
       </div>
+
+      {/* Alerts badge — 任何 warning/danger 集中顯示一行 */}
+      {alertsAbnormal.length > 0 && (
+        <div
+          className={`mb-4 rounded-lg border px-3 py-2 text-xs ${alertBadgeClass}`}
+        >
+          <p className="font-medium">
+            {hasDanger ? "⚠ 部分指標需特別注意" : "△ 部分指標需留意"}
+          </p>
+          <p className="mt-0.5 opacity-90">
+            {alertsAbnormal.map((a) => a.label).join("、")}
+          </p>
+        </div>
+      )}
+
+      {/* 引導語：分數請至 HealthFlow */}
+      <p className="text-[11px] leading-relaxed text-earth-500">
+        完整健康分數與評估，請點「查看完整評估」前往 HealthFlow 原站。
+      </p>
     </div>
   );
 }
 
-// ============================================================
-// Score ring (SVG circular progress)
-// ============================================================
-
-function ScoreRing({ score, riskLevel }: { score: number; riskLevel: RiskLevel }) {
-  const config = RISK_CONFIG[riskLevel];
-  const radius = 32;
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (score / 100) * circumference;
-
+function MetricCell({
+  label,
+  value,
+  unit,
+}: {
+  label: string;
+  value: number | null;
+  unit: string;
+}) {
   return (
-    <div className="relative flex-shrink-0">
-      <svg width="80" height="80" viewBox="0 0 80 80">
-        <circle
-          cx="40"
-          cy="40"
-          r={radius}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="6"
-          className="text-earth-100"
-        />
-        <circle
-          cx="40"
-          cy="40"
-          r={radius}
-          fill="none"
-          strokeWidth="6"
-          strokeLinecap="round"
-          className={config.ring}
-          strokeDasharray={circumference}
-          strokeDashoffset={offset}
-          transform="rotate(-90 40 40)"
-        />
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-xl font-bold text-earth-900">{score}</span>
-        <span className="text-xs font-medium text-earth-700">/ 100</span>
-      </div>
+    <div className="rounded-lg border border-earth-200 bg-white px-3 py-2">
+      <p className="text-[11px] text-earth-500">{label}</p>
+      <p className="mt-0.5 text-base font-bold text-earth-900">
+        {value != null ? (
+          <>
+            {value}
+            {unit && (
+              <span className="ml-0.5 text-[10px] font-normal text-earth-500">
+                {unit}
+              </span>
+            )}
+          </>
+        ) : (
+          <span className="text-earth-300">—</span>
+        )}
+      </p>
     </div>
   );
+}
+
+function formatDate(s: string): string {
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return s;
+  return `${m[1]}/${m[2]}/${m[3]}`;
 }

@@ -38,8 +38,10 @@ import {
   liffMessages,
 } from "@/lib/liff/messages";
 import type { HealthSummary, HealthAlert } from "@/lib/health-service";
-import type { HealthScoreResult } from "@/lib/health-score";
 
+// PR-H2c：移除 self-computed score 顯示 — HealthFlow API 不回官方 score，
+// Steamfoot 自算與 HealthFlow 原站不一致，會誤導顧客。改顯示 metrics + alerts +
+// 「查看完整評估」CTA 導 HealthFlow 看官方分數。
 type State =
   | { kind: "initializing" }
   | { kind: "not_in_line_app" }
@@ -49,7 +51,6 @@ type State =
   | {
       kind: "linked";
       summary: HealthSummary;
-      score: HealthScoreResult;
     }
   | { kind: "not_linked"; reason: "unlinked" | "not_found" | "error" };
 
@@ -106,7 +107,6 @@ export function HealthView({ storeSlug, storeName, liffId }: Props) {
             setState({
               kind: "linked",
               summary: result.summary,
-              score: result.score,
             });
           } else {
             setState({ kind: "not_linked", reason: result.reason });
@@ -183,11 +183,7 @@ export function HealthView({ storeSlug, storeName, liffId }: Props) {
       )}
 
       {state.kind === "linked" && (
-        <LinkedView
-          storeSlug={storeSlug}
-          summary={state.summary}
-          score={state.score}
-        />
+        <LinkedView storeSlug={storeSlug} summary={state.summary} />
       )}
 
       <Disclaimer />
@@ -202,11 +198,9 @@ export function HealthView({ storeSlug, storeName, liffId }: Props) {
 function LinkedView({
   storeSlug,
   summary,
-  score,
 }: {
   storeSlug: string;
   summary: HealthSummary;
-  score: HealthScoreResult;
 }) {
   const m = liffMessages.health;
 
@@ -230,8 +224,8 @@ function LinkedView({
 
   return (
     <>
-      {/* ── 評分卡 ── */}
-      <ScoreCard score={score} measuredAt={measuredAtLabel} daysAgo={daysAgo} />
+      {/* ── 最近量測時間 (不顯示 self-computed score；交給 HealthFlow 原站) ── */}
+      <LatestSnapshot measuredAt={measuredAtLabel} daysAgo={daysAgo} />
 
       {/* ── 指標 grid (6 主指標) ── */}
       <MetricGrid latest={summary.latest} alerts={summary.alerts} />
@@ -247,55 +241,34 @@ function LinkedView({
   );
 }
 
-function ScoreCard({
-  score,
+/**
+ * 取代原 ScoreCard。PR-H2c：不顯示 self-computed score（與 HealthFlow 原站不一致）。
+ * 只顯示「最近量測：YYYY/MM/DD（N 天前）」+ 引導 CTA「完整評估請至 HealthFlow」。
+ */
+function LatestSnapshot({
   measuredAt,
   daysAgo,
 }: {
-  score: HealthScoreResult;
   measuredAt: string;
   daysAgo: number | null;
 }) {
   const m = liffMessages.health;
-  const riskClass =
-    score.riskLevel === "good"
-      ? "bg-green-50 border-green-200 text-green-900"
-      : score.riskLevel === "warning"
-        ? "bg-amber-50 border-amber-200 text-amber-900"
-        : "bg-red-50 border-red-200 text-red-900";
-  const scoreColor =
-    score.riskLevel === "good"
-      ? "text-green-700"
-      : score.riskLevel === "warning"
-        ? "text-amber-700"
-        : "text-red-700";
   return (
-    <div className={`rounded-xl border px-4 py-4 ${riskClass}`}>
+    <div className="rounded-xl border border-earth-200 bg-white px-4 py-3 text-sm text-earth-800">
       <div className="flex items-baseline justify-between">
-        <p className="text-xs opacity-80">{m.lastMeasuredLabel}</p>
-        <p className="text-xs">
-          {formatDateLabel(measuredAt)}
+        <p className="text-xs text-earth-500">{m.lastMeasuredLabel}</p>
+        <p className="text-sm">
+          <span className="font-medium text-earth-900">
+            {formatDateLabel(measuredAt)}
+          </span>
           {daysAgo !== null && (
-            <span className="ml-1 opacity-70">
+            <span className="ml-1 text-xs text-earth-500">
               {m.daysAgoSuffix.replace("{n}", String(daysAgo))}
             </span>
           )}
         </p>
       </div>
-      <div className="mt-2 flex items-end gap-3">
-        <span className={`text-4xl font-bold tabular-nums ${scoreColor}`}>
-          {score.score}
-        </span>
-        <span className="pb-1 text-xs opacity-80">{m.scoreSuffix}</span>
-        <span className="ml-auto rounded-full bg-white/70 px-3 py-1 text-xs font-medium">
-          {score.riskLabel}
-        </span>
-      </div>
-      {score.advice.riskSummary && (
-        <p className="mt-3 text-xs leading-relaxed">
-          {score.advice.riskSummary}
-        </p>
-      )}
+      <p className="mt-2 text-[11px] text-earth-500">{m.scoreOnHealthFlowHint}</p>
     </div>
   );
 }

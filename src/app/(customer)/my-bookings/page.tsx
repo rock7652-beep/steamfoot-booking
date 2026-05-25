@@ -191,7 +191,7 @@ export default async function MyBookingsPage({ searchParams }: PageProps) {
       {/* Health Assessment Card */}
       {healthCard.available && (
         <div className="mb-5">
-          <HealthAssessmentCard score={healthCard.score} customerId={customerId} />
+          <HealthAssessmentCard summary={healthCard.summary} customerId={customerId} />
         </div>
       )}
 
