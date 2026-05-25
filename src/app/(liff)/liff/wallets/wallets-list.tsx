@@ -179,6 +179,10 @@ function ReadyView({
 }) {
   const totalCount = active.length + expired.length + history.length;
   const isEmpty = totalCount === 0;
+  // PR-G3：「立即預約」CTA 顯示條件 — active 加總 availableToBook > 0
+  // （非 raw remainingSessions；同顧客 hero 大字一致語意）
+  const totalAvailable = active.reduce((sum, w) => sum + w.availableToBook, 0);
+  const showBookNow = totalAvailable > 0;
 
   return (
     <>
@@ -210,10 +214,22 @@ function ReadyView({
         </>
       )}
 
+      {/* PR-G3：「立即預約」primary CTA — 用 active 加總 availableToBook > 0
+          才顯示；同站內 LINE webview 用 next/link same-page nav 即可。
+          連 /liff/member-booking (PR-G3 主體 page)。 */}
+      {showBookNow && (
+        <Link
+          href={`/s/${storeSlug}/liff/member-booking`}
+          className="mt-4 inline-flex w-full min-h-[48px] items-center justify-center rounded-xl bg-earth-800 px-4 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-earth-700 active:scale-[0.98]"
+        >
+          {liffMessages.wallets.ctaBookNow}
+        </Link>
+      )}
+
       {/* PR-E4：聯絡店家 + 回首頁 並排在頁腳。聯絡店家 LINE-green 與既有 LIFF
           各處 contact CTA 一致；回首頁 outlined secondary，兩者視覺平衡，
           顧客有問題（剩餘堂數 / 過期 / 用完）能直接找店家確認。 */}
-      <div className="mt-4 flex gap-2">
+      <div className={`${showBookNow ? "mt-2" : "mt-4"} flex gap-2`}>
         <a
           href={contactStoreUrl}
           target="_blank"
