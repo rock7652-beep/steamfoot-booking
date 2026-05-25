@@ -32,10 +32,12 @@ import {
 import { awardFirstBookingReferralPointsIfEligible } from "@/server/services/referral-points";
 import {
   allocateSessions,
+  allocateSessionsFefo,
   releaseSessions,
   completeSessions,
   uncompleteSessions,
   reReserveSessions,
+  reReserveSessionsFefo,
 } from "@/server/services/wallet-session";
 import { Prisma } from "@prisma/client";
 // PR-1.5a：Booking.revenueStaffId 快照規則 helper（鎖定 + 防回歸）。
@@ -473,15 +475,30 @@ export async function createBooking(
         },
       });
 
-      // 配套單堂明細：非補課 + 有指定 wallet → AVAILABLE → RESERVED
-      // multi-person：people=N 配 N 個 AVAILABLE row
-      if (!isMakeup && data.customerPlanWalletId) {
-        await allocateSessions(
-          tx,
-          data.customerPlanWalletId,
-          created.id,
-          bookingPeople,
-        );
+      // 配套單堂明細：非補課 + 有 ACTIVE wallets → 跨 wallet FEFO 分配 N 堂
+      // PR #194: people=N 一張 wallet 不夠時，依 FEFO 順序橫跨多張補足
+      //   - preferredWalletId = data.customerPlanWalletId (auto-pick FEFO 第一張或 user 明選)
+      //   - 跨 wallet 後若實際 primary 與 preferred 不同（preferred 0 堂被略過）→ 更新 booking 欄位
+      if (!isMakeup && data.customerPlanWalletId && customer.planWallets.length > 0) {
+        const { primaryWalletId } = await allocateSessionsFefo(tx, {
+          candidates: customer.planWallets.map((w) => ({
+            id: w.id,
+            expiryDate: w.expiryDate,
+            createdAt: w.createdAt,
+            remainingSessions: w.remainingSessions,
+          })),
+          bookingId: created.id,
+          count: bookingPeople,
+          preferredWalletId: data.customerPlanWalletId,
+        });
+
+        if (primaryWalletId && primaryWalletId !== data.customerPlanWalletId) {
+          await tx.booking.update({
+            where: { id: created.id },
+            data: { customerPlanWalletId: primaryWalletId },
+          });
+          created.customerPlanWalletId = primaryWalletId;
+        }
       }
 
       return created;
@@ -761,24 +778,48 @@ export async function markCompleted(
       });
 
       // 2. 扣堂 + 寫使用紀錄（非補課才扣）
-      // multi-person：對該 booking 的全部 RESERVED row（people=N → 扣 N 堂）
+      // multi-person + multi-wallet：對該 booking 的全部 RESERVED row 操作；
+      // 每堂可能來自不同 wallet（FEFO split），SESSION_DEDUCTION 對應寫入。
       const wallet = booking.customerPlanWallet;
-      let newRemaining = wallet?.remainingSessions ?? 0;
       if (wallet && !booking.isMakeup) {
-        // 優先走單堂明細：RESERVED → COMPLETED（同步 wallet.remainingSessions / status）
-        const { completed } = await completeSessions(tx, bookingId, new Date());
-        // 實扣堂數：ledger 走 completed 數；legacy fallback 走 booking.people
-        const deductedCount = completed > 0 ? completed : booking.people;
+        // 優先走單堂明細：RESERVED → COMPLETED（同步所有觸及 wallet 的 counter / status）
+        const { completed, items } = await completeSessions(
+          tx,
+          bookingId,
+          new Date(),
+        );
+
+        const dateStr = booking.bookingDate.toISOString().slice(0, 10);
+        const peopleSuffix =
+          booking.people > 1 ? `（${booking.people} 人預約）` : "";
 
         if (completed > 0) {
-          const updated = await tx.customerPlanWallet.findUnique({
-            where: { id: wallet.id },
-            select: { remainingSessions: true },
-          });
-          newRemaining = updated?.remainingSessions ?? 0;
+          // 每個 session row 各寫 1 筆 SESSION_DEDUCTION，customerPlanWalletId 對應該 session 所屬 wallet
+          // (multi-wallet FEFO split：可能來自不同 wallet)
+          for (const it of items) {
+            await tx.transaction.create({
+              data: {
+                customerId: booking.customerId,
+                bookingId: booking.id,
+                revenueStaffId:
+                  booking.revenueStaffId ?? serviceStaffId ?? user.staffId!,
+                serviceStaffId,
+                customerPlanWalletId: it.walletId,
+                transactionType: "SESSION_DEDUCTION",
+                paymentMethod: "CASH",
+                amount: 0,
+                quantity: 1,
+                note: `出席（${dateStr} ${booking.slotTime}）${peopleSuffix}`,
+                storeId: currentStoreId(user),
+              },
+            });
+          }
         } else {
-          // Fallback：舊資料尚未跑 backfill → 沿用原 counter 邏輯，扣 booking.people 堂
-          newRemaining = Math.max(0, wallet.remainingSessions - booking.people);
+          // Fallback：legacy wallet 無 ledger row → 沿用 counter 邏輯，全扣到 primary wallet
+          const newRemaining = Math.max(
+            0,
+            wallet.remainingSessions - booking.people,
+          );
           await tx.customerPlanWallet.update({
             where: { id: wallet.id },
             data: {
@@ -786,47 +827,36 @@ export async function markCompleted(
               status: newRemaining <= 0 ? "USED_UP" : "ACTIVE",
             },
           });
-        }
-
-        // 使用紀錄：每堂 1 筆 SESSION_DEDUCTION (quantity=1)
-        // 用 N 筆而非 1 筆 quantity=N — 既有報表全部 count rows 不 sum quantity
-        const dateStr = booking.bookingDate.toISOString().slice(0, 10);
-        const peopleSuffix =
-          deductedCount > 1 ? `（${deductedCount} 人預約）` : "";
-        for (let i = 0; i < deductedCount; i++) {
-          await tx.transaction.create({
-            data: {
-              customerId: booking.customerId,
-              bookingId: booking.id,
-              revenueStaffId:
-                booking.revenueStaffId ?? serviceStaffId ?? user.staffId!,
-              serviceStaffId,
-              customerPlanWalletId: wallet.id,
-              transactionType: "SESSION_DEDUCTION",
-              paymentMethod: "CASH",
-              amount: 0,
-              quantity: 1,
-              note: `出席（${dateStr} ${booking.slotTime}）${peopleSuffix}`,
-              storeId: currentStoreId(user),
-            },
-          });
-        }
-
-        // 3. 若錢包歸零 → 檢查是否還有其他 ACTIVE wallet
-        if (newRemaining <= 0) {
-          const otherActiveWallets = await tx.customerPlanWallet.count({
-            where: {
-              customerId: booking.customerId,
-              status: "ACTIVE",
-              NOT: { id: wallet.id },
-            },
-          });
-          if (otherActiveWallets === 0) {
-            await tx.customer.update({
-              where: { id: booking.customerId },
-              data: { customerStage: "INACTIVE", selfBookingEnabled: false },
+          for (let i = 0; i < booking.people; i++) {
+            await tx.transaction.create({
+              data: {
+                customerId: booking.customerId,
+                bookingId: booking.id,
+                revenueStaffId:
+                  booking.revenueStaffId ?? serviceStaffId ?? user.staffId!,
+                serviceStaffId,
+                customerPlanWalletId: wallet.id,
+                transactionType: "SESSION_DEDUCTION",
+                paymentMethod: "CASH",
+                amount: 0,
+                quantity: 1,
+                note: `出席（${dateStr} ${booking.slotTime}）${peopleSuffix}`,
+                storeId: currentStoreId(user),
+              },
             });
           }
+        }
+
+        // 3. 若顧客所有 ACTIVE wallet 都歸零 → 標 INACTIVE
+        // (multi-wallet：不能只看 primary wallet，要看全部)
+        const remainingActiveWallets = await tx.customerPlanWallet.count({
+          where: { customerId: booking.customerId, status: "ACTIVE" },
+        });
+        if (remainingActiveWallets === 0) {
+          await tx.customer.update({
+            where: { id: booking.customerId },
+            data: { customerStage: "INACTIVE", selfBookingEnabled: false },
+          });
         }
       }
       // 🆕 自動給分：出席 +5（在同一事務內）
@@ -929,14 +959,39 @@ export async function markNoShow(
       });
 
       // 2. 若扣堂 → 扣 wallet + 寫 usage record
-      // multi-person：people=N 全 RESERVED row → COMPLETED；寫 N 筆 SESSION_DEDUCTION
+      // multi-person + multi-wallet：people=N 全 RESERVED row → COMPLETED；
+      // 寫 N 筆 SESSION_DEDUCTION，每筆 customerPlanWalletId 對應該 session 所屬 wallet
       const wallet = booking.customerPlanWallet;
       if (shouldDeduct && wallet && !booking.isMakeup) {
-        // 單堂明細：對該 booking 的全部 RESERVED row 操作
-        const { completed } = await completeSessions(tx, bookingId, new Date());
-        const deductedCount = completed > 0 ? completed : booking.people;
+        const { completed, items } = await completeSessions(
+          tx,
+          bookingId,
+          new Date(),
+        );
 
-        if (completed === 0) {
+        const dateStr = booking.bookingDate.toISOString().slice(0, 10);
+        const peopleSuffix =
+          booking.people > 1 ? `（${booking.people} 人預約）` : "";
+
+        if (completed > 0) {
+          for (const it of items) {
+            await tx.transaction.create({
+              data: {
+                customerId: booking.customerId,
+                bookingId: booking.id,
+                revenueStaffId: booking.revenueStaffId ?? user.staffId!,
+                customerPlanWalletId: it.walletId,
+                transactionType: "SESSION_DEDUCTION",
+                paymentMethod: "CASH",
+                amount: 0,
+                quantity: 1,
+                note: `未到扣堂（${dateStr} ${booking.slotTime}）${peopleSuffix}`,
+                storeId: currentStoreId(user),
+              },
+            });
+          }
+        } else {
+          // legacy fallback：counter 扣到 primary wallet
           const newRemaining = Math.max(
             0,
             wallet.remainingSessions - booking.people,
@@ -948,27 +1003,22 @@ export async function markNoShow(
               status: newRemaining <= 0 ? "USED_UP" : "ACTIVE",
             },
           });
-        }
-
-        const dateStr = booking.bookingDate.toISOString().slice(0, 10);
-        const peopleSuffix =
-          deductedCount > 1 ? `（${deductedCount} 人預約）` : "";
-        for (let i = 0; i < deductedCount; i++) {
-          await tx.transaction.create({
-            data: {
-              customerId: booking.customerId,
-              bookingId: booking.id,
-              revenueStaffId:
-                booking.revenueStaffId ?? user.staffId!,
-              customerPlanWalletId: wallet.id,
-              transactionType: "SESSION_DEDUCTION",
-              paymentMethod: "CASH",
-              amount: 0,
-              quantity: 1,
-              note: `未到扣堂（${dateStr} ${booking.slotTime}）${peopleSuffix}`,
-              storeId: currentStoreId(user),
-            },
-          });
+          for (let i = 0; i < booking.people; i++) {
+            await tx.transaction.create({
+              data: {
+                customerId: booking.customerId,
+                bookingId: booking.id,
+                revenueStaffId: booking.revenueStaffId ?? user.staffId!,
+                customerPlanWalletId: wallet.id,
+                transactionType: "SESSION_DEDUCTION",
+                paymentMethod: "CASH",
+                amount: 0,
+                quantity: 1,
+                note: `未到扣堂（${dateStr} ${booking.slotTime}）${peopleSuffix}`,
+                storeId: currentStoreId(user),
+              },
+            });
+          }
         }
       } else if (!shouldDeduct && wallet && !booking.isMakeup) {
         // 不扣堂未到 → 釋放全部 RESERVED → AVAILABLE（補課 / 舊資料無 row 則 no-op）
@@ -1029,6 +1079,12 @@ export async function revertBookingStatus(
     if (st === "PENDING" || st === "CONFIRMED") {
       throw new AppError("VALIDATION", "預約已是待到店狀態，無需修正");
     }
+
+    // multi-wallet revert：需要顧客全部 ACTIVE wallets 供 FEFO 重新 reserve
+    const customerWallets = await prisma.customerPlanWallet.findMany({
+      where: { customerId: booking.customerId, status: "ACTIVE" },
+      select: { id: true, expiryDate: true, createdAt: true, remainingSessions: true },
+    });
 
     await prisma.$transaction(async (tx) => {
       // ── COMPLETED → PENDING ──
@@ -1127,19 +1183,19 @@ export async function revertBookingStatus(
         }
 
         // 不扣堂未到 → 之前曾 release，回 PENDING 需重新 reserve
-        // multi-person：重新挑 N=booking.people 個 AVAILABLE
+        // multi-person + multi-wallet：FEFO 跨 wallet 重新挑 N=booking.people 個 AVAILABLE
         if (
           booking.noShowPolicy !== "DEDUCTED" &&
           wallet &&
           !booking.isMakeup &&
           booking.customerPlanWalletId
         ) {
-          await reReserveSessions(
-            tx,
-            booking.customerPlanWalletId,
+          await reReserveSessionsFefo(tx, {
+            candidates: customerWallets,
             bookingId,
-            booking.people,
-          );
+            count: booking.people,
+            preferredWalletId: booking.customerPlanWalletId,
+          });
         }
 
         await tx.booking.update({
@@ -1168,14 +1224,14 @@ export async function revertBookingStatus(
         }
 
         // 非補課 → 取消時已 release，恢復需重新 reserve
-        // multi-person：重新挑 N=booking.people 個 AVAILABLE
+        // multi-person + multi-wallet：FEFO 跨 wallet 重新挑 N=booking.people 個 AVAILABLE
         if (!booking.isMakeup && booking.customerPlanWalletId) {
-          await reReserveSessions(
-            tx,
-            booking.customerPlanWalletId,
+          await reReserveSessionsFefo(tx, {
+            candidates: customerWallets,
             bookingId,
-            booking.people,
-          );
+            count: booking.people,
+            preferredWalletId: booking.customerPlanWalletId,
+          });
         }
 
         await tx.booking.update({

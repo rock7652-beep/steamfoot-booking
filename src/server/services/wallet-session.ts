@@ -21,6 +21,7 @@
  */
 
 import type { Prisma, WalletSession } from "@prisma/client";
+import { compareWalletByFEFO } from "@/lib/wallet-sort";
 
 type Tx = Prisma.TransactionClient;
 
@@ -155,12 +156,15 @@ export async function releaseSessions(
   });
   if (sessions.length === 0) return { released: 0 }; // 補課 / legacy → no-op
 
-  const walletId = sessions[0].walletId; // 同 booking 必同 wallet
+  // multi-wallet：一筆 booking 可能跨多張 wallet（FEFO split），全部 release
+  const walletIds = [...new Set(sessions.map((s) => s.walletId))];
   const result = await tx.walletSession.updateMany({
     where: { bookingId, status: "RESERVED" },
     data: { status: "AVAILABLE", bookingId: null, reservedAt: null },
   });
-  await refreshWalletCounter(tx, walletId);
+  for (const walletId of walletIds) {
+    await refreshWalletCounter(tx, walletId);
+  }
   return { released: result.count };
 }
 
@@ -173,20 +177,31 @@ export async function completeSessions(
   tx: Tx,
   bookingId: string,
   completedAt: Date = new Date()
-): Promise<{ completed: number }> {
+): Promise<{
+  completed: number;
+  /** 個別 session 的 walletId + sessionNo — 呼叫端用來建 per-wallet SESSION_DEDUCTION 交易 */
+  items: Array<{ walletId: string; sessionNo: number }>;
+}> {
   const sessions = await tx.walletSession.findMany({
     where: { bookingId, status: "RESERVED" },
-    select: { id: true, walletId: true },
+    select: { id: true, walletId: true, sessionNo: true },
+    orderBy: [{ walletId: "asc" }, { sessionNo: "asc" }],
   });
-  if (sessions.length === 0) return { completed: 0 }; // 補課 / legacy → no-op
+  if (sessions.length === 0) return { completed: 0, items: [] };
 
-  const walletId = sessions[0].walletId;
+  // multi-wallet：一筆 booking 可能跨多張 wallet（FEFO split），全部 COMPLETE
+  const walletIds = [...new Set(sessions.map((s) => s.walletId))];
   const result = await tx.walletSession.updateMany({
     where: { bookingId, status: "RESERVED" },
     data: { status: "COMPLETED", completedAt },
   });
-  await refreshWalletCounter(tx, walletId);
-  return { completed: result.count };
+  for (const walletId of walletIds) {
+    await refreshWalletCounter(tx, walletId);
+  }
+  return {
+    completed: result.count,
+    items: sessions.map((s) => ({ walletId: s.walletId, sessionNo: s.sessionNo })),
+  };
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -204,12 +219,15 @@ export async function uncompleteSessions(
   });
   if (sessions.length === 0) return { uncompleted: 0 };
 
-  const walletId = sessions[0].walletId;
+  // multi-wallet：一筆 booking 可能跨多張 wallet，全部 UNCOMPLETE
+  const walletIds = [...new Set(sessions.map((s) => s.walletId))];
   const result = await tx.walletSession.updateMany({
     where: { bookingId, status: "COMPLETED" },
     data: { status: "RESERVED", completedAt: null },
   });
-  await refreshWalletCounter(tx, walletId);
+  for (const walletId of walletIds) {
+    await refreshWalletCounter(tx, walletId);
+  }
   return { uncompleted: result.count };
 }
 
@@ -227,6 +245,127 @@ export async function reReserveSessions(
 ): Promise<{ reReserved: number }> {
   const { allocated } = await allocateSessions(tx, walletId, bookingId, count);
   return { reReserved: allocated };
+}
+
+// ──────────────────────────────────────────────────────────────
+// allocateSessionsFefo — 跨 wallet FEFO 分配
+//
+// 場景：multi-person booking (people>1) 一張 wallet 不夠分配整 people 數時，
+// 依 FEFO（最早到期）順序橫跨多張 wallet 分配，把每張 wallet 的 AVAILABLE 用到上限再換下一張。
+//
+// 排序：preferredWalletId（呼叫端指定）排最前 → 其餘依 compareWalletByFEFO（expiryDate ASC,
+// createdAt ASC, id ASC）。
+//
+// 回傳：
+//   - allocations: 每張 wallet 實際配到的堂數（沒配到的 wallet 不入列）
+//   - primaryWalletId: 第一張被使用的 wallet id；callers 拿來寫 booking.customerPlanWalletId
+//
+// Error：
+//   - 跨 wallet 總 AVAILABLE+RESERVED 不足 count → throw NOT_AVAILABLE
+//   - 部分配到後仍不足（例：legacy wallet 無 ledger 被略過）→ throw NOT_AVAILABLE，tx rollback
+// ──────────────────────────────────────────────────────────────
+
+export type FefoCandidateWallet = {
+  id: string;
+  expiryDate: Date | null;
+  createdAt: Date;
+  remainingSessions: number;
+};
+
+export async function allocateSessionsFefo(
+  tx: Tx,
+  args: {
+    candidates: readonly FefoCandidateWallet[];
+    bookingId: string;
+    count: number;
+    preferredWalletId?: string | null;
+  }
+): Promise<{
+  allocations: Array<{ walletId: string; count: number }>;
+  primaryWalletId: string | null;
+}> {
+  const { candidates, bookingId, count, preferredWalletId } = args;
+  if (!Number.isInteger(count) || count <= 0) {
+    throw new WalletSessionError(
+      "VALIDATION",
+      `allocateSessionsFefo count 必須為正整數，收到 ${count}`,
+    );
+  }
+
+  const totalRemaining = candidates.reduce((s, w) => s + w.remainingSessions, 0);
+  if (totalRemaining < count) {
+    throw new WalletSessionError(
+      "NOT_AVAILABLE",
+      `跨方案總剩餘 ${totalRemaining} 堂，不足以分配 ${count} 堂`,
+    );
+  }
+
+  // 排序：preferred 第一，其餘 FEFO
+  const sorted = [...candidates].sort(compareWalletByFEFO);
+  if (preferredWalletId) {
+    const idx = sorted.findIndex((w) => w.id === preferredWalletId);
+    if (idx > 0) {
+      const [pref] = sorted.splice(idx, 1);
+      sorted.unshift(pref);
+    }
+  }
+
+  let need = count;
+  const allocations: Array<{ walletId: string; count: number }> = [];
+  let primaryWalletId: string | null = null;
+
+  for (const w of sorted) {
+    if (need === 0) break;
+    if (w.remainingSessions <= 0) continue;
+    const take = Math.min(need, w.remainingSessions);
+    const { allocated } = await allocateSessions(tx, w.id, bookingId, take);
+    if (allocated === 0) {
+      // legacy wallet 無 ledger → 跨 wallet 分配下無法 fallback；略過往下一張
+      continue;
+    }
+    if (allocated < take) {
+      // 不該發生（precheck 已過）；保險丟錯 → rollback
+      throw new WalletSessionError(
+        "NOT_AVAILABLE",
+        `wallet ${w.id} 預期配 ${take} 堂只配到 ${allocated}`,
+      );
+    }
+    allocations.push({ walletId: w.id, count: allocated });
+    if (primaryWalletId === null) primaryWalletId = w.id;
+    need -= allocated;
+  }
+
+  if (need > 0) {
+    throw new WalletSessionError(
+      "NOT_AVAILABLE",
+      `跨 wallet FEFO 後仍缺 ${need} 堂（可能為 legacy wallets 無 ledger）`,
+    );
+  }
+
+  return { allocations, primaryWalletId };
+}
+
+// ──────────────────────────────────────────────────────────────
+// reReserveSessionsFefo — revert 路徑用，跨 wallet 重新挑 N 堂
+// 與 allocateSessionsFefo 同實作，命名區隔語意（從 CANCELLED/NO_SHOW 回 PENDING）
+// ──────────────────────────────────────────────────────────────
+
+export async function reReserveSessionsFefo(
+  tx: Tx,
+  args: {
+    candidates: readonly FefoCandidateWallet[];
+    bookingId: string;
+    count: number;
+    preferredWalletId?: string | null;
+  }
+): Promise<{
+  reReserved: number;
+  allocations: Array<{ walletId: string; count: number }>;
+  primaryWalletId: string | null;
+}> {
+  const { allocations, primaryWalletId } = await allocateSessionsFefo(tx, args);
+  const reReserved = allocations.reduce((s, a) => s + a.count, 0);
+  return { reReserved, allocations, primaryWalletId };
 }
 
 // ──────────────────────────────────────────────────────────────
