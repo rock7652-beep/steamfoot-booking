@@ -122,6 +122,63 @@ export const liffMessages = {
     existingDateLabel: "日期",
     existingSlotLabel: "時段",
   },
+  // ── PR-G3 會員方案預約（使用剩餘堂數）──
+  // 從 /liff/wallets ReadyView「立即預約」進來；mirror trialBooking 結構但拿掉
+  // already_has_trial / 體驗收費 footnote / SuccessCard 的 store label。
+  // 主視覺差異：加 walletSummary 摘要列；submit label = 使用堂數預約；
+  // SuccessCard 只兩顆 CTA（查看我的預約 / 回我的方案）。
+  memberBooking: {
+    // page header
+    title: "使用堂數預約",
+    body: "請選擇您要使用方案堂數預約的日期與時段。",
+    initializing: "正在連接 LINE…",
+
+    // wallet summary bar (read-only)
+    /** 摘要列前綴 — e.g. "目前可預約" */
+    walletSummaryPrefix: "目前可預約",
+    /** 摘要列數字後綴 — e.g. "堂" */
+    walletSummarySuffix: "堂",
+    /** 多張方案時顯示 — e.g. "共 2 張方案" (with {count} placeholder) */
+    walletSummaryMultiPlan: "共 {count} 張方案",
+
+    // calendar (mirror trialBooking)
+    monthPrev: "上個月",
+    monthNext: "下個月",
+    weekLabels: ["日", "一", "二", "三", "四", "五", "六"] as const,
+    todayLabel: "今",
+    closedDayLabel: "公休",
+    monthEmpty: "本月沒有可預約的時段。",
+
+    // slot list
+    selectDatePrompt: "請先選擇日期",
+    noSlotsForDay: "本日沒有可預約的時段。",
+    slotsLoading: "載入時段中…",
+    slotFullLabel: "已額滿",
+    slotPastLabel: "已過",
+
+    // submit
+    submitPlaceholder: "請選擇日期與時段",
+    submit: "使用堂數預約",
+    submitting: "預約中…",
+
+    // success card — 只 date + slot；store label / footnote 文案柔化
+    successTitle: "預約已建立 ✓",
+    successFootnote: "感謝您的預約，期待您到店。",
+    successDateLabel: "日期",
+    successSlotLabel: "時段",
+    /** SuccessCard primary CTA — 與 trialBooking 一致 */
+    successMyBookingsCta: "查看我的預約",
+    /** SuccessCard secondary CTA — 回方案頁 */
+    successWalletsCta: "回我的方案",
+
+    // no_wallet card — wallet 缺失 / 過期 / 不足 三種 reason
+    noWalletTitle: "目前無法使用方案預約",
+    noWalletNone: "您目前沒有可用的方案，請聯繫店家購買方案。",
+    noWalletExpired: "您的方案已過期，請聯繫店家協助。",
+    noWalletInsufficient: "方案剩餘堂數不足，請聯繫店家協助。",
+    /** no_wallet card 上「回我的方案」secondary */
+    backToWalletsCta: "回我的方案",
+  },
   bookings: {
     // page header
     title: "我的預約",
@@ -215,6 +272,10 @@ export const liffMessages = {
     // empty state
     emptyTitle: "目前沒有可使用的方案",
     emptyBody: "若您已購買方案，請聯絡店家協助確認。",
+
+    // PR-G3：「立即預約」CTA — 露在 ReadyView footer
+    // 只有 active 加總 availableToBook > 0 才顯示；連到 /liff/member-booking
+    ctaBookNow: "立即預約",
 
     // 回首頁
     backHomeCta: "回首頁",
