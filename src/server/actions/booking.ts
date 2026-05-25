@@ -30,13 +30,14 @@ import {
   createBookingCompletedEvent,
 } from "@/server/services/referral-events";
 import { awardFirstBookingReferralPointsIfEligible } from "@/server/services/referral-points";
+// PR-H3 清理：PR #194 之後 createBooking 走 allocateSessionsFefo，revert 走
+// reReserveSessionsFefo；單 wallet 版本不再被 booking.ts 直接使用 → 移除 unused import。
 import {
-  allocateSessions,
   allocateSessionsFefo,
   releaseSessions,
+  partialReleaseSessions,
   completeSessions,
   uncompleteSessions,
-  reReserveSessions,
   reReserveSessionsFefo,
 } from "@/server/services/wallet-session";
 import { Prisma } from "@prisma/client";
@@ -599,6 +600,20 @@ export async function updateBooking(
       }
     }
 
+    // PR-H3: people 變動時，PACKAGE_SESSION 非補課需同步 WalletSession。
+    // 用 actualReservedCount → newPeople 的 delta 判斷（不是 booking.people → newPeople），
+    // 對 PR #193 前的 stale RESERVED 也能 reconcile：
+    //   - newPeople > actualReserved → allocate 差額 (allocateSessionsFefo，跨 wallet)
+    //   - newPeople < actualReserved → release 差額 (partialReleaseSessions，最大 sessionNo 先放)
+    //   - newPeople == actualReserved → 不動 session
+    // FIRST_TRIAL / SINGLE / isMakeup → 完全不動 session (不走 wallet)
+    const needsSessionSync =
+      data.people !== undefined &&
+      data.people !== booking.people &&
+      booking.bookingType === "PACKAGE_SESSION" &&
+      !booking.isMakeup &&
+      booking.customerPlanWalletId !== null;
+
     const updateData: Record<string, unknown> = {};
     if (data.bookingDate)
       updateData.bookingDate = new Date(data.bookingDate + "T00:00:00Z");
@@ -608,7 +623,47 @@ export async function updateBooking(
       updateData.serviceStaffId = data.serviceStaffId;
     if (data.notes !== undefined) updateData.notes = data.notes;
 
-    await prisma.booking.update({ where: { id: bookingId }, data: updateData });
+    if (!needsSessionSync) {
+      // 不需 session 同步 → 維持原本單一 update 行為
+      await prisma.booking.update({ where: { id: bookingId }, data: updateData });
+    } else {
+      // people 改了 PACKAGE_SESSION → transaction 包覆 booking update + session sync
+      // 任何一步失敗整段 rollback（Booking.people 不會被改）。
+      const newPeople = data.people!;
+      // 取顧客當下 ACTIVE wallets — allocateSessionsFefo 跨 wallet 用
+      const customerWallets = await prisma.customerPlanWallet.findMany({
+        where: { customerId: booking.customerId, status: "ACTIVE" },
+        select: {
+          id: true,
+          expiryDate: true,
+          createdAt: true,
+          remainingSessions: true,
+        },
+      });
+
+      await prisma.$transaction(async (tx) => {
+        // 先讀當下 RESERVED 數 — 對 stale 資料也能 reconcile
+        const actualReservedCount = await tx.walletSession.count({
+          where: { bookingId, status: "RESERVED" },
+        });
+
+        if (newPeople > actualReservedCount) {
+          const delta = newPeople - actualReservedCount;
+          await allocateSessionsFefo(tx, {
+            candidates: customerWallets,
+            bookingId,
+            count: delta,
+            preferredWalletId: booking.customerPlanWalletId,
+          });
+        } else if (newPeople < actualReservedCount) {
+          const delta = actualReservedCount - newPeople;
+          await partialReleaseSessions(tx, bookingId, delta);
+        }
+        // == 不動
+
+        await tx.booking.update({ where: { id: bookingId }, data: updateData });
+      });
+    }
 
     revalidateAll();
     return { success: true, data: undefined };

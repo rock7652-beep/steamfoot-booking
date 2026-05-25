@@ -169,6 +169,59 @@ export async function releaseSessions(
 }
 
 // ──────────────────────────────────────────────────────────────
+// partialReleaseSessions — 後台改 people 降人數時用 (PR-H3)
+//                          只釋放該 booking 的 N 個 RESERVED row（最大 sessionNo 先放）
+//
+// 與 releaseSessions 差異：
+//   - releaseSessions: 全部 RESERVED 都釋放（取消 / 不扣堂未到）
+//   - partialReleaseSessions: 釋放指定數量（後台改 people 2→1 釋放 1）
+//
+// 行為：
+//   - 釋放數 = min(count, 當下 RESERVED 數)。RESERVED 不足不 throw，回實際釋放數。
+//     原因：dirty data (PR #193 前的舊 booking) 可能 RESERVED < booking.people；
+//     呼叫端 (updateBooking) 是用「actualReserved → newPeople delta」判斷，
+//     對 stale 資料也能正常 reconcile，不該因 count 不滿足而中斷。
+//   - 釋放規則：sessionNo DESC（最新分配的先釋放，留舊的）— 對顧客體感
+//     穩定（早分配的 session 對應較早被「保留住」的承諾）。
+//   - multi-wallet：用 ID list 釋放，所有受影響 wallet 都 refresh counter。
+// ──────────────────────────────────────────────────────────────
+
+export async function partialReleaseSessions(
+  tx: Tx,
+  bookingId: string,
+  count: number,
+): Promise<{ released: number }> {
+  if (!Number.isInteger(count) || count <= 0) {
+    throw new WalletSessionError(
+      "VALIDATION",
+      `partialReleaseSessions count 必須為正整數，收到 ${count}`,
+    );
+  }
+
+  // 挑 count 個 RESERVED row，最大 sessionNo 先（最新分配的先放）
+  const candidates = await tx.walletSession.findMany({
+    where: { bookingId, status: "RESERVED" },
+    orderBy: { sessionNo: "desc" },
+    take: count,
+    select: { id: true, walletId: true },
+  });
+  if (candidates.length === 0) return { released: 0 };
+
+  const ids = candidates.map((c) => c.id);
+  const walletIds = [...new Set(candidates.map((c) => c.walletId))];
+
+  const result = await tx.walletSession.updateMany({
+    where: { id: { in: ids }, status: "RESERVED" },
+    data: { status: "AVAILABLE", bookingId: null, reservedAt: null },
+  });
+
+  for (const walletId of walletIds) {
+    await refreshWalletCounter(tx, walletId);
+  }
+  return { released: result.count };
+}
+
+// ──────────────────────────────────────────────────────────────
 // completeSessions — 出席 / NO_SHOW(DEDUCTED) → RESERVED → COMPLETED
 //                    對該 booking 的全部 RESERVED row 操作
 // ──────────────────────────────────────────────────────────────

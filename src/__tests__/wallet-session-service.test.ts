@@ -21,6 +21,7 @@ import {
   allocateSessions,
   allocateSessionsFefo,
   releaseSessions,
+  partialReleaseSessions,
   completeSessions,
   uncompleteSessions,
   reReserveSessions,
@@ -1050,6 +1051,107 @@ describe("wallet-session service", () => {
       expect(tx2._wallets.find((w: WalletRow) => w.id === WA)?.status).toBe("USED_UP");
       expect(invariantFor(tx2, WB).remaining).toBe(9);
       expect(tx2._wallets.find((w: WalletRow) => w.id === WB)?.status).toBe("ACTIVE");
+    });
+  });
+
+  // ──────────────────────────────────────────────
+  // partialReleaseSessions (PR-H3)
+  // ──────────────────────────────────────────────
+
+  describe("partialReleaseSessions", () => {
+    it("釋放指定 N 個 RESERVED，最大 sessionNo 先放", async () => {
+      await seedWalletSessions(tx, W, 5);
+      tx._wallets[0].remainingSessions = 5;
+      await allocateSessions(tx, W, "booking-A", 3); // 占 sessionNo 1,2,3 RESERVED
+
+      const result = await partialReleaseSessions(tx, "booking-A", 2);
+      expect(result.released).toBe(2);
+
+      // sessionNo 3, 2 應該被釋放（DESC）；sessionNo 1 仍 RESERVED
+      const stillReserved = tx._sessions.filter(
+        (s: SessionRow) => s.bookingId === "booking-A" && s.status === "RESERVED",
+      );
+      expect(stillReserved).toHaveLength(1);
+      expect(stillReserved[0].sessionNo).toBe(1);
+
+      const released = tx._sessions.filter(
+        (s: SessionRow) => s.status === "AVAILABLE" && s.bookingId === null,
+      );
+      expect(released.map((s: SessionRow) => s.sessionNo).sort()).toEqual([2, 3, 4, 5]);
+
+      // counter 正確
+      const inv = invariant(tx);
+      expect(inv.reserved).toBe(1);
+      expect(inv.available).toBe(4);
+      expect(inv.remaining).toBe(5);
+    });
+
+    it("count > 實際 RESERVED 數時，釋放實際存在的，回實際數", async () => {
+      // stale data 模擬：booking.people=2 但只 1 RESERVED
+      await seedWalletSessions(tx, W, 3);
+      tx._wallets[0].remainingSessions = 3;
+      await allocateSessions(tx, W, "booking-stale", 1);
+
+      const result = await partialReleaseSessions(tx, "booking-stale", 5);
+      expect(result.released).toBe(1); // 不 throw，只回實際釋放數
+
+      const inv = invariant(tx);
+      expect(inv.reserved).toBe(0);
+      expect(inv.available).toBe(3);
+    });
+
+    it("無對應 RESERVED row → released=0，不 throw", async () => {
+      const result = await partialReleaseSessions(tx, "booking-nonexistent", 1);
+      expect(result.released).toBe(0);
+    });
+
+    it("count <= 0 → throw WalletSessionError", async () => {
+      await expect(partialReleaseSessions(tx, "booking-A", 0)).rejects.toThrow(
+        WalletSessionError,
+      );
+      await expect(partialReleaseSessions(tx, "booking-A", -1)).rejects.toThrow(
+        /正整數/,
+      );
+    });
+
+    it("multi-wallet：跨 wallet RESERVED 都能釋放，所有 wallet counter 都 refresh", async () => {
+      const WA = "wallet-A";
+      const WB = "wallet-B";
+      const tx2 = makeTx([
+        { id: WA, remainingSessions: 1, status: "ACTIVE" },
+        { id: WB, remainingSessions: 10, status: "ACTIVE" },
+      ]);
+      await seedWalletSessions(tx2, WA, 1);
+      await seedWalletSessions(tx2, WB, 10);
+      tx2._wallets[0].remainingSessions = 1;
+      tx2._wallets[1].remainingSessions = 10;
+
+      // 跨 wallet allocate 2 堂（A:1 + B:1）
+      await allocateSessionsFefo(tx2, {
+        candidates: [
+          { id: WA, expiryDate: new Date("2026-07-11"), createdAt: new Date("2026-05-12"), remainingSessions: 1 },
+          { id: WB, expiryDate: new Date("2026-08-31"), createdAt: new Date("2026-05-25"), remainingSessions: 10 },
+        ],
+        bookingId: "b-multi",
+        count: 2,
+      });
+
+      // 釋放 1 堂 — 不 assert 哪一張 wallet 被釋放（兩張 sessionNo=1 並列；
+      // 實 prod orderBy DESC + walletId 順序皆視 DB 決定，行為等效）
+      const result = await partialReleaseSessions(tx2, "b-multi", 1);
+      expect(result.released).toBe(1);
+
+      // 剩下 1 個 RESERVED tied to b-multi
+      const stillReserved = tx2._sessions.filter(
+        (s: SessionRow) => s.bookingId === "b-multi" && s.status === "RESERVED",
+      );
+      expect(stillReserved).toHaveLength(1);
+
+      // 全 wallet 累計 remaining 仍 = 11（不變）
+      const wA = tx2._wallets.find((w: WalletRow) => w.id === WA);
+      const wB = tx2._wallets.find((w: WalletRow) => w.id === WB);
+      const totalRemaining = (wA?.remainingSessions ?? 0) + (wB?.remainingSessions ?? 0);
+      expect(totalRemaining).toBe(11);
     });
   });
 });
