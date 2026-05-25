@@ -31,7 +31,6 @@ import {
 } from "@/lib/liff/client";
 import {
   contactStoreUrl,
-  healthFlowLiffUrl,
   liffMessages,
 } from "@/lib/liff/messages";
 import { fetchLiffWallets } from "@/server/actions/liff-my-wallets";
@@ -382,23 +381,25 @@ function WelcomeBack({
         <ChevronRightIcon />
       </Link>
 
-      {/* PR-F1A：HealthFlow AI 健康評估外部 LIFF 入口。
-          視覺與 3 個主流程入口分離 — border-t + pt-3 + mt-1 強調「次要 / 外部服務」。
-          Transport：button + onClick { window.location.href = ... } same-page nav。
-          per PR #184 教訓：LINE iOS webview 對 button + window.location.href 最穩；
-          不用 target="_blank"（popup blocker）/ liff.openWindow（LIFF context 衝突）/ <a href>（缺 user gesture 明確性）。
-          URL 不傳任何 query string — HealthFlow 用自己 LIFF ID 處理 LINE 身份。*/}
+      {/* PR-F1A → PR-H2：AI 健康評估 CTA 從外部 HealthFlow LIFF 直跳，
+          改為先進站內 /liff/health（PR-H2 我的健康紀錄唯讀頁）。
+          /liff/health 內部負責再分流：
+            - 已綁定 + 有量測 → 顯示摘要 + 「查看完整評估」外部跳轉
+            - 未綁定 / not_found → 顯示「開始 AI 健康評估」CTA 跳外部 HealthFlow
+          為什麼這樣切：
+            1. 站內先看到醫療免責 disclaimer 後才出去
+            2. 顧客在 LINE 內就能看自己摘要（不必每次都跳外部）
+            3. 與其他 LIFF 入口 (預約/方案) 一致用 next/link same-page nav
+          視覺維持「次要 / 外部服務」分隔 — border-t + pt-3 + mt-1。
+          注意：HealthFlow URL 仍然不傳 query string，由 /liff/health 內的 button 觸發。*/}
       <div className="mt-1 flex flex-col gap-2 border-t border-earth-200 pt-3">
-        <button
-          type="button"
-          onClick={() => {
-            window.location.href = healthFlowLiffUrl;
-          }}
+        <Link
+          href={`/s/${storeSlug}/liff/health`}
           className="flex w-full items-center justify-between rounded-xl border border-earth-300 bg-white px-4 py-3 text-left text-base font-medium text-earth-900 shadow-sm transition hover:bg-earth-50 active:scale-[0.98]"
         >
           <span>{liffMessages.shell.healthAssessmentCta}</span>
           <ChevronRightIcon />
-        </button>
+        </Link>
         <p className="px-1 text-xs text-earth-600">
           {liffMessages.shell.healthAssessmentHint}
         </p>

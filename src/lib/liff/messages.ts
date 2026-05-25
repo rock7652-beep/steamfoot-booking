@@ -227,6 +227,72 @@ export const liffMessages = {
     // 解 lifecycle 最後一塊：「不要忘記來」— 體驗客 forget rate 第一殺手。
     calendarCta: "加入行事曆",
   },
+  // ── PR-H2 我的健康紀錄 ──
+  // LIFF 顧客在 LINE 內看 HealthFlow 健康摘要的唯讀頁。
+  // 不取代 dashboard 端 health-summary / health-history（那些是後台店長視角）；
+  // 本 namespace 是「顧客自己看的版本」，文案更友善、加醫療免責。
+  // 不寫醫療性語言（不用「診斷 / 治療 / 預防」），用「保養 / 追蹤 / 觀察」。
+  health: {
+    // page header
+    title: "我的健康紀錄",
+    initializing: "正在連接 LINE…",
+    loading: "載入健康資料中…",
+
+    // 評分卡
+    /** e.g. "最近量測" */
+    lastMeasuredLabel: "最近量測",
+    /** with placeholder {n} → "（3 天前）" */
+    daysAgoSuffix: "（{n} 天前）",
+    /** score 數字後綴 e.g. "/ 100" */
+    scoreSuffix: "/ 100",
+
+    // 指標 labels
+    metric: {
+      weight: "體重",
+      bmi: "BMI",
+      bodyFat: "體脂肪",
+      muscleMass: "肌肉量",
+      visceralFat: "內臟脂肪",
+      bodyWater: "體水分",
+    },
+
+    // 趨勢摘要
+    /** {n} = trend length，e.g. "近 5 次變化" */
+    trendLabel: "近 {n} 次變化",
+
+    // 已綁定但 HealthFlow 還沒任何量測
+    noMeasurementTitle: "尚無量測紀錄",
+    noMeasurementBody:
+      "您已連結 AI 健康評估系統，但目前還沒有任何量測資料。下次到店時，歡迎請店家為您安排一次身體組成量測。",
+
+    // 未綁定 / 找不到對應帳號
+    notLinkedTitle: "尚未完成 AI 健康評估",
+    notLinkedUnlinkedBody:
+      "您目前尚未建立 AI 健康評估資料。點擊下方按鈕，可在 AI 健康評估系統中完成評估，幫助店家更了解您的身體狀況。",
+    notLinkedNotFoundBody:
+      "目前查無對應的健康評估資料。可能是您使用了不同的 Email 或手機號碼建立帳號，或尚未完成評估。請點下方開始 AI 健康評估，或聯繫店家協助。",
+    notLinkedErrorBody:
+      "AI 健康評估連結暫時無法載入，請稍後再試，或聯繫店家協助處理。",
+
+    // CTAs
+    /** primary CTA — 跳轉外部 HealthFlow */
+    startHealthFlowCta: "開始 AI 健康評估",
+    /** outline CTA — 已綁定狀態下，跳轉外部完整評估系統 */
+    viewFullCta: "查看完整評估 ↗",
+    /** LINE-green CTA */
+    contactStoreCta: "聯絡店家",
+    /** outline CTA — 回 LIFF 首頁 */
+    backHomeCta: "回首頁",
+
+    // 載入失敗
+    loadFailed: "健康資料暫時無法載入，請稍後再試。",
+
+    // ── 醫療免責 disclaimer（所有狀態都顯示）──
+    // 健康指標 (BMI / 體脂 / 內臟脂肪 / 風險等級) 涉及個資敏感類，
+    // 必須明示「非醫療診斷」避免顧客誤解 AI 建議為醫療意見。
+    medicalDisclaimer:
+      "此評估僅供健康管理參考，不能取代醫療診斷或治療建議。如有健康疑慮，請諮詢專業醫療人員。",
+  },
   // ── PR-E2 我的方案 / 剩餘堂數 ──
   // 文案策略 (per 拍板 A (c) LIFF-friendly 調整)：
   //   大字 hero = walletAvailableToBook（顧客最想知道「我還能約幾次」）
