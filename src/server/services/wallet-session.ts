@@ -9,12 +9,14 @@
  *    亦即「尚未使用且未被註銷」的堂數。既有 25 處 UI 讀取點不需改。
  *  - allocate 用 CAS（updateMany WHERE status=AVAILABLE）防並行雙寫。
  *  - 補課預約（booking.isMakeup = true）不消耗 wallet session — 不會呼叫本服務。
+ *  - 一筆 booking 可佔用 N 個 WalletSession（multi-person, people>1）；
+ *    所有 booking-bound helper 都對該 booking 的全部對應 row 操作。
  *
- * 狀態機：
- *   AVAILABLE ──allocateSession──▶ RESERVED
- *   RESERVED  ──releaseSession──▶ AVAILABLE
- *   RESERVED  ──completeSession──▶ COMPLETED
- *   COMPLETED ──uncompleteSession──▶ RESERVED
+ * 狀態機（per-session row）：
+ *   AVAILABLE ──allocateSessions──▶ RESERVED
+ *   RESERVED  ──releaseSessions──▶ AVAILABLE
+ *   RESERVED  ──completeSessions──▶ COMPLETED
+ *   COMPLETED ──uncompleteSessions──▶ RESERVED
  *   AVAILABLE ──voidAvailableSession──▶ VOIDED  (不可逆，店長手動)
  */
 
@@ -86,115 +88,194 @@ export async function seedWalletSessions(
 }
 
 // ──────────────────────────────────────────────────────────────
-// allocateSession — 預約建立時，挑最小 sessionNo 的 AVAILABLE 改為 RESERVED
+// allocateSessions — 預約建立時，挑最小 N 個 AVAILABLE 改為 RESERVED
+//
+// 回傳 { allocated }：
+//   - allocated === count：完整配到（success）
+//   - allocated === 0    ：沒有 AVAILABLE row（legacy wallet 無 ledger） → 呼叫端 fallback
+//   - 0 < allocated < count：呼叫端 capacity 檢查失靈，丟錯 → tx rollback
 // ──────────────────────────────────────────────────────────────
 
+export async function allocateSessions(
+  tx: Tx,
+  walletId: string,
+  bookingId: string,
+  count: number
+): Promise<{ allocated: number }> {
+  if (!Number.isInteger(count) || count <= 0) {
+    throw new WalletSessionError("VALIDATION", `allocateSessions count 必須為正整數，收到 ${count}`);
+  }
+
+  const reservedAt = new Date();
+  let allocated = 0;
+  // 最多重試 count*2 次以容忍並行搶占；正常 1 次完成
+  const maxAttempts = count * 2 + 5;
+  for (let attempt = 0; attempt < maxAttempts && allocated < count; attempt++) {
+    const candidates = await tx.walletSession.findMany({
+      where: { walletId, status: "AVAILABLE" },
+      orderBy: { sessionNo: "asc" },
+      take: count - allocated,
+      select: { id: true },
+    });
+    if (candidates.length === 0) break; // 沒得選 → 退出，外層判斷
+
+    const result = await tx.walletSession.updateMany({
+      where: { id: { in: candidates.map((c) => c.id) }, status: "AVAILABLE" },
+      data: { status: "RESERVED", bookingId, reservedAt },
+    });
+    allocated += result.count;
+  }
+
+  if (allocated > 0 && allocated < count) {
+    // 部分配到 — 呼叫端 capacity check 失靈或並行嚴重；交由 transaction rollback
+    throw new WalletSessionError(
+      "NOT_AVAILABLE",
+      `所需 ${count} 堂只能配到 ${allocated} 堂，請先確認剩餘堂數`
+    );
+  }
+
+  if (allocated > 0) {
+    await refreshWalletCounter(tx, walletId);
+  }
+  return { allocated };
+}
+
+// ──────────────────────────────────────────────────────────────
+// releaseSessions — 取消預約 / 不扣堂未到 → RESERVED → AVAILABLE
+//                   對該 booking 的全部 RESERVED row 操作
+// ──────────────────────────────────────────────────────────────
+
+export async function releaseSessions(
+  tx: Tx,
+  bookingId: string
+): Promise<{ released: number }> {
+  const sessions = await tx.walletSession.findMany({
+    where: { bookingId, status: "RESERVED" },
+    select: { id: true, walletId: true },
+  });
+  if (sessions.length === 0) return { released: 0 }; // 補課 / legacy → no-op
+
+  const walletId = sessions[0].walletId; // 同 booking 必同 wallet
+  const result = await tx.walletSession.updateMany({
+    where: { bookingId, status: "RESERVED" },
+    data: { status: "AVAILABLE", bookingId: null, reservedAt: null },
+  });
+  await refreshWalletCounter(tx, walletId);
+  return { released: result.count };
+}
+
+// ──────────────────────────────────────────────────────────────
+// completeSessions — 出席 / NO_SHOW(DEDUCTED) → RESERVED → COMPLETED
+//                    對該 booking 的全部 RESERVED row 操作
+// ──────────────────────────────────────────────────────────────
+
+export async function completeSessions(
+  tx: Tx,
+  bookingId: string,
+  completedAt: Date = new Date()
+): Promise<{ completed: number }> {
+  const sessions = await tx.walletSession.findMany({
+    where: { bookingId, status: "RESERVED" },
+    select: { id: true, walletId: true },
+  });
+  if (sessions.length === 0) return { completed: 0 }; // 補課 / legacy → no-op
+
+  const walletId = sessions[0].walletId;
+  const result = await tx.walletSession.updateMany({
+    where: { bookingId, status: "RESERVED" },
+    data: { status: "COMPLETED", completedAt },
+  });
+  await refreshWalletCounter(tx, walletId);
+  return { completed: result.count };
+}
+
+// ──────────────────────────────────────────────────────────────
+// uncompleteSessions — revertBookingStatus 從 COMPLETED → PENDING 時呼叫
+//                      對該 booking 的全部 COMPLETED row：COMPLETED → RESERVED
+// ──────────────────────────────────────────────────────────────
+
+export async function uncompleteSessions(
+  tx: Tx,
+  bookingId: string
+): Promise<{ uncompleted: number }> {
+  const sessions = await tx.walletSession.findMany({
+    where: { bookingId, status: "COMPLETED" },
+    select: { id: true, walletId: true },
+  });
+  if (sessions.length === 0) return { uncompleted: 0 };
+
+  const walletId = sessions[0].walletId;
+  const result = await tx.walletSession.updateMany({
+    where: { bookingId, status: "COMPLETED" },
+    data: { status: "RESERVED", completedAt: null },
+  });
+  await refreshWalletCounter(tx, walletId);
+  return { uncompleted: result.count };
+}
+
+// ──────────────────────────────────────────────────────────────
+// reReserveSessions — revertBookingStatus 從 CANCELLED / NO_SHOW(NOT_DEDUCTED)
+//                     → PENDING 時呼叫；該 booking 之前是 RESERVED N 堂但已被 release。
+//                     需重新挑 N 個 AVAILABLE 並掛 bookingId。
+// ──────────────────────────────────────────────────────────────
+
+export async function reReserveSessions(
+  tx: Tx,
+  walletId: string,
+  bookingId: string,
+  count: number
+): Promise<{ reReserved: number }> {
+  const { allocated } = await allocateSessions(tx, walletId, bookingId, count);
+  return { reReserved: allocated };
+}
+
+// ──────────────────────────────────────────────────────────────
+// 相容包裝：保留舊單筆 helper 名稱，避免別處意外引用；標 @deprecated。
+// 新呼叫端一律用 plural 版本並傳 booking.people。
+// ──────────────────────────────────────────────────────────────
+
+/** @deprecated Use allocateSessions(...,count) — 為 people=1 callsite 提供相容包裝 */
 export async function allocateSession(
   tx: Tx,
   walletId: string,
   bookingId: string
 ): Promise<WalletSession | null> {
-  // 先找最小 sessionNo 的 AVAILABLE
-  const candidate = await tx.walletSession.findFirst({
-    where: { walletId, status: "AVAILABLE" },
-    orderBy: { sessionNo: "asc" },
-    select: { id: true },
-  });
-  if (!candidate) {
-    // 沒有 AVAILABLE row。可能情境：
-    //   1) wallet 已在 PR1 backfill 範圍但全部用完 → 呼叫端 booking 數量檢查應已擋下，但這裡保險回 null
-    //   2) wallet 是「PR1 deploy 前建立、且 backfill 尚未跑」的舊資料 → 呼叫端會 fallback 走舊計數邏輯
-    return null;
-  }
-
-  // CAS：只有 status 仍為 AVAILABLE 才改（防並行 double-allocate）
-  const result = await tx.walletSession.updateMany({
-    where: { id: candidate.id, status: "AVAILABLE" },
-    data: { status: "RESERVED", bookingId, reservedAt: new Date() },
-  });
-  if (result.count === 0) {
-    // 被別人搶先了 → 遞迴重試
-    return allocateSession(tx, walletId, bookingId);
-  }
-
-  await refreshWalletCounter(tx, walletId);
-  return tx.walletSession.findUnique({ where: { id: candidate.id } });
+  const { allocated } = await allocateSessions(tx, walletId, bookingId, 1);
+  if (allocated === 0) return null;
+  return tx.walletSession.findFirst({ where: { walletId, bookingId, status: "RESERVED" } });
 }
 
-// ──────────────────────────────────────────────────────────────
-// releaseSession — 取消預約 / 不扣堂未到 → RESERVED → AVAILABLE
-// ──────────────────────────────────────────────────────────────
-
+/** @deprecated Use releaseSessions(...) — 為 people=1 callsite 提供相容包裝 */
 export async function releaseSession(tx: Tx, bookingId: string): Promise<boolean> {
-  const session = await tx.walletSession.findFirst({
-    where: { bookingId, status: "RESERVED" },
-    select: { id: true, walletId: true },
-  });
-  if (!session) return false; // 沒有對應 RESERVED row（補課 / 歷史 booking） → no-op
-
-  await tx.walletSession.update({
-    where: { id: session.id },
-    data: { status: "AVAILABLE", bookingId: null, reservedAt: null },
-  });
-  await refreshWalletCounter(tx, session.walletId);
-  return true;
+  const { released } = await releaseSessions(tx, bookingId);
+  return released > 0;
 }
 
-// ──────────────────────────────────────────────────────────────
-// completeSession — 出席 / NO_SHOW(DEDUCTED) → RESERVED → COMPLETED
-// ──────────────────────────────────────────────────────────────
-
+/** @deprecated Use completeSessions(...) — 為 people=1 callsite 提供相容包裝 */
 export async function completeSession(
   tx: Tx,
   bookingId: string,
   completedAt: Date = new Date()
 ): Promise<boolean> {
-  const session = await tx.walletSession.findFirst({
-    where: { bookingId, status: "RESERVED" },
-    select: { id: true, walletId: true },
-  });
-  if (!session) return false; // 補課 / 歷史 booking → no-op
-
-  await tx.walletSession.update({
-    where: { id: session.id },
-    data: { status: "COMPLETED", completedAt },
-  });
-  await refreshWalletCounter(tx, session.walletId);
-  return true;
+  const { completed } = await completeSessions(tx, bookingId, completedAt);
+  return completed > 0;
 }
 
-// ──────────────────────────────────────────────────────────────
-// uncompleteSession — revertBookingStatus 從 COMPLETED → PENDING 時呼叫
-//                     COMPLETED → RESERVED（清空 completedAt）
-// ──────────────────────────────────────────────────────────────
-
+/** @deprecated Use uncompleteSessions(...) — 為 people=1 callsite 提供相容包裝 */
 export async function uncompleteSession(tx: Tx, bookingId: string): Promise<boolean> {
-  const session = await tx.walletSession.findFirst({
-    where: { bookingId, status: "COMPLETED" },
-    select: { id: true, walletId: true },
-  });
-  if (!session) return false;
-
-  await tx.walletSession.update({
-    where: { id: session.id },
-    data: { status: "RESERVED", completedAt: null },
-  });
-  await refreshWalletCounter(tx, session.walletId);
-  return true;
+  const { uncompleted } = await uncompleteSessions(tx, bookingId);
+  return uncompleted > 0;
 }
 
-// ──────────────────────────────────────────────────────────────
-// reReserveSession — revertBookingStatus 從 CANCELLED / NO_SHOW(NOT_DEDUCTED)
-//                    → PENDING 時呼叫；該 booking 之前是 RESERVED 但已被 release。
-//                    需重新挑一個 AVAILABLE 並掛 bookingId。
-// ──────────────────────────────────────────────────────────────
-
+/** @deprecated Use reReserveSessions(...,count) — 為 people=1 callsite 提供相容包裝 */
 export async function reReserveSession(
   tx: Tx,
   walletId: string,
   bookingId: string
 ): Promise<WalletSession | null> {
-  return allocateSession(tx, walletId, bookingId);
+  const { reReserved } = await reReserveSessions(tx, walletId, bookingId, 1);
+  if (reReserved === 0) return null;
+  return tx.walletSession.findFirst({ where: { walletId, bookingId, status: "RESERVED" } });
 }
 
 // ──────────────────────────────────────────────────────────────

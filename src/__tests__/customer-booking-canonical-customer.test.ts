@@ -131,11 +131,11 @@ vi.mock("@/server/services/referral-points", () => ({
 
 // PR #46 wallet-session helpers — 由 createBooking tx 內呼叫；對本檔測試無關，stub 為 no-op
 vi.mock("@/server/services/wallet-session", () => ({
-  allocateSession: vi.fn(async () => null),
-  releaseSession: vi.fn(async () => true),
-  completeSession: vi.fn(async () => true),
-  uncompleteSession: vi.fn(async () => true),
-  reReserveSession: vi.fn(async () => null),
+  allocateSessions: vi.fn(async () => ({ allocated: 0 })),
+  releaseSessions: vi.fn(async () => ({ released: 1 })),
+  completeSessions: vi.fn(async () => ({ completed: 1 })),
+  uncompleteSessions: vi.fn(async () => ({ uncompleted: 1 })),
+  reReserveSessions: vi.fn(async () => ({ reReserved: 0 })),
 }));
 
 // ── 預設好 customer + business hours ──

@@ -18,6 +18,11 @@ import {
   releaseSession,
   completeSession,
   uncompleteSession,
+  allocateSessions,
+  releaseSessions,
+  completeSessions,
+  uncompleteSessions,
+  reReserveSessions,
   voidAvailableSession,
   reconcileForManualAdjust,
   backfillAvailableSessions,
@@ -545,6 +550,243 @@ describe("wallet-session service", () => {
       const inv = invariant(tx);
       expect(inv.remaining).toBe(0);
       expect(tx._wallets[0].status).toBe("USED_UP");
+    });
+  });
+
+  // ──────────────────────────────────────────────
+  // multi-person (people>1) — plural helpers
+  // ──────────────────────────────────────────────
+
+  describe("multi-person plural helpers", () => {
+    it("allocateSessions reserves N rows for one bookingId, smallest sessionNo first", async () => {
+      await seedWalletSessions(tx, W, 5);
+      tx._wallets[0].remainingSessions = 5;
+
+      const result = await allocateSessions(tx, W, "booking-A", 2);
+      expect(result.allocated).toBe(2);
+
+      const reserved = tx._sessions.filter(
+        (s: SessionRow) => s.bookingId === "booking-A",
+      );
+      expect(reserved).toHaveLength(2);
+      expect(reserved.every((s: SessionRow) => s.status === "RESERVED")).toBe(true);
+      expect(reserved.map((s: SessionRow) => s.sessionNo).sort()).toEqual([1, 2]);
+
+      const inv = invariant(tx);
+      expect(inv.reserved).toBe(2);
+      expect(inv.available).toBe(3);
+      expect(inv.remaining).toBe(5); // 不變
+    });
+
+    it("allocateSessions returns { allocated: 0 } when no AVAILABLE rows (legacy fallback)", async () => {
+      const result = await allocateSessions(tx, W, "booking-X", 2);
+      expect(result.allocated).toBe(0);
+    });
+
+    it("allocateSessions throws WalletSessionError if can only partially fill", async () => {
+      await seedWalletSessions(tx, W, 1); // 只有 1 堂 AVAILABLE
+      tx._wallets[0].remainingSessions = 1;
+
+      await expect(allocateSessions(tx, W, "booking-A", 2)).rejects.toThrow(
+        WalletSessionError,
+      );
+    });
+
+    it("allocateSessions rejects count <= 0", async () => {
+      await seedWalletSessions(tx, W, 5);
+      tx._wallets[0].remainingSessions = 5;
+
+      await expect(allocateSessions(tx, W, "booking-A", 0)).rejects.toThrow(
+        /正整數/,
+      );
+      await expect(allocateSessions(tx, W, "booking-A", -1)).rejects.toThrow(
+        /正整數/,
+      );
+    });
+
+    it("completeSessions marks ALL RESERVED rows for the booking as COMPLETED", async () => {
+      await seedWalletSessions(tx, W, 5);
+      tx._wallets[0].remainingSessions = 5;
+      await allocateSessions(tx, W, "booking-multi", 3);
+
+      const result = await completeSessions(
+        tx,
+        "booking-multi",
+        new Date("2026-05-25"),
+      );
+      expect(result.completed).toBe(3);
+
+      const rows = tx._sessions.filter(
+        (s: SessionRow) => s.bookingId === "booking-multi",
+      );
+      expect(rows).toHaveLength(3);
+      expect(rows.every((s: SessionRow) => s.status === "COMPLETED")).toBe(true);
+      expect(rows.every((s: SessionRow) => s.completedAt !== null)).toBe(true);
+
+      const inv = invariant(tx);
+      expect(inv.remaining).toBe(2); // 5 - 3 completed
+    });
+
+    it("releaseSessions reverts ALL RESERVED rows for the booking", async () => {
+      await seedWalletSessions(tx, W, 5);
+      tx._wallets[0].remainingSessions = 5;
+      await allocateSessions(tx, W, "booking-cancel", 2);
+
+      const result = await releaseSessions(tx, "booking-cancel");
+      expect(result.released).toBe(2);
+
+      const rows = tx._sessions.filter(
+        (s: SessionRow) => s.bookingId === "booking-cancel",
+      );
+      expect(rows).toHaveLength(0); // bookingId 已清空
+      const inv = invariant(tx);
+      expect(inv.available).toBe(5);
+      expect(inv.reserved).toBe(0);
+      expect(inv.remaining).toBe(5);
+    });
+
+    it("uncompleteSessions reverts ALL COMPLETED rows back to RESERVED", async () => {
+      await seedWalletSessions(tx, W, 5);
+      tx._wallets[0].remainingSessions = 5;
+      await allocateSessions(tx, W, "booking-revert", 2);
+      await completeSessions(tx, "booking-revert");
+
+      const result = await uncompleteSessions(tx, "booking-revert");
+      expect(result.uncompleted).toBe(2);
+
+      const rows = tx._sessions.filter(
+        (s: SessionRow) => s.bookingId === "booking-revert",
+      );
+      expect(rows).toHaveLength(2);
+      expect(rows.every((s: SessionRow) => s.status === "RESERVED")).toBe(true);
+      expect(rows.every((s: SessionRow) => s.completedAt === null)).toBe(true);
+
+      const inv = invariant(tx);
+      expect(inv.remaining).toBe(5);
+    });
+
+    it("reReserveSessions re-grabs N AVAILABLE rows after release", async () => {
+      await seedWalletSessions(tx, W, 5);
+      tx._wallets[0].remainingSessions = 5;
+      await allocateSessions(tx, W, "booking-X", 2);
+      await releaseSessions(tx, "booking-X");
+
+      const result = await reReserveSessions(tx, W, "booking-X", 2);
+      expect(result.reReserved).toBe(2);
+
+      const rows = tx._sessions.filter(
+        (s: SessionRow) => s.bookingId === "booking-X" && s.status === "RESERVED",
+      );
+      expect(rows).toHaveLength(2);
+    });
+
+    it("end-to-end: people=2 create → complete → 扣 2 堂", async () => {
+      // 模擬一張 5 堂 wallet，第 5 堂被人 void 掉，剩 4 AVAILABLE
+      await seedWalletSessions(tx, W, 5);
+      tx._wallets[0].remainingSessions = 5;
+      const fifth = tx._sessions.find((s: SessionRow) => s.sessionNo === 5)!;
+      await voidAvailableSession(tx, {
+        sessionId: fifth.id,
+        voidReason: "test void",
+        voidedByStaffId: "s",
+      });
+      // 現在：4 AVAILABLE + 1 VOIDED，remaining=4
+
+      // people=2 booking
+      await allocateSessions(tx, W, "booking-2p", 2);
+      let inv = invariant(tx);
+      expect(inv.reserved).toBe(2);
+      expect(inv.available).toBe(2);
+      expect(inv.remaining).toBe(4);
+
+      // 出席完成
+      const { completed } = await completeSessions(tx, "booking-2p", new Date());
+      expect(completed).toBe(2);
+
+      inv = invariant(tx);
+      expect(inv.reserved).toBe(0);
+      expect(inv.available).toBe(2);
+      expect(inv.remaining).toBe(2); // 4 - 2
+    });
+
+    it("end-to-end: people=2 取消 → 2 堂回 AVAILABLE", async () => {
+      await seedWalletSessions(tx, W, 5);
+      tx._wallets[0].remainingSessions = 5;
+
+      await allocateSessions(tx, W, "booking-2p", 2);
+      await releaseSessions(tx, "booking-2p");
+
+      const inv = invariant(tx);
+      expect(inv.available).toBe(5);
+      expect(inv.reserved).toBe(0);
+      expect(inv.remaining).toBe(5);
+    });
+
+    it("end-to-end: people=2 revert COMPLETED → 2 堂回 RESERVED", async () => {
+      await seedWalletSessions(tx, W, 5);
+      tx._wallets[0].remainingSessions = 5;
+
+      await allocateSessions(tx, W, "booking-2p", 2);
+      await completeSessions(tx, "booking-2p");
+      // 此時：3 AVAILABLE + 2 COMPLETED；remaining=3
+
+      const { uncompleted } = await uncompleteSessions(tx, "booking-2p");
+      expect(uncompleted).toBe(2);
+
+      const inv = invariant(tx);
+      expect(inv.reserved).toBe(2);
+      expect(inv.available).toBe(3);
+      expect(inv.remaining).toBe(5); // 退回後恢復
+    });
+
+    it("混合 people 場景：people=2 + people=1 同 wallet 各自獨立", async () => {
+      await seedWalletSessions(tx, W, 5);
+      tx._wallets[0].remainingSessions = 5;
+
+      await allocateSessions(tx, W, "booking-A", 2); // 取 sessionNo 1,2
+      await allocateSessions(tx, W, "booking-B", 1); // 取 sessionNo 3
+
+      // A 完成、B 取消
+      await completeSessions(tx, "booking-A");
+      await releaseSessions(tx, "booking-B");
+
+      const completedA = tx._sessions.filter(
+        (s: SessionRow) => s.bookingId === "booking-A",
+      );
+      expect(completedA).toHaveLength(2);
+      expect(completedA.every((s: SessionRow) => s.status === "COMPLETED")).toBe(
+        true,
+      );
+
+      const inv = invariant(tx);
+      // 1 COMPLETED:2, 3 AVAILABLE (sessionNo 3,4,5)
+      expect(inv.reserved).toBe(0);
+      expect(inv.available).toBe(3);
+      expect(inv.remaining).toBe(3);
+    });
+
+    it("singleton wrappers (allocateSession/completeSession/...) 行為與 people=1 一致", async () => {
+      // 用舊 singleton wrapper 走一遍，確保 backward compat
+      await seedWalletSessions(tx, W, 3);
+      tx._wallets[0].remainingSessions = 3;
+
+      const allocated = await allocateSession(tx, W, "booking-legacy");
+      expect(allocated).not.toBeNull();
+      expect(allocated?.sessionNo).toBe(1);
+      expect(allocated?.status).toBe("RESERVED");
+
+      const completed = await completeSession(tx, "booking-legacy");
+      expect(completed).toBe(true);
+
+      const uncompleted = await uncompleteSession(tx, "booking-legacy");
+      expect(uncompleted).toBe(true);
+
+      const released = await releaseSession(tx, "booking-legacy");
+      expect(released).toBe(true);
+
+      const inv = invariant(tx);
+      expect(inv.available).toBe(3);
+      expect(inv.remaining).toBe(3);
     });
   });
 });
