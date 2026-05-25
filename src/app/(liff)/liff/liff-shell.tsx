@@ -34,6 +34,7 @@ import {
   healthFlowLiffUrl,
   liffMessages,
 } from "@/lib/liff/messages";
+import { fetchLiffWallets } from "@/server/actions/liff-my-wallets";
 
 type State =
   | { kind: "initializing" }
@@ -50,8 +51,16 @@ interface LiffShellProps {
   liffId: string;
 }
 
+/**
+ * PR-G4 wallet summary：signed_in 後 lazy fetch；totalAvailable > 0 才在 home
+ * 露「課程預約」CTA。null 表示尚未載 / 載失敗 → CTA 不出（不擋既有 4 顆 CTA）。
+ */
+type WalletSummary = { totalAvailable: number };
+
 export function LiffShell({ storeName, storeSlug, liffId }: LiffShellProps) {
   const [state, setState] = useState<State>({ kind: "initializing" });
+  // PR-G4：lazy fetch — signed_in 後 fire-and-forget，不擋 home 既有渲染
+  const [walletSummary, setWalletSummary] = useState<WalletSummary | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -100,6 +109,26 @@ export function LiffShell({ storeName, storeSlug, liffId }: LiffShellProps) {
 
         if (body.status === "session_created") {
           setState({ kind: "signed_in", displayName: body.displayName });
+          // PR-G4：lazy fetch wallet summary — 不 await，現有 CTA 先渲染；
+          // 載完 setState 追加「課程預約」CTA。失敗靜默（CTA 不出，其他 CTA 不影響）。
+          void (async () => {
+            try {
+              const w = await fetchLiffWallets();
+              if (cancelled) return;
+              if (w.status === "ok") {
+                const totalAvailable = w.active.reduce(
+                  (sum, x) => sum + x.availableToBook,
+                  0,
+                );
+                setWalletSummary({ totalAvailable });
+              }
+            } catch (err) {
+              console.warn(
+                "[liff-shell] fetchLiffWallets failed (silent)",
+                err,
+              );
+            }
+          })();
           return;
         }
         if (body.status === "need_onboarding") {
@@ -171,7 +200,11 @@ export function LiffShell({ storeName, storeSlug, liffId }: LiffShellProps) {
       )}
 
       {state.kind === "signed_in" && (
-        <WelcomeBack storeSlug={storeSlug} displayName={state.displayName} />
+        <WelcomeBack
+          storeSlug={storeSlug}
+          displayName={state.displayName}
+          walletSummary={walletSummary}
+        />
       )}
     </div>
   );
@@ -277,10 +310,23 @@ function WelcomeCta({
 function WelcomeBack({
   storeSlug,
   displayName,
+  walletSummary,
 }: {
   storeSlug: string;
   displayName: string | null;
+  /** PR-G4: lazy 載入結果；null 表示尚未到 / 失敗 → 不出「課程預約」CTA */
+  walletSummary: WalletSummary | null;
 }) {
+  // PR-G4 (Option B)：有剩餘堂數的會員主流程是「課程預約」，所以：
+  //   - 「課程預約」dark primary 排第一（顧客主路徑）
+  //   - 「體驗預約」降 outlined（仍保留，會員可幫朋友 / 自己想另約體驗）
+  // 沒堂數 / 載入未回 / 載失敗 → 體驗預約維持 dark primary（新客主路徑）
+  const showMemberBooking =
+    walletSummary !== null && walletSummary.totalAvailable > 0;
+  const trialClass = showMemberBooking
+    ? "flex w-full items-center justify-between rounded-xl border border-earth-300 bg-white px-4 py-3 text-left text-base font-medium text-earth-900 shadow-sm transition hover:bg-earth-50 active:scale-[0.98]"
+    : "flex w-full items-center justify-between rounded-xl bg-earth-800 px-4 py-3 text-left text-base font-semibold text-white shadow-sm transition hover:bg-earth-700 active:scale-[0.98]";
+
   return (
     <div className="flex flex-col gap-3">
       <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-4 text-sm text-green-900">
@@ -297,10 +343,24 @@ function WelcomeBack({
       <p className="px-1 text-sm text-earth-700">
         {liffMessages.shell.welcomeHomeHint}
       </p>
-      {/* PR-D1B：體驗預約 CTA 從 disabled 改為 Link → /liff/trial-booking */}
+      {/* PR-G4：有剩餘堂數的會員 home 出「課程預約」dark primary 排第一。
+          totalAvailable 加總 = active.reduce(availableToBook)（不含 reserved / used）。
+          連 /liff/member-booking (PR-G3 #195)。 */}
+      {showMemberBooking && (
+        <Link
+          href={`/s/${storeSlug}/liff/member-booking`}
+          className="flex w-full items-center justify-between rounded-xl bg-earth-800 px-4 py-3 text-left text-base font-semibold text-white shadow-sm transition hover:bg-earth-700 active:scale-[0.98]"
+        >
+          <span>{liffMessages.shell.comingSoon.memberBooking}</span>
+          <ChevronRightIcon />
+        </Link>
+      )}
+      {/* PR-D1B：體驗預約 CTA 從 disabled 改為 Link → /liff/trial-booking。
+          PR-G4：showMemberBooking 時降為 outlined（會員主路徑是課程預約）；
+          否則維持 dark primary（新客主路徑）。 */}
       <Link
         href={`/s/${storeSlug}/liff/trial-booking`}
-        className="flex w-full items-center justify-between rounded-xl bg-earth-800 px-4 py-3 text-left text-base font-semibold text-white shadow-sm transition hover:bg-earth-700 active:scale-[0.98]"
+        className={trialClass}
       >
         <span>{liffMessages.shell.comingSoon.booking}</span>
         <ChevronRightIcon />

@@ -69,6 +69,9 @@ export const liffMessages = {
       // 文案用「我的方案」對齊目的地 page header (liffMessages.wallets.title)，
       // 與 PR-D2 myBookings 同 pattern (home button label == destination page title)。
       remainingSessions: "我的方案",
+      // PR-G4：會員有剩餘堂數 (totalAvailable > 0) 時 home 出「課程預約」dark primary 排第一；
+      // 體驗預約降 outlined。totalAvailable=0 或無方案則 CTA 隱藏，體驗預約維持 primary。
+      memberBooking: "課程預約",
     },
     notInLineApp: {
       title: "請從 LINE 開啟此頁",
