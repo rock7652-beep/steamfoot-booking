@@ -19,10 +19,12 @@ import {
   completeSession,
   uncompleteSession,
   allocateSessions,
+  allocateSessionsFefo,
   releaseSessions,
   completeSessions,
   uncompleteSessions,
   reReserveSessions,
+  reReserveSessionsFefo,
   voidAvailableSession,
   reconcileForManualAdjust,
   backfillAvailableSessions,
@@ -787,6 +789,267 @@ describe("wallet-session service", () => {
       const inv = invariant(tx);
       expect(inv.available).toBe(3);
       expect(inv.remaining).toBe(3);
+    });
+  });
+
+  // ──────────────────────────────────────────────
+  // multi-wallet FEFO split (PR #194)
+  // ──────────────────────────────────────────────
+
+  describe("multi-wallet FEFO split", () => {
+    const WA = "wallet-A";
+    const WB = "wallet-B";
+
+    function setupTwoWallets(remA: number, remB: number) {
+      // wallet A 較早到期 (FEFO 優先), wallet B 較晚到期
+      const tx2 = makeTx([
+        { id: WA, remainingSessions: remA, status: "ACTIVE" },
+        { id: WB, remainingSessions: remB, status: "ACTIVE" },
+      ]);
+      return tx2;
+    }
+
+    function invariantFor(tx: ReturnType<typeof makeTx>, walletId: string) {
+      const wallet = tx._wallets.find((w: WalletRow) => w.id === walletId)!;
+      const available = tx._sessions.filter(
+        (s: SessionRow) => s.walletId === walletId && s.status === "AVAILABLE",
+      ).length;
+      const reserved = tx._sessions.filter(
+        (s: SessionRow) => s.walletId === walletId && s.status === "RESERVED",
+      ).length;
+      return { remaining: wallet.remainingSessions, available, reserved };
+    }
+
+    const FEFO_A = { id: WA, expiryDate: new Date("2026-07-11"), createdAt: new Date("2026-05-12"), remainingSessions: 1 };
+    const FEFO_B = { id: WB, expiryDate: new Date("2026-08-31"), createdAt: new Date("2026-05-25"), remainingSessions: 10 };
+
+    it("allocateSessionsFefo: 單張 wallet 足夠 → 全部從 preferred 配", async () => {
+      const tx2 = setupTwoWallets(5, 5);
+      await seedWalletSessions(tx2, WA, 5);
+      await seedWalletSessions(tx2, WB, 5);
+      tx2._wallets[0].remainingSessions = 5;
+      tx2._wallets[1].remainingSessions = 5;
+
+      const result = await allocateSessionsFefo(tx2, {
+        candidates: [
+          { ...FEFO_A, remainingSessions: 5 },
+          { ...FEFO_B, remainingSessions: 5 },
+        ],
+        bookingId: "b1",
+        count: 2,
+      });
+
+      expect(result.allocations).toEqual([{ walletId: WA, count: 2 }]);
+      expect(result.primaryWalletId).toBe(WA);
+      expect(invariantFor(tx2, WA).reserved).toBe(2);
+      expect(invariantFor(tx2, WB).reserved).toBe(0);
+    });
+
+    it("allocateSessionsFefo: A 剩 1 + B 剩 10 + count=2 → A:1 + B:1 (FEFO split)", async () => {
+      const tx2 = setupTwoWallets(1, 10);
+      await seedWalletSessions(tx2, WA, 1);
+      await seedWalletSessions(tx2, WB, 10);
+      tx2._wallets[0].remainingSessions = 1;
+      tx2._wallets[1].remainingSessions = 10;
+
+      const result = await allocateSessionsFefo(tx2, {
+        candidates: [FEFO_A, FEFO_B],
+        bookingId: "b1",
+        count: 2,
+      });
+
+      expect(result.allocations).toEqual([
+        { walletId: WA, count: 1 },
+        { walletId: WB, count: 1 },
+      ]);
+      expect(result.primaryWalletId).toBe(WA);
+      expect(invariantFor(tx2, WA).reserved).toBe(1);
+      expect(invariantFor(tx2, WA).remaining).toBe(1);
+      expect(invariantFor(tx2, WB).reserved).toBe(1);
+      expect(invariantFor(tx2, WB).remaining).toBe(10);
+    });
+
+    it("allocateSessionsFefo: preferred 排第一，無視 FEFO 順序", async () => {
+      const tx2 = setupTwoWallets(5, 5);
+      await seedWalletSessions(tx2, WA, 5);
+      await seedWalletSessions(tx2, WB, 5);
+      tx2._wallets[0].remainingSessions = 5;
+      tx2._wallets[1].remainingSessions = 5;
+
+      const result = await allocateSessionsFefo(tx2, {
+        candidates: [
+          { ...FEFO_A, remainingSessions: 5 },
+          { ...FEFO_B, remainingSessions: 5 },
+        ],
+        bookingId: "b1",
+        count: 1,
+        preferredWalletId: WB, // 故意指定 B（FEFO 排第二）
+      });
+
+      expect(result.allocations).toEqual([{ walletId: WB, count: 1 }]);
+      expect(result.primaryWalletId).toBe(WB);
+    });
+
+    it("allocateSessionsFefo: preferred 0 堂 → fallback FEFO 下一張", async () => {
+      const tx2 = setupTwoWallets(0, 5); // A 0 堂 (preferred), B 5 堂
+      await seedWalletSessions(tx2, WB, 5);
+      tx2._wallets[0].remainingSessions = 0;
+      tx2._wallets[1].remainingSessions = 5;
+
+      const result = await allocateSessionsFefo(tx2, {
+        candidates: [
+          { ...FEFO_A, remainingSessions: 0 },
+          { ...FEFO_B, remainingSessions: 5 },
+        ],
+        bookingId: "b1",
+        count: 1,
+        preferredWalletId: WA,
+      });
+
+      expect(result.allocations).toEqual([{ walletId: WB, count: 1 }]);
+      expect(result.primaryWalletId).toBe(WB);
+    });
+
+    it("allocateSessionsFefo: 跨 wallet 總剩餘不足 → throw", async () => {
+      const tx2 = setupTwoWallets(1, 1);
+      await seedWalletSessions(tx2, WA, 1);
+      await seedWalletSessions(tx2, WB, 1);
+      tx2._wallets[0].remainingSessions = 1;
+      tx2._wallets[1].remainingSessions = 1;
+
+      await expect(
+        allocateSessionsFefo(tx2, {
+          candidates: [
+            { ...FEFO_A, remainingSessions: 1 },
+            { ...FEFO_B, remainingSessions: 1 },
+          ],
+          bookingId: "b1",
+          count: 5,
+        }),
+      ).rejects.toThrow(WalletSessionError);
+    });
+
+    it("completeSessions: 多 wallet → 分別 refresh counter，回 items[] 含 walletId", async () => {
+      const tx2 = setupTwoWallets(1, 10);
+      await seedWalletSessions(tx2, WA, 1);
+      await seedWalletSessions(tx2, WB, 10);
+      tx2._wallets[0].remainingSessions = 1;
+      tx2._wallets[1].remainingSessions = 10;
+
+      await allocateSessionsFefo(tx2, {
+        candidates: [FEFO_A, FEFO_B],
+        bookingId: "b1",
+        count: 2,
+      });
+
+      const { completed, items } = await completeSessions(tx2, "b1", new Date());
+      expect(completed).toBe(2);
+      expect(items).toHaveLength(2);
+      const walletIds = items.map((it) => it.walletId).sort();
+      expect(walletIds).toEqual([WA, WB]);
+
+      expect(invariantFor(tx2, WA).remaining).toBe(0); // 1 - 1 used
+      expect(invariantFor(tx2, WB).remaining).toBe(9); // 10 - 1 used
+    });
+
+    it("releaseSessions: 多 wallet → 都釋放，counter 都 refresh", async () => {
+      const tx2 = setupTwoWallets(1, 10);
+      await seedWalletSessions(tx2, WA, 1);
+      await seedWalletSessions(tx2, WB, 10);
+      tx2._wallets[0].remainingSessions = 1;
+      tx2._wallets[1].remainingSessions = 10;
+      await allocateSessionsFefo(tx2, {
+        candidates: [FEFO_A, FEFO_B],
+        bookingId: "b1",
+        count: 2,
+      });
+
+      const result = await releaseSessions(tx2, "b1");
+      expect(result.released).toBe(2);
+      expect(invariantFor(tx2, WA).available).toBe(1);
+      expect(invariantFor(tx2, WA).reserved).toBe(0);
+      expect(invariantFor(tx2, WB).available).toBe(10);
+      expect(invariantFor(tx2, WB).reserved).toBe(0);
+    });
+
+    it("uncompleteSessions: 多 wallet COMPLETED → 都回 RESERVED，counter 都 refresh", async () => {
+      const tx2 = setupTwoWallets(1, 10);
+      await seedWalletSessions(tx2, WA, 1);
+      await seedWalletSessions(tx2, WB, 10);
+      tx2._wallets[0].remainingSessions = 1;
+      tx2._wallets[1].remainingSessions = 10;
+      await allocateSessionsFefo(tx2, {
+        candidates: [FEFO_A, FEFO_B],
+        bookingId: "b1",
+        count: 2,
+      });
+      await completeSessions(tx2, "b1");
+
+      const result = await uncompleteSessions(tx2, "b1");
+      expect(result.uncompleted).toBe(2);
+      expect(invariantFor(tx2, WA).reserved).toBe(1);
+      expect(invariantFor(tx2, WA).remaining).toBe(1); // 退回
+      expect(invariantFor(tx2, WB).reserved).toBe(1);
+      expect(invariantFor(tx2, WB).remaining).toBe(10); // 退回
+    });
+
+    it("reReserveSessionsFefo: 跨 wallet 重 reserve N 堂（CANCELLED→PENDING 場景）", async () => {
+      const tx2 = setupTwoWallets(1, 10);
+      await seedWalletSessions(tx2, WA, 1);
+      await seedWalletSessions(tx2, WB, 10);
+      tx2._wallets[0].remainingSessions = 1;
+      tx2._wallets[1].remainingSessions = 10;
+      await allocateSessionsFefo(tx2, {
+        candidates: [FEFO_A, FEFO_B],
+        bookingId: "b1",
+        count: 2,
+      });
+      await releaseSessions(tx2, "b1");
+
+      const result = await reReserveSessionsFefo(tx2, {
+        candidates: [FEFO_A, FEFO_B],
+        bookingId: "b1",
+        count: 2,
+        preferredWalletId: WA,
+      });
+      expect(result.reReserved).toBe(2);
+      expect(result.primaryWalletId).toBe(WA);
+      expect(invariantFor(tx2, WA).reserved).toBe(1);
+      expect(invariantFor(tx2, WB).reserved).toBe(1);
+    });
+
+    it("end-to-end 彭惠珍場景: A 剩 1 + B 剩 10 → people=2 建立成功 → 完成扣 1+1 → A USED_UP / B remaining=9", async () => {
+      const tx2 = setupTwoWallets(1, 10);
+      await seedWalletSessions(tx2, WA, 1);
+      await seedWalletSessions(tx2, WB, 10);
+      tx2._wallets[0].remainingSessions = 1;
+      tx2._wallets[1].remainingSessions = 10;
+
+      // 建立
+      const alloc = await allocateSessionsFefo(tx2, {
+        candidates: [FEFO_A, FEFO_B],
+        bookingId: "b1",
+        count: 2,
+        preferredWalletId: WA, // primary 是 A
+      });
+      expect(alloc.primaryWalletId).toBe(WA);
+      expect(alloc.allocations).toEqual([
+        { walletId: WA, count: 1 },
+        { walletId: WB, count: 1 },
+      ]);
+
+      // 完成
+      const { completed, items } = await completeSessions(tx2, "b1");
+      expect(completed).toBe(2);
+      // items 順序：先 A 再 B（依 walletId asc + sessionNo asc）
+      expect(items.map((it) => it.walletId)).toEqual([WA, WB]);
+
+      // 驗收
+      expect(invariantFor(tx2, WA).remaining).toBe(0);
+      // A wallet 自動 flip USED_UP
+      expect(tx2._wallets.find((w: WalletRow) => w.id === WA)?.status).toBe("USED_UP");
+      expect(invariantFor(tx2, WB).remaining).toBe(9);
+      expect(tx2._wallets.find((w: WalletRow) => w.id === WB)?.status).toBe("ACTIVE");
     });
   });
 });

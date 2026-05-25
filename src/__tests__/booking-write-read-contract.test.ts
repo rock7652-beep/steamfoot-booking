@@ -229,10 +229,12 @@ vi.mock("@/server/services/referral-points", () => ({
 }));
 vi.mock("@/server/services/wallet-session", () => ({
   allocateSessions: vi.fn(async () => ({ allocated: 0 })),
+  allocateSessionsFefo: vi.fn(async () => ({ allocations: [], primaryWalletId: null })),
   releaseSessions: vi.fn(async () => ({ released: 1 })),
-  completeSessions: vi.fn(async () => ({ completed: 1 })),
+  completeSessions: vi.fn(async () => ({ completed: 1, items: [] })),
   uncompleteSessions: vi.fn(async () => ({ uncompleted: 1 })),
   reReserveSessions: vi.fn(async () => ({ reReserved: 0 })),
+  reReserveSessionsFefo: vi.fn(async () => ({ reReserved: 0, allocations: [], primaryWalletId: null })),
 }));
 
 const REAL_CUSTOMER_RECORD = {
