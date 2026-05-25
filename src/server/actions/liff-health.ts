@@ -33,10 +33,12 @@ import {
   getHealthSummarySafe,
   type HealthSummary,
 } from "@/lib/health-service";
-import {
-  computeHealthScore,
-  type HealthScoreResult,
-} from "@/lib/health-score";
+
+// PR-H2c：移除 self-computed score。
+// HealthFlow summary API 不回官方 score / riskLevel；Steamfoot 自算的 68 與 HealthFlow
+// 原站 86 不一致會誤導顧客。本 action 只回原始 summary，顧客面交給 view 顯示
+// metrics + alerts；正式 score 顯示在 HealthFlow 原站，由「查看完整評估」CTA 導過去。
+// 長期解：等 HealthFlow API 加 score 欄位（PR-H2d 追蹤）後再 surface。
 
 export type FetchLiffHealthSummaryResult =
   | {
@@ -44,8 +46,6 @@ export type FetchLiffHealthSummaryResult =
       linked: true;
       /** 完整 HealthFlow summary（latest + trend + alerts + meta） */
       summary: HealthSummary;
-      /** 即時 compute 的 score / risk / advice (mirror dashboard) */
-      score: HealthScoreResult;
     }
   | {
       status: "ok";
@@ -111,8 +111,5 @@ export async function fetchLiffHealthSummary(): Promise<FetchLiffHealthSummaryRe
     return { status: "service_unavailable" };
   }
 
-  // ── 6. Compute score (mirror dashboard) ────────────
-  const score = computeHealthScore(summary);
-
-  return { status: "ok", linked: true, summary, score };
+  return { status: "ok", linked: true, summary };
 }

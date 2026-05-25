@@ -238,13 +238,15 @@ export const liffMessages = {
     initializing: "正在連接 LINE…",
     loading: "載入健康資料中…",
 
-    // 評分卡
+    // 最近量測卡（PR-H2c：移除 self-computed score；scoreSuffix 留著但已不顯示）
     /** e.g. "最近量測" */
     lastMeasuredLabel: "最近量測",
     /** with placeholder {n} → "（3 天前）" */
     daysAgoSuffix: "（{n} 天前）",
-    /** score 數字後綴 e.g. "/ 100" */
+    /** @deprecated PR-H2c 後不顯示 self-computed score；留 key 避免別處意外引用報錯 */
     scoreSuffix: "/ 100",
+    /** PR-H2c：在最近量測卡底下提示「正式分數請至 HealthFlow」 */
+    scoreOnHealthFlowHint: "完整健康分數與評估，請點下方「查看完整評估」前往 HealthFlow 原站。",
 
     // 指標 labels
     metric: {

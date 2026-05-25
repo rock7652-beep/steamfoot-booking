@@ -4,6 +4,17 @@
  * 評分來源：AI 健康評估系統的 HealthSummary（alerts + metrics + trend）
  * 建議邏輯：依指標分群（循環代謝 / 體態組成 / 代謝效率）+ 趨勢變化 + 量測頻率
  * 輸出三段式結構：風險判讀 + 護理建議 + 回訪頻率建議
+ *
+ * @deprecated PR-H2c：HealthFlow summary API 不回官方 score，Steamfoot 自算
+ * (70% metric + 30% activity decay) 與 HealthFlow 原站演算法不一致 — 同一筆量測會
+ * 出現 Steamfoot 68 vs HealthFlow 86，誤導顧客。
+ *
+ * 顧客面 (LIFF `/liff/health` / `my-bookings` HealthAssessmentCard / `book`) 已於
+ * PR-H2c 改成不顯示 score；本檔暫保留是因 dashboard health-history.tsx / health-report
+ * 仍 import（但兩者目前在 prod 顯示鏈上是 dead code — 見 PR-H1 audit）。
+ *
+ * 長期解：等 HealthFlow API 加官方 `score / riskLevel` 欄位後，dashboard 直接顯示
+ * HealthFlow 給的值，computeHealthScore() 就可整段刪除。
  */
 
 import type { HealthSummary, HealthAlert, TrendPoint } from "./health-service";

@@ -181,9 +181,15 @@ export default async function CustomerHomePage() {
           <p className="mt-1 text-[14px] leading-relaxed text-earth-700">
             用 1 分鐘了解目前的身體指數
           </p>
-          {healthCard?.available && typeof healthCard.score === "number" && (
+          {/* PR-H2c：移除 self-computed score 顯示。原本這段對舊 shape 有 type 不匹配
+              (healthCard.score 是 object 不是 number)，實際上 prod 從沒 render 過。
+              改成「最近量測：YYYY/MM/DD」更直接，且不會與 HealthFlow 原站分數衝突。*/}
+          {healthCard?.available && (
             <p className="mt-1 text-[14px] text-primary-700">
-              目前分數：<span className="font-bold">{healthCard.score}</span>
+              最近量測：
+              <span className="font-bold">
+                {healthCard.summary.latest?.measuredAt ?? "—"}
+              </span>
             </p>
           )}
           <a
