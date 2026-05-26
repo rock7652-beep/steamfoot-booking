@@ -26,10 +26,17 @@
  *
  * Mobile-first：max-w-md / min-h-[44px] tap target / 月曆 cell min-h-[72px]。
  * 不寫 inline 中文（一律從 liffMessages.memberBooking.* / liffMessages.error.*）。
+ *
+ * 檔案結構 (P1-5b 拆分後)：
+ *   member-booking-form.tsx                        ← main orchestrator (此檔)
+ *   _components/boundary-blocks.tsx                ← Loading / InfoBlock
+ *   _components/wallet-summary-bar.tsx             ← WalletSummaryBar + WalletSummary type
+ *   _components/no-wallet-card.tsx                 ← NoWalletCard
+ *   _components/blocked-block.tsx                  ← BlockedBlock
+ *   _components/success-card.tsx                   ← SuccessCard
  */
 
 import { useEffect, useState, useCallback } from "react";
-import Link from "next/link";
 import {
   initLiff,
   isInLineClient,
@@ -48,19 +55,21 @@ import {
   fetchLiffWallets,
   type LiffWalletRow,
 } from "@/server/actions/liff-my-wallets";
-import { contactStoreUrl, liffMessages } from "@/lib/liff/messages";
-import { parseLocalDate, formatWeekdayZh } from "@/lib/date-utils";
+import { liffMessages } from "@/lib/liff/messages";
 import type { SlotAvailability } from "@/types";
 import {
   MonthCalendar,
   SlotPicker,
   type MonthDayInfo,
 } from "@/components/liff/booking-picker";
-
-type WalletSummary = {
-  totalAvailable: number;
-  activePlanCount: number;
-};
+import { InfoBlock, Loading } from "./_components/boundary-blocks";
+import {
+  WalletSummaryBar,
+  type WalletSummary,
+} from "./_components/wallet-summary-bar";
+import { NoWalletCard } from "./_components/no-wallet-card";
+import { BlockedBlock } from "./_components/blocked-block";
+import { SuccessCard } from "./_components/success-card";
 
 type State =
   | { kind: "initializing" }
@@ -485,256 +494,6 @@ export function MemberBookingForm({ storeSlug, storeName, liffId }: Props) {
           </button>
         </>
       )}
-    </div>
-  );
-}
-
-// ──────────────────────────────────────────────────────────
-// Wallet summary bar — readonly
-// 「目前可預約 X 堂」+ 多張方案時加「共 N 張方案」
-// ──────────────────────────────────────────────────────────
-
-function WalletSummaryBar({ wallet }: { wallet: WalletSummary }) {
-  const m = liffMessages.memberBooking;
-  return (
-    <div className="rounded-xl border border-earth-200 bg-earth-50 px-4 py-3 text-sm text-earth-800">
-      <div className="flex items-baseline justify-between">
-        <span className="text-xs text-earth-600">{m.walletSummaryPrefix}</span>
-        <span>
-          <strong className="text-xl font-bold tabular-nums text-earth-900">
-            {wallet.totalAvailable}
-          </strong>
-          <span className="ml-1 text-xs text-earth-700">
-            {m.walletSummarySuffix}
-          </span>
-        </span>
-      </div>
-      {wallet.activePlanCount > 1 && (
-        <p className="mt-1 text-right text-[11px] text-earth-500">
-          {m.walletSummaryMultiPlan.replace(
-            "{count}",
-            String(wallet.activePlanCount),
-          )}
-        </p>
-      )}
-    </div>
-  );
-}
-
-// ──────────────────────────────────────────────────────────
-// NoWalletCard — 顯示「沒有可用方案 / 已過期 / 剩餘堂數不足」+ 聯繫店家 / 回方案
-// ──────────────────────────────────────────────────────────
-
-function NoWalletCard({
-  storeSlug,
-  reason,
-}: {
-  storeSlug: string;
-  reason: "none" | "expired" | "insufficient";
-}) {
-  const m = liffMessages.memberBooking;
-  const body =
-    reason === "expired"
-      ? m.noWalletExpired
-      : reason === "insufficient"
-        ? m.noWalletInsufficient
-        : m.noWalletNone;
-  return (
-    <div className="flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-5 text-sm text-amber-900">
-      <p className="font-medium">{m.noWalletTitle}</p>
-      <p className="text-xs break-words opacity-90">{body}</p>
-      <div className="flex flex-wrap gap-2">
-        <a
-          href={contactStoreUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="rounded-md border border-amber-300 bg-white/70 px-3 py-1.5 text-xs font-medium hover:bg-white"
-        >
-          {liffMessages.error.contactStoreCta}
-        </a>
-        <Link
-          href={`/s/${storeSlug}/liff/wallets`}
-          className="rounded-md border border-amber-300 bg-white/70 px-3 py-1.5 text-xs font-medium hover:bg-white"
-        >
-          {m.backToWalletsCta}
-        </Link>
-      </div>
-    </div>
-  );
-}
-
-// ──────────────────────────────────────────────────────────
-// Sub-components (mirror trial-booking-form)
-// ──────────────────────────────────────────────────────────
-
-function Loading({ text }: { text: string }) {
-  return (
-    <div className="flex flex-col items-center gap-3 rounded-xl border border-earth-200 bg-white px-4 py-8 text-center">
-      <div
-        className="h-8 w-8 animate-spin rounded-full border-2 border-earth-300 border-t-earth-700"
-        aria-hidden
-      />
-      <p className="text-sm text-earth-600">{text}</p>
-    </div>
-  );
-}
-
-function InfoBlock({
-  tone,
-  title,
-  body,
-  showRetry,
-  showContactStore,
-}: {
-  tone: "green" | "red" | "yellow" | "earth";
-  title?: string;
-  body: string;
-  showRetry?: boolean;
-  showContactStore?: boolean;
-}) {
-  const toneClasses: Record<typeof tone, string> = {
-    green: "border-green-200 bg-green-50 text-green-900",
-    red: "border-red-200 bg-red-50 text-red-900",
-    yellow: "border-amber-200 bg-amber-50 text-amber-900",
-    earth: "border-earth-200 bg-earth-50 text-earth-900",
-  };
-  return (
-    <div
-      className={`flex flex-col gap-3 rounded-xl border px-4 py-5 text-sm ${toneClasses[tone]}`}
-    >
-      {title && <p className="font-medium">{title}</p>}
-      <p className="text-xs break-words opacity-90">{body}</p>
-      <div className="flex flex-wrap gap-2">
-        {showRetry && (
-          <button
-            type="button"
-            onClick={() => {
-              if (typeof window !== "undefined") window.location.reload();
-            }}
-            className="rounded-md border border-current bg-white/70 px-3 py-1.5 text-xs font-medium hover:bg-white"
-          >
-            {liffMessages.error.retryCta}
-          </button>
-        )}
-        {showContactStore && (
-          <a
-            href={contactStoreUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="rounded-md border border-current bg-white/70 px-3 py-1.5 text-xs font-medium hover:bg-white"
-          >
-            {liffMessages.error.contactStoreCta}
-          </a>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function BlockedBlock({
-  message,
-  showRetry,
-  showContactStore,
-  showDismiss,
-  onDismiss,
-}: {
-  message: string;
-  showRetry: boolean;
-  showContactStore: boolean;
-  showDismiss: boolean;
-  onDismiss: () => void;
-}) {
-  return (
-    <div className="flex flex-col gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-4 text-sm text-red-900">
-      <p className="text-xs break-words">{message}</p>
-      <div className="flex flex-wrap gap-2">
-        {showRetry && (
-          <button
-            type="button"
-            onClick={() => {
-              if (typeof window !== "undefined") window.location.reload();
-            }}
-            className="rounded-md border border-red-300 bg-white/70 px-3 py-1.5 text-xs font-medium hover:bg-white"
-          >
-            {liffMessages.error.retryCta}
-          </button>
-        )}
-        {showContactStore && (
-          <a
-            href={contactStoreUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="rounded-md border border-red-300 bg-white/70 px-3 py-1.5 text-xs font-medium hover:bg-white"
-          >
-            {liffMessages.error.contactStoreCta}
-          </a>
-        )}
-        {showDismiss && (
-          <button
-            type="button"
-            onClick={onDismiss}
-            className="rounded-md border border-red-300 bg-white/70 px-3 py-1.5 text-xs font-medium hover:bg-white"
-          >
-            重新選擇
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ──────────────────────────────────────────────────────────
-// SuccessCard (PR-G3) — 只兩顆 CTA：查看我的預約 / 回我的方案
-// 移除 trial 版本的 store label / contactStoreCta / successHomeCta
-// ──────────────────────────────────────────────────────────
-
-function SuccessCard({
-  storeSlug,
-  bookingDate,
-  slotTime,
-}: {
-  storeSlug: string;
-  bookingDate: string;
-  slotTime: string;
-}) {
-  const m = liffMessages.memberBooking;
-  const weekday = formatWeekdayZh(bookingDate);
-  const d = parseLocalDate(bookingDate);
-  const formattedDate = `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")} (${weekday})`;
-  return (
-    <div className="flex flex-col gap-4">
-      <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-5 text-sm text-green-900">
-        <p className="text-base font-semibold">{m.successTitle}</p>
-        <div className="mt-3 space-y-1.5 text-sm">
-          <div className="flex">
-            <span className="w-16 text-green-800/80">
-              {m.successDateLabel}
-            </span>
-            <span className="font-medium">{formattedDate}</span>
-          </div>
-          <div className="flex">
-            <span className="w-16 text-green-800/80">
-              {m.successSlotLabel}
-            </span>
-            <span className="font-medium">{slotTime}</span>
-          </div>
-        </div>
-        <p className="mt-4 text-xs text-green-800/80">
-          {m.successFootnote}
-        </p>
-      </div>
-      <Link
-        href={`/s/${storeSlug}/liff/bookings`}
-        className="inline-flex w-full items-center justify-center rounded-xl bg-earth-800 px-4 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-earth-700 active:scale-[0.98]"
-      >
-        {m.successMyBookingsCta}
-      </Link>
-      <Link
-        href={`/s/${storeSlug}/liff/wallets`}
-        className="inline-flex w-full items-center justify-center rounded-xl border border-earth-300 bg-white px-4 py-3 text-base font-medium text-earth-700 transition hover:bg-earth-50 active:scale-[0.98]"
-      >
-        {m.successWalletsCta}
-      </Link>
     </div>
   );
 }
