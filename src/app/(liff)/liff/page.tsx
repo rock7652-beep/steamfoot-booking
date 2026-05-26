@@ -1,4 +1,5 @@
 import { headers, cookies } from "next/headers";
+import { resolveLiffIdBySlug } from "@/lib/liff/liff-id";
 import { resolveStoreBySlug } from "@/lib/store-resolver";
 import { LiffShell } from "./liff-shell";
 
@@ -8,7 +9,7 @@ import { LiffShell } from "./liff-shell";
  * 流程：
  *   1. 從 proxy 注入的 x-store-slug header（fallback: cookie / "zhubei"）取得 slug
  *   2. resolveStoreBySlug → 取得 name；未找到顯示「尚未開通」錯誤頁
- *   3. 從 LIFF_ID_BY_SLUG dictionary 解析 LIFF ID；未設定也顯示「尚未開通」
+ *   3. 透過 `resolveLiffIdBySlug` 解析 LIFF ID；未設定也顯示「尚未開通」
  *   4. 把 storeName + liffId 傳給 client shell；shell 跑 liff.init() 顯示三態
  *
  * 本頁刻意 *不* 做：
@@ -16,15 +17,6 @@ import { LiffShell } from "./liff-shell";
  *   - 不寫任何 DB
  *   - 不接預約、不接 onboarding（PR-C/D）
  */
-
-/**
- * MVP 期：每店一個 NEXT_PUBLIC env var，明示對應關係。
- * 未來改為 `Store.liffId` 後（PR-E），把這張表整段替換為 DB 查詢。
- */
-const LIFF_ID_BY_SLUG: Record<string, string | undefined> = {
-  zhubei: process.env.NEXT_PUBLIC_LIFF_ID_ZHUBEI,
-  staging: process.env.NEXT_PUBLIC_LIFF_ID_STAGING,
-};
 
 export const dynamic = "force-dynamic";
 
@@ -41,7 +33,7 @@ export default async function LiffEntryPage() {
     return <NotOpenForLiff message={`找不到分店：${storeSlug}`} />;
   }
 
-  const liffId = LIFF_ID_BY_SLUG[store.slug];
+  const liffId = resolveLiffIdBySlug(store.slug);
   if (!liffId) {
     return <NotOpenForLiff message={`${store.name} 尚未開通 LINE Mini App`} />;
   }
