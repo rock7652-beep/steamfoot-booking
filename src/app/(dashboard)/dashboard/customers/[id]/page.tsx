@@ -39,6 +39,7 @@ import { sortWalletsByFEFO } from "@/lib/wallet-sort";
 
 import { CustomerBasicInfo } from "./_components/customer-basic-info";
 import { IdentityDiagnosticPanel } from "./_components/identity-diagnostic-panel";
+import { HealthStatusCard } from "./_components/health-status-card";
 import { LineBindingSection } from "./line-binding-section";
 
 const TX_TYPE_LABEL: Record<string, string> = {
@@ -629,6 +630,14 @@ export default async function CustomerDetailPage({ params }: PageProps) {
               />
             </SideCard>
           )}
+
+          {/* HealthFlow 連結狀態（DB-only；零 API call；方案 A）*/}
+          <HealthStatusCard
+            customerId={id}
+            healthProfileId={customer.healthProfileId ?? null}
+            healthLinkStatus={customer.healthLinkStatus}
+            healthSyncedAt={customer.healthSyncedAt ?? null}
+          />
 
           {/* Status badges */}
           <SideCard title="狀態" subtitle="目前系統狀態">
