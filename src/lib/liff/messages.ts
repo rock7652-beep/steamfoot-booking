@@ -245,8 +245,10 @@ export const liffMessages = {
     daysAgoSuffix: "（{n} 天前）",
     /** @deprecated PR-H2c 後不顯示 self-computed score；留 key 避免別處意外引用報錯 */
     scoreSuffix: "/ 100",
-    /** PR-H2c：在最近量測卡底下提示「正式分數請至 HealthFlow」 */
+    /** PR-H2c：在最近量測卡底下提示「正式分數請至 HealthFlow」（fallback 用，當 HealthFlow API 沒回 official score 時顯示） */
     scoreOnHealthFlowHint: "完整健康分數與評估，請點下方「查看完整評估」前往 HealthFlow 原站。",
+    /** PR feat/liff-health-official-score：官方分數卡底下資料來源歸屬 */
+    officialScoreAttribution: "資料來源：HealthFlow AI 健康評估",
 
     // 指標 labels
     metric: {

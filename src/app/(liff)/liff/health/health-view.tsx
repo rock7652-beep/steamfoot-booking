@@ -224,8 +224,18 @@ function LinkedView({
 
   return (
     <>
-      {/* ── 最近量測時間 (不顯示 self-computed score；交給 HealthFlow 原站) ── */}
-      <LatestSnapshot measuredAt={measuredAtLabel} daysAgo={daysAgo} />
+      {/* ── 官方 score 卡 (HealthFlow PR #5) / fallback 為 LatestSnapshot ──
+          summary.official 由 health-service normalizeOfficial 填；若 HealthFlow
+          API 沒回 score（舊版 / 部分 env），顯示原本 PR-H2c 的「最近量測卡」。*/}
+      {summary.official ? (
+        <OfficialScoreCard
+          official={summary.official}
+          measuredAt={measuredAtLabel}
+          daysAgo={daysAgo}
+        />
+      ) : (
+        <LatestSnapshot measuredAt={measuredAtLabel} daysAgo={daysAgo} />
+      )}
 
       {/* ── 指標 grid (6 主指標) ── */}
       <MetricGrid latest={summary.latest} alerts={summary.alerts} />
@@ -242,8 +252,86 @@ function LinkedView({
 }
 
 /**
+ * PR feat/liff-health-official-score：顯示 HealthFlow API 回的官方 score / 風險等級
+ * / 建議。**不**用 self-computed，避免 PR #200 修掉的 68 vs 86 衝突再現。
+ *
+ * 配色：依 riskLevel 字串值映色；HealthFlow 端可加新值，UI fallback earth tone。
+ */
+function OfficialScoreCard({
+  official,
+  measuredAt,
+  daysAgo,
+}: {
+  official: NonNullable<HealthSummary["official"]>;
+  measuredAt: string;
+  daysAgo: number | null;
+}) {
+  const m = liffMessages.health;
+  const riskClass =
+    official.riskLevel === "good"
+      ? "bg-green-50 border-green-200 text-green-900"
+      : official.riskLevel === "warning"
+        ? "bg-amber-50 border-amber-200 text-amber-900"
+        : official.riskLevel === "danger"
+          ? "bg-red-50 border-red-200 text-red-900"
+          : "bg-earth-50 border-earth-200 text-earth-900";
+  const scoreColor =
+    official.riskLevel === "good"
+      ? "text-green-700"
+      : official.riskLevel === "warning"
+        ? "text-amber-700"
+        : official.riskLevel === "danger"
+          ? "text-red-700"
+          : "text-earth-800";
+  return (
+    <div className={`rounded-xl border px-4 py-4 ${riskClass}`}>
+      <div className="flex items-baseline justify-between">
+        <p className="text-xs opacity-80">{m.lastMeasuredLabel}</p>
+        <p className="text-xs">
+          {formatDateLabel(measuredAt)}
+          {daysAgo !== null && (
+            <span className="ml-1 opacity-70">
+              {m.daysAgoSuffix.replace("{n}", String(daysAgo))}
+            </span>
+          )}
+        </p>
+      </div>
+      <div className="mt-2 flex items-end gap-3">
+        <span className={`text-4xl font-bold tabular-nums ${scoreColor}`}>
+          {official.score}
+        </span>
+        <span className="pb-1 text-xs opacity-80">{m.scoreSuffix}</span>
+        {official.riskLabel && (
+          <span className="ml-auto rounded-full bg-white/70 px-3 py-1 text-xs font-medium">
+            {official.riskLabel}
+          </span>
+        )}
+      </div>
+      {official.scoreExplanation && (
+        <p className="mt-3 text-xs leading-relaxed whitespace-pre-wrap">
+          {official.scoreExplanation}
+        </p>
+      )}
+      {official.adviceSummary.length > 0 && (
+        <ul className="mt-3 space-y-1 text-xs leading-relaxed">
+          {official.adviceSummary.map((tip, i) => (
+            <li key={i} className="flex gap-1.5">
+              <span className="opacity-60">·</span>
+              <span>{tip}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="mt-3 text-[10px] opacity-60">
+        {m.officialScoreAttribution}
+      </p>
+    </div>
+  );
+}
+
+/**
  * 取代原 ScoreCard。PR-H2c：不顯示 self-computed score（與 HealthFlow 原站不一致）。
- * 只顯示「最近量測：YYYY/MM/DD（N 天前）」+ 引導 CTA「完整評估請至 HealthFlow」。
+ * Fallback 用 — HealthFlow API 沒回 official.score 時用此卡。
  */
 function LatestSnapshot({
   measuredAt,
