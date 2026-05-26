@@ -1,11 +1,13 @@
 /**
- * AI 健康評估卡片 — 客戶端顯示用 (PR-H2c 重構)
+ * AI 健康評估卡片 — 客戶端顯示用
  *
  * 用於 `/my-bookings`、`/book` 等顧客 web 頁面。
  *
- * PR-H2c：移除 self-computed score / riskLevel / advice。HealthFlow summary API
- * 不回官方 score，Steamfoot 自算的 68 與 HealthFlow 原站 86 不一致會誤導顧客。
- * 改顯示「最近量測時間 + 4 主指標 + 異常 alert badge」，CTA 導 HealthFlow 看官方分數。
+ * 演進：
+ *   - PR-H2c：移除 self-computed score（68 vs HealthFlow 86 衝突）→ 只顯示量測
+ *   - PR feat/liff-health-official-score：HealthFlow API 加官方 score 後，
+ *     summary.official 有值時顯示官方 score / riskLabel / 建議；
+ *     沒值時 fallback 維持 PR-H2c 行為。**不**恢復 Steamfoot self-compute。
  */
 
 import type { HealthSummary } from "@/lib/health-service";
@@ -35,6 +37,17 @@ export function HealthAssessmentCard({
     ? "bg-red-50 border-red-200 text-red-700"
     : "bg-amber-50 border-amber-200 text-amber-700";
 
+  const official = summary.official;
+  // 官方分數配色（HealthFlow 端字串 → tailwind class；未知值 fallback earth）
+  const officialColor =
+    official?.riskLevel === "good"
+      ? "text-green-700"
+      : official?.riskLevel === "warning"
+        ? "text-amber-700"
+        : official?.riskLevel === "danger"
+          ? "text-red-700"
+          : "text-earth-800";
+
   return (
     <div className="rounded-2xl border border-earth-200 bg-white p-6 shadow-sm">
       {/* Header */}
@@ -54,6 +67,21 @@ export function HealthAssessmentCard({
           </a>
         )}
       </div>
+
+      {/* Official score (HealthFlow PR #5) — 有官方分數才顯示，沒回則整段省略 */}
+      {official && (
+        <div className="mb-4 flex items-end gap-3 rounded-xl border border-earth-200 bg-earth-50/50 px-4 py-3">
+          <span className={`text-3xl font-bold tabular-nums ${officialColor}`}>
+            {official.score}
+          </span>
+          <span className="pb-1 text-xs text-earth-500">/ 100</span>
+          {official.riskLabel && (
+            <span className="ml-auto rounded-full bg-white px-3 py-1 text-xs font-medium text-earth-700">
+              {official.riskLabel}
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Latest measured date */}
       <div className="mb-4 flex items-baseline justify-between rounded-xl bg-earth-50 px-4 py-3">
@@ -92,9 +120,11 @@ export function HealthAssessmentCard({
         </div>
       )}
 
-      {/* 引導語：分數請至 HealthFlow */}
+      {/* 引導語 — 沒官方分數時提示去 HealthFlow 看；有官方分數時改提資料來源 */}
       <p className="text-[11px] leading-relaxed text-earth-500">
-        完整健康分數與評估，請點「查看完整評估」前往 HealthFlow 原站。
+        {official
+          ? "資料來源：HealthFlow AI 健康評估；點「查看完整評估」看完整報告與建議。"
+          : "完整健康分數與評估，請點「查看完整評估」前往 HealthFlow 原站。"}
       </p>
     </div>
   );

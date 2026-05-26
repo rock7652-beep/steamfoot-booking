@@ -56,6 +56,33 @@ export interface HealthAlert {
   message: string;
 }
 
+/**
+ * HealthFlow 官方分數欄位（HealthFlow PR #5 additive，2026-05-25）。
+ *
+ * 全部 optional：
+ *   - 若 HealthFlow API 沒回（舊版 / 其他 env / 暫時失敗）→ Steamfoot UI 維持
+ *     PR-H2c 行為，只顯示量測，不顯示分數。不恢復 self-compute。
+ *   - 若回了 → /liff/health + HealthAssessmentCard 顯示 HealthFlow 官方分數。
+ *
+ * 注意：
+ *   - `adviceSummary` 是 **string[]**（建議條列），不是單 string。
+ *   - `riskLevel` / `scoreLevel` 字串值由 HealthFlow 端定義，Steamfoot 不再硬編 enum。
+ */
+export interface HealthOfficialScore {
+  /** 0–100 整數 */
+  score: number;
+  /** e.g. "excellent" / "good" / "fair" / "poor" — HealthFlow 端值 */
+  scoreLevel: string;
+  /** e.g. "good" / "warning" / "danger" — HealthFlow 端值 */
+  riskLevel: string;
+  /** UI 顯示字串 e.g. "良好" / "注意" / "需加強" */
+  riskLabel: string;
+  /** 評分說明段落 */
+  scoreExplanation: string | null;
+  /** 建議條列 — 注意是 string[]，非單 string */
+  adviceSummary: string[];
+}
+
 export interface HealthSummary {
   latest: HealthRecord | null;
   trend: TrendPoint[];
@@ -65,6 +92,12 @@ export interface HealthSummary {
     daysSinceLastMeasure: number | null;
     firstMeasuredAt: string | null;
   };
+  /**
+   * HealthFlow PR #5 (2026-05-25) additive：官方 score + 風險判讀 + 建議摘要。
+   * Optional — 若 API 沒回（舊版 HealthFlow / 部分 env），UI graceful fallback。
+   * Parser (`normalizeOfficial`) 對 missing / malformed 欄位回 undefined，不會 throw。
+   */
+  official?: HealthOfficialScore;
 }
 
 export interface BusinessInsight {
@@ -170,7 +203,37 @@ export async function lookupHealthProfile(
 }
 
 /**
+ * HealthFlow PR #5：把 API 回應裡的官方分數欄位（flat 在 top-level）正規化成
+ * `summary.official` 子物件。所有欄位 optional / type-checked，HealthFlow API
+ * 沒回或部分欄位 malformed → 整段回 undefined，UI graceful fallback。
+ *
+ * 不做型別硬編 enum — riskLevel / scoreLevel 字串值由 HealthFlow 端定義。
+ */
+/** @internal exported for unit test only — 一般呼叫請走 getHealthSummary */
+export function normalizeOfficial(raw: unknown): HealthOfficialScore | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const r = raw as Record<string, unknown>;
+  const score = r.score;
+  // score 是 official 區段的最小必要欄位；沒 score 就沒分數要顯示，整段忽略
+  if (typeof score !== "number" || !Number.isFinite(score)) return undefined;
+  return {
+    score: Math.round(score),
+    scoreLevel: typeof r.scoreLevel === "string" ? r.scoreLevel : "",
+    riskLevel: typeof r.riskLevel === "string" ? r.riskLevel : "",
+    riskLabel: typeof r.riskLabel === "string" ? r.riskLabel : "",
+    scoreExplanation:
+      typeof r.scoreExplanation === "string" ? r.scoreExplanation : null,
+    adviceSummary: Array.isArray(r.adviceSummary)
+      ? r.adviceSummary.filter((x): x is string => typeof x === "string")
+      : [],
+  };
+}
+
+/**
  * 取得AI 健康評估摘要（帶 5 分鐘 LRU 快取）
+ *
+ * PR feat/liff-health-official-score：API 回 top-level 官方分數欄位，
+ * 本函式用 normalizeOfficial 收進 `summary.official`，型別保持向後相容。
  */
 export async function getHealthSummary(
   profileId: string
@@ -182,9 +245,23 @@ export async function getHealthSummary(
   if (cached) return cached;
 
   // 打 API — 若失敗會 throw，由呼叫端 safeApi 處理
-  const result = await healthFetch<HealthSummary>(
+  // 用 Record<string, unknown> 避免 unsafe cast；再依需要 narrow / normalize。
+  const raw = await healthFetch<Record<string, unknown>>(
     `/api/health/summary?profileId=${profileId}`
   );
+
+  const result: HealthSummary = {
+    latest: (raw.latest ?? null) as HealthSummary["latest"],
+    trend: (Array.isArray(raw.trend) ? raw.trend : []) as HealthSummary["trend"],
+    alerts: (Array.isArray(raw.alerts) ? raw.alerts : []) as HealthSummary["alerts"],
+    meta: (raw.meta ?? {
+      totalRecords: 0,
+      daysSinceLastMeasure: null,
+      firstMeasuredAt: null,
+    }) as HealthSummary["meta"],
+  };
+  const official = normalizeOfficial(raw);
+  if (official) result.official = official;
 
   setCache(cacheKey, result);
   return result;
