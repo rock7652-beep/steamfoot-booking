@@ -1,4 +1,5 @@
 import { headers, cookies } from "next/headers";
+import { resolveLiffIdBySlug } from "@/lib/liff/liff-id";
 import { resolveStoreBySlug } from "@/lib/store-resolver";
 import { MemberBookingForm } from "./member-booking-form";
 
@@ -7,7 +8,7 @@ import { MemberBookingForm } from "./member-booking-form";
  *
  * 流程：
  *   1. server resolve store (header → cookie → "zhubei")  ← 與 trial-booking/page.tsx 同源
- *   2. server 解 LIFF_ID_BY_SLUG dict（PR-E 後改 Store.liffId）
+ *   2. server 解 LIFF ID（`resolveLiffIdBySlug`；PR-E 後改 Store.liffId）
  *   3. 把 storeSlug / storeName / liffId 傳給 client MemberBookingForm
  *
  * 安全考量：
@@ -24,11 +25,6 @@ import { MemberBookingForm } from "./member-booking-form";
  *   submitLiffMemberBooking 也會回 no_customer，整體不會出錯。
  */
 
-const LIFF_ID_BY_SLUG: Record<string, string | undefined> = {
-  zhubei: process.env.NEXT_PUBLIC_LIFF_ID_ZHUBEI,
-  staging: process.env.NEXT_PUBLIC_LIFF_ID_STAGING,
-};
-
 export const dynamic = "force-dynamic";
 
 export default async function LiffMemberBookingPage() {
@@ -44,7 +40,7 @@ export default async function LiffMemberBookingPage() {
     return <NotOpenForLiff message={`找不到分店：${storeSlug}`} />;
   }
 
-  const liffId = LIFF_ID_BY_SLUG[store.slug];
+  const liffId = resolveLiffIdBySlug(store.slug);
   if (!liffId) {
     return <NotOpenForLiff message={`${store.name} 尚未開通 LINE Mini App`} />;
   }

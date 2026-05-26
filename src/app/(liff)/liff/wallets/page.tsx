@@ -1,4 +1,5 @@
 import { headers, cookies } from "next/headers";
+import { resolveLiffIdBySlug } from "@/lib/liff/liff-id";
 import { resolveStoreBySlug } from "@/lib/store-resolver";
 import { WalletsList } from "./wallets-list";
 
@@ -8,7 +9,7 @@ import { WalletsList } from "./wallets-list";
  * Server-side scaffold（與 /liff/bookings/page.tsx 同 pattern）：
  *   1. 解 store slug：header（proxy 注入）→ cookie → 預設 "zhubei"
  *   2. resolveStoreBySlug → 找不到顯示 NotOpenForLiff
- *   3. 查 LIFF_ID_BY_SLUG dict（PR-E per-store migration 後改 Store.liffId）
+ *   3. 查 LIFF ID（`resolveLiffIdBySlug`；PR-E per-store migration 後改 Store.liffId）
  *   4. 把 storeSlug / storeName / liffId 傳給 client WalletsList
  *
  * 安全考量：
@@ -21,11 +22,6 @@ import { WalletsList } from "./wallets-list";
  *   - 不取消 / 不續約 / 不購買 / 不付款
  *   - 不動 wallet status（read-only）
  */
-
-const LIFF_ID_BY_SLUG: Record<string, string | undefined> = {
-  zhubei: process.env.NEXT_PUBLIC_LIFF_ID_ZHUBEI,
-  staging: process.env.NEXT_PUBLIC_LIFF_ID_STAGING,
-};
 
 export const dynamic = "force-dynamic";
 
@@ -42,7 +38,7 @@ export default async function LiffMyWalletsPage() {
     return <NotOpenForLiff message={`找不到分店：${storeSlug}`} />;
   }
 
-  const liffId = LIFF_ID_BY_SLUG[store.slug];
+  const liffId = resolveLiffIdBySlug(store.slug);
   if (!liffId) {
     return <NotOpenForLiff message={`${store.name} 尚未開通 LINE Mini App`} />;
   }

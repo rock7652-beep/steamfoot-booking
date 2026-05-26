@@ -1,4 +1,5 @@
 import { headers, cookies } from "next/headers";
+import { resolveLiffIdBySlug } from "@/lib/liff/liff-id";
 import { resolveStoreBySlug } from "@/lib/store-resolver";
 import { OnboardingForm } from "./onboarding-form";
 
@@ -7,7 +8,7 @@ import { OnboardingForm } from "./onboarding-form";
  *
  * 流程：
  *   1. server resolve store (header → cookie → "zhubei")
- *   2. server 解 LIFF_ID_BY_SLUG dict（與 /s/[slug]/liff/page.tsx 同一份對應，
+ *   2. server 解 LIFF ID（`resolveLiffIdBySlug`，7 個 LIFF page 共用；
  *      未來 PR-E 上 Store.liffId 一起換）
  *   3. 把 storeSlug / storeName / liffId 交給 client OnboardingForm
  *
@@ -20,11 +21,6 @@ import { OnboardingForm } from "./onboarding-form";
  *   - 不查 Customer / 不驗 idToken（server action 做）
  *   - 不寫任何 DB
  */
-
-const LIFF_ID_BY_SLUG: Record<string, string | undefined> = {
-  zhubei: process.env.NEXT_PUBLIC_LIFF_ID_ZHUBEI,
-  staging: process.env.NEXT_PUBLIC_LIFF_ID_STAGING,
-};
 
 export const dynamic = "force-dynamic";
 
@@ -41,7 +37,7 @@ export default async function LiffOnboardingPage() {
     return <NotOpenForLiff message={`找不到分店：${storeSlug}`} />;
   }
 
-  const liffId = LIFF_ID_BY_SLUG[store.slug];
+  const liffId = resolveLiffIdBySlug(store.slug);
   if (!liffId) {
     return <NotOpenForLiff message={`${store.name} 尚未開通 LINE Mini App`} />;
   }
