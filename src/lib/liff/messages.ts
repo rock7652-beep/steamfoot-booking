@@ -427,6 +427,14 @@ export const liffMessages = {
     expired: "登入已逾時，請重新從 LINE 開啟此頁。",
     serviceUnavailable: "目前服務暫時無法使用，請稍後再試，或透過 LINE 聯繫我們。",
     contactStoreCta: "聯繫店家",
+    /** PR-E2：LIFF 頁拿不到 store context（x-store-slug header + store-slug cookie 皆無）時的安全提示。
+     *  取代 PR-E2 前的「fallback 到 zhubei」靜默行為，避免多店環境下顧客誤看到竹北資料。 */
+    cannotConfirmStore: "無法確認分店，請從 LINE 圖文選單或好友訊息開啟此頁。",
+    /** PR-E2：storeSlug 在 URL 帶到，但 DB 查不到對應店家（typo / 已停業）。
+     *  顯式 notFound() → (liff)/not-found.tsx；故意與 cannotConfirmStore /
+     *  NotOpenForLiff 視覺區隔，讓顧客知道是 URL 錯誤而非 LIFF 服務問題。 */
+    storeNotFound: "找不到您要前往的分店。",
+    storeNotFoundHint: "請確認連結是否正確，或回到 LINE 圖文選單重新開啟。",
     retryCta: "重新整理",
 
     // ── PR-D1B 體驗預約專用 ──

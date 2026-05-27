@@ -1,20 +1,23 @@
-import { headers, cookies } from "next/headers";
-import { resolveStorePresentation } from "@/lib/store-resolver";
+import { notFound } from "next/navigation";
+import {
+  resolveStorePresentation,
+  resolveStoreSlugForLiff,
+} from "@/lib/store-resolver";
+import { liffMessages } from "@/lib/liff/messages";
 import { WalletsList } from "./wallets-list";
 
 /**
- * /s/[storeSlug]/liff/wallets — LIFF 顧客「我的方案 / 剩餘堂數」頁 (PR-E2)
+ * /s/[storeSlug]/liff/wallets — LIFF 顧客「我的方案 / 剩餘堂數」頁
  *
  * Server-side scaffold（與 /liff/bookings/page.tsx 同 pattern）：
- *   1. 解 store slug：header（proxy 注入）→ cookie → 預設 "zhubei"
- *   2. resolveStoreBySlug → 找不到顯示 NotOpenForLiff
- *   3. 查 LIFF ID（`resolveLiffIdBySlug`；PR-E per-store migration 後改 Store.liffId）
- *   4. 把 storeSlug / storeName / liffId 傳給 client WalletsList
+ *   1. resolveStoreSlugForLiff() → header / cookie；皆無 → 安全錯誤畫面（PR-E2）
+ *   2. resolveStorePresentation → 取得 name / liffId / per-store presentation（PR-E）
+ *   3. 把 storeSlug / storeName / liffId / contactUrl 傳給 client WalletsList
  *
  * 安全考量：
  *   - customerId / storeId / walletId **不從 URL 取**；client 也不傳
  *   - server action `fetchLiffWallets` 自走 requireSession + canonical resolver
- *     （零 client 參數，per PR-E2 拍板）
+ *   - PR-E2 起 store context 缺失時不再靜默 fallback zhubei
  *
  * 不在此檔做：
  *   - 不查 DB / 不寫 DB
@@ -25,16 +28,15 @@ import { WalletsList } from "./wallets-list";
 export const dynamic = "force-dynamic";
 
 export default async function LiffMyWalletsPage() {
-  const headerList = await headers();
-  const cookieStore = await cookies();
-  const storeSlug =
-    headerList.get("x-store-slug") ??
-    cookieStore.get("store-slug")?.value ??
-    "zhubei";
+  const storeSlug = await resolveStoreSlugForLiff();
+  if (!storeSlug) {
+    return <NotOpenForLiff message={liffMessages.error.cannotConfirmStore} />;
+  }
 
   const presentation = await resolveStorePresentation(storeSlug);
   if (!presentation) {
-    return <NotOpenForLiff message={`找不到分店：${storeSlug}`} />;
+    // PR-E2：店不存在 → notFound() → render (liff)/not-found.tsx
+    notFound();
   }
   if (!presentation.liffId) {
     return <NotOpenForLiff message={`${presentation.name} 尚未開通 LINE Mini App`} />;

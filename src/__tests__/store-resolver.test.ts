@@ -16,11 +16,12 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
-// ── Mock next/headers (for cookie-based resolution) ──
+// ── Mock next/headers (for cookie + header based resolution) ──
 const mockCookieGet = vi.fn();
+const mockHeaderGet = vi.fn();
 vi.mock("next/headers", () => ({
   cookies: () => Promise.resolve({ get: mockCookieGet }),
-  headers: () => Promise.resolve({ get: vi.fn() }),
+  headers: () => Promise.resolve({ get: mockHeaderGet }),
 }));
 
 // ── Mock React.cache (pass through) ──
@@ -156,6 +157,132 @@ describe("store-resolver", () => {
 
       const result = await resolveStoreFromOAuthCookie();
       expect(result).toBeNull();
+    });
+  });
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // PR-E2 + Codex P1：resolveStoreSlugForLiff() header-only strict gate
+  //
+  // 解析：x-store-slug header（emptyToNull 過濾空字串）→ null
+  // **不**讀 store-slug cookie。stale cookie 是 PR-E2 strict gate 的漏洞——
+  // 顧客上次去 zhubei 後 cookie 留下「store-slug=zhubei」，下次點到沒 header
+  // 的 URL 會被 silently 拉回 zhubei，等於沒鎖。
+  //
+  // null 時 callsite 應顯示「無法確認分店」安全提示，引導從 /s/<slug>/liff 重進。
+  // ───────────────────────────────────────────────────────────────────────────
+  describe("resolveStoreSlugForLiff (PR-E2 strict, header-only)", () => {
+    it("1. header present → returns header slug", async () => {
+      const { resolveStoreSlugForLiff } = await import("@/lib/store-resolver");
+
+      mockHeaderGet.mockImplementation((name: string) =>
+        name === "x-store-slug" ? "hsinchu" : null
+      );
+      mockCookieGet.mockReturnValue(undefined);
+
+      const slug = await resolveStoreSlugForLiff();
+      expect(slug).toBe("hsinchu");
+    });
+
+    it("2. header missing + cookie 'zhubei' → null (Codex P1: stale cookie must not leak)", async () => {
+      const { resolveStoreSlugForLiff } = await import("@/lib/store-resolver");
+
+      mockHeaderGet.mockReturnValue(null);
+      mockCookieGet.mockImplementation((name: string) =>
+        name === "store-slug" ? { value: "zhubei" } : undefined
+      );
+
+      const slug = await resolveStoreSlugForLiff();
+      expect(slug).toBeNull();
+      // 顯式：stale cookie 即使值是 "zhubei" 也不可漏進來
+      expect(slug).not.toBe("zhubei");
+    });
+
+    it("3. header empty + cookie 'zhubei' → null (empty header normalized; cookie ignored)", async () => {
+      const { resolveStoreSlugForLiff } = await import("@/lib/store-resolver");
+
+      mockHeaderGet.mockImplementation((name: string) =>
+        name === "x-store-slug" ? "" : null
+      );
+      mockCookieGet.mockImplementation((name: string) =>
+        name === "store-slug" ? { value: "zhubei" } : undefined
+      );
+
+      const slug = await resolveStoreSlugForLiff();
+      expect(slug).toBeNull();
+      expect(slug).not.toBe("zhubei");
+    });
+
+    it("4. no header + no cookie → null", async () => {
+      const { resolveStoreSlugForLiff } = await import("@/lib/store-resolver");
+
+      mockHeaderGet.mockReturnValue(null);
+      mockCookieGet.mockReturnValue(undefined);
+
+      const slug = await resolveStoreSlugForLiff();
+      expect(slug).toBeNull();
+      expect(slug).not.toBe("zhubei");
+    });
+
+    it("5. never returns zhubei unless header explicitly is zhubei", async () => {
+      const { resolveStoreSlugForLiff } = await import("@/lib/store-resolver");
+
+      // 5a. header 顯式 "zhubei" → 允許（這是合法的 prod 路徑）
+      mockHeaderGet.mockImplementation((name: string) =>
+        name === "x-store-slug" ? "zhubei" : null
+      );
+      mockCookieGet.mockReturnValue(undefined);
+      expect(await resolveStoreSlugForLiff()).toBe("zhubei");
+
+      // 5b. header 是別的店，cookie 是 zhubei → 用 header 不用 cookie
+      mockHeaderGet.mockImplementation((name: string) =>
+        name === "x-store-slug" ? "hsinchu" : null
+      );
+      mockCookieGet.mockImplementation((name: string) =>
+        name === "store-slug" ? { value: "zhubei" } : undefined
+      );
+      expect(await resolveStoreSlugForLiff()).toBe("hsinchu");
+
+      // 5c. 任何 stale cookie zhubei 都不可漏進來
+      for (const headerVal of [null, "", "   ", "\t\n"] as const) {
+        mockHeaderGet.mockImplementation((name: string) =>
+          name === "x-store-slug" ? headerVal : null
+        );
+        mockCookieGet.mockImplementation((name: string) =>
+          name === "store-slug" ? { value: "zhubei" } : undefined
+        );
+        const slug = await resolveStoreSlugForLiff();
+        expect(slug).toBeNull();
+        expect(slug).not.toBe("zhubei");
+      }
+    });
+
+    it("6. whitespace-only header → null (emptyToNull normalization)", async () => {
+      const { resolveStoreSlugForLiff } = await import("@/lib/store-resolver");
+
+      mockHeaderGet.mockImplementation((name: string) =>
+        name === "x-store-slug" ? "   \t" : null
+      );
+      mockCookieGet.mockReturnValue(undefined);
+
+      const slug = await resolveStoreSlugForLiff();
+      expect(slug).toBeNull();
+    });
+
+    it("7. cookie reading is structurally removed (mockCookieGet must NOT be called)", async () => {
+      const { resolveStoreSlugForLiff } = await import("@/lib/store-resolver");
+
+      mockHeaderGet.mockImplementation((name: string) =>
+        name === "x-store-slug" ? "hsinchu" : null
+      );
+      mockCookieGet.mockReset();
+      mockCookieGet.mockImplementation((name: string) => {
+        if (name === "store-slug") return { value: "should-never-be-read" };
+        return undefined;
+      });
+
+      await resolveStoreSlugForLiff();
+      // helper 不該讀 cookie，這條 mock 完全沒被呼叫
+      expect(mockCookieGet).not.toHaveBeenCalled();
     });
   });
 });
