@@ -93,10 +93,23 @@ export async function getStoreFromHeaders(): Promise<{ storeId: string; storeSlu
 /**
  * 從 request headers + cookies 解析 LIFF 頁的 store slug（PR-E2）。
  *
+ * 為什麼用 header 而不是 page params.storeSlug：
+ *   `/s/<slug>/liff/<page>` URL 由 `src/proxy.ts` 在進入 Next.js 前 rewrite
+ *   成 `/liff/<page>` + 注入 `x-store-slug` header。Next.js page tree 內
+ *   沒有 `[storeSlug]` dynamic segment，所以 page 拿不到 params.storeSlug。
+ *
+ *   **效果上 header 即 URL path（proxy 注入），優先序仍然「URL 路徑 > cookie」**：
+ *   - header 存在 → URL 是新進入的（顧客真正要去的店）→ 採用
+ *   - header 缺 → URL 沒給 → 退而求其次 cookie（早期路徑相容；新流程不該依賴）
+ *   - 兩者都無 → null（不 fallback 任何預設店，避免 cookie / URL 不一致時誤導）
+ *
+ *   若未來重構 LIFF 路由為 `src/app/(liff)/s/[storeSlug]/liff/*`，可改用
+ *   params.storeSlug 為主、header 為驗證；屬於另一支 PR 範圍。
+ *
  * 解析順序：
- *   1. `x-store-slug` header（proxy.ts 從 `/s/<slug>/liff/...` URL 注入）
- *   2. `store-slug` cookie（早期路徑相容；新流程不該依賴）
- *   3. **null（不 fallback 到任何預設店）**
+ *   1. `x-store-slug` header（proxy 從 URL path 注入；等效於 URL 為主）
+ *   2. `store-slug` cookie（legacy；新流程不該依賴）
+ *   3. **null（PR-E2：不 fallback 到任何預設店）**
  *
  * 為何不再 fallback `"zhubei"`：
  *   - PR-E 把每店呈現資料（聯絡 / 地址 / LIFF ID）改 per-store。若 LIFF 頁

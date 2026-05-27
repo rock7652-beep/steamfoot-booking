@@ -1,3 +1,4 @@
+import { notFound } from "next/navigation";
 import {
   resolveStorePresentation,
   resolveStoreSlugForLiff,
@@ -38,7 +39,8 @@ export default async function LiffTrialBookingPage() {
 
   const presentation = await resolveStorePresentation(storeSlug);
   if (!presentation) {
-    return <NotOpenForLiff message={`找不到分店：${storeSlug}`} />;
+    // PR-E2：店不存在 → notFound() → render (liff)/not-found.tsx
+    notFound();
   }
   if (!presentation.liffId) {
     return <NotOpenForLiff message={`${presentation.name} 尚未開通 LINE Mini App`} />;
