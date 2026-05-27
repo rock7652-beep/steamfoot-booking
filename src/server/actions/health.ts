@@ -2,9 +2,12 @@
 
 import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/permissions";
+import { assertStoreAccess } from "@/lib/manager-visibility";
 import {
   lookupHealthProfileSafe,
+  getHealthSummarySafe,
   invalidateHealthCache,
+  type HealthSummary,
 } from "@/lib/health-service";
 import { revalidatePath } from "next/cache";
 
@@ -179,4 +182,84 @@ export async function searchHealthProfile(
     console.error("[searchHealthProfile] Error:", error);
     return { found: false, profiles: [] };
   }
+}
+
+// ============================================================
+// fetchHealthSummaryForDashboard — lazy summary（顧客頁按需查看）
+//
+// 設計合約（per dashboard-health-lazy audit 2026-05-27）：
+//   1. 嚴格純讀，0 DB write
+//   2. 0 page-load 觸發 — 只在店長點「查看健康摘要」按鈕時呼叫
+//   3. 不呼叫 tryAutoLinkHealth（避免誤觸發 auto-link 寫流程）
+//   4. healthProfileId 不回 client — server-side 內部使用即可
+//   5. 重用 getHealthSummarySafe（5 分鐘 LRU + safeApi wrapper：失敗回 null 不 throw）
+//   6. 沿用 customer.read 權限；assertStoreAccess 防跨店
+//   7. linked 但 API 失敗 → service_unavailable（UI 顯示「暫時無法載入」+ 重試）
+// ============================================================
+
+export type FetchHealthSummaryForDashboardResult =
+  | { status: "ok"; summary: HealthSummary }
+  /** 顧客尚未連結（healthLinkStatus = unlinked 或無 healthProfileId） */
+  | { status: "no_profile" }
+  /** dashboard 自動配對找不到對應 HealthFlow profile */
+  | { status: "not_found" }
+  /** dashboard 上次配對發生錯誤 */
+  | { status: "error" }
+  /** HealthFlow API 暫時無法呼叫（safeApi fallback null） */
+  | { status: "service_unavailable" }
+  /** requirePermission 或 assertStoreAccess 失敗 / 顧客不存在 */
+  | { status: "forbidden" };
+
+export async function fetchHealthSummaryForDashboard(
+  customerId: string,
+): Promise<FetchHealthSummaryForDashboardResult> {
+  let user;
+  try {
+    user = await requirePermission("customer.read");
+  } catch {
+    return { status: "forbidden" };
+  }
+
+  let customer;
+  try {
+    customer = await prisma.customer.findUnique({
+      where: { id: customerId },
+      select: {
+        id: true,
+        storeId: true,
+        healthProfileId: true,
+        healthLinkStatus: true,
+      },
+    });
+  } catch (err) {
+    console.error("[fetchHealthSummaryForDashboard] customer query failed", err);
+    return { status: "service_unavailable" };
+  }
+  if (!customer) return { status: "forbidden" };
+
+  // 跨店防線（與其他 dashboard read action 一致）
+  try {
+    assertStoreAccess(user, customer.storeId);
+  } catch {
+    return { status: "forbidden" };
+  }
+
+  // Branch by linkStatus — 不打 HealthFlow API 除非真的 linked + 有 profileId
+  if (!customer.healthProfileId || customer.healthLinkStatus !== "linked") {
+    if (customer.healthLinkStatus === "not_found") return { status: "not_found" };
+    if (customer.healthLinkStatus === "error") return { status: "error" };
+    return { status: "no_profile" };
+  }
+
+  // linked + 有 profileId → 安全呼叫 HealthFlow（5 分鐘 LRU 命中時不會打 API）
+  // safeApi 失敗會自動 logError 並回 null；不 throw。
+  const summary = await getHealthSummarySafe(customer.healthProfileId, {
+    customerId,
+    storeId: customer.storeId,
+  });
+  if (!summary) {
+    return { status: "service_unavailable" };
+  }
+
+  return { status: "ok", summary };
 }
