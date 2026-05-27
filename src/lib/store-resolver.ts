@@ -91,48 +91,44 @@ export async function getStoreFromHeaders(): Promise<{ storeId: string; storeSlu
 }
 
 /**
- * 從 request headers + cookies 解析 LIFF 頁的 store slug（PR-E2）。
+ * 解析 LIFF 頁的 store slug（PR-E2 strict + Codex P1 hardening）。
+ *
+ * **只信任 `x-store-slug` header**——這是 `src/proxy.ts` 從 URL path
+ * `/s/<slug>/liff/<page>` 為每個 request 即時注入的。`store-slug` cookie
+ * **不再讀取**。
+ *
+ * 為什麼 cookie 不能當 fallback（Codex P1）：
+ *   - cookie 是 stale 資料：顧客上次造訪 zhubei 後 cookie 留著「store-slug=zhubei」，
+ *     下次點到「沒 header」的 URL（例如 proxy 失效、外部分享連結缺 /s/ 前綴）
+ *     就會被 stale cookie 矽默拉去 zhubei → 等於 PR-E2 前的 fallback bug
+ *     換個皮繼續存在。
+ *   - 安全 gate 的設計原則：URL 路徑（header）是 single source of truth。
+ *     缺它就是缺它，不該被 client-side 殘留資料補位。
  *
  * 為什麼用 header 而不是 page params.storeSlug：
- *   `/s/<slug>/liff/<page>` URL 由 `src/proxy.ts` 在進入 Next.js 前 rewrite
- *   成 `/liff/<page>` + 注入 `x-store-slug` header。Next.js page tree 內
- *   沒有 `[storeSlug]` dynamic segment，所以 page 拿不到 params.storeSlug。
+ *   現行 Next.js page tree 內無 `[storeSlug]` dynamic segment——proxy 把
+ *   `/s/<slug>/liff/<page>` rewrite 成 `/liff/<page>` + 注入 header
+ *   才進 Next.js。所以 page 拿不到 params.storeSlug，header 是 URL 的
+ *   唯一代理。若未來重構為 `src/app/(liff)/s/[storeSlug]/liff/*` 可改
+ *   params 為主、header 為驗證——屬另一支 PR 範圍。
  *
- *   **效果上 header 即 URL path（proxy 注入），優先序仍然「URL 路徑 > cookie」**：
- *   - header 存在 → URL 是新進入的（顧客真正要去的店）→ 採用
- *   - header 缺 → URL 沒給 → 退而求其次 cookie（早期路徑相容；新流程不該依賴）
- *   - 兩者都無 → null（不 fallback 任何預設店，避免 cookie / URL 不一致時誤導）
+ * 解析：
+ *   1. `x-store-slug` header → emptyToNull（空字串 / 純 whitespace 視為缺）
+ *   2. **null**（不讀 cookie、不 fallback 任何預設店）
  *
- *   若未來重構 LIFF 路由為 `src/app/(liff)/s/[storeSlug]/liff/*`，可改用
- *   params.storeSlug 為主、header 為驗證；屬於另一支 PR 範圍。
- *
- * 解析順序：
- *   1. `x-store-slug` header（proxy 從 URL path 注入；等效於 URL 為主）
- *   2. `store-slug` cookie（legacy；新流程不該依賴）
- *   3. **null（PR-E2：不 fallback 到任何預設店）**
- *
- * 為何不再 fallback `"zhubei"`：
- *   - PR-E 把每店呈現資料（聯絡 / 地址 / LIFF ID）改 per-store。若 LIFF 頁
- *     在 store context 缺失時靜默 fallback `zhubei`，未來新竹 / 台中店
- *     的顧客會看到「竹北的聯絡方式 + 竹北的地址 + 竹北的 LIFF ID」——
- *     silent data corruption。
- *   - 正解：缺 context 時 callsite 顯示「無法確認分店」安全提示，引導
- *     顧客從正確的分店專屬連結（/s/<slug>/liff）重新進入。
+ * 為何 emptyToNull：proxy 路徑若異常或 Vercel env footgun 把 header 設成 `""`，
+ * `??` 不會 catch 空字串會放行；emptyToNull 把 `""` / `"   "` 統一視為 null，
+ * page.tsx 的 `if (!storeSlug)` gate 才能正確攔住。
  *
  * 不可改成「default store」或「resolve first store」: 多店環境下任何
  * 預設 fallback 都是潛在跨店污染。
  *
- * @returns slug 字串（headers / cookies 任一給就回該值）；皆無則 null。
+ * @returns slug 字串（header 給且非空 / whitespace 時回該值）；其餘皆 null。
  */
 export async function resolveStoreSlugForLiff(): Promise<string | null> {
-  const { headers, cookies } = await import("next/headers");
+  const { headers } = await import("next/headers");
   const headerList = await headers();
-  const cookieStore = await cookies();
-  return (
-    headerList.get("x-store-slug") ??
-    cookieStore.get("store-slug")?.value ??
-    null
-  );
+  return emptyToNull(headerList.get("x-store-slug"));
 }
 
 /**
