@@ -21,6 +21,27 @@ export async function listReminderRules() {
   });
 }
 
+/**
+ * 「明日預約提醒」設定卡用 — 取該店是否啟用 + canonical rule 的 templateId
+ *
+ * canonical rule = 最早 createdAt 的 rule。enabled = 任一條 isEnabled=true
+ * （setReminderEnabled 會在 toggle 時收斂為最多 1 條）。
+ */
+export async function getStoreReminderState(storeId: string): Promise<{
+  enabled: boolean;
+  canonicalTemplateId: string | null;
+}> {
+  const rules = await prisma.reminderRule.findMany({
+    where: { storeId },
+    orderBy: { createdAt: "asc" },
+    select: { isEnabled: true, templateId: true },
+  });
+  return {
+    enabled: rules.some((r) => r.isEnabled),
+    canonicalTemplateId: rules[0]?.templateId ?? null,
+  };
+}
+
 // ============================================================
 // MessageTemplate queries
 // ============================================================
