@@ -1,15 +1,19 @@
-import { headers, cookies } from "next/headers";
-import { resolveStorePresentation } from "@/lib/store-resolver";
+import {
+  resolveStorePresentation,
+  resolveStoreSlugForLiff,
+} from "@/lib/store-resolver";
+import { liffMessages } from "@/lib/liff/messages";
 import { LiffShell } from "./liff-shell";
 
 /**
  * /s/[storeSlug]/liff — LIFF MVP shell（PR-A）。
  *
  * 流程：
- *   1. 從 proxy 注入的 x-store-slug header（fallback: cookie / "zhubei"）取得 slug
+ *   1. resolveStoreSlugForLiff() → 從 proxy x-store-slug header / store-slug cookie 取 slug
+ *      - 皆無 → NotOpenForLiff「無法確認分店」（PR-E2：不再靜默 fallback zhubei）
  *   2. resolveStorePresentation → 取得 {name, liffId, contactUrl, address, mapUrl}（PR-E）
- *      - store 找不到 → NotOpenForLiff（找不到分店）
- *      - liffId 為 null → NotOpenForLiff（尚未開通）
+ *      - store 找不到 → NotOpenForLiff「找不到分店」
+ *      - liffId 為 null → NotOpenForLiff「尚未開通」
  *   3. 把 storeName / liffId / contactUrl 傳給 client shell；shell 跑 liff.init() 顯示三態
  *
  * 本頁刻意 *不* 做：
@@ -21,12 +25,10 @@ import { LiffShell } from "./liff-shell";
 export const dynamic = "force-dynamic";
 
 export default async function LiffEntryPage() {
-  const headerList = await headers();
-  const cookieStore = await cookies();
-  const storeSlug =
-    headerList.get("x-store-slug") ??
-    cookieStore.get("store-slug")?.value ??
-    "zhubei";
+  const storeSlug = await resolveStoreSlugForLiff();
+  if (!storeSlug) {
+    return <NotOpenForLiff message={liffMessages.error.cannotConfirmStore} />;
+  }
 
   const presentation = await resolveStorePresentation(storeSlug);
   if (!presentation) {

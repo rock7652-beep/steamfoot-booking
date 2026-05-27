@@ -91,6 +91,38 @@ export async function getStoreFromHeaders(): Promise<{ storeId: string; storeSlu
 }
 
 /**
+ * 從 request headers + cookies 解析 LIFF 頁的 store slug（PR-E2）。
+ *
+ * 解析順序：
+ *   1. `x-store-slug` header（proxy.ts 從 `/s/<slug>/liff/...` URL 注入）
+ *   2. `store-slug` cookie（早期路徑相容；新流程不該依賴）
+ *   3. **null（不 fallback 到任何預設店）**
+ *
+ * 為何不再 fallback `"zhubei"`：
+ *   - PR-E 把每店呈現資料（聯絡 / 地址 / LIFF ID）改 per-store。若 LIFF 頁
+ *     在 store context 缺失時靜默 fallback `zhubei`，未來新竹 / 台中店
+ *     的顧客會看到「竹北的聯絡方式 + 竹北的地址 + 竹北的 LIFF ID」——
+ *     silent data corruption。
+ *   - 正解：缺 context 時 callsite 顯示「無法確認分店」安全提示，引導
+ *     顧客從正確的分店專屬連結（/s/<slug>/liff）重新進入。
+ *
+ * 不可改成「default store」或「resolve first store」: 多店環境下任何
+ * 預設 fallback 都是潛在跨店污染。
+ *
+ * @returns slug 字串（headers / cookies 任一給就回該值）；皆無則 null。
+ */
+export async function resolveStoreSlugForLiff(): Promise<string | null> {
+  const { headers, cookies } = await import("next/headers");
+  const headerList = await headers();
+  const cookieStore = await cookies();
+  return (
+    headerList.get("x-store-slug") ??
+    cookieStore.get("store-slug")?.value ??
+    null
+  );
+}
+
+/**
  * 從 OAuth cookie 讀取 store slug（LINE / Google 登入用）
  *
  * 回傳 null 代表無法判定店別（cookie 遺失 或 slug 在 DB 中不存在）。

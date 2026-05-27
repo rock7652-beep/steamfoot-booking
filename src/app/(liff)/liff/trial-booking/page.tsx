@@ -1,18 +1,22 @@
-import { headers, cookies } from "next/headers";
-import { resolveStorePresentation } from "@/lib/store-resolver";
+import {
+  resolveStorePresentation,
+  resolveStoreSlugForLiff,
+} from "@/lib/store-resolver";
+import { liffMessages } from "@/lib/liff/messages";
 import { TrialBookingForm } from "./trial-booking-form";
 
 /**
  * /s/[storeSlug]/liff/trial-booking — LIFF 顧客自助體驗預約頁 (PR-D1B)
  *
  * 流程：
- *   1. server resolve store (header → cookie → "zhubei")  ← 與 (liff)/liff/page.tsx 同源
- *   2. server 解 LIFF ID（`resolveLiffIdBySlug`，7 個 LIFF page 共用；PR-E 後改 Store.liffId）
- *   3. 把 storeSlug / storeName / liffId 傳給 client TrialBookingForm
+ *   1. resolveStoreSlugForLiff() → header / cookie；皆無 → 安全錯誤畫面（PR-E2）
+ *   2. resolveStorePresentation → 取得 name / liffId / per-store presentation（PR-E）
+ *   3. 把 storeSlug / storeName / liffId / contactUrl 傳給 client TrialBookingForm
  *
  * 安全考量：
  *   - customerId / storeId **不從 query 取**（client 傳值不信任）；server action 自解
- *   - storeSlug 從 URL path 取（proxy 已注入 x-store-slug header）
+ *   - storeSlug 從 URL path 取（proxy 已注入 x-store-slug header）；
+ *     PR-E2 起 store context 缺失時不再靜默 fallback zhubei
  *
  * 不在此檔做：
  *   - 不查 booking / 不查 trial settings / 不寫 DB
@@ -27,12 +31,10 @@ import { TrialBookingForm } from "./trial-booking-form";
 export const dynamic = "force-dynamic";
 
 export default async function LiffTrialBookingPage() {
-  const headerList = await headers();
-  const cookieStore = await cookies();
-  const storeSlug =
-    headerList.get("x-store-slug") ??
-    cookieStore.get("store-slug")?.value ??
-    "zhubei";
+  const storeSlug = await resolveStoreSlugForLiff();
+  if (!storeSlug) {
+    return <NotOpenForLiff message={liffMessages.error.cannotConfirmStore} />;
+  }
 
   const presentation = await resolveStorePresentation(storeSlug);
   if (!presentation) {

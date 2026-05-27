@@ -16,11 +16,12 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
-// ── Mock next/headers (for cookie-based resolution) ──
+// ── Mock next/headers (for cookie + header based resolution) ──
 const mockCookieGet = vi.fn();
+const mockHeaderGet = vi.fn();
 vi.mock("next/headers", () => ({
   cookies: () => Promise.resolve({ get: mockCookieGet }),
-  headers: () => Promise.resolve({ get: vi.fn() }),
+  headers: () => Promise.resolve({ get: mockHeaderGet }),
 }));
 
 // ── Mock React.cache (pass through) ──
@@ -156,6 +157,101 @@ describe("store-resolver", () => {
 
       const result = await resolveStoreFromOAuthCookie();
       expect(result).toBeNull();
+    });
+  });
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // PR-E2：resolveStoreSlugForLiff() — 不再對 LIFF 頁靜默 fallback zhubei
+  //
+  // 解析順序：x-store-slug header > store-slug cookie > null
+  // null 時 callsite 應顯示「無法確認分店」安全提示，引導從 /s/<slug>/liff 重進。
+  // ───────────────────────────────────────────────────────────────────────────
+  describe("resolveStoreSlugForLiff (PR-E2)", () => {
+    it("returns header value when x-store-slug header present", async () => {
+      const { resolveStoreSlugForLiff } = await import("@/lib/store-resolver");
+
+      mockHeaderGet.mockImplementation((name: string) => {
+        if (name === "x-store-slug") return "hsinchu";
+        return null;
+      });
+      mockCookieGet.mockReturnValue(undefined);
+
+      const slug = await resolveStoreSlugForLiff();
+      expect(slug).toBe("hsinchu");
+    });
+
+    it("falls through to cookie when header missing", async () => {
+      const { resolveStoreSlugForLiff } = await import("@/lib/store-resolver");
+
+      mockHeaderGet.mockReturnValue(null);
+      mockCookieGet.mockImplementation((name: string) => {
+        if (name === "store-slug") return { value: "taichung" };
+        return undefined;
+      });
+
+      const slug = await resolveStoreSlugForLiff();
+      expect(slug).toBe("taichung");
+    });
+
+    it("header wins over cookie when both present (proxy-injected header is authoritative)", async () => {
+      const { resolveStoreSlugForLiff } = await import("@/lib/store-resolver");
+
+      mockHeaderGet.mockImplementation((name: string) => {
+        if (name === "x-store-slug") return "hsinchu";
+        return null;
+      });
+      mockCookieGet.mockImplementation((name: string) => {
+        if (name === "store-slug") return { value: "taichung" };
+        return undefined;
+      });
+
+      const slug = await resolveStoreSlugForLiff();
+      expect(slug).toBe("hsinchu");
+    });
+
+    it("returns null when both header and cookie missing — NO silent fallback to zhubei", async () => {
+      const { resolveStoreSlugForLiff } = await import("@/lib/store-resolver");
+
+      mockHeaderGet.mockReturnValue(null);
+      mockCookieGet.mockReturnValue(undefined);
+
+      const slug = await resolveStoreSlugForLiff();
+      expect(slug).toBeNull();
+      // 顯式：即使全失敗也絕不能默默回 "zhubei"
+      expect(slug).not.toBe("zhubei");
+    });
+
+    it("returns null when header is empty string (defensive — Vercel key-exists-value-empty footgun)", async () => {
+      const { resolveStoreSlugForLiff } = await import("@/lib/store-resolver");
+
+      // ?? 不會 catch 空字串，所以 header 值為 "" 時會被當有效；
+      // 此測試確認此 footgun。若未來需要 normalize 空字串，可改用 emptyToNull。
+      // 目前行為：空字串 header → 返回 ""（其後 page.tsx 的 if (!storeSlug) 仍會把 "" 當缺）。
+      mockHeaderGet.mockImplementation((name: string) =>
+        name === "x-store-slug" ? "" : null
+      );
+      mockCookieGet.mockReturnValue(undefined);
+
+      const slug = await resolveStoreSlugForLiff();
+      // 紀錄目前行為：?? 放行空字串，page.tsx 用 if (!storeSlug) 攔住
+      expect(slug === "" || slug === null).toBe(true);
+      // 絕不能變 zhubei
+      expect(slug).not.toBe("zhubei");
+    });
+
+    it("cookie empty string with no header → still not zhubei", async () => {
+      const { resolveStoreSlugForLiff } = await import("@/lib/store-resolver");
+
+      mockHeaderGet.mockReturnValue(null);
+      mockCookieGet.mockImplementation((name: string) =>
+        name === "store-slug" ? { value: "" } : undefined
+      );
+
+      const slug = await resolveStoreSlugForLiff();
+      // ?? chain 第二段 cookieStore.get("store-slug")?.value 為 ""，?? 放行
+      // page.tsx 的 if (!storeSlug) 仍會攔住
+      expect(slug === "" || slug === null).toBe(true);
+      expect(slug).not.toBe("zhubei");
     });
   });
 });

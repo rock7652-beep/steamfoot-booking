@@ -1,13 +1,17 @@
-import { headers, cookies } from "next/headers";
-import { resolveStorePresentation } from "@/lib/store-resolver";
+import {
+  resolveStorePresentation,
+  resolveStoreSlugForLiff,
+} from "@/lib/store-resolver";
+import { liffMessages } from "@/lib/liff/messages";
 import { HealthView } from "./health-view";
 
 /**
  * /s/[storeSlug]/liff/health — LIFF 顧客「我的健康紀錄」唯讀頁 (PR-H2)
  *
  * 流程：mirror trial-booking / member-booking page pattern
- *   1. server resolve store (header → cookie → "zhubei") + LIFF_ID
- *   2. 把 storeSlug / storeName / liffId 傳給 client HealthView
+ *   1. resolveStoreSlugForLiff() → header / cookie；皆無 → 安全錯誤畫面（PR-E2）
+ *   2. resolveStorePresentation → name / liffId / per-store presentation（PR-E）
+ *   3. 把 storeSlug / storeName / liffId / contactUrl 傳給 client HealthView
  *
  * 不在此檔做：
  *   - 不查 customer / HealthFlow（client view 進場才查）
@@ -18,12 +22,10 @@ import { HealthView } from "./health-view";
 export const dynamic = "force-dynamic";
 
 export default async function LiffHealthPage() {
-  const headerList = await headers();
-  const cookieStore = await cookies();
-  const storeSlug =
-    headerList.get("x-store-slug") ??
-    cookieStore.get("store-slug")?.value ??
-    "zhubei";
+  const storeSlug = await resolveStoreSlugForLiff();
+  if (!storeSlug) {
+    return <NotOpenForLiff message={liffMessages.error.cannotConfirmStore} />;
+  }
 
   const presentation = await resolveStorePresentation(storeSlug);
   if (!presentation) {
