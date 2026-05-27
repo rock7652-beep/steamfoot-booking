@@ -24,8 +24,13 @@ export async function listReminderRules() {
 /**
  * 「明日預約提醒」設定卡用 — 取該店是否啟用 + canonical rule 的 templateId
  *
- * canonical rule = 最早 createdAt 的 rule。enabled = 任一條 isEnabled=true
- * （setReminderEnabled 會在 toggle 時收斂為最多 1 條）。
+ * canonical 選擇規則（必須與 setReminderTemplate() 一致，否則 UI 顯示的模板
+ * 跟 setReminderTemplate 實際寫入的 rule 對不上）：
+ *   1. 優先取最早 createdAt 的 enabled rule
+ *   2. 無 enabled rule 時退回最早 createdAt 的 rule（讓停用狀態仍能預先選模板）
+ *
+ * enabled = 任一條 isEnabled=true（setReminderEnabled 會在 toggle 時 reconcile
+ * 為最多 1 條，但 read path 不能假設 reconcile 已執行過）。
  */
 export async function getStoreReminderState(storeId: string): Promise<{
   enabled: boolean;
@@ -36,9 +41,10 @@ export async function getStoreReminderState(storeId: string): Promise<{
     orderBy: { createdAt: "asc" },
     select: { isEnabled: true, templateId: true },
   });
+  const canonical = rules.find((r) => r.isEnabled) ?? rules[0] ?? null;
   return {
     enabled: rules.some((r) => r.isEnabled),
-    canonicalTemplateId: rules[0]?.templateId ?? null,
+    canonicalTemplateId: canonical?.templateId ?? null,
   };
 }
 
