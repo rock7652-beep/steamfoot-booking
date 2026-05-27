@@ -231,6 +231,60 @@ describe("PR-E patch（Codex P1）：resolveStoreBySlug 不再 select liffId", (
   });
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// PR-E patch（Codex P2）：getShopConfig 不 select PR-E 新欄位 address/mapUrl
+// 同 P1 邏輯：getShopConfig 有 9 個 caller（reminder / checkout / settings / cache），
+// 若它 select 新欄位，migration 還沒套用前 deploy 會炸所有 caller。
+// address / mapUrl 已移到 resolveStorePresentation 內單獨查（LIFF only）。
+// ─────────────────────────────────────────────────────────────────────────────
+describe("PR-E patch（Codex P2）：getShopConfig 不 select PR-E 新欄位", () => {
+  it("getShopConfig 的 select 保持 PR-E 前欄位（保護 9 個 caller）", async () => {
+    const { getShopConfig } = await import("@/lib/shop-config");
+    mockShopConfigFindUnique.mockReset();
+    mockShopConfigFindUnique.mockResolvedValueOnce(null);
+
+    await getShopConfig("any-store-id");
+
+    const callArg = mockShopConfigFindUnique.mock.calls[0]?.[0] as
+      | { select: Record<string, boolean> }
+      | undefined;
+    expect(callArg).toBeDefined();
+    // 必須完全等於 PR-E 前的 select shape（鎖死 — 不可再加 PR-E 後 schema 欄位）
+    expect(callArg!.select).toEqual({
+      id: true,
+      storeId: true,
+      shopName: true,
+      dutySchedulingEnabled: true,
+      bankName: true,
+      bankCode: true,
+      bankAccountNumber: true,
+      lineOfficialUrl: true,
+      createdAt: true,
+      updatedAt: true,
+    });
+    // 顯式斷言：不可包含 PR-E 新欄位
+    expect(callArg!.select).not.toHaveProperty("address");
+    expect(callArg!.select).not.toHaveProperty("mapUrl");
+  });
+
+  it("getShopConfig 缺 ShopConfig row 時的 fallback shape 不含 address/mapUrl", async () => {
+    const { getShopConfig } = await import("@/lib/shop-config");
+    mockShopConfigFindUnique.mockReset();
+    mockShopConfigFindUnique.mockResolvedValueOnce(null);
+
+    const result = await getShopConfig("any-store-id");
+    expect(result).not.toHaveProperty("address");
+    expect(result).not.toHaveProperty("mapUrl");
+  });
+
+  it("getShopConfig(null) 的 system-default fallback 不含 address/mapUrl", async () => {
+    const { getShopConfig } = await import("@/lib/shop-config");
+    const result = await getShopConfig(null);
+    expect(result).not.toHaveProperty("address");
+    expect(result).not.toHaveProperty("mapUrl");
+  });
+});
+
 describe("PR-E：generateGoogleCalendarUrl 接 per-store args 後行為", () => {
   it("用 per-store address / mapUrl / contactUrl 組 details", () => {
     const url = generateGoogleCalendarUrl({

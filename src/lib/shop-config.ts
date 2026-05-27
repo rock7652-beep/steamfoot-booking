@@ -99,9 +99,6 @@ export async function getShopConfig(storeId?: string | null) {
       bankCode: null,
       bankAccountNumber: null,
       lineOfficialUrl: null,
-      // PR-E：per-store presentation 欄位（null = 由 resolveStorePresentation 回退到常數）
-      address: null,
-      mapUrl: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -110,7 +107,16 @@ export async function getShopConfig(storeId?: string | null) {
   // 不可用 implicit full-model SELECT — 否則新增任一 ShopConfig 欄位後，
   // 「新 client + 舊 DB」會 SELECT 不存在的欄位 → P2022 → 全站 blast radius。
   // 體驗課設定不在此回傳，請改用 getTrialSettings()。
-  // PR-E 新增 address / mapUrl 進 select（per-store LIFF presentation）。
+  //
+  // PR-E patch（Codex P2）：address / mapUrl 故意 **不**放在這裡的 select。
+  //   - 此 accessor 有 9 個 caller（checkout / my-bookings / settings/payment /
+  //     settings/duty / reminder-engine / actions/reminder / duty-cache /
+  //     query-cache 等），全部 LIFF 路徑以外
+  //   - 若這裡 select PR-E 新欄位，當 migration 還沒套用前 deploy 新 code，
+  //     上述全部 caller 會 P2022 missing-column → 全站 blast radius
+  //   - PR-E LIFF presentation 改由 resolveStorePresentation 內部自己 query
+  //     ShopConfig（{ lineOfficialUrl, address, mapUrl } 只在那邊）
+  //   - 也沒任何 caller 從這裡的回傳讀 .address / .mapUrl（grep 驗證過）
   const config = await prisma.shopConfig.findUnique({
     where: { storeId },
     select: {
@@ -122,8 +128,6 @@ export async function getShopConfig(storeId?: string | null) {
       bankCode: true,
       bankAccountNumber: true,
       lineOfficialUrl: true,
-      address: true,
-      mapUrl: true,
       createdAt: true,
       updatedAt: true,
     },
@@ -139,8 +143,6 @@ export async function getShopConfig(storeId?: string | null) {
     bankCode: null,
     bankAccountNumber: null,
     lineOfficialUrl: null,
-    address: null,
-    mapUrl: null,
     createdAt: new Date(),
     updatedAt: new Date(),
   };
