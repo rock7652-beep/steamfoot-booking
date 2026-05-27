@@ -46,6 +46,10 @@
  */
 
 import { PrismaClient } from "@prisma/client";
+// PR-E patch（空字串 hardening）：共用 resolver 的 emptyToNull，確保
+// 「空字串 ≡ 缺值」的 normalize 在 read（resolveStorePresentation）與
+// write（本 script）兩條 path 上一致。
+import { emptyToNull } from "@/lib/store-resolver";
 
 const DRY_RUN = !process.argv.includes("--apply");
 
@@ -73,9 +77,11 @@ type PresentationValues = {
 };
 
 // 竹北 production 值（取自 src/lib/liff/messages.ts；逐欄核對過）
+//
+// PR-E patch（空字串 hardening）：liffId 過 emptyToNull，防 Vercel/CI env 設成
+// `""` 時把 `""` 當成「有效 LIFF ID」寫進 prod DB（會讓 LIFF 顯示空白入口）。
 const ZHUBEI_VALUES: PresentationValues = {
-  // Store.liffId — 從 env 讀，因為原本 env 對照表就是 source of truth
-  liffId: process.env.NEXT_PUBLIC_LIFF_ID_ZHUBEI ?? null,
+  liffId: emptyToNull(process.env.NEXT_PUBLIC_LIFF_ID_ZHUBEI),
   // ShopConfig.lineOfficialUrl — 既有欄位，prod 可能已有值；只在 null 時寫
   lineOfficialUrl: "https://line.me/R/ti/p/@083vmikb",
   // ShopConfig.address — PR-E 新增；複製自 messages.ts storeAddress
@@ -92,12 +98,16 @@ const ZHUBEI_VALUES: PresentationValues = {
  * staff 一眼看出來、不會誤導顧客。
  *
  * LIFF ID 走 env 對照表慣例（同 src/lib/liff/liff-id.ts）：讀
- * NEXT_PUBLIC_LIFF_ID_<SLUG_UPPER>，未設則 null（page 顯示 NotOpenForLiff）。
+ * NEXT_PUBLIC_LIFF_ID_<SLUG_UPPER>，未設 / 空字串都當「缺」→ null。
+ *
+ * PR-E patch（空字串 hardening）：emptyToNull 把 Vercel/CI 那種「key 存在但
+ * value 是空字串」的情境也視為 null，避免寫 `""` 進 Store.liffId。
  */
 function valuesForTestSlug(slug: string): PresentationValues {
   return {
-    liffId:
-      process.env[`NEXT_PUBLIC_LIFF_ID_${slug.toUpperCase()}`] ?? null,
+    liffId: emptyToNull(
+      process.env[`NEXT_PUBLIC_LIFF_ID_${slug.toUpperCase()}`]
+    ),
     lineOfficialUrl: `https://line.me/R/ti/p/staging-${slug}`,
     address: `[staging seed test] address for ${slug}`,
     mapUrl: `https://maps.app.goo.gl/staging-${slug}`,

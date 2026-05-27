@@ -13,6 +13,23 @@ import {
  * 使用 React.cache() 確保同一 request 只查一次。
  */
 
+/**
+ * 把「null / undefined / 空字串 / 純 whitespace」一律 normalize 為 `null`。
+ * 非空值原樣回傳（不 trim 內容）。
+ *
+ * 為何需要：JS 的 `??` 只 catch null/undefined，**不** catch 空字串——
+ * 若 DB 或 env 內塞了 `""`，nullish chain 會把 `""` 當有效值傳給 UI，
+ * 而下游程式碼若用 `=== null` 判斷會把空字串誤認「已設定」。
+ *
+ * PR-E patch（liffId 空字串 hardening）：resolveStorePresentation 與
+ * scripts/backfill-store-presentation.ts 共用此 helper，確保「空字串 ≡ 缺值」
+ * 在整條 read/write path 上一致。
+ */
+export function emptyToNull(v: string | null | undefined): string | null {
+  if (v == null) return null;
+  return v.trim() === "" ? null : v;
+}
+
 type StoreInfo = { id: string; slug: string; name: string };
 
 /**
@@ -168,14 +185,19 @@ export const resolveStorePresentation = cache(
 
     // 過渡期 LIFF ID fallback：未填 Store.liffId 時讀 env，env 也無則 null。
     // 等 prod backfill 完成且 7 頁皆 wire 完，env 可在後續 PR 移除。
-    const envLiffId =
-      process.env[`NEXT_PUBLIC_LIFF_ID_${slug.toUpperCase()}`] ?? null;
+    //
+    // PR-E patch（空字串 hardening）：DB / env 任一邊塞 `""` 時走同一條 fallback，
+    // 否則 ?? 會放行空字串、下游 `=== null` 檢查會誤認為「已配置」。
+    // emptyToNull 把 null / undefined / "" / "   " 全 normalize 為 null。
+    const envLiffId = emptyToNull(
+      process.env[`NEXT_PUBLIC_LIFF_ID_${slug.toUpperCase()}`]
+    );
 
     return {
       id: store.id,
       slug: store.slug,
       name: store.name,
-      liffId: storeLiffRow?.liffId ?? envLiffId ?? null,
+      liffId: emptyToNull(storeLiffRow?.liffId) ?? envLiffId ?? null,
       contactUrl: cfg?.lineOfficialUrl ?? FALLBACK_CONTACT_URL,
       address: cfg?.address ?? FALLBACK_STORE_ADDRESS,
       mapUrl: cfg?.mapUrl ?? FALLBACK_STORE_MAP_URL,

@@ -237,6 +237,146 @@ describe("PR-E patch（Codex P1）：resolveStoreBySlug 不再 select liffId", (
 // 若它 select 新欄位，migration 還沒套用前 deploy 會炸所有 caller。
 // address / mapUrl 已移到 resolveStorePresentation 內單獨查（LIFF only）。
 // ─────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// PR-E patch（空字串 hardening）：emptyToNull + resolver + script
+//
+// 修以下 bug：Vercel Preview env 內 `NEXT_PUBLIC_LIFF_ID_STAGING=""`（key 在、
+// value 空）會讓 `?? null` chain 放行空字串，導致：
+//   1. backfill apply 把 `""` 寫進 Store.liffId
+//   2. resolveStorePresentation 把 `""` 原樣丟給 LIFF page
+// emptyToNull 把 null / undefined / "" / "   " 全當「缺值」。
+// ─────────────────────────────────────────────────────────────────────────────
+describe("PR-E patch（空字串 hardening）：emptyToNull helper", () => {
+  it("null / undefined → null", async () => {
+    const { emptyToNull } = await import("@/lib/store-resolver");
+    expect(emptyToNull(null)).toBeNull();
+    expect(emptyToNull(undefined)).toBeNull();
+  });
+
+  it("空字串 / 純 whitespace → null（防 Vercel env key-存在-value-空）", async () => {
+    const { emptyToNull } = await import("@/lib/store-resolver");
+    expect(emptyToNull("")).toBeNull();
+    expect(emptyToNull("   ")).toBeNull();
+    expect(emptyToNull("\t\n")).toBeNull();
+  });
+
+  it("非空值原樣回傳，不 trim 內容", async () => {
+    const { emptyToNull } = await import("@/lib/store-resolver");
+    expect(emptyToNull("abc")).toBe("abc");
+    expect(emptyToNull("1234567890-zhubeiLiff")).toBe("1234567890-zhubeiLiff");
+    // 不 trim 內部 whitespace — 因為 LIFF ID 不該有 leading/trailing space，
+    // 若真有，操作員應收到 raw 值來 debug，不該被 helper 默默清掉
+    expect(emptyToNull("  abc  ")).toBe("  abc  ");
+  });
+});
+
+describe("PR-E patch（空字串 hardening）：resolveStorePresentation liffId chain", () => {
+  it("store.liffId === \"\" + env 有值 → 用 env（不是 \"\"）", async () => {
+    const ORIGINAL = process.env.NEXT_PUBLIC_LIFF_ID_ZHUBEI;
+    process.env.NEXT_PUBLIC_LIFF_ID_ZHUBEI = "env_value_should_win";
+
+    mockStoreLookup({
+      storeBySlug: { id: STORE_ID_ZHUBEI, slug: "zhubei", name: "竹北店" },
+      liffId: "", // DB 內塞了空字串（可能是過去誤 backfill / 手動 SQL）
+      shopConfig: null,
+    });
+
+    const p = await resolveStorePresentation("zhubei");
+    expect(p!.liffId).toBe("env_value_should_win");
+    // 顯式：不可放行空字串
+    expect(p!.liffId).not.toBe("");
+
+    if (ORIGINAL === undefined) delete process.env.NEXT_PUBLIC_LIFF_ID_ZHUBEI;
+    else process.env.NEXT_PUBLIC_LIFF_ID_ZHUBEI = ORIGINAL;
+  });
+
+  it("store.liffId === \"\" + env 也是 \"\" → null（LIFF page 顯示 NotOpenForLiff）", async () => {
+    const ORIGINAL = process.env.NEXT_PUBLIC_LIFF_ID_ZHUBEI;
+    process.env.NEXT_PUBLIC_LIFF_ID_ZHUBEI = ""; // Vercel 那種 key-在-value-空
+
+    mockStoreLookup({
+      storeBySlug: { id: STORE_ID_ZHUBEI, slug: "zhubei", name: "竹北店" },
+      liffId: "",
+      shopConfig: null,
+    });
+
+    const p = await resolveStorePresentation("zhubei");
+    expect(p!.liffId).toBeNull();
+    // 顯式：不可放行空字串
+    expect(p!.liffId).not.toBe("");
+
+    if (ORIGINAL === undefined) delete process.env.NEXT_PUBLIC_LIFF_ID_ZHUBEI;
+    else process.env.NEXT_PUBLIC_LIFF_ID_ZHUBEI = ORIGINAL;
+  });
+
+  it("store.liffId === \"  \" (whitespace) → 同樣視為缺", async () => {
+    const ORIGINAL = process.env.NEXT_PUBLIC_LIFF_ID_DEMO2;
+    delete process.env.NEXT_PUBLIC_LIFF_ID_DEMO2;
+
+    mockStoreLookup({
+      storeBySlug: { id: STORE_ID_DEMO2, slug: "demo2", name: "Demo 第二店" },
+      liffId: "   \t",
+      shopConfig: null,
+    });
+
+    const p = await resolveStorePresentation("demo2");
+    expect(p!.liffId).toBeNull();
+
+    if (ORIGINAL !== undefined) process.env.NEXT_PUBLIC_LIFF_ID_DEMO2 = ORIGINAL;
+  });
+
+  it("zhubei 既有 regression：DB 有合法值時，resolver 仍回 DB 值（不受 hardening 影響）", async () => {
+    mockStoreLookup({
+      storeBySlug: { id: STORE_ID_ZHUBEI, slug: "zhubei", name: "竹北店" },
+      liffId: "1234567890-zhubeiLiff",
+      shopConfig: {
+        lineOfficialUrl: contactStoreUrl,
+        address: storeAddress,
+        mapUrl: storeMapUrl,
+      },
+    });
+
+    const p = await resolveStorePresentation("zhubei");
+    expect(p!.liffId).toBe("1234567890-zhubeiLiff");
+    expect(p!.contactUrl).toBe(contactStoreUrl);
+    expect(p!.address).toBe(storeAddress);
+    expect(p!.mapUrl).toBe(storeMapUrl);
+  });
+});
+
+describe("PR-E patch（空字串 hardening）：backfill script env-empty case", () => {
+  // 直接斷言「env 空字串 → emptyToNull → backfill 不會寫 \"\"」
+  // 不依賴 import 整個 script（script 有 main() side-effect），改用同條 helper
+  it("emptyToNull(process.env.X='') → null，使 plan skip liffId 寫入", async () => {
+    const { emptyToNull } = await import("@/lib/store-resolver");
+    // 模擬 Vercel Preview 內 NEXT_PUBLIC_LIFF_ID_STAGING="" 的場景
+    const envLiffId = emptyToNull("");
+    expect(envLiffId).toBeNull();
+
+    // 套用 script 內的 plan 邏輯（store.liffId == null && TARGET.liffId != null）
+    const storeLiffId = null;
+    const TARGET_VALUES_liffId = envLiffId; // 經 emptyToNull 後是 null
+    const planStoreLiffId =
+      storeLiffId == null && TARGET_VALUES_liffId != null
+        ? TARGET_VALUES_liffId
+        : null;
+    expect(planStoreLiffId).toBeNull();
+    // 顯式：絕對不能變成空字串
+    expect(planStoreLiffId).not.toBe("");
+  });
+
+  it("env 有合法值 → liffId 正常寫入（zhubei prod 行為不變）", async () => {
+    const { emptyToNull } = await import("@/lib/store-resolver");
+    const envLiffId = emptyToNull("real-zhubei-liff-id");
+    expect(envLiffId).toBe("real-zhubei-liff-id");
+
+    const storeLiffId = null;
+    const planStoreLiffId =
+      storeLiffId == null && envLiffId != null ? envLiffId : null;
+    expect(planStoreLiffId).toBe("real-zhubei-liff-id");
+  });
+});
+
 describe("PR-E patch（Codex P2）：getShopConfig 不 select PR-E 新欄位", () => {
   it("getShopConfig 的 select 保持 PR-E 前欄位（保護 9 個 caller）", async () => {
     const { getShopConfig } = await import("@/lib/shop-config");
