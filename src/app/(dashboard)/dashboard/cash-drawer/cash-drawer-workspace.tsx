@@ -400,10 +400,13 @@ function OpenedTodayWorkspace({
         </span>
       </div>
 
-      {/* 桌機 / iPad 橫向 (lg+)：左 2 / 右 1 兩欄；手機 / iPad 直向 (< lg)：單欄堆疊 */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:gap-6">
+      {/* iPad portrait / 縮窄桌機 (md+, ≥768)：左 2 / 右 1 真正分區，右欄 sticky 讓
+          店長滑動左側紀錄時仍能看到「系統應有現金 / 閉店點錢」操作區。
+          手機 (< md)：單欄堆疊，避免擠壓。
+          sticky top-16：避開頁面頂端 sticky header (h-14 = 56px) 留小間隔。 */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3 md:gap-6">
         {/* 左：開店紀錄 + 今日交易摘要 + 現金異動 */}
-        <div className="space-y-4 lg:col-span-2">
+        <div className="space-y-4 md:col-span-2">
           <OpeningRecordCard session={session} />
 
           {/* 今日交易摘要 — OPEN 用 liveTotals，CLOSED 用 session snapshot */}
@@ -437,8 +440,11 @@ function OpenedTodayWorkspace({
           />
         </div>
 
-        {/* 右：OPEN → 系統應有現金 + 閉店點錢 form；CLOSED → 閉店結算 */}
-        <div className="space-y-4 lg:col-span-1">
+        {/* 右：OPEN → 系統應有現金 + 閉店點錢 form；CLOSED → 閉店結算
+            md+ 用 sticky-top + self-start 讓右欄釘在視窗上方，店長滑動左側
+            紀錄時關店操作永遠可見；self-start 防止 grid 預設拉滿欄高度導致
+            sticky 失效。 */}
+        <div className="space-y-4 md:sticky md:top-16 md:col-span-1 md:self-start">
           {!isClosed && liveTotals && (
             <ClosingPanel
               sessionId={session.id}
