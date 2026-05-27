@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { isStaffRole } from "@/lib/permissions";
+import { buildStoreRewriteRequestHeaders } from "@/lib/proxy-helpers";
 
 // ============================================================
 // B7-4.5: 正式流程不依賴靜態 map
@@ -337,7 +338,12 @@ function withDomainCookie(response: NextResponse, storeId: string | undefined): 
 
 /**
  * Store-scoped rewrite: 把 /s/[slug]/... 改寫成內部路徑，
- * 注入 store context cookies 供 Server Components / Server Actions 讀取。
+ * 注入 store context 供 Server Components / Server Actions 讀取。
+ *
+ * PR-E2 Codex P1 fix：x-store-slug 改從 response.headers 移到 request.headers
+ * （透過 NextResponse.rewrite 的 `request` option），這樣 Server Component
+ * 的 `headers()` 才能讀到。原本只寫 response.headers 等於對 server 不存在，
+ * 導致 PR-E2 strict gate 收到 null slug → 全部 LIFF page 顯示「無法確認分店」。
  */
 function storeRewrite(
   req: NextRequest,
@@ -347,17 +353,31 @@ function storeRewrite(
 ): NextResponse {
   const url = new URL(internalPath, req.url);
   url.search = req.nextUrl.search;
-  const response = NextResponse.rewrite(url);
+
+  // Forward x-store-slug + x-next-pathname 給 internal request，
+  // Server Component 的 headers() 才讀得到。
+  const requestHeaders = buildStoreRewriteRequestHeaders(
+    req.headers,
+    slug,
+    req.nextUrl.pathname
+  );
+
+  const response = NextResponse.rewrite(url, {
+    request: { headers: requestHeaders },
+  });
+
   // B7-4.5: 僅注入 store-slug cookie，storeId 由 page-level DB resolver 提供
+  // 註：PR-E2 後 LIFF resolveStoreSlugForLiff 已不讀此 cookie；保留是給其他路徑
+  //     （legacy customer / auth）用，並維持既有行為。
   response.cookies.set("store-slug", slug, {
     path: "/",
     httpOnly: false,
     sameSite: "lax",
     maxAge: 60 * 60 * 24,
   });
-  // 保留原始 pathname 供 sidebar 高亮
+  // Response headers：保留 dual-write，方便 debug 與相容任何讀 response header 的工具。
+  // 真正生效的是上方 request.headers，這裡只是觀察用。
   response.headers.set("x-next-pathname", req.nextUrl.pathname);
-  // 注入 store slug header — Server Component 可靠讀取（不受 stale cookie 影響）
   response.headers.set("x-store-slug", slug);
   if (domainStoreId) {
     response.cookies.set("domain-store-id", domainStoreId, {
