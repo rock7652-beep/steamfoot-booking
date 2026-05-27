@@ -33,6 +33,25 @@ import { normalizePhone } from "@/lib/normalize";
 import { syncLineAccountForUser } from "@/server/services/line-account-sync";
 import { repairCustomerIdentityOnLogin } from "@/lib/identity-repair";
 import { awardLineJoinReferrerIfEligible } from "@/server/services/referral-points";
+import { logLineBindEvent } from "@/lib/line-bind-log";
+
+/**
+ * Lightweight detection of Prisma unique-constraint errors (P2002) without
+ * importing Prisma.PrismaClientKnownRequestError at the type level. The Prisma
+ * client's error classes aren't always tree-shake friendly in edge / route
+ * contexts; reading `code` off the thrown value keeps this helper neutral.
+ */
+function isPrismaUniqueConflict(err: unknown): err is { code: "P2002"; meta?: { target?: string[] | string } } {
+  if (!err || typeof err !== "object") return false;
+  const candidate = err as { code?: unknown };
+  return candidate.code === "P2002";
+}
+
+function uniqueConflictTarget(err: { meta?: { target?: string[] | string } }): string {
+  const t = err.meta?.target;
+  if (!t) return "unknown";
+  return Array.isArray(t) ? t.join(",") : String(t);
+}
 
 /** Helper 輸入 */
 export interface BindLineInput {
@@ -95,6 +114,18 @@ export type BindLineResult =
   | {
       status: "validation_error";
       reason: "invalid_phone" | "missing_input";
+    }
+  | {
+      /**
+       * Prisma P2002 unique-constraint violation hit during the create-new tx
+       * (e.g. another concurrent bind beat us to the same (storeId, phone) or
+       * (storeId, lineUserId) compound key). Returned as a controlled status
+       * so the caller (LIFF onboarding action / webhook handler) can re-query
+       * and re-dispatch instead of bubbling a 500 to the LIFF client.
+       */
+      status: "unique_conflict";
+      /** Comma-joined Prisma meta.target if available, else "unknown" */
+      conflictTarget: string;
     };
 
 /**
@@ -141,32 +172,58 @@ export async function bindLineToCustomerInStore(
 
   // ── 3a. 候選 = 0 → 建新 User + Customer + Account ──
   if (candidates.length === 0) {
-    const { user, customer } = await prisma.$transaction(async (tx) => {
-      const u = await tx.user.create({
-        data: {
-          name: input.name,
-          phone: normalizedPhone,
-          role: "CUSTOMER",
-          status: "ACTIVE",
-        },
+    let user: { id: string };
+    let customer: { id: string };
+    try {
+      const created = await prisma.$transaction(async (tx) => {
+        const u = await tx.user.create({
+          data: {
+            name: input.name,
+            phone: normalizedPhone,
+            role: "CUSTOMER",
+            status: "ACTIVE",
+          },
+        });
+        const c = await tx.customer.create({
+          data: {
+            name: input.name,
+            phone: normalizedPhone,
+            storeId: input.storeId,
+            userId: u.id,
+            authSource: "LINE",
+            lineUserId: input.lineUserId,
+            lineName: input.lineName ?? input.name,
+            lineLinkStatus: "LINKED",
+            lineLinkedAt: new Date(),
+            customerStage: "LEAD",
+          },
+          select: { id: true },
+        });
+        return { user: u, customer: c };
       });
-      const c = await tx.customer.create({
-        data: {
-          name: input.name,
-          phone: normalizedPhone,
+      user = created.user;
+      customer = created.customer;
+    } catch (err) {
+      // P2002: concurrent bind beat us to the same (storeId, phone) /
+      // (storeId, lineUserId) compound key. Return controlled status so the
+      // caller doesn't surface a 500 to LIFF — they can re-query and retry the
+      // 1-candidate branch on the next invocation.
+      if (isPrismaUniqueConflict(err)) {
+        const target = uniqueConflictTarget(err);
+        logLineBindEvent({
+          path: "liff-exchange",
+          status: "unique_conflict",
           storeId: input.storeId,
-          userId: u.id,
-          authSource: "LINE",
           lineUserId: input.lineUserId,
-          lineName: input.lineName ?? input.name,
-          lineLinkStatus: "LINKED",
-          lineLinkedAt: new Date(),
-          customerStage: "LEAD",
-        },
-        select: { id: true },
-      });
-      return { user: u, customer: c };
-    });
+          phone: normalizedPhone,
+          errorCode: "P2002",
+          extra: { conflictTarget: target },
+        });
+        return { status: "unique_conflict", conflictTarget: target };
+      }
+      // Unknown error — re-throw so it surfaces in error tracking.
+      throw err;
+    }
 
     // Account 同步：放 tx 外接受小幅 race window（per project-line-account-sync-rule
     // memory，這是已知妥協；syncLineAccountForUser 為 idempotent，多次呼叫安全）

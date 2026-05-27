@@ -7,6 +7,7 @@ import type { Provider } from "next-auth/providers";
 import type { UserRole } from "@prisma/client";
 import { normalizePhone } from "@/lib/normalize";
 import { repairCustomerIdentityOnLogin } from "@/lib/identity-repair";
+import { logLineBindEvent } from "@/lib/line-bind-log";
 
 // ============================================================
 // NextAuth v5 type augmentation
@@ -412,6 +413,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (oauthEmail) {
           const staffUser = await prisma.user.findUnique({ where: { email: oauthEmail } });
           if (staffUser && staffUser.role !== "CUSTOMER") {
+            if (provider === "line") {
+              logLineBindEvent({
+                path: "oauth-line-signin",
+                status: "oauth_blocked_staff_email",
+                lineUserId,
+                userId: staffUser.id,
+              });
+            }
             // 回傳自訂 redirect URL，讓首頁顯示明確錯誤訊息
             return "/?error=StaffEmailBlocked";
           }
@@ -432,6 +441,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               providerAccountId: account.providerAccountId,
               reason: "oauth-store-slug cookie missing or slug not in DB",
             });
+            if (provider === "line") {
+              logLineBindEvent({
+                path: "oauth-line-signin",
+                status: "oauth_store_context_lost",
+                lineUserId,
+                errorCode: "COOKIE_MISSING_OR_SLUG_UNKNOWN",
+              });
+            }
             return "/?error=OAuthStoreContextLost";
           }
           targetStoreId = storeCtx.storeId;
@@ -441,6 +458,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             providerAccountId: account.providerAccountId,
             error: err instanceof Error ? err.message : String(err),
           });
+          if (provider === "line") {
+            logLineBindEvent({
+              path: "oauth-line-signin",
+              status: "oauth_store_context_lost",
+              lineUserId,
+              errorCode: "RESOLVER_THREW",
+            });
+          }
           return "/?error=OAuthStoreContextLost";
         }
 
@@ -562,6 +587,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             email: oauthEmail ?? null,
           });
 
+          if (provider === "line") {
+            logLineBindEvent({
+              path: "oauth-line-signin",
+              status: "oauth_linked_existing",
+              storeId: customer.storeId,
+              lineUserId,
+              customerId: customer.id,
+              userId: customer.userId,
+              accountSyncStatus: justLinkedLine ? "created" : "noop_already_synced",
+            });
+          }
+
           user.id = customer.userId;
           return true;
         }
@@ -634,6 +671,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             googleId,
             email: oauthEmail ?? null,
           });
+
+          if (provider === "line") {
+            logLineBindEvent({
+              path: "oauth-line-signin",
+              status: "oauth_created_user_for_customer",
+              storeId: customer.storeId,
+              lineUserId,
+              customerId: customer.id,
+              userId: newUser.id,
+              accountSyncStatus: "created",
+            });
+          }
 
           user.id = newUser.id;
           return true;
@@ -768,9 +817,29 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           email: oauthEmail ?? null,
         });
 
+        if (provider === "line") {
+          logLineBindEvent({
+            path: "oauth-line-signin",
+            status: "oauth_created_all",
+            storeId: targetStoreId,
+            lineUserId,
+            customerId: newCustomer.id,
+            userId: newUser.id,
+            accountSyncStatus: "created",
+          });
+        }
+
         user.id = newUser.id;
         return true;
       } catch (error) {
+        if (account?.provider === "line") {
+          logLineBindEvent({
+            path: "oauth-line-signin",
+            status: "unexpected_error",
+            lineUserId: account?.providerAccountId ?? null,
+            errorCode: error instanceof Error ? error.name : "Unknown",
+          });
+        }
         console.error("[auth] signIn callback error:", {
           provider: account?.provider,
           providerAccountId: account?.providerAccountId,

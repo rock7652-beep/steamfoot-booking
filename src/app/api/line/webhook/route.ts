@@ -11,6 +11,10 @@
 import { verifyLineSignature, replyMessage } from "@/lib/line";
 import { prisma } from "@/lib/db";
 import { syncLineAccountForUser } from "@/server/services/line-account-sync";
+import {
+  logLineBindEvent,
+  type AccountSyncStatus,
+} from "@/lib/line-bind-log";
 
 export const dynamic = "force-dynamic";
 
@@ -257,6 +261,13 @@ async function handleBindingRequest(
 
   if (existingLinked) {
     console.log(`[LINE] Already linked to customer: ${existingLinked.name}`);
+    logLineBindEvent({
+      path: "webhook-bind-code",
+      status: "bind_code_already_linked",
+      storeId,
+      lineUserId,
+      customerId: existingLinked.id,
+    });
     if (replyToken) {
       const result = await replyMessage(replyToken, [
         {
@@ -276,6 +287,12 @@ async function handleBindingRequest(
 
   if (!customer) {
     console.log(`[LINE] Invalid binding code: ${bindingCode} (store: ${storeId})`);
+    logLineBindEvent({
+      path: "webhook-bind-code",
+      status: "bind_code_invalid",
+      storeId,
+      lineUserId,
+    });
     if (replyToken) {
       const result = await replyMessage(replyToken, [
         {
@@ -295,6 +312,13 @@ async function handleBindingRequest(
   // 3. 該顧客是否已綁定其他 LINE
   if (customer.lineLinkStatus === "LINKED" && customer.lineUserId) {
     console.log(`[LINE] Customer ${customer.name} already linked to another LINE`);
+    logLineBindEvent({
+      path: "webhook-bind-code",
+      status: "bind_code_customer_locked",
+      storeId,
+      lineUserId,
+      customerId: customer.id,
+    });
     if (replyToken) {
       const result = await replyMessage(replyToken, [
         {
@@ -313,6 +337,13 @@ async function handleBindingRequest(
     const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
     if (ageMs > TWENTY_FOUR_HOURS) {
       console.log(`[LINE] Binding code expired for customer: ${customer.name}`);
+      logLineBindEvent({
+        path: "webhook-bind-code",
+        status: "bind_code_expired",
+        storeId,
+        lineUserId,
+        customerId: customer.id,
+      });
       if (replyToken) {
         const result = await replyMessage(replyToken, [
           {
@@ -341,15 +372,27 @@ async function handleBindingRequest(
   // 同步 NextAuth Account[line]：webhook 只設 Customer.lineUserId 不同步 Account 會造成
   // 「後台看似已綁定但 LINE OAuth 仍走新身份建立流程」的分裂。Customer.userId 為 null
   // 時無 user 可綁，跳過（顧客之後若走 /profile 啟用流程仍可在那條鏈補上）。
+  let accountSyncStatus: AccountSyncStatus = "skipped_no_user";
   if (customer.userId) {
     const syncResult = await syncLineAccountForUser({
       userId: customer.userId,
       lineUserId,
     });
+    accountSyncStatus = syncResult.status;
     console.log(`[LINE] Account sync result for ${customer.name}: ${syncResult.status}`);
   } else {
     console.log(`[LINE] Account sync skipped: Customer.userId is null (customer not yet activated)`);
   }
+
+  logLineBindEvent({
+    path: "webhook-bind-code",
+    status: "bind_code_success",
+    storeId,
+    lineUserId,
+    customerId: customer.id,
+    userId: customer.userId ?? null,
+    accountSyncStatus,
+  });
 
   // 🆕 若此 customer 有 sponsor → 邀請者 +1（sourceKey dedupe：僅首次生效）
   try {
