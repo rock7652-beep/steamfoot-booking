@@ -71,9 +71,22 @@ interface Props {
   storeSlug: string;
   storeName: string;
   liffId: string;
+  /** PR-E：per-store LINE OA 連結。 */
+  contactUrl: string;
+  /** PR-E：per-store 店家地址（顯示在 BookingCard）。 */
+  storeAddress: string;
+  /** PR-E：per-store Google Maps 短網址。 */
+  storeMapUrl: string;
 }
 
-export function BookingsList({ storeSlug, storeName, liffId }: Props) {
+export function BookingsList({
+  storeSlug,
+  storeName,
+  liffId,
+  contactUrl,
+  storeAddress,
+  storeMapUrl,
+}: Props) {
   const router = useRouter(); // PR-D4B-1：reschedule 成功後 push 到 trial-booking
   const [state, setState] = useState<State>({ kind: "initializing" });
   const [tab, setTab] = useState<Tab>("upcoming");
@@ -258,6 +271,7 @@ export function BookingsList({ storeSlug, storeName, liffId }: Props) {
           body={liffMessages.shell.notInLineApp.body}
           showContactStore
           storeSlug={storeSlug}
+          contactUrl={contactUrl}
         />
       )}
       {state.kind === "expired" && (
@@ -266,6 +280,7 @@ export function BookingsList({ storeSlug, storeName, liffId }: Props) {
           body={liffMessages.error.expired}
           showRetry
           storeSlug={storeSlug}
+          contactUrl={contactUrl}
         />
       )}
       {state.kind === "service_unavailable" && (
@@ -275,6 +290,7 @@ export function BookingsList({ storeSlug, storeName, liffId }: Props) {
           showRetry
           showContactStore
           storeSlug={storeSlug}
+          contactUrl={contactUrl}
         />
       )}
 
@@ -287,6 +303,9 @@ export function BookingsList({ storeSlug, storeName, liffId }: Props) {
           storeSlug={storeSlug}
           storeName={storeName}
           onRequestCancel={openCancelModal}
+          contactUrl={contactUrl}
+          storeAddress={storeAddress}
+          storeMapUrl={storeMapUrl}
         />
       )}
 

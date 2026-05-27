@@ -33,7 +33,6 @@ import {
   type FetchLiffHealthSummaryResult,
 } from "@/server/actions/liff-health";
 import {
-  contactStoreUrl,
   healthFlowLiffUrl,
   liffMessages,
 } from "@/lib/liff/messages";
@@ -58,9 +57,11 @@ interface Props {
   storeSlug: string;
   storeName: string;
   liffId: string;
+  /** PR-E：per-store LINE OA 連結。HealthFlow URL 維持共用常數（決策 A）。 */
+  contactUrl: string;
 }
 
-export function HealthView({ storeSlug, storeName, liffId }: Props) {
+export function HealthView({ storeSlug, storeName, liffId, contactUrl }: Props) {
   const [state, setState] = useState<State>({ kind: "initializing" });
 
   useEffect(() => {
@@ -146,6 +147,7 @@ export function HealthView({ storeSlug, storeName, liffId }: Props) {
           title={liffMessages.shell.notInLineApp.title}
           body={liffMessages.shell.notInLineApp.body}
           storeSlug={storeSlug}
+          contactUrl={contactUrl}
           showContactStore
         />
       )}
@@ -155,6 +157,7 @@ export function HealthView({ storeSlug, storeName, liffId }: Props) {
           tone="yellow"
           body={liffMessages.error.expired}
           storeSlug={storeSlug}
+          contactUrl={contactUrl}
           showRetry
         />
       )}
@@ -164,6 +167,7 @@ export function HealthView({ storeSlug, storeName, liffId }: Props) {
           tone="yellow"
           body={liffMessages.error.sessionLost}
           storeSlug={storeSlug}
+          contactUrl={contactUrl}
           showRetry
         />
       )}
@@ -173,17 +177,26 @@ export function HealthView({ storeSlug, storeName, liffId }: Props) {
           tone="red"
           body={liffMessages.health.loadFailed}
           storeSlug={storeSlug}
+          contactUrl={contactUrl}
           showRetry
           showContactStore
         />
       )}
 
       {state.kind === "not_linked" && (
-        <NotLinkedCard storeSlug={storeSlug} reason={state.reason} />
+        <NotLinkedCard
+          storeSlug={storeSlug}
+          reason={state.reason}
+          contactUrl={contactUrl}
+        />
       )}
 
       {state.kind === "linked" && (
-        <LinkedView storeSlug={storeSlug} summary={state.summary} />
+        <LinkedView
+          storeSlug={storeSlug}
+          summary={state.summary}
+          contactUrl={contactUrl}
+        />
       )}
 
       <Disclaimer />
@@ -198,9 +211,12 @@ export function HealthView({ storeSlug, storeName, liffId }: Props) {
 function LinkedView({
   storeSlug,
   summary,
+  contactUrl,
 }: {
   storeSlug: string;
   summary: HealthSummary;
+  /** PR-E：per-store LINE OA 連結，傳給 ContactStoreButton。 */
+  contactUrl: string;
 }) {
   const m = liffMessages.health;
 
@@ -213,7 +229,7 @@ function LinkedView({
           <p className="mt-2 text-xs text-amber-800/85">{m.noMeasurementBody}</p>
         </div>
         <StartHealthFlowButton variant="primary" />
-        <ContactStoreButton />
+        <ContactStoreButton contactUrl={contactUrl} />
         <BackHomeLink storeSlug={storeSlug} />
       </>
     );
@@ -245,7 +261,7 @@ function LinkedView({
 
       {/* ── 外部完整評估 / 聯絡店家 ── */}
       <ViewFullButton />
-      <ContactStoreButton />
+      <ContactStoreButton contactUrl={contactUrl} />
       <BackHomeLink storeSlug={storeSlug} />
     </>
   );
@@ -491,9 +507,12 @@ function TrendBrief({ summary }: { summary: HealthSummary }) {
 function NotLinkedCard({
   storeSlug,
   reason,
+  contactUrl,
 }: {
   storeSlug: string;
   reason: "unlinked" | "not_found" | "error";
+  /** PR-E：per-store LINE OA 連結。 */
+  contactUrl: string;
 }) {
   const m = liffMessages.health;
   const body =
@@ -509,7 +528,7 @@ function NotLinkedCard({
         <p className="mt-2 text-xs text-earth-700">{body}</p>
       </div>
       <StartHealthFlowButton variant="primary" />
-      <ContactStoreButton />
+      <ContactStoreButton contactUrl={contactUrl} />
       <BackHomeLink storeSlug={storeSlug} />
     </>
   );
@@ -571,10 +590,10 @@ function ViewFullButton() {
   );
 }
 
-function ContactStoreButton() {
+function ContactStoreButton({ contactUrl }: { contactUrl: string }) {
   return (
     <a
-      href={contactStoreUrl}
+      href={contactUrl}
       target="_blank"
       rel="noopener noreferrer"
       className="flex w-full min-h-[44px] items-center justify-center gap-2 rounded-xl bg-[#06C755] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#05b54d] active:scale-[0.98]"
@@ -619,6 +638,7 @@ function InfoBlock({
   storeSlug,
   showRetry,
   showContactStore,
+  contactUrl,
 }: {
   tone: "green" | "red" | "yellow" | "earth";
   title?: string;
@@ -626,6 +646,8 @@ function InfoBlock({
   storeSlug: string;
   showRetry?: boolean;
   showContactStore?: boolean;
+  /** PR-E：per-store LINE OA 連結；showContactStore=true 時必填。 */
+  contactUrl: string;
 }) {
   const toneClasses: Record<typeof tone, string> = {
     green: "border-green-200 bg-green-50 text-green-900",
@@ -653,7 +675,7 @@ function InfoBlock({
         )}
         {showContactStore && (
           <a
-            href={contactStoreUrl}
+            href={contactUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="rounded-md border border-current bg-white/70 px-3 py-1.5 text-xs font-medium hover:bg-white"

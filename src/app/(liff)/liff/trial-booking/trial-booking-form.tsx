@@ -39,7 +39,7 @@ import {
   submitLiffTrialBooking,
   type SubmitLiffTrialBookingResult,
 } from "@/server/actions/liff-trial-booking";
-import { contactStoreUrl, liffMessages } from "@/lib/liff/messages";
+import { liffMessages } from "@/lib/liff/messages";
 import { parseLocalDate, formatWeekdayZh } from "@/lib/date-utils";
 import type { SlotAvailability } from "@/types";
 import {
@@ -77,9 +77,11 @@ interface Props {
   storeSlug: string;
   storeName: string;
   liffId: string;
+  /** PR-E：per-store LINE OA 連結（server resolveStorePresentation 注入）。 */
+  contactUrl: string;
 }
 
-export function TrialBookingForm({ storeSlug, storeName, liffId }: Props) {
+export function TrialBookingForm({ storeSlug, storeName, liffId, contactUrl }: Props) {
   const [state, setState] = useState<State>({ kind: "initializing" });
 
   // calendar state — 台灣今日（client clock；server gate 才是 source of truth）
@@ -326,11 +328,17 @@ export function TrialBookingForm({ storeSlug, storeName, liffId }: Props) {
           title={liffMessages.shell.notInLineApp.title}
           body={liffMessages.shell.notInLineApp.body}
           showContactStore
+          contactUrl={contactUrl}
         />
       )}
 
       {state.kind === "expired" && (
-        <InfoBlock tone="yellow" body={liffMessages.error.expired} showRetry />
+        <InfoBlock
+          tone="yellow"
+          body={liffMessages.error.expired}
+          showRetry
+          contactUrl={contactUrl}
+        />
       )}
 
       {state.kind === "service_unavailable" && (
@@ -339,6 +347,7 @@ export function TrialBookingForm({ storeSlug, storeName, liffId }: Props) {
           body={liffMessages.error.serviceUnavailable}
           showRetry
           showContactStore
+          contactUrl={contactUrl}
         />
       )}
 
@@ -348,6 +357,7 @@ export function TrialBookingForm({ storeSlug, storeName, liffId }: Props) {
           storeSlug={storeSlug}
           bookingDate={state.bookingDate}
           slotTime={state.slotTime}
+          contactUrl={contactUrl}
         />
       )}
 
@@ -356,6 +366,7 @@ export function TrialBookingForm({ storeSlug, storeName, liffId }: Props) {
           storeSlug={storeSlug}
           existingBookingDate={state.existingBookingDate}
           existingSlotTime={state.existingSlotTime}
+          contactUrl={contactUrl}
         />
       )}
 
@@ -366,6 +377,7 @@ export function TrialBookingForm({ storeSlug, storeName, liffId }: Props) {
           showContactStore={state.showContactStore}
           showDismiss={state.showDismiss}
           onDismiss={handleDismissBlocked}
+          contactUrl={contactUrl}
         />
       )}
 
@@ -453,12 +465,15 @@ function InfoBlock({
   body,
   showRetry,
   showContactStore,
+  contactUrl,
 }: {
   tone: "green" | "red" | "yellow" | "earth";
   title?: string;
   body: string;
   showRetry?: boolean;
   showContactStore?: boolean;
+  /** PR-E：per-store LINE OA 連結；showContactStore=true 時必填。 */
+  contactUrl: string;
 }) {
   const toneClasses: Record<typeof tone, string> = {
     green: "border-green-200 bg-green-50 text-green-900",
@@ -486,7 +501,7 @@ function InfoBlock({
         )}
         {showContactStore && (
           <a
-            href={contactStoreUrl}
+            href={contactUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="rounded-md border border-current bg-white/70 px-3 py-1.5 text-xs font-medium hover:bg-white"
@@ -505,12 +520,15 @@ function BlockedBlock({
   showContactStore,
   showDismiss,
   onDismiss,
+  contactUrl,
 }: {
   message: string;
   showRetry: boolean;
   showContactStore: boolean;
   showDismiss: boolean;
   onDismiss: () => void;
+  /** PR-E：per-store LINE OA 連結；showContactStore=true 時必填。 */
+  contactUrl: string;
 }) {
   return (
     <div className="flex flex-col gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-4 text-sm text-red-900">
@@ -529,7 +547,7 @@ function BlockedBlock({
         )}
         {showContactStore && (
           <a
-            href={contactStoreUrl}
+            href={contactUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="rounded-md border border-red-300 bg-white/70 px-3 py-1.5 text-xs font-medium hover:bg-white"
@@ -556,11 +574,14 @@ function SuccessCard({
   storeSlug,
   bookingDate,
   slotTime,
+  contactUrl,
 }: {
   storeName: string;
   storeSlug: string;
   bookingDate: string;
   slotTime: string;
+  /** PR-E：per-store LINE OA 連結。 */
+  contactUrl: string;
 }) {
   const weekday = formatWeekdayZh(bookingDate);
   const d = parseLocalDate(bookingDate);
@@ -605,9 +626,10 @@ function SuccessCard({
         {liffMessages.trialBooking.successMyBookingsCta}
       </Link>
       {/* PR-E1-1：「聯絡店家」LINE-green — 顧客若有臨時問題（停車 / 服裝 / 晚到）
-          自然有出口，不用回 LINE 聊天列找店家。純 <a> 開 LINE OA，零 server。 */}
+          自然有出口，不用回 LINE 聊天列找店家。純 <a> 開 LINE OA，零 server。
+          PR-E：href 改自 server-resolved per-store contactUrl。 */}
       <a
-        href={contactStoreUrl}
+        href={contactUrl}
         target="_blank"
         rel="noopener noreferrer"
         className="inline-flex w-full min-h-[48px] items-center justify-center gap-2 rounded-xl bg-[#06C755] px-4 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-[#05b54d] active:scale-[0.98]"
@@ -642,10 +664,13 @@ function ExistingTrialCard({
   storeSlug,
   existingBookingDate,
   existingSlotTime,
+  contactUrl,
 }: {
   storeSlug: string;
   existingBookingDate: string;
   existingSlotTime: string;
+  /** PR-E：per-store LINE OA 連結。 */
+  contactUrl: string;
 }) {
   const weekday = formatWeekdayZh(existingBookingDate);
   const d = parseLocalDate(existingBookingDate);
@@ -674,7 +699,7 @@ function ExistingTrialCard({
       </div>
       <div className="flex flex-wrap gap-2">
         <a
-          href={contactStoreUrl}
+          href={contactUrl}
           target="_blank"
           rel="noopener noreferrer"
           className="flex-1 rounded-xl border border-earth-300 bg-white px-4 py-3 text-center text-base font-medium text-earth-800 hover:bg-earth-50"

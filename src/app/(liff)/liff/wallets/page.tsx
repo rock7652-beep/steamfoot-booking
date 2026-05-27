@@ -1,6 +1,5 @@
 import { headers, cookies } from "next/headers";
-import { resolveLiffIdBySlug } from "@/lib/liff/liff-id";
-import { resolveStoreBySlug } from "@/lib/store-resolver";
+import { resolveStorePresentation } from "@/lib/store-resolver";
 import { WalletsList } from "./wallets-list";
 
 /**
@@ -33,21 +32,20 @@ export default async function LiffMyWalletsPage() {
     cookieStore.get("store-slug")?.value ??
     "zhubei";
 
-  const store = await resolveStoreBySlug(storeSlug);
-  if (!store) {
+  const presentation = await resolveStorePresentation(storeSlug);
+  if (!presentation) {
     return <NotOpenForLiff message={`找不到分店：${storeSlug}`} />;
   }
-
-  const liffId = resolveLiffIdBySlug(store.slug);
-  if (!liffId) {
-    return <NotOpenForLiff message={`${store.name} 尚未開通 LINE Mini App`} />;
+  if (!presentation.liffId) {
+    return <NotOpenForLiff message={`${presentation.name} 尚未開通 LINE Mini App`} />;
   }
 
   return (
     <WalletsList
-      storeSlug={store.slug}
-      storeName={store.name}
-      liffId={liffId}
+      storeSlug={presentation.slug}
+      storeName={presentation.name}
+      liffId={presentation.liffId}
+      contactUrl={presentation.contactUrl}
     />
   );
 }

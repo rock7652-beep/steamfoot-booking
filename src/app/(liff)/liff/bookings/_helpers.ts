@@ -6,12 +6,7 @@
  * 並讓這些函數可單元測試。
  */
 
-import {
-  contactStoreUrl,
-  liffMessages,
-  storeAddress,
-  storeMapUrl,
-} from "@/lib/liff/messages";
+import { liffMessages } from "@/lib/liff/messages";
 import type { LiffBookingRow } from "@/server/actions/liff-my-bookings";
 
 /** "YYYY-MM-DD" → "M/D (週X)" 台灣語系。 */
@@ -69,9 +64,22 @@ export function generateGoogleCalendarUrl(args: {
   bookingDate: string; // "YYYY-MM-DD"
   slotTime: string; // "HH:mm"
   storeName: string;
+  /** PR-E：per-store 店家地址（顯示在 details + location）。 */
+  storeAddress: string;
+  /** PR-E：per-store Google Maps 短網址（顯示在 details）。 */
+  storeMapUrl: string;
+  /** PR-E：per-store LINE OA 連結（顯示在 details）。 */
+  contactUrl: string;
   durationMinutes?: number;
 }): string {
-  const { bookingDate, slotTime, storeName } = args;
+  const {
+    bookingDate,
+    slotTime,
+    storeName,
+    storeAddress,
+    storeMapUrl,
+    contactUrl,
+  } = args;
   const durationMinutes = args.durationMinutes ?? 60;
 
   // Booking 時間是 Taipei +08:00；Date object 內部存 UTC，toISOString 自動產 UTC。
@@ -89,7 +97,7 @@ export function generateGoogleCalendarUrl(args: {
     details: [
       `地址：${storeAddress}`,
       `導航：${storeMapUrl}`,
-      `聯絡店家：${contactStoreUrl}`,
+      `聯絡店家：${contactUrl}`,
     ].join("\n"),
     location: storeAddress,
   });

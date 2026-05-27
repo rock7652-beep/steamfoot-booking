@@ -11,7 +11,7 @@
  * 文案集中化是另一個獨立任務。
  */
 
-import { contactStoreUrl, liffMessages } from "@/lib/liff/messages";
+import { liffMessages } from "@/lib/liff/messages";
 
 export function BlockedBlock({
   message,
@@ -19,12 +19,15 @@ export function BlockedBlock({
   showContactStore,
   showDismiss,
   onDismiss,
+  contactUrl,
 }: {
   message: string;
   showRetry: boolean;
   showContactStore: boolean;
   showDismiss: boolean;
   onDismiss: () => void;
+  /** PR-E：per-store LINE OA 連結；showContactStore=true 時必填。 */
+  contactUrl: string;
 }) {
   return (
     <div className="flex flex-col gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-4 text-sm text-red-900">
@@ -43,7 +46,7 @@ export function BlockedBlock({
         )}
         {showContactStore && (
           <a
-            href={contactStoreUrl}
+            href={contactUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="rounded-md border border-red-300 bg-white/70 px-3 py-1.5 text-xs font-medium hover:bg-white"

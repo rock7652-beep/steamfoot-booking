@@ -432,6 +432,11 @@ model Store {
   maxMonthlyReportsOverride  Int?
   maxReminderSendsOverride   Int?
   maxStoresOverride          Int?
+  // === PR-E 新增：每店 LIFF ID（per-store presentation）===
+  // 取代 src/lib/liff/liff-id.ts 的 env-var 對照表；新店後台設值，不需改 code。
+  // Nullable：未設 → server 端會 fallback 到 NEXT_PUBLIC_LIFF_ID_<SLUG> env var（過渡期），
+  // env 也無則顯示「尚未開通 LINE Mini App」（NotOpenForLiff UI 路徑不變）。
+  liffId                     String?
   createdAt                  DateTime        @default(now())
   updatedAt                  DateTime        @updatedAt
 
@@ -1282,6 +1287,11 @@ model ShopConfig {
   trialMaxPrice         Decimal   @default(3000) @db.Decimal(10, 0) // 最高可輸入價格
   // === PR-1 新增：顧客自助預約可預約到的日期（含當日）；null = 回到預設 +14 天 ===
   bookableUntilDate     DateTime? @db.Date
+  // === PR-E 新增：店家地址與 Google Maps 短網址（per-store LIFF 顯示用）===
+  // 取代 src/lib/liff/messages.ts 的 storeAddress / storeMapUrl 全域常數。
+  // Nullable：未填 → server resolver 回退到常數，確保任何時點 LIFF 不空白。
+  address               String? // 例：「302新竹縣竹北市中崙里科大一路80號」
+  mapUrl                String? // 例：「https://maps.app.goo.gl/EyqUvkAaHCxu6iWz5?g_st=ic」
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 

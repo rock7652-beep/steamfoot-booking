@@ -29,10 +29,7 @@ import {
   initLiff,
   isInLineClient,
 } from "@/lib/liff/client";
-import {
-  contactStoreUrl,
-  liffMessages,
-} from "@/lib/liff/messages";
+import { liffMessages } from "@/lib/liff/messages";
 import { fetchLiffWallets } from "@/server/actions/liff-my-wallets";
 
 type State =
@@ -48,6 +45,8 @@ interface LiffShellProps {
   storeName: string;
   storeSlug: string;
   liffId: string;
+  /** PR-E：per-store LINE OA 連結。Server 端 resolveStorePresentation 解析後注入。 */
+  contactUrl: string;
 }
 
 /**
@@ -56,7 +55,7 @@ interface LiffShellProps {
  */
 type WalletSummary = { totalAvailable: number };
 
-export function LiffShell({ storeName, storeSlug, liffId }: LiffShellProps) {
+export function LiffShell({ storeName, storeSlug, liffId, contactUrl }: LiffShellProps) {
   const [state, setState] = useState<State>({ kind: "initializing" });
   // PR-G4：lazy fetch — signed_in 後 fire-and-forget，不擋 home 既有渲染
   const [walletSummary, setWalletSummary] = useState<WalletSummary | null>(null);
@@ -174,6 +173,7 @@ export function LiffShell({ storeName, storeSlug, liffId }: LiffShellProps) {
           title={liffMessages.shell.notInLineApp.title}
           body={liffMessages.shell.notInLineApp.body}
           showContactStore
+          contactUrl={contactUrl}
         />
       )}
 
@@ -182,6 +182,7 @@ export function LiffShell({ storeName, storeSlug, liffId }: LiffShellProps) {
           tone="yellow"
           body={liffMessages.error.expired}
           showRetry
+          contactUrl={contactUrl}
         />
       )}
 
@@ -191,6 +192,7 @@ export function LiffShell({ storeName, storeSlug, liffId }: LiffShellProps) {
           body={liffMessages.error.serviceUnavailable}
           showRetry
           showContactStore
+          contactUrl={contactUrl}
         />
       )}
 
@@ -231,12 +233,15 @@ function InfoBlock({
   body,
   showRetry,
   showContactStore,
+  contactUrl,
 }: {
   tone: "green" | "red" | "yellow" | "earth";
   title?: string;
   body: string;
   showRetry?: boolean;
   showContactStore?: boolean;
+  /** PR-E：per-store LINE OA 連結。showContactStore=true 時必填。 */
+  contactUrl: string;
 }) {
   const toneClasses: Record<typeof tone, string> = {
     green: "border-green-200 bg-green-50 text-green-900",
@@ -262,7 +267,7 @@ function InfoBlock({
         )}
         {showContactStore && (
           <a
-            href={contactStoreUrl}
+            href={contactUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="rounded-md border border-current bg-white/70 px-3 py-1.5 text-xs font-medium hover:bg-white"

@@ -12,7 +12,7 @@
  * （showRetry 點擊只走 window.location.reload，不維護 state）。
  */
 
-import { contactStoreUrl, liffMessages } from "@/lib/liff/messages";
+import { liffMessages } from "@/lib/liff/messages";
 
 // ──────────────────────────────────────────────────────────
 // Sub-components (mirror trial-booking-form)
@@ -36,12 +36,15 @@ export function InfoBlock({
   body,
   showRetry,
   showContactStore,
+  contactUrl,
 }: {
   tone: "green" | "red" | "yellow" | "earth";
   title?: string;
   body: string;
   showRetry?: boolean;
   showContactStore?: boolean;
+  /** PR-E：per-store LINE OA 連結；showContactStore=true 時必填。 */
+  contactUrl: string;
 }) {
   const toneClasses: Record<typeof tone, string> = {
     green: "border-green-200 bg-green-50 text-green-900",
@@ -69,7 +72,7 @@ export function InfoBlock({
         )}
         {showContactStore && (
           <a
-            href={contactStoreUrl}
+            href={contactUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="rounded-md border border-current bg-white/70 px-3 py-1.5 text-xs font-medium hover:bg-white"
