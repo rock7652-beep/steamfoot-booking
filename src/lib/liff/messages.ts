@@ -222,8 +222,10 @@ export const liffMessages = {
     // PR-E1-2：upcoming non-cancelled card 上「導航到店」Google-blue CTA。
     // 顧客出發前最自然位置；按下開 Google Maps 短網址 → iOS/Android 跳原生 Maps。
     navigateCta: "導航到店",
-    // PR-E1-3：upcoming non-cancelled card 上「加入行事曆」outlined CTA。
-    // 純 client-side data URI ICS（RFC 5545），iOS/Android 各 OS 原生 calendar app 接管。
+    // PR-E1-3 / hotfix #184：upcoming non-cancelled card 上「加入行事曆」outlined CTA。
+    // 同頁導向 Google Calendar TEMPLATE URL（純 HTTP）。
+    // 原 v1（PR #183）走 ICS data URI 但 LINE iOS webview dispatch 不穩，
+    // 換成 HTTP URL 後 iOS/Android webview 都穩定。實作見 _helpers.ts: generateGoogleCalendarUrl。
     // 解 lifecycle 最後一塊：「不要忘記來」— 體驗客 forget rate 第一殺手。
     calendarCta: "加入行事曆",
   },
