@@ -12,14 +12,13 @@ import {
   type KpiStripItem,
 } from "@/components/desktop";
 import {
-  listReminderRules,
   listMessageTemplates,
   listMessageLogs,
   getReminderStats,
+  getStoreReminderState,
   getTodayCronRunStatus,
 } from "@/server/queries/reminder";
-import { RuleToggle } from "./rule-toggle";
-import { CreateRuleForm } from "./create-rule-form";
+import { ReminderCard } from "./reminder-card";
 import { CreateTemplateForm } from "./create-template-form";
 import { CronRunBanner } from "./cron-run-banner";
 
@@ -36,30 +35,6 @@ const LOG_STATUS_COLOR: Record<string, string> = {
   FAILED: "bg-red-100 text-red-700",
   SKIPPED: "bg-earth-100 text-earth-500",
 };
-
-function formatTriggerLabel(rule: {
-  type: string;
-  triggerType: string;
-  offsetMinutes: number | null;
-  offsetDays: number;
-  fixedTime: string | null;
-}): string {
-  if (rule.type === "relative" && rule.offsetMinutes) {
-    const hours = rule.offsetMinutes / 60;
-    return hours >= 1
-      ? `預約前 ${hours % 1 === 0 ? hours : hours.toFixed(1)} 小時`
-      : `預約前 ${rule.offsetMinutes} 分鐘`;
-  }
-  if (rule.type === "fixed") {
-    const days = rule.offsetDays === 0 ? "當天" : `前 ${rule.offsetDays} 天`;
-    return `${days} ${rule.fixedTime ?? "20:00"} 發送`;
-  }
-  const LEGACY: Record<string, string> = {
-    BEFORE_BOOKING_1D: "預約前一天",
-    BEFORE_BOOKING_2H: "預約前 2 小時",
-  };
-  return LEGACY[rule.triggerType] ?? rule.triggerType;
-}
 
 interface PageProps {
   searchParams: Promise<{ tab?: string; status?: string; search?: string; page?: string }>;
@@ -98,11 +73,11 @@ export default async function RemindersPage({ searchParams }: PageProps) {
   const plan = await getCurrentStorePlan();
   const activeTab = params.tab ?? "rules";
 
-  const [stats, rules, templates, cronStatus] = await Promise.all([
+  const [stats, templates, cronStatus, reminderState] = await Promise.all([
     getReminderStats(activeStoreId),
-    listReminderRules(),
     listMessageTemplates(),
     getTodayCronRunStatus(),
+    getStoreReminderState(activeStoreId!),
   ]);
 
   const logsData = activeTab === "logs"
@@ -123,7 +98,7 @@ export default async function RemindersPage({ searchParams }: PageProps) {
   ];
 
   const tabs = [
-    { key: "rules", label: "提醒規則", count: rules.length },
+    { key: "rules", label: "提醒設定", count: null as number | null },
     { key: "templates", label: "訊息模板", count: templates.length },
     { key: "logs", label: "發送紀錄", count: null as number | null },
   ];
@@ -180,82 +155,18 @@ export default async function RemindersPage({ searchParams }: PageProps) {
             })}
           </div>
           <div className="pb-1.5">
-            {activeTab === "rules" && (
-              <CreateRuleForm
-                templates={templates.map((t) => ({ id: t.id, name: t.name }))}
-              />
-            )}
             {activeTab === "templates" && <CreateTemplateForm />}
           </div>
         </div>
 
-        {/* Rules — compact rows */}
+        {/* 提醒設定 — 單一「明日預約提醒」開關 */}
         {activeTab === "rules" && (
           <section>
-            {rules.length === 0 ? (
-              <div className="rounded-xl border border-earth-200 bg-white p-8 text-center text-sm text-earth-400">
-                尚未建立提醒規則
-              </div>
-            ) : (
-              <div className="overflow-x-auto rounded-xl border border-earth-200 bg-white shadow-sm">
-                <table className="w-full text-sm">
-                  <thead className="bg-earth-50 text-[11px] font-medium text-earth-500">
-                    <tr>
-                      <th className="px-3 py-2 text-left">規則名稱</th>
-                      <th className="px-3 py-2 text-left">觸發條件</th>
-                      <th className="px-3 py-2 text-left">通路</th>
-                      <th className="px-3 py-2 text-left">模板</th>
-                      <th className="px-3 py-2 text-right">狀態</th>
-                      <th className="px-3 py-2 text-right">啟用</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-earth-100">
-                    {rules.map((rule) => (
-                      <tr
-                        key={rule.id}
-                        className="h-12 transition hover:bg-primary-50/40"
-                      >
-                        <td className="px-3 font-medium text-earth-900">
-                          {rule.name}
-                        </td>
-                        <td className="px-3 text-[13px] text-earth-600">
-                          {formatTriggerLabel(rule)}
-                        </td>
-                        <td className="px-3">
-                          <span className="rounded bg-earth-50 px-2 py-0.5 text-[11px] font-medium text-earth-600">
-                            {rule.channel}
-                          </span>
-                        </td>
-                        <td className="px-3 text-[13px] text-earth-600">
-                          {rule.template?.name ?? (
-                            <span className="text-earth-300">未綁定</span>
-                          )}
-                        </td>
-                        <td className="px-3 text-right">
-                          <span
-                            className={`rounded px-1.5 py-0.5 text-[11px] font-medium ${
-                              rule.isEnabled
-                                ? "bg-green-100 text-green-700"
-                                : "bg-earth-100 text-earth-500"
-                            }`}
-                          >
-                            {rule.isEnabled ? "啟用" : "停用"}
-                          </span>
-                        </td>
-                        <td className="px-3 text-right">
-                          <div className="flex justify-end">
-                            <RuleToggle
-                              ruleId={rule.id}
-                              isEnabled={rule.isEnabled}
-                            />
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+            <ReminderCard
+              initialEnabled={reminderState.enabled}
+              initialTemplateId={reminderState.canonicalTemplateId}
+              templates={templates.map((t) => ({ id: t.id, name: t.name }))}
+            />
           </section>
         )}
 

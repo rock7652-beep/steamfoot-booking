@@ -145,6 +145,141 @@ export async function toggleReminderRule(
 }
 
 // ============================================================
+// Store-level reminder toggle (canonical entry point — replaces per-rule UX)
+// ============================================================
+
+/**
+ * 啟用/停用該店「明日預約提醒」（store-level，每店最多 1 條 enabled rule）
+ *
+ * 為什麼不是 per-rule toggle：reminder engine 是 daily next-day batch，
+ * 不依 ReminderRule.fixedTime/offsetMinutes 排程；多條 enabled rule 會造成
+ * 同一筆預約 N 倍重複發送（dedupe key 含 ruleId）。
+ *
+ * enabled=true 行為：
+ *   - 無任何 rule → 建立 canonical「明日預約提醒」rule
+ *   - 已有 ≥1 條 rule → 保留最早 createdAt 那條為 enabled，其餘同店 rule 一律
+ *     改 isEnabled=false（reconcile 一律執行，防 future regression）
+ *
+ * enabled=false 行為：該店所有 isEnabled=true 一律改 false（不刪 row，保留 audit）
+ */
+export async function setReminderEnabled(
+  enabled: boolean
+): Promise<ActionResult<{ ruleId: string | null }>> {
+  try {
+    const user = await requireStaffSession();
+    await checkCurrentStoreFeature(FEATURES.LINE_REMINDER);
+    const storeId = await resolveWriteStoreId(user);
+
+    if (!enabled) {
+      await prisma.reminderRule.updateMany({
+        where: { storeId, isEnabled: true },
+        data: { isEnabled: false },
+      });
+      revalidatePath("/dashboard/reminders");
+      return { success: true, data: { ruleId: null } };
+    }
+
+    const rules = await prisma.reminderRule.findMany({
+      where: { storeId },
+      orderBy: { createdAt: "asc" },
+      select: { id: true },
+    });
+
+    if (rules.length === 0) {
+      const newRule = await prisma.reminderRule.create({
+        data: {
+          storeId,
+          name: "明日預約提醒",
+          triggerType: "BEFORE_BOOKING_1D",
+          type: "fixed",
+          offsetMinutes: null,
+          offsetDays: 1,
+          fixedTime: "18:00",
+          channel: "LINE",
+          isEnabled: true,
+          templateId: null,
+        },
+      });
+      revalidatePath("/dashboard/reminders");
+      return { success: true, data: { ruleId: newRule.id } };
+    }
+
+    const canonical = rules[0];
+    const extras = rules.slice(1);
+
+    await prisma.$transaction([
+      prisma.reminderRule.update({
+        where: { id: canonical.id },
+        data: { isEnabled: true },
+      }),
+      ...extras.map((r) =>
+        prisma.reminderRule.update({
+          where: { id: r.id },
+          data: { isEnabled: false },
+        })
+      ),
+    ]);
+
+    revalidatePath("/dashboard/reminders");
+    return { success: true, data: { ruleId: canonical.id } };
+  } catch (e) {
+    return handleActionError(e);
+  }
+}
+
+/**
+ * 設定該店 canonical rule 綁定的訊息模板
+ *
+ * canonical rule = 最早 createdAt 的 enabled rule；無 enabled rule 時退而求其次
+ * 取最早 createdAt 的 rule（避免「停用狀態下無法預先選模板」）。
+ */
+export async function setReminderTemplate(
+  templateId: string | null
+): Promise<ActionResult<void>> {
+  try {
+    const user = await requireStaffSession();
+    await checkCurrentStoreFeature(FEATURES.LINE_REMINDER);
+    const storeId = await resolveWriteStoreId(user);
+
+    const canonical =
+      (await prisma.reminderRule.findFirst({
+        where: { storeId, isEnabled: true },
+        orderBy: { createdAt: "asc" },
+        select: { id: true },
+      })) ??
+      (await prisma.reminderRule.findFirst({
+        where: { storeId },
+        orderBy: { createdAt: "asc" },
+        select: { id: true },
+      }));
+
+    if (!canonical) {
+      throw new AppError("NOT_FOUND", "尚未建立提醒規則，請先啟用提醒");
+    }
+
+    if (templateId !== null) {
+      const tpl = await prisma.messageTemplate.findUnique({
+        where: { id: templateId },
+        select: { storeId: true },
+      });
+      if (!tpl || tpl.storeId !== storeId) {
+        throw new AppError("NOT_FOUND", "訊息模板不存在");
+      }
+    }
+
+    await prisma.reminderRule.update({
+      where: { id: canonical.id },
+      data: { templateId },
+    });
+
+    revalidatePath("/dashboard/reminders");
+    return { success: true, data: undefined };
+  } catch (e) {
+    return handleActionError(e);
+  }
+}
+
+// ============================================================
 // MessageTemplate CRUD
 // ============================================================
 
