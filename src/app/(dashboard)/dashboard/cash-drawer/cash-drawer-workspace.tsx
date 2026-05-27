@@ -157,7 +157,7 @@ function EmptyStateCard({
               required
               min={0}
               step={1}
-              className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
+              className="mt-1 block min-h-[44px] w-full rounded-lg border border-earth-300 px-3 py-2 text-base tabular-nums focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
               placeholder="例如 5000"
             />
           </div>
@@ -171,7 +171,7 @@ function EmptyStateCard({
               required
               min={0}
               step={1}
-              className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
+              className="mt-1 block min-h-[44px] w-full rounded-lg border border-earth-300 px-3 py-2 text-base tabular-nums focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
               placeholder="例如 5000"
             />
           </div>
@@ -188,7 +188,7 @@ function EmptyStateCard({
           </div>
           <SubmitButton
             label="啟用現金抽屜"
-            className="w-full bg-primary-600 text-white hover:bg-primary-700"
+            className="min-h-[44px] w-full bg-primary-600 text-base text-white hover:bg-primary-700"
           />
         </form>
       )}
@@ -262,7 +262,7 @@ function NotOpenedTodayCard({
         <p className="text-sm">
           上日（{formatTWTime(lastSession.businessDate, { dateOnly: true })}）閉店帳面結餘
         </p>
-        <p className="mt-1 text-2xl font-bold">NT$ {lastBalance}</p>
+        <p className="mt-1 text-2xl font-bold tabular-nums">NT$ {lastBalance}</p>
         <p className="mt-1 text-xs text-primary-700">
           系統會自動以此金額作為今日開店帳面
         </p>
@@ -292,7 +292,7 @@ function NotOpenedTodayCard({
                 required
                 min={0}
                 step={1}
-                className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
+                className="mt-1 block min-h-[44px] w-full rounded-lg border border-earth-300 px-3 py-2 text-base tabular-nums focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
                 placeholder="例如 8100"
               />
             </div>
@@ -309,7 +309,7 @@ function NotOpenedTodayCard({
             </div>
             <SubmitButton
               label="完成今日開店點錢"
-              className="w-full bg-primary-600 text-white hover:bg-primary-700"
+              className="min-h-[44px] w-full bg-primary-600 text-base text-white hover:bg-primary-700"
             />
           </form>
         )}
@@ -345,10 +345,27 @@ type OpenedTodaySession = {
   finalBookBalance: Prisma.Decimal | null;
 };
 
-function formatDiff(value: number): { label: string; className: string } {
-  if (value === 0) return { label: "0", className: "text-earth-600" };
-  if (value > 0) return { label: `+${value}`, className: "text-green-700" };
-  return { label: `${value}`, className: "text-orange-700" };
+function formatDiff(value: number): {
+  label: string;
+  className: string;
+  /** 非 0 時的 chip 背景，用來在差額不為 0 時更明顯提醒店長 */
+  chipClassName: string;
+} {
+  if (value === 0) {
+    return { label: "0", className: "text-earth-600", chipClassName: "" };
+  }
+  if (value > 0) {
+    return {
+      label: `+${value}`,
+      className: "text-green-800",
+      chipClassName: "bg-green-50 ring-1 ring-green-200",
+    };
+  }
+  return {
+    label: `${value}`,
+    className: "text-orange-800",
+    chipClassName: "bg-orange-50 ring-1 ring-orange-200",
+  };
 }
 
 function OpenedTodayWorkspace({
@@ -383,10 +400,13 @@ function OpenedTodayWorkspace({
         </span>
       </div>
 
-      {/* 桌機 / iPad 橫向 (lg+)：左 2 / 右 1 兩欄；手機 / iPad 直向 (< lg)：單欄堆疊 */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      {/* iPad portrait / 縮窄桌機 (md+, ≥768)：左 2 / 右 1 真正分區，右欄 sticky 讓
+          店長滑動左側紀錄時仍能看到「系統應有現金 / 閉店點錢」操作區。
+          手機 (< md)：單欄堆疊，避免擠壓。
+          sticky top-16：避開頁面頂端 sticky header (h-14 = 56px) 留小間隔。 */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3 md:gap-6">
         {/* 左：開店紀錄 + 今日交易摘要 + 現金異動 */}
-        <div className="space-y-4 lg:col-span-2">
+        <div className="space-y-4 md:col-span-2">
           <OpeningRecordCard session={session} />
 
           {/* 今日交易摘要 — OPEN 用 liveTotals，CLOSED 用 session snapshot */}
@@ -420,8 +440,11 @@ function OpenedTodayWorkspace({
           />
         </div>
 
-        {/* 右：OPEN → 系統應有現金 + 閉店點錢 form；CLOSED → 閉店結算 */}
-        <div className="space-y-4 lg:col-span-1">
+        {/* 右：OPEN → 系統應有現金 + 閉店點錢 form；CLOSED → 閉店結算
+            md+ 用 sticky-top + self-start 讓右欄釘在視窗上方，店長滑動左側
+            紀錄時關店操作永遠可見；self-start 防止 grid 預設拉滿欄高度導致
+            sticky 失效。 */}
+        <div className="space-y-4 md:sticky md:top-16 md:col-span-1 md:self-start">
           {!isClosed && liveTotals && (
             <ClosingPanel
               sessionId={session.id}
@@ -449,20 +472,24 @@ function OpeningRecordCard({ session }: { session: OpenedTodaySession }) {
       <dl className="mt-4 grid grid-cols-2 gap-4 text-sm">
         <div>
           <dt className="text-earth-500">開店帳面（應有）</dt>
-          <dd className="mt-1 text-lg font-medium text-earth-900">
+          <dd className="mt-1 text-lg font-medium tabular-nums text-earth-900">
             NT$ {session.openingBookBalance.toString()}
           </dd>
         </div>
         <div>
           <dt className="text-earth-500">實際點到</dt>
-          <dd className="mt-1 text-lg font-medium text-earth-900">
+          <dd className="mt-1 text-lg font-medium tabular-nums text-earth-900">
             NT$ {session.openingActualCash.toString()}
           </dd>
         </div>
         <div>
           <dt className="text-earth-500">差額</dt>
-          <dd className={`mt-1 text-lg font-medium ${openingDiff.className}`}>
-            NT$ {openingDiff.label}
+          <dd className="mt-1">
+            <span
+              className={`inline-block rounded-md px-2 py-0.5 text-lg font-medium tabular-nums ${openingDiff.className} ${openingDiff.chipClassName}`}
+            >
+              NT$ {openingDiff.label}
+            </span>
           </dd>
         </div>
         <div>
@@ -513,20 +540,37 @@ function TransactionSummaryCard({
       <dl className="mt-4 grid grid-cols-2 gap-4 text-sm">
         <div>
           <dt className="text-earth-500">現金收入</dt>
-          <dd className="mt-1 text-base font-medium text-green-700">
+          <dd className="mt-1 text-base font-medium tabular-nums text-green-700">
             + NT$ {cashIncome}
           </dd>
         </div>
         <div>
           <dt className="text-earth-500">現金退款</dt>
-          <dd className="mt-1 text-base font-medium text-orange-700">
+          <dd className="mt-1 text-base font-medium tabular-nums text-orange-700">
             − NT$ {cashExpense}
           </dd>
         </div>
         <div className="col-span-2">
           <dt className="text-earth-500">手動異動</dt>
-          <dd className="mt-1 text-sm text-earth-700">
-            提領 NT$ {cashWithdrawal}．補入 NT$ {cashDeposit}．調整 NT$ {cashAdjustment}
+          <dd className="mt-2 grid grid-cols-3 gap-2 text-sm">
+            <div className="rounded-lg bg-earth-50 px-3 py-2">
+              <div className="text-xs text-earth-500">提領</div>
+              <div className="mt-0.5 font-medium tabular-nums text-earth-800">
+                NT$ {cashWithdrawal}
+              </div>
+            </div>
+            <div className="rounded-lg bg-earth-50 px-3 py-2">
+              <div className="text-xs text-earth-500">補入</div>
+              <div className="mt-0.5 font-medium tabular-nums text-earth-800">
+                NT$ {cashDeposit}
+              </div>
+            </div>
+            <div className="rounded-lg bg-earth-50 px-3 py-2">
+              <div className="text-xs text-earth-500">調整</div>
+              <div className="mt-0.5 font-medium tabular-nums text-earth-800">
+                NT$ {cashAdjustment}
+              </div>
+            </div>
           </dd>
         </div>
       </dl>
@@ -568,8 +612,10 @@ function ClosingPanel({
     <>
       {/* 系統應有現金 — 從今日交易摘要抽出獨立卡，靠近閉店表單方便對照 */}
       <div className="rounded-xl border border-primary-200 bg-primary-50 p-5 shadow-sm">
-        <p className="text-xs text-primary-700">系統應有現金（含開店帳面）</p>
-        <p className="mt-1 text-2xl font-bold text-primary-900">
+        <p className="text-xs font-medium text-primary-700">
+          系統應有現金（含開店帳面）
+        </p>
+        <p className="mt-1 text-2xl font-bold tabular-nums text-primary-900 lg:text-3xl">
           NT$ {liveTotals.expectedClosingCash.toString()}
         </p>
       </div>
@@ -582,12 +628,12 @@ function ClosingPanel({
         </p>
 
         {/* PR-6：閉店前確認提醒（避免誤按閉店無法補登異動）*/}
-        <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
-          <p className="text-sm font-medium text-amber-900">閉店前確認</p>
-          <ul className="mt-1 space-y-0.5 text-xs text-amber-800">
-            <li>若今日沒有提領、補入或調整，可直接閉店。</li>
-            <li>若有，請先完成登錄後再閉店。</li>
-            <li>閉店後今日紀錄將鎖定，無法再新增現金異動。</li>
+        <div className="mt-3 rounded-lg border border-amber-200 border-l-4 border-l-amber-500 bg-amber-50 px-4 py-3">
+          <p className="text-base font-semibold text-amber-900">閉店前確認</p>
+          <ul className="mt-2 space-y-1 text-sm text-amber-900">
+            <li>· 若今日沒有提領、補入或調整，可直接閉店。</li>
+            <li>· 若有，請先完成登錄後再閉店。</li>
+            <li>· 閉店後今日紀錄將鎖定，無法再新增現金異動。</li>
           </ul>
         </div>
 
@@ -609,7 +655,7 @@ function ClosingPanel({
                 required
                 min={0}
                 step={1}
-                className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
+                className="mt-1 block min-h-[44px] w-full rounded-lg border border-earth-300 px-3 py-2 text-base tabular-nums focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
                 placeholder={`例如 ${liveTotals.expectedClosingCash.toString()}`}
               />
             </div>
@@ -626,7 +672,7 @@ function ClosingPanel({
             </div>
             <SubmitButton
               label="完成今日閉店點錢"
-              className="w-full bg-primary-600 text-white hover:bg-primary-700"
+              className="min-h-[44px] w-full bg-primary-600 text-base text-white hover:bg-primary-700"
             />
           </form>
         )}
@@ -648,20 +694,24 @@ function ClosedSettlementCard({ session }: { session: OpenedTodaySession }) {
       <dl className="mt-4 grid grid-cols-2 gap-4 text-sm">
         <div>
           <dt className="text-earth-500">系統應有</dt>
-          <dd className="mt-1 text-lg font-medium text-earth-900">
+          <dd className="mt-1 text-lg font-medium tabular-nums text-earth-900">
             NT$ {session.expectedClosingCash?.toString() ?? "—"}
           </dd>
         </div>
         <div>
           <dt className="text-earth-500">閉店實點</dt>
-          <dd className="mt-1 text-lg font-medium text-earth-900">
+          <dd className="mt-1 text-lg font-medium tabular-nums text-earth-900">
             NT$ {session.closingActualCash?.toString() ?? "—"}
           </dd>
         </div>
         <div>
           <dt className="text-earth-500">差額</dt>
-          <dd className={`mt-1 text-lg font-medium ${closingDiff.className}`}>
-            NT$ {closingDiff.label}
+          <dd className="mt-1">
+            <span
+              className={`inline-block rounded-md px-2 py-0.5 text-lg font-medium tabular-nums ${closingDiff.className} ${closingDiff.chipClassName}`}
+            >
+              NT$ {closingDiff.label}
+            </span>
           </dd>
         </div>
         <div>
@@ -680,8 +730,10 @@ function ClosedSettlementCard({ session }: { session: OpenedTodaySession }) {
         )}
       </dl>
       <div className="mt-6 rounded-lg bg-primary-50 px-4 py-3">
-        <p className="text-xs text-primary-700">帳面結餘（明日開店帳面起點）</p>
-        <p className="mt-1 text-2xl font-bold text-primary-900">
+        <p className="text-xs font-medium text-primary-700">
+          帳面結餘（明日開店帳面起點）
+        </p>
+        <p className="mt-1 text-2xl font-bold tabular-nums text-primary-900">
           NT$ {session.finalBookBalance?.toString() ?? "—"}
         </p>
       </div>

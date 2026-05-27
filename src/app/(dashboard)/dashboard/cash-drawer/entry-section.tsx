@@ -106,33 +106,35 @@ export function EntrySection({
 
           {/* 提領 */}
           <details className="rounded-lg border border-earth-200 bg-earth-50/40">
-            <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-earth-800 select-none hover:bg-earth-100/60">
+            <summary className="flex min-h-[44px] cursor-pointer items-center px-4 py-3 text-sm font-medium text-earth-800 select-none hover:bg-earth-100/60">
               ＋ 新增提領（老闆領現、存銀行等）
             </summary>
-            <form action={handleAddWithdrawal} className="space-y-3 border-t border-earth-200 p-4">
-              <div>
-                <label className="block text-sm font-medium text-earth-700">金額（NT$）</label>
-                <input
-                  type="number"
-                  name="amount"
-                  required
-                  min={1}
-                  step={1}
-                  className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
-                  placeholder="例如 5000"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-earth-700">原因（必填）</label>
-                <input
-                  type="text"
-                  name="reason"
-                  required
-                  minLength={1}
-                  maxLength={100}
-                  className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
-                  placeholder="例如：老闆領現存銀行"
-                />
+            <form action={handleAddWithdrawal} className="space-y-3 border-t border-earth-200 p-4 md:space-y-4">
+              <div className="md:grid md:grid-cols-2 md:gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-earth-700">金額（NT$）</label>
+                  <input
+                    type="number"
+                    name="amount"
+                    required
+                    min={1}
+                    step={1}
+                    className="mt-1 block min-h-[44px] w-full rounded-lg border border-earth-300 px-3 py-2 text-base tabular-nums focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
+                    placeholder="例如 5000"
+                  />
+                </div>
+                <div className="mt-3 md:mt-0">
+                  <label className="block text-sm font-medium text-earth-700">原因（必填）</label>
+                  <input
+                    type="text"
+                    name="reason"
+                    required
+                    minLength={1}
+                    maxLength={100}
+                    className="mt-1 block min-h-[44px] w-full rounded-lg border border-earth-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
+                    placeholder="例如：老闆領現存銀行"
+                  />
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-earth-700">備註（選填）</label>
@@ -145,40 +147,42 @@ export function EntrySection({
               </div>
               <SubmitButton
                 label="送出提領"
-                className="bg-orange-600 text-white hover:bg-orange-700"
+                className="min-h-[44px] bg-orange-600 px-5 text-base text-white hover:bg-orange-700"
               />
             </form>
           </details>
 
           {/* 補入 */}
           <details className="rounded-lg border border-earth-200 bg-earth-50/40">
-            <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-earth-800 select-none hover:bg-earth-100/60">
+            <summary className="flex min-h-[44px] cursor-pointer items-center px-4 py-3 text-sm font-medium text-earth-800 select-none hover:bg-earth-100/60">
               ＋ 新增補入（補找零金、保險箱補現等）
             </summary>
-            <form action={handleAddDeposit} className="space-y-3 border-t border-earth-200 p-4">
-              <div>
-                <label className="block text-sm font-medium text-earth-700">金額（NT$）</label>
-                <input
-                  type="number"
-                  name="amount"
-                  required
-                  min={1}
-                  step={1}
-                  className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
-                  placeholder="例如 2000"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-earth-700">原因（必填）</label>
-                <input
-                  type="text"
-                  name="reason"
-                  required
-                  minLength={1}
-                  maxLength={100}
-                  className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
-                  placeholder="例如：保險箱補找零金"
-                />
+            <form action={handleAddDeposit} className="space-y-3 border-t border-earth-200 p-4 md:space-y-4">
+              <div className="md:grid md:grid-cols-2 md:gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-earth-700">金額（NT$）</label>
+                  <input
+                    type="number"
+                    name="amount"
+                    required
+                    min={1}
+                    step={1}
+                    className="mt-1 block min-h-[44px] w-full rounded-lg border border-earth-300 px-3 py-2 text-base tabular-nums focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
+                    placeholder="例如 2000"
+                  />
+                </div>
+                <div className="mt-3 md:mt-0">
+                  <label className="block text-sm font-medium text-earth-700">原因（必填）</label>
+                  <input
+                    type="text"
+                    name="reason"
+                    required
+                    minLength={1}
+                    maxLength={100}
+                    className="mt-1 block min-h-[44px] w-full rounded-lg border border-earth-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
+                    placeholder="例如：保險箱補找零金"
+                  />
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-earth-700">備註（選填）</label>
@@ -191,53 +195,55 @@ export function EntrySection({
               </div>
               <SubmitButton
                 label="送出補入"
-                className="bg-green-600 text-white hover:bg-green-700"
+                className="min-h-[44px] bg-green-600 px-5 text-base text-white hover:bg-green-700"
               />
             </form>
           </details>
 
           {/* 調整 */}
           <details className="rounded-lg border border-earth-200 bg-earth-50/40">
-            <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-earth-800 select-none hover:bg-earth-100/60">
+            <summary className="flex min-h-[44px] cursor-pointer items-center px-4 py-3 text-sm font-medium text-earth-800 select-none hover:bg-earth-100/60">
               ＋ 新增調整（盤點短少 / 溢出）
             </summary>
-            <form action={handleAddAdjustment} className="space-y-3 border-t border-earth-200 p-4">
+            <form action={handleAddAdjustment} className="space-y-3 border-t border-earth-200 p-4 md:space-y-4">
               <div>
                 <p className="block text-sm font-medium text-earth-700">方向（必選）</p>
-                <div className="mt-2 flex gap-4 text-sm text-earth-800">
-                  <label className="inline-flex items-center gap-2">
+                <div className="mt-2 flex flex-wrap gap-3 text-sm text-earth-800 md:gap-6">
+                  <label className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-earth-200 bg-white px-3">
                     <input type="radio" name="direction" value="IN" required />
                     盤點溢出（+）
                   </label>
-                  <label className="inline-flex items-center gap-2">
+                  <label className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-earth-200 bg-white px-3">
                     <input type="radio" name="direction" value="OUT" required />
                     盤點短少（−）
                   </label>
                 </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-earth-700">金額（NT$）</label>
-                <input
-                  type="number"
-                  name="amount"
-                  required
-                  min={1}
-                  step={1}
-                  className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
-                  placeholder="例如 100"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-earth-700">原因（必填）</label>
-                <input
-                  type="text"
-                  name="reason"
-                  required
-                  minLength={1}
-                  maxLength={100}
-                  className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
-                  placeholder="例如：閉店盤點短少 100"
-                />
+              <div className="md:grid md:grid-cols-2 md:gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-earth-700">金額（NT$）</label>
+                  <input
+                    type="number"
+                    name="amount"
+                    required
+                    min={1}
+                    step={1}
+                    className="mt-1 block min-h-[44px] w-full rounded-lg border border-earth-300 px-3 py-2 text-base tabular-nums focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
+                    placeholder="例如 100"
+                  />
+                </div>
+                <div className="mt-3 md:mt-0">
+                  <label className="block text-sm font-medium text-earth-700">原因（必填）</label>
+                  <input
+                    type="text"
+                    name="reason"
+                    required
+                    minLength={1}
+                    maxLength={100}
+                    className="mt-1 block min-h-[44px] w-full rounded-lg border border-earth-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
+                    placeholder="例如：閉店盤點短少 100"
+                  />
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-earth-700">備註（選填）</label>
@@ -250,7 +256,7 @@ export function EntrySection({
               </div>
               <SubmitButton
                 label="送出調整"
-                className="bg-earth-700 text-white hover:bg-earth-800"
+                className="min-h-[44px] bg-earth-700 px-5 text-base text-white hover:bg-earth-800"
               />
             </form>
           </details>
@@ -274,7 +280,7 @@ function EntriesList({ entries }: { entries: CashDrawerEntry[] }) {
   }
 
   return (
-    <ul className="mt-3 max-h-72 space-y-2 overflow-y-auto pr-1">
+    <ul className="mt-3 max-h-72 space-y-2 overflow-y-auto pr-1 lg:max-h-[28rem]">
       {entries.map((entry) => (
         <EntryRow key={entry.id} entry={entry} />
       ))}
@@ -307,7 +313,7 @@ function EntryRow({ entry }: { entry: CashDrawerEntry }) {
           </span>
           <span className="font-medium text-earth-800">{label}</span>
         </div>
-        <span className={`text-base font-medium ${tone}`}>
+        <span className={`text-base font-medium tabular-nums ${tone}`}>
           {sign} NT$ {entry.amount.toString()}
         </span>
       </div>
