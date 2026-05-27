@@ -27,6 +27,7 @@
 import { SideCard } from "@/components/desktop";
 import { formatTWTime } from "@/lib/date-utils";
 import { getHealthAssessmentUrl } from "@/lib/health-assessment";
+import { HealthSummaryLazy } from "./health-summary-lazy";
 
 interface HealthStatusCardProps {
   customerId: string;
@@ -91,6 +92,9 @@ export function HealthStatusCard({
             >
               前往 HealthFlow 原站 ↗
             </a>
+            {/* dashboard-health-lazy：店長點按鈕才 fetch HealthFlow summary。
+                page load 仍維持 DB-only（沿用 PR #204 設計）。 */}
+            <HealthSummaryLazy customerId={customerId} />
           </>
         ) : healthLinkStatus === "not_found" ? (
           <>
