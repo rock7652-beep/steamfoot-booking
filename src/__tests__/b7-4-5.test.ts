@@ -101,9 +101,10 @@ describe("DB-based slug resolution (no static map)", () => {
       slug: "new-store",
       name: "新分店",
     });
+    // PR-E：select 加 liffId 為 per-store LIFF ID 來源
     expect(mockFindUnique).toHaveBeenCalledWith({
       where: { slug: "new-store" },
-      select: { id: true, slug: true, name: true },
+      select: { id: true, slug: true, name: true, liffId: true },
     });
   });
 

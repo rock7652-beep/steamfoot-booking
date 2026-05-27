@@ -10,7 +10,7 @@
  */
 
 import Link from "next/link";
-import { contactStoreUrl, liffMessages } from "@/lib/liff/messages";
+import { liffMessages } from "@/lib/liff/messages";
 
 // ──────────────────────────────────────────────────────────
 // NoWalletCard — 顯示「沒有可用方案 / 已過期 / 剩餘堂數不足」+ 聯繫店家 / 回方案
@@ -19,9 +19,12 @@ import { contactStoreUrl, liffMessages } from "@/lib/liff/messages";
 export function NoWalletCard({
   storeSlug,
   reason,
+  contactUrl,
 }: {
   storeSlug: string;
   reason: "none" | "expired" | "insufficient";
+  /** PR-E：per-store LINE OA 連結。 */
+  contactUrl: string;
 }) {
   const m = liffMessages.memberBooking;
   const body =
@@ -36,7 +39,7 @@ export function NoWalletCard({
       <p className="text-xs break-words opacity-90">{body}</p>
       <div className="flex flex-wrap gap-2">
         <a
-          href={contactStoreUrl}
+          href={contactUrl}
           target="_blank"
           rel="noopener noreferrer"
           className="rounded-md border border-amber-300 bg-white/70 px-3 py-1.5 text-xs font-medium hover:bg-white"

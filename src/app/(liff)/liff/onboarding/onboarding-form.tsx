@@ -27,7 +27,7 @@ import {
   getProfile,
   LiffInitError,
 } from "@/lib/liff/client";
-import { contactStoreUrl, liffMessages } from "@/lib/liff/messages";
+import { liffMessages } from "@/lib/liff/messages";
 import {
   submitOnboarding,
   type OnboardingActionResult,
@@ -55,9 +55,11 @@ interface OnboardingFormProps {
   storeSlug: string;
   storeName: string;
   liffId: string;
+  /** PR-E：per-store LINE OA 連結（server resolveStorePresentation 注入）。 */
+  contactUrl: string;
 }
 
-export function OnboardingForm({ storeSlug, storeName, liffId }: OnboardingFormProps) {
+export function OnboardingForm({ storeSlug, storeName, liffId, contactUrl }: OnboardingFormProps) {
   const router = useRouter();
   const [state, setState] = useState<FormState>({ kind: "initializing" });
   const [nameValue, setNameValue] = useState("");
@@ -221,6 +223,7 @@ export function OnboardingForm({ storeSlug, storeName, liffId }: OnboardingFormP
           title={liffMessages.shell.notInLineApp.title}
           body={liffMessages.shell.notInLineApp.body}
           showContactStore
+          contactUrl={contactUrl}
         />
       )}
 
@@ -229,6 +232,7 @@ export function OnboardingForm({ storeSlug, storeName, liffId }: OnboardingFormP
           tone="yellow"
           body={liffMessages.error.expired}
           showRetry
+          contactUrl={contactUrl}
         />
       )}
 
@@ -238,6 +242,7 @@ export function OnboardingForm({ storeSlug, storeName, liffId }: OnboardingFormP
           body={liffMessages.error.serviceUnavailable}
           showRetry
           showContactStore
+          contactUrl={contactUrl}
         />
       )}
 
@@ -255,6 +260,7 @@ export function OnboardingForm({ storeSlug, storeName, liffId }: OnboardingFormP
               body={state.message}
               showContactStore={state.contactStore}
               showRetry={state.primaryCta === "reload"}
+              contactUrl={contactUrl}
             />
           )}
 
@@ -375,12 +381,15 @@ function InfoBlock({
   body,
   showRetry,
   showContactStore,
+  contactUrl,
 }: {
   tone: "green" | "red" | "yellow" | "earth";
   title?: string;
   body: string;
   showRetry?: boolean;
   showContactStore?: boolean;
+  /** PR-E：per-store LINE OA 連結；showContactStore=true 時必填。 */
+  contactUrl: string;
 }) {
   const toneClasses: Record<typeof tone, string> = {
     green: "border-green-200 bg-green-50 text-green-900",
@@ -406,7 +415,7 @@ function InfoBlock({
         )}
         {showContactStore && (
           <a
-            href={contactStoreUrl}
+            href={contactUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="rounded-md border border-current bg-white/70 px-3 py-1.5 text-xs font-medium hover:bg-white"

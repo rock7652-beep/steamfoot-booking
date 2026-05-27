@@ -1,0 +1,239 @@
+/**
+ * PR-E：per-store presentation regression tests
+ *
+ * 兩條主要驗證：
+ *   1. 「fallback safety net」— DB 全 null 時 resolveStorePresentation 必須回 messages.ts 常數
+ *      （任何時點 LIFF 不空白；多店 backfill 前的安全網）
+ *   2. 「zhubei backfill regression」— 模擬竹北 backfill 後 DB 有值，resolveStorePresentation
+ *      回的就是 DB 值；逐欄與 messages.ts 既有常數比對應該完全一致
+ *      （證明 PR-E 對竹北顧客「行為完全不變」）
+ *   3. 「per-store override」— 模擬第二家店 DB 有不同值，回的是該店值（不是常數）
+ *      （證明多店真的能用）
+ *   4. 「liffId env fallback」— Store.liffId null 時讀 env `NEXT_PUBLIC_LIFF_ID_<SLUG>`
+ *      （證明過渡期不破壞既有 env 部署）
+ *   5. 「liffId env 也無」— DB / env 皆無時 liffId === null（page 端應顯示 NotOpenForLiff）
+ *
+ * 也測試 PR-E generateGoogleCalendarUrl 改為接 3 個 per-store args 後行為不變。
+ */
+
+import { describe, it, expect, vi, beforeEach } from "vitest";
+
+// 必須在 import 受測程式碼前先 mock prisma
+const mockStoreFindUnique = vi.fn();
+const mockShopConfigFindUnique = vi.fn();
+
+vi.mock("@/lib/db", () => ({
+  prisma: {
+    store: {
+      findUnique: (...a: unknown[]) => mockStoreFindUnique(...a),
+    },
+    shopConfig: {
+      findUnique: (...a: unknown[]) => mockShopConfigFindUnique(...a),
+    },
+  },
+}));
+
+import { resolveStorePresentation } from "@/lib/store-resolver";
+import {
+  contactStoreUrl,
+  storeAddress,
+  storeMapUrl,
+} from "@/lib/liff/messages";
+import { generateGoogleCalendarUrl } from "@/app/(liff)/liff/bookings/_helpers";
+
+const STORE_ID_ZHUBEI = "store_zhubei";
+const STORE_ID_DEMO2 = "store_demo2";
+
+beforeEach(() => {
+  mockStoreFindUnique.mockReset();
+  mockShopConfigFindUnique.mockReset();
+});
+
+describe("PR-E：resolveStorePresentation fallback safety net", () => {
+  it("DB 全 null → 全欄位回 messages.ts 常數（任何時點 LIFF 不空白）", async () => {
+    mockStoreFindUnique.mockResolvedValueOnce({
+      id: STORE_ID_ZHUBEI,
+      slug: "zhubei",
+      name: "竹北店",
+      liffId: null,
+    });
+    mockShopConfigFindUnique.mockResolvedValueOnce({
+      lineOfficialUrl: null,
+      address: null,
+      mapUrl: null,
+    });
+
+    const p = await resolveStorePresentation("zhubei");
+    expect(p).not.toBeNull();
+    expect(p!.contactUrl).toBe(contactStoreUrl);
+    expect(p!.address).toBe(storeAddress);
+    expect(p!.mapUrl).toBe(storeMapUrl);
+  });
+
+  it("ShopConfig row 不存在（null）→ 全欄位仍 fallback 到常數", async () => {
+    mockStoreFindUnique.mockResolvedValueOnce({
+      id: STORE_ID_DEMO2,
+      slug: "demo2",
+      name: "Demo 第二店",
+      liffId: null,
+    });
+    mockShopConfigFindUnique.mockResolvedValueOnce(null);
+
+    const p = await resolveStorePresentation("demo2");
+    expect(p).not.toBeNull();
+    expect(p!.contactUrl).toBe(contactStoreUrl);
+    expect(p!.address).toBe(storeAddress);
+    expect(p!.mapUrl).toBe(storeMapUrl);
+  });
+});
+
+describe("PR-E：zhubei backfill regression（行為完全不變）", () => {
+  it("backfill 後 DB 值 === 既有 messages.ts 常數 → resolveStorePresentation 回 DB 值", async () => {
+    // 模擬 backfill 已完成：DB 有與既有常數完全相同的值
+    mockStoreFindUnique.mockResolvedValueOnce({
+      id: STORE_ID_ZHUBEI,
+      slug: "zhubei",
+      name: "竹北店",
+      liffId: "1234567890-zhubeiLiff",
+    });
+    mockShopConfigFindUnique.mockResolvedValueOnce({
+      lineOfficialUrl: contactStoreUrl,
+      address: storeAddress,
+      mapUrl: storeMapUrl,
+    });
+
+    const p = await resolveStorePresentation("zhubei");
+    expect(p).not.toBeNull();
+    // 與 backfill 前（直接 import 常數）行為完全一致
+    expect(p!.contactUrl).toBe(contactStoreUrl);
+    expect(p!.address).toBe(storeAddress);
+    expect(p!.mapUrl).toBe(storeMapUrl);
+    expect(p!.liffId).toBe("1234567890-zhubeiLiff");
+  });
+});
+
+describe("PR-E：per-store override（多店真的能用）", () => {
+  it("demo2 DB 有不同值 → 回 demo2 值，不會誤回常數", async () => {
+    mockStoreFindUnique.mockResolvedValueOnce({
+      id: STORE_ID_DEMO2,
+      slug: "demo2",
+      name: "Demo 第二店",
+      liffId: "9876543210-demo2Liff",
+    });
+    mockShopConfigFindUnique.mockResolvedValueOnce({
+      lineOfficialUrl: "https://lin.ee/DEMO2",
+      address: "台中市某區某路 1 號",
+      mapUrl: "https://maps.app.goo.gl/DEMO2",
+    });
+
+    const p = await resolveStorePresentation("demo2");
+    expect(p).not.toBeNull();
+    expect(p!.contactUrl).toBe("https://lin.ee/DEMO2");
+    expect(p!.address).toBe("台中市某區某路 1 號");
+    expect(p!.mapUrl).toBe("https://maps.app.goo.gl/DEMO2");
+    expect(p!.liffId).toBe("9876543210-demo2Liff");
+    // 不應該意外混到常數
+    expect(p!.contactUrl).not.toBe(contactStoreUrl);
+    expect(p!.address).not.toBe(storeAddress);
+  });
+});
+
+describe("PR-E：liffId 過渡期 env fallback", () => {
+  it("Store.liffId null 但 env NEXT_PUBLIC_LIFF_ID_ZHUBEI 有設 → 用 env 值", async () => {
+    const ORIGINAL = process.env.NEXT_PUBLIC_LIFF_ID_ZHUBEI;
+    process.env.NEXT_PUBLIC_LIFF_ID_ZHUBEI = "env_fallback_liff_id";
+
+    mockStoreFindUnique.mockResolvedValueOnce({
+      id: STORE_ID_ZHUBEI,
+      slug: "zhubei",
+      name: "竹北店",
+      liffId: null, // DB 未填
+    });
+    mockShopConfigFindUnique.mockResolvedValueOnce(null);
+
+    const p = await resolveStorePresentation("zhubei");
+    expect(p!.liffId).toBe("env_fallback_liff_id");
+
+    // 還原 env
+    if (ORIGINAL === undefined) {
+      delete process.env.NEXT_PUBLIC_LIFF_ID_ZHUBEI;
+    } else {
+      process.env.NEXT_PUBLIC_LIFF_ID_ZHUBEI = ORIGINAL;
+    }
+  });
+
+  it("Store.liffId null AND env 也無 → liffId === null（page 應顯示 NotOpenForLiff）", async () => {
+    const ORIGINAL = process.env.NEXT_PUBLIC_LIFF_ID_NOSTORE;
+    delete process.env.NEXT_PUBLIC_LIFF_ID_NOSTORE;
+
+    mockStoreFindUnique.mockResolvedValueOnce({
+      id: "ghost",
+      slug: "nostore",
+      name: "Ghost",
+      liffId: null,
+    });
+    mockShopConfigFindUnique.mockResolvedValueOnce(null);
+
+    const p = await resolveStorePresentation("nostore");
+    expect(p!.liffId).toBeNull();
+
+    if (ORIGINAL !== undefined) {
+      process.env.NEXT_PUBLIC_LIFF_ID_NOSTORE = ORIGINAL;
+    }
+  });
+});
+
+describe("PR-E：store 不存在 → resolveStorePresentation 回 null", () => {
+  it("findUnique 回 null → 整個 resolver 回 null（page 顯示「找不到分店」）", async () => {
+    mockStoreFindUnique.mockResolvedValueOnce(null);
+    // shopConfigFindUnique 不應該被呼叫（短路），但設 mock 避免 undefined 行為
+    mockShopConfigFindUnique.mockResolvedValueOnce(null);
+
+    const p = await resolveStorePresentation("nonexistent");
+    expect(p).toBeNull();
+    expect(mockShopConfigFindUnique).not.toHaveBeenCalled();
+  });
+});
+
+describe("PR-E：generateGoogleCalendarUrl 接 per-store args 後行為", () => {
+  it("用 per-store address / mapUrl / contactUrl 組 details", () => {
+    const url = generateGoogleCalendarUrl({
+      bookingDate: "2026-06-15",
+      slotTime: "14:00",
+      storeName: "Demo 第二店",
+      storeAddress: "台中市某區某路一號",
+      storeMapUrl: "https://maps.app.goo.gl/DEMO2",
+      contactUrl: "https://lin.ee/DEMO2",
+    });
+    // URL 應該是 Google Calendar TEMPLATE（HTTP，不是 data URI；hotfix #184 保留）
+    expect(url).toMatch(/^https:\/\/calendar\.google\.com\/calendar\/render\?/);
+    // 用 URL API 正確解析 querystring（URLSearchParams 把空格編成 +，decodeURIComponent 不解）
+    const parsed = new URL(url);
+    const details = parsed.searchParams.get("details") ?? "";
+    const location = parsed.searchParams.get("location") ?? "";
+    const text = parsed.searchParams.get("text") ?? "";
+    expect(details).toContain("台中市某區某路一號");
+    expect(details).toContain("https://maps.app.goo.gl/DEMO2");
+    expect(details).toContain("https://lin.ee/DEMO2");
+    expect(location).toBe("台中市某區某路一號");
+    expect(text).toBe("Demo 第二店 預約");
+  });
+
+  it("竹北 regression：傳 messages.ts 常數值 → URL 與 PR-E 前等價", () => {
+    const url = generateGoogleCalendarUrl({
+      bookingDate: "2026-06-15",
+      slotTime: "14:00",
+      storeName: "竹北店",
+      storeAddress,
+      storeMapUrl,
+      contactUrl: contactStoreUrl,
+    });
+    const parsed = new URL(url);
+    const details = parsed.searchParams.get("details") ?? "";
+    const location = parsed.searchParams.get("location") ?? "";
+    expect(details).toContain(storeAddress);
+    expect(details).toContain(storeMapUrl);
+    expect(details).toContain(contactStoreUrl);
+    expect(location).toBe(storeAddress);
+  });
+});

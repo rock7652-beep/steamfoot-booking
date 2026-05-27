@@ -28,8 +28,17 @@
 
 /**
  * MVP 期：每店一個 `NEXT_PUBLIC_LIFF_ID_*` env var，明示對應關係。
- * 未來改為 `Store.liffId` 後（PR-E），把這張表內部換成 DB 查詢；
- * `resolveLiffIdBySlug` 的 signature 保持不變。
+ *
+ * PR-E 之後：`Store.liffId` 已進 schema；新的 LIFF page 改走
+ * `resolveStorePresentation(slug).liffId`（src/lib/store-resolver.ts）。
+ * env 變數只在 `resolveStorePresentation` 內部當「DB 未填」的過渡 fallback；
+ * 新店上線只需在後台填 `Store.liffId`，不必再改 code 對照表。
+ *
+ * 本檔保留 export 是為了：
+ *   1. 不破壞 P1-3 既有 unit test 與第三方匯入
+ *   2. PR-E 後續清理階段（backfill 全部 store 完成）一次性移除
+ *
+ * @deprecated PR-E：請改用 `resolveStorePresentation(slug).liffId`。
  */
 export const LIFF_ID_BY_SLUG: Record<string, string | undefined> = {
   zhubei: process.env.NEXT_PUBLIC_LIFF_ID_ZHUBEI,
@@ -41,6 +50,9 @@ export const LIFF_ID_BY_SLUG: Record<string, string | undefined> = {
  *
  * @returns LIFF ID string when both the slug is registered AND its env-var
  *          is set; otherwise `undefined` (callsite renders「尚未開通」UI).
+ *
+ * @deprecated PR-E：請改用 `resolveStorePresentation(slug).liffId`。新店家應在
+ *             `Store.liffId` 欄位設值，不再依賴 env 對照表。
  */
 export function resolveLiffIdBySlug(slug: string): string | undefined {
   return LIFF_ID_BY_SLUG[slug];

@@ -1,6 +1,5 @@
 import { headers, cookies } from "next/headers";
-import { resolveLiffIdBySlug } from "@/lib/liff/liff-id";
-import { resolveStoreBySlug } from "@/lib/store-resolver";
+import { resolveStorePresentation } from "@/lib/store-resolver";
 import { LiffShell } from "./liff-shell";
 
 /**
@@ -8,9 +7,10 @@ import { LiffShell } from "./liff-shell";
  *
  * 流程：
  *   1. 從 proxy 注入的 x-store-slug header（fallback: cookie / "zhubei"）取得 slug
- *   2. resolveStoreBySlug → 取得 name；未找到顯示「尚未開通」錯誤頁
- *   3. 透過 `resolveLiffIdBySlug` 解析 LIFF ID；未設定也顯示「尚未開通」
- *   4. 把 storeName + liffId 傳給 client shell；shell 跑 liff.init() 顯示三態
+ *   2. resolveStorePresentation → 取得 {name, liffId, contactUrl, address, mapUrl}（PR-E）
+ *      - store 找不到 → NotOpenForLiff（找不到分店）
+ *      - liffId 為 null → NotOpenForLiff（尚未開通）
+ *   3. 把 storeName / liffId / contactUrl 傳給 client shell；shell 跑 liff.init() 顯示三態
  *
  * 本頁刻意 *不* 做：
  *   - 不查 customer / NextAuth session
@@ -28,17 +28,22 @@ export default async function LiffEntryPage() {
     cookieStore.get("store-slug")?.value ??
     "zhubei";
 
-  const store = await resolveStoreBySlug(storeSlug);
-  if (!store) {
+  const presentation = await resolveStorePresentation(storeSlug);
+  if (!presentation) {
     return <NotOpenForLiff message={`找不到分店：${storeSlug}`} />;
   }
-
-  const liffId = resolveLiffIdBySlug(store.slug);
-  if (!liffId) {
-    return <NotOpenForLiff message={`${store.name} 尚未開通 LINE Mini App`} />;
+  if (!presentation.liffId) {
+    return <NotOpenForLiff message={`${presentation.name} 尚未開通 LINE Mini App`} />;
   }
 
-  return <LiffShell storeName={store.name} storeSlug={store.slug} liffId={liffId} />;
+  return (
+    <LiffShell
+      storeName={presentation.name}
+      storeSlug={presentation.slug}
+      liffId={presentation.liffId}
+      contactUrl={presentation.contactUrl}
+    />
+  );
 }
 
 function NotOpenForLiff({ message }: { message: string }) {

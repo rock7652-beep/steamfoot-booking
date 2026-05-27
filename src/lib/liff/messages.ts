@@ -12,19 +12,41 @@
  */
 
 /**
- * PR-C2 階段：全店共用一個 LINE OA 連結；多店分流交給 PR-E
- * (Store.lineDestination 已存在，但 PR-C2 不動 schema/DB，待 PR-E 再 wire)
+ * ⚠️ PR-E 起：以下 4 個常數降級為「fallback default」。
+ *
+ * 正解：LIFF page 應呼叫 `resolveStorePresentation(slug)`（src/lib/store-resolver.ts）
+ * 取得 per-store 的 `{ liffId, contactUrl, address, mapUrl }`，以 props 傳給 client。
+ *
+ * 這些常數現在只剩 2 個合法用途：
+ *   1. `resolveStorePresentation` 內部：某店 DB 欄位為 null 時的 fallback 值，
+ *      確保任何時點 LIFF 不會空白（PR-E 安全網）。
+ *   2. `src/app/(liff)/liff/error.tsx`：error boundary 拿不到 server-side props，
+ *      只能 import 常數，這是規格認可的例外。
+ *
+ * 其他 client component **禁止** 直接 import 這些常數，請改吃 props.presentation.*。
+ * 等 PR-E 完成 backfill + 第二家店上線後，這些值與「竹北實際值」可能不同——
+ * 直接 import 會造成多店資料顯示錯誤（這正是 PR-E 要消滅的根因）。
+ *
+ * 為何不刪 / 不改名：
+ *   - 不刪：error.tsx 與 fallback path 仍需要這些字面值
+ *   - 不改名：減少 PR-E 的 diff scope，rename 留 P2 後續清理
+ *
+ * 各常數來源：
+ *   - contactStoreUrl   = 竹北 LINE OA chat
+ *   - storeAddress      = 竹北實體地址
+ *   - storeMapUrl       = 竹北 Google Maps 短連結
+ *   - healthFlowLiffUrl = HealthFlow AI 評估 LIFF（per spec 1.5：先維持共用，未來再 per-store）
  */
 export const contactStoreUrl = "https://line.me/R/ti/p/@083vmikb";
 
 /**
- * PR-F1A：HealthFlow AI 健康評估 LIFF URL（外部獨立 LIFF App）。
+ * HealthFlow AI 健康評估 LIFF URL（外部獨立 LIFF App）— 共用常數（PR-E 未 per-store）。
  *
- * 為何 hardcode global const（同 contactStoreUrl / storeAddress / storeMapUrl）：
- *   - HealthFlow 是獨立 LIFF App，由 HealthFlow 用自己的 LIFF ID 處理 LINE 身分
+ * 為何不在 PR-E 改 per-store：
+ *   - HealthFlow 是獨立 LIFF App，用自己的 LIFF ID 處理 LINE 身分
  *   - Steamfoot 不傳任何 identity 參數（customerId / storeId / lineUserId / phone / name）
- *   - 純導流入口，URL 不含 query string，避免跨系統身份對錯與個資洩漏
- *   - PR-E 階段未動 schema；多店若需差異化 HealthFlow 入口，後續 PR 改 per-store
+ *   - 純導流入口，各店指同一入口在功能上正確
+ *   - 後續若某店要不同 HealthFlow 入口，再加 ShopConfig.healthFlowUrl（nullable，fallback 此值）
  *
  * 為何用 liff.line.me URL 而非 www.healthflow-ai.com：
  *   - liff.line.me redirector 是 LINE 官方基礎設施，自動 handle LINE Login + LIFF context
@@ -32,14 +54,6 @@ export const contactStoreUrl = "https://line.me/R/ti/p/@083vmikb";
  */
 export const healthFlowLiffUrl = "https://liff.line.me/2009744225-9aSc04fR";
 
-/**
- * PR-E1-2：竹北店地址 + Google Maps 短網址（指到店家專屬 listing，含評論 / 照片）。
- * 同 contactStoreUrl 模式：PR-C2 階段全店共用 const；多店分流交給 PR-E
- * (Store.address schema 已存在但 prod 未填，待 PR-E 再 wire per-store)。
- *
- * Map URL 為 Google Maps 官方分享短連結 — 點 deep link 在 iOS/Android 自動
- * 跳原生 Maps app，不需額外做 Apple Maps 分流。
- */
 export const storeAddress = "302新竹縣竹北市中崙里科大一路80號";
 export const storeMapUrl = "https://maps.app.goo.gl/EyqUvkAaHCxu6iWz5?g_st=ic";
 

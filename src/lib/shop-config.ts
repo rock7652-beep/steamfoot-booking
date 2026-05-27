@@ -99,6 +99,9 @@ export async function getShopConfig(storeId?: string | null) {
       bankCode: null,
       bankAccountNumber: null,
       lineOfficialUrl: null,
+      // PR-E：per-store presentation 欄位（null = 由 resolveStorePresentation 回退到常數）
+      address: null,
+      mapUrl: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -107,6 +110,7 @@ export async function getShopConfig(storeId?: string | null) {
   // 不可用 implicit full-model SELECT — 否則新增任一 ShopConfig 欄位後，
   // 「新 client + 舊 DB」會 SELECT 不存在的欄位 → P2022 → 全站 blast radius。
   // 體驗課設定不在此回傳，請改用 getTrialSettings()。
+  // PR-E 新增 address / mapUrl 進 select（per-store LIFF presentation）。
   const config = await prisma.shopConfig.findUnique({
     where: { storeId },
     select: {
@@ -118,6 +122,8 @@ export async function getShopConfig(storeId?: string | null) {
       bankCode: true,
       bankAccountNumber: true,
       lineOfficialUrl: true,
+      address: true,
+      mapUrl: true,
       createdAt: true,
       updatedAt: true,
     },
@@ -133,6 +139,8 @@ export async function getShopConfig(storeId?: string | null) {
     bankCode: null,
     bankAccountNumber: null,
     lineOfficialUrl: null,
+    address: null,
+    mapUrl: null,
     createdAt: new Date(),
     updatedAt: new Date(),
   };

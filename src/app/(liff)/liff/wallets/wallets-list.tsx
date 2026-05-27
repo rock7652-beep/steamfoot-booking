@@ -29,7 +29,7 @@ import {
   type LiffWalletRow,
 } from "@/server/actions/liff-my-wallets";
 import { isExpiringSoon } from "@/lib/liff/my-wallets";
-import { contactStoreUrl, liffMessages } from "@/lib/liff/messages";
+import { liffMessages } from "@/lib/liff/messages";
 
 type State =
   | { kind: "initializing" }
@@ -47,9 +47,11 @@ interface Props {
   storeSlug: string;
   storeName: string;
   liffId: string;
+  /** PR-E：per-store LINE OA 連結。 */
+  contactUrl: string;
 }
 
-export function WalletsList({ storeSlug, storeName, liffId }: Props) {
+export function WalletsList({ storeSlug, storeName, liffId, contactUrl }: Props) {
   const [state, setState] = useState<State>({ kind: "initializing" });
 
   useEffect(() => {
@@ -129,6 +131,7 @@ export function WalletsList({ storeSlug, storeName, liffId }: Props) {
           title={liffMessages.shell.notInLineApp.title}
           body={liffMessages.shell.notInLineApp.body}
           storeSlug={storeSlug}
+          contactUrl={contactUrl}
           showContactStore
         />
       )}
@@ -137,6 +140,7 @@ export function WalletsList({ storeSlug, storeName, liffId }: Props) {
           tone="yellow"
           body={liffMessages.error.expired}
           storeSlug={storeSlug}
+          contactUrl={contactUrl}
           showRetry
         />
       )}
@@ -145,6 +149,7 @@ export function WalletsList({ storeSlug, storeName, liffId }: Props) {
           tone="red"
           body={liffMessages.wallets.loadFailed}
           storeSlug={storeSlug}
+          contactUrl={contactUrl}
           showRetry
           showContactStore
         />
@@ -156,6 +161,7 @@ export function WalletsList({ storeSlug, storeName, liffId }: Props) {
           expired={state.expired}
           history={state.history}
           storeSlug={storeSlug}
+          contactUrl={contactUrl}
         />
       )}
     </div>
@@ -171,11 +177,14 @@ function ReadyView({
   expired,
   history,
   storeSlug,
+  contactUrl,
 }: {
   active: LiffWalletRow[];
   expired: LiffWalletRow[];
   history: LiffWalletRow[];
   storeSlug: string;
+  /** PR-E：per-store LINE OA 連結。 */
+  contactUrl: string;
 }) {
   const totalCount = active.length + expired.length + history.length;
   const isEmpty = totalCount === 0;
@@ -187,7 +196,7 @@ function ReadyView({
   return (
     <>
       {isEmpty ? (
-        <EmptyState />
+        <EmptyState contactUrl={contactUrl} />
       ) : (
         <>
           {active.length > 0 && (
@@ -231,7 +240,7 @@ function ReadyView({
           顧客有問題（剩餘堂數 / 過期 / 用完）能直接找店家確認。 */}
       <div className={`${showBookNow ? "mt-2" : "mt-4"} flex gap-2`}>
         <a
-          href={contactStoreUrl}
+          href={contactUrl}
           target="_blank"
           rel="noopener noreferrer"
           className="flex flex-1 min-h-[44px] items-center justify-center gap-2 rounded-xl bg-[#06C755] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#05b54d] active:scale-[0.98]"
@@ -373,14 +382,14 @@ function WalletCard({
   );
 }
 
-function EmptyState() {
+function EmptyState({ contactUrl }: { contactUrl: string }) {
   const m = liffMessages.wallets;
   return (
     <div className="flex flex-col gap-3 rounded-xl border border-dashed border-earth-300 bg-white px-4 py-10 text-center">
       <p className="text-base font-semibold text-earth-900">{m.emptyTitle}</p>
       <p className="text-sm text-earth-600">{m.emptyBody}</p>
       <a
-        href={contactStoreUrl}
+        href={contactUrl}
         target="_blank"
         rel="noopener noreferrer"
         className="mt-2 inline-flex w-full min-h-[44px] items-center justify-center gap-2 rounded-xl bg-[#06C755] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#05b54d] active:scale-[0.98]"
@@ -424,6 +433,7 @@ function InfoBlock({
   showRetry,
   showContactStore,
   storeSlug,
+  contactUrl,
 }: {
   tone: "green" | "red" | "yellow" | "earth";
   title?: string;
@@ -431,6 +441,8 @@ function InfoBlock({
   showRetry?: boolean;
   showContactStore?: boolean;
   storeSlug: string;
+  /** PR-E：per-store LINE OA 連結；showContactStore=true 時必填。 */
+  contactUrl: string;
 }) {
   const toneClasses: Record<typeof tone, string> = {
     green: "border-green-200 bg-green-50 text-green-900",
@@ -458,7 +470,7 @@ function InfoBlock({
         )}
         {showContactStore && (
           <a
-            href={contactStoreUrl}
+            href={contactUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="rounded-md border border-current bg-white/70 px-3 py-1.5 text-xs font-medium hover:bg-white"

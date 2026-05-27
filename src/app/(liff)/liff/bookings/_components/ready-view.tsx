@@ -26,6 +26,9 @@ export function ReadyView({
   storeSlug,
   storeName,
   onRequestCancel,
+  contactUrl,
+  storeAddress,
+  storeMapUrl,
 }: {
   upcoming: LiffBookingRow[];
   history: LiffBookingRow[];
@@ -36,6 +39,12 @@ export function ReadyView({
   storeName: string;
   /** PR-D4A-2：upcoming card 點「取消此次預約」時 caller 開 modal */
   onRequestCancel: (b: LiffBookingRow) => void;
+  /** PR-E：per-store LINE OA 連結，傳給 BookingCard。 */
+  contactUrl: string;
+  /** PR-E：per-store 店家地址，傳給 BookingCard。 */
+  storeAddress: string;
+  /** PR-E：per-store Google Maps 短網址，傳給 BookingCard。 */
+  storeMapUrl: string;
 }) {
   const displayed = tab === "upcoming" ? upcoming : history;
   return (
@@ -53,6 +62,9 @@ export function ReadyView({
                 tab={tab}
                 storeName={storeName}
                 onRequestCancel={onRequestCancel}
+                contactUrl={contactUrl}
+                storeAddress={storeAddress}
+                storeMapUrl={storeMapUrl}
               />
             </li>
           ))}

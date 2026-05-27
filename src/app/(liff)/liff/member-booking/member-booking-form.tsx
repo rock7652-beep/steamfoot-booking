@@ -97,9 +97,11 @@ interface Props {
   storeSlug: string;
   storeName: string;
   liffId: string;
+  /** PR-E：per-store LINE OA 連結。 */
+  contactUrl: string;
 }
 
-export function MemberBookingForm({ storeSlug, storeName, liffId }: Props) {
+export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: Props) {
   const [state, setState] = useState<State>({ kind: "initializing" });
 
   // calendar state — 台灣今日（client clock；server gate 才是 source of truth）
@@ -400,11 +402,17 @@ export function MemberBookingForm({ storeSlug, storeName, liffId }: Props) {
           title={liffMessages.shell.notInLineApp.title}
           body={liffMessages.shell.notInLineApp.body}
           showContactStore
+          contactUrl={contactUrl}
         />
       )}
 
       {state.kind === "expired" && (
-        <InfoBlock tone="yellow" body={liffMessages.error.expired} showRetry />
+        <InfoBlock
+          tone="yellow"
+          body={liffMessages.error.expired}
+          showRetry
+          contactUrl={contactUrl}
+        />
       )}
 
       {state.kind === "service_unavailable" && (
@@ -413,11 +421,16 @@ export function MemberBookingForm({ storeSlug, storeName, liffId }: Props) {
           body={liffMessages.error.serviceUnavailable}
           showRetry
           showContactStore
+          contactUrl={contactUrl}
         />
       )}
 
       {state.kind === "no_wallet" && (
-        <NoWalletCard storeSlug={storeSlug} reason={state.reason} />
+        <NoWalletCard
+          storeSlug={storeSlug}
+          reason={state.reason}
+          contactUrl={contactUrl}
+        />
       )}
 
       {state.kind === "success" && (
@@ -435,6 +448,7 @@ export function MemberBookingForm({ storeSlug, storeName, liffId }: Props) {
           showContactStore={state.showContactStore}
           showDismiss={state.showDismiss}
           onDismiss={handleDismissBlocked}
+          contactUrl={contactUrl}
         />
       )}
 

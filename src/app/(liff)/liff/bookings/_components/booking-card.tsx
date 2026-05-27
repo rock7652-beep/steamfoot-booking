@@ -7,12 +7,7 @@
  * cancel button 點擊呼叫 `onRequestCancel(booking)`，由 caller 開 modal。
  */
 
-import {
-  contactStoreUrl,
-  liffMessages,
-  storeAddress,
-  storeMapUrl,
-} from "@/lib/liff/messages";
+import { liffMessages } from "@/lib/liff/messages";
 import { STATUS_COLOR, STATUS_LABEL } from "@/lib/booking-constants";
 import type { LiffBookingRow } from "@/server/actions/liff-my-bookings";
 import {
@@ -32,6 +27,9 @@ export function BookingCard({
   tab,
   storeName,
   onRequestCancel,
+  contactUrl,
+  storeAddress,
+  storeMapUrl,
 }: {
   booking: LiffBookingRow;
   tab: Tab;
@@ -39,6 +37,12 @@ export function BookingCard({
   storeName: string;
   /** PR-D4A-2：caller 開 cancel modal；history tab 不傳 = 不顯示按鈕 */
   onRequestCancel?: (b: LiffBookingRow) => void;
+  /** PR-E：per-store LINE OA 連結。 */
+  contactUrl: string;
+  /** PR-E：per-store 店家地址（顯示用）。 */
+  storeAddress: string;
+  /** PR-E：per-store Google Maps 短網址。 */
+  storeMapUrl: string;
 }) {
   const dateLabel = formatBookingDate(booking.bookingDate);
   const isCancelled = booking.bookingStatus === "CANCELLED";
@@ -115,10 +119,11 @@ export function BookingCard({
 
               {/* PR-E1-1：「聯絡店家」LINE-green CTA — 顧客有問題時的安全出口。
                   upcoming non-cancelled 才顯示（與 cancel button 同條件）。
-                  純 <a> 開 LINE OA，零 server / DB / auth；URL = 既有 contactStoreUrl
-                  (PR-C2 全店共用；PR-E 後改 per-store via Store.lineDestination)。*/}
+                  純 <a> 開 LINE OA，零 server / DB / auth。
+                  PR-E：href 改自 server-resolved per-store contactUrl
+                  （ShopConfig.lineOfficialUrl，缺值 fallback 到常數）。*/}
               <a
-                href={contactStoreUrl}
+                href={contactUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex w-full min-h-[44px] items-center justify-center gap-2 rounded-xl bg-[#06C755] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#05b54d] active:scale-[0.98]"
@@ -130,7 +135,8 @@ export function BookingCard({
               {/* PR-E1-2：地址小字 + Google-blue「導航到店」CTA。
                   顧客「出發前」最自然位置；按下 Google Maps deep link 跳原生 Maps app。
                   地址為店家專屬 listing 短網址（含評論 / 照片 / 營業時間），體感優於通用搜尋。
-                  per-store address 待 PR-E 從 Store.address 取（目前 hardcode same 模式 as contactStoreUrl）。*/}
+                  PR-E：address / mapUrl 改自 server-resolved per-store
+                  （ShopConfig.address / mapUrl，缺值 fallback 到常數）。*/}
               <div className="flex flex-col gap-1">
                 <p className="text-xs text-earth-600">{storeAddress}</p>
                 <a
@@ -161,6 +167,9 @@ export function BookingCard({
                     bookingDate: booking.bookingDate,
                     slotTime: booking.slotTime,
                     storeName,
+                    storeAddress,
+                    storeMapUrl,
+                    contactUrl,
                   });
                 }}
                 className="flex w-full min-h-[44px] items-center justify-center gap-2 rounded-xl border border-earth-300 bg-white px-4 py-2.5 text-sm font-medium text-earth-700 hover:bg-earth-50 active:scale-[0.98]"
