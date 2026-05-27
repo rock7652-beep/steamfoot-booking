@@ -13,18 +13,25 @@ import {
  * 使用 React.cache() 確保同一 request 只查一次。
  */
 
-type StoreInfo = { id: string; slug: string; name: string; liffId: string | null };
+type StoreInfo = { id: string; slug: string; name: string };
 
 /**
  * 從 slug 查詢 store（回傳 null 表示不存在）
  *
- * PR-E：select 加 liffId（每店 LIFF ID）。舊呼叫端不取此欄位也不受影響。
+ * PR-E patch（Codex P1）：select **不含** `liffId`，保留 PR-E 前的 {id, slug, name}。
+ *
+ * 為什麼：此 resolver 有 22+ 個呼叫點（auth.ts / store-context / server actions /
+ * webhook 等非 LIFF 路徑）。若這裡 select liffId，當 PR-E migration 還沒套用前 deploy
+ * 新 code，所有呼叫端會 P2022 missing-column → 全站 store-scoped 路徑（含登入）炸。
+ *
+ * liffId 改由 `resolveStorePresentation` 內部另外查（只 LIFF page 用）；
+ * 即使 deploy 順序錯誤，blast radius 收斂到 7 個 LIFF page，其他 22+ 路徑無感。
  */
 export const resolveStoreBySlug = cache(async (slug: string): Promise<StoreInfo | null> => {
   const { prisma } = await import("@/lib/db");
   const store = await prisma.store.findUnique({
     where: { slug },
-    select: { id: true, slug: true, name: true, liffId: true },
+    select: { id: true, slug: true, name: true },
   });
   return store;
 });
@@ -131,6 +138,13 @@ export type StorePresentation = {
  *   3. 用 React.cache 包裝 → 同一 request 多次呼叫只查 1 次（同 resolveStoreBySlug）
  *   4. 不 throw；找不到店 → 回 null，由 page render NotOpenForLiff
  *
+ * Codex P1 patch（deploy 順序 hardening）：
+ *   `Store.liffId` 不從 resolveStoreBySlug select，改在這裡 `Promise.all` 內另查。
+ *   原因：resolveStoreBySlug 有 22+ 個呼叫點（auth / store-context / server actions），
+ *   若它 select 新欄位 liffId，當 migration 還沒套用前 deploy 新 code，全站會 P2022
+ *   missing-column → 登入也壞。改成 LIFF-only 的 separate query 後，blast radius
+ *   收斂到 7 個 LIFF page（other 22+ paths 對 PR-E migration 順序無感）。
+ *
  * @returns null 表示 slug 不存在於 DB
  */
 export const resolveStorePresentation = cache(
@@ -139,13 +153,20 @@ export const resolveStorePresentation = cache(
     if (!store) return null;
 
     const { prisma } = await import("@/lib/db");
-    // 只 select 本 PR 需要的 3 個欄位；不沾 ShopConfig 其餘欄位。
-    const cfg = await prisma.shopConfig.findUnique({
-      where: { storeId: store.id },
-      select: { lineOfficialUrl: true, address: true, mapUrl: true },
-    });
+    // PR-E patch（Codex P1）：liffId 與 shopConfig 平行查；只 LIFF page 走這裡。
+    // 兩個 query 都 select 最小欄位集合，避免新增任何 ShopConfig 欄位後波及。
+    const [storeLiffRow, cfg] = await Promise.all([
+      prisma.store.findUnique({
+        where: { id: store.id },
+        select: { liffId: true },
+      }),
+      prisma.shopConfig.findUnique({
+        where: { storeId: store.id },
+        select: { lineOfficialUrl: true, address: true, mapUrl: true },
+      }),
+    ]);
 
-    // 過渡期 LIFF ID fallback：未填 store.liffId 時讀 env，env 也無則 null。
+    // 過渡期 LIFF ID fallback：未填 Store.liffId 時讀 env，env 也無則 null。
     // 等 prod backfill 完成且 7 頁皆 wire 完，env 可在後續 PR 移除。
     const envLiffId =
       process.env[`NEXT_PUBLIC_LIFF_ID_${slug.toUpperCase()}`] ?? null;
@@ -154,7 +175,7 @@ export const resolveStorePresentation = cache(
       id: store.id,
       slug: store.slug,
       name: store.name,
-      liffId: store.liffId ?? envLiffId ?? null,
+      liffId: storeLiffRow?.liffId ?? envLiffId ?? null,
       contactUrl: cfg?.lineOfficialUrl ?? FALLBACK_CONTACT_URL,
       address: cfg?.address ?? FALLBACK_STORE_ADDRESS,
       mapUrl: cfg?.mapUrl ?? FALLBACK_STORE_MAP_URL,

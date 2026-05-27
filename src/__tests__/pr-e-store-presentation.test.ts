@@ -49,18 +49,38 @@ beforeEach(() => {
   mockShopConfigFindUnique.mockReset();
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// PR-E patch（Codex P1）：resolveStorePresentation 現在做 2 次 store.findUnique：
+//   1. resolveStoreBySlug() — select {id, slug, name}（保留 PR-E 前行為，避免
+//      其他 22+ 個 caller 在 migration 未套用時 P2022）
+//   2. 第二次 — select {liffId}（PR-E LIFF-only 新增）
+// 加上 1 次 shopConfig.findUnique。Mock 需依此順序 mockResolvedValueOnce。
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Helper：mock 同一個 slug 的 store 查詢（兩次 findUnique）+ 它的 ShopConfig */
+function mockStoreLookup(opts: {
+  storeBySlug: { id: string; slug: string; name: string } | null;
+  liffId: string | null;
+  shopConfig: {
+    lineOfficialUrl: string | null;
+    address: string | null;
+    mapUrl: string | null;
+  } | null;
+}) {
+  mockStoreFindUnique
+    .mockResolvedValueOnce(opts.storeBySlug) // 1st: resolveStoreBySlug
+    .mockResolvedValueOnce(
+      opts.storeBySlug === null ? null : { liffId: opts.liffId }
+    ); // 2nd: liffId-only query
+  mockShopConfigFindUnique.mockResolvedValueOnce(opts.shopConfig);
+}
+
 describe("PR-E：resolveStorePresentation fallback safety net", () => {
   it("DB 全 null → 全欄位回 messages.ts 常數（任何時點 LIFF 不空白）", async () => {
-    mockStoreFindUnique.mockResolvedValueOnce({
-      id: STORE_ID_ZHUBEI,
-      slug: "zhubei",
-      name: "竹北店",
+    mockStoreLookup({
+      storeBySlug: { id: STORE_ID_ZHUBEI, slug: "zhubei", name: "竹北店" },
       liffId: null,
-    });
-    mockShopConfigFindUnique.mockResolvedValueOnce({
-      lineOfficialUrl: null,
-      address: null,
-      mapUrl: null,
+      shopConfig: { lineOfficialUrl: null, address: null, mapUrl: null },
     });
 
     const p = await resolveStorePresentation("zhubei");
@@ -71,13 +91,11 @@ describe("PR-E：resolveStorePresentation fallback safety net", () => {
   });
 
   it("ShopConfig row 不存在（null）→ 全欄位仍 fallback 到常數", async () => {
-    mockStoreFindUnique.mockResolvedValueOnce({
-      id: STORE_ID_DEMO2,
-      slug: "demo2",
-      name: "Demo 第二店",
+    mockStoreLookup({
+      storeBySlug: { id: STORE_ID_DEMO2, slug: "demo2", name: "Demo 第二店" },
       liffId: null,
+      shopConfig: null,
     });
-    mockShopConfigFindUnique.mockResolvedValueOnce(null);
 
     const p = await resolveStorePresentation("demo2");
     expect(p).not.toBeNull();
@@ -90,16 +108,14 @@ describe("PR-E：resolveStorePresentation fallback safety net", () => {
 describe("PR-E：zhubei backfill regression（行為完全不變）", () => {
   it("backfill 後 DB 值 === 既有 messages.ts 常數 → resolveStorePresentation 回 DB 值", async () => {
     // 模擬 backfill 已完成：DB 有與既有常數完全相同的值
-    mockStoreFindUnique.mockResolvedValueOnce({
-      id: STORE_ID_ZHUBEI,
-      slug: "zhubei",
-      name: "竹北店",
+    mockStoreLookup({
+      storeBySlug: { id: STORE_ID_ZHUBEI, slug: "zhubei", name: "竹北店" },
       liffId: "1234567890-zhubeiLiff",
-    });
-    mockShopConfigFindUnique.mockResolvedValueOnce({
-      lineOfficialUrl: contactStoreUrl,
-      address: storeAddress,
-      mapUrl: storeMapUrl,
+      shopConfig: {
+        lineOfficialUrl: contactStoreUrl,
+        address: storeAddress,
+        mapUrl: storeMapUrl,
+      },
     });
 
     const p = await resolveStorePresentation("zhubei");
@@ -114,22 +130,20 @@ describe("PR-E：zhubei backfill regression（行為完全不變）", () => {
 
 describe("PR-E：per-store override（多店真的能用）", () => {
   it("demo2 DB 有不同值 → 回 demo2 值，不會誤回常數", async () => {
-    mockStoreFindUnique.mockResolvedValueOnce({
-      id: STORE_ID_DEMO2,
-      slug: "demo2",
-      name: "Demo 第二店",
+    mockStoreLookup({
+      storeBySlug: { id: STORE_ID_DEMO2, slug: "demo2", name: "Demo 第二店" },
       liffId: "9876543210-demo2Liff",
-    });
-    mockShopConfigFindUnique.mockResolvedValueOnce({
-      lineOfficialUrl: "https://lin.ee/DEMO2",
-      address: "台中市某區某路 1 號",
-      mapUrl: "https://maps.app.goo.gl/DEMO2",
+      shopConfig: {
+        lineOfficialUrl: "https://lin.ee/DEMO2",
+        address: "台中市某區某路一號",
+        mapUrl: "https://maps.app.goo.gl/DEMO2",
+      },
     });
 
     const p = await resolveStorePresentation("demo2");
     expect(p).not.toBeNull();
     expect(p!.contactUrl).toBe("https://lin.ee/DEMO2");
-    expect(p!.address).toBe("台中市某區某路 1 號");
+    expect(p!.address).toBe("台中市某區某路一號");
     expect(p!.mapUrl).toBe("https://maps.app.goo.gl/DEMO2");
     expect(p!.liffId).toBe("9876543210-demo2Liff");
     // 不應該意外混到常數
@@ -143,13 +157,11 @@ describe("PR-E：liffId 過渡期 env fallback", () => {
     const ORIGINAL = process.env.NEXT_PUBLIC_LIFF_ID_ZHUBEI;
     process.env.NEXT_PUBLIC_LIFF_ID_ZHUBEI = "env_fallback_liff_id";
 
-    mockStoreFindUnique.mockResolvedValueOnce({
-      id: STORE_ID_ZHUBEI,
-      slug: "zhubei",
-      name: "竹北店",
+    mockStoreLookup({
+      storeBySlug: { id: STORE_ID_ZHUBEI, slug: "zhubei", name: "竹北店" },
       liffId: null, // DB 未填
+      shopConfig: null,
     });
-    mockShopConfigFindUnique.mockResolvedValueOnce(null);
 
     const p = await resolveStorePresentation("zhubei");
     expect(p!.liffId).toBe("env_fallback_liff_id");
@@ -166,13 +178,11 @@ describe("PR-E：liffId 過渡期 env fallback", () => {
     const ORIGINAL = process.env.NEXT_PUBLIC_LIFF_ID_NOSTORE;
     delete process.env.NEXT_PUBLIC_LIFF_ID_NOSTORE;
 
-    mockStoreFindUnique.mockResolvedValueOnce({
-      id: "ghost",
-      slug: "nostore",
-      name: "Ghost",
+    mockStoreLookup({
+      storeBySlug: { id: "ghost", slug: "nostore", name: "Ghost" },
       liffId: null,
+      shopConfig: null,
     });
-    mockShopConfigFindUnique.mockResolvedValueOnce(null);
 
     const p = await resolveStorePresentation("nostore");
     expect(p!.liffId).toBeNull();
@@ -185,13 +195,39 @@ describe("PR-E：liffId 過渡期 env fallback", () => {
 
 describe("PR-E：store 不存在 → resolveStorePresentation 回 null", () => {
   it("findUnique 回 null → 整個 resolver 回 null（page 顯示「找不到分店」）", async () => {
+    // store 不存在：第一次 findUnique 回 null，後續查詢應該短路不執行
     mockStoreFindUnique.mockResolvedValueOnce(null);
-    // shopConfigFindUnique 不應該被呼叫（短路），但設 mock 避免 undefined 行為
-    mockShopConfigFindUnique.mockResolvedValueOnce(null);
 
     const p = await resolveStorePresentation("nonexistent");
     expect(p).toBeNull();
+    // 應該短路：第二次 store.findUnique（liffId）與 shopConfig.findUnique 都不該被呼叫
+    expect(mockStoreFindUnique).toHaveBeenCalledTimes(1);
     expect(mockShopConfigFindUnique).not.toHaveBeenCalled();
+  });
+});
+
+describe("PR-E patch（Codex P1）：resolveStoreBySlug 不再 select liffId", () => {
+  it("resolveStorePresentation 內部仍能拿到 liffId（不影響行為）", async () => {
+    mockStoreLookup({
+      storeBySlug: { id: STORE_ID_ZHUBEI, slug: "zhubei", name: "竹北店" },
+      liffId: "abc123",
+      shopConfig: null,
+    });
+
+    const p = await resolveStorePresentation("zhubei");
+    expect(p!.liffId).toBe("abc123");
+
+    // 驗證 patch 的核心：resolveStoreBySlug 的 select 沒有 liffId
+    // （第 1 個 findUnique call 應該只 select 既有 3 欄位）
+    expect(mockStoreFindUnique.mock.calls[0]?.[0]).toEqual({
+      where: { slug: "zhubei" },
+      select: { id: true, slug: true, name: true },
+    });
+    // 第 2 個 findUnique call 才是 liffId-only query
+    expect(mockStoreFindUnique.mock.calls[1]?.[0]).toEqual({
+      where: { id: STORE_ID_ZHUBEI },
+      select: { liffId: true },
+    });
   });
 });
 

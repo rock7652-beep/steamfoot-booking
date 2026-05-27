@@ -49,10 +49,11 @@ describe("store-resolver", () => {
         slug: "zhubei",
         name: "暖暖蒸足",
       });
-      // PR-E：select 加 liffId 為 per-store LIFF ID 來源
+      // PR-E patch（Codex P1）：保留 PR-E 前的 {id, slug, name} select。
+      // liffId 不從 resolveStoreBySlug 取，已移到 resolveStorePresentation 內單獨查。
       expect(mockFindUnique).toHaveBeenCalledWith({
         where: { slug: "zhubei" },
-        select: { id: true, slug: true, name: true, liffId: true },
+        select: { id: true, slug: true, name: true },
       });
     });
 
