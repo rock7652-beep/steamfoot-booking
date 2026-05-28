@@ -722,7 +722,7 @@ async function verifyPostState(): Promise<void> {
 const prisma = new PrismaClient();
 
 async function main(): Promise<void> {
-  console.log("===== PR-F2.1 LINE account-mismatch repair (DRY RUN default) =====\n");
+  console.log("===== PR-F2.2 LINE account-mismatch repair (DRY RUN default) =====\n");
   console.log(`DATABASE_URL host: ${maskHost(process.env.DATABASE_URL)}`);
   console.log(`DIRECT_URL   host: ${maskHost(process.env.DIRECT_URL)}\n`);
 
