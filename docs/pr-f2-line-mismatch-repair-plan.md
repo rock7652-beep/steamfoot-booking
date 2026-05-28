@@ -154,9 +154,45 @@ PR-F1（#218）完成 LINE binding observability，PR-F1.1（#219）補 triage�
 
 | ID | 條件 |
 | --- | --- |
-| **A1** | `auditLog.count({where: {targetType: "Customer", targetId: CANONICAL_CUSTOMER_ID, action: "LINE_MISMATCH_REPAIR_APPLY"}}) === 0`（這筆 canonical Customer 沒被修過） |
+| **A1** | **沒有「未 rollback 的 APPLY」**：對這筆 canonical Customer，每一筆 `auditLog{targetType:"Customer", targetId: CANONICAL_CUSTOMER_ID, action:"LINE_MISMATCH_REPAIR_APPLY"}` 都必須有一筆對應的 `auditLog{action:"LINE_MISMATCH_REPAIR_ROLLBACK"}` 在 `beforeJson.summaryRef.id` 引用該 APPLY 行的 `id`（§6.4 W4' 寫入的結構）。等價：`activeApplyCount === 0`，其中 `activeApply = applyRows − rolledBackApplyIds`。 |
 
-> 防止同一支 script 被誤跑兩次。若有，要走 §6.4 rollback 流程後才能重跑。
+> Pre-flight pseudocode（**不是** PR-F2.0 要寫的 code，僅給 sub-PR repair script 作模板）：
+>
+> ```
+> const applyRows = await auditLog.findMany({
+>   where: { targetType: "Customer", targetId: CANONICAL_CUSTOMER_ID,
+>            action: "LINE_MISMATCH_REPAIR_APPLY" },
+>   select: { id: true },
+> });
+> const rollbackRows = await auditLog.findMany({
+>   where: { targetType: "Customer", targetId: CANONICAL_CUSTOMER_ID,
+>            action: "LINE_MISMATCH_REPAIR_ROLLBACK" },
+>   select: { beforeJson: true },
+> });
+> const rolledBackApplyIds = new Set(
+>   rollbackRows
+>     .map((r) => r.beforeJson?.summaryRef?.id)   // shape per §6.4 W4'
+>     .filter(Boolean),
+> );
+> const activeApply = applyRows.filter((a) => !rolledBackApplyIds.has(a.id));
+> // A1 ⇔ activeApply.length === 0
+> ```
+
+#### A1 規則細節（PR #221 Codex P2 v2 修正）
+
+* **AuditLog 是 append-only**：rollback **不**刪除、**不**修改既有的 `LINE_MISMATCH_REPAIR_APPLY` 行（也不動 `L1..L3` 任何 detail 行）。它只新增一筆 `LINE_MISMATCH_REPAIR_ROLLBACK`，並在其 `beforeJson.summaryRef.id` 引用被它關閉的 APPLY 行 id。這條規則確保稽核完整性，rollback 不會抹除歷史。
+* **「沒被修過」與「修過但已 rollback」是兩種不同的合法狀態**：前者代表初次 apply；後者代表先前 apply 已 rollback、目前 DB row 已回到 pre-repair 狀態（包含 §6.4 W3' 把 placeholder `User.status` 還回 `ACTIVE`）。兩者都通過 A1。**只有「修過且未 rollback」**會 ABORT。
+* **不要用** `count(... action: "LINE_MISMATCH_REPAIR_APPLY") === 0` 這種舊寫法 — 那會把已 rollback 的 APPLY 也算成「未關閉」，rollback 之後該筆永遠無法再 pass pre-flight，違反「rollback 真的把狀態還原」的設計約定。
+
+#### 重跑 (re-repair after rollback) 准入條件
+
+完成一次 rollback 之後，可以再對同一筆 canonical Customer 跑 repair，但**必須三項全部成立**才允許進入新的 dry-run / apply cycle：
+
+1. **上次 APPLY 已有 matching ROLLBACK**：A1 invariant 自身會驗；ROLLBACK 行的 `beforeJson.summaryRef.id` 必須引用該 APPLY 行的 id（§6.4 W4'），否則 A1 視為未 rollback、ABORT。
+2. **本次 pre-flight 19 條 invariants 全 pass**：包含 §2.1 身份 13 條（特別是 **I13** `placeholder User.status !== "SUSPENDED"`，rollback 必須真的把 placeholder `User` 改回 `ACTIVE`，§6.4 W3'）、§2.2 footprint 4 條、§2.3 cross-store **X1**、本條 **A1**。任何一條 FAIL 都 ABORT。
+3. **operator + reviewer 重新書面同意這一輪新的 cycle**：rollback **不**自動授權 reapply；新 cycle 須走完整 §6.4 / §6.5 描述的雙簽流程（reviewer + 店長），等同於第一次 apply 的審核強度。
+
+> 防止同一支 script 被誤跑兩次：若已 apply 過、未 rollback → A1 直接 ABORT；若已 rollback 但未滿足上面三項條件之一 → pre-flight 仍會 ABORT 在對應的 invariant。
 
 ---
 
