@@ -186,7 +186,7 @@ Account (NextAuth OAuth tokens)
 | 修法 | 描述 | 評估 |
 | --- | --- | --- |
 | **(P) 主推:LIFF-only** | 不在非 LIFF 環境提供「Sign in with LINE」按鈕。LINE 顧客 100% 從 OA/Rich Menu 進 LIFF | 業務面要先確認:有沒有非 LIFF LINE 登入的真實需求(desktop?)。Steamfoot 顧客以手機為主,實務上可行 |
-| **(P) 必做:auth.ts Case C 斷流** | Case C 不再建 placeholder Customer。改為 `setOAuthTempSession() + return false`，導使用者去 `/oauth-confirm` 表單收 phone（復活 PR-2，但只在此 case 觸發） | 與 PR-2 撤的原因相反,但這次有 LIFF 為主流;非 LIFF 是 fallback,接受較低 conversion |
+| **(P) 必做:auth.ts Case C 斷流** | Case C 不再建 placeholder Customer。改為**用 `src/lib/oauth-stage-token.ts` 簽 stage token + return Auth.js redirect URL 指向 `/api/oauth-line-stage?token=...`**;由該 route handler 驗證 token、寫 oauth_line_session cookie、再 redirect 到 `/oauth-confirm` 表單收 phone（復活 PR-2 stage flow，但只在此 case 觸發）。**auth.ts 不可 import `src/lib/server/oauth-temp-session`** — 該檔案 import `next/headers`，會污染 NextAuth 的 edge-compatible bundle。 | 與 PR-2 撤的原因相反,但這次有 LIFF 為主流;非 LIFF 是 fallback,接受較低 conversion |
 | **(O) 可選:identity-repair 強化** | login 後 best-effort 用 phone 找同 store Customer。已存在,但若 OAuth 階段沒拿到 phone 就無用 | 不解決 Case C 的根因 |
 
 **建議:採 (P) 兩條同時做**:
@@ -226,10 +226,11 @@ NextAuth callback **不知道 phone**（LINE OAuth scope 沒有 phone），所�
 
 | ID | 修法 |
 | --- | --- |
-| **F1** | auth.ts Case C **不再 inline create**。改為:`setOAuthTempSession({ lineUserId, displayName, storeId, nonce })` + return false → NextAuth 把使用者導到 `signin?error=...` → middleware / page 偵測 oauth_line_session cookie → redirect `/oauth-confirm` |
-| **F2** | `/oauth-confirm` 表單收 phone（lib/server/oauth-temp-session.ts + actions 都已存在）→ `resolveLineLogin(phone, storeId)` 跑 §3 PR-2 三狀態判定 → 對應 `NEW_USER` / `BOUND_EXISTING` / `NEED_LOGIN` 三條 client-side redirect |
-| **F3** | `NEED_LOGIN` 流程：redirect `/login?phone=...&callback=/oauth-confirm/finalize` → 顧客密碼登入 → finalize 寫 Customer.lineUserId + Account[line]（一 tx，**走 `bindLineToCustomerInStore`**，不再 inline） |
-| **F4** | 為了 mitigate PR-2 conversion drop-off：`/oauth-confirm` 提供「我先不綁、純看內容」邊路 → 此 click 不寫任何 Customer，只發 emit ErrorLog 紀錄「未綁定 LINE 登入嘗試」供店長後台主動聯絡；oauth_line_session 5 分鐘 expire 即清，不留 orphan User |
+| **F1** | auth.ts Case C **不再 inline create**。改為:用 **`src/lib/oauth-stage-token.ts`** HMAC 簽一個短期 stage token（payload: `lineUserId` / `displayName` / `storeId` / `nonce` / `iat` / `exp`）→ 從 signIn callback 回傳 Auth.js redirect URL 指向 `/api/oauth-line-stage?token=...`。**auth.ts 不可 import `src/lib/server/oauth-temp-session`** — 該檔案 import `next/headers`，會污染 NextAuth 的 edge-compatible bundle。寫 cookie 的責任完全交給下一站。 |
+| **F2** | **`/api/oauth-line-stage/route.ts`** 驗 stage token（HMAC + TTL + nonce 一次性使用）→ **此 route handler 才呼叫 `setOAuthTempSession({ lineUserId, displayName, storeId, nonce })`** 寫 oauth_line_session cookie → redirect `/oauth-confirm`。`oauth-temp-session.ts` 的合法 callers 只有這支 route + `/oauth-confirm` server actions，**完全不包括 auth.ts**。 |
+| **F3** | `/oauth-confirm` 表單收 phone → `resolveLineLogin(phone, storeId)` 跑 §3 PR-2 三狀態判定 → 對應 `NEW_USER` / `BOUND_EXISTING` / `NEED_LOGIN` 三條 client-side redirect。`NEW_USER` / `BOUND_EXISTING` 由 `resolveLineLogin` 直接呼叫 phone-driven `bindLineToCustomerInStore` 完成綁定（candidates=0 走 create-new、candidates=1 走 bind-existing-placeholder 分支）。 |
+| **F4** | `NEED_LOGIN` 流程：redirect `/login?phone=...&callback=/oauth-confirm/finalize` → 顧客密碼登入 → `finalizeLineBind` 用 **`bindLineToExistingCustomerById` (customerId-driven)** 在一 tx 內寫 Customer.lineUserId + Account[line]。**不可用 `bindLineToCustomerInStore`**：NEED_LOGIN 表示該筆 Customer 已有 `userId`（密碼確認過的真實顧客），phone-driven helper 的 hijack guard 設計上就會回 `phone_taken_by_other_user`（這正是它該擋的情境）；唯有 customerId-driven helper 能在密碼確認後安全 finalize。 |
+| **F5** | 為了 mitigate PR-2 conversion drop-off：`/oauth-confirm` 提供「我先不綁、純看內容」邊路 → 此 click 不寫任何 Customer，只發 emit ErrorLog 紀錄「未綁定 LINE 登入嘗試」供店長後台主動聯絡；oauth_line_session 5 分鐘 expire 即清，不留 orphan User |
 
 > 註:**禁止**為了 conversion 直接幫顧客建 placeholder Customer 來「保證有 LINE badge」— 這是 PR-2 撤的原因,但代價就是現在 3 筆 prod drift。本 PR 系列正是要把這個 trade-off 翻過來。
 
@@ -337,7 +338,7 @@ bindLineToExistingCustomerById({
 | **PR-G5.1** | 加 helper 新入口 `bindLineToExistingCustomerById`（純擴充,不改既有介面）+ 單元測試 | M | 不 wire 任何 caller;build/test 通過即可上 prod 觀察(同 PR-C1 的 dead-code-on-prod 策略) |
 | **PR-G5.2** | Webhook 綁定碼路徑收斂:`handleBindingRequest` 改為呼叫 `bindLineToExistingCustomerById`;移除 inline `prisma.customer.update` + 條件 sync | M | Golden-output tests:對比 refactor 前後對相同 input 的 DB 寫入序列完全一致 |
 | **PR-G5.3** | Zod / helper 加 A2 invariant 校驗:**任何 Customer.phone 寫入點不得 `startsWith("_oauth_")`**;**既有 row 不動**;新增 test | S | 此 PR 上線後,Case C 仍會試圖建 `_oauth_line_*` → 會 throw → NextAuth signIn fail。**故 PR-G5.3 必須與 PR-G5.4 同 PR train 或前後夾擊**,不可單獨 ship。 |
-| **PR-G5.4** | auth.ts Case C 改寫:**移除** inline placeholder create;改為 `setOAuthTempSession + return false`;復活 `/oauth-confirm` 流程入口 | L | 高風險;feature flag 包住;monitor signIn 完成率;同 PR ship PR-G5.3。`/oauth-confirm` 邊路「先不綁」必須有 |
+| **PR-G5.4** | auth.ts Case C 改寫:**移除** inline placeholder create;改為**簽 stage token via `oauth-stage-token.ts` + return Auth.js redirect URL 指向 `/api/oauth-line-stage`**(該 route handler 才呼叫 `setOAuthTempSession`、寫 cookie、redirect `/oauth-confirm`);復活 `/oauth-confirm` 流程入口;`finalizeLineBind` 走 customerId-driven `bindLineToExistingCustomerById`（**非** phone-driven） | L | 高風險;feature flag 包住;monitor signIn 完成率;同 PR ship PR-G5.3。`/oauth-confirm` 邊路「先不綁」必須有 |
 | **PR-G5.5** | auth.ts Case B 收斂到 `bindLineToExistingCustomerById`(refactor only) | S | Golden-output tests |
 | **PR-G5.6** | CI gate:加 read-only script `scripts/diagnose-new-placeholder-customers.ts`,掃 `Customer.phone LIKE '_oauth_%' AND createdAt > <feature-flag-ship-date>`,>0 → fail CI | S | 寫入端有 A2 校驗、讀取端有 CI gate,雙保險 |
 | **PR-G5.7** | 把 PR-F1.2 audit 排程進 CI(weekly),mismatch 數提升 → 自動 issue | S | 不直接 fail CI(可能有先存 historical),但提醒 |
@@ -360,14 +361,15 @@ bindLineToExistingCustomerById({
 | `src/app/api/line/webhook/route.ts` | `handleBindingRequest` refactor 為呼叫新 helper | G5.2 |
 | `src/__tests__/webhook-bind-code.test.ts`（新檔或補既有） | golden-output tests | G5.2 |
 | `src/lib/normalize.ts` 或新 `src/lib/customer-phone-validation.ts` | A2 invariant:phone 不得 `startsWith("_oauth_")` | G5.3 |
-| `src/lib/auth.ts` Case C | 移除 inline create;改為 `setOAuthTempSession + return false` | G5.4 |
+| `src/lib/auth.ts` Case C | 移除 inline create;改為**簽 stage token via `oauth-stage-token.ts` + return Auth.js redirect URL 指向 `/api/oauth-line-stage?token=...`**;**禁止** import `src/lib/server/oauth-temp-session`（會把 `next/headers` 拉進 NextAuth bundle） | G5.4 |
 | `src/lib/auth.ts` Case B | 改為呼叫 `bindLineToExistingCustomerById`(refactor only) | G5.5 |
 | `src/app/(auth)/oauth-confirm/page.tsx` | 復活/微調 UI（dead code 已存在） | G5.4 |
 | `src/app/(auth)/oauth-confirm/_components/oauth-confirm-form.tsx` | 同上 | G5.4 |
 | `src/app/(auth)/oauth-confirm/finalize/page.tsx` | 同上 | G5.4 |
-| `src/server/actions/oauth-confirm.ts`（`resolveLineLogin` / `finalizeLineBind`） | 復活;`finalizeLineBind` 內部改 wire `bindLineToCustomerInStore`(不要再 inline write) | G5.4 |
-| `src/lib/server/oauth-temp-session.ts` | TTL / nonce 邊界再 review | G5.4 |
-| `src/app/api/oauth-line-stage/route.ts` | 對應 oauth-temp-session 復活 | G5.4 |
+| `src/server/actions/oauth-confirm.ts`（`resolveLineLogin` / `finalizeLineBind`） | 復活；`resolveLineLogin`（NEW_USER + BOUND_EXISTING）wire phone-driven `bindLineToCustomerInStore`（OK，Customer.userId=null）；**`finalizeLineBind`（NEED_LOGIN）必須 wire `bindLineToExistingCustomerById`（customerId-driven）**，**禁止用 phone-driven `bindLineToCustomerInStore`** — 密碼確認後的 Customer 已有 `userId`，會被 hijack guard 擋下回 `phone_taken_by_other_user`，那是設計上正確的拒絕 | G5.4 |
+| `src/lib/oauth-stage-token.ts` | HMAC sign/verify stage token；TTL；nonce uniqueness；**auth.ts 唯一允許 import 的「往 stage flow 遞交」入口**（不含 `next/headers`，edge-compatible） | G5.4 |
+| `src/lib/server/oauth-temp-session.ts` | TTL / nonce 邊界再 review；**legal callers 限 `/api/oauth-line-stage` 與 `/oauth-confirm` server actions；禁止 auth.ts import** | G5.4 |
+| `src/app/api/oauth-line-stage/route.ts` | 驗 stage token（`oauth-stage-token.ts`）→ 呼叫 `setOAuthTempSession` 寫 oauth_line_session cookie → redirect `/oauth-confirm`；**這是新流程裡唯一寫該 cookie 的點** | G5.4 |
 
 ### 7.2 必加（新檔，PR-G5.6）
 
@@ -452,7 +454,8 @@ bindLineToExistingCustomerById({
 | `bindLineToCustomerInStore`（existing） | 既有 7 status 全部 regression（PR-G5.1 不改行為） |
 | A2 invariant validator | `_oauth_*` reject;正規化台灣手機 accept;空 phone reject |
 | `resolveLineLogin` | NEW_USER / BOUND_EXISTING / NEED_LOGIN;Step 0 lineUserId 已綁直接 loginAsCustomer |
-| `finalizeLineBind` | happy path + nonce reuse → abort + store mismatch → abort + TTL expired → abort |
+| `finalizeLineBind` | happy path（NEED_LOGIN，**via `bindLineToExistingCustomerById`**）+ nonce reuse → abort + store mismatch → abort + TTL expired → abort + **反例：若誤接 phone-driven `bindLineToCustomerInStore` 應 fail-fast（會回 `phone_taken_by_other_user`）—當作 negative test 鎖死** |
+| `oauth-stage-token` | sign/verify round-trip；HMAC tamper reject；TTL expired reject；nonce reuse reject；**static import-graph assertion：`src/lib/auth.ts` 的 import closure 不含 `src/lib/server/oauth-temp-session` 也不含 `next/headers`** |
 | `oauth-temp-session` | set/get/clear;TTL;nonce uniqueness;cookie attributes(httpOnly/secure/sameSite=lax/maxAge=300) |
 
 #### 9.2.2 Integration tests
@@ -461,8 +464,8 @@ bindLineToExistingCustomerById({
 | --- | --- |
 | 「店長先建檔 phone Customer」→ LIFF onboarding 命中既有 → bound_existing | G5.1 baseline |
 | webhook 綁定碼 → `bindLineToExistingCustomerById` → DB 寫入序列 vs refactor 前 byte-equal | G5.2 |
-| 非 LIFF LINE OAuth + Case C 替換 → 導 `/oauth-confirm` → 填 phone(新號) → NEW_USER → bindLineToCustomerInStore 走 candidates=0 分支 → 顧客 RELOGIN 後有完整身份鏈 | G5.4 |
-| 非 LIFF LINE OAuth + 顧客已有 password Customer → `/oauth-confirm` 填 phone → NEED_LOGIN → 密碼登入 → finalize 寫 lineUserId + Account | G5.4 |
+| 非 LIFF LINE OAuth + Case C 替換 → **auth.ts 簽 stage token → `/api/oauth-line-stage` 驗 token 並寫 oauth_line_session cookie → redirect `/oauth-confirm`** → 填 phone(新號) → NEW_USER → `bindLineToCustomerInStore` 走 candidates=0 分支 → 顧客 RELOGIN 後有完整身份鏈 | G5.4 |
+| 非 LIFF LINE OAuth + 顧客已有 password Customer → 同上 stage token / route handler / cookie handoff → `/oauth-confirm` 填 phone → NEED_LOGIN → 密碼登入 → `finalizeLineBind` **via `bindLineToExistingCustomerById`（customerId-driven）** 寫 lineUserId + Account | G5.4 |
 | 非 LIFF + 顧客中斷 `/oauth-confirm` → 5 分鐘後 cookie 失效 → 重來不卡 | G5.4 |
 | auth.ts Case A drift repair(PR-F1 既有行為) regression | G5.5 |
 
