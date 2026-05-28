@@ -261,12 +261,22 @@ async function loadUserSide(
  * 依雙邊 footprint 推導建議。保守原則：只有在「C 側明確是主要顧客、A 側明確是
  * 空殼」時才給可自動化的建議；其餘一律升級為 needs_manual_business_check 或
  * do_not_touch。
+ *
+ * PR-F1.2 Codex P1 cross-store guard:
+ *   `crossStoreLineUserCount` = distinct stores containing this lineUserId
+ *   (non-merged Customer rows). If > 1, naive `safe_reassign_account_only`
+ *   is unsafe because the same LINE identity appears in multiple stores —
+ *   reassigning the Account would silently affect cross-store routing.
+ *   Downgrade to `needs_manual_business_check` with explicit reason. Default
+ *   value 1 keeps behaviour unchanged for callers that don't supply it.
  */
 function classify(input: {
   cUser: UserSide;
   cFoot: Footprint;
   aUser: UserSide;
   aFoot: Footprint;
+  /** distinct store count containing this lineUserId in non-merged Customer rows. Default 1 = single-store. */
+  crossStoreLineUserCount?: number;
 }): {
   primarySide: RecordAudit["primarySide"];
   shellSide: RecordAudit["shellSide"];
@@ -276,6 +286,7 @@ function classify(input: {
   reasons: string[];
 } {
   const { cUser, cFoot, aUser, aFoot } = input;
+  const crossStoreLineUserCount = input.crossStoreLineUserCount ?? 1;
   const reasons: string[] = [];
 
   const cReal = hasEconomicFootprint(cFoot);
@@ -327,10 +338,23 @@ function classify(input: {
     reasons.push("account_user_missing(FK 異常，需人工查資料完整性)");
   } else if (cReal && !aUser.hasCustomer && !aUser.hasPwd && aUser.otherAccounts === 0) {
     // A 是純空殼 User：沒有 Customer、沒有密碼、沒有其他帳號。
-    recommendation = "safe_reassign_account_only";
-    canReassignSafely = true;
-    reasons.push("customer_side_primary(有經濟足跡)");
-    reasons.push("account_user_bare_empty_shell(無 Customer / 無密碼 / 無其他帳號)");
+    //
+    // PR-F1.2 Codex P1 guard: 若同一 lineUserId 跨店出現（> 1 個 distinct
+    // store 帶這個 lineUserId），naive reassign 會無聲改變跨店身份路由 —
+    // 強制升級為需人工確認。
+    if (crossStoreLineUserCount > 1) {
+      recommendation = "needs_manual_business_check";
+      reasons.push("customer_side_primary(有經濟足跡)");
+      reasons.push("account_user_bare_empty_shell(無 Customer / 無密碼 / 無其他帳號)");
+      reasons.push(
+        `cross_store_line_user_detected(distinctStores=${crossStoreLineUserCount}; same_line_user_multiple_stores — naive reassign unsafe)`,
+      );
+    } else {
+      recommendation = "safe_reassign_account_only";
+      canReassignSafely = true;
+      reasons.push("customer_side_primary(有經濟足跡)");
+      reasons.push("account_user_bare_empty_shell(無 Customer / 無密碼 / 無其他帳號)");
+    }
   } else if (cReal && accountCustomerDisposition === "shell_merge_deactivate") {
     // chenjiajia 模式：A 底下掛一筆 placeholder 空殼 Customer。
     recommendation = "needs_customer_merge";
@@ -541,7 +565,26 @@ async function main() {
       loadFootprint(aUser.customerId),
     ]);
 
-    const verdict = classify({ cUser, cFoot, aUser, aFoot });
+    // PR-F1.2 Codex P1: count distinct stores containing this lineUserId in
+    // non-merged Customer rows. Used to guard the safe_reassign_account_only
+    // path from cross-store identity races. Read-only.
+    const crossStoreRows = await prisma.customer.findMany({
+      where: {
+        lineUserId: c.lineUserId,
+        mergedIntoCustomerId: null,
+      },
+      select: { storeId: true },
+      distinct: ["storeId"],
+    });
+    const crossStoreLineUserCount = crossStoreRows.length;
+
+    const verdict = classify({
+      cUser,
+      cFoot,
+      aUser,
+      aFoot,
+      crossStoreLineUserCount,
+    });
 
     records.push({
       customerId: c.id,
