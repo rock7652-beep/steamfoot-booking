@@ -338,25 +338,14 @@ function classify(input: {
     reasons.push("account_user_missing(FK 異常，需人工查資料完整性)");
   } else if (cReal && !aUser.hasCustomer && !aUser.hasPwd && aUser.otherAccounts === 0) {
     // A 是純空殼 User：沒有 Customer、沒有密碼、沒有其他帳號。
-    //
-    // PR-F1.2 Codex P1 guard: 若同一 lineUserId 跨店出現（> 1 個 distinct
-    // store 帶這個 lineUserId），naive reassign 會無聲改變跨店身份路由 —
-    // 強制升級為需人工確認。
-    if (crossStoreLineUserCount > 1) {
-      recommendation = "needs_manual_business_check";
-      reasons.push("customer_side_primary(有經濟足跡)");
-      reasons.push("account_user_bare_empty_shell(無 Customer / 無密碼 / 無其他帳號)");
-      reasons.push(
-        `cross_store_line_user_detected(distinctStores=${crossStoreLineUserCount}; same_line_user_multiple_stores — naive reassign unsafe)`,
-      );
-    } else {
-      recommendation = "safe_reassign_account_only";
-      canReassignSafely = true;
-      reasons.push("customer_side_primary(有經濟足跡)");
-      reasons.push("account_user_bare_empty_shell(無 Customer / 無密碼 / 無其他帳號)");
-    }
+    // 跨店 guard 統一在決策樹結尾處理（見下方 PR-F1.2 Codex P1 v2 區塊）。
+    recommendation = "safe_reassign_account_only";
+    canReassignSafely = true;
+    reasons.push("customer_side_primary(有經濟足跡)");
+    reasons.push("account_user_bare_empty_shell(無 Customer / 無密碼 / 無其他帳號)");
   } else if (cReal && accountCustomerDisposition === "shell_merge_deactivate") {
     // chenjiajia 模式：A 底下掛一筆 placeholder 空殼 Customer。
+    // 跨店 guard 統一在決策樹結尾處理（見下方 PR-F1.2 Codex P1 v2 區塊）。
     recommendation = "needs_customer_merge";
     canReassignSafely = true; // Account pointer 本身可安全搬，但需連同空殼一起收尾
     reasons.push("customer_side_primary(有經濟足跡)");
@@ -387,6 +376,27 @@ function classify(input: {
   } else {
     recommendation = "needs_manual_business_check";
     reasons.push("signals_inconclusive(訊號不足以自動判定)");
+  }
+
+  // ── PR-F1.2 Codex P1 v2: unified cross-store guard ──────────────────
+  //
+  // 任何「自動安全可執行」的建議（canReassignSafely=true）— 不論是
+  // safe_reassign_account_only 或 needs_customer_merge — 在 lineUserId
+  // 跨店時都不安全：LINE Account 是全域 unique (provider, providerAccountId)，
+  // 同一個 lineUserId 卻分佈在多個 store 的 Customer 上時，搬 Account.userId
+  // 會無聲影響其他店的身份路由。
+  //
+  // 把這個 guard 從原本內嵌在 safe_reassign_account_only 分支提到決策樹之後
+  // 的單一覆寫，可以同時涵蓋現有 (safe_reassign / needs_customer_merge) 與
+  // 未來新增的任何 auto-safe 路徑，避免 Codex P1 再次出現。
+  if (crossStoreLineUserCount > 1 && canReassignSafely) {
+    reasons.push(
+      `cross_store_line_user_detected(distinctStores=${crossStoreLineUserCount}; ` +
+        `same_line_user_multiple_stores — naive ${recommendation} unsafe across stores; ` +
+        `downgraded to needs_manual_business_check)`,
+    );
+    recommendation = "needs_manual_business_check";
+    canReassignSafely = false;
   }
 
   return {

@@ -202,6 +202,35 @@ const emptyShellAccountUser: UserSide = {
   customerId: null,
 };
 
+// PR-F1.2 Codex P1 v2: account-side user that OWNS a placeholder shell
+// Customer (chenjiajia pattern). Used to exercise the needs_customer_merge
+// branch and verify the unified cross-store guard catches it.
+const placeholderShellAccountUser: UserSide = {
+  exists: true,
+  hasPwd: false,
+  status: "ACTIVE",
+  createdAt: new Date("2026-04-22T00:00:00Z"),
+  otherAccounts: 0,
+  hasCustomer: true, // ← key difference vs emptyShellAccountUser
+  customerId: "cust-acct-placeholder",
+};
+
+const placeholderShellFootprint: Footprint = {
+  present: true,
+  placeholderPhone: true, // ← _oauth_line_* phone signal
+  bookings: 0,
+  transactions: 0,
+  walletsTotal: 0,
+  walletsActive: 0,
+  walletSessions: 0,
+  points: 0,
+  messages: 0,
+  checkins: 0,
+  makeupCredits: 0,
+  sponsored: 0,
+  referralsMade: 0,
+};
+
 describe("classify() cross-store guard (PR-F1.2 P1)", () => {
   it("single-store empty-shell case → safe_reassign_account_only (baseline preserved)", () => {
     const r = classify({
@@ -264,5 +293,117 @@ describe("classify() cross-store guard (PR-F1.2 P1)", () => {
       aFoot: emptyFootprint,
     });
     expect(r.recommendation).toBe("safe_reassign_account_only");
+  });
+});
+
+// ──────────────────────────────────────────────────────────
+// PR-F1.2 Codex P1 v2 — guard MUST also cover needs_customer_merge
+//
+// Original P1 patch only protected the bare-empty-shell path. But the
+// chenjiajia branch (placeholder shell Customer owned by account.user) also
+// returns canReassignSafely=true and is equally unsafe cross-store. Tests
+// below assert the unified post-decision-tree guard covers BOTH paths.
+// ──────────────────────────────────────────────────────────
+
+describe("classify() cross-store guard — needs_customer_merge branch (PR-F1.2 P1 v2)", () => {
+  it("single-store + placeholder shell Customer → needs_customer_merge (baseline preserved)", () => {
+    const r = classify({
+      cUser: realCustomerUser,
+      cFoot: primaryC_Footprint,
+      aUser: placeholderShellAccountUser,
+      aFoot: placeholderShellFootprint,
+      crossStoreLineUserCount: 1,
+    });
+    expect(r.recommendation).toBe("needs_customer_merge");
+    expect(r.canReassignSafely).toBe(true);
+  });
+
+  it("cross-store + placeholder shell Customer → MUST downgrade to needs_manual_business_check", () => {
+    const r = classify({
+      cUser: realCustomerUser,
+      cFoot: primaryC_Footprint,
+      aUser: placeholderShellAccountUser,
+      aFoot: placeholderShellFootprint,
+      crossStoreLineUserCount: 2,
+    });
+    expect(r.recommendation).toBe("needs_manual_business_check");
+    expect(r.recommendation).not.toBe("needs_customer_merge");
+  });
+
+  it("cross-store + placeholder shell Customer → canReassignSafely=false + cross_store reason", () => {
+    const r = classify({
+      cUser: realCustomerUser,
+      cFoot: primaryC_Footprint,
+      aUser: placeholderShellAccountUser,
+      aFoot: placeholderShellFootprint,
+      crossStoreLineUserCount: 3,
+    });
+    expect(r.canReassignSafely).toBe(false);
+    const reasonsBlob = r.reasons.join(" | ");
+    expect(reasonsBlob).toMatch(
+      /cross_store_line_user_detected|same_line_user_multiple_stores/,
+    );
+    // The original merge-branch reasons must remain so an operator can see
+    // what the recommendation *would have been* before the downgrade.
+    expect(reasonsBlob).toMatch(/account_side_shell_customer/);
+  });
+
+  it("cross-store guard never leaves canReassignSafely=true regardless of which auto-safe path fired", () => {
+    // Meta-assertion: exercise both auto-safe paths under cross-store and
+    // assert canReassignSafely is false in every downgrade.
+    const cases = [
+      {
+        label: "bare-empty-shell",
+        aUser: emptyShellAccountUser,
+        aFoot: emptyFootprint,
+      },
+      {
+        label: "placeholder-shell-merge",
+        aUser: placeholderShellAccountUser,
+        aFoot: placeholderShellFootprint,
+      },
+    ];
+    for (const c of cases) {
+      const r = classify({
+        cUser: realCustomerUser,
+        cFoot: primaryC_Footprint,
+        aUser: c.aUser,
+        aFoot: c.aFoot,
+        crossStoreLineUserCount: 2,
+      });
+      expect(
+        r.canReassignSafely,
+        `${c.label}: canReassignSafely must be false on cross-store downgrade`,
+      ).toBe(false);
+      expect(
+        r.recommendation,
+        `${c.label}: recommendation must downgrade to needs_manual_business_check on cross-store`,
+      ).toBe("needs_manual_business_check");
+    }
+  });
+
+  it("cross-store guard does NOT touch recommendations that were already canReassignSafely=false", () => {
+    // do_not_touch / needs_manual_business_check / direction_flipped etc. all
+    // start with canReassignSafely=false. The guard predicate is
+    // `crossStoreLineUserCount > 1 && canReassignSafely` so these must pass
+    // through unchanged.
+    const r = classify({
+      cUser: realCustomerUser,
+      cFoot: primaryC_Footprint,
+      // A 有 Customer 但無經濟足跡，且不是乾淨空殼 → needs_manual_business_check
+      // path with canReassignSafely=false (no auto-safe path fired).
+      aUser: {
+        ...placeholderShellAccountUser,
+        hasPwd: true, // breaks the shell classification
+      },
+      aFoot: placeholderShellFootprint,
+      crossStoreLineUserCount: 2,
+    });
+    expect(r.recommendation).toBe("needs_manual_business_check");
+    expect(r.canReassignSafely).toBe(false);
+    // The cross-store reason should NOT be appended here because the path
+    // never claimed to be auto-safe in the first place.
+    const reasonsBlob = r.reasons.join(" | ");
+    expect(reasonsBlob).not.toMatch(/cross_store_line_user_detected/);
   });
 });
