@@ -65,4 +65,59 @@ describe("diagnose-line-identity-drift script (read-only contract)", () => {
     // Defensive: explicit assertion that the script offers no write toggle.
     expect(CODE).not.toMatch(/--confirm-write|--execute|CONFIRM_WRITE|DRY_RUN/);
   });
+
+  // ── PR-F1.1: triage enrichment invariants ─────────────
+  //
+  // The account-mismatch check now enriches each masked sample with
+  // read-only triage signals (createdAt / passwordHash boolean /
+  // related counts). These assertions guarantee the enrichment cannot
+  // accidentally regress into PII leakage or write methods.
+
+  it("never selects email — even for masked display", () => {
+    // email is high-PII; this diagnostic doesn't need it for any check.
+    // (phone IS selected by Check 1 and printed via maskPhone — that's
+    // intentional and pre-existing PR-F1 behavior, not regressed here.)
+    expect(CODE).not.toMatch(/\bemail\s*:\s*true/);
+  });
+
+  it("never selects raw passwordHash for printing — only its boolean presence", () => {
+    // It IS legitimate to `select: { passwordHash: true }` to derive a
+    // boolean, but the raw value must never be printed. The print path uses
+    // `hasPwd=${...hasPwd}` (a boolean), never `${...passwordHash}`.
+    expect(CODE).not.toMatch(/\$\{[^}]*passwordHash[^}]*\}/);
+  });
+
+  // Helper: extract the body of the triage helper function. Uses lookahead
+  // for the next top-level declaration so nested `}` inside the function
+  // body don't end the match prematurely.
+  function extractTriageHelperBody(): string {
+    const m = CODE.match(
+      /async function loadAccountMismatchTriage[\s\S]*?(?=\n(?:async )?function |\ntype |\nfunction )/,
+    );
+    return m ? m[0] : "";
+  }
+
+  it("uses count() / findUnique for triage — never findMany", () => {
+    // PR-F1.1 enrichment uses count() and findUnique only. A bare findMany
+    // would scale poorly and could pull large rows. Existing findMany calls
+    // on Customer / Account already exist for the main scan — those are
+    // fine. New triage-loader helper must not introduce another.
+    const body = extractTriageHelperBody();
+    expect(body.length, "loadAccountMismatchTriage helper not found").toBeGreaterThan(0);
+    expect(body).not.toMatch(/\.findMany\s*\(/);
+  });
+
+  it("triage helper only reads the 4 expected models (user / account / booking / transaction)", () => {
+    // Whitelist-style assertion: prevent quiet expansion into other tables.
+    const body = extractTriageHelperBody();
+    expect(body.length).toBeGreaterThan(0);
+    const allowed = new Set(["user", "account", "booking", "transaction"]);
+    const prismaMethodCalls = [...body.matchAll(/prisma\.(\w+)\.\w+\s*\(/g)].map(
+      (m) => m[1],
+    );
+    for (const model of prismaMethodCalls) {
+      expect(allowed.has(model), `triage helper touched unexpected model: ${model}`).toBe(true);
+    }
+    expect(prismaMethodCalls.length).toBeGreaterThan(0);
+  });
 });
