@@ -143,6 +143,26 @@ async function runOrphanLineCheck(
  * Real identity split: webhook wrote Customer.lineUserId but LINE OAuth had
  * already created a different User. Both records live in DB pointing to
  * different login identities for the same human.
+ *
+ * PR-F1.1 triage enrichment:
+ *   For each mismatch sample, additionally enrich with read-only triage
+ *   signals so an operator can classify the split into one of three repair
+ *   strategies WITHOUT touching prod:
+ *     A) Account.user is an empty-shell User (no password, no other Customer,
+ *        no bookings/transactions) — safe candidate for repointing
+ *        Account.userId at Customer.userId
+ *     B) Account.user has real footprint (bookings / transactions / other
+ *        Accounts) — needs merge strategy, not a simple repoint
+ *     C) Customer.user looks weaker than Account.user (e.g. Customer.user has
+ *        no password but Account.user does) — repair direction would flip
+ *
+ * All enrichment is read-only via findUnique + count(). No email / phone /
+ * raw cuid / raw LINE userId ever printed.
+ *
+ * Note on Account.createdAt/updatedAt: NextAuth's Account model in this
+ * schema (see prisma/schema.prisma:374-391) does NOT declare createdAt /
+ * updatedAt columns, so these are skipped. Reported in PR description, not
+ * a schema change.
  */
 async function runAccountMismatchCheck(
   storeIdFilter: string | null,
@@ -162,17 +182,22 @@ async function runAccountMismatchCheck(
       storeId: true,
       userId: true,
       lineUserId: true,
+      createdAt: true,
+      updatedAt: true,
     },
   });
 
   let mismatchCount = 0;
-  const samples: Array<{
+  type Sample = {
     customerId: string;
     storeId: string;
     customerUserId: string;
     accountUserId: string;
     lineUserId: string;
-  }> = [];
+    customerCreatedAt: Date;
+    customerUpdatedAt: Date;
+  };
+  const samples: Sample[] = [];
 
   for (const c of candidates) {
     if (!c.lineUserId || !c.userId) continue;
@@ -194,6 +219,8 @@ async function runAccountMismatchCheck(
           customerUserId: c.userId,
           accountUserId: acct.userId,
           lineUserId: c.lineUserId,
+          customerCreatedAt: c.createdAt,
+          customerUpdatedAt: c.updatedAt,
         });
       }
     }
@@ -204,14 +231,172 @@ async function runAccountMismatchCheck(
   if (!COUNT_ONLY && samples.length > 0) {
     console.log("\n  samples (masked, first 10):");
     for (const s of samples) {
-      console.log(
-        `    customerId=${maskId(s.customerId)} store=${storeMap.get(s.storeId)?.slug ?? "?"} ` +
-          `customer.userId=${maskId(s.customerUserId)} account.userId=${maskId(s.accountUserId)} ` +
-          `lineUserId=${maskLineUserId(s.lineUserId)}`,
-      );
+      const triage = await loadAccountMismatchTriage({
+        customerUserId: s.customerUserId,
+        accountUserId: s.accountUserId,
+        thisLineUserId: s.lineUserId,
+      });
+      printAccountMismatchSample(s, triage, storeMap);
     }
+    console.log(
+      "\n  legend: hasPwd=passwordHash present; otherAccts=Account rows excluding the LINE one in question;",
+    );
+    console.log(
+      "          customers=User.customer 1:1 presence (0/1); bookings/tx=count via that User's Customer (0 if no Customer)",
+    );
+    console.log(
+      "  note: Account.createdAt / Account.updatedAt are NOT in schema — skipped (no schema change in this PR)",
+    );
   }
   console.log();
+}
+
+/**
+ * Read-only triage signals for an account-mismatch sample.
+ *
+ * Behaviour:
+ *   - All calls are findUnique + count() — no $transaction, no write.
+ *   - "Other" account count excludes THIS LINE Account so the operator can
+ *     see whether Account.user has other identities (Google / additional
+ *     LINE registrations) — a strong signal for non-empty-shell.
+ *   - Bookings / Transactions live on Customer (not User). If a User has no
+ *     Customer, counts are 0 by definition.
+ */
+async function loadAccountMismatchTriage(opts: {
+  customerUserId: string;
+  accountUserId: string;
+  thisLineUserId: string;
+}): Promise<AccountMismatchTriage> {
+  const [customerUser, accountUser] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: opts.customerUserId },
+      select: {
+        createdAt: true,
+        passwordHash: true,
+      },
+    }),
+    prisma.user.findUnique({
+      where: { id: opts.accountUserId },
+      select: {
+        createdAt: true,
+        passwordHash: true,
+        customer: { select: { id: true } },
+      },
+    }),
+  ]);
+
+  const [accountUserOtherAccounts, accountUserBookings, accountUserTransactions] =
+    await Promise.all([
+      // OTHER accounts (exclude the LINE Account row in question)
+      prisma.account.count({
+        where: {
+          userId: opts.accountUserId,
+          NOT: {
+            AND: [{ provider: "line" }, { providerAccountId: opts.thisLineUserId }],
+          },
+        },
+      }),
+      // bookings / transactions live on Customer; if accountUser has no
+      // Customer, count is 0 (handled by the where clause matching nothing)
+      prisma.booking.count({
+        where: { customer: { userId: opts.accountUserId } },
+      }),
+      prisma.transaction.count({
+        where: { customer: { userId: opts.accountUserId } },
+      }),
+    ]);
+
+  return {
+    customerUser: {
+      exists: !!customerUser,
+      createdAt: customerUser?.createdAt ?? null,
+      hasPwd: !!customerUser?.passwordHash,
+    },
+    accountUser: {
+      exists: !!accountUser,
+      createdAt: accountUser?.createdAt ?? null,
+      hasPwd: !!accountUser?.passwordHash,
+      customerCount: accountUser?.customer ? 1 : 0,
+      otherAccountCount: accountUserOtherAccounts,
+      bookingCount: accountUserBookings,
+      transactionCount: accountUserTransactions,
+    },
+  };
+}
+
+type AccountMismatchTriage = {
+  customerUser: {
+    exists: boolean;
+    createdAt: Date | null;
+    hasPwd: boolean;
+  };
+  accountUser: {
+    exists: boolean;
+    createdAt: Date | null;
+    hasPwd: boolean;
+    customerCount: 0 | 1;
+    otherAccountCount: number;
+    bookingCount: number;
+    transactionCount: number;
+  };
+};
+
+function fmtDate(d: Date | null): string {
+  if (!d) return "(missing)";
+  return d.toISOString().slice(0, 19) + "Z";
+}
+
+function printAccountMismatchSample(
+  s: {
+    customerId: string;
+    storeId: string;
+    customerUserId: string;
+    accountUserId: string;
+    lineUserId: string;
+    customerCreatedAt: Date;
+    customerUpdatedAt: Date;
+  },
+  t: AccountMismatchTriage,
+  storeMap: Map<string, { slug: string }>,
+): void {
+  const storeSlug = storeMap.get(s.storeId)?.slug ?? "?";
+  // Header line: identity (masked) + LINE id (masked)
+  console.log(
+    `\n    customerId=${maskId(s.customerId)} store=${storeSlug} lineUserId=${maskLineUserId(s.lineUserId)}`,
+  );
+  // Customer-side row
+  console.log(
+    `      customer.userId=${maskId(s.customerUserId)}` +
+      ` hasPwd=${t.customerUser.hasPwd}` +
+      ` user.createdAt=${fmtDate(t.customerUser.createdAt)}`,
+  );
+  console.log(
+    `      customer.createdAt=${fmtDate(s.customerCreatedAt)}` +
+      ` customer.updatedAt=${fmtDate(s.customerUpdatedAt)}`,
+  );
+  // Account-side row — the triage signal we actually care about
+  console.log(
+    `      account.userId=${maskId(s.accountUserId)}` +
+      ` hasPwd=${t.accountUser.hasPwd}` +
+      ` user.createdAt=${fmtDate(t.accountUser.createdAt)}`,
+  );
+  console.log(
+    `      account.user.otherAccts=${t.accountUser.otherAccountCount}` +
+      ` customers=${t.accountUser.customerCount}` +
+      ` bookings=${t.accountUser.bookingCount}` +
+      ` tx=${t.accountUser.transactionCount}`,
+  );
+  // Classification hint — pure local heuristic, no DB writes
+  const looksEmptyShell =
+    t.accountUser.exists &&
+    !t.accountUser.hasPwd &&
+    t.accountUser.customerCount === 0 &&
+    t.accountUser.otherAccountCount === 0 &&
+    t.accountUser.bookingCount === 0 &&
+    t.accountUser.transactionCount === 0;
+  console.log(
+    `      classification=${looksEmptyShell ? "likely_empty_shell_A" : "needs_manual_review"}`,
+  );
 }
 
 /**
