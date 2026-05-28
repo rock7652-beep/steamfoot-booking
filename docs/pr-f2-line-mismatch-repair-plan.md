@@ -107,9 +107,11 @@ PR-F1（#218）完成 LINE binding observability，PR-F1.1（#219）補 triage�
 
 ---
 
-## 2. 必須成立的 invariants（任何一條失敗即 abort）
+## 2. 必須成立的 invariants（共 19 條；任何一條失敗即 abort）
 
 下列 invariants 在 **pre-flight（outside tx）** 與 **in-tx** 兩個地方都跑一次。每條都帶名字，失敗時印 `ABORT invariant=<name> observed=<masked value>`。
+
+組成：§2.1 身份 13 條 + §2.2 footprint 4 條 + §2.3 cross-store 1 條 + §2.4 idempotency 1 條 = **19 條**。
 
 ### 2.1 身份 invariants（13 條）
 
@@ -164,7 +166,7 @@ PR-F1（#218）完成 LINE binding observability，PR-F1.1（#219）補 triage�
 
 1. **Repo precedent**：chenjiajia / 周雅琴 / 吳曉菁 三支 repair 全部 `--apply` 才寫入，default DRY RUN。
 2. **不可逆性**：重新 point `Account.userId` 之後，原 LINE OAuth 不會再產生「指回 placeholder User」的事件鏈；錯了只能靠 rollback script + AuditLog snapshot 回復。
-3. **Invariants 多**：13 條 identity + 4 條 footprint + 1 條 cross-store + 1 條 idempotency。dry-run 階段要把全部跑一次、印出 PASS/FAIL，operator 確認後才執行 `--apply`。
+3. **Invariants 多**：13 條 identity + 4 條 footprint + 1 條 cross-store + 1 條 idempotency **= 19 條總計**。dry-run 階段要把全部 19 條跑一次、印出 PASS/FAIL，operator 確認後才執行 `--apply`。
 
 ### 3.1 設計（per-record script 骨架，僅範例，**本 PR 不寫實際 ID**）
 
@@ -320,21 +322,70 @@ PR-F1.2 audit 對這筆會在 `reasons` 印出觸發子原因。**先看 reason�
 
 對稱於 repair，每筆一支：`scripts/rollback-line-mismatch-<canonicalShortId>.ts`。
 
+> **Rollback 不會自動發生**。它必須是 operator 拿到 repair summary id（L0.id，由 repair log / PR comment 取得）後，明確去跑這支獨立 script，並通過 reviewer + 店長雙簽（§6.5）。repair 自身的「in-tx rollback」（§6.3）是同一個 transaction 內 throw 後 Prisma 自動回滾，那不是這裡講的 post-apply rollback。
+
+Rollback 必須對稱反轉 §1.1 列的 W1..W3 三個寫入群組，再加上 rollback 自身的 AuditLog 寫入（W4'）。**任一群組漏做都會留下 mismatch**：例如只反轉 W1 把 Account.userId 還回 PLACEHOLDER_USER_ID，卻沒同時把 W3 反轉、User.status 仍卡在 SUSPENDED，會直接被 NextAuth `authorize()` 對 non-ACTIVE user 的拒絕擋下來 — 顧客的登入行為並未真正回到 pre-repair 狀態。
+
 ```
 - 接 --summary-id=<L0.id> 為唯一入口（不接 customerId）
-- 用 summary-id 撈 L0..L3 四筆 AuditLog
-- 對每筆，把 current DB row read 出來，assert 與 L0..L3.afterJson 完全一致
+- 用 summary-id 撈 L0..L3 四筆 AuditLog（repair 寫入的）
+- 對 L1..L3 各自的 target row：read current DB state，assert == L1..L3.afterJson
     若不一致 → ABORT，因為已有人在 repair 之後動過資料，
     rollback 不能蓋掉那些後續變更，必須走人工。
-- printPlan：W1' / W2' / W3' = 把 afterJson 變回 beforeJson
-- 沒 --apply → DRY RUN
+
+- printPlan：明確列出 4 個 reverse write groups —
+    W1' (反向 W1 / Account.userId)：
+        從 L1.afterJson.userId (= CANONICAL_USER_ID)
+        改回 L1.beforeJson.userId (= PLACEHOLDER_USER_ID)。
+
+    W2' (反向 W2 / Customer[placeholder] merge fields)：
+        Customer[id=PLACEHOLDER_CUSTOMER_ID] 的
+            mergedIntoCustomerId / mergedAt / userId /
+            selfBookingEnabled / lineLinkStatus / lineUserId
+        全部從 L2.afterJson 改回 L2.beforeJson
+        （= 取消 merge、還原 selfBookingEnabled、把
+         lineLinkStatus + lineUserId 還回原綁定狀態）。
+
+    W3' (反向 W3 / placeholder User.status)：
+        User[id=PLACEHOLDER_USER_ID].status 從
+            L3.afterJson.status (= "SUSPENDED")
+        改回 L3.beforeJson.status —— pre-repair 預期值是 "ACTIVE"
+        （L3.beforeJson 是 repair 當下實際 snapshot 的值，
+         理論上一律 ACTIVE 才符合 §1.1 W3 的 from→to）。
+        **這一步不可省略**：少了它，rollback 完成後 placeholder User
+        仍卡在 SUSPENDED，NextAuth authorize() 對 non-ACTIVE user
+        直接 reject，pre-repair 的登入行為並未真正復原。
+
+    W4' (rollback 自身的 audit write)：
+        新增 1 筆 AuditLog，action="LINE_MISMATCH_REPAIR_ROLLBACK"
+            actorUserId = OPERATOR_USER_ID
+            targetType  = "Customer"
+            targetId    = CANONICAL_CUSTOMER_ID
+            beforeJson  = 引用 L0.id 與 L1..L3.afterJson 全套 snapshot
+            afterJson   = 4 個 reverse write group 套用後的最終值
+                          （含明寫 User.status 已從 SUSPENDED 還回原值）
+        rollback 自身**只**寫這 1 筆 AuditLog（repair 寫的 L0..L3
+        是 append-only 不修改、不刪除）。
+
+- 沒 --apply → DRY RUN：只 print W1'..W4' 計畫不寫入，
+                       並印出 L1..L3.afterJson vs current row 的 diff。
 - 有 --apply：
-    $transaction:
-      - 再驗一次 == afterJson（in-tx race guard）
-      - 反向 W1' / W2' / W3'
-      - 寫 1 筆 AuditLog: action="LINE_MISMATCH_REPAIR_ROLLBACK"
-        beforeJson 引用 L0.id，afterJson 記錄回到 beforeJson 的 4 個欄位
-- 不 cascade 任何下游清理（不刪 Session、不 unsuspend 自動）
+    $transaction (Serializable):
+      - 再驗一次 row state == L1..L3.afterJson（in-tx race guard）
+      - 套用 W1'
+      - 套用 W2'
+      - 套用 W3'  ← 必跑；不允許 skip
+      - 寫 W4' (rollback AuditLog)
+    全部原子：任一 step throw → 整組 transaction 回滾，
+    placeholder User 不會被殘留卡在 SUSPENDED。
+
+- 不 cascade 任何「W1'..W3' 範圍外」的清理：
+    - 不刪 CANONICAL_USER_ID 底下 apply 之後新增的 Session
+      （如需清，operator 另跑 prisma.session.deleteMany — 不在本 script）
+    - 不對 PLACEHOLDER_USER_ID **以外** 的 User 做任何 unsuspend
+      （W3' 對 placeholder 自己的 unsuspend 是 rollback 的必要步驟，
+       屬於 W1'..W3' 範圍內，**不**受此「不 cascade」限制）
+    - 不通知 LINE / Email 顧客
 ```
 
 ### 6.5 Rollback 限制（必須在 PR description 明寫）
