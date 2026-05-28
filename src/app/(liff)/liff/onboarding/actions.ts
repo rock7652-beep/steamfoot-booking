@@ -22,6 +22,7 @@ import { z } from "zod";
 import { verifyLiffIdToken, LiffIdTokenError } from "@/lib/liff/verify-id-token";
 import { resolveStoreBySlug } from "@/lib/store-resolver";
 import { bindLineToCustomerInStore } from "@/server/services/bind-line-to-customer";
+import { logLineBindEvent } from "@/lib/line-bind-log";
 
 const InputSchema = z.object({
   idToken: z.string().min(1),
@@ -98,7 +99,23 @@ export async function submitOnboarding(
     name,
   });
 
-  // ── 6. Map to顧客面 status ───────────────────────────
+  // ── 6. Structured observability (PR-F1) ──────────────
+  // Single line per onboarding attempt, masked. helper already logs its own
+  // P2002 path; this captures every other terminal status from the caller side.
+  logLineBindEvent({
+    path: "liff-exchange",
+    status: helperResult.status,
+    storeId: store.id,
+    storeSlug: store.slug,
+    lineUserId: verified.lineUserId,
+    customerId:
+      "customerId" in helperResult ? helperResult.customerId : null,
+    userId: "userId" in helperResult ? helperResult.userId : null,
+    accountSyncStatus:
+      "lineAccountSync" in helperResult ? helperResult.lineAccountSync : undefined,
+  });
+
+  // ── 7. Map to 顧客面 status ───────────────────────────
   switch (helperResult.status) {
     case "created_new":
     case "bound_existing":
@@ -113,6 +130,11 @@ export async function submitOnboarding(
 
     case "ambiguous_multiple_candidates":
       return { status: "ambiguous" };
+
+    case "unique_conflict":
+      // Concurrent bind beat us; user can retry — second attempt will hit the
+      // 1-candidate branch and resolve cleanly. Show generic retry message.
+      return { status: "service_unavailable" };
 
     case "validation_error":
       if (helperResult.reason === "invalid_phone") {

@@ -282,6 +282,55 @@ describe("bindLineToCustomerInStore", () => {
         throw new Error(`expected created_new, got ${r.status}`);
       }
     });
+
+    // ── PR-F1: P2002 guardrail ──
+    // The 0-candidate create tx can race against a concurrent bind on the same
+    // (storeId, phone) or (storeId, lineUserId) compound unique. We MUST NOT
+    // surface this as an uncaught throw to LIFF — return a controlled status.
+    it("returns unique_conflict (no throw) when tx hits Prisma P2002", async () => {
+      mockCustomerFindMany.mockResolvedValueOnce([]);
+      mockTx.mockImplementationOnce(async () => {
+        const e: Error & { code?: string; meta?: { target?: string[] } } = new Error(
+          "Unique constraint failed",
+        );
+        e.code = "P2002";
+        e.meta = { target: ["storeId", "phone"] };
+        throw e;
+      });
+      const r = await bindLineToCustomerInStore(makeValidInput());
+      expect(r.status).toBe("unique_conflict");
+      if (r.status === "unique_conflict") {
+        expect(r.conflictTarget).toBe("storeId,phone");
+      }
+      // Side-effect helpers must not have run — the tx never committed.
+      expect(mockSyncLineAccount).not.toHaveBeenCalled();
+      expect(mockRepair).not.toHaveBeenCalled();
+      expect(mockAwardReferrer).not.toHaveBeenCalled();
+    });
+
+    it("returns unique_conflict with target=unknown when P2002 lacks meta.target", async () => {
+      mockCustomerFindMany.mockResolvedValueOnce([]);
+      mockTx.mockImplementationOnce(async () => {
+        const e: Error & { code?: string } = new Error("Unique constraint failed");
+        e.code = "P2002";
+        throw e;
+      });
+      const r = await bindLineToCustomerInStore(makeValidInput());
+      expect(r.status).toBe("unique_conflict");
+      if (r.status === "unique_conflict") {
+        expect(r.conflictTarget).toBe("unknown");
+      }
+    });
+
+    it("re-throws non-P2002 errors from the tx (unknown failures stay visible)", async () => {
+      mockCustomerFindMany.mockResolvedValueOnce([]);
+      mockTx.mockImplementationOnce(async () => {
+        throw new Error("connection terminated");
+      });
+      await expect(bindLineToCustomerInStore(makeValidInput())).rejects.toThrow(
+        "connection terminated",
+      );
+    });
   });
 
   // ─────────────────────────────────────────────────────

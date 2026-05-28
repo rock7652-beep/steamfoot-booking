@@ -28,6 +28,7 @@ import {
   verifyLiffIdToken,
 } from "@/lib/liff/verify-id-token";
 import { resolveStoreBySlug } from "@/lib/store-resolver";
+import { logLineBindEvent } from "@/lib/line-bind-log";
 
 export const dynamic = "force-dynamic";
 
@@ -118,15 +119,33 @@ export async function POST(req: Request): Promise<Response> {
                 ? "VERIFY_NETWORK"
                 : "ID_TOKEN_INVALID";
       const status = err.code === "NETWORK" ? 502 : 401;
+      logLineBindEvent({
+        path: "liff-exchange",
+        status: "verify_failed",
+        storeSlug,
+        errorCode: code,
+      });
       return json({ status: "error", code, message: err.message }, status);
     }
     console.error("[liff/exchange] unexpected verify error", err);
+    logLineBindEvent({
+      path: "liff-exchange",
+      status: "unexpected_error",
+      storeSlug,
+      errorCode: "VERIFY_THREW",
+    });
     return json({ status: "error", code: "INTERNAL", message: "verify failed" }, 500);
   }
 
   // ── 4. Resolve store ──
   const store = await resolveStoreBySlug(storeSlug);
   if (!store) {
+    logLineBindEvent({
+      path: "liff-exchange",
+      status: "store_not_found",
+      storeSlug,
+      lineUserId: verified.lineUserId,
+    });
     return json(
       {
         status: "error",
@@ -145,6 +164,14 @@ export async function POST(req: Request): Promise<Response> {
 
   if (!customer || !customer.userId) {
     // 沒 customer 或 customer 還沒綁 user → 走 onboarding 補手機 (PR-C)
+    logLineBindEvent({
+      path: "liff-exchange",
+      status: "need_onboarding",
+      storeId: store.id,
+      storeSlug: store.slug,
+      lineUserId: verified.lineUserId,
+      customerId: customer?.id ?? null,
+    });
     return json(
       {
         status: "need_onboarding",
@@ -166,10 +193,15 @@ export async function POST(req: Request): Promise<Response> {
     });
   } catch (err) {
     // authorize() 返回 null 會被 NextAuth 包成 CredentialsSignin AuthError
-    console.warn("[liff/exchange] signIn failed", {
-      lineUserId: verified.lineUserId,
+    logLineBindEvent({
+      path: "liff-exchange",
+      status: "session_mint_failed",
       storeId: store.id,
-      err: err instanceof Error ? err.message : String(err),
+      storeSlug: store.slug,
+      lineUserId: verified.lineUserId,
+      customerId: customer.id,
+      userId: customer.userId,
+      errorCode: err instanceof Error ? err.name : "Unknown",
     });
     return json(
       {
@@ -180,6 +212,16 @@ export async function POST(req: Request): Promise<Response> {
       401
     );
   }
+
+  logLineBindEvent({
+    path: "liff-exchange",
+    status: "session_created",
+    storeId: store.id,
+    storeSlug: store.slug,
+    lineUserId: verified.lineUserId,
+    customerId: customer.id,
+    userId: customer.userId,
+  });
 
   return json(
     {
