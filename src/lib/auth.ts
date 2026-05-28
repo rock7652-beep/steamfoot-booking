@@ -7,7 +7,10 @@ import type { Provider } from "next-auth/providers";
 import type { UserRole } from "@prisma/client";
 import { normalizePhone } from "@/lib/normalize";
 import { repairCustomerIdentityOnLogin } from "@/lib/identity-repair";
-import { logLineBindEvent } from "@/lib/line-bind-log";
+import {
+  logLineBindEvent,
+  oauthAccountSyncStatusForExisting,
+} from "@/lib/line-bind-log";
 
 // ============================================================
 // NextAuth v5 type augmentation
@@ -527,7 +530,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           // Customer exists and already has a User - link this OAuth Account to existing User
           const existingAccount = await prisma.account.findUnique({
             where: { provider_providerAccountId: { provider, providerAccountId: account.providerAccountId } },
+            select: { userId: true },
           });
+          // PR #218 P3: track Account creation separately from Customer.lineUserId
+          // update. Without this boolean the log mislabels drift-repair runs
+          // (Customer.lineUserId already set + Account missing → we create the
+          // Account but `justLinkedLine` stays false) as `noop_already_synced`.
+          let accountCreated = false;
           if (!existingAccount) {
             await prisma.account.create({
               data: {
@@ -543,6 +552,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 id_token: account.id_token as string | undefined,
               },
             });
+            accountCreated = true;
           }
 
           // Update Customer with provider-specific IDs
@@ -595,7 +605,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               lineUserId,
               customerId: customer.id,
               userId: customer.userId,
-              accountSyncStatus: justLinkedLine ? "created" : "noop_already_synced",
+              accountSyncStatus: oauthAccountSyncStatusForExisting({
+                existingAccount,
+                customerUserId: customer.userId,
+                accountCreated,
+              }),
             });
           }
 

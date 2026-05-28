@@ -191,6 +191,45 @@ export function logLineBindEvent(evt: LineBindEvent): void {
   else console.info(prefix, payload);
 }
 
+/**
+ * Classify the `accountSyncStatus` to emit from the NextAuth LINE-OAuth
+ * "customer exists with userId" branch, where the flow conditionally creates
+ * a missing `Account[provider=line]` row to repair drift.
+ *
+ * Why this is a separate pure helper:
+ *   Pre-fix bug — the call site used `justLinkedLine` (true only when
+ *   `Customer.lineUserId` was newly written) as the proxy for "Account
+ *   created". That mislabeled drift-repair runs (Customer.lineUserId already
+ *   set + Account missing → we *do* create the Account) as
+ *   `noop_already_synced`. Splitting Account-creation tracking from
+ *   Customer.lineUserId tracking into this helper makes the fix testable
+ *   without invoking the full NextAuth signIn callback.
+ *
+ * Rules (from PR #218 Codex P3):
+ *   - Account row missing before, we just created it → "created"
+ *     (this includes drift repair where Customer.lineUserId already existed)
+ *   - Account row present + Account.userId === Customer.userId → "noop_already_synced"
+ *   - Account row present + Account.userId !== Customer.userId →
+ *     "skipped_already_linked_other_user" (suspicious; caller code currently
+ *     leaves the row alone — this status surfaces the situation in logs)
+ *   - Defensive: Account row missing AND we did not create → "error"
+ *     (shouldn't happen with current control flow but kept for total coverage)
+ */
+export function oauthAccountSyncStatusForExisting(args: {
+  /** Snapshot of the Account row *before* our potential create call. */
+  existingAccount: { userId: string } | null;
+  /** Customer.userId at the time we tried to link the OAuth Account. */
+  customerUserId: string;
+  /** Whether the flow proceeded to create the Account row in this run. */
+  accountCreated: boolean;
+}): AccountSyncStatus {
+  if (args.accountCreated) return "created";
+  if (!args.existingAccount) return "error";
+  return args.existingAccount.userId === args.customerUserId
+    ? "noop_already_synced"
+    : "skipped_already_linked_other_user";
+}
+
 function classifyLevel(status: LineBindResultStatus): "info" | "warn" | "error" {
   switch (status) {
     // success

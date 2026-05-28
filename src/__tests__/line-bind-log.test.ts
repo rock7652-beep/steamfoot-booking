@@ -14,6 +14,7 @@ import {
   maskLineUserId,
   maskId,
   maskPhone,
+  oauthAccountSyncStatusForExisting,
 } from "@/lib/line-bind-log";
 
 // Raw values that, if any of them appear in console output, would represent a
@@ -203,5 +204,125 @@ describe("logLineBindEvent — no PII leak", () => {
     // No "lineUserId":"undefined" or similar
     expect(out).not.toMatch(/lineUserId.*?undefined/);
     expect(out).not.toMatch(/customerId.*?undefined/);
+  });
+});
+
+// ──────────────────────────────────────────────────────────
+// PR #218 Codex P3: oauthAccountSyncStatusForExisting
+//
+// Regression target — before this fix, the auth.ts "customer found with
+// userId" branch used `justLinkedLine` (which tracks Customer.lineUserId being
+// newly written, NOT Account creation) for accountSyncStatus, mislabeling
+// drift-repair runs as `noop_already_synced`. These tests document the
+// correct mapping and will fail if anyone reverts the fix.
+// ──────────────────────────────────────────────────────────
+
+describe("oauthAccountSyncStatusForExisting", () => {
+  const CUSTOMER_USER_ID = "ck-customer-user-1";
+
+  it("returns 'created' when Account did not exist before and we created it", () => {
+    expect(
+      oauthAccountSyncStatusForExisting({
+        existingAccount: null,
+        customerUserId: CUSTOMER_USER_ID,
+        accountCreated: true,
+      }),
+    ).toBe("created");
+  });
+
+  it("returns 'noop_already_synced' when Account existed and points at the same userId", () => {
+    expect(
+      oauthAccountSyncStatusForExisting({
+        existingAccount: { userId: CUSTOMER_USER_ID },
+        customerUserId: CUSTOMER_USER_ID,
+        accountCreated: false,
+      }),
+    ).toBe("noop_already_synced");
+  });
+
+  it("returns 'skipped_already_linked_other_user' when Account existed but userId mismatches", () => {
+    expect(
+      oauthAccountSyncStatusForExisting({
+        existingAccount: { userId: "ck-ghost-user" },
+        customerUserId: CUSTOMER_USER_ID,
+        accountCreated: false,
+      }),
+    ).toBe("skipped_already_linked_other_user");
+  });
+
+  it("defensive: returns 'error' if Account missing AND not created (unreachable in current flow)", () => {
+    expect(
+      oauthAccountSyncStatusForExisting({
+        existingAccount: null,
+        customerUserId: CUSTOMER_USER_ID,
+        accountCreated: false,
+      }),
+    ).toBe("error");
+  });
+
+  // ── The exact Codex P3 regression scenario ──
+  // Scenario from PR #218 review comment on auth.ts:598
+  //
+  //   existing Customer has lineUserId (set in a prior session)
+  //   matching NextAuth Account[line] is MISSING (drift)
+  //   this run creates the Account → drift repair
+  //   emitted log MUST report Account creation, NOT noop
+  it("REGRESSION (PR #218 P3): drift repair (Customer.lineUserId already set + Account missing + flow creates Account) → 'created', NOT 'noop_already_synced'", () => {
+    const out = oauthAccountSyncStatusForExisting({
+      // Account row not present before this run → drift state
+      existingAccount: null,
+      // Customer already had a userId from prior bind (e.g. webhook bind code)
+      customerUserId: "ck-customer-with-prior-lineUserId",
+      // The auth.ts flow proceeded to create the missing Account
+      accountCreated: true,
+    });
+    expect(out).toBe("created");
+    expect(out).not.toBe("noop_already_synced");
+  });
+});
+
+// ──────────────────────────────────────────────────────────
+// PR #218 P3: verify the LIVE log call (path === "oauth-line-signin",
+// status === "oauth_linked_existing") would emit a non-noop status when the
+// helper signals drift repair. This is the integration shape the auth.ts call
+// site produces.
+// ──────────────────────────────────────────────────────────
+
+describe("logLineBindEvent integration with oauthAccountSyncStatusForExisting", () => {
+  let infoSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("emits accountSyncStatus='created' (not 'noop_already_synced') on drift-repair path", () => {
+    const status = oauthAccountSyncStatusForExisting({
+      existingAccount: null,
+      customerUserId: "ck-cust-user",
+      accountCreated: true,
+    });
+    logLineBindEvent({
+      path: "oauth-line-signin",
+      status: "oauth_linked_existing",
+      storeId: "store-abc",
+      lineUserId: "U1234567890abcdef1234567890abcdef",
+      customerId: "ck-cust-id-000001",
+      userId: "ck-cust-user",
+      accountSyncStatus: status,
+    });
+    expect(infoSpy).toHaveBeenCalled();
+    const all = infoSpy.mock.calls
+      .flat()
+      .map((a: unknown) => (typeof a === "string" ? a : JSON.stringify(a)))
+      .join("\n");
+    expect(all).toContain("oauth_linked_existing");
+    expect(all).toContain("\"accountSyncStatus\":\"created\"");
+    expect(all).not.toContain("\"accountSyncStatus\":\"noop_already_synced\"");
   });
 });
