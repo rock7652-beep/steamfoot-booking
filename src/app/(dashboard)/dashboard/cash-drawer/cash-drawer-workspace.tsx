@@ -20,12 +20,14 @@ import { SubmitButton } from "@/components/submit-button";
 
 import type { CashDrawerView, CashDrawerLiveTotals } from "@/server/queries/cash-drawer";
 import type { CashDrawerEntry } from "@prisma/client";
+import type { ActionResult } from "@/types";
 import {
   initializeCashDrawerAction,
   openCashDrawerAction,
   closeCashDrawerAction,
 } from "@/server/actions/cash-drawer";
 import { EntrySection } from "./entry-section";
+import { TodayOpenForm } from "./today-open-form";
 
 interface CashDrawerWorkspaceProps {
   view: CashDrawerView;
@@ -345,19 +347,28 @@ function NotOpenedTodayCard({
   todayStr: string;
   returnPath: string;
 }) {
-  async function handleOpen(formData: FormData) {
+  /**
+   * 包一層 (prevState, formData) → openCashDrawerAction 的 server action 給
+   * `TodayOpenForm` 的 `useActionState`。todayStr / returnPath 在 server-side
+   * closure 內綁好，client 不會看到也不會改到。
+   *
+   * 與舊版差異：成功時**不** call `redirect()`，而是 return success result，
+   * 讓 client `useActionState` 收到後自己 `window.location.assign(returnPath)`，
+   * 走真正的 hard navigation（=F5 等效），繞開 Next.js same-URL redirect 在
+   * action response 內 inline RSC payload 的卡死路徑（PR #227 Preview 觀察）。
+   * 錯誤路徑保留既有「redirect 帶 `?cashDrawerError=` + FormErrorToast」UX。
+   */
+  async function handleOpenAction(
+    _prev: ActionResult<{ sessionId: string }> | null,
+    formData: FormData,
+  ): Promise<ActionResult<{ sessionId: string }>> {
     "use server";
     const result = await openCashDrawerAction({
       businessDate: todayStr,
       openingActualCash: Number(formData.get("openingActualCash")),
       note: (formData.get("note") as string) || undefined,
     });
-    if (!result.success) {
-      redirect(
-        `${returnPath}${returnPath.includes("?") ? "&" : "?"}cashDrawerError=${encodeURIComponent(result.error || "開店失敗")}`,
-      );
-    }
-    redirect(returnPath);
+    return result;
   }
 
   const lastBalance = lastSession.finalBookBalance?.toString() ?? "—";
@@ -387,37 +398,13 @@ function NotOpenedTodayCard({
         )}
 
         {canOpen && (
-          <form action={handleOpen} className="mt-6 space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-earth-700">
-                實際點到金額（NT$）
-              </label>
-              <input
-                type="number"
-                name="openingActualCash"
-                required
-                min={0}
-                step={1}
-                className="mt-1 block min-h-[44px] w-full rounded-lg border border-earth-300 px-3 py-2 text-base tabular-nums focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
-                placeholder="例如 8100"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-earth-700">
-                差額原因（若與上日帳面不同必填）
-              </label>
-              <textarea
-                name="note"
-                rows={2}
-                className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
-                placeholder="若實際金額與上日帳面不同，請說明原因"
-              />
-            </div>
-            <SubmitButton
-              label="完成今日開店點錢"
-              className="min-h-[44px] w-full bg-primary-600 text-base text-white hover:bg-primary-700"
-            />
-          </form>
+          <TodayOpenForm
+            action={handleOpenAction}
+            returnPath={returnPath}
+            placeholderAmount={
+              lastSession.finalBookBalance?.toString() ?? undefined
+            }
+          />
         )}
       </div>
     </div>
