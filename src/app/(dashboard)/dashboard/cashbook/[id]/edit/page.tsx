@@ -15,6 +15,7 @@ import {
 } from "@/components/desktop";
 
 type CashbookEntryType = "INCOME" | "EXPENSE" | "WITHDRAW" | "ADJUSTMENT";
+type PaymentMethod = "CASH" | "OTHER";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -43,6 +44,7 @@ export default async function EditCashbookPage({ params }: PageProps) {
       type: formData.get("type") as CashbookEntryType,
       category: formData.get("category") as string,
       amount: Number(formData.get("amount")),
+      paymentMethod: (formData.get("paymentMethod") as PaymentMethod) || undefined,
       staffId: (formData.get("staffId") as string) || null,
       note: formData.get("note") as string,
     });
@@ -129,6 +131,39 @@ export default async function EditCashbookPage({ params }: PageProps) {
               />
             </div>
           </FormGrid>
+        </FormSection>
+
+        <FormSection title="付款方式" description="請選擇此筆現金帳的收付方式（必選）">
+          <div className="grid grid-cols-2 gap-3">
+            <label className="cursor-pointer">
+              <input
+                type="radio"
+                name="paymentMethod"
+                value="CASH"
+                required
+                defaultChecked={entry.paymentMethod === "CASH"}
+                className="peer sr-only"
+              />
+              <div className="rounded-xl border-2 border-earth-200 bg-white px-4 py-4 text-center transition hover:border-earth-300 peer-checked:border-primary-600 peer-checked:bg-primary-50 peer-checked:ring-2 peer-checked:ring-primary-200 peer-focus-visible:ring-2 peer-focus-visible:ring-primary-300">
+                <div className="text-base font-semibold text-earth-800">現金</div>
+                <div className="mt-1 text-xs text-earth-500">實際收付現金</div>
+              </div>
+            </label>
+            <label className="cursor-pointer">
+              <input
+                type="radio"
+                name="paymentMethod"
+                value="OTHER"
+                required
+                defaultChecked={entry.paymentMethod === "OTHER"}
+                className="peer sr-only"
+              />
+              <div className="rounded-xl border-2 border-earth-200 bg-white px-4 py-4 text-center transition hover:border-earth-300 peer-checked:border-primary-600 peer-checked:bg-primary-50 peer-checked:ring-2 peer-checked:ring-primary-200 peer-focus-visible:ring-2 peer-focus-visible:ring-primary-300">
+                <div className="text-base font-semibold text-earth-800">其他</div>
+                <div className="mt-1 text-xs text-earth-500">匯款 / 轉帳 / 非現金</div>
+              </div>
+            </label>
+          </div>
         </FormSection>
 
         {/* Staff —「登錄人」= 這筆紀錄的可見與編輯範圍歸屬。
