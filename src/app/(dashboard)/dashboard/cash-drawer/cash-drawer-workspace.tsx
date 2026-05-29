@@ -377,11 +377,11 @@ function NotOpenedTodayCard({
     <div className="space-y-4">
       <div className="rounded-xl border bg-primary-50 p-4 text-primary-900">
         <p className="text-sm">
-          上日（{formatTWTime(lastSession.businessDate, { dateOnly: true })}）閉店帳面結餘
+          上日（{formatTWTime(lastSession.businessDate, { dateOnly: true })}）閉店實際點到金額
         </p>
         <p className="mt-1 text-2xl font-bold tabular-nums">NT$ {lastBalance}</p>
         <p className="mt-1 text-xs text-primary-700">
-          系統會自動以此金額作為今日開店帳面
+          今天從這個金額開始；昨天的差額會留在昨天。
         </p>
       </div>
 
@@ -887,11 +887,12 @@ function ClosedSettlementCard({ session }: { session: OpenedTodaySession }) {
         )}
       </dl>
       <div className="mt-6 rounded-lg bg-primary-50 px-4 py-3">
-        <p className="text-xs font-medium text-primary-700">
-          帳面結餘（明日開店帳面起點）
-        </p>
+        <p className="text-xs font-medium text-primary-700">下次開店起點</p>
         <p className="mt-1 text-2xl font-bold tabular-nums text-primary-900">
           NT$ {session.finalBookBalance?.toString() ?? "—"}
+        </p>
+        <p className="mt-1 text-xs text-primary-700">
+          昨天差額會留在昨天，今天從實際點到的現金開始。
         </p>
       </div>
     </div>

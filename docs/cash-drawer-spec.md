@@ -1,7 +1,7 @@
 # 現金抽屜 Cash Drawer 規格書
 
-> 最後更新：2026-05-13
-> 階段：PR-1（read-only 設計文件，未進入實作）
+> 最後更新：2026-05-29（PR-5：finalBookBalance 改為 closingActualCash）
+> 階段：已實作上線
 > 前置依賴：Transaction refund v2 (#89) 收尾、Paper-customer migration 收尾
 
 ---
@@ -10,13 +10,13 @@
 
 「現金抽屜」是店內每日「開店點錢 → 營業中收付 → 閉店點錢 → 短溢核對」的責任制機制。它**不是零用金**（不是每天歸零的固定備用金），而是一筆持續滾動的店內現金結餘。
 
-每間店每日產生一筆 `CashDrawerSession`，紀錄當日開閉店金額、現金異動、差額原因與經手人。閉店後產生的「閉店帳面結餘」即為隔日開店帳面現金。
+每間店每日產生一筆 `CashDrawerSession`，紀錄當日開閉店金額、現金異動、差額原因與經手人。(PR-5) 閉店時店長「實際點到的現金」即為隔日開店起點 —— 昨天的差額留在昨天，今天從實際現金開始。
 
 ---
 
 ## 三個最高原則
 
-1. **現金抽屜是滾動結餘** — 今日開店帳面現金 = 上一個營業日閉店帳面結餘，不是每天固定重設。
+1. **現金抽屜是滾動結餘** — (PR-5) 今日開店起點 = 上一個營業日「閉店實際點到的現金」，不是每天固定重設；昨天的差額留在昨天。
 2. **現金提領不是支出** — 提領（老闆領現、存銀行、轉總部）只減少現金抽屜，不影響營收、費用、損益、店長服務費結算。
 3. **現金補入不是收入** — 補入（補找零金、保險箱補現）只增加現金抽屜，不影響營收、收入報表。
 
@@ -99,7 +99,7 @@
 | `closingNote` | String? | 閉店差額原因 |
 | `closedByStaffId` | String? | 閉店操作員 |
 | `closedAt` | DateTime? | 閉店時間 |
-| `finalBookBalance` | Decimal? | 閉店帳面結餘 = `expectedClosingCash`（維持帳面責任鏈，差額不吃進結餘） |
+| `finalBookBalance` | Decimal? | (PR-5) 下次開店起點 = `closingActualCash`（昨天差額留在昨天，今天從實際點到的現金開始） |
 | `createdAt` / `updatedAt` | DateTime | 系統時間 |
 
 **唯一鍵：** `@@unique([storeId, businessDate])` — 每店每日只能有一個 session。
@@ -184,14 +184,19 @@ WHERE storeId = :storeId
   ± cashAdjustmentTotal       (CashDrawerEntry 調整)
 
 closingDifference = closingActualCash - expectedClosingCash
-finalBookBalance  = expectedClosingCash  // 維持帳面責任鏈，差額不吃進結餘
+finalBookBalance  = closingActualCash  // (PR-5) 下次開店從實際現金開始，差額留在當天
 ```
 
-> **errata（PR-2 修正）**：原 spec 寫 `finalBookBalance = closingActualCash` 與「expectedClosingCash 用 openingBookBalance」的鐵則自相矛盾。
+> **PR-5 決策（取代 PR-2 errata）：差額留在當天，下次開店從實際現金開始。**
 >
-> 若 `finalBookBalance = closingActualCash`，隔日 `openingBookBalance` 會從實際金額起算，短溢被默默吃進結餘鏈，違背帳面責任鏈鐵則。
+> - `finalBookBalance = closingActualCash`（店長閉店實際點到的現金），不是 `expectedClosingCash`。
+> - 當天的短溢完整保留在 `closingDifference / closingNote`，不會消失。
+> - 隔日開店 `openingBookBalance` 自動帶入這個實點金額，**從昨天實際現金開始**，避免差額被帶著跑、每天越差越多。
+> - 不回頭重算已 `CLOSED` 的 session；只影響之後新閉店的 session。
 >
-> 正確設計：`finalBookBalance = expectedClosingCash`。短溢由 `closingDifference / closingNote` 留痕；若 OWNER 要正式認列，請在下一個 OPEN session 新增 `CASH_ADJUSTMENT`（短少用 OUT、溢出用 IN），不修改歷史 session。
+> **為什麼改掉 PR-2 的「帳面責任鏈」**：PR-2 原採 `finalBookBalance = expectedClosingCash`，讓昨日差額持續暴露在隔日 `openingDifference`，需 OWNER 另用 `CASH_ADJUSTMENT` 認列。實務上這讓店長每天被昨天的差額困住、難以理解。PR-5 改為「差額記在發生當天，隔天歸零從實點重新開始」，更貼近日常操作。
+>
+> 註：`expectedClosingCash` 的公式維持不變（仍用 `openingBookBalance` 當基準）；本次只改 `finalBookBalance` 的定義。
 
 > **設計細節：為什麼 expectedClosingCash 用 `openingBookBalance` 而非 `openingActualCash`**
 >

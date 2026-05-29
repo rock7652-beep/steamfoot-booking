@@ -369,8 +369,8 @@ describe("closeCashDrawer", () => {
     ).rejects.toThrow(/必須填寫備註/);
   });
 
-  it("短少時 finalBookBalance = expectedClosingCash（不是 actualCash）", async () => {
-    // 鐵則：閉店短少不會被默默吃進結餘鏈
+  it("(PR-5) 短少時 finalBookBalance = closingActualCash（差額留在當天，下次開店從實點開始）", async () => {
+    // PR-5：差額記在當天 closingDifference，下次開店起點用實際點到的現金
     mockSessionFindUnique.mockResolvedValue(makeSession({ openingBookBalance: D(5000) }));
     mockSessionUpdate.mockResolvedValue({ id: "sess-1" });
 
@@ -384,12 +384,13 @@ describe("closeCashDrawer", () => {
     const call = mockSessionUpdate.mock.calls[0][0] as { data: Record<string, unknown> };
     expect((call.data.expectedClosingCash as Prisma.Decimal).toNumber()).toBe(5000);
     expect((call.data.closingActualCash as Prisma.Decimal).toNumber()).toBe(4900);
+    // 差額仍完整保留在當天
     expect((call.data.closingDifference as Prisma.Decimal).toNumber()).toBe(-100);
-    // 關鍵：finalBookBalance 用 expected 而非 actual
-    expect((call.data.finalBookBalance as Prisma.Decimal).toNumber()).toBe(5000);
+    // 關鍵（PR-5）：finalBookBalance 用實點而非 expected → 下次開店從 4900 開始
+    expect((call.data.finalBookBalance as Prisma.Decimal).toNumber()).toBe(4900);
   });
 
-  it("溢出時 finalBookBalance = expectedClosingCash（不是 actualCash）", async () => {
+  it("(PR-5) 溢出時 finalBookBalance = closingActualCash（差額留在當天，下次開店從實點開始）", async () => {
     mockSessionFindUnique.mockResolvedValue(makeSession({ openingBookBalance: D(5000) }));
     mockSessionUpdate.mockResolvedValue({ id: "sess-1" });
 
@@ -402,7 +403,28 @@ describe("closeCashDrawer", () => {
 
     const call = mockSessionUpdate.mock.calls[0][0] as { data: Record<string, unknown> };
     expect((call.data.closingDifference as Prisma.Decimal).toNumber()).toBe(50);
-    expect((call.data.finalBookBalance as Prisma.Decimal).toNumber()).toBe(5000);
+    // 關鍵（PR-5）：finalBookBalance 用實點 5050 而非 expected 5000
+    expect((call.data.finalBookBalance as Prisma.Decimal).toNumber()).toBe(5050);
+  });
+
+  it("(PR-5) 大額短少：expected 7765、實點 2295 → finalBookBalance=2295、差額 -5470 保留", async () => {
+    // 用戶情境：系統應有 7765，實際點到 2295。差額留在當天，下次開店從 2295 開始。
+    mockSessionFindUnique.mockResolvedValue(makeSession({ openingBookBalance: D(7765) }));
+    mockSessionUpdate.mockResolvedValue({ id: "sess-1" });
+
+    await closeCashDrawer({
+      sessionId: "sess-1",
+      closingActualCash: 2295,
+      note: "現場點到 2295，差額待查",
+      actorUserId: USER_OWNER,
+    });
+
+    const call = mockSessionUpdate.mock.calls[0][0] as { data: Record<string, unknown> };
+    expect((call.data.expectedClosingCash as Prisma.Decimal).toNumber()).toBe(7765);
+    expect((call.data.closingActualCash as Prisma.Decimal).toNumber()).toBe(2295);
+    expect((call.data.closingDifference as Prisma.Decimal).toNumber()).toBe(-5470);
+    // 不再用 7765（不會每天越差越多）
+    expect((call.data.finalBookBalance as Prisma.Decimal).toNumber()).toBe(2295);
   });
 });
 
