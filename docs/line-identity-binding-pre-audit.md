@@ -26,6 +26,7 @@
 | `pr-c2-liff-onboarding-plan.md` §6 | 不動 Prisma schema、不寫 migration | ✓（見 §8） |
 | `pr-f1.2` read-only contract test | `scripts/diagnose-line-mismatch-repair-audit.ts` 不可 gain write capability | ✓ |
 | `pr-f1.2` cross-store guard | `crossStoreLineUserCount > 1 && canReassignSafely` 必降級 | ✓（新代碼也要符合） |
+| **本 PR 系列範圍鎖**（Codex round 6 P2）| **PR-G5 是 LINE identity-binding only**；Google OAuth placeholder（`_oauth_google_*`）行為**完全不在本 PR train 範圍**，需保持現狀不變 | ✓（A2 invariant 僅檢 `_oauth_line_` prefix；**禁止**用廣義 `_oauth_` ban 連帶擋 Google，否則首次 Google OAuth 沒既有 Customer 的顧客會被誤拒；若未來要設計 Google 替代流程，須另開 docs / PR train，**不**在 PR-G5.x scope）|
 
 ### 本 pre-audit 只做這 1 件事
 
@@ -193,7 +194,7 @@ Account (NextAuth OAuth tokens)
 **建議:採 (P) 兩條同時做**:
 - LIFF entry 為主流入口(主推);
 - 為 Case C 提供「補 phone」出口(必做,replace Case C placeholder fallback);
-- A2 invariant 寫進 Zod / helper:**新 Customer.phone 不得 `startsWith("_oauth_")`**,既有 row 暫留為歷史債,等 ad-hoc backfill 清。
+- A2 invariant 寫進 Zod / helper：**新 Customer.phone 不得 `startsWith("_oauth_line_")`**（**LINE-only**；Google OAuth 的 `_oauth_google_*` 不在本 PR train scope，A2 validator 必須 narrow 到 `_oauth_line_` prefix，否則會誤殺首次 Google OAuth 沒既有 Customer 的顧客 — Codex round 6 P2）；既有 row 暫留為歷史債，等 ad-hoc backfill 清。
 
 ---
 
@@ -272,7 +273,7 @@ RELOGIN → 顧客已登入
 | 條件 | 怎麼 enforce |
 | --- | --- |
 | `Customer.phone` 必須是正規化台灣手機 | 既有 `normalizePhone()` + Zod schema 已 enforce |
-| `Customer.phone` 不得 `startsWith("_oauth_")` | 新增 Zod refine / 在 `bindLineToCustomerInStore` 與 auth.ts 寫入點檢查（A2 invariant） |
+| `Customer.phone` 不得 `startsWith("_oauth_line_")` | 新增 Zod refine / 在 `bindLineToCustomerInStore` 與 auth.ts 寫入點檢查（A2 invariant，**LINE-only**）；**禁止**擴成 `_oauth_` 廣義 ban — `_oauth_google_*` 屬於 Google OAuth fallback 路徑，PR-G5 train 不設計 Google 替代流程，連帶擋下會破壞首次 Google OAuth |
 | 同 $transaction 內 User + Customer + Account[line] 三件齊全 | **Current baseline 並未 enforce**：`bindLineToCustomerInStore` User+Customer 同 tx、Account post-tx best-effort（§2.2）；auth.ts Case B 三件分次 top-level write（不在單一 `$transaction`）。**PR-G5 target**：新 entry point `bindLineToExistingCustomerById`（§5.3，existing-user 專用、不建 User）從一開始即 atomic；**Case B 走獨立的 activation helper `activatePrecreatedCustomerWithLine`（§5.3.3，User+Account+Customer 三件同 tx）**，PR-G5.5 收斂至該 activation helper；既有 `bindLineToCustomerInStore` 受 PR-C2 §6 鎖，atomicity 升級獨立評估。 |
 | `Customer.lineLinkStatus === "LINKED"` ⇔ `Customer.lineUserId !== null` | 在 helper 集中 set；任何外部 inline update 都禁 |
 | `authSource = "LINE"` 寫入點明確（不被 default 蓋掉） | 已對 |
@@ -487,12 +488,12 @@ activatePrecreatedCustomerWithLine({
 | **PR-G5.0** | 本文件 merge | docs-only | reviewer 確認 invariants / 收斂方向無爭議 |
 | **PR-G5.1** | 加 helper **新入口（兩支獨立函式）**：(a) `bindLineToExistingCustomerById`（§5.3，existing-user 專用，rejects `userId === null`）；(b) `activatePrecreatedCustomerWithLine`（§5.3.3，Case B 啟用專用，**accepts** `userId === null` 並原子建 User + Account + Customer.update）。純擴充,不改既有 `bindLineToCustomerInStore` 介面 + 兩支各自單元測試 | M | 不 wire 任何 caller;build/test 通過即可上 prod 觀察(同 PR-C1 的 dead-code-on-prod 策略) |
 | **PR-G5.2** | Webhook 綁定碼路徑收斂:`handleBindingRequest` 改為呼叫 `bindLineToExistingCustomerById`;移除 inline `prisma.customer.update` + 條件 sync | M | Golden-output tests:對比 refactor 前後對相同 input 的 DB 寫入序列完全一致 |
-| **PR-G5.3** | Zod / helper 加 A2 invariant 校驗:**任何 Customer.phone 寫入點不得 `startsWith("_oauth_")`**;**既有 row 不動**;新增 test | S | 此 PR 上線後,Case C 仍會試圖建 `_oauth_line_*` → 會 throw → NextAuth signIn fail。**故 PR-G5.3 必須與 PR-G5.4 同 PR train 或前後夾擊**,不可單獨 ship。 |
+| **PR-G5.3** | Zod / helper 加 A2 invariant 校驗：**任何 Customer.phone 寫入點不得 `startsWith("_oauth_line_")`**（**LINE-only**，**禁止**用 `_oauth_` 廣義 prefix — 會連帶擋 `_oauth_google_*` 而破壞首次 Google OAuth，Codex round 6 P2）；**既有 row 不動**；新增 test，含 `_oauth_google_*` 必須 accept 的 regression case | S | 此 PR 上線後，Case C 仍會試圖建 `_oauth_line_*` → 會 throw → NextAuth signIn fail（Google Case C 不受影響）。**故 PR-G5.3 必須與 PR-G5.4 同 PR train 或前後夾擊**，不可單獨 ship。 |
 | **PR-G5.4** | auth.ts Case C 改寫:**移除** inline placeholder create;改為**簽 stage token via `oauth-stage-token.ts` + return Auth.js redirect URL 指向 `/api/oauth-line-stage`**(該 route handler 才呼叫 `setOAuthTempSession`、寫 cookie、redirect `/oauth-confirm`);復活 `/oauth-confirm` 流程入口;`finalizeLineBind` 走 customerId-driven `bindLineToExistingCustomerById`（**非** phone-driven） | L | 高風險;feature flag 包住;monitor signIn 完成率;同 PR ship PR-G5.3。`/oauth-confirm` 邊路「先不綁」必須有 |
 | **PR-G5.5** | auth.ts Case B 收斂到 **`activatePrecreatedCustomerWithLine`（§5.3.3 activation helper，唯一 wire 此 helper 的 caller）**；**禁止** wire 至 `bindLineToExistingCustomerById`（會被 step 4 `userId === null` 擋下、首次 LINE 啟用流程整個壞掉，Codex round 5 P1）。Refactor only — 把 Case B 既有的「User.create + Account.create + Customer.update 三件分次 top-level write」整併進 helper 單一 `$transaction` | S | Golden-output tests：(a) 既有 Case B input 經 refactor 後 DB 寫入序列 byte-equal；(b) regression：spy 確認 Case B 路徑**不**呼叫 `bindLineToExistingCustomerById` |
-| **PR-G5.6** | CI gate:加 read-only script `scripts/diagnose-new-placeholder-customers.ts`,掃 `Customer.phone LIKE '_oauth_%' AND createdAt > <feature-flag-ship-date>`,>0 → fail CI | S | 寫入端有 A2 校驗、讀取端有 CI gate,雙保險 |
+| **PR-G5.6** | CI gate：加 read-only script `scripts/diagnose-new-placeholder-customers.ts`，掃 `Customer.phone LIKE '_oauth\_line\_%' AND createdAt > <feature-flag-ship-date>`（**LINE-only prefix**；`_oauth_google_%` 不在掃描範圍 — Codex round 6 P2），>0 → fail CI | S | 寫入端有 A2 校驗、讀取端有 CI gate，雙保險（兩者都僅針對 LINE） |
 | **PR-G5.7** | 把 PR-F1.2 audit 排程進 CI(weekly),mismatch 數提升 → 自動 issue | S | 不直接 fail CI(可能有先存 historical),但提醒 |
-| **PR-G5.8** | 1-2 週 prod 觀察期通過後:刪除 auth.ts Case C feature flag、刪除 `_oauth_${provider}_*` 字串常數、刪 dead path | S | 在這之前 dead code 留著 = roll-back lever |
+| **PR-G5.8** | 1-2 週 prod 觀察期通過後：刪除 auth.ts **LINE** Case C feature flag、刪除 `_oauth_line_*` 寫入字串常數與 dead path；**Google Case C 的 `_oauth_google_*` 寫入路徑保持不動**（PR-G5 train 不替換 Google OAuth fallback，Codex round 6 P2） | S | 在這之前 LINE dead code 留著 = roll-back lever；Google path 始終不在 PR-G5 scope |
 | **(獨立)** | 第 3 筆 `needs_manual_business_check` 處理(per-customer SOP,沿用 PR-F2 範本) | — | 由業務拍板後另開,**不在 PR-G5 系列** |
 | **(獨立)** | Historical `_oauth_line_*` placeholder Customer backfill / cleanup | — | 寫入端鎖死後,**另開** read-only diagnose + manual review,**不在 PR-G5 系列** |
 
@@ -510,7 +511,7 @@ activatePrecreatedCustomerWithLine({
 | `src/server/services/bind-line-to-customer.test.ts` | 新增 entry point 的單元測試（含 `store_mismatch` pre-write semantics、`customer_has_no_user` pre-write semantics、A3 atomicity test） | G5.1 |
 | `src/app/api/line/webhook/route.ts` | `handleBindingRequest` refactor：caller-side 先檢查 `customer.userId`：若 `null` → **沿用 legacy** `prisma.customer.update({ lineUserId, lineLinkStatus, lineLinkedAt })`、跳過 Account sync（無 User 可掛，§5.3.2）；若 `!== null` → 呼叫 `bindLineToExistingCustomerById({ storeId: resolvedStoreId, customerId, lineUserId, lineName })`，`storeId` 來自 webhook resolveStore（trusted）。**不**在 caller 端重複寫 cross-store 比對（helper 已 enforce）。**兩條 branch 都要被 PR-G5.2 golden-output 測試覆蓋**，確保 byte-equal vs refactor 前 | G5.2 |
 | `src/__tests__/webhook-bind-code.test.ts`（新檔或補既有） | golden-output tests | G5.2 |
-| `src/lib/normalize.ts` 或新 `src/lib/customer-phone-validation.ts` | A2 invariant:phone 不得 `startsWith("_oauth_")` | G5.3 |
+| `src/lib/normalize.ts` 或新 `src/lib/customer-phone-validation.ts` | A2 invariant：phone 不得 `startsWith("_oauth_line_")`（**LINE-only**；**禁止** 寫成 `startsWith("_oauth_")` — 會連帶擋 `_oauth_google_*` 而破壞首次 Google OAuth，Codex round 6 P2） | G5.3 |
 | `src/lib/auth.ts` Case C | 移除 inline create;改為**簽 stage token via `oauth-stage-token.ts` + return Auth.js redirect URL 指向 `/api/oauth-line-stage?token=...`**;**禁止** import `src/lib/server/oauth-temp-session`（會把 `next/headers` 拉進 NextAuth bundle） | G5.4 |
 | `src/lib/auth.ts` Case B | 改為呼叫 **`activatePrecreatedCustomerWithLine({ storeId: targetStoreId, customerId: customer.id, lineUserId, lineName })`**（§5.3.3 activation helper，refactor only；`targetStoreId` 已是 signIn callback 內 resolved trusted value，直接傳）；**禁止** wire 至 `bindLineToExistingCustomerById` — 那條 helper 的 step 4 會在 `userId === null` 立刻 `customer_has_no_user` 把首次 LINE 啟用流程整個打斷（Codex round 5 P1）；**不**在 caller 端重複寫 cross-store guard / userId guard / lineUserId guard（activation helper 已 enforce） | G5.5 |
 | `src/app/(auth)/oauth-confirm/page.tsx` | 復活/微調 UI（dead code 已存在） | G5.4 |
@@ -525,7 +526,7 @@ activatePrecreatedCustomerWithLine({
 
 | 檔案 | 用途 |
 | --- | --- |
-| `scripts/diagnose-new-placeholder-customers.ts` | read-only;掃 `Customer.phone LIKE '_oauth_%' AND createdAt > <date>`;同 PR-F1.2 read-only 契約 |
+| `scripts/diagnose-new-placeholder-customers.ts` | read-only；掃 `Customer.phone LIKE '_oauth\_line\_%' AND createdAt > <date>`（**LINE-only**；`_oauth_google_%` 因屬於另一條未在本 PR train 替換的 fallback 路徑，**故意不掃**，Codex round 6 P2）；同 PR-F1.2 read-only 契約 |
 | `src/__tests__/diagnose-new-placeholder-customers.readonly.test.ts` | 同 PR-F1.2 contract test pattern |
 
 ### 7.3 不能碰（任何 PR-G5.x 一律不准）
@@ -557,7 +558,7 @@ activatePrecreatedCustomerWithLine({
 
 | 想法 | 為何不做 schema/migration |
 | --- | --- |
-| 加 DB `CHECK (phone NOT LIKE '_oauth_%')` | Prisma 不原生支援 CHECK constraint;要寫 raw SQL migration,增加 schema drift 風險;且既有 row 違反條件,migration 會失敗。改用應用層 Zod / helper(A2 invariant) |
+| 加 DB `CHECK (phone NOT LIKE '_oauth\_line\_%')` | Prisma 不原生支援 CHECK constraint；要寫 raw SQL migration，增加 schema drift 風險；且既有 row 違反條件，migration 會失敗。改用應用層 Zod / helper（A2 invariant，**LINE-only** pattern；**禁止**用廣義 `'_oauth_%'` 會連帶擋 `_oauth_google_*` 既有 row + 未來 Google OAuth 路徑） |
 | 加 `Customer.lineLinkStatus + lineUserId` 一致性 CHECK | 同上,且邏輯一致由 helper 強制即可 |
 | 加 `Customer.authSource` enum 約束 | 已是 `AuthSource` enum,不需加 |
 | 加新 table 紀錄 oauth_temp_session(避免 cookie 跨頁) | cookie 模式已存在(`src/lib/server/oauth-temp-session.ts`),且 TTL 5 分鐘的短期憑證不該進 DB |
@@ -590,6 +591,7 @@ activatePrecreatedCustomerWithLine({
 | **R7** | 顧客同時打開 LIFF 與非 LIFF tab → oauth_line_session cookie 互覆蓋 | 低 | identity-flow.md §8 已 acknowledge;未來升級用 nonce 綁定;暫接受 |
 | **R8** | helper 新 entry point（`bindLineToExistingCustomerById` + `activatePrecreatedCustomerWithLine`，§5.3 / §5.3.3）與既有 `bindLineToCustomerInStore` 三者語意差異被誤合 | 中 | 三者共用 mask helpers + `logLineBindEvent` + storeId 比對 + A3 atomicity (新 entry 兩支)；但**接受 `customer.userId` 的方向不同**：existing-user helper rejects null、activation helper requires null、phone-driven 既有 helper 不檢查此維度（走 phone match）— PR description + 單元測試 + integration tests 三層必須各自明寫該差異，避免 reviewer 誤把 Case B wire 至 existing-user helper（Codex round 5 P1 已發生過此誤接）|
 | **R13** | PR-G5.5 把 Case B wire 至 existing-user helper（誤接），首次 LINE OAuth 啟用流程被 step 4 `customer_has_no_user` 擋下 → 顧客無法用 LINE 第一次啟用 staff-precreated 帳號 | **高** | (a) Case B 必 wire 至 `activatePrecreatedCustomerWithLine`（§5.3.3 / §7.1 PR-G5.5 row 已寫死）；(b) §9.2.2 regression test 用 spy 強制 Case B 路徑**不**呼叫 `bindLineToExistingCustomerById`；(c) `bindLineToExistingCustomerById` 的 status enum 沒有 `activated`、activation helper 的 enum 沒有 `bound_existing` — 型別系統再加一層保險 |
+| **R14** | PR-G5.3 A2 invariant 被寫成廣義 `_oauth_` ban → 連帶擋下 `_oauth_google_*` 寫入 → 首次 Google OAuth 沒既有 Customer 的顧客在 NextAuth Case C 階段 throw，無法登入 → 與本 PR train「LINE-only」的 scope 不符（Codex round 6 P2） | **高** | (a) A2 validator **只**檢查 `_oauth_line_` prefix，§7.1 normalize / customer-phone-validation 與 §6 PR-G5.3 row 都寫死 LINE-only；(b) §9.2.1 validator 單元測試含 `_oauth_google_*` accept regression — 若有人改成廣義 ban，這個測試會立刻 fail；(c) §7.1 PR-G5.6 CI gate 掃描 pattern 也鎖 `_oauth\_line\_%`，不掃 Google；(d) 若未來真要設計 Google 替代流程，須**另開**獨立 docs / PR train，**不**塞進 PR-G5.x |
 | **R9** | 既有 historical `_oauth_line_*` row 在 A2 invariant 上線後被任何 update 操作觸發 | 中 | A2 只校驗 `create` 與「`update` 且包含 phone」;既有 row 純讀取 / 改其他欄位都不受影響 |
 | **R10** | PR-G5.4 ship 後 LIFF 內部因為某 edge case fallback 走到 NextAuth Case C(再也不會 create placeholder)→ LIFF 登入失敗 | 中 | LIFF entry 走 `/api/liff/exchange` + `liff-token` provider,不經 LINE OAuth provider 的 signIn callback;但需 E2E 確認;若真有 fallback path,須單獨修而非倒退 placeholder |
 | **R11** | `oauth_line_session` cookie 缺 integrity 保護被攻擊者手刻 → 任意 LINE 接管已認證 customer | **高** | PR-G5.4 必同 PR ship §5.3.1 方案 A/B/C 任一；`/oauth-confirm/finalize` 必先驗 signature / nonce 才讀 cookie 任何欄位；HttpOnly **不算** integrity；R7 既有「cookie 互覆蓋」已 acknowledge 是 isolation 議題、不抵此項；防呆透過 finalize 的 cookie integrity 必驗 + unit test (tampered cookie 0 DB 寫入) 一起鎖 |
@@ -606,7 +608,7 @@ activatePrecreatedCustomerWithLine({
 | `bindLineToExistingCustomerById`（existing-user 專用） | 全部 status 分支：`bound_existing` / `already_synced` / `customer_locked`（已綁其他 LINE）/ `store_mismatch` / `customer_has_no_user` / `unique_conflict`（P2002）+ **A3 atomicity test**：mock `prisma.account.create` 拋錯 → 整組 `$transaction` rollback，Customer.lineUserId 不得被寫入（與既有 phone-driven helper 的 post-tx best-effort 行為**刻意不同**）+ **store_mismatch pre-write semantics test**：傳入 `{ storeId: storeA, customerId: <customer-in-storeB> }` → return `store_mismatch`，spy 確認 `prisma.customer.update` / `prisma.account.create` / `prisma.auditLog.create` 通通 **0 次** 呼叫（helper 在任何寫入前就因 storeId 不符 abort，cross-store guard 在 helper 內部一處完成，caller 端無需重複）+ **`customer_has_no_user` pre-write semantics test**：傳入 `{ customerId: <customer-with-userId-null> }` → return `customer_has_no_user`，spy 確認 `prisma.customer.update` / `prisma.account.create` / `prisma.user.create` / `prisma.auditLog.create` 全 **0 次** 呼叫（helper **不**靜默建 User，§5.3.2）+ **storeId required test**：呼叫 site 漏傳 `storeId` → TypeScript 型別錯（compile-time）/ runtime 防呆 throw |
 | `activatePrecreatedCustomerWithLine`（§5.3.3，Case B 啟用專用） | 全部 status 分支：`activated` / `store_mismatch` / `customer_already_has_user` / `customer_already_linked_to_other_line` / `unique_conflict`（P2002）+ **`activated` happy path test**：傳入 `{ storeId, customerId: <staff-precreated>, lineUserId, lineName }` → 在單一 `$transaction` 內 `prisma.user.create` × 1 + `prisma.account.create` × 1（provider=line）+ `prisma.customer.update`（userId / lineUserId / lineLinkStatus / lineLinkedAt / lineName）+ `prisma.auditLog.create` × 1，呼叫序列與欄位內容 byte-asserted；+ **atomicity test**：mock 第 (b) `prisma.account.create` 拋錯 → 整 `$transaction` rollback，**不殘留** orphan User 行（Customer.userId / lineUserId 都不得寫入）+ **`customer_already_has_user` pre-write semantics test**：傳入 `customerId` 指向已有 `userId` 的 Customer → return `customer_already_has_user`，spy 確認 user.create / account.create / customer.update / auditLog.create 全 **0 次**；錯誤訊息暗示 caller 應改 wire `bindLineToExistingCustomerById`（防止 Case B 被誤接至 existing-user helper 的對稱保險）+ **`store_mismatch` pre-write semantics test**：同 existing-user helper 形式 + **`customer_already_linked_to_other_line` pre-write semantics test**：Customer.lineUserId 已被別的 LINE 占用 → 0 byte 寫入（防 hijack） |
 | `bindLineToCustomerInStore`（existing） | 既有 7 status 全部 regression（PR-G5.1 不改行為）+ **明寫的非 atomic 行為**：mock `syncLineAccountForUser` 回 `error` → Customer 仍保留 `lineUserId`、回傳 `lineAccountSync: "error"` — 鎖死 baseline 行為，避免無聲被改 |
-| A2 invariant validator | `_oauth_*` reject;正規化台灣手機 accept;空 phone reject |
+| A2 invariant validator | **`_oauth_line_*` reject**（LINE-only）+ **`_oauth_google_*` accept regression**（Codex round 6 P2 — 證明 validator 不會誤殺 Google placeholder）+ 正規化台灣手機 accept + 空 phone reject；若未來改成廣義 `_oauth_*` reject，此 regression test 會 fail，把改動擋下 |
 | `resolveLineLogin` | NEW_USER / BOUND_EXISTING / NEED_LOGIN;Step 0 lineUserId 已綁直接 loginAsCustomer |
 | `finalizeLineBind` | happy path（NEED_LOGIN，**via `bindLineToExistingCustomerById`**，且 cookie signature / nonce 已通過 §5.3.1 verify）+ **cookie integrity 必測**：(a) cookie 完全缺失 → 0 DB 寫入 + auth/session error；(b) tampered cookie（signature 不符 / nonce server-side store 查無） → 0 DB 寫入 + reject；(c) expired nonce / TTL 過期 → 0 DB 寫入 + reject；(d) 通過 verify 才允許進 helper + nonce reuse → abort + store mismatch → abort + TTL expired → abort + **反例：若誤接 phone-driven `bindLineToCustomerInStore` 應 fail-fast（會回 `phone_taken_by_other_user`）—當作 negative test 鎖死**；+ **`customer_has_no_user` 必測**：helper 回此 status → finalize 必須 redirect 回 `/oauth-confirm` 並**不**靜默自動建 User |
 | `oauth-stage-token` | sign/verify round-trip；HMAC tamper reject；TTL expired reject；nonce reuse reject；**static import-graph assertion：`src/lib/auth.ts` 的 import closure 不含 `src/lib/server/oauth-temp-session` 也不含 `next/headers`** |
@@ -634,7 +636,7 @@ activatePrecreatedCustomerWithLine({
 * LIFF 真機(LINE app 開 LIFF)走完 onboarding 三條分支
 * 非 LIFF（desktop Chrome）走「LINE 登入」三條分支
 * 把 PR-F1.2 audit script 跑在 staging：每個 PR 上線後 mismatch 數必須維持 0
-* `scripts/diagnose-new-placeholder-customers.ts`（PR-G5.6 新增）跑在 staging：PR-G5.4 ship 後 `count(Customer.phone LIKE '_oauth_%' AND createdAt > shipDate) === 0`
+* `scripts/diagnose-new-placeholder-customers.ts`（PR-G5.6 新增）跑在 staging：PR-G5.4 ship 後 `count(Customer.phone LIKE '_oauth\_line\_%' AND createdAt > shipDate) === 0`（**LINE-only**；`_oauth_google_%` 不在掃描範圍，Codex round 6 P2）
 
 #### 9.2.4 Read-only contract tests（沿用 PR-F1.2 pattern）
 
