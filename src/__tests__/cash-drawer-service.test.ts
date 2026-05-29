@@ -27,6 +27,7 @@ const {
   mockTransactionUpdate,
   mockCashbookCreate,
   mockCashbookUpdate,
+  mockCashbookGroupBy,
   dbMock,
 } = vi.hoisted(() => {
   const fns = {
@@ -41,6 +42,7 @@ const {
     mockTransactionUpdate: vi.fn(),
     mockCashbookCreate: vi.fn(),
     mockCashbookUpdate: vi.fn(),
+    mockCashbookGroupBy: vi.fn(),
   };
   const db: Record<string, unknown> = {
     cashDrawerSession: {
@@ -61,6 +63,7 @@ const {
     cashbookEntry: {
       create: (...a: unknown[]) => fns.mockCashbookCreate(...a),
       update: (...a: unknown[]) => fns.mockCashbookUpdate(...a),
+      groupBy: (...a: unknown[]) => fns.mockCashbookGroupBy(...a),
     },
   };
   db.$transaction = (cb: (tx: unknown) => Promise<unknown>) => cb(db);
@@ -77,6 +80,8 @@ import {
   computeCashIncomeForSession,
   computeCashExpenseForSession,
   computeManualEntryTotals,
+  computeCashbookCashMovementsForSession,
+  getCurrentCashDrawer,
 } from "@/server/services/cash-drawer";
 
 const D = (n: number) => new Prisma.Decimal(n);
@@ -102,6 +107,8 @@ beforeEach(() => {
   // Defaults — aggregate returns null（無資料）
   mockTxAggregate.mockResolvedValue({ _sum: { amount: null } });
   mockEntryFindMany.mockResolvedValue([]);
+  // PR-3：預設無現金帳異動，個別測試可覆寫
+  mockCashbookGroupBy.mockResolvedValue([]);
 });
 
 // ============================================================
@@ -497,6 +504,106 @@ describe("computeManualEntryTotals", () => {
     expect(result.cashWithdrawalTotal.toNumber()).toBe(0);
     expect(result.cashDepositTotal.toNumber()).toBe(0);
     expect(result.cashAdjustmentTotal.toNumber()).toBe(0);
+  });
+});
+
+// ============================================================
+// PR-3：現金帳（CashbookEntry）對抽屜的影響
+// ============================================================
+
+describe("computeCashbookCashMovementsForSession", () => {
+  it("INCOME 累進 income、EXPENSE + WITHDRAW 累進 out、ADJUSTMENT 忽略", async () => {
+    mockCashbookGroupBy.mockResolvedValue([
+      { type: "INCOME", _sum: { amount: D(1500) } },
+      { type: "EXPENSE", _sum: { amount: D(400) } },
+      { type: "WITHDRAW", _sum: { amount: D(600) } },
+      { type: "ADJUSTMENT", _sum: { amount: D(9999) } },
+    ]);
+    const result = await computeCashbookCashMovementsForSession({
+      storeId: STORE_A,
+      businessDate: new Date(Date.UTC(2026, 4, 13)),
+    });
+    expect(result.cashbookCashIncome.toNumber()).toBe(1500);
+    expect(result.cashbookCashOut.toNumber()).toBe(1000); // 400 + 600
+  });
+
+  it("只查 paymentMethod=CASH，entryDate 用 day-range [businessDate, +1d)", async () => {
+    mockCashbookGroupBy.mockResolvedValue([]);
+    await computeCashbookCashMovementsForSession({
+      storeId: STORE_A,
+      businessDate: new Date(Date.UTC(2026, 4, 13)),
+    });
+    const call = mockCashbookGroupBy.mock.calls[0][0] as {
+      where: { storeId: string; paymentMethod: string; entryDate: { gte: Date; lt: Date } };
+    };
+    expect(call.where.storeId).toBe(STORE_A);
+    expect(call.where.paymentMethod).toBe("CASH");
+    expect(call.where.entryDate.gte).toEqual(new Date(Date.UTC(2026, 4, 13)));
+    expect(call.where.entryDate.lt).toEqual(new Date(Date.UTC(2026, 4, 14)));
+  });
+
+  it("無現金帳資料時回 0/0", async () => {
+    mockCashbookGroupBy.mockResolvedValue([]);
+    const result = await computeCashbookCashMovementsForSession({
+      storeId: STORE_A,
+      businessDate: new Date(Date.UTC(2026, 4, 13)),
+    });
+    expect(result.cashbookCashIncome.equals(0)).toBe(true);
+    expect(result.cashbookCashOut.equals(0)).toBe(true);
+  });
+});
+
+describe("closeCashDrawer × 現金帳（PR-3）", () => {
+  it("閉店快照的 expectedClosingCash 折進當日現金帳 CASH 收支", async () => {
+    mockSessionFindUnique.mockResolvedValue(makeSession({ openingBookBalance: D(5000) }));
+    mockTxAggregate
+      .mockResolvedValueOnce({ _sum: { amount: D(0) } }) // income
+      .mockResolvedValueOnce({ _sum: { amount: D(0) } }); // expense
+    mockEntryFindMany.mockResolvedValue([]);
+    mockCashbookGroupBy.mockResolvedValue([
+      { type: "INCOME", _sum: { amount: D(2000) } },
+      { type: "EXPENSE", _sum: { amount: D(500) } },
+    ]);
+    mockSessionUpdate.mockResolvedValue({ id: "sess-1" });
+
+    await closeCashDrawer({
+      sessionId: "sess-1",
+      closingActualCash: 6500, // 5000 + 2000 - 500
+      actorUserId: USER_OWNER,
+    });
+
+    const call = mockSessionUpdate.mock.calls[0][0] as { data: Record<string, unknown> };
+    // 5000 + cashbook(2000 - 500) = 6500
+    expect((call.data.expectedClosingCash as Prisma.Decimal).toNumber()).toBe(6500);
+    expect((call.data.closingDifference as Prisma.Decimal).toNumber()).toBe(0);
+    // finalBookBalance 仍 = expectedClosingCash（責任鏈不變）
+    expect((call.data.finalBookBalance as Prisma.Decimal).toNumber()).toBe(6500);
+  });
+});
+
+describe("getCurrentCashDrawer × 現金帳（PR-3）", () => {
+  it("OPEN：liveTotals 含現金帳收支並折進 expectedClosingCash", async () => {
+    mockSessionFindUnique.mockResolvedValue(makeSession({ status: "OPEN", openingBookBalance: D(1000) }));
+    mockTxAggregate.mockResolvedValue({ _sum: { amount: D(0) } });
+    mockEntryFindMany.mockResolvedValue([]);
+    mockCashbookGroupBy.mockResolvedValue([{ type: "INCOME", _sum: { amount: D(800) } }]);
+
+    const result = await getCurrentCashDrawer(STORE_A, new Date(Date.UTC(2026, 4, 13)));
+
+    expect(result.liveTotals?.cashbookCashIncome.toNumber()).toBe(800);
+    expect(result.liveTotals?.expectedClosingCash.toNumber()).toBe(1800);
+  });
+
+  it("CLOSED：不 live 查現金帳（liveTotals=null，groupBy 未被呼叫）", async () => {
+    mockSessionFindUnique.mockResolvedValue(
+      makeSession({ status: "CLOSED", expectedClosingCash: D(9999) }),
+    );
+
+    const result = await getCurrentCashDrawer(STORE_A, new Date(Date.UTC(2026, 4, 13)));
+
+    expect(result.liveTotals).toBeNull();
+    expect(mockCashbookGroupBy).not.toHaveBeenCalled();
+    expect(mockTxAggregate).not.toHaveBeenCalled();
   });
 });
 

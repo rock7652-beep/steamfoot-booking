@@ -461,6 +461,28 @@ function formatDiff(value: number): {
   };
 }
 
+/**
+ * PR-3：CLOSED session 不 live 查現金帳，從凍結快照反推現金帳淨額。
+ *
+ * expectedClosingCash 已把 cashbook(CASH) 折進去：
+ *   expected = opening + cashIncome − cashExpense − cashWithdrawal + cashDeposit
+ *              + cashAdjustment + cashbookCashIncome − cashbookCashOut
+ * 反推 net = cashbookCashIncome − cashbookCashOut
+ *          = expected − opening − cashIncome + cashExpense + cashWithdrawal
+ *            − cashDeposit − cashAdjustment
+ */
+function deriveClosedCashbookNet(session: OpenedTodaySession): string {
+  if (session.expectedClosingCash == null) return "—";
+  const net = session.expectedClosingCash
+    .sub(session.openingBookBalance)
+    .sub(session.cashIncomeTotal)
+    .add(session.cashExpenseTotal)
+    .add(session.cashWithdrawalTotal)
+    .sub(session.cashDepositTotal)
+    .sub(session.cashAdjustmentTotal);
+  return net.toString();
+}
+
 function OpenedTodayWorkspace({
   session,
   liveTotals,
@@ -511,6 +533,8 @@ function OpenedTodayWorkspace({
               cashWithdrawal={liveTotals.cashWithdrawalTotal.toString()}
               cashDeposit={liveTotals.cashDepositTotal.toString()}
               cashAdjustment={liveTotals.cashAdjustmentTotal.toString()}
+              cashbookCashIncome={liveTotals.cashbookCashIncome.toString()}
+              cashbookCashOut={liveTotals.cashbookCashOut.toString()}
             />
           )}
           {isClosed && (
@@ -521,6 +545,7 @@ function OpenedTodayWorkspace({
               cashWithdrawal={session.cashWithdrawalTotal.toString()}
               cashDeposit={session.cashDepositTotal.toString()}
               cashAdjustment={session.cashAdjustmentTotal.toString()}
+              cashbookNet={deriveClosedCashbookNet(session)}
             />
           )}
 
@@ -616,6 +641,9 @@ function TransactionSummaryCard({
   cashWithdrawal,
   cashDeposit,
   cashAdjustment,
+  cashbookCashIncome,
+  cashbookCashOut,
+  cashbookNet,
 }: {
   live: boolean;
   cashIncome: string;
@@ -623,6 +651,12 @@ function TransactionSummaryCard({
   cashWithdrawal: string;
   cashDeposit: string;
   cashAdjustment: string;
+  /** OPEN：當日現金帳 CASH INCOME 合計（live） */
+  cashbookCashIncome?: string;
+  /** OPEN：當日現金帳 CASH EXPENSE + WITHDRAW 合計（live） */
+  cashbookCashOut?: string;
+  /** CLOSED：從 frozen expectedClosingCash 反推的現金帳淨額（signed） */
+  cashbookNet?: string;
 }) {
   return (
     <div className="rounded-xl border bg-white p-6 shadow-sm">
@@ -666,6 +700,36 @@ function TransactionSummaryCard({
             </div>
           </dd>
         </div>
+
+        {/* PR-3：現金帳（CashbookEntry, paymentMethod=CASH）對抽屜的影響。
+            OPEN 顯示 live 收入/支出兩行；CLOSED 從凍結快照反推單一淨額。 */}
+        {live && cashbookCashIncome !== undefined && cashbookCashOut !== undefined && (
+          <div className="col-span-2">
+            <dt className="text-earth-500">現金帳（現金收付）</dt>
+            <dd className="mt-2 grid grid-cols-2 gap-2 text-sm">
+              <div className="rounded-lg bg-earth-50 px-3 py-2">
+                <div className="text-xs text-earth-500">現金帳現金收入</div>
+                <div className="mt-0.5 font-medium tabular-nums text-green-700">
+                  + NT$ {cashbookCashIncome}
+                </div>
+              </div>
+              <div className="rounded-lg bg-earth-50 px-3 py-2">
+                <div className="text-xs text-earth-500">現金帳現金支出</div>
+                <div className="mt-0.5 font-medium tabular-nums text-orange-700">
+                  − NT$ {cashbookCashOut}
+                </div>
+              </div>
+            </dd>
+          </div>
+        )}
+        {!live && cashbookNet !== undefined && (
+          <div className="col-span-2">
+            <dt className="text-earth-500">現金帳淨額（現金）</dt>
+            <dd className="mt-1 text-base font-medium tabular-nums text-earth-800">
+              NT$ {cashbookNet}
+            </dd>
+          </div>
+        )}
       </dl>
     </div>
   );

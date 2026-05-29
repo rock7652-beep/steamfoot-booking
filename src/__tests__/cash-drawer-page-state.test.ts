@@ -27,6 +27,8 @@ const stubLiveTotals = (
   cashWithdrawalTotal: ZERO,
   cashDepositTotal: ZERO,
   cashAdjustmentTotal: ZERO,
+  cashbookCashIncome: ZERO,
+  cashbookCashOut: ZERO,
   expectedClosingCash: ZERO,
   ...overrides,
 });

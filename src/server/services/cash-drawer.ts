@@ -51,13 +51,19 @@ export function computeExpectedClosingCash(params: {
   cashWithdrawalTotal: Prisma.Decimal;
   cashDepositTotal: Prisma.Decimal;
   cashAdjustmentTotal: Prisma.Decimal; // signed（IN 為正、OUT 為負）
+  // PR-3: 現金帳（CashbookEntry）內 paymentMethod=CASH 的當日異動。
+  // INCOME 推升結餘，EXPENSE + WITHDRAW 壓低結餘；ADJUSTMENT 不納入。
+  cashbookCashIncome?: Prisma.Decimal;
+  cashbookCashOut?: Prisma.Decimal;
 }): Prisma.Decimal {
   return params.openingBookBalance
     .add(params.cashIncomeTotal)
     .sub(params.cashExpenseTotal)
     .sub(params.cashWithdrawalTotal)
     .add(params.cashDepositTotal)
-    .add(params.cashAdjustmentTotal);
+    .add(params.cashAdjustmentTotal)
+    .add(params.cashbookCashIncome ?? ZERO)
+    .sub(params.cashbookCashOut ?? ZERO);
 }
 
 export function computeClosingDifference(
@@ -185,6 +191,52 @@ export async function computeManualEntryTotals(sessionId: string): Promise<{
   };
 }
 
+export type CashbookCashMovements = {
+  /** 現金帳 INCOME（paymentMethod=CASH）合計 — 推升抽屜結餘 */
+  cashbookCashIncome: Prisma.Decimal;
+  /** 現金帳 EXPENSE + WITHDRAW（paymentMethod=CASH）合計 — 壓低抽屜結餘 */
+  cashbookCashOut: Prisma.Decimal;
+};
+
+/**
+ * 計算某 session 營業日的「現金帳現金異動」。
+ *
+ * 只納入 CashbookEntry.paymentMethod = CASH，且 entryDate 落在該營業日；
+ * INCOME 累進 cashbookCashIncome、EXPENSE + WITHDRAW 累進 cashbookCashOut。
+ * ADJUSTMENT 不納入（無方向欄位，與既有現金抽屜彙總一致）。
+ *
+ * entryDate 與 businessDate 同為 @db.Date（UTC 午夜），用 [businessDate, +1d) day-range 比對，
+ * 不使用 Transaction 的 openedAt/closedAt 時戳窗（避免把 date-only 欄位當成時戳）。
+ */
+export async function computeCashbookCashMovementsForSession(
+  session: Pick<CashDrawerSession, "storeId" | "businessDate">,
+): Promise<CashbookCashMovements> {
+  const nextDay = new Date(session.businessDate.getTime() + 24 * 60 * 60 * 1000);
+  const grouped = await prisma.cashbookEntry.groupBy({
+    by: ["type"],
+    _sum: { amount: true },
+    where: {
+      storeId: session.storeId,
+      paymentMethod: "CASH",
+      entryDate: { gte: session.businessDate, lt: nextDay },
+    },
+  });
+
+  let income = ZERO;
+  let out = ZERO;
+  for (const g of grouped) {
+    const sum = g._sum.amount ?? ZERO;
+    if (g.type === "INCOME") {
+      income = income.add(sum);
+    } else if (g.type === "EXPENSE" || g.type === "WITHDRAW") {
+      out = out.add(sum);
+    }
+    // ADJUSTMENT：略過（不納入抽屜計算）
+  }
+
+  return { cashbookCashIncome: income, cashbookCashOut: out };
+}
+
 // ============================================================
 // Public service functions
 // ============================================================
@@ -286,6 +338,8 @@ export type CurrentCashDrawer = {
     cashWithdrawalTotal: Prisma.Decimal;
     cashDepositTotal: Prisma.Decimal;
     cashAdjustmentTotal: Prisma.Decimal;
+    cashbookCashIncome: Prisma.Decimal;
+    cashbookCashOut: Prisma.Decimal;
     expectedClosingCash: Prisma.Decimal;
   } | null;
 };
@@ -293,6 +347,9 @@ export type CurrentCashDrawer = {
 /**
  * 取得指定店指定日的 session + 即時統計（不寫入快照欄位）。
  * 若該日無 session，session 為 null。
+ *
+ * PR-3：CLOSED session 不 live 重算（含現金帳），直接回 liveTotals=null，
+ * 由 caller 改讀 frozen 快照欄位，維持閉店凍結。
  */
 export async function getCurrentCashDrawer(
   storeId: string,
@@ -304,11 +361,16 @@ export async function getCurrentCashDrawer(
   if (!session) {
     return { session: null, liveTotals: null };
   }
+  if (session.status === "CLOSED") {
+    // 閉店凍結：不回頭重算，liveTotals 為 null（caller 讀 session 快照欄位）
+    return { session, liveTotals: null };
+  }
 
-  const [cashIncomeTotal, cashExpenseTotal, manual] = await Promise.all([
+  const [cashIncomeTotal, cashExpenseTotal, manual, cashbook] = await Promise.all([
     computeCashIncomeForSession(session),
     computeCashExpenseForSession(session),
     computeManualEntryTotals(session.id),
+    computeCashbookCashMovementsForSession(session),
   ]);
 
   const expectedClosingCash = computeExpectedClosingCash({
@@ -318,6 +380,8 @@ export async function getCurrentCashDrawer(
     cashWithdrawalTotal: manual.cashWithdrawalTotal,
     cashDepositTotal: manual.cashDepositTotal,
     cashAdjustmentTotal: manual.cashAdjustmentTotal,
+    cashbookCashIncome: cashbook.cashbookCashIncome,
+    cashbookCashOut: cashbook.cashbookCashOut,
   });
 
   return {
@@ -328,6 +392,8 @@ export async function getCurrentCashDrawer(
       cashWithdrawalTotal: manual.cashWithdrawalTotal,
       cashDepositTotal: manual.cashDepositTotal,
       cashAdjustmentTotal: manual.cashAdjustmentTotal,
+      cashbookCashIncome: cashbook.cashbookCashIncome,
+      cashbookCashOut: cashbook.cashbookCashOut,
       expectedClosingCash,
     },
   };
@@ -408,9 +474,11 @@ export async function closeCashDrawer(input: CloseInput): Promise<CashDrawerSess
   const closedAt = new Date();
 
   // ── 2. Compute phase（並行讀取 + 純函式計算）──
-  const [cashIncomeTotal, cashExpenseTotal] = await Promise.all([
+  const [cashIncomeTotal, cashExpenseTotal, cashbook] = await Promise.all([
     computeCashIncomeForSession({ ...session, closedAt }),
     computeCashExpenseForSession({ ...session, closedAt }),
+    // PR-3：閉店快照納入當日現金帳 CASH 異動（折進 expectedClosingCash）
+    computeCashbookCashMovementsForSession(session),
   ]);
 
   const entries = await prisma.cashDrawerEntry.findMany({
@@ -434,6 +502,8 @@ export async function closeCashDrawer(input: CloseInput): Promise<CashDrawerSess
     cashWithdrawalTotal: withdrawal,
     cashDepositTotal: deposit,
     cashAdjustmentTotal: adjustment,
+    cashbookCashIncome: cashbook.cashbookCashIncome,
+    cashbookCashOut: cashbook.cashbookCashOut,
   });
   const closingActualCash = new Prisma.Decimal(input.closingActualCash);
   const closingDifference = computeClosingDifference(closingActualCash, expectedClosingCash);

@@ -26,6 +26,7 @@ const {
   mockSessionUpdate,
   mockEntryFindMany,
   mockTxAggregate,
+  mockCashbookGroupBy,
   dbMock,
 } = vi.hoisted(() => {
   const fns = {
@@ -36,6 +37,7 @@ const {
     mockEntryFindMany: vi.fn(),
     mockEntryCreate: vi.fn(),
     mockTxAggregate: vi.fn(),
+    mockCashbookGroupBy: vi.fn(),
   };
   const db: Record<string, unknown> = {
     cashDrawerSession: {
@@ -47,6 +49,9 @@ const {
     cashDrawerEntry: {
       findMany: (...a: unknown[]) => fns.mockEntryFindMany(...a),
       create: (...a: unknown[]) => fns.mockEntryCreate(...a),
+    },
+    cashbookEntry: {
+      groupBy: (...a: unknown[]) => fns.mockCashbookGroupBy(...a),
     },
     transaction: { aggregate: (...a: unknown[]) => fns.mockTxAggregate(...a) },
   };
@@ -64,6 +69,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockTxAggregate.mockResolvedValue({ _sum: { amount: null } });
   mockEntryFindMany.mockResolvedValue([]);
+  // PR-3：滾動場景無現金帳異動，現金帳 groupBy 回空
+  mockCashbookGroupBy.mockResolvedValue([]);
 });
 
 describe("場景 C：Day1 短少 100 未認列，Day2 開店", () => {
