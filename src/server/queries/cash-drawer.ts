@@ -18,6 +18,7 @@ import {
   computeCashIncomeForSession,
   computeCashExpenseForSession,
   computeManualEntryTotals,
+  computeCashbookCashMovementsForSession,
   computeExpectedClosingCash,
 } from "@/server/services/cash-drawer";
 
@@ -27,6 +28,10 @@ export type CashDrawerLiveTotals = {
   cashWithdrawalTotal: Prisma.Decimal;
   cashDepositTotal: Prisma.Decimal;
   cashAdjustmentTotal: Prisma.Decimal;
+  /** PR-3：當日現金帳（paymentMethod=CASH）INCOME 合計，推升結餘 */
+  cashbookCashIncome: Prisma.Decimal;
+  /** PR-3：當日現金帳（paymentMethod=CASH）EXPENSE + WITHDRAW 合計，壓低結餘 */
+  cashbookCashOut: Prisma.Decimal;
   expectedClosingCash: Prisma.Decimal;
 };
 
@@ -87,10 +92,11 @@ export function deriveCashDrawerView(
 export async function computeLiveTotalsForOpenSession(
   session: CashDrawerSession,
 ): Promise<CashDrawerLiveTotals> {
-  const [income, expense, manual] = await Promise.all([
+  const [income, expense, manual, cashbook] = await Promise.all([
     computeCashIncomeForSession(session),
     computeCashExpenseForSession(session),
     computeManualEntryTotals(session.id),
+    computeCashbookCashMovementsForSession(session),
   ]);
   const expectedClosingCash = computeExpectedClosingCash({
     openingBookBalance: session.openingBookBalance,
@@ -99,6 +105,8 @@ export async function computeLiveTotalsForOpenSession(
     cashWithdrawalTotal: manual.cashWithdrawalTotal,
     cashDepositTotal: manual.cashDepositTotal,
     cashAdjustmentTotal: manual.cashAdjustmentTotal,
+    cashbookCashIncome: cashbook.cashbookCashIncome,
+    cashbookCashOut: cashbook.cashbookCashOut,
   });
   return {
     cashIncomeTotal: income,
@@ -106,6 +114,8 @@ export async function computeLiveTotalsForOpenSession(
     cashWithdrawalTotal: manual.cashWithdrawalTotal,
     cashDepositTotal: manual.cashDepositTotal,
     cashAdjustmentTotal: manual.cashAdjustmentTotal,
+    cashbookCashIncome: cashbook.cashbookCashIncome,
+    cashbookCashOut: cashbook.cashbookCashOut,
     expectedClosingCash,
   };
 }
