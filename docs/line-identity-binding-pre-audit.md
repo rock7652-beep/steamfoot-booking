@@ -328,9 +328,25 @@ bindLineToExistingCustomerById({
   | "customer_locked"
   | "store_mismatch"
   | "customer_has_no_user"     // §5.3.2: customer.userId IS NULL，無 User 可掛 Account
+                               //         (a.k.a. skipped_no_user; PR-G5.1 二選一命名，
+                               //          本文件統一用 customer_has_no_user)
   | "unique_conflict"
 }
 ```
+
+#### 📋 Pre-write checklist（任何 caller、任何路徑都必走完全部 5 步才可寫 DB）
+
+此 checklist **取代過往「helper 內部 enforce + caller 各自防衛」**的描述。所有呼叫 `bindLineToExistingCustomerById` 的 path（webhook / `/oauth-confirm/finalize` / NextAuth Case B）**必須**按以下順序執行；任何一步失敗 → return 對應 status 或 auth/session error + **0 byte DB 寫入**（含 AuditLog）：
+
+| # | 檢查 | 在哪做 | 失敗回什麼 | 失敗時 DB 寫入 |
+| - | --- | --- | --- | --- |
+| **1** | **驗 oauth temp session 完整性**（僅當 `storeId` / `customerId` / `lineUserId` / `lineName` 任一來自 `oauth_line_session` cookie 時必做）：signature / decrypt / server-side nonce 任一機制（§5.3.1）通過才能讀取 cookie payload | caller（`/oauth-confirm/finalize` server action）— webhook resolveStore / NextAuth signIn JWT 路徑跳過本步 | auth/session error | **0 byte** |
+| **2** | 用 `customerId` load Customer | helper 內部（read-only） | n/a（純 read） | **0 byte** |
+| **3** | 驗 `customer.storeId === storeId` | helper 內部 | `{ status: "store_mismatch" }` | **0 byte** |
+| **4** | 驗 `customer.userId !== null` | helper 內部 | `{ status: "customer_has_no_user" }` | **0 byte** |
+| **5** | 在單一 `$transaction` (Serializable) 內執行 `Customer.update` + `Account.create` + AuditLog；任一 throw 整組 rollback（A3 atomicity） | helper 內部 | `{ status: "unique_conflict" }` / Prisma throw 重拋 | tx rollback → **0 byte** |
+
+> **強制順序**：1 → 2 → 3 → 4 → 5。**不可**跳過任何一步、**不可**用 caller-side check 取代 helper-side check（step 3 / step 4 內 helper enforce 是唯一真實守門），webhook 與 finalize 都不得把 step 1 推給 helper 做（helper 不認 cookie；caller 才知道 source 是不是 cookie）。
 
 #### Helper contract semantics（PR-G5.1 必實作）
 
@@ -346,28 +362,38 @@ bindLineToExistingCustomerById({
 
 #### 5.3.1 oauth_line_session cookie integrity 要求（PR-G5.4 必實作）
 
-**問題（Codex P1）**:既有 `src/lib/server/oauth-temp-session.ts` 把 `{ lineUserId, displayName, storeId, nonce }` 以 raw JSON 直接寫進 HttpOnly cookie。HttpOnly 只擋 JavaScript 讀取，**不**對抗「使用者在 DevTools / curl 用任意 Cookie header 改 payload」。在改造前，`/oauth-confirm/finalize` 若直接讀 cookie 取 `storeId` / `lineUserId` / `customerId`，攻擊者可以：
+**問題（Codex P1，已二度提醒）**：既有 `src/lib/server/oauth-temp-session.ts` 把 `{ lineUserId, displayName, storeId, nonce }` 以 **raw JSON 直接寫進 HttpOnly cookie**（具體實作:`cookieStore.set(OAUTH_LINE_SESSION_COOKIE, JSON.stringify(session), { httpOnly: true, sameSite: "lax", maxAge: 300, secure: true })`）。HttpOnly 只擋 JavaScript 讀取，**完全不**對抗「使用者用 DevTools / curl / fetch 手刻 `Cookie:` request header 重寫 payload」。在 PR-G5.4 落實 §5.3.1 方案 A/B/C 任一前，`/oauth-confirm/finalize` 若直接消費 cookie 欄位，攻擊者可以：
 
-- 完全跳過 LINE OAuth、自己手刻 `oauth_line_session=...` cookie，
-- 把任意 `lineUserId` 綁到一個自己已通過密碼登入的 `customerId` 上，
-- 完成 LINE 接管攻擊（account takeover）。
+- 完全跳過 LINE OAuth 與 `/api/oauth-line-stage`，
+- 自己手刻 `oauth_line_session={"lineUserId":"<任意 U...>","storeId":"<目標店>","customerId":"<自己已認證的>","nonce":"x","displayName":"x"}`，
+- 直奔 `/oauth-confirm/finalize`，
+- 把任意 LINE 身份綁到自己 `customerId` 上（account takeover）。
 
-**設計規則（PR-G5 實作前必擇一落地）**:
+**field-level 禁止規則（必須寫進 PR-G5.4 review checklist）**：
+
+- ❌ `/oauth-confirm/finalize` **不可**消費 `tempSession.storeId` 來決定 `bindLineToExistingCustomerById.storeId` ── 直到 step 1 integrity 通過。
+- ❌ `/oauth-confirm/finalize` **不可**消費 `tempSession.lineUserId` 來決定 `bindLineToExistingCustomerById.lineUserId` ── 直到 step 1 integrity 通過。
+- ❌ `/oauth-confirm/finalize` **不可**消費 `tempSession.customerId` 來決定 `bindLineToExistingCustomerById.customerId` ── 直到 step 1 integrity 通過。
+- ❌ `/oauth-confirm/finalize` **不可**消費 `tempSession.lineName` 來決定 `bindLineToExistingCustomerById.lineName` ── 直到 step 1 integrity 通過。
+- ❌ 任何把 raw `getOAuthTempSession()` 回傳值傳進 helper 的 PR review，必須在 PR description 列出「step 1 integrity 已落實 + 驗證點」，否則直接退件。
+- ✅ Helper 仍 enforce step 3 / step 4 — 但這是 defense-in-depth，**不**取代 step 1 必須在 caller 端做完。
+
+**設計規則（PR-G5.4 ship 前必擇一落地）**:
 
 | 方案 | 描述 | 取捨 |
 | --- | --- | --- |
-| **A. Signed cookie**（推薦） | cookie payload 後附 HMAC-SHA256（密鑰來自 `NEXTAUTH_SECRET` 或獨立 env），讀取時必驗簽 | 簡單；payload 仍可被 read（HttpOnly 擋 JS、但用戶仍可在 DevTools 看自己的 cookie）— 對本 use case 無 confidentiality 需求所以可接受 |
+| **A. Signed cookie**（推薦） | cookie payload 後附 HMAC-SHA256（密鑰來自 `NEXTAUTH_SECRET` 或獨立 env），讀取時必驗簽，簽錯 → 視同無 cookie | 簡單；payload 仍可被 read（HttpOnly 擋 JS、但用戶仍可在 DevTools 看自己的 cookie）— 對本 use case 無 confidentiality 需求所以可接受 |
 | **B. Encrypted cookie (JWE)** | A 之上再對 payload 加密 | confidentiality + integrity 都覆蓋；但只有 server 看得到 payload，debug 麻煩 |
-| **C. Server-side nonce / session 表** | cookie 只放 opaque `nonce`，真實 payload 存 Redis / DB row；讀取時用 nonce 對 server-side store 取回 | 最強；多一次 DB / cache hit；需新基礎設施 |
+| **C. Server-side nonce / session 表** | cookie 只放 opaque `nonce`，真實 payload 存 Redis / DB row；讀取時用 nonce 對 server-side store 取回；server-side row 不存在 / 被消費過 / 過期 → 視同無 cookie | 最強；多一次 DB / cache hit；需新基礎設施 |
 
-**禁止**：把現行「raw JSON + HttpOnly + sameSite=lax + maxAge=300」當成「足以信任 payload」。HttpOnly **不是** integrity 機制，本文件之前任何把 oauth_line_session cookie 直接列為 "trusted source" 的描述都應理解為「**經 A / B / C 任一機制驗證通過之後**才 trusted」。
+**絕對禁止**：把現行「raw `JSON.stringify(session)` + HttpOnly + sameSite=lax + maxAge=300」當成「足以信任 payload」。**HttpOnly 不是 integrity 機制**，本文件之前任何把 `oauth_line_session` cookie 直接列為 "trusted source" 的描述都必須讀作「**經 A / B / C 任一機制驗證通過之後**才 trusted」。在 §5.3 Pre-write checklist step 1 通過之前，`tempSession` 物件**所有欄位**都是 untrusted user input，等同 `request.body`。
 
-**`/oauth-confirm/finalize` 必驗順序**:
+**`/oauth-confirm/finalize` 必驗順序**（= §5.3 Pre-write checklist 的 step 1 細節）:
 
-1. read cookie → 驗 signature / decrypt / 用 nonce 對 server-side store 取回 — 任一步失敗 → return auth/session error，**0 byte DB 寫入**（含 AuditLog）。
-2. 驗 nonce 一次性（已用過 → reject）。
-3. 驗 TTL 未過期。
-4. 通過後才能把 `storeId` / `lineUserId` / `lineName` / `customerId` 傳給 `bindLineToExistingCustomerById`。
+1. read cookie → 驗 signature / decrypt / 用 nonce 對 server-side store 取回 — 任一步失敗 → return auth/session error，**0 byte DB 寫入**（含 AuditLog），**不**讀取也**不**回傳 `tempSession` 任何欄位給 client。
+2. 驗 nonce 一次性（已用過 → reject、視同 step 1.1 失敗）。
+3. 驗 TTL 未過期（已過期 → reject、視同 step 1.1 失敗）。
+4. 全部通過後才能把（且只能把）`tempSession.storeId` / `tempSession.lineUserId` / `tempSession.lineName` 傳給 `bindLineToExistingCustomerById`；`customerId` 來自 PR-2 `resolveLineLogin` 的 NEED_LOGIN state（同樣需 verified — `resolveLineLogin` 結果存放與消費機制亦適用本節整潔規則）。
 
 #### 5.3.2 No-user Customer 處理（PR-G5.1 helper / PR-G5.2 webhook 各自規則）
 
@@ -520,14 +546,14 @@ bindLineToExistingCustomerById({
 | `resolveLineLogin` | NEW_USER / BOUND_EXISTING / NEED_LOGIN;Step 0 lineUserId 已綁直接 loginAsCustomer |
 | `finalizeLineBind` | happy path（NEED_LOGIN，**via `bindLineToExistingCustomerById`**，且 cookie signature / nonce 已通過 §5.3.1 verify）+ **cookie integrity 必測**：(a) cookie 完全缺失 → 0 DB 寫入 + auth/session error；(b) tampered cookie（signature 不符 / nonce server-side store 查無） → 0 DB 寫入 + reject；(c) expired nonce / TTL 過期 → 0 DB 寫入 + reject；(d) 通過 verify 才允許進 helper + nonce reuse → abort + store mismatch → abort + TTL expired → abort + **反例：若誤接 phone-driven `bindLineToCustomerInStore` 應 fail-fast（會回 `phone_taken_by_other_user`）—當作 negative test 鎖死**；+ **`customer_has_no_user` 必測**：helper 回此 status → finalize 必須 redirect 回 `/oauth-confirm` 並**不**靜默自動建 User |
 | `oauth-stage-token` | sign/verify round-trip；HMAC tamper reject；TTL expired reject；nonce reuse reject；**static import-graph assertion：`src/lib/auth.ts` 的 import closure 不含 `src/lib/server/oauth-temp-session` 也不含 `next/headers`** |
-| `oauth-temp-session` | set/get/clear；TTL；nonce uniqueness；cookie attributes（httpOnly/secure/sameSite=lax/maxAge=300）+ **integrity 必測（§5.3.1）**：(a) 完全沒帶 cookie → `getOAuthTempSession()` 回 null + finalize 拒絕；(b) **tampered cookie**（手刻 `oauth_line_session={"storeId":"foreign","lineUserId":"Uxxxx",...}` 不帶合法 signature / nonce）→ 整 helper 拒絕，spy 確認 0 DB 寫入；(c) **expired session**（cookie 還在但 nonce / TTL 過期）→ 拒絕 + 0 DB 寫入；(d) **valid signed/nonce-verified session** → finalize 路徑得以正常進入並進到 helper；(e) **HttpOnly 不是 integrity**：在測試 narrative comment 寫明，避免未來 reviewer 誤把 HttpOnly 當保護 |
+| `oauth-temp-session`（PR-G5.4 必過 4 case，§5.3.1）| **(T1) 偽造 raw JSON cookie**：直接寫 `oauth_line_session={"storeId":"<foreign>","lineUserId":"U_fake","customerId":"<victim>","nonce":"x","displayName":"x"}` 不帶 signature / 不對應任何 server-side nonce row → integrity check 失敗 → finalize return auth/session error；spy 確認 `prisma.customer.update` / `customer.create` / `user.create` / `account.create` / `auditLog.create` 全部 **0 次** 呼叫。**(T2) Tampered signature**（方案 A/B）：cookie 帶合法格式但 signature 末段被改一個字元 → HMAC verify 失敗 → 同上，0 DB 寫入。**(T3) Expired temp session**：cookie 結構/signature 都對但 TTL 已過 或 server-side nonce row 已 used / 已 expire → 拒絕 + 0 DB 寫入。**(T4) Valid signed/nonce-verified session**：通過 signature/decrypt/nonce verify → finalize 路徑得以進入並能將 verified `tempSession.storeId` / `lineUserId` / `lineName` 傳入 helper。**(T5 narrative)** 在測試 file 開頭 comment 寫明「HttpOnly 不等於 integrity；本檔覆蓋 integrity 而非 attribute hardening」，防止未來 reviewer 誤把 cookie attributes 當作 integrity 保護 |
 
 #### 9.2.2 Integration tests
 
 | 場景 | 涵蓋 PR |
 | --- | --- |
 | 「店長先建檔 phone Customer」→ LIFF onboarding 命中既有 → bound_existing | G5.1 baseline |
-| webhook 綁定碼（兩條 branch 都要覆蓋）：(A) `customer.userId !== null` → `bindLineToExistingCustomerById({ storeId: <webhook-resolved>, customerId, lineUserId, lineName })` → DB 寫入序列 vs refactor 前 byte-equal；(B) **`customer.userId === null` 的 legacy branch 必須保留**（§5.3.2）：caller 跳過 helper、直接 `prisma.customer.update({ lineUserId, lineLinkStatus, lineLinkedAt })`、不 sync Account（無 User 可掛）→ 兩種 input 的 DB 寫入序列都與 refactor 前 byte-equal；+ **cross-store reject case**:同一 lineUserId / 同一 customerId 但 caller 傳錯 store → `store_mismatch` + 0 byte DB 寫入 + 與 refactor 前同一 cross-store 拒絕語意保持一致 | G5.2 |
+| webhook 綁定碼（兩條 branch 必須各自獨立測試 + golden-output 鎖死，§5.3.2）：**(W1) `customer.userId !== null` branch** → `bindLineToExistingCustomerById({ storeId: <webhook-resolved>, customerId, lineUserId, lineName })` → DB 寫入序列 vs refactor 前 byte-equal（含 AuditLog 觸發欄位 & timestamp 之外的所有 column）；**(W2) `customer.userId === null` legacy branch 必須完整保留**：caller 跳過 helper、直接執行 `prisma.customer.update({ lineUserId, lineLinkStatus: "LINKED", lineLinkedAt: now })`、**不**呼叫 `account.create` / `user.create`（無 User 可掛 Account → 維持 §5.1 矩陣裡 webhook 列「同 tx Account[line] sync? ❌」legacy 語意）→ DB 寫入序列 vs refactor 前 byte-equal；spy assert `prisma.account.create` 與 `prisma.user.create` 在此 branch 都 0 次呼叫；**(W3) cross-store reject case**：同一 lineUserId / 同一 customerId 但 caller 傳錯 storeId → helper 回 `store_mismatch` + 0 byte DB 寫入 + 與 refactor 前同一 cross-store 拒絕語意 byte-equal | G5.2 |
 | 非 LIFF LINE OAuth + Case C 替換 → **auth.ts 簽 stage token → `/api/oauth-line-stage` 驗 token 並寫 oauth_line_session cookie → redirect `/oauth-confirm`** → 填 phone(新號) → NEW_USER → `bindLineToCustomerInStore` 走 candidates=0 分支 → 顧客 RELOGIN 後有完整身份鏈 | G5.4 |
 | 非 LIFF LINE OAuth + 顧客已有 password Customer → 同上 stage token / route handler / **signed/nonce-verified cookie handoff** → `/oauth-confirm` 填 phone → NEED_LOGIN → 密碼登入 → `finalizeLineBind` **先驗 cookie integrity（§5.3.1）通過**才 wire **`bindLineToExistingCustomerById`（customerId-driven）** 寫 lineUserId + Account | G5.4 |
 | **attack scenario**：使用者**完全跳過 LINE OAuth + stage route**、自己手刻 `oauth_line_session={"storeId":"<store>","lineUserId":"<任意 U...>","customerId":"<已用密碼登入的自己>"}` cookie → 直奔 `/oauth-confirm/finalize` → finalize 因 signature / nonce 驗證失敗 → return auth/session error + **0 byte DB 寫入**（含 AuditLog）+ 不會把任意 LINE 接管到該 customerId | G5.4 |
