@@ -63,10 +63,15 @@ export function CashDrawerWorkspace({
         </div>
       )}
 
-      {/* State D: 上日尚未閉店 — 單卡置中 */}
+      {/* State D: 上日尚未閉店 — 單卡置中，含補關入口 */}
       {view.state === "WARNING_LAST_OPEN" && (
         <div className="mx-auto w-full max-w-2xl">
-          <WarningLastOpenCard lastSession={view.lastSession} />
+          <WarningLastOpenCard
+            lastSession={view.lastSession}
+            liveTotals={view.liveTotals}
+            canClose={canClose}
+            returnPath={returnPath}
+          />
         </div>
       )}
 
@@ -197,29 +202,130 @@ function EmptyStateCard({
 }
 
 // ============================================================
-// State D — Warning（上日尚未閉店）
+// State D — Warning（上日尚未閉店）+ 補關入口
 // ============================================================
 
 function WarningLastOpenCard({
   lastSession,
+  liveTotals,
+  canClose,
+  returnPath,
 }: {
-  lastSession: { businessDate: Date; openedAt: Date };
+  lastSession: {
+    id: string;
+    businessDate: Date;
+    openedAt: Date;
+    openingBookBalance: Prisma.Decimal;
+  };
+  liveTotals: CashDrawerLiveTotals;
+  canClose: boolean;
+  returnPath: string;
 }) {
+  async function handleCatchUpClose(formData: FormData) {
+    "use server";
+    const result = await closeCashDrawerAction({
+      sessionId: lastSession.id,
+      closingActualCash: Number(formData.get("closingActualCash")),
+      note: (formData.get("note") as string) || undefined,
+    });
+    if (!result.success) {
+      redirect(
+        `${returnPath}${returnPath.includes("?") ? "&" : "?"}cashDrawerError=${encodeURIComponent(result.error || "補關失敗")}`,
+      );
+    }
+    redirect(returnPath);
+  }
+
   return (
     <div className="rounded-xl border border-orange-200 bg-orange-50 p-6 shadow-sm">
       <h2 className="text-lg font-semibold text-orange-900">
         上一個營業日尚未閉店
       </h2>
       <p className="mt-2 text-sm text-orange-800">
-        最近一筆 session 仍處於 OPEN 狀態，必須先完成閉店才能開新日。
+        此 session 仍在 OPEN 狀態。請先補關上一個現金抽屜，補關後系統會以
+        系統預估結餘作為下次開店帳面起點，今日才能正常開店。
       </p>
-      <ul className="mt-3 space-y-1 text-sm text-orange-700">
-        <li>· 上一日營業日：{formatTWTime(lastSession.businessDate, { dateOnly: true })}</li>
-        <li>· 開店時間：{formatTWTime(lastSession.openedAt)}</li>
-      </ul>
-      <p className="mt-4 text-xs text-orange-600">
-        閉店功能將在後續 PR 開放。如有疑問請聯絡管理員。
-      </p>
+
+      <dl className="mt-4 grid grid-cols-2 gap-4 rounded-lg bg-white/60 p-4 text-sm">
+        <div>
+          <dt className="text-orange-700">營業日</dt>
+          <dd className="mt-1 font-medium text-orange-900">
+            {formatTWTime(lastSession.businessDate, { dateOnly: true })}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-orange-700">開店時間</dt>
+          <dd className="mt-1 font-medium text-orange-900">
+            {formatTWTime(lastSession.openedAt)}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-orange-700">開店帳面</dt>
+          <dd className="mt-1 font-medium tabular-nums text-orange-900">
+            NT$ {lastSession.openingBookBalance.toString()}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-orange-700">系統預估結餘</dt>
+          <dd className="mt-1 text-lg font-semibold tabular-nums text-orange-900">
+            NT$ {liveTotals.expectedClosingCash.toString()}
+          </dd>
+        </div>
+      </dl>
+
+      {!canClose && (
+        <div className="mt-4 rounded-lg bg-white px-4 py-3 text-sm text-earth-600">
+          您沒有閉店點錢的權限，請聯絡管理員處理補關。
+        </div>
+      )}
+
+      {canClose && (
+        <details className="mt-4 rounded-lg border border-orange-300 bg-white">
+          <summary className="cursor-pointer list-none rounded-lg bg-orange-600 px-4 py-3 text-base font-semibold text-white hover:bg-orange-700">
+            補關上一個現金抽屜
+          </summary>
+          <form action={handleCatchUpClose} className="space-y-4 p-5">
+            <p className="text-xs text-earth-500">
+              請依據上一個營業日結束時的實際現金清點金額填入，差額會由系統
+              比對「系統預估結餘」自動計算。本動作不會建立任何 Transaction
+              或現金日誌條目，僅閉鎖此 session 並啟用今日開店。
+            </p>
+            <div>
+              <label className="block text-sm font-medium text-earth-700">
+                實際現金（NT$）
+              </label>
+              <input
+                type="number"
+                name="closingActualCash"
+                required
+                min={0}
+                step={1}
+                className="mt-1 block min-h-[44px] w-full rounded-lg border border-earth-300 px-3 py-2 text-base tabular-nums focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
+                placeholder={`例如 ${liveTotals.expectedClosingCash.toString()}`}
+              />
+              <p className="mt-1 text-xs text-earth-500">
+                若與系統預估結餘（NT$ {liveTotals.expectedClosingCash.toString()}
+                ）不同，下方備註必填。
+              </p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-earth-700">
+                備註（若有差額必填）
+              </label>
+              <textarea
+                name="note"
+                rows={3}
+                className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
+                placeholder="例：5/28 公休，5/29 補關 5/27 session"
+              />
+            </div>
+            <SubmitButton
+              label="完成補關"
+              className="min-h-[44px] w-full bg-orange-600 text-base text-white hover:bg-orange-700"
+            />
+          </form>
+        </details>
+      )}
     </div>
   );
 }
