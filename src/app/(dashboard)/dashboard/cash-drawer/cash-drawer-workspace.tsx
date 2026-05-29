@@ -86,9 +86,9 @@ export function CashDrawerWorkspace({
         </div>
       )}
 
-      {/* State B: 今日未開店 — 兩張窄卡上下堆疊置中 */}
+      {/* State B: 今日未開店 — 桌機左右並排（狀態 / 開店點錢），窄螢幕單欄堆疊 */}
       {view.state === "NOT_OPENED_TODAY" && (
-        <div className="mx-auto w-full max-w-2xl">
+        <div className="mx-auto w-full max-w-5xl">
           <NotOpenedTodayCard
             lastSession={view.lastSession}
             canOpen={canOpen}
@@ -422,8 +422,10 @@ function NotOpenedTodayCard({
 
   const lastBalance = lastSession.finalBookBalance?.toString() ?? "—";
 
+  // 桌機左右並排：左欄今日狀態（開店起點），右欄唯一操作「開店點錢」；
+  // 窄螢幕單欄堆疊（狀態在上、開店點錢在下）。版面拉寬避免窄窄一條。
   return (
-    <div className="space-y-4">
+    <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
       <TodayStatusCard todayStr={todayStr} status="NOT_OPENED">
         <p className="text-sm text-earth-500">今日開店起點</p>
         <p className="mt-1 text-3xl font-bold tabular-nums text-earth-900">
@@ -557,58 +559,73 @@ function OpenedTodayWorkspace({
 }) {
   const isClosed = session.status === "CLOSED";
 
-  // PR-G5.1a：一頁式由上而下 — 今日狀態卡 → 日常操作區 → 明細紀錄。
-  // 置中收窄（max-w-3xl）避免桌機 / iPad 上主要資訊分散太遠。
+  // PR-G5.1a v2：桌機 / iPad 友善版面。
+  //   桌機（lg+）：左 2/3 今日狀態 + 今日摘要、右 1/3 日常操作（sticky），
+  //               兩者在第一屏並排；開店紀錄 / 現金異動置於下方 full width。
+  //   iPad / 手機（< lg）：單欄，靠 order 控制資訊優先序
+  //               「今日狀態 → 日常操作 → 今日摘要 → 紀錄」，
+  //               讓店長一進來先看到狀態與要按的操作，而非一堆明細。
+  const summaryCard = !isClosed && liveTotals ? (
+    <TransactionSummaryCard
+      live
+      cashIncome={liveTotals.cashIncomeTotal.toString()}
+      cashExpense={liveTotals.cashExpenseTotal.toString()}
+      cashWithdrawal={liveTotals.cashWithdrawalTotal.toString()}
+      cashDeposit={liveTotals.cashDepositTotal.toString()}
+      cashAdjustment={liveTotals.cashAdjustmentTotal.toString()}
+      cashbookCashIncome={liveTotals.cashbookCashIncome.toString()}
+      cashbookCashOut={liveTotals.cashbookCashOut.toString()}
+    />
+  ) : (
+    <TransactionSummaryCard
+      live={false}
+      cashIncome={session.cashIncomeTotal.toString()}
+      cashExpense={session.cashExpenseTotal.toString()}
+      cashWithdrawal={session.cashWithdrawalTotal.toString()}
+      cashDeposit={session.cashDepositTotal.toString()}
+      cashAdjustment={session.cashAdjustmentTotal.toString()}
+      cashbookNet={deriveClosedCashbookNet(session)}
+    />
+  );
+
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-4">
-      {/* A. 今日狀態卡 */}
-      {!isClosed && liveTotals && (
-        <OpenStatusCard session={session} liveTotals={liveTotals} todayStr={todayStr} />
-      )}
-      {isClosed && <ClosedStatusCard session={session} todayStr={todayStr} />}
+    <div className="w-full space-y-4">
+      {/* 第一屏：今日狀態（含摘要 glance）+ 今日交易摘要 + 日常操作。
+          桌機 3 欄（左 2 欄資訊、右 1 欄操作 sticky）；窄螢幕單欄靠 order 排序。 */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        {/* A. 今日狀態卡 — 第一順位 */}
+        <div className="order-1 lg:col-span-2 lg:col-start-1 lg:row-start-1">
+          {!isClosed && liveTotals ? (
+            <OpenStatusCard session={session} liveTotals={liveTotals} todayStr={todayStr} />
+          ) : (
+            <ClosedStatusCard session={session} todayStr={todayStr} />
+          )}
+        </div>
 
-      {/* B. 日常操作區（大按鈕） */}
-      {!isClosed && liveTotals && (
-        <DailyActionsArea
-          sessionId={session.id}
-          liveTotals={liveTotals}
-          canClose={canClose}
-          canAddEntry={canAddEntry}
-          returnPath={returnPath}
-        />
-      )}
-      {isClosed && <ClosedActionsArea />}
+        {/* B. 日常操作區 — 窄螢幕第二順位（緊接狀態）；桌機沉到右欄並 sticky */}
+        <div className="order-2 lg:col-start-3 lg:row-span-2 lg:row-start-1 lg:self-start lg:sticky lg:top-4">
+          {!isClosed && liveTotals ? (
+            <DailyActionsArea
+              sessionId={session.id}
+              liveTotals={liveTotals}
+              canClose={canClose}
+              canAddEntry={canAddEntry}
+              returnPath={returnPath}
+            />
+          ) : (
+            <ClosedActionsArea />
+          )}
+        </div>
 
-      {/* C. 明細紀錄（glance 之下的詳細資料） */}
+        {/* C. 今日交易摘要 — 窄螢幕第三順位；桌機接在左欄狀態卡下方 */}
+        <div className="order-3 lg:col-span-2 lg:col-start-1 lg:row-start-2">
+          {summaryCard}
+        </div>
+      </div>
+
+      {/* 下方 full width：開店紀錄 / 閉店結算 / 現金異動紀錄（明細，第四順位） */}
       <OpeningRecordCard session={session} />
-
-      {!isClosed && liveTotals && (
-        <TransactionSummaryCard
-          live
-          cashIncome={liveTotals.cashIncomeTotal.toString()}
-          cashExpense={liveTotals.cashExpenseTotal.toString()}
-          cashWithdrawal={liveTotals.cashWithdrawalTotal.toString()}
-          cashDeposit={liveTotals.cashDepositTotal.toString()}
-          cashAdjustment={liveTotals.cashAdjustmentTotal.toString()}
-          cashbookCashIncome={liveTotals.cashbookCashIncome.toString()}
-          cashbookCashOut={liveTotals.cashbookCashOut.toString()}
-        />
-      )}
-      {isClosed && (
-        <TransactionSummaryCard
-          live={false}
-          cashIncome={session.cashIncomeTotal.toString()}
-          cashExpense={session.cashExpenseTotal.toString()}
-          cashWithdrawal={session.cashWithdrawalTotal.toString()}
-          cashDeposit={session.cashDepositTotal.toString()}
-          cashAdjustment={session.cashAdjustmentTotal.toString()}
-          cashbookNet={deriveClosedCashbookNet(session)}
-        />
-      )}
-
       {isClosed && <ClosedSettlementCard session={session} />}
-
-      {/* 現金異動紀錄：OPEN 可新增盤點調整，CLOSED 唯讀 */}
       <EntrySection
         sessionId={session.id}
         entries={entries}
@@ -774,7 +791,8 @@ function DailyActionsArea({
         記收入走現金帳；提領 / 補入只影響現金抽屜，不算營收或費用。
       </p>
 
-      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+      {/* iPad（sm/md）full width → 2 欄大按鈕；桌機（lg）操作沉到 1/3 右欄 → 改回單欄直列，當作操作入口清單 */}
+      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-1">
         {/* 1. 記一筆收入 — 走現金帳新增頁（收入預設 INCOME） */}
         <Link
           href="/dashboard/cashbook/new"
@@ -918,7 +936,7 @@ function ClosedActionsArea() {
   return (
     <div className="rounded-xl border bg-white p-5 shadow-sm md:p-6">
       <h2 className="text-lg font-semibold text-earth-900">日常操作</h2>
-      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-1">
         <div className="flex min-h-[64px] flex-col justify-center rounded-xl border border-dashed border-earth-200 bg-earth-50/60 px-4 py-3">
           <span className="text-base font-semibold text-earth-500">已完成今日結帳</span>
           <span className="mt-0.5 text-xs text-earth-400">
