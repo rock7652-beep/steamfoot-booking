@@ -40,7 +40,12 @@ export type CashDrawerView =
       /** 今日所有手動異動（提領/補入/調整），最新在上 */
       entries: CashDrawerEntry[];
     }
-  | { state: "WARNING_LAST_OPEN"; lastSession: CashDrawerSession }
+  | {
+      state: "WARNING_LAST_OPEN";
+      lastSession: CashDrawerSession;
+      /** 上一日 OPEN session 的即時統計，給「補關」表單顯示系統預估結餘 */
+      liveTotals: CashDrawerLiveTotals;
+    }
   | { state: "NOT_OPENED_TODAY"; lastSession: CashDrawerSession };
 
 /** 純函式：根據 today session + latest session 推 view state。可單元測試。 */
@@ -49,6 +54,7 @@ export function deriveCashDrawerView(
   latestSessionOnOrBeforeToday: CashDrawerSession | null,
   todayLiveTotals: CashDrawerLiveTotals | null = null,
   todayEntries: CashDrawerEntry[] = [],
+  warningLiveTotals: CashDrawerLiveTotals | null = null,
 ): CashDrawerView {
   if (todaySession) {
     return {
@@ -62,7 +68,16 @@ export function deriveCashDrawerView(
     return { state: "EMPTY" };
   }
   if (latestSessionOnOrBeforeToday.status === "OPEN") {
-    return { state: "WARNING_LAST_OPEN", lastSession: latestSessionOnOrBeforeToday };
+    if (!warningLiveTotals) {
+      throw new Error(
+        "deriveCashDrawerView: warningLiveTotals required when latest session is OPEN",
+      );
+    }
+    return {
+      state: "WARNING_LAST_OPEN",
+      lastSession: latestSessionOnOrBeforeToday,
+      liveTotals: warningLiveTotals,
+    };
   }
   // CLOSED（或未來的 NEED_REVIEW，視同已結帳）
   return { state: "NOT_OPENED_TODAY", lastSession: latestSessionOnOrBeforeToday };
@@ -95,7 +110,9 @@ export async function computeLiveTotalsForOpenSession(
   };
 }
 
-/** DB query + state 推導，給 page 用。OPEN 的今日 session 會額外計算 liveTotals。 */
+/** DB query + state 推導，給 page 用。OPEN 的今日 session 會額外計算 liveTotals。
+ *  若無今日 session、但 latestSession 仍 OPEN（上日忘記閉店），也會算 liveTotals
+ *  給 WARNING_LAST_OPEN 卡片的「補關」表單顯示系統預估結餘。 */
 export async function getCashDrawerView(
   storeId: string,
   todayBusinessDate: Date,
@@ -125,5 +142,17 @@ export async function getCashDrawerView(
       ])
     : [null, [] as CashDrawerEntry[]];
 
-  return deriveCashDrawerView(todaySession, latestSession, liveTotals, entries);
+  // 若沒今日 session、且 latestSession 仍 OPEN，給 WARNING_LAST_OPEN 算 liveTotals
+  const warningLiveTotals =
+    !todaySession && latestSession && latestSession.status === "OPEN"
+      ? await computeLiveTotalsForOpenSession(latestSession)
+      : null;
+
+  return deriveCashDrawerView(
+    todaySession,
+    latestSession,
+    liveTotals,
+    entries,
+    warningLiveTotals,
+  );
 }
