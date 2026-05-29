@@ -120,6 +120,47 @@ export async function computeLiveTotalsForOpenSession(
   };
 }
 
+/**
+ * PR-4：判斷某店某營業日的現金抽屜是否已 CLOSED。
+ *
+ * businessDate 必須是 UTC 午夜（與 CashDrawerSession.businessDate / @@unique 對齊）。
+ * 供 cashbook server action 在 entryDate=該日 + paymentMethod=CASH 時做防呆 guard。
+ * 純讀取，不重算任何快照。
+ */
+export async function isBusinessDateClosed(
+  storeId: string,
+  businessDate: Date,
+): Promise<boolean> {
+  const session = await prisma.cashDrawerSession.findUnique({
+    where: { storeId_businessDate: { storeId, businessDate } },
+    select: { status: true },
+  });
+  return session?.status === "CLOSED";
+}
+
+/**
+ * PR-4：列出某店在 [fromDateStr, toDateStr]（含端點）區間內，所有已 CLOSED 的營業日，
+ * 回傳 "YYYY-MM-DD" 字串陣列。供 cashbook new/edit 表單前端做「此日期已閉店」即時提示。
+ *
+ * 區間端點用 Date.UTC 轉 UTC 午夜，與 businessDate（@db.Date）對齊；
+ * businessDate 讀出後 `.toISOString().slice(0,10)` 取日期字串是安全的（@db.Date UTC 午夜）。
+ */
+export async function listClosedBusinessDates(
+  storeId: string,
+  fromDateStr: string,
+  toDateStr: string,
+): Promise<string[]> {
+  const [fy, fm, fd] = fromDateStr.split("-").map(Number);
+  const [ty, tm, td] = toDateStr.split("-").map(Number);
+  const from = new Date(Date.UTC(fy, fm - 1, fd));
+  const to = new Date(Date.UTC(ty, tm - 1, td));
+  const sessions = await prisma.cashDrawerSession.findMany({
+    where: { storeId, status: "CLOSED", businessDate: { gte: from, lte: to } },
+    select: { businessDate: true },
+  });
+  return sessions.map((s) => s.businessDate.toISOString().slice(0, 10));
+}
+
 /** DB query + state 推導，給 page 用。OPEN 的今日 session 會額外計算 liveTotals。
  *  若無今日 session、但 latestSession 仍 OPEN（上日忘記閉店），也會算 liveTotals
  *  給 WARNING_LAST_OPEN 卡片的「補關」表單顯示系統預估結餘。 */
