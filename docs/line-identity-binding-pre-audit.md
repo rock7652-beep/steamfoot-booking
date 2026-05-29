@@ -273,7 +273,7 @@ RELOGIN → 顧客已登入
 | --- | --- |
 | `Customer.phone` 必須是正規化台灣手機 | 既有 `normalizePhone()` + Zod schema 已 enforce |
 | `Customer.phone` 不得 `startsWith("_oauth_")` | 新增 Zod refine / 在 `bindLineToCustomerInStore` 與 auth.ts 寫入點檢查（A2 invariant） |
-| 同 $transaction 內 User + Customer + Account[line] 三件齊全 | **Current baseline 並未 enforce**：`bindLineToCustomerInStore` User+Customer 同 tx、Account post-tx best-effort（§2.2）；auth.ts Case B 三件分次 top-level write（不在單一 `$transaction`）。**PR-G5 target**：新 entry point `bindLineToExistingCustomerById`（§5.3）從一開始即 atomic；Case B 收斂至該新 entry（PR-G5.5）即同步 enforce；既有 `bindLineToCustomerInStore` 受 PR-C2 §6 鎖，atomicity 升級獨立評估。 |
+| 同 $transaction 內 User + Customer + Account[line] 三件齊全 | **Current baseline 並未 enforce**：`bindLineToCustomerInStore` User+Customer 同 tx、Account post-tx best-effort（§2.2）；auth.ts Case B 三件分次 top-level write（不在單一 `$transaction`）。**PR-G5 target**：新 entry point `bindLineToExistingCustomerById`（§5.3，existing-user 專用、不建 User）從一開始即 atomic；**Case B 走獨立的 activation helper `activatePrecreatedCustomerWithLine`（§5.3.3，User+Account+Customer 三件同 tx）**，PR-G5.5 收斂至該 activation helper；既有 `bindLineToCustomerInStore` 受 PR-C2 §6 鎖，atomicity 升級獨立評估。 |
 | `Customer.lineLinkStatus === "LINKED"` ⇔ `Customer.lineUserId !== null` | 在 helper 集中 set；任何外部 inline update 都禁 |
 | `authSource = "LINE"` 寫入點明確（不被 default 蓋掉） | 已對 |
 
@@ -334,9 +334,13 @@ bindLineToExistingCustomerById({
 }
 ```
 
-#### 📋 Pre-write checklist（任何 caller、任何路徑都必走完全部 5 步才可寫 DB）
+#### 📋 Pre-write checklist（existing-user helper 專屬；任何 caller 都必走完全部 5 步才可寫 DB）
 
-此 checklist **取代過往「helper 內部 enforce + caller 各自防衛」**的描述。所有呼叫 `bindLineToExistingCustomerById` 的 path（webhook / `/oauth-confirm/finalize` / NextAuth Case B）**必須**按以下順序執行；任何一步失敗 → return 對應 status 或 auth/session error + **0 byte DB 寫入**（含 AuditLog）：
+此 checklist **僅適用於 existing-user helper `bindLineToExistingCustomerById`**（其先決條件是 `customer.userId !== null`）。所有呼叫該 helper 的 path（webhook **userId !== null 分支** / `/oauth-confirm/finalize` NEED_LOGIN）**必須**按以下順序執行；任何一步失敗 → return 對應 status 或 auth/session error + **0 byte DB 寫入**（含 AuditLog）。
+
+> **NextAuth Case B 不適用本 checklist**：Case B 前提就是 `customer.userId === null`（staff 後台先建檔、顧客首次用 LINE OAuth 啟用），如果走本 checklist 會在 step 4 被 `customer_has_no_user` 擋下，啟用流程整個壞掉。Case B 必須走 §5.3.3 的 **activation helper `activatePrecreatedCustomerWithLine`**，**禁止** wire 至 `bindLineToExistingCustomerById`。
+
+> **Webhook userId === null 分支也不適用本 checklist**：見 §5.3.2，webhook 既有 legacy 行為是「Customer.update 不建 User」（顧客僅憑綁定碼接 LINE、尚未有任何 auth secret），保留原樣，**不**經本 checklist 也**不**經 activation helper（無 OAuth 認證事件 → 不該自動建 User）。
 
 | # | 檢查 | 在哪做 | 失敗回什麼 | 失敗時 DB 寫入 |
 | - | --- | --- | --- | --- |
@@ -411,10 +415,68 @@ bindLineToExistingCustomerById({
 
 > 設計約束:這是「**新增 API**」不是「**改既有 API**」,所以不違反 `pr-c2-liff-onboarding-plan.md` §6「不改 `bindLineToCustomerInStore` 介面或行為」— 既有的 phone-driven 入口 0 動。新 entry point 可以**共用** internal mask helpers 與 logLineBindEvent，但 atomicity + cross-store guard 必須升級：`bindLineToExistingCustomerById` 從一開始就**強制** Customer.update + Account.create 同 `$transaction`（任一 throw 整組 rollback）、且 helper 內部 enforce `storeId` 比對，而**不是**沿用既有 helper「User+Customer in tx, Account post-tx best-effort」的 baseline 行為。換言之這是新 entry 的擴充屬性，**不**是從既有 helper 繼承來的。
 
+#### 5.3.3 Case B activation helper：`activatePrecreatedCustomerWithLine`（PR-G5.5 必實作；獨立於 existing-user helper）
+
+**為什麼要獨立的 helper（Codex round 5 P1）**：existing-user helper `bindLineToExistingCustomerById` 的 §5.3 Pre-write checklist step 4 要求 `customer.userId !== null`，**正是 Case B 的反面**。Case B 的本質是：
+
+- staff 後台已先建好 `Customer { name, phone, userId: null, lineUserId: null }`，
+- 顧客首次用 **LINE OAuth** 進站，
+- NextAuth signIn callback 命中該 Customer，
+- **需要** 在這個瞬間原子地：建立 `User` + 建立 `Account[line]` + 更新 `Customer.userId / lineUserId / lineLinkStatus / lineLinkedAt`。
+
+如果硬把 Case B wire 到 `bindLineToExistingCustomerById`，會被 step 4 立刻 `customer_has_no_user` 擋下，**首次 LINE 啟用流程整個斷掉**。所以 PR-G5.5 必須 wire 一支**獨立**的 activation helper，**不可**共用 existing-user helper。
+
+**接口**（新增於 `src/server/services/bind-line-to-customer.ts`，與 existing-user helper 並列）:
+
+```ts
+activatePrecreatedCustomerWithLine({
+  storeId,           // required, trusted source（同 §5.3 rule 1 三類）
+                     // Case B 來源 = NextAuth signIn callback 內 resolved targetStoreId
+  customerId,        // 由 LINE OAuth profile + (storeId, lineUserId / email / phone) match 取得
+  lineUserId,        // 由 LINE OAuth profile 取得（已通過 NextAuth signIn provider 驗證）
+  lineName,          // displayName，best-effort 寫入 Customer.lineName
+}): { status:
+  | "activated"                  // ✅ 成功建 User + Account + update Customer
+  | "store_mismatch"             // customer.storeId !== storeId（§5.3 rule 1 cross-store 防呆）
+  | "customer_already_has_user"  // ⚠️ 與 existing-user helper 反向 — 此情境應改走 existing-user helper
+  | "customer_already_linked_to_other_line"  // Customer.lineUserId 已被別的 LINE 占用 → 拒絕（防 hijack）
+  | "unique_conflict"            // Prisma P2002（race condition：別的 path 同時也在啟用）
+}
+```
+
+#### 📋 Pre-write checklist for activation helper（與 existing-user helper 的 step 4 反向）
+
+| # | Check | Where | Failure status | DB writes |
+| - | --- | --- | --- | --- |
+| **1** | 驗 caller 來源是可信 trust source（Case B 來源 = NextAuth signIn callback 已 resolve 的 `targetStoreId`，本身就是 server-side trusted；**不需要** §5.3.1 cookie integrity 驗證 — Case B 走 NextAuth signed JWT 不走 oauth_line_session cookie） | caller | n/a（trust source 是 NextAuth 機制） | 0 |
+| **2** | 用 `customerId` load Customer（read-only）| helper 內部 | n/a | 0 |
+| **3** | 驗 `customer.storeId === storeId`（cross-store 防呆） | helper 內部 | `store_mismatch` | 0 |
+| **4** | 驗 **`customer.userId === null`**（與 existing-user helper 反向）— 已有 userId → caller wire 錯了 helper | helper 內部 | `customer_already_has_user`（提示 caller 改走 `bindLineToExistingCustomerById`） | 0 |
+| **5** | 驗 `customer.lineUserId === null`（防 hijack：Customer 已綁別的 LINE 不可被覆寫） | helper 內部 | `customer_already_linked_to_other_line` | 0 |
+| **6** | 在單一 `$transaction` (Serializable) 內 **原子地**: (a) `prisma.user.create` 建 User；(b) `prisma.account.create` 建 `Account[provider="line", providerAccountId=lineUserId, userId=newUser.id]`；(c) `prisma.customer.update` 寫 `{ userId: newUser.id, lineUserId, lineName, lineLinkStatus: "LINKED", lineLinkedAt: now }`；(d) AuditLog 寫一筆「Case B activation」row；任一 throw 整組 rollback（A3 atomicity） | helper 內部 | `unique_conflict`（P2002）/ Prisma throw 重拋 | tx rollback → 0 |
+
+> **Activation helper 與 existing-user helper 的明確分工**：
+> | | `bindLineToExistingCustomerById`（§5.3） | `activatePrecreatedCustomerWithLine`（§5.3.3） |
+> | --- | --- | --- |
+> | 適用情境 | existing-user 顧客（已有 `userId` + 已認證身份）綁 LINE | staff-precreated Customer（`userId === null`）首次 LINE OAuth 啟用 |
+> | 對 `customer.userId === null` 的行為 | **拒絕**（`customer_has_no_user`、0 byte） | **唯一接受的入口**（建立 User） |
+> | 對 `customer.userId !== null` 的行為 | **正常 path**（update Customer + create Account） | **拒絕**（`customer_already_has_user`、0 byte） |
+> | typical caller | webhook bind-code (userId !== null 分支)、`/oauth-confirm/finalize` NEED_LOGIN | NextAuth signIn callback Case B |
+> | trust source | webhook resolveStore / signed+verified oauth_line_session cookie / NextAuth signed JWT | NextAuth signIn callback 已 resolve 的 `targetStoreId` |
+> | 是否需 §5.3.1 cookie integrity verify | ✅ 是（若 source 是 cookie） | ❌ 否（NextAuth signIn 不經 cookie） |
+> | 是否建 User | ❌ 不建（顧客本來就有 User） | ✅ 建（這正是 activation 的核心動作） |
+> | 同 $transaction 寫入內容 | Customer.update + Account.create + AuditLog | **User.create + Account.create + Customer.update + AuditLog**（多一個 User.create） |
+>
+> **caller 路由規則**（避免誤接）：
+> - webhook bind-code:`userId !== null` → existing-user helper；`userId === null` → **不**接任何 helper，沿用 legacy `prisma.customer.update`（§5.3.2）— webhook 路徑下顧客尚未通過 OAuth 認證，**不該**自動建 User。
+> - NextAuth Case B（signIn callback）→ activation helper（**唯一** wire 該 helper 的 caller）。
+> - NextAuth Case A（已有 userId）→ 不動，PR-F1 已加 best-effort drift repair（§7.3 R5）。
+> - `/oauth-confirm/finalize` NEED_LOGIN → existing-user helper。
+
 ### 5.4 NextAuth Case A / B 是否也要 wire helper
 
 - **Case A**（customer 存在且 userId 已設）：本質是「補寫 Account[line]」的 drift repair。helper 沒有對應 entry point，且 PR-F1 已加 P2002 guard + best-effort logic。**建議不動**，避免 over-engineering。
-- **Case B**（customer 存在但無 userId）：本質是「為 backend-pre-created Customer 啟用 NextAuth User + 綁 LINE」。helper 已可處理（phone-driven 分支命中既有 placeholder Customer）。但 Case B 沒拿到 phone（只有 customer query 結果）。可以 wire `bindLineToExistingCustomerById({ storeId, customerId, lineUserId, lineName })`，其中 `storeId` 從 NextAuth signIn 階段已 resolve 的 `targetStoreId` 傳入（trusted source — 不是來自 user input）— **建議 wire**；helper 內部會自驗 `customer.storeId === storeId`，Case B caller 不需要在外面重複防衛。
+- **Case B**（customer 存在但無 userId）：本質是「為 backend-pre-created Customer 啟用 NextAuth User + 綁 LINE」。**必須 wire §5.3.3 的 activation helper `activatePrecreatedCustomerWithLine({ storeId, customerId, lineUserId, lineName })`**，其中 `storeId` 從 NextAuth signIn 階段已 resolve 的 `targetStoreId` 傳入（trusted source — 不是來自 user input、不經 cookie）。**禁止** wire 至 existing-user helper `bindLineToExistingCustomerById` — 那條 helper 的 step 4 會在 `customer.userId === null` 立刻 abort，把 Case B 啟用流程整個打斷（Codex round 5 P1 點出的 regression）。activation helper 內部會自驗 `customer.storeId === storeId` + `customer.userId === null` + `customer.lineUserId === null`，Case B caller 不需要在外面重複防衛。
 
 ---
 
@@ -423,11 +485,11 @@ bindLineToExistingCustomerById({
 | PR | 範圍 | 大小 | 觀察 / 守門 |
 | --- | --- | --- | --- |
 | **PR-G5.0** | 本文件 merge | docs-only | reviewer 確認 invariants / 收斂方向無爭議 |
-| **PR-G5.1** | 加 helper 新入口 `bindLineToExistingCustomerById`（純擴充,不改既有介面）+ 單元測試 | M | 不 wire 任何 caller;build/test 通過即可上 prod 觀察(同 PR-C1 的 dead-code-on-prod 策略) |
+| **PR-G5.1** | 加 helper **新入口（兩支獨立函式）**：(a) `bindLineToExistingCustomerById`（§5.3，existing-user 專用，rejects `userId === null`）；(b) `activatePrecreatedCustomerWithLine`（§5.3.3，Case B 啟用專用，**accepts** `userId === null` 並原子建 User + Account + Customer.update）。純擴充,不改既有 `bindLineToCustomerInStore` 介面 + 兩支各自單元測試 | M | 不 wire 任何 caller;build/test 通過即可上 prod 觀察(同 PR-C1 的 dead-code-on-prod 策略) |
 | **PR-G5.2** | Webhook 綁定碼路徑收斂:`handleBindingRequest` 改為呼叫 `bindLineToExistingCustomerById`;移除 inline `prisma.customer.update` + 條件 sync | M | Golden-output tests:對比 refactor 前後對相同 input 的 DB 寫入序列完全一致 |
 | **PR-G5.3** | Zod / helper 加 A2 invariant 校驗:**任何 Customer.phone 寫入點不得 `startsWith("_oauth_")`**;**既有 row 不動**;新增 test | S | 此 PR 上線後,Case C 仍會試圖建 `_oauth_line_*` → 會 throw → NextAuth signIn fail。**故 PR-G5.3 必須與 PR-G5.4 同 PR train 或前後夾擊**,不可單獨 ship。 |
 | **PR-G5.4** | auth.ts Case C 改寫:**移除** inline placeholder create;改為**簽 stage token via `oauth-stage-token.ts` + return Auth.js redirect URL 指向 `/api/oauth-line-stage`**(該 route handler 才呼叫 `setOAuthTempSession`、寫 cookie、redirect `/oauth-confirm`);復活 `/oauth-confirm` 流程入口;`finalizeLineBind` 走 customerId-driven `bindLineToExistingCustomerById`（**非** phone-driven） | L | 高風險;feature flag 包住;monitor signIn 完成率;同 PR ship PR-G5.3。`/oauth-confirm` 邊路「先不綁」必須有 |
-| **PR-G5.5** | auth.ts Case B 收斂到 `bindLineToExistingCustomerById`(refactor only) | S | Golden-output tests |
+| **PR-G5.5** | auth.ts Case B 收斂到 **`activatePrecreatedCustomerWithLine`（§5.3.3 activation helper，唯一 wire 此 helper 的 caller）**；**禁止** wire 至 `bindLineToExistingCustomerById`（會被 step 4 `userId === null` 擋下、首次 LINE 啟用流程整個壞掉，Codex round 5 P1）。Refactor only — 把 Case B 既有的「User.create + Account.create + Customer.update 三件分次 top-level write」整併進 helper 單一 `$transaction` | S | Golden-output tests：(a) 既有 Case B input 經 refactor 後 DB 寫入序列 byte-equal；(b) regression：spy 確認 Case B 路徑**不**呼叫 `bindLineToExistingCustomerById` |
 | **PR-G5.6** | CI gate:加 read-only script `scripts/diagnose-new-placeholder-customers.ts`,掃 `Customer.phone LIKE '_oauth_%' AND createdAt > <feature-flag-ship-date>`,>0 → fail CI | S | 寫入端有 A2 校驗、讀取端有 CI gate,雙保險 |
 | **PR-G5.7** | 把 PR-F1.2 audit 排程進 CI(weekly),mismatch 數提升 → 自動 issue | S | 不直接 fail CI(可能有先存 historical),但提醒 |
 | **PR-G5.8** | 1-2 週 prod 觀察期通過後:刪除 auth.ts Case C feature flag、刪除 `_oauth_${provider}_*` 字串常數、刪 dead path | S | 在這之前 dead code 留著 = roll-back lever |
@@ -444,13 +506,13 @@ bindLineToExistingCustomerById({
 
 | 檔案 | 變動 | 哪個 PR |
 | --- | --- | --- |
-| `src/server/services/bind-line-to-customer.ts` | **新增** entry point `bindLineToExistingCustomerById({ storeId, customerId, lineUserId, lineName })`(`storeId` required)；helper 內部 enforce `customer.storeId === storeId`（不等 → `store_mismatch`、0 byte 寫入）+ enforce `customer.userId !== null`（null → `customer_has_no_user`、0 byte 寫入，**不**靜默自動建 User，§5.3.2）+ Customer.update + Account.create 同 `$transaction`（A3 atomicity）；**不改**既有 `bindLineToCustomerInStore` | G5.1 |
+| `src/server/services/bind-line-to-customer.ts` | **新增兩支獨立 entry point**：(a) `bindLineToExistingCustomerById({ storeId, customerId, lineUserId, lineName })`（§5.3，existing-user 專用，rejects `userId === null` 回 `customer_has_no_user`、0 byte）；(b) `activatePrecreatedCustomerWithLine({ storeId, customerId, lineUserId, lineName })`（§5.3.3，Case B 啟用專用，**accepts** `userId === null` 並在單一 `$transaction` 原子建 User + Account[line] + 更新 Customer.userId/lineUserId/lineLinkStatus；rejects `userId !== null` 回 `customer_already_has_user` 提示 caller 改 wire existing-user helper）。兩支共用 internal mask helpers + `logLineBindEvent` + 同店 storeId 比對 + A3 atomicity，但 **status enum 與 step 4 條件方向相反**。**不改**既有 `bindLineToCustomerInStore` | G5.1 |
 | `src/server/services/bind-line-to-customer.test.ts` | 新增 entry point 的單元測試（含 `store_mismatch` pre-write semantics、`customer_has_no_user` pre-write semantics、A3 atomicity test） | G5.1 |
 | `src/app/api/line/webhook/route.ts` | `handleBindingRequest` refactor：caller-side 先檢查 `customer.userId`：若 `null` → **沿用 legacy** `prisma.customer.update({ lineUserId, lineLinkStatus, lineLinkedAt })`、跳過 Account sync（無 User 可掛，§5.3.2）；若 `!== null` → 呼叫 `bindLineToExistingCustomerById({ storeId: resolvedStoreId, customerId, lineUserId, lineName })`，`storeId` 來自 webhook resolveStore（trusted）。**不**在 caller 端重複寫 cross-store 比對（helper 已 enforce）。**兩條 branch 都要被 PR-G5.2 golden-output 測試覆蓋**，確保 byte-equal vs refactor 前 | G5.2 |
 | `src/__tests__/webhook-bind-code.test.ts`（新檔或補既有） | golden-output tests | G5.2 |
 | `src/lib/normalize.ts` 或新 `src/lib/customer-phone-validation.ts` | A2 invariant:phone 不得 `startsWith("_oauth_")` | G5.3 |
 | `src/lib/auth.ts` Case C | 移除 inline create;改為**簽 stage token via `oauth-stage-token.ts` + return Auth.js redirect URL 指向 `/api/oauth-line-stage?token=...`**;**禁止** import `src/lib/server/oauth-temp-session`（會把 `next/headers` 拉進 NextAuth bundle） | G5.4 |
-| `src/lib/auth.ts` Case B | 改為呼叫 `bindLineToExistingCustomerById({ storeId: targetStoreId, customerId: customer.id, lineUserId, lineName })`（refactor only；`targetStoreId` 已是 signIn callback 內 resolved trusted value，直接傳）；**不**在 caller 端重複寫 cross-store guard | G5.5 |
+| `src/lib/auth.ts` Case B | 改為呼叫 **`activatePrecreatedCustomerWithLine({ storeId: targetStoreId, customerId: customer.id, lineUserId, lineName })`**（§5.3.3 activation helper，refactor only；`targetStoreId` 已是 signIn callback 內 resolved trusted value，直接傳）；**禁止** wire 至 `bindLineToExistingCustomerById` — 那條 helper 的 step 4 會在 `userId === null` 立刻 `customer_has_no_user` 把首次 LINE 啟用流程整個打斷（Codex round 5 P1）；**不**在 caller 端重複寫 cross-store guard / userId guard / lineUserId guard（activation helper 已 enforce） | G5.5 |
 | `src/app/(auth)/oauth-confirm/page.tsx` | 復活/微調 UI（dead code 已存在） | G5.4 |
 | `src/app/(auth)/oauth-confirm/_components/oauth-confirm-form.tsx` | 同上 | G5.4 |
 | `src/app/(auth)/oauth-confirm/finalize/page.tsx` | 同上 | G5.4 |
@@ -526,7 +588,8 @@ bindLineToExistingCustomerById({
 | **R5** | NextAuth Case A 的 drift repair（PR-F1 加的 best-effort create Account）被誤改 | 中 | PR-G5.5 只改 Case B,Case A 不動;PR description 明說 |
 | **R6** | 非 LIFF 登入經 /oauth-confirm 收 phone 時遭 hijack（A 知道 B 的 phone） | 高 | `resolveLineLogin` 已分 NEW_USER / BOUND_EXISTING / NEED_LOGIN,已啟用顧客必過密碼;此設計 PR-2 已 done,本 PR 沿用 |
 | **R7** | 顧客同時打開 LIFF 與非 LIFF tab → oauth_line_session cookie 互覆蓋 | 低 | identity-flow.md §8 已 acknowledge;未來升級用 nonce 綁定;暫接受 |
-| **R8** | helper 新 entry point `bindLineToExistingCustomerById` 與既有 entry point 雙寫導致行為分歧 | 中 | 共用 mask helpers + `logLineBindEvent`；但 atomicity 行為**刻意不同**（新 entry = Customer+Account 同 tx atomic；既有 = Account post-tx best-effort，受 PR-C2 §6 鎖）— PR description 與單元測試必須明寫此差異，避免 reviewer 誤以為「新舊一致」。 |
+| **R8** | helper 新 entry point（`bindLineToExistingCustomerById` + `activatePrecreatedCustomerWithLine`，§5.3 / §5.3.3）與既有 `bindLineToCustomerInStore` 三者語意差異被誤合 | 中 | 三者共用 mask helpers + `logLineBindEvent` + storeId 比對 + A3 atomicity (新 entry 兩支)；但**接受 `customer.userId` 的方向不同**：existing-user helper rejects null、activation helper requires null、phone-driven 既有 helper 不檢查此維度（走 phone match）— PR description + 單元測試 + integration tests 三層必須各自明寫該差異，避免 reviewer 誤把 Case B wire 至 existing-user helper（Codex round 5 P1 已發生過此誤接）|
+| **R13** | PR-G5.5 把 Case B wire 至 existing-user helper（誤接），首次 LINE OAuth 啟用流程被 step 4 `customer_has_no_user` 擋下 → 顧客無法用 LINE 第一次啟用 staff-precreated 帳號 | **高** | (a) Case B 必 wire 至 `activatePrecreatedCustomerWithLine`（§5.3.3 / §7.1 PR-G5.5 row 已寫死）；(b) §9.2.2 regression test 用 spy 強制 Case B 路徑**不**呼叫 `bindLineToExistingCustomerById`；(c) `bindLineToExistingCustomerById` 的 status enum 沒有 `activated`、activation helper 的 enum 沒有 `bound_existing` — 型別系統再加一層保險 |
 | **R9** | 既有 historical `_oauth_line_*` row 在 A2 invariant 上線後被任何 update 操作觸發 | 中 | A2 只校驗 `create` 與「`update` 且包含 phone」;既有 row 純讀取 / 改其他欄位都不受影響 |
 | **R10** | PR-G5.4 ship 後 LIFF 內部因為某 edge case fallback 走到 NextAuth Case C(再也不會 create placeholder)→ LIFF 登入失敗 | 中 | LIFF entry 走 `/api/liff/exchange` + `liff-token` provider,不經 LINE OAuth provider 的 signIn callback;但需 E2E 確認;若真有 fallback path,須單獨修而非倒退 placeholder |
 | **R11** | `oauth_line_session` cookie 缺 integrity 保護被攻擊者手刻 → 任意 LINE 接管已認證 customer | **高** | PR-G5.4 必同 PR ship §5.3.1 方案 A/B/C 任一；`/oauth-confirm/finalize` 必先驗 signature / nonce 才讀 cookie 任何欄位；HttpOnly **不算** integrity；R7 既有「cookie 互覆蓋」已 acknowledge 是 isolation 議題、不抵此項；防呆透過 finalize 的 cookie integrity 必驗 + unit test (tampered cookie 0 DB 寫入) 一起鎖 |
@@ -540,7 +603,8 @@ bindLineToExistingCustomerById({
 
 | 測試對象 | 內容 |
 | --- | --- |
-| `bindLineToExistingCustomerById` | 全部 status 分支：`bound_existing` / `already_synced` / `customer_locked`（已綁其他 LINE）/ `store_mismatch` / `customer_has_no_user` / `unique_conflict`（P2002）+ **A3 atomicity test**：mock `prisma.account.create` 拋錯 → 整組 `$transaction` rollback，Customer.lineUserId 不得被寫入（與既有 phone-driven helper 的 post-tx best-effort 行為**刻意不同**）+ **store_mismatch pre-write semantics test**：傳入 `{ storeId: storeA, customerId: <customer-in-storeB> }` → return `store_mismatch`，spy 確認 `prisma.customer.update` / `prisma.account.create` / `prisma.auditLog.create` 通通 **0 次** 呼叫（helper 在任何寫入前就因 storeId 不符 abort，cross-store guard 在 helper 內部一處完成，caller 端無需重複）+ **`customer_has_no_user` pre-write semantics test**：傳入 `{ customerId: <customer-with-userId-null> }` → return `customer_has_no_user`，spy 確認 `prisma.customer.update` / `prisma.account.create` / `prisma.user.create` / `prisma.auditLog.create` 全 **0 次** 呼叫（helper **不**靜默建 User，§5.3.2）+ **storeId required test**：呼叫 site 漏傳 `storeId` → TypeScript 型別錯（compile-time）/ runtime 防呆 throw |
+| `bindLineToExistingCustomerById`（existing-user 專用） | 全部 status 分支：`bound_existing` / `already_synced` / `customer_locked`（已綁其他 LINE）/ `store_mismatch` / `customer_has_no_user` / `unique_conflict`（P2002）+ **A3 atomicity test**：mock `prisma.account.create` 拋錯 → 整組 `$transaction` rollback，Customer.lineUserId 不得被寫入（與既有 phone-driven helper 的 post-tx best-effort 行為**刻意不同**）+ **store_mismatch pre-write semantics test**：傳入 `{ storeId: storeA, customerId: <customer-in-storeB> }` → return `store_mismatch`，spy 確認 `prisma.customer.update` / `prisma.account.create` / `prisma.auditLog.create` 通通 **0 次** 呼叫（helper 在任何寫入前就因 storeId 不符 abort，cross-store guard 在 helper 內部一處完成，caller 端無需重複）+ **`customer_has_no_user` pre-write semantics test**：傳入 `{ customerId: <customer-with-userId-null> }` → return `customer_has_no_user`，spy 確認 `prisma.customer.update` / `prisma.account.create` / `prisma.user.create` / `prisma.auditLog.create` 全 **0 次** 呼叫（helper **不**靜默建 User，§5.3.2）+ **storeId required test**：呼叫 site 漏傳 `storeId` → TypeScript 型別錯（compile-time）/ runtime 防呆 throw |
+| `activatePrecreatedCustomerWithLine`（§5.3.3，Case B 啟用專用） | 全部 status 分支：`activated` / `store_mismatch` / `customer_already_has_user` / `customer_already_linked_to_other_line` / `unique_conflict`（P2002）+ **`activated` happy path test**：傳入 `{ storeId, customerId: <staff-precreated>, lineUserId, lineName }` → 在單一 `$transaction` 內 `prisma.user.create` × 1 + `prisma.account.create` × 1（provider=line）+ `prisma.customer.update`（userId / lineUserId / lineLinkStatus / lineLinkedAt / lineName）+ `prisma.auditLog.create` × 1，呼叫序列與欄位內容 byte-asserted；+ **atomicity test**：mock 第 (b) `prisma.account.create` 拋錯 → 整 `$transaction` rollback，**不殘留** orphan User 行（Customer.userId / lineUserId 都不得寫入）+ **`customer_already_has_user` pre-write semantics test**：傳入 `customerId` 指向已有 `userId` 的 Customer → return `customer_already_has_user`，spy 確認 user.create / account.create / customer.update / auditLog.create 全 **0 次**；錯誤訊息暗示 caller 應改 wire `bindLineToExistingCustomerById`（防止 Case B 被誤接至 existing-user helper 的對稱保險）+ **`store_mismatch` pre-write semantics test**：同 existing-user helper 形式 + **`customer_already_linked_to_other_line` pre-write semantics test**：Customer.lineUserId 已被別的 LINE 占用 → 0 byte 寫入（防 hijack） |
 | `bindLineToCustomerInStore`（existing） | 既有 7 status 全部 regression（PR-G5.1 不改行為）+ **明寫的非 atomic 行為**：mock `syncLineAccountForUser` 回 `error` → Customer 仍保留 `lineUserId`、回傳 `lineAccountSync: "error"` — 鎖死 baseline 行為，避免無聲被改 |
 | A2 invariant validator | `_oauth_*` reject;正規化台灣手機 accept;空 phone reject |
 | `resolveLineLogin` | NEW_USER / BOUND_EXISTING / NEED_LOGIN;Step 0 lineUserId 已綁直接 loginAsCustomer |
@@ -560,6 +624,8 @@ bindLineToExistingCustomerById({
 | webhook 綁定碼 **`customer.userId === null`** legacy 路徑（§5.3.2）：staff 後台建檔 + 顧客先用綁定碼接 LINE → caller 跳過 helper、走 legacy `prisma.customer.update`、無 Account row + 不建 User → 顧客之後從 LIFF / `/profile` 啟用流程啟用 User 時，再走 LIFF onboarding canonical helper 補 Account → 與 refactor 前語意完全一致 | G5.2 |
 | 非 LIFF + 顧客中斷 `/oauth-confirm` → 5 分鐘後 cookie 失效 → 重來不卡 | G5.4 |
 | auth.ts Case A drift repair(PR-F1 既有行為) regression | G5.5 |
+| **auth.ts Case B activation via `activatePrecreatedCustomerWithLine`**：staff 後台先建 `Customer { userId: null, lineUserId: null }` → 顧客首次 LINE OAuth 進站 → NextAuth signIn callback 命中該 Customer + 呼叫 activation helper → 單一 `$transaction` 內建 User + Account[line] + 更新 Customer (userId/lineUserId/lineLinkStatus/lineLinkedAt/lineName) → DB 寫入序列與既有 top-level 三件分次寫的 refactor-前 baseline byte-equal（除了改用單一 tx 取代分次 commit、不應有其他差異） | G5.5 |
+| **regression**：Case B 路徑 spy 確認**完全不**呼叫 `bindLineToExistingCustomerById`（防止後續維護把兩條 helper 誤接） | G5.5 |
 
 #### 9.2.3 End-to-end / staging
 
