@@ -11,6 +11,7 @@ import type { ActionResult } from "@/types";
 import type { CashbookEntryType } from "@prisma/client";
 import { assertStoreAccess } from "@/lib/manager-visibility";
 import { currentStoreId } from "@/lib/store";
+import { isBusinessDateClosed } from "@/server/queries/cash-drawer";
 
 // ============================================================
 // Validators
@@ -29,6 +30,9 @@ const createCashbookEntrySchema = z.object({
   paymentMethod: paymentMethodSchema,
   staffId: z.string().optional(),
   note: z.string().optional(),
+  // PR-4：當 entryDate 對應的現金抽屜已閉店、且為現金收付時，必須帶 true 明確確認。
+  // 純防呆旗標，不寫入 DB；確認後仍不會回頭重算已閉店快照。
+  confirmClosedCashbookChange: z.boolean().optional(),
 });
 
 const updateCashbookEntrySchema = z.object({
@@ -42,7 +46,18 @@ const updateCashbookEntrySchema = z.object({
   paymentMethod: paymentMethodSchema.optional(),
   staffId: z.string().nullable().optional(),
   note: z.string().nullable().optional(),
+  // PR-4：見 createCashbookEntrySchema 同名欄位說明。
+  confirmClosedCashbookChange: z.boolean().optional(),
 });
+
+// PR-4：把 "YYYY-MM-DD" 轉成 UTC 午夜 Date，對齊 CashDrawerSession.businessDate（@db.Date）。
+function businessDateFromStr(dateStr: string): Date {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d));
+}
+
+const CLOSED_CASHBOOK_GUARD_MSG =
+  "此日期的現金抽屜已閉店結算。你仍可修改現金帳紀錄，但已閉店的抽屜快照不會自動重算；請確認後再送出。";
 
 // 現金帳稽核快照（寫入 AuditLog.beforeJson / afterJson；不新增任何 schema）
 function cashbookSnapshot(e: {
@@ -77,6 +92,21 @@ export async function createCashbookEntry(
     const user = await requirePermission("cashbook.create");
     await checkCurrentStoreFeature(FEATURES.CASHBOOK);
     const data = createCashbookEntrySchema.parse(input);
+    const storeId = currentStoreId(user);
+
+    // PR-4 防呆 guard（後端權威，不只靠前端）：
+    // 只在現金收付（CASH）時才需要知道該日抽屜是否已 CLOSED（OTHER 不影響抽屜）。
+    // 已閉店 + CASH + 未確認 → 拒絕；已閉店 + CASH + 已確認 → 放行但標記為敏感操作（需留痕）。
+    let auditClosedCashCreate = false;
+    if (data.paymentMethod === "CASH") {
+      const closed = await isBusinessDateClosed(storeId, businessDateFromStr(data.entryDate));
+      if (closed) {
+        if (!data.confirmClosedCashbookChange) {
+          throw new AppError("BUSINESS_RULE", CLOSED_CASHBOOK_GUARD_MSG);
+        }
+        auditClosedCashCreate = true;
+      }
+    }
 
     // 非 Owner 員工若未指定 staffId，自動綁定自己
     let staffId = data.staffId || null;
@@ -85,19 +115,38 @@ export async function createCashbookEntry(
       staffId = user.staffId ?? null;
     }
 
-    const entry = await prisma.cashbookEntry.create({
-      data: {
-        entryDate: new Date(data.entryDate + "T00:00:00"),
-        type: data.type as CashbookEntryType,
-        category: data.category || null,
-        amount: data.amount,
-        paymentMethod: data.paymentMethod,
-        staffId,
-        note: data.note || null,
-        createdByUserId: user.id,
-        storeId: currentStoreId(user),
-      },
-    });
+    const createData = {
+      entryDate: new Date(data.entryDate + "T00:00:00"),
+      type: data.type as CashbookEntryType,
+      category: data.category || null,
+      amount: data.amount,
+      paymentMethod: data.paymentMethod,
+      staffId,
+      note: data.note || null,
+      createdByUserId: user.id,
+      storeId,
+    };
+
+    // 一般 create 不寫 audit（維持既有行為，不擴大範圍）；
+    // 僅「已閉店日 + CASH + 已確認」這個敏感路徑留痕（beforeJson 為 null，afterJson 用 snapshot）。
+    let entry;
+    if (auditClosedCashCreate) {
+      entry = await prisma.$transaction(async (tx) => {
+        const created = await tx.cashbookEntry.create({ data: createData });
+        await tx.auditLog.create({
+          data: {
+            actorUserId: user.id,
+            targetType: "CashbookEntry",
+            targetId: created.id,
+            action: "CREATE",
+            afterJson: cashbookSnapshot(created),
+          },
+        });
+        return created;
+      });
+    } else {
+      entry = await prisma.cashbookEntry.create({ data: createData });
+    }
 
     revalidatePath("/dashboard/cashbook");
     return { success: true, data: { entryId: entry.id } };
@@ -124,6 +173,28 @@ export async function updateCashbookEntry(
     });
     if (!entry) throw new AppError("NOT_FOUND", "現金帳紀錄不存在");
     assertStoreAccess(user, entry.storeId);
+
+    // PR-4 防呆 guard（後端權威）：
+    // 若編輯涉及現金（既有或更新後任一為 CASH），且涉及的營業日（既有日期或新日期）
+    // 已 CLOSED，但未明確確認 → 拒絕。OTHER↔OTHER 不涉現金，不擋。
+    const effectivePaymentMethod = data.paymentMethod ?? entry.paymentMethod;
+    const involvesCash =
+      effectivePaymentMethod === "CASH" || entry.paymentMethod === "CASH";
+    if (involvesCash && !data.confirmClosedCashbookChange) {
+      const datesToCheck = new Set<string>();
+      datesToCheck.add(entry.entryDate.toISOString().slice(0, 10));
+      if (data.entryDate) datesToCheck.add(data.entryDate);
+      let anyClosed = false;
+      for (const ds of datesToCheck) {
+        if (await isBusinessDateClosed(entry.storeId, businessDateFromStr(ds))) {
+          anyClosed = true;
+          break;
+        }
+      }
+      if (anyClosed) {
+        throw new AppError("BUSINESS_RULE", CLOSED_CASHBOOK_GUARD_MSG);
+      }
+    }
 
     // 非 Owner 員工只能修改自己的紀錄
     if (user.role !== "ADMIN") {

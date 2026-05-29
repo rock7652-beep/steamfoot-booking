@@ -46,6 +46,17 @@ const ENTRY_TYPE_COLOR: Record<CashbookEntryType, string> = {
   ADJUSTMENT: "bg-earth-100 text-earth-600",
 };
 
+// PR-4：付款方式 badge。現金（影響現金抽屜）用偏藍、其他用中性灰，色調低調不搶眼。
+const PAYMENT_METHOD_LABEL: Record<"CASH" | "OTHER", string> = {
+  CASH: "現金",
+  OTHER: "其他",
+};
+
+const PAYMENT_METHOD_COLOR: Record<"CASH" | "OTHER", string> = {
+  CASH: "bg-sky-50 text-sky-700 ring-1 ring-sky-200",
+  OTHER: "bg-earth-50 text-earth-500 ring-1 ring-earth-200",
+};
+
 interface PageProps {
   searchParams: Promise<{
     month?: string;
@@ -144,7 +155,14 @@ export default async function CashbookPage({ searchParams }: PageProps) {
 
         {/* 下方：月度現金帳紀錄（與 workspace 視覺分隔） */}
         <section id="cashbook-records" className="space-y-4 border-t border-earth-200 pt-6">
-          <h2 className="text-lg font-semibold text-earth-900">現金帳紀錄</h2>
+          <div className="space-y-1">
+            <h2 className="text-lg font-semibold text-earth-900">現金帳紀錄</h2>
+            <p className="text-xs text-earth-500">
+              這是現金帳總覽，包含「現金」與「其他」付款的所有紀錄。其中只有付款方式為
+              <span className="font-medium text-sky-700">「現金」</span>
+              的項目，才會影響上方的現金抽屜結餘。
+            </p>
+          </div>
 
           {/* 月份 / 類型 篩選 */}
           <form method="GET" className="flex flex-wrap items-end gap-2">
@@ -212,6 +230,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
                 <tr>
                   <th className="px-4 py-3 text-left font-medium text-earth-600">日期</th>
                   <th className="px-4 py-3 text-left font-medium text-earth-600">類型</th>
+                  <th className="px-4 py-3 text-left font-medium text-earth-600">付款方式</th>
                   <th className="px-4 py-3 text-left font-medium text-earth-600">分類</th>
                   <th className="px-4 py-3 text-right font-medium text-earth-600">金額</th>
                   <th className="px-4 py-3 text-left font-medium text-earth-600">登錄人</th>
@@ -222,7 +241,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
               <tbody className="divide-y divide-earth-100">
                 {entries.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-4 py-0">
+                    <td colSpan={8} className="px-4 py-0">
                       <EmptyState
                         icon="empty"
                         title="尚無現金帳記錄"
@@ -243,6 +262,15 @@ export default async function CashbookPage({ searchParams }: PageProps) {
                         }`}
                       >
                         {ENTRY_TYPE_LABEL[e.type]}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`rounded px-2 py-0.5 text-xs font-medium ${
+                          PAYMENT_METHOD_COLOR[e.paymentMethod]
+                        }`}
+                      >
+                        {PAYMENT_METHOD_LABEL[e.paymentMethod]}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-earth-600">{e.category ?? "—"}</td>

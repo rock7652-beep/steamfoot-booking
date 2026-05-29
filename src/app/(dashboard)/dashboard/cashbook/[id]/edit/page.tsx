@@ -1,5 +1,6 @@
 import { listStaffSelectOptions } from "@/server/queries/staff";
 import { updateCashbookEntry } from "@/server/actions/cashbook";
+import { listClosedBusinessDates } from "@/server/queries/cash-drawer";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { notFound, redirect } from "next/navigation";
@@ -9,10 +10,10 @@ import { prisma } from "@/lib/db";
 import {
   FormShell,
   FormSection,
-  FormGrid,
   PageHeader,
   StickyFormActions,
 } from "@/components/desktop";
+import { CashbookFormFields } from "../../cashbook-form-fields";
 
 type CashbookEntryType = "INCOME" | "EXPENSE" | "WITHDRAW" | "ADJUSTMENT";
 type PaymentMethod = "CASH" | "OTHER";
@@ -37,6 +38,18 @@ export default async function EditCashbookPage({ params }: PageProps) {
 
   const entryDate = entry.entryDate.toISOString().slice(0, 10);
 
+  // 閉店日提示用：以此筆紀錄日期為中心 ±180 天的已閉店營業日（前端即時提示，後端仍 guard）
+  const [ey, em, ed] = entryDate.split("-").map(Number);
+  const windowFrom = new Date(Date.UTC(ey, em - 1, ed));
+  windowFrom.setUTCDate(windowFrom.getUTCDate() - 180);
+  const windowTo = new Date(Date.UTC(ey, em - 1, ed));
+  windowTo.setUTCDate(windowTo.getUTCDate() + 180);
+  const closedDates = await listClosedBusinessDates(
+    entry.storeId,
+    windowFrom.toISOString().slice(0, 10),
+    windowTo.toISOString().slice(0, 10),
+  );
+
   async function handleSubmit(formData: FormData) {
     "use server";
     const result = await updateCashbookEntry(id, {
@@ -47,6 +60,7 @@ export default async function EditCashbookPage({ params }: PageProps) {
       paymentMethod: (formData.get("paymentMethod") as PaymentMethod) || undefined,
       staffId: (formData.get("staffId") as string) || null,
       note: formData.get("note") as string,
+      confirmClosedCashbookChange: formData.get("confirmClosedCashbookChange") === "on",
     });
 
     if (!result.success) {
@@ -58,7 +72,6 @@ export default async function EditCashbookPage({ params }: PageProps) {
 
   const inputCls =
     "block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400";
-  const labelCls = "block text-sm font-medium text-earth-700";
 
   return (
     <FormShell width="md">
@@ -75,96 +88,14 @@ export default async function EditCashbookPage({ params }: PageProps) {
       />
 
       <form action={handleSubmit} className="space-y-6 pb-4">
-        <FormSection title="基本資料" description="日期、類型、金額為必填">
-          <FormGrid>
-            <div>
-              <label className={labelCls}>日期</label>
-              <input
-                type="date"
-                name="entryDate"
-                required
-                defaultValue={entryDate}
-                className={`mt-1 ${inputCls}`}
-              />
-            </div>
-            <div>
-              <label className={labelCls}>類型</label>
-              <select
-                name="type"
-                required
-                defaultValue={entry.type}
-                className={`mt-1 ${inputCls}`}
-              >
-                <option value="INCOME">收入</option>
-                <option value="EXPENSE">支出</option>
-                <option value="WITHDRAW">提領</option>
-                <option value="ADJUSTMENT">調整</option>
-              </select>
-            </div>
-          </FormGrid>
-
-          <FormGrid>
-            <div>
-              <label className={labelCls}>
-                分類
-                <span className="ml-1 text-xs text-earth-400">（選填）</span>
-              </label>
-              <input
-                type="text"
-                name="category"
-                defaultValue={entry.category ?? ""}
-                className={`mt-1 ${inputCls}`}
-                placeholder="例：房租、水費、銷售收入等"
-              />
-            </div>
-            <div>
-              <label className={labelCls}>金額（元）</label>
-              <input
-                type="number"
-                name="amount"
-                required
-                min="0.01"
-                step="0.01"
-                defaultValue={entry.amount.toString()}
-                className={`mt-1 ${inputCls}`}
-                placeholder="輸入金額"
-              />
-            </div>
-          </FormGrid>
-        </FormSection>
-
-        <FormSection title="付款方式" description="請選擇此筆現金帳的收付方式（必選）">
-          <div className="grid grid-cols-2 gap-3">
-            <label className="cursor-pointer">
-              <input
-                type="radio"
-                name="paymentMethod"
-                value="CASH"
-                required
-                defaultChecked={entry.paymentMethod === "CASH"}
-                className="peer sr-only"
-              />
-              <div className="rounded-xl border-2 border-earth-200 bg-white px-4 py-4 text-center transition hover:border-earth-300 peer-checked:border-primary-600 peer-checked:bg-primary-50 peer-checked:ring-2 peer-checked:ring-primary-200 peer-focus-visible:ring-2 peer-focus-visible:ring-primary-300">
-                <div className="text-base font-semibold text-earth-800">現金</div>
-                <div className="mt-1 text-xs text-earth-500">實際收付現金</div>
-              </div>
-            </label>
-            <label className="cursor-pointer">
-              <input
-                type="radio"
-                name="paymentMethod"
-                value="OTHER"
-                required
-                defaultChecked={entry.paymentMethod === "OTHER"}
-                className="peer sr-only"
-              />
-              <div className="rounded-xl border-2 border-earth-200 bg-white px-4 py-4 text-center transition hover:border-earth-300 peer-checked:border-primary-600 peer-checked:bg-primary-50 peer-checked:ring-2 peer-checked:ring-primary-200 peer-focus-visible:ring-2 peer-focus-visible:ring-primary-300">
-                <div className="text-base font-semibold text-earth-800">其他</div>
-                <div className="mt-1 text-xs text-earth-500">匯款 / 轉帳 / 非現金</div>
-              </div>
-            </label>
-          </div>
-        </FormSection>
+        <CashbookFormFields
+          closedDates={closedDates}
+          defaultEntryDate={entryDate}
+          defaultType={entry.type}
+          defaultCategory={entry.category ?? ""}
+          defaultAmount={entry.amount.toString()}
+          defaultPaymentMethod={entry.paymentMethod}
+        />
 
         {/* Staff —「登錄人」= 這筆紀錄的可見與編輯範圍歸屬。
             非 ADMIN 鎖定原登錄人；ADMIN 可改派其他店長（屬於 visibility 設定，
