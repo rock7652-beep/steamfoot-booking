@@ -592,6 +592,7 @@ activatePrecreatedCustomerWithLine({
 | **R8** | helper 新 entry point（`bindLineToExistingCustomerById` + `activatePrecreatedCustomerWithLine`，§5.3 / §5.3.3）與既有 `bindLineToCustomerInStore` 三者語意差異被誤合 | 中 | 三者共用 mask helpers + `logLineBindEvent` + storeId 比對 + A3 atomicity (新 entry 兩支)；但**接受 `customer.userId` 的方向不同**：existing-user helper rejects null、activation helper requires null、phone-driven 既有 helper 不檢查此維度（走 phone match）— PR description + 單元測試 + integration tests 三層必須各自明寫該差異，避免 reviewer 誤把 Case B wire 至 existing-user helper（Codex round 5 P1 已發生過此誤接）|
 | **R13** | PR-G5.5 把 Case B wire 至 existing-user helper（誤接），首次 LINE OAuth 啟用流程被 step 4 `customer_has_no_user` 擋下 → 顧客無法用 LINE 第一次啟用 staff-precreated 帳號 | **高** | (a) Case B 必 wire 至 `activatePrecreatedCustomerWithLine`（§5.3.3 / §7.1 PR-G5.5 row 已寫死）；(b) §9.2.2 regression test 用 spy 強制 Case B 路徑**不**呼叫 `bindLineToExistingCustomerById`；(c) `bindLineToExistingCustomerById` 的 status enum 沒有 `activated`、activation helper 的 enum 沒有 `bound_existing` — 型別系統再加一層保險 |
 | **R14** | PR-G5.3 A2 invariant 被寫成廣義 `_oauth_` ban → 連帶擋下 `_oauth_google_*` 寫入 → 首次 Google OAuth 沒既有 Customer 的顧客在 NextAuth Case C 階段 throw，無法登入 → 與本 PR train「LINE-only」的 scope 不符（Codex round 6 P2） | **高** | (a) A2 validator **只**檢查 `_oauth_line_` prefix，§7.1 normalize / customer-phone-validation 與 §6 PR-G5.3 row 都寫死 LINE-only；(b) §9.2.1 validator 單元測試含 `_oauth_google_*` accept regression — 若有人改成廣義 ban，這個測試會立刻 fail；(c) §7.1 PR-G5.6 CI gate 掃描 pattern 也鎖 `_oauth\_line\_%`，不掃 Google；(d) 若未來真要設計 Google 替代流程，須**另開**獨立 docs / PR train，**不**塞進 PR-G5.x |
+| **R15** | PR-G5.4 Case C flag 與 PR-G5.3 A2 guard 被當作獨立 flag 分開回滾 → Case C 退回 legacy `_oauth_line_*` placeholder fallback 但 A2 仍 enabled → A2 validator throw 擋下所有 `_oauth_line_*` 寫入 → LINE OAuth 仍掛、partial rollback 完全沒救到事故、ops 還以為已回滾成功（Codex round 7 P2） | **高** | (a) §9.2.6 rollback plan 顯式宣告 PR-G5.4 / PR-G5.3 為 **paired rollback bundle**，禁止獨立翻單側 flag；(b) §9.2.6 列出 4 種 (Case C path × A2 state) config 組合的 validity matrix，runbook / CI gate 必須拒絕 invalid 組合（Case C legacy fallback + A2 enabled）；(c) §9.2.1 unit test 多一條「rollback config validator」regression：若 feature flag pair 進到 invalid 組合即 fail；(d) PR-G5.4 PR description 必須附 rollback runbook，明列「翻 flag 前先核對另一側狀態」的次序鎖；(e) 預設無條件 rollback 模板：先把 A2 翻 disabled、再把 Case C 翻 legacy fallback；恢復時反序 — 防 ops 在事故壓力下漏步驟 |
 | **R9** | 既有 historical `_oauth_line_*` row 在 A2 invariant 上線後被任何 update 操作觸發 | 中 | A2 只校驗 `create` 與「`update` 且包含 phone」;既有 row 純讀取 / 改其他欄位都不受影響 |
 | **R10** | PR-G5.4 ship 後 LIFF 內部因為某 edge case fallback 走到 NextAuth Case C(再也不會 create placeholder)→ LIFF 登入失敗 | 中 | LIFF entry 走 `/api/liff/exchange` + `liff-token` provider,不經 LINE OAuth provider 的 signIn callback;但需 E2E 確認;若真有 fallback path,須單獨修而非倒退 placeholder |
 | **R11** | `oauth_line_session` cookie 缺 integrity 保護被攻擊者手刻 → 任意 LINE 接管已認證 customer | **高** | PR-G5.4 必同 PR ship §5.3.1 方案 A/B/C 任一；`/oauth-confirm/finalize` 必先驗 signature / nonce 才讀 cookie 任何欄位；HttpOnly **不算** integrity；R7 既有「cookie 互覆蓋」已 acknowledge 是 isolation 議題、不抵此項；防呆透過 finalize 的 cookie integrity 必驗 + unit test (tampered cookie 0 DB 寫入) 一起鎖 |
@@ -613,6 +614,7 @@ activatePrecreatedCustomerWithLine({
 | `finalizeLineBind` | happy path（NEED_LOGIN，**via `bindLineToExistingCustomerById`**，且 cookie signature / nonce 已通過 §5.3.1 verify）+ **cookie integrity 必測**：(a) cookie 完全缺失 → 0 DB 寫入 + auth/session error；(b) tampered cookie（signature 不符 / nonce server-side store 查無） → 0 DB 寫入 + reject；(c) expired nonce / TTL 過期 → 0 DB 寫入 + reject；(d) 通過 verify 才允許進 helper + nonce reuse → abort + store mismatch → abort + TTL expired → abort + **反例：若誤接 phone-driven `bindLineToCustomerInStore` 應 fail-fast（會回 `phone_taken_by_other_user`）—當作 negative test 鎖死**；+ **`customer_has_no_user` 必測**：helper 回此 status → finalize 必須 redirect 回 `/oauth-confirm` 並**不**靜默自動建 User |
 | `oauth-stage-token` | sign/verify round-trip；HMAC tamper reject；TTL expired reject；nonce reuse reject；**static import-graph assertion：`src/lib/auth.ts` 的 import closure 不含 `src/lib/server/oauth-temp-session` 也不含 `next/headers`** |
 | `oauth-temp-session`（PR-G5.4 必過 4 case，§5.3.1）| **(T1) 偽造 raw JSON cookie**：直接寫 `oauth_line_session={"storeId":"<foreign>","lineUserId":"U_fake","customerId":"<victim>","nonce":"x","displayName":"x"}` 不帶 signature / 不對應任何 server-side nonce row → integrity check 失敗 → finalize return auth/session error；spy 確認 `prisma.customer.update` / `customer.create` / `user.create` / `account.create` / `auditLog.create` 全部 **0 次** 呼叫。**(T2) Tampered signature**（方案 A/B）：cookie 帶合法格式但 signature 末段被改一個字元 → HMAC verify 失敗 → 同上，0 DB 寫入。**(T3) Expired temp session**：cookie 結構/signature 都對但 TTL 已過 或 server-side nonce row 已 used / 已 expire → 拒絕 + 0 DB 寫入。**(T4) Valid signed/nonce-verified session**：通過 signature/decrypt/nonce verify → finalize 路徑得以進入並能將 verified `tempSession.storeId` / `lineUserId` / `lineName` 傳入 helper。**(T5 narrative)** 在測試 file 開頭 comment 寫明「HttpOnly 不等於 integrity；本檔覆蓋 integrity 而非 attribute hardening」，防止未來 reviewer 誤把 cookie attributes 當作 integrity 保護 |
+| Rollback config validator（PR-G5.4 / PR-G5.3 paired bundle，§9.2.6 matrix；R15 對應） | **(C1) staged flow + A2 enabled** → validator accept（PR train ship 後的預設正向組合）。**(C2) legacy `_oauth_line_*` placeholder fallback + A2 disabled（含對 legacy path bypass）** → validator accept（受控 rollback bundle）。**(C3) legacy `_oauth_line_*` placeholder fallback + A2 enabled** → validator **reject**，明確錯誤訊息要求 ops 先翻 A2 flag；regression：若有人把 PR-G5.4 Case C flag 與 PR-G5.3 A2 flag 改成可獨立翻動而沒回頭更新此 validator，這條測試會 fail。**(C4) staged flow + A2 disabled** → validator warn but accept，視為「過渡狀態 / 暫時減防」，需 ops 明確 ack；test 鎖死 warn 訊息以防未來被 silently 改成 accept。**(C5 narrative)** 測試 file 開頭 comment 註明本 validator 是 R15「partial rollback 沒救到事故」的最後一道防線、**不**取代 §9.2.6 runbook 與 PR description 的 paired bundle 宣告 |
 
 #### 9.2.2 Integration tests
 
@@ -656,10 +658,27 @@ activatePrecreatedCustomerWithLine({
 #### 9.2.6 Rollback plan（每個 PR 都要有）
 
 * PR-G5.1 / G5.2 / G5.5 純 refactor → git revert
-* PR-G5.3 A2 invariant → feature flag 關掉
-* PR-G5.4 auth.ts Case C 替換 → feature flag 切回 placeholder fallback(dead code 保留至 PR-G5.8 才刪)
+* PR-G5.3 A2 invariant → feature flag 關掉（⚠ 與 PR-G5.4 耦合，見下方 paired bundle）
+* PR-G5.4 auth.ts Case C 替換 → feature flag 切回 placeholder fallback（dead code 保留至 PR-G5.8 才刪）
+  * ⚠ **與 PR-G5.3 A2 invariant 強耦合**：legacy placeholder fallback 會嘗試寫入 `_oauth_line_*` Customer.phone，但 PR-G5.3 上線後 A2 validator 會把這類寫入 throw 掉。**若 A2 仍 enabled 而 Case C 退回 legacy fallback → LINE OAuth 仍掛**，partial rollback 不會救到事故（R15）。
+  * **允許的回滾路徑**只有兩條：
+    1. Case C 留在 staged flow（PR-G5.4 主路徑，不發 `_oauth_line_*` row、直接 reject 該次登入並導回 `/oauth-confirm`），同時 A2 維持 enabled — 這條本身就**不需要動 Case C flag**，比較像是「PR-G5.3 不退、PR-G5.4 也不退」。
+    2. Case C 翻回 legacy `_oauth_line_*` placeholder fallback **且**同時把 PR-G5.3 A2 flag 翻 disabled（或對 legacy path 顯式 bypass A2）—— 此時兩條 flag 必須**一起翻**，視為 paired rollback bundle。
+  * **禁止獨立翻單側 flag**：PR-G5.4 Case C flag 與 PR-G5.3 A2 flag 必須當作一組 paired rollback bundle 處理；任一單獨翻動前 ops 必先核對另一側狀態。
+  * **預設 rollback runbook 模板**（PR-G5.4 PR description 必附）：先翻 PR-G5.3 A2 flag 到 disabled、再翻 PR-G5.4 Case C flag 到 legacy fallback；恢復時反序（先翻回 staged flow、再 enable A2）。在事故壓力下 ops 不需要二選一思考，照模板走即安全。
 * PR-G5.6 CI gate → 暫停 gate
 * PR-G5.7 排程 audit → 暫停排程
+
+**有效 rollback config matrix**（PR-G5.4 PR description / ops runbook / config validator 三處共用，§9.2.1「Rollback config validator」單元測試對應；R15 對應）：
+
+| # | Case C 路徑 | A2 guard | 有效？ | 說明 |
+| --- | --- | --- | --- | --- |
+| C1 | staged flow（PR-G5.4 主路徑，不發 `_oauth_line_*`） | enabled | ✅ accept | PR train ship 後的預設正向組合；config validator default expected |
+| C2 | legacy `_oauth_line_*` placeholder fallback | disabled（含對 legacy path bypass） | ✅ accept | 受控 paired rollback bundle；事故時走此模板 |
+| C3 | legacy `_oauth_line_*` placeholder fallback | enabled | ❌ reject | A2 會 throw 擋下所有 `_oauth_line_*` 寫入 → LINE OAuth 全掛；config validator 必須拒絕此組合並要求 ops 先翻 A2 flag |
+| C4 | staged flow | disabled | ⚠ warn but accept | 技術上可運作（主路徑不寫 placeholder），但失去 A2 防線；視為過渡狀態，需 ops 明確 ack；不建議長駐 |
+
+> **誰來 enforce 這個 matrix？** 三層共用：(a) §9.2.1 unit-test 「Rollback config validator」確保任何 PR 改 flag 形狀都必通過 C1–C4 regression；(b) PR-G5.4 PR description 內的 rollback runbook 把 C2 / C3 顯式列出；(c) 若 ops 真的踩到 C3，啟動時的 config validator 直接 fail-fast 不讓服務上線。
 
 ---
 
