@@ -45,12 +45,13 @@ export default async function CashDrawerPage({ searchParams }: PageProps) {
   const [y, m, d] = todayStr.split("-").map(Number);
   const todayBusinessDate = new Date(Date.UTC(y, m - 1, d));
 
-  const [plan, view, canOpen, canClose, canAddEntry] = await Promise.all([
+  const [plan, view, canOpen, canClose, canAddEntry, canCreateCashbook] = await Promise.all([
     getCurrentStorePlan(),
     getCashDrawerView(storeId, todayBusinessDate),
     checkPermission(user.role, user.staffId, "cashDrawer.open"),
     checkPermission(user.role, user.staffId, "cashDrawer.close"),
     checkPermission(user.role, user.staffId, "cashDrawer.entry"),
+    checkPermission(user.role, user.staffId, "cashbook.create"),
   ]);
   const canInit = user.role === "ADMIN" || user.role === "OWNER";
 
@@ -79,6 +80,7 @@ export default async function CashDrawerPage({ searchParams }: PageProps) {
           canOpen={canOpen}
           canClose={canClose}
           canAddEntry={canAddEntry}
+          canCreateCashbook={canCreateCashbook}
           returnPath="/dashboard/cash-drawer"
         />
       </PageShell>

@@ -133,7 +133,7 @@ export function CashbookFormFields({
             />
             <div className={methodCardCls}>
               <div className="text-base font-semibold text-earth-800">現金</div>
-              <div className="mt-1 text-xs text-earth-500">實際收付現金</div>
+              <div className="mt-1 text-xs text-earth-500">實際收付現金，會影響抽屜</div>
             </div>
           </label>
           <label className="cursor-pointer">
@@ -148,7 +148,7 @@ export function CashbookFormFields({
             />
             <div className={methodCardCls}>
               <div className="text-base font-semibold text-earth-800">其他</div>
-              <div className="mt-1 text-xs text-earth-500">匯款 / 轉帳 / 非現金</div>
+              <div className="mt-1 text-xs text-earth-500">匯款 / 轉帳 / 非現金，不影響抽屜</div>
             </div>
           </label>
         </div>

@@ -107,7 +107,7 @@ function NotOpenedTodayCard({
       <div>
         <p className="text-sm font-medium text-earth-800">
           <span className="mr-1 inline-block h-2 w-2 rounded-full bg-amber-500 align-middle" />
-          尚未開店點錢
+          尚未開店
         </p>
         <p className="mt-0.5 text-[11px] text-earth-500">
           今日開店起點 NT$ {lastFinalBookBalance}（上日閉店實際點到）
@@ -149,7 +149,7 @@ function OpenedTodayCard({
       <div className="flex flex-1 flex-col gap-1">
         <p className="text-sm font-medium text-earth-800">
           <span className="mr-1 inline-block h-2 w-2 rounded-full bg-green-500 align-middle" />
-          今日已開店
+          營業中
         </p>
         <div className="flex gap-4 text-[11px] text-earth-600">
           <span>
@@ -204,7 +204,7 @@ function ClosedTodayCard({
       <div className="flex flex-1 flex-col gap-1">
         <p className="text-sm font-medium text-earth-800">
           <span className="mr-1 inline-block h-2 w-2 rounded-full bg-earth-400 align-middle" />
-          今日已閉店
+          今日已結帳
         </p>
         <div className="flex gap-4 text-[11px] text-earth-600">
           <span>

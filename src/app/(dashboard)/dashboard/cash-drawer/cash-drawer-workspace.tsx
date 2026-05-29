@@ -13,10 +13,12 @@
  */
 
 import { redirect } from "next/navigation";
+import type { ReactNode } from "react";
 import { Prisma } from "@prisma/client";
 
 import { formatTWTime } from "@/lib/date-utils";
 import { SubmitButton } from "@/components/submit-button";
+import { DashboardLink as Link } from "@/components/dashboard-link";
 
 import type { CashDrawerView, CashDrawerLiveTotals } from "@/server/queries/cash-drawer";
 import type { CashDrawerEntry } from "@prisma/client";
@@ -25,9 +27,16 @@ import {
   initializeCashDrawerAction,
   openCashDrawerAction,
   closeCashDrawerAction,
+  addCashDrawerEntryAction,
 } from "@/server/actions/cash-drawer";
 import { EntrySection } from "./entry-section";
 import { TodayOpenForm } from "./today-open-form";
+import { WithdrawalForm, DepositForm } from "./cash-entry-forms";
+
+/** "2026-05-29" → "2026/05/29"（今日狀態卡標題用） */
+function formatDateSlash(todayStr: string): string {
+  return todayStr.replaceAll("-", "/");
+}
 
 interface CashDrawerWorkspaceProps {
   view: CashDrawerView;
@@ -40,6 +49,10 @@ interface CashDrawerWorkspaceProps {
   canClose: boolean;
   /** cashDrawer.entry */
   canAddEntry: boolean;
+  /** cashbook.create — 是否能新增現金帳（「記一筆收入」入口會連到 /dashboard/cashbook/new，
+   *  該頁用 cashbook.create 把關；與 cashDrawer.* 是兩套權限，必須分開判斷，
+   *  否則只有 cashDrawer 權限的使用者點了會被 redirect，變成點不動的主操作） */
+  canCreateCashbook: boolean;
   /** 表單成功後 redirect 回的 URL，例如
    *   "/dashboard/cashbook#cash-drawer-workspace"（從現金管理主頁）
    *   "/dashboard/cash-drawer"（從獨立頁）
@@ -54,6 +67,7 @@ export function CashDrawerWorkspace({
   canOpen,
   canClose,
   canAddEntry,
+  canCreateCashbook,
   returnPath,
 }: CashDrawerWorkspaceProps) {
   return (
@@ -77,9 +91,9 @@ export function CashDrawerWorkspace({
         </div>
       )}
 
-      {/* State B: 今日未開店 — 兩張窄卡上下堆疊置中 */}
+      {/* State B: 今日未開店 — 桌機左右並排（狀態 / 開店點錢），窄螢幕單欄堆疊 */}
       {view.state === "NOT_OPENED_TODAY" && (
-        <div className="mx-auto w-full max-w-2xl">
+        <div className="mx-auto w-full max-w-5xl">
           <NotOpenedTodayCard
             lastSession={view.lastSession}
             canOpen={canOpen}
@@ -89,7 +103,7 @@ export function CashDrawerWorkspace({
         </div>
       )}
 
-      {/* State C: 今日已開店（OPEN / CLOSED）— 桌機 / iPad 橫向左 2 右 1，手機 / iPad 直向單欄 */}
+      {/* State C: 今日已開店（OPEN / CLOSED）— 一頁式：今日狀態卡 → 日常操作區 → 明細 */}
       {view.state === "OPENED_TODAY" && (
         <OpenedTodayWorkspace
           session={view.session}
@@ -97,9 +111,50 @@ export function CashDrawerWorkspace({
           entries={view.entries}
           canClose={canClose}
           canAddEntry={canAddEntry}
+          canCreateCashbook={canCreateCashbook}
           returnPath={returnPath}
+          todayStr={todayStr}
         />
       )}
+    </div>
+  );
+}
+
+// ============================================================
+// 今日狀態卡（PR-G5.1a）— 一頁式最上方的狀態摘要
+// 標題「今日現金管理 YYYY/MM/DD」+ 狀態徽章 +（依狀態）頭條數字
+// ============================================================
+
+const STATUS_BADGE = {
+  NOT_OPENED: { label: "尚未開店", cls: "bg-amber-100 text-amber-700", dot: "bg-amber-500" },
+  OPEN: { label: "營業中", cls: "bg-green-100 text-green-700", dot: "bg-green-500" },
+  CLOSED: { label: "今日已結帳", cls: "bg-earth-200 text-earth-700", dot: "bg-earth-400" },
+} as const;
+
+function TodayStatusCard({
+  todayStr,
+  status,
+  children,
+}: {
+  todayStr: string;
+  status: keyof typeof STATUS_BADGE;
+  children: ReactNode;
+}) {
+  const badge = STATUS_BADGE[status];
+  return (
+    <div className="rounded-xl border bg-white p-5 shadow-sm md:p-6">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-lg font-semibold text-earth-900">
+          今日現金管理　{formatDateSlash(todayStr)}
+        </h2>
+        <span
+          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${badge.cls}`}
+        >
+          <span className={`inline-block h-2 w-2 rounded-full ${badge.dot}`} />
+          {badge.label}
+        </span>
+      </div>
+      <div className="mt-4">{children}</div>
     </div>
   );
 }
@@ -373,22 +428,30 @@ function NotOpenedTodayCard({
 
   const lastBalance = lastSession.finalBookBalance?.toString() ?? "—";
 
+  // 桌機左右並排：左欄今日狀態（開店起點），右欄唯一操作「開店點錢」；
+  // 窄螢幕單欄堆疊（狀態在上、開店點錢在下）。版面拉寬避免窄窄一條。
   return (
-    <div className="space-y-4">
-      <div className="rounded-xl border bg-primary-50 p-4 text-primary-900">
-        <p className="text-sm">
-          上日（{formatTWTime(lastSession.businessDate, { dateOnly: true })}）閉店實際點到金額
+    <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+      <TodayStatusCard todayStr={todayStr} status="NOT_OPENED">
+        <p className="text-sm text-earth-500">今日開店起點</p>
+        <p className="mt-1 text-3xl font-bold tabular-nums text-earth-900">
+          NT$ {lastBalance}
         </p>
-        <p className="mt-1 text-2xl font-bold tabular-nums">NT$ {lastBalance}</p>
-        <p className="mt-1 text-xs text-primary-700">
-          今天從這個金額開始；昨天的差額會留在昨天。
+        <p className="mt-2 text-sm text-earth-600">
+          從上次閉店（{formatTWTime(lastSession.businessDate, { dateOnly: true })}
+          ）實際點到的現金開始。
         </p>
-      </div>
+      </TodayStatusCard>
 
+      {/* 日常操作區（尚未開店）：依傻瓜流程只放「開店點錢」主操作。
+          提領 / 補入 / 記收入要等開店後才出現，避免店長搞不清楚今天抽屜起點。 */}
       <div className="rounded-xl border bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-earth-900">今日開店點錢</h2>
+        <h2 className="text-lg font-semibold text-earth-900">開店點錢</h2>
         <p className="mt-1 text-sm text-earth-500">
           請現場清點抽屜內現金，輸入實際金額。
+        </p>
+        <p className="mt-2 rounded-lg bg-earth-50 px-3 py-2 text-xs text-earth-600">
+          先完成開店點錢，開店後就可以記收入、提領或補入現金。
         </p>
 
         {!canOpen && (
@@ -489,90 +552,428 @@ function OpenedTodayWorkspace({
   entries,
   canClose,
   canAddEntry,
+  canCreateCashbook,
   returnPath,
+  todayStr,
 }: {
   session: OpenedTodaySession;
   liveTotals: CashDrawerLiveTotals | null;
   entries: CashDrawerEntry[];
   canClose: boolean;
   canAddEntry: boolean;
+  canCreateCashbook: boolean;
   returnPath: string;
+  todayStr: string;
 }) {
   const isClosed = session.status === "CLOSED";
 
+  // PR-G5.1a v2：桌機 / iPad 友善版面。
+  //   桌機（lg+）：左 2/3 今日狀態 + 今日摘要、右 1/3 日常操作（sticky），
+  //               兩者在第一屏並排；開店紀錄 / 現金異動置於下方 full width。
+  //   iPad / 手機（< lg）：單欄，靠 order 控制資訊優先序
+  //               「今日狀態 → 日常操作 → 今日摘要 → 紀錄」，
+  //               讓店長一進來先看到狀態與要按的操作，而非一堆明細。
+  const summaryCard = !isClosed && liveTotals ? (
+    <TransactionSummaryCard
+      live
+      cashIncome={liveTotals.cashIncomeTotal.toString()}
+      cashExpense={liveTotals.cashExpenseTotal.toString()}
+      cashWithdrawal={liveTotals.cashWithdrawalTotal.toString()}
+      cashDeposit={liveTotals.cashDepositTotal.toString()}
+      cashAdjustment={liveTotals.cashAdjustmentTotal.toString()}
+      cashbookCashIncome={liveTotals.cashbookCashIncome.toString()}
+      cashbookCashOut={liveTotals.cashbookCashOut.toString()}
+    />
+  ) : (
+    <TransactionSummaryCard
+      live={false}
+      cashIncome={session.cashIncomeTotal.toString()}
+      cashExpense={session.cashExpenseTotal.toString()}
+      cashWithdrawal={session.cashWithdrawalTotal.toString()}
+      cashDeposit={session.cashDepositTotal.toString()}
+      cashAdjustment={session.cashAdjustmentTotal.toString()}
+      cashbookNet={deriveClosedCashbookNet(session)}
+    />
+  );
+
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-3">
-        <span
-          className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${
-            isClosed ? "bg-earth-200 text-earth-700" : "bg-green-100 text-green-700"
-          }`}
-        >
-          ● {isClosed ? "今日已閉店" : "今日已開店"}
-        </span>
-        <span className="text-sm text-earth-500">
-          {formatTWTime(session.businessDate, { dateOnly: true })}
-        </span>
-      </div>
-
-      {/* iPad portrait / 縮窄桌機 (md+, ≥768)：左 2 / 右 1 真正分區，右欄 sticky 讓
-          店長滑動左側紀錄時仍能看到「系統應有現金 / 閉店點錢」操作區。
-          手機 (< md)：單欄堆疊，避免擠壓。
-          sticky top-16：避開頁面頂端 sticky header (h-14 = 56px) 留小間隔。 */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3 md:gap-6">
-        {/* 左：開店紀錄 + 今日交易摘要 + 現金異動 */}
-        <div className="space-y-4 md:col-span-2">
-          <OpeningRecordCard session={session} />
-
-          {/* 今日交易摘要 — OPEN 用 liveTotals，CLOSED 用 session snapshot */}
-          {!isClosed && liveTotals && (
-            <TransactionSummaryCard
-              live
-              cashIncome={liveTotals.cashIncomeTotal.toString()}
-              cashExpense={liveTotals.cashExpenseTotal.toString()}
-              cashWithdrawal={liveTotals.cashWithdrawalTotal.toString()}
-              cashDeposit={liveTotals.cashDepositTotal.toString()}
-              cashAdjustment={liveTotals.cashAdjustmentTotal.toString()}
-              cashbookCashIncome={liveTotals.cashbookCashIncome.toString()}
-              cashbookCashOut={liveTotals.cashbookCashOut.toString()}
-            />
+    <div className="w-full space-y-4">
+      {/* 第一屏：今日狀態（含摘要 glance）+ 今日交易摘要 + 日常操作。
+          桌機 3 欄（左 2 欄資訊、右 1 欄操作 sticky）；窄螢幕單欄靠 order 排序。 */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        {/* A. 今日狀態卡 — 第一順位 */}
+        <div className="order-1 lg:col-span-2 lg:col-start-1 lg:row-start-1">
+          {!isClosed && liveTotals ? (
+            <OpenStatusCard session={session} liveTotals={liveTotals} todayStr={todayStr} />
+          ) : (
+            <ClosedStatusCard session={session} todayStr={todayStr} />
           )}
-          {isClosed && (
-            <TransactionSummaryCard
-              live={false}
-              cashIncome={session.cashIncomeTotal.toString()}
-              cashExpense={session.cashExpenseTotal.toString()}
-              cashWithdrawal={session.cashWithdrawalTotal.toString()}
-              cashDeposit={session.cashDepositTotal.toString()}
-              cashAdjustment={session.cashAdjustmentTotal.toString()}
-              cashbookNet={deriveClosedCashbookNet(session)}
-            />
-          )}
-
-          {/* 現金異動：OPEN 可新增，CLOSED 唯讀 */}
-          <EntrySection
-            sessionId={session.id}
-            entries={entries}
-            canAddEntry={!isClosed && canAddEntry}
-            returnPath={returnPath}
-          />
         </div>
 
-        {/* 右：OPEN → 系統應有現金 + 閉店點錢 form；CLOSED → 閉店結算
-            md+ 用 sticky-top + self-start 讓右欄釘在視窗上方，店長滑動左側
-            紀錄時關店操作永遠可見；self-start 防止 grid 預設拉滿欄高度導致
-            sticky 失效。 */}
-        <div className="space-y-4 md:sticky md:top-16 md:col-span-1 md:self-start">
-          {!isClosed && liveTotals && (
-            <ClosingPanel
+        {/* B. 日常操作區 — 窄螢幕第二順位（緊接狀態）；桌機沉到右欄並 sticky */}
+        <div className="order-2 lg:col-start-3 lg:row-span-2 lg:row-start-1 lg:self-start lg:sticky lg:top-4">
+          {!isClosed && liveTotals ? (
+            <DailyActionsArea
               sessionId={session.id}
               liveTotals={liveTotals}
               canClose={canClose}
+              canAddEntry={canAddEntry}
+              canCreateCashbook={canCreateCashbook}
               returnPath={returnPath}
             />
+          ) : (
+            <ClosedActionsArea canCreateCashbook={canCreateCashbook} />
           )}
-          {isClosed && <ClosedSettlementCard session={session} />}
         </div>
+
+        {/* C. 今日交易摘要 — 窄螢幕第三順位；桌機接在左欄狀態卡下方 */}
+        <div className="order-3 lg:col-span-2 lg:col-start-1 lg:row-start-2">
+          {summaryCard}
+        </div>
+      </div>
+
+      {/* 下方 full width：開店紀錄 / 閉店結算 / 現金異動紀錄（明細，第四順位） */}
+      <OpeningRecordCard session={session} />
+      {isClosed && <ClosedSettlementCard session={session} />}
+      <EntrySection
+        sessionId={session.id}
+        entries={entries}
+        canAddEntry={!isClosed && canAddEntry}
+        returnPath={returnPath}
+      />
+    </div>
+  );
+}
+
+// ============================================================
+// 今日狀態卡內容：營業中（OPEN）— 目前抽屜應有現金 + 摘要
+// ============================================================
+
+function OpenStatusCard({
+  session,
+  liveTotals,
+  todayStr,
+}: {
+  session: OpenedTodaySession;
+  liveTotals: CashDrawerLiveTotals;
+  todayStr: string;
+}) {
+  // 店長導向的「現金進 / 出」glance：把交易與現金帳的現金收付合併成單一數字。
+  // 詳細拆解仍在下方「今日交易摘要」卡（含現金帳 / 退款 / 調整逐項）。
+  const cashIn = liveTotals.cashIncomeTotal.add(liveTotals.cashbookCashIncome);
+  const cashOut = liveTotals.cashExpenseTotal.add(liveTotals.cashbookCashOut);
+  const openingDiff = formatDiff(session.openingDifference.toNumber());
+
+  return (
+    <TodayStatusCard todayStr={todayStr} status="OPEN">
+      <p className="text-sm text-earth-500">目前抽屜應有現金</p>
+      <p className="mt-1 text-3xl font-bold tabular-nums text-primary-900">
+        NT$ {liveTotals.expectedClosingCash.toString()}
+      </p>
+
+      <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-3">
+        <SummaryItem label="今日現金收入" value={`+ NT$ ${cashIn.toString()}`} tone="text-green-700" />
+        <SummaryItem label="今日現金支出" value={`− NT$ ${cashOut.toString()}`} tone="text-orange-700" />
+        <SummaryItem
+          label="今日提領"
+          value={`− NT$ ${liveTotals.cashWithdrawalTotal.toString()}`}
+          tone="text-orange-700"
+        />
+        <SummaryItem
+          label="今日補入"
+          value={`+ NT$ ${liveTotals.cashDepositTotal.toString()}`}
+          tone="text-green-700"
+        />
+        <SummaryItem label="開店差額" value={`NT$ ${openingDiff.label}`} tone={openingDiff.className} />
+      </dl>
+    </TodayStatusCard>
+  );
+}
+
+function SummaryItem({ label, value, tone }: { label: string; value: string; tone: string }) {
+  return (
+    <div>
+      <dt className="text-xs text-earth-500">{label}</dt>
+      <dd className={`mt-0.5 font-medium tabular-nums ${tone}`}>{value}</dd>
+    </div>
+  );
+}
+
+// ============================================================
+// 今日狀態卡內容：今日已結帳（CLOSED）— 閉店實點 / 差額 / 下次開店起點
+// ============================================================
+
+function ClosedStatusCard({
+  session,
+  todayStr,
+}: {
+  session: OpenedTodaySession;
+  todayStr: string;
+}) {
+  const closingDiff = formatDiff(session.closingDifference?.toNumber() ?? 0);
+
+  return (
+    <TodayStatusCard todayStr={todayStr} status="CLOSED">
+      <p className="text-sm font-medium text-earth-700">今日已結帳</p>
+      <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-3">
+        <SummaryItem
+          label="閉店實點"
+          value={`NT$ ${session.closingActualCash?.toString() ?? "—"}`}
+          tone="text-earth-900"
+        />
+        <SummaryItem label="差額" value={`NT$ ${closingDiff.label}`} tone={closingDiff.className} />
+        <SummaryItem
+          label="下次開店起點"
+          value={`NT$ ${session.finalBookBalance?.toString() ?? "—"}`}
+          tone="text-primary-900"
+        />
+      </dl>
+      <p className="mt-3 text-sm text-earth-600">
+        差額留在今天，下次開店從實際點到的現金開始。
+      </p>
+    </TodayStatusCard>
+  );
+}
+
+// ============================================================
+// 日常操作區（PR-G5.1a）— 營業中 4 顆大按鈕：記收入 / 提領 / 補入 / 閉店點錢
+// 提領 / 補入 / 閉店 用 <details> 大按鈕原地展開既有表單（零 client state）。
+// ============================================================
+
+function DailyActionsArea({
+  sessionId,
+  liveTotals,
+  canClose,
+  canAddEntry,
+  canCreateCashbook,
+  returnPath,
+}: {
+  sessionId: string;
+  liveTotals: CashDrawerLiveTotals;
+  canClose: boolean;
+  canAddEntry: boolean;
+  canCreateCashbook: boolean;
+  returnPath: string;
+}) {
+  const errorRedirect = (msg: string) =>
+    `${returnPath}${returnPath.includes("?") ? "&" : "?"}cashDrawerError=${encodeURIComponent(msg)}`;
+
+  async function handleAddWithdrawal(formData: FormData) {
+    "use server";
+    const result = await addCashDrawerEntryAction({
+      sessionId,
+      type: "CASH_WITHDRAWAL",
+      amount: Number(formData.get("amount")),
+      reason: String(formData.get("reason") ?? ""),
+      note: (formData.get("note") as string) || undefined,
+    });
+    if (!result.success) redirect(errorRedirect(result.error || "新增提領失敗"));
+    redirect(returnPath);
+  }
+
+  async function handleAddDeposit(formData: FormData) {
+    "use server";
+    const result = await addCashDrawerEntryAction({
+      sessionId,
+      type: "CASH_DEPOSIT",
+      amount: Number(formData.get("amount")),
+      reason: String(formData.get("reason") ?? ""),
+      note: (formData.get("note") as string) || undefined,
+    });
+    if (!result.success) redirect(errorRedirect(result.error || "新增補入失敗"));
+    redirect(returnPath);
+  }
+
+  async function handleClose(formData: FormData) {
+    "use server";
+    const result = await closeCashDrawerAction({
+      sessionId,
+      closingActualCash: Number(formData.get("closingActualCash")),
+      note: (formData.get("note") as string) || undefined,
+    });
+    if (!result.success) redirect(errorRedirect(result.error || "閉店失敗"));
+    redirect(returnPath);
+  }
+
+  return (
+    <div className="rounded-xl border bg-white p-5 shadow-sm md:p-6">
+      <h2 className="text-lg font-semibold text-earth-900">日常操作</h2>
+      <p className="mt-1 text-xs text-earth-500">
+        記收入走現金帳；提領 / 補入只影響現金抽屜，不算營收或費用。
+      </p>
+
+      {/* iPad（sm/md）full width → 2 欄大按鈕；桌機（lg）操作沉到 1/3 右欄 → 改回單欄直列，當作操作入口清單 */}
+      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-1">
+        {/* 1. 記一筆收入 — 走現金帳新增頁（收入預設 INCOME）。
+            cashbook/new 用 cashbook.create 把關，與 cashDrawer.* 分開；
+            無 cashbook.create 者改顯示 disabled，避免點了被 redirect。 */}
+        {canCreateCashbook ? (
+          <Link
+            href="/dashboard/cashbook/new"
+            className="flex min-h-[64px] flex-col justify-center rounded-xl border border-earth-200 bg-white px-4 py-3 text-left transition hover:border-primary-300 hover:bg-primary-50"
+          >
+            <span className="text-base font-semibold text-earth-900">記一筆收入</span>
+            <span className="mt-0.5 text-xs text-earth-500">商品、莓果、生活用品收入等</span>
+          </Link>
+        ) : (
+          <ActionDisabledCard title="記一筆收入" helper="您沒有新增現金帳的權限。" />
+        )}
+
+        {/* 2. 提領 — 原地展開 */}
+        {canAddEntry ? (
+          <details className="group rounded-xl border border-earth-200 bg-white sm:col-span-1">
+            <summary className="flex min-h-[64px] cursor-pointer list-none flex-col justify-center rounded-xl px-4 py-3 select-none hover:bg-orange-50 group-open:rounded-b-none">
+              <span className="text-base font-semibold text-earth-900">提領</span>
+              <span className="mt-0.5 text-xs text-earth-500">現金從抽屜拿出去（不算店內支出）</span>
+            </summary>
+            <div className="border-t border-earth-200">
+              <WithdrawalForm action={handleAddWithdrawal} />
+            </div>
+          </details>
+        ) : (
+          <ActionDisabledCard title="提領" helper="您沒有現金異動的權限。" />
+        )}
+
+        {/* 3. 補入現金 — 原地展開 */}
+        {canAddEntry ? (
+          <details className="group rounded-xl border border-earth-200 bg-white">
+            <summary className="flex min-h-[64px] cursor-pointer list-none flex-col justify-center rounded-xl px-4 py-3 select-none hover:bg-green-50 group-open:rounded-b-none">
+              <span className="text-base font-semibold text-earth-900">補入現金</span>
+              <span className="mt-0.5 text-xs text-earth-500">找零金、備用金、保險箱補現金</span>
+            </summary>
+            <div className="border-t border-earth-200">
+              <DepositForm action={handleAddDeposit} />
+            </div>
+          </details>
+        ) : (
+          <ActionDisabledCard title="補入現金" helper="您沒有現金異動的權限。" />
+        )}
+
+        {/* 4. 閉店點錢 — 原地展開（含閉店前確認） */}
+        {canClose ? (
+          <details className="group rounded-xl border border-primary-200 bg-primary-50/40">
+            <summary className="flex min-h-[64px] cursor-pointer list-none flex-col justify-center rounded-xl px-4 py-3 select-none hover:bg-primary-50 group-open:rounded-b-none">
+              <span className="text-base font-semibold text-primary-900">閉店點錢</span>
+              <span className="mt-0.5 text-xs text-primary-700">
+                結束今日營業，清點抽屜現金
+              </span>
+            </summary>
+            <div className="space-y-4 border-t border-primary-200 p-4">
+              <div className="rounded-lg bg-white px-3 py-2 text-sm">
+                <span className="text-earth-500">目前系統應有現金　</span>
+                <span className="font-semibold tabular-nums text-primary-900">
+                  NT$ {liveTotals.expectedClosingCash.toString()}
+                </span>
+              </div>
+
+              {/* 閉店前確認提醒（避免誤按閉店無法補登異動）*/}
+              <div className="rounded-lg border border-amber-200 border-l-4 border-l-amber-500 bg-amber-50 px-4 py-3">
+                <p className="text-base font-semibold text-amber-900">閉店前確認</p>
+                <ul className="mt-2 space-y-1 text-sm text-amber-900">
+                  <li>· 若今日沒有提領、補入或調整，可直接閉店。</li>
+                  <li>· 若有，請先完成登錄後再閉店。</li>
+                  <li>· 閉店後今日紀錄將鎖定，無法再新增現金異動。</li>
+                </ul>
+              </div>
+
+              <form action={handleClose} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-earth-700">
+                    實際點到金額（NT$）
+                  </label>
+                  <input
+                    type="number"
+                    name="closingActualCash"
+                    required
+                    min={0}
+                    step={1}
+                    className="mt-1 block min-h-[44px] w-full rounded-lg border border-earth-300 px-3 py-2 text-base tabular-nums focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
+                    placeholder={`例如 ${liveTotals.expectedClosingCash.toString()}`}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-earth-700">
+                    差額原因（若與系統應有不同必填）
+                  </label>
+                  <textarea
+                    name="note"
+                    rows={2}
+                    className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
+                    placeholder="若實際金額與系統應有金額不同，請說明原因"
+                  />
+                </div>
+                <SubmitButton
+                  label="完成今日閉店點錢"
+                  className="min-h-[44px] w-full bg-primary-600 text-base text-white hover:bg-primary-700"
+                />
+              </form>
+            </div>
+          </details>
+        ) : (
+          <ActionDisabledCard title="閉店點錢" helper="您沒有閉店點錢的權限。" />
+        )}
+      </div>
+
+      {/* 提領 vs 支出 的語意說明（次要、可收合，避免店長混用） */}
+      <details className="mt-3 rounded-lg bg-earth-50/60 px-4 py-2">
+        <summary className="cursor-pointer list-none text-xs font-medium text-earth-600 select-none">
+          提領和支出有什麼不同？
+        </summary>
+        <div className="mt-2 space-y-2 text-xs text-earth-600">
+          <p>
+            <span className="font-medium text-earth-800">提領：</span>
+            現金從抽屜拿出去，例如交款、存銀行、老闆領走。
+            <span className="text-earth-500">不算店內支出。</span>
+          </p>
+          <p>
+            <span className="font-medium text-earth-800">支出：</span>
+            店內花費，例如買耗材、生活用品。請用「記一筆收入」進入現金帳、類型改選「支出」，
+            付款方式選現金時會減少抽屜並記為支出。
+          </p>
+        </div>
+      </details>
+    </div>
+  );
+}
+
+function ActionDisabledCard({ title, helper }: { title: string; helper: string }) {
+  return (
+    <div className="flex min-h-[64px] flex-col justify-center rounded-xl border border-dashed border-earth-200 bg-earth-50/60 px-4 py-3">
+      <span className="text-base font-semibold text-earth-400">{title}</span>
+      <span className="mt-0.5 text-xs text-earth-400">{helper}</span>
+    </div>
+  );
+}
+
+// ============================================================
+// 日常操作區（CLOSED）— 今日已結帳，僅保留補登入口
+// ============================================================
+
+function ClosedActionsArea({ canCreateCashbook }: { canCreateCashbook: boolean }) {
+  return (
+    <div className="rounded-xl border bg-white p-5 shadow-sm md:p-6">
+      <h2 className="text-lg font-semibold text-earth-900">日常操作</h2>
+      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-1">
+        <div className="flex min-h-[64px] flex-col justify-center rounded-xl border border-dashed border-earth-200 bg-earth-50/60 px-4 py-3">
+          <span className="text-base font-semibold text-earth-500">已完成今日結帳</span>
+          <span className="mt-0.5 text-xs text-earth-400">
+            今日紀錄已鎖定，提領 / 補入需明日重新開店後操作。
+          </span>
+        </div>
+        {/* 補登同樣連到 cashbook/new，依 cashbook.create 把關 */}
+        {canCreateCashbook ? (
+          <Link
+            href="/dashboard/cashbook/new"
+            className="flex min-h-[64px] flex-col justify-center rounded-xl border border-earth-200 bg-white px-4 py-3 text-left transition hover:border-primary-300 hover:bg-primary-50"
+          >
+            <span className="text-base font-semibold text-earth-900">記一筆收入（補登）</span>
+            <span className="mt-0.5 text-xs text-earth-500">
+              補登只留紀錄，不會改變今天的結帳金額
+            </span>
+          </Link>
+        ) : (
+          <ActionDisabledCard title="記一筆收入（補登）" helper="您沒有新增現金帳的權限。" />
+        )}
       </div>
     </div>
   );
@@ -631,7 +1032,7 @@ function OpeningRecordCard({ session }: { session: OpenedTodaySession }) {
 
 // ============================================================
 // 子卡：今日交易摘要（OPEN live / CLOSED snapshot 共用，金額由 caller 字串化）
-// 系統應有現金 highlight 已抽到右欄獨立卡（ClosingPanel 上方）
+// 系統應有現金 highlight 已收進今日狀態卡 + 閉店點錢按鈕內
 // ============================================================
 
 function TransactionSummaryCard({
@@ -736,110 +1137,7 @@ function TransactionSummaryCard({
 }
 
 // ============================================================
-// 右欄：OPEN 狀態決策區（系統應有現金 highlight + 閉店點錢 form + PR-6 callout）
-// ============================================================
-
-function ClosingPanel({
-  sessionId,
-  liveTotals,
-  canClose,
-  returnPath,
-}: {
-  sessionId: string;
-  liveTotals: CashDrawerLiveTotals;
-  canClose: boolean;
-  returnPath: string;
-}) {
-  async function handleClose(formData: FormData) {
-    "use server";
-    const result = await closeCashDrawerAction({
-      sessionId,
-      closingActualCash: Number(formData.get("closingActualCash")),
-      note: (formData.get("note") as string) || undefined,
-    });
-    if (!result.success) {
-      redirect(
-        `${returnPath}${returnPath.includes("?") ? "&" : "?"}cashDrawerError=${encodeURIComponent(result.error || "閉店失敗")}`,
-      );
-    }
-    redirect(returnPath);
-  }
-
-  return (
-    <>
-      {/* 系統應有現金 — 從今日交易摘要抽出獨立卡，靠近閉店表單方便對照 */}
-      <div className="rounded-xl border border-primary-200 bg-primary-50 p-5 shadow-sm">
-        <p className="text-xs font-medium text-primary-700">
-          系統應有現金（含開店帳面）
-        </p>
-        <p className="mt-1 text-2xl font-bold tabular-nums text-primary-900 lg:text-3xl">
-          NT$ {liveTotals.expectedClosingCash.toString()}
-        </p>
-      </div>
-
-      {/* 閉店點錢 */}
-      <div className="rounded-xl border bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-earth-900">閉店點錢</h2>
-        <p className="mt-1 text-sm text-earth-500">
-          請現場清點抽屜內現金，輸入實際金額。閉店後 session 將鎖定。
-        </p>
-
-        {/* PR-6：閉店前確認提醒（避免誤按閉店無法補登異動）*/}
-        <div className="mt-3 rounded-lg border border-amber-200 border-l-4 border-l-amber-500 bg-amber-50 px-4 py-3">
-          <p className="text-base font-semibold text-amber-900">閉店前確認</p>
-          <ul className="mt-2 space-y-1 text-sm text-amber-900">
-            <li>· 若今日沒有提領、補入或調整，可直接閉店。</li>
-            <li>· 若有，請先完成登錄後再閉店。</li>
-            <li>· 閉店後今日紀錄將鎖定，無法再新增現金異動。</li>
-          </ul>
-        </div>
-
-        {!canClose && (
-          <div className="mt-4 rounded-lg bg-earth-50 px-4 py-3 text-sm text-earth-600">
-            您沒有閉店點錢的權限。
-          </div>
-        )}
-
-        {canClose && (
-          <form action={handleClose} className="mt-6 space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-earth-700">
-                實際點到金額（NT$）
-              </label>
-              <input
-                type="number"
-                name="closingActualCash"
-                required
-                min={0}
-                step={1}
-                className="mt-1 block min-h-[44px] w-full rounded-lg border border-earth-300 px-3 py-2 text-base tabular-nums focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
-                placeholder={`例如 ${liveTotals.expectedClosingCash.toString()}`}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-earth-700">
-                差額原因（若與系統應有不同必填）
-              </label>
-              <textarea
-                name="note"
-                rows={2}
-                className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
-                placeholder="若實際金額與系統應有金額不同，請說明原因"
-              />
-            </div>
-            <SubmitButton
-              label="完成今日閉店點錢"
-              className="min-h-[44px] w-full bg-primary-600 text-base text-white hover:bg-primary-700"
-            />
-          </form>
-        )}
-      </div>
-    </>
-  );
-}
-
-// ============================================================
-// 右欄：CLOSED 狀態結算卡（系統應有 / 閉店實點 / 差額 / 帳面結餘）
+// CLOSED 狀態結算卡（系統應有 / 閉店實點 / 差額 / 下次開店起點）— 明細用
 // ============================================================
 
 function ClosedSettlementCard({ session }: { session: OpenedTodaySession }) {
