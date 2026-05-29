@@ -110,7 +110,7 @@ function NotOpenedTodayCard({
           尚未開店點錢
         </p>
         <p className="mt-0.5 text-[11px] text-earth-500">
-          今日應有開店現金 NT$ {lastFinalBookBalance}（上日帳面結餘）
+          今日開店起點 NT$ {lastFinalBookBalance}（上日閉店實際點到）
         </p>
       </div>
       <Link

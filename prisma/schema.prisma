@@ -1742,7 +1742,7 @@ model CashDrawerSession {
   closingNote         String?
   closedByUserId      String?
   closedAt            DateTime?
-  finalBookBalance    Decimal?  @db.Decimal(10, 0) // = expectedClosingCash（維持帳面責任鏈）
+  finalBookBalance    Decimal?  @db.Decimal(10, 0) // (PR-5) = closingActualCash：差額留在當天，下次開店從實際現金開始
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

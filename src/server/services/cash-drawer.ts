@@ -5,7 +5,7 @@
  *
  * 鐵則：
  *   1. CLOSED session 不可修改任何欄位（assertSessionMutable guard）
- *   2. finalBookBalance = expectedClosingCash（不是 closingActualCash），維持帳面責任鏈
+ *   2. (PR-5) finalBookBalance = closingActualCash：差額留在當天，下次開店從實際現金開始
  *   3. expectedClosingCash 用 openingBookBalance（不是 openingActualCash）
  *   4. REFUND.amount 為負數儲存，cashExpenseTotal 翻正後存入快照
  *   5. 顧客現金交易直接 query Transaction，不複寫到 CashDrawerEntry
@@ -451,8 +451,9 @@ export type CloseInput = {
 /**
  * 閉店點錢 — 凍結快照、計算 expectedClosingCash / closingDifference、status=CLOSED。
  *
- * finalBookBalance = expectedClosingCash（不是 closingActualCash），避免短溢被默默吃進結餘鏈。
- * 若實際與帳面有差，差額留在 closingDifference / closingNote 並要求填寫原因。
+ * PR-5：差額留在當天，下次開店從實際現金開始。
+ * finalBookBalance = closingActualCash（不是 expected），讓隔天開店自然接續「昨天實際點到的現金」，
+ * 避免差額被帶著跑、每天越差越多。當天的短溢仍完整保留在 closingDifference / closingNote。
  *
  * 設計：讀取與計算階段在 transaction **外**進行（避免 Prisma interactive
  * transaction 5s timeout，因為 Supabase pooler 上每個 connection 是分開的）。
@@ -530,8 +531,10 @@ export async function closeCashDrawer(input: CloseInput): Promise<CashDrawerSess
       closingNote: input.note,
       closedByUserId: input.actorUserId,
       closedAt,
-      // 維持帳面責任鏈：finalBookBalance 用 expected 而非 actual
-      finalBookBalance: expectedClosingCash,
+      // PR-5：差額留在當天，下次開店從實際現金開始。
+      // finalBookBalance = closingActualCash（不是 expected），讓隔天開店 openingBookBalance
+      // 自然接續「昨天實際點到的現金」；當天的短溢仍保留在 closingDifference / closingNote。
+      finalBookBalance: closingActualCash,
     },
   });
 }
