@@ -129,7 +129,7 @@ describe("createCashbookEntry — 閉店日防呆 guard", () => {
     mockSessionFindUnique.mockResolvedValue({ status: "CLOSED" });
     const res = await createCashbookEntry({ ...baseCreate, paymentMethod: "CASH" });
     expect(res.success).toBe(false);
-    if (!res.success) expect(res.error).toContain("閉店");
+    if (!res.success) expect(res.error).toContain("補紀錄");
     expect(mockCashbookCreate).not.toHaveBeenCalled();
     expect(mockSessionUpdate).not.toHaveBeenCalled();
     expect(mockAuditCreate).not.toHaveBeenCalled();
@@ -194,7 +194,7 @@ describe("updateCashbookEntry — 閉店日防呆 guard", () => {
 
     const res = await updateCashbookEntry("entry-1", { note: "改備註" });
     expect(res.success).toBe(false);
-    if (!res.success) expect(res.error).toContain("閉店");
+    if (!res.success) expect(res.error).toContain("補紀錄");
     expect(mockCashbookUpdate).not.toHaveBeenCalled();
     expect(mockSessionUpdate).not.toHaveBeenCalled();
   });
@@ -206,6 +206,33 @@ describe("updateCashbookEntry — 閉店日防呆 guard", () => {
 
     const res = await updateCashbookEntry("entry-1", {
       note: "改備註",
+      confirmClosedCashbookChange: true,
+    });
+    expect(res.success).toBe(true);
+    expect(mockCashbookUpdate).toHaveBeenCalledOnce();
+    expect(mockSessionUpdate).not.toHaveBeenCalled();
+  });
+
+  it("閉店日把 CASH 改成 OTHER + 未確認 → 回傳可顯示錯誤（不 crash）、不寫入、不重算抽屜", async () => {
+    // 原本是 CASH（涉及現金），即使改成 OTHER，已結帳日仍需確認
+    mockCashbookFindUnique.mockResolvedValue(existing); // paymentMethod: "CASH"
+    mockSessionFindUnique.mockResolvedValue({ status: "CLOSED" });
+
+    const res = await updateCashbookEntry("entry-1", { paymentMethod: "OTHER" });
+    // action 以 ActionResult 回傳錯誤（由頁面轉成 toast），而非 throw 到 error boundary
+    expect(res.success).toBe(false);
+    if (!res.success) expect(res.error).toContain("補紀錄");
+    expect(mockCashbookUpdate).not.toHaveBeenCalled();
+    expect(mockSessionUpdate).not.toHaveBeenCalled();
+  });
+
+  it("閉店日把 CASH 改成 OTHER + 已確認 → 允許更新，且不重算抽屜", async () => {
+    mockCashbookFindUnique.mockResolvedValue(existing); // paymentMethod: "CASH"
+    mockSessionFindUnique.mockResolvedValue({ status: "CLOSED" });
+    mockCashbookUpdate.mockResolvedValue({ ...existing, paymentMethod: "OTHER" });
+
+    const res = await updateCashbookEntry("entry-1", {
+      paymentMethod: "OTHER",
       confirmClosedCashbookChange: true,
     });
     expect(res.success).toBe(true);

@@ -57,7 +57,7 @@ function businessDateFromStr(dateStr: string): Date {
 }
 
 const CLOSED_CASHBOOK_GUARD_MSG =
-  "這一天已經閉店結帳了。新增或修改只是補紀錄，不會改變當天的結帳金額，請確認後再送出。";
+  "這一天已經結帳了。請先勾選「我知道這只是補紀錄」，確認後再送出。";
 
 // 現金帳稽核快照（寫入 AuditLog.beforeJson / afterJson；不新增任何 schema）
 function cashbookSnapshot(e: {

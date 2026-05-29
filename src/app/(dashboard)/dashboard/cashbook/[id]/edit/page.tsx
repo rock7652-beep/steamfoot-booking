@@ -6,6 +6,7 @@ import { checkPermission } from "@/lib/permissions";
 import { notFound, redirect } from "next/navigation";
 import { SubmitButton } from "@/components/submit-button";
 import { DashboardLink as Link } from "@/components/dashboard-link";
+import { FormErrorToast } from "@/components/form-error-toast";
 import { prisma } from "@/lib/db";
 import {
   FormShell,
@@ -64,7 +65,11 @@ export default async function EditCashbookPage({ params }: PageProps) {
     });
 
     if (!result.success) {
-      throw new Error(result.error || "編輯記帳失敗");
+      // 不要 throw 到 error boundary（會整頁變「發生錯誤」）；改用 ?error= 停留在表單頁，
+      // 由 FormErrorToast 以 toast 顯示清楚訊息（如：請先勾選確認）。
+      redirect(
+        `/dashboard/cashbook/${id}/edit?error=${encodeURIComponent(result.error || "編輯記帳失敗")}`,
+      );
     }
 
     redirect("/dashboard/cashbook");
@@ -75,6 +80,8 @@ export default async function EditCashbookPage({ params }: PageProps) {
 
   return (
     <FormShell width="md">
+      <FormErrorToast />
+
       <PageHeader
         title="編輯記帳"
         actions={

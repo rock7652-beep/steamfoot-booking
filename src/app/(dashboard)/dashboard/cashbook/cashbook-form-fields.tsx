@@ -53,7 +53,10 @@ export function CashbookFormFields({
 
   const closedSet = new Set(closedDates);
   const isClosed = closedSet.has(entryDate);
-  const needsCashConfirm = isClosed && method === "CASH";
+  // 與後端 guard 對齊：只要「目前選的」或「原本的」付款方式涉及現金，就算涉及現金紀錄。
+  // 編輯把現金改成其他、但日期已結帳時，仍需勾選確認（否則 checkbox 不會出現、永遠送不出去）。
+  const involvesCash = method === "CASH" || defaultPaymentMethod === "CASH";
+  const needsCashConfirm = isClosed && involvesCash;
 
   return (
     <>
