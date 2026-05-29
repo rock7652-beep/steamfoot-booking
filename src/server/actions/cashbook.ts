@@ -16,11 +16,17 @@ import { currentStoreId } from "@/lib/store";
 // Validators
 // ============================================================
 
+// 付款方式：強制明選（無預設）。CASH = 實際收付現金；OTHER = 匯款 / 轉帳 / 非現金。
+const paymentMethodSchema = z.enum(["CASH", "OTHER"], {
+  errorMap: () => ({ message: "請選擇付款方式（現金 / 其他）" }),
+});
+
 const createCashbookEntrySchema = z.object({
   entryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "日期格式必須為 YYYY-MM-DD"),
   type: z.enum(["INCOME", "EXPENSE", "WITHDRAW", "ADJUSTMENT"]),
   category: z.string().optional(),
   amount: z.number().positive("金額必須大於 0"),
+  paymentMethod: paymentMethodSchema,
   staffId: z.string().optional(),
   note: z.string().optional(),
 });
@@ -33,9 +39,31 @@ const updateCashbookEntrySchema = z.object({
   type: z.enum(["INCOME", "EXPENSE", "WITHDRAW", "ADJUSTMENT"]).optional(),
   category: z.string().optional(),
   amount: z.number().positive("金額必須大於 0").optional(),
+  paymentMethod: paymentMethodSchema.optional(),
   staffId: z.string().nullable().optional(),
   note: z.string().nullable().optional(),
 });
+
+// 現金帳稽核快照（寫入 AuditLog.beforeJson / afterJson；不新增任何 schema）
+function cashbookSnapshot(e: {
+  entryDate: Date;
+  type: string;
+  category: string | null;
+  amount: unknown;
+  paymentMethod: string;
+  staffId: string | null;
+  note: string | null;
+}) {
+  return {
+    entryDate: e.entryDate.toISOString(),
+    type: e.type,
+    category: e.category,
+    amount: Number(e.amount),
+    paymentMethod: e.paymentMethod,
+    staffId: e.staffId,
+    note: e.note,
+  };
+}
 
 // ============================================================
 // createCashbookEntry
@@ -63,6 +91,7 @@ export async function createCashbookEntry(
         type: data.type as CashbookEntryType,
         category: data.category || null,
         amount: data.amount,
+        paymentMethod: data.paymentMethod,
         staffId,
         note: data.note || null,
         createdByUserId: user.id,
@@ -108,13 +137,26 @@ export async function updateCashbookEntry(
     if (data.type !== undefined) updateData.type = data.type;
     if (data.category !== undefined) updateData.category = data.category;
     if (data.amount !== undefined) updateData.amount = data.amount;
+    if (data.paymentMethod !== undefined) updateData.paymentMethod = data.paymentMethod;
     if (data.staffId !== undefined) {
       // 非 Owner 員工不能改 staffId（鎖定自己），只有 Owner 可指派
       if (user.role === "ADMIN") updateData.staffId = data.staffId;
     }
     if (data.note !== undefined) updateData.note = data.note;
 
-    await prisma.cashbookEntry.update({ where: { id: entryId }, data: updateData });
+    await prisma.$transaction(async (tx) => {
+      const updated = await tx.cashbookEntry.update({ where: { id: entryId }, data: updateData });
+      await tx.auditLog.create({
+        data: {
+          actorUserId: user.id,
+          targetType: "CashbookEntry",
+          targetId: entryId,
+          action: "UPDATE",
+          beforeJson: cashbookSnapshot(entry),
+          afterJson: cashbookSnapshot(updated),
+        },
+      });
+    });
 
     revalidatePath("/dashboard/cashbook");
     return { success: true, data: undefined };
@@ -135,7 +177,18 @@ export async function deleteCashbookEntry(entryId: string): Promise<ActionResult
     if (!entry) throw new AppError("NOT_FOUND", "現金帳紀錄不存在");
     assertStoreAccess(user, entry.storeId);
 
-    await prisma.cashbookEntry.delete({ where: { id: entryId } });
+    await prisma.$transaction(async (tx) => {
+      await tx.cashbookEntry.delete({ where: { id: entryId } });
+      await tx.auditLog.create({
+        data: {
+          actorUserId: user.id,
+          targetType: "CashbookEntry",
+          targetId: entryId,
+          action: "DELETE",
+          beforeJson: cashbookSnapshot(entry),
+        },
+      });
+    });
 
     revalidatePath("/dashboard/cashbook");
     return { success: true, data: undefined };
