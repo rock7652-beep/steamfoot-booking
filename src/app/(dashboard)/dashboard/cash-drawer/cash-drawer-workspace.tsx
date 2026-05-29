@@ -49,6 +49,10 @@ interface CashDrawerWorkspaceProps {
   canClose: boolean;
   /** cashDrawer.entry */
   canAddEntry: boolean;
+  /** cashbook.create — 是否能新增現金帳（「記一筆收入」入口會連到 /dashboard/cashbook/new，
+   *  該頁用 cashbook.create 把關；與 cashDrawer.* 是兩套權限，必須分開判斷，
+   *  否則只有 cashDrawer 權限的使用者點了會被 redirect，變成點不動的主操作） */
+  canCreateCashbook: boolean;
   /** 表單成功後 redirect 回的 URL，例如
    *   "/dashboard/cashbook#cash-drawer-workspace"（從現金管理主頁）
    *   "/dashboard/cash-drawer"（從獨立頁）
@@ -63,6 +67,7 @@ export function CashDrawerWorkspace({
   canOpen,
   canClose,
   canAddEntry,
+  canCreateCashbook,
   returnPath,
 }: CashDrawerWorkspaceProps) {
   return (
@@ -106,6 +111,7 @@ export function CashDrawerWorkspace({
           entries={view.entries}
           canClose={canClose}
           canAddEntry={canAddEntry}
+          canCreateCashbook={canCreateCashbook}
           returnPath={returnPath}
           todayStr={todayStr}
         />
@@ -546,6 +552,7 @@ function OpenedTodayWorkspace({
   entries,
   canClose,
   canAddEntry,
+  canCreateCashbook,
   returnPath,
   todayStr,
 }: {
@@ -554,6 +561,7 @@ function OpenedTodayWorkspace({
   entries: CashDrawerEntry[];
   canClose: boolean;
   canAddEntry: boolean;
+  canCreateCashbook: boolean;
   returnPath: string;
   todayStr: string;
 }) {
@@ -610,10 +618,11 @@ function OpenedTodayWorkspace({
               liveTotals={liveTotals}
               canClose={canClose}
               canAddEntry={canAddEntry}
+              canCreateCashbook={canCreateCashbook}
               returnPath={returnPath}
             />
           ) : (
-            <ClosedActionsArea />
+            <ClosedActionsArea canCreateCashbook={canCreateCashbook} />
           )}
         </div>
 
@@ -736,12 +745,14 @@ function DailyActionsArea({
   liveTotals,
   canClose,
   canAddEntry,
+  canCreateCashbook,
   returnPath,
 }: {
   sessionId: string;
   liveTotals: CashDrawerLiveTotals;
   canClose: boolean;
   canAddEntry: boolean;
+  canCreateCashbook: boolean;
   returnPath: string;
 }) {
   const errorRedirect = (msg: string) =>
@@ -793,14 +804,20 @@ function DailyActionsArea({
 
       {/* iPad（sm/md）full width → 2 欄大按鈕；桌機（lg）操作沉到 1/3 右欄 → 改回單欄直列，當作操作入口清單 */}
       <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-1">
-        {/* 1. 記一筆收入 — 走現金帳新增頁（收入預設 INCOME） */}
-        <Link
-          href="/dashboard/cashbook/new"
-          className="flex min-h-[64px] flex-col justify-center rounded-xl border border-earth-200 bg-white px-4 py-3 text-left transition hover:border-primary-300 hover:bg-primary-50"
-        >
-          <span className="text-base font-semibold text-earth-900">記一筆收入</span>
-          <span className="mt-0.5 text-xs text-earth-500">商品、莓果、生活用品收入等</span>
-        </Link>
+        {/* 1. 記一筆收入 — 走現金帳新增頁（收入預設 INCOME）。
+            cashbook/new 用 cashbook.create 把關，與 cashDrawer.* 分開；
+            無 cashbook.create 者改顯示 disabled，避免點了被 redirect。 */}
+        {canCreateCashbook ? (
+          <Link
+            href="/dashboard/cashbook/new"
+            className="flex min-h-[64px] flex-col justify-center rounded-xl border border-earth-200 bg-white px-4 py-3 text-left transition hover:border-primary-300 hover:bg-primary-50"
+          >
+            <span className="text-base font-semibold text-earth-900">記一筆收入</span>
+            <span className="mt-0.5 text-xs text-earth-500">商品、莓果、生活用品收入等</span>
+          </Link>
+        ) : (
+          <ActionDisabledCard title="記一筆收入" helper="您沒有新增現金帳的權限。" />
+        )}
 
         {/* 2. 提領 — 原地展開 */}
         {canAddEntry ? (
@@ -932,7 +949,7 @@ function ActionDisabledCard({ title, helper }: { title: string; helper: string }
 // 日常操作區（CLOSED）— 今日已結帳，僅保留補登入口
 // ============================================================
 
-function ClosedActionsArea() {
+function ClosedActionsArea({ canCreateCashbook }: { canCreateCashbook: boolean }) {
   return (
     <div className="rounded-xl border bg-white p-5 shadow-sm md:p-6">
       <h2 className="text-lg font-semibold text-earth-900">日常操作</h2>
@@ -943,15 +960,20 @@ function ClosedActionsArea() {
             今日紀錄已鎖定，提領 / 補入需明日重新開店後操作。
           </span>
         </div>
-        <Link
-          href="/dashboard/cashbook/new"
-          className="flex min-h-[64px] flex-col justify-center rounded-xl border border-earth-200 bg-white px-4 py-3 text-left transition hover:border-primary-300 hover:bg-primary-50"
-        >
-          <span className="text-base font-semibold text-earth-900">記一筆收入（補登）</span>
-          <span className="mt-0.5 text-xs text-earth-500">
-            補登只留紀錄，不會改變今天的結帳金額
-          </span>
-        </Link>
+        {/* 補登同樣連到 cashbook/new，依 cashbook.create 把關 */}
+        {canCreateCashbook ? (
+          <Link
+            href="/dashboard/cashbook/new"
+            className="flex min-h-[64px] flex-col justify-center rounded-xl border border-earth-200 bg-white px-4 py-3 text-left transition hover:border-primary-300 hover:bg-primary-50"
+          >
+            <span className="text-base font-semibold text-earth-900">記一筆收入（補登）</span>
+            <span className="mt-0.5 text-xs text-earth-500">
+              補登只留紀錄，不會改變今天的結帳金額
+            </span>
+          </Link>
+        ) : (
+          <ActionDisabledCard title="記一筆收入（補登）" helper="您沒有新增現金帳的權限。" />
+        )}
       </div>
     </div>
   );
