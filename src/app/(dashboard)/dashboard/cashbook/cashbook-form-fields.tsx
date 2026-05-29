@@ -155,15 +155,15 @@ export function CashbookFormFields({
           只有「現金」會影響現金抽屜結餘；「其他」（匯款 / 轉帳 / 非現金）只記帳、不影響抽屜。
         </p>
 
-        {/* 閉店日提示：不恐嚇，僅說明快照不會自動重算 */}
+        {/* 已結帳日提示：白話、不恐嚇 */}
         {isClosed && (
-          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-700">
-            此日期（{entryDate}）的現金抽屜已閉店。你可以修改現金帳紀錄，但
-            <span className="font-medium">已閉店的抽屜快照不會自動重算</span>。
+          <div className="space-y-1 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-700">
+            <p className="font-medium">這一天已經結帳了。</p>
+            <p>現在新增或修改，只是補紀錄，不會改變當天的結帳金額。</p>
           </div>
         )}
 
-        {/* 閉店日 + 現金：要求明確確認（checkbox required，且後端再次把關） */}
+        {/* 已結帳日 + 現金：要求明確確認（checkbox required，且後端再次把關） */}
         {needsCashConfirm && (
           <label className="flex items-start gap-2 rounded-lg border border-amber-300 bg-white px-3 py-2.5 text-xs text-earth-700">
             <input
@@ -173,7 +173,7 @@ export function CashbookFormFields({
               required
               className="mt-0.5 h-4 w-4 rounded border-earth-300 text-primary-600 focus:ring-primary-300"
             />
-            <span>我知道這會修改現金帳紀錄，但不會改已閉店的抽屜快照。</span>
+            <span>我知道這只是補紀錄。</span>
           </label>
         )}
       </FormSection>
