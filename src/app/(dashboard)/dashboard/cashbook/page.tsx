@@ -158,9 +158,9 @@ export default async function CashbookPage({ searchParams }: PageProps) {
           <div className="space-y-1">
             <h2 className="text-lg font-semibold text-earth-900">現金帳紀錄</h2>
             <p className="text-xs text-earth-500">
-              這是現金帳總覽，包含「現金」與「其他」付款的所有紀錄。其中只有付款方式為
+              這裡是所有現金帳紀錄，包含現金與其他付款。只有
               <span className="font-medium text-sky-700">「現金」</span>
-              的項目，才會影響上方的現金抽屜結餘。
+              會影響上方抽屜金額。
             </p>
           </div>
 
