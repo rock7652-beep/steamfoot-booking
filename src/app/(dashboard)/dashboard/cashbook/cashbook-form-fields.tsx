@@ -150,12 +150,14 @@ export function CashbookFormFields({
           </label>
         </div>
 
-        {/* 只有付款方式為「現金」的項目會影響現金抽屜 */}
-        <p className="text-xs text-earth-500">
-          只有「現金」會影響現金抽屜結餘；「其他」（匯款 / 轉帳 / 非現金）只記帳、不影響抽屜。
-        </p>
+        {/* 未結帳日：說明現金 / 其他對今日抽屜的影響。已結帳日不顯示此句（避免誤會） */}
+        {!isClosed && (
+          <p className="text-xs text-earth-500">
+            選「現金」會影響今日現金抽屜；選「其他」只會留下紀錄，不影響抽屜。
+          </p>
+        )}
 
-        {/* 已結帳日提示：白話、不恐嚇 */}
+        {/* 已結帳日提示：白話、不恐嚇（不提「現金會影響抽屜」） */}
         {isClosed && (
           <div className="space-y-1 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-700">
             <p className="font-medium">這一天已經結帳了。</p>
