@@ -8,6 +8,7 @@ import { ACTIVE_BOOKING_STATUSES } from "@/lib/booking-constants";
 import { getTrialSettings } from "@/lib/shop-config";
 import { checkPermission } from "@/lib/permissions";
 import { toLocalDateStr } from "@/lib/date-utils";
+import { sortWalletsByFEFO } from "@/lib/wallet-sort";
 
 export interface BookingDrawerPayload {
   booking: {
@@ -87,6 +88,22 @@ export interface BookingDrawerPayload {
     collectedAt: string | null;
     defaultPrice: number;
   } | null;
+  // 調整結帳方式（Phase 1 — 僅 SINGLE 未收款 → PACKAGE_SESSION 扣方案）。
+  // 僅 SINGLE 預約有此區塊（其他型別一律 null）。canAdjustToPackage=true 時
+  // Drawer 才顯示「調整結帳」按鈕；false 時 reason 給不可調整原因（已收款 /
+  // 狀態不符 / 補課 / 顧客無可用方案）。wallets 為 FEFO 排序後的候選方案，
+  // 第一張 recommended=true（與配堂預設一致）。
+  checkout: {
+    canAdjustToPackage: boolean;
+    reason: string | null;
+    wallets: {
+      id: string;
+      planName: string;
+      remainingSessions: number;
+      expiryDate: string | null;
+      recommended: boolean;
+    }[];
+  } | null;
 }
 
 export async function fetchBookingDetail(
@@ -135,6 +152,27 @@ export async function fetchBookingDetail(
         orderBy: { createdAt: "desc" },
       })
     : null;
+
+  // 調整結帳方式：僅 SINGLE 才查顧客當下可用方案（ACTIVE + 有剩餘堂）。
+  // 候選與 adjustCheckoutToPackage 一致，FEFO 排序供 Drawer 顯示與預選。
+  const adjustWallets =
+    isSingle && !booking.isMakeup
+      ? await prisma.customerPlanWallet.findMany({
+          where: {
+            customerId: booking.customerId,
+            storeId: booking.storeId,
+            status: "ACTIVE",
+            remainingSessions: { gt: 0 },
+          },
+          select: {
+            id: true,
+            expiryDate: true,
+            createdAt: true,
+            remainingSessions: true,
+            plan: { select: { name: true } },
+          },
+        })
+      : [];
 
   // 顧客近況：累積完成 + 最近到店 + 是否新客 — 三查詢並行
   const storeFilter = getStoreFilter(user);
@@ -275,5 +313,67 @@ export async function fetchBookingDetail(
               : 799,
         }
       : null,
+    checkout: isSingle
+      ? buildCheckoutBlock({
+          isMakeup: booking.isMakeup,
+          bookingStatus: booking.bookingStatus,
+          people: booking.people,
+          alreadyCollected: collectedSingleTx != null,
+          wallets: adjustWallets,
+        })
+      : null,
+  };
+}
+
+// 調整結帳方式可行性判斷 —— 與 adjustCheckoutToPackage 的 guard 同源，
+// 任一不符即 canAdjustToPackage=false 並給對應 reason（按優先序）。
+function buildCheckoutBlock(args: {
+  isMakeup: boolean;
+  bookingStatus: string;
+  people: number;
+  alreadyCollected: boolean;
+  wallets: {
+    id: string;
+    expiryDate: Date | null;
+    createdAt: Date;
+    remainingSessions: number;
+    plan: { name: string };
+  }[];
+}): NonNullable<BookingDrawerPayload["checkout"]> {
+  const sorted = sortWalletsByFEFO(args.wallets);
+  const wallets = sorted.map((w, i) => ({
+    id: w.id,
+    planName: w.plan.name,
+    remainingSessions: w.remainingSessions,
+    expiryDate: w.expiryDate?.toISOString().slice(0, 10) ?? null,
+    recommended: i === 0,
+  }));
+
+  let reason: string | null = null;
+  if (args.isMakeup) {
+    reason = "補課預約不適用調整結帳方式";
+  } else if (
+    args.bookingStatus !== "PENDING" &&
+    args.bookingStatus !== "CONFIRMED"
+  ) {
+    reason = "僅未完成 / 未取消的預約可調整結帳方式";
+  } else if (args.alreadyCollected) {
+    reason = "此預約已收款，需先走收款更正流程後再調整結帳方式";
+  } else if (wallets.length === 0) {
+    reason = "此顧客目前沒有可用方案，無法改為扣方案";
+  } else {
+    const totalRemaining = sorted.reduce(
+      (sum, w) => sum + w.remainingSessions,
+      0,
+    );
+    if (totalRemaining < args.people) {
+      reason = `方案總剩餘 ${totalRemaining} 堂，不足本次 ${args.people} 人預約所需堂數`;
+    }
+  }
+
+  return {
+    canAdjustToPackage: reason === null,
+    reason,
+    wallets,
   };
 }
