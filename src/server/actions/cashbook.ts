@@ -10,7 +10,7 @@ import { FEATURES } from "@/lib/feature-flags";
 import type { ActionResult } from "@/types";
 import type { CashbookEntryType } from "@prisma/client";
 import { assertStoreAccess } from "@/lib/manager-visibility";
-import { currentStoreId } from "@/lib/store";
+import { resolveWriteStoreId } from "@/lib/store";
 import { isBusinessDateClosed } from "@/server/queries/cash-drawer";
 
 // ============================================================
@@ -92,7 +92,10 @@ export async function createCashbookEntry(
     const user = await requirePermission("cashbook.create");
     await checkCurrentStoreFeature(FEATURES.CASHBOOK);
     const data = createCashbookEntrySchema.parse(input);
-    const storeId = currentStoreId(user);
+    // 寫入店別用 write-store 機制：OWNER/店長 用 JWT storeId；
+    // ADMIN 無固定 storeId → 讀 active-store cookie（與頁面顯示同一店），
+    // 未選店則明確報錯，避免寫錯店或 missing-store。
+    const storeId = await resolveWriteStoreId(user);
 
     // PR-4 防呆 guard（後端權威，不只靠前端）：
     // 只在現金收付（CASH）時才需要知道該日抽屜是否已 CLOSED（OTHER 不影響抽屜）。

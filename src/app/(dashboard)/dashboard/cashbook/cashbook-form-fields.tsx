@@ -21,6 +21,15 @@ import { FormSection, FormGrid } from "@/components/desktop";
 type CashbookEntryType = "INCOME" | "EXPENSE" | "WITHDRAW" | "ADJUSTMENT";
 type PaymentMethod = "CASH" | "OTHER";
 
+const TYPE_LABEL: Record<CashbookEntryType, string> = {
+  INCOME: "收入",
+  EXPENSE: "支出",
+  WITHDRAW: "提領",
+  ADJUSTMENT: "調整",
+};
+
+const ALL_TYPES: CashbookEntryType[] = ["INCOME", "EXPENSE", "WITHDRAW", "ADJUSTMENT"];
+
 interface Props {
   /** 此店在參考區間內已閉店的營業日（"YYYY-MM-DD"）。 */
   closedDates: string[];
@@ -31,6 +40,13 @@ interface Props {
   defaultAmount: string;
   /** 預設付款方式；新增時為 null（不預選）。 */
   defaultPaymentMethod: PaymentMethod | null;
+  /**
+   * 可選的「類型」選項。預設全部（收入 / 支出 / 提領 / 調整），維持
+   * /dashboard/cashbook/new 既有行為。現金管理頁的「記一筆收支」inline form
+   * 只開放 INCOME / EXPENSE —— 提領走既有 WithdrawalForm（cashDrawer.entry），
+   * 不讓店長用 CashbookEntry.WITHDRAW 做提領。
+   */
+  allowedTypes?: CashbookEntryType[];
 }
 
 const inputCls =
@@ -38,7 +54,7 @@ const inputCls =
 const labelCls = "block text-sm font-medium text-earth-700";
 
 const methodCardCls =
-  "rounded-xl border-2 border-earth-200 bg-white px-4 py-4 text-center transition hover:border-earth-300 peer-checked:border-primary-600 peer-checked:bg-primary-50 peer-checked:ring-2 peer-checked:ring-primary-200 peer-focus-visible:ring-2 peer-focus-visible:ring-primary-300";
+  "rounded-xl border-2 border-earth-200 bg-white px-4 py-2.5 text-center transition hover:border-earth-300 peer-checked:border-primary-600 peer-checked:bg-primary-50 peer-checked:ring-2 peer-checked:ring-primary-200 peer-focus-visible:ring-2 peer-focus-visible:ring-primary-300";
 
 export function CashbookFormFields({
   closedDates,
@@ -47,6 +63,7 @@ export function CashbookFormFields({
   defaultCategory,
   defaultAmount,
   defaultPaymentMethod,
+  allowedTypes = ALL_TYPES,
 }: Props) {
   const [entryDate, setEntryDate] = useState(defaultEntryDate);
   const [method, setMethod] = useState<PaymentMethod | null>(defaultPaymentMethod);
@@ -81,10 +98,11 @@ export function CashbookFormFields({
               defaultValue={defaultType}
               className={`mt-1 ${inputCls}`}
             >
-              <option value="INCOME">收入</option>
-              <option value="EXPENSE">支出</option>
-              <option value="WITHDRAW">提領</option>
-              <option value="ADJUSTMENT">調整</option>
+              {allowedTypes.map((t) => (
+                <option key={t} value={t}>
+                  {TYPE_LABEL[t]}
+                </option>
+              ))}
             </select>
           </div>
         </FormGrid>

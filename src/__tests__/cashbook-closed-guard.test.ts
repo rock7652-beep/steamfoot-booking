@@ -77,6 +77,7 @@ vi.mock("@/lib/manager-visibility", () => ({
 }));
 vi.mock("@/lib/store", () => ({
   currentStoreId: vi.fn(() => STORE_A),
+  resolveWriteStoreId: vi.fn(async () => STORE_A),
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
