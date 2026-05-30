@@ -21,6 +21,7 @@ import { RescheduleModal } from "./reschedule-modal";
 import { CollectTrialModal } from "./collect-trial-modal";
 import { CorrectTrialCollectionModal } from "./correct-trial-collection-modal";
 import { CollectSingleModal } from "./collect-single-modal";
+import { AdjustCheckoutModal } from "./adjust-checkout-modal";
 import { computeAmount } from "./compute-amount";
 import { formatWeekdayZh } from "@/lib/date-utils";
 
@@ -83,6 +84,7 @@ export function BookingDetailDrawer({
   const [collectOpen, setCollectOpen] = useState(false);
   const [correctOpen, setCorrectOpen] = useState(false);
   const [collectSingleOpen, setCollectSingleOpen] = useState(false);
+  const [adjustCheckoutOpen, setAdjustCheckoutOpen] = useState(false);
   // 收款 / 更正成功後預約狀態不變、但 trial.collected 會翻轉 → 用 nonce 觸發重抓
   const [reloadNonce, setReloadNonce] = useState(0);
 
@@ -229,6 +231,15 @@ export function BookingDetailDrawer({
     if (bookingId) onUpdated?.(bookingId, null);
   }
 
+  // 調整結帳方式成功（SINGLE → PACKAGE_SESSION）— bookingType / wallet 翻轉，
+  // 預約狀態不變。重抓 detail 讓 Drawer 顯示方案區塊；onUpdated(null) 讓母層
+  // 重整當日資料（月曆 strip 的方案標籤一併更新）。
+  function handleAdjusted() {
+    setAdjustCheckoutOpen(false);
+    setReloadNonce((n) => n + 1);
+    if (bookingId) onUpdated?.(bookingId, null);
+  }
+
   // What we have to render:
   //   1. Full payload matching current bookingId — preferred when loaded.
   //   2. Pre-loaded summary — instant render of header band; body shows skeleton.
@@ -258,6 +269,7 @@ export function BookingDetailDrawer({
               collect: () => setCollectOpen(true),
               correct: () => setCorrectOpen(true),
               collectSingle: () => setCollectSingleOpen(true),
+              adjustCheckout: () => setAdjustCheckoutOpen(true),
             }}
           />
         ) : showHeaderFromSummary && summary ? (
@@ -330,6 +342,17 @@ export function BookingDetailDrawer({
           onCollected={handleSingleCollected}
         />
       )}
+      {data && data.checkout && data.checkout.canAdjustToPackage && (
+        <AdjustCheckoutModal
+          open={adjustCheckoutOpen}
+          onClose={() => setAdjustCheckoutOpen(false)}
+          bookingId={data.booking.id}
+          customerName={data.booking.customer.name}
+          dateLabel={`${data.booking.bookingDate} ${data.booking.slotTime}`}
+          wallets={data.checkout.wallets}
+          onAdjusted={handleAdjusted}
+        />
+      )}
     </>
   );
 }
@@ -347,6 +370,7 @@ interface DrawerActions {
   collect: () => void;
   correct: () => void;
   collectSingle: () => void;
+  adjustCheckout: () => void;
 }
 
 function DrawerContent({
@@ -360,7 +384,7 @@ function DrawerContent({
   onClose: () => void;
   actions: DrawerActions;
 }) {
-  const { booking, customerSummary, trial, single } = payload;
+  const { booking, customerSummary, trial, single, checkout } = payload;
   const meta = bookingStatusMeta(booking.bookingStatus, booking.isCheckedIn);
   const amount = computeAmount(booking, trial);
   const duration = booking.servicePlan?.category === "TRIAL" ? 30 : 60;
@@ -629,6 +653,7 @@ function DrawerContent({
         booking={booking}
         trial={trial}
         single={single}
+        checkout={checkout}
         isActing={isActing}
         actions={actions}
       />
@@ -722,12 +747,14 @@ function ActionFooter({
   booking,
   trial,
   single,
+  checkout,
   isActing,
   actions,
 }: {
   booking: BookingDrawerPayload["booking"];
   trial: BookingDrawerPayload["trial"];
   single: BookingDrawerPayload["single"];
+  checkout: BookingDrawerPayload["checkout"];
   isActing: boolean;
   actions: DrawerActions;
 }) {
@@ -762,6 +789,14 @@ function ActionFooter({
     trial.canCorrect &&
     (status === "PENDING" || status === "CONFIRMED");
 
+  // 調整結帳方式（SINGLE 未收款 → 方案扣堂）：server 已用同源 guard 判定
+  // canAdjustToPackage；此處只負責呈現次要動線。狀態限制已含於 server 判斷，
+  // 但仍保留 PENDING/CONFIRMED 條件與其他動線一致。
+  const canAdjustCheckout =
+    checkout != null &&
+    checkout.canAdjustToPackage &&
+    (status === "PENDING" || status === "CONFIRMED");
+
   if (status === "PENDING" || status === "CONFIRMED") {
     if (canCollect) {
       primaries.push({ label: "收款", onClick: actions.collect });
@@ -776,6 +811,9 @@ function ActionFooter({
         onClick: actions.correct,
         tone: "danger",
       });
+    }
+    if (canAdjustCheckout) {
+      secondaries.push({ label: "調整結帳", onClick: actions.adjustCheckout });
     }
     secondaries.push({ label: "改時間", onClick: actions.reschedule });
     secondaries.push({ label: "標記未到", onClick: actions.noShow });
