@@ -112,7 +112,9 @@ const WALLETS = [
 const base = { bookingId: "bk_1", walletId: "w_1" };
 
 const lastUpdate = () =>
-  h.txBookingUpdate.mock.calls.at(-1)?.[0] as { data: Record<string, unknown> };
+  (h.txBookingUpdate.mock.calls.at(-1) as unknown[] | undefined)?.[0] as {
+    data: Record<string, unknown>;
+  };
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -148,7 +150,7 @@ describe("adjustCheckoutToPackage — happy path (SINGLE → PACKAGE_SESSION)", 
 
     // 呼叫既有配堂：preferred=所選 wallet, count=people
     expect(h.allocateSessionsFefo).toHaveBeenCalledTimes(1);
-    const allocArg = h.allocateSessionsFefo.mock.calls[0][1] as {
+    const allocArg = (h.allocateSessionsFefo.mock.calls[0] as unknown[])[1] as {
       preferredWalletId: string;
       count: number;
       bookingId: string;
@@ -159,7 +161,9 @@ describe("adjustCheckoutToPackage — happy path (SINGLE → PACKAGE_SESSION)", 
 
     // audit 寫入 before/after
     expect(h.txAuditCreate).toHaveBeenCalledTimes(1);
-    const audit = h.txAuditCreate.mock.calls[0][0] as { data: Record<string, unknown> };
+    const audit = (h.txAuditCreate.mock.calls[0] as unknown[])[0] as {
+      data: Record<string, unknown>;
+    };
     expect(audit.data.action).toBe("ADJUST_CHECKOUT_METHOD");
 
     // 零金流：永不建立 Transaction、不重整 transactions
@@ -178,7 +182,9 @@ describe("adjustCheckoutToPackage — happy path (SINGLE → PACKAGE_SESSION)", 
       people: 2,
     } as unknown as never);
     await adjustCheckoutToPackage(base);
-    const allocArg = h.allocateSessionsFefo.mock.calls[0][1] as { count: number };
+    const allocArg = (h.allocateSessionsFefo.mock.calls[0] as unknown[])[1] as {
+      count: number;
+    };
     expect(allocArg.count).toBe(2);
   });
 });
