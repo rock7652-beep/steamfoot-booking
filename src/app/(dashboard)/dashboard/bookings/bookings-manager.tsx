@@ -17,6 +17,7 @@ import {
 } from "./booking-detail-drawer";
 import { ACTIVE_BOOKING_STATUSES } from "@/lib/booking-constants";
 import { RightSheet } from "@/components/admin/right-sheet";
+import { formatWeekdayZh } from "@/lib/date-utils";
 
 const COMPLETABLE_STATUSES = new Set(["PENDING", "CONFIRMED"]);
 
@@ -303,6 +304,9 @@ export function BookingsManager({
 
   const openBooking = useCallback(
     (id: string) => {
+      // 點「查看」直接清掉選取日期：關閉 Booking Detail 後回到月曆，
+      // 不自動重開當日 Drawer。
+      setSelectedDate(null);
       setActiveBookingId(id);
       setActiveSummary(summaryById.get(id) ?? null);
     },
@@ -508,12 +512,16 @@ export function BookingsManager({
         width={520}
         labelledById="day-detail-sheet-title"
       >
-        <div className="flex items-center justify-between border-b border-earth-200 px-4 py-3">
+        <div className="flex shrink-0 items-center justify-between border-b border-earth-200 px-4 py-3">
           <h2
             id="day-detail-sheet-title"
             className="text-base font-semibold text-earth-900"
           >
-            當日預約
+            {selectedDate
+              ? `${Number(selectedDate.slice(5, 7))}/${Number(
+                  selectedDate.slice(8, 10),
+                )}（${formatWeekdayZh(selectedDate)}） 當日預約`
+              : "當日預約"}
           </h2>
           <button
             type="button"
@@ -524,7 +532,7 @@ export function BookingsManager({
             ✕
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto p-4">
+        <div className="min-h-0 flex-1">
           <DayDetailPanel
             date={selectedDate}
             bookings={filteredDayBookings}
