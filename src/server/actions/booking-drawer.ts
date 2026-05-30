@@ -3,7 +3,7 @@
 import { prisma } from "@/lib/db";
 import { requireStaffSession } from "@/lib/session";
 import { getStoreFilter } from "@/lib/manager-visibility";
-import { getBookingDetail } from "@/server/queries/booking";
+import { getBookingDetailForUser } from "@/server/queries/booking";
 import { ACTIVE_BOOKING_STATUSES } from "@/lib/booking-constants";
 import { getTrialSettings } from "@/lib/shop-config";
 import { checkPermission } from "@/lib/permissions";
@@ -93,13 +93,30 @@ export async function fetchBookingDetail(
   bookingId: string,
 ): Promise<BookingDrawerPayload> {
   const user = await requireStaffSession();
-  const booking = await getBookingDetail(bookingId);
+  // 重用已解析的 staff user，避免 getBookingDetail 內再 requireSession 一次
+  const booking = await getBookingDetailForUser(bookingId, user);
 
-  // 體驗 499 PR-3：僅 FIRST_TRIAL 才查收款狀態 + 體驗價設定
   const isTrial = booking.bookingType === "FIRST_TRIAL";
-  const [collectedTx, trialSettings, canCorrect] = isTrial
-    ? await Promise.all([
-        prisma.transaction.findFirst({
+  const isSingle = booking.bookingType === "SINGLE";
+  const storeFilter = getStoreFilter(user);
+
+  // 拿到 booking 後，下列查詢彼此獨立（只依賴 booking.id / storeId / customerId），
+  // 一次並行避免「收款查詢 → 顧客近況查詢」串成 waterfall：
+  //   - 體驗 499 PR-3：FIRST_TRIAL 收款狀態 + 體驗價設定 + 更正權限
+  //   - 單次（SINGLE，不扣堂）收款狀態：grossAmount / discountAmount 供
+  //     Drawer 顯示「原價 / 實收 / 折扣」，與 collectSinglePayment 寫入欄位一致
+  //   - 顧客近況：累積完成 + 最近到店 + 是否新客
+  const [
+    collectedTx,
+    trialSettings,
+    canCorrect,
+    collectedSingleTx,
+    completedAgg,
+    lastVisit,
+    firstBookingCount,
+  ] = await Promise.all([
+    isTrial
+      ? prisma.transaction.findFirst({
           where: {
             bookingId: booking.id,
             transactionType: "TRIAL_PURCHASE",
@@ -107,38 +124,31 @@ export async function fetchBookingDetail(
           },
           select: { id: true, amount: true, paymentMethod: true, paidAt: true },
           orderBy: { createdAt: "desc" },
-        }),
-        getTrialSettings(booking.storeId),
-        // 收款更正 OWNER-only：gate = transaction.void（決策 A）
-        checkPermission(user.role, user.staffId, "transaction.void"),
-      ])
-    : [null, null, false];
-
-  // 單次（SINGLE，不扣堂）：僅 SINGLE 才查收款狀態。取 grossAmount / discountAmount
-  // 供 Drawer 顯示「原價 / 實收 / 折扣」三段，與 collectSinglePayment 寫入欄位一致。
-  const isSingle = booking.bookingType === "SINGLE";
-  const collectedSingleTx = isSingle
-    ? await prisma.transaction.findFirst({
-        where: {
-          bookingId: booking.id,
-          transactionType: "SINGLE_PURCHASE",
-          status: "SUCCESS",
-        },
-        select: {
-          id: true,
-          amount: true,
-          grossAmount: true,
-          discountAmount: true,
-          paymentMethod: true,
-          paidAt: true,
-        },
-        orderBy: { createdAt: "desc" },
-      })
-    : null;
-
-  // 顧客近況：累積完成 + 最近到店 + 是否新客 — 三查詢並行
-  const storeFilter = getStoreFilter(user);
-  const [completedAgg, lastVisit, firstBookingCount] = await Promise.all([
+        })
+      : Promise.resolve(null),
+    isTrial ? getTrialSettings(booking.storeId) : Promise.resolve(null),
+    // 收款更正 OWNER-only：gate = transaction.void（決策 A）
+    isTrial
+      ? checkPermission(user.role, user.staffId, "transaction.void")
+      : Promise.resolve(false),
+    isSingle
+      ? prisma.transaction.findFirst({
+          where: {
+            bookingId: booking.id,
+            transactionType: "SINGLE_PURCHASE",
+            status: "SUCCESS",
+          },
+          select: {
+            id: true,
+            amount: true,
+            grossAmount: true,
+            discountAmount: true,
+            paymentMethod: true,
+            paidAt: true,
+          },
+          orderBy: { createdAt: "desc" },
+        })
+      : Promise.resolve(null),
     prisma.booking.count({
       where: {
         customerId: booking.customerId,

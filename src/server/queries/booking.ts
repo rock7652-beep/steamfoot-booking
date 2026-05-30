@@ -91,7 +91,18 @@ export async function listBookings(options: ListBookingsOptions & { activeStoreI
 
 export async function getBookingDetail(bookingId: string) {
   const user = await requireSession();
+  return getBookingDetailForUser(bookingId, user);
+}
 
+/**
+ * getBookingDetail 的核心：接受已解析的 session user，讓已經呼叫過
+ * requireStaffSession() 的端（如 booking drawer）重用，省掉重複解析 session。
+ * store filter 與 CUSTOMER ownership 邊界跟 getBookingDetail 完全一致。
+ */
+export async function getBookingDetailForUser(
+  bookingId: string,
+  user: Awaited<ReturnType<typeof requireSession>>,
+) {
   const booking = await prisma.booking.findFirst({
     where: { id: bookingId, ...getStoreFilter(user) },
     include: {
