@@ -15,7 +15,9 @@ import {
   BookingDetailDrawer,
   type BookingSummary,
 } from "./booking-detail-drawer";
+import { RightSheet } from "@/components/admin/right-sheet";
 import { ACTIVE_BOOKING_STATUSES } from "@/lib/booking-constants";
+import { formatWeekdayZh } from "@/lib/date-utils";
 
 const COMPLETABLE_STATUSES = new Set(["PENDING", "CONFIRMED"]);
 
@@ -270,6 +272,14 @@ export function BookingsManager({
 
   const activeFilterCount = Object.values(filters).filter(Boolean).length;
 
+  // Drawer 標題：「5/30（週五） 當日預約」。直接拆 YYYY-MM-DD 字串組 M/D，
+  // 星期沿用共用的 formatWeekdayZh（避免自行手算時區 / 散落日期邏輯）。
+  const dayHeaderLabel = selectedDate
+    ? `${Number(selectedDate.slice(5, 7))}/${Number(
+        selectedDate.slice(8, 10),
+      )}（${formatWeekdayZh(selectedDate)}） 當日預約`
+    : "";
+
   const handleDaySelect = useCallback(
     (dateKey: string) => {
       setSelectedDate(dateKey);
@@ -302,6 +312,11 @@ export function BookingsManager({
 
   const openBooking = useCallback(
     (id: string) => {
+      // 先關當日預約 Drawer 再開 Booking Detail Drawer — 兩者同為 z-50 RightSheet，
+      // 不先關會疊在一起難操作。summaryById 以 booking id 為 key（跨整月），
+      // 清掉 selectedDate 不影響查得到 summary。
+      setSelectedDate(null);
+      setSelectedIds(new Set());
       setActiveBookingId(id);
       setActiveSummary(summaryById.get(id) ?? null);
     },
@@ -311,6 +326,11 @@ export function BookingsManager({
   const closeBooking = useCallback(() => {
     setActiveBookingId(null);
     setActiveSummary(null);
+  }, []);
+
+  const closeDay = useCallback(() => {
+    setSelectedDate(null);
+    setSelectedIds(new Set());
   }, []);
 
   // Apply optimistic status change to monthData; dayBookings re-derives via
@@ -479,21 +499,43 @@ export function BookingsManager({
         activeFilterCount={activeFilterCount}
       />
 
-      <div className="grid grid-cols-12 gap-4">
-        <div className="col-span-12 lg:col-span-8">
-          <BookingCalendarDesktop
-            year={year}
-            month={month}
-            monthData={monthData}
-            monthSchedule={monthSchedule}
-            selectedDate={selectedDate}
-            onDaySelect={handleDaySelect}
-            onBookingClick={openBooking}
-            highlightStaff={filters.staffName || null}
-            dimmedDates={dimmedDates}
-          />
+      <BookingCalendarDesktop
+        year={year}
+        month={month}
+        monthData={monthData}
+        monthSchedule={monthSchedule}
+        selectedDate={selectedDate}
+        onDaySelect={handleDaySelect}
+        onBookingClick={openBooking}
+        highlightStaff={filters.staffName || null}
+        dimmedDates={dimmedDates}
+      />
+
+      {/* 當日預約清單改成右側滑出 Drawer（全尺寸一致）— 取代原本塞在月曆下方
+          的右欄，避免窄畫面下面板掉到視窗外讓店長以為「點了沒反應」。 */}
+      <RightSheet
+        open={!!selectedDate}
+        onClose={closeDay}
+        width={480}
+        labelledById="day-detail-title"
+      >
+        <div className="flex shrink-0 items-center justify-between border-b border-earth-200 px-4 py-3">
+          <h2
+            id="day-detail-title"
+            className="text-base font-bold text-earth-900"
+          >
+            {dayHeaderLabel}
+          </h2>
+          <button
+            type="button"
+            onClick={closeDay}
+            aria-label="關閉當日預約"
+            className="inline-flex h-7 w-7 items-center justify-center rounded text-earth-500 hover:bg-earth-100 hover:text-earth-700"
+          >
+            ✕
+          </button>
         </div>
-        <div className="col-span-12 lg:col-span-4">
+        <div className="min-h-0 flex-1">
           <DayDetailPanel
             date={selectedDate}
             bookings={filteredDayBookings}
@@ -503,9 +545,6 @@ export function BookingsManager({
             daySchedule={
               selectedDate ? (monthSchedule[selectedDate] ?? null) : null
             }
-            monthHasAnyBookings={monthData.some(
-              (d) => d.totalBookingCount > 0,
-            )}
             onBookingClick={openBooking}
             filteredFrom={
               dayBookings.length !== filteredDayBookings.length
@@ -522,7 +561,7 @@ export function BookingsManager({
             batchActing={batchActing}
           />
         </div>
-      </div>
+      </RightSheet>
 
       <BookingDetailDrawer
         open={!!activeBookingId}

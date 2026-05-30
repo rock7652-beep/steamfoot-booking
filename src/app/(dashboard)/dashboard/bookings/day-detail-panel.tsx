@@ -56,8 +56,6 @@ interface DayDetailPanelProps {
    *  全店視角無 store-specific 摘要）。用於 0 預約時的文案分流：
    *  open/custom → 「可預約（尚無預約）」；closed/training → 「不可預約 — 公休 / 進修」。 */
   daySchedule?: { status: "open" | "closed" | "training" | "custom"; slotCount: number } | null;
-  /** 整個月是否完全沒有任何預約 — 控制「未選日期」時的引導文案 */
-  monthHasAnyBookings?: boolean;
   /** 若有篩選，原始筆數（>0 代表已套篩選） */
   filteredFrom?: number | null;
   /** 點 timeline row 時觸發（取代原本 link 到詳情頁） */
@@ -81,7 +79,6 @@ export function DayDetailPanel({
   slotsKnown = true,
   slotsLoading = false,
   daySchedule = null,
-  monthHasAnyBookings = false,
   filteredFrom = null,
   onBookingClick,
   selectedIds,
@@ -93,33 +90,10 @@ export function DayDetailPanel({
   actingIds,
   batchActing = false,
 }: DayDetailPanelProps) {
-  if (!date) {
-    return (
-      <div className="flex flex-col gap-4">
-        <div className="rounded-lg border border-earth-200 bg-white p-4">
-          <EmptyStateCompact
-            title={
-              monthHasAnyBookings
-                ? "點選日期以查看詳情"
-                : "本月尚無預約紀錄"
-            }
-            hint={
-              monthHasAnyBookings
-                ? "左側月曆點任一天會在此顯示當日預約"
-                : "點月曆任一日期 → 從右上角「＋ 新增預約」建立"
-            }
-            size="section"
-          />
-        </div>
-      </div>
-    );
-  }
+  // 沒選日期時 sheet 是關著的（parent open={!!selectedDate}），不必渲染內容。
+  if (!date) return null;
 
   const dateObj = new Date(date + "T00:00:00+08:00");
-  const weekdayLabel = dateObj.toLocaleDateString("zh-TW", {
-    weekday: "long",
-    timeZone: "Asia/Taipei",
-  });
   const monthDay = `${dateObj.getMonth() + 1}/${dateObj.getDate()}`;
 
   const stats = computeStats(bookings);
@@ -137,25 +111,10 @@ export function DayDetailPanel({
     actionableCount > 0 && selectedCount === actionableCount;
 
   return (
-    <div className="flex flex-col gap-4">
-      {/* Day Header */}
-      <div className="rounded-lg border border-earth-200 bg-white p-4">
-        <p className="text-lg font-bold text-earth-900">
-          {monthDay} {weekdayLabel}
-        </p>
-        <p className="mt-0.5 text-xs text-earth-500">
-          今日 {stats.total} 預約 · {stats.checkedIn} 已到店
-          {filteredFrom != null && (
-            <span className="ml-2 inline-flex h-[18px] items-center rounded bg-primary-50 px-1.5 text-[11px] font-semibold text-primary-700">
-              篩選中 {stats.total}/{filteredFrom}
-            </span>
-          )}
-        </p>
-      </div>
-
-      {/* Mini KPIs */}
-      <div className="rounded-lg border border-earth-200 bg-white p-4">
-        <div className="grid grid-cols-3 gap-3">
+    <div className="flex h-full flex-col">
+      {/* Mini KPIs — 固定在頂部，不隨清單捲動 */}
+      <div className="shrink-0 border-b border-earth-200 px-4 py-3">
+        <div className="grid grid-cols-3 gap-2">
           <MiniKpi label="預約" value={stats.total} />
           <MiniKpi label="到店" value={stats.checkedIn} />
           <MiniKpi label="完成" value={stats.completed} />
@@ -169,58 +128,58 @@ export function DayDetailPanel({
         </div>
       </div>
 
-      {/* Timeline */}
-      <div className="flex-1 rounded-lg border border-earth-200 bg-white">
-        <div className="flex items-center justify-between border-b border-earth-200 px-4 py-3">
-          <h3 className="text-base font-semibold text-earth-900">今日預約</h3>
-          <Link
-            href={`/dashboard/bookings/new?date=${date}`}
-            className="text-sm text-primary-600 hover:text-primary-700"
-          >
-            ＋ 新增
-          </Link>
-        </div>
-
-        {/* Selection bar — only when at least one row picked */}
-        {selectionEnabled && selectedCount > 0 && (
-          <div className="flex flex-wrap items-center gap-2 border-b border-primary-100 bg-primary-50/70 px-4 py-2">
-            <span className="text-xs font-medium text-primary-800">
-              已選 {selectedCount} 位
-              {actionableCount > selectedCount && (
-                <span className="ml-1 text-[11px] font-normal text-primary-600">
-                  / 可選 {actionableCount}
-                </span>
-              )}
-            </span>
-            <button
-              type="button"
-              onClick={onCompleteBatch}
-              disabled={batchActing}
-              className="inline-flex h-7 items-center rounded-md bg-primary-600 px-3 text-xs font-semibold text-white hover:bg-primary-700 disabled:cursor-wait disabled:opacity-60"
-            >
-              {batchActing ? "處理中..." : "批次完成服務"}
-            </button>
-            {!allSelected && onSelectAllActionable && (
-              <button
-                type="button"
-                onClick={onSelectAllActionable}
-                disabled={batchActing}
-                className="inline-flex h-7 items-center rounded-md border border-primary-300 bg-white px-2.5 text-xs font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-60"
-              >
-                全選可操作
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={onClearSelection}
-              disabled={batchActing}
-              className="ml-auto inline-flex h-7 items-center rounded-md border border-earth-300 bg-white px-2.5 text-xs font-medium text-earth-700 hover:bg-earth-50 disabled:opacity-60"
-            >
-              清除選取
-            </button>
-          </div>
+      {/* Timeline 標題列 */}
+      <div className="flex shrink-0 items-center gap-2 border-b border-earth-200 px-4 py-2.5">
+        <h3 className="text-sm font-semibold text-earth-900">今日預約</h3>
+        {filteredFrom != null && (
+          <span className="inline-flex h-[18px] items-center rounded bg-primary-50 px-1.5 text-[11px] font-semibold text-primary-700">
+            篩選中 {stats.total}/{filteredFrom}
+          </span>
         )}
+      </div>
 
+      {/* Selection bar — only when at least one row picked */}
+      {selectionEnabled && selectedCount > 0 && (
+        <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-primary-100 bg-primary-50/70 px-4 py-2">
+          <span className="text-xs font-medium text-primary-800">
+            已選 {selectedCount} 位
+            {actionableCount > selectedCount && (
+              <span className="ml-1 text-[11px] font-normal text-primary-600">
+                / 可選 {actionableCount}
+              </span>
+            )}
+          </span>
+          <button
+            type="button"
+            onClick={onCompleteBatch}
+            disabled={batchActing}
+            className="inline-flex h-7 items-center rounded-md bg-primary-600 px-3 text-xs font-semibold text-white hover:bg-primary-700 disabled:cursor-wait disabled:opacity-60"
+          >
+            {batchActing ? "處理中..." : "批次完成服務"}
+          </button>
+          {!allSelected && onSelectAllActionable && (
+            <button
+              type="button"
+              onClick={onSelectAllActionable}
+              disabled={batchActing}
+              className="inline-flex h-7 items-center rounded-md border border-primary-300 bg-white px-2.5 text-xs font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-60"
+            >
+              全選可操作
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onClearSelection}
+            disabled={batchActing}
+            className="ml-auto inline-flex h-7 items-center rounded-md border border-earth-300 bg-white px-2.5 text-xs font-medium text-earth-700 hover:bg-earth-50 disabled:opacity-60"
+          >
+            清除選取
+          </button>
+        </div>
+      )}
+
+      {/* 預約清單 — 唯一捲動區（min-h-0 讓 flex 子項可正確收縮捲動） */}
+      <div className="min-h-0 flex-1 overflow-y-auto">
         {bookings.length === 0 ? (
           <div className="p-4">
             <EmptyStateCompact
@@ -236,7 +195,7 @@ export function DayDetailPanel({
             />
           </div>
         ) : (
-          <ul className="max-h-[520px] overflow-y-auto divide-y divide-earth-100">
+          <ul className="divide-y divide-earth-100">
             {bookings.map((b) => {
               const actionable = ACTIONABLE_STATUSES.has(b.bookingStatus);
               const isSelected = !!selectedIds?.has(b.id);
@@ -261,14 +220,15 @@ export function DayDetailPanel({
         )}
       </div>
 
-      {/* Quick Actions */}
-      <div className="rounded-lg border border-earth-200 bg-white p-3">
+      {/* 快速操作 — sticky footer；只搬移既有功能（新增預約 / 補課 / 體驗），
+          窄版 flex-wrap 換行、桌機/iPad 橫排。 */}
+      <div className="shrink-0 border-t border-earth-200 bg-white px-4 py-3">
         <div className="flex flex-wrap gap-2">
           <Link
             href={`/dashboard/bookings/new?date=${date}`}
             className="inline-flex h-8 items-center rounded-md bg-primary-600 px-3 text-sm font-semibold text-white hover:bg-primary-700"
           >
-            ＋ 新增預約於 {monthDay}
+            ＋ 新增預約
           </Link>
           <Link
             href={`/dashboard/bookings/new?date=${date}`}
