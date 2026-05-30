@@ -16,7 +16,8 @@
  */
 
 import { listCashbookEntries, getMonthlySummary } from "@/server/queries/cashbook";
-import { getCashDrawerView } from "@/server/queries/cash-drawer";
+import { getCashDrawerView, listClosedBusinessDates } from "@/server/queries/cash-drawer";
+import { listStaffSelectOptions } from "@/server/queries/staff";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { getCurrentStorePlan } from "@/lib/store-plan";
@@ -105,15 +106,39 @@ export default async function CashbookPage({ searchParams }: PageProps) {
       ? (async () => {
           const [y, m, d] = today.split("-").map(Number);
           const todayBusinessDate = new Date(Date.UTC(y, m - 1, d));
-          const [view, canOpen, canClose, canAddEntry, canCreateCashbook] = await Promise.all([
+          // 「記一筆收支」inline form 防呆提示用：近 ~180 天的已閉店營業日。
+          const fromDate = new Date(Date.UTC(y, m - 1, d));
+          fromDate.setUTCDate(fromDate.getUTCDate() - 180);
+          const [
+            view,
+            canOpen,
+            canClose,
+            canAddEntry,
+            canCreateCashbook,
+            closedDates,
+            staffOptions,
+          ] = await Promise.all([
             getCashDrawerView(activeStoreId, todayBusinessDate),
             checkPermission(user.role, user.staffId, "cashDrawer.open"),
             checkPermission(user.role, user.staffId, "cashDrawer.close"),
             checkPermission(user.role, user.staffId, "cashDrawer.entry"),
             checkPermission(user.role, user.staffId, "cashbook.create"),
+            listClosedBusinessDates(activeStoreId, fromDate.toISOString().slice(0, 10), today),
+            listStaffSelectOptions(),
           ]);
           const canInit = user.role === "ADMIN" || user.role === "OWNER";
-          return { view, canInit, canOpen, canClose, canAddEntry, canCreateCashbook };
+          const canAssignStaff = user.role === "ADMIN";
+          return {
+            view,
+            canInit,
+            canOpen,
+            canClose,
+            canAddEntry,
+            canCreateCashbook,
+            closedDates,
+            staffOptions,
+            canAssignStaff,
+          };
         })()
       : Promise.resolve(null),
   ]);
@@ -150,6 +175,9 @@ export default async function CashbookPage({ searchParams }: PageProps) {
               canClose={cashDrawerData.canClose}
               canAddEntry={cashDrawerData.canAddEntry}
               canCreateCashbook={cashDrawerData.canCreateCashbook}
+              closedDates={cashDrawerData.closedDates}
+              canAssignStaff={cashDrawerData.canAssignStaff}
+              staffOptions={cashDrawerData.staffOptions}
               returnPath="/dashboard/cashbook#cash-drawer-workspace"
             />
           </section>
@@ -197,26 +225,30 @@ export default async function CashbookPage({ searchParams }: PageProps) {
             </button>
           </form>
 
-          {/* 月度統計：手機 1 col、桌機 / iPad 橫向 3 col */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <div className="rounded-xl border bg-green-50 p-4">
+          {/* 月度統計：compact stats row（手機 1 col、桌機 / iPad 橫向 3 col） */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="flex items-baseline justify-between gap-2 rounded-lg border bg-green-50 px-4 py-2.5">
               <p className="text-xs text-green-600">收入</p>
-              <p className="text-xl font-bold text-green-700">
+              <p className="text-lg font-bold tabular-nums text-green-700">
                 NT$ {summary.income.toLocaleString()}
               </p>
             </div>
-            <div className="rounded-xl border bg-red-50 p-4">
+            <div className="flex items-baseline justify-between gap-2 rounded-lg border bg-red-50 px-4 py-2.5">
               <p className="text-xs text-red-600">支出 + 提領</p>
-              <p className="text-xl font-bold text-red-700">
+              <p className="text-lg font-bold tabular-nums text-red-700">
                 NT$ {summary.expense.toLocaleString()}
               </p>
             </div>
-            <div className={`rounded-xl border p-4 ${summary.net >= 0 ? "bg-primary-50" : "bg-orange-50"}`}>
+            <div
+              className={`flex items-baseline justify-between gap-2 rounded-lg border px-4 py-2.5 ${
+                summary.net >= 0 ? "bg-primary-50" : "bg-orange-50"
+              }`}
+            >
               <p className={`text-xs ${summary.net >= 0 ? "text-primary-600" : "text-orange-600"}`}>
                 淨額
               </p>
               <p
-                className={`text-xl font-bold ${
+                className={`text-lg font-bold tabular-nums ${
                   summary.net >= 0 ? "text-primary-700" : "text-orange-700"
                 }`}
               >

@@ -18,7 +18,6 @@ import { Prisma } from "@prisma/client";
 
 import { formatTWTime } from "@/lib/date-utils";
 import { SubmitButton } from "@/components/submit-button";
-import { DashboardLink as Link } from "@/components/dashboard-link";
 
 import type { CashDrawerView, CashDrawerLiveTotals } from "@/server/queries/cash-drawer";
 import type { CashDrawerEntry } from "@prisma/client";
@@ -29,9 +28,37 @@ import {
   closeCashDrawerAction,
   addCashDrawerEntryAction,
 } from "@/server/actions/cash-drawer";
+import { createCashbookEntry } from "@/server/actions/cashbook";
 import { EntrySection } from "./entry-section";
 import { TodayOpenForm } from "./today-open-form";
 import { WithdrawalForm, DepositForm } from "./cash-entry-forms";
+import { InlineCashbookForm } from "./inline-cashbook-form";
+
+/** ADMIN 指派登錄人用的店長清單（避免在多處重打 inline 型別）。 */
+type StaffOption = { id: string; displayName: string };
+
+/**
+ * 把 form 的 createCashbookEntry 包成 useActionState 用的 (prev, formData) 簽章。
+ * 提供給「記一筆收支」inline form（營業中 / 已結帳補登 共用）。
+ * 業務邏輯完全在 createCashbookEntry，本層只搬 FormData → input。
+ * 類型限定 INCOME / EXPENSE（提領走 WithdrawalForm / cashDrawer.entry）。
+ */
+async function handleAddCashbookEntry(
+  _prev: ActionResult<{ entryId: string }> | null,
+  formData: FormData,
+): Promise<ActionResult<{ entryId: string }>> {
+  "use server";
+  return createCashbookEntry({
+    entryDate: String(formData.get("entryDate") ?? ""),
+    type: formData.get("type") as "INCOME" | "EXPENSE",
+    category: (formData.get("category") as string) || undefined,
+    amount: Number(formData.get("amount")),
+    paymentMethod: formData.get("paymentMethod") as "CASH" | "OTHER",
+    staffId: (formData.get("staffId") as string) || undefined,
+    note: (formData.get("note") as string) || undefined,
+    confirmClosedCashbookChange: formData.get("confirmClosedCashbookChange") === "on",
+  });
+}
 
 /** "2026-05-29" → "2026/05/29"（今日狀態卡標題用） */
 function formatDateSlash(todayStr: string): string {
@@ -53,6 +80,12 @@ interface CashDrawerWorkspaceProps {
    *  該頁用 cashbook.create 把關；與 cashDrawer.* 是兩套權限，必須分開判斷，
    *  否則只有 cashDrawer 權限的使用者點了會被 redirect，變成點不動的主操作） */
   canCreateCashbook: boolean;
+  /** 已閉店營業日（近 ~180 天），給「記一筆收支」inline form 前端防呆提示。 */
+  closedDates: string[];
+  /** ADMIN 才能指派登錄人（與 cashbook/new 一致）。 */
+  canAssignStaff: boolean;
+  /** ADMIN 指派登錄人用的店長清單。 */
+  staffOptions: StaffOption[];
   /** 表單成功後 redirect 回的 URL，例如
    *   "/dashboard/cashbook#cash-drawer-workspace"（從現金管理主頁）
    *   "/dashboard/cash-drawer"（從獨立頁）
@@ -68,6 +101,9 @@ export function CashDrawerWorkspace({
   canClose,
   canAddEntry,
   canCreateCashbook,
+  closedDates,
+  canAssignStaff,
+  staffOptions,
   returnPath,
 }: CashDrawerWorkspaceProps) {
   return (
@@ -112,6 +148,9 @@ export function CashDrawerWorkspace({
           canClose={canClose}
           canAddEntry={canAddEntry}
           canCreateCashbook={canCreateCashbook}
+          closedDates={closedDates}
+          canAssignStaff={canAssignStaff}
+          staffOptions={staffOptions}
           returnPath={returnPath}
           todayStr={todayStr}
         />
@@ -553,6 +592,9 @@ function OpenedTodayWorkspace({
   canClose,
   canAddEntry,
   canCreateCashbook,
+  closedDates,
+  canAssignStaff,
+  staffOptions,
   returnPath,
   todayStr,
 }: {
@@ -562,6 +604,9 @@ function OpenedTodayWorkspace({
   canClose: boolean;
   canAddEntry: boolean;
   canCreateCashbook: boolean;
+  closedDates: string[];
+  canAssignStaff: boolean;
+  staffOptions: StaffOption[];
   returnPath: string;
   todayStr: string;
 }) {
@@ -619,10 +664,21 @@ function OpenedTodayWorkspace({
               canClose={canClose}
               canAddEntry={canAddEntry}
               canCreateCashbook={canCreateCashbook}
+              closedDates={closedDates}
+              canAssignStaff={canAssignStaff}
+              staffOptions={staffOptions}
+              todayStr={todayStr}
               returnPath={returnPath}
             />
           ) : (
-            <ClosedActionsArea canCreateCashbook={canCreateCashbook} />
+            <ClosedActionsArea
+              canCreateCashbook={canCreateCashbook}
+              closedDates={closedDates}
+              canAssignStaff={canAssignStaff}
+              staffOptions={staffOptions}
+              todayStr={todayStr}
+              returnPath={returnPath}
+            />
           )}
         </div>
 
@@ -746,6 +802,10 @@ function DailyActionsArea({
   canClose,
   canAddEntry,
   canCreateCashbook,
+  closedDates,
+  canAssignStaff,
+  staffOptions,
+  todayStr,
   returnPath,
 }: {
   sessionId: string;
@@ -753,6 +813,10 @@ function DailyActionsArea({
   canClose: boolean;
   canAddEntry: boolean;
   canCreateCashbook: boolean;
+  closedDates: string[];
+  canAssignStaff: boolean;
+  staffOptions: StaffOption[];
+  todayStr: string;
   returnPath: string;
 }) {
   const errorRedirect = (msg: string) =>
@@ -799,24 +863,33 @@ function DailyActionsArea({
     <div className="rounded-xl border bg-white p-5 shadow-sm md:p-6">
       <h2 className="text-lg font-semibold text-earth-900">日常操作</h2>
       <p className="mt-1 text-xs text-earth-500">
-        記收入走現金帳；提領 / 補入只影響現金抽屜，不算營收或費用。
+        記收支走現金帳；提領 / 補入只影響現金抽屜，不算營收或費用。
       </p>
 
       {/* iPad（sm/md）full width → 2 欄大按鈕；桌機（lg）操作沉到 1/3 右欄 → 改回單欄直列，當作操作入口清單 */}
       <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-1">
-        {/* 1. 記一筆收入 — 走現金帳新增頁（收入預設 INCOME）。
-            cashbook/new 用 cashbook.create 把關，與 cashDrawer.* 分開；
-            無 cashbook.create 者改顯示 disabled，避免點了被 redirect。 */}
+        {/* 1. 記一筆收支 — 原地展開現金帳 inline form（收入 / 支出），重用
+            createCashbookEntry。受 cashbook.create 把關，與 cashDrawer.* 分開；
+            類型限 INCOME / EXPENSE（提領走下方「提領」/ cashDrawer.entry）。 */}
         {canCreateCashbook ? (
-          <Link
-            href="/dashboard/cashbook/new"
-            className="flex min-h-[64px] flex-col justify-center rounded-xl border border-earth-200 bg-white px-4 py-3 text-left transition hover:border-primary-300 hover:bg-primary-50"
-          >
-            <span className="text-base font-semibold text-earth-900">記一筆收入</span>
-            <span className="mt-0.5 text-xs text-earth-500">商品、莓果、生活用品收入等</span>
-          </Link>
+          <details className="group rounded-xl border border-earth-200 bg-white">
+            <summary className="flex min-h-[64px] cursor-pointer list-none flex-col justify-center rounded-xl px-4 py-3 select-none hover:bg-primary-50 group-open:rounded-b-none">
+              <span className="text-base font-semibold text-earth-900">記一筆收支</span>
+              <span className="mt-0.5 text-xs text-earth-500">商品收入、店內支出、非現金紀錄</span>
+            </summary>
+            <div className="border-t border-earth-200">
+              <InlineCashbookForm
+                action={handleAddCashbookEntry}
+                returnPath={returnPath}
+                today={todayStr}
+                closedDates={closedDates}
+                canAssignStaff={canAssignStaff}
+                staffOptions={staffOptions}
+              />
+            </div>
+          </details>
         ) : (
-          <ActionDisabledCard title="記一筆收入" helper="您沒有新增現金帳的權限。" />
+          <ActionDisabledCard title="記一筆收支" helper="您沒有新增現金帳的權限。" />
         )}
 
         {/* 2. 提領 — 原地展開 */}
@@ -927,7 +1000,7 @@ function DailyActionsArea({
           </p>
           <p>
             <span className="font-medium text-earth-800">支出：</span>
-            店內花費，例如買耗材、生活用品。請用「記一筆收入」進入現金帳、類型改選「支出」，
+            店內花費，例如買耗材、生活用品。請用「記一筆收支」、類型選「支出」，
             付款方式選現金時會減少抽屜並記為支出。
           </p>
         </div>
@@ -949,7 +1022,21 @@ function ActionDisabledCard({ title, helper }: { title: string; helper: string }
 // 日常操作區（CLOSED）— 今日已結帳，僅保留補登入口
 // ============================================================
 
-function ClosedActionsArea({ canCreateCashbook }: { canCreateCashbook: boolean }) {
+function ClosedActionsArea({
+  canCreateCashbook,
+  closedDates,
+  canAssignStaff,
+  staffOptions,
+  todayStr,
+  returnPath,
+}: {
+  canCreateCashbook: boolean;
+  closedDates: string[];
+  canAssignStaff: boolean;
+  staffOptions: StaffOption[];
+  todayStr: string;
+  returnPath: string;
+}) {
   return (
     <div className="rounded-xl border bg-white p-5 shadow-sm md:p-6">
       <h2 className="text-lg font-semibold text-earth-900">日常操作</h2>
@@ -960,19 +1047,30 @@ function ClosedActionsArea({ canCreateCashbook }: { canCreateCashbook: boolean }
             今日紀錄已鎖定，提領 / 補入需明日重新開店後操作。
           </span>
         </div>
-        {/* 補登同樣連到 cashbook/new，依 cashbook.create 把關 */}
+        {/* 補登：原地展開現金帳 inline form（與營業中共用）。今日已結帳 →
+            CashbookFormFields 顯示「補紀錄」提示；選現金時要求勾選確認，
+            後端 createCashbookEntry 用 confirmClosedCashbookChange 再次把關。 */}
         {canCreateCashbook ? (
-          <Link
-            href="/dashboard/cashbook/new"
-            className="flex min-h-[64px] flex-col justify-center rounded-xl border border-earth-200 bg-white px-4 py-3 text-left transition hover:border-primary-300 hover:bg-primary-50"
-          >
-            <span className="text-base font-semibold text-earth-900">記一筆收入（補登）</span>
-            <span className="mt-0.5 text-xs text-earth-500">
-              補登只留紀錄，不會改變今天的結帳金額
-            </span>
-          </Link>
+          <details className="group rounded-xl border border-earth-200 bg-white">
+            <summary className="flex min-h-[64px] cursor-pointer list-none flex-col justify-center rounded-xl px-4 py-3 select-none hover:bg-primary-50 group-open:rounded-b-none">
+              <span className="text-base font-semibold text-earth-900">記一筆收支（補登）</span>
+              <span className="mt-0.5 text-xs text-earth-500">
+                補登只留紀錄，不會改變今天的結帳金額
+              </span>
+            </summary>
+            <div className="border-t border-earth-200">
+              <InlineCashbookForm
+                action={handleAddCashbookEntry}
+                returnPath={returnPath}
+                today={todayStr}
+                closedDates={closedDates}
+                canAssignStaff={canAssignStaff}
+                staffOptions={staffOptions}
+              />
+            </div>
+          </details>
         ) : (
-          <ActionDisabledCard title="記一筆收入（補登）" helper="您沒有新增現金帳的權限。" />
+          <ActionDisabledCard title="記一筆收支（補登）" helper="您沒有新增現金帳的權限。" />
         )}
       </div>
     </div>
