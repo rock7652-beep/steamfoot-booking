@@ -48,9 +48,16 @@ async function handleAddCashbookEntry(
   formData: FormData,
 ): Promise<ActionResult<{ entryId: string }>> {
   "use server";
+  // 後端權威：本入口只准 INCOME / EXPENSE。即使有人 tamper request 送
+  // WITHDRAW / ADJUSTMENT，也在進 createCashbookEntry 前擋掉並回錯（inline form 顯示），
+  // 提領仍只能走 WithdrawalForm / CashDrawerEntry。
+  const type = formData.get("type");
+  if (type !== "INCOME" && type !== "EXPENSE") {
+    return { success: false, error: "此入口僅能新增收入或支出（提領請使用提領功能）" };
+  }
   return createCashbookEntry({
     entryDate: String(formData.get("entryDate") ?? ""),
-    type: formData.get("type") as "INCOME" | "EXPENSE",
+    type,
     category: (formData.get("category") as string) || undefined,
     amount: Number(formData.get("amount")),
     paymentMethod: formData.get("paymentMethod") as "CASH" | "OTHER",
