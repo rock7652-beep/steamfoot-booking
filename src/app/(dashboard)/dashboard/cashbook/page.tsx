@@ -186,7 +186,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
         {/* 下方：月度現金帳紀錄（與 workspace 視覺分隔） */}
         <section id="cashbook-records" className="space-y-4 border-t border-earth-200 pt-6">
           <div className="space-y-1">
-            <h2 className="text-lg font-semibold text-earth-900">現金帳紀錄</h2>
+            <h2 className="text-base font-semibold text-earth-900">現金帳紀錄</h2>
             <p className="text-xs text-earth-500">
               這裡是所有現金帳紀錄，包含現金與其他付款。只有
               <span className="font-medium text-sky-700">「現金」</span>
@@ -227,13 +227,13 @@ export default async function CashbookPage({ searchParams }: PageProps) {
 
           {/* 月度統計：compact stats row（手機 1 col、桌機 / iPad 橫向 3 col） */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <div className="flex items-baseline justify-between gap-2 rounded-lg border bg-green-50 px-4 py-2.5">
+            <div className="flex items-baseline justify-between gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-2.5">
               <p className="text-xs text-green-600">收入</p>
               <p className="text-lg font-bold tabular-nums text-green-700">
                 NT$ {summary.income.toLocaleString()}
               </p>
             </div>
-            <div className="flex items-baseline justify-between gap-2 rounded-lg border bg-red-50 px-4 py-2.5">
+            <div className="flex items-baseline justify-between gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5">
               <p className="text-xs text-red-600">支出 + 提領</p>
               <p className="text-lg font-bold tabular-nums text-red-700">
                 NT$ {summary.expense.toLocaleString()}
@@ -241,7 +241,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
             </div>
             <div
               className={`flex items-baseline justify-between gap-2 rounded-lg border px-4 py-2.5 ${
-                summary.net >= 0 ? "bg-primary-50" : "bg-orange-50"
+                summary.net >= 0 ? "border-primary-200 bg-primary-50" : "border-orange-200 bg-orange-50"
               }`}
             >
               <p className={`text-xs ${summary.net >= 0 ? "text-primary-600" : "text-orange-600"}`}>

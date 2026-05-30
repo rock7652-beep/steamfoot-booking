@@ -65,8 +65,8 @@ export function EntrySection({
   }
 
   return (
-    <div className="rounded-xl border bg-white p-6 shadow-sm">
-      <h2 className="text-lg font-semibold text-earth-900">現金異動紀錄</h2>
+    <div className="rounded-xl border border-earth-200 bg-white p-4">
+      <h2 className="text-base font-semibold text-earth-900">現金異動紀錄</h2>
       <p className="mt-1 text-xs text-earth-500">
         提領 / 補入 / 調整都只影響現金抽屜結餘，不進營收或費用
       </p>
@@ -77,7 +77,7 @@ export function EntrySection({
       {/* OPEN session 才顯示「盤點調整」次要新增表單。
           提領 / 補入 已移到上方日常操作區的大按鈕，這裡只留較少用的盤點校正。 */}
       {canAddEntry && (
-        <div className="mt-6 space-y-3 border-t border-earth-100 pt-6">
+        <div className="mt-4 space-y-3 border-t border-earth-100 pt-4">
           <details className="rounded-lg border border-earth-200 bg-earth-50/40">
             <summary className="flex min-h-[44px] cursor-pointer items-center px-4 py-3 text-sm font-medium text-earth-800 select-none hover:bg-earth-100/60">
               ＋ 盤點調整（盤點短少 / 溢出）
@@ -99,9 +99,7 @@ export function EntrySection({
 function EntriesList({ entries }: { entries: CashDrawerEntry[] }) {
   if (entries.length === 0) {
     return (
-      <p className="mt-3 rounded-lg bg-earth-50/60 px-4 py-3 text-xs text-earth-500">
-        今日尚無手動異動
-      </p>
+      <p className="mt-2 text-xs text-earth-400">今日尚無手動異動</p>
     );
   }
 

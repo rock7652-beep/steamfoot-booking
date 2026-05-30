@@ -114,7 +114,7 @@ export function CashDrawerWorkspace({
   returnPath,
 }: CashDrawerWorkspaceProps) {
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* State A: 未啟用 — 單卡置中 */}
       {view.state === "EMPTY" && (
         <div className="mx-auto w-full max-w-2xl">
@@ -188,9 +188,9 @@ function TodayStatusCard({
 }) {
   const badge = STATUS_BADGE[status];
   return (
-    <div className="rounded-xl border bg-white p-5 shadow-sm md:p-6">
+    <div className="rounded-xl border border-earth-200 bg-white p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-lg font-semibold text-earth-900">
+        <h2 className="text-base font-semibold text-earth-900">
           今日現金管理　{formatDateSlash(todayStr)}
         </h2>
         <span
@@ -200,7 +200,7 @@ function TodayStatusCard({
           {badge.label}
         </span>
       </div>
-      <div className="mt-4">{children}</div>
+      <div className="mt-3">{children}</div>
     </div>
   );
 }
@@ -235,8 +235,8 @@ function EmptyStateCard({
   }
 
   return (
-    <div className="rounded-xl border bg-white p-6 shadow-sm">
-      <h2 className="text-lg font-semibold text-earth-900">啟用現金抽屜</h2>
+    <div className="rounded-xl border border-earth-200 bg-white p-4">
+      <h2 className="text-base font-semibold text-earth-900">啟用現金抽屜</h2>
       <p className="mt-2 text-sm text-earth-600">
         本店尚未啟用現金抽屜。請輸入起始現金，作為日後滾動結餘的基準。
       </p>
@@ -340,8 +340,8 @@ function WarningLastOpenCard({
   }
 
   return (
-    <div className="rounded-xl border border-orange-200 bg-orange-50 p-6 shadow-sm">
-      <h2 className="text-lg font-semibold text-orange-900">
+    <div className="rounded-xl border border-orange-200 bg-orange-50 p-4">
+      <h2 className="text-base font-semibold text-orange-900">
         上一個營業日尚未閉店
       </h2>
       <p className="mt-2 text-sm text-orange-800">
@@ -349,7 +349,7 @@ function WarningLastOpenCard({
         系統預估結餘作為下次開店帳面起點，今日才能正常開店。
       </p>
 
-      <dl className="mt-4 grid grid-cols-2 gap-4 rounded-lg bg-white/60 p-4 text-sm">
+      <dl className="mt-3 grid grid-cols-2 gap-3 rounded-lg bg-white/60 p-3 text-sm">
         <div>
           <dt className="text-orange-700">營業日</dt>
           <dd className="mt-1 font-medium text-orange-900">
@@ -370,7 +370,7 @@ function WarningLastOpenCard({
         </div>
         <div>
           <dt className="text-orange-700">系統預估結餘</dt>
-          <dd className="mt-1 text-lg font-semibold tabular-nums text-orange-900">
+          <dd className="mt-1 text-base font-semibold tabular-nums text-orange-900">
             NT$ {liveTotals.expectedClosingCash.toString()}
           </dd>
         </div>
@@ -387,7 +387,7 @@ function WarningLastOpenCard({
           <summary className="cursor-pointer list-none rounded-lg bg-orange-600 px-4 py-3 text-base font-semibold text-white hover:bg-orange-700">
             補關上一個現金抽屜
           </summary>
-          <form action={handleCatchUpClose} className="space-y-4 p-5">
+          <form action={handleCatchUpClose} className="space-y-4 p-4">
             <p className="text-xs text-earth-500">
               請依據上一個營業日結束時的實際現金清點金額填入，差額會由系統
               比對「系統預估結餘」自動計算。本動作不會建立任何 Transaction
@@ -477,10 +477,10 @@ function NotOpenedTodayCard({
   // 桌機左右並排：左欄今日狀態（開店起點），右欄唯一操作「開店點錢」；
   // 窄螢幕單欄堆疊（狀態在上、開店點錢在下）。版面拉寬避免窄窄一條。
   return (
-    <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+    <div className="grid grid-cols-1 items-start gap-3 lg:grid-cols-2">
       <TodayStatusCard todayStr={todayStr} status="NOT_OPENED">
         <p className="text-sm text-earth-500">今日開店起點</p>
-        <p className="mt-1 text-3xl font-bold tabular-nums text-earth-900">
+        <p className="mt-1 text-2xl font-bold tabular-nums text-earth-900">
           NT$ {lastBalance}
         </p>
         <p className="mt-2 text-sm text-earth-600">
@@ -491,8 +491,8 @@ function NotOpenedTodayCard({
 
       {/* 日常操作區（尚未開店）：依傻瓜流程只放「開店點錢」主操作。
           提領 / 補入 / 記收入要等開店後才出現，避免店長搞不清楚今天抽屜起點。 */}
-      <div className="rounded-xl border bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-earth-900">開店點錢</h2>
+      <div className="rounded-xl border border-earth-200 bg-white p-4">
+        <h2 className="text-base font-semibold text-earth-900">開店點錢</h2>
         <p className="mt-1 text-sm text-earth-500">
           請現場清點抽屜內現金，輸入實際金額。
         </p>
@@ -649,10 +649,10 @@ function OpenedTodayWorkspace({
   );
 
   return (
-    <div className="w-full space-y-4">
+    <div className="w-full space-y-3">
       {/* 第一屏：今日狀態（含摘要 glance）+ 今日交易摘要 + 日常操作。
           桌機 3 欄（左 2 欄資訊、右 1 欄操作 sticky）；窄螢幕單欄靠 order 排序。 */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
         {/* A. 今日狀態卡 — 第一順位 */}
         <div className="order-1 lg:col-span-2 lg:col-start-1 lg:row-start-1">
           {!isClosed && liveTotals ? (
@@ -730,11 +730,11 @@ function OpenStatusCard({
   return (
     <TodayStatusCard todayStr={todayStr} status="OPEN">
       <p className="text-sm text-earth-500">目前抽屜應有現金</p>
-      <p className="mt-1 text-3xl font-bold tabular-nums text-primary-900">
+      <p className="mt-1 text-2xl font-bold tabular-nums text-primary-900">
         NT$ {liveTotals.expectedClosingCash.toString()}
       </p>
 
-      <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-3">
+      <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm sm:grid-cols-3">
         <SummaryItem label="今日現金收入" value={`+ NT$ ${cashIn.toString()}`} tone="text-green-700" />
         <SummaryItem label="今日現金支出" value={`− NT$ ${cashOut.toString()}`} tone="text-orange-700" />
         <SummaryItem
@@ -867,21 +867,21 @@ function DailyActionsArea({
   }
 
   return (
-    <div className="rounded-xl border bg-white p-5 shadow-sm md:p-6">
-      <h2 className="text-lg font-semibold text-earth-900">日常操作</h2>
+    <div className="rounded-xl border border-earth-200 bg-white p-4">
+      <h2 className="text-base font-semibold text-earth-900">日常操作</h2>
       <p className="mt-1 text-xs text-earth-500">
         記收支走現金帳；提領 / 補入只影響現金抽屜，不算營收或費用。
       </p>
 
       {/* iPad（sm/md）full width → 2 欄大按鈕；桌機（lg）操作沉到 1/3 右欄 → 改回單欄直列，當作操作入口清單 */}
-      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-1">
+      <div className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-1">
         {/* 1. 記一筆收支 — 原地展開現金帳 inline form（收入 / 支出），重用
             createCashbookEntry。受 cashbook.create 把關，與 cashDrawer.* 分開；
             類型限 INCOME / EXPENSE（提領走下方「提領」/ cashDrawer.entry）。 */}
         {canCreateCashbook ? (
           <details className="group rounded-xl border border-earth-200 bg-white">
-            <summary className="flex min-h-[64px] cursor-pointer list-none flex-col justify-center rounded-xl px-4 py-3 select-none hover:bg-primary-50 group-open:rounded-b-none">
-              <span className="text-base font-semibold text-earth-900">記一筆收支</span>
+            <summary className="flex min-h-[44px] cursor-pointer list-none flex-col justify-center rounded-xl px-3 py-2.5 select-none sm:min-h-[52px] hover:bg-primary-50 group-open:rounded-b-none">
+              <span className="text-sm font-semibold text-earth-900">記一筆收支</span>
               <span className="mt-0.5 text-xs text-earth-500">商品收入、店內支出、非現金紀錄</span>
             </summary>
             <div className="border-t border-earth-200">
@@ -902,8 +902,8 @@ function DailyActionsArea({
         {/* 2. 提領 — 原地展開 */}
         {canAddEntry ? (
           <details className="group rounded-xl border border-earth-200 bg-white sm:col-span-1">
-            <summary className="flex min-h-[64px] cursor-pointer list-none flex-col justify-center rounded-xl px-4 py-3 select-none hover:bg-orange-50 group-open:rounded-b-none">
-              <span className="text-base font-semibold text-earth-900">提領</span>
+            <summary className="flex min-h-[44px] cursor-pointer list-none flex-col justify-center rounded-xl px-3 py-2.5 select-none sm:min-h-[52px] hover:bg-orange-50 group-open:rounded-b-none">
+              <span className="text-sm font-semibold text-earth-900">提領</span>
               <span className="mt-0.5 text-xs text-earth-500">現金從抽屜拿出去（不算店內支出）</span>
             </summary>
             <div className="border-t border-earth-200">
@@ -917,8 +917,8 @@ function DailyActionsArea({
         {/* 3. 補入現金 — 原地展開 */}
         {canAddEntry ? (
           <details className="group rounded-xl border border-earth-200 bg-white">
-            <summary className="flex min-h-[64px] cursor-pointer list-none flex-col justify-center rounded-xl px-4 py-3 select-none hover:bg-green-50 group-open:rounded-b-none">
-              <span className="text-base font-semibold text-earth-900">補入現金</span>
+            <summary className="flex min-h-[44px] cursor-pointer list-none flex-col justify-center rounded-xl px-3 py-2.5 select-none sm:min-h-[52px] hover:bg-green-50 group-open:rounded-b-none">
+              <span className="text-sm font-semibold text-earth-900">補入現金</span>
               <span className="mt-0.5 text-xs text-earth-500">找零金、備用金、保險箱補現金</span>
             </summary>
             <div className="border-t border-earth-200">
@@ -932,8 +932,8 @@ function DailyActionsArea({
         {/* 4. 閉店點錢 — 原地展開（含閉店前確認） */}
         {canClose ? (
           <details className="group rounded-xl border border-primary-200 bg-primary-50/40">
-            <summary className="flex min-h-[64px] cursor-pointer list-none flex-col justify-center rounded-xl px-4 py-3 select-none hover:bg-primary-50 group-open:rounded-b-none">
-              <span className="text-base font-semibold text-primary-900">閉店點錢</span>
+            <summary className="flex min-h-[44px] cursor-pointer list-none flex-col justify-center rounded-xl px-3 py-2.5 select-none sm:min-h-[52px] hover:bg-primary-50 group-open:rounded-b-none">
+              <span className="text-sm font-semibold text-primary-900">閉店點錢</span>
               <span className="mt-0.5 text-xs text-primary-700">
                 結束今日營業，清點抽屜現金
               </span>
@@ -1018,8 +1018,8 @@ function DailyActionsArea({
 
 function ActionDisabledCard({ title, helper }: { title: string; helper: string }) {
   return (
-    <div className="flex min-h-[64px] flex-col justify-center rounded-xl border border-dashed border-earth-200 bg-earth-50/60 px-4 py-3">
-      <span className="text-base font-semibold text-earth-400">{title}</span>
+    <div className="flex min-h-[44px] flex-col justify-center rounded-xl border border-dashed border-earth-200 bg-earth-50/60 px-3 py-2.5">
+      <span className="text-sm font-semibold text-earth-400">{title}</span>
       <span className="mt-0.5 text-xs text-earth-400">{helper}</span>
     </div>
   );
@@ -1045,11 +1045,11 @@ function ClosedActionsArea({
   returnPath: string;
 }) {
   return (
-    <div className="rounded-xl border bg-white p-5 shadow-sm md:p-6">
-      <h2 className="text-lg font-semibold text-earth-900">日常操作</h2>
-      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-1">
-        <div className="flex min-h-[64px] flex-col justify-center rounded-xl border border-dashed border-earth-200 bg-earth-50/60 px-4 py-3">
-          <span className="text-base font-semibold text-earth-500">已完成今日結帳</span>
+    <div className="rounded-xl border border-earth-200 bg-white p-4">
+      <h2 className="text-base font-semibold text-earth-900">日常操作</h2>
+      <div className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-1">
+        <div className="flex min-h-[44px] flex-col justify-center rounded-xl border border-dashed border-earth-200 bg-earth-50/60 px-3 py-2.5">
+          <span className="text-sm font-semibold text-earth-500">已完成今日結帳</span>
           <span className="mt-0.5 text-xs text-earth-400">
             今日紀錄已鎖定，提領 / 補入需明日重新開店後操作。
           </span>
@@ -1059,8 +1059,8 @@ function ClosedActionsArea({
             後端 createCashbookEntry 用 confirmClosedCashbookChange 再次把關。 */}
         {canCreateCashbook ? (
           <details className="group rounded-xl border border-earth-200 bg-white">
-            <summary className="flex min-h-[64px] cursor-pointer list-none flex-col justify-center rounded-xl px-4 py-3 select-none hover:bg-primary-50 group-open:rounded-b-none">
-              <span className="text-base font-semibold text-earth-900">記一筆收支（補登）</span>
+            <summary className="flex min-h-[44px] cursor-pointer list-none flex-col justify-center rounded-xl px-3 py-2.5 select-none sm:min-h-[52px] hover:bg-primary-50 group-open:rounded-b-none">
+              <span className="text-sm font-semibold text-earth-900">記一筆收支（補登）</span>
               <span className="mt-0.5 text-xs text-earth-500">
                 補登只留紀錄，不會改變今天的結帳金額
               </span>
@@ -1091,18 +1091,18 @@ function ClosedActionsArea({
 function OpeningRecordCard({ session }: { session: OpenedTodaySession }) {
   const openingDiff = formatDiff(session.openingDifference.toNumber());
   return (
-    <div className="rounded-xl border bg-white p-6 shadow-sm">
-      <h2 className="text-lg font-semibold text-earth-900">開店紀錄</h2>
-      <dl className="mt-4 grid grid-cols-2 gap-4 text-sm">
+    <div className="rounded-xl border border-earth-200 bg-white p-4">
+      <h2 className="text-base font-semibold text-earth-900">開店紀錄</h2>
+      <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
         <div>
           <dt className="text-earth-500">開店帳面（應有）</dt>
-          <dd className="mt-1 text-lg font-medium tabular-nums text-earth-900">
+          <dd className="mt-1 text-base font-medium tabular-nums text-earth-900">
             NT$ {session.openingBookBalance.toString()}
           </dd>
         </div>
         <div>
           <dt className="text-earth-500">實際點到</dt>
-          <dd className="mt-1 text-lg font-medium tabular-nums text-earth-900">
+          <dd className="mt-1 text-base font-medium tabular-nums text-earth-900">
             NT$ {session.openingActualCash.toString()}
           </dd>
         </div>
@@ -1110,7 +1110,7 @@ function OpeningRecordCard({ session }: { session: OpenedTodaySession }) {
           <dt className="text-earth-500">差額</dt>
           <dd className="mt-1">
             <span
-              className={`inline-block rounded-md px-2 py-0.5 text-lg font-medium tabular-nums ${openingDiff.className} ${openingDiff.chipClassName}`}
+              className={`inline-block rounded-md px-2 py-0.5 text-base font-medium tabular-nums ${openingDiff.className} ${openingDiff.chipClassName}`}
             >
               NT$ {openingDiff.label}
             </span>
@@ -1165,12 +1165,12 @@ function TransactionSummaryCard({
   cashbookNet?: string;
 }) {
   return (
-    <div className="rounded-xl border bg-white p-6 shadow-sm">
-      <h2 className="text-lg font-semibold text-earth-900">今日交易摘要</h2>
+    <div className="rounded-xl border border-earth-200 bg-white p-4">
+      <h2 className="text-base font-semibold text-earth-900">今日交易摘要</h2>
       <p className="mt-1 text-xs text-earth-500">
         {live ? "系統即時計算，閉店時凍結進快照欄位" : "閉店時凍結的快照"}
       </p>
-      <dl className="mt-4 grid grid-cols-2 gap-4 text-sm">
+      <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
         <div>
           <dt className="text-earth-500">現金收入</dt>
           <dd className="mt-1 text-base font-medium tabular-nums text-green-700">
@@ -1249,18 +1249,18 @@ function ClosedSettlementCard({ session }: { session: OpenedTodaySession }) {
   const closingDiff = formatDiff(session.closingDifference?.toNumber() ?? 0);
 
   return (
-    <div className="rounded-xl border bg-white p-6 shadow-sm">
-      <h2 className="text-lg font-semibold text-earth-900">閉店結算</h2>
-      <dl className="mt-4 grid grid-cols-2 gap-4 text-sm">
+    <div className="rounded-xl border border-earth-200 bg-white p-4">
+      <h2 className="text-base font-semibold text-earth-900">閉店結算</h2>
+      <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
         <div>
           <dt className="text-earth-500">系統應有</dt>
-          <dd className="mt-1 text-lg font-medium tabular-nums text-earth-900">
+          <dd className="mt-1 text-base font-medium tabular-nums text-earth-900">
             NT$ {session.expectedClosingCash?.toString() ?? "—"}
           </dd>
         </div>
         <div>
           <dt className="text-earth-500">閉店實點</dt>
-          <dd className="mt-1 text-lg font-medium tabular-nums text-earth-900">
+          <dd className="mt-1 text-base font-medium tabular-nums text-earth-900">
             NT$ {session.closingActualCash?.toString() ?? "—"}
           </dd>
         </div>
@@ -1268,7 +1268,7 @@ function ClosedSettlementCard({ session }: { session: OpenedTodaySession }) {
           <dt className="text-earth-500">差額</dt>
           <dd className="mt-1">
             <span
-              className={`inline-block rounded-md px-2 py-0.5 text-lg font-medium tabular-nums ${closingDiff.className} ${closingDiff.chipClassName}`}
+              className={`inline-block rounded-md px-2 py-0.5 text-base font-medium tabular-nums ${closingDiff.className} ${closingDiff.chipClassName}`}
             >
               NT$ {closingDiff.label}
             </span>
@@ -1289,9 +1289,9 @@ function ClosedSettlementCard({ session }: { session: OpenedTodaySession }) {
           </div>
         )}
       </dl>
-      <div className="mt-6 rounded-lg bg-primary-50 px-4 py-3">
+      <div className="mt-4 rounded-lg bg-primary-50 px-4 py-2.5">
         <p className="text-xs font-medium text-primary-700">下次開店起點</p>
-        <p className="mt-1 text-2xl font-bold tabular-nums text-primary-900">
+        <p className="mt-0.5 text-xl font-bold tabular-nums text-primary-900">
           NT$ {session.finalBookBalance?.toString() ?? "—"}
         </p>
         <p className="mt-1 text-xs text-primary-700">
