@@ -16,6 +16,7 @@ import {
   type BookingSummary,
 } from "./booking-detail-drawer";
 import { ACTIVE_BOOKING_STATUSES } from "@/lib/booking-constants";
+import { RightSheet } from "@/components/admin/right-sheet";
 
 const COMPLETABLE_STATUSES = new Set(["PENDING", "CONFIRMED"]);
 
@@ -313,6 +314,10 @@ export function BookingsManager({
     setActiveSummary(null);
   }, []);
 
+  const closeDay = useCallback(() => {
+    setSelectedDate(null);
+  }, []);
+
   // Apply optimistic status change to monthData; dayBookings re-derives via
   // useMemo. Replaces the old `router.refresh()` + `fetchDayDetail` re-run
   // (which together fired 5+ DB queries per action).
@@ -480,7 +485,7 @@ export function BookingsManager({
       />
 
       <div className="grid grid-cols-12 gap-4">
-        <div className="col-span-12 lg:col-span-8">
+        <div className="col-span-12">
           <BookingCalendarDesktop
             year={year}
             month={month}
@@ -493,7 +498,33 @@ export function BookingsManager({
             dimmedDates={dimmedDates}
           />
         </div>
-        <div className="col-span-12 lg:col-span-4">
+      </div>
+
+      {/* 當日預約改用右側 Drawer：避免窄螢幕（iPad/小視窗）被擠到月曆下方看不到。
+          開啟條件 = 有選日期且未開啟 Booking Detail，故兩層 Drawer 不會疊在一起。 */}
+      <RightSheet
+        open={!!selectedDate && !activeBookingId}
+        onClose={closeDay}
+        width={520}
+        labelledById="day-detail-sheet-title"
+      >
+        <div className="flex items-center justify-between border-b border-earth-200 px-4 py-3">
+          <h2
+            id="day-detail-sheet-title"
+            className="text-base font-semibold text-earth-900"
+          >
+            當日預約
+          </h2>
+          <button
+            type="button"
+            onClick={closeDay}
+            aria-label="關閉"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-earth-500 hover:bg-earth-100 hover:text-earth-700"
+          >
+            ✕
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4">
           <DayDetailPanel
             date={selectedDate}
             bookings={filteredDayBookings}
@@ -522,7 +553,7 @@ export function BookingsManager({
             batchActing={batchActing}
           />
         </div>
-      </div>
+      </RightSheet>
 
       <BookingDetailDrawer
         open={!!activeBookingId}

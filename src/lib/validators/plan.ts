@@ -24,8 +24,12 @@ export const updatePlanSchema = z.object({
 
 export const assignPlanSchema = z
   .object({
-    customerId: z.string().cuid(),
-    planId: z.string().cuid(),
+    // 不限 cuid：正式/匯入/staging seed 的 ID 未必是 cuid（與 extendWalletExpirySchema、
+    // single/trial/booking-checkout 慣例一致）。安全邊界由 assignPlanToCustomer 內
+    // customer.findUnique + assertStoreAccess、plan.findUnique({isActive}) + storeId
+    // guard 控制，ID 格式不是關卡。
+    customerId: z.string().min(1),
+    planId: z.string().min(1),
     paymentMethod: z.enum(["CASH", "TRANSFER", "LINE_PAY", "CREDIT_CARD", "OTHER", "UNPAID"]),
     note: z.string().max(500).optional(),
     // 折扣
