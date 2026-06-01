@@ -33,7 +33,7 @@ import { normalizePhone } from "@/lib/normalize";
 import { syncLineAccountForUser } from "@/server/services/line-account-sync";
 import { repairCustomerIdentityOnLogin } from "@/lib/identity-repair";
 import { awardLineJoinReferrerIfEligible } from "@/server/services/referral-points";
-import { logLineBindEvent } from "@/lib/line-bind-log";
+import { logLineBindEvent, maskId, maskLineUserId } from "@/lib/line-bind-log";
 
 /**
  * Lightweight detection of Prisma unique-constraint errors (P2002) without
@@ -390,4 +390,254 @@ async function runPostBindBestEffort(opts: {
       err: err instanceof Error ? err.message : String(err),
     });
   }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//
+//  bindLineToExistingCustomerById — customerId-driven helper (PR-G5.1.a)
+//
+//  Sister helper to bindLineToCustomerInStore(): same internal mask helpers,
+//  but driven by **customerId** instead of phone. Designed for callers that
+//  already know which Customer they want to bind LINE to:
+//    - webhook bind-code (PR-G5.2 will wire)
+//    - /oauth-confirm/finalize NEED_LOGIN path (PR-G5.4 will wire)
+//
+//  **NOT** wired by this PR — dead-code on prod until subsequent PRs
+//  consume it (same shipping pattern as the original PR-C1 helper).
+//
+//  Strict conformance to docs/line-identity-binding-pre-audit.md §5.3:
+//    Pre-write checklist for existing-user helper:
+//      1. caller provides storeId from a verifiable trusted source
+//      2. load Customer by customerId (read-only)
+//      3. verify customer.storeId === storeId → mismatch ⇒ store_mismatch + 0 writes
+//      4. verify customer.userId !== null → null ⇒ customer_has_no_user + 0 writes
+//      5. Customer.update + Account.create in single Serializable $transaction
+//         (A3 atomicity); any throw rolls everything back
+//
+//  Rejection statuses always write 0 DB rows. PII (lineUserId, customerId,
+//  userId) never logged raw — only via maskLineUserId() / maskId().
+//
+//  Explicitly NOT in PR-G5.1.a scope:
+//    - Does NOT create User (rejects userId === null instead).
+//      Activation of Customer.userId === null is the Case B activation
+//      helper's job (PR-G5.5 will land separately as
+//      activatePrecreatedCustomerWithLine).
+//    - Does NOT write an AuditLog row. Callers may opt-in to write their
+//      own AuditLog around the helper call if they want audit trail.
+//      (PR-G5.0 §5.3 mentioned AuditLog inside the tx, but PR-G5.2
+//      webhook refactor requires byte-equivalent output vs current
+//      legacy and current legacy doesn't write AuditLog — so deferring.)
+//
+// ════════════════════════════════════════════════════════════════════════════
+
+/** PR-G5.1.a helper input. */
+export interface BindLineToExistingCustomerByIdInput {
+  /**
+   * Trusted store context from caller. Per PR-G5.0 §5.3 rule 1, the caller is
+   * responsible for sourcing this from a verifiable trust source (webhook
+   * resolveStore / signed+verified oauth_line_session / NextAuth signed
+   * session). Helper enforces `customer.storeId === storeId` as the real
+   * authorization boundary regardless.
+   */
+  storeId: string;
+  /** Target Customer.id resolved by caller (binding code lookup, finalize state, etc.). */
+  customerId: string;
+  /** LINE userId from a verified OAuth / LIFF source. */
+  lineUserId: string;
+  /** LINE displayName for Customer.lineName; null is allowed. */
+  lineName: string | null;
+}
+
+/** PR-G5.1.a helper output — discriminated union; never throws on expected branches. */
+export type BindLineToExistingCustomerByIdResult =
+  | {
+      /** Customer.lineUserId / lineLinkStatus updated + Account[line] created. */
+      status: "bound_existing";
+      customerId: string;
+      userId: string;
+    }
+  | {
+      /**
+       * Customer was already bound to this exact lineUserId AND its
+       * Account[line] row already points at the same userId. Idempotent
+       * no-op; safe to call again.
+       */
+      status: "already_synced";
+      customerId: string;
+      userId: string;
+    }
+  | {
+      /**
+       * Customer.lineUserId is already set to a DIFFERENT lineUserId
+       * (or Account[line] already points to a different userId for the
+       * same lineUserId). Reject; require manual unbind by staff.
+       */
+      status: "customer_locked";
+      customerId: string;
+      /** Whichever conflicting lineUserId was observed first (existing on Customer or via Account row). */
+      existingLineUserId: string | null;
+    }
+  | {
+      /**
+       * customer.storeId !== input.storeId. Real authorization boundary
+       * per PR-G5.0 §5.3 step 3. 0 DB writes; no caller-side guard needed.
+       * Also returned when customerId resolves to no Customer at all
+       * (stale id from caller).
+       */
+      status: "store_mismatch";
+      expectedStoreId: string;
+      /** "(not_found)" when customerId resolved no row. */
+      actualStoreId: string;
+    }
+  | {
+      /**
+       * customer.userId === null. This helper is existing-user-only;
+       * Case B (staff-precreated Customer + first LINE OAuth) is handled
+       * by the separate activatePrecreatedCustomerWithLine helper
+       * (PR-G5.5). 0 DB writes; helper never silently creates User.
+       */
+      status: "customer_has_no_user";
+      customerId: string;
+    }
+  | {
+      /**
+       * Prisma P2002 unique-constraint violation during Customer.update or
+       * Account.create. Possible races:
+       *   - (storeId, lineUserId) collision: another Customer in same store
+       *     already claims this lineUserId
+       *   - (provider, providerAccountId) collision: Account[line] already
+       *     exists pointing at a different user (drift case PR-F1.2 detects)
+       * Transaction rolls back; 0 DB writes effectively committed.
+       */
+      status: "unique_conflict";
+      conflictTarget: string;
+    };
+
+/**
+ * customerId-driven LINE binding helper for existing-user Customers.
+ *
+ * @see docs/line-identity-binding-pre-audit.md §5.3 for full pre-write
+ *      checklist + caller routing rules + atomicity guarantees.
+ */
+export async function bindLineToExistingCustomerById(
+  input: BindLineToExistingCustomerByIdInput,
+): Promise<BindLineToExistingCustomerByIdResult> {
+  // ── step 2: load Customer (read-only, outside tx) ──────────────────────
+  const customer = await prisma.customer.findUnique({
+    where: { id: input.customerId },
+    select: {
+      id: true,
+      storeId: true,
+      userId: true,
+      lineUserId: true,
+      lineLinkStatus: true,
+    },
+  });
+
+  // No row → treat as store_mismatch with sentinel actualStoreId so caller
+  // (and tests) can disambiguate from a real cross-store conflict.
+  if (!customer) {
+    return {
+      status: "store_mismatch",
+      expectedStoreId: input.storeId,
+      actualStoreId: "(not_found)",
+    };
+  }
+
+  // ── step 3: cross-store guard (real authorization boundary) ────────────
+  if (customer.storeId !== input.storeId) {
+    return {
+      status: "store_mismatch",
+      expectedStoreId: input.storeId,
+      actualStoreId: customer.storeId,
+    };
+  }
+
+  // ── step 4: existing-user guard (Case B routes elsewhere) ──────────────
+  if (customer.userId === null) {
+    return { status: "customer_has_no_user", customerId: customer.id };
+  }
+  const customerUserId = customer.userId;
+
+  // ── step 5a: idempotent already_synced when Customer.lineUserId matches
+  //             AND Account[line] already points at this same userId. ────
+  if (customer.lineUserId === input.lineUserId) {
+    const existingAccount = await prisma.account.findUnique({
+      where: {
+        provider_providerAccountId: {
+          provider: "line",
+          providerAccountId: input.lineUserId,
+        },
+      },
+      select: { userId: true },
+    });
+    if (existingAccount && existingAccount.userId === customerUserId) {
+      return {
+        status: "already_synced",
+        customerId: customer.id,
+        userId: customerUserId,
+      };
+    }
+    // Customer.lineUserId set but Account row missing or mis-pointed —
+    // fall through to the write tx to repair Account in-tx. P2002 will
+    // surface for mis-pointed Account row.
+  }
+
+  // ── step 5b: Customer.lineUserId set to a DIFFERENT line → reject ──────
+  if (customer.lineUserId && customer.lineUserId !== input.lineUserId) {
+    return {
+      status: "customer_locked",
+      customerId: customer.id,
+      existingLineUserId: customer.lineUserId,
+    };
+  }
+
+  // ── step 6: atomic Customer.update + Account.create (Serializable) ─────
+  try {
+    await prisma.$transaction(
+      async (tx) => {
+        await tx.customer.update({
+          where: { id: customer.id },
+          data: {
+            lineUserId: input.lineUserId,
+            lineName: input.lineName,
+            lineLinkStatus: "LINKED",
+            lineLinkedAt: new Date(),
+          },
+        });
+        await tx.account.create({
+          data: {
+            userId: customerUserId,
+            provider: "line",
+            providerAccountId: input.lineUserId,
+            type: "oauth",
+          },
+        });
+      },
+      // Serializable per PR-G5.0 §5.3 step 5 (A3 atomicity).
+      { isolationLevel: "Serializable" },
+    );
+  } catch (err) {
+    if (isPrismaUniqueConflict(err)) {
+      const target = uniqueConflictTarget(err);
+      // Helper-internal log on the rare race path. Caller-specific path
+      // labelling is the caller's responsibility — this is a coarse warn
+      // so prod ops see the race even if caller forgets to log.
+      console.warn("[bindLineToExistingCustomerById] unique_conflict", {
+        storeId: maskId(input.storeId),
+        customerId: maskId(customer.id),
+        userId: maskId(customerUserId),
+        lineUserId: maskLineUserId(input.lineUserId),
+        conflictTarget: target,
+      });
+      return { status: "unique_conflict", conflictTarget: target };
+    }
+    throw err;
+  }
+
+  return {
+    status: "bound_existing",
+    customerId: customer.id,
+    userId: customerUserId,
+  };
 }
