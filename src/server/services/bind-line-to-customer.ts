@@ -623,6 +623,7 @@ export async function bindLineToExistingCustomerById(
       userId: true,
       lineUserId: true,
       lineLinkStatus: true,
+      mergedIntoCustomerId: true,
     },
   });
 
@@ -650,6 +651,29 @@ export async function bindLineToExistingCustomerById(
     return { status: "customer_has_no_user", customerId: customer.id };
   }
   const customerUserId = customer.userId;
+
+  // ── step 4.5: preflight merged-Customer guard (PR #242 Codex P2 round 11)
+  //
+  // If the Customer was already merged into another (Phase-1
+  // customer-merge sets `mergedIntoCustomerId`), this row is a stale
+  // source — no LINE binding should be applied to it. Reject BEFORE
+  // any dispatch into runFullBindTx / runAccountOnlyRepairTx so the
+  // exclusion is visible at the main-helper layer (not only inside
+  // the in-tx predicates). Defense-in-depth: the in-tx guards in
+  // both sibling fns also include `mergedIntoCustomerId: null`.
+  //
+  // Truthy check (not `!== null`) so that a missing-field mock
+  // fixture in tests (legacy mocks predating round 11) is treated
+  // the same as a real DB null — Prisma's `findUnique(select)`
+  // returns `string | null` for this nullable column, so this only
+  // differs from `!== null` when `undefined` slips in via stale
+  // test fixtures. Production behaviour is identical.
+  if (customer.mergedIntoCustomerId) {
+    return {
+      status: "stale_customer_link",
+      customerId: customer.id,
+    };
+  }
 
   // ── step 5: dispatch by linkage state ──────────────────────────────────
   //
@@ -971,7 +995,8 @@ async function runAccountOnlyRepairTx(params: {
           },
           select: { id: true },
         });
-        if (!stillLinked) throw new StaleCustomerLinkError(params.customerId);
+        const canRepairAccount = stillLinked !== null;
+        if (!canRepairAccount) throw new StaleCustomerLinkError(params.customerId);
         await tx.account.create({
           data: {
             userId: params.userId,

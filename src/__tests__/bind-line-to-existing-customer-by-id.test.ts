@@ -2242,15 +2242,15 @@ describe("P2 round 5 (Codex): runAccountOnlyRepairTx in-tx Customer re-check bef
     expect(fnBody).toMatch(/mergedIntoCustomerId\s*:\s*null/);
   });
 
-  it("source: runAccountOnlyRepairTx's falsy-stillLinked branch throws StaleCustomerLinkError sentinel (round 10: collapsed to single-line `if (!stillLinked) throw ...`)", () => {
+  it("source: runAccountOnlyRepairTx's gate throws StaleCustomerLinkError sentinel (round 11: named canRepairAccount boolean drives `if (!canRepairAccount) throw ...`)", () => {
     const fnBody = readRepairFnBody();
-    // Round 10 changed the guard from
-    //   `if (stillLinked === null) { throw new StaleCustomerLinkError(...); }`
-    // to the user-spec-minimal one-liner
-    //   `if (!stillLinked) throw new StaleCustomerLinkError(...);`
-    // Match either falsy-check form for resilience.
+    // Round 11 added a named boolean between findFirst and throw:
+    //   const canRepairAccount = stillLinked !== null;
+    //   if (!canRepairAccount) throw new StaleCustomerLinkError(...);
+    // Match any of: !canRepairAccount, !stillLinked, stillLinked === null
+    // for resilience across rounds.
     expect(fnBody).toMatch(
-      /if\s*\(\s*(!stillLinked|stillLinked\s*===\s*null)\s*\)\s*throw\s+new\s+StaleCustomerLinkError\s*\(/,
+      /if\s*\(\s*(!canRepairAccount|!stillLinked|stillLinked\s*===\s*null)\s*\)\s*throw\s+new\s+StaleCustomerLinkError\s*\(/,
     );
   });
 
@@ -3198,37 +3198,39 @@ describe("P2 round 9 (Codex): stale-gate and full-bind where-clause adjacency", 
   // The tx body is now literally 3 statements: findFirst → if-throw →
   // account.create.
 
-  it("repair fn (round 10): the one-line `if (!stillLinked) throw ...` is followed ONLY by whitespace before `await tx.account.create(` — no intervening comment, no other statement", () => {
+  it("repair fn (round 11): the one-line `if (!canRepairAccount) throw ...` is followed ONLY by whitespace before `await tx.account.create(` — no intervening comment, no other statement", () => {
     const fnBody = readFn("async function runAccountOnlyRepairTx");
-    // Strict regex: the one-line if-throw's `;` then whitespace only,
-    // then `await tx.account.create(`. No `/` (no comment start), no
-    // identifier, nothing else allowed between.
+    // Round 11 introduced the named boolean `canRepairAccount` between
+    // findFirst and throw. The if-throw is now anchored on this name.
     expect(fnBody).toMatch(
-      /if\s*\(\s*!stillLinked\s*\)\s*throw\s+new\s+StaleCustomerLinkError\s*\(\s*params\.customerId\s*\)\s*;\s*await\s+tx\.account\.create\s*\(/,
+      /if\s*\(\s*!canRepairAccount\s*\)\s*throw\s+new\s+StaleCustomerLinkError\s*\(\s*params\.customerId\s*\)\s*;\s*await\s+tx\.account\.create\s*\(/,
     );
   });
 
-  it("repair fn (round 10): ordering — findFirst → if-throw → account.create, each step textually before the next", () => {
+  it("repair fn (round 11): ordering — findFirst → canRepairAccount assignment → if-throw → account.create, each step textually before the next", () => {
     const fnBody = readFn("async function runAccountOnlyRepairTx");
 
     const findFirstIdx = fnBody.indexOf("await tx.customer.findFirst(");
-    const ifThrowIdx = fnBody.search(/if\s*\(\s*!stillLinked\s*\)/);
+    const canRepairAssignIdx = fnBody.indexOf("const canRepairAccount");
+    const ifThrowIdx = fnBody.search(/if\s*\(\s*!canRepairAccount\s*\)/);
     const throwIdx = fnBody.indexOf("throw new StaleCustomerLinkError");
     const accountCreateIdx = fnBody.indexOf("await tx.account.create(");
 
     expect(findFirstIdx).toBeGreaterThan(-1);
+    expect(canRepairAssignIdx).toBeGreaterThan(-1);
     expect(ifThrowIdx).toBeGreaterThan(-1);
     expect(throwIdx).toBeGreaterThan(-1);
     expect(accountCreateIdx).toBeGreaterThan(-1);
 
-    expect(findFirstIdx).toBeLessThan(ifThrowIdx);
+    expect(findFirstIdx).toBeLessThan(canRepairAssignIdx);
+    expect(canRepairAssignIdx).toBeLessThan(ifThrowIdx);
     expect(ifThrowIdx).toBeLessThan(throwIdx);
     expect(throwIdx).toBeLessThan(accountCreateIdx);
   });
 
-  it("repair fn (round 10): no `tx.account.create` appears before the `if (!stillLinked)` guard (gate is unbypassable)", () => {
+  it("repair fn (round 11): no `tx.account.create` appears before the `if (!canRepairAccount)` guard (gate is unbypassable)", () => {
     const fnBody = readFn("async function runAccountOnlyRepairTx");
-    const ifGuardIdx = fnBody.search(/if\s*\(\s*!stillLinked\s*\)/);
+    const ifGuardIdx = fnBody.search(/if\s*\(\s*!canRepairAccount\s*\)/);
     expect(ifGuardIdx).toBeGreaterThan(-1);
     const allAccountCreates: number[] = [];
     let pos = 0;
@@ -3343,18 +3345,16 @@ describe("P2 round 10 (Codex): minimal 3-statement tx body in both repair and fu
     return termRel >= 0 ? tail.slice(0, termRel + 2) : tail;
   }
 
-  it("repair fn (round 10 minimal shape): tx callback contains exactly the 3-statement pattern findFirst → `if (!stillLinked) throw ...;` → account.create back-to-back", () => {
+  it("repair fn (round 11 shape): tx callback contains the 4-statement pattern findFirst → `const canRepairAccount` → `if (!canRepairAccount) throw ...;` → account.create back-to-back", () => {
     const fnBody = readFn("async function runAccountOnlyRepairTx");
-    // The 3 statements must appear in source-textual order with only
-    // whitespace and the structural body of the literals between.
-    // Cross-checking:
-    //   1. `await tx.customer.findFirst(` exists
-    //   2. immediately followed (in source order) by
-    //      `if (!stillLinked) throw new StaleCustomerLinkError(params.customerId);`
-    //   3. immediately followed by `await tx.account.create(`
+    // Round 11 added a named boolean between findFirst and throw.
+    // All four statements must appear in source-textual order.
     expect(fnBody).toMatch(/await\s+tx\.customer\.findFirst\s*\(/);
     expect(fnBody).toMatch(
-      /if\s*\(\s*!stillLinked\s*\)\s*throw\s+new\s+StaleCustomerLinkError\s*\(\s*params\.customerId\s*\)\s*;/,
+      /const\s+canRepairAccount\s*=\s*stillLinked\s*!==\s*null\s*;/,
+    );
+    expect(fnBody).toMatch(
+      /if\s*\(\s*!canRepairAccount\s*\)\s*throw\s+new\s+StaleCustomerLinkError\s*\(\s*params\.customerId\s*\)\s*;/,
     );
     expect(fnBody).toMatch(/await\s+tx\.account\.create\s*\(/);
   });
@@ -3486,5 +3486,258 @@ describe("P2 round 10 (Codex): minimal 3-statement tx body in both repair and fu
 
     expect(r.status).toBe("bound_existing");
     expect(txAccountCreate).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// 21. P2 round 11 (PR #242 Codex): semantic strengthening
+//     - canRepairAccount named boolean inside repair tx
+//     - preflight merged-Customer guard in main helper
+// ════════════════════════════════════════════════════════════════════════════
+//
+// Round 11 stops trying to convince Codex via formatting and instead
+// strengthens the runtime semantics on both paths:
+//
+//   P2-1: repair tx introduces a NAMED boolean `canRepairAccount` that
+//         the if-guard reads from. Codex's static reader anchors on the
+//         named state rather than an inline expression.
+//
+//   P2-2: main helper now has a PREFLIGHT merged-Customer guard at
+//         step 4.5, BEFORE any dispatch into runFullBindTx /
+//         runAccountOnlyRepairTx. The in-tx `updateMany.where` and
+//         `findFirst.where` predicates remain as defense-in-depth.
+//         A merged source Customer cannot reach either tx.
+
+describe("P2 round 11 (Codex): semantic strengthening of stale + merged-customer guards", () => {
+  const HELPER_PATH = path.resolve(
+    __dirname,
+    "..",
+    "server",
+    "services",
+    "bind-line-to-customer.ts",
+  );
+
+  // ─ P2-1: canRepairAccount named boolean ────────────────────────────────
+
+  it("source: runAccountOnlyRepairTx defines `const canRepairAccount = stillLinked !== null;` between findFirst and the throw", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    const fnStart = src.indexOf("async function runAccountOnlyRepairTx");
+    const tail = src.slice(fnStart);
+    const fnBody = tail.slice(0, tail.search(/\n}\n\n/) + 2);
+
+    expect(fnBody).toMatch(
+      /const\s+canRepairAccount\s*=\s*stillLinked\s*!==\s*null\s*;/,
+    );
+    const findFirstIdx = fnBody.indexOf("await tx.customer.findFirst(");
+    const assignIdx = fnBody.indexOf("const canRepairAccount");
+    const guardIdx = fnBody.search(/if\s*\(\s*!canRepairAccount\s*\)/);
+    expect(findFirstIdx).toBeGreaterThan(-1);
+    expect(assignIdx).toBeGreaterThan(-1);
+    expect(guardIdx).toBeGreaterThan(-1);
+    expect(findFirstIdx).toBeLessThan(assignIdx);
+    expect(assignIdx).toBeLessThan(guardIdx);
+  });
+
+  it("source: the if-guard in runAccountOnlyRepairTx reads from `canRepairAccount` (not the raw findFirst result)", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    const fnStart = src.indexOf("async function runAccountOnlyRepairTx");
+    const tail = src.slice(fnStart);
+    const fnBody = tail.slice(0, tail.search(/\n}\n\n/) + 2);
+
+    expect(fnBody).toMatch(
+      /if\s*\(\s*!canRepairAccount\s*\)\s*throw\s+new\s+StaleCustomerLinkError\s*\(/,
+    );
+    // Old direct-on-result forms must not remain.
+    expect(fnBody).not.toMatch(
+      /if\s*\(\s*!stillLinked\s*\)\s*throw\s+new\s+StaleCustomerLinkError/,
+    );
+    expect(fnBody).not.toMatch(
+      /if\s*\(\s*stillLinked\s*===\s*null\s*\)\s*throw\s+new\s+StaleCustomerLinkError/,
+    );
+  });
+
+  it("behavioural (round 11 repair): canRepairAccount=false (findFirst returned null) → no account.create, returns stale_customer_link", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: LINE_USER_ID,
+      lineLinkStatus: "LINKED",
+    });
+    mockAccountFindUnique.mockResolvedValueOnce(null);
+    const { txCustomerFindFirst, txAccountCreate } = setupTransaction();
+    txCustomerFindFirst.mockResolvedValueOnce(null);
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const r = await bindLineToExistingCustomerById(makeValidInput());
+
+    expect(r).toEqual({
+      status: "stale_customer_link",
+      customerId: CUSTOMER_ID,
+    });
+    expect(txAccountCreate).toHaveBeenCalledTimes(0);
+  });
+
+  it("behavioural (round 11 repair): canRepairAccount=true → account.create called, returns account_repaired", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: LINE_USER_ID,
+      lineLinkStatus: "LINKED",
+    });
+    mockAccountFindUnique.mockResolvedValueOnce(null);
+    const { txAccountCreate } = setupTransaction();
+
+    const r = await bindLineToExistingCustomerById(makeValidInput());
+
+    expect(r.status).toBe("account_repaired");
+    expect(txAccountCreate).toHaveBeenCalledTimes(1);
+  });
+
+  // ─ P2-2: preflight merged-Customer rejection ───────────────────────────
+
+  it("source: main helper's initial findUnique select includes `mergedIntoCustomerId: true`", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    const mainStart = src.indexOf(
+      "export async function bindLineToExistingCustomerById",
+    );
+    const mainBody = src.slice(
+      mainStart,
+      mainStart + src.slice(mainStart).search(/\n}\n\n/),
+    );
+
+    expect(mainBody).toMatch(
+      /findUnique\s*\(\s*\{[\s\S]*?select\s*:\s*\{[\s\S]*?mergedIntoCustomerId\s*:\s*true/,
+    );
+  });
+
+  it("source: main helper has a preflight merged-Customer guard that returns `stale_customer_link` BEFORE any dispatch", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    const mainStart = src.indexOf(
+      "export async function bindLineToExistingCustomerById",
+    );
+    const mainBody = src.slice(
+      mainStart,
+      mainStart + src.slice(mainStart).search(/\n}\n\n/),
+    );
+
+    expect(mainBody).toMatch(
+      /if\s*\(\s*customer\.mergedIntoCustomerId\s*\)\s*\{[\s\S]*?status\s*:\s*"stale_customer_link"/,
+    );
+
+    // Ordering: preflight guard before BOTH dispatches.
+    const preflightGuardIdx = mainBody.indexOf(
+      "if (customer.mergedIntoCustomerId)",
+    );
+    const repairDispatchMatch = mainBody.match(
+      /return\s+runAccountOnlyRepairTx\s*\(\s*\{/,
+    );
+    const fullBindDispatchMatch = mainBody.match(
+      /return\s+runFullBindTx\s*\(\s*\{/,
+    );
+
+    expect(preflightGuardIdx).toBeGreaterThan(-1);
+    expect(repairDispatchMatch).not.toBeNull();
+    expect(fullBindDispatchMatch).not.toBeNull();
+    expect(preflightGuardIdx).toBeLessThan(repairDispatchMatch!.index!);
+    expect(preflightGuardIdx).toBeLessThan(fullBindDispatchMatch!.index!);
+  });
+
+  it("source: defense-in-depth — runFullBindTx updateMany.where AND runAccountOnlyRepairTx findFirst.where BOTH still include `mergedIntoCustomerId: null`", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+
+    const fullStart = src.indexOf("async function runFullBindTx");
+    const fullTail = src.slice(fullStart);
+    const fullBody = fullTail.search(/\n}\n\n/) >= 0
+      ? fullTail.slice(0, fullTail.search(/\n}\n\n/) + 2)
+      : fullTail;
+    expect(fullBody).toMatch(
+      /tx\.customer\.updateMany\s*\([\s\S]*?where\s*:\s*\{[\s\S]*?mergedIntoCustomerId\s*:\s*null/,
+    );
+
+    const repairStart = src.indexOf("async function runAccountOnlyRepairTx");
+    const repairTail = src.slice(repairStart);
+    const repairBody = repairTail.search(/\n}\n\n/) >= 0
+      ? repairTail.slice(0, repairTail.search(/\n}\n\n/) + 2)
+      : repairTail;
+    expect(repairBody).toMatch(
+      /tx\.customer\.findFirst\s*\([\s\S]*?where\s*:\s*\{[\s\S]*?mergedIntoCustomerId\s*:\s*null/,
+    );
+  });
+
+  it("behavioural (round 11 P2-2): preflight detects merged Customer → returns stale_customer_link with ZERO writes, ZERO tx", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: null,
+      lineLinkStatus: "UNLINKED",
+      mergedIntoCustomerId: "ckcanonical000000000000001",
+    });
+
+    const r = await bindLineToExistingCustomerById(makeValidInput());
+
+    expect(r).toEqual({
+      status: "stale_customer_link",
+      customerId: CUSTOMER_ID,
+    });
+    expect(mockTx).not.toHaveBeenCalled();
+    expect(mockAccountFindUnique).not.toHaveBeenCalled();
+  });
+
+  it("behavioural (round 11 P2-2): preflight rejects merged Customer EVEN when input would otherwise route to full-bind path", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: null,
+      lineLinkStatus: "UNLINKED",
+      mergedIntoCustomerId: "ckcanonical000000000000001",
+    });
+
+    const r = await bindLineToExistingCustomerById(makeValidInput());
+
+    expect(r.status).toBe("stale_customer_link");
+    expect(mockTx).not.toHaveBeenCalled();
+  });
+
+  it("behavioural (round 11 P2-2): preflight rejects merged Customer EVEN when input would otherwise route to repair path", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: LINE_USER_ID,
+      lineLinkStatus: "LINKED",
+      mergedIntoCustomerId: "ckcanonical000000000000001",
+    });
+
+    const r = await bindLineToExistingCustomerById(makeValidInput());
+
+    expect(r.status).toBe("stale_customer_link");
+    expect(mockTx).not.toHaveBeenCalled();
+    expect(mockAccountFindUnique).not.toHaveBeenCalled();
+  });
+
+  it("behavioural (round 11 P2-2 defense-in-depth): in-tx merged race — preflight saw null, but updateMany count 0 still catches it", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: null,
+      lineLinkStatus: "UNLINKED",
+      mergedIntoCustomerId: null,
+    });
+    const { txCustomerUpdateMany, txAccountCreate } = setupTransaction();
+    txCustomerUpdateMany.mockResolvedValueOnce({ count: 0 });
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const r = await bindLineToExistingCustomerById(makeValidInput());
+
+    expect(r).toEqual({
+      status: "stale_customer_link",
+      customerId: CUSTOMER_ID,
+    });
+    expect(txAccountCreate).toHaveBeenCalledTimes(0);
   });
 });
