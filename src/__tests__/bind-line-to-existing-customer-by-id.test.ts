@@ -2171,7 +2171,14 @@ describe("P1 round 1 (Codex): conditional Customer update + stale_customer_link 
 describe("P2 round 5 (Codex): runAccountOnlyRepairTx in-tx Customer re-check before Account.create", () => {
   // Source-level invariants for the in-tx re-check shape ─────────────────
 
-  it("source: runAccountOnlyRepairTx body contains exactly ONE `tx.customer.findFirst` call (the in-tx re-check)", () => {
+  // ─ P2 round 6 (PR #242 Codex): in-tx re-check is now extracted into
+  //   `assertCustomerStillLinkedForAccountRepairTx`. The findFirst,
+  //   the 5-predicate where-clause, and the sentinel throw all live
+  //   in THAT helper's body. runAccountOnlyRepairTx must call the
+  //   helper before tx.account.create — and tests pin BOTH the helper
+  //   shape AND the call-order in the repair body.
+
+  it("source: assertCustomerStillLinkedForAccountRepairTx exists as a named private fn (PR #242 Codex P2 round 6)", () => {
     const HELPER_PATH = path.resolve(
       __dirname,
       "..",
@@ -2180,13 +2187,33 @@ describe("P2 round 5 (Codex): runAccountOnlyRepairTx in-tx Customer re-check bef
       "bind-line-to-customer.ts",
     );
     const src = readFileSync(HELPER_PATH, "utf8");
-    const fnStart = src.indexOf("async function runAccountOnlyRepairTx");
-    const fnBody = src.slice(fnStart, fnStart + src.slice(fnStart).indexOf("\n}\n") + 2);
+    expect(src).toMatch(
+      /async function assertCustomerStillLinkedForAccountRepairTx\s*\(/,
+    );
+  });
+
+  it("source: assertCustomerStillLinkedForAccountRepairTx body contains exactly ONE `tx.customer.findFirst` call (the in-tx re-check)", () => {
+    const HELPER_PATH = path.resolve(
+      __dirname,
+      "..",
+      "server",
+      "services",
+      "bind-line-to-customer.ts",
+    );
+    const src = readFileSync(HELPER_PATH, "utf8");
+    const fnStart = src.indexOf(
+      "async function assertCustomerStillLinkedForAccountRepairTx",
+    );
+    expect(fnStart).toBeGreaterThan(-1);
+    const fnBody = src.slice(
+      fnStart,
+      fnStart + src.slice(fnStart).indexOf("\n}\n") + 2,
+    );
     const matches = fnBody.match(/tx\.customer\.findFirst/g) ?? [];
     expect(matches.length).toBe(1);
   });
 
-  it("source: in-tx re-check where-clause re-asserts every preflight invariant (id / storeId / userId / lineUserId / mergedIntoCustomerId: null)", () => {
+  it("source: assert helper's findFirst where-clause re-asserts every preflight invariant (id / storeId / userId / lineUserId / mergedIntoCustomerId: null)", () => {
     const HELPER_PATH = path.resolve(
       __dirname,
       "..",
@@ -2195,10 +2222,14 @@ describe("P2 round 5 (Codex): runAccountOnlyRepairTx in-tx Customer re-check bef
       "bind-line-to-customer.ts",
     );
     const src = readFileSync(HELPER_PATH, "utf8");
-    const fnStart = src.indexOf("async function runAccountOnlyRepairTx");
-    const fnBody = src.slice(fnStart, fnStart + src.slice(fnStart).indexOf("\n}\n") + 2);
+    const fnStart = src.indexOf(
+      "async function assertCustomerStillLinkedForAccountRepairTx",
+    );
+    const fnBody = src.slice(
+      fnStart,
+      fnStart + src.slice(fnStart).indexOf("\n}\n") + 2,
+    );
 
-    // Each predicate must be present in the findFirst where-clause.
     expect(fnBody).toMatch(/id\s*:\s*params\.customerId/);
     expect(fnBody).toMatch(/storeId\s*:\s*params\.storeId/);
     expect(fnBody).toMatch(/userId\s*:\s*params\.userId/);
@@ -2206,7 +2237,32 @@ describe("P2 round 5 (Codex): runAccountOnlyRepairTx in-tx Customer re-check bef
     expect(fnBody).toMatch(/mergedIntoCustomerId\s*:\s*null/);
   });
 
-  it("source: stillValid === null branch throws StaleCustomerLinkError sentinel", () => {
+  it("source: assert helper's stillValid === null branch throws StaleCustomerLinkError sentinel", () => {
+    const HELPER_PATH = path.resolve(
+      __dirname,
+      "..",
+      "server",
+      "services",
+      "bind-line-to-customer.ts",
+    );
+    const src = readFileSync(HELPER_PATH, "utf8");
+    const fnStart = src.indexOf(
+      "async function assertCustomerStillLinkedForAccountRepairTx",
+    );
+    const fnBody = src.slice(
+      fnStart,
+      fnStart + src.slice(fnStart).indexOf("\n}\n") + 2,
+    );
+
+    expect(fnBody).toMatch(/stillValid\s*===\s*null/);
+    expect(fnBody).toMatch(/throw\s+new\s+StaleCustomerLinkError\s*\(/);
+  });
+
+  it("source: runAccountOnlyRepairTx calls assertCustomerStillLinkedForAccountRepairTx BEFORE tx.account.create (PR #242 Codex P2 round 6 ordering invariant)", () => {
+    // The whole point of round 6: the stale-state gate is now a
+    // clearly named helper invoked structurally BEFORE Account.create.
+    // If anyone reorders the calls or removes the assert, this test
+    // fails before any behavioural test.
     const HELPER_PATH = path.resolve(
       __dirname,
       "..",
@@ -2216,10 +2272,37 @@ describe("P2 round 5 (Codex): runAccountOnlyRepairTx in-tx Customer re-check bef
     );
     const src = readFileSync(HELPER_PATH, "utf8");
     const fnStart = src.indexOf("async function runAccountOnlyRepairTx");
-    const fnBody = src.slice(fnStart, fnStart + src.slice(fnStart).indexOf("\n}\n") + 2);
+    expect(fnStart).toBeGreaterThan(-1);
+    const fnBody = src.slice(
+      fnStart,
+      fnStart + src.slice(fnStart).indexOf("\n}\n") + 2,
+    );
 
-    expect(fnBody).toMatch(/stillValid\s*===\s*null/);
-    expect(fnBody).toMatch(/throw\s+new\s+StaleCustomerLinkError\s*\(/);
+    const assertCallIdx = fnBody.indexOf(
+      "assertCustomerStillLinkedForAccountRepairTx(",
+    );
+    const accountCreateIdx = fnBody.indexOf("tx.account.create(");
+
+    expect(assertCallIdx).toBeGreaterThan(-1);
+    expect(accountCreateIdx).toBeGreaterThan(-1);
+    expect(assertCallIdx).toBeLessThan(accountCreateIdx);
+  });
+
+  it("source: runAccountOnlyRepairTx body no longer contains inline `tx.customer.findFirst` (the re-check is fully extracted into the assert helper)", () => {
+    const HELPER_PATH = path.resolve(
+      __dirname,
+      "..",
+      "server",
+      "services",
+      "bind-line-to-customer.ts",
+    );
+    const src = readFileSync(HELPER_PATH, "utf8");
+    const fnStart = src.indexOf("async function runAccountOnlyRepairTx");
+    const fnBody = src.slice(
+      fnStart,
+      fnStart + src.slice(fnStart).indexOf("\n}\n") + 2,
+    );
+    expect(fnBody).not.toMatch(/tx\.customer\.findFirst/);
   });
 
   // Behavioural sentinels ─────────────────────────────────────────────────
@@ -2543,5 +2626,261 @@ describe("P2 round 5 (Codex): runAccountOnlyRepairTx in-tx Customer re-check bef
       expect(data).not.toHaveProperty("lineLinkStatus");
       expect(data).not.toHaveProperty("lineUserId");
     }
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// 17. P2 round 6 (PR #242 Codex): account_owner_mismatch explicit dispatch
+// ════════════════════════════════════════════════════════════════════════════
+//
+// Codex flagged two distinct issues in the previous round, both
+// addressed in round 6:
+//
+//   P2-1: Re-check the customer before repairing the account.
+//         The inline in-tx re-check did not make the safety gate
+//         structurally obvious. Round 6 extracts it into a named
+//         private fn `assertCustomerStillLinkedForAccountRepairTx`
+//         invoked structurally BEFORE `tx.account.create`. Source-
+//         structure tests in round-5 / above lock the new shape.
+//
+//   P2-2: Return customer_locked for mismatched LINE Account owners.
+//         When Customer.lineUserId === input.lineUserId AND a matching
+//         Account[line] row exists BUT Account.userId !== Customer.userId,
+//         the old flow fell into runAccountOnlyRepairTx → Account.create
+//         → P2002 → generic unique_conflict. Round 6 detects the
+//         mismatch BEFORE the repair dispatch and returns a dedicated
+//         `account_owner_mismatch` status so the two semantically
+//         distinct drift modes stay disjoint.
+
+describe("P2 round 6 (Codex): account_owner_mismatch — Account[line].userId !== Customer.userId", () => {
+  it("happy path → account_owner_mismatch: no tx, no Account.create, no Customer writes; masked log fires once", async () => {
+    const OTHER_USER_ID = "ckuser0000000000000000099";
+
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID, // Customer points at USER_ID
+      lineUserId: LINE_USER_ID,
+      lineLinkStatus: "LINKED",
+    });
+    // Account[line] for the same lineUserId exists, but its userId
+    // points at a DIFFERENT user — the drift case Codex named.
+    mockAccountFindUnique.mockResolvedValueOnce({ userId: OTHER_USER_ID });
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const r = await bindLineToExistingCustomerById(makeValidInput());
+
+    expect(r).toEqual({
+      status: "account_owner_mismatch",
+      customerId: CUSTOMER_ID,
+      customerUserId: USER_ID,
+      accountUserId: OTHER_USER_ID,
+    });
+
+    // No tx at all — detection is before the repair dispatch.
+    expect(mockTx).not.toHaveBeenCalled();
+
+    // Masked log fired once, with both customerUserId and accountUserId
+    // distinguishable in masked form (different head bytes).
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    const dumped = warnSpy.mock.calls
+      .flat()
+      .map((a) => (typeof a === "string" ? a : JSON.stringify(a)))
+      .join("\n");
+    expect(dumped).toContain("account_owner_mismatch");
+    expect(dumped).not.toContain(USER_ID);
+    expect(dumped).not.toContain(OTHER_USER_ID);
+    expect(dumped).not.toContain(LINE_USER_ID);
+    expect(dumped).toContain("ckuser****"); // both userIds masked
+
+    warnSpy.mockRestore();
+  });
+
+  it("regression: missing-Account repair path is UNAFFECTED — still returns account_repaired", async () => {
+    // Sanity: round-6 detection must only fire when Account exists with
+    // a mismatched userId. The standard missing-Account drift case
+    // (Account row absent) MUST still route to runAccountOnlyRepairTx.
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: LINE_USER_ID,
+      lineLinkStatus: "LINKED",
+    });
+    mockAccountFindUnique.mockResolvedValueOnce(null); // Account missing
+    const { txAccountCreate, txCustomerUpdate, txCustomerUpdateMany } =
+      setupTransaction();
+
+    const r = await bindLineToExistingCustomerById(makeValidInput());
+
+    expect(r.status).toBe("account_repaired");
+    expect(txAccountCreate).toHaveBeenCalledTimes(1);
+    expect(txCustomerUpdate).toHaveBeenCalledTimes(0);
+    expect(txCustomerUpdateMany).toHaveBeenCalledTimes(0);
+  });
+
+  it("regression: idempotent already_synced path is UNAFFECTED — Account.userId === Customer.userId still short-circuits to 0 writes", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: LINE_USER_ID,
+      lineLinkStatus: "LINKED",
+    });
+    mockAccountFindUnique.mockResolvedValueOnce({ userId: USER_ID });
+
+    const r = await bindLineToExistingCustomerById(makeValidInput());
+
+    expect(r).toEqual({
+      status: "already_synced",
+      customerId: CUSTOMER_ID,
+      userId: USER_ID,
+    });
+    expect(mockTx).not.toHaveBeenCalled();
+  });
+
+  it("regression: true P2002 race from Account.create still returns unique_conflict (NOT account_owner_mismatch)", async () => {
+    // True racing concurrent binder: at preflight Account row didn't
+    // exist (so we route to runAccountOnlyRepairTx); then by the time
+    // account.create runs, another binder inserted the same row, so
+    // Prisma fires P2002. This is a real race, not a known drift
+    // state — must remain unique_conflict.
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: LINE_USER_ID,
+      lineLinkStatus: "LINKED",
+    });
+    mockAccountFindUnique.mockResolvedValueOnce(null);
+
+    const txCustomerFindFirst = vi.fn().mockResolvedValue({ id: CUSTOMER_ID });
+    const txAccountCreate = vi.fn().mockImplementationOnce(async () => {
+      const err: Error & { code?: string; meta?: { target?: string[] } } =
+        new Error("Unique constraint failed");
+      err.code = "P2002";
+      err.meta = { target: ["provider", "providerAccountId"] };
+      throw err;
+    });
+    mockTx.mockImplementationOnce(
+      async (cb: (tx: unknown) => Promise<unknown>) => {
+        const tx = {
+          customer: {
+            update: vi.fn(),
+            updateMany: vi.fn(),
+            findFirst: txCustomerFindFirst,
+          },
+          account: { create: txAccountCreate },
+        };
+        return cb(tx);
+      },
+    );
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const r = await bindLineToExistingCustomerById(makeValidInput());
+
+    expect(r).toEqual({
+      status: "unique_conflict",
+      conflictTarget: "provider,providerAccountId",
+    });
+    // The repair tx WAS attempted (because at preflight Account was
+    // missing) — and that's correct: this is the real race path, not
+    // the known-drift owner-mismatch path.
+    expect(txCustomerFindFirst).toHaveBeenCalledTimes(1);
+    expect(txAccountCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it("account_owner_mismatch: helper does NOT call account.findUnique a second time, does NOT enter $transaction, does NOT call any Customer write", async () => {
+    const OTHER_USER_ID = "ckuser0000000000000000099";
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: LINE_USER_ID,
+      lineLinkStatus: "LINKED",
+    });
+    mockAccountFindUnique.mockResolvedValueOnce({ userId: OTHER_USER_ID });
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    await bindLineToExistingCustomerById(makeValidInput());
+
+    // account.findUnique was called exactly once (the preflight
+    // already informed the dispatch).
+    expect(mockAccountFindUnique).toHaveBeenCalledTimes(1);
+    // No tx at all — saves a round-trip and avoids the misleading
+    // P2002 → unique_conflict translation.
+    expect(mockTx).not.toHaveBeenCalled();
+  });
+
+  it("source: main helper body contains the explicit owner-mismatch detection branch (Codex P2 round 6)", () => {
+    const HELPER_PATH = path.resolve(
+      __dirname,
+      "..",
+      "server",
+      "services",
+      "bind-line-to-customer.ts",
+    );
+    const src = readFileSync(HELPER_PATH, "utf8");
+    const mainStart = src.indexOf(
+      "export async function bindLineToExistingCustomerById",
+    );
+    expect(mainStart).toBeGreaterThan(-1);
+    const mainBody = src.slice(
+      mainStart,
+      mainStart + src.slice(mainStart).search(/\n}\n\n/),
+    );
+
+    // The detection branch must exist in the main helper body BEFORE
+    // the runAccountOnlyRepairTx dispatch, and must return
+    // account_owner_mismatch — not fall through to the repair tx.
+    expect(mainBody).toMatch(
+      /existingAccount\.userId\s*!==\s*customerUserId/,
+    );
+    expect(mainBody).toMatch(/status\s*:\s*"account_owner_mismatch"/);
+
+    // Ordering: the mismatch branch returns BEFORE the
+    // runAccountOnlyRepairTx dispatch in step 5a.
+    //
+    // The actual dispatch statement uses an open-brace `{` immediately
+    // after the call (it's a multi-line object literal). The earlier
+    // comment block mentions `return runAccountOnlyRepairTx(...)` with
+    // dot-dot-dot and backticks — distinct shape, so a tightened regex
+    // matches only the real statement.
+    const mismatchReturnIdx = mainBody.indexOf(
+      'status: "account_owner_mismatch"',
+    );
+    const repairDispatchMatch = mainBody.match(
+      /return\s+runAccountOnlyRepairTx\s*\(\s*\{/,
+    );
+    expect(mismatchReturnIdx).toBeGreaterThan(-1);
+    expect(repairDispatchMatch).not.toBeNull();
+    const repairDispatchIdx = repairDispatchMatch!.index!;
+    expect(mismatchReturnIdx).toBeLessThan(repairDispatchIdx);
+  });
+
+  it("source: account_owner_mismatch log payload uses maskId for BOTH customerUserId AND accountUserId", () => {
+    const HELPER_PATH = path.resolve(
+      __dirname,
+      "..",
+      "server",
+      "services",
+      "bind-line-to-customer.ts",
+    );
+    const src = readFileSync(HELPER_PATH, "utf8");
+    const mainStart = src.indexOf(
+      "export async function bindLineToExistingCustomerById",
+    );
+    const mainBody = src.slice(
+      mainStart,
+      mainStart + src.slice(mainStart).search(/\n}\n\n/),
+    );
+    // The two userIds must both be masked in the warn payload.
+    // Locate the account_owner_mismatch warn block and check.
+    const warnIdx = mainBody.indexOf("account_owner_mismatch");
+    expect(warnIdx).toBeGreaterThan(-1);
+    const window = mainBody.slice(warnIdx, warnIdx + 800);
+    expect(window).toMatch(/customerUserId\s*:\s*maskId\s*\(/);
+    expect(window).toMatch(/accountUserId\s*:\s*maskId\s*\(/);
+    expect(window).toMatch(/lineUserId\s*:\s*maskLineUserId\s*\(/);
   });
 });

@@ -28,6 +28,8 @@
  *   - 不動 callable signIn / NextAuth；JWT 更新由 caller 處理（per §11.4 決策）
  */
 
+import type { Prisma } from "@prisma/client";
+
 import { prisma } from "@/lib/db";
 import { normalizePhone } from "@/lib/normalize";
 import { syncLineAccountForUser } from "@/server/services/line-account-sync";
@@ -571,13 +573,52 @@ export type BindLineToExistingCustomerByIdResult =
        * state and route to `already_synced` / `account_repaired` /
        * `customer_locked` per the same dispatch.
        *
+       * Also returned by `runAccountOnlyRepairTx` when its in-tx
+       * Customer re-check (`assertCustomerStillLinkedForAccountRepairTx`)
+       * finds the Customer no longer in the (storeId, userId, lineUserId,
+       * not-merged) state from preflight — per PR #242 Codex P2 round 5+6.
+       *
        * Disjoint from `write_conflict` (Prisma P2034 — DB-detected
        * serialization race) and `unique_conflict` (P2002 — constraint
        * hit). This is application-level TOCTOU detected by the
-       * conditional updateMany count.
+       * conditional updateMany count / in-tx re-check.
        */
       status: "stale_customer_link";
       customerId: string;
+    }
+  | {
+      /**
+       * Customer.lineUserId === input.lineUserId AND a matching
+       * Account[line] row exists, BUT Account.userId !== Customer.userId.
+       *
+       * The LINE Account is bound to a different User than the Customer
+       * currently owns. This is a Customer-merge / account-reassign
+       * drift state — a stale Account[line] row is pointing at a
+       * historical User while the Customer has moved on (e.g. via
+       * customer-merge Phase 1, or staff-driven account reassignment).
+       *
+       * Per PR #242 Codex P2 round 6: detected explicitly in the main
+       * helper's step 5a (BEFORE `runAccountOnlyRepairTx` is invoked).
+       * Returning a dedicated status keeps two semantically distinct
+       * drift modes apart:
+       *
+       *   - `account_owner_mismatch` — known drift: Customer is sure,
+       *     Account[line] points elsewhere. Staff intervention needed
+       *     (unbind the stale Account, then re-bind).
+       *   - `unique_conflict` (P2002 from Account.create) — actual
+       *     racing concurrent binder. Caller may retry; helper does
+       *     not internally retry.
+       *
+       * Disjoint from `customer_locked` (Customer-side `lineUserId`
+       * mismatch — see that variant's JSDoc) and from `unique_conflict`
+       * / `write_conflict`.
+       */
+      status: "account_owner_mismatch";
+      customerId: string;
+      /** Customer.userId at preflight read time. */
+      customerUserId: string;
+      /** Account[provider=line, providerAccountId=lineUserId].userId at preflight read time. */
+      accountUserId: string;
     };
 
 /**
@@ -674,7 +715,37 @@ export async function bindLineToExistingCustomerById(
           userId: customerUserId,
         };
       }
-      // 5a-ii. Account[line] row missing → REPAIR ONLY, return immediately.
+      // 5a-ii. Account[line] exists BUT points at a DIFFERENT userId —
+      // known drift state per PR #242 Codex P2 round 6.
+      //
+      // Without this branch, control would fall into runAccountOnlyRepairTx,
+      // tx.account.create would then hit P2002 on
+      // (provider, providerAccountId), and the helper would return a
+      // generic `unique_conflict` — conflating "Account is bound to a
+      // different User" (staff intervention needed) with "racing
+      // concurrent binder" (caller retry). Detecting the mismatch
+      // explicitly here preserves the disjoint semantics required by
+      // PR-G5.0 principle 5 and avoids a useless tx round-trip + the
+      // misleading log line.
+      if (existingAccount && existingAccount.userId !== customerUserId) {
+        console.warn(
+          "[bindLineToExistingCustomerById] account_owner_mismatch",
+          {
+            storeId: maskId(input.storeId),
+            customerId: maskId(customer.id),
+            customerUserId: maskId(customerUserId),
+            accountUserId: maskId(existingAccount.userId),
+            lineUserId: maskLineUserId(input.lineUserId),
+          },
+        );
+        return {
+          status: "account_owner_mismatch",
+          customerId: customer.id,
+          customerUserId,
+          accountUserId: existingAccount.userId,
+        };
+      }
+      // 5a-iii. Account[line] row missing → REPAIR ONLY, return immediately.
       //
       // ⚠ This `return` is the SINGLE exit from the "linked-same +
       //   missing-Account" case. Removing it would let control fall
@@ -858,10 +929,53 @@ function translateAtomicLineBindTxError(
 // ════════════════════════════════════════════════════════════════════════════
 
 /**
+ * In-tx Customer re-check gate for the Account-only repair path
+ * (PR #242 Codex P2 round 6).
+ *
+ * Re-asserts every Customer-state invariant the main helper's
+ * preflight read observed — id, storeId, userId, lineUserId, and
+ * `mergedIntoCustomerId: null` — BUT inside the repair transaction,
+ * so a concurrent unbind / reassign / merge between preflight and
+ * tx-start cannot leak through into `tx.account.create`.
+ *
+ * Throws `StaleCustomerLinkError` if any invariant fails; returns
+ * void on success. Read-only — never writes Customer. Called by
+ * `runAccountOnlyRepairTx` immediately before `tx.account.create`
+ * (see structural test "assert helper appears before tx.account.create").
+ */
+async function assertCustomerStillLinkedForAccountRepairTx(
+  tx: Prisma.TransactionClient,
+  params: {
+    storeId: string;
+    customerId: string;
+    userId: string;
+    lineUserId: string;
+  },
+): Promise<void> {
+  const stillValid = await tx.customer.findFirst({
+    where: {
+      id: params.customerId,
+      storeId: params.storeId,
+      userId: params.userId,
+      lineUserId: params.lineUserId,
+      mergedIntoCustomerId: null,
+    },
+    select: { id: true },
+  });
+  if (stillValid === null) {
+    // Customer state drifted since preflight. The repair tx's catch
+    // arm translates this sentinel into `stale_customer_link` and
+    // Prisma rolls back the transaction so Account.create never runs.
+    throw new StaleCustomerLinkError(params.customerId);
+  }
+}
+
+/**
  * Account[line]-only repair tx for the `missing-account` drift case.
  * See the invariant block above — this function deliberately does NOT
  * write any Customer column. It DOES read Customer in-tx for stale-
- * state protection (PR #242 Codex P2 round 5).
+ * state protection via `assertCustomerStillLinkedForAccountRepairTx`
+ * (PR #242 Codex P2 round 5 + round 6).
  */
 async function runAccountOnlyRepairTx(params: {
   storeId: string;
@@ -877,29 +991,12 @@ async function runAccountOnlyRepairTx(params: {
   try {
     await prisma.$transaction(
       async (tx) => {
-        // In-tx Customer re-check (READ-ONLY) — TOCTOU protection per
-        // PR #242 Codex P2 round 5. Re-assert every preflight invariant
-        // inside the tx, BEFORE Account.create. If the Customer was
-        // concurrently unbound / reassigned / merged in the
-        // preflight→tx-start interval, findFirst returns null and we
-        // throw the sentinel below to roll back without ever creating
-        // an orphan Account row.
-        const stillValid = await tx.customer.findFirst({
-          where: {
-            id: params.customerId,
-            storeId: params.storeId,
-            userId: params.userId,
-            lineUserId: params.lineUserId,
-            mergedIntoCustomerId: null,
-          },
-          select: { id: true },
-        });
-        if (stillValid === null) {
-          // Customer state drifted since preflight. The catch arm
-          // translates this sentinel into `stale_customer_link`.
-          // Account.create is never reached — no orphan row.
-          throw new StaleCustomerLinkError(params.customerId);
-        }
+        // In-tx Customer re-check gate — MUST run before tx.account.create.
+        // The named helper makes this safety property structurally
+        // obvious (PR #242 Codex P2 round 6); see the function's
+        // JSDoc above for the invariants it re-asserts.
+        await assertCustomerStillLinkedForAccountRepairTx(tx, params);
+
         // Re-check passed: Customer still records this exact
         // (storeId, userId, lineUserId) tuple AND is not merged.
         // Single write. Account[line] only. No Customer row touched.
