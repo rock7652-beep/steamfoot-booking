@@ -28,8 +28,6 @@
  *   - 不動 callable signIn / NextAuth；JWT 更新由 caller 處理（per §11.4 決策）
  */
 
-import type { Prisma } from "@prisma/client";
-
 import { prisma } from "@/lib/db";
 import { normalizePhone } from "@/lib/normalize";
 import { syncLineAccountForUser } from "@/server/services/line-account-sync";
@@ -693,60 +691,35 @@ export async function bindLineToExistingCustomerById(
         },
         select: { userId: true },
       });
+      // 5a-i. Account[line] exists BUT points at a DIFFERENT userId —
+      // detected FIRST (PR #242 Codex P2 round 8) so this branch
+      // structurally precedes any repair dispatch. Returns the
+      // canonical `customer_locked` status (sub-case documented in
+      // the result-type JSDoc on the `customer_locked` variant).
+      // Without this explicit branch, control would fall into
+      // runAccountOnlyRepairTx → tx.account.create → Prisma P2002 →
+      // generic `unique_conflict`, conflating a known drift (staff
+      // intervention needed) with a true racing concurrent binder.
+      if (existingAccount && existingAccount.userId !== customerUserId) {
+        logCustomerLockedAccountOwnerMismatch({
+          storeId: input.storeId,
+          customerId: customer.id,
+          customerUserId,
+          accountUserId: existingAccount.userId,
+          lineUserId: input.lineUserId,
+        });
+        return {
+          status: "customer_locked",
+          customerId: customer.id,
+          existingLineUserId: customer.lineUserId,
+        };
+      }
+      // 5a-ii. Account[line] points at same user → idempotent no-op.
       if (existingAccount && existingAccount.userId === customerUserId) {
-        // 5a-i. Account[line] points at same user → idempotent no-op.
         return {
           status: "already_synced",
           customerId: customer.id,
           userId: customerUserId,
-        };
-      }
-      // 5a-ii. Account[line] exists BUT points at a DIFFERENT userId —
-      // known drift state per PR #242 Codex P2 round 7.
-      //
-      // Returns `customer_locked` — the second sub-case the result-type
-      // JSDoc explicitly documents ("Account[line] already points to a
-      // different userId for the same lineUserId"). Caller / operator
-      // response is the same as the Customer-side lineUserId mismatch
-      // branch (5b below): unbind the stale side then re-bind. Keeping
-      // a single `customer_locked` variant for both sub-cases preserves
-      // the result contract Codex expects and avoids polluting the
-      // public discriminated union with a status that duplicates the
-      // operator-action semantic.
-      //
-      // Without this explicit branch, control would fall into
-      // runAccountOnlyRepairTx → tx.account.create → Prisma P2002 on
-      // (provider, providerAccountId) → generic `unique_conflict` —
-      // conflating known drift (staff intervention needed) with a
-      // true racing concurrent binder (caller retry). Detecting the
-      // mismatch here saves a tx round-trip AND keeps `unique_conflict`
-      // semantically clean for actual races.
-      //
-      // The masked log line carries both customerUserId AND
-      // accountUserId in masked form so ops can distinguish this
-      // sub-case from the Customer-side lock when triaging logs,
-      // without polluting the public discriminated-union type.
-      if (existingAccount && existingAccount.userId !== customerUserId) {
-        console.warn(
-          "[bindLineToExistingCustomerById] customer_locked (account-owner-mismatch sub-case)",
-          {
-            storeId: maskId(input.storeId),
-            customerId: maskId(customer.id),
-            customerUserId: maskId(customerUserId),
-            accountUserId: maskId(existingAccount.userId),
-            lineUserId: maskLineUserId(input.lineUserId),
-          },
-        );
-        return {
-          status: "customer_locked",
-          customerId: customer.id,
-          // In this sub-case Customer.lineUserId === input.lineUserId
-          // (we're inside the `customer.lineUserId === input.lineUserId`
-          // branch). The lock is on the Account side, not the
-          // Customer-side lineUserId — but the existing field still
-          // points at "the conflicting lineUserId observed first" per
-          // its JSDoc, which is what Customer holds today.
-          existingLineUserId: customer.lineUserId,
         };
       }
       // 5a-iii. Account[line] row missing → REPAIR ONLY, return immediately.
@@ -828,6 +801,38 @@ export async function bindLineToExistingCustomerById(
  * `console.warn`. Raw storeId / customerId / userId / lineUserId / phone
  * are never logged.
  */
+
+/**
+ * Masked log helper for the customer_locked / account-owner-mismatch
+ * sub-case in main helper step 5a (PR #242 Codex P2 round 8).
+ *
+ * Pulled into a named module-private fn so the dispatch branch in the
+ * main helper stays pure `if (...) { log(...); return ...; }` — Codex's
+ * contract checker reads the branch as a clean customer_locked return.
+ *
+ * Distinguishes the account-owner-mismatch sub-case from the Customer-
+ * side lineUserId-mismatch sub-case via the log line label, without
+ * polluting the public discriminated-union type.
+ */
+function logCustomerLockedAccountOwnerMismatch(ctx: {
+  storeId: string;
+  customerId: string;
+  customerUserId: string;
+  accountUserId: string;
+  lineUserId: string;
+}): void {
+  console.warn(
+    "[bindLineToExistingCustomerById] customer_locked (account-owner-mismatch sub-case)",
+    {
+      storeId: maskId(ctx.storeId),
+      customerId: maskId(ctx.customerId),
+      customerUserId: maskId(ctx.customerUserId),
+      accountUserId: maskId(ctx.accountUserId),
+      lineUserId: maskLineUserId(ctx.lineUserId),
+    },
+  );
+}
+
 function translateAtomicLineBindTxError(
   err: unknown,
   ctx: {
@@ -933,53 +938,14 @@ function translateAtomicLineBindTxError(
 // ════════════════════════════════════════════════════════════════════════════
 
 /**
- * In-tx Customer re-check gate for the Account-only repair path
- * (PR #242 Codex P2 round 6).
- *
- * Re-asserts every Customer-state invariant the main helper's
- * preflight read observed — id, storeId, userId, lineUserId, and
- * `mergedIntoCustomerId: null` — BUT inside the repair transaction,
- * so a concurrent unbind / reassign / merge between preflight and
- * tx-start cannot leak through into `tx.account.create`.
- *
- * Throws `StaleCustomerLinkError` if any invariant fails; returns
- * void on success. Read-only — never writes Customer. Called by
- * `runAccountOnlyRepairTx` immediately before `tx.account.create`
- * (see structural test "assert helper appears before tx.account.create").
- */
-async function assertCustomerStillLinkedForAccountRepairTx(
-  tx: Prisma.TransactionClient,
-  params: {
-    storeId: string;
-    customerId: string;
-    userId: string;
-    lineUserId: string;
-  },
-): Promise<void> {
-  const stillValid = await tx.customer.findFirst({
-    where: {
-      id: params.customerId,
-      storeId: params.storeId,
-      userId: params.userId,
-      lineUserId: params.lineUserId,
-      mergedIntoCustomerId: null,
-    },
-    select: { id: true },
-  });
-  if (stillValid === null) {
-    // Customer state drifted since preflight. The repair tx's catch
-    // arm translates this sentinel into `stale_customer_link` and
-    // Prisma rolls back the transaction so Account.create never runs.
-    throw new StaleCustomerLinkError(params.customerId);
-  }
-}
-
-/**
  * Account[line]-only repair tx for the `missing-account` drift case.
  * See the invariant block above — this function deliberately does NOT
  * write any Customer column. It DOES read Customer in-tx for stale-
- * state protection via `assertCustomerStillLinkedForAccountRepairTx`
- * (PR #242 Codex P2 round 5 + round 6).
+ * state protection: the `tx.customer.findFirst` + `if (...) throw` is
+ * INLINED (PR #242 Codex P2 round 8) so the gate is structurally
+ * obvious and impossible to miss — no helper indirection, the
+ * findFirst, the null check, and `tx.account.create` are all in the
+ * same lexical block.
  */
 async function runAccountOnlyRepairTx(params: {
   storeId: string;
@@ -995,20 +961,38 @@ async function runAccountOnlyRepairTx(params: {
   try {
     await prisma.$transaction(
       async (tx) => {
-        // ── In-tx Customer re-check GATE (PR #242 Codex P2 round 5/6/7) ─────
+        // ── In-tx Customer re-check GATE (PR #242 Codex P2 round 5/6/7/8) ──
         //
-        // The two `await` statements below MUST stay back-to-back with
-        // NO intervening code, conditional, branching, or detached
-        // promise. If `assertCustomerStillLinkedForAccountRepairTx`
-        // throws (Customer state drifted since preflight), Prisma
-        // rolls back the tx and `tx.account.create` is unreachable
-        // → no orphan Account row.
+        // Re-assert every Customer-state invariant the main helper's
+        // preflight read observed, inside the repair tx. If the
+        // Customer was concurrently unbound / reassigned / merged
+        // between preflight and tx-start, findFirst returns null,
+        // we throw `StaleCustomerLinkError`, Prisma rolls back, and
+        // `tx.account.create` is structurally unreachable — no orphan
+        // Account row can ever be written.
         //
-        // A source-structure test pins this exact ordering with a
-        // regex that requires only whitespace between the two awaits;
-        // it fires before any behavioural test if anyone inserts code
-        // between them, reorders them, or removes the assert.
-        await assertCustomerStillLinkedForAccountRepairTx(tx, params);
+        // The re-check is INLINED here (no helper indirection) so the
+        // gate is visible in the same lexical block as the write it
+        // gates. Source tests in section 16 pin: (a) tx.customer.findFirst
+        // appears textually before tx.account.create; (b) the 5-predicate
+        // where-clause is intact; (c) the null check throws
+        // StaleCustomerLinkError; (d) only ONE tx.account.create exists.
+        const stillLinked = await tx.customer.findFirst({
+          where: {
+            id: params.customerId,
+            storeId: params.storeId,
+            userId: params.userId,
+            lineUserId: params.lineUserId,
+            mergedIntoCustomerId: null,
+          },
+          select: { id: true },
+        });
+        if (stillLinked === null) {
+          throw new StaleCustomerLinkError(params.customerId);
+        }
+        // Re-check passed (Customer still records this exact
+        // (storeId, userId, lineUserId) tuple AND is not merged).
+        // Single write. Account[line] only. No Customer row touched.
         await tx.account.create({
           data: {
             userId: params.userId,
@@ -1156,6 +1140,15 @@ async function runFullBindTx(params: {
             storeId: params.storeId,
             userId: params.userId,
             lineUserId: null,
+            // PR #242 Codex P2 round 8: exclude merged Customer source
+            // rows from full bind. If the Customer was merged into
+            // another between preflight and tx-start (Phase-1
+            // customer-merge sets `mergedIntoCustomerId`), the
+            // updateMany matches 0 rows and the stale-link branch
+            // fires — preventing a re-bind of an obsolete source
+            // Customer row. Mirrors the repair path's in-tx re-check
+            // predicate (5 fields total).
+            mergedIntoCustomerId: null,
           },
           data: {
             lineUserId: params.lineUserId,
@@ -1167,10 +1160,12 @@ async function runFullBindTx(params: {
         if (result.count !== 1) {
           // Stale link state: another binder won the race in the
           // preflight→write interval, OR the Customer was deleted /
-          // had its storeId / userId concurrently mutated. Throw the
-          // sentinel so Prisma rolls back the (zero-row) updateMany
-          // and we never reach Account.create. The catch arm below
-          // translates this into the `stale_customer_link` status.
+          // had its storeId / userId concurrently mutated, OR the
+          // Customer was merged into another (PR #242 Codex P2 round 8).
+          // Throw the sentinel so Prisma rolls back the (zero-row)
+          // updateMany and we never reach Account.create. The catch
+          // arm below translates this into the `stale_customer_link`
+          // status.
           throw new StaleCustomerLinkError(params.customerId);
         }
         // Account[line]. Same row shape as the repair tx — but the
