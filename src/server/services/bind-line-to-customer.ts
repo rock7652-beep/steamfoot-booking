@@ -53,6 +53,20 @@ function uniqueConflictTarget(err: { meta?: { target?: string[] | string } }): s
   return Array.isArray(t) ? t.join(",") : String(t);
 }
 
+/**
+ * Detect Prisma `P2034` — transaction failed due to a write conflict or
+ * deadlock at Serializable isolation. Distinct from `P2002` (which is a
+ * unique-constraint hit); `P2034` represents a *retryable* race that the
+ * database aborted to preserve serializability. Currently only the
+ * customerId-driven helper (PR-G5.1.a) translates this into a controlled
+ * status; the phone-driven helper still re-throws (unchanged baseline).
+ */
+function isPrismaWriteConflict(err: unknown): err is { code: "P2034" } {
+  if (!err || typeof err !== "object") return false;
+  const candidate = err as { code?: unknown };
+  return candidate.code === "P2034";
+}
+
 /** Helper 輸入 */
 export interface BindLineInput {
   /** 同店 scope 用；caller 已驗證的 storeId（PR-B exchange route 經 resolveStoreBySlug 取得）*/
@@ -511,6 +525,35 @@ export type BindLineToExistingCustomerByIdResult =
        */
       status: "unique_conflict";
       conflictTarget: string;
+    }
+  | {
+      /**
+       * Prisma P2034 — Serializable transaction aborted due to write conflict
+       * or deadlock with a concurrent binder (per PR-G5.1.a P2 fix #1).
+       * Distinct from `unique_conflict`: P2002 is a permanent constraint
+       * hit; P2034 is a *retryable* race the database resolved by aborting
+       * one of the contenders. Transaction rolls back; 0 DB writes
+       * effectively committed. Caller MAY retry (helper does not retry
+       * internally; that decision belongs to the caller's UX layer).
+       */
+      status: "write_conflict";
+      /** Surfaced Prisma error code for caller observability. */
+      code: "P2034";
+    }
+  | {
+      /**
+       * Drift-repair path: Customer.lineUserId already equals input
+       * lineUserId, but the Account[line] row was missing
+       * (PR-F1.2 `missing-account` drift). Helper created ONLY the
+       * Account row — Customer link metadata (`lineLinkedAt`, `lineName`)
+       * is intentionally **preserved** unchanged so the original bind
+       * timestamp + display name stay intact. Disjoint from
+       * `bound_existing` (which always writes both rows) per PR-G5.1.a
+       * P2 fix #2.
+       */
+      status: "account_repaired";
+      customerId: string;
+      userId: string;
     };
 
 /**
@@ -559,8 +602,10 @@ export async function bindLineToExistingCustomerById(
   }
   const customerUserId = customer.userId;
 
-  // ── step 5a: idempotent already_synced when Customer.lineUserId matches
-  //             AND Account[line] already points at this same userId. ────
+  // ── step 5a: already-linked same lineUserId — idempotent OR account-only repair
+  //             • Customer.lineUserId === input AND Account[line]→userId match  ⇒ already_synced (0 writes)
+  //             • Customer.lineUserId === input AND Account[line] row missing   ⇒ account_repaired (Account-only tx; PRESERVE Customer.lineLinkedAt / lineName)
+  //             • Customer.lineUserId === input AND Account[line]→other user    ⇒ surfaces as unique_conflict from Account.create P2002
   if (customer.lineUserId === input.lineUserId) {
     const existingAccount = await prisma.account.findUnique({
       where: {
@@ -578,9 +623,43 @@ export async function bindLineToExistingCustomerById(
         userId: customerUserId,
       };
     }
-    // Customer.lineUserId set but Account row missing or mis-pointed —
-    // fall through to the write tx to repair Account in-tx. P2002 will
-    // surface for mis-pointed Account row.
+    // Account row missing (PR-F1.2 `missing-account` drift) → repair it
+    // alone in a Serializable tx. Critically, do NOT touch Customer link
+    // metadata: the customer was already bound at some point in the past,
+    // and overwriting `lineLinkedAt` would erase the original bind
+    // timestamp; overwriting `lineName` (especially with a null input)
+    // would erase a previously stored displayName. Per PR-G5.1.a P2 fix #2.
+    try {
+      await prisma.$transaction(
+        async (tx) => {
+          await tx.account.create({
+            data: {
+              userId: customerUserId,
+              provider: "line",
+              providerAccountId: input.lineUserId,
+              type: "oauth",
+            },
+          });
+        },
+        // Same isolation contract as the full bind tx so racing binders
+        // surface as P2002 / P2034 deterministically.
+        { isolationLevel: "Serializable" },
+      );
+    } catch (err) {
+      const translated = translateAtomicLineBindTxError(err, {
+        storeId: input.storeId,
+        customerId: customer.id,
+        userId: customerUserId,
+        lineUserId: input.lineUserId,
+      });
+      if (translated) return translated;
+      throw err;
+    }
+    return {
+      status: "account_repaired",
+      customerId: customer.id,
+      userId: customerUserId,
+    };
   }
 
   // ── step 5b: Customer.lineUserId set to a DIFFERENT line → reject ──────
@@ -618,20 +697,13 @@ export async function bindLineToExistingCustomerById(
       { isolationLevel: "Serializable" },
     );
   } catch (err) {
-    if (isPrismaUniqueConflict(err)) {
-      const target = uniqueConflictTarget(err);
-      // Helper-internal log on the rare race path. Caller-specific path
-      // labelling is the caller's responsibility — this is a coarse warn
-      // so prod ops see the race even if caller forgets to log.
-      console.warn("[bindLineToExistingCustomerById] unique_conflict", {
-        storeId: maskId(input.storeId),
-        customerId: maskId(customer.id),
-        userId: maskId(customerUserId),
-        lineUserId: maskLineUserId(input.lineUserId),
-        conflictTarget: target,
-      });
-      return { status: "unique_conflict", conflictTarget: target };
-    }
+    const translated = translateAtomicLineBindTxError(err, {
+      storeId: input.storeId,
+      customerId: customer.id,
+      userId: customerUserId,
+      lineUserId: input.lineUserId,
+    });
+    if (translated) return translated;
     throw err;
   }
 
@@ -640,4 +712,56 @@ export async function bindLineToExistingCustomerById(
     customerId: customer.id,
     userId: customerUserId,
   };
+}
+
+/**
+ * Shared catch-arm translator for the two atomic write paths inside
+ * `bindLineToExistingCustomerById` (full bind tx + Account-only repair tx).
+ *
+ * Returns a controlled helper-status result for **expected** race / drift
+ * errors that Prisma surfaces at Serializable isolation:
+ *   - `P2002` → `unique_conflict` (constraint hit; deterministic)
+ *   - `P2034` → `write_conflict` (Serializable retryable race; per PR-G5.1.a P2 fix #1)
+ *
+ * Returns `null` for anything else — caller re-throws so unknown DB
+ * failures stay visible up the stack.
+ *
+ * PII contract: only masked values (`maskId`, `maskLineUserId`) ever reach
+ * `console.warn`. Raw storeId / customerId / userId / lineUserId / phone
+ * are never logged.
+ */
+function translateAtomicLineBindTxError(
+  err: unknown,
+  ctx: {
+    storeId: string;
+    customerId: string;
+    userId: string;
+    lineUserId: string;
+  },
+):
+  | { status: "unique_conflict"; conflictTarget: string }
+  | { status: "write_conflict"; code: "P2034" }
+  | null {
+  if (isPrismaUniqueConflict(err)) {
+    const target = uniqueConflictTarget(err);
+    console.warn("[bindLineToExistingCustomerById] unique_conflict", {
+      storeId: maskId(ctx.storeId),
+      customerId: maskId(ctx.customerId),
+      userId: maskId(ctx.userId),
+      lineUserId: maskLineUserId(ctx.lineUserId),
+      conflictTarget: target,
+    });
+    return { status: "unique_conflict", conflictTarget: target };
+  }
+  if (isPrismaWriteConflict(err)) {
+    console.warn("[bindLineToExistingCustomerById] write_conflict", {
+      storeId: maskId(ctx.storeId),
+      customerId: maskId(ctx.customerId),
+      userId: maskId(ctx.userId),
+      lineUserId: maskLineUserId(ctx.lineUserId),
+      code: "P2034",
+    });
+    return { status: "write_conflict", code: "P2034" };
+  }
+  return null;
 }

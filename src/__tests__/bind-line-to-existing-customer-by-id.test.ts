@@ -250,7 +250,7 @@ describe("already_synced (idempotent: Customer.lineUserId matches + Account[line
     expect(mockTx).not.toHaveBeenCalled();
   });
 
-  it("falls through to write tx when Customer.lineUserId matches but Account row missing (drift repair)", async () => {
+  it("returns account_repaired (NOT bound_existing) when Customer.lineUserId matches but Account[line] row is missing — drift repair path, PR-G5.1.a P2 fix #2", async () => {
     mockCustomerFindUnique.mockResolvedValueOnce({
       id: CUSTOMER_ID,
       storeId: STORE_ID,
@@ -260,12 +260,23 @@ describe("already_synced (idempotent: Customer.lineUserId matches + Account[line
     });
     // Account row missing — drift case PR-F1.2 detects as missing-account
     mockAccountFindUnique.mockResolvedValueOnce(null);
-    const { txAccountCreate } = setupTransaction();
+    const { txCustomerUpdate, txAccountCreate, getIsolationLevel } =
+      setupTransaction();
 
     const r = await bindLineToExistingCustomerById(makeValidInput());
 
-    expect(r.status).toBe("bound_existing");
+    expect(r).toEqual({
+      status: "account_repaired",
+      customerId: CUSTOMER_ID,
+      userId: USER_ID,
+    });
+    // Account-only repair: Account.create runs, Customer link metadata
+    // (lineLinkedAt / lineName / lineLinkStatus / lineUserId) is preserved
+    // — `customer.update` MUST NOT be called in this branch.
     expect(txAccountCreate).toHaveBeenCalledTimes(1);
+    expect(txCustomerUpdate).not.toHaveBeenCalled();
+    // Account-only repair tx still uses Serializable isolation.
+    expect(getIsolationLevel()).toBe("Serializable");
   });
 });
 
@@ -691,6 +702,326 @@ describe("pre-write semantics — every rejection branch is 0-DB-write (PR-G5.0 
   ])("no write happens on %s", async (_label, setup) => {
     setup();
     await bindLineToExistingCustomerById(makeValidInput());
+    expect(mockTx).not.toHaveBeenCalled();
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// 10. P2-1 (PR #242 Codex): Serializable write_conflict (Prisma P2034)
+// ════════════════════════════════════════════════════════════════════════════
+//
+// Concurrent binders touching the same Customer or LINE Account row at
+// Serializable isolation can lose the race and surface as Prisma `P2034`
+// rather than `P2002`. The helper must translate it into a controlled
+// `write_conflict` status — never let it leak as an uncaught throw / 500.
+
+describe("P2-1 (Codex): Serializable write_conflict (Prisma P2034)", () => {
+  function makeP2034() {
+    const err: Error & { code?: string } = new Error(
+      "Transaction failed due to a write conflict or a deadlock",
+    );
+    err.code = "P2034";
+    return err;
+  }
+
+  it("full bind tx P2034 → write_conflict status; no uncaught throw", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: null,
+      lineLinkStatus: "UNLINKED",
+    });
+    mockTx.mockImplementationOnce(async () => {
+      throw makeP2034();
+    });
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const r = await bindLineToExistingCustomerById(makeValidInput());
+
+    expect(r).toEqual({ status: "write_conflict", code: "P2034" });
+    expect(mockTx).toHaveBeenCalledTimes(1);
+    // Helper-internal log fires once with masked fields only.
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    warnSpy.mockRestore();
+  });
+
+  it("account-only repair tx P2034 → write_conflict status (Customer metadata still preserved, NOT bound_existing)", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: LINE_USER_ID, // already linked
+      lineLinkStatus: "LINKED",
+    });
+    mockAccountFindUnique.mockResolvedValueOnce(null); // drift: Account missing
+    mockTx.mockImplementationOnce(async () => {
+      throw makeP2034();
+    });
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const r = await bindLineToExistingCustomerById(makeValidInput());
+
+    expect(r).toEqual({ status: "write_conflict", code: "P2034" });
+    // The repair tx was attempted (so the race was real) — caller can retry.
+    expect(mockTx).toHaveBeenCalledTimes(1);
+  });
+
+  it("P2034 race → no observable partial Customer write (tx callback never ran customer.update)", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: null,
+      lineLinkStatus: "UNLINKED",
+    });
+    // Simulate P2034 thrown from Account.create inside the tx — Prisma
+    // rolls everything back; from the helper's POV, the tx wrapper re-
+    // throws and the caller never sees a half-applied Customer row.
+    const txCustomerUpdate = vi.fn().mockResolvedValue({ id: CUSTOMER_ID });
+    const txAccountCreate = vi.fn().mockRejectedValue(makeP2034());
+    mockTx.mockImplementationOnce(
+      async (cb: (tx: unknown) => Promise<unknown>) => {
+        const tx = {
+          customer: { update: txCustomerUpdate },
+          account: { create: txAccountCreate },
+        };
+        try {
+          return await cb(tx);
+        } catch (e) {
+          // Realistic Prisma behaviour: throw bubbles out, rollback.
+          throw e;
+        }
+      },
+    );
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const r = await bindLineToExistingCustomerById(makeValidInput());
+
+    expect(r).toEqual({ status: "write_conflict", code: "P2034" });
+    // tx callback ran customer.update but Prisma rolled it back; the
+    // caller-visible state is "no write happened" — which the helper
+    // contract communicates via the write_conflict return value.
+    expect(txCustomerUpdate).toHaveBeenCalledTimes(1);
+    expect(txAccountCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it("P2034 log payload is masked-only (no raw lineUserId / customerId / userId / storeId)", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: null,
+      lineLinkStatus: "UNLINKED",
+    });
+    mockTx.mockImplementationOnce(async () => {
+      throw makeP2034();
+    });
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    await bindLineToExistingCustomerById(makeValidInput());
+
+    const dumped = warnSpy.mock.calls
+      .flat()
+      .map((a) => (typeof a === "string" ? a : JSON.stringify(a)))
+      .join("\n");
+    expect(dumped).toContain("write_conflict");
+    expect(dumped).toContain("P2034");
+    expect(dumped).not.toContain(STORE_ID);
+    expect(dumped).not.toContain(CUSTOMER_ID);
+    expect(dumped).not.toContain(USER_ID);
+    expect(dumped).not.toContain(LINE_USER_ID);
+    // Standard masks present
+    expect(dumped).toContain("store-****");
+    expect(dumped).toContain("ckcust****");
+    expect(dumped).toContain("ckuser****");
+    expect(dumped).toContain("U123****ef");
+    warnSpy.mockRestore();
+  });
+
+  it("P2002 unique_conflict tests still pass (translator dispatches correctly between P2002 and P2034)", async () => {
+    // Sanity sentinel — P2034 detection must not regress the P2002 path.
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: null,
+      lineLinkStatus: "UNLINKED",
+    });
+    mockTx.mockImplementationOnce(async () => {
+      const err: Error & { code?: string; meta?: { target?: string[] } } =
+        new Error("Unique constraint failed");
+      err.code = "P2002";
+      err.meta = { target: ["provider", "providerAccountId"] };
+      throw err;
+    });
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const r = await bindLineToExistingCustomerById(makeValidInput());
+
+    expect(r).toEqual({
+      status: "unique_conflict",
+      conflictTarget: "provider,providerAccountId",
+    });
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// 11. P2-2 (PR #242 Codex): Preserve Customer link metadata during Account repair
+// ════════════════════════════════════════════════════════════════════════════
+//
+// When `customer.lineUserId === input.lineUserId` AND the Account[line]
+// row is missing, the helper does an Account-only repair tx — it MUST
+// NOT touch Customer link metadata. Overwriting `lineLinkedAt` would
+// erase the original bind timestamp; overwriting `lineName` with the
+// input value (especially when input is null) would erase a previously
+// stored displayName.
+
+describe("P2-2 (Codex): Account-only repair preserves Customer link metadata", () => {
+  it("missing-Account drift → repair Account only; customer.update is NEVER called", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: LINE_USER_ID, // already linked
+      lineLinkStatus: "LINKED",
+    });
+    mockAccountFindUnique.mockResolvedValueOnce(null);
+    const { txCustomerUpdate, txAccountCreate } = setupTransaction();
+
+    const r = await bindLineToExistingCustomerById(makeValidInput());
+
+    expect(r.status).toBe("account_repaired");
+    expect(txAccountCreate).toHaveBeenCalledTimes(1);
+    // The critical invariant: zero writes to Customer in the repair path.
+    expect(txCustomerUpdate).not.toHaveBeenCalled();
+  });
+
+  it("repair path with input lineName=null does NOT erase existing Customer.lineName (customer.update still skipped)", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: LINE_USER_ID,
+      lineLinkStatus: "LINKED",
+    });
+    mockAccountFindUnique.mockResolvedValueOnce(null);
+    const { txCustomerUpdate, txAccountCreate } = setupTransaction();
+
+    const r = await bindLineToExistingCustomerById(
+      makeValidInput({ lineName: null }),
+    );
+
+    expect(r.status).toBe("account_repaired");
+    expect(txAccountCreate).toHaveBeenCalledTimes(1);
+    // If the helper ran customer.update with `lineName: null`, the
+    // existing displayName would be nulled out. customer.update MUST
+    // not be called at all in the repair branch.
+    expect(txCustomerUpdate).not.toHaveBeenCalled();
+  });
+
+  it("Account-only repair Account.create args are identical to the full-bind path (correct userId / provider / providerAccountId / type)", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: LINE_USER_ID,
+      lineLinkStatus: "LINKED",
+    });
+    mockAccountFindUnique.mockResolvedValueOnce(null);
+    const { txAccountCreate } = setupTransaction();
+
+    await bindLineToExistingCustomerById(makeValidInput());
+
+    expect(txAccountCreate).toHaveBeenCalledWith({
+      data: {
+        userId: USER_ID,
+        provider: "line",
+        providerAccountId: LINE_USER_ID,
+        type: "oauth",
+      },
+    });
+  });
+
+  it("Account-only repair Account.create P2002 race → unique_conflict (preserves Customer metadata even on conflict — customer.update never ran)", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: LINE_USER_ID,
+      lineLinkStatus: "LINKED",
+    });
+    mockAccountFindUnique.mockResolvedValueOnce(null);
+    mockTx.mockImplementationOnce(async () => {
+      const err: Error & { code?: string; meta?: { target?: string[] } } =
+        new Error("Unique constraint failed");
+      err.code = "P2002";
+      err.meta = { target: ["provider", "providerAccountId"] };
+      throw err;
+    });
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const r = await bindLineToExistingCustomerById(makeValidInput());
+
+    expect(r).toEqual({
+      status: "unique_conflict",
+      conflictTarget: "provider,providerAccountId",
+    });
+    // tx was attempted (and rolled back); critically the helper never
+    // even queued a customer.update — Customer row is untouched
+    // regardless of the race outcome.
+    expect(mockTx).toHaveBeenCalledTimes(1);
+  });
+
+  it("first-time bind (Customer.lineUserId === null) STILL sets lineLinkedAt + lineName as designed (regression sentinel for P2-2)", async () => {
+    // Sanity: the metadata-preservation fix MUST NOT regress the happy
+    // path — first bind should still write Customer link fields.
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: null, // first bind
+      lineLinkStatus: "UNLINKED",
+    });
+    const { txCustomerUpdate, txAccountCreate } = setupTransaction();
+
+    const r = await bindLineToExistingCustomerById(makeValidInput());
+
+    expect(r.status).toBe("bound_existing");
+    expect(txCustomerUpdate).toHaveBeenCalledTimes(1);
+    expect(txCustomerUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: CUSTOMER_ID },
+        data: expect.objectContaining({
+          lineUserId: LINE_USER_ID,
+          lineName: LINE_NAME,
+          lineLinkStatus: "LINKED",
+          lineLinkedAt: expect.any(Date),
+        }),
+      }),
+    );
+    expect(txAccountCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it("already_synced (full sync, no drift) remains a 0-write idempotent return — Customer metadata trivially preserved", async () => {
+    // Regression sentinel: the metadata-preservation refactor must not
+    // accidentally turn the idempotent fast-path into a write.
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: LINE_USER_ID,
+      lineLinkStatus: "LINKED",
+    });
+    mockAccountFindUnique.mockResolvedValueOnce({ userId: USER_ID });
+
+    const r = await bindLineToExistingCustomerById(makeValidInput());
+
+    expect(r).toEqual({
+      status: "already_synced",
+      customerId: CUSTOMER_ID,
+      userId: USER_ID,
+    });
     expect(mockTx).not.toHaveBeenCalled();
   });
 });
