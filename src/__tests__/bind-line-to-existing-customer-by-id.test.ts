@@ -46,6 +46,9 @@
  *     doesn't call them, to keep the existing module-level mocks coherent
  *     when both helpers live in the same file.
  */
+import { readFileSync } from "node:fs";
+import path from "node:path";
+
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // ── prisma mocks ──────────────────────────────────────
@@ -1248,5 +1251,258 @@ describe("P2 round 2 (Codex): repair branch preserves Customer metadata per fiel
     await bindLineToExistingCustomerById(makeValidInput());
     expect(full.txAccountCreate).toHaveBeenCalledTimes(1);
     expect(full.txCustomerUpdate).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// 13. P2 round 3 (PR #242 Codex): explicit dispatch + defensive invariant guard
+// ════════════════════════════════════════════════════════════════════════════
+//
+// Round 2 extracted the Account-only repair tx into a sibling private
+// function. Codex pointed back at the still-co-located full-bind
+// `customer.update` data block (now lines ~660) and asked for the
+// structure to make it IMPOSSIBLE — both at the type system and at
+// runtime — for the repair path to reach the full-bind block.
+//
+// Round 3 fix:
+//   (1) Repair branch + customer_locked branch + already_synced branch
+//       all live inside a single outer `if (customer.lineUserId !== null)`
+//       block whose every code path returns. TypeScript narrows
+//       `customer.lineUserId` to `null` after this block — so by the
+//       type system, step 6's full-bind tx only runs for an unlinked
+//       customer.
+//   (2) A defensive runtime guard (`throw new Error("...invariant
+//       violation...")`) sits immediately before the full-bind tx, cast
+//       around TS's narrow so the check actually runs. In correct code
+//       this throw is provably unreachable — its purpose is regression-
+//       protection: if a future refactor deletes one of the early
+//       returns, control falls into the throw rather than silently
+//       overwriting historical Customer link metadata.
+//
+// The tests below pin both properties. The source-structure regression
+// tests would fail if anyone deletes either the `return
+// runAccountOnlyRepairTx(...)` statement OR the invariant-throw guard,
+// even before the behavioral mock tests would catch the regression.
+
+describe("P2 round 3 (Codex): structural invariants on dispatch + full-bind guard", () => {
+  // Resolve the helper path relative to this test file so the assertion
+  // survives both vitest workspace roots and direct `npx vitest run`.
+  const HELPER_PATH = path.resolve(
+    __dirname,
+    "..",
+    "server",
+    "services",
+    "bind-line-to-customer.ts",
+  );
+  const helperSrc = readFileSync(HELPER_PATH, "utf8");
+
+  it("repair branch exits via an unconditional `return runAccountOnlyRepairTx(...)`", () => {
+    // Match `return runAccountOnlyRepairTx(` with optional whitespace.
+    // If a future refactor turns this into `await runAccountOnlyRepairTx(...)`
+    // without a return (so control falls through), or deletes the line
+    // entirely, this assertion fails — and round-3's metadata-preservation
+    // contract is broken structurally before any behavioral test runs.
+    expect(helperSrc).toMatch(/return\s+runAccountOnlyRepairTx\s*\(/);
+  });
+
+  it("the only `tx.customer.update` site in the new helper is preceded by a defensive invariant guard", () => {
+    // Scope to the NEW helper's body (skip the phone-driven helper
+    // earlier in the file, which has its own unrelated `tx.customer.update`).
+    const helperStart = helperSrc.indexOf(
+      "export async function bindLineToExistingCustomerById",
+    );
+    expect(helperStart).toBeGreaterThan(-1);
+    const helperBody = helperSrc.slice(helperStart);
+
+    // Locate the full-bind `tx.customer.update` write inside the new
+    // helper's body only. The defensive guard `throw new Error(
+    // ...invariant violation...)` MUST appear in the source text between
+    // the dispatch block and this write. If someone removes the guard,
+    // this assertion fails.
+    const updateIdxInBody = helperBody.indexOf("tx.customer.update");
+    expect(updateIdxInBody).toBeGreaterThan(-1);
+
+    // The guard sits within ~2 KB above the update site in the source.
+    const precedingWindow = helperBody.slice(
+      Math.max(0, updateIdxInBody - 2000),
+      updateIdxInBody,
+    );
+    expect(precedingWindow).toMatch(/throw new Error/);
+    expect(precedingWindow).toMatch(/invariant violation/i);
+    expect(precedingWindow).toMatch(/customer\.lineUserId/);
+    // Defense-in-depth: ensure the guard references the helper name so
+    // greppable ops error logs surface usefully.
+    expect(precedingWindow).toMatch(/bindLineToExistingCustomerById/);
+  });
+
+  it("there is exactly ONE `tx.customer.update` call site in the new helper's body", () => {
+    // The new helper has a SINGLE full-bind path. The Account-only
+    // repair path lives in a sibling private function with zero
+    // `customer.update` references (round 2 invariant). If anyone adds
+    // a second `tx.customer.update` site in this file's new-helper
+    // section, that's exactly the regression Codex is guarding against
+    // — surface it as a test failure.
+    //
+    // We scan the byte range from `bindLineToExistingCustomerById` up
+    // to (but not including) the `runAccountOnlyRepairTx` definition.
+    const helperStart = helperSrc.indexOf(
+      "export async function bindLineToExistingCustomerById",
+    );
+    const helperEnd = helperSrc.indexOf(
+      "async function runAccountOnlyRepairTx",
+    );
+    expect(helperStart).toBeGreaterThan(-1);
+    expect(helperEnd).toBeGreaterThan(helperStart);
+    const helperBody = helperSrc.slice(helperStart, helperEnd);
+
+    const updateMatches = helperBody.match(/tx\.customer\.update/g) ?? [];
+    expect(updateMatches.length).toBe(1);
+  });
+
+  it("runAccountOnlyRepairTx body contains ZERO references to forbidden Customer write field names", () => {
+    // Sibling-fn invariant from round 2, re-asserted as a structural
+    // regression test that lives next to round-3 assertions.
+    const fnStart = helperSrc.indexOf(
+      "async function runAccountOnlyRepairTx",
+    );
+    expect(fnStart).toBeGreaterThan(-1);
+    // Find the matching close brace at column 0 (function declaration).
+    const after = helperSrc.slice(fnStart);
+    const fnEndRelative = after.indexOf("\n}\n");
+    expect(fnEndRelative).toBeGreaterThan(-1);
+    const fnBody = after.slice(0, fnEndRelative);
+
+    const FORBIDDEN_IN_REPAIR = [
+      "customer.update",
+      "tx.customer",
+      "lineLinkedAt",
+      "lineName",
+      "lineLinkStatus",
+    ];
+    for (const needle of FORBIDDEN_IN_REPAIR) {
+      expect(
+        fnBody,
+        `runAccountOnlyRepairTx body must not mention "${needle}"`,
+      ).not.toContain(needle);
+    }
+  });
+
+  // ── Behavioural confirmation of the structural invariants ──────────────
+
+  it("repair scenario: full-bind tx callback is NEVER invoked (only repair tx callback runs)", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: LINE_USER_ID, // already linked
+      lineLinkStatus: "LINKED",
+    });
+    mockAccountFindUnique.mockResolvedValueOnce(null); // Account missing
+    const { txCustomerUpdate, txAccountCreate } = setupTransaction();
+
+    const r = await bindLineToExistingCustomerById(makeValidInput());
+
+    expect(r.status).toBe("account_repaired");
+    // Even though `setupTransaction` would have routed customer.update
+    // through the mocked tx had it been called, the helper's repair
+    // path returned before reaching the full-bind tx. Zero customer
+    // writes is the contract.
+    expect(txCustomerUpdate).toHaveBeenCalledTimes(0);
+    // Account write happened inside the repair tx.
+    expect(txAccountCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it("repair scenario: $transaction is invoked at most once (single tx — the repair tx), never twice", async () => {
+    // A regression where the repair path falls through into the full-bind
+    // tx would surface as $transaction being called twice: once by the
+    // repair, once by the full-bind. Lock this property.
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: LINE_USER_ID,
+      lineLinkStatus: "LINKED",
+    });
+    mockAccountFindUnique.mockResolvedValueOnce(null);
+    setupTransaction();
+
+    await bindLineToExistingCustomerById(makeValidInput());
+
+    expect(mockTx).toHaveBeenCalledTimes(1);
+  });
+
+  it("full-bind branch runs ONLY when customer.lineUserId === null (regression sentinel for the defensive throw guard)", async () => {
+    // Direct expression of the invariant: full bind runs ⇔ unlinked.
+    // (a) lineUserId === null → tx ran with customer.update + account.create
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: null, // unlinked → full bind
+      lineLinkStatus: "UNLINKED",
+    });
+    const unlinked = setupTransaction();
+    await bindLineToExistingCustomerById(makeValidInput());
+    expect(unlinked.txCustomerUpdate).toHaveBeenCalledTimes(1);
+    expect(unlinked.txAccountCreate).toHaveBeenCalledTimes(1);
+
+    // (b) lineUserId !== null (same-line, no Account) → repair only, NO
+    //     customer.update. The defensive throw guard structurally
+    //     enforces this property.
+    mockCustomerFindUnique.mockReset();
+    mockAccountFindUnique.mockReset();
+    mockTx.mockReset();
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: LINE_USER_ID,
+      lineLinkStatus: "LINKED",
+    });
+    mockAccountFindUnique.mockResolvedValueOnce(null);
+    const linked = setupTransaction();
+    await bindLineToExistingCustomerById(makeValidInput());
+    expect(linked.txCustomerUpdate).toHaveBeenCalledTimes(0);
+    expect(linked.txAccountCreate).toHaveBeenCalledTimes(1);
+
+    // (c) lineUserId !== null (different line) → customer_locked, 0 tx
+    mockCustomerFindUnique.mockReset();
+    mockAccountFindUnique.mockReset();
+    mockTx.mockReset();
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: OTHER_LINE_USER_ID,
+      lineLinkStatus: "LINKED",
+    });
+    const locked = setupTransaction();
+    const r = await bindLineToExistingCustomerById(makeValidInput());
+    expect(r.status).toBe("customer_locked");
+    expect(locked.txCustomerUpdate).toHaveBeenCalledTimes(0);
+    expect(locked.txAccountCreate).toHaveBeenCalledTimes(0);
+    expect(mockTx).not.toHaveBeenCalled();
+  });
+
+  it("already_synced (linked-same + Account present) still returns BEFORE step 6 — 0 writes, 0 tx", async () => {
+    // Regression sentinel: the new dispatch structure must not regress
+    // the idempotent fast-path.
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: LINE_USER_ID,
+      lineLinkStatus: "LINKED",
+    });
+    mockAccountFindUnique.mockResolvedValueOnce({ userId: USER_ID });
+
+    const r = await bindLineToExistingCustomerById(makeValidInput());
+
+    expect(r).toEqual({
+      status: "already_synced",
+      customerId: CUSTOMER_ID,
+      userId: USER_ID,
+    });
+    expect(mockTx).not.toHaveBeenCalled();
   });
 });

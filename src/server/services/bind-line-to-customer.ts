@@ -602,42 +602,73 @@ export async function bindLineToExistingCustomerById(
   }
   const customerUserId = customer.userId;
 
-  // ── step 5a: already-linked same lineUserId — idempotent OR account-only repair
-  //             • Customer.lineUserId === input AND Account[line]→userId match  ⇒ already_synced (0 writes)
-  //             • Customer.lineUserId === input AND Account[line] row missing   ⇒ account_repaired (Account-only tx; PRESERVE Customer.lineLinkedAt / lineName)
-  //             • Customer.lineUserId === input AND Account[line]→other user    ⇒ surfaces as unique_conflict from Account.create P2002
-  if (customer.lineUserId === input.lineUserId) {
-    const existingAccount = await prisma.account.findUnique({
-      where: {
-        provider_providerAccountId: {
-          provider: "line",
-          providerAccountId: input.lineUserId,
+  // ── step 5: dispatch by linkage state ──────────────────────────────────
+  //
+  // PR #242 Codex P2 round 3: every non-null `customer.lineUserId` case
+  // MUST return inside this outer `if` block. The full-bind tx in step 6
+  // writes `lineUserId / lineName / lineLinkStatus / lineLinkedAt` on the
+  // Customer row, and must NEVER run for an already-linked customer.
+  //
+  // We enforce this two ways:
+  //   (1) Structural — every code path inside `if (customer.lineUserId !== null)`
+  //       below returns. TypeScript narrows `customer.lineUserId` to `null`
+  //       past this block, so by the type system alone, step 6 only runs
+  //       for an unlinked customer.
+  //   (2) Defensive runtime guard — immediately before step 6 we re-check
+  //       `customer.lineUserId !== null` (cast around the TS narrow) and
+  //       throw if violated. In correct code this guard is provably dead;
+  //       its purpose is to convert any future-refactor regression (e.g.
+  //       someone deleting the `return runAccountOnlyRepairTx(...)`
+  //       statement below) into a thrown invariant violation rather than a
+  //       silent overwrite of historical Customer link metadata.
+  //
+  // Sub-cases under "already linked" (customer.lineUserId !== null):
+  //   • same lineUserId AND Account[line] row → already_synced (0 writes)
+  //   • same lineUserId AND Account[line] missing → runAccountOnlyRepairTx
+  //     (Account-only repair; PRESERVES Customer.lineLinkedAt / lineName /
+  //     lineLinkStatus — see HARD INVARIANT comment on the function)
+  //   • different lineUserId → customer_locked (0 writes)
+  //   • same lineUserId AND Account[line] → other user → surfaces from
+  //     Account.create P2002 inside runAccountOnlyRepairTx as unique_conflict
+  if (customer.lineUserId !== null) {
+    if (customer.lineUserId === input.lineUserId) {
+      // 5a. Same-line — idempotent OR Account-only repair.
+      const existingAccount = await prisma.account.findUnique({
+        where: {
+          provider_providerAccountId: {
+            provider: "line",
+            providerAccountId: input.lineUserId,
+          },
         },
-      },
-      select: { userId: true },
-    });
-    if (existingAccount && existingAccount.userId === customerUserId) {
-      return {
-        status: "already_synced",
+        select: { userId: true },
+      });
+      if (existingAccount && existingAccount.userId === customerUserId) {
+        // 5a-i. Account[line] points at same user → idempotent no-op.
+        return {
+          status: "already_synced",
+          customerId: customer.id,
+          userId: customerUserId,
+        };
+      }
+      // 5a-ii. Account[line] row missing → REPAIR ONLY, return immediately.
+      //
+      // ⚠ This `return` is the SINGLE exit from the "linked-same +
+      //   missing-Account" case. Removing it would let control fall
+      //   through past step 5 into step 6's full-bind tx — which writes
+      //   the Customer link metadata block (lines ~660 below) and would
+      //   silently overwrite historical lineLinkedAt / lineName /
+      //   lineLinkStatus. PR #242 Codex P2 round 3 added the defensive
+      //   throw guard between step 5 and step 6 to catch exactly this
+      //   regression at runtime; tests also pin the source structure.
+      return runAccountOnlyRepairTx({
+        storeId: input.storeId,
         customerId: customer.id,
         userId: customerUserId,
-      };
+        lineUserId: input.lineUserId,
+      });
     }
-    // Account row missing (PR-F1.2 `missing-account` drift) → dispatch to
-    // the dedicated repair function below. The repair function is
-    // lexically separate from this scope and cannot reach the full-bind
-    // `customer.update` data block — see runAccountOnlyRepairTx below for
-    // the invariant comment (PR #242 Codex P2 round 2).
-    return runAccountOnlyRepairTx({
-      storeId: input.storeId,
-      customerId: customer.id,
-      userId: customerUserId,
-      lineUserId: input.lineUserId,
-    });
-  }
 
-  // ── step 5b: Customer.lineUserId set to a DIFFERENT line → reject ──────
-  if (customer.lineUserId && customer.lineUserId !== input.lineUserId) {
+    // 5b. Different lineUserId already attached → reject.
     return {
       status: "customer_locked",
       customerId: customer.id,
@@ -645,7 +676,30 @@ export async function bindLineToExistingCustomerById(
     };
   }
 
-  // ── step 6: atomic Customer.update + Account.create (Serializable) ─────
+  // ── step 5.5: defensive runtime invariant guard (PR #242 Codex P2 round 3)
+  //
+  // TypeScript narrows `customer.lineUserId` to `null` past the dispatch
+  // block above. This guard mirrors that property at runtime so that any
+  // future refactor that breaks the narrow (e.g. accidentally turning a
+  // `return` into a `break`, removing the outer `if`, or restructuring
+  // the dispatch) surfaces as an invariant-violation throw rather than a
+  // silent overwrite of historical Customer link metadata in step 6.
+  //
+  // The cast to `string | null` defeats TypeScript's narrow so the
+  // runtime check is preserved. In correct code this throw is provably
+  // unreachable — that is its purpose.
+  if ((customer.lineUserId as string | null) !== null) {
+    throw new Error(
+      `[bindLineToExistingCustomerById] internal invariant violation: full-bind path reached with linked customer (customerId=${maskId(
+        customer.id,
+      )})`,
+    );
+  }
+
+  // ── step 6: full bind tx (Customer.update + Account.create, Serializable)
+  //
+  // Runs ONLY when `customer.lineUserId === null`. Both the TS narrow
+  // above and the runtime guard at step 5.5 prove this property locally.
   try {
     await prisma.$transaction(
       async (tx) => {
