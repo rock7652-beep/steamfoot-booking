@@ -116,13 +116,23 @@ export async function listCustomers(options: ListCustomersOptions & { activeStor
   };
 
   // ----- 排序 -----
+  // 已合併（mergedIntoCustomerId != null）的 row 永遠沉到列表最底（稽核用、非有效顧客）。
+  // 必須是 orderBy 第一順位且在 DB 層、分頁前套用，否則 merged row 會散落在各頁中間。
+  // nulls:"first" → active（null）在前、merged（non-null）在後；其餘排序為次要鍵。
+  const mergedLastOrder: Prisma.CustomerOrderByWithRelationInput = {
+    mergedIntoCustomerId: { sort: "asc", nulls: "first" },
+  };
   // lastVisitAt 可能為 null → 用 nulls:"last" 避免空資料排前面（Prisma 6 支援）
-  const orderBy: Prisma.CustomerOrderByWithRelationInput[] =
+  const baseOrderBy: Prisma.CustomerOrderByWithRelationInput[] =
     sort === "created"
       ? [{ createdAt: "desc" }]
       : sort === "points"
         ? [{ totalPoints: "desc" }, { createdAt: "desc" }]
         : [{ lastVisitAt: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }];
+  const orderBy: Prisma.CustomerOrderByWithRelationInput[] = [
+    mergedLastOrder,
+    ...baseOrderBy,
+  ];
 
   const [customers, total] = await Promise.all([
     prisma.customer.findMany({
