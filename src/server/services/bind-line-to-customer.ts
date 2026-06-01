@@ -1677,6 +1677,35 @@ export async function activatePrecreatedCustomerWithLine(
   try {
     await prisma.$transaction(
       async (tx) => {
+        // 7-pre. Case-B in-tx guard (PR #243 Codex P1 round 5).
+        //
+        //   The Case-B precondition state (Customer.userId === null,
+        //   lineUserId === null, not merged) is re-verified inside the
+        //   transaction BEFORE any write. If the Customer drifted
+        //   between the main helper's preflight read and the tx-start
+        //   (concurrent activation, merge, or any other state change),
+        //   findFirst returns null and we throw StaleCustomerLinkError
+        //   BEFORE creating User. Prisma rolls back; tx.user.create
+        //   and tx.account.create are structurally unreachable.
+        //
+        //   The conditional Customer.updateMany at step 7c remains as
+        //   a CAS — defense-in-depth. The findFirst here makes the
+        //   "guard before connecting the customer" property visible
+        //   at the top of the tx callback (PR #243 Codex P1).
+        const target = await tx.customer.findFirst({
+          where: {
+            id: customer.id,
+            storeId: input.storeId,
+            userId: null,
+            lineUserId: null,
+            mergedIntoCustomerId: null,
+          },
+          select: { id: true },
+        });
+        if (!target) {
+          throw new StaleCustomerLinkError(customer.id);
+        }
+
         // 7a. Create User — byte-equivalent to auth.ts Case B baseline
         //     for the User-row columns (lines 622-632): name, email,
         //     phone, role, status, image. `User.name` from customer.name

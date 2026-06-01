@@ -140,6 +140,10 @@ function precreatedCustomerFixture(overrides: Record<string, unknown> = {}) {
  * arguments / configure throws.
  */
 function setupTransaction() {
+  // In-tx Case-B guard (PR #243 Codex P1 round 5) — default returns a
+  // non-null row so the happy-path tests proceed past the guard.
+  // Stale-race tests override with `.mockResolvedValueOnce(null)`.
+  const txCustomerFindFirst = vi.fn().mockResolvedValue({ id: CUSTOMER_ID });
   const txUserCreate = vi
     .fn()
     .mockResolvedValue({ id: NEW_USER_ID });
@@ -158,13 +162,17 @@ function setupTransaction() {
       const tx = {
         user: { create: txUserCreate },
         account: { create: txAccountCreate },
-        customer: { updateMany: txCustomerUpdateMany },
+        customer: {
+          findFirst: txCustomerFindFirst,
+          updateMany: txCustomerUpdateMany,
+        },
       };
       return cb(tx);
     },
   );
 
   return {
+    txCustomerFindFirst,
     txUserCreate,
     txAccountCreate,
     txCustomerUpdateMany,
@@ -549,6 +557,7 @@ describe("A3 atomicity (PR-G5.0 §1.3 / §5.3.3 step 7)", () => {
   it("account.create throws → tx rolls back → no orphan User / no Customer write committed", async () => {
     mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
 
+    const txCustomerFindFirst = vi.fn().mockResolvedValue({ id: CUSTOMER_ID });
     const txUserCreate = vi.fn().mockResolvedValue({ id: NEW_USER_ID });
     const txAccountCreate = vi
       .fn()
@@ -559,7 +568,10 @@ describe("A3 atomicity (PR-G5.0 §1.3 / §5.3.3 step 7)", () => {
         const tx = {
           user: { create: txUserCreate },
           account: { create: txAccountCreate },
-          customer: { updateMany: txCustomerUpdateMany },
+          customer: {
+            findFirst: txCustomerFindFirst,
+            updateMany: txCustomerUpdateMany,
+          },
         };
         return cb(tx);
       },
@@ -578,6 +590,7 @@ describe("A3 atomicity (PR-G5.0 §1.3 / §5.3.3 step 7)", () => {
   it("stale Customer condition (in-tx updateMany count !== 1) → no orphan User / no orphan Account leaks", async () => {
     mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
 
+    const txCustomerFindFirst = vi.fn().mockResolvedValue({ id: CUSTOMER_ID });
     const txUserCreate = vi.fn().mockResolvedValue({ id: NEW_USER_ID });
     const txAccountCreate = vi
       .fn()
@@ -588,7 +601,10 @@ describe("A3 atomicity (PR-G5.0 §1.3 / §5.3.3 step 7)", () => {
         const tx = {
           user: { create: txUserCreate },
           account: { create: txAccountCreate },
-          customer: { updateMany: txCustomerUpdateMany },
+          customer: {
+            findFirst: txCustomerFindFirst,
+            updateMany: txCustomerUpdateMany,
+          },
         };
         return cb(tx);
       },
@@ -1901,5 +1917,229 @@ describe("P2 round 2 (Codex): OAuth token fields pass through unchanged (null �
     });
     // No session_state.
     expect(data).not.toHaveProperty("session_state");
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// 14. P1 round 5 (PR #243 Codex): in-tx Case-B guard BEFORE tx.user.create
+// ════════════════════════════════════════════════════════════════════════════
+//
+// Codex P1 ("Move the Case-B guard before connecting the customer") was
+// not satisfied by source-only assertions in earlier rounds. Round 5
+// reorders the transaction so the Customer-state check runs INSIDE the
+// tx, BEFORE any write. If the Customer is no longer in the Case-B
+// precondition state (userId === null, lineUserId === null, not merged),
+// the helper throws StaleCustomerLinkError BEFORE creating User — so
+// tx.user.create / tx.account.create are structurally unreachable on
+// a stale guard.
+//
+// The 5-predicate `tx.customer.updateMany` CAS at step 7c still runs
+// as a defense-in-depth final check; round 5 adds the up-front
+// findFirst to make the "guard before connecting the customer"
+// property visible at the top of the tx callback.
+
+describe("P1 round 5 (Codex): in-tx Case-B guard fires BEFORE tx.user.create", () => {
+  const HELPER_PATH = path.resolve(
+    __dirname,
+    "..",
+    "server",
+    "services",
+    "bind-line-to-customer.ts",
+  );
+
+  // ─ Source-structure ────────────────────────────────────────────────────
+
+  it("source: activation helper's tx callback starts with `tx.customer.findFirst` BEFORE any write", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    const fnStart = src.indexOf(
+      "export async function activatePrecreatedCustomerWithLine",
+    );
+    expect(fnStart).toBeGreaterThan(-1);
+    const tail = src.slice(fnStart);
+    const termRel = tail.search(/\n}\n\n/);
+    const fnBody = termRel >= 0 ? tail.slice(0, termRel + 2) : tail;
+
+    const findFirstIdx = fnBody.indexOf("tx.customer.findFirst");
+    const userCreateIdx = fnBody.indexOf("tx.user.create(");
+    const accountCreateIdx = fnBody.indexOf("tx.account.create(");
+    const updateManyIdx = fnBody.indexOf("tx.customer.updateMany(");
+
+    expect(findFirstIdx).toBeGreaterThan(-1);
+    expect(userCreateIdx).toBeGreaterThan(-1);
+    expect(accountCreateIdx).toBeGreaterThan(-1);
+    expect(updateManyIdx).toBeGreaterThan(-1);
+
+    // findFirst MUST come BEFORE all 3 writes.
+    expect(findFirstIdx).toBeLessThan(userCreateIdx);
+    expect(findFirstIdx).toBeLessThan(accountCreateIdx);
+    expect(findFirstIdx).toBeLessThan(updateManyIdx);
+  });
+
+  it("source: in-tx findFirst has the 5-predicate where matching the Case-B precondition", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    const fnStart = src.indexOf(
+      "export async function activatePrecreatedCustomerWithLine",
+    );
+    const tail = src.slice(fnStart);
+    const termRel = tail.search(/\n}\n\n/);
+    const fnBody = termRel >= 0 ? tail.slice(0, termRel + 2) : tail;
+
+    // Locate the findFirst call's where literal.
+    const findFirstIdx = fnBody.indexOf("tx.customer.findFirst");
+    expect(findFirstIdx).toBeGreaterThan(-1);
+    // 500 chars covers the findFirst call's where + select.
+    const findFirstSlice = fnBody.slice(findFirstIdx, findFirstIdx + 500);
+
+    expect(findFirstSlice).toMatch(/id\s*:\s*customer\.id/);
+    expect(findFirstSlice).toMatch(/storeId\s*:\s*input\.storeId/);
+    expect(findFirstSlice).toMatch(/userId\s*:\s*null/);
+    expect(findFirstSlice).toMatch(/lineUserId\s*:\s*null/);
+    expect(findFirstSlice).toMatch(/mergedIntoCustomerId\s*:\s*null/);
+  });
+
+  it("source: in-tx findFirst null branch throws StaleCustomerLinkError BEFORE any write", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    const fnStart = src.indexOf(
+      "export async function activatePrecreatedCustomerWithLine",
+    );
+    const tail = src.slice(fnStart);
+    const termRel = tail.search(/\n}\n\n/);
+    const fnBody = termRel >= 0 ? tail.slice(0, termRel + 2) : tail;
+
+    // The pattern: `if (!target) { throw new StaleCustomerLinkError(...) }`
+    // — must appear AFTER the findFirst and BEFORE any tx.user/account write.
+    const findFirstIdx = fnBody.indexOf("tx.customer.findFirst");
+    const throwIdx = fnBody.indexOf("throw new StaleCustomerLinkError");
+    const userCreateIdx = fnBody.indexOf("tx.user.create(");
+
+    expect(findFirstIdx).toBeGreaterThan(-1);
+    expect(throwIdx).toBeGreaterThan(-1);
+    expect(userCreateIdx).toBeGreaterThan(-1);
+
+    // findFirst < throw < user.create
+    expect(findFirstIdx).toBeLessThan(throwIdx);
+    expect(throwIdx).toBeLessThan(userCreateIdx);
+
+    // The throw is gated by `if (!target)`.
+    expect(fnBody).toMatch(
+      /if\s*\(\s*!target\s*\)\s*\{[\s\S]{0,80}throw\s+new\s+StaleCustomerLinkError/,
+    );
+  });
+
+  // ─ Behavioural ─────────────────────────────────────────────────────────
+
+  it("behavioural: in-tx findFirst returns null → throw → NO user.create, NO account.create, NO updateMany; returns stale_customer_link", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const {
+      txCustomerFindFirst,
+      txUserCreate,
+      txAccountCreate,
+      txCustomerUpdateMany,
+    } = setupTransaction();
+    txCustomerFindFirst.mockResolvedValueOnce(null);
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const r = await activatePrecreatedCustomerWithLine(makeValidInput());
+
+    expect(r).toEqual({
+      status: "stale_customer_link",
+      customerId: CUSTOMER_ID,
+    });
+    // Guard fired BEFORE any write — neither user.create nor
+    // account.create nor updateMany was reached.
+    expect(txCustomerFindFirst).toHaveBeenCalledTimes(1);
+    expect(txUserCreate).not.toHaveBeenCalled();
+    expect(txAccountCreate).not.toHaveBeenCalled();
+    expect(txCustomerUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("behavioural: in-tx findFirst returns truthy → all 3 writes proceed in order, returns activated", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const {
+      txCustomerFindFirst,
+      txUserCreate,
+      txAccountCreate,
+      txCustomerUpdateMany,
+    } = setupTransaction();
+    // setupTransaction defaults findFirst to { id: CUSTOMER_ID } (truthy).
+
+    const r = await activatePrecreatedCustomerWithLine(makeValidInput());
+
+    expect(r.status).toBe("activated");
+    expect(txCustomerFindFirst).toHaveBeenCalledTimes(1);
+    expect(txUserCreate).toHaveBeenCalledTimes(1);
+    expect(txAccountCreate).toHaveBeenCalledTimes(1);
+    expect(txCustomerUpdateMany).toHaveBeenCalledTimes(1);
+  });
+
+  it("behavioural: in-tx findFirst where-clause matches the Case-B precondition exactly", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const { txCustomerFindFirst } = setupTransaction();
+
+    await activatePrecreatedCustomerWithLine(makeValidInput());
+
+    const arg = txCustomerFindFirst.mock.calls[0]?.[0] as {
+      where?: Record<string, unknown>;
+      select?: Record<string, unknown>;
+    };
+    expect(arg?.where).toEqual({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: null,
+      lineUserId: null,
+      mergedIntoCustomerId: null,
+    });
+    // Read-only select; we don't need or want any other column read.
+    expect(arg?.select).toEqual({ id: true });
+  });
+
+  it("behavioural: stale guard rollback still emits masked stale_customer_link log (sanity for the new throw path)", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const { txCustomerFindFirst } = setupTransaction();
+    txCustomerFindFirst.mockResolvedValueOnce(null);
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    await activatePrecreatedCustomerWithLine(makeValidInput());
+
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    const dumped = warnSpy.mock.calls
+      .flat()
+      .map((a) => (typeof a === "string" ? a : JSON.stringify(a)))
+      .join("\n");
+    expect(dumped).toContain("stale_customer_link");
+    // Raw IDs absent.
+    expect(dumped).not.toContain(CUSTOMER_ID);
+    expect(dumped).not.toContain(STORE_ID);
+    expect(dumped).not.toContain(LINE_USER_ID);
+    warnSpy.mockRestore();
+  });
+
+  it("ordering reinforced: source-textual order is `findFirst → if !target throw → user.create → account.create → updateMany`", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    const fnStart = src.indexOf(
+      "export async function activatePrecreatedCustomerWithLine",
+    );
+    const tail = src.slice(fnStart);
+    const termRel = tail.search(/\n}\n\n/);
+    const fnBody = termRel >= 0 ? tail.slice(0, termRel + 2) : tail;
+
+    const positions = {
+      findFirst: fnBody.indexOf("tx.customer.findFirst"),
+      ifTarget: fnBody.search(/if\s*\(\s*!target\s*\)/),
+      throw: fnBody.indexOf("throw new StaleCustomerLinkError"),
+      userCreate: fnBody.indexOf("tx.user.create("),
+      accountCreate: fnBody.indexOf("tx.account.create("),
+      updateMany: fnBody.indexOf("tx.customer.updateMany("),
+    };
+    for (const [name, idx] of Object.entries(positions)) {
+      expect(idx, `expected ${name} to exist`).toBeGreaterThan(-1);
+    }
+
+    // findFirst < if(!target) < throw < user.create < account.create < updateMany
+    expect(positions.findFirst).toBeLessThan(positions.ifTarget);
+    expect(positions.ifTarget).toBeLessThan(positions.throw);
+    expect(positions.throw).toBeLessThan(positions.userCreate);
+    expect(positions.userCreate).toBeLessThan(positions.accountCreate);
+    expect(positions.accountCreate).toBeLessThan(positions.updateMany);
   });
 });
