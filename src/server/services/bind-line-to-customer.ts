@@ -1705,18 +1705,31 @@ export async function activatePrecreatedCustomerWithLine(
 
         // 7b. Create Account[line] — byte-equivalent to auth.ts Case B
         //     baseline (lines 634-647). 10 fields, NO session_state.
+        //
+        //     ⚠ OAuth token fields pass through UNCHANGED (PR #243
+        //     Codex P2 round 2). Baseline auth.ts uses `as string |
+        //     undefined` type-casts that don't convert null at runtime;
+        //     this helper mirrors that behaviour — null stays null,
+        //     undefined stays undefined, string stays string. The
+        //     casts below are TypeScript-only to satisfy Prisma's
+        //     `AccountUncheckedCreateInput` types, exactly like
+        //     baseline; the cast does NOT touch runtime values.
         await tx.account.create({
           data: {
             userId: newUser.id,
             type: input.oauthAccount.type,
             provider: input.oauthAccount.provider,
             providerAccountId: input.oauthAccount.providerAccountId,
-            access_token: input.oauthAccount.access_token ?? undefined,
-            refresh_token: input.oauthAccount.refresh_token ?? undefined,
-            id_token: input.oauthAccount.id_token ?? undefined,
-            expires_at: input.oauthAccount.expires_at ?? undefined,
-            scope: input.oauthAccount.scope ?? undefined,
-            token_type: input.oauthAccount.token_type ?? undefined,
+            access_token: input.oauthAccount.access_token as
+              | string
+              | undefined,
+            refresh_token: input.oauthAccount.refresh_token as
+              | string
+              | undefined,
+            id_token: input.oauthAccount.id_token as string | undefined,
+            expires_at: input.oauthAccount.expires_at as number | undefined,
+            scope: input.oauthAccount.scope as string | undefined,
+            token_type: input.oauthAccount.token_type as string | undefined,
           },
         });
 

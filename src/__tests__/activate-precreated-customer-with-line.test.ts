@@ -382,7 +382,12 @@ describe("byte-equivalent baseline vs auth.ts Case B (lines 620-687)", () => {
     expect(data).toHaveProperty("lineUserId", LINE_USER_ID);
   });
 
-  it("null/undefined OAuth token fields pass through to Account.create as undefined (Prisma omits) — preserves Case B behaviour for missing token fields", async () => {
+  it("null OAuth token fields pass through as null (NOT silently coerced to undefined) — byte-equivalent vs auth.ts Case B baseline (PR #243 Codex P2 round 2)", async () => {
+    // Baseline auth.ts uses `as string | undefined` type-casts that
+    // don't change runtime values. Null stays null, undefined stays
+    // undefined, string stays string. The helper must mirror that
+    // behaviour — `?? undefined` would silently drop nulls and
+    // diverge from baseline.
     mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
     const { txAccountCreate } = setupTransaction();
 
@@ -410,15 +415,17 @@ describe("byte-equivalent baseline vs auth.ts Case B (lines 620-687)", () => {
     expect(data).toHaveProperty("type");
     expect(data).toHaveProperty("provider");
     expect(data).toHaveProperty("providerAccountId");
-    // The token fields are present-but-undefined (Prisma skips them on insert).
-    // The KEYS exist (since Prisma data object includes them); their VALUES
-    // are undefined.
-    expect(data).toHaveProperty("access_token");
-    expect((data as Record<string, unknown>).access_token).toBeUndefined();
-    expect(data).toHaveProperty("refresh_token");
+
+    // null token fields pass through AS null (NOT coerced to undefined).
+    expect((data as Record<string, unknown>).access_token).toBeNull();
+    expect((data as Record<string, unknown>).id_token).toBeNull();
+    expect((data as Record<string, unknown>).expires_at).toBeNull();
+    expect((data as Record<string, unknown>).token_type).toBeNull();
+    // undefined token fields stay undefined (Prisma's standard
+    // omit-on-undefined behaviour applies in production; the helper
+    // doesn't normalize either way).
     expect((data as Record<string, unknown>).refresh_token).toBeUndefined();
-    expect(data).toHaveProperty("id_token");
-    expect((data as Record<string, unknown>).id_token).toBeUndefined();
+    expect((data as Record<string, unknown>).scope).toBeUndefined();
     // session_state still absent.
     expect(data).not.toHaveProperty("session_state");
   });
@@ -1568,5 +1575,331 @@ describe("P1 round 4 (Codex): six user-spec invariants for Case-B guard ordering
     expect(txUserCreate).toHaveBeenCalledTimes(1);
     expect(txAccountCreate).toHaveBeenCalledTimes(1);
     expect(txCustomerUpdateMany).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// 13. P2 round 2 (PR #243 Codex): preserve null OAuth token fields
+// ════════════════════════════════════════════════════════════════════════════
+//
+// Codex P2: the helper previously did
+//   access_token: input.oauthAccount.access_token ?? undefined
+// which silently converts explicit null to undefined. Baseline
+// auth.ts Case B (lines 634-647) uses `as string | undefined`
+// type-casts that don't touch runtime values — null stays null.
+// Round 2 removes the `??` operators so each token field passes
+// through unchanged.
+
+describe("P2 round 2 (Codex): OAuth token fields pass through unchanged (null → null, undefined → undefined, string → string)", () => {
+  const HELPER_PATH = path.resolve(
+    __dirname,
+    "..",
+    "server",
+    "services",
+    "bind-line-to-customer.ts",
+  );
+
+  // ─ Behavioural matrix: each token field tested across all 3 input forms
+
+  it("access_token: null input → null in Account.create data (NOT undefined)", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const { txAccountCreate } = setupTransaction();
+
+    await activatePrecreatedCustomerWithLine(
+      makeValidInput({
+        oauthAccount: {
+          provider: "line",
+          providerAccountId: LINE_USER_ID,
+          type: "oauth",
+          access_token: null,
+          refresh_token: "rtok",
+          id_token: "idtok",
+          expires_at: 1_700_000_000,
+          scope: "openid",
+          token_type: "Bearer",
+        },
+      }),
+    );
+
+    const data = (txAccountCreate.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    expect((data as Record<string, unknown>).access_token).toBeNull();
+  });
+
+  it("refresh_token: null input → null in Account.create data", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const { txAccountCreate } = setupTransaction();
+
+    await activatePrecreatedCustomerWithLine(
+      makeValidInput({
+        oauthAccount: {
+          provider: "line",
+          providerAccountId: LINE_USER_ID,
+          type: "oauth",
+          access_token: "atok",
+          refresh_token: null,
+          id_token: "idtok",
+          expires_at: 1_700_000_000,
+          scope: "openid",
+          token_type: "Bearer",
+        },
+      }),
+    );
+
+    const data = (txAccountCreate.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    expect((data as Record<string, unknown>).refresh_token).toBeNull();
+  });
+
+  it("id_token: null input → null in Account.create data", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const { txAccountCreate } = setupTransaction();
+
+    await activatePrecreatedCustomerWithLine(
+      makeValidInput({
+        oauthAccount: {
+          provider: "line",
+          providerAccountId: LINE_USER_ID,
+          type: "oauth",
+          access_token: "atok",
+          refresh_token: "rtok",
+          id_token: null,
+          expires_at: 1_700_000_000,
+          scope: "openid",
+          token_type: "Bearer",
+        },
+      }),
+    );
+
+    const data = (txAccountCreate.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    expect((data as Record<string, unknown>).id_token).toBeNull();
+  });
+
+  it("expires_at: null input → null in Account.create data", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const { txAccountCreate } = setupTransaction();
+
+    await activatePrecreatedCustomerWithLine(
+      makeValidInput({
+        oauthAccount: {
+          provider: "line",
+          providerAccountId: LINE_USER_ID,
+          type: "oauth",
+          access_token: "atok",
+          refresh_token: "rtok",
+          id_token: "idtok",
+          expires_at: null,
+          scope: "openid",
+          token_type: "Bearer",
+        },
+      }),
+    );
+
+    const data = (txAccountCreate.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    expect((data as Record<string, unknown>).expires_at).toBeNull();
+  });
+
+  it("scope: null input → null in Account.create data", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const { txAccountCreate } = setupTransaction();
+
+    await activatePrecreatedCustomerWithLine(
+      makeValidInput({
+        oauthAccount: {
+          provider: "line",
+          providerAccountId: LINE_USER_ID,
+          type: "oauth",
+          access_token: "atok",
+          refresh_token: "rtok",
+          id_token: "idtok",
+          expires_at: 1_700_000_000,
+          scope: null,
+          token_type: "Bearer",
+        },
+      }),
+    );
+
+    const data = (txAccountCreate.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    expect((data as Record<string, unknown>).scope).toBeNull();
+  });
+
+  it("token_type: null input → null in Account.create data", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const { txAccountCreate } = setupTransaction();
+
+    await activatePrecreatedCustomerWithLine(
+      makeValidInput({
+        oauthAccount: {
+          provider: "line",
+          providerAccountId: LINE_USER_ID,
+          type: "oauth",
+          access_token: "atok",
+          refresh_token: "rtok",
+          id_token: "idtok",
+          expires_at: 1_700_000_000,
+          scope: "openid",
+          token_type: null,
+        },
+      }),
+    );
+
+    const data = (txAccountCreate.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    expect((data as Record<string, unknown>).token_type).toBeNull();
+  });
+
+  it("string token values pass through unchanged (regression sentinel)", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const { txAccountCreate } = setupTransaction();
+
+    await activatePrecreatedCustomerWithLine(
+      makeValidInput({
+        oauthAccount: {
+          provider: "line",
+          providerAccountId: LINE_USER_ID,
+          type: "oauth",
+          access_token: "ATOK_value_xyz",
+          refresh_token: "RTOK_value_xyz",
+          id_token: "ID_value_xyz",
+          expires_at: 1_700_000_000,
+          scope: "profile openid",
+          token_type: "Bearer",
+        },
+      }),
+    );
+
+    const data = (txAccountCreate.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    expect((data as Record<string, unknown>).access_token).toBe("ATOK_value_xyz");
+    expect((data as Record<string, unknown>).refresh_token).toBe("RTOK_value_xyz");
+    expect((data as Record<string, unknown>).id_token).toBe("ID_value_xyz");
+    expect((data as Record<string, unknown>).expires_at).toBe(1_700_000_000);
+    expect((data as Record<string, unknown>).scope).toBe("profile openid");
+    expect((data as Record<string, unknown>).token_type).toBe("Bearer");
+  });
+
+  // ─ Source-structure regression sentinel: no `?? undefined` ─
+
+  it("source: helper body has NO `?? undefined` operator on any OAuth token field (regression sentinel for the bug Codex flagged)", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    const fnStart = src.indexOf(
+      "export async function activatePrecreatedCustomerWithLine",
+    );
+    expect(fnStart).toBeGreaterThan(-1);
+    const tail = src.slice(fnStart);
+    const termRel = tail.search(/\n}\n\n/);
+    const fnBody = termRel >= 0 ? tail.slice(0, termRel + 2) : tail;
+
+    // For each of the 6 token fields, the helper must NOT use
+    // `?? undefined` (which would silently drop nulls).
+    for (const field of [
+      "access_token",
+      "refresh_token",
+      "id_token",
+      "expires_at",
+      "scope",
+      "token_type",
+    ]) {
+      const stalePattern = new RegExp(
+        `${field}\\s*:\\s*input\\.oauthAccount\\.${field}\\s*\\?\\?\\s*undefined`,
+      );
+      expect(fnBody).not.toMatch(stalePattern);
+    }
+  });
+
+  it("source: each OAuth token field uses direct pass-through with optional type cast (no `??` operator)", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    const fnStart = src.indexOf(
+      "export async function activatePrecreatedCustomerWithLine",
+    );
+    const tail = src.slice(fnStart);
+    const termRel = tail.search(/\n}\n\n/);
+    const fnBody = termRel >= 0 ? tail.slice(0, termRel + 2) : tail;
+
+    // The actual pattern after round 2:
+    //   access_token: input.oauthAccount.access_token as string | undefined,
+    // We anchor on `: input.oauthAccount.<field>` followed by either
+    // `,` or ` as ` — both are direct pass-through, no `??`.
+    for (const field of [
+      "access_token",
+      "refresh_token",
+      "id_token",
+      "scope",
+      "token_type",
+    ]) {
+      const passthroughPattern = new RegExp(
+        `${field}\\s*:\\s*input\\.oauthAccount\\.${field}\\s*(as\\s+|,|\\n)`,
+      );
+      expect(fnBody).toMatch(passthroughPattern);
+    }
+    // expires_at is a number, cast pattern differs.
+    expect(fnBody).toMatch(
+      /expires_at\s*:\s*input\.oauthAccount\.expires_at\s*(as\s+|,|\n)/,
+    );
+  });
+
+  it("source: Account.create data block still has NO `session_state` (regression sentinel from PR #226 Codex round 10)", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    const fnStart = src.indexOf(
+      "export async function activatePrecreatedCustomerWithLine",
+    );
+    const tail = src.slice(fnStart);
+    const termRel = tail.search(/\n}\n\n/);
+    const fnBody = termRel >= 0 ? tail.slice(0, termRel + 2) : tail;
+
+    expect(fnBody).not.toMatch(/session_state\s*:/);
+  });
+
+  it("byte-equivalent: Account.create data after round 2 has EXACTLY the same 10 keys with null/string values preserved as the input declares", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const { txAccountCreate } = setupTransaction();
+
+    // Mix of null + string + number — verifies all 3 forms pass
+    // through unchanged in one shot.
+    await activatePrecreatedCustomerWithLine(
+      makeValidInput({
+        oauthAccount: {
+          provider: "line",
+          providerAccountId: LINE_USER_ID,
+          type: "oauth",
+          access_token: null, // null
+          refresh_token: "RTOK", // string
+          id_token: null, // null
+          expires_at: 1_700_000_000, // number
+          scope: null, // null
+          token_type: "Bearer", // string
+        },
+      }),
+    );
+
+    const data = (txAccountCreate.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+
+    // Same 10 keys, exact values.
+    expect(data).toMatchObject({
+      userId: NEW_USER_ID,
+      type: "oauth",
+      provider: "line",
+      providerAccountId: LINE_USER_ID,
+      access_token: null,
+      refresh_token: "RTOK",
+      id_token: null,
+      expires_at: 1_700_000_000,
+      scope: null,
+      token_type: "Bearer",
+    });
+    // No session_state.
+    expect(data).not.toHaveProperty("session_state");
   });
 });
