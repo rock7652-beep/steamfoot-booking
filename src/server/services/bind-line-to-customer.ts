@@ -995,16 +995,18 @@ async function runAccountOnlyRepairTx(params: {
           },
           select: { id: true },
         });
-        const canRepairAccount = stillLinked !== null;
-        if (!canRepairAccount) throw new StaleCustomerLinkError(params.customerId);
-        await tx.account.create({
-          data: {
-            userId: params.userId,
-            provider: "line",
-            providerAccountId: params.lineUserId,
-            type: "oauth",
-          },
-        });
+        if (stillLinked) {
+          await tx.account.create({
+            data: {
+              userId: params.userId,
+              provider: "line",
+              providerAccountId: params.lineUserId,
+              type: "oauth",
+            },
+          });
+          return;
+        }
+        throw new StaleCustomerLinkError(params.customerId);
       },
       { isolationLevel: "Serializable" },
     );
@@ -1148,15 +1150,18 @@ async function runFullBindTx(params: {
             lineLinkedAt: new Date(),
           },
         });
-        if (updated.count !== 1) throw new StaleCustomerLinkError(params.customerId);
-        await tx.account.create({
-          data: {
-            userId: params.userId,
-            provider: "line",
-            providerAccountId: params.lineUserId,
-            type: "oauth",
-          },
-        });
+        if (updated.count === 1) {
+          await tx.account.create({
+            data: {
+              userId: params.userId,
+              provider: "line",
+              providerAccountId: params.lineUserId,
+              type: "oauth",
+            },
+          });
+          return;
+        }
+        throw new StaleCustomerLinkError(params.customerId);
       },
       { isolationLevel: "Serializable" },
     );

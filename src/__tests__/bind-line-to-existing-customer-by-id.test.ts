@@ -1657,12 +1657,12 @@ describe("P2 round 4 (Codex): metadata writes live ONLY inside runFullBindTx", (
     expect(fullBindFnBody).toMatch(/lineUserId\s*:\s*null/);
   });
 
-  it("runFullBindTx checks `updated.count !== 1` and throws StaleCustomerLinkError on stale link state (round 10: variable renamed + single-line if)", () => {
-    // The sentinel-throw pattern: if updateMany affected 0 rows
-    // (another binder won the race), Account.create MUST NOT run.
-    // Round 10 renamed `result` → `updated` and collapsed the if to
-    // a single-line statement.
-    expect(fullBindFnBody).toMatch(/updated\.count\s*!==\s*1/);
+  it("runFullBindTx gates account.create on `updated.count === 1` and throws StaleCustomerLinkError otherwise (round 12: nested success branch)", () => {
+    // Round 12 restructured to put account.create INSIDE the success
+    // branch of `if (updated.count === 1) { ... }` and the throw in
+    // the fallthrough. The sentinel-throw still fires when updateMany
+    // affected 0 rows; account.create MUST NOT run in that branch.
+    expect(fullBindFnBody).toMatch(/updated\.count\s*===\s*1/);
     expect(fullBindFnBody).toMatch(/throw\s+new\s+StaleCustomerLinkError\s*\(/);
   });
 
@@ -2242,16 +2242,14 @@ describe("P2 round 5 (Codex): runAccountOnlyRepairTx in-tx Customer re-check bef
     expect(fnBody).toMatch(/mergedIntoCustomerId\s*:\s*null/);
   });
 
-  it("source: runAccountOnlyRepairTx's gate throws StaleCustomerLinkError sentinel (round 11: named canRepairAccount boolean drives `if (!canRepairAccount) throw ...`)", () => {
+  it("source: runAccountOnlyRepairTx's gate throws StaleCustomerLinkError sentinel (round 12: account.create nested in if (stillLinked) success branch, throw in fallthrough)", () => {
     const fnBody = readRepairFnBody();
-    // Round 11 added a named boolean between findFirst and throw:
-    //   const canRepairAccount = stillLinked !== null;
-    //   if (!canRepairAccount) throw new StaleCustomerLinkError(...);
-    // Match any of: !canRepairAccount, !stillLinked, stillLinked === null
-    // for resilience across rounds.
-    expect(fnBody).toMatch(
-      /if\s*\(\s*(!canRepairAccount|!stillLinked|stillLinked\s*===\s*null)\s*\)\s*throw\s+new\s+StaleCustomerLinkError\s*\(/,
-    );
+    // Round 12 restructured the gate so account.create is INSIDE the
+    // success branch `if (stillLinked) { ... return; }` and the throw
+    // is the fallthrough. This makes account.create visually inside
+    // the success branch, not after a failed guard.
+    expect(fnBody).toMatch(/if\s*\(\s*stillLinked\s*\)\s*\{/);
+    expect(fnBody).toMatch(/throw\s+new\s+StaleCustomerLinkError\s*\(\s*params\.customerId\s*\)\s*;/);
   });
 
   it("source: runAccountOnlyRepairTx body has `tx.customer.findFirst` textually BEFORE `tx.account.create` (the inlined gate ordering)", () => {
@@ -2263,13 +2261,21 @@ describe("P2 round 5 (Codex): runAccountOnlyRepairTx in-tx Customer re-check bef
     expect(findFirstIdx).toBeLessThan(accountCreateIdx);
   });
 
-  it("source: runAccountOnlyRepairTx body has the null-check throw textually BEFORE `tx.account.create` (account.create unreachable on stale)", () => {
+  it("source: runAccountOnlyRepairTx body has the `if (stillLinked) {` open brace textually BEFORE `tx.account.create` (account.create is INSIDE success branch — round 12)", () => {
     const fnBody = readRepairFnBody();
-    const throwIdx = fnBody.indexOf("throw new StaleCustomerLinkError");
+    // Round 12: account.create lives INSIDE the `if (stillLinked) { ... }`
+    // block. The throw is the FALLTHROUGH after the if-block close.
+    // So source order is: findFirst → if-open → account.create → return →
+    // if-close → throw.
+    const ifOpenIdx = fnBody.search(/if\s*\(\s*stillLinked\s*\)\s*\{/);
     const accountCreateIdx = fnBody.indexOf("tx.account.create(");
-    expect(throwIdx).toBeGreaterThan(-1);
+    const throwIdx = fnBody.indexOf("throw new StaleCustomerLinkError");
+    expect(ifOpenIdx).toBeGreaterThan(-1);
     expect(accountCreateIdx).toBeGreaterThan(-1);
-    expect(throwIdx).toBeLessThan(accountCreateIdx);
+    expect(throwIdx).toBeGreaterThan(-1);
+    // account.create is INSIDE the if-success branch (between ifOpen and throw)
+    expect(ifOpenIdx).toBeLessThan(accountCreateIdx);
+    expect(accountCreateIdx).toBeLessThan(throwIdx);
   });
 
   // Behavioural sentinels ─────────────────────────────────────────────────
@@ -2909,7 +2915,7 @@ describe("P2 round 6 (Codex): account_owner_mismatch — Account[line].userId !=
   // future insertion between them fails CI before any behavioural
   // test runs.
 
-  it("source (round 8 inlining): in runAccountOnlyRepairTx, the inline `if (stillLinked === null) throw ...` sits between `tx.customer.findFirst` and `tx.account.create` — gate is impossible to bypass", () => {
+  it("source (round 12 nesting): in runAccountOnlyRepairTx, `tx.customer.findFirst` runs BEFORE `if (stillLinked) {` open brace; `tx.account.create` is INSIDE the success branch; throw is the fallthrough — account.create unreachable on stale", () => {
     const HELPER_PATH = path.resolve(
       __dirname,
       "..",
@@ -2923,16 +2929,22 @@ describe("P2 round 6 (Codex): account_owner_mismatch — Account[line].userId !=
     const fnBody = tail.slice(0, tail.search(/\n}\n\n/) + 2);
 
     const findFirstIdx = fnBody.indexOf("tx.customer.findFirst");
-    const throwIdx = fnBody.indexOf("throw new StaleCustomerLinkError");
+    const ifOpenIdx = fnBody.search(/if\s*\(\s*stillLinked\s*\)\s*\{/);
     const accountCreateIdx = fnBody.indexOf("tx.account.create(");
+    const throwIdx = fnBody.indexOf("throw new StaleCustomerLinkError");
+
     expect(findFirstIdx).toBeGreaterThan(-1);
-    expect(throwIdx).toBeGreaterThan(-1);
+    expect(ifOpenIdx).toBeGreaterThan(-1);
     expect(accountCreateIdx).toBeGreaterThan(-1);
-    expect(findFirstIdx).toBeLessThan(throwIdx);
-    expect(throwIdx).toBeLessThan(accountCreateIdx);
+    expect(throwIdx).toBeGreaterThan(-1);
+
+    // Source order: findFirst < if-open < account.create < throw (fallthrough)
+    expect(findFirstIdx).toBeLessThan(ifOpenIdx);
+    expect(ifOpenIdx).toBeLessThan(accountCreateIdx);
+    expect(accountCreateIdx).toBeLessThan(throwIdx);
   });
 
-  it("source (round 8 inlining): only ONE `tx.account.create` site exists in runAccountOnlyRepairTx body — and it's downstream of the gate", () => {
+  it("source (round 12 nesting): only ONE `tx.account.create` site exists in runAccountOnlyRepairTx body — and it's INSIDE the `if (stillLinked)` success branch (upstream of the fallthrough throw)", () => {
     const HELPER_PATH = path.resolve(
       __dirname,
       "..",
@@ -2948,10 +2960,13 @@ describe("P2 round 6 (Codex): account_owner_mismatch — Account[line].userId !=
     const accountCreateMatches =
       fnBody.match(/tx\.account\.create\s*\(/g) ?? [];
     expect(accountCreateMatches.length).toBe(1);
-    // Sanity: that single call is downstream of the inline gate.
-    const throwIdx = fnBody.indexOf("throw new StaleCustomerLinkError");
+    // Round 12: account.create is INSIDE the if-success branch, so
+    // it's textually BEFORE the throw (which is the fallthrough).
+    const ifOpenIdx = fnBody.search(/if\s*\(\s*stillLinked\s*\)\s*\{/);
     const accountCreateIdx = fnBody.indexOf("tx.account.create(");
-    expect(throwIdx).toBeLessThan(accountCreateIdx);
+    const throwIdx = fnBody.indexOf("throw new StaleCustomerLinkError");
+    expect(ifOpenIdx).toBeLessThan(accountCreateIdx);
+    expect(accountCreateIdx).toBeLessThan(throwIdx);
   });
 
   it("behavioural (round 7): account_owner_mismatch status string never appears anywhere in the source — reverted in favour of customer_locked", () => {
@@ -3198,40 +3213,44 @@ describe("P2 round 9 (Codex): stale-gate and full-bind where-clause adjacency", 
   // The tx body is now literally 3 statements: findFirst → if-throw →
   // account.create.
 
-  it("repair fn (round 11): the one-line `if (!canRepairAccount) throw ...` is followed ONLY by whitespace before `await tx.account.create(` — no intervening comment, no other statement", () => {
+  it("repair fn (round 12): the `if (stillLinked) {` open brace is followed ONLY by whitespace before `await tx.account.create(` — account.create is the FIRST statement inside the success branch, no intervening code", () => {
     const fnBody = readFn("async function runAccountOnlyRepairTx");
-    // Round 11 introduced the named boolean `canRepairAccount` between
-    // findFirst and throw. The if-throw is now anchored on this name.
+    // Round 12: account.create is INSIDE if (stillLinked) { ... }.
+    // The block opens with `{` followed by whitespace only, then the
+    // account.create call. No comment, no other statement.
     expect(fnBody).toMatch(
-      /if\s*\(\s*!canRepairAccount\s*\)\s*throw\s+new\s+StaleCustomerLinkError\s*\(\s*params\.customerId\s*\)\s*;\s*await\s+tx\.account\.create\s*\(/,
+      /if\s*\(\s*stillLinked\s*\)\s*\{\s*await\s+tx\.account\.create\s*\(/,
     );
   });
 
-  it("repair fn (round 11): ordering — findFirst → canRepairAccount assignment → if-throw → account.create, each step textually before the next", () => {
+  it("repair fn (round 12): ordering — findFirst → if-open → account.create → return → throw (fallthrough)", () => {
     const fnBody = readFn("async function runAccountOnlyRepairTx");
 
     const findFirstIdx = fnBody.indexOf("await tx.customer.findFirst(");
-    const canRepairAssignIdx = fnBody.indexOf("const canRepairAccount");
-    const ifThrowIdx = fnBody.search(/if\s*\(\s*!canRepairAccount\s*\)/);
-    const throwIdx = fnBody.indexOf("throw new StaleCustomerLinkError");
+    const ifOpenIdx = fnBody.search(/if\s*\(\s*stillLinked\s*\)\s*\{/);
     const accountCreateIdx = fnBody.indexOf("await tx.account.create(");
+    const returnIdx = fnBody.indexOf("return;");
+    const throwIdx = fnBody.indexOf("throw new StaleCustomerLinkError");
 
     expect(findFirstIdx).toBeGreaterThan(-1);
-    expect(canRepairAssignIdx).toBeGreaterThan(-1);
-    expect(ifThrowIdx).toBeGreaterThan(-1);
-    expect(throwIdx).toBeGreaterThan(-1);
+    expect(ifOpenIdx).toBeGreaterThan(-1);
     expect(accountCreateIdx).toBeGreaterThan(-1);
+    expect(returnIdx).toBeGreaterThan(-1);
+    expect(throwIdx).toBeGreaterThan(-1);
 
-    expect(findFirstIdx).toBeLessThan(canRepairAssignIdx);
-    expect(canRepairAssignIdx).toBeLessThan(ifThrowIdx);
-    expect(ifThrowIdx).toBeLessThan(throwIdx);
-    expect(throwIdx).toBeLessThan(accountCreateIdx);
+    expect(findFirstIdx).toBeLessThan(ifOpenIdx);
+    expect(ifOpenIdx).toBeLessThan(accountCreateIdx);
+    expect(accountCreateIdx).toBeLessThan(returnIdx);
+    expect(returnIdx).toBeLessThan(throwIdx);
   });
 
-  it("repair fn (round 11): no `tx.account.create` appears before the `if (!canRepairAccount)` guard (gate is unbypassable)", () => {
+  it("repair fn (round 12): no `tx.account.create` appears outside the `if (stillLinked) { ... }` success branch — gate is unbypassable", () => {
     const fnBody = readFn("async function runAccountOnlyRepairTx");
-    const ifGuardIdx = fnBody.search(/if\s*\(\s*!canRepairAccount\s*\)/);
-    expect(ifGuardIdx).toBeGreaterThan(-1);
+    const ifOpenIdx = fnBody.search(/if\s*\(\s*stillLinked\s*\)\s*\{/);
+    const throwIdx = fnBody.indexOf("throw new StaleCustomerLinkError");
+    expect(ifOpenIdx).toBeGreaterThan(-1);
+    expect(throwIdx).toBeGreaterThan(-1);
+
     const allAccountCreates: number[] = [];
     let pos = 0;
     while ((pos = fnBody.indexOf("tx.account.create(", pos)) !== -1) {
@@ -3239,7 +3258,10 @@ describe("P2 round 9 (Codex): stale-gate and full-bind where-clause adjacency", 
       pos += 1;
     }
     expect(allAccountCreates.length).toBe(1);
-    expect(allAccountCreates[0]).toBeGreaterThan(ifGuardIdx);
+    // The single account.create site must be AFTER the if-open and
+    // BEFORE the throw (i.e. inside the success branch).
+    expect(allAccountCreates[0]).toBeGreaterThan(ifOpenIdx);
+    expect(allAccountCreates[0]).toBeLessThan(throwIdx);
   });
 
   // ─ Full-bind fn: where-clause is a compact 5-field object literal ─
@@ -3271,33 +3293,38 @@ describe("P2 round 9 (Codex): stale-gate and full-bind where-clause adjacency", 
     expect(lineUserIdIdx).toBeLessThan(mergedIdx);
   });
 
-  it("full-bind fn (round 10): the one-line `if (updated.count !== 1) throw ...` is followed ONLY by whitespace before `await tx.account.create(` — no intervening comment", () => {
-    // Round 10 renamed `result` → `updated` and collapsed the if to
-    // a single-line statement (parallel to repair fn).
+  it("full-bind fn (round 12): the `if (updated.count === 1) {` open brace is followed ONLY by whitespace before `await tx.account.create(` — account.create is the FIRST statement inside the success branch", () => {
+    // Round 12: parallel to repair fn — account.create is INSIDE
+    // `if (updated.count === 1) { ... }`. The block opens with `{`
+    // followed by whitespace only, then the account.create call.
     const fnBody = readFn("async function runFullBindTx");
     expect(fnBody).toMatch(
-      /if\s*\(\s*updated\.count\s*!==\s*1\s*\)\s*throw\s+new\s+StaleCustomerLinkError\s*\(\s*params\.customerId\s*\)\s*;\s*await\s+tx\.account\.create\s*\(/,
+      /if\s*\(\s*updated\.count\s*===\s*1\s*\)\s*\{\s*await\s+tx\.account\.create\s*\(/,
     );
   });
 
-  it("full-bind fn (round 10): ordering — updateMany → count-check → throw → account.create, count-check unbypassable", () => {
+  it("full-bind fn (round 12): ordering — updateMany → if-open → account.create → return → throw (fallthrough)", () => {
     const fnBody = readFn("async function runFullBindTx");
 
     const updateManyIdx = fnBody.indexOf("await tx.customer.updateMany(");
-    const countCheckIdx = fnBody.search(/if\s*\(\s*updated\.count\s*!==\s*1\s*\)/);
-    const throwIdx = fnBody.indexOf("throw new StaleCustomerLinkError");
+    const ifOpenIdx = fnBody.search(/if\s*\(\s*updated\.count\s*===\s*1\s*\)\s*\{/);
     const accountCreateIdx = fnBody.indexOf("await tx.account.create(");
+    const returnIdx = fnBody.indexOf("return;");
+    const throwIdx = fnBody.indexOf("throw new StaleCustomerLinkError");
 
     expect(updateManyIdx).toBeGreaterThan(-1);
-    expect(countCheckIdx).toBeGreaterThan(-1);
-    expect(throwIdx).toBeGreaterThan(-1);
+    expect(ifOpenIdx).toBeGreaterThan(-1);
     expect(accountCreateIdx).toBeGreaterThan(-1);
+    expect(returnIdx).toBeGreaterThan(-1);
+    expect(throwIdx).toBeGreaterThan(-1);
 
-    expect(updateManyIdx).toBeLessThan(countCheckIdx);
-    expect(countCheckIdx).toBeLessThan(throwIdx);
-    expect(throwIdx).toBeLessThan(accountCreateIdx);
+    expect(updateManyIdx).toBeLessThan(ifOpenIdx);
+    expect(ifOpenIdx).toBeLessThan(accountCreateIdx);
+    expect(accountCreateIdx).toBeLessThan(returnIdx);
+    expect(returnIdx).toBeLessThan(throwIdx);
 
-    // No tx.account.create before the count check.
+    // Only ONE tx.account.create site exists; it sits INSIDE the
+    // if-success branch (between ifOpen and the fallthrough throw).
     const allAccountCreates: number[] = [];
     let pos = 0;
     while ((pos = fnBody.indexOf("tx.account.create(", pos)) !== -1) {
@@ -3305,7 +3332,8 @@ describe("P2 round 9 (Codex): stale-gate and full-bind where-clause adjacency", 
       pos += 1;
     }
     expect(allAccountCreates.length).toBe(1);
-    expect(allAccountCreates[0]).toBeGreaterThan(countCheckIdx);
+    expect(allAccountCreates[0]).toBeGreaterThan(ifOpenIdx);
+    expect(allAccountCreates[0]).toBeLessThan(throwIdx);
   });
 });
 
@@ -3345,46 +3373,57 @@ describe("P2 round 10 (Codex): minimal 3-statement tx body in both repair and fu
     return termRel >= 0 ? tail.slice(0, termRel + 2) : tail;
   }
 
-  it("repair fn (round 11 shape): tx callback contains the 4-statement pattern findFirst → `const canRepairAccount` → `if (!canRepairAccount) throw ...;` → account.create back-to-back", () => {
+  it("repair fn (round 12 shape): tx callback uses the nested-success-branch pattern — findFirst → `if (stillLinked) { account.create; return; }` → throw fallthrough", () => {
     const fnBody = readFn("async function runAccountOnlyRepairTx");
-    // Round 11 added a named boolean between findFirst and throw.
-    // All four statements must appear in source-textual order.
+    // Round 12: account.create is INSIDE the success branch. The
+    // named boolean (round 11) was dropped in favour of the direct
+    // `if (stillLinked)` truthy check.
     expect(fnBody).toMatch(/await\s+tx\.customer\.findFirst\s*\(/);
-    expect(fnBody).toMatch(
-      /const\s+canRepairAccount\s*=\s*stillLinked\s*!==\s*null\s*;/,
-    );
-    expect(fnBody).toMatch(
-      /if\s*\(\s*!canRepairAccount\s*\)\s*throw\s+new\s+StaleCustomerLinkError\s*\(\s*params\.customerId\s*\)\s*;/,
-    );
+    expect(fnBody).toMatch(/if\s*\(\s*stillLinked\s*\)\s*\{/);
     expect(fnBody).toMatch(/await\s+tx\.account\.create\s*\(/);
+    expect(fnBody).toMatch(/return\s*;/);
+    expect(fnBody).toMatch(
+      /throw\s+new\s+StaleCustomerLinkError\s*\(\s*params\.customerId\s*\)\s*;/,
+    );
   });
 
-  it("repair fn (round 10): block-form `if (stillLinked === null) { ... }` is FORBIDDEN — only the single-line `if (!stillLinked) throw ...` form is allowed", () => {
+  it("repair fn (round 12): block-form `if (stillLinked === null) { ... }` AND `if (!canRepairAccount) ...` AND `if (!stillLinked) ...` are all FORBIDDEN — round 12 settled on truthy `if (stillLinked) { ... }` success-branch shape", () => {
     const fnBody = readFn("async function runAccountOnlyRepairTx");
-    // Regression sentinel: round 10 settled on the single-line form
-    // because Codex's contract checker did not trust the block form.
-    // If anyone reintroduces the block, this fails.
+    // Earlier-round shapes that must not regress.
     expect(fnBody).not.toMatch(
       /if\s*\(\s*stillLinked\s*===\s*null\s*\)\s*\{/,
     );
+    expect(fnBody).not.toMatch(
+      /if\s*\(\s*!canRepairAccount\s*\)\s*throw/,
+    );
+    expect(fnBody).not.toMatch(
+      /if\s*\(\s*!stillLinked\s*\)\s*throw/,
+    );
+    // Round 11's named boolean is gone — direct truthy check on stillLinked.
+    expect(fnBody).not.toMatch(
+      /const\s+canRepairAccount\s*=/,
+    );
   });
 
-  it("full-bind fn (round 10 minimal shape): tx callback contains exactly the 3-statement pattern updateMany → `if (updated.count !== 1) throw ...;` → account.create back-to-back", () => {
+  it("full-bind fn (round 12 shape): tx callback uses the nested-success-branch pattern — updateMany → `if (updated.count === 1) { account.create; return; }` → throw fallthrough", () => {
     const fnBody = readFn("async function runFullBindTx");
     expect(fnBody).toMatch(/await\s+tx\.customer\.updateMany\s*\(/);
-    expect(fnBody).toMatch(
-      /if\s*\(\s*updated\.count\s*!==\s*1\s*\)\s*throw\s+new\s+StaleCustomerLinkError\s*\(\s*params\.customerId\s*\)\s*;/,
-    );
+    expect(fnBody).toMatch(/if\s*\(\s*updated\.count\s*===\s*1\s*\)\s*\{/);
     expect(fnBody).toMatch(/await\s+tx\.account\.create\s*\(/);
+    expect(fnBody).toMatch(/return\s*;/);
+    expect(fnBody).toMatch(
+      /throw\s+new\s+StaleCustomerLinkError\s*\(\s*params\.customerId\s*\)\s*;/,
+    );
   });
 
-  it("full-bind fn (round 10): block-form `if (result.count !== 1) { ... }` is FORBIDDEN — only the single-line shape with renamed variable is allowed", () => {
+  it("full-bind fn (round 12): old shapes `if (result.count !== 1) { ... }` and `if (updated.count !== 1) throw ...;` are FORBIDDEN", () => {
     const fnBody = readFn("async function runFullBindTx");
     expect(fnBody).not.toMatch(
       /if\s*\(\s*result\.count\s*!==\s*1\s*\)\s*\{/,
     );
-    // The old variable name `result` must not be the receiver of
-    // updateMany either (the rename to `updated` is part of round 10).
+    expect(fnBody).not.toMatch(
+      /if\s*\(\s*updated\.count\s*!==\s*1\s*\)\s*throw/,
+    );
     expect(fnBody).not.toMatch(
       /const\s+result\s*=\s*await\s+tx\.customer\.updateMany/,
     );
@@ -3517,37 +3556,46 @@ describe("P2 round 11 (Codex): semantic strengthening of stale + merged-customer
     "bind-line-to-customer.ts",
   );
 
-  // ─ P2-1: canRepairAccount named boolean ────────────────────────────────
+  // ─ P2-1: nested-success-branch shape (round 12 supersedes round 11) ───
 
-  it("source: runAccountOnlyRepairTx defines `const canRepairAccount = stillLinked !== null;` between findFirst and the throw", () => {
+  it("source: runAccountOnlyRepairTx uses the nested-success-branch shape — `if (stillLinked) { await tx.account.create(...); return; }` then throw fallthrough (round 12 supersedes the round-11 named boolean)", () => {
     const src = readFileSync(HELPER_PATH, "utf8");
     const fnStart = src.indexOf("async function runAccountOnlyRepairTx");
     const tail = src.slice(fnStart);
     const fnBody = tail.slice(0, tail.search(/\n}\n\n/) + 2);
 
-    expect(fnBody).toMatch(
-      /const\s+canRepairAccount\s*=\s*stillLinked\s*!==\s*null\s*;/,
-    );
+    // Required shape pieces in source order.
     const findFirstIdx = fnBody.indexOf("await tx.customer.findFirst(");
-    const assignIdx = fnBody.indexOf("const canRepairAccount");
-    const guardIdx = fnBody.search(/if\s*\(\s*!canRepairAccount\s*\)/);
+    const ifOpenIdx = fnBody.search(/if\s*\(\s*stillLinked\s*\)\s*\{/);
+    const accountCreateIdx = fnBody.indexOf("await tx.account.create(");
+    const returnIdx = fnBody.indexOf("return;");
+    const throwIdx = fnBody.indexOf("throw new StaleCustomerLinkError");
+
     expect(findFirstIdx).toBeGreaterThan(-1);
-    expect(assignIdx).toBeGreaterThan(-1);
-    expect(guardIdx).toBeGreaterThan(-1);
-    expect(findFirstIdx).toBeLessThan(assignIdx);
-    expect(assignIdx).toBeLessThan(guardIdx);
+    expect(ifOpenIdx).toBeGreaterThan(-1);
+    expect(accountCreateIdx).toBeGreaterThan(-1);
+    expect(returnIdx).toBeGreaterThan(-1);
+    expect(throwIdx).toBeGreaterThan(-1);
+
+    // Strict ordering: findFirst → if-open → account.create → return → throw
+    expect(findFirstIdx).toBeLessThan(ifOpenIdx);
+    expect(ifOpenIdx).toBeLessThan(accountCreateIdx);
+    expect(accountCreateIdx).toBeLessThan(returnIdx);
+    expect(returnIdx).toBeLessThan(throwIdx);
   });
 
-  it("source: the if-guard in runAccountOnlyRepairTx reads from `canRepairAccount` (not the raw findFirst result)", () => {
+  it("source: the if-guard in runAccountOnlyRepairTx is a truthy check on `stillLinked` directly (round 12 — round-11 named boolean removed)", () => {
     const src = readFileSync(HELPER_PATH, "utf8");
     const fnStart = src.indexOf("async function runAccountOnlyRepairTx");
     const tail = src.slice(fnStart);
     const fnBody = tail.slice(0, tail.search(/\n}\n\n/) + 2);
 
-    expect(fnBody).toMatch(
-      /if\s*\(\s*!canRepairAccount\s*\)\s*throw\s+new\s+StaleCustomerLinkError\s*\(/,
+    expect(fnBody).toMatch(/if\s*\(\s*stillLinked\s*\)\s*\{/);
+    // Old forms forbidden:
+    expect(fnBody).not.toMatch(/const\s+canRepairAccount\s*=/);
+    expect(fnBody).not.toMatch(
+      /if\s*\(\s*!canRepairAccount\s*\)\s*throw\s+new\s+StaleCustomerLinkError/,
     );
-    // Old direct-on-result forms must not remain.
     expect(fnBody).not.toMatch(
       /if\s*\(\s*!stillLinked\s*\)\s*throw\s+new\s+StaleCustomerLinkError/,
     );
@@ -3556,7 +3604,7 @@ describe("P2 round 11 (Codex): semantic strengthening of stale + merged-customer
     );
   });
 
-  it("behavioural (round 11 repair): canRepairAccount=false (findFirst returned null) → no account.create, returns stale_customer_link", async () => {
+  it("behavioural (round 12 repair): findFirst returned null → no account.create, returns stale_customer_link", async () => {
     mockCustomerFindUnique.mockResolvedValueOnce({
       id: CUSTOMER_ID,
       storeId: STORE_ID,
@@ -3578,7 +3626,7 @@ describe("P2 round 11 (Codex): semantic strengthening of stale + merged-customer
     expect(txAccountCreate).toHaveBeenCalledTimes(0);
   });
 
-  it("behavioural (round 11 repair): canRepairAccount=true → account.create called, returns account_repaired", async () => {
+  it("behavioural (round 12 repair): findFirst returned truthy row → if (stillLinked) success branch runs → account.create called, returns account_repaired", async () => {
     mockCustomerFindUnique.mockResolvedValueOnce({
       id: CUSTOMER_ID,
       storeId: STORE_ID,
@@ -3727,6 +3775,201 @@ describe("P2 round 11 (Codex): semantic strengthening of stale + merged-customer
       lineUserId: null,
       lineLinkStatus: "UNLINKED",
       mergedIntoCustomerId: null,
+    });
+    const { txCustomerUpdateMany, txAccountCreate } = setupTransaction();
+    txCustomerUpdateMany.mockResolvedValueOnce({ count: 0 });
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const r = await bindLineToExistingCustomerById(makeValidInput());
+
+    expect(r).toEqual({
+      status: "stale_customer_link",
+      customerId: CUSTOMER_ID,
+    });
+    expect(txAccountCreate).toHaveBeenCalledTimes(0);
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// 22. P2 round 12 (PR #242 Codex): nested-success-branch shape — account.create
+//     is structurally INSIDE the if-success branch in both tx callbacks
+// ════════════════════════════════════════════════════════════════════════════
+//
+// Round 11 introduced the named `canRepairAccount` boolean but Codex
+// still anchored on the same lines. Round 12 reshapes BOTH tx callbacks
+// to a parallel "guard succeeds → run write → return; otherwise →
+// throw" structure:
+//
+//   Repair fn:
+//     const stillLinked = await tx.customer.findFirst({...});
+//     if (stillLinked) {
+//       await tx.account.create({...});
+//       return;
+//     }
+//     throw new StaleCustomerLinkError(params.customerId);
+//
+//   Full-bind fn:
+//     const updated = await tx.customer.updateMany({...});
+//     if (updated.count === 1) {
+//       await tx.account.create({...});
+//       return;
+//     }
+//     throw new StaleCustomerLinkError(params.customerId);
+//
+// Account.create is now textually INSIDE the if-success branch, not
+// after a passed guard. This pattern matches how full-bind already
+// passes (the gate is the conditional updateMany count check) and
+// makes the safety property structurally visible: account.create
+// literally cannot execute unless the guard's truthy branch is taken.
+
+describe("P2 round 12 (Codex): nested-success-branch — account.create inside if-success in both tx bodies", () => {
+  const HELPER_PATH = path.resolve(
+    __dirname,
+    "..",
+    "server",
+    "services",
+    "bind-line-to-customer.ts",
+  );
+
+  function readFn(declarationLine: string): string {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    const fnStart = src.indexOf(declarationLine);
+    expect(fnStart).toBeGreaterThan(-1);
+    const tail = src.slice(fnStart);
+    const termRel = tail.search(/\n}\n\n/);
+    return termRel >= 0 ? tail.slice(0, termRel + 2) : tail;
+  }
+
+  // ─ Repair fn (round 12) ────────────────────────────────────────────────
+
+  it("repair fn (round 12): account.create is the FIRST `await` statement inside the `if (stillLinked) { ... }` success branch — gate cannot be bypassed", () => {
+    const fnBody = readFn("async function runAccountOnlyRepairTx");
+    // The success-branch open brace is followed by whitespace only,
+    // then `await tx.account.create(` — no intervening statement.
+    expect(fnBody).toMatch(
+      /if\s*\(\s*stillLinked\s*\)\s*\{\s*await\s+tx\.account\.create\s*\(/,
+    );
+  });
+
+  it("repair fn (round 12): the `return;` inside the success branch sits between account.create and the close brace — prevents fallthrough to throw", () => {
+    const fnBody = readFn("async function runAccountOnlyRepairTx");
+
+    // Pattern: account.create's closing `});` then whitespace, then
+    // `return;`. The return is required so success doesn't fall
+    // through into the throw.
+    expect(fnBody).toMatch(/tx\.account\.create\s*\([\s\S]*?\}\s*\)\s*;\s*return\s*;/);
+  });
+
+  it("repair fn (round 12): the throw is the FALLTHROUGH after the if-block close brace (not inside the if-block)", () => {
+    const fnBody = readFn("async function runAccountOnlyRepairTx");
+
+    // Pattern: `return;` (inside if-block) then close brace `}` then
+    // whitespace then `throw new StaleCustomerLinkError(`.
+    expect(fnBody).toMatch(
+      /return\s*;\s*\}\s*throw\s+new\s+StaleCustomerLinkError\s*\(\s*params\.customerId\s*\)\s*;/,
+    );
+  });
+
+  // ─ Full-bind fn (round 12) ─────────────────────────────────────────────
+
+  it("full-bind fn (round 12): account.create is the FIRST `await` statement inside the `if (updated.count === 1) { ... }` success branch", () => {
+    const fnBody = readFn("async function runFullBindTx");
+    expect(fnBody).toMatch(
+      /if\s*\(\s*updated\.count\s*===\s*1\s*\)\s*\{\s*await\s+tx\.account\.create\s*\(/,
+    );
+  });
+
+  it("full-bind fn (round 12): the `return;` inside the success branch sits between account.create and the close brace — prevents fallthrough", () => {
+    const fnBody = readFn("async function runFullBindTx");
+    expect(fnBody).toMatch(/tx\.account\.create\s*\([\s\S]*?\}\s*\)\s*;\s*return\s*;/);
+  });
+
+  it("full-bind fn (round 12): the throw is the FALLTHROUGH after the if-block close brace", () => {
+    const fnBody = readFn("async function runFullBindTx");
+    expect(fnBody).toMatch(
+      /return\s*;\s*\}\s*throw\s+new\s+StaleCustomerLinkError\s*\(\s*params\.customerId\s*\)\s*;/,
+    );
+  });
+
+  // ─ Cross-cutting structural symmetry ───────────────────────────────────
+
+  it("both tx callbacks (round 12) follow the SAME 4-piece pattern: read-or-write → if (guard) { account.create; return } → throw fallthrough", () => {
+    const repair = readFn("async function runAccountOnlyRepairTx");
+    const fullBind = readFn("async function runFullBindTx");
+
+    // Both must contain the same structural skeleton.
+    for (const body of [repair, fullBind]) {
+      expect(body).toMatch(/await\s+tx\.customer\.(findFirst|updateMany)\s*\(/);
+      expect(body).toMatch(/if\s*\(\s*[a-zA-Z.\s=!()1]+\s*\)\s*\{\s*await\s+tx\.account\.create\s*\(/);
+      expect(body).toMatch(/return\s*;\s*\}/);
+      expect(body).toMatch(/\}\s*throw\s+new\s+StaleCustomerLinkError\s*\(/);
+    }
+  });
+
+  // ─ Behavioural sentinels (round 12) ────────────────────────────────────
+
+  it("behavioural (round 12 repair): stillLinked is null → throw fallthrough → stale_customer_link; account.create 0 calls", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: LINE_USER_ID,
+      lineLinkStatus: "LINKED",
+    });
+    mockAccountFindUnique.mockResolvedValueOnce(null);
+    const { txCustomerFindFirst, txAccountCreate } = setupTransaction();
+    txCustomerFindFirst.mockResolvedValueOnce(null);
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const r = await bindLineToExistingCustomerById(makeValidInput());
+
+    expect(r).toEqual({
+      status: "stale_customer_link",
+      customerId: CUSTOMER_ID,
+    });
+    expect(txAccountCreate).toHaveBeenCalledTimes(0);
+  });
+
+  it("behavioural (round 12 repair): stillLinked is truthy → if-success branch runs → account.create 1 call → account_repaired", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: LINE_USER_ID,
+      lineLinkStatus: "LINKED",
+    });
+    mockAccountFindUnique.mockResolvedValueOnce(null);
+    const { txAccountCreate } = setupTransaction();
+
+    const r = await bindLineToExistingCustomerById(makeValidInput());
+
+    expect(r.status).toBe("account_repaired");
+    expect(txAccountCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it("behavioural (round 12 full-bind): updated.count===1 → success branch → account.create 1 call → bound_existing", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: null,
+      lineLinkStatus: "UNLINKED",
+    });
+    const { txAccountCreate } = setupTransaction();
+
+    const r = await bindLineToExistingCustomerById(makeValidInput());
+
+    expect(r.status).toBe("bound_existing");
+    expect(txAccountCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it("behavioural (round 12 full-bind): updated.count===0 → throw fallthrough → stale_customer_link; account.create 0 calls", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: null,
+      lineLinkStatus: "UNLINKED",
     });
     const { txCustomerUpdateMany, txAccountCreate } = setupTransaction();
     txCustomerUpdateMany.mockResolvedValueOnce({ count: 0 });
