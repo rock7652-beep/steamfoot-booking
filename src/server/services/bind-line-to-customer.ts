@@ -554,6 +554,30 @@ export type BindLineToExistingCustomerByIdResult =
       status: "account_repaired";
       customerId: string;
       userId: string;
+    }
+  | {
+      /**
+       * Conditional Customer update inside runFullBindTx affected 0
+       * rows — the Customer's link state changed between the helper's
+       * preflight read (`customer.lineUserId === null`) and the tx
+       * write boundary. Another binder won the race in the interval.
+       *
+       * Per PR-G5.1.a P1 round 1 (PR #242 Codex): full-bind tx writes
+       * Customer with `where: { id, storeId, userId, lineUserId: null }`
+       * (not just `where: { id }`), so a stale write returns count 0
+       * and we abort the tx before Account.create. Effective DB state:
+       * 0 byte writes; transaction rolls back. Caller can retry by
+       * re-invoking the helper, which will now observe the linked
+       * state and route to `already_synced` / `account_repaired` /
+       * `customer_locked` per the same dispatch.
+       *
+       * Disjoint from `write_conflict` (Prisma P2034 — DB-detected
+       * serialization race) and `unique_conflict` (P2002 — constraint
+       * hit). This is application-level TOCTOU detected by the
+       * conditional updateMany count.
+       */
+      status: "stale_customer_link";
+      customerId: string;
     };
 
 /**
@@ -849,7 +873,7 @@ async function runAccountOnlyRepairTx(params: {
 //  runFullBindTx — first-time bind atomic write, sibling to
 //  runAccountOnlyRepairTx inside `bindLineToExistingCustomerById`.
 //
-//  ⚠ CONTRACT (PR #242 Codex P2 round 4):
+//  ⚠ CONTRACT (PR #242 Codex P2 round 4 + P1 round 1):
 //
 //    THIS FUNCTION OWNS the full-bind metadata write block. Customer
 //    link metadata (`lineUserId`, `lineName`, `lineLinkStatus`,
@@ -863,17 +887,61 @@ async function runAccountOnlyRepairTx(params: {
 //    guard placed immediately before the call site (step 5.5).
 //    Tests in `src/__tests__/bind-line-to-existing-customer-by-id.test.ts`
 //    section 14 lock the source-level invariant: the main helper body
-//    contains 0 `tx.customer.update` writes, and the metadata field
+//    contains 0 `tx.customer.updateMany` writes, and the metadata field
 //    names live ONLY inside this function's body.
 //
-//    Tx shape: Customer.update (sets link metadata + lineUserId) +
-//    Account.create, atomic in one Serializable $transaction (A3).
+//    Tx shape: Customer.updateMany (CONDITIONAL on lineUserId === null
+//    at tx-write time) + Account.create, atomic in one Serializable
+//    $transaction (A3).
 //
-//    Error translation: P2002 → unique_conflict, P2034 → write_conflict
-//    via the shared translateAtomicLineBindTxError. Unknown errors
-//    re-thrown so they stay visible to the caller.
+//    ⚠ TOCTOU race protection (PR #242 Codex P1 round 1):
+//
+//    Updating by `id` alone is unsafe — two binders can both pass the
+//    main helper's preflight read of `customer.lineUserId === null`
+//    and then race into this tx, where the second `update({ where: { id } })`
+//    would silently overwrite the first binder's `lineUserId`. Account
+//    unique `(provider, providerAccountId)` would not catch it because
+//    the two binders bind DIFFERENT lineUserIds.
+//
+//    Fix: the Customer write is a `tx.customer.updateMany` with
+//    `where: { id, storeId, userId, lineUserId: null }`. If another
+//    binder has already linked the Customer between preflight and tx
+//    boundary, the conditional where matches 0 rows. We then throw a
+//    `StaleCustomerLinkError` sentinel inside the tx callback to roll
+//    back (no Account.create runs); the catch arm translates the
+//    sentinel into a controlled `stale_customer_link` status.
+//    Caller can retry — the next invocation will see the linked state
+//    and route to `already_synced` / `account_repaired` / `customer_locked`.
+//
+//    The `storeId` and `userId` predicates are defense-in-depth — the
+//    main helper guarantees both, but including them here makes the
+//    condition fail closed if any preflight state was already stale.
+//
+//    Error translation:
+//      - StaleCustomerLinkError → stale_customer_link (this fn's catch)
+//      - P2002 → unique_conflict (shared translator)
+//      - P2034 → write_conflict (shared translator)
+//      - anything else → re-thrown
 //
 // ════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Sentinel thrown from inside the runFullBindTx callback when the
+ * conditional Customer updateMany affects 0 rows (link state changed
+ * between preflight and tx-write boundary). Caught at the tx wrapper
+ * to roll back the transaction and translate to the
+ * `stale_customer_link` status. Private to this module.
+ */
+class StaleCustomerLinkError extends Error {
+  readonly customerId: string;
+  constructor(customerId: string) {
+    super(
+      "[runFullBindTx] customer link state changed between preflight and tx write",
+    );
+    this.name = "StaleCustomerLinkError";
+    this.customerId = customerId;
+  }
+}
 
 /**
  * Full-bind tx for the first-time-bind path. Writes Customer link
@@ -891,13 +959,21 @@ async function runFullBindTx(params: {
   | { status: "bound_existing"; customerId: string; userId: string }
   | { status: "unique_conflict"; conflictTarget: string }
   | { status: "write_conflict"; code: "P2034" }
+  | { status: "stale_customer_link"; customerId: string }
 > {
   try {
     await prisma.$transaction(
       async (tx) => {
-        // Customer link metadata + lineUserId. Lives ONLY here.
-        await tx.customer.update({
-          where: { id: params.customerId },
+        // Conditional Customer write — TOCTOU-safe. Only updates the
+        // row if it is STILL unlinked at tx-write time. See contract
+        // block above for the race scenario this guards against.
+        const result = await tx.customer.updateMany({
+          where: {
+            id: params.customerId,
+            storeId: params.storeId,
+            userId: params.userId,
+            lineUserId: null,
+          },
           data: {
             lineUserId: params.lineUserId,
             lineName: params.lineName,
@@ -905,9 +981,19 @@ async function runFullBindTx(params: {
             lineLinkedAt: new Date(),
           },
         });
+        if (result.count !== 1) {
+          // Stale link state: another binder won the race in the
+          // preflight→write interval, OR the Customer was deleted /
+          // had its storeId / userId concurrently mutated. Throw the
+          // sentinel so Prisma rolls back the (zero-row) updateMany
+          // and we never reach Account.create. The catch arm below
+          // translates this into the `stale_customer_link` status.
+          throw new StaleCustomerLinkError(params.customerId);
+        }
         // Account[line]. Same row shape as the repair tx — but the
         // repair function lives in its own sibling scope and cannot
-        // share this Customer write block.
+        // share this Customer write block. Only runs when the
+        // conditional Customer update affected exactly 1 row.
         await tx.account.create({
           data: {
             userId: params.userId,
@@ -921,6 +1007,20 @@ async function runFullBindTx(params: {
       { isolationLevel: "Serializable" },
     );
   } catch (err) {
+    // Stale-link sentinel: controlled return + masked log. Account
+    // never reached create(); Customer never reached update (count 0).
+    if (err instanceof StaleCustomerLinkError) {
+      console.warn("[bindLineToExistingCustomerById] stale_customer_link", {
+        storeId: maskId(params.storeId),
+        customerId: maskId(params.customerId),
+        userId: maskId(params.userId),
+        lineUserId: maskLineUserId(params.lineUserId),
+      });
+      return {
+        status: "stale_customer_link",
+        customerId: params.customerId,
+      };
+    }
     const translated = translateAtomicLineBindTxError(err, {
       storeId: params.storeId,
       customerId: params.customerId,
