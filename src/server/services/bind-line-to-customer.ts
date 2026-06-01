@@ -582,14 +582,17 @@ export type BindLineToExistingCustomerByIdResult =
        * preflight read (`customer.lineUserId === null`) and the tx
        * write boundary. Another binder won the race in the interval.
        *
-       * Per PR-G5.1.a P1 round 1 (PR #242 Codex): full-bind tx writes
-       * Customer with `where: { id, storeId, userId, lineUserId: null }`
-       * (not just `where: { id }`), so a stale write returns count 0
-       * and we abort the tx before Account.create. Effective DB state:
-       * 0 byte writes; transaction rolls back. Caller can retry by
-       * re-invoking the helper, which will now observe the linked
-       * state and route to `already_synced` / `account_repaired` /
-       * `customer_locked` per the same dispatch.
+       * Per PR-G5.1.a P1 round 1 + P2 round 8 (PR #242 Codex): full-bind
+       * tx writes Customer with the full 5-predicate where-clause
+       * `where: { id, storeId, userId, lineUserId: null,
+       * mergedIntoCustomerId: null }` (not just `where: { id }`), so
+       * a stale write — including a merged source Customer — returns
+       * count 0 and we abort the tx before Account.create. Effective
+       * DB state: 0 byte writes; transaction rolls back. Caller can
+       * retry by re-invoking the helper, which will now observe the
+       * linked / merged state and route to `already_synced` /
+       * `account_repaired` / `customer_locked` / `stale_customer_link`
+       * (preflight) per the same dispatch.
        *
        * Also returned by `runAccountOnlyRepairTx` when its in-tx
        * Customer re-check (`assertCustomerStillLinkedForAccountRepairTx`)
@@ -1061,11 +1064,12 @@ async function runAccountOnlyRepairTx(params: {
 //    contains 0 `tx.customer.updateMany` writes, and the metadata field
 //    names live ONLY inside this function's body.
 //
-//    Tx shape: Customer.updateMany (CONDITIONAL on lineUserId === null
-//    at tx-write time) + Account.create, atomic in one Serializable
-//    $transaction (A3).
+//    Tx shape: Customer.updateMany (CONDITIONAL on `lineUserId === null`
+//    AND `mergedIntoCustomerId === null` at tx-write time) +
+//    Account.create, atomic in one Serializable $transaction (A3).
 //
-//    ⚠ TOCTOU race protection (PR #242 Codex P1 round 1):
+//    ⚠ TOCTOU race protection (PR #242 Codex P1 round 1) + merged-source
+//      exclusion (PR #242 Codex P2 round 8):
 //
 //    Updating by `id` alone is unsafe — two binders can both pass the
 //    main helper's preflight read of `customer.lineUserId === null`
@@ -1074,19 +1078,40 @@ async function runAccountOnlyRepairTx(params: {
 //    unique `(provider, providerAccountId)` would not catch it because
 //    the two binders bind DIFFERENT lineUserIds.
 //
-//    Fix: the Customer write is a `tx.customer.updateMany` with
-//    `where: { id, storeId, userId, lineUserId: null }`. If another
-//    binder has already linked the Customer between preflight and tx
+//    Additionally, a Customer that was merged into another between
+//    the main helper's preflight and tx-write boundary (Phase-1
+//    customer-merge sets `mergedIntoCustomerId`) is a stale source
+//    row — no LINE binding should be applied to it.
+//
+//    Fix: the Customer write is a `tx.customer.updateMany` with the
+//    full 5-field where-clause:
+//
+//        where: {
+//          id: params.customerId,
+//          storeId: params.storeId,
+//          userId: params.userId,
+//          lineUserId: null,
+//          mergedIntoCustomerId: null,
+//        }
+//
+//    If another binder has already linked the Customer, OR if the
+//    Customer has been merged into another, between preflight and tx
 //    boundary, the conditional where matches 0 rows. We then throw a
 //    `StaleCustomerLinkError` sentinel inside the tx callback to roll
 //    back (no Account.create runs); the catch arm translates the
 //    sentinel into a controlled `stale_customer_link` status.
-//    Caller can retry — the next invocation will see the linked state
-//    and route to `already_synced` / `account_repaired` / `customer_locked`.
+//    Caller can retry — the next invocation will see the linked /
+//    merged state and route to `already_synced` / `account_repaired`
+//    / `customer_locked` / `stale_customer_link` (preflight) per the
+//    main helper's dispatch.
 //
 //    The `storeId` and `userId` predicates are defense-in-depth — the
 //    main helper guarantees both, but including them here makes the
 //    condition fail closed if any preflight state was already stale.
+//    Similarly the `mergedIntoCustomerId: null` predicate is mirrored
+//    in the repair path's in-tx re-check (runAccountOnlyRepairTx's
+//    findFirst.where) — neither dispatch can re-bind LINE to an
+//    obsolete merged Customer.
 //
 //    Error translation:
 //      - StaleCustomerLinkError → stale_customer_link (this fn's catch)

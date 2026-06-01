@@ -3984,3 +3984,116 @@ describe("P2 round 12 (Codex): nested-success-branch — account.create inside i
     expect(txAccountCreate).toHaveBeenCalledTimes(0);
   });
 });
+
+// ════════════════════════════════════════════════════════════════════════════
+// 23. P2 round 13 (PR #242 Codex final): contract documentation matches the
+//     actual runFullBindTx where-clause (mergedIntoCustomerId: null included)
+// ════════════════════════════════════════════════════════════════════════════
+//
+// The previous rounds shipped the correct 5-predicate where-clause in
+// runFullBindTx, but the contract comment block ABOVE the function (and
+// one JSDoc reference on the `stale_customer_link` variant) still
+// described the where-clause as the round-7-era 4-predicate shape
+// (`{ id, storeId, userId, lineUserId: null }`), missing
+// `mergedIntoCustomerId: null`.
+//
+// Codex's static reader treats the contract block as a binding spec,
+// so stale documentation kept the merged-customer exclusion P2 active
+// even though the code was correct. Round 13 syncs the documentation
+// to match the actual where-clause.
+//
+// These tests pin the documentation alignment so future drift is
+// caught at CI time.
+
+describe("P2 round 13 (Codex final): contract documentation matches the 5-predicate updateMany where-clause", () => {
+  const HELPER_PATH = path.resolve(
+    __dirname,
+    "..",
+    "server",
+    "services",
+    "bind-line-to-customer.ts",
+  );
+
+  it("contract doc: the runFullBindTx contract block mentions `mergedIntoCustomerId: null` as a where-clause predicate", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    // Locate the runFullBindTx contract block by finding the function
+    // declaration and scanning the preceding ~6 KB of comments.
+    const fnStart = src.indexOf("async function runFullBindTx");
+    expect(fnStart).toBeGreaterThan(-1);
+    const preamble = src.slice(Math.max(0, fnStart - 6000), fnStart);
+
+    // The contract preamble MUST describe the where-clause as
+    // including mergedIntoCustomerId: null (round 8 added it; round 13
+    // syncs the documentation).
+    expect(preamble).toMatch(/mergedIntoCustomerId\s*:\s*null/);
+  });
+
+  it("contract doc: no stale 4-predicate where-clause reference (`{ id, storeId, userId, lineUserId: null }` WITHOUT mergedIntoCustomerId) survives in the helper source", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    // The 4-predicate shape `{ id, storeId, userId, lineUserId: null }`
+    // — closing brace immediately after `lineUserId: null` with no
+    // `mergedIntoCustomerId` field — must NOT appear ANYWHERE in the
+    // file, including JSDoc and contract comments. If a doc reference
+    // describes the where-clause as 4 fields, Codex anchors on the
+    // stale spec.
+    expect(src).not.toMatch(
+      /where\s*:\s*\{\s*id,\s*storeId,\s*userId,\s*lineUserId:\s*null\s*\}/,
+    );
+  });
+
+  it("code: the actual runFullBindTx updateMany where literal is the compact 5-field object — no comments, no other predicates, exact order", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    const fnStart = src.indexOf("async function runFullBindTx");
+    const tail = src.slice(fnStart);
+    const termRel = tail.search(/\n}\n\n/);
+    const fnBody = termRel >= 0 ? tail.slice(0, termRel + 2) : tail;
+
+    // Strict 5-field where-clause regex: each predicate on its own
+    // line, no `/` (no comment) allowed between any two predicates.
+    expect(fnBody).toMatch(
+      /tx\.customer\.updateMany\s*\(\s*\{\s*where\s*:\s*\{\s*id\s*:\s*params\.customerId\s*,\s*storeId\s*:\s*params\.storeId\s*,\s*userId\s*:\s*params\.userId\s*,\s*lineUserId\s*:\s*null\s*,\s*mergedIntoCustomerId\s*:\s*null\s*,?\s*\}\s*,/,
+    );
+  });
+
+  it("code: there are NO other field names inside the runFullBindTx updateMany where literal — exactly the 5 expected predicates", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    const fnStart = src.indexOf("async function runFullBindTx");
+    const tail = src.slice(fnStart);
+    const termRel = tail.search(/\n}\n\n/);
+    const fnBody = termRel >= 0 ? tail.slice(0, termRel + 2) : tail;
+
+    // Extract the updateMany where literal.
+    const updateManyIdx = fnBody.indexOf("tx.customer.updateMany(");
+    expect(updateManyIdx).toBeGreaterThan(-1);
+    const fromUpdateMany = fnBody.slice(updateManyIdx);
+    const whereOpenIdx = fromUpdateMany.indexOf("where: {");
+    expect(whereOpenIdx).toBeGreaterThan(-1);
+    // Find the matching close brace (5-field flat object literal, no
+    // nested `{}` so the first `}` after the where-open is the close).
+    const whereOpenFull = whereOpenIdx + "where: {".length;
+    const whereCloseRel = fromUpdateMany.slice(whereOpenFull).indexOf("}");
+    expect(whereCloseRel).toBeGreaterThan(-1);
+    const whereBody = fromUpdateMany.slice(
+      whereOpenFull,
+      whereOpenFull + whereCloseRel,
+    );
+
+    // Count distinct field names inside the where-object body.
+    // Acceptable set: id, storeId, userId, lineUserId, mergedIntoCustomerId.
+    const fieldRegex = /(\w+)\s*:/g;
+    const matches: string[] = [];
+    let m: RegExpExecArray | null;
+    while ((m = fieldRegex.exec(whereBody)) !== null) {
+      matches.push(m[1]);
+    }
+    expect(matches.sort()).toEqual(
+      [
+        "id",
+        "lineUserId",
+        "mergedIntoCustomerId",
+        "storeId",
+        "userId",
+      ].sort(),
+    );
+  });
+});
