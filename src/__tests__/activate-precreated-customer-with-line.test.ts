@@ -1011,3 +1011,212 @@ describe("P1 round 1 (Codex): Customer.userId is set by the CAS, not by user.cre
     expect(fnBody).toMatch(/userId\s*:\s*params\.userId/);
   });
 });
+
+// ════════════════════════════════════════════════════════════════════════════
+// 9. P1 round 2 (PR #243 Codex): strengthen "no relation-side-effect"
+//    source assertions so Codex's static reader sees the absence
+//    unambiguously
+// ════════════════════════════════════════════════════════════════════════════
+//
+// Round 1 removed the nested `customer: { connect: { id } }` from
+// `tx.user.create.data` (so Customer.userId is set only by the CAS
+// updateMany). Codex still flagged the P1 — its reader needs more
+// explicit source-level absence assertions. Round 2 adds:
+//
+//   - regex with `\s*` between `customer` and `connect` (less greedy
+//     than the brace form, catches `customer.connect`, `customer .
+//     connect`, etc.)
+//   - assertion on the user.create OPTIONS literal (between `data: {`
+//     and the matching `}`) — no `customer`, no `connect`
+//   - explicit grep over the entire file for both forms
+
+describe("P1 round 2 (Codex): strengthen no-relation-side-effect source assertions", () => {
+  const HELPER_PATH = path.resolve(
+    __dirname,
+    "..",
+    "server",
+    "services",
+    "bind-line-to-customer.ts",
+  );
+
+  function readActivationFnBody(): string {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    const fnStart = src.indexOf(
+      "export async function activatePrecreatedCustomerWithLine",
+    );
+    expect(fnStart).toBeGreaterThan(-1);
+    const tail = src.slice(fnStart);
+    const termRel = tail.search(/\n}\n\n/);
+    return termRel >= 0 ? tail.slice(0, termRel + 2) : tail;
+  }
+
+  it("source: helper body has NO `customer: { connect:` pattern (brace form)", () => {
+    const fnBody = readActivationFnBody();
+    expect(fnBody).not.toMatch(/customer\s*:\s*\{\s*connect\s*:/);
+  });
+
+  it("source: helper body has NO `customer.connect` pattern (dotted form, in case anyone refactors to a different relation-write syntax)", () => {
+    const fnBody = readActivationFnBody();
+    expect(fnBody).not.toMatch(/customer\s*\.\s*connect\b/);
+  });
+
+  it("source: `tx.user.create` data literal does NOT contain a `customer` field-KEY (extracts the data block and asserts no relation-side-effect write)", () => {
+    const fnBody = readActivationFnBody();
+    // Locate the `tx.user.create(` call and extract its `data: {...}`.
+    const userCreateIdx = fnBody.indexOf("tx.user.create(");
+    expect(userCreateIdx).toBeGreaterThan(-1);
+
+    const fromCall = fnBody.slice(userCreateIdx);
+    // Find `data: {` inside the call's options literal.
+    const dataOpenIdx = fromCall.indexOf("data: {");
+    expect(dataOpenIdx).toBeGreaterThan(-1);
+    const fromDataOpen = fromCall.slice(dataOpenIdx + "data: {".length);
+    // Match the first balanced `}` — the User.create.data has no
+    // nested object literals (round 1 removed the relation literal),
+    // so the first `}` is the correct close.
+    const closeIdx = fromDataOpen.indexOf("}");
+    expect(closeIdx).toBeGreaterThan(-1);
+    const dataBody = fromDataOpen.slice(0, closeIdx);
+
+    // Anchor on the FIELD-KEY pattern `customer:` / `connect:` —
+    // value references like `customer.name` (the local variable
+    // dereference) are intentionally allowed. Field keys appear at
+    // line-start (after `{` or `,` + whitespace), followed by `:`.
+    expect(dataBody).not.toMatch(/(^|\n)\s*customer\s*:/);
+    expect(dataBody).not.toMatch(/(^|\n)\s*connect\s*:/);
+  });
+
+  it("source: full file (not just helper body) contains ZERO `customer: { connect` patterns — defense across documentation, contract blocks, anywhere", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    // Brace + dotted forms both forbidden.
+    expect(src).not.toMatch(/customer\s*:\s*\{\s*connect\s*:/);
+    expect(src).not.toMatch(/customer\s*\.\s*connect\b/);
+  });
+
+  // ─ Behavioural reinforcements ─────────────────────────────────────────
+
+  it("happy path (round-2 reinforcement): Customer.updateMany.data.userId === newUser.id AND tx.user.create.data omits `customer` — the FK lives ONLY on the CAS", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const { txUserCreate, txCustomerUpdateMany } = setupTransaction();
+
+    await activatePrecreatedCustomerWithLine(makeValidInput());
+
+    // (a) tx.user.create.data has no customer key (P1 invariant).
+    const userData = (txUserCreate.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    expect(userData).not.toHaveProperty("customer");
+
+    // (b) Customer.updateMany.data.userId === newUser.id (the only
+    //     write that sets the FK).
+    const cuData = (txCustomerUpdateMany.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    expect(cuData?.userId).toBe(NEW_USER_ID);
+
+    // (c) Customer.updateMany.where.userId === null (the CAS
+    //     predicate that confirms no prior FK write happened).
+    const cuWhere = (txCustomerUpdateMany.mock.calls[0]?.[0] as {
+      where?: Record<string, unknown>;
+    })?.where;
+    expect(cuWhere?.userId).toBe(null);
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// 10. P2 round 1 (PR #243 Codex): truthy lineName guard preserves baseline
+//     `if (oauthName)` semantics — null AND empty string both omit lineName
+// ════════════════════════════════════════════════════════════════════════════
+//
+// Codex P2: the helper previously used `if (params.lineName !== null)`,
+// which would let an empty string `""` through and OVERWRITE a stored
+// Customer.lineName with blank. Baseline auth.ts Case B uses
+// `if (oauthName)` truthy check (line 656). Round 1 changes the guard
+// to `if (params.lineName)` so null AND "" both omit the field.
+
+describe("P2 round 1 (Codex): truthy lineName guard (matches baseline `if (oauthName)`)", () => {
+  it("lineName = 'Alice' → Customer.updateMany.data includes lineName: 'Alice'", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const { txCustomerUpdateMany } = setupTransaction();
+
+    await activatePrecreatedCustomerWithLine(makeValidInput({ lineName: "Alice" }));
+
+    const data = (txCustomerUpdateMany.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    expect(data).toHaveProperty("lineName", "Alice");
+  });
+
+  it("lineName = '' (empty string) → Customer.updateMany.data OMITS lineName (would otherwise blank a stored displayName)", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const { txCustomerUpdateMany } = setupTransaction();
+
+    await activatePrecreatedCustomerWithLine(makeValidInput({ lineName: "" }));
+
+    const data = (txCustomerUpdateMany.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    expect(data).not.toHaveProperty("lineName");
+    // Other fields still present.
+    expect(data).toHaveProperty("userId", NEW_USER_ID);
+    expect(data).toHaveProperty("authSource", "LINE");
+    expect(data).toHaveProperty("lineUserId", LINE_USER_ID);
+  });
+
+  it("lineName = null → Customer.updateMany.data OMITS lineName (baseline `if (oauthName)`)", async () => {
+    // Already covered by section #2 above, re-asserted here under
+    // the round-1 P2 grouping for completeness.
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const { txCustomerUpdateMany } = setupTransaction();
+
+    await activatePrecreatedCustomerWithLine(makeValidInput({ lineName: null }));
+
+    const data = (txCustomerUpdateMany.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    expect(data).not.toHaveProperty("lineName");
+  });
+
+  it("source: buildActivationCustomerUpdateData uses a TRUTHY guard `if (params.lineName)` — NOT `if (params.lineName !== null)` (regression sentinel for P2 round 1)", () => {
+    const HELPER_PATH = path.resolve(
+      __dirname,
+      "..",
+      "server",
+      "services",
+      "bind-line-to-customer.ts",
+    );
+    const src = readFileSync(HELPER_PATH, "utf8");
+    const fnStart = src.indexOf("function buildActivationCustomerUpdateData");
+    expect(fnStart).toBeGreaterThan(-1);
+    const tail = src.slice(fnStart);
+    const termRel = tail.search(/\n}\n\n/);
+    const fnBody = termRel >= 0 ? tail.slice(0, termRel + 2) : tail;
+
+    // Truthy guard must be present.
+    expect(fnBody).toMatch(/if\s*\(\s*params\.lineName\s*\)/);
+    // Null-only guards must NOT be present.
+    expect(fnBody).not.toMatch(/if\s*\(\s*params\.lineName\s*!==\s*null\s*\)/);
+    expect(fnBody).not.toMatch(/if\s*\(\s*params\.lineName\s*!=\s*null\s*\)/);
+    // String-comparison guards must NOT be present (an alternate way
+    // someone might "fix" the empty-string case wrong).
+    expect(fnBody).not.toMatch(
+      /if\s*\(\s*params\.lineName\s*!==\s*['"]['"]\s*\)/,
+    );
+  });
+
+  it("lineName = '   ' (whitespace) → Customer.updateMany.data INCLUDES lineName: '   ' — truthy check matches JS truthiness, NOT trim()-truthiness (baseline parity)", async () => {
+    // Baseline auth.ts uses raw `if (oauthName)` — whitespace strings
+    // are truthy in JS. The helper must NOT silently trim or normalize
+    // (that would diverge from baseline). If product wants trim,
+    // that's a separate change at the caller layer.
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const { txCustomerUpdateMany } = setupTransaction();
+
+    await activatePrecreatedCustomerWithLine(makeValidInput({ lineName: "   " }));
+
+    const data = (txCustomerUpdateMany.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    expect(data).toHaveProperty("lineName", "   ");
+  });
+});

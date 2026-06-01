@@ -1323,7 +1323,9 @@ async function runFullBindTx(params: {
 //      - lineUserId:     input.lineUserId
 //      - lineLinkStatus: "LINKED"
 //      - lineLinkedAt:   new Date()
-//      - lineName:       input.lineName     ← only if non-null (baseline guard)
+//      - lineName:       input.lineName     ← only if truthy (matches
+//                                              baseline `if (oauthName)` —
+//                                              rejects null AND empty string)
 //
 //    Items intentionally NOT done by this helper (post-tx best-effort in
 //    baseline — PR-G5.5 keeps them OUTSIDE the tx as today):
@@ -1506,8 +1508,18 @@ function buildActivationCustomerWhere(params: {
  * Build the Customer.updateMany data payload for Case B activation
  * (parallel to the inline data block in runFullBindTx). Returns the
  * full byte-equivalent baseline set, with `lineName` conditionally
- * included only when non-null (matches auth.ts Case B `if (oauthName)`
- * guard at line 656).
+ * included only when TRUTHY — matches auth.ts Case B `if (oauthName)`
+ * guard at line 656 exactly (PR #243 Codex P2 round 1).
+ *
+ * Truthy guard rationale (vs null-only check):
+ *   - lineName = "Alice"  → writes lineName: "Alice"
+ *   - lineName = ""       → does NOT write lineName (would overwrite
+ *                            a previously stored displayName with
+ *                            blank string otherwise)
+ *   - lineName = null     → does NOT write lineName
+ *
+ * `auth.ts` Case B's `if (oauthName)` rejects both null AND "" — the
+ * helper mirrors that behaviour for byte-equivalence.
  */
 function buildActivationCustomerUpdateData(params: {
   userId: string;
@@ -1535,7 +1547,10 @@ function buildActivationCustomerUpdateData(params: {
     lineLinkStatus: "LINKED",
     lineLinkedAt: new Date(),
   };
-  if (params.lineName !== null) {
+  // Truthy guard — matches auth.ts Case B baseline `if (oauthName)`.
+  // Rejects null AND empty string (would otherwise blank a stored
+  // displayName); accepts any non-empty string.
+  if (params.lineName) {
     data.lineName = params.lineName;
   }
   return data;
