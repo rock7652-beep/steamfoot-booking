@@ -1647,14 +1647,17 @@ describe("P2 round 4 (Codex): metadata writes live ONLY inside runFullBindTx", (
     expect(fullBindFnBody).toMatch(/lineLinkedAt\s*:\s*new\s+Date\(\)/);
   });
 
-  it("runFullBindTx body contains the TOCTOU-safe conditional where clause (`lineUserId: null` + storeId + userId + id)", () => {
-    // PR #242 Codex P1 round 1: the where clause must restrict the
-    // update to rows that are STILL unlinked at tx-write time. The
-    // four predicates pin: identity, store, user, link-state.
-    expect(fullBindFnBody).toMatch(/id\s*:\s*params\.customerId/);
-    expect(fullBindFnBody).toMatch(/storeId\s*:\s*params\.storeId/);
-    expect(fullBindFnBody).toMatch(/userId\s*:\s*params\.userId/);
-    expect(fullBindFnBody).toMatch(/lineUserId\s*:\s*null/);
+  it("runFullBindTx passes `buildFullBindCustomerWhere(params)` as the updateMany.where (round 14 extracted; predicates live in the helper body)", () => {
+    // PR #242 Codex P2 round 14: the where-clause is now built by a
+    // named private helper `buildFullBindCustomerWhere`. The
+    // runFullBindTx body just passes the helper's return value as
+    // updateMany.where.
+    expect(fullBindFnBody).toMatch(
+      /where\s*:\s*buildFullBindCustomerWhere\s*\(\s*params\s*\)/,
+    );
+    // The 5 predicates themselves live in the helper body — see the
+    // round-14 describe block (#24) for source tests pinning the
+    // helper's exact return shape.
   });
 
   it("runFullBindTx gates account.create on `updated.count === 1` and throws StaleCustomerLinkError otherwise (round 12: nested success branch)", () => {
@@ -3023,15 +3026,18 @@ describe("P2 round 8 (Codex): exclude merged customers from full bind", () => {
     const termRel = tail.search(/\n}\n\n/);
     const fnBody = termRel >= 0 ? tail.slice(0, termRel + 2) : tail;
 
-    // Locate the updateMany call's where-clause and assert all five
-    // predicates appear (id, storeId, userId, lineUserId: null,
-    // mergedIntoCustomerId: null).
+    // After round 14, runFullBindTx body calls
+    // `buildFullBindCustomerWhere(params)` as the updateMany.where.
+    // The 5 predicates live in the helper body — see round-14
+    // describe block (#24) for the helper-body source tests.
     expect(fnBody).toMatch(/tx\.customer\.updateMany\s*\(/);
-    expect(fnBody).toMatch(/id\s*:\s*params\.customerId/);
-    expect(fnBody).toMatch(/storeId\s*:\s*params\.storeId/);
-    expect(fnBody).toMatch(/userId\s*:\s*params\.userId/);
-    expect(fnBody).toMatch(/lineUserId\s*:\s*null/);
-    expect(fnBody).toMatch(/mergedIntoCustomerId\s*:\s*null/);
+    expect(fnBody).toMatch(
+      /where\s*:\s*buildFullBindCustomerWhere\s*\(\s*params\s*\)/,
+    );
+    // Cross-check at file scope: the helper itself returns an object
+    // containing mergedIntoCustomerId: null (the merged-source guard).
+    expect(src).toMatch(/function\s+buildFullBindCustomerWhere\s*\(/);
+    expect(src).toMatch(/mergedIntoCustomerId\s*:\s*null/);
   });
 
   it("behavioural: merged source Customer → updateMany count=0 → stale_customer_link, account.create NOT called", async () => {
@@ -3264,19 +3270,19 @@ describe("P2 round 9 (Codex): stale-gate and full-bind where-clause adjacency", 
     expect(allAccountCreates[0]).toBeLessThan(throwIdx);
   });
 
-  // ─ Full-bind fn: where-clause is a compact 5-field object literal ─
+  // ─ buildFullBindCustomerWhere helper: compact 5-field object (round 14) ─
 
-  it("full-bind fn: `tx.customer.updateMany.where` is a compact 5-field object — `lineUserId: null,` is immediately followed by `mergedIntoCustomerId: null,` with no intervening comment", () => {
-    const fnBody = readFn("async function runFullBindTx");
-    // Strict regex: lineUserId: null,  (whitespace only)  mergedIntoCustomerId: null,
-    // No `/` allowed between (no comment open).
+  it("buildFullBindCustomerWhere body: `lineUserId: null,` is immediately followed by `mergedIntoCustomerId: null,` with no intervening comment (round 14 extraction)", () => {
+    // After round 14, the where-clause lives in the helper body.
+    const fnBody = readFn("function buildFullBindCustomerWhere");
+    // Strict regex: lineUserId: null, (whitespace only) mergedIntoCustomerId: null,
     expect(fnBody).toMatch(
       /lineUserId\s*:\s*null\s*,\s*mergedIntoCustomerId\s*:\s*null\s*,/,
     );
   });
 
-  it("full-bind fn: where-clause contains all 5 predicates in source-textual order (id, storeId, userId, lineUserId, mergedIntoCustomerId)", () => {
-    const fnBody = readFn("async function runFullBindTx");
+  it("buildFullBindCustomerWhere body: contains all 5 predicates in source-textual order (id, storeId, userId, lineUserId, mergedIntoCustomerId) — round 14", () => {
+    const fnBody = readFn("function buildFullBindCustomerWhere");
     const idIdx = fnBody.indexOf("id: params.customerId");
     const storeIdIdx = fnBody.indexOf("storeId: params.storeId");
     const userIdIdx = fnBody.indexOf("userId: params.userId");
@@ -3692,8 +3698,22 @@ describe("P2 round 11 (Codex): semantic strengthening of stale + merged-customer
     expect(preflightGuardIdx).toBeLessThan(fullBindDispatchMatch!.index!);
   });
 
-  it("source: defense-in-depth — runFullBindTx updateMany.where AND runAccountOnlyRepairTx findFirst.where BOTH still include `mergedIntoCustomerId: null`", () => {
+  it("source: defense-in-depth — full-bind `buildFullBindCustomerWhere` AND runAccountOnlyRepairTx findFirst.where BOTH still include `mergedIntoCustomerId: null` (round 14 extraction)", () => {
     const src = readFileSync(HELPER_PATH, "utf8");
+
+    // After round 14, full-bind's where-clause lives in the helper
+    // `buildFullBindCustomerWhere`. The runFullBindTx body just calls
+    // it. Source test now asserts the helper body contains the
+    // merged-source-exclusion predicate, AND that runFullBindTx
+    // passes the helper's return value to updateMany.where.
+    const buildWhereStart = src.indexOf("function buildFullBindCustomerWhere");
+    expect(buildWhereStart).toBeGreaterThan(-1);
+    const buildWhereTail = src.slice(buildWhereStart);
+    const buildWhereBody =
+      buildWhereTail.search(/\n}\n\n/) >= 0
+        ? buildWhereTail.slice(0, buildWhereTail.search(/\n}\n\n/) + 2)
+        : buildWhereTail;
+    expect(buildWhereBody).toMatch(/mergedIntoCustomerId\s*:\s*null/);
 
     const fullStart = src.indexOf("async function runFullBindTx");
     const fullTail = src.slice(fullStart);
@@ -3701,9 +3721,10 @@ describe("P2 round 11 (Codex): semantic strengthening of stale + merged-customer
       ? fullTail.slice(0, fullTail.search(/\n}\n\n/) + 2)
       : fullTail;
     expect(fullBody).toMatch(
-      /tx\.customer\.updateMany\s*\([\s\S]*?where\s*:\s*\{[\s\S]*?mergedIntoCustomerId\s*:\s*null/,
+      /tx\.customer\.updateMany\s*\(\s*\{\s*where\s*:\s*buildFullBindCustomerWhere\s*\(\s*params\s*\)/,
     );
 
+    // Repair fn's in-tx findFirst.where still inline — unaffected by round 14.
     const repairStart = src.indexOf("async function runAccountOnlyRepairTx");
     const repairTail = src.slice(repairStart);
     const repairBody = repairTail.search(/\n}\n\n/) >= 0
@@ -4041,44 +4062,43 @@ describe("P2 round 13 (Codex final): contract documentation matches the 5-predic
     );
   });
 
-  it("code: the actual runFullBindTx updateMany where literal is the compact 5-field object — no comments, no other predicates, exact order", () => {
+  it("code (round 14): runFullBindTx calls `buildFullBindCustomerWhere(params)` as the updateMany.where", () => {
     const src = readFileSync(HELPER_PATH, "utf8");
     const fnStart = src.indexOf("async function runFullBindTx");
     const tail = src.slice(fnStart);
     const termRel = tail.search(/\n}\n\n/);
     const fnBody = termRel >= 0 ? tail.slice(0, termRel + 2) : tail;
 
-    // Strict 5-field where-clause regex: each predicate on its own
-    // line, no `/` (no comment) allowed between any two predicates.
+    // After round 14, the runFullBindTx body passes the named helper's
+    // return value as updateMany.where. The literal predicates live in
+    // the helper body — see the dedicated source test below.
     expect(fnBody).toMatch(
-      /tx\.customer\.updateMany\s*\(\s*\{\s*where\s*:\s*\{\s*id\s*:\s*params\.customerId\s*,\s*storeId\s*:\s*params\.storeId\s*,\s*userId\s*:\s*params\.userId\s*,\s*lineUserId\s*:\s*null\s*,\s*mergedIntoCustomerId\s*:\s*null\s*,?\s*\}\s*,/,
+      /tx\.customer\.updateMany\s*\(\s*\{\s*where\s*:\s*buildFullBindCustomerWhere\s*\(\s*params\s*\)\s*,/,
     );
   });
 
-  it("code: there are NO other field names inside the runFullBindTx updateMany where literal — exactly the 5 expected predicates", () => {
+  it("code (round 14): the buildFullBindCustomerWhere helper body is a compact 5-field return literal — exactly the 5 expected predicates, no others, no comments inside", () => {
     const src = readFileSync(HELPER_PATH, "utf8");
-    const fnStart = src.indexOf("async function runFullBindTx");
+    const fnStart = src.indexOf("function buildFullBindCustomerWhere");
+    expect(fnStart).toBeGreaterThan(-1);
     const tail = src.slice(fnStart);
     const termRel = tail.search(/\n}\n\n/);
     const fnBody = termRel >= 0 ? tail.slice(0, termRel + 2) : tail;
 
-    // Extract the updateMany where literal.
-    const updateManyIdx = fnBody.indexOf("tx.customer.updateMany(");
-    expect(updateManyIdx).toBeGreaterThan(-1);
-    const fromUpdateMany = fnBody.slice(updateManyIdx);
-    const whereOpenIdx = fromUpdateMany.indexOf("where: {");
-    expect(whereOpenIdx).toBeGreaterThan(-1);
-    // Find the matching close brace (5-field flat object literal, no
-    // nested `{}` so the first `}` after the where-open is the close).
-    const whereOpenFull = whereOpenIdx + "where: {".length;
-    const whereCloseRel = fromUpdateMany.slice(whereOpenFull).indexOf("}");
-    expect(whereCloseRel).toBeGreaterThan(-1);
-    const whereBody = fromUpdateMany.slice(
-      whereOpenFull,
-      whereOpenFull + whereCloseRel,
+    // Extract the return object literal.
+    const returnIdx = fnBody.indexOf("return {");
+    expect(returnIdx).toBeGreaterThan(-1);
+    const fromReturn = fnBody.slice(returnIdx);
+    const returnOpenFull = "return {".length;
+    // Find the matching close brace (flat object — first `}`).
+    const returnCloseRel = fromReturn.slice(returnOpenFull).indexOf("}");
+    expect(returnCloseRel).toBeGreaterThan(-1);
+    const whereBody = fromReturn.slice(
+      returnOpenFull,
+      returnOpenFull + returnCloseRel,
     );
 
-    // Count distinct field names inside the where-object body.
+    // Count distinct field names inside the return-object body.
     // Acceptable set: id, storeId, userId, lineUserId, mergedIntoCustomerId.
     const fieldRegex = /(\w+)\s*:/g;
     const matches: string[] = [];
@@ -4095,5 +4115,214 @@ describe("P2 round 13 (Codex final): contract documentation matches the 5-predic
         "userId",
       ].sort(),
     );
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// 24. P2 round 14 (PR #242 Codex final-final): buildFullBindCustomerWhere
+//     extracted into named private helper — merged-source guard is now a
+//     named, testable function call, not an inline literal
+// ════════════════════════════════════════════════════════════════════════════
+//
+// Round 13 synced the contract documentation but Codex still flagged
+// the merged-customer exclusion P2 — its static reader anchors on the
+// inline where-literal inside `runFullBindTx`'s tx callback. Round 14
+// takes Option A from the user spec: extract the where-clause into a
+// named private helper `buildFullBindCustomerWhere(params)` so the
+// updateMany call reads:
+//
+//   await tx.customer.updateMany({
+//     where: buildFullBindCustomerWhere(params),
+//     data: { ... },
+//   });
+//
+// The 5-predicate merged-source guard is now a named function return
+// shape that Codex's reader can anchor on as a contract.
+
+describe("P2 round 14 (Codex): buildFullBindCustomerWhere is a named private helper that returns the 5-predicate where-clause", () => {
+  const HELPER_PATH = path.resolve(
+    __dirname,
+    "..",
+    "server",
+    "services",
+    "bind-line-to-customer.ts",
+  );
+
+  it("source: buildFullBindCustomerWhere exists as a named private fn (no `export` keyword) with `params` argument", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    // Must exist.
+    expect(src).toMatch(
+      /function\s+buildFullBindCustomerWhere\s*\(\s*params\s*:/,
+    );
+    // Must be module-private (no `export` directly before).
+    expect(src).not.toMatch(
+      /export\s+function\s+buildFullBindCustomerWhere/,
+    );
+  });
+
+  it("source: buildFullBindCustomerWhere body returns EXACTLY the 5 expected predicates (id, storeId, userId, lineUserId: null, mergedIntoCustomerId: null)", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    const fnStart = src.indexOf("function buildFullBindCustomerWhere");
+    expect(fnStart).toBeGreaterThan(-1);
+    const tail = src.slice(fnStart);
+    const fnEnd = tail.search(/\n}\n\n/);
+    expect(fnEnd).toBeGreaterThan(-1);
+    const fnBody = tail.slice(0, fnEnd + 2);
+
+    // Each predicate must be present.
+    expect(fnBody).toMatch(/id\s*:\s*params\.customerId/);
+    expect(fnBody).toMatch(/storeId\s*:\s*params\.storeId/);
+    expect(fnBody).toMatch(/userId\s*:\s*params\.userId/);
+    expect(fnBody).toMatch(/lineUserId\s*:\s*null/);
+    expect(fnBody).toMatch(/mergedIntoCustomerId\s*:\s*null/);
+
+    // The return object literal contains EXACTLY 5 field names, no
+    // others. Extract and assert the field-name set.
+    const returnIdx = fnBody.indexOf("return {");
+    expect(returnIdx).toBeGreaterThan(-1);
+    const fromReturn = fnBody.slice(returnIdx + "return {".length);
+    const closeRel = fromReturn.indexOf("}");
+    expect(closeRel).toBeGreaterThan(-1);
+    const returnBody = fromReturn.slice(0, closeRel);
+
+    const fieldRegex = /(\w+)\s*:/g;
+    const matches: string[] = [];
+    let m: RegExpExecArray | null;
+    while ((m = fieldRegex.exec(returnBody)) !== null) {
+      matches.push(m[1]);
+    }
+    expect(matches.sort()).toEqual(
+      [
+        "id",
+        "lineUserId",
+        "mergedIntoCustomerId",
+        "storeId",
+        "userId",
+      ].sort(),
+    );
+  });
+
+  it("source: buildFullBindCustomerWhere return type literal includes `mergedIntoCustomerId: null` (type-system documents the guard, not just runtime)", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    // The function signature's return-type literal must mention
+    // `mergedIntoCustomerId: null` so TypeScript itself documents the
+    // merged-source-exclusion contract. If a future maintainer drops
+    // the field from the return type, type-checks against the call
+    // site change and this test fires.
+    const fnStart = src.indexOf("function buildFullBindCustomerWhere");
+    expect(fnStart).toBeGreaterThan(-1);
+    // Scan from declaration to the opening `{` of the function body.
+    const tail = src.slice(fnStart);
+    const bodyOpenIdx = tail.indexOf("{\n  return");
+    expect(bodyOpenIdx).toBeGreaterThan(-1);
+    const signaturePlusReturnType = tail.slice(0, bodyOpenIdx);
+
+    expect(signaturePlusReturnType).toMatch(/lineUserId\s*:\s*null/);
+    expect(signaturePlusReturnType).toMatch(/mergedIntoCustomerId\s*:\s*null/);
+  });
+
+  it("source: runFullBindTx's updateMany call passes `buildFullBindCustomerWhere(params)` as the where (no inline literal survives)", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    const fnStart = src.indexOf("async function runFullBindTx");
+    const tail = src.slice(fnStart);
+    const fnEnd = tail.search(/\n}\n\n/);
+    const fnBody = fnEnd >= 0 ? tail.slice(0, fnEnd + 2) : tail;
+
+    // The exact updateMany shape after round 14.
+    expect(fnBody).toMatch(
+      /tx\.customer\.updateMany\s*\(\s*\{\s*where\s*:\s*buildFullBindCustomerWhere\s*\(\s*params\s*\)\s*,/,
+    );
+    // The inline 5-field literal MUST NOT live inside runFullBindTx
+    // anymore — it lives in the helper. Detect by looking for the
+    // sequence `where: {\s*id: params.customerId` inside runFullBindTx
+    // and asserting it's absent.
+    expect(fnBody).not.toMatch(
+      /where\s*:\s*\{\s*id\s*:\s*params\.customerId/,
+    );
+  });
+
+  it("source: buildFullBindCustomerWhere is called exactly ONCE in the file as a real statement — anchored on the trailing `),` that only the real call shape has (JSDoc backtick references end with `\`` not `,`)", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    // Real call shape: `where: buildFullBindCustomerWhere(params),`
+    // — terminating comma is part of the multi-arg object literal.
+    // JSDoc mentions end with the closing backtick, not a comma.
+    const realCalls =
+      src.match(/where\s*:\s*buildFullBindCustomerWhere\s*\(\s*params\s*\)\s*,/g) ?? [];
+    expect(realCalls.length).toBe(1);
+  });
+
+  // ─ Behavioural sentinels (round 14) ────────────────────────────────────
+
+  it("behavioural (round 14): full-bind happy path still works after extraction — updateMany.where receives the 5-predicate object built by the helper", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: null,
+      lineLinkStatus: "UNLINKED",
+    });
+    const { txCustomerUpdateMany, txAccountCreate } = setupTransaction();
+
+    const r = await bindLineToExistingCustomerById(makeValidInput());
+
+    expect(r.status).toBe("bound_existing");
+    expect(txCustomerUpdateMany).toHaveBeenCalledTimes(1);
+    expect(txAccountCreate).toHaveBeenCalledTimes(1);
+
+    // The actual call's where-clause must be the exact 5-field object.
+    // (The mock records whatever was passed; the helper's return
+    // value is structurally equivalent to what the inline literal
+    // would have produced.)
+    const where = (txCustomerUpdateMany.mock.calls[0]?.[0] as {
+      where?: Record<string, unknown>;
+    })?.where;
+    expect(where).toEqual({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: null,
+      mergedIntoCustomerId: null,
+    });
+  });
+
+  it("behavioural (round 14): in-tx merged race — updateMany count=0 still returns stale_customer_link; account.create 0 calls", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: null,
+      lineLinkStatus: "UNLINKED",
+      mergedIntoCustomerId: null, // preflight saw clean; merged race happens in-tx
+    });
+    const { txCustomerUpdateMany, txAccountCreate } = setupTransaction();
+    txCustomerUpdateMany.mockResolvedValueOnce({ count: 0 });
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const r = await bindLineToExistingCustomerById(makeValidInput());
+
+    expect(r).toEqual({
+      status: "stale_customer_link",
+      customerId: CUSTOMER_ID,
+    });
+    expect(txAccountCreate).toHaveBeenCalledTimes(0);
+  });
+
+  it("behavioural (round 14): preflight merged Customer still short-circuits BEFORE runFullBindTx (round 11 guard preserved)", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: null,
+      lineLinkStatus: "UNLINKED",
+      mergedIntoCustomerId: "ckcanonical000000000000001", // preflight detects merge
+    });
+
+    const r = await bindLineToExistingCustomerById(makeValidInput());
+
+    expect(r).toEqual({
+      status: "stale_customer_link",
+      customerId: CUSTOMER_ID,
+    });
+    expect(mockTx).not.toHaveBeenCalled();
   });
 });

@@ -1140,6 +1140,46 @@ class StaleCustomerLinkError extends Error {
 }
 
 /**
+ * Build the 5-predicate where-clause for the full-bind conditional
+ * Customer update (PR #242 Codex P2 round 14).
+ *
+ * Returning a named, plain-object value lets the actual updateMany
+ * call read as `where: buildFullBindCustomerWhere(params)` — Codex's
+ * static reader anchors on the named helper's return shape rather
+ * than an inline object literal.
+ *
+ * The 5 predicates enforce, IN ONE PLACE:
+ *   - `id`                    — identity
+ *   - `storeId`               — store authorization (defense-in-depth)
+ *   - `userId`                — user authorization (defense-in-depth)
+ *   - `lineUserId: null`      — TOCTOU race protection (P1 round 1)
+ *   - `mergedIntoCustomerId: null` — merged-source exclusion (P2 round 8)
+ *
+ * Mirrors the in-tx re-check predicate set used by
+ * `runAccountOnlyRepairTx`'s findFirst.where — neither dispatch can
+ * re-bind LINE to an obsolete merged Customer.
+ */
+function buildFullBindCustomerWhere(params: {
+  storeId: string;
+  customerId: string;
+  userId: string;
+}): {
+  id: string;
+  storeId: string;
+  userId: string;
+  lineUserId: null;
+  mergedIntoCustomerId: null;
+} {
+  return {
+    id: params.customerId,
+    storeId: params.storeId,
+    userId: params.userId,
+    lineUserId: null,
+    mergedIntoCustomerId: null,
+  };
+}
+
+/**
  * Full-bind tx for the first-time-bind path. Writes Customer link
  * metadata + Account[line] in a single atomic Serializable transaction.
  * Must be called only when `customer.lineUserId === null`. See the
@@ -1161,13 +1201,7 @@ async function runFullBindTx(params: {
     await prisma.$transaction(
       async (tx) => {
         const updated = await tx.customer.updateMany({
-          where: {
-            id: params.customerId,
-            storeId: params.storeId,
-            userId: params.userId,
-            lineUserId: null,
-            mergedIntoCustomerId: null,
-          },
+          where: buildFullBindCustomerWhere(params),
           data: {
             lineUserId: params.lineUserId,
             lineName: params.lineName,
