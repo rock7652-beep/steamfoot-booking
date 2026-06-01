@@ -961,22 +961,6 @@ async function runAccountOnlyRepairTx(params: {
   try {
     await prisma.$transaction(
       async (tx) => {
-        // ── In-tx Customer re-check GATE (PR #242 Codex P2 round 5/6/7/8) ──
-        //
-        // Re-assert every Customer-state invariant the main helper's
-        // preflight read observed, inside the repair tx. If the
-        // Customer was concurrently unbound / reassigned / merged
-        // between preflight and tx-start, findFirst returns null,
-        // we throw `StaleCustomerLinkError`, Prisma rolls back, and
-        // `tx.account.create` is structurally unreachable — no orphan
-        // Account row can ever be written.
-        //
-        // The re-check is INLINED here (no helper indirection) so the
-        // gate is visible in the same lexical block as the write it
-        // gates. Source tests in section 16 pin: (a) tx.customer.findFirst
-        // appears textually before tx.account.create; (b) the 5-predicate
-        // where-clause is intact; (c) the null check throws
-        // StaleCustomerLinkError; (d) only ONE tx.account.create exists.
         const stillLinked = await tx.customer.findFirst({
           where: {
             id: params.customerId,
@@ -987,9 +971,7 @@ async function runAccountOnlyRepairTx(params: {
           },
           select: { id: true },
         });
-        if (stillLinked === null) {
-          throw new StaleCustomerLinkError(params.customerId);
-        }
+        if (!stillLinked) throw new StaleCustomerLinkError(params.customerId);
         await tx.account.create({
           data: {
             userId: params.userId,
@@ -999,8 +981,6 @@ async function runAccountOnlyRepairTx(params: {
           },
         });
       },
-      // Same isolation contract as the full bind tx so racing binders
-      // surface as P2002 / P2034 deterministically.
       { isolationLevel: "Serializable" },
     );
   } catch (err) {
@@ -1128,23 +1108,7 @@ async function runFullBindTx(params: {
   try {
     await prisma.$transaction(
       async (tx) => {
-        // Conditional Customer write — TOCTOU-safe (PR #242 Codex P1/P2).
-        //
-        // The 5-predicate where-clause below restricts the update to a
-        // Customer row that is STILL the exact preflight-observed state
-        // at tx-write time:
-        //   - `lineUserId: null` — TOCTOU race protection (P1 round 1)
-        //   - `mergedIntoCustomerId: null` — exclude merged source row
-        //     (P2 round 8); mirrors the repair path's in-tx re-check
-        //     predicate so neither dispatch can re-bind LINE to an
-        //     obsolete Customer
-        //   - `id / storeId / userId` — defense-in-depth identity
-        //     re-assertion
-        //
-        // If count !== 1 the stale-link branch fires; the throw rolls
-        // back the (0-row) updateMany and tx.account.create is
-        // unreachable.
-        const result = await tx.customer.updateMany({
+        const updated = await tx.customer.updateMany({
           where: {
             id: params.customerId,
             storeId: params.storeId,
@@ -1159,9 +1123,7 @@ async function runFullBindTx(params: {
             lineLinkedAt: new Date(),
           },
         });
-        if (result.count !== 1) {
-          throw new StaleCustomerLinkError(params.customerId);
-        }
+        if (updated.count !== 1) throw new StaleCustomerLinkError(params.customerId);
         await tx.account.create({
           data: {
             userId: params.userId,
@@ -1171,7 +1133,6 @@ async function runFullBindTx(params: {
           },
         });
       },
-      // Serializable per PR-G5.0 §5.3 step 5 (A3 atomicity).
       { isolationLevel: "Serializable" },
     );
   } catch (err) {
