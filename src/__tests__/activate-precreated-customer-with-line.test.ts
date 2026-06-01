@@ -235,7 +235,18 @@ describe("byte-equivalent baseline vs auth.ts Case B (lines 620-687)", () => {
     expect(userCreateArg?.data?.name).not.toBe(OAUTH_PROFILE_NAME);
   });
 
-  it("User.create.data has exactly the 7 baseline fields (name, email, phone, role, status, image, customer:connect)", async () => {
+  it("User.create.data has exactly 6 User-row columns (name, email, phone, role, status, image) — NO `customer: { connect }` per PR #243 Codex P1 round 1", async () => {
+    // PR #243 Codex P1 round 1: the nested `customer.connect` in
+    // baseline auth.ts Case B sets Customer.userId as a Prisma
+    // relation side-effect — but that side-effect runs BEFORE the
+    // conditional Customer.updateMany at step 7c, and the
+    // updateMany.where requires `userId: null`. The connect would
+    // make the happy path match 0 rows.
+    //
+    // Fix: drop the nested connect; the FK write moves into the
+    // CAS updateMany.data.userId. End-state DB row is byte-equal
+    // vs baseline — User row has the same 6 column values; Customer
+    // row gets the same final userId — only the mechanism differs.
     mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
     const { txUserCreate } = setupTransaction();
 
@@ -251,7 +262,13 @@ describe("byte-equivalent baseline vs auth.ts Case B (lines 620-687)", () => {
     expect(data?.role).toBe("CUSTOMER");
     expect(data?.status).toBe("ACTIVE");
     expect(data?.image).toBe(OAUTH_IMAGE);
-    expect(data?.customer).toEqual({ connect: { id: CUSTOMER_ID } });
+    // ⚠ The FK side-effect MUST NOT be present in user.create —
+    //   it's set explicitly by the CAS in Customer.updateMany.data.
+    expect(data).not.toHaveProperty("customer");
+    // Exactly 6 keys.
+    expect(Object.keys(data ?? {}).sort()).toEqual(
+      ["email", "image", "name", "phone", "role", "status"].sort(),
+    );
   });
 
   it("User.phone === customer.phone || null — falls back to null when customer.phone is empty", async () => {
@@ -816,5 +833,181 @@ describe("pre-write contract sweep — rejection branches commit 0 DB writes", (
     setup();
     await activatePrecreatedCustomerWithLine(makeValidInput());
     expect(mockTx).not.toHaveBeenCalled();
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// 8. P1 round 1 (PR #243 Codex): Customer.userId set by the CAS, NOT by
+//    a nested customer.connect in User.create
+// ════════════════════════════════════════════════════════════════════════════
+//
+// Codex P1: the baseline auth.ts Case B uses
+//   prisma.user.create({ data: { ..., customer: { connect: { id } } } })
+// which sets Customer.userId via Prisma's relation side-effect BEFORE
+// the subsequent customer.update runs. When refactored into a single
+// $transaction with a conditional Customer.updateMany using
+// `where: { userId: null }`, the side-effect breaks the CAS — the
+// happy-path matches 0 rows, throws StaleCustomerLinkError, and
+// rolls back.
+//
+// Fix: remove the nested connect; let the CAS updateMany be the
+// SINGLE write that sets Customer.userId (it already includes
+// `userId: newUser.id` in its data payload).
+//
+// End-state byte-equivalence vs baseline:
+//   - User row: identical 6 columns / values
+//   - Account row: identical 10 columns / values (NO session_state)
+//   - Customer row: identical final userId + link metadata
+// Only the WRITE MECHANISM for Customer.userId changes (connect
+// side-effect → explicit data field).
+
+import { readFileSync } from "node:fs";
+import path from "node:path";
+
+describe("P1 round 1 (Codex): Customer.userId is set by the CAS, not by user.create nested connect", () => {
+  const HELPER_PATH = path.resolve(
+    __dirname,
+    "..",
+    "server",
+    "services",
+    "bind-line-to-customer.ts",
+  );
+
+  // ─ Behavioural ─────────────────────────────────────────────────────────
+
+  it("happy path: tx.user.create data does NOT include `customer: { connect }` — the CAS owns the FK write", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const { txUserCreate } = setupTransaction();
+
+    await activatePrecreatedCustomerWithLine(makeValidInput());
+
+    const data = (txUserCreate.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    expect(data).toBeDefined();
+    expect(data).not.toHaveProperty("customer");
+    // Defense in depth: no `connect` key anywhere either.
+    expect(data).not.toHaveProperty("connect");
+  });
+
+  it("happy path: Customer.updateMany.where has `userId: null` AND `mergedIntoCustomerId: null` (CAS predicate)", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const { txCustomerUpdateMany } = setupTransaction();
+
+    await activatePrecreatedCustomerWithLine(makeValidInput());
+
+    const arg = txCustomerUpdateMany.mock.calls[0]?.[0] as {
+      where?: Record<string, unknown>;
+    };
+    expect(arg?.where).toEqual({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: null,
+      lineUserId: null,
+      mergedIntoCustomerId: null,
+    });
+  });
+
+  it("happy path: Customer.updateMany.data sets `userId: newUser.id` — the SINGLE write that establishes the FK", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const { txCustomerUpdateMany } = setupTransaction();
+
+    await activatePrecreatedCustomerWithLine(makeValidInput());
+
+    const data = (txCustomerUpdateMany.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    expect(data).toBeDefined();
+    expect(data?.userId).toBe(NEW_USER_ID);
+  });
+
+  it("happy path end-to-end: returns activated, all 3 writes occur in order — no rollback due to CAS mismatch (the bug Codex flagged)", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const { txUserCreate, txAccountCreate, txCustomerUpdateMany } =
+      setupTransaction();
+
+    const r = await activatePrecreatedCustomerWithLine(makeValidInput());
+
+    expect(r).toEqual({
+      status: "activated",
+      customerId: CUSTOMER_ID,
+      userId: NEW_USER_ID,
+    });
+    expect(txUserCreate).toHaveBeenCalledTimes(1);
+    expect(txAccountCreate).toHaveBeenCalledTimes(1);
+    expect(txCustomerUpdateMany).toHaveBeenCalledTimes(1);
+  });
+
+  it("regression: when Customer.updateMany returns count=0 AFTER user/account create, tx rolls back and returns stale_customer_link (no orphan User / Account observable)", async () => {
+    // This is the scenario the connect-side-effect would have caused
+    // on EVERY happy path before round 1: the CAS predicate
+    // (userId: null) fails after the connect set it to newUser.id.
+    // Now we simulate the equivalent post-create race directly.
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const { txUserCreate, txAccountCreate, txCustomerUpdateMany } =
+      setupTransaction();
+    txCustomerUpdateMany.mockResolvedValueOnce({ count: 0 });
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const r = await activatePrecreatedCustomerWithLine(makeValidInput());
+
+    expect(r).toEqual({
+      status: "stale_customer_link",
+      customerId: CUSTOMER_ID,
+    });
+    // All 3 writes were attempted inside the tx callback; Prisma
+    // rolls back the whole tx on the sentinel throw — no row
+    // commits to the DB.
+    expect(txUserCreate).toHaveBeenCalledTimes(1);
+    expect(txAccountCreate).toHaveBeenCalledTimes(1);
+    expect(txCustomerUpdateMany).toHaveBeenCalledTimes(1);
+  });
+
+  // ─ Source-structure ───────────────────────────────────────────────────
+
+  it("source: the activation helper body contains NO `customer: { connect:` pattern (regression sentinel)", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    const fnStart = src.indexOf("export async function activatePrecreatedCustomerWithLine");
+    expect(fnStart).toBeGreaterThan(-1);
+    const tail = src.slice(fnStart);
+    const termRel = tail.search(/\n}\n\n/);
+    const fnBody = termRel >= 0 ? tail.slice(0, termRel + 2) : tail;
+
+    // The user.create call inside the helper MUST NOT include a
+    // nested customer-connect. Anchor on the exact pattern that
+    // baseline auth.ts Case B uses (line 630).
+    expect(fnBody).not.toMatch(/customer\s*:\s*\{\s*connect\s*:/);
+  });
+
+  it("source: tx.user.create call ordering — user.create runs BEFORE the Customer.updateMany CAS (so the CAS data.userId can reference newUser.id)", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    const fnStart = src.indexOf("export async function activatePrecreatedCustomerWithLine");
+    const tail = src.slice(fnStart);
+    const termRel = tail.search(/\n}\n\n/);
+    const fnBody = termRel >= 0 ? tail.slice(0, termRel + 2) : tail;
+
+    const userCreateIdx = fnBody.indexOf("tx.user.create");
+    const accountCreateIdx = fnBody.indexOf("tx.account.create");
+    const updateManyIdx = fnBody.indexOf("tx.customer.updateMany");
+    expect(userCreateIdx).toBeGreaterThan(-1);
+    expect(accountCreateIdx).toBeGreaterThan(-1);
+    expect(updateManyIdx).toBeGreaterThan(-1);
+
+    // user.create < account.create < customer.updateMany
+    expect(userCreateIdx).toBeLessThan(accountCreateIdx);
+    expect(accountCreateIdx).toBeLessThan(updateManyIdx);
+  });
+
+  it("source: Customer.updateMany.data contains `userId:` field assignment (the SINGLE FK write)", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    const fnStart = src.indexOf("function buildActivationCustomerUpdateData");
+    expect(fnStart).toBeGreaterThan(-1);
+    const tail = src.slice(fnStart);
+    const termRel = tail.search(/\n}\n\n/);
+    const fnBody = termRel >= 0 ? tail.slice(0, termRel + 2) : tail;
+
+    // The data payload builder must emit `userId: params.userId` —
+    // that's the FK write that moved out of user.create's connect.
+    expect(fnBody).toMatch(/userId\s*:\s*params\.userId/);
   });
 });

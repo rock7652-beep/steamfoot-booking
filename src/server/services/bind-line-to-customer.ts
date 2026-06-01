@@ -1296,21 +1296,29 @@ async function runFullBindTx(params: {
 //    is a REFACTOR target — PR-G5.5 will move the current inline writes
 //    here without changing what gets written.
 //
-//    User.create data (auth.ts line 622-632):
+//    User.create data — byte-equivalent for the User-ROW columns
+//    (auth.ts line 622-632 minus the relation side-effect):
 //      - name:     customer.name           ← NOT oauthProfile.name
 //      - email:    oauthEmail               (oauthProfile.email here)
 //      - phone:    customer.phone || null
 //      - role:     "CUSTOMER"
 //      - status:   "ACTIVE"
 //      - image:    oauthImage               (oauthProfile.image here)
-//      - customer: { connect: { id: customer.id } }
+//      - ⚠ NO Prisma relation-side-effect to Customer in this
+//        user.create — the FK Customer.userId is set EXPLICITLY in
+//        the step-7c conditional updateMany.data instead (PR #243
+//        Codex P1 round 1). The end-state DB row for Customer.userId
+//        is identical to baseline; only the write mechanism moves
+//        from nested-relation-write side-effect to explicit data field.
 //
 //    Account.create data (auth.ts line 634-647) — 10 fields, NO session_state:
 //      - userId / type / provider / providerAccountId
 //      - access_token / refresh_token / id_token
 //      - expires_at / token_type / scope
 //
-//    Customer.update data (auth.ts line 650-657, LINE branch only):
+//    Customer.update data (auth.ts line 650-657 + the FK write that
+//    baseline does via User.create's nested connect):
+//      - userId:         newUser.id         ← was baseline-nested-connect
 //      - authSource:     "LINE"     ← hardcoded; helper is LINE-only
 //      - lineUserId:     input.lineUserId
 //      - lineLinkStatus: "LINKED"
@@ -1609,8 +1617,29 @@ export async function activatePrecreatedCustomerWithLine(
     await prisma.$transaction(
       async (tx) => {
         // 7a. Create User — byte-equivalent to auth.ts Case B baseline
-        //     (lines 622-632). `User.name` from customer.name (NOT
-        //     oauthProfile.name) per PR-G5.0 Codex round 10 P2.
+        //     for the User-row columns (lines 622-632): name, email,
+        //     phone, role, status, image. `User.name` from customer.name
+        //     (NOT oauthProfile.name) per PR-G5.0 Codex round 10 P2.
+        //
+        //     ⚠ Intentionally NO Prisma relation-side-effect to
+        //     Customer (PR #243 Codex P1 round 1). The baseline
+        //     auth.ts Case B uses a nested-write inside user.create
+        //     to side-effect-set Customer.userId; that side-effect
+        //     would run BEFORE step 7c's conditional updateMany —
+        //     and the updateMany's `where: { userId: null }`
+        //     predicate would then match 0 rows, throw
+        //     StaleCustomerLinkError, and roll back the happy path.
+        //     The CAS at step 7c is the SINGLE write that sets
+        //     Customer.userId — explicitly in its data payload —
+        //     so the where predicate stays consistent with the row
+        //     state at write time.
+        //
+        //     End-state DB rows are still byte-equivalent vs Case B
+        //     baseline (User: same 6 columns / values; Account: same
+        //     10 columns / values; Customer: same final userId +
+        //     link metadata). Only the WRITE MECHANISM changes —
+        //     baseline used `connect` side-effect, refactor uses
+        //     explicit `data.userId` in the CAS.
         const newUser = await tx.user.create({
           data: {
             name: customer.name,
@@ -1619,7 +1648,6 @@ export async function activatePrecreatedCustomerWithLine(
             role: "CUSTOMER",
             status: "ACTIVE",
             image: input.oauthProfile.image ?? null,
-            customer: { connect: { id: customer.id } },
           },
         });
         newUserId = newUser.id;
