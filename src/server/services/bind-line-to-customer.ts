@@ -676,14 +676,15 @@ export async function bindLineToExistingCustomerById(
     };
   }
 
-  // ── step 5.5: defensive runtime invariant guard (PR #242 Codex P2 round 3)
+  // ── step 5.5: defensive runtime invariant guard (PR #242 Codex P2 round 3+4)
   //
   // TypeScript narrows `customer.lineUserId` to `null` past the dispatch
   // block above. This guard mirrors that property at runtime so that any
   // future refactor that breaks the narrow (e.g. accidentally turning a
   // `return` into a `break`, removing the outer `if`, or restructuring
   // the dispatch) surfaces as an invariant-violation throw rather than a
-  // silent overwrite of historical Customer link metadata in step 6.
+  // silent overwrite of historical Customer link metadata via the
+  // full-bind dispatch below.
   //
   // The cast to `string | null` defeats TypeScript's narrow so the
   // runtime check is preserved. In correct code this throw is provably
@@ -696,50 +697,20 @@ export async function bindLineToExistingCustomerById(
     );
   }
 
-  // ── step 6: full bind tx (Customer.update + Account.create, Serializable)
+  // ── step 6: dispatch to runFullBindTx ──────────────────────────────
   //
-  // Runs ONLY when `customer.lineUserId === null`. Both the TS narrow
-  // above and the runtime guard at step 5.5 prove this property locally.
-  try {
-    await prisma.$transaction(
-      async (tx) => {
-        await tx.customer.update({
-          where: { id: customer.id },
-          data: {
-            lineUserId: input.lineUserId,
-            lineName: input.lineName,
-            lineLinkStatus: "LINKED",
-            lineLinkedAt: new Date(),
-          },
-        });
-        await tx.account.create({
-          data: {
-            userId: customerUserId,
-            provider: "line",
-            providerAccountId: input.lineUserId,
-            type: "oauth",
-          },
-        });
-      },
-      // Serializable per PR-G5.0 §5.3 step 5 (A3 atomicity).
-      { isolationLevel: "Serializable" },
-    );
-  } catch (err) {
-    const translated = translateAtomicLineBindTxError(err, {
-      storeId: input.storeId,
-      customerId: customer.id,
-      userId: customerUserId,
-      lineUserId: input.lineUserId,
-    });
-    if (translated) return translated;
-    throw err;
-  }
-
-  return {
-    status: "bound_existing",
+  // runFullBindTx is the sibling private fn that owns the full-bind
+  // Customer write + Account create. By isolating each tx shape
+  // behind its own function, this main helper cannot share a tx body
+  // with runAccountOnlyRepairTx — see the contract comment block on
+  // runFullBindTx below (PR #242 Codex P2 round 4).
+  return runFullBindTx({
+    storeId: input.storeId,
     customerId: customer.id,
     userId: customerUserId,
-  };
+    lineUserId: input.lineUserId,
+    lineName: input.lineName,
+  });
 }
 
 /**
@@ -868,6 +839,99 @@ async function runAccountOnlyRepairTx(params: {
   }
   return {
     status: "account_repaired",
+    customerId: params.customerId,
+    userId: params.userId,
+  };
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//
+//  runFullBindTx — first-time bind atomic write, sibling to
+//  runAccountOnlyRepairTx inside `bindLineToExistingCustomerById`.
+//
+//  ⚠ CONTRACT (PR #242 Codex P2 round 4):
+//
+//    THIS FUNCTION OWNS the full-bind metadata write block. Customer
+//    link metadata (`lineUserId`, `lineName`, `lineLinkStatus`,
+//    `lineLinkedAt`) is written here and ONLY here in the new
+//    helper's call graph.
+//
+//    Caller contract — the main helper MUST guarantee
+//    `customer.lineUserId === null` before invoking this function.
+//    Step 5 of `bindLineToExistingCustomerById` enforces this both
+//    via TypeScript narrowing and via a defensive runtime throw
+//    guard placed immediately before the call site (step 5.5).
+//    Tests in `src/__tests__/bind-line-to-existing-customer-by-id.test.ts`
+//    section 14 lock the source-level invariant: the main helper body
+//    contains 0 `tx.customer.update` writes, and the metadata field
+//    names live ONLY inside this function's body.
+//
+//    Tx shape: Customer.update (sets link metadata + lineUserId) +
+//    Account.create, atomic in one Serializable $transaction (A3).
+//
+//    Error translation: P2002 → unique_conflict, P2034 → write_conflict
+//    via the shared translateAtomicLineBindTxError. Unknown errors
+//    re-thrown so they stay visible to the caller.
+//
+// ════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Full-bind tx for the first-time-bind path. Writes Customer link
+ * metadata + Account[line] in a single atomic Serializable transaction.
+ * Must be called only when `customer.lineUserId === null`. See the
+ * contract block above.
+ */
+async function runFullBindTx(params: {
+  storeId: string;
+  customerId: string;
+  userId: string;
+  lineUserId: string;
+  lineName: string | null;
+}): Promise<
+  | { status: "bound_existing"; customerId: string; userId: string }
+  | { status: "unique_conflict"; conflictTarget: string }
+  | { status: "write_conflict"; code: "P2034" }
+> {
+  try {
+    await prisma.$transaction(
+      async (tx) => {
+        // Customer link metadata + lineUserId. Lives ONLY here.
+        await tx.customer.update({
+          where: { id: params.customerId },
+          data: {
+            lineUserId: params.lineUserId,
+            lineName: params.lineName,
+            lineLinkStatus: "LINKED",
+            lineLinkedAt: new Date(),
+          },
+        });
+        // Account[line]. Same row shape as the repair tx — but the
+        // repair function lives in its own sibling scope and cannot
+        // share this Customer write block.
+        await tx.account.create({
+          data: {
+            userId: params.userId,
+            provider: "line",
+            providerAccountId: params.lineUserId,
+            type: "oauth",
+          },
+        });
+      },
+      // Serializable per PR-G5.0 §5.3 step 5 (A3 atomicity).
+      { isolationLevel: "Serializable" },
+    );
+  } catch (err) {
+    const translated = translateAtomicLineBindTxError(err, {
+      storeId: params.storeId,
+      customerId: params.customerId,
+      userId: params.userId,
+      lineUserId: params.lineUserId,
+    });
+    if (translated) return translated;
+    throw err;
+  }
+  return {
+    status: "bound_existing",
     customerId: params.customerId,
     userId: params.userId,
   };

@@ -1305,27 +1305,30 @@ describe("P2 round 3 (Codex): structural invariants on dispatch + full-bind guar
     expect(helperSrc).toMatch(/return\s+runAccountOnlyRepairTx\s*\(/);
   });
 
-  it("the only `tx.customer.update` site in the new helper is preceded by a defensive invariant guard", () => {
-    // Scope to the NEW helper's body (skip the phone-driven helper
-    // earlier in the file, which has its own unrelated `tx.customer.update`).
+  it("the `return runFullBindTx(...)` dispatch in the main helper is preceded by a defensive invariant guard (PR #242 Codex P2 round 4)", () => {
+    // Scope to the main helper body only.
     const helperStart = helperSrc.indexOf(
       "export async function bindLineToExistingCustomerById",
     );
     expect(helperStart).toBeGreaterThan(-1);
+    // End at the closing brace of the main helper (located by finding
+    // the next top-level `\n}\n` followed by a blank line).
     const helperBody = helperSrc.slice(helperStart);
+    const mainHelperEndIdx = helperBody.search(/\n}\n\n/);
+    expect(mainHelperEndIdx).toBeGreaterThan(-1);
+    const mainHelperBody = helperBody.slice(0, mainHelperEndIdx);
 
-    // Locate the full-bind `tx.customer.update` write inside the new
-    // helper's body only. The defensive guard `throw new Error(
-    // ...invariant violation...)` MUST appear in the source text between
-    // the dispatch block and this write. If someone removes the guard,
-    // this assertion fails.
-    const updateIdxInBody = helperBody.indexOf("tx.customer.update");
-    expect(updateIdxInBody).toBeGreaterThan(-1);
+    // Locate the full-bind dispatch. The defensive guard `throw new
+    // Error(...invariant violation...)` MUST appear in the source text
+    // between the dispatch block and this dispatch. If someone removes
+    // the guard, this assertion fails.
+    const dispatchIdx = mainHelperBody.indexOf("return runFullBindTx(");
+    expect(dispatchIdx).toBeGreaterThan(-1);
 
-    // The guard sits within ~2 KB above the update site in the source.
-    const precedingWindow = helperBody.slice(
-      Math.max(0, updateIdxInBody - 2000),
-      updateIdxInBody,
+    // The guard sits within ~2 KB above the dispatch in the source.
+    const precedingWindow = mainHelperBody.slice(
+      Math.max(0, dispatchIdx - 2000),
+      dispatchIdx,
     );
     expect(precedingWindow).toMatch(/throw new Error/);
     expect(precedingWindow).toMatch(/invariant violation/i);
@@ -1335,28 +1338,25 @@ describe("P2 round 3 (Codex): structural invariants on dispatch + full-bind guar
     expect(precedingWindow).toMatch(/bindLineToExistingCustomerById/);
   });
 
-  it("there is exactly ONE `tx.customer.update` call site in the new helper's body", () => {
-    // The new helper has a SINGLE full-bind path. The Account-only
-    // repair path lives in a sibling private function with zero
-    // `customer.update` references (round 2 invariant). If anyone adds
-    // a second `tx.customer.update` site in this file's new-helper
-    // section, that's exactly the regression Codex is guarding against
-    // — surface it as a test failure.
+  it("the main helper body contains ZERO `tx.customer.update` calls — full-bind metadata write is fully extracted into runFullBindTx (PR #242 Codex P2 round 4)", () => {
+    // The new structure isolates the full-bind tx into runFullBindTx,
+    // and the Account-only repair tx into runAccountOnlyRepairTx.
+    // The main helper is pure dispatch: ZERO tx.customer.update calls.
     //
-    // We scan the byte range from `bindLineToExistingCustomerById` up
-    // to (but not including) the `runAccountOnlyRepairTx` definition.
+    // Scan strictly the main helper body (between the function
+    // declaration and its closing brace).
     const helperStart = helperSrc.indexOf(
       "export async function bindLineToExistingCustomerById",
     );
-    const helperEnd = helperSrc.indexOf(
-      "async function runAccountOnlyRepairTx",
-    );
     expect(helperStart).toBeGreaterThan(-1);
-    expect(helperEnd).toBeGreaterThan(helperStart);
-    const helperBody = helperSrc.slice(helperStart, helperEnd);
+    const afterDecl = helperSrc.slice(helperStart);
+    const mainHelperEndIdx = afterDecl.search(/\n}\n\n/);
+    expect(mainHelperEndIdx).toBeGreaterThan(-1);
+    const mainHelperBody = afterDecl.slice(0, mainHelperEndIdx);
 
-    const updateMatches = helperBody.match(/tx\.customer\.update/g) ?? [];
-    expect(updateMatches.length).toBe(1);
+    // No tx.customer.update anywhere in the main helper body — not even
+    // in a comment (sanitised previously).
+    expect(mainHelperBody).not.toMatch(/tx\.customer\.update/);
   });
 
   it("runAccountOnlyRepairTx body contains ZERO references to forbidden Customer write field names", () => {
@@ -1504,5 +1504,183 @@ describe("P2 round 3 (Codex): structural invariants on dispatch + full-bind guar
       userId: USER_ID,
     });
     expect(mockTx).not.toHaveBeenCalled();
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// 14. P2 round 4 (PR #242 Codex): metadata writes isolated to runFullBindTx
+// ════════════════════════════════════════════════════════════════════════════
+//
+// Round 3 left the full-bind `tx.customer.update` data block inline in
+// `bindLineToExistingCustomerById`. Codex re-review pointed at those
+// inline lines and asked for the metadata write block to be moved into
+// its own sibling private function so the main helper cannot share a
+// tx body with the repair path under any future refactor.
+//
+// Round 4 extracts `runFullBindTx` as a sibling of `runAccountOnlyRepairTx`.
+// The main helper becomes pure dispatch — no `tx.customer.update`, no
+// inline metadata field writes. These tests pin the ownership
+// structurally so a future refactor that re-inlines the data block
+// fails CI before any behavioural test runs.
+
+describe("P2 round 4 (Codex): metadata writes live ONLY inside runFullBindTx", () => {
+  const HELPER_PATH = path.resolve(
+    __dirname,
+    "..",
+    "server",
+    "services",
+    "bind-line-to-customer.ts",
+  );
+  const helperSrc = readFileSync(HELPER_PATH, "utf8");
+
+  function extractFn(declarationLine: string): string {
+    const start = helperSrc.indexOf(declarationLine);
+    expect(start, `declaration not found: ${declarationLine}`).toBeGreaterThan(
+      -1,
+    );
+    const after = helperSrc.slice(start);
+    const endRel = after.indexOf("\n}\n");
+    expect(
+      endRel,
+      `end of function not found: ${declarationLine}`,
+    ).toBeGreaterThan(-1);
+    return after.slice(0, endRel + 2);
+  }
+
+  const mainHelperBody = extractFn(
+    "export async function bindLineToExistingCustomerById",
+  );
+  const repairFnBody = extractFn("async function runAccountOnlyRepairTx");
+  const fullBindFnBody = extractFn("async function runFullBindTx");
+
+  it("runFullBindTx body contains exactly ONE `tx.customer.update` call (the SINGLE full-bind metadata write site)", () => {
+    const matches = fullBindFnBody.match(/tx\.customer\.update/g) ?? [];
+    expect(matches.length).toBe(1);
+  });
+
+  it("runFullBindTx body contains the four full-bind metadata field-write expressions", () => {
+    expect(fullBindFnBody).toMatch(/lineUserId\s*:\s*params\.lineUserId/);
+    expect(fullBindFnBody).toMatch(/lineName\s*:\s*params\.lineName/);
+    expect(fullBindFnBody).toMatch(/lineLinkStatus\s*:\s*"LINKED"/);
+    expect(fullBindFnBody).toMatch(/lineLinkedAt\s*:\s*new\s+Date\(\)/);
+  });
+
+  it("main helper body contains ZERO full-bind write expressions (writes fully extracted)", () => {
+    // Value-anchored patterns — avoids false positives on the read-only
+    // `select: { lineLinkStatus: true }` clause in step 2.
+    expect(mainHelperBody).not.toMatch(/tx\.customer\.update/);
+    expect(mainHelperBody).not.toMatch(/lineLinkStatus\s*:\s*"LINKED"/);
+    expect(mainHelperBody).not.toMatch(/lineLinkedAt\s*:\s*new\s+Date\(\)/);
+  });
+
+  it("runAccountOnlyRepairTx body contains ZERO full-bind write expressions (repair path cannot share the full-bind tx body)", () => {
+    expect(repairFnBody).not.toMatch(/tx\.customer\.update/);
+    expect(repairFnBody).not.toMatch(/lineLinkStatus\s*:\s*"LINKED"/);
+    expect(repairFnBody).not.toMatch(/lineLinkedAt\s*:\s*new\s+Date\(\)/);
+    expect(repairFnBody).not.toMatch(/lineName\s*:/);
+    expect(repairFnBody).not.toMatch(/tx\.customer/);
+  });
+
+  it("main helper dispatches to BOTH sibling functions via explicit `return` statements", () => {
+    expect(mainHelperBody).toMatch(/return\s+runAccountOnlyRepairTx\s*\(/);
+    expect(mainHelperBody).toMatch(/return\s+runFullBindTx\s*\(/);
+  });
+
+  it("`return runFullBindTx(...)` is the only call site of runFullBindTx in the file (no other callers leak)", () => {
+    // 1 call site in the main helper + the function declaration ⇒ 2
+    // occurrences of `runFullBindTx(`.
+    const callSites = helperSrc.match(/\brunFullBindTx\s*\(/g) ?? [];
+    expect(callSites.length).toBe(2);
+  });
+
+  it("runFullBindTx and runAccountOnlyRepairTx do NOT reference each other (disjoint tx shapes)", () => {
+    expect(fullBindFnBody).not.toMatch(/runAccountOnlyRepairTx\s*\(/);
+    expect(repairFnBody).not.toMatch(/runFullBindTx\s*\(/);
+  });
+
+  // ── Behavioural sentinels under the new structure ──────────────────────
+
+  it("behavioural: first-time bind goes through runFullBindTx — Customer + Account both written in one tx", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: null,
+      lineLinkStatus: "UNLINKED",
+    });
+    const { txCustomerUpdate, txAccountCreate } = setupTransaction();
+
+    const r = await bindLineToExistingCustomerById(makeValidInput());
+
+    expect(r.status).toBe("bound_existing");
+    expect(txCustomerUpdate).toHaveBeenCalledTimes(1);
+    expect(txAccountCreate).toHaveBeenCalledTimes(1);
+    expect(mockTx).toHaveBeenCalledTimes(1);
+  });
+
+  it("behavioural: repair path goes through runAccountOnlyRepairTx — Account-only, never invokes full-bind metadata block", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: LINE_USER_ID,
+      lineLinkStatus: "LINKED",
+    });
+    mockAccountFindUnique.mockResolvedValueOnce(null);
+    const { txCustomerUpdate, txAccountCreate } = setupTransaction();
+
+    const r = await bindLineToExistingCustomerById(makeValidInput());
+
+    expect(r.status).toBe("account_repaired");
+    expect(txAccountCreate).toHaveBeenCalledTimes(1);
+    expect(txCustomerUpdate).toHaveBeenCalledTimes(0);
+    expect(mockTx).toHaveBeenCalledTimes(1);
+  });
+
+  it("behavioural: P2034 surfaces from runFullBindTx as write_conflict (translator still wired through the extracted function)", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: null,
+      lineLinkStatus: "UNLINKED",
+    });
+    mockTx.mockImplementationOnce(async () => {
+      const err: Error & { code?: string } = new Error(
+        "Transaction failed due to a write conflict or a deadlock",
+      );
+      err.code = "P2034";
+      throw err;
+    });
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const r = await bindLineToExistingCustomerById(makeValidInput());
+
+    expect(r).toEqual({ status: "write_conflict", code: "P2034" });
+  });
+
+  it("behavioural: P2002 surfaces from runFullBindTx as unique_conflict (translator still wired through the extracted function)", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: null,
+      lineLinkStatus: "UNLINKED",
+    });
+    mockTx.mockImplementationOnce(async () => {
+      const err: Error & { code?: string; meta?: { target?: string[] } } =
+        new Error("Unique constraint failed");
+      err.code = "P2002";
+      err.meta = { target: ["provider", "providerAccountId"] };
+      throw err;
+    });
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const r = await bindLineToExistingCustomerById(makeValidInput());
+
+    expect(r).toEqual({
+      status: "unique_conflict",
+      conflictTarget: "provider,providerAccountId",
+    });
   });
 });
