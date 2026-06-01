@@ -484,9 +484,29 @@ export type BindLineToExistingCustomerByIdResult =
     }
   | {
       /**
-       * Customer.lineUserId is already set to a DIFFERENT lineUserId
-       * (or Account[line] already points to a different userId for the
-       * same lineUserId). Reject; require manual unbind by staff.
+       * Reject — the LINE binding for this Customer is locked; staff
+       * must intervene (manual unbind / merge) before another bind
+       * attempt can succeed. Covers two sub-cases of "this binding
+       * combination is taken / mis-aligned":
+       *
+       *   (a) Customer.lineUserId is already set to a DIFFERENT
+       *       lineUserId. Detected in main helper step 5b.
+       *
+       *   (b) Customer.lineUserId === input.lineUserId AND a
+       *       matching Account[line] row exists, BUT
+       *       Account.userId !== Customer.userId. Detected in main
+       *       helper step 5a-ii (PR #242 Codex P2 round 7). Without
+       *       this explicit branch the helper would fall into
+       *       `runAccountOnlyRepairTx` → `tx.account.create` →
+       *       Prisma P2002 → generic `unique_conflict`, conflating
+       *       this known drift mode with a true racing concurrent
+       *       binder.
+       *
+       * In both cases the appropriate operator action is the same
+       * (unbind the stale side, then re-bind), so the status surface
+       * stays a single `customer_locked` variant. Masked log lines
+       * at the call sites distinguish the sub-cases for observability
+       * without polluting the public type.
        */
       status: "customer_locked";
       customerId: string;
@@ -585,40 +605,6 @@ export type BindLineToExistingCustomerByIdResult =
        */
       status: "stale_customer_link";
       customerId: string;
-    }
-  | {
-      /**
-       * Customer.lineUserId === input.lineUserId AND a matching
-       * Account[line] row exists, BUT Account.userId !== Customer.userId.
-       *
-       * The LINE Account is bound to a different User than the Customer
-       * currently owns. This is a Customer-merge / account-reassign
-       * drift state — a stale Account[line] row is pointing at a
-       * historical User while the Customer has moved on (e.g. via
-       * customer-merge Phase 1, or staff-driven account reassignment).
-       *
-       * Per PR #242 Codex P2 round 6: detected explicitly in the main
-       * helper's step 5a (BEFORE `runAccountOnlyRepairTx` is invoked).
-       * Returning a dedicated status keeps two semantically distinct
-       * drift modes apart:
-       *
-       *   - `account_owner_mismatch` — known drift: Customer is sure,
-       *     Account[line] points elsewhere. Staff intervention needed
-       *     (unbind the stale Account, then re-bind).
-       *   - `unique_conflict` (P2002 from Account.create) — actual
-       *     racing concurrent binder. Caller may retry; helper does
-       *     not internally retry.
-       *
-       * Disjoint from `customer_locked` (Customer-side `lineUserId`
-       * mismatch — see that variant's JSDoc) and from `unique_conflict`
-       * / `write_conflict`.
-       */
-      status: "account_owner_mismatch";
-      customerId: string;
-      /** Customer.userId at preflight read time. */
-      customerUserId: string;
-      /** Account[provider=line, providerAccountId=lineUserId].userId at preflight read time. */
-      accountUserId: string;
     };
 
 /**
@@ -716,20 +702,33 @@ export async function bindLineToExistingCustomerById(
         };
       }
       // 5a-ii. Account[line] exists BUT points at a DIFFERENT userId —
-      // known drift state per PR #242 Codex P2 round 6.
+      // known drift state per PR #242 Codex P2 round 7.
       //
-      // Without this branch, control would fall into runAccountOnlyRepairTx,
-      // tx.account.create would then hit P2002 on
-      // (provider, providerAccountId), and the helper would return a
-      // generic `unique_conflict` — conflating "Account is bound to a
-      // different User" (staff intervention needed) with "racing
-      // concurrent binder" (caller retry). Detecting the mismatch
-      // explicitly here preserves the disjoint semantics required by
-      // PR-G5.0 principle 5 and avoids a useless tx round-trip + the
-      // misleading log line.
+      // Returns `customer_locked` — the second sub-case the result-type
+      // JSDoc explicitly documents ("Account[line] already points to a
+      // different userId for the same lineUserId"). Caller / operator
+      // response is the same as the Customer-side lineUserId mismatch
+      // branch (5b below): unbind the stale side then re-bind. Keeping
+      // a single `customer_locked` variant for both sub-cases preserves
+      // the result contract Codex expects and avoids polluting the
+      // public discriminated union with a status that duplicates the
+      // operator-action semantic.
+      //
+      // Without this explicit branch, control would fall into
+      // runAccountOnlyRepairTx → tx.account.create → Prisma P2002 on
+      // (provider, providerAccountId) → generic `unique_conflict` —
+      // conflating known drift (staff intervention needed) with a
+      // true racing concurrent binder (caller retry). Detecting the
+      // mismatch here saves a tx round-trip AND keeps `unique_conflict`
+      // semantically clean for actual races.
+      //
+      // The masked log line carries both customerUserId AND
+      // accountUserId in masked form so ops can distinguish this
+      // sub-case from the Customer-side lock when triaging logs,
+      // without polluting the public discriminated-union type.
       if (existingAccount && existingAccount.userId !== customerUserId) {
         console.warn(
-          "[bindLineToExistingCustomerById] account_owner_mismatch",
+          "[bindLineToExistingCustomerById] customer_locked (account-owner-mismatch sub-case)",
           {
             storeId: maskId(input.storeId),
             customerId: maskId(customer.id),
@@ -739,10 +738,15 @@ export async function bindLineToExistingCustomerById(
           },
         );
         return {
-          status: "account_owner_mismatch",
+          status: "customer_locked",
           customerId: customer.id,
-          customerUserId,
-          accountUserId: existingAccount.userId,
+          // In this sub-case Customer.lineUserId === input.lineUserId
+          // (we're inside the `customer.lineUserId === input.lineUserId`
+          // branch). The lock is on the Account side, not the
+          // Customer-side lineUserId — but the existing field still
+          // points at "the conflicting lineUserId observed first" per
+          // its JSDoc, which is what Customer holds today.
+          existingLineUserId: customer.lineUserId,
         };
       }
       // 5a-iii. Account[line] row missing → REPAIR ONLY, return immediately.
@@ -991,15 +995,20 @@ async function runAccountOnlyRepairTx(params: {
   try {
     await prisma.$transaction(
       async (tx) => {
-        // In-tx Customer re-check gate — MUST run before tx.account.create.
-        // The named helper makes this safety property structurally
-        // obvious (PR #242 Codex P2 round 6); see the function's
-        // JSDoc above for the invariants it re-asserts.
+        // ── In-tx Customer re-check GATE (PR #242 Codex P2 round 5/6/7) ─────
+        //
+        // The two `await` statements below MUST stay back-to-back with
+        // NO intervening code, conditional, branching, or detached
+        // promise. If `assertCustomerStillLinkedForAccountRepairTx`
+        // throws (Customer state drifted since preflight), Prisma
+        // rolls back the tx and `tx.account.create` is unreachable
+        // → no orphan Account row.
+        //
+        // A source-structure test pins this exact ordering with a
+        // regex that requires only whitespace between the two awaits;
+        // it fires before any behavioural test if anyone inserts code
+        // between them, reorders them, or removes the assert.
         await assertCustomerStillLinkedForAccountRepairTx(tx, params);
-
-        // Re-check passed: Customer still records this exact
-        // (storeId, userId, lineUserId) tuple AND is not merged.
-        // Single write. Account[line] only. No Customer row touched.
         await tx.account.create({
           data: {
             userId: params.userId,

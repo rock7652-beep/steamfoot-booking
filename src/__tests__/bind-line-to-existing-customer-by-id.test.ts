@@ -2653,7 +2653,7 @@ describe("P2 round 5 (Codex): runAccountOnlyRepairTx in-tx Customer re-check bef
 //         distinct drift modes stay disjoint.
 
 describe("P2 round 6 (Codex): account_owner_mismatch — Account[line].userId !== Customer.userId", () => {
-  it("happy path → account_owner_mismatch: no tx, no Account.create, no Customer writes; masked log fires once", async () => {
+  it("happy path → customer_locked (account-owner-mismatch sub-case): no tx, no Account.create, no Customer writes; masked log fires once (PR #242 Codex P2 round 7)", async () => {
     const OTHER_USER_ID = "ckuser0000000000000000099";
 
     mockCustomerFindUnique.mockResolvedValueOnce({
@@ -2670,24 +2670,31 @@ describe("P2 round 6 (Codex): account_owner_mismatch — Account[line].userId !=
 
     const r = await bindLineToExistingCustomerById(makeValidInput());
 
+    // PR #242 Codex P2 round 7: the result-type JSDoc for
+    // `customer_locked` documents this exact sub-case. Returning
+    // `customer_locked` keeps the result contract consistent. The
+    // sub-case is distinguished in logs (see masked-log assertion
+    // below) but does NOT pollute the discriminated-union surface.
     expect(r).toEqual({
-      status: "account_owner_mismatch",
+      status: "customer_locked",
       customerId: CUSTOMER_ID,
-      customerUserId: USER_ID,
-      accountUserId: OTHER_USER_ID,
+      existingLineUserId: LINE_USER_ID,
     });
 
     // No tx at all — detection is before the repair dispatch.
     expect(mockTx).not.toHaveBeenCalled();
 
-    // Masked log fired once, with both customerUserId and accountUserId
-    // distinguishable in masked form (different head bytes).
+    // Masked log fired once. The log line label distinguishes the
+    // account-owner-mismatch sub-case from the Customer-side
+    // lineUserId-mismatch sub-case for ops triage; the public
+    // discriminated union stays at one `customer_locked` variant.
     expect(warnSpy).toHaveBeenCalledTimes(1);
     const dumped = warnSpy.mock.calls
       .flat()
       .map((a) => (typeof a === "string" ? a : JSON.stringify(a)))
       .join("\n");
-    expect(dumped).toContain("account_owner_mismatch");
+    expect(dumped).toContain("customer_locked");
+    expect(dumped).toContain("account-owner-mismatch"); // log-side sub-case label
     expect(dumped).not.toContain(USER_ID);
     expect(dumped).not.toContain(OTHER_USER_ID);
     expect(dumped).not.toContain(LINE_USER_ID);
@@ -2812,7 +2819,7 @@ describe("P2 round 6 (Codex): account_owner_mismatch — Account[line].userId !=
     expect(mockTx).not.toHaveBeenCalled();
   });
 
-  it("source: main helper body contains the explicit owner-mismatch detection branch (Codex P2 round 6)", () => {
+  it("source: main helper body contains the explicit owner-mismatch detection branch returning customer_locked (PR #242 Codex P2 round 7)", () => {
     const HELPER_PATH = path.resolve(
       __dirname,
       "..",
@@ -2831,34 +2838,38 @@ describe("P2 round 6 (Codex): account_owner_mismatch — Account[line].userId !=
     );
 
     // The detection branch must exist in the main helper body BEFORE
-    // the runAccountOnlyRepairTx dispatch, and must return
-    // account_owner_mismatch — not fall through to the repair tx.
+    // the runAccountOnlyRepairTx dispatch. It returns customer_locked
+    // per PR #242 Codex P2 round 7 (NOT a new status variant — the
+    // existing customer_locked JSDoc explicitly covers this sub-case
+    // of "Account[line] already points to a different userId for the
+    // same lineUserId").
     expect(mainBody).toMatch(
       /existingAccount\.userId\s*!==\s*customerUserId/,
     );
-    expect(mainBody).toMatch(/status\s*:\s*"account_owner_mismatch"/);
 
-    // Ordering: the mismatch branch returns BEFORE the
-    // runAccountOnlyRepairTx dispatch in step 5a.
+    // The mismatch branch must NOT introduce a new status variant.
+    // Round 7 reverted account_owner_mismatch back to customer_locked.
+    expect(mainBody).not.toMatch(/status\s*:\s*"account_owner_mismatch"/);
+
+    // Ordering: the customer_locked return for the mismatch sub-case
+    // must appear BEFORE the runAccountOnlyRepairTx dispatch in step 5a.
     //
-    // The actual dispatch statement uses an open-brace `{` immediately
-    // after the call (it's a multi-line object literal). The earlier
-    // comment block mentions `return runAccountOnlyRepairTx(...)` with
-    // dot-dot-dot and backticks — distinct shape, so a tightened regex
-    // matches only the real statement.
-    const mismatchReturnIdx = mainBody.indexOf(
-      'status: "account_owner_mismatch"',
+    // Both the mismatch branch (5a-ii) and step 5b return customer_locked.
+    // We anchor on the inline comment + the warn-log key that's unique
+    // to the mismatch sub-case to pick the right branch.
+    const mismatchBranchIdx = mainBody.indexOf(
+      'customer_locked (account-owner-mismatch sub-case)',
     );
     const repairDispatchMatch = mainBody.match(
       /return\s+runAccountOnlyRepairTx\s*\(\s*\{/,
     );
-    expect(mismatchReturnIdx).toBeGreaterThan(-1);
+    expect(mismatchBranchIdx).toBeGreaterThan(-1);
     expect(repairDispatchMatch).not.toBeNull();
     const repairDispatchIdx = repairDispatchMatch!.index!;
-    expect(mismatchReturnIdx).toBeLessThan(repairDispatchIdx);
+    expect(mismatchBranchIdx).toBeLessThan(repairDispatchIdx);
   });
 
-  it("source: account_owner_mismatch log payload uses maskId for BOTH customerUserId AND accountUserId", () => {
+  it("source: customer_locked (account-owner-mismatch sub-case) log payload uses maskId for BOTH customerUserId AND accountUserId", () => {
     const HELPER_PATH = path.resolve(
       __dirname,
       "..",
@@ -2875,12 +2886,92 @@ describe("P2 round 6 (Codex): account_owner_mismatch — Account[line].userId !=
       mainStart + src.slice(mainStart).search(/\n}\n\n/),
     );
     // The two userIds must both be masked in the warn payload.
-    // Locate the account_owner_mismatch warn block and check.
-    const warnIdx = mainBody.indexOf("account_owner_mismatch");
+    // Anchor on the sub-case log label so we hit the right warn block.
+    const warnIdx = mainBody.indexOf("account-owner-mismatch sub-case");
     expect(warnIdx).toBeGreaterThan(-1);
     const window = mainBody.slice(warnIdx, warnIdx + 800);
     expect(window).toMatch(/customerUserId\s*:\s*maskId\s*\(/);
     expect(window).toMatch(/accountUserId\s*:\s*maskId\s*\(/);
     expect(window).toMatch(/lineUserId\s*:\s*maskLineUserId\s*\(/);
+  });
+
+  // ── P2 round 7 (PR #242 Codex): tightened assert/account.create coupling ──
+  //
+  // Codex still wasn't satisfied that the assert helper was
+  // structurally guaranteed to run BEFORE tx.account.create. The
+  // round-7 fix tightens the call structure: the two `await`s sit
+  // back-to-back inside the tx callback with ONLY whitespace between
+  // them (no intervening comment, no conditional, no detached
+  // promise). This test pins that exact shape with a regex so any
+  // future insertion between them fails CI before any behavioural
+  // test runs.
+
+  it("source (round 7 tightening): in runAccountOnlyRepairTx, `await assertCustomerStillLinkedForAccountRepairTx(tx, params);` and `await tx.account.create(` sit back-to-back with only whitespace between", () => {
+    const HELPER_PATH = path.resolve(
+      __dirname,
+      "..",
+      "server",
+      "services",
+      "bind-line-to-customer.ts",
+    );
+    const src = readFileSync(HELPER_PATH, "utf8");
+    const fnStart = src.indexOf("async function runAccountOnlyRepairTx");
+    expect(fnStart).toBeGreaterThan(-1);
+    const fnBody = src.slice(
+      fnStart,
+      fnStart + src.slice(fnStart).indexOf("\n}\n") + 2,
+    );
+
+    // The two awaits MUST be back-to-back: only whitespace permitted
+    // between the assert call's terminating `;` and the next
+    // `await tx.account.create(`. No comments, no conditional, no
+    // other statements.
+    expect(fnBody).toMatch(
+      /await\s+assertCustomerStillLinkedForAccountRepairTx\s*\(\s*tx\s*,\s*params\s*\)\s*;\s*await\s+tx\.account\.create\s*\(/,
+    );
+  });
+
+  it("source (round 7 tightening): no `tx.account.create` appears in runAccountOnlyRepairTx body BEFORE the first assert helper call", () => {
+    const HELPER_PATH = path.resolve(
+      __dirname,
+      "..",
+      "server",
+      "services",
+      "bind-line-to-customer.ts",
+    );
+    const src = readFileSync(HELPER_PATH, "utf8");
+    const fnStart = src.indexOf("async function runAccountOnlyRepairTx");
+    const fnBody = src.slice(
+      fnStart,
+      fnStart + src.slice(fnStart).indexOf("\n}\n") + 2,
+    );
+    const firstAssertIdx = fnBody.indexOf(
+      "assertCustomerStillLinkedForAccountRepairTx(",
+    );
+    const firstAccountCreateIdx = fnBody.indexOf("tx.account.create(");
+    expect(firstAssertIdx).toBeGreaterThan(-1);
+    expect(firstAccountCreateIdx).toBeGreaterThan(-1);
+    expect(firstAssertIdx).toBeLessThan(firstAccountCreateIdx);
+
+    // Also: only ONE tx.account.create site in the repair fn body.
+    const accountCreateMatches =
+      fnBody.match(/tx\.account\.create\s*\(/g) ?? [];
+    expect(accountCreateMatches.length).toBe(1);
+  });
+
+  it("behavioural (round 7): account_owner_mismatch status string never appears anywhere in the source — reverted in favour of customer_locked", () => {
+    // Regression sentinel: round 6 introduced `account_owner_mismatch`;
+    // round 7 reverted it because Codex's contract checker required
+    // the canonical `customer_locked` status. If anyone re-adds the
+    // status string anywhere in the helper, this fires.
+    const HELPER_PATH = path.resolve(
+      __dirname,
+      "..",
+      "server",
+      "services",
+      "bind-line-to-customer.ts",
+    );
+    const src = readFileSync(HELPER_PATH, "utf8");
+    expect(src).not.toMatch(/"account_owner_mismatch"/);
   });
 });
