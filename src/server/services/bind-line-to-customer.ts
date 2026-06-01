@@ -990,9 +990,6 @@ async function runAccountOnlyRepairTx(params: {
         if (stillLinked === null) {
           throw new StaleCustomerLinkError(params.customerId);
         }
-        // Re-check passed (Customer still records this exact
-        // (storeId, userId, lineUserId) tuple AND is not merged).
-        // Single write. Account[line] only. No Customer row touched.
         await tx.account.create({
           data: {
             userId: params.userId,
@@ -1131,23 +1128,28 @@ async function runFullBindTx(params: {
   try {
     await prisma.$transaction(
       async (tx) => {
-        // Conditional Customer write — TOCTOU-safe. Only updates the
-        // row if it is STILL unlinked at tx-write time. See contract
-        // block above for the race scenario this guards against.
+        // Conditional Customer write — TOCTOU-safe (PR #242 Codex P1/P2).
+        //
+        // The 5-predicate where-clause below restricts the update to a
+        // Customer row that is STILL the exact preflight-observed state
+        // at tx-write time:
+        //   - `lineUserId: null` — TOCTOU race protection (P1 round 1)
+        //   - `mergedIntoCustomerId: null` — exclude merged source row
+        //     (P2 round 8); mirrors the repair path's in-tx re-check
+        //     predicate so neither dispatch can re-bind LINE to an
+        //     obsolete Customer
+        //   - `id / storeId / userId` — defense-in-depth identity
+        //     re-assertion
+        //
+        // If count !== 1 the stale-link branch fires; the throw rolls
+        // back the (0-row) updateMany and tx.account.create is
+        // unreachable.
         const result = await tx.customer.updateMany({
           where: {
             id: params.customerId,
             storeId: params.storeId,
             userId: params.userId,
             lineUserId: null,
-            // PR #242 Codex P2 round 8: exclude merged Customer source
-            // rows from full bind. If the Customer was merged into
-            // another between preflight and tx-start (Phase-1
-            // customer-merge sets `mergedIntoCustomerId`), the
-            // updateMany matches 0 rows and the stale-link branch
-            // fires — preventing a re-bind of an obsolete source
-            // Customer row. Mirrors the repair path's in-tx re-check
-            // predicate (5 fields total).
             mergedIntoCustomerId: null,
           },
           data: {
@@ -1158,20 +1160,8 @@ async function runFullBindTx(params: {
           },
         });
         if (result.count !== 1) {
-          // Stale link state: another binder won the race in the
-          // preflight→write interval, OR the Customer was deleted /
-          // had its storeId / userId concurrently mutated, OR the
-          // Customer was merged into another (PR #242 Codex P2 round 8).
-          // Throw the sentinel so Prisma rolls back the (zero-row)
-          // updateMany and we never reach Account.create. The catch
-          // arm below translates this into the `stale_customer_link`
-          // status.
           throw new StaleCustomerLinkError(params.customerId);
         }
-        // Account[line]. Same row shape as the repair tx — but the
-        // repair function lives in its own sibling scope and cannot
-        // share this Customer write block. Only runs when the
-        // conditional Customer update affected exactly 1 row.
         await tx.account.create({
           data: {
             userId: params.userId,

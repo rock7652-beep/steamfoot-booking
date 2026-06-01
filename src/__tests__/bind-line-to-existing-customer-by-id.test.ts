@@ -3145,3 +3145,147 @@ describe("P2 round 8 (Codex): exclude merged customers from full bind", () => {
     expect(repair.txAccountCreate).not.toHaveBeenCalled();
   });
 });
+
+// ════════════════════════════════════════════════════════════════════════════
+// 19. P2 round 9 (PR #242 Codex): adjacency tightening of stale-gate and
+//     full-bind where-clause
+// ════════════════════════════════════════════════════════════════════════════
+//
+// Codex round 8 still flagged both repair-gate and full-bind merged-source
+// guard. The behavioural changes were correct; the issue was lexical
+// fragmentation in the source — comments wedged between the stale-guard
+// throw-block and `tx.account.create`, and a multi-line comment wedged
+// inside the full-bind `updateMany.where` literal between `lineUserId:
+// null,` and `mergedIntoCustomerId: null,`.
+//
+// Round 9 strips both intervening comment blocks so the structure is
+// genuinely back-to-back. These tests pin the new adjacency with regexes
+// strict enough to catch any future re-introduction of intervening text.
+
+describe("P2 round 9 (Codex): stale-gate and full-bind where-clause adjacency", () => {
+  const HELPER_PATH = path.resolve(
+    __dirname,
+    "..",
+    "server",
+    "services",
+    "bind-line-to-customer.ts",
+  );
+
+  function readFn(declarationLine: string): string {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    const fnStart = src.indexOf(declarationLine);
+    expect(fnStart).toBeGreaterThan(-1);
+    const tail = src.slice(fnStart);
+    // Either the next top-level `\n}\n\n` (function followed by next
+    // declaration), or end-of-file for the last fn in the file.
+    const termRel = tail.search(/\n}\n\n/);
+    return termRel >= 0 ? tail.slice(0, termRel + 2) : tail;
+  }
+
+  // ─ Repair fn: throw-block and tx.account.create are lexically adjacent ─
+
+  it("repair fn: the `if (stillLinked === null) { throw ... }` block's close brace is followed ONLY by whitespace before `await tx.account.create(` — no intervening comment", () => {
+    const fnBody = readFn("async function runAccountOnlyRepairTx");
+    // Strict regex: the if-block's `;` then `}` then whitespace only,
+    // then `await tx.account.create(`. No `/` (no comment start), no
+    // identifier, nothing else allowed between.
+    expect(fnBody).toMatch(
+      /throw\s+new\s+StaleCustomerLinkError\s*\(\s*params\.customerId\s*\)\s*;\s*\}\s*await\s+tx\.account\.create\s*\(/,
+    );
+  });
+
+  it("repair fn: ordering — findFirst → null-check → throw → account.create, with each step immediately followed by the next (no intervening statement)", () => {
+    const fnBody = readFn("async function runAccountOnlyRepairTx");
+
+    const findFirstIdx = fnBody.indexOf("await tx.customer.findFirst(");
+    const nullCheckIdx = fnBody.indexOf("if (stillLinked === null)");
+    const throwIdx = fnBody.indexOf("throw new StaleCustomerLinkError");
+    const accountCreateIdx = fnBody.indexOf("await tx.account.create(");
+
+    expect(findFirstIdx).toBeGreaterThan(-1);
+    expect(nullCheckIdx).toBeGreaterThan(-1);
+    expect(throwIdx).toBeGreaterThan(-1);
+    expect(accountCreateIdx).toBeGreaterThan(-1);
+
+    expect(findFirstIdx).toBeLessThan(nullCheckIdx);
+    expect(nullCheckIdx).toBeLessThan(throwIdx);
+    expect(throwIdx).toBeLessThan(accountCreateIdx);
+  });
+
+  it("repair fn: no `tx.account.create` appears before the `if (stillLinked === null)` null-check (gate is unbypassable)", () => {
+    const fnBody = readFn("async function runAccountOnlyRepairTx");
+    const nullCheckIdx = fnBody.indexOf("if (stillLinked === null)");
+    const allAccountCreates: number[] = [];
+    let pos = 0;
+    while ((pos = fnBody.indexOf("tx.account.create(", pos)) !== -1) {
+      allAccountCreates.push(pos);
+      pos += 1;
+    }
+    expect(allAccountCreates.length).toBe(1);
+    expect(allAccountCreates[0]).toBeGreaterThan(nullCheckIdx);
+  });
+
+  // ─ Full-bind fn: where-clause is a compact 5-field object literal ─
+
+  it("full-bind fn: `tx.customer.updateMany.where` is a compact 5-field object — `lineUserId: null,` is immediately followed by `mergedIntoCustomerId: null,` with no intervening comment", () => {
+    const fnBody = readFn("async function runFullBindTx");
+    // Strict regex: lineUserId: null,  (whitespace only)  mergedIntoCustomerId: null,
+    // No `/` allowed between (no comment open).
+    expect(fnBody).toMatch(
+      /lineUserId\s*:\s*null\s*,\s*mergedIntoCustomerId\s*:\s*null\s*,/,
+    );
+  });
+
+  it("full-bind fn: where-clause contains all 5 predicates in source-textual order (id, storeId, userId, lineUserId, mergedIntoCustomerId)", () => {
+    const fnBody = readFn("async function runFullBindTx");
+    const idIdx = fnBody.indexOf("id: params.customerId");
+    const storeIdIdx = fnBody.indexOf("storeId: params.storeId");
+    const userIdIdx = fnBody.indexOf("userId: params.userId");
+    const lineUserIdIdx = fnBody.indexOf("lineUserId: null,");
+    const mergedIdx = fnBody.indexOf("mergedIntoCustomerId: null,");
+
+    [idIdx, storeIdIdx, userIdIdx, lineUserIdIdx, mergedIdx].forEach((i) => {
+      expect(i).toBeGreaterThan(-1);
+    });
+    // Ordering: id < storeId < userId < lineUserId < mergedIntoCustomerId
+    expect(idIdx).toBeLessThan(storeIdIdx);
+    expect(storeIdIdx).toBeLessThan(userIdIdx);
+    expect(userIdIdx).toBeLessThan(lineUserIdIdx);
+    expect(lineUserIdIdx).toBeLessThan(mergedIdx);
+  });
+
+  it("full-bind fn: `if (result.count !== 1) { throw ... }` block's close brace is followed ONLY by whitespace before `await tx.account.create(` — no intervening comment", () => {
+    const fnBody = readFn("async function runFullBindTx");
+    expect(fnBody).toMatch(
+      /throw\s+new\s+StaleCustomerLinkError\s*\(\s*params\.customerId\s*\)\s*;\s*\}\s*await\s+tx\.account\.create\s*\(/,
+    );
+  });
+
+  it("full-bind fn: ordering — updateMany → count-check → throw → account.create, count-check unbypassable", () => {
+    const fnBody = readFn("async function runFullBindTx");
+
+    const updateManyIdx = fnBody.indexOf("await tx.customer.updateMany(");
+    const countCheckIdx = fnBody.indexOf("if (result.count !== 1)");
+    const throwIdx = fnBody.indexOf("throw new StaleCustomerLinkError");
+    const accountCreateIdx = fnBody.indexOf("await tx.account.create(");
+
+    expect(updateManyIdx).toBeGreaterThan(-1);
+    expect(countCheckIdx).toBeGreaterThan(-1);
+    expect(throwIdx).toBeGreaterThan(-1);
+    expect(accountCreateIdx).toBeGreaterThan(-1);
+
+    expect(updateManyIdx).toBeLessThan(countCheckIdx);
+    expect(countCheckIdx).toBeLessThan(throwIdx);
+    expect(throwIdx).toBeLessThan(accountCreateIdx);
+
+    // No tx.account.create before the count check.
+    const allAccountCreates: number[] = [];
+    let pos = 0;
+    while ((pos = fnBody.indexOf("tx.account.create(", pos)) !== -1) {
+      allAccountCreates.push(pos);
+      pos += 1;
+    }
+    expect(allAccountCreates.length).toBe(1);
+    expect(allAccountCreates[0]).toBeGreaterThan(countCheckIdx);
+  });
+});
