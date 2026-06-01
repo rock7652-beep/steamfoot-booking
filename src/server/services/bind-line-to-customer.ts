@@ -623,43 +623,17 @@ export async function bindLineToExistingCustomerById(
         userId: customerUserId,
       };
     }
-    // Account row missing (PR-F1.2 `missing-account` drift) → repair it
-    // alone in a Serializable tx. Critically, do NOT touch Customer link
-    // metadata: the customer was already bound at some point in the past,
-    // and overwriting `lineLinkedAt` would erase the original bind
-    // timestamp; overwriting `lineName` (especially with a null input)
-    // would erase a previously stored displayName. Per PR-G5.1.a P2 fix #2.
-    try {
-      await prisma.$transaction(
-        async (tx) => {
-          await tx.account.create({
-            data: {
-              userId: customerUserId,
-              provider: "line",
-              providerAccountId: input.lineUserId,
-              type: "oauth",
-            },
-          });
-        },
-        // Same isolation contract as the full bind tx so racing binders
-        // surface as P2002 / P2034 deterministically.
-        { isolationLevel: "Serializable" },
-      );
-    } catch (err) {
-      const translated = translateAtomicLineBindTxError(err, {
-        storeId: input.storeId,
-        customerId: customer.id,
-        userId: customerUserId,
-        lineUserId: input.lineUserId,
-      });
-      if (translated) return translated;
-      throw err;
-    }
-    return {
-      status: "account_repaired",
+    // Account row missing (PR-F1.2 `missing-account` drift) → dispatch to
+    // the dedicated repair function below. The repair function is
+    // lexically separate from this scope and cannot reach the full-bind
+    // `customer.update` data block — see runAccountOnlyRepairTx below for
+    // the invariant comment (PR #242 Codex P2 round 2).
+    return runAccountOnlyRepairTx({
+      storeId: input.storeId,
       customerId: customer.id,
       userId: customerUserId,
-    };
+      lineUserId: input.lineUserId,
+    });
   }
 
   // ── step 5b: Customer.lineUserId set to a DIFFERENT line → reject ──────
@@ -764,4 +738,83 @@ function translateAtomicLineBindTxError(
     return { status: "write_conflict", code: "P2034" };
   }
   return null;
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//
+//  runAccountOnlyRepairTx — dedicated Account[line] repair, sibling to the
+//  full bind tx inside `bindLineToExistingCustomerById`.
+//
+//  ⚠ HARD INVARIANT (PR #242 Codex P2 round 2):
+//
+//    THIS FUNCTION MUST NEVER touch ANY Customer row column.
+//
+//      • NO `prisma.customer.*` call
+//      • NO `tx.customer.*` call
+//      • NO reference to the strings `customer.update`, `lineLinkedAt`,
+//        `lineName`, `lineLinkStatus`, `lineUserId` (as a write target)
+//      • NO data object containing those keys
+//
+//    The drift case we repair is: Customer already records the correct
+//    `lineUserId` from a previous successful bind, but the Account[line]
+//    row went missing (PR-F1.2 detects this as the `missing-account`
+//    category). The Customer's link metadata — `lineLinkedAt` (original
+//    bind timestamp), `lineName` (LINE displayName captured at first
+//    bind), `lineLinkStatus` — is **historical truth** and MUST NOT be
+//    rewritten by a repair call, especially because the caller's
+//    `input.lineName` could legitimately be `null` for an OAuth source
+//    that didn't echo displayName.
+//
+//    The full-bind path lives in `bindLineToExistingCustomerById` and
+//    owns the `customer.update` data block at the top of the file.
+//    By extracting the repair into THIS function, the two write shapes
+//    are physically separate: a future maintainer cannot accidentally
+//    re-couple them by editing inside one function's body. Tests in
+//    `src/__tests__/bind-line-to-existing-customer-by-id.test.ts`
+//    section 11 lock the per-field preservation invariant.
+//
+// ════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Account[line]-only repair tx for the `missing-account` drift case.
+ * See the invariant block above — this function deliberately does NOT
+ * import or reference any Customer column write.
+ */
+async function runAccountOnlyRepairTx(params: {
+  storeId: string;
+  customerId: string;
+  userId: string;
+  lineUserId: string;
+}): Promise<
+  | { status: "account_repaired"; customerId: string; userId: string }
+  | { status: "unique_conflict"; conflictTarget: string }
+  | { status: "write_conflict"; code: "P2034" }
+> {
+  try {
+    await prisma.$transaction(
+      async (tx) => {
+        // Single write. Account[line] only. No Customer row touched.
+        await tx.account.create({
+          data: {
+            userId: params.userId,
+            provider: "line",
+            providerAccountId: params.lineUserId,
+            type: "oauth",
+          },
+        });
+      },
+      // Same isolation contract as the full bind tx so racing binders
+      // surface as P2002 / P2034 deterministically.
+      { isolationLevel: "Serializable" },
+    );
+  } catch (err) {
+    const translated = translateAtomicLineBindTxError(err, params);
+    if (translated) return translated;
+    throw err;
+  }
+  return {
+    status: "account_repaired",
+    customerId: params.customerId,
+    userId: params.userId,
+  };
 }

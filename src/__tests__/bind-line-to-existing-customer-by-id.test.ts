@@ -1025,3 +1025,228 @@ describe("P2-2 (Codex): Account-only repair preserves Customer link metadata", (
     expect(mockTx).not.toHaveBeenCalled();
   });
 });
+
+// ════════════════════════════════════════════════════════════════════════════
+// 12. P2 round 2 (PR #242 Codex): per-field Customer metadata preservation
+// ════════════════════════════════════════════════════════════════════════════
+//
+// The Account-only repair branch is now extracted into a sibling private
+// function `runAccountOnlyRepairTx`. The full-bind `customer.update` data
+// block (with `lineUserId` / `lineName` / `lineLinkStatus` / `lineLinkedAt`)
+// lives in a different function scope and cannot be reached from the
+// repair path. These tests assert each Customer link-metadata field
+// individually so a future refactor that ever wires `customer.update`
+// back into the repair branch is caught immediately.
+//
+// Pure-mock invariant: "field unchanged" ≡ "`tx.customer.update` was
+// never called". We additionally pin each pre-state value on the
+// findUnique fixture so the intent (and the trail in CI logs on a
+// regression) is unambiguous.
+
+describe("P2 round 2 (Codex): repair branch preserves Customer metadata per field", () => {
+  // Existing metadata recorded at the original successful bind — these
+  // values are what MUST survive an Account-only repair call.
+  const ORIGINAL_LINKED_AT = new Date("2025-01-15T09:30:00.000Z");
+  const ORIGINAL_LINE_NAME = "原始_LINE暱稱";
+
+  function repairFixture(overrides: Record<string, unknown> = {}) {
+    return {
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: LINE_USER_ID, // already linked
+      lineLinkStatus: "LINKED",
+      // `lineLinkedAt` and `lineName` are not in the helper's findUnique
+      // select() (helper doesn't need them to make a decision), but we
+      // include them on the fixture for documentation: these are the
+      // values the DB row currently holds and that the repair tx must
+      // not touch.
+      lineLinkedAt: ORIGINAL_LINKED_AT,
+      lineName: ORIGINAL_LINE_NAME,
+      ...overrides,
+    };
+  }
+
+  it("repair branch: account.create runs once, customer.update is called 0 times (all 4 metadata fields preserved)", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(repairFixture());
+    mockAccountFindUnique.mockResolvedValueOnce(null);
+    const { txCustomerUpdate, txAccountCreate } = setupTransaction();
+
+    const r = await bindLineToExistingCustomerById(makeValidInput());
+
+    expect(r).toEqual({
+      status: "account_repaired",
+      customerId: CUSTOMER_ID,
+      userId: USER_ID,
+    });
+    expect(txAccountCreate).toHaveBeenCalledTimes(1);
+
+    // ── per-field invariant: customer.update must NEVER be invoked ──
+    expect(txCustomerUpdate).toHaveBeenCalledTimes(0);
+    // Belt-and-braces: scan all calls to confirm none of the 4 metadata
+    // fields appear in any update data payload. If a future refactor
+    // adds a `customer.update({ data: { lineLinkedAt: ... } })` call
+    // here, this assertion fails immediately.
+    const allUpdateCalls = txCustomerUpdate.mock.calls;
+    for (const call of allUpdateCalls) {
+      const data = (call?.[0] as { data?: Record<string, unknown> })?.data ?? {};
+      expect(data).not.toHaveProperty("lineLinkedAt");
+      expect(data).not.toHaveProperty("lineName");
+      expect(data).not.toHaveProperty("lineLinkStatus");
+      expect(data).not.toHaveProperty("lineUserId");
+    }
+  });
+
+  it("repair branch: lineLinkedAt is NEVER written (original bind timestamp survives)", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(repairFixture());
+    mockAccountFindUnique.mockResolvedValueOnce(null);
+    const { txCustomerUpdate } = setupTransaction();
+
+    await bindLineToExistingCustomerById(makeValidInput());
+
+    // The fixture says the DB row already has ORIGINAL_LINKED_AT; the
+    // helper must not overwrite it. Since the only way to overwrite it
+    // is via customer.update, asserting "never called with lineLinkedAt"
+    // proves the field is preserved.
+    const wroteLinkedAt = txCustomerUpdate.mock.calls.some((call) => {
+      const data = (call?.[0] as { data?: Record<string, unknown> })?.data ?? {};
+      return Object.prototype.hasOwnProperty.call(data, "lineLinkedAt");
+    });
+    expect(wroteLinkedAt).toBe(false);
+  });
+
+  it("repair branch: lineName is NEVER written (original displayName survives)", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(repairFixture());
+    mockAccountFindUnique.mockResolvedValueOnce(null);
+    const { txCustomerUpdate } = setupTransaction();
+
+    await bindLineToExistingCustomerById(makeValidInput());
+
+    const wroteLineName = txCustomerUpdate.mock.calls.some((call) => {
+      const data = (call?.[0] as { data?: Record<string, unknown> })?.data ?? {};
+      return Object.prototype.hasOwnProperty.call(data, "lineName");
+    });
+    expect(wroteLineName).toBe(false);
+  });
+
+  it("repair branch: lineLinkStatus is NEVER written (preserve historical status)", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(repairFixture());
+    mockAccountFindUnique.mockResolvedValueOnce(null);
+    const { txCustomerUpdate } = setupTransaction();
+
+    await bindLineToExistingCustomerById(makeValidInput());
+
+    const wroteStatus = txCustomerUpdate.mock.calls.some((call) => {
+      const data = (call?.[0] as { data?: Record<string, unknown> })?.data ?? {};
+      return Object.prototype.hasOwnProperty.call(data, "lineLinkStatus");
+    });
+    expect(wroteStatus).toBe(false);
+  });
+
+  it("repair branch with input lineName=null: existing Customer.lineName NEVER overwritten (no null-stomp regression)", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(repairFixture());
+    mockAccountFindUnique.mockResolvedValueOnce(null);
+    const { txCustomerUpdate, txAccountCreate } = setupTransaction();
+
+    const r = await bindLineToExistingCustomerById(
+      makeValidInput({ lineName: null }),
+    );
+
+    expect(r.status).toBe("account_repaired");
+    expect(txAccountCreate).toHaveBeenCalledTimes(1);
+    // If the helper passed `lineName: null` to customer.update here,
+    // the DB column would be nulled out — exactly the bug Codex flagged.
+    // Hard invariant: customer.update is never called in the repair path.
+    expect(txCustomerUpdate).toHaveBeenCalledTimes(0);
+  });
+
+  it("repair branch with input lineLinkedAt=undefined-ish (no field) still does not write lineLinkedAt", async () => {
+    // Sanity: even if a future caller forgets to pass something
+    // structurally adjacent to lineLinkedAt, the helper never invents
+    // a write here. The repair tx body simply has no Customer write
+    // shape to populate.
+    mockCustomerFindUnique.mockResolvedValueOnce(repairFixture());
+    mockAccountFindUnique.mockResolvedValueOnce(null);
+    const { txCustomerUpdate } = setupTransaction();
+
+    await bindLineToExistingCustomerById(makeValidInput());
+
+    expect(txCustomerUpdate).toHaveBeenCalledTimes(0);
+  });
+
+  it("first-time bind (Customer.lineUserId === null) STILL writes lineUserId + lineName + lineLinkStatus + lineLinkedAt (regression sentinel)", async () => {
+    // Negative companion: the extract MUST NOT regress the full-bind
+    // path. The first bind continues to populate all 4 metadata fields.
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: null,
+      lineLinkStatus: "UNLINKED",
+    });
+    const { txCustomerUpdate, txAccountCreate } = setupTransaction();
+
+    const r = await bindLineToExistingCustomerById(makeValidInput());
+
+    expect(r.status).toBe("bound_existing");
+    expect(txCustomerUpdate).toHaveBeenCalledTimes(1);
+
+    const data = (txCustomerUpdate.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    expect(data).toBeDefined();
+    expect(data).toHaveProperty("lineUserId", LINE_USER_ID);
+    expect(data).toHaveProperty("lineName", LINE_NAME);
+    expect(data).toHaveProperty("lineLinkStatus", "LINKED");
+    expect(data?.lineLinkedAt).toBeInstanceOf(Date);
+
+    expect(txAccountCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it("already_synced (Customer.lineUserId + Account both match) STILL does 0 writes (regression sentinel)", async () => {
+    // Negative companion: the extract MUST NOT make the idempotent
+    // fast-path accidentally invoke runAccountOnlyRepairTx or any tx.
+    mockCustomerFindUnique.mockResolvedValueOnce(repairFixture());
+    mockAccountFindUnique.mockResolvedValueOnce({ userId: USER_ID });
+
+    const r = await bindLineToExistingCustomerById(makeValidInput());
+
+    expect(r).toEqual({
+      status: "already_synced",
+      customerId: CUSTOMER_ID,
+      userId: USER_ID,
+    });
+    expect(mockTx).not.toHaveBeenCalled();
+  });
+
+  it("structural assertion: the repair branch and the full-bind branch invoke DIFFERENT tx shapes", async () => {
+    // Direct structural property: repair tx has 1 write (account only),
+    // full bind tx has 2 writes (customer + account). Asserting the
+    // shape difference here makes any future "merge them back" refactor
+    // a visible diff in CI rather than a silent regression.
+    //
+    // (a) repair path
+    mockCustomerFindUnique.mockResolvedValueOnce(repairFixture());
+    mockAccountFindUnique.mockResolvedValueOnce(null);
+    const repair = setupTransaction();
+    await bindLineToExistingCustomerById(makeValidInput());
+    expect(repair.txAccountCreate).toHaveBeenCalledTimes(1);
+    expect(repair.txCustomerUpdate).toHaveBeenCalledTimes(0);
+
+    // (b) full bind path — reset mocks first
+    mockCustomerFindUnique.mockReset();
+    mockAccountFindUnique.mockReset();
+    mockTx.mockReset();
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: null,
+      lineLinkStatus: "UNLINKED",
+    });
+    const full = setupTransaction();
+    await bindLineToExistingCustomerById(makeValidInput());
+    expect(full.txAccountCreate).toHaveBeenCalledTimes(1);
+    expect(full.txCustomerUpdate).toHaveBeenCalledTimes(1);
+  });
+});
