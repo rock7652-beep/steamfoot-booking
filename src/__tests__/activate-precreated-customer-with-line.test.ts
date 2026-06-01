@@ -1060,30 +1060,47 @@ describe("P1 round 2 (Codex): strengthen no-relation-side-effect source assertio
     expect(fnBody).not.toMatch(/customer\s*\.\s*connect\b/);
   });
 
-  it("source: `tx.user.create` data literal does NOT contain a `customer` field-KEY (extracts the data block and asserts no relation-side-effect write)", () => {
+  it("source: `tx.user.create` call uses the scalar-only builder — `data: buildActivationUserCreateData(...)`, NEVER an inline `data: { ... }` literal (PR #243 Codex P1 round 4: stale inline-data anchor removed)", () => {
     const fnBody = readActivationFnBody();
-    // Locate the `tx.user.create(` call and extract its `data: {...}`.
+    // Locate the `tx.user.create(` call AND its matching close.
+    // The slice must stop AT the user.create call boundary —
+    // extending into the next call (`tx.account.create({ data: { ... } })`)
+    // would falsely match its legitimate inline data literal.
     const userCreateIdx = fnBody.indexOf("tx.user.create(");
     expect(userCreateIdx).toBeGreaterThan(-1);
 
-    const fromCall = fnBody.slice(userCreateIdx);
-    // Find `data: {` inside the call's options literal.
-    const dataOpenIdx = fromCall.indexOf("data: {");
-    expect(dataOpenIdx).toBeGreaterThan(-1);
-    const fromDataOpen = fromCall.slice(dataOpenIdx + "data: {".length);
-    // Match the first balanced `}` — the User.create.data has no
-    // nested object literals (round 1 removed the relation literal),
-    // so the first `}` is the correct close.
-    const closeIdx = fromDataOpen.indexOf("}");
-    expect(closeIdx).toBeGreaterThan(-1);
-    const dataBody = fromDataOpen.slice(0, closeIdx);
+    // Walk forward from the call's `(` and track paren depth until
+    // the matching `)`. The activation helper's user.create has
+    // exactly one set of balanced parens at the outermost level.
+    let depth = 0;
+    let endIdx = userCreateIdx;
+    const startParenIdx = fnBody.indexOf("(", userCreateIdx);
+    expect(startParenIdx).toBeGreaterThan(-1);
+    for (let i = startParenIdx; i < fnBody.length; i++) {
+      const ch = fnBody[i];
+      if (ch === "(") depth++;
+      else if (ch === ")") {
+        depth--;
+        if (depth === 0) {
+          endIdx = i + 1;
+          break;
+        }
+      }
+    }
+    expect(endIdx).toBeGreaterThan(startParenIdx);
+    const userCreateCallSlice = fnBody.slice(userCreateIdx, endIdx);
 
-    // Anchor on the FIELD-KEY pattern `customer:` / `connect:` —
-    // value references like `customer.name` (the local variable
-    // dereference) are intentionally allowed. Field keys appear at
-    // line-start (after `{` or `,` + whitespace), followed by `:`.
-    expect(dataBody).not.toMatch(/(^|\n)\s*customer\s*:/);
-    expect(dataBody).not.toMatch(/(^|\n)\s*connect\s*:/);
+    // Required: the call passes the typed builder as `data`.
+    expect(userCreateCallSlice).toMatch(
+      /data\s*:\s*buildActivationUserCreateData\s*\(/,
+    );
+    // Forbidden: inline `data: { ... }` literal within the user.create
+    // call. The previous implementation used an inline literal —
+    // round 3 replaced it with the named builder so a stray inline
+    // literal here would signal a regression that re-opens the P1
+    // (caller could then sneak a customer-relation key into the
+    // literal).
+    expect(userCreateCallSlice).not.toMatch(/data\s*:\s*\{/);
   });
 
   it("source: full file (not just helper body) contains ZERO `customer: { connect` patterns — defense across documentation, contract blocks, anywhere", () => {
@@ -1396,5 +1413,160 @@ describe("P1 round 3 (Codex): buildActivationUserCreateData scalar-only typed ex
     expect(txAccountCreate).toHaveBeenCalledTimes(1);
     // Confirms tx body order is still: user.create → account.create
     // → updateMany → throw on count=0; no orphan side-effect.
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// 12. P1 round 4 (PR #243 Codex): consolidated invariant block — all six
+//     "move Case-B guard before connecting the customer" assertions in
+//     one place, anchored on the user spec's verbatim requirements
+// ════════════════════════════════════════════════════════════════════════════
+//
+// The previous rounds shipped the structural fix and individual source
+// tests, but Codex kept the P1 active. Round 4 consolidates the six
+// user-spec invariants into a single deterministic test block so the
+// safety property is visible at a single source location. If any
+// assertion fails, the test name + user-spec invariant number tells
+// the reader exactly which contract was broken.
+
+describe("P1 round 4 (Codex): six user-spec invariants for Case-B guard ordering", () => {
+  const HELPER_PATH = path.resolve(
+    __dirname,
+    "..",
+    "server",
+    "services",
+    "bind-line-to-customer.ts",
+  );
+
+  it("invariant 1: helper source has ZERO `customer: { connect` brace-form pattern (implementation, comment, or anywhere)", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    expect(src).not.toMatch(/customer\s*:\s*\{\s*connect\s*:/);
+  });
+
+  it("invariant 1: helper source has ZERO `customer.connect` dotted-form pattern", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    expect(src).not.toMatch(/customer\s*\.\s*connect\b/);
+  });
+
+  it("invariant 1: helper source has ZERO `connect: { id: customer.id }` pattern (in case anyone refactors to a different relation syntax that still uses `connect:`)", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    // The connect-with-customer.id form is the auth.ts baseline shape
+    // that round 1 removed. Forbidden anywhere.
+    expect(src).not.toMatch(/connect\s*:\s*\{\s*id\s*:\s*customer\.id/);
+  });
+
+  it("invariant 2: activation helper's `tx.user.create` call passes `buildActivationUserCreateData(...)` — visibly named, scalar-only builder", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    const fnStart = src.indexOf(
+      "export async function activatePrecreatedCustomerWithLine",
+    );
+    const tail = src.slice(fnStart);
+    const termRel = tail.search(/\n}\n\n/);
+    const fnBody = termRel >= 0 ? tail.slice(0, termRel + 2) : tail;
+    expect(fnBody).toMatch(
+      /tx\.user\.create\s*\(\s*\{\s*data\s*:\s*buildActivationUserCreateData\s*\(/,
+    );
+  });
+
+  it("invariant 3: `buildActivationUserCreateData` return type excludes `customer` — TypeScript-enforced absence", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    // Locate the builder's signature + return type.
+    const fnStart = src.indexOf("function buildActivationUserCreateData");
+    expect(fnStart).toBeGreaterThan(-1);
+    const tail = src.slice(fnStart);
+    const argsEndIdx = tail.indexOf("}): {");
+    const bodyOpenIdx = tail.indexOf("{\n  return", argsEndIdx);
+    const returnTypeAnnotation = tail.slice(
+      argsEndIdx + "}): ".length,
+      bodyOpenIdx,
+    );
+    expect(returnTypeAnnotation).not.toMatch(/(^|\n)\s*customer\s*:/);
+    expect(returnTypeAnnotation).not.toMatch(/(^|\n)\s*connect\s*:/);
+  });
+
+  it("invariant 4: `buildActivationCustomerUpdateData` data payload sets `userId: params.userId` (the SINGLE FK write)", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    const fnStart = src.indexOf("function buildActivationCustomerUpdateData");
+    expect(fnStart).toBeGreaterThan(-1);
+    const tail = src.slice(fnStart);
+    const termRel = tail.search(/\n}\n\n/);
+    const fnBody = termRel >= 0 ? tail.slice(0, termRel + 2) : tail;
+    expect(fnBody).toMatch(/userId\s*:\s*params\.userId/);
+  });
+
+  it("invariant 5: `buildActivationCustomerWhere` where-clause requires `userId: null` (the CAS predicate)", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    const fnStart = src.indexOf("function buildActivationCustomerWhere");
+    expect(fnStart).toBeGreaterThan(-1);
+    const tail = src.slice(fnStart);
+    const termRel = tail.search(/\n}\n\n/);
+    const fnBody = termRel >= 0 ? tail.slice(0, termRel + 2) : tail;
+    expect(fnBody).toMatch(/userId\s*:\s*null/);
+  });
+
+  it("invariant 6: source tests no longer extract the user.create data argument via the legacy indexOf-on-string anchor (round-2 stale anchor removed in round 4)", () => {
+    // Meta-test: the legacy form that hard-coded an inline
+    // literal anchor MUST NOT survive in the test file. The old
+    // form used a string-search call (e.g. `indexOf` with a
+    // colon-then-brace literal substring) inside the test setup;
+    // round 4 replaced that with a balanced-paren slice plus an
+    // assertion on the builder-call shape.
+    const TEST_FILE = path.resolve(__filename);
+    const testSrc = readFileSync(TEST_FILE, "utf8");
+
+    // Anchor by feature: a `fromCall.indexOf(` call whose argument
+    // is a quoted colon-then-brace substring. The pattern below is
+    // built from concatenated pieces so the test file does not
+    // contain a string that matches itself.
+    const COLON = ":";
+    const OPEN_BRACE = "{";
+    const stalePatternPieces = [
+      "fromCall\\.indexOf\\(",
+      "['\"]",
+      "data",
+      COLON,
+      "\\s*",
+      "\\" + OPEN_BRACE,
+      "['\"]",
+      "\\)",
+    ];
+    const stalePattern = new RegExp(stalePatternPieces.join(""));
+    expect(testSrc).not.toMatch(stalePattern);
+  });
+
+  // ─ Cross-cutting behavioural reassurance (round 4) ────────────────────
+
+  it("behavioural (round 4): happy path activated, with all 3 writes in order, NO orphan, FK established by the CAS only", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const { txUserCreate, txAccountCreate, txCustomerUpdateMany } =
+      setupTransaction();
+
+    const r = await activatePrecreatedCustomerWithLine(makeValidInput());
+
+    expect(r).toEqual({
+      status: "activated",
+      customerId: CUSTOMER_ID,
+      userId: NEW_USER_ID,
+    });
+    // (a) tx.user.create.data has no customer / connect.
+    const userData = (txUserCreate.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    expect(userData).not.toHaveProperty("customer");
+    expect(userData).not.toHaveProperty("connect");
+    // (b) Customer.updateMany.where.userId === null.
+    const cuWhere = (txCustomerUpdateMany.mock.calls[0]?.[0] as {
+      where?: Record<string, unknown>;
+    })?.where;
+    expect(cuWhere?.userId).toBe(null);
+    // (c) Customer.updateMany.data.userId === newUser.id.
+    const cuData = (txCustomerUpdateMany.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    expect(cuData?.userId).toBe(NEW_USER_ID);
+    // (d) All 3 writes occurred.
+    expect(txUserCreate).toHaveBeenCalledTimes(1);
+    expect(txAccountCreate).toHaveBeenCalledTimes(1);
+    expect(txCustomerUpdateMany).toHaveBeenCalledTimes(1);
   });
 });
