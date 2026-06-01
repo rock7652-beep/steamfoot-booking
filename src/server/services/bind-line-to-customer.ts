@@ -794,15 +794,21 @@ function translateAtomicLineBindTxError(
 //  runAccountOnlyRepairTx — dedicated Account[line] repair, sibling to the
 //  full bind tx inside `bindLineToExistingCustomerById`.
 //
-//  ⚠ HARD INVARIANT (PR #242 Codex P2 round 2):
+//  ⚠ HARD INVARIANT (PR #242 Codex P2 round 2 + P2 round 5):
 //
-//    THIS FUNCTION MUST NEVER touch ANY Customer row column.
+//    THIS FUNCTION MUST NEVER WRITE ANY Customer row column.
 //
-//      • NO `prisma.customer.*` call
-//      • NO `tx.customer.*` call
-//      • NO reference to the strings `customer.update`, `lineLinkedAt`,
-//        `lineName`, `lineLinkStatus`, `lineUserId` (as a write target)
+//      • NO `tx.customer.update` / `updateMany` / `upsert` / `create` /
+//        `delete` / `deleteMany` call (any Customer WRITE)
+//      • NO `prisma.customer.*` write call outside the tx either
+//      • NO reference to the strings `lineLinkedAt`, `lineName`,
+//        `lineLinkStatus` as a write target (data: literal keys)
 //      • NO data object containing those keys
+//
+//    A read-only `tx.customer.findFirst` IS permitted — and required,
+//    per PR #242 Codex P2 round 5 (see the in-tx re-check below). The
+//    invariant is about WRITES; a read that drives a stale-state guard
+//    cannot mutate Customer.
 //
 //    The drift case we repair is: Customer already records the correct
 //    `lineUserId` from a previous successful bind, but the Account[line]
@@ -814,20 +820,48 @@ function translateAtomicLineBindTxError(
 //    `input.lineName` could legitimately be `null` for an OAuth source
 //    that didn't echo displayName.
 //
-//    The full-bind path lives in `bindLineToExistingCustomerById` and
-//    owns the `customer.update` data block at the top of the file.
-//    By extracting the repair into THIS function, the two write shapes
-//    are physically separate: a future maintainer cannot accidentally
-//    re-couple them by editing inside one function's body. Tests in
-//    `src/__tests__/bind-line-to-existing-customer-by-id.test.ts`
-//    section 11 lock the per-field preservation invariant.
+//    The full-bind path lives in `runFullBindTx` and owns the
+//    `tx.customer.updateMany` data block. By keeping the repair in THIS
+//    function and gating Account.create behind an in-tx Customer
+//    re-check, the two write shapes are physically separate AND the
+//    repair tx cannot create an orphan Account row for a Customer that
+//    has been concurrently unbound / merged / reassigned since the
+//    main helper's preflight read.
+//
+//  ⚠ TOCTOU race protection (PR #242 Codex P2 round 5):
+//
+//    The main helper's preflight reads Customer outside any tx. By
+//    the time the repair tx runs, another flow may have:
+//      - unbound the Customer (set lineUserId = null)
+//      - reassigned the Customer to a different userId
+//      - merged this Customer into another (mergedIntoCustomerId set)
+//      - moved the Customer to a different store (very rare; defense
+//        in depth)
+//    Creating an Account[line] row in any of these cases would leave
+//    stale state — an Account pointing to a userId / lineUserId
+//    combination that no Customer claims anymore.
+//
+//    Fix: inside the tx, BEFORE Account.create, run a conditional
+//    `tx.customer.findFirst` whose where-clause re-asserts every
+//    preflight invariant (id, storeId, userId, lineUserId,
+//    mergedIntoCustomerId: null). If the row is no longer there
+//    (null result), throw a `StaleCustomerLinkError` sentinel — the
+//    tx rolls back (Account.create never runs) and the catch arm
+//    returns the same `stale_customer_link` status as the full-bind
+//    path. Caller can retry — the next invocation observes the
+//    post-mutation state and routes appropriately.
+//
+//    Tests in `src/__tests__/bind-line-to-existing-customer-by-id.test.ts`
+//    sections 11 + 16 lock the per-field preservation invariant and
+//    the in-tx re-check race protection.
 //
 // ════════════════════════════════════════════════════════════════════════════
 
 /**
  * Account[line]-only repair tx for the `missing-account` drift case.
  * See the invariant block above — this function deliberately does NOT
- * import or reference any Customer column write.
+ * write any Customer column. It DOES read Customer in-tx for stale-
+ * state protection (PR #242 Codex P2 round 5).
  */
 async function runAccountOnlyRepairTx(params: {
   storeId: string;
@@ -838,10 +872,36 @@ async function runAccountOnlyRepairTx(params: {
   | { status: "account_repaired"; customerId: string; userId: string }
   | { status: "unique_conflict"; conflictTarget: string }
   | { status: "write_conflict"; code: "P2034" }
+  | { status: "stale_customer_link"; customerId: string }
 > {
   try {
     await prisma.$transaction(
       async (tx) => {
+        // In-tx Customer re-check (READ-ONLY) — TOCTOU protection per
+        // PR #242 Codex P2 round 5. Re-assert every preflight invariant
+        // inside the tx, BEFORE Account.create. If the Customer was
+        // concurrently unbound / reassigned / merged in the
+        // preflight→tx-start interval, findFirst returns null and we
+        // throw the sentinel below to roll back without ever creating
+        // an orphan Account row.
+        const stillValid = await tx.customer.findFirst({
+          where: {
+            id: params.customerId,
+            storeId: params.storeId,
+            userId: params.userId,
+            lineUserId: params.lineUserId,
+            mergedIntoCustomerId: null,
+          },
+          select: { id: true },
+        });
+        if (stillValid === null) {
+          // Customer state drifted since preflight. The catch arm
+          // translates this sentinel into `stale_customer_link`.
+          // Account.create is never reached — no orphan row.
+          throw new StaleCustomerLinkError(params.customerId);
+        }
+        // Re-check passed: Customer still records this exact
+        // (storeId, userId, lineUserId) tuple AND is not merged.
         // Single write. Account[line] only. No Customer row touched.
         await tx.account.create({
           data: {
@@ -857,6 +917,23 @@ async function runAccountOnlyRepairTx(params: {
       { isolationLevel: "Serializable" },
     );
   } catch (err) {
+    // Stale-link sentinel: controlled return + masked log. Account
+    // never reached create(); no orphan row was written.
+    if (err instanceof StaleCustomerLinkError) {
+      console.warn(
+        "[bindLineToExistingCustomerById] stale_customer_link (account-repair)",
+        {
+          storeId: maskId(params.storeId),
+          customerId: maskId(params.customerId),
+          userId: maskId(params.userId),
+          lineUserId: maskLineUserId(params.lineUserId),
+        },
+      );
+      return {
+        status: "stale_customer_link",
+        customerId: params.customerId,
+      };
+    }
     const translated = translateAtomicLineBindTxError(err, params);
     if (translated) return translated;
     throw err;

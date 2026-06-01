@@ -126,6 +126,10 @@ function makeValidInput(
 function setupTransaction() {
   const txCustomerUpdate = vi.fn().mockResolvedValue({ id: CUSTOMER_ID });
   const txCustomerUpdateMany = vi.fn().mockResolvedValue({ count: 1 });
+  // In-tx Customer re-check (PR #242 Codex P2 round 5) — default returns
+  // a non-null row so the happy-path repair-tx tests proceed to
+  // Account.create. Stale-race tests override with `.mockResolvedValueOnce(null)`.
+  const txCustomerFindFirst = vi.fn().mockResolvedValue({ id: CUSTOMER_ID });
   const txAccountCreate = vi.fn().mockResolvedValue({ id: "new-account-id" });
   let lastIsolationLevel: string | undefined;
 
@@ -139,6 +143,7 @@ function setupTransaction() {
         customer: {
           update: txCustomerUpdate,
           updateMany: txCustomerUpdateMany,
+          findFirst: txCustomerFindFirst,
         },
         account: { create: txAccountCreate },
       };
@@ -149,6 +154,7 @@ function setupTransaction() {
   return {
     txCustomerUpdate,
     txCustomerUpdateMany,
+    txCustomerFindFirst,
     txAccountCreate,
     getIsolationLevel: () => lastIsolationLevel,
   };
@@ -1423,11 +1429,17 @@ describe("P2 round 3 (Codex): structural invariants on dispatch + full-bind guar
     expect(fnEndRelative).toBeGreaterThan(-1);
     const fnBody = after.slice(0, fnEndRelative);
 
+    // PR #242 Codex P2 round 5: a read-only `tx.customer.findFirst`
+    // IS now permitted in the repair body (for in-tx stale-state
+    // protection). The forbidden tokens are limited to WRITE shapes
+    // and the metadata field-write expressions.
     const FORBIDDEN_IN_REPAIR = [
       "customer.update",
-      "tx.customer",
+      "tx.customer.update",
+      "tx.customer.updateMany",
+      "tx.customer.upsert",
+      "tx.customer.create",
       "lineLinkedAt",
-      "lineName",
       "lineLinkStatus",
     ];
     for (const needle of FORBIDDEN_IN_REPAIR) {
@@ -1436,6 +1448,10 @@ describe("P2 round 3 (Codex): structural invariants on dispatch + full-bind guar
         `runAccountOnlyRepairTx body must not mention "${needle}"`,
       ).not.toContain(needle);
     }
+    // `lineName` as a WRITE target (data: literal key) is forbidden,
+    // but it's fine as a function parameter / read field. Use the
+    // value-anchored pattern.
+    expect(fnBody).not.toMatch(/lineName\s*:\s*(params|input)\.lineName/);
   });
 
   // ── Behavioural confirmation of the structural invariants ──────────────
@@ -1654,13 +1670,20 @@ describe("P2 round 4 (Codex): metadata writes live ONLY inside runFullBindTx", (
     expect(mainHelperBody).not.toMatch(/lineLinkedAt\s*:\s*new\s+Date\(\)/);
   });
 
-  it("runAccountOnlyRepairTx body contains ZERO full-bind write expressions (repair path cannot share the full-bind tx body; both `update` and `updateMany` absent)", () => {
-    expect(repairFnBody).not.toMatch(/tx\.customer\.update/);
-    expect(repairFnBody).not.toMatch(/tx\.customer\.updateMany/);
+  it("runAccountOnlyRepairTx body contains ZERO Customer WRITE expressions (PR #242 P2 round 5: read-only findFirst is permitted; writes are not)", () => {
+    // Writes — these would silently mutate Customer link metadata
+    // (the bug the round-2 extraction prevents). Forbidden in the
+    // repair path.
+    expect(repairFnBody).not.toMatch(/tx\.customer\.update\b/);
+    expect(repairFnBody).not.toMatch(/tx\.customer\.updateMany\b/);
+    expect(repairFnBody).not.toMatch(/tx\.customer\.upsert\b/);
+    expect(repairFnBody).not.toMatch(/tx\.customer\.create\b/);
+    expect(repairFnBody).not.toMatch(/tx\.customer\.delete/);
     expect(repairFnBody).not.toMatch(/lineLinkStatus\s*:\s*"LINKED"/);
     expect(repairFnBody).not.toMatch(/lineLinkedAt\s*:\s*new\s+Date\(\)/);
-    expect(repairFnBody).not.toMatch(/lineName\s*:/);
-    expect(repairFnBody).not.toMatch(/tx\.customer/);
+    // Note: a read-only `tx.customer.findFirst` IS expected here per
+    // PR #242 Codex P2 round 5 — see the dedicated round-6 source-
+    // structure test below ("repair body has tx.customer.findFirst …").
   });
 
   it("main helper dispatches to BOTH sibling functions via explicit `return` statements", () => {
@@ -2103,5 +2126,422 @@ describe("P1 round 1 (Codex): conditional Customer update + stale_customer_link 
     expect(txCustomerUpdate).toHaveBeenCalledTimes(0);
     expect(txCustomerUpdateMany).toHaveBeenCalledTimes(0);
     expect(txAccountCreate).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// 16. P2 round 5 (PR #242 Codex): in-tx Customer re-check before Account.create
+// ════════════════════════════════════════════════════════════════════════════
+//
+// Codex flagged a second TOCTOU race — this time in the Account-only
+// repair path:
+//
+//   1. Preflight sees Customer still linked to {storeId, userId, lineUserId}
+//      with Account[line] missing.
+//   2. Before runAccountOnlyRepairTx's tx starts, another flow unbinds /
+//      merges / reassigns the Customer.
+//   3. Repair tx (old version) blindly created Account[line] for the
+//      now-stale {userId, lineUserId} pair.
+//   4. Stale Account row left pointing at a userId / lineUserId combo
+//      that no Customer claims anymore.
+//
+// Fix: runAccountOnlyRepairTx now does an in-tx read BEFORE
+// Account.create, re-asserting every preflight invariant:
+//
+//     const stillValid = await tx.customer.findFirst({
+//       where: {
+//         id, storeId, userId, lineUserId,
+//         mergedIntoCustomerId: null,
+//       },
+//       select: { id: true },
+//     });
+//     if (stillValid === null) throw new StaleCustomerLinkError(customerId);
+//     await tx.account.create({...});
+//
+// If the in-tx re-check fails, the StaleCustomerLinkError sentinel rolls
+// back the tx (Account.create never runs) and the catch arm returns the
+// same `stale_customer_link` status as the full-bind path's race
+// protection (PR-G5.1.a P1 round 1). Caller retries; the next invocation
+// observes the new state and routes appropriately.
+//
+// These tests pin: in-tx re-check shape, stale-race behaviour, no
+// orphan Account row, Customer metadata still untouched, P2002/P2034
+// still translated correctly, masked PII contract intact.
+
+describe("P2 round 5 (Codex): runAccountOnlyRepairTx in-tx Customer re-check before Account.create", () => {
+  // Source-level invariants for the in-tx re-check shape ─────────────────
+
+  it("source: runAccountOnlyRepairTx body contains exactly ONE `tx.customer.findFirst` call (the in-tx re-check)", () => {
+    const HELPER_PATH = path.resolve(
+      __dirname,
+      "..",
+      "server",
+      "services",
+      "bind-line-to-customer.ts",
+    );
+    const src = readFileSync(HELPER_PATH, "utf8");
+    const fnStart = src.indexOf("async function runAccountOnlyRepairTx");
+    const fnBody = src.slice(fnStart, fnStart + src.slice(fnStart).indexOf("\n}\n") + 2);
+    const matches = fnBody.match(/tx\.customer\.findFirst/g) ?? [];
+    expect(matches.length).toBe(1);
+  });
+
+  it("source: in-tx re-check where-clause re-asserts every preflight invariant (id / storeId / userId / lineUserId / mergedIntoCustomerId: null)", () => {
+    const HELPER_PATH = path.resolve(
+      __dirname,
+      "..",
+      "server",
+      "services",
+      "bind-line-to-customer.ts",
+    );
+    const src = readFileSync(HELPER_PATH, "utf8");
+    const fnStart = src.indexOf("async function runAccountOnlyRepairTx");
+    const fnBody = src.slice(fnStart, fnStart + src.slice(fnStart).indexOf("\n}\n") + 2);
+
+    // Each predicate must be present in the findFirst where-clause.
+    expect(fnBody).toMatch(/id\s*:\s*params\.customerId/);
+    expect(fnBody).toMatch(/storeId\s*:\s*params\.storeId/);
+    expect(fnBody).toMatch(/userId\s*:\s*params\.userId/);
+    expect(fnBody).toMatch(/lineUserId\s*:\s*params\.lineUserId/);
+    expect(fnBody).toMatch(/mergedIntoCustomerId\s*:\s*null/);
+  });
+
+  it("source: stillValid === null branch throws StaleCustomerLinkError sentinel", () => {
+    const HELPER_PATH = path.resolve(
+      __dirname,
+      "..",
+      "server",
+      "services",
+      "bind-line-to-customer.ts",
+    );
+    const src = readFileSync(HELPER_PATH, "utf8");
+    const fnStart = src.indexOf("async function runAccountOnlyRepairTx");
+    const fnBody = src.slice(fnStart, fnStart + src.slice(fnStart).indexOf("\n}\n") + 2);
+
+    expect(fnBody).toMatch(/stillValid\s*===\s*null/);
+    expect(fnBody).toMatch(/throw\s+new\s+StaleCustomerLinkError\s*\(/);
+  });
+
+  // Behavioural sentinels ─────────────────────────────────────────────────
+
+  it("happy path: in-tx re-check succeeds → Account.create called → returns account_repaired", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: LINE_USER_ID,
+      lineLinkStatus: "LINKED",
+    });
+    mockAccountFindUnique.mockResolvedValueOnce(null); // missing Account → repair path
+    const { txCustomerFindFirst, txAccountCreate, txCustomerUpdate, txCustomerUpdateMany } =
+      setupTransaction();
+    // setupTransaction defaults findFirst to { id: CUSTOMER_ID } (non-null).
+
+    const r = await bindLineToExistingCustomerById(makeValidInput());
+
+    expect(r).toEqual({
+      status: "account_repaired",
+      customerId: CUSTOMER_ID,
+      userId: USER_ID,
+    });
+    expect(txCustomerFindFirst).toHaveBeenCalledTimes(1);
+    expect(txAccountCreate).toHaveBeenCalledTimes(1);
+    // No Customer writes either way.
+    expect(txCustomerUpdate).toHaveBeenCalledTimes(0);
+    expect(txCustomerUpdateMany).toHaveBeenCalledTimes(0);
+  });
+
+  it("happy path: in-tx re-check where-clause shape is the full 5-predicate invariant", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: LINE_USER_ID,
+      lineLinkStatus: "LINKED",
+    });
+    mockAccountFindUnique.mockResolvedValueOnce(null);
+    const { txCustomerFindFirst } = setupTransaction();
+
+    await bindLineToExistingCustomerById(makeValidInput());
+
+    expect(txCustomerFindFirst).toHaveBeenCalledTimes(1);
+    const arg = txCustomerFindFirst.mock.calls[0]?.[0] as {
+      where?: Record<string, unknown>;
+      select?: Record<string, unknown>;
+    };
+    expect(arg?.where).toEqual({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: LINE_USER_ID,
+      mergedIntoCustomerId: null,
+    });
+    // Read-only select; we don't need or want any other column read.
+    expect(arg?.select).toEqual({ id: true });
+  });
+
+  it("stale repair: in-tx re-check returns null → Account.create NOT called → returns stale_customer_link", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: LINE_USER_ID,
+      lineLinkStatus: "LINKED",
+    });
+    mockAccountFindUnique.mockResolvedValueOnce(null);
+    const { txCustomerFindFirst, txAccountCreate, txCustomerUpdate, txCustomerUpdateMany } =
+      setupTransaction();
+    // Simulate: Customer was unbound / merged / reassigned between
+    // preflight and tx-start.
+    txCustomerFindFirst.mockResolvedValueOnce(null);
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const r = await bindLineToExistingCustomerById(makeValidInput());
+
+    expect(r).toEqual({
+      status: "stale_customer_link",
+      customerId: CUSTOMER_ID,
+    });
+    expect(txCustomerFindFirst).toHaveBeenCalledTimes(1);
+    // Critical: Account.create never reached. No orphan row.
+    expect(txAccountCreate).toHaveBeenCalledTimes(0);
+    // No Customer writes either.
+    expect(txCustomerUpdate).toHaveBeenCalledTimes(0);
+    expect(txCustomerUpdateMany).toHaveBeenCalledTimes(0);
+    // Masked log fired once with the account-repair label.
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    const dumped = warnSpy.mock.calls
+      .flat()
+      .map((a) => (typeof a === "string" ? a : JSON.stringify(a)))
+      .join("\n");
+    expect(dumped).toContain("stale_customer_link");
+    expect(dumped).toContain("account-repair");
+    warnSpy.mockRestore();
+  });
+
+  it("concurrent unbind simulation: preflight matched but in-tx re-check fails — no Account row created", async () => {
+    // Preflight (outside tx) sees the Customer in the linked-same state
+    // with Account[line] missing → helper routes to repair path.
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: LINE_USER_ID,
+      lineLinkStatus: "LINKED",
+    });
+    mockAccountFindUnique.mockResolvedValueOnce(null);
+
+    // In-tx re-check simulates a concurrent unbind: Customer.lineUserId
+    // has been nulled between preflight and now → findFirst returns null
+    // (the lineUserId: LINE_USER_ID predicate no longer matches).
+    const txCustomerFindFirst = vi.fn().mockResolvedValue(null);
+    const txAccountCreate = vi.fn();
+    const txCustomerUpdate = vi.fn();
+    const txCustomerUpdateMany = vi.fn();
+    mockTx.mockImplementationOnce(
+      async (cb: (tx: unknown) => Promise<unknown>) => {
+        const tx = {
+          customer: {
+            update: txCustomerUpdate,
+            updateMany: txCustomerUpdateMany,
+            findFirst: txCustomerFindFirst,
+          },
+          account: { create: txAccountCreate },
+        };
+        try {
+          return await cb(tx);
+        } catch (e) {
+          throw e;
+        }
+      },
+    );
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const r = await bindLineToExistingCustomerById(makeValidInput());
+
+    expect(r).toEqual({
+      status: "stale_customer_link",
+      customerId: CUSTOMER_ID,
+    });
+    expect(txCustomerFindFirst).toHaveBeenCalledTimes(1);
+    expect(txAccountCreate).not.toHaveBeenCalled();
+    expect(txCustomerUpdate).not.toHaveBeenCalled();
+    expect(txCustomerUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("concurrent merge simulation: in-tx re-check fails because mergedIntoCustomerId is now set — no Account row created", async () => {
+    // Same shape as the unbind test, but conceptually: another flow
+    // merged this Customer into a different one, setting
+    // mergedIntoCustomerId. The findFirst where-clause's
+    // `mergedIntoCustomerId: null` predicate now fails.
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: LINE_USER_ID,
+      lineLinkStatus: "LINKED",
+    });
+    mockAccountFindUnique.mockResolvedValueOnce(null);
+    const { txCustomerFindFirst, txAccountCreate } = setupTransaction();
+    txCustomerFindFirst.mockResolvedValueOnce(null);
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const r = await bindLineToExistingCustomerById(makeValidInput());
+
+    expect(r.status).toBe("stale_customer_link");
+    expect(txAccountCreate).toHaveBeenCalledTimes(0);
+  });
+
+  it("P2034 from in-tx re-check itself still translates to write_conflict (not stale_customer_link)", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: LINE_USER_ID,
+      lineLinkStatus: "LINKED",
+    });
+    mockAccountFindUnique.mockResolvedValueOnce(null);
+    const txCustomerFindFirst = vi.fn().mockImplementationOnce(async () => {
+      const err: Error & { code?: string } = new Error(
+        "Transaction failed due to a write conflict or a deadlock",
+      );
+      err.code = "P2034";
+      throw err;
+    });
+    mockTx.mockImplementationOnce(
+      async (cb: (tx: unknown) => Promise<unknown>) => {
+        const tx = {
+          customer: {
+            update: vi.fn(),
+            updateMany: vi.fn(),
+            findFirst: txCustomerFindFirst,
+          },
+          account: { create: vi.fn() },
+        };
+        return cb(tx);
+      },
+    );
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const r = await bindLineToExistingCustomerById(makeValidInput());
+
+    expect(r).toEqual({ status: "write_conflict", code: "P2034" });
+  });
+
+  it("P2002 from Account.create still translates to unique_conflict (not stale_customer_link)", async () => {
+    // The in-tx re-check passes; Account.create then hits a P2002.
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: LINE_USER_ID,
+      lineLinkStatus: "LINKED",
+    });
+    mockAccountFindUnique.mockResolvedValueOnce(null);
+    const txCustomerFindFirst = vi.fn().mockResolvedValue({ id: CUSTOMER_ID });
+    const txAccountCreate = vi.fn().mockImplementationOnce(async () => {
+      const err: Error & { code?: string; meta?: { target?: string[] } } =
+        new Error("Unique constraint failed");
+      err.code = "P2002";
+      err.meta = { target: ["provider", "providerAccountId"] };
+      throw err;
+    });
+    mockTx.mockImplementationOnce(
+      async (cb: (tx: unknown) => Promise<unknown>) => {
+        const tx = {
+          customer: {
+            update: vi.fn(),
+            updateMany: vi.fn(),
+            findFirst: txCustomerFindFirst,
+          },
+          account: { create: txAccountCreate },
+        };
+        return cb(tx);
+      },
+    );
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const r = await bindLineToExistingCustomerById(makeValidInput());
+
+    expect(r).toEqual({
+      status: "unique_conflict",
+      conflictTarget: "provider,providerAccountId",
+    });
+    expect(txCustomerFindFirst).toHaveBeenCalledTimes(1);
+    expect(txAccountCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it("stale repair path log payload is masked (no raw IDs)", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: LINE_USER_ID,
+      lineLinkStatus: "LINKED",
+    });
+    mockAccountFindUnique.mockResolvedValueOnce(null);
+    const { txCustomerFindFirst } = setupTransaction();
+    txCustomerFindFirst.mockResolvedValueOnce(null);
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    await bindLineToExistingCustomerById(makeValidInput());
+
+    const dumped = warnSpy.mock.calls
+      .flat()
+      .map((a) => (typeof a === "string" ? a : JSON.stringify(a)))
+      .join("\n");
+    // No raw values.
+    expect(dumped).not.toContain(STORE_ID);
+    expect(dumped).not.toContain(CUSTOMER_ID);
+    expect(dumped).not.toContain(USER_ID);
+    expect(dumped).not.toContain(LINE_USER_ID);
+    // Masked forms.
+    expect(dumped).toContain("stale_customer_link");
+    expect(dumped).toContain("account-repair");
+    expect(dumped).toContain("store-****");
+    expect(dumped).toContain("ckcust****");
+    expect(dumped).toContain("ckuser****");
+    expect(dumped).toContain("U123****ef");
+
+    warnSpy.mockRestore();
+  });
+
+  it("stale repair: Customer metadata still untouched even when in-tx re-check fails (no Customer write of any kind)", async () => {
+    // Critical invariant carried across rounds 2/3/4: the repair path
+    // NEVER writes Customer link metadata. The stale-race branch is no
+    // exception — when the re-check fails we abort without writing.
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: LINE_USER_ID,
+      lineLinkStatus: "LINKED",
+    });
+    mockAccountFindUnique.mockResolvedValueOnce(null);
+    const { txCustomerFindFirst, txCustomerUpdate, txCustomerUpdateMany } =
+      setupTransaction();
+    txCustomerFindFirst.mockResolvedValueOnce(null);
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    await bindLineToExistingCustomerById(makeValidInput());
+
+    expect(txCustomerUpdate).toHaveBeenCalledTimes(0);
+    expect(txCustomerUpdateMany).toHaveBeenCalledTimes(0);
+
+    // Belt-and-braces: scan every call ever made on the Customer write
+    // spies and confirm none of the four link-metadata field keys
+    // appear in any data payload.
+    const allCustomerWriteCalls = [
+      ...txCustomerUpdate.mock.calls,
+      ...txCustomerUpdateMany.mock.calls,
+    ];
+    for (const call of allCustomerWriteCalls) {
+      const data =
+        (call?.[0] as { data?: Record<string, unknown> })?.data ?? {};
+      expect(data).not.toHaveProperty("lineLinkedAt");
+      expect(data).not.toHaveProperty("lineName");
+      expect(data).not.toHaveProperty("lineLinkStatus");
+      expect(data).not.toHaveProperty("lineUserId");
+    }
   });
 });
