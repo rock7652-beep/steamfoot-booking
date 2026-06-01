@@ -1505,6 +1505,52 @@ function buildActivationCustomerWhere(params: {
 }
 
 /**
+ * Build the User.create data payload for Case B activation
+ * (PR #243 Codex P1 round 2 — extraction).
+ *
+ * The return type is a **scalar-only** object literal that explicitly
+ * lists the 6 baseline User columns (name, email, phone, role, status,
+ * image). The shape DELIBERATELY excludes any `customer` relation key
+ * (no `customer`, no `connect`) — the FK write Customer.userId is
+ * owned exclusively by `buildActivationCustomerUpdateData` and the
+ * conditional Customer.updateMany at step 7c.
+ *
+ * TypeScript enforces the absence: if a future maintainer tried to
+ * add a Customer relation-write key here, the call site's type-check
+ * would fail because the helper's declared return type has no such
+ * key. The named extraction makes the safety property structurally
+ * visible to Codex's static reader.
+ *
+ * Byte-equivalent to auth.ts Case B baseline (lines 622-632) for the
+ * User-ROW columns; the relation-side-effect column on Customer is
+ * intentionally NOT mirrored here — see the contract block above the
+ * helper.
+ */
+function buildActivationUserCreateData(args: {
+  customer: { name: string; phone: string };
+  oauthProfile: {
+    email: string | null | undefined;
+    image: string | null | undefined;
+  };
+}): {
+  name: string;
+  email: string | null;
+  phone: string | null;
+  role: "CUSTOMER";
+  status: "ACTIVE";
+  image: string | null;
+} {
+  return {
+    name: args.customer.name,
+    email: args.oauthProfile.email ?? null,
+    phone: args.customer.phone || null,
+    role: "CUSTOMER",
+    status: "ACTIVE",
+    image: args.oauthProfile.image ?? null,
+  };
+}
+
+/**
  * Build the Customer.updateMany data payload for Case B activation
  * (parallel to the inline data block in runFullBindTx). Returns the
  * full byte-equivalent baseline set, with `lineName` conditionally
@@ -1636,34 +1682,24 @@ export async function activatePrecreatedCustomerWithLine(
         //     phone, role, status, image. `User.name` from customer.name
         //     (NOT oauthProfile.name) per PR-G5.0 Codex round 10 P2.
         //
-        //     ⚠ Intentionally NO Prisma relation-side-effect to
-        //     Customer (PR #243 Codex P1 round 1). The baseline
-        //     auth.ts Case B uses a nested-write inside user.create
-        //     to side-effect-set Customer.userId; that side-effect
-        //     would run BEFORE step 7c's conditional updateMany —
-        //     and the updateMany's `where: { userId: null }`
-        //     predicate would then match 0 rows, throw
-        //     StaleCustomerLinkError, and roll back the happy path.
-        //     The CAS at step 7c is the SINGLE write that sets
-        //     Customer.userId — explicitly in its data payload —
-        //     so the where predicate stays consistent with the row
-        //     state at write time.
+        //     ⚠ The data payload is built by buildActivationUserCreateData,
+        //     whose declared return type is a SCALAR-ONLY 6-field object
+        //     (PR #243 Codex P1 round 2). The shape literally has no
+        //     `customer` / `connect` keys — TypeScript enforces the
+        //     absence at the call site. The FK write Customer.userId is
+        //     owned exclusively by step 7c's conditional updateMany.
         //
         //     End-state DB rows are still byte-equivalent vs Case B
         //     baseline (User: same 6 columns / values; Account: same
         //     10 columns / values; Customer: same final userId +
-        //     link metadata). Only the WRITE MECHANISM changes —
-        //     baseline used `connect` side-effect, refactor uses
-        //     explicit `data.userId` in the CAS.
+        //     link metadata). Only the WRITE MECHANISM for the FK
+        //     changes — baseline used a Prisma relation-side-effect,
+        //     refactor uses explicit `data.userId` in the CAS.
         const newUser = await tx.user.create({
-          data: {
-            name: customer.name,
-            email: input.oauthProfile.email ?? null,
-            phone: customer.phone || null,
-            role: "CUSTOMER",
-            status: "ACTIVE",
-            image: input.oauthProfile.image ?? null,
-          },
+          data: buildActivationUserCreateData({
+            customer: { name: customer.name, phone: customer.phone },
+            oauthProfile: input.oauthProfile,
+          }),
         });
         newUserId = newUser.id;
 

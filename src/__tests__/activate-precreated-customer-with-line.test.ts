@@ -1220,3 +1220,181 @@ describe("P2 round 1 (Codex): truthy lineName guard (matches baseline `if (oauth
     expect(data).toHaveProperty("lineName", "   ");
   });
 });
+
+// ════════════════════════════════════════════════════════════════════════════
+// 11. P1 round 3 (PR #243 Codex): buildActivationUserCreateData extracted
+//     as a typed scalar-only helper so the customer relation-write is
+//     IMPOSSIBLE to express at the type level
+// ════════════════════════════════════════════════════════════════════════════
+//
+// Codex P1 remained active after round 1 (removed inline connect) and
+// round 2 (strengthened source assertions). Per the user spec, round 3
+// extracts the User.create data into a named private helper with a
+// LITERAL-TYPED return shape that excludes any customer relation key.
+// TypeScript itself now enforces the contract.
+
+describe("P1 round 3 (Codex): buildActivationUserCreateData scalar-only typed extraction", () => {
+  const HELPER_PATH = path.resolve(
+    __dirname,
+    "..",
+    "server",
+    "services",
+    "bind-line-to-customer.ts",
+  );
+
+  it("source: buildActivationUserCreateData exists as a named private fn (no `export` keyword)", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    expect(src).toMatch(
+      /function\s+buildActivationUserCreateData\s*\(\s*args\s*:/,
+    );
+    expect(src).not.toMatch(
+      /export\s+function\s+buildActivationUserCreateData/,
+    );
+  });
+
+  it("source: buildActivationUserCreateData's RETURN TYPE annotation literally lists the 6 scalar User columns (name, email, phone, role, status, image) — no `customer` field in the type", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    const fnStart = src.indexOf("function buildActivationUserCreateData");
+    expect(fnStart).toBeGreaterThan(-1);
+
+    // The signature layout is:
+    //   function buildActivationUserCreateData(args: { ... }): {
+    //     name: ...
+    //     ...
+    //   } {
+    //     return { ... };
+    //   }
+    // We want ONLY the return-type annotation slice — between `}): {`
+    // (end of args + opening of return type) and the body `{` that
+    // begins `{\n  return`.
+    const tail = src.slice(fnStart);
+    const argsEndIdx = tail.indexOf("}): {");
+    expect(argsEndIdx).toBeGreaterThan(-1);
+    // Start of return-type literal is right after `}): `.
+    const returnTypeStart = argsEndIdx + "}): ".length;
+    const bodyOpenIdx = tail.indexOf("{\n  return", returnTypeStart);
+    expect(bodyOpenIdx).toBeGreaterThan(returnTypeStart);
+    const returnTypeAnnotation = tail.slice(returnTypeStart, bodyOpenIdx);
+
+    // The return-type literal must declare each of the 6 baseline keys.
+    expect(returnTypeAnnotation).toMatch(/name\s*:\s*string/);
+    expect(returnTypeAnnotation).toMatch(/email\s*:\s*string\s*\|\s*null/);
+    expect(returnTypeAnnotation).toMatch(/phone\s*:\s*string\s*\|\s*null/);
+    expect(returnTypeAnnotation).toMatch(/role\s*:\s*"CUSTOMER"/);
+    expect(returnTypeAnnotation).toMatch(/status\s*:\s*"ACTIVE"/);
+    expect(returnTypeAnnotation).toMatch(/image\s*:\s*string\s*\|\s*null/);
+
+    // The return type MUST NOT declare a `customer` key — that's the
+    // type-system contract that makes the relation-write impossible
+    // at the call site.
+    expect(returnTypeAnnotation).not.toMatch(/(^|\n)\s*customer\s*:/);
+    expect(returnTypeAnnotation).not.toMatch(/(^|\n)\s*connect\s*:/);
+  });
+
+  it("source: buildActivationUserCreateData's RETURN OBJECT literal also has no `customer` / `connect` field key (extracted body)", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    const fnStart = src.indexOf("function buildActivationUserCreateData");
+    const tail = src.slice(fnStart);
+    const termRel = tail.search(/\n}\n\n/);
+    const fnBody = termRel >= 0 ? tail.slice(0, termRel + 2) : tail;
+
+    // Extract the `return { ... }` literal.
+    const returnIdx = fnBody.indexOf("return {");
+    expect(returnIdx).toBeGreaterThan(-1);
+    const fromReturn = fnBody.slice(returnIdx + "return {".length);
+    const closeIdx = fromReturn.indexOf("};");
+    expect(closeIdx).toBeGreaterThan(-1);
+    const returnBody = fromReturn.slice(0, closeIdx);
+
+    // Each of the 6 scalar keys present.
+    expect(returnBody).toMatch(/(^|\n)\s*name\s*:/);
+    expect(returnBody).toMatch(/(^|\n)\s*email\s*:/);
+    expect(returnBody).toMatch(/(^|\n)\s*phone\s*:/);
+    expect(returnBody).toMatch(/(^|\n)\s*role\s*:/);
+    expect(returnBody).toMatch(/(^|\n)\s*status\s*:/);
+    expect(returnBody).toMatch(/(^|\n)\s*image\s*:/);
+
+    // No relation-write keys.
+    expect(returnBody).not.toMatch(/(^|\n)\s*customer\s*:/);
+    expect(returnBody).not.toMatch(/(^|\n)\s*connect\s*:/);
+  });
+
+  it("source: activation helper's `tx.user.create` call passes `buildActivationUserCreateData(...)` as data — no inline object literal survives", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    const fnStart = src.indexOf(
+      "export async function activatePrecreatedCustomerWithLine",
+    );
+    const tail = src.slice(fnStart);
+    const termRel = tail.search(/\n}\n\n/);
+    const fnBody = termRel >= 0 ? tail.slice(0, termRel + 2) : tail;
+
+    // The tx.user.create call passes the builder's return value as
+    // data — not an inline object literal.
+    expect(fnBody).toMatch(
+      /tx\.user\.create\s*\(\s*\{\s*data\s*:\s*buildActivationUserCreateData\s*\(/,
+    );
+  });
+
+  it("source: buildActivationUserCreateData is called exactly ONCE in the file (as a real statement, not a JSDoc mention)", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    // Real call shape: `data: buildActivationUserCreateData(`.
+    // JSDoc backticks would have different surrounding syntax.
+    const realCalls =
+      src.match(/data\s*:\s*buildActivationUserCreateData\s*\(/g) ?? [];
+    expect(realCalls.length).toBe(1);
+  });
+
+  // ─ Behavioural reinforcements ─────────────────────────────────────────
+
+  it("behavioural (round 3): tx.user.create.data has EXACTLY the 6 scalar baseline keys — type-system-enforced contract", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const { txUserCreate } = setupTransaction();
+
+    await activatePrecreatedCustomerWithLine(makeValidInput());
+
+    const data = (txUserCreate.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    expect(data).toBeDefined();
+    expect(Object.keys(data ?? {}).sort()).toEqual(
+      ["email", "image", "name", "phone", "role", "status"].sort(),
+    );
+    // Explicit double-check on the FK absence.
+    expect(data).not.toHaveProperty("customer");
+    expect(data).not.toHaveProperty("connect");
+  });
+
+  it("behavioural (round 3): the User.create data values are byte-equivalent vs auth.ts Case B baseline scalar columns", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const { txUserCreate } = setupTransaction();
+
+    await activatePrecreatedCustomerWithLine(makeValidInput());
+
+    const data = (txUserCreate.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    expect(data?.name).toBe(CUSTOMER_NAME);
+    expect(data?.email).toBe(OAUTH_EMAIL);
+    expect(data?.phone).toBe(CUSTOMER_PHONE);
+    expect(data?.role).toBe("CUSTOMER");
+    expect(data?.status).toBe("ACTIVE");
+    expect(data?.image).toBe(OAUTH_IMAGE);
+  });
+
+  it("regression (round 3): updateMany count=0 still rolls back; stale_customer_link returned", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const { txCustomerUpdateMany, txAccountCreate } = setupTransaction();
+    txCustomerUpdateMany.mockResolvedValueOnce({ count: 0 });
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const r = await activatePrecreatedCustomerWithLine(makeValidInput());
+
+    expect(r).toEqual({
+      status: "stale_customer_link",
+      customerId: CUSTOMER_ID,
+    });
+    expect(txAccountCreate).toHaveBeenCalledTimes(1);
+    // Confirms tx body order is still: user.create → account.create
+    // → updateMany → throw on count=0; no orphan side-effect.
+  });
+});
