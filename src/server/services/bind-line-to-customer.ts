@@ -1500,6 +1500,33 @@ export type ActivatePrecreatedCustomerWithLineResult =
        */
       status: "write_conflict";
       code: "P2034";
+    }
+  | {
+      /**
+       * PR #243 Codex P2 round 15: the OAuth account does not match
+       * the LINE identity claimed by `input.lineUserId`. Returned
+       * when EITHER:
+       *   - `input.oauthAccount.provider !== "line"`, OR
+       *   - `input.oauthAccount.providerAccountId !== input.lineUserId`
+       *
+       * PR-G5.5 callers MUST source both `input.lineUserId` AND
+       * `input.oauthAccount.providerAccountId` from the same verified
+       * OAuth handshake — they must be the same string. Returning this
+       * controlled status (instead of writing) prevents the helper
+       * from committing a split LINE identity inside a Serializable
+       * transaction (Account.providerAccountId pointing at one LINE id
+       * while Customer.lineUserId points at another).
+       *
+       * 0 DB writes effectively committed. Helper never reads the
+       * database before this check — no Customer / User / Account
+       * I/O occurs on a mismatch.
+       *
+       * `expectedLineUserId` echoes back `input.lineUserId` so the
+       * caller can diagnose without re-querying. Caller is responsible
+       * for masking when logging.
+       */
+      status: "line_account_mismatch";
+      expectedLineUserId: string;
     };
 
 /**
@@ -1755,6 +1782,35 @@ function buildActivationCustomerUpdateData(params: {
 export async function activatePrecreatedCustomerWithLine(
   input: ActivatePrecreatedCustomerWithLineInput,
 ): Promise<ActivatePrecreatedCustomerWithLineResult> {
+  // ── step 1: Account vs LINE identity validation (PR #243 Codex P2 round 15) ─
+  //
+  //   Verify the OAuth Account fields agree with the LINE identity
+  //   claimed by `input.lineUserId` BEFORE any database I/O. PR-G5.5
+  //   callers MUST source both `input.lineUserId` and
+  //   `input.oauthAccount.providerAccountId` from the same verified
+  //   OAuth handshake — they must be the same string, and the
+  //   provider must be "line".
+  //
+  //   On mismatch we return a controlled `line_account_mismatch`
+  //   status with zero DB I/O — no Customer read, no User write, no
+  //   Account write, no Customer update. This prevents the helper
+  //   from committing a split LINE identity inside a Serializable
+  //   transaction (Account.providerAccountId pointing at one LINE
+  //   id while Customer.lineUserId points at another).
+  //
+  //   This guard is positioned BEFORE the prisma.$transaction (and
+  //   before the preflight Customer read at step 2) so the mismatch
+  //   short-circuits the entire helper with zero side effects.
+  if (
+    input.oauthAccount.provider !== "line" ||
+    input.oauthAccount.providerAccountId !== input.lineUserId
+  ) {
+    return {
+      status: "line_account_mismatch",
+      expectedLineUserId: input.lineUserId,
+    };
+  }
+
   // ── step 2: load Customer (read-only, outside tx) ──────────────────────
   const customer = await prisma.customer.findUnique({
     where: { id: input.customerId },

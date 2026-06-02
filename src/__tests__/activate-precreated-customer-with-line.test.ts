@@ -4326,3 +4326,270 @@ describe("PR #243 Codex P2 round 14: preserve baseline `\"顧客\"` floor for mi
     expect(data?.lineLinkStatus).toBe("LINKED");
   });
 });
+
+// ════════════════════════════════════════════════════════════════════════════
+// 24. PR #243 Codex P2 round 15: validate Account LINE id before linking
+//     Customer
+//
+//     The activation helper accepts both `input.lineUserId` AND
+//     `input.oauthAccount.providerAccountId`. If a future PR-G5.5
+//     caller passes them differently, the helper could commit a
+//     split LINE identity in the same transaction:
+//
+//       Account.providerAccountId = oauthAccount.providerAccountId  // ← one LINE id
+//       Customer.lineUserId       = input.lineUserId                // ← another LINE id
+//
+//     Round 15 adds a step-1 validation that runs BEFORE any DB I/O:
+//
+//       if (input.oauthAccount.provider !== "line" ||
+//           input.oauthAccount.providerAccountId !== input.lineUserId) {
+//         return {
+//           status: "line_account_mismatch",
+//           expectedLineUserId: input.lineUserId,
+//         };
+//       }
+//
+//     On mismatch: zero DB I/O (no Customer read, no User write, no
+//     Account write, no Customer update). The caller can re-dispatch
+//     after diagnosing.
+// ════════════════════════════════════════════════════════════════════════════
+
+describe("PR #243 Codex P2 round 15: validate Account LINE id before linking Customer", () => {
+  const HELPER_PATH = path.resolve(
+    __dirname,
+    "..",
+    "server",
+    "services",
+    "bind-line-to-customer.ts",
+  );
+
+  // ─ Happy path (regression) ─────────────────────────────────────────────
+
+  it("1. providerAccountId === input.lineUserId → happy path still activated (round-15 validation passes through)", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const { txUserCreate, txAccountCreate, txCustomerUpdateMany } =
+      setupTransaction();
+
+    const r = await activatePrecreatedCustomerWithLine(makeValidInput());
+
+    expect(r).toEqual({
+      status: "activated",
+      customerId: CUSTOMER_ID,
+      userId: NEW_USER_ID,
+    });
+    expect(txUserCreate).toHaveBeenCalledTimes(1);
+    expect(txAccountCreate).toHaveBeenCalledTimes(1);
+    expect(txCustomerUpdateMany).toHaveBeenCalledTimes(1);
+  });
+
+  // ─ Mismatch behaviour ──────────────────────────────────────────────────
+
+  it("2. providerAccountId !== input.lineUserId → returns `line_account_mismatch` (controlled status with expectedLineUserId)", async () => {
+    const setup = setupTransaction();
+
+    const r = await activatePrecreatedCustomerWithLine(
+      makeValidInput({
+        // Caller passes a different LINE id via oauthAccount.
+        oauthAccount: {
+          provider: "line",
+          providerAccountId: "U_DIFFERENT_LINE_ID_0000000000000000",
+          type: "oauth",
+          access_token: "atok",
+          refresh_token: "rtok",
+          id_token: "idtok",
+          expires_at: 1_700_000_000,
+          scope: "profile openid",
+          token_type: "Bearer",
+        },
+      }),
+    );
+
+    expect(r).toEqual({
+      status: "line_account_mismatch",
+      expectedLineUserId: LINE_USER_ID,
+    });
+    // Zero DB I/O on mismatch — neither the preflight Customer read
+    // nor any tx write was attempted.
+    expect(mockCustomerFindUnique).not.toHaveBeenCalled();
+    expect(mockTx).not.toHaveBeenCalled();
+    expect(setup.txCustomerFindFirst).not.toHaveBeenCalled();
+    expect(setup.txUserCreate).not.toHaveBeenCalled();
+    expect(setup.txAccountCreate).not.toHaveBeenCalled();
+    expect(setup.txCustomerUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("3. mismatch branch performs 0 writes (no user.create, no account.create, no customer.updateMany)", async () => {
+    const { txUserCreate, txAccountCreate, txCustomerUpdateMany } =
+      setupTransaction();
+
+    await activatePrecreatedCustomerWithLine(
+      makeValidInput({
+        oauthAccount: {
+          provider: "line",
+          providerAccountId: "U_OTHER_LINE_ID_aaaaaaaaaaaaaaaaaa",
+          type: "oauth",
+          access_token: null,
+          refresh_token: null,
+          id_token: null,
+          expires_at: null,
+          scope: null,
+          token_type: null,
+        },
+      }),
+    );
+
+    expect(txUserCreate).not.toHaveBeenCalled();
+    expect(txAccountCreate).not.toHaveBeenCalled();
+    expect(txCustomerUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("4. provider !== 'line' → returns `line_account_mismatch` (0 writes; covers e.g. provider = 'google')", async () => {
+    const setup = setupTransaction();
+
+    const r = await activatePrecreatedCustomerWithLine(
+      makeValidInput({
+        oauthAccount: {
+          // Wrong provider — even when providerAccountId happens to
+          // equal input.lineUserId, the activation helper is
+          // LINE-only and must reject non-LINE providers.
+          provider: "google",
+          providerAccountId: LINE_USER_ID,
+          type: "oauth",
+          access_token: "g_atok",
+          refresh_token: "g_rtok",
+          id_token: "g_idtok",
+          expires_at: 1_700_000_000,
+          scope: "openid email profile",
+          token_type: "Bearer",
+        },
+      }),
+    );
+
+    expect(r).toEqual({
+      status: "line_account_mismatch",
+      expectedLineUserId: LINE_USER_ID,
+    });
+    expect(mockCustomerFindUnique).not.toHaveBeenCalled();
+    expect(mockTx).not.toHaveBeenCalled();
+    expect(setup.txUserCreate).not.toHaveBeenCalled();
+    expect(setup.txAccountCreate).not.toHaveBeenCalled();
+    expect(setup.txCustomerUpdateMany).not.toHaveBeenCalled();
+  });
+
+  // ─ Source-structure ────────────────────────────────────────────────────
+
+  it("5. source: the Account-vs-LINE-id validation occurs BEFORE `prisma.$transaction(` AND BEFORE the preflight `prisma.customer.findUnique(`", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    const fnStart = src.indexOf(
+      "export async function activatePrecreatedCustomerWithLine",
+    );
+    const fnSlice = src.slice(fnStart);
+
+    // The validation must reference both fields in a single
+    // mismatch-detecting expression.
+    const validationIdx = fnSlice.search(
+      /input\.oauthAccount\.provider\s*!==\s*"line"[\s\S]{0,200}input\.oauthAccount\.providerAccountId\s*!==\s*input\.lineUserId/,
+    );
+    expect(validationIdx).toBeGreaterThan(-1);
+
+    // The preflight Customer read and the transaction must both
+    // appear AFTER the validation. Match the actual CALL sites
+    // (with `(`) — bare `prisma.$transaction` strings appear in
+    // explanatory comments and would resolve to those positions
+    // instead of the runtime calls.
+    const preflightIdx = fnSlice.indexOf("prisma.customer.findUnique(");
+    const txIdx = fnSlice.indexOf("prisma.$transaction(");
+    expect(preflightIdx).toBeGreaterThan(-1);
+    expect(txIdx).toBeGreaterThan(-1);
+    expect(validationIdx).toBeLessThan(preflightIdx);
+    expect(validationIdx).toBeLessThan(txIdx);
+
+    // The mismatch return statement must use the round-15 status.
+    const returnIdx = fnSlice.indexOf('status: "line_account_mismatch"');
+    expect(returnIdx).toBeGreaterThan(-1);
+    expect(returnIdx).toBeGreaterThan(validationIdx);
+    expect(returnIdx).toBeLessThan(preflightIdx);
+  });
+
+  it("6. source: Account.create's providerAccountId comes from `input.oauthAccount.providerAccountId` — which the step-1 validation has proven equal to `input.lineUserId` (cannot silently diverge from Customer.lineUserId)", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    const fnStart = src.indexOf(
+      "export async function activatePrecreatedCustomerWithLine",
+    );
+    const fnSlice = src.slice(fnStart);
+
+    // Account.create.data.providerAccountId reads from
+    // input.oauthAccount.providerAccountId.
+    const accountCreateIdx = fnSlice.indexOf("tx.account.create(");
+    expect(accountCreateIdx).toBeGreaterThan(-1);
+    // 1500 chars cover the full account.create call.
+    const accountBlock = fnSlice.slice(accountCreateIdx, accountCreateIdx + 1500);
+    expect(accountBlock).toMatch(
+      /providerAccountId\s*:\s*input\.oauthAccount\.providerAccountId/,
+    );
+
+    // Customer.lineUserId is written from input.lineUserId (in
+    // buildActivationCustomerUpdateData). Locate that builder body.
+    const builderFnStart = src.indexOf(
+      "function buildActivationCustomerUpdateData",
+    );
+    expect(builderFnStart).toBeGreaterThan(-1);
+    const builderTail = src.slice(builderFnStart);
+    const builderTermRel = builderTail.search(/\n}\n\n/);
+    const builderBody =
+      builderTermRel >= 0 ? builderTail.slice(0, builderTermRel + 2) : builderTail;
+    expect(builderBody).toMatch(/lineUserId\s*:\s*params\.lineUserId/);
+
+    // The two sources are wired separately at the activation helper,
+    // but the step-1 validation enforces `oauthAccount.providerAccountId
+    // === input.lineUserId` BEFORE either write happens.
+    const validationMatch = fnSlice.match(
+      /input\.oauthAccount\.providerAccountId\s*!==\s*input\.lineUserId/,
+    );
+    expect(validationMatch).toBeTruthy();
+  });
+
+  // ─ Defence-in-depth ────────────────────────────────────────────────────
+
+  it("7. mismatch branch does NOT log raw lineUserId via console.warn (PII contract preserved)", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    setupTransaction();
+
+    await activatePrecreatedCustomerWithLine(
+      makeValidInput({
+        oauthAccount: {
+          provider: "line",
+          providerAccountId: "U_DIFFERENT_RAW_ID_xxxxxxxxxxxxxxxxxx",
+          type: "oauth",
+          access_token: null,
+          refresh_token: null,
+          id_token: null,
+          expires_at: null,
+          scope: null,
+          token_type: null,
+        },
+      }),
+    );
+
+    // The mismatch branch should not log at all (predictable
+    // rejection branches do not log, per PII contract).
+    expect(warnSpy).not.toHaveBeenCalled();
+    warnSpy.mockRestore();
+  });
+
+  // ─ Discriminated union surface ─────────────────────────────────────────
+
+  it("8. source: result discriminated-union type includes the new `line_account_mismatch` variant with `expectedLineUserId: string`", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    const typeStart = src.indexOf(
+      "export type ActivatePrecreatedCustomerWithLineResult",
+    );
+    expect(typeStart).toBeGreaterThan(-1);
+    // 4500 chars cover the full discriminated-union literal (it has
+    // 8 variants after round 15).
+    const typeBlock = src.slice(typeStart, typeStart + 4500);
+
+    expect(typeBlock).toMatch(/status\s*:\s*"line_account_mismatch"/);
+    expect(typeBlock).toMatch(/expectedLineUserId\s*:\s*string/);
+  });
+});
