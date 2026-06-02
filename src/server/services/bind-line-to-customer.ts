@@ -1316,10 +1316,18 @@ async function runFullBindTx(params: {
 //
 //    User.create data — exactly 6 scalar User-row columns
 //    (byte-equivalent vs auth.ts Case B baseline lines 622-632 for the
-//    User row itself):
-//      - name:     customer.name           ← NOT oauthProfile.name
+//    User row itself, when no concurrent staff edit occurs between
+//    preflight and tx-start):
+//      - name:     target.name             ← in-tx snapshot, NOT
+//                                            oauthProfile.name and
+//                                            NOT the stale outer
+//                                            preflight `customer.name`.
+//                                            PR #243 Codex P2 round 9.
 //      - email:    oauthEmail               (oauthProfile.email here)
-//      - phone:    customer.phone || null
+//      - phone:    target.phone || null    ← in-tx snapshot, NOT the
+//                                            stale outer preflight
+//                                            `customer.phone`. PR #243
+//                                            Codex P2 round 9.
 //      - role:     "CUSTOMER"
 //      - status:   "ACTIVE"
 //      - image:    oauthImage               (oauthProfile.image here)
@@ -1805,6 +1813,17 @@ export async function activatePrecreatedCustomerWithLine(
         //   a CAS — defense-in-depth. The findFirst here makes the
         //   "guard before connecting the customer" property visible
         //   at the top of the tx callback (PR #243 Codex P1).
+        //
+        //   ⚠ PR #243 Codex P2 round 9: the findFirst select includes
+        //   `name` and `phone` so the User row is built from the
+        //   in-transaction Customer snapshot, NOT the outer preflight
+        //   snapshot. If staff edits Customer.name / Customer.phone
+        //   between preflight (step 2) and tx-start (step 7-pre), the
+        //   pre-round-9 helper would have created User from the stale
+        //   outer `customer.name` / `customer.phone`. Reading the fresh
+        //   columns here closes that gap and makes the in-tx guard
+        //   meaningfully load-bearing rather than just an existence
+        //   check.
         const target = await tx.customer.findFirst({
           where: {
             id: customer.id,
@@ -1825,7 +1844,10 @@ export async function activatePrecreatedCustomerWithLine(
               { lineUserId: input.lineUserId },
             ],
           },
-          select: { id: true },
+          // PR #243 Codex P2 round 9: name + phone are read fresh
+          // inside the tx so a concurrent staff edit between
+          // preflight and tx-start is reflected in the new User row.
+          select: { id: true, name: true, phone: true },
         });
         if (!target) {
           throw new StaleCustomerLinkError(customer.id);
@@ -1833,8 +1855,10 @@ export async function activatePrecreatedCustomerWithLine(
 
         // 7a. Create User — byte-equivalent to auth.ts Case B baseline
         //     for the User-row columns (lines 622-632): name, email,
-        //     phone, role, status, image. `User.name` from customer.name
-        //     (NOT oauthProfile.name) per PR-G5.0 Codex round 10 P2.
+        //     phone, role, status, image. `User.name` from the fresh
+        //     in-tx target.name (NOT oauthProfile.name) per PR-G5.0
+        //     Codex round 10 P2; `User.phone` from target.phone per
+        //     PR #243 Codex P2 round 9.
         //
         //     ⚠ The data payload is built by buildActivationUserCreateData,
         //     whose declared return type is a SCALAR-ONLY 6-field object
@@ -1843,15 +1867,23 @@ export async function activatePrecreatedCustomerWithLine(
         //     absence at the call site. The FK write Customer.userId is
         //     owned exclusively by step 7c's conditional updateMany.
         //
+        //     ⚠ PR #243 Codex P2 round 9: User.create reads
+        //     `target.name` / `target.phone` (the in-tx snapshot),
+        //     NOT the outer `customer.name` / `customer.phone` (the
+        //     preflight snapshot). If staff edits Customer columns
+        //     between preflight and tx-start, the User row reflects
+        //     the post-edit values.
+        //
         //     End-state DB rows are still byte-equivalent vs Case B
         //     baseline (User: same 6 columns / values; Account: same
         //     10 columns / values; Customer: same final userId +
-        //     link metadata). Only the WRITE MECHANISM for the FK
-        //     changes — baseline used a Prisma relation-side-effect,
-        //     refactor uses explicit `data.userId` in the CAS.
+        //     link metadata) WHEN no concurrent edit occurs. Only
+        //     the WRITE MECHANISM for the FK changes — baseline used
+        //     a Prisma relation-side-effect, refactor uses explicit
+        //     `data.userId` in the CAS.
         const newUser = await tx.user.create({
           data: buildActivationUserCreateData({
-            customer: { name: customer.name, phone: customer.phone },
+            customer: { name: target.name, phone: target.phone },
             oauthProfile: input.oauthProfile,
           }),
         });

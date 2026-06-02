@@ -140,10 +140,18 @@ function precreatedCustomerFixture(overrides: Record<string, unknown> = {}) {
  * arguments / configure throws.
  */
 function setupTransaction() {
-  // In-tx Case-B guard (PR #243 Codex P1 round 5) — default returns a
-  // non-null row so the happy-path tests proceed past the guard.
+  // In-tx Case-B guard (PR #243 Codex P1 round 5 + P2 round 9) —
+  // default returns a non-null row so the happy-path tests proceed
+  // past the guard. The default row INCLUDES name + phone (round 9:
+  // the helper reads the in-tx target snapshot for User.create). Tests
+  // that simulate a concurrent staff edit override with their own
+  // .mockResolvedValueOnce({ id, name: "...", phone: "..." }).
   // Stale-race tests override with `.mockResolvedValueOnce(null)`.
-  const txCustomerFindFirst = vi.fn().mockResolvedValue({ id: CUSTOMER_ID });
+  const txCustomerFindFirst = vi.fn().mockResolvedValue({
+    id: CUSTOMER_ID,
+    name: CUSTOMER_NAME,
+    phone: CUSTOMER_PHONE,
+  });
   const txUserCreate = vi
     .fn()
     .mockResolvedValue({ id: NEW_USER_ID });
@@ -279,11 +287,20 @@ describe("byte-equivalent baseline vs auth.ts Case B (lines 620-687)", () => {
     );
   });
 
-  it("User.phone === customer.phone || null — falls back to null when customer.phone is empty", async () => {
+  it("User.phone === target.phone || null — falls back to null when target.phone is empty (round 9: helper reads in-tx target snapshot, not outer preflight customer)", async () => {
     mockCustomerFindUnique.mockResolvedValueOnce(
       precreatedCustomerFixture({ phone: "" }),
     );
-    const { txUserCreate } = setupTransaction();
+    const { txUserCreate, txCustomerFindFirst } = setupTransaction();
+    // Round 9: the in-tx target snapshot is the authoritative source
+    // for User.name / User.phone. Override the default mock to also
+    // return phone: "" so the helper's `target.phone || null`
+    // expression evaluates to null.
+    txCustomerFindFirst.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      name: CUSTOMER_NAME,
+      phone: "",
+    });
 
     await activatePrecreatedCustomerWithLine(makeValidInput());
 
@@ -2131,8 +2148,11 @@ describe("P1 round 5 (Codex): in-tx Case-B guard fires BEFORE tx.user.create", (
         { lineUserId: LINE_USER_ID },
       ],
     });
-    // Read-only select; we don't need or want any other column read.
-    expect(arg?.select).toEqual({ id: true });
+    // Round 9: select now includes id + name + phone. The name/phone
+    // columns are read inside the tx so the User row is built from
+    // the freshest available Customer snapshot (PR #243 Codex P2
+    // round 9).
+    expect(arg?.select).toEqual({ id: true, name: true, phone: true });
   });
 
   it("behavioural: stale guard rollback still emits masked stale_customer_link log (sanity for the new throw path)", async () => {
@@ -2475,8 +2495,10 @@ describe("PR #243 Codex P1 round 7: explicit P1 contract sentences at three anch
       "export interface ActivatePrecreatedCustomerWithLineInput",
     );
     expect(blockEnd).toBeGreaterThan(-1);
-    // Anchor 4000 chars above the interface so we read the full block.
-    const blockStart = Math.max(0, blockEnd - 4000);
+    // Anchor 6000 chars above the interface so we read the full block
+    // (round 9 added P2 fallback + in-tx snapshot annotations, pushing
+    // the P1 GUARANTEE header earlier in the block).
+    const blockStart = Math.max(0, blockEnd - 6000);
     const slice = src.slice(blockStart, blockEnd);
 
     expect(slice).toMatch(S1_RE);
@@ -2902,5 +2924,225 @@ describe("PR #243 Codex P2 round 8: preserve Case B lineName fallback (input.lin
       // User.create") — that doesn't mention connect at all.
       expect(sayUserCreateConnects).toBe(false);
     }
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// 18. PR #243 Codex P2 round 9: use the in-transaction Customer snapshot
+//     for User.name / User.phone (close the TOCTOU window between
+//     preflight read and tx-start).
+//
+//     Pre-round-9 the helper's in-tx `tx.customer.findFirst` selected
+//     only `{ id: true }` — enough to verify the Case-B precondition
+//     still holds, but the subsequent `tx.user.create` then read
+//     `customer.name` / `customer.phone` from the OUTER preflight
+//     snapshot (step 2, before the tx opened). If staff edited
+//     `Customer.name` or `Customer.phone` between preflight and
+//     tx-start, the new User row would carry STALE name/phone while
+//     the Customer row got the activation FK pointed at it.
+//
+//     Round 9 widens the in-tx select to `{ id, name, phone }` and
+//     passes the in-tx `target.name` / `target.phone` into
+//     `buildActivationUserCreateData`. Net behavioural change:
+//     concurrent Customer edits land in the User row when they
+//     happen between preflight and tx-start; happy-path (no
+//     concurrent edit) is byte-equivalent vs the pre-round-9 path
+//     because the in-tx snapshot equals the outer snapshot.
+//
+//     This also makes the in-tx guard load-bearing rather than just
+//     a re-existence check — supporting Codex's P1 anchor for "guard
+//     before connecting the customer."
+// ════════════════════════════════════════════════════════════════════════════
+
+describe("PR #243 Codex P2 round 9: User.create uses in-tx Customer snapshot (target.name / target.phone)", () => {
+  const HELPER_PATH = path.resolve(
+    __dirname,
+    "..",
+    "server",
+    "services",
+    "bind-line-to-customer.ts",
+  );
+
+  it("scenario 1 (behavioural): in-tx target has DIFFERENT name/phone than outer preflight → User.create.data uses target.name / target.phone (NOT the stale outer values)", async () => {
+    // Outer preflight: returns the staff-precreated row with the
+    // ORIGINAL name + phone.
+    mockCustomerFindUnique.mockResolvedValueOnce(
+      precreatedCustomerFixture({
+        name: "Stale Name",
+        phone: "0900000000",
+      }),
+    );
+    const { txCustomerFindFirst, txUserCreate } = setupTransaction();
+    // Simulate a concurrent staff edit between preflight and tx-start:
+    // the in-tx findFirst returns the POST-EDIT name + phone.
+    txCustomerFindFirst.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      name: "Fresh Name",
+      phone: "0911111111",
+    });
+
+    await activatePrecreatedCustomerWithLine(makeValidInput());
+
+    const userData = (txUserCreate.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    // The User row reflects the FRESH in-tx snapshot, NOT the stale
+    // outer preflight snapshot.
+    expect(userData?.name).toBe("Fresh Name");
+    expect(userData?.phone).toBe("0911111111");
+    // And explicitly NOT the stale values.
+    expect(userData?.name).not.toBe("Stale Name");
+    expect(userData?.phone).not.toBe("0900000000");
+  });
+
+  it("scenario 2 (source-structure): tx.customer.findFirst select includes id + name + phone (NOT only id)", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    const fnStart = src.indexOf(
+      "export async function activatePrecreatedCustomerWithLine",
+    );
+    const fnSlice = src.slice(fnStart);
+
+    // Locate the findFirst call. The select object must contain
+    // id, name, phone all set to true.
+    const findFirstIdx = fnSlice.indexOf("tx.customer.findFirst");
+    expect(findFirstIdx).toBeGreaterThan(-1);
+    // 2000 chars cover the full findFirst call (where + comment +
+    // select).
+    const findFirstBlock = fnSlice.slice(findFirstIdx, findFirstIdx + 2000);
+
+    // Required select fields.
+    expect(findFirstBlock).toMatch(/select\s*:\s*\{[\s\S]*?\bid\s*:\s*true/);
+    expect(findFirstBlock).toMatch(/select\s*:\s*\{[\s\S]*?\bname\s*:\s*true/);
+    expect(findFirstBlock).toMatch(/select\s*:\s*\{[\s\S]*?\bphone\s*:\s*true/);
+
+    // Forbid the legacy `select: { id: true }` shape (just id, no
+    // other columns).
+    expect(findFirstBlock).not.toMatch(
+      /select\s*:\s*\{\s*id\s*:\s*true\s*\}/,
+    );
+  });
+
+  it("scenario 3 (source-structure): tx.user.create's buildActivationUserCreateData call uses target.name / target.phone (NOT customer.name / customer.phone)", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    const fnStart = src.indexOf(
+      "export async function activatePrecreatedCustomerWithLine",
+    );
+    const fnSlice = src.slice(fnStart);
+
+    // Locate the buildActivationUserCreateData call. The customer
+    // arg must read target.name / target.phone.
+    const builderIdx = fnSlice.indexOf("buildActivationUserCreateData(");
+    expect(builderIdx).toBeGreaterThan(-1);
+    // 800 chars cover the full call (customer arg + oauthProfile arg).
+    const builderBlock = fnSlice.slice(builderIdx, builderIdx + 800);
+
+    // Required: target.name / target.phone.
+    expect(builderBlock).toMatch(/name\s*:\s*target\.name/);
+    expect(builderBlock).toMatch(/phone\s*:\s*target\.phone/);
+
+    // Forbid the legacy outer-snapshot read.
+    expect(builderBlock).not.toMatch(/name\s*:\s*customer\.name/);
+    expect(builderBlock).not.toMatch(/phone\s*:\s*customer\.phone/);
+  });
+
+  it("scenario 4 (happy path unchanged): no concurrent edit → User row matches outer preflight values byte-for-byte (default mock harness path)", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const { txUserCreate } = setupTransaction();
+    // Default setupTransaction returns the same name + phone as the
+    // outer preflight fixture — happy-path byte-equivalence.
+
+    await activatePrecreatedCustomerWithLine(makeValidInput());
+
+    const userData = (txUserCreate.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    expect(userData?.name).toBe(CUSTOMER_NAME);
+    expect(userData?.phone).toBe(CUSTOMER_PHONE);
+  });
+
+  it("scenario 5 (byte-equivalent regression): when outer customer.phone is empty but target.phone is non-empty, User.phone is the in-tx value (not null-from-stale-empty)", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(
+      precreatedCustomerFixture({ phone: "" }),
+    );
+    const { txCustomerFindFirst, txUserCreate } = setupTransaction();
+    txCustomerFindFirst.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      name: CUSTOMER_NAME,
+      phone: "0987654321",
+    });
+
+    await activatePrecreatedCustomerWithLine(makeValidInput());
+
+    const userData = (txUserCreate.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    // The post-edit non-empty phone wins; the outer empty string
+    // (which would have evaluated to null via `|| null`) is NOT used.
+    expect(userData?.phone).toBe("0987654321");
+  });
+
+  it("scenario 5b (byte-equivalent regression): when target.phone is empty, User.phone is null (truthy fallback `target.phone || null` still works)", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(
+      precreatedCustomerFixture({ phone: CUSTOMER_PHONE }),
+    );
+    const { txCustomerFindFirst, txUserCreate } = setupTransaction();
+    // Concurrent edit blanked the phone.
+    txCustomerFindFirst.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      name: CUSTOMER_NAME,
+      phone: "",
+    });
+
+    await activatePrecreatedCustomerWithLine(makeValidInput());
+
+    const userData = (txUserCreate.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    expect(userData?.phone).toBe(null);
+  });
+
+  it("scenario 6 (P1 reinforcement): in-tx findFirst still positioned BEFORE tx.user.create (round-5 ordering preserved)", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    const fnStart = src.indexOf(
+      "export async function activatePrecreatedCustomerWithLine",
+    );
+    const fnSlice = src.slice(fnStart);
+    const findFirstIdx = fnSlice.indexOf("tx.customer.findFirst");
+    const userCreateIdx = fnSlice.indexOf("tx.user.create(");
+    expect(findFirstIdx).toBeGreaterThan(-1);
+    expect(userCreateIdx).toBeGreaterThan(-1);
+    expect(findFirstIdx).toBeLessThan(userCreateIdx);
+  });
+
+  it("scenario 7 (P1 reinforcement): tx.user.create still has NO `customer` key and NO `connect` key in its data (round-1 contract preserved)", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const { txUserCreate } = setupTransaction();
+
+    await activatePrecreatedCustomerWithLine(makeValidInput());
+
+    const userData = (txUserCreate.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    expect(userData).not.toHaveProperty("customer");
+    expect(userData).not.toHaveProperty("connect");
+  });
+
+  it("scenario 8 (P1 reinforcement): Customer.updateMany remains the SOLE write that assigns Customer.userId", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const { txUserCreate, txCustomerUpdateMany } = setupTransaction();
+
+    await activatePrecreatedCustomerWithLine(makeValidInput());
+
+    // User.create.data has no userId-on-customer write surface.
+    const userData = (txUserCreate.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    expect(userData).not.toHaveProperty("customer");
+
+    // Customer.updateMany.data is the only place userId is assigned.
+    const updData = (txCustomerUpdateMany.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    expect(updData?.userId).toBe(NEW_USER_ID);
   });
 });
