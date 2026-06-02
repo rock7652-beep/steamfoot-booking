@@ -116,10 +116,6 @@ export function DayDetailPanel({
   }
 
   const dateObj = new Date(date + "T00:00:00+08:00");
-  const weekdayLabel = dateObj.toLocaleDateString("zh-TW", {
-    weekday: "long",
-    timeZone: "Asia/Taipei",
-  });
   const monthDay = `${dateObj.getMonth() + 1}/${dateObj.getDate()}`;
 
   const stats = computeStats(bookings);
@@ -138,38 +134,31 @@ export function DayDetailPanel({
 
   return (
     <div className="flex h-full flex-col">
-      {/* 頂部：日期摘要 + KPI（固定，不跟著清單捲動） */}
-      <div className="shrink-0 space-y-4 px-4 pt-4">
-      {/* Day Header */}
-      <div className="rounded-lg border border-earth-200 bg-white p-4">
-        <p className="text-lg font-bold text-earth-900">
-          {monthDay} {weekdayLabel}
-        </p>
-        <p className="mt-0.5 text-xs text-earth-500">
-          今日 {stats.total} 預約 · {stats.checkedIn} 已到店
-          {filteredFrom != null && (
-            <span className="ml-2 inline-flex h-[18px] items-center rounded bg-primary-50 px-1.5 text-[11px] font-semibold text-primary-700">
-              篩選中 {stats.total}/{filteredFrom}
-            </span>
-          )}
-        </p>
-      </div>
-
-      {/* Mini KPIs */}
-      <div className="rounded-lg border border-earth-200 bg-white p-4">
-        <div className="grid grid-cols-3 gap-3">
-          <MiniKpi label="預約" value={stats.total} />
-          <MiniKpi label="到店" value={stats.checkedIn} />
-          <MiniKpi label="完成" value={stats.completed} />
-          <MiniKpi label="未到" value={stats.noShow} tone={stats.noShow > 0 ? "danger" : "default"} />
-          <MiniKpi label="人數" value={stats.people} />
-          <MiniKpi
+      {/* 頂部：精簡 KPI chip 列（固定，不跟著清單捲動）。
+          日期已在 Drawer 標題顯示，這裡不再重複，把高度讓給名單。
+          窄版用 overflow-x-auto + whitespace-nowrap 橫向滑動，不換多排。 */}
+      <div className="shrink-0 px-4 pt-3">
+        <div className="flex items-center gap-1.5 overflow-x-auto whitespace-nowrap pb-1">
+          <KpiChip label="預約" value={stats.total} />
+          <KpiChip label="到店" value={stats.checkedIn} />
+          <KpiChip label="完成" value={stats.completed} />
+          <KpiChip
+            label="未到"
+            value={stats.noShow}
+            tone={stats.noShow > 0 ? "danger" : "default"}
+          />
+          <KpiChip label="人數" value={stats.people} />
+          <KpiChip
             label="補課"
             value={stats.makeup}
             tone={stats.makeup > 0 ? "warning" : "default"}
           />
+          {filteredFrom != null && (
+            <span className="ml-auto inline-flex h-[22px] shrink-0 items-center rounded-full bg-primary-50 px-2 text-[11px] font-semibold text-primary-700">
+              篩選中 {stats.total}/{filteredFrom}
+            </span>
+          )}
         </div>
-      </div>
       </div>
 
       {/* 中段：當日清單，填滿剩餘高度並可獨立捲動 */}
@@ -467,7 +456,9 @@ function TimelineItem({
   );
 }
 
-function MiniKpi({
+// 精簡單行 chip：淡底色 + 細邊框，低干擾。label 與數字同列，
+// 數字依 tone 上色（未到 > 0 紅、補課 > 0 琥珀）。
+function KpiChip({
   label,
   value,
   tone = "default",
@@ -483,10 +474,10 @@ function MiniKpi({
         ? "text-amber-600"
         : "text-earth-900";
   return (
-    <div className="rounded-md bg-earth-50 px-2 py-1.5">
-      <p className="text-[11px] text-earth-500">{label}</p>
-      <p className={`text-lg font-bold tabular-nums ${valueColor}`}>{value}</p>
-    </div>
+    <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-earth-200 bg-earth-50 px-2.5 py-1 text-xs">
+      <span className="text-earth-500">{label}</span>
+      <span className={`font-bold tabular-nums ${valueColor}`}>{value}</span>
+    </span>
   );
 }
 
