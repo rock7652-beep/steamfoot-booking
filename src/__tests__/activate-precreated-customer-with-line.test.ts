@@ -2384,3 +2384,203 @@ describe("PR #243 Codex P2 round 6: same-LINE placeholder activation", () => {
     expect(slice).toMatch(/\{\s*lineUserId\s*:\s*params\.lineUserId\s*\}/);
   });
 });
+
+// ════════════════════════════════════════════════════════════════════════════
+// 16. PR #243 Codex P1 round 7: explicit P1 contract sentences at three
+//     anchor sites + stale "relation-side-effect" / "was baseline-nested-
+//     connect" phrasings removed.
+//
+//     Codex's P1 finding ("Move the Case-B guard before connecting the
+//     customer") was code-satisfied by round 5 (in-tx findFirst before
+//     tx.user.create). Round 6 extended the predicate. Round 7 makes
+//     the safety contract VERBATIM and visible at each of the three
+//     code anchors Codex's static reader can land on:
+//
+//       (a) helper-level contract block above the exported activation
+//           function (the file-level §5.3.3 conformance section)
+//       (b) `buildActivationUserCreateData` JSDoc (the call site for
+//           User.create.data — the original P1 risk surface)
+//       (c) `buildActivationCustomerWhere` JSDoc (the call site for
+//           the sole writer of Customer.userId — line 1509 area where
+//           Codex's anchor pointed in re-review)
+//
+//     The three sentences are LITERAL — they MUST appear byte-for-byte
+//     in the source so a grep-based reader can confirm the contract
+//     without re-reading the entire file:
+//
+//       S1. "This helper intentionally does NOT use Prisma nested
+//            Customer relation write in User.create."
+//       S2. "The in-transaction Customer guard runs before User.create."
+//       S3. "Customer.updateMany is the only write that assigns
+//            Customer.userId."
+//
+//     Round 7 is comments-only in the helper file + tests-only beyond
+//     that — NO runtime behaviour change. The three guarantees the
+//     comments document were ALREADY enforced by rounds 1-6 code shape.
+// ════════════════════════════════════════════════════════════════════════════
+
+describe("PR #243 Codex P1 round 7: explicit P1 contract sentences at three anchor sites", () => {
+  const HELPER_PATH = path.resolve(
+    __dirname,
+    "..",
+    "server",
+    "services",
+    "bind-line-to-customer.ts",
+  );
+
+  // The three P1 sentences (tolerant of JSDoc / `//` line wrapping —
+  // each `\s+` allows whitespace + comment-prefix wrap between words).
+  //
+  // Pattern: `word\s+(?:[*/]\s+)?word` collapses
+  //   "Prisma nested Customer\n *      relation write" → match
+  //   "the only write that assigns\n//         Customer.userId" → match
+  const PREFIX = "(?:[*/]+\\s+)?"; // optional `*  ` or `//  ` line continuation
+  const W = `\\s+${PREFIX}`; // word-gap that tolerates a wrapped JSDoc line
+  const S1_RE = new RegExp(
+    `This helper intentionally does NOT use Prisma nested Customer${W}relation write in User\\.create\\.`,
+  );
+  const S2_RE = new RegExp(
+    `The in-transaction Customer guard runs before User\\.create\\.`,
+  );
+  const S3_RE = new RegExp(
+    `Customer\\.updateMany is the only write that assigns${W}Customer\\.userId\\.`,
+  );
+
+  it("anchor (a): helper-level contract block contains all three P1 sentences", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    // The helper-level contract block lives above the
+    // `ActivatePrecreatedCustomerWithLineInput` interface.
+    const blockEnd = src.indexOf(
+      "export interface ActivatePrecreatedCustomerWithLineInput",
+    );
+    expect(blockEnd).toBeGreaterThan(-1);
+    // Anchor 4000 chars above the interface so we read the full block.
+    const blockStart = Math.max(0, blockEnd - 4000);
+    const slice = src.slice(blockStart, blockEnd);
+
+    expect(slice).toMatch(S1_RE);
+    expect(slice).toMatch(S2_RE);
+    expect(slice).toMatch(S3_RE);
+  });
+
+  it("anchor (b): buildActivationUserCreateData JSDoc contains all three P1 sentences", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    const fnIdx = src.indexOf("function buildActivationUserCreateData");
+    expect(fnIdx).toBeGreaterThan(-1);
+    // Anchor 2500 chars above the function declaration so we capture
+    // the full JSDoc block.
+    const blockStart = Math.max(0, fnIdx - 2500);
+    const slice = src.slice(blockStart, fnIdx);
+
+    expect(slice).toMatch(S1_RE);
+    expect(slice).toMatch(S2_RE);
+    expect(slice).toMatch(S3_RE);
+  });
+
+  it("anchor (c): buildActivationCustomerWhere JSDoc contains all three P1 sentences (line 1509 area Codex flagged in re-review)", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    const fnIdx = src.indexOf("function buildActivationCustomerWhere");
+    expect(fnIdx).toBeGreaterThan(-1);
+    const blockStart = Math.max(0, fnIdx - 2500);
+    const slice = src.slice(blockStart, fnIdx);
+
+    expect(slice).toMatch(S1_RE);
+    expect(slice).toMatch(S2_RE);
+    expect(slice).toMatch(S3_RE);
+  });
+
+  it("file-wide: each of the three P1 sentences appears at LEAST three times (once per anchor site)", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    const countMatches = (s: string, re: RegExp): number => {
+      const flag = re.flags.includes("g") ? re.flags : re.flags + "g";
+      const g = new RegExp(re.source, flag);
+      const matches = s.match(g);
+      return matches ? matches.length : 0;
+    };
+    expect(countMatches(src, S1_RE)).toBeGreaterThanOrEqual(3);
+    expect(countMatches(src, S2_RE)).toBeGreaterThanOrEqual(3);
+    expect(countMatches(src, S3_RE)).toBeGreaterThanOrEqual(3);
+  });
+
+  it("stale framing removed: helper file no longer says `minus the relation side-effect`", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    // Round 6 still had this stale framing in the helper-level
+    // contract block; round 7 removes it. The replacement is "for the
+    // User row itself" + the explicit P1 GUARANTEE block above.
+    expect(src).not.toContain("minus the relation side-effect");
+  });
+
+  it("stale framing removed: helper file no longer says `was baseline-nested-connect`", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    // Round 6 still had this stale framing on the Customer.updateMany
+    // userId line; round 7 replaces it with "sole writer of
+    // Customer.userId" + P1 GUARANTEE sentence 3 reference.
+    expect(src).not.toContain("was baseline-nested-connect");
+  });
+
+  it("stale framing removed: helper file no longer says `the FK write that baseline does via User.create's nested connect`", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    expect(src).not.toContain(
+      "the FK write that baseline does via User.create's nested connect",
+    );
+  });
+
+  it("structural: P1 GUARANTEE header lines (not in-prose mentions) appear ≥3 times, each followed by a 1./2./3. numbered list", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    // Header lines look like "P1 GUARANTEE (PR #243 Codex P1 ...)" —
+    // distinguish from in-prose mentions like
+    // "P1 GUARANTEE sentence 1 above" by requiring the parenthesized
+    // attribution that follows the keyword.
+    const headerRegex = /P1 GUARANTEE\s*\(PR\s*#243/g;
+    const matches = src.match(headerRegex);
+    expect(matches?.length ?? 0).toBeGreaterThanOrEqual(3);
+
+    // For each header, the next ~1500 chars must enumerate sentences
+    // 1./2./3. as a numbered list.
+    let cursor = 0;
+    let blocksChecked = 0;
+    while (true) {
+      const idx = src.indexOf("P1 GUARANTEE (PR #243", cursor);
+      if (idx === -1) break;
+      const window = src.slice(idx, idx + 1500);
+      expect(window).toMatch(/(^|\s)1\.\s/);
+      expect(window).toMatch(/(^|\s)2\.\s/);
+      expect(window).toMatch(/(^|\s)3\.\s/);
+      blocksChecked++;
+      cursor = idx + 1;
+    }
+    expect(blocksChecked).toBeGreaterThanOrEqual(3);
+  });
+
+  it("regression: existing runtime behaviour unchanged — happy path still activated with byte-equivalent writes (round 7 is comments-only)", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const { txUserCreate, txAccountCreate, txCustomerUpdateMany } =
+      setupTransaction();
+
+    const r = await activatePrecreatedCustomerWithLine(makeValidInput());
+
+    expect(r).toEqual({
+      status: "activated",
+      customerId: CUSTOMER_ID,
+      userId: NEW_USER_ID,
+    });
+    // Same 3 writes, same shapes — round 7 documents existing
+    // safety, it does not change runtime behaviour.
+    expect(txUserCreate).toHaveBeenCalledTimes(1);
+    expect(txAccountCreate).toHaveBeenCalledTimes(1);
+    expect(txCustomerUpdateMany).toHaveBeenCalledTimes(1);
+
+    // User.create.data still has no `customer` / `connect` key.
+    const userData = (txUserCreate.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    expect(userData).not.toHaveProperty("customer");
+    expect(userData).not.toHaveProperty("connect");
+
+    // Customer.updateMany still writes userId.
+    const updData = (txCustomerUpdateMany.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    expect(updData?.userId).toBe(NEW_USER_ID);
+  });
+});

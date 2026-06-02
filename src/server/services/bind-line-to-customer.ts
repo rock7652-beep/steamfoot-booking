@@ -1294,31 +1294,50 @@ async function runFullBindTx(params: {
 //  ⚠ Byte-equivalent contract vs current src/lib/auth.ts Case B baseline
 //    (lines 620-687, restricted to LINE branch). The activation helper
 //    is a REFACTOR target — PR-G5.5 will move the current inline writes
-//    here without changing what gets written.
+//    here without changing the end-state DB rows.
 //
-//    User.create data — byte-equivalent for the User-ROW columns
-//    (auth.ts line 622-632 minus the relation side-effect):
+//  ──────────────────────────────────────────────────────────────────────
+//  P1 GUARANTEE (PR #243 Codex P1 — three structural invariants):
+//
+//    1. This helper intentionally does NOT use Prisma nested Customer
+//       relation write in User.create.
+//    2. The in-transaction Customer guard runs before User.create.
+//    3. Customer.updateMany is the only write that assigns
+//       Customer.userId.
+//
+//  All three sentences are enforced by code shape, not just convention:
+//    - sentence 1 is enforced by `buildActivationUserCreateData`'s
+//      scalar-only TypeScript return type (no `customer` / `connect`)
+//    - sentence 2 is enforced by the `tx.customer.findFirst` guard at
+//      the top of the activation tx callback (step 7-pre)
+//    - sentence 3 is enforced by `buildActivationCustomerUpdateData`
+//      + the step-7c conditional Customer.updateMany
+//  ──────────────────────────────────────────────────────────────────────
+//
+//    User.create data — exactly 6 scalar User-row columns
+//    (byte-equivalent vs auth.ts Case B baseline lines 622-632 for the
+//    User row itself):
 //      - name:     customer.name           ← NOT oauthProfile.name
 //      - email:    oauthEmail               (oauthProfile.email here)
 //      - phone:    customer.phone || null
 //      - role:     "CUSTOMER"
 //      - status:   "ACTIVE"
 //      - image:    oauthImage               (oauthProfile.image here)
-//      - ⚠ NO Prisma relation-side-effect to Customer in this
-//        user.create — the FK Customer.userId is set EXPLICITLY in
-//        the step-7c conditional updateMany.data instead (PR #243
-//        Codex P1 round 1). The end-state DB row for Customer.userId
-//        is identical to baseline; only the write mechanism moves
-//        from nested-relation-write side-effect to explicit data field.
+//      - ⚠ NO `customer` key. NO `connect` key. NO Customer-relation
+//        write via User.create — see P1 GUARANTEE sentence 1 above.
+//        The end-state Customer.userId column matches baseline; it is
+//        written by step 7c (P1 GUARANTEE sentence 3), not by a
+//        side-effect on User.create.
 //
 //    Account.create data (auth.ts line 634-647) — 10 fields, NO session_state:
 //      - userId / type / provider / providerAccountId
 //      - access_token / refresh_token / id_token
 //      - expires_at / token_type / scope
 //
-//    Customer.update data (auth.ts line 650-657 + the FK write that
-//    baseline does via User.create's nested connect):
-//      - userId:         newUser.id         ← was baseline-nested-connect
+//    Customer.updateMany data (auth.ts line 650-657 + the Customer.userId
+//    assignment that is the SOLE write of that column in this helper —
+//    P1 GUARANTEE sentence 3):
+//      - userId:         newUser.id         ← sole writer of Customer.userId
 //      - authSource:     "LINE"     ← hardcoded; helper is LINE-only
 //      - lineUserId:     input.lineUserId
 //      - lineLinkStatus: "LINKED"
@@ -1472,6 +1491,20 @@ export type ActivatePrecreatedCustomerWithLineResult =
  * activation tx (parallel to `buildFullBindCustomerWhere` from
  * PR-G5.1.a / PR #242 Codex P2 round 14).
  *
+ * ─────────────────────────────────────────────────────────────────────
+ * P1 GUARANTEE (PR #243 Codex P1 — anchored here):
+ *
+ *   1. This helper intentionally does NOT use Prisma nested Customer
+ *      relation write in User.create.
+ *   2. The in-transaction Customer guard runs before User.create.
+ *   3. Customer.updateMany is the only write that assigns
+ *      Customer.userId.
+ *
+ * The three sentences above are the safety contract for the entire
+ * activation tx; the where-clause this builder returns is consumed
+ * exclusively by that single Customer.updateMany write (sentence 3).
+ * ─────────────────────────────────────────────────────────────────────
+ *
  * The where enforces, AT TX-WRITE TIME:
  *   - `id`                    — identity
  *   - `storeId`               — store authorization (defense-in-depth)
@@ -1519,23 +1552,36 @@ function buildActivationCustomerWhere(params: {
  * Build the User.create data payload for Case B activation
  * (PR #243 Codex P1 round 2 — extraction).
  *
+ * ─────────────────────────────────────────────────────────────────────
+ * P1 GUARANTEE (PR #243 Codex P1 — anchored here):
+ *
+ *   1. This helper intentionally does NOT use Prisma nested Customer
+ *      relation write in User.create.
+ *   2. The in-transaction Customer guard runs before User.create.
+ *   3. Customer.updateMany is the only write that assigns
+ *      Customer.userId.
+ *
+ * Sentence 1 is enforced HERE by the scalar-only return type below
+ * (no `customer` key, no `connect` key — TypeScript rejects either
+ * at the call site). Sentence 3 is enforced by
+ * `buildActivationCustomerUpdateData` + the step-7c updateMany.
+ * Sentence 2 is enforced by the in-tx `tx.customer.findFirst` guard
+ * placed at the top of the activation tx callback (step 7-pre).
+ * ─────────────────────────────────────────────────────────────────────
+ *
  * The return type is a **scalar-only** object literal that explicitly
  * lists the 6 baseline User columns (name, email, phone, role, status,
- * image). The shape DELIBERATELY excludes any `customer` relation key
- * (no `customer`, no `connect`) — the FK write Customer.userId is
- * owned exclusively by `buildActivationCustomerUpdateData` and the
- * conditional Customer.updateMany at step 7c.
- *
+ * image). The shape contains NO `customer` key and NO `connect` key.
  * TypeScript enforces the absence: if a future maintainer tried to
- * add a Customer relation-write key here, the call site's type-check
- * would fail because the helper's declared return type has no such
- * key. The named extraction makes the safety property structurally
- * visible to Codex's static reader.
+ * add either key here, the call site's type-check would fail because
+ * the helper's declared return type has neither. The named extraction
+ * makes the safety property structurally visible to Codex's static
+ * reader.
  *
  * Byte-equivalent to auth.ts Case B baseline (lines 622-632) for the
- * User-ROW columns; the relation-side-effect column on Customer is
- * intentionally NOT mirrored here — see the contract block above the
- * helper.
+ * User-ROW columns. The FK write Customer.userId is owned exclusively
+ * by the step-7c Customer.updateMany — see the helper-level contract
+ * block above for the full byte-equivalent spec.
  */
 function buildActivationUserCreateData(args: {
   customer: { name: string; phone: string };
