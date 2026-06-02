@@ -152,6 +152,30 @@ export async function createStoreAction(
     }
     await prisma.bookingSlot.createMany({ data: slotData });
 
+    // 5. Default weekly BusinessHours（7 天，全部營業）
+    //
+    // 前台 /s/[slug]/book 的可預約時段由 business-hours-resolver 計算：
+    // 某 dayOfWeek「沒有 BusinessHours row」→ resolveDayRule 回 status="closed"
+    // （source="none"，reason="尚未設定營業時間）→ 整週顯示公休、零可預約時段。
+    // 故建店時補滿 7 天預設營業時間，避免新店一開就像壞掉。
+    // 預設值對齊 scripts/seed-production-minimum.ts（竹北正式店基準）：
+    //   每天 10:00–21:00、slotInterval 60 分、每時段 6 名額。
+    // 店長之後可於後台「營業時間設定」自行調整；@@unique(storeId,dayOfWeek)
+    // 確保不重複（此處為全新店，createMany 安全）。
+    const businessHoursData = [];
+    for (let dow = 0; dow <= 6; dow++) {
+      businessHoursData.push({
+        storeId,
+        dayOfWeek: dow,
+        isOpen: true,
+        openTime: "10:00",
+        closeTime: "21:00",
+        slotInterval: 60,
+        defaultCapacity: 6,
+      });
+    }
+    await prisma.businessHours.createMany({ data: businessHoursData });
+
     // ── 產出交付摘要 ──
     const baseUrl = deriveBaseUrl();
     const checklist = buildDeliveryChecklist(input);
