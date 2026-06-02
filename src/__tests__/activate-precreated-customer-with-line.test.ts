@@ -2062,8 +2062,11 @@ describe("P1 round 5 (Codex): in-tx Case-B guard fires BEFORE tx.user.create", (
     const termRel = tail.search(/\n}\n\n/);
     const fnBody = termRel >= 0 ? tail.slice(0, termRel + 2) : tail;
 
-    // The pattern: `if (!target) { throw new StaleCustomerLinkError(...) }`
-    // — must appear AFTER the findFirst and BEFORE any tx.user/account write.
+    // The pattern: `if (!caseBClaimableCustomer) { throw new
+    // StaleCustomerLinkError(...) }` — must appear AFTER the
+    // findFirst and BEFORE any tx.user/account write. Round 11
+    // renamed the guard binding from `target` to
+    // `caseBClaimableCustomer` for structural visibility.
     const findFirstIdx = fnBody.indexOf("tx.customer.findFirst");
     const throwIdx = fnBody.indexOf("throw new StaleCustomerLinkError");
     const userCreateIdx = fnBody.indexOf("tx.user.create(");
@@ -2076,9 +2079,9 @@ describe("P1 round 5 (Codex): in-tx Case-B guard fires BEFORE tx.user.create", (
     expect(findFirstIdx).toBeLessThan(throwIdx);
     expect(throwIdx).toBeLessThan(userCreateIdx);
 
-    // The throw is gated by `if (!target)`.
+    // The throw is gated by `if (!caseBClaimableCustomer)`.
     expect(fnBody).toMatch(
-      /if\s*\(\s*!target\s*\)\s*\{[\s\S]{0,80}throw\s+new\s+StaleCustomerLinkError/,
+      /if\s*\(\s*!caseBClaimableCustomer\s*\)\s*\{[\s\S]{0,80}throw\s+new\s+StaleCustomerLinkError/,
     );
   });
 
@@ -2176,7 +2179,7 @@ describe("P1 round 5 (Codex): in-tx Case-B guard fires BEFORE tx.user.create", (
     warnSpy.mockRestore();
   });
 
-  it("ordering reinforced: source-textual order is `findFirst → if !target throw → user.create → account.create → updateMany`", () => {
+  it("ordering reinforced: source-textual order is `findFirst → if !caseBClaimableCustomer throw → user.create → account.create → updateMany` (round 11 rename: target → caseBClaimableCustomer)", () => {
     const src = readFileSync(HELPER_PATH, "utf8");
     const fnStart = src.indexOf(
       "export async function activatePrecreatedCustomerWithLine",
@@ -2187,7 +2190,7 @@ describe("P1 round 5 (Codex): in-tx Case-B guard fires BEFORE tx.user.create", (
 
     const positions = {
       findFirst: fnBody.indexOf("tx.customer.findFirst"),
-      ifTarget: fnBody.search(/if\s*\(\s*!target\s*\)/),
+      ifGuard: fnBody.search(/if\s*\(\s*!caseBClaimableCustomer\s*\)/),
       throw: fnBody.indexOf("throw new StaleCustomerLinkError"),
       userCreate: fnBody.indexOf("tx.user.create("),
       accountCreate: fnBody.indexOf("tx.account.create("),
@@ -2197,9 +2200,9 @@ describe("P1 round 5 (Codex): in-tx Case-B guard fires BEFORE tx.user.create", (
       expect(idx, `expected ${name} to exist`).toBeGreaterThan(-1);
     }
 
-    // findFirst < if(!target) < throw < user.create < account.create < updateMany
-    expect(positions.findFirst).toBeLessThan(positions.ifTarget);
-    expect(positions.ifTarget).toBeLessThan(positions.throw);
+    // findFirst < if(!caseBClaimableCustomer) < throw < user.create < account.create < updateMany
+    expect(positions.findFirst).toBeLessThan(positions.ifGuard);
+    expect(positions.ifGuard).toBeLessThan(positions.throw);
     expect(positions.throw).toBeLessThan(positions.userCreate);
     expect(positions.userCreate).toBeLessThan(positions.accountCreate);
     expect(positions.accountCreate).toBeLessThan(positions.updateMany);
@@ -3022,7 +3025,7 @@ describe("PR #243 Codex P2 round 9: User.create uses in-tx Customer snapshot (ta
     );
   });
 
-  it("scenario 3 (source-structure): tx.user.create's buildActivationUserCreateData call uses target.name / target.phone (NOT customer.name / customer.phone)", () => {
+  it("scenario 3 (source-structure): tx.user.create's buildActivationUserCreateData call uses the round-11 named locals customerNameForUser / customerPhoneForUser (which are sourced from caseBClaimableCustomer)", () => {
     const src = readFileSync(HELPER_PATH, "utf8");
     const fnStart = src.indexOf(
       "export async function activatePrecreatedCustomerWithLine",
@@ -3030,19 +3033,22 @@ describe("PR #243 Codex P2 round 9: User.create uses in-tx Customer snapshot (ta
     const fnSlice = src.slice(fnStart);
 
     // Locate the buildActivationUserCreateData call. The customer
-    // arg must read target.name / target.phone.
+    // arg must read the round-11 named locals.
     const builderIdx = fnSlice.indexOf("buildActivationUserCreateData(");
     expect(builderIdx).toBeGreaterThan(-1);
     // 800 chars cover the full call (customer arg + oauthProfile arg).
     const builderBlock = fnSlice.slice(builderIdx, builderIdx + 800);
 
-    // Required: target.name / target.phone.
-    expect(builderBlock).toMatch(/name\s*:\s*target\.name/);
-    expect(builderBlock).toMatch(/phone\s*:\s*target\.phone/);
+    // Required: round-11 named locals.
+    expect(builderBlock).toMatch(/name\s*:\s*customerNameForUser/);
+    expect(builderBlock).toMatch(/phone\s*:\s*customerPhoneForUser/);
 
-    // Forbid the legacy outer-snapshot read.
+    // Forbid both the legacy outer-snapshot read AND the round-9
+    // `target.*` form (round 11 replaced both with named locals).
     expect(builderBlock).not.toMatch(/name\s*:\s*customer\.name/);
     expect(builderBlock).not.toMatch(/phone\s*:\s*customer\.phone/);
+    expect(builderBlock).not.toMatch(/name\s*:\s*target\.name/);
+    expect(builderBlock).not.toMatch(/phone\s*:\s*target\.phone/);
   });
 
   it("scenario 4 (happy path unchanged): no concurrent edit → User row matches outer preflight values byte-for-byte (default mock harness path)", async () => {
@@ -3207,7 +3213,11 @@ describe("PR #243 Codex P1+P2 round 10: drop defensive-negation wording near Use
     expect(step7aIdx).toBeGreaterThan(-1);
     const step7aBlock = fnSlice.slice(step7aIdx, step7aIdx + 2000);
     expect(step7aBlock).toMatch(/Source-of-truth columns/);
-    expect(step7aBlock).toMatch(/in-tx Customer snapshot/);
+    // Round 11: the snapshot is described as "in-tx snapshot" in
+    // the step-7a bullets; the explicit "in-transaction Customer
+    // snapshot" phrase lives in the local-declaration comment
+    // immediately above User.create.
+    expect(step7aBlock).toMatch(/in-tx snapshot/);
     // The P1 GUARANTEE block reference must be present.
     expect(step7aBlock).toMatch(/P1 GUARANTEE/);
   });
@@ -3221,7 +3231,7 @@ describe("PR #243 Codex P1+P2 round 10: drop defensive-negation wording near Use
     );
   });
 
-  it("regression: code is unchanged from round 9 — tx.customer.findFirst still selects { id, name, phone } and tx.user.create still reads target.name / target.phone", () => {
+  it("regression: code shape is round-11 — tx.customer.findFirst still selects { id, name, phone } (round 9) and tx.user.create now reads round-11 named locals customerNameForUser / customerPhoneForUser (which are sourced from caseBClaimableCustomer)", () => {
     const src = readFileSync(HELPER_PATH, "utf8");
     const fnStart = src.indexOf(
       "export async function activatePrecreatedCustomerWithLine",
@@ -3231,10 +3241,17 @@ describe("PR #243 Codex P1+P2 round 10: drop defensive-negation wording near Use
     expect(fnSlice).toMatch(
       /select\s*:\s*\{\s*id\s*:\s*true\s*,\s*name\s*:\s*true\s*,\s*phone\s*:\s*true\s*\}/,
     );
-    // User.create reads target.name / target.phone (round 9 code,
-    // unchanged).
-    expect(fnSlice).toMatch(/name\s*:\s*target\.name/);
-    expect(fnSlice).toMatch(/phone\s*:\s*target\.phone/);
+    // Round 11: User.create reads named locals; the locals are
+    // assigned from caseBClaimableCustomer immediately after the
+    // in-tx guard throw.
+    expect(fnSlice).toMatch(/name\s*:\s*customerNameForUser/);
+    expect(fnSlice).toMatch(/phone\s*:\s*customerPhoneForUser/);
+    expect(fnSlice).toMatch(
+      /const\s+customerNameForUser\s*=\s*caseBClaimableCustomer\.name/,
+    );
+    expect(fnSlice).toMatch(
+      /const\s+customerPhoneForUser\s*=\s*caseBClaimableCustomer\.phone/,
+    );
   });
 
   it("P1 contract: all three P1 GUARANTEE sentences still anchored at the three sites (round-7 contract preserved through round-10 reword)", () => {
@@ -3261,6 +3278,294 @@ describe("PR #243 Codex P1+P2 round 10: drop defensive-negation wording near Use
   });
 
   it("runtime regression: happy path still activates with byte-equivalent writes (round 10 is comments-only)", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const { txUserCreate, txAccountCreate, txCustomerUpdateMany } =
+      setupTransaction();
+
+    const r = await activatePrecreatedCustomerWithLine(makeValidInput());
+
+    expect(r).toEqual({
+      status: "activated",
+      customerId: CUSTOMER_ID,
+      userId: NEW_USER_ID,
+    });
+    expect(txUserCreate).toHaveBeenCalledTimes(1);
+    expect(txAccountCreate).toHaveBeenCalledTimes(1);
+    expect(txCustomerUpdateMany).toHaveBeenCalledTimes(1);
+
+    const userData = (txUserCreate.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    expect(userData?.name).toBe(CUSTOMER_NAME);
+    expect(userData?.phone).toBe(CUSTOMER_PHONE);
+    expect(userData).not.toHaveProperty("customer");
+    expect(userData).not.toHaveProperty("connect");
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// 20. PR #243 Codex P1+P2 round 11: name the in-tx guard binding and the
+//     User.create source columns
+//
+//     Round 9 widened the in-tx select to { id, name, phone } and read
+//     `target.name` / `target.phone` directly inside the tx.user.create
+//     call. Codex's static reader kept flagging both P1 and P2 even
+//     after the code shape was correct — the anonymous binding name
+//     `target` and the inline `target.name` / `target.phone` reads
+//     didn't visually anchor the safety contract.
+//
+//     Round 11 renames the binding and pins the source columns to
+//     explicit locals so the guard → consume chain is structurally
+//     obvious:
+//
+//       const caseBClaimableCustomer = await tx.customer.findFirst({
+//         where: { ...Case-B precondition... },
+//         select: { id: true, name: true, phone: true },
+//       });
+//       if (!caseBClaimableCustomer) {
+//         throw new StaleCustomerLinkError(customer.id);
+//       }
+//       const customerNameForUser  = caseBClaimableCustomer.name;
+//       const customerPhoneForUser = caseBClaimableCustomer.phone;
+//       const newUser = await tx.user.create({
+//         data: buildActivationUserCreateData({
+//           customer: {
+//             name:  customerNameForUser,
+//             phone: customerPhoneForUser,
+//           },
+//           oauthProfile: input.oauthProfile,
+//         }),
+//       });
+//
+//     No runtime behaviour change vs round 9 — same writes, same
+//     values, same byte-equivalence vs auth.ts Case B baseline.
+//     The change is structural: the safety property "User row is
+//     built from the in-transaction Customer snapshot" is now visible
+//     in three distinct identifiers (the guard binding, the two
+//     locals) instead of one anonymous variable.
+// ════════════════════════════════════════════════════════════════════════════
+
+describe("PR #243 Codex P1+P2 round 11: name the in-tx guard binding (caseBClaimableCustomer) and the User.create source locals (customerNameForUser / customerPhoneForUser)", () => {
+  const HELPER_PATH = path.resolve(
+    __dirname,
+    "..",
+    "server",
+    "services",
+    "bind-line-to-customer.ts",
+  );
+
+  // ─ P2 source-structure (5 tests) ────────────────────────────────────────
+
+  it("P2 source: tx.customer.findFirst select includes id + name + phone (round 9 code preserved through round 11)", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    const fnStart = src.indexOf(
+      "export async function activatePrecreatedCustomerWithLine",
+    );
+    const fnSlice = src.slice(fnStart);
+    const findFirstIdx = fnSlice.indexOf("tx.customer.findFirst");
+    expect(findFirstIdx).toBeGreaterThan(-1);
+    const findFirstBlock = fnSlice.slice(findFirstIdx, findFirstIdx + 2000);
+    expect(findFirstBlock).toMatch(/select\s*:\s*\{[\s\S]*?id\s*:\s*true/);
+    expect(findFirstBlock).toMatch(/select\s*:\s*\{[\s\S]*?name\s*:\s*true/);
+    expect(findFirstBlock).toMatch(/select\s*:\s*\{[\s\S]*?phone\s*:\s*true/);
+  });
+
+  it("P2 source: customerNameForUser AND customerPhoneForUser are assigned from caseBClaimableCustomer (the in-tx guard result)", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    const fnStart = src.indexOf(
+      "export async function activatePrecreatedCustomerWithLine",
+    );
+    const fnSlice = src.slice(fnStart);
+    // The assignment uses `const` and references caseBClaimableCustomer.
+    expect(fnSlice).toMatch(
+      /const\s+customerNameForUser\s*=\s*caseBClaimableCustomer\.name\s*;/,
+    );
+    expect(fnSlice).toMatch(
+      /const\s+customerPhoneForUser\s*=\s*caseBClaimableCustomer\.phone\s*;/,
+    );
+  });
+
+  it("P2 source: tx.user.create passes customerNameForUser and customerPhoneForUser to buildActivationUserCreateData (NO outer customer.name / customer.phone tokens in the call block)", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    const fnStart = src.indexOf(
+      "export async function activatePrecreatedCustomerWithLine",
+    );
+    const fnSlice = src.slice(fnStart);
+    const builderIdx = fnSlice.indexOf("buildActivationUserCreateData(");
+    expect(builderIdx).toBeGreaterThan(-1);
+    // The call block ends at the closing `})` of the wrapping
+    // tx.user.create — capture 800 chars to be safe.
+    const builderBlock = fnSlice.slice(builderIdx, builderIdx + 800);
+
+    // Required: round-11 named locals.
+    expect(builderBlock).toMatch(/name\s*:\s*customerNameForUser/);
+    expect(builderBlock).toMatch(/phone\s*:\s*customerPhoneForUser/);
+    // Forbid the legacy outer-snapshot read and the round-9
+    // anonymous `target.*` form.
+    expect(builderBlock).not.toMatch(/name\s*:\s*customer\.name/);
+    expect(builderBlock).not.toMatch(/phone\s*:\s*customer\.phone/);
+    expect(builderBlock).not.toMatch(/name\s*:\s*target\.name/);
+    expect(builderBlock).not.toMatch(/phone\s*:\s*target\.phone/);
+  });
+
+  it("P2 source: tx.user.create call block has NO outer `customer.name` / `customer.phone` tokens (anywhere in the 1200 chars surrounding tx.user.create)", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    const fnStart = src.indexOf(
+      "export async function activatePrecreatedCustomerWithLine",
+    );
+    const fnSlice = src.slice(fnStart);
+    const userCreateIdx = fnSlice.indexOf("tx.user.create(");
+    expect(userCreateIdx).toBeGreaterThan(-1);
+    // Window: 200 chars before + 1000 chars after.
+    const windowStart = Math.max(0, userCreateIdx - 200);
+    const window = fnSlice.slice(windowStart, userCreateIdx + 1000);
+
+    // The window must NOT contain `customer.name` or `customer.phone`
+    // as identifiers (these would be the outer preflight snapshot
+    // reads round 11 explicitly forbids near User.create).
+    expect(window).not.toMatch(/\bcustomer\.name\b/);
+    expect(window).not.toMatch(/\bcustomer\.phone\b/);
+  });
+
+  it("P2 behaviour: in-tx target name/phone DIFFER from outer preflight → User.create uses the in-tx values (round-9 contract preserved through round-11 rename)", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(
+      precreatedCustomerFixture({
+        name: "Outer Stale Name",
+        phone: "0900000000",
+      }),
+    );
+    const { txCustomerFindFirst, txUserCreate } = setupTransaction();
+    txCustomerFindFirst.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      name: "In-Tx Fresh Name",
+      phone: "0922222222",
+    });
+
+    await activatePrecreatedCustomerWithLine(makeValidInput());
+
+    const userData = (txUserCreate.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    expect(userData?.name).toBe("In-Tx Fresh Name");
+    expect(userData?.phone).toBe("0922222222");
+    expect(userData?.name).not.toBe("Outer Stale Name");
+    expect(userData?.phone).not.toBe("0900000000");
+  });
+
+  // ─ P1 source-structure (3 tests) ────────────────────────────────────────
+
+  it("P1 source: caseBClaimableCustomer findFirst is positioned BEFORE tx.user.create (in-tx guard before User write)", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    const fnStart = src.indexOf(
+      "export async function activatePrecreatedCustomerWithLine",
+    );
+    const fnSlice = src.slice(fnStart);
+    // Find the named-guard assignment, the throw, and the
+    // tx.user.create call. All three must appear AND be in this
+    // textual order: assignment < throw < user.create.
+    const guardAssignIdx = fnSlice.search(
+      /const\s+caseBClaimableCustomer\s*=\s*await\s+tx\.customer\.findFirst/,
+    );
+    const throwIdx = fnSlice.indexOf("throw new StaleCustomerLinkError");
+    const userCreateIdx = fnSlice.indexOf("tx.user.create(");
+
+    expect(guardAssignIdx).toBeGreaterThan(-1);
+    expect(throwIdx).toBeGreaterThan(-1);
+    expect(userCreateIdx).toBeGreaterThan(-1);
+
+    expect(guardAssignIdx).toBeLessThan(throwIdx);
+    expect(throwIdx).toBeLessThan(userCreateIdx);
+  });
+
+  it("P1 source: tx.user.create appears AFTER the `if (!caseBClaimableCustomer) throw` guard (round-5 ordering with round-11 named binding)", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    const fnStart = src.indexOf(
+      "export async function activatePrecreatedCustomerWithLine",
+    );
+    const fnSlice = src.slice(fnStart);
+    // The `if (!caseBClaimableCustomer) {` literal must precede
+    // tx.user.create.
+    const ifGuardIdx = fnSlice.search(/if\s*\(\s*!caseBClaimableCustomer\s*\)/);
+    const userCreateIdx = fnSlice.indexOf("tx.user.create(");
+    expect(ifGuardIdx).toBeGreaterThan(-1);
+    expect(userCreateIdx).toBeGreaterThan(-1);
+    expect(ifGuardIdx).toBeLessThan(userCreateIdx);
+  });
+
+  it("P1 source: no Customer relation-write in User.create — `customer: { connect: ...` literal absent file-wide; tx.user.create's `data:` is built by buildActivationUserCreateData (whose scalar-only TS return type cannot carry a relation key)", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    // File-wide: zero `customer: { connect: { id: ...` pattern.
+    expect(src).not.toMatch(/customer\s*:\s*\{\s*connect\s*:\s*\{\s*id\s*:/);
+
+    // Find the tx.user.create call and verify its `data:` is the
+    // typed builder call (NOT an inline literal). TypeScript then
+    // enforces the absence of any Prisma relation key in the
+    // resulting data shape, via buildActivationUserCreateData's
+    // declared scalar-only return type.
+    const fnStart = src.indexOf(
+      "export async function activatePrecreatedCustomerWithLine",
+    );
+    const fnSlice = src.slice(fnStart);
+    const userCreateIdx = fnSlice.indexOf("tx.user.create(");
+    expect(userCreateIdx).toBeGreaterThan(-1);
+    // Capture the call's argument shape using a balanced-paren walk.
+    let depth = 0;
+    let endIdx = userCreateIdx;
+    for (let i = userCreateIdx; i < fnSlice.length; i++) {
+      const c = fnSlice[i];
+      if (c === "(") depth++;
+      else if (c === ")") {
+        depth--;
+        if (depth === 0) {
+          endIdx = i + 1;
+          break;
+        }
+      }
+    }
+    const callBlock = fnSlice.slice(userCreateIdx, endIdx);
+
+    // Required: `data:` is built by the typed scalar-only builder.
+    expect(callBlock).toMatch(
+      /data\s*:\s*buildActivationUserCreateData\s*\(/,
+    );
+    // Forbid an INLINE `data: { ... customer: ...` literal — that
+    // would bypass the TS-enforced scalar-only contract.
+    expect(callBlock).not.toMatch(
+      /data\s*:\s*\{[\s\S]*?\bcustomer\s*:\s*\{[\s\S]*?\bconnect\b/,
+    );
+    // Forbid a bare `connect:` key inside the call block.
+    expect(callBlock).not.toMatch(/\bconnect\s*:/);
+  });
+
+  // ─ P1 behaviour (1 test) ────────────────────────────────────────────────
+
+  it("P1 behaviour: in-tx guard returns null (caseBClaimableCustomer = null) → throw → NO user.create / NO account.create / NO updateMany; returns stale_customer_link", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const {
+      txCustomerFindFirst,
+      txUserCreate,
+      txAccountCreate,
+      txCustomerUpdateMany,
+    } = setupTransaction();
+    txCustomerFindFirst.mockResolvedValueOnce(null);
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const r = await activatePrecreatedCustomerWithLine(makeValidInput());
+
+    expect(r).toEqual({
+      status: "stale_customer_link",
+      customerId: CUSTOMER_ID,
+    });
+    expect(txCustomerFindFirst).toHaveBeenCalledTimes(1);
+    // The guard threw → none of the three writes ran.
+    expect(txUserCreate).not.toHaveBeenCalled();
+    expect(txAccountCreate).not.toHaveBeenCalled();
+    expect(txCustomerUpdateMany).not.toHaveBeenCalled();
+  });
+
+  // ─ Runtime regression (1 test) ──────────────────────────────────────────
+
+  it("runtime regression: happy path still activates with byte-equivalent writes (round 11 is rename-only — no behavioural change vs round 9)", async () => {
     mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
     const { txUserCreate, txAccountCreate, txCustomerUpdateMany } =
       setupTransaction();

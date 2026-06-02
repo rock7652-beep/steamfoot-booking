@@ -1318,13 +1318,15 @@ async function runFullBindTx(params: {
 //    (byte-equivalent vs auth.ts Case B baseline lines 622-632 for the
 //    User row itself, when no concurrent staff edit occurs between
 //    preflight and tx-start):
-//      - name:     target.name             ← in-tx snapshot from the
+//      - name:     customerNameForUser     ← in-tx snapshot from the
 //                                            step-7-pre findFirst guard
-//                                            (PR #243 Codex P2 round 9)
+//                                            (PR #243 Codex P2 round 9
+//                                            + round 11 named locals)
 //      - email:    oauthEmail               (oauthProfile.email here)
-//      - phone:    target.phone || null    ← in-tx snapshot from the
+//      - phone:    customerPhoneForUser    ← in-tx snapshot from the
 //                                            step-7-pre findFirst guard
-//                                            (PR #243 Codex P2 round 9)
+//                                            (PR #243 Codex P2 round 9
+//                                            + round 11 named locals)
 //      - role:     "CUSTOMER"
 //      - status:   "ACTIVE"
 //      - image:    oauthImage               (oauthProfile.image here)
@@ -1808,15 +1810,17 @@ export async function activatePrecreatedCustomerWithLine(
         //   "guard before connecting the customer" property visible
         //   at the top of the tx callback (PR #243 Codex P1).
         //
-        //   ⚠ PR #243 Codex P2 round 9: the findFirst select includes
+        //   PR #243 Codex P2 round 9: the findFirst select includes
         //   `name` and `phone` so the User row is built from the
-        //   in-transaction Customer snapshot returned here. If staff
-        //   edits Customer.name / Customer.phone between preflight
-        //   (step 2) and tx-start (step 7-pre), the User row reflects
-        //   the post-edit values. The guard thus carries data that
-        //   the next statement consumes (load-bearing), not just an
-        //   existence check.
-        const target = await tx.customer.findFirst({
+        //   in-transaction Customer snapshot. The guard carries data
+        //   that the next statement consumes (load-bearing), not just
+        //   an existence check.
+        //
+        //   PR #243 Codex P1+P2 round 11: the guard result is bound to
+        //   `caseBClaimableCustomer` — a named variable that makes
+        //   the guard structurally visible at every consumer site
+        //   below (User.name / User.phone reads).
+        const caseBClaimableCustomer = await tx.customer.findFirst({
           where: {
             id: customer.id,
             storeId: input.storeId,
@@ -1841,22 +1845,25 @@ export async function activatePrecreatedCustomerWithLine(
           // preflight and tx-start is reflected in the new User row.
           select: { id: true, name: true, phone: true },
         });
-        if (!target) {
+        if (!caseBClaimableCustomer) {
           throw new StaleCustomerLinkError(customer.id);
         }
+
+        // PR #243 Codex P1+P2 round 11: pin the User-row identity
+        // columns to explicit locals sourced from the in-tx guard
+        // result. The User row is built from the in-transaction
+        // Customer snapshot.
+        const customerNameForUser = caseBClaimableCustomer.name;
+        const customerPhoneForUser = caseBClaimableCustomer.phone;
 
         // 7a. Create User — byte-equivalent to auth.ts Case B baseline
         //     for the User-row columns (lines 622-632): name, email,
         //     phone, role, status, image.
         //
-        //     Source-of-truth columns (PR #243 Codex P2 round 9):
-        //       - User.name  ← target.name  (in-tx Customer snapshot
-        //                                    from step 7-pre)
-        //       - User.phone ← target.phone (in-tx Customer snapshot
-        //                                    from step 7-pre)
-        //     Reading from the in-tx `target` ensures the User row
-        //     reflects the freshest Customer data even if staff edited
-        //     between preflight (step 2) and tx-start.
+        //     Source-of-truth columns (PR #243 Codex P2 round 9 +
+        //     round 11 named locals):
+        //       - User.name  ← customerNameForUser  (in-tx snapshot)
+        //       - User.phone ← customerPhoneForUser (in-tx snapshot)
         //
         //     P1 GUARANTEE (see contract block above the helper
         //     declaration):
@@ -1872,7 +1879,10 @@ export async function activatePrecreatedCustomerWithLine(
         //          contract block above buildActivationCustomerUpdateData.
         const newUser = await tx.user.create({
           data: buildActivationUserCreateData({
-            customer: { name: target.name, phone: target.phone },
+            customer: {
+              name: customerNameForUser,
+              phone: customerPhoneForUser,
+            },
             oauthProfile: input.oauthProfile,
           }),
         });
