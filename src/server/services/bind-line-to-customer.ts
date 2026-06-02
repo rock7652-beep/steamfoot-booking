@@ -1351,11 +1351,16 @@ async function runFullBindTx(params: {
 //                                              fallback chain: prefers
 //                                              input.lineName, then
 //                                              input.oauthProfile.name,
-//                                              else null. Final truthy
-//                                              guard mirrors baseline
-//                                              `if (oauthName)` (rejects
-//                                              null AND empty string).
-//                                              PR #243 Codex P2 round 8.
+//                                              else the baseline literal
+//                                              "顧客" (matches auth.ts
+//                                              line 409 `?? "顧客"` floor).
+//                                              Result is always a non-empty
+//                                              string, so Customer.lineName
+//                                              is always written (matching
+//                                              baseline's `if (oauthName)`
+//                                              which is always true once
+//                                              "顧客" is the floor).
+//                                              PR #243 Codex P2 round 14.
 //
 //    Items intentionally NOT done by this helper (post-tx best-effort in
 //    baseline — PR-G5.5 keeps them OUTSIDE the tx as today):
@@ -1636,7 +1641,7 @@ function buildActivationUserCreateData(args: {
 /**
  * Derive the effective LINE display name for Customer.lineName,
  * mirroring auth.ts Case B's `oauthName` derivation (PR #243 Codex
- * P2 round 8).
+ * P2 round 8 + round 14).
  *
  * Baseline (`src/lib/auth.ts` lines 409 + 656):
  *   const oauthName = user.name ?? "顧客";
@@ -1645,26 +1650,33 @@ function buildActivationUserCreateData(args: {
  *
  * The caller (PR-G5.5) may pre-derive this value and pass it via
  * `input.lineName`, OR it may pass `input.lineName = null` and rely
- * on the helper to fall back to `input.oauthProfile.name`. This
- * function makes both call shapes byte-equivalent vs baseline.
+ * on the helper to fall back to `input.oauthProfile.name` — and if
+ * BOTH sources are missing, the helper falls back to the baseline
+ * literal "顧客" so the Customer.lineName column is always populated
+ * (round 14 — byte-equivalent vs baseline).
  *
  * Truthy-OR fallback chain:
- *   1. input.lineName  (if truthy — non-empty string wins)
- *   2. input.oauthProfile.name  (if truthy)
- *   3. null  (sentinel — `buildActivationCustomerUpdateData` omits
- *      the lineName key entirely when null/falsy)
+ *   1. input.lineName            (if truthy — non-empty string wins)
+ *   2. input.oauthProfile.name   (if truthy)
+ *   3. "顧客"                    (baseline literal — matches
+ *                                 auth.ts line 409 `user.name ?? "顧客"`)
  *
  * Semantics (matches auth.ts Case B baseline byte-for-byte):
  *   - lineName = "LINE display"                          → "LINE display"
  *   - lineName = null,  oauthProfile.name = "Profile"    → "Profile"
  *   - lineName = "",    oauthProfile.name = "Profile"    → "Profile"
- *   - lineName = null,  oauthProfile.name = null         → null  (omit)
- *   - lineName = "",    oauthProfile.name = ""           → null  (omit)
- *   - lineName = null,  oauthProfile.name = undefined    → null  (omit)
+ *   - lineName = null,  oauthProfile.name = null         → "顧客"
+ *   - lineName = "",    oauthProfile.name = ""           → "顧客"
+ *   - lineName = null,  oauthProfile.name = undefined    → "顧客"
  *
  * Empty string handling: `||` (NOT `??`) so empty string falls
- * through to the next fallback — matches the auth.ts baseline's
- * `if (oauthName)` truthy guard which rejects "".
+ * through to the next fallback. Final "顧客" literal is always
+ * truthy, so the result is ALWAYS a non-empty string — the
+ * downstream `if (params.lineName)` guard in
+ * `buildActivationCustomerUpdateData` always passes, and
+ * Customer.lineName is always written (matching baseline's
+ * `if (oauthName)` which is always true since oauthName has the
+ * same "顧客" floor).
  *
  * Pure function — no side effects, no DB I/O, no time-dependent
  * values; safe to call inside the tx callback or outside.
@@ -1672,8 +1684,8 @@ function buildActivationUserCreateData(args: {
 function deriveEffectiveLineName(input: {
   lineName: string | null;
   oauthProfile: { name?: string | null | undefined };
-}): string | null {
-  return input.lineName || input.oauthProfile.name || null;
+}): string {
+  return input.lineName || input.oauthProfile.name || "顧客";
 }
 
 /**
@@ -1924,11 +1936,12 @@ export async function activatePrecreatedCustomerWithLine(
           data: buildActivationCustomerUpdateData({
             userId: newUser.id,
             lineUserId: input.lineUserId,
-            // PR #243 Codex P2 round 8: byte-equivalent vs auth.ts
-            // Case B (`oauthName = user.name ?? "顧客"` then
+            // PR #243 Codex P2 rounds 8 + 14: byte-equivalent vs
+            // auth.ts Case B (`oauthName = user.name ?? "顧客"` then
             // `if (oauthName) updateData.lineName = oauthName`).
-            // Caller may pass null lineName and rely on the
-            // oauthProfile.name fallback here.
+            // The helper preserves baseline's "顧客" floor — if both
+            // input.lineName and input.oauthProfile.name are falsy,
+            // Customer.lineName is written as "顧客".
             lineName: deriveEffectiveLineName(input),
           }),
         });

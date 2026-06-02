@@ -394,15 +394,13 @@ describe("byte-equivalent baseline vs auth.ts Case B (lines 620-687)", () => {
     });
   });
 
-  it("Customer.updateMany OMITS lineName field when input.lineName is null AND oauthProfile.name is null (matches baseline `if (oauthName)` guard at auth.ts line 656) — PR #243 round 8: helper now derives effectiveLineName via input.lineName || oauthProfile.name fallback, so BOTH must be falsy to omit", async () => {
+  it("Customer.updateMany writes lineName = '顧客' when input.lineName is null AND oauthProfile.name is null — PR #243 round 14: baseline `user.name ?? \"顧客\"` floor preserved end-to-end", async () => {
     mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
     const { txCustomerUpdateMany } = setupTransaction();
 
     await activatePrecreatedCustomerWithLine(
       makeValidInput({
         lineName: null,
-        // Round 8 fallback: oauthProfile.name must also be falsy
-        // for the final truthy guard to omit the lineName key.
         oauthProfile: {
           email: OAUTH_EMAIL,
           image: OAUTH_IMAGE,
@@ -415,9 +413,11 @@ describe("byte-equivalent baseline vs auth.ts Case B (lines 620-687)", () => {
       data?: Record<string, unknown>;
     })?.data;
     expect(data).toBeDefined();
-    // Baseline: `if (oauthName) updateData.lineName = oauthName;` — null
-    // means the field is OMITTED, not written as null.
-    expect(data).not.toHaveProperty("lineName");
+    // Round 14: when both sources are falsy the helper falls back
+    // to the baseline literal "顧客", matching auth.ts line 409
+    // `user.name ?? "顧客"`. The downstream truthy guard always
+    // passes once "顧客" is the floor.
+    expect(data?.lineName).toBe("顧客");
     // Other fields still present.
     expect(data).toHaveProperty("userId", NEW_USER_ID);
     expect(data).toHaveProperty("authSource", "LINE");
@@ -1229,7 +1229,7 @@ describe("P2 round 1 (Codex): truthy lineName guard (matches baseline `if (oauth
     expect(data).toHaveProperty("lineName", "Alice");
   });
 
-  it("lineName = '' (empty string) AND oauthProfile.name = '' → Customer.updateMany.data OMITS lineName (would otherwise blank a stored displayName) — PR #243 round 8: both must be falsy after the fallback chain", async () => {
+  it("lineName = '' AND oauthProfile.name = '' → Customer.updateMany.data writes lineName = '顧客' (PR #243 round 14: baseline floor preserved)", async () => {
     mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
     const { txCustomerUpdateMany } = setupTransaction();
 
@@ -1243,16 +1243,17 @@ describe("P2 round 1 (Codex): truthy lineName guard (matches baseline `if (oauth
     const data = (txCustomerUpdateMany.mock.calls[0]?.[0] as {
       data?: Record<string, unknown>;
     })?.data;
-    expect(data).not.toHaveProperty("lineName");
+    // Round 14: both falsy → fallback to "顧客". The truthy guard in
+    // buildActivationCustomerUpdateData is still in place but now
+    // always passes at this call site (since "顧客" is truthy).
+    expect(data?.lineName).toBe("顧客");
     // Other fields still present.
     expect(data).toHaveProperty("userId", NEW_USER_ID);
     expect(data).toHaveProperty("authSource", "LINE");
     expect(data).toHaveProperty("lineUserId", LINE_USER_ID);
   });
 
-  it("lineName = null AND oauthProfile.name = null → Customer.updateMany.data OMITS lineName (baseline `if (oauthName)`) — PR #243 round 8: both must be falsy after the fallback chain", async () => {
-    // Already covered by section #2 above, re-asserted here under
-    // the round-1 P2 grouping for completeness.
+  it("lineName = null AND oauthProfile.name = null → Customer.updateMany.data writes lineName = '顧客' (PR #243 round 14: baseline floor preserved)", async () => {
     mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
     const { txCustomerUpdateMany } = setupTransaction();
 
@@ -1266,7 +1267,7 @@ describe("P2 round 1 (Codex): truthy lineName guard (matches baseline `if (oauth
     const data = (txCustomerUpdateMany.mock.calls[0]?.[0] as {
       data?: Record<string, unknown>;
     })?.data;
-    expect(data).not.toHaveProperty("lineName");
+    expect(data?.lineName).toBe("顧客");
   });
 
   it("source: buildActivationCustomerUpdateData uses a TRUTHY guard `if (params.lineName)` — NOT `if (params.lineName !== null)` (regression sentinel for P2 round 1)", () => {
@@ -2743,7 +2744,7 @@ describe("PR #243 Codex P2 round 8: preserve Case B lineName fallback (input.lin
     expect(data?.lineName).toBe("Profile Name");
   });
 
-  it("scenario 4 — lineName = null + oauthProfile.name = null → omits lineName (both falsy)", async () => {
+  it("scenario 4 (round 14) — lineName = null + oauthProfile.name = null → writes lineName = '顧客' (baseline floor preserved)", async () => {
     mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
     const { txCustomerUpdateMany } = setupTransaction();
 
@@ -2761,14 +2762,14 @@ describe("PR #243 Codex P2 round 8: preserve Case B lineName fallback (input.lin
     const data = (txCustomerUpdateMany.mock.calls[0]?.[0] as {
       data?: Record<string, unknown>;
     })?.data;
-    expect(data).not.toHaveProperty("lineName");
-    // Other fields unaffected by the omitted lineName.
+    expect(data?.lineName).toBe("顧客");
+    // Other fields unaffected.
     expect(data?.userId).toBe(NEW_USER_ID);
     expect(data?.lineUserId).toBe(LINE_USER_ID);
     expect(data?.authSource).toBe("LINE");
   });
 
-  it("scenario 4b — lineName = null + oauthProfile.name = undefined → omits lineName (final null sentinel)", async () => {
+  it("scenario 4b (round 14) — lineName = null + oauthProfile.name = undefined → writes lineName = '顧客' (baseline floor preserved)", async () => {
     mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
     const { txCustomerUpdateMany } = setupTransaction();
 
@@ -2786,10 +2787,10 @@ describe("PR #243 Codex P2 round 8: preserve Case B lineName fallback (input.lin
     const data = (txCustomerUpdateMany.mock.calls[0]?.[0] as {
       data?: Record<string, unknown>;
     })?.data;
-    expect(data).not.toHaveProperty("lineName");
+    expect(data?.lineName).toBe("顧客");
   });
 
-  it("scenario 5 — lineName = '' + oauthProfile.name = '' → omits lineName (both empty string, both fall through)", async () => {
+  it("scenario 5 (round 14) — lineName = '' + oauthProfile.name = '' → writes lineName = '顧客' (both empty fall through to baseline floor)", async () => {
     mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
     const { txCustomerUpdateMany } = setupTransaction();
 
@@ -2807,10 +2808,10 @@ describe("PR #243 Codex P2 round 8: preserve Case B lineName fallback (input.lin
     const data = (txCustomerUpdateMany.mock.calls[0]?.[0] as {
       data?: Record<string, unknown>;
     })?.data;
-    expect(data).not.toHaveProperty("lineName");
+    expect(data?.lineName).toBe("顧客");
   });
 
-  it("scenario 6 (source-structure) — `deriveEffectiveLineName` uses a truthy-OR chain (`||`), NOT a null-only nullish coalesce (`??`)", () => {
+  it("scenario 6 (source-structure) — `deriveEffectiveLineName` uses a truthy-OR chain (`||`) ending at the baseline floor `\"顧客\"` (round 14), NOT a null-only nullish coalesce (`??`)", () => {
     const src = readFileSync(HELPER_PATH, "utf8");
     const fnStart = src.indexOf("function deriveEffectiveLineName");
     expect(fnStart).toBeGreaterThan(-1);
@@ -2818,15 +2819,21 @@ describe("PR #243 Codex P2 round 8: preserve Case B lineName fallback (input.lin
     const termRel = tail.search(/\n}\n\n/);
     const fnBody = termRel >= 0 ? tail.slice(0, termRel + 2) : tail;
 
-    // Required: pure `||` chain, ending at `null` sentinel.
+    // Round 14 required shape: `||` chain ending at the literal "顧客".
     expect(fnBody).toMatch(
-      /return\s+input\.lineName\s*\|\|\s*input\.oauthProfile\.name\s*\|\|\s*null/,
+      /return\s+input\.lineName\s*\|\|\s*input\.oauthProfile\.name\s*\|\|\s*"顧客"/,
     );
     // Forbidden: `??` would let empty string through and pin to the
     // first non-null value (wrong: empty string should fall through
     // to the next fallback per baseline `if (oauthName)` semantics).
     expect(fnBody).not.toMatch(/input\.lineName\s*\?\?\s*input\.oauthProfile\.name/);
     expect(fnBody).not.toMatch(/input\.oauthProfile\.name\s*\?\?\s*null/);
+    expect(fnBody).not.toMatch(/input\.oauthProfile\.name\s*\?\?\s*"顧客"/);
+    // Forbidden: the round-8 final `|| null` shape (replaced by
+    // the `|| "顧客"` floor in round 14).
+    expect(fnBody).not.toMatch(
+      /return\s+input\.lineName\s*\|\|\s*input\.oauthProfile\.name\s*\|\|\s*null/,
+    );
   });
 
   it("scenario 6b (source-structure) — call site passes `deriveEffectiveLineName(input)` (NOT raw `input.lineName`) to buildActivationCustomerUpdateData", () => {
@@ -4101,5 +4108,221 @@ describe("PR #243 Codex P1+P2 round 13: make tx.user.create inert — `data: act
     expect(txUserCreate).not.toHaveBeenCalled();
     expect(txAccountCreate).not.toHaveBeenCalled();
     expect(txCustomerUpdateMany).not.toHaveBeenCalled();
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// 23. PR #243 Codex P2 round 14: preserve the baseline "顧客" floor for
+//     missing LINE names
+//
+//     Codex re-review surfaced a new P2: when both `input.lineName`
+//     and `input.oauthProfile.name` are falsy, the round-8 helper
+//     returned `null` and the downstream truthy guard omitted
+//     Customer.lineName. Baseline auth.ts Case B has a different
+//     contract: `oauthName = user.name ?? "顧客"` (line 409) always
+//     produces a non-empty string (the "顧客" floor), and
+//     `if (oauthName) updateData.lineName = oauthName` (line 656)
+//     ALWAYS writes Customer.lineName.
+//
+//     Round 14 closes the gap by changing `deriveEffectiveLineName`'s
+//     final fallback from `null` to the baseline literal `"顧客"`.
+//     The result is byte-equivalent vs baseline for all six input
+//     shapes:
+//
+//       lineName            oauthProfile.name      → effective       Customer.lineName
+//       --------            -----------------      → -----------     ----------------
+//       "LINE display"      *                      → "LINE display"  written
+//       null                "Profile"              → "Profile"       written
+//       ""                  "Profile"              → "Profile"       written
+//       null                null                   → "顧客"          written (round 14 fix)
+//       ""                  ""                     → "顧客"          written (round 14 fix)
+//       null                undefined              → "顧客"          written (round 14 fix)
+//
+//     The downstream `if (params.lineName)` truthy guard in
+//     `buildActivationCustomerUpdateData` is unchanged. The guard
+//     still rejects `null` / `""` if any future caller bypasses
+//     `deriveEffectiveLineName`, but with the round-14 floor the
+//     activation helper's call site ALWAYS passes a truthy string,
+//     so the guard always passes at this site (matching baseline's
+//     `if (oauthName)` semantics).
+// ════════════════════════════════════════════════════════════════════════════
+
+describe("PR #243 Codex P2 round 14: preserve baseline `\"顧客\"` floor for missing LINE names", () => {
+  const HELPER_PATH = path.resolve(
+    __dirname,
+    "..",
+    "server",
+    "services",
+    "bind-line-to-customer.ts",
+  );
+
+  // ─ User-spec sentinels ──────────────────────────────────────────────────
+
+  it("1. lineName null + oauthProfile.name null → writes lineName = '顧客'", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const { txCustomerUpdateMany } = setupTransaction();
+
+    await activatePrecreatedCustomerWithLine(
+      makeValidInput({
+        lineName: null,
+        oauthProfile: { email: OAUTH_EMAIL, image: OAUTH_IMAGE, name: null },
+      }),
+    );
+
+    const data = (txCustomerUpdateMany.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    expect(data?.lineName).toBe("顧客");
+  });
+
+  it("2. lineName '' + oauthProfile.name '' → writes lineName = '顧客'", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const { txCustomerUpdateMany } = setupTransaction();
+
+    await activatePrecreatedCustomerWithLine(
+      makeValidInput({
+        lineName: "",
+        oauthProfile: { email: OAUTH_EMAIL, image: OAUTH_IMAGE, name: "" },
+      }),
+    );
+
+    const data = (txCustomerUpdateMany.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    expect(data?.lineName).toBe("顧客");
+  });
+
+  it("3. lineName null + oauthProfile.name undefined → writes lineName = '顧客'", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const { txCustomerUpdateMany } = setupTransaction();
+
+    await activatePrecreatedCustomerWithLine(
+      makeValidInput({
+        lineName: null,
+        oauthProfile: {
+          email: OAUTH_EMAIL,
+          image: OAUTH_IMAGE,
+          name: undefined,
+        },
+      }),
+    );
+
+    const data = (txCustomerUpdateMany.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    expect(data?.lineName).toBe("顧客");
+  });
+
+  // ─ Existing fallback tests still pass (regression) ─────────────────────
+
+  it("4a (regression): lineName 'LINE display' + oauthProfile.name 'Fallback' → writes 'LINE display' (lineName wins)", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const { txCustomerUpdateMany } = setupTransaction();
+
+    await activatePrecreatedCustomerWithLine(
+      makeValidInput({
+        lineName: "LINE display",
+        oauthProfile: {
+          email: OAUTH_EMAIL,
+          image: OAUTH_IMAGE,
+          name: "Fallback",
+        },
+      }),
+    );
+
+    const data = (txCustomerUpdateMany.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    expect(data?.lineName).toBe("LINE display");
+  });
+
+  it("4b (regression): lineName null + oauthProfile.name 'Profile' → writes 'Profile' (oauthProfile.name fallback)", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const { txCustomerUpdateMany } = setupTransaction();
+
+    await activatePrecreatedCustomerWithLine(
+      makeValidInput({
+        lineName: null,
+        oauthProfile: {
+          email: OAUTH_EMAIL,
+          image: OAUTH_IMAGE,
+          name: "Profile",
+        },
+      }),
+    );
+
+    const data = (txCustomerUpdateMany.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    expect(data?.lineName).toBe("Profile");
+  });
+
+  it("4c (regression): lineName '' + oauthProfile.name 'Profile' → writes 'Profile' (empty falls through to fallback)", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const { txCustomerUpdateMany } = setupTransaction();
+
+    await activatePrecreatedCustomerWithLine(
+      makeValidInput({
+        lineName: "",
+        oauthProfile: {
+          email: OAUTH_EMAIL,
+          image: OAUTH_IMAGE,
+          name: "Profile",
+        },
+      }),
+    );
+
+    const data = (txCustomerUpdateMany.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    expect(data?.lineName).toBe("Profile");
+  });
+
+  // ─ Source-structure: the literal floor is "顧客" ────────────────────────
+
+  it("5. source: `deriveEffectiveLineName` fallback string is the literal `\"顧客\"` (NOT `null`, NOT another sentinel)", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    const fnStart = src.indexOf("function deriveEffectiveLineName");
+    expect(fnStart).toBeGreaterThan(-1);
+    const tail = src.slice(fnStart);
+    const termRel = tail.search(/\n}\n\n/);
+    const fnBody = termRel >= 0 ? tail.slice(0, termRel + 2) : tail;
+
+    // Required: the final `|| "顧客"` floor.
+    expect(fnBody).toMatch(
+      /return\s+input\.lineName\s*\|\|\s*input\.oauthProfile\.name\s*\|\|\s*"顧客"\s*;/,
+    );
+    // Return type is now `string` (the floor guarantees non-null).
+    expect(fnBody).toMatch(/\}\s*\)\s*:\s*string\s*\{/);
+    // Forbid the round-8 `|| null` shape.
+    expect(fnBody).not.toMatch(
+      /return\s+input\.lineName\s*\|\|\s*input\.oauthProfile\.name\s*\|\|\s*null/,
+    );
+  });
+
+  // ─ Customer.updateMany.data includes lineName "顧客" in missing-name case ─
+
+  it("6. Customer.updateMany.data includes lineName = '顧客' in the missing-name case (end-to-end through the activation helper)", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const { txCustomerUpdateMany } = setupTransaction();
+
+    await activatePrecreatedCustomerWithLine(
+      makeValidInput({
+        lineName: null,
+        oauthProfile: { email: OAUTH_EMAIL, image: OAUTH_IMAGE, name: null },
+      }),
+    );
+
+    expect(txCustomerUpdateMany).toHaveBeenCalledTimes(1);
+    const data = (txCustomerUpdateMany.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    // Round 14: the lineName key IS written with the baseline floor.
+    expect(data).toHaveProperty("lineName", "顧客");
+    // The byte-equivalent Customer.updateMany shape is preserved.
+    expect(data?.userId).toBe(NEW_USER_ID);
+    expect(data?.authSource).toBe("LINE");
+    expect(data?.lineUserId).toBe(LINE_USER_ID);
+    expect(data?.lineLinkStatus).toBe("LINKED");
   });
 });
