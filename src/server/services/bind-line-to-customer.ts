@@ -1472,35 +1472,46 @@ export type ActivatePrecreatedCustomerWithLineResult =
  * activation tx (parallel to `buildFullBindCustomerWhere` from
  * PR-G5.1.a / PR #242 Codex P2 round 14).
  *
- * The 5-predicate where enforces, AT TX-WRITE TIME:
+ * The where enforces, AT TX-WRITE TIME:
  *   - `id`                    — identity
  *   - `storeId`               — store authorization (defense-in-depth)
  *   - `userId: null`          — Case B precondition (no User attached)
- *   - `lineUserId: null`      — no prior LINE binding (TOCTOU + drift)
  *   - `mergedIntoCustomerId: null` — not a merged source row
+ *   - `lineUserId` is either `null` OR the input `lineUserId` — accepts
+ *     both the "fresh staff-precreated" Customer (no prior LINE binding)
+ *     AND the "same-LINE placeholder" Customer that the existing
+ *     `/oauth-confirm` NEW_USER flow creates (Customer.lineUserId
+ *     pre-populated with the user's LINE id, Customer.userId still
+ *     null — PR #243 Codex P2 round 6). Rejects any OTHER lineUserId
+ *     (preflight at step 6 catches that case earlier).
  *
- * If any predicate fails (race between preflight and tx-write), the
- * updateMany matches 0 rows; the helper throws StaleCustomerLinkError
- * inside the tx callback and Prisma rolls back, leaving no orphan
- * User or Account behind. Named typed-return-shape so Codex's static
- * reader anchors on the contract.
+ * If any predicate fails (race between preflight and tx-write, OR
+ * the Customer has been mutated into a state this helper can't
+ * activate), the updateMany matches 0 rows; the helper throws
+ * StaleCustomerLinkError inside the tx callback and Prisma rolls
+ * back, leaving no orphan User or Account behind. Named
+ * typed-return-shape so Codex's static reader anchors on the contract.
  */
 function buildActivationCustomerWhere(params: {
   storeId: string;
   customerId: string;
+  lineUserId: string;
 }): {
   id: string;
   storeId: string;
   userId: null;
-  lineUserId: null;
   mergedIntoCustomerId: null;
+  OR: Array<{ lineUserId: null } | { lineUserId: string }>;
 } {
   return {
     id: params.customerId,
     storeId: params.storeId,
     userId: null,
-    lineUserId: null,
     mergedIntoCustomerId: null,
+    OR: [
+      { lineUserId: null },
+      { lineUserId: params.lineUserId },
+    ],
   };
 }
 
@@ -1677,16 +1688,18 @@ export async function activatePrecreatedCustomerWithLine(
   try {
     await prisma.$transaction(
       async (tx) => {
-        // 7-pre. Case-B in-tx guard (PR #243 Codex P1 round 5).
+        // 7-pre. Case-B in-tx guard (PR #243 Codex P1 round 5 + P2 round 6).
         //
         //   The Case-B precondition state (Customer.userId === null,
-        //   lineUserId === null, not merged) is re-verified inside the
-        //   transaction BEFORE any write. If the Customer drifted
-        //   between the main helper's preflight read and the tx-start
-        //   (concurrent activation, merge, or any other state change),
-        //   findFirst returns null and we throw StaleCustomerLinkError
-        //   BEFORE creating User. Prisma rolls back; tx.user.create
-        //   and tx.account.create are structurally unreachable.
+        //   not merged, AND lineUserId is either null OR the input
+        //   lineUserId — same-LINE placeholder allowed) is re-verified
+        //   inside the transaction BEFORE any write. If the Customer
+        //   drifted between the main helper's preflight read and the
+        //   tx-start (concurrent activation, merge, or any state
+        //   change that breaks the activation precondition), findFirst
+        //   returns null and we throw StaleCustomerLinkError BEFORE
+        //   creating User. Prisma rolls back; tx.user.create and
+        //   tx.account.create are structurally unreachable.
         //
         //   The conditional Customer.updateMany at step 7c remains as
         //   a CAS — defense-in-depth. The findFirst here makes the
@@ -1697,8 +1710,20 @@ export async function activatePrecreatedCustomerWithLine(
             id: customer.id,
             storeId: input.storeId,
             userId: null,
-            lineUserId: null,
             mergedIntoCustomerId: null,
+            // PR #243 Codex P2 round 6: accept BOTH "fresh" Customer
+            // (lineUserId === null) AND "same-LINE placeholder"
+            // Customer (lineUserId === input.lineUserId). The
+            // existing `/oauth-confirm` NEW_USER flow creates the
+            // latter — Customer.lineUserId is populated but
+            // Customer.userId is still null. The helper MUST allow
+            // both shapes to activate; the only rejection on the
+            // lineUserId dimension is "different LINE attached"
+            // (caught by step 6 preflight before we get here).
+            OR: [
+              { lineUserId: null },
+              { lineUserId: input.lineUserId },
+            ],
           },
           select: { id: true },
         });
@@ -1764,12 +1789,14 @@ export async function activatePrecreatedCustomerWithLine(
 
         // 7c. Conditional Customer.updateMany — TOCTOU + drift guard.
         //     where requires Customer is STILL in Case B precondition state
-        //     (userId === null, lineUserId === null, not merged) at
-        //     tx-write boundary.
+        //     at tx-write boundary: userId === null, not merged, AND
+        //     lineUserId is either null OR the input lineUserId
+        //     (same-LINE placeholder — PR #243 Codex P2 round 6).
         const updated = await tx.customer.updateMany({
           where: buildActivationCustomerWhere({
             storeId: input.storeId,
             customerId: customer.id,
+            lineUserId: input.lineUserId,
           }),
           data: buildActivationCustomerUpdateData({
             userId: newUser.id,

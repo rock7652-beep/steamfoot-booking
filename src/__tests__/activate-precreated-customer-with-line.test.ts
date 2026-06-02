@@ -358,8 +358,14 @@ describe("byte-equivalent baseline vs auth.ts Case B (lines 620-687)", () => {
       id: CUSTOMER_ID,
       storeId: STORE_ID,
       userId: null,
-      lineUserId: null,
       mergedIntoCustomerId: null,
+      // PR #243 Codex P2 round 6: lineUserId predicate accepts null
+      // (fresh staff-precreated) OR input.lineUserId (same-LINE
+      // placeholder created by /oauth-confirm NEW_USER flow).
+      OR: [
+        { lineUserId: null },
+        { lineUserId: LINE_USER_ID },
+      ],
     });
     expect(arg?.data).toEqual({
       userId: NEW_USER_ID,
@@ -516,36 +522,41 @@ describe("pre-write guards (every rejection branch is 0 DB writes)", () => {
     expect(mockTx).not.toHaveBeenCalled();
   });
 
-  it("customer.lineUserId === input.lineUserId (drift state with userId === null) → falls through to tx; the conditional updateMany count=0 returns stale_customer_link", async () => {
-    // Edge case: Customer.userId is null (Case B precondition) BUT
-    // Customer.lineUserId already equals input.lineUserId. This is
-    // drift state — the conditional updateMany's `lineUserId: null`
-    // predicate fails at tx-write boundary; helper returns
-    // stale_customer_link instead of activating.
+  it("P2 round 6 same-LINE placeholder: customer.lineUserId === input.lineUserId (userId === null) is a LEGITIMATE activation target, NOT drift — both in-tx findFirst and updateMany accept it (OR clause)", async () => {
+    // /oauth-confirm NEW_USER flow creates Customer with
+    //   userId === null  AND  lineUserId === input.lineUserId
+    // (the placeholder is created with the LINE userId already set so
+    // the bot can post-fill messaging immediately). The activation
+    // helper must accept this row — guard predicate is:
+    //   userId === null
+    //   mergedIntoCustomerId === null
+    //   storeId matches
+    //   lineUserId IN [null, input.lineUserId]
+    //
+    // PRE round 6: this case was rejected (in-tx CAS used
+    // `lineUserId: null` literal); count=0 → stale_customer_link.
+    // POST round 6: in-tx findFirst + updateMany both use the OR
+    // clause, so the row passes both guards → activated.
     mockCustomerFindUnique.mockResolvedValueOnce(
       precreatedCustomerFixture({ lineUserId: LINE_USER_ID }),
     );
     const { txCustomerUpdateMany, txUserCreate, txAccountCreate } =
       setupTransaction();
-    // The tx callback runs (preflight allows this case through), but
-    // updateMany returns count: 0 because lineUserId is non-null.
-    txCustomerUpdateMany.mockResolvedValueOnce({ count: 0 });
-    vi.spyOn(console, "warn").mockImplementation(() => {});
+    // updateMany now matches the same-LINE placeholder via the OR
+    // clause → count=1 → activated.
+    txCustomerUpdateMany.mockResolvedValueOnce({ count: 1 });
 
     const r = await activatePrecreatedCustomerWithLine(makeValidInput());
 
     expect(r).toEqual({
-      status: "stale_customer_link",
+      status: "activated",
       customerId: CUSTOMER_ID,
+      userId: NEW_USER_ID,
     });
-    // tx ran (user.create + account.create both attempted, then
-    // updateMany count=0 throws StaleCustomerLinkError → rollback).
     expect(mockTx).toHaveBeenCalledTimes(1);
     expect(txUserCreate).toHaveBeenCalledTimes(1);
     expect(txAccountCreate).toHaveBeenCalledTimes(1);
     expect(txCustomerUpdateMany).toHaveBeenCalledTimes(1);
-    // Rollback semantics are Prisma's responsibility — the test
-    // confirms the helper threw inside the callback, not committed.
   });
 });
 
@@ -913,7 +924,7 @@ describe("P1 round 1 (Codex): Customer.userId is set by the CAS, not by user.cre
     expect(data).not.toHaveProperty("connect");
   });
 
-  it("happy path: Customer.updateMany.where has `userId: null` AND `mergedIntoCustomerId: null` (CAS predicate)", async () => {
+  it("happy path: Customer.updateMany.where has `userId: null` AND `mergedIntoCustomerId: null` AND OR-clause for lineUserId (CAS predicate, round 6 same-LINE placeholder relaxation)", async () => {
     mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
     const { txCustomerUpdateMany } = setupTransaction();
 
@@ -926,8 +937,11 @@ describe("P1 round 1 (Codex): Customer.userId is set by the CAS, not by user.cre
       id: CUSTOMER_ID,
       storeId: STORE_ID,
       userId: null,
-      lineUserId: null,
       mergedIntoCustomerId: null,
+      OR: [
+        { lineUserId: null },
+        { lineUserId: LINE_USER_ID },
+      ],
     });
   });
 
@@ -1975,7 +1989,7 @@ describe("P1 round 5 (Codex): in-tx Case-B guard fires BEFORE tx.user.create", (
     expect(findFirstIdx).toBeLessThan(updateManyIdx);
   });
 
-  it("source: in-tx findFirst has the 5-predicate where matching the Case-B precondition", () => {
+  it("source: in-tx findFirst has the Case-B precondition predicates — id/storeId/userId:null/mergedIntoCustomerId:null + OR-clause accepting lineUserId null OR input.lineUserId (round 6 same-LINE placeholder)", () => {
     const src = readFileSync(HELPER_PATH, "utf8");
     const fnStart = src.indexOf(
       "export async function activatePrecreatedCustomerWithLine",
@@ -1987,14 +2001,18 @@ describe("P1 round 5 (Codex): in-tx Case-B guard fires BEFORE tx.user.create", (
     // Locate the findFirst call's where literal.
     const findFirstIdx = fnBody.indexOf("tx.customer.findFirst");
     expect(findFirstIdx).toBeGreaterThan(-1);
-    // 500 chars covers the findFirst call's where + select.
-    const findFirstSlice = fnBody.slice(findFirstIdx, findFirstIdx + 500);
+    // 1800 chars covers the findFirst call's where (now including
+    // round-6 OR clause + the explanatory comment block) + select.
+    const findFirstSlice = fnBody.slice(findFirstIdx, findFirstIdx + 1800);
 
     expect(findFirstSlice).toMatch(/id\s*:\s*customer\.id/);
     expect(findFirstSlice).toMatch(/storeId\s*:\s*input\.storeId/);
     expect(findFirstSlice).toMatch(/userId\s*:\s*null/);
-    expect(findFirstSlice).toMatch(/lineUserId\s*:\s*null/);
     expect(findFirstSlice).toMatch(/mergedIntoCustomerId\s*:\s*null/);
+    // OR clause: { lineUserId: null } AND { lineUserId: input.lineUserId }
+    expect(findFirstSlice).toMatch(/OR\s*:/);
+    expect(findFirstSlice).toMatch(/lineUserId\s*:\s*null/);
+    expect(findFirstSlice).toMatch(/lineUserId\s*:\s*input\.lineUserId/);
   });
 
   it("source: in-tx findFirst null branch throws StaleCustomerLinkError BEFORE any write", () => {
@@ -2072,7 +2090,7 @@ describe("P1 round 5 (Codex): in-tx Case-B guard fires BEFORE tx.user.create", (
     expect(txCustomerUpdateMany).toHaveBeenCalledTimes(1);
   });
 
-  it("behavioural: in-tx findFirst where-clause matches the Case-B precondition exactly", async () => {
+  it("behavioural: in-tx findFirst where-clause matches the Case-B precondition exactly — OR-clause for lineUserId accepts null OR input.lineUserId (round 6)", async () => {
     mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
     const { txCustomerFindFirst } = setupTransaction();
 
@@ -2086,8 +2104,11 @@ describe("P1 round 5 (Codex): in-tx Case-B guard fires BEFORE tx.user.create", (
       id: CUSTOMER_ID,
       storeId: STORE_ID,
       userId: null,
-      lineUserId: null,
       mergedIntoCustomerId: null,
+      OR: [
+        { lineUserId: null },
+        { lineUserId: LINE_USER_ID },
+      ],
     });
     // Read-only select; we don't need or want any other column read.
     expect(arg?.select).toEqual({ id: true });
@@ -2141,5 +2162,225 @@ describe("P1 round 5 (Codex): in-tx Case-B guard fires BEFORE tx.user.create", (
     expect(positions.throw).toBeLessThan(positions.userCreate);
     expect(positions.userCreate).toBeLessThan(positions.accountCreate);
     expect(positions.accountCreate).toBeLessThan(positions.updateMany);
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// 15. PR #243 Codex P2 round 6: allow same-LINE placeholder activation
+//
+//     The /oauth-confirm NEW_USER flow legitimately creates a Customer
+//     row with `userId === null AND lineUserId === input.lineUserId`
+//     (the LINE userId is populated up-front so the bot can post-fill
+//     messaging). Pre round 6, the helper rejected this case because
+//     both the in-tx findFirst guard and the final updateMany CAS
+//     literally required `lineUserId: null`. Round 6 relaxes both to an
+//     OR clause `[{ lineUserId: null }, { lineUserId: input.lineUserId }]`
+//     so the same-LINE placeholder activates as if it were a fresh
+//     placeholder. The preflight rejection for "different LINE attached"
+//     (Customer.lineUserId set but ≠ input.lineUserId) is unchanged.
+// ════════════════════════════════════════════════════════════════════════════
+
+describe("PR #243 Codex P2 round 6: same-LINE placeholder activation", () => {
+  const HELPER_PATH = path.resolve(
+    __dirname,
+    "..",
+    "server",
+    "services",
+    "bind-line-to-customer.ts",
+  );
+
+  it("scenario 1 — userId null + lineUserId null (fresh placeholder, pre-round-6 path) → activated", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(
+      precreatedCustomerFixture({ lineUserId: null }),
+    );
+    const { txUserCreate, txAccountCreate, txCustomerUpdateMany } =
+      setupTransaction();
+
+    const r = await activatePrecreatedCustomerWithLine(makeValidInput());
+
+    expect(r).toEqual({
+      status: "activated",
+      customerId: CUSTOMER_ID,
+      userId: NEW_USER_ID,
+    });
+    expect(txUserCreate).toHaveBeenCalledTimes(1);
+    expect(txAccountCreate).toHaveBeenCalledTimes(1);
+    expect(txCustomerUpdateMany).toHaveBeenCalledTimes(1);
+  });
+
+  it("scenario 2 — userId null + lineUserId === input.lineUserId (same-LINE placeholder, /oauth-confirm NEW_USER flow) → activated", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(
+      precreatedCustomerFixture({ lineUserId: LINE_USER_ID }),
+    );
+    const { txUserCreate, txAccountCreate, txCustomerUpdateMany } =
+      setupTransaction();
+
+    const r = await activatePrecreatedCustomerWithLine(makeValidInput());
+
+    expect(r).toEqual({
+      status: "activated",
+      customerId: CUSTOMER_ID,
+      userId: NEW_USER_ID,
+    });
+    expect(txUserCreate).toHaveBeenCalledTimes(1);
+    expect(txAccountCreate).toHaveBeenCalledTimes(1);
+    expect(txCustomerUpdateMany).toHaveBeenCalledTimes(1);
+  });
+
+  it("scenario 3 — userId null + lineUserId DIFFERENT from input → customer_already_linked_to_other_line (0 tx, 0 writes)", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(
+      precreatedCustomerFixture({ lineUserId: OTHER_LINE_USER_ID }),
+    );
+    const setup = setupTransaction();
+
+    const r = await activatePrecreatedCustomerWithLine(makeValidInput());
+
+    expect(r).toEqual({
+      status: "customer_already_linked_to_other_line",
+      customerId: CUSTOMER_ID,
+      existingLineUserId: OTHER_LINE_USER_ID,
+    });
+    // Preflight rejection — tx never started.
+    expect(mockTx).not.toHaveBeenCalled();
+    expect(setup.txCustomerFindFirst).not.toHaveBeenCalled();
+    expect(setup.txUserCreate).not.toHaveBeenCalled();
+    expect(setup.txAccountCreate).not.toHaveBeenCalled();
+    expect(setup.txCustomerUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("scenario 4 — in-tx findFirst guard permits same-LINE placeholder (behavioural: findFirst.where.OR matches both shapes)", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(
+      precreatedCustomerFixture({ lineUserId: LINE_USER_ID }),
+    );
+    const { txCustomerFindFirst } = setupTransaction();
+
+    await activatePrecreatedCustomerWithLine(makeValidInput());
+
+    expect(txCustomerFindFirst).toHaveBeenCalledTimes(1);
+    const arg = txCustomerFindFirst.mock.calls[0]?.[0] as {
+      where?: Record<string, unknown>;
+    };
+    expect(arg?.where).toEqual({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: null,
+      mergedIntoCustomerId: null,
+      OR: [
+        { lineUserId: null },
+        { lineUserId: LINE_USER_ID },
+      ],
+    });
+  });
+
+  it("scenario 5 — final updateMany CAS permits same-LINE placeholder (behavioural: updateMany.where.OR matches both shapes)", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(
+      precreatedCustomerFixture({ lineUserId: LINE_USER_ID }),
+    );
+    const { txCustomerUpdateMany } = setupTransaction();
+
+    await activatePrecreatedCustomerWithLine(makeValidInput());
+
+    expect(txCustomerUpdateMany).toHaveBeenCalledTimes(1);
+    const arg = txCustomerUpdateMany.mock.calls[0]?.[0] as {
+      where?: Record<string, unknown>;
+    };
+    expect(arg?.where).toEqual({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: null,
+      mergedIntoCustomerId: null,
+      OR: [
+        { lineUserId: null },
+        { lineUserId: LINE_USER_ID },
+      ],
+    });
+  });
+
+  it("scenario 6 — final updateMany still rejects stale lineUserId (different LINE smuggled in mid-tx via concurrent writer) → count=0 → stale_customer_link", async () => {
+    // Preflight passes (Customer.lineUserId === null at preflight),
+    // but a concurrent writer mutated lineUserId to a DIFFERENT value
+    // between preflight and the tx-write boundary. The updateMany's
+    // OR clause does NOT match (neither `lineUserId: null` nor
+    // `lineUserId: input.lineUserId` are true for the row in DB);
+    // count=0 → StaleCustomerLinkError → stale_customer_link.
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const { txCustomerUpdateMany, txUserCreate, txAccountCreate } =
+      setupTransaction();
+    txCustomerUpdateMany.mockResolvedValueOnce({ count: 0 });
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const r = await activatePrecreatedCustomerWithLine(makeValidInput());
+
+    expect(r).toEqual({
+      status: "stale_customer_link",
+      customerId: CUSTOMER_ID,
+    });
+    // tx ran (in-tx findFirst passed default truthy, then writes
+    // attempted, then updateMany count=0 throws → rollback).
+    expect(mockTx).toHaveBeenCalledTimes(1);
+    expect(txUserCreate).toHaveBeenCalledTimes(1);
+    expect(txAccountCreate).toHaveBeenCalledTimes(1);
+    expect(txCustomerUpdateMany).toHaveBeenCalledTimes(1);
+  });
+
+  it("scenario 7 — happy path remains byte-equivalent vs baseline (lineUserId:null Customer; OR clause does NOT change end-state row values)", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const { txUserCreate, txAccountCreate, txCustomerUpdateMany } =
+      setupTransaction();
+
+    await activatePrecreatedCustomerWithLine(makeValidInput());
+
+    // User: same 6 columns vs baseline.
+    const userData = (txUserCreate.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    expect(Object.keys(userData ?? {}).sort()).toEqual(
+      ["email", "image", "name", "phone", "role", "status"].sort(),
+    );
+    expect(userData?.name).toBe(CUSTOMER_NAME);
+
+    // Account: same 10 columns vs baseline, NO session_state.
+    const accountData = (txAccountCreate.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    expect(accountData).not.toHaveProperty("session_state");
+    expect(Object.keys(accountData ?? {})).toHaveLength(10);
+
+    // Customer: same FK write + link-metadata columns.
+    const updateManyArg = txCustomerUpdateMany.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    };
+    expect(updateManyArg?.data?.userId).toBe(NEW_USER_ID);
+    expect(updateManyArg?.data?.lineUserId).toBe(LINE_USER_ID);
+    expect(updateManyArg?.data?.authSource).toBe("LINE");
+    expect(updateManyArg?.data?.lineLinkStatus).toBe("LINKED");
+  });
+
+  it("scenario 8 — helper remains UNWIRED (no caller change in this PR): exported symbols match the PR-G5.1.b contract surface", async () => {
+    // PR #243 scope guard: helper-only / tests-only. Re-import the
+    // module and assert the symbol surface is unchanged by round 6.
+    const mod = await import("@/server/services/bind-line-to-customer");
+    expect(typeof mod.activatePrecreatedCustomerWithLine).toBe("function");
+    expect(typeof mod.bindLineToExistingCustomerById).toBe("function");
+    // The activation helper is the PR-G5.1.b sibling — no new exports
+    // added by round 6.
+  });
+
+  it("source-structure: buildActivationCustomerWhere accepts `lineUserId` in its params type AND returns the OR clause (round 6 contract)", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    // Anchor on the function declaration through its return statement.
+    const fnIdx = src.indexOf("function buildActivationCustomerWhere");
+    expect(fnIdx).toBeGreaterThan(-1);
+    // 700 chars cover params, return type, and return body.
+    const slice = src.slice(fnIdx, fnIdx + 700);
+    // Params include lineUserId.
+    expect(slice).toMatch(/lineUserId\s*:\s*string/);
+    // Return type's OR field accepts both null and string shapes.
+    expect(slice).toMatch(/OR\s*:\s*Array<\s*\{\s*lineUserId\s*:\s*null\s*\}/);
+    expect(slice).toMatch(/\|\s*\{\s*lineUserId\s*:\s*string\s*\}\s*>/);
+    // Return body wires the OR pair with `params.lineUserId`.
+    expect(slice).toMatch(/OR\s*:\s*\[/);
+    expect(slice).toMatch(/\{\s*lineUserId\s*:\s*null\s*\}/);
+    expect(slice).toMatch(/\{\s*lineUserId\s*:\s*params\.lineUserId\s*\}/);
   });
 });
