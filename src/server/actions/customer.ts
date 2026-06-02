@@ -525,8 +525,10 @@ export async function setSelfBookingEnabled(
 // getCustomerDrawerDetailAction — 顧客管理右滑 Drawer 取詳情（PR-4）
 //
 // client 端（list-with-drawer）點顧客 / refreshDrawer 時呼叫。
-// 權限與跨店邊界完全由 getCustomerDrawerDetail 內部處理（requireSession +
-// getStoreFilter + merged/SUSPENDED/CUSTOMER 閘）；本 action 僅轉呼叫並
+// 後端權限把關：先 requirePermission("customer.read") 比照顧客列表頁的
+// checkPermission，避免無 customer.read 權限者直接呼叫 server action 繞過
+// 頁面 UI 閘讀取顧客資料；跨店 / merged / SUSPENDED 邊界仍由
+// getCustomerDrawerDetail 內部（getStoreFilter + 安全閘）處理。
 // 以 handleActionError 把 AppError 轉成 ActionResult，不額外開洞。
 // 純讀取：不寫 DB、不 revalidatePath。
 // ============================================================
@@ -535,6 +537,7 @@ export async function getCustomerDrawerDetailAction(
   customerId: string,
 ): Promise<ActionResult<Awaited<ReturnType<typeof getCustomerDrawerDetail>>>> {
   try {
+    await requirePermission("customer.read");
     const data = await getCustomerDrawerDetail(customerId);
     return { success: true, data };
   } catch (e) {
