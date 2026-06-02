@@ -1229,7 +1229,7 @@ describe("P2 round 1 (Codex): truthy lineName guard (matches baseline `if (oauth
     expect(data).toHaveProperty("lineName", "Alice");
   });
 
-  it("lineName = '' AND oauthProfile.name = '' → Customer.updateMany.data writes lineName = '顧客' (PR #243 round 14: baseline floor preserved)", async () => {
+  it("lineName = '' AND oauthProfile.name = '' → Customer.updateMany.data OMITS lineName (PR #243 round 16: nullish `??` preserves empty strings; downstream truthy guard then omits the field — matches auth.ts `if (oauthName)` rejecting \"\")", async () => {
     mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
     const { txCustomerUpdateMany } = setupTransaction();
 
@@ -1243,10 +1243,12 @@ describe("P2 round 1 (Codex): truthy lineName guard (matches baseline `if (oauth
     const data = (txCustomerUpdateMany.mock.calls[0]?.[0] as {
       data?: Record<string, unknown>;
     })?.data;
-    // Round 14: both falsy → fallback to "顧客". The truthy guard in
-    // buildActivationCustomerUpdateData is still in place but now
-    // always passes at this call site (since "顧客" is truthy).
-    expect(data?.lineName).toBe("顧客");
+    // Round 16: `input.lineName ?? input.oauthProfile.name ?? "顧客"`
+    // — `""` STOPS the chain (?? only coalesces null/undefined). The
+    // effective value is `""`, the downstream `if (params.lineName)`
+    // truthy guard rejects it, and Customer.lineName is omitted —
+    // matching auth.ts baseline `if (oauthName)` rejecting "".
+    expect(data).not.toHaveProperty("lineName");
     // Other fields still present.
     expect(data).toHaveProperty("userId", NEW_USER_ID);
     expect(data).toHaveProperty("authSource", "LINE");
@@ -2722,7 +2724,7 @@ describe("PR #243 Codex P2 round 8: preserve Case B lineName fallback (input.lin
     expect(data?.lineName).toBe("Profile Name");
   });
 
-  it("scenario 3 — lineName = '' + oauthProfile.name = 'Profile Name' → writes 'Profile Name' (empty string falls through to fallback)", async () => {
+  it("scenario 3 (round 16) — lineName = '' + oauthProfile.name = 'Profile Name' → OMITS Customer.lineName (`??` preserves '' at the source; downstream truthy guard rejects it; matches auth.ts baseline)", async () => {
     mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
     const { txCustomerUpdateMany } = setupTransaction();
 
@@ -2740,8 +2742,11 @@ describe("PR #243 Codex P2 round 8: preserve Case B lineName fallback (input.lin
     const data = (txCustomerUpdateMany.mock.calls[0]?.[0] as {
       data?: Record<string, unknown>;
     })?.data;
-    // `||` (not `??`) means "" falls through to oauthProfile.name.
-    expect(data?.lineName).toBe("Profile Name");
+    // Round 16: `??` does NOT coalesce "". The effective lineName
+    // is "", the truthy guard omits the field — oauthProfile.name
+    // is NEVER reached. Mirrors auth.ts `user.name ?? "顧客"` →
+    // `if (oauthName)` semantics.
+    expect(data).not.toHaveProperty("lineName");
   });
 
   it("scenario 4 (round 14) — lineName = null + oauthProfile.name = null → writes lineName = '顧客' (baseline floor preserved)", async () => {
@@ -2790,7 +2795,7 @@ describe("PR #243 Codex P2 round 8: preserve Case B lineName fallback (input.lin
     expect(data?.lineName).toBe("顧客");
   });
 
-  it("scenario 5 (round 14) — lineName = '' + oauthProfile.name = '' → writes lineName = '顧客' (both empty fall through to baseline floor)", async () => {
+  it("scenario 5 (round 16) — lineName = '' + oauthProfile.name = '' → OMITS Customer.lineName (`??` preserves '' at the source; downstream truthy guard rejects it)", async () => {
     mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
     const { txCustomerUpdateMany } = setupTransaction();
 
@@ -2808,10 +2813,10 @@ describe("PR #243 Codex P2 round 8: preserve Case B lineName fallback (input.lin
     const data = (txCustomerUpdateMany.mock.calls[0]?.[0] as {
       data?: Record<string, unknown>;
     })?.data;
-    expect(data?.lineName).toBe("顧客");
+    expect(data).not.toHaveProperty("lineName");
   });
 
-  it("scenario 6 (source-structure) — `deriveEffectiveLineName` uses a truthy-OR chain (`||`) ending at the baseline floor `\"顧客\"` (round 14), NOT a null-only nullish coalesce (`??`)", () => {
+  it("scenario 6 (source-structure, round 16) — `deriveEffectiveLineName` uses a NULLISH chain (`??`) ending at the baseline floor `\"顧客\"`, NOT a truthy `||` chain (which would wrongly coalesce empty strings)", () => {
     const src = readFileSync(HELPER_PATH, "utf8");
     const fnStart = src.indexOf("function deriveEffectiveLineName");
     expect(fnStart).toBeGreaterThan(-1);
@@ -2819,18 +2824,17 @@ describe("PR #243 Codex P2 round 8: preserve Case B lineName fallback (input.lin
     const termRel = tail.search(/\n}\n\n/);
     const fnBody = termRel >= 0 ? tail.slice(0, termRel + 2) : tail;
 
-    // Round 14 required shape: `||` chain ending at the literal "顧客".
+    // Round 16 required shape: `??` chain ending at the literal "顧客".
     expect(fnBody).toMatch(
-      /return\s+input\.lineName\s*\|\|\s*input\.oauthProfile\.name\s*\|\|\s*"顧客"/,
+      /return\s+input\.lineName\s*\?\?\s*input\.oauthProfile\.name\s*\?\?\s*"顧客"/,
     );
-    // Forbidden: `??` would let empty string through and pin to the
-    // first non-null value (wrong: empty string should fall through
-    // to the next fallback per baseline `if (oauthName)` semantics).
-    expect(fnBody).not.toMatch(/input\.lineName\s*\?\?\s*input\.oauthProfile\.name/);
-    expect(fnBody).not.toMatch(/input\.oauthProfile\.name\s*\?\?\s*null/);
-    expect(fnBody).not.toMatch(/input\.oauthProfile\.name\s*\?\?\s*"顧客"/);
+    // Forbidden: `||` would wrongly coalesce `""` to "顧客"
+    // (or to oauthProfile.name) — diverging from auth.ts baseline.
+    expect(fnBody).not.toMatch(
+      /input\.lineName\s*\|\|\s*input\.oauthProfile\.name/,
+    );
     // Forbidden: the round-8 final `|| null` shape (replaced by
-    // the `|| "顧客"` floor in round 14).
+    // the `?? "顧客"` floor in rounds 14 / 16).
     expect(fnBody).not.toMatch(
       /return\s+input\.lineName\s*\|\|\s*input\.oauthProfile\.name\s*\|\|\s*null/,
     );
@@ -4175,7 +4179,7 @@ describe("PR #243 Codex P2 round 14: preserve baseline `\"顧客\"` floor for mi
     expect(data?.lineName).toBe("顧客");
   });
 
-  it("2. lineName '' + oauthProfile.name '' → writes lineName = '顧客'", async () => {
+  it("2 (round 16 supersedes round 14): lineName '' + oauthProfile.name '' → OMITS Customer.lineName (?? preserves empty string; truthy guard rejects it)", async () => {
     mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
     const { txCustomerUpdateMany } = setupTransaction();
 
@@ -4189,7 +4193,7 @@ describe("PR #243 Codex P2 round 14: preserve baseline `\"顧客\"` floor for mi
     const data = (txCustomerUpdateMany.mock.calls[0]?.[0] as {
       data?: Record<string, unknown>;
     })?.data;
-    expect(data?.lineName).toBe("顧客");
+    expect(data).not.toHaveProperty("lineName");
   });
 
   it("3. lineName null + oauthProfile.name undefined → writes lineName = '顧客'", async () => {
@@ -4257,7 +4261,7 @@ describe("PR #243 Codex P2 round 14: preserve baseline `\"顧客\"` floor for mi
     expect(data?.lineName).toBe("Profile");
   });
 
-  it("4c (regression): lineName '' + oauthProfile.name 'Profile' → writes 'Profile' (empty falls through to fallback)", async () => {
+  it("4c (round 16 supersedes round 14): lineName '' + oauthProfile.name 'Profile' → OMITS Customer.lineName (?? preserves '' at source; downstream truthy guard rejects; matches auth.ts baseline)", async () => {
     mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
     const { txCustomerUpdateMany } = setupTransaction();
 
@@ -4275,12 +4279,12 @@ describe("PR #243 Codex P2 round 14: preserve baseline `\"顧客\"` floor for mi
     const data = (txCustomerUpdateMany.mock.calls[0]?.[0] as {
       data?: Record<string, unknown>;
     })?.data;
-    expect(data?.lineName).toBe("Profile");
+    expect(data).not.toHaveProperty("lineName");
   });
 
-  // ─ Source-structure: the literal floor is "顧客" ────────────────────────
+  // ─ Source-structure: the literal floor is "顧客", chain uses `??` ───────
 
-  it("5. source: `deriveEffectiveLineName` fallback string is the literal `\"顧客\"` (NOT `null`, NOT another sentinel)", () => {
+  it("5 (round 16): source: `deriveEffectiveLineName` uses a NULLISH `??` chain ending at the literal `\"顧客\"` (NOT `||`, NOT `null`)", () => {
     const src = readFileSync(HELPER_PATH, "utf8");
     const fnStart = src.indexOf("function deriveEffectiveLineName");
     expect(fnStart).toBeGreaterThan(-1);
@@ -4288,12 +4292,16 @@ describe("PR #243 Codex P2 round 14: preserve baseline `\"顧客\"` floor for mi
     const termRel = tail.search(/\n}\n\n/);
     const fnBody = termRel >= 0 ? tail.slice(0, termRel + 2) : tail;
 
-    // Required: the final `|| "顧客"` floor.
+    // Required: the `??` chain ending at "顧客".
     expect(fnBody).toMatch(
-      /return\s+input\.lineName\s*\|\|\s*input\.oauthProfile\.name\s*\|\|\s*"顧客"\s*;/,
+      /return\s+input\.lineName\s*\?\?\s*input\.oauthProfile\.name\s*\?\?\s*"顧客"\s*;/,
     );
-    // Return type is now `string` (the floor guarantees non-null).
+    // Return type is `string` (the floor guarantees non-null).
     expect(fnBody).toMatch(/\}\s*\)\s*:\s*string\s*\{/);
+    // Forbid the round-14 `||` shape (replaced in round 16).
+    expect(fnBody).not.toMatch(
+      /return\s+input\.lineName\s*\|\|\s*input\.oauthProfile\.name\s*\|\|\s*"顧客"/,
+    );
     // Forbid the round-8 `|| null` shape.
     expect(fnBody).not.toMatch(
       /return\s+input\.lineName\s*\|\|\s*input\.oauthProfile\.name\s*\|\|\s*null/,
@@ -4591,5 +4599,361 @@ describe("PR #243 Codex P2 round 15: validate Account LINE id before linking Cus
 
     expect(typeBlock).toMatch(/status\s*:\s*"line_account_mismatch"/);
     expect(typeBlock).toMatch(/expectedLineUserId\s*:\s*string/);
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// 25. PR #243 Codex P2 round 16: preserve empty LINE names + reinforce
+//     Account LINE id validation
+//
+//     Round 14 used `||` for the fallback chain in
+//     `deriveEffectiveLineName`, which incorrectly coalesced empty
+//     strings to "顧客" (diverging from auth.ts Case B baseline:
+//     `oauthName = user.name ?? "顧客"` preserves "" because `??`
+//     only coalesces `null` / `undefined`; the downstream
+//     `if (oauthName)` truthy guard then omits "").
+//
+//     Round 16 reverts the chain to `??`:
+//
+//       function deriveEffectiveLineName(input) {
+//         return input.lineName ?? input.oauthProfile.name ?? "顧客";
+//       }
+//
+//     End-to-end semantics now match baseline byte-for-byte:
+//       - null / undefined → fall through to "顧客" (writes)
+//       - "" → preserved as "" (downstream truthy guard omits)
+//       - non-empty string → used as-is (writes)
+//
+//     Round 16 also strengthens P2-B (Account LINE id validation)
+//     with explicit source-structure sentinels making the "proven
+//     equal after validation" property visible at Codex's anchor
+//     sites.
+// ════════════════════════════════════════════════════════════════════════════
+
+describe("PR #243 Codex P2 round 16: preserve empty LINE names (`??` not `||`) + reinforce Account LINE id validation", () => {
+  const HELPER_PATH = path.resolve(
+    __dirname,
+    "..",
+    "server",
+    "services",
+    "bind-line-to-customer.ts",
+  );
+
+  // ─ P2-A: preserve empty LINE names ─────────────────────────────────────
+
+  it("P2-A.1: lineName: '' + oauthProfile.name: 'Profile' → does NOT write Customer.lineName (`??` preserves ''; truthy guard rejects '')", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const { txCustomerUpdateMany } = setupTransaction();
+
+    await activatePrecreatedCustomerWithLine(
+      makeValidInput({
+        lineName: "",
+        oauthProfile: {
+          email: OAUTH_EMAIL,
+          image: OAUTH_IMAGE,
+          name: "Profile",
+        },
+      }),
+    );
+
+    const data = (txCustomerUpdateMany.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    expect(data).not.toHaveProperty("lineName");
+  });
+
+  it("P2-A.2: lineName: '' + oauthProfile.name: '' → does NOT write Customer.lineName", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const { txCustomerUpdateMany } = setupTransaction();
+
+    await activatePrecreatedCustomerWithLine(
+      makeValidInput({
+        lineName: "",
+        oauthProfile: { email: OAUTH_EMAIL, image: OAUTH_IMAGE, name: "" },
+      }),
+    );
+
+    const data = (txCustomerUpdateMany.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    expect(data).not.toHaveProperty("lineName");
+  });
+
+  it("P2-A.3: lineName: null + oauthProfile.name: '' → does NOT write Customer.lineName (null falls through to '', '' is preserved, truthy guard rejects)", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const { txCustomerUpdateMany } = setupTransaction();
+
+    await activatePrecreatedCustomerWithLine(
+      makeValidInput({
+        lineName: null,
+        oauthProfile: { email: OAUTH_EMAIL, image: OAUTH_IMAGE, name: "" },
+      }),
+    );
+
+    const data = (txCustomerUpdateMany.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    expect(data).not.toHaveProperty("lineName");
+  });
+
+  it("P2-A.4: lineName: null + oauthProfile.name: null → writes Customer.lineName = '顧客' (both nullish → falls through to baseline floor)", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const { txCustomerUpdateMany } = setupTransaction();
+
+    await activatePrecreatedCustomerWithLine(
+      makeValidInput({
+        lineName: null,
+        oauthProfile: { email: OAUTH_EMAIL, image: OAUTH_IMAGE, name: null },
+      }),
+    );
+
+    const data = (txCustomerUpdateMany.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    expect(data?.lineName).toBe("顧客");
+  });
+
+  it("P2-A.5: lineName: null + oauthProfile.name: undefined → writes Customer.lineName = '顧客' (both nullish → falls through to baseline floor)", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const { txCustomerUpdateMany } = setupTransaction();
+
+    await activatePrecreatedCustomerWithLine(
+      makeValidInput({
+        lineName: null,
+        oauthProfile: {
+          email: OAUTH_EMAIL,
+          image: OAUTH_IMAGE,
+          name: undefined,
+        },
+      }),
+    );
+
+    const data = (txCustomerUpdateMany.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    expect(data?.lineName).toBe("顧客");
+  });
+
+  it("P2-A.6 (source): `deriveEffectiveLineName` uses `??` (nullish coalesce), NOT `||` (truthy)", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    const fnStart = src.indexOf("function deriveEffectiveLineName");
+    expect(fnStart).toBeGreaterThan(-1);
+    const tail = src.slice(fnStart);
+    const termRel = tail.search(/\n}\n\n/);
+    const fnBody = termRel >= 0 ? tail.slice(0, termRel + 2) : tail;
+
+    // Required exact shape.
+    expect(fnBody).toMatch(
+      /return\s+input\.lineName\s*\?\?\s*input\.oauthProfile\.name\s*\?\?\s*"顧客"\s*;/,
+    );
+    // Forbid the truthy-OR shapes (rounds 8 and 14).
+    expect(fnBody).not.toMatch(/input\.lineName\s*\|\|\s*input\.oauthProfile\.name/);
+    expect(fnBody).not.toMatch(/input\.oauthProfile\.name\s*\|\|\s*"顧客"/);
+    expect(fnBody).not.toMatch(/input\.oauthProfile\.name\s*\|\|\s*null/);
+  });
+
+  it("P2-A.7 (regression): existing truthy / non-nullish cases still pass — lineName 'Alice' wins; null + 'Profile' falls through to 'Profile'", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const setup1 = setupTransaction();
+    await activatePrecreatedCustomerWithLine(
+      makeValidInput({
+        lineName: "Alice",
+        oauthProfile: {
+          email: OAUTH_EMAIL,
+          image: OAUTH_IMAGE,
+          name: "ShouldNotWin",
+        },
+      }),
+    );
+    const data1 = (setup1.txCustomerUpdateMany.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    expect(data1?.lineName).toBe("Alice");
+
+    vi.clearAllMocks();
+    mockCustomerFindUnique.mockReset();
+    mockTx.mockReset();
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const setup2 = setupTransaction();
+    await activatePrecreatedCustomerWithLine(
+      makeValidInput({
+        lineName: null,
+        oauthProfile: {
+          email: OAUTH_EMAIL,
+          image: OAUTH_IMAGE,
+          name: "Profile",
+        },
+      }),
+    );
+    const data2 = (setup2.txCustomerUpdateMany.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    expect(data2?.lineName).toBe("Profile");
+  });
+
+  // ─ P2-B: Account LINE id validation (reinforcement) ────────────────────
+
+  it("P2-B.1: providerAccountId mismatch → line_account_mismatch, NO customer.findUnique, NO transaction, NO writes", async () => {
+    const setup = setupTransaction();
+
+    const r = await activatePrecreatedCustomerWithLine(
+      makeValidInput({
+        oauthAccount: {
+          provider: "line",
+          providerAccountId: "U_R16_DIFFERENT_LINE_ID_aaaaaaaaaaaa",
+          type: "oauth",
+          access_token: null,
+          refresh_token: null,
+          id_token: null,
+          expires_at: null,
+          scope: null,
+          token_type: null,
+        },
+      }),
+    );
+
+    expect(r).toEqual({
+      status: "line_account_mismatch",
+      expectedLineUserId: LINE_USER_ID,
+    });
+    expect(mockCustomerFindUnique).not.toHaveBeenCalled();
+    expect(mockTx).not.toHaveBeenCalled();
+    expect(setup.txCustomerFindFirst).not.toHaveBeenCalled();
+    expect(setup.txUserCreate).not.toHaveBeenCalled();
+    expect(setup.txAccountCreate).not.toHaveBeenCalled();
+    expect(setup.txCustomerUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("P2-B.2: provider !== 'line' → line_account_mismatch, NO DB I/O", async () => {
+    const setup = setupTransaction();
+
+    const r = await activatePrecreatedCustomerWithLine(
+      makeValidInput({
+        oauthAccount: {
+          provider: "facebook",
+          providerAccountId: LINE_USER_ID,
+          type: "oauth",
+          access_token: "fb_atok",
+          refresh_token: null,
+          id_token: null,
+          expires_at: null,
+          scope: null,
+          token_type: null,
+        },
+      }),
+    );
+
+    expect(r.status).toBe("line_account_mismatch");
+    expect(mockCustomerFindUnique).not.toHaveBeenCalled();
+    expect(mockTx).not.toHaveBeenCalled();
+    expect(setup.txUserCreate).not.toHaveBeenCalled();
+    expect(setup.txAccountCreate).not.toHaveBeenCalled();
+    expect(setup.txCustomerUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("P2-B.3: provider === 'line' AND providerAccountId === input.lineUserId → happy path still activated", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const { txUserCreate, txAccountCreate, txCustomerUpdateMany } =
+      setupTransaction();
+
+    const r = await activatePrecreatedCustomerWithLine(makeValidInput());
+
+    expect(r).toEqual({
+      status: "activated",
+      customerId: CUSTOMER_ID,
+      userId: NEW_USER_ID,
+    });
+    expect(txUserCreate).toHaveBeenCalledTimes(1);
+    expect(txAccountCreate).toHaveBeenCalledTimes(1);
+    expect(txCustomerUpdateMany).toHaveBeenCalledTimes(1);
+  });
+
+  it("P2-B.4 (source): validation is positioned BEFORE `prisma.customer.findUnique(` AND BEFORE `prisma.$transaction(` (real call sites, not comment mentions)", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    const fnStart = src.indexOf(
+      "export async function activatePrecreatedCustomerWithLine",
+    );
+    const fnSlice = src.slice(fnStart);
+
+    const validationIdx = fnSlice.search(
+      /input\.oauthAccount\.provider\s*!==\s*"line"[\s\S]{0,200}input\.oauthAccount\.providerAccountId\s*!==\s*input\.lineUserId/,
+    );
+    const preflightIdx = fnSlice.indexOf("prisma.customer.findUnique(");
+    const txIdx = fnSlice.indexOf("prisma.$transaction(");
+    const returnIdx = fnSlice.indexOf('status: "line_account_mismatch"');
+
+    expect(validationIdx).toBeGreaterThan(-1);
+    expect(preflightIdx).toBeGreaterThan(-1);
+    expect(txIdx).toBeGreaterThan(-1);
+    expect(returnIdx).toBeGreaterThan(-1);
+
+    expect(validationIdx).toBeLessThan(preflightIdx);
+    expect(validationIdx).toBeLessThan(txIdx);
+    expect(returnIdx).toBeLessThan(preflightIdx);
+    expect(returnIdx).toBeLessThan(txIdx);
+  });
+
+  it("P2-B.5 (source): Account.create's `providerAccountId` cannot diverge from Customer.lineUserId — the step-1 validation proves them equal BEFORE the tx, and an inline comment near tx.account.create documents the post-validation invariant", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    const fnStart = src.indexOf(
+      "export async function activatePrecreatedCustomerWithLine",
+    );
+    const fnSlice = src.slice(fnStart);
+
+    // Account.create.data.providerAccountId reads from
+    // input.oauthAccount.providerAccountId (round 15 unchanged).
+    const accountCreateIdx = fnSlice.indexOf("tx.account.create(");
+    expect(accountCreateIdx).toBeGreaterThan(-1);
+    const accountBlock = fnSlice.slice(accountCreateIdx, accountCreateIdx + 1500);
+    expect(accountBlock).toMatch(
+      /providerAccountId\s*:\s*input\.oauthAccount\.providerAccountId/,
+    );
+
+    // Round 16 reinforcement: an inline comment near step 7b must
+    // document that the post-validation invariant
+    // `oauthAccount.providerAccountId === input.lineUserId` holds.
+    // Anchor 1500 chars BEFORE tx.account.create to capture the
+    // full step-7b comment block.
+    const windowStart = Math.max(0, accountCreateIdx - 1500);
+    const stepBlock = fnSlice.slice(windowStart, accountCreateIdx);
+    expect(stepBlock).toMatch(/round 15/);
+    expect(stepBlock).toMatch(
+      /providerAccountId === input\.lineUserId|equal to.{0,40}input\.lineUserId|guaranteed equal to/,
+    );
+  });
+
+  it("P2-B.6 (source): the result discriminated-union type still includes `status: \"line_account_mismatch\"` with `expectedLineUserId: string` (round 15 contract preserved through round 16)", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    const typeStart = src.indexOf(
+      "export type ActivatePrecreatedCustomerWithLineResult",
+    );
+    expect(typeStart).toBeGreaterThan(-1);
+    const typeBlock = src.slice(typeStart, typeStart + 5000);
+    expect(typeBlock).toMatch(/status\s*:\s*"line_account_mismatch"/);
+    expect(typeBlock).toMatch(/expectedLineUserId\s*:\s*string/);
+  });
+
+  it("P2-B.7: mismatch branch does NOT call console.warn (PII contract — rejection branches are silent)", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    setupTransaction();
+
+    await activatePrecreatedCustomerWithLine(
+      makeValidInput({
+        oauthAccount: {
+          provider: "line",
+          providerAccountId: "U_R16_RAW_DIFFERENT_xxxxxxxxxxxxxxxx",
+          type: "oauth",
+          access_token: null,
+          refresh_token: null,
+          id_token: null,
+          expires_at: null,
+          scope: null,
+          token_type: null,
+        },
+      }),
+    );
+
+    expect(warnSpy).not.toHaveBeenCalled();
+    warnSpy.mockRestore();
   });
 });

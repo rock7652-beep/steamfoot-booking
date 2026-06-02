@@ -1347,20 +1347,23 @@ async function runFullBindTx(params: {
 //      - lineUserId:     input.lineUserId
 //      - lineLinkStatus: "LINKED"
 //      - lineLinkedAt:   new Date()
-//      - lineName:       deriveEffectiveLineName(input) ← truthy-OR
-//                                              fallback chain: prefers
-//                                              input.lineName, then
-//                                              input.oauthProfile.name,
-//                                              else the baseline literal
-//                                              "顧客" (matches auth.ts
-//                                              line 409 `?? "顧客"` floor).
-//                                              Result is always a non-empty
-//                                              string, so Customer.lineName
-//                                              is always written (matching
-//                                              baseline's `if (oauthName)`
-//                                              which is always true once
-//                                              "顧客" is the floor).
-//                                              PR #243 Codex P2 round 14.
+//      - lineName:       deriveEffectiveLineName(input) ← nullish
+//                                              fallback chain (round 16):
+//                                              `input.lineName
+//                                              ?? input.oauthProfile.name
+//                                              ?? "顧客"`. The `??` (NOT
+//                                              `||`) preserves empty
+//                                              strings: if any source is
+//                                              `""`, the chain stops there,
+//                                              the downstream truthy
+//                                              guard rejects `""`, and
+//                                              Customer.lineName is omitted
+//                                              — matching auth.ts baseline
+//                                              (`user.name ?? "顧客"` then
+//                                              `if (oauthName)`). Only
+//                                              `null`/`undefined` fall
+//                                              through to the "顧客" floor.
+//                                              PR #243 Codex P2 rounds 14/16.
 //
 //    Items intentionally NOT done by this helper (post-tx best-effort in
 //    baseline — PR-G5.5 keeps them OUTSIDE the tx as today):
@@ -1668,42 +1671,46 @@ function buildActivationUserCreateData(args: {
 /**
  * Derive the effective LINE display name for Customer.lineName,
  * mirroring auth.ts Case B's `oauthName` derivation (PR #243 Codex
- * P2 round 8 + round 14).
+ * P2 rounds 8 / 14 / 16).
  *
  * Baseline (`src/lib/auth.ts` lines 409 + 656):
  *   const oauthName = user.name ?? "顧客";
  *   ...
  *   if (oauthName) updateData.lineName = oauthName;
  *
- * The caller (PR-G5.5) may pre-derive this value and pass it via
- * `input.lineName`, OR it may pass `input.lineName = null` and rely
- * on the helper to fall back to `input.oauthProfile.name` — and if
- * BOTH sources are missing, the helper falls back to the baseline
- * literal "顧客" so the Customer.lineName column is always populated
- * (round 14 — byte-equivalent vs baseline).
+ * Two-stage semantics:
+ *   1. Nullish coalesce `user.name ?? "顧客"` — `null` / `undefined`
+ *      fall through to "顧客"; empty string `""` is PRESERVED as `""`.
+ *   2. `if (oauthName)` truthy guard — `""` fails the guard, so
+ *      Customer.lineName is OMITTED when the source resolves to "".
  *
- * Truthy-OR fallback chain:
- *   1. input.lineName            (if truthy — non-empty string wins)
- *   2. input.oauthProfile.name   (if truthy)
- *   3. "顧客"                    (baseline literal — matches
- *                                 auth.ts line 409 `user.name ?? "顧客"`)
+ * Round 16 fixes round 14's `||` regression: round 14 used `||` for
+ * the fallback chain, which incorrectly coalesced `""` to "顧客"
+ * (diverging from baseline). Round 16 reverts to `??` so empty
+ * strings are preserved — then the downstream `if (params.lineName)`
+ * guard in `buildActivationCustomerUpdateData` omits the field, just
+ * like baseline.
  *
- * Semantics (matches auth.ts Case B baseline byte-for-byte):
- *   - lineName = "LINE display"                          → "LINE display"
- *   - lineName = null,  oauthProfile.name = "Profile"    → "Profile"
- *   - lineName = "",    oauthProfile.name = "Profile"    → "Profile"
- *   - lineName = null,  oauthProfile.name = null         → "顧客"
- *   - lineName = "",    oauthProfile.name = ""           → "顧客"
- *   - lineName = null,  oauthProfile.name = undefined    → "顧客"
+ * Nullish-OR fallback chain (round 16):
+ *   1. input.lineName            (if NOT null/undefined — incl. "" wins)
+ *   2. input.oauthProfile.name   (if NOT null/undefined — incl. "" wins)
+ *   3. "顧客"                    (baseline floor — matches auth.ts
+ *                                 line 409 `user.name ?? "顧客"`)
  *
- * Empty string handling: `||` (NOT `??`) so empty string falls
- * through to the next fallback. Final "顧客" literal is always
- * truthy, so the result is ALWAYS a non-empty string — the
- * downstream `if (params.lineName)` guard in
- * `buildActivationCustomerUpdateData` always passes, and
- * Customer.lineName is always written (matching baseline's
- * `if (oauthName)` which is always true since oauthName has the
- * same "顧客" floor).
+ * Semantics (byte-equivalent vs auth.ts Case B baseline):
+ *   - lineName = "LINE display"                          → "LINE display" (writes)
+ *   - lineName = null,  oauthProfile.name = "Profile"    → "Profile"      (writes)
+ *   - lineName = undefined, oauthProfile.name = "Profile" → "Profile"     (writes)
+ *   - lineName = null,  oauthProfile.name = null         → "顧客"          (writes)
+ *   - lineName = null,  oauthProfile.name = undefined    → "顧客"          (writes)
+ *   - lineName = "",    oauthProfile.name = "Profile"    → ""              (omitted by guard)
+ *   - lineName = "",    oauthProfile.name = ""           → ""              (omitted)
+ *   - lineName = null,  oauthProfile.name = ""           → ""              (omitted)
+ *
+ * Note `??` (NOT `||`): we want `""` to STOP the fallback chain.
+ * Baseline does the same: `user.name ?? "顧客"` preserves "" because
+ * `??` only coalesces `null` and `undefined`. The downstream truthy
+ * guard then rejects "" — matching baseline's `if (oauthName)`.
  *
  * Pure function — no side effects, no DB I/O, no time-dependent
  * values; safe to call inside the tx callback or outside.
@@ -1712,7 +1719,7 @@ function deriveEffectiveLineName(input: {
   lineName: string | null;
   oauthProfile: { name?: string | null | undefined };
 }): string {
-  return input.lineName || input.oauthProfile.name || "顧客";
+  return input.lineName ?? input.oauthProfile.name ?? "顧客";
 }
 
 /**
@@ -1951,6 +1958,15 @@ export async function activatePrecreatedCustomerWithLine(
         // 7b. Create Account[line] — byte-equivalent to auth.ts Case B
         //     baseline (lines 634-647). 10 fields, NO session_state.
         //
+        //     ⚠ PR #243 Codex P2 round 15: `provider` and
+        //     `providerAccountId` are read from `input.oauthAccount`,
+        //     BUT the step-1 validation has already proven
+        //     `input.oauthAccount.provider === "line"` AND
+        //     `input.oauthAccount.providerAccountId === input.lineUserId`.
+        //     So the Account row's `providerAccountId` written here is
+        //     guaranteed equal to the `Customer.lineUserId` written by
+        //     step 7c — no split LINE identity can be committed.
+        //
         //     ⚠ OAuth token fields pass through UNCHANGED (PR #243
         //     Codex P2 round 2). Baseline auth.ts uses `as string |
         //     undefined` type-casts that don't convert null at runtime;
@@ -1992,12 +2008,15 @@ export async function activatePrecreatedCustomerWithLine(
           data: buildActivationCustomerUpdateData({
             userId: newUser.id,
             lineUserId: input.lineUserId,
-            // PR #243 Codex P2 rounds 8 + 14: byte-equivalent vs
+            // PR #243 Codex P2 rounds 8 / 14 / 16: byte-equivalent vs
             // auth.ts Case B (`oauthName = user.name ?? "顧客"` then
             // `if (oauthName) updateData.lineName = oauthName`).
-            // The helper preserves baseline's "顧客" floor — if both
-            // input.lineName and input.oauthProfile.name are falsy,
-            // Customer.lineName is written as "顧客".
+            // Round 16 uses nullish (`??`) not truthy (`||`) so empty
+            // strings are preserved at the source; the downstream
+            // truthy guard then omits Customer.lineName when the
+            // effective value is "" — matching baseline behaviour.
+            // "顧客" is the floor only when both sources are
+            // null/undefined.
             lineName: deriveEffectiveLineName(input),
           }),
         });
