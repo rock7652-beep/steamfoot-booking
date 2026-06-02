@@ -377,11 +377,22 @@ describe("byte-equivalent baseline vs auth.ts Case B (lines 620-687)", () => {
     });
   });
 
-  it("Customer.updateMany OMITS lineName field when input.lineName is null (matches baseline `if (oauthName)` guard at auth.ts line 656)", async () => {
+  it("Customer.updateMany OMITS lineName field when input.lineName is null AND oauthProfile.name is null (matches baseline `if (oauthName)` guard at auth.ts line 656) — PR #243 round 8: helper now derives effectiveLineName via input.lineName || oauthProfile.name fallback, so BOTH must be falsy to omit", async () => {
     mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
     const { txCustomerUpdateMany } = setupTransaction();
 
-    await activatePrecreatedCustomerWithLine(makeValidInput({ lineName: null }));
+    await activatePrecreatedCustomerWithLine(
+      makeValidInput({
+        lineName: null,
+        // Round 8 fallback: oauthProfile.name must also be falsy
+        // for the final truthy guard to omit the lineName key.
+        oauthProfile: {
+          email: OAUTH_EMAIL,
+          image: OAUTH_IMAGE,
+          name: null,
+        },
+      }),
+    );
 
     const data = (txCustomerUpdateMany.mock.calls[0]?.[0] as {
       data?: Record<string, unknown>;
@@ -1201,11 +1212,16 @@ describe("P2 round 1 (Codex): truthy lineName guard (matches baseline `if (oauth
     expect(data).toHaveProperty("lineName", "Alice");
   });
 
-  it("lineName = '' (empty string) → Customer.updateMany.data OMITS lineName (would otherwise blank a stored displayName)", async () => {
+  it("lineName = '' (empty string) AND oauthProfile.name = '' → Customer.updateMany.data OMITS lineName (would otherwise blank a stored displayName) — PR #243 round 8: both must be falsy after the fallback chain", async () => {
     mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
     const { txCustomerUpdateMany } = setupTransaction();
 
-    await activatePrecreatedCustomerWithLine(makeValidInput({ lineName: "" }));
+    await activatePrecreatedCustomerWithLine(
+      makeValidInput({
+        lineName: "",
+        oauthProfile: { email: OAUTH_EMAIL, image: OAUTH_IMAGE, name: "" },
+      }),
+    );
 
     const data = (txCustomerUpdateMany.mock.calls[0]?.[0] as {
       data?: Record<string, unknown>;
@@ -1217,13 +1233,18 @@ describe("P2 round 1 (Codex): truthy lineName guard (matches baseline `if (oauth
     expect(data).toHaveProperty("lineUserId", LINE_USER_ID);
   });
 
-  it("lineName = null → Customer.updateMany.data OMITS lineName (baseline `if (oauthName)`)", async () => {
+  it("lineName = null AND oauthProfile.name = null → Customer.updateMany.data OMITS lineName (baseline `if (oauthName)`) — PR #243 round 8: both must be falsy after the fallback chain", async () => {
     // Already covered by section #2 above, re-asserted here under
     // the round-1 P2 grouping for completeness.
     mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
     const { txCustomerUpdateMany } = setupTransaction();
 
-    await activatePrecreatedCustomerWithLine(makeValidInput({ lineName: null }));
+    await activatePrecreatedCustomerWithLine(
+      makeValidInput({
+        lineName: null,
+        oauthProfile: { email: OAUTH_EMAIL, image: OAUTH_IMAGE, name: null },
+      }),
+    );
 
     const data = (txCustomerUpdateMany.mock.calls[0]?.[0] as {
       data?: Record<string, unknown>;
@@ -2582,5 +2603,304 @@ describe("PR #243 Codex P1 round 7: explicit P1 contract sentences at three anch
       data?: Record<string, unknown>;
     })?.data;
     expect(updData?.userId).toBe(NEW_USER_ID);
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// 17. PR #243 Codex P2 round 8: preserve Case B lineName fallback
+//     (input.lineName || input.oauthProfile.name || null)
+//
+//     auth.ts Case B baseline derives `oauthName` from `user.name ??
+//     "顧客"` (line 409) and then writes Customer.lineName via
+//     `if (oauthName) updateData.lineName = oauthName` (line 656).
+//     Pre-round-8 helper only consulted `input.lineName` — a caller
+//     passing `input.lineName = null` AND a truthy `oauthProfile.name`
+//     would activate without setting Customer.lineName, breaking
+//     byte-equivalence vs baseline.
+//
+//     Round 8 introduces a private `deriveEffectiveLineName(input)`
+//     helper with a pure truthy-OR fallback chain:
+//
+//       effectiveLineName = input.lineName
+//                        || input.oauthProfile.name
+//                        || null
+//
+//     The final truthy guard in `buildActivationCustomerUpdateData`
+//     still gates the write (matches baseline `if (oauthName)`):
+//       - falsy effectiveLineName → omits lineName key entirely
+//       - truthy effectiveLineName → writes the resolved string
+//
+//     Empty string handling: `||` (NOT `??`) so "" falls through to
+//     the next fallback — matches the baseline truthy guard which
+//     rejects "" as well as null.
+// ════════════════════════════════════════════════════════════════════════════
+
+describe("PR #243 Codex P2 round 8: preserve Case B lineName fallback (input.lineName || oauthProfile.name)", () => {
+  const HELPER_PATH = path.resolve(
+    __dirname,
+    "..",
+    "server",
+    "services",
+    "bind-line-to-customer.ts",
+  );
+
+  // The 7 user-spec scenarios, in order:
+
+  it("scenario 1 — lineName = 'LINE display' → writes 'LINE display' (lineName branch wins)", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const { txCustomerUpdateMany } = setupTransaction();
+
+    await activatePrecreatedCustomerWithLine(
+      makeValidInput({
+        lineName: "LINE display",
+        oauthProfile: {
+          email: OAUTH_EMAIL,
+          image: OAUTH_IMAGE,
+          name: "Profile Fallback",
+        },
+      }),
+    );
+
+    const data = (txCustomerUpdateMany.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    // input.lineName is truthy → first branch wins, oauthProfile.name
+    // is NOT used.
+    expect(data?.lineName).toBe("LINE display");
+  });
+
+  it("scenario 2 — lineName = null + oauthProfile.name = 'Profile Name' → writes 'Profile Name' (oauthProfile.name fallback)", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const { txCustomerUpdateMany } = setupTransaction();
+
+    await activatePrecreatedCustomerWithLine(
+      makeValidInput({
+        lineName: null,
+        oauthProfile: {
+          email: OAUTH_EMAIL,
+          image: OAUTH_IMAGE,
+          name: "Profile Name",
+        },
+      }),
+    );
+
+    const data = (txCustomerUpdateMany.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    expect(data?.lineName).toBe("Profile Name");
+  });
+
+  it("scenario 3 — lineName = '' + oauthProfile.name = 'Profile Name' → writes 'Profile Name' (empty string falls through to fallback)", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const { txCustomerUpdateMany } = setupTransaction();
+
+    await activatePrecreatedCustomerWithLine(
+      makeValidInput({
+        lineName: "",
+        oauthProfile: {
+          email: OAUTH_EMAIL,
+          image: OAUTH_IMAGE,
+          name: "Profile Name",
+        },
+      }),
+    );
+
+    const data = (txCustomerUpdateMany.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    // `||` (not `??`) means "" falls through to oauthProfile.name.
+    expect(data?.lineName).toBe("Profile Name");
+  });
+
+  it("scenario 4 — lineName = null + oauthProfile.name = null → omits lineName (both falsy)", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const { txCustomerUpdateMany } = setupTransaction();
+
+    await activatePrecreatedCustomerWithLine(
+      makeValidInput({
+        lineName: null,
+        oauthProfile: {
+          email: OAUTH_EMAIL,
+          image: OAUTH_IMAGE,
+          name: null,
+        },
+      }),
+    );
+
+    const data = (txCustomerUpdateMany.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    expect(data).not.toHaveProperty("lineName");
+    // Other fields unaffected by the omitted lineName.
+    expect(data?.userId).toBe(NEW_USER_ID);
+    expect(data?.lineUserId).toBe(LINE_USER_ID);
+    expect(data?.authSource).toBe("LINE");
+  });
+
+  it("scenario 4b — lineName = null + oauthProfile.name = undefined → omits lineName (final null sentinel)", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const { txCustomerUpdateMany } = setupTransaction();
+
+    await activatePrecreatedCustomerWithLine(
+      makeValidInput({
+        lineName: null,
+        oauthProfile: {
+          email: OAUTH_EMAIL,
+          image: OAUTH_IMAGE,
+          name: undefined,
+        },
+      }),
+    );
+
+    const data = (txCustomerUpdateMany.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    expect(data).not.toHaveProperty("lineName");
+  });
+
+  it("scenario 5 — lineName = '' + oauthProfile.name = '' → omits lineName (both empty string, both fall through)", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const { txCustomerUpdateMany } = setupTransaction();
+
+    await activatePrecreatedCustomerWithLine(
+      makeValidInput({
+        lineName: "",
+        oauthProfile: {
+          email: OAUTH_EMAIL,
+          image: OAUTH_IMAGE,
+          name: "",
+        },
+      }),
+    );
+
+    const data = (txCustomerUpdateMany.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    expect(data).not.toHaveProperty("lineName");
+  });
+
+  it("scenario 6 (source-structure) — `deriveEffectiveLineName` uses a truthy-OR chain (`||`), NOT a null-only nullish coalesce (`??`)", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    const fnStart = src.indexOf("function deriveEffectiveLineName");
+    expect(fnStart).toBeGreaterThan(-1);
+    const tail = src.slice(fnStart);
+    const termRel = tail.search(/\n}\n\n/);
+    const fnBody = termRel >= 0 ? tail.slice(0, termRel + 2) : tail;
+
+    // Required: pure `||` chain, ending at `null` sentinel.
+    expect(fnBody).toMatch(
+      /return\s+input\.lineName\s*\|\|\s*input\.oauthProfile\.name\s*\|\|\s*null/,
+    );
+    // Forbidden: `??` would let empty string through and pin to the
+    // first non-null value (wrong: empty string should fall through
+    // to the next fallback per baseline `if (oauthName)` semantics).
+    expect(fnBody).not.toMatch(/input\.lineName\s*\?\?\s*input\.oauthProfile\.name/);
+    expect(fnBody).not.toMatch(/input\.oauthProfile\.name\s*\?\?\s*null/);
+  });
+
+  it("scenario 6b (source-structure) — call site passes `deriveEffectiveLineName(input)` (NOT raw `input.lineName`) to buildActivationCustomerUpdateData", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    // Find the buildActivationCustomerUpdateData call inside the
+    // exported activation helper's tx callback.
+    const fnStart = src.indexOf(
+      "export async function activatePrecreatedCustomerWithLine",
+    );
+    expect(fnStart).toBeGreaterThan(-1);
+    const fnSlice = src.slice(fnStart);
+
+    // The call must pass deriveEffectiveLineName(input), not raw
+    // input.lineName.
+    expect(fnSlice).toMatch(
+      /lineName\s*:\s*deriveEffectiveLineName\s*\(\s*input\s*\)/,
+    );
+    // Negative: no bare `lineName: input.lineName,` in the call site
+    // (the bare form would skip the fallback).
+    const callBlockMatch = fnSlice.match(
+      /buildActivationCustomerUpdateData\s*\(\s*\{[\s\S]*?\}\s*\)/,
+    );
+    expect(callBlockMatch).toBeTruthy();
+    const callBlock = callBlockMatch![0];
+    expect(callBlock).not.toMatch(/lineName\s*:\s*input\.lineName\s*,/);
+  });
+
+  it("scenario 7 — existing lineName truthiness tests still pass: truthy → writes; falsy after fallback → omits", async () => {
+    // Sanity: round-1 P2 contract (truthy guard) still holds AFTER
+    // the round-8 fallback derivation. The final guard in
+    // buildActivationCustomerUpdateData is still `if (params.lineName)`.
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const { txCustomerUpdateMany } = setupTransaction();
+
+    await activatePrecreatedCustomerWithLine(
+      makeValidInput({
+        lineName: "Alice",
+        oauthProfile: {
+          email: OAUTH_EMAIL,
+          image: OAUTH_IMAGE,
+          name: "ShouldNotWin",
+        },
+      }),
+    );
+
+    const data = (txCustomerUpdateMany.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    // Truthy input.lineName wins; oauthProfile.name ignored.
+    expect(data?.lineName).toBe("Alice");
+  });
+
+  it("byte-equivalence — caller-derived path (input.lineName populated, oauthProfile.name unused) matches helper-derived path (input.lineName null, oauthProfile.name supplies value): both write the same value", async () => {
+    // PR-G5.5's caller MAY pre-derive `oauthName = user.name ?? \"顧客\"`
+    // and pass it via input.lineName, OR it may pass input.lineName
+    // = null and let the helper recover via the oauthProfile.name
+    // fallback. Both produce the same DB row.
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const setup1 = setupTransaction();
+    await activatePrecreatedCustomerWithLine(
+      makeValidInput({
+        lineName: "Resolved Name",
+        oauthProfile: { email: OAUTH_EMAIL, image: OAUTH_IMAGE, name: null },
+      }),
+    );
+    const callerDerivedLineName = (setup1.txCustomerUpdateMany.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data?.lineName;
+
+    // Reset for the second run.
+    vi.clearAllMocks();
+    mockCustomerFindUnique.mockReset();
+    mockTx.mockReset();
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const setup2 = setupTransaction();
+    await activatePrecreatedCustomerWithLine(
+      makeValidInput({
+        lineName: null,
+        oauthProfile: { email: OAUTH_EMAIL, image: OAUTH_IMAGE, name: "Resolved Name" },
+      }),
+    );
+    const helperDerivedLineName = (setup2.txCustomerUpdateMany.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data?.lineName;
+
+    expect(callerDerivedLineName).toBe("Resolved Name");
+    expect(helperDerivedLineName).toBe("Resolved Name");
+    expect(callerDerivedLineName).toBe(helperDerivedLineName);
+  });
+
+  it("P1 reinforcement — no stale wording suggesting User.create connects Customer: helper file has zero `User.create` + `connect` / `Customer relation` co-occurrence", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    // Forbid the canonical baseline literal pattern anywhere in the file.
+    expect(src).not.toMatch(/customer\s*:\s*\{\s*connect\s*:\s*\{\s*id\s*:/);
+    // Forbid "User.create" appearing on the same line as "connect" key
+    // (any new wording that resurrects the old idea).
+    const lines = src.split("\n");
+    for (const line of lines) {
+      const lower = line.toLowerCase();
+      const sayUserCreateConnects =
+        lower.includes("user.create") && /\bconnect\b/.test(lower);
+      // The only legit occurrence is the prohibition itself
+      // ("does NOT use Prisma nested Customer relation write in
+      // User.create") — that doesn't mention connect at all.
+      expect(sayUserCreateConnects).toBe(false);
+    }
   });
 });

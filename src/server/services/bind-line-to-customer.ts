@@ -1342,9 +1342,15 @@ async function runFullBindTx(params: {
 //      - lineUserId:     input.lineUserId
 //      - lineLinkStatus: "LINKED"
 //      - lineLinkedAt:   new Date()
-//      - lineName:       input.lineName     ← only if truthy (matches
-//                                              baseline `if (oauthName)` —
-//                                              rejects null AND empty string)
+//      - lineName:       deriveEffectiveLineName(input) ← truthy-OR
+//                                              fallback chain: prefers
+//                                              input.lineName, then
+//                                              input.oauthProfile.name,
+//                                              else null. Final truthy
+//                                              guard mirrors baseline
+//                                              `if (oauthName)` (rejects
+//                                              null AND empty string).
+//                                              PR #243 Codex P2 round 8.
 //
 //    Items intentionally NOT done by this helper (post-tx best-effort in
 //    baseline — PR-G5.5 keeps them OUTSIDE the tx as today):
@@ -1608,11 +1614,59 @@ function buildActivationUserCreateData(args: {
 }
 
 /**
+ * Derive the effective LINE display name for Customer.lineName,
+ * mirroring auth.ts Case B's `oauthName` derivation (PR #243 Codex
+ * P2 round 8).
+ *
+ * Baseline (`src/lib/auth.ts` lines 409 + 656):
+ *   const oauthName = user.name ?? "顧客";
+ *   ...
+ *   if (oauthName) updateData.lineName = oauthName;
+ *
+ * The caller (PR-G5.5) may pre-derive this value and pass it via
+ * `input.lineName`, OR it may pass `input.lineName = null` and rely
+ * on the helper to fall back to `input.oauthProfile.name`. This
+ * function makes both call shapes byte-equivalent vs baseline.
+ *
+ * Truthy-OR fallback chain:
+ *   1. input.lineName  (if truthy — non-empty string wins)
+ *   2. input.oauthProfile.name  (if truthy)
+ *   3. null  (sentinel — `buildActivationCustomerUpdateData` omits
+ *      the lineName key entirely when null/falsy)
+ *
+ * Semantics (matches auth.ts Case B baseline byte-for-byte):
+ *   - lineName = "LINE display"                          → "LINE display"
+ *   - lineName = null,  oauthProfile.name = "Profile"    → "Profile"
+ *   - lineName = "",    oauthProfile.name = "Profile"    → "Profile"
+ *   - lineName = null,  oauthProfile.name = null         → null  (omit)
+ *   - lineName = "",    oauthProfile.name = ""           → null  (omit)
+ *   - lineName = null,  oauthProfile.name = undefined    → null  (omit)
+ *
+ * Empty string handling: `||` (NOT `??`) so empty string falls
+ * through to the next fallback — matches the auth.ts baseline's
+ * `if (oauthName)` truthy guard which rejects "".
+ *
+ * Pure function — no side effects, no DB I/O, no time-dependent
+ * values; safe to call inside the tx callback or outside.
+ */
+function deriveEffectiveLineName(input: {
+  lineName: string | null;
+  oauthProfile: { name?: string | null | undefined };
+}): string | null {
+  return input.lineName || input.oauthProfile.name || null;
+}
+
+/**
  * Build the Customer.updateMany data payload for Case B activation
  * (parallel to the inline data block in runFullBindTx). Returns the
  * full byte-equivalent baseline set, with `lineName` conditionally
  * included only when TRUTHY — matches auth.ts Case B `if (oauthName)`
  * guard at line 656 exactly (PR #243 Codex P2 round 1).
+ *
+ * The `lineName` param is the ALREADY-DERIVED effective value from
+ * `deriveEffectiveLineName(input)` (PR #243 Codex P2 round 8). This
+ * function only applies the final truthy gate; the caller is
+ * responsible for the input → oauthProfile.name fallback chain.
  *
  * Truthy guard rationale (vs null-only check):
  *   - lineName = "Alice"  → writes lineName: "Alice"
@@ -1847,7 +1901,12 @@ export async function activatePrecreatedCustomerWithLine(
           data: buildActivationCustomerUpdateData({
             userId: newUser.id,
             lineUserId: input.lineUserId,
-            lineName: input.lineName,
+            // PR #243 Codex P2 round 8: byte-equivalent vs auth.ts
+            // Case B (`oauthName = user.name ?? "顧客"` then
+            // `if (oauthName) updateData.lineName = oauthName`).
+            // Caller may pass null lineName and rely on the
+            // oauthProfile.name fallback here.
+            lineName: deriveEffectiveLineName(input),
           }),
         });
         if (updated.count !== 1) {
