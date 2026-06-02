@@ -1335,7 +1335,16 @@ async function runFullBindTx(params: {
 //        exclusively by step 7c (P1 GUARANTEE sentence 3).
 //
 //    Account.create data (auth.ts line 634-647) — 10 fields, NO session_state:
-//      - userId / type / provider / providerAccountId
+//      - userId
+//      - type:              input.oauthAccount.type
+//      - provider:          "line"             ← canonical literal
+//                                                (PR #243 Codex P2 round 17;
+//                                                step-1 validation enforces
+//                                                input.oauthAccount.provider === "line")
+//      - providerAccountId: input.lineUserId   ← same canonical source as
+//                                                Customer.lineUserId
+//                                                (round 17 — eliminates
+//                                                dual-source ambiguity)
 //      - access_token / refresh_token / id_token
 //      - expires_at / token_type / scope
 //
@@ -1958,14 +1967,18 @@ export async function activatePrecreatedCustomerWithLine(
         // 7b. Create Account[line] — byte-equivalent to auth.ts Case B
         //     baseline (lines 634-647). 10 fields, NO session_state.
         //
-        //     ⚠ PR #243 Codex P2 round 15: `provider` and
-        //     `providerAccountId` are read from `input.oauthAccount`,
-        //     BUT the step-1 validation has already proven
-        //     `input.oauthAccount.provider === "line"` AND
-        //     `input.oauthAccount.providerAccountId === input.lineUserId`.
-        //     So the Account row's `providerAccountId` written here is
-        //     guaranteed equal to the `Customer.lineUserId` written by
-        //     step 7c — no split LINE identity can be committed.
+        //     ⚠ PR #243 Codex P2 round 17: `provider` and
+        //     `providerAccountId` are sourced DIRECTLY from canonical
+        //     trusted values — `"line"` (literal) and `input.lineUserId`
+        //     — NOT from `input.oauthAccount`. This eliminates the
+        //     dual-source ambiguity: both Account[line].providerAccountId
+        //     and Customer.lineUserId now read from the SAME variable.
+        //     The step-1 pre-tx validation enforces
+        //     `input.oauthAccount.providerAccountId === input.lineUserId`,
+        //     so byte-equivalence vs auth.ts baseline is preserved
+        //     (baseline reads the same value out of `account.provider`
+        //     and `account.providerAccountId`, which the OAuth
+        //     handshake guarantees equals the LINE userId we receive).
         //
         //     ⚠ OAuth token fields pass through UNCHANGED (PR #243
         //     Codex P2 round 2). Baseline auth.ts uses `as string |
@@ -1979,8 +1992,8 @@ export async function activatePrecreatedCustomerWithLine(
           data: {
             userId: newUser.id,
             type: input.oauthAccount.type,
-            provider: input.oauthAccount.provider,
-            providerAccountId: input.oauthAccount.providerAccountId,
+            provider: "line",
+            providerAccountId: input.lineUserId,
             access_token: input.oauthAccount.access_token as
               | string
               | undefined,

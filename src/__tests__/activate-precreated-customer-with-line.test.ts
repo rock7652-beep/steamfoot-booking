@@ -4519,21 +4519,20 @@ describe("PR #243 Codex P2 round 15: validate Account LINE id before linking Cus
     expect(returnIdx).toBeLessThan(preflightIdx);
   });
 
-  it("6. source: Account.create's providerAccountId comes from `input.oauthAccount.providerAccountId` — which the step-1 validation has proven equal to `input.lineUserId` (cannot silently diverge from Customer.lineUserId)", () => {
+  it("6 (round 17): Account.create's providerAccountId reads directly from `input.lineUserId` — same canonical source as Customer.lineUserId. Single-source: no divergence possible by construction.", () => {
     const src = readFileSync(HELPER_PATH, "utf8");
     const fnStart = src.indexOf(
       "export async function activatePrecreatedCustomerWithLine",
     );
     const fnSlice = src.slice(fnStart);
 
-    // Account.create.data.providerAccountId reads from
-    // input.oauthAccount.providerAccountId.
+    // Round 17: Account.create.data.providerAccountId reads from
+    // `input.lineUserId` directly (NOT `input.oauthAccount.providerAccountId`).
     const accountCreateIdx = fnSlice.indexOf("tx.account.create(");
     expect(accountCreateIdx).toBeGreaterThan(-1);
-    // 1500 chars cover the full account.create call.
     const accountBlock = fnSlice.slice(accountCreateIdx, accountCreateIdx + 1500);
     expect(accountBlock).toMatch(
-      /providerAccountId\s*:\s*input\.oauthAccount\.providerAccountId/,
+      /providerAccountId\s*:\s*input\.lineUserId/,
     );
 
     // Customer.lineUserId is written from input.lineUserId (in
@@ -4548,9 +4547,9 @@ describe("PR #243 Codex P2 round 15: validate Account LINE id before linking Cus
       builderTermRel >= 0 ? builderTail.slice(0, builderTermRel + 2) : builderTail;
     expect(builderBody).toMatch(/lineUserId\s*:\s*params\.lineUserId/);
 
-    // The two sources are wired separately at the activation helper,
-    // but the step-1 validation enforces `oauthAccount.providerAccountId
-    // === input.lineUserId` BEFORE either write happens.
+    // The step-1 validation remains as defence-in-depth, enforcing
+    // that the OAuth provider/providerAccountId match the LINE
+    // identity claimed by input.lineUserId.
     const validationMatch = fnSlice.match(
       /input\.oauthAccount\.providerAccountId\s*!==\s*input\.lineUserId/,
     );
@@ -4893,32 +4892,24 @@ describe("PR #243 Codex P2 round 16: preserve empty LINE names (`??` not `||`) +
     expect(returnIdx).toBeLessThan(txIdx);
   });
 
-  it("P2-B.5 (source): Account.create's `providerAccountId` cannot diverge from Customer.lineUserId — the step-1 validation proves them equal BEFORE the tx, and an inline comment near tx.account.create documents the post-validation invariant", () => {
+  it("P2-B.5 (round 17 supersedes round 16): Account.create reads `providerAccountId: input.lineUserId` DIRECTLY — single canonical source eliminates dual-source ambiguity entirely", () => {
     const src = readFileSync(HELPER_PATH, "utf8");
     const fnStart = src.indexOf(
       "export async function activatePrecreatedCustomerWithLine",
     );
     const fnSlice = src.slice(fnStart);
 
-    // Account.create.data.providerAccountId reads from
-    // input.oauthAccount.providerAccountId (round 15 unchanged).
+    // Round 17: Account.create reads input.lineUserId directly.
     const accountCreateIdx = fnSlice.indexOf("tx.account.create(");
     expect(accountCreateIdx).toBeGreaterThan(-1);
     const accountBlock = fnSlice.slice(accountCreateIdx, accountCreateIdx + 1500);
     expect(accountBlock).toMatch(
-      /providerAccountId\s*:\s*input\.oauthAccount\.providerAccountId/,
+      /providerAccountId\s*:\s*input\.lineUserId/,
     );
-
-    // Round 16 reinforcement: an inline comment near step 7b must
-    // document that the post-validation invariant
-    // `oauthAccount.providerAccountId === input.lineUserId` holds.
-    // Anchor 1500 chars BEFORE tx.account.create to capture the
-    // full step-7b comment block.
-    const windowStart = Math.max(0, accountCreateIdx - 1500);
-    const stepBlock = fnSlice.slice(windowStart, accountCreateIdx);
-    expect(stepBlock).toMatch(/round 15/);
-    expect(stepBlock).toMatch(
-      /providerAccountId === input\.lineUserId|equal to.{0,40}input\.lineUserId|guaranteed equal to/,
+    // Forbid the legacy dual-source `input.oauthAccount.providerAccountId`
+    // shape — round 17 explicitly removes it from Account.create.
+    expect(accountBlock).not.toMatch(
+      /providerAccountId\s*:\s*input\.oauthAccount\.providerAccountId/,
     );
   });
 
@@ -4955,5 +4946,287 @@ describe("PR #243 Codex P2 round 16: preserve empty LINE names (`??` not `||`) +
 
     expect(warnSpy).not.toHaveBeenCalled();
     warnSpy.mockRestore();
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// 26. PR #243 Codex P2 round 17: Account.create uses canonical
+//     `input.lineUserId` directly — eliminate dual-source ambiguity
+//
+//     Round 15 added pre-tx validation that proves
+//     `input.oauthAccount.providerAccountId === input.lineUserId`.
+//     But Codex's reader still flagged the dual-source pattern:
+//     Account.create reading from one place, Customer.updateMany
+//     reading from another, even though they're provably equal.
+//
+//     Round 17 takes the more direct fix: make BOTH Account[line]
+//     and Customer.lineUserId read from the SAME canonical variable
+//     (`input.lineUserId`). The OAuth Account fields are no longer
+//     consulted for provider / providerAccountId at write time —
+//     they are validated up-front and discarded for those columns.
+//
+//     Exact final shape:
+//
+//       await tx.account.create({
+//         data: {
+//           userId: newUser.id,
+//           type: input.oauthAccount.type,
+//           provider: "line",                ← canonical literal
+//           providerAccountId: input.lineUserId,  ← canonical source
+//           access_token: ...,
+//           refresh_token: ...,
+//           id_token: ...,
+//           expires_at: ...,
+//           scope: ...,
+//           token_type: ...,
+//         },
+//       });
+//
+//     Byte-equivalence vs auth.ts Case B baseline is preserved
+//     because:
+//       - baseline writes `account.provider` (which is "line" for
+//         the LINE provider branch — auth.ts is provider-aware),
+//       - baseline writes `account.providerAccountId` which the
+//         OAuth handshake delivers as the LINE userId,
+//       - the round-1 step-1 validation enforces that
+//         input.oauthAccount.provider === "line" AND
+//         input.oauthAccount.providerAccountId === input.lineUserId
+//         — so reading directly from input.lineUserId / "line"
+//         produces the same Account row Prisma would have produced
+//         under baseline.
+//
+//     OAuth token fields (access_token, refresh_token, id_token,
+//     expires_at, scope, token_type) STILL pass through from
+//     input.oauthAccount unchanged (round 9 contract).
+// ════════════════════════════════════════════════════════════════════════════
+
+describe("PR #243 Codex P2 round 17: Account.create uses canonical `input.lineUserId` directly", () => {
+  const HELPER_PATH = path.resolve(
+    __dirname,
+    "..",
+    "server",
+    "services",
+    "bind-line-to-customer.ts",
+  );
+
+  // ─ User-spec sentinels (P2-A-style validation invariants) ──────────────
+
+  it("1. providerAccountId mismatch still returns line_account_mismatch with 0 DB I/O (round-15 validation preserved)", async () => {
+    const setup = setupTransaction();
+
+    const r = await activatePrecreatedCustomerWithLine(
+      makeValidInput({
+        oauthAccount: {
+          provider: "line",
+          providerAccountId: "U_R17_MISMATCH_aaaaaaaaaaaaaaaaaaaa",
+          type: "oauth",
+          access_token: null,
+          refresh_token: null,
+          id_token: null,
+          expires_at: null,
+          scope: null,
+          token_type: null,
+        },
+      }),
+    );
+
+    expect(r).toEqual({
+      status: "line_account_mismatch",
+      expectedLineUserId: LINE_USER_ID,
+    });
+    expect(mockCustomerFindUnique).not.toHaveBeenCalled();
+    expect(mockTx).not.toHaveBeenCalled();
+    expect(setup.txUserCreate).not.toHaveBeenCalled();
+    expect(setup.txAccountCreate).not.toHaveBeenCalled();
+    expect(setup.txCustomerUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("2. provider !== 'line' still returns line_account_mismatch with 0 DB I/O (round-15 validation preserved)", async () => {
+    const setup = setupTransaction();
+
+    const r = await activatePrecreatedCustomerWithLine(
+      makeValidInput({
+        oauthAccount: {
+          provider: "google",
+          providerAccountId: LINE_USER_ID,
+          type: "oauth",
+          access_token: "g_atok",
+          refresh_token: null,
+          id_token: null,
+          expires_at: null,
+          scope: null,
+          token_type: null,
+        },
+      }),
+    );
+
+    expect(r.status).toBe("line_account_mismatch");
+    expect(mockCustomerFindUnique).not.toHaveBeenCalled();
+    expect(mockTx).not.toHaveBeenCalled();
+    expect(setup.txUserCreate).not.toHaveBeenCalled();
+    expect(setup.txAccountCreate).not.toHaveBeenCalled();
+    expect(setup.txCustomerUpdateMany).not.toHaveBeenCalled();
+  });
+
+  // ─ Behavioural: Account row uses canonical source ──────────────────────
+
+  it("3. Account.create.data.provider === 'line' (canonical literal, NOT input.oauthAccount.provider)", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const { txAccountCreate } = setupTransaction();
+
+    await activatePrecreatedCustomerWithLine(makeValidInput());
+
+    const data = (txAccountCreate.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    expect(data?.provider).toBe("line");
+  });
+
+  it("4. Account.create.data.providerAccountId === input.lineUserId (canonical source — same variable as Customer.lineUserId)", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const { txAccountCreate, txCustomerUpdateMany } = setupTransaction();
+
+    await activatePrecreatedCustomerWithLine(makeValidInput());
+
+    const accountData = (txAccountCreate.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    const customerData = (txCustomerUpdateMany.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+
+    // Both rows MUST carry the same LINE id.
+    expect(accountData?.providerAccountId).toBe(LINE_USER_ID);
+    expect(customerData?.lineUserId).toBe(LINE_USER_ID);
+    expect(accountData?.providerAccountId).toBe(customerData?.lineUserId);
+  });
+
+  // ─ Source-structure: dual-source eliminated ────────────────────────────
+
+  it("5. source: Account.create block does NOT contain `input.oauthAccount.providerAccountId` (dual-source pattern removed)", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    const fnStart = src.indexOf(
+      "export async function activatePrecreatedCustomerWithLine",
+    );
+    const fnSlice = src.slice(fnStart);
+    const accountCreateIdx = fnSlice.indexOf("tx.account.create(");
+    expect(accountCreateIdx).toBeGreaterThan(-1);
+    // Balanced-paren walk to capture the full Account.create call
+    // boundary.
+    let depth = 0;
+    let endIdx = accountCreateIdx;
+    const startParenIdx = fnSlice.indexOf("(", accountCreateIdx);
+    for (let i = startParenIdx; i < fnSlice.length; i++) {
+      const ch = fnSlice[i];
+      if (ch === "(") depth++;
+      else if (ch === ")") {
+        depth--;
+        if (depth === 0) {
+          endIdx = i + 1;
+          break;
+        }
+      }
+    }
+    const callBlock = fnSlice.slice(accountCreateIdx, endIdx);
+
+    // The legacy dual-source identifier MUST NOT appear in the call.
+    expect(callBlock).not.toMatch(/input\.oauthAccount\.providerAccountId/);
+    // The dual-source `provider: input.oauthAccount.provider` is
+    // also gone — replaced by the literal "line".
+    expect(callBlock).not.toMatch(
+      /provider\s*:\s*input\.oauthAccount\.provider\b/,
+    );
+  });
+
+  it("6. source: Account.create block DOES contain `providerAccountId: input.lineUserId` and `provider: \"line\"`", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    const fnStart = src.indexOf(
+      "export async function activatePrecreatedCustomerWithLine",
+    );
+    const fnSlice = src.slice(fnStart);
+    const accountCreateIdx = fnSlice.indexOf("tx.account.create(");
+    expect(accountCreateIdx).toBeGreaterThan(-1);
+    let depth = 0;
+    let endIdx = accountCreateIdx;
+    const startParenIdx = fnSlice.indexOf("(", accountCreateIdx);
+    for (let i = startParenIdx; i < fnSlice.length; i++) {
+      const ch = fnSlice[i];
+      if (ch === "(") depth++;
+      else if (ch === ")") {
+        depth--;
+        if (depth === 0) {
+          endIdx = i + 1;
+          break;
+        }
+      }
+    }
+    const callBlock = fnSlice.slice(accountCreateIdx, endIdx);
+
+    // Required positive sentinels.
+    expect(callBlock).toMatch(/providerAccountId\s*:\s*input\.lineUserId/);
+    expect(callBlock).toMatch(/provider\s*:\s*"line"/);
+  });
+
+  // ─ Regression: happy path + token pass-through ─────────────────────────
+
+  it("7. happy path still activates with byte-equivalent writes (round 17 is a source rename + literal — no behavioural change vs round 15/16)", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const { txUserCreate, txAccountCreate, txCustomerUpdateMany } =
+      setupTransaction();
+
+    const r = await activatePrecreatedCustomerWithLine(makeValidInput());
+
+    expect(r).toEqual({
+      status: "activated",
+      customerId: CUSTOMER_ID,
+      userId: NEW_USER_ID,
+    });
+    expect(txUserCreate).toHaveBeenCalledTimes(1);
+    expect(txAccountCreate).toHaveBeenCalledTimes(1);
+    expect(txCustomerUpdateMany).toHaveBeenCalledTimes(1);
+
+    // Same byte-equivalent Account row shape.
+    const accountData = (txAccountCreate.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    expect(Object.keys(accountData ?? {})).toHaveLength(10);
+    expect(accountData).not.toHaveProperty("session_state");
+    expect(accountData?.provider).toBe("line");
+    expect(accountData?.providerAccountId).toBe(LINE_USER_ID);
+  });
+
+  it("8. existing token pass-through tests still pass — null OAuth token fields stay null in Account.create (round 17 only renamed provider/providerAccountId sources)", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const { txAccountCreate } = setupTransaction();
+
+    await activatePrecreatedCustomerWithLine(
+      makeValidInput({
+        oauthAccount: {
+          provider: "line",
+          providerAccountId: LINE_USER_ID,
+          type: "oauth",
+          access_token: null,
+          refresh_token: null,
+          id_token: null,
+          expires_at: null,
+          scope: null,
+          token_type: null,
+        },
+      }),
+    );
+
+    const accountData = (txAccountCreate.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    // Token fields: null stays null (round-9 contract preserved).
+    expect(accountData?.access_token).toBeNull();
+    expect(accountData?.refresh_token).toBeNull();
+    expect(accountData?.id_token).toBeNull();
+    expect(accountData?.expires_at).toBeNull();
+    expect(accountData?.scope).toBeNull();
+    expect(accountData?.token_type).toBeNull();
+    // Provider / providerAccountId: round-17 canonical literals.
+    expect(accountData?.provider).toBe("line");
+    expect(accountData?.providerAccountId).toBe(LINE_USER_ID);
   });
 });
