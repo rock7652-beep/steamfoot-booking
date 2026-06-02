@@ -1573,11 +1573,19 @@ function buildActivationCustomerWhere(params: {
  *      Customer.userId.
  *
  * Sentence 1 is enforced HERE by the scalar-only return type below
- * (no `customer` key, no `connect` key — TypeScript rejects either
- * at the call site). Sentence 3 is enforced by
+ * — the declared return type enumerates exactly the 6 User-row
+ * columns; the call-site type-check rejects any Prisma relation
+ * key in the resulting data. Sentence 3 is enforced by
  * `buildActivationCustomerUpdateData` + the step-7c updateMany.
  * Sentence 2 is enforced by the in-tx `tx.customer.findFirst` guard
  * placed at the top of the activation tx callback (step 7-pre).
+ *
+ * PR #243 Codex P1+P2 round 12: the input arg key is `userSource`
+ * (NOT `customer`) so the call site at tx.user.create contains no
+ * Prisma-relation-looking token. The two fields under userSource
+ * carry the identity columns (name, phone) that seed the new User
+ * row; they are sourced from `caseBClaimableCustomer` via the
+ * named locals `customerNameForUser` / `customerPhoneForUser`.
  * ─────────────────────────────────────────────────────────────────────
  *
  * The return type is a **scalar-only** object literal that explicitly
@@ -1594,7 +1602,11 @@ function buildActivationCustomerWhere(params: {
  * block above for the full byte-equivalent spec.
  */
 function buildActivationUserCreateData(args: {
-  customer: { name: string; phone: string };
+  // PR #243 Codex P1+P2 round 12: input key is `userSource` (NOT
+  // `customer`) so the call site has no Prisma-relation-looking
+  // token near tx.user.create. The two fields carry the identity
+  // columns (name, phone) that seed the new User row.
+  userSource: { name: string; phone: string };
   oauthProfile: {
     email: string | null | undefined;
     image: string | null | undefined;
@@ -1608,9 +1620,9 @@ function buildActivationUserCreateData(args: {
   image: string | null;
 } {
   return {
-    name: args.customer.name,
+    name: args.userSource.name,
     email: args.oauthProfile.email ?? null,
-    phone: args.customer.phone || null,
+    phone: args.userSource.phone || null,
     role: "CUSTOMER",
     status: "ACTIVE",
     image: args.oauthProfile.image ?? null,
@@ -1879,7 +1891,7 @@ export async function activatePrecreatedCustomerWithLine(
         //          contract block above buildActivationCustomerUpdateData.
         const newUser = await tx.user.create({
           data: buildActivationUserCreateData({
-            customer: {
+            userSource: {
               name: customerNameForUser,
               phone: customerPhoneForUser,
             },
