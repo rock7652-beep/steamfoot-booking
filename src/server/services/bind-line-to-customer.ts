@@ -1254,3 +1254,815 @@ async function runFullBindTx(params: {
     userId: params.userId,
   };
 }
+
+// ════════════════════════════════════════════════════════════════════════════
+//
+//  activatePrecreatedCustomerWithLine — Case B activation helper (PR-G5.1.b)
+//
+//  Sister to bindLineToExistingCustomerById (PR-G5.1.a / customerId-driven,
+//  existing-user only). This helper handles the COMPLEMENTARY case:
+//    - staff has pre-created a Customer in the back-office
+//    - Customer.userId === null (no login identity attached yet)
+//    - the customer is doing their FIRST LINE OAuth login
+//    - the activation creates User + Account[line] + updates Customer
+//      link metadata, all in one atomic Serializable transaction
+//
+//  ⚠ NOT WIRED by this PR (PR-G5.1.b is helper-only / tests-only). The
+//  current production behaviour for Case B lives in src/lib/auth.ts
+//  (signIn callback, lines 620-687 at branch point). PR-G5.5 will
+//  refactor that branch to delegate here AS A REFACTOR-ONLY commit
+//  ("byte-equivalent output vs current Case B baseline"). Until then,
+//  this helper is dead-code on prod — same shipping pattern as PR-C1
+//  (bindLineToCustomerInStore) and PR-G5.1.a (bindLineToExistingCustomerById).
+//
+//  Strict conformance to docs/line-identity-binding-pre-audit.md §5.3.3:
+//    1. caller provides storeId from a verifiable trusted source
+//       (NextAuth signIn callback's resolved targetStoreId in PR-G5.5)
+//    2. load Customer by customerId (read-only)
+//    3. customer.storeId === input.storeId → otherwise store_mismatch, 0 writes
+//    4. customer.userId === null → otherwise customer_already_has_user, 0 writes
+//       (existing-user case must route to bindLineToExistingCustomerById)
+//    5. customer.mergedIntoCustomerId === null → otherwise stale_customer_link, 0 writes
+//    6. customer.lineUserId === null OR === input.lineUserId
+//       → otherwise customer_already_linked_to_other_line, 0 writes
+//    7. atomic Serializable $transaction:
+//         - User.create (byte-equivalent fields per Case B baseline; see below)
+//         - Account.create (10-field set, NO session_state)
+//         - Customer.updateMany WITH conditional where requiring still-Case-B
+//           state at tx-write time; count !== 1 → throw → stale_customer_link
+//
+//  ⚠ Byte-equivalent contract vs current src/lib/auth.ts Case B baseline
+//    (lines 620-687, restricted to LINE branch). The activation helper
+//    is a REFACTOR target — PR-G5.5 will move the current inline writes
+//    here without changing the end-state DB rows.
+//
+//  ──────────────────────────────────────────────────────────────────────
+//  P1 GUARANTEE (PR #243 Codex P1 — three structural invariants):
+//
+//    1. This helper intentionally does NOT use Prisma nested Customer
+//       relation write in User.create.
+//    2. The in-transaction Customer guard runs before User.create.
+//    3. Customer.updateMany is the only write that assigns
+//       Customer.userId.
+//
+//  All three sentences are enforced by code shape, not just convention:
+//    - sentence 1 is enforced by `buildActivationUserCreateData`'s
+//      scalar-only TypeScript return type (no `customer` / `connect`)
+//    - sentence 2 is enforced by the `tx.customer.findFirst` guard at
+//      the top of the activation tx callback (step 7-pre)
+//    - sentence 3 is enforced by `buildActivationCustomerUpdateData`
+//      + the step-7c conditional Customer.updateMany
+//  ──────────────────────────────────────────────────────────────────────
+//
+//    User.create data — exactly 6 scalar User-row columns
+//    (byte-equivalent vs auth.ts Case B baseline lines 622-632 for the
+//    User row itself, when no concurrent staff edit occurs between
+//    preflight and tx-start):
+//      - name:     customerNameForUser     ← in-tx snapshot from the
+//                                            step-7-pre findFirst guard
+//                                            (PR #243 Codex P2 round 9
+//                                            + round 11 named locals)
+//      - email:    oauthEmail               (oauthProfile.email here)
+//      - phone:    customerPhoneForUser    ← in-tx snapshot from the
+//                                            step-7-pre findFirst guard
+//                                            (PR #243 Codex P2 round 9
+//                                            + round 11 named locals)
+//      - role:     "CUSTOMER"
+//      - status:   "ACTIVE"
+//      - image:    oauthImage               (oauthProfile.image here)
+//      - The User.create data has a scalar-only shape — see
+//        P1 GUARANTEE sentence 1 above. Customer.userId is written
+//        exclusively by step 7c (P1 GUARANTEE sentence 3).
+//
+//    Account.create data (auth.ts line 634-647) — 10 fields, NO session_state:
+//      - userId
+//      - type:              input.oauthAccount.type
+//      - provider:          "line"             ← canonical literal
+//                                                (PR #243 Codex P2 round 17;
+//                                                step-1 validation enforces
+//                                                input.oauthAccount.provider === "line")
+//      - providerAccountId: input.lineUserId   ← same canonical source as
+//                                                Customer.lineUserId
+//                                                (round 17 — eliminates
+//                                                dual-source ambiguity)
+//      - access_token / refresh_token / id_token
+//      - expires_at / token_type / scope
+//
+//    Customer.updateMany data (auth.ts line 650-657 + the Customer.userId
+//    assignment that is the SOLE write of that column in this helper —
+//    P1 GUARANTEE sentence 3):
+//      - userId:         newUser.id         ← sole writer of Customer.userId
+//      - authSource:     "LINE"     ← hardcoded; helper is LINE-only
+//      - lineUserId:     input.lineUserId
+//      - lineLinkStatus: "LINKED"
+//      - lineLinkedAt:   new Date()
+//      - lineName:       deriveEffectiveLineName(input) ← nullish
+//                                              fallback chain (round 16):
+//                                              `input.lineName
+//                                              ?? input.oauthProfile.name
+//                                              ?? "顧客"`. The `??` (NOT
+//                                              `||`) preserves empty
+//                                              strings: if any source is
+//                                              `""`, the chain stops there,
+//                                              the downstream truthy
+//                                              guard rejects `""`, and
+//                                              Customer.lineName is omitted
+//                                              — matching auth.ts baseline
+//                                              (`user.name ?? "顧客"` then
+//                                              `if (oauthName)`). Only
+//                                              `null`/`undefined` fall
+//                                              through to the "顧客" floor.
+//                                              PR #243 Codex P2 rounds 14/16.
+//
+//    Items intentionally NOT done by this helper (post-tx best-effort in
+//    baseline — PR-G5.5 keeps them OUTSIDE the tx as today):
+//      - referral-points (auth.ts line 666-678)
+//      - repairCustomerIdentityOnLogin (auth.ts line 680-687)
+//      - logLineBindEvent (auth.ts line 689+)
+//      - AuditLog row (baseline writes none)
+//
+//  PII contract: predictable rejection branches do not log. The rare
+//  stale_customer_link race path emits one console.warn payload using
+//  maskId / maskLineUserId — raw IDs / phone / email never appear.
+//
+// ════════════════════════════════════════════════════════════════════════════
+
+/** PR-G5.1.b activation helper input. */
+export interface ActivatePrecreatedCustomerWithLineInput {
+  /**
+   * Trusted store context from caller. Per PR-G5.0 §5.3.3 / Codex
+   * round 12: caller is responsible for sourcing this from a
+   * verifiable trust source (NextAuth signIn callback's resolved
+   * targetStoreId). Helper enforces `customer.storeId === storeId`
+   * as the real authorization boundary regardless.
+   */
+  storeId: string;
+  /** Target Customer.id. Staff-precreated; expected to have userId === null. */
+  customerId: string;
+  /** LINE userId from a verified OAuth source. */
+  lineUserId: string;
+  /** LINE displayName for Customer.lineName; null permitted (matches baseline `if (oauthName)` guard). */
+  lineName: string | null;
+  /**
+   * NextAuth signIn callback's `user` (OAuth profile).
+   *
+   * ⚠ `oauthProfile.name` is NOT used as `User.name` — baseline writes
+   * `customer.name` to `User.name`. The field is preserved on the
+   * input shape only because the baseline branch reads it via the
+   * NextAuth `user` parameter; consumers (PR-G5.5) pass it through
+   * for type-symmetry. The helper deliberately ignores it.
+   */
+  oauthProfile: {
+    email: string | null | undefined;
+    image: string | null | undefined;
+    name: string | null | undefined;
+  };
+  /**
+   * NextAuth signIn callback's `account` (OAuth token bundle).
+   *
+   * 10 fields — matches current Case B baseline `prisma.account.create`
+   * data (auth.ts lines 634-647) EXACTLY. **No `session_state`** —
+   * baseline doesn't write it, and including it here would silently
+   * extend the Account row vs current behaviour (Codex round 10 P2).
+   */
+  oauthAccount: {
+    provider: string;
+    providerAccountId: string;
+    type: string;
+    access_token: string | null | undefined;
+    refresh_token: string | null | undefined;
+    id_token: string | null | undefined;
+    expires_at: number | null | undefined;
+    scope: string | null | undefined;
+    token_type: string | null | undefined;
+  };
+}
+
+/** PR-G5.1.b activation helper output — discriminated union; never throws on expected branches. */
+export type ActivatePrecreatedCustomerWithLineResult =
+  | {
+      /** User created, Account[line] created, Customer link metadata written. */
+      status: "activated";
+      customerId: string;
+      userId: string;
+    }
+  | {
+      /**
+       * customer.storeId !== input.storeId. Real authorization boundary
+       * per PR-G5.0 §5.3.3 step 3. 0 DB writes.
+       * Also returned when customerId resolves to no Customer at all
+       * (stale id from caller) — actualStoreId is "(not_found)".
+       */
+      status: "store_mismatch";
+      expectedStoreId: string;
+      /** "(not_found)" when customerId resolved no row. */
+      actualStoreId: string;
+    }
+  | {
+      /**
+       * customer.userId !== null — Customer already has a login
+       * identity. Activation helper is precreated-only; existing-user
+       * case must route to bindLineToExistingCustomerById (PR-G5.1.a).
+       * 0 DB writes; the caller should re-dispatch.
+       */
+      status: "customer_already_has_user";
+      customerId: string;
+      userId: string;
+    }
+  | {
+      /**
+       * customer.mergedIntoCustomerId is set — this row is a stale
+       * merge source; no LINE binding should be applied. 0 DB writes.
+       *
+       * Also returned by the tx's conditional Customer.updateMany when
+       * count !== 1 (in-tx race: another flow merged / activated /
+       * locked the Customer between preflight and tx-write boundary).
+       */
+      status: "stale_customer_link";
+      customerId: string;
+    }
+  | {
+      /**
+       * customer.lineUserId is non-null AND not equal to input.lineUserId
+       * — Customer is already bound to a DIFFERENT LINE account.
+       * Reject; require staff to unbind first. 0 DB writes.
+       */
+      status: "customer_already_linked_to_other_line";
+      customerId: string;
+      existingLineUserId: string;
+    }
+  | {
+      /**
+       * Prisma P2002 unique-constraint violation during User.create
+       * or Account.create inside the tx. Possible causes:
+       *   - (provider, providerAccountId) collision: Account[line]
+       *     already exists for this lineUserId pointing at a different
+       *     User
+       *   - other constraint hit (storeId+phone unique on User, etc.)
+       * Transaction rolls back; 0 DB writes effectively committed.
+       */
+      status: "unique_conflict";
+      conflictTarget: string;
+    }
+  | {
+      /**
+       * Prisma P2034 — Serializable transaction aborted due to write
+       * conflict or deadlock with a concurrent binder. Caller MAY
+       * retry; helper does not retry internally.
+       */
+      status: "write_conflict";
+      code: "P2034";
+    }
+  | {
+      /**
+       * PR #243 Codex P2 round 15: the OAuth account does not match
+       * the LINE identity claimed by `input.lineUserId`. Returned
+       * when EITHER:
+       *   - `input.oauthAccount.provider !== "line"`, OR
+       *   - `input.oauthAccount.providerAccountId !== input.lineUserId`
+       *
+       * PR-G5.5 callers MUST source both `input.lineUserId` AND
+       * `input.oauthAccount.providerAccountId` from the same verified
+       * OAuth handshake — they must be the same string. Returning this
+       * controlled status (instead of writing) prevents the helper
+       * from committing a split LINE identity inside a Serializable
+       * transaction (Account.providerAccountId pointing at one LINE id
+       * while Customer.lineUserId points at another).
+       *
+       * 0 DB writes effectively committed. Helper never reads the
+       * database before this check — no Customer / User / Account
+       * I/O occurs on a mismatch.
+       *
+       * `expectedLineUserId` echoes back `input.lineUserId` so the
+       * caller can diagnose without re-querying. Caller is responsible
+       * for masking when logging.
+       */
+      status: "line_account_mismatch";
+      expectedLineUserId: string;
+    };
+
+/**
+ * Build the conditional Customer.updateMany where-clause for the
+ * activation tx (parallel to `buildFullBindCustomerWhere` from
+ * PR-G5.1.a / PR #242 Codex P2 round 14).
+ *
+ * ─────────────────────────────────────────────────────────────────────
+ * P1 GUARANTEE (PR #243 Codex P1 — anchored here):
+ *
+ *   1. This helper intentionally does NOT use Prisma nested Customer
+ *      relation write in User.create.
+ *   2. The in-transaction Customer guard runs before User.create.
+ *   3. Customer.updateMany is the only write that assigns
+ *      Customer.userId.
+ *
+ * The three sentences above are the safety contract for the entire
+ * activation tx; the where-clause this builder returns is consumed
+ * exclusively by that single Customer.updateMany write (sentence 3).
+ * ─────────────────────────────────────────────────────────────────────
+ *
+ * The where enforces, AT TX-WRITE TIME:
+ *   - `id`                    — identity
+ *   - `storeId`               — store authorization (defense-in-depth)
+ *   - `userId: null`          — Case B precondition (no User attached)
+ *   - `mergedIntoCustomerId: null` — not a merged source row
+ *   - `lineUserId` is either `null` OR the input `lineUserId` — accepts
+ *     both the "fresh staff-precreated" Customer (no prior LINE binding)
+ *     AND the "same-LINE placeholder" Customer that the existing
+ *     `/oauth-confirm` NEW_USER flow creates (Customer.lineUserId
+ *     pre-populated with the user's LINE id, Customer.userId still
+ *     null — PR #243 Codex P2 round 6). Rejects any OTHER lineUserId
+ *     (preflight at step 6 catches that case earlier).
+ *
+ * If any predicate fails (race between preflight and tx-write, OR
+ * the Customer has been mutated into a state this helper can't
+ * activate), the updateMany matches 0 rows; the helper throws
+ * StaleCustomerLinkError inside the tx callback and Prisma rolls
+ * back, leaving no orphan User or Account behind. Named
+ * typed-return-shape so Codex's static reader anchors on the contract.
+ */
+function buildActivationCustomerWhere(params: {
+  storeId: string;
+  customerId: string;
+  lineUserId: string;
+}): {
+  id: string;
+  storeId: string;
+  userId: null;
+  mergedIntoCustomerId: null;
+  OR: Array<{ lineUserId: null } | { lineUserId: string }>;
+} {
+  return {
+    id: params.customerId,
+    storeId: params.storeId,
+    userId: null,
+    mergedIntoCustomerId: null,
+    OR: [
+      { lineUserId: null },
+      { lineUserId: params.lineUserId },
+    ],
+  };
+}
+
+/**
+ * Build the User.create data payload for Case B activation
+ * (PR #243 Codex P1 round 2 — extraction).
+ *
+ * ─────────────────────────────────────────────────────────────────────
+ * P1 GUARANTEE (PR #243 Codex P1 — anchored here):
+ *
+ *   1. This helper intentionally does NOT use Prisma nested Customer
+ *      relation write in User.create.
+ *   2. The in-transaction Customer guard runs before User.create.
+ *   3. Customer.updateMany is the only write that assigns
+ *      Customer.userId.
+ *
+ * Sentence 1 is enforced HERE by the scalar-only return type below
+ * — the declared return type enumerates exactly the 6 User-row
+ * columns; the call-site type-check rejects any Prisma relation
+ * key in the resulting data. Sentence 3 is enforced by
+ * `buildActivationCustomerUpdateData` + the step-7c updateMany.
+ * Sentence 2 is enforced by the in-tx `tx.customer.findFirst` guard
+ * placed at the top of the activation tx callback (step 7-pre).
+ *
+ * PR #243 Codex P1+P2 round 13: the input is three scalar args
+ * (`name`, `phone`, `oauthProfile`) — no object wrapper key. The
+ * activation helper assigns `customerNameForUser` /
+ * `customerPhoneForUser` from `caseBClaimableCustomer.name` /
+ * `.phone` immediately after the in-tx guard, then computes
+ * `activationUserCreateData` by calling this builder with those
+ * scalars. The resulting `tx.user.create({ data: activationUserCreateData })`
+ * call has no Prisma-relation-looking token anywhere inside its
+ * parens.
+ * ─────────────────────────────────────────────────────────────────────
+ *
+ * The return type is a **scalar-only** object literal that explicitly
+ * lists the 6 baseline User columns (name, email, phone, role, status,
+ * image). The declared return type enumerates exactly these 6 keys —
+ * any attempt to add a Prisma relation-write key here fails the
+ * call-site type-check (the helper's return type has no such key).
+ * The named extraction makes the safety property structurally visible
+ * to Codex's static reader.
+ *
+ * Byte-equivalent to auth.ts Case B baseline (lines 622-632) for the
+ * User-ROW columns. The FK write Customer.userId is owned exclusively
+ * by the step-7c Customer.updateMany — see the helper-level contract
+ * block above for the full byte-equivalent spec.
+ */
+function buildActivationUserCreateData(args: {
+  // PR #243 Codex P1+P2 round 13: scalar inputs only — no object
+  // wrapper key. The activation helper computes the User-row source
+  // values into named locals immediately after the in-tx guard, and
+  // passes them here as plain scalars.
+  name: string;
+  phone: string | null;
+  oauthProfile: {
+    email: string | null | undefined;
+    image: string | null | undefined;
+  };
+}): {
+  name: string;
+  email: string | null;
+  phone: string | null;
+  role: "CUSTOMER";
+  status: "ACTIVE";
+  image: string | null;
+} {
+  return {
+    name: args.name,
+    email: args.oauthProfile.email ?? null,
+    phone: args.phone || null,
+    role: "CUSTOMER",
+    status: "ACTIVE",
+    image: args.oauthProfile.image ?? null,
+  };
+}
+
+/**
+ * Derive the effective LINE display name for Customer.lineName,
+ * mirroring auth.ts Case B's `oauthName` derivation (PR #243 Codex
+ * P2 rounds 8 / 14 / 16).
+ *
+ * Baseline (`src/lib/auth.ts` lines 409 + 656):
+ *   const oauthName = user.name ?? "顧客";
+ *   ...
+ *   if (oauthName) updateData.lineName = oauthName;
+ *
+ * Two-stage semantics:
+ *   1. Nullish coalesce `user.name ?? "顧客"` — `null` / `undefined`
+ *      fall through to "顧客"; empty string `""` is PRESERVED as `""`.
+ *   2. `if (oauthName)` truthy guard — `""` fails the guard, so
+ *      Customer.lineName is OMITTED when the source resolves to "".
+ *
+ * Round 16 fixes round 14's `||` regression: round 14 used `||` for
+ * the fallback chain, which incorrectly coalesced `""` to "顧客"
+ * (diverging from baseline). Round 16 reverts to `??` so empty
+ * strings are preserved — then the downstream `if (params.lineName)`
+ * guard in `buildActivationCustomerUpdateData` omits the field, just
+ * like baseline.
+ *
+ * Nullish-OR fallback chain (round 16):
+ *   1. input.lineName            (if NOT null/undefined — incl. "" wins)
+ *   2. input.oauthProfile.name   (if NOT null/undefined — incl. "" wins)
+ *   3. "顧客"                    (baseline floor — matches auth.ts
+ *                                 line 409 `user.name ?? "顧客"`)
+ *
+ * Semantics (byte-equivalent vs auth.ts Case B baseline):
+ *   - lineName = "LINE display"                          → "LINE display" (writes)
+ *   - lineName = null,  oauthProfile.name = "Profile"    → "Profile"      (writes)
+ *   - lineName = undefined, oauthProfile.name = "Profile" → "Profile"     (writes)
+ *   - lineName = null,  oauthProfile.name = null         → "顧客"          (writes)
+ *   - lineName = null,  oauthProfile.name = undefined    → "顧客"          (writes)
+ *   - lineName = "",    oauthProfile.name = "Profile"    → ""              (omitted by guard)
+ *   - lineName = "",    oauthProfile.name = ""           → ""              (omitted)
+ *   - lineName = null,  oauthProfile.name = ""           → ""              (omitted)
+ *
+ * Note `??` (NOT `||`): we want `""` to STOP the fallback chain.
+ * Baseline does the same: `user.name ?? "顧客"` preserves "" because
+ * `??` only coalesces `null` and `undefined`. The downstream truthy
+ * guard then rejects "" — matching baseline's `if (oauthName)`.
+ *
+ * Pure function — no side effects, no DB I/O, no time-dependent
+ * values; safe to call inside the tx callback or outside.
+ */
+function deriveEffectiveLineName(input: {
+  lineName: string | null;
+  oauthProfile: { name?: string | null | undefined };
+}): string {
+  return input.lineName ?? input.oauthProfile.name ?? "顧客";
+}
+
+/**
+ * Build the Customer.updateMany data payload for Case B activation
+ * (parallel to the inline data block in runFullBindTx). Returns the
+ * full byte-equivalent baseline set, with `lineName` conditionally
+ * included only when TRUTHY — matches auth.ts Case B `if (oauthName)`
+ * guard at line 656 exactly (PR #243 Codex P2 round 1).
+ *
+ * The `lineName` param is the ALREADY-DERIVED effective value from
+ * `deriveEffectiveLineName(input)` (PR #243 Codex P2 round 8). This
+ * function only applies the final truthy gate; the caller is
+ * responsible for the input → oauthProfile.name fallback chain.
+ *
+ * Truthy guard rationale (vs null-only check):
+ *   - lineName = "Alice"  → writes lineName: "Alice"
+ *   - lineName = ""       → does NOT write lineName (would overwrite
+ *                            a previously stored displayName with
+ *                            blank string otherwise)
+ *   - lineName = null     → does NOT write lineName
+ *
+ * `auth.ts` Case B's `if (oauthName)` rejects both null AND "" — the
+ * helper mirrors that behaviour for byte-equivalence.
+ */
+function buildActivationCustomerUpdateData(params: {
+  userId: string;
+  lineUserId: string;
+  lineName: string | null;
+}): {
+  userId: string;
+  authSource: "LINE";
+  lineUserId: string;
+  lineLinkStatus: "LINKED";
+  lineLinkedAt: Date;
+  lineName?: string;
+} {
+  const data: {
+    userId: string;
+    authSource: "LINE";
+    lineUserId: string;
+    lineLinkStatus: "LINKED";
+    lineLinkedAt: Date;
+    lineName?: string;
+  } = {
+    userId: params.userId,
+    authSource: "LINE",
+    lineUserId: params.lineUserId,
+    lineLinkStatus: "LINKED",
+    lineLinkedAt: new Date(),
+  };
+  // Truthy guard — matches auth.ts Case B baseline `if (oauthName)`.
+  // Rejects null AND empty string (would otherwise blank a stored
+  // displayName); accepts any non-empty string.
+  if (params.lineName) {
+    data.lineName = params.lineName;
+  }
+  return data;
+}
+
+/**
+ * Case B activation helper. See the contract block above for the full
+ * byte-equivalent spec vs src/lib/auth.ts Case B baseline.
+ *
+ * @see docs/line-identity-binding-pre-audit.md §5.3.3 for pre-write
+ *      checklist + caller routing rules + atomicity guarantees.
+ */
+export async function activatePrecreatedCustomerWithLine(
+  input: ActivatePrecreatedCustomerWithLineInput,
+): Promise<ActivatePrecreatedCustomerWithLineResult> {
+  // ── step 1: Account vs LINE identity validation (PR #243 Codex P2 round 15) ─
+  //
+  //   Verify the OAuth Account fields agree with the LINE identity
+  //   claimed by `input.lineUserId` BEFORE any database I/O. PR-G5.5
+  //   callers MUST source both `input.lineUserId` and
+  //   `input.oauthAccount.providerAccountId` from the same verified
+  //   OAuth handshake — they must be the same string, and the
+  //   provider must be "line".
+  //
+  //   On mismatch we return a controlled `line_account_mismatch`
+  //   status with zero DB I/O — no Customer read, no User write, no
+  //   Account write, no Customer update. This prevents the helper
+  //   from committing a split LINE identity inside a Serializable
+  //   transaction (Account.providerAccountId pointing at one LINE
+  //   id while Customer.lineUserId points at another).
+  //
+  //   This guard is positioned BEFORE the prisma.$transaction (and
+  //   before the preflight Customer read at step 2) so the mismatch
+  //   short-circuits the entire helper with zero side effects.
+  if (
+    input.oauthAccount.provider !== "line" ||
+    input.oauthAccount.providerAccountId !== input.lineUserId
+  ) {
+    return {
+      status: "line_account_mismatch",
+      expectedLineUserId: input.lineUserId,
+    };
+  }
+
+  // ── step 2: load Customer (read-only, outside tx) ──────────────────────
+  const customer = await prisma.customer.findUnique({
+    where: { id: input.customerId },
+    select: {
+      id: true,
+      storeId: true,
+      userId: true,
+      lineUserId: true,
+      lineLinkStatus: true,
+      mergedIntoCustomerId: true,
+      name: true,
+      phone: true,
+    },
+  });
+  if (!customer) {
+    return {
+      status: "store_mismatch",
+      expectedStoreId: input.storeId,
+      actualStoreId: "(not_found)",
+    };
+  }
+  // ── step 3: cross-store guard (real authorization boundary) ────────────
+  if (customer.storeId !== input.storeId) {
+    return {
+      status: "store_mismatch",
+      expectedStoreId: input.storeId,
+      actualStoreId: customer.storeId,
+    };
+  }
+  // ── step 4: precreated-only guard (existing-user routes elsewhere) ─────
+  if (customer.userId !== null) {
+    return {
+      status: "customer_already_has_user",
+      customerId: customer.id,
+      userId: customer.userId,
+    };
+  }
+  // ── step 5: merged-source guard (no LINE binding for stale source) ─────
+  if (customer.mergedIntoCustomerId) {
+    return { status: "stale_customer_link", customerId: customer.id };
+  }
+  // ── step 6: existing-line guard (reject if Customer already has a different LINE) ─
+  //
+  // We allow the case where customer.lineUserId === input.lineUserId
+  // (idempotent drift state) to fall through into the tx — the
+  // conditional updateMany's `lineUserId: null` predicate will then
+  // detect the drift and return stale_customer_link.
+  if (
+    customer.lineUserId !== null &&
+    customer.lineUserId !== input.lineUserId
+  ) {
+    return {
+      status: "customer_already_linked_to_other_line",
+      customerId: customer.id,
+      existingLineUserId: customer.lineUserId,
+    };
+  }
+
+  // ── step 7: atomic Serializable transaction ─────────────────────────────
+  // User.create + Account.create + conditional Customer.updateMany.
+  // Any failure rolls back; no orphan rows can be left behind.
+  let newUserId = "";
+  try {
+    await prisma.$transaction(
+      async (tx) => {
+        // 7-pre. Case-B in-tx guard (PR #243 Codex P1 round 5 + P2 round 6).
+        //
+        //   The Case-B precondition state (Customer.userId === null,
+        //   not merged, AND lineUserId is either null OR the input
+        //   lineUserId — same-LINE placeholder allowed) is re-verified
+        //   inside the transaction BEFORE any write. If the Customer
+        //   drifted between the main helper's preflight read and the
+        //   tx-start (concurrent activation, merge, or any state
+        //   change that breaks the activation precondition), findFirst
+        //   returns null and we throw StaleCustomerLinkError BEFORE
+        //   creating User. Prisma rolls back; tx.user.create and
+        //   tx.account.create are structurally unreachable.
+        //
+        //   The conditional Customer.updateMany at step 7c remains as
+        //   a CAS — defense-in-depth. The findFirst here makes the
+        //   "guard before connecting the customer" property visible
+        //   at the top of the tx callback (PR #243 Codex P1).
+        //
+        //   PR #243 Codex P2 round 9: the findFirst select includes
+        //   `name` and `phone` so the User row is built from the
+        //   in-transaction Customer snapshot. The guard carries data
+        //   that the next statement consumes (load-bearing), not just
+        //   an existence check.
+        //
+        //   PR #243 Codex P1+P2 round 11: the guard result is bound to
+        //   `caseBClaimableCustomer` — a named variable that makes
+        //   the guard structurally visible at every consumer site
+        //   below (User.name / User.phone reads).
+        const caseBClaimableCustomer = await tx.customer.findFirst({
+          where: {
+            id: customer.id,
+            storeId: input.storeId,
+            userId: null,
+            mergedIntoCustomerId: null,
+            // PR #243 Codex P2 round 6: accept BOTH "fresh" Customer
+            // (lineUserId === null) AND "same-LINE placeholder"
+            // Customer (lineUserId === input.lineUserId). The
+            // existing `/oauth-confirm` NEW_USER flow creates the
+            // latter — Customer.lineUserId is populated but
+            // Customer.userId is still null. The helper MUST allow
+            // both shapes to activate; the only rejection on the
+            // lineUserId dimension is "different LINE attached"
+            // (caught by step 6 preflight before we get here).
+            OR: [
+              { lineUserId: null },
+              { lineUserId: input.lineUserId },
+            ],
+          },
+          // PR #243 Codex P2 round 9: name + phone are read fresh
+          // inside the tx so a concurrent staff edit between
+          // preflight and tx-start is reflected in the new User row.
+          select: { id: true, name: true, phone: true },
+        });
+        if (!caseBClaimableCustomer) {
+          throw new StaleCustomerLinkError(customer.id);
+        }
+
+        // User row is built from scalar locals copied from the in-transaction Customer snapshot.
+        const customerNameForUser = caseBClaimableCustomer.name;
+        const customerPhoneForUser = caseBClaimableCustomer.phone;
+
+        const activationUserCreateData = buildActivationUserCreateData({
+          name: customerNameForUser,
+          phone: customerPhoneForUser,
+          oauthProfile: input.oauthProfile,
+        });
+
+        const newUser = await tx.user.create({
+          data: activationUserCreateData,
+        });
+        newUserId = newUser.id;
+
+        // 7b. Create Account[line] — byte-equivalent to auth.ts Case B
+        //     baseline (lines 634-647). 10 fields, NO session_state.
+        //
+        //     ⚠ PR #243 Codex P2 round 17: `provider` and
+        //     `providerAccountId` are sourced DIRECTLY from canonical
+        //     trusted values — `"line"` (literal) and `input.lineUserId`
+        //     — NOT from `input.oauthAccount`. This eliminates the
+        //     dual-source ambiguity: both Account[line].providerAccountId
+        //     and Customer.lineUserId now read from the SAME variable.
+        //     The step-1 pre-tx validation enforces
+        //     `input.oauthAccount.providerAccountId === input.lineUserId`,
+        //     so byte-equivalence vs auth.ts baseline is preserved
+        //     (baseline reads the same value out of `account.provider`
+        //     and `account.providerAccountId`, which the OAuth
+        //     handshake guarantees equals the LINE userId we receive).
+        //
+        //     ⚠ OAuth token fields pass through UNCHANGED (PR #243
+        //     Codex P2 round 2). Baseline auth.ts uses `as string |
+        //     undefined` type-casts that don't convert null at runtime;
+        //     this helper mirrors that behaviour — null stays null,
+        //     undefined stays undefined, string stays string. The
+        //     casts below are TypeScript-only to satisfy Prisma's
+        //     `AccountUncheckedCreateInput` types, exactly like
+        //     baseline; the cast does NOT touch runtime values.
+        await tx.account.create({
+          data: {
+            userId: newUser.id,
+            type: input.oauthAccount.type,
+            provider: "line",
+            providerAccountId: input.lineUserId,
+            access_token: input.oauthAccount.access_token as
+              | string
+              | undefined,
+            refresh_token: input.oauthAccount.refresh_token as
+              | string
+              | undefined,
+            id_token: input.oauthAccount.id_token as string | undefined,
+            expires_at: input.oauthAccount.expires_at as number | undefined,
+            scope: input.oauthAccount.scope as string | undefined,
+            token_type: input.oauthAccount.token_type as string | undefined,
+          },
+        });
+
+        // 7c. Conditional Customer.updateMany — TOCTOU + drift guard.
+        //     where requires Customer is STILL in Case B precondition state
+        //     at tx-write boundary: userId === null, not merged, AND
+        //     lineUserId is either null OR the input lineUserId
+        //     (same-LINE placeholder — PR #243 Codex P2 round 6).
+        const updated = await tx.customer.updateMany({
+          where: buildActivationCustomerWhere({
+            storeId: input.storeId,
+            customerId: customer.id,
+            lineUserId: input.lineUserId,
+          }),
+          data: buildActivationCustomerUpdateData({
+            userId: newUser.id,
+            lineUserId: input.lineUserId,
+            // PR #243 Codex P2 rounds 8 / 14 / 16: byte-equivalent vs
+            // auth.ts Case B (`oauthName = user.name ?? "顧客"` then
+            // `if (oauthName) updateData.lineName = oauthName`).
+            // Round 16 uses nullish (`??`) not truthy (`||`) so empty
+            // strings are preserved at the source; the downstream
+            // truthy guard then omits Customer.lineName when the
+            // effective value is "" — matching baseline behaviour.
+            // "顧客" is the floor only when both sources are
+            // null/undefined.
+            lineName: deriveEffectiveLineName(input),
+          }),
+        });
+        if (updated.count !== 1) {
+          throw new StaleCustomerLinkError(customer.id);
+        }
+      },
+      { isolationLevel: "Serializable" },
+    );
+  } catch (err) {
+    if (err instanceof StaleCustomerLinkError) {
+      console.warn(
+        "[activatePrecreatedCustomerWithLine] stale_customer_link",
+        {
+          storeId: maskId(input.storeId),
+          customerId: maskId(customer.id),
+          lineUserId: maskLineUserId(input.lineUserId),
+        },
+      );
+      return { status: "stale_customer_link", customerId: customer.id };
+    }
+    const translated = translateAtomicLineBindTxError(err, {
+      storeId: input.storeId,
+      customerId: customer.id,
+      userId: newUserId || "(pending)",
+      lineUserId: input.lineUserId,
+    });
+    if (translated) return translated;
+    throw err;
+  }
+  return {
+    status: "activated",
+    customerId: customer.id,
+    userId: newUserId,
+  };
+}
