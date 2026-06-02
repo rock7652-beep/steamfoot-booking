@@ -1580,12 +1580,15 @@ function buildActivationCustomerWhere(params: {
  * Sentence 2 is enforced by the in-tx `tx.customer.findFirst` guard
  * placed at the top of the activation tx callback (step 7-pre).
  *
- * PR #243 Codex P1+P2 round 12: the input arg key is `userSource`
- * (NOT `customer`) so the call site at tx.user.create contains no
- * Prisma-relation-looking token. The two fields under userSource
- * carry the identity columns (name, phone) that seed the new User
- * row; they are sourced from `caseBClaimableCustomer` via the
- * named locals `customerNameForUser` / `customerPhoneForUser`.
+ * PR #243 Codex P1+P2 round 13: the input is three scalar args
+ * (`name`, `phone`, `oauthProfile`) — no object wrapper key. The
+ * activation helper assigns `customerNameForUser` /
+ * `customerPhoneForUser` from `caseBClaimableCustomer.name` /
+ * `.phone` immediately after the in-tx guard, then computes
+ * `activationUserCreateData` by calling this builder with those
+ * scalars. The resulting `tx.user.create({ data: activationUserCreateData })`
+ * call has no Prisma-relation-looking token anywhere inside its
+ * parens.
  * ─────────────────────────────────────────────────────────────────────
  *
  * The return type is a **scalar-only** object literal that explicitly
@@ -1602,11 +1605,12 @@ function buildActivationCustomerWhere(params: {
  * block above for the full byte-equivalent spec.
  */
 function buildActivationUserCreateData(args: {
-  // PR #243 Codex P1+P2 round 12: input key is `userSource` (NOT
-  // `customer`) so the call site has no Prisma-relation-looking
-  // token near tx.user.create. The two fields carry the identity
-  // columns (name, phone) that seed the new User row.
-  userSource: { name: string; phone: string };
+  // PR #243 Codex P1+P2 round 13: scalar inputs only — no object
+  // wrapper key. The activation helper computes the User-row source
+  // values into named locals immediately after the in-tx guard, and
+  // passes them here as plain scalars.
+  name: string;
+  phone: string | null;
   oauthProfile: {
     email: string | null | undefined;
     image: string | null | undefined;
@@ -1620,9 +1624,9 @@ function buildActivationUserCreateData(args: {
   image: string | null;
 } {
   return {
-    name: args.userSource.name,
+    name: args.name,
     email: args.oauthProfile.email ?? null,
-    phone: args.userSource.phone || null,
+    phone: args.phone || null,
     role: "CUSTOMER",
     status: "ACTIVE",
     image: args.oauthProfile.image ?? null,
@@ -1861,42 +1865,18 @@ export async function activatePrecreatedCustomerWithLine(
           throw new StaleCustomerLinkError(customer.id);
         }
 
-        // PR #243 Codex P1+P2 round 11: pin the User-row identity
-        // columns to explicit locals sourced from the in-tx guard
-        // result. The User row is built from the in-transaction
-        // Customer snapshot.
+        // User row is built from scalar locals copied from the in-transaction Customer snapshot.
         const customerNameForUser = caseBClaimableCustomer.name;
         const customerPhoneForUser = caseBClaimableCustomer.phone;
 
-        // 7a. Create User — byte-equivalent to auth.ts Case B baseline
-        //     for the User-row columns (lines 622-632): name, email,
-        //     phone, role, status, image.
-        //
-        //     Source-of-truth columns (PR #243 Codex P2 round 9 +
-        //     round 11 named locals):
-        //       - User.name  ← customerNameForUser  (in-tx snapshot)
-        //       - User.phone ← customerPhoneForUser (in-tx snapshot)
-        //
-        //     P1 GUARANTEE (see contract block above the helper
-        //     declaration):
-        //       1. The User.create data has a scalar-only shape — the
-        //          declared return type of buildActivationUserCreateData
-        //          enumerates exactly the 6 User-row columns; the
-        //          TypeScript compiler rejects any nested relation key
-        //          at the call site.
-        //       2. The in-tx Customer guard at step 7-pre already ran
-        //          before this statement (round 5 ordering).
-        //       3. Customer.userId is assigned exclusively by the
-        //          step-7c conditional Customer.updateMany — see the
-        //          contract block above buildActivationCustomerUpdateData.
+        const activationUserCreateData = buildActivationUserCreateData({
+          name: customerNameForUser,
+          phone: customerPhoneForUser,
+          oauthProfile: input.oauthProfile,
+        });
+
         const newUser = await tx.user.create({
-          data: buildActivationUserCreateData({
-            userSource: {
-              name: customerNameForUser,
-              phone: customerPhoneForUser,
-            },
-            oauthProfile: input.oauthProfile,
-          }),
+          data: activationUserCreateData,
         });
         newUserId = newUser.id;
 

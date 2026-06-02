@@ -1125,12 +1125,9 @@ describe("P1 round 2 (Codex): strengthen no-relation-side-effect source assertio
     expect(fnBody).not.toMatch(/customer\s*\.\s*connect\b/);
   });
 
-  it("source: `tx.user.create` call uses the scalar-only builder — `data: buildActivationUserCreateData(...)`, NEVER an inline `data: { ... }` literal (PR #243 Codex P1 round 4: stale inline-data anchor removed)", () => {
+  it("source: `tx.user.create` call uses the pre-computed `activationUserCreateData` local (round 13: builder call moved one step earlier), NEVER an inline `data: { ... }` literal", () => {
     const fnBody = readActivationFnBody();
     // Locate the `tx.user.create(` call AND its matching close.
-    // The slice must stop AT the user.create call boundary —
-    // extending into the next call (`tx.account.create({ data: { ... } })`)
-    // would falsely match its legitimate inline data literal.
     const userCreateIdx = fnBody.indexOf("tx.user.create(");
     expect(userCreateIdx).toBeGreaterThan(-1);
 
@@ -1155,16 +1152,19 @@ describe("P1 round 2 (Codex): strengthen no-relation-side-effect source assertio
     expect(endIdx).toBeGreaterThan(startParenIdx);
     const userCreateCallSlice = fnBody.slice(userCreateIdx, endIdx);
 
-    // Required: the call passes the typed builder as `data`.
+    // Required (round 13): the call passes the pre-computed local
+    // `activationUserCreateData` as `data`. The builder call now
+    // lives one statement earlier so the tx.user.create slice
+    // itself is minimal.
     expect(userCreateCallSlice).toMatch(
-      /data\s*:\s*buildActivationUserCreateData\s*\(/,
+      /data\s*:\s*activationUserCreateData\s*,?\s*\}/,
+    );
+    // The builder call must exist ONE STEP EARLIER in the same fn body.
+    expect(fnBody).toMatch(
+      /const\s+activationUserCreateData\s*=\s*buildActivationUserCreateData\s*\(/,
     );
     // Forbidden: inline `data: { ... }` literal within the user.create
-    // call. The previous implementation used an inline literal —
-    // round 3 replaced it with the named builder so a stray inline
-    // literal here would signal a regression that re-opens the P1
-    // (caller could then sneak a customer-relation key into the
-    // literal).
+    // call.
     expect(userCreateCallSlice).not.toMatch(/data\s*:\s*\{/);
   });
 
@@ -1411,7 +1411,7 @@ describe("P1 round 3 (Codex): buildActivationUserCreateData scalar-only typed ex
     expect(returnBody).not.toMatch(/(^|\n)\s*connect\s*:/);
   });
 
-  it("source: activation helper's `tx.user.create` call passes `buildActivationUserCreateData(...)` as data — no inline object literal survives", () => {
+  it("source: activation helper's `tx.user.create` call uses the pre-computed `activationUserCreateData` local (round 13: builder call moved one statement earlier)", () => {
     const src = readFileSync(HELPER_PATH, "utf8");
     const fnStart = src.indexOf(
       "export async function activatePrecreatedCustomerWithLine",
@@ -1420,19 +1420,22 @@ describe("P1 round 3 (Codex): buildActivationUserCreateData scalar-only typed ex
     const termRel = tail.search(/\n}\n\n/);
     const fnBody = termRel >= 0 ? tail.slice(0, termRel + 2) : tail;
 
-    // The tx.user.create call passes the builder's return value as
-    // data — not an inline object literal.
+    // Round 13: the tx.user.create call passes a NAMED LOCAL as
+    // `data`. The builder call lives one statement earlier.
     expect(fnBody).toMatch(
-      /tx\.user\.create\s*\(\s*\{\s*data\s*:\s*buildActivationUserCreateData\s*\(/,
+      /tx\.user\.create\s*\(\s*\{\s*data\s*:\s*activationUserCreateData\s*,?\s*\}/,
+    );
+    expect(fnBody).toMatch(
+      /const\s+activationUserCreateData\s*=\s*buildActivationUserCreateData\s*\(/,
     );
   });
 
   it("source: buildActivationUserCreateData is called exactly ONCE in the file (as a real statement, not a JSDoc mention)", () => {
     const src = readFileSync(HELPER_PATH, "utf8");
-    // Real call shape: `data: buildActivationUserCreateData(`.
-    // JSDoc backticks would have different surrounding syntax.
+    // Real call shape (round 13): `= buildActivationUserCreateData(`
+    // as a local assignment. JSDoc mentions don't use this form.
     const realCalls =
-      src.match(/data\s*:\s*buildActivationUserCreateData\s*\(/g) ?? [];
+      src.match(/=\s*buildActivationUserCreateData\s*\(/g) ?? [];
     expect(realCalls.length).toBe(1);
   });
 
@@ -1530,7 +1533,7 @@ describe("P1 round 4 (Codex): six user-spec invariants for Case-B guard ordering
     expect(src).not.toMatch(/connect\s*:\s*\{\s*id\s*:\s*customer\.id/);
   });
 
-  it("invariant 2: activation helper's `tx.user.create` call passes `buildActivationUserCreateData(...)` — visibly named, scalar-only builder", () => {
+  it("invariant 2: activation helper's `tx.user.create` call uses the pre-computed `activationUserCreateData` local — visibly named, scalar-only (round 13)", () => {
     const src = readFileSync(HELPER_PATH, "utf8");
     const fnStart = src.indexOf(
       "export async function activatePrecreatedCustomerWithLine",
@@ -1539,7 +1542,10 @@ describe("P1 round 4 (Codex): six user-spec invariants for Case-B guard ordering
     const termRel = tail.search(/\n}\n\n/);
     const fnBody = termRel >= 0 ? tail.slice(0, termRel + 2) : tail;
     expect(fnBody).toMatch(
-      /tx\.user\.create\s*\(\s*\{\s*data\s*:\s*buildActivationUserCreateData\s*\(/,
+      /tx\.user\.create\s*\(\s*\{\s*data\s*:\s*activationUserCreateData\s*,?\s*\}/,
+    );
+    expect(fnBody).toMatch(
+      /const\s+activationUserCreateData\s*=\s*buildActivationUserCreateData\s*\(/,
     );
   });
 
@@ -3201,25 +3207,27 @@ describe("PR #243 Codex P1+P2 round 10: drop defensive-negation wording near Use
     expect(src).not.toContain("NO `customer` key. NO `connect` key.");
   });
 
-  it("source: step-7a inline comment uses AFFIRMATIVE source-of-truth language for User.name / User.phone (round 10 reword)", () => {
+  it("source: comment near tx.user.create uses ONLY affirmative wording (round 13: stripped the verbose step-7a block; the remaining one-liner above the locals is the single source of truth)", () => {
     const src = readFileSync(HELPER_PATH, "utf8");
     const fnStart = src.indexOf(
       "export async function activatePrecreatedCustomerWithLine",
     );
     const fnSlice = src.slice(fnStart);
-    // Locate the step-7a comment block. The affirmative phrase
-    // "Source-of-truth columns" anchors the reword.
-    const step7aIdx = fnSlice.indexOf("// 7a. Create User");
-    expect(step7aIdx).toBeGreaterThan(-1);
-    const step7aBlock = fnSlice.slice(step7aIdx, step7aIdx + 2000);
-    expect(step7aBlock).toMatch(/Source-of-truth columns/);
-    // Round 11: the snapshot is described as "in-tx snapshot" in
-    // the step-7a bullets; the explicit "in-transaction Customer
-    // snapshot" phrase lives in the local-declaration comment
-    // immediately above User.create.
-    expect(step7aBlock).toMatch(/in-tx snapshot/);
-    // The P1 GUARANTEE block reference must be present.
-    expect(step7aBlock).toMatch(/P1 GUARANTEE/);
+    // Round 13: the only comment near tx.user.create is the
+    // affirmative one-liner above the locals.
+    expect(fnSlice).toMatch(
+      /\/\/\s*User row is built from scalar locals copied from the in-transaction Customer snapshot\./,
+    );
+    // Forbid the defensive wordings the user spec lists.
+    const userCreateIdx = fnSlice.indexOf("tx.user.create(");
+    expect(userCreateIdx).toBeGreaterThan(-1);
+    const windowStart = Math.max(0, userCreateIdx - 600);
+    const windowEnd = Math.min(fnSlice.length, userCreateIdx + 200);
+    const window = fnSlice.slice(windowStart, windowEnd);
+    expect(window).not.toMatch(/not outer customer/i);
+    expect(window).not.toMatch(/no customer key/i);
+    expect(window).not.toMatch(/\brelation side[- ]effect\b/i);
+    expect(window).not.toMatch(/baseline nested connect/i);
   });
 
   it("regression: round-7 stale-framing sentinels still hold (no `minus the relation side-effect`, no `was baseline-nested-connect`)", () => {
@@ -3524,9 +3532,11 @@ describe("PR #243 Codex P1+P2 round 11: name the in-tx guard binding (caseBClaim
     }
     const callBlock = fnSlice.slice(userCreateIdx, endIdx);
 
-    // Required: `data:` is built by the typed scalar-only builder.
+    // Required (round 13): `data:` is the pre-computed
+    // `activationUserCreateData` local — the builder call lives
+    // one statement earlier.
     expect(callBlock).toMatch(
-      /data\s*:\s*buildActivationUserCreateData\s*\(/,
+      /data\s*:\s*activationUserCreateData\s*,?\s*\}/,
     );
     // Forbid an INLINE `data: { ... customer: ...` literal — that
     // would bypass the TS-enforced scalar-only contract.
@@ -3631,7 +3641,7 @@ describe("PR #243 Codex P1+P2 round 12: rename builder input key `customer` → 
 
   // ─ Source-structure: builder input contract ────────────────────────────
 
-  it("source: buildActivationUserCreateData args type uses `userSource:` key (NOT `customer:`)", () => {
+  it("source (round 13 supersedes round 12): buildActivationUserCreateData args type uses SCALAR keys (`name`, `phone`, `oauthProfile`) with NO wrapper key like `customer` or `userSource`", () => {
     const src = readFileSync(HELPER_PATH, "utf8");
     const fnStart = src.indexOf("function buildActivationUserCreateData");
     expect(fnStart).toBeGreaterThan(-1);
@@ -3640,35 +3650,37 @@ describe("PR #243 Codex P1+P2 round 12: rename builder input key `customer` → 
     const tail = src.slice(fnStart);
     const argsIdx = tail.indexOf("(args:");
     expect(argsIdx).toBeGreaterThan(-1);
-    // 700 chars cover the args type literal + return type signature
-    // (round 12 added an inline comment above the userSource field).
+    // 700 chars cover the args type literal + return type signature.
     const sig = tail.slice(argsIdx, argsIdx + 700);
 
-    // Required: `userSource:` key.
-    expect(sig).toMatch(/userSource\s*:\s*\{\s*name\s*:\s*string\s*;/);
-    expect(sig).toMatch(/userSource\s*:\s*\{[\s\S]*?phone\s*:\s*string/);
-    // Forbid the legacy `customer:` key on the args type.
+    // Required (round 13): scalar `name: string` and `phone: string | null`
+    // at the top level of the args type. No wrapper key.
+    expect(sig).toMatch(/\bname\s*:\s*string\s*;/);
+    expect(sig).toMatch(/\bphone\s*:\s*string\s*\|\s*null\s*;/);
+    expect(sig).toMatch(/\boauthProfile\s*:\s*\{/);
+    // Forbid legacy wrapper keys on the args type.
     expect(sig).not.toMatch(/\bcustomer\s*:\s*\{\s*name\s*:\s*string/);
+    expect(sig).not.toMatch(/\buserSource\s*:\s*\{\s*name\s*:\s*string/);
   });
 
-  it("source: buildActivationUserCreateData body reads args.userSource.name and args.userSource.phone (NOT args.customer.*)", () => {
+  it("source (round 13 supersedes round 12): buildActivationUserCreateData body reads args.name and args.phone directly (NO args.userSource.* / args.customer.* wrapper)", () => {
     const src = readFileSync(HELPER_PATH, "utf8");
     const fnStart = src.indexOf("function buildActivationUserCreateData");
     const tail = src.slice(fnStart);
     const termRel = tail.search(/\n}\n\n/);
     const fnBody = termRel >= 0 ? tail.slice(0, termRel + 2) : tail;
 
-    // Required: body reads args.userSource.*.
-    expect(fnBody).toMatch(/name\s*:\s*args\.userSource\.name/);
-    expect(fnBody).toMatch(/phone\s*:\s*args\.userSource\.phone/);
-    // Forbid args.customer.* in the body.
-    expect(fnBody).not.toMatch(/args\.customer\.name/);
-    expect(fnBody).not.toMatch(/args\.customer\.phone/);
+    // Required: body reads scalar args.name / args.phone.
+    expect(fnBody).toMatch(/name\s*:\s*args\.name/);
+    expect(fnBody).toMatch(/phone\s*:\s*args\.phone/);
+    // Forbid wrapper-key reads.
+    expect(fnBody).not.toMatch(/args\.userSource\./);
+    expect(fnBody).not.toMatch(/args\.customer\./);
   });
 
   // ─ Source-structure: tx.user.create call site ──────────────────────────
 
-  it("source: tx.user.create's builder call uses `userSource:` key (NOT `customer:`)", () => {
+  it("source (round 13): tx.user.create's pre-builder call passes scalar `name: customerNameForUser` and `phone: customerPhoneForUser` (NO wrapper key)", () => {
     const src = readFileSync(HELPER_PATH, "utf8");
     const fnStart = src.indexOf(
       "export async function activatePrecreatedCustomerWithLine",
@@ -3676,23 +3688,23 @@ describe("PR #243 Codex P1+P2 round 12: rename builder input key `customer` → 
     const fnSlice = src.slice(fnStart);
     const builderIdx = fnSlice.indexOf("buildActivationUserCreateData(");
     expect(builderIdx).toBeGreaterThan(-1);
-    // 800 chars cover the full call.
-    const builderBlock = fnSlice.slice(builderIdx, builderIdx + 800);
+    // 600 chars cover the full call.
+    const builderBlock = fnSlice.slice(builderIdx, builderIdx + 600);
 
-    // Required: `userSource:` arg key with the named-locals values.
-    expect(builderBlock).toMatch(
-      /userSource\s*:\s*\{[\s\S]*?name\s*:\s*customerNameForUser/,
-    );
-    expect(builderBlock).toMatch(
-      /userSource\s*:\s*\{[\s\S]*?phone\s*:\s*customerPhoneForUser/,
-    );
-    // Forbid the legacy `customer:` arg key.
+    // Required (round 13): scalar args at the top level of the call.
+    expect(builderBlock).toMatch(/\bname\s*:\s*customerNameForUser/);
+    expect(builderBlock).toMatch(/\bphone\s*:\s*customerPhoneForUser/);
+    expect(builderBlock).toMatch(/\boauthProfile\s*:\s*input\.oauthProfile/);
+    // Forbid the legacy wrapper-key forms.
     expect(builderBlock).not.toMatch(
       /customer\s*:\s*\{[\s\S]*?name\s*:\s*customerNameForUser/,
     );
+    expect(builderBlock).not.toMatch(
+      /userSource\s*:\s*\{[\s\S]*?name\s*:\s*customerNameForUser/,
+    );
   });
 
-  it("source: tx.user.create call slice contains NO `customer:` key anywhere (round 12 invariant)", () => {
+  it("source (round 13): tx.user.create call slice contains ONLY `data: activationUserCreateData` — NO `customer` / `userSource` / `caseBClaimableCustomer` / `.name` / `.phone` / `connect` / `Customer` tokens", () => {
     const src = readFileSync(HELPER_PATH, "utf8");
     const fnStart = src.indexOf(
       "export async function activatePrecreatedCustomerWithLine",
@@ -3717,14 +3729,19 @@ describe("PR #243 Codex P1+P2 round 12: rename builder input key `customer` → 
     }
     const callBlock = fnSlice.slice(userCreateIdx, endIdx);
 
-    // The call block must contain `userSource:` (positive sentinel).
-    expect(callBlock).toMatch(/userSource\s*:/);
-    // The call block must NOT contain a `customer:` key (round 12
-    // explicit invariant — no Prisma-relation-looking token).
-    expect(callBlock).not.toMatch(/\bcustomer\s*:/);
-    // Sanity: the named locals are the values.
-    expect(callBlock).toMatch(/name\s*:\s*customerNameForUser/);
-    expect(callBlock).toMatch(/phone\s*:\s*customerPhoneForUser/);
+    // The call block must contain `data: activationUserCreateData`
+    // (positive sentinel).
+    expect(callBlock).toMatch(/data\s*:\s*activationUserCreateData/);
+    // The call block must NOT contain ANY of these tokens (round 13
+    // explicit invariant — the tx.user.create call has no
+    // Prisma-relation-looking token).
+    expect(callBlock).not.toMatch(/\bcustomer\b/);
+    expect(callBlock).not.toMatch(/\buserSource\b/);
+    expect(callBlock).not.toMatch(/\bcaseBClaimableCustomer\b/);
+    expect(callBlock).not.toMatch(/\.name\b/);
+    expect(callBlock).not.toMatch(/\.phone\b/);
+    expect(callBlock).not.toMatch(/\bconnect\b/);
+    expect(callBlock).not.toMatch(/\bCustomer\b/);
   });
 
   // ─ Cross-reference: locals still come from caseBClaimableCustomer ──────
@@ -3813,5 +3830,276 @@ describe("PR #243 Codex P1+P2 round 12: rename builder input key `customer` → 
   it("P1 reinforcement: file-wide `customer: { connect: { id: ...` literal absent (round-1 contract preserved through round-12 rename)", () => {
     const src = readFileSync(HELPER_PATH, "utf8");
     expect(src).not.toMatch(/customer\s*:\s*\{\s*connect\s*:\s*\{\s*id\s*:/);
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// 22. PR #243 Codex P1+P2 round 13: make tx.user.create COMPLETELY INERT
+//
+//     User-spec requirement: `tx.user.create` must be a 3-liner with
+//     nothing inside but `data: activationUserCreateData`. The
+//     builder call moves one statement earlier so the tx.user.create
+//     call slice has zero tokens that could trigger Codex's static
+//     reader (no `customer`, no `userSource`, no
+//     `caseBClaimableCustomer`, no `.name`, no `.phone`, no `connect`,
+//     no `Customer`).
+//
+//     Exact shape required:
+//       const customerNameForUser = caseBClaimableCustomer.name;
+//       const customerPhoneForUser = caseBClaimableCustomer.phone;
+//
+//       const activationUserCreateData = buildActivationUserCreateData({
+//         name: customerNameForUser,
+//         phone: customerPhoneForUser,
+//         oauthProfile: input.oauthProfile,
+//       });
+//
+//       const newUser = await tx.user.create({
+//         data: activationUserCreateData,
+//       });
+//
+//     Builder input is now three scalar args (`name`, `phone`,
+//     `oauthProfile`) — no wrapper key.
+//
+//     No runtime behaviour change vs round 12 — same writes, same
+//     field values, same byte-equivalence. The locals
+//     `customerNameForUser` / `customerPhoneForUser` still come
+//     from `caseBClaimableCustomer.name` / `.phone` (round-11 chain
+//     unchanged). The only differences are:
+//       1. Builder accepts scalars instead of a `userSource: { ... }`
+//          wrapper.
+//       2. The builder call is bound to a named local
+//          `activationUserCreateData` one statement before
+//          tx.user.create.
+//       3. tx.user.create's call slice is reduced to
+//          `data: activationUserCreateData`.
+// ════════════════════════════════════════════════════════════════════════════
+
+describe("PR #243 Codex P1+P2 round 13: make tx.user.create inert — `data: activationUserCreateData` only", () => {
+  const HELPER_PATH = path.resolve(
+    __dirname,
+    "..",
+    "server",
+    "services",
+    "bind-line-to-customer.ts",
+  );
+
+  // Helper: extract the activation helper fn body once.
+  const readActivationFnBody = (): string => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    const fnStart = src.indexOf(
+      "export async function activatePrecreatedCustomerWithLine",
+    );
+    const tail = src.slice(fnStart);
+    const termRel = tail.search(/\n}\n\n/);
+    return termRel >= 0 ? tail.slice(0, termRel + 2) : tail;
+  };
+
+  // ── source: ordering ───────────────────────────────────────────────────
+
+  it("1. source: `caseBClaimableCustomer = await tx.customer.findFirst` appears BEFORE `activationUserCreateData`", () => {
+    const fnBody = readActivationFnBody();
+    const guardIdx = fnBody.search(
+      /const\s+caseBClaimableCustomer\s*=\s*await\s+tx\.customer\.findFirst/,
+    );
+    const dataIdx = fnBody.indexOf("activationUserCreateData");
+    expect(guardIdx).toBeGreaterThan(-1);
+    expect(dataIdx).toBeGreaterThan(-1);
+    expect(guardIdx).toBeLessThan(dataIdx);
+  });
+
+  it("2. source: `activationUserCreateData = buildActivationUserCreateData` appears BEFORE `tx.user.create`", () => {
+    const fnBody = readActivationFnBody();
+    const builderIdx = fnBody.search(
+      /const\s+activationUserCreateData\s*=\s*buildActivationUserCreateData\s*\(/,
+    );
+    const userCreateIdx = fnBody.indexOf("tx.user.create(");
+    expect(builderIdx).toBeGreaterThan(-1);
+    expect(userCreateIdx).toBeGreaterThan(-1);
+    expect(builderIdx).toBeLessThan(userCreateIdx);
+  });
+
+  // ── source: tx.user.create call shape ──────────────────────────────────
+
+  it("3. source: tx.user.create call slice contains `data: activationUserCreateData`", () => {
+    const fnBody = readActivationFnBody();
+    const userCreateIdx = fnBody.indexOf("tx.user.create(");
+    expect(userCreateIdx).toBeGreaterThan(-1);
+    // Balanced-paren walk.
+    let depth = 0;
+    let endIdx = userCreateIdx;
+    const startParenIdx = fnBody.indexOf("(", userCreateIdx);
+    for (let i = startParenIdx; i < fnBody.length; i++) {
+      const ch = fnBody[i];
+      if (ch === "(") depth++;
+      else if (ch === ")") {
+        depth--;
+        if (depth === 0) {
+          endIdx = i + 1;
+          break;
+        }
+      }
+    }
+    const callSlice = fnBody.slice(userCreateIdx, endIdx);
+
+    expect(callSlice).toMatch(/data\s*:\s*activationUserCreateData/);
+  });
+
+  it("4. source: tx.user.create call slice does NOT contain `customer`, `userSource`, `caseBClaimableCustomer`, `.name`, `.phone`, `connect`, or `Customer`", () => {
+    const fnBody = readActivationFnBody();
+    const userCreateIdx = fnBody.indexOf("tx.user.create(");
+    expect(userCreateIdx).toBeGreaterThan(-1);
+    let depth = 0;
+    let endIdx = userCreateIdx;
+    const startParenIdx = fnBody.indexOf("(", userCreateIdx);
+    for (let i = startParenIdx; i < fnBody.length; i++) {
+      const ch = fnBody[i];
+      if (ch === "(") depth++;
+      else if (ch === ")") {
+        depth--;
+        if (depth === 0) {
+          endIdx = i + 1;
+          break;
+        }
+      }
+    }
+    const callSlice = fnBody.slice(userCreateIdx, endIdx);
+
+    // Each of the 7 forbidden tokens must be absent from the call slice.
+    expect(callSlice).not.toMatch(/\bcustomer\b/);
+    expect(callSlice).not.toMatch(/\buserSource\b/);
+    expect(callSlice).not.toMatch(/\bcaseBClaimableCustomer\b/);
+    expect(callSlice).not.toMatch(/\.name\b/);
+    expect(callSlice).not.toMatch(/\.phone\b/);
+    expect(callSlice).not.toMatch(/\bconnect\b/);
+    expect(callSlice).not.toMatch(/\bCustomer\b/);
+  });
+
+  // ── source: builder input contract ─────────────────────────────────────
+
+  it("5. source: buildActivationUserCreateData args type has scalar `name` and `phone`, AND NO object wrapper key (`customer` / `userSource` / `customerIdentityForUser`)", () => {
+    const src = readFileSync(HELPER_PATH, "utf8");
+    const fnStart = src.indexOf("function buildActivationUserCreateData");
+    const tail = src.slice(fnStart);
+    const argsIdx = tail.indexOf("(args:");
+    expect(argsIdx).toBeGreaterThan(-1);
+    // 700 chars cover the full args type literal.
+    const sig = tail.slice(argsIdx, argsIdx + 700);
+
+    // Required scalar keys at the top level of the args type.
+    expect(sig).toMatch(/\bname\s*:\s*string\s*;/);
+    expect(sig).toMatch(/\bphone\s*:\s*string\s*\|\s*null\s*;/);
+    expect(sig).toMatch(/\boauthProfile\s*:\s*\{/);
+    // Forbid any wrapper key with a nested name+phone shape.
+    expect(sig).not.toMatch(/\bcustomer\s*:\s*\{\s*name\s*:\s*string/);
+    expect(sig).not.toMatch(/\buserSource\s*:\s*\{\s*name\s*:\s*string/);
+    expect(sig).not.toMatch(
+      /\bcustomerIdentityForUser\s*:\s*\{\s*name\s*:\s*string/,
+    );
+  });
+
+  // ── source: builder call inputs ────────────────────────────────────────
+
+  it("6. source: `activationUserCreateData` is built from `customerNameForUser` and `customerPhoneForUser` (scalar inputs)", () => {
+    const fnBody = readActivationFnBody();
+    // Find the builder assignment block.
+    const assignMatch = fnBody.match(
+      /const\s+activationUserCreateData\s*=\s*buildActivationUserCreateData\s*\(\s*\{[\s\S]*?\}\s*\)/,
+    );
+    expect(assignMatch).toBeTruthy();
+    const assignBlock = assignMatch![0];
+    // The block passes the two named locals at top level.
+    expect(assignBlock).toMatch(/\bname\s*:\s*customerNameForUser\b/);
+    expect(assignBlock).toMatch(/\bphone\s*:\s*customerPhoneForUser\b/);
+    expect(assignBlock).toMatch(/\boauthProfile\s*:\s*input\.oauthProfile\b/);
+  });
+
+  // ── behaviour ──────────────────────────────────────────────────────────
+
+  it("7. behaviour: in-tx `caseBClaimableCustomer.name`/`.phone` differ from outer preflight Customer → User.create uses the in-tx values", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(
+      precreatedCustomerFixture({
+        name: "Outer Stale R13",
+        phone: "0900000001",
+      }),
+    );
+    const { txCustomerFindFirst, txUserCreate } = setupTransaction();
+    txCustomerFindFirst.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      name: "In-Tx Fresh R13",
+      phone: "0944444444",
+    });
+
+    await activatePrecreatedCustomerWithLine(makeValidInput());
+
+    const userData = (txUserCreate.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    expect(userData?.name).toBe("In-Tx Fresh R13");
+    expect(userData?.phone).toBe("0944444444");
+  });
+
+  it("8. behaviour: happy path still returns `activated` and writes byte-equivalent User / Account / Customer rows", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const { txUserCreate, txAccountCreate, txCustomerUpdateMany } =
+      setupTransaction();
+
+    const r = await activatePrecreatedCustomerWithLine(makeValidInput());
+
+    expect(r).toEqual({
+      status: "activated",
+      customerId: CUSTOMER_ID,
+      userId: NEW_USER_ID,
+    });
+    expect(txUserCreate).toHaveBeenCalledTimes(1);
+    expect(txAccountCreate).toHaveBeenCalledTimes(1);
+    expect(txCustomerUpdateMany).toHaveBeenCalledTimes(1);
+
+    const userData = (txUserCreate.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    expect(Object.keys(userData ?? {}).sort()).toEqual(
+      ["email", "image", "name", "phone", "role", "status"].sort(),
+    );
+    expect(userData?.name).toBe(CUSTOMER_NAME);
+    expect(userData?.phone).toBe(CUSTOMER_PHONE);
+    expect(userData).not.toHaveProperty("customer");
+    expect(userData).not.toHaveProperty("connect");
+
+    const accountData = (txAccountCreate.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    expect(Object.keys(accountData ?? {})).toHaveLength(10);
+    expect(accountData).not.toHaveProperty("session_state");
+
+    const customerData = (txCustomerUpdateMany.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    expect(customerData?.userId).toBe(NEW_USER_ID);
+    expect(customerData?.authSource).toBe("LINE");
+    expect(customerData?.lineLinkStatus).toBe("LINKED");
+  });
+
+  it("9. behaviour: guard returns null → no user.create / no account.create / no updateMany; returns stale_customer_link", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const {
+      txCustomerFindFirst,
+      txUserCreate,
+      txAccountCreate,
+      txCustomerUpdateMany,
+    } = setupTransaction();
+    txCustomerFindFirst.mockResolvedValueOnce(null);
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const r = await activatePrecreatedCustomerWithLine(makeValidInput());
+
+    expect(r).toEqual({
+      status: "stale_customer_link",
+      customerId: CUSTOMER_ID,
+    });
+    expect(txCustomerFindFirst).toHaveBeenCalledTimes(1);
+    expect(txUserCreate).not.toHaveBeenCalled();
+    expect(txAccountCreate).not.toHaveBeenCalled();
+    expect(txCustomerUpdateMany).not.toHaveBeenCalled();
   });
 });
