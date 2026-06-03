@@ -410,9 +410,18 @@ These are the rules that the test suite enforces and that future changes MUST pr
 - `console.info("[syncLineAccount] created", { userId, lineUserId })` — **RAW**
 - `console.error("[syncLineAccount] failed", { userId, lineUserId, error })` — **RAW**
 
-This helper is still consumed by 3 production paths (webhook bind-code at `src/app/api/line/webhook/route.ts:377`; oauth-confirm `resolveLineLogin` placeholder-bind branch at `src/server/actions/oauth-confirm.ts:132`; and profile-merge `customer-merge.ts` at multiple call sites — see §7 "Open convergence follow-ups"). All three of those paths therefore emit raw IDs on Account-sync activity.
+This helper is still consumed by **4 production call sites** (verified via `grep -rn "syncLineAccountForUser" src/ --exclude-dir __tests__`):
 
-**This is an open follow-up for the privacy / logging audit, NOT a covered invariant.** Do NOT read §6.7 as "all LINE-related logs in the codebase are masked." The narrow truth: "logs emitted by D3 / D5 / their wiring adapters / converged callers are masked; the legacy `syncLineAccountForUser` helper still emits raw IDs on three branches and remains a future cleanup target." Until that cleanup ships, any privacy review touching LINE logs MUST inspect `syncLineAccountForUser` and its callers separately.
+1. **Webhook bind-code** — `src/app/api/line/webhook/route.ts:377` (post-`customer.update`, only when `customer.userId !== null` — see §7 webhook split-target breakdown for the null-user subset that skips this call)
+2. **oauth-confirm `resolveLineLogin` placeholder-bind branch** — `src/server/actions/oauth-confirm.ts:132` (the BLOCKED_NEEDS_STAFF / "placeholder + no assets" auto-claim branch; NOT the `finalizeLineBind` flow which converged to D3 in PR-G5.2.a)
+3. **profile-merge** — `src/server/services/customer-merge.ts` at 4 call sites (lines 129 / 164 / 192 / 233; see §7 "Open convergence follow-ups")
+4. **LIFF onboarding 0-candidate `created_new`** — `src/server/services/bind-line-to-customer.ts:248-251` (the brand-new-customer branch inside `bindLineToCustomerInStore`; post-tx best-effort `syncLineAccountForUser({userId, lineUserId})` after `tx.user.create + tx.customer.create`)
+
+> ⚠ **LIFF B4 precreated activation is NOT in this list.** PR-G5.2.b converged the B4 branch to D5 (`activatePrecreatedCustomerWithLine`) which writes Account[line] atomically inside its Serializable tx — no `syncLineAccountForUser` involved. Only the 0-candidate `created_new` sibling branch of `bindLineToCustomerInStore` is a legacy consumer. The two LIFF subpaths must NOT be conflated.
+
+All 4 of those paths therefore emit raw IDs on Account-sync activity (warn / info / error level — see the 4 log line shapes enumerated above).
+
+**This is an open follow-up for the privacy / logging audit, NOT a covered invariant.** Do NOT read §6.7 as "all LINE-related logs in the codebase are masked." The narrow truth: "logs emitted by D3 / D5 / their wiring adapters / converged callers are masked; the legacy `syncLineAccountForUser` helper still emits raw IDs on three of its four log branches (`created` / `failed` / `already_linked_other_user`) and is still consumed by 4 production call sites — webhook bind-code, oauth-confirm `resolveLineLogin` placeholder-bind, profile-merge (4 sites), and LIFF onboarding 0-candidate `created_new`. Each remains a future cleanup target." Until that cleanup ships, any privacy review touching LINE logs MUST inspect `syncLineAccountForUser` and all 4 of its callers separately.
 
 ---
 
