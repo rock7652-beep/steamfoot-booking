@@ -74,6 +74,11 @@ function makeValidInput(
   return {
     storeId: STORE_ID,
     customerId: CUSTOMER_ID,
+    // PR-G5.5.b Codex P2: default fixture assumes a "fresh" Customer
+    // with no existing LINE displayName. Tests covering the
+    // preservation semantic (`customer.lineName` already set) override
+    // this with a non-null value.
+    customerLineName: null,
     lineUserId: LINE_USER_ID,
     oauthName: OAUTH_NAME,
     account: {
@@ -200,6 +205,163 @@ describe("D3 input shape (forwards full 10-field oauthAccount bundle, PR-G5.5.b 
 // 2. D3 success status mapping — justLinkedLine + accountSyncStatus semantics
 //    (the two things the PR brief explicitly told us to double-check)
 // ════════════════════════════════════════════════════════════════════════════
+
+// ════════════════════════════════════════════════════════════════════════════
+// 1.5  PR-G5.5.b Codex P2: preserve existing Customer.lineName
+//
+//      Pre-PR-G5.5.b inline Case A guarded the lineName write with
+//        `if (oauthName && !customer.lineName) updateData.lineName = oauthName;`
+//      D3's runFullBindTx / runCustomerOnlyRepairTx unconditionally write
+//      `lineName: params.lineName`. The wiring helper restores the inline
+//      semantic by computing
+//        `lineNameForBind = customerLineName || oauthName || null`
+//      before calling D3 — so the existing display name is never
+//      overwritten on a LINE first-login by a returning customer.
+// ════════════════════════════════════════════════════════════════════════════
+
+describe("Codex P2: preserve existing Customer.lineName — `customer.lineName || oauthName || null` semantic", () => {
+  beforeEach(() => {
+    mockBindD3.mockResolvedValue({
+      status: "bound_existing",
+      customerId: CUSTOMER_ID,
+      userId: USER_ID,
+    });
+  });
+
+  it("customerLineName='Alice' + oauthName='Bob' → D3 receives lineName='Alice' (PRESERVE — staff-entered name wins)", async () => {
+    await bindLineCaseAForAuthSignIn(
+      makeValidInput({
+        customerLineName: "Alice",
+        oauthName: "Bob",
+      }),
+    );
+    const arg = mockBindD3.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(arg.lineName).toBe("Alice");
+  });
+
+  it("customerLineName='Alice' + oauthName='Alice' → D3 receives lineName='Alice' (idempotent — same value)", async () => {
+    await bindLineCaseAForAuthSignIn(
+      makeValidInput({
+        customerLineName: "Alice",
+        oauthName: "Alice",
+      }),
+    );
+    const arg = mockBindD3.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(arg.lineName).toBe("Alice");
+  });
+
+  it("customerLineName=null + oauthName='Bob' → D3 receives lineName='Bob' (NEW value — first-time bind)", async () => {
+    await bindLineCaseAForAuthSignIn(
+      makeValidInput({
+        customerLineName: null,
+        oauthName: "Bob",
+      }),
+    );
+    const arg = mockBindD3.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(arg.lineName).toBe("Bob");
+  });
+
+  it("customerLineName='' (empty string, falsy) + oauthName='Bob' → D3 receives lineName='Bob' (falsy treated as not-set, matches inline `!customer.lineName`)", async () => {
+    await bindLineCaseAForAuthSignIn(
+      makeValidInput({
+        customerLineName: "",
+        oauthName: "Bob",
+      }),
+    );
+    const arg = mockBindD3.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(arg.lineName).toBe("Bob");
+  });
+
+  it("customerLineName=null + oauthName='' (also falsy) → D3 receives lineName=null (matches inline 'no write' end-state)", async () => {
+    await bindLineCaseAForAuthSignIn(
+      makeValidInput({
+        customerLineName: null,
+        oauthName: "",
+      }),
+    );
+    const arg = mockBindD3.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(arg.lineName).toBeNull();
+  });
+
+  it("customerLineName='Alice' + bound_existing path → preservation holds via D3 runFullBindTx", async () => {
+    // Defense-in-depth: explicitly call out that the preservation
+    // semantic must apply to the bound_existing (full first-time bind)
+    // path, where D3's runFullBindTx writes Customer.lineName as part
+    // of the bind transaction.
+    mockBindD3.mockResolvedValueOnce({
+      status: "bound_existing",
+      customerId: CUSTOMER_ID,
+      userId: USER_ID,
+    });
+
+    await bindLineCaseAForAuthSignIn(
+      makeValidInput({
+        customerLineName: "Existing Staff-Entered Name",
+        oauthName: "LINE Display From OAuth",
+      }),
+    );
+
+    const arg = mockBindD3.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(arg.lineName).toBe("Existing Staff-Entered Name");
+  });
+
+  it("customerLineName='Alice' + customer_repaired path → preservation also holds via D3 runCustomerOnlyRepairTx", async () => {
+    // Defense-in-depth: the customer_repaired path (Account already
+    // existed for same User; only Customer.lineUserId needs to be set)
+    // ALSO writes Customer.lineName unconditionally inside
+    // runCustomerOnlyRepairTx — the same `lineName: params.lineName`
+    // shape. The lineNameForBind computation in this helper applies
+    // regardless of which D3 internal path runs.
+    mockBindD3.mockResolvedValueOnce({
+      status: "customer_repaired",
+      customerId: CUSTOMER_ID,
+      userId: USER_ID,
+    });
+
+    await bindLineCaseAForAuthSignIn(
+      makeValidInput({
+        customerLineName: "Existing Staff-Entered Name",
+        oauthName: "LINE Display From OAuth",
+      }),
+    );
+
+    // Verify the lineName forwarded to D3 is the existing value.
+    // D3 itself decides which internal path to run; this assertion
+    // pins the wiring contract.
+    const arg = mockBindD3.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(arg.lineName).toBe("Existing Staff-Entered Name");
+  });
+
+  it("already_synced path: helper still passes computed lineName to D3 (D3 short-circuits before any write — preservation is moot but contract is symmetric)", async () => {
+    // already_synced is the most common steady-state outcome. D3
+    // never reaches runFullBindTx / runCustomerOnlyRepairTx in this
+    // case (returns immediately after step 5a-iii). The lineName
+    // forwarded here has no effect on durable state — but the wiring
+    // contract should still be uniform regardless of D3 status.
+    mockBindD3.mockResolvedValueOnce({
+      status: "already_synced",
+      customerId: CUSTOMER_ID,
+      userId: USER_ID,
+    });
+
+    const r = await bindLineCaseAForAuthSignIn(
+      makeValidInput({
+        customerLineName: "Alice",
+        oauthName: "Bob",
+      }),
+    );
+
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      // already_synced → justLinkedLine MUST stay false (no fresh
+      // binding). lineName preservation is irrelevant here but
+      // re-asserting the no-side-effect contract from the PR brief.
+      expect(r.justLinkedLine).toBe(false);
+    }
+    const arg = mockBindD3.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(arg.lineName).toBe("Alice");
+  });
+});
 
 describe("D3 success status mapping — justLinkedLine + accountSyncStatus correctness", () => {
   it("bound_existing → ok:true + justLinkedLine:true + accountSyncStatus:'created' (full first-time bind)", async () => {

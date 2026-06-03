@@ -100,12 +100,32 @@ export interface AuthCaseALineBindInput {
   storeId: string;
   /** Customer.id from the Case A lookup (customer.userId !== null). */
   customerId: string;
+  /**
+   * Customer.lineName from the Case A lookup row.
+   *
+   * Used to preserve existing staff-entered / dashboard-edited LINE
+   * display values across the D3 bind — the helper computes
+   *
+   *   lineNameForBind = customerLineName || oauthName || null
+   *
+   * which mirrors the pre-PR-G5.5.b inline guard
+   * `if (oauthName && !customer.lineName) updateData.lineName = oauthName`
+   * exactly: when `customer.lineName` is already truthy, D3 writes the
+   * existing value back (Customer.lineName end-state unchanged); only
+   * when it's null/empty does the OAuth display name win. PR-G5.5.b
+   * Codex P2 fix.
+   *
+   * The caller MUST source this from the Case A Customer lookup —
+   * do not pass `null` if the row's actual value is set.
+   */
+  customerLineName: string | null;
   /** Verified LINE userId; must equal `account.providerAccountId`. */
   lineUserId: string;
   /**
    * `user.name ?? "顧客"` from the OAuth profile (matches auth.ts
-   * inline baseline). Used as D3's `lineName` input which writes to
-   * `Customer.lineName` via the conditional updateMany (truthy gate).
+   * inline baseline). Used as fallback for the Customer.lineName
+   * write only when `customerLineName` is falsy — see the
+   * `customerLineName` field docstring for the precise rule.
    */
   oauthName: string;
   /**
@@ -185,21 +205,50 @@ export type AuthCaseALineBindResult =
 export async function bindLineCaseAForAuthSignIn(
   input: AuthCaseALineBindInput,
 ): Promise<AuthCaseALineBindResult> {
+  // PR-G5.5.b Codex P2: preserve existing Customer.lineName.
+  //
+  // The pre-PR-G5.5.b inline Case A path had this guard:
+  //
+  //     if (oauthName && !customer.lineName) {
+  //       updateData.lineName = oauthName;
+  //     }
+  //
+  // i.e. lineName was added to the Customer.update payload ONLY when
+  // the customer's existing lineName was falsy. Existing values
+  // (staff-entered, dashboard-edited) were never overwritten.
+  //
+  // After delegation to D3 the Customer.lineName write is unconditional
+  // in both `runFullBindTx` (bound_existing) and `runCustomerOnlyRepairTx`
+  // (customer_repaired) — D3 writes `lineName: params.lineName` directly.
+  //
+  // To preserve the byte-equivalent end-state without changing D3's
+  // global semantic (other callers — oauth-confirm / finalizeLineBind /
+  // webhook — rely on D3 writing `params.lineName` as-given), compute
+  // the effective lineName HERE in the adapter:
+  //
+  //     lineNameForBind = customerLineName || oauthName || null
+  //
+  // Coverage matrix (matches the inline `!customer.lineName` semantic
+  // end-state):
+  //   customerLineName | oauthName | lineNameForBind | inline end-state    | match
+  //   "Alice"          | "Bob"     | "Alice"         | "Alice" (no write)  | ✅
+  //   "Alice"          | null      | "Alice"         | "Alice" (no write)  | ✅
+  //   null             | "Bob"     | "Bob"           | "Bob"  (write)      | ✅
+  //   null             | null      | null            | null  (no write)    | ✅
+  //   ""               | "Bob"     | "Bob"           | "Bob"  (write)      | ✅
+  //
+  // The dirty-write difference (D3 writes lineName even when value is
+  // unchanged) is invisible at the DB-state level; only the inline
+  // path's "no field in updateData" vs D3's "field set to same value"
+  // distinction differs structurally, with identical observable outcome.
+  const lineNameForBind: string | null =
+    input.customerLineName || input.oauthName || null;
+
   const result = await bindLineToExistingCustomerById({
     storeId: input.storeId,
     customerId: input.customerId,
     lineUserId: input.lineUserId,
-    // D3's `lineName` writes to Customer.lineName via the conditional
-    // updateMany (truthy gate). auth.ts inline baseline used
-    // `oauthName` (≡ user.name ?? "顧客") with the same truthy gate
-    // (`if (oauthName && !customer.lineName)` — note the inline path
-    // ALSO checked `!customer.lineName` to avoid overwriting an
-    // existing display name; D3's runFullBindTx writes lineName as
-    // part of the new bind, and runAccountOnlyRepairTx / already_synced
-    // never touch Customer.lineName). For Case A, this is byte-equivalent
-    // because the inline path only ever wrote lineName when
-    // customer.lineUserId was null (≡ runFullBindTx path in D3).
-    lineName: input.oauthName,
+    lineName: lineNameForBind,
     // PR-G5.5.b stage 1: forward the 10-field OAuth bundle so D3's
     // tx.account.create writes the same Account row shape as the
     // pre-PR-G5.5.b auth.ts Case A inline path.

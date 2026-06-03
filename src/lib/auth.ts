@@ -563,6 +563,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             const bind = await bindLineCaseAForAuthSignIn({
               storeId: targetStoreId,
               customerId: customer.id,
+              // PR-G5.5.b Codex P2: forward existing Customer.lineName
+              // so the helper can preserve staff-entered / dashboard-
+              // edited display values (`customer.lineName || oauthName
+              // || null`). See auth-case-a-line-bind.ts for the
+              // byte-equivalence matrix vs the pre-refactor inline
+              // `if (oauthName && !customer.lineName)` guard.
+              customerLineName: customer.lineName,
               lineUserId,
               oauthName,
               account: {
