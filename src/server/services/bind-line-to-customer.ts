@@ -482,6 +482,36 @@ export type BindLineToExistingCustomerByIdResult =
     }
   | {
       /**
+       * Customer-only repair (PR-G5.2.a Codex P2 round 1) — mirror of
+       * `account_repaired`. Returned when:
+       *
+       *   - Customer.lineUserId is null (not yet bound)
+       *   - Account[provider="line", providerAccountId=input.lineUserId]
+       *     ALREADY exists AND Account.userId === Customer.userId
+       *
+       * This is a legacy drift shape: a previous OAuth flow (or
+       * `syncLineAccountForUser` best-effort backfill) wrote the
+       * Account row but the Customer.lineUserId update failed / was
+       * skipped. The new finalize → D3 wiring (PR-G5.2.a) without this
+       * branch would attempt a full-bind tx, hit P2002 on
+       * Account.create, and roll back — leaving the drift unrepaired.
+       *
+       * With this branch, the helper writes Customer.lineUserId /
+       * lineLinkStatus / lineLinkedAt / lineName atomically (single-
+       * row updateMany with the same 5-predicate CAS as runFullBindTx)
+       * and SKIPS the Account.create entirely. End-state: Customer
+       * linked, Account preserved (same row, same userId).
+       *
+       * Disjoint from `bound_existing` (which always writes both rows)
+       * and from `account_repaired` (mirror case: Customer linked,
+       * Account missing).
+       */
+      status: "customer_repaired";
+      customerId: string;
+      userId: string;
+    }
+  | {
+      /**
        * Reject — the LINE binding for this Customer is locked; staff
        * must intervene (manual unbind / merge) before another bind
        * attempt can succeed. Covers two sub-cases of "this binding
@@ -794,6 +824,70 @@ export async function bindLineToExistingCustomerById(
         customer.id,
       )})`,
     );
+  }
+
+  // ── step 5.6: same-user Account-first drift detection (PR-G5.2.a Codex P2 round 1)
+  //
+  // Customer.lineUserId is null at this point, but an Account[line] row
+  // for input.lineUserId may already exist (legacy drift created by
+  // older OAuth flow / post-tx best-effort `syncLineAccountForUser`
+  // backfill that succeeded while the matching `customer.update` did
+  // not). Three sub-cases:
+  //
+  //   5.6-a. Account exists AND Account.userId === customerUserId
+  //          → mirror of step 5a-iii (Account-only repair). Run
+  //            runCustomerOnlyRepairTx: writes Customer link metadata
+  //            in a Serializable tx WITHOUT calling Account.create
+  //            (Account already correct). Returns `customer_repaired`.
+  //   5.6-b. Account exists AND Account.userId !== customerUserId
+  //          → mirror of step 5a-i (account owner mismatch). Returns
+  //            `customer_locked` with existingLineUserId = input
+  //            (the LINE id is now claimed by another User; staff
+  //            intervention required). Falling through to runFullBindTx
+  //            would hit P2002 on Account.create and return
+  //            `unique_conflict`, conflating drift with a true race.
+  //   5.6-c. Account does NOT exist → no drift; fall through to step 6
+  //          (runFullBindTx) for the standard first-time-bind path.
+  //
+  // This branch is the missing mirror of step 5a — without it, the
+  // legacy drift state "Account ahead, Customer behind" hits P2002 and
+  // can't self-repair through finalize. With it, finalize → D3 can
+  // close the drift atomically.
+  const accountForInputLine = await prisma.account.findUnique({
+    where: {
+      provider_providerAccountId: {
+        provider: "line",
+        providerAccountId: input.lineUserId,
+      },
+    },
+    select: { userId: true },
+  });
+  if (accountForInputLine) {
+    if (accountForInputLine.userId !== customerUserId) {
+      // 5.6-b. Different user already owns this LINE Account row.
+      logCustomerLockedAccountOwnerMismatch({
+        storeId: input.storeId,
+        customerId: customer.id,
+        customerUserId,
+        accountUserId: accountForInputLine.userId,
+        lineUserId: input.lineUserId,
+      });
+      return {
+        status: "customer_locked",
+        customerId: customer.id,
+        // Customer's own lineUserId is null here — existingLineUserId
+        // surfaces WHICH lineUserId was found locked (= input).
+        existingLineUserId: input.lineUserId,
+      };
+    }
+    // 5.6-a. Same-user Account already present → Customer-only repair.
+    return runCustomerOnlyRepairTx({
+      storeId: input.storeId,
+      customerId: customer.id,
+      userId: customerUserId,
+      lineUserId: input.lineUserId,
+      lineName: input.lineName,
+    });
   }
 
   // ── step 6: dispatch to runFullBindTx ──────────────────────────────
@@ -1250,6 +1344,119 @@ async function runFullBindTx(params: {
   }
   return {
     status: "bound_existing",
+    customerId: params.customerId,
+    userId: params.userId,
+  };
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//
+//  runCustomerOnlyRepairTx — Customer-only metadata write (PR-G5.2.a Codex
+//  P2 round 1). Mirror of runAccountOnlyRepairTx — handles the OPPOSITE
+//  legacy drift shape:
+//
+//    runAccountOnlyRepairTx: Customer.lineUserId set, Account[line] missing
+//    runCustomerOnlyRepairTx: Customer.lineUserId NULL, Account[line]
+//                              already exists for same user
+//
+//  ⚠ CONTRACT
+//
+//    Caller MUST guarantee BEFORE invoking:
+//      1. customer.lineUserId === null (pre-write state)
+//      2. customer.userId === params.userId (existing-user, not Case B)
+//      3. customer.storeId === params.storeId (cross-store rejected)
+//      4. customer.mergedIntoCustomerId === null (not stale source)
+//      5. Account[provider="line", providerAccountId=params.lineUserId]
+//         EXISTS AND Account.userId === params.userId (= the drift
+//         this fn was extracted to repair; not the runFullBindTx case)
+//
+//    Step 5.6 of bindLineToExistingCustomerById enforces all 5
+//    preconditions before dispatch. The in-tx CAS predicate
+//    (5-predicate where on Customer.updateMany) re-verifies #1, #2,
+//    #3, #4 at write-time as defense-in-depth.
+//
+//    THIS FUNCTION OWNS the Customer link metadata write for the
+//    drift-repair case. It writes the SAME fields as runFullBindTx
+//    (lineUserId / lineName / lineLinkStatus / lineLinkedAt) but
+//    does NOT call tx.account.create — that Account row already
+//    exists with the correct userId per precondition #5.
+//
+//    Disjoint from runFullBindTx: that fn writes BOTH Customer +
+//    Account in one tx (first-time bind, no pre-existing Account).
+//    Disjoint from runAccountOnlyRepairTx: that fn writes ONLY
+//    Account (Customer already linked).
+//
+// ════════════════════════════════════════════════════════════════════════════
+
+async function runCustomerOnlyRepairTx(params: {
+  storeId: string;
+  customerId: string;
+  userId: string;
+  lineUserId: string;
+  lineName: string | null;
+}): Promise<
+  | { status: "customer_repaired"; customerId: string; userId: string }
+  | { status: "unique_conflict"; conflictTarget: string }
+  | { status: "write_conflict"; code: "P2034" }
+  | { status: "stale_customer_link"; customerId: string }
+> {
+  try {
+    await prisma.$transaction(
+      async (tx) => {
+        // Same 5-predicate CAS as runFullBindTx — guarantees Customer
+        // is STILL in the (storeId, userId, lineUserId=null, not-merged)
+        // state at tx-write boundary. If another binder set lineUserId
+        // between preflight (step 2) and tx start, count=0 → throw →
+        // stale_customer_link.
+        const updated = await tx.customer.updateMany({
+          where: buildFullBindCustomerWhere({
+            storeId: params.storeId,
+            customerId: params.customerId,
+            userId: params.userId,
+          }),
+          data: {
+            lineUserId: params.lineUserId,
+            lineName: params.lineName,
+            lineLinkStatus: "LINKED",
+            lineLinkedAt: new Date(),
+          },
+        });
+        if (updated.count === 1) {
+          // Account[line] already exists with correct userId per
+          // caller precondition #5 — no tx.account.create here.
+          return;
+        }
+        throw new StaleCustomerLinkError(params.customerId);
+      },
+      { isolationLevel: "Serializable" },
+    );
+  } catch (err) {
+    if (err instanceof StaleCustomerLinkError) {
+      console.warn(
+        "[bindLineToExistingCustomerById] stale_customer_link (customer-repair)",
+        {
+          storeId: maskId(params.storeId),
+          customerId: maskId(params.customerId),
+          userId: maskId(params.userId),
+          lineUserId: maskLineUserId(params.lineUserId),
+        },
+      );
+      return {
+        status: "stale_customer_link",
+        customerId: params.customerId,
+      };
+    }
+    const translated = translateAtomicLineBindTxError(err, {
+      storeId: params.storeId,
+      customerId: params.customerId,
+      userId: params.userId,
+      lineUserId: params.lineUserId,
+    });
+    if (translated) return translated;
+    throw err;
+  }
+  return {
+    status: "customer_repaired",
     customerId: params.customerId,
     userId: params.userId,
   };

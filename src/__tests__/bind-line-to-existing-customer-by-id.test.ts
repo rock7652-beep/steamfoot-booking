@@ -250,7 +250,7 @@ describe("bound_existing (Customer.lineUserId is null, atomic write succeeds)", 
     );
   });
 
-  it("does not consult account.findUnique when Customer.lineUserId is null (skip already_synced fast-path)", async () => {
+  it("consults account.findUnique ONCE when Customer.lineUserId is null — to detect same-user Account-first drift (PR-G5.2.a Codex P2 round 1 step 5.6)", async () => {
     mockCustomerFindUnique.mockResolvedValueOnce({
       id: CUSTOMER_ID,
       storeId: STORE_ID,
@@ -258,9 +258,24 @@ describe("bound_existing (Customer.lineUserId is null, atomic write succeeds)", 
       lineUserId: null,
       lineLinkStatus: "UNLINKED",
     });
+    // No pre-existing Account → falls through to runFullBindTx
+    mockAccountFindUnique.mockResolvedValueOnce(null);
     setupTransaction();
     await bindLineToExistingCustomerById(makeValidInput());
-    expect(mockAccountFindUnique).not.toHaveBeenCalled();
+    // Probe is mandatory — without it, an Account-first drift state
+    // (Account present, Customer null) would hit P2002 in
+    // runFullBindTx and never self-repair.
+    expect(mockAccountFindUnique).toHaveBeenCalledTimes(1);
+    expect(mockAccountFindUnique).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          provider_providerAccountId: {
+            provider: "line",
+            providerAccountId: LINE_USER_ID,
+          },
+        },
+      }),
+    );
   });
 });
 
@@ -1385,9 +1400,12 @@ describe("P2 round 3 (Codex): structural invariants on dispatch + full-bind guar
     const dispatchIdx = mainHelperBody.indexOf("return runFullBindTx(");
     expect(dispatchIdx).toBeGreaterThan(-1);
 
-    // The guard sits within ~2 KB above the dispatch in the source.
+    // The guard sits within ~4 KB above the dispatch in the source
+    // (window widened from 2 KB after PR-G5.2.a Codex P2 round 1
+    // inserted step 5.6 — the same-user Account-first drift branch —
+    // between the guard and the full-bind dispatch).
     const precedingWindow = mainHelperBody.slice(
-      Math.max(0, dispatchIdx - 2000),
+      Math.max(0, dispatchIdx - 4000),
       dispatchIdx,
     );
     expect(precedingWindow).toMatch(/throw new Error/);
@@ -4324,5 +4342,180 @@ describe("P2 round 14 (Codex): buildFullBindCustomerWhere is a named private hel
       customerId: CUSTOMER_ID,
     });
     expect(mockTx).not.toHaveBeenCalled();
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// PR-G5.2.a Codex P2 round 1 — same-user Account-first drift repair
+//
+// Legacy drift shape this branch fixes:
+//
+//   - Customer.lineUserId IS null (not yet linked from Customer side)
+//   - Account[provider="line", providerAccountId=input.lineUserId] EXISTS
+//   - Account.userId === Customer.userId (same user)
+//
+// Pre-G5.2.a-round-1: would fall through to runFullBindTx → tx.account.create
+// hits Prisma P2002 → tx rolls back → returns unique_conflict → drift never
+// self-repairs.
+//
+// Post-fix: main helper step 5.6 detects the drift, dispatches to
+// runCustomerOnlyRepairTx (mirror of runAccountOnlyRepairTx) which writes
+// Customer.lineUserId / lineLinkStatus / lineLinkedAt / lineName atomically
+// WITHOUT calling Account.create. Returns `customer_repaired`.
+// ════════════════════════════════════════════════════════════════════════════
+
+describe("customer_repaired (PR-G5.2.a Codex P2 round 1: Customer.lineUserId is null but Account[line] already exists for same user)", () => {
+  it("returns customer_repaired + writes Customer link metadata + does NOT call account.create", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: null, // ← drift: Customer side empty
+      lineLinkStatus: "UNLINKED",
+    });
+    // ← drift: Account row already exists and points at SAME user
+    mockAccountFindUnique.mockResolvedValueOnce({ userId: USER_ID });
+    const { txCustomerUpdateMany, txAccountCreate } = setupTransaction();
+
+    const r = await bindLineToExistingCustomerById(makeValidInput());
+
+    expect(r).toEqual({
+      status: "customer_repaired",
+      customerId: CUSTOMER_ID,
+      userId: USER_ID,
+    });
+    // Customer was updated atomically.
+    expect(txCustomerUpdateMany).toHaveBeenCalledTimes(1);
+    // Account was NOT created (already correct — would have hit P2002).
+    expect(txAccountCreate).not.toHaveBeenCalled();
+  });
+
+  it("Customer.updateMany payload writes lineUserId + lineLinkStatus + lineLinkedAt + lineName", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: null,
+      lineLinkStatus: "UNLINKED",
+    });
+    mockAccountFindUnique.mockResolvedValueOnce({ userId: USER_ID });
+    const { txCustomerUpdateMany } = setupTransaction();
+
+    await bindLineToExistingCustomerById(makeValidInput());
+
+    const call = txCustomerUpdateMany.mock.calls[0]![0] as {
+      where: Record<string, unknown>;
+      data: Record<string, unknown>;
+    };
+    // 5-predicate CAS where (same as runFullBindTx) re-verifies the
+    // (storeId, userId, lineUserId=null, not-merged) preconditions
+    // at tx-write boundary.
+    expect(call.where).toEqual({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: null,
+      mergedIntoCustomerId: null,
+    });
+    // Customer link metadata written.
+    expect(call.data).toMatchObject({
+      lineUserId: LINE_USER_ID,
+      lineLinkStatus: "LINKED",
+      lineName: LINE_NAME,
+    });
+    expect(call.data.lineLinkedAt).toBeInstanceOf(Date);
+  });
+
+  it("runs inside a Serializable transaction (defense in depth, same as runFullBindTx + runAccountOnlyRepairTx)", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: null,
+      lineLinkStatus: "UNLINKED",
+    });
+    mockAccountFindUnique.mockResolvedValueOnce({ userId: USER_ID });
+    const { getIsolationLevel } = setupTransaction();
+
+    await bindLineToExistingCustomerById(makeValidInput());
+
+    expect(getIsolationLevel()).toBe("Serializable");
+  });
+
+  it("stale-race in customer-only repair tx (updateMany count: 0) → stale_customer_link", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: null,
+      lineLinkStatus: "UNLINKED",
+    });
+    mockAccountFindUnique.mockResolvedValueOnce({ userId: USER_ID });
+    const { txCustomerUpdateMany, txAccountCreate } = setupTransaction();
+    txCustomerUpdateMany.mockResolvedValueOnce({ count: 0 }); // another binder won
+    // Silence the masked warn the helper emits on this controlled branch.
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const r = await bindLineToExistingCustomerById(makeValidInput());
+
+    expect(r).toEqual({
+      status: "stale_customer_link",
+      customerId: CUSTOMER_ID,
+    });
+    expect(txAccountCreate).not.toHaveBeenCalled();
+  });
+});
+
+describe("customer_locked via step 5.6 (PR-G5.2.a Codex P2 round 1: Customer.lineUserId is null AND Account[line] exists for a DIFFERENT user)", () => {
+  it("returns customer_locked + existingLineUserId = input + 0 tx writes (does NOT fall through to runFullBindTx which would P2002)", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: null,
+      lineLinkStatus: "UNLINKED",
+    });
+    // Account exists but for a DIFFERENT user.
+    mockAccountFindUnique.mockResolvedValueOnce({
+      userId: "user-other-id-aaaaaaaaaaaaaaaaaa",
+    });
+    // Silence the masked customer_locked log.
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const r = await bindLineToExistingCustomerById(makeValidInput());
+
+    expect(r).toEqual({
+      status: "customer_locked",
+      customerId: CUSTOMER_ID,
+      existingLineUserId: LINE_USER_ID, // the input LINE id, now locked
+    });
+    // NO tx attempted (step 5.6 short-circuits before dispatch).
+    expect(mockTx).not.toHaveBeenCalled();
+  });
+});
+
+describe("PR-G5.2.a Codex P2 round 1 — regression: runFullBindTx still runs when Account does NOT pre-exist", () => {
+  it("Account.findUnique returns null → falls through to step 6 → runFullBindTx writes Customer + Account in one tx → bound_existing", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: null,
+      lineLinkStatus: "UNLINKED",
+    });
+    // No pre-existing Account → step 5.6 does not match → step 6 runs.
+    mockAccountFindUnique.mockResolvedValueOnce(null);
+    const { txCustomerUpdateMany, txAccountCreate } = setupTransaction();
+
+    const r = await bindLineToExistingCustomerById(makeValidInput());
+
+    expect(r).toEqual({
+      status: "bound_existing",
+      customerId: CUSTOMER_ID,
+      userId: USER_ID,
+    });
+    // Full-bind tx wrote both.
+    expect(txCustomerUpdateMany).toHaveBeenCalledTimes(1);
+    expect(txAccountCreate).toHaveBeenCalledTimes(1);
   });
 });

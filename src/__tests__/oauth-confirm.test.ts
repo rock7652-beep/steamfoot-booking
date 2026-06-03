@@ -570,6 +570,38 @@ describe("finalizeLineBind", () => {
     expect(mockClearOAuthTempSession).not.toHaveBeenCalled();
   });
 
+  it("PR-G5.2.a Codex P2 round 1 (customer_repaired → BOUND): D3 偵測 Account-first drift (Account 已存在 same-user, Customer.lineUserId null) → 修 Customer-only, finalize 仍回 BOUND", async () => {
+    mockAuth.mockResolvedValue({ user: { id: NEXT_AUTH_USER_ID } });
+    mockGetOAuthTempSession.mockResolvedValue(validTempSession);
+    // Guard 3-4 過：customer 自己 lineUserId null，沒人撞同 lineUserId
+    mockCustomerFindFirst
+      .mockResolvedValueOnce({ id: CUSTOMER_ID, lineUserId: null })
+      .mockResolvedValueOnce(null);
+    // D3 命中 step 5.6-a → runCustomerOnlyRepairTx → customer_repaired
+    mockBindLineToExistingCustomerById.mockResolvedValueOnce({
+      status: "customer_repaired",
+      customerId: CUSTOMER_ID,
+      userId: NEXT_AUTH_USER_ID,
+    });
+
+    const r = await finalizeLineBind({
+      customerId: CUSTOMER_ID,
+      callbackUrl: "/profile",
+    });
+
+    // 成功路徑：finalize 回原本前端期待的 BOUND / RELOGIN / callbackUrl。
+    // 此 drift 在 PR-G5.2.a 接 D3 後若無 customer_repaired 分支會撞 P2002
+    // → unique_conflict → bind_conflict → 卡死無法修復。本測試 sentinel
+    // 確保 Codex P2 round 1 修補後此 drift 能被前端 finalize 自動清掉。
+    expect(r).toEqual({
+      status: "BOUND",
+      action: "RELOGIN",
+      callbackUrl: "/profile",
+    });
+    expect(mockClearOAuthTempSession).toHaveBeenCalledOnce();
+    expect(mockSyncLineAccount).not.toHaveBeenCalled();
+  });
+
   it("PR-G5.2.a (account_repaired → BOUND)：D3 補建缺失 Account 也是成功路徑", async () => {
     mockAuth.mockResolvedValue({ user: { id: NEXT_AUTH_USER_ID } });
     mockGetOAuthTempSession.mockResolvedValue(validTempSession);

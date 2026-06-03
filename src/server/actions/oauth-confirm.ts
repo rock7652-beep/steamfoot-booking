@@ -345,12 +345,19 @@ export async function finalizeLineBind(input: {
     case "bound_existing":
     case "already_synced":
     case "account_repaired":
-      // 成功路徑（三種子狀態都是成功）：
+    case "customer_repaired":
+      // 成功路徑（四種子狀態都是成功）：
       //   - bound_existing：第一次寫入 Customer.lineUserId + Account[line]
       //   - already_synced：idempotent 重綁，Customer + Account 都早已正確
       //   - account_repaired：Customer.lineUserId 已正確但 Account[line] 缺失
       //     （pre-G5.x 殘屑），helper 補建 Account；Customer 鏈接 metadata
       //     不動（lineLinkedAt / lineName 保留歷史值）
+      //   - customer_repaired：mirror of account_repaired — Account[line]
+      //     已存在且 userId 一致，Customer.lineUserId 卻是 null（PR-G5.2.a
+      //     Codex P2 round 1 新增）。helper 寫 Customer 鏈接欄位，跳過
+      //     Account.create。此 drift 在舊流程靠 customer.update +
+      //     syncLineAccountForUser best-effort 修補；G5.2.a 接 D3 後若無
+      //     此 branch 會撞 P2002 整個 rollback、drift 無法修復。
       // 都清 temp session 防 nonce reuse，回 RELOGIN signal 讓 client 觸發
       // signIn() 取得帶 LINE 身份的新 NextAuth session。
       await clearOAuthTempSession();
