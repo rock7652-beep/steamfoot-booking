@@ -424,12 +424,19 @@ The webhook bind-code path and LIFF 0-candidate `created_new` path are **known r
 
 ### Open convergence follow-ups (NOT covered by the G5 series)
 
-These two LINE-binding write sites still use the pre-G5 `customer.update + post-tx syncLineAccountForUser` pattern and retain the `Customer-ahead / Account-behind` drift window. They are intentionally LEFT alone by the G5 series for the reasons noted; a future PR could route them through D3 (with `oauthAccount` unset → 4-field minimal Account, matching `finalizeLineBind` byte-equivalent baseline) for full convergence.
+These two LINE-binding write sites still use the pre-G5 `customer.update + post-tx syncLineAccountForUser` pattern and retain the `Customer-ahead / Account-behind` drift window. They are intentionally LEFT alone by the G5 series for the reasons noted.
+
+**Their convergence stories are different, NOT interchangeable** — they need different helpers because their preconditions differ:
+
+- **Webhook bind-code** writes against an **existing Customer with an existing User** (the staff-issued bind code is redeemed by a Customer who is already activated). This shape FITS D3 (`bindLineToExistingCustomerById`), which requires `Customer.userId !== null`. A future PR could wire it through D3 (with `oauthAccount` unset → 4-field minimal Account, matching `finalizeLineBind` byte-equivalent baseline) — small wiring PR analogous to PR-G5.2.a.
+- **LIFF onboarding 0-candidate `created_new`** runs when **NO Customer exists yet** (the LIFF first-login presents a never-seen-before phone). This shape does **NOT** fit D3 — D3 requires an existing Customer + User. It does not fit D5 either (D5 is "existing Customer, no User"). Convergence would need a **new D6-style create-and-bind helper** for the no-Customer case: atomic User + Customer + Account[line] write inside a single Serializable transaction (similar pattern to D5 but creating the Customer row from scratch instead of activating an existing one). Larger design effort than the webhook case.
 
 | Site | File | Current pattern | Drift window | Suggested converge target |
 |---|---|---|---|---|
-| Webhook bind-code | `src/app/api/line/webhook/route.ts:361-385` | `prisma.customer.update + post-tx syncLineAccountForUser` | `Customer-ahead / Account-behind` if post-tx sync fails | D3 (no `oauthAccount`; webhook has no OAuth tokens) — small wiring PR analogous to PR-G5.2.a |
-| LIFF onboarding 0-candidate `created_new` | `src/server/services/bind-line-to-customer.ts` (`bindLineToCustomerInStore` 0-candidate branch) | `tx{user.create + customer.create} + post-tx syncLineAccountForUser` for Account | `Customer-ahead / Account-behind` if post-tx sync fails | New D6 helper for "atomic User+Customer+Account creation when no Customer exists" — larger design effort, analogous to D5 but for the no-Customer case |
+| Webhook bind-code | `src/app/api/line/webhook/route.ts:361-385` | `prisma.customer.update + post-tx syncLineAccountForUser` | `Customer-ahead / Account-behind` if post-tx sync fails | **D3** (existing-customer helper; no `oauthAccount` since webhook has no OAuth tokens) — small wiring PR analogous to PR-G5.2.a |
+| LIFF onboarding 0-candidate `created_new` | `src/server/services/bind-line-to-customer.ts` (`bindLineToCustomerInStore` 0-candidate branch) | `tx{user.create + customer.create} + post-tx syncLineAccountForUser` for Account | `Customer-ahead / Account-behind` if post-tx sync fails | **New D6-style helper** for "atomic User + Customer + Account[line] creation when no Customer exists" — NOT D3 (which requires existing User); larger design effort than the webhook case |
+
+> ⚠ Do NOT assume both sites can be routed through D3. Only webhook fits D3's existing-customer precondition. LIFF 0-candidate needs a new helper.
 
 **Doing nothing about these is acceptable today** — webhook traffic is bounded by staff handing out codes, and LIFF 0-candidate fires once per new customer ever. PR-F1.2 audit + PR-F2 repair tooling already exists for cleaning up any residual drift. Convergence would be a clear quality win when bandwidth allows, but is not a blocker for any of the §7 ready-to-build features.
 
