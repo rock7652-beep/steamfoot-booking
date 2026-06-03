@@ -552,6 +552,46 @@ export interface BindLineToExistingCustomerByIdInput {
   lineUserId: string;
   /** LINE displayName for Customer.lineName; null is allowed. */
   lineName: string | null;
+  /**
+   * PR-G5.5.b: optional full OAuth Account bundle for callers that have
+   * the LINE access_token / refresh_token / id_token from a fresh
+   * OAuth handshake (auth.ts Case A signIn callback).
+   *
+   * Shape mirrors `ActivatePrecreatedCustomerWithLineInput.oauthAccount`
+   * for callsite-symmetry — same field names, same null/undefined
+   * semantics. The helper INTENTIONALLY does not validate
+   * `provider === "line"` or `providerAccountId === lineUserId` from
+   * this input: `tx.account.create` always uses canonical literals
+   * (`provider: "line"`, `providerAccountId: input.lineUserId`) per
+   * PR #243 Codex P2 round 17, regardless of what the caller passes
+   * here. Only `type` and the 6 token fields flow into the Account row.
+   *
+   * Behaviour:
+   *   - `oauthAccount` UNSET (existing oauth-confirm / finalizeLineBind /
+   *     webhook callers) → tx.account.create writes the 4-field minimal
+   *     Account row that PR-G5.1.a / PR-G5.2.a shipped with. Byte-equivalent
+   *     to pre-PR-G5.5.b prod behaviour for those callers.
+   *   - `oauthAccount` SET → tx.account.create writes all 10 fields incl.
+   *     OAuth tokens. Byte-equivalent to the pre-PR-G5.5.b auth.ts Case A
+   *     inline `prisma.account.create` (lines 541-554 of src/lib/auth.ts).
+   *
+   * Affects both Account.create sites inside D3:
+   *   1. `runFullBindTx` (first-time bind: Customer.lineUserId null +
+   *      Account[line] missing)
+   *   2. `runAccountOnlyRepairTx` (drift repair: Customer.lineUserId
+   *      already set + Account[line] missing)
+   */
+  oauthAccount?: {
+    provider: string;
+    providerAccountId: string;
+    type: string;
+    access_token: string | null | undefined;
+    refresh_token: string | null | undefined;
+    id_token: string | null | undefined;
+    expires_at: number | null | undefined;
+    scope: string | null | undefined;
+    token_type: string | null | undefined;
+  };
 }
 
 /** PR-G5.1.a helper output — discriminated union; never throws on expected branches. */
@@ -886,6 +926,10 @@ export async function bindLineToExistingCustomerById(
         customerId: customer.id,
         userId: customerUserId,
         lineUserId: input.lineUserId,
+        // PR-G5.5.b: forward optional OAuth bundle so auth.ts Case A
+        // gets the full 10-field Account row vs the existing
+        // oauth-confirm caller's 4-field minimal row.
+        oauthAccount: input.oauthAccount,
       });
     }
 
@@ -995,6 +1039,10 @@ export async function bindLineToExistingCustomerById(
     userId: customerUserId,
     lineUserId: input.lineUserId,
     lineName: input.lineName,
+    // PR-G5.5.b: forward optional OAuth bundle so auth.ts Case A
+    // gets the full 10-field Account row vs the existing
+    // oauth-confirm caller's 4-field minimal row.
+    oauthAccount: input.oauthAccount,
   });
 }
 
@@ -1044,6 +1092,78 @@ function logCustomerLockedAccountOwnerMismatch(ctx: {
       lineUserId: maskLineUserId(ctx.lineUserId),
     },
   );
+}
+
+/**
+ * PR-G5.5.b: build the `data` payload for `tx.account.create` inside D3.
+ *
+ * Single source of truth for D3's Account[line] write — used by BOTH
+ * `runFullBindTx` (first-time bind) and `runAccountOnlyRepairTx` (drift
+ * repair) so the two callsites cannot diverge.
+ *
+ * Hard guarantees (preserved regardless of caller input):
+ *   - `userId`, `provider`, `providerAccountId`, `type` always written.
+ *   - `provider` is the canonical literal `"line"` (PR #243 Codex P2
+ *     round 17). The caller's `oauthAccount.provider` is IGNORED — not
+ *     validated, not propagated. This is intentional: D3 must never
+ *     emit an Account row with a non-LINE provider, regardless of
+ *     caller misuse.
+ *   - `providerAccountId` is `params.lineUserId` (same canonical source
+ *     as `Customer.lineUserId`). The caller's
+ *     `oauthAccount.providerAccountId` is IGNORED — same rationale.
+ *
+ * Optional 6 token fields (`access_token` / `refresh_token` /
+ * `id_token` / `expires_at` / `scope` / `token_type`):
+ *   - When `oauthAccount` is `undefined` → omitted from the data.
+ *     End-state Account row has these as DB-default (typically null).
+ *     This is the byte-equivalent baseline for the oauth-confirm /
+ *     finalizeLineBind / webhook callers (PR-G5.1.a / PR-G5.2.a).
+ *   - When `oauthAccount` is set → 6 token fields flow through with
+ *     null/undefined preserved (D5's round-9 contract: no coercion).
+ *     This is the byte-equivalent baseline for auth.ts Case A LINE
+ *     branch (PR-G5.5.b consumer).
+ *
+ * The `type` field collapses to `"oauth"` when `oauthAccount` is not
+ * provided — matches the existing 4-field baseline.
+ */
+function buildAccountCreateDataForExistingCustomerBind(params: {
+  userId: string;
+  lineUserId: string;
+  oauthAccount?: BindLineToExistingCustomerByIdInput["oauthAccount"];
+}): {
+  userId: string;
+  provider: "line";
+  providerAccountId: string;
+  type: string;
+  // Token fields are optional in the resulting Prisma input. Omitting
+  // a field lets Prisma fall back to the column DB default (null).
+  access_token?: string | null;
+  refresh_token?: string | null;
+  id_token?: string | null;
+  expires_at?: number | null;
+  scope?: string | null;
+  token_type?: string | null;
+} {
+  const data: ReturnType<
+    typeof buildAccountCreateDataForExistingCustomerBind
+  > = {
+    userId: params.userId,
+    provider: "line",
+    providerAccountId: params.lineUserId,
+    type: params.oauthAccount?.type ?? "oauth",
+  };
+  if (params.oauthAccount) {
+    // Pass through token fields verbatim — null stays null, undefined
+    // stays undefined, string stays string. Mirrors D5's round-9
+    // token contract (PR #243 Codex P2 round 2).
+    data.access_token = params.oauthAccount.access_token ?? null;
+    data.refresh_token = params.oauthAccount.refresh_token ?? null;
+    data.id_token = params.oauthAccount.id_token ?? null;
+    data.expires_at = params.oauthAccount.expires_at ?? null;
+    data.scope = params.oauthAccount.scope ?? null;
+    data.token_type = params.oauthAccount.token_type ?? null;
+  }
+  return data;
 }
 
 function translateAtomicLineBindTxError(
@@ -1165,6 +1285,15 @@ async function runAccountOnlyRepairTx(params: {
   customerId: string;
   userId: string;
   lineUserId: string;
+  /**
+   * PR-G5.5.b: optional 10-field OAuth Account bundle. Threaded from
+   * `bindLineToExistingCustomerById`'s caller. See
+   * `BindLineToExistingCustomerByIdInput.oauthAccount` for full
+   * semantics — unset = 4-field minimal Account row (existing
+   * oauth-confirm caller), set = 10-field full Account row (auth.ts
+   * Case A LINE branch).
+   */
+  oauthAccount?: BindLineToExistingCustomerByIdInput["oauthAccount"];
 }): Promise<
   | { status: "account_repaired"; customerId: string; userId: string }
   | { status: "unique_conflict"; conflictTarget: string }
@@ -1186,12 +1315,11 @@ async function runAccountOnlyRepairTx(params: {
         });
         if (stillLinked) {
           await tx.account.create({
-            data: {
+            data: buildAccountCreateDataForExistingCustomerBind({
               userId: params.userId,
-              provider: "line",
-              providerAccountId: params.lineUserId,
-              type: "oauth",
-            },
+              lineUserId: params.lineUserId,
+              oauthAccount: params.oauthAccount,
+            }),
           });
           return;
         }
@@ -1377,6 +1505,12 @@ async function runFullBindTx(params: {
   userId: string;
   lineUserId: string;
   lineName: string | null;
+  /**
+   * PR-G5.5.b: optional 10-field OAuth Account bundle. Threaded from
+   * `bindLineToExistingCustomerById`'s caller. See
+   * `BindLineToExistingCustomerByIdInput.oauthAccount` for semantics.
+   */
+  oauthAccount?: BindLineToExistingCustomerByIdInput["oauthAccount"];
 }): Promise<
   | { status: "bound_existing"; customerId: string; userId: string }
   | { status: "unique_conflict"; conflictTarget: string }
@@ -1397,12 +1531,11 @@ async function runFullBindTx(params: {
         });
         if (updated.count === 1) {
           await tx.account.create({
-            data: {
+            data: buildAccountCreateDataForExistingCustomerBind({
               userId: params.userId,
-              provider: "line",
-              providerAccountId: params.lineUserId,
-              type: "oauth",
-            },
+              lineUserId: params.lineUserId,
+              oauthAccount: params.oauthAccount,
+            }),
           });
           return;
         }

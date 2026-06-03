@@ -335,6 +335,286 @@ describe("already_synced (idempotent: Customer.lineUserId matches + Account[line
 });
 
 // ════════════════════════════════════════════════════════════════════════════
+// 2.5  PR-G5.5.b: optional oauthAccount input — 10-field Account.create
+//      when set, 4-field minimal when omitted (byte-equivalent baseline
+//      for oauth-confirm / finalizeLineBind / webhook callers).
+// ════════════════════════════════════════════════════════════════════════════
+//
+// Two call sites that emit Account.create rows inside D3:
+//   1. runFullBindTx       (first-time bind: Customer.lineUserId null +
+//                           Account[line] missing → bound_existing)
+//   2. runAccountOnlyRepairTx (drift repair: Customer.lineUserId set +
+//                              Account[line] missing → account_repaired)
+//
+// Both must:
+//   - Always write canonical literals: provider="line",
+//     providerAccountId=input.lineUserId (PR #243 Codex P2 round 17).
+//   - Always write `userId: customer.userId` + `type`.
+//   - Token fields (access_token/refresh_token/id_token/expires_at/
+//     scope/token_type) flow through ONLY when oauthAccount is set;
+//     otherwise the 4-field minimal row is written (Prisma column
+//     defaults take over for omitted fields).
+//
+// The "oauthAccount UNSET" case is already covered by the existing
+// happy-path tests at line ~226 (`bound_existing`) and ~330
+// (`account_repaired`). These tests below add the SET-case coverage
+// AND assert that canonical literals are honoured regardless of
+// caller misuse.
+
+describe("PR-G5.5.b: optional oauthAccount input — full 10-field Account row when set, 4-field minimal when omitted", () => {
+  const OAUTH_ACCOUNT_FIXTURE = {
+    provider: "line",
+    providerAccountId: LINE_USER_ID,
+    type: "oauth",
+    access_token: "atok_xyz",
+    refresh_token: "rtok_xyz",
+    id_token: "idtok_xyz",
+    expires_at: 1_700_000_000,
+    scope: "profile openid",
+    token_type: "Bearer",
+  };
+
+  it("runFullBindTx with oauthAccount → tx.account.create receives ALL 10 fields including OAuth tokens (preserves auth.ts Case A inline baseline)", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: null,
+      lineLinkStatus: "UNLINKED",
+    });
+    const { txAccountCreate } = setupTransaction();
+
+    const r = await bindLineToExistingCustomerById(
+      makeValidInput({ oauthAccount: OAUTH_ACCOUNT_FIXTURE }),
+    );
+
+    expect(r.status).toBe("bound_existing");
+    expect(txAccountCreate).toHaveBeenCalledTimes(1);
+    expect(txAccountCreate).toHaveBeenCalledWith({
+      data: {
+        userId: USER_ID,
+        provider: "line",
+        providerAccountId: LINE_USER_ID,
+        type: "oauth",
+        access_token: "atok_xyz",
+        refresh_token: "rtok_xyz",
+        id_token: "idtok_xyz",
+        expires_at: 1_700_000_000,
+        scope: "profile openid",
+        token_type: "Bearer",
+      },
+    });
+  });
+
+  it("runFullBindTx WITHOUT oauthAccount → tx.account.create receives 4-field minimal (REGRESSION GUARD for oauth-confirm / finalizeLineBind / webhook callers)", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: null,
+      lineLinkStatus: "UNLINKED",
+    });
+    const { txAccountCreate } = setupTransaction();
+
+    // No `oauthAccount` in input — matches PR-G5.1.a / PR-G5.2.a callers.
+    await bindLineToExistingCustomerById(makeValidInput());
+
+    expect(txAccountCreate).toHaveBeenCalledTimes(1);
+    // EXACT 4-field shape — no extra token columns leaked. This is
+    // the pre-PR-G5.5.b byte-equivalent baseline.
+    expect(txAccountCreate).toHaveBeenCalledWith({
+      data: {
+        userId: USER_ID,
+        provider: "line",
+        providerAccountId: LINE_USER_ID,
+        type: "oauth",
+      },
+    });
+  });
+
+  it("runAccountOnlyRepairTx (drift repair) with oauthAccount → tx.account.create ALSO receives all 10 fields", async () => {
+    // Drift scenario: Customer.lineUserId is set BUT Account[line] is missing.
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: LINE_USER_ID,
+      lineLinkStatus: "LINKED",
+    });
+    mockAccountFindUnique.mockResolvedValueOnce(null);
+    const { txAccountCreate } = setupTransaction();
+
+    const r = await bindLineToExistingCustomerById(
+      makeValidInput({ oauthAccount: OAUTH_ACCOUNT_FIXTURE }),
+    );
+
+    expect(r.status).toBe("account_repaired");
+    expect(txAccountCreate).toHaveBeenCalledTimes(1);
+    const arg = txAccountCreate.mock.calls[0]?.[0] as {
+      data: Record<string, unknown>;
+    };
+    expect(arg.data).toEqual({
+      userId: USER_ID,
+      provider: "line",
+      providerAccountId: LINE_USER_ID,
+      type: "oauth",
+      access_token: "atok_xyz",
+      refresh_token: "rtok_xyz",
+      id_token: "idtok_xyz",
+      expires_at: 1_700_000_000,
+      scope: "profile openid",
+      token_type: "Bearer",
+    });
+  });
+
+  it("runAccountOnlyRepairTx (drift repair) WITHOUT oauthAccount → still writes 4-field minimal (REGRESSION GUARD)", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: LINE_USER_ID,
+      lineLinkStatus: "LINKED",
+    });
+    mockAccountFindUnique.mockResolvedValueOnce(null);
+    const { txAccountCreate } = setupTransaction();
+
+    await bindLineToExistingCustomerById(makeValidInput());
+
+    expect(txAccountCreate).toHaveBeenCalledWith({
+      data: {
+        userId: USER_ID,
+        provider: "line",
+        providerAccountId: LINE_USER_ID,
+        type: "oauth",
+      },
+    });
+  });
+
+  it("oauthAccount with null/undefined token fields → tokens flow through as null (D5 round-9 pass-through contract)", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: null,
+      lineLinkStatus: "UNLINKED",
+    });
+    const { txAccountCreate } = setupTransaction();
+
+    await bindLineToExistingCustomerById(
+      makeValidInput({
+        oauthAccount: {
+          provider: "line",
+          providerAccountId: LINE_USER_ID,
+          type: "oauth",
+          access_token: null,
+          refresh_token: undefined,
+          id_token: null,
+          expires_at: null,
+          scope: undefined,
+          token_type: null,
+        },
+      }),
+    );
+
+    const arg = txAccountCreate.mock.calls[0]?.[0] as {
+      data: Record<string, unknown>;
+    };
+    expect(arg.data.access_token).toBeNull();
+    expect(arg.data.refresh_token).toBeNull();
+    expect(arg.data.id_token).toBeNull();
+    expect(arg.data.expires_at).toBeNull();
+    expect(arg.data.scope).toBeNull();
+    expect(arg.data.token_type).toBeNull();
+  });
+
+  it("DEFENSIVE: oauthAccount.provider / providerAccountId are IGNORED — tx.account.create always emits canonical literals (provider='line', providerAccountId=input.lineUserId) even if caller passes garbage", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: null,
+      lineLinkStatus: "UNLINKED",
+    });
+    const { txAccountCreate } = setupTransaction();
+
+    await bindLineToExistingCustomerById(
+      makeValidInput({
+        oauthAccount: {
+          provider: "google", // ← misuse
+          providerAccountId: "wrong-id", // ← misuse
+          type: "oauth",
+          access_token: "atok",
+          refresh_token: null,
+          id_token: null,
+          expires_at: null,
+          scope: null,
+          token_type: null,
+        },
+      }),
+    );
+
+    const arg = txAccountCreate.mock.calls[0]?.[0] as {
+      data: Record<string, unknown>;
+    };
+    // Canonical literals win — caller's misuse is silently overridden.
+    // D3 cannot emit a non-LINE Account row regardless of input.
+    expect(arg.data.provider).toBe("line");
+    expect(arg.data.providerAccountId).toBe(LINE_USER_ID);
+    // But the token fields ARE still forwarded (the misuse only affects
+    // identifier columns).
+    expect(arg.data.access_token).toBe("atok");
+  });
+
+  it("oauthAccount + already_synced → 0 DB writes (the token bundle never reaches the durable layer when no Account.create runs)", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: LINE_USER_ID,
+      lineLinkStatus: "LINKED",
+    });
+    mockAccountFindUnique.mockResolvedValueOnce({ userId: USER_ID });
+
+    const r = await bindLineToExistingCustomerById(
+      makeValidInput({ oauthAccount: OAUTH_ACCOUNT_FIXTURE }),
+    );
+
+    expect(r.status).toBe("already_synced");
+    // No tx → no Account.create → no token writes. The oauthAccount
+    // bundle has zero effect on the durable Account row (the existing
+    // row keeps its current token values; D3 does NOT refresh tokens
+    // on already_synced).
+    expect(mockTx).not.toHaveBeenCalled();
+  });
+
+  it("oauthAccount + customer_repaired path → 0 Account.create writes (Customer-only repair leaves the existing Account row's tokens intact)", async () => {
+    // Drift scenario 5.6-a: Customer.lineUserId null + Account[line]
+    // already exists owned by same User.
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: null,
+      lineLinkStatus: "UNLINKED",
+    });
+    mockAccountFindUnique.mockResolvedValueOnce({ userId: USER_ID });
+    const { txAccountCreate } = setupTransaction();
+
+    const r = await bindLineToExistingCustomerById(
+      makeValidInput({ oauthAccount: OAUTH_ACCOUNT_FIXTURE }),
+    );
+
+    expect(r.status).toBe("customer_repaired");
+    // The customer-only repair path NEVER calls tx.account.create —
+    // the existing Account row's tokens are preserved (not refreshed
+    // even though caller supplied fresh ones). This is the correct
+    // behaviour: token refresh is out of scope for the bind helper;
+    // NextAuth re-runs OAuth handshake on its own schedule.
+    expect(txAccountCreate).not.toHaveBeenCalled();
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════
 // 3. customer_locked (different LINE already attached)
 // ════════════════════════════════════════════════════════════════════════════
 
