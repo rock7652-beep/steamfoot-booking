@@ -81,13 +81,24 @@ export interface LiffCustomerProfile {
   lineName: string | null;
   /**
    * Masked tail of `lineUserId` for support-triage display ONLY (e.g.
-   * "U******abcd"). Full raw `lineUserId` is NEVER returned. null when
-   * `lineStatus !== "linked"` (no binding to mask).
+   * "U******abcd"). Full raw `lineUserId` is NEVER returned.
    *
-   * Mask format: `U` + `******` + last-4-chars; surfaces JUST enough for
-   * a customer to read it back to staff during a support call without
-   * exposing the full identifier in the LIFF view. Matches the masking
-   * pattern from `src/lib/line-bind-log.ts` `maskLineUserId` family.
+   * STRICT CONTRACT (PR #257 round 3 Codex P2):
+   * `lineUserIdMasked` is non-null IFF `lineStatus === "linked"`. Every
+   * other status (`unlinked` / `needs_help`) returns null here even if
+   * the underlying `Customer.lineUserId` happens to be set in the DB
+   * (e.g. `BLOCKED` + `lineUserId set` from a webhook unfollow).
+   *
+   * Rationale: the customer view must NOT show a masked LINE ID
+   * alongside a "尚未綁定" / "需店家協助確認" status — that mixed signal
+   * confuses customers and contradicts the lineStatus narrative. Only
+   * the unambiguous "linked" state surfaces the ID.
+   *
+   * Mask format (when non-null): `U` + `******` + last-4-chars; surfaces
+   * JUST enough for a customer to read it back to staff during a
+   * support call without exposing the full identifier in the LIFF view.
+   * Matches the masking pattern from `src/lib/line-bind-log.ts`
+   * `maskLineUserId` family.
    */
   lineUserIdMasked: string | null;
   /** Store display name (Store.name). */
@@ -223,6 +234,32 @@ export async function fetchLiffCustomerProfile(): Promise<FetchLiffCustomerProfi
     lineStatus = "needs_help";
   }
 
+  // ── 5. Compute masked LINE userId (PR #257 round 3 Codex P2) ────
+  //
+  // STRICT CONTRACT: `lineUserIdMasked` is non-null IFF `lineStatus ===
+  // "linked"`. For every other status (`unlinked` / `needs_help`), the
+  // masked tail MUST be null even if `row.lineUserId` happens to be set
+  // in the DB.
+  //
+  // Why this matters: the `BLOCKED` + `lineUserId set` case (webhook
+  // unfollow wrote BLOCKED on a previously-linked Customer; the
+  // lineUserId field was not cleared) maps to `lineStatus: "needs_help"`
+  // per the §4 derivation rules above. Without this guard, the view
+  // would show 「需店家協助確認」 alongside a masked LINE ID tail —
+  // contradictory signals to the customer.
+  //
+  // The drift cases (`LINKED` + `lineUserId null`) coincidentally
+  // produce null masks because the masker returns null for null input,
+  // but that's an accident of the data shape — the gate here makes the
+  // contract explicit and future-proof against any new enum state that
+  // ships with a non-null lineUserId.
+  //
+  // PII contract: full raw `lineUserId` is still NEVER returned to
+  // client; the masker output (when produced) is the support-triage
+  // display only.
+  const lineUserIdMasked =
+    lineStatus === "linked" ? maskLineUserIdForView(row.lineUserId) : null;
+
   return {
     status: "ok",
     profile: {
@@ -232,8 +269,7 @@ export async function fetchLiffCustomerProfile(): Promise<FetchLiffCustomerProfi
       email: row.email,
       lineStatus,
       lineName: row.lineName,
-      // Masked tail only — full lineUserId NEVER returned (PII contract).
-      lineUserIdMasked: maskLineUserIdForView(row.lineUserId),
+      lineUserIdMasked,
       storeName: row.store.name,
       storeSlug: row.store.slug,
     },

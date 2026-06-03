@@ -257,7 +257,7 @@ describe("PII / lineUserId masking contract", () => {
     // (prevents input-length leakage via output length comparison)
   });
 
-  it("lineUserIdMasked is null when customer is not LINE-linked (no binding to mask)", async () => {
+  it("lineUserIdMasked is null when customer is genuinely unlinked (UNLINKED + null)", async () => {
     mockCustomerFindFirst.mockResolvedValueOnce(
       makeRow({
         lineLinkStatus: "UNLINKED",
@@ -269,20 +269,81 @@ describe("PII / lineUserId masking contract", () => {
     const r = await fetchLiffCustomerProfile();
 
     if (r.status !== "ok") throw new Error("expected ok");
+    expect(r.profile.lineStatus).toBe("unlinked");
     expect(r.profile.lineUserIdMasked).toBeNull();
   });
 
-  it("degenerate short lineUserId (< 7 chars) returns null mask (defensive — would otherwise leak the entire input)", async () => {
-    // Pathological / corrupted data — never expected in prod since LINE
-    // userIds are always 33 chars (U + 32 hex). But the masker MUST
-    // refuse to leak any input that's shorter than the mask itself.
+  it("PR #257 round 3: BLOCKED + lineUserId set → needs_help AND lineUserIdMasked: null (the gating bug Codex caught — pre-fix this case leaked the mask alongside a needs_help status)", async () => {
+    // REGRESSION GUARD for the round-3 Codex P2 fix:
+    //
+    // Before the fix, `maskLineUserIdForView(row.lineUserId)` was called
+    // unconditionally. For BLOCKED + lineUserId set:
+    //   - lineStatus correctly resolved to "needs_help" (round-2 fix)
+    //   - BUT lineUserIdMasked was non-null (mask of the still-stored ID)
+    //
+    // The view then showed contradictory signals: "需店家協助確認"
+    // alongside a masked LINE ID tail. This test pins the contract
+    // that lineUserIdMasked is non-null IFF lineStatus === "linked".
     mockCustomerFindFirst.mockResolvedValueOnce(
-      makeRow({ lineUserId: "Uabc" }),
+      makeRow({ lineLinkStatus: "BLOCKED", lineUserId: LINE_USER_ID }),
     );
 
     const r = await fetchLiffCustomerProfile();
 
     if (r.status !== "ok") throw new Error("expected ok");
+    expect(r.profile.lineStatus).toBe("needs_help");
+    expect(r.profile.lineUserIdMasked).toBeNull();
+  });
+
+  it("PR #257 round 3 contract: lineUserIdMasked is non-null IFF lineStatus === 'linked' (exhaustive matrix sweep)", async () => {
+    // Drive each of the 5 status × lineUserId combinations the
+    // derivation can produce and assert the strict mask gate.
+    const cases = [
+      { lineLinkStatus: "LINKED", lineUserId: LINE_USER_ID, expectedStatus: "linked", expectedMaskNull: false },
+      { lineLinkStatus: "UNLINKED", lineUserId: null, expectedStatus: "unlinked", expectedMaskNull: true },
+      { lineLinkStatus: "LINKED", lineUserId: null, expectedStatus: "needs_help", expectedMaskNull: true },
+      { lineLinkStatus: "BLOCKED", lineUserId: LINE_USER_ID, expectedStatus: "needs_help", expectedMaskNull: true },
+      { lineLinkStatus: "BLOCKED", lineUserId: null, expectedStatus: "needs_help", expectedMaskNull: true },
+    ] as const;
+
+    for (const c of cases) {
+      mockCustomerFindFirst.mockResolvedValueOnce(
+        makeRow({
+          lineLinkStatus: c.lineLinkStatus,
+          lineUserId: c.lineUserId,
+        }),
+      );
+
+      const r = await fetchLiffCustomerProfile();
+
+      if (r.status !== "ok") {
+        throw new Error(`expected ok for ${JSON.stringify(c)}`);
+      }
+      expect(r.profile.lineStatus).toBe(c.expectedStatus);
+      if (c.expectedMaskNull) {
+        expect(r.profile.lineUserIdMasked).toBeNull();
+      } else {
+        expect(r.profile.lineUserIdMasked).toBe(LINE_USER_ID_MASKED);
+      }
+      // The full raw lineUserId must never appear, regardless of branch.
+      expect(JSON.stringify(r.profile)).not.toContain(LINE_USER_ID);
+    }
+  });
+
+  it("degenerate short lineUserId (< 7 chars) still produces null mask in the linked branch (defensive — masker refuses too-short input)", async () => {
+    // Pathological / corrupted data — never expected in prod since LINE
+    // userIds are always 33 chars (U + 32 hex). But the masker MUST
+    // refuse to leak any input that's shorter than the mask itself.
+    // Note: with the round-3 gate, this case only matters for the
+    // `linked` branch (other branches force-null regardless of input).
+    mockCustomerFindFirst.mockResolvedValueOnce(
+      makeRow({ lineLinkStatus: "LINKED", lineUserId: "Uabc" }),
+    );
+
+    const r = await fetchLiffCustomerProfile();
+
+    if (r.status !== "ok") throw new Error("expected ok");
+    expect(r.profile.lineStatus).toBe("linked");
     expect(r.profile.lineUserIdMasked).toBeNull();
   });
 });
