@@ -10,6 +10,7 @@ import {
   clearOAuthTempSession,
 } from "@/lib/server/oauth-temp-session";
 import { syncLineAccountForUser } from "@/server/services/line-account-sync";
+import { bindLineToExistingCustomerById } from "@/server/services/bind-line-to-customer";
 
 /**
  * resolveLineLogin — PR-2 step 3b
@@ -233,21 +234,47 @@ export async function oauthConfirmLoginAction(
 }
 
 // ============================================================
-// finalizeLineBind — PR-2 step 4b
+// finalizeLineBind — PR-2 step 4b · PR-G5.2.a wires D3 helper
 // ============================================================
 // /oauth-confirm/finalize 頁載入後呼叫。NEED_LOGIN 流程在這裡才寫 lineUserId，
 // 因為要先確保使用者已通過密碼登入（auth() session 已建立）。
 //
 // 安全閘：
 //   1. 必須有 NextAuth session（auth().user.id 存在）
-//   2. 必須有 OAuth temp session（lineUserId 來源）
+//   2. 必須有 OAuth temp session（lineUserId 來源；PR-G5.1.c HMAC 簽章驗證）
 //   3. session.user 必須是 customerId 的擁有者（防 URL 篡改）
 //   4. 同 store 的 lineUserId 不可已綁定其他 Customer（Step 0 防身份轉移）
-//   5. 寫完強制 clearOAuthTempSession 防 nonce reuse
+//   5. 寫入：委派到 D3 helper `bindLineToExistingCustomerById`，原子化
+//      Customer.updateMany + Account[line].create（同一 Serializable
+//      transaction，all-or-nothing） — 取代 PR-G5.2.a 前「customer.update
+//      + post-tx syncLineAccountForUser」非原子流程
+//   6. 寫完強制 clearOAuthTempSession 防 nonce reuse
+//
+// 為什麼接 D3？
+//   PR-G5.2.a 前，本函式分兩步：先 customer.update 寫 LINE 欄位，再 post-tx
+//   呼叫 syncLineAccountForUser 補 Account[line]。若 Account create 失敗，
+//   Customer.lineUserId 已 commit、Account 缺失 → "missing-account" 分裂
+//   狀態（正是 PR-F1.2 audit / PR-F2 repair 在收拾的歷史殘屑）。
+//
+//   D3 (`bindLineToExistingCustomerById`, PR-G5.1.a #242) 把兩件事收進
+//   單一 Serializable transaction：updateMany (CAS predicate) +
+//   account.create，任一失敗整組 rollback。本 PR 是純 wiring：D3 已上
+//   main 但無 caller、是 dead code，這支接上後 finalize 流程正式 atomic。
 
 export type FinalizeLineBindResult =
   | { status: "BOUND"; action: "RELOGIN"; callbackUrl: string }
-  | { error: "session_expired" | "auth_required" | "customer_mismatch" | "line_already_bound_other" };
+  | {
+      error:
+        | "session_expired"
+        | "auth_required"
+        | "customer_mismatch"
+        | "line_already_bound_other"
+        // PR-G5.2.a 新增：D3 helper 回報的可重試 / 撞 unique constraint
+        // 競態狀況（在原本「post-tx best-effort」流程中會被吞掉成靜默錯
+        // 誤，現在 D3 把它們具名化）。
+        | "bind_conflict"
+        | "write_conflict";
+    };
 
 export async function finalizeLineBind(input: {
   customerId: string;
@@ -280,7 +307,8 @@ export async function finalizeLineBind(input: {
 
   // ── 4. Step 0 防身份轉移：lineUserId 不可已綁其他 Customer ──
   // 在這個 request 路徑罕見（resolveLineLogin Step 0 已過濾），但 finalize 是
-  // 寫入點，必須再驗一次。
+  // 寫入點，必須再驗一次。D3 helper 內部還有 customer_locked / unique_conflict
+  // 第二道防線，本檢查的價值是回更明確、更快的錯誤訊息。
   if (customer.lineUserId && customer.lineUserId !== tempSession.lineUserId) {
     return { error: "line_already_bound_other" };
   }
@@ -296,25 +324,84 @@ export async function finalizeLineBind(input: {
     return { error: "line_already_bound_other" };
   }
 
-  // ── 5. 寫入 + 清 temp session ──
-  await prisma.customer.update({
-    where: { id: customer.id },
-    data: {
-      lineUserId: tempSession.lineUserId,
-      lineLinkStatus: "LINKED",
-      lineLinkedAt: new Date(),
-      lineName: tempSession.displayName,
-      // authSource 不變 — 此 Customer 原本是 EMAIL/PHONE_PASSWORD 註冊，
-      // 後來綁了 LINE。derived source helper（PR-1）會推導真實標籤。
-    },
-  });
-  // 同步 NextAuth Account[line]：finalize 必走密碼登入後，nextAuthSession.user.id 必有，
-  // 此處同步可保證 RELOGIN 後 LINE OAuth callback 能命中既有 user，不再分裂。
-  await syncLineAccountForUser({
-    userId: nextAuthSession.user.id,
+  // ── 5. 委派到 D3 helper — atomic Serializable tx ──
+  //    取代原「customer.update + post-tx syncLineAccountForUser」非原子流程。
+  //    D3 內含：
+  //      - Customer.updateMany (CAS predicate: id + storeId + userId not-null
+  //        + lineUserId null-or-matches-input + mergedIntoCustomerId null)
+  //      - Account[line].create
+  //      - 同一個 Serializable transaction 包起來，任一失敗整組 rollback
+  //    authSource 維持原值 — D3 不動 authSource 欄位，本 Customer 原是
+  //    EMAIL/PHONE_PASSWORD 註冊、後綁 LINE，derived source helper（PR-1）
+  //    會推導真實標籤。
+  const bindResult = await bindLineToExistingCustomerById({
+    storeId: tempSession.storeId,
+    customerId: customer.id,
     lineUserId: tempSession.lineUserId,
+    lineName: tempSession.displayName,
   });
-  await clearOAuthTempSession();
 
-  return { status: "BOUND", action: "RELOGIN", callbackUrl: input.callbackUrl };
+  switch (bindResult.status) {
+    case "bound_existing":
+    case "already_synced":
+    case "account_repaired":
+    case "customer_repaired":
+      // 成功路徑（四種子狀態都是成功）：
+      //   - bound_existing：第一次寫入 Customer.lineUserId + Account[line]
+      //   - already_synced：idempotent 重綁，Customer + Account 都早已正確
+      //   - account_repaired：Customer.lineUserId 已正確但 Account[line] 缺失
+      //     （pre-G5.x 殘屑），helper 補建 Account；Customer 鏈接 metadata
+      //     不動（lineLinkedAt / lineName 保留歷史值）
+      //   - customer_repaired：mirror of account_repaired — Account[line]
+      //     已存在且 userId 一致，Customer.lineUserId 卻是 null（PR-G5.2.a
+      //     Codex P2 round 1 新增）。helper 寫 Customer 鏈接欄位，跳過
+      //     Account.create。此 drift 在舊流程靠 customer.update +
+      //     syncLineAccountForUser best-effort 修補；G5.2.a 接 D3 後若無
+      //     此 branch 會撞 P2002 整個 rollback、drift 無法修復。
+      // 都清 temp session 防 nonce reuse，回 RELOGIN signal 讓 client 觸發
+      // signIn() 取得帶 LINE 身份的新 NextAuth session。
+      await clearOAuthTempSession();
+      return {
+        status: "BOUND",
+        action: "RELOGIN",
+        callbackUrl: input.callbackUrl,
+      };
+
+    case "customer_locked":
+      // D3 偵測到衝突（Customer 已綁不同 LINE / Account 指向別的 User）
+      // — 對應原 `line_already_bound_other` 語意，保留前端文案行為。
+      return { error: "line_already_bound_other" };
+
+    case "store_mismatch":
+    case "customer_has_no_user":
+      // 防禦性：guard 3 已驗 customer.storeId === tempSession.storeId AND
+      // customer.userId === nextAuthSession.user.id，到 D3 內部 re-read
+      // 仍對不上的話幾乎只可能是極端並發（user/customer 在這個 request 中
+      // 被改動）。映射到既有的 customer_mismatch 錯誤，保留 API 穩定。
+      return { error: "customer_mismatch" };
+
+    case "unique_conflict":
+      // P2002：D3 tx 內遇到 (storeId, lineUserId) 或 (provider,
+      // providerAccountId) 競態衝突。新 error variant — 原本走
+      // post-tx best-effort 時這類失敗會被靜默吞掉。
+      return { error: "bind_conflict" };
+
+    case "write_conflict":
+    case "stale_customer_link":
+      // 都是可重試的競態：
+      //   - write_conflict：Prisma P2034，DB 偵測到 serialization race
+      //   - stale_customer_link：D3 內部 TOCTOU — Customer 鏈接狀態在
+      //     preflight 與 tx-write 之間被另一個 binder 改動
+      // 對 caller 而言處理相同：重試一次通常會落到 already_synced /
+      // account_repaired / customer_locked 其中一條 deterministic 路徑。
+      return { error: "write_conflict" };
+
+    default: {
+      // TypeScript exhaustiveness check — 若 D3 helper 未來加新 status
+      // variant 而本檔忘記 map，tsc 會在這裡報錯（_never 不再是 never 型別）。
+      const _never: never = bindResult;
+      void _never;
+      return { error: "customer_mismatch" };
+    }
+  }
 }
