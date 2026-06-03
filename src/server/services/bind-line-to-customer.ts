@@ -160,6 +160,10 @@ export async function bindLineToCustomerInStore(
   }
 
   // ── 2. 同店 phone 查 2 筆判 ambiguous ────────────
+  // PR-G5.2.b round 2 (Codex P2): no Customer.name read here anymore.
+  // The B4 path used to pre-update Customer.name before D5; round 2
+  // moves the Customer.name override INSIDE D5's Serializable tx, so
+  // the outer caller no longer needs to know the current name.
   const candidates = await prisma.customer.findMany({
     where: { storeId: input.storeId, phone: normalizedPhone },
     select: {
@@ -311,59 +315,147 @@ export async function bindLineToCustomerInStore(
     };
   }
 
-  // Customer.userId === null AND lineUserId === null
-  //   → staff 建檔 / OAuth placeholder 殘留；本次建 User + 綁 LINE
-  const { user } = await prisma.$transaction(async (tx) => {
-    const u = await tx.user.create({
-      data: {
-        name: input.name,
-        phone: normalizedPhone,
-        role: "CUSTOMER",
-        status: "ACTIVE",
-      },
-    });
-    await tx.customer.update({
-      where: { id: real.id },
-      data: {
-        userId: u.id,
-        name: input.name, // 用 onboarding 輸入覆蓋（staff 建檔可能用「未命名」）
-        authSource: "LINE",
-        lineUserId: input.lineUserId,
-        lineName: input.lineName ?? input.name,
-        lineLinkStatus: "LINKED",
-        lineLinkedAt: new Date(),
-      },
-    });
-    return { user: u };
-  });
-
-  const syncResult = await syncLineAccountForUser({
-    userId: user.id,
-    lineUserId: input.lineUserId,
-  });
-
-  await runPostBindBestEffort({
-    customerId: real.id,
-    userId: user.id,
+  // ── B4: Customer.userId === null AND lineUserId === null ─────────────
+  //   = staff-precreated Customer / OAuth placeholder residue.
+  //
+  // PR-G5.2.b: delegate to D5 canonical helper
+  // `activatePrecreatedCustomerWithLine` for atomic
+  // User+Account[line]+Customer write (single Serializable tx).
+  //
+  // Replaces the previous "tx{user.create + customer.update} + post-tx
+  // syncLineAccountForUser best-effort" flow which left a drift window
+  // if the post-tx Account sync failed (Customer.lineUserId set, Account
+  // missing — exactly the pattern PR-F1.2 audit / PR-F2 repair was
+  // built to clean up).
+  //
+  // ⚠ ONE behavior-preservation adapter and ONE atomic-write parameter:
+  //
+  //   (1) Synthesize `oauthProfile.name` for deriveEffectiveLineName
+  //       fallback: today's B4 uses `input.lineName ?? input.name`.
+  //       D5's chain is `input.lineName ?? oauthProfile.name ?? "顧客"`.
+  //       Setting `oauthProfile.name = input.lineName ?? input.name`
+  //       makes the chain produce the same value byte-for-byte.
+  //
+  //   (2) PR-G5.2.b round 2 (Codex P2): pass `customerNameOverride:
+  //       input.name` so D5 atomically rewrites Customer.name AND
+  //       builds User.name from the LIFF input INSIDE its tx — IFF
+  //       the tx commits. Replaces the round-1 pre-update which was
+  //       NON-ATOMIC: a D5 failure (write_conflict / P2002 / stale)
+  //       used to leave Customer.name overwritten with no User+Account
+  //       activation to back it up. Round 2 ties the name write into
+  //       the same Serializable rollback boundary as User+Account.
+  const activationResult = await activatePrecreatedCustomerWithLine({
     storeId: input.storeId,
-    phone: normalizedPhone,
+    customerId: real.id,
     lineUserId: input.lineUserId,
+    lineName: input.lineName,
+    oauthProfile: {
+      email: null,
+      image: null,
+      // Synthesized so deriveEffectiveLineName falls back to input.name
+      // (today's B4 behavior) when input.lineName is null.
+      name: input.lineName ?? input.name,
+    },
+    oauthAccount: {
+      provider: "line",
+      providerAccountId: input.lineUserId,
+      type: "oauth",
+      access_token: null,
+      refresh_token: null,
+      id_token: null,
+      expires_at: null,
+      scope: null,
+      token_type: null,
+    },
+    // PR-G5.2.b round 2 (Codex P2): atomic Customer.name override.
+    // D5's tx body decides — by comparing this against the in-tx
+    // snapshot — whether to actually emit a Customer.name write. When
+    // the snapshot already equals `input.name`, the write is omitted
+    // (byte-equivalent to baseline). When it differs (staff placeholder
+    // like "未命名"), the write rides on the same Serializable tx as
+    // User/Account creation — D5 failure = name unchanged.
+    customerNameOverride: input.name,
   });
 
-  return {
-    status: "bound_existing",
-    customerId: real.id,
-    userId: user.id,
-    userCreated: true,
-    lineAccountSync:
-      syncResult.status === "created"
-        ? "created"
-        : syncResult.status === "noop_already_synced"
-          ? "noop_already_synced"
-          : syncResult.status === "skipped_already_linked_other_user"
-            ? "skipped_already_linked_other_user"
-            : "error",
-  };
+  // Map D5 status to B4's existing BindLineResult shape.
+  switch (activationResult.status) {
+    case "activated": {
+      // Success — User + Account[line] + Customer link metadata all
+      // committed in one Serializable tx (no post-tx best-effort drift).
+      await runPostBindBestEffort({
+        customerId: real.id,
+        userId: activationResult.userId,
+        storeId: input.storeId,
+        phone: normalizedPhone,
+        lineUserId: input.lineUserId,
+      });
+      return {
+        status: "bound_existing",
+        customerId: real.id,
+        userId: activationResult.userId,
+        userCreated: true,
+        // D5 wrote Account[line] inside the tx — no post-tx best-effort
+        // sync. The legacy `lineAccountSync` field stays for caller
+        // observability; "created" mirrors the post-tx-sync code path
+        // that this used to take.
+        lineAccountSync: "created",
+      };
+    }
+
+    case "customer_already_linked_to_other_line":
+      // Race: another binder set lineUserId between our preflight and
+      // D5's read. Map to B4's existing same-shape rejection.
+      return {
+        status: "already_bound_to_other_line",
+        customerId: real.id,
+        existingLineUserId: activationResult.existingLineUserId,
+      };
+
+    case "customer_already_has_user":
+      // Race: another binder activated this Customer (set userId)
+      // between preflight and D5. Surface as the B3-style refusal —
+      // safer than re-attempting, matches §7.1 anti-hijack policy
+      // (a freshly-activated Customer with userId should not be
+      // re-bound via LIFF auto-flow).
+      return {
+        status: "phone_taken_by_other_user",
+        customerId: real.id,
+        // We can't cheaply know sameLineUserId without another query;
+        // default to false (the safer assumption for caller UX).
+        sameLineUserId: false,
+      };
+
+    case "stale_customer_link":
+    case "store_mismatch":
+    case "write_conflict":
+      // Defensive / retryable — preflight verified storeId; race
+      // conditions (TOCTOU / Serializable P2034) caught by D5's
+      // controlled statuses. Surface as `unique_conflict` so the
+      // caller (LIFF action) maps to "service_unavailable, retry".
+      return {
+        status: "unique_conflict",
+        conflictTarget: `activation_${activationResult.status}`,
+      };
+
+    case "unique_conflict":
+      // P2002 inside D5's tx (rare — provider/providerAccountId or
+      // storeId+phone race). Pass through with same conflictTarget.
+      return {
+        status: "unique_conflict",
+        conflictTarget: activationResult.conflictTarget,
+      };
+
+    case "line_account_mismatch": {
+      // Should be unreachable: we synthesize `provider: "line"` and
+      // `providerAccountId: input.lineUserId` inline above; D5's step-1
+      // validation cannot fail. Throw to surface the bug if it ever
+      // does (rather than silently degrading to a bad status mapping).
+      const expected = activationResult.expectedLineUserId;
+      throw new Error(
+        `[bindLineToCustomerInStore] B4 → D5 unexpected line_account_mismatch (expectedLineUserId=${maskLineUserId(expected)})`,
+      );
+    }
+  }
 }
 
 /**
@@ -1643,6 +1735,30 @@ export interface ActivatePrecreatedCustomerWithLineInput {
     scope: string | null | undefined;
     token_type: string | null | undefined;
   };
+  /**
+   * Optional atomic Customer.name override (PR-G5.2.b round 2 — Codex P2).
+   *
+   * When provided AND differs from the in-tx Customer.name snapshot
+   * (read by the step-7-pre findFirst guard), the in-tx
+   * Customer.updateMany ADDS `name: customerNameOverride` to its data,
+   * and the new User.name is built from this override instead of the
+   * snapshot. Both writes happen INSIDE the same Serializable
+   * transaction — on any failure (StaleCustomerLinkError / P2034 /
+   * P2002 / any thrown error) the Serializable rollback reverts the
+   * name change atomically alongside User / Account creation.
+   *
+   * Set ONLY by `bindLineToCustomerInStore`'s B4 caller: LIFF input
+   * may carry a fresher name than a staff-precreated placeholder
+   * (e.g. "未命名"). The auth.ts Case B caller (PR-G5.5 future) leaves
+   * this UNSET — byte-equivalent baseline preserved (baseline does
+   * not write Customer.name, only User.name from the snapshot).
+   *
+   * Truthy-guard semantics (matches `lineName`):
+   *   - `"Alice"` → User.name="Alice", Customer.name written
+   *   - `""`     → treated as not-set (would blank a stored name otherwise)
+   *   - `undefined` → not-set (baseline behaviour)
+   */
+  customerNameOverride?: string;
 }
 
 /** PR-G5.1.b activation helper output — discriminated union; never throws on expected branches. */
@@ -1964,6 +2080,23 @@ function buildActivationCustomerUpdateData(params: {
   userId: string;
   lineUserId: string;
   lineName: string | null;
+  /**
+   * PR-G5.2.b round 2 (Codex P2): caller-decided Customer.name write.
+   *
+   * `undefined` → omit `name` from updateMany data (preserves
+   * byte-equivalent baseline vs auth.ts Case B which does not write
+   * Customer.name).
+   * non-empty string → write `name: nameOverride` as part of the same
+   * Serializable tx that creates User + Account.
+   * `""` is rejected by the same truthy guard as `lineName` (would
+   * otherwise blank a stored name).
+   *
+   * The CALLER (the activation helper's tx body) is responsible for
+   * deciding whether the override differs from the in-tx Customer.name
+   * snapshot. This builder only applies the final truthy gate, in
+   * parallel with `lineName`'s gate.
+   */
+  nameOverride?: string;
 }): {
   userId: string;
   authSource: "LINE";
@@ -1971,6 +2104,7 @@ function buildActivationCustomerUpdateData(params: {
   lineLinkStatus: "LINKED";
   lineLinkedAt: Date;
   lineName?: string;
+  name?: string;
 } {
   const data: {
     userId: string;
@@ -1979,6 +2113,7 @@ function buildActivationCustomerUpdateData(params: {
     lineLinkStatus: "LINKED";
     lineLinkedAt: Date;
     lineName?: string;
+    name?: string;
   } = {
     userId: params.userId,
     authSource: "LINE",
@@ -1991,6 +2126,13 @@ function buildActivationCustomerUpdateData(params: {
   // displayName); accepts any non-empty string.
   if (params.lineName) {
     data.lineName = params.lineName;
+  }
+  // PR-G5.2.b round 2: optional atomic Customer.name override. Parallel
+  // truthy gate to `lineName` — omits when undefined or "" so the
+  // updateMany data shape stays byte-equivalent to baseline when
+  // override is not requested (auth.ts caller).
+  if (params.nameOverride) {
+    data.name = params.nameOverride;
   }
   return data;
 }
@@ -2156,8 +2298,27 @@ export async function activatePrecreatedCustomerWithLine(
           throw new StaleCustomerLinkError(customer.id);
         }
 
+        // PR-G5.2.b round 2 (Codex P2): effective name override.
+        //
+        // `effectiveNameOverride` is truthy ONLY when the caller
+        // explicitly passed `customerNameOverride` AND it is a non-empty
+        // string. `""` and `undefined` collapse to `undefined` — exactly
+        // the auth.ts baseline behaviour (no Customer.name write, User.name
+        // = snapshot).
+        //
+        // Both User.name AND the optional Customer.name write derive from
+        // this single source — guaranteeing they cannot diverge.
+        const effectiveNameOverride = input.customerNameOverride || undefined;
+
         // User row is built from scalar locals copied from the in-transaction Customer snapshot.
-        const customerNameForUser = caseBClaimableCustomer.name;
+        // PR-G5.2.b round 2: when a name override is set, User.name reads
+        // from the override (LIFF input) instead of the snapshot — this
+        // makes the new User row reflect the LIFF input AND keeps the
+        // write atomic (User.name + Customer.name change together or not
+        // at all). Without the override (auth.ts caller), the snapshot is
+        // the source — baseline preserved.
+        const customerNameForUser =
+          effectiveNameOverride ?? caseBClaimableCustomer.name;
         const customerPhoneForUser = caseBClaimableCustomer.phone;
 
         const activationUserCreateData = buildActivationUserCreateData({
@@ -2238,6 +2399,26 @@ export async function activatePrecreatedCustomerWithLine(
             // "顧客" is the floor only when both sources are
             // null/undefined.
             lineName: deriveEffectiveLineName(input),
+            // PR-G5.2.b round 2 (Codex P2): atomic Customer.name override.
+            //
+            // Only forward the override to the updateMany data when it
+            // actually differs from the in-tx snapshot — otherwise we'd
+            // emit a redundant `name: <same value>` write. When the
+            // caller omits the override OR the override matches the
+            // snapshot, `nameOverride` is `undefined` and the builder's
+            // truthy gate omits `name` from the data → byte-equivalent
+            // to baseline.
+            //
+            // Critically: this expression is computed INSIDE the tx
+            // callback, AFTER the step-7-pre guard committed to a
+            // specific Customer snapshot — so the rollback contract
+            // covers it. If the tx throws (StaleCustomerLinkError,
+            // P2034, P2002, anything), Customer.name is not written.
+            nameOverride:
+              effectiveNameOverride !== undefined &&
+              effectiveNameOverride !== caseBClaimableCustomer.name
+                ? effectiveNameOverride
+                : undefined,
           }),
         });
         if (updated.count !== 1) {
