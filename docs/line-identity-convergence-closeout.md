@@ -50,7 +50,9 @@ These drift patterns were what the **PR-F1.2 audit script** discovered and what 
 
 ### Why this needed structural fix, not just more repair
 
-Each repair PR found **new** drift cases that the prior round missed. The bugs were generated continuously by the loose-write paths above. Cleaning up the existing rows without fixing the generators would have been an infinite loop. The G5 series stops the generators.
+Each repair PR found **new** drift cases that the prior round missed. The bugs were generated continuously by the loose-write paths above. Cleaning up the existing rows without fixing the generators would have been an infinite loop.
+
+The G5 series stops the generators **on the converged 4 sites** (auth.ts Case A LINE / auth.ts Case B LINE / oauth-confirm `finalizeLineBind` / LIFF onboarding B4 precreated activation). The remaining 3 sites — `auth.ts` Case C inline (already atomic, no drift to stop), LIFF 0-candidate `created_new` (post-tx `syncLineAccountForUser` for Account), and webhook bind-code (`prisma.customer.update` + post-tx sync) — are **NOT** converged by this series. The two non-atomic of those (LIFF 0-candidate + webhook) can still produce `Customer-ahead / Account-behind` drift when their post-tx Account sync fails; see §7 "Open convergence follow-ups" for the precise remaining drift profile and suggested convergence targets. Do NOT read this doc as "all LINE drift sources have been eliminated" — read it as "the main OAuth signIn paths have been converged; two bounded follow-ups remain documented."
 
 ---
 
@@ -396,7 +398,9 @@ These are the rules that the test suite enforces and that future changes MUST pr
 
 ## 7. What can now be built on top
 
-The identity layer is stable. Feature work that depends on knowing "who is the customer" can safely build on the post-G5 invariants without re-implementing identity resolution.
+The **main LINE OAuth identity-binding paths** are converged (auth.ts Case A LINE / auth.ts Case B LINE / oauth-confirm `finalizeLineBind` / LIFF B4 precreated activation — all 4 atomic). Feature work that depends on knowing "who is the customer" can build on the post-G5 invariants without re-implementing identity resolution.
+
+The webhook bind-code path and LIFF 0-candidate `created_new` path are **known remaining non-converged surfaces** (see "Open convergence follow-ups" below for their drift profile). They are bounded enough that the features in this section can be built today without waiting for those to land — but future identity-related audit work MUST account for them, not assume they're already covered.
 
 ### Ready to build
 
@@ -404,7 +408,7 @@ The identity layer is stable. Feature work that depends on knowing "who is the c
 - **LIFF Mini App "剩餘堂數"** (remaining sessions) — same identity dependency
 - **LIFF Mini App "立即預約" / "體驗預約"** (booking flows) — same
 - **LINE 綁定狀態顯示** in customer-facing UI — read `Customer.lineUserId` + `Customer.lineLinkStatus`; both are now guaranteed-consistent
-- **HealthFlow AI / 量身紀錄整合** — Customer identity is stable; cross-app linking via `Customer.id` is safe
+- **HealthFlow AI / 量身紀錄整合** — `Customer.id` is a stable join key (post-G5 OAuth paths atomically commit `Customer.userId` + `Customer.lineUserId` together for the converged sites); cross-app linking via `Customer.id` is safe
 - **多店 LIFF 複製** (new stores onboarding to LIFF) — copy the LIFF onboarding action's wiring as-is; D3/D5 are store-scoped via `storeId` parameter
 
 ### Audit before building
