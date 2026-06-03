@@ -26,17 +26,17 @@ This document is the **single source of truth** for what the LINE identity syste
 
 ### The pre-G5 problem
 
-Before this convergence, the LINE identity write path was scattered across **7 separate sites** that all wrote some subset of `Customer.lineUserId` / `Account[line]` / `User`:
+Before this convergence, the LINE identity write path was scattered across **7 separate sites** that all wrote some subset of `Customer.lineUserId` / `Account[line]` / `User`. The G5 series converged **4 of the 7**; the remaining 3 are intentionally left in their pre-G5 shape (see §5 / §7 for rationale + remaining drift profile):
 
-| Site | What it wrote | Atomic? |
-|---|---|---|
-| `auth.ts` signIn Case A (existing User) | `Account[line]` + `Customer.update(lineUserId/lineLinkStatus/lineLinkedAt/lineName)` | ❌ 2 loose writes |
-| `auth.ts` signIn Case B (no User on existing Customer) | `User.create` + `Account[line]` + `Customer.update` | ❌ 3 loose writes |
-| `auth.ts` signIn Case C (no Customer) | `User.create` + `Customer.create` + `Account[line]` | ✅ already in tx |
-| LIFF onboarding action B4 (precreated Customer) | `User.create` + `Customer.update` + post-tx `syncLineAccountForUser` | ❌ 2 loose + post-tx |
-| LIFF onboarding action (0-candidate `created_new`) | tx{ `User.create` + `Customer.create` + post-tx Account sync } | ⚠ tx + post-tx |
-| oauth-confirm `finalizeLineBind` (post-password) | `Customer.update(lineUserId,...)` + post-tx `syncLineAccountForUser` | ❌ 1 + post-tx |
-| webhook bind-code flow | `Customer.update` + post-tx sync | ❌ 1 + post-tx |
+| Site | What it wrote (pre-G5) | Pre-G5 atomic? | Post-G5 status |
+|---|---|---|---|
+| `auth.ts` signIn Case A (existing User) | `Account[line]` + `Customer.update(lineUserId/lineLinkStatus/lineLinkedAt/lineName)` | ❌ 2 loose writes | ✅ converged — routes through D3 atomic tx (PR #255) |
+| `auth.ts` signIn Case B (no User on existing Customer) | `User.create` + `Account[line]` + `Customer.update` | ❌ 3 loose writes | ✅ converged — routes through D5 atomic tx (PR #254) |
+| `auth.ts` signIn Case C (no Customer) | `User.create` + `Customer.create` + `Account[line]` | ✅ already in tx | ⏭ **NOT converged** — inline tx kept; signed-stage flow intentionally skipped (see §5) |
+| LIFF onboarding action B4 (precreated Customer) | `User.create` + `Customer.update` + post-tx `syncLineAccountForUser` | ❌ 2 loose + post-tx | ✅ converged — routes through D5 atomic tx (PR #252) |
+| LIFF onboarding action (0-candidate `created_new`) | tx{ `User.create` + `Customer.create` } + post-tx `syncLineAccountForUser` for Account | ⚠ tx + post-tx | ⏭ **NOT converged** — same shape today; `Customer-ahead / Account-behind` drift window remains (see §7 follow-ups) |
+| oauth-confirm `finalizeLineBind` (post-password) | `Customer.update(lineUserId,...)` + post-tx `syncLineAccountForUser` | ❌ 1 + post-tx | ✅ converged — routes through D3 atomic tx (PR #250) |
+| **webhook bind-code flow** (`/api/line/webhook` six-digit code) | `Customer.update` + post-tx `syncLineAccountForUser` | ❌ 1 + post-tx | ⏭ **NOT converged** — same shape today (`prisma.customer.update` at `src/app/api/line/webhook/route.ts:361` + post-tx `syncLineAccountForUser` at line 377); `Customer-ahead / Account-behind` drift window remains (see §7 follow-ups) |
 
 Any failure between the loose writes left one of these drift states in production:
 
@@ -117,6 +117,9 @@ There are exactly **two** canonical helpers for LINE binding writes. ALL new LIN
 **Consumers (post-G5):**
 - `oauth-confirm.ts` `finalizeLineBind` — wired in PR-G5.2.a (no `oauthAccount` → 4-field minimal Account, baseline byte-equivalent)
 - `auth.ts` Case A LINE branch — wired in PR-G5.5.b (via `src/server/services/auth-case-a-line-bind.ts` adapter; passes `oauthAccount` → 10-field full Account, baseline byte-equivalent)
+
+**Explicit NON-consumers (still legacy `customer.update + post-tx syncLineAccountForUser`):**
+- `webhook bind-code` flow at `src/app/api/line/webhook/route.ts` — see §1 table footnote + §5 + §7. **D3 conversion is an open follow-up.** Do NOT assume webhook is D3-atomic when scoping future identity / drift work.
 
 ### D5 — `activatePrecreatedCustomerWithLine`
 
@@ -234,7 +237,9 @@ Reverting to the PR-2 stage flow (redirect → `/oauth-confirm` → user enters 
 - Users who bailed left orphan User rows
 - The post-tx merge cost (when the same human turns out to have a non-LINE Customer with same phone) is operationally acceptable per the existing back-office merge UI
 
-The PR-G5.1.c signed-stage infrastructure (`signStageToken` + `/api/oauth-line-stage`) **does exist** but **has zero production callers from `auth.ts`**. It is wired only into the `oauth-confirm` page's password-finalize flow (PR-G5.2.a's wiring to D3), which is reachable from a different entry point. See §5.
+The PR-G5.1.c signed-stage infrastructure (`signStageToken` + `verifyStageToken` + `/api/oauth-line-stage`) **does exist as code** but is **DORMANT in production today** — `signStageToken` has zero production callers (only its own definition file in `src/lib/oauth-stage-token.ts` references it; the only other references are in test files). The `/api/oauth-line-stage` route handler exists and is reachable by HTTP, but nothing in the live code path produces a stage token to feed it. The infrastructure was shipped in anticipation of a future Case C UX gating decision; the decision to actually wire it has been **deferred** (see §5 for the rationale).
+
+> ⚠ Do NOT describe `/api/oauth-line-stage` as part of the active oauth-confirm / password-finalize chain — it is not. The oauth-confirm `finalize` page (PR-G5.2.a's D3 wiring) is reached via a NextAuth `signIn("customer-phone", { redirectTo: "/oauth-confirm/finalize" })` redirect after password authentication — that path does NOT go through `/api/oauth-line-stage`.
 
 ---
 
@@ -248,11 +253,11 @@ This list is enforced by convention, code review, and (where possible) test sent
 - **Why:** Explicitly rejected per `auth.ts:705-720` — caused orphan Users + drop-off. Tracked as a separate initiative (PR-G5.6, future) ONLY if the UX team decides the merge cost is worse than the friction cost.
 - **Today's behavior:** Case C creates User+Customer+Account inline atomically with `_oauth_line_<last8>` placeholder phone. Operators handle dedup via back-office merge UI when a real phone arrives later.
 
-### Do NOT activate `/api/oauth-line-stage` from `auth.ts`
+### Do NOT activate `/api/oauth-line-stage` from `auth.ts` (or anywhere else)
 
-- **What:** `auth.ts` signIn callback must NOT call `signStageToken()` and redirect to `/api/oauth-line-stage`
+- **What:** `auth.ts` signIn callback (or any other production code) must NOT call `signStageToken()` and redirect to `/api/oauth-line-stage`
 - **Why:** Same rationale as above — that's how you'd re-open Case C signed-stage. The infra exists for a future explicit decision, not for casual reuse.
-- **Today's only consumer:** `/api/oauth-line-stage` is reached ONLY from the oauth-confirm UI's stage flow (which itself is reachable via `/oauth-confirm` direct navigation — primarily by webhook-bind-code redirect or NEED_LOGIN password chain).
+- **Today's consumer count: ZERO.** `signStageToken` has no production callers (verified — only its own definition file in `src/lib/oauth-stage-token.ts` references it; test files exercise it but never run in prod). The `/api/oauth-line-stage` route handler exists but is **dormant** — no production code path produces a stage token to feed it. The route can be reached by direct HTTP, but a missing/invalid `t` parameter just redirects to `/oauth-confirm` with no cookie set (which then shows "session 已過期"). It is harmless dormant infra, not an active surface.
 
 ### Do NOT change oauth-confirm behavior
 
@@ -278,10 +283,18 @@ This list is enforced by convention, code review, and (where possible) test sent
 - **Why:** It's the canonical write-point for LIFF-side bindings. Wired through `bindLineToCustomerInStore` which dispatches to D5 (B4 branch) per PR-G5.2.b. Modifying it risks regressing the customer-merge / phone-hijack guards.
 - **Tests guarding this:** `src/__tests__/liff-onboarding-action.test.ts`.
 
-### Do NOT touch webhook bind-code flow
+### Do NOT touch webhook bind-code flow (without explicit follow-up PR)
 
-- **What:** `/api/line/webhook` bind-code path (six-digit code redemption)
-- **Why:** Independent identity-binding surface with its own anti-hijack guards (bind-code single-use, expiry). Tests in `src/__tests__/diagnose-line-identity-drift.test.ts` and adjacent.
+- **What:** `/api/line/webhook` bind-code path (six-digit code redemption at `src/app/api/line/webhook/route.ts:250+`)
+- **Why:** Independent identity-binding surface with its own anti-hijack guards (bind-code single-use, expiry, cross-store rejection).
+- **⚠ IMPORTANT — STILL LEGACY:** This path is **NOT a D3 caller** despite being a LINE-binding write site. The current implementation (verified at `src/app/api/line/webhook/route.ts:361-385`) is:
+    ```
+    prisma.customer.update({lineUserId, lineLinkStatus, lineLinkedAt})  // ← loose write
+    + (if customer.userId set) syncLineAccountForUser({userId, lineUserId})  // ← post-tx best-effort
+    ```
+    This is the exact non-atomic `customer.update + post-tx sync` pattern the G5 series replaced everywhere else. The webhook path **retains the `Customer-ahead / Account-behind` drift window** — if `Customer.update` succeeds but the post-tx `syncLineAccountForUser` fails, the system is left with `Customer.lineUserId` set but `Account[line]` missing. This is the same shape as pre-G5 oauth-confirm `finalizeLineBind` had before PR-G5.2.a.
+- **Why NOT converged in the G5 series:** Webhook traffic is bounded (six-digit-code redemptions only happen when staff hands out a code) and the existing PR-F1.2 audit + PR-F2 repair tooling cleans up any residual drift safely. Convergence is a clear win but lower priority than the OAuth flows.
+- **Convergence is an OPEN follow-up:** See §7. Tests in `src/__tests__/diagnose-line-identity-drift.test.ts` and adjacent.
 
 ### Do NOT touch schema / migrations / DB / env
 
@@ -329,7 +342,9 @@ These are the rules that the test suite enforces and that future changes MUST pr
 
 ### §6.3 D3 OAuth tokens preservation
 
-**Rule:** When a caller has full OAuth tokens (auth.ts Case A), D3 MUST write all 10 Account fields including tokens. When a caller doesn't (oauth-confirm finalize, webhook bind-code), D3 writes the 4-field minimal row. Neither caller should silently lose data.
+**Rule:** When a caller has full OAuth tokens (auth.ts Case A), D3 MUST write all 10 Account fields including tokens. When a caller doesn't (oauth-confirm finalize), D3 writes the 4-field minimal row. Neither caller should silently lose data.
+
+> Note: webhook bind-code is NOT in this list — it's not a D3 caller at all today (see §3 NON-consumers + §5 + §7).
 
 **Where enforced:**
 - `bindLineToExistingCustomerById` input has optional `oauthAccount?: {10 fields}` (PR-G5.5.b stage 1)
@@ -402,6 +417,17 @@ The identity layer is stable. Feature work that depends on knowing "who is the c
 - Cross-store identity (one human, multiple stores) — currently each store has its own Customer row; merging is a back-office decision, not an automated identity-layer concern
 - Google convergence — see §5 "Do NOT touch the Google branch"
 - Case C signed-stage flow — see §5 "Do NOT re-open Case C signed-stage flow"
+
+### Open convergence follow-ups (NOT covered by the G5 series)
+
+These two LINE-binding write sites still use the pre-G5 `customer.update + post-tx syncLineAccountForUser` pattern and retain the `Customer-ahead / Account-behind` drift window. They are intentionally LEFT alone by the G5 series for the reasons noted; a future PR could route them through D3 (with `oauthAccount` unset → 4-field minimal Account, matching `finalizeLineBind` byte-equivalent baseline) for full convergence.
+
+| Site | File | Current pattern | Drift window | Suggested converge target |
+|---|---|---|---|---|
+| Webhook bind-code | `src/app/api/line/webhook/route.ts:361-385` | `prisma.customer.update + post-tx syncLineAccountForUser` | `Customer-ahead / Account-behind` if post-tx sync fails | D3 (no `oauthAccount`; webhook has no OAuth tokens) — small wiring PR analogous to PR-G5.2.a |
+| LIFF onboarding 0-candidate `created_new` | `src/server/services/bind-line-to-customer.ts` (`bindLineToCustomerInStore` 0-candidate branch) | `tx{user.create + customer.create} + post-tx syncLineAccountForUser` for Account | `Customer-ahead / Account-behind` if post-tx sync fails | New D6 helper for "atomic User+Customer+Account creation when no Customer exists" — larger design effort, analogous to D5 but for the no-Customer case |
+
+**Doing nothing about these is acceptable today** — webhook traffic is bounded by staff handing out codes, and LIFF 0-candidate fires once per new customer ever. PR-F1.2 audit + PR-F2 repair tooling already exists for cleaning up any residual drift. Convergence would be a clear quality win when bandwidth allows, but is not a blocker for any of the §7 ready-to-build features.
 
 ---
 
