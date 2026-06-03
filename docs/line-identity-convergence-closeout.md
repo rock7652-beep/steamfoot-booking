@@ -26,7 +26,9 @@ This document is the **single source of truth** for what the LINE identity syste
 
 ### The pre-G5 problem
 
-Before this convergence, the LINE identity write path was scattered across **7 separate sites** that all wrote some subset of `Customer.lineUserId` / `Account[line]` / `User`. The G5 series converged **4 of the 7**; the remaining 3 are intentionally left in their pre-G5 shape (see §5 / §7 for rationale + remaining drift profile):
+Before this convergence, the LINE identity write path was scattered across **8 separate sites** that all wrote some subset of `Customer.lineUserId` / `Account[line]` / `User`. The G5 series converged **4 of the 8**; the remaining 4 sites (1 already atomic + 3 non-atomic) are intentionally left in their pre-G5 shape (see §5 / §7 for rationale + remaining drift profile per site):
+
+> Note: the 8th row (profile-merge) is a Customer-MERGE surface that touches LINE binding fields as a side effect of merging Customers — semantically distinct from the other 7 (which are LINE OAuth identity-write entry points). It was surfaced during the closeout-doc Codex review rounds; it was not part of the original G5 scope. Listed in the same table so a reader sweeping for "all LINE-binding write surfaces" finds it.
 
 | Site | What it wrote (pre-G5) | Pre-G5 atomic? | Post-G5 status |
 |---|---|---|---|
@@ -37,6 +39,7 @@ Before this convergence, the LINE identity write path was scattered across **7 s
 | LIFF onboarding action (0-candidate `created_new`) | tx{ `User.create` + `Customer.create` } + post-tx `syncLineAccountForUser` for Account | ⚠ tx + post-tx | ⏭ **NOT converged** — same shape today; `Customer-ahead / Account-behind` drift window remains (see §7 follow-ups) |
 | oauth-confirm `finalizeLineBind` (post-password) | `Customer.update(lineUserId,...)` + post-tx `syncLineAccountForUser` | ❌ 1 + post-tx | ✅ converged — routes through D3 atomic tx (PR #250) |
 | **webhook bind-code flow** (`/api/line/webhook` six-digit code) | `Customer.update` + post-tx `syncLineAccountForUser` | ❌ 1 + post-tx | ⏭ **NOT converged** — same shape today (`prisma.customer.update` at `src/app/api/line/webhook/route.ts:361` + post-tx `syncLineAccountForUser` at line 377); `Customer-ahead / Account-behind` drift window remains (see §7 follow-ups) |
+| **profile-merge LINE write path** (`src/server/services/customer-merge.ts` `mergePlaceholderCustomerIntoRealCustomer` + sibling merge helpers) | merge tx moves `Customer.lineUserId` between rows + calls `syncLineAccountForUser({...,tx})` as best-effort; the helper swallows Prisma errors and returns `{status:"error"}` instead of throwing | ⚠ tx + swallowed in-tx best-effort | ⏭ **NOT converged** — same shape today (calls at `customer-merge.ts:128-129, 163-164, 191-192, 232-233`); `Customer-ahead / Account-behind` drift window remains because the merge tx can commit even when in-tx Account-sync returns error (see §7 follow-ups) |
 
 Any failure between the loose writes left one of these drift states in production:
 
@@ -52,11 +55,11 @@ These drift patterns were what the **PR-F1.2 audit script** discovered and what 
 
 Each repair PR found **new** drift cases that the prior round missed. The bugs were generated continuously by the loose-write paths above. Cleaning up the existing rows without fixing the generators would have been an infinite loop.
 
-The G5 series stops the generators **on the converged 4 sites** (auth.ts Case A LINE / auth.ts Case B LINE / oauth-confirm `finalizeLineBind` / LIFF onboarding B4 precreated activation). The remaining 3 sites from the original §1 inventory — `auth.ts` Case C inline (already atomic, no drift to stop), LIFF 0-candidate `created_new` (post-tx `syncLineAccountForUser` for Account), and webhook bind-code (`prisma.customer.update` + post-tx sync) — are **NOT** converged by this series.
+The G5 series stops the generators **on the converged 4 sites** (auth.ts Case A LINE / auth.ts Case B LINE / oauth-confirm `finalizeLineBind` / LIFF onboarding B4 precreated activation). The remaining 4 sites in the §1 inventory above — `auth.ts` Case C inline (already atomic, no drift to stop), LIFF 0-candidate `created_new`, webhook bind-code, and profile-merge LINE write path — are **NOT** converged by this series.
 
-Additionally, code review during the closeout doc rounds surfaced a **fourth** non-converged LINE-binding write surface that was not in the original §1 inventory: **profile-merge** in `src/server/services/customer-merge.ts`. `mergePlaceholderCustomerIntoRealCustomer` (and sibling merge helpers) move `Customer.lineUserId` between rows AND call `syncLineAccountForUser({ userId, lineUserId, tx })` to align `Account[line]` — but `syncLineAccountForUser` swallows Prisma errors and returns `{ status: "error" }` instead of throwing, so the merge tx can commit Customer/User state with `Account[line]` still missing.
+Of those 4, three are non-atomic and can still produce `Customer-ahead / Account-behind` drift when their post-tx / in-tx-but-swallowed Account sync fails: **LIFF 0-candidate `created_new`**, **webhook bind-code**, and **profile-merge** (where `syncLineAccountForUser` returns `{status:"error"}` instead of throwing, so the merge tx commits with Account potentially missing). The fourth (`auth.ts` Case C) is already atomic in its own `prisma.$transaction` so no drift can be generated there.
 
-The non-atomic of those (LIFF 0-candidate + webhook bind-code + profile-merge) can still produce `Customer-ahead / Account-behind` drift when their post-tx / in-tx-but-swallowed Account sync fails; see §7 "Open convergence follow-ups" for the precise remaining drift profile and suggested convergence targets per site. Do NOT read this doc as "all LINE drift sources have been eliminated" — read it as "the main OAuth signIn paths have been converged; three bounded follow-ups remain documented."
+See §7 "Open convergence follow-ups" for the precise remaining drift profile and suggested convergence targets per non-atomic site. Do NOT read this doc as "all LINE drift sources have been eliminated" — read it as "the main OAuth signIn paths have been converged; three bounded non-atomic follow-ups remain documented (one of which — profile-merge — was surfaced during the closeout-doc Codex review and is a Customer-merge side-effect surface rather than an OAuth identity-write entry point)."
 
 ---
 
@@ -394,7 +397,7 @@ These are the rules that the test suite enforces and that future changes MUST pr
 
 **Rule (canonical paths):** Raw `lineUserId` / `customerId` / `userId` / `phone` / `email` MUST NOT appear in `console.warn` / `console.error` / `logLineBindEvent` payloads emitted by the D3 / D5 helpers, their auth.ts wiring adapters, or the converged callers. Use `maskLineUserId` / `maskId` / `maskPhone` from `src/lib/line-bind-log.ts`.
 
-**Where enforced:** Throughout `bind-line-to-customer.ts` (D3 + D5), `auth-case-a-line-bind.ts`, `auth-case-b-line-activation.ts`, `oauth-confirm.ts`. The `logLineBindEvent` helper masks on its way out — callers can pass raw IDs to it.
+**Where enforced (scope-limited list):** within `bind-line-to-customer.ts` (D3 + D5 only — NOT `bindLineToCustomerInStore` 0-candidate branch, which still routes its Account write through the legacy `syncLineAccountForUser`), `auth-case-a-line-bind.ts`, `auth-case-b-line-activation.ts`, and the structured-log surfaces inside `oauth-confirm.ts` `finalizeLineBind`. The `logLineBindEvent` helper masks on its way out — callers can pass raw IDs to it. This list is exhaustive for the canonical-path masking guarantee; ANYTHING outside this list (notably `syncLineAccountForUser` itself, the webhook bind-code path, the oauth-confirm `resolveLineLogin` placeholder-bind branch, and all four `customer-merge.ts` call sites) is out of scope for this invariant — see the KNOWN GAP subsection below.
 
 **Test sentinel:** Multiple — every test file that exercises a log-emitting branch in those files asserts on masked output shapes.
 
