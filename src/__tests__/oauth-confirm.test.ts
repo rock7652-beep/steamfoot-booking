@@ -66,9 +66,23 @@ vi.mock("@/lib/normalize", () => ({
 
 // Hotfix line-account-sync wiring: 把 helper mock 起來確認被呼叫；helper 自身
 // 由 src/__tests__/line-account-sync.test.ts 獨立覆蓋。
+// Post-PR-G5.2.a: finalizeLineBind 不再呼叫 syncLineAccountForUser（改由 D3
+// helper 在 Serializable tx 內 atomic 寫入 Account[line]）。本 mock 仍保留，
+// 因為 resolveLineLogin (placeholder-Customer 路徑) 仍會呼叫它。
 const mockSyncLineAccount = vi.fn();
 vi.mock("@/server/services/line-account-sync", () => ({
   syncLineAccountForUser: (...args: unknown[]) => mockSyncLineAccount(...args),
+}));
+
+// PR-G5.2.a: finalizeLineBind 委派到 D3 canonical helper
+// `bindLineToExistingCustomerById`。helper 自身由 PR-G5.1.a 的
+// bind-line-to-existing-customer-by-id.test.ts (153 tests) 獨立覆蓋；本檔只
+// 驗 finalize 正確 dispatch + 把 D3 status 映射回前端期待的 BOUND / error
+// 形狀。
+const mockBindLineToExistingCustomerById = vi.fn();
+vi.mock("@/server/services/bind-line-to-customer", () => ({
+  bindLineToExistingCustomerById: (...args: unknown[]) =>
+    mockBindLineToExistingCustomerById(...args),
 }));
 
 // 必須在 mocks 之後 import（vi.mock 會 hoist，但動態 reference 才會吃到 mock）
@@ -449,37 +463,340 @@ describe("finalizeLineBind", () => {
     expect(mockCustomerUpdate).not.toHaveBeenCalled();
   });
 
-  it("happy path：寫入 lineUserId + clearTemp + return RELOGIN signal + 同步 Account", async () => {
+  it("PR-G5.2.a happy path (bound_existing)：委派 D3 helper，atomic 寫入 + clearTemp + return RELOGIN signal", async () => {
     mockAuth.mockResolvedValue({ user: { id: NEXT_AUTH_USER_ID } });
     mockGetOAuthTempSession.mockResolvedValue(validTempSession);
     mockCustomerFindFirst
       .mockResolvedValueOnce({ id: CUSTOMER_ID, lineUserId: null })
       .mockResolvedValueOnce(null); // 同 store 沒人撞同 lineUserId
-    mockCustomerUpdate.mockResolvedValue({});
-    mockSyncLineAccount.mockResolvedValue({ status: "created" });
+    mockBindLineToExistingCustomerById.mockResolvedValueOnce({
+      status: "bound_existing",
+      customerId: CUSTOMER_ID,
+      userId: NEXT_AUTH_USER_ID,
+    });
 
-    const r = await finalizeLineBind({ customerId: CUSTOMER_ID, callbackUrl: "/profile" });
+    const r = await finalizeLineBind({
+      customerId: CUSTOMER_ID,
+      callbackUrl: "/profile",
+    });
 
     expect(r).toEqual({
       status: "BOUND",
       action: "RELOGIN",
       callbackUrl: "/profile",
     });
-    expect(mockCustomerUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: CUSTOMER_ID },
-        data: expect.objectContaining({
-          lineUserId: LINE_USER_ID,
-          lineLinkStatus: "LINKED",
-          lineName: DISPLAY_NAME,
-        }),
-      }),
-    );
-    expect(mockClearOAuthTempSession).toHaveBeenCalledOnce();
-    // finalize 必呼叫 sync — NextAuth session.user.id 已存在，這是 hotfix 主修點
-    expect(mockSyncLineAccount).toHaveBeenCalledWith({
-      userId: NEXT_AUTH_USER_ID,
+    // D3 helper 被呼叫帶正確 storeId / customerId / lineUserId / lineName
+    expect(mockBindLineToExistingCustomerById).toHaveBeenCalledOnce();
+    expect(mockBindLineToExistingCustomerById).toHaveBeenCalledWith({
+      storeId: STORE_ID,
+      customerId: CUSTOMER_ID,
       lineUserId: LINE_USER_ID,
+      lineName: DISPLAY_NAME,
     });
+    // finalize 不再直接呼叫 customer.update（D3 內部用 updateMany CAS）
+    expect(mockCustomerUpdate).not.toHaveBeenCalled();
+    // finalize 不再呼叫 syncLineAccount（D3 在同一 tx 內 atomic 寫 Account[line]）
+    expect(mockSyncLineAccount).not.toHaveBeenCalled();
+    // 成功路徑必清 temp session（防 nonce reuse）
+    expect(mockClearOAuthTempSession).toHaveBeenCalledOnce();
+  });
+
+  it("PR-G5.2.a (already_synced)：idempotent 重綁 / Account-only repair 也是 BOUND", async () => {
+    mockAuth.mockResolvedValue({ user: { id: NEXT_AUTH_USER_ID } });
+    mockGetOAuthTempSession.mockResolvedValue(validTempSession);
+    // 已綁同個 lineUserId — guard 4 不擋（檢查 !== input.lineUserId）
+    mockCustomerFindFirst
+      .mockResolvedValueOnce({ id: CUSTOMER_ID, lineUserId: LINE_USER_ID })
+      .mockResolvedValueOnce(null);
+    mockBindLineToExistingCustomerById.mockResolvedValueOnce({
+      status: "already_synced",
+      customerId: CUSTOMER_ID,
+      userId: NEXT_AUTH_USER_ID,
+    });
+
+    const r = await finalizeLineBind({
+      customerId: CUSTOMER_ID,
+      callbackUrl: "/profile",
+    });
+
+    expect(r).toEqual({
+      status: "BOUND",
+      action: "RELOGIN",
+      callbackUrl: "/profile",
+    });
+    expect(mockClearOAuthTempSession).toHaveBeenCalledOnce();
+    expect(mockSyncLineAccount).not.toHaveBeenCalled();
+  });
+
+  it("PR-G5.2.a (customer_locked → line_already_bound_other)：D3 偵測衝突映射為前端原有錯誤", async () => {
+    mockAuth.mockResolvedValue({ user: { id: NEXT_AUTH_USER_ID } });
+    mockGetOAuthTempSession.mockResolvedValue(validTempSession);
+    mockCustomerFindFirst
+      .mockResolvedValueOnce({ id: CUSTOMER_ID, lineUserId: null })
+      .mockResolvedValueOnce(null); // guard 4 過
+    mockBindLineToExistingCustomerById.mockResolvedValueOnce({
+      status: "customer_locked",
+      customerId: CUSTOMER_ID,
+      existingLineUserId: OTHER_LINE_USER_ID,
+    });
+
+    const r = await finalizeLineBind({
+      customerId: CUSTOMER_ID,
+      callbackUrl: "/profile",
+    });
+
+    expect(r).toEqual({ error: "line_already_bound_other" });
+    // 失敗路徑不清 temp session（讓 user 可重試）
+    expect(mockClearOAuthTempSession).not.toHaveBeenCalled();
+  });
+
+  it("PR-G5.2.a (unique_conflict → bind_conflict)：D3 P2002 競態具名化", async () => {
+    mockAuth.mockResolvedValue({ user: { id: NEXT_AUTH_USER_ID } });
+    mockGetOAuthTempSession.mockResolvedValue(validTempSession);
+    mockCustomerFindFirst
+      .mockResolvedValueOnce({ id: CUSTOMER_ID, lineUserId: null })
+      .mockResolvedValueOnce(null);
+    mockBindLineToExistingCustomerById.mockResolvedValueOnce({
+      status: "unique_conflict",
+      conflictTarget: "Account_provider_providerAccountId_key",
+    });
+
+    const r = await finalizeLineBind({
+      customerId: CUSTOMER_ID,
+      callbackUrl: "/profile",
+    });
+
+    expect(r).toEqual({ error: "bind_conflict" });
+    expect(mockClearOAuthTempSession).not.toHaveBeenCalled();
+  });
+
+  it("PR-G5.2.a Codex P2 round 1 (customer_repaired → BOUND): D3 偵測 Account-first drift (Account 已存在 same-user, Customer.lineUserId null) → 修 Customer-only, finalize 仍回 BOUND", async () => {
+    mockAuth.mockResolvedValue({ user: { id: NEXT_AUTH_USER_ID } });
+    mockGetOAuthTempSession.mockResolvedValue(validTempSession);
+    // Guard 3-4 過：customer 自己 lineUserId null，沒人撞同 lineUserId
+    mockCustomerFindFirst
+      .mockResolvedValueOnce({ id: CUSTOMER_ID, lineUserId: null })
+      .mockResolvedValueOnce(null);
+    // D3 命中 step 5.6-a → runCustomerOnlyRepairTx → customer_repaired
+    mockBindLineToExistingCustomerById.mockResolvedValueOnce({
+      status: "customer_repaired",
+      customerId: CUSTOMER_ID,
+      userId: NEXT_AUTH_USER_ID,
+    });
+
+    const r = await finalizeLineBind({
+      customerId: CUSTOMER_ID,
+      callbackUrl: "/profile",
+    });
+
+    // 成功路徑：finalize 回原本前端期待的 BOUND / RELOGIN / callbackUrl。
+    // 此 drift 在 PR-G5.2.a 接 D3 後若無 customer_repaired 分支會撞 P2002
+    // → unique_conflict → bind_conflict → 卡死無法修復。本測試 sentinel
+    // 確保 Codex P2 round 1 修補後此 drift 能被前端 finalize 自動清掉。
+    expect(r).toEqual({
+      status: "BOUND",
+      action: "RELOGIN",
+      callbackUrl: "/profile",
+    });
+    expect(mockClearOAuthTempSession).toHaveBeenCalledOnce();
+    expect(mockSyncLineAccount).not.toHaveBeenCalled();
+  });
+
+  it("PR-G5.2.a (account_repaired → BOUND)：D3 補建缺失 Account 也是成功路徑", async () => {
+    mockAuth.mockResolvedValue({ user: { id: NEXT_AUTH_USER_ID } });
+    mockGetOAuthTempSession.mockResolvedValue(validTempSession);
+    // Customer 已正確 lineUserId（pre-G5.x 殘屑：Customer 鏈接過但 Account
+    // 缺失）— guard 4 不擋（已綁同個）
+    mockCustomerFindFirst
+      .mockResolvedValueOnce({ id: CUSTOMER_ID, lineUserId: LINE_USER_ID })
+      .mockResolvedValueOnce(null);
+    mockBindLineToExistingCustomerById.mockResolvedValueOnce({
+      status: "account_repaired",
+      customerId: CUSTOMER_ID,
+      userId: NEXT_AUTH_USER_ID,
+    });
+
+    const r = await finalizeLineBind({
+      customerId: CUSTOMER_ID,
+      callbackUrl: "/profile",
+    });
+
+    expect(r).toEqual({
+      status: "BOUND",
+      action: "RELOGIN",
+      callbackUrl: "/profile",
+    });
+    expect(mockClearOAuthTempSession).toHaveBeenCalledOnce();
+    expect(mockSyncLineAccount).not.toHaveBeenCalled();
+  });
+
+  it("PR-G5.2.a (stale_customer_link → write_conflict)：D3 TOCTOU 與 P2034 同類，告知 caller 可重試", async () => {
+    mockAuth.mockResolvedValue({ user: { id: NEXT_AUTH_USER_ID } });
+    mockGetOAuthTempSession.mockResolvedValue(validTempSession);
+    mockCustomerFindFirst
+      .mockResolvedValueOnce({ id: CUSTOMER_ID, lineUserId: null })
+      .mockResolvedValueOnce(null);
+    mockBindLineToExistingCustomerById.mockResolvedValueOnce({
+      status: "stale_customer_link",
+      customerId: CUSTOMER_ID,
+    });
+
+    const r = await finalizeLineBind({
+      customerId: CUSTOMER_ID,
+      callbackUrl: "/profile",
+    });
+
+    expect(r).toEqual({ error: "write_conflict" });
+    expect(mockClearOAuthTempSession).not.toHaveBeenCalled();
+  });
+
+  it("PR-G5.2.a (write_conflict → write_conflict)：D3 P2034 Serializable 競態可重試", async () => {
+    mockAuth.mockResolvedValue({ user: { id: NEXT_AUTH_USER_ID } });
+    mockGetOAuthTempSession.mockResolvedValue(validTempSession);
+    mockCustomerFindFirst
+      .mockResolvedValueOnce({ id: CUSTOMER_ID, lineUserId: null })
+      .mockResolvedValueOnce(null);
+    mockBindLineToExistingCustomerById.mockResolvedValueOnce({
+      status: "write_conflict",
+      code: "P2034",
+    });
+
+    const r = await finalizeLineBind({
+      customerId: CUSTOMER_ID,
+      callbackUrl: "/profile",
+    });
+
+    expect(r).toEqual({ error: "write_conflict" });
+    expect(mockClearOAuthTempSession).not.toHaveBeenCalled();
+  });
+
+  it("PR-G5.2.a (store_mismatch → customer_mismatch)：D3 防禦性 store re-check 失敗映射既有錯誤", async () => {
+    mockAuth.mockResolvedValue({ user: { id: NEXT_AUTH_USER_ID } });
+    mockGetOAuthTempSession.mockResolvedValue(validTempSession);
+    mockCustomerFindFirst
+      .mockResolvedValueOnce({ id: CUSTOMER_ID, lineUserId: null })
+      .mockResolvedValueOnce(null);
+    mockBindLineToExistingCustomerById.mockResolvedValueOnce({
+      status: "store_mismatch",
+      expectedStoreId: STORE_ID,
+      actualStoreId: "store-other",
+    });
+
+    const r = await finalizeLineBind({
+      customerId: CUSTOMER_ID,
+      callbackUrl: "/profile",
+    });
+
+    expect(r).toEqual({ error: "customer_mismatch" });
+    expect(mockClearOAuthTempSession).not.toHaveBeenCalled();
+  });
+
+  it("PR-G5.2.a (customer_has_no_user → customer_mismatch)：D3 防禦性 userId null 映射既有錯誤", async () => {
+    mockAuth.mockResolvedValue({ user: { id: NEXT_AUTH_USER_ID } });
+    mockGetOAuthTempSession.mockResolvedValue(validTempSession);
+    mockCustomerFindFirst
+      .mockResolvedValueOnce({ id: CUSTOMER_ID, lineUserId: null })
+      .mockResolvedValueOnce(null);
+    mockBindLineToExistingCustomerById.mockResolvedValueOnce({
+      status: "customer_has_no_user",
+      customerId: CUSTOMER_ID,
+    });
+
+    const r = await finalizeLineBind({
+      customerId: CUSTOMER_ID,
+      callbackUrl: "/profile",
+    });
+
+    expect(r).toEqual({ error: "customer_mismatch" });
+    expect(mockClearOAuthTempSession).not.toHaveBeenCalled();
+  });
+
+  it("PR-G5.2.a regression sentinel: finalize 不再直接呼叫 prisma.customer.update（D3 包辦）", async () => {
+    mockAuth.mockResolvedValue({ user: { id: NEXT_AUTH_USER_ID } });
+    mockGetOAuthTempSession.mockResolvedValue(validTempSession);
+    mockCustomerFindFirst
+      .mockResolvedValueOnce({ id: CUSTOMER_ID, lineUserId: null })
+      .mockResolvedValueOnce(null);
+    mockBindLineToExistingCustomerById.mockResolvedValueOnce({
+      status: "bound_existing",
+      customerId: CUSTOMER_ID,
+      userId: NEXT_AUTH_USER_ID,
+    });
+
+    await finalizeLineBind({ customerId: CUSTOMER_ID, callbackUrl: "/" });
+
+    // finalize 本身不可動 prisma.customer.update — 寫入屬於 D3 內部 updateMany CAS
+    expect(mockCustomerUpdate).not.toHaveBeenCalled();
+  });
+
+  it("PR-G5.2.a regression sentinel: finalize 不再呼叫 syncLineAccountForUser（D3 同 tx 內處理 Account）", async () => {
+    mockAuth.mockResolvedValue({ user: { id: NEXT_AUTH_USER_ID } });
+    mockGetOAuthTempSession.mockResolvedValue(validTempSession);
+    mockCustomerFindFirst
+      .mockResolvedValueOnce({ id: CUSTOMER_ID, lineUserId: null })
+      .mockResolvedValueOnce(null);
+    mockBindLineToExistingCustomerById.mockResolvedValueOnce({
+      status: "bound_existing",
+      customerId: CUSTOMER_ID,
+      userId: NEXT_AUTH_USER_ID,
+    });
+
+    await finalizeLineBind({ customerId: CUSTOMER_ID, callbackUrl: "/" });
+
+    // syncLineAccountForUser 是 PR-G5.2.a 前的 post-tx best-effort，現已由 D3
+    // 在 Serializable tx 內取代。本 sentinel 防回退。
+    expect(mockSyncLineAccount).not.toHaveBeenCalled();
+  });
+
+  it("PR-G5.2.a guard 1-4 不退化: guard fail 時不會呼叫 D3 helper（0 寫入）", async () => {
+    // Guard 1: no NextAuth session
+    mockAuth.mockResolvedValueOnce(null);
+    let r = await finalizeLineBind(FINALIZE_INPUT);
+    expect(r).toEqual({ error: "auth_required" });
+    expect(mockBindLineToExistingCustomerById).not.toHaveBeenCalled();
+
+    vi.clearAllMocks();
+
+    // Guard 2: no temp session
+    mockAuth.mockResolvedValueOnce({ user: { id: NEXT_AUTH_USER_ID } });
+    mockGetOAuthTempSession.mockResolvedValueOnce(null);
+    r = await finalizeLineBind(FINALIZE_INPUT);
+    expect(r).toEqual({ error: "session_expired" });
+    expect(mockBindLineToExistingCustomerById).not.toHaveBeenCalled();
+
+    vi.clearAllMocks();
+
+    // Guard 3: customer mismatch
+    mockAuth.mockResolvedValueOnce({ user: { id: NEXT_AUTH_USER_ID } });
+    mockGetOAuthTempSession.mockResolvedValueOnce(validTempSession);
+    mockCustomerFindFirst.mockResolvedValueOnce(null);
+    r = await finalizeLineBind(FINALIZE_INPUT);
+    expect(r).toEqual({ error: "customer_mismatch" });
+    expect(mockBindLineToExistingCustomerById).not.toHaveBeenCalled();
+
+    vi.clearAllMocks();
+
+    // Guard 4a: customer 已綁不同 LINE
+    mockAuth.mockResolvedValueOnce({ user: { id: NEXT_AUTH_USER_ID } });
+    mockGetOAuthTempSession.mockResolvedValueOnce(validTempSession);
+    mockCustomerFindFirst.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      lineUserId: OTHER_LINE_USER_ID,
+    });
+    r = await finalizeLineBind(FINALIZE_INPUT);
+    expect(r).toEqual({ error: "line_already_bound_other" });
+    expect(mockBindLineToExistingCustomerById).not.toHaveBeenCalled();
+
+    vi.clearAllMocks();
+
+    // Guard 4b: 同 store 別人綁了相同 lineUserId
+    mockAuth.mockResolvedValueOnce({ user: { id: NEXT_AUTH_USER_ID } });
+    mockGetOAuthTempSession.mockResolvedValueOnce(validTempSession);
+    mockCustomerFindFirst
+      .mockResolvedValueOnce({ id: CUSTOMER_ID, lineUserId: null })
+      .mockResolvedValueOnce({ id: "other-customer-cuid" });
+    r = await finalizeLineBind(FINALIZE_INPUT);
+    expect(r).toEqual({ error: "line_already_bound_other" });
+    expect(mockBindLineToExistingCustomerById).not.toHaveBeenCalled();
   });
 });
