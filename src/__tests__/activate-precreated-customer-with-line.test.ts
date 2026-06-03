@@ -474,6 +474,215 @@ describe("byte-equivalent baseline vs auth.ts Case B (lines 620-687)", () => {
 });
 
 // ════════════════════════════════════════════════════════════════════════════
+// 2.5  PR-G5.2.b round 2 (Codex P2): customerNameOverride — atomic name write
+// ════════════════════════════════════════════════════════════════════════════
+//
+// Round 2 adds an OPTIONAL `customerNameOverride` parameter that the
+// LIFF B4 caller uses to atomically rewrite Customer.name AND build
+// User.name from the LIFF input — all inside the same Serializable tx
+// as User+Account creation. This closes Codex P2: previously B4
+// pre-updated Customer.name BEFORE D5, so a D5 failure left the name
+// changed with no activation backing it.
+//
+// auth.ts Case B caller (PR-G5.5 future) does NOT pass this param
+// → byte-equivalent baseline preserved (no Customer.name write).
+
+describe("PR-G5.2.b round 2 (Codex P2): customerNameOverride — atomic Customer.name + User.name write", () => {
+  const OVERRIDE_NAME = "王小明（LIFF 註冊）";
+
+  it("override differs from in-tx snapshot → Customer.updateMany.data INCLUDES `name: <override>` AND User.create.data.name === <override>", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(
+      precreatedCustomerFixture({ name: "未命名" }),
+    );
+    const { txUserCreate, txCustomerUpdateMany, txCustomerFindFirst } =
+      setupTransaction();
+    // In-tx snapshot mirrors the preflight: staff placeholder "未命名"
+    // (not yet updated — round 1's outer pre-update is GONE).
+    txCustomerFindFirst.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      name: "未命名",
+      phone: CUSTOMER_PHONE,
+    });
+
+    const r = await activatePrecreatedCustomerWithLine(
+      makeValidInput({ customerNameOverride: OVERRIDE_NAME }),
+    );
+
+    expect(r).toEqual({
+      status: "activated",
+      customerId: CUSTOMER_ID,
+      userId: NEW_USER_ID,
+    });
+    // Customer.updateMany.data atomically includes `name`.
+    const updateData = (txCustomerUpdateMany.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    expect(updateData?.name).toBe(OVERRIDE_NAME);
+    // Other link metadata still present.
+    expect(updateData?.userId).toBe(NEW_USER_ID);
+    expect(updateData?.lineUserId).toBe(LINE_USER_ID);
+    expect(updateData?.authSource).toBe("LINE");
+    // User.name reads from the override (NOT the snapshot "未命名") so
+    // the new User row reflects the LIFF input.
+    const userData = (txUserCreate.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    expect(userData?.name).toBe(OVERRIDE_NAME);
+  });
+
+  it("override EQUALS in-tx snapshot → Customer.updateMany.data OMITS `name` (no redundant write) AND User.name === snapshot", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(
+      precreatedCustomerFixture({ name: CUSTOMER_NAME }),
+    );
+    const { txUserCreate, txCustomerUpdateMany } = setupTransaction();
+
+    await activatePrecreatedCustomerWithLine(
+      makeValidInput({ customerNameOverride: CUSTOMER_NAME }),
+    );
+
+    const updateData = (txCustomerUpdateMany.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    // No redundant `name` write when override matches the snapshot.
+    expect(updateData).not.toHaveProperty("name");
+    // User.name still reads from override (which equals snapshot here).
+    const userData = (txUserCreate.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    expect(userData?.name).toBe(CUSTOMER_NAME);
+  });
+
+  it("override is UNDEFINED (auth.ts baseline caller) → Customer.updateMany.data OMITS `name` AND User.name === in-tx snapshot (byte-equivalent baseline preserved)", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(
+      precreatedCustomerFixture({ name: CUSTOMER_NAME }),
+    );
+    const { txUserCreate, txCustomerUpdateMany } = setupTransaction();
+
+    // makeValidInput() does NOT set customerNameOverride.
+    await activatePrecreatedCustomerWithLine(makeValidInput());
+
+    const updateData = (txCustomerUpdateMany.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    expect(updateData).not.toHaveProperty("name");
+    // User.name reads from the in-tx snapshot — baseline behaviour.
+    const userData = (txUserCreate.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    expect(userData?.name).toBe(CUSTOMER_NAME);
+  });
+
+  it("override is EMPTY STRING → treated as not-set (truthy gate; parallel to lineName) → no Customer.name write; User.name === snapshot", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(
+      precreatedCustomerFixture({ name: CUSTOMER_NAME }),
+    );
+    const { txUserCreate, txCustomerUpdateMany } = setupTransaction();
+
+    await activatePrecreatedCustomerWithLine(
+      makeValidInput({ customerNameOverride: "" }),
+    );
+
+    const updateData = (txCustomerUpdateMany.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    expect(updateData).not.toHaveProperty("name");
+    const userData = (txUserCreate.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+    })?.data;
+    // "" override collapsed to undefined → User.name falls back to snapshot.
+    expect(userData?.name).toBe(CUSTOMER_NAME);
+  });
+
+  it("tx throws P2034 → tx rolls back → helper returns write_conflict; the prior in-tx updateMany call (with name in data) is structurally erased by the rollback (round 2 Codex P2 contract)", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(
+      precreatedCustomerFixture({ name: "未命名" }),
+    );
+    // Drive a tx that throws P2034 — the entire tx (including any in-tx
+    // updateMany attempt) rolls back. From the caller's perspective the
+    // helper returns write_conflict and Customer.name is unchanged in
+    // storage (the rollback erases the in-tx write).
+    mockTx.mockImplementationOnce(async () => {
+      const err: Error & { code?: string } = new Error(
+        "write conflict",
+      );
+      err.code = "P2034";
+      throw err;
+    });
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const r = await activatePrecreatedCustomerWithLine(
+      makeValidInput({ customerNameOverride: OVERRIDE_NAME }),
+    );
+
+    expect(r).toEqual({ status: "write_conflict", code: "P2034" });
+
+    warnSpy.mockRestore();
+  });
+
+  it("tx throws P2002 (Account.create unique conflict) → helper returns unique_conflict; the override never reaches durable storage (round 2 Codex P2 contract)", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(
+      precreatedCustomerFixture({ name: "未命名" }),
+    );
+    mockTx.mockImplementationOnce(async () => {
+      const err: Error & { code?: string; meta?: { target?: string[] } } =
+        new Error("unique constraint failed");
+      err.code = "P2002";
+      err.meta = { target: ["provider", "providerAccountId"] };
+      throw err;
+    });
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const r = await activatePrecreatedCustomerWithLine(
+      makeValidInput({ customerNameOverride: OVERRIDE_NAME }),
+    );
+
+    expect(r).toMatchObject({ status: "unique_conflict" });
+
+    warnSpy.mockRestore();
+  });
+
+  it("StaleCustomerLinkError (in-tx findFirst returns null) → stale_customer_link; override never reaches Customer.updateMany.data (findFirst guard blocks BEFORE user/account/updateMany)", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
+    const { txCustomerFindFirst, txUserCreate, txCustomerUpdateMany } =
+      setupTransaction();
+    // Simulate stale race: findFirst returns null inside tx.
+    txCustomerFindFirst.mockReset();
+    txCustomerFindFirst.mockResolvedValueOnce(null);
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const r = await activatePrecreatedCustomerWithLine(
+      makeValidInput({ customerNameOverride: OVERRIDE_NAME }),
+    );
+
+    expect(r).toEqual({
+      status: "stale_customer_link",
+      customerId: CUSTOMER_ID,
+    });
+    // User.create and Customer.updateMany never reached → override
+    // never reaches the durable layer.
+    expect(txUserCreate).not.toHaveBeenCalled();
+    expect(txCustomerUpdateMany).not.toHaveBeenCalled();
+
+    warnSpy.mockRestore();
+  });
+
+  it("preflight rejection (e.g. store_mismatch) → 0 tx → override never reaches Customer.updateMany.data", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce(
+      precreatedCustomerFixture({ storeId: OTHER_STORE_ID }),
+    );
+    const { txCustomerUpdateMany } = setupTransaction();
+
+    const r = await activatePrecreatedCustomerWithLine(
+      makeValidInput({ customerNameOverride: OVERRIDE_NAME }),
+    );
+
+    expect(r.status).toBe("store_mismatch");
+    expect(mockTx).not.toHaveBeenCalled();
+    expect(txCustomerUpdateMany).not.toHaveBeenCalled();
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════
 // 3. Pre-write guards (every rejection branch is 0 DB writes)
 // ════════════════════════════════════════════════════════════════════════════
 
@@ -3250,7 +3459,7 @@ describe("PR #243 Codex P1+P2 round 10: drop defensive-negation wording near Use
     );
   });
 
-  it("regression: code shape is round-11 — tx.customer.findFirst still selects { id, name, phone } (round 9) and tx.user.create now reads round-11 named locals customerNameForUser / customerPhoneForUser (which are sourced from caseBClaimableCustomer)", () => {
+  it("regression: code shape is round-11 — tx.customer.findFirst still selects { id, name, phone } (round 9) and tx.user.create now reads round-11 named locals customerNameForUser / customerPhoneForUser (which are sourced from caseBClaimableCustomer — round 2 atomic override may prefix `effectiveNameOverride ??` but the snapshot is still the source-of-last-resort)", () => {
     const src = readFileSync(HELPER_PATH, "utf8");
     const fnStart = src.indexOf(
       "export async function activatePrecreatedCustomerWithLine",
@@ -3265,8 +3474,13 @@ describe("PR #243 Codex P1+P2 round 10: drop defensive-negation wording near Use
     // in-tx guard throw.
     expect(fnSlice).toMatch(/name\s*:\s*customerNameForUser/);
     expect(fnSlice).toMatch(/phone\s*:\s*customerPhoneForUser/);
+    // PR-G5.2.b round 2 (Codex P2): the `customerNameForUser` RHS
+    // may now begin with an `effectiveNameOverride ??` nullish-fallback
+    // chain (B4 LIFF caller). Snapshot remains the final source — the
+    // safety property "User row sourced from in-tx snapshot when no
+    // override is set" is preserved.
     expect(fnSlice).toMatch(
-      /const\s+customerNameForUser\s*=\s*caseBClaimableCustomer\.name/,
+      /const\s+customerNameForUser\s*=\s*(?:[^;]*\?\?\s*)?caseBClaimableCustomer\.name/,
     );
     expect(fnSlice).toMatch(
       /const\s+customerPhoneForUser\s*=\s*caseBClaimableCustomer\.phone/,
@@ -3389,15 +3603,18 @@ describe("PR #243 Codex P1+P2 round 11: name the in-tx guard binding (caseBClaim
     expect(findFirstBlock).toMatch(/select\s*:\s*\{[\s\S]*?phone\s*:\s*true/);
   });
 
-  it("P2 source: customerNameForUser AND customerPhoneForUser are assigned from caseBClaimableCustomer (the in-tx guard result)", () => {
+  it("P2 source: customerNameForUser AND customerPhoneForUser are assigned from caseBClaimableCustomer (the in-tx guard result) — round 2 may prefix `effectiveNameOverride ??` (Codex P2 atomic name override), snapshot is still the source-of-last-resort", () => {
     const src = readFileSync(HELPER_PATH, "utf8");
     const fnStart = src.indexOf(
       "export async function activatePrecreatedCustomerWithLine",
     );
     const fnSlice = src.slice(fnStart);
-    // The assignment uses `const` and references caseBClaimableCustomer.
+    // The assignment uses `const` and ALWAYS references caseBClaimableCustomer
+    // as the snapshot source. PR-G5.2.b round 2 added an optional
+    // `effectiveNameOverride ??` prefix (LIFF B4 atomic override) but the
+    // snapshot fallback is preserved — safety property unchanged.
     expect(fnSlice).toMatch(
-      /const\s+customerNameForUser\s*=\s*caseBClaimableCustomer\.name\s*;/,
+      /const\s+customerNameForUser\s*=\s*(?:[^;]*\?\?\s*)?caseBClaimableCustomer\.name\s*;/,
     );
     expect(fnSlice).toMatch(
       /const\s+customerPhoneForUser\s*=\s*caseBClaimableCustomer\.phone\s*;/,
@@ -3757,14 +3974,17 @@ describe("PR #243 Codex P1+P2 round 12: rename builder input key `customer` → 
 
   // ─ Cross-reference: locals still come from caseBClaimableCustomer ──────
 
-  it("source: round-11 chain preserved — customerNameForUser / customerPhoneForUser are assigned from caseBClaimableCustomer (the in-tx guard result)", () => {
+  it("source: round-11 chain preserved — customerNameForUser / customerPhoneForUser are assigned from caseBClaimableCustomer (the in-tx guard result) — round 2 may prefix `effectiveNameOverride ??`", () => {
     const src = readFileSync(HELPER_PATH, "utf8");
     const fnStart = src.indexOf(
       "export async function activatePrecreatedCustomerWithLine",
     );
     const fnSlice = src.slice(fnStart);
+    // PR-G5.2.b round 2 (Codex P2): atomic name override may prefix
+    // the RHS with `effectiveNameOverride ?? `. Snapshot remains the
+    // source-of-last-resort — safety property preserved.
     expect(fnSlice).toMatch(
-      /const\s+customerNameForUser\s*=\s*caseBClaimableCustomer\.name\s*;/,
+      /const\s+customerNameForUser\s*=\s*(?:[^;]*\?\?\s*)?caseBClaimableCustomer\.name\s*;/,
     );
     expect(fnSlice).toMatch(
       /const\s+customerPhoneForUser\s*=\s*caseBClaimableCustomer\.phone\s*;/,

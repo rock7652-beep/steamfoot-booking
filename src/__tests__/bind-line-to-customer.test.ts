@@ -471,7 +471,7 @@ describe("bindLineToCustomerInStore", () => {
      *   - syncLineAccountForUser is NO LONGER called (Account[line] now atomic in D5's tx)
      */
 
-    it("delegates to D5 (activatePrecreatedCustomerWithLine) when names match; returns bound_existing + userCreated:true + lineAccountSync:created", async () => {
+    it("delegates to D5; returns bound_existing + userCreated:true + lineAccountSync:created; NO outer Customer.name pre-update (round 2 — Codex P2)", async () => {
       // Candidates returned by B4's phone-lookup.
       mockCustomerFindMany.mockResolvedValueOnce([
         {
@@ -480,10 +480,12 @@ describe("bindLineToCustomerInStore", () => {
           lineUserId: null,
           lineLinkStatus: "UNLINKED",
           lineName: null,
-          name: NAME, // matches input.name → no pre-update needed
         },
       ]);
-      // D5's preflight load (prisma.customer.findUnique).
+      // D5's preflight load (prisma.customer.findUnique). Round 2: the
+      // outer caller does NOT pre-update Customer.name — D5 reads
+      // whatever is in storage (here: same as input → atomic write
+      // becomes a no-op).
       mockCustomerFindUnique.mockResolvedValueOnce({
         id: "cust-staff",
         storeId: STORE_ID,
@@ -511,7 +513,9 @@ describe("bindLineToCustomerInStore", () => {
         userCreated: true,
         lineAccountSync: "created",
       });
-      // Names match → no pre-update.
+      // Round 2: prisma.customer.updateMany at the outer caller is
+      // REMOVED. Any call here would indicate the non-atomic
+      // pre-update regressed.
       expect(mockCustomerUpdateMany).not.toHaveBeenCalled();
       // Legacy `prisma.customer.update` path (pre-PR-G5.2.b) is gone.
       expect(mockCustomerUpdate).not.toHaveBeenCalled();
@@ -520,7 +524,7 @@ describe("bindLineToCustomerInStore", () => {
       expect(mockSyncLineAccount).not.toHaveBeenCalled();
     });
 
-    it("pre-updates Customer.name when LIFF input.name differs from precreated name (preserves UX of overwriting '未命名' placeholder)", async () => {
+    it("Customer.name is written INSIDE D5's Serializable tx (atomic with User+Account) when LIFF input differs from snapshot (was '未命名' staff placeholder) — round 2 (Codex P2)", async () => {
       const PLACEHOLDER_NAME = "未命名";
       mockCustomerFindMany.mockResolvedValueOnce([
         {
@@ -529,11 +533,10 @@ describe("bindLineToCustomerInStore", () => {
           lineUserId: null,
           lineLinkStatus: "UNLINKED",
           lineName: null,
-          name: PLACEHOLDER_NAME, // staff placeholder, ≠ input.name
         },
       ]);
-      mockCustomerUpdateMany.mockResolvedValueOnce({ count: 1 });
-      // After pre-update, D5 sees the new name.
+      // Round 2: snapshot at preflight = staff placeholder, ≠ input.name.
+      // D5 must atomically rewrite Customer.name inside its tx.
       mockCustomerFindUnique.mockResolvedValueOnce({
         id: "cust-staff",
         storeId: STORE_ID,
@@ -541,34 +544,64 @@ describe("bindLineToCustomerInStore", () => {
         lineUserId: null,
         lineLinkStatus: "UNLINKED",
         mergedIntoCustomerId: null,
-        name: NAME, // updated to LIFF input
+        name: PLACEHOLDER_NAME,
         phone: PHONE,
       });
-      setupTransactionForD5Activation({
-        newUserId: "user-bound",
-        customerId: "cust-staff",
-        customerName: NAME,
-        customerPhone: PHONE,
+      // Capture D5's in-tx user.create + customer.updateMany calls to
+      // verify the atomic name write.
+      const txUserCreate = vi.fn().mockResolvedValueOnce({ id: "user-bound" });
+      const txCustomerUpdateMany = vi.fn().mockResolvedValueOnce({ count: 1 });
+      mockTx.mockImplementationOnce(async (cb: (tx: unknown) => Promise<unknown>) => {
+        const tx = {
+          user: { create: txUserCreate },
+          customer: {
+            // In-tx findFirst guard returns the placeholder snapshot.
+            findFirst: vi
+              .fn()
+              .mockResolvedValueOnce({
+                id: "cust-staff",
+                name: PLACEHOLDER_NAME,
+                phone: PHONE,
+              }),
+            updateMany: txCustomerUpdateMany,
+          },
+          account: { create: vi.fn().mockResolvedValueOnce({ id: "acc-line" }) },
+        };
+        return cb(tx);
       });
 
       const r = await bindLineToCustomerInStore(makeValidInput());
 
       expect(r.status).toBe("bound_existing");
-      // Pre-update with CAS guards against concurrent activation.
-      expect(mockCustomerUpdateMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: {
-            id: "cust-staff",
-            userId: null,
-            lineUserId: null,
-            mergedIntoCustomerId: null,
-          },
-          data: { name: NAME },
-        }),
-      );
+
+      // Round 2 invariant: outer prisma.customer.updateMany NEVER called.
+      // The Customer.name change is INSIDE D5's tx, not before it.
+      expect(mockCustomerUpdateMany).not.toHaveBeenCalled();
+
+      // D5's in-tx Customer.updateMany data includes `name: NAME`
+      // — the override rides on the same Serializable tx that creates
+      // User + Account. On rollback, Customer.name is reverted.
+      expect(txCustomerUpdateMany).toHaveBeenCalledTimes(1);
+      const customerUpdateData = txCustomerUpdateMany.mock.calls[0]![0] as {
+        data: Record<string, unknown>;
+      };
+      expect(customerUpdateData.data.name).toBe(NAME);
+      // Other Customer link metadata still written together.
+      expect(customerUpdateData.data.userId).toBe("user-bound");
+      expect(customerUpdateData.data.lineUserId).toBe(LINE_USER_ID);
+      expect(customerUpdateData.data.lineLinkStatus).toBe("LINKED");
+      expect(customerUpdateData.data.authSource).toBe("LINE");
+
+      // Round 2: User.name is also built from the override (NOT the
+      // staff placeholder) so the new User row reflects the LIFF input.
+      expect(txUserCreate).toHaveBeenCalledTimes(1);
+      const userCreateData = txUserCreate.mock.calls[0]![0] as {
+        data: Record<string, unknown>;
+      };
+      expect(userCreateData.data.name).toBe(NAME);
     });
 
-    it("calls D5 with synthesized OAuth shape (provider='line', providerAccountId=lineUserId, all token fields null)", async () => {
+    it("calls D5 with synthesized OAuth shape AND customerNameOverride=input.name (round 2 contract)", async () => {
       mockCustomerFindMany.mockResolvedValueOnce([
         {
           id: "cust-staff",
@@ -576,7 +609,6 @@ describe("bindLineToCustomerInStore", () => {
           lineUserId: null,
           lineLinkStatus: "UNLINKED",
           lineName: null,
-          name: NAME,
         },
       ]);
       // Capture D5's in-tx calls to verify the synthesized inputs flowed through.
@@ -891,6 +923,236 @@ describe("bindLineToCustomerInStore", () => {
       expect(mockAwardReferrer).not.toHaveBeenCalled();
 
       warnSpy.mockRestore();
+    });
+  });
+
+  // ─────────────────────────────────────────────────────
+  // 7.6  PR-G5.2.b round 2 (Codex P2): atomic Customer.name guard
+  // ─────────────────────────────────────────────────────
+  //
+  // Round 2 closes a non-atomic-write hole: round 1's outer
+  // `prisma.customer.updateMany({...name: input.name})` ran BEFORE D5,
+  // so any D5 failure (write_conflict / P2002 / store_mismatch / stale)
+  // left Customer.name overwritten with no User+Account activation
+  // backing it. Round 2 removes the outer pre-update and moves the
+  // name override INSIDE D5's Serializable tx — failure now rolls back
+  // the name change atomically.
+  //
+  // These tests sweep every D5-rejection branch and assert the outer
+  // prisma.customer.updateMany is NEVER called. They are the explicit
+  // regression-detector for the Codex P2 finding.
+
+  describe("PR-G5.2.b round 2: Customer.name pre-update is NEVER attempted before D5 (atomic rollback contract)", () => {
+    function primeB4Candidate() {
+      mockCustomerFindMany.mockResolvedValueOnce([
+        {
+          id: "cust-staff",
+          userId: null,
+          lineUserId: null,
+          lineLinkStatus: "UNLINKED",
+          lineName: null,
+        },
+      ]);
+    }
+    function makeP2002(target: string[]) {
+      const err: Error & { code?: string; meta?: { target?: string[] } } =
+        new Error("Unique constraint failed");
+      err.code = "P2002";
+      err.meta = { target };
+      return err;
+    }
+    function makeP2034() {
+      const err: Error & { code?: string } = new Error(
+        "Transaction failed due to a write conflict or a deadlock",
+      );
+      err.code = "P2034";
+      return err;
+    }
+
+    it("D5 store_mismatch (preflight rejects) → outer Customer.name pre-update NEVER called", async () => {
+      primeB4Candidate();
+      mockCustomerFindUnique.mockResolvedValueOnce({
+        id: "cust-staff",
+        storeId: "store-other",
+        userId: null,
+        lineUserId: null,
+        lineLinkStatus: "UNLINKED",
+        mergedIntoCustomerId: null,
+        name: "未命名",
+        phone: PHONE,
+      });
+
+      const r = await bindLineToCustomerInStore(makeValidInput());
+
+      expect(r.status).toBe("unique_conflict");
+      // Codex P2 regression guard: name MUST NOT change on D5 failure.
+      expect(mockCustomerUpdateMany).not.toHaveBeenCalled();
+      expect(mockTx).not.toHaveBeenCalled();
+    });
+
+    it("D5 customer_already_has_user (preflight rejects) → outer Customer.name pre-update NEVER called", async () => {
+      primeB4Candidate();
+      mockCustomerFindUnique.mockResolvedValueOnce({
+        id: "cust-staff",
+        storeId: STORE_ID,
+        userId: "user-other",
+        lineUserId: null,
+        lineLinkStatus: "UNLINKED",
+        mergedIntoCustomerId: null,
+        name: "未命名",
+        phone: PHONE,
+      });
+
+      const r = await bindLineToCustomerInStore(makeValidInput());
+
+      expect(r.status).toBe("phone_taken_by_other_user");
+      expect(mockCustomerUpdateMany).not.toHaveBeenCalled();
+      expect(mockTx).not.toHaveBeenCalled();
+    });
+
+    it("D5 customer_already_linked_to_other_line (preflight rejects) → outer Customer.name pre-update NEVER called", async () => {
+      primeB4Candidate();
+      mockCustomerFindUnique.mockResolvedValueOnce({
+        id: "cust-staff",
+        storeId: STORE_ID,
+        userId: null,
+        lineUserId: "U_other_line",
+        lineLinkStatus: "LINKED",
+        mergedIntoCustomerId: null,
+        name: "未命名",
+        phone: PHONE,
+      });
+
+      const r = await bindLineToCustomerInStore(makeValidInput());
+
+      expect(r.status).toBe("already_bound_to_other_line");
+      expect(mockCustomerUpdateMany).not.toHaveBeenCalled();
+      expect(mockTx).not.toHaveBeenCalled();
+    });
+
+    it("D5 stale_customer_link (preflight: merged) → outer Customer.name pre-update NEVER called", async () => {
+      primeB4Candidate();
+      mockCustomerFindUnique.mockResolvedValueOnce({
+        id: "cust-staff",
+        storeId: STORE_ID,
+        userId: null,
+        lineUserId: null,
+        lineLinkStatus: "UNLINKED",
+        mergedIntoCustomerId: "cust-canonical",
+        name: "未命名",
+        phone: PHONE,
+      });
+
+      const r = await bindLineToCustomerInStore(makeValidInput());
+
+      expect(r.status).toBe("unique_conflict");
+      expect(mockCustomerUpdateMany).not.toHaveBeenCalled();
+      expect(mockTx).not.toHaveBeenCalled();
+    });
+
+    it("D5 write_conflict (P2034 inside tx) → outer Customer.name pre-update NEVER called (round 2 core regression: name change MUST NOT survive a tx rollback)", async () => {
+      primeB4Candidate();
+      mockCustomerFindUnique.mockResolvedValueOnce({
+        id: "cust-staff",
+        storeId: STORE_ID,
+        userId: null,
+        lineUserId: null,
+        lineLinkStatus: "UNLINKED",
+        mergedIntoCustomerId: null,
+        name: "未命名", // ← placeholder; round 1 would have overwritten this
+        phone: PHONE,
+      });
+      mockTx.mockImplementationOnce(async () => {
+        throw makeP2034();
+      });
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+      const r = await bindLineToCustomerInStore(makeValidInput());
+
+      expect(r.status).toBe("unique_conflict");
+      // Codex P2 core finding: round 1 would have overwritten Customer.name
+      // BEFORE this P2034. Round 2's contract is that the outer
+      // prisma.customer.updateMany never runs.
+      expect(mockCustomerUpdateMany).not.toHaveBeenCalled();
+
+      warnSpy.mockRestore();
+    });
+
+    it("D5 unique_conflict (P2002 from Account.create) → outer Customer.name pre-update NEVER called", async () => {
+      primeB4Candidate();
+      mockCustomerFindUnique.mockResolvedValueOnce({
+        id: "cust-staff",
+        storeId: STORE_ID,
+        userId: null,
+        lineUserId: null,
+        lineLinkStatus: "UNLINKED",
+        mergedIntoCustomerId: null,
+        name: "未命名",
+        phone: PHONE,
+      });
+      mockTx.mockImplementationOnce(async () => {
+        throw makeP2002(["provider", "providerAccountId"]);
+      });
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+      const r = await bindLineToCustomerInStore(makeValidInput());
+
+      expect(r.status).toBe("unique_conflict");
+      expect(mockCustomerUpdateMany).not.toHaveBeenCalled();
+
+      warnSpy.mockRestore();
+    });
+  });
+
+  // ─────────────────────────────────────────────────────
+  // 7.7  PR-G5.2.b round 2 (Codex P2): B3 anti-hijack still holds
+  // ─────────────────────────────────────────────────────
+  //
+  // Defense-in-depth: round 2 only changes B4 (D5 wiring). B3 (existing
+  // User + no LINE) must continue refusing without changing Customer.name
+  // and without binding LINE. This test is a regression guard that
+  // round-2's "atomic name in D5" did not accidentally apply to B3.
+
+  describe("PR-G5.2.b round 2: B3 phone_taken_by_other_user — no name change, no LINE binding", () => {
+    it("existing-User Customer (B3) refuses with phone_taken_by_other_user; NO Customer.name write; NO D5 call; NO tx", async () => {
+      const PLACEHOLDER_NAME = "未命名";
+      mockCustomerFindMany.mockResolvedValueOnce([
+        {
+          id: "cust-existing",
+          userId: "user-existing",
+          lineUserId: null, // B3 precondition: existing User, no LINE
+          lineLinkStatus: "UNLINKED",
+          lineName: null,
+        },
+      ]);
+      // Even though placeholder name exists, B3 must not invoke any
+      // overwrite.
+      mockCustomerFindUnique.mockResolvedValue({
+        id: "cust-existing",
+        storeId: STORE_ID,
+        userId: "user-existing",
+        lineUserId: null,
+        lineLinkStatus: "UNLINKED",
+        mergedIntoCustomerId: null,
+        name: PLACEHOLDER_NAME,
+        phone: PHONE,
+      });
+
+      const r = await bindLineToCustomerInStore(makeValidInput());
+
+      expect(r).toMatchObject({
+        status: "phone_taken_by_other_user",
+        customerId: "cust-existing",
+      });
+      // §7.1 anti-hijack: no Customer.name write, no D5 call, no tx.
+      expect(mockCustomerUpdateMany).not.toHaveBeenCalled();
+      expect(mockCustomerUpdate).not.toHaveBeenCalled();
+      // findUnique (D5's preflight) MUST NOT be called — B3 short-circuits
+      // before ever reaching D5.
+      expect(mockCustomerFindUnique).not.toHaveBeenCalled();
+      expect(mockTx).not.toHaveBeenCalled();
+      // No LINE binding side effects.
+      expect(mockSyncLineAccount).not.toHaveBeenCalled();
     });
   });
 
