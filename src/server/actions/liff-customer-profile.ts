@@ -54,15 +54,23 @@ export interface LiffCustomerProfile {
   /** Customer.email — may be null. */
   email: string | null;
   /**
-   * Derived LINE binding state for view-layer display.
-   * - "linked":   lineLinkStatus === LINKED && lineUserId is set
-   * - "unlinked": lineUserId is null
-   * - "needs_help": any other state (e.g. BLOCKED, drift) — view shows
-   *                 "需店家協助確認" without leaking the raw enum value.
+   * Derived LINE binding state for view-layer display (PR #257 Codex P2):
+   *
+   * - "linked":     `lineLinkStatus === "LINKED"` AND `lineUserId` is set.
+   *                 Healthy bound state.
+   * - "unlinked":   `lineLinkStatus === "UNLINKED"` AND `lineUserId === null`.
+   *                 Both predicates required — genuinely-unlinked, no drift.
+   * - "needs_help": EVERY other combination — including:
+   *                   * the closeout doc §1 drift profiles
+   *                     (`LINKED` enum + `lineUserId === null`)
+   *                   * `BLOCKED` (webhook unfollow)
+   *                   * any defensive fall-through
+   *                 View shows 「需店家協助確認」 without leaking the raw enum.
    *
    * View MUST NOT branch on raw `Customer.lineLinkStatus` enum directly —
    * only on this derived field. This keeps the customer-facing copy stable
-   * even if backend states evolve.
+   * even if backend states evolve, AND it ensures drift states are surfaced
+   * honestly (not falsely reported as "尚未綁定 LINE").
    */
   lineStatus: "linked" | "unlinked" | "needs_help";
   /**
@@ -177,17 +185,39 @@ export async function fetchLiffCustomerProfile(): Promise<FetchLiffCustomerProfi
 
   // ── 4. Derive view-layer status (do NOT leak raw enum) ──────────
   //
-  // Three customer-facing buckets:
-  //   - "linked":    healthy bound state
-  //   - "unlinked":  no LINE binding (lineUserId null)
-  //   - "needs_help": any other state (BLOCKED, or LINKED-without-lineUserId
-  //                   drift which closeout doc §1 / §7 documents as bounded
-  //                   follow-up paths). View shows neutral copy without
-  //                   exposing the raw drift state to the end user.
+  // Three customer-facing buckets (PR #257 Codex P2 fix — drift state is
+  // NOT genuinely-unlinked; it's a corrupted half-bound state that
+  // requires staff to confirm what happened):
+  //
+  //   - "linked":     healthy bound state — `lineLinkStatus === "LINKED"`
+  //                   AND `lineUserId` is set.
+  //   - "unlinked":   genuinely-unlinked — `lineLinkStatus === "UNLINKED"`
+  //                   AND `lineUserId === null`. Both predicates required.
+  //                   Customer has never bound, or the binding was cleanly
+  //                   removed; no drift.
+  //   - "needs_help": EVERY other combination, including the closeout doc
+  //                   §1 row 5 / row 7 drift profiles:
+  //                     * `LINKED` enum + `lineUserId === null` (Customer-
+  //                       ahead-Account-behind drift the LIFF 0-candidate /
+  //                       webhook bind-code paths can still generate)
+  //                     * `BLOCKED` (any lineUserId state — webhook unfollow
+  //                       wrote BLOCKED but the row may or may not have a
+  //                       lineUserId attached)
+  //                     * any defensive fall-through (future enum additions,
+  //                       schema migration in-flight states, etc.)
+  //                   View shows 「需店家協助確認」 neutral copy without
+  //                   exposing the raw enum to the end user.
+  //
+  // The previous logic (`!row.lineUserId` → "unlinked" regardless of enum)
+  // would falsely tell a drift-state customer they're "尚未綁定 LINE", but
+  // their stored `lineLinkStatus === LINKED` says otherwise — the system
+  // genuinely doesn't know what state they're in, and staff intervention
+  // (closeout §7 follow-up tooling: PR-F1.2 audit + PR-F2 repair) is the
+  // documented recovery path. The new logic surfaces this honestly.
   let lineStatus: LiffCustomerProfile["lineStatus"];
   if (row.lineLinkStatus === "LINKED" && row.lineUserId) {
     lineStatus = "linked";
-  } else if (!row.lineUserId) {
+  } else if (row.lineLinkStatus === "UNLINKED" && !row.lineUserId) {
     lineStatus = "unlinked";
   } else {
     lineStatus = "needs_help";

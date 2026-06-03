@@ -301,7 +301,7 @@ describe("lineStatus derivation", () => {
     expect(r.profile.lineStatus).toBe("linked");
   });
 
-  it("lineUserId null → 'unlinked' (regardless of stored status)", async () => {
+  it("UNLINKED + lineUserId null → 'unlinked' (genuinely unbound — both predicates required)", async () => {
     mockCustomerFindFirst.mockResolvedValueOnce(
       makeRow({
         lineLinkStatus: "UNLINKED",
@@ -314,25 +314,40 @@ describe("lineStatus derivation", () => {
     expect(r.profile.lineStatus).toBe("unlinked");
   });
 
-  it("LINKED + lineUserId null (drift state) → 'needs_help' (do NOT lie to user as 'linked')", async () => {
+  it("LINKED + lineUserId null (drift state) → 'needs_help' (PR #257 Codex P2 fix — drift is NOT genuinely unbound)", async () => {
     // This is the closeout doc §1 row 5 / row 7 drift profile:
     // Customer-ahead / Account-behind shapes where the stored enum claims
     // LINKED but the actual lineUserId field is null. The customer-facing
-    // view must NOT say "已綁定" in this case — it would be a lie.
+    // view must NOT say "已綁定" (would lie) AND must NOT say "尚未綁定"
+    // (would also lie — stored state thinks they're bound). Honest answer:
+    // staff confirmation needed (closeout §7 follow-up tooling).
+    //
+    // REGRESSION GUARD: the pre-Codex-P2 implementation used
+    // `!row.lineUserId → "unlinked"` and would have failed this assertion.
     mockCustomerFindFirst.mockResolvedValueOnce(
       makeRow({ lineLinkStatus: "LINKED", lineUserId: null }),
     );
     const r = await fetchLiffCustomerProfile();
     if (r.status !== "ok") throw new Error("expected ok");
-    expect(r.profile.lineStatus).toBe("unlinked");
-    // (`unlinked` is the safest read: lineUserId null is the ground truth;
-    // the enum is advisory. Customer sees 「尚未綁定 LINE」 → contacts staff
-    // if they believe this is wrong. NO false "已綁定" claim.)
+    expect(r.profile.lineStatus).toBe("needs_help");
   });
 
-  it("BLOCKED + lineUserId set → 'needs_help' (neutral copy; do not expose raw enum)", async () => {
+  it("BLOCKED + lineUserId set → 'needs_help' (webhook unfollow drift; neutral copy)", async () => {
     mockCustomerFindFirst.mockResolvedValueOnce(
       makeRow({ lineLinkStatus: "BLOCKED", lineUserId: LINE_USER_ID }),
+    );
+    const r = await fetchLiffCustomerProfile();
+    if (r.status !== "ok") throw new Error("expected ok");
+    expect(r.profile.lineStatus).toBe("needs_help");
+  });
+
+  it("BLOCKED + lineUserId null → 'needs_help' (defensive — webhook unfollow may also clear lineUserId)", async () => {
+    mockCustomerFindFirst.mockResolvedValueOnce(
+      makeRow({
+        lineLinkStatus: "BLOCKED",
+        lineUserId: null,
+        lineName: null,
+      }),
     );
     const r = await fetchLiffCustomerProfile();
     if (r.status !== "ok") throw new Error("expected ok");
