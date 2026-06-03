@@ -19,6 +19,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mockCustomerFindMany = vi.fn();
 const mockCustomerUpdate = vi.fn();
 const mockCustomerCreate = vi.fn();
+const mockCustomerUpdateMany = vi.fn(); // PR-G5.2.b: B4 pre-update (name)
+const mockCustomerFindUnique = vi.fn(); // PR-G5.2.b: D5 preflight
 const mockUserCreate = vi.fn();
 const mockTx = vi.fn();
 
@@ -26,6 +28,10 @@ vi.mock("@/lib/db", () => ({
   prisma: {
     customer: {
       findMany: (...args: unknown[]) => mockCustomerFindMany(...args),
+      // PR-G5.2.b: B4 path's name pre-update goes here.
+      updateMany: (...args: unknown[]) => mockCustomerUpdateMany(...args),
+      // PR-G5.2.b: D5 (activatePrecreatedCustomerWithLine) preflight load.
+      findUnique: (...args: unknown[]) => mockCustomerFindUnique(...args),
     },
     $transaction: (...args: unknown[]) => mockTx(...args),
   },
@@ -83,11 +89,54 @@ function setupTransactionForCreate(newUserId: string, newCustomerId: string) {
   });
 }
 
+/**
+ * PR-G5.2.b: B4 branch now delegates to D5 (`activatePrecreatedCustomerWithLine`).
+ *
+ * This fixture sets up the tx mock for a successful D5 activation:
+ *   - tx.customer.findFirst returns the precreated row (in-tx guard pass)
+ *   - tx.user.create returns the new User
+ *   - tx.account.create returns the new Account[line]
+ *   - tx.customer.updateMany returns count:1 (D5's CAS succeeds)
+ *
+ * Caller is responsible for also priming `mockCustomerFindUnique` (D5's
+ * preflight load — runs OUTSIDE tx, returns the precreated customer with
+ * id/storeId/userId:null/lineUserId:null/lineLinkStatus/mergedIntoCustomerId
+ * /name/phone).
+ */
+function setupTransactionForD5Activation(opts: {
+  newUserId: string;
+  customerId: string;
+  customerName: string;
+  customerPhone: string;
+}) {
+  mockTx.mockImplementationOnce(async (cb: (tx: unknown) => Promise<unknown>) => {
+    const tx = {
+      user: {
+        create: vi.fn().mockResolvedValueOnce({ id: opts.newUserId }),
+      },
+      customer: {
+        findFirst: vi.fn().mockResolvedValueOnce({
+          id: opts.customerId,
+          name: opts.customerName,
+          phone: opts.customerPhone,
+        }),
+        updateMany: vi.fn().mockResolvedValueOnce({ count: 1 }),
+      },
+      account: {
+        create: vi.fn().mockResolvedValueOnce({ id: "new-account-line-id" }),
+      },
+    };
+    return cb(tx);
+  });
+}
+
 describe("bindLineToCustomerInStore", () => {
   beforeEach(() => {
     mockCustomerFindMany.mockReset();
     mockCustomerUpdate.mockReset();
     mockCustomerCreate.mockReset();
+    mockCustomerUpdateMany.mockReset();
+    mockCustomerFindUnique.mockReset();
     mockUserCreate.mockReset();
     mockTx.mockReset();
     mockSyncLineAccount.mockReset();
@@ -411,8 +460,19 @@ describe("bindLineToCustomerInStore", () => {
   // 7. bound_existing (Customer.userId=null AND lineUserId=null)
   // ─────────────────────────────────────────────────────
 
-  describe("bound_existing (staff-created Customer, no User, no LINE)", () => {
-    it("creates User + binds Customer", async () => {
+  describe("bound_existing (staff-created Customer, no User, no LINE) — PR-G5.2.b delegates to D5 activatePrecreatedCustomerWithLine", () => {
+    /**
+     * PR-G5.2.b: B4 path (1 candidate, userId null, lineUserId null)
+     * now delegates to `activatePrecreatedCustomerWithLine` (D5). The
+     * tests below verify the new atomic flow:
+     *   - D5 preflight reads Customer via `prisma.customer.findUnique`
+     *   - D5 in-tx: customer.findFirst guard → user.create → account.create → customer.updateMany (CAS)
+     *   - finalize maps D5's `activated` → B4's `bound_existing` return shape
+     *   - syncLineAccountForUser is NO LONGER called (Account[line] now atomic in D5's tx)
+     */
+
+    it("delegates to D5 (activatePrecreatedCustomerWithLine) when names match; returns bound_existing + userCreated:true + lineAccountSync:created", async () => {
+      // Candidates returned by B4's phone-lookup.
       mockCustomerFindMany.mockResolvedValueOnce([
         {
           id: "cust-staff",
@@ -420,14 +480,26 @@ describe("bindLineToCustomerInStore", () => {
           lineUserId: null,
           lineLinkStatus: "UNLINKED",
           lineName: null,
+          name: NAME, // matches input.name → no pre-update needed
         },
       ]);
-      mockTx.mockImplementationOnce(async (cb: (tx: unknown) => Promise<unknown>) => {
-        const tx = {
-          user: { create: mockUserCreate.mockResolvedValueOnce({ id: "user-bound" }) },
-          customer: { update: mockCustomerUpdate.mockResolvedValueOnce({ id: "cust-staff" }) },
-        };
-        return cb(tx);
+      // D5's preflight load (prisma.customer.findUnique).
+      mockCustomerFindUnique.mockResolvedValueOnce({
+        id: "cust-staff",
+        storeId: STORE_ID,
+        userId: null,
+        lineUserId: null,
+        lineLinkStatus: "UNLINKED",
+        mergedIntoCustomerId: null,
+        name: NAME,
+        phone: PHONE,
+      });
+      // D5's in-tx surface (findFirst guard + user.create + account.create + customer.updateMany).
+      setupTransactionForD5Activation({
+        newUserId: "user-bound",
+        customerId: "cust-staff",
+        customerName: NAME,
+        customerPhone: PHONE,
       });
 
       const r = await bindLineToCustomerInStore(makeValidInput());
@@ -437,30 +509,19 @@ describe("bindLineToCustomerInStore", () => {
         customerId: "cust-staff",
         userId: "user-bound",
         userCreated: true,
+        lineAccountSync: "created",
       });
-      expect(mockUserCreate).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            name: NAME,
-            phone: PHONE,
-            role: "CUSTOMER",
-          }),
-        })
-      );
-      expect(mockCustomerUpdate).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { id: "cust-staff" },
-          data: expect.objectContaining({
-            userId: "user-bound",
-            authSource: "LINE",
-            lineUserId: LINE_USER_ID,
-            lineLinkStatus: "LINKED",
-          }),
-        })
-      );
+      // Names match → no pre-update.
+      expect(mockCustomerUpdateMany).not.toHaveBeenCalled();
+      // Legacy `prisma.customer.update` path (pre-PR-G5.2.b) is gone.
+      expect(mockCustomerUpdate).not.toHaveBeenCalled();
+      // PR-G5.2.b: Account[line] now written inside D5's tx, not via
+      // post-tx best-effort syncLineAccountForUser.
+      expect(mockSyncLineAccount).not.toHaveBeenCalled();
     });
 
-    it("calls syncLineAccount + repair + referrer best-effort", async () => {
+    it("pre-updates Customer.name when LIFF input.name differs from precreated name (preserves UX of overwriting '未命名' placeholder)", async () => {
+      const PLACEHOLDER_NAME = "未命名";
       mockCustomerFindMany.mockResolvedValueOnce([
         {
           id: "cust-staff",
@@ -468,27 +529,102 @@ describe("bindLineToCustomerInStore", () => {
           lineUserId: null,
           lineLinkStatus: "UNLINKED",
           lineName: null,
+          name: PLACEHOLDER_NAME, // staff placeholder, ≠ input.name
         },
       ]);
+      mockCustomerUpdateMany.mockResolvedValueOnce({ count: 1 });
+      // After pre-update, D5 sees the new name.
+      mockCustomerFindUnique.mockResolvedValueOnce({
+        id: "cust-staff",
+        storeId: STORE_ID,
+        userId: null,
+        lineUserId: null,
+        lineLinkStatus: "UNLINKED",
+        mergedIntoCustomerId: null,
+        name: NAME, // updated to LIFF input
+        phone: PHONE,
+      });
+      setupTransactionForD5Activation({
+        newUserId: "user-bound",
+        customerId: "cust-staff",
+        customerName: NAME,
+        customerPhone: PHONE,
+      });
+
+      const r = await bindLineToCustomerInStore(makeValidInput());
+
+      expect(r.status).toBe("bound_existing");
+      // Pre-update with CAS guards against concurrent activation.
+      expect(mockCustomerUpdateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            id: "cust-staff",
+            userId: null,
+            lineUserId: null,
+            mergedIntoCustomerId: null,
+          },
+          data: { name: NAME },
+        }),
+      );
+    });
+
+    it("calls D5 with synthesized OAuth shape (provider='line', providerAccountId=lineUserId, all token fields null)", async () => {
+      mockCustomerFindMany.mockResolvedValueOnce([
+        {
+          id: "cust-staff",
+          userId: null,
+          lineUserId: null,
+          lineLinkStatus: "UNLINKED",
+          lineName: null,
+          name: NAME,
+        },
+      ]);
+      // Capture D5's in-tx calls to verify the synthesized inputs flowed through.
+      const txAccountCreate = vi.fn().mockResolvedValueOnce({ id: "acc-line" });
+      mockCustomerFindUnique.mockResolvedValueOnce({
+        id: "cust-staff",
+        storeId: STORE_ID,
+        userId: null,
+        lineUserId: null,
+        lineLinkStatus: "UNLINKED",
+        mergedIntoCustomerId: null,
+        name: NAME,
+        phone: PHONE,
+      });
       mockTx.mockImplementationOnce(async (cb: (tx: unknown) => Promise<unknown>) => {
         const tx = {
           user: { create: vi.fn().mockResolvedValueOnce({ id: "user-bound" }) },
-          customer: { update: vi.fn().mockResolvedValueOnce({ id: "cust-staff" }) },
+          customer: {
+            findFirst: vi
+              .fn()
+              .mockResolvedValueOnce({ id: "cust-staff", name: NAME, phone: PHONE }),
+            updateMany: vi.fn().mockResolvedValueOnce({ count: 1 }),
+          },
+          account: { create: txAccountCreate },
         };
         return cb(tx);
       });
 
       await bindLineToCustomerInStore(makeValidInput());
 
-      expect(mockSyncLineAccount).toHaveBeenCalledWith({
-        userId: "user-bound",
-        lineUserId: LINE_USER_ID,
-      });
-      expect(mockRepair).toHaveBeenCalled();
-      expect(mockAwardReferrer).toHaveBeenCalled();
+      // D5's tx.account.create receives the synthesized Account[line] data
+      // with PR-G5.2.a-round-17 canonical literals (provider:"line",
+      // providerAccountId:input.lineUserId) and all token fields null.
+      expect(txAccountCreate).toHaveBeenCalledTimes(1);
+      const accountData = txAccountCreate.mock.calls[0]![0] as {
+        data: Record<string, unknown>;
+      };
+      expect(accountData.data.provider).toBe("line");
+      expect(accountData.data.providerAccountId).toBe(LINE_USER_ID);
+      expect(accountData.data.access_token).toBeNull();
+      expect(accountData.data.refresh_token).toBeNull();
+      expect(accountData.data.id_token).toBeNull();
+      expect(accountData.data.expires_at).toBeNull();
+      expect(accountData.data.scope).toBeNull();
+      expect(accountData.data.token_type).toBeNull();
     });
 
-    it("reflects skipped_already_linked_other_user sync state", async () => {
+    it("calls repair + referrer best-effort AFTER successful D5 activation (sync no longer called — D5 wrote Account in-tx)", async () => {
       mockCustomerFindMany.mockResolvedValueOnce([
         {
           id: "cust-staff",
@@ -496,25 +632,265 @@ describe("bindLineToCustomerInStore", () => {
           lineUserId: null,
           lineLinkStatus: "UNLINKED",
           lineName: null,
+          name: NAME,
         },
       ]);
-      mockTx.mockImplementationOnce(async (cb: (tx: unknown) => Promise<unknown>) => {
-        const tx = {
-          user: { create: vi.fn().mockResolvedValueOnce({ id: "user-bound" }) },
-          customer: { update: vi.fn().mockResolvedValueOnce({ id: "cust-staff" }) },
-        };
-        return cb(tx);
+      mockCustomerFindUnique.mockResolvedValueOnce({
+        id: "cust-staff",
+        storeId: STORE_ID,
+        userId: null,
+        lineUserId: null,
+        lineLinkStatus: "UNLINKED",
+        mergedIntoCustomerId: null,
+        name: NAME,
+        phone: PHONE,
       });
-      mockSyncLineAccount.mockResolvedValueOnce({
-        status: "skipped_already_linked_other_user",
-        existingUserId: "ghost-user",
+      setupTransactionForD5Activation({
+        newUserId: "user-bound",
+        customerId: "cust-staff",
+        customerName: NAME,
+        customerPhone: PHONE,
       });
+
+      await bindLineToCustomerInStore(makeValidInput());
+
+      // Post-tx best-effort side effects still fire (identity-repair + referrer-award).
+      expect(mockRepair).toHaveBeenCalled();
+      expect(mockAwardReferrer).toHaveBeenCalled();
+      // Account-sync is no longer called from B4 — D5's tx wrote Account[line] atomically.
+      expect(mockSyncLineAccount).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─────────────────────────────────────────────────────
+  // 7.5  PR-G5.2.b: B4 → D5 status-mapping coverage
+  // ─────────────────────────────────────────────────────
+  //
+  // The 4 rejection branches of D5 (`activatePrecreatedCustomerWithLine`)
+  // each get mapped to a specific BindLineResult shape by B4's switch.
+  // These tests drive each D5 rejection by shaping
+  // `mockCustomerFindUnique` (D5's preflight load) or by throwing Prisma
+  // P2002 / P2034 from D5's tx callback.
+  //
+  // Status mapping invariants (see src/server/services/bind-line-to-customer.ts
+  // lines 384-462):
+  //   D5 status                                 → B4 BindLineResult
+  //   -----------------------------------------------------------------
+  //   activated                                 → bound_existing
+  //   customer_already_linked_to_other_line     → already_bound_to_other_line
+  //   customer_already_has_user                 → phone_taken_by_other_user (§7.1 safe)
+  //   stale_customer_link  ┐
+  //   store_mismatch       ├─────────────────── → unique_conflict (conflictTarget="activation_<D5-status>")
+  //   write_conflict       ┘
+  //   unique_conflict                           → unique_conflict (pass-through, conflictTarget from D5)
+  //   line_account_mismatch                     → throws (unreachable; we synthesize inline)
+
+  describe("PR-G5.2.b: B4 → D5 rejection status mapping", () => {
+    // Shared B4-precondition: candidates = 1 row with userId === null + lineUserId === null
+    // → bindLineToCustomerInStore enters the B4 branch and delegates to D5.
+    function primeCandidates() {
+      mockCustomerFindMany.mockResolvedValueOnce([
+        {
+          id: "cust-staff",
+          userId: null,
+          lineUserId: null,
+          lineLinkStatus: "UNLINKED",
+          lineName: null,
+          name: NAME, // matches → no pre-update
+        },
+      ]);
+    }
+
+    function makeP2002(target: string[]) {
+      const err: Error & { code?: string; meta?: { target?: string[] } } =
+        new Error("Unique constraint failed");
+      err.code = "P2002";
+      err.meta = { target };
+      return err;
+    }
+
+    function makeP2034() {
+      const err: Error & { code?: string } = new Error(
+        "Transaction failed due to a write conflict or a deadlock",
+      );
+      err.code = "P2034";
+      return err;
+    }
+
+    it("D5 customer_already_linked_to_other_line → already_bound_to_other_line (preserves existingLineUserId)", async () => {
+      primeCandidates();
+      // D5's preflight sees customer.lineUserId already pointing at a
+      // different LINE userId (race: another binder set it between B4's
+      // candidate read and D5's preflight). D5 returns
+      // customer_already_linked_to_other_line; B4 maps to
+      // already_bound_to_other_line with the existing LINE.
+      mockCustomerFindUnique.mockResolvedValueOnce({
+        id: "cust-staff",
+        storeId: STORE_ID,
+        userId: null,
+        lineUserId: "U_other_line", // ≠ input.lineUserId
+        lineLinkStatus: "LINKED",
+        mergedIntoCustomerId: null,
+        name: NAME,
+        phone: PHONE,
+      });
+
       const r = await bindLineToCustomerInStore(makeValidInput());
-      if (r.status === "bound_existing") {
-        expect(r.lineAccountSync).toBe("skipped_already_linked_other_user");
-      } else {
-        throw new Error(`expected bound_existing, got ${r.status}`);
-      }
+
+      expect(r).toEqual({
+        status: "already_bound_to_other_line",
+        customerId: "cust-staff",
+        existingLineUserId: "U_other_line",
+      });
+      // No tx writes: D5 rejected at preflight.
+      expect(mockTx).not.toHaveBeenCalled();
+      // No post-bind side effects on rejection.
+      expect(mockSyncLineAccount).not.toHaveBeenCalled();
+      expect(mockRepair).not.toHaveBeenCalled();
+      expect(mockAwardReferrer).not.toHaveBeenCalled();
+    });
+
+    it("D5 customer_already_has_user → phone_taken_by_other_user (§7.1 anti-hijack safe default sameLineUserId:false)", async () => {
+      primeCandidates();
+      // D5's preflight sees customer.userId !== null (race: another binder
+      // activated this Customer between candidate read and preflight).
+      // D5 returns customer_already_has_user; B4 maps to B3-style
+      // phone_taken_by_other_user refusal (preserves §7.1 anti-hijack).
+      mockCustomerFindUnique.mockResolvedValueOnce({
+        id: "cust-staff",
+        storeId: STORE_ID,
+        userId: "user-other", // freshly activated by a concurrent flow
+        lineUserId: null,
+        lineLinkStatus: "UNLINKED",
+        mergedIntoCustomerId: null,
+        name: NAME,
+        phone: PHONE,
+      });
+
+      const r = await bindLineToCustomerInStore(makeValidInput());
+
+      expect(r).toEqual({
+        status: "phone_taken_by_other_user",
+        customerId: "cust-staff",
+        sameLineUserId: false,
+      });
+      expect(mockTx).not.toHaveBeenCalled();
+      expect(mockSyncLineAccount).not.toHaveBeenCalled();
+      expect(mockRepair).not.toHaveBeenCalled();
+      expect(mockAwardReferrer).not.toHaveBeenCalled();
+    });
+
+    it("D5 stale_customer_link (preflight: mergedIntoCustomerId set) → unique_conflict with conflictTarget='activation_stale_customer_link'", async () => {
+      primeCandidates();
+      mockCustomerFindUnique.mockResolvedValueOnce({
+        id: "cust-staff",
+        storeId: STORE_ID,
+        userId: null,
+        lineUserId: null,
+        lineLinkStatus: "UNLINKED",
+        mergedIntoCustomerId: "cust-canonical", // merged shell
+        name: NAME,
+        phone: PHONE,
+      });
+
+      const r = await bindLineToCustomerInStore(makeValidInput());
+
+      expect(r).toEqual({
+        status: "unique_conflict",
+        conflictTarget: "activation_stale_customer_link",
+      });
+      expect(mockTx).not.toHaveBeenCalled();
+    });
+
+    it("D5 store_mismatch (preflight: customer.storeId !== input.storeId) → unique_conflict with conflictTarget='activation_store_mismatch'", async () => {
+      primeCandidates();
+      mockCustomerFindUnique.mockResolvedValueOnce({
+        id: "cust-staff",
+        storeId: "store-other", // ≠ input.storeId — real authz boundary
+        userId: null,
+        lineUserId: null,
+        lineLinkStatus: "UNLINKED",
+        mergedIntoCustomerId: null,
+        name: NAME,
+        phone: PHONE,
+      });
+
+      const r = await bindLineToCustomerInStore(makeValidInput());
+
+      expect(r).toEqual({
+        status: "unique_conflict",
+        conflictTarget: "activation_store_mismatch",
+      });
+      expect(mockTx).not.toHaveBeenCalled();
+    });
+
+    it("D5 write_conflict (P2034 from tx) → unique_conflict with conflictTarget='activation_write_conflict'", async () => {
+      primeCandidates();
+      // Preflight passes — all 5 invariants satisfied.
+      mockCustomerFindUnique.mockResolvedValueOnce({
+        id: "cust-staff",
+        storeId: STORE_ID,
+        userId: null,
+        lineUserId: null,
+        lineLinkStatus: "UNLINKED",
+        mergedIntoCustomerId: null,
+        name: NAME,
+        phone: PHONE,
+      });
+      // tx throws P2034 (Serializable retry) — D5's shared translator
+      // converts to write_conflict; B4 maps to unique_conflict.
+      mockTx.mockImplementationOnce(async () => {
+        throw makeP2034();
+      });
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+      const r = await bindLineToCustomerInStore(makeValidInput());
+
+      expect(r).toEqual({
+        status: "unique_conflict",
+        conflictTarget: "activation_write_conflict",
+      });
+      expect(mockSyncLineAccount).not.toHaveBeenCalled();
+      expect(mockRepair).not.toHaveBeenCalled();
+      expect(mockAwardReferrer).not.toHaveBeenCalled();
+
+      warnSpy.mockRestore();
+    });
+
+    it("D5 unique_conflict (P2002 from tx) → unique_conflict pass-through (conflictTarget mirrors D5's)", async () => {
+      primeCandidates();
+      mockCustomerFindUnique.mockResolvedValueOnce({
+        id: "cust-staff",
+        storeId: STORE_ID,
+        userId: null,
+        lineUserId: null,
+        lineLinkStatus: "UNLINKED",
+        mergedIntoCustomerId: null,
+        name: NAME,
+        phone: PHONE,
+      });
+      // Account.create P2002 — concurrent OAuth linking from another
+      // path raced us and inserted Account[line] for the same
+      // provider/providerAccountId pair.
+      mockTx.mockImplementationOnce(async () => {
+        throw makeP2002(["provider", "providerAccountId"]);
+      });
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+      const r = await bindLineToCustomerInStore(makeValidInput());
+
+      // PR-G5.2.b: B4's `case "unique_conflict"` passes the conflictTarget
+      // through verbatim from D5 — the caller (LIFF action) sees the
+      // exact unique constraint that hit.
+      expect(r).toMatchObject({
+        status: "unique_conflict",
+        conflictTarget: expect.stringContaining("provider"),
+      });
+      expect(mockSyncLineAccount).not.toHaveBeenCalled();
+      expect(mockRepair).not.toHaveBeenCalled();
+      expect(mockAwardReferrer).not.toHaveBeenCalled();
+
+      warnSpy.mockRestore();
     });
   });
 

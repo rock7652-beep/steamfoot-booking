@@ -168,6 +168,9 @@ export async function bindLineToCustomerInStore(
       lineUserId: true,
       lineLinkStatus: true,
       lineName: true,
+      // PR-G5.2.b: B4 path's pre-update adapter compares
+      // `real.name !== input.name` before delegating to D5.
+      name: true,
     },
     take: 2,
   });
@@ -311,59 +314,152 @@ export async function bindLineToCustomerInStore(
     };
   }
 
-  // Customer.userId === null AND lineUserId === null
-  //   → staff 建檔 / OAuth placeholder 殘留；本次建 User + 綁 LINE
-  const { user } = await prisma.$transaction(async (tx) => {
-    const u = await tx.user.create({
-      data: {
-        name: input.name,
-        phone: normalizedPhone,
-        role: "CUSTOMER",
-        status: "ACTIVE",
+  // ── B4: Customer.userId === null AND lineUserId === null ─────────────
+  //   = staff-precreated Customer / OAuth placeholder residue.
+  //
+  // PR-G5.2.b: delegate to D5 canonical helper
+  // `activatePrecreatedCustomerWithLine` for atomic
+  // User+Account[line]+Customer write (single Serializable tx).
+  //
+  // Replaces the previous "tx{user.create + customer.update} + post-tx
+  // syncLineAccountForUser best-effort" flow which left a drift window
+  // if the post-tx Account sync failed (Customer.lineUserId set, Account
+  // missing — exactly the pattern PR-F1.2 audit / PR-F2 repair was
+  // built to clean up).
+  //
+  // ⚠ Two behavior-preservation adapters BEFORE the D5 call:
+  //   (1) Customer.name override: today's B4 overwrites `Customer.name`
+  //       with the LIFF-input name (handles "未命名" staff placeholder).
+  //       D5 reads in-tx Customer.name for User.name but does NOT
+  //       update Customer.name. Pre-update with CAS where so a
+  //       concurrent activation between pre-update and D5 can't be
+  //       affected.
+  //   (2) Synthesize `oauthProfile.name` for deriveEffectiveLineName
+  //       fallback: today's B4 uses `input.lineName ?? input.name`.
+  //       D5's chain is `input.lineName ?? oauthProfile.name ?? "顧客"`.
+  //       Setting `oauthProfile.name = input.lineName ?? input.name`
+  //       makes the chain produce the same value byte-for-byte.
+  // Adapter (1): pre-update Customer.name if LIFF input differs.
+  if (real.name !== input.name) {
+    await prisma.customer.updateMany({
+      where: {
+        id: real.id,
+        userId: null,
+        lineUserId: null,
+        mergedIntoCustomerId: null,
       },
+      data: { name: input.name },
     });
-    await tx.customer.update({
-      where: { id: real.id },
-      data: {
-        userId: u.id,
-        name: input.name, // 用 onboarding 輸入覆蓋（staff 建檔可能用「未命名」）
-        authSource: "LINE",
-        lineUserId: input.lineUserId,
-        lineName: input.lineName ?? input.name,
-        lineLinkStatus: "LINKED",
-        lineLinkedAt: new Date(),
-      },
-    });
-    return { user: u };
-  });
+  }
 
-  const syncResult = await syncLineAccountForUser({
-    userId: user.id,
-    lineUserId: input.lineUserId,
-  });
-
-  await runPostBindBestEffort({
-    customerId: real.id,
-    userId: user.id,
+  // Adapter (2): synthesize oauthProfile / oauthAccount for D5.
+  // Token fields are all null — LIFF doesn't issue OAuth tokens (id-token
+  // is verified once + discarded). D5's round-9 token contract preserves
+  // nulls without coercion.
+  const activationResult = await activatePrecreatedCustomerWithLine({
     storeId: input.storeId,
-    phone: normalizedPhone,
+    customerId: real.id,
     lineUserId: input.lineUserId,
+    lineName: input.lineName,
+    oauthProfile: {
+      email: null,
+      image: null,
+      // Synthesized so deriveEffectiveLineName falls back to input.name
+      // (today's B4 behavior) when input.lineName is null.
+      name: input.lineName ?? input.name,
+    },
+    oauthAccount: {
+      provider: "line",
+      providerAccountId: input.lineUserId,
+      type: "oauth",
+      access_token: null,
+      refresh_token: null,
+      id_token: null,
+      expires_at: null,
+      scope: null,
+      token_type: null,
+    },
   });
 
-  return {
-    status: "bound_existing",
-    customerId: real.id,
-    userId: user.id,
-    userCreated: true,
-    lineAccountSync:
-      syncResult.status === "created"
-        ? "created"
-        : syncResult.status === "noop_already_synced"
-          ? "noop_already_synced"
-          : syncResult.status === "skipped_already_linked_other_user"
-            ? "skipped_already_linked_other_user"
-            : "error",
-  };
+  // Map D5 status to B4's existing BindLineResult shape.
+  switch (activationResult.status) {
+    case "activated": {
+      // Success — User + Account[line] + Customer link metadata all
+      // committed in one Serializable tx (no post-tx best-effort drift).
+      await runPostBindBestEffort({
+        customerId: real.id,
+        userId: activationResult.userId,
+        storeId: input.storeId,
+        phone: normalizedPhone,
+        lineUserId: input.lineUserId,
+      });
+      return {
+        status: "bound_existing",
+        customerId: real.id,
+        userId: activationResult.userId,
+        userCreated: true,
+        // D5 wrote Account[line] inside the tx — no post-tx best-effort
+        // sync. The legacy `lineAccountSync` field stays for caller
+        // observability; "created" mirrors the post-tx-sync code path
+        // that this used to take.
+        lineAccountSync: "created",
+      };
+    }
+
+    case "customer_already_linked_to_other_line":
+      // Race: another binder set lineUserId between our preflight and
+      // D5's read. Map to B4's existing same-shape rejection.
+      return {
+        status: "already_bound_to_other_line",
+        customerId: real.id,
+        existingLineUserId: activationResult.existingLineUserId,
+      };
+
+    case "customer_already_has_user":
+      // Race: another binder activated this Customer (set userId)
+      // between preflight and D5. Surface as the B3-style refusal —
+      // safer than re-attempting, matches §7.1 anti-hijack policy
+      // (a freshly-activated Customer with userId should not be
+      // re-bound via LIFF auto-flow).
+      return {
+        status: "phone_taken_by_other_user",
+        customerId: real.id,
+        // We can't cheaply know sameLineUserId without another query;
+        // default to false (the safer assumption for caller UX).
+        sameLineUserId: false,
+      };
+
+    case "stale_customer_link":
+    case "store_mismatch":
+    case "write_conflict":
+      // Defensive / retryable — preflight verified storeId; race
+      // conditions (TOCTOU / Serializable P2034) caught by D5's
+      // controlled statuses. Surface as `unique_conflict` so the
+      // caller (LIFF action) maps to "service_unavailable, retry".
+      return {
+        status: "unique_conflict",
+        conflictTarget: `activation_${activationResult.status}`,
+      };
+
+    case "unique_conflict":
+      // P2002 inside D5's tx (rare — provider/providerAccountId or
+      // storeId+phone race). Pass through with same conflictTarget.
+      return {
+        status: "unique_conflict",
+        conflictTarget: activationResult.conflictTarget,
+      };
+
+    case "line_account_mismatch": {
+      // Should be unreachable: we synthesize `provider: "line"` and
+      // `providerAccountId: input.lineUserId` inline above; D5's step-1
+      // validation cannot fail. Throw to surface the bug if it ever
+      // does (rather than silently degrading to a bad status mapping).
+      const expected = activationResult.expectedLineUserId;
+      throw new Error(
+        `[bindLineToCustomerInStore] B4 → D5 unexpected line_account_mismatch (expectedLineUserId=${maskLineUserId(expected)})`,
+      );
+    }
+  }
 }
 
 /**
