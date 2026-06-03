@@ -5,8 +5,14 @@ import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/permissions";
 import { AppError, handleActionError } from "@/lib/errors";
 import { currentStoreId } from "@/lib/store";
-import { adjustCheckoutToPackageSchema } from "@/lib/validators/booking-checkout";
-import { allocateSessionsFefo } from "@/server/services/wallet-session";
+import {
+  adjustCheckoutToPackageSchema,
+  adjustCheckoutToSingleSchema,
+} from "@/lib/validators/booking-checkout";
+import {
+  allocateSessionsFefo,
+  releaseSessions,
+} from "@/server/services/wallet-session";
 import { revalidateBookings } from "@/lib/revalidation";
 import type { ActionResult } from "@/types";
 
@@ -229,6 +235,180 @@ export async function adjustCheckoutToPackage(
 
     revalidateBookings(booking.customerId);
     return { success: true, data: { walletId: finalWalletId } };
+  } catch (e) {
+    return handleActionError(e);
+  }
+}
+
+// ============================================================
+// adjustCheckoutToSingle — 調整結帳方式（Phase 2 / Mode B）
+//
+// 單一情境：PACKAGE_SESSION（方案扣堂，未完成、未扣堂）→ SINGLE（單次，未收款）。
+// 店長原本用方案幫顧客預約，到現場臨時做促銷／優惠，這次不想扣方案堂數，改成
+// 單次收款。本 action 只負責「把這筆既有預約翻成乾淨的單次未收款」，不重約、
+// 不收款、不寫金額——促銷價留到後續既有收款 Modal 由店長用原價/實收/折扣處理。
+//
+// 設計原則（與 Mode A / collectSinglePayment 一致）：
+//   - store-scoped 查詢 + requirePermission("booking.update") 雙重防線
+//   - $transaction 內 Booking row FOR UPDATE → 重查 guard（race-safe）：與並發
+//     markCompleted / collectSinglePayment 串行化，避免「轉成單次的同時被扣堂／
+//     收款」交錯。
+//   - 釋放配堂只「呼叫」既有 releaseSessions（與 cancelBooking 同一安全路徑），
+//     RESERVED → AVAILABLE、堂數回補，不硬刪、不改 wallet-session 核心。
+//
+// 零金流副作用：
+//   - 不建 / 不改任何 Transaction（轉換不收款；收款於之後既有單次流程才發生）
+//   - 不寫 Cashbook / CashDrawer
+//   - 不做 schema migration
+//   - 用通用 AuditLog 記 before/after（reason 選填，空白也寫）
+// ============================================================
+
+export async function adjustCheckoutToSingle(
+  input: z.infer<typeof adjustCheckoutToSingleSchema>,
+): Promise<ActionResult<{ bookingId: string }>> {
+  try {
+    const user = await requirePermission("booking.update");
+    const data = adjustCheckoutToSingleSchema.parse(input);
+    const storeId = currentStoreId(user);
+
+    // store-scoped 查詢即安全邊界（ID 格式非關卡）
+    const booking = await prisma.booking.findFirst({
+      where: { id: data.bookingId, storeId },
+      select: {
+        id: true,
+        bookingType: true,
+        bookingStatus: true,
+        customerId: true,
+        isMakeup: true,
+        servicePlanId: true,
+        customerPlanWalletId: true,
+        expectedAmount: true,
+      },
+    });
+    if (!booking) throw new AppError("NOT_FOUND", "預約不存在或不屬於本店");
+
+    if (booking.isMakeup) {
+      throw new AppError("BUSINESS_RULE", "補課預約不適用調整結帳方式");
+    }
+    if (booking.bookingType !== "PACKAGE_SESSION") {
+      throw new AppError(
+        "BUSINESS_RULE",
+        "目前僅支援「方案扣堂 → 單次未收款」，此預約非方案扣堂",
+      );
+    }
+    if (
+      booking.bookingStatus !== "PENDING" &&
+      booking.bookingStatus !== "CONFIRMED"
+    ) {
+      throw new AppError(
+        "BUSINESS_RULE",
+        "此預約狀態無法調整結帳方式（僅未完成 / 未取消的預約可調整）",
+      );
+    }
+
+    // 已扣堂（有 COMPLETED WalletSession）→ 不可改為單次，否則堂數沒補回。
+    const deductedCount = await prisma.walletSession.count({
+      where: { bookingId: booking.id, status: "COMPLETED" },
+    });
+    if (deductedCount > 0) {
+      throw new AppError(
+        "BUSINESS_RULE",
+        "此預約已扣堂，無法改為單次（請改走更正流程）",
+      );
+    }
+
+    // 已有任何 SUCCESS 交易（扣堂 / 收款）→ 不可改，避免重複營收 / 帳務不一致。
+    const successTx = await prisma.transaction.findFirst({
+      where: { bookingId: booking.id, status: "SUCCESS" },
+      select: { id: true },
+    });
+    if (successTx) {
+      throw new AppError(
+        "BUSINESS_RULE",
+        "此預約已有成功交易紀錄，需先走更正流程後再調整結帳方式",
+      );
+    }
+
+    await prisma.$transaction(async (tx) => {
+      // race-safe：鎖 Booking row，串行化同 booking 的並發完成扣堂 / 收款 / 轉換
+      await tx.$queryRaw`SELECT id FROM "Booking" WHERE id = ${booking.id} FOR UPDATE`;
+
+      // 鎖定後重查狀態（防 TOCTOU：markCompleted / collectSinglePayment 可能
+      // 在外層查詢後 commit）
+      const fresh = await tx.booking.findUnique({
+        where: { id: booking.id },
+        select: { bookingType: true, bookingStatus: true, isMakeup: true },
+      });
+      if (!fresh) throw new AppError("NOT_FOUND", "預約不存在");
+      if (fresh.bookingType !== "PACKAGE_SESSION") {
+        throw new AppError("CONFLICT", "預約結帳方式已變更，請重新整理");
+      }
+      if (
+        fresh.bookingStatus !== "PENDING" &&
+        fresh.bookingStatus !== "CONFIRMED"
+      ) {
+        throw new AppError("CONFLICT", "預約狀態已變更，請重新整理");
+      }
+      // 鎖定後重查「已扣堂 / 已有 SUCCESS 交易」（防 markCompleted 並發 commit）
+      const deductedNow = await tx.walletSession.count({
+        where: { bookingId: booking.id, status: "COMPLETED" },
+      });
+      if (deductedNow > 0) {
+        throw new AppError("CONFLICT", "此預約已扣堂，請改走更正流程");
+      }
+      const txNow = await tx.transaction.findFirst({
+        where: { bookingId: booking.id, status: "SUCCESS" },
+        select: { id: true },
+      });
+      if (txNow) {
+        throw new AppError("CONFLICT", "此預約已有成功交易，請改走更正流程");
+      }
+
+      // 1. 安全釋放配堂（RESERVED → AVAILABLE），堂數回補。與 cancelBooking 同一
+      //    路徑，不硬刪、不改 wallet-session 核心。
+      await releaseSessions(tx, booking.id);
+
+      // 2. 翻成乾淨的單次未收款：清掉方案 / wallet / 金額快照。單次原價於收款時
+      //    由既有 collectSinglePayment 依 servicePlan.price ?? 799（此處 null → 799）取得。
+      await tx.booking.update({
+        where: { id: booking.id },
+        data: {
+          bookingType: "SINGLE",
+          customerPlanWalletId: null,
+          servicePlanId: null,
+          expectedAmount: null,
+        },
+      });
+
+      // 3. 稽核（before/after）— reason 選填，空白也寫入。誤操作可追溯、可反向手動回復。
+      await tx.auditLog.create({
+        data: {
+          actorUserId: user.id,
+          targetType: "Booking",
+          targetId: booking.id,
+          action: "ADJUST_CHECKOUT_METHOD",
+          beforeJson: {
+            bookingType: "PACKAGE_SESSION",
+            customerPlanWalletId: booking.customerPlanWalletId,
+            servicePlanId: booking.servicePlanId,
+            expectedAmount:
+              booking.expectedAmount == null
+                ? null
+                : Number(booking.expectedAmount),
+          },
+          afterJson: {
+            bookingType: "SINGLE",
+            customerPlanWalletId: null,
+            servicePlanId: null,
+            expectedAmount: null,
+            reason: data.reason ?? null,
+          },
+        },
+      });
+    });
+
+    revalidateBookings(booking.customerId);
+    return { success: true, data: { bookingId: booking.id } };
   } catch (e) {
     return handleActionError(e);
   }

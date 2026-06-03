@@ -17,10 +17,12 @@ const h = vi.hoisted(() => {
   const txTransactionFindFirst = vi.fn(async () => null as { id: string } | null);
   const txTransactionCreate = vi.fn(); // 必須永不被呼叫（零金流）
   const txAuditCreate = vi.fn(async () => ({ id: "audit_1" }));
+  const txWalletSessionCount = vi.fn(async () => 0); // Mode B 鎖後重查已扣堂
   const allocateSessionsFefo = vi.fn(async () => ({
     allocations: [],
     primaryWalletId: "w_1",
   }));
+  const releaseSessions = vi.fn(async () => ({ released: 1 })); // Mode B 釋放配堂
   return {
     txQueryRaw,
     txBookingFindUnique,
@@ -28,12 +30,15 @@ const h = vi.hoisted(() => {
     txTransactionFindFirst,
     txTransactionCreate,
     txAuditCreate,
+    txWalletSessionCount,
     allocateSessionsFefo,
+    releaseSessions,
     requirePermission: vi.fn(async () => ({ id: "user_1", storeId: "store_1" })),
     currentStoreId: vi.fn(() => "store_1"),
     bookingFindFirst: vi.fn(),
     transactionFindFirst: vi.fn(async () => null as { id: string } | null),
     walletFindMany: vi.fn(),
+    walletSessionCount: vi.fn(async () => 0), // Mode B 已扣堂 guard（prisma-level）
     txRun: vi.fn(async (fn: (c: unknown) => unknown) =>
       fn({
         $queryRaw: txQueryRaw,
@@ -42,6 +47,7 @@ const h = vi.hoisted(() => {
           findFirst: txTransactionFindFirst,
           create: txTransactionCreate,
         },
+        walletSession: { count: txWalletSessionCount },
         auditLog: { create: txAuditCreate },
       }),
     ),
@@ -54,6 +60,7 @@ vi.mock("@/lib/db", () => ({
     booking: { findFirst: h.bookingFindFirst },
     transaction: { findFirst: h.transactionFindFirst },
     customerPlanWallet: { findMany: h.walletFindMany },
+    walletSession: { count: h.walletSessionCount },
     $transaction: h.txRun,
   },
 }));
@@ -61,6 +68,7 @@ vi.mock("@/lib/permissions", () => ({ requirePermission: h.requirePermission }))
 vi.mock("@/lib/store", () => ({ currentStoreId: h.currentStoreId }));
 vi.mock("@/server/services/wallet-session", () => ({
   allocateSessionsFefo: h.allocateSessionsFefo,
+  releaseSessions: h.releaseSessions,
 }));
 vi.mock("@/lib/revalidation", () => ({
   revalidateBookings: h.revalidateBookings,
@@ -79,7 +87,10 @@ vi.mock("@/lib/errors", () => ({
   }),
 }));
 
-import { adjustCheckoutToPackage } from "@/server/actions/booking-checkout";
+import {
+  adjustCheckoutToPackage,
+  adjustCheckoutToSingle,
+} from "@/server/actions/booking-checkout";
 
 const SINGLE_UNPAID = {
   id: "bk_1",
@@ -134,6 +145,10 @@ beforeEach(() => {
   h.txTransactionFindFirst.mockResolvedValue(null);
   h.txBookingUpdate.mockResolvedValue({} as unknown as never);
   h.allocateSessionsFefo.mockResolvedValue({ allocations: [], primaryWalletId: "w_1" });
+  // Mode B 預設：未扣堂、釋放成功
+  h.walletSessionCount.mockResolvedValue(0);
+  h.txWalletSessionCount.mockResolvedValue(0);
+  h.releaseSessions.mockResolvedValue({ released: 1 });
 });
 
 describe("adjustCheckoutToPackage — happy path (SINGLE → PACKAGE_SESSION)", () => {
@@ -342,6 +357,214 @@ describe("adjustCheckoutToPackageSchema", () => {
     ).toThrow();
     expect(() =>
       adjustCheckoutToPackageSchema.parse({ bookingId: "bk", walletId: "" }),
+    ).toThrow();
+  });
+});
+
+// ============================================================
+// Mode B — adjustCheckoutToSingle（PACKAGE_SESSION 方案扣堂 → SINGLE 單次未收款）
+//  - 釋放配堂只「呼叫」既有 releaseSessions（RESERVED → AVAILABLE）
+//  - 翻成乾淨單次：bookingType=SINGLE / walletId=null / servicePlanId=null /
+//    expectedAmount=null
+//  - 零金流：不建任何 Transaction、不收款
+//  - reason 選填，空白也建立 AuditLog
+//  - race-safe：$transaction 內 FOR UPDATE → 重查（型別/狀態/已扣堂/SUCCESS 交易）→ 釋放 → update
+//  - guards：非 PACKAGE_SESSION / COMPLETED·CANCELLED·NO_SHOW / 補課 / 已扣堂 / 已有 SUCCESS 交易
+// ============================================================
+
+const PACKAGE_PENDING = {
+  id: "bk_2",
+  bookingType: "PACKAGE_SESSION",
+  bookingStatus: "PENDING",
+  customerId: "cust_1",
+  isMakeup: false,
+  servicePlanId: "plan_1",
+  customerPlanWalletId: "w_1",
+  expectedAmount: null as number | null,
+};
+
+const baseB = { bookingId: "bk_2", reason: "連蒸第二天優惠" };
+
+function setupModeB() {
+  h.bookingFindFirst.mockResolvedValue({ ...PACKAGE_PENDING } as unknown as never);
+  h.txBookingFindUnique.mockResolvedValue({
+    bookingType: "PACKAGE_SESSION",
+    bookingStatus: "PENDING",
+    isMakeup: false,
+  } as unknown as never);
+}
+
+const lastUpdateData = () =>
+  (h.txBookingUpdate.mock.calls.at(-1) as unknown[] | undefined)?.[0] as {
+    data: Record<string, unknown>;
+  };
+
+describe("adjustCheckoutToSingle — happy path (PACKAGE_SESSION → SINGLE)", () => {
+  it("releases sessions, flips to clean SINGLE, writes audit with reason — zero Transaction", async () => {
+    setupModeB();
+    const r = await adjustCheckoutToSingle(baseB);
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data.bookingId).toBe("bk_2");
+
+    // 釋放既有配堂（RESERVED → AVAILABLE），對應本 booking
+    expect(h.releaseSessions).toHaveBeenCalledTimes(1);
+    expect((h.releaseSessions.mock.calls[0] as unknown[])[1]).toBe("bk_2");
+
+    // 翻成乾淨單次：清方案 / wallet / 金額快照
+    const upd = lastUpdateData();
+    expect(upd.data.bookingType).toBe("SINGLE");
+    expect(upd.data.customerPlanWalletId).toBeNull();
+    expect(upd.data.servicePlanId).toBeNull();
+    expect(upd.data.expectedAmount).toBeNull();
+
+    // audit：action + reason 寫入
+    expect(h.txAuditCreate).toHaveBeenCalledTimes(1);
+    const audit = (h.txAuditCreate.mock.calls[0] as unknown[])[0] as {
+      data: { action: string; afterJson: Record<string, unknown> };
+    };
+    expect(audit.data.action).toBe("ADJUST_CHECKOUT_METHOD");
+    expect(audit.data.afterJson.reason).toBe("連蒸第二天優惠");
+
+    // 零金流
+    expect(h.txTransactionCreate).not.toHaveBeenCalled();
+    expect(h.revalidateBookings).toHaveBeenCalledTimes(1);
+  });
+
+  it("reason omitted → still succeeds, audit reason = null", async () => {
+    setupModeB();
+    const r = await adjustCheckoutToSingle({ bookingId: "bk_2" });
+    expect(r.success).toBe(true);
+    expect(h.txAuditCreate).toHaveBeenCalledTimes(1);
+    const audit = (h.txAuditCreate.mock.calls[0] as unknown[])[0] as {
+      data: { afterJson: Record<string, unknown> };
+    };
+    expect(audit.data.afterJson.reason).toBeNull();
+    expect(h.releaseSessions).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("adjustCheckoutToSingle — race-safe ordering", () => {
+  it("locks Booking row (FOR UPDATE) BEFORE re-read / release / update", async () => {
+    setupModeB();
+    await adjustCheckoutToSingle(baseB);
+    const lockOrder = h.txQueryRaw.mock.invocationCallOrder[0];
+    const reReadOrder = h.txBookingFindUnique.mock.invocationCallOrder[0];
+    const releaseOrder = h.releaseSessions.mock.invocationCallOrder[0];
+    const updateOrder = h.txBookingUpdate.mock.invocationCallOrder[0];
+    expect(lockOrder).toBeLessThan(reReadOrder);
+    expect(reReadOrder).toBeLessThan(releaseOrder);
+    expect(releaseOrder).toBeLessThan(updateOrder);
+  });
+
+  it("CONFLICT when locked re-read shows bookingType already changed (concurrent)", async () => {
+    setupModeB();
+    h.txBookingFindUnique.mockResolvedValue({
+      bookingType: "SINGLE",
+      bookingStatus: "PENDING",
+      isMakeup: false,
+    } as unknown as never);
+    const r = await adjustCheckoutToSingle(baseB);
+    expect(r.success).toBe(false);
+    expect(h.releaseSessions).not.toHaveBeenCalled();
+    expect(h.txBookingUpdate).not.toHaveBeenCalled();
+  });
+
+  it("CONFLICT when a COMPLETED WalletSession appears after lock (concurrent complete)", async () => {
+    setupModeB();
+    h.txWalletSessionCount.mockResolvedValue(1);
+    const r = await adjustCheckoutToSingle(baseB);
+    expect(r.success).toBe(false);
+    expect(h.releaseSessions).not.toHaveBeenCalled();
+    expect(h.txBookingUpdate).not.toHaveBeenCalled();
+  });
+
+  it("CONFLICT when a SUCCESS tx appears after lock (concurrent collect/deduct)", async () => {
+    setupModeB();
+    h.txTransactionFindFirst.mockResolvedValue({ id: "tx_paid" });
+    const r = await adjustCheckoutToSingle(baseB);
+    expect(r.success).toBe(false);
+    expect(h.releaseSessions).not.toHaveBeenCalled();
+    expect(h.txBookingUpdate).not.toHaveBeenCalled();
+  });
+});
+
+describe("adjustCheckoutToSingle — pre-transaction guards", () => {
+  it("rejects makeup booking", async () => {
+    setupModeB();
+    h.bookingFindFirst.mockResolvedValue({
+      ...PACKAGE_PENDING,
+      isMakeup: true,
+    } as unknown as never);
+    const r = await adjustCheckoutToSingle(baseB);
+    expect(r.success).toBe(false);
+    expect(h.txRun).not.toHaveBeenCalled();
+  });
+
+  it.each(["FIRST_TRIAL", "SINGLE"])(
+    "rejects bookingType=%s (only PACKAGE_SESSION)",
+    async (bt) => {
+      setupModeB();
+      h.bookingFindFirst.mockResolvedValue({
+        ...PACKAGE_PENDING,
+        bookingType: bt,
+      } as unknown as never);
+      const r = await adjustCheckoutToSingle(baseB);
+      expect(r.success).toBe(false);
+      expect(h.txRun).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(["COMPLETED", "CANCELLED", "NO_SHOW"])(
+    "rejects bookingStatus=%s",
+    async (st) => {
+      setupModeB();
+      h.bookingFindFirst.mockResolvedValue({
+        ...PACKAGE_PENDING,
+        bookingStatus: st,
+      } as unknown as never);
+      const r = await adjustCheckoutToSingle(baseB);
+      expect(r.success).toBe(false);
+      expect(h.txRun).not.toHaveBeenCalled();
+    },
+  );
+
+  it("rejects when already deducted (COMPLETED WalletSession exists, pre-tx)", async () => {
+    setupModeB();
+    h.walletSessionCount.mockResolvedValue(1);
+    const r = await adjustCheckoutToSingle(baseB);
+    expect(r.success).toBe(false);
+    expect(h.txRun).not.toHaveBeenCalled();
+  });
+
+  it("rejects when a SUCCESS transaction already exists (pre-tx)", async () => {
+    setupModeB();
+    h.transactionFindFirst.mockResolvedValue({ id: "tx_old" });
+    const r = await adjustCheckoutToSingle(baseB);
+    expect(r.success).toBe(false);
+    expect(h.txRun).not.toHaveBeenCalled();
+  });
+
+  it("cross-store booking (store-scoped findFirst → null) → NOT_FOUND", async () => {
+    h.bookingFindFirst.mockResolvedValue(null as unknown as never);
+    const r = await adjustCheckoutToSingle(baseB);
+    expect(r.success).toBe(false);
+    expect(h.txRun).not.toHaveBeenCalled();
+  });
+});
+
+describe("adjustCheckoutToSingleSchema", () => {
+  it("accepts with/without reason; rejects empty bookingId", async () => {
+    const { adjustCheckoutToSingleSchema } = await import(
+      "@/lib/validators/booking-checkout"
+    );
+    expect(() =>
+      adjustCheckoutToSingleSchema.parse({ bookingId: "bk", reason: "促銷" }),
+    ).not.toThrow();
+    expect(() =>
+      adjustCheckoutToSingleSchema.parse({ bookingId: "bk" }),
+    ).not.toThrow();
+    expect(() =>
+      adjustCheckoutToSingleSchema.parse({ bookingId: "" }),
     ).toThrow();
   });
 });

@@ -104,6 +104,20 @@ export interface BookingDrawerPayload {
       recommended: boolean;
     }[];
   } | null;
+  // 調整結帳方式（Phase 2 / Mode B — PACKAGE_SESSION 方案扣堂 → SINGLE 單次未收款）。
+  // 僅 PACKAGE_SESSION 預約有此區塊（其他型別一律 null）。canAdjustToSingle=true 時
+  // Drawer 才顯示「調整結帳」按鈕；false 時 reason 給不可調整原因（補課 / 狀態不符）。
+  // 「已扣堂 / 已有 SUCCESS 交易」的權威判斷在 adjustCheckoutToSingle action 內（執行時
+  // race-safe 重查），此 Drawer 區塊只負責入口呈現，不重複加查詢。
+  // currentPlanName / currentRemaining 供 Modal 顯示「目前：方案扣堂｜方案名｜剩 X 堂」；
+  // singleDefaultPrice 為轉換後單次原價（servicePlanId 清 null → 799），供 Modal 顯示。
+  checkoutToSingle: {
+    canAdjustToSingle: boolean;
+    reason: string | null;
+    currentPlanName: string | null;
+    currentRemaining: number | null;
+    singleDefaultPrice: number;
+  } | null;
 }
 
 export async function fetchBookingDetail(
@@ -115,6 +129,7 @@ export async function fetchBookingDetail(
 
   const isTrial = booking.bookingType === "FIRST_TRIAL";
   const isSingle = booking.bookingType === "SINGLE";
+  const isPackage = booking.bookingType === "PACKAGE_SESSION";
   const storeFilter = getStoreFilter(user);
 
   // 拿到 booking 後，下列查詢彼此獨立（只依賴 booking.id / storeId / customerId），
@@ -335,6 +350,47 @@ export async function fetchBookingDetail(
           wallets: adjustWallets,
         })
       : null,
+    checkoutToSingle: isPackage
+      ? buildCheckoutToSingleBlock({
+          isMakeup: booking.isMakeup,
+          bookingStatus: booking.bookingStatus,
+          planName:
+            booking.customerPlanWallet?.plan.name ??
+            booking.servicePlan?.name ??
+            null,
+          remaining: booking.customerPlanWallet?.remainingSessions ?? null,
+        })
+      : null,
+  };
+}
+
+// 調整結帳方式 Mode B 可行性判斷（PACKAGE_SESSION → SINGLE）。
+// Drawer 入口只 gate「補課 / 狀態」這兩個顯而易見的條件；「已扣堂 / 已有 SUCCESS
+// 交易」由 adjustCheckoutToSingle action 在執行時 race-safe 重查把關（避免在 Drawer
+// 多打查詢，且 PENDING/CONFIRMED 的方案預約依系統 invariant 為 RESERVED、無 SUCCESS 交易）。
+function buildCheckoutToSingleBlock(args: {
+  isMakeup: boolean;
+  bookingStatus: string;
+  planName: string | null;
+  remaining: number | null;
+}): NonNullable<BookingDrawerPayload["checkoutToSingle"]> {
+  let reason: string | null = null;
+  if (args.isMakeup) {
+    reason = "補課預約不適用調整結帳方式";
+  } else if (
+    args.bookingStatus !== "PENDING" &&
+    args.bookingStatus !== "CONFIRMED"
+  ) {
+    reason = "僅未完成 / 未取消的預約可調整結帳方式";
+  }
+
+  return {
+    canAdjustToSingle: reason === null,
+    reason,
+    currentPlanName: args.planName,
+    currentRemaining: args.remaining,
+    // 轉成 SINGLE 後 servicePlanId 清 null → collectSinglePayment fallback 799。
+    singleDefaultPrice: 799,
   };
 }
 

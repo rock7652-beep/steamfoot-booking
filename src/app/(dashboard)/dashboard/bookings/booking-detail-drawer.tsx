@@ -85,6 +85,7 @@ export function BookingDetailDrawer({
   const [correctOpen, setCorrectOpen] = useState(false);
   const [collectSingleOpen, setCollectSingleOpen] = useState(false);
   const [adjustCheckoutOpen, setAdjustCheckoutOpen] = useState(false);
+  const [adjustToSingleOpen, setAdjustToSingleOpen] = useState(false);
   // 收款 / 更正成功後預約狀態不變、但 trial.collected 會翻轉 → 用 nonce 觸發重抓
   const [reloadNonce, setReloadNonce] = useState(0);
 
@@ -240,6 +241,15 @@ export function BookingDetailDrawer({
     if (bookingId) onUpdated?.(bookingId, null);
   }
 
+  // 調整結帳方式 Mode B 成功（PACKAGE_SESSION → SINGLE）— bookingType / wallet 翻轉，
+  // 預約狀態不變。重抓 detail 讓 Drawer 改顯示單次未收款；onUpdated(null) 讓母層
+  // 重整當日資料（月曆 strip 的方案標籤一併更新）。
+  function handleAdjustedToSingle() {
+    setAdjustToSingleOpen(false);
+    setReloadNonce((n) => n + 1);
+    if (bookingId) onUpdated?.(bookingId, null);
+  }
+
   // What we have to render:
   //   1. Full payload matching current bookingId — preferred when loaded.
   //   2. Pre-loaded summary — instant render of header band; body shows skeleton.
@@ -270,6 +280,7 @@ export function BookingDetailDrawer({
               correct: () => setCorrectOpen(true),
               collectSingle: () => setCollectSingleOpen(true),
               adjustCheckout: () => setAdjustCheckoutOpen(true),
+              adjustToSingle: () => setAdjustToSingleOpen(true),
             }}
           />
         ) : showHeaderFromSummary && summary ? (
@@ -353,6 +364,22 @@ export function BookingDetailDrawer({
           onAdjusted={handleAdjusted}
         />
       )}
+      {data &&
+        data.checkoutToSingle &&
+        data.checkoutToSingle.canAdjustToSingle && (
+          <AdjustCheckoutModal
+            mode="toSingle"
+            open={adjustToSingleOpen}
+            onClose={() => setAdjustToSingleOpen(false)}
+            bookingId={data.booking.id}
+            customerName={data.booking.customer.name}
+            dateLabel={`${data.booking.bookingDate} ${data.booking.slotTime}`}
+            currentPlanName={data.checkoutToSingle.currentPlanName}
+            currentRemaining={data.checkoutToSingle.currentRemaining}
+            singleDefaultPrice={data.checkoutToSingle.singleDefaultPrice}
+            onAdjusted={handleAdjustedToSingle}
+          />
+        )}
     </>
   );
 }
@@ -371,6 +398,7 @@ interface DrawerActions {
   correct: () => void;
   collectSingle: () => void;
   adjustCheckout: () => void;
+  adjustToSingle: () => void;
 }
 
 function DrawerContent({
@@ -384,7 +412,8 @@ function DrawerContent({
   onClose: () => void;
   actions: DrawerActions;
 }) {
-  const { booking, customerSummary, trial, single, checkout } = payload;
+  const { booking, customerSummary, trial, single, checkout, checkoutToSingle } =
+    payload;
   const meta = bookingStatusMeta(booking.bookingStatus, booking.isCheckedIn);
   const amount = computeAmount(booking, trial);
   const duration = booking.servicePlan?.category === "TRIAL" ? 30 : 60;
@@ -654,6 +683,7 @@ function DrawerContent({
         trial={trial}
         single={single}
         checkout={checkout}
+        checkoutToSingle={checkoutToSingle}
         isActing={isActing}
         actions={actions}
       />
@@ -748,6 +778,7 @@ function ActionFooter({
   trial,
   single,
   checkout,
+  checkoutToSingle,
   isActing,
   actions,
 }: {
@@ -755,6 +786,7 @@ function ActionFooter({
   trial: BookingDrawerPayload["trial"];
   single: BookingDrawerPayload["single"];
   checkout: BookingDrawerPayload["checkout"];
+  checkoutToSingle: BookingDrawerPayload["checkoutToSingle"];
   isActing: boolean;
   actions: DrawerActions;
 }) {
@@ -797,6 +829,14 @@ function ActionFooter({
     checkout.canAdjustToPackage &&
     (status === "PENDING" || status === "CONFIRMED");
 
+  // 調整結帳方式 Mode B（PACKAGE_SESSION 方案扣堂 → SINGLE 單次未收款）：server
+  // 已用同源 guard 判定 canAdjustToSingle；此處只呈現次要動線。與 Mode A 互斥
+  // （預約非 SINGLE 即 PACKAGE_SESSION），不會同時出現兩顆「調整結帳」。
+  const canAdjustToSingle =
+    checkoutToSingle != null &&
+    checkoutToSingle.canAdjustToSingle &&
+    (status === "PENDING" || status === "CONFIRMED");
+
   if (status === "PENDING" || status === "CONFIRMED") {
     if (canCollect) {
       primaries.push({ label: "收款", onClick: actions.collect });
@@ -814,6 +854,9 @@ function ActionFooter({
     }
     if (canAdjustCheckout) {
       secondaries.push({ label: "調整結帳", onClick: actions.adjustCheckout });
+    }
+    if (canAdjustToSingle) {
+      secondaries.push({ label: "調整結帳", onClick: actions.adjustToSingle });
     }
     secondaries.push({ label: "改時間", onClick: actions.reschedule });
     secondaries.push({ label: "標記未到", onClick: actions.noShow });
