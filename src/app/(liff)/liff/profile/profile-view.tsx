@@ -24,12 +24,11 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { initLiff, isInLineClient, getIDToken } from "@/lib/liff/client";
 import { liffMessages } from "@/lib/liff/messages";
-import {
-  fetchLiffCustomerProfile,
-  type LiffCustomerProfile,
-} from "@/server/actions/liff-customer-profile";
+import { type LiffCustomerProfile } from "@/server/actions/liff-customer-profile";
+import { loadProfileWithSessionRefresh } from "@/lib/liff/profile-loader";
 
 type State =
   | { kind: "initializing" }
@@ -53,6 +52,7 @@ export function ProfileView({
   liffId,
   contactUrl,
 }: Props) {
+  const router = useRouter();
   const [state, setState] = useState<State>({ kind: "initializing" });
 
   useEffect(() => {
@@ -67,21 +67,41 @@ export function ProfileView({
         }
         // Pre-flight: ensure idToken is available (mirrors bookings-list /
         // wallets-list pattern). If expired / missing → render expired
-        // state so user can retry; do NOT call the server action with no
-        // session (would return no_customer and confuse the UX vs the
-        // real "session expired" case).
+        // state so user can retry; do NOT call the loader without a token
+        // — without a token, exchange cannot verify the current LINE user
+        // and the stale-cookie risk re-opens.
         const idToken = getIDToken();
         if (!idToken) {
           setState({ kind: "expired" });
           return;
         }
 
-        const result = await fetchLiffCustomerProfile();
+        // PR #257 round 4 (Codex P2 cross-customer leak fix):
+        // `loadProfileWithSessionRefresh` runs `/api/liff/exchange` FIRST
+        // to refresh the NextAuth session against the current LIFF
+        // idToken, THEN reads the customer profile. Without this two-step
+        // sequence, a stale cookie from a previously-logged-in customer
+        // could leak that customer's name / phone / email to a different
+        // current LINE user on the same device.
+        const result = await loadProfileWithSessionRefresh({
+          idToken,
+          storeSlug,
+        });
         if (cancelled) return;
 
-        if (result.status === "ok") {
+        if (result.kind === "ok") {
           setState({ kind: "ready", profile: result.profile });
-        } else if (result.status === "no_customer") {
+        } else if (result.kind === "need_onboarding") {
+          // Mirror liff-shell behaviour: profile is a deep page, so we
+          // PUSH the user to the canonical onboarding flow rather than
+          // rendering a hybrid CTA here. State stays "initializing"
+          // (spinner) during the navigation so the user sees consistent
+          // transition feedback.
+          router.push(`/s/${storeSlug}/liff/onboarding`);
+          return;
+        } else if (result.kind === "expired") {
+          setState({ kind: "expired" });
+        } else if (result.kind === "no_customer") {
           setState({ kind: "no_customer" });
         } else {
           setState({ kind: "service_unavailable" });
@@ -95,7 +115,7 @@ export function ProfileView({
     return () => {
       cancelled = true;
     };
-  }, [liffId]);
+  }, [liffId, storeSlug, router]);
 
   return (
     <div className="mx-auto flex max-w-md flex-col gap-4 px-4 py-6">
