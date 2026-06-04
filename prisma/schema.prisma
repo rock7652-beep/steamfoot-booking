@@ -1095,6 +1095,7 @@ model Transaction {
   @@index([refundOfTransactionId]) // v2: 反查某原交易的所有 refund tx
   @@index([refundOfTransactionId, transactionType]) // v2: 報表 / Drawer 同時 filter refund + type 查詢
   @@index([transactionType, transactionDate]) // v2: 報表「總收入 / 退款 / 淨收入」分類聚合
+  @@index([bookingId]) // 預約詳情 Drawer / 調整結帳 guard / 月曆收款狀態 — 皆以 bookingId equality 查 Transaction，原本無索引 → Seq Scan
 }
 
 // ============================================================
