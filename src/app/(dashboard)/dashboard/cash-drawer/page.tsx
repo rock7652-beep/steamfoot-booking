@@ -22,7 +22,8 @@ import { FormErrorToast } from "@/components/form-error-toast";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { PageShell, PageHeader } from "@/components/desktop";
 
-import { getCashDrawerView } from "@/server/queries/cash-drawer";
+import { getCashDrawerView, listClosedBusinessDates } from "@/server/queries/cash-drawer";
+import { listStaffSelectOptions } from "@/server/queries/staff";
 import { CashDrawerWorkspace } from "./cash-drawer-workspace";
 
 interface PageProps {
@@ -44,15 +45,31 @@ export default async function CashDrawerPage({ searchParams }: PageProps) {
   const todayStr = toLocalDateStr();
   const [y, m, d] = todayStr.split("-").map(Number);
   const todayBusinessDate = new Date(Date.UTC(y, m - 1, d));
+  // 「記一筆收支」inline form 防呆提示用：近 ~180 天的已閉店營業日。
+  const fromDate = new Date(Date.UTC(y, m - 1, d));
+  fromDate.setUTCDate(fromDate.getUTCDate() - 180);
 
-  const [plan, view, canOpen, canClose, canAddEntry] = await Promise.all([
+  const [
+    plan,
+    view,
+    canOpen,
+    canClose,
+    canAddEntry,
+    canCreateCashbook,
+    closedDates,
+    staffOptions,
+  ] = await Promise.all([
     getCurrentStorePlan(),
     getCashDrawerView(storeId, todayBusinessDate),
     checkPermission(user.role, user.staffId, "cashDrawer.open"),
     checkPermission(user.role, user.staffId, "cashDrawer.close"),
     checkPermission(user.role, user.staffId, "cashDrawer.entry"),
+    checkPermission(user.role, user.staffId, "cashbook.create"),
+    listClosedBusinessDates(storeId, fromDate.toISOString().slice(0, 10), todayStr),
+    listStaffSelectOptions(),
   ]);
   const canInit = user.role === "ADMIN" || user.role === "OWNER";
+  const canAssignStaff = user.role === "ADMIN";
 
   return (
     <FeatureGate plan={plan} feature={FEATURES.CASHBOOK}>
@@ -79,6 +96,10 @@ export default async function CashDrawerPage({ searchParams }: PageProps) {
           canOpen={canOpen}
           canClose={canClose}
           canAddEntry={canAddEntry}
+          canCreateCashbook={canCreateCashbook}
+          closedDates={closedDates}
+          canAssignStaff={canAssignStaff}
+          staffOptions={staffOptions}
           returnPath="/dashboard/cash-drawer"
         />
       </PageShell>

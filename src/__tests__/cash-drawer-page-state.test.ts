@@ -11,8 +11,27 @@
  */
 
 import { describe, it, expect } from "vitest";
+import { Prisma } from "@prisma/client";
 import type { CashDrawerSession } from "@prisma/client";
-import { deriveCashDrawerView } from "@/server/queries/cash-drawer";
+import {
+  deriveCashDrawerView,
+  type CashDrawerLiveTotals,
+} from "@/server/queries/cash-drawer";
+
+const ZERO = new Prisma.Decimal(0);
+const stubLiveTotals = (
+  overrides: Partial<CashDrawerLiveTotals> = {},
+): CashDrawerLiveTotals => ({
+  cashIncomeTotal: ZERO,
+  cashExpenseTotal: ZERO,
+  cashWithdrawalTotal: ZERO,
+  cashDepositTotal: ZERO,
+  cashAdjustmentTotal: ZERO,
+  cashbookCashIncome: ZERO,
+  cashbookCashOut: ZERO,
+  expectedClosingCash: ZERO,
+  ...overrides,
+});
 
 const stub = (overrides: Partial<CashDrawerSession>): CashDrawerSession =>
   ({
@@ -88,17 +107,32 @@ describe("deriveCashDrawerView", () => {
     expect(view.state).toBe("OPENED_TODAY");
   });
 
-  it("WARNING_LAST_OPEN：今日無 session，上日 session 仍 OPEN", () => {
+  it("WARNING_LAST_OPEN：今日無 session，上日 session 仍 OPEN 且帶 liveTotals", () => {
     const lastOpen = stub({
       id: "sess-yesterday",
       businessDate: new Date(Date.UTC(2026, 4, 12)),
       status: "OPEN",
     });
-    const view = deriveCashDrawerView(null, lastOpen);
+    const warningTotals = stubLiveTotals({
+      expectedClosingCash: new Prisma.Decimal(8100),
+    });
+    const view = deriveCashDrawerView(null, lastOpen, null, [], warningTotals);
     expect(view.state).toBe("WARNING_LAST_OPEN");
     if (view.state === "WARNING_LAST_OPEN") {
       expect(view.lastSession.id).toBe("sess-yesterday");
+      expect(view.liveTotals.expectedClosingCash.toString()).toBe("8100");
     }
+  });
+
+  it("WARNING_LAST_OPEN：缺 warningLiveTotals 時 throw（caller 必須傳）", () => {
+    const lastOpen = stub({
+      id: "sess-yesterday",
+      businessDate: new Date(Date.UTC(2026, 4, 12)),
+      status: "OPEN",
+    });
+    expect(() => deriveCashDrawerView(null, lastOpen)).toThrow(
+      /warningLiveTotals required/,
+    );
   });
 
   it("NOT_OPENED_TODAY：今日無 session，上日 CLOSED 可開店", () => {

@@ -185,6 +185,15 @@ enum CashbookEntryType {
   ADJUSTMENT
 }
 
+// 現金帳付款方式（Cash Drawer 2.0）— 店長 UI 僅二元決策：現金 / 其他
+//   CASH  ：現金；未來（後續 PR）才會納入現金抽屜計算
+//   OTHER ：匯款 / 轉帳 / 刷卡等非現金；永不影響現金抽屜
+// 刻意不重用 Transaction 的 PaymentMethod（避免帶入 UNPAID 等不相關狀態與模組耦合）
+enum CashbookPaymentMethod {
+  CASH
+  OTHER
+}
+
 enum CashDrawerSessionStatus {
   OPEN
   CLOSED
@@ -1093,17 +1102,20 @@ model Transaction {
 // ============================================================
 
 model CashbookEntry {
-  id              String            @id @default(cuid())
+  id              String                @id @default(cuid())
   storeId         String
-  entryDate       DateTime          @db.Date
+  entryDate       DateTime              @db.Date
   type            CashbookEntryType
+  // 付款方式（Cash Drawer 2.0）— @default(OTHER) 讓既有資料於 migration 自動填 OTHER，
+  // 不回溯改帳、不影響現金抽屜。後續 PR 才會讓 CASH 納入抽屜計算；本欄此刻為惰性欄位。
+  paymentMethod   CashbookPaymentMethod @default(OTHER)
   category        String? // 自由分類：水電、材料、雜支...
-  amount          Decimal           @db.Decimal(10, 0)
+  amount          Decimal               @db.Decimal(10, 0)
   staffId         String? // 歸屬店長（nullable）
   note            String?
   createdByUserId String
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
 
   store     Store  @relation(fields: [storeId], references: [id])
   staff     Staff? @relation("CashbookStaff", fields: [staffId], references: [id])
@@ -1112,6 +1124,7 @@ model CashbookEntry {
   @@index([storeId])
   @@index([entryDate])
   @@index([staffId])
+  @@index([storeId, paymentMethod]) // 預留：後續 PR 依店 + 付款方式聚合現金流
 }
 
 // ============================================================
@@ -1729,7 +1742,7 @@ model CashDrawerSession {
   closingNote         String?
   closedByUserId      String?
   closedAt            DateTime?
-  finalBookBalance    Decimal?  @db.Decimal(10, 0) // = expectedClosingCash（維持帳面責任鏈）
+  finalBookBalance    Decimal?  @db.Decimal(10, 0) // (PR-5) = closingActualCash：差額留在當天，下次開店從實際現金開始
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

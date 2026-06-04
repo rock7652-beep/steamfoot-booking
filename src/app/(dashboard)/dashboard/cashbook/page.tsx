@@ -16,7 +16,8 @@
  */
 
 import { listCashbookEntries, getMonthlySummary } from "@/server/queries/cashbook";
-import { getCashDrawerView } from "@/server/queries/cash-drawer";
+import { getCashDrawerView, listClosedBusinessDates } from "@/server/queries/cash-drawer";
+import { listStaffSelectOptions } from "@/server/queries/staff";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { getCurrentStorePlan } from "@/lib/store-plan";
@@ -44,6 +45,17 @@ const ENTRY_TYPE_COLOR: Record<CashbookEntryType, string> = {
   EXPENSE: "bg-red-100 text-red-700",
   WITHDRAW: "bg-orange-100 text-orange-700",
   ADJUSTMENT: "bg-earth-100 text-earth-600",
+};
+
+// PR-4：付款方式 badge。現金（影響現金抽屜）用偏藍、其他用中性灰，色調低調不搶眼。
+const PAYMENT_METHOD_LABEL: Record<"CASH" | "OTHER", string> = {
+  CASH: "現金",
+  OTHER: "其他",
+};
+
+const PAYMENT_METHOD_COLOR: Record<"CASH" | "OTHER", string> = {
+  CASH: "bg-sky-50 text-sky-700 ring-1 ring-sky-200",
+  OTHER: "bg-earth-50 text-earth-500 ring-1 ring-earth-200",
 };
 
 interface PageProps {
@@ -94,14 +106,39 @@ export default async function CashbookPage({ searchParams }: PageProps) {
       ? (async () => {
           const [y, m, d] = today.split("-").map(Number);
           const todayBusinessDate = new Date(Date.UTC(y, m - 1, d));
-          const [view, canOpen, canClose, canAddEntry] = await Promise.all([
+          // 「記一筆收支」inline form 防呆提示用：近 ~180 天的已閉店營業日。
+          const fromDate = new Date(Date.UTC(y, m - 1, d));
+          fromDate.setUTCDate(fromDate.getUTCDate() - 180);
+          const [
+            view,
+            canOpen,
+            canClose,
+            canAddEntry,
+            canCreateCashbook,
+            closedDates,
+            staffOptions,
+          ] = await Promise.all([
             getCashDrawerView(activeStoreId, todayBusinessDate),
             checkPermission(user.role, user.staffId, "cashDrawer.open"),
             checkPermission(user.role, user.staffId, "cashDrawer.close"),
             checkPermission(user.role, user.staffId, "cashDrawer.entry"),
+            checkPermission(user.role, user.staffId, "cashbook.create"),
+            listClosedBusinessDates(activeStoreId, fromDate.toISOString().slice(0, 10), today),
+            listStaffSelectOptions(),
           ]);
           const canInit = user.role === "ADMIN" || user.role === "OWNER";
-          return { view, canInit, canOpen, canClose, canAddEntry };
+          const canAssignStaff = user.role === "ADMIN";
+          return {
+            view,
+            canInit,
+            canOpen,
+            canClose,
+            canAddEntry,
+            canCreateCashbook,
+            closedDates,
+            staffOptions,
+            canAssignStaff,
+          };
         })()
       : Promise.resolve(null),
   ]);
@@ -137,6 +174,10 @@ export default async function CashbookPage({ searchParams }: PageProps) {
               canOpen={cashDrawerData.canOpen}
               canClose={cashDrawerData.canClose}
               canAddEntry={cashDrawerData.canAddEntry}
+              canCreateCashbook={cashDrawerData.canCreateCashbook}
+              closedDates={cashDrawerData.closedDates}
+              canAssignStaff={cashDrawerData.canAssignStaff}
+              staffOptions={cashDrawerData.staffOptions}
               returnPath="/dashboard/cashbook#cash-drawer-workspace"
             />
           </section>
@@ -144,7 +185,14 @@ export default async function CashbookPage({ searchParams }: PageProps) {
 
         {/* 下方：月度現金帳紀錄（與 workspace 視覺分隔） */}
         <section id="cashbook-records" className="space-y-4 border-t border-earth-200 pt-6">
-          <h2 className="text-lg font-semibold text-earth-900">現金帳紀錄</h2>
+          <div className="space-y-1">
+            <h2 className="text-base font-semibold text-earth-900">現金帳紀錄</h2>
+            <p className="text-xs text-earth-500">
+              這裡是所有現金帳紀錄，包含現金與其他付款。只有
+              <span className="font-medium text-sky-700">「現金」</span>
+              會影響上方抽屜金額。
+            </p>
+          </div>
 
           {/* 月份 / 類型 篩選 */}
           <form method="GET" className="flex flex-wrap items-end gap-2">
@@ -177,26 +225,30 @@ export default async function CashbookPage({ searchParams }: PageProps) {
             </button>
           </form>
 
-          {/* 月度統計：手機 1 col、桌機 / iPad 橫向 3 col */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <div className="rounded-xl border bg-green-50 p-4">
+          {/* 月度統計：compact stats row（手機 1 col、桌機 / iPad 橫向 3 col） */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="flex items-baseline justify-between gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-2.5">
               <p className="text-xs text-green-600">收入</p>
-              <p className="text-xl font-bold text-green-700">
+              <p className="text-lg font-bold tabular-nums text-green-700">
                 NT$ {summary.income.toLocaleString()}
               </p>
             </div>
-            <div className="rounded-xl border bg-red-50 p-4">
+            <div className="flex items-baseline justify-between gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5">
               <p className="text-xs text-red-600">支出 + 提領</p>
-              <p className="text-xl font-bold text-red-700">
+              <p className="text-lg font-bold tabular-nums text-red-700">
                 NT$ {summary.expense.toLocaleString()}
               </p>
             </div>
-            <div className={`rounded-xl border p-4 ${summary.net >= 0 ? "bg-primary-50" : "bg-orange-50"}`}>
+            <div
+              className={`flex items-baseline justify-between gap-2 rounded-lg border px-4 py-2.5 ${
+                summary.net >= 0 ? "border-primary-200 bg-primary-50" : "border-orange-200 bg-orange-50"
+              }`}
+            >
               <p className={`text-xs ${summary.net >= 0 ? "text-primary-600" : "text-orange-600"}`}>
                 淨額
               </p>
               <p
-                className={`text-xl font-bold ${
+                className={`text-lg font-bold tabular-nums ${
                   summary.net >= 0 ? "text-primary-700" : "text-orange-700"
                 }`}
               >
@@ -212,6 +264,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
                 <tr>
                   <th className="px-4 py-3 text-left font-medium text-earth-600">日期</th>
                   <th className="px-4 py-3 text-left font-medium text-earth-600">類型</th>
+                  <th className="px-4 py-3 text-left font-medium text-earth-600">付款方式</th>
                   <th className="px-4 py-3 text-left font-medium text-earth-600">分類</th>
                   <th className="px-4 py-3 text-right font-medium text-earth-600">金額</th>
                   <th className="px-4 py-3 text-left font-medium text-earth-600">登錄人</th>
@@ -222,7 +275,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
               <tbody className="divide-y divide-earth-100">
                 {entries.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-4 py-0">
+                    <td colSpan={8} className="px-4 py-0">
                       <EmptyState
                         icon="empty"
                         title="尚無現金帳記錄"
@@ -243,6 +296,15 @@ export default async function CashbookPage({ searchParams }: PageProps) {
                         }`}
                       >
                         {ENTRY_TYPE_LABEL[e.type]}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`rounded px-2 py-0.5 text-xs font-medium ${
+                          PAYMENT_METHOD_COLOR[e.paymentMethod]
+                        }`}
+                      >
+                        {PAYMENT_METHOD_LABEL[e.paymentMethod]}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-earth-600">{e.category ?? "—"}</td>

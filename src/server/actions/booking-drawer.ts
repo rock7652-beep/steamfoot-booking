@@ -3,11 +3,12 @@
 import { prisma } from "@/lib/db";
 import { requireStaffSession } from "@/lib/session";
 import { getStoreFilter } from "@/lib/manager-visibility";
-import { getBookingDetail } from "@/server/queries/booking";
+import { getBookingDetailForUser } from "@/server/queries/booking";
 import { ACTIVE_BOOKING_STATUSES } from "@/lib/booking-constants";
 import { getTrialSettings } from "@/lib/shop-config";
 import { checkPermission } from "@/lib/permissions";
 import { toLocalDateStr } from "@/lib/date-utils";
+import { sortWalletsByFEFO } from "@/lib/wallet-sort";
 
 export interface BookingDrawerPayload {
   booking: {
@@ -87,19 +88,68 @@ export interface BookingDrawerPayload {
     collectedAt: string | null;
     defaultPrice: number;
   } | null;
+  // 調整結帳方式（Phase 1 — 僅 SINGLE 未收款 → PACKAGE_SESSION 扣方案）。
+  // 僅 SINGLE 預約有此區塊（其他型別一律 null）。canAdjustToPackage=true 時
+  // Drawer 才顯示「調整結帳」按鈕；false 時 reason 給不可調整原因（已收款 /
+  // 狀態不符 / 補課 / 顧客無可用方案）。wallets 為 FEFO 排序後的候選方案，
+  // 第一張 recommended=true（與配堂預設一致）。
+  checkout: {
+    canAdjustToPackage: boolean;
+    reason: string | null;
+    wallets: {
+      id: string;
+      planName: string;
+      remainingSessions: number;
+      expiryDate: string | null;
+      recommended: boolean;
+    }[];
+  } | null;
+  // 調整結帳方式（Phase 2 / Mode B — PACKAGE_SESSION 方案扣堂 → SINGLE 單次未收款）。
+  // 僅 PACKAGE_SESSION 預約有此區塊（其他型別一律 null）。canAdjustToSingle=true 時
+  // Drawer 才顯示「調整結帳」按鈕；false 時 reason 給不可調整原因（補課 / 狀態不符）。
+  // 「已扣堂 / 已有 SUCCESS 交易」的權威判斷在 adjustCheckoutToSingle action 內（執行時
+  // race-safe 重查），此 Drawer 區塊只負責入口呈現，不重複加查詢。
+  // currentPlanName / currentRemaining 供 Modal 顯示「目前：方案扣堂｜方案名｜剩 X 堂」；
+  // singleDefaultPrice 為轉換後單次原價（servicePlanId 清 null → 799），供 Modal 顯示。
+  checkoutToSingle: {
+    canAdjustToSingle: boolean;
+    reason: string | null;
+    currentPlanName: string | null;
+    currentRemaining: number | null;
+    singleDefaultPrice: number;
+  } | null;
 }
 
 export async function fetchBookingDetail(
   bookingId: string,
 ): Promise<BookingDrawerPayload> {
   const user = await requireStaffSession();
-  const booking = await getBookingDetail(bookingId);
+  // 重用已解析的 staff user，避免 getBookingDetail 內再 requireSession 一次
+  const booking = await getBookingDetailForUser(bookingId, user);
 
-  // 體驗 499 PR-3：僅 FIRST_TRIAL 才查收款狀態 + 體驗價設定
   const isTrial = booking.bookingType === "FIRST_TRIAL";
-  const [collectedTx, trialSettings, canCorrect] = isTrial
-    ? await Promise.all([
-        prisma.transaction.findFirst({
+  const isSingle = booking.bookingType === "SINGLE";
+  const isPackage = booking.bookingType === "PACKAGE_SESSION";
+  const storeFilter = getStoreFilter(user);
+
+  // 拿到 booking 後，下列查詢彼此獨立（只依賴 booking.id / storeId / customerId），
+  // 一次並行避免「收款查詢 → 顧客近況查詢」串成 waterfall：
+  //   - 體驗 499 PR-3：FIRST_TRIAL 收款狀態 + 體驗價設定 + 更正權限
+  //   - 單次（SINGLE，不扣堂）收款狀態：grossAmount / discountAmount 供
+  //     Drawer 顯示「原價 / 實收 / 折扣」，與 collectSinglePayment 寫入欄位一致
+  //   - 顧客近況：累積完成 + 最近到店 + 是否新客
+  const [
+    collectedTx,
+    trialSettings,
+    canCorrect,
+    collectedSingleTx,
+    adjustWallets,
+    completedAgg,
+    lastVisit,
+    firstBookingCount,
+  ] = await Promise.all([
+    isTrial
+      ? prisma.transaction.findFirst({
           where: {
             bookingId: booking.id,
             transactionType: "TRIAL_PURCHASE",
@@ -107,38 +157,54 @@ export async function fetchBookingDetail(
           },
           select: { id: true, amount: true, paymentMethod: true, paidAt: true },
           orderBy: { createdAt: "desc" },
-        }),
-        getTrialSettings(booking.storeId),
-        // 收款更正 OWNER-only：gate = transaction.void（決策 A）
-        checkPermission(user.role, user.staffId, "transaction.void"),
-      ])
-    : [null, null, false];
-
-  // 單次（SINGLE，不扣堂）：僅 SINGLE 才查收款狀態。取 grossAmount / discountAmount
-  // 供 Drawer 顯示「原價 / 實收 / 折扣」三段，與 collectSinglePayment 寫入欄位一致。
-  const isSingle = booking.bookingType === "SINGLE";
-  const collectedSingleTx = isSingle
-    ? await prisma.transaction.findFirst({
-        where: {
-          bookingId: booking.id,
-          transactionType: "SINGLE_PURCHASE",
-          status: "SUCCESS",
-        },
-        select: {
-          id: true,
-          amount: true,
-          grossAmount: true,
-          discountAmount: true,
-          paymentMethod: true,
-          paidAt: true,
-        },
-        orderBy: { createdAt: "desc" },
-      })
-    : null;
-
-  // 顧客近況：累積完成 + 最近到店 + 是否新客 — 三查詢並行
-  const storeFilter = getStoreFilter(user);
-  const [completedAgg, lastVisit, firstBookingCount] = await Promise.all([
+        })
+      : Promise.resolve(null),
+    isTrial ? getTrialSettings(booking.storeId) : Promise.resolve(null),
+    // 收款更正 OWNER-only：gate = transaction.void（決策 A）
+    isTrial
+      ? checkPermission(user.role, user.staffId, "transaction.void")
+      : Promise.resolve(false),
+    // 單次（SINGLE，不扣堂）：僅 SINGLE 才查收款狀態。取 grossAmount /
+    // discountAmount 供 Drawer 顯示「原價 / 實收 / 折扣」三段，與
+    // collectSinglePayment 寫入欄位一致。
+    isSingle
+      ? prisma.transaction.findFirst({
+          where: {
+            bookingId: booking.id,
+            transactionType: "SINGLE_PURCHASE",
+            status: "SUCCESS",
+          },
+          select: {
+            id: true,
+            amount: true,
+            grossAmount: true,
+            discountAmount: true,
+            paymentMethod: true,
+            paidAt: true,
+          },
+          orderBy: { createdAt: "desc" },
+        })
+      : Promise.resolve(null),
+    // 調整結帳方式：僅 SINGLE 且非補課才查顧客可用方案（ACTIVE + 有剩餘堂）。
+    // FIRST_TRIAL / PACKAGE_SESSION / 補課一律 lazy 帶過，不必要查 wallet。
+    // 候選與 adjustCheckoutToPackage 一致，FEFO 排序在 buildCheckoutBlock 內做。
+    isSingle && !booking.isMakeup
+      ? prisma.customerPlanWallet.findMany({
+          where: {
+            customerId: booking.customerId,
+            storeId: booking.storeId,
+            status: "ACTIVE",
+            remainingSessions: { gt: 0 },
+          },
+          select: {
+            id: true,
+            expiryDate: true,
+            createdAt: true,
+            remainingSessions: true,
+            plan: { select: { name: true } },
+          },
+        })
+      : Promise.resolve([]),
     prisma.booking.count({
       where: {
         customerId: booking.customerId,
@@ -275,5 +341,108 @@ export async function fetchBookingDetail(
               : 799,
         }
       : null,
+    checkout: isSingle
+      ? buildCheckoutBlock({
+          isMakeup: booking.isMakeup,
+          bookingStatus: booking.bookingStatus,
+          people: booking.people,
+          alreadyCollected: collectedSingleTx != null,
+          wallets: adjustWallets,
+        })
+      : null,
+    checkoutToSingle: isPackage
+      ? buildCheckoutToSingleBlock({
+          isMakeup: booking.isMakeup,
+          bookingStatus: booking.bookingStatus,
+          planName:
+            booking.customerPlanWallet?.plan.name ??
+            booking.servicePlan?.name ??
+            null,
+          remaining: booking.customerPlanWallet?.remainingSessions ?? null,
+        })
+      : null,
+  };
+}
+
+// 調整結帳方式 Mode B 可行性判斷（PACKAGE_SESSION → SINGLE）。
+// Drawer 入口只 gate「補課 / 狀態」這兩個顯而易見的條件；「已扣堂 / 已有 SUCCESS
+// 交易」由 adjustCheckoutToSingle action 在執行時 race-safe 重查把關（避免在 Drawer
+// 多打查詢，且 PENDING/CONFIRMED 的方案預約依系統 invariant 為 RESERVED、無 SUCCESS 交易）。
+function buildCheckoutToSingleBlock(args: {
+  isMakeup: boolean;
+  bookingStatus: string;
+  planName: string | null;
+  remaining: number | null;
+}): NonNullable<BookingDrawerPayload["checkoutToSingle"]> {
+  let reason: string | null = null;
+  if (args.isMakeup) {
+    reason = "補課預約不適用調整結帳方式";
+  } else if (
+    args.bookingStatus !== "PENDING" &&
+    args.bookingStatus !== "CONFIRMED"
+  ) {
+    reason = "僅未完成 / 未取消的預約可調整結帳方式";
+  }
+
+  return {
+    canAdjustToSingle: reason === null,
+    reason,
+    currentPlanName: args.planName,
+    currentRemaining: args.remaining,
+    // 轉成 SINGLE 後 servicePlanId 清 null → collectSinglePayment fallback 799。
+    singleDefaultPrice: 799,
+  };
+}
+
+// 調整結帳方式可行性判斷 —— 與 adjustCheckoutToPackage 的 guard 同源，
+// 任一不符即 canAdjustToPackage=false 並給對應 reason（按優先序）。
+function buildCheckoutBlock(args: {
+  isMakeup: boolean;
+  bookingStatus: string;
+  people: number;
+  alreadyCollected: boolean;
+  wallets: {
+    id: string;
+    expiryDate: Date | null;
+    createdAt: Date;
+    remainingSessions: number;
+    plan: { name: string };
+  }[];
+}): NonNullable<BookingDrawerPayload["checkout"]> {
+  const sorted = sortWalletsByFEFO(args.wallets);
+  const wallets = sorted.map((w, i) => ({
+    id: w.id,
+    planName: w.plan.name,
+    remainingSessions: w.remainingSessions,
+    expiryDate: w.expiryDate?.toISOString().slice(0, 10) ?? null,
+    recommended: i === 0,
+  }));
+
+  let reason: string | null = null;
+  if (args.isMakeup) {
+    reason = "補課預約不適用調整結帳方式";
+  } else if (
+    args.bookingStatus !== "PENDING" &&
+    args.bookingStatus !== "CONFIRMED"
+  ) {
+    reason = "僅未完成 / 未取消的預約可調整結帳方式";
+  } else if (args.alreadyCollected) {
+    reason = "此預約已收款，需先走收款更正流程後再調整結帳方式";
+  } else if (wallets.length === 0) {
+    reason = "此顧客目前沒有可用方案，無法改為扣方案";
+  } else {
+    const totalRemaining = sorted.reduce(
+      (sum, w) => sum + w.remainingSessions,
+      0,
+    );
+    if (totalRemaining < args.people) {
+      reason = `方案總剩餘 ${totalRemaining} 堂，不足本次 ${args.people} 人預約所需堂數`;
+    }
+  }
+
+  return {
+    canAdjustToPackage: reason === null,
+    reason,
+    wallets,
   };
 }

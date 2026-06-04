@@ -1,20 +1,25 @@
 /**
- * Cash Drawer 現金異動區塊 — PR-4
+ * Cash Drawer 現金異動紀錄區塊 — PR-4 / PR-G5.1a
  *
- * 顯示當日的提領/補入/調整列表 + 3 個 inline 表單供 OPEN session 新增。
+ * 顯示當日所有現金異動（提領 / 補入 / 調整）列表 + 「盤點調整」次要新增表單。
+ *
+ * PR-G5.1a：提領 / 補入 已升級為日常操作區的大按鈕（見 cash-drawer-workspace.tsx
+ * 的 DailyActionsArea），故本卡不再放這兩個新增表單，只保留：
+ *   - 全部異動的唯讀列表（OPEN / CLOSED 都用）
+ *   - 「盤點調整」這個較少用的校正動作（次要 `<details>` disclosure）
  *
  * 規則：
- *   - CLOSED session：只顯示列表，無新增表單（讀取 PR-2 凍結 snapshot 用）
+ *   - CLOSED session：只顯示列表，無新增表單（讀取凍結 snapshot 用）
  *   - PARTNER（無 cashDrawer.entry）：只顯示列表，無新增表單
- *   - 三種 entry 各自獨立 `<details>` disclosure，零 JS、零新依賴
+ *   - 表單 JSX 共用 ./cash-entry-forms，零 JS、零新依賴
  *   - 新增後 server action redirect 回原頁，revalidatePath 已在 action 內 ship
  */
 
 import { redirect } from "next/navigation";
 import type { CashDrawerEntry } from "@prisma/client";
-import { SubmitButton } from "@/components/submit-button";
 import { formatTWTime } from "@/lib/date-utils";
 import { addCashDrawerEntryAction } from "@/server/actions/cash-drawer";
+import { AdjustmentForm } from "./cash-entry-forms";
 
 interface EntrySectionProps {
   sessionId: string;
@@ -39,36 +44,6 @@ export function EntrySection({
   const errorRedirect = (msg: string) =>
     `${returnPath}${returnPath.includes("?") ? "&" : "?"}cashDrawerError=${encodeURIComponent(msg)}`;
 
-  async function handleAddWithdrawal(formData: FormData) {
-    "use server";
-    const result = await addCashDrawerEntryAction({
-      sessionId,
-      type: "CASH_WITHDRAWAL",
-      amount: Number(formData.get("amount")),
-      reason: String(formData.get("reason") ?? ""),
-      note: (formData.get("note") as string) || undefined,
-    });
-    if (!result.success) {
-      redirect(errorRedirect(result.error || "新增提領失敗"));
-    }
-    redirect(returnPath);
-  }
-
-  async function handleAddDeposit(formData: FormData) {
-    "use server";
-    const result = await addCashDrawerEntryAction({
-      sessionId,
-      type: "CASH_DEPOSIT",
-      amount: Number(formData.get("amount")),
-      reason: String(formData.get("reason") ?? ""),
-      note: (formData.get("note") as string) || undefined,
-    });
-    if (!result.success) {
-      redirect(errorRedirect(result.error || "新增補入失敗"));
-    }
-    redirect(returnPath);
-  }
-
   async function handleAddAdjustment(formData: FormData) {
     "use server";
     const direction = formData.get("direction");
@@ -90,8 +65,8 @@ export function EntrySection({
   }
 
   return (
-    <div className="rounded-xl border bg-white p-6 shadow-sm">
-      <h2 className="text-lg font-semibold text-earth-900">現金異動</h2>
+    <div className="rounded-xl border border-earth-200 bg-white p-4">
+      <h2 className="text-base font-semibold text-earth-900">現金異動紀錄</h2>
       <p className="mt-1 text-xs text-earth-500">
         提領 / 補入 / 調整都只影響現金抽屜結餘，不進營收或費用
       </p>
@@ -99,166 +74,17 @@ export function EntrySection({
       {/* 當日異動列表 */}
       <EntriesList entries={entries} />
 
-      {/* OPEN session 才顯示新增表單 */}
+      {/* OPEN session 才顯示「盤點調整」次要新增表單。
+          提領 / 補入 已移到上方日常操作區的大按鈕，這裡只留較少用的盤點校正。 */}
       {canAddEntry && (
-        <div className="mt-6 space-y-3 border-t border-earth-100 pt-6">
-          <p className="text-sm font-medium text-earth-700">新增異動</p>
-
-          {/* 提領 */}
+        <div className="mt-4 space-y-3 border-t border-earth-100 pt-4">
           <details className="rounded-lg border border-earth-200 bg-earth-50/40">
             <summary className="flex min-h-[44px] cursor-pointer items-center px-4 py-3 text-sm font-medium text-earth-800 select-none hover:bg-earth-100/60">
-              ＋ 新增提領（老闆領現、存銀行等）
+              ＋ 盤點調整（盤點短少 / 溢出）
             </summary>
-            <form action={handleAddWithdrawal} className="space-y-3 border-t border-earth-200 p-4 md:space-y-4">
-              <div className="md:grid md:grid-cols-2 md:gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-earth-700">金額（NT$）</label>
-                  <input
-                    type="number"
-                    name="amount"
-                    required
-                    min={1}
-                    step={1}
-                    className="mt-1 block min-h-[44px] w-full rounded-lg border border-earth-300 px-3 py-2 text-base tabular-nums focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
-                    placeholder="例如 5000"
-                  />
-                </div>
-                <div className="mt-3 md:mt-0">
-                  <label className="block text-sm font-medium text-earth-700">原因（必填）</label>
-                  <input
-                    type="text"
-                    name="reason"
-                    required
-                    minLength={1}
-                    maxLength={100}
-                    className="mt-1 block min-h-[44px] w-full rounded-lg border border-earth-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
-                    placeholder="例如：老闆領現存銀行"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-earth-700">備註（選填）</label>
-                <textarea
-                  name="note"
-                  rows={2}
-                  maxLength={500}
-                  className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
-                />
-              </div>
-              <SubmitButton
-                label="送出提領"
-                className="min-h-[44px] bg-orange-600 px-5 text-base text-white hover:bg-orange-700"
-              />
-            </form>
-          </details>
-
-          {/* 補入 */}
-          <details className="rounded-lg border border-earth-200 bg-earth-50/40">
-            <summary className="flex min-h-[44px] cursor-pointer items-center px-4 py-3 text-sm font-medium text-earth-800 select-none hover:bg-earth-100/60">
-              ＋ 新增補入（補找零金、保險箱補現等）
-            </summary>
-            <form action={handleAddDeposit} className="space-y-3 border-t border-earth-200 p-4 md:space-y-4">
-              <div className="md:grid md:grid-cols-2 md:gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-earth-700">金額（NT$）</label>
-                  <input
-                    type="number"
-                    name="amount"
-                    required
-                    min={1}
-                    step={1}
-                    className="mt-1 block min-h-[44px] w-full rounded-lg border border-earth-300 px-3 py-2 text-base tabular-nums focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
-                    placeholder="例如 2000"
-                  />
-                </div>
-                <div className="mt-3 md:mt-0">
-                  <label className="block text-sm font-medium text-earth-700">原因（必填）</label>
-                  <input
-                    type="text"
-                    name="reason"
-                    required
-                    minLength={1}
-                    maxLength={100}
-                    className="mt-1 block min-h-[44px] w-full rounded-lg border border-earth-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
-                    placeholder="例如：保險箱補找零金"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-earth-700">備註（選填）</label>
-                <textarea
-                  name="note"
-                  rows={2}
-                  maxLength={500}
-                  className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
-                />
-              </div>
-              <SubmitButton
-                label="送出補入"
-                className="min-h-[44px] bg-green-600 px-5 text-base text-white hover:bg-green-700"
-              />
-            </form>
-          </details>
-
-          {/* 調整 */}
-          <details className="rounded-lg border border-earth-200 bg-earth-50/40">
-            <summary className="flex min-h-[44px] cursor-pointer items-center px-4 py-3 text-sm font-medium text-earth-800 select-none hover:bg-earth-100/60">
-              ＋ 新增調整（盤點短少 / 溢出）
-            </summary>
-            <form action={handleAddAdjustment} className="space-y-3 border-t border-earth-200 p-4 md:space-y-4">
-              <div>
-                <p className="block text-sm font-medium text-earth-700">方向（必選）</p>
-                <div className="mt-2 flex flex-wrap gap-3 text-sm text-earth-800 md:gap-6">
-                  <label className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-earth-200 bg-white px-3">
-                    <input type="radio" name="direction" value="IN" required />
-                    盤點溢出（+）
-                  </label>
-                  <label className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-earth-200 bg-white px-3">
-                    <input type="radio" name="direction" value="OUT" required />
-                    盤點短少（−）
-                  </label>
-                </div>
-              </div>
-              <div className="md:grid md:grid-cols-2 md:gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-earth-700">金額（NT$）</label>
-                  <input
-                    type="number"
-                    name="amount"
-                    required
-                    min={1}
-                    step={1}
-                    className="mt-1 block min-h-[44px] w-full rounded-lg border border-earth-300 px-3 py-2 text-base tabular-nums focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
-                    placeholder="例如 100"
-                  />
-                </div>
-                <div className="mt-3 md:mt-0">
-                  <label className="block text-sm font-medium text-earth-700">原因（必填）</label>
-                  <input
-                    type="text"
-                    name="reason"
-                    required
-                    minLength={1}
-                    maxLength={100}
-                    className="mt-1 block min-h-[44px] w-full rounded-lg border border-earth-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
-                    placeholder="例如：閉店盤點短少 100"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-earth-700">備註（選填）</label>
-                <textarea
-                  name="note"
-                  rows={2}
-                  maxLength={500}
-                  className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
-                />
-              </div>
-              <SubmitButton
-                label="送出調整"
-                className="min-h-[44px] bg-earth-700 px-5 text-base text-white hover:bg-earth-800"
-              />
-            </form>
+            <div className="border-t border-earth-200">
+              <AdjustmentForm action={handleAddAdjustment} />
+            </div>
           </details>
         </div>
       )}
@@ -273,9 +99,7 @@ export function EntrySection({
 function EntriesList({ entries }: { entries: CashDrawerEntry[] }) {
   if (entries.length === 0) {
     return (
-      <p className="mt-3 rounded-lg bg-earth-50/60 px-4 py-3 text-xs text-earth-500">
-        今日尚無手動異動
-      </p>
+      <p className="mt-2 text-xs text-earth-400">今日尚無手動異動</p>
     );
   }
 

@@ -409,6 +409,19 @@ function WelcomeBack({
           {liffMessages.shell.healthAssessmentHint}
         </p>
       </div>
+
+      {/* PR-LIFF-profile：低調 utility 入口（我的資料）。
+          視覺刻意比 4 顆核心 CTA + AI 健康評估都更低調：
+            - text-only 連結而非 CTA button 形狀
+            - text-sm 偏小 / text-earth-700 not -900
+            - 不用 ChevronRightIcon（保留給 primary/secondary CTA）
+          目的：顧客需要查資料時找得到，但不會分散主路徑注意力。 */}
+      <Link
+        href={`/s/${storeSlug}/liff/profile`}
+        className="mt-1 px-1 text-center text-sm text-earth-700 underline-offset-4 hover:underline"
+      >
+        {liffMessages.profile.homeEntryCta}
+      </Link>
     </div>
   );
 }

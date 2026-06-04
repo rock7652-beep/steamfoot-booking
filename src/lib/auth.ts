@@ -9,7 +9,6 @@ import { normalizePhone } from "@/lib/normalize";
 import { repairCustomerIdentityOnLogin } from "@/lib/identity-repair";
 import {
   logLineBindEvent,
-  oauthAccountSyncStatusForExisting,
 } from "@/lib/line-bind-log";
 
 // ============================================================
@@ -527,15 +526,127 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
 
         if (customer?.userId) {
-          // Customer exists and already has a User - link this OAuth Account to existing User
+          // Customer exists and already has a User - link this OAuth Account to existing User.
+          //
+          // ── PR-G5.5.b ─────────────────────────────────────────────────
+          // LINE branch: delegate to D3 (`bindLineToExistingCustomerById`)
+          // via the wiring helper. Atomic Account.create + Customer.update
+          // in a single Serializable transaction — closes the
+          // "Account.create succeeded but Customer.update failed" drift
+          // window that the legacy 2-write inline path always had.
+          //
+          // Defensible TIGHTENING vs pre-PR-G5.5.b behaviour:
+          //   - Cross-user Account collision (Account[line] exists owned
+          //     by a different User) previously silently skipped
+          //     Account.create + still updated Customer.lineUserId →
+          //     created drift. D3 returns `customer_locked` → helper
+          //     returns ok:false → signin fails cleanly. No partial
+          //     write possible.
+          //
+          // Byte-equivalent end-state for success cases:
+          //   - bound_existing      = Customer.lineUserId null → set,
+          //                            Account[line] created (full bind)
+          //   - customer_repaired   = Customer.lineUserId null → set,
+          //                            Account already existed for same User
+          //   - account_repaired    = Customer.lineUserId already set,
+            //                          Account[line] created (drift repair)
+          //   - already_synced      = nothing changed
+          //
+          // Google branch: falls through to the existing inline 2-write
+          // path below (D3 is LINE-only).
+          // ─────────────────────────────────────────────────────────────
+
+          if (provider === "line" && lineUserId) {
+            const { bindLineCaseAForAuthSignIn } = await import(
+              "@/server/services/auth-case-a-line-bind"
+            );
+            const bind = await bindLineCaseAForAuthSignIn({
+              storeId: targetStoreId,
+              customerId: customer.id,
+              // PR-G5.5.b Codex P2: forward existing Customer.lineName
+              // so the helper can preserve staff-entered / dashboard-
+              // edited display values (`customer.lineName || oauthName
+              // || null`). See auth-case-a-line-bind.ts for the
+              // byte-equivalence matrix vs the pre-refactor inline
+              // `if (oauthName && !customer.lineName)` guard.
+              customerLineName: customer.lineName,
+              lineUserId,
+              oauthName,
+              account: {
+                type: account.type,
+                provider: account.provider,
+                providerAccountId: account.providerAccountId,
+                access_token: account.access_token,
+                refresh_token: account.refresh_token,
+                id_token: account.id_token,
+                expires_at: account.expires_at,
+                scope: account.scope,
+                token_type: account.token_type,
+              },
+            });
+
+            if (!bind.ok) {
+              // D3 returned a controlled rejection (no partial state
+              // committed — Serializable rollback / preflight reject).
+              // The helper already emitted the structured
+              // unexpected_error log with errorCode = d3_<reason>.
+              // Surface as a NextAuth signin failure — same shape as
+              // today's outer try/catch path for other failure modes.
+              return false;
+            }
+
+            // Post-tx best-effort — preserved byte-equivalent vs the
+            // pre-PR-G5.5.b inline path. justLinkedLine semantics from
+            // D3 status (see helper docstring): true for bound_existing
+            // and customer_repaired (Customer.lineUserId went null →
+            // set in this run), false for account_repaired and
+            // already_synced (Customer.lineUserId was ALREADY set).
+            if (bind.justLinkedLine) {
+              try {
+                const { awardLineJoinReferrerIfEligible } = await import(
+                  "@/server/services/referral-points"
+                );
+                await awardLineJoinReferrerIfEligible({
+                  customerId: customer.id,
+                  storeId: customer.storeId,
+                });
+              } catch {
+                // 發點失敗不阻擋登入
+              }
+            }
+
+            await repairCustomerIdentityOnLogin({
+              userId: customer.userId,
+              storeId: customer.storeId,
+              phone: customer.phone ?? null,
+              lineUserId,
+              googleId,
+              email: oauthEmail ?? null,
+            });
+
+            logLineBindEvent({
+              path: "oauth-line-signin",
+              status: "oauth_linked_existing",
+              storeId: customer.storeId,
+              lineUserId,
+              customerId: customer.id,
+              userId: customer.userId,
+              // D3-derived accountSyncStatus (matches what
+              // oauthAccountSyncStatusForExisting() used to produce for
+              // the inline path).
+              accountSyncStatus: bind.accountSyncStatus,
+            });
+
+            user.id = customer.userId;
+            return true;
+          }
+
+          // Non-LINE branch (Google today). UNCHANGED 2-write inline
+          // path. D3 is LINE-only; Google convergence is out of scope.
           const existingAccount = await prisma.account.findUnique({
             where: { provider_providerAccountId: { provider, providerAccountId: account.providerAccountId } },
             select: { userId: true },
           });
-          // PR #218 P3: track Account creation separately from Customer.lineUserId
-          // update. Without this boolean the log mislabels drift-repair runs
-          // (Customer.lineUserId already set + Account missing → we create the
-          // Account but `justLinkedLine` stays false) as `noop_already_synced`.
           let accountCreated = false;
           if (!existingAccount) {
             await prisma.account.create({
@@ -555,37 +666,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             accountCreated = true;
           }
 
-          // Update Customer with provider-specific IDs
+          // Update Customer with provider-specific IDs (Google only here)
           const updateData: Record<string, unknown> = {};
-          let justLinkedLine = false;
-          if (provider === "line" && lineUserId && !customer.lineUserId) {
-            updateData.lineUserId = lineUserId;
-            updateData.lineLinkStatus = "LINKED";
-            updateData.lineLinkedAt = new Date();
-            if (oauthName && !customer.lineName) updateData.lineName = oauthName;
-            justLinkedLine = true;
-          }
           if (provider === "google" && googleId && !customer.googleId) {
             updateData.googleId = googleId;
             if (oauthImage && !customer.avatar) updateData.avatar = oauthImage;
           }
           if (Object.keys(updateData).length > 0) {
             await prisma.customer.update({ where: { id: customer.id }, data: updateData });
-          }
-
-          // 🆕 LINE 剛綁定 + 有 sponsor → 邀請者 +1（sourceKey dedupe 保證只發一次）
-          if (justLinkedLine) {
-            try {
-              const { awardLineJoinReferrerIfEligible } = await import(
-                "@/server/services/referral-points"
-              );
-              await awardLineJoinReferrerIfEligible({
-                customerId: customer.id,
-                storeId: customer.storeId,
-              });
-            } catch {
-              // 發點失敗不阻擋登入
-            }
           }
 
           await repairCustomerIdentityOnLogin({
@@ -597,28 +685,141 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             email: oauthEmail ?? null,
           });
 
-          if (provider === "line") {
-            logLineBindEvent({
-              path: "oauth-line-signin",
-              status: "oauth_linked_existing",
-              storeId: customer.storeId,
-              lineUserId,
-              customerId: customer.id,
-              userId: customer.userId,
-              accountSyncStatus: oauthAccountSyncStatusForExisting({
-                existingAccount,
-                customerUserId: customer.userId,
-                accountCreated,
-              }),
-            });
-          }
+          // PR-G5.5.b: the legacy LINE-only `oauth_linked_existing` log
+          // (with `accountSyncStatus` derived from
+          // `oauthAccountSyncStatusForExisting()`) now lives inside the
+          // LINE-branch early-return above. The Google branch never
+          // emitted that log historically; no log is emitted here on
+          // purpose (matches pre-PR-G5.5.b behaviour for non-LINE).
+          //
+          // `existingAccount` and `accountCreated` are computed above
+          // for parity with the legacy structure even though their
+          // only consumer (the LINE-branch log) is gone — they are
+          // kept so this inline path stays a drop-in restore target
+          // if PR-G5.5.b is ever reverted. Marked void to avoid
+          // unused-var lint.
+          void existingAccount;
+          void accountCreated;
 
           user.id = customer.userId;
           return true;
         }
 
         if (customer && !customer.userId) {
-          // Customer exists but no User yet (backend-created) - create User and link
+          // Customer exists but no User yet (backend-created).
+          //
+          // ── PR-G5.5.a ─────────────────────────────────────────────────
+          // LINE branch: delegate to D5 (`activatePrecreatedCustomerWithLine`)
+          // via the wiring helper. Atomic User + Account + Customer writes
+          // in a single Serializable transaction — closes the orphan-User /
+          // orphan-Account / half-updated-Customer drift window that the
+          // legacy 3-write inline path always had.
+          //
+          // Byte-equivalent end-state vs the pre-PR-G5.5.a inline path:
+          //   - User row:     same 6 columns (name from customer snapshot,
+          //                   phone fallback, email, image, role, status)
+          //   - Account row:  same 10 fields incl. OAuth tokens; NO
+          //                   session_state (mirrors auth.ts baseline)
+          //   - Customer row: same authSource/lineUserId/lineLinkStatus/
+          //                   lineLinkedAt/lineName fields written; NO
+          //                   Customer.name rewrite (baseline behaviour
+          //                   preserved by NOT passing customerNameOverride)
+          //
+          // On any D5 failure (StaleCustomerLinkError / P2034 / P2002 /
+          // preflight reject), the Serializable rollback guarantees zero
+          // partial state — the helper returns ok:false + a structured
+          // unexpected_error log and we surface a clean `return false`.
+          //
+          // Google branch (and any future non-LINE OAuth provider added to
+          // Case B): falls through to the existing inline 3-write path
+          // below. D5 is LINE-only — Google convergence is out of scope
+          // for PR-G5.5.a.
+          // ─────────────────────────────────────────────────────────────
+
+          if (provider === "line" && lineUserId) {
+            const { activateLineCaseBForAuthSignIn } = await import(
+              "@/server/services/auth-case-b-line-activation"
+            );
+            const activation = await activateLineCaseBForAuthSignIn({
+              storeId: targetStoreId,
+              customerId: customer.id,
+              customerPhone: customer.phone ?? null,
+              lineUserId,
+              oauthName,
+              oauthEmail,
+              oauthImage,
+              account: {
+                type: account.type,
+                provider: account.provider,
+                providerAccountId: account.providerAccountId,
+                access_token: account.access_token,
+                refresh_token: account.refresh_token,
+                id_token: account.id_token,
+                expires_at: account.expires_at,
+                scope: account.scope,
+                token_type: account.token_type,
+              },
+            });
+
+            if (!activation.ok) {
+              // D5 returned a controlled rejection (no partial state
+              // committed — Serializable rollback). The helper already
+              // emitted the structured unexpected_error log with
+              // errorCode = d5_<reason>. Surface as a NextAuth signin
+              // failure — same shape as today's outer try/catch path.
+              return false;
+            }
+
+            // Post-tx best-effort — preserved byte-equivalent vs the
+            // pre-PR-G5.5.a inline path. These three calls used to run
+            // immediately after the inline customer.update at line 663;
+            // they stay at the same call site, identical args, identical
+            // try/catch shape.
+
+            // 🆕 LINE 剛綁定 + 有 sponsor → 邀請者 +1
+            //   (justLinkedLine is always true for LINE Case B — the
+            //   pre-refactor `let justLinkedLine = false; if (provider ===
+            //   "line" && lineUserId) { ...; justLinkedLine = true; }`
+            //   collapsed to a guaranteed-true branch here.)
+            try {
+              const { awardLineJoinReferrerIfEligible } = await import(
+                "@/server/services/referral-points"
+              );
+              await awardLineJoinReferrerIfEligible({
+                customerId: customer.id,
+                storeId: customer.storeId,
+              });
+            } catch {
+              // 發點失敗不阻擋登入
+            }
+
+            await repairCustomerIdentityOnLogin({
+              userId: activation.userId,
+              storeId: customer.storeId,
+              phone: customer.phone ?? null,
+              lineUserId,
+              googleId,
+              email: oauthEmail ?? null,
+            });
+
+            logLineBindEvent({
+              path: "oauth-line-signin",
+              status: "oauth_created_user_for_customer",
+              storeId: customer.storeId,
+              lineUserId,
+              customerId: customer.id,
+              userId: activation.userId,
+              accountSyncStatus: "created",
+            });
+
+            user.id = activation.userId;
+            return true;
+          }
+
+          // Non-LINE branch (Google today). UNCHANGED 3-write inline
+          // path. PR-G5.5.b is the future convergence target for
+          // existing-User Case A; Google Case B has no canonical helper
+          // yet and is out of scope.
           const newUser = await prisma.user.create({
             data: {
               name: customer.name,
@@ -647,35 +848,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           });
 
           // Update Customer
-          const updateData: Record<string, unknown> = { authSource: provider === "line" ? "LINE" : "GOOGLE" };
-          let justLinkedLine = false;
-          if (provider === "line" && lineUserId) {
-            updateData.lineUserId = lineUserId;
-            updateData.lineLinkStatus = "LINKED";
-            updateData.lineLinkedAt = new Date();
-            if (oauthName) updateData.lineName = oauthName;
-            justLinkedLine = true;
-          }
+          const updateData: Record<string, unknown> = { authSource: "GOOGLE" };
           if (provider === "google" && googleId) {
             updateData.googleId = googleId;
             if (oauthImage) updateData.avatar = oauthImage;
           }
           await prisma.customer.update({ where: { id: customer.id }, data: updateData });
-
-          // 🆕 LINE 剛綁定 + 有 sponsor → 邀請者 +1
-          if (justLinkedLine) {
-            try {
-              const { awardLineJoinReferrerIfEligible } = await import(
-                "@/server/services/referral-points"
-              );
-              await awardLineJoinReferrerIfEligible({
-                customerId: customer.id,
-                storeId: customer.storeId,
-              });
-            } catch {
-              // 發點失敗不阻擋登入
-            }
-          }
 
           await repairCustomerIdentityOnLogin({
             userId: newUser.id,
@@ -685,18 +863,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             googleId,
             email: oauthEmail ?? null,
           });
-
-          if (provider === "line") {
-            logLineBindEvent({
-              path: "oauth-line-signin",
-              status: "oauth_created_user_for_customer",
-              storeId: customer.storeId,
-              lineUserId,
-              customerId: customer.id,
-              userId: newUser.id,
-              accountSyncStatus: "created",
-            });
-          }
 
           user.id = newUser.id;
           return true;

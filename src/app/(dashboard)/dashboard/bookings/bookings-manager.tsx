@@ -16,6 +16,8 @@ import {
   type BookingSummary,
 } from "./booking-detail-drawer";
 import { ACTIVE_BOOKING_STATUSES } from "@/lib/booking-constants";
+import { RightSheet } from "@/components/admin/right-sheet";
+import { formatWeekdayZh } from "@/lib/date-utils";
 
 const COMPLETABLE_STATUSES = new Set(["PENDING", "CONFIRMED"]);
 
@@ -302,6 +304,9 @@ export function BookingsManager({
 
   const openBooking = useCallback(
     (id: string) => {
+      // 點「查看」直接清掉選取日期：關閉 Booking Detail 後回到月曆，
+      // 不自動重開當日 Drawer。
+      setSelectedDate(null);
       setActiveBookingId(id);
       setActiveSummary(summaryById.get(id) ?? null);
     },
@@ -311,6 +316,10 @@ export function BookingsManager({
   const closeBooking = useCallback(() => {
     setActiveBookingId(null);
     setActiveSummary(null);
+  }, []);
+
+  const closeDay = useCallback(() => {
+    setSelectedDate(null);
   }, []);
 
   // Apply optimistic status change to monthData; dayBookings re-derives via
@@ -480,7 +489,7 @@ export function BookingsManager({
       />
 
       <div className="grid grid-cols-12 gap-4">
-        <div className="col-span-12 lg:col-span-8">
+        <div className="col-span-12">
           <BookingCalendarDesktop
             year={year}
             month={month}
@@ -493,7 +502,37 @@ export function BookingsManager({
             dimmedDates={dimmedDates}
           />
         </div>
-        <div className="col-span-12 lg:col-span-4">
+      </div>
+
+      {/* 當日預約改用右側 Drawer：避免窄螢幕（iPad/小視窗）被擠到月曆下方看不到。
+          開啟條件 = 有選日期且未開啟 Booking Detail，故兩層 Drawer 不會疊在一起。 */}
+      <RightSheet
+        open={!!selectedDate && !activeBookingId}
+        onClose={closeDay}
+        width={520}
+        labelledById="day-detail-sheet-title"
+      >
+        <div className="flex shrink-0 items-center justify-between border-b border-earth-200 px-4 py-3">
+          <h2
+            id="day-detail-sheet-title"
+            className="text-base font-semibold text-earth-900"
+          >
+            {selectedDate
+              ? `${Number(selectedDate.slice(5, 7))}/${Number(
+                  selectedDate.slice(8, 10),
+                )}（${formatWeekdayZh(selectedDate)}） 當日預約`
+              : "當日預約"}
+          </h2>
+          <button
+            type="button"
+            onClick={closeDay}
+            aria-label="關閉"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-earth-500 hover:bg-earth-100 hover:text-earth-700"
+          >
+            ✕
+          </button>
+        </div>
+        <div className="min-h-0 flex-1">
           <DayDetailPanel
             date={selectedDate}
             bookings={filteredDayBookings}
@@ -522,7 +561,7 @@ export function BookingsManager({
             batchActing={batchActing}
           />
         </div>
-      </div>
+      </RightSheet>
 
       <BookingDetailDrawer
         open={!!activeBookingId}

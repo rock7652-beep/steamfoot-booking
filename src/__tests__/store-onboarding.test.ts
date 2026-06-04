@@ -10,6 +10,7 @@ vi.mock("@/lib/db", () => ({
     user: { findUnique: vi.fn(), create: vi.fn() },
     shopConfig: { create: vi.fn() },
     bookingSlot: { createMany: vi.fn() },
+    businessHours: { createMany: vi.fn() },
     staff: { findMany: vi.fn() },
     staffPermission: { createMany: vi.fn(), count: vi.fn() },
   },
@@ -237,5 +238,47 @@ describe("預設時段", () => {
   it("56 slots (8 times × 7 days)", () => {
     const slotTimes = ["10:00", "11:00", "14:00", "15:00", "16:00", "17:30", "18:30", "19:30"];
     expect(slotTimes.length * 7).toBe(56);
+  });
+});
+
+// ============================================================
+// 8. 預設營業時間（BusinessHours）— #246：避免新店整週公休
+// ============================================================
+
+describe("預設營業時間", () => {
+  // 對齊 createStoreAction step 5 / seed-production-minimum.ts 的預設值
+  function buildDefaultBusinessHours(storeId: string) {
+    const rows = [];
+    for (let dow = 0; dow <= 6; dow++) {
+      rows.push({
+        storeId,
+        dayOfWeek: dow,
+        isOpen: true,
+        openTime: "10:00",
+        closeTime: "21:00",
+        slotInterval: 60,
+        defaultCapacity: 6,
+      });
+    }
+    return rows;
+  }
+
+  it("建店補滿 7 天（dow 0-6）BusinessHours", () => {
+    const rows = buildDefaultBusinessHours("store-kaohsiung");
+    expect(rows).toHaveLength(7);
+    expect(rows.map((r) => r.dayOfWeek)).toEqual([0, 1, 2, 3, 4, 5, 6]);
+  });
+
+  it("7 天全部營業（isOpen=true）→ 不會整週公休", () => {
+    const rows = buildDefaultBusinessHours("store-kaohsiung");
+    expect(rows.every((r) => r.isOpen)).toBe(true);
+  });
+
+  it("預設值對齊竹北正式店：10:00–21:00 / 60 分 / 6 名額", () => {
+    const [sun] = buildDefaultBusinessHours("store-kaohsiung");
+    expect(sun.openTime).toBe("10:00");
+    expect(sun.closeTime).toBe("21:00");
+    expect(sun.slotInterval).toBe(60);
+    expect(sun.defaultCapacity).toBe(6);
   });
 });
