@@ -62,7 +62,7 @@ LIFF 會把 LIFF ID 之後的路徑接到 endpoint URL 後面。因為 **storeSl
 | 按鈕名稱 | 目標 URL | LIFF ID / web URL | 已可用 | 需 LINE session | 會進 onboarding | 風險與備註 |
 |---|---|---|---|---|---|---|
 | **立即預約** | `https://liff.line.me/2009711308-47Ffoh9r/member-booking` | 會員中心 LIFF | ✅ | 是 | 未綁定→落地頁 boundary，提供「回首頁」由首頁接 onboarding | 無剩餘堂數者會看到 no-wallet card；建議文案引導去體驗預約。亦可命名「課程預約」更精準 |
-| **體驗預約** | `https://liff.line.me/2009711308-47Ffoh9r/trial-booking` | 會員中心 LIFF | ✅ | 是 | 同上 | 新客主入口，風險低 |
+| **體驗預約** | `https://liff.line.me/2009711308-47Ffoh9r`（**會員中心首頁，不直連 `/trial-booking`**） | 會員中心 LIFF | ✅ | 是 | **由首頁負責** exchange + onboarding，綁定後再點體驗預約 | ⚠️ **避免未綁定新客 direct deep link `no_customer`**：`/trial-booking` 頁只做 `initLiff()`/`getIDToken()`、不跑 `/api/liff/exchange`，`submitLiffTrialBooking` 依賴 NextAuth session，新客直連會卡 retry-only blocked。體驗預約常是新客第一入口，故先進首頁最穩 |
 | **我的預約** | `https://liff.line.me/2009711308-47Ffoh9r/bookings` | 會員中心 LIFF | ✅ | 是 | 未綁定→`no_customer` boundary，提供「回首頁」 | 含取消 / 改期；風險低 |
 | **剩餘堂數** | `https://liff.line.me/2009711308-47Ffoh9r/wallets` | 會員中心 LIFF | ✅ | 是 | 同上 | = 我的方案；風險低 |
 
@@ -85,7 +85,7 @@ LIFF 會把 LIFF ID 之後的路徑接到 endpoint URL 後面。因為 **storeSl
 # 會員中心 LIFF（2009711308-47Ffoh9r）— production 解析為 https://www.steamfoot.com/s/zhubei/liff/...
 會員中心首頁    https://liff.line.me/2009711308-47Ffoh9r
 立即/課程預約   https://liff.line.me/2009711308-47Ffoh9r/member-booking
-體驗預約        https://liff.line.me/2009711308-47Ffoh9r/trial-booking
+體驗預約        https://liff.line.me/2009711308-47Ffoh9r/trial-booking   # ⚠️ 僅已綁定顧客可 deep link；Rich Menu 新客主入口請改用上面的「會員中心首頁」
 我的預約        https://liff.line.me/2009711308-47Ffoh9r/bookings
 剩餘堂數/方案   https://liff.line.me/2009711308-47Ffoh9r/wallets
 我的資料        https://liff.line.me/2009711308-47Ffoh9r/profile
@@ -101,17 +101,19 @@ AI 健康評估     https://liff.line.me/2009744225-9aSc04fR
 > 注意：`2009744225-9aSc04fR` 是**健康評估**，不是會員中心。
 >
 > `…/profile`（我的資料）route 自 **PR #257** 起在 production 可用（`src/app/(liff)/liff/profile/`），已通過 iPhone smoke。請勿因 stale review 移除此 mapping。
+>
+> `…/trial-booking` 列在表中僅供參考，**Rich Menu 體驗預約格請用會員中心首頁 URL**（見 §3 / §5）：該頁不跑 `/api/liff/exchange`，未綁定新客直連會卡 `no_customer`。
 
 ---
 
 ## 5. Deep link vs LIFF home 結論
 
-**推薦：交易型按鈕用 deep link，不需要全部導回 LIFF home。**
+**推薦：老客交易型按鈕用 deep link；新客入口（體驗預約）先導 LIFF home。**
 
-- **老客常用功能（立即預約 / 體驗預約 / 我的預約 / 剩餘堂數 / 我的資料 / 健康紀錄）可直接 deep link**，最省步驟、體驗最好。
-- 每個 LIFF 子頁各自獨立 `initLiff()` + `getIDToken()`，server action 走 status discriminated union、不 throw；**未綁定顧客 deep link 進子頁會看到 graceful boundary，並被引導回首頁 / onboarding**，不會白頁或崩潰。
-- onboarding funnel 仍集中在**首頁 shell**（未綁定→自動導 `/onboarding`；已綁定→出 CTA）。新客 deep link 子頁僅多一跳，可接受。
-- **不需要**把所有格子都先導回 LIFF home——那會讓老客每次多點一次。
+- **老客常用功能（立即/課程預約 / 我的預約 / 剩餘堂數 / 我的資料 / 健康紀錄）可直接 deep link**，最省步驟、體驗最好。這些功能本就以已綁定顧客為主。
+- ⚠️ **例外：體驗預約必須先導會員中心首頁，不可 direct deep link `/trial-booking`。** 體驗預約常是新客第一次入口；`/trial-booking` 頁只做 `initLiff()`/`getIDToken()`、**不跑 `/api/liff/exchange`**，`submitLiffTrialBooking` 依賴 NextAuth session，未綁定新客直連會回 `no_customer` → 卡 retry-only blocked state。**唯有首頁 shell 會跑 exchange 並把未綁定者導向 `/onboarding`**，所以新客入口先進首頁才穩。
+- onboarding funnel 集中在**首頁 shell**（未綁定→exchange→自動導 `/onboarding`；已綁定→出 CTA）。
+- 其他子頁未綁定時走 status discriminated union、不 throw，顯示 graceful boundary 並提供「回首頁」；雖不崩潰，但對**新客入口**而言「先進首頁」比「先卡 boundary 再回首頁」體驗更好、更穩。
 - session 失效時子頁顯示 `expired` retry，而非首頁完整歡迎流程，可接受。
 
 ---
