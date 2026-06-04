@@ -99,6 +99,8 @@ AI 健康評估     https://liff.line.me/2009744225-9aSc04fR
 ```
 
 > 注意：`2009744225-9aSc04fR` 是**健康評估**，不是會員中心。
+>
+> `…/profile`（我的資料）route 自 **PR #257** 起在 production 可用（`src/app/(liff)/liff/profile/`），已通過 iPhone smoke。請勿因 stale review 移除此 mapping。
 
 ---
 
@@ -118,16 +120,24 @@ AI 健康評估     https://liff.line.me/2009744225-9aSc04fR
 
 架構**可複製、無寫死竹北的 blocker**。路由全程 `storeSlug`-parameterized（proxy 抽 slug → `x-store-slug` header → `resolveStorePresentation`）。
 
-| 項目 | zhubei（現行） | hsinchu（未來） |
-|---|---|---|
-| LIFF ID | `2009711308-47Ffoh9r` | **需註冊獨立 LIFF ID**，endpoint 設 `https://www.steamfoot.com/s/hsinchu/liff` |
-| `Store.liffId`（DB） | 已設 | 需補 |
-| `Store.contactUrl`（DB） | 已設（`@083vmikb`） | 需補 hsinchu OA |
-| `Store.address` / `mapUrl` | 已設 | 需補 hsinchu 實際值 |
-| LINE OA Rich Menu | 竹北 OA | hsinchu OA，deep link 換成該店 LIFF ID |
-| HealthFlow LIFF | `2009744225-9aSc04fR` | **刻意全店共用**（HealthFlow 不分店） |
+**欄位來源（以實際 code 為準）**：LIFF 顯示資料由 `resolveStorePresentation(slug)`（`src/lib/store-resolver.ts`）組裝，實際讀取：
+- `Store.liffId` → LIFF ID（未填則 fallback env `NEXT_PUBLIC_LIFF_ID_<SLUG>`）
+- `ShopConfig.lineOfficialUrl` → 聯絡店長 / contactUrl
+- `ShopConfig.address` → 地址
+- `ShopConfig.mapUrl` → 地圖
 
-> ⚠️ **避免 fallback 到竹北資料**：`src/lib/liff/messages.ts` 的 `contactStoreUrl` / `storeAddress` / `storeMapUrl` 為竹北 fallback 常數。hsinchu 的 `Store` DB 欄位若留 null，LIFF 會 fallback 顯示**竹北**的聯絡 / 地址 / 地圖。hsinchu 上線前**必須在 DB 補齊這些欄位**。
+| 項目 | 實際讀取欄位 | zhubei（現行） | hsinchu（未來） |
+|---|---|---|---|
+| LIFF ID | `Store.liffId` | `2009711308-47Ffoh9r` | **需註冊獨立 LIFF ID** + 設 `Store.liffId`，endpoint `https://www.steamfoot.com/s/hsinchu/liff` |
+| 聯絡店長 / OA | `ShopConfig.lineOfficialUrl` | 已設（`@083vmikb`） | 需補 hsinchu OA |
+| 地址 | `ShopConfig.address` | 已設 | 需補 hsinchu 實際值 |
+| 地圖 | `ShopConfig.mapUrl` | 已設 | 需補 hsinchu 實際值 |
+| LINE OA Rich Menu | （LINE 後台，非 DB） | 竹北 OA | hsinchu OA，deep link 換成該店 LIFF ID |
+| HealthFlow LIFF | （硬編常數，全店共用） | `2009744225-9aSc04fR` | **刻意全店共用**（HealthFlow 不分店） |
+
+> ⚠️ **避免 fallback 到竹北資料**：`resolveStorePresentation` 在 `ShopConfig.lineOfficialUrl / address / mapUrl` 為 null 時，會 fallback 到竹北 fallback 常數（`src/lib/store-resolver.ts` 的 `FALLBACK_*`，值來自 `src/lib/liff/messages.ts`）。hsinchu 若這幾個 `ShopConfig` 欄位留 null，LIFF 會顯示**竹北**的聯絡 / 地址 / 地圖。hsinchu 上線前**必須補齊該店的 `ShopConfig.lineOfficialUrl` / `ShopConfig.address` / `ShopConfig.mapUrl`**。
+
+> ⚠️ **不要照 `Store.contactUrl` / `Store.address` / `Store.mapUrl` 設定**——這些**不是** LIFF presentation 讀取的欄位，補在那裡 LIFF 不會生效，仍會 fallback 竹北。正確欄位是上表的 `ShopConfig.*`。`Store.liffId` 是唯一讀 `Store` 的欄位，仍需各店設定。
 
 ---
 
