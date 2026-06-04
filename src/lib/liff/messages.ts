@@ -418,6 +418,43 @@ export const liffMessages = {
     successCta: "回到會員首頁",
     initializing: "正在連接 LINE…",
   },
+  // ── PR-LIFF-profile 顧客資料頁（read-only）──
+  // mirror trialBooking / memberBooking 的 namespace 結構。文案避免技術詞
+  // （「綁定」「session」「authoritative」），用顧客友善語言。
+  profile: {
+    // page header
+    pageTitle: "我的資料",
+    initializing: "正在連接 LINE…",
+
+    // field labels
+    fieldName: "姓名",
+    fieldPhone: "電話",
+    fieldEmail: "Email",
+    fieldLineStatus: "LINE 綁定狀態",
+    fieldLineName: "LINE 顯示名稱",
+    fieldStoreName: "所屬門市",
+
+    // empty / unfilled values
+    fieldUnfilled: "未填寫",
+    lineNameEmpty: "未綁定或未填寫",
+
+    // LINE 綁定狀態 3 態
+    lineStatusLinked: "已綁定 LINE",
+    lineStatusUnlinked: "尚未綁定 LINE",
+    lineStatusNeedsHelp: "需店家協助確認",
+
+    // navigation
+    backToHomeCta: "回會員中心",
+
+    // no_customer state — 通常代表 session 未建立 / 顧客已登出 / 跨店誤入
+    // 文案中性，引導顧客重新整理或聯絡店家；不暴露技術原因
+    noCustomerTitle: "找不到您的會員資料",
+    noCustomerBody: "請重新從 LINE 圖文選單開啟此頁，或聯繫店家確認您的會員狀態。",
+
+    // home 入口按鈕（出現在 WelcomeBack 的次要 utility 區塊，
+    // 視覺刻意低調，不擠壓現有 4 顆核心 CTA）
+    homeEntryCta: "我的資料",
+  },
   error: {
     invalidPhone: "手機格式不正確，請輸入 09 開頭共 10 碼的手機號碼。",
     missingName: "請輸入您的姓名。",
