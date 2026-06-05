@@ -193,16 +193,16 @@ export function isSlotPastToday(date: string, slotTime: string): boolean {
 export type NoShowPolicy = "DEDUCTED" | "NOT_DEDUCTED";
 
 /**
- * UI 層：店長在 popover 選擇的未到處理方式（三選一）
- * - DEDUCTED: 扣堂（照常扣）
- * - NOT_DEDUCTED_WITH_MAKEUP: 不扣堂＋給補課
- * - NOT_DEDUCTED_NO_MAKEUP: 不扣堂、不補課
+ * UI 層：店長標記未到的處理方式（二選一）。
+ * 兩者皆「扣堂」（名額已被佔用，依預約人數原堂照扣），差別僅在是否額外發補課券。
+ * - DEDUCTED: 扣堂、不發補課
+ * - DEDUCTED_WITH_MAKEUP: 扣堂 + 依預約人數發 N 張 10 日補課券
  *
  * 後端會拆成兩個欄位存：
- *   noShowPolicy        → "DEDUCTED" | "NOT_DEDUCTED"
+ *   noShowPolicy        → "DEDUCTED"（目前兩種選項皆扣堂）
  *   noShowMakeupGranted → true | false
  */
-export type NoShowChoice = "DEDUCTED" | "NOT_DEDUCTED_WITH_MAKEUP" | "NOT_DEDUCTED_NO_MAKEUP";
+export type NoShowChoice = "DEDUCTED" | "DEDUCTED_WITH_MAKEUP";
 
 // ============================================================
 // 5. 方案類別標籤
