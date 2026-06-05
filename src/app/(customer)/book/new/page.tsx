@@ -8,6 +8,7 @@ import { NoPlanEmptyState } from "@/components/no-plan-empty-state";
 import { sortWalletsByFEFO } from "@/lib/wallet-sort";
 import { walletAvailableToBook } from "@/lib/wallet-availability";
 import { resolveBookableUntilDate } from "@/lib/shop-config";
+import { toLocalDateStr } from "@/lib/date-utils";
 
 export default async function NewBookingPage() {
   const user = await getCurrentUser();
@@ -59,17 +60,17 @@ export default async function NewBookingPage() {
     prisma.makeupCredit.findMany({
       where: {
         customerId,
+        // 多店隔離：與 server createBooking 自選券一致 storeId-scoped（顯示/消耗對齊）
+        ...(bookingStoreId ? { storeId: bookingStoreId } : {}),
         isUsed: false,
         OR: [{ expiredAt: null }, { expiredAt: { gte: new Date() } }],
       },
       select: {
         id: true,
         expiredAt: true,
-        originalBooking: {
-          select: { bookingDate: true, slotTime: true },
-        },
       },
-      orderBy: { createdAt: "asc" },
+      // 最早到期優先（與 server createBooking 自選券規則一致）
+      orderBy: [{ expiredAt: { sort: "asc", nulls: "last" } }, { createdAt: "asc" }],
     }),
     bookingStoreId
       ? prisma.shopConfig.findUnique({
@@ -156,9 +157,8 @@ export default async function NewBookingPage() {
           }))}
           makeupCredits={makeupCredits.map((c) => ({
             id: c.id,
-            originalDate: c.originalBooking.bookingDate.toISOString().slice(0, 10),
-            originalSlot: c.originalBooking.slotTime,
-            expiredAt: c.expiredAt?.toISOString() ?? null,
+            // timestamp → 台灣日期字串（避免 UTC off-by-one）
+            expiredAt: c.expiredAt ? toLocalDateStr(c.expiredAt) : null,
           }))}
         />
       )}

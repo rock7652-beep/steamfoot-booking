@@ -53,7 +53,7 @@ interface LiffShellProps {
  * PR-G4 wallet summary：signed_in 後 lazy fetch；totalAvailable > 0 才在 home
  * 露「課程預約」CTA。null 表示尚未載 / 載失敗 → CTA 不出（不擋既有 4 顆 CTA）。
  */
-type WalletSummary = { totalAvailable: number };
+type WalletSummary = { totalAvailable: number; hasMakeup: boolean };
 
 export function LiffShell({ storeName, storeSlug, liffId, contactUrl }: LiffShellProps) {
   const [state, setState] = useState<State>({ kind: "initializing" });
@@ -118,7 +118,11 @@ export function LiffShell({ storeName, storeSlug, liffId, contactUrl }: LiffShel
                   (sum, x) => sum + x.availableToBook,
                   0,
                 );
-                setWalletSummary({ totalAvailable });
+                // PR-NoShow-2：只有補課券、無方案堂數的顧客也能預約 → CTA 要露出。
+                setWalletSummary({
+                  totalAvailable,
+                  hasMakeup: w.makeupCredits.length > 0,
+                });
               }
             } catch (err) {
               console.warn(
@@ -326,7 +330,8 @@ function WelcomeBack({
   //   - 「體驗預約」降 outlined（仍保留，會員可幫朋友 / 自己想另約體驗）
   // 沒堂數 / 載入未回 / 載失敗 → 體驗預約維持 dark primary（新客主路徑）
   const showMemberBooking =
-    walletSummary !== null && walletSummary.totalAvailable > 0;
+    walletSummary !== null &&
+    (walletSummary.totalAvailable > 0 || walletSummary.hasMakeup);
   const trialClass = showMemberBooking
     ? "flex w-full items-center justify-between rounded-xl border border-earth-300 bg-white px-4 py-3 text-left text-base font-medium text-earth-900 shadow-sm transition hover:bg-earth-50 active:scale-[0.98]"
     : "flex w-full items-center justify-between rounded-xl bg-earth-800 px-4 py-3 text-left text-base font-semibold text-white shadow-sm transition hover:bg-earth-700 active:scale-[0.98]";

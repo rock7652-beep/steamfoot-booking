@@ -27,6 +27,7 @@
 
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/session";
+import { toLocalDateStr } from "@/lib/date-utils";
 import { getCanonicalCustomerIdForSession } from "@/lib/customer-identity";
 import { PENDING_STATUSES } from "@/lib/booking-constants";
 import {
@@ -64,12 +65,21 @@ export interface LiffWalletRow {
   status: string;
 }
 
+/** PR-NoShow-2：有效補課券（未使用、未過期）投影 — 供顧客端顯示與「優先用券」提示。 */
+export interface LiffMakeupCreditRow {
+  id: string;
+  /** "YYYY-MM-DD" 或 null（無期限） */
+  expiredAt: string | null;
+}
+
 export type FetchLiffWalletsResult =
   | {
       status: "ok";
       active: LiffWalletRow[];
       expired: LiffWalletRow[];
       history: LiffWalletRow[];
+      /** 有效補課券，依最早到期排序（最早到期優先使用）。 */
+      makeupCredits: LiffMakeupCreditRow[];
     }
   | { status: "no_customer" }
   | { status: "service_unavailable" };
@@ -171,5 +181,30 @@ export async function fetchLiffWallets(): Promise<FetchLiffWalletsResult> {
   // ACTIVE + expiryDate < today → expired（防 race，不依賴 status auto-flip）
   const { active, expired, history } = splitLiffWallets(rows);
 
-  return { status: "ok", active, expired, history };
+  // ── 6. 有效補課券（PR-NoShow-2）：未使用、未過期，最早到期優先 ──
+  let makeupCredits: LiffMakeupCreditRow[] = [];
+  try {
+    const credits = await prisma.makeupCredit.findMany({
+      where: {
+        customerId,
+        storeId,
+        isUsed: false,
+        OR: [{ expiredAt: null }, { expiredAt: { gte: new Date() } }],
+      },
+      select: { id: true, expiredAt: true },
+      orderBy: [{ expiredAt: { sort: "asc", nulls: "last" } }, { createdAt: "asc" }],
+      take: 50,
+    });
+    makeupCredits = credits.map((c) => ({
+      id: c.id,
+      // expiredAt 是 timestamp（非 date-only 欄位）→ 以台灣時區轉日期，避免 UTC 切片 off-by-one。
+      expiredAt: c.expiredAt ? toLocalDateStr(c.expiredAt) : null,
+    }));
+  } catch (err) {
+    // 補課券查詢失敗不影響方案顯示主流程；降級為「無券」。
+    console.warn("[fetchLiffWallets] makeupCredit query failed", err);
+    makeupCredits = [];
+  }
+
+  return { status: "ok", active, expired, history, makeupCredits };
 }

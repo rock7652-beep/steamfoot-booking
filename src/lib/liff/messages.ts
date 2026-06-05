@@ -158,6 +158,19 @@ export const liffMessages = {
     /** 多張方案時顯示 — e.g. "共 2 張方案" (with {count} placeholder) */
     walletSummaryMultiPlan: "共 {count} 張方案",
 
+    // 預約人數（PR-NoShow-2：LIFF 也支援多人）
+    peopleLabel: "預約人數",
+    peopleHint: "（最多 4 人）",
+
+    // makeup credit priority (PR-NoShow-2)
+    /** 有足夠補課券時提示 — with {count}，e.g. "本次將使用 2 張補課資格" */
+    makeupHint: "本次將使用 {count} 張補課資格",
+    /** 補課券有效期限提示 — with {date} placeholder, e.g. "有效期限至 2026/06/15" */
+    makeupHintExpiry: "有效期限至 {date}",
+    /** 補課券不足以覆蓋人數 — with {need} / {have} */
+    makeupInsufficient:
+      "補課資格不足以覆蓋本次預約人數（需 {need} 張、目前 {have} 張），請改為 1 人預約，或使用方案堂數預約。",
+
     // calendar (mirror trialBooking)
     monthPrev: "上個月",
     monthNext: "下個月",
@@ -329,6 +342,18 @@ export const liffMessages = {
     expiredSectionTitle: "已過期",
     historySectionTitle: "歷史方案",
 
+    // makeup credits (PR-NoShow-2)
+    /** 補課券區塊標題 — with {count} placeholder, e.g. "補課資格（2 張）" */
+    makeupSectionTitle: "補課資格（{count} 張）",
+    /** 單張補課券標題 */
+    makeupCreditLabel: "補課資格",
+    /** 補課券效期 — with {date} placeholder, e.g. "有效期限至 2026/06/15" */
+    makeupExpiryLabel: "有效期限至 {date}",
+    /** 補課券無期限 */
+    makeupNoExpiryLabel: "無使用期限",
+    /** 補課券不扣堂註記 */
+    makeupNoDeductHint: "預約時自動優先使用，不扣方案堂數",
+
     // wallet card — hero (大字)
     /** e.g. "可預約 3 堂" — 主視覺，用 walletAvailableToBook 結果 */
     availableSuffix: "堂可預約",
@@ -481,5 +506,7 @@ export const liffMessages = {
     slotUnavailable: "該時段目前無法預約，請選擇其他時段。",
     bookingLimitReached: "店家暫不接受新預約，請聯繫我們。",
     sessionLost: "登入狀態異常，請重新從 LINE 進入此頁。",
+    // PR-NoShow-2：補課券在併發/過期 race 下暫時無法使用。
+    makeupUnavailable: "補課資格暫時無法使用，請重新整理後再試。",
   },
 } as const;
