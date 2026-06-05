@@ -39,6 +39,8 @@ interface Props {
   canDiscount: boolean;
   staffOptions: StaffOption[];
   canAssign: boolean;
+  /** 內部服務備註可編輯（= customer.update）。false 時 Drawer 只顯示不可改。 */
+  canEditNote: boolean;
 }
 
 export function CustomersListWithDrawer({
@@ -50,6 +52,7 @@ export function CustomersListWithDrawer({
   canDiscount,
   staffOptions,
   canAssign,
+  canEditNote,
 }: Props) {
   const titleId = useId();
   const router = useRouter();
@@ -358,6 +361,7 @@ export function CustomersListWithDrawer({
             canDiscount={canDiscount}
             staffOptions={staffOptions}
             canAssign={canAssign}
+            canEditNote={canEditNote}
             focus={focus}
             onClose={closeDrawer}
             onMutated={refreshDrawer}

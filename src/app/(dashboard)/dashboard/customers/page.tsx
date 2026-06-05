@@ -66,8 +66,14 @@ export default async function CustomersPage({ searchParams }: PageProps) {
     userId: user.id,
     sessionRole: user.role,
   };
-  const [{ customers, total }, staffOptions, plans, canDiscount, canAssign] =
-    await Promise.all([
+  const [
+    { customers, total },
+    staffOptions,
+    plans,
+    canDiscount,
+    canAssign,
+    canEdit,
+  ] = await Promise.all([
       listCustomers({
         stage: params.stage,
         status: normalizeStatus(params.status),
@@ -104,6 +110,9 @@ export default async function CustomersPage({ searchParams }: PageProps) {
         : Promise.resolve([]),
       checkPermission(user.role, user.staffId, "transaction.discount").catch(() => false),
       checkPermission(user.role, user.staffId, "customer.assign").catch(() => false),
+      // 內部服務備註「可編輯」沿用 customer.update（不綁 staff.manage）。
+      // 只有 customer.read 者看得到備註但不能改。
+      checkPermission(user.role, user.staffId, "customer.update").catch(() => false),
     ]);
 
   // PR-4：drawer 詳情不再於 server 端依 ?customerId= 預抓，也不再用 prop
@@ -139,6 +148,7 @@ export default async function CustomersPage({ searchParams }: PageProps) {
     assignedStaff: c.assignedStaff,
     mergedIntoCustomerId: c.mergedIntoCustomerId,
     userStatus: c.user?.status ?? null,
+    serviceNote: c.serviceNote, // 內部服務備註（後台限定）— 列表顯示一行摘要
   }));
 
   return (
@@ -192,6 +202,7 @@ export default async function CustomersPage({ searchParams }: PageProps) {
         canDiscount={canDiscount}
         staffOptions={staffOptions}
         canAssign={canAssign}
+        canEditNote={canEdit}
       />
 
       <div className="flex flex-wrap items-center justify-between gap-2">

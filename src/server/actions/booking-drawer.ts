@@ -25,6 +25,8 @@ export interface BookingDrawerPayload {
       id: string;
       name: string;
       phone: string;
+      // 內部服務備註（後台限定）— 顧客資訊區顯示（display-only）
+      serviceNote: string | null;
     };
     revenueStaff: {
       id: string;
@@ -246,6 +248,7 @@ export async function fetchBookingDetail(
         id: booking.customer.id,
         name: booking.customer.name,
         phone: booking.customer.phone,
+        serviceNote: booking.customer.serviceNote,
       },
       revenueStaff: booking.revenueStaff
         ? {

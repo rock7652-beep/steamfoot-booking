@@ -44,7 +44,12 @@ function makeBooking(overrides: Partial<Booking> = {}): Booking {
     isMakeup: false,
     isCheckedIn: false,
     notes: null,
-    customer: { id: "c1", name: "測試顧客", phone: "0900000000" },
+    customer: {
+      id: "c1",
+      name: "測試顧客",
+      phone: "0900000000",
+      serviceNote: null,
+    },
     revenueStaff: null,
     serviceStaff: null,
     servicePlan: null,

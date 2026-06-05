@@ -26,6 +26,8 @@ export interface DayBooking {
   customer: {
     name: string;
     phone: string;
+    /** 內部服務備註（後台限定）。有值時當日清單顯示一行截斷提醒。 */
+    serviceNote?: string | null;
     assignedStaff?: { displayName: string; colorCode: string } | null;
   };
   revenueStaff: { id: string; displayName: string; colorCode: string } | null;
@@ -413,6 +415,15 @@ function TimelineItem({
             {planLabel}
           </span>
         </div>
+        {/* 內部服務備註提醒（後台限定）— 有值才顯示一行截斷，沒值不佔空間 */}
+        {booking.customer?.serviceNote ? (
+          <div className="flex items-center gap-1 text-[11px] text-amber-700">
+            <span aria-hidden>📝</span>
+            <span className="min-w-0 flex-1 truncate">
+              {booking.customer.serviceNote}
+            </span>
+          </div>
+        ) : null}
       </button>
 
       {/* Inline actions — show 完成 only on actionable rows, 查看 always
