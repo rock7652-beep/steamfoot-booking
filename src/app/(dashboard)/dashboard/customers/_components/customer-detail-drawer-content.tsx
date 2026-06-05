@@ -9,6 +9,7 @@ import { TrialBookingDrawer } from "../../_components/trial-booking-drawer";
 import {
   updateCustomerAssignment,
   lookupCustomerByPhone,
+  updateCustomerServiceNoteAction,
 } from "@/server/actions/customer";
 import { normalizePhone } from "@/lib/normalize";
 import { formatTWTime } from "@/lib/date-utils";
@@ -36,6 +37,8 @@ interface Props {
   canDiscount: boolean;
   staffOptions: StaffOption[];
   canAssign: boolean;
+  /** 內部服務備註可編輯（= customer.update）。false → 只顯示不可改。 */
+  canEditNote: boolean;
   /** "plan" → 自動展開「指派新方案」並滾到方案區 */
   focus?: "plan" | null;
   onClose: () => void;
@@ -69,6 +72,7 @@ export function CustomerDetailDrawerContent({
   canDiscount,
   staffOptions,
   canAssign,
+  canEditNote,
   focus,
   onClose,
   onMutated,
@@ -76,6 +80,31 @@ export function CustomerDetailDrawerContent({
 }: Props) {
   const headerRef = useRef<HTMLDivElement>(null);
   const planSectionRef = useRef<HTMLElement>(null);
+
+  // 內部服務備註（後台限定）。component 以 key={detail.id} 重掛 → 初值依當前顧客。
+  const SERVICE_NOTE_MAX = 1000;
+  const [noteDraft, setNoteDraft] = useState(customer.serviceNote ?? "");
+  const [savingNote, setSavingNote] = useState(false);
+  const noteDirty = noteDraft.trim() !== (customer.serviceNote ?? "").trim();
+
+  async function handleSaveNote() {
+    if (savingNote || !noteDirty) return;
+    setSavingNote(true);
+    try {
+      const res = await updateCustomerServiceNoteAction({
+        customerId: customer.id,
+        serviceNote: noteDraft, // action 內 trim → 空字串存 null
+      });
+      if (!res.success) {
+        toast.error(res.error ?? "儲存內部服務備註失敗");
+        return;
+      }
+      toast.success("已儲存內部服務備註");
+      onMutated(); // 父層 refetch 本人 slim 資料（drawer cache invalidate）
+    } finally {
+      setSavingNote(false);
+    }
+  }
 
   // 開啟時把焦點交給 drawer header
   useEffect(() => {
@@ -187,6 +216,51 @@ export function CustomerDetailDrawerContent({
               完整詳情
             </Link>
           </div>
+        </section>
+
+        {/* 內部服務備註（後台限定，店長 / 合作店長交接用） */}
+        <section>
+          <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-earth-800">
+            內部服務備註
+            <span className="rounded bg-earth-100 px-1.5 py-0.5 text-[10px] font-normal text-earth-500">
+              僅後台可見
+            </span>
+          </h3>
+          {canEditNote ? (
+            <div className="rounded-lg border border-earth-200 bg-white p-3">
+              <textarea
+                value={noteDraft}
+                onChange={(e) =>
+                  setNoteDraft(e.target.value.slice(0, SERVICE_NOTE_MAX))
+                }
+                maxLength={SERVICE_NOTE_MAX}
+                rows={3}
+                placeholder="例：怕熱，溫度不要太高；第一次來容易緊張，接待時放慢說明。"
+                className="w-full resize-y rounded-md border border-earth-200 px-2.5 py-2 text-sm text-earth-800 outline-none placeholder:text-earth-300 focus:border-primary-400"
+              />
+              <div className="mt-2 flex items-center justify-between">
+                <span className="text-[11px] tabular-nums text-earth-400">
+                  {noteDraft.length} / {SERVICE_NOTE_MAX}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleSaveNote}
+                  disabled={!noteDirty || savingNote}
+                  className="rounded-md bg-primary-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:bg-earth-200 disabled:text-earth-400"
+                >
+                  {savingNote ? "儲存中…" : "儲存備註"}
+                </button>
+              </div>
+            </div>
+          ) : customer.serviceNote ? (
+            <div className="whitespace-pre-wrap rounded-lg border border-earth-100 bg-earth-50 p-3 text-sm text-earth-700">
+              {customer.serviceNote}
+            </div>
+          ) : (
+            <div className="rounded-lg border border-earth-100 bg-earth-50 p-3 text-xs text-earth-400">
+              尚無備註
+            </div>
+          )}
         </section>
 
         {/* 課程方案 / 堂數 */}

@@ -32,6 +32,8 @@ export interface CustomerRow {
   mergedIntoCustomerId: string | null;
   /** 對應 NextAuth User 狀態；SUSPENDED 視同 disabled，避免店長誤操作 placeholder/duplicate。 */
   userStatus: UserStatus | null;
+  /** 內部服務備註（後台限定）。列表只顯示一行截斷摘要，完整內容在 Drawer。 */
+  serviceNote: string | null;
 }
 
 export function isInactiveRow(c: CustomerRow): boolean {
@@ -223,6 +225,20 @@ export function CustomersTable({
           )}
         </span>
       ),
+    },
+    {
+      key: "serviceNote",
+      header: "備註",
+      width: "w-44",
+      accessor: (c) =>
+        c.serviceNote ? (
+          // 一行截斷摘要（不加 title tooltip）— 完整內容於顧客 Drawer 查看。
+          <span className="block max-w-[11rem] truncate text-[12px] text-earth-600">
+            {c.serviceNote}
+          </span>
+        ) : (
+          <span className="text-[11px] text-earth-300">—</span>
+        ),
     },
     {
       key: "actions",

@@ -76,6 +76,8 @@ export interface BookingPrefill {
   people: number;
   customerName: string;
   customerPhone: string;
+  /** 內部服務備註（後台限定）— prefill 即可即時顯示。 */
+  serviceNote: string | null;
   revenueStaff: { displayName: string; colorCode: string } | null;
   serviceStaffName: string | null;
   servicePlanName: string | null;
@@ -598,6 +600,16 @@ function DrawerContent({
               )
             }
           />
+          {booking.customer.serviceNote ? (
+            <KV
+              label="服務備註"
+              value={
+                <span className="whitespace-pre-wrap text-amber-800">
+                  {booking.customer.serviceNote}
+                </span>
+              }
+            />
+          ) : null}
           <KV
             label="累積完成"
             value={`${customerSummary.totalBookings} 次`}
@@ -974,6 +986,16 @@ function PrefillDrawerContent({
               )
             }
           />
+          {prefill.serviceNote ? (
+            <KV
+              label="服務備註"
+              value={
+                <span className="whitespace-pre-wrap text-amber-800">
+                  {prefill.serviceNote}
+                </span>
+              }
+            />
+          ) : null}
         </Section>
 
         {/* 顧客近況 / 完整付款明細 / 操作 —— 等 authoritative payload 補齊 */}

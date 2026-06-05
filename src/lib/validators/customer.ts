@@ -85,6 +85,26 @@ export const transferCustomerSchema = z.object({
   newStaffId: z.string().cuid(),
 });
 
+// 內部服務備註（後台限定）單一欄位更新 — 走專用 action，不走整包 updateCustomer，
+// 避免誤改姓名/電話/生日/店長/狀態等其他欄位。
+//   - customerId 用 .min(1) 非 .cuid()（staging / 匯入 id 未必是 cuid；存在性由
+//     action 內 prisma 查詢 + store filter 把關）。
+//   - serviceNote：trim 後空字串 / 全空白 → null（清除）；上限 1000 字。
+export const updateCustomerServiceNoteSchema = z.object({
+  customerId: z.string().min(1),
+  serviceNote: z.preprocess(
+    (v) => {
+      if (v === null || v === undefined) return null;
+      if (typeof v === "string") {
+        const t = v.trim();
+        return t === "" ? null : t;
+      }
+      return v;
+    },
+    z.string().max(1000, "內部服務備註最多 1000 字").nullable(),
+  ),
+});
+
 // 顧客歸屬設定（列表 drawer 用）
 //   - assignedStaffId：直屬店長（必填）
 //   - referredByCustomerId：推薦人（選填；null = 清除）

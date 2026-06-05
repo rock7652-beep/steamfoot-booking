@@ -582,6 +582,9 @@ model Customer {
   talentStage              TalentStage    @default(CUSTOMER)
   stageChangedAt           DateTime? // 階段最後變更時間
   stageNote                String? // 店長對此人的備註
+  // 內部服務備註（店長 / 合作店長交接用）。**僅後台可見**：顧客前台 / LINE / LIFF /
+  // 通知一律不顯示。與 customer-facing 的 `notes`（前台 profile 可編輯）刻意分欄。
+  serviceNote              String? // 內部服務備註（後台限定）
   selfBookingEnabled       Boolean        @default(false)
   firstVisitAt             DateTime? // 首次到店日期
   convertedAt              DateTime? // 首次購課日期

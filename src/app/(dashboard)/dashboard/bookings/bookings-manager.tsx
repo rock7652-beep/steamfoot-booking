@@ -55,6 +55,7 @@ interface BookingEntry {
     id: string;
     name: string;
     phone: string;
+    serviceNote: string | null;
     assignedStaff: {
       id: string;
       displayName: string;
@@ -648,6 +649,7 @@ function monthEntryToPrefill(b: BookingEntry, date: string): BookingPrefill {
     serviceStaffName: b.serviceStaff?.displayName ?? null,
     servicePlanName:
       b.servicePlan?.name ?? b.customerPlanWallet?.plan.name ?? null,
+    serviceNote: b.customer.serviceNote,
     collected: b.collected,
     collectedAmount: b.collectedAmount,
     expectedAmount: b.expectedAmount,

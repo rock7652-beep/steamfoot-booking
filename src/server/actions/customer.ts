@@ -11,6 +11,7 @@ import {
   transferCustomerSchema,
   updateCustomerAssignmentSchema,
   bulkUpdateCustomerAssignmentSchema,
+  updateCustomerServiceNoteSchema,
 } from "@/lib/validators/customer";
 import type { ActionResult } from "@/types";
 import { getCustomerDrawerDetail } from "@/server/queries/customer";
@@ -205,6 +206,54 @@ export async function updateCustomer(
     await prisma.customer.update({
       where: { id: customerId },
       data: prismaData,
+    });
+
+    revalidatePath("/dashboard/customers");
+    revalidatePath(`/dashboard/customers/${customerId}`);
+    return { success: true, data: undefined };
+  } catch (e) {
+    return handleActionError(e);
+  }
+}
+
+// ============================================================
+// updateCustomerServiceNoteAction — 內部服務備註（後台限定，單一欄位更新）
+// ------------------------------------------------------------
+// 權限沿用 customer.update（ADMIN / OWNER / PARTNER-with-grant / 任何顧客編輯權限者）；
+// 只有 customer.read 者看得到但呼叫此 action 會被 requirePermission 擋下。
+// 走專用 action 而非整包 updateCustomer，避免誤改姓名/電話/生日/店長/狀態等欄位。
+// store filter（assertStoreAccess）確保跨店不可改。
+// **不**把備註全文寫入任何 log / audit：AuditLog 只記 content-free 事件（無 before/after）。
+// ============================================================
+export async function updateCustomerServiceNoteAction(
+  input: z.infer<typeof updateCustomerServiceNoteSchema>,
+): Promise<ActionResult<undefined>> {
+  try {
+    const user = await requirePermission("customer.update");
+    const { customerId, serviceNote } =
+      updateCustomerServiceNoteSchema.parse(input);
+
+    const customer = await prisma.customer.findUnique({
+      where: { id: customerId },
+      select: { id: true, storeId: true },
+    });
+    if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
+    assertStoreAccess(user, customer.storeId);
+
+    await prisma.customer.update({
+      where: { id: customerId },
+      data: { serviceNote },
+    });
+
+    // Audit：content-free —— 只記「誰、對哪位顧客、做了什麼」，**不**存備註全文
+    // （刻意不帶 beforeJson / afterJson）。
+    await prisma.auditLog.create({
+      data: {
+        actorUserId: user.id,
+        targetType: "Customer",
+        targetId: customerId,
+        action: "SERVICE_NOTE_UPDATED",
+      },
     });
 
     revalidatePath("/dashboard/customers");
