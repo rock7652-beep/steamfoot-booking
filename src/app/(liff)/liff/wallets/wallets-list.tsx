@@ -27,6 +27,7 @@ import { initLiff, isInLineClient, getIDToken } from "@/lib/liff/client";
 import {
   fetchLiffWallets,
   type LiffWalletRow,
+  type LiffMakeupCreditRow,
 } from "@/server/actions/liff-my-wallets";
 import { isExpiringSoon } from "@/lib/liff/my-wallets";
 import { liffMessages } from "@/lib/liff/messages";
@@ -41,6 +42,7 @@ type State =
       active: LiffWalletRow[];
       expired: LiffWalletRow[];
       history: LiffWalletRow[];
+      makeupCredits: LiffMakeupCreditRow[];
     };
 
 interface Props {
@@ -104,6 +106,7 @@ export function WalletsList({ storeSlug, storeName, liffId, contactUrl }: Props)
         active: result.active,
         expired: result.expired,
         history: result.history,
+        makeupCredits: result.makeupCredits,
       });
     })();
     return () => {
@@ -160,6 +163,7 @@ export function WalletsList({ storeSlug, storeName, liffId, contactUrl }: Props)
           active={state.active}
           expired={state.expired}
           history={state.history}
+          makeupCredits={state.makeupCredits}
           storeSlug={storeSlug}
           contactUrl={contactUrl}
         />
@@ -176,22 +180,24 @@ function ReadyView({
   active,
   expired,
   history,
+  makeupCredits,
   storeSlug,
   contactUrl,
 }: {
   active: LiffWalletRow[];
   expired: LiffWalletRow[];
   history: LiffWalletRow[];
+  makeupCredits: LiffMakeupCreditRow[];
   storeSlug: string;
   /** PR-E：per-store LINE OA 連結。 */
   contactUrl: string;
 }) {
-  const totalCount = active.length + expired.length + history.length;
+  const totalCount =
+    active.length + expired.length + history.length + makeupCredits.length;
   const isEmpty = totalCount === 0;
-  // PR-G3：「立即預約」CTA 顯示條件 — active 加總 availableToBook > 0
-  // （非 raw remainingSessions；同顧客 hero 大字一致語意）
+  // 「立即預約」CTA 顯示條件 — 有可預約堂數或有有效補課券（PR-NoShow-2：補課券也能預約）
   const totalAvailable = active.reduce((sum, w) => sum + w.availableToBook, 0);
-  const showBookNow = totalAvailable > 0;
+  const showBookNow = totalAvailable > 0 || makeupCredits.length > 0;
 
   return (
     <>
@@ -217,6 +223,18 @@ function ReadyView({
             <Section title={liffMessages.wallets.historySectionTitle} dim>
               {history.map((w) => (
                 <WalletCard key={w.id} wallet={w} variant="history" />
+              ))}
+            </Section>
+          )}
+          {makeupCredits.length > 0 && (
+            <Section
+              title={liffMessages.wallets.makeupSectionTitle.replace(
+                "{count}",
+                String(makeupCredits.length),
+              )}
+            >
+              {makeupCredits.map((c) => (
+                <MakeupCreditCard key={c.id} credit={c} />
               ))}
             </Section>
           )}
@@ -378,6 +396,26 @@ function WalletCard({
           ? `${m.validUntilLabel} ${formatDateLabel(wallet.expiryDate)}`
           : m.noExpiryLabel}
       </p>
+    </div>
+  );
+}
+
+function MakeupCreditCard({ credit }: { credit: LiffMakeupCreditRow }) {
+  const m = liffMessages.wallets;
+  const expiring = isExpiringSoon(credit.expiredAt);
+  return (
+    <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+      <p className="text-sm font-semibold text-amber-900">
+        {m.makeupCreditLabel}
+      </p>
+      <p
+        className={`mt-0.5 text-xs ${expiring ? "font-medium text-red-600" : "text-amber-700"}`}
+      >
+        {credit.expiredAt
+          ? m.makeupExpiryLabel.replace("{date}", formatDateLabel(credit.expiredAt))
+          : m.makeupNoExpiryLabel}
+      </p>
+      <p className="mt-1 text-[11px] text-earth-500">{m.makeupNoDeductHint}</p>
     </div>
   );
 }

@@ -44,10 +44,18 @@ const mockStoreFindUnique = vi.fn();
 const mockTx = vi.fn();
 
 const mockTransactionFindFirst = vi.fn();
+// PR-NoShow-2：補課自助預約用（多券 join table）
+const mockMakeupCount = vi.fn();
+const mockTxQueryRaw = vi.fn();
+const mockTxMakeupUpdateMany = vi.fn();
+const mockTxJoinCreateMany = vi.fn();
+const mockTxJoinFindMany = vi.fn();
+const mockTxJoinDeleteMany = vi.fn();
 
 vi.mock("@/lib/db", () => ({
   prisma: {
     customer: { findUnique: (...a: unknown[]) => mockCustomerFindUnique(...a) },
+    makeupCredit: { count: (...a: unknown[]) => mockMakeupCount(...a) },
     booking: {
       findUnique: (...a: unknown[]) => mockBookingFindUnique(...a),
       count: (...a: unknown[]) => mockBookingCount(...a),
@@ -163,10 +171,22 @@ function setupBusinessHours() {
     storeId: args.data.storeId,
     customerId: args.data.customerId,
   }));
+  mockMakeupCount.mockResolvedValue(0);
+  mockTxQueryRaw.mockResolvedValue([]);
+  mockTxMakeupUpdateMany.mockResolvedValue({ count: 0 });
+  mockTxJoinCreateMany.mockResolvedValue({ count: 0 });
+  mockTxJoinFindMany.mockResolvedValue([]);
+  mockTxJoinDeleteMany.mockResolvedValue({ count: 0 });
   mockTx.mockImplementation(async (cb: (tx: unknown) => Promise<unknown>) =>
     cb({
+      $queryRaw: (...a: unknown[]) => mockTxQueryRaw(...a),
       booking: { create: mockBookingCreate, update: mockBookingUpdate },
-      makeupCredit: { update: vi.fn(), create: vi.fn() },
+      makeupCredit: { updateMany: (...a: unknown[]) => mockTxMakeupUpdateMany(...a), update: vi.fn(), create: vi.fn() },
+      bookingMakeupCredit: {
+        createMany: (...a: unknown[]) => mockTxJoinCreateMany(...a),
+        findMany: (...a: unknown[]) => mockTxJoinFindMany(...a),
+        deleteMany: (...a: unknown[]) => mockTxJoinDeleteMany(...a),
+      },
       customerPlanWallet: {
         findUnique: vi.fn(async () => ({ remainingSessions: 5 })),
         update: vi.fn(),
@@ -602,5 +622,154 @@ describe("markCompleted — SINGLE 必須先收款才能完成", () => {
     expect(result.success).toBe(true);
     // SINGLE 不應該 create SESSION_DEDUCTION（不扣堂）
     expect(mockTransactionCreate).not.toHaveBeenCalled();
+  });
+});
+
+// ────────────────────────────────────────────────────────────
+// createBooking — 補課自助預約核心 (PR-NoShow-2)
+//   用 OWNER session 測 makeup 分支核心（避開 CUSTOMER-only bookable-until gate）；
+//   makeup 邏輯本身與角色無關。
+// ────────────────────────────────────────────────────────────
+describe("createBooking — 補課自助預約 (PR-NoShow-2)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setupBusinessHours();
+    // 補課不需 wallet → 用無方案顧客即可
+    mockCustomerFindUnique.mockResolvedValue(NO_PLAN_CUSTOMER_RECORD);
+    mockRequireSession.mockResolvedValue({
+      role: "OWNER",
+      storeId: STORE_A,
+      staffId: STAFF_ID,
+      id: OWNER_USER_ID,
+      email: "owner@x.com",
+    });
+  });
+
+  const makeupInput = {
+    customerId: NO_PLAN_CUSTOMER_ID,
+    bookingDate: "2026-04-27",
+    slotTime: "11:00",
+    bookingType: "PACKAGE_SESSION" as const,
+    isMakeup: true,
+  };
+
+  it("people=1 有 1 券 → 自選 1 張、標 isUsed、建 1 筆 join row、isMakeup booking、不扣堂", async () => {
+    mockMakeupCount.mockResolvedValue(1);
+    mockTxQueryRaw.mockResolvedValue([{ id: "mc-1" }]);
+
+    const { createBooking } = await import("@/server/actions/booking");
+    const r = await createBooking(makeupInput);
+
+    expect(r.success).toBe(true);
+    expect(mockTxQueryRaw).toHaveBeenCalledTimes(1); // tx 內 FOR UPDATE 挑券
+    // N 張券標記 isUsed
+    expect(mockTxMakeupUpdateMany).toHaveBeenCalledWith({
+      where: { id: { in: ["mc-1"] } },
+      data: { isUsed: true },
+    });
+    // join row：1 筆
+    const joinData = mockTxJoinCreateMany.mock.calls[0][0].data;
+    expect(joinData).toHaveLength(1);
+    expect(joinData[0].makeupCreditId).toBe("mc-1");
+    // booking：isMakeup + legacy makeupCreditId=第一張；不扣方案堂數
+    const created = mockBookingCreate.mock.calls[0][0].data;
+    expect(created.isMakeup).toBe(true);
+    expect(created.makeupCreditId).toBe("mc-1");
+    expect(mockTransactionCreate).not.toHaveBeenCalled();
+  });
+
+  it("people=2 有 2 券 → 自選 2 張、標 2 張 isUsed、建 2 筆 join row（多人多券）", async () => {
+    mockMakeupCount.mockResolvedValue(2);
+    mockTxQueryRaw.mockResolvedValue([{ id: "mc-1" }, { id: "mc-2" }]);
+
+    const { createBooking } = await import("@/server/actions/booking");
+    const r = await createBooking({ ...makeupInput, people: 2 });
+
+    expect(r.success).toBe(true);
+    expect(mockTxMakeupUpdateMany).toHaveBeenCalledWith({
+      where: { id: { in: ["mc-1", "mc-2"] } },
+      data: { isUsed: true },
+    });
+    const joinData = mockTxJoinCreateMany.mock.calls[0][0].data;
+    expect(joinData).toHaveLength(2);
+    expect(joinData.map((d: { makeupCreditId: string }) => d.makeupCreditId)).toEqual([
+      "mc-1",
+      "mc-2",
+    ]);
+    const created = mockBookingCreate.mock.calls[0][0].data;
+    expect(created.isMakeup).toBe(true);
+    expect(created.makeupCreditId).toBe("mc-1"); // legacy = 第一張
+  });
+
+  it("people=2 但只有 1 券 → 拒絕（不足，不半套），不建 booking、不挑券", async () => {
+    mockMakeupCount.mockResolvedValue(1);
+
+    const { createBooking } = await import("@/server/actions/booking");
+    const r = await createBooking({ ...makeupInput, people: 2 });
+
+    expect(r.success).toBe(false);
+    if (!r.success) expect(r.error).toMatch(/不足以覆蓋本次預約人數/);
+    expect(mockBookingCreate).not.toHaveBeenCalled();
+    expect(mockTxQueryRaw).not.toHaveBeenCalled();
+  });
+
+  it("people=1 但無券 → 拒絕（不足）", async () => {
+    mockMakeupCount.mockResolvedValue(0);
+
+    const { createBooking } = await import("@/server/actions/booking");
+    const r = await createBooking(makeupInput);
+
+    expect(r.success).toBe(false);
+    if (!r.success) expect(r.error).toMatch(/不足以覆蓋本次預約人數/);
+    expect(mockBookingCreate).not.toHaveBeenCalled();
+  });
+
+  it("併發：tx 內挑到的券 < people（被搶）→ CONFLICT rollback，不建 join row", async () => {
+    mockMakeupCount.mockResolvedValue(2); // 前置檢查過
+    mockTxQueryRaw.mockResolvedValue([{ id: "mc-1" }]); // 但 tx 內只鎖到 1 張
+
+    const { createBooking } = await import("@/server/actions/booking");
+    const r = await createBooking({ ...makeupInput, people: 2 });
+
+    expect(r.success).toBe(false);
+    expect(mockTxJoinCreateMany).not.toHaveBeenCalled();
+  });
+
+  it("cancel makeup 預約 → 退回全部 N 張券、刪 join row、清 legacy makeupCreditId（防 @unique 卡重訂）", async () => {
+    mockBookingFindUnique.mockResolvedValue({
+      id: "bk-makeup",
+      storeId: STORE_A,
+      customerId: NO_PLAN_CUSTOMER_ID,
+      bookingStatus: "PENDING",
+      isMakeup: true,
+      makeupCreditId: "mc-1",
+      customerPlanWalletId: null,
+      customer: { customerStage: "ACTIVE" },
+      notes: null,
+    });
+    // people=2：join table 有兩張券
+    mockTxJoinFindMany.mockResolvedValue([
+      { makeupCreditId: "mc-1" },
+      { makeupCreditId: "mc-2" },
+    ]);
+
+    const { cancelBooking } = await import("@/server/actions/booking");
+    const r = await cancelBooking("bk-makeup");
+
+    expect(r.success).toBe(true);
+    // 退回全部 N 張券
+    expect(mockTxMakeupUpdateMany).toHaveBeenCalledWith({
+      where: { id: { in: ["mc-1", "mc-2"] } },
+      data: { isUsed: false },
+    });
+    // 刪 join row（釋放券，可再被預約）
+    expect(mockTxJoinDeleteMany).toHaveBeenCalledWith({
+      where: { bookingId: "bk-makeup" },
+    });
+    // 狀態更新清掉 legacy makeupCreditId（避免取消後仍佔住 @unique 槽位）
+    const cancelUpdate = mockBookingUpdate.mock.calls.find(
+      (c) => (c[0] as { data?: { bookingStatus?: string } })?.data?.bookingStatus === "CANCELLED",
+    )?.[0] as { data: { makeupCreditId: string | null } };
+    expect(cancelUpdate.data.makeupCreditId).toBeNull();
   });
 });

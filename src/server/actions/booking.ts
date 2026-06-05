@@ -201,23 +201,37 @@ export async function createBooking(
       assertStoreAccess(user, customer.storeId);
     }
 
-    // ── 3. 補課驗證
-    let makeupCreditId: string | null = null;
+    // ── 3. 補課自助預約（PR-NoShow-2）
+    //   規則：一張券抵 1 人 / 1 堂；people=N 用 N 張有效券（最早到期優先）。
+    //   - 券數須 >= people（全覆蓋）；不足 → 拒絕，不做「部分補課+部分扣方案」混用。
+    //   - 不信任 client 傳入的 makeupCreditId：實際用哪 N 張由下方 transaction 內
+    //     依「最早到期(expiredAt ASC)」server 自選並加鎖（FOR UPDATE），這裡只做前置防呆。
+    //   - 使用的 N 張券記錄於 BookingMakeupCredit（join table，source of truth）。
+    let makeupCreditId: string | null = null; // legacy 欄位：存第一張（最早到期）券
     if (isMakeup) {
-      if (!data.makeupCreditId) {
-        throw new AppError("VALIDATION", "補課預約需指定補課資格");
+      // 補課語意綁定 PACKAGE_SESSION：避免 SINGLE/FIRST_TRIAL + isMakeup 這種
+      // 矛盾組合（補課不收款，但 SINGLE 完成時會卡收款 gate → 券被吃卻無法完成）。
+      if (data.bookingType !== "PACKAGE_SESSION") {
+        throw new AppError(
+          "BUSINESS_RULE",
+          "補課預約僅適用於課程方案",
+        );
       }
-      const credit = await prisma.makeupCredit.findUnique({
-        where: { id: data.makeupCreditId },
+      // storeId 一併比對（防多店情境：顧客的券屬於某店，僅該店可消耗）。
+      const validCount = await prisma.makeupCredit.count({
+        where: {
+          customerId: effectiveCustomerId,
+          storeId: customer.storeId,
+          isUsed: false,
+          OR: [{ expiredAt: null }, { expiredAt: { gte: new Date() } }],
+        },
       });
-      if (!credit) throw new AppError("NOT_FOUND", "補課資格不存在");
-      if (credit.customerId !== effectiveCustomerId)
-        throw new AppError("FORBIDDEN", "此補課資格不屬於該顧客");
-      if (credit.isUsed)
-        throw new AppError("BUSINESS_RULE", "此補課資格已使用");
-      if (credit.expiredAt && credit.expiredAt < new Date())
-        throw new AppError("BUSINESS_RULE", "此補課資格已過期");
-      makeupCreditId = credit.id;
+      if (validCount < bookingPeople) {
+        throw new AppError(
+          "BUSINESS_RULE",
+          `補課資格不足以覆蓋本次預約人數（需 ${bookingPeople} 張、目前 ${validCount} 張），請改為 1 人預約，或使用方案堂數預約。`,
+        );
+      }
     }
 
     // ── 4. 一般預約：需有有效課程 + 票券期限 + 人數檢查
@@ -442,10 +456,31 @@ export async function createBooking(
 
     // ── 9. 建立預約（不扣堂，狀態 = PENDING）
     const booking = await prisma.$transaction(async (tx) => {
-      // 補課預約 → 標記 credit 為已使用
-      if (isMakeup && makeupCreditId) {
-        await tx.makeupCredit.update({
-          where: { id: makeupCreditId },
+      // 補課自助預約（PR-NoShow-2）：tx 內以「最早到期優先」server 自選 N 張有效券並加鎖
+      // （FOR UPDATE SKIP LOCKED）→ 不信任 client、防併發 double-spend。people=N 取 N 張；
+      // 取不到 N 張（併發被搶/過期）→ 整筆 rollback。使用券記於 BookingMakeupCredit（join table）。
+      let pickedCreditIds: string[] = [];
+      if (isMakeup) {
+        const picked = await tx.$queryRaw<{ id: string }[]>`
+          SELECT id FROM "MakeupCredit"
+          WHERE "customerId" = ${effectiveCustomerId}
+            AND "storeId" = ${customer.storeId}
+            AND "isUsed" = false
+            AND ("expiredAt" IS NULL OR "expiredAt" >= NOW())
+          ORDER BY "expiredAt" ASC NULLS LAST, "createdAt" ASC
+          LIMIT ${bookingPeople}
+          FOR UPDATE SKIP LOCKED`;
+        if (picked.length < bookingPeople) {
+          throw new AppError(
+            "CONFLICT",
+            "補課資格已被使用或不足，請重新整理後再試",
+          );
+        }
+        pickedCreditIds = picked.map((r) => r.id);
+        // legacy 欄位：存第一張（最早到期）券，供向後相容顯示
+        makeupCreditId = pickedCreditIds[0];
+        await tx.makeupCredit.updateMany({
+          where: { id: { in: pickedCreditIds } },
           data: { isUsed: true },
         });
       }
@@ -475,6 +510,18 @@ export async function createBooking(
           storeId: user.role === "CUSTOMER" ? customer.storeId : currentStoreId(user),
         },
       });
+
+      // PR-NoShow-2：記錄使用的 N 張補課券（join table = source of truth）。
+      if (isMakeup && pickedCreditIds.length > 0) {
+        await tx.bookingMakeupCredit.createMany({
+          data: pickedCreditIds.map((cid) => ({
+            bookingId: created.id,
+            makeupCreditId: cid,
+            customerId: effectiveCustomerId,
+            storeId: customer.storeId,
+          })),
+        });
+      }
 
       // 配套單堂明細：非補課 + 有 ACTIVE wallets → 跨 wallet FEFO 分配 N 堂
       // PR #194: people=N 一張 wallet 不夠時，依 FEFO 順序橫跨多張補足
@@ -727,15 +774,32 @@ export async function cancelBooking(
         data: {
           bookingStatus: "CANCELLED",
           notes: note ? `[取消] ${note}` : booking.notes,
+          // PR-NoShow-2：清掉 legacy 單張券指向。Booking.makeupCreditId 為 @unique，
+          // 不清會讓已取消的預約持續佔住該券的唯一槽位 → 顧客重訂該券 / 還原他筆會撞 unique。
+          // 非補課預約本欄本就為 null，設 null 為 no-op，安全。
+          makeupCreditId: null,
         },
       });
 
-      // 補課取消 → 退回資格
-      if (booking.isMakeup && booking.makeupCreditId) {
-        await tx.makeupCredit.update({
-          where: { id: booking.makeupCreditId },
-          data: { isUsed: false },
+      // 補課取消 → 退回全部使用的補課券（PR-NoShow-2：people=N → N 張）
+      // 讀 join table 取全部券；刪除 link（釋放，讓券可再被預約）；券改回 isUsed=false。
+      if (booking.isMakeup) {
+        const links = await tx.bookingMakeupCredit.findMany({
+          where: { bookingId },
+          select: { makeupCreditId: true },
         });
+        const creditIds = links.map((l) => l.makeupCreditId);
+        // legacy fallback：舊資料若無 join row 但有單一 makeupCreditId
+        if (creditIds.length === 0 && booking.makeupCreditId) {
+          creditIds.push(booking.makeupCreditId);
+        }
+        if (creditIds.length > 0) {
+          await tx.makeupCredit.updateMany({
+            where: { id: { in: creditIds } },
+            data: { isUsed: false },
+          });
+          await tx.bookingMakeupCredit.deleteMany({ where: { bookingId } });
+        }
       }
 
       // 釋放單堂明細 RESERVED → AVAILABLE（補課 / 舊資料無 row 則 no-op）
@@ -1292,17 +1356,43 @@ export async function revertBookingStatus(
 
       // ── CANCELLED → PENDING ──
       else if (st === "CANCELLED") {
-        // 補課預約取消時已退回 credit → 恢復時重新標記為已使用
-        if (booking.isMakeup && booking.makeupCreditId) {
-          const credit = await tx.makeupCredit.findUnique({
-            where: { id: booking.makeupCreditId },
-          });
-          if (credit && !credit.isUsed) {
-            await tx.makeupCredit.update({
-              where: { id: booking.makeupCreditId },
-              data: { isUsed: true },
-            });
+        // 補課預約取消時已退回 N 張券 → 恢復時重新取得 N=people 張有效券（最早到期優先），
+        // 重建 join row + 標記 isUsed。券不足（已過期/被別筆用掉）→ 擋下恢復、整筆 rollback。
+        if (booking.isMakeup) {
+          const picked = await tx.$queryRaw<{ id: string }[]>`
+            SELECT id FROM "MakeupCredit"
+            WHERE "customerId" = ${booking.customerId}
+              AND "storeId" = ${booking.storeId}
+              AND "isUsed" = false
+              AND ("expiredAt" IS NULL OR "expiredAt" >= NOW())
+            ORDER BY "expiredAt" ASC NULLS LAST, "createdAt" ASC
+            LIMIT ${booking.people}
+            FOR UPDATE SKIP LOCKED`;
+          if (picked.length < booking.people) {
+            throw new AppError(
+              "BUSINESS_RULE",
+              "補課資格不足，無法恢復此補課預約（券可能已過期或已被使用）。",
+            );
           }
+          const ids = picked.map((r) => r.id);
+          await tx.makeupCredit.updateMany({
+            where: { id: { in: ids } },
+            data: { isUsed: true },
+          });
+          // 防禦：清掉此 booking 任何殘留 join row，避免與重建撞 makeupCreditId @unique。
+          await tx.bookingMakeupCredit.deleteMany({ where: { bookingId } });
+          await tx.bookingMakeupCredit.createMany({
+            data: ids.map((cid) => ({
+              bookingId,
+              makeupCreditId: cid,
+              customerId: booking.customerId,
+              storeId: booking.storeId,
+            })),
+          });
+          await tx.booking.update({
+            where: { id: bookingId },
+            data: { makeupCreditId: ids[0] },
+          });
         }
 
         // 非補課 → 取消時已 release，恢復需重新 reserve

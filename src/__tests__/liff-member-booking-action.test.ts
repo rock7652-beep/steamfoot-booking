@@ -40,6 +40,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mockRequireSession = vi.fn();
 const mockGetCanonicalId = vi.fn();
 const mockCreateBooking = vi.fn();
+// PR-NoShow-2：action 會先查有效補課券數量決定是否走 makeup。
+const mockMakeupCount = vi.fn();
 
 vi.mock("@/lib/session", () => ({
   requireSession: (...args: unknown[]) => mockRequireSession(...args),
@@ -52,6 +54,12 @@ vi.mock("@/lib/customer-identity", () => ({
 
 vi.mock("@/server/actions/booking", () => ({
   createBooking: (...args: unknown[]) => mockCreateBooking(...args),
+}));
+
+vi.mock("@/lib/db", () => ({
+  prisma: {
+    makeupCredit: { count: (...args: unknown[]) => mockMakeupCount(...args) },
+  },
 }));
 
 import { submitLiffMemberBooking } from "@/server/actions/liff-member-booking";
@@ -81,6 +89,9 @@ describe("submitLiffMemberBooking action (PR-G2)", () => {
     mockRequireSession.mockReset();
     mockGetCanonicalId.mockReset();
     mockCreateBooking.mockReset();
+    mockMakeupCount.mockReset();
+    // 預設無補課券 → 既有 PACKAGE_SESSION 行為不變。
+    mockMakeupCount.mockResolvedValue(0);
   });
 
   afterEach(() => {
@@ -170,6 +181,33 @@ describe("submitLiffMemberBooking action (PR-G2)", () => {
         bookingId: "book-mem-001",
         bookingDate: "2026-06-15",
         slotTime: "10:00",
+        usedMakeup: false,
+      });
+    });
+
+    it("6m. 有有效補課券 → createBooking 帶 isMakeup:true，回 ok usedMakeup:true (PR-NoShow-2)", async () => {
+      mockMakeupCount.mockResolvedValue(1);
+      mockCreateBooking.mockResolvedValue({
+        success: true,
+        data: { bookingId: "book-makeup-001" },
+      });
+
+      const r = await submitLiffMemberBooking(VALID_INPUT);
+
+      expect(mockCreateBooking).toHaveBeenCalledWith({
+        customerId: CANONICAL_CUSTOMER_ID,
+        bookingDate: "2026-06-15",
+        slotTime: "10:00",
+        bookingType: "PACKAGE_SESSION",
+        people: 1,
+        isMakeup: true,
+      });
+      expect(r).toEqual({
+        status: "ok",
+        bookingId: "book-makeup-001",
+        bookingDate: "2026-06-15",
+        slotTime: "10:00",
+        usedMakeup: true,
       });
     });
 
@@ -187,6 +225,7 @@ describe("submitLiffMemberBooking action (PR-G2)", () => {
         bookingDate: "2026-06-15",
         slotTime: "10:00",
         bookingType: "PACKAGE_SESSION",
+        people: 1,
       });
     });
 
@@ -210,8 +249,8 @@ describe("submitLiffMemberBooking action (PR-G2)", () => {
       expect(call.expectedAmount).toBeUndefined();
       // 不指定 staff — 依 createBooking 內 snapshotRevenueStaffForBooking 自動處理
       expect(call.staffId).toBeUndefined();
-      // 不指定 people — createBooking 內 default 1
-      expect(call.people).toBeUndefined();
+      // PR-NoShow-2：人數由 action 帶入（未選預設 1）
+      expect(call.people).toBe(1);
       // notes 不給顧客填（per 拍板 C）
       expect(call.notes).toBeUndefined();
     });

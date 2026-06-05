@@ -947,9 +947,13 @@ model Booking {
   customerPlanWallet CustomerPlanWallet? @relation(fields: [customerPlanWalletId], references: [id])
 
   // 補課關聯
+  // legacy（PR-NoShow-2 之前）：單張券。新流程改用 makeupCreditLinks（join table），
+  // 但仍保留此欄位＝第一張（最早到期）券，供向後相容顯示。
   makeupCredit     MakeupCredit?  @relation("MakeupBooking", fields: [makeupCreditId], references: [id])
   // 一筆未到預約可依 people 數產生多張補課券（people=2 → 2 張），故為一對多。
   generatedCredits MakeupCredit[] @relation("OriginalBooking")
+  // PR-NoShow-2：people=N 補課預約使用的 N 張券（source of truth）。
+  makeupCreditLinks BookingMakeupCredit[]
 
   // 交易
   transactions Transaction[]
@@ -997,9 +1001,33 @@ model MakeupCredit {
   originalBooking Booking  @relation("OriginalBooking", fields: [originalBookingId], references: [id])
   usedBooking     Booking? @relation("MakeupBooking")
   store           Store    @relation(fields: [storeId], references: [id])
+  // PR-NoShow-2：此券被哪一筆預約使用（至多一筆；DB 層由 BookingMakeupCredit.makeupCreditId @unique 保證）。
+  bookingLink     BookingMakeupCredit?
 
   @@index([customerId, isUsed])
   @@index([originalBookingId]) // 取某筆未到產生的所有補課券（revert / 顯示）
+  @@index([storeId])
+}
+
+// ============================================================
+// BookingMakeupCredit（補課預約 ↔ 補課券 join table，PR-NoShow-2）
+// ------------------------------------------------------------
+// 一筆 Booking 可使用多張 MakeupCredit（people=N → N 張）；
+// 一張 MakeupCredit 只能被使用一次（makeupCreditId @unique 全域保證，防一張抵兩人）。
+// 為新流程的 source of truth；舊資料由 migration backfill 進來。
+// ============================================================
+model BookingMakeupCredit {
+  id             String   @id @default(cuid())
+  bookingId      String
+  makeupCreditId String   @unique // 一張券只能被一筆預約使用
+  customerId     String
+  storeId        String
+  createdAt      DateTime @default(now())
+
+  booking      Booking      @relation(fields: [bookingId], references: [id])
+  makeupCredit MakeupCredit @relation(fields: [makeupCreditId], references: [id])
+
+  @@index([bookingId])
   @@index([storeId])
 }
 

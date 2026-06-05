@@ -54,6 +54,7 @@ import {
 import {
   fetchLiffWallets,
   type LiffWalletRow,
+  type LiffMakeupCreditRow,
 } from "@/server/actions/liff-my-wallets";
 import { liffMessages } from "@/lib/liff/messages";
 import type { SlotAvailability } from "@/types";
@@ -103,6 +104,10 @@ interface Props {
 
 export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: Props) {
   const [state, setState] = useState<State>({ kind: "initializing" });
+  // PR-NoShow-2：有效補課券（最早到期優先）。people=N 時券 >= N 即自動使用 N 張。
+  const [makeupCredits, setMakeupCredits] = useState<LiffMakeupCreditRow[]>([]);
+  // 預約人數（1~4）。
+  const [people, setPeople] = useState(1);
 
   // calendar state — 台灣今日（client clock；server gate 才是 source of truth）
   const today = (() => {
@@ -160,15 +165,20 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
         }
 
         const active: LiffWalletRow[] = walletResult.active;
+        const credits = walletResult.makeupCredits;
+        setMakeupCredits(credits);
         const totalAvailable = active.reduce(
           (sum, w) => sum + w.availableToBook,
           0,
         );
-        if (active.length === 0) {
+        // PR-NoShow-2：有有效補課券時即可預約（補課不需方案堂數）；
+        // 只有「無券且無可用堂數」才擋。
+        const hasMakeup = credits.length > 0;
+        if (active.length === 0 && !hasMakeup) {
           setState({ kind: "no_wallet", reason: "none" });
           return;
         }
-        if (totalAvailable <= 0) {
+        if (totalAvailable <= 0 && !hasMakeup) {
           setState({ kind: "no_wallet", reason: "insufficient" });
           return;
         }
@@ -278,6 +288,7 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
       result = await submitLiffMemberBooking({
         bookingDate: selectedDate,
         slotTime: selectedSlot,
+        people,
       });
     } catch (err) {
       console.error("[member-booking-form] action throw", err);
@@ -366,6 +377,17 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
           showDismiss: true,
         });
         return;
+      case "makeup_unavailable":
+        // 補課券在 race 下被用掉/過期 → 提示重試（重試時若已無券會自動改用方案堂數）。
+        setState({
+          kind: "blocked",
+          wallet: walletCarry,
+          message: liffMessages.error.makeupUnavailable,
+          showRetry: true,
+          showContactStore: false,
+          showDismiss: true,
+        });
+        return;
     }
   }
 
@@ -375,8 +397,21 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
   }
 
   // ── render ─────────────────────────────────────────
+  // 補課券不足以覆蓋人數、且方案可預約堂數也不足 → 無法成立此人數，停用送出，
+  // 讓「補課資格不足」提示引導顧客改人數（避免送出後落到「沒有方案」死路）。
+  const walletAvail =
+    state.kind === "ready" ||
+    state.kind === "submitting" ||
+    state.kind === "blocked"
+      ? state.wallet.totalAvailable
+      : 0;
+  const cannotCoverPeople =
+    makeupCredits.length < people && walletAvail < people;
   const submitDisabled =
-    state.kind === "submitting" || !selectedDate || !selectedSlot;
+    state.kind === "submitting" ||
+    !selectedDate ||
+    !selectedSlot ||
+    cannotCoverPeople;
 
   return (
     <div className="mx-auto flex max-w-md flex-col gap-5 px-4 py-8">
@@ -454,7 +489,67 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
 
       {monthLoadable && (
         <>
-          <WalletSummaryBar wallet={state.wallet} />
+          {state.wallet.totalAvailable > 0 && (
+            <WalletSummaryBar wallet={state.wallet} />
+          )}
+
+          {/* 預約人數選擇器（PR-NoShow-2：LIFF 也支援多人） */}
+          <div className="flex items-center gap-3 rounded-xl border border-earth-200 bg-white px-4 py-3">
+            <span className="text-sm font-semibold text-earth-800">
+              {liffMessages.memberBooking.peopleLabel}
+            </span>
+            <button
+              type="button"
+              onClick={() => setPeople((p) => Math.max(1, p - 1))}
+              disabled={people <= 1 || state.kind === "submitting"}
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-earth-300 text-lg disabled:opacity-40"
+            >
+              −
+            </button>
+            <span className="min-w-[2rem] text-center text-xl font-bold text-earth-900">
+              {people}
+            </span>
+            <button
+              type="button"
+              onClick={() => setPeople((p) => Math.min(4, p + 1))}
+              disabled={people >= 4 || state.kind === "submitting"}
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-earth-300 text-lg disabled:opacity-40"
+            >
+              +
+            </button>
+            <span className="text-xs text-earth-500">
+              {liffMessages.memberBooking.peopleHint}
+            </span>
+          </div>
+
+          {/* 補課券：券 >= people → 自動使用 N 張；不足 → 提示改人數/用方案 */}
+          {makeupCredits.length >= people && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+              <p className="text-sm font-semibold text-amber-900">
+                {liffMessages.memberBooking.makeupHint.replace(
+                  "{count}",
+                  String(people),
+                )}
+              </p>
+              {makeupCredits[0].expiredAt && (
+                <p className="mt-0.5 text-xs text-amber-700">
+                  {liffMessages.memberBooking.makeupHintExpiry.replace(
+                    "{date}",
+                    makeupCredits[0].expiredAt.split("-").join("/"),
+                  )}
+                </p>
+              )}
+            </div>
+          )}
+          {makeupCredits.length > 0 && makeupCredits.length < people && (
+            <div className="rounded-xl border border-earth-200 bg-earth-50 px-4 py-3">
+              <p className="text-xs text-earth-700">
+                {liffMessages.memberBooking.makeupInsufficient
+                  .replace("{need}", String(people))
+                  .replace("{have}", String(makeupCredits.length))}
+              </p>
+            </div>
+          )}
 
           <MonthCalendar
             calYear={calYear}

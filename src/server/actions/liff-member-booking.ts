@@ -38,6 +38,7 @@
  */
 
 import { z } from "zod";
+import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/session";
 import { getCanonicalCustomerIdForSession } from "@/lib/customer-identity";
 import { createBooking } from "@/server/actions/booking";
@@ -45,6 +46,8 @@ import { createBooking } from "@/server/actions/booking";
 const InputSchema = z.object({
   bookingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "invalid_date_format"),
   slotTime: z.string().regex(/^\d{2}:\d{2}$/, "invalid_slot_format"),
+  // PR-NoShow-2：LIFF 也支援多人預約（1~4）；未帶預設 1。
+  people: z.number().int().min(1).max(4).optional(),
 });
 
 export type SubmitLiffMemberBookingInput = z.infer<typeof InputSchema>;
@@ -59,6 +62,8 @@ export type SubmitLiffMemberBookingResult =
       bookingId: string;
       bookingDate: string;
       slotTime: string;
+      // PR-NoShow-2：本次是否自動使用了補課券（供成功畫面顯示）。
+      usedMakeup: boolean;
     }
   | {
       status: "invalid_input";
@@ -71,6 +76,8 @@ export type SubmitLiffMemberBookingResult =
   | { status: "slot_full" }
   | { status: "slot_unavailable" }
   | { status: "booking_limit_reached" }
+  // PR-NoShow-2：補課券在併發/過期 race 下暫時無法使用 → 請重新整理重試。
+  | { status: "makeup_unavailable" }
   | { status: "service_unavailable" };
 
 export async function submitLiffMemberBooking(
@@ -86,6 +93,7 @@ export async function submitLiffMemberBooking(
     };
   }
   const { bookingDate, slotTime } = parsed.data;
+  const people = parsed.data.people ?? 1;
 
   // ── 2. Require CUSTOMER session ────────────────────
   let user;
@@ -125,13 +133,28 @@ export async function submitLiffMemberBooking(
   //   - 對 CUSTOMER 跳過 assertStoreAccess（已用 canonical override）
   //   - 不寫 Transaction / Cashbook / Wallet purchase（PACKAGE_SESSION booking 純扣堂語意）
   //
-  // 我們**不傳** customerPlanWalletId / servicePlanId / isMakeup / makeupCreditId / expectedAmount —
-  // FEFO 由 server 自動選；其他欄位 createBooking 有合理 default。
+  // ── 4.5 補課優先（PR-NoShow-2）─────────────────────
+  // people=N 時，若有效補課券 >= N → 自動使用 N 張（不讓顧客選保留）；不足則走方案堂數。
+  // 實際用哪 N 張由 createBooking 在 transaction 內依「最早到期」server 自選 + 加鎖。
+  const validMakeupCount = await prisma.makeupCredit.count({
+    where: {
+      customerId,
+      storeId,
+      isUsed: false,
+      OR: [{ expiredAt: null }, { expiredAt: { gte: new Date() } }],
+    },
+  });
+  const useMakeup = validMakeupCount >= people;
+
+  // 我們**不傳** customerPlanWalletId / servicePlanId / makeupCreditId / expectedAmount —
+  // FEFO（方案）/ 最早到期券（補課）皆由 server 自動選。
   const result = await createBooking({
     customerId,
     bookingDate,
     slotTime,
     bookingType: "PACKAGE_SESSION",
+    people,
+    ...(useMakeup ? { isMakeup: true } : {}),
   });
 
   if (!result.success) {
@@ -143,6 +166,7 @@ export async function submitLiffMemberBooking(
     bookingId: result.data.bookingId,
     bookingDate,
     slotTime,
+    usedMakeup: useMakeup,
   };
 }
 
@@ -190,6 +214,12 @@ function mapCreateBookingErrorToStatus(
   // booking.ts:285 「方案次數不足，無法預約 X 人。目前可使用次數僅剩 Y 次...」
   if (/方案次數不足/.test(msg)) {
     return { status: "insufficient_sessions" };
+  }
+
+  // ── 補課券（PR-NoShow-2）：併發/過期 race 下無券可用 → 提示重試 ──
+  // booking.ts「目前沒有可使用的補課資格」/「補課資格已被使用或已過期，請重新整理後再試」
+  if (/補課資格/.test(msg)) {
+    return { status: "makeup_unavailable" };
   }
 
   // ── General booking errors (mirror submitLiffTrialBooking mapping) ──

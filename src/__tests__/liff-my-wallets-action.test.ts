@@ -36,6 +36,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mockRequireSession = vi.fn();
 const mockGetCanonicalId = vi.fn();
 const mockWalletFindMany = vi.fn();
+const mockMakeupFindMany = vi.fn();
 
 vi.mock("@/lib/session", () => ({
   requireSession: (...args: unknown[]) => mockRequireSession(...args),
@@ -50,6 +51,10 @@ vi.mock("@/lib/db", () => ({
   prisma: {
     customerPlanWallet: {
       findMany: (...args: unknown[]) => mockWalletFindMany(...args),
+    },
+    // PR-NoShow-2：fetchLiffWallets 一併回有效補課券。
+    makeupCredit: {
+      findMany: (...args: unknown[]) => mockMakeupFindMany(...args),
     },
   },
 }));
@@ -107,6 +112,8 @@ describe("fetchLiffWallets action (PR-E2)", () => {
     mockRequireSession.mockReset();
     mockGetCanonicalId.mockReset();
     mockWalletFindMany.mockReset();
+    mockMakeupFindMany.mockReset();
+    mockMakeupFindMany.mockResolvedValue([]);
   });
   afterEach(() => {
     vi.clearAllMocks();
@@ -171,7 +178,7 @@ describe("fetchLiffWallets action (PR-E2)", () => {
     it("空 list → 三段都空", async () => {
       mockWalletFindMany.mockResolvedValue([]);
       const r = await fetchLiffWallets();
-      expect(r).toEqual({ status: "ok", active: [], expired: [], history: [] });
+      expect(r).toEqual({ status: "ok", active: [], expired: [], history: [], makeupCredits: [] });
     });
 
     it("query 帶 canonical customerId + session storeId（不信 client）", async () => {
