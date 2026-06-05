@@ -14,7 +14,12 @@ import { DayDetailPanel, type DayBooking } from "./day-detail-panel";
 import {
   BookingDetailDrawer,
   type BookingSummary,
+  type BookingPrefill,
 } from "./booking-detail-drawer";
+import {
+  createBookingDetailCache,
+  type BookingDetailCache,
+} from "./booking-detail-cache";
 import { ACTIVE_BOOKING_STATUSES } from "@/lib/booking-constants";
 import { RightSheet } from "@/components/admin/right-sheet";
 import { formatWeekdayZh } from "@/lib/date-utils";
@@ -159,6 +164,18 @@ export function BookingsManager({
   const [activeSummary, setActiveSummary] = useState<BookingSummary | null>(
     null,
   );
+  // Richer prefill snapshot for the open drawer — lets the body render basic
+  // sections instantly from in-memory day-list data (no fetch).
+  const [activePrefill, setActivePrefill] = useState<BookingPrefill | null>(
+    null,
+  );
+  // Shared client-side detail cache (SWR + dedupe), stable across renders.
+  // Owned here so drawer actions can invalidate it centrally after mutations.
+  const detailCacheRef = useRef<BookingDetailCache | null>(null);
+  if (!detailCacheRef.current) {
+    detailCacheRef.current = createBookingDetailCache();
+  }
+  const detailCache = detailCacheRef.current;
 
   // Batch / inline action state
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(
@@ -190,6 +207,18 @@ export function BookingsManager({
     for (const day of monthData) {
       for (const b of day.bookings ?? []) {
         map.set(b.id, monthEntryToSummary(b, day.date));
+      }
+    }
+    return map;
+  }, [monthData]);
+
+  // bookingId → prefill lookup. Drives the drawer's instant **body** render
+  // (basic 預約資訊 / 顧客 / 金額提示) straight from monthData — no fetch.
+  const prefillById = useMemo(() => {
+    const map = new Map<string, BookingPrefill>();
+    for (const day of monthData) {
+      for (const b of day.bookings ?? []) {
+        map.set(b.id, monthEntryToPrefill(b, day.date));
       }
     }
     return map;
@@ -309,13 +338,15 @@ export function BookingsManager({
       setSelectedDate(null);
       setActiveBookingId(id);
       setActiveSummary(summaryById.get(id) ?? null);
+      setActivePrefill(prefillById.get(id) ?? null);
     },
-    [summaryById],
+    [summaryById, prefillById],
   );
 
   const closeBooking = useCallback(() => {
     setActiveBookingId(null);
     setActiveSummary(null);
+    setActivePrefill(null);
   }, []);
 
   const closeDay = useCallback(() => {
@@ -332,6 +363,10 @@ export function BookingsManager({
   // have a known target status and are fully covered.
   const handleBookingUpdated = useCallback(
     (bookingId: string, newStatus: string | null) => {
+      // C：任何 mutation（收款 / 完成 / 改時間 / 標記未到 / 取消 / 調整結帳，
+      // 含 newStatus=null 的收款/改期）都先 invalidate 該筆 detail cache，
+      // 下次打開 / 背景 revalidate 一定取得最新 authoritative payload。
+      detailCache.invalidate(bookingId);
       if (!newStatus) return;
       setMonthData((prev) =>
         prev.map((day) => {
@@ -365,7 +400,7 @@ export function BookingsManager({
         }),
       );
     },
-    [],
+    [detailCache],
   );
 
   // ── Batch / inline complete wiring ────────────────────────────
@@ -567,6 +602,8 @@ export function BookingsManager({
         open={!!activeBookingId}
         bookingId={activeBookingId}
         summary={activeSummary}
+        prefill={activePrefill}
+        cache={detailCache}
         onClose={closeBooking}
         onUpdated={handleBookingUpdated}
       />
@@ -585,6 +622,36 @@ function monthEntryToSummary(b: BookingEntry, date: string): BookingSummary {
     customerName: b.customerName,
     servicePlanName: b.servicePlan?.name ?? null,
     servicePlanCategory: null,
+  };
+}
+
+// Richer prefill from the same in-memory BookingEntry — covers the drawer's
+// basic body sections (預約資訊 / 顧客 / 金額提示) with zero extra query.
+function monthEntryToPrefill(b: BookingEntry, date: string): BookingPrefill {
+  return {
+    id: b.id,
+    bookingDate: date,
+    slotTime: b.slotTime,
+    bookingStatus: b.bookingStatus,
+    bookingType: b.bookingType,
+    isMakeup: b.isMakeup,
+    isCheckedIn: b.isCheckedIn,
+    people: b.people,
+    customerName: b.customer.name,
+    customerPhone: b.customer.phone,
+    revenueStaff: b.revenueStaff
+      ? {
+          displayName: b.revenueStaff.displayName,
+          colorCode: b.revenueStaff.colorCode,
+        }
+      : null,
+    serviceStaffName: b.serviceStaff?.displayName ?? null,
+    servicePlanName:
+      b.servicePlan?.name ?? b.customerPlanWallet?.plan.name ?? null,
+    collected: b.collected,
+    collectedAmount: b.collectedAmount,
+    expectedAmount: b.expectedAmount,
+    trialDefaultPrice: b.trialDefaultPrice,
   };
 }
 

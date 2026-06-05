@@ -9,6 +9,7 @@ import {
   fetchBookingDetail,
   type BookingDrawerPayload,
 } from "@/server/actions/booking-drawer";
+import type { BookingDetailCache } from "./booking-detail-cache";
 import {
   markCompleted,
   markNoShow,
@@ -22,7 +23,7 @@ import { CollectTrialModal } from "./collect-trial-modal";
 import { CorrectTrialCollectionModal } from "./correct-trial-collection-modal";
 import { CollectSingleModal } from "./collect-single-modal";
 import { AdjustCheckoutModal } from "./adjust-checkout-modal";
-import { computeAmount } from "./compute-amount";
+import { computeAmount, resolveTrialDisplayAmount } from "./compute-amount";
 import { formatWeekdayZh } from "@/lib/date-utils";
 
 const PAYMENT_METHOD_LABEL: Record<string, string> = {
@@ -55,11 +56,51 @@ export interface BookingSummary {
   servicePlanCategory?: string | null;
 }
 
+/**
+ * 較完整的「當日清單已有資料」快照（PR-Frontend prefill）。比 BookingSummary
+ * 多帶足以**立即**渲染抽屜 body 基本區塊（預約資訊 + 顧客 + 收款提示）的欄位，
+ * 全部來自 monthData / BookingEntry，**不需任何額外查詢**。
+ *
+ * 用途：點「查看」後 body 立刻顯示已知資料，而非一片 skeleton。
+ * **僅限唯讀顯示** —— 收款 / 完成 / 改時間 / 取消 / 調整結帳等操作一律等
+ * fetchBookingDetail 的 authoritative payload，絕不依賴此 prefill 啟用。
+ */
+export interface BookingPrefill {
+  id: string;
+  bookingDate: string; // YYYY-MM-DD
+  slotTime: string;
+  bookingStatus: string;
+  bookingType: string;
+  isMakeup: boolean;
+  isCheckedIn: boolean;
+  people: number;
+  customerName: string;
+  customerPhone: string;
+  revenueStaff: { displayName: string; colorCode: string } | null;
+  serviceStaffName: string | null;
+  servicePlanName: string | null;
+  /** 收款提示（唯讀）：來自當日清單 derived 欄位。 */
+  collected: boolean;
+  collectedAmount: number | null;
+  expectedAmount: number | null;
+  trialDefaultPrice: number | null;
+}
+
 interface BookingDetailDrawerProps {
   open: boolean;
   bookingId: string | null;
   /** Pre-loaded summary from calendar / day panel — used for instant header render. */
   summary?: BookingSummary | null;
+  /**
+   * Richer in-memory snapshot from the day list — lets the drawer body render
+   * its basic sections instantly (no fetch). Read-only display only.
+   */
+  prefill?: BookingPrefill | null;
+  /**
+   * Shared client-side detail cache (owned by the parent so it survives
+   * open/close and can be invalidated after mutations). Enables SWR + dedupe.
+   */
+  cache?: BookingDetailCache;
   onClose: () => void;
   /**
    * Called after a successful drawer action.
@@ -73,6 +114,8 @@ export function BookingDetailDrawer({
   open,
   bookingId,
   summary,
+  prefill,
+  cache,
   onClose,
   onUpdated,
 }: BookingDetailDrawerProps) {
@@ -88,17 +131,35 @@ export function BookingDetailDrawer({
   const [adjustToSingleOpen, setAdjustToSingleOpen] = useState(false);
   // 收款 / 更正成功後預約狀態不變、但 trial.collected 會翻轉 → 用 nonce 觸發重抓
   const [reloadNonce, setReloadNonce] = useState(0);
+  // 記錄 `data` 上次 seed 的 bookingId — 讓我們能在 render 期（而非 effect 內）
+  // 依「開啟的 booking 改變」從 cache 直接 seed，避免 effect 同步 setState。
+  const [seededFor, setSeededFor] = useState<string | null>(null);
+
+  // B：開啟的 booking 改變時，於 render 期從 cache seed `data`（React 官方
+  // 「依 prop 變化調整 state」模式，非 effect）。cache hit → 第一個 frame 就
+  // 顯示完整 payload（含操作），無 skeleton；cache miss → null → 走 prefill。
+  // 由 seededFor 守門，每個 id 只 seed 一次，不會無限迴圈。
+  if (open && bookingId && seededFor !== bookingId) {
+    setSeededFor(bookingId);
+    setData(cache?.get(bookingId) ?? null);
+    setError(null);
+  }
 
   // Derived loading state — `data` is "fresh" when its bookingId matches the
-  // currently open one. Lets the effect stay clean (no synchronous setState
-  // before the async fetch) and avoids the cascading-render lint warning.
+  // currently open one.
   const dataMatches = !!data && data.booking.id === bookingId;
   const loading = !!bookingId && !error && !dataMatches;
 
+  // 背景 revalidate（純非同步，無同步 setState）。每次 open / id 變 / reloadNonce
+  // bump（mutation 後）都 dedupe-load authoritative payload 後寫入。cleanup 的
+  // `canceled` 會丟掉「被更新後的 run（如 mutation reloadNonce）取代」的舊回應，
+  // 避免過期 revalidate 蓋掉 optimistic 結果。
   useEffect(() => {
     if (!open || !bookingId) return;
+    const id = bookingId;
     let canceled = false;
-    fetchBookingDetail(bookingId)
+    const promise = cache ? cache.load(id) : fetchBookingDetail(id);
+    promise
       .then((payload) => {
         if (canceled) return;
         setData(payload);
@@ -106,12 +167,13 @@ export function BookingDetailDrawer({
       })
       .catch((e) => {
         if (canceled) return;
-        setError(e?.message ?? "載入失敗");
+        // 已有可顯示資料（cache）時，背景 revalidate 失敗不蓋畫面；否則才顯示錯誤。
+        if (!cache?.get(id)) setError(e?.message ?? "載入失敗");
       });
     return () => {
       canceled = true;
     };
-  }, [open, bookingId, reloadNonce]);
+  }, [open, bookingId, reloadNonce, cache]);
 
   /**
    * Run a drawer action. Updates local drawer state optimistically with
@@ -159,6 +221,9 @@ export function BookingDetailDrawer({
         }
 
         onUpdated?.(id, nextStatus);
+        // parent 已 invalidate 此 booking 的 cache（C）；bump nonce 讓 effect
+        // 重跑，取消任何過期 in-flight revalidate 並重抓 authoritative payload。
+        setReloadNonce((n) => n + 1);
       } catch (e) {
         const msg = e instanceof Error ? e.message : "操作失敗";
         toast.error(msg);
@@ -250,13 +315,16 @@ export function BookingDetailDrawer({
     if (bookingId) onUpdated?.(bookingId, null);
   }
 
-  // What we have to render:
-  //   1. Full payload matching current bookingId — preferred when loaded.
-  //   2. Pre-loaded summary — instant render of header band; body shows skeleton.
-  //   3. Neither — full skeleton (rare; only when summary not provided).
+  // What we have to render (priority):
+  //   1. Full payload matching current bookingId — preferred when loaded (from
+  //      fetch or cache). Only this enables the action footer.
+  //   2. Prefill — instant header + basic body from in-memory day-list data,
+  //      with inline loaders for the extras. The common path on first open.
+  //   3. Pre-loaded summary — header only + skeleton body (fallback).
+  //   4. Neither — full skeleton (rare).
   const hasFullData = dataMatches;
-  const hasSummary = !!summary;
-  const showHeaderFromSummary = !hasFullData && hasSummary;
+  const showPrefill = !hasFullData && !!prefill;
+  const showHeaderFromSummary = !hasFullData && !prefill && !!summary;
 
   return (
     <>
@@ -282,6 +350,13 @@ export function BookingDetailDrawer({
               adjustCheckout: () => setAdjustCheckoutOpen(true),
               adjustToSingle: () => setAdjustToSingleOpen(true),
             }}
+          />
+        ) : showPrefill && prefill ? (
+          <PrefillDrawerContent
+            prefill={prefill}
+            loading={loading}
+            error={error}
+            onClose={onClose}
           />
         ) : showHeaderFromSummary && summary ? (
           <SummaryDrawerContent
@@ -771,6 +846,174 @@ function SummaryDrawerContent({
       </div>
     </>
   );
+}
+
+/**
+ * PR-Frontend：用當日清單已有的 prefill 立即渲染抽屜 header + body 基本區塊
+ * （預約資訊 / 顧客 / 金額提示），其餘（顧客近況 / 完整付款明細 / 操作按鈕）
+ * 等 fetchBookingDetail 回來才補上。**不**從 prefill 啟用任何會改資料的操作。
+ */
+function PrefillDrawerContent({
+  prefill,
+  loading,
+  error,
+  onClose,
+}: {
+  prefill: BookingPrefill;
+  loading: boolean;
+  error: string | null;
+  onClose: () => void;
+}) {
+  const meta = bookingStatusMeta(prefill.bookingStatus, prefill.isCheckedIn);
+  const duration = prefill.bookingType === "FIRST_TRIAL" ? 30 : 60;
+  const endTime = computeEndTime(prefill.slotTime, duration);
+  const dateLabel = formatDateLabel(prefill.bookingDate);
+  const amount = prefillAmount(prefill);
+  const showServiceStaff =
+    !!prefill.serviceStaffName &&
+    prefill.serviceStaffName !== prefill.revenueStaff?.displayName;
+
+  return (
+    <>
+      {/* Header — 與完整抽屜同一條 band */}
+      <div className="flex items-start justify-between gap-3 border-b border-earth-200 px-4 py-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <StatusBadge variant={meta.variant}>{meta.label}</StatusBadge>
+            <span className="text-sm font-semibold tabular-nums text-earth-700">
+              {prefill.bookingDate.slice(5).replace("-", "/")} {prefill.slotTime}
+            </span>
+          </div>
+          <h2
+            id="booking-drawer-title"
+            className="mt-1 truncate text-lg font-bold text-earth-900"
+          >
+            {prefill.customerName}
+            {prefill.people > 1 && (
+              <span className="ml-1 text-sm font-normal text-earth-400">
+                ×{prefill.people}
+              </span>
+            )}
+          </h2>
+          <p className="mt-0.5 truncate text-sm text-earth-500">
+            {prefill.isMakeup
+              ? "補課 · "
+              : prefill.servicePlanName
+                ? `${prefill.servicePlanName} · `
+                : ""}
+            {duration} 分鐘
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-earth-500 hover:bg-earth-100"
+          aria-label="關閉"
+        >
+          ✕
+        </button>
+      </div>
+
+      {/* Body */}
+      <div className="flex-1 overflow-y-auto">
+        {error && (
+          <p className="mx-4 mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+            {error}
+          </p>
+        )}
+
+        {/* 預約資訊 — 全部來自當日清單，立即顯示 */}
+        <Section title="預約資訊">
+          <KV label="日期" value={dateLabel} />
+          <KV
+            label="時間"
+            value={
+              <span className="tabular-nums">
+                {prefill.slotTime} - {endTime}
+              </span>
+            }
+          />
+          <KV
+            label="教練"
+            value={prefill.revenueStaff?.displayName ?? "未指派"}
+            icon={
+              prefill.revenueStaff?.colorCode && (
+                <span
+                  className="mr-1.5 inline-block h-2 w-2 rounded-full"
+                  style={{ backgroundColor: prefill.revenueStaff.colorCode }}
+                />
+              )
+            }
+          />
+          {showServiceStaff && (
+            <KV label="值班店長" value={prefill.serviceStaffName!} />
+          )}
+          <KV
+            label="服務"
+            value={prefill.isMakeup ? "補課" : (prefill.servicePlanName ?? "—")}
+          />
+          <KV label="人數" value={`${prefill.people} 人`} />
+          <KV label="金額" value={amount} />
+        </Section>
+
+        {/* 顧客資訊 — name/phone 來自當日清單 */}
+        <Section title="顧客資訊">
+          <KV label="姓名" value={prefill.customerName} />
+          <KV
+            label="電話"
+            value={
+              prefill.customerPhone ? (
+                <a
+                  href={`tel:${prefill.customerPhone}`}
+                  className="text-primary-600 hover:text-primary-700"
+                >
+                  {prefill.customerPhone}
+                </a>
+              ) : (
+                "—"
+              )
+            }
+          />
+        </Section>
+
+        {/* 顧客近況 / 完整付款明細 / 操作 —— 等 authoritative payload 補齊 */}
+        <div className="space-y-3 p-4">
+          {loading && (
+            <p className="text-[11px] text-earth-400">完整資料載入中…</p>
+          )}
+          {Array.from({ length: 2 }).map((_, i) => (
+            <div
+              key={i}
+              className="h-16 animate-pulse rounded-md border border-earth-100 bg-earth-50"
+            />
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
+
+/**
+ * Prefill 的金額顯示（唯讀提示）。FIRST_TRIAL 沿用 resolveTrialDisplayAmount；
+ * 已收款顯示實收；其餘（PACKAGE/SINGLE 原價）當日清單沒有 price，先顯示
+ * 「載入中…」，等 authoritative payload 的 computeAmount 補上精確值。
+ */
+function prefillAmount(p: BookingPrefill): string {
+  if (p.isMakeup) return "補課（免費）";
+  if (p.collected && p.collectedAmount != null) {
+    return `已收 NT$ ${p.collectedAmount.toLocaleString()}`;
+  }
+  if (p.bookingType === "FIRST_TRIAL") {
+    const display = resolveTrialDisplayAmount({
+      planPrice: p.expectedAmount,
+      trialDefaultPrice: p.trialDefaultPrice,
+    });
+    return display == null ? "—" : `NT$ ${display.toLocaleString()}`;
+  }
+  if (p.expectedAmount != null) {
+    return `NT$ ${p.expectedAmount.toLocaleString()}`;
+  }
+  return "載入中…";
 }
 
 function ActionFooter({
