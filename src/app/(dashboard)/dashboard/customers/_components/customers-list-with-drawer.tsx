@@ -150,23 +150,34 @@ export function CustomersListWithDrawer({
     [pathname, searchParams],
   );
 
-  // 「查看」/「＋指派」鈕 → 與整列 <Link> 走同一條 URL→effect 路徑。
-  // 用 window.location 當前真實 search 組 href（close 後 Next searchParams
-  // 可能 stale），確保即使是「剛關閉的同一位」也能被視為真的 URL 變化而重開。
+  // 「查看」/「＋指派」鈕 → **立即**開 Drawer（client state），不再用 router.push
+  // 當開啟前置條件。原本 router.push(?customerId=) 會觸發整個顧客管理頁 server
+  // component re-render（重跑 listCustomers），Drawer 被卡在這段 navigation 後面
+  // → 點擊後 3–5 秒沒反應。改為直接 applyOpen + 用 history API 同步網址（不 soft-nav）。
   const openCustomer = useCallback(
     (customerId: string, f: "plan" | null = null) => {
-      const base =
-        typeof window !== "undefined"
-          ? window.location.search
-          : `?${searchParams.toString()}`;
-      const params = new URLSearchParams(base);
-      params.set("customerId", customerId);
-      if (f) params.set("drawerFocus", f);
-      else params.delete("drawerFocus");
-      const qs = params.toString();
-      router.push(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+      // 1) 立即開 Drawer：走既有 cache 命中即時填入 / 未命中先 skeleton + 背景 fetch。
+      applyOpen(customerId, f);
+      // 2) URL 同步走 history.pushState（非 Next 導航）→ 不觸發 server component
+      //    re-render / listCustomers 重查，但 ?customerId= 仍寫入網址（refresh /
+      //    複製連結 deep-link 可用）。Back/Forward 由下方 popstate effect 同步。
+      if (typeof window !== "undefined") {
+        const params = new URLSearchParams(window.location.search);
+        params.set("customerId", customerId);
+        if (f) params.set("drawerFocus", f);
+        else params.delete("drawerFocus");
+        const qs = params.toString();
+        window.history.pushState(
+          null,
+          "",
+          qs ? `${window.location.pathname}?${qs}` : window.location.pathname,
+        );
+      }
+      // 3) 標記已處理此 cid：若之後 Next searchParams 同步到同值，deep-link
+      //    effect 會 early-return，不重複 applyOpen。
+      lastUrlCidRef.current = customerId;
     },
-    [router, pathname, searchParams],
+    [applyOpen],
   );
 
   // 關閉 = 純 client state；history.replaceState 移除 ?customerId=
@@ -191,6 +202,28 @@ export function CustomersListWithDrawer({
       );
     }
   }, []);
+
+  // Back / Forward 同步：openCustomer 用 history.pushState 開 Drawer，瀏覽器
+  // 上一頁/下一頁需據網址重開/關閉對應 Drawer（取代原 router.push 的 Back 行為），
+  // 且同樣不觸發 server re-render。只在本頁掛載期間生效。
+  useEffect(() => {
+    const onPopState = () => {
+      const params = new URLSearchParams(window.location.search);
+      const cid = params.get("customerId");
+      const f = params.get("drawerFocus") === "plan" ? "plan" : null;
+      lastUrlCidRef.current = cid;
+      if (cid) {
+        applyOpen(cid, f);
+      } else {
+        setOpenId(null);
+        setDetail(null);
+        setFocus(null);
+        reqIdRef.current++; // 丟棄在途請求
+      }
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [applyOpen]);
 
   // drawer 內成功操作（指派方案 / 歸屬設定）後刷新本人資料，
   // 不整頁 refresh、不重刷列表（列表 _count 短暫 stale 為已知取捨）。
