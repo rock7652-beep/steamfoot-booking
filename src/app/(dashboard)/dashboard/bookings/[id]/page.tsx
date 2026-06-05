@@ -33,7 +33,7 @@ async function getBooking(id: string) {
           originalBooking: { select: { bookingDate: true, slotTime: true } },
         },
       },
-      generatedCredit: true,
+      generatedCredits: true,
       transactions: { orderBy: { createdAt: "desc" } },
     },
   });
@@ -77,9 +77,14 @@ export default async function BookingDetailPage({ params }: PageProps) {
     await cancelBooking(id, note ?? undefined);
     redirect(`/dashboard/bookings/${id}`);
   }
-  async function noShowAction() {
+  async function noShowDeductAction() {
     "use server";
-    await markNoShow(id);
+    await markNoShow(id, "DEDUCTED");
+    redirect(`/dashboard/bookings/${id}`);
+  }
+  async function noShowMakeupAction() {
+    "use server";
+    await markNoShow(id, "DEDUCTED_WITH_MAKEUP");
     redirect(`/dashboard/bookings/${id}`);
   }
   async function revertAction() {
@@ -173,17 +178,28 @@ export default async function BookingDetailPage({ params }: PageProps) {
               </dd>
             </div>
           )}
-          {/* 此預約產生的補課資格 */}
-          {booking.bookingStatus === "NO_SHOW" && booking.generatedCredit && (
+          {/* 此預約產生的補課資格（people=N 可能有多張） */}
+          {booking.bookingStatus === "NO_SHOW" && booking.generatedCredits.length > 0 && (
             <div className="col-span-2">
-              <dt className="text-earth-500">補課資格</dt>
-              <dd className={booking.generatedCredit.isUsed ? "text-earth-400" : "text-amber-600 font-medium"}>
-                {booking.generatedCredit.isUsed ? "已使用" : "未使用"}
-                {booking.generatedCredit.expiredAt && (
-                  <span className="ml-2 text-xs text-earth-400">
-                    期限：{new Date(booking.generatedCredit.expiredAt).toLocaleDateString("zh-TW")}
-                  </span>
-                )}
+              <dt className="text-earth-500">
+                補課資格（共 {booking.generatedCredits.length} 張）
+              </dt>
+              <dd className="space-y-0.5">
+                {booking.generatedCredits.map((c) => {
+                  const expired = !c.isUsed && !!c.expiredAt && new Date(c.expiredAt) < new Date();
+                  const stateLabel = c.isUsed ? "已使用" : expired ? "已過期" : "未使用";
+                  const stateClass = c.isUsed || expired ? "text-earth-400" : "text-amber-600 font-medium";
+                  return (
+                    <div key={c.id} className={stateClass}>
+                      {stateLabel}
+                      {c.expiredAt && (
+                        <span className="ml-2 text-xs text-earth-400">
+                          期限：{new Date(c.expiredAt).toLocaleDateString("zh-TW", { timeZone: "Asia/Taipei" })}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
               </dd>
             </div>
           )}
@@ -219,7 +235,27 @@ export default async function BookingDetailPage({ params }: PageProps) {
               </form>
             </div>
             <div className="flex flex-wrap items-center gap-3">
-              <NoShowButton isMakeup={booking.isMakeup} action={noShowAction} />
+              {booking.isMakeup ? (
+                <NoShowButton
+                  label="未到"
+                  confirmMsg="確定標記未到？補課的未到不會再產生新的補課資格。"
+                  action={noShowDeductAction}
+                />
+              ) : (
+                <>
+                  <NoShowButton
+                    label="未到・扣堂"
+                    confirmMsg={`確定標記未到並扣堂？將依預約人數（${booking.people} 人）扣堂，名額釋出，不發補課。已扣堂數不會退回。`}
+                    action={noShowDeductAction}
+                  />
+                  <NoShowButton
+                    label="未到・扣堂＋10日補課"
+                    confirmMsg={`確定標記未到？將依預約人數（${booking.people} 人）扣堂並發 ${booking.people} 張 10 日內有效的補課券，名額釋出。已扣堂數不會退回。`}
+                    action={noShowMakeupAction}
+                    variant="primary"
+                  />
+                </>
+              )}
               <CancelButton isMakeup={booking.isMakeup} action={cancelAction} />
             </div>
           </div>

@@ -962,24 +962,24 @@ export async function markCompleted(
 // ============================================================
 // markNoShow（未到）
 //
-// 三選一（UI 層 NoShowChoice → DB 層拆成兩欄位）：
+// 二選一（UI 層 NoShowChoice → DB 層拆成兩欄位）。
+// 兩者皆「扣堂」：名額已被佔用，依預約人數 people 原堂照扣、釋出 people 名額。
 //
 // 1. DEDUCTED（扣堂）
 //    → noShowPolicy = "DEDUCTED", noShowMakeupGranted = false
-//    → 扣堂 + 寫 SESSION_DEDUCTION + 不給補課
+//    → 依人數扣堂 + 寫 N 筆 SESSION_DEDUCTION + 不給補課
 //
-// 2. NOT_DEDUCTED_WITH_MAKEUP（不扣堂＋給補課）
-//    → noShowPolicy = "NOT_DEDUCTED", noShowMakeupGranted = true
-//    → 不扣堂 + 建 makeupCredit（30天）
+// 2. DEDUCTED_WITH_MAKEUP（扣堂並給 10 日補課資格）
+//    → noShowPolicy = "DEDUCTED", noShowMakeupGranted = true
+//    → 依人數扣堂 + 寫 N 筆 SESSION_DEDUCTION + 建 N 張 makeupCredit（10天）
+//    → 一張券抵 1 人 / 1 堂；補課預約（isMakeup）的未到不再產生新券
 //
-// 3. NOT_DEDUCTED_NO_MAKEUP（不扣堂、不補課）
-//    → noShowPolicy = "NOT_DEDUCTED", noShowMakeupGranted = false
-//    → 不扣堂 + 不建 makeupCredit
+// partial attendance（部分出席/部分未到）不在本流程範圍，屬後續更細的設計。
 // ============================================================
 
 export async function markNoShow(
   bookingId: string,
-  choice: NoShowChoice = "NOT_DEDUCTED_NO_MAKEUP"
+  choice: NoShowChoice = "DEDUCTED"
 ): Promise<ActionResult<void>> {
   try {
     const user = await requirePermission("booking.update");
@@ -998,11 +998,29 @@ export async function markNoShow(
     }
 
     // 拆解 UI choice → DB 欄位
-    const shouldDeduct = choice === "DEDUCTED";
-    const shouldGrantMakeup = choice === "NOT_DEDUCTED_WITH_MAKEUP";
+    // 兩個選項皆「扣堂」（名額已被佔用，原堂照扣）；差別僅在是否額外發補課券。
+    const shouldDeduct =
+      choice === "DEDUCTED" || choice === "DEDUCTED_WITH_MAKEUP";
+    const shouldGrantMakeup = choice === "DEDUCTED_WITH_MAKEUP";
     const dbPolicy = shouldDeduct ? "DEDUCTED" : "NOT_DEDUCTED";
 
     await prisma.$transaction(async (tx) => {
+      // 0. race-safe：鎖 Booking row，串行化同 booking 的並發未到/完成/收款。
+      //    防雙擊或併發 markNoShow 重複扣堂、重複建立補課券。
+      //    鎖定後重查狀態（防 TOCTOU：外層 findUnique 後可能已被別的呼叫 commit）。
+      await tx.$queryRaw`SELECT id FROM "Booking" WHERE id = ${bookingId} FOR UPDATE`;
+      const fresh = await tx.booking.findUnique({
+        where: { id: bookingId },
+        select: { bookingStatus: true },
+      });
+      if (!fresh) throw new AppError("NOT_FOUND", "預約不存在");
+      if (
+        fresh.bookingStatus !== "PENDING" &&
+        fresh.bookingStatus !== "CONFIRMED"
+      ) {
+        throw new AppError("CONFLICT", "預約狀態已變更，請重新整理");
+      }
+
       // 1. 標記未到 + 記錄扣堂策略 + 是否發補課
       await tx.booking.update({
         where: { id: bookingId },
@@ -1027,6 +1045,10 @@ export async function markNoShow(
         const dateStr = booking.bookingDate.toISOString().slice(0, 10);
         const peopleSuffix =
           booking.people > 1 ? `（${booking.people} 人預約）` : "";
+        // audit：扣堂交易 note 標明是否同時發補課，方便追查
+        const noteBase = shouldGrantMakeup
+          ? "未到扣堂＋發 10 日補課"
+          : "未到扣堂";
 
         if (completed > 0) {
           for (const it of items) {
@@ -1040,7 +1062,7 @@ export async function markNoShow(
                 paymentMethod: "CASH",
                 amount: 0,
                 quantity: 1,
-                note: `未到扣堂（${dateStr} ${booking.slotTime}）${peopleSuffix}`,
+                note: `${noteBase}（${dateStr} ${booking.slotTime}）${peopleSuffix}`,
                 storeId: currentStoreId(user),
               },
             });
@@ -1069,7 +1091,7 @@ export async function markNoShow(
                 paymentMethod: "CASH",
                 amount: 0,
                 quantity: 1,
-                note: `未到扣堂（${dateStr} ${booking.slotTime}）${peopleSuffix}`,
+                note: `${noteBase}（${dateStr} ${booking.slotTime}）${peopleSuffix}`,
                 storeId: currentStoreId(user),
               },
             });
@@ -1080,19 +1102,23 @@ export async function markNoShow(
         await releaseSessions(tx, bookingId);
       }
 
-      // 3. 若不扣堂＋給補課 → 建 makeupCredit
+      // 3. 若扣堂＋給補課 → 依預約人數建 N 張 10 日補課券
+      // 一張券抵 1 人 / 1 堂；people=N → N 張券，名額已扣 N 堂、釋出 N 名額。
+      // 補課預約本身（isMakeup）的未到不再產生新券。
       if (!booking.isMakeup && shouldGrantMakeup) {
         const expiredAt = new Date();
-        expiredAt.setDate(expiredAt.getDate() + 30);
-        await tx.makeupCredit.create({
-          data: {
-            customerId: booking.customerId,
-            originalBookingId: booking.id,
-            isUsed: false,
-            expiredAt,
-            storeId: booking.storeId,
-          },
-        });
+        expiredAt.setDate(expiredAt.getDate() + 10);
+        for (let i = 0; i < booking.people; i++) {
+          await tx.makeupCredit.create({
+            data: {
+              customerId: booking.customerId,
+              originalBookingId: booking.id,
+              isUsed: false,
+              expiredAt,
+              storeId: booking.storeId,
+            },
+          });
+        }
       }
     });
 
@@ -1219,20 +1245,21 @@ export async function revertBookingStatus(
           }
         }
 
-        // 若曾發補課資格 → 刪除（前提：該 credit 尚未被用於新預約）
+        // 若曾發補課資格 → 刪除全部（people=N 會有 N 張）
+        // 前提：任一張都尚未被用於新預約；只要有一張已使用即不可修正。
         if (booking.noShowMakeupGranted) {
-          const credit = await tx.makeupCredit.findUnique({
+          const credits = await tx.makeupCredit.findMany({
             where: { originalBookingId: booking.id },
           });
-          if (credit) {
-            if (credit.isUsed) {
-              throw new AppError(
-                "BUSINESS_RULE",
-                "此筆未到已產生的補課資格已被使用，無法修正。請先取消補課預約後再修正。"
-              );
-            }
-            await tx.makeupCredit.delete({
-              where: { id: credit.id },
+          if (credits.some((c) => c.isUsed)) {
+            throw new AppError(
+              "BUSINESS_RULE",
+              "此筆未到已產生的補課資格已被使用，無法修正。請先取消補課預約後再修正。"
+            );
+          }
+          if (credits.length > 0) {
+            await tx.makeupCredit.deleteMany({
+              where: { originalBookingId: booking.id },
             });
           }
         }

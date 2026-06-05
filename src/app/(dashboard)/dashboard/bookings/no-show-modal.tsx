@@ -2,16 +2,20 @@
 
 import { useEffect, useState } from "react";
 
-export type NoShowChoice =
-  | "DEDUCTED"
-  | "NOT_DEDUCTED_WITH_MAKEUP"
-  | "NOT_DEDUCTED_NO_MAKEUP";
+// 未到處理只保留兩個選項：兩者皆「扣堂」（名額已被佔用，原堂照扣），
+// 差別僅在是否額外發 10 日補課券。規則交給系統執行，不讓店長做人情判斷。
+// 型別單一真相來源在 booking-constants，這裡 re-export 給 drawer 沿用。
+export type { NoShowChoice } from "@/lib/booking-constants";
+import type { NoShowChoice } from "@/lib/booking-constants";
 
 interface NoShowModalProps {
   open: boolean;
   onClose: () => void;
   onConfirm: (choice: NoShowChoice) => void;
   loading?: boolean;
+  // 補課預約（isMakeup）未到：server 不扣堂、不發新券，故不顯示扣堂/補課選項，
+  // 僅允許標記未到，避免店長誤以為系統有扣堂或發券。
+  isMakeup?: boolean;
 }
 
 const OPTIONS: Array<{
@@ -21,18 +25,13 @@ const OPTIONS: Array<{
 }> = [
   {
     value: "DEDUCTED",
-    label: "扣除一堂",
-    hint: "依店規扣除顧客此次預約的一堂",
+    label: "扣堂",
+    hint: "名額已被佔用，依預約人數扣堂；不發補課",
   },
   {
-    value: "NOT_DEDUCTED_WITH_MAKEUP",
-    label: "發補課",
-    hint: "不扣堂，發 30 天內可用的補課資格",
-  },
-  {
-    value: "NOT_DEDUCTED_NO_MAKEUP",
-    label: "不處理",
-    hint: "僅標記未到，不扣堂也不發補課",
+    value: "DEDUCTED_WITH_MAKEUP",
+    label: "扣堂並給 10 日補課資格",
+    hint: "依預約人數扣堂，並依人數發 N 張 10 日內有效的補課券",
   },
 ];
 
@@ -41,12 +40,22 @@ export function NoShowModal({
   onClose,
   onConfirm,
   loading = false,
+  isMakeup = false,
 }: NoShowModalProps) {
   const [choice, setChoice] = useState<NoShowChoice>("DEDUCTED");
 
+  // 每次開啟時重設為預設選項（render 階段調整 state，避免在 effect 內 setState
+  // 觸發 cascading render；符合 react-hooks/set-state-in-effect）。
+  const [wasOpen, setWasOpen] = useState(false);
+  if (open && !wasOpen) {
+    setWasOpen(true);
+    setChoice("DEDUCTED");
+  } else if (!open && wasOpen) {
+    setWasOpen(false);
+  }
+
   useEffect(() => {
     if (!open) return;
-    setChoice("DEDUCTED");
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape" && !loading) onClose();
     }
@@ -70,40 +79,51 @@ export function NoShowModal({
         <div className="border-b border-earth-200 px-5 py-3">
           <h3 className="text-base font-semibold text-earth-900">標記未到</h3>
           <p className="mt-0.5 text-xs text-earth-500">
-            這筆預約要怎麼處理？
+            {isMakeup ? "補課預約未到" : "這筆預約要怎麼處理？"}
           </p>
         </div>
-        <div className="space-y-1.5 px-4 py-3">
-          {OPTIONS.map((opt) => {
-            const selected = choice === opt.value;
-            return (
-              <label
-                key={opt.value}
-                className={`flex cursor-pointer items-start gap-3 rounded-md border p-3 transition-colors ${
-                  selected
-                    ? "border-primary-500 bg-primary-50"
-                    : "border-earth-200 bg-white hover:bg-earth-50"
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="no-show-choice"
-                  value={opt.value}
-                  checked={selected}
-                  onChange={() => setChoice(opt.value)}
-                  disabled={loading}
-                  className="mt-0.5 h-4 w-4 accent-primary-600"
-                />
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-earth-900">
-                    {opt.label}
-                  </p>
-                  <p className="mt-0.5 text-xs text-earth-500">{opt.hint}</p>
-                </div>
-              </label>
-            );
-          })}
-        </div>
+        {isMakeup ? (
+          <div className="px-4 py-4">
+            <p className="text-sm text-earth-700">
+              補課預約未到：僅標記未到。
+            </p>
+            <p className="mt-1 text-xs text-earth-500">
+              補課不扣方案堂數，也不會再產生新的補課資格。
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-1.5 px-4 py-3">
+            {OPTIONS.map((opt) => {
+              const selected = choice === opt.value;
+              return (
+                <label
+                  key={opt.value}
+                  className={`flex cursor-pointer items-start gap-3 rounded-md border p-3 transition-colors ${
+                    selected
+                      ? "border-primary-500 bg-primary-50"
+                      : "border-earth-200 bg-white hover:bg-earth-50"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="no-show-choice"
+                    value={opt.value}
+                    checked={selected}
+                    onChange={() => setChoice(opt.value)}
+                    disabled={loading}
+                    className="mt-0.5 h-4 w-4 accent-primary-600"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-earth-900">
+                      {opt.label}
+                    </p>
+                    <p className="mt-0.5 text-xs text-earth-500">{opt.hint}</p>
+                  </div>
+                </label>
+              );
+            })}
+          </div>
+        )}
         <div className="flex justify-end gap-2 border-t border-earth-200 bg-earth-50 px-4 py-3">
           <button
             type="button"
@@ -115,11 +135,11 @@ export function NoShowModal({
           </button>
           <button
             type="button"
-            onClick={() => onConfirm(choice)}
+            onClick={() => onConfirm(isMakeup ? "DEDUCTED" : choice)}
             disabled={loading}
             className="inline-flex h-8 items-center rounded-md bg-primary-600 px-4 text-sm font-semibold text-white hover:bg-primary-700 disabled:cursor-wait disabled:opacity-60"
           >
-            確認
+            {isMakeup ? "標記未到" : "確認"}
           </button>
         </div>
       </div>

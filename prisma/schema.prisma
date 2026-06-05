@@ -947,8 +947,9 @@ model Booking {
   customerPlanWallet CustomerPlanWallet? @relation(fields: [customerPlanWalletId], references: [id])
 
   // 補課關聯
-  makeupCredit    MakeupCredit? @relation("MakeupBooking", fields: [makeupCreditId], references: [id])
-  generatedCredit MakeupCredit? @relation("OriginalBooking")
+  makeupCredit     MakeupCredit?  @relation("MakeupBooking", fields: [makeupCreditId], references: [id])
+  // 一筆未到預約可依 people 數產生多張補課券（people=2 → 2 張），故為一對多。
+  generatedCredits MakeupCredit[] @relation("OriginalBooking")
 
   // 交易
   transactions Transaction[]
@@ -984,9 +985,11 @@ model Booking {
 model MakeupCredit {
   id                String    @id @default(cuid())
   customerId        String
-  originalBookingId String    @unique // 產生此資格的原始預約（NO_SHOW）
+  // 產生此資格的原始預約（NO_SHOW）。一筆未到可依 people 產生多張券，故不再 @unique。
+  // 一張券抵 1 人 / 1 堂；重複建立的防呆改由 markNoShow 在 transaction 內依 people 控制。
+  originalBookingId String
   isUsed            Boolean   @default(false)
-  expiredAt         DateTime? // 補課有效期限（如 30 天後到期）
+  expiredAt         DateTime? // 補課有效期限（如 10 天後到期）
   createdAt         DateTime  @default(now())
 
   storeId         String
@@ -996,6 +999,7 @@ model MakeupCredit {
   store           Store    @relation(fields: [storeId], references: [id])
 
   @@index([customerId, isUsed])
+  @@index([originalBookingId]) // 取某筆未到產生的所有補課券（revert / 顯示）
   @@index([storeId])
 }
 

@@ -238,13 +238,15 @@ export function BookingDetailDrawer({
   }
 
   function handleNoShowConfirm(choice: NoShowChoice) {
+    // 補課預約未到：server 不扣堂、不發券，toast 不可說「扣堂並發補課」。
+    const isMakeupBooking = data?.booking.isMakeup ?? false;
     const labelMap: Record<NoShowChoice, string> = {
       DEDUCTED: "已標記未到並扣堂",
-      NOT_DEDUCTED_WITH_MAKEUP: "已標記未到並發補課",
-      NOT_DEDUCTED_NO_MAKEUP: "已標記未到（不處理）",
+      DEDUCTED_WITH_MAKEUP: "已標記未到、扣堂並發補課",
     };
+    const label = isMakeupBooking ? "已標記未到" : labelMap[choice];
     wrapAction(
-      labelMap[choice],
+      label,
       () => markNoShow(bookingId!, choice),
       "NO_SHOW",
       { onSuccess: () => setNoShowOpen(false) },
@@ -376,6 +378,7 @@ export function BookingDetailDrawer({
         onClose={() => setNoShowOpen(false)}
         onConfirm={handleNoShowConfirm}
         loading={isActing}
+        isMakeup={data?.booking.isMakeup ?? false}
       />
       {data && (
         <RescheduleModal

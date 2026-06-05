@@ -98,30 +98,19 @@ function NoShowPopover({
         >
           <span className="mt-px text-red-500">✗</span>
           <div>
-            <div className="font-medium">扣堂（照常扣）</div>
-            <div className="text-[9px] text-earth-400">扣 1 堂、不給補課</div>
+            <div className="font-medium">扣堂</div>
+            <div className="text-[9px] text-earth-400">依人數扣堂、不發補課</div>
           </div>
         </button>
         <button
           type="button"
-          onClick={(e) => { e.stopPropagation(); onSelect("NOT_DEDUCTED_WITH_MAKEUP"); }}
+          onClick={(e) => { e.stopPropagation(); onSelect("DEDUCTED_WITH_MAKEUP"); }}
           className="flex w-full items-start gap-2 px-3 py-2 text-left text-[11px] text-earth-700 hover:bg-amber-50 transition"
         >
           <span className="mt-px text-amber-500">↩</span>
           <div>
-            <div className="font-medium">不扣堂＋給補課</div>
-            <div className="text-[9px] text-earth-400">不扣堂、給 30 天補課資格</div>
-          </div>
-        </button>
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); onSelect("NOT_DEDUCTED_NO_MAKEUP"); }}
-          className="flex w-full items-start gap-2 px-3 py-2 text-left text-[11px] text-earth-700 hover:bg-earth-50 transition"
-        >
-          <span className="mt-px text-earth-400">—</span>
-          <div>
-            <div className="font-medium">不扣堂、不補課</div>
-            <div className="text-[9px] text-earth-400">僅記錄未到、不做任何扣減</div>
+            <div className="font-medium">扣堂並給 10 日補課資格</div>
+            <div className="text-[9px] text-earth-400">依人數扣堂，並發 N 張 10 日補課券</div>
           </div>
         </button>
       </div>
