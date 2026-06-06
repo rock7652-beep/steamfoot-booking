@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
+  // a11y：不設 maximumScale / userScalable，允許使用者手指放大網頁（長輩 / 視力不佳）。
 }
 
 export default function RootLayout({
