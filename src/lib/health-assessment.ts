@@ -8,9 +8,9 @@
  * 兩種入口，請勿混用：
  *   - getHealthAssessmentUrl(customerId) → healthflow-ai.com **web** URL，帶 customerId。
  *     給後台店長端（桌機看顧客）與卡片「查看完整評估」用；web 端以 customerId 識別。
- *   - getHealthAssessmentLiffUrl()       → liff.line.me **LIFF** 入口，不帶任何 identity。
- *     給顧客 Web 前台「前往量測」用：直接開 LIFF、省去先進 healthflow-ai web 再跳 LINE
- *     的多一次跳轉；HealthFlow 以 LINE Login / LIFF context 識別顧客（與 LIFF 端一致）。
+ *   - getHealthNewRecordLiffUrl()        → liff.line.me LIFF 的「新增量測」頁 (/new-record)。
+ *     給顧客 Web 前台「前往量測」用：直接開 LIFF 量測頁，省去先進 healthflow-ai web
+ *     再跳 LINE 的多一次跳轉，且直達量測頁（非 LIFF 首頁）。
  */
 
 // 與 src/lib/liff/messages.ts 的 healthFlowLiffUrl 同一個 LIFF（單一來源，不複製字面值）。
@@ -25,12 +25,18 @@ export function getHealthAssessmentUrl(customerId?: string | null): string {
 }
 
 /**
- * 顧客 Web 前台「前往量測」用：直接導向 HealthFlow LIFF（liff.line.me）。
+ * 顧客 Web 前台「前往量測」用：直接導向 HealthFlow LIFF 的「新增量測」頁 (/new-record)，
+ * 而非 LIFF 首頁、也非 healthflow-ai 外部 web。
+ *
  * 不帶任何 identity 參數 — HealthFlow 是獨立 LIFF App，用 LINE Login / LIFF context
- * 自行識別顧客（與 Steamfoot LIFF 端 healthFlowLiffUrl 用法一致）。各店共用同一入口。
+ * 自行識別顧客（與 src/lib/liff/messages.ts healthFlowLiffUrl 既有用法一致：
+ * Steamfoot 不傳 customerId / storeId / lineUserId）。各店共用同一入口。
+ *
+ * 註：若日後確認 HealthFlow /new-record 需要 customerId query，再於此集中加上即可，
+ * 不影響呼叫端。
  */
-export const HEALTH_ASSESSMENT_LIFF_URL = healthFlowLiffUrl;
+export const HEALTH_NEW_RECORD_LIFF_URL = `${healthFlowLiffUrl}/new-record`;
 
-export function getHealthAssessmentLiffUrl(): string {
-  return healthFlowLiffUrl;
+export function getHealthNewRecordLiffUrl(): string {
+  return HEALTH_NEW_RECORD_LIFF_URL;
 }

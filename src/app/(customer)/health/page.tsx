@@ -2,7 +2,7 @@ import { getCurrentUser } from "@/lib/session";
 import { getStoreContext } from "@/lib/store-context";
 import { getHealthCardData } from "@/server/queries/health-card";
 import { resolveCustomerForUser } from "@/server/queries/customer-completion";
-import { getHealthAssessmentLiffUrl } from "@/lib/health-assessment";
+import { getHealthNewRecordLiffUrl } from "@/lib/health-assessment";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { HealthAssessmentCard } from "@/components/health-assessment-card";
@@ -46,9 +46,10 @@ export default async function HealthPage() {
         ReturnType<typeof getHealthCardData>
       >,
   );
-  // 「前往量測」直接開 HealthFlow LIFF（無 identity 參數，LINE 識別），省去先進
-  // healthflow-ai web 再跳 LINE 的多一次跳轉。customerId 仍用於上方登入/解析 gate。
-  const measureUrl = getHealthAssessmentLiffUrl();
+  // 「前往量測」直接開 HealthFlow LIFF 的「新增量測」頁 /new-record（非 LIFF 首頁、
+  // 非 healthflow-ai web），省去多一次跳轉。無 identity 參數，HealthFlow 以 LINE 識別。
+  // customerId 仍用於上方登入/解析 gate。
+  const measureUrl = getHealthNewRecordLiffUrl();
 
   return (
     <div>
