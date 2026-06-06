@@ -9,6 +9,7 @@ import { ShareContactActions } from "./share-contact-actions";
 import { buildReferralEntryUrl } from "@/lib/share";
 import { getHealthAssessmentUrl } from "@/lib/health-assessment";
 import { totalAvailableToBook } from "@/lib/wallet-availability";
+import { toLocalDateStr } from "@/lib/date-utils";
 
 /** 計算距離提醒文案 */
 function getReminderText(bookingDate: Date, slotTime: string): string {
@@ -56,6 +57,7 @@ export default async function CustomerHomePage() {
   let remaining = 0;
   let nextBooking: { bookingDate: Date; slotTime: string } | null = null;
   let makeupCount = 0;
+  let makeupEarliest: Date | null = null;
   let healthCard: Awaited<ReturnType<typeof getHealthCardData>> | null = null;
   let referralSummary: Awaited<ReturnType<typeof getMyReferralSummary>> | null = null;
 
@@ -83,19 +85,25 @@ export default async function CustomerHomePage() {
         select: { bookingDate: true, slotTime: true },
         orderBy: [{ bookingDate: "asc" }, { slotTime: "asc" }],
       }),
-      prisma.makeupCredit.count({
+      prisma.makeupCredit.findMany({
         where: {
           customerId: user.customerId,
+          // 多店隔離：與 createBooking 自選券一致 storeId-scoped
+          ...(storeId ? { storeId } : {}),
           isUsed: false,
           OR: [{ expiredAt: null }, { expiredAt: { gte: new Date() } }],
         },
+        select: { expiredAt: true },
+        // 最早到期優先（nulls last）→ credits[0] 即最早到期
+        orderBy: [{ expiredAt: { sort: "asc", nulls: "last" } }, { createdAt: "asc" }],
       }),
       getHealthCardData(user.customerId),
       getMyReferralSummary(user.customerId, { activeStoreId: storeId }),
     ]);
     remaining = totalAvailableToBook(wallets);
     nextBooking = upcoming;
-    makeupCount = credits;
+    makeupCount = credits.length;
+    makeupEarliest = credits[0]?.expiredAt ?? null;
     healthCard = hc;
     referralSummary = summary;
   } catch {
@@ -157,6 +165,11 @@ export default async function CustomerHomePage() {
                   <span className="text-[26px] font-bold text-amber-700">{makeupCount}</span>
                   <span className="ml-1 text-[15px] font-semibold text-amber-700">次</span>
                 </p>
+                {makeupEarliest && (
+                  <p className="mt-0.5 text-[11px] text-amber-700">
+                    最早到期 {toLocalDateStr(makeupEarliest).split("-").join("/")}
+                  </p>
+                )}
               </div>
             )}
           </div>

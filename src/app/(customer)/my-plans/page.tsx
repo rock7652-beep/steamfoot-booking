@@ -19,6 +19,7 @@ import {
   WalletSessionDetail,
   type SessionRow,
 } from "@/components/wallet-session-detail";
+import { toLocalDateStr } from "@/lib/date-utils";
 
 export default async function MyPlansPage() {
   const user = await getCurrentUser();
@@ -78,6 +79,19 @@ export default async function MyPlansPage() {
     return <NoPlanEmptyState title="我的方案" variant="plan" shopHref={shopHref} />;
   }
 
+  // ── 補課資格（PR-NoShow-2b）：有效券（未使用、未過期），最早到期優先 ──
+  const storeId = user.storeId ?? storeCtx?.storeId ?? null;
+  const makeupCredits = await prisma.makeupCredit.findMany({
+    where: {
+      customerId,
+      ...(storeId ? { storeId } : {}),
+      isUsed: false,
+      OR: [{ expiredAt: null }, { expiredAt: { gte: new Date() } }],
+    },
+    select: { id: true, expiredAt: true },
+    orderBy: [{ expiredAt: { sort: "asc", nulls: "last" } }, { createdAt: "asc" }],
+  });
+
   // ── 3 區分類 ──
   const activeWallets = customer.planWallets.filter((w) => w.status === "ACTIVE");
   const expiredWallets = customer.planWallets.filter((w) => w.status === "EXPIRED");
@@ -131,7 +145,37 @@ export default async function MyPlansPage() {
         </div>
       )}
 
-      {customer.planWallets.length === 0 ? (
+      {/* ── 補課資格（PR-NoShow-2b）── */}
+      {makeupCredits.length > 0 && (
+        <section className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-5">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold text-amber-900">補課資格</h2>
+            <span className="text-sm font-semibold text-amber-800">
+              {makeupCredits.length} 張可用
+            </span>
+          </div>
+          <ul className="mt-3 space-y-1.5">
+            {makeupCredits.map((c) => (
+              <li
+                key={c.id}
+                className="flex items-center justify-between text-sm text-amber-900"
+              >
+                <span>補課資格 1 次</span>
+                <span className="text-amber-700">
+                  {c.expiredAt
+                    ? `有效期限至 ${toLocalDateStr(c.expiredAt).split("-").join("/")}`
+                    : "無使用期限"}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-3 text-xs text-amber-700">
+            系統會於預約時自動優先使用補課資格（最早到期優先），不扣原方案堂數。
+          </p>
+        </section>
+      )}
+
+      {customer.planWallets.length === 0 && makeupCredits.length === 0 ? (
         <NoPlanEmptyState variant="plan" shopHref={shopHref} />
       ) : (
         <div className="space-y-6">

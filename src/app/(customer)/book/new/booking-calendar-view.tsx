@@ -543,8 +543,12 @@ function SlotBookingForm({
         <p className="mt-3 text-base text-earth-800">
           {selectedDate} {state.bookedTime}
           {state.bookedPeople > 1 && ` / ${state.bookedPeople} 人`}
-          {state.wasMakeup && " / 補課不扣堂"}
         </p>
+        {state.wasMakeup && (
+          <p className="mt-1 text-sm font-medium text-amber-700">
+            已使用 {state.bookedPeople} 張補課資格，本次不扣堂。
+          </p>
+        )}
         <p className="mt-1 text-sm text-earth-700">記得準時到喔</p>
         <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
           <a

@@ -194,6 +194,8 @@ export const liffMessages = {
     // success card — 只 date + slot；store label / footnote 文案柔化
     successTitle: "預約已建立 ✓",
     successFootnote: "感謝您的預約，期待您到店。",
+    /** PR-NoShow-2b：本次使用補課券提示 — with {count} */
+    successMakeupUsed: "已使用 {count} 張補課資格，本次不扣堂。",
     successDateLabel: "日期",
     successSlotLabel: "時段",
     /** SuccessCard primary CTA — 與 trialBooking 一致 */
