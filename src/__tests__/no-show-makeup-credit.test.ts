@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-// PR-NoShow-1：markNoShow「扣堂並給 10 日補課資格」行為保證
+// PR-NoShow-1/3：markNoShow「扣堂並給 7 日補課資格」行為保證（PR-NoShow-3：10→7 日）
 //  - DEDUCTED_WITH_MAKEUP：依 booking.people 建 N 張補課券（一張抵 1 人 / 1 堂），
-//    每張 isUsed=false、expiredAt ≈ now+10 天
+//    每張 isUsed=false、expiredAt ≈ now+7 天
 //  - DEDUCTED：不建任何補課券
 //  - race-safe：$transaction 內先 SELECT ... FOR UPDATE 鎖 row，再重查狀態；
 //    若已非 PENDING/CONFIRMED → CONFLICT，不扣堂、不建券（防雙擊重複扣堂/發券）
@@ -132,7 +132,7 @@ beforeEach(() => {
 });
 
 describe("markNoShow — DEDUCTED_WITH_MAKEUP", () => {
-  it("people=2 → 建 2 張補課券，each isUsed=false、expiredAt≈now+10天", async () => {
+  it("people=2 → 建 2 張補課券，each isUsed=false、expiredAt≈now+7天", async () => {
     const before = Date.now();
     const r = await markNoShow("bk_1", "DEDUCTED_WITH_MAKEUP");
     expect(r.success).toBe(true);
@@ -143,10 +143,10 @@ describe("markNoShow — DEDUCTED_WITH_MAKEUP", () => {
       expect(d.customerId).toBe("cust_1");
       expect(d.originalBookingId).toBe("bk_1");
       const exp = (d.expiredAt as Date).getTime();
-      const tenDays = 10 * 24 * 60 * 60 * 1000;
+      const sevenDays = 7 * 24 * 60 * 60 * 1000;
       // 容許執行耗時誤差
-      expect(exp).toBeGreaterThan(before + tenDays - 5000);
-      expect(exp).toBeLessThan(Date.now() + tenDays + 5000);
+      expect(exp).toBeGreaterThan(before + sevenDays - 5000);
+      expect(exp).toBeLessThan(Date.now() + sevenDays + 5000);
     }
     // race-safe：有鎖 row
     expect(h.queryRaw).toHaveBeenCalledTimes(1);

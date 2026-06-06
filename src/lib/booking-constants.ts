@@ -193,10 +193,17 @@ export function isSlotPastToday(date: string, slotTime: string): boolean {
 export type NoShowPolicy = "DEDUCTED" | "NOT_DEDUCTED";
 
 /**
+ * 未到補課資格有效天數（PR-NoShow-3：10 → 7 日）。
+ * 單一真相來源：新發券 expiredAt = now + N 日、UI 文案皆引用此常數，避免散落 hardcode。
+ * 既有已發出的券不回頭修改 expiredAt。
+ */
+export const NO_SHOW_MAKEUP_VALID_DAYS = 7;
+
+/**
  * UI 層：店長標記未到的處理方式（二選一）。
  * 兩者皆「扣堂」（名額已被佔用，依預約人數原堂照扣），差別僅在是否額外發補課券。
  * - DEDUCTED: 扣堂、不發補課
- * - DEDUCTED_WITH_MAKEUP: 扣堂 + 依預約人數發 N 張 10 日補課券
+ * - DEDUCTED_WITH_MAKEUP: 扣堂 + 依預約人數發 N 張 7 日補課券
  *
  * 後端會拆成兩個欄位存：
  *   noShowPolicy        → "DEDUCTED"（目前兩種選項皆扣堂）

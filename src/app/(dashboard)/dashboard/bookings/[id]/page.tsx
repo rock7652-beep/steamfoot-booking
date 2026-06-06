@@ -5,6 +5,7 @@ import { markCompleted, cancelBooking, markNoShow, checkInBooking, revertBooking
 import { notFound, redirect } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { NoShowButton, CancelButton, RevertButton } from "./booking-actions";
+import { NO_SHOW_MAKEUP_VALID_DAYS } from "@/lib/booking-constants";
 
 // Status/type labels
 const STATUS_LABEL: Record<string, string> = {
@@ -249,8 +250,8 @@ export default async function BookingDetailPage({ params }: PageProps) {
                     action={noShowDeductAction}
                   />
                   <NoShowButton
-                    label="未到・扣堂＋10日補課"
-                    confirmMsg={`確定標記未到？將依預約人數（${booking.people} 人）扣堂並發 ${booking.people} 張 10 日內有效的補課券，名額釋出。已扣堂數不會退回。`}
+                    label={`未到・扣堂＋${NO_SHOW_MAKEUP_VALID_DAYS}日補課`}
+                    confirmMsg={`確定標記未到？將依預約人數（${booking.people} 人）扣堂並發 ${booking.people} 張 ${NO_SHOW_MAKEUP_VALID_DAYS} 日內有效的補課券，名額釋出。已扣堂數不會退回。`}
                     action={noShowMakeupAction}
                     variant="primary"
                   />

@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { markCompleted, markNoShow, cancelBooking, revertBookingStatus } from "@/server/actions/booking";
 import type { NoShowChoice } from "@/lib/booking-constants";
+import { NO_SHOW_MAKEUP_VALID_DAYS } from "@/lib/booking-constants";
 
 interface Props {
   bookingId: string;
@@ -109,8 +110,8 @@ function NoShowPopover({
         >
           <span className="mt-px text-amber-500">↩</span>
           <div>
-            <div className="font-medium">扣堂並給 10 日補課資格</div>
-            <div className="text-[9px] text-earth-400">依人數扣堂，並發 N 張 10 日補課券</div>
+            <div className="font-medium">扣堂並給 {NO_SHOW_MAKEUP_VALID_DAYS} 日補課資格</div>
+            <div className="text-[9px] text-earth-400">依人數扣堂，並發 N 張 {NO_SHOW_MAKEUP_VALID_DAYS} 日補課券</div>
           </div>
         </button>
       </div>
