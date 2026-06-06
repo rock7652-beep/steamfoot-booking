@@ -4,7 +4,6 @@ import { useState } from "react";
 import Link from "next/link";
 import { logoutAction } from "@/server/actions/auth";
 import { LogoutButton } from "@/components/logout-button";
-import { getHealthAssessmentUrl } from "@/lib/health-assessment";
 
 // SVG icon paths (Heroicons outline, 24x24 viewBox) — 與桌面版 sidebar 共用同一套
 const ICON_PATHS: Record<string, string[]> = {
@@ -72,16 +71,15 @@ const NAV_ITEMS_BASE = [
   { href: "/book", label: "首頁", icon: "home" },
   { href: "/my-bookings", label: "預約與方案", icon: "calendar" },
   { href: "/my-referrals", label: "我的好康", icon: "trophy" },
-  { href: "__health__", label: "健康評估", icon: "heart", external: true },
+  { href: "/health", label: "健康評估", icon: "heart" },
   { href: "/profile", label: "我的資料", icon: "user" },
 ];
 
-export function MobileNav({ userName, pathname, customerId, storeSlug = "zhubei" }: { userName: string; pathname: string; customerId?: string | null; storeSlug?: string }) {
+export function MobileNav({ userName, pathname, storeSlug = "zhubei" }: { userName: string; pathname: string; storeSlug?: string }) {
   const prefix = `/s/${storeSlug}`;
-  const aiHealthUrl = getHealthAssessmentUrl(customerId);
   const NAV_ITEMS = NAV_ITEMS_BASE.map((item) => ({
     ...item,
-    fullHref: item.external ? aiHealthUrl : `${prefix}${item.href}`,
+    fullHref: `${prefix}${item.href}`,
   }));
   const [open, setOpen] = useState(false);
 
@@ -141,21 +139,6 @@ export function MobileNav({ userName, pathname, customerId, storeSlug = "zhubei"
 
         <div className="px-3 py-3">
           {NAV_ITEMS.map((item) => {
-            if (item.external) {
-              return (
-                <a
-                  key={item.href}
-                  href={item.fullHref}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={() => setOpen(false)}
-                  className="mb-1 flex min-h-[48px] items-center gap-3 rounded-lg px-4 py-3 text-base text-earth-800 hover:bg-earth-50 transition"
-                >
-                  <NavIcon name={item.icon} className="text-earth-600" />
-                  {item.label}
-                </a>
-              );
-            }
             const isActive =
               item.href === "/book"
                 ? pathname === "/book"

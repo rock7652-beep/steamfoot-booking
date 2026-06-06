@@ -2,14 +2,12 @@ import { getCurrentUser } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { getStoreContext } from "@/lib/store-context";
 import { listBookings } from "@/server/queries/booking";
-import { getHealthCardData } from "@/server/queries/health-card";
 import { resolveCustomerForUser } from "@/server/queries/customer-completion";
 import { getFrontendPlans } from "@/server/queries/plan";
 import { getShopConfig } from "@/lib/shop-config";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import type { PlanCategory } from "@prisma/client";
-import { HealthAssessmentCard } from "@/components/health-assessment-card";
 import {
   STATUS_LABEL,
   STATUS_COLOR,
@@ -56,14 +54,16 @@ export default async function MyBookingsPage({ searchParams }: PageProps) {
   const customerId = resolved.customer?.id ?? null;
   if (!customerId) redirect("/");
 
-  // 並行取預約 + 健康卡片 + 方案錢包（供頂部方案摘要顯示）
-  // 各區塊獨立 catch — 預約 / 健康卡 / 方案任一 DB 失敗，其他區塊照常顯示
+  // 並行取預約 + 方案錢包（供頂部方案摘要顯示）
+  // 健康簡易數據已搬到 /health（PR-Frontend-2）；此頁不再放健康入口，
+  // 健康評估入口只在首頁健康區塊 + desktop/mobile nav 提供
+  // 各區塊獨立 catch — 預約 / 方案任一 DB 失敗，其他區塊照常顯示
   const logCtx = {
     page: "my-bookings" as const,
     userId: user.id,
     customerId,
   };
-  const [{ bookings }, healthCard, planSummary] = await Promise.all([
+  const [{ bookings }, planSummary] = await Promise.all([
     listBookings({ pageSize: 50 }).catch((e) => {
       console.error("[my-bookings] listBookings failed", {
         ...logCtx,
@@ -72,17 +72,6 @@ export default async function MyBookingsPage({ searchParams }: PageProps) {
       });
       return { bookings: [], total: 0, page: 1, pageSize: 50 } as Awaited<
         ReturnType<typeof listBookings>
-      >;
-    }),
-    // getHealthCardData 內部已做 try/catch，這層多包一道防止意外
-    getHealthCardData(customerId).catch((e) => {
-      console.error("[my-bookings] getHealthCardData failed", {
-        ...logCtx,
-        step: "getHealthCardData",
-        error: e instanceof Error ? e.message : String(e),
-      });
-      return { available: false, reason: "error" } as Awaited<
-        ReturnType<typeof getHealthCardData>
       >;
     }),
     prisma.customerPlanWallet.findMany({
@@ -187,13 +176,6 @@ export default async function MyBookingsPage({ searchParams }: PageProps) {
           </span>
         </div>
       </Link>
-
-      {/* Health Assessment Card */}
-      {healthCard.available && (
-        <div className="mb-5">
-          <HealthAssessmentCard summary={healthCard.summary} customerId={customerId} />
-        </div>
-      )}
 
       {/* Tabs */}
       <div className="mb-5 flex gap-1 border-b border-earth-200">

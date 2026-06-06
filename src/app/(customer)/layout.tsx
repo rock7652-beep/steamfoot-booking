@@ -9,7 +9,6 @@ import BuildFooter from "@/components/build-footer";
 import { LogoutButton } from "@/components/logout-button";
 import { getStoreContext } from "@/lib/store-context";
 import { resolveCustomerCompletionStatus } from "@/server/queries/customer-completion";
-import { getHealthAssessmentUrl } from "@/lib/health-assessment";
 
 // SVG icon paths (Heroicons outline, 24x24 viewBox) — 拆成多段 path 確保正確渲染
 const ICON_PATHS: Record<string, string[]> = {
@@ -73,12 +72,12 @@ function NavIcon({ name, className = "" }: { name: string; className?: string })
 }
 
 // 主選單 5 項：首頁 / 預約與方案（含購買方案 tab）/ 我的好康 / 健康評估 / 我的資料
-// 健康評估為外部連結 (HealthFlow LIFF)，於 render 時特殊處理。
+// 健康評估改為 Web 內部頁 /health（PR-Frontend-2）；量測入口在該頁內導向 HealthFlow。
 const NAV_ITEMS_BASE = [
   { href: "/book", label: "首頁", icon: "home" },
   { href: "/my-bookings", label: "預約與方案", icon: "calendar" },
   { href: "/my-referrals", label: "我的好康", icon: "trophy" },
-  { href: "__health__", label: "健康評估", icon: "heart", external: true },
+  { href: "/health", label: "健康評估", icon: "heart" },
   { href: "/profile", label: "我的資料", icon: "user" },
 ];
 
@@ -163,11 +162,9 @@ export default async function CustomerLayout({
     redirect(`${prefix}/profile?${params.toString()}`);
   }
 
-  const aiHealthUrl = getHealthAssessmentUrl(user.customerId);
-
   const NAV_ITEMS = NAV_ITEMS_BASE.map((item) => ({
     ...item,
-    fullHref: item.external ? aiHealthUrl : `${prefix}${item.href}`,
+    fullHref: `${prefix}${item.href}`,
   }));
 
   return (
@@ -176,7 +173,7 @@ export default async function CustomerLayout({
       <NavProgress />
 
       {/* Mobile hamburger menu */}
-      <MobileNav userName={user.name ?? "顧客"} pathname={pathname} customerId={user.customerId} storeSlug={storeSlug} />
+      <MobileNav userName={user.name ?? "顧客"} pathname={pathname} storeSlug={storeSlug} />
 
       <div className="lg:flex">
         {/* Desktop sidebar — fixed narrow design */}
@@ -192,20 +189,6 @@ export default async function CustomerLayout({
           {/* Nav */}
           <nav className="flex-1 px-2.5 py-1">
             {NAV_ITEMS.map((item) => {
-              if (item.external) {
-                return (
-                  <a
-                    key={item.href}
-                    href={item.fullHref}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mb-1 flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm text-earth-700 hover:bg-earth-100/60 hover:text-earth-900 transition"
-                  >
-                    <NavIcon name={item.icon} className="text-earth-600" />
-                    {item.label}
-                  </a>
-                );
-              }
               const isActive =
                 item.href === "/book"
                   ? pathname === "/book"

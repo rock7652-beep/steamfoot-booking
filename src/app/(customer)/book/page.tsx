@@ -7,7 +7,6 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ShareContactActions } from "./share-contact-actions";
 import { buildReferralEntryUrl } from "@/lib/share";
-import { getHealthAssessmentUrl } from "@/lib/health-assessment";
 import { totalAvailableToBook } from "@/lib/wallet-availability";
 import { toLocalDateStr } from "@/lib/date-utils";
 
@@ -112,7 +111,6 @@ export default async function CustomerHomePage() {
 
   const reminderText = nextBooking ? getReminderText(nextBooking.bookingDate, nextBooking.slotTime) : "";
   const referralUrl = buildReferralEntryUrl(storeSlug, user.customerId);
-  const aiHealthUrl = getHealthAssessmentUrl(user.customerId);
 
   const showPerkProgress = !!referralSummary && referralSummary.totalPoints > 0;
   const showMyGrowth =
@@ -205,17 +203,15 @@ export default async function CustomerHomePage() {
               </span>
             </p>
           )}
-          <a
-            href={aiHealthUrl}
-            target="_blank"
-            rel="noopener noreferrer"
+          <Link
+            href={`${prefix}/health`}
             className="mt-3 flex h-11 w-full items-center justify-center gap-1.5 rounded-xl border border-primary-200 bg-primary-50 text-base font-semibold text-primary-700 hover:bg-primary-100"
           >
-            開始健康評估
+            查看健康評估
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-              <path d="M7.5 16.5L21 3m0 0h-5.25M21 3v5.25" />
+              <path d="M9 5l7 7-7 7" />
             </svg>
-          </a>
+          </Link>
         </div>
 
         {/* divider */}

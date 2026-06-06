@@ -102,6 +102,7 @@ export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | n
       "/my-points",
       "/my-referrals",
       "/my-growth",
+      "/health",
       "/profile",
     ];
     const isCustomerRoute = customerPrefixes.some(
