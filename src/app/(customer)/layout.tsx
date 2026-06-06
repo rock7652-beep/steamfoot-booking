@@ -171,7 +171,7 @@ export default async function CustomerLayout({
   }));
 
   return (
-    <div className="min-h-screen bg-earth-50 text-[17px] leading-[1.7] text-[color:var(--color-text-primary)]">
+    <div className="min-h-screen bg-earth-50 text-base leading-relaxed text-[color:var(--color-text-primary)]">
       {/* Navigation progress bar */}
       <NavProgress />
 
@@ -199,7 +199,7 @@ export default async function CustomerLayout({
                     href={item.fullHref}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="mb-1 flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-[15px] text-earth-700 hover:bg-earth-100/60 hover:text-earth-900 transition"
+                    className="mb-1 flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm text-earth-700 hover:bg-earth-100/60 hover:text-earth-900 transition"
                   >
                     <NavIcon name={item.icon} className="text-earth-600" />
                     {item.label}
@@ -214,7 +214,7 @@ export default async function CustomerLayout({
                 <Link
                   key={item.href}
                   href={item.fullHref}
-                  className={`relative mb-1 flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-[15px] transition-colors ${
+                  className={`relative mb-1 flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors ${
                     isActive
                       ? "bg-primary-50 font-semibold text-primary-700"
                       : "text-earth-700 hover:bg-earth-100/60 hover:text-earth-900"
@@ -235,7 +235,7 @@ export default async function CustomerLayout({
             <form action={logoutAction}>
               <input type="hidden" name="storeSlug" value={storeSlug} />
               <LogoutButton
-                className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-[15px] text-earth-700 hover:bg-earth-50 hover:text-earth-900 transition"
+                className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm text-earth-700 hover:bg-earth-50 hover:text-earth-900 transition"
                 iconClassName="text-earth-600"
                 iconSize={18}
               />

@@ -49,7 +49,7 @@ export function HealthAssessmentCard({
           : "text-earth-800";
 
   return (
-    <div className="rounded-2xl border border-earth-200 bg-white p-6 shadow-sm">
+    <div className="rounded-2xl border border-earth-200 bg-white p-5 shadow-sm">
       {/* Header */}
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>

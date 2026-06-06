@@ -71,7 +71,7 @@ export default async function MyPerksPage() {
 
       <div className="space-y-5">
         {/* ═══ 區塊 1：今天幫朋友放鬆一下（利他 + 無壓力 + 點數誘因 + 分享 CTA） ═══ */}
-        <section className="rounded-2xl border border-primary-100 bg-gradient-to-br from-white to-primary-50/40 p-6 shadow-sm">
+        <section className="rounded-2xl border border-primary-100 bg-gradient-to-br from-white to-primary-50/40 p-5 shadow-sm">
           {/* 利他文案 */}
           <p className="text-xl font-bold text-earth-900">
             今天幫朋友放鬆一下
@@ -113,9 +113,9 @@ export default async function MyPerksPage() {
         </section>
 
         {/* ═══ 區塊 2：點數進度（大數字 + 進度條 + 差距提示） ═══ */}
-        <section className="rounded-2xl border border-amber-200 bg-amber-50/60 p-6 shadow-sm">
+        <section className="rounded-2xl border border-amber-200 bg-amber-50/60 p-5 shadow-sm">
           <p className="text-base font-semibold text-amber-900">我的點數</p>
-          <p className="mt-2 text-5xl font-bold text-amber-800">
+          <p className="mt-2 text-4xl font-bold text-amber-800">
             {summary.totalPoints}
             <span className="ml-2 text-xl font-medium text-amber-800">點</span>
           </p>
@@ -145,7 +145,7 @@ export default async function MyPerksPage() {
         </section>
 
         {/* ═══ 區塊 3：數據區（已分享 / 朋友加入 / 來體驗） ═══ */}
-        <section className="rounded-2xl border border-earth-200 bg-white p-6 shadow-sm">
+        <section className="rounded-2xl border border-earth-200 bg-white p-5 shadow-sm">
           <p className="text-lg font-bold text-earth-900">我的分享</p>
           <div className="mt-4 grid grid-cols-3 gap-3">
             <StatCell label="已分享" value={summary.shareCount} unit="次" />
