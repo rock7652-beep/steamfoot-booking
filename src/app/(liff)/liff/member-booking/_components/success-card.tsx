@@ -23,10 +23,13 @@ export function SuccessCard({
   storeSlug,
   bookingDate,
   slotTime,
+  usedMakeupCount = 0,
 }: {
   storeSlug: string;
   bookingDate: string;
   slotTime: string;
+  /** PR-NoShow-2b：本次使用的補課券張數（>0 才顯示「不扣堂」提示）。 */
+  usedMakeupCount?: number;
 }) {
   const m = liffMessages.memberBooking;
   const weekday = formatWeekdayZh(bookingDate);
@@ -50,6 +53,11 @@ export function SuccessCard({
             <span className="font-medium">{slotTime}</span>
           </div>
         </div>
+        {usedMakeupCount > 0 && (
+          <p className="mt-3 text-sm font-medium text-amber-700">
+            {m.successMakeupUsed.replace("{count}", String(usedMakeupCount))}
+          </p>
+        )}
         <p className="mt-4 text-xs text-green-800/80">
           {m.successFootnote}
         </p>

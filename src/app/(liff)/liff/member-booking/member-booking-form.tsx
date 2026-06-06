@@ -84,6 +84,7 @@ type State =
       kind: "success";
       bookingDate: string;
       slotTime: string;
+      usedMakeupCount: number;
     }
   | {
       kind: "blocked";
@@ -302,6 +303,8 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
           kind: "success",
           bookingDate: result.bookingDate,
           slotTime: result.slotTime,
+          // 補課券是 server 自選 N 張（= people）；result.usedMakeup 為真才顯示。
+          usedMakeupCount: result.usedMakeup ? people : 0,
         });
         return;
       case "invalid_input":
@@ -473,6 +476,7 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
           storeSlug={storeSlug}
           bookingDate={state.bookingDate}
           slotTime={state.slotTime}
+          usedMakeupCount={state.usedMakeupCount}
         />
       )}
 
