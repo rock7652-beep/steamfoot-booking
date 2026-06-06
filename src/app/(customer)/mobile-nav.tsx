@@ -104,7 +104,7 @@ export function MobileNav({ userName, pathname, customerId, storeSlug = "zhubei"
           <Link href={`${prefix}/book`} className="text-base font-bold text-earth-900">
             蒸足健康站
           </Link>
-          <span className="text-[13px] text-earth-700 max-w-[88px] truncate">{userName}</span>
+          <span className="text-sm text-earth-700 max-w-[88px] truncate">{userName}</span>
         </div>
       </header>
 

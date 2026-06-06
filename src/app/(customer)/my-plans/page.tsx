@@ -118,7 +118,7 @@ export default async function MyPlansPage() {
 
       {/* Summary */}
       {activeWallets.length > 0 && (
-        <div className="mb-6 rounded-2xl bg-white p-6 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+        <div className="mb-6 rounded-2xl bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
           <p className="text-base font-medium text-earth-700">你還有</p>
           <p className="mt-1 text-4xl font-bold text-primary-700">
             {availableToBook} <span className="text-lg font-medium text-earth-700">堂可以預約</span>
