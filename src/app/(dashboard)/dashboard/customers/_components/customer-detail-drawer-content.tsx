@@ -8,10 +8,9 @@ import { CustomerStatusBadge } from "./customer-status-badge";
 import { TrialBookingDrawer } from "../../_components/trial-booking-drawer";
 import {
   updateCustomerAssignment,
-  lookupCustomerByPhone,
+  searchReferrerCandidates,
   updateCustomerServiceNoteAction,
 } from "@/server/actions/customer";
-import { normalizePhone } from "@/lib/normalize";
 import { formatTWTime } from "@/lib/date-utils";
 import type { getCustomerDrawerDetail } from "@/server/queries/customer";
 
@@ -559,39 +558,48 @@ function AttributionForm({
   const [sponsor, setSponsor] = useState<{ id: string; name: string } | null>(
     currentSponsor,
   );
-  const [phone, setPhone] = useState("");
-  const [looking, setLooking] = useState(false);
-  const [lookupMsg, setLookupMsg] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [candidates, setCandidates] = useState<
+    Array<{ id: string; name: string; phoneMasked: string }>
+  >([]);
+  const [searching, setSearching] = useState(false);
+  const [searched, setSearched] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const dirty =
     staffId !== (currentStaffId ?? "") ||
     (sponsor?.id ?? null) !== (currentSponsor?.id ?? null);
 
-  async function handleLookup() {
-    const normalized = normalizePhone(phone);
-    if (!/^09\d{8}$/.test(normalized)) {
-      setLookupMsg("格式：09 開頭共 10 碼");
+  // 推薦人搜尋：姓名或手機（部分即可），debounce 300ms 避免逐字打 query。
+  // sponsor 已選或 query 為空時不查；以 active flag 丟棄過期回應避免 race。
+  useEffect(() => {
+    const q = query.trim();
+    if (sponsor || q.length < 1) {
+      setCandidates([]);
+      setSearched(false);
+      setSearching(false);
       return;
     }
-    setLooking(true);
-    setLookupMsg(null);
-    try {
-      const result = await lookupCustomerByPhone(normalized, customerId);
-      if (!result.success) {
-        setLookupMsg(result.error ?? "查詢失敗");
-        return;
-      }
-      if (!result.data) {
-        setLookupMsg("查無此顧客");
-        return;
-      }
-      setSponsor(result.data);
-      setPhone("");
-      setLookupMsg(null);
-    } finally {
-      setLooking(false);
-    }
+    let active = true;
+    setSearching(true);
+    const t = setTimeout(async () => {
+      const result = await searchReferrerCandidates(q, customerId);
+      if (!active) return;
+      setSearching(false);
+      setSearched(true);
+      setCandidates(result.success ? result.data : []);
+    }, 300);
+    return () => {
+      active = false;
+      clearTimeout(t);
+    };
+  }, [query, sponsor, customerId]);
+
+  function selectCandidate(c: { id: string; name: string }) {
+    setSponsor({ id: c.id, name: c.name });
+    setQuery("");
+    setCandidates([]);
+    setSearched(false);
   }
 
   async function handleSave() {
@@ -671,33 +679,38 @@ function AttributionForm({
             </button>
           </div>
         ) : (
-          <div className="mt-1 flex items-center gap-1.5">
+          <div className="mt-1 space-y-1.5">
             <input
-              type="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="輸入推薦人手機（09 開頭）"
-              className="flex-1 rounded-md border border-earth-300 bg-white px-2 py-1.5 text-sm"
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  handleLookup();
-                }
-              }}
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="輸入推薦人姓名或手機"
+              className="w-full rounded-md border border-earth-300 bg-white px-2 py-1.5 text-sm"
             />
-            <button
-              type="button"
-              onClick={handleLookup}
-              disabled={looking || !phone.trim()}
-              className="rounded-md border border-earth-300 bg-white px-2 py-1.5 text-xs text-earth-700 hover:bg-earth-50 disabled:opacity-50"
-            >
-              {looking ? "查詢中…" : "查詢"}
-            </button>
+            {searching ? (
+              <p className="text-[11px] text-earth-400">查詢中…</p>
+            ) : candidates.length > 0 ? (
+              <ul className="max-h-40 divide-y divide-earth-100 overflow-auto rounded-md border border-earth-200">
+                {candidates.map((c) => (
+                  <li key={c.id}>
+                    <button
+                      type="button"
+                      onClick={() => selectCandidate(c)}
+                      className="flex w-full items-center justify-between px-2 py-1.5 text-left hover:bg-earth-50"
+                    >
+                      <span className="text-sm text-earth-800">{c.name}</span>
+                      <span className="tabular-nums text-[11px] text-earth-500">
+                        {c.phoneMasked}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : searched && query.trim() ? (
+              <p className="text-[11px] text-amber-700">找不到符合的顧客</p>
+            ) : null}
           </div>
         )}
-        {lookupMsg ? (
-          <p className="mt-1 text-[11px] text-amber-700">{lookupMsg}</p>
-        ) : null}
       </div>
 
       <div className="flex justify-end">
