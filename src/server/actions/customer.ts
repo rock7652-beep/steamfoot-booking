@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
+import { Prisma } from "@prisma/client";
 import { requireSession, requireStaffSession } from "@/lib/session";
 import { requirePermission } from "@/lib/permissions";
 import { AppError, handleActionError } from "@/lib/errors";
@@ -475,36 +476,62 @@ export async function bulkUpdateCustomerAssignment(
 }
 
 // ============================================================
-// lookupCustomerByPhone — drawer 推薦人欄位查詢用
+// searchReferrerCandidates — drawer 推薦人欄位查詢用
 //
-// 顧客端輸入電話（09 開頭 10 碼），在當前店內找對應顧客回傳 id + name。
-// 不找到回傳 null（不丟 error，UI 呈現「查無此顧客」）。
-// 排除自己（excludeCustomerId）避免把顧客設成自己的推薦人。
-// 需要 customer.read 權限。
+// 店長輸入「姓名」或「手機」（部分即可）在當前店內找候選顧客清單。
+// - 同店 only（storeId），不跨店搜尋。
+// - 排除自己（excludeCustomerId）避免把顧客設成自己的推薦人。
+// - 回傳遮罩手機（avoid 完整號碼外洩），同名時店長可依手機辨識後選。
+// - 不丟 error；查無資料回傳空陣列，UI 呈現「找不到符合的顧客」。
+// - 需要 customer.read 權限。
 // ============================================================
 
-export async function lookupCustomerByPhone(
-  phone: string,
+// 遮罩手機：0972123456 → 0972•••456（保留前 4、後 3，方便辨識又不外洩全碼）
+function maskPhone(phone: string): string {
+  if (!phone) return "";
+  if (phone.length <= 7) return phone;
+  return `${phone.slice(0, 4)}•••${phone.slice(-3)}`;
+}
+
+export async function searchReferrerCandidates(
+  query: string,
   excludeCustomerId?: string,
-): Promise<ActionResult<{ id: string; name: string } | null>> {
+): Promise<ActionResult<Array<{ id: string; name: string; phoneMasked: string }>>> {
   try {
     const user = await requirePermission("customer.read");
-    const normalized = normalizePhone(phone ?? "");
-    if (!/^09\d{8}$/.test(normalized)) {
-      throw new AppError("VALIDATION", "手機號碼格式不正確");
-    }
+    const q = (query ?? "").trim();
+    if (q.length < 1) return { success: true, data: [] };
 
     const storeId = currentStoreId(user);
-    const match = await prisma.customer.findFirst({
+
+    // 姓名一律 contains；若 query 含數字，額外用正規化後的數字做手機 contains。
+    const or: Prisma.CustomerWhereInput[] = [
+      { name: { contains: q, mode: "insensitive" } },
+    ];
+    if (/\d/.test(q)) {
+      const digits = normalizePhone(q);
+      if (digits) or.push({ phone: { contains: digits } });
+    }
+
+    const matches = await prisma.customer.findMany({
       where: {
-        phone: normalized,
         storeId,
         ...(excludeCustomerId ? { id: { not: excludeCustomerId } } : {}),
+        OR: or,
       },
-      select: { id: true, name: true },
+      select: { id: true, name: true, phone: true },
+      orderBy: { name: "asc" },
+      take: 10,
     });
 
-    return { success: true, data: match };
+    return {
+      success: true,
+      data: matches.map((m) => ({
+        id: m.id,
+        name: m.name,
+        phoneMasked: maskPhone(m.phone),
+      })),
+    };
   } catch (e) {
     return handleActionError(e);
   }
