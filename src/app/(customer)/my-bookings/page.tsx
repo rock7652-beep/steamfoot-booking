@@ -55,7 +55,8 @@ export default async function MyBookingsPage({ searchParams }: PageProps) {
   if (!customerId) redirect("/");
 
   // 並行取預約 + 方案錢包（供頂部方案摘要顯示）
-  // 健康簡易數據已搬到 /health（PR-Frontend-2），此頁只保留「查看健康評估」入口
+  // 健康簡易數據已搬到 /health（PR-Frontend-2）；此頁不再放健康入口，
+  // 健康評估入口只在首頁健康區塊 + desktop/mobile nav 提供
   // 各區塊獨立 catch — 預約 / 方案任一 DB 失敗，其他區塊照常顯示
   const logCtx = {
     page: "my-bookings" as const,
@@ -174,22 +175,6 @@ export default async function MyBookingsPage({ searchParams }: PageProps) {
             </svg>
           </span>
         </div>
-      </Link>
-
-      {/* 健康評估入口 — 健康簡易數據已搬到 /health（PR-Frontend-2），此頁只留入口 */}
-      <Link
-        href={`${prefix}/health`}
-        className="mb-5 flex items-center justify-between rounded-2xl bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)] transition hover:bg-earth-50/40"
-      >
-        <span className="flex items-center gap-2.5">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="text-primary-600">
-            <path d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
-          </svg>
-          <span className="text-base font-semibold text-earth-900">查看健康評估</span>
-        </span>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className="text-primary-700">
-          <path d="M9 5l7 7-7 7" />
-        </svg>
       </Link>
 
       {/* Tabs */}
