@@ -2,7 +2,7 @@ import { getCurrentUser } from "@/lib/session";
 import { getStoreContext } from "@/lib/store-context";
 import { getHealthCardData } from "@/server/queries/health-card";
 import { resolveCustomerForUser } from "@/server/queries/customer-completion";
-import { getHealthAssessmentUrl } from "@/lib/health-assessment";
+import { getHealthAssessmentLiffUrl } from "@/lib/health-assessment";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { HealthAssessmentCard } from "@/components/health-assessment-card";
@@ -46,7 +46,9 @@ export default async function HealthPage() {
         ReturnType<typeof getHealthCardData>
       >,
   );
-  const measureUrl = getHealthAssessmentUrl(customerId);
+  // 「前往量測」直接開 HealthFlow LIFF（無 identity 參數，LINE 識別），省去先進
+  // healthflow-ai web 再跳 LINE 的多一次跳轉。customerId 仍用於上方登入/解析 gate。
+  const measureUrl = getHealthAssessmentLiffUrl();
 
   return (
     <div>
@@ -64,11 +66,11 @@ export default async function HealthPage() {
         </div>
       </div>
 
-      {/* 前往量測（主按鈕，外部 HealthFlow，帶 customerId） */}
+      {/* 前往量測（主按鈕）→ HealthFlow LIFF。
+          同頁導向（非 target=_blank）：liff.line.me 在 LINE 內建瀏覽器用同頁跳轉最穩，
+          new-tab 在 LINE iOS webview 易失敗（PR #184 教訓）。 */}
       <a
         href={measureUrl}
-        target="_blank"
-        rel="noopener noreferrer"
         className="mb-5 flex min-h-[48px] w-full items-center justify-center gap-1.5 rounded-xl bg-primary-600 text-base font-semibold text-white shadow-sm transition hover:bg-primary-700 active:scale-[0.98]"
       >
         前往量測
