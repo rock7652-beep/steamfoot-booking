@@ -123,10 +123,10 @@ export default async function MyBookingsPage({ searchParams }: PageProps) {
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-5 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Link href={`${prefix}/book`} className="flex min-h-[44px] min-w-[44px] items-center justify-center text-earth-700 hover:text-earth-900 lg:hidden">&larr;</Link>
-          <h1 className="text-2xl font-bold text-earth-900">預約與方案</h1>
+          <h1 className="text-xl font-bold text-earth-900">預約與方案</h1>
         </div>
         {hasSessions ? (
           <Link
@@ -149,7 +149,7 @@ export default async function MyBookingsPage({ searchParams }: PageProps) {
       {/* 方案摘要 — 整張卡可點 */}
       <Link
         href={cardHref}
-        className="mb-5 block rounded-2xl bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)] transition hover:bg-earth-50/40"
+        className="mb-5 block rounded-2xl bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)] transition hover:bg-earth-50/40"
       >
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -181,7 +181,7 @@ export default async function MyBookingsPage({ searchParams }: PageProps) {
       <div className="mb-5 flex gap-1 border-b border-earth-200">
         <Link
           href="?tab=upcoming"
-          className={`px-5 py-3 text-base font-semibold ${
+          className={`px-4 py-3 text-sm font-semibold ${
             tab === "upcoming"
               ? "border-b-2 border-primary-600 text-primary-700"
               : "text-earth-700 hover:text-earth-900"
@@ -196,7 +196,7 @@ export default async function MyBookingsPage({ searchParams }: PageProps) {
         </Link>
         <Link
           href="?tab=history"
-          className={`px-5 py-3 text-base font-semibold ${
+          className={`px-4 py-3 text-sm font-semibold ${
             tab === "history"
               ? "border-b-2 border-primary-600 text-primary-700"
               : "text-earth-700 hover:text-earth-900"
@@ -206,7 +206,7 @@ export default async function MyBookingsPage({ searchParams }: PageProps) {
         </Link>
         <Link
           href="?tab=plans"
-          className={`px-5 py-3 text-base font-semibold ${
+          className={`px-4 py-3 text-sm font-semibold ${
             tab === "plans"
               ? "border-b-2 border-primary-600 text-primary-700"
               : "text-earth-700 hover:text-earth-900"
@@ -224,7 +224,7 @@ export default async function MyBookingsPage({ searchParams }: PageProps) {
           </p>
 
           {shopPlans.length === 0 ? (
-            <div className="rounded-2xl bg-white p-8 text-center shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+            <div className="rounded-2xl bg-white p-6 text-center shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
               <p className="text-base text-earth-700">目前沒有可購買的方案</p>
               <p className="mt-1 text-sm text-earth-500">請聯絡店長了解優惠方案</p>
             </div>
@@ -309,17 +309,17 @@ export default async function MyBookingsPage({ searchParams }: PageProps) {
           )}
         </div>
       ) : displayed.length === 0 ? (
-        <div className="rounded-2xl bg-white p-8 text-center shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+        <div className="rounded-2xl bg-white p-6 text-center shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
           {tab === "upcoming" ? (
             <>
-              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary-50">
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-primary-600"><path d="M6.75 3v2.25M17.25 3v2.25" /><path d="M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" /></svg>
+              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-primary-50">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-primary-600"><path d="M6.75 3v2.25M17.25 3v2.25" /><path d="M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" /></svg>
               </div>
-              <p className="text-lg font-semibold text-earth-900">還沒有預約</p>
-              <p className="mt-2 text-base text-earth-700">選擇一個時段，開始你的療程吧</p>
+              <p className="text-base font-semibold text-earth-900">還沒有預約</p>
+              <p className="mt-1.5 text-sm text-earth-700">選擇一個時段，開始你的療程吧</p>
               <Link
                 href={`${prefix}/book/new`}
-                className="mt-5 inline-flex min-h-[48px] items-center gap-1.5 rounded-xl bg-primary-600 px-6 text-base font-semibold text-white shadow-sm transition hover:bg-primary-700"
+                className="mt-4 inline-flex min-h-[44px] items-center gap-1.5 rounded-xl bg-primary-600 px-6 text-base font-semibold text-white shadow-sm transition hover:bg-primary-700"
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 4.5v15m7.5-7.5h-15" /></svg>
                 預約第一堂
@@ -327,11 +327,11 @@ export default async function MyBookingsPage({ searchParams }: PageProps) {
             </>
           ) : (
             <>
-              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-earth-100">
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-earth-600"><path d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-earth-100">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-earth-600"><path d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
               </div>
-              <p className="text-lg font-semibold text-earth-900">尚無歷史紀錄</p>
-              <p className="mt-2 text-base text-earth-700">完成的預約會顯示在這裡</p>
+              <p className="text-base font-semibold text-earth-900">尚無歷史紀錄</p>
+              <p className="mt-1.5 text-sm text-earth-700">完成的預約會顯示在這裡</p>
             </>
           )}
         </div>

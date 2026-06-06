@@ -57,35 +57,35 @@ export default async function MyPerksPage() {
   return (
     <div>
       {/* ═══ Header ═══ */}
-      <div className="mb-6 flex items-center gap-3">
+      <div className="mb-5 flex items-center gap-3">
         <Link href={`${prefix}/book`} className="flex min-h-[44px] min-w-[44px] items-center justify-center text-earth-700 hover:text-earth-900 lg:hidden">
           &larr;
         </Link>
         <div>
-          <h1 className="text-2xl font-bold text-earth-900">我的好康</h1>
-          <p className="mt-1 text-sm text-earth-700">
+          <h1 className="text-xl font-bold text-earth-900">我的好康</h1>
+          <p className="mt-0.5 text-sm text-earth-700">
             這裡會慢慢累積你的小回饋
           </p>
         </div>
       </div>
 
-      <div className="space-y-5">
+      <div className="space-y-4">
         {/* ═══ 區塊 1：今天幫朋友放鬆一下（利他 + 無壓力 + 點數誘因 + 分享 CTA） ═══ */}
-        <section className="rounded-2xl border border-primary-100 bg-gradient-to-br from-white to-primary-50/40 p-5 shadow-sm">
+        <section className="rounded-2xl border border-primary-100 bg-gradient-to-br from-white to-primary-50/40 p-4 shadow-sm">
           {/* 利他文案 */}
-          <p className="text-xl font-bold text-earth-900">
+          <p className="text-lg font-semibold text-earth-900">
             今天幫朋友放鬆一下
           </p>
-          <p className="mt-2 text-base leading-relaxed text-earth-800">
+          <p className="mt-1.5 text-sm leading-relaxed text-earth-800">
             把你的專屬體驗連結分享給朋友，他來體驗，你拿回饋。
           </p>
           {/* 無壓力提示 */}
-          <p className="mt-2 text-sm leading-relaxed text-earth-700">
+          <p className="mt-1 text-sm leading-relaxed text-earth-700">
             不用推銷，對方有興趣再自己了解就好。
           </p>
 
           {/* 分享 CTA */}
-          <div className="mt-5">
+          <div className="mt-4">
             <ShareReferral
               referralUrl={referralUrl}
               variant="compact"
@@ -97,7 +97,7 @@ export default async function MyPerksPage() {
 
           {/* 點數誘因提示（動態：依 milestone.remaining） */}
           {milestone && milestone.remaining > 0 && (
-            <div className="mt-4 flex items-start gap-2 rounded-xl bg-amber-50 px-4 py-3">
+            <div className="mt-3 flex items-start gap-2 rounded-xl bg-amber-50 px-3 py-2.5">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mt-0.5 flex-shrink-0 text-amber-700">
                 <path d="M20 12V22H4V12" />
                 <path d="M2 7h20v5H2z" />
@@ -105,7 +105,7 @@ export default async function MyPerksPage() {
                 <path d="M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7z" />
                 <path d="M12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z" />
               </svg>
-              <p className="text-base leading-relaxed text-amber-900">
+              <p className="text-sm leading-relaxed text-amber-900">
                 再 <span className="font-bold">{milestone.remaining}</span> 點就能解鎖小禮！
               </p>
             </div>
@@ -113,15 +113,15 @@ export default async function MyPerksPage() {
         </section>
 
         {/* ═══ 區塊 2：點數進度（大數字 + 進度條 + 差距提示） ═══ */}
-        <section className="rounded-2xl border border-amber-200 bg-amber-50/60 p-5 shadow-sm">
+        <section className="rounded-2xl border border-amber-200 bg-amber-50/60 p-4 shadow-sm">
           <p className="text-base font-semibold text-amber-900">我的點數</p>
-          <p className="mt-2 text-4xl font-bold text-amber-800">
+          <p className="mt-1.5 text-4xl font-bold text-amber-800">
             {summary.totalPoints}
-            <span className="ml-2 text-xl font-medium text-amber-800">點</span>
+            <span className="ml-2 text-lg font-medium text-amber-800">點</span>
           </p>
           {milestone ? (
             <>
-              <div className="mt-4 h-3 w-full overflow-hidden rounded-full bg-white">
+              <div className="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-white">
                 <div
                   className="h-full bg-amber-500 transition-all"
                   style={{ width: `${progress}%` }}
@@ -137,7 +137,7 @@ export default async function MyPerksPage() {
           )}
 
           {/* 回饋階段提示（對應既有 POINT_VALUES：100 → 200 點） */}
-          <div className="mt-5 grid grid-cols-3 gap-2 text-center">
+          <div className="mt-4 grid grid-cols-3 gap-2 text-center">
             <RewardTier target={50} current={summary.totalPoints} label="小禮" />
             <RewardTier target={100} current={summary.totalPoints} label="升級禮" />
             <RewardTier target={200} current={summary.totalPoints} label="VIP 好康" />
@@ -145,14 +145,14 @@ export default async function MyPerksPage() {
         </section>
 
         {/* ═══ 區塊 3：數據區（已分享 / 朋友加入 / 來體驗） ═══ */}
-        <section className="rounded-2xl border border-earth-200 bg-white p-5 shadow-sm">
-          <p className="text-lg font-bold text-earth-900">我的分享</p>
-          <div className="mt-4 grid grid-cols-3 gap-3">
+        <section className="rounded-2xl border border-earth-200 bg-white p-4 shadow-sm">
+          <p className="text-base font-semibold text-earth-900">我的分享</p>
+          <div className="mt-3 grid grid-cols-3 gap-3">
             <StatCell label="已分享" value={summary.shareCount} unit="次" />
             <StatCell label="朋友加入" value={summary.lineJoinCount} unit="位" />
             <StatCell label="來體驗" value={summary.visitedCount} unit="位" highlight />
           </div>
-          <p className="mt-4 text-sm leading-relaxed text-earth-700">
+          <p className="mt-3 text-sm leading-relaxed text-earth-700">
             每一次分享都是一次善意，不用有壓力。
           </p>
         </section>
@@ -160,11 +160,11 @@ export default async function MyPerksPage() {
         {/* ═══ 區塊 4：點數紀錄入口 ═══ */}
         <Link
           href={`${prefix}/my-points`}
-          className="flex min-h-[64px] items-center justify-between rounded-xl bg-white px-5 py-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition hover:shadow-[0_1px_4px_rgba(0,0,0,0.1)]"
+          className="flex min-h-[56px] items-center justify-between rounded-xl bg-white px-4 py-3.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition hover:shadow-[0_1px_4px_rgba(0,0,0,0.1)]"
         >
           <div>
             <p className="text-base font-semibold text-earth-900">查看我的點數紀錄</p>
-            <p className="mt-1 text-sm text-earth-700">所有點數來源與歷史明細</p>
+            <p className="mt-0.5 text-sm text-earth-700">所有點數來源與歷史明細</p>
           </div>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="text-earth-600">
             <path d="M9 5l7 7-7 7" />
@@ -179,13 +179,13 @@ function RewardTier({ target, current, label }: { target: number; current: numbe
   const unlocked = current >= target;
   return (
     <div
-      className={`rounded-lg px-2 py-3 ${
+      className={`rounded-lg px-2 py-2.5 ${
         unlocked
           ? "bg-amber-100 text-amber-900"
           : "bg-white/70 text-amber-800"
       }`}
     >
-      <p className="text-base font-bold">{target} 點</p>
+      <p className="text-base font-semibold">{target} 點</p>
       <p className="mt-1 text-sm font-medium">{label}</p>
     </div>
   );
@@ -204,7 +204,7 @@ function StatCell({
 }) {
   return (
     <div
-      className={`rounded-xl px-3 py-4 text-center ${
+      className={`rounded-xl px-3 py-3 text-center ${
         highlight ? "bg-primary-50" : "bg-earth-50"
       }`}
     >

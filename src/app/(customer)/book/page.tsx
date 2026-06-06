@@ -121,7 +121,7 @@ export default async function CustomerHomePage() {
     <div className="space-y-2.5">
       {/* ═══ 1. Hero（預約 — 主 CTA）═══ */}
       <section className="rounded-[20px] bg-white p-3.5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-        <p className="text-xl font-bold leading-snug text-earth-900">
+        <p className="text-lg font-bold leading-snug text-earth-900">
           今天讓自己舒服一點
         </p>
         <p className="mt-1.5 text-sm leading-relaxed text-earth-700">
@@ -146,7 +146,7 @@ export default async function CustomerHomePage() {
         )}
 
         {(remaining > 0 || makeupCount > 0) && (
-          <div className="mt-3 flex items-end gap-6">
+          <div className="mt-3 flex items-end gap-5">
             {remaining > 0 && (
               <div>
                 <p className="text-sm font-medium text-earth-600">剩餘可預約</p>
@@ -175,7 +175,7 @@ export default async function CustomerHomePage() {
 
         <Link
           href={`${prefix}/book/new`}
-          className="mt-3.5 flex h-12 w-full items-center justify-center gap-1.5 rounded-2xl bg-primary-600 text-lg font-semibold text-white shadow-sm transition hover:bg-primary-700 active:scale-[0.98]"
+          className="mt-3.5 flex h-11 w-full items-center justify-center gap-1.5 rounded-2xl bg-primary-600 text-base font-semibold text-white shadow-sm transition hover:bg-primary-700 active:scale-[0.98]"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
             <path d="M12 4.5v15m7.5-7.5h-15" />
@@ -188,7 +188,7 @@ export default async function CustomerHomePage() {
       <section className="rounded-[20px] bg-white p-3.5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
         {/* 上半段：健康評估 */}
         <div>
-          <p className="text-lg font-bold text-earth-900">看看你最近的身體狀態</p>
+          <p className="text-base font-semibold text-earth-900">看看你最近的身體狀態</p>
           <p className="mt-1 text-sm leading-relaxed text-earth-700">
             用 1 分鐘了解目前的身體指數
           </p>
@@ -219,7 +219,7 @@ export default async function CustomerHomePage() {
 
         {/* 下半段：分享好友 */}
         <div>
-          <p className="text-lg font-bold text-earth-900">今天有一個小好康</p>
+          <p className="text-base font-semibold text-earth-900">今天有一個小好康</p>
           <p className="mt-1 text-sm leading-relaxed text-earth-700">
             分享給朋友，你們都有機會拿到小回饋
           </p>
