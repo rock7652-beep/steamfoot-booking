@@ -3,10 +3,11 @@
 import { useEffect, useState } from "react";
 
 // 未到處理只保留兩個選項：兩者皆「扣堂」（名額已被佔用，原堂照扣），
-// 差別僅在是否額外發 10 日補課券。規則交給系統執行，不讓店長做人情判斷。
-// 型別單一真相來源在 booking-constants，這裡 re-export 給 drawer 沿用。
+// 差別僅在是否額外發 7 日補課券。規則交給系統執行，不讓店長做人情判斷。
+// 型別與天數單一真相來源在 booking-constants。
 export type { NoShowChoice } from "@/lib/booking-constants";
 import type { NoShowChoice } from "@/lib/booking-constants";
+import { NO_SHOW_MAKEUP_VALID_DAYS } from "@/lib/booking-constants";
 
 interface NoShowModalProps {
   open: boolean;
@@ -30,8 +31,8 @@ const OPTIONS: Array<{
   },
   {
     value: "DEDUCTED_WITH_MAKEUP",
-    label: "扣堂並給 10 日補課資格",
-    hint: "依預約人數扣堂，並依人數發 N 張 10 日內有效的補課券",
+    label: `扣堂並給 ${NO_SHOW_MAKEUP_VALID_DAYS} 日補課資格`,
+    hint: `依預約人數扣堂，並依人數發 N 張 ${NO_SHOW_MAKEUP_VALID_DAYS} 日內有效的補課券`,
   },
 ];
 

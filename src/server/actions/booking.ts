@@ -13,6 +13,7 @@ import { getNowTaipeiHHmm, toLocalDateStr } from "@/lib/date-utils";
 import {
   getBookingDateTime,
   PENDING_STATUSES,
+  NO_SHOW_MAKEUP_VALID_DAYS,
   type NoShowChoice,
 } from "@/lib/booking-constants";
 import { revalidateBookings } from "@/lib/revalidation";
@@ -1033,9 +1034,9 @@ export async function markCompleted(
 //    → noShowPolicy = "DEDUCTED", noShowMakeupGranted = false
 //    → 依人數扣堂 + 寫 N 筆 SESSION_DEDUCTION + 不給補課
 //
-// 2. DEDUCTED_WITH_MAKEUP（扣堂並給 10 日補課資格）
+// 2. DEDUCTED_WITH_MAKEUP（扣堂並給 7 日補課資格）
 //    → noShowPolicy = "DEDUCTED", noShowMakeupGranted = true
-//    → 依人數扣堂 + 寫 N 筆 SESSION_DEDUCTION + 建 N 張 makeupCredit（10天）
+//    → 依人數扣堂 + 寫 N 筆 SESSION_DEDUCTION + 建 N 張 makeupCredit（7天）
 //    → 一張券抵 1 人 / 1 堂；補課預約（isMakeup）的未到不再產生新券
 //
 // partial attendance（部分出席/部分未到）不在本流程範圍，屬後續更細的設計。
@@ -1111,7 +1112,7 @@ export async function markNoShow(
           booking.people > 1 ? `（${booking.people} 人預約）` : "";
         // audit：扣堂交易 note 標明是否同時發補課，方便追查
         const noteBase = shouldGrantMakeup
-          ? "未到扣堂＋發 10 日補課"
+          ? `未到扣堂＋發 ${NO_SHOW_MAKEUP_VALID_DAYS} 日補課`
           : "未到扣堂";
 
         if (completed > 0) {
@@ -1166,12 +1167,12 @@ export async function markNoShow(
         await releaseSessions(tx, bookingId);
       }
 
-      // 3. 若扣堂＋給補課 → 依預約人數建 N 張 10 日補課券
+      // 3. 若扣堂＋給補課 → 依預約人數建 N 張 7 日補課券
       // 一張券抵 1 人 / 1 堂；people=N → N 張券，名額已扣 N 堂、釋出 N 名額。
       // 補課預約本身（isMakeup）的未到不再產生新券。
       if (!booking.isMakeup && shouldGrantMakeup) {
         const expiredAt = new Date();
-        expiredAt.setDate(expiredAt.getDate() + 10);
+        expiredAt.setDate(expiredAt.getDate() + NO_SHOW_MAKEUP_VALID_DAYS);
         for (let i = 0; i < booking.people; i++) {
           await tx.makeupCredit.create({
             data: {
