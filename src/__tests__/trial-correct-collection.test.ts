@@ -11,8 +11,14 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const h = vi.hoisted(() => {
   const txCreate = vi.fn(async () => ({ id: "tx_new" }));
+  // PR #167 race-safe：collectTrialPayment 在 $transaction 內呼叫
+  // $queryRaw（FOR UPDATE）+ transaction.findFirst（雙重防呆）。
+  const txFindFirstInTx = vi.fn(async () => null as { id: string } | null);
+  const queryRaw: ReturnType<typeof vi.fn> = vi.fn();
   return {
     txCreate,
+    txFindFirstInTx,
+    queryRaw,
     requirePermission: vi.fn(async () => ({
       id: "user_owner",
       role: "OWNER",
@@ -30,7 +36,10 @@ const h = vi.hoisted(() => {
     bookingFindFirst: vi.fn(),
     txFindFirst: vi.fn(),
     txRun: vi.fn(async (fn: (c: unknown) => unknown) =>
-      fn({ transaction: { create: txCreate } }),
+      fn({
+        transaction: { create: txCreate, findFirst: txFindFirstInTx },
+        $queryRaw: queryRaw,
+      }),
     ),
     buildSnapshot: vi.fn(async () => ({
       transactionNo: "TXN-9",
@@ -84,6 +93,25 @@ vi.mock("@/lib/shop-config", () => ({
           Math.max(Math.round(input), Math.min(s.trialMinPrice, s.trialMaxPrice)),
           Math.max(s.trialMinPrice, s.trialMaxPrice),
         ),
+  // PR-3c：collectTrialPayment 走的本次總額 clamp（correctTrialCollection 透過 collect 用到）。
+  clampTrialTotal: (
+    input: number | null | undefined,
+    people: number,
+    s: {
+      trialAllowPriceEdit: boolean;
+      trialDefaultPrice: number;
+      trialMinPrice: number;
+      trialMaxPrice: number;
+    },
+  ) => {
+    const n = Math.max(1, Math.floor(people || 1));
+    if (!s.trialAllowPriceEdit) return s.trialDefaultPrice * n;
+    if (input == null || !Number.isFinite(input)) return s.trialDefaultPrice * n;
+    const rounded = Math.round(input);
+    const lo = Math.min(s.trialMinPrice, s.trialMaxPrice) * n;
+    const hi = Math.max(s.trialMinPrice, s.trialMaxPrice) * n;
+    return Math.min(hi, Math.max(lo, rounded));
+  },
 }));
 vi.mock("@/lib/transaction-snapshot", () => ({
   buildTransactionSnapshot: h.buildSnapshot,
@@ -169,10 +197,15 @@ beforeEach(() => {
   h.txCreate.mockResolvedValue({ id: "tx_new" });
   // booking.findFirst: call#1 correctTrialCollection, call#2 collectTrialPayment
   h.bookingFindFirst.mockResolvedValue(BOOKING_OK as unknown as never);
-  // transaction.findFirst: call#1 = original lookup (SUCCESS), call#2 = double-collect (null)
+  // prisma.transaction.findFirst（外層）：correctTrialCollection 用來找原交易，回 ORIGINAL_OK。
+  // collectTrialPayment 的 double-collect 已搬進 $transaction 內，走 txFindFirstInTx，不打這支。
   h.txFindFirst.mockReset();
-  h.txFindFirst.mockResolvedValueOnce(ORIGINAL_OK as unknown as never);
-  h.txFindFirst.mockResolvedValue(null);
+  h.txFindFirst.mockResolvedValue(ORIGINAL_OK as unknown as never);
+  // 內層 txClient.transaction.findFirst（race-safe duplicate guard）→ 預設無重複。
+  h.txFindFirstInTx.mockReset();
+  h.txFindFirstInTx.mockResolvedValue(null);
+  h.queryRaw.mockReset();
+  h.queryRaw.mockResolvedValue([]);
 });
 
 describe("correctTrialCollection — happy path (void + recollect)", () => {
@@ -247,10 +280,10 @@ describe("correctTrialCollection — failure handling", () => {
   });
 
   it("void ok but recollect fails → distinct '原收款已作廢' message", async () => {
-    // double-collect guard sees an existing SUCCESS → collectTrialPayment throws
-    h.txFindFirst.mockReset();
-    h.txFindFirst.mockResolvedValueOnce(ORIGINAL_OK as unknown as never); // original lookup
-    h.txFindFirst.mockResolvedValue({ id: "tx_dup" }); // collect double-collect guard
+    // PR #167 race-safe：collectTrialPayment 的 double-collect guard 在
+    // txClient.transaction.findFirst（內層）。模擬該層看到既存 SUCCESS →
+    // collect 拒絕，correctTrialCollection 回傳「原收款已作廢」訊息。
+    h.txFindFirstInTx.mockResolvedValue({ id: "tx_dup" });
     const r = await correctTrialCollection(base);
     expect(r.success).toBe(false);
     expect((r as { error: string }).error).toContain("原收款已作廢");

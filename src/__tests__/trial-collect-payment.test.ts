@@ -95,6 +95,25 @@ vi.mock("@/lib/shop-config", () => ({
           Math.max(Math.round(input), Math.min(s.trialMinPrice, s.trialMaxPrice)),
           Math.max(s.trialMinPrice, s.trialMaxPrice),
         ),
+  // PR-3c：本次總額 clamp（與 server 端 clampTrialTotal 行為對齊）。
+  clampTrialTotal: (
+    input: number | null | undefined,
+    people: number,
+    s: {
+      trialAllowPriceEdit: boolean;
+      trialDefaultPrice: number;
+      trialMinPrice: number;
+      trialMaxPrice: number;
+    },
+  ) => {
+    const n = Math.max(1, Math.floor(people || 1));
+    if (!s.trialAllowPriceEdit) return s.trialDefaultPrice * n;
+    if (input == null || !Number.isFinite(input)) return s.trialDefaultPrice * n;
+    const rounded = Math.round(input);
+    const lo = Math.min(s.trialMinPrice, s.trialMaxPrice) * n;
+    const hi = Math.max(s.trialMinPrice, s.trialMaxPrice) * n;
+    return Math.min(hi, Math.max(lo, rounded));
+  },
 }));
 vi.mock("@/lib/transaction-snapshot", () => ({
   buildTransactionSnapshot: h.buildSnapshot,
@@ -361,6 +380,95 @@ describe("collectTrialPayment — amount snapshot / clamp", () => {
   it("clamps over-max (5000 → 3000)", async () => {
     await collectTrialPayment({ ...base, amount: 5000 });
     expect(lastTx().amount).toBe(3000);
+  });
+});
+
+describe("collectTrialPayment — PR-3c people × amount", () => {
+  // booking.people=2，未傳 amount、無 snapshot → default × people = 998
+  it("people=2 + no input + no snapshot → 499 × 2 = 998", async () => {
+    h.bookingFindFirst.mockResolvedValue({
+      id: "bk_1",
+      bookingType: "FIRST_TRIAL",
+      bookingStatus: "PENDING",
+      customerId: "cust_1",
+      servicePlanId: "plan_trial",
+      expectedAmount: null,
+      people: 2,
+      customer: { assignedStaffId: null },
+    } as unknown as never);
+    await collectTrialPayment(base);
+    expect(lastTx().amount).toBe(998);
+  });
+
+  // booking.expectedAmount=998（建立時快照已是總額）→ 沿用 998（不重複 ×）
+  it("people=2 + snapshot 998 (total) → 998 (no double-multiplication)", async () => {
+    h.bookingFindFirst.mockResolvedValue({
+      id: "bk_1",
+      bookingType: "FIRST_TRIAL",
+      bookingStatus: "PENDING",
+      customerId: "cust_1",
+      servicePlanId: "plan_trial",
+      expectedAmount: 998,
+      people: 2,
+      customer: { assignedStaffId: null },
+    } as unknown as never);
+    await collectTrialPayment(base);
+    expect(lastTx().amount).toBe(998);
+  });
+
+  // 店長手動輸入「本次合計」899（雙人優惠）→ 直接用 899
+  it("people=2 + manual total 899 → 899 (treated as total, NOT × people)", async () => {
+    h.bookingFindFirst.mockResolvedValue({
+      id: "bk_1",
+      bookingType: "FIRST_TRIAL",
+      bookingStatus: "PENDING",
+      customerId: "cust_1",
+      servicePlanId: "plan_trial",
+      expectedAmount: 998,
+      people: 2,
+      customer: { assignedStaffId: null },
+    } as unknown as never);
+    await collectTrialPayment({ ...base, amount: 899 });
+    expect(lastTx().amount).toBe(899);
+  });
+
+  // 人數=2 時 clamp 上限 = 3000 × 2 = 6000
+  it("people=2 + 99999 → clamps to 6000 (max × people)", async () => {
+    h.bookingFindFirst.mockResolvedValue({
+      id: "bk_1",
+      bookingType: "FIRST_TRIAL",
+      bookingStatus: "PENDING",
+      customerId: "cust_1",
+      servicePlanId: "plan_trial",
+      expectedAmount: null,
+      people: 2,
+      customer: { assignedStaffId: null },
+    } as unknown as never);
+    await collectTrialPayment({ ...base, amount: 99999 });
+    expect(lastTx().amount).toBe(6000);
+  });
+
+  // allowEdit=false：people=2 強制 default × people = 998（忽略 input）
+  it("people=2 + allowEdit=false → forced to 998 ignoring input", async () => {
+    h.getTrialSettings.mockResolvedValue({
+      trialEnabled: true,
+      trialDefaultPrice: 499,
+      trialAllowPriceEdit: false,
+      trialMinPrice: 0,
+      trialMaxPrice: 3000,
+    });
+    h.bookingFindFirst.mockResolvedValue({
+      id: "bk_1",
+      bookingType: "FIRST_TRIAL",
+      bookingStatus: "PENDING",
+      customerId: "cust_1",
+      servicePlanId: "plan_trial",
+      expectedAmount: 998,
+      people: 2,
+      customer: { assignedStaffId: null },
+    } as unknown as never);
+    await collectTrialPayment({ ...base, amount: 1234 });
+    expect(lastTx().amount).toBe(998);
   });
 });
 

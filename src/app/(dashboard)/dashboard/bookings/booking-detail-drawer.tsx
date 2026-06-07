@@ -24,6 +24,7 @@ import { CorrectTrialCollectionModal } from "./correct-trial-collection-modal";
 import { CollectSingleModal } from "./collect-single-modal";
 import { AdjustCheckoutModal } from "./adjust-checkout-modal";
 import { computeAmount, resolveTrialDisplayAmount } from "./compute-amount";
+import { PeopleBadge } from "./people-badge";
 import { formatWeekdayZh } from "@/lib/date-utils";
 
 const PAYMENT_METHOD_LABEL: Record<string, string> = {
@@ -399,6 +400,7 @@ export function BookingDetailDrawer({
           customerName={data.booking.customer.name}
           dateLabel={`${data.booking.bookingDate} ${data.booking.slotTime}`}
           expectedAmount={data.booking.expectedAmount}
+          people={data.booking.people}
           settings={data.trial.settings}
           onCollected={handleCollected}
         />
@@ -418,6 +420,7 @@ export function BookingDetailDrawer({
             originalAmount={data.trial.collectedAmount}
             originalMethod={data.trial.collectedMethod}
             originalDate={data.trial.collectedAt}
+            people={data.booking.people}
             settings={data.trial.settings}
             onCorrected={handleCorrected}
           />
@@ -516,11 +519,7 @@ function DrawerContent({
             className="mt-1 truncate text-lg font-bold text-earth-900"
           >
             {booking.customer.name}
-            {booking.people > 1 && (
-              <span className="ml-1 text-sm font-normal text-earth-400">
-                ×{booking.people}
-              </span>
-            )}
+            {booking.people > 1 && <PeopleBadge people={booking.people} />}
           </h2>
           <p className="mt-0.5 truncate text-sm text-earth-500">
             {booking.isMakeup
@@ -815,11 +814,7 @@ function SummaryDrawerContent({
             className="mt-1 truncate text-lg font-bold text-earth-900"
           >
             {summary.customerName}
-            {summary.people > 1 && (
-              <span className="ml-1 text-sm font-normal text-earth-400">
-                ×{summary.people}
-              </span>
-            )}
+            {summary.people > 1 && <PeopleBadge people={summary.people} />}
           </h2>
           <p className="mt-0.5 truncate text-sm text-earth-500">
             {summary.isMakeup
@@ -904,11 +899,7 @@ function PrefillDrawerContent({
             className="mt-1 truncate text-lg font-bold text-earth-900"
           >
             {prefill.customerName}
-            {prefill.people > 1 && (
-              <span className="ml-1 text-sm font-normal text-earth-400">
-                ×{prefill.people}
-              </span>
-            )}
+            {prefill.people > 1 && <PeopleBadge people={prefill.people} />}
           </h2>
           <p className="mt-0.5 truncate text-sm text-earth-500">
             {prefill.isMakeup
@@ -1030,8 +1021,9 @@ function prefillAmount(p: BookingPrefill): string {
   }
   if (p.bookingType === "FIRST_TRIAL") {
     const display = resolveTrialDisplayAmount({
-      planPrice: p.expectedAmount,
-      trialDefaultPrice: p.trialDefaultPrice,
+      snapshotTotal: p.expectedAmount,
+      unitFallback: p.trialDefaultPrice,
+      people: p.people,
     });
     return display == null ? "—" : `NT$ ${display.toLocaleString()}`;
   }

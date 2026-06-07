@@ -20,6 +20,8 @@ interface Props {
   customerName: string;
   dateLabel: string;
   expectedAmount: number | null;
+  /** PR-3c：本次預約人數，預設 1。金額預設帶總額（單價 × people）。 */
+  people: number;
   settings: {
     allowEdit: boolean;
     defaultPrice: number;
@@ -45,10 +47,14 @@ export function CollectTrialModal({
   customerName,
   dateLabel,
   expectedAmount,
+  people,
   settings,
   onCollected,
 }: Props) {
-  const initialAmount = expectedAmount ?? settings.defaultPrice;
+  // PR-3c：人數至少 1；預設帶「本次總額」= expectedAmount(快照) ?? 單價 × people。
+  const peopleSafe = Math.max(1, Math.floor(people || 1));
+  const totalDefault = settings.defaultPrice * peopleSafe;
+  const initialAmount = expectedAmount ?? totalDefault;
   const [amount, setAmount] = useState(String(initialAmount));
   const [method, setMethod] = useState("CASH");
   const [pending, startTransition] = useTransition();
@@ -58,7 +64,7 @@ export function CollectTrialModal({
   function handleConfirm() {
     const amountNum = settings.allowEdit
       ? Math.round(Number(amount))
-      : settings.defaultPrice;
+      : totalDefault;
     startTransition(async () => {
       const r = await collectTrialPayment({
         bookingId,
@@ -105,32 +111,45 @@ export function CollectTrialModal({
             <span className="text-earth-500">預約</span>
             <span className="text-earth-700 tabular-nums">{dateLabel}</span>
           </div>
+          {peopleSafe > 1 && (
+            <div className="flex justify-between">
+              <span className="text-earth-500">人數</span>
+              <span className="font-semibold text-amber-800">
+                {peopleSafe} 人
+              </span>
+            </div>
+          )}
           {expectedAmount != null && (
             <div className="flex justify-between">
               <span className="text-earth-500">預計收款</span>
               <span className="text-earth-700">
                 NT$ {expectedAmount.toLocaleString()}
+                {peopleSafe > 1
+                  ? `（含 ${peopleSafe} 人合計）`
+                  : ""}
               </span>
             </div>
           )}
         </div>
 
         <label className="mb-1 block text-xs font-medium text-earth-600">
-          收款金額（NT$）
+          收款金額（NT$，本次合計）
         </label>
         <input
           type="number"
           inputMode="numeric"
           value={amount}
-          min={settings.minPrice}
-          max={settings.maxPrice}
+          min={settings.minPrice * peopleSafe}
+          max={settings.maxPrice * peopleSafe}
           disabled={!settings.allowEdit || pending}
           onChange={(e) => setAmount(e.target.value)}
           className="mb-1 w-full rounded-lg border border-earth-300 px-3 py-2 text-sm disabled:bg-earth-50 disabled:text-earth-400"
         />
         <p className="mb-3 text-[11px] text-earth-400">
           {settings.allowEdit
-            ? `可輸入 NT$${settings.minPrice}–${settings.maxPrice}；雙人 899 可把其中一筆改 400。`
+            ? peopleSafe > 1
+              ? `${peopleSafe} 人合計可輸入 NT$${settings.minPrice * peopleSafe}–${settings.maxPrice * peopleSafe}（預設 ${totalDefault}）；雙人 899 等促銷直接輸入合計即可。`
+              : `可輸入 NT$${settings.minPrice}–${settings.maxPrice}（預設 ${totalDefault}）。`
             : "店家設定不允許調整，將以預設價收款。"}
         </p>
 

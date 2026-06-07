@@ -54,6 +54,21 @@ vi.mock("@/lib/shop-config", () => ({
     !s.trialAllowPriceEdit
       ? s.trialDefaultPrice
       : Math.min(Math.max(Math.round(input), Math.min(s.trialMinPrice, s.trialMaxPrice)), Math.max(s.trialMinPrice, s.trialMaxPrice)),
+  // PR-3c：本次總額 clamp。allowEdit=false → default×people；input 缺 → default×people；
+  // input 有 → clamp 到 [min×people, max×people]。
+  clampTrialTotal: (
+    input: number | null | undefined,
+    people: number,
+    s: { trialAllowPriceEdit: boolean; trialDefaultPrice: number; trialMinPrice: number; trialMaxPrice: number },
+  ) => {
+    const n = Math.max(1, Math.floor(people || 1));
+    if (!s.trialAllowPriceEdit) return s.trialDefaultPrice * n;
+    if (input == null || !Number.isFinite(input)) return s.trialDefaultPrice * n;
+    const rounded = Math.round(input);
+    const lo = Math.min(s.trialMinPrice, s.trialMaxPrice) * n;
+    const hi = Math.max(s.trialMinPrice, s.trialMaxPrice) * n;
+    return Math.min(hi, Math.max(lo, rounded));
+  },
 }));
 vi.mock("@/server/services/trial-plan", () => ({ ensureTrialPlan: h.ensureTrialPlan }));
 vi.mock("@/server/actions/customer", () => ({ createCustomer: h.createCustomer }));
@@ -69,7 +84,7 @@ vi.mock("@/lib/errors", () => ({
 
 import { createTrialBooking } from "@/server/actions/trial-booking";
 
-type BkArg = { bookingType: string; servicePlanId?: string; expectedAmount?: number; customerPlanWalletId?: string; customerId: string };
+type BkArg = { bookingType: string; servicePlanId?: string; expectedAmount?: number; customerPlanWalletId?: string; customerId: string; people?: number };
 const lastBookingArg = (): BkArg => (h.createBooking.mock.calls.at(-1) as unknown as [BkArg])[0];
 
 beforeEach(() => {
@@ -132,6 +147,74 @@ describe("createTrialBooking — expectedAmount snapshot/clamp", () => {
     h.custFindFirst.mockResolvedValue({ id: CUID.cust, assignedStaffId: "x" });
     await createTrialBooking({ ...base, customerId: CUID.cust, expectedAmount: 5000 });
     expect(lastBookingArg().expectedAmount).toBe(3000);
+  });
+});
+
+describe("createTrialBooking — PR-3c people × expectedAmount", () => {
+  it("people=1 (default) → expectedAmount = 499, people=1 passed to createBooking", async () => {
+    h.custFindFirst.mockResolvedValue({ id: CUID.cust, assignedStaffId: "x" });
+    await createTrialBooking({ ...base, customerId: CUID.cust });
+    expect(lastBookingArg().expectedAmount).toBe(499);
+    expect(lastBookingArg().people).toBe(1);
+  });
+
+  it("people=2 + no manual amount → expectedAmount = 499 × 2 = 998", async () => {
+    h.custFindFirst.mockResolvedValue({ id: CUID.cust, assignedStaffId: "x" });
+    await createTrialBooking({ ...base, customerId: CUID.cust, people: 2 });
+    expect(lastBookingArg().expectedAmount).toBe(998);
+    expect(lastBookingArg().people).toBe(2);
+  });
+
+  it("people=2 + manual total 899 → expectedAmount = 899 (NOT × people)", async () => {
+    h.custFindFirst.mockResolvedValue({ id: CUID.cust, assignedStaffId: "x" });
+    await createTrialBooking({
+      ...base,
+      customerId: CUID.cust,
+      people: 2,
+      expectedAmount: 899,
+    });
+    expect(lastBookingArg().expectedAmount).toBe(899);
+  });
+
+  it("people=2 + over-max input → clamps to max × people (5000 → 3000×2=6000)", async () => {
+    h.custFindFirst.mockResolvedValue({ id: CUID.cust, assignedStaffId: "x" });
+    await createTrialBooking({
+      ...base,
+      customerId: CUID.cust,
+      people: 2,
+      expectedAmount: 5000,
+    });
+    // input 5000 < hi 6000 → stays at 5000
+    expect(lastBookingArg().expectedAmount).toBe(5000);
+  });
+
+  it("people=2 + 99999 → clamps to 6000 (max × people)", async () => {
+    h.custFindFirst.mockResolvedValue({ id: CUID.cust, assignedStaffId: "x" });
+    await createTrialBooking({
+      ...base,
+      customerId: CUID.cust,
+      people: 2,
+      expectedAmount: 99999,
+    });
+    expect(lastBookingArg().expectedAmount).toBe(6000);
+  });
+
+  it("people=2 + allowEdit=false → forced default × people = 998 ignoring input", async () => {
+    h.getTrialSettings.mockResolvedValue({
+      trialEnabled: true,
+      trialDefaultPrice: 499,
+      trialAllowPriceEdit: false,
+      trialMinPrice: 0,
+      trialMaxPrice: 3000,
+    });
+    h.custFindFirst.mockResolvedValue({ id: CUID.cust, assignedStaffId: "x" });
+    await createTrialBooking({
+      ...base,
+      customerId: CUID.cust,
+      people: 2,
+      expectedAmount: 1234,
+    });
+    expect(lastBookingArg().expectedAmount).toBe(998);
   });
 });
 

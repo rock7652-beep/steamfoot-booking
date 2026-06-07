@@ -59,7 +59,11 @@ export function TrialBookingDrawer({
   const [slots, setSlots] = useState<SlotOpt[]>([]);
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [slotsLoadedFor, setSlotsLoadedFor] = useState<string | null>(null);
+  // PR-3c：人數 1~4，預設 1。改人數時若 amount 未手動編輯，自動連動「總額」
+  // = 單價 × people；手動編輯後切人數則保留店長輸入值（手動高於自動）。
+  const [people, setPeople] = useState(1);
   const [amount, setAmount] = useState("");
+  const [amountTouched, setAmountTouched] = useState(false);
   const [notes, setNotes] = useState("");
 
   async function loadSlots(date: string) {
@@ -95,7 +99,9 @@ export function TrialBookingDrawer({
     }
     setSettings(r.data.settings);
     setStaff(r.data.staffOptions);
+    // 初始 1 人 → 預設等於單價（× 1）。
     setAmount(String(r.data.settings.trialDefaultPrice));
+    setAmountTouched(false);
     if (preset?.date) void loadSlots(preset.date); // calendar entry → prefilled date
   }
 
@@ -106,7 +112,17 @@ export function TrialBookingDrawer({
     setBookingDate(preset?.date ?? "");
     setSlotTime("");
     setNotes("");
+    setPeople(1);
+    setAmountTouched(false);
     if (settings) setAmount(String(settings.trialDefaultPrice));
+  }
+
+  function changePeople(n: number) {
+    setPeople(n);
+    // 未手動改價 → 連動帶出新總額；已手動編輯 → 不蓋掉店長輸入。
+    if (settings && !amountTouched) {
+      setAmount(String(settings.trialDefaultPrice * n));
+    }
   }
 
   function close() {
@@ -135,7 +151,12 @@ export function TrialBookingDrawer({
 
     const amountNum = settings.trialAllowPriceEdit
       ? Math.round(Number(amount))
-      : settings.trialDefaultPrice;
+      : settings.trialDefaultPrice * people;
+    // 若店長沒手動改價 → 不傳 expectedAmount，讓 server 用 clampTrialTotal
+    // 帶 default × people（與這裡顯示一致）。手動改過才把店長輸入值送過去。
+    const sendAmount = amountTouched
+      ? (Number.isFinite(amountNum) ? amountNum : undefined)
+      : undefined;
 
     startTransition(async () => {
       const r = await createTrialBooking({
@@ -145,7 +166,8 @@ export function TrialBookingDrawer({
         assignedStaffId,
         bookingDate,
         slotTime,
-        expectedAmount: Number.isFinite(amountNum) ? amountNum : undefined,
+        people,
+        expectedAmount: sendAmount,
         notes: notes.trim() || undefined,
       });
       if (r.success) {
@@ -220,6 +242,24 @@ export function TrialBookingDrawer({
                   <p className="mt-1 text-[11px] text-earth-400">每位體驗客必有直屬店長；既有顧客若已指派則不會被覆蓋。</p>
                 </div>
 
+                {/* PR-3c：人數（1~4）。雙人 / 多人同行直接於此設定，金額會自動 × 人數。 */}
+                <div>
+                  <label className={labelCls}>人數</label>
+                  <select
+                    className={inputCls}
+                    value={people}
+                    onChange={(e) => changePeople(Number(e.target.value))}
+                  >
+                    <option value={1}>1 人</option>
+                    <option value={2}>2 人</option>
+                    <option value={3}>3 人</option>
+                    <option value={4}>4 人</option>
+                  </select>
+                  <p className="mt-1 text-[11px] text-earth-400">
+                    人數會佔用對應的時段名額；預設金額 = 單價 × 人數，店長可手動覆蓋。
+                  </p>
+                </div>
+
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div>
                     <label className={labelCls}>預約日期</label>
@@ -264,22 +304,30 @@ export function TrialBookingDrawer({
                 </div>
 
                 <div>
-                  <label className={labelCls}>體驗金額（NT$）</label>
+                  <label className={labelCls}>
+                    體驗金額（NT$，本次合計）
+                  </label>
                   <div className="mt-1 flex items-center gap-2">
                     <input
                       type="number"
                       inputMode="numeric"
                       className={`${inputCls} mt-0 disabled:bg-earth-50 disabled:text-earth-400`}
                       value={amount}
-                      min={settings.trialMinPrice}
-                      max={settings.trialMaxPrice}
+                      min={settings.trialMinPrice * people}
+                      max={settings.trialMaxPrice * people}
                       disabled={!settings.trialAllowPriceEdit}
-                      onChange={(e) => setAmount(e.target.value)}
+                      onChange={(e) => {
+                        setAmount(e.target.value);
+                        setAmountTouched(true);
+                      }}
                     />
                     {settings.trialAllowPriceEdit ? (
                       <button
                         type="button"
-                        onClick={() => setAmount(String(settings.trialDefaultPrice))}
+                        onClick={() => {
+                          setAmount(String(settings.trialDefaultPrice * people));
+                          setAmountTouched(false);
+                        }}
                         className="shrink-0 rounded-md border border-earth-200 bg-white px-2 py-1.5 text-[11px] text-earth-600 hover:bg-earth-50"
                       >
                         恢復預設
@@ -288,7 +336,9 @@ export function TrialBookingDrawer({
                   </div>
                   <p className="mt-1 text-[11px] text-earth-400">
                     {settings.trialAllowPriceEdit
-                      ? `可輸入 NT$${settings.trialMinPrice}–${settings.trialMaxPrice}；建立後快照，日後改價不影響本筆。雙人 899 可把其中一筆改 400。`
+                      ? people > 1
+                        ? `${people} 人合計可輸入 NT$${settings.trialMinPrice * people}–${settings.trialMaxPrice * people}（預設 ${settings.trialDefaultPrice * people} = ${settings.trialDefaultPrice} × ${people}）；雙人 899 直接輸入合計即可，不需分筆。`
+                        : `可輸入 NT$${settings.trialMinPrice}–${settings.trialMaxPrice}；建立後快照，日後改價不影響本筆。`
                       : "店家設定不允許調整，將以預設價建立。"}
                   </p>
                 </div>

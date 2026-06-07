@@ -1,25 +1,21 @@
 /**
- * PR-D1C — booking-detail-drawer.computeAmount 顯示金額容錯測試
- * PR-D1D — 同一 fallback 抽出 resolveTrialDisplayAmount，day-detail-panel
- *          的 badge 共用。本檔保留 PR-D1C 6 case regression，下方新增
- *          純函數 cases 鎖定 narrow helper 合約。
+ * booking-detail-drawer.computeAmount 顯示金額容錯測試
  *
- * 背景：
- *   LIFF FIRST_TRIAL 預約在後台 drawer 顯示「NT$—」，根因是歷史 trial
- *   ServicePlan.price=0（ensureTrialPlan 不更新既有 plan 價格）。
+ * 歷史背景：
+ *   - PR-D1C：LIFF FIRST_TRIAL 預約在後台 drawer 顯示「NT$—」，根因是
+ *     歷史 trial ServicePlan.price=0（ensureTrialPlan 不更新既有 plan）。
+ *     解法：planPrice > 0 ? planPrice : trial.settings.defaultPrice。
+ *   - PR-D1D：同一 fallback 抽出 resolveTrialDisplayAmount，day-detail-panel
+ *     badge 共用。
+ *   - PR-3c：人數 × 單價 = 本次總額。helper 改名：
+ *       planPrice → snapshotTotal（booking.expectedAmount / collectedAmount，
+ *         已是 N 人合計，**不再 × people**）
+ *       trialDefaultPrice → unitFallback（單價，需 × people 才是總額）
+ *     並新增 `people` 參數。computeAmount 對 FIRST_TRIAL 優先用
+ *     booking.expectedAmount 作 snapshotTotal，缺值才退到 unitFallback × people。
  *
- * 修法（PR-D1C, UI-only）：
- *   FIRST_TRIAL → planPrice > 0 ? planPrice : trial.settings.defaultPrice
- *   不動 schema / 不動 server payload / 不動 collectTrialPayment / 不動
- *   createBooking。
- *
- * 本檔鎖定 6 種情境（PR-D1C regression）：
- *   1. FIRST_TRIAL plan.price>0          → 用 plan.price
- *   2. FIRST_TRIAL plan.price=0          → 用 trial.settings.defaultPrice
- *   3. FIRST_TRIAL plan null & trial null → "—"（防禦：兩邊都沒有 → 不誇大）
- *   4. SINGLE plan.price>0               → 沿用既有顯示（不受 PR-D1C 影響）
- *   5. PACKAGE_SESSION sessionCount>1    → 沿用既有「每堂」顯示
- *   6. isMakeup=true                     → 「補課（免費）」（永遠先於 type 判斷）
+ * 本檔保留既有 6 case regression（人數=1 等價於 PR-D1C 行為），下方新增
+ * PR-3c people-aware cases 鎖定新合約。
  */
 
 import { describe, it, expect } from "vitest";
@@ -32,7 +28,6 @@ import type { BookingDrawerPayload } from "@/server/actions/booking-drawer";
 type Booking = BookingDrawerPayload["booking"];
 type Trial = BookingDrawerPayload["trial"];
 
-/** 建立最小有效 booking payload。callers 只覆寫他們關心的欄位。 */
 function makeBooking(overrides: Partial<Booking> = {}): Booking {
   return {
     id: "bk_test",
@@ -59,8 +54,9 @@ function makeBooking(overrides: Partial<Booking> = {}): Booking {
   };
 }
 
-/** 建立有效的 trial 區塊（FIRST_TRIAL 才會有）。 */
-function makeTrial(overrides: Partial<NonNullable<Trial>> = {}): NonNullable<Trial> {
+function makeTrial(
+  overrides: Partial<NonNullable<Trial>> = {},
+): NonNullable<Trial> {
   return {
     collected: false,
     collectedAmount: null,
@@ -78,8 +74,8 @@ function makeTrial(overrides: Partial<NonNullable<Trial>> = {}): NonNullable<Tri
   };
 }
 
-describe("computeAmount — PR-D1C FIRST_TRIAL fallback", () => {
-  it("FIRST_TRIAL：plan.price > 0 → 用 plan.price（不走 fallback）", () => {
+describe("computeAmount — PR-D1C FIRST_TRIAL fallback (people=1)", () => {
+  it("FIRST_TRIAL：plan.price > 0 → 用 plan.price（人數=1 = 單價）", () => {
     const booking = makeBooking({
       bookingType: "FIRST_TRIAL",
       servicePlan: {
@@ -90,11 +86,11 @@ describe("computeAmount — PR-D1C FIRST_TRIAL fallback", () => {
         category: "TRIAL",
       },
     });
-    const trial = makeTrial({ settings: { allowEdit: false, defaultPrice: 499, minPrice: 0, maxPrice: 2000 } });
+    const trial = makeTrial();
     expect(computeAmount(booking, trial)).toBe("NT$ 599");
   });
 
-  it("FIRST_TRIAL：plan.price=0 → 用 trial.settings.defaultPrice（修 NT$— bug）", () => {
+  it("FIRST_TRIAL：plan.price=0 → 用 trial.settings.defaultPrice（PR-D1C bug 修復）", () => {
     const booking = makeBooking({
       bookingType: "FIRST_TRIAL",
       servicePlan: {
@@ -105,11 +101,11 @@ describe("computeAmount — PR-D1C FIRST_TRIAL fallback", () => {
         category: "TRIAL",
       },
     });
-    const trial = makeTrial({ settings: { allowEdit: false, defaultPrice: 499, minPrice: 0, maxPrice: 2000 } });
+    const trial = makeTrial();
     expect(computeAmount(booking, trial)).toBe("NT$ 499");
   });
 
-  it("FIRST_TRIAL：plan null + trial null → '—'（兩邊都沒有，不誇大）", () => {
+  it("FIRST_TRIAL：plan null + trial null → '—'", () => {
     const booking = makeBooking({
       bookingType: "FIRST_TRIAL",
       servicePlan: null,
@@ -117,7 +113,7 @@ describe("computeAmount — PR-D1C FIRST_TRIAL fallback", () => {
     expect(computeAmount(booking, null)).toBe("—");
   });
 
-  it("SINGLE：plan.price > 0 → 「NT$ {price}」（PR-D1C 不影響 SINGLE）", () => {
+  it("SINGLE：plan.price > 0 → 「NT$ {price}」（不受 trial 邏輯影響）", () => {
     const booking = makeBooking({
       bookingType: "SINGLE",
       servicePlan: {
@@ -160,72 +156,190 @@ describe("computeAmount — PR-D1C FIRST_TRIAL fallback", () => {
       },
     });
     const trial = makeTrial();
-    // makeup 永遠免費；不應該因為 PR-D1C fallback 而顯示 NT$499
     expect(computeAmount(booking, trial)).toBe("補課（免費）");
   });
 });
 
 /**
- * PR-D1D — resolveTrialDisplayAmount 純函數合約
+ * PR-3c — computeAmount people-aware 行為
  *
- * 這層 narrow helper 給 drawer (planPrice = servicePlan.price) 與
- * day-detail-panel (planPrice = expectedAmount) 共用。語意：
- *   planPrice > 0          → planPrice
- *   else trialDefaultPrice > 0 → trialDefaultPrice
- *   else                   → null（caller render "—"）
- *
- * 兩邊都接受 number | null | undefined，避免 caller 還要先 `?? 0`。
+ *   - booking.expectedAmount 有值 → 視為「本次合計」快照，直接顯示（不再 × people）
+ *   - booking.expectedAmount 缺值 → 退到 plan.price / store default 「單價」× people
  */
-describe("resolveTrialDisplayAmount — PR-D1D narrow helper", () => {
-  it("planPrice > 0 → 直接用 planPrice（不走 fallback）", () => {
-    expect(
-      resolveTrialDisplayAmount({ planPrice: 599, trialDefaultPrice: 499 }),
-    ).toBe(599);
+describe("computeAmount — PR-3c people × amount", () => {
+  it("expectedAmount=998（雙人合計快照）→ 顯示 998，不重複 ×", () => {
+    const booking = makeBooking({
+      bookingType: "FIRST_TRIAL",
+      people: 2,
+      expectedAmount: 998,
+      servicePlan: {
+        id: "plan_trial",
+        name: "體驗",
+        price: 499,
+        sessionCount: 1,
+        category: "TRIAL",
+      },
+    });
+    const trial = makeTrial();
+    expect(computeAmount(booking, trial)).toBe("NT$ 998");
   });
 
-  it("planPrice = 0, trialDefaultPrice > 0 → 用 default（修 day-panel NT$— bug）", () => {
-    expect(
-      resolveTrialDisplayAmount({ planPrice: 0, trialDefaultPrice: 499 }),
-    ).toBe(499);
+  it("expectedAmount=899（雙人促銷手動覆蓋）→ 顯示 899", () => {
+    const booking = makeBooking({
+      bookingType: "FIRST_TRIAL",
+      people: 2,
+      expectedAmount: 899,
+      servicePlan: {
+        id: "plan_trial",
+        name: "體驗",
+        price: 499,
+        sessionCount: 1,
+        category: "TRIAL",
+      },
+    });
+    expect(computeAmount(booking, makeTrial())).toBe("NT$ 899");
   });
 
-  it("planPrice = null（LIFF 建立未填）, trialDefaultPrice > 0 → 用 default", () => {
-    // 這是 day-panel 觸發 bug 的 production case：
-    //   LIFF 建立的 FIRST_TRIAL Booking.expectedAmount=null（金額延後到收款）
-    expect(
-      resolveTrialDisplayAmount({ planPrice: null, trialDefaultPrice: 499 }),
-    ).toBe(499);
+  it("expectedAmount=null + people=2 → fallback plan.price 499 × 2 = 998", () => {
+    const booking = makeBooking({
+      bookingType: "FIRST_TRIAL",
+      people: 2,
+      expectedAmount: null,
+      servicePlan: {
+        id: "plan_trial",
+        name: "體驗",
+        price: 499,
+        sessionCount: 1,
+        category: "TRIAL",
+      },
+    });
+    expect(computeAmount(booking, makeTrial())).toBe("NT$ 998");
   });
 
-  it("planPrice = undefined, trialDefaultPrice > 0 → 用 default", () => {
+  it("expectedAmount=null + plan.price=0 + people=3 → fallback default 499 × 3 = 1,497", () => {
+    const booking = makeBooking({
+      bookingType: "FIRST_TRIAL",
+      people: 3,
+      expectedAmount: null,
+      servicePlan: {
+        id: "plan_trial_legacy",
+        name: "體驗",
+        price: 0,
+        sessionCount: 1,
+        category: "TRIAL",
+      },
+    });
+    expect(computeAmount(booking, makeTrial())).toBe("NT$ 1,497");
+  });
+});
+
+/**
+ * resolveTrialDisplayAmount — PR-3c 新合約
+ *
+ * snapshotTotal > 0 → 直接用（已是合計）
+ * snapshotTotal 缺 → unitFallback > 0 ? unitFallback × people : null
+ * people 缺 / <1 → 預設 1
+ */
+describe("resolveTrialDisplayAmount — PR-3c new contract", () => {
+  it("snapshotTotal=998 → 998（people 不影響）", () => {
     expect(
       resolveTrialDisplayAmount({
-        planPrice: undefined,
-        trialDefaultPrice: 499,
+        snapshotTotal: 998,
+        unitFallback: 499,
+        people: 2,
+      }),
+    ).toBe(998);
+  });
+
+  it("snapshotTotal=null + unitFallback=499 + people=1 → 499", () => {
+    expect(
+      resolveTrialDisplayAmount({
+        snapshotTotal: null,
+        unitFallback: 499,
+        people: 1,
       }),
     ).toBe(499);
   });
 
-  it("planPrice = 0, trialDefaultPrice = 0 → null（兩邊都沒有，caller render '—'）", () => {
-    expect(
-      resolveTrialDisplayAmount({ planPrice: 0, trialDefaultPrice: 0 }),
-    ).toBeNull();
-  });
-
-  it("planPrice = null, trialDefaultPrice = null → null（防禦：店家完全沒設）", () => {
+  it("snapshotTotal=null + unitFallback=499 + people=2 → 998", () => {
     expect(
       resolveTrialDisplayAmount({
-        planPrice: null,
-        trialDefaultPrice: null,
+        snapshotTotal: null,
+        unitFallback: 499,
+        people: 2,
+      }),
+    ).toBe(998);
+  });
+
+  it("snapshotTotal=null + unitFallback=499 + people=4 → 1996", () => {
+    expect(
+      resolveTrialDisplayAmount({
+        snapshotTotal: null,
+        unitFallback: 499,
+        people: 4,
+      }),
+    ).toBe(1996);
+  });
+
+  it("snapshotTotal=null + unitFallback=null → null（無資料）", () => {
+    expect(
+      resolveTrialDisplayAmount({
+        snapshotTotal: null,
+        unitFallback: null,
+        people: 2,
       }),
     ).toBeNull();
   });
 
-  it("planPrice 負數（防禦不可能值）→ 退 fallback，不顯示負金額", () => {
-    // 防禦：若上游污染傳入負數，視為「無效」走 fallback；避免 badge 出現
-    // 「NT$ -100」這種荒謬顯示。
+  it("snapshotTotal=0 + unitFallback=499 + people=2 → fallback × people = 998", () => {
+    // PR-D1D 舊規則：planPrice=0 視為「未知」走 fallback。PR-3c 沿用：
+    // snapshotTotal<=0 視為缺值。
     expect(
-      resolveTrialDisplayAmount({ planPrice: -100, trialDefaultPrice: 499 }),
+      resolveTrialDisplayAmount({
+        snapshotTotal: 0,
+        unitFallback: 499,
+        people: 2,
+      }),
+    ).toBe(998);
+  });
+
+  it("snapshotTotal=undefined + unitFallback=undefined → null", () => {
+    expect(
+      resolveTrialDisplayAmount({
+        snapshotTotal: undefined,
+        unitFallback: undefined,
+        people: 1,
+      }),
+    ).toBeNull();
+  });
+
+  it("people=0（防禦）→ 視為 1", () => {
+    expect(
+      resolveTrialDisplayAmount({
+        snapshotTotal: null,
+        unitFallback: 499,
+        people: 0,
+      }),
     ).toBe(499);
+  });
+
+  it("people=null（防禦）→ 視為 1", () => {
+    expect(
+      resolveTrialDisplayAmount({
+        snapshotTotal: null,
+        unitFallback: 499,
+        people: null,
+      }),
+    ).toBe(499);
+  });
+
+  it("負 snapshotTotal（不可能值）→ 退 fallback × people", () => {
+    expect(
+      resolveTrialDisplayAmount({
+        snapshotTotal: -100,
+        unitFallback: 499,
+        people: 2,
+      }),
+    ).toBe(998);
   });
 });
