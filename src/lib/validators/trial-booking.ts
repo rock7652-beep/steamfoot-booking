@@ -29,6 +29,10 @@ export const createTrialBookingSchema = z
     assignedStaffId: z.string().min(1),
     bookingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     slotTime: z.string().regex(/^\d{2}:\d{2}$/),
+    // PR-3c：體驗預約人數（1~4）。未傳時 server 視為 1。expectedAmount 的
+    // 寫入語意改成「本次總額」=「單價 × people」，未手動改價時自動帶；店長
+    // 手動輸入時以該值為總額（不再 × people）— 規則由 clampTrialTotal 處理。
+    people: z.number().int().min(1).max(4).optional(),
     expectedAmount: z.number().int().min(0).max(1_000_000).optional(),
     notes: z.string().max(500).optional(),
   })

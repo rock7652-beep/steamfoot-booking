@@ -189,6 +189,9 @@ export async function getTrialSettings(storeId?: string | null): Promise<TrialSe
 /**
  * 依設定 clamp 體驗價格。allowEdit=false 時強制回 default。
  * 永遠回傳整數（Decimal(10,0)）。
+ *
+ * ⚠ 這是「單價」clamp（不乘 people）。寫入 Booking.expectedAmount /
+ * Transaction.amount 等「總額」欄位請改用 {@link clampTrialTotal}（PR-3c）。
  */
 export function clampTrialPrice(input: number, settings: TrialSettings): number {
   if (!settings.trialAllowPriceEdit) return settings.trialDefaultPrice;
@@ -196,6 +199,35 @@ export function clampTrialPrice(input: number, settings: TrialSettings): number 
   const lo = Math.min(settings.trialMinPrice, settings.trialMaxPrice);
   const hi = Math.max(settings.trialMinPrice, settings.trialMaxPrice);
   return Math.min(hi, Math.max(lo, n));
+}
+
+/**
+ * PR-3c：體驗預約「本次總額」clamp。
+ *
+ * 規則：
+ *   - allowEdit=false → 總額固定 default × people（忽略 input）。
+ *   - input 未提供 → 自動帶 default × people（未手動改價的預設）。
+ *   - input 提供 → 視為店長手動輸入的「本次總額」，**不再 × people**，
+ *     clamp 到 [min × people, max × people]（單價範圍 × people）。
+ *
+ * 永遠回傳整數。store 端與 client 端共用同一函式，server 仍會再 clamp 一次。
+ */
+export function clampTrialTotal(
+  input: number | null | undefined,
+  people: number,
+  settings: TrialSettings,
+): number {
+  const n = Math.max(1, Math.floor(people || 1));
+  if (!settings.trialAllowPriceEdit) {
+    return settings.trialDefaultPrice * n;
+  }
+  if (input == null || !Number.isFinite(input)) {
+    return settings.trialDefaultPrice * n;
+  }
+  const rounded = Math.round(input);
+  const lo = Math.min(settings.trialMinPrice, settings.trialMaxPrice) * n;
+  const hi = Math.max(settings.trialMinPrice, settings.trialMaxPrice) * n;
+  return Math.min(hi, Math.max(lo, rounded));
 }
 
 // ============================================================

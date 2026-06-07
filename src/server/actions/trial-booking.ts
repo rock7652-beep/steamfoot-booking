@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/permissions";
 import { AppError, handleActionError } from "@/lib/errors";
 import { currentStoreId } from "@/lib/store";
-import { getTrialSettings, clampTrialPrice } from "@/lib/shop-config";
+import { getTrialSettings, clampTrialTotal } from "@/lib/shop-config";
 import { ensureTrialPlan } from "@/server/services/trial-plan";
 import { createCustomer } from "@/server/actions/customer";
 import { createBooking } from "@/server/actions/booking";
@@ -124,11 +124,11 @@ export async function createTrialBooking(
     // ── 3. 體驗課單一 Plan（idempotent，不改既有價）
     const trialPlan = await ensureTrialPlan(storeId, settings.trialDefaultPrice);
 
-    // ── 4. 金額快照：未傳則帶店家預設；一律 clamp（含 allowEdit=false 強制預設）
-    const expectedAmount = clampTrialPrice(
-      data.expectedAmount ?? settings.trialDefaultPrice,
-      settings,
-    );
+    // ── 4. 金額快照（PR-3c）：寫入「本次總額」= 單價 × people（未手動改價時自動帶）。
+    //      若店長手動傳入 expectedAmount，視為本次總額（不再 × people），一律 clamp。
+    //      allowEdit=false 強制 default × people。
+    const people = data.people ?? 1;
+    const expectedAmount = clampTrialTotal(data.expectedAmount, people, settings);
 
     // ── 5. 建立 FIRST_TRIAL 預約（複用 createBooking：名額/營業日/值班檢查）
     //      無 customerPlanWalletId → 既有邏輯保證不 allocateSession、不扣堂。
@@ -139,6 +139,7 @@ export async function createTrialBooking(
       slotTime: data.slotTime,
       bookingType: "FIRST_TRIAL",
       servicePlanId: trialPlan.id,
+      people,
       expectedAmount,
       notes: data.notes,
     });
@@ -204,6 +205,7 @@ export async function collectTrialPayment(
         customerId: true,
         servicePlanId: true,
         expectedAmount: true,
+        people: true,
         customer: { select: { assignedStaffId: true } },
       },
     });
@@ -221,14 +223,18 @@ export async function collectTrialPayment(
       );
     }
 
-    // 金額：未傳 → Booking.expectedAmount 快照 → 店家預設；一律 clamp
-    //（clampTrialPrice 在 allowEdit=false 時強制回店家預設，忽略傳入值）
+    // 金額（PR-3c）：以「本次總額」語意處理。
+    //   - data.amount 提供 → 視為店長手動輸入之總額（不再 × people）。
+    //   - 未提供且 booking.expectedAmount 有值 → 用快照（已是總額）。
+    //   - 兩者皆無 → clampTrialTotal 內自帶 default × people。
+    // clampTrialTotal 在 allowEdit=false 時強制回 default × people，忽略傳入。
+    const people = booking.people || 1;
     const baseAmount =
       data.amount ??
       (booking.expectedAmount == null
-        ? settings.trialDefaultPrice
+        ? undefined
         : Number(booking.expectedAmount));
-    const amount = clampTrialPrice(baseAmount, settings);
+    const amount = clampTrialTotal(baseAmount, people, settings);
 
     const revenueStaffId =
       booking.customer.assignedStaffId ??

@@ -5,6 +5,7 @@ import { StatusBadge, bookingStatusMeta } from "@/components/admin/status-badge"
 import { EmptyStateCompact } from "@/components/admin/empty-state-compact";
 import { TrialBookingDrawer } from "../_components/trial-booking-drawer";
 import { resolveTrialDisplayAmount } from "./compute-amount";
+import { PeopleBadge } from "./people-badge";
 import type { SlotAvailability } from "@/types";
 
 export interface DayBooking {
@@ -317,18 +318,19 @@ function TimelineItem({
   const assignedStaffName =
     booking.customer?.assignedStaff?.displayName ?? "未指派";
 
-  // PR-D1D：FIRST_TRIAL badge 顯示金額容錯
-  //   collected   → collectedAmount → expectedAmount → trialDefaultPrice → "—"
-  //   未收款       → expectedAmount → trialDefaultPrice → "—"
-  // LIFF 建立的體驗 expectedAmount=null，需 fallback 到 trialDefaultPrice 才不會 render NT$—
+  // PR-D1D + PR-3c：FIRST_TRIAL badge 顯示「本次總額」容錯。
+  //   collected   → collectedAmount(snapshot) → expectedAmount(snapshot) → default×people → "—"
+  //   未收款       → expectedAmount(snapshot) → default×people → "—"
+  // expectedAmount / collectedAmount 為快照總額（PR-3c 起）；fallback 才用 default × people。
   let trialAmountText = "—";
   if (booking.bookingType === "FIRST_TRIAL") {
     const primary = booking.collected
       ? booking.collectedAmount ?? booking.expectedAmount
       : booking.expectedAmount;
     const display = resolveTrialDisplayAmount({
-      planPrice: primary,
-      trialDefaultPrice: booking.trialDefaultPrice,
+      snapshotTotal: primary,
+      unitFallback: booking.trialDefaultPrice,
+      people: booking.people,
     });
     if (display != null) trialAmountText = display.toLocaleString();
   }
@@ -385,9 +387,7 @@ function TimelineItem({
             {booking.slotTime}
           </span>
           {booking.people > 1 && (
-            <span className="shrink-0 text-[11px] text-earth-400">
-              ×{booking.people}
-            </span>
+            <PeopleBadge people={booking.people} size="compact" />
           )}
           <span className="min-w-0 flex-1 truncate text-sm font-semibold text-earth-900">
             {booking.customer?.name ?? "—"}
