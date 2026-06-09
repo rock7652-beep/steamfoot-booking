@@ -4,8 +4,8 @@
  * 登入頁、Dashboard sidebar、更新橫幅、Changelog 頁面統一引用此檔
  */
 
-export const APP_VERSION = "2.8.0";
-export const APP_VERSION_DATE = "2026-04-27";
+export const APP_VERSION = "2.9.0";
+export const APP_VERSION_DATE = "2026-06-09";
 
 export type ChangelogTag = "新功能" | "修正" | "優化";
 export type AffectedRole = "全部" | "店長" | "員工" | "顧客";
@@ -27,7 +27,34 @@ export interface ChangelogEntry {
  */
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: "2.8.0",
+    version: "2.9.0",
+    date: "2026-06-09",
+    highlights: "顧客備註、推薦人欄位、前台視覺優化、體驗金額與人數顯示修正",
+    changes: [
+      {
+        tag: "新功能",
+        text: "新增顧客服務備註，方便店長記錄顧客狀況",
+        roles: ["店長"],
+      },
+      {
+        tag: "新功能",
+        text: "新增推薦人欄位，方便追蹤顧客來源",
+        roles: ["店長"],
+      },
+      {
+        tag: "優化",
+        text: "優化前台手機版視覺，提升顧客預約體驗",
+        roles: ["顧客"],
+      },
+      {
+        tag: "修正",
+        text: "修正體驗預約金額與人數顯示，降低現場對帳錯誤",
+        roles: ["店長"],
+      },
+    ],
+  },
+ {
+  version: "2.8.0",
     date: "2026-04-27",
     highlights: "顧客自助預約 v2 修復、轉帳末四碼、員工密碼重置、錢包明細",
     changes: [
