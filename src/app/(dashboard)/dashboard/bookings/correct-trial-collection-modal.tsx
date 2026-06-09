@@ -38,8 +38,14 @@ interface Props {
   originalAmount: number | null;
   originalMethod: string | null;
   originalDate: string | null;
-  /** PR-3c：本次預約人數，預設 1。金額預設帶總額（單價 × people）。 */
+  /** PR-3c：本次預約人數（原本）。 */
   people: number;
+  /**
+   * PR-3d：實際到店人數（null = 全到 / 未記錄）。
+   * 若 attendedPeople < people：預設金額 / clamp 範圍依「實到人數」計算；
+   * 若 originalAmount 是手動值（非 default × people），保留手動值並顯示提示。
+   */
+  attendedPeople: number | null;
   settings: {
     allowEdit: boolean;
     defaultPrice: number;
@@ -61,15 +67,27 @@ export function CorrectTrialCollectionModal({
   originalMethod,
   originalDate,
   people,
+  attendedPeople,
   settings,
   onCorrected,
 }: Props) {
-  // PR-3c：人數至少 1；預設帶總額 = originalAmount(快照) ?? 單價 × people。
+  // PR-3c + PR-3d：effectivePeople = attendedPeople ?? people（最小 1）。
+  // 預設帶總額 = originalAmount(快照) ?? default × effectivePeople。
+  // 例外：部分到店 + originalAmount 是手動值（非 default × people）→
+  // 保留手動值並顯示提示，請店長確認金額（不自動覆蓋）。
   const peopleSafe = Math.max(1, Math.floor(people || 1));
-  const totalDefault = settings.defaultPrice * peopleSafe;
-  const [amount, setAmount] = useState(
-    String(originalAmount ?? totalDefault),
-  );
+  const effectivePeople = Math.max(1, Math.floor(attendedPeople ?? peopleSafe));
+  const isPartial = attendedPeople != null && attendedPeople < peopleSafe;
+  const totalDefaultByActual = settings.defaultPrice * effectivePeople;
+  const totalDefaultByOriginal = settings.defaultPrice * peopleSafe;
+  const isManualOverride =
+    originalAmount != null && originalAmount !== totalDefaultByOriginal;
+  const initialAmount = !isPartial
+    ? originalAmount ?? totalDefaultByActual
+    : isManualOverride
+      ? originalAmount! // 部分到店且 originalAmount 是手動 → 保留
+      : totalDefaultByActual; // 部分到店且 originalAmount 是自動快照 → 重算
+  const [amount, setAmount] = useState(String(initialAmount));
   const [method, setMethod] = useState(originalMethod ?? "CASH");
   const [reason, setReason] = useState("");
   const [pending, startTransition] = useTransition();
@@ -85,7 +103,7 @@ export function CorrectTrialCollectionModal({
     }
     const amountNum = settings.allowEdit
       ? Math.round(Number(amount))
-      : totalDefault;
+      : totalDefaultByActual;
     startTransition(async () => {
       const r = await correctTrialCollection({
         bookingId,
@@ -141,6 +159,14 @@ export function CorrectTrialCollectionModal({
               </span>
             </div>
           )}
+          {isPartial && (
+            <div className="flex justify-between">
+              <span className="text-earth-500">實際到店</span>
+              <span className="font-semibold text-amber-800">
+                {attendedPeople} / {peopleSafe} 人
+              </span>
+            </div>
+          )}
           <div className="flex justify-between">
             <span className="text-earth-500">原收款</span>
             <span className="text-earth-700">
@@ -155,6 +181,13 @@ export function CorrectTrialCollectionModal({
           </div>
         </div>
 
+        {isPartial && isManualOverride && (
+          <div className="mb-3 rounded-md bg-amber-50 px-3 py-2 text-[12px] leading-relaxed text-amber-800">
+            原收款 NT$ {originalAmount?.toLocaleString()}（{peopleSafe} 人合計），實到 {attendedPeople} 人。
+            金額為手動設定 — 系統不會自動覆蓋，請確認本次金額。
+          </div>
+        )}
+
         <label className="mb-1 block text-xs font-medium text-earth-600">
           新收款金額（NT$，本次合計）
         </label>
@@ -162,17 +195,17 @@ export function CorrectTrialCollectionModal({
           type="number"
           inputMode="numeric"
           value={amount}
-          min={settings.minPrice * peopleSafe}
-          max={settings.maxPrice * peopleSafe}
+          min={settings.minPrice * effectivePeople}
+          max={settings.maxPrice * effectivePeople}
           disabled={!settings.allowEdit || pending}
           onChange={(e) => setAmount(e.target.value)}
           className="mb-1 w-full rounded-lg border border-earth-300 px-3 py-2 text-sm disabled:bg-earth-50 disabled:text-earth-400"
         />
         <p className="mb-3 text-[11px] text-earth-400">
           {settings.allowEdit
-            ? peopleSafe > 1
-              ? `${peopleSafe} 人合計可輸入 NT$${settings.minPrice * peopleSafe}–${settings.maxPrice * peopleSafe}（預設 ${totalDefault}）；雙人 899 直接輸入合計即可。`
-              : `可輸入 NT$${settings.minPrice}–${settings.maxPrice}；例：誤收 499，更正為 400。`
+            ? effectivePeople > 1
+              ? `${effectivePeople} 人合計可輸入 NT$${settings.minPrice * effectivePeople}–${settings.maxPrice * effectivePeople}（預設 ${totalDefaultByActual}）${isPartial ? "；以實到人數計算" : "；雙人 899 直接輸入合計即可"}。`
+              : `可輸入 NT$${settings.minPrice}–${settings.maxPrice}（預設 ${totalDefaultByActual}）${isPartial ? "；以實到 1 人計算" : "；例：誤收 499，更正為 400"}。`
             : "店家設定不允許調整，將以預設價更正。"}
         </p>
 

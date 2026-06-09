@@ -206,6 +206,8 @@ export async function collectTrialPayment(
         servicePlanId: true,
         expectedAmount: true,
         people: true,
+        // PR-3d：實到人數（partial attendance）。null = 未記錄 → 視為全到。
+        attendedPeople: true,
         customer: { select: { assignedStaffId: true } },
       },
     });
@@ -223,18 +225,21 @@ export async function collectTrialPayment(
       );
     }
 
-    // 金額（PR-3c）：以「本次總額」語意處理。
+    // 金額（PR-3c + PR-3d）：以「本次總額」語意處理。
+    //   - PR-3d effectivePeople = attendedPeople ?? people：店長已記錄部分到店
+    //     時以實到人數計算 clamp 範圍與 default × effectivePeople。
     //   - data.amount 提供 → 視為店長手動輸入之總額（不再 × people）。
     //   - 未提供且 booking.expectedAmount 有值 → 用快照（已是總額）。
-    //   - 兩者皆無 → clampTrialTotal 內自帶 default × people。
-    // clampTrialTotal 在 allowEdit=false 時強制回 default × people，忽略傳入。
+    //   - 兩者皆無 → clampTrialTotal 內自帶 default × effectivePeople。
+    // clampTrialTotal 在 allowEdit=false 時強制回 default × effectivePeople，忽略傳入。
     const people = booking.people || 1;
+    const effectivePeople = booking.attendedPeople ?? people;
     const baseAmount =
       data.amount ??
       (booking.expectedAmount == null
         ? undefined
         : Number(booking.expectedAmount));
-    const amount = clampTrialTotal(baseAmount, people, settings);
+    const amount = clampTrialTotal(baseAmount, effectivePeople, settings);
 
     const revenueStaffId =
       booking.customer.assignedStaffId ??

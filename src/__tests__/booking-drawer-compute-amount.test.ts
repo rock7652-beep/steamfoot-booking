@@ -50,6 +50,7 @@ function makeBooking(overrides: Partial<Booking> = {}): Booking {
     servicePlan: null,
     customerPlanWallet: null,
     expectedAmount: null,
+    attendedPeople: null,
     ...overrides,
   };
 }

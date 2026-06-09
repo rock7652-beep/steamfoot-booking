@@ -922,7 +922,12 @@ model Booking {
   bookingType          BookingType   @default(PACKAGE_SESSION)
   servicePlanId        String? // 使用哪個方案（nullable for flexibility）
   customerPlanWalletId String? // 若使用套餐，對應哪個錢包
-  people               Int           @default(1) // 預約人數（1~4）
+  people               Int           @default(1) // 預約人數（1~4）— 原本預約人數，不可被部分到店流程改寫
+  // 體驗 499 PR-3d：實際到店人數（僅 FIRST_TRIAL 使用；其他型別保持 null）。
+  // null = 未明確記錄／視為 attendedPeople == people（向後相容、不破現有資料）。
+  // 1..people = 店長於 完成服務 時記錄；attendedPeople < people 表示部分到店，
+  // 收款預設改用 attendedPeople 計算；0 不寫入此欄位（0 走 markNoShow 流程）。
+  attendedPeople       Int?
   isMakeup             Boolean       @default(false) // 是否為補課預約
   makeupCreditId       String?       @unique // 若為補課，關聯使用的補課資格
   isCheckedIn          Boolean       @default(false) // 已棄用，保留向後相容
@@ -949,9 +954,9 @@ model Booking {
   // 補課關聯
   // legacy（PR-NoShow-2 之前）：單張券。新流程改用 makeupCreditLinks（join table），
   // 但仍保留此欄位＝第一張（最早到期）券，供向後相容顯示。
-  makeupCredit     MakeupCredit?  @relation("MakeupBooking", fields: [makeupCreditId], references: [id])
+  makeupCredit      MakeupCredit?         @relation("MakeupBooking", fields: [makeupCreditId], references: [id])
   // 一筆未到預約可依 people 數產生多張補課券（people=2 → 2 張），故為一對多。
-  generatedCredits MakeupCredit[] @relation("OriginalBooking")
+  generatedCredits  MakeupCredit[]        @relation("OriginalBooking")
   // PR-NoShow-2：people=N 補課預約使用的 N 張券（source of truth）。
   makeupCreditLinks BookingMakeupCredit[]
 
@@ -997,10 +1002,10 @@ model MakeupCredit {
   createdAt         DateTime  @default(now())
 
   storeId         String
-  customer        Customer @relation(fields: [customerId], references: [id])
-  originalBooking Booking  @relation("OriginalBooking", fields: [originalBookingId], references: [id])
-  usedBooking     Booking? @relation("MakeupBooking")
-  store           Store    @relation(fields: [storeId], references: [id])
+  customer        Customer             @relation(fields: [customerId], references: [id])
+  originalBooking Booking              @relation("OriginalBooking", fields: [originalBookingId], references: [id])
+  usedBooking     Booking?             @relation("MakeupBooking")
+  store           Store                @relation(fields: [storeId], references: [id])
   // PR-NoShow-2：此券被哪一筆預約使用（至多一筆；DB 層由 BookingMakeupCredit.makeupCreditId @unique 保證）。
   bookingLink     BookingMakeupCredit?
 

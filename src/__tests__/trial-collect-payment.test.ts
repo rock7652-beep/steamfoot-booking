@@ -472,6 +472,96 @@ describe("collectTrialPayment — PR-3c people × amount", () => {
   });
 });
 
+describe("collectTrialPayment — PR-3d partial attendance (effectivePeople = attendedPeople ?? people)", () => {
+  // 部分到店：people=2、attendedPeople=1、無 snapshot、未傳 amount
+  // → server 用 effectivePeople=1 計算 default × 1 = 499
+  it("people=2 + attendedPeople=1 + 無 snapshot + 未傳 amount → 499", async () => {
+    h.bookingFindFirst.mockResolvedValue({
+      id: "bk_1",
+      bookingType: "FIRST_TRIAL",
+      bookingStatus: "PENDING",
+      customerId: "cust_1",
+      servicePlanId: "plan_trial",
+      expectedAmount: null,
+      people: 2,
+      attendedPeople: 1,
+      customer: { assignedStaffId: null },
+    } as unknown as never);
+    await collectTrialPayment(base);
+    expect(lastTx().amount).toBe(499);
+  });
+
+  // expectedAmount=998（原 PR-3 快照）但實到 1 → server 不接管「重算」職責，
+  // 沿用 snapshot 998；clamp 範圍是 effectivePeople=1 的 [0, 3000]，998 仍在範圍內。
+  // （前端在 modal 才會把預設改成 499；server 尊重明確的 snapshot 為 caller 意圖。）
+  it("people=2 + attendedPeople=1 + snapshot 998 + 未傳 amount → 998（server 不重算 snapshot）", async () => {
+    h.bookingFindFirst.mockResolvedValue({
+      id: "bk_1",
+      bookingType: "FIRST_TRIAL",
+      bookingStatus: "PENDING",
+      customerId: "cust_1",
+      servicePlanId: "plan_trial",
+      expectedAmount: 998,
+      people: 2,
+      attendedPeople: 1,
+      customer: { assignedStaffId: null },
+    } as unknown as never);
+    await collectTrialPayment(base);
+    expect(lastTx().amount).toBe(998);
+  });
+
+  // 店長手動傳 amount → 視為本次合計，clamp 到 effectivePeople 範圍
+  it("people=2 + attendedPeople=1 + manual 499 → 499", async () => {
+    h.bookingFindFirst.mockResolvedValue({
+      id: "bk_1",
+      bookingType: "FIRST_TRIAL",
+      bookingStatus: "PENDING",
+      customerId: "cust_1",
+      servicePlanId: "plan_trial",
+      expectedAmount: 998,
+      people: 2,
+      attendedPeople: 1,
+      customer: { assignedStaffId: null },
+    } as unknown as never);
+    await collectTrialPayment({ ...base, amount: 499 });
+    expect(lastTx().amount).toBe(499);
+  });
+
+  // clamp 範圍依 effectivePeople=1（max 3000），手動 99999 → 3000（非 6000）
+  it("people=2 + attendedPeople=1 + 99999 → clamps to 3000 (max × effectivePeople)", async () => {
+    h.bookingFindFirst.mockResolvedValue({
+      id: "bk_1",
+      bookingType: "FIRST_TRIAL",
+      bookingStatus: "PENDING",
+      customerId: "cust_1",
+      servicePlanId: "plan_trial",
+      expectedAmount: null,
+      people: 2,
+      attendedPeople: 1,
+      customer: { assignedStaffId: null },
+    } as unknown as never);
+    await collectTrialPayment({ ...base, amount: 99999 });
+    expect(lastTx().amount).toBe(3000);
+  });
+
+  // attendedPeople=null（向後相容；沒記錄部分到店）→ 沿用 people 行為
+  it("attendedPeople=null → falls back to people (PR-3c baseline)", async () => {
+    h.bookingFindFirst.mockResolvedValue({
+      id: "bk_1",
+      bookingType: "FIRST_TRIAL",
+      bookingStatus: "PENDING",
+      customerId: "cust_1",
+      servicePlanId: "plan_trial",
+      expectedAmount: null,
+      people: 2,
+      attendedPeople: null,
+      customer: { assignedStaffId: null },
+    } as unknown as never);
+    await collectTrialPayment(base);
+    expect(lastTx().amount).toBe(998);
+  });
+});
+
 // Validator: non-cuid bookingId accepted (staging/import IDs); empty rejected;
 // UNPAID payment method rejected (no 待確認 path).
 describe("collectTrialPaymentSchema", () => {

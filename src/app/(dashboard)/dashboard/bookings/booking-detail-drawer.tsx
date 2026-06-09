@@ -21,6 +21,7 @@ import { NoShowModal, type NoShowChoice } from "./no-show-modal";
 import { RescheduleModal } from "./reschedule-modal";
 import { CollectTrialModal } from "./collect-trial-modal";
 import { CorrectTrialCollectionModal } from "./correct-trial-collection-modal";
+import { AttendanceModal } from "./attendance-modal";
 import { CollectSingleModal } from "./collect-single-modal";
 import { AdjustCheckoutModal } from "./adjust-checkout-modal";
 import { computeAmount, resolveTrialDisplayAmount } from "./compute-amount";
@@ -75,6 +76,8 @@ export interface BookingPrefill {
   isMakeup: boolean;
   isCheckedIn: boolean;
   people: number;
+  /** PR-3d：實際到店人數（FIRST_TRIAL；null = 未記錄／全到）。 */
+  attendedPeople: number | null;
   customerName: string;
   customerPhone: string;
   /** 內部服務備註（後台限定）— prefill 即可即時顯示。 */
@@ -126,6 +129,8 @@ export function BookingDetailDrawer({
   const [error, setError] = useState<string | null>(null);
   const [isActing, startAction] = useTransition();
   const [noShowOpen, setNoShowOpen] = useState(false);
+  // PR-3d：實際到店人數 modal（僅 FIRST_TRIAL 且 people > 1 由 完成服務 觸發）
+  const [attendanceOpen, setAttendanceOpen] = useState(false);
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
   const [collectOpen, setCollectOpen] = useState(false);
   const [correctOpen, setCorrectOpen] = useState(false);
@@ -235,7 +240,38 @@ export function BookingDetailDrawer({
   }
 
   function handleComplete() {
+    // PR-3d：FIRST_TRIAL 且 people > 1 → 先問實際到店幾位；其餘維持原流程。
+    const b = data?.booking;
+    if (
+      b &&
+      b.bookingType === "FIRST_TRIAL" &&
+      b.people > 1 &&
+      (b.bookingStatus === "PENDING" || b.bookingStatus === "CONFIRMED")
+    ) {
+      setAttendanceOpen(true);
+      return;
+    }
     wrapAction("已完成服務", () => markCompleted(bookingId!), "COMPLETED");
+  }
+
+  // PR-3d：AttendanceModal confirm — 0=未到，N≥1=完成服務(attendedPeople=N)
+  function handleAttendanceConfirm(attendedPeople: number) {
+    if (!bookingId) return;
+    if (attendedPeople === 0) {
+      wrapAction(
+        "已標記未到",
+        () => markNoShow(bookingId, "DEDUCTED"),
+        "NO_SHOW",
+        { onSuccess: () => setAttendanceOpen(false) },
+      );
+      return;
+    }
+    wrapAction(
+      "已完成服務",
+      () => markCompleted(bookingId, { attendedPeople }),
+      "COMPLETED",
+      { onSuccess: () => setAttendanceOpen(false) },
+    );
   }
 
   function handleNoShowConfirm(choice: NoShowChoice) {
@@ -381,6 +417,16 @@ export function BookingDetailDrawer({
         loading={isActing}
         isMakeup={data?.booking.isMakeup ?? false}
       />
+      {data && data.booking.bookingType === "FIRST_TRIAL" && data.booking.people > 1 && (
+        <AttendanceModal
+          open={attendanceOpen}
+          onClose={() => setAttendanceOpen(false)}
+          people={data.booking.people}
+          trialDefaultUnit={data.trial?.settings.defaultPrice ?? null}
+          onConfirm={handleAttendanceConfirm}
+          loading={isActing}
+        />
+      )}
       {data && (
         <RescheduleModal
           open={rescheduleOpen}
@@ -401,6 +447,7 @@ export function BookingDetailDrawer({
           dateLabel={`${data.booking.bookingDate} ${data.booking.slotTime}`}
           expectedAmount={data.booking.expectedAmount}
           people={data.booking.people}
+          attendedPeople={data.booking.attendedPeople}
           settings={data.trial.settings}
           onCollected={handleCollected}
         />
@@ -421,6 +468,7 @@ export function BookingDetailDrawer({
             originalMethod={data.trial.collectedMethod}
             originalDate={data.trial.collectedAt}
             people={data.booking.people}
+            attendedPeople={data.booking.attendedPeople}
             settings={data.trial.settings}
             onCorrected={handleCorrected}
           />
@@ -581,6 +629,13 @@ function DrawerContent({
             }
           />
           <KV label="人數" value={`${booking.people} 人`} />
+          {booking.attendedPeople != null &&
+            booking.attendedPeople < booking.people && (
+              <KV
+                label="實際到店"
+                value={`${booking.attendedPeople} / ${booking.people} 人`}
+              />
+            )}
           <KV label="金額" value={amount} />
         </Section>
 
@@ -959,6 +1014,13 @@ function PrefillDrawerContent({
             value={prefill.isMakeup ? "補課" : (prefill.servicePlanName ?? "—")}
           />
           <KV label="人數" value={`${prefill.people} 人`} />
+          {prefill.attendedPeople != null &&
+            prefill.attendedPeople < prefill.people && (
+              <KV
+                label="實際到店"
+                value={`${prefill.attendedPeople} / ${prefill.people} 人`}
+              />
+            )}
           <KV label="金額" value={amount} />
         </Section>
 
