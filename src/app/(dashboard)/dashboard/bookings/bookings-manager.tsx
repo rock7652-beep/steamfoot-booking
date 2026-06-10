@@ -63,6 +63,8 @@ interface BookingEntry {
       displayName: string;
       colorCode: string;
     } | null;
+    // 有效 PACKAGE 剩餘堂數加總（鏡像 getMonthBookingSummary）。0 = 無有效方案。
+    validPackageSessions: number;
   };
   revenueStaff: { id: string; displayName: string; colorCode: string } | null;
   serviceStaff: { id: string; displayName: string } | null;

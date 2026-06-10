@@ -5,6 +5,7 @@ import { getManagerCustomerFilter, getStoreFilter } from "@/lib/manager-visibili
 import { getCanonicalCustomerIdForSession } from "@/lib/customer-identity";
 import { ACTIVE_BOOKING_STATUSES } from "@/lib/booking-constants";
 import { TRIAL_DEFAULTS } from "@/lib/shop-config";
+import { todayRange } from "@/lib/date-utils";
 import type { BookingStatus, Prisma } from "@prisma/client";
 
 export interface ListBookingsOptions {
@@ -233,6 +234,18 @@ export async function getMonthBookingSummary(year: number, month: number, active
     bookingDate: { gte: startDate, lte: endDate },
     bookingStatus: { in: [...ACTIVE_BOOKING_STATUSES] },
   };
+
+  // 「有效堂數」沿用顧客清單（PR #280）的唯一定義：ACTIVE + 尚有剩餘 + 未過期的 PACKAGE。
+  // 排除 TRIAL / SINGLE / 點數型 / 已過期 / 已用完。expiryDate 用 todayRange().start
+  // （本地日 00:00）判界，當天到期仍算有效；不手刻時區。Server-side reduce 成單一
+  // 數字 customer.validPackageSessions，不把 wallet 陣列送到 client。
+  const { start: todayStartLocal } = todayRange();
+  const validPackageWalletWhere: Prisma.CustomerPlanWalletWhereInput = {
+    status: "ACTIVE",
+    remainingSessions: { gt: 0 },
+    plan: { category: "PACKAGE" },
+    OR: [{ expiryDate: null }, { expiryDate: { gte: todayStartLocal } }],
+  };
   const [dailyCounts, staffCounts, monthBookings] = await Promise.all([
     prisma.booking.groupBy({
       by: ["bookingDate"],
@@ -277,6 +290,11 @@ export async function getMonthBookingSummary(year: number, month: number, active
             serviceNote: true, // 內部服務備註（後台限定）— 當日清單提醒 + 預約詳情顯示
             assignedStaff: {
               select: { id: true, displayName: true, colorCode: true },
+            },
+            // 有效 PACKAGE 堂數（當日預約 Drawer 顯示「剩 N 堂」）— batched relation，無 N+1。
+            planWallets: {
+              where: validPackageWalletWhere,
+              select: { remainingSessions: true },
             },
           },
         },
@@ -388,6 +406,8 @@ export async function getMonthBookingSummary(year: number, month: number, active
         displayName: string;
         colorCode: string;
       } | null;
+      // 有效 PACKAGE 剩餘堂數加總（已在 query where 收斂；0 = 無有效方案）。
+      validPackageSessions: number;
     };
     revenueStaff: { id: string; displayName: string; colorCode: string } | null;
     serviceStaff: { id: string; displayName: string } | null;
@@ -445,6 +465,11 @@ export async function getMonthBookingSummary(year: number, month: number, active
               colorCode: b.customer.assignedStaff.colorCode,
             }
           : null,
+        // server-side reduce 成單一數字，不把 wallet 陣列送到 client
+        validPackageSessions: b.customer.planWallets.reduce(
+          (sum, w) => sum + w.remainingSessions,
+          0,
+        ),
       },
       revenueStaff: b.revenueStaff
         ? {
