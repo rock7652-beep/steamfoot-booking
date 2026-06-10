@@ -94,6 +94,9 @@ export function CollectTrialModal({
           | "CREDIT_CARD"
           | "OTHER",
         amount: Number.isFinite(amountNum) ? amountNum : undefined,
+        // PR-3d flow pivot：當收款入口前先過 AttendanceModal 時，
+        // attendedPeople 透過 prop 帶入；同 transaction 一併寫入 Booking。
+        attendedPeople: attendedPeople ?? undefined,
       });
       if (r.success) {
         toast.success("已收款");
