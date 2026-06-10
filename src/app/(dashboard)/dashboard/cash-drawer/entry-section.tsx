@@ -15,10 +15,10 @@
  *   - 新增後 server action redirect 回原頁，revalidatePath 已在 action 內 ship
  */
 
-import { redirect } from "next/navigation";
 import type { CashDrawerEntry } from "@prisma/client";
 import { formatTWTime } from "@/lib/date-utils";
 import { addCashDrawerEntryAction } from "@/server/actions/cash-drawer";
+import type { ActionResult } from "@/types";
 import { AdjustmentForm } from "./cash-entry-forms";
 
 interface EntrySectionProps {
@@ -40,17 +40,18 @@ export function EntrySection({
   canAddEntry,
   returnPath = "/dashboard/cash-drawer",
 }: EntrySectionProps) {
-  // 把 error message 安全地接在 returnPath 後面（保留既有 hash + query string）
-  const errorRedirect = (msg: string) =>
-    `${returnPath}${returnPath.includes("?") ? "&" : "?"}cashDrawerError=${encodeURIComponent(msg)}`;
-
-  async function handleAddAdjustment(formData: FormData) {
+  // A-1：改回傳 ActionResult（不再 server redirect）。成功 / 失敗的導航與錯誤
+  // 呈現由 AdjustmentForm 外殼（CashDrawerActionForm，useActionState + client 導航）處理。
+  async function handleAddAdjustment(
+    _prev: ActionResult<unknown> | null,
+    formData: FormData,
+  ): Promise<ActionResult<{ entryId: string }>> {
     "use server";
     const direction = formData.get("direction");
     if (direction !== "IN" && direction !== "OUT") {
-      redirect(errorRedirect("調整必須選擇方向（盤點溢出 / 盤點短少）"));
+      return { success: false, error: "調整必須選擇方向（盤點溢出 / 盤點短少）" };
     }
-    const result = await addCashDrawerEntryAction({
+    return addCashDrawerEntryAction({
       sessionId,
       type: "CASH_ADJUSTMENT",
       direction,
@@ -58,10 +59,6 @@ export function EntrySection({
       reason: String(formData.get("reason") ?? ""),
       note: (formData.get("note") as string) || undefined,
     });
-    if (!result.success) {
-      redirect(errorRedirect(result.error || "新增調整失敗"));
-    }
-    redirect(returnPath);
   }
 
   return (
@@ -83,7 +80,7 @@ export function EntrySection({
               ＋ 盤點調整（盤點短少 / 溢出）
             </summary>
             <div className="border-t border-earth-200">
-              <AdjustmentForm action={handleAddAdjustment} />
+              <AdjustmentForm action={handleAddAdjustment} returnPath={returnPath} />
             </div>
           </details>
         </div>
