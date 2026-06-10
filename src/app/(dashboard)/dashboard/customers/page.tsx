@@ -149,6 +149,7 @@ export default async function CustomersPage({ searchParams }: PageProps) {
     mergedIntoCustomerId: c.mergedIntoCustomerId,
     userStatus: c.user?.status ?? null,
     serviceNote: c.serviceNote, // 內部服務備註（後台限定）— 列表顯示一行摘要
+    validPackageSessions: c.validPackageSessions, // 有效 PACKAGE 剩餘堂數加總
   }));
 
   return (

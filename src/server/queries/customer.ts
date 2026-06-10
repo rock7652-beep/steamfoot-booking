@@ -2,7 +2,7 @@ import { prisma } from "@/lib/db";
 import { requireSession, requireStaffSession } from "@/lib/session";
 import { AppError } from "@/lib/errors";
 import { getStoreFilter } from "@/lib/manager-visibility";
-import { monthRange, toLocalMonthStr } from "@/lib/date-utils";
+import { monthRange, toLocalMonthStr, todayRange } from "@/lib/date-utils";
 import type { CustomerStage, Prisma } from "@prisma/client";
 
 /**
@@ -134,6 +134,17 @@ export async function listCustomers(options: ListCustomersOptions & { activeStor
     ...baseOrderBy,
   ];
 
+  // 「有效堂數」只計 PACKAGE 類方案：ACTIVE + 尚有剩餘 + 未過期。
+  // 排除 TRIAL / SINGLE / 點數型 / 已過期 / 已用完，避免店長誤判是否需提醒儲值。
+  // expiryDate 用 todayRange().start（本地日 00:00）判界，當天到期仍算有效；不手刻時區。
+  const { start: todayStartLocal } = todayRange();
+  const validPackageWalletWhere: Prisma.CustomerPlanWalletWhereInput = {
+    status: "ACTIVE",
+    remainingSessions: { gt: 0 },
+    plan: { category: "PACKAGE" },
+    OR: [{ expiryDate: null }, { expiryDate: { gte: todayStartLocal } }],
+  };
+
   const [customers, total] = await Promise.all([
     prisma.customer.findMany({
       where,
@@ -142,7 +153,7 @@ export async function listCustomers(options: ListCustomersOptions & { activeStor
         assignedStaff: { select: { id: true, displayName: true, colorCode: true } },
         sponsor: { select: { id: true, name: true } },
         planWallets: {
-          where: { status: "ACTIVE" },
+          where: validPackageWalletWhere,
           select: { remainingSessions: true },
         },
         _count: { select: { sponsoredCustomers: true } },
@@ -175,13 +186,15 @@ export async function listCustomers(options: ListCustomersOptions & { activeStor
     latestCompletedBookings.map((r) => [r.customerId, r._max.bookingDate]),
   );
 
-  // 計算每位顧客的剩餘堂數總計 + 推薦數；以 booking-derived 取代顯示用 lastVisitAt
+  // 計算每位顧客的有效 PACKAGE 堂數加總 + 推薦數；以 booking-derived 取代顯示用 lastVisitAt。
+  // 命名用 validPackageSessions（而非 totalRemainingSessions）以明示已收斂語意：
+  // planWallets 已在上方 where 過濾為「有效 PACKAGE」，故此處 reduce 即為有效堂數。
   const customersWithStats = customers.map((c) => ({
     ...c,
     // 顯示優先：booking-derived；若該顧客沒任何 COMPLETED booking，
     // 退回 Customer.lastVisitAt 維持向後相容（極少數舊資料場景）
     lastVisitAt: lastVisitFromBooking.get(c.id) ?? c.lastVisitAt,
-    totalRemainingSessions: c.planWallets.reduce(
+    validPackageSessions: c.planWallets.reduce(
       (sum, w) => sum + w.remainingSessions,
       0
     ),
