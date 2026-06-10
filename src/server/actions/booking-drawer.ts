@@ -53,6 +53,8 @@ export interface BookingDrawerPayload {
     } | null;
     // 體驗 499 PR-3：建立時的預計收款金額快照（僅 FIRST_TRIAL 有值）
     expectedAmount: number | null;
+    // PR-3d：實際到店人數（FIRST_TRIAL 部分到店；null = 未記錄／全到）
+    attendedPeople: number | null;
   };
   customerSummary: {
     totalBookings: number;
@@ -288,6 +290,7 @@ export async function fetchBookingDetail(
         booking.expectedAmount == null
           ? null
           : Number(booking.expectedAmount),
+      attendedPeople: booking.attendedPeople,
     },
     customerSummary: {
       totalBookings: completedAgg,

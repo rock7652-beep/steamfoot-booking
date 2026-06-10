@@ -36,4 +36,9 @@ export const updateBookingSchema = z.object({
 
 export const completeBookingSchema = z.object({
   serviceStaffId: z.string().cuid().optional(),
+  // PR-3d：實際到店人數（FIRST_TRIAL 部分到店流程）。
+  // 1..people；省略則維持 null（向後相容，顯示與收款皆視為全到）。
+  // server 端再驗證 attendedPeople ≤ booking.people；
+  // attendedPeople < booking.people 只接受 FIRST_TRIAL。
+  attendedPeople: z.number().int().min(1).max(4).optional(),
 });

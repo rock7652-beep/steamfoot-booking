@@ -16,10 +16,21 @@ const h = vi.hoisted(() => {
   const txFindFirstInTx = vi.fn(async () => null as { id: string } | null);
   // FOR UPDATE row lock — 紀錄被呼叫即可，回傳值不重要。
   const queryRaw: ReturnType<typeof vi.fn> = vi.fn();
+  // PR-3d flow pivot：收款時若同步傳入 attendedPeople，server 會在同
+  // transaction 內以 txClient.booking.update 寫進 DB。本 mock 用來驗證
+  // 是否被呼叫、用什麼參數呼叫，以及驗證未傳 attendedPeople 時不被呼叫。
+  // 明確標註 arg 型別 → mock.calls[0][0] 才有可用 tuple 元素型別（非 []）。
+  const bookingUpdateInTx = vi.fn(
+    async (args: {
+      where: { id: string };
+      data: { attendedPeople: number };
+    }) => ({ id: args.where.id }),
+  );
   return {
     txCreate,
     txFindFirstInTx,
     queryRaw,
+    bookingUpdateInTx,
     requirePermission: vi.fn(async () => ({
       storeId: "store_1",
       staffId: "op_staff",
@@ -47,6 +58,7 @@ const h = vi.hoisted(() => {
     txRun: vi.fn(async (fn: (c: unknown) => unknown) =>
       fn({
         transaction: { create: txCreate, findFirst: txFindFirstInTx },
+        booking: { update: bookingUpdateInTx },
         $queryRaw: queryRaw,
       }),
     ),
@@ -472,6 +484,212 @@ describe("collectTrialPayment — PR-3c people × amount", () => {
   });
 });
 
+describe("collectTrialPayment — PR-3d partial attendance (effectivePeople = attendedPeople ?? people)", () => {
+  // 部分到店：people=2、attendedPeople=1、無 snapshot、未傳 amount
+  // → server 用 effectivePeople=1 計算 default × 1 = 499
+  it("people=2 + attendedPeople=1 + 無 snapshot + 未傳 amount → 499", async () => {
+    h.bookingFindFirst.mockResolvedValue({
+      id: "bk_1",
+      bookingType: "FIRST_TRIAL",
+      bookingStatus: "PENDING",
+      customerId: "cust_1",
+      servicePlanId: "plan_trial",
+      expectedAmount: null,
+      people: 2,
+      attendedPeople: 1,
+      customer: { assignedStaffId: null },
+    } as unknown as never);
+    await collectTrialPayment(base);
+    expect(lastTx().amount).toBe(499);
+  });
+
+  // expectedAmount=998（原 PR-3 快照）但實到 1 → server 不接管「重算」職責，
+  // 沿用 snapshot 998；clamp 範圍是 effectivePeople=1 的 [0, 3000]，998 仍在範圍內。
+  // （前端在 modal 才會把預設改成 499；server 尊重明確的 snapshot 為 caller 意圖。）
+  it("people=2 + attendedPeople=1 + snapshot 998 + 未傳 amount → 998（server 不重算 snapshot）", async () => {
+    h.bookingFindFirst.mockResolvedValue({
+      id: "bk_1",
+      bookingType: "FIRST_TRIAL",
+      bookingStatus: "PENDING",
+      customerId: "cust_1",
+      servicePlanId: "plan_trial",
+      expectedAmount: 998,
+      people: 2,
+      attendedPeople: 1,
+      customer: { assignedStaffId: null },
+    } as unknown as never);
+    await collectTrialPayment(base);
+    expect(lastTx().amount).toBe(998);
+  });
+
+  // 店長手動傳 amount → 視為本次合計，clamp 到 effectivePeople 範圍
+  it("people=2 + attendedPeople=1 + manual 499 → 499", async () => {
+    h.bookingFindFirst.mockResolvedValue({
+      id: "bk_1",
+      bookingType: "FIRST_TRIAL",
+      bookingStatus: "PENDING",
+      customerId: "cust_1",
+      servicePlanId: "plan_trial",
+      expectedAmount: 998,
+      people: 2,
+      attendedPeople: 1,
+      customer: { assignedStaffId: null },
+    } as unknown as never);
+    await collectTrialPayment({ ...base, amount: 499 });
+    expect(lastTx().amount).toBe(499);
+  });
+
+  // clamp 範圍依 effectivePeople=1（max 3000），手動 99999 → 3000（非 6000）
+  it("people=2 + attendedPeople=1 + 99999 → clamps to 3000 (max × effectivePeople)", async () => {
+    h.bookingFindFirst.mockResolvedValue({
+      id: "bk_1",
+      bookingType: "FIRST_TRIAL",
+      bookingStatus: "PENDING",
+      customerId: "cust_1",
+      servicePlanId: "plan_trial",
+      expectedAmount: null,
+      people: 2,
+      attendedPeople: 1,
+      customer: { assignedStaffId: null },
+    } as unknown as never);
+    await collectTrialPayment({ ...base, amount: 99999 });
+    expect(lastTx().amount).toBe(3000);
+  });
+
+  // attendedPeople=null（向後相容；沒記錄部分到店）→ 沿用 people 行為
+  it("attendedPeople=null → falls back to people (PR-3c baseline)", async () => {
+    h.bookingFindFirst.mockResolvedValue({
+      id: "bk_1",
+      bookingType: "FIRST_TRIAL",
+      bookingStatus: "PENDING",
+      customerId: "cust_1",
+      servicePlanId: "plan_trial",
+      expectedAmount: null,
+      people: 2,
+      attendedPeople: null,
+      customer: { assignedStaffId: null },
+    } as unknown as never);
+    await collectTrialPayment(base);
+    expect(lastTx().amount).toBe(998);
+  });
+});
+
+// PR-3d flow pivot：收款入口 AttendanceModal 帶入的 attendedPeople 必須：
+//   - 計入 effectivePeople（蓋過 booking.attendedPeople 的舊值，輸入優先）
+//   - 在同 transaction 內以 booking.update 寫進 DB（原子化）
+//   - 上界驗證 ≤ booking.people（超過 → BUSINESS_RULE，不寫 tx 不寫 booking）
+//   - 未傳 attendedPeople → booking.update 不被呼叫（向後相容，避免覆寫舊值）
+describe("collectTrialPayment — PR-3d flow pivot (input attendedPeople persisted atomically)", () => {
+  it("people=2 + input attendedPeople=1 → amount 499 AND booking.update called with attendedPeople=1", async () => {
+    h.bookingFindFirst.mockResolvedValue({
+      id: "bk_1",
+      bookingType: "FIRST_TRIAL",
+      bookingStatus: "PENDING",
+      customerId: "cust_1",
+      servicePlanId: "plan_trial",
+      expectedAmount: null,
+      people: 2,
+      attendedPeople: null,
+      customer: { assignedStaffId: null },
+    } as unknown as never);
+    const r = await collectTrialPayment({ ...base, attendedPeople: 1 });
+    expect(r.success).toBe(true);
+    expect(lastTx().amount).toBe(499);
+    expect(h.bookingUpdateInTx).toHaveBeenCalledTimes(1);
+    const updArgs = h.bookingUpdateInTx.mock.calls[0][0] as unknown as {
+      where: { id: string };
+      data: { attendedPeople: number };
+    };
+    expect(updArgs.where.id).toBe("bk_1");
+    expect(updArgs.data.attendedPeople).toBe(1);
+  });
+
+  it("people=2 + input attendedPeople=2 → amount 998 AND booking.update called with attendedPeople=2", async () => {
+    h.bookingFindFirst.mockResolvedValue({
+      id: "bk_1",
+      bookingType: "FIRST_TRIAL",
+      bookingStatus: "PENDING",
+      customerId: "cust_1",
+      servicePlanId: "plan_trial",
+      expectedAmount: null,
+      people: 2,
+      attendedPeople: null,
+      customer: { assignedStaffId: null },
+    } as unknown as never);
+    const r = await collectTrialPayment({ ...base, attendedPeople: 2 });
+    expect(r.success).toBe(true);
+    expect(lastTx().amount).toBe(998);
+    expect(h.bookingUpdateInTx).toHaveBeenCalledTimes(1);
+    const updArgs = h.bookingUpdateInTx.mock.calls[0][0] as unknown as {
+      where: { id: string };
+      data: { attendedPeople: number };
+    };
+    expect(updArgs.data.attendedPeople).toBe(2);
+  });
+
+  it("input attendedPeople > booking.people → BUSINESS_RULE, no tx create, no booking.update", async () => {
+    h.bookingFindFirst.mockResolvedValue({
+      id: "bk_1",
+      bookingType: "FIRST_TRIAL",
+      bookingStatus: "PENDING",
+      customerId: "cust_1",
+      servicePlanId: "plan_trial",
+      expectedAmount: null,
+      people: 2,
+      attendedPeople: null,
+      customer: { assignedStaffId: null },
+    } as unknown as never);
+    const r = await collectTrialPayment({ ...base, attendedPeople: 3 });
+    expect(r.success).toBe(false);
+    if (!r.success) expect(r.error).toMatch(/實際到店人數不可大於原預約人數/);
+    expect(h.txCreate).not.toHaveBeenCalled();
+    expect(h.bookingUpdateInTx).not.toHaveBeenCalled();
+  });
+
+  it("no input attendedPeople → booking.update NOT called (legacy / backward compat)", async () => {
+    h.bookingFindFirst.mockResolvedValue({
+      id: "bk_1",
+      bookingType: "FIRST_TRIAL",
+      bookingStatus: "PENDING",
+      customerId: "cust_1",
+      servicePlanId: "plan_trial",
+      expectedAmount: null,
+      people: 2,
+      attendedPeople: null,
+      customer: { assignedStaffId: null },
+    } as unknown as never);
+    const r = await collectTrialPayment(base);
+    expect(r.success).toBe(true);
+    expect(h.txCreate).toHaveBeenCalledTimes(1);
+    expect(h.bookingUpdateInTx).not.toHaveBeenCalled();
+  });
+
+  it("input attendedPeople takes precedence over booking.attendedPeople (DB) for effectivePeople", async () => {
+    // 邊界 case：DB 已有 attendedPeople=2，但收款入口傳入 1（更正）→
+    // effectivePeople=1，amount=499，booking.update 覆寫成 1。
+    h.bookingFindFirst.mockResolvedValue({
+      id: "bk_1",
+      bookingType: "FIRST_TRIAL",
+      bookingStatus: "PENDING",
+      customerId: "cust_1",
+      servicePlanId: "plan_trial",
+      expectedAmount: null,
+      people: 2,
+      attendedPeople: 2,
+      customer: { assignedStaffId: null },
+    } as unknown as never);
+    const r = await collectTrialPayment({ ...base, attendedPeople: 1 });
+    expect(r.success).toBe(true);
+    expect(lastTx().amount).toBe(499);
+    expect(h.bookingUpdateInTx).toHaveBeenCalledTimes(1);
+    const updArgs = h.bookingUpdateInTx.mock.calls[0][0] as unknown as {
+      where: { id: string };
+      data: { attendedPeople: number };
+    };
+    expect(updArgs.data.attendedPeople).toBe(1);
+  });
+});
+
 // Validator: non-cuid bookingId accepted (staging/import IDs); empty rejected;
 // UNPAID payment method rejected (no 待確認 path).
 describe("collectTrialPaymentSchema", () => {
@@ -504,5 +722,37 @@ describe("collectTrialPaymentSchema", () => {
         paymentMethod: "UNPAID",
       }),
     ).toThrow();
+  });
+  it("accepts optional attendedPeople in range 1..4 (PR-3d flow pivot)", async () => {
+    const { collectTrialPaymentSchema } = await import(
+      "@/lib/validators/trial-booking"
+    );
+    // 未傳：合法（向後相容）
+    expect(() =>
+      collectTrialPaymentSchema.parse({
+        bookingId: "bk_1",
+        paymentMethod: "CASH",
+      }),
+    ).not.toThrow();
+    // 1..4：合法
+    for (const n of [1, 2, 3, 4]) {
+      expect(() =>
+        collectTrialPaymentSchema.parse({
+          bookingId: "bk_1",
+          paymentMethod: "CASH",
+          attendedPeople: n,
+        }),
+      ).not.toThrow();
+    }
+    // 0 / 5 / 非整數：拒絕
+    for (const n of [0, 5, 1.5]) {
+      expect(() =>
+        collectTrialPaymentSchema.parse({
+          bookingId: "bk_1",
+          paymentMethod: "CASH",
+          attendedPeople: n,
+        }),
+      ).toThrow();
+    }
   });
 });

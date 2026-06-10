@@ -206,6 +206,8 @@ export async function collectTrialPayment(
         servicePlanId: true,
         expectedAmount: true,
         people: true,
+        // PR-3d：實到人數（partial attendance）。null = 未記錄 → 視為全到。
+        attendedPeople: true,
         customer: { select: { assignedStaffId: true } },
       },
     });
@@ -223,18 +225,33 @@ export async function collectTrialPayment(
       );
     }
 
-    // 金額（PR-3c）：以「本次總額」語意處理。
+    // PR-3d flow pivot：data.attendedPeople 為現場勾選的實到人數（收款前先問）。
+    //   - 上界：不可大於原預約人數
+    //   - 非 FIRST_TRIAL 不允許 partial（此處 bookingType 已先在上方阻擋，留作防線）
+    if (data.attendedPeople != null && data.attendedPeople > booking.people) {
+      throw new AppError(
+        "BUSINESS_RULE",
+        "實際到店人數不可大於原預約人數",
+      );
+    }
+
+    // 金額（PR-3c + PR-3d + flow pivot）：以「本次總額」語意處理。
+    //   - effectivePeople = 收款當下傳入 ?? booking 已記錄 ?? 原 people。
+    //     收款入口已先問 AttendanceModal，傳入值優先；fallback 為已存值（避免覆寫）；
+    //     最後 fallback 為 booking.people（向後相容）。
     //   - data.amount 提供 → 視為店長手動輸入之總額（不再 × people）。
     //   - 未提供且 booking.expectedAmount 有值 → 用快照（已是總額）。
-    //   - 兩者皆無 → clampTrialTotal 內自帶 default × people。
-    // clampTrialTotal 在 allowEdit=false 時強制回 default × people，忽略傳入。
+    //   - 兩者皆無 → clampTrialTotal 內自帶 default × effectivePeople。
+    // clampTrialTotal 在 allowEdit=false 時強制回 default × effectivePeople，忽略傳入。
     const people = booking.people || 1;
+    const effectivePeople =
+      data.attendedPeople ?? booking.attendedPeople ?? people;
     const baseAmount =
       data.amount ??
       (booking.expectedAmount == null
         ? undefined
         : Number(booking.expectedAmount));
-    const amount = clampTrialTotal(baseAmount, people, settings);
+    const amount = clampTrialTotal(baseAmount, effectivePeople, settings);
 
     const revenueStaffId =
       booking.customer.assignedStaffId ??
@@ -277,6 +294,16 @@ export async function collectTrialPayment(
         grossAmount: amount,
         netAmount: amount,
       });
+
+      // PR-3d flow pivot：收款時若同步確認了實際到店人數，在同一 transaction 內
+      // 寫入 Booking.attendedPeople。同 transaction 保證「收款成功 AND
+      // attendedPeople 已記錄」原子成立；取消收款／中途錯誤皆 rollback，DB 不留髒值。
+      if (data.attendedPeople != null) {
+        await txClient.booking.update({
+          where: { id: booking.id },
+          data: { attendedPeople: data.attendedPeople },
+        });
+      }
 
       // wallet-free：不帶 customerPlanWalletId，不建 WalletSession，
       // 不呼叫 assignPlanToCustomer。

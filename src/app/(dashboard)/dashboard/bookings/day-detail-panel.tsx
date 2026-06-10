@@ -12,6 +12,9 @@ export interface DayBooking {
   id: string;
   slotTime: string;
   people: number;
+  /** PR-3d：實際到店人數（FIRST_TRIAL；null = 未記錄／全到）。
+   *  部分到店時 list row 在 PeopleBadge 後顯示「實到 N/M」。 */
+  attendedPeople: number | null;
   isMakeup: boolean;
   isCheckedIn: boolean;
   bookingStatus: string;
@@ -389,6 +392,15 @@ function TimelineItem({
           {booking.people > 1 && (
             <PeopleBadge people={booking.people} size="compact" />
           )}
+          {/* PR-3d：部分到店時保留原 PeopleBadge，補上「實到 N/M」醒目橘字。
+              人 pill 顯示「原本預約」、annotation 顯示「實際到店」— Decision H。 */}
+          {booking.people > 1 &&
+            booking.attendedPeople != null &&
+            booking.attendedPeople < booking.people && (
+              <span className="shrink-0 text-[11px] font-medium text-amber-700">
+                （實到 {booking.attendedPeople}/{booking.people}）
+              </span>
+            )}
           <span className="min-w-0 flex-1 truncate text-sm font-semibold text-earth-900">
             {booking.customer?.name ?? "—"}
           </span>

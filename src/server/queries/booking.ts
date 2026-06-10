@@ -261,6 +261,8 @@ export async function getMonthBookingSummary(year: number, month: number, active
         isMakeup: true,
         isCheckedIn: true,
         people: true,
+        // PR-3d：實際到店人數（FIRST_TRIAL 部分到店；day-panel 行尾顯示「實到 N/M」）
+        attendedPeople: true,
         // 體驗 499 PR-2：日面板 badge「體驗·未收款｜NT$xxx」用（最小新增 2 欄）
         bookingType: true,
         expectedAmount: true,
@@ -359,6 +361,8 @@ export async function getMonthBookingSummary(year: number, month: number, active
     isMakeup: boolean;
     isCheckedIn: boolean;
     people: number;
+    // PR-3d：實際到店人數（FIRST_TRIAL 部分到店；null = 未記錄／全到）
+    attendedPeople: number | null;
     bookingType: string;
     expectedAmount: number | null;
     // PR-D1D：FIRST_TRIAL badge fallback 用，僅 FIRST_TRIAL 有值；其他 type = null。
@@ -415,6 +419,7 @@ export async function getMonthBookingSummary(year: number, month: number, active
       isMakeup: b.isMakeup,
       isCheckedIn: b.isCheckedIn,
       people: b.people,
+      attendedPeople: b.attendedPeople,
       bookingType: b.bookingType,
       // Decimal → number 在 server 邊界轉換，避免 RSC 序列化問題
       expectedAmount: b.expectedAmount == null ? null : Number(b.expectedAmount),

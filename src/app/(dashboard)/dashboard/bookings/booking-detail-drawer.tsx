@@ -21,6 +21,7 @@ import { NoShowModal, type NoShowChoice } from "./no-show-modal";
 import { RescheduleModal } from "./reschedule-modal";
 import { CollectTrialModal } from "./collect-trial-modal";
 import { CorrectTrialCollectionModal } from "./correct-trial-collection-modal";
+import { AttendanceModal } from "./attendance-modal";
 import { CollectSingleModal } from "./collect-single-modal";
 import { AdjustCheckoutModal } from "./adjust-checkout-modal";
 import { computeAmount, resolveTrialDisplayAmount } from "./compute-amount";
@@ -75,6 +76,8 @@ export interface BookingPrefill {
   isMakeup: boolean;
   isCheckedIn: boolean;
   people: number;
+  /** PR-3d：實際到店人數（FIRST_TRIAL；null = 未記錄／全到）。 */
+  attendedPeople: number | null;
   customerName: string;
   customerPhone: string;
   /** 內部服務備註（後台限定）— prefill 即可即時顯示。 */
@@ -126,6 +129,22 @@ export function BookingDetailDrawer({
   const [error, setError] = useState<string | null>(null);
   const [isActing, startAction] = useTransition();
   const [noShowOpen, setNoShowOpen] = useState(false);
+  // PR-3d：實際到店人數 modal — FIRST_TRIAL 且 people > 1。
+  // flow pivot：可由「收款」或「完成服務」入口觸發；以 intent 分流：
+  //   - "collect" + N≥1 → 開 CollectTrialModal（attendedPeople 透過
+  //     pendingAttendedPeople 帶入，收款 server 端同 transaction 寫 DB）
+  //   - "collect" + 0     → markNoShow
+  //   - "complete" + N≥1 → markCompleted({ attendedPeople: N })
+  //   - "complete" + 0   → markNoShow
+  const [attendanceOpen, setAttendanceOpen] = useState(false);
+  const [attendanceIntent, setAttendanceIntent] = useState<
+    "collect" | "complete" | null
+  >(null);
+  // 暫存「收款入口先勾選的實到人數」，待 CollectTrialModal 收款成功時連同
+  // server transaction 一併寫 DB；取消收款 / 切換預約 → 清空，避免髒資料。
+  const [pendingAttendedPeople, setPendingAttendedPeople] = useState<
+    number | null
+  >(null);
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
   const [collectOpen, setCollectOpen] = useState(false);
   const [correctOpen, setCorrectOpen] = useState(false);
@@ -142,10 +161,13 @@ export function BookingDetailDrawer({
   // 「依 prop 變化調整 state」模式，非 effect）。cache hit → 第一個 frame 就
   // 顯示完整 payload（含操作），無 skeleton；cache miss → null → 走 prefill。
   // 由 seededFor 守門，每個 id 只 seed 一次，不會無限迴圈。
+  // flow pivot：切換 booking 時順手清掉 AttendanceModal 的暫存實到人數，
+  // 避免上一筆未收款的選擇被帶到下一筆。
   if (open && bookingId && seededFor !== bookingId) {
     setSeededFor(bookingId);
     setData(cache?.get(bookingId) ?? null);
     setError(null);
+    setPendingAttendedPeople(null);
   }
 
   // Derived loading state — `data` is "fresh" when its bookingId matches the
@@ -234,8 +256,86 @@ export function BookingDetailDrawer({
     });
   }
 
+  // 收款入口（flow pivot）：FIRST_TRIAL + people > 1 + 尚未確認實到人數 →
+  // 先問 AttendanceModal（intent="collect"）；其餘狀況直接開 CollectTrialModal。
+  // people=1 或已存 attendedPeople（如 完成服務 fallback 已寫入後再點收款）→
+  // 不重問，直接收款。
+  function handleCollect() {
+    const b = data?.booking;
+    if (
+      b &&
+      b.bookingType === "FIRST_TRIAL" &&
+      b.people > 1 &&
+      b.attendedPeople == null
+    ) {
+      setAttendanceIntent("collect");
+      setAttendanceOpen(true);
+      return;
+    }
+    setCollectOpen(true);
+  }
+
+  // 完成服務入口：若 attendedPeople 已存（多半是收款入口寫入過）→ 直接完成服務，
+  // 不重問。否則 FIRST_TRIAL + people > 1 仍以 AttendanceModal fallback 詢問
+  //（涵蓋未走收款路徑直接完成服務的情境）。
   function handleComplete() {
+    const b = data?.booking;
+    if (
+      b &&
+      b.bookingType === "FIRST_TRIAL" &&
+      b.people > 1 &&
+      b.attendedPeople == null &&
+      (b.bookingStatus === "PENDING" || b.bookingStatus === "CONFIRMED")
+    ) {
+      setAttendanceIntent("complete");
+      setAttendanceOpen(true);
+      return;
+    }
     wrapAction("已完成服務", () => markCompleted(bookingId!), "COMPLETED");
+  }
+
+  // AttendanceModal confirm — 依 attendanceIntent 分流。
+  //   intent="collect"：0 → markNoShow；N≥1 → 暫存 pendingAttendedPeople 並開 CollectTrialModal
+  //   intent="complete"：0 → markNoShow；N≥1 → markCompleted({attendedPeople:N})
+  // 不論成功失敗都關閉 AttendanceModal；intent 在分流後即可清空。
+  function handleAttendanceConfirm(attendedPeople: number) {
+    if (!bookingId) return;
+    const intent = attendanceIntent;
+    if (attendedPeople === 0) {
+      wrapAction(
+        "已標記未到",
+        () => markNoShow(bookingId, "DEDUCTED"),
+        "NO_SHOW",
+        {
+          onSuccess: () => {
+            setAttendanceOpen(false);
+            setAttendanceIntent(null);
+          },
+        },
+      );
+      return;
+    }
+    if (intent === "collect") {
+      // 收款入口：暫存 N，開 CollectTrialModal；收款 server 在同 transaction 寫 DB。
+      // 取消收款 → CollectTrialModal onClose 清掉 pendingAttendedPeople。
+      setPendingAttendedPeople(attendedPeople);
+      setAttendanceOpen(false);
+      setAttendanceIntent(null);
+      setCollectOpen(true);
+      return;
+    }
+    // intent === "complete"（或 fallback）：直接完成服務，markCompleted 寫 DB。
+    wrapAction(
+      "已完成服務",
+      () => markCompleted(bookingId, { attendedPeople }),
+      "COMPLETED",
+      {
+        onSuccess: () => {
+          setAttendanceOpen(false);
+          setAttendanceIntent(null);
+        },
+      },
+    );
   }
 
   function handleNoShowConfirm(choice: NoShowChoice) {
@@ -280,8 +380,11 @@ export function BookingDetailDrawer({
   // 體驗 499 PR-3：現場收款成功 — 預約狀態不變，重抓 detail 讓
   // 付款狀態 / badge 翻成「已收款」；onUpdated(null) 讓母層重整當日資料
   // （月曆 strip 的 badge 一併更新）。
+  // flow pivot：成功後 pendingAttendedPeople 已隨 server transaction 寫入 DB，
+  // 清掉 in-memory 暫存即可。
   function handleCollected() {
     setCollectOpen(false);
+    setPendingAttendedPeople(null);
     setReloadNonce((n) => n + 1);
     if (bookingId) onUpdated?.(bookingId, null);
   }
@@ -349,7 +452,7 @@ export function BookingDetailDrawer({
               cancel: handleCancel,
               revert: handleRevert,
               reschedule: () => setRescheduleOpen(true),
-              collect: () => setCollectOpen(true),
+              collect: handleCollect,
               correct: () => setCorrectOpen(true),
               collectSingle: () => setCollectSingleOpen(true),
               adjustCheckout: () => setAdjustCheckoutOpen(true),
@@ -381,6 +484,19 @@ export function BookingDetailDrawer({
         loading={isActing}
         isMakeup={data?.booking.isMakeup ?? false}
       />
+      {data && data.booking.bookingType === "FIRST_TRIAL" && data.booking.people > 1 && (
+        <AttendanceModal
+          open={attendanceOpen}
+          onClose={() => {
+            setAttendanceOpen(false);
+            setAttendanceIntent(null);
+          }}
+          people={data.booking.people}
+          trialDefaultUnit={data.trial?.settings.defaultPrice ?? null}
+          onConfirm={handleAttendanceConfirm}
+          loading={isActing}
+        />
+      )}
       {data && (
         <RescheduleModal
           open={rescheduleOpen}
@@ -395,12 +511,22 @@ export function BookingDetailDrawer({
       {data && data.trial && !data.trial.collected && (
         <CollectTrialModal
           open={collectOpen}
-          onClose={() => setCollectOpen(false)}
+          onClose={() => {
+            setCollectOpen(false);
+            // 取消收款：清掉 AttendanceModal 暫存值，避免下次重開抓到髒值。
+            // attendedPeople 尚未進入 server transaction，DB 不留任何寫入。
+            setPendingAttendedPeople(null);
+          }}
           bookingId={data.booking.id}
           customerName={data.booking.customer.name}
           dateLabel={`${data.booking.bookingDate} ${data.booking.slotTime}`}
           expectedAmount={data.booking.expectedAmount}
           people={data.booking.people}
+          // flow pivot：收款入口先 AttendanceModal 時 pendingAttendedPeople 帶入；
+          // 否則 fallback 為 DB 上已記錄的 attendedPeople（多半為 null）。
+          attendedPeople={
+            pendingAttendedPeople ?? data.booking.attendedPeople
+          }
           settings={data.trial.settings}
           onCollected={handleCollected}
         />
@@ -421,6 +547,7 @@ export function BookingDetailDrawer({
             originalMethod={data.trial.collectedMethod}
             originalDate={data.trial.collectedAt}
             people={data.booking.people}
+            attendedPeople={data.booking.attendedPeople}
             settings={data.trial.settings}
             onCorrected={handleCorrected}
           />
@@ -581,6 +708,13 @@ function DrawerContent({
             }
           />
           <KV label="人數" value={`${booking.people} 人`} />
+          {booking.attendedPeople != null &&
+            booking.attendedPeople < booking.people && (
+              <KV
+                label="實際到店"
+                value={`${booking.attendedPeople} / ${booking.people} 人`}
+              />
+            )}
           <KV label="金額" value={amount} />
         </Section>
 
@@ -959,6 +1093,13 @@ function PrefillDrawerContent({
             value={prefill.isMakeup ? "補課" : (prefill.servicePlanName ?? "—")}
           />
           <KV label="人數" value={`${prefill.people} 人`} />
+          {prefill.attendedPeople != null &&
+            prefill.attendedPeople < prefill.people && (
+              <KV
+                label="實際到店"
+                value={`${prefill.attendedPeople} / ${prefill.people} 人`}
+              />
+            )}
           <KV label="金額" value={amount} />
         </Section>
 

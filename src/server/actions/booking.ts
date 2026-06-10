@@ -886,6 +886,32 @@ export async function markCompleted(
     const serviceStaffId =
       data.serviceStaffId ?? booking.serviceStaffId ?? null;
 
+    // PR-3d：實際到店人數（FIRST_TRIAL 部分到店）。
+    //   - 未傳 → 維持向後相容（attendedPeople 不寫，視為全到）
+    //   - 1..booking.people → 寫入
+    //   - > booking.people → 拒絕（VALIDATION）
+    //   - < booking.people 且 非 FIRST_TRIAL → 拒絕（BUSINESS_RULE，部分到店僅體驗）
+    // 不會收到 0（zod min(1)）；0 走 markNoShow 路徑（既有流程）。
+    let attendedPeopleToWrite: number | null = null;
+    if (data.attendedPeople != null) {
+      if (data.attendedPeople > booking.people) {
+        throw new AppError(
+          "VALIDATION",
+          `實際到店人數不可大於預約人數（${booking.people}）`,
+        );
+      }
+      if (
+        data.attendedPeople < booking.people &&
+        booking.bookingType !== "FIRST_TRIAL"
+      ) {
+        throw new AppError(
+          "BUSINESS_RULE",
+          "部分到店目前僅支援體驗預約",
+        );
+      }
+      attendedPeopleToWrite = data.attendedPeople;
+    }
+
     await prisma.$transaction(async (tx) => {
       // 1. 標記出席
       await tx.booking.update({
@@ -894,6 +920,10 @@ export async function markCompleted(
           bookingStatus: "COMPLETED",
           isCheckedIn: true, // 向後相容
           serviceStaffId,
+          // PR-3d：null 時不寫入（保留欄位現值）；明確值才寫入。
+          ...(attendedPeopleToWrite != null
+            ? { attendedPeople: attendedPeopleToWrite }
+            : {}),
         },
       });
 
@@ -1274,6 +1304,9 @@ export async function revertBookingStatus(
           data: {
             bookingStatus: "PENDING",
             isCheckedIn: false,
+            // PR-3d：還原 COMPLETED → PENDING 時清空實到人數，避免下次完成
+            // 時殘留舊值；店長需在 AttendanceModal 重新選擇。
+            attendedPeople: null,
           },
         });
       }
@@ -1351,6 +1384,9 @@ export async function revertBookingStatus(
             bookingStatus: "PENDING",
             noShowPolicy: null,
             noShowMakeupGranted: null,
+            // PR-3d：防禦性清空（NO_SHOW 路徑理論上不會寫 attendedPeople，
+            // 但若資料殘留，回 PENDING 後應一併清掉以保持乾淨。）
+            attendedPeople: null,
           },
         });
       }
@@ -1411,6 +1447,8 @@ export async function revertBookingStatus(
           where: { id: bookingId },
           data: {
             bookingStatus: "PENDING",
+            // PR-3d：CANCELLED 路徑同樣清掉殘留實到人數，保持回 PENDING 後乾淨。
+            attendedPeople: null,
           },
         });
       }

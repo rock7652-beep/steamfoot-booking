@@ -40,6 +40,8 @@ interface BookingEntry {
   isMakeup: boolean;
   isCheckedIn: boolean;
   people: number;
+  /** PR-3d：實際到店人數（FIRST_TRIAL；null = 未記錄／全到）。 */
+  attendedPeople: number | null;
   bookingType: string;
   expectedAmount: number | null;
   // PR-D1D：FIRST_TRIAL badge fallback 來源；其他 type 為 null。鏡像
@@ -238,6 +240,7 @@ export function BookingsManager({
       id: b.id,
       slotTime: b.slotTime,
       people: b.people,
+      attendedPeople: b.attendedPeople,
       isMakeup: b.isMakeup,
       isCheckedIn: b.isCheckedIn,
       bookingStatus: b.bookingStatus,
@@ -638,6 +641,7 @@ function monthEntryToPrefill(b: BookingEntry, date: string): BookingPrefill {
     isMakeup: b.isMakeup,
     isCheckedIn: b.isCheckedIn,
     people: b.people,
+    attendedPeople: b.attendedPeople,
     customerName: b.customer.name,
     customerPhone: b.customer.phone,
     revenueStaff: b.revenueStaff
