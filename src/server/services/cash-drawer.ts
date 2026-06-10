@@ -17,6 +17,7 @@
 import { prisma } from "@/lib/db";
 import { Prisma } from "@prisma/client";
 import { AppError } from "@/lib/errors";
+import { dayRange } from "@/lib/date-utils";
 import type {
   CashDrawerSession,
   CashDrawerEntry,
@@ -114,9 +115,27 @@ export async function getLastClosedSession(
   });
 }
 
-/** 計算 session 期間的現金收入（不含 REFUND） */
+/**
+ * 交易現金收支的「營業日」時間窗。
+ *
+ * Transaction.transactionDate 是 timestamp（非 @db.Date），因此用 dayRange()
+ * 取台灣營業日 [00:00, 23:59:59.999] 的 UTC 區間，而不是 businessDate(@db.Date,
+ * UTC 午夜) ±24h —— 後者會變成 UTC 日，與台灣日整整偏移 8 小時。
+ *
+ * 與 computeCashbookCashMovementsForSession 的營業日語意一致：當日現金交易
+ * 即使發生在「開店點錢」(openedAt) 之前，也算進當日抽屜（修正 openedAt..now
+ * 時間窗會漏算白天現金、傍晚才開店時「今日現金收入 = 0」的 bug）。
+ */
+function businessDayWindow(businessDate: Date): { gte: Date; lte: Date } {
+  // @db.Date 讀出後 toISOString().slice(0,10) 取 UTC 午夜日期字串是安全的
+  const dateStr = businessDate.toISOString().slice(0, 10);
+  const { start, end } = dayRange(dateStr);
+  return { gte: start, lte: end };
+}
+
+/** 計算 session 營業日的現金收入（不含 REFUND）— 以台灣營業日 day-range 計，不看 openedAt */
 export async function computeCashIncomeForSession(
-  session: Pick<CashDrawerSession, "storeId" | "openedAt" | "closedAt">,
+  session: Pick<CashDrawerSession, "storeId" | "businessDate">,
 ): Promise<Prisma.Decimal> {
   const result = await prisma.transaction.aggregate({
     _sum: { amount: true },
@@ -127,18 +146,15 @@ export async function computeCashIncomeForSession(
       status: "SUCCESS",
       paymentStatus: { in: ["SUCCESS", "CONFIRMED"] },
       voidedAt: null,
-      transactionDate: {
-        gte: session.openedAt,
-        lte: session.closedAt ?? new Date(),
-      },
+      transactionDate: businessDayWindow(session.businessDate),
     },
   });
   return result._sum.amount ?? ZERO;
 }
 
-/** 計算 session 期間的現金退款（REFUND amount 為負數，翻正回傳） */
+/** 計算 session 營業日的現金退款（REFUND amount 為負數，翻正回傳）— 同樣以營業日 day-range 計 */
 export async function computeCashExpenseForSession(
-  session: Pick<CashDrawerSession, "storeId" | "openedAt" | "closedAt">,
+  session: Pick<CashDrawerSession, "storeId" | "businessDate">,
 ): Promise<Prisma.Decimal> {
   const result = await prisma.transaction.aggregate({
     _sum: { amount: true },
@@ -148,10 +164,7 @@ export async function computeCashExpenseForSession(
       transactionType: "REFUND",
       status: "SUCCESS",
       voidedAt: null,
-      transactionDate: {
-        gte: session.openedAt,
-        lte: session.closedAt ?? new Date(),
-      },
+      transactionDate: businessDayWindow(session.businessDate),
     },
   });
   const refundSum = result._sum.amount ?? ZERO;
@@ -475,9 +488,11 @@ export async function closeCashDrawer(input: CloseInput): Promise<CashDrawerSess
   const closedAt = new Date();
 
   // ── 2. Compute phase（並行讀取 + 純函式計算）──
+  // 現金收入/退款以營業日 day-range 計（不再用 openedAt..closedAt 時間窗），
+  // 故不需把 closedAt 傳進去；closedAt 仍用於下方快照寫入。
   const [cashIncomeTotal, cashExpenseTotal, cashbook] = await Promise.all([
-    computeCashIncomeForSession({ ...session, closedAt }),
-    computeCashExpenseForSession({ ...session, closedAt }),
+    computeCashIncomeForSession(session),
+    computeCashExpenseForSession(session),
     // PR-3：閉店快照納入當日現金帳 CASH 異動（折進 expectedClosingCash）
     computeCashbookCashMovementsForSession(session),
   ]);

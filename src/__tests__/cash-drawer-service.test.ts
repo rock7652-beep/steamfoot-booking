@@ -83,6 +83,7 @@ import {
   computeCashbookCashMovementsForSession,
   getCurrentCashDrawer,
 } from "@/server/services/cash-drawer";
+import { dayRange } from "@/lib/date-utils";
 
 const D = (n: number) => new Prisma.Decimal(n);
 
@@ -437,8 +438,7 @@ describe("computeCashIncomeForSession", () => {
     mockTxAggregate.mockResolvedValue({ _sum: { amount: D(8000) } });
     const result = await computeCashIncomeForSession({
       storeId: STORE_A,
-      openedAt: new Date("2026-05-13T01:00:00Z"),
-      closedAt: null,
+      businessDate: new Date(Date.UTC(2026, 4, 13)),
     });
     expect(result.toNumber()).toBe(8000);
   });
@@ -447,8 +447,7 @@ describe("computeCashIncomeForSession", () => {
     mockTxAggregate.mockResolvedValue({ _sum: { amount: null } });
     await computeCashIncomeForSession({
       storeId: STORE_A,
-      openedAt: new Date("2026-05-13T01:00:00Z"),
-      closedAt: null,
+      businessDate: new Date(Date.UTC(2026, 4, 13)),
     });
     const call = mockTxAggregate.mock.calls[0][0] as { where: Record<string, unknown> };
     expect(call.where.paymentMethod).toBe("CASH");
@@ -461,8 +460,7 @@ describe("computeCashIncomeForSession", () => {
     mockTxAggregate.mockResolvedValue({ _sum: { amount: null } });
     await computeCashIncomeForSession({
       storeId: STORE_A,
-      openedAt: new Date("2026-05-13T01:00:00Z"),
-      closedAt: null,
+      businessDate: new Date(Date.UTC(2026, 4, 13)),
     });
     const call = mockTxAggregate.mock.calls[0][0] as {
       where: { transactionType: { in: string[] } };
@@ -478,6 +476,83 @@ describe("computeCashIncomeForSession", () => {
     expect(types).not.toContain("PAPER_MIGRATION");
     expect(types).not.toContain("ADJUSTMENT");
   });
+
+  // ──────────────────────────────────────────────────────────
+  // P0 fix（fix/cash-drawer-businessday-window）：
+  // 時間窗改用 session.businessDate 的台灣營業日 day-range，不再用 openedAt..now。
+  // 用「傍晚才開店」(openedAt = TW 20:53) 的 session 驗證白天現金不再被漏算。
+  // ──────────────────────────────────────────────────────────
+  describe("營業日時間窗（不依 openedAt）", () => {
+    // 2026-06-09 傍晚才開店：openedAt = TW 20:53 = UTC 12:53
+    const businessDate = new Date(Date.UTC(2026, 5, 9));
+    const eveningOpenedAt = new Date("2026-06-09T12:53:00Z");
+    const { start: dayStart, end: dayEnd } = dayRange("2026-06-09");
+
+    async function captureWhere() {
+      mockTxAggregate.mockResolvedValue({ _sum: { amount: null } });
+      await computeCashIncomeForSession({
+        storeId: STORE_A,
+        // 故意連 openedAt/closedAt 都傳進來，證明計算「不」採用它們
+        businessDate,
+        openedAt: eveningOpenedAt,
+        closedAt: null,
+      } as never);
+      const call = mockTxAggregate.mock.calls[0][0] as {
+        where: { transactionDate: { gte: Date; lte: Date } };
+      };
+      return call.where.transactionDate;
+    }
+
+    it("時間窗 = 台灣營業日 [00:00, 23:59:59.999]，而非 openedAt", async () => {
+      const win = await captureWhere();
+      expect(win.gte.getTime()).toBe(dayStart.getTime());
+      expect(win.lte.getTime()).toBe(dayEnd.getTime());
+      // 視窗起點在傍晚開店之前 → 白天交易落在窗內
+      expect(win.gte.getTime()).toBeLessThan(eveningOpenedAt.getTime());
+    });
+
+    it("case 1：開店點錢之前、但同營業日的現金交易 → 落在窗內（會被算進）", async () => {
+      const win = await captureWhere();
+      // TW 14:00（= UTC 06:00），在 openedAt(TW 20:53) 之前
+      const beforeOpen = new Date("2026-06-09T06:00:00Z");
+      expect(beforeOpen.getTime()).toBeLessThan(eveningOpenedAt.getTime());
+      expect(beforeOpen.getTime()).toBeGreaterThanOrEqual(win.gte.getTime());
+      expect(beforeOpen.getTime()).toBeLessThanOrEqual(win.lte.getTime());
+    });
+
+    it("case 2：開店點錢之後、同營業日的現金交易 → 落在窗內（會被算進）", async () => {
+      const win = await captureWhere();
+      // TW 21:30（= UTC 13:30），在 openedAt 之後、仍在當日
+      const afterOpen = new Date("2026-06-09T13:30:00Z");
+      expect(afterOpen.getTime()).toBeGreaterThan(eveningOpenedAt.getTime());
+      expect(afterOpen.getTime()).toBeGreaterThanOrEqual(win.gte.getTime());
+      expect(afterOpen.getTime()).toBeLessThanOrEqual(win.lte.getTime());
+    });
+
+    it("case 3：營業日之外的現金交易 → 落在窗外（會被排除）", async () => {
+      const win = await captureWhere();
+      // 前一日 TW 23:00（= UTC 6/8 15:00）→ 早於窗起點
+      const prevDay = new Date("2026-06-08T15:00:00Z");
+      expect(prevDay.getTime()).toBeLessThan(win.gte.getTime());
+      // 隔日 TW 01:00（= UTC 6/9 17:00）→ 晚於窗終點
+      const nextDay = new Date("2026-06-09T17:00:00Z");
+      expect(nextDay.getTime()).toBeGreaterThan(win.lte.getTime());
+    });
+
+    it("case 4：非現金交易 → 由 paymentMethod=CASH 過濾排除", async () => {
+      mockTxAggregate.mockResolvedValue({ _sum: { amount: null } });
+      await computeCashIncomeForSession({ storeId: STORE_A, businessDate });
+      const call = mockTxAggregate.mock.calls[0][0] as { where: Record<string, unknown> };
+      expect(call.where.paymentMethod).toBe("CASH");
+    });
+
+    it("case 5：作廢交易 → 由 voidedAt=null 過濾排除", async () => {
+      mockTxAggregate.mockResolvedValue({ _sum: { amount: null } });
+      await computeCashIncomeForSession({ storeId: STORE_A, businessDate });
+      const call = mockTxAggregate.mock.calls[0][0] as { where: Record<string, unknown> };
+      expect(call.where.voidedAt).toBe(null);
+    });
+  });
 });
 
 describe("computeCashExpenseForSession", () => {
@@ -486,8 +561,7 @@ describe("computeCashExpenseForSession", () => {
     mockTxAggregate.mockResolvedValue({ _sum: { amount: D(-1000) } });
     const result = await computeCashExpenseForSession({
       storeId: STORE_A,
-      openedAt: new Date("2026-05-13T01:00:00Z"),
-      closedAt: null,
+      businessDate: new Date(Date.UTC(2026, 4, 13)),
     });
     expect(result.toNumber()).toBe(1000); // 翻成正數
   });
@@ -496,12 +570,27 @@ describe("computeCashExpenseForSession", () => {
     mockTxAggregate.mockResolvedValue({ _sum: { amount: null } });
     await computeCashExpenseForSession({
       storeId: STORE_A,
-      openedAt: new Date("2026-05-13T01:00:00Z"),
-      closedAt: null,
+      businessDate: new Date(Date.UTC(2026, 4, 13)),
     });
     const call = mockTxAggregate.mock.calls[0][0] as { where: Record<string, unknown> };
     expect(call.where.transactionType).toBe("REFUND");
     expect(call.where.paymentMethod).toBe("CASH");
+  });
+
+  it("case 6：退款（現金支出）使用與收入相同的營業日時間窗", async () => {
+    mockTxAggregate.mockResolvedValue({ _sum: { amount: null } });
+    const { start: dayStart, end: dayEnd } = dayRange("2026-06-09");
+    await computeCashExpenseForSession({
+      storeId: STORE_A,
+      businessDate: new Date(Date.UTC(2026, 5, 9)),
+      openedAt: new Date("2026-06-09T12:53:00Z"),
+      closedAt: null,
+    } as never);
+    const call = mockTxAggregate.mock.calls[0][0] as {
+      where: { transactionDate: { gte: Date; lte: Date } };
+    };
+    expect(call.where.transactionDate.gte.getTime()).toBe(dayStart.getTime());
+    expect(call.where.transactionDate.lte.getTime()).toBe(dayEnd.getTime());
   });
 });
 
@@ -683,8 +772,7 @@ describe("非干擾驗證", () => {
     mockTxAggregate.mockResolvedValue({ _sum: { amount: null } });
     await computeCashIncomeForSession({
       storeId: STORE_B,
-      openedAt: new Date("2026-05-13T01:00:00Z"),
-      closedAt: null,
+      businessDate: new Date(Date.UTC(2026, 4, 13)),
     });
     const call = mockTxAggregate.mock.calls[0][0] as { where: Record<string, unknown> };
     expect(call.where.storeId).toBe(STORE_B);
