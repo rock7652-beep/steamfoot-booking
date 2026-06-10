@@ -6,6 +6,7 @@ import { EmptyStateCompact } from "@/components/admin/empty-state-compact";
 import { TrialBookingDrawer } from "../_components/trial-booking-drawer";
 import { resolveTrialDisplayAmount } from "./compute-amount";
 import { PeopleBadge } from "./people-badge";
+import { remainingSessionsState } from "@/lib/remaining-sessions-label";
 import type { SlotAvailability } from "@/types";
 
 export interface DayBooking {
@@ -33,6 +34,9 @@ export interface DayBooking {
     /** 內部服務備註（後台限定）。有值時當日清單顯示一行截斷提醒。 */
     serviceNote?: string | null;
     assignedStaff?: { displayName: string; colorCode: string } | null;
+    /** 有效 PACKAGE 剩餘堂數加總（ACTIVE + 未過期 + 尚有剩餘；排除 TRIAL/SINGLE/點數/用完）。
+     *  0 = 無有效方案。用於姓名列旁顯示「剩 N 堂」提醒儲值。 */
+    validPackageSessions: number;
   };
   revenueStaff: { id: string; displayName: string; colorCode: string } | null;
   serviceStaff: { id: string; displayName: string } | null;
@@ -306,6 +310,8 @@ function TimelineItem({
   isActing: boolean;
 }) {
   const meta = bookingStatusMeta(booking.bookingStatus, booking.isCheckedIn);
+  // 有效 PACKAGE 堂數提醒（複用 PR #280 顧客清單同款 helper，定義一致）。
+  const sessions = remainingSessionsState(booking.customer?.validPackageSessions ?? 0);
   const borderColor =
     meta.variant === "success"
       ? "border-l-green-500"
@@ -423,6 +429,23 @@ function TimelineItem({
               </span>
             )
           ) : null}
+          {/* 有效堂數提醒（緊接狀態，讀作「預約中｜剩 N 堂」）。輕量呈現：
+              1–3 堂亮黃「提醒儲值」；≥4 堂淡色「剩 N 堂」；無有效方案極淡灰字。 */}
+          {sessions.hasValid ? (
+            <span
+              className={
+                sessions.isLow
+                  ? "shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-medium text-amber-800"
+                  : "shrink-0 text-[11px] font-medium text-earth-600"
+              }
+            >
+              {sessions.isLow
+                ? `剩 ${sessions.total} 堂｜提醒儲值`
+                : `剩 ${sessions.total} 堂`}
+            </span>
+          ) : (
+            <span className="shrink-0 text-[11px] text-earth-300">無有效方案</span>
+          )}
           <span className="min-w-0 flex-1 truncate text-xs text-earth-500">
             {planLabel}
           </span>
