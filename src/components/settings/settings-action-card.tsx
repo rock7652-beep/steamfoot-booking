@@ -45,39 +45,41 @@ export function SettingsActionCard({
   secondaryLabel,
 }: SettingsActionCardProps) {
   return (
-    <section className="rounded-xl border border-earth-200 bg-white p-4 shadow-sm transition hover:border-earth-300">
-      <header className="flex items-start gap-3">
-        <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-earth-50 text-earth-500">
+    <section className="rounded-xl border border-earth-200 bg-white p-3 shadow-sm transition hover:border-earth-300">
+      <header className="flex items-start gap-2.5">
+        <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-earth-50 text-earth-500">
           <svg
-            className="h-4.5 w-4.5"
+            className="h-4 w-4"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
             strokeWidth={1.8}
-            width={18}
-            height={18}
+            width={16}
+            height={16}
           >
             <path strokeLinecap="round" strokeLinejoin="round" d={iconPath} />
           </svg>
         </span>
         <div className="min-w-0 flex-1">
           <h3 className="text-sm font-semibold text-earth-900">{title}</h3>
-          <p className="mt-0.5 text-[11px] text-earth-500">{description}</p>
+          <p className="mt-0.5 line-clamp-1 text-[11px] text-earth-500">
+            {description}
+          </p>
         </div>
         <Link
           href={primaryHref}
-          className="shrink-0 rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-700"
+          className="shrink-0 rounded-lg bg-primary-600 px-2.5 py-1.5 text-[11px] font-medium text-white hover:bg-primary-700"
         >
           {primaryLabel}
         </Link>
       </header>
 
       {summary ? (
-        <div className="mt-3 border-t border-earth-100 pt-3">{summary}</div>
+        <div className="mt-2.5 border-t border-earth-100 pt-2.5">{summary}</div>
       ) : null}
 
       {secondaryHref && secondaryLabel ? (
-        <div className="mt-2 flex justify-end">
+        <div className="mt-1.5 flex justify-end">
           <Link
             href={secondaryHref}
             className="text-[11px] text-earth-500 hover:text-earth-700 hover:underline"
