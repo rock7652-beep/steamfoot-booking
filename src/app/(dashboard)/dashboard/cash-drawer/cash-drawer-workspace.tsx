@@ -12,12 +12,10 @@
  * 本元件不重算 expectedClosingCash / finalBookBalance。
  */
 
-import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { Prisma } from "@prisma/client";
 
 import { formatTWTime } from "@/lib/date-utils";
-import { SubmitButton } from "@/components/submit-button";
 
 import type { CashDrawerView, CashDrawerLiveTotals } from "@/server/queries/cash-drawer";
 import type { CashDrawerEntry } from "@prisma/client";
@@ -32,6 +30,7 @@ import { createCashbookEntry } from "@/server/actions/cashbook";
 import { EntrySection } from "./entry-section";
 import { TodayOpenForm } from "./today-open-form";
 import { WithdrawalForm, DepositForm } from "./cash-entry-forms";
+import { CashDrawerActionForm } from "./cash-drawer-action-form";
 import { InlineCashbookForm } from "./inline-cashbook-form";
 
 /** ADMIN 指派登錄人用的店長清單（避免在多處重打 inline 型別）。 */
@@ -44,7 +43,7 @@ type StaffOption = { id: string; displayName: string };
  * 類型限定 INCOME / EXPENSE（提領走 WithdrawalForm / cashDrawer.entry）。
  */
 async function handleAddCashbookEntry(
-  _prev: ActionResult<{ entryId: string }> | null,
+  _prev: ActionResult<unknown> | null,
   formData: FormData,
 ): Promise<ActionResult<{ entryId: string }>> {
   "use server";
@@ -218,20 +217,17 @@ function EmptyStateCard({
   todayStr: string;
   returnPath: string;
 }) {
-  async function handleInitialize(formData: FormData) {
+  async function handleInitialize(
+    _prev: ActionResult<unknown> | null,
+    formData: FormData,
+  ): Promise<ActionResult<{ sessionId: string }>> {
     "use server";
-    const result = await initializeCashDrawerAction({
+    return initializeCashDrawerAction({
       businessDate: todayStr,
       openingBookBalance: Number(formData.get("openingBookBalance")),
       openingActualCash: Number(formData.get("openingActualCash")),
       note: (formData.get("note") as string) || undefined,
     });
-    if (!result.success) {
-      redirect(
-        `${returnPath}${returnPath.includes("?") ? "&" : "?"}cashDrawerError=${encodeURIComponent(result.error || "啟用失敗")}`,
-      );
-    }
-    redirect(returnPath);
   }
 
   return (
@@ -254,7 +250,14 @@ function EmptyStateCard({
       )}
 
       {canInit && (
-        <form action={handleInitialize} className="mt-6 space-y-4">
+        <CashDrawerActionForm
+          action={handleInitialize}
+          returnPath={returnPath}
+          submitLabel="啟用現金抽屜"
+          successPendingLabel="已啟用，跳轉中…"
+          submitClassName="min-h-[44px] w-full bg-primary-600 text-base text-white hover:bg-primary-700"
+          className="mt-6 space-y-4"
+        >
           <div>
             <label className="block text-sm font-medium text-earth-700">
               初始帳面金額（NT$）
@@ -294,11 +297,7 @@ function EmptyStateCard({
               placeholder="若帳面與實際不同，請說明原因（例：含零錢盒 NT$ 50）"
             />
           </div>
-          <SubmitButton
-            label="啟用現金抽屜"
-            className="min-h-[44px] w-full bg-primary-600 text-base text-white hover:bg-primary-700"
-          />
-        </form>
+        </CashDrawerActionForm>
       )}
     </div>
   );
@@ -324,19 +323,16 @@ function WarningLastOpenCard({
   canClose: boolean;
   returnPath: string;
 }) {
-  async function handleCatchUpClose(formData: FormData) {
+  async function handleCatchUpClose(
+    _prev: ActionResult<unknown> | null,
+    formData: FormData,
+  ): Promise<ActionResult<{ sessionId: string }>> {
     "use server";
-    const result = await closeCashDrawerAction({
+    return closeCashDrawerAction({
       sessionId: lastSession.id,
       closingActualCash: Number(formData.get("closingActualCash")),
       note: (formData.get("note") as string) || undefined,
     });
-    if (!result.success) {
-      redirect(
-        `${returnPath}${returnPath.includes("?") ? "&" : "?"}cashDrawerError=${encodeURIComponent(result.error || "補關失敗")}`,
-      );
-    }
-    redirect(returnPath);
   }
 
   return (
@@ -387,7 +383,14 @@ function WarningLastOpenCard({
           <summary className="cursor-pointer list-none rounded-lg bg-orange-600 px-4 py-3 text-base font-semibold text-white hover:bg-orange-700">
             補關上一個現金抽屜
           </summary>
-          <form action={handleCatchUpClose} className="space-y-4 p-4">
+          <CashDrawerActionForm
+            action={handleCatchUpClose}
+            returnPath={returnPath}
+            submitLabel="完成補關"
+            successPendingLabel="已補關，跳轉中…"
+            submitClassName="min-h-[44px] w-full bg-orange-600 text-base text-white hover:bg-orange-700"
+            className="space-y-4 p-4"
+          >
             <p className="text-xs text-earth-500">
               請依據上一個營業日結束時的實際現金清點金額填入，差額會由系統
               比對「系統預估結餘」自動計算。本動作不會建立任何 Transaction
@@ -422,11 +425,7 @@ function WarningLastOpenCard({
                 placeholder="例：5/28 公休，5/29 補關 5/27 session"
               />
             </div>
-            <SubmitButton
-              label="完成補關"
-              className="min-h-[44px] w-full bg-orange-600 text-base text-white hover:bg-orange-700"
-            />
-          </form>
+          </CashDrawerActionForm>
         </details>
       )}
     </div>
@@ -460,7 +459,7 @@ function NotOpenedTodayCard({
    * 錯誤路徑保留既有「redirect 帶 `?cashDrawerError=` + FormErrorToast」UX。
    */
   async function handleOpenAction(
-    _prev: ActionResult<{ sessionId: string }> | null,
+    _prev: ActionResult<unknown> | null,
     formData: FormData,
   ): Promise<ActionResult<{ sessionId: string }>> {
     "use server";
@@ -826,44 +825,46 @@ function DailyActionsArea({
   todayStr: string;
   returnPath: string;
 }) {
-  const errorRedirect = (msg: string) =>
-    `${returnPath}${returnPath.includes("?") ? "&" : "?"}cashDrawerError=${encodeURIComponent(msg)}`;
-
-  async function handleAddWithdrawal(formData: FormData) {
+  // A-1：三個 handler 改回傳 ActionResult（不再 server redirect）。成功 / 失敗的
+  // 導航與錯誤呈現都交給各表單外殼（CashDrawerActionForm，client useActionState）。
+  async function handleAddWithdrawal(
+    _prev: ActionResult<unknown> | null,
+    formData: FormData,
+  ): Promise<ActionResult<{ entryId: string }>> {
     "use server";
-    const result = await addCashDrawerEntryAction({
+    return addCashDrawerEntryAction({
       sessionId,
       type: "CASH_WITHDRAWAL",
       amount: Number(formData.get("amount")),
       reason: String(formData.get("reason") ?? ""),
       note: (formData.get("note") as string) || undefined,
     });
-    if (!result.success) redirect(errorRedirect(result.error || "新增提領失敗"));
-    redirect(returnPath);
   }
 
-  async function handleAddDeposit(formData: FormData) {
+  async function handleAddDeposit(
+    _prev: ActionResult<unknown> | null,
+    formData: FormData,
+  ): Promise<ActionResult<{ entryId: string }>> {
     "use server";
-    const result = await addCashDrawerEntryAction({
+    return addCashDrawerEntryAction({
       sessionId,
       type: "CASH_DEPOSIT",
       amount: Number(formData.get("amount")),
       reason: String(formData.get("reason") ?? ""),
       note: (formData.get("note") as string) || undefined,
     });
-    if (!result.success) redirect(errorRedirect(result.error || "新增補入失敗"));
-    redirect(returnPath);
   }
 
-  async function handleClose(formData: FormData) {
+  async function handleClose(
+    _prev: ActionResult<unknown> | null,
+    formData: FormData,
+  ): Promise<ActionResult<{ sessionId: string }>> {
     "use server";
-    const result = await closeCashDrawerAction({
+    return closeCashDrawerAction({
       sessionId,
       closingActualCash: Number(formData.get("closingActualCash")),
       note: (formData.get("note") as string) || undefined,
     });
-    if (!result.success) redirect(errorRedirect(result.error || "閉店失敗"));
-    redirect(returnPath);
   }
 
   return (
@@ -907,7 +908,7 @@ function DailyActionsArea({
               <span className="mt-0.5 text-xs text-earth-500">現金從抽屜拿出去（不算店內支出）</span>
             </summary>
             <div className="border-t border-earth-200">
-              <WithdrawalForm action={handleAddWithdrawal} />
+              <WithdrawalForm action={handleAddWithdrawal} returnPath={returnPath} />
             </div>
           </details>
         ) : (
@@ -922,7 +923,7 @@ function DailyActionsArea({
               <span className="mt-0.5 text-xs text-earth-500">找零金、備用金、保險箱補現金</span>
             </summary>
             <div className="border-t border-earth-200">
-              <DepositForm action={handleAddDeposit} />
+              <DepositForm action={handleAddDeposit} returnPath={returnPath} />
             </div>
           </details>
         ) : (
@@ -956,7 +957,14 @@ function DailyActionsArea({
                 </ul>
               </div>
 
-              <form action={handleClose} className="space-y-4">
+              <CashDrawerActionForm
+                action={handleClose}
+                returnPath={returnPath}
+                submitLabel="完成今日閉店點錢"
+                successPendingLabel="已閉店，跳轉中…"
+                submitClassName="min-h-[44px] w-full bg-primary-600 text-base text-white hover:bg-primary-700"
+                className="space-y-4"
+              >
                 <div>
                   <label className="block text-sm font-medium text-earth-700">
                     實際點到金額（NT$）
@@ -982,11 +990,7 @@ function DailyActionsArea({
                     placeholder="若實際金額與系統應有金額不同，請說明原因"
                   />
                 </div>
-                <SubmitButton
-                  label="完成今日閉店點錢"
-                  className="min-h-[44px] w-full bg-primary-600 text-base text-white hover:bg-primary-700"
-                />
-              </form>
+              </CashDrawerActionForm>
             </div>
           </details>
         ) : (
