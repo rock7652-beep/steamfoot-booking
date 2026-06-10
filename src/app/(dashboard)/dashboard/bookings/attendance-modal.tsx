@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 /**
  * PR-3d：「實際到店幾位？」modal — 僅 FIRST_TRIAL 且 people > 1 時
@@ -71,16 +71,17 @@ export function AttendanceModal({
   trialDefaultUnit,
 }: AttendanceModalProps) {
   // 預設選「全部到店」，符合常見情境；店長若實際是部分到店再切換。
+  // 關 → 開 的瞬間將 choice 重置為 people。採 React 19 官方建議的
+  // same-render guard pattern（prevOpen 與 choice 在同一 render 內一起更新），
+  // 避免 guard 寫在 useEffect 造成 render-loop（React #301）。
   const [choice, setChoice] = useState<number>(people);
-  const [wasOpen, setWasOpen] = useState(false);
-
-  // 每次 open 從關到開時重置為預設（render 階段，非 effect 內 setState）。
-  if (open && !wasOpen) {
-    setChoice(people);
+  const [prevOpen, setPrevOpen] = useState(open);
+  if (open !== prevOpen) {
+    setPrevOpen(open);
+    if (open) {
+      setChoice(people);
+    }
   }
-  useEffect(() => {
-    setWasOpen(open);
-  }, [open]);
 
   if (!open) return null;
 
