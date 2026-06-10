@@ -156,7 +156,7 @@ export default async function SettingsIndexPage() {
     hints.push("尚未建立提醒規則，預約不會自動通知顧客");
 
   return (
-    <PageShell>
+    <PageShell className="mx-auto flex max-w-[1440px] flex-col gap-3 px-5 py-4">
       <PageHeader
         title="設定"
         subtitle="店長控制台 · 查看狀態、快速進入對應設定"
@@ -172,11 +172,11 @@ export default async function SettingsIndexPage() {
             systemInfo={systemInfo}
           >
             {hints.length > 0 ? (
-              <section className="rounded-xl border border-amber-200 bg-amber-50 p-3">
+              <section className="rounded-xl border border-amber-200 bg-amber-50 p-2.5">
                 <h4 className="text-[11px] font-semibold uppercase tracking-wider text-amber-700">
                   使用提示
                 </h4>
-                <ul className="mt-1.5 space-y-1 text-[11px] text-amber-800">
+                <ul className="mt-1 space-y-0.5 text-[11px] text-amber-800">
                   {hints.map((h, i) => (
                     <li key={i}>• {h}</li>
                   ))}
@@ -195,6 +195,7 @@ export default async function SettingsIndexPage() {
           primaryLabel="管理人員"
           summary={
             <InfoList
+              density="compact"
               items={[
                 { label: "員工總數", value: `${staffCount} 位` },
                 { label: "啟用中", value: `${activeStaffCount} 位` },
@@ -212,6 +213,7 @@ export default async function SettingsIndexPage() {
           primaryLabel="查看方案"
           summary={
             <InfoList
+              density="compact"
               items={[
                 { label: "目前方案", value: planLabel },
                 {
@@ -232,6 +234,7 @@ export default async function SettingsIndexPage() {
           primaryLabel="編輯預約設定"
           summary={
             <InfoList
+              density="compact"
               items={[
                 { label: "營業時間", value: hoursLine },
                 {
@@ -255,6 +258,7 @@ export default async function SettingsIndexPage() {
           primaryLabel="編輯班表"
           summary={
             <InfoList
+              density="compact"
               items={[
                 {
                   label: "聯動預約",
@@ -284,6 +288,7 @@ export default async function SettingsIndexPage() {
           primaryLabel="編輯付款設定"
           summary={
             <InfoList
+              density="compact"
               items={[
                 { label: "銀行帳戶", value: bankLine },
                 { label: "LINE@ 連結", value: lineOfficialLine },
@@ -302,6 +307,7 @@ export default async function SettingsIndexPage() {
             primaryLabel="編輯體驗課設定"
             summary={
               <InfoList
+                density="compact"
                 items={[
                   {
                     label: "體驗單功能",
@@ -338,9 +344,8 @@ export default async function SettingsIndexPage() {
           secondaryLabel="查看模板"
           summary={
             <InfoList
-              items={[
-                { label: "啟用狀態", value: remindersLine },
-              ]}
+              density="compact"
+              items={[{ label: "啟用狀態", value: remindersLine }]}
             />
           }
         />
