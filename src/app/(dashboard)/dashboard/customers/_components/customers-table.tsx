@@ -3,6 +3,7 @@
 import type { CustomerStage, LineLinkStatus, UserStatus } from "@prisma/client";
 import { DataTable, EmptyRow, type Column } from "@/components/desktop";
 import { formatTWTime } from "@/lib/date-utils";
+import { remainingSessionsState } from "@/lib/remaining-sessions-label";
 import { CustomerStatusBadge } from "./customer-status-badge";
 
 /**
@@ -34,6 +35,11 @@ export interface CustomerRow {
   userStatus: UserStatus | null;
   /** 內部服務備註（後台限定）。列表只顯示一行截斷摘要，完整內容在 Drawer。 */
   serviceNote: string | null;
+  /**
+   * 有效 PACKAGE 剩餘堂數加總（ACTIVE + 未過期 + 尚有剩餘；排除 TRIAL/SINGLE/點數/用完）。
+   * 0 = 無有效方案，列表顯示「—」。語意收斂在 listCustomers 的 where。
+   */
+  validPackageSessions: number;
 }
 
 export function isInactiveRow(c: CustomerRow): boolean {
@@ -184,6 +190,31 @@ export function CustomersTable({
           <CustomerStatusBadge stage={c.customerStage} lineLinkStatus={c.lineLinkStatus} />
         </span>
       ),
+    },
+    {
+      // 有效堂數：用「剩 N 堂」措辭，避免與方案名稱「10堂」混淆。
+      // 1–3 堂亮黃並標「提醒」；無有效 PACKAGE 顯示「—」。
+      key: "validSessions",
+      header: "有效堂數",
+      width: "w-24",
+      accessor: (c) => {
+        const { hasValid, isLow, total } = remainingSessionsState(c.validPackageSessions);
+        if (!hasValid) {
+          return <span className="text-[11px] text-earth-300">—</span>;
+        }
+        return (
+          <span className="inline-flex items-center gap-1 whitespace-nowrap text-[12px] tabular-nums">
+            <span className={isLow ? "font-semibold text-amber-700" : "text-earth-700"}>
+              剩 {total} 堂
+            </span>
+            {isLow ? (
+              <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
+                提醒
+              </span>
+            ) : null}
+          </span>
+        );
+      },
     },
     {
       key: "assignedStaff",
