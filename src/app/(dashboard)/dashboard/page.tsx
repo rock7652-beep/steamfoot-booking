@@ -255,6 +255,22 @@ export default async function DashboardHomePage() {
     { href: "/dashboard/settings", label: "設定", hint: "店舖 / 店長 / 方案" },
   ];
 
+  // 首頁頂部兩欄:左「今日開店檢查」(現金抽屜) / 右「今日顧客經營」摘要。
+  // 桌機 lg 並排,窄版自動上下堆疊；任一張缺席時剩下那張自動佔滿整行。
+  const topCards = [
+    cashDrawerView ? (
+      <CashDrawerTodayCard
+        key="cash-drawer"
+        view={cashDrawerView}
+        canInit={canInitCashDrawer}
+        canOpen={canOpenCashDrawer}
+      />
+    ) : null,
+    canViewCustomers ? (
+      <CustomerCareSummaryCard key="customer-care" summary={careSummary} />
+    ) : null,
+  ].filter(Boolean);
+
   return (
     <PageShell>
       <PageHeader
@@ -270,12 +286,12 @@ export default async function DashboardHomePage() {
         }
       />
 
-      {cashDrawerView && (
-        <CashDrawerTodayCard
-          view={cashDrawerView}
-          canInit={canInitCashDrawer}
-          canOpen={canOpenCashDrawer}
-        />
+      {topCards.length === 2 ? (
+        <div className="grid grid-cols-1 items-start gap-3 lg:grid-cols-2">
+          {topCards}
+        </div>
+      ) : (
+        topCards
       )}
 
       <StoreTodoCard items={todos.items} />
@@ -360,8 +376,6 @@ export default async function DashboardHomePage() {
               ))}
             </div>
           </SideCard>
-
-          {canViewCustomers ? <CustomerCareSummaryCard summary={careSummary} /> : null}
 
           <SideCard title="本週對照" subtitle="今日 vs 上週同日">
             <div className="flex items-baseline justify-between">
