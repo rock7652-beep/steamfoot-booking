@@ -268,3 +268,108 @@ export async function getCustomerCareOverview(
     },
   };
 }
+
+export interface CustomerCareSummary {
+  trialFollowUps: number;
+  inactiveCustomers: number;
+  lowSessionCustomers: number;
+  expiringPlanCustomers: number;
+  /** 四區數量加總（提醒項目數,非去重後的人數） */
+  totalReminders: number;
+}
+
+/**
+ * 顧客經營「輕量摘要」（read-only）— 只回四區 count,給首頁卡片用。
+ *
+ * 為什麼跟 getCustomerCareOverview 分開:首頁不該整理完整名單(name/phone/staff join +
+ * 排序 + 文案),那會拖慢首頁。本函式只 select 計數所需的最小欄位、不建任何顯示列。
+ *
+ * 判定邏輯與常數**完全沿用** getCustomerCareOverview(同檔共用 helper / 常數),
+ * 確保首頁數字與顧客經營頁四區數量一致,不產生雙重標準。
+ */
+export async function getCustomerCareSummary(
+  user: SessionLike,
+  activeStoreId: string | null,
+): Promise<CustomerCareSummary> {
+  const storeFilter = getStoreFilter(user, activeStoreId);
+  const { start: todayStartLocal, dateStr: todayStr } = todayRange();
+
+  const validPackageWalletWhere: Prisma.CustomerPlanWalletWhereInput = {
+    status: "ACTIVE",
+    remainingSessions: { gt: 0 },
+    plan: { category: "PACKAGE" },
+    OR: [{ expiryDate: null }, { expiryDate: { gte: todayStartLocal } }],
+  };
+
+  // (1) 待追蹤體驗客 — 沿用既有 query 的數量,確保定義一致（prod 量小,take 200 cap）
+  const trialFollowUps = (await getTrialFollowUpList(user, activeStoreId)).length;
+
+  // (2)(3)(4) 母體:有有效 PACKAGE 的顧客。只 select 計數所需欄位（不取 name/phone/staff）
+  const careCustomers = await prisma.customer.findMany({
+    where: {
+      ...storeFilter,
+      mergedIntoCustomerId: null,
+      NOT: { user: { is: { status: "SUSPENDED" } } },
+      planWallets: { some: validPackageWalletWhere },
+    },
+    select: {
+      id: true,
+      planWallets: {
+        where: validPackageWalletWhere,
+        select: { remainingSessions: true, expiryDate: true },
+      },
+    },
+  });
+
+  let inactiveCustomers = 0;
+  let lowSessionCustomers = 0;
+  let expiringPlanCustomers = 0;
+
+  if (careCustomers.length > 0) {
+    const ids = careCustomers.map((c) => c.id);
+    const lastCompleted = await prisma.booking.groupBy({
+      by: ["customerId"],
+      where: { customerId: { in: ids }, bookingStatus: "COMPLETED" },
+      _max: { bookingDate: true },
+    });
+    const lastVisitMap = new Map<string, Date | null>(
+      lastCompleted.map((r) => [r.customerId, r._max.bookingDate]),
+    );
+
+    for (const c of careCustomers) {
+      const validPackageSessions = c.planWallets.reduce(
+        (sum, w) => sum + w.remainingSessions,
+        0,
+      );
+      if (remainingSessionsState(validPackageSessions).isLow) lowSessionCustomers++;
+
+      const lastVisit = lastVisitMap.get(c.id) ?? null;
+      if (lastVisit && dayDiffStr(dbDateStr(lastVisit), todayStr) > INACTIVE_AFTER_DAYS) {
+        inactiveCustomers++;
+      }
+
+      const datedWallets = c.planWallets.filter(
+        (w): w is { remainingSessions: number; expiryDate: Date } =>
+          w.expiryDate != null,
+      );
+      if (datedWallets.length > 0) {
+        const soonest = datedWallets.reduce((a, b) =>
+          a.expiryDate.getTime() <= b.expiryDate.getTime() ? a : b,
+        );
+        const daysUntilExpiry = dayDiffStr(todayStr, dbDateStr(soonest.expiryDate));
+        if (daysUntilExpiry >= 0 && daysUntilExpiry <= EXPIRING_WITHIN_DAYS) {
+          expiringPlanCustomers++;
+        }
+      }
+    }
+  }
+
+  return {
+    trialFollowUps,
+    inactiveCustomers,
+    lowSessionCustomers,
+    expiringPlanCustomers,
+    totalReminders:
+      trialFollowUps + inactiveCustomers + lowSessionCustomers + expiringPlanCustomers,
+  };
+}

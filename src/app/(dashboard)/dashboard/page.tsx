@@ -12,10 +12,15 @@ import { getLatestResolvedRequest } from "@/server/queries/upgrade-request";
 import { getLatestReconciliationRun } from "@/server/queries/reconciliation";
 import { getStoreTodos } from "@/server/queries/store-todos";
 import { getCashDrawerView, type CashDrawerView } from "@/server/queries/cash-drawer";
+import {
+  getCustomerCareSummary,
+  type CustomerCareSummary,
+} from "@/server/queries/customer-care";
 import { ReconciliationBanner } from "@/components/reconciliation-banner";
 import { UpgradeResultBanner } from "@/components/upgrade-result-banner";
-import { StoreTodoCard } from "./store-todo-card";
+import { StoreTodoSummaryCard } from "./store-todo-summary-card";
 import { CashDrawerTodayCard } from "./cash-drawer-today-card";
+import { CustomerCareSummaryCard } from "./customer-care-summary-card";
 import {
   PageShell,
   PageHeader,
@@ -92,7 +97,22 @@ export default async function DashboardHomePage() {
     customerCount: 0,
   } as const;
 
-  const [summary, todayBookings, resolvedRequest, reconciliation, todos] = await Promise.all([
+  // 顧客經營摘要 — 需 customer.read；只讀 count（不讀名單）。
+  // 獨立 catch：查詢失敗回 null,卡片降級顯示,不影響首頁其他區塊。
+  const canViewCustomers = await checkPermission(user.role, user.staffId, "customer.read");
+  const careSummaryPromise: Promise<CustomerCareSummary | null> = canViewCustomers
+    ? getCustomerCareSummary(user, activeStoreId).catch((e) => {
+        console.error("[dashboard-home] getCustomerCareSummary failed", {
+          activeStoreId,
+          userId: user.id,
+          error: e instanceof Error ? e.message : String(e),
+        });
+        return null;
+      })
+    : Promise.resolve(null);
+
+  const [summary, todayBookings, resolvedRequest, reconciliation, todos, careSummary] =
+    await Promise.all([
     getDashboardTodaySummary(activeStoreId).catch((e) => {
       console.error("[dashboard-home] getDashboardTodaySummary failed", {
         activeStoreId,
@@ -137,6 +157,7 @@ export default async function DashboardHomePage() {
       : Promise.resolve(null),
     getLatestReconciliationRun().catch(() => null),
     getStoreTodos({ activeStoreId }).catch(() => ({ items: [], total: 0 })),
+    careSummaryPromise,
   ]);
 
   const rows: TodayBookingRow[] = todayBookings.map((b) => ({
@@ -234,6 +255,27 @@ export default async function DashboardHomePage() {
     { href: "/dashboard/settings", label: "設定", hint: "店舖 / 店長 / 方案" },
   ];
 
+  // 首頁頂部「每日工作台」三欄:今日開店檢查(現金抽屜) / 今日顧客經營 / 今天待處理。
+  // 桌機 lg 三等分,窄版自動上下堆疊；有權限缺席的卡會被濾掉,grid 欄數依實際張數收斂,
+  // 避免留下空白欄(單張時佔滿整行)。
+  const topCards = [
+    cashDrawerView ? (
+      <CashDrawerTodayCard
+        key="cash-drawer"
+        view={cashDrawerView}
+        canInit={canInitCashDrawer}
+        canOpen={canOpenCashDrawer}
+      />
+    ) : null,
+    canViewCustomers ? (
+      <CustomerCareSummaryCard key="customer-care" summary={careSummary} />
+    ) : null,
+    <StoreTodoSummaryCard key="store-todo" items={todos.items} />,
+  ].filter(Boolean);
+
+  const topGridCols =
+    topCards.length >= 3 ? "lg:grid-cols-3" : topCards.length === 2 ? "lg:grid-cols-2" : "";
+
   return (
     <PageShell>
       <PageHeader
@@ -249,15 +291,13 @@ export default async function DashboardHomePage() {
         }
       />
 
-      {cashDrawerView && (
-        <CashDrawerTodayCard
-          view={cashDrawerView}
-          canInit={canInitCashDrawer}
-          canOpen={canOpenCashDrawer}
-        />
+      {topCards.length > 1 ? (
+        <div className={`grid grid-cols-1 items-start gap-3 ${topGridCols}`}>
+          {topCards}
+        </div>
+      ) : (
+        topCards
       )}
-
-      <StoreTodoCard items={todos.items} />
 
       {resolvedRequest ? (
         <UpgradeResultBanner
