@@ -12,10 +12,15 @@ import { getLatestResolvedRequest } from "@/server/queries/upgrade-request";
 import { getLatestReconciliationRun } from "@/server/queries/reconciliation";
 import { getStoreTodos } from "@/server/queries/store-todos";
 import { getCashDrawerView, type CashDrawerView } from "@/server/queries/cash-drawer";
+import {
+  getCustomerCareSummary,
+  type CustomerCareSummary,
+} from "@/server/queries/customer-care";
 import { ReconciliationBanner } from "@/components/reconciliation-banner";
 import { UpgradeResultBanner } from "@/components/upgrade-result-banner";
 import { StoreTodoCard } from "./store-todo-card";
 import { CashDrawerTodayCard } from "./cash-drawer-today-card";
+import { CustomerCareSummaryCard } from "./customer-care-summary-card";
 import {
   PageShell,
   PageHeader,
@@ -92,7 +97,22 @@ export default async function DashboardHomePage() {
     customerCount: 0,
   } as const;
 
-  const [summary, todayBookings, resolvedRequest, reconciliation, todos] = await Promise.all([
+  // 顧客經營摘要 — 需 customer.read；只讀 count（不讀名單）。
+  // 獨立 catch：查詢失敗回 null,卡片降級顯示,不影響首頁其他區塊。
+  const canViewCustomers = await checkPermission(user.role, user.staffId, "customer.read");
+  const careSummaryPromise: Promise<CustomerCareSummary | null> = canViewCustomers
+    ? getCustomerCareSummary(user, activeStoreId).catch((e) => {
+        console.error("[dashboard-home] getCustomerCareSummary failed", {
+          activeStoreId,
+          userId: user.id,
+          error: e instanceof Error ? e.message : String(e),
+        });
+        return null;
+      })
+    : Promise.resolve(null);
+
+  const [summary, todayBookings, resolvedRequest, reconciliation, todos, careSummary] =
+    await Promise.all([
     getDashboardTodaySummary(activeStoreId).catch((e) => {
       console.error("[dashboard-home] getDashboardTodaySummary failed", {
         activeStoreId,
@@ -137,6 +157,7 @@ export default async function DashboardHomePage() {
       : Promise.resolve(null),
     getLatestReconciliationRun().catch(() => null),
     getStoreTodos({ activeStoreId }).catch(() => ({ items: [], total: 0 })),
+    careSummaryPromise,
   ]);
 
   const rows: TodayBookingRow[] = todayBookings.map((b) => ({
@@ -339,6 +360,8 @@ export default async function DashboardHomePage() {
               ))}
             </div>
           </SideCard>
+
+          {canViewCustomers ? <CustomerCareSummaryCard summary={careSummary} /> : null}
 
           <SideCard title="本週對照" subtitle="今日 vs 上週同日">
             <div className="flex items-baseline justify-between">

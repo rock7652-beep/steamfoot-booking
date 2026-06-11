@@ -54,6 +54,7 @@ vi.mock("@/server/queries/trial-follow-up", () => ({
 
 import {
   getCustomerCareOverview,
+  getCustomerCareSummary,
   INACTIVE_AFTER_DAYS,
   EXPIRING_WITHIN_DAYS,
 } from "@/server/queries/customer-care";
@@ -308,5 +309,90 @@ describe("getCustomerCareOverview", () => {
     expect(row.phone).toBe("0911222333");
     expect(row.assignedStaffName).toBe("店長A");
     expect(row.assignedStaffColor).toBe("#000");
+  });
+});
+
+describe("getCustomerCareSummary", () => {
+  it("returns all-zero summary when no trials and no valid-package母體", async () => {
+    mockGetTrialFollowUpList.mockResolvedValueOnce([]);
+    mockCustomerFindMany.mockResolvedValueOnce([]);
+    const res = await getCustomerCareSummary(fakeOwner(), null);
+    expect(res).toEqual({
+      trialFollowUps: 0,
+      inactiveCustomers: 0,
+      lowSessionCustomers: 0,
+      expiringPlanCustomers: 0,
+      totalReminders: 0,
+    });
+    // 無母體 → 不查 booking
+    expect(mockBookingGroupBy).not.toHaveBeenCalled();
+  });
+
+  it("counts trialFollowUps as length of getTrialFollowUpList", async () => {
+    mockGetTrialFollowUpList.mockResolvedValueOnce([{ customerId: "t-1" }, { customerId: "t-2" }, { customerId: "t-3" }]);
+    mockCustomerFindMany.mockResolvedValueOnce([]);
+    const res = await getCustomerCareSummary(fakeOwner(), null);
+    expect(res.trialFollowUps).toBe(3);
+    expect(res.totalReminders).toBe(3);
+  });
+
+  it("only selects minimal fields (no name/phone/staff joins) for lightness", async () => {
+    mockGetTrialFollowUpList.mockResolvedValueOnce([]);
+    mockCustomerFindMany.mockResolvedValueOnce([]);
+    await getCustomerCareSummary(fakeOwner(), null);
+    const args = mockCustomerFindMany.mock.calls[0][0];
+    expect(args.select).toEqual({
+      id: true,
+      planWallets: {
+        where: expect.anything(),
+        select: { remainingSessions: true, expiryDate: true },
+      },
+    });
+    // 確認沒有 include 名單顯示欄位
+    expect(args.select.name).toBeUndefined();
+    expect(args.select.assignedStaff).toBeUndefined();
+  });
+
+  it("counts the three wallet-based reminders consistently with overview rules", async () => {
+    mockGetTrialFollowUpList.mockResolvedValueOnce([{ customerId: "t-1" }]); // 1 體驗
+    mockCustomerFindMany.mockResolvedValueOnce([
+      // 偏低（2 堂）且 3 天後到期 → 同時計入 low + expiring
+      makeCustomer({ id: "both", wallets: [{ remainingSessions: 2, expiryDate: dbDate("2026-06-14") }] }),
+      // 堂數足夠、null 到期日 → 三區都不計（但會用於 inactive 判斷）
+      makeCustomer({ id: "stale", wallets: [{ remainingSessions: 8, expiryDate: null }] }),
+    ]);
+    mockBookingGroupBy.mockResolvedValueOnce([
+      lastVisit("both", dbDate("2026-06-10")), // 1 天前 — 不算 inactive
+      lastVisit("stale", dbDate("2026-05-02")), // 40 天前 — inactive
+    ]);
+    const res = await getCustomerCareSummary(fakeOwner(), null);
+    expect(res.lowSessionCustomers).toBe(1); // both
+    expect(res.expiringPlanCustomers).toBe(1); // both
+    expect(res.inactiveCustomers).toBe(1); // stale
+    expect(res.trialFollowUps).toBe(1);
+    expect(res.totalReminders).toBe(4); // 1+1+1+1
+  });
+
+  it("same-day expiry counts; 30-day boundary does NOT count inactive", async () => {
+    mockGetTrialFollowUpList.mockResolvedValueOnce([]);
+    mockCustomerFindMany.mockResolvedValueOnce([
+      makeCustomer({ id: "exp-today", wallets: [{ remainingSessions: 5, expiryDate: dbDate(TODAY_STR) }] }),
+      makeCustomer({ id: "edge30", wallets: [{ remainingSessions: 5, expiryDate: null }] }),
+    ]);
+    mockBookingGroupBy.mockResolvedValueOnce([
+      lastVisit("edge30", dbDate("2026-05-12")), // 恰好 30 天
+    ]);
+    const res = await getCustomerCareSummary(fakeOwner(), null);
+    expect(res.expiringPlanCustomers).toBe(1); // 當天到期算
+    expect(res.inactiveCustomers).toBe(0); // 30 天不算（門檻 > 30）
+  });
+
+  it("respects store isolation via getStoreFilter", async () => {
+    mockGetStoreFilter.mockReturnValueOnce({ storeId: STORE_B });
+    mockGetTrialFollowUpList.mockResolvedValueOnce([]);
+    mockCustomerFindMany.mockResolvedValueOnce([]);
+    await getCustomerCareSummary({ role: "STAFF", storeId: STORE_B, staffId: "s" }, null);
+    const args = mockCustomerFindMany.mock.calls[0][0];
+    expect(args.where.storeId).toBe(STORE_B);
   });
 });
