@@ -14,7 +14,6 @@ export const MVP_HIDDEN_ROUTES: string[] = [
   "/dashboard/ranking",         // 排行榜
   "/dashboard/analytics",       // 聯盟數據
   "/dashboard/upgrade-requests", // 升級申請管理
-  "/dashboard/growth",          // 成長系統（尚未形成日常功能，暫從側邊欄收起；路由與頁面保留）
 ];
 
 /** 判斷某路徑是否屬於 MVP 隱藏範圍 */
