@@ -18,7 +18,7 @@ import {
 } from "@/server/queries/customer-care";
 import { ReconciliationBanner } from "@/components/reconciliation-banner";
 import { UpgradeResultBanner } from "@/components/upgrade-result-banner";
-import { StoreTodoSummaryCard } from "./store-todo-summary-card";
+import { StoreTodoCard } from "./store-todo-card";
 import { CashDrawerTodayCard } from "./cash-drawer-today-card";
 import { CustomerCareSummaryCard } from "./customer-care-summary-card";
 import {
@@ -270,7 +270,7 @@ export default async function DashboardHomePage() {
     canViewCustomers ? (
       <CustomerCareSummaryCard key="customer-care" summary={careSummary} />
     ) : null,
-    <StoreTodoSummaryCard key="store-todo" items={todos.items} />,
+    <StoreTodoCard key="store-todo" items={todos.items} defaultVisible={3} />,
   ].filter(Boolean);
 
   const topGridCols =

@@ -19,10 +19,17 @@ const TYPE_BADGE: Record<StoreTodoType, string> = {
  * 預設只顯示前 5 筆；「查看全部」原地展開全部、再點「收合」回前 5 筆，
  * 不再跳轉 /dashboard/customers。dismiss form / TodoDismiss 邏輯不變。
  */
-export function StoreTodoList({ items }: { items: StoreTodoItem[] }) {
+export function StoreTodoList({
+  items,
+  defaultVisible = DEFAULT_VISIBLE,
+}: {
+  items: StoreTodoItem[];
+  /** 收合時顯示筆數（首頁三欄版用 3；預設 5） */
+  defaultVisible?: number;
+}) {
   const [expanded, setExpanded] = useState(false);
-  const visible = expanded ? items : items.slice(0, DEFAULT_VISIBLE);
-  const hiddenCount = items.length - DEFAULT_VISIBLE;
+  const visible = expanded ? items : items.slice(0, defaultVisible);
+  const hiddenCount = items.length - defaultVisible;
 
   return (
     <>
