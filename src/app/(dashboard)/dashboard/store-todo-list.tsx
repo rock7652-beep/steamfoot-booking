@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useFormStatus } from "react-dom";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import type { StoreTodoItem, StoreTodoType } from "@/server/queries/store-todos";
 import { dismissTodoFormAction } from "@/server/actions/todo-dismiss";
@@ -35,35 +36,15 @@ export function StoreTodoList({
     <>
       <ul className="divide-y divide-earth-100">
         {visible.map((item) => (
-          <li key={item.id} className="flex items-center gap-3 px-4 py-2.5">
-            {/* 左側「我已知悉」圈圈：點擊 → dismissTodo → 該筆從本人首頁消失。
-                狀態改變（回訪 / 補堂 / 收款確認 / 過今天）→ todoKey 變 → 重新出現 */}
-            <form action={dismissTodoFormAction} className="shrink-0">
+          <li key={item.id}>
+            {/* 整列包進 form：點 ○ → dismissTodo → 該筆從本人首頁消失。
+                狀態改變（回訪 / 補堂 / 收款確認 / 過今天）→ todoKey 變 → 重新出現。
+                送出期間 useFormStatus 立即給 pending 回饋（整列變淡 + ○ 轉圈 + 禁用）。 */}
+            <form action={dismissTodoFormAction}>
               <input type="hidden" name="todoKey" value={item.id} />
               <input type="hidden" name="todoType" value={item.type} />
-              <button
-                type="submit"
-                aria-label={`標記「${item.message}」為已知悉`}
-                title="標記為已知悉（從首頁收起）"
-                className="flex h-4 w-4 items-center justify-center rounded-full border border-earth-300 text-transparent hover:border-primary-500 hover:bg-primary-50 hover:text-primary-600"
-              >
-                <span aria-hidden className="text-[10px] leading-none">✓</span>
-              </button>
+              <TodoRow item={item} />
             </form>
-            <span
-              className={`shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium ${TYPE_BADGE[item.type]}`}
-            >
-              {item.label}
-            </span>
-            <p className="min-w-0 flex-1 truncate text-xs text-earth-800">
-              {item.message}
-            </p>
-            <Link
-              href={item.href}
-              className="shrink-0 rounded-md border border-earth-200 bg-white px-3 py-1 text-[11px] font-medium text-earth-700 hover:bg-earth-50"
-            >
-              {item.actionLabel}
-            </Link>
           </li>
         ))}
       </ul>
@@ -82,5 +63,54 @@ export function StoreTodoList({
         </footer>
       ) : null}
     </>
+  );
+}
+
+/**
+ * 單列待辦內容 — 必須是 <form> 的子元件,才能用 useFormStatus 讀到送出狀態。
+ * pending 時:整列變淡(opacity)、○ 變轉圈 spinner、按鈕 disabled(防重複提交)。
+ * 失敗時 dismissTodoFormAction 不丟錯,pending 結束後自動恢復可點。
+ * pending 只作用於本 row,不影響整張卡或其他列。
+ */
+function TodoRow({ item }: { item: StoreTodoItem }) {
+  const { pending } = useFormStatus();
+  return (
+    <div
+      className={`flex items-center gap-3 px-4 py-2.5 transition-opacity ${
+        pending ? "opacity-50" : ""
+      }`}
+    >
+      <button
+        type="submit"
+        disabled={pending}
+        aria-busy={pending}
+        aria-label={`標記「${item.message}」為已知悉`}
+        title={pending ? "處理中…" : "標記為已知悉（從首頁收起）"}
+        className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-earth-300 text-transparent hover:border-primary-500 hover:bg-primary-50 hover:text-primary-600 disabled:cursor-wait disabled:hover:border-earth-300 disabled:hover:bg-transparent"
+      >
+        {pending ? (
+          <span
+            aria-hidden
+            className="h-2.5 w-2.5 animate-spin rounded-full border border-primary-500 border-t-transparent"
+          />
+        ) : (
+          <span aria-hidden className="text-[10px] leading-none">
+            ✓
+          </span>
+        )}
+      </button>
+      <span
+        className={`shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium ${TYPE_BADGE[item.type]}`}
+      >
+        {item.label}
+      </span>
+      <p className="min-w-0 flex-1 truncate text-xs text-earth-800">{item.message}</p>
+      <Link
+        href={item.href}
+        className="shrink-0 rounded-md border border-earth-200 bg-white px-3 py-1 text-[11px] font-medium text-earth-700 hover:bg-earth-50"
+      >
+        {item.actionLabel}
+      </Link>
+    </div>
   );
 }
