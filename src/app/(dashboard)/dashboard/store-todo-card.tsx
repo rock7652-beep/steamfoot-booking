@@ -5,9 +5,11 @@ import { StoreTodoList } from "./store-todo-list";
 interface StoreTodoCardProps {
   /** 已過濾 dismissed、已去重、已排序的完整待辦清單；前 N 筆呈現由 list 處理 */
   items: StoreTodoItem[];
+  /** 收合時顯示筆數（首頁三欄版傳 3；不傳則沿用 list 預設 5） */
+  defaultVisible?: number;
 }
 
-export function StoreTodoCard({ items }: StoreTodoCardProps) {
+export function StoreTodoCard({ items, defaultVisible }: StoreTodoCardProps) {
   if (items.length === 0) {
     return (
       <section className="rounded-xl border border-earth-200 bg-earth-50/40 px-4 py-3">
@@ -36,7 +38,7 @@ export function StoreTodoCard({ items }: StoreTodoCardProps) {
         <h2 className="text-sm font-semibold text-earth-800">今天待處理</h2>
         <p className="text-[11px] text-earth-400">店長今天最重要的事</p>
       </header>
-      <StoreTodoList items={items} />
+      <StoreTodoList items={items} defaultVisible={defaultVisible} />
     </section>
   );
 }
