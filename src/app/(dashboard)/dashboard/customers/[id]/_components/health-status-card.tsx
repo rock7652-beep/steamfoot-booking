@@ -37,7 +37,23 @@ interface HealthStatusCardProps {
   healthSyncedAt: Date | null;
 }
 
-export function HealthStatusCard({
+export function HealthStatusCard(props: HealthStatusCardProps) {
+  return (
+    <SideCard title="AI 健康評估" subtitle="HealthFlow 連結狀態">
+      <div className="px-3 pb-3">
+        <HealthStatusBody {...props} />
+      </div>
+    </SideCard>
+  );
+}
+
+/**
+ * HealthStatusBody — HealthStatusCard 的內層內容（不含 SideCard 外框）
+ *
+ * 抽出來是為了能嵌進顧客詳情頁右欄的「顧客狀態總覽」合併卡，
+ * 與 LINE 綁定、系統狀態共用同一張卡。外層 padding 由呼叫端決定。
+ */
+export function HealthStatusBody({
   customerId,
   healthProfileId,
   healthLinkStatus,
@@ -50,8 +66,7 @@ export function HealthStatusCard({
   const healthFlowUrl = getHealthAssessmentUrl(customerId);
 
   return (
-    <SideCard title="AI 健康評估" subtitle="HealthFlow 連結狀態">
-      <div className="space-y-2 px-3 pb-3 text-[11px]">
+    <div className="space-y-2 text-[11px]">
         {/* Status row — 顯示連結狀態 */}
         <div className="flex items-center gap-1.5">
           {isLinked ? (
@@ -133,7 +148,6 @@ export function HealthStatusCard({
             profileId: <code className="text-earth-500">{healthProfileId.slice(0, 8)}...</code>
           </p>
         )}
-      </div>
-    </SideCard>
+    </div>
   );
 }

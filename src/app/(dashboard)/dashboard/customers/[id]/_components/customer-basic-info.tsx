@@ -112,7 +112,7 @@ export function CustomerBasicInfo({
   return (
     <SideCard title="基本資料" subtitle="顧客核心檔案" flush>
       <div className="px-3 py-2">
-        <InfoList items={items} columns={2} />
+        <InfoList items={items} columns={2} density="compact" />
       </div>
     </SideCard>
   );
