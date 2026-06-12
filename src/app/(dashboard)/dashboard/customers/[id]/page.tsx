@@ -899,82 +899,106 @@ function WalletItem({
   const availableCount = w.sessions.filter((s) => s.status === "AVAILABLE").length;
   const reservedCount = w.sessions.filter((s) => s.status === "RESERVED").length;
 
-  return (
-    <div className="rounded-lg border border-earth-200 p-3">
-      <div className="flex items-start justify-between">
-        <div>
-          <span className="text-sm font-medium text-earth-900">{w.plan.name}</span>
-          <span
-            className={`ml-2 rounded px-1.5 py-0.5 text-[11px] ${
-              w.status === "ACTIVE"
-                ? "bg-green-50 text-green-700"
-                : "bg-earth-100 text-earth-600"
-            }`}
-          >
-            {WALLET_STATUS_LABEL[w.status] ?? w.status}
-          </span>
-        </div>
-        <div className="text-right text-sm">
-          <span className="text-lg font-bold text-primary-700">{w.remainingSessions}</span>
-          <span className="text-earth-500"> / {w.totalSessions} 堂</span>
-        </div>
-      </div>
-      <div className="mt-1 flex items-center gap-4 text-[11px] text-earth-400">
-        <span>購入 NT$ {Number(w.purchasedPrice).toLocaleString()}</span>
-        <span>開始 {formatTWTime(w.startDate, { dateOnly: true })}</span>
-        {w.expiryDate && <span>到期 {formatTWTime(w.expiryDate, { dateOnly: true })}</span>}
-      </div>
-      {canAdjustWallet && w.status === "ACTIVE" && (
-        <div className="mt-2 space-y-2 border-t pt-2">
-          <AdjustWalletForm walletId={w.id} currentRemaining={w.remainingSessions} />
-          {availableCount > 0 && (
-            <BackfillUsedSessionsForm
-              walletId={w.id}
-              available={availableCount}
-              reserved={reservedCount}
-              startDateLocal={toLocalDateStr(w.startDate)}
-            />
-          )}
-        </div>
-      )}
-      {/* PR-2：延長有效期限 — ACTIVE / EXPIRED 且有期限者可延長 */}
-      {canAdjustWallet &&
-        w.expiryDate &&
-        (w.status === "ACTIVE" || w.status === "EXPIRED") && (
-          <div className="mt-2 border-t pt-2">
-            <ExtendWalletExpiryForm
-              walletId={w.id}
-              currentExpiry={w.expiryDate.toISOString().slice(0, 10)}
-              expired={w.status === "EXPIRED"}
-            />
-          </div>
-        )}
+  // compact 第二輪：方案卡降高 — 摘要常駐顯示，次要操作（調整堂數 / 延長
+  // 期限 / 堂數明細）一律收進單一 per-wallet「管理 ▾」，確保多方案時「建立
+  // 預約」仍在第一屏。功能不變，只是預設收合。
+  const canAdjustActive = canAdjustWallet && w.status === "ACTIVE";
+  const canExtend =
+    canAdjustWallet &&
+    !!w.expiryDate &&
+    (w.status === "ACTIVE" || w.status === "EXPIRED");
+  const hasSessions = w.sessions.length > 0;
+  const hasManage = canAdjustActive || canExtend || hasSessions;
 
-      {w.sessions.length > 0 && (
-        <details className="mt-3 group">
-          <summary className="cursor-pointer text-xs font-semibold text-earth-700 hover:text-earth-900">
-            <span className="group-open:hidden">堂數明細 ▾</span>
+  return (
+    <div className="rounded-lg border border-earth-200">
+      {/* 摘要列 — 常駐、compact */}
+      <div className="px-3 py-2">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+              <span className="text-sm font-medium text-earth-900">{w.plan.name}</span>
+              <span
+                className={`rounded px-1.5 py-0.5 text-[11px] ${
+                  w.status === "ACTIVE"
+                    ? "bg-green-50 text-green-700"
+                    : "bg-earth-100 text-earth-600"
+                }`}
+              >
+                {WALLET_STATUS_LABEL[w.status] ?? w.status}
+              </span>
+            </div>
+            <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-earth-400">
+              <span>購入 NT$ {Number(w.purchasedPrice).toLocaleString()}</span>
+              <span>開始 {formatTWTime(w.startDate, { dateOnly: true })}</span>
+              {w.expiryDate && (
+                <span>到期 {formatTWTime(w.expiryDate, { dateOnly: true })}</span>
+              )}
+            </div>
+          </div>
+          <div className="shrink-0 text-right text-sm">
+            <span className="text-lg font-bold text-primary-700">{w.remainingSessions}</span>
+            <span className="text-earth-500"> / {w.totalSessions} 堂</span>
+          </div>
+        </div>
+      </div>
+
+      {/* 次要操作 — 預設收合（調整堂數 / 延長期限 / 堂數明細）*/}
+      {hasManage && (
+        <details className="group border-t border-earth-100">
+          <summary className="flex cursor-pointer items-center justify-between px-3 py-1.5 text-[11px] font-medium text-earth-500 hover:text-earth-700">
+            <span className="group-open:hidden">管理（調整堂數 / 延長期限 / 堂數明細）▾</span>
             <span className="hidden group-open:inline">收合 ▴</span>
           </summary>
-          <div className="mt-2">
-            <WalletSessionDetail
-              sessions={w.sessions}
-              adminVoid={
-                canVoid
-                  ? {
-                      walletId: w.id,
-                      walletPlanName: w.plan.name,
-                      renderButton: (s) => (
-                        <VoidSessionButton
-                          sessionId={s.id}
-                          sessionNo={s.sessionNo}
-                          walletPlanName={w.plan.name}
-                        />
-                      ),
-                    }
-                  : undefined
-              }
-            />
+          <div className="space-y-2 px-3 pb-3">
+            {canAdjustActive && (
+              <div className="space-y-2">
+                <AdjustWalletForm walletId={w.id} currentRemaining={w.remainingSessions} />
+                {availableCount > 0 && (
+                  <BackfillUsedSessionsForm
+                    walletId={w.id}
+                    available={availableCount}
+                    reserved={reservedCount}
+                    startDateLocal={toLocalDateStr(w.startDate)}
+                  />
+                )}
+              </div>
+            )}
+            {/* PR-2：延長有效期限 — ACTIVE / EXPIRED 且有期限者可延長 */}
+            {canAdjustWallet &&
+              w.expiryDate &&
+              (w.status === "ACTIVE" || w.status === "EXPIRED") && (
+                <ExtendWalletExpiryForm
+                  walletId={w.id}
+                  currentExpiry={w.expiryDate.toISOString().slice(0, 10)}
+                  expired={w.status === "EXPIRED"}
+                />
+              )}
+            {hasSessions && (
+              <div className="border-t border-earth-100 pt-2">
+                <p className="mb-1.5 text-[11px] font-semibold text-earth-600">
+                  堂數明細
+                </p>
+                <WalletSessionDetail
+                  sessions={w.sessions}
+                  adminVoid={
+                    canVoid
+                      ? {
+                          walletId: w.id,
+                          walletPlanName: w.plan.name,
+                          renderButton: (s) => (
+                            <VoidSessionButton
+                              sessionId={s.id}
+                              sessionNo={s.sessionNo}
+                              walletPlanName={w.plan.name}
+                            />
+                          ),
+                        }
+                      : undefined
+                  }
+                />
+              </div>
+            )}
           </div>
         </details>
       )}
