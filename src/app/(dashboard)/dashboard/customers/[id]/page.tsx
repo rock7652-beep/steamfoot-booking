@@ -39,8 +39,9 @@ import { sortWalletsByFEFO } from "@/lib/wallet-sort";
 
 import { CustomerBasicInfo } from "./_components/customer-basic-info";
 import { IdentityDiagnosticPanel } from "./_components/identity-diagnostic-panel";
-import { HealthStatusCard } from "./_components/health-status-card";
+import { HealthStatusBody } from "./_components/health-status-card";
 import { LineBindingSection } from "./line-binding-section";
+import { RecentRecordsTabs } from "./recent-records-tabs";
 
 const TX_TYPE_LABEL: Record<string, string> = {
   TRIAL_PURCHASE: "體驗購買",
@@ -248,7 +249,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
       />
 
       {/* Header chips — quick state at a glance */}
-      <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1.5 border-b border-earth-200 pb-2">
+      <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 border-b border-earth-200 pb-1.5">
         <span
           className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${customerStageColor}`}
         >
@@ -297,16 +298,17 @@ export default async function CustomerDetailPage({ params }: PageProps) {
         </span>
       </div>
 
-      {/* Main 8/4 grid */}
+      {/* Main grid — 左 ~65% 操作 / 右 ~35% 資訊（xl 以上才分欄，手機單欄） */}
       <div className="grid grid-cols-1 gap-3 xl:grid-cols-12">
-        {/* ========== Left 8 — primary operations ========== */}
+        {/* ========== Left ~65% — primary operations ========== */}
         <div className="space-y-3 xl:col-span-8">
-          {/* 1. Plans */}
+          {/* 1. Plans + Create booking — 合併 compact 卡 */}
           <section
             id="plan"
-            className="scroll-mt-16 rounded-xl border border-earth-200 bg-white p-4"
+            className="scroll-mt-16 space-y-3 rounded-xl border border-earth-200 bg-white px-4 py-3"
           >
-            <div className="mb-3 flex items-center justify-between">
+            {/* Plans header + assign actions */}
+            <div className="flex items-center justify-between gap-2">
               <div>
                 <h2 className="text-sm font-semibold text-earth-800">課程方案</h2>
                 <p className="text-[11px] text-earth-400">
@@ -374,273 +376,205 @@ export default async function CustomerDetailPage({ params }: PageProps) {
                 )}
               </div>
             )}
-          </section>
 
-          {/* 2. Create booking */}
-          <section
-            id="booking"
-            className="scroll-mt-16 rounded-xl border border-earth-200 bg-white p-4"
-          >
-            <h2 className="mb-3 text-sm font-semibold text-earth-800">建立預約</h2>
-            {activeWallets.length === 0 ? (
-              <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
-                <p className="text-xs font-medium text-amber-800">
-                  需先指派方案，才能建立課程堂數預約
-                </p>
-                <p className="mt-1 text-[11px] text-amber-700">
-                  完成指派後可在此建立 PACKAGE 堂數預約。體驗或單次預約請至「預約管理」頁面建立。
-                </p>
-                <Link
-                  href="#plan"
-                  className="mt-3 inline-flex items-center rounded-md bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700"
-                >
-                  前往指派方案 →
-                </Link>
-              </div>
-            ) : (
-              <CreateBookingForm
-                customerId={id}
-                activeWallets={activeWallets.map((w) => ({
-                  id: w.id,
-                  planName: w.plan.name,
-                  remainingSessions: w.remainingSessions,
-                  expiryDate: w.expiryDate?.toISOString().slice(0, 10) ?? null,
-                }))}
-              />
-            )}
-
-            {/* Upcoming bookings — kept compact below create form */}
-            {upcomingBookings.length > 0 && (
-              <div className="mt-3 border-t border-earth-100 pt-3">
-                <p className="mb-1.5 text-[11px] font-medium text-earth-500">
-                  未來預約 ({upcomingBookings.length})
-                </p>
-                <div className="space-y-1">
-                  {upcomingBookings.map((b) => (
-                    <div
-                      key={b.id}
-                      className="flex items-center justify-between rounded-md bg-blue-50/60 px-3 py-1.5 text-xs"
-                    >
-                      <span className="tabular-nums text-earth-800">
-                        {formatTWTime(b.bookingDate, { dateOnly: true })} · {b.slotTime}
-                      </span>
-                      <span className="text-[11px] text-blue-700">
-                        {STATUS_LABEL[b.bookingStatus] ?? b.bookingStatus}
-                      </span>
-                      <Link
-                        href={`/dashboard/bookings/${b.id}`}
-                        className="text-primary-700 hover:underline"
-                      >
-                        操作 →
-                      </Link>
-                    </div>
-                  ))}
+            {/* Create booking — 同卡內以分隔線區隔 */}
+            <div id="booking" className="scroll-mt-16 border-t border-earth-100 pt-3">
+              <h2 className="mb-2 text-sm font-semibold text-earth-800">建立預約</h2>
+              {activeWallets.length === 0 ? (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+                  <p className="text-xs font-medium text-amber-800">
+                    需先指派方案，才能建立課程堂數預約
+                  </p>
+                  <p className="mt-1 text-[11px] text-amber-700">
+                    完成指派後可在此建立 PACKAGE 堂數預約。體驗或單次預約請至「預約管理」頁面建立。
+                  </p>
+                  <Link
+                    href="#plan"
+                    className="mt-3 inline-flex items-center rounded-md bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700"
+                  >
+                    前往指派方案 →
+                  </Link>
                 </div>
-              </div>
-            )}
-          </section>
+              ) : (
+                <CreateBookingForm
+                  customerId={id}
+                  activeWallets={activeWallets.map((w) => ({
+                    id: w.id,
+                    planName: w.plan.name,
+                    remainingSessions: w.remainingSessions,
+                    expiryDate: w.expiryDate?.toISOString().slice(0, 10) ?? null,
+                  }))}
+                />
+              )}
 
-          {/* 3. Booking history (recent 5) */}
-          <section
-            id="bookings-history"
-            className="scroll-mt-16 rounded-xl border border-earth-200 bg-white"
-          >
-            <div className="flex items-center justify-between px-4 py-3">
-              <div>
-                <h2 className="text-sm font-semibold text-earth-800">預約紀錄</h2>
-                <p className="text-[11px] text-earth-400">
-                  最近 {recentHistory.length} / {historyBookings.length} 筆
-                </p>
-              </div>
-              <Link
-                href={`/dashboard/bookings?customerId=${id}`}
-                className="text-[11px] text-primary-600 hover:text-primary-700"
-              >
-                查看全部 →
-              </Link>
-            </div>
-            {recentHistory.length === 0 ? (
-              <EmptyRow title="尚無預約紀錄" dense />
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead className="bg-earth-50 text-[11px] font-medium text-earth-500">
-                    <tr>
-                      <th className="px-3 py-2">日期</th>
-                      <th className="px-3 py-2">時段</th>
-                      <th className="px-3 py-2">類型</th>
-                      <th className="px-3 py-2">狀態</th>
-                      <th className="w-12 px-3 py-2 text-right">詳情</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-earth-100">
-                    {recentHistory.map((b) => (
-                      <tr key={b.id} className="h-11 hover:bg-primary-50/40">
-                        <td className="px-3 text-sm tabular-nums text-earth-800">
-                          {formatTWTime(b.bookingDate, { dateOnly: true })}
-                        </td>
-                        <td className="px-3 text-[13px] text-earth-600">
-                          {b.slotTime}
-                        </td>
-                        <td className="px-3 text-[13px] text-earth-600">
-                          {b.bookingType}
-                        </td>
-                        <td className="px-3">
-                          <span
-                            className={`rounded px-1.5 py-0.5 text-[11px] font-medium ${
-                              b.bookingStatus === "COMPLETED"
-                                ? "bg-green-50 text-green-700"
-                                : b.bookingStatus === "CANCELLED"
-                                  ? "bg-earth-100 text-earth-500"
-                                  : "bg-earth-100 text-earth-600"
-                            }`}
-                          >
-                            {STATUS_LABEL[b.bookingStatus] ?? b.bookingStatus}
-                          </span>
-                        </td>
-                        <td className="px-3 text-right">
-                          <Link
-                            href={`/dashboard/bookings/${b.id}`}
-                            className="text-[11px] text-primary-600 hover:text-primary-700"
-                          >
-                            →
-                          </Link>
-                        </td>
-                      </tr>
+              {/* Upcoming bookings — kept compact below create form */}
+              {upcomingBookings.length > 0 && (
+                <div className="mt-3 border-t border-earth-100 pt-3">
+                  <p className="mb-1.5 text-[11px] font-medium text-earth-500">
+                    未來預約 ({upcomingBookings.length})
+                  </p>
+                  <div className="space-y-1">
+                    {upcomingBookings.map((b) => (
+                      <div
+                        key={b.id}
+                        className="flex items-center justify-between rounded-md bg-blue-50/60 px-3 py-1.5 text-xs"
+                      >
+                        <span className="tabular-nums text-earth-800">
+                          {formatTWTime(b.bookingDate, { dateOnly: true })} · {b.slotTime}
+                        </span>
+                        <span className="text-[11px] text-blue-700">
+                          {STATUS_LABEL[b.bookingStatus] ?? b.bookingStatus}
+                        </span>
+                        <Link
+                          href={`/dashboard/bookings/${b.id}`}
+                          className="text-primary-700 hover:underline"
+                        >
+                          操作 →
+                        </Link>
+                      </div>
                     ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                  </div>
+                </div>
+              )}
+            </div>
           </section>
 
-          {/* 4. Transactions (recent 5) */}
-          <section className="rounded-xl border border-earth-200 bg-white">
-            <div className="flex items-center justify-between px-4 py-3">
-              <div>
-                <h2 className="text-sm font-semibold text-earth-800">消費紀錄</h2>
-                <p className="text-[11px] text-earth-400">
-                  最近 {recentTransactions.length} / {transactions.length} 筆
-                </p>
-              </div>
-              <Link
-                href={`/dashboard/transactions?customerId=${id}`}
-                className="text-[11px] text-primary-600 hover:text-primary-700"
-              >
-                查看全部 →
-              </Link>
-            </div>
-            {recentTransactions.length === 0 ? (
-              <EmptyRow title="尚無消費紀錄" dense />
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead className="bg-earth-50 text-[11px] font-medium text-earth-500">
-                    <tr>
-                      <th className="px-3 py-2">日期</th>
-                      <th className="px-3 py-2">類型</th>
-                      <th className="px-3 py-2 text-right">金額</th>
-                      <th className="px-3 py-2">付款方式</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-earth-100">
-                    {recentTransactions.map((t) => {
-                      const hasDiscount =
-                        t.originalAmount && t.discountType && t.discountType !== "none";
-                      return (
-                        <tr key={t.id} className="h-11">
-                          <td className="px-3 text-[13px] tabular-nums text-earth-600">
-                            {formatTWTime(t.createdAt, { dateOnly: true })}
-                          </td>
-                          <td className="px-3 text-sm text-earth-800">
-                            {TX_TYPE_LABEL[t.transactionType] ?? t.transactionType}
-                          </td>
-                          <td
-                            className={`px-3 text-right text-sm font-medium tabular-nums ${
-                              Number(t.amount) < 0 ? "text-red-600" : "text-earth-900"
-                            }`}
-                          >
-                            {hasDiscount ? (
-                              <div className="leading-tight">
-                                <span className="text-[11px] text-earth-400 line-through">
-                                  NT$ {Number(t.originalAmount).toLocaleString()}
+          {/* 2. Recent records — 預約 / 消費 tab 整併 */}
+          <RecentRecordsTabs
+            tabs={[
+              {
+                key: "bookings",
+                label: "預約紀錄",
+                count: historyBookings.length,
+                href: `/dashboard/bookings?customerId=${id}`,
+                content:
+                  recentHistory.length === 0 ? (
+                    <EmptyRow title="尚無預約紀錄" dense />
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-sm">
+                        <thead className="bg-earth-50 text-[11px] font-medium text-earth-500">
+                          <tr>
+                            <th className="px-3 py-2">日期</th>
+                            <th className="px-3 py-2">時段</th>
+                            <th className="px-3 py-2">類型</th>
+                            <th className="px-3 py-2">狀態</th>
+                            <th className="w-12 px-3 py-2 text-right">詳情</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-earth-100">
+                          {recentHistory.map((b) => (
+                            <tr key={b.id} className="h-11 hover:bg-primary-50/40">
+                              <td className="px-3 text-sm tabular-nums text-earth-800">
+                                {formatTWTime(b.bookingDate, { dateOnly: true })}
+                              </td>
+                              <td className="px-3 text-[13px] text-earth-600">
+                                {b.slotTime}
+                              </td>
+                              <td className="px-3 text-[13px] text-earth-600">
+                                {b.bookingType}
+                              </td>
+                              <td className="px-3">
+                                <span
+                                  className={`rounded px-1.5 py-0.5 text-[11px] font-medium ${
+                                    b.bookingStatus === "COMPLETED"
+                                      ? "bg-green-50 text-green-700"
+                                      : b.bookingStatus === "CANCELLED"
+                                        ? "bg-earth-100 text-earth-500"
+                                        : "bg-earth-100 text-earth-600"
+                                  }`}
+                                >
+                                  {STATUS_LABEL[b.bookingStatus] ?? b.bookingStatus}
                                 </span>
-                                <br />
-                                <span>NT$ {Number(t.amount).toLocaleString()}</span>
-                                {t.discountReason && (
-                                  <span className="ml-1 text-[10px] text-amber-600">
-                                    ({t.discountReason})
-                                  </span>
-                                )}
-                              </div>
-                            ) : (
-                              <>NT$ {Number(t.amount).toLocaleString()}</>
-                            )}
-                          </td>
-                          <td className="px-3 text-[13px] text-earth-500">
-                            {t.paymentMethod}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </section>
+                              </td>
+                              <td className="px-3 text-right">
+                                <Link
+                                  href={`/dashboard/bookings/${b.id}`}
+                                  className="text-[11px] text-primary-600 hover:text-primary-700"
+                                >
+                                  →
+                                </Link>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ),
+              },
+              {
+                key: "transactions",
+                label: "消費紀錄",
+                count: transactions.length,
+                href: `/dashboard/transactions?customerId=${id}`,
+                content:
+                  recentTransactions.length === 0 ? (
+                    <EmptyRow title="尚無消費紀錄" dense />
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-sm">
+                        <thead className="bg-earth-50 text-[11px] font-medium text-earth-500">
+                          <tr>
+                            <th className="px-3 py-2">日期</th>
+                            <th className="px-3 py-2">類型</th>
+                            <th className="px-3 py-2 text-right">金額</th>
+                            <th className="px-3 py-2">付款方式</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-earth-100">
+                          {recentTransactions.map((t) => {
+                            const hasDiscount =
+                              t.originalAmount && t.discountType && t.discountType !== "none";
+                            return (
+                              <tr key={t.id} className="h-11">
+                                <td className="px-3 text-[13px] tabular-nums text-earth-600">
+                                  {formatTWTime(t.createdAt, { dateOnly: true })}
+                                </td>
+                                <td className="px-3 text-sm text-earth-800">
+                                  {TX_TYPE_LABEL[t.transactionType] ?? t.transactionType}
+                                </td>
+                                <td
+                                  className={`px-3 text-right text-sm font-medium tabular-nums ${
+                                    Number(t.amount) < 0 ? "text-red-600" : "text-earth-900"
+                                  }`}
+                                >
+                                  {hasDiscount ? (
+                                    <div className="leading-tight">
+                                      <span className="text-[11px] text-earth-400 line-through">
+                                        NT$ {Number(t.originalAmount).toLocaleString()}
+                                      </span>
+                                      <br />
+                                      <span>NT$ {Number(t.amount).toLocaleString()}</span>
+                                      {t.discountReason && (
+                                        <span className="ml-1 text-[10px] text-amber-600">
+                                          ({t.discountReason})
+                                        </span>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <>NT$ {Number(t.amount).toLocaleString()}</>
+                                  )}
+                                </td>
+                                <td className="px-3 text-[13px] text-earth-500">
+                                  {t.paymentMethod}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  ),
+              },
+            ]}
+          />
         </div>
 
-        {/* ========== Right 4 — info & quick actions ========== */}
+        {/* ========== Right ~35% — info & quick actions ========== */}
         <aside className="space-y-3 xl:col-span-4">
-          {/* Basic info */}
-          <CustomerBasicInfo
-            name={customer.name}
-            phone={customer.phone}
-            email={customer.email}
-            gender={customer.gender}
-            birthday={customer.birthday}
-            height={customer.height}
-            lineName={customer.lineName}
-            lineLinkStatus={customer.lineLinkStatus}
-            derivedSource={derivedSource}
-            createdAt={customer.createdAt}
-            assignedStaff={customer.assignedStaff}
-            notes={customer.notes}
-          />
-
-          {/* 身分診斷（協助店長判斷真實註冊方式 + 偵測來源異常）*/}
-          <IdentityDiagnosticPanel
-            derivedSource={derivedSource}
-            snapshot={identitySnapshot}
-            customerPhone={customer.phone}
-          />
-
-          {/* LINE 綁定操作（產生綁定碼 / 解除綁定）*/}
-          {canEdit && (
-            <SideCard title="LINE 綁定操作" subtitle="產生綁定碼或解除既有綁定">
-              <LineBindingSection
-                customerId={id}
-                lineLinkStatus={customer.lineLinkStatus}
-                lineUserId={customer.lineUserId ?? null}
-                lineLinkedAt={customer.lineLinkedAt?.toISOString() ?? null}
-                lineBindingCode={customer.lineBindingCode ?? null}
-                lineBindingCodeCreatedAt={
-                  customer.lineBindingCodeCreatedAt?.toISOString() ?? null
-                }
-              />
-            </SideCard>
-          )}
-
-          {/* HealthFlow 連結狀態（DB-only；零 API call；方案 A）*/}
-          <HealthStatusCard
-            customerId={id}
-            healthProfileId={customer.healthProfileId ?? null}
-            healthLinkStatus={customer.healthLinkStatus}
-            healthSyncedAt={customer.healthSyncedAt ?? null}
-          />
-
-          {/* Status badges */}
-          <SideCard title="狀態" subtitle="目前系統狀態">
+          {/* 顧客狀態總覽 — 狀態 badges + LINE 綁定 + AI 健康 合併單卡 */}
+          <SideCard title="顧客狀態總覽" subtitle="系統狀態 / LINE 綁定 / AI 健康">
+            {/* Status badges */}
             <div className="flex flex-wrap gap-1.5">
               <span
                 className={`rounded px-1.5 py-0.5 text-[11px] font-medium ${customerStageColor}`}
@@ -676,7 +610,62 @@ export default async function CustomerDetailPage({ params }: PageProps) {
                 {talentStageLabel}
               </span>
             </div>
+
+            {/* LINE 綁定操作（產生綁定碼 / 解除綁定）*/}
+            {canEdit && (
+              <div className="mt-3 border-t border-earth-100 pt-3">
+                <p className="mb-2 text-[11px] font-semibold text-earth-600">
+                  LINE 綁定操作
+                </p>
+                <LineBindingSection
+                  customerId={id}
+                  lineLinkStatus={customer.lineLinkStatus}
+                  lineUserId={customer.lineUserId ?? null}
+                  lineLinkedAt={customer.lineLinkedAt?.toISOString() ?? null}
+                  lineBindingCode={customer.lineBindingCode ?? null}
+                  lineBindingCodeCreatedAt={
+                    customer.lineBindingCodeCreatedAt?.toISOString() ?? null
+                  }
+                />
+              </div>
+            )}
+
+            {/* HealthFlow 連結狀態（DB-only；零 API call；方案 A）*/}
+            <div className="mt-3 border-t border-earth-100 pt-3">
+              <p className="mb-2 text-[11px] font-semibold text-earth-600">
+                AI 健康評估
+              </p>
+              <HealthStatusBody
+                customerId={id}
+                healthProfileId={customer.healthProfileId ?? null}
+                healthLinkStatus={customer.healthLinkStatus}
+                healthSyncedAt={customer.healthSyncedAt ?? null}
+              />
+            </div>
           </SideCard>
+
+          {/* Basic info — 緊湊兩欄 */}
+          <CustomerBasicInfo
+            name={customer.name}
+            phone={customer.phone}
+            email={customer.email}
+            gender={customer.gender}
+            birthday={customer.birthday}
+            height={customer.height}
+            lineName={customer.lineName}
+            lineLinkStatus={customer.lineLinkStatus}
+            derivedSource={derivedSource}
+            createdAt={customer.createdAt}
+            assignedStaff={customer.assignedStaff}
+            notes={customer.notes}
+          />
+
+          {/* 身分診斷（協助店長判斷真實註冊方式 + 偵測來源異常）*/}
+          <IdentityDiagnosticPanel
+            derivedSource={derivedSource}
+            snapshot={identitySnapshot}
+            customerPhone={customer.phone}
+          />
 
           {/* Quick actions — links + inline stage form */}
           <SideCard title="快速操作" subtitle="常用動作直接進入">
@@ -910,82 +899,106 @@ function WalletItem({
   const availableCount = w.sessions.filter((s) => s.status === "AVAILABLE").length;
   const reservedCount = w.sessions.filter((s) => s.status === "RESERVED").length;
 
-  return (
-    <div className="rounded-lg border border-earth-200 p-3">
-      <div className="flex items-start justify-between">
-        <div>
-          <span className="text-sm font-medium text-earth-900">{w.plan.name}</span>
-          <span
-            className={`ml-2 rounded px-1.5 py-0.5 text-[11px] ${
-              w.status === "ACTIVE"
-                ? "bg-green-50 text-green-700"
-                : "bg-earth-100 text-earth-600"
-            }`}
-          >
-            {WALLET_STATUS_LABEL[w.status] ?? w.status}
-          </span>
-        </div>
-        <div className="text-right text-sm">
-          <span className="text-lg font-bold text-primary-700">{w.remainingSessions}</span>
-          <span className="text-earth-500"> / {w.totalSessions} 堂</span>
-        </div>
-      </div>
-      <div className="mt-1 flex items-center gap-4 text-[11px] text-earth-400">
-        <span>購入 NT$ {Number(w.purchasedPrice).toLocaleString()}</span>
-        <span>開始 {formatTWTime(w.startDate, { dateOnly: true })}</span>
-        {w.expiryDate && <span>到期 {formatTWTime(w.expiryDate, { dateOnly: true })}</span>}
-      </div>
-      {canAdjustWallet && w.status === "ACTIVE" && (
-        <div className="mt-2 space-y-2 border-t pt-2">
-          <AdjustWalletForm walletId={w.id} currentRemaining={w.remainingSessions} />
-          {availableCount > 0 && (
-            <BackfillUsedSessionsForm
-              walletId={w.id}
-              available={availableCount}
-              reserved={reservedCount}
-              startDateLocal={toLocalDateStr(w.startDate)}
-            />
-          )}
-        </div>
-      )}
-      {/* PR-2：延長有效期限 — ACTIVE / EXPIRED 且有期限者可延長 */}
-      {canAdjustWallet &&
-        w.expiryDate &&
-        (w.status === "ACTIVE" || w.status === "EXPIRED") && (
-          <div className="mt-2 border-t pt-2">
-            <ExtendWalletExpiryForm
-              walletId={w.id}
-              currentExpiry={w.expiryDate.toISOString().slice(0, 10)}
-              expired={w.status === "EXPIRED"}
-            />
-          </div>
-        )}
+  // compact 第二輪：方案卡降高 — 摘要常駐顯示，次要操作（調整堂數 / 延長
+  // 期限 / 堂數明細）一律收進單一 per-wallet「管理 ▾」，確保多方案時「建立
+  // 預約」仍在第一屏。功能不變，只是預設收合。
+  const canAdjustActive = canAdjustWallet && w.status === "ACTIVE";
+  const canExtend =
+    canAdjustWallet &&
+    !!w.expiryDate &&
+    (w.status === "ACTIVE" || w.status === "EXPIRED");
+  const hasSessions = w.sessions.length > 0;
+  const hasManage = canAdjustActive || canExtend || hasSessions;
 
-      {w.sessions.length > 0 && (
-        <details className="mt-3 group">
-          <summary className="cursor-pointer text-xs font-semibold text-earth-700 hover:text-earth-900">
-            <span className="group-open:hidden">堂數明細 ▾</span>
+  return (
+    <div className="rounded-lg border border-earth-200">
+      {/* 摘要列 — 常駐、compact */}
+      <div className="px-3 py-2">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+              <span className="text-sm font-medium text-earth-900">{w.plan.name}</span>
+              <span
+                className={`rounded px-1.5 py-0.5 text-[11px] ${
+                  w.status === "ACTIVE"
+                    ? "bg-green-50 text-green-700"
+                    : "bg-earth-100 text-earth-600"
+                }`}
+              >
+                {WALLET_STATUS_LABEL[w.status] ?? w.status}
+              </span>
+            </div>
+            <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-earth-400">
+              <span>購入 NT$ {Number(w.purchasedPrice).toLocaleString()}</span>
+              <span>開始 {formatTWTime(w.startDate, { dateOnly: true })}</span>
+              {w.expiryDate && (
+                <span>到期 {formatTWTime(w.expiryDate, { dateOnly: true })}</span>
+              )}
+            </div>
+          </div>
+          <div className="shrink-0 text-right text-sm">
+            <span className="text-lg font-bold text-primary-700">{w.remainingSessions}</span>
+            <span className="text-earth-500"> / {w.totalSessions} 堂</span>
+          </div>
+        </div>
+      </div>
+
+      {/* 次要操作 — 預設收合（調整堂數 / 延長期限 / 堂數明細）*/}
+      {hasManage && (
+        <details className="group border-t border-earth-100">
+          <summary className="flex cursor-pointer items-center justify-between px-3 py-1.5 text-[11px] font-medium text-earth-500 hover:text-earth-700">
+            <span className="group-open:hidden">管理（調整堂數 / 延長期限 / 堂數明細）▾</span>
             <span className="hidden group-open:inline">收合 ▴</span>
           </summary>
-          <div className="mt-2">
-            <WalletSessionDetail
-              sessions={w.sessions}
-              adminVoid={
-                canVoid
-                  ? {
-                      walletId: w.id,
-                      walletPlanName: w.plan.name,
-                      renderButton: (s) => (
-                        <VoidSessionButton
-                          sessionId={s.id}
-                          sessionNo={s.sessionNo}
-                          walletPlanName={w.plan.name}
-                        />
-                      ),
-                    }
-                  : undefined
-              }
-            />
+          <div className="space-y-2 px-3 pb-3">
+            {canAdjustActive && (
+              <div className="space-y-2">
+                <AdjustWalletForm walletId={w.id} currentRemaining={w.remainingSessions} />
+                {availableCount > 0 && (
+                  <BackfillUsedSessionsForm
+                    walletId={w.id}
+                    available={availableCount}
+                    reserved={reservedCount}
+                    startDateLocal={toLocalDateStr(w.startDate)}
+                  />
+                )}
+              </div>
+            )}
+            {/* PR-2：延長有效期限 — ACTIVE / EXPIRED 且有期限者可延長 */}
+            {canAdjustWallet &&
+              w.expiryDate &&
+              (w.status === "ACTIVE" || w.status === "EXPIRED") && (
+                <ExtendWalletExpiryForm
+                  walletId={w.id}
+                  currentExpiry={w.expiryDate.toISOString().slice(0, 10)}
+                  expired={w.status === "EXPIRED"}
+                />
+              )}
+            {hasSessions && (
+              <div className="border-t border-earth-100 pt-2">
+                <p className="mb-1.5 text-[11px] font-semibold text-earth-600">
+                  堂數明細
+                </p>
+                <WalletSessionDetail
+                  sessions={w.sessions}
+                  adminVoid={
+                    canVoid
+                      ? {
+                          walletId: w.id,
+                          walletPlanName: w.plan.name,
+                          renderButton: (s) => (
+                            <VoidSessionButton
+                              sessionId={s.id}
+                              sessionNo={s.sessionNo}
+                              walletPlanName={w.plan.name}
+                            />
+                          ),
+                        }
+                      : undefined
+                  }
+                />
+              </div>
+            )}
           </div>
         </details>
       )}
