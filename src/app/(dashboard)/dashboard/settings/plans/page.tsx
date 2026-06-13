@@ -21,6 +21,8 @@ interface PlanCard {
   key: PlanKey;
   name: string;
   positioning: string;
+  /** 卡片內定位副說明（目前僅展店版使用，回答「為何比專業版貴」） */
+  cardSubline?: string;
   monthly: string;
   yearly: string;
   yearlyNote: string;
@@ -40,7 +42,7 @@ const PLANS: PlanCard[] = [
     positioning: "管理一家店",
     monthly: "NT$1,980",
     yearly: "NT$19,800",
-    yearlyNote: "約省 2 個月",
+    yearlyNote: "現省 NT$3,960",
     description: "適合剛開始營運，先把預約、顧客、收款管理好。",
     features: [
       "預約管理",
@@ -59,7 +61,7 @@ const PLANS: PlanCard[] = [
     positioning: "經營顧客",
     monthly: "NT$3,980",
     yearly: "NT$39,800",
-    yearlyNote: "約省 2 個月",
+    yearlyNote: "現省 NT$7,960",
     badge: "推薦方案",
     recommended: true,
     isCurrent: true,
@@ -84,11 +86,11 @@ const PLANS: PlanCard[] = [
     key: "SCALE",
     name: "展店版",
     positioning: "複製成功門市",
+    cardSubline: "適合第二家店以上",
     monthly: "NT$9,800",
     yearly: "NT$98,000",
-    yearlyNote: "約省 2 個月",
-    description:
-      "適合第二家店以上，管理分店、店長績效與未來組織成長。",
+    yearlyNote: "現省 NT$19,600",
+    description: "管理分店、店長績效與未來組織成長。",
     features: [
       "包含專業版全部功能",
       "多店管理",
@@ -328,6 +330,11 @@ export default async function PlansCenterPage() {
                   {plan.positioning}
                 </span>
               </div>
+              {plan.cardSubline ? (
+                <p className="mt-1 text-[12px] font-medium text-primary-700">
+                  {plan.cardSubline}
+                </p>
+              ) : null}
 
               {/* 價格 */}
               <div className="mt-3">
@@ -337,7 +344,7 @@ export default async function PlansCenterPage() {
                   </span>
                   <span className="text-[12px] text-earth-500">/月</span>
                 </div>
-                <p className="mt-1.5 flex items-center gap-2 text-[11px] text-earth-500">
+                <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-earth-500">
                   <span>年繳 {plan.yearly}/年</span>
                   <span className="rounded bg-primary-50 px-1.5 py-0.5 font-medium text-primary-700">
                     {plan.yearlyNote}
