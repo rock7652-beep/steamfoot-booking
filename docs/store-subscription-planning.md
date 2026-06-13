@@ -57,6 +57,12 @@
 | `notes` | string? | 備註（自由文字） |
 | `createdAt` | DateTime | 建立時間 |
 | `updatedAt` | DateTime | 更新時間 |
+| `createdBy` | string?（staffId / userId） | 建立人（操作者追蹤，**PR #295 實作管理頁時加入**） |
+| `updatedBy` | string?（staffId / userId） | 最後更新人（操作者追蹤，**PR #295 實作管理頁時加入**） |
+
+> **操作者追蹤（actor tracking）**：訂閱資料未來會由不同人（不同店長、ADMIN）修改，
+> 出問題時必須查得到「誰、何時改了什麼」。`createdBy` / `updatedBy` 先在本文件記為**必要欄位**，
+> 於 PR #295 隨管理頁一併落地；更完整的逐筆變更軌跡則由 `SubscriptionHistory`（§9）承接。
 
 ### 關聯
 - 一家 `Store` 對多筆 `StoreSubscription`（保留歷史；同一時間以最新一筆為「目前訂閱」）。
