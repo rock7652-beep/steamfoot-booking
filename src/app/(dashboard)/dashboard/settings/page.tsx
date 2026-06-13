@@ -113,7 +113,7 @@ export default async function SettingsIndexPage() {
     {
       title: "營運設定",
       items: [
-        { label: "方案設定", href: "/dashboard/settings/plan" },
+        { label: "成長方案中心", href: "/dashboard/settings/plans" },
         { label: "付款設定", href: "/dashboard/settings/payment" },
         ...(canManageTrial
           ? [{ label: "體驗課設定", href: "/dashboard/settings/trial" }]
@@ -199,27 +199,6 @@ export default async function SettingsIndexPage() {
               items={[
                 { label: "員工總數", value: `${staffCount} 位` },
                 { label: "啟用中", value: `${activeStaffCount} 位` },
-              ]}
-            />
-          }
-        />
-
-        {/* 2. 方案設定 */}
-        <SettingsActionCard
-          title="方案設定"
-          description="方案內容、試用狀態、升級申請"
-          iconPath="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z"
-          primaryHref="/dashboard/settings/plan"
-          primaryLabel="查看方案"
-          summary={
-            <InfoList
-              density="compact"
-              items={[
-                { label: "目前方案", value: planLabel },
-                {
-                  label: "說明",
-                  value: planInfo?.description ?? "—",
-                },
               ]}
             />
           }
