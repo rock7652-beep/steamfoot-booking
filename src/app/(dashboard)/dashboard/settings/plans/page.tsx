@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { getCurrentUser } from "@/lib/session";
 import { redirect, notFound } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
@@ -9,8 +10,8 @@ import { PageShell, PageHeader } from "@/components/desktop";
  * 靜態方案總覽頁，讓店長一眼看懂目前方案、可升級方案與功能差異。
  *
  * 範圍限制（依需求）：
- *   - 純靜態頁，不接金流、不做付款功能
- *   - 不改 schema、不做方案權限鎖定
+ *   - 純 UI / 文案 / 版型，不接金流、不做付款功能
+ *   - 不改 schema、不做方案權限鎖定、不做 upgrade request
  *   - 目前方案 / 續約日等暫用假資料
  */
 
@@ -22,6 +23,7 @@ interface PlanCard {
   positioning: string;
   monthly: string;
   yearly: string;
+  yearlyNote: string;
   badge?: string;
   description: string;
   features: string[];
@@ -38,6 +40,7 @@ const PLANS: PlanCard[] = [
     positioning: "管理一家店",
     monthly: "NT$1,980",
     yearly: "NT$19,800",
+    yearlyNote: "約省 2 個月",
     description: "適合剛開始營運，先把預約、顧客、收款管理好。",
     features: [
       "預約管理",
@@ -56,6 +59,7 @@ const PLANS: PlanCard[] = [
     positioning: "經營顧客",
     monthly: "NT$3,980",
     yearly: "NT$39,800",
+    yearlyNote: "約省 2 個月",
     badge: "推薦方案",
     recommended: true,
     isCurrent: true,
@@ -82,6 +86,7 @@ const PLANS: PlanCard[] = [
     positioning: "複製成功門市",
     monthly: "NT$9,800",
     yearly: "NT$98,000",
+    yearlyNote: "約省 2 個月",
     description:
       "適合第二家店以上，管理分店、店長績效與未來組織成長。",
     features: [
@@ -120,8 +125,9 @@ const COMPARE_ROWS: {
 // ── 目前方案假資料 ──
 const CURRENT_PLAN = {
   name: "專業版",
-  monthly: "NT$3,980/月",
-  yearly: "NT$39,800/年",
+  positioning: "經營顧客",
+  monthly: "NT$3,980",
+  yearly: "NT$39,800",
   store: "竹北店",
   payment: "現金 / 轉帳",
   renewAt: "2026/12/31",
@@ -161,7 +167,7 @@ export default async function PlansCenterPage() {
     <PageShell className="mx-auto flex max-w-[1440px] flex-col gap-4 px-5 py-4">
       <PageHeader
         title="成長方案中心"
-        subtitle="看懂目前方案、可升級方案與功能差異"
+        subtitle="依門市成長階段選擇方案，看懂目前狀態與功能差異"
         actions={
           <Link
             href="/dashboard/settings"
@@ -172,29 +178,108 @@ export default async function PlansCenterPage() {
         }
       />
 
-      {/* 一、目前方案 */}
+      {/* 成長路徑 */}
+      <section className="rounded-xl border border-earth-200 bg-white px-5 py-4 shadow-sm">
+        <div className="mb-3 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+          <h2 className="text-sm font-semibold text-earth-900">成長路徑</h2>
+          <span className="text-[11px] text-earth-500">
+            三個方案對應門市成長的三個階段，不只是價格高低
+          </span>
+        </div>
+        <ol className="flex flex-col gap-2 sm:flex-row sm:items-stretch sm:gap-0">
+          {PLANS.map((plan, i) => (
+            <Fragment key={plan.key}>
+              <li
+                className={`flex-1 rounded-lg border px-4 py-3 text-center ${
+                  plan.isCurrent
+                    ? "border-primary-300 bg-primary-50"
+                    : "border-earth-200 bg-earth-50/50"
+                }`}
+              >
+                <div
+                  className={`text-[15px] font-bold ${
+                    plan.isCurrent ? "text-primary-700" : "text-earth-800"
+                  }`}
+                >
+                  {plan.name}
+                </div>
+                <div className="mt-0.5 text-[12px] text-earth-500">
+                  {plan.positioning}
+                </div>
+                {plan.isCurrent ? (
+                  <div className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-primary-100 px-2 py-0.5 text-[10px] font-medium text-primary-700">
+                    <span className="h-1 w-1 rounded-full bg-primary-500" />
+                    目前所在
+                  </div>
+                ) : null}
+              </li>
+              {i < PLANS.length - 1 ? (
+                <li
+                  className="flex items-center justify-center text-earth-300 sm:px-2"
+                  aria-hidden
+                >
+                  <span className="text-lg leading-none sm:hidden">↓</span>
+                  <span className="hidden text-lg leading-none sm:inline">→</span>
+                </li>
+              ) : null}
+            </Fragment>
+          ))}
+        </ol>
+      </section>
+
+      {/* 目前方案 */}
       <section className="rounded-xl border border-primary-200 bg-primary-50/40 shadow-sm">
-        <div className="flex flex-wrap items-start justify-between gap-4 px-5 py-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] font-medium uppercase tracking-wider text-primary-700">
-                目前方案
-              </span>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-primary-100 px-2.5 py-0.5 text-[11px] font-medium text-primary-700">
-                <span className="h-1.5 w-1.5 rounded-full bg-primary-500" />
-                使用中
-              </span>
+        <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-4 px-5 py-4">
+          {/* 左：身分 */}
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary-100 text-primary-700">
+              <svg
+                className="h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={1.8}
+                aria-hidden
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
             </div>
-            <h2 className="mt-1 text-2xl font-bold text-earth-900">
-              {CURRENT_PLAN.name}
-            </h2>
-            <p className="mt-0.5 text-[13px] text-earth-600">
-              {CURRENT_PLAN.monthly}
-              <span className="mx-1.5 text-earth-300">·</span>
-              {CURRENT_PLAN.yearly}
-            </p>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-medium text-primary-700">
+                  您目前使用
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-primary-100 px-2.5 py-0.5 text-[11px] font-medium text-primary-700">
+                  <span className="h-1.5 w-1.5 rounded-full bg-primary-500" />
+                  使用中
+                </span>
+              </div>
+              <div className="mt-0.5 flex items-baseline gap-2">
+                <h2 className="text-2xl font-bold text-earth-900">
+                  {CURRENT_PLAN.name}
+                </h2>
+                <span className="text-[13px] text-earth-500">
+                  {CURRENT_PLAN.positioning}
+                </span>
+              </div>
+              <p className="mt-1 text-[13px] text-earth-700">
+                <span className="font-semibold text-earth-900">
+                  {CURRENT_PLAN.monthly}
+                </span>
+                /月
+                <span className="mx-1.5 text-earth-300">·</span>
+                <span className="text-earth-500">
+                  年繳 {CURRENT_PLAN.yearly}
+                </span>
+              </p>
+            </div>
           </div>
 
+          {/* 右：使用狀態 */}
           <dl className="grid grid-cols-2 gap-x-8 gap-y-2.5 sm:grid-cols-3">
             <div>
               <dt className="text-[11px] text-earth-500">目前門市</dt>
@@ -218,19 +303,19 @@ export default async function PlansCenterPage() {
         </div>
       </section>
 
-      {/* 二、三個方案卡片 */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      {/* 三個方案卡片 */}
+      <div className="grid grid-cols-1 items-stretch gap-4 md:grid-cols-3">
         {PLANS.map((plan) => (
           <article
             key={plan.key}
-            className={`relative flex flex-col rounded-xl border bg-white p-5 shadow-sm ${
+            className={`relative flex h-full flex-col rounded-xl border bg-white p-5 ${
               plan.recommended
-                ? "border-primary-300 ring-1 ring-primary-200"
-                : "border-earth-200"
+                ? "border-primary-400 shadow-md ring-1 ring-primary-200"
+                : "border-earth-200 shadow-sm"
             }`}
           >
             {plan.badge ? (
-              <span className="absolute -top-2.5 left-5 inline-flex items-center gap-1 rounded-full bg-primary-600 px-2.5 py-0.5 text-[11px] font-semibold text-white shadow-sm">
+              <span className="absolute -top-2.5 left-1/2 inline-flex -translate-x-1/2 items-center gap-1 whitespace-nowrap rounded-full bg-primary-600 px-3 py-0.5 text-[11px] font-semibold text-white shadow-sm">
                 ★ {plan.badge}
               </span>
             ) : null}
@@ -247,17 +332,20 @@ export default async function PlansCenterPage() {
               {/* 價格 */}
               <div className="mt-3">
                 <div className="flex items-baseline gap-1">
-                  <span className="text-2xl font-bold tabular-nums text-earth-900">
+                  <span className="text-[26px] font-bold leading-none tabular-nums text-earth-900">
                     {plan.monthly}
                   </span>
                   <span className="text-[12px] text-earth-500">/月</span>
                 </div>
-                <p className="mt-0.5 text-[11px] text-earth-500">
-                  年繳 {plan.yearly}/年
+                <p className="mt-1.5 flex items-center gap-2 text-[11px] text-earth-500">
+                  <span>年繳 {plan.yearly}/年</span>
+                  <span className="rounded bg-primary-50 px-1.5 py-0.5 font-medium text-primary-700">
+                    {plan.yearlyNote}
+                  </span>
                 </p>
               </div>
 
-              <p className="mt-3 text-[13px] leading-relaxed text-earth-700">
+              <p className="mt-3 min-h-[2.5rem] text-[13px] leading-relaxed text-earth-700">
                 {plan.description}
               </p>
             </header>
@@ -274,67 +362,66 @@ export default async function PlansCenterPage() {
               ))}
             </ul>
 
-            {/* 適合 */}
-            <div className="mt-4 border-t border-earth-100 pt-3">
-              <p className="text-[11px] font-medium text-earth-500">適合</p>
-              <div className="mt-1.5 flex flex-wrap gap-1.5">
-                {plan.audience.map((a) => (
-                  <span
-                    key={a}
-                    className="rounded-full bg-earth-100 px-2 py-0.5 text-[11px] text-earth-600"
-                  >
-                    {a}
-                  </span>
-                ))}
+            {/* 底部：適合對象 + CTA（固定貼底，桌機三卡對齊） */}
+            <div className="mt-auto pt-4">
+              <div className="border-t border-earth-100 pt-3">
+                <p className="text-[11px] font-medium text-earth-500">適合</p>
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {plan.audience.map((a) => (
+                    <span
+                      key={a}
+                      className="rounded-full bg-earth-100 px-2 py-0.5 text-[11px] text-earth-600"
+                    >
+                      {a}
+                    </span>
+                  ))}
+                </div>
               </div>
-            </div>
 
-            {/* CTA */}
-            <div className="mt-5 pt-1">
-              {plan.isCurrent ? (
-                <button
-                  type="button"
-                  disabled
-                  className="w-full cursor-default rounded-lg border border-primary-200 bg-primary-50 px-3 py-2 text-[13px] font-semibold text-primary-700"
-                >
-                  {plan.ctaLabel}
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  className={`w-full rounded-lg px-3 py-2 text-[13px] font-semibold transition ${
-                    plan.recommended
-                      ? "bg-primary-600 text-white hover:bg-primary-700"
-                      : "border border-earth-200 text-earth-700 hover:bg-earth-50"
-                  }`}
-                >
-                  {plan.ctaLabel}
-                </button>
-              )}
+              <div className="mt-4">
+                {plan.isCurrent ? (
+                  <button
+                    type="button"
+                    disabled
+                    className="w-full cursor-default rounded-lg border border-primary-300 bg-primary-50 px-3 py-2 text-[13px] font-semibold text-primary-700"
+                  >
+                    {plan.ctaLabel}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className={`w-full rounded-lg px-3 py-2 text-[13px] font-semibold transition ${
+                      plan.recommended
+                        ? "bg-primary-600 text-white hover:bg-primary-700"
+                        : "border border-earth-200 text-earth-700 hover:bg-earth-50"
+                    }`}
+                  >
+                    {plan.ctaLabel}
+                  </button>
+                )}
+              </div>
             </div>
           </article>
         ))}
       </div>
 
-      {/* 三、功能比較表 */}
-      <section className="rounded-xl border border-earth-200 bg-white shadow-sm">
-        <header className="border-b border-earth-100 px-5 py-3.5">
-          <h2 className="text-sm font-semibold text-earth-900">功能比較</h2>
-          <p className="mt-0.5 text-[11px] text-earth-500">
-            各方案包含的功能一覽
-          </p>
+      {/* 功能比較表（輔助資訊，視覺弱化） */}
+      <section className="rounded-xl border border-earth-200 bg-earth-50/30">
+        <header className="flex items-baseline gap-2 px-5 py-3">
+          <h2 className="text-[13px] font-semibold text-earth-700">功能比較</h2>
+          <p className="text-[11px] text-earth-400">輔助參考 · 各方案功能一覽</p>
         </header>
 
         <div className="overflow-x-auto">
           <table className="w-full min-w-[480px] text-[13px]">
             <thead>
-              <tr className="border-b border-earth-100 text-[11px] text-earth-500">
-                <th className="px-5 py-2.5 text-left font-medium">功能</th>
-                <th className="px-3 py-2.5 text-center font-medium">基礎版</th>
-                <th className="bg-primary-50/50 px-3 py-2.5 text-center font-semibold text-primary-700">
+              <tr className="border-y border-earth-100 text-[11px] text-earth-400">
+                <th className="px-5 py-2 text-left font-medium">功能</th>
+                <th className="px-3 py-2 text-center font-medium">基礎版</th>
+                <th className="bg-primary-50/40 px-3 py-2 text-center font-semibold text-primary-700">
                   專業版
                 </th>
-                <th className="px-3 py-2.5 text-center font-medium">展店版</th>
+                <th className="px-3 py-2 text-center font-medium">展店版</th>
               </tr>
             </thead>
             <tbody>
@@ -343,22 +430,22 @@ export default async function PlansCenterPage() {
                   key={row.label}
                   className={
                     i < COMPARE_ROWS.length - 1
-                      ? "border-b border-earth-50"
+                      ? "border-b border-earth-100/60"
                       : ""
                   }
                 >
-                  <td className="px-5 py-2.5 text-earth-700">{row.label}</td>
-                  <td className="px-3 py-2.5">
+                  <td className="px-5 py-2 text-earth-600">{row.label}</td>
+                  <td className="px-3 py-2">
                     <div className="flex justify-center">
                       {row.basic ? <CheckIcon /> : <DashIcon />}
                     </div>
                   </td>
-                  <td className="bg-primary-50/50 px-3 py-2.5">
+                  <td className="bg-primary-50/40 px-3 py-2">
                     <div className="flex justify-center">
                       {row.professional ? <CheckIcon /> : <DashIcon />}
                     </div>
                   </td>
-                  <td className="px-3 py-2.5">
+                  <td className="px-3 py-2">
                     <div className="flex justify-center">
                       {row.scale ? <CheckIcon /> : <DashIcon />}
                     </div>
