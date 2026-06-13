@@ -113,6 +113,7 @@ export default async function SettingsIndexPage() {
     {
       title: "營運設定",
       items: [
+        { label: "成長方案中心", href: "/dashboard/settings/plans" },
         { label: "方案設定", href: "/dashboard/settings/plan" },
         { label: "付款設定", href: "/dashboard/settings/payment" },
         ...(canManageTrial
