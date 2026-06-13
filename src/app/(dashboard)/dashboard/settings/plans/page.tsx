@@ -124,6 +124,9 @@ const COMPARE_ROWS: {
   { label: "組織管理", basic: false, professional: false, scale: true },
 ];
 
+/** 年繳共通說明：所有方案年繳都等於加贈 2 個月（付 10 個月、用 14 個月） */
+const YEARLY_BONUS = "加贈 2 個月，共 14 個月使用";
+
 // ── 目前方案假資料 ──
 const CURRENT_PLAN = {
   name: "專業版",
@@ -349,6 +352,9 @@ export default async function PlansCenterPage() {
                   <span className="rounded bg-primary-50 px-1.5 py-0.5 font-medium text-primary-700">
                     {plan.yearlyNote}
                   </span>
+                </p>
+                <p className="mt-1 text-[11px] font-medium text-primary-700">
+                  {YEARLY_BONUS}
                 </p>
               </div>
 
