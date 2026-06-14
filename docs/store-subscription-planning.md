@@ -3,6 +3,11 @@
 > 狀態：**規劃文件（Planning only）**，本階段不實作任何功能。
 > 用途：作為後續實作（schema / 管理頁 / 歷史紀錄 / 金流）的依據。
 
+> **🔴 修訂 v2（重要）**：原 v1 在不知情下把本案寫成「新建 `StoreSubscription` model」。
+> 經 read-only 盤點，**production 早已有同名 `StoreSubscription` 等一整套方案/訂閱/升級系統並在 live 使用**。
+> 因此本案改為「**擴充既有 `StoreSubscription`**」，所有規劃名稱一律對齊既有欄位（見 §0.5）。
+> 後續 #294+ 一律以 v2 為準，**不得新建同名 model**。
+
 ---
 
 ## 0. 背景
@@ -18,6 +23,55 @@
 都不一樣，且會隨時間變動。若每次調整都要改 Code、重新 deploy，無法規模化。
 
 因此需要先規劃「**店家訂閱管理**」，讓 OWNER / ADMIN 能直接在後台維護每家店的訂閱資料，「成長方案中心」未來再改為讀取真實訂閱資料。
+
+---
+
+## 0.5 既有系統盤點與修訂決策（v2 新增）
+
+### 盤點結論：production 已有完整方案/訂閱系統
+
+以下物件**早在 `prisma/migrations/0_baseline`、已部署 production、且程式 live 使用**，本案不可無視：
+
+| 既有物件 | 角色 | 使用處 |
+|---|---|---|
+| `Store.plan : PricingPlan` + `planStatus / planEffectiveAt / planExpiresAt / currentSubscriptionId` | **目前方案的真正來源**（`getCurrentStorePlan()` 讀這欄） | `/dashboard/settings/plan`、各處 feature gate |
+| `model StoreSubscription` | 方案的**計費生命週期紀錄** | `src/server/actions/upgrade-request.ts`（8+ 處 create/update）、`queries/upgrade-request.ts` |
+| `model StorePlanChange` | 方案**異動軌跡**（= 規劃中的 SubscriptionHistory 雛形） | upgrade-request、plan-overview |
+| `model UpgradeRequest` | 升級 / 付款**申請流程** | `/dashboard/upgrade-requests` |
+| enum `PricingPlan` `EXPERIENCE/BASIC/GROWTH/ALLIANCE` | 方案分級 | 全系統 |
+| enum `SubscriptionStatus` `TRIAL/ACTIVE/PAYMENT_PENDING/PAST_DUE/CANCELLED/EXPIRED` | 訂閱狀態 | StoreSubscription |
+| enum `BillingStatus` `NOT_REQUIRED/PENDING/PAID/FAILED/REFUNDED/WAIVED` | 付款狀態 | StoreSubscription / UpgradeRequest |
+
+### 決策
+
+1. **不新建 model**，改為**擴充既有 `StoreSubscription`**（最安全、符合現況）。
+2. **欄位一律對齊既有名稱**（不改名，避免打到 live 金流流程）。下表為規劃名 → 既有欄位對照（**這張表是本文件其餘章節的權威對照**）：
+
+   | v1 規劃名 | 既有欄位 | 處置 |
+   |---|---|---|
+   | `planType` | `plan : PricingPlan` | 沿用既有（見 §3 mapping） |
+   | `billingCycle` | `billingCycle : String?`（`MONTHLY/YEARLY/ONE_TIME`） | 沿用既有（先不轉 enum） |
+   | `startDate` | `startedAt` / `effectiveAt` | 沿用既有 |
+   | `endDate` | `expiresAt` | 沿用既有 |
+   | `status` | `status : SubscriptionStatus` | 沿用既有（見 §5） |
+   | `paymentStatus` | `billingStatus : BillingStatus` | 沿用既有（見 §6） |
+   | `amountPaid` | `priceAmount : Int?`（+ `priceCurrency`） | 沿用既有 |
+   | `notes` | `note : String?` | 沿用既有 |
+   | `createdBy` | `createdBy : String?` | **已存在** |
+   | history | `StorePlanChange` | 沿用既有 |
+   | `paymentMethod` | — | **本案唯一需新增的「資料」欄位** |
+   | `updatedBy` | — | **本案唯一需新增的「追蹤」欄位** |
+
+3. **enum 決策（已拍板）**：
+   - `paymentStatus` **沿用既有 `BillingStatus`**（6 值比規劃的 4 值更完整），**不新增 4 值 enum**。
+   - **不新增 `EXPIRING` / `SUSPENDED`**：`EXPIRING` 用 `expiresAt ≤ 30 天` **計算**得出、不落 DB；`SUSPENDED` 停權機制尚未要做，先不讓 enum 提早膨脹。
+
+### #294 最小改動（additive only）
+
+- 新增 enum `SubscriptionPaymentMethod { CASH, BANK_TRANSFER, CREDIT_CARD }`
+- 既有 `StoreSubscription` 新增：`paymentMethod SubscriptionPaymentMethod?`、`updatedBy String?`
+- （視需要）補索引：`@@index([expiresAt])`、`@@index([billingStatus])`
+- migration 全為 additive（CREATE TYPE + ALTER TABLE ADD COLUMN [+ CREATE INDEX]），**不碰既有資料、不碰 upgrade-request**。
 
 ---
 
@@ -38,54 +92,72 @@
 
 ---
 
-## 2. 建議資料模型
+## 2. 資料模型（擴充既有 `StoreSubscription`）
 
-### `StoreSubscription`
+> **權威對照在 §0.5**。本節描述既有 model 與本案的 additive 擴充；規劃名 → 既有欄位請以 §0.5 對照表為準。
 
-| 欄位 | 型別 | 說明 |
+### 既有 `StoreSubscription`（節錄現況，不改動）
+
+```
+model StoreSubscription {
+  id              String             @id @default(cuid())
+  storeId         String
+  plan            PricingPlan                      // = 規劃 planType
+  status          SubscriptionStatus @default(ACTIVE)
+  startedAt       DateTime           @default(now())// = 規劃 startDate
+  effectiveAt     DateTime?
+  expiresAt       DateTime?                         // = 規劃 endDate（最後可用日）
+  cancelledAt     DateTime?
+  isTrial         Boolean            @default(false)
+  billingCycle    String?            // MONTHLY | YEARLY | ONE_TIME
+  billingStatus   BillingStatus      @default(NOT_REQUIRED) // = 規劃 paymentStatus
+  priceAmount     Int?                              // = 規劃 amountPaid
+  priceCurrency   String?            @default("TWD")
+  sourceRequestId String?
+  createdBy       String?                           // 已存在
+  note            String?                           // = 規劃 notes
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  store           Store              @relation("StoreSubscriptions", ...)
+  currentForStore Store?             @relation("CurrentSubscription")
+  planChanges     StorePlanChange[]                 // 異動軌跡（= 規劃 history）
+  @@index([storeId]) @@index([status])
+}
+```
+
+### 本案 additive 擴充（#294 唯一要做的 schema 變更）
+
+| 動作 | 內容 | 風險 |
 |---|---|---|
-| `id` | string (cuid) | 主鍵 |
-| `storeId` | string | 對應 `Store.id`，外鍵 |
-| `planType` | enum `PlanType` | `BASIC` / `PRO` / `EXPANSION` |
-| `billingCycle` | enum `BillingCycle` | `MONTHLY` / `YEARLY` |
-| `startDate` | DateTime（date 部分為準） | 起始日 |
-| `endDate` | DateTime（date 部分為準） | 到期日＝**最後一天仍可使用** |
-| `status` | enum `SubscriptionStatus` | `ACTIVE` / `EXPIRING` / `EXPIRED` / `SUSPENDED` |
-| `paymentMethod` | enum `PaymentMethod` | `CASH` / `BANK_TRANSFER` / `CREDIT_CARD` |
-| `paymentStatus` | enum `PaymentStatus` | `PAID` / `UNPAID` / `OVERDUE` / `WAIVED` |
-| `amountPaid` | Int（TWD，元） | 實際收款金額 |
-| `notes` | string? | 備註（自由文字） |
-| `createdAt` | DateTime | 建立時間 |
-| `updatedAt` | DateTime | 更新時間 |
-| `createdBy` | string?（staffId / userId） | 建立人（操作者追蹤，**PR #295 實作管理頁時加入**） |
-| `updatedBy` | string?（staffId / userId） | 最後更新人（操作者追蹤，**PR #295 實作管理頁時加入**） |
+| 新增 enum | `SubscriptionPaymentMethod { CASH, BANK_TRANSFER, CREDIT_CARD }` | 低（全新型別） |
+| 新增欄位 | `paymentMethod SubscriptionPaymentMethod?` | 低（nullable additive） |
+| 新增欄位 | `updatedBy String?`（操作者追蹤；`createdBy` 已有） | 低（nullable additive） |
+| 補索引（可選） | `@@index([expiresAt])`、`@@index([billingStatus])` | 低 |
 
-> **操作者追蹤（actor tracking）**：訂閱資料未來會由不同人（不同店長、ADMIN）修改，
-> 出問題時必須查得到「誰、何時改了什麼」。`createdBy` / `updatedBy` 先在本文件記為**必要欄位**，
-> 於 PR #295 隨管理頁一併落地；更完整的逐筆變更軌跡則由 `SubscriptionHistory`（§9）承接。
+> **不做**：改既有欄位名（`expiresAt→endDate` 等）、改 `PricingPlan` / `SubscriptionStatus` enum 值、動 `upgrade-request` 流程。這些會連鎖打到 live 金流，**絕不在 #294 範圍**。
 
-### 關聯
-- 一家 `Store` 對多筆 `StoreSubscription`（保留歷史；同一時間以最新一筆為「目前訂閱」）。
-- 第一階段可先簡化為「一店一筆目前訂閱」，但 schema 設計需預留多筆（為日後續約 / 升級保留歷史）。
+### 關聯（既有，不改）
+- 一家 `Store` 對多筆 `StoreSubscription`（保留歷史）；`Store.currentSubscriptionId` 指向「目前訂閱」。
+- **不要加 `@@unique([storeId])`**：會卡死續約與歷史多筆（既有設計本就允許多筆，維持）。
 
-### 索引建議
-- `@@index([storeId])`
-- `@@index([status])`（提醒批次掃描用）
-- `@@index([endDate])`（到期排序用）
-
-> 註：欄位 enum 命名與系統現有慣例對齊；`planType` 採 `BASIC / PRO / EXPANSION`，與「成長方案中心」展示用的三方案一一對應（見 §3）。
+> **操作者追蹤（actor tracking）**：訂閱資料未來會由不同人（店長、ADMIN）修改，出問題時必須查得到「誰、何時改了什麼」。
+> `createdBy` 既有、`updatedBy` 本案新增為 nullable；寫入邏輯於 PR #295 隨管理頁落地；逐筆變更軌跡由既有 `StorePlanChange`（§9）承接。
 
 ---
 
-## 3. 方案定義
+## 3. 方案定義（對齊既有 `PricingPlan`）
 
-| `planType` | 顯示名稱 | 定位 |
+成長方案中心三方案**不新增 enum**，直接對應既有 `PricingPlan`：
+
+| 成長方案中心顯示 | 既有 `PricingPlan` | 定位 |
 |---|---|---|
-| `BASIC` | 基礎版 | 管理一家店 |
-| `PRO` | 專業版 | 經營顧客 |
-| `EXPANSION` | 展店版 | 複製成功門市 |
+| 基礎版 | `BASIC` | 管理一家店 |
+| 專業版 | `GROWTH` | 經營顧客 |
+| 展店版 | `ALLIANCE` | 複製成功門市 |
+| （體驗版） | `EXPERIENCE` | 試用層，位於基礎版之下 |
 
-> 對照提醒：現有 feature-flag / 成長方案中心使用「專業版」一詞，對應本訂閱模型的 `PRO`。實作時需做一層 mapping，避免命名漂移。
+> `feature-flags.ts` 已明寫 `GROWTH / PRO（專業版）`，故 v1 規劃的 `PRO` = 既有 `GROWTH`、`EXPANSION` = 既有 `ALLIANCE`。
+> **mapping（顯示名 ↔ PricingPlan）需集中在單一處**（如 `feature-flags.ts` 的 `PRICING_PLAN_INFO`），避免命名漂移散落各檔。
 
 ---
 
@@ -101,8 +173,8 @@
 - `endDate = startDate + 14 個月 − 1 天`
 
 ### 到期日定義（重要）
-- 到期日（`endDate`）為「**最後一天仍可使用**」。
-- 通式：`endDate = startDate + cycleMonths − 1 天`，其中 `cycleMonths` = 月繳 1 / 年繳 14。
+- 到期日為「**最後一天仍可使用**」。本節的 `endDate` / `startDate` 即既有 `expiresAt` / `startedAt`（見 §0.5）。
+- 通式：`expiresAt = startedAt + cycleMonths − 1 天`，其中 `cycleMonths` = 月繳 1 / 年繳 14。
 
 ### 範例
 | 起始日 | 週期 | 使用月數 | 到期日（最後可用日） |
@@ -114,33 +186,45 @@
 
 ---
 
-## 5. 訂閱狀態（`SubscriptionStatus`）
+## 5. 訂閱狀態（沿用既有 `SubscriptionStatus`，不新增 enum 值）
 
-| 狀態 | 意義 | 判定 |
-|---|---|---|
-| `ACTIVE` | 正常使用 | 今天 ≤ endDate，且未手動停權 |
-| `EXPIRING` | 即將到期 | endDate 在今天起 30 天內，且未到期 |
-| `EXPIRED` | 已到期 | 今天 > endDate |
-| `SUSPENDED` | 手動停權 | OWNER 手動設定 |
+既有 enum 已足夠第一階段使用，**不新增 `EXPIRING` / `SUSPENDED`**：
 
-### 第一階段重要原則
-- **已到期（EXPIRED）≠ 停權（SUSPENDED）**。
-- **第一階段不自動停權**，避免方案到期就中斷門市營運。
-- 是否停權**由 OWNER 手動決定**（`SUSPENDED` 只能手動進入）。
-- `ACTIVE` / `EXPIRING` / `EXPIRED` 可由日期推導；`SUSPENDED` 為人為覆寫，優先於日期推導。
+| 既有狀態 | 意義 |
+|---|---|
+| `TRIAL` | 試用中 |
+| `ACTIVE` | 正常使用 |
+| `PAYMENT_PENDING` | 待付款 |
+| `PAST_DUE` | 逾期（付款層面） |
+| `CANCELLED` | 已取消 |
+| `EXPIRED` | 已到期 |
+
+### 「即將到期 / 停權」怎麼處理（決策已拍板）
+- **`EXPIRING` 不落 DB**：用 `expiresAt ≤ 今天 + 30 天` **即時計算**得出（純衍生狀態，UI / 提醒層算）。
+- **`SUSPENDED` 暫不加**：停權機制第一階段不做，先不讓 enum 提早膨脹；未來真要做停權時再評估新增。
+
+### 第一階段重要原則（不變）
+- **已到期（`EXPIRED`）≠ 停權**。
+- **第一階段不自動停權、不自動改 status**，避免方案到期就中斷門市營運。
+- 「即將到期」僅為衍生顯示，不改變既有 status 機器邏輯（仍由 upgrade-request 流程主導）。
 
 ---
 
-## 6. 付款狀態（`PaymentStatus`）
+## 6. 付款狀態（沿用既有 `BillingStatus`，不新增 enum）
 
-| 狀態 | 意義 |
-|---|---|
-| `PAID` | 已付款 |
-| `UNPAID` | 尚未付款 |
-| `OVERDUE` | 逾期未付款 |
-| `WAIVED` | 特殊免收（例如創始店、內部店、測試店） |
+**不新增 4 值 enum**，沿用既有 `BillingStatus`（6 值更完整）。對照 v1 規劃：
 
-> `WAIVED` 與訂閱狀態獨立：免收的店仍可為 `ACTIVE`。
+| 既有 `BillingStatus` | 意義 | 對應 v1 規劃 |
+|---|---|---|
+| `NOT_REQUIRED` | 不需付款 | —（規劃未涵蓋） |
+| `PENDING` | 尚未付款 | `UNPAID` |
+| `PAID` | 已付款 | `PAID` |
+| `FAILED` | 付款失敗 | —（規劃未涵蓋） |
+| `REFUNDED` | 已退款 | —（規劃未涵蓋） |
+| `WAIVED` | 特殊免收（創始店 / 內部店 / 測試店） | `WAIVED` |
+
+> 規劃的 `OVERDUE`（逾期未付）可用 `billingStatus=PENDING` 且 `expiresAt < 今天` 衍生判斷，**不必新增 enum 值**。
+> `WAIVED` 與訂閱狀態獨立：免收的店仍可正常使用。
 
 ---
 
@@ -181,45 +265,41 @@
 - 月繳 / 年繳
 - 起始日
 - 到期日（可由起始日 + 週期自動帶出，允許手動覆寫）
-- 付款方式
-- 付款狀態
-- 備註
-- 是否手動停權（對應 `SUSPENDED`）
+- 付款方式（`paymentMethod`）
+- 付款狀態（`billingStatus`）
+- 備註（`note`）
+
+> 「手動停權」第一階段不做（`SUSPENDED` 已決定暫不加，見 §5）；待停權機制立案再補。
 
 ---
 
-## 9. 訂閱歷史紀錄規劃（未來）
+## 9. 訂閱歷史紀錄（沿用既有 `StorePlanChange`）
 
-未來需要 `SubscriptionHistory`，用來記錄每一次訂閱事件：
+**不新建 `SubscriptionHistory`** — 既有 `StorePlanChange` 已是訂閱異動軌跡，且 enum `PlanChangeType` 已涵蓋多數事件：
+`TRIAL_STARTED / UPGRADE_APPROVED / DOWNGRADE_SCHEDULED / DOWNGRADE_EXECUTED / PLAN_ACTIVATED / PLAN_RENEWED / PLAN_CANCELLED / ADMIN_MANUAL_CHANGE / PAYMENT_CONFIRMED / PAYMENT_FAILED`。
 
-- 開通（CREATE）
-- 續約（RENEW）
-- 升級（UPGRADE）
-- 降級（DOWNGRADE）
-- 延長（EXTEND）
-- 停權（SUSPEND）
-- 恢復使用（RESUME）
-- 付款紀錄（PAYMENT）
+每筆 `StorePlanChange` 已記 `fromPlan/toPlan`、`fromStatus/toStatus`、`subscriptionId`、`operatorUserId`、`reason`、`metadataJson`。
 
-> **第一階段可先不實作**，但 schema 與管理頁需預留擴充空間，並於本文件註明未來需要。日後實作時建議每筆 history 記錄 `before / after` 快照與操作者（actor）。
+> 第一階段不動 `StorePlanChange`。未來若 #295 管理頁的手動編輯需要留痕，再評估補對應 `PlanChangeType` 值或沿用 `ADMIN_MANUAL_CHANGE`。對照規劃事件（開通/續約/升級/降級/延長/付款）多已可映射既有值。
 
 ---
 
 ## 10. 第一階段刻意不做（Out of scope）
 
-明確列出本初期階段**不做**的項目：
+明確列出本訂閱 initiative 早期**不做**的項目：
 
 - ❌ 不接 Stripe
 - ❌ 不接 TapPay
 - ❌ 不做自動扣款
 - ❌ 不做自動續約
-- ❌ 不做自動停權
+- ❌ 不做自動停權（且暫不加 `SUSPENDED`）
 - ❌ 不做方案權限鎖定
-- ❌ 不做 schema migration
+- ❌ **不新建 model、不改既有欄位名、不改既有 enum 值**（#294 僅 additive 擴充：新增 `paymentMethod` / `updatedBy` / 可選索引）
 - ❌ 不做 UI 實作
-- ❌ 不改既有功能
+- ❌ 不改既有功能流程（尤其不碰 `upgrade-request`）
 
-> 本 PR 僅新增本規劃文件，零程式 / 零 schema / 零路由變更。
+> 註：#294 會做**一支純 additive migration**（這不在「不做」清單；早期「不做 migration」的舊敘述已隨 v2 修訂作廢）。
+> **本（修訂）PR 僅修改本規劃文件**，零程式 / 零 schema / 零 migration / 零路由變更。
 
 ---
 
@@ -227,21 +307,20 @@
 
 | PR | 範圍 | 重點 |
 |---|---|---|
-| **#294** | `StoreSubscription` Schema | 新增 model + enum + migration；先不接金流 |
-| **#295** | 店家訂閱管理頁 | 列表 + 編輯（§8）；狀態 / 提醒由日期推導 |
-| **#296** | 訂閱歷史紀錄 | `SubscriptionHistory`（§9） |
+| **#294** | **擴充既有 `StoreSubscription`**（非新建） | additive：新增 `paymentMethod` enum+欄位、`updatedBy`、可選索引；先不接金流（見 §0.5 / §2） |
+| **#295** | 店家訂閱管理頁 | 列表 + 編輯（§8）；`EXPIRING`/`OVERDUE` 由日期衍生；寫入 `createdBy`/`updatedBy` |
+| **#296** | 訂閱歷史 | 沿用 / 擴充既有 `StorePlanChange`（§9），非新建 SubscriptionHistory |
 | **#297** | Stripe 自動扣款 | 金流串接、自動續約 |
-| **#298** | 方案權限鎖定 | 依 `planType` 控制功能可見性 |
+| **#298** | 方案權限鎖定 | 依 `PricingPlan` 控制功能可見性 |
 
 > 每支 PR 都應遵守專案鐵律：migration 先於 deploy、財務主線一次只動一條、增量 PR 勝過硬合。
 
 ---
 
-## 驗收標準（本 PR）
+## 驗收標準（本修訂 PR）
 
-- ✅ 只新增 `docs/store-subscription-planning.md`
+- ✅ 只修改 `docs/store-subscription-planning.md`（v1 → v2 對齊既有 production 系統）
+- ✅ 不改 schema / 不建 migration
 - ✅ 不改任何程式功能
-- ✅ 不改 schema
-- ✅ 不改路由
-- ✅ 不影響任何頁面
-- ✅ 文件可作為後續實作依據
+- ✅ 不改路由 / 不影響任何頁面
+- ✅ 修訂後文件可作為 #294「擴充既有 `StoreSubscription`」的依據
