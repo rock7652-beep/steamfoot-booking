@@ -1,5 +1,5 @@
 import { getCurrentUser } from "@/lib/session";
-import { redirect, notFound } from "next/navigation";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { PageShell, PageHeader } from "@/components/desktop";
 import { DashboardLink as Link } from "@/components/dashboard-link";
@@ -12,12 +12,11 @@ import {
 } from "./constants";
 
 /**
- * /dashboard/settings/store-subscriptions — 店家訂閱管理（第一版列表）
+ * /hq/dashboard/stores/subscriptions — 店家訂閱管理（HQ／總部專用）
  *
- * 列出所有店家 + 目前訂閱紀錄（付款方式 / 狀態 / 到期日）。
+ * 列出「所有店家」的訂閱資料（跨店）→ 僅限 HQ ADMIN；分店後台不可見。
  * 「目前方案」一律讀 Store.plan（source of truth，本頁唯讀、不改）；
  * 訂閱 / 付款 / 到期欄位讀 StoreSubscription（currentSubscription ?? 最新一筆）。
- * 僅 ADMIN / OWNER 可進入。
  */
 
 const subSelect = {
@@ -40,8 +39,8 @@ function fmtDate(d: Date | null | undefined): string {
 
 export default async function StoreSubscriptionsListPage() {
   const user = await getCurrentUser();
-  if (!user) redirect("/hq/login");
-  if (user.role !== "ADMIN" && user.role !== "OWNER") notFound();
+  // HQ 跨店資料 → 僅限 ADMIN（proxy 已擋非 ADMIN，此處為 defense-in-depth）
+  if (!user || user.role !== "ADMIN") redirect("/hq/login");
 
   const stores = await prisma.store.findMany({
     select: {
@@ -71,10 +70,10 @@ export default async function StoreSubscriptionsListPage() {
         subtitle="記錄各店方案、付款方式、付款狀態與到期日（不影響既有方案判斷）"
         actions={
           <Link
-            href="/dashboard/settings"
+            href="/hq/dashboard/stores"
             className="rounded-lg border border-earth-200 px-3 py-1.5 text-xs font-medium text-earth-600 hover:bg-earth-50"
           >
-            ← 返回設定
+            ← 返回店舖管理
           </Link>
         }
       />
@@ -150,7 +149,7 @@ export default async function StoreSubscriptionsListPage() {
                     </td>
                     <td className="px-4 py-3 text-right">
                       <Link
-                        href={`/dashboard/settings/store-subscriptions/${store.id}`}
+                        href={`/hq/dashboard/stores/subscriptions/${store.id}`}
                         className="rounded-lg border border-earth-200 px-2.5 py-1 text-[12px] font-medium text-earth-700 hover:bg-earth-50"
                       >
                         編輯訂閱
@@ -167,7 +166,7 @@ export default async function StoreSubscriptionsListPage() {
                     </td>
                     <td className="px-4 py-3 text-right">
                       <Link
-                        href={`/dashboard/settings/store-subscriptions/${store.id}`}
+                        href={`/hq/dashboard/stores/subscriptions/${store.id}`}
                         className="rounded-lg bg-primary-600 px-2.5 py-1 text-[12px] font-medium text-white hover:bg-primary-700"
                       >
                         建立訂閱

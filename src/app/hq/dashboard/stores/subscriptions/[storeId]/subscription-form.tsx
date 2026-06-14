@@ -97,7 +97,7 @@ export function SubscriptionForm({
       });
       if (result.success) {
         toast.success(isEdit ? "訂閱已更新" : "訂閱已建立");
-        router.push("/dashboard/settings/store-subscriptions");
+        router.push("/hq/dashboard/stores/subscriptions");
         router.refresh();
       } else {
         toast.error(result.error);

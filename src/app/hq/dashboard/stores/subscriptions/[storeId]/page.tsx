@@ -6,10 +6,10 @@ import { DashboardLink as Link } from "@/components/dashboard-link";
 import { SubscriptionForm, type SubscriptionInitial } from "./subscription-form";
 
 /**
- * /dashboard/settings/store-subscriptions/[storeId] — 建立 / 編輯該店訂閱
+ * /hq/dashboard/stores/subscriptions/[storeId] — 建立 / 編輯該店訂閱（HQ 專用）
  *
  * 有 currentSubscription（或最新一筆）→ 編輯；否則 → 建立。
- * 僅 ADMIN / OWNER 可進入。
+ * 僅 HQ ADMIN 可進入。
  */
 
 const subSelect = {
@@ -37,8 +37,7 @@ export default async function StoreSubscriptionFormPage({
   params: Promise<{ storeId: string }>;
 }) {
   const user = await getCurrentUser();
-  if (!user) redirect("/hq/login");
-  if (user.role !== "ADMIN" && user.role !== "OWNER") notFound();
+  if (!user || user.role !== "ADMIN") redirect("/hq/login");
 
   const { storeId } = await params;
   const store = await prisma.store.findUnique({
@@ -84,7 +83,7 @@ export default async function StoreSubscriptionFormPage({
         subtitle={`${store.slug}　目前方案：${store.plan}（Store.plan，本頁不改動）`}
         actions={
           <Link
-            href="/dashboard/settings/store-subscriptions"
+            href="/hq/dashboard/stores/subscriptions"
             className="rounded-lg border border-earth-200 px-3 py-1.5 text-xs font-medium text-earth-600 hover:bg-earth-50"
           >
             ← 返回列表
