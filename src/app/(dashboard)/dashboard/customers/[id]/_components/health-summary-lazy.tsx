@@ -76,9 +76,9 @@ export function HealthSummaryLazy({ customerId }: Props) {
         type="button"
         onClick={handleClick}
         disabled={pending}
-        className="mt-2 inline-flex items-center gap-1 rounded-md border border-earth-200 bg-white px-2 py-1 text-[11px] font-medium text-earth-700 hover:bg-earth-50 disabled:opacity-60"
+        className="inline-flex items-center gap-1 rounded-md border border-primary-200 bg-primary-50 px-2.5 py-1 text-[11px] font-semibold text-primary-800 hover:bg-primary-100 disabled:opacity-60"
       >
-        查看健康摘要 ▸
+        查看健康摘要
       </button>
     );
   }
@@ -123,12 +123,14 @@ export function HealthSummaryLazy({ customerId }: Props) {
   const latest = summary.latest;
   const healthFlowUrl = getHealthAssessmentUrl(customerId);
   const daysSince = summary.meta.daysSinceLastMeasure;
+  const latestMeasuredAt = latest?.measuredAt ?? null;
+  const totalRecords = summary.meta.totalRecords;
 
   return (
-    <div className="mt-2 space-y-2.5 rounded-md border border-earth-200 bg-white p-3 text-[11px] text-earth-700">
+    <div className="space-y-3 rounded-md border border-earth-200 bg-white p-3 text-[11px] text-earth-700 shadow-sm">
       {/* 收合 */}
       <div className="flex items-center justify-between">
-        <span className="text-[10px] uppercase tracking-wider text-earth-400">
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-earth-500">
           健康摘要
         </span>
         <button
@@ -141,13 +143,25 @@ export function HealthSummaryLazy({ customerId }: Props) {
       </div>
 
       {/* 醫療免責 — 強制顯示在分數上方，amber 區塊（per audit §5.3 風險緩解） */}
-      <p className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-[11px] leading-snug text-amber-900">
+      <p className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-[10px] leading-snug text-amber-900">
         此評估僅供健康管理參考，非醫療診斷建議。
       </p>
 
+      <div className="grid grid-cols-3 gap-1.5">
+        <SummaryStat
+          label="最近量測"
+          value={latestMeasuredAt ? formatMeasuredDate(latestMeasuredAt) : "尚無"}
+        />
+        <SummaryStat
+          label="距今"
+          value={daysSince == null ? "—" : `${daysSince} 天`}
+        />
+        <SummaryStat label="總紀錄" value={`${totalRecords} 筆`} />
+      </div>
+
       {/* 官方分數區（只在 summary.official 存在時顯示） */}
       {official ? (
-        <div className="rounded-md border border-earth-100 bg-earth-50/60 px-3 py-2">
+        <div className="rounded-md border border-earth-100 bg-earth-50/60 px-3 py-2.5">
           <div className="flex items-baseline justify-between">
             <span className="text-[10px] text-earth-500">健康評分</span>
             <span className="text-[10px] text-earth-500">{official.scoreLevel}</span>
@@ -181,7 +195,7 @@ export function HealthSummaryLazy({ customerId }: Props) {
           )}
         </div>
       ) : (
-        <p className="rounded-md border border-earth-100 bg-earth-50/60 px-3 py-2 text-[11px] text-earth-600">
+        <p className="rounded-md border border-earth-100 bg-earth-50/60 px-3 py-2 text-[10px] text-earth-600">
           完整健康分數請至 HealthFlow 原站查看。
         </p>
       )}
@@ -189,10 +203,10 @@ export function HealthSummaryLazy({ customerId }: Props) {
       {/* 最近量測 */}
       {latest ? (
         <div>
-          <p className="mb-1 text-[10px] uppercase tracking-wider text-earth-400">
-            最近量測{daysSince != null && <span className="ml-1 normal-case">（{daysSince} 天前）</span>}
+          <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-earth-500">
+            身體組成
           </p>
-          <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+          <div className="grid grid-cols-2 gap-1.5">
             {renderMetric("體重", latest.weight, "kg")}
             {renderMetric("BMI", latest.bmi, "")}
             {renderMetric("體脂", latest.bodyFat, "%")}
@@ -207,7 +221,11 @@ export function HealthSummaryLazy({ customerId }: Props) {
 
       {/* 警示（HealthFlow 端 alerts） */}
       {summary.alerts.length > 0 && (
-        <ul className="space-y-0.5">
+        <div className="space-y-1">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-earth-500">
+            關注提醒
+          </p>
+          <ul className="space-y-1">
           {summary.alerts.slice(0, 3).map((alert, i) => (
             <li
               key={i}
@@ -217,7 +235,8 @@ export function HealthSummaryLazy({ customerId }: Props) {
               {alert.message}
             </li>
           ))}
-        </ul>
+          </ul>
+        </div>
       )}
 
       {/* CTA + 資料來源 */}
@@ -245,14 +264,14 @@ export function HealthSummaryLazy({ customerId }: Props) {
 function renderMetric(label: string, value: number | null, unit: string) {
   if (value == null) {
     return (
-      <div className="flex items-baseline justify-between text-[11px]">
+      <div className="flex min-h-8 items-center justify-between rounded-md border border-earth-100 bg-earth-50/70 px-2 py-1 text-[11px]">
         <span className="text-earth-500">{label}</span>
         <span className="text-earth-400">—</span>
       </div>
     );
   }
   return (
-    <div className="flex items-baseline justify-between text-[11px]">
+    <div className="flex min-h-8 items-center justify-between rounded-md border border-earth-100 bg-earth-50/70 px-2 py-1 text-[11px]">
       <span className="text-earth-500">{label}</span>
       <span className="tabular-nums text-earth-800">
         {value}
@@ -260,6 +279,32 @@ function renderMetric(label: string, value: number | null, unit: string) {
       </span>
     </div>
   );
+}
+
+function SummaryStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-h-12 rounded-md border border-earth-100 bg-earth-50/70 px-2 py-1.5">
+      <div className="text-[10px] text-earth-500">{label}</div>
+      <div className="mt-0.5 truncate text-[11px] font-semibold tabular-nums text-earth-900">
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function formatMeasuredDate(value: string): string {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const [year, month, day] = value.split("-");
+    return `${Number(year)}/${Number(month)}/${Number(day)}`;
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString("zh-TW", {
+    timeZone: "Asia/Taipei",
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+  });
 }
 
 function riskPillClass(riskLevel: string): string {
