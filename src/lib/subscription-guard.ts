@@ -13,14 +13,17 @@ import { computeLifecycle } from "@/lib/subscription-lifecycle";
  *
  * 只讀 status + expiresAt（既有欄位 → prod-safe，不碰 #295 新欄位）。
  * 純擋寫入，不刪任何資料；查不到 store / 查詢失敗時保守放行（不因系統錯誤誤傷營運）。
- *
- * 用法：在 server action 的 requirePermission/storeId 之後、實際寫入之前呼叫：
- *   await assertStoreSubscriptionWritable(storeId);
  */
-export async function assertStoreSubscriptionWritable(
+
+/** 顧客端建立新預約的通用到期訊息（店長 + 顧客都看得懂） */
+export const BOOKING_EXPIRED_MESSAGE =
+  "本店系統使用期限已到期，暫時無法建立新預約，請聯繫店家。";
+
+/** 回傳該 store 是否因訂閱到期 / 暫停而應擋寫入（無訂閱 / 查詢失敗 → false 放行）。 */
+export async function isStoreSubscriptionWriteBlocked(
   storeId: string | null | undefined,
-): Promise<void> {
-  if (!storeId) return; // 無 store 範圍 → 不擋
+): Promise<boolean> {
+  if (!storeId) return false;
 
   let sub: { status: string; expiresAt: Date | null } | null = null;
   try {
@@ -30,28 +33,33 @@ export async function assertStoreSubscriptionWritable(
       select: { status: true, expiresAt: true },
     });
   } catch {
-    // 查詢失敗 → 保守放行，不因系統錯誤擋住營運
-    return;
+    return false; // 查詢失敗 → 保守放行
   }
-
-  // 無訂閱 → 不擋（req：避免既有正式站誤傷）
-  if (!sub) return;
+  if (!sub) return false; // 無訂閱 → 不擋
 
   const lc = computeLifecycle(
     { status: sub.status, expiresAt: sub.expiresAt },
     toLocalDateStr(),
   );
+  return lc.state === "EXPIRED" || lc.state === "SUSPENDED";
+}
 
-  if (lc.state === "EXPIRED") {
-    throw new AppError(
-      "FORBIDDEN",
+/**
+ * 在 server action 寫入前呼叫：到期 / 暫停則 throw FORBIDDEN。
+ * @param opts.message 自訂錯誤訊息（如預約用通用文案）；省略則用後台唯讀預設訊息。
+ *
+ * 用法（requirePermission/storeId 之後、實際寫入之前）：
+ *   await assertStoreSubscriptionWritable(storeId);
+ *   await assertStoreSubscriptionWritable(storeId, { message: BOOKING_EXPIRED_MESSAGE });
+ */
+export async function assertStoreSubscriptionWritable(
+  storeId: string | null | undefined,
+  opts?: { message?: string },
+): Promise<void> {
+  if (!(await isStoreSubscriptionWriteBlocked(storeId))) return;
+  throw new AppError(
+    "FORBIDDEN",
+    opts?.message ??
       "系統使用期限已到期，目前為唯讀模式。請聯繫總部完成續約後即可恢復操作。",
-    );
-  }
-  if (lc.state === "SUSPENDED") {
-    throw new AppError(
-      "FORBIDDEN",
-      "系統已暫停使用。請聯繫總部完成續約後即可恢復操作。",
-    );
-  }
+  );
 }

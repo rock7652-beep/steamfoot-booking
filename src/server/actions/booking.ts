@@ -3,6 +3,10 @@
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/session";
 import { requirePermission } from "@/lib/permissions";
+import {
+  assertStoreSubscriptionWritable,
+  BOOKING_EXPIRED_MESSAGE,
+} from "@/lib/subscription-guard";
 import { AppError, handleActionError } from "@/lib/errors";
 import {
   createBookingSchema,
@@ -139,8 +143,14 @@ export async function createBooking(
       await checkMonthlyBookingLimitOrThrow(monthlyCount, user.storeId);
     }
 
-    // ── 0.5 檢查營業日 / 公休（共用 resolver，與後台/前台月曆同源）
+    // ── 0.4 訂閱到期保護：到期店家不可建立新預約（店長後台 + 顧客 LIFF 共用此 SoT；
+    //         無訂閱店不擋；通用訊息店長/顧客都看得懂）
     const storeId = currentStoreId(user);
+    await assertStoreSubscriptionWritable(storeId, {
+      message: BOOKING_EXPIRED_MESSAGE,
+    });
+
+    // ── 0.5 檢查營業日 / 公休（共用 resolver，與後台/前台月曆同源）
     const dayCtx = await loadDayBusinessHoursContext(storeId, data.bookingDate);
 
     if (dayCtx.rule.closed) {
@@ -591,6 +601,10 @@ export async function updateBooking(
     });
     if (!booking) throw new AppError("NOT_FOUND", "預約不存在");
     assertStoreAccess(user, booking.storeId);
+    // 訂閱到期保護：到期店家不可修改預約（無訂閱店不擋）
+    await assertStoreSubscriptionWritable(booking.storeId, {
+      message: BOOKING_EXPIRED_MESSAGE,
+    });
 
     if (
       booking.bookingStatus === "COMPLETED" ||

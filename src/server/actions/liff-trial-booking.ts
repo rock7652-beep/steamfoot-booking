@@ -32,6 +32,7 @@ import { getCanonicalCustomerIdForSession } from "@/lib/customer-identity";
 import { ensureTrialPlan } from "@/server/services/trial-plan";
 import { getTrialSettings } from "@/lib/shop-config";
 import { createBooking } from "@/server/actions/booking";
+import { isStoreSubscriptionWriteBlocked } from "@/lib/subscription-guard";
 
 const InputSchema = z.object({
   bookingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "invalid_date_format"),
@@ -65,6 +66,8 @@ export type SubmitLiffTrialBookingResult =
   | { status: "slot_full" }
   | { status: "slot_unavailable" }
   | { status: "booking_limit_reached" }
+  // #305：本店訂閱到期 → 暫時無法建立新預約。
+  | { status: "store_subscription_expired" }
   | { status: "service_unavailable" };
 
 export async function submitLiffTrialBooking(
@@ -101,6 +104,11 @@ export async function submitLiffTrialBooking(
   const storeId = user.storeId;
   if (!storeId) {
     return { status: "no_customer" };
+  }
+
+  // ── 3.5 訂閱到期保護：到期店家顧客不可新增體驗預約 ──
+  if (await isStoreSubscriptionWriteBlocked(storeId)) {
+    return { status: "store_subscription_expired" };
   }
 
   // ── 4. Duplicate FIRST_TRIAL check ─────────────────
