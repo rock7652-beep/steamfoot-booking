@@ -26,12 +26,20 @@ export default async function StoresPage() {
           <h1 className="text-2xl font-bold text-earth-900">店舖管理</h1>
           <p className="mt-1 text-sm text-earth-500">管理所有分店，建立新店或查看交付狀態</p>
         </div>
-        <Link
-          href="/hq/dashboard/stores/new"
-          className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
-        >
-          + 建立新店
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/hq/dashboard/stores/subscriptions"
+            className="rounded-lg border border-earth-200 px-4 py-2 text-sm font-medium text-earth-700 hover:bg-earth-50"
+          >
+            訂閱管理
+          </Link>
+          <Link
+            href="/hq/dashboard/stores/new"
+            className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
+          >
+            + 建立新店
+          </Link>
+        </div>
       </div>
 
       <div className="overflow-hidden rounded-xl border border-earth-200 bg-white">

@@ -56,10 +56,10 @@ export async function upsertStoreSubscription(
   input: unknown,
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    // 後端權限：僅 ADMIN / OWNER
+    // 跨店訂閱管理為 HQ 專用 → 後端僅限 ADMIN（不只前端隱藏）
     const user = await requireStaffSession();
-    if (user.role !== "ADMIN" && user.role !== "OWNER") {
-      throw new AppError("FORBIDDEN", "此功能僅限店長或系統管理者");
+    if (user.role !== "ADMIN") {
+      throw new AppError("FORBIDDEN", "此功能僅限總部管理者");
     }
 
     const data = upsertSchema.parse(input);
@@ -107,7 +107,7 @@ export async function upsertStoreSubscription(
         where: { id: data.subscriptionId },
         data: { ...common, updatedBy: user.id },
       });
-      revalidatePath("/dashboard/settings/store-subscriptions");
+      revalidatePath("/hq/dashboard/stores/subscriptions");
       return { success: true, data: { id: data.subscriptionId } };
     }
 
@@ -121,7 +121,7 @@ export async function upsertStoreSubscription(
       },
       select: { id: true },
     });
-    revalidatePath("/dashboard/settings/store-subscriptions");
+    revalidatePath("/hq/dashboard/stores/subscriptions");
     return { success: true, data: { id: created.id } };
   } catch (e) {
     if (e instanceof AppError) return { success: false, error: e.message };

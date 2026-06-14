@@ -49,10 +49,6 @@ export default async function SettingsIndexPage() {
     "trial.manage",
   );
 
-  // 店家訂閱管理：僅 ADMIN / OWNER
-  const canManageSubscriptions =
-    user.role === "ADMIN" || user.role === "OWNER";
-
   // 並行拉 summary（皆為既有 query）
   const [plan, shopConfig, staffList, rules, weeklyHours, store, trialSettings] =
     await Promise.all([
@@ -118,14 +114,6 @@ export default async function SettingsIndexPage() {
       title: "營運設定",
       items: [
         { label: "成長方案中心", href: "/dashboard/settings/plans" },
-        ...(canManageSubscriptions
-          ? [
-              {
-                label: "店家訂閱管理",
-                href: "/dashboard/settings/store-subscriptions",
-              },
-            ]
-          : []),
         { label: "付款設定", href: "/dashboard/settings/payment" },
         ...(canManageTrial
           ? [{ label: "體驗課設定", href: "/dashboard/settings/trial" }]
@@ -321,17 +309,6 @@ export default async function SettingsIndexPage() {
                 ]}
               />
             }
-          />
-        ) : null}
-
-        {/* 5c. 店家訂閱管理（ADMIN / OWNER） */}
-        {canManageSubscriptions ? (
-          <SettingsActionCard
-            title="店家訂閱管理"
-            description="記錄各店方案、付款方式、付款狀態與到期日"
-            iconPath="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-            primaryHref="/dashboard/settings/store-subscriptions"
-            primaryLabel="管理訂閱"
           />
         ) : null}
 
