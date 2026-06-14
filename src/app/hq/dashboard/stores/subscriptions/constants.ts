@@ -55,3 +55,23 @@ export const CYCLE_LABELS: Record<string, string> = {
 };
 export const BILLING_STATUS_LABELS = toLabelMap(BILLING_STATUS_OPTIONS);
 export const PAYMENT_METHOD_LABELS = toLabelMap(PAYMENT_METHOD_OPTIONS);
+
+/** 體驗（TRIAL）可選天數，預設 7 */
+export const TRIAL_DAYS_OPTIONS = [3, 7, 14, 30] as const;
+export const TRIAL_DEFAULT_DAYS = 7;
+
+/**
+ * 剩餘天數（到期日為「最後一天仍可使用」，含當天）。
+ * @returns 正數=剩餘天數；<=0 表示已到期；null=無到期日
+ */
+export function remainingDays(
+  expiresYmd: string | null,
+  todayYmd: string,
+): number | null {
+  if (!expiresYmd) return null;
+  const [ey, em, ed] = expiresYmd.split("-").map(Number);
+  const [ty, tm, td] = todayYmd.split("-").map(Number);
+  const exp = Date.UTC(ey, em - 1, ed);
+  const today = Date.UTC(ty, tm - 1, td);
+  return Math.round((exp - today) / 86_400_000) + 1;
+}

@@ -1,6 +1,7 @@
 import { getCurrentUser } from "@/lib/session";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
+import { toLocalDateStr } from "@/lib/date-utils";
 import { PageShell, PageHeader } from "@/components/desktop";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import {
@@ -9,6 +10,7 @@ import {
   CYCLE_LABELS,
   BILLING_STATUS_LABELS,
   PAYMENT_METHOD_LABELS,
+  remainingDays,
 } from "./constants";
 
 /**
@@ -58,10 +60,19 @@ export default async function StoreSubscriptionsListPage() {
     orderBy: { createdAt: "asc" },
   });
 
+  const todayYmd = toLocalDateStr();
   const rows = stores.map((s) => ({
     store: s,
     sub: s.currentSubscription ?? s.subscriptions[0] ?? null,
   }));
+
+  /** 剩餘天數顯示文字 */
+  function remainingText(expiresAt: Date | null | undefined): string {
+    if (!expiresAt) return "—";
+    const n = remainingDays(expiresAt.toISOString().slice(0, 10), todayYmd);
+    if (n == null) return "—";
+    return n > 0 ? `剩餘 ${n} 天` : "已到期";
+  }
 
   return (
     <PageShell className="mx-auto flex max-w-[1440px] flex-col gap-4 px-5 py-4">
@@ -84,7 +95,7 @@ export default async function StoreSubscriptionsListPage() {
       </section>
 
       <section className="overflow-x-auto rounded-xl border border-earth-200 bg-white shadow-sm">
-        <table className="w-full min-w-[920px] text-[13px]">
+        <table className="w-full min-w-[1020px] text-[13px]">
           <thead>
             <tr className="border-b border-earth-100 text-left text-[11px] text-earth-500">
               <th className="px-4 py-2.5 font-medium">店家</th>
@@ -95,6 +106,7 @@ export default async function StoreSubscriptionsListPage() {
               <th className="px-3 py-2.5 font-medium">週期</th>
               <th className="px-3 py-2.5 font-medium">起始日</th>
               <th className="px-3 py-2.5 font-medium">到期日</th>
+              <th className="px-3 py-2.5 font-medium">剩餘天數</th>
               <th className="px-3 py-2.5 text-right font-medium">金額</th>
               <th className="px-3 py-2.5 font-medium">備註</th>
               <th className="px-4 py-2.5 text-right font-medium">操作</th>
@@ -139,6 +151,9 @@ export default async function StoreSubscriptionsListPage() {
                     <td className="px-3 py-3 tabular-nums text-earth-700">
                       {fmtDate(sub.expiresAt)}
                     </td>
+                    <td className="px-3 py-3 tabular-nums text-earth-700">
+                      {remainingText(sub.expiresAt)}
+                    </td>
                     <td className="px-3 py-3 text-right tabular-nums text-earth-700">
                       {sub.priceAmount != null
                         ? `NT$${sub.priceAmount.toLocaleString()}`
@@ -160,17 +175,25 @@ export default async function StoreSubscriptionsListPage() {
                   <>
                     <td
                       className="px-3 py-3 text-[12px] text-earth-400"
-                      colSpan={8}
+                      colSpan={9}
                     >
                       尚未建立訂閱
                     </td>
-                    <td className="px-4 py-3 text-right">
-                      <Link
-                        href={`/hq/dashboard/stores/subscriptions/${store.id}`}
-                        className="rounded-lg bg-primary-600 px-2.5 py-1 text-[12px] font-medium text-white hover:bg-primary-700"
-                      >
-                        建立訂閱
-                      </Link>
+                    <td className="px-4 py-3">
+                      <div className="flex justify-end gap-1.5">
+                        <Link
+                          href={`/hq/dashboard/stores/subscriptions/${store.id}/trial`}
+                          className="rounded-lg bg-primary-600 px-2.5 py-1 text-[12px] font-medium text-white hover:bg-primary-700"
+                        >
+                          建立 Trial
+                        </Link>
+                        <Link
+                          href={`/hq/dashboard/stores/subscriptions/${store.id}`}
+                          className="rounded-lg border border-earth-200 px-2.5 py-1 text-[12px] font-medium text-earth-700 hover:bg-earth-50"
+                        >
+                          建立訂閱
+                        </Link>
+                      </div>
                     </td>
                   </>
                 )}
