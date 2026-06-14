@@ -300,6 +300,13 @@ enum SubscriptionStatus {
   EXPIRED
 }
 
+// 店家訂閱付款方式（additive：docs/store-subscription-planning.md §0.5 / §2）
+enum SubscriptionPaymentMethod {
+  CASH
+  BANK_TRANSFER
+  CREDIT_CARD
+}
+
 enum PlanChangeType {
   TRIAL_STARTED
   UPGRADE_APPROVED
@@ -1658,24 +1665,26 @@ model UpgradeRequest {
 // ============================================================
 
 model StoreSubscription {
-  id              String             @id @default(cuid())
+  id              String                     @id @default(cuid())
   storeId         String
   plan            PricingPlan
-  status          SubscriptionStatus @default(ACTIVE)
-  startedAt       DateTime           @default(now())
+  status          SubscriptionStatus         @default(ACTIVE)
+  startedAt       DateTime                   @default(now())
   effectiveAt     DateTime?
   expiresAt       DateTime?
   cancelledAt     DateTime?
-  isTrial         Boolean            @default(false)
+  isTrial         Boolean                    @default(false)
   billingCycle    String? // MONTHLY | YEARLY | ONE_TIME
-  billingStatus   BillingStatus      @default(NOT_REQUIRED)
+  billingStatus   BillingStatus              @default(NOT_REQUIRED)
+  paymentMethod   SubscriptionPaymentMethod? // additive：付款方式（nullable，PR schema 擴充）
   priceAmount     Int?
-  priceCurrency   String?            @default("TWD")
+  priceCurrency   String?                    @default("TWD")
   sourceRequestId String?
   createdBy       String?
+  updatedBy       String? // additive：最後更新人（操作者追蹤；寫入邏輯留待管理頁 PR）
   note            String?
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt
+  createdAt       DateTime                   @default(now())
+  updatedAt       DateTime                   @updatedAt
 
   store           Store             @relation("StoreSubscriptions", fields: [storeId], references: [id])
   currentForStore Store?            @relation("CurrentSubscription")
@@ -1683,6 +1692,8 @@ model StoreSubscription {
 
   @@index([storeId])
   @@index([status])
+  @@index([expiresAt])
+  @@index([billingStatus])
 }
 
 // ============================================================
