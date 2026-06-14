@@ -284,6 +284,15 @@ export function TrialBookingForm({ storeSlug, storeName, liffId, contactUrl }: P
           showDismiss: false,
         });
         return;
+      case "store_subscription_expired":
+        setState({
+          kind: "blocked",
+          message: "本店系統使用期限已到期，暫時無法建立新預約，請聯繫店家。",
+          showRetry: false,
+          showContactStore: true,
+          showDismiss: false,
+        });
+        return;
       case "service_unavailable":
         setState({
           kind: "blocked",

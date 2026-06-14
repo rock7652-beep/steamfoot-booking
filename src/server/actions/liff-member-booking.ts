@@ -42,6 +42,7 @@ import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/session";
 import { getCanonicalCustomerIdForSession } from "@/lib/customer-identity";
 import { createBooking } from "@/server/actions/booking";
+import { isStoreSubscriptionWriteBlocked } from "@/lib/subscription-guard";
 
 const InputSchema = z.object({
   bookingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "invalid_date_format"),
@@ -78,6 +79,8 @@ export type SubmitLiffMemberBookingResult =
   | { status: "booking_limit_reached" }
   // PR-NoShow-2：補課券在併發/過期 race 下暫時無法使用 → 請重新整理重試。
   | { status: "makeup_unavailable" }
+  // #305：本店訂閱到期 → 暫時無法建立新預約（查看/取消既有不受影響）。
+  | { status: "store_subscription_expired" }
   | { status: "service_unavailable" };
 
 export async function submitLiffMemberBooking(
@@ -116,6 +119,11 @@ export async function submitLiffMemberBooking(
   const storeId = user.storeId;
   if (!storeId) {
     return { status: "no_customer" };
+  }
+
+  // ── 3.5 訂閱到期保護：到期店家顧客不可新增預約（查看/取消既有不受影響）──
+  if (await isStoreSubscriptionWriteBlocked(storeId)) {
+    return { status: "store_subscription_expired" };
   }
 
   // ── 4. Delegate to createBooking with PACKAGE_SESSION ─
