@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireStaffSession } from "@/lib/session";
 import { AppError } from "@/lib/errors";
-import { parseTaiwanDateToDbDate } from "@/lib/date-utils";
+import { parseTaiwanDateToDbDate, addTaiwanDuration } from "@/lib/date-utils";
 import type { ActionResult } from "@/types";
 
 /**
@@ -116,6 +116,87 @@ export async function upsertStoreSubscription(
       data: {
         storeId: data.storeId,
         ...common,
+        createdBy: user.id,
+        updatedBy: user.id,
+      },
+      select: { id: true },
+    });
+    revalidatePath("/hq/dashboard/stores/subscriptions");
+    return { success: true, data: { id: created.id } };
+  } catch (e) {
+    if (e instanceof AppError) return { success: false, error: e.message };
+    if (e instanceof z.ZodError) {
+      return {
+        success: false,
+        error: "欄位格式有誤：" + e.errors.map((x) => x.message).join("、"),
+      };
+    }
+    return {
+      success: false,
+      error: e instanceof Error ? e.message : "操作失敗",
+    };
+  }
+}
+
+// ============================================================
+// HQ 體驗（TRIAL）快速建立 — 僅 ADMIN
+// ============================================================
+
+const trialSchema = z.object({
+  storeId: z.string().min(1),
+  plan: z.enum(["BASIC", "GROWTH", "ALLIANCE", "EXPERIENCE"]),
+  startDate: z.string().regex(DATE_RE, "開始日格式須為 YYYY-MM-DD"),
+  trialDays: z.union([
+    z.literal(3),
+    z.literal(7),
+    z.literal(14),
+    z.literal(30),
+  ]),
+});
+
+/**
+ * HQ 替店家建立一筆 TRIAL 訂閱（MVP）。
+ *   - status=TRIAL / isTrial=true / billingStatus=NOT_REQUIRED（體驗免收）
+ *   - expiresAt = startDate + trialDays − 1 天（最後一天仍可使用）
+ *   - 只寫 StoreSubscription，不碰 Store.plan / UpgradeRequest / 金流
+ *   - 轉正式方案走既有「編輯訂閱」（改 status=ACTIVE + 付款資訊）
+ *   - 權限：後端僅 ADMIN（店長不可建立 Trial）
+ */
+export async function createTrialSubscription(
+  input: unknown,
+): Promise<ActionResult<{ id: string }>> {
+  try {
+    const user = await requireStaffSession();
+    if (user.role !== "ADMIN") {
+      throw new AppError("FORBIDDEN", "此功能僅限總部管理者");
+    }
+
+    const data = trialSchema.parse(input);
+
+    const store = await prisma.store.findUnique({
+      where: { id: data.storeId },
+      select: { id: true },
+    });
+    if (!store) throw new AppError("NOT_FOUND", "店舖不存在");
+
+    const startedAt = parseTaiwanDateToDbDate(data.startDate);
+    // 到期日 = 開始日 + 天數 − 1（含開始當天）
+    const expiresStr = addTaiwanDuration(data.startDate, data.trialDays - 1, "DAY");
+    const expiresAt = parseTaiwanDateToDbDate(expiresStr);
+
+    const created = await prisma.storeSubscription.create({
+      data: {
+        storeId: data.storeId,
+        plan: data.plan,
+        status: "TRIAL",
+        isTrial: true,
+        billingCycle: null,
+        startedAt,
+        expiresAt,
+        billingStatus: "NOT_REQUIRED",
+        paymentMethod: null,
+        priceAmount: null,
+        note: `體驗 ${data.trialDays} 天`,
         createdBy: user.id,
         updatedBy: user.id,
       },
