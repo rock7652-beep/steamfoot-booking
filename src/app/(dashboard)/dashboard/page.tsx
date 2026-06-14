@@ -6,6 +6,7 @@ import { getStoreFilter } from "@/lib/manager-visibility";
 import { bookingDateToday, formatTWTime, toLocalDateStr } from "@/lib/date-utils";
 import { ACTIVE_BOOKING_STATUSES, STATUS_LABEL } from "@/lib/booking-constants";
 import { checkPermission } from "@/lib/permissions";
+import { isStoreSubscriptionWriteBlocked } from "@/lib/subscription-guard";
 import { prisma } from "@/lib/db";
 import { getDashboardTodaySummary } from "@/server/queries/dashboard-summary";
 import { getLatestResolvedRequest } from "@/server/queries/upgrade-request";
@@ -59,6 +60,8 @@ export default async function DashboardHomePage() {
   const cookieStoreId = cookieStore.get("active-store-id")?.value ?? null;
   const activeStoreId = resolveActiveStoreId(user, cookieStoreId);
   const isOwner = user.role === "ADMIN" || user.role === "OWNER";
+  // #307 唯讀模式：到期店家隱藏 / 停用「新增」入口（後端已擋，這裡避免店長白點）
+  const isReadOnly = await isStoreSubscriptionWriteBlocked(activeStoreId);
 
   const todayLabel = formatTWTime(new Date(), { dateOnly: true });
   const storeFilter = getStoreFilter(user, activeStoreId);
@@ -247,7 +250,9 @@ export default async function DashboardHomePage() {
   ];
 
   const quickActions: Array<{ href: string; label: string; hint: string }> = [
-    { href: "/dashboard/bookings/new", label: "＋ 新增預約", hint: "快速建立今日或未來預約" },
+    ...(isReadOnly
+      ? []
+      : [{ href: "/dashboard/bookings/new", label: "＋ 新增預約", hint: "快速建立今日或未來預約" }]),
     { href: "/dashboard/customers", label: "顧客管理", hint: "搜尋、篩選、查看顧客詳情" },
     ...(isOwner
       ? [{ href: "/dashboard/revenue", label: "營收", hint: "今日 / 本月指標 + 交易" }]
@@ -282,12 +287,21 @@ export default async function DashboardHomePage() {
         title="儀表板"
         subtitle={`${todayLabel}｜歡迎回來，${user.name ?? "店長"}`}
         actions={
-          <Link
-            href="/dashboard/bookings/new"
-            className="rounded-md bg-primary-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-primary-700"
-          >
-            ＋ 新增預約
-          </Link>
+          isReadOnly ? (
+            <span
+              className="cursor-not-allowed rounded-md bg-earth-100 px-3 py-1.5 text-xs font-medium text-earth-400"
+              title="系統已到期，目前為唯讀模式"
+            >
+              ＋ 新增預約
+            </span>
+          ) : (
+            <Link
+              href="/dashboard/bookings/new"
+              className="rounded-md bg-primary-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-primary-700"
+            >
+              ＋ 新增預約
+            </Link>
+          )
         }
       />
 
@@ -345,8 +359,16 @@ export default async function DashboardHomePage() {
             {rows.length === 0 ? (
               <EmptyRow
                 title="今天還沒有預約"
-                hint="可手動建立或等顧客自助預約"
-                cta={{ label: "新增預約", href: "/dashboard/bookings/new" }}
+                hint={
+                  isReadOnly
+                    ? "系統已到期，目前為唯讀模式，無法新增預約"
+                    : "可手動建立或等顧客自助預約"
+                }
+                cta={
+                  isReadOnly
+                    ? undefined
+                    : { label: "新增預約", href: "/dashboard/bookings/new" }
+                }
               />
             ) : (
               <DataTable
