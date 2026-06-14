@@ -1,30 +1,24 @@
 /**
- * 店家訂閱生命週期 — 衍生狀態（Phase A，零 schema / 零 migration）
+ * 店家訂閱生命週期 — 衍生狀態（零 schema / 零 migration）
  *
- * 不新增 SubscriptionStatus enum、不存 SUSPENDED 到 DB。
- * EXPIRED / SUSPENDED 一律由 `expiresAt` + 寬限期「計算」得出（對齊憲法 v2「EXPIRING 計算不落 DB」）。
+ * 規則（一切照制度，無寬限期、無人情）：
+ *   today <= expiresAt → TRIAL / ACTIVE（依 stored status）
+ *   today >  expiresAt → EXPIRED（立即，到期就是到期）
  *
- * 邊界（含當天，到期日為「最後一天仍可使用」）：
- *   remaining = expiresAt − today + 1
- *   remaining >= 1            → 有效（TRIAL / ACTIVE，依 stored status）
- *   −grace < remaining <= 0   → EXPIRED（寬限期內，today > expiresAt）
- *   remaining <= −grace       → SUSPENDED（today > expiresAt + grace）
+ * 到期日為「最後一天仍可使用」：remaining = expiresAt − today + 1
+ *   remaining >= 1 → 有效（TRIAL/ACTIVE）
+ *   remaining <= 0 → EXPIRED
  *
- * 範例（grace=7，expiresAt=2026-06-24）：
- *   6/24 → 剩 1 天，有效  ·  6/25 → EXPIRED  ·  7/1(=+7) → 仍 EXPIRED(最後寬限日)  ·  7/2 → SUSPENDED
- *
- * 本檔純計算，無 DB / 無副作用；恢復 = HQ 把 expiresAt 改到未來 → 衍生狀態即回有效。
+ * SUSPENDED：**保留為未來 HQ 手動停用狀態**，本版不自動計算（computeLifecycle 不會回傳）。
+ * 不存 DB、不改 SubscriptionStatus enum；恢復 = HQ 更新 expiresAt 到未來 → 立即回 ACTIVE。
  */
-
-/** 第一版寬限期寫死 7 天（之後再做 HQ 可設定） */
-export const SUBSCRIPTION_GRACE_DAYS = 7;
 
 export type EffectiveSubscriptionState =
   | "NONE" // 尚未建立訂閱
   | "TRIAL"
   | "ACTIVE"
   | "EXPIRED"
-  | "SUSPENDED"
+  | "SUSPENDED" // 保留：未來 HQ 手動停用
   | "CANCELLED";
 
 export interface LifecycleInput {
@@ -39,10 +33,6 @@ export interface LifecycleResult {
   remainingDays: number | null;
   isExpired: boolean;
   isSuspended: boolean;
-  /** 已過期但仍在寬限期內 */
-  inGrace: boolean;
-  /** 寬限期最後一天 YYYY-MM-DD（expiresAt + grace），null=不適用 */
-  graceEndsYmd: string | null;
 }
 
 const EFFECTIVE_STATE_LABELS: Record<EffectiveSubscriptionState, string> = {
@@ -69,12 +59,6 @@ function dayDiff(aYmd: string, bYmd: string): number {
   return Math.round((Date.UTC(ay, am - 1, ad) - Date.UTC(by, bm - 1, bd)) / 86_400_000);
 }
 
-/** 在 YYYY-MM-DD 上加 n 天 */
-function addDays(baseYmd: string, n: number): string {
-  const [y, m, d] = baseYmd.split("-").map(Number);
-  return ymd(new Date(Date.UTC(y, m - 1, d + n)));
-}
-
 /**
  * 計算店家訂閱的「有效（衍生）狀態」。
  * @param todayYmd 今天 YYYY-MM-DD（UTC+8，呼叫端傳 toLocalDateStr()）
@@ -82,75 +66,35 @@ function addDays(baseYmd: string, n: number): string {
 export function computeLifecycle(
   input: LifecycleInput,
   todayYmd: string,
-  graceDays: number = SUBSCRIPTION_GRACE_DAYS,
 ): LifecycleResult {
   const { status, expiresAt } = input;
 
   if (!status) {
-    return {
-      state: "NONE",
-      remainingDays: null,
-      isExpired: false,
-      isSuspended: false,
-      inGrace: false,
-      graceEndsYmd: null,
-    };
+    return { state: "NONE", remainingDays: null, isExpired: false, isSuspended: false };
   }
-
-  // 終態：CANCELLED 直接呈現，不套用到期/寬限
+  // 終態：CANCELLED 直接呈現
   if (status === "CANCELLED") {
-    return {
-      state: "CANCELLED",
-      remainingDays: null,
-      isExpired: false,
-      isSuspended: false,
-      inGrace: false,
-      graceEndsYmd: null,
-    };
+    return { state: "CANCELLED", remainingDays: null, isExpired: false, isSuspended: false };
   }
-
-  // 無到期日 → 依 stored status 呈現（TRIAL/ACTIVE），不計到期
+  // 無到期日 → 依 stored status 呈現，不判到期
   if (!expiresAt) {
     return {
       state: status === "TRIAL" ? "TRIAL" : "ACTIVE",
       remainingDays: null,
       isExpired: false,
       isSuspended: false,
-      inGrace: false,
-      graceEndsYmd: null,
     };
   }
 
-  const expYmd = ymd(expiresAt);
-  const remainingDays = dayDiff(expYmd, todayYmd) + 1; // 含當天
-  const graceEndsYmd = addDays(expYmd, graceDays);
-
-  if (remainingDays <= -graceDays) {
-    return {
-      state: "SUSPENDED",
-      remainingDays,
-      isExpired: true,
-      isSuspended: true,
-      inGrace: false,
-      graceEndsYmd,
-    };
-  }
+  const remainingDays = dayDiff(ymd(expiresAt), todayYmd) + 1; // 含當天
   if (remainingDays <= 0) {
-    return {
-      state: "EXPIRED",
-      remainingDays,
-      isExpired: true,
-      isSuspended: false,
-      inGrace: true,
-      graceEndsYmd,
-    };
+    // today > expiresAt → 立即 EXPIRED（無寬限期）
+    return { state: "EXPIRED", remainingDays, isExpired: true, isSuspended: false };
   }
   return {
     state: status === "TRIAL" ? "TRIAL" : "ACTIVE",
     remainingDays,
     isExpired: false,
     isSuspended: false,
-    inGrace: false,
-    graceEndsYmd,
   };
 }

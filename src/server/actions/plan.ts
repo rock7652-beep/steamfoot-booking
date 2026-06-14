@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/permissions";
 import { requireStaffSession } from "@/lib/session";
+import { assertStoreSubscriptionWritable } from "@/lib/subscription-guard";
 import { AppError, handleActionError } from "@/lib/errors";
 import { checkCurrentStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
@@ -23,6 +24,8 @@ export async function createPlan(
     await checkCurrentStoreFeature(FEATURES.PLAN_MANAGEMENT);
     const user = await requireStaffSession();
     const storeId = user.storeId!;
+    // 訂閱到期保護：EXPIRED 店唯讀（無訂閱店不擋）
+    await assertStoreSubscriptionWritable(storeId);
     const data = createPlanSchema.parse(input);
 
     // 同店同名方案不可重複建立
@@ -71,6 +74,8 @@ export async function updatePlan(
     const plan = await prisma.servicePlan.findUnique({ where: { id: planId } });
     if (!plan) throw new AppError("NOT_FOUND", "課程方案不存在");
     if (plan.storeId !== user.storeId) throw new AppError("FORBIDDEN", "無權限編輯此方案");
+    // 訂閱到期保護：EXPIRED 店唯讀（無訂閱店不擋）
+    await assertStoreSubscriptionWritable(plan.storeId);
 
     // 如果改名，檢查新名稱是否與同店其他方案重複
     if (data.name && data.name !== plan.name) {

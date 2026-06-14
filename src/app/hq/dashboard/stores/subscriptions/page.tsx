@@ -5,7 +5,6 @@ import { toLocalDateStr } from "@/lib/date-utils";
 import {
   computeLifecycle,
   effectiveStateLabel,
-  SUBSCRIPTION_GRACE_DAYS,
   type EffectiveSubscriptionState,
 } from "@/lib/subscription-lifecycle";
 import { PageShell, PageHeader } from "@/components/desktop";
@@ -22,7 +21,7 @@ import {
  *
  * 列出「所有店家」的訂閱資料（跨店）→ 僅限 HQ ADMIN；分店後台不可見。
  * 「目前方案」一律讀 Store.plan（source of truth，本頁唯讀、不改）。
- * 「狀態」為衍生生命週期（TRIAL/ACTIVE/EXPIRED/SUSPENDED，由 expiresAt + 寬限期計算，
+ * 「狀態」為衍生生命週期（TRIAL/ACTIVE/EXPIRED，由 expiresAt 計算，無寬限期，
  * 不存 DB、不改既有方案判斷）。恢復 = 編輯訂閱把 expiresAt 改到未來 → 立即回 ACTIVE。
  */
 
@@ -115,12 +114,11 @@ export default async function StoreSubscriptionsListPage({
       ? allRows.length
       : allRows.filter((r) => r.lc.state === state).length;
 
-  /** 剩餘天數 / 寬限 / 暫停 顯示文字 */
+  /** 剩餘天數 / 已到期 / 已暫停 顯示文字（無寬限期） */
   function remainingText(lc: (typeof allRows)[number]["lc"]): string {
     if (lc.state === "NONE" || lc.remainingDays == null) return "—";
     if (lc.isSuspended) return "已暫停";
-    if (lc.isExpired)
-      return `已到期 · 寬限至 ${lc.graceEndsYmd?.replace(/-/g, "/") ?? "—"}`;
+    if (lc.isExpired) return "已到期";
     return `剩餘 ${lc.remainingDays} 天`;
   }
 
@@ -140,11 +138,12 @@ export default async function StoreSubscriptionsListPage({
       />
 
       <section className="rounded-lg border border-earth-100 bg-earth-50/40 px-4 py-2.5 text-[12px] leading-relaxed text-earth-600">
-        「狀態」為依到期日 + 寬限期（{SUBSCRIPTION_GRACE_DAYS} 天）計算的生命週期，
-        <span className="font-medium text-earth-800">不存 DB、不改既有方案判斷</span>。
-        到期後進入寬限期顯示「已到期」，超過寬限顯示「已暫停」。
-        恢復 = 編輯訂閱把到期日改到未來。本階段
-        <span className="font-medium text-earth-800">僅顯示狀態，不限制任何操作</span>。
+        「狀態」為依到期日計算的生命週期（
+        <span className="font-medium text-earth-800">無寬限期</span>，
+        到期就是到期），不存 DB、不改既有方案判斷。
+        <span className="font-medium text-earth-800">today &gt; 到期日 → 已到期</span>，
+        店長端進入唯讀模式。恢復 = 編輯訂閱把到期日改到未來。
+        SUSPENDED 保留為未來 HQ 手動停用。
       </section>
 
       {/* §7 篩選 */}
