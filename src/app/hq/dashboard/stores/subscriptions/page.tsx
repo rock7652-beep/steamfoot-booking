@@ -2,24 +2,54 @@ import { getCurrentUser } from "@/lib/session";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { toLocalDateStr } from "@/lib/date-utils";
+import {
+  computeLifecycle,
+  effectiveStateLabel,
+  SUBSCRIPTION_GRACE_DAYS,
+  type EffectiveSubscriptionState,
+} from "@/lib/subscription-lifecycle";
 import { PageShell, PageHeader } from "@/components/desktop";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import {
   PLAN_LABELS,
-  STATUS_LABELS,
   CYCLE_LABELS,
   BILLING_STATUS_LABELS,
   PAYMENT_METHOD_LABELS,
-  remainingDays,
 } from "./constants";
 
 /**
  * /hq/dashboard/stores/subscriptions — 店家訂閱管理（HQ／總部專用）
  *
  * 列出「所有店家」的訂閱資料（跨店）→ 僅限 HQ ADMIN；分店後台不可見。
- * 「目前方案」一律讀 Store.plan（source of truth，本頁唯讀、不改）；
- * 訂閱 / 付款 / 到期欄位讀 StoreSubscription（currentSubscription ?? 最新一筆）。
+ * 「目前方案」一律讀 Store.plan（source of truth，本頁唯讀、不改）。
+ * 「狀態」為衍生生命週期（TRIAL/ACTIVE/EXPIRED/SUSPENDED，由 expiresAt + 寬限期計算，
+ * 不存 DB、不改既有方案判斷）。恢復 = 編輯訂閱把 expiresAt 改到未來 → 立即回 ACTIVE。
  */
+
+/** 衍生狀態 → badge 顏色 */
+function stateBadgeCls(state: EffectiveSubscriptionState): string {
+  switch (state) {
+    case "ACTIVE":
+      return "bg-primary-50 text-primary-700";
+    case "TRIAL":
+      return "bg-amber-50 text-amber-700";
+    case "EXPIRED":
+      return "bg-orange-100 text-orange-700";
+    case "SUSPENDED":
+      return "bg-red-100 text-red-700";
+    default:
+      return "bg-earth-100 text-earth-500";
+  }
+}
+
+/** 篩選頁籤定義（§7） */
+const FILTERS: { value: string; label: string }[] = [
+  { value: "ALL", label: "全部" },
+  { value: "TRIAL", label: "試用中" },
+  { value: "ACTIVE", label: "使用中" },
+  { value: "EXPIRED", label: "已到期" },
+  { value: "SUSPENDED", label: "已暫停" },
+];
 
 const subSelect = {
   id: true,
@@ -39,7 +69,11 @@ function fmtDate(d: Date | null | undefined): string {
   return d ? d.toISOString().slice(0, 10).replace(/-/g, "/") : "—";
 }
 
-export default async function StoreSubscriptionsListPage() {
+export default async function StoreSubscriptionsListPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ state?: string }>;
+}) {
   const user = await getCurrentUser();
   // HQ 跨店資料 → 僅限 ADMIN（proxy 已擋非 ADMIN，此處為 defense-in-depth）
   if (!user || user.role !== "ADMIN") redirect("/hq/login");
@@ -61,17 +95,33 @@ export default async function StoreSubscriptionsListPage() {
   });
 
   const todayYmd = toLocalDateStr();
-  const rows = stores.map((s) => ({
-    store: s,
-    sub: s.currentSubscription ?? s.subscriptions[0] ?? null,
-  }));
+  const allRows = stores.map((s) => {
+    const sub = s.currentSubscription ?? s.subscriptions[0] ?? null;
+    const lc = computeLifecycle(
+      { status: sub?.status ?? null, expiresAt: sub?.expiresAt ?? null },
+      todayYmd,
+    );
+    return { store: s, sub, lc };
+  });
 
-  /** 剩餘天數顯示文字 */
-  function remainingText(expiresAt: Date | null | undefined): string {
-    if (!expiresAt) return "—";
-    const n = remainingDays(expiresAt.toISOString().slice(0, 10), todayYmd);
-    if (n == null) return "—";
-    return n > 0 ? `剩餘 ${n} 天` : "已到期";
+  // §7 篩選（衍生狀態）
+  const activeFilter = (await searchParams).state ?? "ALL";
+  const rows =
+    activeFilter === "ALL"
+      ? allRows
+      : allRows.filter((r) => r.lc.state === activeFilter);
+  const countOf = (state: string) =>
+    state === "ALL"
+      ? allRows.length
+      : allRows.filter((r) => r.lc.state === state).length;
+
+  /** 剩餘天數 / 寬限 / 暫停 顯示文字 */
+  function remainingText(lc: (typeof allRows)[number]["lc"]): string {
+    if (lc.state === "NONE" || lc.remainingDays == null) return "—";
+    if (lc.isSuspended) return "已暫停";
+    if (lc.isExpired)
+      return `已到期 · 寬限至 ${lc.graceEndsYmd?.replace(/-/g, "/") ?? "—"}`;
+    return `剩餘 ${lc.remainingDays} 天`;
   }
 
   return (
@@ -90,9 +140,41 @@ export default async function StoreSubscriptionsListPage() {
       />
 
       <section className="rounded-lg border border-earth-100 bg-earth-50/40 px-4 py-2.5 text-[12px] leading-relaxed text-earth-600">
-        「目前方案」以 <span className="font-medium text-earth-800">Store.plan</span>{" "}
-        為準（本頁唯讀）。此處僅記錄訂閱 / 付款 / 到期資料，不會改動既有方案判斷或自動停權。
+        「狀態」為依到期日 + 寬限期（{SUBSCRIPTION_GRACE_DAYS} 天）計算的生命週期，
+        <span className="font-medium text-earth-800">不存 DB、不改既有方案判斷</span>。
+        到期後進入寬限期顯示「已到期」，超過寬限顯示「已暫停」。
+        恢復 = 編輯訂閱把到期日改到未來。本階段
+        <span className="font-medium text-earth-800">僅顯示狀態，不限制任何操作</span>。
       </section>
+
+      {/* §7 篩選 */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        {FILTERS.map((f) => {
+          const isActive = activeFilter === f.value;
+          return (
+            <Link
+              key={f.value}
+              href={
+                f.value === "ALL"
+                  ? "/hq/dashboard/stores/subscriptions"
+                  : `/hq/dashboard/stores/subscriptions?state=${f.value}`
+              }
+              className={`rounded-full px-3 py-1 text-[12px] font-medium ${
+                isActive
+                  ? "bg-primary-600 text-white"
+                  : "border border-earth-200 text-earth-600 hover:bg-earth-50"
+              }`}
+            >
+              {f.label}
+              <span
+                className={`ml-1.5 tabular-nums ${isActive ? "text-primary-100" : "text-earth-400"}`}
+              >
+                {countOf(f.value)}
+              </span>
+            </Link>
+          );
+        })}
+      </div>
 
       <section className="overflow-x-auto rounded-xl border border-earth-200 bg-white shadow-sm">
         <table className="w-full min-w-[1020px] text-[13px]">
@@ -100,7 +182,7 @@ export default async function StoreSubscriptionsListPage() {
             <tr className="border-b border-earth-100 text-left text-[11px] text-earth-500">
               <th className="px-4 py-2.5 font-medium">店家</th>
               <th className="px-3 py-2.5 font-medium">目前方案</th>
-              <th className="px-3 py-2.5 font-medium">訂閱狀態</th>
+              <th className="px-3 py-2.5 font-medium">狀態</th>
               <th className="px-3 py-2.5 font-medium">付款狀態</th>
               <th className="px-3 py-2.5 font-medium">付款方式</th>
               <th className="px-3 py-2.5 font-medium">週期</th>
@@ -113,7 +195,7 @@ export default async function StoreSubscriptionsListPage() {
             </tr>
           </thead>
           <tbody>
-            {rows.map(({ store, sub }) => (
+            {rows.map(({ store, sub, lc }) => (
               <tr
                 key={store.id}
                 className="border-b border-earth-50 last:border-0 align-top"
@@ -127,8 +209,12 @@ export default async function StoreSubscriptionsListPage() {
                 </td>
                 {sub ? (
                   <>
-                    <td className="px-3 py-3 text-earth-700">
-                      {STATUS_LABELS[sub.status] ?? sub.status}
+                    <td className="px-3 py-3">
+                      <span
+                        className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${stateBadgeCls(lc.state)}`}
+                      >
+                        {effectiveStateLabel(lc.state)}
+                      </span>
                     </td>
                     <td className="px-3 py-3 text-earth-700">
                       {BILLING_STATUS_LABELS[sub.billingStatus] ??
@@ -151,8 +237,10 @@ export default async function StoreSubscriptionsListPage() {
                     <td className="px-3 py-3 tabular-nums text-earth-700">
                       {fmtDate(sub.expiresAt)}
                     </td>
-                    <td className="px-3 py-3 tabular-nums text-earth-700">
-                      {remainingText(sub.expiresAt)}
+                    <td
+                      className={`px-3 py-3 tabular-nums ${lc.isSuspended ? "text-red-600" : lc.isExpired ? "text-orange-600" : "text-earth-700"}`}
+                    >
+                      {remainingText(lc)}
                     </td>
                     <td className="px-3 py-3 text-right tabular-nums text-earth-700">
                       {sub.priceAmount != null
@@ -204,7 +292,11 @@ export default async function StoreSubscriptionsListPage() {
       </section>
 
       {rows.length === 0 ? (
-        <p className="px-1 text-[13px] text-earth-400">目前沒有任何店家。</p>
+        <p className="px-1 text-[13px] text-earth-400">
+          {activeFilter === "ALL"
+            ? "目前沒有任何店家。"
+            : "此狀態目前沒有店家。"}
+        </p>
       ) : null}
     </PageShell>
   );

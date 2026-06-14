@@ -8,6 +8,10 @@ import { getStoreOptions, resolveActiveStoreId } from "@/lib/store";
 import { getActiveStoreCookie } from "@/server/actions/store-switch";
 import DashboardShell from "@/components/sidebar";
 import { LogoutButton } from "@/components/logout-button";
+import { SubscriptionStatusBanner } from "@/components/subscription-status-banner";
+import { prisma } from "@/lib/db";
+import { computeLifecycle } from "@/lib/subscription-lifecycle";
+import { toLocalDateStr } from "@/lib/date-utils";
 
 export default async function DashboardLayout({
   children,
@@ -59,6 +63,31 @@ export default async function DashboardLayout({
   const ckStore = await cookies();
   const dashStoreSlug = !isAdmin ? (ckStore.get("store-slug")?.value ?? null) : null;
 
+  // §5 訂閱到期 / 暫停登入提醒（衍生狀態）。
+  // 只 select status + expiresAt（既有欄位）→ prod-safe（不碰 #295 新欄位）；
+  // 查詢失敗不影響後台（提醒非關鍵功能）。本階段只提醒、不限制操作。
+  let subBannerState: "EXPIRED" | "SUSPENDED" | null = null;
+  if (effectiveStoreId) {
+    try {
+      const sub = await prisma.storeSubscription.findFirst({
+        where: { storeId: effectiveStoreId },
+        orderBy: { createdAt: "desc" },
+        select: { status: true, expiresAt: true },
+      });
+      if (sub) {
+        const lc = computeLifecycle(
+          { status: sub.status, expiresAt: sub.expiresAt },
+          toLocalDateStr(),
+        );
+        if (lc.state === "EXPIRED" || lc.state === "SUSPENDED") {
+          subBannerState = lc.state;
+        }
+      }
+    } catch {
+      // 忽略：提醒非關鍵功能
+    }
+  }
+
   return (
     <DashboardShell
       isOwner={isOwnerLevel}
@@ -82,6 +111,9 @@ export default async function DashboardLayout({
       storeOptions={isAdmin ? storeOptions : undefined}
       activeStoreId={isAdmin ? activeStoreId : undefined}
     >
+      {subBannerState ? (
+        <SubscriptionStatusBanner state={subBannerState} />
+      ) : null}
       {children}
     </DashboardShell>
   );
