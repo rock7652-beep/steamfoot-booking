@@ -3,6 +3,7 @@
 import type { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/permissions";
+import { assertStoreSubscriptionWritable } from "@/lib/subscription-guard";
 import { AppError, handleActionError } from "@/lib/errors";
 import { currentStoreId } from "@/lib/store";
 import { getTrialSettings, clampTrialTotal } from "@/lib/shop-config";
@@ -192,6 +193,8 @@ export async function collectTrialPayment(
     const user = await requirePermission("trial.confirm");
     const data = collectTrialPaymentSchema.parse(input);
     const storeId = currentStoreId(user);
+    // 訂閱到期保護：到期店家不可體驗收款（無訂閱店不擋）
+    await assertStoreSubscriptionWritable(storeId);
 
     const settings = await getTrialSettings(storeId);
 

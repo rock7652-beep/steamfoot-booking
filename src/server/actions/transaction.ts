@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/permissions";
+import { assertStoreSubscriptionWritable } from "@/lib/subscription-guard";
 import { AppError, handleActionError } from "@/lib/errors";
 import { checkCurrentStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
@@ -88,6 +89,8 @@ export async function createTransaction(
     });
     if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
     assertStoreAccess(user, customer.storeId);
+    // 訂閱到期保護：到期店家不可建立交易 / 收款（無訂閱店不擋）
+    await assertStoreSubscriptionWritable(customer.storeId);
 
     // 若指定 wallet，確認其存在且屬於該顧客
     if (data.customerPlanWalletId) {
@@ -163,6 +166,8 @@ export async function refundTransactionLegacy(
     });
     if (!original) throw new AppError("NOT_FOUND", "原始交易不存在");
     assertStoreAccess(user, original.storeId);
+    // 訂閱到期保護：到期店家不可退款（平台只保留資料，退款屬店家營運責任）
+    await assertStoreSubscriptionWritable(original.storeId);
 
     if (original.transactionType === "REFUND") {
       throw new AppError("BUSINESS_RULE", "不能對退款交易再次退款");
@@ -226,6 +231,8 @@ export async function createAdjustment(
     });
     if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
     assertStoreAccess(user, customer.storeId);
+    // 訂閱到期保護：到期店家不可建立財務調整（無訂閱店不擋）
+    await assertStoreSubscriptionWritable(customer.storeId);
 
     const revenueStaffId = customer.assignedStaffId ?? user.staffId ?? (() => { throw new AppError("FORBIDDEN", "顧客尚未指派店長，無法建立交易"); })();
     const storeId = currentStoreId(user);

@@ -3,6 +3,7 @@
 import type { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/permissions";
+import { assertStoreSubscriptionWritable } from "@/lib/subscription-guard";
 import { AppError, handleActionError } from "@/lib/errors";
 import { currentStoreId } from "@/lib/store";
 import { collectSinglePaymentSchema } from "@/lib/validators/single-booking";
@@ -38,6 +39,8 @@ export async function collectSinglePayment(
     const user = await requirePermission("booking.update");
     const data = collectSinglePaymentSchema.parse(input);
     const storeId = currentStoreId(user);
+    // 訂閱到期保護：到期店家不可收款（無訂閱店不擋）
+    await assertStoreSubscriptionWritable(storeId);
 
     // store-scoped 查詢即安全邊界（ID 格式非關卡）
     const booking = await prisma.booking.findFirst({

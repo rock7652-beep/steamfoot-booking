@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requirePermission, checkPermission } from "@/lib/permissions";
+import { assertStoreSubscriptionWritable } from "@/lib/subscription-guard";
 import { getCurrentUser } from "@/lib/session";
 import { AppError, handleActionError } from "@/lib/errors";
 import {
@@ -90,6 +91,8 @@ export async function assignPlanToCustomer(
     });
     if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
     assertStoreAccess(user, customer.storeId);
+    // 訂閱到期保護：到期店家不可指派 / 賣方案（無訂閱店不擋）
+    await assertStoreSubscriptionWritable(customer.storeId);
 
     // 取方案（限同店）
     const plan = await prisma.servicePlan.findUnique({
@@ -274,6 +277,8 @@ export async function adjustRemainingSessions(
     });
     if (!wallet) throw new AppError("NOT_FOUND", "課程錢包不存在");
     assertStoreAccess(user, wallet.storeId);
+    // 訂閱到期保護：到期店家不可調整堂數（無訂閱店不擋）
+    await assertStoreSubscriptionWritable(wallet.storeId);
 
     // 建立調整交易紀錄
     const customer = await prisma.customer.findUnique({
