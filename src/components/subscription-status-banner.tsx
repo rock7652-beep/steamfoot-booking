@@ -23,10 +23,10 @@ export function SubscriptionStatusBanner({
 
   if (hidden) return null;
 
-  const message =
-    state === "EXPIRED"
-      ? "您的系統已到期，請聯繫總部續約"
-      : "系統已暫停使用，請聯繫總部續約";
+  const title =
+    state === "EXPIRED" ? "系統使用期限已到期" : "系統已暫停使用";
+  const body =
+    "目前已進入唯讀模式。請聯繫總部完成續約後，即可恢復正常使用。";
   const tone =
     state === "SUSPENDED"
       ? "border-red-200 bg-red-50 text-red-700"
@@ -34,10 +34,13 @@ export function SubscriptionStatusBanner({
 
   return (
     <div
-      className={`flex items-center justify-between gap-3 border-b px-4 py-2.5 text-[13px] font-medium ${tone}`}
+      className={`flex items-start justify-between gap-3 border-b px-4 py-2.5 ${tone}`}
       role="status"
     >
-      <span>⚠ {message}</span>
+      <div className="text-[13px] leading-relaxed">
+        <span className="font-semibold">⚠ {title}</span>
+        <span className="ml-2 font-normal opacity-90">{body}</span>
+      </div>
       <button
         type="button"
         onClick={() => {

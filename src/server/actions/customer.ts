@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { Prisma } from "@prisma/client";
 import { requireSession, requireStaffSession } from "@/lib/session";
 import { requirePermission } from "@/lib/permissions";
+import { assertStoreSubscriptionWritable } from "@/lib/subscription-guard";
 import { AppError, handleActionError } from "@/lib/errors";
 import {
   createCustomerSchema,
@@ -38,6 +39,8 @@ export async function createCustomer(
 ): Promise<CreateCustomerResult> {
   try {
     const user = await requirePermission("customer.create");
+    // 訂閱到期保護：EXPIRED 店唯讀（無訂閱店不擋）
+    await assertStoreSubscriptionWritable(currentStoreId(user));
     // schema.parse 內含 normalizePhone transform — data.phone 一律 09xxxxxxxx
     const data = createCustomerSchema.parse(input);
 
@@ -148,6 +151,8 @@ export async function updateCustomer(
     });
     if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
     assertStoreAccess(user, customer.storeId);
+    // 訂閱到期保護：EXPIRED 店唯讀（無訂閱店不擋）
+    await assertStoreSubscriptionWritable(customer.storeId);
 
     // 同店員工皆可操作（權限已由 requirePermission 把關）
     // assignedStaffId 僅用於歸屬/報表，不限制寫入操作
