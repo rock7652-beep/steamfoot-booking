@@ -66,88 +66,81 @@ export function HealthStatusBody({
   const healthFlowUrl = getHealthAssessmentUrl(customerId);
 
   return (
-    <div className="space-y-2 text-[11px]">
-        {/* Status row — 顯示連結狀態 */}
-        <div className="flex items-center gap-1.5">
+    <div className="space-y-2.5 text-[11px]">
+      <div
+        className={`rounded-md border px-2.5 py-2 ${
+          isLinked
+            ? "border-green-200 bg-green-50"
+            : healthLinkStatus === "not_found"
+              ? "border-amber-200 bg-amber-50"
+              : healthLinkStatus === "error"
+                ? "border-red-200 bg-red-50"
+                : "border-earth-200 bg-earth-50/70"
+        }`}
+      >
+        <div className="flex flex-wrap items-center gap-1.5">
           {isLinked ? (
-            <span className="rounded bg-green-50 px-1.5 py-0.5 text-[11px] font-medium text-green-700">
+            <span className="rounded bg-white px-1.5 py-0.5 text-[11px] font-semibold text-green-700">
               已連結
             </span>
           ) : healthLinkStatus === "not_found" ? (
-            <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-700">
+            <span className="rounded bg-white px-1.5 py-0.5 text-[11px] font-semibold text-amber-700">
               配對失敗
             </span>
           ) : healthLinkStatus === "error" ? (
-            <span className="rounded bg-red-50 px-1.5 py-0.5 text-[11px] font-medium text-red-700">
+            <span className="rounded bg-white px-1.5 py-0.5 text-[11px] font-semibold text-red-700">
               連結錯誤
             </span>
           ) : (
-            <span className="rounded bg-earth-100 px-1.5 py-0.5 text-[11px] font-medium text-earth-500">
+            <span className="rounded bg-white px-1.5 py-0.5 text-[11px] font-semibold text-earth-600">
               尚未連結
             </span>
           )}
           {healthSyncedAt && (
-            <span className="text-earth-500">
-              · 最近同步 {formatTWTime(healthSyncedAt, { style: "short" })}
+            <span className={isLinked ? "text-green-800" : "text-earth-600"}>
+              最近同步 {formatTWTime(healthSyncedAt, { style: "short" })}
             </span>
           )}
         </div>
-
-        {/* 文案依 state 切換 */}
-        {isLinked ? (
-          <>
-            <p className="leading-relaxed text-earth-600">
-              顧客可在 LINE Mini App「我的健康紀錄」查看完整摘要與分數。
-            </p>
-            <a
-              href={healthFlowUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-primary-700 hover:underline"
-            >
-              前往 HealthFlow 原站 ↗
-            </a>
-            {/* dashboard-health-lazy：店長點按鈕才 fetch HealthFlow summary。
-                page load 仍維持 DB-only（沿用 PR #204 設計）。 */}
-            <HealthSummaryLazy customerId={customerId} />
-          </>
-        ) : healthLinkStatus === "not_found" ? (
-          <>
-            <p className="leading-relaxed text-earth-600">
-              批次同步以 email / phone 自動配對 HealthFlow profile，但未找到對應資料。
-              請與顧客確認 HealthFlow 端的聯絡資訊，或請技術人員手動連結。
-            </p>
-            <p className="text-earth-500">
-              批次工具：<code className="rounded bg-earth-100 px-1 py-0.5 text-[10px]">scripts/healthflow-link-execute.ts</code>
-            </p>
-          </>
-        ) : healthLinkStatus === "error" ? (
-          <>
-            <p className="leading-relaxed text-earth-600">
-              上次配對流程發生錯誤，請檢視 server log 或請技術人員協助重試。
-            </p>
-            <p className="text-earth-500">
-              批次工具：<code className="rounded bg-earth-100 px-1 py-0.5 text-[10px]">scripts/healthflow-link-execute.ts</code>
-            </p>
-          </>
-        ) : (
-          <>
-            <p className="leading-relaxed text-earth-600">
-              顧客尚未連結 HealthFlow 評估資料。可由系統批次 sync 自動連結，
-              或請技術人員手動指定 profileId。
-            </p>
-            <p className="text-earth-500">
-              批次工具：<code className="rounded bg-earth-100 px-1 py-0.5 text-[10px]">scripts/healthflow-link-execute.ts</code>
-            </p>
-          </>
+        {isLinked && (
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-green-800">
+            <span>HealthFlow 摘要可用</span>
+            {healthProfileId && (
+              <span className="font-mono text-green-700">
+                ID {healthProfileId.slice(0, 8)}...
+              </span>
+            )}
+          </div>
         )}
+      </div>
 
-        {/* 開發備忘 — 給技術看，店長可忽略 */}
-        {healthProfileId && (
-          <p className="border-t border-earth-100 pt-1.5 text-[10px] text-earth-400">
-            profileId: <code className="text-earth-500">{healthProfileId.slice(0, 8)}...</code>
-          </p>
-        )}
+      {isLinked ? (
+        <>
+          <a
+            href={healthFlowUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-primary-700 hover:underline"
+          >
+            前往 HealthFlow 原站 ↗
+          </a>
+          {/* dashboard-health-lazy：店長點按鈕才 fetch HealthFlow summary。
+              page load 仍維持 DB-only（沿用 PR #204 設計）。 */}
+          <HealthSummaryLazy customerId={customerId} />
+        </>
+      ) : healthLinkStatus === "not_found" ? (
+        <p className="leading-relaxed text-earth-600">
+          尚未找到可連結的 HealthFlow 評估資料。
+        </p>
+      ) : healthLinkStatus === "error" ? (
+        <p className="leading-relaxed text-earth-600">
+          上次連結流程發生錯誤，請稍後再確認。
+        </p>
+      ) : (
+        <p className="leading-relaxed text-earth-600">
+          尚未連結 HealthFlow 評估資料。
+        </p>
+      )}
     </div>
   );
 }
