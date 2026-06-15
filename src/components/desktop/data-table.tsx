@@ -139,7 +139,7 @@ export function DataTable<Row>({
                           className={`px-3 ${c.align ? ALIGN_CLASS[c.align] : ""} ${priorityClass}`}
                         >
                           {colIdx === firstLinkColIdx ? (
-                            <Link href={href} className="block w-full text-earth-800 hover:text-primary-700">
+                            <Link href={href} prefetch={false} className="block w-full text-earth-800 hover:text-primary-700">
                               {c.accessor(row, i)}
                             </Link>
                           ) : (
