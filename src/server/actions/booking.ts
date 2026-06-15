@@ -1414,12 +1414,18 @@ export async function revertBookingStatus(
         // 補課預約取消時已退回 N 張券 → 恢復時重新取得 N=people 張有效券（最早到期優先），
         // 重建 join row + 標記 isUsed。券不足（已過期/被別筆用掉）→ 擋下恢復、整筆 rollback。
         if (booking.isMakeup) {
+          // 有效性與 createBooking 一致：依該 booking 的「預約日期」當天 00:00（台灣）
+          // 為界，而非操作當下 now。否則當初合法建立的補課預約取消後，會因「現在」
+          // 已過券效期而無法恢復（即使預約日仍在券期限內）。
+          const makeupValidFrom = dayRange(
+            booking.bookingDate.toISOString().slice(0, 10),
+          ).start;
           const picked = await tx.$queryRaw<{ id: string }[]>`
             SELECT id FROM "MakeupCredit"
             WHERE "customerId" = ${booking.customerId}
               AND "storeId" = ${booking.storeId}
               AND "isUsed" = false
-              AND ("expiredAt" IS NULL OR "expiredAt" >= NOW())
+              AND ("expiredAt" IS NULL OR "expiredAt" >= ${makeupValidFrom})
             ORDER BY "expiredAt" ASC NULLS LAST, "createdAt" ASC
             LIMIT ${booking.people}
             FOR UPDATE SKIP LOCKED`;
