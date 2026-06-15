@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/permissions";
 import { getStoreFilter } from "@/lib/manager-visibility";
 import { sortWalletsByFEFO } from "@/lib/wallet-sort";
+import { dayRange } from "@/lib/date-utils";
 
 export interface ActiveWalletSummary {
   id: string;
@@ -41,6 +42,8 @@ export interface CustomerBookingOptions {
  */
 export async function fetchCustomerActiveWalletsForBooking(
   customerId: string,
+  /** 預約日期 "YYYY-MM-DD"；補課券有效性以此日判斷（非操作當下 now）。 */
+  bookingDate?: string,
 ): Promise<CustomerBookingOptions> {
   await requirePermission("booking.create");
 
@@ -62,10 +65,10 @@ export async function fetchCustomerActiveWalletsForBooking(
   });
   if (!customer) return empty;
 
-  // 補課券有效性與 createBooking 對齊：以「現在」為基準（isUsed=false 且
-  // expiredAt 為 null 或 >= now）。不用預約日是因為 createBooking 實際接受
-  // 的條件即為 NOW()，避免 UI 顯示可用但 server 拒絕（或反之）。
-  const now = new Date();
+  // 補課券有效性以「預約日期」當天 00:00（台灣）為界，與 createBooking 對齊：
+  // 補課資格只能在期限內使用，須依預約/課程日期判斷 expiredAt >= 預約日，
+  // 避免顯示「到 6/15 的券」卻可建立 6/22 的補課。無 bookingDate 時退回 now（防禦）。
+  const validFrom = bookingDate ? dayRange(bookingDate).start : new Date();
 
   const [wallets, makeupCredits] = await Promise.all([
     prisma.customerPlanWallet.findMany({
@@ -87,7 +90,7 @@ export async function fetchCustomerActiveWalletsForBooking(
         customerId,
         storeId: customer.storeId,
         isUsed: false,
-        OR: [{ expiredAt: null }, { expiredAt: { gte: now } }],
+        OR: [{ expiredAt: null }, { expiredAt: { gte: validFrom } }],
       },
       select: { expiredAt: true },
       orderBy: [

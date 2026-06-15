@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { FormSection } from "@/components/desktop";
 import CustomerSearch from "./customer-search";
 import {
@@ -55,10 +55,16 @@ export function CustomerAndPlanFields({
   const [wallets, setWallets] = useState<ActiveWalletSummary[]>([]);
   const [makeup, setMakeup] = useState<MakeupCreditSummary>(EMPTY_MAKEUP);
   const [walletsLoading, setWalletsLoading] = useState(false);
-  const [uiType, setUiType] = useState<UiBookingType>(
-    defaultMode === "makeup" ? "MAKEUP" : "PACKAGE_SESSION",
-  );
+  // 一律從 PACKAGE_SESSION 起手；選定顧客後若 defaultMode=makeup 且有有效補課券，
+  // effect 會切到 MAKEUP（補課選項在有券前不存在，避免 select 出現孤兒值）。
+  const [uiType, setUiType] = useState<UiBookingType>("PACKAGE_SESSION");
   const [walletId, setWalletId] = useState<string>("");
+  // 預約日期由左欄 DashboardBookingForm（同一 form 的 select[name="bookingDate"]）控制。
+  // 補課券有效性需依「預約日期」判斷，故在此讀取並監聽其變化以重查。
+  const [bookingDate, setBookingDate] = useState<string | null>(null);
+  const anchorRef = useRef<HTMLSpanElement>(null);
+  // 記錄已套用「預設選擇」的顧客 → 同顧客改日期時不覆蓋店長手動選擇。
+  const initializedCustomerRef = useRef<string | null>(null);
 
   const handleCustomerSelect = useCallback((id: string | null) => {
     setCustomerId(id);
@@ -66,7 +72,23 @@ export function CustomerAndPlanFields({
       setWallets([]);
       setMakeup(EMPTY_MAKEUP);
       setWalletId("");
+      initializedCustomerRef.current = null;
     }
+  }, []);
+
+  // 讀取同一個 form 內的預約日期，並監聽其變化（切換日期 → 重查補課券有效性）。
+  useEffect(() => {
+    const form = anchorRef.current?.closest("form");
+    if (!form) return;
+    const read = () => {
+      const el = form.querySelector<HTMLSelectElement>(
+        'select[name="bookingDate"]',
+      );
+      setBookingDate(el?.value ?? null);
+    };
+    read();
+    form.addEventListener("change", read);
+    return () => form.removeEventListener("change", read);
   }, []);
 
   useEffect(() => {
@@ -76,23 +98,36 @@ export function CustomerAndPlanFields({
       setWalletsLoading(true);
       try {
         const { wallets: list, makeup: makeupSummary } =
-          await fetchCustomerActiveWalletsForBooking(customerId);
+          await fetchCustomerActiveWalletsForBooking(
+            customerId,
+            bookingDate ?? undefined,
+          );
         if (cancelled) return;
         setWallets(list);
         setMakeup(makeupSummary);
-        const hasMakeup = makeupSummary.count > 0;
-        if (defaultMode === "makeup" && hasMakeup) {
-          // 從補課入口進來且有有效補課券 → 預設補課
-          setUiType("MAKEUP");
-          setWalletId("");
-        } else if (list.length > 0) {
-          // 防呆：有方案 → 預設 PACKAGE_SESSION + FEFO 首張
-          setUiType("PACKAGE_SESSION");
-          setWalletId(list[0].id);
+        const hasMakeupNow = makeupSummary.count > 0;
+        const firstLoadForCustomer =
+          initializedCustomerRef.current !== customerId;
+        if (firstLoadForCustomer) {
+          // 首次載入此顧客 → 套預設選擇
+          initializedCustomerRef.current = customerId;
+          if (defaultMode === "makeup" && hasMakeupNow) {
+            setUiType("MAKEUP");
+            setWalletId("");
+          } else if (list.length > 0) {
+            setUiType("PACKAGE_SESSION");
+            setWalletId(list[0].id);
+          } else {
+            setUiType("PACKAGE_SESSION");
+            setWalletId("");
+          }
         } else {
-          // 無方案（無補課，或補課入口但沒券）→ 退回課程堂數，下方提示處理
-          setUiType("PACKAGE_SESSION");
-          setWalletId("");
+          // 同顧客改了預約日期 → 不覆蓋手動選擇；但若已選「補課」卻在新日期失效，
+          // 退回課程堂數（避免送出已對該日過期的補課券）。
+          setUiType((prev) =>
+            prev === "MAKEUP" && !hasMakeupNow ? "PACKAGE_SESSION" : prev,
+          );
+          setWalletId((prev) => prev || list[0]?.id || "");
         }
       } catch {
         if (cancelled) return;
@@ -106,7 +141,7 @@ export function CustomerAndPlanFields({
     return () => {
       cancelled = true;
     };
-  }, [customerId, defaultMode]);
+  }, [customerId, bookingDate, defaultMode]);
 
   const hasWallets = wallets.length > 0;
   const hasMakeup = makeup.count > 0;
@@ -121,6 +156,8 @@ export function CustomerAndPlanFields({
 
   return (
     <>
+      {/* 定位錨點：用來找到同一個 form，讀取左欄的預約日期 */}
+      <span ref={anchorRef} className="hidden" aria-hidden />
       <FormSection title="顧客資訊" description="輸入姓名、電話或 Email 搜尋">
         <div>
           <label className={labelCls}>
@@ -202,7 +239,7 @@ export function CustomerAndPlanFields({
 
         {showNoMakeupWarning && (
           <p className="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[11px] text-amber-800">
-            此顧客目前沒有可用補課資格；如要安排補課，請確認是否有未到產生、且未過期的補課券。
+            此顧客在此日期沒有可用補課資格；補課券須在期限內使用，請改選券期限內的預約日期，或確認是否有未過期的補課券。
           </p>
         )}
 

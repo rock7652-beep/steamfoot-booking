@@ -13,7 +13,7 @@ import {
   updateBookingSchema,
   completeBookingSchema,
 } from "@/lib/validators/booking";
-import { getNowTaipeiHHmm, toLocalDateStr } from "@/lib/date-utils";
+import { getNowTaipeiHHmm, toLocalDateStr, dayRange } from "@/lib/date-utils";
 import {
   getBookingDateTime,
   PENDING_STATUSES,
@@ -119,6 +119,10 @@ export async function createBooking(
     const data = createBookingSchema.parse(input);
     const bookingPeople = data.people ?? 1;
     const isMakeup = data.isMakeup ?? false;
+    // 補課券有效性以「預約日期」當天 00:00（台灣）為界，而非操作當下 now。
+    // 補課資格只能在期限內使用，須依「預約 / 課程日期」判斷 expiredAt >= 預約日，
+    // 否則會允許用對該預約日已過期的券（例：到 6/15 的券去預約 6/22）。
+    const makeupValidFrom = dayRange(data.bookingDate).start;
 
     // ── 0. FREE 方案預約數限制
     const bookingLimit = await checkBookingLimit(currentStoreId(user));
@@ -234,7 +238,7 @@ export async function createBooking(
           customerId: effectiveCustomerId,
           storeId: customer.storeId,
           isUsed: false,
-          OR: [{ expiredAt: null }, { expiredAt: { gte: new Date() } }],
+          OR: [{ expiredAt: null }, { expiredAt: { gte: makeupValidFrom } }],
         },
       });
       if (validCount < bookingPeople) {
@@ -477,7 +481,7 @@ export async function createBooking(
           WHERE "customerId" = ${effectiveCustomerId}
             AND "storeId" = ${customer.storeId}
             AND "isUsed" = false
-            AND ("expiredAt" IS NULL OR "expiredAt" >= NOW())
+            AND ("expiredAt" IS NULL OR "expiredAt" >= ${makeupValidFrom})
           ORDER BY "expiredAt" ASC NULLS LAST, "createdAt" ASC
           LIMIT ${bookingPeople}
           FOR UPDATE SKIP LOCKED`;
