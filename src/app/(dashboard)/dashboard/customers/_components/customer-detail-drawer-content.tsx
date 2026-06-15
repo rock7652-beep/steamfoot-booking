@@ -192,24 +192,28 @@ export function CustomerDetailDrawerContent({
             />
             <Link
               href={`/dashboard/customers/${customer.id}#new-booking`}
+              prefetch={false}
               className="rounded-md border border-earth-200 bg-white px-3 py-2 text-center text-xs font-medium text-earth-700 hover:bg-earth-50"
             >
               ＋ 新增預約
             </Link>
             <Link
               href={`/dashboard/customers/${customer.id}/edit`}
+              prefetch={false}
               className="rounded-md border border-earth-200 bg-white px-3 py-2 text-center text-xs font-medium text-earth-700 hover:bg-earth-50"
             >
               編輯資料
             </Link>
             <Link
               href={`/dashboard/customers/${customer.id}#bookings`}
+              prefetch={false}
               className="rounded-md border border-earth-200 bg-white px-3 py-2 text-center text-xs font-medium text-earth-700 hover:bg-earth-50"
             >
               預約紀錄
             </Link>
             <Link
               href={`/dashboard/customers/${customer.id}`}
+              prefetch={false}
               className="rounded-md border border-earth-200 bg-white px-3 py-2 text-center text-xs font-medium text-earth-700 hover:bg-earth-50"
             >
               完整詳情
@@ -429,6 +433,7 @@ export function CustomerDetailDrawerContent({
           <div className="mt-2">
             <Link
               href={`/dashboard/customers/${customer.id}#identity`}
+              prefetch={false}
               className="text-[11px] font-medium text-primary-600 hover:text-primary-700"
             >
               查看完整身份診斷 →
@@ -489,6 +494,7 @@ export function CustomerDetailDrawerContent({
       <footer className="border-t border-earth-100 px-5 py-3">
         <Link
           href={`/dashboard/customers/${customer.id}`}
+          prefetch={false}
           className="text-sm font-medium text-primary-600 hover:text-primary-700"
         >
           查看完整詳情 →
