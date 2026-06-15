@@ -1,6 +1,7 @@
 "use client";
 
 import { DashboardLink as Link } from "@/components/dashboard-link";
+import { LinkPendingLabel } from "@/components/link-pending-label";
 import { StatusBadge, bookingStatusMeta } from "@/components/admin/status-badge";
 import { EmptyStateCompact } from "@/components/admin/empty-state-compact";
 import { TrialBookingDrawer } from "../_components/trial-booking-drawer";
@@ -272,13 +273,13 @@ export function DayDetailPanel({
             href={`/dashboard/bookings/new?date=${date}`}
             className="inline-flex h-8 items-center rounded-md bg-primary-600 px-3 text-sm font-semibold text-white hover:bg-primary-700"
           >
-            ＋ 新增預約於 {monthDay}
+            <LinkPendingLabel>＋ 新增預約於 {monthDay}</LinkPendingLabel>
           </Link>
           <Link
-            href={`/dashboard/bookings/new?date=${date}`}
+            href={`/dashboard/bookings/new?date=${date}&mode=makeup`}
             className="inline-flex h-8 items-center rounded-md border border-earth-300 bg-white px-3 text-sm font-medium text-earth-700 hover:bg-earth-50"
           >
-            新增補課
+            <LinkPendingLabel>新增補課</LinkPendingLabel>
           </Link>
           {/* 體驗 499 PR-2：從月曆空時段建立未收款體驗預約（預填日期；同一 Drawer） */}
           <TrialBookingDrawer
@@ -601,7 +602,7 @@ function buildEmptyStateProps(input: {
           href={`/dashboard/bookings/new?date=${date}`}
           className="inline-flex h-8 items-center rounded-md bg-primary-600 px-3 text-sm font-medium text-white hover:bg-primary-700"
         >
-          ＋ 新增預約於 {monthDay}
+          <LinkPendingLabel>＋ 新增預約於 {monthDay}</LinkPendingLabel>
         </Link>
       ),
     };
@@ -621,7 +622,7 @@ function buildEmptyStateProps(input: {
           href={`/dashboard/bookings/new?date=${date}`}
           className="inline-flex h-8 items-center rounded-md bg-primary-600 px-3 text-sm font-medium text-white hover:bg-primary-700"
         >
-          ＋ 新增預約於 {monthDay}
+          <LinkPendingLabel>＋ 新增預約於 {monthDay}</LinkPendingLabel>
         </Link>
       ) : undefined,
   };
