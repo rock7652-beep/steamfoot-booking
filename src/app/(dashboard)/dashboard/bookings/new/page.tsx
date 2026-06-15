@@ -28,7 +28,7 @@ function getNextDays(n: number): string[] {
 }
 
 interface PageProps {
-  searchParams: Promise<{ date?: string }>;
+  searchParams: Promise<{ date?: string; mode?: string }>;
 }
 
 const inputCls =
@@ -46,6 +46,8 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
   const defaultDate = params.date ?? todayStr;
   const days = getNextDays(14);
   const isOwner = user.role === "ADMIN";
+  // 從「新增補課」入口進來 → 預設選補課（顧客有有效補課券時）。
+  const defaultMode = params.mode === "makeup" ? "makeup" : undefined;
 
   async function handleCreate(formData: FormData) {
     "use server";
@@ -61,6 +63,10 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
     const people = Number(formData.get("people")) || 1;
     const notes = (formData.get("notes") as string) || undefined;
     const skipDutyCheck = formData.get("skipDutyCheck") === "on";
+    // 補課：資料結構 = bookingType=PACKAGE_SESSION + isMakeup=true。
+    // 不傳 customerPlanWalletId（不扣方案堂數）；用哪幾張券由 createBooking
+    // server 自選最早到期（不收款、不建立交易）。其餘類型維持原行為。
+    const isMakeup = formData.get("isMakeup") === "on";
 
     if (!customerId) {
       redirect(
@@ -72,11 +78,13 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
       customerId,
       bookingDate,
       slotTime,
-      bookingType,
-      customerPlanWalletId,
+      bookingType: isMakeup ? "PACKAGE_SESSION" : bookingType,
       people,
       notes,
       skipDutyCheck: skipDutyCheck || undefined,
+      ...(isMakeup
+        ? { isMakeup: true }
+        : { customerPlanWalletId }),
     });
 
     if (!result.success) {
@@ -136,7 +144,7 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
 
             {/* 右欄：顧客 / 方案 — 客戶端互動由 CustomerAndPlanFields 負責 */}
             <div className="space-y-6">
-              <CustomerAndPlanFields />
+              <CustomerAndPlanFields defaultMode={defaultMode} />
             </div>
           </div>
 
