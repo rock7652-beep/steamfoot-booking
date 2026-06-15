@@ -54,6 +54,12 @@ interface DataTableProps<Row> {
   rowKey: (row: Row) => string;
   /** 整 row 可點 — 傳回 href；不給則 row 不可點 */
   rowHref?: (row: Row) => string;
+  /**
+   * PR #312-B-5：一般左鍵點 row → 改走此 callback（client 開，不 soft-nav、不重跑整頁）。
+   * cmd/ctrl/shift/alt（開新分頁等）與中鍵仍走 rowHref 的原生 <a>（新分頁 / deep-link 不破）。
+   * 不給則維持純 <Link> soft-nav 行為。
+   */
+  onRowActivate?: (row: Row) => void;
   /** 自訂空狀態；預設顯示「沒有資料」 */
   empty?: React.ReactNode;
   className?: string;
@@ -70,6 +76,7 @@ export function DataTable<Row>({
   rows,
   rowKey,
   rowHref,
+  onRowActivate,
   empty,
   className,
 }: DataTableProps<Row>) {
@@ -139,7 +146,23 @@ export function DataTable<Row>({
                           className={`px-3 ${c.align ? ALIGN_CLASS[c.align] : ""} ${priorityClass}`}
                         >
                           {colIdx === firstLinkColIdx ? (
-                            <Link href={href} prefetch={false} className="block w-full text-earth-800 hover:text-primary-700">
+                            <Link
+                              href={href}
+                              prefetch={false}
+                              onClick={
+                                onRowActivate
+                                  ? (e) => {
+                                      // 一般左鍵 → client 開（不 soft-nav 重跑整頁）。
+                                      // cmd/ctrl/shift/alt（新分頁等）→ 交給原生 <a>；
+                                      // 中鍵走 auxclick 不觸發 onClick，自然走原生新分頁。
+                                      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+                                      e.preventDefault();
+                                      onRowActivate(row);
+                                    }
+                                  : undefined
+                              }
+                              className="block w-full text-earth-800 hover:text-primary-700"
+                            >
                               {c.accessor(row, i)}
                             </Link>
                           ) : (
