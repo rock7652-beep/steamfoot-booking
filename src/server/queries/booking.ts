@@ -5,7 +5,9 @@ import { getManagerCustomerFilter, getStoreFilter } from "@/lib/manager-visibili
 import { getCanonicalCustomerIdForSession } from "@/lib/customer-identity";
 import { ACTIVE_BOOKING_STATUSES } from "@/lib/booking-constants";
 import { TRIAL_DEFAULTS } from "@/lib/shop-config";
-import { todayRange } from "@/lib/date-utils";
+import { todayRange, dayRange } from "@/lib/date-utils";
+import { unstable_cache } from "next/cache";
+import { CACHE_TAGS } from "@/lib/cache-tags";
 import type { BookingStatus, Prisma } from "@prisma/client";
 
 export interface ListBookingsOptions {
@@ -221,25 +223,70 @@ export async function getMonthlyRevenueSummary(year: number, month: number, acti
 // getMonthBookingSummary — 取月份日曆資料（含各日期的預約統計）
 // ============================================================
 
-export async function getMonthBookingSummary(year: number, month: number, activeStoreId?: string | null) {
+// PR #312-B-1：月曆 summary 加快取。
+//   /dashboard/bookings 是店長每天最常用頁，且每次真導航（換月 / 回上頁）都重跑
+//   getMonthBookingSummary（prod 實測 ~210ms）。改為 unstable_cache：
+//   - key = store scope + year + month + 今天日期字串（todayStartLocal 影響「有效堂數」
+//     的 expiryDate 判界，把當天日納入 key 避免跨午夜 stale；另有 60s revalidate 兜底）。
+//   - tag = bookingsSummary：revalidateBookings()（新增/完成/取消/未到/補課等 mutation
+//     皆呼叫）會 updateTag(bookingsSummary)，故快取一定在 mutation 後失效、不會 stale。
+//   - auth / store 解析留在 wrapper 外層（cache 函式內不可用 session）。
+export async function getMonthBookingSummary(
+  year: number,
+  month: number,
+  activeStoreId?: string | null,
+) {
   const user = await requireStaffSession();
+  // getStoreFilter 回 { storeId } 或 {}（ADMIN __all__）。抽出 scope 當 cache key；
+  // null = 跨店（ADMIN 未指定 store）。重建 where 與原本 spread 行為完全一致。
+  const filter = getStoreFilter(user, activeStoreId);
+  const scopeStoreId = (filter.storeId as string | undefined) ?? null;
+  const todayDateStr = todayRange().dateStr;
+  return getCachedMonthBookingSummary(scopeStoreId, year, month, todayDateStr);
+}
 
+function getCachedMonthBookingSummary(
+  scopeStoreId: string | null,
+  year: number,
+  month: number,
+  todayDateStr: string,
+) {
+  return unstable_cache(
+    async () =>
+      computeMonthBookingSummary(scopeStoreId, year, month, todayDateStr),
+    [
+      "month-booking-summary",
+      scopeStoreId ?? "ALL",
+      String(year),
+      String(month),
+      todayDateStr,
+    ],
+    { revalidate: 60, tags: [CACHE_TAGS.bookingsSummary] },
+  )();
+}
+
+async function computeMonthBookingSummary(
+  scopeStoreId: string | null,
+  year: number,
+  month: number,
+  todayDateStr: string,
+) {
   const startDate = new Date(Date.UTC(year, month - 1, 1));
   const endDate = new Date(Date.UTC(year, month, 0));
 
   // ⚡ 優化：用 groupBy 取每日統計，避免 fetch 整月所有 booking 行
   // 月曆 cell 要顯示各日 booking strips，所以另外拉一次輕量 findMany（select 最小欄位）。
   const monthWhere: Prisma.BookingWhereInput = {
-    ...getStoreFilter(user, activeStoreId),
+    ...(scopeStoreId ? { storeId: scopeStoreId } : {}),
     bookingDate: { gte: startDate, lte: endDate },
     bookingStatus: { in: [...ACTIVE_BOOKING_STATUSES] },
   };
 
   // 「有效堂數」沿用顧客清單（PR #280）的唯一定義：ACTIVE + 尚有剩餘 + 未過期的 PACKAGE。
-  // 排除 TRIAL / SINGLE / 點數型 / 已過期 / 已用完。expiryDate 用 todayRange().start
-  // （本地日 00:00）判界，當天到期仍算有效；不手刻時區。Server-side reduce 成單一
+  // 排除 TRIAL / SINGLE / 點數型 / 已過期 / 已用完。expiryDate 用「今天本地日 00:00」
+  // 判界，當天到期仍算有效；不手刻時區。Server-side reduce 成單一
   // 數字 customer.validPackageSessions，不把 wallet 陣列送到 client。
-  const { start: todayStartLocal } = todayRange();
+  const todayStartLocal = dayRange(todayDateStr).start;
   const validPackageWalletWhere: Prisma.CustomerPlanWalletWhereInput = {
     status: "ACTIVE",
     remainingSessions: { gt: 0 },
