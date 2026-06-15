@@ -160,14 +160,19 @@ export default async function CustomersPage({ searchParams }: PageProps) {
         subtitle="查詢顧客、追蹤來店、快速進入詳情"
         actions={
           <>
+            {/* PR #312-B-4：關閉背景 prefetch。匯出指向 API endpoint，prefetch
+                會在進顧客列表頁時就背景打 /api/export/customers（可能實際跑匯出查詢）；
+                新增顧客也不需背景預抓。點擊行為不變。 */}
             <Link
               href="/api/export/customers"
+              prefetch={false}
               className="rounded-md border border-earth-200 bg-white px-3 py-1.5 text-xs font-medium text-earth-700 hover:bg-earth-50"
             >
               匯出
             </Link>
             <Link
               href="/dashboard/customers/new"
+              prefetch={false}
               className="rounded-md bg-primary-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-primary-700"
             >
               + 新增顧客
@@ -299,6 +304,7 @@ function Pagination({
       ) : (
         <Link
           href={buildHref(page - 1)}
+          prefetch={false}
           className={`${base} border-earth-200 bg-white text-earth-700 hover:bg-earth-50`}
         >
           上一頁
@@ -311,6 +317,7 @@ function Pagination({
       ) : (
         <Link
           href={buildHref(page + 1)}
+          prefetch={false}
           className={`${base} border-earth-200 bg-white text-earth-700 hover:bg-earth-50`}
         >
           下一頁
