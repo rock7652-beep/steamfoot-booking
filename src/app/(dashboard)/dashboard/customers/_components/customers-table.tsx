@@ -338,6 +338,11 @@ export function CustomersTable({
       rows={rows}
       rowKey={(c) => c.id}
       rowHref={(c) => (isInactiveRow(c) ? "" : buildViewHref(c))}
+      // PR #312-B-5：一般左鍵點整列 → 走 onView（= openCustomer，client 開 Drawer，
+      // 不 soft-nav 重跑整頁）；cmd/中鍵仍用 rowHref 開新分頁 / deep-link。
+      onRowActivate={(c) => {
+        if (!isInactiveRow(c)) onView(c);
+      }}
       empty={emptyNode}
     />
   );
