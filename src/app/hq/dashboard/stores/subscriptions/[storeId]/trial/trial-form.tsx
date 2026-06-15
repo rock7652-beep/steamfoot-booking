@@ -5,7 +5,12 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { addTaiwanDuration } from "@/lib/date-utils";
 import { createTrialSubscription } from "@/server/actions/store-subscription";
-import { PLAN_OPTIONS, TRIAL_DAYS_OPTIONS, TRIAL_DEFAULT_DAYS } from "../../constants";
+import {
+  PLAN_OPTIONS,
+  TRIAL_DEFAULT_DAYS,
+  TRIAL_MIN_DAYS,
+  TRIAL_MAX_DAYS,
+} from "../../constants";
 
 const labelCls = "text-[12px] font-medium text-earth-700";
 const inputCls =
@@ -28,9 +33,14 @@ export function TrialForm({
   const [trialDays, setTrialDays] = useState<number>(TRIAL_DEFAULT_DAYS);
   const [pending, setPending] = useState(false);
 
+  const daysValid =
+    Number.isInteger(trialDays) &&
+    trialDays >= TRIAL_MIN_DAYS &&
+    trialDays <= TRIAL_MAX_DAYS;
+
   // 到期日 = 開始日 + 天數 − 1（含開始當天）
   const expiresPreview =
-    startDate && /^\d{4}-\d{2}-\d{2}$/.test(startDate)
+    daysValid && startDate && /^\d{4}-\d{2}-\d{2}$/.test(startDate)
       ? addTaiwanDuration(startDate, trialDays - 1, "DAY")
       : "";
 
@@ -38,6 +48,10 @@ export function TrialForm({
     e.preventDefault();
     if (!startDate) {
       toast.error("請填開始日");
+      return;
+    }
+    if (!daysValid) {
+      toast.error(`體驗天數需為 ${TRIAL_MIN_DAYS}–${TRIAL_MAX_DAYS} 天的整數`);
       return;
     }
     setPending(true);
@@ -84,18 +98,19 @@ export function TrialForm({
         </div>
 
         <div>
-          <label className={labelCls}>體驗天數</label>
-          <select
+          <label className={labelCls}>
+            體驗天數（預設 {TRIAL_DEFAULT_DAYS} 天，可自訂 {TRIAL_MIN_DAYS}–
+            {TRIAL_MAX_DAYS}）
+          </label>
+          <input
+            type="number"
+            min={TRIAL_MIN_DAYS}
+            max={TRIAL_MAX_DAYS}
+            step={1}
             className={inputCls}
             value={trialDays}
             onChange={(e) => setTrialDays(Number(e.target.value))}
-          >
-            {TRIAL_DAYS_OPTIONS.map((d) => (
-              <option key={d} value={d}>
-                {d} 天
-              </option>
-            ))}
-          </select>
+          />
         </div>
 
         <div>

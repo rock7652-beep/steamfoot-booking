@@ -57,8 +57,10 @@ export const BILLING_STATUS_LABELS = toLabelMap(BILLING_STATUS_OPTIONS);
 export const PAYMENT_METHOD_LABELS = toLabelMap(PAYMENT_METHOD_OPTIONS);
 
 /** 體驗（TRIAL）可選天數，預設 7 */
-export const TRIAL_DAYS_OPTIONS = [3, 7, 14, 30] as const;
-export const TRIAL_DEFAULT_DAYS = 7;
+/** 體驗（TRIAL）天數：預設有制度（14 天），但天數保留商業彈性（可自訂 1–90 天）。 */
+export const TRIAL_DEFAULT_DAYS = 14;
+export const TRIAL_MIN_DAYS = 1;
+export const TRIAL_MAX_DAYS = 90;
 
 /**
  * 剩餘天數（到期日為「最後一天仍可使用」，含當天）。
