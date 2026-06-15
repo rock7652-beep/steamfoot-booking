@@ -10,6 +10,9 @@ interface Props {
   days: string[];
   defaultDate: string;
   todayStr: string;
+  /** SSR 預載的「初始日期」時段（= defaultDate，或不在 days 內時的 days[0]）。
+   *  有值 → 第一屏直接顯示、不打 client；undefined（過去日期 / SSR 失敗）→ client fallback。 */
+  initialSlots?: SlotAvailability[];
 }
 
 /**
@@ -31,14 +34,18 @@ export function DashboardBookingForm({
   days,
   defaultDate,
   todayStr,
+  initialSlots,
 }: Props) {
-  const [selectedDate, setSelectedDate] = useState(
-    days.includes(defaultDate) ? defaultDate : days[0]
-  );
-  const [slots, setSlots] = useState<SlotAvailability[]>([]);
-  const [loading, setLoading] = useState(true);
+  const initialDate = days.includes(defaultDate) ? defaultDate : days[0];
+  const [selectedDate, setSelectedDate] = useState(initialDate);
+  // SSR 已帶初始日時段 → 首屏直接顯示、loading=false；否則沿用原本 client 載入。
+  const [slots, setSlots] = useState<SlotAvailability[]>(initialSlots ?? []);
+  const [loading, setLoading] = useState(initialSlots === undefined);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
-  const slotCacheRef = useRef<Map<string, SlotAvailability[]>>(new Map());
+  // 把 SSR 時段種進 cache → mount effect 的 loadSlots 直接 cache hit，不打 server、不閃 skeleton。
+  const slotCacheRef = useRef<Map<string, SlotAvailability[]>>(
+    new Map(initialSlots ? [[initialDate, initialSlots]] : [])
+  );
   const requestIdRef = useRef(0);
 
   // 過去日期整天不可預約
