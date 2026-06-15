@@ -179,6 +179,7 @@ export function DayDetailPanel({
           <h3 className="text-base font-semibold text-earth-900">今日預約</h3>
           <Link
             href={`/dashboard/bookings/new?date=${date}`}
+            prefetch={false}
             className="text-sm text-primary-600 hover:text-primary-700"
           >
             ＋ 新增
@@ -606,6 +607,7 @@ function buildEmptyStateProps(input: {
       cta: (
         <Link
           href={`/dashboard/bookings/new?date=${date}`}
+          prefetch={false}
           className="inline-flex h-8 items-center rounded-md bg-primary-600 px-3 text-sm font-medium text-white hover:bg-primary-700"
         >
           <LinkPendingLabel>＋ 新增預約於 {monthDay}</LinkPendingLabel>
@@ -626,6 +628,7 @@ function buildEmptyStateProps(input: {
       slotsKnown && !slotsLoading && slotsCount > 0 ? (
         <Link
           href={`/dashboard/bookings/new?date=${date}`}
+          prefetch={false}
           className="inline-flex h-8 items-center rounded-md bg-primary-600 px-3 text-sm font-medium text-white hover:bg-primary-700"
         >
           <LinkPendingLabel>＋ 新增預約於 {monthDay}</LinkPendingLabel>

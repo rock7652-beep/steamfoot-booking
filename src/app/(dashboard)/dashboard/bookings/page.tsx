@@ -100,6 +100,7 @@ export default async function BookingsPage({ searchParams }: PageProps) {
         actions={
           <Link
             href="/dashboard/bookings/new"
+            prefetch={false}
             className="rounded-md bg-primary-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-primary-700"
           >
             ＋ 新增預約
