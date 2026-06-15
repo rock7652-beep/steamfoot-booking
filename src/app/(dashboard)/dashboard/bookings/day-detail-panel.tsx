@@ -179,6 +179,7 @@ export function DayDetailPanel({
           <h3 className="text-base font-semibold text-earth-900">今日預約</h3>
           <Link
             href={`/dashboard/bookings/new?date=${date}`}
+            prefetch={false}
             className="text-sm text-primary-600 hover:text-primary-700"
           >
             ＋ 新增
@@ -269,16 +270,20 @@ export function DayDetailPanel({
       {/* 底部：快速操作 sticky footer（不跟著清單捲動、不被遮住） */}
       <div className="shrink-0 border-t border-earth-200 bg-white px-4 py-3">
         <div className="flex flex-wrap gap-2">
+          {/* PR #312-A 止血：#311 的裸 prefetch(=true) 會 FULL-prefetch 動態頁 /bookings/new
+              （連 loading.tsx 都跳過、整段 SSR 含 fetchDaySlots），Drawer 一開就背景跑兩次，
+              是 production RSC 請求風暴來源。改 prefetch={false} 完全不背景打；點擊仍有
+              loading.tsx 骨架即時回饋。warm 化的策略留 #312-B 再評估。 */}
           <Link
             href={`/dashboard/bookings/new?date=${date}`}
-            prefetch
+            prefetch={false}
             className="inline-flex h-8 items-center rounded-md bg-primary-600 px-3 text-sm font-semibold text-white hover:bg-primary-700"
           >
             <LinkPendingLabel>＋ 新增預約於 {monthDay}</LinkPendingLabel>
           </Link>
           <Link
             href={`/dashboard/bookings/new?date=${date}&mode=makeup`}
-            prefetch
+            prefetch={false}
             className="inline-flex h-8 items-center rounded-md border border-earth-300 bg-white px-3 text-sm font-medium text-earth-700 hover:bg-earth-50"
           >
             <LinkPendingLabel>新增補課</LinkPendingLabel>
@@ -602,6 +607,7 @@ function buildEmptyStateProps(input: {
       cta: (
         <Link
           href={`/dashboard/bookings/new?date=${date}`}
+          prefetch={false}
           className="inline-flex h-8 items-center rounded-md bg-primary-600 px-3 text-sm font-medium text-white hover:bg-primary-700"
         >
           <LinkPendingLabel>＋ 新增預約於 {monthDay}</LinkPendingLabel>
@@ -622,6 +628,7 @@ function buildEmptyStateProps(input: {
       slotsKnown && !slotsLoading && slotsCount > 0 ? (
         <Link
           href={`/dashboard/bookings/new?date=${date}`}
+          prefetch={false}
           className="inline-flex h-8 items-center rounded-md bg-primary-600 px-3 text-sm font-medium text-white hover:bg-primary-700"
         >
           <LinkPendingLabel>＋ 新增預約於 {monthDay}</LinkPendingLabel>
