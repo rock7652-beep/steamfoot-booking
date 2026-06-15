@@ -49,6 +49,14 @@ export default function CustomerSearch({
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
+    // 已選定顧客 → query 此時是顯示用 label（如「測試顧客 A（0911000001）」），
+    // 不應再觸發搜尋，否則會以該 label 查到 0 筆 → 重開下拉、誤顯示「找不到匹配的顧客」。
+    // 使用者若想改搜尋，onChange 會先清掉 selectedId，屆時這裡才會放行。
+    if (selectedId) {
+      setLoading(false);
+      return;
+    }
+
     const normalized = query.trim().toLowerCase();
     if (normalized.length < MIN_QUERY_LENGTH) {
       setResults([]);
@@ -92,7 +100,7 @@ export default function CustomerSearch({
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [query]);
+  }, [query, selectedId]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -175,7 +183,7 @@ export default function CustomerSearch({
         </div>
       )}
 
-      {isOpen && results.length === 0 && query.trim().length >= MIN_QUERY_LENGTH && !loading && (
+      {!selectedId && isOpen && results.length === 0 && query.trim().length >= MIN_QUERY_LENGTH && !loading && (
         <div className="absolute z-20 mt-1 w-full rounded-lg border border-earth-200 bg-white p-3 shadow-lg text-center text-sm text-earth-400">
           找不到匹配的顧客
         </div>
