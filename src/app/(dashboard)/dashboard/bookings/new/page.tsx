@@ -1,4 +1,5 @@
 import { createBooking } from "@/server/actions/booking";
+import { fetchDaySlots } from "@/server/actions/slots";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { toLocalDateStr } from "@/lib/date-utils";
@@ -48,6 +49,19 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
   const isOwner = user.role === "ADMIN";
   // 從「新增補課」入口進來 → 預設選補課（顧客有有效補課券時）。
   const defaultMode = params.mode === "makeup" ? "makeup" : undefined;
+
+  // 效能：SSR 預載「初始日期」的時段，讓第一屏就有時段，避免 client mount 後才
+  // fetchDaySlots 的二次往返（店長感受到的「頁面到了、時段還要再等一下」）。
+  // 過去日期不預載（表單會擋）；查詢失敗 → undefined，client fallback 維持原行為。
+  const initialSlotDate = days.includes(defaultDate) ? defaultDate : days[0];
+  let initialSlots: Awaited<ReturnType<typeof fetchDaySlots>>["slots"] | undefined;
+  if (initialSlotDate >= todayStr) {
+    try {
+      initialSlots = (await fetchDaySlots(initialSlotDate)).slots;
+    } catch {
+      initialSlots = undefined;
+    }
+  }
 
   async function handleCreate(formData: FormData) {
     "use server";
@@ -125,6 +139,7 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
                   days={days}
                   defaultDate={defaultDate}
                   todayStr={todayStr}
+                  initialSlots={initialSlots}
                 />
                 <div>
                   <label className={labelCls}>預約人數</label>

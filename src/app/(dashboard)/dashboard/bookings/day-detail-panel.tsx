@@ -271,12 +271,14 @@ export function DayDetailPanel({
         <div className="flex flex-wrap gap-2">
           <Link
             href={`/dashboard/bookings/new?date=${date}`}
+            prefetch
             className="inline-flex h-8 items-center rounded-md bg-primary-600 px-3 text-sm font-semibold text-white hover:bg-primary-700"
           >
             <LinkPendingLabel>＋ 新增預約於 {monthDay}</LinkPendingLabel>
           </Link>
           <Link
             href={`/dashboard/bookings/new?date=${date}&mode=makeup`}
+            prefetch
             className="inline-flex h-8 items-center rounded-md border border-earth-300 bg-white px-3 text-sm font-medium text-earth-700 hover:bg-earth-50"
           >
             <LinkPendingLabel>新增補課</LinkPendingLabel>

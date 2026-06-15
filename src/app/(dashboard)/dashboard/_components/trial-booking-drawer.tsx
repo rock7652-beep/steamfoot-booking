@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useId } from "react";
+import { useState, useTransition, useId, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { RightSheet } from "@/components/admin/right-sheet";
@@ -87,11 +87,20 @@ export function TrialBookingDrawer({
 
   const isExisting = Boolean(preset?.customerId);
 
+  // 效能：滑入 / focus 觸發按鈕時就先載表單資料（設定 + 店長清單），
+  // 等真的點開時多半已就緒 → drawer 開啟更即時、少看到「載入中…」。
+  // 用 ref 去重；消費後清掉，下次 hover 再重新取最新。
+  const prewarmRef = useRef<ReturnType<typeof loadTrialBookingFormData> | null>(null);
+  function prewarmFormData() {
+    if (!prewarmRef.current) prewarmRef.current = loadTrialBookingFormData();
+  }
+
   async function handleOpen() {
     setOpen(true);
     setLoading(true);
     setLoadErr(null);
-    const r = await loadTrialBookingFormData();
+    const r = await (prewarmRef.current ?? loadTrialBookingFormData());
+    prewarmRef.current = null;
     setLoading(false);
     if (!r.success) {
       setLoadErr(r.error);
@@ -183,7 +192,13 @@ export function TrialBookingDrawer({
 
   return (
     <>
-      <button type="button" onClick={handleOpen} className={triggerClassName}>
+      <button
+        type="button"
+        onClick={handleOpen}
+        onMouseEnter={prewarmFormData}
+        onFocus={prewarmFormData}
+        className={triggerClassName}
+      >
         {triggerLabel}
       </button>
 
