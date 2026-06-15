@@ -770,6 +770,11 @@ export default function DashboardShell({
       <li key={item.href}>
         <Link
           href={`${dashboardPrefix}${item.href}`}
+          // PR #312-B-2：關閉側邊欄背景 prefetch。dashboard route 多為動態頁，
+          // 預設 auto 會各打一筆 loading-shell RSC（~8–13 筆/render），在正式站
+          // connection_limit=1 單連線下排隊、拖慢真正要看的頁。點擊回饋已由
+          // NavItemPending（useLinkStatus）+ 各頁 loading.tsx 提供，故可安全關閉。
+          prefetch={false}
           className={`group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
             active
               ? "bg-primary-100 text-primary-800"
@@ -816,6 +821,9 @@ export default function DashboardShell({
       <li key={item.href}>
         <Link
           href={item.href}
+          // PR #312-B-2：收合版同樣關閉背景 prefetch（見展開版註解）。
+          // 回饋由 NavItemPendingDot（useLinkStatus）+ 各頁 loading.tsx 提供。
+          prefetch={false}
           className={`group relative flex items-center justify-center rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
             active
               ? "bg-primary-100 text-primary-800"
