@@ -146,12 +146,8 @@ const trialSchema = z.object({
   storeId: z.string().min(1),
   plan: z.enum(["BASIC", "GROWTH", "ALLIANCE", "EXPERIENCE"]),
   startDate: z.string().regex(DATE_RE, "開始日格式須為 YYYY-MM-DD"),
-  trialDays: z.union([
-    z.literal(3),
-    z.literal(7),
-    z.literal(14),
-    z.literal(30),
-  ]),
+  // 預設有制度（前端 14 天），天數保留商業彈性：HQ 可自訂 1–90 天
+  trialDays: z.number().int().min(1).max(90),
 });
 
 /**
