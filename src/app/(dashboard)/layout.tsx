@@ -2,16 +2,18 @@ import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { getCurrentUser } from "@/lib/session";
 import { logoutAction } from "@/server/actions/auth";
-import { getUserPermissions, ROLE_LABELS, isStaffRole } from "@/lib/permissions";
+import { getUserPermissions, ROLE_LABELS } from "@/lib/permissions";
 import { getCachedStorePlan, getCachedTrialStatus } from "@/lib/query-cache";
 import { getStoreOptions, resolveActiveStoreId } from "@/lib/store";
 import { getActiveStoreCookie } from "@/server/actions/store-switch";
 import DashboardShell from "@/components/sidebar";
 import { LogoutButton } from "@/components/logout-button";
 import { SubscriptionStatusBanner } from "@/components/subscription-status-banner";
+import { StoreOperatingStatusBanner } from "@/components/store-operating-status-banner";
 import { prisma } from "@/lib/db";
 import { computeLifecycle } from "@/lib/subscription-lifecycle";
 import { toLocalDateStr } from "@/lib/date-utils";
+import type { StoreOperatingStatus } from "@/lib/store-operating-status";
 
 export default async function DashboardLayout({
   children,
@@ -67,13 +69,21 @@ export default async function DashboardLayout({
   // 只 select status + expiresAt（既有欄位）→ prod-safe（不碰 #295 新欄位）；
   // 查詢失敗不影響後台（提醒非關鍵功能）。本階段只提醒、不限制操作。
   let subBannerState: "EXPIRED" | "SUSPENDED" | null = null;
+  let operatingStatus: StoreOperatingStatus | null = null;
   if (effectiveStoreId) {
     try {
-      const sub = await prisma.storeSubscription.findFirst({
-        where: { storeId: effectiveStoreId },
-        orderBy: { createdAt: "desc" },
-        select: { status: true, expiresAt: true },
-      });
+      const [sub, store] = await Promise.all([
+        prisma.storeSubscription.findFirst({
+          where: { storeId: effectiveStoreId },
+          orderBy: { createdAt: "desc" },
+          select: { status: true, expiresAt: true },
+        }),
+        prisma.store.findUnique({
+          where: { id: effectiveStoreId },
+          select: { operatingStatus: true },
+        }),
+      ]);
+      operatingStatus = store?.operatingStatus ?? null;
       if (sub) {
         const lc = computeLifecycle(
           { status: sub.status, expiresAt: sub.expiresAt },
@@ -111,6 +121,9 @@ export default async function DashboardLayout({
       storeOptions={isAdmin ? storeOptions : undefined}
       activeStoreId={isAdmin ? activeStoreId : undefined}
     >
+      {operatingStatus ? (
+        <StoreOperatingStatusBanner status={operatingStatus} />
+      ) : null}
       {subBannerState ? (
         <SubscriptionStatusBanner state={subBannerState} />
       ) : null}

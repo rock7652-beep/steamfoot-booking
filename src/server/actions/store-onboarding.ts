@@ -5,6 +5,7 @@ import { hashSync } from "bcryptjs";
 import { createDefaultPermissions } from "@/lib/permissions";
 import { requireAdminSession } from "@/lib/session";
 import { deriveBaseUrl } from "@/lib/base-url";
+import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/types";
 import type {
   CreateStoreInput,
@@ -12,7 +13,14 @@ import type {
   ChecklistItem,
   AccountSummary,
 } from "@/types/store-onboarding";
-import type { UserRole } from "@prisma/client";
+import type { StoreOperatingStatus, UserRole } from "@prisma/client";
+
+const STORE_OPERATING_STATUSES: StoreOperatingStatus[] = [
+  "TRIAL",
+  "ACTIVE",
+  "PAUSED",
+  "INACTIVE",
+];
 
 // ============================================================
 // 建店 — createStoreAction
@@ -71,6 +79,7 @@ export async function createStoreAction(
         isDefault: false,
         isDemo: input.isDemo,
         plan: input.plan,
+        operatingStatus: "TRIAL",
         planStatus: "TRIAL", // ★ 一律 TRIAL（規格強制）
         shopConfig: {
           create: {
@@ -187,6 +196,7 @@ export async function createStoreAction(
         slug: store.slug,
         plan: store.plan,
         planStatus: store.planStatus,
+        operatingStatus: store.operatingStatus,
         isDemo: store.isDemo,
       },
       urls: buildStoreUrls(baseUrl, store.slug, store.id),
@@ -311,6 +321,7 @@ export async function getStoreDeliverySummary(
       slug: store.slug,
       plan: store.plan,
       planStatus: store.planStatus,
+      operatingStatus: store.operatingStatus,
       isDemo: store.isDemo,
     },
     urls: buildStoreUrls(baseUrl, store.slug, store.id),
@@ -351,6 +362,7 @@ export async function listStoresAction(): Promise<
       slug: string;
       plan: string;
       planStatus: string;
+      operatingStatus: StoreOperatingStatus;
       isDemo: boolean;
       staffCount: number;
       customerCount: number;
@@ -367,6 +379,7 @@ export async function listStoresAction(): Promise<
       slug: true,
       plan: true,
       planStatus: true,
+      operatingStatus: true,
       isDemo: true,
       createdAt: true,
       _count: { select: { staff: true, customers: true } },
@@ -382,12 +395,48 @@ export async function listStoresAction(): Promise<
       slug: s.slug,
       plan: s.plan,
       planStatus: s.planStatus,
+      operatingStatus: s.operatingStatus,
       isDemo: s.isDemo,
       staffCount: s._count.staff,
       customerCount: s._count.customers,
       createdAt: s.createdAt,
     })),
   };
+}
+
+// ============================================================
+// 更新店舖營運狀態 — HQ only
+// ============================================================
+
+export async function updateStoreOperatingStatusAction(
+  storeId: string,
+  status: StoreOperatingStatus,
+): Promise<ActionResult<{ operatingStatus: StoreOperatingStatus }>> {
+  await requireAdminSession();
+
+  if (!STORE_OPERATING_STATUSES.includes(status)) {
+    return { success: false, error: "無效的店舖營運狀態" };
+  }
+
+  const store = await prisma.store.findUnique({
+    where: { id: storeId },
+    select: { id: true },
+  });
+  if (!store) {
+    return { success: false, error: "店舖不存在" };
+  }
+
+  await prisma.store.update({
+    where: { id: storeId },
+    data: { operatingStatus: status },
+  });
+
+  revalidatePath("/hq/dashboard/stores");
+  revalidatePath(`/hq/dashboard/stores/${storeId}`);
+  revalidatePath("/dashboard");
+  revalidatePath("/book");
+
+  return { success: true, data: { operatingStatus: status } };
 }
 
 // ============================================================

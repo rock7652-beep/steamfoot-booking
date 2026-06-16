@@ -8,6 +8,11 @@ import { NavProgress } from "./nav-progress";
 import BuildFooter from "@/components/build-footer";
 import { LogoutButton } from "@/components/logout-button";
 import { getStoreContext } from "@/lib/store-context";
+import {
+  getStoreOperatingStatus,
+  getStoreUnavailableMessage,
+  isStoreCustomerPortalBlocked,
+} from "@/lib/store-operating-status";
 import { resolveCustomerCompletionStatus } from "@/server/queries/customer-completion";
 
 // SVG icon paths (Heroicons outline, 24x24 viewBox) — 拆成多段 path 確保正確渲染
@@ -124,12 +129,12 @@ export default async function CustomerLayout({
             請從店舖專屬連結重新進入，或重新登入後再試一次。
           </p>
           <div className="flex flex-col items-center gap-3">
-            <a
+            <Link
               href="/"
               className="inline-flex min-h-[44px] items-center justify-center rounded-lg bg-primary-600 px-6 text-sm font-semibold text-white hover:bg-primary-700"
             >
               回首頁
-            </a>
+            </Link>
             <form action={logoutAction}>
               <button
                 type="submit"
@@ -139,6 +144,32 @@ export default async function CustomerLayout({
               </button>
             </form>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  const operatingStatus = await getStoreOperatingStatus(storeCtx.storeId);
+  if (isStoreCustomerPortalBlocked(operatingStatus)) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-earth-50 px-4 py-12">
+        <div className="w-full max-w-sm rounded-xl border border-earth-200 bg-white p-6 text-center shadow-sm sm:p-8">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-earth-400">
+            {storeCtx.storeSlug}
+          </p>
+          <h1 className="mb-3 text-xl font-bold text-earth-900">店舖目前未開放</h1>
+          <p className="mb-6 text-sm leading-relaxed text-earth-600">
+            {getStoreUnavailableMessage(operatingStatus)}
+          </p>
+          <form action={logoutAction}>
+            <input type="hidden" name="storeSlug" value={storeSlug} />
+            <button
+              type="submit"
+              className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-earth-200 px-6 text-sm font-semibold text-earth-700 hover:bg-earth-50"
+            >
+              登出
+            </button>
+          </form>
         </div>
       </div>
     );

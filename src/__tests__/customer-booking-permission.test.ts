@@ -29,9 +29,13 @@ const mockDutyCount = vi.fn();
 const mockCustomerFindUnique = vi.fn();
 const mockMakeupFindUnique = vi.fn();
 const mockTransaction = vi.fn();
+const mockStoreFindUnique = vi.fn();
 
 vi.mock("@/lib/db", () => ({
   prisma: {
+    store: {
+      findUnique: (...a: unknown[]) => mockStoreFindUnique(...a),
+    },
     businessHours: {
       findMany: (...a: unknown[]) => mockBusinessHoursFindMany(...a),
       findFirst: (...a: unknown[]) => mockBusinessHoursFindFirst(...a),
@@ -114,6 +118,10 @@ vi.mock("@/lib/usage-gate", () => ({
 vi.mock("@/lib/date-utils", () => ({
   toLocalDateStr: () => "2026-04-26",
   getNowTaipeiHHmm: () => "00:00",
+  dayRange: (dateStr: string) => ({
+    start: new Date(dateStr + "T00:00:00.000Z"),
+    end: new Date(dateStr + "T23:59:59.999Z"),
+  }),
 }));
 
 vi.mock("@/lib/booking-constants", () => ({
@@ -176,6 +184,7 @@ beforeEach(() => {
   mockBookingFindMany.mockResolvedValue([]);
   mockDutyFindMany.mockResolvedValue([]);
   mockDutyCount.mockResolvedValue(0);
+  mockStoreFindUnique.mockResolvedValue({ operatingStatus: "ACTIVE" });
   mockCustomerFindUnique.mockResolvedValue({
     id: CUSTOMER_ID,
     storeId: STORE_A,
@@ -229,6 +238,26 @@ describe("CUSTOMER 自助預約：不可觸發 staff guard", () => {
     if (!result.success) {
       expect(result.error).not.toMatch(/僅限員工|僅限.*管理者|僅限店主|沒有此操作的權限/);
     }
+  });
+
+  it("createBooking(CUSTOMER) 在店舖 PAUSED 時拒絕新預約", async () => {
+    mockStoreFindUnique.mockResolvedValue({ operatingStatus: "PAUSED" });
+
+    const { createBooking } = await import("@/server/actions/booking");
+    const result = await createBooking({
+      customerId: CUSTOMER_ID,
+      bookingDate: "2026-05-05",
+      slotTime: "11:00",
+      bookingType: "PACKAGE_SESSION",
+      customerPlanWalletId: WALLET_ID,
+      people: 1,
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error).toMatch(/暫停營業/);
+    }
+    expect(mockBookingCreate).not.toHaveBeenCalled();
   });
 });
 

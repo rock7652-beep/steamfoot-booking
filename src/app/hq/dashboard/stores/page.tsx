@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { getCurrentUser } from "@/lib/session";
 import { listStoresAction } from "@/server/actions/store-onboarding";
+import { STORE_OPERATING_STATUS_LABELS } from "@/lib/store-operating-status";
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   ACTIVE: { label: "營運中", color: "bg-green-100 text-green-700" },
@@ -10,6 +11,13 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   PAST_DUE: { label: "逾期", color: "bg-red-100 text-red-700" },
   CANCELLED: { label: "已取消", color: "bg-gray-100 text-gray-500" },
   EXPIRED: { label: "已過期", color: "bg-gray-100 text-gray-500" },
+};
+
+const OPERATING_STATUS_COLORS: Record<string, string> = {
+  TRIAL: "bg-blue-100 text-blue-700",
+  ACTIVE: "bg-green-100 text-green-700",
+  PAUSED: "bg-amber-100 text-amber-700",
+  INACTIVE: "bg-red-100 text-red-700",
 };
 
 export default async function StoresPage() {
@@ -49,7 +57,8 @@ export default async function StoresPage() {
               <th className="px-4 py-3 text-left font-medium text-earth-600">店名</th>
               <th className="px-4 py-3 text-left font-medium text-earth-600">Slug</th>
               <th className="px-4 py-3 text-left font-medium text-earth-600">方案</th>
-              <th className="px-4 py-3 text-left font-medium text-earth-600">狀態</th>
+              <th className="px-4 py-3 text-left font-medium text-earth-600">方案狀態</th>
+              <th className="px-4 py-3 text-left font-medium text-earth-600">營運狀態</th>
               <th className="px-4 py-3 text-left font-medium text-earth-600">類型</th>
               <th className="px-4 py-3 text-right font-medium text-earth-600">人員</th>
               <th className="px-4 py-3 text-right font-medium text-earth-600">顧客</th>
@@ -59,6 +68,7 @@ export default async function StoresPage() {
           <tbody className="divide-y divide-earth-100">
             {stores.map((store) => {
               const status = STATUS_LABELS[store.planStatus] ?? { label: store.planStatus, color: "bg-gray-100 text-gray-600" };
+              const operatingColor = OPERATING_STATUS_COLORS[store.operatingStatus] ?? "bg-gray-100 text-gray-600";
               return (
                 <tr key={store.id} className="hover:bg-earth-50/50">
                   <td className="px-4 py-3 font-medium text-earth-900">{store.name}</td>
@@ -67,6 +77,11 @@ export default async function StoresPage() {
                   <td className="px-4 py-3">
                     <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${status.color}`}>
                       {status.label}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${operatingColor}`}>
+                      {STORE_OPERATING_STATUS_LABELS[store.operatingStatus] ?? store.operatingStatus}
                     </span>
                   </td>
                   <td className="px-4 py-3">

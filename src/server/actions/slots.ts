@@ -6,6 +6,7 @@ import { getNowTaipeiHHmm, toLocalDateStr } from "@/lib/date-utils";
 import { getStoreFilter } from "@/lib/manager-visibility";
 import { currentStoreId, getActiveStoreForRead } from "@/lib/store";
 import { AppError } from "@/lib/errors";
+import { isStoreBookable } from "@/lib/store-operating-status";
 import {
   applySlotOverrides,
   enumerateMonthDates,
@@ -52,6 +53,14 @@ export async function fetchMonthAvailability(
 }> {
   const user = await requireSession();
   const storeId = await resolveReadStoreIdOrThrow(user);
+
+  if (!(await isStoreBookable(storeId))) {
+    const closedDays: Record<string, { totalCapacity: number; totalBooked: number; slots: MonthSlotInfo[] }> = {};
+    for (const { dateStr } of enumerateMonthDates(year, month)) {
+      closedDays[dateStr] = { totalCapacity: 0, totalBooked: 0, slots: [] };
+    }
+    return { days: closedDays };
+  }
 
   const ctx = await loadMonthBusinessHoursContext(storeId, year, month);
 
@@ -148,6 +157,8 @@ export async function fetchMonthAvailability(
 export async function fetchDaySlots(date: string): Promise<{ slots: SlotAvailability[] }> {
   const user = await requireSession();
   const storeId = await resolveReadStoreIdOrThrow(user);
+
+  if (!(await isStoreBookable(storeId))) return { slots: [] };
 
   const ctx = await loadDayBusinessHoursContext(storeId, date);
 

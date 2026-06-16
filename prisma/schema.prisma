@@ -282,6 +282,13 @@ enum StorePlanStatus {
   EXPIRED
 }
 
+enum StoreOperatingStatus {
+  TRIAL
+  ACTIVE
+  PAUSED
+  INACTIVE
+}
+
 enum BillingStatus {
   NOT_REQUIRED
   PENDING
@@ -428,19 +435,20 @@ model VerificationToken {
 // ============================================================
 
 model Store {
-  id                         String          @id @default(cuid())
+  id                         String               @id @default(cuid())
   name                       String
-  slug                       String          @unique
-  domain                     String?         @unique // 自訂網域，如 "steamfoot-zhubei.com"
-  lineDestination            String?         @unique // LINE Official Account bot userId (webhook destination)
-  isDefault                  Boolean         @default(false)
-  isDemo                     Boolean         @default(false) // Demo 店 — 僅供展示或測試
+  slug                       String               @unique
+  domain                     String?              @unique // 自訂網域，如 "steamfoot-zhubei.com"
+  lineDestination            String?              @unique // LINE Official Account bot userId (webhook destination)
+  isDefault                  Boolean              @default(false)
+  isDemo                     Boolean              @default(false) // Demo 店 — 僅供展示或測試
   parentStoreId              String?
-  plan                       PricingPlan     @default(EXPERIENCE)
-  planStatus                 StorePlanStatus @default(ACTIVE)
+  operatingStatus            StoreOperatingStatus @default(ACTIVE)
+  plan                       PricingPlan          @default(EXPERIENCE)
+  planStatus                 StorePlanStatus      @default(ACTIVE)
   planEffectiveAt            DateTime?
   planExpiresAt              DateTime?
-  currentSubscriptionId      String?         @unique
+  currentSubscriptionId      String?              @unique
   // Override fields — 客製方案用量上限（null = 走方案預設）
   maxStaffOverride           Int?
   maxCustomersOverride       Int?
@@ -453,8 +461,8 @@ model Store {
   // Nullable：未設 → server 端會 fallback 到 NEXT_PUBLIC_LIFF_ID_<SLUG> env var（過渡期），
   // env 也無則顯示「尚未開通 LINE Mini App」（NotOpenForLiff UI 路徑不變）。
   liffId                     String?
-  createdAt                  DateTime        @default(now())
-  updatedAt                  DateTime        @updatedAt
+  createdAt                  DateTime             @default(now())
+  updatedAt                  DateTime             @updatedAt
 
   parentStore Store?  @relation("StoreHierarchy", fields: [parentStoreId], references: [id])
   childStores Store[] @relation("StoreHierarchy")

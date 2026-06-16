@@ -7,6 +7,11 @@ import { AuthError } from "next-auth";
 import { cookies } from "next/headers";
 import { createRegisterEvent } from "@/server/services/referral-events";
 import { bindReferralToCustomer } from "@/server/services/referral-binding";
+import {
+  getStoreOperatingStatus,
+  getStoreUnavailableMessage,
+  isStoreBookableStatus,
+} from "@/lib/store-operating-status";
 
 const PENDING_REF_COOKIE = "pending-ref";
 
@@ -79,6 +84,11 @@ export async function customerRegisterAction(
 
   if (!storeId) {
     return { error: "找不到店舖資料，請重新整理後再試" };
+  }
+
+  const operatingStatus = await getStoreOperatingStatus(storeId);
+  if (!isStoreBookableStatus(operatingStatus)) {
+    return { error: getStoreUnavailableMessage(operatingStatus) };
   }
 
   // 必填驗證（除 notes 外皆必填）

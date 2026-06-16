@@ -2,7 +2,7 @@
  * B7-5: 建店開通 — 型別定義（最終定稿 v2）
  */
 
-import type { PricingPlan, StorePlanStatus } from "@prisma/client";
+import type { PricingPlan, StoreOperatingStatus, StorePlanStatus } from "@prisma/client";
 
 // ============================================================
 // 建店輸入
@@ -55,6 +55,7 @@ export interface StoreDeliverySummary {
     slug: string;
     plan: PricingPlan;
     planStatus: StorePlanStatus;
+    operatingStatus: StoreOperatingStatus;
     isDemo: boolean;
   };
   /** 交付網址 — 對應 proxy.ts 實際路由 */

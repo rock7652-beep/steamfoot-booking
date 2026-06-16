@@ -56,6 +56,7 @@ export default function RegisterPage() {
     const ref = params.get("ref");
     if (ref) {
       localStorage.setItem("referrerId", ref);
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- 初始化 URL/localStorage 推薦碼，僅在 mount 時同步表單 hidden field。
       setReferrerId(ref);
     } else {
       const stored = localStorage.getItem("referrerId");
@@ -104,6 +105,8 @@ export default function RegisterPage() {
         </p>
 
         <form action={formAction} onSubmit={handleSubmit} noValidate className="space-y-4">
+          <input type="hidden" name="storeSlug" value={storeSlug} />
+
           {/* B8: 推薦人 hidden field */}
           {referrerId && <input type="hidden" name="referrerId" value={referrerId} />}
 

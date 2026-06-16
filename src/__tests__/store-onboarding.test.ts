@@ -21,12 +21,18 @@ vi.mock("@/lib/session", () => ({
   getCurrentUser: vi.fn(),
 }));
 
+vi.mock("next/cache", () => ({
+  revalidatePath: vi.fn(),
+}));
+
 vi.mock("@/lib/permissions", () => ({
   createDefaultPermissions: vi.fn(),
   ALL_PERMISSIONS: ["customer.read", "booking.read"],
 }));
 
-vi.mock("react", () => ({ cache: (fn: Function) => fn }));
+vi.mock("react", () => ({
+  cache: <T extends (...args: never[]) => unknown>(fn: T) => fn,
+}));
 
 // ============================================================
 // 1. 建店欄位驗證
@@ -173,6 +179,24 @@ describe("Store 狀態機", () => {
   it("StorePlanStatus 有 7 個值", () => {
     const allStatuses = ["TRIAL", "ACTIVE", "PAYMENT_PENDING", "PAST_DUE", "SCHEDULED_DOWNGRADE", "CANCELLED", "EXPIRED"];
     expect(allStatuses).toHaveLength(7);
+  });
+
+  it("營運狀態切換 action 只走 HQ requireAdminSession", async () => {
+    const { prisma } = await import("@/lib/db");
+    const { requireAdminSession } = await import("@/lib/session");
+    const { updateStoreOperatingStatusAction } = await import("@/server/actions/store-onboarding");
+
+    vi.mocked(prisma.store.findUnique).mockResolvedValue({ id: "store-kaohsiung" } as never);
+    vi.mocked(prisma.store.update).mockResolvedValue({ operatingStatus: "PAUSED" } as never);
+
+    const result = await updateStoreOperatingStatusAction("store-kaohsiung", "PAUSED");
+
+    expect(requireAdminSession).toHaveBeenCalled();
+    expect(prisma.store.update).toHaveBeenCalledWith({
+      where: { id: "store-kaohsiung" },
+      data: { operatingStatus: "PAUSED" },
+    });
+    expect(result).toEqual({ success: true, data: { operatingStatus: "PAUSED" } });
   });
 });
 

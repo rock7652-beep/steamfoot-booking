@@ -21,9 +21,13 @@ const mockSpecialDayFindFirst = vi.fn();
 const mockSlotOverrideFindMany = vi.fn();
 const mockBookingGroupBy = vi.fn();
 const mockDutyFindMany = vi.fn();
+const mockStoreFindUnique = vi.fn();
 
 vi.mock("@/lib/db", () => ({
   prisma: {
+    store: {
+      findUnique: (...a: unknown[]) => mockStoreFindUnique(...a),
+    },
     businessHours: {
       findMany: (...a: unknown[]) => mockBusinessHoursFindMany(...a),
       findFirst: (...a: unknown[]) => mockBusinessHoursFindFirst(...a),
@@ -126,6 +130,7 @@ beforeEach(() => {
   mockBookingGroupBy.mockResolvedValue([]);
   // 預設：竹北沒有任何 DutyAssignment（demo 店有，但被 storeId 隔離掉）
   mockDutyFindMany.mockResolvedValue([]);
+  mockStoreFindUnique.mockResolvedValue({ operatingStatus: "ACTIVE" });
 });
 
 // ── 測試 ──
@@ -156,6 +161,20 @@ describe("fetchMonthAvailability — duty storeId 隔離", () => {
     expect(result.days["2026-05-05"]).toBeDefined();
     expect(result.days["2026-05-05"].totalCapacity).toBeGreaterThan(0);
     expect(result.days["2026-05-05"].slots.length).toBeGreaterThan(0);
+  });
+
+  it("店舖 PAUSED 時，月曆回傳全月 0 capacity 且不查營業時間", async () => {
+    mockStoreFindUnique.mockResolvedValue({ operatingStatus: "PAUSED" });
+
+    const { fetchMonthAvailability } = await import("@/server/actions/slots");
+    const result = await fetchMonthAvailability(2026, 5);
+
+    expect(result.days["2026-05-05"]).toEqual({
+      totalCapacity: 0,
+      totalBooked: 0,
+      slots: [],
+    });
+    expect(mockBusinessHoursFindMany).not.toHaveBeenCalled();
   });
 
   it("若該店開啟 duty，dutyAssignment 查詢必帶 storeId", async () => {
@@ -201,6 +220,16 @@ describe("fetchDaySlots — duty storeId 隔離", () => {
     const result = await fetchDaySlots("2026-05-05");
 
     expect(result.slots.length).toBeGreaterThan(0);
+  });
+
+  it("店舖 INACTIVE 時，單日時段回傳空陣列且不查營業時間", async () => {
+    mockStoreFindUnique.mockResolvedValue({ operatingStatus: "INACTIVE" });
+
+    const { fetchDaySlots } = await import("@/server/actions/slots");
+    const result = await fetchDaySlots("2026-05-05");
+
+    expect(result.slots).toEqual([]);
+    expect(mockBusinessHoursFindFirst).not.toHaveBeenCalled();
   });
 });
 
