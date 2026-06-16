@@ -1,7 +1,15 @@
 import { redirect } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { getCurrentUser } from "@/lib/session";
-import { getStoreDeliverySummary, activateStoreAction } from "@/server/actions/store-onboarding";
+import {
+  activateStoreAction,
+  getStoreDeliverySummary,
+  updateStoreOperatingStatusAction,
+} from "@/server/actions/store-onboarding";
+import {
+  STORE_OPERATING_STATUS_LABELS,
+  type StoreOperatingStatus,
+} from "@/lib/store-operating-status";
 
 interface PageProps {
   params: Promise<{ storeId: string }>;
@@ -37,6 +45,8 @@ export default async function StoreDetailPage({ params }: PageProps) {
             <span className={summary.store.planStatus === "ACTIVE" ? "text-green-600" : "text-amber-600"}>
               {summary.store.planStatus}
             </span>
+            {" · "}
+            <span>{STORE_OPERATING_STATUS_LABELS[summary.store.operatingStatus]}</span>
             {summary.store.isDemo && <span className="ml-2 text-amber-600">(Demo)</span>}
           </p>
         </div>
@@ -72,6 +82,23 @@ export default async function StoreDetailPage({ params }: PageProps) {
         <Section title="第三方服務">
           <InfoRow label="LINE" value={summary.thirdParty.line === "configured" ? "已設定" : "未設定"} />
           <InfoRow label="Email 服務" value={summary.thirdParty.email === "configured" ? "已設定" : "未設定"} />
+        </Section>
+
+        {/* Operating status */}
+        <Section title="營運狀態">
+          <div className="flex flex-wrap items-center gap-2">
+            {(Object.keys(STORE_OPERATING_STATUS_LABELS) as StoreOperatingStatus[]).map((status) => (
+              <OperatingStatusButton
+                key={status}
+                storeId={storeId}
+                status={status}
+                active={summary.store.operatingStatus === status}
+              />
+            ))}
+          </div>
+          <p className="mt-2 text-xs leading-relaxed text-earth-500">
+            營運狀態由 HQ 管理。TRIAL / ACTIVE 可接受前台與新預約；PAUSED / INACTIVE 會阻擋前台顧客頁與所有新預約，但保留資料與後台檢視。
+          </p>
         </Section>
 
         {/* Checklist */}
@@ -132,6 +159,35 @@ function ActivateButton({ storeId }: { storeId: string }) {
         className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
       >
         啟用店舖
+      </button>
+    </form>
+  );
+}
+
+function OperatingStatusButton({
+  storeId,
+  status,
+  active,
+}: {
+  storeId: string;
+  status: StoreOperatingStatus;
+  active: boolean;
+}) {
+  return (
+    <form action={async () => {
+      "use server";
+      await updateStoreOperatingStatusAction(storeId, status);
+    }}>
+      <button
+        type="submit"
+        disabled={active}
+        className={`rounded-lg border px-3 py-1.5 text-xs font-medium disabled:cursor-default disabled:opacity-70 ${
+          active
+            ? "border-primary-200 bg-primary-50 text-primary-700"
+            : "border-earth-200 bg-white text-earth-700 hover:bg-earth-50"
+        }`}
+      >
+        {STORE_OPERATING_STATUS_LABELS[status]}
       </button>
     </form>
   );

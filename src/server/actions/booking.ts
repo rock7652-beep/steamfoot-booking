@@ -31,6 +31,11 @@ import { checkBookingLimit, resolveBookableUntilDate } from "@/lib/shop-config";
 import { assertStoreAccess } from "@/lib/manager-visibility";
 import { currentStoreId } from "@/lib/store";
 import {
+  getStoreOperatingStatus,
+  getStoreUnavailableMessage,
+  isStoreBookableStatus,
+} from "@/lib/store-operating-status";
+import {
   createBookingCreatedEvent,
   createBookingCompletedEvent,
 } from "@/server/services/referral-events";
@@ -150,6 +155,10 @@ export async function createBooking(
     // ── 0.4 訂閱到期保護：到期店家不可建立新預約（店長後台 + 顧客 LIFF 共用此 SoT；
     //         無訂閱店不擋；通用訊息店長/顧客都看得懂）
     const storeId = currentStoreId(user);
+    const operatingStatus = await getStoreOperatingStatus(storeId);
+    if (!isStoreBookableStatus(operatingStatus)) {
+      throw new AppError("BUSINESS_RULE", getStoreUnavailableMessage(operatingStatus));
+    }
     await assertStoreSubscriptionWritable(storeId, {
       message: BOOKING_EXPIRED_MESSAGE,
     });
