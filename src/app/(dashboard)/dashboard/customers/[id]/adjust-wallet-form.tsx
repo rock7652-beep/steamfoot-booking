@@ -32,7 +32,10 @@ export function AdjustWalletForm({ walletId, currentRemaining }: Props) {
 
   if (!open) {
     return (
-      <button onClick={() => setOpen(true)} className="text-xs text-primary-600 hover:underline">
+      <button
+        onClick={() => setOpen(true)}
+        className="inline-flex items-center gap-1 rounded-md border border-earth-300 bg-earth-50 px-2.5 py-1 text-xs font-medium text-earth-700 hover:border-earth-400 hover:bg-earth-100"
+      >
         調整堂數
       </button>
     );

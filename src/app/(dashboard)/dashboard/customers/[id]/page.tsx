@@ -947,7 +947,7 @@ function WalletItem({
       {hasManage && (
         <details className="group border-t border-earth-100">
           <summary className="flex cursor-pointer items-center justify-between px-3 py-1.5 text-[11px] font-medium text-earth-500 hover:text-earth-700">
-            <span className="group-open:hidden">管理（調整堂數 / 延長期限 / 堂數明細）▾</span>
+            <span className="group-open:hidden">管理（調整堂數 / 延長到期日 / 堂數明細）▾</span>
             <span className="hidden group-open:inline">收合 ▴</span>
           </summary>
           <div className="space-y-2 px-3 pb-3">

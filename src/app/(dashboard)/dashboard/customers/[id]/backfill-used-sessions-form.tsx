@@ -69,7 +69,7 @@ export function BackfillUsedSessionsForm({
     return (
       <button
         onClick={() => setOpen(true)}
-        className="text-xs text-amber-700 hover:underline"
+        className="inline-flex items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800 hover:border-amber-400 hover:bg-amber-100"
       >
         補登已使用堂數
       </button>

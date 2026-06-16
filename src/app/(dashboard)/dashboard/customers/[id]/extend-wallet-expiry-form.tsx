@@ -41,9 +41,9 @@ export function ExtendWalletExpiryForm({ walletId, currentExpiry, expired }: Pro
     return (
       <button
         onClick={() => setOpen(true)}
-        className="text-xs text-primary-600 hover:underline"
+        className="inline-flex items-center gap-1 rounded-md border border-earth-300 bg-earth-50 px-2.5 py-1 text-xs font-medium text-earth-700 hover:border-earth-400 hover:bg-earth-100"
       >
-        延長期限
+        📅 延長到期日
       </button>
     );
   }
@@ -51,7 +51,7 @@ export function ExtendWalletExpiryForm({ walletId, currentExpiry, expired }: Pro
   return (
     <form action={action} className="flex flex-wrap items-end gap-2">
       <div>
-        <label className="block text-xs text-earth-500">
+        <label className="block text-xs font-medium text-earth-600">
           新到期日（目前 {currentExpiry}{expired && "，已過期"}）
         </label>
         <input
@@ -63,7 +63,7 @@ export function ExtendWalletExpiryForm({ walletId, currentExpiry, expired }: Pro
         />
       </div>
       <div>
-        <label className="block text-xs text-earth-500">原因（必填）</label>
+        <label className="block text-xs font-medium text-earth-600">延長原因（必填）</label>
         <input
           name="reason"
           required
@@ -80,7 +80,7 @@ export function ExtendWalletExpiryForm({ walletId, currentExpiry, expired }: Pro
         disabled={pending}
         className="rounded bg-primary-100 px-3 py-1 text-sm font-medium text-primary-700 hover:bg-primary-200 disabled:opacity-60"
       >
-        {pending ? "處理中…" : "確認延長"}
+        {pending ? "處理中…" : "確認延長到期日"}
       </button>
       <button
         type="button"
