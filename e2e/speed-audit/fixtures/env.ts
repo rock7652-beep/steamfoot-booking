@@ -80,3 +80,36 @@ export function resolveCredentials(): { email: string; password: string } {
   }
   return { email, password };
 }
+
+/**
+ * Vercel Protection Bypass for Automation。
+ *
+ * Preview 若開了 Deployment Protection（Vercel Authentication），所有請求會在
+ * Vercel edge 被 401 擋下、到不了 app。官方提供「自動化測試」合法通道：帶
+ *   x-vercel-protection-bypass: <token>
+ *   x-vercel-set-bypass-cookie: true   （讓後續瀏覽器請求也通過保護牆）
+ *
+ * token 只從環境變數讀（SPEED_AUDIT_BYPASS_TOKEN，相容 VERCEL_AUTOMATION_BYPASS_SECRET）。
+ * 絕不 hardcode、不寫進 .env.example、不印出、不進 report / log / artifact。
+ * 無 token 時回傳 undefined（不影響無保護的 Preview / staging）。
+ */
+export function resolveBypassToken(): string | undefined {
+  const token =
+    process.env.SPEED_AUDIT_BYPASS_TOKEN?.trim() ||
+    process.env.VERCEL_AUTOMATION_BYPASS_SECRET?.trim();
+  return token ? token : undefined;
+}
+
+/**
+ * 組出要帶在「所有請求」上的 bypass header。無 token 時回傳空物件（no-op）。
+ * 由 playwright.config.ts 放進 use.extraHTTPHeaders（context 層級，涵蓋
+ * page 導航與 page.request）。
+ */
+export function bypassHeaders(): Record<string, string> {
+  const token = resolveBypassToken();
+  if (!token) return {};
+  return {
+    "x-vercel-protection-bypass": token,
+    "x-vercel-set-bypass-cookie": "true",
+  };
+}

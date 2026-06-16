@@ -37,6 +37,22 @@ npm run speed-audit
 | `SPEED_AUDIT_BASE_URL` | ✅ | Preview / Staging URL。**缺少 fail-fast；命中 `steamfoot.com` 直接 abort。** |
 | `SPEED_AUDIT_EMAIL` / `SPEED_AUDIT_PASSWORD` | ✅ | staging 店長帳密；不可 hardcode 進 repo |
 | `SPEED_AUDIT_SEARCH_QUERY` | — | 搜尋關鍵字（≥2 字），預設「測試」 |
+| `SPEED_AUDIT_BYPASS_TOKEN` | 視情況 | Preview 有 Vercel Deployment Protection 時**必填**（見下）。相容 `VERCEL_AUTOMATION_BYPASS_SECRET`。 |
+
+### Preview 有 Vercel Deployment Protection 時
+
+Preview 預設可能開了 **Vercel Authentication / Deployment Protection** —— 所有請求會在 Vercel edge 被 **401** 擋下（回應帶 `_vercel_sso_nonce` cookie），`/hq/login` 根本載不到。
+
+正確做法**不是**關掉保護（保護 Preview 是對的），而是用官方的 **Protection Bypass for Automation** 合法通道：
+
+1. 在 Vercel 專案 → Settings → Deployment Protection 產生 **Protection Bypass for Automation** secret。
+2. 設成本機環境變數 `SPEED_AUDIT_BYPASS_TOKEN`（或 CI secret），**切勿貼到 chat / PR / commit**：
+   ```bash
+   export SPEED_AUDIT_BYPASS_TOKEN=***   # 只放本機 / CI secret
+   ```
+3. 本工具會自動讓所有請求帶 `x-vercel-protection-bypass: <token>` + `x-vercel-set-bypass-cookie: true`，穿過保護牆。
+
+> **token 紀律**：只從 env 讀，永不 hardcode、不寫進 `.env.example` 真實值、不 commit、不出現在 report / console / screenshot / trace / artifact（故 trace/screenshot/video 一律 off）。無 token 時為 no-op，不影響未開保護的 staging。
 
 ---
 
