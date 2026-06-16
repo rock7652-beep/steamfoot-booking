@@ -33,6 +33,11 @@ import {
 } from "@/server/services/wallet-session";
 import { getStoreContext } from "@/lib/store-context";
 import { resolveCustomerForUser } from "@/server/queries/customer-completion";
+import {
+  getStoreOperatingStatus,
+  getStoreUnavailableMessage,
+  isStoreBookableStatus,
+} from "@/lib/store-operating-status";
 
 // ============================================================
 // 折扣計算
@@ -907,6 +912,10 @@ export async function initiateCustomerPlanPurchase(
     const storeCtx = await getStoreContext();
     if (!storeCtx) throw new AppError("UNAUTHORIZED", "缺少店舖 context，請從正確的分店入口進入");
     const urlStoreId = storeCtx.storeId;
+    const operatingStatus = await getStoreOperatingStatus(urlStoreId);
+    if (!isStoreBookableStatus(operatingStatus)) {
+      throw new AppError("BUSINESS_RULE", getStoreUnavailableMessage(operatingStatus));
+    }
 
     const plan = await prisma.servicePlan.findFirst({
       where: { id: data.planId, storeId: urlStoreId },

@@ -15,6 +15,10 @@ export function isStoreBookableStatus(status: StoreOperatingStatus): boolean {
   return status === "TRIAL" || status === "ACTIVE";
 }
 
+export function isStoreCustomerPortalBlocked(status: StoreOperatingStatus): boolean {
+  return status === "INACTIVE";
+}
+
 export function getStoreUnavailableMessage(status: StoreOperatingStatus): string {
   if (status === "PAUSED") return STORE_PAUSED_MESSAGE;
   if (status === "INACTIVE") return STORE_INACTIVE_MESSAGE;

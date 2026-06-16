@@ -11,7 +11,7 @@ import { getStoreContext } from "@/lib/store-context";
 import {
   getStoreOperatingStatus,
   getStoreUnavailableMessage,
-  isStoreBookableStatus,
+  isStoreCustomerPortalBlocked,
 } from "@/lib/store-operating-status";
 import { resolveCustomerCompletionStatus } from "@/server/queries/customer-completion";
 
@@ -150,7 +150,7 @@ export default async function CustomerLayout({
   }
 
   const operatingStatus = await getStoreOperatingStatus(storeCtx.storeId);
-  if (!isStoreBookableStatus(operatingStatus)) {
+  if (isStoreCustomerPortalBlocked(operatingStatus)) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-earth-50 px-4 py-12">
         <div className="w-full max-w-sm rounded-xl border border-earth-200 bg-white p-6 text-center shadow-sm sm:p-8">
