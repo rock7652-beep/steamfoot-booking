@@ -7,12 +7,10 @@ import {
   PageShell,
   PageHeader,
   KpiStrip,
-  DataTable,
-  type Column,
 } from "@/components/desktop";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { getCustomerCareOverview } from "@/server/queries/customer-care";
-import { CareRowActions } from "./_components/care-row-actions";
+import { CareSection, type CareItem } from "./_components/care-section";
 import { formatRelativeDaysTW } from "@/lib/customer-follow-up";
 
 /**
@@ -29,9 +27,6 @@ import { formatRelativeDaysTW } from "@/lib/customer-follow-up";
  */
 
 export const dynamic = "force-dynamic";
-
-/** UI 端先顯示各區前 N 筆;完整列表待後續 PR */
-const TOP_N = 10;
 
 const SCRIPTS = {
   trial:
@@ -63,20 +58,6 @@ function followUpText(
   return `最後追蹤：${followUp.createdByName}・${formatRelativeDaysTW(followUp.createdAt)}`;
 }
 
-/** 各區統一的顯示模型（理由 / 次要資訊都在 server 端算好） */
-interface CareItem {
-  customerId: string;
-  name: string;
-  phoneMasked: string;
-  /** 主理由文案 — 讓店長一眼看懂為什麼要關心 */
-  reason: string;
-  /** 次要資訊行（日期 / 金額 / 總堂數等）；無則 null */
-  meta: string | null;
-  staffName: string | null;
-  lastFollowUpText: string;
-  script: string;
-}
-
 export default async function CustomerCarePage() {
   const user = await getCurrentUser();
   if (!user || !(await checkPermission(user.role, user.staffId, "customer.read"))) {
@@ -95,7 +76,7 @@ export default async function CustomerCarePage() {
     summary.expiringPlanCustomers;
 
   // ---- 各區轉成統一顯示模型 ----
-  const trialItems: CareItem[] = trialFollowUps.slice(0, TOP_N).map((r) => ({
+  const trialItems: CareItem[] = trialFollowUps.map((r) => ({
     customerId: r.customerId,
     name: r.customerName,
     phoneMasked: maskPhone(r.customerPhone),
@@ -111,7 +92,7 @@ export default async function CustomerCarePage() {
     script: SCRIPTS.trial,
   }));
 
-  const inactiveItems: CareItem[] = inactiveCustomers.slice(0, TOP_N).map((r) => ({
+  const inactiveItems: CareItem[] = inactiveCustomers.map((r) => ({
     customerId: r.customerId,
     name: r.customerName,
     phoneMasked: maskPhone(r.phone),
@@ -122,7 +103,7 @@ export default async function CustomerCarePage() {
     script: SCRIPTS.inactive,
   }));
 
-  const lowItems: CareItem[] = lowSessionCustomers.slice(0, TOP_N).map((r) => ({
+  const lowItems: CareItem[] = lowSessionCustomers.map((r) => ({
     customerId: r.customerId,
     name: r.customerName,
     phoneMasked: maskPhone(r.phone),
@@ -136,7 +117,7 @@ export default async function CustomerCarePage() {
     script: SCRIPTS.low,
   }));
 
-  const expiringItems: CareItem[] = expiringPlanCustomers.slice(0, TOP_N).map((r) => ({
+  const expiringItems: CareItem[] = expiringPlanCustomers.map((r) => ({
     customerId: r.customerId,
     name: r.customerName,
     phoneMasked: maskPhone(r.phone),
@@ -212,98 +193,5 @@ export default async function CustomerCarePage() {
         totalCount={summary.expiringPlanCustomers}
       />
     </PageShell>
-  );
-}
-
-// ============================================================
-// CareSection — 單一提醒區塊（compact table + 友善 empty state）
-// ============================================================
-
-function CareSection({
-  title,
-  description,
-  emptyText,
-  items,
-  totalCount,
-}: {
-  title: string;
-  description: string;
-  emptyText: string;
-  items: CareItem[];
-  totalCount: number;
-}) {
-  const columns: Column<CareItem>[] = [
-    {
-      key: "customer",
-      header: "顧客",
-      priority: "primary",
-      accessor: (row) => (
-        <div className="flex flex-col">
-          <span className="text-sm font-medium text-earth-900">{row.name}</span>
-          <span className="text-[11px] tabular-nums text-earth-500">{row.phoneMasked}</span>
-        </div>
-      ),
-      width: "w-40",
-    },
-    {
-      key: "reason",
-      header: "提醒原因",
-      accessor: (row) => (
-        <div className="flex flex-col">
-          <span className="text-sm text-earth-800">{row.reason}</span>
-          {row.meta ? (
-            <span className="text-[11px] text-earth-500">{row.meta}</span>
-          ) : null}
-          <span className="text-[11px] text-earth-500">{row.lastFollowUpText}</span>
-        </div>
-      ),
-    },
-    {
-      key: "staff",
-      header: "直屬店長",
-      priority: "secondary",
-      accessor: (row) =>
-        row.staffName ? (
-          <span className="text-xs text-earth-700">{row.staffName}</span>
-        ) : (
-          <span className="text-xs text-earth-400">未指派</span>
-        ),
-      width: "w-24",
-    },
-    {
-      key: "actions",
-      header: <span className="sr-only">操作</span>,
-      align: "right",
-      noLink: true,
-      accessor: (row) => <CareRowActions customerId={row.customerId} script={row.script} />,
-      width: "w-[280px]",
-    },
-  ];
-
-  return (
-    <section className="space-y-1.5">
-      <div className="flex items-baseline justify-between">
-        <h2 className="text-sm font-semibold text-earth-900">
-          {title}
-          {totalCount > 0 ? (
-            <span className="ml-1.5 text-[11px] font-normal text-earth-500">{totalCount} 位</span>
-          ) : null}
-        </h2>
-        {totalCount > TOP_N ? (
-          <span className="text-[11px] text-earth-400">顯示前 {TOP_N} 筆,共 {totalCount} 筆</span>
-        ) : null}
-      </div>
-      <p className="text-[11px] text-earth-500">{description}</p>
-      <DataTable
-        columns={columns}
-        rows={items}
-        rowKey={(r) => r.customerId}
-        empty={
-          <div className="px-4 py-6 text-center">
-            <p className="text-sm text-earth-600">{emptyText}</p>
-          </div>
-        }
-      />
-    </section>
   );
 }
