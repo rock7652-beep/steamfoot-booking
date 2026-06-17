@@ -5,7 +5,7 @@ import { StoreTodoList } from "./store-todo-list";
 interface StoreTodoCardProps {
   /** 已過濾 dismissed、已去重、已排序的完整待辦清單；前 N 筆呈現由 list 處理 */
   items: StoreTodoItem[];
-  /** 收合時顯示筆數（首頁三欄版傳 3；不傳則沿用 list 預設 5） */
+  /** 收合時顯示筆數（首頁傳 3；不傳則沿用 list 預設 5） */
   defaultVisible?: number;
 }
 
