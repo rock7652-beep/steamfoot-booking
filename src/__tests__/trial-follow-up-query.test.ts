@@ -8,6 +8,7 @@
  *   - convertedAt 已設 → 不出現
  *   - mergedIntoCustomerId 已設 → 不出現
  *   - User SUSPENDED → 不出現
+ *   - 已有有效 PACKAGE wallet → 不出現
  *   - VOIDED TRIAL → 不出現
  *   - REFUNDED TRIAL → 不出現
  *   - 同顧客 2 筆 SUCCESS TRIAL → 只回最近 paidAt
@@ -140,7 +141,7 @@ describe("getTrialFollowUpList", () => {
     expect(result[0].trialPaymentMethod).toBe("CASH");
   });
 
-  it("passes correct where conditions to groupBy (excludes converted / merged / suspended)", async () => {
+  it("passes correct where conditions to groupBy (excludes converted / merged / suspended / valid PACKAGE)", async () => {
     mockTxGroupBy.mockResolvedValueOnce([]);
     await getTrialFollowUpList(fakeOwner(), null);
 
@@ -153,6 +154,29 @@ describe("getTrialFollowUpList", () => {
     expect(args.where.customer.mergedIntoCustomerId).toBe(null);
     // user SUSPENDED 排除 — relation filter exists
     expect(args.where.customer.NOT).toBeDefined();
+    // 已有有效正式方案的顧客不可出現在「待追蹤體驗客」
+    expect(args.where.customer.planWallets.none).toMatchObject({
+      status: "ACTIVE",
+      remainingSessions: { gt: 0 },
+      plan: { category: "PACKAGE" },
+    });
+    expect(args.where.customer.planWallets.none.OR[0]).toEqual({ expiryDate: null });
+    expect(args.where.customer.planWallets.none.OR[1].expiryDate.gte).toBeInstanceOf(Date);
+  });
+
+  it("excludes customers with SUCCESS TRIAL_PURCHASE and convertedAt=null when they already have an active PACKAGE wallet", async () => {
+    mockTxGroupBy.mockResolvedValueOnce([]);
+    await getTrialFollowUpList(fakeOwner(), null);
+
+    const args = mockTxGroupBy.mock.calls[0][0];
+    expect(args.where.transactionType).toBe("TRIAL_PURCHASE");
+    expect(args.where.status).toBe("SUCCESS");
+    expect(args.where.customer.convertedAt).toBe(null);
+    expect(args.where.customer.planWallets.none).toMatchObject({
+      status: "ACTIVE",
+      remainingSessions: { gt: 0 },
+      plan: { category: "PACKAGE" },
+    });
   });
 
   it("dedupes when same customer has >1 SUCCESS TRIAL (only latest paidAt)", async () => {
@@ -228,6 +252,7 @@ describe("getTrialFollowUpList", () => {
     const args = mockTxFindMany.mock.calls[0][0];
     expect(args.where.transactionType).toBe("TRIAL_PURCHASE");
     expect(args.where.status).toBe("SUCCESS");
+    expect(args.where.customer.planWallets.none.plan).toEqual({ category: "PACKAGE" });
   });
 
   it("handles paidAt=null group by falling back to createdAt", async () => {
