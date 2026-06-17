@@ -16,6 +16,7 @@ import type { CashDrawerSession } from "@prisma/client";
 import {
   deriveCashDrawerView,
   type CashDrawerLiveTotals,
+  type CashDrawerPaymentOverview,
 } from "@/server/queries/cash-drawer";
 
 const ZERO = new Prisma.Decimal(0);
@@ -23,6 +24,9 @@ const stubLiveTotals = (
   overrides: Partial<CashDrawerLiveTotals> = {},
 ): CashDrawerLiveTotals => ({
   cashIncomeTotal: ZERO,
+  paymentOverviewCashIncomeTotal: ZERO,
+  nonCashIncomeTotal: ZERO,
+  todayPaymentTotal: ZERO,
   cashExpenseTotal: ZERO,
   cashWithdrawalTotal: ZERO,
   cashDepositTotal: ZERO,
@@ -30,6 +34,15 @@ const stubLiveTotals = (
   cashbookCashIncome: ZERO,
   cashbookCashOut: ZERO,
   expectedClosingCash: ZERO,
+  ...overrides,
+});
+
+const stubPaymentOverview = (
+  overrides: Partial<CashDrawerPaymentOverview> = {},
+): CashDrawerPaymentOverview => ({
+  paymentOverviewCashIncomeTotal: ZERO,
+  nonCashIncomeTotal: ZERO,
+  todayPaymentTotal: ZERO,
   ...overrides,
 });
 
@@ -70,13 +83,21 @@ describe("deriveCashDrawerView", () => {
 
   it("OPENED_TODAY：今日有 OPEN session", () => {
     const today = stub({ status: "OPEN" });
-    const view = deriveCashDrawerView(today, today);
+    const view = deriveCashDrawerView(today, today, null, stubPaymentOverview());
     expect(view.state).toBe("OPENED_TODAY");
     if (view.state === "OPENED_TODAY") {
       expect(view.session.id).toBe(today.id);
+      expect(view.paymentOverview.todayPaymentTotal.equals(0)).toBe(true);
       // PR-4：未傳 entries 時預設為空陣列
       expect(view.entries).toEqual([]);
     }
+  });
+
+  it("OPENED_TODAY：缺 paymentOverview 時 throw（caller 必須傳）", () => {
+    const today = stub({ status: "OPEN" });
+    expect(() => deriveCashDrawerView(today, today)).toThrow(
+      /todayPaymentOverview required/,
+    );
   });
 
   it("OPENED_TODAY：entries 參數正確傳遞到 view（PR-4）", () => {
@@ -85,7 +106,13 @@ describe("deriveCashDrawerView", () => {
       { id: "e1", type: "CASH_WITHDRAWAL" } as never,
       { id: "e2", type: "CASH_DEPOSIT" } as never,
     ];
-    const view = deriveCashDrawerView(today, today, null, fakeEntries);
+    const view = deriveCashDrawerView(
+      today,
+      today,
+      null,
+      stubPaymentOverview(),
+      fakeEntries,
+    );
     expect(view.state).toBe("OPENED_TODAY");
     if (view.state === "OPENED_TODAY") {
       expect(view.entries).toHaveLength(2);
@@ -97,13 +124,13 @@ describe("deriveCashDrawerView", () => {
   it("OPENED_TODAY：初始化當天直接進此 state（不應退回 NOT_OPENED_TODAY）", () => {
     // 首次啟用：today session 是該店唯一存在的 session
     const todayInit = stub({ id: "sess-init", status: "OPEN" });
-    const view = deriveCashDrawerView(todayInit, todayInit);
+    const view = deriveCashDrawerView(todayInit, todayInit, null, stubPaymentOverview());
     expect(view.state).toBe("OPENED_TODAY");
   });
 
   it("OPENED_TODAY：今日 CLOSED session（PR-5 行為，PR-3 不會發生但驗證 forward-compat）", () => {
     const todayClosed = stub({ status: "CLOSED" });
-    const view = deriveCashDrawerView(todayClosed, todayClosed);
+    const view = deriveCashDrawerView(todayClosed, todayClosed, null, stubPaymentOverview());
     expect(view.state).toBe("OPENED_TODAY");
   });
 
@@ -116,7 +143,7 @@ describe("deriveCashDrawerView", () => {
     const warningTotals = stubLiveTotals({
       expectedClosingCash: new Prisma.Decimal(8100),
     });
-    const view = deriveCashDrawerView(null, lastOpen, null, [], warningTotals);
+    const view = deriveCashDrawerView(null, lastOpen, null, null, [], warningTotals);
     expect(view.state).toBe("WARNING_LAST_OPEN");
     if (view.state === "WARNING_LAST_OPEN") {
       expect(view.lastSession.id).toBe("sess-yesterday");
@@ -162,7 +189,7 @@ describe("deriveCashDrawerView", () => {
   it("優先級：今日 session 存在時，無視 latest 為何（防 latest 比 today 還晚的邊界）", () => {
     // 理論上不會發生（unique constraint + lte today filter），但驗證行為穩定
     const today = stub({ status: "OPEN" });
-    const view = deriveCashDrawerView(today, null);
+    const view = deriveCashDrawerView(today, null, null, stubPaymentOverview());
     expect(view.state).toBe("OPENED_TODAY");
   });
 });
