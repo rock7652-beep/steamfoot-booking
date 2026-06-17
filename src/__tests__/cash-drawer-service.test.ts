@@ -327,7 +327,9 @@ describe("addCashDrawerEntry", () => {
 
 describe("closeCashDrawer", () => {
   it("正確計算 expectedClosingCash 並寫入快照", async () => {
-    mockSessionFindUnique.mockResolvedValue(makeSession({ openingBookBalance: D(5000) }));
+    mockSessionFindUnique.mockResolvedValue(
+      makeSession({ openingBookBalance: D(5000), openingActualCash: D(5000) }),
+    );
     mockTxAggregate
       .mockResolvedValueOnce({ _sum: { amount: D(8000) } }) // income
       .mockResolvedValueOnce({ _sum: { amount: D(0) } }); // expense
@@ -360,7 +362,9 @@ describe("closeCashDrawer", () => {
   });
 
   it("差額非 0 沒填 note 拒絕", async () => {
-    mockSessionFindUnique.mockResolvedValue(makeSession({ openingBookBalance: D(5000) }));
+    mockSessionFindUnique.mockResolvedValue(
+      makeSession({ openingBookBalance: D(5000), openingActualCash: D(5000) }),
+    );
     await expect(
       closeCashDrawer({
         sessionId: "sess-1",
@@ -372,7 +376,9 @@ describe("closeCashDrawer", () => {
 
   it("(PR-5) 短少時 finalBookBalance = closingActualCash（差額留在當天，下次開店從實點開始）", async () => {
     // PR-5：差額記在當天 closingDifference，下次開店起點用實際點到的現金
-    mockSessionFindUnique.mockResolvedValue(makeSession({ openingBookBalance: D(5000) }));
+    mockSessionFindUnique.mockResolvedValue(
+      makeSession({ openingBookBalance: D(5000), openingActualCash: D(5000) }),
+    );
     mockSessionUpdate.mockResolvedValue({ id: "sess-1" });
 
     await closeCashDrawer({
@@ -392,7 +398,9 @@ describe("closeCashDrawer", () => {
   });
 
   it("(PR-5) 溢出時 finalBookBalance = closingActualCash（差額留在當天，下次開店從實點開始）", async () => {
-    mockSessionFindUnique.mockResolvedValue(makeSession({ openingBookBalance: D(5000) }));
+    mockSessionFindUnique.mockResolvedValue(
+      makeSession({ openingBookBalance: D(5000), openingActualCash: D(5000) }),
+    );
     mockSessionUpdate.mockResolvedValue({ id: "sess-1" });
 
     await closeCashDrawer({
@@ -410,7 +418,9 @@ describe("closeCashDrawer", () => {
 
   it("(PR-5) 大額短少：expected 7765、實點 2295 → finalBookBalance=2295、差額 -5470 保留", async () => {
     // 用戶情境：系統應有 7765，實際點到 2295。差額留在當天，下次開店從 2295 開始。
-    mockSessionFindUnique.mockResolvedValue(makeSession({ openingBookBalance: D(7765) }));
+    mockSessionFindUnique.mockResolvedValue(
+      makeSession({ openingBookBalance: D(7765), openingActualCash: D(7765) }),
+    );
     mockSessionUpdate.mockResolvedValue({ id: "sess-1" });
 
     await closeCashDrawer({
@@ -666,7 +676,9 @@ describe("computeCashbookCashMovementsForSession", () => {
 
 describe("closeCashDrawer × 現金帳（PR-3）", () => {
   it("閉店快照的 expectedClosingCash 折進當日現金帳 CASH 收支", async () => {
-    mockSessionFindUnique.mockResolvedValue(makeSession({ openingBookBalance: D(5000) }));
+    mockSessionFindUnique.mockResolvedValue(
+      makeSession({ openingBookBalance: D(5000), openingActualCash: D(5000) }),
+    );
     mockTxAggregate
       .mockResolvedValueOnce({ _sum: { amount: D(0) } }) // income
       .mockResolvedValueOnce({ _sum: { amount: D(0) } }); // expense
@@ -687,14 +699,75 @@ describe("closeCashDrawer × 現金帳（PR-3）", () => {
     // 5000 + cashbook(2000 - 500) = 6500
     expect((call.data.expectedClosingCash as Prisma.Decimal).toNumber()).toBe(6500);
     expect((call.data.closingDifference as Prisma.Decimal).toNumber()).toBe(0);
-    // finalBookBalance 仍 = expectedClosingCash（責任鏈不變）
+    // finalBookBalance = closingActualCash；本案例實點等於 expected
     expect((call.data.finalBookBalance as Prisma.Decimal).toNumber()).toBe(6500);
+  });
+
+  it("開店補入差額只影響抽屜實體應有現金，不算進今日現金收入", async () => {
+    mockSessionFindUnique.mockResolvedValue(
+      makeSession({
+        openingBookBalance: D(1083),
+        openingActualCash: D(1521),
+        openingDifference: D(438),
+      }),
+    );
+    mockTxAggregate
+      .mockResolvedValueOnce({ _sum: { amount: D(798) } })
+      .mockResolvedValueOnce({ _sum: { amount: D(0) } });
+    mockEntryFindMany.mockResolvedValue([]);
+    mockCashbookGroupBy.mockResolvedValue([
+      { type: "EXPENSE", _sum: { amount: D(260) } },
+    ]);
+    mockSessionUpdate.mockResolvedValue({ id: "sess-1" });
+
+    await closeCashDrawer({
+      sessionId: "sess-1",
+      closingActualCash: 2059,
+      actorUserId: USER_OWNER,
+    });
+
+    const call = mockSessionUpdate.mock.calls[0][0] as { data: Record<string, unknown> };
+    expect((call.data.cashIncomeTotal as Prisma.Decimal).toNumber()).toBe(798);
+    expect((call.data.cashWithdrawalTotal as Prisma.Decimal).toNumber()).toBe(0);
+    expect((call.data.expectedClosingCash as Prisma.Decimal).toNumber()).toBe(2059);
+    expect((call.data.closingDifference as Prisma.Decimal).toNumber()).toBe(0);
+  });
+
+  it("開店短少差額會扣低關店系統應有現金，但不算進今日現金收入", async () => {
+    mockSessionFindUnique.mockResolvedValue(
+      makeSession({
+        openingBookBalance: D(1521),
+        openingActualCash: D(1083),
+        openingDifference: D(-438),
+      }),
+    );
+    mockTxAggregate
+      .mockResolvedValueOnce({ _sum: { amount: D(798) } })
+      .mockResolvedValueOnce({ _sum: { amount: D(0) } });
+    mockEntryFindMany.mockResolvedValue([]);
+    mockCashbookGroupBy.mockResolvedValue([
+      { type: "EXPENSE", _sum: { amount: D(260) } },
+    ]);
+    mockSessionUpdate.mockResolvedValue({ id: "sess-1" });
+
+    await closeCashDrawer({
+      sessionId: "sess-1",
+      closingActualCash: 1621,
+      actorUserId: USER_OWNER,
+    });
+
+    const call = mockSessionUpdate.mock.calls[0][0] as { data: Record<string, unknown> };
+    expect((call.data.cashIncomeTotal as Prisma.Decimal).toNumber()).toBe(798);
+    expect((call.data.expectedClosingCash as Prisma.Decimal).toNumber()).toBe(1621);
+    expect((call.data.closingDifference as Prisma.Decimal).toNumber()).toBe(0);
   });
 });
 
 describe("getCurrentCashDrawer × 現金帳（PR-3）", () => {
   it("OPEN：liveTotals 含現金帳收支並折進 expectedClosingCash", async () => {
-    mockSessionFindUnique.mockResolvedValue(makeSession({ status: "OPEN", openingBookBalance: D(1000) }));
+    mockSessionFindUnique.mockResolvedValue(
+      makeSession({ status: "OPEN", openingBookBalance: D(1000), openingActualCash: D(1000) }),
+    );
     mockTxAggregate.mockResolvedValue({ _sum: { amount: D(0) } });
     mockEntryFindMany.mockResolvedValue([]);
     mockCashbookGroupBy.mockResolvedValue([{ type: "INCOME", _sum: { amount: D(800) } }]);
@@ -740,7 +813,9 @@ describe("非干擾驗證", () => {
   });
 
   it("closeCashDrawer 不呼叫 Transaction / CashbookEntry 的寫入", async () => {
-    mockSessionFindUnique.mockResolvedValue(makeSession({ openingBookBalance: D(5000) }));
+    mockSessionFindUnique.mockResolvedValue(
+      makeSession({ openingBookBalance: D(5000), openingActualCash: D(5000) }),
+    );
     mockSessionUpdate.mockResolvedValue({ id: "sess-1" });
     await closeCashDrawer({
       sessionId: "sess-1",

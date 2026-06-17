@@ -176,7 +176,7 @@ WHERE storeId = :storeId
                    （第一次啟用由 OWNER 手動輸入）
 
 今日 expectedClosingCash
-  = openingBookBalance（注意：不是 openingActualCash，差額已留在 openingDifference）
+  = openingActualCash（開店時實際點到 / 已補入的抽屜現金）
   + cashIncomeTotal           (Transaction CASH 收入)
   - cashExpenseTotal          (Transaction CASH 退款)
   - cashWithdrawalTotal       (CashDrawerEntry 提領)
@@ -196,18 +196,9 @@ finalBookBalance  = closingActualCash  // (PR-5) 下次開店從實際現金開�
 >
 > **為什麼改掉 PR-2 的「帳面責任鏈」**：PR-2 原採 `finalBookBalance = expectedClosingCash`，讓昨日差額持續暴露在隔日 `openingDifference`，需 OWNER 另用 `CASH_ADJUSTMENT` 認列。實務上這讓店長每天被昨天的差額困住、難以理解。PR-5 改為「差額記在發生當天，隔天歸零從實點重新開始」，更貼近日常操作。
 >
-> 註：`expectedClosingCash` 的公式維持不變（仍用 `openingBookBalance` 當基準）；本次只改 `finalBookBalance` 的定義。
-
-> **設計細節：為什麼 expectedClosingCash 用 `openingBookBalance` 而非 `openingActualCash`**
->
-> 現金抽屜要維持「帳面責任鏈」。如果用 `openingActualCash` 當計算基準，開店實點的差額會被自動吃進今日結餘，等於默默承認昨日（或開店前）的短溢。
->
-> 範例：
-> - 昨日閉店帳面 8,100，今日開店實點 8,000（短少 100）
-> - 若用 `openingActualCash`：今天從 8,000 開始算 → -100 被洗掉，沒人負責
-> - 正確做法：今天帳面仍從 8,100 開始算，-100 留在 `openingDifference` 由開店人填原因
->
-> 差額本身由 `openingDifference` 紀錄留痕，不進入結餘鏈。
+> 註：`openingDifference` 仍會完整留痕並要求原因，但它代表開店時抽屜實體現金與帳面起點的差異。
+> 因此「抽屜應有現金」以 `openingActualCash` 為基準，避免店長盤點時看到的實體現金與系統主數字對不起來。
+> 這筆差額不進 `cashIncomeTotal`，也不算營業收入。
 
 ---
 

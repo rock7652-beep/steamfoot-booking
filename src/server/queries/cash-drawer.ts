@@ -99,7 +99,7 @@ export async function computeLiveTotalsForOpenSession(
     computeCashbookCashMovementsForSession(session),
   ]);
   const expectedClosingCash = computeExpectedClosingCash({
-    openingBookBalance: session.openingBookBalance,
+    openingActualCash: session.openingActualCash,
     cashIncomeTotal: income,
     cashExpenseTotal: expense,
     cashWithdrawalTotal: manual.cashWithdrawalTotal,

@@ -6,7 +6,7 @@
  * 鐵則：
  *   1. CLOSED session 不可修改任何欄位（assertSessionMutable guard）
  *   2. (PR-5) finalBookBalance = closingActualCash：差額留在當天，下次開店從實際現金開始
- *   3. expectedClosingCash 用 openingBookBalance（不是 openingActualCash）
+ *   3. expectedClosingCash 用 openingActualCash：開店補入/短少差額已反映在實體抽屜現金
  *   4. REFUND.amount 為負數儲存，cashExpenseTotal 翻正後存入快照
  *   5. 顧客現金交易直接 query Transaction，不複寫到 CashDrawerEntry
  *
@@ -46,7 +46,7 @@ export function computeOpeningDifference(
 }
 
 export function computeExpectedClosingCash(params: {
-  openingBookBalance: Prisma.Decimal;
+  openingActualCash: Prisma.Decimal;
   cashIncomeTotal: Prisma.Decimal;
   cashExpenseTotal: Prisma.Decimal;
   cashWithdrawalTotal: Prisma.Decimal;
@@ -57,7 +57,7 @@ export function computeExpectedClosingCash(params: {
   cashbookCashIncome?: Prisma.Decimal;
   cashbookCashOut?: Prisma.Decimal;
 }): Prisma.Decimal {
-  return params.openingBookBalance
+  return params.openingActualCash
     .add(params.cashIncomeTotal)
     .sub(params.cashExpenseTotal)
     .sub(params.cashWithdrawalTotal)
@@ -387,7 +387,7 @@ export async function getCurrentCashDrawer(
   ]);
 
   const expectedClosingCash = computeExpectedClosingCash({
-    openingBookBalance: session.openingBookBalance,
+    openingActualCash: session.openingActualCash,
     cashIncomeTotal,
     cashExpenseTotal,
     cashWithdrawalTotal: manual.cashWithdrawalTotal,
@@ -512,7 +512,7 @@ export async function closeCashDrawer(input: CloseInput): Promise<CashDrawerSess
   }
 
   const expectedClosingCash = computeExpectedClosingCash({
-    openingBookBalance: session.openingBookBalance,
+    openingActualCash: session.openingActualCash,
     cashIncomeTotal,
     cashExpenseTotal,
     cashWithdrawalTotal: withdrawal,

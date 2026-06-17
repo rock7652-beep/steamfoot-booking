@@ -3,7 +3,7 @@
  *
  * 驗證 `computeLiveTotalsForOpenSession` 對 OPEN session 的計算組合：
  *   - 正確呼叫 3 個 helper（income / expense / manual）
- *   - 用 PR-2 鐵則公式組合 expectedClosingCash
+ *   - 用抽屜實體現金公式組合 expectedClosingCash
  *   - REFUND 負數翻正後當 expense
  *
  * 透過 mock prisma 層（既有 helper 內部會打 DB），不打真實 DB。
@@ -111,18 +111,62 @@ describe("computeLiveTotalsForOpenSession", () => {
     expect(result.expectedClosingCash.toNumber()).toBe(9550);
   });
 
-  it("無任何交易時 expectedClosingCash 等於 openingBookBalance", async () => {
+  it("無任何交易時 expectedClosingCash 等於 openingActualCash", async () => {
     mockTxAggregate.mockResolvedValue({ _sum: { amount: null } });
     mockEntryFindMany.mockResolvedValue([]);
 
     const result = await computeLiveTotalsForOpenSession(
-      makeOpenSession({ openingBookBalance: D(5050) }),
+      makeOpenSession({ openingBookBalance: D(5000), openingActualCash: D(5050), openingDifference: D(50) }),
     );
 
     // Decimal.neg() on zero produces -0 — use .equals(0) for sign-agnostic compare
     expect(result.cashIncomeTotal.equals(0)).toBe(true);
     expect(result.cashExpenseTotal.equals(0)).toBe(true);
     expect(result.expectedClosingCash.toNumber()).toBe(5050);
+  });
+
+  it("開店補入差額已在抽屜內，主數字應納入但不污染今日現金收入", async () => {
+    mockTxAggregate
+      .mockResolvedValueOnce({ _sum: { amount: D(798) } })
+      .mockResolvedValueOnce({ _sum: { amount: D(0) } });
+    mockEntryFindMany.mockResolvedValue([]);
+    mockCashbookGroupBy.mockResolvedValue([
+      { type: "EXPENSE", _sum: { amount: D(260) } },
+    ]);
+
+    const result = await computeLiveTotalsForOpenSession(
+      makeOpenSession({
+        openingBookBalance: D(1083),
+        openingActualCash: D(1521),
+        openingDifference: D(438),
+      }),
+    );
+
+    expect(result.cashIncomeTotal.toNumber()).toBe(798);
+    expect(result.cashbookCashOut.toNumber()).toBe(260);
+    expect(result.expectedClosingCash.toNumber()).toBe(2059);
+  });
+
+  it("開店短少差額會扣低抽屜實體應有現金，但不污染今日現金收入", async () => {
+    mockTxAggregate
+      .mockResolvedValueOnce({ _sum: { amount: D(798) } })
+      .mockResolvedValueOnce({ _sum: { amount: D(0) } });
+    mockEntryFindMany.mockResolvedValue([]);
+    mockCashbookGroupBy.mockResolvedValue([
+      { type: "EXPENSE", _sum: { amount: D(260) } },
+    ]);
+
+    const result = await computeLiveTotalsForOpenSession(
+      makeOpenSession({
+        openingBookBalance: D(1521),
+        openingActualCash: D(1083),
+        openingDifference: D(-438),
+      }),
+    );
+
+    expect(result.cashIncomeTotal.toNumber()).toBe(798);
+    expect(result.cashbookCashOut.toNumber()).toBe(260);
+    expect(result.expectedClosingCash.toNumber()).toBe(1621);
   });
 
   it("REFUND amount 為負數時 cashExpenseTotal 翻成正數量級（鐵則）", async () => {
@@ -132,7 +176,7 @@ describe("computeLiveTotalsForOpenSession", () => {
     mockEntryFindMany.mockResolvedValue([]);
 
     const result = await computeLiveTotalsForOpenSession(
-      makeOpenSession({ openingBookBalance: D(1000) }),
+      makeOpenSession({ openingBookBalance: D(1000), openingActualCash: D(1000) }),
     );
 
     expect(result.cashExpenseTotal.toNumber()).toBe(500); // 翻正後是 500
@@ -148,7 +192,7 @@ describe("computeLiveTotalsForOpenSession — 現金帳（PR-3）", () => {
     mockCashbookGroupBy.mockResolvedValue([{ type: "INCOME", _sum: { amount: D(1200) } }]);
 
     const result = await computeLiveTotalsForOpenSession(
-      makeOpenSession({ openingBookBalance: D(1000) }),
+      makeOpenSession({ openingBookBalance: D(1000), openingActualCash: D(1000) }),
     );
 
     expect(result.cashbookCashIncome.toNumber()).toBe(1200);
@@ -166,7 +210,7 @@ describe("computeLiveTotalsForOpenSession — 現金帳（PR-3）", () => {
     ]);
 
     const result = await computeLiveTotalsForOpenSession(
-      makeOpenSession({ openingBookBalance: D(5000) }),
+      makeOpenSession({ openingBookBalance: D(5000), openingActualCash: D(5000) }),
     );
 
     expect(result.cashbookCashIncome.equals(0)).toBe(true);
@@ -184,7 +228,7 @@ describe("computeLiveTotalsForOpenSession — 現金帳（PR-3）", () => {
     ]);
 
     const result = await computeLiveTotalsForOpenSession(
-      makeOpenSession({ openingBookBalance: D(1000) }),
+      makeOpenSession({ openingBookBalance: D(1000), openingActualCash: D(1000) }),
     );
 
     expect(result.cashbookCashIncome.toNumber()).toBe(500);
@@ -203,7 +247,7 @@ describe("computeLiveTotalsForOpenSession — 現金帳（PR-3）", () => {
     ]);
 
     const result = await computeLiveTotalsForOpenSession(
-      makeOpenSession({ openingBookBalance: D(1000) }),
+      makeOpenSession({ openingBookBalance: D(1000), openingActualCash: D(1000) }),
     );
 
     expect(result.cashbookCashIncome.toNumber()).toBe(2000);
