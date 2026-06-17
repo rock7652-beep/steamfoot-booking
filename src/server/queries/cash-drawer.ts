@@ -16,14 +16,26 @@ import { prisma } from "@/lib/db";
 import type { CashDrawerSession, CashDrawerEntry, Prisma } from "@prisma/client";
 import {
   computeCashIncomeForSession,
+  computeNonCashIncomeForSession,
+  computePaymentOverviewForSession,
   computeCashExpenseForSession,
   computeManualEntryTotals,
   computeCashbookCashMovementsForSession,
   computeExpectedClosingCash,
 } from "@/server/services/cash-drawer";
 
+export type CashDrawerPaymentOverview = {
+  cashIncomeTotal: Prisma.Decimal;
+  nonCashIncomeTotal: Prisma.Decimal;
+  todayPaymentTotal: Prisma.Decimal;
+};
+
 export type CashDrawerLiveTotals = {
   cashIncomeTotal: Prisma.Decimal;
+  /** 今日非現金收入 gross（TRANSFER / LINE_PAY / CREDIT_CARD / OTHER），不影響抽屜現金 */
+  nonCashIncomeTotal: Prisma.Decimal;
+  /** 今日收款 gross 合計：cashIncomeTotal + nonCashIncomeTotal */
+  todayPaymentTotal: Prisma.Decimal;
   cashExpenseTotal: Prisma.Decimal;
   cashWithdrawalTotal: Prisma.Decimal;
   cashDepositTotal: Prisma.Decimal;
@@ -42,6 +54,8 @@ export type CashDrawerView =
       session: CashDrawerSession;
       /** 僅 OPEN 狀態下計算的 live preview；CLOSED 時為 null（值已凍結在 session 欄位） */
       liveTotals: CashDrawerLiveTotals | null;
+      /** 今日收款總覽（gross，不含退款 / 提領 / 補入 / 開店差額） */
+      paymentOverview: CashDrawerPaymentOverview;
       /** 今日所有手動異動（提領/補入/調整），最新在上 */
       entries: CashDrawerEntry[];
     }
@@ -58,14 +72,21 @@ export function deriveCashDrawerView(
   todaySession: CashDrawerSession | null,
   latestSessionOnOrBeforeToday: CashDrawerSession | null,
   todayLiveTotals: CashDrawerLiveTotals | null = null,
+  todayPaymentOverview: CashDrawerPaymentOverview | null = null,
   todayEntries: CashDrawerEntry[] = [],
   warningLiveTotals: CashDrawerLiveTotals | null = null,
 ): CashDrawerView {
   if (todaySession) {
+    if (!todayPaymentOverview) {
+      throw new Error(
+        "deriveCashDrawerView: todayPaymentOverview required when todaySession exists",
+      );
+    }
     return {
       state: "OPENED_TODAY",
       session: todaySession,
       liveTotals: todayLiveTotals,
+      paymentOverview: todayPaymentOverview,
       entries: todayEntries,
     };
   }
@@ -92,8 +113,9 @@ export function deriveCashDrawerView(
 export async function computeLiveTotalsForOpenSession(
   session: CashDrawerSession,
 ): Promise<CashDrawerLiveTotals> {
-  const [income, expense, manual, cashbook] = await Promise.all([
+  const [income, nonCashIncome, expense, manual, cashbook] = await Promise.all([
     computeCashIncomeForSession(session),
+    computeNonCashIncomeForSession(session),
     computeCashExpenseForSession(session),
     computeManualEntryTotals(session.id),
     computeCashbookCashMovementsForSession(session),
@@ -110,6 +132,8 @@ export async function computeLiveTotalsForOpenSession(
   });
   return {
     cashIncomeTotal: income,
+    nonCashIncomeTotal: nonCashIncome,
+    todayPaymentTotal: income.add(nonCashIncome),
     cashExpenseTotal: expense,
     cashWithdrawalTotal: manual.cashWithdrawalTotal,
     cashDepositTotal: manual.cashDepositTotal,
@@ -181,17 +205,28 @@ export async function getCashDrawerView(
   // 對今日 session（不論 OPEN/CLOSED）撈 entries 做列表顯示用
   // OPEN：給異動區塊與 live preview 用
   // CLOSED：給 read-only 歷史審視用
-  const [liveTotals, entries] = todaySession
+  const [liveTotals, paymentOverview, entries] = todaySession
     ? await Promise.all([
         todaySession.status === "OPEN"
           ? computeLiveTotalsForOpenSession(todaySession)
           : Promise.resolve(null),
+        todaySession.status === "OPEN"
+          ? Promise.resolve(null)
+          : computePaymentOverviewForSession(todaySession, todaySession.cashIncomeTotal),
         prisma.cashDrawerEntry.findMany({
           where: { sessionId: todaySession.id },
           orderBy: { createdAt: "desc" },
         }),
       ])
-    : [null, [] as CashDrawerEntry[]];
+    : [null, null, [] as CashDrawerEntry[]];
+  const todayPaymentOverview =
+    liveTotals
+      ? {
+          cashIncomeTotal: liveTotals.cashIncomeTotal,
+          nonCashIncomeTotal: liveTotals.nonCashIncomeTotal,
+          todayPaymentTotal: liveTotals.todayPaymentTotal,
+        }
+      : paymentOverview;
 
   // 若沒今日 session、且 latestSession 仍 OPEN，給 WARNING_LAST_OPEN 算 liveTotals
   const warningLiveTotals =
@@ -203,6 +238,7 @@ export async function getCashDrawerView(
     todaySession,
     latestSession,
     liveTotals,
+    todayPaymentOverview,
     entries,
     warningLiveTotals,
   );

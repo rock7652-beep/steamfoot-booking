@@ -17,7 +17,11 @@ import { Prisma } from "@prisma/client";
 
 import { formatTWTime } from "@/lib/date-utils";
 
-import type { CashDrawerView, CashDrawerLiveTotals } from "@/server/queries/cash-drawer";
+import type {
+  CashDrawerView,
+  CashDrawerLiveTotals,
+  CashDrawerPaymentOverview,
+} from "@/server/queries/cash-drawer";
 import type { CashDrawerEntry } from "@prisma/client";
 import type { ActionResult } from "@/types";
 import {
@@ -150,6 +154,7 @@ export function CashDrawerWorkspace({
         <OpenedTodayWorkspace
           session={view.session}
           liveTotals={view.liveTotals}
+          paymentOverview={view.paymentOverview}
           entries={view.entries}
           canClose={canClose}
           canAddEntry={canAddEntry}
@@ -594,6 +599,7 @@ function deriveClosedCashbookNet(session: OpenedTodaySession): string {
 function OpenedTodayWorkspace({
   session,
   liveTotals,
+  paymentOverview,
   entries,
   canClose,
   canAddEntry,
@@ -606,6 +612,7 @@ function OpenedTodayWorkspace({
 }: {
   session: OpenedTodaySession;
   liveTotals: CashDrawerLiveTotals | null;
+  paymentOverview: CashDrawerPaymentOverview;
   entries: CashDrawerEntry[];
   canClose: boolean;
   canAddEntry: boolean;
@@ -649,7 +656,7 @@ function OpenedTodayWorkspace({
 
   return (
     <div className="w-full space-y-3">
-      {/* 第一屏：今日狀態（含摘要 glance）+ 今日交易摘要 + 日常操作。
+      {/* 第一屏：今日狀態（含摘要 glance）+ 今日收款總覽 + 今日交易摘要 + 日常操作。
           桌機 3 欄（左 2 欄資訊、右 1 欄操作 sticky）；窄螢幕單欄靠 order 排序。 */}
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
         {/* A. 今日狀態卡 — 第一順位 */}
@@ -662,7 +669,7 @@ function OpenedTodayWorkspace({
         </div>
 
         {/* B. 日常操作區 — 窄螢幕第二順位（緊接狀態）；桌機沉到右欄並 sticky */}
-        <div className="order-2 lg:col-start-3 lg:row-span-2 lg:row-start-1 lg:self-start lg:sticky lg:top-4">
+        <div className="order-2 lg:col-start-3 lg:row-span-3 lg:row-start-1 lg:self-start lg:sticky lg:top-4">
           {!isClosed && liveTotals ? (
             <DailyActionsArea
               sessionId={session.id}
@@ -688,8 +695,13 @@ function OpenedTodayWorkspace({
           )}
         </div>
 
-        {/* C. 今日交易摘要 — 窄螢幕第三順位；桌機接在左欄狀態卡下方 */}
+        {/* C. 今日收款總覽 — 窄螢幕第三順位；桌機接在左欄狀態卡下方 */}
         <div className="order-3 lg:col-span-2 lg:col-start-1 lg:row-start-2">
+          <PaymentOverviewCard overview={paymentOverview} />
+        </div>
+
+        {/* D. 今日交易摘要 — 窄螢幕第四順位；桌機接在收款總覽下方 */}
+        <div className="order-4 lg:col-span-2 lg:col-start-1 lg:row-start-3">
           {summaryCard}
         </div>
       </div>
@@ -744,7 +756,7 @@ function OpenStatusCard({
       )}
 
       <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm sm:grid-cols-3">
-        <SummaryItem label="今日現金收入" value={`+ NT$ ${cashIn.toString()}`} tone="text-green-700" />
+        <SummaryItem label="今日現金流入" value={`+ NT$ ${cashIn.toString()}`} tone="text-green-700" />
         <SummaryItem label="今日現金支出" value={`− NT$ ${cashOut.toString()}`} tone="text-orange-700" />
         <SummaryItem
           label="今日提領"
@@ -767,6 +779,34 @@ function SummaryItem({ label, value, tone }: { label: string; value: string; ton
     <div>
       <dt className="text-xs text-earth-500">{label}</dt>
       <dd className={`mt-0.5 font-medium tabular-nums ${tone}`}>{value}</dd>
+    </div>
+  );
+}
+
+function PaymentOverviewCard({ overview }: { overview: CashDrawerPaymentOverview }) {
+  return (
+    <div className="rounded-xl border border-earth-200 bg-white p-4">
+      <h2 className="text-base font-semibold text-earth-900">今日收款總覽</h2>
+      <dl className="mt-3 grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
+        <div>
+          <dt className="text-earth-500">現金收入</dt>
+          <dd className="mt-1 text-base font-medium tabular-nums text-green-700">
+            NT$ {overview.cashIncomeTotal.toString()}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-earth-500">非現金收入</dt>
+          <dd className="mt-1 text-base font-medium tabular-nums text-blue-700">
+            NT$ {overview.nonCashIncomeTotal.toString()}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-earth-500">今日收款合計</dt>
+          <dd className="mt-1 text-base font-semibold tabular-nums text-earth-900">
+            NT$ {overview.todayPaymentTotal.toString()}
+          </dd>
+        </div>
+      </dl>
     </div>
   );
 }

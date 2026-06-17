@@ -78,6 +78,8 @@ import {
   addCashDrawerEntry,
   closeCashDrawer,
   computeCashIncomeForSession,
+  computeNonCashIncomeForSession,
+  computePaymentOverviewForSession,
   computeCashExpenseForSession,
   computeManualEntryTotals,
   computeCashbookCashMovementsForSession,
@@ -601,6 +603,86 @@ describe("computeCashExpenseForSession", () => {
     };
     expect(call.where.transactionDate.gte.getTime()).toBe(dayStart.getTime());
     expect(call.where.transactionDate.lte.getTime()).toBe(dayEnd.getTime());
+  });
+});
+
+describe("computeNonCashIncomeForSession / computePaymentOverviewForSession", () => {
+  it("加總並回傳非現金收入", async () => {
+    mockTxAggregate.mockResolvedValue({ _sum: { amount: D(1500) } });
+    const result = await computeNonCashIncomeForSession({
+      storeId: STORE_A,
+      businessDate: new Date(Date.UTC(2026, 4, 13)),
+    });
+    expect(result.toNumber()).toBe(1500);
+  });
+
+  it("非現金收入條件：排除 CASH / UNPAID，只納入已成功或已確認收款", async () => {
+    mockTxAggregate.mockResolvedValue({ _sum: { amount: null } });
+    await computeNonCashIncomeForSession({
+      storeId: STORE_A,
+      businessDate: new Date(Date.UTC(2026, 4, 13)),
+    });
+    const call = mockTxAggregate.mock.calls[0][0] as {
+      where: {
+        paymentMethod: { in: string[] };
+        transactionType: { in: string[] };
+        paymentStatus: { in: string[] };
+        status: string;
+        voidedAt: null;
+      };
+    };
+    expect(call.where.paymentMethod.in).toEqual([
+      "TRANSFER",
+      "LINE_PAY",
+      "CREDIT_CARD",
+      "OTHER",
+    ]);
+    expect(call.where.paymentMethod.in).not.toContain("CASH");
+    expect(call.where.paymentMethod.in).not.toContain("UNPAID");
+    expect(call.where.paymentStatus.in).toEqual(["SUCCESS", "CONFIRMED"]);
+    expect(call.where.status).toBe("SUCCESS");
+    expect(call.where.voidedAt).toBe(null);
+    expect(call.where.transactionType.in).toContain("TRIAL_PURCHASE");
+    expect(call.where.transactionType.in).toContain("SINGLE_PURCHASE");
+    expect(call.where.transactionType.in).toContain("PACKAGE_PURCHASE");
+    expect(call.where.transactionType.in).toContain("SUPPLEMENT");
+    expect(call.where.transactionType.in).not.toContain("REFUND");
+    expect(call.where.transactionType.in).not.toContain("SESSION_DEDUCTION");
+    expect(call.where.transactionType.in).not.toContain("MANUAL_USED_BACKFILL");
+    expect(call.where.transactionType.in).not.toContain("PAPER_MIGRATION");
+    expect(call.where.transactionType.in).not.toContain("ADJUSTMENT");
+  });
+
+  it("今日收款合計 = 現金收入 + 非現金收入", async () => {
+    mockTxAggregate
+      .mockResolvedValueOnce({ _sum: { amount: D(798) } })
+      .mockResolvedValueOnce({ _sum: { amount: D(1500) } });
+
+    const result = await computePaymentOverviewForSession({
+      storeId: STORE_A,
+      businessDate: new Date(Date.UTC(2026, 4, 13)),
+    });
+
+    expect(result.cashIncomeTotal.toNumber()).toBe(798);
+    expect(result.nonCashIncomeTotal.toNumber()).toBe(1500);
+    expect(result.todayPaymentTotal.toNumber()).toBe(2298);
+  });
+
+  it("可重用已算好的 cashIncomeTotal，避免重查現金收入", async () => {
+    mockTxAggregate.mockResolvedValueOnce({ _sum: { amount: D(1500) } });
+
+    const result = await computePaymentOverviewForSession(
+      {
+        storeId: STORE_A,
+        businessDate: new Date(Date.UTC(2026, 4, 13)),
+      },
+      D(798),
+    );
+
+    expect(mockTxAggregate).toHaveBeenCalledTimes(1);
+    expect(result.cashIncomeTotal.toNumber()).toBe(798);
+    expect(result.nonCashIncomeTotal.toNumber()).toBe(1500);
+    expect(result.todayPaymentTotal.toNumber()).toBe(2298);
   });
 });
 

@@ -88,6 +88,7 @@ describe("computeLiveTotalsForOpenSession", () => {
     // entries：提領 3000 (OUT)、補入 500 (IN)、調整 IN 100、調整 OUT 50
     mockTxAggregate
       .mockResolvedValueOnce({ _sum: { amount: D(8000) } }) // income (REVENUE_TYPES)
+      .mockResolvedValueOnce({ _sum: { amount: D(0) } }) // non-cash income
       .mockResolvedValueOnce({ _sum: { amount: D(-1000) } }); // expense (REFUND)
     mockEntryFindMany.mockResolvedValue([
       { type: "CASH_WITHDRAWAL", direction: "OUT", amount: D(3000) },
@@ -104,6 +105,8 @@ describe("computeLiveTotalsForOpenSession", () => {
     //     = 5000 + 8000 - 1000 - 3000 + 500 + (100 - 50)
     //     = 9550
     expect(result.cashIncomeTotal.toNumber()).toBe(8000);
+    expect(result.nonCashIncomeTotal.toNumber()).toBe(0);
+    expect(result.todayPaymentTotal.toNumber()).toBe(8000);
     expect(result.cashExpenseTotal.toNumber()).toBe(1000); // 翻正
     expect(result.cashWithdrawalTotal.toNumber()).toBe(3000);
     expect(result.cashDepositTotal.toNumber()).toBe(500);
@@ -128,6 +131,7 @@ describe("computeLiveTotalsForOpenSession", () => {
   it("開店補入差額已在抽屜內，主數字應納入但不污染今日現金收入", async () => {
     mockTxAggregate
       .mockResolvedValueOnce({ _sum: { amount: D(798) } })
+      .mockResolvedValueOnce({ _sum: { amount: D(0) } })
       .mockResolvedValueOnce({ _sum: { amount: D(0) } });
     mockEntryFindMany.mockResolvedValue([]);
     mockCashbookGroupBy.mockResolvedValue([
@@ -143,6 +147,7 @@ describe("computeLiveTotalsForOpenSession", () => {
     );
 
     expect(result.cashIncomeTotal.toNumber()).toBe(798);
+    expect(result.todayPaymentTotal.toNumber()).toBe(798);
     expect(result.cashbookCashOut.toNumber()).toBe(260);
     expect(result.expectedClosingCash.toNumber()).toBe(2059);
   });
@@ -150,6 +155,7 @@ describe("computeLiveTotalsForOpenSession", () => {
   it("開店短少差額會扣低抽屜實體應有現金，但不污染今日現金收入", async () => {
     mockTxAggregate
       .mockResolvedValueOnce({ _sum: { amount: D(798) } })
+      .mockResolvedValueOnce({ _sum: { amount: D(0) } })
       .mockResolvedValueOnce({ _sum: { amount: D(0) } });
     mockEntryFindMany.mockResolvedValue([]);
     mockCashbookGroupBy.mockResolvedValue([
@@ -165,6 +171,7 @@ describe("computeLiveTotalsForOpenSession", () => {
     );
 
     expect(result.cashIncomeTotal.toNumber()).toBe(798);
+    expect(result.todayPaymentTotal.toNumber()).toBe(798);
     expect(result.cashbookCashOut.toNumber()).toBe(260);
     expect(result.expectedClosingCash.toNumber()).toBe(1621);
   });
@@ -172,6 +179,7 @@ describe("computeLiveTotalsForOpenSession", () => {
   it("REFUND amount 為負數時 cashExpenseTotal 翻成正數量級（鐵則）", async () => {
     mockTxAggregate
       .mockResolvedValueOnce({ _sum: { amount: D(0) } }) // income
+      .mockResolvedValueOnce({ _sum: { amount: D(0) } }) // non-cash income
       .mockResolvedValueOnce({ _sum: { amount: D(-500) } }); // expense (negative)
     mockEntryFindMany.mockResolvedValue([]);
 
@@ -182,6 +190,31 @@ describe("computeLiveTotalsForOpenSession", () => {
     expect(result.cashExpenseTotal.toNumber()).toBe(500); // 翻正後是 500
     // expectedClosingCash = 1000 - 500 = 500
     expect(result.expectedClosingCash.toNumber()).toBe(500);
+  });
+
+  it("非現金收入進今日收款合計，但不影響 expectedClosingCash", async () => {
+    mockTxAggregate
+      .mockResolvedValueOnce({ _sum: { amount: D(798) } }) // cash income
+      .mockResolvedValueOnce({ _sum: { amount: D(1500) } }) // non-cash income
+      .mockResolvedValueOnce({ _sum: { amount: D(0) } }); // cash refund
+    mockEntryFindMany.mockResolvedValue([]);
+    mockCashbookGroupBy.mockResolvedValue([
+      { type: "EXPENSE", _sum: { amount: D(260) } },
+    ]);
+
+    const result = await computeLiveTotalsForOpenSession(
+      makeOpenSession({
+        openingBookBalance: D(1083),
+        openingActualCash: D(1521),
+        openingDifference: D(438),
+      }),
+    );
+
+    expect(result.cashIncomeTotal.toNumber()).toBe(798);
+    expect(result.nonCashIncomeTotal.toNumber()).toBe(1500);
+    expect(result.todayPaymentTotal.toNumber()).toBe(2298);
+    expect(result.cashbookCashOut.toNumber()).toBe(260);
+    expect(result.expectedClosingCash.toNumber()).toBe(2059);
   });
 });
 
