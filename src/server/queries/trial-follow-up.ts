@@ -8,6 +8,7 @@
  *   - Transaction.transactionType = TRIAL_PURCHASE
  *   - Transaction.status = SUCCESS（排除 VOIDED / REFUNDED）
  *   - Customer.convertedAt IS NULL（未轉方案）
+ *   - Customer 沒有有效 PACKAGE wallet（避免已購正式方案但 convertedAt 尚未更新時誤列）
  *   - Customer.mergedIntoCustomerId IS NULL（排除已合併）
  *   - Customer.user.status != SUSPENDED（排除停用）
  *   - store isolation 走 getStoreFilter
@@ -22,6 +23,8 @@
 
 import { prisma } from "@/lib/db";
 import { getStoreFilter } from "@/lib/manager-visibility";
+import { todayRange } from "@/lib/date-utils";
+import type { Prisma } from "@prisma/client";
 
 type SessionLike = {
   role: string;
@@ -67,6 +70,7 @@ export async function getTrialFollowUpList(
   filters: TrialFollowUpFilters = {},
 ): Promise<TrialFollowUpRow[]> {
   const storeFilter = getStoreFilter(user, activeStoreId);
+  const { start: todayStartLocal } = todayRange();
 
   // Step 1: groupBy customer → 最近一筆 SUCCESS TRIAL_PURCHASE paidAt
   // 排除條件 attach 在 customer relation filter；store isolation 同層
@@ -75,21 +79,31 @@ export async function getTrialFollowUpList(
       ? new Date(Date.now() - filters.withinDays * 24 * 60 * 60 * 1000)
       : null;
 
+  const validPackageWalletWhere: Prisma.CustomerPlanWalletWhereInput = {
+    status: "ACTIVE",
+    remainingSessions: { gt: 0 },
+    plan: { category: "PACKAGE" },
+    OR: [{ expiryDate: null }, { expiryDate: { gte: todayStartLocal } }],
+  };
+
+  const trialFollowUpCustomerWhere: Prisma.CustomerWhereInput = {
+    convertedAt: null,
+    mergedIntoCustomerId: null,
+    planWallets: { none: validPackageWalletWhere },
+    // 排除停用 — relation filter；user 為 null 也算「未綁定登入帳號」，仍可顯示
+    NOT: { user: { is: { status: "SUSPENDED" } } },
+    ...(filters.assignedStaffId
+      ? { assignedStaffId: filters.assignedStaffId }
+      : {}),
+  };
+
   const groups = await prisma.transaction.groupBy({
     by: ["customerId"],
     where: {
       transactionType: "TRIAL_PURCHASE",
       status: "SUCCESS",
       ...storeFilter,
-      customer: {
-        convertedAt: null,
-        mergedIntoCustomerId: null,
-        // 排除停用 — relation filter；user 為 null 也算「未綁定登入帳號」，仍可顯示
-        NOT: { user: { is: { status: "SUSPENDED" } } },
-        ...(filters.assignedStaffId
-          ? { assignedStaffId: filters.assignedStaffId }
-          : {}),
-      },
+      customer: trialFollowUpCustomerWhere,
       ...(cutoffDate ? { paidAt: { gte: cutoffDate } } : {}),
     },
     _max: { paidAt: true, createdAt: true },
@@ -110,6 +124,7 @@ export async function getTrialFollowUpList(
       transactionType: "TRIAL_PURCHASE",
       status: "SUCCESS",
       ...storeFilter,
+      customer: trialFollowUpCustomerWhere,
       OR: orConds,
     },
     select: {
