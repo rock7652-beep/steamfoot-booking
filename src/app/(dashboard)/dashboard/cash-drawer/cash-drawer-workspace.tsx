@@ -626,26 +626,23 @@ function OpenedTodayWorkspace({
   const isClosed = session.status === "CLOSED";
 
   // PR-G5.1a v2：桌機 / iPad 友善版面。
-  //   桌機（lg+）：左 2/3 今日狀態 + 今日摘要、右 1/3 日常操作（sticky），
+  //   桌機（lg+）：左 2/3 今日狀態 + 收款總覽 / 其他異動、右 1/3 日常操作（sticky），
   //               兩者在第一屏並排；開店紀錄 / 現金異動置於下方 full width。
   //   iPad / 手機（< lg）：單欄，靠 order 控制資訊優先序
-  //               「今日狀態 → 日常操作 → 今日摘要 → 紀錄」，
+  //               「今日狀態 → 日常操作 → 收款總覽 → 其他異動 → 紀錄」，
   //               讓店長一進來先看到狀態與要按的操作，而非一堆明細。
   const summaryCard = !isClosed && liveTotals ? (
     <TransactionSummaryCard
       live
-      cashIncome={liveTotals.cashIncomeTotal.toString()}
       cashExpense={liveTotals.cashExpenseTotal.toString()}
       cashWithdrawal={liveTotals.cashWithdrawalTotal.toString()}
       cashDeposit={liveTotals.cashDepositTotal.toString()}
       cashAdjustment={liveTotals.cashAdjustmentTotal.toString()}
-      cashbookCashIncome={liveTotals.cashbookCashIncome.toString()}
       cashbookCashOut={liveTotals.cashbookCashOut.toString()}
     />
   ) : (
     <TransactionSummaryCard
       live={false}
-      cashIncome={session.cashIncomeTotal.toString()}
       cashExpense={session.cashExpenseTotal.toString()}
       cashWithdrawal={session.cashWithdrawalTotal.toString()}
       cashDeposit={session.cashDepositTotal.toString()}
@@ -656,7 +653,7 @@ function OpenedTodayWorkspace({
 
   return (
     <div className="w-full space-y-3">
-      {/* 第一屏：今日狀態（含摘要 glance）+ 今日收款總覽 + 今日交易摘要 + 日常操作。
+      {/* 第一屏：今日狀態（含摘要 glance）+ 今日收款總覽 + 今日其他異動 + 日常操作。
           桌機 3 欄（左 2 欄資訊、右 1 欄操作 sticky）；窄螢幕單欄靠 order 排序。 */}
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
         {/* A. 今日狀態卡 — 第一順位 */}
@@ -700,7 +697,7 @@ function OpenedTodayWorkspace({
           <PaymentOverviewCard overview={paymentOverview} />
         </div>
 
-        {/* D. 今日交易摘要 — 窄螢幕第四順位；桌機接在收款總覽下方 */}
+        {/* D. 今日其他異動 — 窄螢幕第四順位；桌機接在收款總覽下方 */}
         <div className="order-4 lg:col-span-2 lg:col-start-1 lg:row-start-3">
           {summaryCard}
         </div>
@@ -733,7 +730,7 @@ function OpenStatusCard({
   todayStr: string;
 }) {
   // 店長導向的「現金進 / 出」glance：把交易與現金帳的現金收付合併成單一數字。
-  // 詳細拆解仍在下方「今日交易摘要」卡（含現金帳 / 退款 / 調整逐項）。
+  // 其他非收入異動仍在下方「今日其他異動」卡（含退款 / 提領 / 調整逐項）。
   const cashIn = liveTotals.cashIncomeTotal.add(liveTotals.cashbookCashIncome);
   const cashOut = liveTotals.cashExpenseTotal.add(liveTotals.cashbookCashOut);
   const openingDiff = formatDiff(session.openingDifference.toNumber());
@@ -1190,107 +1187,115 @@ function OpeningRecordCard({ session }: { session: OpenedTodaySession }) {
 }
 
 // ============================================================
-// 子卡：今日交易摘要（OPEN live / CLOSED snapshot 共用，金額由 caller 字串化）
+// 子卡：今日其他異動（OPEN live / CLOSED snapshot 共用，金額由 caller 字串化）
 // 系統應有現金 highlight 已收進今日狀態卡 + 閉店點錢按鈕內
 // ============================================================
 
+function amountIsZero(value: string | undefined): boolean {
+  return value === undefined || value === "—" || new Prisma.Decimal(value).equals(0);
+}
+
+function formatSignedAmount(value: string, direction?: "in" | "out"): string {
+  const amount = new Prisma.Decimal(value);
+  if (direction === "in") return `+ NT$ ${amount.abs().toString()}`;
+  if (direction === "out") return `− NT$ ${amount.abs().toString()}`;
+  if (amount.gt(0)) return `+ NT$ ${amount.toString()}`;
+  if (amount.lt(0)) return `− NT$ ${amount.abs().toString()}`;
+  return "NT$ 0";
+}
+
 function TransactionSummaryCard({
   live,
-  cashIncome,
   cashExpense,
   cashWithdrawal,
   cashDeposit,
   cashAdjustment,
-  cashbookCashIncome,
   cashbookCashOut,
   cashbookNet,
 }: {
   live: boolean;
-  cashIncome: string;
   cashExpense: string;
   cashWithdrawal: string;
   cashDeposit: string;
   cashAdjustment: string;
-  /** OPEN：當日現金帳 CASH INCOME 合計（live） */
-  cashbookCashIncome?: string;
   /** OPEN：當日現金帳 CASH EXPENSE + WITHDRAW 合計（live） */
   cashbookCashOut?: string;
   /** CLOSED：從 frozen expectedClosingCash 反推的現金帳淨額（signed） */
   cashbookNet?: string;
 }) {
+  const items: Array<{
+    label: string;
+    value: string;
+    tone: string;
+  }> = [];
+
+  if (!amountIsZero(cashExpense)) {
+    items.push({
+      label: "現金退款",
+      value: formatSignedAmount(cashExpense, "out"),
+      tone: "text-orange-700",
+    });
+  }
+  if (!amountIsZero(cashWithdrawal)) {
+    items.push({
+      label: "提領",
+      value: formatSignedAmount(cashWithdrawal, "out"),
+      tone: "text-orange-700",
+    });
+  }
+  if (!amountIsZero(cashDeposit)) {
+    items.push({
+      label: "補入",
+      value: formatSignedAmount(cashDeposit, "in"),
+      tone: "text-green-700",
+    });
+  }
+  if (!amountIsZero(cashAdjustment)) {
+    const adjustment = new Prisma.Decimal(cashAdjustment);
+    items.push({
+      label: "調整",
+      value: formatSignedAmount(cashAdjustment),
+      tone: adjustment.gte(0) ? "text-green-700" : "text-orange-700",
+    });
+  }
+  if (live && !amountIsZero(cashbookCashOut)) {
+    items.push({
+      label: "現金帳支出",
+      value: formatSignedAmount(cashbookCashOut ?? "0", "out"),
+      tone: "text-orange-700",
+    });
+  }
+  if (!live && !amountIsZero(cashbookNet)) {
+    const net = new Prisma.Decimal(cashbookNet ?? "0");
+    items.push({
+      label: "現金帳淨額（現金）",
+      value: formatSignedAmount(cashbookNet ?? "0"),
+      tone: net.gte(0) ? "text-green-700" : "text-orange-700",
+    });
+  }
+
   return (
     <div className="rounded-xl border border-earth-200 bg-white p-4">
-      <h2 className="text-base font-semibold text-earth-900">今日交易摘要</h2>
+      <h2 className="text-base font-semibold text-earth-900">今日其他異動</h2>
       <p className="mt-1 text-xs text-earth-500">
         {live ? "系統即時計算，閉店時凍結進快照欄位" : "閉店時凍結的快照"}
       </p>
-      <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
-        <div>
-          <dt className="text-earth-500">現金收入</dt>
-          <dd className="mt-1 text-base font-medium tabular-nums text-green-700">
-            + NT$ {cashIncome}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-earth-500">現金退款</dt>
-          <dd className="mt-1 text-base font-medium tabular-nums text-orange-700">
-            − NT$ {cashExpense}
-          </dd>
-        </div>
-        <div className="col-span-2">
-          <dt className="text-earth-500">手動異動</dt>
-          <dd className="mt-2 grid grid-cols-3 gap-2 text-sm">
-            <div className="rounded-lg bg-earth-50 px-3 py-2">
-              <div className="text-xs text-earth-500">提領</div>
-              <div className="mt-0.5 font-medium tabular-nums text-earth-800">
-                NT$ {cashWithdrawal}
-              </div>
+      {items.length === 0 ? (
+        <p className="mt-3 rounded-lg bg-earth-50 px-3 py-2 text-sm text-earth-600">
+          無異動
+        </p>
+      ) : (
+        <dl className="mt-3 grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
+          {items.map((item) => (
+            <div key={item.label} className="rounded-lg bg-earth-50 px-3 py-2">
+              <dt className="text-xs text-earth-500">{item.label}</dt>
+              <dd className={`mt-0.5 font-medium tabular-nums ${item.tone}`}>
+                {item.value}
+              </dd>
             </div>
-            <div className="rounded-lg bg-earth-50 px-3 py-2">
-              <div className="text-xs text-earth-500">補入</div>
-              <div className="mt-0.5 font-medium tabular-nums text-earth-800">
-                NT$ {cashDeposit}
-              </div>
-            </div>
-            <div className="rounded-lg bg-earth-50 px-3 py-2">
-              <div className="text-xs text-earth-500">調整</div>
-              <div className="mt-0.5 font-medium tabular-nums text-earth-800">
-                NT$ {cashAdjustment}
-              </div>
-            </div>
-          </dd>
-        </div>
-
-        {/* PR-3：現金帳（CashbookEntry, paymentMethod=CASH）對抽屜的影響。
-            OPEN 顯示 live 收入/支出兩行；CLOSED 從凍結快照反推單一淨額。 */}
-        {live && cashbookCashIncome !== undefined && cashbookCashOut !== undefined && (
-          <div className="col-span-2">
-            <dt className="text-earth-500">現金帳（現金收付）</dt>
-            <dd className="mt-2 grid grid-cols-2 gap-2 text-sm">
-              <div className="rounded-lg bg-earth-50 px-3 py-2">
-                <div className="text-xs text-earth-500">現金帳現金收入</div>
-                <div className="mt-0.5 font-medium tabular-nums text-green-700">
-                  + NT$ {cashbookCashIncome}
-                </div>
-              </div>
-              <div className="rounded-lg bg-earth-50 px-3 py-2">
-                <div className="text-xs text-earth-500">現金帳現金支出</div>
-                <div className="mt-0.5 font-medium tabular-nums text-orange-700">
-                  − NT$ {cashbookCashOut}
-                </div>
-              </div>
-            </dd>
-          </div>
-        )}
-        {!live && cashbookNet !== undefined && (
-          <div className="col-span-2">
-            <dt className="text-earth-500">現金帳淨額（現金）</dt>
-            <dd className="mt-1 text-base font-medium tabular-nums text-earth-800">
-              NT$ {cashbookNet}
-            </dd>
-          </div>
-        )}
-      </dl>
+          ))}
+        </dl>
+      )}
     </div>
   );
 }
