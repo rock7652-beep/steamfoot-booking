@@ -260,10 +260,9 @@ export default async function DashboardHomePage() {
     { href: "/dashboard/settings", label: "設定", hint: "店舖 / 店長 / 方案" },
   ];
 
-  // 首頁頂部「每日工作台」三欄:今日開店檢查(現金抽屜) / 今日顧客經營 / 今天待處理。
-  // 桌機 lg 三等分,窄版自動上下堆疊；有權限缺席的卡會被濾掉,grid 欄數依實際張數收斂,
-  // 避免留下空白欄(單張時佔滿整行)。
-  const topCards = [
+  // 首頁頂部「每日工作台」:桌機第一排只放兩張摘要卡,今天待處理獨立放第二排全寬。
+  // 有權限缺席的摘要卡會被濾掉,單張時佔滿整行；待處理固定保留,避免重要內容被第三欄壓窄。
+  const summaryCards = [
     cashDrawerView ? (
       <CashDrawerTodayCard
         key="cash-drawer"
@@ -275,11 +274,7 @@ export default async function DashboardHomePage() {
     canViewCustomers ? (
       <CustomerCareSummaryCard key="customer-care" summary={careSummary} />
     ) : null,
-    <StoreTodoCard key="store-todo" items={todos.items} defaultVisible={3} />,
   ].filter(Boolean);
-
-  const topGridCols =
-    topCards.length >= 3 ? "lg:grid-cols-3" : topCards.length === 2 ? "lg:grid-cols-2" : "";
 
   return (
     <PageShell>
@@ -305,13 +300,16 @@ export default async function DashboardHomePage() {
         }
       />
 
-      {topCards.length > 1 ? (
-        <div className={`grid grid-cols-1 items-start gap-3 ${topGridCols}`}>
-          {topCards}
-        </div>
-      ) : (
-        topCards
-      )}
+      <div className="space-y-3">
+        {summaryCards.length > 1 ? (
+          <div className="grid grid-cols-1 items-start gap-3 lg:grid-cols-2">
+            {summaryCards}
+          </div>
+        ) : (
+          summaryCards
+        )}
+        <StoreTodoCard items={todos.items} defaultVisible={3} />
+      </div>
 
       {resolvedRequest ? (
         <UpgradeResultBanner
