@@ -37,6 +37,13 @@ enum CustomerStage {
   INACTIVE // 曾購課但目前無有效課程
 }
 
+enum CustomerFollowUpResult {
+  CONTACTED // 已聯絡
+  NO_ANSWER // 未接電話
+  BOOKED // 已預約
+  OTHER // 其他
+}
+
 enum TalentStage {
   CUSTOMER // 一般顧客
   REGULAR // 常客（穩定回訪）
@@ -372,6 +379,7 @@ model User {
   opsActionLogs        OpsActionLog[]
   opsActionHistories   OpsActionHistory[]
   talentStageChanges   TalentStageLog[]   @relation("TalentStageChangedBy")
+  customerFollowUps    CustomerFollowUp[]  @relation("CustomerFollowUpCreatedBy")
   reviewedCheckinPosts CheckinPost[]      @relation("CheckinPostReviewedBy")
 
   // Transaction void / audit
@@ -494,6 +502,7 @@ model Store {
   spaceFeeRecords      SpaceFeeRecord[]
   messageLogs          MessageLog[]
   talentStageLogs      TalentStageLog[]
+  customerFollowUps    CustomerFollowUp[]
   referrals            Referral[]
   pointRecords         PointRecord[]
   bonusRules           BonusRule[]
@@ -651,6 +660,9 @@ model Customer {
   // 蒸足心得 / 打卡貼文
   checkinPosts CheckinPost[]
 
+  // 顧客經營追蹤紀錄（簡易 CRM-lite）
+  followUps CustomerFollowUp[]
+
   @@unique([storeId, phone], name: "uq_store_customer_phone")
   @@unique([storeId, email], name: "uq_store_customer_email")
   @@unique([storeId, googleId], name: "uq_store_customer_google")
@@ -664,6 +676,28 @@ model Customer {
   @@index([sponsorId])
   @@index([phone])
   @@index([mergedIntoCustomerId]) // 列表過濾 mergedIntoCustomerId IS NULL 用
+}
+
+// ============================================================
+// CustomerFollowUp（顧客經營簡易追蹤紀錄）
+// ============================================================
+
+model CustomerFollowUp {
+  id              String                 @id @default(cuid())
+  customerId      String
+  storeId         String
+  createdByUserId String
+  result          CustomerFollowUpResult
+  note            String?
+  createdAt       DateTime               @default(now())
+
+  customer  Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  store     Store    @relation(fields: [storeId], references: [id])
+  createdBy User     @relation("CustomerFollowUpCreatedBy", fields: [createdByUserId], references: [id])
+
+  @@index([customerId, createdAt])
+  @@index([storeId, createdAt])
+  @@index([createdByUserId])
 }
 
 // ============================================================

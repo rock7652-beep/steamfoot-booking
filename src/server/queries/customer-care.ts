@@ -37,7 +37,7 @@ import {
   getTrialFollowUpList,
   type TrialFollowUpRow,
 } from "@/server/queries/trial-follow-up";
-import type { Prisma } from "@prisma/client";
+import type { CustomerFollowUpResult, Prisma } from "@prisma/client";
 
 /** 好久不見門檻：最後一次 COMPLETED booking 距今「超過」N 天才列入 */
 export const INACTIVE_AFTER_DAYS = 30;
@@ -58,6 +58,14 @@ interface CareCustomerBase {
   assignedStaffId: string | null;
   assignedStaffName: string | null;
   assignedStaffColor: string | null;
+  lastFollowUp: CustomerCareLastFollowUp | null;
+}
+
+export interface CustomerCareLastFollowUp {
+  result: CustomerFollowUpResult;
+  note: string | null;
+  createdAt: Date;
+  createdByName: string;
 }
 
 export interface InactiveCustomerRow extends CareCustomerBase {
@@ -82,7 +90,7 @@ export interface ExpiringPlanCustomerRow extends CareCustomerBase {
 }
 
 export interface CustomerCareOverview {
-  trialFollowUps: TrialFollowUpRow[];
+  trialFollowUps: Array<TrialFollowUpRow & { lastFollowUp: CustomerCareLastFollowUp | null }>;
   inactiveCustomers: InactiveCustomerRow[];
   lowSessionCustomers: LowSessionCustomerRow[];
   expiringPlanCustomers: ExpiringPlanCustomerRow[];
@@ -92,6 +100,40 @@ export interface CustomerCareOverview {
     lowSessionCustomers: number;
     expiringPlanCustomers: number;
   };
+}
+
+async function getLatestFollowUpMap(
+  customerIds: string[],
+  storeFilter: Prisma.CustomerFollowUpWhereInput,
+): Promise<Map<string, CustomerCareLastFollowUp>> {
+  if (customerIds.length === 0) return new Map();
+
+  const rows = await prisma.customerFollowUp.findMany({
+    where: {
+      ...storeFilter,
+      customerId: { in: customerIds },
+    },
+    select: {
+      customerId: true,
+      result: true,
+      note: true,
+      createdAt: true,
+      createdBy: { select: { name: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  const map = new Map<string, CustomerCareLastFollowUp>();
+  for (const row of rows) {
+    if (map.has(row.customerId)) continue;
+    map.set(row.customerId, {
+      result: row.result,
+      note: row.note,
+      createdAt: row.createdAt,
+      createdByName: row.createdBy.name,
+    });
+  }
+  return map;
 }
 
 /**
@@ -133,7 +175,7 @@ export async function getCustomerCareOverview(
   };
 
   // (1) 待追蹤體驗客 — 直接複用既有 query（自帶 store isolation / 排除 converted/merged/suspended/VOIDED/REFUNDED）
-  const trialFollowUps = await getTrialFollowUpList(user, activeStoreId);
+  const rawTrialFollowUps = await getTrialFollowUpList(user, activeStoreId);
 
   // (2)(3)(4) 母體：擁有至少一個「有效 PACKAGE 方案」的顧客
   //   排除已合併 / 已停用；有效方案過濾在 DB 層，已自動排除過期 / 停用 / 已用完 wallet。
@@ -158,6 +200,21 @@ export async function getCustomerCareOverview(
       },
     },
   });
+
+  const allCustomerIds = Array.from(
+    new Set([
+      ...rawTrialFollowUps.map((r) => r.customerId),
+      ...careCustomers.map((c) => c.id),
+    ]),
+  );
+  const latestFollowUpMap = await getLatestFollowUpMap(
+    allCustomerIds,
+    storeFilter as Prisma.CustomerFollowUpWhereInput,
+  );
+  const trialFollowUps = rawTrialFollowUps.map((r) => ({
+    ...r,
+    lastFollowUp: latestFollowUpMap.get(r.customerId) ?? null,
+  }));
 
   if (careCustomers.length === 0) {
     return {
@@ -198,6 +255,7 @@ export async function getCustomerCareOverview(
       assignedStaffId: c.assignedStaffId,
       assignedStaffName: c.assignedStaff?.displayName ?? null,
       assignedStaffColor: c.assignedStaff?.colorCode ?? null,
+      lastFollowUp: latestFollowUpMap.get(c.id) ?? null,
     };
 
     // 有效 PACKAGE 堂數加總（planWallets 已在 DB 層過濾為有效 PACKAGE）

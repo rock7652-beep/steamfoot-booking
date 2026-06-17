@@ -32,6 +32,7 @@ import {
 } from "@/lib/booking-constants";
 import { getMyReferralSummary } from "@/server/queries/my-referral-summary";
 import { formatTWTime, toLocalDateStr } from "@/lib/date-utils";
+import { CUSTOMER_FOLLOW_UP_RESULT_LABEL } from "@/lib/customer-follow-up";
 import { TALENT_STAGE_LABELS } from "@/types/talent";
 import type { CustomerStage, TalentStage } from "@prisma/client";
 import { deriveCustomerSource, type CustomerSourceSnapshot } from "@/lib/customer-source";
@@ -659,6 +660,34 @@ export default async function CustomerDetailPage({ params }: PageProps) {
             assignedStaff={customer.assignedStaff}
             notes={customer.notes}
           />
+
+          <SideCard title="追蹤紀錄" subtitle="最近聯絡狀態">
+            {customer.followUps.length === 0 ? (
+              <p className="text-xs text-earth-500">尚無追蹤紀錄</p>
+            ) : (
+              <div className="space-y-2">
+                {customer.followUps.map((followUp) => (
+                  <div
+                    key={followUp.id}
+                    className="rounded-md border border-earth-100 bg-earth-50/40 px-3 py-2"
+                  >
+                    <p className="text-xs font-medium text-earth-800">
+                      {CUSTOMER_FOLLOW_UP_RESULT_LABEL[followUp.result]}
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-earth-500">
+                      {followUp.createdBy.name} ·{" "}
+                      {formatTWTime(followUp.createdAt, { style: "short" })}
+                    </p>
+                    {followUp.note ? (
+                      <p className="mt-1.5 whitespace-pre-wrap text-xs leading-relaxed text-earth-700">
+                        {followUp.note}
+                      </p>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            )}
+          </SideCard>
 
           {/* 身分診斷（協助店長判斷真實註冊方式 + 偵測來源異常）*/}
           <IdentityDiagnosticPanel

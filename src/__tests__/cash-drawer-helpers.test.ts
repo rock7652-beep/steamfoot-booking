@@ -3,7 +3,7 @@
  *
  * 涵蓋：
  *   - computeOpeningDifference
- *   - computeExpectedClosingCash（含 finalBookBalance = expectedClosingCash 鐵則）
+ *   - computeExpectedClosingCash（抽屜實體現金基準）
  *   - computeClosingDifference
  *   - assertSessionMutable（CLOSED 鎖定）
  *   - resolveDirectionForType（WITHDRAWAL/DEPOSIT 自動、ADJUSTMENT 顯式）
@@ -38,7 +38,7 @@ describe("computeOpeningDifference", () => {
 describe("computeExpectedClosingCash 滾動結餘公式", () => {
   it("套用完整公式（含 cashAdjustmentTotal 為正）", () => {
     const result = computeExpectedClosingCash({
-      openingBookBalance: D(5000),
+      openingActualCash: D(5000),
       cashIncomeTotal: D(8000),
       cashExpenseTotal: D(1000),
       cashWithdrawalTotal: D(3000),
@@ -50,7 +50,7 @@ describe("computeExpectedClosingCash 滾動結餘公式", () => {
 
   it("cashAdjustmentTotal 為負數時正確扣除", () => {
     const result = computeExpectedClosingCash({
-      openingBookBalance: D(5000),
+      openingActualCash: D(5000),
       cashIncomeTotal: D(0),
       cashExpenseTotal: D(0),
       cashWithdrawalTotal: D(0),
@@ -60,18 +60,16 @@ describe("computeExpectedClosingCash 滾動結餘公式", () => {
     expect(result.toNumber()).toBe(4800);
   });
 
-  it("用 openingBookBalance 計算（不該被 actualCash 影響）", () => {
-    // 鐵則：expectedClosingCash 用 openingBookBalance，不用 openingActualCash
-    // 此測試只能在 computeExpectedClosingCash 簽名上驗證 — 它根本不接受 actualCash 參數
+  it("用 openingActualCash 計算，讓開店補入差額進入抽屜實體應有現金", () => {
     const result = computeExpectedClosingCash({
-      openingBookBalance: D(5050),
-      cashIncomeTotal: D(0),
+      openingActualCash: D(5488),
+      cashIncomeTotal: D(798),
       cashExpenseTotal: D(0),
-      cashWithdrawalTotal: D(0),
+      cashWithdrawalTotal: D(260),
       cashDepositTotal: D(0),
       cashAdjustmentTotal: D(0),
     });
-    expect(result.toNumber()).toBe(5050);
+    expect(result.toNumber()).toBe(6026);
   });
 });
 

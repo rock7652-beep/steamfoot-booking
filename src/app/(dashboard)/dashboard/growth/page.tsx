@@ -13,6 +13,7 @@ import {
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { getCustomerCareOverview } from "@/server/queries/customer-care";
 import { CareRowActions } from "./_components/care-row-actions";
+import { formatRelativeDaysTW } from "@/lib/customer-follow-up";
 
 /**
  * /dashboard/growth — 顧客經營 MVP（PR-2B）
@@ -53,6 +54,15 @@ function dateOnly(d: Date): string {
   return formatTWTime(d, { dateOnly: true });
 }
 
+function followUpText(
+  followUp: NonNullable<
+    Awaited<ReturnType<typeof getCustomerCareOverview>>["trialFollowUps"][number]["lastFollowUp"]
+  > | null,
+): string {
+  if (!followUp) return "最後追蹤：從未追蹤";
+  return `最後追蹤：${followUp.createdByName}・${formatRelativeDaysTW(followUp.createdAt)}`;
+}
+
 /** 各區統一的顯示模型（理由 / 次要資訊都在 server 端算好） */
 interface CareItem {
   customerId: string;
@@ -63,6 +73,7 @@ interface CareItem {
   /** 次要資訊行（日期 / 金額 / 總堂數等）；無則 null */
   meta: string | null;
   staffName: string | null;
+  lastFollowUpText: string;
   script: string;
 }
 
@@ -96,6 +107,7 @@ export default async function CustomerCarePage() {
       .filter(Boolean)
       .join("｜"),
     staffName: r.assignedStaffName,
+    lastFollowUpText: followUpText(r.lastFollowUp),
     script: SCRIPTS.trial,
   }));
 
@@ -106,6 +118,7 @@ export default async function CustomerCarePage() {
     reason: `已 ${r.daysSinceLastVisit} 天未到店,仍有 ${r.validPackageSessions} 堂`,
     meta: `最後到店 ${dateOnly(r.lastVisitAt)}`,
     staffName: r.assignedStaffName,
+    lastFollowUpText: followUpText(r.lastFollowUp),
     script: SCRIPTS.inactive,
   }));
 
@@ -119,6 +132,7 @@ export default async function CustomerCarePage() {
         : `剩 ${r.validPackageSessions} 堂,可提前安排後續`,
     meta: null,
     staffName: r.assignedStaffName,
+    lastFollowUpText: followUpText(r.lastFollowUp),
     script: SCRIPTS.low,
   }));
 
@@ -132,6 +146,7 @@ export default async function CustomerCarePage() {
         : `${r.daysUntilExpiry} 天後到期,仍有 ${r.remainingSessions} 堂`,
     meta: `到期 ${dateOnly(r.expiryDate)}｜有效共 ${r.validPackageSessions} 堂`,
     staffName: r.assignedStaffName,
+    lastFollowUpText: followUpText(r.lastFollowUp),
     script: SCRIPTS.expiring,
   }));
 
@@ -239,6 +254,7 @@ function CareSection({
           {row.meta ? (
             <span className="text-[11px] text-earth-500">{row.meta}</span>
           ) : null}
+          <span className="text-[11px] text-earth-500">{row.lastFollowUpText}</span>
         </div>
       ),
     },
@@ -260,7 +276,7 @@ function CareSection({
       align: "right",
       noLink: true,
       accessor: (row) => <CareRowActions customerId={row.customerId} script={row.script} />,
-      width: "w-[230px]",
+      width: "w-[280px]",
     },
   ];
 

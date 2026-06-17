@@ -573,16 +573,16 @@ function formatDiff(value: number): {
  * PR-3：CLOSED session 不 live 查現金帳，從凍結快照反推現金帳淨額。
  *
  * expectedClosingCash 已把 cashbook(CASH) 折進去：
- *   expected = opening + cashIncome − cashExpense − cashWithdrawal + cashDeposit
+ *   expected = openingActual + cashIncome − cashExpense − cashWithdrawal + cashDeposit
  *              + cashAdjustment + cashbookCashIncome − cashbookCashOut
  * 反推 net = cashbookCashIncome − cashbookCashOut
- *          = expected − opening − cashIncome + cashExpense + cashWithdrawal
+ *          = expected − openingActual − cashIncome + cashExpense + cashWithdrawal
  *            − cashDeposit − cashAdjustment
  */
 function deriveClosedCashbookNet(session: OpenedTodaySession): string {
   if (session.expectedClosingCash == null) return "—";
   const net = session.expectedClosingCash
-    .sub(session.openingBookBalance)
+    .sub(session.openingActualCash)
     .sub(session.cashIncomeTotal)
     .add(session.cashExpenseTotal)
     .add(session.cashWithdrawalTotal)
@@ -725,6 +725,11 @@ function OpenStatusCard({
   const cashIn = liveTotals.cashIncomeTotal.add(liveTotals.cashbookCashIncome);
   const cashOut = liveTotals.cashExpenseTotal.add(liveTotals.cashbookCashOut);
   const openingDiff = formatDiff(session.openingDifference.toNumber());
+  const hasOpeningDifference = !session.openingDifference.equals(0);
+  const openingDifferenceCopy =
+    session.openingDifference.gt(0)
+      ? `已包含開店補入差額 +NT$${session.openingDifference.toString()}`
+      : `已扣除開店短少差額 NT$ ${openingDiff.label}`;
 
   return (
     <TodayStatusCard todayStr={todayStr} status="OPEN">
@@ -732,6 +737,11 @@ function OpenStatusCard({
       <p className="mt-1 text-2xl font-bold tabular-nums text-primary-900">
         NT$ {liveTotals.expectedClosingCash.toString()}
       </p>
+      {hasOpeningDifference && (
+        <p className="mt-1 text-xs font-medium text-primary-700">
+          {openingDifferenceCopy}
+        </p>
+      )}
 
       <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm sm:grid-cols-3">
         <SummaryItem label="今日現金收入" value={`+ NT$ ${cashIn.toString()}`} tone="text-green-700" />

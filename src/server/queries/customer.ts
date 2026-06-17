@@ -303,6 +303,13 @@ export async function getCustomerDetail(customerId: string) {
         orderBy: { createdAt: "desc" },
         take: 20,
       },
+      followUps: {
+        orderBy: { createdAt: "desc" },
+        take: 20,
+        include: {
+          createdBy: { select: { name: true } },
+        },
+      },
     },
   });
   if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
