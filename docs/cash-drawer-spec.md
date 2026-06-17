@@ -205,8 +205,9 @@ finalBookBalance  = closingActualCash  // (PR-5) 下次開店從實際現金開�
 現金抽屜頁的「今日收款總覽」是店長看當日收款的 read-only 摘要，與抽屜現金公式分開：
 
 ```
-現金收入       = Transaction CASH 收入白名單
+現金收入       = Transaction CASH 收入白名單 + CashbookEntry CASH INCOME
 非現金收入     = Transaction TRANSFER / LINE_PAY / CREDIT_CARD / OTHER 收入白名單
+               + CashbookEntry OTHER INCOME
 今日收款合計   = 現金收入 + 非現金收入
 ```
 
@@ -216,9 +217,11 @@ finalBookBalance  = closingActualCash  // (PR-5) 下次開店從實際現金開�
 TRIAL_PURCHASE / SINGLE_PURCHASE / PACKAGE_PURCHASE / SUPPLEMENT
 ```
 
-收款總覽只納入 `status = SUCCESS`、`paymentStatus in (SUCCESS, CONFIRMED)`、`voidedAt = null` 的交易。
+Transaction 收入只納入 `status = SUCCESS`、`paymentStatus in (SUCCESS, CONFIRMED)`、`voidedAt = null` 的交易。
 
-第一版為 gross 收款總覽，刻意不扣退款；`REFUND` 仍留在「今日交易摘要」的退款位置。`UNPAID`、開店補入 / 短少差額、提領、補入、CashbookEntry 的收入 / 支出 / 提領都不進「今日收款合計」。其中非現金收入只提供店長看今日收款，不影響 `expectedClosingCash`。
+第一版為 gross 收款總覽，刻意不扣退款；`REFUND` 仍留在「今日交易摘要」的退款位置。`UNPAID`、開店補入 / 短少差額、提領、補入、CashbookEntry 的 EXPENSE / WITHDRAW / ADJUSTMENT 都不進「今日收款合計」。
+
+實作欄位語意必須分清楚：`cashIncomeTotal` 維持「Transaction CASH 收入」且供 `expectedClosingCash` 使用，不把 CashbookEntry CASH INCOME 加進此欄，避免和既有 `cashbookCashIncome` 在抽屜公式中 double count。UI 的「現金收入」使用 `paymentOverviewCashIncomeTotal = cashIncomeTotal + CashbookEntry CASH INCOME`。非現金收入只提供店長看今日收款，不影響 `expectedClosingCash`。
 
 ---
 

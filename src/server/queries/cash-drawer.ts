@@ -16,7 +16,8 @@ import { prisma } from "@/lib/db";
 import type { CashDrawerSession, CashDrawerEntry, Prisma } from "@prisma/client";
 import {
   computeCashIncomeForSession,
-  computeNonCashIncomeForSession,
+  computeTransactionNonCashIncomeForSession,
+  computeCashbookIncomeOverviewForSession,
   computePaymentOverviewForSession,
   computeCashExpenseForSession,
   computeManualEntryTotals,
@@ -25,16 +26,20 @@ import {
 } from "@/server/services/cash-drawer";
 
 export type CashDrawerPaymentOverview = {
-  cashIncomeTotal: Prisma.Decimal;
+  /** 今日收款總覽的現金收入：Transaction CASH + Cashbook CASH INCOME */
+  paymentOverviewCashIncomeTotal: Prisma.Decimal;
   nonCashIncomeTotal: Prisma.Decimal;
   todayPaymentTotal: Prisma.Decimal;
 };
 
 export type CashDrawerLiveTotals = {
+  /** Transaction CASH 收入；供 expectedClosingCash 使用，不含 cashbook CASH INCOME */
   cashIncomeTotal: Prisma.Decimal;
-  /** 今日非現金收入 gross（TRANSFER / LINE_PAY / CREDIT_CARD / OTHER），不影響抽屜現金 */
+  /** 今日收款總覽的現金收入：Transaction CASH + Cashbook CASH INCOME */
+  paymentOverviewCashIncomeTotal: Prisma.Decimal;
+  /** 今日非現金收入 gross（Transaction 非現金 + Cashbook OTHER INCOME），不影響抽屜現金 */
   nonCashIncomeTotal: Prisma.Decimal;
-  /** 今日收款 gross 合計：cashIncomeTotal + nonCashIncomeTotal */
+  /** 今日收款 gross 合計：paymentOverviewCashIncomeTotal + nonCashIncomeTotal */
   todayPaymentTotal: Prisma.Decimal;
   cashExpenseTotal: Prisma.Decimal;
   cashWithdrawalTotal: Prisma.Decimal;
@@ -113,13 +118,17 @@ export function deriveCashDrawerView(
 export async function computeLiveTotalsForOpenSession(
   session: CashDrawerSession,
 ): Promise<CashDrawerLiveTotals> {
-  const [income, nonCashIncome, expense, manual, cashbook] = await Promise.all([
-    computeCashIncomeForSession(session),
-    computeNonCashIncomeForSession(session),
-    computeCashExpenseForSession(session),
-    computeManualEntryTotals(session.id),
-    computeCashbookCashMovementsForSession(session),
-  ]);
+  const [income, transactionNonCashIncome, expense, manual, cashbook, cashbookIncome] =
+    await Promise.all([
+      computeCashIncomeForSession(session),
+      computeTransactionNonCashIncomeForSession(session),
+      computeCashExpenseForSession(session),
+      computeManualEntryTotals(session.id),
+      computeCashbookCashMovementsForSession(session),
+      computeCashbookIncomeOverviewForSession(session),
+    ]);
+  const paymentOverviewCashIncomeTotal = income.add(cashbookIncome.cashbookCashIncome);
+  const nonCashIncomeTotal = transactionNonCashIncome.add(cashbookIncome.cashbookOtherIncome);
   const expectedClosingCash = computeExpectedClosingCash({
     openingActualCash: session.openingActualCash,
     cashIncomeTotal: income,
@@ -132,8 +141,9 @@ export async function computeLiveTotalsForOpenSession(
   });
   return {
     cashIncomeTotal: income,
-    nonCashIncomeTotal: nonCashIncome,
-    todayPaymentTotal: income.add(nonCashIncome),
+    paymentOverviewCashIncomeTotal,
+    nonCashIncomeTotal,
+    todayPaymentTotal: paymentOverviewCashIncomeTotal.add(nonCashIncomeTotal),
     cashExpenseTotal: expense,
     cashWithdrawalTotal: manual.cashWithdrawalTotal,
     cashDepositTotal: manual.cashDepositTotal,
@@ -222,7 +232,7 @@ export async function getCashDrawerView(
   const todayPaymentOverview =
     liveTotals
       ? {
-          cashIncomeTotal: liveTotals.cashIncomeTotal,
+          paymentOverviewCashIncomeTotal: liveTotals.paymentOverviewCashIncomeTotal,
           nonCashIncomeTotal: liveTotals.nonCashIncomeTotal,
           todayPaymentTotal: liveTotals.todayPaymentTotal,
         }

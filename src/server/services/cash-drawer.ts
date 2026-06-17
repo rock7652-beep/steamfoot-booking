@@ -159,8 +159,8 @@ export async function computeCashIncomeForSession(
   return result._sum.amount ?? ZERO;
 }
 
-/** 計算 session 營業日的非現金收入（gross，不含退款）— 不影響 expectedClosingCash */
-export async function computeNonCashIncomeForSession(
+/** 計算 session 營業日的 Transaction 非現金收入（gross，不含退款）— 不影響 expectedClosingCash */
+export async function computeTransactionNonCashIncomeForSession(
   session: Pick<CashDrawerSession, "storeId" | "businessDate">,
 ): Promise<Prisma.Decimal> {
   const result = await prisma.transaction.aggregate({
@@ -178,24 +178,61 @@ export async function computeNonCashIncomeForSession(
   return result._sum.amount ?? ZERO;
 }
 
+export async function computeCashbookIncomeOverviewForSession(
+  session: Pick<CashDrawerSession, "storeId" | "businessDate">,
+): Promise<{
+  cashbookCashIncome: Prisma.Decimal;
+  cashbookOtherIncome: Prisma.Decimal;
+}> {
+  const nextDay = new Date(session.businessDate.getTime() + 24 * 60 * 60 * 1000);
+  const grouped = await prisma.cashbookEntry.groupBy({
+    by: ["paymentMethod"],
+    _sum: { amount: true },
+    where: {
+      storeId: session.storeId,
+      type: "INCOME",
+      paymentMethod: { in: ["CASH", "OTHER"] },
+      entryDate: { gte: session.businessDate, lt: nextDay },
+    },
+  });
+
+  let cashbookCashIncome = ZERO;
+  let cashbookOtherIncome = ZERO;
+  for (const g of grouped) {
+    const sum = g._sum.amount ?? ZERO;
+    if (g.paymentMethod === "CASH") {
+      cashbookCashIncome = cashbookCashIncome.add(sum);
+    } else if (g.paymentMethod === "OTHER") {
+      cashbookOtherIncome = cashbookOtherIncome.add(sum);
+    }
+  }
+
+  return { cashbookCashIncome, cashbookOtherIncome };
+}
+
 export async function computePaymentOverviewForSession(
   session: Pick<CashDrawerSession, "storeId" | "businessDate">,
   cashIncomeTotal?: Prisma.Decimal,
 ): Promise<{
-  cashIncomeTotal: Prisma.Decimal;
+  paymentOverviewCashIncomeTotal: Prisma.Decimal;
   nonCashIncomeTotal: Prisma.Decimal;
   todayPaymentTotal: Prisma.Decimal;
 }> {
-  const [cashIncome, nonCashIncomeTotal] = await Promise.all([
+  const [transactionCashIncome, transactionNonCashIncome, cashbookIncome] = await Promise.all([
     cashIncomeTotal !== undefined
       ? Promise.resolve(cashIncomeTotal)
       : computeCashIncomeForSession(session),
-    computeNonCashIncomeForSession(session),
+    computeTransactionNonCashIncomeForSession(session),
+    computeCashbookIncomeOverviewForSession(session),
   ]);
+  const paymentOverviewCashIncomeTotal = transactionCashIncome.add(
+    cashbookIncome.cashbookCashIncome,
+  );
+  const nonCashIncomeTotal = transactionNonCashIncome.add(cashbookIncome.cashbookOtherIncome);
   return {
-    cashIncomeTotal: cashIncome,
+    paymentOverviewCashIncomeTotal,
     nonCashIncomeTotal,
-    todayPaymentTotal: cashIncome.add(nonCashIncomeTotal),
+    todayPaymentTotal: paymentOverviewCashIncomeTotal.add(nonCashIncomeTotal),
   };
 }
 
@@ -394,6 +431,7 @@ export type CurrentCashDrawer = {
   session: CashDrawerSession | null;
   liveTotals: {
     cashIncomeTotal: Prisma.Decimal;
+    paymentOverviewCashIncomeTotal: Prisma.Decimal;
     nonCashIncomeTotal: Prisma.Decimal;
     todayPaymentTotal: Prisma.Decimal;
     cashExpenseTotal: Prisma.Decimal;
@@ -428,14 +466,27 @@ export async function getCurrentCashDrawer(
     return { session, liveTotals: null };
   }
 
-  const [cashIncomeTotal, nonCashIncomeTotal, cashExpenseTotal, manual, cashbook] =
-    await Promise.all([
-      computeCashIncomeForSession(session),
-      computeNonCashIncomeForSession(session),
-      computeCashExpenseForSession(session),
-      computeManualEntryTotals(session.id),
-      computeCashbookCashMovementsForSession(session),
-    ]);
+  const [
+    cashIncomeTotal,
+    transactionNonCashIncomeTotal,
+    cashExpenseTotal,
+    manual,
+    cashbook,
+    cashbookIncome,
+  ] = await Promise.all([
+    computeCashIncomeForSession(session),
+    computeTransactionNonCashIncomeForSession(session),
+    computeCashExpenseForSession(session),
+    computeManualEntryTotals(session.id),
+    computeCashbookCashMovementsForSession(session),
+    computeCashbookIncomeOverviewForSession(session),
+  ]);
+  const paymentOverviewCashIncomeTotal = cashIncomeTotal.add(
+    cashbookIncome.cashbookCashIncome,
+  );
+  const nonCashIncomeTotal = transactionNonCashIncomeTotal.add(
+    cashbookIncome.cashbookOtherIncome,
+  );
 
   const expectedClosingCash = computeExpectedClosingCash({
     openingActualCash: session.openingActualCash,
@@ -452,8 +503,9 @@ export async function getCurrentCashDrawer(
     session,
     liveTotals: {
       cashIncomeTotal,
+      paymentOverviewCashIncomeTotal,
       nonCashIncomeTotal,
-      todayPaymentTotal: cashIncomeTotal.add(nonCashIncomeTotal),
+      todayPaymentTotal: paymentOverviewCashIncomeTotal.add(nonCashIncomeTotal),
       cashExpenseTotal,
       cashWithdrawalTotal: manual.cashWithdrawalTotal,
       cashDepositTotal: manual.cashDepositTotal,

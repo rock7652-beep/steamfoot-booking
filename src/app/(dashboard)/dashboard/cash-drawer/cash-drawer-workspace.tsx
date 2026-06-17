@@ -791,7 +791,7 @@ function PaymentOverviewCard({ overview }: { overview: CashDrawerPaymentOverview
         <div>
           <dt className="text-earth-500">現金收入</dt>
           <dd className="mt-1 text-base font-medium tabular-nums text-green-700">
-            NT$ {overview.cashIncomeTotal.toString()}
+            NT$ {overview.paymentOverviewCashIncomeTotal.toString()}
           </dd>
         </div>
         <div>

@@ -78,7 +78,8 @@ import {
   addCashDrawerEntry,
   closeCashDrawer,
   computeCashIncomeForSession,
-  computeNonCashIncomeForSession,
+  computeTransactionNonCashIncomeForSession,
+  computeCashbookIncomeOverviewForSession,
   computePaymentOverviewForSession,
   computeCashExpenseForSession,
   computeManualEntryTotals,
@@ -606,10 +607,10 @@ describe("computeCashExpenseForSession", () => {
   });
 });
 
-describe("computeNonCashIncomeForSession / computePaymentOverviewForSession", () => {
-  it("加總並回傳非現金收入", async () => {
+describe("computeTransactionNonCashIncomeForSession / computePaymentOverviewForSession", () => {
+  it("加總並回傳 Transaction 非現金收入", async () => {
     mockTxAggregate.mockResolvedValue({ _sum: { amount: D(1500) } });
-    const result = await computeNonCashIncomeForSession({
+    const result = await computeTransactionNonCashIncomeForSession({
       storeId: STORE_A,
       businessDate: new Date(Date.UTC(2026, 4, 13)),
     });
@@ -618,7 +619,7 @@ describe("computeNonCashIncomeForSession / computePaymentOverviewForSession", ()
 
   it("非現金收入條件：排除 CASH / UNPAID，只納入已成功或已確認收款", async () => {
     mockTxAggregate.mockResolvedValue({ _sum: { amount: null } });
-    await computeNonCashIncomeForSession({
+    await computeTransactionNonCashIncomeForSession({
       storeId: STORE_A,
       businessDate: new Date(Date.UTC(2026, 4, 13)),
     });
@@ -653,23 +654,61 @@ describe("computeNonCashIncomeForSession / computePaymentOverviewForSession", ()
     expect(call.where.transactionType.in).not.toContain("ADJUSTMENT");
   });
 
-  it("今日收款合計 = 現金收入 + 非現金收入", async () => {
+  it("Cashbook INCOME 依 CASH / OTHER 分組，且排除支出、提領、調整", async () => {
+    mockCashbookGroupBy.mockResolvedValue([
+      { paymentMethod: "CASH", _sum: { amount: D(100) } },
+      { paymentMethod: "OTHER", _sum: { amount: D(101) } },
+    ]);
+
+    const result = await computeCashbookIncomeOverviewForSession({
+      storeId: STORE_A,
+      businessDate: new Date(Date.UTC(2026, 4, 13)),
+    });
+
+    expect(result.cashbookCashIncome.toNumber()).toBe(100);
+    expect(result.cashbookOtherIncome.toNumber()).toBe(101);
+    const call = mockCashbookGroupBy.mock.calls[0][0] as {
+      by: string[];
+      where: {
+        storeId: string;
+        type: string;
+        paymentMethod: { in: string[] };
+        entryDate: { gte: Date; lt: Date };
+      };
+    };
+    expect(call.by).toEqual(["paymentMethod"]);
+    expect(call.where.storeId).toBe(STORE_A);
+    expect(call.where.type).toBe("INCOME");
+    expect(call.where.paymentMethod.in).toEqual(["CASH", "OTHER"]);
+    expect(call.where.entryDate.gte).toEqual(new Date(Date.UTC(2026, 4, 13)));
+    expect(call.where.entryDate.lt).toEqual(new Date(Date.UTC(2026, 4, 14)));
+  });
+
+  it("今日收款合計 = Transaction 收入 + Cashbook INCOME", async () => {
     mockTxAggregate
       .mockResolvedValueOnce({ _sum: { amount: D(798) } })
       .mockResolvedValueOnce({ _sum: { amount: D(1500) } });
+    mockCashbookGroupBy.mockResolvedValue([
+      { paymentMethod: "CASH", _sum: { amount: D(100) } },
+      { paymentMethod: "OTHER", _sum: { amount: D(101) } },
+    ]);
 
     const result = await computePaymentOverviewForSession({
       storeId: STORE_A,
       businessDate: new Date(Date.UTC(2026, 4, 13)),
     });
 
-    expect(result.cashIncomeTotal.toNumber()).toBe(798);
-    expect(result.nonCashIncomeTotal.toNumber()).toBe(1500);
-    expect(result.todayPaymentTotal.toNumber()).toBe(2298);
+    expect(result.paymentOverviewCashIncomeTotal.toNumber()).toBe(898);
+    expect(result.nonCashIncomeTotal.toNumber()).toBe(1601);
+    expect(result.todayPaymentTotal.toNumber()).toBe(2499);
   });
 
-  it("可重用已算好的 cashIncomeTotal，避免重查現金收入", async () => {
+  it("可重用已算好的 Transaction cashIncomeTotal，避免重查現金收入", async () => {
     mockTxAggregate.mockResolvedValueOnce({ _sum: { amount: D(1500) } });
+    mockCashbookGroupBy.mockResolvedValue([
+      { paymentMethod: "CASH", _sum: { amount: D(100) } },
+      { paymentMethod: "OTHER", _sum: { amount: D(101) } },
+    ]);
 
     const result = await computePaymentOverviewForSession(
       {
@@ -680,9 +719,9 @@ describe("computeNonCashIncomeForSession / computePaymentOverviewForSession", ()
     );
 
     expect(mockTxAggregate).toHaveBeenCalledTimes(1);
-    expect(result.cashIncomeTotal.toNumber()).toBe(798);
-    expect(result.nonCashIncomeTotal.toNumber()).toBe(1500);
-    expect(result.todayPaymentTotal.toNumber()).toBe(2298);
+    expect(result.paymentOverviewCashIncomeTotal.toNumber()).toBe(898);
+    expect(result.nonCashIncomeTotal.toNumber()).toBe(1601);
+    expect(result.todayPaymentTotal.toNumber()).toBe(2499);
   });
 });
 

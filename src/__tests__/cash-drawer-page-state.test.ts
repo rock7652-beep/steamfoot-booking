@@ -24,6 +24,7 @@ const stubLiveTotals = (
   overrides: Partial<CashDrawerLiveTotals> = {},
 ): CashDrawerLiveTotals => ({
   cashIncomeTotal: ZERO,
+  paymentOverviewCashIncomeTotal: ZERO,
   nonCashIncomeTotal: ZERO,
   todayPaymentTotal: ZERO,
   cashExpenseTotal: ZERO,
@@ -39,7 +40,7 @@ const stubLiveTotals = (
 const stubPaymentOverview = (
   overrides: Partial<CashDrawerPaymentOverview> = {},
 ): CashDrawerPaymentOverview => ({
-  cashIncomeTotal: ZERO,
+  paymentOverviewCashIncomeTotal: ZERO,
   nonCashIncomeTotal: ZERO,
   todayPaymentTotal: ZERO,
   ...overrides,
