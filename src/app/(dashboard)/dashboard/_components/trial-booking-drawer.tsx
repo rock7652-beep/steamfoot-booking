@@ -168,6 +168,20 @@ export function TrialBookingDrawer({
       : undefined;
 
     startTransition(async () => {
+      const startedAt = Date.now();
+      const marks: { label: string; ms: number }[] = [
+        { label: "submit start", ms: 0 },
+      ];
+      const mark = (label: string) => {
+        marks.push({ label, ms: Date.now() - startedAt });
+      };
+      console.info("[trial-booking] drawer submit timing", {
+        bookingDate,
+        slotTime,
+        people,
+        hasExistingCustomer: isExisting,
+        marks,
+      });
       const r = await createTrialBooking({
         ...(isExisting
           ? { customerId: preset!.customerId }
@@ -179,14 +193,26 @@ export function TrialBookingDrawer({
         expectedAmount: sendAmount,
         notes: notes.trim() || undefined,
       });
+      mark("createTrialBooking returned");
       if (r.success) {
         toast.success("已建立體驗預約（未收款）");
         reset();
         setOpen(false);
+        mark("router.refresh start");
         router.refresh();
+        mark("router.refresh triggered");
       } else {
         toast.error(r.error ?? "建立失敗");
       }
+      console.info("[trial-booking] drawer submit timing", {
+        bookingDate,
+        slotTime,
+        people,
+        hasExistingCustomer: isExisting,
+        outcome: r.success ? "success" : "failed",
+        totalMs: Date.now() - startedAt,
+        marks,
+      });
     });
   }
 
