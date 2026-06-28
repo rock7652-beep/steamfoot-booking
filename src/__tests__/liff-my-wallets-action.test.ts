@@ -191,6 +191,27 @@ describe("fetchLiffWallets action (PR-E2)", () => {
       });
     });
 
+    it("PR-1：legacy session.customerId 指向 A 店時，wallet 仍只查 canonical B 店 Customer + B 店 storeId", async () => {
+      const bStoreUser = {
+        ...CUSTOMER_USER,
+        storeId: "store-hsinchu",
+        storeSlug: "hsinchu",
+        customerId: "cust-zhubei-legacy",
+      };
+      mockRequireSession.mockResolvedValue(bStoreUser);
+      mockGetCanonicalId.mockResolvedValue("cust-hsinchu-link");
+      mockWalletFindMany.mockResolvedValue([]);
+
+      await fetchLiffWallets();
+
+      const args = mockWalletFindMany.mock.calls[0][0];
+      expect(args.where).toEqual({
+        customerId: "cust-hsinchu-link",
+        storeId: "store-hsinchu",
+      });
+      expect(JSON.stringify(args.where)).not.toContain("cust-zhubei-legacy");
+    });
+
     it("query 排序：expiryDate ASC nulls last + createdAt DESC", async () => {
       mockWalletFindMany.mockResolvedValue([]);
       await fetchLiffWallets();

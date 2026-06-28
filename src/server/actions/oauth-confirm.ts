@@ -11,6 +11,7 @@ import {
 } from "@/lib/server/oauth-temp-session";
 import { syncLineAccountForUser } from "@/server/services/line-account-sync";
 import { bindLineToExistingCustomerById } from "@/server/services/bind-line-to-customer";
+import { upsertCustomerIdentityLink } from "@/server/services/customer-identity-link";
 
 /**
  * resolveLineLogin — PR-2 step 3b
@@ -131,6 +132,14 @@ export async function resolveLineLogin(input: {
     if (byPhone.userId) {
       await syncLineAccountForUser({
         userId: byPhone.userId,
+        lineUserId: session.lineUserId,
+      });
+      await upsertCustomerIdentityLink({
+        userId: byPhone.userId,
+        storeId: session.storeId,
+        customerId: byPhone.id,
+        provider: "line",
+        providerAccountId: session.lineUserId,
         lineUserId: session.lineUserId,
       });
     }
@@ -360,6 +369,14 @@ export async function finalizeLineBind(input: {
       //     此 branch 會撞 P2002 整個 rollback、drift 無法修復。
       // 都清 temp session 防 nonce reuse，回 RELOGIN signal 讓 client 觸發
       // signIn() 取得帶 LINE 身份的新 NextAuth session。
+      await upsertCustomerIdentityLink({
+        userId: bindResult.userId,
+        storeId: tempSession.storeId,
+        customerId: bindResult.customerId,
+        provider: "line",
+        providerAccountId: tempSession.lineUserId,
+        lineUserId: tempSession.lineUserId,
+      });
       await clearOAuthTempSession();
       return {
         status: "BOUND",

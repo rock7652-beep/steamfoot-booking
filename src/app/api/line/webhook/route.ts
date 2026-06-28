@@ -11,6 +11,7 @@
 import { verifyLineSignature, replyMessage } from "@/lib/line";
 import { prisma } from "@/lib/db";
 import { syncLineAccountForUser } from "@/server/services/line-account-sync";
+import { upsertCustomerIdentityLink } from "@/server/services/customer-identity-link";
 import {
   logLineBindEvent,
   type AccountSyncStatus,
@@ -376,6 +377,14 @@ async function handleBindingRequest(
   if (customer.userId) {
     const syncResult = await syncLineAccountForUser({
       userId: customer.userId,
+      lineUserId,
+    });
+    await upsertCustomerIdentityLink({
+      userId: customer.userId,
+      storeId,
+      customerId: customer.id,
+      provider: "line",
+      providerAccountId: lineUserId,
       lineUserId,
     });
     accountSyncStatus = syncResult.status;

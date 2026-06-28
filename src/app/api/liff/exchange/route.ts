@@ -5,7 +5,7 @@
  *   1. zod body 驗證
  *   2. LINE `/oauth2/v2.1/verify` 驗 idToken (aud / exp / iss)
  *   3. resolveStoreBySlug(slug) → storeId
- *   4. 查 Customer(storeId, lineUserId)
+ *   4. 查 CustomerIdentityLink(provider+lineUserId+storeId)，legacy fallback 查 Customer(storeId, lineUserId)
  *      - 有 → signIn("liff-token", { idToken, storeSlug }) 寫 session cookie
  *             → 200 { status: "session_created", storeSlug, customerId, displayName }
  *      - 無 → 200 { status: "need_onboarding", lineUserId, displayName, storeSlug }
@@ -157,10 +157,25 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   // ── 5. Customer lookup ──
-  const customer = await prisma.customer.findFirst({
-    where: { storeId: store.id, lineUserId: verified.lineUserId },
-    select: { id: true, userId: true, name: true, lineName: true },
+  const identityLink = await prisma.customerIdentityLink.findUnique({
+    where: {
+      uq_customer_identity_provider_store: {
+        provider: "line",
+        providerAccountId: verified.lineUserId,
+        storeId: store.id,
+      },
+    },
+    select: {
+      userId: true,
+      customer: { select: { id: true, name: true, lineName: true } },
+    },
   });
+  const customer = identityLink
+    ? { ...identityLink.customer, userId: identityLink.userId }
+    : await prisma.customer.findFirst({
+        where: { storeId: store.id, lineUserId: verified.lineUserId },
+        select: { id: true, userId: true, name: true, lineName: true },
+      });
 
   if (!customer || !customer.userId) {
     // 沒 customer 或 customer 還沒綁 user → 走 onboarding 補手機 (PR-C)

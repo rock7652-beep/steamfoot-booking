@@ -370,8 +370,9 @@ model User {
   sessions Session[]
 
   // Domain relations
-  staff    Staff?
-  customer Customer?
+  staff                 Staff?
+  customer              Customer?
+  customerIdentityLinks CustomerIdentityLink[]
 
   // Audit
   auditLogs            AuditLog[]
@@ -481,6 +482,7 @@ model Store {
 
   staff                Staff[]
   customers            Customer[]
+  customerIdentityLinks CustomerIdentityLink[]
   bookings             Booking[]
   transactions         Transaction[]
   servicePlans         ServicePlan[]
@@ -662,6 +664,7 @@ model Customer {
 
   // 顧客經營追蹤紀錄（簡易 CRM-lite）
   followUps CustomerFollowUp[]
+  identityLinks CustomerIdentityLink[]
 
   @@unique([storeId, phone], name: "uq_store_customer_phone")
   @@unique([storeId, email], name: "uq_store_customer_email")
@@ -676,6 +679,31 @@ model Customer {
   @@index([sponsorId])
   @@index([phone])
   @@index([mergedIntoCustomerId]) // 列表過濾 mergedIntoCustomerId IS NULL 用
+}
+
+// ============================================================
+// CustomerIdentityLink（跨店登入身份 → 店內 Customer）
+// ============================================================
+
+model CustomerIdentityLink {
+  id                String   @id @default(cuid())
+  userId            String
+  storeId           String
+  customerId        String   @unique
+  provider          String
+  providerAccountId String
+  lineUserId        String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  store    Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId, storeId], name: "uq_customer_identity_provider_store")
+  @@unique([userId, storeId], name: "uq_customer_identity_user_store")
+  @@index([storeId])
+  @@index([userId])
 }
 
 // ============================================================

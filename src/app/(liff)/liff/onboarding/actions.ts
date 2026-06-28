@@ -23,6 +23,7 @@ import { verifyLiffIdToken, LiffIdTokenError } from "@/lib/liff/verify-id-token"
 import { resolveStoreBySlug } from "@/lib/store-resolver";
 import { bindLineToCustomerInStore } from "@/server/services/bind-line-to-customer";
 import { logLineBindEvent } from "@/lib/line-bind-log";
+import { upsertCustomerIdentityLink } from "@/server/services/customer-identity-link";
 
 const InputSchema = z.object({
   idToken: z.string().min(1),
@@ -114,6 +115,21 @@ export async function submitOnboarding(
     accountSyncStatus:
       "lineAccountSync" in helperResult ? helperResult.lineAccountSync : undefined,
   });
+
+  if (
+    helperResult.status === "created_new" ||
+    helperResult.status === "bound_existing" ||
+    helperResult.status === "already_synced"
+  ) {
+    await upsertCustomerIdentityLink({
+      userId: helperResult.userId,
+      storeId: store.id,
+      customerId: helperResult.customerId,
+      provider: "line",
+      providerAccountId: verified.lineUserId,
+      lineUserId: verified.lineUserId,
+    });
+  }
 
   // ── 7. Map to 顧客面 status ───────────────────────────
   switch (helperResult.status) {
