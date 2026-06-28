@@ -72,6 +72,7 @@ export async function getCanonicalCustomerForSession(
     storeId: resolved.customer.storeId,
     recoveredFromStaleSession:
       resolved.staleSessionCleared === true ||
+      resolved.reason === "found_by_identity_link" ||
       resolved.reason === "found_by_userid" ||
       resolved.reason === "bound_by_email" ||
       resolved.reason === "bound_by_phone",

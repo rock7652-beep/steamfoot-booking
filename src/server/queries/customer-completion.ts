@@ -13,12 +13,13 @@ import { normalizePhone } from "@/lib/normalize";
  * 不得各自用不同 key 查 customer，避免「顯示看得到、儲存找不到」。
  *
  * 查找順序（嚴格同店；任一命中即回）：
- *   A. session.customerId 直查（會驗證 DB 是否存在，stale 則 fall through）
- *   B. Customer.userId = session.userId（auto-bind 已完成但 JWT 尚未刷新）
- *   C. 同店 (lineUserId) 唯一匹配 — LINE OAuth user 即使 session.email 為 null
+ *   A. session.customerId 直查（會驗證 DB 是否存在且同店，stale 則 fall through）
+ *   B. CustomerIdentityLink（provider+providerAccountId+storeId / userId+storeId）
+ *   C. Customer.userId = session.userId（legacy；有 storeId 時必須同店）
+ *   D. 同店 (lineUserId) 唯一匹配 — LINE OAuth user 即使 session.email 為 null
  *      也能命中既有 Customer（避免被誤判 not_found 後再建一筆 placeholder）
- *   D. 同店 email 唯一匹配（來源：session.email 或 payload.email）
- *   E. 同店 phone 唯一匹配（僅 payload.phone；session 無 phone）
+ *   E. 同店 email 唯一匹配（來源：session.email 或 payload.email）
+ *   F. 同店 phone 唯一匹配（僅 payload.phone；session 無 phone）
  *
  * 穩定性保證：
  *   - sessionCustomerId 可能 stale（顧客被刪、清庫後 cookie 殘留、跨環境 JWT），
@@ -34,6 +35,7 @@ import { normalizePhone } from "@/lib/normalize";
 
 export type ResolveReason =
   | "found_by_id"
+  | "found_by_identity_link"
   | "found_by_userid"
   | "bound_by_line_user_id"
   | "bound_by_email"
@@ -95,6 +97,14 @@ const CUSTOMER_SELECT = {
   userId: true,
 } as const;
 
+async function getLineProviderAccountId(userId: string): Promise<string | null> {
+  const lineAcct = await prisma.account.findFirst({
+    where: { userId, provider: "line" },
+    select: { providerAccountId: true },
+  });
+  return lineAcct?.providerAccountId ?? null;
+}
+
 /**
  * 底層 resolver — 不做 completion 判斷，純粹找出「這個 session 對應到哪筆 customer」。
  */
@@ -138,7 +148,8 @@ export async function resolveCustomerForUser(
         // 會命中這筆 placeholder → completion gate 判定 phone 缺漏 → 死循環跳回 /profile。
         // 這裡視 userId 不符為 stale，fall through 到 path B (Customer.userId = opts.userId)
         // 找出真正綁定的 row。
-        if (c.userId === opts.userId) {
+        const storeMatches = !opts.storeId || c.storeId === opts.storeId;
+        if (c.userId === opts.userId && storeMatches) {
           console.info("[resolveCustomer] found_by_id", {
             ...logCtx,
             customerId: c.id,
@@ -148,12 +159,14 @@ export async function resolveCustomerForUser(
         }
         staleSessionCleared = true;
         console.warn(
-          "[resolveCustomer] sessionCustomerId points to row whose userId no longer matches — likely post-merge placeholder; falling through",
+          "[resolveCustomer] sessionCustomerId points to row whose userId/storeId no longer matches; falling through",
           {
             ...logCtx,
             staleCustomerId: c.id,
             rowUserId: c.userId,
+            rowStoreId: c.storeId,
             expectedUserId: opts.userId,
+            expectedStoreId: opts.storeId,
           },
         );
       } else {
@@ -175,57 +188,79 @@ export async function resolveCustomerForUser(
     }
   }
 
-  // ── B. Customer.userId = session.userId ─────────────
-  // Customer.userId 是 1:1 unique（schema: `userId String? @unique`）— userId 命中
-  // 的 Customer 必定是該 user 唯一的 Customer，無論 session storeId 是否相符。
-  //
-  // 為什麼不再對 storeId mismatch fallthrough：
-  //   實務上 JWT.storeId 可能因為 legacy register / OAuth fallback / 已刪 Customer
-  //   而帶到 stale 值（例如字串 "default-store" 而非 UUID）。在這種情境下，
-  //   原本的 fallthrough 會讓 layout gate 命中 not_found，把已完成註冊的顧客推進
-  //   /profile loop，這比「同店 assertion」本身的價值更傷使用者體驗。
-  //
-  //   保留 storeId mismatch warning log 作 audit，但仍 return Customer，
-  //   讓 caller 拿到正確的 storeId（c.storeId）做後續查詢。
+  // ── B. CustomerIdentityLink（store-scoped identity truth） ─────────────
+  if (opts.storeId) {
+    try {
+      const lineUserId = await getLineProviderAccountId(opts.userId);
+      if (lineUserId) {
+        const link = await prisma.customerIdentityLink.findUnique({
+          where: {
+            uq_customer_identity_provider_store: {
+              provider: "line",
+              providerAccountId: lineUserId,
+              storeId: opts.storeId,
+            },
+          },
+          select: { customer: { select: CUSTOMER_SELECT } },
+        });
+        if (link?.customer) {
+          console.info("[resolveCustomer] found_by_identity_link (provider)", {
+            ...logCtx,
+            customerId: link.customer.id,
+          });
+          return { customer: link.customer, reason: "found_by_identity_link" };
+        }
+      }
+
+      const link = await prisma.customerIdentityLink.findUnique({
+        where: {
+          uq_customer_identity_user_store: {
+            userId: opts.userId,
+            storeId: opts.storeId,
+          },
+        },
+        select: { customer: { select: CUSTOMER_SELECT } },
+      });
+      if (link?.customer) {
+        console.info("[resolveCustomer] found_by_identity_link (user-store)", {
+          ...logCtx,
+          customerId: link.customer.id,
+        });
+        return { customer: link.customer, reason: "found_by_identity_link" };
+      }
+    } catch (err) {
+      console.error("[resolveCustomer] identity link lookup failed", { ...logCtx, err });
+    }
+  }
+
+  // ── C. Customer.userId = session.userId（legacy） ─────────────
+  // PR-1 多店身份模型後，Customer.userId 保留 legacy，但有 store context 時不可
+  // 再跨店接受，否則同一 LINE User 進 /s/hsinchu 會被帶回 /s/zhubei 的 Customer。
   try {
     const c = await prisma.customer.findFirst({
-      where: { userId: opts.userId },
+      where: opts.storeId
+        ? { userId: opts.userId, storeId: opts.storeId }
+        : { userId: opts.userId },
       select: CUSTOMER_SELECT,
     });
     if (c) {
-      if (opts.storeId && c.storeId !== opts.storeId) {
-        console.warn(
-          "[resolveCustomer] userId matched customer but session storeId stale — accepting (userId is unique)",
-          {
-            ...logCtx,
-            customerId: c.id,
-            customerStoreId: c.storeId,
-            sessionStoreId: opts.storeId,
-          },
-        );
-      } else {
-        console.info("[resolveCustomer] found_by_userid", {
-          ...logCtx,
-          customerId: c.id,
-        });
-      }
+      console.info("[resolveCustomer] found_by_userid", {
+        ...logCtx,
+        customerId: c.id,
+      });
       return { customer: c, reason: "found_by_userid" };
     }
   } catch (err) {
     console.error("[resolveCustomer] lookup by userId failed", { ...logCtx, err });
   }
 
-  // ── C. 同店 (lineUserId) 唯一匹配 ───────────────────
+  // ── D. 同店 (lineUserId) 唯一匹配 ───────────────────
   // LINE OAuth 顧客的 session.email 常常是 null，B path 又只在 Customer.userId
   // 已被回填時才能命中。先用 lineUserId 救一輪，避免 LINE 重綁 / 手動 merge 後
   // userId 為 null 時被誤判 not_found 重新跳「補資料」。
   if (opts.storeId) {
     try {
-      const lineAcct = await prisma.account.findFirst({
-        where: { userId: opts.userId, provider: "line" },
-        select: { providerAccountId: true },
-      });
-      const lineUserId = lineAcct?.providerAccountId ?? null;
+      const lineUserId = await getLineProviderAccountId(opts.userId);
       if (lineUserId) {
         const c = await prisma.customer.findFirst({
           where: { storeId: opts.storeId, lineUserId },
@@ -273,7 +308,7 @@ export async function resolveCustomerForUser(
     }
   }
 
-  // ── D. 同店 email 唯一匹配 ───────────────────────────
+  // ── E. 同店 email 唯一匹配 ───────────────────────────
   const emailForLookup = opts.payloadEmail ?? opts.sessionEmail;
   if (emailForLookup && opts.storeId) {
     try {
@@ -347,7 +382,7 @@ export async function resolveCustomerForUser(
     }
   }
 
-  // ── E. 同店 phone 唯一匹配（僅 submit 路徑有 payloadPhone） ──
+  // ── F. 同店 phone 唯一匹配（僅 submit 路徑有 payloadPhone） ──
   if (normalizedPayloadPhone && opts.storeId) {
     try {
       const candidates = await prisma.customer.findMany({

@@ -20,6 +20,7 @@ const mockSignIn = vi.fn();
 const mockVerify = vi.fn();
 const mockResolveStoreBySlug = vi.fn();
 const mockCustomerFindFirst = vi.fn();
+const mockIdentityLinkFindUnique = vi.fn();
 
 vi.mock("@/lib/auth", () => ({
   signIn: (...args: unknown[]) => mockSignIn(...args),
@@ -29,6 +30,9 @@ vi.mock("@/lib/db", () => ({
   prisma: {
     customer: {
       findFirst: (...args: unknown[]) => mockCustomerFindFirst(...args),
+    },
+    customerIdentityLink: {
+      findUnique: (...args: unknown[]) => mockIdentityLinkFindUnique(...args),
     },
   },
 }));
@@ -81,6 +85,8 @@ describe("POST /api/liff/exchange", () => {
     mockVerify.mockReset();
     mockResolveStoreBySlug.mockReset();
     mockCustomerFindFirst.mockReset();
+    mockIdentityLinkFindUnique.mockReset();
+    mockIdentityLinkFindUnique.mockResolvedValue(null);
   });
 
   afterEach(() => {
@@ -109,6 +115,33 @@ describe("POST /api/liff/exchange", () => {
       customerId: "cust-1",
       displayName: "Alice",
     });
+    expect(mockSignIn).toHaveBeenCalledWith("liff-token", {
+      idToken: "tok",
+      storeSlug: "zhubei",
+      redirect: false,
+    });
+  });
+
+  it("PR-1: identity link 命中且 Customer.userId=null → 用 link.userId 建立 session", async () => {
+    mockVerify.mockResolvedValueOnce(verifiedOk({ displayName: "Alice" }));
+    mockResolveStoreBySlug.mockResolvedValueOnce(STORE);
+    mockIdentityLinkFindUnique.mockResolvedValueOnce({
+      userId: "user-line",
+      customer: {
+        id: "cust-hsinchu",
+        name: "Alice Hsinchu",
+        lineName: null,
+      },
+    });
+    mockSignIn.mockResolvedValueOnce("http://localhost:3001/");
+
+    const res = await POST(postReq({ idToken: "tok", storeSlug: "zhubei" }));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({
+      status: "session_created",
+      customerId: "cust-hsinchu",
+    });
+    expect(mockCustomerFindFirst).not.toHaveBeenCalled();
     expect(mockSignIn).toHaveBeenCalledWith("liff-token", {
       idToken: "tok",
       storeSlug: "zhubei",

@@ -46,6 +46,12 @@ interface AppJWT {
   storeSlug: string | null;
 }
 
+interface LineUserInfoProfile {
+  userId: string;
+  displayName?: string | null;
+  pictureUrl?: string | null;
+}
+
 // ============================================================
 // NextAuth config
 // ============================================================
@@ -268,7 +274,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       // userinfo.request 在 type:"oauth" 時會被 Auth.js 呼叫
       userinfo: {
         url: "https://api.line.me/v2/profile",
-        async request({ tokens }: any) {
+        async request({ tokens }: { tokens: { access_token?: string } }) {
           const res = await fetch("https://api.line.me/v2/profile", {
             headers: { Authorization: `Bearer ${tokens.access_token}` },
           });
@@ -280,7 +286,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         },
       },
       allowDangerousEmailAccountLinking: true,
-      profile(profile: any) {
+      profile(profile: LineUserInfoProfile) {
         return {
           id: profile.userId,
           name: profile.displayName ?? "LINE 用戶",
@@ -349,18 +355,46 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
 
-        // Customer 必須 (storeId, lineUserId) 同時命中 — schema 上的 unique key
-        const customer = await prisma.customer.findFirst({
-          where: { storeId: store.id, lineUserId: verified.lineUserId },
+        const identityLink = await prisma.customerIdentityLink.findUnique({
+          where: {
+            uq_customer_identity_provider_store: {
+              provider: "line",
+              providerAccountId: verified.lineUserId,
+              storeId: store.id,
+            },
+          },
           select: {
-            id: true,
-            storeId: true,
-            store: { select: { slug: true } },
+            customer: {
+              select: {
+                id: true,
+                storeId: true,
+                store: { select: { slug: true } },
+              },
+            },
             user: {
               select: { id: true, name: true, email: true, role: true, status: true },
             },
           },
         });
+
+        // Customer 必須先以同店 identity link 命中；legacy fallback 才看
+        // Customer(storeId, lineUserId, userId)。
+        const customer = identityLink
+          ? {
+              ...identityLink.customer,
+              user: identityLink.user,
+            }
+          : await prisma.customer.findFirst({
+              where: { storeId: store.id, lineUserId: verified.lineUserId },
+              select: {
+                id: true,
+                storeId: true,
+                store: { select: { slug: true } },
+                user: {
+                  select: { id: true, name: true, email: true, role: true, status: true },
+                },
+              },
+            });
 
         if (!customer || !customer.user || customer.user.status !== "ACTIVE") {
           // race condition：exchange route 確認過後 customer 被解綁；視為認證失敗
@@ -409,6 +443,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const oauthImage = user.image;
         const lineUserId = provider === "line" ? account.providerAccountId : null;
         const googleId = provider === "google" ? account.providerAccountId : null;
+        const existingLineAccount =
+          provider === "line" && lineUserId
+            ? await prisma.account.findUnique({
+                where: {
+                  provider_providerAccountId: {
+                    provider: "line",
+                    providerAccountId: lineUserId,
+                  },
+                },
+                select: { userId: true },
+              })
+            : null;
 
         // BLOCK: Don't allow OAuth to link to staff accounts
         // 員工帳號必須透過 /login（email+密碼）登入，不可透過 OAuth 進入前台
@@ -637,6 +683,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               accountSyncStatus: bind.accountSyncStatus,
             });
 
+            const { upsertCustomerIdentityLink } = await import(
+              "@/server/services/customer-identity-link"
+            );
+            await upsertCustomerIdentityLink({
+              userId: customer.userId,
+              storeId: customer.storeId,
+              customerId: customer.id,
+              provider: "line",
+              providerAccountId: lineUserId,
+              lineUserId,
+            });
+
             user.id = customer.userId;
             return true;
           }
@@ -736,6 +794,41 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           // for PR-G5.5.a.
           // ─────────────────────────────────────────────────────────────
 
+          if (provider === "line" && lineUserId && existingLineAccount) {
+            await prisma.customer.update({
+              where: { id: customer.id },
+              data: {
+                lineLinkStatus: "LINKED",
+                lineLinkedAt: customer.lineLinkedAt ?? new Date(),
+                ...(oauthName && !customer.lineName ? { lineName: oauthName } : {}),
+              },
+            });
+            const { upsertCustomerIdentityLink } = await import(
+              "@/server/services/customer-identity-link"
+            );
+            await upsertCustomerIdentityLink({
+              userId: existingLineAccount.userId,
+              storeId: customer.storeId,
+              customerId: customer.id,
+              provider: "line",
+              providerAccountId: lineUserId,
+              lineUserId,
+            });
+
+            logLineBindEvent({
+              path: "oauth-line-signin",
+              status: "oauth_linked_existing",
+              storeId: customer.storeId,
+              lineUserId,
+              customerId: customer.id,
+              userId: existingLineAccount.userId,
+              accountSyncStatus: "noop_already_synced",
+            });
+
+            user.id = existingLineAccount.userId;
+            return true;
+          }
+
           if (provider === "line" && lineUserId) {
             const { activateLineCaseBForAuthSignIn } = await import(
               "@/server/services/auth-case-b-line-activation"
@@ -810,6 +903,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               customerId: customer.id,
               userId: activation.userId,
               accountSyncStatus: "created",
+            });
+
+            const { upsertCustomerIdentityLink } = await import(
+              "@/server/services/customer-identity-link"
+            );
+            await upsertCustomerIdentityLink({
+              userId: activation.userId,
+              storeId: customer.storeId,
+              customerId: customer.id,
+              provider: "line",
+              providerAccountId: lineUserId,
+              lineUserId,
             });
 
             user.id = activation.userId;
@@ -892,15 +997,20 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         // Transaction：User + Customer + Account 三者必須同生同滅
         // 任一失敗 → 全部回滾，不會產生 orphan User / 半綁 Customer
         const { newUser, newCustomer } = await prisma.$transaction(async (tx) => {
-          const u = await tx.user.create({
-            data: {
-              name: oauthName,
-              email: oauthEmail,
-              role: "CUSTOMER",
-              status: "ACTIVE",
-              image: oauthImage,
-            },
-          });
+          const u =
+            provider === "line" && existingLineAccount
+              ? await tx.user.findUniqueOrThrow({
+                  where: { id: existingLineAccount.userId },
+                })
+              : await tx.user.create({
+                  data: {
+                    name: oauthName,
+                    email: oauthEmail,
+                    role: "CUSTOMER",
+                    status: "ACTIVE",
+                    image: oauthImage,
+                  },
+                });
 
           const c = await tx.customer.create({
             data: {
@@ -908,7 +1018,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               phone: oauthPlaceholderPhone,
               email: oauthEmail,
               authSource: provider === "line" ? "LINE" : "GOOGLE",
-              userId: u.id,
+              userId: provider === "line" && existingLineAccount ? undefined : u.id,
               storeId: targetStoreId,
               ...(provider === "line" && lineUserId
                 ? {
@@ -928,20 +1038,22 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             select: { id: true },
           });
 
-          await tx.account.create({
-            data: {
-              userId: u.id,
-              type: account.type,
-              provider: account.provider,
-              providerAccountId: account.providerAccountId,
-              access_token: account.access_token as string | undefined,
-              refresh_token: account.refresh_token as string | undefined,
-              expires_at: account.expires_at,
-              token_type: account.token_type,
-              scope: account.scope,
-              id_token: account.id_token as string | undefined,
-            },
-          });
+          if (!(provider === "line" && existingLineAccount)) {
+            await tx.account.create({
+              data: {
+                userId: u.id,
+                type: account.type,
+                provider: account.provider,
+                providerAccountId: account.providerAccountId,
+                access_token: account.access_token as string | undefined,
+                refresh_token: account.refresh_token as string | undefined,
+                expires_at: account.expires_at,
+                token_type: account.token_type,
+                scope: account.scope,
+                id_token: account.id_token as string | undefined,
+              },
+            });
+          }
 
           return { newUser: u, newCustomer: c };
         });
@@ -998,6 +1110,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         });
 
         if (provider === "line") {
+          const { upsertCustomerIdentityLink } = await import(
+            "@/server/services/customer-identity-link"
+          );
+          await upsertCustomerIdentityLink({
+            userId: newUser.id,
+            storeId: targetStoreId,
+            customerId: newCustomer.id,
+            provider: "line",
+            providerAccountId: lineUserId!,
+            lineUserId,
+          });
+
           logLineBindEvent({
             path: "oauth-line-signin",
             status: "oauth_created_all",
@@ -1090,7 +1214,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             } else {
               appToken.staffId = dbUser.staff?.id ?? null;
               appToken.customerId = dbUser.customer?.id ?? null;
-              appToken.storeId = (dbUser.staff as any)?.storeId ?? (dbUser.customer as any)?.storeId ?? null;
+              appToken.storeId = dbUser.staff?.storeId ?? dbUser.customer?.storeId ?? null;
             }
           }
         } catch {
@@ -1135,6 +1259,43 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               appToken.customerId = dbUser.customer?.id ?? null;
               appToken.storeId = dbUser.staff?.storeId ?? dbUser.customer?.storeId ?? null;
               appToken.storeSlug = dbUser.staff?.store?.slug ?? dbUser.customer?.store?.slug ?? null;
+            }
+
+            if (account?.provider === "line" && account.providerAccountId) {
+              try {
+                const { resolveStoreFromOAuthCookie } = await import("@/lib/store-resolver");
+                const storeCtx = await resolveStoreFromOAuthCookie();
+                if (storeCtx) {
+                  const link = await prisma.customerIdentityLink.findUnique({
+                    where: {
+                      uq_customer_identity_provider_store: {
+                        provider: "line",
+                        providerAccountId: account.providerAccountId,
+                        storeId: storeCtx.storeId,
+                      },
+                    },
+                    select: {
+                      customer: {
+                        select: {
+                          id: true,
+                          storeId: true,
+                          store: { select: { slug: true } },
+                        },
+                      },
+                    },
+                  });
+                  if (link?.customer) {
+                    appToken.customerId = link.customer.id;
+                    appToken.storeId = link.customer.storeId;
+                    appToken.storeSlug = link.customer.store?.slug ?? null;
+                  }
+                }
+              } catch (err) {
+                console.warn("[auth] jwt: identity link lookup failed", {
+                  userId: user.id,
+                  error: err instanceof Error ? err.message : String(err),
+                });
+              }
             }
           } else {
             console.error("[auth] jwt: DB user not found for OAuth login", { userId: user.id });

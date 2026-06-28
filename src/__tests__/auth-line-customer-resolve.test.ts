@@ -23,6 +23,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const STORE_A = "store-zhubei";
+const STORE_B = "store-hsinchu";
 const USER_ID = "ck0000000000000000000010";
 const OTHER_USER_ID = "ck0000000000000000000011";
 const REAL_CUSTOMER_ID = "ck0000000000000000000001";
@@ -33,6 +34,7 @@ const mockCustomerFindFirst = vi.fn();
 const mockCustomerFindMany = vi.fn();
 const mockCustomerUpdate = vi.fn();
 const mockAccountFindFirst = vi.fn();
+const mockIdentityLinkFindUnique = vi.fn();
 
 vi.mock("@/lib/db", () => ({
   prisma: {
@@ -44,6 +46,9 @@ vi.mock("@/lib/db", () => ({
     },
     account: {
       findFirst: (...a: unknown[]) => mockAccountFindFirst(...a),
+    },
+    customerIdentityLink: {
+      findUnique: (...a: unknown[]) => mockIdentityLinkFindUnique(...a),
     },
   },
 }));
@@ -73,6 +78,7 @@ beforeEach(() => {
   // 預設：沒有 sessionCustomerId 命中、沒有 userId 命中
   mockCustomerFindUnique.mockResolvedValue(null);
   mockCustomerFindMany.mockResolvedValue([]);
+  mockIdentityLinkFindUnique.mockResolvedValue(null);
   // findFirst 多個 callsite — 每個 case 自己 setup
 });
 
@@ -214,15 +220,10 @@ describe("resolveCustomerForUser — Step C (lineUserId)", () => {
     expect(mockAccountFindFirst).not.toHaveBeenCalled();
   });
 
-  it("regression：path B userId 命中但 session storeId stale（例：'default-store' 字串）→ 仍 return found_by_userid（userId 1:1 unique）", async () => {
-    // Scenario: 顧客註冊或 OAuth fallback 留下 JWT.storeId="default-store" 字面字串，
-    // Customer.storeId 卻是真實 UUID。原本 path B 對 storeId mismatch 直接 fallthrough，
-    // 導致 not_found → /profile 死循環。修法：userId 是 unique，命中即 return，
-    // 即使 session storeId 與 Customer.storeId 不一致也接受。
+  it("PR-1：有 store context 時，legacy Customer.userId 只能同店命中，避免跨店解析錯 Customer", async () => {
     mockCustomerFindUnique.mockResolvedValue(null); // path A miss
     mockCustomerFindFirst.mockImplementation(async ({ where }: { where: Record<string, unknown> }) => {
-      if (where.userId === USER_ID && !where.lineUserId) {
-        // path B：找到 Customer，storeId 是真實 UUID（與 opts.storeId="default-store" 不同）
+      if (where.userId === USER_ID && where.storeId === undefined && !where.lineUserId) {
         return { ...baseCustomer, userId: USER_ID, storeId: "real-store-uuid" };
       }
       return null;
@@ -235,11 +236,136 @@ describe("resolveCustomerForUser — Step C (lineUserId)", () => {
       storeId: "default-store", // ← stale 字串值
     });
 
+    expect(result.reason).toBe("not_found");
+    expect(result.customer).toBeNull();
+    expect(mockCustomerFindFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { userId: USER_ID, storeId: "default-store" },
+      }),
+    );
+  });
+
+  it("PR-1：同一 LINE User 在不同 store 透過 CustomerIdentityLink 解析到該店 Customer", async () => {
+    const hsinchuCustomer = {
+      ...baseCustomer,
+      id: "cust-hsinchu",
+      storeId: STORE_B,
+      userId: null,
+    };
+    mockAccountFindFirst.mockResolvedValue({ providerAccountId: LINE_USER_ID });
+    mockIdentityLinkFindUnique.mockImplementation(async ({ where }: { where: Record<string, unknown> }) => {
+      const providerKey = where.uq_customer_identity_provider_store as
+        | { storeId?: string }
+        | undefined;
+      if (providerKey?.storeId === STORE_B) {
+        return { customer: hsinchuCustomer };
+      }
+      return null;
+    });
+    mockCustomerFindFirst.mockImplementation(async ({ where }: { where: Record<string, unknown> }) => {
+      // Legacy Customer.userId still points to A 店; B 店解析不可被拉回 A 店。
+      if (where.userId === USER_ID && where.storeId === STORE_A) {
+        return { ...baseCustomer, userId: USER_ID, storeId: STORE_A };
+      }
+      throw new Error(`legacy fallback should not run before identity link: ${JSON.stringify(where)}`);
+    });
+
+    const result = await resolveCustomerForUser({
+      userId: USER_ID,
+      sessionCustomerId: null,
+      sessionEmail: null,
+      storeId: STORE_B,
+      provider: "line",
+    });
+
+    expect(result.reason).toBe("found_by_identity_link");
+    expect(result.customer?.id).toBe("cust-hsinchu");
+    expect(result.customer?.storeId).toBe(STORE_B);
+    expect(mockCustomerUpdate).not.toHaveBeenCalled();
+  });
+
+  it("PR-1：同一 providerAccountId 可依 storeId 命中不同 CustomerIdentityLink", async () => {
+    const zhubeiCustomer = { ...baseCustomer, id: "cust-zhubei", storeId: STORE_A };
+    const hsinchuCustomer = { ...baseCustomer, id: "cust-hsinchu", storeId: STORE_B };
+    mockAccountFindFirst.mockResolvedValue({ providerAccountId: LINE_USER_ID });
+    mockIdentityLinkFindUnique.mockImplementation(async ({ where }: { where: Record<string, unknown> }) => {
+      const providerKey = where.uq_customer_identity_provider_store as
+        | { providerAccountId?: string; storeId?: string }
+        | undefined;
+      if (providerKey?.providerAccountId !== LINE_USER_ID) return null;
+      if (providerKey.storeId === STORE_A) return { customer: zhubeiCustomer };
+      if (providerKey.storeId === STORE_B) return { customer: hsinchuCustomer };
+      return null;
+    });
+
+    const zhubei = await resolveCustomerForUser({
+      userId: USER_ID,
+      sessionCustomerId: null,
+      sessionEmail: null,
+      storeId: STORE_A,
+      provider: "line",
+    });
+    const hsinchu = await resolveCustomerForUser({
+      userId: USER_ID,
+      sessionCustomerId: null,
+      sessionEmail: null,
+      storeId: STORE_B,
+      provider: "line",
+    });
+
+    expect(zhubei.reason).toBe("found_by_identity_link");
+    expect(zhubei.customer?.id).toBe("cust-zhubei");
+    expect(hsinchu.reason).toBe("found_by_identity_link");
+    expect(hsinchu.customer?.id).toBe("cust-hsinchu");
+  });
+
+  it("PR-1：沒有 CustomerIdentityLink 時，才 fallback 到同店 legacy Customer.userId", async () => {
+    mockAccountFindFirst.mockResolvedValue({ providerAccountId: LINE_USER_ID });
+    mockIdentityLinkFindUnique.mockResolvedValue(null);
+    mockCustomerFindFirst.mockImplementation(async ({ where }: { where: Record<string, unknown> }) => {
+      if (where.userId === USER_ID && where.storeId === STORE_A && !where.lineUserId) {
+        return { ...baseCustomer, userId: USER_ID };
+      }
+      return null;
+    });
+
+    const result = await resolveCustomerForUser({
+      userId: USER_ID,
+      sessionCustomerId: null,
+      sessionEmail: null,
+      storeId: STORE_A,
+      provider: "line",
+    });
+
     expect(result.reason).toBe("found_by_userid");
     expect(result.customer?.id).toBe(REAL_CUSTOMER_ID);
-    expect(result.customer?.storeId).toBe("real-store-uuid"); // 回傳真實 storeId 不是 stale 值
-    // 不應該誤觸 path C (LINE Account lookup)
-    expect(mockAccountFindFirst).not.toHaveBeenCalled();
+  });
+
+  it("PR-1：沒有 link 且 userId 同店 miss 時，才 fallback 到同店 lineUserId", async () => {
+    const lineMatchedCustomer = { ...baseCustomer, userId: null };
+    mockAccountFindFirst.mockResolvedValue({ providerAccountId: LINE_USER_ID });
+    mockIdentityLinkFindUnique.mockResolvedValue(null);
+    mockCustomerFindFirst.mockImplementation(async ({ where }: { where: Record<string, unknown> }) => {
+      if (where.userId === USER_ID && where.storeId === STORE_A && !where.lineUserId) return null;
+      if (where.storeId === STORE_A && where.lineUserId === LINE_USER_ID) return lineMatchedCustomer;
+      return null;
+    });
+    mockCustomerUpdate.mockResolvedValue({});
+
+    const result = await resolveCustomerForUser({
+      userId: USER_ID,
+      sessionCustomerId: null,
+      sessionEmail: null,
+      storeId: STORE_A,
+      provider: "line",
+    });
+
+    expect(result.reason).toBe("bound_by_line_user_id");
+    expect(result.customer?.id).toBe(REAL_CUSTOMER_ID);
+    expect(mockCustomerUpdate).toHaveBeenCalledWith({
+      where: { id: REAL_CUSTOMER_ID },
+      data: { userId: USER_ID },
+    });
   });
 
   it("regression：sessionCustomerId 命中 row 但 userId 不符（merge 後 placeholder）→ 視為 stale，fall through 不回傳 placeholder", async () => {
