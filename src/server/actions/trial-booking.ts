@@ -68,12 +68,48 @@ export async function loadTrialBookingFormData(): Promise<
 export async function createTrialBooking(
   input: z.infer<typeof createTrialBookingSchema>
 ): Promise<ActionResult<{ bookingId: string; customerId: string }>> {
+  const startedAt = Date.now();
+  let lastMarkAt = startedAt;
+  const marks: { label: string; ms: number }[] = [];
+  let storeId: string | undefined;
+  let bookingDate: string | undefined;
+  let slotTime: string | undefined;
+  let people: number | undefined;
+  let hasExistingCustomer = false;
+
+  function mark(label: string) {
+    const now = Date.now();
+    marks.push({ label, ms: now - lastMarkAt });
+    lastMarkAt = now;
+  }
+
+  function logTiming(outcome: string) {
+    console.info("[trial-booking] createTrialBooking timing", {
+      storeId,
+      bookingDate,
+      slotTime,
+      people,
+      hasExistingCustomer,
+      outcome,
+      totalMs: Date.now() - startedAt,
+      marks,
+    });
+  }
+
   try {
     const user = await requirePermission("trial.create");
+    mark("requirePermission");
     const data = createTrialBookingSchema.parse(input);
-    const storeId = currentStoreId(user);
+    mark("parse input");
+    storeId = currentStoreId(user);
+    bookingDate = data.bookingDate;
+    slotTime = data.slotTime;
+    const bookingPeople = data.people ?? 1;
+    people = bookingPeople;
+    hasExistingCustomer = Boolean(data.customerId);
 
     const settings = await getTrialSettings(storeId);
+    mark("getTrialSettings");
     if (!settings.trialEnabled) {
       throw new AppError("BUSINESS_RULE", "體驗單功能已停用，請洽店長於設定開啟");
     }
@@ -83,22 +119,33 @@ export async function createTrialBooking(
       where: { id: data.assignedStaffId, status: "ACTIVE", storeId },
       select: { id: true },
     });
+    mark("staff validation");
     if (!staff) throw new AppError("NOT_FOUND", "指定直屬店長不存在或未啟用");
 
     // ── 1. 解析顧客：既有 or 快速建檔（去重，不建第二筆）
     let customerId: string;
+    const resolveCustomerStartedAt = Date.now();
     if (data.customerId) {
       const existing = await prisma.customer.findFirst({
         where: { id: data.customerId, storeId },
         select: { id: true, assignedStaffId: true },
       });
+      marks.push({
+        label: "find existing customer",
+        ms: Date.now() - resolveCustomerStartedAt,
+      });
       if (!existing) throw new AppError("NOT_FOUND", "顧客不存在或不屬於本店");
       customerId = existing.id;
     } else {
+      const createCustomerStartedAt = Date.now();
       const created = await createCustomer({
         name: data.newCustomer!.name,
         phone: data.newCustomer!.phone,
         assignedStaffId: data.assignedStaffId,
+      });
+      marks.push({
+        label: "createCustomer",
+        ms: Date.now() - createCustomerStartedAt,
       });
       if (created.success) {
         customerId = created.data.customerId;
@@ -106,9 +153,15 @@ export async function createTrialBooking(
         // 同店電話已存在 → 沿用既有顧客，不建立第二筆（避免身分分裂）
         customerId = created.existingCustomerId;
       } else {
+        logTiming("createCustomer_failed");
         return { success: false, error: created.error };
       }
     }
+    marks.push({
+      label: "resolve customer",
+      ms: Date.now() - resolveCustomerStartedAt,
+    });
+    lastMarkAt = Date.now();
 
     // ── 2. 直屬店長：僅在「尚未指派」時補上，不覆蓋既有歸屬
     const cust = await prisma.customer.findUnique({
@@ -121,15 +174,17 @@ export async function createTrialBooking(
         data: { assignedStaffId: data.assignedStaffId },
       });
     }
+    mark("ensure customer assignment");
 
     // ── 3. 體驗課單一 Plan（idempotent，不改既有價）
     const trialPlan = await ensureTrialPlan(storeId, settings.trialDefaultPrice);
+    mark("ensureTrialPlan");
 
     // ── 4. 金額快照（PR-3c）：寫入「本次總額」= 單價 × people（未手動改價時自動帶）。
     //      若店長手動傳入 expectedAmount，視為本次總額（不再 × people），一律 clamp。
     //      allowEdit=false 強制 default × people。
-    const people = data.people ?? 1;
-    const expectedAmount = clampTrialTotal(data.expectedAmount, people, settings);
+    const expectedAmount = clampTrialTotal(data.expectedAmount, bookingPeople, settings);
+    mark("clamp amount");
 
     // ── 5. 建立 FIRST_TRIAL 預約（複用 createBooking：名額/營業日/值班檢查）
     //      無 customerPlanWalletId → 既有邏輯保證不 allocateSession、不扣堂。
@@ -140,17 +195,23 @@ export async function createTrialBooking(
       slotTime: data.slotTime,
       bookingType: "FIRST_TRIAL",
       servicePlanId: trialPlan.id,
-      people,
+      people: bookingPeople,
       expectedAmount,
       notes: data.notes,
     });
+    mark("createBooking");
 
-    if (!result.success) return { success: false, error: result.error };
+    if (!result.success) {
+      logTiming("createBooking_failed");
+      return { success: false, error: result.error };
+    }
+    logTiming("success");
     return {
       success: true,
       data: { bookingId: result.data.bookingId, customerId },
     };
   } catch (e) {
+    logTiming("exception");
     return handleActionError(e);
   }
 }
