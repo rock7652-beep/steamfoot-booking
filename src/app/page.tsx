@@ -3,6 +3,8 @@ import Link from "next/link";
 import { OAuthButtons } from "./oauth-buttons";
 import { CustomerLoginForm } from "./customer-login-form";
 import { RefCapture } from "@/components/ref-capture";
+import { getCustomerFacingStoreName } from "@/lib/customer-facing-store-name";
+import { resolveStoreBySlug } from "@/lib/store-resolver";
 
 interface PageProps {
   searchParams: Promise<{ error?: string }>;
@@ -18,7 +20,7 @@ const ERROR_MESSAGES: Record<string, string> = {
 };
 
 /**
- * 顧客登入頁 — 純 public page，不呼叫 auth() 也不查 DB。
+ * 顧客登入頁 — 純 public page，不呼叫 auth()；只讀 store metadata 顯示前台店名。
  *
  * 已登入用戶由 proxy.ts 在 rewrite 前 redirect（CUSTOMER → /book，Staff → /admin），
  * 進到這裡的一定是未登入狀態，不需要再檢查 session。
@@ -33,6 +35,8 @@ export default async function HomePage({ searchParams }: PageProps) {
   const cookieStore = await cookies();
   const storeSlug = headerList.get("x-store-slug") ?? cookieStore.get("store-slug")?.value ?? "zhubei";
   const prefix = `/s/${storeSlug}`;
+  const store = await resolveStoreBySlug(storeSlug);
+  const storeName = getCustomerFacingStoreName(store ?? { slug: storeSlug });
 
   const errorMessage = params.error
     ? ERROR_MESSAGES[params.error] ?? ERROR_MESSAGES.default
@@ -44,7 +48,7 @@ export default async function HomePage({ searchParams }: PageProps) {
       <div className="w-full max-w-sm">
         {/* Logo / Brand */}
         <div className="mb-8 text-center">
-          <h1 className="text-2xl font-bold text-earth-900">蒸足健康站</h1>
+          <h1 className="text-2xl font-bold text-earth-900">{storeName}</h1>
           <p className="mt-1 text-sm text-earth-500">會員預約系統</p>
         </div>
 

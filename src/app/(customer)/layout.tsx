@@ -9,6 +9,10 @@ import BuildFooter from "@/components/build-footer";
 import { LogoutButton } from "@/components/logout-button";
 import { getStoreContext } from "@/lib/store-context";
 import {
+  getCustomerFacingStoreName,
+  resolveStoreBySlug,
+} from "@/lib/store-resolver";
+import {
   getStoreOperatingStatus,
   getStoreUnavailableMessage,
   isStoreCustomerPortalBlocked,
@@ -175,6 +179,9 @@ export default async function CustomerLayout({
     );
   }
 
+  const currentStore = await resolveStoreBySlug(storeCtx.storeSlug);
+  const customerFacingStoreName = getCustomerFacingStoreName(currentStore);
+
   // ── 完成註冊 gate ──────────────────────────────────────
   // 顧客若尚未完成基本資料（姓名/電話/Email/生日/性別），強制導至 /profile 補齊
   // 白名單：/profile 本身允許進入；其餘顧客頁皆受控
@@ -204,7 +211,12 @@ export default async function CustomerLayout({
       <NavProgress />
 
       {/* Mobile hamburger menu */}
-      <MobileNav userName={user.name ?? "顧客"} pathname={pathname} storeSlug={storeSlug} />
+      <MobileNav
+        userName={user.name ?? "顧客"}
+        pathname={pathname}
+        storeName={customerFacingStoreName}
+        storeSlug={storeSlug}
+      />
 
       <div className="lg:flex">
         {/* Desktop sidebar — fixed narrow design */}
@@ -212,7 +224,7 @@ export default async function CustomerLayout({
           {/* Brand */}
           <div className="px-4 pb-3 pt-5">
             <Link href={`${prefix}/book`} className="text-base font-bold tracking-tight text-earth-900">
-              蒸足健康站
+              {customerFacingStoreName}
             </Link>
             <p className="mt-1 text-sm text-earth-700 truncate">{user.name}</p>
           </div>

@@ -4,6 +4,7 @@ import { useActionState, useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { customerRegisterAction, type RegisterState } from "@/server/actions/customer-auth";
 import Link from "next/link";
+import { getCustomerFacingStoreName } from "@/lib/customer-facing-store-name";
 
 type FieldErrors = {
   name?: string;
@@ -49,6 +50,7 @@ export default function RegisterPage() {
     ? window.location.pathname.match(/^\/s\/([^/]+)/)?.[1] ?? "zhubei"
     : "zhubei";
   const prefix = `/s/${storeSlug}`;
+  const storeName = getCustomerFacingStoreName({ slug: storeSlug });
 
   // B8: 讀取推薦人 ID（從 URL ?ref= 或 localStorage）
   useEffect(() => {
@@ -96,7 +98,7 @@ export default function RegisterPage() {
     >
       <div className="mb-6 text-center">
         <h1 className="text-xl font-bold text-earth-900">註冊新帳號</h1>
-        <p className="mt-1 text-sm text-earth-500">蒸足健康站會員</p>
+        <p className="mt-1 text-sm text-earth-500">{storeName}會員</p>
       </div>
 
       <div className="rounded-2xl border border-earth-200 bg-white p-6 shadow-sm">
