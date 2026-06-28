@@ -5,6 +5,9 @@ import {
   storeAddress as FALLBACK_STORE_ADDRESS,
   storeMapUrl as FALLBACK_STORE_MAP_URL,
 } from "@/lib/liff/messages";
+import { getCustomerFacingStoreName } from "@/lib/customer-facing-store-name";
+
+export { getCustomerFacingStoreName } from "@/lib/customer-facing-store-name";
 
 /**
  * Store resolver — 從 slug / storeId 解析 store 資訊。
@@ -237,7 +240,7 @@ export const resolveStorePresentation = cache(
     return {
       id: store.id,
       slug: store.slug,
-      name: store.name,
+      name: getCustomerFacingStoreName(store),
       liffId: emptyToNull(storeLiffRow?.liffId) ?? envLiffId ?? null,
       contactUrl: cfg?.lineOfficialUrl ?? FALLBACK_CONTACT_URL,
       address: cfg?.address ?? FALLBACK_STORE_ADDRESS,

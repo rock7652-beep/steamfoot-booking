@@ -75,7 +75,17 @@ const NAV_ITEMS_BASE = [
   { href: "/profile", label: "我的資料", icon: "user" },
 ];
 
-export function MobileNav({ userName, pathname, storeSlug = "zhubei" }: { userName: string; pathname: string; storeSlug?: string }) {
+export function MobileNav({
+  userName,
+  pathname,
+  storeName,
+  storeSlug = "zhubei",
+}: {
+  userName: string;
+  pathname: string;
+  storeName: string;
+  storeSlug?: string;
+}) {
   const prefix = `/s/${storeSlug}`;
   const NAV_ITEMS = NAV_ITEMS_BASE.map((item) => ({
     ...item,
@@ -100,7 +110,7 @@ export function MobileNav({ userName, pathname, storeSlug = "zhubei" }: { userNa
             </svg>
           </button>
           <Link href={`${prefix}/book`} className="text-base font-bold text-earth-900">
-            蒸足健康站
+            {storeName}
           </Link>
           <span className="text-sm text-earth-700 max-w-[88px] truncate">{userName}</span>
         </div>
@@ -122,7 +132,7 @@ export function MobileNav({ userName, pathname, storeSlug = "zhubei" }: { userNa
       >
         <div className="flex items-center justify-between border-b border-earth-200 px-5 py-4">
           <div>
-            <p className="text-lg font-bold text-earth-900">蒸足健康站</p>
+            <p className="text-lg font-bold text-earth-900">{storeName}</p>
             <p className="mt-1 text-sm text-earth-700">{userName}</p>
           </div>
           <button

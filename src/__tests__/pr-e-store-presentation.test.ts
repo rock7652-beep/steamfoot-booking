@@ -129,6 +129,19 @@ describe("PR-E：zhubei backfill regression（行為完全不變）", () => {
 });
 
 describe("PR-E：per-store override（多店真的能用）", () => {
+  it("known store slug → name 回前台顯示名稱，不直接暴露後台 Store.name", async () => {
+    mockStoreLookup({
+      storeBySlug: { id: STORE_ID_ZHUBEI, slug: "zhubei", name: "竹北店" },
+      liffId: "1234567890-zhubeiLiff",
+      shopConfig: null,
+    });
+
+    const p = await resolveStorePresentation("zhubei");
+    expect(p).not.toBeNull();
+    expect(p!.name).toBe("暖暖蒸足");
+    expect(p!.name).not.toBe("竹北店");
+  });
+
   it("demo2 DB 有不同值 → 回 demo2 值，不會誤回常數", async () => {
     mockStoreLookup({
       storeBySlug: { id: STORE_ID_DEMO2, slug: "demo2", name: "Demo 第二店" },
@@ -146,6 +159,7 @@ describe("PR-E：per-store override（多店真的能用）", () => {
     expect(p!.address).toBe("台中市某區某路一號");
     expect(p!.mapUrl).toBe("https://maps.app.goo.gl/DEMO2");
     expect(p!.liffId).toBe("9876543210-demo2Liff");
+    expect(p!.name).toBe("Demo 第二店");
     // 不應該意外混到常數
     expect(p!.contactUrl).not.toBe(contactStoreUrl);
     expect(p!.address).not.toBe(storeAddress);

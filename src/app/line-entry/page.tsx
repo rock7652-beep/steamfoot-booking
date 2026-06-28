@@ -7,6 +7,7 @@ import {
   createLineEntryEvent,
 } from "@/server/services/referral-events";
 import { isReferralCodeFormat } from "@/lib/referral-code";
+import { getCustomerFacingStoreName } from "@/lib/customer-facing-store-name";
 
 /**
  * /s/[slug]/line-entry?ref=xxx — LINE 推薦中繼頁（公開）
@@ -51,17 +52,17 @@ export default async function LineEntryPage({
     cookieStore.get("store-slug")?.value ??
     "zhubei";
 
-  // 依 slug 查 store（取 id + name；找不到時用 DEFAULT_STORE）
+  // 依 slug 查 store（取 id + slug + name；找不到時用前台 fallback）
   let storeId: string | null = null;
-  let storeName = "蒸足健康站";
+  let storeName = getCustomerFacingStoreName({ slug: storeSlug });
   try {
     const store = await prisma.store.findUnique({
       where: { slug: storeSlug },
-      select: { id: true, name: true },
+      select: { id: true, slug: true, name: true },
     });
     if (store) {
       storeId = store.id;
-      storeName = store.name;
+      storeName = getCustomerFacingStoreName(store);
     }
   } catch {
     // fallback 保留預設
