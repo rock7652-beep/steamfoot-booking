@@ -154,7 +154,7 @@ export function DayDetailPanel({
           <KpiChip label="到店" value={stats.checkedIn} />
           <KpiChip label="完成" value={stats.completed} />
           <KpiChip
-            label="未到"
+            label="未到人數"
             value={stats.noShow}
             tone={stats.noShow > 0 ? "danger" : "default"}
           />
@@ -650,7 +650,7 @@ function computeStats(bookings: DayBooking[]) {
     stats.people += b.people;
     if (b.isCheckedIn) stats.checkedIn++;
     if (b.bookingStatus === "COMPLETED") stats.completed++;
-    if (b.bookingStatus === "NO_SHOW") stats.noShow++;
+    if (b.bookingStatus === "NO_SHOW") stats.noShow += b.people;
     if (b.isMakeup) stats.makeup++;
   }
   return stats;
