@@ -28,6 +28,7 @@ const mockDutyFindMany = vi.fn();
 const mockDutyCount = vi.fn();
 const mockCustomerFindUnique = vi.fn();
 const mockMakeupFindUnique = vi.fn();
+const mockShopConfigFindUnique = vi.fn();
 const mockTransaction = vi.fn();
 const mockStoreFindUnique = vi.fn();
 
@@ -61,6 +62,9 @@ vi.mock("@/lib/db", () => ({
     customer: {
       findUnique: (...a: unknown[]) => mockCustomerFindUnique(...a),
     },
+    shopConfig: {
+      findUnique: (...a: unknown[]) => mockShopConfigFindUnique(...a),
+    },
     makeupCredit: {
       findUnique: (...a: unknown[]) => mockMakeupFindUnique(...a),
     },
@@ -73,15 +77,10 @@ const STORE_A = "store-zhubei";
 const CUSTOMER_ID = "ck0000000000000000000001";
 const USER_ID = "ck0000000000000000000002";
 const WALLET_ID = "ck0000000000000000000003";
+const mockRequireSession = vi.fn();
 
 vi.mock("@/lib/session", () => ({
-  requireSession: vi.fn(async () => ({
-    role: "CUSTOMER",
-    storeId: STORE_A,
-    staffId: null,
-    customerId: CUSTOMER_ID,
-    id: USER_ID,
-  })),
+  requireSession: vi.fn(async () => mockRequireSession()),
   requireStaffSession: vi.fn(async () => {
     // 顧客若觸發 staff guard 視為紅燈
     throw new Error("CUSTOMER hit requireStaffSession — must not happen");
@@ -109,6 +108,8 @@ vi.mock("@/lib/permissions", () => ({
 vi.mock("@/lib/shop-config", () => ({
   isDutySchedulingEnabled: vi.fn(async () => false),
   checkBookingLimit: vi.fn(async () => ({ allowed: true, current: 0, limit: 100 })),
+  resolveBookableUntilDate: (bookableUntilDate: Date | null | undefined) =>
+    bookableUntilDate ? bookableUntilDate.toISOString().slice(0, 10) : "2026-05-10",
 }));
 
 vi.mock("@/lib/usage-gate", () => ({
@@ -185,6 +186,16 @@ beforeEach(() => {
   mockDutyFindMany.mockResolvedValue([]);
   mockDutyCount.mockResolvedValue(0);
   mockStoreFindUnique.mockResolvedValue({ operatingStatus: "ACTIVE" });
+  mockShopConfigFindUnique.mockResolvedValue({
+    bookableUntilDate: new Date("2026-05-10T00:00:00.000Z"),
+  });
+  mockRequireSession.mockResolvedValue({
+    role: "CUSTOMER",
+    storeId: STORE_A,
+    staffId: null,
+    customerId: CUSTOMER_ID,
+    id: USER_ID,
+  });
   mockCustomerFindUnique.mockResolvedValue({
     id: CUSTOMER_ID,
     storeId: STORE_A,
@@ -256,6 +267,37 @@ describe("CUSTOMER 自助預約：不可觸發 staff guard", () => {
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error).toMatch(/暫停營業/);
+    }
+    expect(mockBookingCreate).not.toHaveBeenCalled();
+  });
+});
+
+describe("createBooking — 店鋪開放日期上限", () => {
+  it("後台角色手動送超過 bookableUntilDate 的日期會被拒絕", async () => {
+    mockRequireSession.mockResolvedValue({
+      role: "OWNER",
+      storeId: STORE_A,
+      staffId: "staff-1",
+      customerId: null,
+      id: "owner-1",
+    });
+    mockShopConfigFindUnique.mockResolvedValue({
+      bookableUntilDate: new Date("2026-07-31T00:00:00.000Z"),
+    });
+
+    const { createBooking } = await import("@/server/actions/booking");
+    const result = await createBooking({
+      customerId: CUSTOMER_ID,
+      bookingDate: "2026-08-01",
+      slotTime: "11:00",
+      bookingType: "PACKAGE_SESSION",
+      customerPlanWalletId: WALLET_ID,
+      people: 1,
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error).toContain("僅開放預約至 2026-07-31");
     }
     expect(mockBookingCreate).not.toHaveBeenCalled();
   });

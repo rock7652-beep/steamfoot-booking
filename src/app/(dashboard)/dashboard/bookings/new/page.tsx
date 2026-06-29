@@ -2,7 +2,11 @@ import { createBooking } from "@/server/actions/booking";
 import { fetchDaySlots } from "@/server/actions/slots";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
+import { prisma } from "@/lib/db";
+import { enumerateBookableDates } from "@/lib/bookable-window";
 import { toLocalDateStr } from "@/lib/date-utils";
+import { resolveBookableUntilDate } from "@/lib/shop-config";
+import { getActiveStoreForRead } from "@/lib/store";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { redirect } from "next/navigation";
 import { CustomerAndPlanFields } from "./customer-and-plan-fields";
@@ -16,17 +20,6 @@ import {
   FormSection,
   StickyFormActions,
 } from "@/components/desktop";
-
-function getNextDays(n: number): string[] {
-  const days: string[] = [];
-  const today = toLocalDateStr();
-  const [y, m, d] = today.split("-").map(Number);
-  for (let i = 0; i < n; i++) {
-    const date = new Date(Date.UTC(y, m - 1, d + i));
-    days.push(date.toISOString().slice(0, 10));
-  }
-  return days;
-}
 
 interface PageProps {
   searchParams: Promise<{ date?: string; mode?: string }>;
@@ -45,7 +38,15 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const todayStr = toLocalDateStr();
   const defaultDate = params.date ?? todayStr;
-  const days = getNextDays(14);
+  const activeStoreId = await getActiveStoreForRead(user);
+  const shopConfig = activeStoreId
+    ? await prisma.shopConfig.findUnique({
+        where: { storeId: activeStoreId },
+        select: { bookableUntilDate: true },
+      })
+    : null;
+  const bookableUntil = resolveBookableUntilDate(shopConfig?.bookableUntilDate);
+  const days = enumerateBookableDates(todayStr, bookableUntil);
   const isOwner = user.role === "ADMIN";
   // 從「新增補課」入口進來 → 預設選補課（顧客有有效補課券時）。
   const defaultMode = params.mode === "makeup" ? "makeup" : undefined;
@@ -55,7 +56,7 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
   // 過去日期不預載（表單會擋）；查詢失敗 → undefined，client fallback 維持原行為。
   const initialSlotDate = days.includes(defaultDate) ? defaultDate : days[0];
   let initialSlots: Awaited<ReturnType<typeof fetchDaySlots>>["slots"] | undefined;
-  if (initialSlotDate >= todayStr) {
+  if (initialSlotDate && initialSlotDate >= todayStr) {
     try {
       initialSlots = (await fetchDaySlots(initialSlotDate)).slots;
     } catch {

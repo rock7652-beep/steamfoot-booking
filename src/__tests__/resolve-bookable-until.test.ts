@@ -10,6 +10,7 @@
  */
 
 import { describe, it, expect } from "vitest";
+import { enumerateBookableDates } from "@/lib/bookable-window";
 import { resolveBookableUntilDate, DEFAULT_BOOKABLE_DAYS_AHEAD } from "@/lib/shop-config";
 import { addTaiwanDuration, toLocalDateStr } from "@/lib/date-utils";
 
@@ -39,5 +40,15 @@ describe("resolveBookableUntilDate — 未設定 → 預設 +14 天", () => {
 
   it("DEFAULT_BOOKABLE_DAYS_AHEAD 為 14", () => {
     expect(DEFAULT_BOOKABLE_DAYS_AHEAD).toBe(14);
+  });
+});
+
+describe("enumerateBookableDates — 後台日期清單", () => {
+  it("today=2026-06-29 且開放到 2026-07-31 時，包含 7/31 且不包含 8/1", () => {
+    const days = enumerateBookableDates("2026-06-29", "2026-07-31");
+
+    expect(days[0]).toBe("2026-06-29");
+    expect(days).toContain("2026-07-31");
+    expect(days).not.toContain("2026-08-01");
   });
 });

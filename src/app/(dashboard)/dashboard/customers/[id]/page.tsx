@@ -5,6 +5,8 @@ import { getCachedPlans, getCachedStaffOptions } from "@/lib/query-cache";
 import { getActiveStoreForRead } from "@/lib/store";
 import { ServerTiming, withTiming } from "@/lib/perf";
 import { prisma } from "@/lib/db";
+import { enumerateBookableDates } from "@/lib/bookable-window";
+import { resolveBookableUntilDate } from "@/lib/shop-config";
 import { notFound, redirect } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import {
@@ -125,7 +127,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
 
   const effectiveStoreId = customer.storeId;
 
-  const [plans, staffOptions, canDiscount, canAdjustWallet, perksSummary] = await Promise.all([
+  const [plans, staffOptions, canDiscount, canAdjustWallet, perksSummary, shopConfig] = await Promise.all([
     withTiming("getCachedPlans", timer, () => getCachedPlans(effectiveStoreId)).catch((e) => {
       console.error("[customer-detail] plans query failed", {
         ...logCtx,
@@ -152,6 +154,10 @@ export default async function CustomerDetailPage({ params }: PageProps) {
           getMyReferralSummary(id, { activeStoreId: effectiveStoreId }),
         ).catch(() => null)
       : Promise.resolve(null),
+    prisma.shopConfig.findUnique({
+      where: { storeId: effectiveStoreId },
+      select: { bookableUntilDate: true },
+    }),
   ]);
 
   timer.finish();
@@ -163,6 +169,11 @@ export default async function CustomerDetailPage({ params }: PageProps) {
   const derivedSource = deriveCustomerSource(identitySnapshot);
 
   const canEdit = user.role !== "CUSTOMER";
+  const todayStr = toLocalDateStr();
+  const bookingDays = enumerateBookableDates(
+    todayStr,
+    resolveBookableUntilDate(shopConfig?.bookableUntilDate),
+  );
 
   const staffList =
     user.role === "ADMIN"
@@ -399,6 +410,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
               ) : (
                 <CreateBookingForm
                   customerId={id}
+                  days={bookingDays}
                   activeWallets={activeWallets.map((w) => ({
                     id: w.id,
                     planName: w.plan.name,

@@ -3,7 +3,6 @@
 import { useState, useCallback, useEffect, useActionState } from "react";
 import { createBooking } from "@/server/actions/booking";
 import { fetchDaySlots } from "@/server/actions/slots";
-import { toLocalDateStr } from "@/lib/date-utils";
 import { toast } from "sonner";
 import type { SlotAvailability } from "@/types";
 
@@ -17,28 +16,16 @@ interface ActiveWallet {
 
 interface Props {
   customerId: string;
+  days: string[];
   activeWallets: ActiveWallet[];
-}
-
-// Next 14 days helper (Taiwan time)
-function getNextDays(n: number): string[] {
-  const days: string[] = [];
-  const today = toLocalDateStr();
-  const [y, m, d] = today.split("-").map(Number);
-  for (let i = 0; i < n; i++) {
-    const date = new Date(Date.UTC(y, m - 1, d + i));
-    days.push(date.toISOString().slice(0, 10));
-  }
-  return days;
 }
 
 type BookingType = "FIRST_TRIAL" | "SINGLE" | "PACKAGE_SESSION";
 
-export function CreateBookingForm({ customerId, activeWallets }: Props) {
-  const days = getNextDays(14);
-  const [selectedDate, setSelectedDate] = useState(days[0]);
+export function CreateBookingForm({ customerId, days, activeWallets }: Props) {
+  const [selectedDate, setSelectedDate] = useState(days[0] ?? "");
   const [slots, setSlots] = useState<SlotAvailability[]>([]);
-  const [loadingSlots, setLoadingSlots] = useState(true);
+  const [loadingSlots, setLoadingSlots] = useState(days.length > 0);
   // 防呆：有可用 wallet → bookingType 預設 PACKAGE_SESSION + 自動選 FEFO 首張
   const [bookingType, setBookingType] = useState<BookingType>("PACKAGE_SESSION");
   const [walletId, setWalletId] = useState<string>(activeWallets[0]?.id ?? "");
@@ -56,7 +43,7 @@ export function CreateBookingForm({ customerId, activeWallets }: Props) {
   }, []);
 
   useEffect(() => {
-    loadSlots(selectedDate);
+    if (selectedDate) void loadSlots(selectedDate);
   }, [selectedDate, loadSlots]);
 
   // 可預約的時段（排除已過和已滿）
@@ -105,17 +92,23 @@ export function CreateBookingForm({ customerId, activeWallets }: Props) {
 
       <div>
         <label className="block text-xs text-earth-500">日期</label>
-        <select
-          name="bookingDate"
-          required
-          value={selectedDate}
-          onChange={(e) => setSelectedDate(e.target.value)}
-          className="mt-1 w-full rounded border border-earth-300 px-2 py-1 text-sm"
-        >
-          {days.map((d) => (
-            <option key={d} value={d}>{d}</option>
-          ))}
-        </select>
+        {days.length === 0 ? (
+          <p className="mt-1 rounded border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-amber-700">
+            店鋪目前沒有開放可預約日期
+          </p>
+        ) : (
+          <select
+            name="bookingDate"
+            required
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value)}
+            className="mt-1 w-full rounded border border-earth-300 px-2 py-1 text-sm"
+          >
+            {days.map((d) => (
+              <option key={d} value={d}>{d}</option>
+            ))}
+          </select>
+        )}
       </div>
 
       <div>

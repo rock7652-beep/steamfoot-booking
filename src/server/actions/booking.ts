@@ -163,6 +163,30 @@ export async function createBooking(
       message: BOOKING_EXPIRED_MESSAGE,
     });
 
+    // ── 0.45 店鋪可預約日期上限（含當日）
+    // 前台與後台都必須遵守 ShopConfig.bookableUntilDate；未設定時沿用
+    // resolveBookableUntilDate(null) 的預設視窗。這裡先擋超出店鋪開放日，
+    // 避免後台手動送未開放日期繞過 UI。
+    const todayStr = toLocalDateStr(); // 台灣今天 "YYYY-MM-DD"
+    if (data.bookingDate < todayStr) {
+      throw new AppError("VALIDATION", "不可預約過去的日期");
+    }
+
+    const sc = await prisma.shopConfig.findUnique({
+      where: { storeId },
+      select: { bookableUntilDate: true },
+    });
+    const bookableUntil = resolveBookableUntilDate(sc?.bookableUntilDate);
+    // 字串比較即年代順序；含當日 → 僅當超過上限才擋
+    if (data.bookingDate > bookableUntil) {
+      throw new AppError(
+        "BUSINESS_RULE",
+        user.role === "CUSTOMER"
+          ? "次月預約時段尚未開放，請等候店長通知。"
+          : `店鋪目前僅開放預約至 ${bookableUntil}，請先到營業時間設定開放日期。`,
+      );
+    }
+
     // ── 0.5 檢查營業日 / 公休（共用 resolver，與後台/前台月曆同源）
     const dayCtx = await loadDayBusinessHoursContext(storeId, data.bookingDate);
 
@@ -348,31 +372,7 @@ export async function createBooking(
       }
     }
 
-    // ── 5. 日期範圍檢查（以台灣時間為準，避免 UTC 伺服器判斷錯誤）
-    const todayStr = toLocalDateStr(); // 台灣今天 "YYYY-MM-DD"
-    if (data.bookingDate < todayStr) {
-      throw new AppError("VALIDATION", "不可預約過去的日期");
-    }
-
     const bookingDateObj = new Date(data.bookingDate + "T00:00:00Z");
-
-    // PR-1：顧客自助預約「可預約到日期」上限（含當日）。
-    // 僅限制 role=CUSTOMER；後台店長/管理者代客預約不受此上限限制，
-    // 以保留現場彈性（已電話/現場確認、特殊安排）。
-    if (user.role === "CUSTOMER") {
-      const sc = await prisma.shopConfig.findUnique({
-        where: { storeId },
-        select: { bookableUntilDate: true },
-      });
-      const bookableUntil = resolveBookableUntilDate(sc?.bookableUntilDate);
-      // 字串比較即年代順序；含當日 → 僅當超過上限才擋
-      if (data.bookingDate > bookableUntil) {
-        throw new AppError(
-          "BUSINESS_RULE",
-          "次月預約時段尚未開放，請等候店長通知。",
-        );
-      }
-    }
 
     // 同日已過時段不可預約（後端強制擋）
     if (data.bookingDate === todayStr) {
