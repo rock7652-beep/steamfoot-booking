@@ -36,7 +36,7 @@ export function DashboardBookingForm({
   todayStr,
   initialSlots,
 }: Props) {
-  const initialDate = days.includes(defaultDate) ? defaultDate : days[0];
+  const initialDate = days.includes(defaultDate) ? defaultDate : (days[0] ?? "");
   const [selectedDate, setSelectedDate] = useState(initialDate);
   // SSR 已帶初始日時段 → 首屏直接顯示、loading=false；否則沿用原本 client 載入。
   const [slots, setSlots] = useState<SlotAvailability[]>(initialSlots ?? []);
@@ -94,19 +94,25 @@ export function DashboardBookingForm({
         <label className="block text-sm font-medium text-earth-700">
           日期 <span className="text-red-500">*</span>
         </label>
-        <select
-          name="bookingDate"
-          required
-          value={selectedDate}
-          onChange={(e) => setSelectedDate(e.target.value)}
-          className="mt-1.5 block w-full rounded-lg border border-earth-300 bg-white px-3 py-2 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
-        >
-          {days.map((d) => (
-            <option key={d} value={d}>
-              {d}（{formatWeekdayZh(d)}）{d === todayStr ? " — 今天" : ""}
-            </option>
-          ))}
-        </select>
+        {days.length === 0 ? (
+          <p className="mt-1.5 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-700">
+            店鋪目前沒有開放可預約日期，請先到營業時間設定開放日期。
+          </p>
+        ) : (
+          <select
+            name="bookingDate"
+            required
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value)}
+            className="mt-1.5 block w-full rounded-lg border border-earth-300 bg-white px-3 py-2 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
+          >
+            {days.map((d) => (
+              <option key={d} value={d}>
+                {d}（{formatWeekdayZh(d)}）{d === todayStr ? " — 今天" : ""}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
       {/* 過去日期警告 */}
