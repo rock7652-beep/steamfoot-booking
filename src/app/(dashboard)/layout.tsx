@@ -70,20 +70,25 @@ export default async function DashboardLayout({
   // 查詢失敗不影響後台（提醒非關鍵功能）。本階段只提醒、不限制操作。
   let subBannerState: "EXPIRED" | "SUSPENDED" | null = null;
   let operatingStatus: StoreOperatingStatus | null = null;
+  let storeName: string | null = null;
   if (effectiveStoreId) {
     try {
-      const [sub, store] = await Promise.all([
-        prisma.storeSubscription.findFirst({
-          where: { storeId: effectiveStoreId },
-          orderBy: { createdAt: "desc" },
-          select: { status: true, expiresAt: true },
-        }),
-        prisma.store.findUnique({
-          where: { id: effectiveStoreId },
-          select: { operatingStatus: true },
-        }),
-      ]);
+      const store = await prisma.store.findUnique({
+        where: { id: effectiveStoreId },
+        select: { name: true, operatingStatus: true },
+      });
+      storeName = store?.name ?? null;
       operatingStatus = store?.operatingStatus ?? null;
+    } catch {
+      // 忽略：店名/營運狀態失敗時使用 UI fallback
+    }
+
+    try {
+      const sub = await prisma.storeSubscription.findFirst({
+        where: { storeId: effectiveStoreId },
+        orderBy: { createdAt: "desc" },
+        select: { status: true, expiresAt: true },
+      });
       if (sub) {
         const lc = computeLifecycle(
           { status: sub.status, expiresAt: sub.expiresAt },
@@ -118,6 +123,7 @@ export default async function DashboardLayout({
         </form>
       }
       trialStatus={trialStatus}
+      storeName={storeName}
       storeOptions={isAdmin ? storeOptions : undefined}
       activeStoreId={isAdmin ? activeStoreId : undefined}
     >
