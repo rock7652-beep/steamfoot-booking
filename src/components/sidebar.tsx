@@ -610,9 +610,6 @@ export default function DashboardShell({
     ? rawPathname.slice(dashboardPrefix.length)
     : rawPathname;
 
-  // 側邊欄標題永遠顯示品牌名
-  const headerTitle = "蒸足管理";
-
   // isAdmin: ADMIN 才有 storeOptions（用於 HQ 專屬 UI）
   const isAdmin = !!storeOptions?.length;
 
@@ -624,6 +621,7 @@ export default function DashboardShell({
     }
     return storeName ?? null;
   })();
+  const headerTitle = activeStoreName && activeStoreName !== "全部分店" ? activeStoreName : "蒸足管理";
 
   // 關閉 user menu on outside click
   useEffect(() => {
