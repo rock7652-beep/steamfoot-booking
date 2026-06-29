@@ -203,7 +203,7 @@ export async function runReminders(): Promise<SendResult> {
       const renderedBody = renderTemplate(templateBody, vars);
 
       // 發送 LINE push
-      const sendResult = await pushMessage(customer.lineUserId!, [
+      const sendResult = await pushMessage(bookingStoreId, customer.lineUserId!, [
         { type: "text", text: renderedBody },
       ]);
 

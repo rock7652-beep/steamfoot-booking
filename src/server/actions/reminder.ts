@@ -392,7 +392,7 @@ export async function testSendLineMessage(
 
     const renderedBody = renderTemplate(template.body, vars);
 
-    const result = await pushMessage(customer.lineUserId, [
+    const result = await pushMessage(customer.storeId, customer.lineUserId, [
       { type: "text", text: renderedBody },
     ]);
 

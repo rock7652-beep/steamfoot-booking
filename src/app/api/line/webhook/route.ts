@@ -31,14 +31,6 @@ export async function POST(req: Request) {
       hasSignature: !!signature,
     });
 
-    // 簽章驗證
-    if (process.env.LINE_CHANNEL_SECRET && signature) {
-      if (!verifyLineSignature(body, signature)) {
-        console.warn("[LINE Webhook] Invalid signature");
-        return new Response("Invalid signature", { status: 401 });
-      }
-    }
-
     const data = JSON.parse(body);
     const events: LineWebhookEvent[] = data.events ?? [];
 
@@ -52,6 +44,12 @@ export async function POST(req: Request) {
     }
 
     console.log("[LINE Webhook] Resolved store", { destination, storeId });
+
+    // 簽章驗證必須使用該 store 的 LINE channel secret；缺 secret 也視為驗證失敗。
+    if (!signature || !verifyLineSignature(storeId, body, signature)) {
+      console.warn("[LINE Webhook] Invalid signature", { storeId, hasSignature: !!signature });
+      return new Response("Invalid signature", { status: 401 });
+    }
 
     for (const event of events) {
       try {
@@ -183,7 +181,7 @@ async function handleFollow(lineUserId: string, storeId: string, replyToken?: st
 
   // 回覆歡迎訊息
   if (replyToken) {
-    const result = await replyMessage(replyToken, [
+    const result = await replyMessage(storeId, replyToken, [
       {
         type: "text",
         text: [
@@ -270,7 +268,7 @@ async function handleBindingRequest(
       customerId: existingLinked.id,
     });
     if (replyToken) {
-      const result = await replyMessage(replyToken, [
+      const result = await replyMessage(storeId, replyToken, [
         {
           type: "text",
           text: "此 LINE 帳號已綁定其他顧客資料，如需變更請聯繫店家。",
@@ -295,7 +293,7 @@ async function handleBindingRequest(
       lineUserId,
     });
     if (replyToken) {
-      const result = await replyMessage(replyToken, [
+      const result = await replyMessage(storeId, replyToken, [
         {
           type: "text",
           text: [
@@ -321,7 +319,7 @@ async function handleBindingRequest(
       customerId: customer.id,
     });
     if (replyToken) {
-      const result = await replyMessage(replyToken, [
+      const result = await replyMessage(storeId, replyToken, [
         {
           type: "text",
           text: "此顧客帳號已綁定其他 LINE，如需重新綁定請聯繫店家解除後再試。",
@@ -346,7 +344,7 @@ async function handleBindingRequest(
         customerId: customer.id,
       });
       if (replyToken) {
-        const result = await replyMessage(replyToken, [
+        const result = await replyMessage(storeId, replyToken, [
           {
             type: "text",
             text: "此綁定碼已過期，請聯繫店家重新產生綁定碼。",
@@ -417,7 +415,7 @@ async function handleBindingRequest(
   }
 
   if (replyToken) {
-    const result = await replyMessage(replyToken, [
+    const result = await replyMessage(storeId, replyToken, [
       {
         type: "text",
         text: `${customer.name} 您好！LINE 綁定成功 ✓\n\n之後您將可收到預約提醒通知。`,

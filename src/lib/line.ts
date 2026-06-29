@@ -2,28 +2,27 @@
  * LINE Messaging API 串接
  *
  * 使用 LINE Official Account + Messaging API
- * 環境變數：LINE_CHANNEL_ACCESS_TOKEN, LINE_CHANNEL_SECRET
+ * 環境變數：LINE_<STORE>_CHANNEL_ACCESS_TOKEN, LINE_<STORE>_CHANNEL_SECRET
  */
 
 import crypto from "crypto";
+import {
+  getLineAccessTokenForStore,
+  getLineSecretForStore,
+  LINE_SECRET_NOT_CONFIGURED_ERROR,
+  LINE_TOKEN_NOT_CONFIGURED_ERROR,
+} from "@/lib/line-config";
 
 const LINE_API_BASE = "https://api.line.me/v2/bot";
 
-function getChannelAccessToken(): string {
-  const token = process.env.LINE_CHANNEL_ACCESS_TOKEN;
-  if (!token) throw new Error("LINE_CHANNEL_ACCESS_TOKEN is not set");
-  return token;
-}
-
-function getChannelSecret(): string {
-  const secret = process.env.LINE_CHANNEL_SECRET;
-  if (!secret) throw new Error("LINE_CHANNEL_SECRET is not set");
-  return secret;
-}
-
 /** 驗證 LINE webhook signature */
-export function verifyLineSignature(body: string, signature: string): boolean {
-  const secret = getChannelSecret();
+export function verifyLineSignature(
+  storeId: string,
+  body: string,
+  signature: string
+): boolean {
+  const secret = getLineSecretForStore(storeId);
+  if (!secret) return false;
   const hash = crypto
     .createHmac("SHA256", secret)
     .update(body)
@@ -33,11 +32,15 @@ export function verifyLineSignature(body: string, signature: string): boolean {
 
 /** Push message to a specific user */
 export async function pushMessage(
+  storeId: string,
   lineUserId: string,
   messages: LineMessage[]
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const token = getChannelAccessToken();
+    const token = getLineAccessTokenForStore(storeId);
+    if (!token) {
+      return { success: false, error: LINE_TOKEN_NOT_CONFIGURED_ERROR };
+    }
     const res = await fetch(`${LINE_API_BASE}/message/push`, {
       method: "POST",
       headers: {
@@ -69,11 +72,15 @@ export async function pushMessage(
 
 /** Reply to a webhook event */
 export async function replyMessage(
+  storeId: string,
   replyToken: string,
   messages: LineMessage[]
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const token = getChannelAccessToken();
+    const token = getLineAccessTokenForStore(storeId);
+    if (!token) {
+      return { success: false, error: LINE_TOKEN_NOT_CONFIGURED_ERROR };
+    }
     const res = await fetch(`${LINE_API_BASE}/message/reply`, {
       method: "POST",
       headers: {
@@ -105,10 +112,14 @@ export async function replyMessage(
 
 /** Get user profile */
 export async function getUserProfile(
+  storeId: string,
   lineUserId: string
-): Promise<{ displayName: string; pictureUrl?: string } | null> {
+): Promise<{ displayName: string; pictureUrl?: string; error?: string } | null> {
   try {
-    const token = getChannelAccessToken();
+    const token = getLineAccessTokenForStore(storeId);
+    if (!token) {
+      return { displayName: "", error: LINE_TOKEN_NOT_CONFIGURED_ERROR };
+    }
     const res = await fetch(`${LINE_API_BASE}/profile/${lineUserId}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -118,6 +129,8 @@ export async function getUserProfile(
     return null;
   }
 }
+
+export { LINE_SECRET_NOT_CONFIGURED_ERROR, LINE_TOKEN_NOT_CONFIGURED_ERROR };
 
 // ============================================================
 // Types

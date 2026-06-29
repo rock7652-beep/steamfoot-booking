@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { requireStaffSession } from "@/lib/session";
 import { getActiveStoreForRead } from "@/lib/store";
 import { getHealthScore, getErrorStats24h, getRecentErrors, type ErrorCategory } from "@/lib/error-logger";
+import { getLineAccessTokenForStore } from "@/lib/line-config";
 import { notFound } from "next/navigation";
 
 // ============================================================
@@ -69,24 +70,15 @@ async function checkCoreOperations(storeId: string | null): Promise<{ results: C
     results.push({ label: "交易紀錄", status: "error", detail: "交易資料查詢異常" });
   }
 
-  // 5. LINE 通知
-  const lineToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
-  if (lineToken) {
-    try {
-      const res = await fetch("https://api.line.me/v2/bot/info", {
-        headers: { Authorization: `Bearer ${lineToken}` },
-        signal: AbortSignal.timeout(5000),
-      });
-      results.push({
-        label: "LINE 通知",
-        status: res.ok ? "ok" : "attention",
-        detail: res.ok ? "LINE 推播服務正常" : "LINE 服務回應異常，通知可能延遲",
-      });
-    } catch {
-      results.push({ label: "LINE 通知", status: "attention", detail: "LINE 服務暫時無法連線，通知可能延遲" });
-    }
+  // 5. LINE 通知 — per-store token presence check only; do not fallback to another store token.
+  const lineStoreIds = storeId ? [storeId] : ["zhubei", "hsinchu", "taichung"];
+  const configuredCount = lineStoreIds.filter((sid) => getLineAccessTokenForStore(sid)).length;
+  if (configuredCount === lineStoreIds.length) {
+    results.push({ label: "LINE 通知", status: "ok", detail: `已設定 ${configuredCount}/${lineStoreIds.length} 店 LINE 推播 token` });
+  } else if (configuredCount > 0) {
+    results.push({ label: "LINE 通知", status: "attention", detail: `已設定 ${configuredCount}/${lineStoreIds.length} 店 LINE 推播 token，未設定店別不會發送` });
   } else {
-    results.push({ label: "LINE 通知", status: "inactive", detail: "LINE 推播尚未設定，不影響預約與營運" });
+    results.push({ label: "LINE 通知", status: "inactive", detail: "LINE 推播 token 尚未設定，不會跨店 fallback" });
   }
 
   return { results, dbLatency };
