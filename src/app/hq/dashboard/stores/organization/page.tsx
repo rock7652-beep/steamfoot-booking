@@ -15,9 +15,10 @@ export default async function StoreOrganizationPage() {
     <div className="mx-auto max-w-5xl px-4 py-8">
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-earth-900">店舖組織</h1>
-          <p className="mt-1 text-sm text-earth-500">
-            設定店舖之間的查看關係。此設定不影響營收、顧客、預約、方案或歷史資料。
+          <h1 className="text-2xl font-bold text-earth-900">店舖組織圖</h1>
+          <p className="mt-1 max-w-3xl text-sm leading-6 text-earth-500">
+            設定店舖之間的查看關係。不影響顧客、預約、營收、方案及歷史資料。
+            店舖組織不代表管理權或營收歸屬。
           </p>
         </div>
         <Link
