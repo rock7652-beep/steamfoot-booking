@@ -36,6 +36,12 @@ export default async function StoresPage() {
         </div>
         <div className="flex items-center gap-2">
           <Link
+            href="/hq/dashboard/stores/organization"
+            className="rounded-lg border border-earth-200 px-4 py-2 text-sm font-medium text-earth-700 hover:bg-earth-50"
+          >
+            店舖組織
+          </Link>
+          <Link
             href="/hq/dashboard/stores/subscriptions"
             className="rounded-lg border border-earth-200 px-4 py-2 text-sm font-medium text-earth-700 hover:bg-earth-50"
           >
