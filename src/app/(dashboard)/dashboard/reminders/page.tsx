@@ -17,10 +17,13 @@ import {
   getReminderStats,
   getStoreReminderState,
   getTodayCronRunStatus,
+  getLineSmokeTestContext,
 } from "@/server/queries/reminder";
+import { isLineSmokeTestEnabled } from "@/lib/line-config";
 import { ReminderCard } from "./reminder-card";
 import { CreateTemplateForm } from "./create-template-form";
 import { CronRunBanner } from "./cron-run-banner";
+import { LineSmokeTestCard } from "./line-smoke-test-card";
 
 const LOG_STATUS_LABEL: Record<string, string> = {
   PENDING: "待發送",
@@ -72,6 +75,7 @@ export default async function RemindersPage({ searchParams }: PageProps) {
 
   const plan = await getCurrentStorePlan();
   const activeTab = params.tab ?? "rules";
+  const smokeTestEnabled = isLineSmokeTestEnabled();
 
   const [stats, templates, cronStatus, reminderState] = await Promise.all([
     getReminderStats(activeStoreId),
@@ -79,6 +83,9 @@ export default async function RemindersPage({ searchParams }: PageProps) {
     getTodayCronRunStatus(),
     getStoreReminderState(activeStoreId!),
   ]);
+  const smokeTestContext = smokeTestEnabled
+    ? await getLineSmokeTestContext(activeStoreId!)
+    : null;
 
   const logsData = activeTab === "logs"
     ? await listMessageLogs({
@@ -161,12 +168,18 @@ export default async function RemindersPage({ searchParams }: PageProps) {
 
         {/* 提醒設定 — 單一「明日預約提醒」開關 */}
         {activeTab === "rules" && (
-          <section>
+          <section className="space-y-4">
             <ReminderCard
               initialEnabled={reminderState.enabled}
               initialTemplateId={reminderState.canonicalTemplateId}
               templates={templates.map((t) => ({ id: t.id, name: t.name }))}
             />
+            {smokeTestContext && (
+              <LineSmokeTestCard
+                storeName={smokeTestContext.storeName}
+                customers={smokeTestContext.customers}
+              />
+            )}
           </section>
         )}
 

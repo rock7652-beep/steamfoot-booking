@@ -37,7 +37,7 @@ export async function sendOpsLineMessage(
     }
 
     // Send via LINE Push API
-    const result = await pushMessage(customer.lineUserId, [
+    const result = await pushMessage(customer.storeId, customer.lineUserId, [
       { type: "text", text: messageText },
     ]);
 

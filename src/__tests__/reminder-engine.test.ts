@@ -231,11 +231,16 @@ const mockPrisma = {
 vi.mock("@/lib/db", () => ({ prisma: mockPrisma }));
 
 // ── Mock LINE & 其他依賴 ──
-const pushMessageMock = vi.fn<() => Promise<{ success: boolean; error?: string }>>(
-  async () => ({ success: true }),
+const pushMessageMock = vi.fn(
+  async (
+    _storeId: string,
+    _lineUserId: string,
+    _messages: unknown[],
+  ): Promise<{ success: boolean; error?: string }> => ({ success: true }),
 );
 vi.mock("@/lib/line", () => ({
-  pushMessage: (...args: unknown[]) => pushMessageMock(...(args as Parameters<typeof pushMessageMock>)),
+  pushMessage: (storeId: string, lineUserId: string, messages: unknown[]) =>
+    pushMessageMock(storeId, lineUserId, messages),
   renderTemplate: (body: string) => body,
 }));
 vi.mock("@/lib/shop-config", () => ({
@@ -356,6 +361,9 @@ describe("runReminders (daily next-day batch)", () => {
     // triggerAt = 今天 18:00 TW = 今天 10:00 UTC
     expect(messageLogs[0].triggerAt?.toISOString()).toBe("2026-05-11T10:00:00.000Z");
     expect(pushMessageMock).toHaveBeenCalledTimes(1);
+    expect(pushMessageMock).toHaveBeenCalledWith(STORE_ID, LINE_USER_ID, [
+      { type: "text", text: expect.any(String) },
+    ]);
   });
 
   it("不命中：今天的預約（不是明天）→ 不發送", async () => {
