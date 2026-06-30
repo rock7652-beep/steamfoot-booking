@@ -451,6 +451,28 @@ export async function requirePermission(permission: PermissionCode) {
   return user;
 }
 
+/**
+ * PR-1 Store Organization foundation.
+ *
+ * This guard is intentionally not wired into existing actions yet. Future PRs
+ * should replace write paths with this helper after view-mode context is fully
+ * connected. With no options, it resolves to the user's own store and preserves
+ * current behavior.
+ */
+export async function requireWritablePermission(
+  permission: PermissionCode,
+  options?: { viewedStoreId?: string | null },
+) {
+  const user = await requirePermission(permission);
+  if (user.role === "ADMIN") return user;
+
+  const { resolveStoreViewContext, assertWritableStoreViewContext } =
+    await import("@/lib/store-organization");
+  const ctx = await resolveStoreViewContext(user, options);
+  assertWritableStoreViewContext(ctx);
+  return user;
+}
+
 // ============================================================
 // getUserPermissions — 取得使用者的所有已授權權限（供 layout 傳給 sidebar）
 // ============================================================
