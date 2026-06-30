@@ -5,6 +5,7 @@ import {
   verifyLineSignature,
   LINE_TOKEN_NOT_CONFIGURED_ERROR,
 } from "@/lib/line";
+import { getLineWebhookDiagnosticsForStore } from "@/lib/line-config";
 
 function mockLineOk() {
   const fetchMock = vi.fn(async (_url: string | URL, _init?: RequestInit) => ({
@@ -70,5 +71,24 @@ describe("store-aware LINE Messaging config", () => {
 
     expect(verifyLineSignature("store-hsinchu", body, signature)).toBe(true);
     expect(verifyLineSignature("zhubei", body, signature)).toBe(false);
+  });
+
+  it("trims store secrets before verifying signatures and reporting diagnostics", () => {
+    const body = JSON.stringify({ destination: "D_taichung", events: [] });
+    vi.stubEnv("LINE_TAICHUNG_CHANNEL_SECRET", "  taichung-secret\n");
+    vi.stubEnv("LINE_TAICHUNG_CHANNEL_ACCESS_TOKEN", "\ttaichung-token ");
+    const signature = crypto
+      .createHmac("SHA256", "taichung-secret")
+      .update(body)
+      .digest("base64");
+
+    expect(verifyLineSignature("store-taichung", body, signature)).toBe(true);
+    expect(getLineWebhookDiagnosticsForStore("store-taichung")).toEqual({
+      storeSlug: "taichung",
+      secretEnvName: "LINE_TAICHUNG_CHANNEL_SECRET",
+      hasSecret: true,
+      secretLength: "taichung-secret".length,
+      hasAccessToken: true,
+    });
   });
 });

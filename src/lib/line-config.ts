@@ -32,8 +32,8 @@ const LINE_ENV_BY_STORE: Record<
 };
 
 function nonEmptyEnv(name: string): string | null {
-  const value = process.env[name];
-  return value && value.trim() ? value : null;
+  const value = process.env[name]?.trim();
+  return value ? value : null;
 }
 
 export function resolveLineStoreSlug(storeIdOrSlug: string): LineStoreSlug | null {
@@ -66,6 +66,36 @@ export function getLineConfigForStore(storeIdOrSlug: string): {
     storeSlug,
     accessToken: nonEmptyEnv(LINE_ENV_BY_STORE[storeSlug].accessToken),
     channelSecret: nonEmptyEnv(LINE_ENV_BY_STORE[storeSlug].channelSecret),
+  };
+}
+
+export function getLineWebhookDiagnosticsForStore(storeIdOrSlug: string): {
+  storeSlug: LineStoreSlug | null;
+  secretEnvName: string | null;
+  hasSecret: boolean;
+  secretLength: number | null;
+  hasAccessToken: boolean;
+} {
+  const storeSlug = resolveLineStoreSlug(storeIdOrSlug);
+  if (!storeSlug) {
+    return {
+      storeSlug: null,
+      secretEnvName: null,
+      hasSecret: false,
+      secretLength: null,
+      hasAccessToken: false,
+    };
+  }
+
+  const envNames = LINE_ENV_BY_STORE[storeSlug];
+  const secret = nonEmptyEnv(envNames.channelSecret);
+  const accessToken = nonEmptyEnv(envNames.accessToken);
+  return {
+    storeSlug,
+    secretEnvName: envNames.channelSecret,
+    hasSecret: Boolean(secret),
+    secretLength: secret?.length ?? null,
+    hasAccessToken: Boolean(accessToken),
   };
 }
 

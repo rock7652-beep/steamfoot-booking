@@ -9,6 +9,7 @@
 // ============================================================
 
 import { verifyLineSignature, replyMessage } from "@/lib/line";
+import { getLineWebhookDiagnosticsForStore } from "@/lib/line-config";
 import { prisma } from "@/lib/db";
 import { syncLineAccountForUser } from "@/server/services/line-account-sync";
 import { upsertCustomerIdentityLink } from "@/server/services/customer-identity-link";
@@ -46,6 +47,16 @@ export async function POST(req: Request) {
     console.log("[LINE Webhook] Resolved store", { destination, storeId });
 
     // 簽章驗證必須使用該 store 的 LINE channel secret；缺 secret 也視為驗證失敗。
+    const lineDiagnostics = getLineWebhookDiagnosticsForStore(storeId);
+    console.log("[LINE Webhook] Signature config diagnostics", {
+      storeId,
+      destination,
+      resolvedLineStoreSlug: lineDiagnostics.storeSlug,
+      envName: lineDiagnostics.secretEnvName,
+      hasSecret: lineDiagnostics.hasSecret,
+      secretLength: lineDiagnostics.secretLength,
+      hasAccessToken: lineDiagnostics.hasAccessToken,
+    });
     if (!signature || !verifyLineSignature(storeId, body, signature)) {
       console.warn("[LINE Webhook] Invalid signature", { storeId, hasSignature: !!signature });
       return new Response("Invalid signature", { status: 401 });
