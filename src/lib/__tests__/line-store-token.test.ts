@@ -27,8 +27,7 @@ describe("store-aware LINE Messaging config", () => {
   });
 
   it.each([
-    ["e182e256-98ca-4c78-970b-d4b118066c51", "LINE_ZHUBEI_CHANNEL_ACCESS_TOKEN", "zhubei-token"],
-    ["store-hsinchu", "LINE_HSINCHU_CHANNEL_ACCESS_TOKEN", "hsinchu-token"],
+    ["e182e256-98ca-4c78-970b-d4b118066c51", "LINE_CHANNEL_ACCESS_TOKEN", "zhubei-token"],
     ["store-taichung", "LINE_TAICHUNG_CHANNEL_ACCESS_TOKEN", "taichung-token"],
   ])("pushMessage(%s) uses the matching store token", async (storeId, envKey, token) => {
     vi.stubEnv(envKey, token);
@@ -46,7 +45,9 @@ describe("store-aware LINE Messaging config", () => {
     });
   });
 
-  it("does not call LINE API when the store token is missing", async () => {
+  it("keeps hsinchu disabled even if LINE_HSINCHU env vars are present", async () => {
+    vi.stubEnv("LINE_HSINCHU_CHANNEL_ACCESS_TOKEN", "hsinchu-token");
+    vi.stubEnv("LINE_HSINCHU_CHANNEL_SECRET", "hsinchu-secret");
     const fetchMock = mockLineOk();
 
     const result = await pushMessage("store-hsinchu", "U_customer", [
@@ -58,19 +59,46 @@ describe("store-aware LINE Messaging config", () => {
       error: LINE_TOKEN_NOT_CONFIGURED_ERROR,
     });
     expect(fetchMock).not.toHaveBeenCalled();
+    expect(getLineWebhookDiagnosticsForStore("store-hsinchu")).toEqual({
+      storeSlug: "hsinchu",
+      secretEnvName: null,
+      hasSecret: false,
+      secretLength: null,
+      hasAccessToken: false,
+    });
+  });
+
+  it("does not call LINE API when the store token is missing", async () => {
+    const fetchMock = mockLineOk();
+
+    const result = await pushMessage("store-taichung", "U_customer", [
+      { type: "text", text: "hello" },
+    ]);
+
+    expect(result).toEqual({
+      success: false,
+      error: LINE_TOKEN_NOT_CONFIGURED_ERROR,
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("verifyLineSignature uses the matching store secret", () => {
-    const body = JSON.stringify({ destination: "D_hsinchu", events: [] });
-    vi.stubEnv("LINE_HSINCHU_CHANNEL_SECRET", "hsinchu-secret");
-    vi.stubEnv("LINE_ZHUBEI_CHANNEL_SECRET", "zhubei-secret");
-    const signature = crypto
-      .createHmac("SHA256", "hsinchu-secret")
+    const body = JSON.stringify({ destination: "D_taichung", events: [] });
+    vi.stubEnv("LINE_CHANNEL_SECRET", "zhubei-secret");
+    vi.stubEnv("LINE_TAICHUNG_CHANNEL_SECRET", "taichung-secret");
+    const taichungSignature = crypto
+      .createHmac("SHA256", "taichung-secret")
+      .update(body)
+      .digest("base64");
+    const zhubeiSignature = crypto
+      .createHmac("SHA256", "zhubei-secret")
       .update(body)
       .digest("base64");
 
-    expect(verifyLineSignature("store-hsinchu", body, signature)).toBe(true);
-    expect(verifyLineSignature("zhubei", body, signature)).toBe(false);
+    expect(verifyLineSignature("store-taichung", body, taichungSignature)).toBe(true);
+    expect(verifyLineSignature("zhubei", body, zhubeiSignature)).toBe(true);
+    expect(verifyLineSignature("zhubei", body, taichungSignature)).toBe(false);
+    expect(verifyLineSignature("store-hsinchu", body, taichungSignature)).toBe(false);
   });
 
   it("trims store secrets before verifying signatures and reporting diagnostics", () => {

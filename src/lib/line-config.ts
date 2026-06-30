@@ -15,16 +15,13 @@ const STORE_ID_TO_LINE_SLUG: Record<string, LineStoreSlug> = {
 
 const LINE_ENV_BY_STORE: Record<
   LineStoreSlug,
-  { accessToken: string; channelSecret: string }
+  { accessToken: string; channelSecret: string } | null
 > = {
   zhubei: {
-    accessToken: "LINE_ZHUBEI_CHANNEL_ACCESS_TOKEN",
-    channelSecret: "LINE_ZHUBEI_CHANNEL_SECRET",
+    accessToken: "LINE_CHANNEL_ACCESS_TOKEN",
+    channelSecret: "LINE_CHANNEL_SECRET",
   },
-  hsinchu: {
-    accessToken: "LINE_HSINCHU_CHANNEL_ACCESS_TOKEN",
-    channelSecret: "LINE_HSINCHU_CHANNEL_SECRET",
-  },
+  hsinchu: null,
   taichung: {
     accessToken: "LINE_TAICHUNG_CHANNEL_ACCESS_TOKEN",
     channelSecret: "LINE_TAICHUNG_CHANNEL_SECRET",
@@ -43,13 +40,17 @@ export function resolveLineStoreSlug(storeIdOrSlug: string): LineStoreSlug | nul
 export function getLineAccessTokenForStore(storeIdOrSlug: string): string | null {
   const slug = resolveLineStoreSlug(storeIdOrSlug);
   if (!slug) return null;
-  return nonEmptyEnv(LINE_ENV_BY_STORE[slug].accessToken);
+  const envNames = LINE_ENV_BY_STORE[slug];
+  if (!envNames) return null;
+  return nonEmptyEnv(envNames.accessToken);
 }
 
 export function getLineSecretForStore(storeIdOrSlug: string): string | null {
   const slug = resolveLineStoreSlug(storeIdOrSlug);
   if (!slug) return null;
-  return nonEmptyEnv(LINE_ENV_BY_STORE[slug].channelSecret);
+  const envNames = LINE_ENV_BY_STORE[slug];
+  if (!envNames) return null;
+  return nonEmptyEnv(envNames.channelSecret);
 }
 
 export function getLineConfigForStore(storeIdOrSlug: string): {
@@ -62,10 +63,15 @@ export function getLineConfigForStore(storeIdOrSlug: string): {
     return { accessToken: null, channelSecret: null, storeSlug: null };
   }
 
+  const envNames = LINE_ENV_BY_STORE[storeSlug];
+  if (!envNames) {
+    return { accessToken: null, channelSecret: null, storeSlug };
+  }
+
   return {
     storeSlug,
-    accessToken: nonEmptyEnv(LINE_ENV_BY_STORE[storeSlug].accessToken),
-    channelSecret: nonEmptyEnv(LINE_ENV_BY_STORE[storeSlug].channelSecret),
+    accessToken: nonEmptyEnv(envNames.accessToken),
+    channelSecret: nonEmptyEnv(envNames.channelSecret),
   };
 }
 
@@ -88,6 +94,16 @@ export function getLineWebhookDiagnosticsForStore(storeIdOrSlug: string): {
   }
 
   const envNames = LINE_ENV_BY_STORE[storeSlug];
+  if (!envNames) {
+    return {
+      storeSlug,
+      secretEnvName: null,
+      hasSecret: false,
+      secretLength: null,
+      hasAccessToken: false,
+    };
+  }
+
   const secret = nonEmptyEnv(envNames.channelSecret);
   const accessToken = nonEmptyEnv(envNames.accessToken);
   return {
