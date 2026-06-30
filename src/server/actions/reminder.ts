@@ -10,6 +10,7 @@ import { FEATURES } from "@/lib/feature-flags";
 import { AppError, handleActionError } from "@/lib/errors";
 import { assertStoreAccess } from "@/lib/manager-visibility";
 import { pushMessage, renderTemplate, type TemplateVariables } from "@/lib/line";
+import { isLineSmokeTestEnabled } from "@/lib/line-config";
 import type { ActionResult } from "@/types";
 import { getShopConfig } from "@/lib/shop-config";
 import { deriveBaseUrl } from "@/lib/base-url";
@@ -52,6 +53,13 @@ const updateTemplateSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   body: z.string().min(1).max(2000).optional(),
   isDefault: z.boolean().optional(),
+});
+
+const lineSmokeTestSchema = z.object({
+  customerId: z.string().optional(),
+  lineUserId: z.string().trim().optional(),
+}).refine((data) => Boolean(data.customerId || data.lineUserId), {
+  message: "請選擇顧客或輸入測試 lineUserId",
 });
 
 // ============================================================
@@ -416,6 +424,76 @@ export async function testSendLineMessage(
 
     revalidatePath("/dashboard/reminders");
     return { success: true, data: undefined };
+  } catch (e) {
+    return handleActionError(e);
+  }
+}
+
+export async function sendLineSmokeTest(
+  input: z.input<typeof lineSmokeTestSchema>
+): Promise<ActionResult<{ messageLogId: string; storeName: string }>> {
+  try {
+    const user = await requirePermission("customer.read");
+    await checkCurrentStoreFeature(FEATURES.LINE_REMINDER);
+    if (!isLineSmokeTestEnabled()) {
+      throw new AppError("FORBIDDEN", "LINE smoke test is disabled");
+    }
+
+    const storeId = await resolveWriteStoreId(user);
+    const data = lineSmokeTestSchema.parse(input);
+    const store = await prisma.store.findUnique({
+      where: { id: storeId },
+      select: { name: true },
+    });
+    const storeName = store?.name ?? "本店";
+
+    const customer = data.customerId
+      ? await prisma.customer.findFirst({
+          where: {
+            id: data.customerId,
+            storeId,
+            lineLinkStatus: "LINKED",
+            lineUserId: { not: null },
+          },
+          select: { id: true, lineUserId: true },
+        })
+      : await prisma.customer.findFirst({
+          where: {
+            storeId,
+            lineUserId: data.lineUserId,
+            lineLinkStatus: "LINKED",
+          },
+          select: { id: true, lineUserId: true },
+        });
+
+    if (!customer?.lineUserId) {
+      throw new AppError("VALIDATION", "找不到同店已綁定 LINE 的測試顧客");
+    }
+
+    const renderedBody = `這是 ${storeName} LINE 系統通知測試`;
+    const result = await pushMessage(storeId, customer.lineUserId, [
+      { type: "text", text: renderedBody },
+    ]);
+
+    const log = await prisma.messageLog.create({
+      data: {
+        customerId: customer.id,
+        channel: "LINE",
+        status: result.success ? "SENT" : "FAILED",
+        renderedBody,
+        errorMessage: result.error ?? null,
+        sentAt: result.success ? new Date() : null,
+        storeId,
+      },
+    });
+
+    revalidatePath("/dashboard/reminders");
+
+    if (!result.success) {
+      throw new AppError("BUSINESS_RULE", result.error ?? "LINE 發送失敗");
+    }
+
+    return { success: true, data: { messageLogId: log.id, storeName } };
   } catch (e) {
     return handleActionError(e);
   }

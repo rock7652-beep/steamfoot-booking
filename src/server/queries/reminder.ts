@@ -48,6 +48,33 @@ export async function getStoreReminderState(storeId: string): Promise<{
   };
 }
 
+export async function getLineSmokeTestContext(storeId: string): Promise<{
+  storeName: string;
+  customers: Array<{ id: string; name: string; phone: string }>;
+}> {
+  const [store, customers] = await Promise.all([
+    prisma.store.findUnique({
+      where: { id: storeId },
+      select: { name: true },
+    }),
+    prisma.customer.findMany({
+      where: {
+        storeId,
+        lineLinkStatus: "LINKED",
+        lineUserId: { not: null },
+      },
+      select: { id: true, name: true, phone: true },
+      orderBy: { updatedAt: "desc" },
+      take: 50,
+    }),
+  ]);
+
+  return {
+    storeName: store?.name ?? "本店",
+    customers,
+  };
+}
+
 // ============================================================
 // MessageTemplate queries
 // ============================================================

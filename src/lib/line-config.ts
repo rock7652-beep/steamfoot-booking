@@ -68,3 +68,9 @@ export function getLineConfigForStore(storeIdOrSlug: string): {
     channelSecret: nonEmptyEnv(LINE_ENV_BY_STORE[storeSlug].channelSecret),
   };
 }
+
+export function isLineSmokeTestEnabled(): boolean {
+  if (process.env.LINE_SMOKE_TEST_ENABLED === "1") return true;
+  if (process.env.VERCEL_ENV === "production") return false;
+  return process.env.NODE_ENV === "development" || process.env.VERCEL_ENV === "preview";
+}

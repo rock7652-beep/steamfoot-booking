@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const pushMessageMock = vi.fn(
   async (
@@ -11,6 +11,10 @@ const revalidatePathMock = vi.fn();
 
 const mockPrisma = {
   customer: {
+    findUnique: vi.fn(),
+    findFirst: vi.fn(),
+  },
+  store: {
     findUnique: vi.fn(),
   },
   messageTemplate: {
@@ -58,6 +62,18 @@ vi.mock("@/lib/manager-visibility", () => ({
   assertStoreAccess: vi.fn(),
 }));
 
+vi.mock("@/lib/permissions", () => ({
+  requirePermission: vi.fn(async () => ({
+    id: "admin-user-1",
+    role: "ADMIN",
+    storeId: "store-hsinchu",
+  })),
+}));
+
+vi.mock("@/lib/store", () => ({
+  resolveWriteStoreId: vi.fn(async () => "store-hsinchu"),
+}));
+
 vi.mock("@/lib/shop-config", () => ({
   getShopConfig: vi.fn(async () => ({ shopName: "以斯帖蒸足坊" })),
 }));
@@ -70,6 +86,10 @@ describe("LINE sending actions are store-aware", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     pushMessageMock.mockResolvedValue({ success: true });
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it("testSendLineMessage passes the customer's storeId to pushMessage", async () => {
@@ -124,6 +144,65 @@ describe("LINE sending actions are store-aware", () => {
         data: expect.objectContaining({
           storeId: "store-taichung",
           status: "SENT",
+        }),
+      }),
+    );
+  });
+
+  it("sendLineSmokeTest sends fixed store test copy and writes MessageLog", async () => {
+    vi.stubEnv("LINE_SMOKE_TEST_ENABLED", "1");
+    mockPrisma.store.findUnique.mockResolvedValueOnce({ name: "以斯帖蒸足坊" });
+    mockPrisma.customer.findFirst.mockResolvedValueOnce({
+      id: "customer-3",
+      lineUserId: "U_hsinchu_customer",
+    });
+
+    const { sendLineSmokeTest } = await import("@/server/actions/reminder");
+    const result = await sendLineSmokeTest({ customerId: "customer-3" });
+
+    expect(result.success).toBe(true);
+    expect(pushMessageMock).toHaveBeenCalledWith("store-hsinchu", "U_hsinchu_customer", [
+      { type: "text", text: "這是 以斯帖蒸足坊 LINE 系統通知測試" },
+    ]);
+    expect(mockPrisma.messageLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          customerId: "customer-3",
+          storeId: "store-hsinchu",
+          channel: "LINE",
+          status: "SENT",
+          renderedBody: "這是 以斯帖蒸足坊 LINE 系統通知測試",
+        }),
+      }),
+    );
+  });
+
+  it("sendLineSmokeTest logs FAILED when pushMessage fails", async () => {
+    vi.stubEnv("LINE_SMOKE_TEST_ENABLED", "1");
+    pushMessageMock.mockResolvedValueOnce({
+      success: false,
+      error: "LINE token not configured for store",
+    });
+    mockPrisma.store.findUnique.mockResolvedValueOnce({ name: "以斯帖蒸足坊" });
+    mockPrisma.customer.findFirst.mockResolvedValueOnce({
+      id: "customer-4",
+      lineUserId: "U_hsinchu_customer",
+    });
+
+    const { sendLineSmokeTest } = await import("@/server/actions/reminder");
+    const result = await sendLineSmokeTest({ lineUserId: "U_hsinchu_customer" });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error).toBe("LINE token not configured for store");
+    }
+    expect(mockPrisma.messageLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          customerId: "customer-4",
+          storeId: "store-hsinchu",
+          status: "FAILED",
+          errorMessage: "LINE token not configured for store",
         }),
       }),
     );
