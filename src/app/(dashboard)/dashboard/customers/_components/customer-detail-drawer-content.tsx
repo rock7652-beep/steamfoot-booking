@@ -38,6 +38,8 @@ interface Props {
   canAssign: boolean;
   /** 內部服務備註可編輯（= customer.update）。false → 只顯示不可改。 */
   canEditNote: boolean;
+  /** View Mode: full read, zero write. */
+  readOnly?: boolean;
   /** "plan" → 自動展開「指派新方案」並滾到方案區 */
   focus?: "plan" | null;
   onClose: () => void;
@@ -72,6 +74,7 @@ export function CustomerDetailDrawerContent({
   staffOptions,
   canAssign,
   canEditNote,
+  readOnly = false,
   focus,
   onClose,
   onMutated,
@@ -123,6 +126,7 @@ export function CustomerDetailDrawerContent({
   const [assignOpen, setAssignOpen] = useState(focus === "plan");
 
   function handleReorder(planId: string) {
+    if (readOnly) return;
     setPreselectedPlanId(planId);
     setAssignOpen(true);
     setFormKey((k) => k + 1);
@@ -182,35 +186,38 @@ export function CustomerDetailDrawerContent({
 
       {/* Body */}
       <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+        {readOnly ? (
+          <div className="rounded-lg border border-primary-100 bg-primary-50 px-3 py-2 text-xs text-primary-800">
+            查看模式提供完整閱讀能力，顧客操作請由該店自行完成。
+          </div>
+        ) : null}
+
         {/* Quick actions */}
         <section>
           <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
-            <TrialBookingDrawer
-              preset={{ customerId: customer.id, customerName: customer.name }}
-              triggerLabel="建立體驗預約"
-              triggerClassName="rounded-md bg-primary-600 px-3 py-2 text-center text-xs font-medium text-white hover:bg-primary-700"
-            />
-            <Link
-              href={`/dashboard/customers/${customer.id}#new-booking`}
-              prefetch={false}
-              className="rounded-md border border-earth-200 bg-white px-3 py-2 text-center text-xs font-medium text-earth-700 hover:bg-earth-50"
-            >
-              ＋ 新增預約
-            </Link>
-            <Link
-              href={`/dashboard/customers/${customer.id}/edit`}
-              prefetch={false}
-              className="rounded-md border border-earth-200 bg-white px-3 py-2 text-center text-xs font-medium text-earth-700 hover:bg-earth-50"
-            >
-              編輯資料
-            </Link>
-            <Link
-              href={`/dashboard/customers/${customer.id}#bookings`}
-              prefetch={false}
-              className="rounded-md border border-earth-200 bg-white px-3 py-2 text-center text-xs font-medium text-earth-700 hover:bg-earth-50"
-            >
-              預約紀錄
-            </Link>
+            {!readOnly ? (
+              <>
+                <TrialBookingDrawer
+                  preset={{ customerId: customer.id, customerName: customer.name }}
+                  triggerLabel="建立體驗預約"
+                  triggerClassName="rounded-md bg-primary-600 px-3 py-2 text-center text-xs font-medium text-white hover:bg-primary-700"
+                />
+                <Link
+                  href={`/dashboard/customers/${customer.id}#new-booking`}
+                  prefetch={false}
+                  className="rounded-md border border-earth-200 bg-white px-3 py-2 text-center text-xs font-medium text-earth-700 hover:bg-earth-50"
+                >
+                  ＋ 新增預約
+                </Link>
+                <Link
+                  href={`/dashboard/customers/${customer.id}/edit`}
+                  prefetch={false}
+                  className="rounded-md border border-earth-200 bg-white px-3 py-2 text-center text-xs font-medium text-earth-700 hover:bg-earth-50"
+                >
+                  編輯資料
+                </Link>
+              </>
+            ) : null}
             <Link
               href={`/dashboard/customers/${customer.id}`}
               prefetch={false}
@@ -307,13 +314,15 @@ export function CustomerDetailDrawerContent({
                           )}
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => handleReorder(w.plan.id)}
-                        className="shrink-0 rounded border border-primary-300 bg-primary-50 px-2 py-1 text-[11px] font-medium text-primary-700 hover:bg-primary-100"
-                      >
-                        🔁 續購
-                      </button>
+                      {!readOnly ? (
+                        <button
+                          type="button"
+                          onClick={() => handleReorder(w.plan.id)}
+                          className="shrink-0 rounded border border-primary-300 bg-primary-50 px-2 py-1 text-[11px] font-medium text-primary-700 hover:bg-primary-100"
+                        >
+                          🔁 續購
+                        </button>
+                      ) : null}
                     </div>
                   </li>
                 );
@@ -327,7 +336,8 @@ export function CustomerDetailDrawerContent({
           ) : null}
 
           {/* 指派新方案 — 預設收合，focus=plan 自動展開 */}
-          <div className="mt-3">
+          {!readOnly ? (
+            <div className="mt-3">
             {assignOpen ? (
               <div className="rounded-lg border border-earth-200 bg-white p-3">
                 <div className="mb-2 flex items-center justify-between">
@@ -359,7 +369,8 @@ export function CustomerDetailDrawerContent({
                 ＋ 指派新方案
               </button>
             )}
-          </div>
+            </div>
+          ) : null}
         </section>
 
         {/* 歸屬設定 */}
@@ -371,7 +382,8 @@ export function CustomerDetailDrawerContent({
               sponsor ? { id: sponsor.id, name: sponsor.name } : null
             }
             staffOptions={staffOptions}
-            canAssign={canAssign}
+            canAssign={canAssign && !readOnly}
+            readOnly={readOnly}
             onSaved={onMutated}
           />
         </CollapsibleSection>
@@ -551,6 +563,7 @@ function AttributionForm({
   currentSponsor,
   staffOptions,
   canAssign,
+  readOnly = false,
   onSaved,
 }: {
   customerId: string;
@@ -558,6 +571,7 @@ function AttributionForm({
   currentSponsor: { id: string; name: string } | null;
   staffOptions: StaffOption[];
   canAssign: boolean;
+  readOnly?: boolean;
   onSaved?: () => void;
 }) {
   const [staffId, setStaffId] = useState<string>(currentStaffId ?? "");
@@ -644,7 +658,9 @@ function AttributionForm({
           <span className="text-earth-500">推薦人：</span>
           <span className="text-earth-800">{currentSponsor?.name ?? "—"}</span>
         </div>
-        <p className="pt-1 text-[11px] text-earth-400">您沒有指派權限，無法修改</p>
+        <p className="pt-1 text-[11px] text-earth-400">
+          {readOnly ? "查看模式下不可修改歸屬設定" : "您沒有指派權限，無法修改"}
+        </p>
       </div>
     );
   }

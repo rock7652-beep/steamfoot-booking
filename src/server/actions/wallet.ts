@@ -3,7 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { requirePermission, checkPermission } from "@/lib/permissions";
+import {
+  requirePermission,
+  requireWritablePermission,
+  checkPermission,
+} from "@/lib/permissions";
 import { assertStoreSubscriptionWritable } from "@/lib/subscription-guard";
 import { getCurrentUser } from "@/lib/session";
 import { AppError, handleActionError } from "@/lib/errors";
@@ -78,7 +82,7 @@ export async function assignPlanToCustomer(
   input: z.input<typeof assignPlanSchema>
 ): Promise<ActionResult<{ walletId: string; transactionId: string }>> {
   try {
-    const user = await requirePermission("wallet.create");
+    const user = await requireWritablePermission("wallet.create");
     const data = assignPlanSchema.parse(input);
 
     // 折扣權限檢查：如果有折扣，需要 transaction.discount 權限
@@ -271,7 +275,7 @@ export async function adjustRemainingSessions(
   note?: string
 ): Promise<ActionResult<void>> {
   try {
-    const user = await requirePermission("wallet.adjust");
+    const user = await requireWritablePermission("wallet.adjust");
 
     if (newRemaining < 0) {
       throw new AppError("VALIDATION", "剩餘堂數不可為負數");
@@ -372,7 +376,7 @@ export async function voidWalletSession(
   input: z.infer<typeof voidSessionSchema>
 ): Promise<ActionResult<{ walletId: string; sessionNo: number }>> {
   try {
-    const user = await requirePermission("wallet.adjust");
+    const user = await requireWritablePermission("wallet.adjust");
     const data = voidSessionSchema.parse(input);
 
     const session = await prisma.walletSession.findUnique({
@@ -483,7 +487,7 @@ export async function backfillUsedSessions(
   input: z.infer<typeof backfillUsedSessionsSchema>
 ): Promise<ActionResult<{ backfilledCount: number; remainingAfter: number }>> {
   try {
-    const user = await requirePermission("wallet.adjust");
+    const user = await requireWritablePermission("wallet.adjust");
     const data = backfillUsedSessionsSchema.parse(input);
 
     const wallet = await prisma.customerPlanWallet.findUnique({
@@ -644,7 +648,7 @@ export async function migratePaperPlan(
   }>
 > {
   try {
-    const user = await requirePermission("wallet.adjust");
+    const user = await requireWritablePermission("wallet.adjust");
     if (user.role !== "OWNER" && user.role !== "ADMIN") {
       throw new AppError(
         "FORBIDDEN",
@@ -1051,7 +1055,7 @@ export async function extendWalletExpiry(
   input: z.infer<typeof extendWalletExpirySchema>,
 ): Promise<ActionResult<void>> {
   try {
-    const user = await requirePermission("wallet.adjust");
+    const user = await requireWritablePermission("wallet.adjust");
     const data = extendWalletExpirySchema.parse(input);
 
     const wallet = await prisma.customerPlanWallet.findUnique({
