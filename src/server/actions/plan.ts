@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/db";
-import { requirePermission } from "@/lib/permissions";
+import { requireWritablePermission } from "@/lib/permissions";
 import { requireStaffSession } from "@/lib/session";
 import { assertStoreSubscriptionWritable } from "@/lib/subscription-guard";
 import { AppError, handleActionError } from "@/lib/errors";
@@ -20,7 +20,7 @@ export async function createPlan(
   input: z.infer<typeof createPlanSchema>
 ): Promise<ActionResult<{ planId: string }>> {
   try {
-    await requirePermission("wallet.create");
+    await requireWritablePermission("wallet.create");
     await checkCurrentStoreFeature(FEATURES.PLAN_MANAGEMENT);
     const user = await requireStaffSession();
     const storeId = user.storeId!;
@@ -67,7 +67,7 @@ export async function updatePlan(
   input: z.infer<typeof updatePlanSchema>
 ): Promise<ActionResult<void>> {
   try {
-    await requirePermission("wallet.create");
+    await requireWritablePermission("wallet.create");
     const user = await requireStaffSession();
     const data = updatePlanSchema.parse(input);
 
@@ -105,7 +105,7 @@ export async function updatePlan(
 
 export async function deactivatePlan(planId: string): Promise<ActionResult<void>> {
   try {
-    await requirePermission("wallet.create");
+    await requireWritablePermission("wallet.create");
     const user = await requireStaffSession();
 
     const plan = await prisma.servicePlan.findUnique({ where: { id: planId } });

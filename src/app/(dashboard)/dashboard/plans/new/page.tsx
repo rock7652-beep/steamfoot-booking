@@ -1,6 +1,7 @@
 import { createPlan } from "@/server/actions/plan";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
+import { resolveStoreViewContextFromCookie } from "@/lib/store-view-context-server";
 import { redirect } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { SubmitButton } from "@/components/submit-button";
@@ -12,6 +13,10 @@ export default async function NewPlanPage() {
   const user = await getCurrentUser();
   if (!user || !(await checkPermission(user.role, user.staffId, "wallet.create"))) {
     redirect("/dashboard");
+  }
+  const storeViewContext = await resolveStoreViewContextFromCookie(user);
+  if (storeViewContext?.isViewMode) {
+    redirect("/dashboard/plans");
   }
 
   async function handleSubmit(formData: FormData) {

@@ -1,7 +1,12 @@
 import { listPlans } from "@/server/queries/plan";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
-import { getCurrentStorePlan } from "@/lib/store-plan";
+import { getActiveStoreForRead } from "@/lib/store";
+import { getCachedStorePlan } from "@/lib/query-cache";
+import {
+  resolveStoreViewContextFromCookie,
+  storeIdForViewContext,
+} from "@/lib/store-view-context-server";
 import { FEATURES } from "@/lib/feature-flags";
 import { FeatureGate } from "@/components/feature-gate";
 import { redirect } from "next/navigation";
@@ -15,15 +20,21 @@ export default async function PlansPage() {
   if (!user || !(await checkPermission(user.role, user.staffId, "wallet.read"))) {
     redirect("/dashboard");
   }
+  const activeStoreId = await getActiveStoreForRead(user);
+  const storeViewContext = await resolveStoreViewContextFromCookie(user);
+  const isViewMode = storeViewContext?.isViewMode ?? false;
+  const plansStoreId = storeIdForViewContext(activeStoreId, storeViewContext);
   // 可以管理方案（新增 / 編輯 / 切換上架與顧客可購買）= wallet.create permission
   // ADMIN 永遠放行；OWNER + PARTNER 預設都有 wallet.create，所以店長也看得到入口
-  const canManage = await checkPermission(user.role, user.staffId, "wallet.create");
+  const canManage =
+    !isViewMode &&
+    (await checkPermission(user.role, user.staffId, "wallet.create"));
 
   // 桌機版 manager 自己處理 status / category / visibility 篩選，所以
   // 一律抓 includeInactive，client 再 filter — 不再依賴 ?showAll 參數。
   const logCtx = { page: "plans" as const, userId: user.id, sessionRole: user.role };
   const [plans, storePlan] = await Promise.all([
-    listPlans(true).catch((e) => {
+    listPlans(true, plansStoreId).catch((e) => {
       console.error("[plans] listPlans failed", {
         ...logCtx,
         step: "listPlans",
@@ -33,7 +44,7 @@ export default async function PlansPage() {
     }),
     // 缺 store 時退回 EXPERIENCE，等於只解鎖最低方案功能 — 比整頁掛掉好；
     // FeatureGate 會根據此值決定是否顯示升級提示。
-    getCurrentStorePlan().catch((e) => {
+    getCachedStorePlan(plansStoreId ?? undefined).catch((e) => {
       console.error("[plans] getCurrentStorePlan failed", {
         ...logCtx,
         step: "getCurrentStorePlan",
@@ -66,7 +77,11 @@ export default async function PlansPage() {
           }
         />
 
-        <PlansManager initialPlans={planRows} canManage={canManage} />
+        <PlansManager
+          initialPlans={planRows}
+          canManage={canManage}
+          readOnly={isViewMode}
+        />
       </PageShell>
     </FeatureGate>
   );

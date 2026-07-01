@@ -1,15 +1,28 @@
 import { prisma } from "@/lib/db";
 import { requireStaffSession } from "@/lib/session";
 import { AppError } from "@/lib/errors";
+import { getStoreFilter } from "@/lib/manager-visibility";
+import {
+  resolveStoreViewContextFromCookie,
+  storeIdForViewContext,
+  userForViewContext,
+} from "@/lib/store-view-context-server";
+import type { Prisma } from "@prisma/client";
 
 // ============================================================
 // listPlans — Owner + Manager（唯讀）
 // ============================================================
 
-export async function listPlans(includeInactive = false) {
+export async function listPlans(
+  includeInactive = false,
+  activeStoreId?: string | null,
+) {
   const user = await requireStaffSession();
-  const where: { storeId: string; isActive?: boolean } = {
-    storeId: user.storeId!,
+  const storeViewContext = await resolveStoreViewContextFromCookie(user);
+  const readUser = userForViewContext(user, storeViewContext);
+  const readStoreId = storeIdForViewContext(activeStoreId ?? null, storeViewContext);
+  const where: Prisma.ServicePlanWhereInput = {
+    ...getStoreFilter(readUser, readStoreId),
   };
   if (!includeInactive) {
     where.isActive = true;
@@ -27,11 +40,18 @@ export async function listPlans(includeInactive = false) {
 // getPlanDetail — Owner + Manager
 // ============================================================
 
-export async function getPlanDetail(planId: string) {
+export async function getPlanDetail(
+  planId: string,
+  activeStoreId?: string | null,
+) {
   const user = await requireStaffSession();
-  const plan = await prisma.servicePlan.findUnique({ where: { id: planId } });
+  const storeViewContext = await resolveStoreViewContextFromCookie(user);
+  const readUser = userForViewContext(user, storeViewContext);
+  const readStoreId = storeIdForViewContext(activeStoreId ?? null, storeViewContext);
+  const plan = await prisma.servicePlan.findFirst({
+    where: { id: planId, ...getStoreFilter(readUser, readStoreId) },
+  });
   if (!plan) throw new AppError("NOT_FOUND", "課程方案不存在");
-  if (plan.storeId !== user.storeId) throw new AppError("FORBIDDEN", "無權限存取此方案");
   return plan;
 }
 

@@ -27,9 +27,14 @@ type CategoryFilter = "all" | PlanCategory;
 interface Props {
   initialPlans: PlanRow[];
   canManage: boolean;
+  readOnly?: boolean;
 }
 
-export function PlansManager({ initialPlans, canManage }: Props) {
+export function PlansManager({
+  initialPlans,
+  canManage,
+  readOnly = false,
+}: Props) {
   // Lifted into client state so create/edit/toggle can patch in place
   // without router.refresh — server still revalidates the cache, so a
   // future navigation gets fresh data.
@@ -151,6 +156,11 @@ export function PlansManager({ initialPlans, canManage }: Props) {
         <span className="ml-auto text-[11px] text-earth-400">
           顯示 {visiblePlans.length} / {plans.length} 筆
         </span>
+        {readOnly && (
+          <span className="rounded-md border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-800">
+            查看模式不可調整方案
+          </span>
+        )}
         {canManage && (
           <button
             type="button"
@@ -255,7 +265,7 @@ export function PlansManager({ initialPlans, canManage }: Props) {
                       )}
                     </td>
                     <td className="px-3">
-                      {canManage ? (
+                      {canManage && !readOnly ? (
                         <PlanPublishToggle
                           planId={plan.id}
                           planName={plan.name}
@@ -273,7 +283,7 @@ export function PlansManager({ initialPlans, canManage }: Props) {
                       )}
                     </td>
                     <td className="px-3">
-                      {canManage ? (
+                      {canManage && !readOnly ? (
                         <PlanActiveToggle
                           planId={plan.id}
                           planName={plan.name}

@@ -388,7 +388,9 @@ export default async function CustomerDetailPage({ params }: PageProps) {
               <div className="flex items-center justify-between rounded-lg border border-earth-100 bg-earth-50/40 px-4 py-3 text-xs text-earth-500">
                 <span>尚未指派方案</span>
                 <span className="text-[11px] text-earth-400">
-                  使用右上方「+ 指派方案」開始
+                  {isViewMode
+                    ? "查看模式下不可替下層店指派方案"
+                    : "使用右上方「+ 指派方案」開始"}
                 </span>
               </div>
             ) : (
