@@ -57,6 +57,8 @@ export interface BookingDrawerPayload {
       expiryDate: string | null;
       plan: { name: string };
     } | null;
+    makeupCreditLinks: { makeupCreditId: string }[];
+    walletSessions: { id: string; status: string }[];
     // 體驗 499 PR-3：建立時的預計收款金額快照（僅 FIRST_TRIAL 有值）
     expectedAmount: number | null;
     // PR-3d：實際到店人數（FIRST_TRIAL 部分到店；null = 未記錄／全到）
@@ -301,6 +303,8 @@ export async function fetchBookingDetail(
             plan: { name: booking.customerPlanWallet.plan.name },
           }
         : null,
+      makeupCreditLinks: booking.makeupCreditLinks,
+      walletSessions: booking.walletSessions,
       expectedAmount:
         booking.expectedAmount == null
           ? null

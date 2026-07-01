@@ -45,6 +45,8 @@ async function getBooking(
           originalBooking: { select: { bookingDate: true, slotTime: true } },
         },
       },
+      makeupCreditLinks: { select: { makeupCreditId: true } },
+      walletSessions: { select: { id: true, status: true } },
       generatedCredits: true,
       transactions: { orderBy: { createdAt: "desc" } },
     },
@@ -72,6 +74,10 @@ export default async function BookingDetailPage({ params }: PageProps) {
   const isActive =
     booking.bookingStatus === "CONFIRMED" || booking.bookingStatus === "PENDING";
   const canCheckIn = isActive && !booking.isCheckedIn;
+  const makeupPeople =
+    booking.makeupCreditLinks.length || (booking.isMakeup && booking.makeupCredit ? 1 : 0);
+  const walletPeople = booking.walletSessions.length;
+  const isFullMakeupBooking = booking.isMakeup && makeupPeople > 0 && walletPeople === 0;
 
   // Server action wrappers
   async function checkInAction() {
@@ -156,8 +162,12 @@ export default async function BookingDetailPage({ params }: PageProps) {
             <dt className="text-earth-500">預約類型</dt>
             <dd>
               {BOOKING_TYPE_LABEL[booking.bookingType] ?? booking.bookingType}
-              {booking.isMakeup && (
-                <span className="ml-2 text-amber-600">（補課，不扣堂）</span>
+              {booking.isMakeup && makeupPeople > 0 && (
+                <span className="ml-2 text-amber-600">
+                  {walletPeople > 0
+                    ? `（補課 ${makeupPeople} 人 + 方案 ${walletPeople} 堂）`
+                    : "（補課，不扣堂）"}
+                </span>
               )}
             </dd>
           </div>
@@ -252,7 +262,7 @@ export default async function BookingDetailPage({ params }: PageProps) {
               </form>
             </div>
             <div className="flex flex-wrap items-center gap-3">
-              {booking.isMakeup ? (
+              {isFullMakeupBooking ? (
                 <NoShowButton
                   label="未到"
                   confirmMsg="確定標記未到？補課的未到不會再產生新的補課資格。"
@@ -262,12 +272,12 @@ export default async function BookingDetailPage({ params }: PageProps) {
                 <>
                   <NoShowButton
                     label="未到・扣堂"
-                    confirmMsg={`確定標記未到並扣堂？將依預約人數（${booking.people} 人）扣堂，名額釋出，不發補課。已扣堂數不會退回。`}
+                    confirmMsg={`確定標記未到並扣堂？將扣方案 ${walletPeople || booking.people} 堂，名額釋出，不發補課。已扣堂數不會退回。`}
                     action={noShowDeductAction}
                   />
                   <NoShowButton
                     label={`未到・扣堂＋${NO_SHOW_MAKEUP_VALID_DAYS}日補課`}
-                    confirmMsg={`確定標記未到？將依預約人數（${booking.people} 人）扣堂並發 ${booking.people} 張 ${NO_SHOW_MAKEUP_VALID_DAYS} 日內有效的補課券，名額釋出。已扣堂數不會退回。`}
+                    confirmMsg={`確定標記未到？將扣方案 ${walletPeople || booking.people} 堂並發 ${walletPeople || booking.people} 張 ${NO_SHOW_MAKEUP_VALID_DAYS} 日內有效的補課券，名額釋出。已扣堂數不會退回。`}
                     action={noShowMakeupAction}
                     variant="primary"
                   />
