@@ -7,9 +7,15 @@ interface StoreTodoCardProps {
   items: StoreTodoItem[];
   /** 收合時顯示筆數（首頁傳 3；不傳則沿用 list 預設 5） */
   defaultVisible?: number;
+  /** View Mode is read-only: no dismiss and no cross-module links. */
+  readOnly?: boolean;
 }
 
-export function StoreTodoCard({ items, defaultVisible }: StoreTodoCardProps) {
+export function StoreTodoCard({
+  items,
+  defaultVisible,
+  readOnly = false,
+}: StoreTodoCardProps) {
   if (items.length === 0) {
     return (
       <section className="rounded-xl border border-earth-200 bg-earth-50/40 px-4 py-3">
@@ -21,12 +27,18 @@ export function StoreTodoCard({ items, defaultVisible }: StoreTodoCardProps) {
           <p className="text-xs text-earth-600">
             今天目前沒有急件，系統狀態很穩定。
           </p>
-          <Link
-            href="/dashboard/bookings/new"
-            className="shrink-0 rounded-md border border-earth-200 bg-white px-3 py-1 text-[11px] font-medium text-earth-700 hover:bg-earth-50"
-          >
-            ＋ 新增預約
-          </Link>
+          {readOnly ? (
+            <span className="shrink-0 rounded-md border border-earth-200 bg-earth-50 px-3 py-1 text-[11px] font-medium text-earth-400">
+              查看模式
+            </span>
+          ) : (
+            <Link
+              href="/dashboard/bookings/new"
+              className="shrink-0 rounded-md border border-earth-200 bg-white px-3 py-1 text-[11px] font-medium text-earth-700 hover:bg-earth-50"
+            >
+              ＋ 新增預約
+            </Link>
+          )}
         </div>
       </section>
     );
@@ -38,7 +50,11 @@ export function StoreTodoCard({ items, defaultVisible }: StoreTodoCardProps) {
         <h2 className="text-sm font-semibold text-earth-800">今天待處理</h2>
         <p className="text-[11px] text-earth-400">店長今天最重要的事</p>
       </header>
-      <StoreTodoList items={items} defaultVisible={defaultVisible} />
+      <StoreTodoList
+        items={items}
+        defaultVisible={defaultVisible}
+        readOnly={readOnly}
+      />
     </section>
   );
 }

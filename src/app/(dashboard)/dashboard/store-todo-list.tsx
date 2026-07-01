@@ -24,10 +24,12 @@ const TYPE_BADGE: Record<StoreTodoType, string> = {
 export function StoreTodoList({
   items,
   defaultVisible = DEFAULT_VISIBLE,
+  readOnly = false,
 }: {
   items: StoreTodoItem[];
   /** 收合時顯示筆數（首頁三欄版用 3；預設 5） */
   defaultVisible?: number;
+  readOnly?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const visible = expanded ? items : items.slice(0, defaultVisible);
@@ -41,11 +43,15 @@ export function StoreTodoList({
             {/* 整列包進 form：點 ○ → dismissTodo → 該筆從本人首頁消失。
                 狀態改變（回訪 / 補堂 / 收款確認 / 過今天）→ todoKey 變 → 重新出現。
                 送出期間 useFormStatus 立即給 pending 回饋（整列變淡 + ○ 轉圈 + 禁用）。 */}
-            <form action={dismissTodoFormAction}>
-              <input type="hidden" name="todoKey" value={item.id} />
-              <input type="hidden" name="todoType" value={item.type} />
-              <TodoRow item={item} />
-            </form>
+            {readOnly ? (
+              <TodoRow item={item} readOnly />
+            ) : (
+              <form action={dismissTodoFormAction}>
+                <input type="hidden" name="todoKey" value={item.id} />
+                <input type="hidden" name="todoType" value={item.type} />
+                <TodoRow item={item} />
+              </form>
+            )}
           </li>
         ))}
       </ul>
@@ -73,7 +79,13 @@ export function StoreTodoList({
  * 失敗時 dismissTodoFormAction 不丟錯,pending 結束後自動恢復可點。
  * pending 只作用於本 row,不影響整張卡或其他列。
  */
-function TodoRow({ item }: { item: StoreTodoItem }) {
+function TodoRow({
+  item,
+  readOnly = false,
+}: {
+  item: StoreTodoItem;
+  readOnly?: boolean;
+}) {
   const { pending } = useFormStatus();
   return (
     <div
@@ -82,25 +94,32 @@ function TodoRow({ item }: { item: StoreTodoItem }) {
       }`}
     >
       <div className="flex min-w-0 flex-1 items-start gap-3">
-        <button
-          type="submit"
-          disabled={pending}
-          aria-busy={pending}
-          aria-label={`標記「${item.message}」為已知悉`}
-          title={pending ? "處理中…" : "標記為已知悉（從首頁收起）"}
-          className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-earth-300 text-transparent hover:border-primary-500 hover:bg-primary-50 hover:text-primary-600 disabled:cursor-wait disabled:hover:border-earth-300 disabled:hover:bg-transparent"
-        >
-          {pending ? (
-            <span
-              aria-hidden
-              className="h-2.5 w-2.5 animate-spin rounded-full border border-primary-500 border-t-transparent"
-            />
-          ) : (
-            <span aria-hidden className="text-[10px] leading-none">
-              ✓
-            </span>
-          )}
-        </button>
+        {readOnly ? (
+          <span
+            aria-hidden
+            className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-earth-200 bg-earth-50"
+          />
+        ) : (
+          <button
+            type="submit"
+            disabled={pending}
+            aria-busy={pending}
+            aria-label={`標記「${item.message}」為已知悉`}
+            title={pending ? "處理中…" : "標記為已知悉（從首頁收起）"}
+            className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-earth-300 text-transparent hover:border-primary-500 hover:bg-primary-50 hover:text-primary-600 disabled:cursor-wait disabled:hover:border-earth-300 disabled:hover:bg-transparent"
+          >
+            {pending ? (
+              <span
+                aria-hidden
+                className="h-2.5 w-2.5 animate-spin rounded-full border border-primary-500 border-t-transparent"
+              />
+            ) : (
+              <span aria-hidden className="text-[10px] leading-none">
+                ✓
+              </span>
+            )}
+          </button>
+        )}
         <span
           className={`shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium ${TYPE_BADGE[item.type]}`}
         >
@@ -110,12 +129,18 @@ function TodoRow({ item }: { item: StoreTodoItem }) {
           {item.message}
         </p>
       </div>
-      <Link
-        href={item.href}
-        className="ml-7 w-fit shrink-0 rounded-md border border-earth-200 bg-white px-3 py-1 text-[11px] font-medium text-earth-700 hover:bg-earth-50 sm:ml-0"
-      >
-        {item.actionLabel}
-      </Link>
+      {readOnly ? (
+        <span className="ml-7 w-fit shrink-0 rounded-md border border-earth-200 bg-earth-50 px-3 py-1 text-[11px] font-medium text-earth-400 sm:ml-0">
+          查看模式
+        </span>
+      ) : (
+        <Link
+          href={item.href}
+          className="ml-7 w-fit shrink-0 rounded-md border border-earth-200 bg-white px-3 py-1 text-[11px] font-medium text-earth-700 hover:bg-earth-50 sm:ml-0"
+        >
+          {item.actionLabel}
+        </Link>
+      )}
     </div>
   );
 }

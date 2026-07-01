@@ -65,8 +65,19 @@ const PER_TYPE_FETCH = 10;
 
 export async function getStoreTodos(opts: {
   activeStoreId: string | null;
+  respectDismissed?: boolean;
 }): Promise<StoreTodosResult> {
   const user = await requireStaffSession();
+  return getStoreTodosForUser(user, opts);
+}
+
+export async function getStoreTodosForUser(
+  user: Awaited<ReturnType<typeof requireStaffSession>>,
+  opts: {
+    activeStoreId: string | null;
+    respectDismissed?: boolean;
+  },
+): Promise<StoreTodosResult> {
   const storeFilter = getStoreFilter(user, opts.activeStoreId);
   const canSeePayments = await checkPermission(
     user.role,
@@ -137,7 +148,7 @@ export async function getStoreTodos(opts: {
   // 過濾掉當前 user 已 dismiss 的項目（per-user；只查本批 key，避免 table 長期累積拖慢）
   const allKeys = allItems.map((i) => i.id);
   const dismissedRows =
-    allKeys.length > 0
+    opts.respectDismissed !== false && allKeys.length > 0
       ? await prisma.todoDismiss.findMany({
           where: { userId: user.id, todoKey: { in: allKeys } },
           select: { todoKey: true },
