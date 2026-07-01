@@ -10,10 +10,18 @@ import DashboardShell from "@/components/sidebar";
 import { LogoutButton } from "@/components/logout-button";
 import { SubscriptionStatusBanner } from "@/components/subscription-status-banner";
 import { StoreOperatingStatusBanner } from "@/components/store-operating-status-banner";
+import { ViewModeBanner } from "@/components/view-mode-banner";
 import { prisma } from "@/lib/db";
 import { computeLifecycle } from "@/lib/subscription-lifecycle";
 import { toLocalDateStr } from "@/lib/date-utils";
 import type { StoreOperatingStatus } from "@/lib/store-operating-status";
+import {
+  getViewableStoreOptions,
+  resolveStoreViewContext,
+  type StoreViewContext,
+  type ViewableStoreOption,
+} from "@/lib/store-organization";
+import { getViewedStoreCookie } from "@/server/actions/store-view-mode";
 
 export default async function DashboardLayout({
   children,
@@ -38,12 +46,13 @@ export default async function DashboardLayout({
   const isOwnerLevel = isAdmin || user.role === "OWNER" || user.role === "PARTNER";
 
   // Source of truth: Store.plan (PricingPlan)
-  const [permissions, trialStatus, storeOptions, cookieStoreId] =
+  const [permissions, trialStatus, storeOptions, cookieStoreId, viewedStoreCookie] =
     await Promise.all([
       getUserPermissions(user.role, user.staffId),
       getCachedTrialStatus(user.storeId ?? undefined),
       isAdmin ? getStoreOptions() : Promise.resolve([]),
       isAdmin ? getActiveStoreCookie() : Promise.resolve(null),
+      isAdmin ? Promise.resolve(null) : getViewedStoreCookie(),
     ]);
 
   // Resolve the effective active store for read views（ADMIN 可切店）
@@ -71,6 +80,8 @@ export default async function DashboardLayout({
   let subBannerState: "EXPIRED" | "SUSPENDED" | null = null;
   let operatingStatus: StoreOperatingStatus | null = null;
   let storeName: string | null = null;
+  let storeViewContext: StoreViewContext | null = null;
+  let viewableStores: ViewableStoreOption[] = [];
   if (effectiveStoreId) {
     try {
       const store = await prisma.store.findUnique({
@@ -103,6 +114,31 @@ export default async function DashboardLayout({
     }
   }
 
+  if (!isAdmin && user.storeId) {
+    viewableStores = await getViewableStoreOptions(user.storeId);
+    try {
+      storeViewContext = await resolveStoreViewContext(user, {
+        viewedStoreId: viewedStoreCookie,
+      });
+    } catch (err) {
+      console.warn("[DashboardLayout] invalid store view context, falling back to own store", {
+        userId: user.id,
+        ownStoreId: user.storeId,
+        viewedStoreId: viewedStoreCookie,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      storeViewContext = await resolveStoreViewContext(user);
+    }
+  }
+
+  const ownStore = user.storeId
+    ? viewableStores.find((store) => store.id === user.storeId)
+    : null;
+  const descendantStores = viewableStores.filter((store) => !store.isOwnStore);
+  const viewedStore = storeViewContext?.viewedStoreId
+    ? viewableStores.find((store) => store.id === storeViewContext?.viewedStoreId)
+    : null;
+
   return (
     <DashboardShell
       isOwner={isOwnerLevel}
@@ -126,7 +162,19 @@ export default async function DashboardLayout({
       storeName={storeName}
       storeOptions={isAdmin ? storeOptions : undefined}
       activeStoreId={isAdmin ? activeStoreId : undefined}
+      viewMode={
+        !isAdmin && ownStore && storeViewContext
+          ? {
+              ownStore,
+              descendantStores,
+              viewedStoreId: storeViewContext.viewedStoreId ?? ownStore.id,
+            }
+          : undefined
+      }
     >
+      {storeViewContext?.isViewMode && viewedStore ? (
+        <ViewModeBanner viewedStoreName={viewedStore.name} />
+      ) : null}
       {operatingStatus ? (
         <StoreOperatingStatusBanner status={operatingStatus} />
       ) : null}

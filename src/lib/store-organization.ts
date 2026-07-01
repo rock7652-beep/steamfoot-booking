@@ -28,6 +28,12 @@ export interface ResolveStoreViewContextOptions {
   viewedStoreId?: string | null;
 }
 
+export interface ViewableStoreOption {
+  id: string;
+  name: string;
+  isOwnStore: boolean;
+}
+
 /**
  * Return all descendant store ids for a store organization tree.
  *
@@ -62,6 +68,28 @@ export async function getDescendantStoreIds(ownStoreId: string): Promise<string[
   }
 
   return descendants;
+}
+
+export async function getViewableStoreOptions(
+  ownStoreId: string,
+): Promise<ViewableStoreOption[]> {
+  const descendantIds = await getDescendantStoreIds(ownStoreId);
+  const storeIds = [ownStoreId, ...descendantIds];
+  const stores = await prisma.store.findMany({
+    where: { id: { in: storeIds } },
+    select: { id: true, name: true, createdAt: true },
+    orderBy: { createdAt: "asc" },
+  });
+  const storeById = new Map(stores.map((store) => [store.id, store]));
+
+  return storeIds
+    .map((id) => storeById.get(id))
+    .filter((store): store is NonNullable<typeof store> => Boolean(store))
+    .map((store) => ({
+      id: store.id,
+      name: store.name,
+      isOwnStore: store.id === ownStoreId,
+    }));
 }
 
 export async function canViewStore(

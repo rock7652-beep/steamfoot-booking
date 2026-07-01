@@ -11,6 +11,7 @@ import { cookies } from "next/headers";
 const STORE_CONTEXT_COOKIE_NAMES = [
   "store-slug",
   "active-store-id",
+  "viewed-store-id",
   "oauth-store-slug",
 ] as const;
 

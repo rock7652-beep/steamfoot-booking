@@ -25,9 +25,32 @@ Future view mode allows an upper store staff user to read descendant store data.
 It must not enable mutation. Server-side write guards are required; disabled UI
 is only a secondary signal.
 
-PR-1 does not connect UI, cookies, dashboard queries, or existing actions to view
-mode. It only introduces foundation helpers, types, guard skeletons, tests, and
+View Mode principle:
+
+> Full Read, Zero Write.
+
+The context shape is:
+
+- `ownStoreId`: the staff user's own operating store.
+- `viewedStoreId`: the store currently being viewed.
+- `isViewMode`: true when a non-HQ staff user is viewing a descendant store.
+- `canWrite`: false in view mode.
+
+PR-1 introduced foundation helpers, types, guard skeletons, tests, and
 documentation.
+
+PR-3 connects only the shell foundation:
+
+- A session-scoped `viewed-store-id` cookie.
+- A dashboard shell switcher with "我的店" and "查看下層店".
+- A global "查看模式" banner with "返回我的店".
+- Server-side validation that only descendants can be selected.
+- `requireWritablePermission()` remains the write guard skeleton for future
+  action wiring.
+
+PR-3 still does not connect dashboard, bookings, customers, plans, cash drawer,
+reports, or HQ analytics to `viewedStoreId`. Those modules must be wired in
+separate PRs with module-specific read filters, mutation guards, and cache keys.
 
 ## HQ Analytics Boundary
 
@@ -60,3 +83,26 @@ This UI is ADMIN-only and is limited to organization maintenance:
 
 This still does not activate store manager view mode. Dashboard, bookings,
 customers, reports, and HQ analytics remain unchanged.
+
+## PR-3 View Mode Foundation
+
+PR-3 activates the shell-level view mode context without module integration.
+
+Scope:
+
+- Resolve `ownStoreId`, `viewedStoreId`, `isViewMode`, and `canWrite`.
+- Let store staff switch between "我的店" and descendant stores.
+- Show a global read-only view-mode banner when viewing a descendant store.
+- Clear view-mode cookies on logout / context clear.
+- Keep all existing module reads and writes unchanged.
+
+Non-goals:
+
+- No dashboard support.
+- No bookings support.
+- No customers support.
+- No plans/packages support.
+- No cash drawer support.
+- No reports support.
+- No HQ analytics.
+- No schema or migration.
