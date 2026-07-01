@@ -5,6 +5,11 @@ import { checkPermission } from "@/lib/permissions";
 import { getStoreFilter } from "@/lib/manager-visibility";
 import { resolveActiveStoreId } from "@/lib/store";
 import {
+  resolveStoreViewContextFromCookie,
+  storeIdForViewContext,
+  userForViewContext,
+} from "@/lib/store-view-context-server";
+import {
   getStoreRevenueSummary,
   getCoachRevenueSummary,
   getTransactionDetails,
@@ -20,10 +25,17 @@ export async function GET(req: NextRequest) {
   if (!allowed) return new NextResponse("Forbidden", { status: 403 });
 
   const user = session.user;
+  const storeViewContext = await resolveStoreViewContextFromCookie(user);
+  if (storeViewContext?.isViewMode) {
+    return new NextResponse("Reports export is not available in view mode", { status: 403 });
+  }
+
   const cookieStore = await cookies();
   const cookieStoreId = cookieStore.get("active-store-id")?.value ?? null;
   const activeStoreId = resolveActiveStoreId(user, cookieStoreId);
-  const storeFilter = getStoreFilter(user, activeStoreId);
+  const readUser = userForViewContext(user, storeViewContext);
+  const reportsStoreId = storeIdForViewContext(activeStoreId, storeViewContext);
+  const storeFilter = getStoreFilter(readUser, reportsStoreId);
 
   const sp = req.nextUrl.searchParams;
   const reportType = sp.get("reportType") ?? "store";
@@ -38,7 +50,7 @@ export async function GET(req: NextRequest) {
   const filters: ReportFilters = {
     startDate,
     endDate,
-    storeId: sp.get("storeId"),
+    storeId: user.role === "ADMIN" ? sp.get("storeId") : reportsStoreId,
     coachId: sp.get("coachId"),
     coachRole: sp.get("coachRole"),
     planType: sp.get("planType"),

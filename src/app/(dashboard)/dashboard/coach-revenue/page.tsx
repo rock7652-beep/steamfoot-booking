@@ -1,7 +1,7 @@
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { redirect } from "next/navigation";
-import { getCurrentStorePlan } from "@/lib/store-plan";
+import { getCachedStorePlan } from "@/lib/query-cache";
 import { hasFeature as hasPricingFeature } from "@/lib/feature-flags";
 import { FEATURES as FF } from "@/lib/feature-flags";
 import { UpgradeNoticePage } from "@/components/upgrade-notice";
@@ -9,6 +9,11 @@ import { isOwner } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
 import { getStoreFilter } from "@/lib/manager-visibility";
 import { getActiveStoreForRead } from "@/lib/store";
+import {
+  resolveStoreViewContextFromCookie,
+  storeIdForViewContext,
+  userForViewContext,
+} from "@/lib/store-view-context-server";
 import { RevenueReportClient } from "@/components/reports/RevenueReportClient";
 
 export default async function CoachRevenuePage() {
@@ -17,7 +22,13 @@ export default async function CoachRevenuePage() {
     redirect("/dashboard");
   }
 
-  const pricingPlan = await getCurrentStorePlan();
+  const activeStoreId = await getActiveStoreForRead(user);
+  const storeViewContext = await resolveStoreViewContextFromCookie(user);
+  const isViewMode = storeViewContext?.isViewMode ?? false;
+  const reportsStoreId = storeIdForViewContext(activeStoreId, storeViewContext);
+  const reportsUser = userForViewContext(user, storeViewContext);
+
+  const pricingPlan = await getCachedStorePlan(reportsStoreId ?? user.storeId ?? undefined);
   if (!hasPricingFeature(pricingPlan, FF.ADVANCED_REPORTS)) {
     return (
       <UpgradeNoticePage
@@ -28,12 +39,11 @@ export default async function CoachRevenuePage() {
   }
 
   const admin = isOwner(user.role);
-  const activeStoreId = await getActiveStoreForRead(user);
-  const storeFilter = getStoreFilter(user, activeStoreId);
+  const storeFilter = getStoreFilter(reportsUser, reportsStoreId);
 
   const [stores, staffList] = await Promise.all([
     prisma.store.findMany({
-      ...(admin ? {} : { where: { id: user.storeId! } }),
+      ...(admin ? {} : { where: { id: reportsStoreId ?? user.storeId! } }),
       select: { id: true, name: true },
       orderBy: { createdAt: "asc" },
     }),
@@ -69,6 +79,7 @@ export default async function CoachRevenuePage() {
         stores={stores}
         coaches={coaches}
         isAdmin={admin}
+        isViewMode={isViewMode}
         defaultStartDate={defaultStart}
         defaultEndDate={defaultEnd}
       />
