@@ -22,7 +22,7 @@ import {
  *   - 預約類型多一個「補課」選項，且排在最前（有補課應優先安排）。
  *   - 「補課」在資料結構上 = bookingType=PACKAGE_SESSION + isMakeup=true，
  *     不是新的 BookingType enum；送出時用 hidden input 帶 isMakeup。
- *   - 補課不扣方案堂數、不收款；用哪幾張券由 createBooking server 自選最早到期，
+ *   - 補課券優先抵用；若張數不足，剩餘人數由 createBooking 扣方案堂數。
  *     前端不指定 makeupCreditId。
  *
  * 不動 server FEFO / 補課邏輯（server 仍是 single source of truth）；
@@ -62,6 +62,7 @@ export function CustomerAndPlanFields({
   // 預約日期由左欄 DashboardBookingForm（同一 form 的 select[name="bookingDate"]）控制。
   // 補課券有效性需依「預約日期」判斷，故在此讀取並監聽其變化以重查。
   const [bookingDate, setBookingDate] = useState<string | null>(null);
+  const [bookingPeople, setBookingPeople] = useState(1);
   const anchorRef = useRef<HTMLSpanElement>(null);
   // 記錄已套用「預設選擇」的顧客 → 同顧客改日期時不覆蓋店長手動選擇。
   const initializedCustomerRef = useRef<string | null>(null);
@@ -81,10 +82,14 @@ export function CustomerAndPlanFields({
     const form = anchorRef.current?.closest("form");
     if (!form) return;
     const read = () => {
-      const el = form.querySelector<HTMLSelectElement>(
+      const dateEl = form.querySelector<HTMLSelectElement>(
         'select[name="bookingDate"]',
       );
-      setBookingDate(el?.value ?? null);
+      const peopleEl = form.querySelector<HTMLSelectElement>(
+        'select[name="people"]',
+      );
+      setBookingDate(dateEl?.value ?? null);
+      setBookingPeople(Number(peopleEl?.value) || 1);
     };
     read();
     form.addEventListener("change", read);
@@ -146,6 +151,10 @@ export function CustomerAndPlanFields({
   const hasWallets = wallets.length > 0;
   const hasMakeup = makeup.count > 0;
   const isMakeupSelected = uiType === "MAKEUP";
+  const makeupToUse = isMakeupSelected ? Math.min(makeup.count, bookingPeople) : 0;
+  const packagePeople = isMakeupSelected ? Math.max(0, bookingPeople - makeupToUse) : bookingPeople;
+  const needsWalletForSelectedType =
+    uiType === "PACKAGE_SESSION" || (isMakeupSelected && packagePeople > 0);
   const showSinglePackageWarning = hasWallets && uiType === "SINGLE";
   // 從補課入口進來、顧客已選、查詢完成，但沒有可用補課券 → 明確提示。
   const showNoMakeupWarning =
@@ -204,14 +213,17 @@ export function CustomerAndPlanFields({
           </select>
         </div>
 
-        {/* 補課：隱藏「使用課程」下拉（不扣方案堂數），顯示說明 */}
+        {/* 補課：顯示系統將如何拆分補課券與方案堂數 */}
         {customerId && isMakeupSelected && (
           <p className="rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-[11px] text-emerald-800">
-            補課不扣方案堂數、不收款；系統會自動使用最早到期的補課券（依預約人數）。
+            將優先使用 {makeupToUse} 張補課券
+            {packagePeople > 0
+              ? `，剩餘 ${packagePeople} 位扣方案堂數。`
+              : "，本次不扣方案堂數。"}
           </p>
         )}
 
-        {customerId && !isMakeupSelected && hasWallets && uiType === "PACKAGE_SESSION" && (
+        {customerId && hasWallets && needsWalletForSelectedType && (
           <div>
             <label className={labelCls}>使用課程</label>
             <select
@@ -228,7 +240,9 @@ export function CustomerAndPlanFields({
               ))}
             </select>
             <p className="mt-1 text-[11px] text-earth-500">
-              已自動選最快到期的方案；如需手動指定可改下拉。
+              {isMakeupSelected && packagePeople > 0
+                ? "補課券不足的人數會使用此方案；已自動選最快到期的方案。"
+                : "已自動選最快到期的方案；如需手動指定可改下拉。"}
             </p>
           </div>
         )}
@@ -243,7 +257,7 @@ export function CustomerAndPlanFields({
           </p>
         )}
 
-        {customerId && !walletsLoading && !hasWallets && !isMakeupSelected && (
+        {customerId && !walletsLoading && !hasWallets && needsWalletForSelectedType && (
           <p className="text-[11px] text-earth-500">
             此顧客目前沒有可用方案；如要使用堂數預約，請先指派或購買方案。
           </p>

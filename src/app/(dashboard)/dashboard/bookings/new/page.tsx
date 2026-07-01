@@ -83,9 +83,9 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
     const people = Number(formData.get("people")) || 1;
     const notes = (formData.get("notes") as string) || undefined;
     const skipDutyCheck = formData.get("skipDutyCheck") === "on";
-    // 補課：資料結構 = bookingType=PACKAGE_SESSION + isMakeup=true。
-    // 不傳 customerPlanWalletId（不扣方案堂數）；用哪幾張券由 createBooking
-    // server 自選最早到期（不收款、不建立交易）。其餘類型維持原行為。
+    // 補課優先：資料結構 = bookingType=PACKAGE_SESSION + isMakeup=true。
+    // 若補課券不足以覆蓋人數，createBooking 會用補課券抵一部分，剩餘人數
+    // 使用 customerPlanWalletId 指定/FEFO 自選的方案堂數。
     const isMakeup = formData.get("isMakeup") === "on";
 
     if (!customerId) {
@@ -102,9 +102,8 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
       people,
       notes,
       skipDutyCheck: skipDutyCheck || undefined,
-      ...(isMakeup
-        ? { isMakeup: true }
-        : { customerPlanWalletId }),
+      customerPlanWalletId,
+      ...(isMakeup ? { isMakeup: true } : {}),
     });
 
     if (!result.success) {

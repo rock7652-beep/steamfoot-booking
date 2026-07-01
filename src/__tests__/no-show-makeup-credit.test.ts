@@ -67,7 +67,10 @@ vi.mock("@/lib/db", () => ({
     $transaction: h.txRun,
   },
 }));
-vi.mock("@/lib/permissions", () => ({ requirePermission: h.requirePermission }));
+vi.mock("@/lib/permissions", () => ({
+  requirePermission: h.requirePermission,
+  requireWritablePermission: h.requirePermission,
+}));
 // @/lib/session 會載入 next-auth（vitest 下 next/server 解析失敗）→ neutralize
 vi.mock("@/lib/session", () => ({
   requireSession: vi.fn(),
@@ -127,6 +130,7 @@ beforeEach(() => {
     bookingDate: new Date("2026-06-10T00:00:00Z"),
     revenueStaffId: "rev_staff",
     customerPlanWallet: { id: "w1", remainingSessions: 5, status: "ACTIVE" },
+    makeupCreditLinks: [],
     customer: { id: "cust_1", customerStage: "ACTIVE" },
   } as unknown as never);
 });
@@ -157,6 +161,33 @@ describe("markNoShow — DEDUCTED_WITH_MAKEUP", () => {
   it("依人數扣堂：people=2 → 2 筆 SESSION_DEDUCTION", async () => {
     await markNoShow("bk_1", "DEDUCTED_WITH_MAKEUP");
     expect(h.txTransactionCreate).toHaveBeenCalledTimes(2);
+  });
+
+  it("混合預約 people=4、2 張補課券 + 2 堂方案 → 最多只發 2 張新補課券", async () => {
+    h.outerBookingFindUnique.mockResolvedValue({
+      id: "bk_mixed",
+      storeId: "store_1",
+      bookingStatus: "PENDING",
+      customerId: "cust_1",
+      people: 4,
+      isMakeup: true,
+      slotTime: "10:00",
+      bookingDate: new Date("2026-06-10T00:00:00Z"),
+      revenueStaffId: "rev_staff",
+      customerPlanWallet: { id: "w1", remainingSessions: 5, status: "ACTIVE" },
+      makeupCreditLinks: [{ makeupCreditId: "mc-1" }, { makeupCreditId: "mc-2" }],
+      customer: { id: "cust_1", customerStage: "ACTIVE" },
+    } as unknown as never);
+    h.completeSessions.mockResolvedValue({
+      completed: 2,
+      items: [{ walletId: "w1" }, { walletId: "w1" }],
+    });
+
+    const r = await markNoShow("bk_mixed", "DEDUCTED_WITH_MAKEUP");
+
+    expect(r.success).toBe(true);
+    expect(h.txTransactionCreate).toHaveBeenCalledTimes(2);
+    expect(h.makeupCreate).toHaveBeenCalledTimes(2);
   });
 });
 

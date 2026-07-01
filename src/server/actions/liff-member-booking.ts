@@ -43,6 +43,7 @@ import { requireSession } from "@/lib/session";
 import { getCanonicalCustomerIdForSession } from "@/lib/customer-identity";
 import { createBooking } from "@/server/actions/booking";
 import { isStoreSubscriptionWriteBlocked } from "@/lib/subscription-guard";
+import { dayRange } from "@/lib/date-utils";
 
 const InputSchema = z.object({
   bookingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "invalid_date_format"),
@@ -142,17 +143,19 @@ export async function submitLiffMemberBooking(
   //   - 不寫 Transaction / Cashbook / Wallet purchase（PACKAGE_SESSION booking 純扣堂語意）
   //
   // ── 4.5 補課優先（PR-NoShow-2）─────────────────────
-  // people=N 時，若有效補課券 >= N → 自動使用 N 張（不讓顧客選保留）；不足則走方案堂數。
+  // people=N 時，只要有有效補課券就交給 createBooking 優先混合抵用：
+  // min(有效券數, people) 張補課券 + 剩餘人數用方案堂數。
   // 實際用哪 N 張由 createBooking 在 transaction 內依「最早到期」server 自選 + 加鎖。
+  const makeupValidFrom = dayRange(bookingDate).start;
   const validMakeupCount = await prisma.makeupCredit.count({
     where: {
       customerId,
       storeId,
       isUsed: false,
-      OR: [{ expiredAt: null }, { expiredAt: { gte: new Date() } }],
+      OR: [{ expiredAt: null }, { expiredAt: { gte: makeupValidFrom } }],
     },
   });
-  const useMakeup = validMakeupCount >= people;
+  const useMakeup = validMakeupCount > 0;
 
   // 我們**不傳** customerPlanWalletId / servicePlanId / makeupCreditId / expectedAmount —
   // FEFO（方案）/ 最早到期券（補課）皆由 server 自動選。

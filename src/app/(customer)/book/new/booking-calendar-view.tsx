@@ -462,13 +462,11 @@ function SlotBookingForm({
   // 確保補課自動判斷（people===1）與送出人數一致。
   const people = initialPeople;
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
-  // PR-NoShow-2：people=1 且有有效補課券 → 自動優先使用補課券（不提供保留/切換選項）。
-  // people>1 一律不使用補課券（一張券抵 1 人；多人多券留後續 PR，server 亦會 guard 拒絕）。
-  // 實際用哪一張由 server (createBooking) 依最早到期自選 + 加鎖；client 不指定 creditId。
-  // PR-NoShow-2：people=N 時，若有效券 >= N → 自動使用 N 張（最早到期優先）。
-  // 券不足以覆蓋全部人數則不混用，提示改人數或用方案。實際扣哪 N 張由 server 自選+加鎖。
-  const willUseMakeup = makeupCredits.length >= people;
-  const makeupInsufficient = makeupCredits.length > 0 && makeupCredits.length < people;
+  // 補課券優先：people=N 時自動使用 min(有效券, N) 張，剩餘人數扣方案堂數。
+  // 實際用哪幾張由 server (createBooking) 依最早到期自選 + 加鎖；client 不指定 creditId。
+  const willUseMakeup = makeupCredits.length > 0;
+  const makeupToUse = willUseMakeup ? Math.min(makeupCredits.length, people) : 0;
+  const packagePeople = people - makeupToUse;
   const makeupExpiryLabel =
     willUseMakeup && makeupCredits[0]?.expiredAt
       ? makeupCredits[0].expiredAt.split("-").join("/")
@@ -488,7 +486,7 @@ function SlotBookingForm({
         bookingDate: selectedDate,
         slotTime,
         bookingType: "PACKAGE_SESSION",
-        customerPlanWalletId: (!isMakeup && customerPlanWalletId) ? customerPlanWalletId : undefined,
+        customerPlanWalletId: customerPlanWalletId || undefined,
         people: peopleVal,
         isMakeup: isMakeup || undefined,
       });
@@ -507,10 +505,10 @@ function SlotBookingForm({
   const walletsForDate = activeWallets.filter(
     (w) => w.remainingSessions > 0 && (!w.expiryDate || w.expiryDate >= selectedDate)
   );
-  const hasWalletForDate = willUseMakeup || walletsForDate.length > 0;
+  const hasWalletForDate = packagePeople === 0 || walletsForDate.length > 0;
 
   // 人數 vs 剩餘堂數
-  const hasEnoughSessions = willUseMakeup || totalRemaining >= people;
+  const hasEnoughSessions = totalRemaining >= packagePeople;
 
   // 最晚到期日（用於提示）
   const latestExpiry = activeWallets
@@ -520,15 +518,12 @@ function SlotBookingForm({
     .pop();
 
   // 是否有 blocking error
-  const blockingError = !willUseMakeup && !hasWalletForDate
-    ? (makeupInsufficient
-        // 有補課券但不足以覆蓋人數、又無可用方案 → 顯示補課不足指引（避免誤報「票券過期」）
-        ? `補課資格不足以覆蓋本次預約人數（需 ${people} 張、目前 ${makeupCredits.length} 張），請改為 1 人預約，或使用方案堂數預約。`
-        : latestExpiry
+  const blockingError = packagePeople > 0 && !hasWalletForDate
+    ? (latestExpiry
         ? `票券期限不足，您目前方案有效期限至 ${latestExpiry}，請選擇期限內日期或聯繫店家`
         : "票券已超過可使用期限，請聯繫店家協助")
-    : !willUseMakeup && !hasEnoughSessions
-    ? `方案次數不足，無法預約 ${people} 人。目前可使用次數僅剩 ${totalRemaining} 次，請調整預約人數或聯繫店家`
+    : packagePeople > 0 && !hasEnoughSessions
+    ? `方案次數不足，無法預約 ${people} 人。目前可用補課 ${makeupToUse} 張、方案次數僅剩 ${totalRemaining} 次，請調整預約人數或聯繫店家`
     : null;
 
   if (state.success) {
@@ -546,7 +541,7 @@ function SlotBookingForm({
         </p>
         {state.wasMakeup && (
           <p className="mt-1 text-sm font-medium text-amber-700">
-            已使用 {state.bookedPeople} 張補課資格，本次不扣堂。
+            已優先使用補課資格，剩餘人數依方案堂數處理。
           </p>
         )}
         <p className="mt-1 text-sm text-earth-700">記得準時到喔</p>
@@ -589,21 +584,14 @@ function SlotBookingForm({
       {willUseMakeup && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-4">
           <p className="text-base font-semibold text-amber-900">
-            本次將使用 {people} 張補課資格（不扣堂）
+            本次將使用 {makeupToUse} 張補課資格
+            {packagePeople > 0 ? `，剩餘 ${packagePeople} 位扣方案` : "，不扣方案"}
           </p>
           {makeupExpiryLabel && (
             <p className="mt-1 text-sm text-amber-700">
               有效期限至 {makeupExpiryLabel}
             </p>
           )}
-        </div>
-      )}
-      {/* 補課券不足但有方案可墊 → 資訊提示（將改用方案）。無方案時改由 blockingError 指引。 */}
-      {makeupInsufficient && hasWalletForDate && (
-        <div className="rounded-xl border border-earth-200 bg-earth-50 px-4 py-3">
-          <p className="text-sm text-earth-700">
-            補課資格不足以覆蓋本次預約人數（需 {people} 張、目前 {makeupCredits.length} 張），本次將改用方案堂數預約。
-          </p>
         </div>
       )}
       {/* server 依最早到期自選補課券 → client 不傳 makeupCreditId */}
@@ -649,7 +637,7 @@ function SlotBookingForm({
         <p className="text-center text-base text-earth-700">今日所有時段已額滿</p>
       )}
 
-      {!willUseMakeup && activeWallets.length > 1 && (
+      {packagePeople > 0 && activeWallets.length > 1 && (
         <div>
           <label className="mb-2 block text-base font-medium text-earth-800">使用課程</label>
           <select name="customerPlanWalletId" className="w-full rounded-xl border border-earth-300 px-4 h-12 text-base focus:outline-none focus:ring-2 focus:ring-primary-500">
@@ -659,7 +647,7 @@ function SlotBookingForm({
           </select>
         </div>
       )}
-      {!willUseMakeup && activeWallets.length === 1 && (
+      {packagePeople > 0 && activeWallets.length === 1 && (
         <input type="hidden" name="customerPlanWalletId" value={activeWallets[0].id} />
       )}
 
@@ -671,7 +659,11 @@ function SlotBookingForm({
             <span>日期：{selectedDate}</span>
             <span>時間：{selectedSlot}</span>
             <span>人數：{people} 人</span>
-            {willUseMakeup && <span className="font-semibold">（不扣堂）</span>}
+            {willUseMakeup && (
+              <span className="font-semibold">
+                （補課 {makeupToUse} 位{packagePeople > 0 ? `、方案 ${packagePeople} 位` : ""}）
+              </span>
+            )}
           </div>
         </div>
       )}
@@ -689,7 +681,7 @@ function SlotBookingForm({
           disabled={pending || !!blockingError}
           className={`w-full min-h-[52px] rounded-xl px-4 text-base font-semibold text-white disabled:opacity-60 ${willUseMakeup ? "bg-amber-600 hover:bg-amber-700" : "bg-primary-600 hover:bg-primary-700"}`}
         >
-          {pending ? "預約中..." : willUseMakeup ? `確認補課預約（${people} 人）` : `確認預約（${people} 人）`}
+          {pending ? "預約中..." : willUseMakeup ? `確認補課優先預約（${people} 人）` : `確認預約（${people} 人）`}
         </button>
       )}
     </form>
