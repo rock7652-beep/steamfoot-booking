@@ -14,6 +14,7 @@ import { hasFeature, type FeatureKey, FEATURES } from "@/lib/feature-flags";
 import { APP_VERSION } from "@/lib/version";
 import type { PricingPlan } from "@prisma/client";
 import StoreSwitcher from "@/components/store-switcher";
+import { StoreViewModeSwitcher } from "@/components/store-view-mode-switcher";
 import { MVP_HIDDEN_ROUTES } from "@/lib/mvp-hidden-features";
 
 // 修改密碼 modal 一年用不到一次，但每次切後台頁都被掛在 sidebar 樹裡 → 浪費 ~20KB JS。
@@ -558,6 +559,11 @@ interface StoreOption {
   isDefault: boolean;
 }
 
+interface StoreViewOption {
+  id: string;
+  name: string;
+}
+
 interface DashboardShellProps {
   isOwner: boolean;
   permissions: string[];
@@ -573,6 +579,11 @@ interface DashboardShellProps {
   storeOptions?: StoreOption[];
   /** Current active store cookie value (null = all stores) */
   activeStoreId?: string | null;
+  viewMode?: {
+    ownStore: StoreViewOption;
+    descendantStores: StoreViewOption[];
+    viewedStoreId: string;
+  };
 }
 
 export default function DashboardShell({
@@ -587,6 +598,7 @@ export default function DashboardShell({
   storeName,
   storeOptions,
   activeStoreId,
+  viewMode,
 }: DashboardShellProps) {
   const rawPathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
@@ -934,6 +946,14 @@ export default function DashboardShell({
             </svg>
           </button>
         </div>
+        {!isAdmin && viewMode ? (
+          <StoreViewModeSwitcher
+            ownStore={viewMode.ownStore}
+            descendantStores={viewMode.descendantStores}
+            viewedStoreId={viewMode.viewedStoreId}
+            collapsed={collapsed}
+          />
+        ) : null}
         {renderNavGroups()}
         {/* Sidebar version footer */}
         <div className="border-t border-earth-100 px-3 py-2 text-center">
@@ -971,6 +991,13 @@ export default function DashboardShell({
                 </svg>
               </button>
             </div>
+            {viewMode ? (
+              <StoreViewModeSwitcher
+                ownStore={viewMode.ownStore}
+                descendantStores={viewMode.descendantStores}
+                viewedStoreId={viewMode.viewedStoreId}
+              />
+            ) : null}
             {renderNavGroups()}
           </aside>
         </div>

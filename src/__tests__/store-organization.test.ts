@@ -3,6 +3,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mockFindMany = vi.fn();
 const mockPermissionFindMany = vi.fn();
 const mockRequireStaffSession = vi.fn();
+const mockCookieGet = vi.fn();
+const mockCookieSet = vi.fn();
+const mockCookieDelete = vi.fn();
+const mockRevalidatePath = vi.fn();
 
 vi.mock("@/lib/db", () => ({
   prisma: {
@@ -21,6 +25,16 @@ vi.mock("react", () => ({
 
 vi.mock("next/cache", () => ({
   unstable_cache: <T extends (...args: unknown[]) => unknown>(fn: T): T => fn,
+  revalidatePath: (...args: unknown[]) => mockRevalidatePath(...args),
+}));
+
+vi.mock("next/headers", () => ({
+  cookies: () =>
+    Promise.resolve({
+      get: (...args: unknown[]) => mockCookieGet(...args),
+      set: (...args: unknown[]) => mockCookieSet(...args),
+      delete: (...args: unknown[]) => mockCookieDelete(...args),
+    }),
 }));
 
 vi.mock("@/lib/session", () => ({
@@ -44,6 +58,7 @@ describe("store organization foundation", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockPermissionFindMany.mockResolvedValue([{ permission: "customer.create" }]);
+    mockCookieGet.mockReturnValue(undefined);
   });
 
   it("allows viewing own store without querying descendants", async () => {
@@ -119,5 +134,90 @@ describe("store organization foundation", () => {
     await expect(
       requireWritablePermission("customer.create", { viewedStoreId: "store-b" }),
     ).rejects.toThrow("查看模式下不可執行操作");
+  });
+
+  it("resolves view context fields for own store and descendant view mode", async () => {
+    const { resolveStoreViewContext } = await import("@/lib/store-organization");
+    mockStoreTree({
+      "store-a": ["store-b"],
+    });
+    const user = {
+      id: "user-a",
+      role: "OWNER",
+      storeId: "store-a",
+    };
+
+    await expect(resolveStoreViewContext(user)).resolves.toEqual({
+      ownStoreId: "store-a",
+      viewedStoreId: "store-a",
+      isViewMode: false,
+      canWrite: true,
+    });
+    await expect(
+      resolveStoreViewContext(user, { viewedStoreId: "store-b" }),
+    ).resolves.toEqual({
+      ownStoreId: "store-a",
+      viewedStoreId: "store-b",
+      isViewMode: true,
+      canWrite: false,
+    });
+  });
+
+  it("sets viewed-store cookie only for descendant stores", async () => {
+    const { switchViewedStore } = await import("@/server/actions/store-view-mode");
+    mockRequireStaffSession.mockResolvedValue({
+      id: "user-a",
+      role: "OWNER",
+      staffId: "staff-a",
+      storeId: "store-a",
+    });
+    mockStoreTree({
+      "store-a": ["store-b"],
+    });
+
+    await expect(switchViewedStore("store-b")).resolves.toEqual({
+      success: true,
+      data: undefined,
+    });
+    expect(mockCookieSet).toHaveBeenCalledWith(
+      "viewed-store-id",
+      "store-b",
+      expect.objectContaining({ httpOnly: true, sameSite: "lax" }),
+    );
+    expect(mockRevalidatePath).toHaveBeenCalledWith("/dashboard", "layout");
+  });
+
+  it("clears viewed-store cookie when returning to own store", async () => {
+    const { switchViewedStore } = await import("@/server/actions/store-view-mode");
+    mockRequireStaffSession.mockResolvedValue({
+      id: "user-a",
+      role: "OWNER",
+      staffId: "staff-a",
+      storeId: "store-a",
+    });
+
+    await expect(switchViewedStore("__own__")).resolves.toEqual({
+      success: true,
+      data: undefined,
+    });
+    expect(mockCookieDelete).toHaveBeenCalledWith("viewed-store-id");
+  });
+
+  it("rejects switching view mode to a sibling store", async () => {
+    const { switchViewedStore } = await import("@/server/actions/store-view-mode");
+    mockRequireStaffSession.mockResolvedValue({
+      id: "user-a",
+      role: "OWNER",
+      staffId: "staff-a",
+      storeId: "store-a",
+    });
+    mockStoreTree({
+      root: ["store-a", "store-b"],
+      "store-a": [],
+    });
+
+    const result = await switchViewedStore("store-b");
+    expect(result.success).toBe(false);
+    expect(mockCookieSet).not.toHaveBeenCalled();
   });
 });
