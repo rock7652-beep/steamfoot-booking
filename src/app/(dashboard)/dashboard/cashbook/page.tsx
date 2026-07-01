@@ -20,11 +20,15 @@ import { getCashDrawerView, listClosedBusinessDates } from "@/server/queries/cas
 import { listStaffSelectOptions } from "@/server/queries/staff";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
-import { getCurrentStorePlan } from "@/lib/store-plan";
+import { getCachedStorePlan } from "@/lib/query-cache";
 import { FEATURES } from "@/lib/feature-flags";
 import { FeatureGate } from "@/components/feature-gate";
 import { FormErrorToast } from "@/components/form-error-toast";
 import { getActiveStoreForRead } from "@/lib/store";
+import {
+  resolveStoreViewContextFromCookie,
+  storeIdForViewContext,
+} from "@/lib/store-view-context-server";
 import { redirect } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -89,6 +93,9 @@ export default async function CashbookPage({ searchParams }: PageProps) {
   const dateTo = `${month}-${String(lastDay).padStart(2, "0")}`;
 
   const activeStoreId = await getActiveStoreForRead(user);
+  const storeViewContext = await resolveStoreViewContextFromCookie(user);
+  const isViewMode = storeViewContext?.isViewMode ?? false;
+  const cashbookStoreId = storeIdForViewContext(activeStoreId, storeViewContext);
 
   // 平行 fetch：cashbook（必要）+ cash drawer（依權限）
   const [cashbookList, summary, plan, cashDrawerData] = await Promise.all([
@@ -98,11 +105,11 @@ export default async function CashbookPage({ searchParams }: PageProps) {
       type: params.type,
       page,
       pageSize: 30,
-      activeStoreId,
+      activeStoreId: cashbookStoreId,
     }),
-    getMonthlySummary(month, activeStoreId),
-    getCurrentStorePlan(),
-    canViewCashDrawer && activeStoreId
+    getMonthlySummary(month, cashbookStoreId),
+    getCachedStorePlan(cashbookStoreId ?? undefined),
+    canViewCashDrawer && cashbookStoreId
       ? (async () => {
           const [y, m, d] = today.split("-").map(Number);
           const todayBusinessDate = new Date(Date.UTC(y, m - 1, d));
@@ -118,16 +125,24 @@ export default async function CashbookPage({ searchParams }: PageProps) {
             closedDates,
             staffOptions,
           ] = await Promise.all([
-            getCashDrawerView(activeStoreId, todayBusinessDate),
-            checkPermission(user.role, user.staffId, "cashDrawer.open"),
-            checkPermission(user.role, user.staffId, "cashDrawer.close"),
-            checkPermission(user.role, user.staffId, "cashDrawer.entry"),
-            checkPermission(user.role, user.staffId, "cashbook.create"),
-            listClosedBusinessDates(activeStoreId, fromDate.toISOString().slice(0, 10), today),
+            getCashDrawerView(cashbookStoreId, todayBusinessDate),
+            isViewMode
+              ? Promise.resolve(false)
+              : checkPermission(user.role, user.staffId, "cashDrawer.open"),
+            isViewMode
+              ? Promise.resolve(false)
+              : checkPermission(user.role, user.staffId, "cashDrawer.close"),
+            isViewMode
+              ? Promise.resolve(false)
+              : checkPermission(user.role, user.staffId, "cashDrawer.entry"),
+            isViewMode
+              ? Promise.resolve(false)
+              : checkPermission(user.role, user.staffId, "cashbook.create"),
+            listClosedBusinessDates(cashbookStoreId, fromDate.toISOString().slice(0, 10), today),
             listStaffSelectOptions(),
           ]);
-          const canInit = user.role === "ADMIN" || user.role === "OWNER";
-          const canAssignStaff = user.role === "ADMIN";
+          const canInit = !isViewMode && (user.role === "ADMIN" || user.role === "OWNER");
+          const canAssignStaff = !isViewMode && user.role === "ADMIN";
           return {
             view,
             canInit,
@@ -155,12 +170,18 @@ export default async function CashbookPage({ searchParams }: PageProps) {
           title="現金管理"
           subtitle="今日抽屜 + 月度現金帳紀錄"
           actions={
-            <Link
-              href="/dashboard/cashbook/new"
-              className="rounded-lg bg-primary-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-primary-700"
-            >
-              + 新增記帳
-            </Link>
+            isViewMode ? (
+              <span className="rounded-lg border border-earth-200 bg-earth-50 px-3 py-1.5 text-xs font-medium text-earth-500">
+                查看模式：不可新增記帳
+              </span>
+            ) : (
+              <Link
+                href="/dashboard/cashbook/new"
+                className="rounded-lg bg-primary-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-primary-700"
+              >
+                + 新增記帳
+              </Link>
+            )
           }
         />
 
@@ -322,12 +343,16 @@ export default async function CashbookPage({ searchParams }: PageProps) {
                       {e.note ?? "—"}
                     </td>
                     <td className="px-4 py-3">
-                      <Link
-                        href={`/dashboard/cashbook/${e.id}/edit`}
-                        className="text-primary-600 hover:underline"
-                      >
-                        編輯
-                      </Link>
+                      {isViewMode ? (
+                        <span className="text-earth-400">僅可查看</span>
+                      ) : (
+                        <Link
+                          href={`/dashboard/cashbook/${e.id}/edit`}
+                          className="text-primary-600 hover:underline"
+                        >
+                          編輯
+                        </Link>
+                      )}
                     </td>
                   </tr>
                 ))}

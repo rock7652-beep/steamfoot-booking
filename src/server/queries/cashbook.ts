@@ -1,6 +1,11 @@
 import { prisma } from "@/lib/db";
 import { requireStaffSession } from "@/lib/session";
 import { getManagerReadFilter } from "@/lib/manager-visibility";
+import {
+  resolveStoreViewContextFromCookie,
+  storeIdForViewContext,
+  userForViewContext,
+} from "@/lib/store-view-context-server";
 import type { CashbookEntryType } from "@prisma/client";
 
 export interface ListCashbookOptions {
@@ -20,9 +25,17 @@ export interface ListCashbookOptions {
 export async function listCashbookEntries(options: ListCashbookOptions & { activeStoreId?: string | null } = {}) {
   const user = await requireStaffSession();
   const { dateFrom, dateTo, type, staffId, activeStoreId, page = 1, pageSize = 30 } = options;
+  const storeViewContext = await resolveStoreViewContextFromCookie(user);
+  const readUser = userForViewContext(user, storeViewContext);
+  const readStoreId = storeIdForViewContext(activeStoreId ?? null, storeViewContext);
 
   // Manager 篩選（讀取型：受 visibility mode 控制）
-  const visibilityFilter = getManagerReadFilter(user.role, user.staffId, "staffId", activeStoreId ?? user.storeId);
+  const visibilityFilter = getManagerReadFilter(
+    readUser.role,
+    readUser.staffId,
+    "staffId",
+    readStoreId ?? readUser.storeId,
+  );
   const staffFilter = Object.keys(visibilityFilter).length > 0
     ? visibilityFilter
     : staffId
@@ -65,8 +78,16 @@ export async function listCashbookEntries(options: ListCashbookOptions & { activ
 
 export async function getDailySummary(date: string, activeStoreId?: string | null) {
   const user = await requireStaffSession();
+  const storeViewContext = await resolveStoreViewContextFromCookie(user);
+  const readUser = userForViewContext(user, storeViewContext);
+  const readStoreId = storeIdForViewContext(activeStoreId ?? null, storeViewContext);
 
-  const staffFilter = getManagerReadFilter(user.role, user.staffId, "staffId", activeStoreId ?? user.storeId);
+  const staffFilter = getManagerReadFilter(
+    readUser.role,
+    readUser.staffId,
+    "staffId",
+    readStoreId ?? readUser.storeId,
+  );
 
   const dayStart = new Date(date + "T00:00:00Z");
   const dayEnd = new Date(date + "T23:59:59Z");
@@ -105,8 +126,16 @@ export async function getDailySummary(date: string, activeStoreId?: string | nul
 export async function getMonthlySummary(month: string, activeStoreId?: string | null) {
   // month: "YYYY-MM"
   const user = await requireStaffSession();
+  const storeViewContext = await resolveStoreViewContextFromCookie(user);
+  const readUser = userForViewContext(user, storeViewContext);
+  const readStoreId = storeIdForViewContext(activeStoreId ?? null, storeViewContext);
 
-  const staffFilter = getManagerReadFilter(user.role, user.staffId, "staffId", activeStoreId ?? user.storeId);
+  const staffFilter = getManagerReadFilter(
+    readUser.role,
+    readUser.staffId,
+    "staffId",
+    readStoreId ?? readUser.storeId,
+  );
 
   const [year, mon] = month.split("-").map(Number);
   const monthStart = new Date(Date.UTC(year, mon - 1, 1));

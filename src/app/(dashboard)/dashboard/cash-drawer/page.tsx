@@ -14,8 +14,12 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { getActiveStoreForRead } from "@/lib/store";
+import {
+  resolveStoreViewContextFromCookie,
+  storeIdForViewContext,
+} from "@/lib/store-view-context-server";
 import { toLocalDateStr } from "@/lib/date-utils";
-import { getCurrentStorePlan } from "@/lib/store-plan";
+import { getCachedStorePlan } from "@/lib/query-cache";
 import { FEATURES } from "@/lib/feature-flags";
 import { FeatureGate } from "@/components/feature-gate";
 import { FormErrorToast } from "@/components/form-error-toast";
@@ -37,7 +41,10 @@ export default async function CashDrawerPage({ searchParams }: PageProps) {
   }
   await searchParams; // 觸發 dynamic rendering，錯誤 toast 由 <FormErrorToast /> 自己讀 URL
 
-  const storeId = await getActiveStoreForRead(user);
+  const activeStoreId = await getActiveStoreForRead(user);
+  const storeViewContext = await resolveStoreViewContextFromCookie(user);
+  const isViewMode = storeViewContext?.isViewMode ?? false;
+  const storeId = storeIdForViewContext(activeStoreId, storeViewContext);
   if (!storeId) {
     // ADMIN 未選店時 storeId 可能為 null
     redirect("/dashboard");
@@ -59,17 +66,25 @@ export default async function CashDrawerPage({ searchParams }: PageProps) {
     closedDates,
     staffOptions,
   ] = await Promise.all([
-    getCurrentStorePlan(),
+    getCachedStorePlan(storeId),
     getCashDrawerView(storeId, todayBusinessDate),
-    checkPermission(user.role, user.staffId, "cashDrawer.open"),
-    checkPermission(user.role, user.staffId, "cashDrawer.close"),
-    checkPermission(user.role, user.staffId, "cashDrawer.entry"),
-    checkPermission(user.role, user.staffId, "cashbook.create"),
+    isViewMode
+      ? Promise.resolve(false)
+      : checkPermission(user.role, user.staffId, "cashDrawer.open"),
+    isViewMode
+      ? Promise.resolve(false)
+      : checkPermission(user.role, user.staffId, "cashDrawer.close"),
+    isViewMode
+      ? Promise.resolve(false)
+      : checkPermission(user.role, user.staffId, "cashDrawer.entry"),
+    isViewMode
+      ? Promise.resolve(false)
+      : checkPermission(user.role, user.staffId, "cashbook.create"),
     listClosedBusinessDates(storeId, fromDate.toISOString().slice(0, 10), todayStr),
     listStaffSelectOptions(),
   ]);
-  const canInit = user.role === "ADMIN" || user.role === "OWNER";
-  const canAssignStaff = user.role === "ADMIN";
+  const canInit = !isViewMode && (user.role === "ADMIN" || user.role === "OWNER");
+  const canAssignStaff = !isViewMode && user.role === "ADMIN";
 
   return (
     <FeatureGate plan={plan} feature={FEATURES.CASHBOOK}>

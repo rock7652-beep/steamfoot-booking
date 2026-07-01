@@ -64,6 +64,7 @@ const {
 vi.mock("@/lib/db", () => ({ prisma: dbMock }));
 vi.mock("@/lib/permissions", () => ({
   requirePermission: vi.fn(async () => USER),
+  requireWritablePermission: vi.fn(async () => USER),
 }));
 vi.mock("@/lib/session", () => ({
   requireStaffSession: vi.fn(async () => USER),
@@ -78,6 +79,23 @@ vi.mock("@/lib/manager-visibility", () => ({
 vi.mock("@/lib/store", () => ({
   currentStoreId: vi.fn(() => STORE_A),
   resolveWriteStoreId: vi.fn(async () => STORE_A),
+}));
+vi.mock("@/lib/store-view-context-server", () => ({
+  resolveStoreViewContextFromCookie: vi.fn(async () => null),
+  storeIdForViewContext: (
+    fallbackStoreId: string | null,
+    viewContext: { isViewMode: boolean; viewedStoreId: string | null } | null,
+  ) =>
+    viewContext?.isViewMode
+      ? viewContext.viewedStoreId ?? fallbackStoreId
+      : fallbackStoreId,
+  userForViewContext: <T extends { storeId?: string | null }>(
+    user: T,
+    viewContext: { isViewMode: boolean; viewedStoreId: string | null } | null,
+  ): T =>
+    viewContext?.isViewMode && viewContext.viewedStoreId
+      ? { ...user, storeId: viewContext.viewedStoreId }
+      : user,
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
