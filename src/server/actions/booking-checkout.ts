@@ -2,7 +2,7 @@
 
 import type { z } from "zod";
 import { prisma } from "@/lib/db";
-import { requirePermission } from "@/lib/permissions";
+import { requireWritablePermission } from "@/lib/permissions";
 import { assertStoreSubscriptionWritable } from "@/lib/subscription-guard";
 import { AppError, handleActionError } from "@/lib/errors";
 import { currentStoreId } from "@/lib/store";
@@ -25,7 +25,7 @@ import type { ActionResult } from "@/types";
 // 預約」改成扣方案，不重約、不佔其他時段、不受原預約時間已過限制。
 //
 // 設計原則（與 PR #166 collectSinglePayment 一致）：
-//   - store-scoped 查詢 + requirePermission("booking.update") 雙重防線
+//   - store-scoped 查詢 + requireWritablePermission("booking.update") 雙重防線
 //   - $transaction 內 Booking row FOR UPDATE → 重查 guard（race-safe）：
 //     與並發 collectSinglePayment / markCompleted 串行化，避免「轉成方案的
 //     同時被收了單次款」或「轉換與完成扣堂交錯」。
@@ -43,7 +43,7 @@ export async function adjustCheckoutToPackage(
   input: z.infer<typeof adjustCheckoutToPackageSchema>,
 ): Promise<ActionResult<{ walletId: string }>> {
   try {
-    const user = await requirePermission("booking.update");
+    const user = await requireWritablePermission("booking.update");
     const data = adjustCheckoutToPackageSchema.parse(input);
     const storeId = currentStoreId(user);
     // 訂閱到期保護：到期店家不可結帳轉換（無訂閱店不擋）
@@ -252,7 +252,7 @@ export async function adjustCheckoutToPackage(
 // 不收款、不寫金額——促銷價留到後續既有收款 Modal 由店長用原價/實收/折扣處理。
 //
 // 設計原則（與 Mode A / collectSinglePayment 一致）：
-//   - store-scoped 查詢 + requirePermission("booking.update") 雙重防線
+//   - store-scoped 查詢 + requireWritablePermission("booking.update") 雙重防線
 //   - $transaction 內 Booking row FOR UPDATE → 重查 guard（race-safe）：與並發
 //     markCompleted / collectSinglePayment 串行化，避免「轉成單次的同時被扣堂／
 //     收款」交錯。
@@ -270,7 +270,7 @@ export async function adjustCheckoutToSingle(
   input: z.infer<typeof adjustCheckoutToSingleSchema>,
 ): Promise<ActionResult<{ bookingId: string }>> {
   try {
-    const user = await requirePermission("booking.update");
+    const user = await requireWritablePermission("booking.update");
     const data = adjustCheckoutToSingleSchema.parse(input);
     const storeId = currentStoreId(user);
 

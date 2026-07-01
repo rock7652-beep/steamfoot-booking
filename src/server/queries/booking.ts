@@ -2,6 +2,11 @@ import { prisma } from "@/lib/db";
 import { requireSession, requireStaffSession } from "@/lib/session";
 import { AppError } from "@/lib/errors";
 import { getManagerCustomerFilter, getStoreFilter } from "@/lib/manager-visibility";
+import {
+  resolveStoreViewContextFromCookie,
+  storeIdForViewContext,
+  userForViewContext,
+} from "@/lib/store-view-context-server";
 import { getCanonicalCustomerIdForSession } from "@/lib/customer-identity";
 import { ACTIVE_BOOKING_STATUSES } from "@/lib/booking-constants";
 import { TRIAL_DEFAULTS } from "@/lib/shop-config";
@@ -29,16 +34,23 @@ export interface ListBookingsOptions {
 export async function listBookings(options: ListBookingsOptions & { activeStoreId?: string | null } = {}) {
   const user = await requireSession();
   const { dateFrom, dateTo, status, customerId, activeStoreId, page = 1, pageSize = 30 } = options;
+  const storeViewContext = await resolveStoreViewContextFromCookie(user);
+  const readUser = userForViewContext(user, storeViewContext);
+  const readStoreId = storeIdForViewContext(activeStoreId ?? null, storeViewContext);
 
   // 後端強制資料隔離（讀取型：受 visibility mode 控制）
   let whereCustomer: Record<string, unknown> = {};
-  if (user.role === "CUSTOMER") {
+  if (readUser.role === "CUSTOMER") {
     // 走 canonical resolver — session.customerId 可能 stale（與 createBooking 寫入路徑同源）
-    const canonicalId = await getCanonicalCustomerIdForSession(user);
+    const canonicalId = await getCanonicalCustomerIdForSession(readUser);
     if (!canonicalId) return { bookings: [], total: 0, page, pageSize };
     whereCustomer = { id: canonicalId };
-  } else if (user.role !== "ADMIN" && user.staffId) {
-    const customerFilter = getManagerCustomerFilter(user.role, user.staffId, activeStoreId ?? user.storeId);
+  } else if (readUser.role !== "ADMIN" && readUser.staffId) {
+    const customerFilter = getManagerCustomerFilter(
+      readUser.role,
+      readUser.staffId,
+      readStoreId ?? readUser.storeId,
+    );
     // getManagerCustomerFilter 回傳 { customer: { assignedStaffId: ... } } 或 {}
     // 這裡需要取出 customer 層級的 where
     const nested = customerFilter.customer as Record<string, unknown> | undefined;
@@ -46,7 +58,7 @@ export async function listBookings(options: ListBookingsOptions & { activeStoreI
   }
 
   const where: Record<string, unknown> = {
-    ...getStoreFilter(user, activeStoreId),
+    ...getStoreFilter(readUser, readStoreId),
     ...(Object.keys(whereCustomer).length > 0 && { customer: whereCustomer }),
     ...(customerId ? { customerId } : {}),
     ...(status ? { bookingStatus: status } : {}),
@@ -61,7 +73,7 @@ export async function listBookings(options: ListBookingsOptions & { activeStoreI
   };
 
   // ⚡ Customer 不需要 customer/serviceStaff include（自己看自己的）
-  const isCustomer = user.role === "CUSTOMER";
+  const isCustomer = readUser.role === "CUSTOMER";
   const includeFields = isCustomer
     ? {
         revenueStaff: { select: { id: true, displayName: true, colorCode: true } },
@@ -105,9 +117,10 @@ export async function getBookingDetail(bookingId: string) {
 export async function getBookingDetailForUser(
   bookingId: string,
   user: Awaited<ReturnType<typeof requireSession>>,
+  activeStoreId?: string | null,
 ) {
   const booking = await prisma.booking.findFirst({
-    where: { id: bookingId, ...getStoreFilter(user) },
+    where: { id: bookingId, ...getStoreFilter(user, activeStoreId) },
     include: {
       customer: {
         select: {
@@ -146,13 +159,16 @@ export async function getBookingDetailForUser(
 
 export async function getDayBookings(date: string, activeStoreId?: string | null) {
   const user = await requireStaffSession();
+  const storeViewContext = await resolveStoreViewContextFromCookie(user);
+  const readUser = userForViewContext(user, storeViewContext);
+  const readStoreId = storeIdForViewContext(activeStoreId ?? null, storeViewContext);
 
   const dateObj = new Date(date + "T00:00:00Z");
 
   // 所有店長可看全部預約（共享查看）
   return prisma.booking.findMany({
     where: {
-      ...getStoreFilter(user, activeStoreId),
+      ...getStoreFilter(readUser, readStoreId),
       bookingDate: dateObj,
       bookingStatus: { in: [...ACTIVE_BOOKING_STATUSES] },
     },
@@ -237,9 +253,12 @@ export async function getMonthBookingSummary(
   activeStoreId?: string | null,
 ) {
   const user = await requireStaffSession();
+  const storeViewContext = await resolveStoreViewContextFromCookie(user);
+  const readUser = userForViewContext(user, storeViewContext);
+  const readStoreId = storeIdForViewContext(activeStoreId ?? null, storeViewContext);
   // getStoreFilter 回 { storeId } 或 {}（ADMIN __all__）。抽出 scope 當 cache key；
   // null = 跨店（ADMIN 未指定 store）。重建 where 與原本 spread 行為完全一致。
-  const filter = getStoreFilter(user, activeStoreId);
+  const filter = getStoreFilter(readUser, readStoreId);
   const scopeStoreId = (filter.storeId as string | undefined) ?? null;
   const todayDateStr = todayRange().dateStr;
   return getCachedMonthBookingSummary(scopeStoreId, year, month, todayDateStr);

@@ -2,7 +2,7 @@
 
 import type { z } from "zod";
 import { prisma } from "@/lib/db";
-import { requirePermission } from "@/lib/permissions";
+import { requireWritablePermission } from "@/lib/permissions";
 import { assertStoreSubscriptionWritable } from "@/lib/subscription-guard";
 import { AppError, handleActionError } from "@/lib/errors";
 import { currentStoreId } from "@/lib/store";
@@ -17,7 +17,7 @@ import type { PaymentMethod, TransactionType } from "@prisma/client";
 //
 // 設計鏡像 collectTrialPayment：
 //   - 共用 SUCCESS-only baseline（不寫 PENDING）
-//   - 共用 store-scoped 查詢 + requirePermission 雙重防線
+//   - 共用 store-scoped 查詢 + requireWritablePermission 雙重防線
 //   - 共用 buildTransactionSnapshot（含快照 + 首購判定 + 折扣 = gross - net）
 //
 // 與 trial 的差異：
@@ -36,7 +36,7 @@ export async function collectSinglePayment(
   input: z.infer<typeof collectSinglePaymentSchema>,
 ): Promise<ActionResult<{ transactionId: string }>> {
   try {
-    const user = await requirePermission("booking.update");
+    const user = await requireWritablePermission("booking.update");
     const data = collectSinglePaymentSchema.parse(input);
     const storeId = currentStoreId(user);
     // 訂閱到期保護：到期店家不可收款（無訂閱店不擋）

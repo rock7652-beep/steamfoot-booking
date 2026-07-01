@@ -2,7 +2,10 @@
 
 import type { z } from "zod";
 import { prisma } from "@/lib/db";
-import { requirePermission } from "@/lib/permissions";
+import {
+  requirePermission,
+  requireWritablePermission,
+} from "@/lib/permissions";
 import { assertStoreSubscriptionWritable } from "@/lib/subscription-guard";
 import { AppError, handleActionError } from "@/lib/errors";
 import { currentStoreId } from "@/lib/store";
@@ -97,8 +100,8 @@ export async function createTrialBooking(
   }
 
   try {
-    const user = await requirePermission("trial.create");
-    mark("requirePermission");
+    const user = await requireWritablePermission("trial.create");
+    mark("requireWritablePermission");
     const data = createTrialBookingSchema.parse(input);
     mark("parse input");
     storeId = currentStoreId(user);
@@ -240,7 +243,7 @@ export async function createTrialBooking(
 // 防呆：
 //   - 僅 FIRST_TRIAL 且 bookingStatus ∈ {PENDING, CONFIRMED}
 //   - 已有 TRIAL_PURCHASE + SUCCESS 交易 → 拒絕重複收款
-//   - store-scoped 查詢 + requirePermission("trial.confirm") 為安全邊界
+//   - store-scoped 查詢 + requireWritablePermission("trial.confirm") 為安全邊界
 //
 // 歸屬沿用既有規則（不重造）：
 //   revenueStaffId = customer.assignedStaffId ?? operator.staffId（建時快照）
@@ -251,7 +254,7 @@ export async function collectTrialPayment(
   input: z.infer<typeof collectTrialPaymentSchema>,
 ): Promise<ActionResult<{ transactionId: string }>> {
   try {
-    const user = await requirePermission("trial.confirm");
+    const user = await requireWritablePermission("trial.confirm");
     const data = collectTrialPaymentSchema.parse(input);
     const storeId = currentStoreId(user);
     // 訂閱到期保護：到期店家不可體驗收款（無訂閱店不擋）
@@ -404,7 +407,7 @@ export async function collectTrialPayment(
 // 不改舊交易、不刪、不退款、不直接改金額。複用既有 voidTransaction +
 // collectTrialPayment（皆不修改）。
 //
-// 決策 A：OWNER-only —— gate = requirePermission("transaction.void")。
+// 決策 A：OWNER-only —— gate = requireWritablePermission("transaction.void")。
 // 決策 B：僅 bookingStatus ∈ {PENDING, CONFIRMED}（COMPLETED 不做一鍵更正）。
 //
 // 順序（server-side orchestration，非 client sequencing）：
@@ -423,7 +426,7 @@ export async function correctTrialCollection(
   input: z.infer<typeof correctTrialCollectionSchema>,
 ): Promise<ActionResult<{ transactionId: string }>> {
   try {
-    const user = await requirePermission("transaction.void");
+    const user = await requireWritablePermission("transaction.void");
     const data = correctTrialCollectionSchema.parse(input);
     const storeId = currentStoreId(user);
 

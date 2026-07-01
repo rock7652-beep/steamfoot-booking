@@ -83,6 +83,7 @@ interface DayDetailPanelProps {
   /** Rows currently mid-action — gets disabled + spinner. */
   actingIds?: ReadonlySet<string>;
   batchActing?: boolean;
+  readOnly?: boolean;
 }
 
 export function DayDetailPanel({
@@ -103,6 +104,7 @@ export function DayDetailPanel({
   onCompleteSingle,
   actingIds,
   batchActing = false,
+  readOnly = false,
 }: DayDetailPanelProps) {
   if (!date) {
     return (
@@ -117,7 +119,9 @@ export function DayDetailPanel({
             hint={
               monthHasAnyBookings
                 ? "左側月曆點任一天會在此顯示當日預約"
-                : "點月曆任一日期 → 從右上角「＋ 新增預約」建立"
+                : readOnly
+                  ? "查看模式下可閱讀預約資料，不能建立或調整預約"
+                  : "點月曆任一日期 → 從右上角「＋ 新增預約」建立"
             }
             size="section"
           />
@@ -135,6 +139,7 @@ export function DayDetailPanel({
     ACTIONABLE_STATUSES.has(b.bookingStatus),
   ).length;
   const selectionEnabled =
+    !readOnly &&
     !!onToggleSelect &&
     !!selectedIds &&
     !!onCompleteBatch &&
@@ -177,13 +182,19 @@ export function DayDetailPanel({
       <div className="flex h-full min-h-0 flex-col rounded-lg border border-earth-200 bg-white">
         <div className="flex items-center justify-between border-b border-earth-200 px-4 py-3">
           <h3 className="text-base font-semibold text-earth-900">今日預約</h3>
-          <Link
-            href={`/dashboard/bookings/new?date=${date}`}
-            prefetch={false}
-            className="text-sm text-primary-600 hover:text-primary-700"
-          >
-            ＋ 新增
-          </Link>
+          {readOnly ? (
+            <span className="text-xs font-medium text-amber-700">
+              查看模式
+            </span>
+          ) : (
+            <Link
+              href={`/dashboard/bookings/new?date=${date}`}
+              prefetch={false}
+              className="text-sm text-primary-600 hover:text-primary-700"
+            >
+              ＋ 新增
+            </Link>
+          )}
         </div>
 
         {/* Selection bar — only when at least one row picked */}
@@ -237,6 +248,7 @@ export function DayDetailPanel({
                 slotsKnown,
                 slotsLoading,
                 slotsCount: slots.length,
+                readOnly,
               })}
             />
           </div>
@@ -251,12 +263,12 @@ export function DayDetailPanel({
                   <TimelineItem
                     booking={b}
                     onClick={onBookingClick}
-                    actionable={actionable}
+                    actionable={!readOnly && actionable}
                     selected={isSelected}
                     onToggleSelect={
                       selectionEnabled ? onToggleSelect : undefined
                     }
-                    onCompleteSingle={onCompleteSingle}
+                    onCompleteSingle={readOnly ? undefined : onCompleteSingle}
                     isActing={isActing}
                   />
                 </li>
@@ -269,32 +281,38 @@ export function DayDetailPanel({
 
       {/* 底部：快速操作 sticky footer（不跟著清單捲動、不被遮住） */}
       <div className="shrink-0 border-t border-earth-200 bg-white px-4 py-3">
-        <div className="flex flex-wrap gap-2">
-          {/* PR #312-A 止血：#311 的裸 prefetch(=true) 會 FULL-prefetch 動態頁 /bookings/new
-              （連 loading.tsx 都跳過、整段 SSR 含 fetchDaySlots），Drawer 一開就背景跑兩次，
-              是 production RSC 請求風暴來源。改 prefetch={false} 完全不背景打；點擊仍有
-              loading.tsx 骨架即時回饋。warm 化的策略留 #312-B 再評估。 */}
-          <Link
-            href={`/dashboard/bookings/new?date=${date}`}
-            prefetch={false}
-            className="inline-flex h-8 items-center rounded-md bg-primary-600 px-3 text-sm font-semibold text-white hover:bg-primary-700"
-          >
-            <LinkPendingLabel>＋ 新增預約於 {monthDay}</LinkPendingLabel>
-          </Link>
-          <Link
-            href={`/dashboard/bookings/new?date=${date}&mode=makeup`}
-            prefetch={false}
-            className="inline-flex h-8 items-center rounded-md border border-earth-300 bg-white px-3 text-sm font-medium text-earth-700 hover:bg-earth-50"
-          >
-            <LinkPendingLabel>新增補課</LinkPendingLabel>
-          </Link>
-          {/* 體驗 499 PR-2：從月曆空時段建立未收款體驗預約（預填日期；同一 Drawer） */}
-          <TrialBookingDrawer
-            preset={{ date: date ?? undefined }}
-            triggerLabel="建立體驗預約"
-            triggerClassName="inline-flex h-8 items-center rounded-md border border-amber-300 bg-amber-50 px-3 text-sm font-medium text-amber-800 hover:bg-amber-100"
-          />
-        </div>
+        {readOnly ? (
+          <p className="text-xs leading-relaxed text-earth-500">
+            查看模式提供完整閱讀能力，建立、完成、取消、收款與改期請由該店自行完成。
+          </p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {/* PR #312-A 止血：#311 的裸 prefetch(=true) 會 FULL-prefetch 動態頁 /bookings/new
+                （連 loading.tsx 都跳過、整段 SSR 含 fetchDaySlots），Drawer 一開就背景跑兩次，
+                是 production RSC 請求風暴來源。改 prefetch={false} 完全不背景打；點擊仍有
+                loading.tsx 骨架即時回饋。warm 化的策略留 #312-B 再評估。 */}
+            <Link
+              href={`/dashboard/bookings/new?date=${date}`}
+              prefetch={false}
+              className="inline-flex h-8 items-center rounded-md bg-primary-600 px-3 text-sm font-semibold text-white hover:bg-primary-700"
+            >
+              <LinkPendingLabel>＋ 新增預約於 {monthDay}</LinkPendingLabel>
+            </Link>
+            <Link
+              href={`/dashboard/bookings/new?date=${date}&mode=makeup`}
+              prefetch={false}
+              className="inline-flex h-8 items-center rounded-md border border-earth-300 bg-white px-3 text-sm font-medium text-earth-700 hover:bg-earth-50"
+            >
+              <LinkPendingLabel>新增補課</LinkPendingLabel>
+            </Link>
+            {/* 體驗 499 PR-2：從月曆空時段建立未收款體驗預約（預填日期；同一 Drawer） */}
+            <TrialBookingDrawer
+              preset={{ date: date ?? undefined }}
+              triggerLabel="建立體驗預約"
+              triggerClassName="inline-flex h-8 items-center rounded-md border border-amber-300 bg-amber-50 px-3 text-sm font-medium text-amber-800 hover:bg-amber-100"
+            />
+          </div>
+        )}
       </div>
     </div>
   );
@@ -553,6 +571,7 @@ function buildEmptyStateProps(input: {
   slotsKnown: boolean;
   slotsLoading: boolean;
   slotsCount: number;
+  readOnly?: boolean;
 }) {
   const {
     date,
@@ -562,6 +581,7 @@ function buildEmptyStateProps(input: {
     slotsKnown,
     slotsLoading,
     slotsCount,
+    readOnly = false,
   } = input;
 
   if (filteredFrom != null && filteredFrom > 0) {
@@ -603,8 +623,10 @@ function buildEmptyStateProps(input: {
     }
     return {
       title: "可預約 — 尚無預約",
-      hint: `${monthDay} 共 ${daySchedule.slotCount} 個可預約時段，點下方按鈕新增`,
-      cta: (
+      hint: readOnly
+        ? `${monthDay} 共 ${daySchedule.slotCount} 個可預約時段，目前尚無預約`
+        : `${monthDay} 共 ${daySchedule.slotCount} 個可預約時段，點下方按鈕新增`,
+      cta: readOnly ? undefined : (
         <Link
           href={`/dashboard/bookings/new?date=${date}`}
           prefetch={false}
@@ -623,9 +645,11 @@ function buildEmptyStateProps(input: {
       ? "檢查當日營業時段中..."
       : slotsCount === 0
         ? "該日不營業"
-        : "點上方 ＋ 新增一筆",
+        : readOnly
+          ? "目前尚無預約"
+          : "點上方 ＋ 新增一筆",
     cta:
-      slotsKnown && !slotsLoading && slotsCount > 0 ? (
+      !readOnly && slotsKnown && !slotsLoading && slotsCount > 0 ? (
         <Link
           href={`/dashboard/bookings/new?date=${date}`}
           prefetch={false}

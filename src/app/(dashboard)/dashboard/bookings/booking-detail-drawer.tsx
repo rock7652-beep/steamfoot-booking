@@ -114,6 +114,7 @@ interface BookingDetailDrawerProps {
    * cached month / day data without refetching the whole month.
    */
   onUpdated?: (bookingId: string, newStatus: string | null) => void;
+  readOnly?: boolean;
 }
 
 export function BookingDetailDrawer({
@@ -124,6 +125,7 @@ export function BookingDetailDrawer({
   cache,
   onClose,
   onUpdated,
+  readOnly = false,
 }: BookingDetailDrawerProps) {
   const [data, setData] = useState<BookingDrawerPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -216,6 +218,10 @@ export function BookingDetailDrawer({
     opts?: { onSuccess?: () => void },
   ) {
     if (!bookingId) return;
+    if (readOnly) {
+      toast.error("查看模式下不可操作預約");
+      return;
+    }
     const id = bookingId;
     startAction(async () => {
       try {
@@ -262,6 +268,7 @@ export function BookingDetailDrawer({
   // 不重問，直接收款。
   function handleCollect() {
     const b = data?.booking;
+    if (readOnly) return;
     if (
       b &&
       b.bookingType === "FIRST_TRIAL" &&
@@ -280,6 +287,7 @@ export function BookingDetailDrawer({
   //（涵蓋未走收款路徑直接完成服務的情境）。
   function handleComplete() {
     const b = data?.booking;
+    if (readOnly) return;
     if (
       b &&
       b.bookingType === "FIRST_TRIAL" &&
@@ -300,6 +308,7 @@ export function BookingDetailDrawer({
   // 不論成功失敗都關閉 AttendanceModal；intent 在分流後即可清空。
   function handleAttendanceConfirm(attendedPeople: number) {
     if (!bookingId) return;
+    if (readOnly) return;
     const intent = attendanceIntent;
     if (attendedPeople === 0) {
       wrapAction(
@@ -339,6 +348,7 @@ export function BookingDetailDrawer({
   }
 
   function handleNoShowConfirm(choice: NoShowChoice) {
+    if (readOnly) return;
     // 補課預約未到：server 不扣堂、不發券，toast 不可說「扣堂並發補課」。
     const isMakeupBooking = data?.booking.isMakeup ?? false;
     const labelMap: Record<NoShowChoice, string> = {
@@ -355,6 +365,7 @@ export function BookingDetailDrawer({
   }
 
   function handleRescheduleConfirm(newDate: string, newSlotTime: string) {
+    if (readOnly) return;
     // Reschedule moves the booking across days — the parent needs to
     // re-fetch the day panel rather than patch in place. We pass `null`
     // for nextStatus so the parent treats this as "needs day refresh".
@@ -368,11 +379,13 @@ export function BookingDetailDrawer({
   }
 
   function handleCancel() {
+    if (readOnly) return;
     if (!confirm("確定取消這筆預約？")) return;
     wrapAction("已取消預約", () => cancelBooking(bookingId!), "CANCELLED");
   }
 
   function handleRevert() {
+    if (readOnly) return;
     // Revert returns to PENDING per booking.ts:867 logic.
     wrapAction("已還原狀態", () => revertBookingStatus(bookingId!), "PENDING");
   }
@@ -446,6 +459,7 @@ export function BookingDetailDrawer({
             payload={data}
             isActing={isActing}
             onClose={onClose}
+            readOnly={readOnly}
             actions={{
               complete: handleComplete,
               noShow: () => setNoShowOpen(true),
@@ -477,6 +491,7 @@ export function BookingDetailDrawer({
           <DrawerSkeleton onClose={onClose} error={error} />
         )}
       </RightSheet>
+      {!readOnly && (
       <NoShowModal
         open={noShowOpen && !!data}
         onClose={() => setNoShowOpen(false)}
@@ -484,7 +499,8 @@ export function BookingDetailDrawer({
         loading={isActing}
         isMakeup={data?.booking.isMakeup ?? false}
       />
-      {data && data.booking.bookingType === "FIRST_TRIAL" && data.booking.people > 1 && (
+      )}
+      {!readOnly && data && data.booking.bookingType === "FIRST_TRIAL" && data.booking.people > 1 && (
         <AttendanceModal
           open={attendanceOpen}
           onClose={() => {
@@ -497,7 +513,7 @@ export function BookingDetailDrawer({
           loading={isActing}
         />
       )}
-      {data && (
+      {!readOnly && data && (
         <RescheduleModal
           open={rescheduleOpen}
           onClose={() => setRescheduleOpen(false)}
@@ -508,7 +524,7 @@ export function BookingDetailDrawer({
           loading={isActing}
         />
       )}
-      {data && data.trial && !data.trial.collected && (
+      {!readOnly && data && data.trial && !data.trial.collected && (
         <CollectTrialModal
           open={collectOpen}
           onClose={() => {
@@ -531,7 +547,8 @@ export function BookingDetailDrawer({
           onCollected={handleCollected}
         />
       )}
-      {data &&
+      {!readOnly &&
+        data &&
         data.trial &&
         data.trial.collected &&
         data.trial.canCorrect &&
@@ -552,7 +569,7 @@ export function BookingDetailDrawer({
             onCorrected={handleCorrected}
           />
         )}
-      {data && data.single && !data.single.collected && (
+      {!readOnly && data && data.single && !data.single.collected && (
         <CollectSingleModal
           open={collectSingleOpen}
           onClose={() => setCollectSingleOpen(false)}
@@ -563,7 +580,7 @@ export function BookingDetailDrawer({
           onCollected={handleSingleCollected}
         />
       )}
-      {data && data.checkout && data.checkout.canAdjustToPackage && (
+      {!readOnly && data && data.checkout && data.checkout.canAdjustToPackage && (
         <AdjustCheckoutModal
           open={adjustCheckoutOpen}
           onClose={() => setAdjustCheckoutOpen(false)}
@@ -574,7 +591,8 @@ export function BookingDetailDrawer({
           onAdjusted={handleAdjusted}
         />
       )}
-      {data &&
+      {!readOnly &&
+        data &&
         data.checkoutToSingle &&
         data.checkoutToSingle.canAdjustToSingle && (
           <AdjustCheckoutModal
@@ -616,11 +634,13 @@ function DrawerContent({
   isActing,
   onClose,
   actions,
+  readOnly = false,
 }: {
   payload: BookingDrawerPayload;
   isActing: boolean;
   onClose: () => void;
   actions: DrawerActions;
+  readOnly?: boolean;
 }) {
   const { booking, customerSummary, trial, single, checkout, checkoutToSingle } =
     payload;
@@ -901,15 +921,21 @@ function DrawerContent({
       </div>
 
       {/* Section E: Actions */}
-      <ActionFooter
-        booking={booking}
-        trial={trial}
-        single={single}
-        checkout={checkout}
-        checkoutToSingle={checkoutToSingle}
-        isActing={isActing}
-        actions={actions}
-      />
+      {readOnly ? (
+        <div className="border-t border-earth-200 bg-amber-50 px-4 py-3 text-xs leading-relaxed text-amber-800">
+          查看模式提供完整閱讀能力，完成服務、取消、收款與改期請由該店自行完成。
+        </div>
+      ) : (
+        <ActionFooter
+          booking={booking}
+          trial={trial}
+          single={single}
+          checkout={checkout}
+          checkoutToSingle={checkoutToSingle}
+          isActing={isActing}
+          actions={actions}
+        />
+      )}
     </>
   );
 }

@@ -5,6 +5,11 @@ import { requireSession } from "@/lib/session";
 import { getNowTaipeiHHmm, toLocalDateStr } from "@/lib/date-utils";
 import { getStoreFilter } from "@/lib/manager-visibility";
 import { currentStoreId, getActiveStoreForRead } from "@/lib/store";
+import {
+  resolveStoreViewContextFromCookie,
+  storeIdForViewContext,
+  userForViewContext,
+} from "@/lib/store-view-context-server";
 import { AppError } from "@/lib/errors";
 import { isStoreBookable } from "@/lib/store-operating-status";
 import {
@@ -20,15 +25,31 @@ import type { SlotAvailability } from "@/types";
  * - ADMIN: 讀 active-store-id cookie（無特定店時拋錯，提示先切店）
  * - 其他角色: 用 user.storeId（缺失則 throw UNAUTHORIZED）
  */
-async function resolveReadStoreIdOrThrow(user: { role: string; storeId?: string | null }): Promise<string> {
+type SlotReadContext = {
+  storeId: string;
+  user: { role: string; storeId?: string | null; staffId?: string | null };
+};
+
+async function resolveReadStoreContextOrThrow(
+  user: { role: string; storeId?: string | null; staffId?: string | null },
+): Promise<SlotReadContext> {
   if (user.role === "ADMIN") {
     const sid = await getActiveStoreForRead(user);
     if (!sid) {
       throw new AppError("UNAUTHORIZED", "請先從右上角切換到特定店舖");
     }
-    return sid;
+    return { storeId: sid, user };
   }
-  return currentStoreId(user);
+  if (user.role === "CUSTOMER") {
+    return { storeId: currentStoreId(user), user };
+  }
+  const ownStoreId = currentStoreId(user);
+  const storeViewContext = await resolveStoreViewContextFromCookie(user);
+  const storeId = storeIdForViewContext(ownStoreId, storeViewContext);
+  if (!storeId) {
+    throw new AppError("UNAUTHORIZED", "缺少店舖資訊，請重新登入");
+  }
+  return { storeId, user: userForViewContext(user, storeViewContext) };
 }
 
 /** 單一時段摘要 */
@@ -52,7 +73,8 @@ export async function fetchMonthAvailability(
   days: Record<string, { totalCapacity: number; totalBooked: number; slots: MonthSlotInfo[] }>;
 }> {
   const user = await requireSession();
-  const storeId = await resolveReadStoreIdOrThrow(user);
+  const readContext = await resolveReadStoreContextOrThrow(user);
+  const { storeId } = readContext;
 
   if (!(await isStoreBookable(storeId))) {
     const closedDays: Record<string, { totalCapacity: number; totalBooked: number; slots: MonthSlotInfo[] }> = {};
@@ -75,7 +97,7 @@ export async function fetchMonthAvailability(
       where: {
         bookingDate: { gte: ctx.start, lte: ctx.end },
         bookingStatus: { in: ["PENDING", "CONFIRMED"] },
-        ...getStoreFilter(user),
+        ...getStoreFilter(readContext.user, storeId),
       },
       _sum: { people: true },
     }),
@@ -156,7 +178,7 @@ export async function fetchMonthAvailability(
 
 export async function fetchDaySlots(date: string): Promise<{ slots: SlotAvailability[] }> {
   const user = await requireSession();
-  const storeId = await resolveReadStoreIdOrThrow(user);
+  const { storeId } = await resolveReadStoreContextOrThrow(user);
 
   if (!(await isStoreBookable(storeId))) return { slots: [] };
 
