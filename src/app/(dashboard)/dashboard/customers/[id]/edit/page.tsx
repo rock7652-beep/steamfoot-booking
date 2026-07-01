@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { getCustomerDetail } from "@/server/queries/customer";
+import { resolveStoreViewContextFromCookie } from "@/lib/store-view-context-server";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { PageShell, PageHeader } from "@/components/desktop";
 import { EditCustomerForm } from "./edit-customer-form";
@@ -16,6 +17,10 @@ export default async function EditCustomerPage({ params }: PageProps) {
   const user = await getCurrentUser();
   if (!user) notFound();
   if (!(await checkPermission(user.role, user.staffId, "customer.update"))) {
+    redirect(`/dashboard/customers/${id}`);
+  }
+  const storeViewContext = await resolveStoreViewContextFromCookie(user);
+  if (storeViewContext?.isViewMode) {
     redirect(`/dashboard/customers/${id}`);
   }
 
