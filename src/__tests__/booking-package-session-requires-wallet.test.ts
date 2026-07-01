@@ -51,6 +51,8 @@ const mockTxMakeupUpdateMany = vi.fn();
 const mockTxJoinCreateMany = vi.fn();
 const mockTxJoinFindMany = vi.fn();
 const mockTxJoinDeleteMany = vi.fn();
+const mockWalletSessionCount = vi.fn();
+const mockAllocateSessionsFefo = vi.fn(async () => ({ allocations: [], primaryWalletId: null }));
 
 vi.mock("@/lib/db", () => ({
   prisma: {
@@ -66,6 +68,9 @@ vi.mock("@/lib/db", () => ({
     transaction: {
       findFirst: (...a: unknown[]) => mockTransactionFindFirst(...a),
     },
+    walletSession: {
+      count: (...a: unknown[]) => mockWalletSessionCount(...a),
+    },
     businessHours: {
       findMany: (...a: unknown[]) => mockBusinessHoursFindMany(...a),
       findFirst: (...a: unknown[]) => mockBusinessHoursFindFirst(...a),
@@ -76,6 +81,7 @@ vi.mock("@/lib/db", () => ({
     },
     slotOverride: { findMany: (...a: unknown[]) => mockSlotOverrideFindMany(...a) },
     dutyAssignment: { count: (...a: unknown[]) => mockDutyAssignmentCount(...a) },
+    shopConfig: { findUnique: vi.fn(async () => null) },
     store: { findUnique: (...a: unknown[]) => mockStoreFindUnique(...a) },
     $transaction: (cb: (tx: unknown) => Promise<unknown>) => mockTx(cb),
   },
@@ -89,6 +95,13 @@ vi.mock("@/lib/session", () => ({
 }));
 vi.mock("@/lib/permissions", () => ({
   requirePermission: () => mockRequirePermission(),
+  requireWritablePermission: () => mockRequirePermission(),
+}));
+vi.mock("@/lib/store-view-context-server", () => ({
+  resolveStoreViewContextFromCookie: vi.fn(async () => null),
+}));
+vi.mock("@/lib/store-organization", () => ({
+  assertWritableStoreViewContext: vi.fn(),
 }));
 
 vi.mock("@/lib/store", () => ({
@@ -103,6 +116,7 @@ vi.mock("@/lib/manager-visibility", () => ({
 vi.mock("@/lib/shop-config", () => ({
   isDutySchedulingEnabled: vi.fn(async () => false),
   checkBookingLimit: vi.fn(async () => ({ allowed: true, current: 0, limit: 100 })),
+  resolveBookableUntilDate: vi.fn(() => "2026-12-31"),
 }));
 vi.mock("@/lib/usage-gate", () => ({
   checkMonthlyBookingLimitOrThrow: vi.fn(async () => undefined),
@@ -110,6 +124,10 @@ vi.mock("@/lib/usage-gate", () => ({
 vi.mock("@/lib/date-utils", () => ({
   toLocalDateStr: () => "2026-04-26",
   getNowTaipeiHHmm: () => "00:00",
+  dayRange: (date: string) => ({
+    start: new Date(`${date}T00:00:00+08:00`),
+    end: new Date(`${date}T23:59:59.999+08:00`),
+  }),
 }));
 vi.mock("@/lib/booking-constants", () => ({
   PENDING_STATUSES: ["PENDING", "CONFIRMED"] as const,
@@ -133,7 +151,7 @@ vi.mock("@/server/actions/points", () => ({
 }));
 vi.mock("@/server/services/wallet-session", () => ({
   allocateSessions: vi.fn(async () => ({ allocated: 0 })),
-  allocateSessionsFefo: vi.fn(async () => ({ allocations: [], primaryWalletId: null })),
+  allocateSessionsFefo: (...a: unknown[]) => mockAllocateSessionsFefo(...a),
   releaseSessions: vi.fn(async () => ({ released: 1 })),
   completeSessions: vi.fn(async () => ({ completed: 1, items: [] })),
   uncompleteSessions: vi.fn(async () => ({ uncompleted: 1 })),
@@ -164,6 +182,7 @@ function setupBusinessHours() {
   mockSpecialDayFindFirst.mockResolvedValue(null);
   mockSlotOverrideFindMany.mockResolvedValue([]);
   mockBookingCount.mockResolvedValue(0);
+  mockWalletSessionCount.mockResolvedValue(0);
   mockBookingAggregate.mockResolvedValue({ _sum: { people: 0 } });
   mockDutyAssignmentCount.mockResolvedValue(0);
   mockBookingCreate.mockImplementation(async (args: { data: { customerId: string; storeId: string } }) => ({
@@ -177,6 +196,7 @@ function setupBusinessHours() {
   mockTxJoinCreateMany.mockResolvedValue({ count: 0 });
   mockTxJoinFindMany.mockResolvedValue([]);
   mockTxJoinDeleteMany.mockResolvedValue({ count: 0 });
+  mockAllocateSessionsFefo.mockResolvedValue({ allocations: [], primaryWalletId: null });
   mockTx.mockImplementation(async (cb: (tx: unknown) => Promise<unknown>) =>
     cb({
       $queryRaw: (...a: unknown[]) => mockTxQueryRaw(...a),
@@ -701,26 +721,58 @@ describe("createBooking — 補課自助預約 (PR-NoShow-2)", () => {
     expect(created.makeupCreditId).toBe("mc-1"); // legacy = 第一張
   });
 
-  it("people=2 但只有 1 券 → 拒絕（不足，不半套），不建 booking、不挑券", async () => {
+  it("people=4 有 2 券 + 方案 5 堂 → 用 2 張補課券並只保留 2 堂方案", async () => {
+    mockCustomerFindUnique.mockResolvedValue(PLAN_CUSTOMER_RECORD);
+    mockMakeupCount.mockResolvedValue(2);
+    mockTxQueryRaw.mockResolvedValue([{ id: "mc-1" }, { id: "mc-2" }]);
+
+    const { createBooking } = await import("@/server/actions/booking");
+    const r = await createBooking({ ...makeupInput, customerId: PLAN_CUSTOMER_ID, people: 4 });
+
+    expect(r.success).toBe(true);
+    expect(mockTxMakeupUpdateMany).toHaveBeenCalledWith({
+      where: { id: { in: ["mc-1", "mc-2"] } },
+      data: { isUsed: true },
+    });
+    const joinData = mockTxJoinCreateMany.mock.calls[0][0].data;
+    expect(joinData).toHaveLength(2);
+    expect(mockAllocateSessionsFefo).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        bookingId: "ck0000000000000000000099",
+        count: 2,
+        preferredWalletId: WALLET_ID,
+      }),
+    );
+    const created = mockBookingCreate.mock.calls[0][0].data;
+    expect(created.isMakeup).toBe(true);
+    expect(created.customerPlanWalletId).toBe(WALLET_ID);
+  });
+
+  it("people=4 有 1 券 + 方案只剩 2 堂 → 拒絕（總可抵用不足）", async () => {
+    mockCustomerFindUnique.mockResolvedValue({
+      ...PLAN_CUSTOMER_RECORD,
+      planWallets: [{ ...PLAN_CUSTOMER_RECORD.planWallets[0], remainingSessions: 2 }],
+    });
     mockMakeupCount.mockResolvedValue(1);
 
     const { createBooking } = await import("@/server/actions/booking");
-    const r = await createBooking({ ...makeupInput, people: 2 });
+    const r = await createBooking({ ...makeupInput, customerId: PLAN_CUSTOMER_ID, people: 4 });
 
     expect(r.success).toBe(false);
-    if (!r.success) expect(r.error).toMatch(/不足以覆蓋本次預約人數/);
+    if (!r.success) expect(r.error).toMatch(/方案次數不足/);
     expect(mockBookingCreate).not.toHaveBeenCalled();
     expect(mockTxQueryRaw).not.toHaveBeenCalled();
   });
 
-  it("people=1 但無券 → 拒絕（不足）", async () => {
+  it("people=1 但無券且無方案 → 拒絕", async () => {
     mockMakeupCount.mockResolvedValue(0);
 
     const { createBooking } = await import("@/server/actions/booking");
     const r = await createBooking(makeupInput);
 
     expect(r.success).toBe(false);
-    if (!r.success) expect(r.error).toMatch(/不足以覆蓋本次預約人數/);
+    if (!r.success) expect(r.error).toMatch(/沒有可用方案|沒有可使用的方案/);
     expect(mockBookingCreate).not.toHaveBeenCalled();
   });
 

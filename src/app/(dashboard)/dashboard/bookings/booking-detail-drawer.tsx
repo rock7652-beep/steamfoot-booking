@@ -349,13 +349,17 @@ export function BookingDetailDrawer({
 
   function handleNoShowConfirm(choice: NoShowChoice) {
     if (readOnly) return;
-    // 補課預約未到：server 不扣堂、不發券，toast 不可說「扣堂並發補課」。
-    const isMakeupBooking = data?.booking.isMakeup ?? false;
+    const makeupPeople =
+      data?.booking.makeupCreditLinks?.length ?? (data?.booking.isMakeup ? 1 : 0);
+    const walletPeople = data?.booking.walletSessions?.length ?? 0;
+    // 整筆補課未到：server 不扣堂、不發券，toast 不可說「扣堂並發補課」。
+    const isFullMakeupBooking =
+      (data?.booking.isMakeup ?? false) && makeupPeople > 0 && walletPeople === 0;
     const labelMap: Record<NoShowChoice, string> = {
       DEDUCTED: "已標記未到並扣堂",
       DEDUCTED_WITH_MAKEUP: "已標記未到、扣堂並發補課",
     };
-    const label = isMakeupBooking ? "已標記未到" : labelMap[choice];
+    const label = isFullMakeupBooking ? "已標記未到" : labelMap[choice];
     wrapAction(
       label,
       () => markNoShow(bookingId!, choice),
@@ -497,7 +501,11 @@ export function BookingDetailDrawer({
         onClose={() => setNoShowOpen(false)}
         onConfirm={handleNoShowConfirm}
         loading={isActing}
-        isMakeup={data?.booking.isMakeup ?? false}
+        isMakeup={
+          (data?.booking.isMakeup ?? false) &&
+          (data?.booking.makeupCreditLinks?.length ?? 0) > 0 &&
+          (data?.booking.walletSessions?.length ?? 0) === 0
+        }
       />
       )}
       {!readOnly && data && data.booking.bookingType === "FIRST_TRIAL" && data.booking.people > 1 && (

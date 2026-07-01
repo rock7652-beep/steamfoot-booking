@@ -137,6 +137,8 @@ export async function getBookingDetailForUser(
       customerPlanWallet: {
         include: { plan: true },
       },
+      makeupCreditLinks: { select: { makeupCreditId: true } },
+      walletSessions: { select: { id: true, status: true } },
     },
   });
   if (!booking) throw new AppError("NOT_FOUND", "預約不存在");

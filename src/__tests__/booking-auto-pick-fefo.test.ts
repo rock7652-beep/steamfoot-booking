@@ -38,10 +38,13 @@ const mockSlotOverrideFindMany = vi.fn();
 const mockDutyAssignmentCount = vi.fn();
 const mockStoreFindUnique = vi.fn();
 const mockTx = vi.fn();
+const mockWalletSessionCount = vi.fn();
+const mockMakeupCount = vi.fn();
 
 vi.mock("@/lib/db", () => ({
   prisma: {
     customer: { findUnique: (...a: unknown[]) => mockCustomerFindUnique(...a) },
+    makeupCredit: { count: (...a: unknown[]) => mockMakeupCount(...a) },
     booking: {
       findUnique: vi.fn(),
       count: (...a: unknown[]) => mockBookingCount(...a),
@@ -59,6 +62,8 @@ vi.mock("@/lib/db", () => ({
     },
     slotOverride: { findMany: (...a: unknown[]) => mockSlotOverrideFindMany(...a) },
     dutyAssignment: { count: (...a: unknown[]) => mockDutyAssignmentCount(...a) },
+    walletSession: { count: (...a: unknown[]) => mockWalletSessionCount(...a) },
+    shopConfig: { findUnique: vi.fn(async () => null) },
     store: { findUnique: (...a: unknown[]) => mockStoreFindUnique(...a) },
     $transaction: (cb: (tx: unknown) => Promise<unknown>) => mockTx(cb),
   },
@@ -72,6 +77,13 @@ vi.mock("@/lib/session", () => ({
 }));
 vi.mock("@/lib/permissions", () => ({
   requirePermission: () => mockRequirePermission(),
+  requireWritablePermission: () => mockRequirePermission(),
+}));
+vi.mock("@/lib/store-view-context-server", () => ({
+  resolveStoreViewContextFromCookie: vi.fn(async () => null),
+}));
+vi.mock("@/lib/store-organization", () => ({
+  assertWritableStoreViewContext: vi.fn(),
 }));
 vi.mock("@/lib/store", () => ({
   currentStoreId: (u: { storeId?: string | null }) => u.storeId ?? STORE_A,
@@ -85,6 +97,7 @@ vi.mock("@/lib/manager-visibility", () => ({
 vi.mock("@/lib/shop-config", () => ({
   isDutySchedulingEnabled: vi.fn(async () => false),
   checkBookingLimit: vi.fn(async () => ({ allowed: true, current: 0, limit: 100 })),
+  resolveBookableUntilDate: vi.fn(() => "2026-12-31"),
 }));
 vi.mock("@/lib/usage-gate", () => ({
   checkMonthlyBookingLimitOrThrow: vi.fn(async () => undefined),
@@ -92,6 +105,10 @@ vi.mock("@/lib/usage-gate", () => ({
 vi.mock("@/lib/date-utils", () => ({
   toLocalDateStr: () => "2026-04-26",
   getNowTaipeiHHmm: () => "00:00",
+  dayRange: (date: string) => ({
+    start: new Date(`${date}T00:00:00+08:00`),
+    end: new Date(`${date}T23:59:59.999+08:00`),
+  }),
 }));
 vi.mock("@/lib/booking-constants", () => ({
   PENDING_STATUSES: ["PENDING", "CONFIRMED"] as const,
@@ -148,6 +165,8 @@ function setupBusinessHours() {
   mockBookingCount.mockResolvedValue(0);
   mockBookingAggregate.mockResolvedValue({ _sum: { people: 0 } });
   mockDutyAssignmentCount.mockResolvedValue(0);
+  mockWalletSessionCount.mockResolvedValue(0);
+  mockMakeupCount.mockResolvedValue(0);
   mockBookingCreate.mockImplementation(
     async (args: { data: { customerId: string; storeId: string } }) => ({
       id: "ck0000000000000000000099",

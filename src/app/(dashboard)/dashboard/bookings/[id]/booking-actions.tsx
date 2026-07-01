@@ -3,6 +3,16 @@
 import { useTransition } from "react";
 import { toast } from "sonner";
 
+function isNextRedirectError(e: unknown): boolean {
+  return (
+    e instanceof Error &&
+    (e.message === "NEXT_REDIRECT" ||
+      ("digest" in e &&
+        typeof (e as { digest?: unknown }).digest === "string" &&
+        (e as { digest: string }).digest.startsWith("NEXT_REDIRECT")))
+  );
+}
+
 interface NoShowButtonProps {
   label: string;
   confirmMsg: string;
@@ -25,6 +35,7 @@ export function NoShowButton({
         await action();
         toast.success("已標記未到");
       } catch (e) {
+        if (isNextRedirectError(e)) return;
         console.error("[booking] markNoShow failed:", e);
         toast.error(e instanceof Error ? e.message : "標記未到失敗，請重試");
       }
@@ -65,6 +76,7 @@ export function CancelButton({ isMakeup, action }: CancelButtonProps) {
         await action(note ?? undefined);
         toast.success("預約已取消");
       } catch (e) {
+        if (isNextRedirectError(e)) return;
         console.error("[booking] cancel failed:", e);
         toast.error(e instanceof Error ? e.message : "取消預約失敗，請重試");
       }
@@ -111,6 +123,7 @@ export function RevertButton({ status, action }: RevertButtonProps) {
         await action();
         toast.success("預約狀態已回退");
       } catch (e) {
+        if (isNextRedirectError(e)) return;
         console.error("[booking] revert failed:", e);
         toast.error(e instanceof Error ? e.message : "回退失敗，請重試");
       }
