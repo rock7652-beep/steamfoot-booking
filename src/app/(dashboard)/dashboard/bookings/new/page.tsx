@@ -7,6 +7,7 @@ import { enumerateBookableDates } from "@/lib/bookable-window";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { resolveBookableUntilDate } from "@/lib/shop-config";
 import { getActiveStoreForRead } from "@/lib/store";
+import { resolveStoreViewContextFromCookie } from "@/lib/store-view-context-server";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { redirect } from "next/navigation";
 import { CustomerAndPlanFields } from "./customer-and-plan-fields";
@@ -33,6 +34,10 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
   const user = await getCurrentUser();
   if (!user || !(await checkPermission(user.role, user.staffId, "booking.create"))) {
     redirect("/dashboard");
+  }
+  const storeViewContext = await resolveStoreViewContextFromCookie(user);
+  if (storeViewContext?.isViewMode) {
+    redirect("/dashboard/bookings");
   }
 
   const params = await searchParams;

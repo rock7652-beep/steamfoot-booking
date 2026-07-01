@@ -4,6 +4,10 @@ import { checkPermission } from "@/lib/permissions";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { ServerTiming, withTiming } from "@/lib/perf";
 import { getActiveStoreForRead } from "@/lib/store";
+import {
+  resolveStoreViewContextFromCookie,
+  storeIdForViewContext,
+} from "@/lib/store-view-context-server";
 import { getCachedMonthScheduleSummary } from "@/lib/query-cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
@@ -35,9 +39,14 @@ export default async function BookingsPage({ searchParams }: PageProps) {
   const month = params.month ? parseInt(params.month) : todayM;
 
   const activeStoreId = await getActiveStoreForRead(user);
+  const storeViewContext = await resolveStoreViewContextFromCookie(user);
+  const bookingsStoreId = storeIdForViewContext(activeStoreId, storeViewContext);
+  const isViewMode = storeViewContext?.isViewMode === true;
   const logCtx = {
     page: "bookings" as const,
-    activeStoreId,
+    activeStoreId: bookingsStoreId,
+    ownStoreId: activeStoreId,
+    isViewMode,
     year,
     month,
     userId: user.id,
@@ -48,7 +57,7 @@ export default async function BookingsPage({ searchParams }: PageProps) {
     // 月曆主資料失敗時回空陣列 — 月曆 cell 顯示為「無預約」，UI 不會 crash。
     // 各 cell 仍可被點開，僅是當下無資料；保守於假造任何預約。
     withTiming("getMonthBookingSummary", timer, () =>
-      getMonthBookingSummary(year, month, activeStoreId).catch((e) => {
+      getMonthBookingSummary(year, month, bookingsStoreId).catch((e) => {
         console.error("[bookings] getMonthBookingSummary failed", {
           ...logCtx,
           step: "getMonthBookingSummary",
@@ -61,8 +70,8 @@ export default async function BookingsPage({ searchParams }: PageProps) {
     // ADMIN 全店視角（無 activeStoreId）跨店無法匯總一份排班 → 給空表
     // 退化為「無法判斷」，UI 端會落到 generic 文案不會誤標公休。
     withTiming("monthSchedule", timer, () =>
-      activeStoreId
-        ? getCachedMonthScheduleSummary(activeStoreId, year, month).catch((e) => {
+      bookingsStoreId
+        ? getCachedMonthScheduleSummary(bookingsStoreId, year, month).catch((e) => {
             console.error("[bookings] getCachedMonthScheduleSummary failed", {
               ...logCtx,
               step: "monthSchedule",
@@ -73,9 +82,9 @@ export default async function BookingsPage({ searchParams }: PageProps) {
         : Promise.resolve({}),
     ),
     withTiming("servicePlans", timer, () =>
-      activeStoreId
+      bookingsStoreId
         ? prisma.servicePlan.findMany({
-            where: { storeId: activeStoreId, isActive: true },
+            where: { storeId: bookingsStoreId, isActive: true },
             select: { id: true, name: true },
             orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
           }).catch((e) => {
@@ -98,13 +107,19 @@ export default async function BookingsPage({ searchParams }: PageProps) {
         title="預約管理"
         subtitle={`${year} 年 ${month} 月`}
         actions={
-          <Link
-            href="/dashboard/bookings/new"
-            prefetch={false}
-            className="rounded-md bg-primary-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-primary-700"
-          >
-            ＋ 新增預約
-          </Link>
+          isViewMode ? (
+            <span className="rounded-md border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-800">
+              查看模式不可新增預約
+            </span>
+          ) : (
+            <Link
+              href="/dashboard/bookings/new"
+              prefetch={false}
+              className="rounded-md bg-primary-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-primary-700"
+            >
+              ＋ 新增預約
+            </Link>
+          )
         }
       />
       <BookingsManager
@@ -113,6 +128,7 @@ export default async function BookingsPage({ searchParams }: PageProps) {
         monthData={monthData}
         monthSchedule={monthSchedule}
         servicePlans={servicePlans}
+        readOnly={isViewMode}
       />
     </PageShell>
   );

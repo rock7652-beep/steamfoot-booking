@@ -130,6 +130,7 @@ interface BookingsManagerProps {
   monthData: MonthSummaryDay[];
   monthSchedule: MonthScheduleMap;
   servicePlans: ServicePlanOption[];
+  readOnly?: boolean;
 }
 
 export function BookingsManager({
@@ -138,6 +139,7 @@ export function BookingsManager({
   monthData: initialMonthData,
   monthSchedule,
   servicePlans,
+  readOnly = false,
 }: BookingsManagerProps) {
   // monthData lifted into client state so we can patch a single booking
   // optimistically (status flip / cancel) without re-fetching the entire
@@ -190,6 +192,14 @@ export function BookingsManager({
     () => new Set(),
   );
   const [batchActing, setBatchActing] = useState(false);
+
+  useEffect(() => {
+    if (readOnly) {
+      setSelectedIds(new Set());
+      setActingIds(new Set());
+      setBatchActing(false);
+    }
+  }, [readOnly]);
 
   // Staff options extracted from monthData (unique staff names)
   const staffOptions = useMemo(() => {
@@ -436,6 +446,10 @@ export function BookingsManager({
 
   const completeSingle = useCallback(
     async (id: string) => {
+      if (readOnly) {
+        toast.error("查看模式下不可操作預約");
+        return;
+      }
       // Lock just this row — batch UI bar won't show anything if no selection.
       setActingIds((prev) => {
         const next = new Set(prev);
@@ -466,10 +480,14 @@ export function BookingsManager({
         });
       }
     },
-    [handleBookingUpdated],
+    [handleBookingUpdated, readOnly],
   );
 
   const completeBatch = useCallback(async () => {
+    if (readOnly) {
+      toast.error("查看模式下不可操作預約");
+      return;
+    }
     // Defensive: only ids whose current row is still actionable.
     const ids = dayBookings
       .filter(
@@ -514,7 +532,7 @@ export function BookingsManager({
     } finally {
       setBatchActing(false);
     }
-  }, [dayBookings, selectedIds, handleBookingUpdated]);
+  }, [dayBookings, selectedIds, handleBookingUpdated, readOnly]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -592,14 +610,15 @@ export function BookingsManager({
                 ? dayBookings.length
                 : null
             }
-            selectedIds={selectedIds}
-            onToggleSelect={toggleSelect}
-            onSelectAllActionable={selectAllActionable}
-            onClearSelection={clearSelection}
-            onCompleteBatch={completeBatch}
-            onCompleteSingle={completeSingle}
-            actingIds={actingIds}
-            batchActing={batchActing}
+            readOnly={readOnly}
+            selectedIds={readOnly ? undefined : selectedIds}
+            onToggleSelect={readOnly ? undefined : toggleSelect}
+            onSelectAllActionable={readOnly ? undefined : selectAllActionable}
+            onClearSelection={readOnly ? undefined : clearSelection}
+            onCompleteBatch={readOnly ? undefined : completeBatch}
+            onCompleteSingle={readOnly ? undefined : completeSingle}
+            actingIds={readOnly ? undefined : actingIds}
+            batchActing={readOnly ? false : batchActing}
           />
         </div>
       </RightSheet>
@@ -612,6 +631,7 @@ export function BookingsManager({
         cache={detailCache}
         onClose={closeBooking}
         onUpdated={handleBookingUpdated}
+        readOnly={readOnly}
       />
     </div>
   );

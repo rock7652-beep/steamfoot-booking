@@ -2,6 +2,13 @@ import { prisma } from "@/lib/db";
 import { requireStaffSession } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { markCompleted, cancelBooking, markNoShow, checkInBooking, revertBookingStatus } from "@/server/actions/booking";
+import { getStoreFilter } from "@/lib/manager-visibility";
+import { getActiveStoreForRead } from "@/lib/store";
+import {
+  resolveStoreViewContextFromCookie,
+  storeIdForViewContext,
+  userForViewContext,
+} from "@/lib/store-view-context-server";
 import { notFound, redirect } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { NoShowButton, CancelButton, RevertButton } from "./booking-actions";
@@ -21,9 +28,13 @@ const BOOKING_TYPE_LABEL: Record<string, string> = {
   FIRST_TRIAL: "體驗", SINGLE: "單次", PACKAGE_SESSION: "課程堂數",
 };
 
-async function getBooking(id: string) {
-  return prisma.booking.findUnique({
-    where: { id },
+async function getBooking(
+  id: string,
+  user: Awaited<ReturnType<typeof requireStaffSession>>,
+  activeStoreId: string | null,
+) {
+  return prisma.booking.findFirst({
+    where: { id, ...getStoreFilter(user, activeStoreId) },
     include: {
       customer: { select: { id: true, name: true, phone: true, assignedStaffId: true } },
       revenueStaff: { select: { id: true, displayName: true } },
@@ -50,13 +61,13 @@ export default async function BookingDetailPage({ params }: PageProps) {
   if (!(await checkPermission(user.role, user.staffId, "booking.read"))) {
     redirect("/dashboard");
   }
-  const booking = await getBooking(id);
+  const activeStoreId = await getActiveStoreForRead(user);
+  const storeViewContext = await resolveStoreViewContextFromCookie(user);
+  const bookingStoreId = storeIdForViewContext(activeStoreId, storeViewContext);
+  const readUser = userForViewContext(user, storeViewContext);
+  const isViewMode = storeViewContext?.isViewMode === true;
+  const booking = await getBooking(id, readUser, bookingStoreId);
   if (!booking) notFound();
-
-  // 驗證 storeId：非 ADMIN 只能查看自己店的預約
-  if (user.role !== "ADMIN" && booking.storeId !== user.storeId) {
-    notFound();
-  }
 
   const isActive =
     booking.bookingStatus === "CONFIRMED" || booking.bookingStatus === "PENDING";
@@ -213,7 +224,12 @@ export default async function BookingDetailPage({ params }: PageProps) {
         </dl>
 
         {/* Actions — PENDING / CONFIRMED */}
-        {isActive && (
+        {isViewMode && (
+          <div className="mt-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-relaxed text-amber-800">
+            查看模式提供完整閱讀能力，建立、修改、取消、報到、完成服務、收款、發補課與改期請由該店自行完成。
+          </div>
+        )}
+        {!isViewMode && isActive && (
           <div className="mt-6 space-y-3 border-t pt-4">
             <div className="flex flex-wrap gap-3">
               {canCheckIn && (
@@ -263,7 +279,7 @@ export default async function BookingDetailPage({ params }: PageProps) {
         )}
 
         {/* Actions — COMPLETED / NO_SHOW / CANCELLED：允許回退 */}
-        {!isActive && (
+        {!isViewMode && !isActive && (
           <div className="mt-6 border-t pt-4">
             <p className="mb-2 text-xs text-earth-400">
               {booking.bookingStatus === "COMPLETED" && "回退將還原已扣堂數，狀態改回「待確認」"}

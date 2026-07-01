@@ -2,7 +2,9 @@
 
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/session";
-import { requirePermission } from "@/lib/permissions";
+import {
+  requireWritablePermission,
+} from "@/lib/permissions";
 import {
   assertStoreSubscriptionWritable,
   BOOKING_EXPIRED_MESSAGE,
@@ -55,6 +57,20 @@ import { Prisma } from "@prisma/client";
 // 規則與禁止項見該 helper 的 JSDoc 與 spec §3.4。
 import { snapshotRevenueStaffForBooking } from "./booking-helpers";
 import type { z } from "zod";
+
+async function assertStaffBookingWritable(
+  user: Awaited<ReturnType<typeof requireSession>>,
+): Promise<void> {
+  if (user.role === "ADMIN" || user.role === "CUSTOMER") return;
+  const { resolveStoreViewContextFromCookie } = await import(
+    "@/lib/store-view-context-server"
+  );
+  const { assertWritableStoreViewContext } = await import(
+    "@/lib/store-organization"
+  );
+  const ctx = await resolveStoreViewContextFromCookie(user);
+  if (ctx) assertWritableStoreViewContext(ctx);
+}
 
 // ============================================================
 // voidSessionDeductionTxs — 將某筆 booking 的所有 SESSION_DEDUCTION 標為 VOIDED
@@ -121,6 +137,7 @@ export async function createBooking(
 ): Promise<ActionResult<{ bookingId: string }>> {
   try {
     const user = await requireSession();
+    await assertStaffBookingWritable(user);
     const data = createBookingSchema.parse(input);
     const bookingPeople = data.people ?? 1;
     const isMakeup = data.isMakeup ?? false;
@@ -605,7 +622,7 @@ export async function updateBooking(
   input: z.infer<typeof updateBookingSchema>
 ): Promise<ActionResult<void>> {
   try {
-    const user = await requirePermission("booking.update");
+    const user = await requireWritablePermission("booking.update");
     const data = updateBookingSchema.parse(input);
 
     const booking = await prisma.booking.findUnique({
@@ -761,6 +778,7 @@ export async function cancelBooking(
 ): Promise<ActionResult<void>> {
   try {
     const user = await requireSession();
+    await assertStaffBookingWritable(user);
 
     const booking = await prisma.booking.findUnique({
       where: { id: bookingId },
@@ -857,7 +875,7 @@ export async function markCompleted(
   input?: z.infer<typeof completeBookingSchema>
 ): Promise<ActionResult<void>> {
   try {
-    const user = await requirePermission("booking.update");
+    const user = await requireWritablePermission("booking.update");
     const data = completeBookingSchema.parse(input ?? {});
 
     const booking = await prisma.booking.findUnique({
@@ -1104,7 +1122,7 @@ export async function markNoShow(
   choice: NoShowChoice = "DEDUCTED"
 ): Promise<ActionResult<void>> {
   try {
-    const user = await requirePermission("booking.update");
+    const user = await requireWritablePermission("booking.update");
 
     const booking = await prisma.booking.findUnique({
       where: { id: bookingId },
@@ -1266,7 +1284,7 @@ export async function revertBookingStatus(
   bookingId: string
 ): Promise<ActionResult<void>> {
   try {
-    const user = await requirePermission("booking.update");
+    const user = await requireWritablePermission("booking.update");
 
     const booking = await prisma.booking.findUnique({
       where: { id: bookingId },
@@ -1529,7 +1547,7 @@ export interface BatchActionItemResult {
 export async function markCompletedBatch(
   ids: string[]
 ): Promise<{ results: BatchActionItemResult[] }> {
-  // 權限檢查交給每筆 markCompleted（內部會 requirePermission）。
+  // 權限檢查交給每筆 markCompleted（內部會 requireWritablePermission）。
   const results: BatchActionItemResult[] = [];
   for (const id of ids) {
     try {

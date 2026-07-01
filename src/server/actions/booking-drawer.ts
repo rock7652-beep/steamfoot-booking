@@ -3,6 +3,12 @@
 import { prisma } from "@/lib/db";
 import { requireStaffSession } from "@/lib/session";
 import { getStoreFilter } from "@/lib/manager-visibility";
+import { getActiveStoreForRead } from "@/lib/store";
+import {
+  resolveStoreViewContextFromCookie,
+  storeIdForViewContext,
+  userForViewContext,
+} from "@/lib/store-view-context-server";
 import { getBookingDetailForUser } from "@/server/queries/booking";
 import { ACTIVE_BOOKING_STATUSES } from "@/lib/booking-constants";
 import { getTrialSettings } from "@/lib/shop-config";
@@ -128,13 +134,22 @@ export async function fetchBookingDetail(
   bookingId: string,
 ): Promise<BookingDrawerPayload> {
   const user = await requireStaffSession();
+  const activeStoreId = await getActiveStoreForRead(user);
+  const storeViewContext = await resolveStoreViewContextFromCookie(user);
+  const bookingStoreId = storeIdForViewContext(activeStoreId, storeViewContext);
+  const readUser = userForViewContext(user, storeViewContext);
+  const isViewMode = storeViewContext?.isViewMode === true;
   // 重用已解析的 staff user，避免 getBookingDetail 內再 requireSession 一次
-  const booking = await getBookingDetailForUser(bookingId, user);
+  const booking = await getBookingDetailForUser(
+    bookingId,
+    readUser,
+    bookingStoreId,
+  );
 
   const isTrial = booking.bookingType === "FIRST_TRIAL";
   const isSingle = booking.bookingType === "SINGLE";
   const isPackage = booking.bookingType === "PACKAGE_SESSION";
-  const storeFilter = getStoreFilter(user);
+  const storeFilter = getStoreFilter(readUser, bookingStoreId);
 
   // 拿到 booking 後，下列查詢彼此獨立（只依賴 booking.id / storeId / customerId），
   // 一次並行避免「收款查詢 → 顧客近況查詢」串成 waterfall：
@@ -165,7 +180,7 @@ export async function fetchBookingDetail(
       : Promise.resolve(null),
     isTrial ? getTrialSettings(booking.storeId) : Promise.resolve(null),
     // 收款更正 OWNER-only：gate = transaction.void（決策 A）
-    isTrial
+    isTrial && !isViewMode
       ? checkPermission(user.role, user.staffId, "transaction.void")
       : Promise.resolve(false),
     // 單次（SINGLE，不扣堂）：僅 SINGLE 才查收款狀態。取 grossAmount /
