@@ -5,11 +5,9 @@ import { revalidatePath } from "next/cache";
 import { requireStaffSession } from "@/lib/session";
 import { isOwner } from "@/lib/permissions";
 import { assertCanViewStore } from "@/lib/store-organization";
+import { OWN_STORE_VALUE, VIEWED_STORE_COOKIE_NAME } from "@/lib/store-view-mode-constants";
 import { AppError, handleActionError } from "@/lib/errors";
 import type { ActionResult } from "@/types";
-
-export const VIEWED_STORE_COOKIE_NAME = "viewed-store-id";
-export const OWN_STORE_VALUE = "__own__";
 
 /**
  * Switch a non-HQ staff user into a descendant read-only view context.

@@ -2,7 +2,8 @@
 
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { OWN_STORE_VALUE, switchViewedStore } from "@/server/actions/store-view-mode";
+import { switchViewedStore } from "@/server/actions/store-view-mode";
+import { OWN_STORE_VALUE } from "@/lib/store-view-mode-constants";
 
 interface ViewModeBannerProps {
   viewedStoreName: string;
