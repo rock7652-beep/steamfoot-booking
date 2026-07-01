@@ -2,7 +2,10 @@
 
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { requirePermission } from "@/lib/permissions";
+import {
+  requirePermission,
+  requireWritablePermission,
+} from "@/lib/permissions";
 import { assertStoreSubscriptionWritable } from "@/lib/subscription-guard";
 import { AppError, handleActionError } from "@/lib/errors";
 import { checkCurrentStoreFeature } from "@/lib/feature-gate";
@@ -157,7 +160,7 @@ export async function refundTransactionLegacy(
   input: z.infer<typeof refundTransactionLegacySchema>
 ): Promise<ActionResult<{ refundId: string }>> {
   try {
-    const user = await requirePermission("transaction.create");
+    const user = await requireWritablePermission("transaction.create");
     const data = refundTransactionLegacySchema.parse(input);
 
     const original = await prisma.transaction.findUnique({
@@ -609,7 +612,7 @@ export async function updateTransactionPaymentMethod(
   input: z.infer<typeof updatePaymentMethodSchema>,
 ): Promise<ActionResult<{ transactionId: string }>> {
   try {
-    const user = await requirePermission("transaction.void");
+    const user = await requireWritablePermission("transaction.void");
     const data = updatePaymentMethodSchema.parse(input);
 
     const original = await prisma.transaction.findUnique({
@@ -663,7 +666,7 @@ export async function updateTransactionOwnerStaff(
   input: z.infer<typeof updateOwnerStaffSchema>,
 ): Promise<ActionResult<{ transactionId: string }>> {
   try {
-    const user = await requirePermission("transaction.void");
+    const user = await requireWritablePermission("transaction.void");
     const data = updateOwnerStaffSchema.parse(input);
 
     const original = await prisma.transaction.findUnique({
@@ -741,7 +744,7 @@ export async function voidTransaction(
   input: z.infer<typeof voidTransactionSchema>,
 ): Promise<ActionResult<{ transactionId: string }>> {
   try {
-    const user = await requirePermission("transaction.void");
+    const user = await requireWritablePermission("transaction.void");
     const data = voidTransactionSchema.parse(input);
 
     const original = await prisma.transaction.findUnique({
@@ -1017,7 +1020,7 @@ export async function refundTransaction(
   input: z.infer<typeof refundTransactionSchema>,
 ): Promise<ActionResult<{ refundTransactionId: string; refundAmount: number }>> {
   try {
-    const user = await requirePermission("transaction.refund");
+    const user = await requireWritablePermission("transaction.refund");
     const data = refundTransactionSchema.parse(input);
 
     // Pre-load 原交易 + wallet + sessions（read-only，後面在 tx 內 re-validate）

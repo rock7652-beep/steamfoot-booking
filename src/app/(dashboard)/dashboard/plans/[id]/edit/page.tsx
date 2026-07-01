@@ -2,6 +2,11 @@ import { getPlanDetail } from "@/server/queries/plan";
 import { updatePlan } from "@/server/actions/plan";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
+import { getActiveStoreForRead } from "@/lib/store";
+import {
+  resolveStoreViewContextFromCookie,
+  storeIdForViewContext,
+} from "@/lib/store-view-context-server";
 import { redirect } from "next/navigation";
 import { SubmitButton } from "@/components/submit-button";
 import { DashboardLink as Link } from "@/components/dashboard-link";
@@ -16,8 +21,16 @@ export default async function EditPlanPage({
   if (!user || !(await checkPermission(user.role, user.staffId, "wallet.create"))) {
     redirect("/dashboard");
   }
+  const activeStoreId = await getActiveStoreForRead(user);
+  const storeViewContext = await resolveStoreViewContextFromCookie(user);
+  if (storeViewContext?.isViewMode) {
+    redirect("/dashboard/plans");
+  }
 
-  const plan = await getPlanDetail(id);
+  const plan = await getPlanDetail(
+    id,
+    storeIdForViewContext(activeStoreId, storeViewContext),
+  );
 
   async function handleSubmit(formData: FormData) {
     "use server";
