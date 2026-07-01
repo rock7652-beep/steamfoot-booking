@@ -86,6 +86,7 @@ interface Props {
   stores: StoreOption[];
   coaches: CoachOption[];
   isAdmin: boolean;
+  isViewMode?: boolean;
   defaultStartDate: string;
   defaultEndDate: string;
 }
@@ -137,6 +138,7 @@ export function RevenueReportClient({
   stores,
   coaches,
   isAdmin,
+  isViewMode = false,
   defaultStartDate,
   defaultEndDate,
 }: Props) {
@@ -432,7 +434,13 @@ export function RevenueReportClient({
             {loading ? "查詢中..." : "查詢"}
           </button>
 
-          <ExportButton buildUrl={buildExportUrl} disabled={loading} />
+          {isViewMode ? (
+            <span className="rounded-lg border border-earth-200 bg-earth-50 px-4 py-1.5 text-sm font-medium text-earth-500">
+              查看模式不可匯出
+            </span>
+          ) : (
+            <ExportButton buildUrl={buildExportUrl} disabled={loading} />
+          )}
         </div>
 
         {dateError && <p className="text-xs text-red-500">{dateError}</p>}

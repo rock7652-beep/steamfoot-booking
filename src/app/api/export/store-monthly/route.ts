@@ -5,9 +5,9 @@ import { checkPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
 import { toLocalMonthStr, monthRange } from "@/lib/date-utils";
 import { getManagerReadFilter, getStoreFilter } from "@/lib/manager-visibility";
-import { resolveActiveStoreId, currentStoreId } from "@/lib/store";
+import { resolveActiveStoreId } from "@/lib/store";
+import { resolveStoreViewContextFromCookie } from "@/lib/store-view-context-server";
 import { checkReportLimit } from "@/lib/usage-gate";
-import { getStorePlanById } from "@/lib/store-plan";
 import { REVENUE_VALID_STATUS } from "@/lib/booking-constants";
 
 // TODO(PR-payment-confirm): PR-3/4 上線後，CSV 匯出的 Transaction groupBy 必須加
@@ -28,6 +28,11 @@ export async function GET(req: NextRequest) {
   if (!allowed) return new NextResponse("Forbidden", { status: 403 });
 
   const user = session.user;
+  const storeViewContext = await resolveStoreViewContextFromCookie(user);
+  if (storeViewContext?.isViewMode) {
+    return new NextResponse("Reports export is not available in view mode", { status: 403 });
+  }
+
   const cookieStore = await cookies();
   const cookieStoreId = cookieStore.get("active-store-id")?.value ?? null;
   const activeStoreId = resolveActiveStoreId(user, cookieStoreId);

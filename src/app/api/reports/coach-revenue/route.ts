@@ -5,6 +5,11 @@ import { checkPermission } from "@/lib/permissions";
 import { getStoreFilter } from "@/lib/manager-visibility";
 import { resolveActiveStoreId } from "@/lib/store";
 import {
+  resolveStoreViewContextFromCookie,
+  storeIdForViewContext,
+  userForViewContext,
+} from "@/lib/store-view-context-server";
+import {
   getCoachRevenueSummary,
   getTransactionDetails,
   getRevenueKpi,
@@ -22,7 +27,10 @@ export async function GET(req: NextRequest) {
   const cookieStore = await cookies();
   const cookieStoreId = cookieStore.get("active-store-id")?.value ?? null;
   const activeStoreId = resolveActiveStoreId(user, cookieStoreId);
-  const storeFilter = getStoreFilter(user, activeStoreId);
+  const storeViewContext = await resolveStoreViewContextFromCookie(user);
+  const readUser = userForViewContext(user, storeViewContext);
+  const reportsStoreId = storeIdForViewContext(activeStoreId, storeViewContext);
+  const storeFilter = getStoreFilter(readUser, reportsStoreId);
 
   const sp = req.nextUrl.searchParams;
   const startDate = sp.get("startDate");
@@ -35,7 +43,7 @@ export async function GET(req: NextRequest) {
   const filters: ReportFilters = {
     startDate,
     endDate,
-    storeId: sp.get("storeId"),
+    storeId: user.role === "ADMIN" ? sp.get("storeId") : reportsStoreId,
     coachId: sp.get("coachId"),
     coachRole: sp.get("coachRole"),
     planType: sp.get("planType"),

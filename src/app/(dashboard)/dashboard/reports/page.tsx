@@ -8,12 +8,16 @@ import {
 } from "@/server/queries/report-snapshot";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
-import { getCurrentStorePlan } from "@/lib/store-plan";
+import { getCachedStorePlan } from "@/lib/query-cache";
 import { hasFeature, FEATURES } from "@/lib/feature-flags";
 import { ServerTiming, withTiming } from "@/lib/perf";
 import { FeatureGate } from "@/components/feature-gate";
 import { UpgradeNoticePage } from "@/components/upgrade-notice";
 import { getActiveStoreForRead } from "@/lib/store";
+import {
+  resolveStoreViewContextFromCookie,
+  storeIdForViewContext,
+} from "@/lib/store-view-context-server";
 import { redirect } from "next/navigation";
 import ReportDateRange from "@/components/report-date-range";
 import { toLocalDateStr, getPresetDateRange, type DateRangePreset } from "@/lib/date-utils";
@@ -55,7 +59,12 @@ export default async function ReportsPage({ searchParams }: PageProps) {
     redirect("/dashboard");
   }
 
-  const pricingPlan = await getCurrentStorePlan();
+  const activeStoreId = await getActiveStoreForRead(user);
+  const storeViewContext = await resolveStoreViewContextFromCookie(user);
+  const isViewMode = storeViewContext?.isViewMode ?? false;
+  const reportsStoreId = storeIdForViewContext(activeStoreId, storeViewContext);
+
+  const pricingPlan = await getCachedStorePlan(reportsStoreId ?? user.storeId ?? undefined);
   if (!hasFeature(pricingPlan, FEATURES.ADVANCED_REPORTS)) {
     return (
       <UpgradeNoticePage
@@ -89,24 +98,23 @@ export default async function ReportsPage({ searchParams }: PageProps) {
 
   const month = startDate.slice(0, 7);
   const currentMonth = toLocalDateStr().slice(0, 7);
-  const activeStoreId = await getActiveStoreForRead(user);
 
   const timer = new ServerTiming("/dashboard/reports");
 
   type StoreSummary = Awaited<ReturnType<typeof monthlyStoreSummary>>;
   type RevenueByCategory = Awaited<ReturnType<typeof monthlyRevenueByCategory>>;
 
-  const snapshotStoreId = activeStoreId || user.storeId!;
+  const snapshotStoreId = reportsStoreId || user.storeId!;
   const isMonthPreset = activePreset === "month";
   const isPastMonth = month < currentMonth;
   const isCurrentMonth = month === currentMonth;
   const CURRENT_MONTH_TTL_MS = 60 * 60 * 1000;
 
-  const dateRangeOpts = { startDate, endDate, activeStoreId };
+  const dateRangeOpts = { startDate, endDate, activeStoreId: reportsStoreId };
 
   let storeSummary: StoreSummary;
   let revenueByCategory: RevenueByCategory;
-  let plan: Awaited<ReturnType<typeof getCurrentStorePlan>>;
+  let plan: typeof pricingPlan;
   let snapshotHit = false;
 
   if (isMonthPreset && (isPastMonth || isCurrentMonth)) {
@@ -117,7 +125,9 @@ export default async function ReportsPage({ searchParams }: PageProps) {
       withTiming("snapshotRevenueByCategory", timer, () =>
         getReportSnapshotWithMeta(snapshotStoreId, month, "REVENUE_BY_CATEGORY"),
       ),
-      withTiming("getCurrentStorePlan", timer, () => getCurrentStorePlan()),
+      withTiming("getCachedStorePlan", timer, () =>
+        getCachedStorePlan(reportsStoreId ?? user.storeId ?? undefined),
+      ),
     ]);
     plan = sp;
 
@@ -159,7 +169,9 @@ export default async function ReportsPage({ searchParams }: PageProps) {
       withTiming("monthlyRevenueByCategory", timer, () =>
         monthlyRevenueByCategory(month, dateRangeOpts),
       ),
-      withTiming("getCurrentStorePlan", timer, () => getCurrentStorePlan()),
+      withTiming("getCachedStorePlan", timer, () =>
+        getCachedStorePlan(reportsStoreId ?? user.storeId ?? undefined),
+      ),
     ]);
   }
 
@@ -299,20 +311,28 @@ export default async function ReportsPage({ searchParams }: PageProps) {
           subtitle={`${displayLabel} 營收摘要`}
           actions={
             <>
-              <a
-                href={`/api/export/store-monthly?month=${month}`}
-                className="rounded-md border border-earth-200 bg-white px-3 py-1.5 text-xs font-medium text-earth-700 hover:bg-earth-50"
-                download
-              >
-                全店 CSV
-              </a>
-              <a
-                href={`/api/export/staff-monthly?month=${month}`}
-                className="rounded-md border border-earth-200 bg-white px-3 py-1.5 text-xs font-medium text-earth-700 hover:bg-earth-50"
-                download
-              >
-                店長 CSV
-              </a>
+              {isViewMode ? (
+                <span className="rounded-md border border-earth-200 bg-earth-50 px-3 py-1.5 text-xs font-medium text-earth-500">
+                  查看模式不可匯出
+                </span>
+              ) : (
+                <>
+                  <a
+                    href={`/api/export/store-monthly?month=${month}`}
+                    className="rounded-md border border-earth-200 bg-white px-3 py-1.5 text-xs font-medium text-earth-700 hover:bg-earth-50"
+                    download
+                  >
+                    全店 CSV
+                  </a>
+                  <a
+                    href={`/api/export/staff-monthly?month=${month}`}
+                    className="rounded-md border border-earth-200 bg-white px-3 py-1.5 text-xs font-medium text-earth-700 hover:bg-earth-50"
+                    download
+                  >
+                    店長 CSV
+                  </a>
+                </>
+              )}
               {/* PR-2.2：服務金額試算頁入口，歸在報表底下 */}
               <a
                 href="/dashboard/settlements"

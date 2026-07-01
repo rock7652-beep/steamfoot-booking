@@ -10,6 +10,11 @@ import { AppError } from "@/lib/errors";
 import { monthRange as sharedMonthRange, dayRange } from "@/lib/date-utils";
 import { getManagerReadFilter, getVisibilityMode, getStoreFilter } from "@/lib/manager-visibility";
 import { REVENUE_TRANSACTION_TYPES, REVENUE_VALID_STATUS } from "@/lib/booking-constants";
+import {
+  resolveStoreViewContextFromCookie,
+  storeIdForViewContext,
+  userForViewContext,
+} from "@/lib/store-view-context-server";
 
 const REVENUE_TYPES = [...REVENUE_TRANSACTION_TYPES];
 
@@ -39,9 +44,17 @@ function dateRangeBounds(startDate: string, endDate: string) {
 // ============================================================
 export async function monthlyStaffRevenueSummary(month: string, activeStoreId?: string | null) {
   const user = await requireStaffSession();
+  const storeViewContext = await resolveStoreViewContextFromCookie(user);
+  const readUser = userForViewContext(user, storeViewContext);
+  const reportStoreId = storeIdForViewContext(activeStoreId ?? user.storeId ?? null, storeViewContext);
   const { monthStart, monthEnd } = monthRange(month);
 
-  const revenueFilter = getManagerReadFilter(user.role, user.staffId, "revenueStaffId", activeStoreId ?? user.storeId);
+  const revenueFilter = getManagerReadFilter(
+    readUser.role,
+    readUser.staffId,
+    "revenueStaffId",
+    reportStoreId ?? readUser.storeId,
+  );
 
   const [rows, completedBookings] = await Promise.all([
     prisma.transaction.groupBy({
@@ -100,10 +113,23 @@ export async function monthlyStaffRevenueSummary(month: string, activeStoreId?: 
 // ============================================================
 export async function monthlyStaffNetSummary(month: string, activeStoreId?: string | null) {
   const user = await requireStaffSession();
+  const storeViewContext = await resolveStoreViewContextFromCookie(user);
+  const readUser = userForViewContext(user, storeViewContext);
+  const reportStoreId = storeIdForViewContext(activeStoreId ?? user.storeId ?? null, storeViewContext);
   const { monthStart, monthEnd } = monthRange(month);
 
-  const revenueFilter = getManagerReadFilter(user.role, user.staffId, "revenueStaffId", activeStoreId ?? user.storeId);
-  const staffIdFilter = getManagerReadFilter(user.role, user.staffId, "staffId", activeStoreId ?? user.storeId);
+  const revenueFilter = getManagerReadFilter(
+    readUser.role,
+    readUser.staffId,
+    "revenueStaffId",
+    reportStoreId ?? readUser.storeId,
+  );
+  const staffIdFilter = getManagerReadFilter(
+    readUser.role,
+    readUser.staffId,
+    "staffId",
+    reportStoreId ?? readUser.storeId,
+  );
 
   const revenueRows = await prisma.transaction.groupBy({
     by: ["revenueStaffId"],
@@ -156,7 +182,13 @@ export async function monthlyStoreSummary(
   options?: { startDate?: string; endDate?: string; activeStoreId?: string | null }
 ) {
   const user = await requireStaffSession();
-  const activeStoreId = options?.activeStoreId;
+  const storeViewContext = await resolveStoreViewContextFromCookie(user);
+  const readUser = userForViewContext(user, storeViewContext);
+  const isViewMode = storeViewContext?.isViewMode === true;
+  const activeStoreId = storeIdForViewContext(
+    options?.activeStoreId ?? user.storeId ?? null,
+    storeViewContext,
+  );
   // 如果有傳入 startDate/endDate，使用精確日期範圍；否則用月份
   const { monthStart, monthEnd } = options?.startDate && options?.endDate
     ? (() => {
@@ -165,9 +197,25 @@ export async function monthlyStoreSummary(
       })()
     : monthRange(month);
 
-  const revenueFilter = getManagerReadFilter(user.role, user.staffId, "revenueStaffId", activeStoreId ?? user.storeId);
-  const staffIdFilter = getManagerReadFilter(user.role, user.staffId, "staffId", activeStoreId ?? user.storeId);
-  const assignedFilter = getManagerReadFilter(user.role, user.staffId, "assignedStaffId", activeStoreId ?? user.storeId);
+  const reportStoreId = activeStoreId ?? readUser.storeId;
+  const revenueFilter = getManagerReadFilter(
+    readUser.role,
+    readUser.staffId,
+    "revenueStaffId",
+    reportStoreId,
+  );
+  const staffIdFilter = getManagerReadFilter(
+    readUser.role,
+    readUser.staffId,
+    "staffId",
+    reportStoreId,
+  );
+  const assignedFilter = getManagerReadFilter(
+    readUser.role,
+    readUser.staffId,
+    "assignedStaffId",
+    reportStoreId,
+  );
 
   // SpaceFeeRecord now has storeId — use staffIdFilter directly
   const spaceFeeFilter = staffIdFilter;
@@ -175,8 +223,8 @@ export async function monthlyStoreSummary(
   // All staff visible to this user
   const allStaff = await prisma.staff.findMany({
     where:
-      user.role !== "ADMIN" && user.staffId && Object.keys(revenueFilter).length > 0
-        ? { id: user.staffId }
+      !isViewMode && readUser.role !== "ADMIN" && readUser.staffId && Object.keys(revenueFilter).length > 0
+        ? { id: readUser.staffId }
         : { status: "ACTIVE", ...(activeStoreId ? { storeId: activeStoreId } : {}) },
     select: { id: true, displayName: true },
   });
@@ -371,7 +419,12 @@ export async function monthlyRevenueByCategory(
   options?: { startDate?: string; endDate?: string; activeStoreId?: string | null }
 ) {
   const user = await requireStaffSession();
-  const activeStoreId = options?.activeStoreId;
+  const storeViewContext = await resolveStoreViewContextFromCookie(user);
+  const readUser = userForViewContext(user, storeViewContext);
+  const activeStoreId = storeIdForViewContext(
+    options?.activeStoreId ?? user.storeId ?? null,
+    storeViewContext,
+  );
   const { monthStart, monthEnd } = options?.startDate && options?.endDate
     ? (() => {
         const { rangeStart, rangeEnd } = dateRangeBounds(options.startDate!, options.endDate!);
@@ -379,7 +432,12 @@ export async function monthlyRevenueByCategory(
       })()
     : monthRange(month);
 
-  const revenueFilter = getManagerReadFilter(user.role, user.staffId, "revenueStaffId", activeStoreId ?? user.storeId);
+  const revenueFilter = getManagerReadFilter(
+    readUser.role,
+    readUser.staffId,
+    "revenueStaffId",
+    activeStoreId ?? readUser.storeId,
+  );
 
   const rows = await prisma.transaction.groupBy({
     by: ["revenueStaffId", "transactionType"],

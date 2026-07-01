@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db";
 import { toLocalMonthStr, monthRange } from "@/lib/date-utils";
 import { getManagerReadFilter, getStoreFilter } from "@/lib/manager-visibility";
 import { resolveActiveStoreId } from "@/lib/store";
+import { resolveStoreViewContextFromCookie } from "@/lib/store-view-context-server";
 import { checkReportLimit } from "@/lib/usage-gate";
 import { REVENUE_VALID_STATUS } from "@/lib/booking-constants";
 
@@ -36,6 +37,11 @@ export async function GET(req: NextRequest) {
   if (!allowed) return new NextResponse("Forbidden", { status: 403 });
 
   const user = session.user;
+  const storeViewContext = await resolveStoreViewContextFromCookie(user);
+  if (storeViewContext?.isViewMode) {
+    return new NextResponse("Reports export is not available in view mode", { status: 403 });
+  }
+
   const cookieStore = await cookies();
   const cookieStoreId = cookieStore.get("active-store-id")?.value ?? null;
   const activeStoreId = resolveActiveStoreId(user, cookieStoreId);
