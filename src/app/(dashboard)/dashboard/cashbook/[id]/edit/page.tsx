@@ -3,6 +3,7 @@ import { updateCashbookEntry } from "@/server/actions/cashbook";
 import { listClosedBusinessDates } from "@/server/queries/cash-drawer";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
+import { resolveStoreViewContextFromCookie } from "@/lib/store-view-context-server";
 import { notFound, redirect } from "next/navigation";
 import { SubmitButton } from "@/components/submit-button";
 import { DashboardLink as Link } from "@/components/dashboard-link";
@@ -28,6 +29,10 @@ export default async function EditCashbookPage({ params }: PageProps) {
   const user = await getCurrentUser();
   if (!user || !(await checkPermission(user.role, user.staffId, "cashbook.create"))) {
     redirect("/dashboard");
+  }
+  const storeViewContext = await resolveStoreViewContextFromCookie(user);
+  if (storeViewContext?.isViewMode) {
+    redirect("/dashboard/cashbook");
   }
 
   const entry = await prisma.cashbookEntry.findUnique({

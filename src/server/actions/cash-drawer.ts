@@ -2,10 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { requirePermission } from "@/lib/permissions";
+import { requirePermission, requireWritablePermission } from "@/lib/permissions";
 import { AppError, handleActionError } from "@/lib/errors";
 import { currentStoreId } from "@/lib/store";
 import { toLocalDateStr } from "@/lib/date-utils";
+import {
+  resolveStoreViewContextFromCookie,
+  storeIdForViewContext,
+} from "@/lib/store-view-context-server";
 import type { ActionResult } from "@/types";
 import {
   initializeCashDrawer,
@@ -79,7 +83,7 @@ export async function initializeCashDrawerAction(
   input: z.infer<typeof initializeSchema>,
 ): Promise<ActionResult<{ sessionId: string }>> {
   try {
-    const user = await requirePermission("cashDrawer.open");
+    const user = await requireWritablePermission("cashDrawer.open");
     if (user.role !== "ADMIN" && user.role !== "OWNER") {
       throw new AppError("FORBIDDEN", "僅限 OWNER 或 ADMIN 可以執行第一次啟用");
     }
@@ -108,7 +112,7 @@ export async function openCashDrawerAction(
   input: z.infer<typeof openSchema>,
 ): Promise<ActionResult<{ sessionId: string }>> {
   try {
-    const user = await requirePermission("cashDrawer.open");
+    const user = await requireWritablePermission("cashDrawer.open");
     const data = openSchema.parse(input);
     const storeId = currentStoreId(user);
     const session = await openCashDrawer({
@@ -142,7 +146,11 @@ export async function getCurrentCashDrawerAction(
   try {
     const user = await requirePermission("cashDrawer.read");
     const data = querySchema.parse(input);
-    const storeId = currentStoreId(user);
+    const viewContext = await resolveStoreViewContextFromCookie(user);
+    const storeId = storeIdForViewContext(currentStoreId(user), viewContext);
+    if (!storeId) {
+      throw new AppError("UNAUTHORIZED", "缺少 storeId，請重新登入");
+    }
     const result = await getCurrentCashDrawer(storeId, toBusinessDate(data.businessDate));
     return {
       success: true,
@@ -163,7 +171,7 @@ export async function addCashDrawerEntryAction(
   input: z.infer<typeof addEntrySchema>,
 ): Promise<ActionResult<{ entryId: string }>> {
   try {
-    const user = await requirePermission("cashDrawer.entry");
+    const user = await requireWritablePermission("cashDrawer.entry");
     const data = addEntrySchema.parse(input);
     const entry = await addCashDrawerEntry({
       sessionId: data.sessionId,
@@ -189,7 +197,7 @@ export async function closeCashDrawerAction(
   input: z.infer<typeof closeSchema>,
 ): Promise<ActionResult<{ sessionId: string }>> {
   try {
-    const user = await requirePermission("cashDrawer.close");
+    const user = await requireWritablePermission("cashDrawer.close");
     const data = closeSchema.parse(input);
     const session = await closeCashDrawer({
       sessionId: data.sessionId,

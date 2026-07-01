@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { requirePermission } from "@/lib/permissions";
+import { requireWritablePermission } from "@/lib/permissions";
 import { AppError, handleActionError } from "@/lib/errors";
 import { checkCurrentStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
@@ -89,7 +89,7 @@ export async function createCashbookEntry(
   input: z.infer<typeof createCashbookEntrySchema>
 ): Promise<ActionResult<{ entryId: string }>> {
   try {
-    const user = await requirePermission("cashbook.create");
+    const user = await requireWritablePermission("cashbook.create");
     await checkCurrentStoreFeature(FEATURES.CASHBOOK);
     const data = createCashbookEntrySchema.parse(input);
     // 寫入店別用 write-store 機制：OWNER/店長 用 JWT storeId；
@@ -168,7 +168,7 @@ export async function updateCashbookEntry(
   input: z.infer<typeof updateCashbookEntrySchema>
 ): Promise<ActionResult<void>> {
   try {
-    const user = await requirePermission("cashbook.create");
+    const user = await requireWritablePermission("cashbook.create");
     const data = updateCashbookEntrySchema.parse(input);
 
     const entry = await prisma.cashbookEntry.findUnique({
@@ -245,7 +245,7 @@ export async function updateCashbookEntry(
 
 export async function deleteCashbookEntry(entryId: string): Promise<ActionResult<void>> {
   try {
-    const user = await requirePermission("cashbook.create"); // Owner 才能刪
+    const user = await requireWritablePermission("cashbook.create"); // Owner 才能刪
 
     const entry = await prisma.cashbookEntry.findUnique({ where: { id: entryId } });
     if (!entry) throw new AppError("NOT_FOUND", "現金帳紀錄不存在");

@@ -4,6 +4,7 @@ import { listClosedBusinessDates } from "@/server/queries/cash-drawer";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { getActiveStoreForRead } from "@/lib/store";
+import { resolveStoreViewContextFromCookie } from "@/lib/store-view-context-server";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { SubmitButton } from "@/components/submit-button";
 import { redirect } from "next/navigation";
@@ -24,6 +25,10 @@ export default async function NewCashbookPage() {
   const user = await getCurrentUser();
   if (!user || !(await checkPermission(user.role, user.staffId, "cashbook.create"))) {
     redirect("/dashboard");
+  }
+  const storeViewContext = await resolveStoreViewContextFromCookie(user);
+  if (storeViewContext?.isViewMode) {
+    redirect("/dashboard/cashbook");
   }
 
   const staffOptions = await listStaffSelectOptions();
