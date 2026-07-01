@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { getStoreFilter } from "@/lib/manager-visibility";
 import { resolveActiveStoreId } from "@/lib/store";
+import { VIEWED_STORE_COOKIE_NAME } from "@/lib/store-view-mode-constants";
 
 function toCsv(rows: string[][]): string {
   return rows
@@ -37,6 +38,11 @@ export async function GET() {
 
   const user = session.user;
   const cookieStore = await cookies();
+  const viewedStoreId = cookieStore.get(VIEWED_STORE_COOKIE_NAME)?.value ?? null;
+  if (user.role !== "ADMIN" && viewedStoreId && viewedStoreId !== user.storeId) {
+    return new NextResponse("Forbidden in view mode", { status: 403 });
+  }
+
   const cookieStoreId = cookieStore.get("active-store-id")?.value ?? null;
   const activeStoreId = resolveActiveStoreId(user, cookieStoreId);
 

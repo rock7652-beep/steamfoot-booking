@@ -1,8 +1,13 @@
-import { getCustomerDetail } from "@/server/queries/customer";
+import { getCustomerDetailForUser } from "@/server/queries/customer";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { getCachedPlans, getCachedStaffOptions } from "@/lib/query-cache";
 import { getActiveStoreForRead } from "@/lib/store";
+import {
+  resolveStoreViewContextFromCookie,
+  storeIdForViewContext,
+  userForViewContext,
+} from "@/lib/store-view-context-server";
 import { ServerTiming, withTiming } from "@/lib/perf";
 import { prisma } from "@/lib/db";
 import { enumerateBookableDates } from "@/lib/bookable-window";
@@ -93,20 +98,26 @@ export default async function CustomerDetailPage({ params }: PageProps) {
   }
 
   const activeStoreId = await getActiveStoreForRead(user);
+  const storeViewContext = await resolveStoreViewContextFromCookie(user);
+  const isViewMode = storeViewContext?.isViewMode ?? false;
+  const customerStoreId = storeIdForViewContext(activeStoreId, storeViewContext);
+  const customerUser = userForViewContext(user, storeViewContext);
 
   const logCtx = {
     page: "customer-detail" as const,
     customerId: id,
-    activeStoreId,
+    activeStoreId: customerStoreId,
     sessionRole: user.role,
     sessionStoreId: user.storeId ?? null,
   };
 
   const timer = new ServerTiming(`/dashboard/customers/${id}`);
 
-  let customer: Awaited<ReturnType<typeof getCustomerDetail>>;
+  let customer: Awaited<ReturnType<typeof getCustomerDetailForUser>>;
   try {
-    customer = await withTiming("getCustomerDetail", timer, () => getCustomerDetail(id));
+    customer = await withTiming("getCustomerDetail", timer, () =>
+      getCustomerDetailForUser(customerUser, id, customerStoreId),
+    );
   } catch (e) {
     console.error("[customer-detail] base query failed", {
       ...logCtx,
@@ -116,7 +127,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
     notFound();
   }
 
-  if (activeStoreId && customer.storeId !== activeStoreId) {
+  if (customerStoreId && customer.storeId !== customerStoreId) {
     console.warn("[customer-detail] cross-store access blocked", {
       ...logCtx,
       step: "store-guard",
@@ -168,7 +179,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
   const identitySnapshot = await buildIdentitySnapshot(customer);
   const derivedSource = deriveCustomerSource(identitySnapshot);
 
-  const canEdit = user.role !== "CUSTOMER";
+  const canEdit = user.role !== "CUSTOMER" && !isViewMode;
   const todayStr = toLocalDateStr();
   const bookingDays = enumerateBookableDates(
     todayStr,
@@ -208,6 +219,8 @@ export default async function CustomerDetailPage({ params }: PageProps) {
 
   const headerActionBase =
     "rounded-md border border-earth-200 bg-white px-3 py-1.5 text-xs font-medium text-earth-700 hover:bg-earth-50";
+  const disabledActionBase =
+    "rounded-md border border-earth-200 bg-earth-50 px-3 py-1.5 text-xs font-medium text-earth-400";
 
   const quickActionBase =
     "flex items-center justify-between rounded-md border border-earth-200 px-3 py-1.5 text-xs font-medium text-earth-700 hover:bg-earth-50";
@@ -236,12 +249,16 @@ export default async function CustomerDetailPage({ params }: PageProps) {
             <Link href="/dashboard/customers" className={headerActionBase}>
               ← 顧客列表
             </Link>
-            <Link
-              href={`/dashboard/bookings?customerId=${id}`}
-              className={headerActionBase}
-            >
-              查看預約
-            </Link>
+            {isViewMode ? (
+              <span className={disabledActionBase}>查看模式</span>
+            ) : (
+              <Link
+                href={`/dashboard/bookings?customerId=${id}`}
+                className={headerActionBase}
+              >
+                查看預約
+              </Link>
+            )}
             {canEdit && (
               <Link
                 href={`/dashboard/customers/${id}/edit`}
@@ -250,15 +267,23 @@ export default async function CustomerDetailPage({ params }: PageProps) {
                 編輯資料
               </Link>
             )}
-            <Link
-              href="#booking"
-              className="rounded-md bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary-700"
-            >
-              + 新增預約
-            </Link>
+            {isViewMode ? null : (
+              <Link
+                href="#booking"
+                className="rounded-md bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary-700"
+              >
+                + 新增預約
+              </Link>
+            )}
           </>
         }
       />
+
+      {isViewMode ? (
+        <div className="rounded-lg border border-primary-100 bg-primary-50 px-4 py-3 text-sm text-primary-800">
+          查看模式提供完整閱讀能力，所有顧客操作請由該店自行完成。
+        </div>
+      ) : null}
 
       {/* Header chips — quick state at a glance */}
       <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 border-b border-earth-200 pb-1.5">
@@ -369,7 +394,13 @@ export default async function CustomerDetailPage({ params }: PageProps) {
             ) : (
               <div className="space-y-2">
                 {activeWallets.map((w) => (
-                  <WalletItem key={w.id} w={w} userRole={user.role} canAdjustWallet={canAdjustWallet} />
+                  <WalletItem
+                    key={w.id}
+                    w={w}
+                    userRole={user.role}
+                    canAdjustWallet={canAdjustWallet && !isViewMode}
+                    readOnly={isViewMode}
+                  />
                 ))}
                 {inactiveWallets.length > 0 && (
                   <details className="group">
@@ -381,7 +412,13 @@ export default async function CustomerDetailPage({ params }: PageProps) {
                     </summary>
                     <div className="mt-2 space-y-2 opacity-70">
                       {inactiveWallets.map((w) => (
-                        <WalletItem key={w.id} w={w} userRole={user.role} canAdjustWallet={canAdjustWallet} />
+                        <WalletItem
+                          key={w.id}
+                          w={w}
+                          userRole={user.role}
+                          canAdjustWallet={canAdjustWallet && !isViewMode}
+                          readOnly={isViewMode}
+                        />
                       ))}
                     </div>
                   </details>
@@ -392,7 +429,11 @@ export default async function CustomerDetailPage({ params }: PageProps) {
             {/* Create booking — 同卡內以分隔線區隔 */}
             <div id="booking" className="scroll-mt-16 border-t border-earth-100 pt-3">
               <h2 className="mb-2 text-sm font-semibold text-earth-800">建立預約</h2>
-              {activeWallets.length === 0 ? (
+              {isViewMode ? (
+                <div className="rounded-lg border border-earth-100 bg-earth-50 px-4 py-3 text-xs text-earth-500">
+                  查看模式下不可替下層店建立預約。
+                </div>
+              ) : activeWallets.length === 0 ? (
                 <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
                   <p className="text-xs font-medium text-amber-800">
                     需先指派方案，才能建立課程堂數預約
@@ -438,12 +479,16 @@ export default async function CustomerDetailPage({ params }: PageProps) {
                         <span className="text-[11px] text-blue-700">
                           {STATUS_LABEL[b.bookingStatus] ?? b.bookingStatus}
                         </span>
-                        <Link
-                          href={`/dashboard/bookings/${b.id}`}
-                          className="text-primary-700 hover:underline"
-                        >
-                          操作 →
-                        </Link>
+                        {isViewMode ? (
+                          <span className="text-[11px] text-earth-400">查看模式</span>
+                        ) : (
+                          <Link
+                            href={`/dashboard/bookings/${b.id}`}
+                            className="text-primary-700 hover:underline"
+                          >
+                            操作 →
+                          </Link>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -459,7 +504,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
                 key: "bookings",
                 label: "預約紀錄",
                 count: historyBookings.length,
-                href: `/dashboard/bookings?customerId=${id}`,
+                href: isViewMode ? undefined : `/dashboard/bookings?customerId=${id}`,
                 content:
                   recentHistory.length === 0 ? (
                     <EmptyRow title="尚無預約紀錄" dense />
@@ -501,12 +546,16 @@ export default async function CustomerDetailPage({ params }: PageProps) {
                                 </span>
                               </td>
                               <td className="px-3 text-right">
-                                <Link
-                                  href={`/dashboard/bookings/${b.id}`}
-                                  className="text-[11px] text-primary-600 hover:text-primary-700"
-                                >
-                                  →
-                                </Link>
+                                {isViewMode ? (
+                                  <span className="text-[11px] text-earth-300">—</span>
+                                ) : (
+                                  <Link
+                                    href={`/dashboard/bookings/${b.id}`}
+                                    className="text-[11px] text-primary-600 hover:text-primary-700"
+                                  >
+                                    →
+                                  </Link>
+                                )}
                               </td>
                             </tr>
                           ))}
@@ -519,7 +568,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
                 key: "transactions",
                 label: "消費紀錄",
                 count: transactions.length,
-                href: `/dashboard/transactions?customerId=${id}`,
+                href: isViewMode ? undefined : `/dashboard/transactions?customerId=${id}`,
                 content:
                   recentTransactions.length === 0 ? (
                     <EmptyRow title="尚無消費紀錄" dense />
@@ -725,21 +774,42 @@ export default async function CustomerDetailPage({ params }: PageProps) {
                   <span>→</span>
                 </span>
               )}
-              <Link href="#booking" className={quickActionBase}>
-                <span>新增預約</span>
-                <span>→</span>
-              </Link>
-              <Link
-                href={`/dashboard/bookings?customerId=${id}`}
-                className={quickActionBase}
-              >
-                <span>查看預約紀錄</span>
-                <span>→</span>
-              </Link>
-              <Link href="#plan" className={quickActionBase}>
-                <span>指派方案</span>
-                <span>→</span>
-              </Link>
+              {isViewMode ? (
+                <span className={`${quickActionBase} cursor-not-allowed opacity-50`}>
+                  <span>新增預約</span>
+                  <span>→</span>
+                </span>
+              ) : (
+                <Link href="#booking" className={quickActionBase}>
+                  <span>新增預約</span>
+                  <span>→</span>
+                </Link>
+              )}
+              {isViewMode ? (
+                <span className={`${quickActionBase} cursor-not-allowed opacity-50`}>
+                  <span>查看預約紀錄</span>
+                  <span>→</span>
+                </span>
+              ) : (
+                <Link
+                  href={`/dashboard/bookings?customerId=${id}`}
+                  className={quickActionBase}
+                >
+                  <span>查看預約紀錄</span>
+                  <span>→</span>
+                </Link>
+              )}
+              {isViewMode ? (
+                <span className={`${quickActionBase} cursor-not-allowed opacity-50`}>
+                  <span>指派方案</span>
+                  <span>→</span>
+                </span>
+              ) : (
+                <Link href="#plan" className={quickActionBase}>
+                  <span>指派方案</span>
+                  <span>→</span>
+                </Link>
+              )}
               {canEdit && (
                 <div className="mt-1 rounded-md border border-earth-200 px-3 py-2">
                   <CustomerStageForm
@@ -866,7 +936,7 @@ function GrowthMetric({
 // 拆出小查詢、不污染 getCustomerDetail 的回傳形狀；同時避免把 passwordHash
 // 本身洩漏到其他頁面 consumer — 這裡只用 boolean 表示「是否設定」。
 async function buildIdentitySnapshot(
-  customer: Awaited<ReturnType<typeof getCustomerDetail>>,
+  customer: Awaited<ReturnType<typeof getCustomerDetailForUser>>,
 ): Promise<CustomerSourceSnapshot> {
   let hasPassword = false;
   let accountProviders: string[] = [];
@@ -917,6 +987,7 @@ function WalletItem({
   w,
   userRole,
   canAdjustWallet,
+  readOnly = false,
 }: {
   w: {
     id: string;
@@ -931,10 +1002,11 @@ function WalletItem({
   };
   userRole: string;
   canAdjustWallet: boolean;
+  readOnly?: boolean;
 }) {
   // PR-2 wallet-session-ui：所有非 CUSTOMER 角色都可見註銷按鈕；
   // wallet.adjust 權限由 server action 把關，UI 只負責顯示。
-  const canVoid = userRole !== "CUSTOMER";
+  const canVoid = !readOnly && userRole !== "CUSTOMER";
 
   // 從 sessions 推 available / reserved 計數，給補登 form 即時 preview 用。
   const availableCount = w.sessions.filter((s) => s.status === "AVAILABLE").length;
@@ -950,6 +1022,9 @@ function WalletItem({
     (w.status === "ACTIVE" || w.status === "EXPIRED");
   const hasSessions = w.sessions.length > 0;
   const hasManage = canAdjustActive || canExtend || hasSessions;
+  const manageLabel = readOnly
+    ? "堂數明細"
+    : "管理（調整堂數 / 延長到期日 / 堂數明細）";
 
   return (
     <div className="rounded-lg border border-earth-200">
@@ -988,7 +1063,7 @@ function WalletItem({
       {hasManage && (
         <details className="group border-t border-earth-100">
           <summary className="flex cursor-pointer items-center justify-between rounded px-3 py-1.5 text-[11px] font-medium text-earth-500 hover:text-earth-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-earth-300">
-            <span className="group-open:hidden">管理（調整堂數 / 延長到期日 / 堂數明細）▾</span>
+            <span className="group-open:hidden">{manageLabel} ▾</span>
             <span className="hidden group-open:inline">收合 ▴</span>
           </summary>
           <div className="space-y-2 px-3 pb-3">

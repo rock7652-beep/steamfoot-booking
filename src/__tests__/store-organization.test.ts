@@ -136,6 +136,26 @@ describe("store organization foundation", () => {
     ).rejects.toThrow("查看模式下不可執行操作");
   });
 
+  it("denies writable guard from viewed-store cookie when no explicit options are passed", async () => {
+    const { requireWritablePermission } = await import("@/lib/permissions");
+    mockRequireStaffSession.mockResolvedValue({
+      id: "user-a",
+      role: "OWNER",
+      staffId: "staff-a",
+      storeId: "store-a",
+    });
+    mockCookieGet.mockImplementation((name: string) =>
+      name === "viewed-store-id" ? { value: "store-b" } : undefined,
+    );
+    mockStoreTree({
+      "store-a": ["store-b"],
+    });
+
+    await expect(requireWritablePermission("customer.create")).rejects.toThrow(
+      "查看模式下不可執行操作",
+    );
+  });
+
   it("resolves view context fields for own store and descendant view mode", async () => {
     const { resolveStoreViewContext } = await import("@/lib/store-organization");
     mockStoreTree({

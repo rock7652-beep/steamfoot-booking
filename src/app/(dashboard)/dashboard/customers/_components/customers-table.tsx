@@ -69,6 +69,8 @@ interface Props {
   onToggleRow?: (customerId: string) => void;
   /** 切換當頁可操作列的全選 / 全消 */
   onToggleAll?: () => void;
+  /** View Mode: no create / assign / selection entry points. */
+  readOnly?: boolean;
 }
 
 /**
@@ -93,6 +95,7 @@ export function CustomersTable({
   selectedIds,
   onToggleRow,
   onToggleAll,
+  readOnly = false,
 }: Props) {
   // 全選 header state：indeterminate / checked / unchecked，只看「當頁可操作列」
   const selectableRows = rows.filter((r) => !isInactiveRow(r));
@@ -327,8 +330,8 @@ export function CustomersTable({
   ) : (
     <EmptyRow
       title="尚無顧客資料"
-      hint="開始新增您的第一位顧客"
-      cta={{ label: "新增顧客", href: `${basePath}/new` }}
+      hint={readOnly ? "此下層店目前尚無顧客資料" : "開始新增您的第一位顧客"}
+      cta={readOnly ? undefined : { label: "新增顧客", href: `${basePath}/new` }}
     />
   );
 

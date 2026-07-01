@@ -46,6 +46,13 @@ export interface ListCustomersOptions {
 
 export async function listCustomers(options: ListCustomersOptions & { activeStoreId?: string | null } = {}) {
   const user = await requireStaffSession();
+  return listCustomersForUser(user, options);
+}
+
+export async function listCustomersForUser(
+  user: Awaited<ReturnType<typeof requireStaffSession>>,
+  options: ListCustomersOptions & { activeStoreId?: string | null } = {},
+) {
   const {
     stage,
     status,
@@ -256,9 +263,16 @@ export async function searchCustomers(query: string, limit = 10, activeStoreId?:
 
 export async function getCustomerDetail(customerId: string) {
   const user = await requireSession();
+  return getCustomerDetailForUser(user, customerId);
+}
 
+export async function getCustomerDetailForUser(
+  user: Awaited<ReturnType<typeof requireSession>>,
+  customerId: string,
+  activeStoreId?: string | null,
+) {
   const customer = await prisma.customer.findFirst({
-    where: { id: customerId, ...getStoreFilter(user) },
+    where: { id: customerId, ...getStoreFilter(user, activeStoreId) },
     include: {
       user: { select: { email: true, image: true, status: true } },
       assignedStaff: {
@@ -353,9 +367,16 @@ export async function getCustomerDetail(customerId: string) {
 
 export async function getCustomerDrawerDetail(customerId: string) {
   const user = await requireSession();
+  return getCustomerDrawerDetailForUser(user, customerId);
+}
 
+export async function getCustomerDrawerDetailForUser(
+  user: Awaited<ReturnType<typeof requireSession>>,
+  customerId: string,
+  activeStoreId?: string | null,
+) {
   const customer = await prisma.customer.findFirst({
-    where: { id: customerId, ...getStoreFilter(user) },
+    where: { id: customerId, ...getStoreFilter(user, activeStoreId) },
     include: {
       user: { select: { email: true, status: true } },
       sponsor: { select: { id: true, name: true, phone: true } },

@@ -1,9 +1,14 @@
-import { listCustomers } from "@/server/queries/customer";
+import { listCustomersForUser } from "@/server/queries/customer";
 import { listStaffSelectOptions } from "@/server/queries/staff";
 import { getCachedPlans } from "@/lib/query-cache";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { getActiveStoreForRead } from "@/lib/store";
+import {
+  resolveStoreViewContextFromCookie,
+  storeIdForViewContext,
+  userForViewContext,
+} from "@/lib/store-view-context-server";
 import { redirect } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { PageShell, PageHeader } from "@/components/desktop";
@@ -60,9 +65,13 @@ export default async function CustomersPage({ searchParams }: PageProps) {
   }
 
   const activeStoreId = await getActiveStoreForRead(user);
+  const storeViewContext = await resolveStoreViewContextFromCookie(user);
+  const isViewMode = storeViewContext?.isViewMode ?? false;
+  const customersStoreId = storeIdForViewContext(activeStoreId, storeViewContext);
+  const customersUser = userForViewContext(user, storeViewContext);
   const logCtx = {
     page: "customers" as const,
-    activeStoreId,
+    activeStoreId: customersStoreId,
     userId: user.id,
     sessionRole: user.role,
   };
@@ -74,7 +83,7 @@ export default async function CustomersPage({ searchParams }: PageProps) {
     canAssign,
     canEdit,
   ] = await Promise.all([
-      listCustomers({
+      listCustomersForUser(customersUser, {
         stage: params.stage,
         status: normalizeStatus(params.status),
         visit: normalizeVisit(params.visit),
@@ -84,7 +93,7 @@ export default async function CustomersPage({ searchParams }: PageProps) {
         sort: normalizeSort(params.sort),
         page,
         pageSize,
-        activeStoreId,
+        activeStoreId: customersStoreId,
       }).catch((e) => {
         console.error("[customers] listCustomers failed", {
           ...logCtx,
@@ -92,10 +101,10 @@ export default async function CustomersPage({ searchParams }: PageProps) {
           error: e instanceof Error ? e.message : String(e),
         });
         return { customers: [], total: 0, page, pageSize } as Awaited<
-          ReturnType<typeof listCustomers>
+          ReturnType<typeof listCustomersForUser>
         >;
       }),
-      listStaffSelectOptions(activeStoreId).catch((e) => {
+      listStaffSelectOptions(customersStoreId).catch((e) => {
         console.error("[customers] listStaffSelectOptions failed", {
           ...logCtx,
           step: "listStaffSelectOptions",
@@ -105,14 +114,20 @@ export default async function CustomersPage({ searchParams }: PageProps) {
       }),
       // PR-5.5：快速指派 drawer 需要的資料 — 走 unstable_cache（60s TTL,
       // tag: "plans"）。同 store 的 plans 在 customers / 其他頁共享 cache。
-      activeStoreId
-        ? getCachedPlans(activeStoreId).catch(() => [])
+      customersStoreId
+        ? getCachedPlans(customersStoreId).catch(() => [])
         : Promise.resolve([]),
-      checkPermission(user.role, user.staffId, "transaction.discount").catch(() => false),
-      checkPermission(user.role, user.staffId, "customer.assign").catch(() => false),
+      isViewMode
+        ? Promise.resolve(false)
+        : checkPermission(user.role, user.staffId, "transaction.discount").catch(() => false),
+      isViewMode
+        ? Promise.resolve(false)
+        : checkPermission(user.role, user.staffId, "customer.assign").catch(() => false),
       // 內部服務備註「可編輯」沿用 customer.update（不綁 staff.manage）。
       // 只有 customer.read 者看得到備註但不能改。
-      checkPermission(user.role, user.staffId, "customer.update").catch(() => false),
+      isViewMode
+        ? Promise.resolve(false)
+        : checkPermission(user.role, user.staffId, "customer.update").catch(() => false),
     ]);
 
   // PR-4：drawer 詳情不再於 server 端依 ?customerId= 預抓，也不再用 prop
@@ -157,9 +172,18 @@ export default async function CustomersPage({ searchParams }: PageProps) {
       <FormSuccessToast />
       <PageHeader
         title="顧客管理"
-        subtitle="查詢顧客、追蹤來店、快速進入詳情"
+        subtitle={
+          isViewMode
+            ? "查看下層店顧客資料。查看模式下不可新增、編輯、匯出或指派。"
+            : "查詢顧客、追蹤來店、快速進入詳情"
+        }
         actions={
-          <>
+          isViewMode ? (
+            <span className="rounded-md border border-earth-200 bg-earth-50 px-3 py-1.5 text-xs font-medium text-earth-400">
+              查看模式
+            </span>
+          ) : (
+            <>
             {/* PR #312-B-4：關閉背景 prefetch。匯出指向 API endpoint，prefetch
                 會在進顧客列表頁時就背景打 /api/export/customers（可能實際跑匯出查詢）；
                 新增顧客也不需背景預抓。點擊行為不變。 */}
@@ -177,7 +201,8 @@ export default async function CustomersPage({ searchParams }: PageProps) {
             >
               + 新增顧客
             </Link>
-          </>
+            </>
+          )
         }
       />
 
@@ -209,6 +234,7 @@ export default async function CustomersPage({ searchParams }: PageProps) {
         staffOptions={staffOptions}
         canAssign={canAssign}
         canEditNote={canEdit}
+        readOnly={isViewMode}
       />
 
       <div className="flex flex-wrap items-center justify-between gap-2">

@@ -3,8 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { Prisma } from "@prisma/client";
-import { requireSession, requireStaffSession } from "@/lib/session";
-import { requirePermission } from "@/lib/permissions";
+import { requireSession } from "@/lib/session";
+import {
+  requirePermission,
+  requireWritablePermission,
+} from "@/lib/permissions";
 import { assertStoreSubscriptionWritable } from "@/lib/subscription-guard";
 import { AppError, handleActionError } from "@/lib/errors";
 import {
@@ -16,10 +19,15 @@ import {
   updateCustomerServiceNoteSchema,
 } from "@/lib/validators/customer";
 import type { ActionResult } from "@/types";
-import { getCustomerDrawerDetail } from "@/server/queries/customer";
+import { getCustomerDrawerDetailForUser } from "@/server/queries/customer";
 import { checkCustomerLimit } from "@/lib/shop-config";
 import { assertStoreAccess } from "@/lib/manager-visibility";
-import { currentStoreId } from "@/lib/store";
+import { currentStoreId, getActiveStoreForRead } from "@/lib/store";
+import {
+  resolveStoreViewContextFromCookie,
+  storeIdForViewContext,
+  userForViewContext,
+} from "@/lib/store-view-context-server";
 import { normalizePhone } from "@/lib/normalize";
 import type { z } from "zod";
 
@@ -38,7 +46,7 @@ export async function createCustomer(
   input: z.infer<typeof createCustomerSchema>
 ): Promise<CreateCustomerResult> {
   try {
-    const user = await requirePermission("customer.create");
+    const user = await requireWritablePermission("customer.create");
     // 訂閱到期保護：EXPIRED 店唯讀（無訂閱店不擋）
     await assertStoreSubscriptionWritable(currentStoreId(user));
     // schema.parse 內含 normalizePhone transform — data.phone 一律 09xxxxxxxx
@@ -142,7 +150,7 @@ export async function updateCustomer(
   input: z.infer<typeof updateCustomerSchema>
 ): Promise<UpdateCustomerResult> {
   try {
-    const user = await requirePermission("customer.update");
+    const user = await requireWritablePermission("customer.update");
     // schema.parse 內含 normalizePhone — data.phone 一律 09xxxxxxxx
     const data = updateCustomerSchema.parse(input);
 
@@ -235,7 +243,7 @@ export async function updateCustomerServiceNoteAction(
   input: z.infer<typeof updateCustomerServiceNoteSchema>,
 ): Promise<ActionResult<undefined>> {
   try {
-    const user = await requirePermission("customer.update");
+    const user = await requireWritablePermission("customer.update");
     const { customerId, serviceNote } =
       updateCustomerServiceNoteSchema.parse(input);
 
@@ -279,7 +287,7 @@ export async function transferCustomer(
   input: z.infer<typeof transferCustomerSchema>
 ): Promise<ActionResult<void>> {
   try {
-    const user = await requirePermission("customer.assign");
+    const user = await requireWritablePermission("customer.assign");
     const data = transferCustomerSchema.parse(input);
 
     const customer = await prisma.customer.findUnique({
@@ -325,7 +333,7 @@ export async function updateCustomerAssignment(
   input: z.infer<typeof updateCustomerAssignmentSchema>,
 ): Promise<ActionResult<void>> {
   try {
-    const user = await requirePermission("customer.assign");
+    const user = await requireWritablePermission("customer.assign");
     const data = updateCustomerAssignmentSchema.parse(input);
 
     const customer = await prisma.customer.findUnique({
@@ -402,7 +410,7 @@ export async function bulkUpdateCustomerAssignment(
   input: z.infer<typeof bulkUpdateCustomerAssignmentSchema>,
 ): Promise<ActionResult<BulkUpdateCustomerAssignmentResult>> {
   try {
-    const user = await requirePermission("customer.assign");
+    const user = await requireWritablePermission("customer.assign");
     const data = bulkUpdateCustomerAssignmentSchema.parse(input);
     const storeId = currentStoreId(user);
 
@@ -551,7 +559,7 @@ export async function updateCustomerStage(
   stage: "LEAD" | "TRIAL" | "ACTIVE" | "INACTIVE"
 ): Promise<ActionResult<void>> {
   try {
-    const user = await requirePermission("customer.update");
+    const user = await requireWritablePermission("customer.update");
 
     const customer = await prisma.customer.findUnique({ where: { id: customerId } });
     if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
@@ -616,10 +624,18 @@ export async function setSelfBookingEnabled(
 
 export async function getCustomerDrawerDetailAction(
   customerId: string,
-): Promise<ActionResult<Awaited<ReturnType<typeof getCustomerDrawerDetail>>>> {
+): Promise<ActionResult<Awaited<ReturnType<typeof getCustomerDrawerDetailForUser>>>> {
   try {
-    await requirePermission("customer.read");
-    const data = await getCustomerDrawerDetail(customerId);
+    const user = await requirePermission("customer.read");
+    const storeViewContext = await resolveStoreViewContextFromCookie(user);
+    const ownActiveStoreId = await getActiveStoreForRead(user);
+    const activeStoreId = storeIdForViewContext(ownActiveStoreId, storeViewContext);
+    const readUser = userForViewContext(user, storeViewContext);
+    const data = await getCustomerDrawerDetailForUser(
+      readUser,
+      customerId,
+      activeStoreId,
+    );
     return { success: true, data };
   } catch (e) {
     return handleActionError(e);

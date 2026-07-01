@@ -18,7 +18,7 @@ export interface RecentRecordsTab {
   key: string;
   label: string;
   count: number;
-  href: string;
+  href?: string;
   content: React.ReactNode;
 }
 

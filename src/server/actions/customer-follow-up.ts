@@ -5,7 +5,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { AppError, handleActionError } from "@/lib/errors";
 import { assertStoreAccess } from "@/lib/manager-visibility";
-import { requirePermission } from "@/lib/permissions";
+import { requireWritablePermission } from "@/lib/permissions";
 import type { ActionResult } from "@/types";
 
 const createCustomerFollowUpSchema = z.object({
@@ -26,7 +26,7 @@ export async function createCustomerFollowUpAction(
   input: z.input<typeof createCustomerFollowUpSchema>,
 ): Promise<ActionResult<{ followUpId: string }>> {
   try {
-    const user = await requirePermission("customer.update");
+    const user = await requireWritablePermission("customer.update");
     const data = createCustomerFollowUpSchema.parse(input);
 
     const customer = await prisma.customer.findUnique({

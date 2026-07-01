@@ -41,6 +41,8 @@ interface Props {
   canAssign: boolean;
   /** 內部服務備註可編輯（= customer.update）。false 時 Drawer 只顯示不可改。 */
   canEditNote: boolean;
+  /** View Mode: full read, zero write. */
+  readOnly?: boolean;
 }
 
 export function CustomersListWithDrawer({
@@ -53,6 +55,7 @@ export function CustomersListWithDrawer({
   staffOptions,
   canAssign,
   canEditNote,
+  readOnly = false,
 }: Props) {
   const titleId = useId();
   const router = useRouter();
@@ -296,6 +299,10 @@ export function CustomersListWithDrawer({
 
   const handleBulkSubmit = useCallback(
     async (assignedStaffId: string) => {
+      if (readOnly) {
+        toast.error("查看模式下不可指派顧客");
+        return;
+      }
       const ids = Array.from(selectedIds);
       if (ids.length === 0) return;
       const result = await bulkUpdateCustomerAssignment({
@@ -328,8 +335,10 @@ export function CustomersListWithDrawer({
       clearSelection();
       router.refresh();
     },
-    [selectedIds, staffOptions, clearSelection, router],
+    [readOnly, selectedIds, staffOptions, clearSelection, router],
   );
+
+  const canWriteAssign = canAssign && !readOnly;
 
   return (
     <>
@@ -340,11 +349,12 @@ export function CustomersListWithDrawer({
         basePath={basePath}
         onView={(row) => openCustomer(row.id)}
         buildViewHref={(row) => buildHref(row.id, null)}
-        onQuickAssign={canAssign ? (row) => openCustomer(row.id, "plan") : undefined}
-        selectionEnabled={canAssign}
+        onQuickAssign={canWriteAssign ? (row) => openCustomer(row.id, "plan") : undefined}
+        selectionEnabled={canWriteAssign}
         selectedIds={selectedIds}
         onToggleRow={toggleRow}
         onToggleAll={toggleAll}
+        readOnly={readOnly}
       />
 
       <RightSheet
@@ -360,8 +370,9 @@ export function CustomersListWithDrawer({
             plans={plans}
             canDiscount={canDiscount}
             staffOptions={staffOptions}
-            canAssign={canAssign}
-            canEditNote={canEditNote}
+            canAssign={canWriteAssign}
+            canEditNote={canEditNote && !readOnly}
+            readOnly={readOnly}
             focus={focus}
             onClose={closeDrawer}
             onMutated={refreshDrawer}
@@ -372,7 +383,7 @@ export function CustomersListWithDrawer({
         ) : null}
       </RightSheet>
 
-      {canAssign && selectedIds.size > 0 ? (
+      {canWriteAssign && selectedIds.size > 0 ? (
         <BulkAssignBar
           selectedCount={selectedIds.size}
           staffOptions={staffOptions}

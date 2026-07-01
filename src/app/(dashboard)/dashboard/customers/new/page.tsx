@@ -2,6 +2,7 @@ import { listStaffSelectOptions } from "@/server/queries/staff";
 import { createCustomer } from "@/server/actions/customer";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
+import { resolveStoreViewContextFromCookie } from "@/lib/store-view-context-server";
 import { normalizeEmail, normalizePhone } from "@/lib/normalize";
 import { notFound, redirect } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
@@ -29,6 +30,10 @@ export default async function NewCustomerPage({
   if (!user) notFound();
   if (!(await checkPermission(user.role, user.staffId, "customer.create"))) {
     redirect("/dashboard");
+  }
+  const storeViewContext = await resolveStoreViewContextFromCookie(user);
+  if (storeViewContext?.isViewMode) {
+    redirect("/dashboard/customers");
   }
 
   const staffOptions = await listStaffSelectOptions();

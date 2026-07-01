@@ -466,9 +466,21 @@ export async function requireWritablePermission(
   const user = await requirePermission(permission);
   if (user.role === "ADMIN") return user;
 
+  let viewOptions = options;
+  if (viewOptions === undefined) {
+    const { cookies } = await import("next/headers");
+    const { VIEWED_STORE_COOKIE_NAME } = await import(
+      "@/lib/store-view-mode-constants"
+    );
+    const cookieStore = await cookies();
+    viewOptions = {
+      viewedStoreId: cookieStore.get(VIEWED_STORE_COOKIE_NAME)?.value ?? null,
+    };
+  }
+
   const { resolveStoreViewContext, assertWritableStoreViewContext } =
     await import("@/lib/store-organization");
-  const ctx = await resolveStoreViewContext(user, options);
+  const ctx = await resolveStoreViewContext(user, viewOptions);
   assertWritableStoreViewContext(ctx);
   return user;
 }
