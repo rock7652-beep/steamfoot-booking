@@ -262,6 +262,13 @@ export async function getDashboardTodaySummary(
   activeStoreId?: string | null,
 ): Promise<DashboardTodaySummary> {
   const user = await requireStaffSession();
+  return getDashboardTodaySummaryForUser(user, activeStoreId);
+}
+
+export async function getDashboardTodaySummaryForUser(
+  user: Awaited<ReturnType<typeof requireStaffSession>>,
+  activeStoreId?: string | null,
+): Promise<DashboardTodaySummary> {
   const storeFilter = getStoreFilter(user, activeStoreId);
   const effectiveStoreId =
     (storeFilter.storeId as string | undefined) ?? null;
@@ -414,4 +421,3 @@ export async function getDashboardOverviewSummary(
     monthLabel,
   };
 }
-

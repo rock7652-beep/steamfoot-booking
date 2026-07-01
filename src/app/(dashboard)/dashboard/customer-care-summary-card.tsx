@@ -21,13 +21,17 @@ const ROWS: Array<{ key: keyof CustomerCareSummary; label: string }> = [
 
 export function CustomerCareSummaryCard({
   summary,
+  readOnly = false,
 }: {
   summary: CustomerCareSummary | null;
+  readOnly?: boolean;
 }) {
+  const action = readOnly ? undefined : CTA;
+
   // 查詢失敗 — 降級,不擋首頁
   if (summary === null) {
     return (
-      <SideCard title="今日顧客經營" action={CTA}>
+      <SideCard title="今日顧客經營" action={action}>
         <p className="text-[11px] text-earth-400">顧客經營提醒暫時無法載入</p>
       </SideCard>
     );
@@ -36,7 +40,7 @@ export function CustomerCareSummaryCard({
   // 無提醒 — 友善空狀態
   if (summary.totalReminders === 0) {
     return (
-      <SideCard title="今日顧客經營" action={CTA}>
+      <SideCard title="今日顧客經營" action={action}>
         <p className="text-xs text-earth-700">今天沒有特別需要追蹤的顧客</p>
         <p className="text-[11px] text-earth-400">可以專心服務現場顧客</p>
       </SideCard>
@@ -47,7 +51,7 @@ export function CustomerCareSummaryCard({
     <SideCard
       title="今日顧客經營"
       subtitle={`今天有 ${summary.totalReminders} 個提醒項目`}
-      action={CTA}
+      action={action}
     >
       <ul className="space-y-1">
         {ROWS.map((r) => (

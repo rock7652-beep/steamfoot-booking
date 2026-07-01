@@ -18,11 +18,18 @@ interface CashDrawerTodayCardProps {
   canInit: boolean;
   /** 是否可開店點錢（具 cashDrawer.open 權限） */
   canOpen: boolean;
+  /** View Mode is dashboard read-only: no cash-drawer navigation or operations. */
+  readOnly?: boolean;
 }
 
 const CASH_DRAWER_HREF = "/dashboard/cash-drawer";
 
-export function CashDrawerTodayCard({ view, canInit, canOpen }: CashDrawerTodayCardProps) {
+export function CashDrawerTodayCard({
+  view,
+  canInit,
+  canOpen,
+  readOnly = false,
+}: CashDrawerTodayCardProps) {
   return (
     <section className="rounded-xl border border-earth-200 bg-white px-4 py-3">
       <header className="mb-2 flex items-center justify-between">
@@ -33,11 +40,12 @@ export function CashDrawerTodayCard({ view, canInit, canOpen }: CashDrawerTodayC
         <span className="text-[11px] text-earth-400">每日上班第一件事</span>
       </header>
 
-      {view.state === "EMPTY" && <EmptyCard canInit={canInit} />}
+      {view.state === "EMPTY" && <EmptyCard canInit={canInit} readOnly={readOnly} />}
       {view.state === "NOT_OPENED_TODAY" && (
         <NotOpenedTodayCard
           lastFinalBookBalance={view.lastSession.finalBookBalance?.toString() ?? "—"}
           canOpen={canOpen}
+          readOnly={readOnly}
         />
       )}
       {view.state === "OPENED_TODAY" && view.session.status === "CLOSED" && (
@@ -45,6 +53,7 @@ export function CashDrawerTodayCard({ view, canInit, canOpen }: CashDrawerTodayC
           expectedClosingCash={view.session.expectedClosingCash?.toString() ?? "—"}
           closingActualCash={view.session.closingActualCash?.toString() ?? "—"}
           closingDifference={view.session.closingDifference?.toNumber() ?? 0}
+          readOnly={readOnly}
         />
       )}
       {view.state === "OPENED_TODAY" && view.session.status !== "CLOSED" && (
@@ -52,11 +61,13 @@ export function CashDrawerTodayCard({ view, canInit, canOpen }: CashDrawerTodayC
           bookBalance={view.session.openingBookBalance.toString()}
           actualCash={view.session.openingActualCash.toString()}
           difference={view.session.openingDifference.toNumber()}
+          readOnly={readOnly}
         />
       )}
       {view.state === "WARNING_LAST_OPEN" && (
         <WarningLastOpenCard
           lastBusinessDate={formatTWTime(view.lastSession.businessDate, { dateOnly: true })}
+          readOnly={readOnly}
         />
       )}
     </section>
@@ -67,7 +78,15 @@ export function CashDrawerTodayCard({ view, canInit, canOpen }: CashDrawerTodayC
 // State A — EMPTY
 // ============================================================
 
-function EmptyCard({ canInit }: { canInit: boolean }) {
+function ReadOnlyPill() {
+  return (
+    <span className="shrink-0 rounded-md border border-earth-200 bg-earth-50 px-3 py-1.5 text-[11px] font-medium text-earth-400">
+      查看模式
+    </span>
+  );
+}
+
+function EmptyCard({ canInit, readOnly }: { canInit: boolean; readOnly: boolean }) {
   return (
     <div className="flex items-center justify-between gap-3">
       <div>
@@ -81,12 +100,16 @@ function EmptyCard({ canInit }: { canInit: boolean }) {
             : "請通知 OWNER 啟用現金抽屜。"}
         </p>
       </div>
-      <Link
-        href={CASH_DRAWER_HREF}
-        className="shrink-0 rounded-md bg-primary-600 px-3 py-1.5 text-[11px] font-medium text-white shadow-sm hover:bg-primary-700"
-      >
-        {canInit ? "啟用現金抽屜" : "查看現金抽屜"}
-      </Link>
+      {readOnly ? (
+        <ReadOnlyPill />
+      ) : (
+        <Link
+          href={CASH_DRAWER_HREF}
+          className="shrink-0 rounded-md bg-primary-600 px-3 py-1.5 text-[11px] font-medium text-white shadow-sm hover:bg-primary-700"
+        >
+          {canInit ? "啟用現金抽屜" : "查看現金抽屜"}
+        </Link>
+      )}
     </div>
   );
 }
@@ -98,9 +121,11 @@ function EmptyCard({ canInit }: { canInit: boolean }) {
 function NotOpenedTodayCard({
   lastFinalBookBalance,
   canOpen,
+  readOnly,
 }: {
   lastFinalBookBalance: string;
   canOpen: boolean;
+  readOnly: boolean;
 }) {
   return (
     <div className="flex items-center justify-between gap-3">
@@ -113,12 +138,16 @@ function NotOpenedTodayCard({
           今日開店起點 NT$ {lastFinalBookBalance}（上日閉店實際點到）
         </p>
       </div>
-      <Link
-        href={CASH_DRAWER_HREF}
-        className="shrink-0 rounded-md bg-primary-600 px-3 py-1.5 text-[11px] font-medium text-white shadow-sm hover:bg-primary-700"
-      >
-        {canOpen ? "開店點錢" : "查看現金抽屜"}
-      </Link>
+      {readOnly ? (
+        <ReadOnlyPill />
+      ) : (
+        <Link
+          href={CASH_DRAWER_HREF}
+          className="shrink-0 rounded-md bg-primary-600 px-3 py-1.5 text-[11px] font-medium text-white shadow-sm hover:bg-primary-700"
+        >
+          {canOpen ? "開店點錢" : "查看現金抽屜"}
+        </Link>
+      )}
     </div>
   );
 }
@@ -131,10 +160,12 @@ function OpenedTodayCard({
   bookBalance,
   actualCash,
   difference,
+  readOnly,
 }: {
   bookBalance: string;
   actualCash: string;
   difference: number;
+  readOnly: boolean;
 }) {
   const diffLabel = difference === 0 ? "0" : difference > 0 ? `+${difference}` : `${difference}`;
   const diffClass =
@@ -163,12 +194,16 @@ function OpenedTodayCard({
           </span>
         </div>
       </div>
-      <Link
-        href={CASH_DRAWER_HREF}
-        className="shrink-0 rounded-md border border-earth-200 bg-white px-3 py-1.5 text-[11px] font-medium text-earth-700 hover:bg-earth-50"
-      >
-        查看現金抽屜
-      </Link>
+      {readOnly ? (
+        <ReadOnlyPill />
+      ) : (
+        <Link
+          href={CASH_DRAWER_HREF}
+          className="shrink-0 rounded-md border border-earth-200 bg-white px-3 py-1.5 text-[11px] font-medium text-earth-700 hover:bg-earth-50"
+        >
+          查看現金抽屜
+        </Link>
+      )}
     </div>
   );
 }
@@ -181,10 +216,12 @@ function ClosedTodayCard({
   expectedClosingCash,
   closingActualCash,
   closingDifference,
+  readOnly,
 }: {
   expectedClosingCash: string;
   closingActualCash: string;
   closingDifference: number;
+  readOnly: boolean;
 }) {
   const diffLabel =
     closingDifference === 0
@@ -218,12 +255,16 @@ function ClosedTodayCard({
           </span>
         </div>
       </div>
-      <Link
-        href={CASH_DRAWER_HREF}
-        className="shrink-0 rounded-md border border-earth-200 bg-white px-3 py-1.5 text-[11px] font-medium text-earth-700 hover:bg-earth-50"
-      >
-        查看現金抽屜
-      </Link>
+      {readOnly ? (
+        <ReadOnlyPill />
+      ) : (
+        <Link
+          href={CASH_DRAWER_HREF}
+          className="shrink-0 rounded-md border border-earth-200 bg-white px-3 py-1.5 text-[11px] font-medium text-earth-700 hover:bg-earth-50"
+        >
+          查看現金抽屜
+        </Link>
+      )}
     </div>
   );
 }
@@ -232,7 +273,13 @@ function ClosedTodayCard({
 // State D — WARNING_LAST_OPEN
 // ============================================================
 
-function WarningLastOpenCard({ lastBusinessDate }: { lastBusinessDate: string }) {
+function WarningLastOpenCard({
+  lastBusinessDate,
+  readOnly,
+}: {
+  lastBusinessDate: string;
+  readOnly: boolean;
+}) {
   return (
     <div className="flex items-center justify-between gap-3 rounded-md bg-orange-50 px-3 py-2">
       <div>
@@ -244,12 +291,16 @@ function WarningLastOpenCard({ lastBusinessDate }: { lastBusinessDate: string })
           上日：{lastBusinessDate}．請先處理前一筆紀錄
         </p>
       </div>
-      <Link
-        href={CASH_DRAWER_HREF}
-        className="shrink-0 rounded-md border border-orange-300 bg-white px-3 py-1.5 text-[11px] font-medium text-orange-800 hover:bg-orange-100"
-      >
-        查看現金抽屜
-      </Link>
+      {readOnly ? (
+        <ReadOnlyPill />
+      ) : (
+        <Link
+          href={CASH_DRAWER_HREF}
+          className="shrink-0 rounded-md border border-orange-300 bg-white px-3 py-1.5 text-[11px] font-medium text-orange-800 hover:bg-orange-100"
+        >
+          查看現金抽屜
+        </Link>
+      )}
     </div>
   );
 }

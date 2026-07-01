@@ -6,12 +6,17 @@ import { getStoreFilter } from "@/lib/manager-visibility";
 import { bookingDateToday, formatTWTime, toLocalDateStr } from "@/lib/date-utils";
 import { ACTIVE_BOOKING_STATUSES, STATUS_LABEL } from "@/lib/booking-constants";
 import { checkPermission } from "@/lib/permissions";
+import {
+  resolveStoreViewContext,
+  type StoreViewContext,
+} from "@/lib/store-organization";
 import { isStoreSubscriptionWriteBlocked } from "@/lib/subscription-guard";
 import { prisma } from "@/lib/db";
-import { getDashboardTodaySummary } from "@/server/queries/dashboard-summary";
+import { getDashboardTodaySummaryForUser } from "@/server/queries/dashboard-summary";
 import { getLatestResolvedRequest } from "@/server/queries/upgrade-request";
 import { getLatestReconciliationRun } from "@/server/queries/reconciliation";
-import { getStoreTodos } from "@/server/queries/store-todos";
+import { getStoreTodosForUser } from "@/server/queries/store-todos";
+import { getViewedStoreCookie } from "@/server/actions/store-view-mode";
 import { getCashDrawerView, type CashDrawerView } from "@/server/queries/cash-drawer";
 import {
   getCustomerCareSummary,
@@ -59,26 +64,52 @@ export default async function DashboardHomePage() {
   const cookieStore = await cookies();
   const cookieStoreId = cookieStore.get("active-store-id")?.value ?? null;
   const activeStoreId = resolveActiveStoreId(user, cookieStoreId);
+  const viewedStoreCookie = user.role === "ADMIN" ? null : await getViewedStoreCookie();
+  let storeViewContext: StoreViewContext | null = null;
+  if (user.role !== "ADMIN" && user.storeId) {
+    try {
+      storeViewContext = await resolveStoreViewContext(user, {
+        viewedStoreId: viewedStoreCookie,
+      });
+    } catch (err) {
+      console.warn("[dashboard-home] invalid store view context, falling back to own store", {
+        userId: user.id,
+        ownStoreId: user.storeId,
+        viewedStoreId: viewedStoreCookie,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      storeViewContext = await resolveStoreViewContext(user);
+    }
+  }
+  const isViewMode = storeViewContext?.isViewMode ?? false;
+  const dashboardStoreId = isViewMode
+    ? storeViewContext?.viewedStoreId ?? user.storeId ?? null
+    : activeStoreId;
+  const dashboardUser = isViewMode && dashboardStoreId
+    ? { ...user, storeId: dashboardStoreId }
+    : user;
   const isOwner = user.role === "ADMIN" || user.role === "OWNER";
   // #307 唯讀模式：到期店家隱藏 / 停用「新增」入口（後端已擋，這裡避免店長白點）
-  const isReadOnly = await isStoreSubscriptionWriteBlocked(activeStoreId);
+  const subscriptionWriteBlocked = await isStoreSubscriptionWriteBlocked(activeStoreId);
+  const isReadOnly = subscriptionWriteBlocked || isViewMode;
 
   const todayLabel = formatTWTime(new Date(), { dateOnly: true });
-  const storeFilter = getStoreFilter(user, activeStoreId);
+  const storeFilter = getStoreFilter(dashboardUser, dashboardStoreId);
   const todayBooking = bookingDateToday();
 
   // 現金抽屜首頁卡（PR-3 UX revision）— 需 cashDrawer.read 權限 + 已選店
   const canViewCashDrawer = await checkPermission(user.role, user.staffId, "cashDrawer.read");
-  const canInitCashDrawer = isOwner;
-  const canOpenCashDrawer = await checkPermission(user.role, user.staffId, "cashDrawer.open");
+  const canInitCashDrawer = isOwner && !isViewMode;
+  const canOpenCashDrawer =
+    !isViewMode && await checkPermission(user.role, user.staffId, "cashDrawer.open");
   let cashDrawerView: CashDrawerView | null = null;
-  if (canViewCashDrawer && activeStoreId) {
+  if (canViewCashDrawer && dashboardStoreId) {
     const todayStr = toLocalDateStr();
     const [y, m, d] = todayStr.split("-").map(Number);
     const todayBusinessDate = new Date(Date.UTC(y, m - 1, d));
-    cashDrawerView = await getCashDrawerView(activeStoreId, todayBusinessDate).catch((e) => {
+    cashDrawerView = await getCashDrawerView(dashboardStoreId, todayBusinessDate).catch((e) => {
       console.error("[dashboard-home] getCashDrawerView failed", {
-        activeStoreId,
+        activeStoreId: dashboardStoreId,
         userId: user.id,
         error: e instanceof Error ? e.message : String(e),
       });
@@ -104,9 +135,9 @@ export default async function DashboardHomePage() {
   // 獨立 catch：查詢失敗回 null,卡片降級顯示,不影響首頁其他區塊。
   const canViewCustomers = await checkPermission(user.role, user.staffId, "customer.read");
   const careSummaryPromise: Promise<CustomerCareSummary | null> = canViewCustomers
-    ? getCustomerCareSummary(user, activeStoreId).catch((e) => {
+    ? getCustomerCareSummary(dashboardUser, dashboardStoreId).catch((e) => {
         console.error("[dashboard-home] getCustomerCareSummary failed", {
-          activeStoreId,
+          activeStoreId: dashboardStoreId,
           userId: user.id,
           error: e instanceof Error ? e.message : String(e),
         });
@@ -116,9 +147,9 @@ export default async function DashboardHomePage() {
 
   const [summary, todayBookings, resolvedRequest, reconciliation, todos, careSummary] =
     await Promise.all([
-    getDashboardTodaySummary(activeStoreId).catch((e) => {
+    getDashboardTodaySummaryForUser(dashboardUser, dashboardStoreId).catch((e) => {
       console.error("[dashboard-home] getDashboardTodaySummary failed", {
-        activeStoreId,
+        activeStoreId: dashboardStoreId,
         userId: user.id,
         error: e instanceof Error ? e.message : String(e),
       });
@@ -159,7 +190,10 @@ export default async function DashboardHomePage() {
       ? getLatestResolvedRequest(user.storeId).catch(() => null)
       : Promise.resolve(null),
     getLatestReconciliationRun().catch(() => null),
-    getStoreTodos({ activeStoreId }).catch(() => ({ items: [], total: 0 })),
+    getStoreTodosForUser(dashboardUser, {
+      activeStoreId: dashboardStoreId,
+      respectDismissed: !isViewMode,
+    }).catch(() => ({ items: [], total: 0 })),
     careSummaryPromise,
   ]);
 
@@ -269,10 +303,15 @@ export default async function DashboardHomePage() {
         view={cashDrawerView}
         canInit={canInitCashDrawer}
         canOpen={canOpenCashDrawer}
+        readOnly={isViewMode}
       />
     ) : null,
     canViewCustomers ? (
-      <CustomerCareSummaryCard key="customer-care" summary={careSummary} />
+      <CustomerCareSummaryCard
+        key="customer-care"
+        summary={careSummary}
+        readOnly={isViewMode}
+      />
     ) : null,
   ].filter(Boolean);
 
@@ -285,7 +324,7 @@ export default async function DashboardHomePage() {
           isReadOnly ? (
             <span
               className="cursor-not-allowed rounded-md bg-earth-100 px-3 py-1.5 text-xs font-medium text-earth-400"
-              title="系統已到期，目前為唯讀模式"
+              title={isViewMode ? "查看模式下不可新增預約" : "系統已到期，目前為唯讀模式"}
             >
               ＋ 新增預約
             </span>
@@ -308,17 +347,21 @@ export default async function DashboardHomePage() {
         ) : (
           summaryCards
         )}
-        <StoreTodoCard items={todos.items} defaultVisible={3} />
+        <StoreTodoCard
+          items={todos.items}
+          defaultVisible={3}
+          readOnly={isViewMode}
+        />
       </div>
 
-      {resolvedRequest ? (
+      {!isViewMode && resolvedRequest ? (
         <UpgradeResultBanner
           status={resolvedRequest.status}
           requestedPlan={resolvedRequest.requestedPlan}
           reviewNote={resolvedRequest.reviewNote}
         />
       ) : null}
-      {reconciliation ? (
+      {!isViewMode && reconciliation ? (
         <ReconciliationBanner
           status={reconciliation.status}
           mismatchCount={reconciliation.mismatchCount}
@@ -347,12 +390,16 @@ export default async function DashboardHomePage() {
                     : ""}
                 </p>
               </div>
-              <Link
-                href="/dashboard/bookings"
-                className="text-[11px] text-primary-600 hover:text-primary-700"
-              >
-                完整預約管理 →
-              </Link>
+              {isViewMode ? (
+                <span className="text-[11px] text-earth-400">查看模式</span>
+              ) : (
+                <Link
+                  href="/dashboard/bookings"
+                  className="text-[11px] text-primary-600 hover:text-primary-700"
+                >
+                  完整預約管理 →
+                </Link>
+              )}
             </div>
             {rows.length === 0 ? (
               <EmptyRow
@@ -373,7 +420,7 @@ export default async function DashboardHomePage() {
                 columns={columns}
                 rows={rows}
                 rowKey={(b) => b.id}
-                rowHref={(b) => `/dashboard/bookings/${b.id}`}
+                rowHref={isViewMode ? undefined : (b) => `/dashboard/bookings/${b.id}`}
                 className="rounded-none border-0 border-t border-earth-100"
               />
             )}
@@ -384,19 +431,33 @@ export default async function DashboardHomePage() {
         <aside className="col-span-12 space-y-3 lg:col-span-4">
           <SideCard title="快速操作" subtitle="常用入口">
             <div className="flex flex-col gap-1.5">
-              {quickActions.map((a) => (
-                <Link
-                  key={a.href}
-                  href={a.href}
-                  className="flex items-center justify-between rounded-md border border-earth-200 px-3 py-1.5 hover:bg-earth-50"
-                >
-                  <div className="min-w-0">
-                    <p className="text-xs font-medium text-earth-800">{a.label}</p>
-                    <p className="truncate text-[10px] text-earth-400">{a.hint}</p>
+              {quickActions.map((a) =>
+                isViewMode ? (
+                  <div
+                    key={a.href}
+                    className="flex items-center justify-between rounded-md border border-earth-200 bg-earth-50 px-3 py-1.5"
+                    title="查看模式下不可操作"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium text-earth-500">{a.label}</p>
+                      <p className="truncate text-[10px] text-earth-400">{a.hint}</p>
+                    </div>
+                    <span className="shrink-0 text-[11px] text-earth-400">查看模式</span>
                   </div>
-                  <span className="shrink-0 text-[11px] text-earth-400">→</span>
-                </Link>
-              ))}
+                ) : (
+                  <Link
+                    key={a.href}
+                    href={a.href}
+                    className="flex items-center justify-between rounded-md border border-earth-200 px-3 py-1.5 hover:bg-earth-50"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium text-earth-800">{a.label}</p>
+                      <p className="truncate text-[10px] text-earth-400">{a.hint}</p>
+                    </div>
+                    <span className="shrink-0 text-[11px] text-earth-400">→</span>
+                  </Link>
+                )
+              )}
             </div>
           </SideCard>
 
@@ -424,18 +485,31 @@ export default async function DashboardHomePage() {
             </p>
           </div>
           <div className="flex gap-1.5">
-            <Link
-              href="/dashboard/revenue"
-              className="rounded-md border border-earth-200 bg-white px-3 py-1 text-[11px] font-medium text-earth-700 hover:bg-earth-50"
-            >
-              營收 →
-            </Link>
-            <Link
-              href="/dashboard/reports"
-              className="rounded-md border border-earth-200 bg-white px-3 py-1 text-[11px] font-medium text-earth-700 hover:bg-earth-50"
-            >
-              報表 →
-            </Link>
+            {isViewMode ? (
+              <>
+                <span className="rounded-md border border-earth-200 bg-earth-50 px-3 py-1 text-[11px] font-medium text-earth-400">
+                  營收
+                </span>
+                <span className="rounded-md border border-earth-200 bg-earth-50 px-3 py-1 text-[11px] font-medium text-earth-400">
+                  報表
+                </span>
+              </>
+            ) : (
+              <>
+                <Link
+                  href="/dashboard/revenue"
+                  className="rounded-md border border-earth-200 bg-white px-3 py-1 text-[11px] font-medium text-earth-700 hover:bg-earth-50"
+                >
+                  營收 →
+                </Link>
+                <Link
+                  href="/dashboard/reports"
+                  className="rounded-md border border-earth-200 bg-white px-3 py-1 text-[11px] font-medium text-earth-700 hover:bg-earth-50"
+                >
+                  報表 →
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </section>
