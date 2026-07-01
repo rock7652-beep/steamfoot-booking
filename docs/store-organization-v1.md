@@ -46,3 +46,17 @@ keys. Store manager view mode must not aggregate descendant KPIs.
 - No cross-store revenue attribution.
 - No staff/user management across descendant stores.
 - No HQ analytics implementation.
+
+## PR-2 HQ Organization UI
+
+HQ may maintain `Store.parentStoreId` from `/hq/dashboard/stores/organization`.
+This UI is ADMIN-only and is limited to organization maintenance:
+
+- Show the current store tree.
+- Preview a store's previous and next parent before submit.
+- Confirm before mutating `Store.parentStoreId`.
+- Reuse the PR-1 self-parent and cycle guard.
+- Write a generic `AuditLog` row with before/after parent snapshots.
+
+This still does not activate store manager view mode. Dashboard, bookings,
+customers, reports, and HQ analytics remain unchanged.
