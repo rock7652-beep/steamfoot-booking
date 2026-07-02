@@ -61,7 +61,7 @@ export default async function BrandOverviewPage({ searchParams }: PageProps) {
           <p className="text-sm font-medium text-primary-700">Brand Operating System</p>
           <h1 className="mt-2 text-2xl font-bold text-earth-900 sm:text-3xl">品牌總覽</h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-earth-600">
-            這個畫面，能不能讓人更相信這個品牌？
+            品牌版圖與經營概況，作為 HQ 對外介紹蒸足的第一頁。
           </p>
         </div>
         <div className="rounded-lg border border-earth-200 bg-white px-3 py-2 text-sm text-earth-600">
@@ -281,38 +281,47 @@ function BrandFootprintHero({
   periodLabel: string;
 }) {
   const highlightedRegions = footprint.regions.slice(0, 4);
+  const regionCount = footprint.regions.length;
 
   return (
     <section className="overflow-hidden rounded-2xl border border-earth-200 bg-white" aria-labelledby="brand-footprint-heading">
-      <div className="border-b border-earth-200 bg-earth-900 px-5 py-4 text-white sm:px-6">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase text-primary-100">Brand Footprint</p>
-            <h2 id="brand-footprint-heading" className="mt-2 text-2xl font-bold">
+      <div className="border-b border-earth-200 bg-earth-950 px-5 py-8 text-white sm:px-8 lg:px-10 lg:py-10">
+        <div className="grid gap-8 lg:grid-cols-[1fr_auto] lg:items-end">
+          <div className="max-w-3xl">
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary-100">
               品牌版圖
+            </p>
+            <h2 id="brand-footprint-heading" className="mt-4 text-4xl font-bold leading-tight sm:text-5xl">
+              從竹北出發，向更多城市展開。
             </h2>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-earth-100">
-              PR-2 並不是在畫一張地圖，而是在建立 Brand Overview 第一個 Hero。
-              這裡回答的是：這個品牌目前已經發展到哪些地區。
+            <p className="mt-4 max-w-xl text-base leading-7 text-earth-100">
+              品牌版圖讓加盟主一眼看見蒸足目前已經發展到哪些地區。
             </p>
           </div>
-          <div className="shrink-0 rounded-lg border border-white/15 bg-white/10 px-3 py-2 text-sm text-earth-50">
-            台灣目前 <span className="font-bold text-white">{footprint.taiwanStoreCount}</span> 家
+          <div className="grid min-w-[12rem] grid-cols-2 gap-3">
+            <div className="rounded-xl border border-white/15 bg-white/10 px-4 py-3">
+              <p className="text-xs text-earth-200">台灣</p>
+              <p className="mt-2 text-2xl font-bold text-white">{footprint.taiwanStoreCount} 家店</p>
+            </div>
+            <div className="rounded-xl border border-white/15 bg-white/10 px-4 py-3">
+              <p className="text-xs text-earth-200">行政區</p>
+              <p className="mt-2 text-2xl font-bold text-white">{regionCount} 個</p>
+            </div>
           </div>
         </div>
       </div>
 
       <div className="grid gap-0 lg:grid-cols-[1.25fr_0.75fr]">
-        <div className="relative min-h-[420px] bg-[#f6f2ea] p-5 sm:p-6">
+        <div className="relative min-h-[420px] bg-[#f6f2ea] p-6 sm:p-8">
           <div className="absolute inset-x-0 top-0 h-1 bg-primary-700" />
-          <div className="relative grid h-full min-h-[360px] gap-4 lg:grid-cols-[0.95fr_1.05fr]">
-            <div className="flex flex-col justify-between rounded-xl border border-white/80 bg-white/70 p-4 shadow-sm">
+          <div className="relative grid h-full min-h-[360px] gap-5 lg:grid-cols-[0.9fr_1.1fr]">
+            <div className="flex flex-col justify-between rounded-xl border border-white/80 bg-white/75 p-5 shadow-sm">
               <div>
                 <div className="inline-flex rounded-full bg-primary-700 px-3 py-1 text-xs font-semibold text-white">
                   Taiwan
                 </div>
-                <p className="mt-4 text-sm leading-6 text-earth-700">
-                  行政區比單店更重要。首頁先讓人看見品牌版圖，再展開店舖。
+                <p className="mt-5 text-sm leading-6 text-earth-700">
+                  目前已展開的行政區
                 </p>
               </div>
               <div className="mt-6 grid gap-2">
@@ -352,7 +361,7 @@ function BrandFootprintHero({
               <p className="mt-1 text-xs text-earth-500">期間：{periodLabel}</p>
             </div>
             <span className="rounded-full bg-primary-50 px-2.5 py-1 text-xs font-semibold text-primary-700">
-              Region → Store
+              展開看店舖
             </span>
           </div>
 
