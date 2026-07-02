@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
@@ -43,11 +44,11 @@ const STORE_SORT_OPTIONS = [
   { value: "name", label: "依店名" },
 ] as const satisfies { value: BrandStoreOverviewSort; label: string }[];
 
-const TAIWAN_REGION_DOTS: Record<string, { x: number; y: number }> = {
-  新竹縣: { x: 76, y: 96 },
-  新竹市: { x: 69, y: 111 },
-  台中市: { x: 90, y: 164 },
-  臺中市: { x: 90, y: 164 },
+const TAIWAN_REGION_CALLOUTS: Record<string, { x: number; y: number; side: "left" | "right" }> = {
+  新竹縣: { x: 42, y: 38, side: "right" },
+  新竹市: { x: 39, y: 43, side: "left" },
+  台中市: { x: 46, y: 55, side: "right" },
+  臺中市: { x: 46, y: 55, side: "right" },
 };
 
 export default async function BrandOverviewPage({ searchParams }: PageProps) {
@@ -292,7 +293,7 @@ function BrandFootprintHero({
       className="overflow-hidden rounded-3xl border border-[#eadfce] bg-gradient-to-br from-white via-[#fbf7ef] to-[#f3eadc] shadow-sm"
       aria-labelledby="brand-footprint-heading"
     >
-      <div className="grid gap-5 px-5 py-5 sm:gap-8 sm:px-8 sm:py-7 lg:min-h-[400px] lg:grid-cols-[0.9fr_1.1fr] lg:items-center lg:px-10 lg:py-10 xl:px-12">
+      <div className="grid gap-5 px-5 py-5 sm:grid-cols-[0.35fr_0.65fr] sm:gap-8 sm:px-8 sm:py-7 lg:min-h-[400px] lg:items-center lg:px-10 lg:py-10 xl:px-12">
         <div>
           <div className="max-w-3xl">
             <p className="text-sm font-semibold text-primary-700">品牌總覽</p>
@@ -344,42 +345,20 @@ function TaiwanFootprintVisual({ regions }: { regions: Pick<BrandFootprintRegion
   const displayRegions = regions.length > 0 ? regions : [{ county: "準備中", storeCount: 0 }];
 
   return (
-    <div className="grid grid-cols-[0.95fr_1.05fr] items-center gap-3 sm:gap-4">
-      <div className="relative min-h-[176px] overflow-hidden rounded-2xl border border-[#dfd3bf] bg-[#edf3e7] px-3 py-3 sm:min-h-[280px] sm:px-5 sm:py-5">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_28%_20%,rgba(255,255,255,0.9),transparent_34%),radial-gradient(circle_at_78%_76%,rgba(216,176,106,0.16),transparent_30%)]" />
-        <div className="relative flex h-full min-h-[150px] items-center justify-center sm:min-h-[240px]">
-          <svg
-            viewBox="0 0 180 320"
-            role="img"
-            aria-label="台灣品牌版圖"
-            className="h-[150px] w-[90px] drop-shadow-sm sm:h-[238px] sm:w-[136px]"
-          >
-            <path
-              d="M101 11C88 19 83 36 78 51C71 70 57 84 50 102C43 120 45 141 52 158C59 176 56 194 49 211C42 229 37 248 45 266C52 284 69 303 89 309C106 313 119 301 126 285C134 267 134 245 129 226C124 207 130 189 139 173C151 151 155 127 149 103C143 78 128 55 119 32C115 22 111 14 101 11Z"
-              fill="#8a9f79"
-              stroke="#5f724f"
-              strokeWidth="5"
-              strokeLinejoin="round"
-            />
-            <path
-              d="M94 28C84 42 78 59 70 75C61 94 55 113 58 134C61 155 66 174 61 194C57 212 47 231 53 250C59 269 73 287 91 293"
-              fill="none"
-              stroke="#f8f2e8"
-              strokeLinecap="round"
-              strokeWidth="5"
-              opacity="0.64"
-            />
-            {displayRegions.map((region, index) => {
-              const dot = TAIWAN_REGION_DOTS[region.county] ?? { x: 82 + index * 9, y: 88 + index * 40 };
-              return (
-                <g key={region.county}>
-                  <circle cx={dot.x} cy={dot.y} r="9" fill="#f8f2e8" opacity="0.9" />
-                  <circle cx={dot.x} cy={dot.y} r="5" fill="#2f5f46" />
-                </g>
-              );
-            })}
-          </svg>
-        </div>
+    <div className="grid gap-3 sm:gap-4 lg:grid-cols-[minmax(0,1fr)_220px] lg:items-center xl:grid-cols-[minmax(0,1fr)_240px]">
+      <div className="relative min-h-[220px] overflow-hidden rounded-2xl border border-[#dfd3bf] bg-[#edf3e7] px-3 py-3 sm:min-h-[300px] sm:px-5 sm:py-5 lg:min-h-[360px]">
+        <Image
+          src="/brand/taiwan-brand-footprint.svg"
+          alt="台灣品牌版圖"
+          width={1920}
+          height={1080}
+          priority
+          unoptimized
+          className="relative z-0 h-full min-h-[194px] w-full object-contain sm:min-h-[260px] lg:min-h-[320px]"
+        />
+        {displayRegions.map((region, index) => (
+          <TaiwanRegionOverlay key={region.county} index={index} region={region} />
+        ))}
         <div className="absolute left-3 top-3 rounded-full bg-white/85 px-2.5 py-1 text-[11px] font-semibold text-primary-700 sm:left-5 sm:top-5">
           台灣
         </div>
@@ -396,6 +375,34 @@ function TaiwanFootprintVisual({ regions }: { regions: Pick<BrandFootprintRegion
           ))}
         </div>
       </div>
+    </div>
+  );
+}
+
+function TaiwanRegionOverlay({
+  region,
+  index,
+}: {
+  region: Pick<BrandFootprintRegion, "county" | "storeCount">;
+  index: number;
+}) {
+  const fallbackX = 42 + index * 4;
+  const fallbackY = 40 + index * 8;
+  const callout = TAIWAN_REGION_CALLOUTS[region.county] ?? {
+    x: fallbackX,
+    y: fallbackY,
+    side: "right" as const,
+  };
+  const translateClass = callout.side === "left" ? "-translate-x-full -translate-y-1/2" : "-translate-y-1/2";
+
+  return (
+    <div
+      className={`absolute z-10 flex items-center gap-1.5 rounded-full border border-primary-100 bg-white/95 px-2.5 py-1 text-[11px] font-semibold text-earth-900 shadow-sm sm:px-3 sm:py-1.5 sm:text-xs ${translateClass}`}
+      style={{ left: `${callout.x}%`, top: `${callout.y}%` }}
+    >
+      <span className="h-2 w-2 rounded-full bg-primary-600 shadow-[0_0_0_3px_rgba(47,95,70,0.16)]" />
+      <span className="whitespace-nowrap">{region.county}</span>
+      <span className="whitespace-nowrap text-primary-700">{region.storeCount} 家</span>
     </div>
   );
 }
