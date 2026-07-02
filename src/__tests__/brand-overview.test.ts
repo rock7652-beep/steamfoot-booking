@@ -38,6 +38,17 @@ describe("brand overview foundation", () => {
     expect(resolveBrandOverviewPeriod(["year", "month"])).toBe("year");
   });
 
+  it("defaults and normalizes store overview sort values", async () => {
+    const { resolveBrandStoreOverviewSort } = await import("@/server/queries/brand-overview");
+
+    expect(resolveBrandStoreOverviewSort(undefined)).toBe("county");
+    expect(resolveBrandStoreOverviewSort("unknown")).toBe("county");
+    expect(resolveBrandStoreOverviewSort("visitors")).toBe("visitors");
+    expect(resolveBrandStoreOverviewSort("revenue")).toBe("revenue");
+    expect(resolveBrandStoreOverviewSort("name")).toBe("name");
+    expect(resolveBrandStoreOverviewSort(["revenue", "county"])).toBe("revenue");
+  });
+
   it("resolves bounded period ranges for Brand Scale aggregates", async () => {
     const { resolveBrandOverviewPeriodRange } = await import("@/server/queries/brand-overview");
     const now = new Date("2026-07-02T02:00:00.000Z");
@@ -179,6 +190,83 @@ describe("brand overview foundation", () => {
         totalRevenue: 40000,
       },
     ]);
+    expect(overview.storeOverview.stores).toMatchObject([
+      {
+        id: "store-2",
+        name: "蒸足台中店",
+        county: "台中市",
+        totalVisitors: 18,
+        totalRevenue: 40000,
+      },
+      {
+        id: "store-1",
+        name: "暖暖蒸足",
+        county: "新竹縣",
+        totalVisitors: 12,
+        totalRevenue: 20000,
+      },
+    ]);
+    expect(JSON.stringify(overview.storeOverview)).not.toMatch(/rank|ranking|top|detail|export/i);
+  });
+
+  it("builds store overview with sortable store operating summaries", async () => {
+    const { buildBrandFootprint, buildBrandStoreOverview } = await import(
+      "@/server/queries/brand-overview"
+    );
+    const footprint = buildBrandFootprint([
+      {
+        id: "store-1",
+        name: "暖暖蒸足",
+        slug: "zhubei",
+        operatingStatus: "ACTIVE",
+        shopConfig: { address: "302新竹縣竹北市中崙里科大一路80號" },
+      },
+      {
+        id: "store-2",
+        name: "御嵐軒",
+        slug: "royal-zhubei",
+        operatingStatus: "ACTIVE",
+        shopConfig: { address: "新竹縣竹北市文興路1號" },
+      },
+      {
+        id: "store-3",
+        name: "台中蒸足",
+        slug: "taichung",
+        operatingStatus: "ACTIVE",
+        shopConfig: { address: "台中市西屯區台灣大道三段1號" },
+      },
+    ]);
+    const visitorByStoreId = new Map([
+      ["store-1", 10],
+      ["store-2", 15],
+      ["store-3", 8],
+    ]);
+    const revenueByStoreId = new Map([
+      ["store-1", 12000],
+      ["store-2", 18000],
+      ["store-3", 9000],
+    ]);
+
+    const byRevenue = buildBrandStoreOverview({
+      footprint,
+      visitorByStoreId,
+      revenueByStoreId,
+      sort: "revenue",
+    });
+    const byName = buildBrandStoreOverview({
+      footprint,
+      visitorByStoreId,
+      revenueByStoreId,
+      sort: "name",
+    });
+
+    expect(byRevenue.stores).toMatchObject([
+      { id: "store-2", name: "御嵐軒", county: "新竹縣", totalVisitors: 15, totalRevenue: 18000 },
+      { id: "store-1", name: "暖暖蒸足", county: "新竹縣", totalVisitors: 10, totalRevenue: 12000 },
+      { id: "store-3", name: "台中蒸足", county: "台中市", totalVisitors: 8, totalRevenue: 9000 },
+    ]);
+    expect(byName.stores.map((store) => store.name)).toEqual(["台中蒸足", "御嵐軒", "暖暖蒸足"]);
+    expect(JSON.stringify(byRevenue)).not.toMatch(/rank|ranking|top|storeDetail|export/i);
   });
 
   it("builds regional overview as administrative area summary without ranking language", async () => {

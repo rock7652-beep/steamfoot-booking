@@ -6,14 +6,20 @@ import {
   BRAND_OVERVIEW_PERIODS,
   getBrandOverviewFoundation,
   resolveBrandOverviewPeriod,
+  resolveBrandStoreOverviewSort,
   type BrandOverviewPeriod,
   type BrandFootprint,
   type BrandFootprintRegion,
   type BrandRegionalOverviewRegion,
+  type BrandStoreOverview,
+  type BrandStoreOverviewSort,
 } from "@/server/queries/brand-overview";
 
 interface PageProps {
-  searchParams: Promise<{ period?: string | string[] | undefined }>;
+  searchParams: Promise<{
+    period?: string | string[] | undefined;
+    storeSort?: string | string[] | undefined;
+  }>;
 }
 
 const KPI_ITEMS = [
@@ -30,7 +36,12 @@ const TONE_CLASS: Record<(typeof KPI_ITEMS)[number]["tone"], string> = {
   earth: "bg-earth-50 text-earth-800 border-earth-100",
 };
 
-const STORE_PLACEHOLDERS = ["店名", "地區", "狀態", "備註"];
+const STORE_SORT_OPTIONS = [
+  { value: "county", label: "依地區" },
+  { value: "visitors", label: "依來客數" },
+  { value: "revenue", label: "依營業額" },
+  { value: "name", label: "依店名" },
+] as const satisfies { value: BrandStoreOverviewSort; label: string }[];
 
 export default async function BrandOverviewPage({ searchParams }: PageProps) {
   const user = await getCurrentUser();
@@ -40,7 +51,8 @@ export default async function BrandOverviewPage({ searchParams }: PageProps) {
 
   const params = await searchParams;
   const period = resolveBrandOverviewPeriod(params.period);
-  const overview = await getBrandOverviewFoundation(period);
+  const storeSort = resolveBrandStoreOverviewSort(params.storeSort);
+  const overview = await getBrandOverviewFoundation(period, storeSort);
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
@@ -102,22 +114,86 @@ export default async function BrandOverviewPage({ searchParams }: PageProps) {
 
         <section aria-labelledby="store-overview-heading" className="rounded-xl border border-earth-200 bg-white p-5">
           <div className="mb-4 flex items-center justify-between">
-            <h2 id="store-overview-heading" className="text-base font-bold text-earth-900">
-              店舖概況
-            </h2>
-            <span className="rounded-full bg-earth-100 px-2 py-1 text-xs text-earth-500">Foundation</span>
-          </div>
-          <div className="overflow-hidden rounded-lg border border-earth-100">
-            <div className="grid grid-cols-4 bg-earth-50 px-3 py-2 text-xs font-medium text-earth-500">
-              {STORE_PLACEHOLDERS.map((label) => (
-                <span key={label}>{label}</span>
-              ))}
+            <div>
+              <h2 id="store-overview-heading" className="text-base font-bold text-earth-900">
+                店舖概況
+              </h2>
+              <p className="mt-1 text-xs text-earth-500">期間：{overview.periodLabel}</p>
             </div>
-            <div className="px-3 py-10 text-center text-sm text-earth-500">
-              店舖總覽資料將在 Store Overview PR 接入。
-            </div>
+            <StoreSortControls activeSort={overview.storeOverview.sort} period={overview.period} />
           </div>
+          <StoreOverview overview={overview.storeOverview} />
         </section>
+      </div>
+    </div>
+  );
+}
+
+function StoreSortControls({
+  activeSort,
+  period,
+}: {
+  activeSort: BrandStoreOverviewSort;
+  period: BrandOverviewPeriod;
+}) {
+  return (
+    <div className="flex flex-wrap justify-end gap-1" aria-label="店舖概況排序">
+      {STORE_SORT_OPTIONS.map((option) => {
+        const active = option.value === activeSort;
+        return (
+          <Link
+            key={option.value}
+            href={`/hq/dashboard/brand-overview?period=${period}&storeSort=${option.value}`}
+            className={`rounded-full border px-2 py-1 text-xs font-medium transition-colors ${
+              active
+                ? "border-primary-200 bg-primary-50 text-primary-700"
+                : "border-earth-200 bg-white text-earth-500 hover:bg-earth-50"
+            }`}
+          >
+            {option.label}
+          </Link>
+        );
+      })}
+    </div>
+  );
+}
+
+function StoreOverview({ overview }: { overview: BrandStoreOverview }) {
+  if (overview.stores.length === 0) {
+    return (
+      <div className="rounded-xl border border-dashed border-earth-200 bg-earth-50 px-4 py-10 text-center text-sm text-earth-500">
+        目前還沒有可顯示的店舖概況資料。
+      </div>
+    );
+  }
+
+  return (
+    <div className="overflow-hidden rounded-lg border border-earth-100">
+      <div className="grid grid-cols-[1.2fr_0.85fr_0.9fr_1fr] bg-earth-50 px-3 py-2 text-xs font-medium text-earth-500">
+        <span>店名</span>
+        <span>地區</span>
+        <span className="text-right">來客數</span>
+        <span className="text-right">營業額</span>
+      </div>
+      <div className="divide-y divide-earth-100">
+        {overview.stores.map((store) => (
+          <div
+            key={store.id}
+            className="grid grid-cols-[1.2fr_0.85fr_0.9fr_1fr] items-center gap-2 px-3 py-3 text-sm"
+          >
+            <span className="min-w-0 font-semibold text-earth-900">{store.name}</span>
+            <span className="min-w-0 text-earth-600">
+              {store.county}
+              {store.locationLabel ? (
+                <span className="ml-1 text-xs text-earth-400">（{store.locationLabel}）</span>
+              ) : null}
+            </span>
+            <span className="text-right text-earth-600">{store.totalVisitors.toLocaleString("zh-TW")} 人次</span>
+            <span className="text-right font-medium text-earth-800">
+              {store.totalRevenue.toLocaleString("zh-TW")} 元
+            </span>
+          </div>
+        ))}
       </div>
     </div>
   );
