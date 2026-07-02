@@ -328,13 +328,52 @@ describe("brand overview foundation", () => {
     expect(JSON.stringify(overview)).not.toMatch(/rank|ranking|top|storeDetail|export/i);
   });
 
-  it("resolves Taiwan counties from address and common store labels", async () => {
-    const { resolveTaiwanCounty } = await import("@/server/queries/brand-overview");
+  it("resolves and normalizes Taiwan administrative regions from addresses", async () => {
+    const { resolveTaiwanRegion, UNCLASSIFIED_TAIWAN_REGION } = await import(
+      "@/lib/taiwan-region"
+    );
 
-    expect(resolveTaiwanCounty("302新竹縣竹北市中崙里科大一路80號")).toBe("新竹縣");
-    expect(resolveTaiwanCounty("台中測試店")).toBe("台中市");
-    expect(resolveTaiwanCounty("暖暖蒸足 zhubei")).toBe("新竹縣");
-    expect(resolveTaiwanCounty("海外測試店")).toBeNull();
+    expect(resolveTaiwanRegion("302新竹縣竹北市中崙里科大一路80號")).toBe("新竹縣");
+    expect(resolveTaiwanRegion("新竹市東區中央路1號")).toBe("新竹市");
+    expect(resolveTaiwanRegion("蒸足新竹店")).toBe("新竹市");
+    expect(resolveTaiwanRegion("台中市西屯區台灣大道三段1號")).toBe("台中市");
+    expect(resolveTaiwanRegion("臺中市西屯區台灣大道三段1號")).toBe("台中市");
+    expect(resolveTaiwanRegion("海外測試店")).toBe(UNCLASSIFIED_TAIWAN_REGION);
+  });
+
+  it("keeps production Brand Footprint stores out of unclassified when region hints are known", async () => {
+    const { buildBrandFootprint } = await import("@/server/queries/brand-overview");
+
+    const footprint = buildBrandFootprint([
+      {
+        id: "store-1",
+        name: "暖暖蒸足",
+        slug: "zhubei",
+        operatingStatus: "ACTIVE",
+        shopConfig: { address: "302新竹縣竹北市中崙里科大一路80號" },
+      },
+      {
+        id: "store-2",
+        name: "以斯帖蒸足坊",
+        slug: "esther",
+        operatingStatus: "TRIAL",
+        shopConfig: null,
+      },
+      {
+        id: "store-3",
+        name: "暖沐蒸足",
+        slug: "nuanmu",
+        operatingStatus: "TRIAL",
+        shopConfig: null,
+      },
+    ]);
+
+    expect(footprint.regions).toMatchObject([
+      { county: "新竹縣", storeCount: 1 },
+      { county: "新竹市", storeCount: 1 },
+      { county: "台中市", storeCount: 1 },
+    ]);
+    expect(footprint.regions.map((region) => region.county)).not.toContain("未分類");
   });
 
   it("builds brand footprint as region to store without analytics aggregates", async () => {
