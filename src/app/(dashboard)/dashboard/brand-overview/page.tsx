@@ -69,9 +69,9 @@ export default async function BrandOverviewPage({ searchParams }: PageProps) {
         </div>
       </header>
 
-      <PeriodSelector activePeriod={overview.period} />
-
       <BrandFootprintHero footprint={overview.footprint} periodLabel={overview.periodLabel} />
+
+      <PeriodSelector activePeriod={overview.period} />
 
       <section aria-labelledby="brand-scale-heading">
         <div className="mb-3 flex items-center justify-between">
@@ -280,104 +280,85 @@ function BrandFootprintHero({
   footprint: BrandFootprint;
   periodLabel: string;
 }) {
-  const highlightedRegions = footprint.regions.slice(0, 4);
+  const featuredRegions = footprint.regions.slice(0, 3);
   const regionCount = footprint.regions.length;
 
   return (
-    <section className="overflow-hidden rounded-2xl border border-earth-200 bg-white" aria-labelledby="brand-footprint-heading">
-      <div className="border-b border-earth-200 bg-earth-950 px-5 py-8 text-white sm:px-8 lg:px-10 lg:py-10">
-        <div className="grid gap-8 lg:grid-cols-[1fr_auto] lg:items-end">
+    <section
+      className="overflow-hidden rounded-2xl border border-earth-200 bg-earth-900 text-white shadow-sm"
+      aria-labelledby="brand-footprint-heading"
+    >
+      <div className="grid gap-0 lg:grid-cols-[1.05fr_0.95fr]">
+        <div className="flex min-h-[430px] flex-col justify-between px-6 py-8 sm:px-8 lg:px-10 lg:py-12">
           <div className="max-w-3xl">
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary-100">
-              品牌版圖
-            </p>
-            <h2 id="brand-footprint-heading" className="mt-4 text-4xl font-bold leading-tight sm:text-5xl">
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary-100">品牌版圖</p>
+            <h2 id="brand-footprint-heading" className="mt-5 max-w-2xl text-4xl font-bold leading-tight sm:text-5xl">
               從竹北出發，向更多城市展開。
             </h2>
-            <p className="mt-4 max-w-xl text-base leading-7 text-earth-100">
+            <p className="mt-5 max-w-xl text-base leading-7 text-earth-100">
               品牌版圖讓加盟主一眼看見蒸足目前已經發展到哪些地區。
             </p>
           </div>
-          <div className="grid min-w-[12rem] grid-cols-2 gap-3">
-            <div className="rounded-xl border border-white/15 bg-white/10 px-4 py-3">
-              <p className="text-xs text-earth-200">台灣</p>
-              <p className="mt-2 text-2xl font-bold text-white">{footprint.taiwanStoreCount} 家店</p>
+
+          <div className="mt-10 grid max-w-xl grid-cols-2 gap-3">
+            <div className="border-l border-primary-300/70 pl-4">
+              <p className="text-sm text-earth-200">台灣</p>
+              <p className="mt-2 text-3xl font-bold">{footprint.taiwanStoreCount} 家店</p>
             </div>
-            <div className="rounded-xl border border-white/15 bg-white/10 px-4 py-3">
-              <p className="text-xs text-earth-200">行政區</p>
-              <p className="mt-2 text-2xl font-bold text-white">{regionCount} 個</p>
+            <div className="border-l border-primary-300/70 pl-4">
+              <p className="text-sm text-earth-200">行政區</p>
+              <p className="mt-2 text-3xl font-bold">{regionCount} 個</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white px-5 py-6 text-earth-900 sm:px-7 lg:px-8 lg:py-8">
+          <div className="flex h-full min-h-[430px] flex-col justify-center">
+            <div className="flex items-center justify-between gap-4">
+              <p className="text-sm font-semibold text-earth-900">目前已展開的行政區</p>
+              <span className="rounded-full bg-primary-50 px-3 py-1 text-xs font-semibold text-primary-700">
+                Taiwan
+              </span>
+            </div>
+
+            <div className="mt-6 grid gap-4">
+              {(featuredRegions.length > 0 ? featuredRegions : [{ county: "準備中", storeCount: 0, stores: [] }]).map(
+                (region, index) => (
+                  <BrandRegionCard key={region.county} region={region} index={index} />
+                ),
+              )}
             </div>
           </div>
         </div>
       </div>
 
-      <div className="grid gap-0 lg:grid-cols-[1.25fr_0.75fr]">
-        <div className="relative min-h-[420px] bg-[#f6f2ea] p-6 sm:p-8">
-          <div className="absolute inset-x-0 top-0 h-1 bg-primary-700" />
-          <div className="relative grid h-full min-h-[360px] gap-5 lg:grid-cols-[0.9fr_1.1fr]">
-            <div className="flex flex-col justify-between rounded-xl border border-white/80 bg-white/75 p-5 shadow-sm">
+      <div className="border-t border-white/10 bg-white p-5 text-earth-900 sm:p-6">
+        <div className="grid gap-5 lg:grid-cols-[1fr_0.72fr]">
+          <div>
+            <div className="flex items-center justify-between gap-3">
               <div>
-                <div className="inline-flex rounded-full bg-primary-700 px-3 py-1 text-xs font-semibold text-white">
-                  Taiwan
-                </div>
-                <p className="mt-5 text-sm leading-6 text-earth-700">
-                  目前已展開的行政區
-                </p>
+                <p className="text-sm font-semibold text-earth-900">行政區品牌版圖</p>
+                <p className="mt-1 text-xs text-earth-500">期間：{periodLabel}</p>
               </div>
-              <div className="mt-6 grid gap-2">
-                {(highlightedRegions.length > 0 ? highlightedRegions : [{ county: "準備中", storeCount: 0, stores: [] }]).map(
-                  (region) => (
-                    <RegionBand key={region.county} region={region} />
-                  ),
-                )}
-              </div>
+              <span className="rounded-full bg-primary-50 px-2.5 py-1 text-xs font-semibold text-primary-700">
+                展開看店舖
+              </span>
             </div>
 
-            <div className="rounded-[2rem] border border-earth-200 bg-white/75 p-4 shadow-sm">
-              <div className="grid h-full grid-rows-[auto_1fr_auto] gap-3">
-                <div className="grid grid-cols-3 gap-2 text-center text-xs font-semibold text-earth-500">
-                  <span className="rounded-lg bg-earth-100 px-2 py-2">北部</span>
-                  <span className="rounded-lg bg-earth-100 px-2 py-2">中部</span>
-                  <span className="rounded-lg bg-earth-100 px-2 py-2">南部</span>
+            <div className="mt-4 space-y-3">
+              {footprint.regions.length > 0 ? (
+                footprint.regions.map((region) => (
+                  <FootprintRegionAccordion key={region.county} region={region} />
+                ))
+              ) : (
+                <div className="rounded-xl border border-dashed border-earth-200 bg-earth-50 px-4 py-6 text-center text-sm text-earth-500">
+                  目前還沒有可顯示的品牌版圖資料。
                 </div>
-                <div className="grid grid-cols-[0.8fr_1fr_0.85fr] gap-2">
-                  <MapColumn label="北" regions={footprint.regions.filter((region) => ["台北市", "新北市", "基隆市", "桃園市", "新竹縣", "新竹市", "苗栗縣"].includes(region.county))} />
-                  <MapColumn label="中" regions={footprint.regions.filter((region) => ["台中市", "彰化縣", "南投縣", "雲林縣", "嘉義縣", "嘉義市"].includes(region.county))} emphasized />
-                  <MapColumn label="南" regions={footprint.regions.filter((region) => ["台南市", "高雄市", "屏東縣"].includes(region.county))} />
-                </div>
-                <div className="grid grid-cols-2 gap-2 text-center text-xs font-semibold text-earth-500">
-                  <span className="rounded-lg bg-earth-100 px-2 py-2">東部</span>
-                  <span className="rounded-lg bg-earth-100 px-2 py-2">離島</span>
-                </div>
-              </div>
+              )}
             </div>
           </div>
-        </div>
 
-        <div className="border-t border-earth-200 p-5 lg:border-l lg:border-t-0">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-sm font-semibold text-earth-900">行政區品牌版圖</p>
-              <p className="mt-1 text-xs text-earth-500">期間：{periodLabel}</p>
-            </div>
-            <span className="rounded-full bg-primary-50 px-2.5 py-1 text-xs font-semibold text-primary-700">
-              展開看店舖
-            </span>
-          </div>
-
-          <div className="mt-4 space-y-3">
-            {footprint.regions.length > 0 ? (
-              footprint.regions.map((region) => (
-                <FootprintRegionAccordion key={region.county} region={region} />
-              ))
-            ) : (
-              <div className="rounded-xl border border-dashed border-earth-200 bg-earth-50 px-4 py-6 text-center text-sm text-earth-500">
-                目前還沒有可顯示的品牌版圖資料。
-              </div>
-            )}
-          </div>
-
-          <div className="mt-5 rounded-xl border border-earth-200 bg-earth-50 p-4">
+          <div className="rounded-xl border border-earth-200 bg-earth-50 p-4">
             <p className="text-xs font-semibold uppercase text-earth-500">Overseas</p>
             <div className="mt-3 grid gap-2">
               {footprint.overseas.map((item) => (
@@ -394,50 +375,36 @@ function BrandFootprintHero({
   );
 }
 
-function RegionBand({ region }: { region: Pick<BrandFootprintRegion, "county" | "storeCount"> }) {
-  return (
-    <div className="grid grid-cols-[4.5rem_1fr_auto] items-center gap-3 rounded-lg border border-earth-100 bg-white px-3 py-2">
-      <span className="text-sm font-semibold text-earth-900">{region.county}</span>
-      <span className="flex gap-1" aria-hidden="true">
-        {Array.from({ length: Math.max(region.storeCount, 1) }).map((_, index) => (
-          <span key={index} className="h-2 w-2 rounded-full bg-primary-600" />
-        ))}
-      </span>
-      <span className="text-sm font-bold text-primary-700">{region.storeCount} 家</span>
-    </div>
-  );
-}
-
-function MapColumn({
-  label,
-  regions,
-  emphasized = false,
+function BrandRegionCard({
+  region,
+  index,
 }: {
-  label: string;
-  regions: BrandFootprintRegion[];
-  emphasized?: boolean;
+  region: Pick<BrandFootprintRegion, "county" | "storeCount">;
+  index: number;
 }) {
+  const tones = [
+    "bg-primary-700 text-white",
+    "bg-earth-900 text-white",
+    "bg-[#d8b06a] text-earth-950",
+  ];
+
   return (
-    <div
-      className={`flex flex-col justify-center gap-2 rounded-[1.5rem] border px-3 py-4 ${
-        emphasized
-          ? "border-primary-200 bg-primary-50/80"
-          : "border-earth-200 bg-white/80"
-      }`}
-    >
-      <p className="text-center text-xs font-semibold text-earth-500">{label}</p>
-      {regions.length > 0 ? (
-        regions.map((region) => (
-          <div key={region.county} className="rounded-lg bg-white px-2 py-2 text-center shadow-sm">
-            <p className="text-xs font-semibold text-earth-800">{region.county}</p>
-            <p className="mt-1 text-[11px] text-primary-700">{region.storeCount} 家</p>
-          </div>
-        ))
-      ) : (
-        <div className="rounded-lg border border-dashed border-earth-200 px-2 py-6 text-center text-[11px] text-earth-400">
-          尚未展店
+    <div className={`rounded-lg p-5 shadow-sm ${tones[index % tones.length]}`}>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-sm opacity-75">已展開</p>
+          <p className="mt-3 text-4xl font-bold leading-none">{region.county}</p>
         </div>
-      )}
+        <p className="text-right text-sm font-semibold opacity-80">{String(index + 1).padStart(2, "0")}</p>
+      </div>
+      <div className="mt-8 flex items-end justify-between gap-4">
+        <div className="flex gap-1.5" aria-hidden="true">
+          {Array.from({ length: Math.max(region.storeCount, 1) }).map((_, dotIndex) => (
+            <span key={dotIndex} className="h-2.5 w-2.5 rounded-full bg-current opacity-70" />
+          ))}
+        </div>
+        <p className="text-lg font-bold">{region.storeCount} 家店</p>
+      </div>
     </div>
   );
 }
