@@ -43,6 +43,13 @@ const STORE_SORT_OPTIONS = [
   { value: "name", label: "依店名" },
 ] as const satisfies { value: BrandStoreOverviewSort; label: string }[];
 
+const TAIWAN_REGION_DOTS: Record<string, { x: number; y: number }> = {
+  新竹縣: { x: 76, y: 96 },
+  新竹市: { x: 69, y: 111 },
+  台中市: { x: 90, y: 164 },
+  臺中市: { x: 90, y: 164 },
+};
+
 export default async function BrandOverviewPage({ searchParams }: PageProps) {
   const user = await getCurrentUser();
   if (!user) redirect("/hq/login");
@@ -317,30 +324,7 @@ function BrandFootprintHero({
         </div>
 
         <div className="rounded-2xl border border-[#eadfce] bg-white/70 p-3 sm:rounded-3xl sm:p-5">
-          <div className="grid grid-cols-[0.88fr_1.12fr] items-center gap-2 sm:gap-3 lg:gap-4">
-            <div className="relative min-h-[132px] overflow-hidden rounded-2xl border border-[#dfd3bf] bg-[#e8efe3] p-3 sm:min-h-[220px] sm:p-5">
-              <div className="absolute left-6 top-6 h-28 w-16 rotate-[13deg] rounded-[55%_45%_50%_50%] bg-[#9baa87]/35 sm:left-8 sm:top-8 sm:h-44 sm:w-24" />
-              <div className="absolute left-10 top-12 h-20 w-12 rotate-[18deg] rounded-[50%] bg-[#758862]/30 sm:left-20 sm:top-16 sm:h-28 sm:w-16" />
-              <div className="absolute bottom-6 right-5 h-12 w-8 rotate-[24deg] rounded-[50%] bg-[#b8c8a7]/45 sm:bottom-8 sm:right-10 sm:h-20 sm:w-12" />
-              <div className="relative">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-earth-500 sm:text-xs sm:tracking-[0.18em]">
-                  Taiwan Footprint
-                </p>
-                <p className="mt-2 text-xs font-bold text-earth-950 sm:text-lg">品牌目前已展開的區域</p>
-              </div>
-              <div className="absolute bottom-4 left-4 rounded-full bg-white/80 px-2.5 py-1 text-xs font-semibold text-primary-700 sm:bottom-5 sm:left-5 sm:px-3">
-                Taiwan
-              </div>
-            </div>
-
-            <div className="grid gap-2">
-              {(featuredRegions.length > 0 ? featuredRegions : [{ county: "準備中", storeCount: 0, stores: [] }]).map(
-                (region, index) => (
-                  <BrandRegionCallout key={region.county} index={index} region={region} />
-                ),
-              )}
-            </div>
-          </div>
+          <TaiwanFootprintVisual regions={featuredRegions} />
 
           <div className="mt-2 flex flex-wrap gap-1.5 border-t border-[#eadfce] pt-2 sm:mt-3 sm:gap-2 sm:pt-3">
             {footprint.overseas.map((item) => (
@@ -353,6 +337,66 @@ function BrandFootprintHero({
         </div>
       </div>
     </section>
+  );
+}
+
+function TaiwanFootprintVisual({ regions }: { regions: Pick<BrandFootprintRegion, "county" | "storeCount">[] }) {
+  const displayRegions = regions.length > 0 ? regions : [{ county: "準備中", storeCount: 0 }];
+
+  return (
+    <div className="grid grid-cols-[0.95fr_1.05fr] items-center gap-3 sm:gap-4">
+      <div className="relative min-h-[176px] overflow-hidden rounded-2xl border border-[#dfd3bf] bg-[#edf3e7] px-3 py-3 sm:min-h-[280px] sm:px-5 sm:py-5">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_28%_20%,rgba(255,255,255,0.9),transparent_34%),radial-gradient(circle_at_78%_76%,rgba(216,176,106,0.16),transparent_30%)]" />
+        <div className="relative flex h-full min-h-[150px] items-center justify-center sm:min-h-[240px]">
+          <svg
+            viewBox="0 0 180 320"
+            role="img"
+            aria-label="台灣品牌版圖"
+            className="h-[150px] w-[90px] drop-shadow-sm sm:h-[238px] sm:w-[136px]"
+          >
+            <path
+              d="M101 11C88 19 83 36 78 51C71 70 57 84 50 102C43 120 45 141 52 158C59 176 56 194 49 211C42 229 37 248 45 266C52 284 69 303 89 309C106 313 119 301 126 285C134 267 134 245 129 226C124 207 130 189 139 173C151 151 155 127 149 103C143 78 128 55 119 32C115 22 111 14 101 11Z"
+              fill="#8a9f79"
+              stroke="#5f724f"
+              strokeWidth="5"
+              strokeLinejoin="round"
+            />
+            <path
+              d="M94 28C84 42 78 59 70 75C61 94 55 113 58 134C61 155 66 174 61 194C57 212 47 231 53 250C59 269 73 287 91 293"
+              fill="none"
+              stroke="#f8f2e8"
+              strokeLinecap="round"
+              strokeWidth="5"
+              opacity="0.64"
+            />
+            {displayRegions.map((region, index) => {
+              const dot = TAIWAN_REGION_DOTS[region.county] ?? { x: 82 + index * 9, y: 88 + index * 40 };
+              return (
+                <g key={region.county}>
+                  <circle cx={dot.x} cy={dot.y} r="9" fill="#f8f2e8" opacity="0.9" />
+                  <circle cx={dot.x} cy={dot.y} r="5" fill="#2f5f46" />
+                </g>
+              );
+            })}
+          </svg>
+        </div>
+        <div className="absolute left-3 top-3 rounded-full bg-white/85 px-2.5 py-1 text-[11px] font-semibold text-primary-700 sm:left-5 sm:top-5">
+          台灣
+        </div>
+      </div>
+
+      <div>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-earth-500">Taiwan</p>
+        <h3 className="mt-1 text-sm font-bold text-earth-950 sm:text-lg">台灣品牌版圖</h3>
+        <p className="mt-1 text-xs leading-5 text-earth-500 sm:text-sm">已展開行政區</p>
+
+        <div className="mt-3 grid gap-2">
+          {displayRegions.map((region, index) => (
+            <BrandRegionCallout key={region.county} index={index} region={region} />
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
 
