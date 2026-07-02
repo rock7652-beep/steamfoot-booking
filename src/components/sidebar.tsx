@@ -177,6 +177,16 @@ export const NAV_GROUPS: NavGroup[] = [
         ),
       },
       {
+        href: "/dashboard/brand-overview",
+        label: "品牌總覽",
+        ownerOnly: true,
+        icon: (
+          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 21h16.5M4.5 21V8.25l7.5-4.5 7.5 4.5V21M9 21v-6h6v6M8.25 10.5h.008v.008H8.25V10.5zm3.75 0h.008v.008H12V10.5zm3.75 0h.008v.008h-.008V10.5z" />
+          </svg>
+        ),
+      },
+      {
         href: "/dashboard/bookings",
         label: "預約管理",
         permission: "booking.read",
