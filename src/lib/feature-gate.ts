@@ -5,10 +5,96 @@
  * 不通過會 throw AppError("FORBIDDEN")，進入 error.tsx 顯示升級提示。
  */
 
-import { requireFeature, getPlanLimits } from "@/lib/feature-flags";
+import { unstable_cache } from "next/cache";
+import { prisma } from "@/lib/db";
+import { CACHE_TAGS } from "@/lib/cache-tags";
+import { AppError } from "@/lib/errors";
+import { requireFeature, getPlanLimits, hasFeature, FEATURES } from "@/lib/feature-flags";
 import { getCurrentStoreForPlan, getStoreForPlanByStoreId } from "@/lib/store-plan";
 import type { FeatureKey, PlanLimits } from "@/lib/feature-flags";
 import type { StorePlanFields } from "@/lib/store-plan";
+
+const FEATURE_KEY_SET = new Set<string>(Object.values(FEATURES));
+
+export function isFeatureKey(value: string): value is FeatureKey {
+  return FEATURE_KEY_SET.has(value);
+}
+
+type StoreFeatureEntitlementFields = {
+  status: "ENABLED" | "DISABLED";
+  startsAt: Date | null;
+  expiresAt: Date | null;
+};
+
+const getCachedStoreFeatureEntitlement = unstable_cache(
+  async (
+    storeId: string,
+    feature: FeatureKey,
+  ): Promise<StoreFeatureEntitlementFields | null> => {
+    return prisma.storeFeatureEntitlement.findUnique({
+      where: {
+        uq_store_feature_entitlement: {
+          storeId,
+          featureKey: feature,
+        },
+      },
+      select: {
+        status: true,
+        startsAt: true,
+        expiresAt: true,
+      },
+    });
+  },
+  ["store-feature-entitlement"],
+  { revalidate: 60, tags: [CACHE_TAGS.storeFeatureEntitlements] },
+);
+
+export async function getActiveStoreFeatureEntitlement(
+  storeId: string,
+  feature: FeatureKey,
+  now: Date = new Date(),
+): Promise<StoreFeatureEntitlementFields | null> {
+  if (!isFeatureKey(feature)) return null;
+
+  const entitlement = await getCachedStoreFeatureEntitlement(storeId, feature);
+  if (!entitlement) return null;
+
+  if (entitlement.startsAt && entitlement.startsAt > now) return null;
+  if (entitlement.expiresAt && entitlement.expiresAt < now) return null;
+
+  return entitlement;
+}
+
+export async function hasStoreFeature(
+  storeId: string,
+  feature: FeatureKey,
+): Promise<boolean> {
+  if (!isFeatureKey(feature)) return false;
+
+  const store = await getStoreForPlanByStoreId(storeId);
+  const baseAllowed = hasFeature(store.plan, feature);
+  const entitlement = await getActiveStoreFeatureEntitlement(storeId, feature);
+
+  if (!entitlement) return baseAllowed;
+  if (entitlement.status === "DISABLED") return false;
+  if (entitlement.status === "ENABLED") return true;
+
+  return baseAllowed;
+}
+
+export async function requireStoreFeature(
+  storeId: string,
+  feature: FeatureKey,
+): Promise<void> {
+  const allowed = await hasStoreFeature(storeId, feature);
+
+  if (!allowed) {
+    throw new AppError(
+      "FORBIDDEN",
+      "此功能尚未開通，請聯絡總部加購或升級方案",
+    );
+  }
+}
 
 /** 檢查當前 store 是否有某功能，不通過則 throw */
 export async function checkCurrentStoreFeature(feature: FeatureKey): Promise<StorePlanFields> {
