@@ -17,7 +17,6 @@ interface PageProps {
 
 const KPI_ITEMS = [
   { key: "stores", label: "店數", unit: "間", tone: "primary" },
-  { key: "activeStores", label: "活躍店數", unit: "間", tone: "green" },
   { key: "visitors", label: "總來客數", unit: "人次", tone: "blue" },
   { key: "revenue", label: "總營業額", unit: "元", tone: "amber" },
   { key: "avgRevenue", label: "平均每店月營業額", unit: "元", tone: "earth" },
@@ -25,7 +24,6 @@ const KPI_ITEMS = [
 
 const TONE_CLASS: Record<(typeof KPI_ITEMS)[number]["tone"], string> = {
   primary: "bg-primary-50 text-primary-700 border-primary-100",
-  green: "bg-green-50 text-green-700 border-green-100",
   blue: "bg-blue-50 text-blue-700 border-blue-100",
   amber: "bg-amber-50 text-amber-700 border-amber-100",
   earth: "bg-earth-50 text-earth-800 border-earth-100",
@@ -70,14 +68,9 @@ export default async function BrandOverviewPage({ searchParams }: PageProps) {
           </h2>
           <p className="text-xs text-earth-500">期間：{overview.periodLabel}</p>
         </div>
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {KPI_ITEMS.map((item) => {
-            const value =
-              item.key === "stores"
-                ? overview.storeCount
-                : item.key === "activeStores"
-                  ? overview.activeStoreCount
-                  : "—";
+            const value = formatBrandScaleValue(item.key, overview.scale);
             return (
               <div key={item.key} className={`rounded-xl border p-4 ${TONE_CLASS[item.tone]}`}>
                 <p className="text-xs opacity-75">{item.label}</p>
@@ -131,6 +124,21 @@ export default async function BrandOverviewPage({ searchParams }: PageProps) {
       </div>
     </div>
   );
+}
+
+function formatBrandScaleValue(
+  key: (typeof KPI_ITEMS)[number]["key"],
+  scale: {
+    storeCount: number;
+    totalVisitors: number;
+    totalRevenue: number;
+    averageMonthlyRevenuePerStore: number;
+  },
+) {
+  if (key === "stores") return scale.storeCount.toLocaleString("zh-TW");
+  if (key === "visitors") return scale.totalVisitors.toLocaleString("zh-TW");
+  if (key === "revenue") return scale.totalRevenue.toLocaleString("zh-TW");
+  return scale.averageMonthlyRevenuePerStore.toLocaleString("zh-TW");
 }
 
 function PeriodSelector({ activePeriod }: { activePeriod: BrandOverviewPeriod }) {

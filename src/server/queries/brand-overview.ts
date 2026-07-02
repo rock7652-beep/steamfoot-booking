@@ -1,5 +1,13 @@
 import { prisma } from "@/lib/db";
-import { formatTWDateTime } from "@/lib/date-utils";
+import {
+  dayRange,
+  formatTWDateTime,
+  monthRange,
+  parseTaiwanDateToDbDate,
+  toLocalDateStr,
+  toLocalMonthStr,
+} from "@/lib/date-utils";
+import { REVENUE_NET_TYPES, REVENUE_VALID_STATUS } from "@/lib/booking-constants";
 
 export const BRAND_OVERVIEW_PERIODS = [
   { value: "month", label: "本月" },
@@ -14,9 +22,23 @@ export interface BrandOverviewFoundation {
   period: BrandOverviewPeriod;
   periodLabel: string;
   updatedAtLabel: string;
-  storeCount: number;
-  activeStoreCount: number;
+  scale: BrandScale;
   footprint: BrandFootprint;
+}
+
+export interface BrandScale {
+  storeCount: number;
+  totalVisitors: number;
+  totalRevenue: number;
+  averageMonthlyRevenuePerStore: number;
+}
+
+export interface BrandOverviewPeriodRange {
+  createdAtStart: Date;
+  createdAtEnd: Date;
+  bookingDateStart: Date;
+  bookingDateEnd: Date;
+  monthDivisor: number;
 }
 
 export interface BrandFootprintStore {
@@ -93,6 +115,71 @@ export function resolveBrandOverviewPeriod(value: string | string[] | undefined)
   return BRAND_OVERVIEW_PERIODS.some((period) => period.value === raw)
     ? (raw as BrandOverviewPeriod)
     : "month";
+}
+
+export function resolveBrandOverviewPeriodRange(
+  period: BrandOverviewPeriod,
+  now = new Date(),
+): BrandOverviewPeriodRange {
+  const today = toLocalDateStr(now);
+  const todayBounds = dayRange(today);
+
+  if (period === "last30") {
+    const startDate = toLocalDateStr(new Date(now.getTime() - 29 * 24 * 60 * 60 * 1000));
+    return {
+      createdAtStart: dayRange(startDate).start,
+      createdAtEnd: todayBounds.end,
+      bookingDateStart: parseTaiwanDateToDbDate(startDate),
+      bookingDateEnd: parseTaiwanDateToDbDate(today),
+      monthDivisor: 1,
+    };
+  }
+
+  if (period === "year") {
+    const year = today.slice(0, 4);
+    const startDate = `${year}-01-01`;
+    return {
+      createdAtStart: dayRange(startDate).start,
+      createdAtEnd: todayBounds.end,
+      bookingDateStart: parseTaiwanDateToDbDate(startDate),
+      bookingDateEnd: parseTaiwanDateToDbDate(today),
+      monthDivisor: Number(today.slice(5, 7)),
+    };
+  }
+
+  // TODO(RFC-002/Brand Scale): wire custom start/end inputs. Until then, the
+  // existing custom selector uses the current month to avoid an unbounded query.
+  const currentMonth = toLocalMonthStr(now);
+  const currentMonthRange = monthRange(currentMonth);
+  const [year, month] = currentMonth.split("-").map(Number);
+  return {
+    createdAtStart: currentMonthRange.start,
+    createdAtEnd: currentMonthRange.end,
+    bookingDateStart: parseTaiwanDateToDbDate(`${currentMonth}-01`),
+    bookingDateEnd: parseTaiwanDateToDbDate(
+      `${currentMonth}-${String(new Date(Date.UTC(year, month, 0)).getUTCDate()).padStart(2, "0")}`,
+    ),
+    monthDivisor: 1,
+  };
+}
+
+export function buildBrandScale(input: {
+  storeCount: number;
+  totalVisitors: number | null | undefined;
+  totalRevenue: number | null | undefined;
+  monthDivisor: number;
+}): BrandScale {
+  const safeStoreCount = Math.max(input.storeCount, 0);
+  const safeMonthDivisor = Math.max(input.monthDivisor, 1);
+  const totalRevenue = Math.round(input.totalRevenue ?? 0);
+
+  return {
+    storeCount: safeStoreCount,
+    totalVisitors: input.totalVisitors ?? 0,
+    totalRevenue,
+    averageMonthlyRevenuePerStore:
+      safeStoreCount > 0 ? Math.round(totalRevenue / safeStoreCount / safeMonthDivisor) : 0,
+  };
 }
 
 export function resolveTaiwanCounty(input: string | null | undefined): string | null {
@@ -181,9 +268,11 @@ export function buildBrandFootprint(
 export async function getBrandOverviewFoundation(
   period: BrandOverviewPeriod,
 ): Promise<BrandOverviewFoundation> {
-  const [storeCount, activeStoreCount, footprintStores] = await Promise.all([
-    prisma.store.count({ where: { isDemo: false } }),
-    prisma.store.count({ where: { isDemo: false, operatingStatus: "ACTIVE" } }),
+  const range = resolveBrandOverviewPeriodRange(period);
+  // TODO(Brand Scale 100+ stores): promote these bounded aggregates to cache or
+  // materialized view when query volume requires it. PR-3 intentionally keeps
+  // v1 as direct aggregate reads only.
+  const [footprintStores, visitorAggregate, revenueAggregate] = await Promise.all([
     prisma.store.findMany({
       where: { isDemo: false },
       select: {
@@ -195,15 +284,38 @@ export async function getBrandOverviewFoundation(
       },
       orderBy: { createdAt: "asc" },
     }),
+    prisma.booking.aggregate({
+      where: {
+        bookingStatus: "COMPLETED",
+        bookingDate: { gte: range.bookingDateStart, lte: range.bookingDateEnd },
+        store: { isDemo: false },
+      },
+      _sum: { people: true },
+    }),
+    prisma.transaction.aggregate({
+      where: {
+        transactionType: { in: REVENUE_NET_TYPES as never },
+        status: REVENUE_VALID_STATUS,
+        createdAt: { gte: range.createdAtStart, lte: range.createdAtEnd },
+        store: { isDemo: false },
+      },
+      _sum: { amount: true },
+    }),
   ]);
   const periodLabel = BRAND_OVERVIEW_PERIODS.find((item) => item.value === period)?.label ?? "本月";
+  const storeCount = footprintStores.length;
+  const scale = buildBrandScale({
+    storeCount,
+    totalVisitors: visitorAggregate._sum.people,
+    totalRevenue: Number(revenueAggregate._sum.amount ?? 0),
+    monthDivisor: range.monthDivisor,
+  });
 
   return {
     period,
     periodLabel,
     updatedAtLabel: formatTWDateTime().replaceAll("-", "/"),
-    storeCount,
-    activeStoreCount,
+    scale,
     footprint: buildBrandFootprint(footprintStores),
   };
 }
