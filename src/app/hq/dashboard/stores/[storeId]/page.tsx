@@ -50,9 +50,17 @@ export default async function StoreDetailPage({ params }: PageProps) {
             {summary.store.isDemo && <span className="ml-2 text-amber-600">(Demo)</span>}
           </p>
         </div>
-        {canShowActivate && (
-          <ActivateButton storeId={storeId} />
-        )}
+        <div className="flex items-center gap-2">
+          <Link
+            href={`/hq/dashboard/stores/${storeId}/features`}
+            className="rounded-lg border border-earth-200 px-4 py-2 text-sm font-medium text-earth-700 hover:bg-earth-50"
+          >
+            功能設定
+          </Link>
+          {canShowActivate && (
+            <ActivateButton storeId={storeId} />
+          )}
+        </div>
       </div>
 
       <div className="space-y-6">
