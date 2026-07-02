@@ -24,6 +24,7 @@ export interface BrandOverviewFoundation {
   updatedAtLabel: string;
   scale: BrandScale;
   footprint: BrandFootprint;
+  regionalOverview: BrandRegionalOverview;
 }
 
 export interface BrandScale {
@@ -61,6 +62,17 @@ export interface BrandFootprint {
     label: string;
     status: "coming-soon";
   }[];
+}
+
+export interface BrandRegionalOverviewRegion {
+  county: string;
+  storeCount: number;
+  totalVisitors: number;
+  totalRevenue: number;
+}
+
+export interface BrandRegionalOverview {
+  regions: BrandRegionalOverviewRegion[];
 }
 
 const TAIWAN_COUNTY_ORDER = [
@@ -265,14 +277,36 @@ export function buildBrandFootprint(
   };
 }
 
+export function buildBrandRegionalOverview(input: {
+  footprint: BrandFootprint;
+  visitorByStoreId: Map<string, number>;
+  revenueByStoreId: Map<string, number>;
+}): BrandRegionalOverview {
+  return {
+    regions: input.footprint.regions.map((region) => {
+      const storeIds = region.stores.map((store) => store.id);
+      return {
+        county: region.county,
+        storeCount: region.storeCount,
+        totalVisitors: storeIds.reduce(
+          (sum, storeId) => sum + (input.visitorByStoreId.get(storeId) ?? 0),
+          0,
+        ),
+        totalRevenue: Math.round(
+          storeIds.reduce((sum, storeId) => sum + (input.revenueByStoreId.get(storeId) ?? 0), 0),
+        ),
+      };
+    }),
+  };
+}
+
 export async function getBrandOverviewFoundation(
   period: BrandOverviewPeriod,
 ): Promise<BrandOverviewFoundation> {
   const range = resolveBrandOverviewPeriodRange(period);
-  // TODO(Brand Scale 100+ stores): promote these bounded aggregates to cache or
-  // materialized view when query volume requires it. PR-3 intentionally keeps
-  // v1 as direct aggregate reads only.
-  const [footprintStores, visitorAggregate, revenueAggregate] = await Promise.all([
+  // TODO(Brand Overview 100+ stores): promote these bounded groupBy aggregates
+  // to cache or materialized view when query volume requires it.
+  const [footprintStores, visitorByStoreAggregates, revenueByStoreAggregates] = await Promise.all([
     prisma.store.findMany({
       where: { isDemo: false },
       select: {
@@ -284,7 +318,8 @@ export async function getBrandOverviewFoundation(
       },
       orderBy: { createdAt: "asc" },
     }),
-    prisma.booking.aggregate({
+    prisma.booking.groupBy({
+      by: ["storeId"],
       where: {
         bookingStatus: "COMPLETED",
         bookingDate: { gte: range.bookingDateStart, lte: range.bookingDateEnd },
@@ -292,7 +327,8 @@ export async function getBrandOverviewFoundation(
       },
       _sum: { people: true },
     }),
-    prisma.transaction.aggregate({
+    prisma.transaction.groupBy({
+      by: ["storeId"],
       where: {
         transactionType: { in: REVENUE_NET_TYPES as never },
         status: REVENUE_VALID_STATUS,
@@ -304,10 +340,19 @@ export async function getBrandOverviewFoundation(
   ]);
   const periodLabel = BRAND_OVERVIEW_PERIODS.find((item) => item.value === period)?.label ?? "本月";
   const storeCount = footprintStores.length;
+  const footprint = buildBrandFootprint(footprintStores);
+  const visitorByStoreId = new Map(
+    visitorByStoreAggregates.map((item) => [item.storeId, item._sum.people ?? 0]),
+  );
+  const revenueByStoreId = new Map(
+    revenueByStoreAggregates.map((item) => [item.storeId, Number(item._sum.amount ?? 0)]),
+  );
+  const totalVisitors = Array.from(visitorByStoreId.values()).reduce((sum, value) => sum + value, 0);
+  const totalRevenue = Array.from(revenueByStoreId.values()).reduce((sum, value) => sum + value, 0);
   const scale = buildBrandScale({
     storeCount,
-    totalVisitors: visitorAggregate._sum.people,
-    totalRevenue: Number(revenueAggregate._sum.amount ?? 0),
+    totalVisitors,
+    totalRevenue,
     monthDivisor: range.monthDivisor,
   });
 
@@ -316,6 +361,11 @@ export async function getBrandOverviewFoundation(
     periodLabel,
     updatedAtLabel: formatTWDateTime().replaceAll("-", "/"),
     scale,
-    footprint: buildBrandFootprint(footprintStores),
+    footprint,
+    regionalOverview: buildBrandRegionalOverview({
+      footprint,
+      visitorByStoreId,
+      revenueByStoreId,
+    }),
   };
 }
