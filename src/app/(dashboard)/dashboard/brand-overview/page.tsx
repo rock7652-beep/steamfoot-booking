@@ -293,7 +293,7 @@ function BrandFootprintHero({
       className="overflow-hidden rounded-3xl border border-[#eadfce] bg-gradient-to-br from-white via-[#fbf7ef] to-[#f3eadc] shadow-sm"
       aria-labelledby="brand-footprint-heading"
     >
-      <div className="grid gap-5 px-5 py-5 sm:grid-cols-[0.35fr_0.65fr] sm:gap-8 sm:px-8 sm:py-7 lg:min-h-[400px] lg:items-center lg:px-10 lg:py-10 xl:px-12">
+      <div className="grid gap-5 px-5 py-5 sm:grid-cols-[0.35fr_0.65fr] sm:gap-8 sm:px-8 sm:py-7 lg:min-h-[540px] lg:items-center lg:px-10 lg:py-10 xl:min-h-[600px] xl:px-12">
         <div>
           <div className="max-w-3xl">
             <p className="text-sm font-semibold text-primary-700">品牌總覽</p>
@@ -324,29 +324,26 @@ function BrandFootprintHero({
           </div>
         </div>
 
-        <div className="rounded-2xl border border-[#eadfce] bg-white/70 p-3 sm:rounded-3xl sm:p-5">
-          <TaiwanFootprintVisual regions={featuredRegions} />
-
-          <div className="mt-2 flex flex-wrap gap-1.5 border-t border-[#eadfce] pt-2 sm:mt-3 sm:gap-2 sm:pt-3">
-            {footprint.overseas.map((item) => (
-              <div key={item.label} className="rounded-lg border border-earth-100 bg-white/80 px-2.5 py-1.5 sm:px-3 sm:py-2">
-                <p className="whitespace-nowrap text-xs font-medium text-earth-700">{item.label}</p>
-                <p className="mt-1 whitespace-nowrap text-[11px] text-earth-400">Coming Soon</p>
-              </div>
-            ))}
-          </div>
+        <div className="min-w-0">
+          <TaiwanFootprintVisual regions={featuredRegions} overseas={footprint.overseas} />
         </div>
       </div>
     </section>
   );
 }
 
-function TaiwanFootprintVisual({ regions }: { regions: Pick<BrandFootprintRegion, "county" | "storeCount">[] }) {
+function TaiwanFootprintVisual({
+  regions,
+  overseas,
+}: {
+  regions: Pick<BrandFootprintRegion, "county" | "storeCount">[];
+  overseas: BrandFootprint["overseas"];
+}) {
   const displayRegions = regions.length > 0 ? regions : [{ county: "準備中", storeCount: 0 }];
 
   return (
-    <div className="grid gap-3 sm:gap-4 lg:grid-cols-[minmax(0,1fr)_220px] lg:items-center xl:grid-cols-[minmax(0,1fr)_240px]">
-      <div className="relative min-h-[220px] overflow-hidden rounded-2xl border border-[#dfd3bf] bg-[#edf3e7] px-3 py-3 sm:min-h-[300px] sm:px-5 sm:py-5 lg:min-h-[360px]">
+    <div className="relative min-h-[300px] overflow-hidden sm:min-h-[420px] lg:min-h-[500px] xl:min-h-[560px]">
+      <div className="absolute inset-x-0 top-0 h-[86%] sm:h-[88%] lg:h-[90%]">
         <Image
           src="/brand/taiwan-brand-footprint.svg"
           alt="台灣品牌版圖"
@@ -354,26 +351,28 @@ function TaiwanFootprintVisual({ regions }: { regions: Pick<BrandFootprintRegion
           height={1080}
           priority
           unoptimized
-          className="relative z-0 h-full min-h-[194px] w-full object-contain sm:min-h-[260px] lg:min-h-[320px]"
+          className="h-full w-full object-contain drop-shadow-[0_18px_36px_rgba(74,57,36,0.16)]"
         />
         {displayRegions.map((region, index) => (
           <TaiwanRegionOverlay key={region.county} index={index} region={region} />
         ))}
-        <div className="absolute left-3 top-3 rounded-full bg-white/85 px-2.5 py-1 text-[11px] font-semibold text-primary-700 sm:left-5 sm:top-5">
-          台灣
-        </div>
       </div>
 
-      <div>
-        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-earth-500">Taiwan</p>
-        <h3 className="mt-1 text-sm font-bold text-earth-950 sm:text-lg">台灣品牌版圖</h3>
-        <p className="mt-1 text-xs leading-5 text-earth-500 sm:text-sm">已展開行政區</p>
-
-        <div className="mt-3 grid gap-2">
-          {displayRegions.map((region, index) => (
-            <BrandRegionCallout key={region.county} index={index} region={region} />
-          ))}
+      <div className="absolute bottom-0 left-0 right-0 flex flex-wrap items-end justify-between gap-2">
+        <div className="rounded-2xl border border-[#eadfce] bg-white/80 px-3 py-2 shadow-sm backdrop-blur sm:px-4 sm:py-3">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-earth-500">Taiwan</p>
+          <h3 className="mt-1 text-sm font-bold text-earth-950 sm:text-base">台灣品牌版圖</h3>
         </div>
+
+        {overseas.length > 0 ? (
+          <div className="flex flex-wrap justify-end gap-1.5 sm:gap-2">
+            {overseas.map((item) => (
+              <div key={item.label} className="rounded-full border border-earth-100 bg-white/80 px-2.5 py-1.5 shadow-sm backdrop-blur sm:px-3">
+                <p className="whitespace-nowrap text-[11px] font-medium text-earth-600">{item.label} Coming Soon</p>
+              </div>
+            ))}
+          </div>
+        ) : null}
       </div>
     </div>
   );
@@ -386,8 +385,8 @@ function TaiwanRegionOverlay({
   region: Pick<BrandFootprintRegion, "county" | "storeCount">;
   index: number;
 }) {
-  const fallbackX = 42 + index * 4;
-  const fallbackY = 40 + index * 8;
+  const fallbackX = 42 + index * 5;
+  const fallbackY = 34 + index * 10;
   const callout = TAIWAN_REGION_CALLOUTS[region.county] ?? {
     x: fallbackX,
     y: fallbackY,
@@ -397,32 +396,12 @@ function TaiwanRegionOverlay({
 
   return (
     <div
-      className={`absolute z-10 flex items-center gap-1.5 rounded-full border border-primary-100 bg-white/95 px-2.5 py-1 text-[11px] font-semibold text-earth-900 shadow-sm sm:px-3 sm:py-1.5 sm:text-xs ${translateClass}`}
+      className={`absolute z-10 flex items-center gap-1.5 rounded-full border border-primary-100 bg-white/95 px-2.5 py-1 text-[11px] font-semibold text-earth-900 shadow-md backdrop-blur sm:px-3.5 sm:py-2 sm:text-sm ${translateClass}`}
       style={{ left: `${callout.x}%`, top: `${callout.y}%` }}
     >
       <span className="h-2 w-2 rounded-full bg-primary-600 shadow-[0_0_0_3px_rgba(47,95,70,0.16)]" />
       <span className="whitespace-nowrap">{region.county}</span>
       <span className="whitespace-nowrap text-primary-700">{region.storeCount} 家</span>
-    </div>
-  );
-}
-
-function BrandRegionCallout({
-  region,
-  index,
-}: {
-  region: Pick<BrandFootprintRegion, "county" | "storeCount">;
-  index: number;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-2 rounded-xl border border-[#eadfce] bg-white px-2.5 py-2 shadow-sm sm:px-3 sm:py-2.5">
-      <span className="flex items-center gap-2 sm:gap-3">
-        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary-50 text-[11px] font-semibold text-primary-700 sm:h-7 sm:w-7 sm:text-xs">
-          {String(index + 1).padStart(2, "0")}
-        </span>
-        <span className="whitespace-nowrap text-xs font-bold text-earth-950 sm:text-sm">{region.county}</span>
-      </span>
-      <span className="whitespace-nowrap text-xs font-semibold text-primary-700">{region.storeCount} 家</span>
     </div>
   );
 }
