@@ -126,3 +126,10 @@ export function revalidateStorePlan() {
   revalidatePath("/dashboard/settings/plan");
   revalidatePath("/dashboard/upgrade-requests");
 }
+
+/** 單店功能授權異動後呼叫 */
+export function revalidateStoreFeatureEntitlements() {
+  updateTag(CACHE_TAGS.storeFeatureEntitlements);
+  revalidatePath("/dashboard");
+  revalidatePath("/hq/dashboard/stores");
+}

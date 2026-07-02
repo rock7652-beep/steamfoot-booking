@@ -21,6 +21,8 @@
 export const CACHE_TAGS = {
   /** Store.plan / 試用狀態 */
   storePlan: "store-plan",
+  /** 單店功能授權（StoreFeatureEntitlement） */
+  storeFeatureEntitlements: "store-feature-entitlements",
   /** 升級申請 */
   upgradeRequests: "upgrade-requests",
   /** ShopConfig（值班開關、銀行資訊等） */

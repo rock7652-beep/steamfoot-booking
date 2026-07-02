@@ -296,6 +296,18 @@ enum StoreOperatingStatus {
   INACTIVE
 }
 
+enum StoreFeatureEntitlementStatus {
+  ENABLED
+  DISABLED
+}
+
+enum StoreFeatureEntitlementSource {
+  ADDON
+  MANUAL
+  PROMO
+  HQ_OVERRIDE
+}
+
 enum BillingStatus {
   NOT_REQUIRED
   PENDING
@@ -479,6 +491,7 @@ model Store {
   currentSubscription StoreSubscription?  @relation("CurrentSubscription", fields: [currentSubscriptionId], references: [id])
   subscriptions       StoreSubscription[] @relation("StoreSubscriptions")
   planChanges         StorePlanChange[]
+  featureEntitlements StoreFeatureEntitlement[]
 
   staff                Staff[]
   customers            Customer[]
@@ -516,6 +529,33 @@ model Store {
   cashDrawerEntries  CashDrawerEntry[]
 
   @@index([parentStoreId])
+}
+
+// ============================================================
+// StoreFeatureEntitlement（單店功能授權 / 加購 / HQ 覆寫）
+// ============================================================
+
+model StoreFeatureEntitlement {
+  id         String                         @id @default(cuid())
+  storeId    String
+  featureKey String
+  status     StoreFeatureEntitlementStatus @default(ENABLED)
+  source     StoreFeatureEntitlementSource @default(MANUAL)
+  startsAt   DateTime?
+  expiresAt  DateTime?
+  note       String?
+  createdBy  String?
+  updatedBy  String?
+  createdAt  DateTime                       @default(now())
+  updatedAt  DateTime                       @updatedAt
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, featureKey], name: "uq_store_feature_entitlement")
+  @@index([storeId])
+  @@index([featureKey])
+  @@index([status])
+  @@index([expiresAt])
 }
 
 // ============================================================
