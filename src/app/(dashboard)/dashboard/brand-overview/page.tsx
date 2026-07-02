@@ -9,6 +9,7 @@ import {
   type BrandOverviewPeriod,
   type BrandFootprint,
   type BrandFootprintRegion,
+  type BrandRegionalOverviewRegion,
 } from "@/server/queries/brand-overview";
 
 interface PageProps {
@@ -29,7 +30,6 @@ const TONE_CLASS: Record<(typeof KPI_ITEMS)[number]["tone"], string> = {
   earth: "bg-earth-50 text-earth-800 border-earth-100",
 };
 
-const REGION_PLACEHOLDERS = ["北部", "中部", "南部", "東部"];
 const STORE_PLACEHOLDERS = ["店名", "地區", "狀態", "備註"];
 
 export default async function BrandOverviewPage({ searchParams }: PageProps) {
@@ -87,20 +87,17 @@ export default async function BrandOverviewPage({ searchParams }: PageProps) {
       <div className="grid gap-5 lg:grid-cols-2">
         <section aria-labelledby="regional-overview-heading" className="rounded-xl border border-earth-200 bg-white p-5">
           <div className="mb-4 flex items-center justify-between">
-            <h2 id="regional-overview-heading" className="text-base font-bold text-earth-900">
-              地區概況
-            </h2>
-            <span className="rounded-full bg-earth-100 px-2 py-1 text-xs text-earth-500">Empty State</span>
+            <div>
+              <h2 id="regional-overview-heading" className="text-base font-bold text-earth-900">
+                地區概況
+              </h2>
+              <p className="mt-1 text-xs text-earth-500">期間：{overview.periodLabel}</p>
+            </div>
+            <span className="rounded-full bg-primary-50 px-2 py-1 text-xs font-medium text-primary-700">
+              行政區
+            </span>
           </div>
-          <div className="space-y-3">
-            {REGION_PLACEHOLDERS.map((region) => (
-              <div key={region} className="grid grid-cols-[1fr_auto_auto] items-center gap-3 rounded-lg border border-earth-100 px-3 py-3">
-                <span className="font-medium text-earth-800">{region}</span>
-                <span className="text-sm text-earth-400">店數 —</span>
-                <span className="text-sm text-earth-400">狀態 —</span>
-              </div>
-            ))}
-          </div>
+          <RegionalOverview regions={overview.regionalOverview.regions} />
         </section>
 
         <section aria-labelledby="store-overview-heading" className="rounded-xl border border-earth-200 bg-white p-5">
@@ -121,6 +118,42 @@ export default async function BrandOverviewPage({ searchParams }: PageProps) {
             </div>
           </div>
         </section>
+      </div>
+    </div>
+  );
+}
+
+function RegionalOverview({ regions }: { regions: BrandRegionalOverviewRegion[] }) {
+  if (regions.length === 0) {
+    return (
+      <div className="rounded-xl border border-dashed border-earth-200 bg-earth-50 px-4 py-10 text-center text-sm text-earth-500">
+        目前還沒有可顯示的地區概況資料。
+      </div>
+    );
+  }
+
+  return (
+    <div className="overflow-hidden rounded-lg border border-earth-100">
+      <div className="grid grid-cols-[1.1fr_0.7fr_0.9fr_1fr] bg-earth-50 px-3 py-2 text-xs font-medium text-earth-500">
+        <span>地區</span>
+        <span className="text-right">店數</span>
+        <span className="text-right">來客數</span>
+        <span className="text-right">營業額</span>
+      </div>
+      <div className="divide-y divide-earth-100">
+        {regions.map((region) => (
+          <div
+            key={region.county}
+            className="grid grid-cols-[1.1fr_0.7fr_0.9fr_1fr] items-center gap-2 px-3 py-3 text-sm"
+          >
+            <span className="font-semibold text-earth-900">{region.county}</span>
+            <span className="text-right text-earth-600">{region.storeCount.toLocaleString("zh-TW")} 間</span>
+            <span className="text-right text-earth-600">{region.totalVisitors.toLocaleString("zh-TW")} 人次</span>
+            <span className="text-right font-medium text-earth-800">
+              {region.totalRevenue.toLocaleString("zh-TW")} 元
+            </span>
+          </div>
+        ))}
       </div>
     </div>
   );

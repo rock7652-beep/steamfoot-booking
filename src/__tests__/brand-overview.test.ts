@@ -4,6 +4,7 @@ vi.mock("@/lib/db", () => ({
   prisma: {
     booking: {
       aggregate: vi.fn(),
+      groupBy: vi.fn(),
     },
     store: {
       count: vi.fn(),
@@ -11,6 +12,7 @@ vi.mock("@/lib/db", () => ({
     },
     transaction: {
       aggregate: vi.fn(),
+      groupBy: vi.fn(),
     },
   },
 }));
@@ -86,13 +88,15 @@ describe("brand overview foundation", () => {
     expect(JSON.stringify(scale)).not.toMatch(/ranking|region|storeDetail|export/i);
   });
 
-  it("loads Brand Scale with minimal bounded aggregate queries", async () => {
+  it("loads Brand Scale and Regional Overview with minimal bounded aggregate queries", async () => {
     const { prisma } = await import("@/lib/db");
     const { getBrandOverviewFoundation } = await import("@/server/queries/brand-overview");
     const storeCount = vi.mocked(prisma.store.count);
     const storeFindMany = vi.mocked(prisma.store.findMany);
     const bookingAggregate = vi.mocked(prisma.booking.aggregate);
+    const bookingGroupBy = vi.mocked(prisma.booking.groupBy);
     const transactionAggregate = vi.mocked(prisma.transaction.aggregate);
+    const transactionGroupBy = vi.mocked(prisma.transaction.groupBy);
 
     storeFindMany.mockResolvedValue([
       {
@@ -110,8 +114,14 @@ describe("brand overview foundation", () => {
         shopConfig: { address: "台中市西屯區台灣大道三段1號" },
       },
     ] as never);
-    bookingAggregate.mockResolvedValue({ _sum: { people: 30 } } as never);
-    transactionAggregate.mockResolvedValue({ _sum: { amount: 60000 } } as never);
+    bookingGroupBy.mockResolvedValue([
+      { storeId: "store-1", _sum: { people: 12 } },
+      { storeId: "store-2", _sum: { people: 18 } },
+    ] as never);
+    transactionGroupBy.mockResolvedValue([
+      { storeId: "store-1", _sum: { amount: 20000 } },
+      { storeId: "store-2", _sum: { amount: 40000 } },
+    ] as never);
 
     const overview = await getBrandOverviewFoundation("month");
 
@@ -127,8 +137,11 @@ describe("brand overview foundation", () => {
       },
       orderBy: { createdAt: "asc" },
     });
-    expect(bookingAggregate).toHaveBeenCalledWith(
+    expect(bookingAggregate).not.toHaveBeenCalled();
+    expect(transactionAggregate).not.toHaveBeenCalled();
+    expect(bookingGroupBy).toHaveBeenCalledWith(
       expect.objectContaining({
+        by: ["storeId"],
         where: expect.objectContaining({
           bookingStatus: "COMPLETED",
           store: { isDemo: false },
@@ -136,8 +149,9 @@ describe("brand overview foundation", () => {
         _sum: { people: true },
       }),
     );
-    expect(transactionAggregate).toHaveBeenCalledWith(
+    expect(transactionGroupBy).toHaveBeenCalledWith(
       expect.objectContaining({
+        by: ["storeId"],
         where: expect.objectContaining({
           status: "SUCCESS",
           store: { isDemo: false },
@@ -151,6 +165,79 @@ describe("brand overview foundation", () => {
       totalRevenue: 60000,
       averageMonthlyRevenuePerStore: 30000,
     });
+    expect(overview.regionalOverview.regions).toMatchObject([
+      {
+        county: "新竹縣",
+        storeCount: 1,
+        totalVisitors: 12,
+        totalRevenue: 20000,
+      },
+      {
+        county: "台中市",
+        storeCount: 1,
+        totalVisitors: 18,
+        totalRevenue: 40000,
+      },
+    ]);
+  });
+
+  it("builds regional overview as administrative area summary without ranking language", async () => {
+    const { buildBrandFootprint, buildBrandRegionalOverview } = await import(
+      "@/server/queries/brand-overview"
+    );
+    const footprint = buildBrandFootprint([
+      {
+        id: "store-1",
+        name: "暖暖蒸足",
+        slug: "zhubei",
+        operatingStatus: "ACTIVE",
+        shopConfig: { address: "302新竹縣竹北市中崙里科大一路80號" },
+      },
+      {
+        id: "store-2",
+        name: "御嵐軒",
+        slug: "royal-zhubei",
+        operatingStatus: "ACTIVE",
+        shopConfig: { address: "新竹縣竹北市文興路1號" },
+      },
+      {
+        id: "store-3",
+        name: "台中蒸足",
+        slug: "taichung",
+        operatingStatus: "ACTIVE",
+        shopConfig: { address: "台中市西屯區台灣大道三段1號" },
+      },
+    ]);
+
+    const overview = buildBrandRegionalOverview({
+      footprint,
+      visitorByStoreId: new Map([
+        ["store-1", 10],
+        ["store-2", 15],
+        ["store-3", 8],
+      ]),
+      revenueByStoreId: new Map([
+        ["store-1", 12000],
+        ["store-2", 18000],
+        ["store-3", 9000],
+      ]),
+    });
+
+    expect(overview.regions).toMatchObject([
+      {
+        county: "新竹縣",
+        storeCount: 2,
+        totalVisitors: 25,
+        totalRevenue: 30000,
+      },
+      {
+        county: "台中市",
+        storeCount: 1,
+        totalVisitors: 8,
+        totalRevenue: 9000,
+      },
+    ]);
+    expect(JSON.stringify(overview)).not.toMatch(/rank|ranking|top|storeDetail|export/i);
   });
 
   it("resolves Taiwan counties from address and common store labels", async () => {
