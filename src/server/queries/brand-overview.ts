@@ -25,6 +25,7 @@ export interface BrandOverviewFoundation {
   scale: BrandScale;
   footprint: BrandFootprint;
   regionalOverview: BrandRegionalOverview;
+  storeOverview: BrandStoreOverview;
 }
 
 export interface BrandScale {
@@ -73,6 +74,22 @@ export interface BrandRegionalOverviewRegion {
 
 export interface BrandRegionalOverview {
   regions: BrandRegionalOverviewRegion[];
+}
+
+export type BrandStoreOverviewSort = "county" | "visitors" | "revenue" | "name";
+
+export interface BrandStoreOverviewStore {
+  id: string;
+  name: string;
+  county: string;
+  locationLabel: string | null;
+  totalVisitors: number;
+  totalRevenue: number;
+}
+
+export interface BrandStoreOverview {
+  sort: BrandStoreOverviewSort;
+  stores: BrandStoreOverviewStore[];
 }
 
 const TAIWAN_COUNTY_ORDER = [
@@ -300,8 +317,49 @@ export function buildBrandRegionalOverview(input: {
   };
 }
 
+export function resolveBrandStoreOverviewSort(
+  value: string | string[] | undefined,
+): BrandStoreOverviewSort {
+  const raw = Array.isArray(value) ? value[0] : value;
+  return raw === "visitors" || raw === "revenue" || raw === "name" ? raw : "county";
+}
+
+export function buildBrandStoreOverview(input: {
+  footprint: BrandFootprint;
+  visitorByStoreId: Map<string, number>;
+  revenueByStoreId: Map<string, number>;
+  sort: BrandStoreOverviewSort;
+}): BrandStoreOverview {
+  const stores = input.footprint.regions.flatMap((region) =>
+    region.stores.map((store) => ({
+      id: store.id,
+      name: store.name,
+      county: region.county,
+      locationLabel: store.locationLabel,
+      totalVisitors: input.visitorByStoreId.get(store.id) ?? 0,
+      totalRevenue: Math.round(input.revenueByStoreId.get(store.id) ?? 0),
+    })),
+  );
+
+  return {
+    sort: input.sort,
+    stores: stores.sort((a, b) => {
+      if (input.sort === "visitors" && a.totalVisitors !== b.totalVisitors) {
+        return b.totalVisitors - a.totalVisitors;
+      }
+      if (input.sort === "revenue" && a.totalRevenue !== b.totalRevenue) {
+        return b.totalRevenue - a.totalRevenue;
+      }
+      if (input.sort === "name") return a.name.localeCompare(b.name, "zh-Hant");
+      if (a.county !== b.county) return a.county.localeCompare(b.county, "zh-Hant");
+      return a.name.localeCompare(b.name, "zh-Hant");
+    }),
+  };
+}
+
 export async function getBrandOverviewFoundation(
   period: BrandOverviewPeriod,
+  storeSort: BrandStoreOverviewSort = "county",
 ): Promise<BrandOverviewFoundation> {
   const range = resolveBrandOverviewPeriodRange(period);
   // TODO(Brand Overview 100+ stores): promote these bounded groupBy aggregates
@@ -366,6 +424,12 @@ export async function getBrandOverviewFoundation(
       footprint,
       visitorByStoreId,
       revenueByStoreId,
+    }),
+    storeOverview: buildBrandStoreOverview({
+      footprint,
+      visitorByStoreId,
+      revenueByStoreId,
+      sort: storeSort,
     }),
   };
 }
