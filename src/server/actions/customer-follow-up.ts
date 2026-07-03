@@ -6,6 +6,8 @@ import { prisma } from "@/lib/db";
 import { AppError, handleActionError } from "@/lib/errors";
 import { assertStoreAccess } from "@/lib/manager-visibility";
 import { requireWritablePermission } from "@/lib/permissions";
+import { requireStoreFeature } from "@/lib/feature-gate";
+import { FEATURES } from "@/lib/feature-flags";
 import type { ActionResult } from "@/types";
 
 const createCustomerFollowUpSchema = z.object({
@@ -43,6 +45,7 @@ export async function createCustomerFollowUpAction(
     if (customer.mergedIntoCustomerId || customer.user?.status === "SUSPENDED") {
       throw new AppError("NOT_FOUND", "顧客不存在");
     }
+    await requireStoreFeature(customer.storeId, FEATURES.CUSTOMER_CARE);
 
     const followUp = await prisma.customerFollowUp.create({
       data: {

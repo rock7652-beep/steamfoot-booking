@@ -3,6 +3,8 @@
 import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/permissions";
 import { assertStoreAccess } from "@/lib/manager-visibility";
+import { requireStoreFeature } from "@/lib/feature-gate";
+import { FEATURES } from "@/lib/feature-flags";
 import {
   lookupHealthProfileSafe,
   getHealthSummarySafe,
@@ -240,6 +242,12 @@ export async function fetchHealthSummaryForDashboard(
   // 跨店防線（與其他 dashboard read action 一致）
   try {
     assertStoreAccess(user, customer.storeId);
+  } catch {
+    return { status: "forbidden" };
+  }
+
+  try {
+    await requireStoreFeature(customer.storeId, FEATURES.AI_HEALTH_SUMMARY);
   } catch {
     return { status: "forbidden" };
   }

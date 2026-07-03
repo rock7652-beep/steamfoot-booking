@@ -3,6 +3,8 @@ import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { getActiveStoreForRead } from "@/lib/store";
 import { formatTWTime } from "@/lib/date-utils";
+import { requireStoreFeature } from "@/lib/feature-gate";
+import { FEATURES } from "@/lib/feature-flags";
 import {
   PageShell,
   PageHeader,
@@ -65,6 +67,10 @@ export default async function CustomerCarePage() {
   }
 
   const activeStoreId = await getActiveStoreForRead(user);
+  if (activeStoreId) {
+    await requireStoreFeature(activeStoreId, FEATURES.CUSTOMER_CARE);
+  }
+
   const overview = await getCustomerCareOverview(user, activeStoreId);
   const { trialFollowUps, inactiveCustomers, lowSessionCustomers, expiringPlanCustomers, summary } =
     overview;

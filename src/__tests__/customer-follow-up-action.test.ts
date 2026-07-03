@@ -8,13 +8,18 @@ const mockCustomerFindUnique = vi.fn();
 const mockFollowUpCreate = vi.fn();
 const mockAssertStoreAccess = vi.fn();
 const mockRevalidatePath = vi.fn();
+const mockRequireStoreFeature = vi.fn();
 
 vi.mock("@/lib/permissions", () => ({
-  requirePermission: (...args: unknown[]) => mockRequirePermission(...args),
+  requireWritablePermission: (...args: unknown[]) => mockRequirePermission(...args),
 }));
 
 vi.mock("@/lib/manager-visibility", () => ({
   assertStoreAccess: (...args: unknown[]) => mockAssertStoreAccess(...args),
+}));
+
+vi.mock("@/lib/feature-gate", () => ({
+  requireStoreFeature: (...args: unknown[]) => mockRequireStoreFeature(...args),
 }));
 
 vi.mock("next/cache", () => ({
@@ -38,6 +43,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockRequirePermission.mockResolvedValue(OWNER);
   mockAssertStoreAccess.mockReturnValue(undefined);
+  mockRequireStoreFeature.mockResolvedValue(undefined);
   mockCustomerFindUnique.mockResolvedValue({
     id: "customer-a",
     storeId: "store-a",
@@ -58,6 +64,7 @@ describe("createCustomerFollowUpAction", () => {
     expect(result).toEqual({ success: true, data: { followUpId: "follow-up-a" } });
     expect(mockRequirePermission).toHaveBeenCalledWith("customer.update");
     expect(mockAssertStoreAccess).toHaveBeenCalledWith(OWNER, "store-a");
+    expect(mockRequireStoreFeature).toHaveBeenCalledWith("store-a", "customer_care");
     expect(mockFollowUpCreate).toHaveBeenCalledWith({
       data: {
         customerId: "customer-a",
@@ -97,6 +104,20 @@ describe("createCustomerFollowUpAction", () => {
     });
 
     expect(result.success).toBe(false);
+    expect(mockFollowUpCreate).not.toHaveBeenCalled();
+  });
+
+  it("does not create when customer_care is not enabled for the store", async () => {
+    mockRequireStoreFeature.mockRejectedValueOnce(new AppError("FORBIDDEN", "未開通"));
+
+    const result = await createCustomerFollowUpAction({
+      customerId: "customer-a",
+      result: "CONTACTED",
+      note: null,
+    });
+
+    expect(result.success).toBe(false);
+    expect(mockRequireStoreFeature).toHaveBeenCalledWith("store-a", "customer_care");
     expect(mockFollowUpCreate).not.toHaveBeenCalled();
   });
 

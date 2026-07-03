@@ -21,6 +21,7 @@ const mockRequirePermission = vi.fn();
 const mockAssertStoreAccess = vi.fn();
 const mockCustomerFindUnique = vi.fn();
 const mockGetHealthSummarySafe = vi.fn();
+const mockRequireStoreFeature = vi.fn();
 
 function throwIfCalled(name: string) {
   return vi.fn(() => {
@@ -47,6 +48,10 @@ vi.mock("@/lib/permissions", () => ({
 
 vi.mock("@/lib/manager-visibility", () => ({
   assertStoreAccess: (...a: unknown[]) => mockAssertStoreAccess(...a),
+}));
+
+vi.mock("@/lib/feature-gate", () => ({
+  requireStoreFeature: (...a: unknown[]) => mockRequireStoreFeature(...a),
 }));
 
 vi.mock("@/lib/health-service", () => ({
@@ -93,6 +98,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockRequirePermission.mockResolvedValue(ownerInStoreA());
   mockAssertStoreAccess.mockReturnValue(undefined);
+  mockRequireStoreFeature.mockResolvedValue(undefined);
   mockCustomerFindUnique.mockResolvedValue({
     id: CUSTOMER_A,
     storeId: STORE_A,
@@ -141,6 +147,16 @@ describe("fetchHealthSummaryForDashboard", () => {
     });
     const r = await fetchHealthSummaryForDashboard(CUSTOMER_A);
     expect(r).toEqual({ status: "no_profile" });
+    expect(mockGetHealthSummarySafe).not.toHaveBeenCalled();
+  });
+
+  it("returns forbidden before HealthFlow fetch when ai_health_summary is not enabled", async () => {
+    mockRequireStoreFeature.mockRejectedValueOnce(new Error("feature disabled"));
+
+    const r = await fetchHealthSummaryForDashboard(CUSTOMER_A);
+
+    expect(r).toEqual({ status: "forbidden" });
+    expect(mockRequireStoreFeature).toHaveBeenCalledWith(STORE_A, "ai_health_summary");
     expect(mockGetHealthSummarySafe).not.toHaveBeenCalled();
   });
 
