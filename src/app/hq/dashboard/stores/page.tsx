@@ -100,12 +100,20 @@ export default async function StoresPage() {
                   <td className="px-4 py-3 text-right text-earth-600">{store.staffCount}</td>
                   <td className="px-4 py-3 text-right text-earth-600">{store.customerCount}</td>
                   <td className="px-4 py-3 text-right">
-                    <Link
-                      href={`/hq/dashboard/stores/${store.id}`}
-                      className="text-xs text-primary-600 hover:underline"
-                    >
-                      詳情
-                    </Link>
+                    <div className="flex items-center justify-end gap-2">
+                      <Link
+                        href={`/hq/dashboard/stores/${store.id}/features`}
+                        className="text-xs font-medium text-primary-600 hover:underline"
+                      >
+                        功能設定
+                      </Link>
+                      <Link
+                        href={`/hq/dashboard/stores/${store.id}`}
+                        className="text-xs text-earth-500 hover:text-primary-600 hover:underline"
+                      >
+                        詳情
+                      </Link>
+                    </div>
                   </td>
                 </tr>
               );
