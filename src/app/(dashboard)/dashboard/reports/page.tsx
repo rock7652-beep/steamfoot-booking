@@ -10,6 +10,11 @@ import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { getCachedStorePlan } from "@/lib/query-cache";
 import { hasFeature, FEATURES } from "@/lib/feature-flags";
+import {
+  DATA_EXPORT_LOCKED_MESSAGE,
+  DATA_EXPORT_SELECT_STORE_MESSAGE,
+  hasDataExportFeature,
+} from "@/lib/data-export-gate";
 import { ServerTiming, withTiming } from "@/lib/perf";
 import { FeatureGate } from "@/components/feature-gate";
 import { UpgradeNoticePage } from "@/components/upgrade-notice";
@@ -63,6 +68,10 @@ export default async function ReportsPage({ searchParams }: PageProps) {
   const storeViewContext = await resolveStoreViewContextFromCookie(user);
   const isViewMode = storeViewContext?.isViewMode ?? false;
   const reportsStoreId = storeIdForViewContext(activeStoreId, storeViewContext);
+  const canExportData = !isViewMode && (await hasDataExportFeature(reportsStoreId).catch(() => false));
+  const dataExportLockedLabel = reportsStoreId
+    ? DATA_EXPORT_LOCKED_MESSAGE
+    : DATA_EXPORT_SELECT_STORE_MESSAGE;
 
   const pricingPlan = await getCachedStorePlan(reportsStoreId ?? user.storeId ?? undefined);
   if (!hasFeature(pricingPlan, FEATURES.ADVANCED_REPORTS)) {
@@ -314,6 +323,10 @@ export default async function ReportsPage({ searchParams }: PageProps) {
               {isViewMode ? (
                 <span className="rounded-md border border-earth-200 bg-earth-50 px-3 py-1.5 text-xs font-medium text-earth-500">
                   查看模式不可匯出
+                </span>
+              ) : !canExportData ? (
+                <span className="rounded-md border border-earth-200 bg-earth-50 px-3 py-1.5 text-xs font-medium text-earth-500">
+                  {dataExportLockedLabel}
                 </span>
               ) : (
                 <>

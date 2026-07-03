@@ -16,7 +16,10 @@ export function ExportButton({ buildUrl, disabled }: ExportButtonProps) {
     try {
       const url = buildUrl();
       const res = await fetch(url);
-      if (!res.ok) throw new Error("匯出失敗");
+      if (!res.ok) {
+        const message = await res.text().catch(() => "");
+        throw new Error(message || "匯出失敗");
+      }
 
       const blob = await res.blob();
       const disposition = res.headers.get("Content-Disposition") ?? "";
@@ -30,7 +33,7 @@ export function ExportButton({ buildUrl, disabled }: ExportButtonProps) {
       URL.revokeObjectURL(a.href);
     } catch (e) {
       console.error(e);
-      alert("匯出失敗，請稍後再試");
+      alert(e instanceof Error ? e.message : "匯出失敗，請稍後再試");
     } finally {
       setLoading(false);
     }

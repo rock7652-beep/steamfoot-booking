@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { checkPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
 import { toLocalMonthStr, monthRange } from "@/lib/date-utils";
+import { requireDataExportFeature } from "@/lib/data-export-gate";
 import { getManagerReadFilter, getStoreFilter } from "@/lib/manager-visibility";
 import { resolveActiveStoreId } from "@/lib/store";
 import { resolveStoreViewContextFromCookie } from "@/lib/store-view-context-server";
@@ -45,6 +46,9 @@ export async function GET(req: NextRequest) {
   const cookieStore = await cookies();
   const cookieStoreId = cookieStore.get("active-store-id")?.value ?? null;
   const activeStoreId = resolveActiveStoreId(user, cookieStoreId);
+  const dataExportLocked = await requireDataExportFeature(activeStoreId);
+  if (dataExportLocked) return dataExportLocked;
+
   const storeFilter = getStoreFilter(user, activeStoreId);
 
   // PricingPlan: 報表匯出次數限制
