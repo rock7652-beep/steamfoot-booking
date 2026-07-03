@@ -184,7 +184,7 @@ describe("resolveStoreFeatureDisplayState", () => {
 
     expect(state.statusLabel).toBe("已過期");
     expect(state.effectiveAllowed).toBe(true);
-    expect(state.sourceLabel).toBe("HQ_OVERRIDE（回到方案）");
+    expect(state.sourceLabel).toBe("總部覆寫（回到方案）");
   });
 
   it("future entitlement is shown as not started and falls back to the plan default", async () => {
@@ -206,7 +206,7 @@ describe("resolveStoreFeatureDisplayState", () => {
 
     expect(state.statusLabel).toBe("尚未開始");
     expect(state.effectiveAllowed).toBe(false);
-    expect(state.sourceLabel).toBe("ADDON（回到方案）");
+    expect(state.sourceLabel).toBe("加購（回到方案）");
   });
 
   it("add-on-only feature can be shown as enabled by entitlement", async () => {
@@ -228,6 +228,6 @@ describe("resolveStoreFeatureDisplayState", () => {
 
     expect(state.statusLabel).toBe("可用");
     expect(state.effectiveAllowed).toBe(true);
-    expect(state.sourceLabel).toBe("ADDON");
+    expect(state.sourceLabel).toBe("加購");
   });
 });

@@ -93,8 +93,21 @@ const FEATURE_LABELS = new Map(
   MANAGEABLE_STORE_FEATURES.map((feature) => [feature.key, feature.label]),
 );
 
+const SOURCE_LABELS: Record<StoreFeatureEntitlementSource, string> = {
+  ADDON: "加購",
+  MANUAL: "手動開通",
+  PROMO: "試用 / 優惠",
+  HQ_OVERRIDE: "總部覆寫",
+};
+
 export function getStoreFeatureLabel(feature: FeatureKey): string {
   return FEATURE_LABELS.get(feature) ?? feature;
+}
+
+export function getStoreFeatureSourceLabel(
+  source: StoreFeatureEntitlementSource,
+): string {
+  return SOURCE_LABELS[source] ?? source;
 }
 
 export function resolveStoreFeatureDisplayState(
@@ -120,7 +133,7 @@ export function resolveStoreFeatureDisplayState(
       effectiveAllowed: baseAllowed,
       statusLabel: "尚未開始",
       statusClass: "bg-blue-50 text-blue-700",
-      sourceLabel: `${entitlement.source}（回到方案）`,
+      sourceLabel: `${getStoreFeatureSourceLabel(entitlement.source)}（回到方案）`,
     };
   }
 
@@ -129,7 +142,7 @@ export function resolveStoreFeatureDisplayState(
       effectiveAllowed: baseAllowed,
       statusLabel: "已過期",
       statusClass: "bg-amber-50 text-amber-700",
-      sourceLabel: `${entitlement.source}（回到方案）`,
+      sourceLabel: `${getStoreFeatureSourceLabel(entitlement.source)}（回到方案）`,
     };
   }
 
@@ -138,7 +151,7 @@ export function resolveStoreFeatureDisplayState(
       effectiveAllowed: false,
       statusLabel: "強制關閉",
       statusClass: "bg-red-50 text-red-700",
-      sourceLabel: entitlement.source,
+      sourceLabel: getStoreFeatureSourceLabel(entitlement.source),
     };
   }
 
@@ -146,6 +159,6 @@ export function resolveStoreFeatureDisplayState(
     effectiveAllowed: true,
     statusLabel: "可用",
     statusClass: "bg-green-50 text-green-700",
-    sourceLabel: entitlement.source,
+    sourceLabel: getStoreFeatureSourceLabel(entitlement.source),
   };
 }

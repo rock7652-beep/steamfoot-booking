@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { notFound, redirect } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { PageHeader, PageShell } from "@/components/desktop";
@@ -109,12 +110,8 @@ export default async function StoreFeatureSettingsPage({ params }: PageProps) {
       )}
 
       <div className="overflow-hidden rounded-lg border border-earth-200 bg-white">
-        <div className="grid gap-2 border-b border-earth-200 bg-earth-50 px-4 py-2 text-xs font-medium text-earth-600 lg:grid-cols-[minmax(240px,1fr)_110px_120px_120px_minmax(720px,1.6fr)]">
-          <span>功能</span>
-          <span>方案預設</span>
-          <span>狀態</span>
-          <span>來源</span>
-          <span>單店覆寫</span>
+        <div className="border-b border-earth-200 bg-earth-50 px-4 py-2">
+          <p className="text-xs font-medium text-earth-600">功能授權清單</p>
         </div>
 
         <div className="divide-y divide-earth-100">
@@ -126,7 +123,7 @@ export default async function StoreFeatureSettingsPage({ params }: PageProps) {
             return (
               <div
                 key={feature.key}
-                className="grid gap-3 px-4 py-4 lg:grid-cols-[minmax(240px,1fr)_110px_120px_120px_minmax(720px,1.6fr)]"
+                className="grid gap-4 px-4 py-4 xl:grid-cols-[minmax(240px,0.9fr)_minmax(0,1.7fr)]"
               >
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
@@ -145,56 +142,75 @@ export default async function StoreFeatureSettingsPage({ params }: PageProps) {
                   </p>
                 </div>
 
-                <div className="text-sm">
-                  <StatusPill
-                    label={baseAllowed ? "內含" : "未內含"}
-                    className={
-                      baseAllowed
-                        ? "bg-green-50 text-green-700"
-                        : "bg-earth-100 text-earth-500"
-                    }
+                <div className="grid min-w-0 gap-3">
+                  <div className="grid gap-3 text-xs sm:grid-cols-3">
+                    <SummaryCell label="方案預設">
+                      <StatusPill
+                        label={baseAllowed ? "內含" : "未內含"}
+                        className={
+                          baseAllowed
+                            ? "bg-green-50 text-green-700"
+                            : "bg-earth-100 text-earth-500"
+                        }
+                      />
+                    </SummaryCell>
+
+                    <SummaryCell label="最終狀態">
+                      <StatusPill
+                        label={state.statusLabel}
+                        className={state.statusClass}
+                      />
+                      <p className="mt-1 text-[11px] text-earth-500">
+                        {state.effectiveAllowed ? "目前可用" : "目前不可用"}
+                      </p>
+                    </SummaryCell>
+
+                    <SummaryCell label="來源">
+                      <p className="text-earth-700">{state.sourceLabel}</p>
+                      {entitlement?.startsAt && (
+                        <p className="mt-1 text-earth-400">
+                          開始：{toLocalDateStr(entitlement.startsAt)}
+                        </p>
+                      )}
+                      {entitlement?.expiresAt && (
+                        <p className="mt-1 text-earth-400">
+                          結束：{toLocalDateStr(entitlement.expiresAt)}
+                        </p>
+                      )}
+                    </SummaryCell>
+                  </div>
+
+                  <FeatureEntitlementForm
+                    storeId={store.id}
+                    featureKey={feature.key}
+                    override={entitlement?.status ?? "INHERIT"}
+                    source={entitlement?.source ?? "MANUAL"}
+                    startsAt={entitlement?.startsAt ? toLocalDateStr(entitlement.startsAt) : ""}
+                    expiresAt={entitlement?.expiresAt ? toLocalDateStr(entitlement.expiresAt) : ""}
+                    note={entitlement?.note ?? ""}
                   />
                 </div>
-
-                <div>
-                  <StatusPill
-                    label={state.statusLabel}
-                    className={state.statusClass}
-                  />
-                  <p className="mt-1 text-[11px] text-earth-500">
-                    {state.effectiveAllowed ? "目前可用" : "目前不可用"}
-                  </p>
-                </div>
-
-                <div className="text-xs text-earth-600">
-                  <p>{state.sourceLabel}</p>
-                  {entitlement?.startsAt && (
-                    <p className="mt-1 text-earth-400">
-                      起：{toLocalDateStr(entitlement.startsAt)}
-                    </p>
-                  )}
-                  {entitlement?.expiresAt && (
-                    <p className="mt-1 text-earth-400">
-                      迄：{toLocalDateStr(entitlement.expiresAt)}
-                    </p>
-                  )}
-                </div>
-
-                <FeatureEntitlementForm
-                  storeId={store.id}
-                  featureKey={feature.key}
-                  override={entitlement?.status ?? "INHERIT"}
-                  source={entitlement?.source ?? "MANUAL"}
-                  startsAt={entitlement?.startsAt ? toLocalDateStr(entitlement.startsAt) : ""}
-                  expiresAt={entitlement?.expiresAt ? toLocalDateStr(entitlement.expiresAt) : ""}
-                  note={entitlement?.note ?? ""}
-                />
               </div>
             );
           })}
         </div>
       </div>
     </PageShell>
+  );
+}
+
+function SummaryCell({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="min-w-0">
+      <p className="mb-1 text-[11px] font-medium text-earth-400">{label}</p>
+      {children}
+    </div>
   );
 }
 
