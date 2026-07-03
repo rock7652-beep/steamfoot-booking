@@ -289,6 +289,9 @@ export async function mergePlaceholderCustomerIntoRealCustomer(
 //   - CheckinPost.customerId
 //   - TalentStageLog.customerId
 //   - ReferralEvent.customerId / ReferralEvent.referrerId
+//   - CustomerFollowUp.customerId
+//   - CustomerIdentityLink.customerId
+//   - BookingMakeupCredit.customerId
 //   - Customer.sponsorId（自我參照：把以 source 為 sponsor 的子 customer 改指向 target）
 //
 // healthProfileId 僅是 Customer 上的字串欄位（非外鍵），由 identity-merge 區段處理。
@@ -306,6 +309,9 @@ export type CustomerMergeMovedCounts = {
   talentStageLogs: number;
   referralEventsAsCustomer: number;
   referralEventsAsReferrer: number;
+  customerFollowUps: number;
+  customerIdentityLinks: number;
+  bookingMakeupCredits: number;
   sponsoredCustomers: number;
 };
 
@@ -475,6 +481,59 @@ export async function mergeCustomerIntoCustomer(
       );
     }
 
+    // LINE target 優先：target 已有 LINE 綁定時，source 不可帶不同 LINE 覆蓋。
+    if (
+      target.lineUserId != null &&
+      source.lineUserId != null &&
+      target.lineUserId !== source.lineUserId
+    ) {
+      throw new Error(
+        "mergeCustomer: 來源與目標皆有不同 LINE 綁定（lineUserId）；為避免覆蓋主顧客 LINE，請先人工確認/解綁 source 後再合併",
+      );
+    }
+
+    const [sourcePointRecords, targetPointRecords, identityLinks] = await Promise.all([
+      tx.pointRecord.findMany({
+        where: { customerId: source.id },
+        select: { id: true, sourceType: true, sourceKey: true },
+      }),
+      tx.pointRecord.findMany({
+        where: { customerId: target.id },
+        select: { id: true, sourceType: true, sourceKey: true },
+      }),
+      tx.customerIdentityLink.findMany({
+        where: { customerId: { in: [source.id, target.id] } },
+        select: { id: true, customerId: true },
+      }),
+    ]);
+
+    const targetPointKeys = new Map<string, string>();
+    for (const record of targetPointRecords) {
+      if (record.sourceType == null || record.sourceKey == null) continue;
+      targetPointKeys.set(`${record.sourceType}\u0000${record.sourceKey}`, record.id);
+    }
+    for (const record of sourcePointRecords) {
+      if (record.sourceType == null || record.sourceKey == null) continue;
+      const targetPointRecordId = targetPointKeys.get(`${record.sourceType}\u0000${record.sourceKey}`);
+      if (!targetPointRecordId) continue;
+      throw new Error(
+        `mergeCustomer: PointRecord unique 衝突；source pointRecord ${record.id} 與 target pointRecord ${targetPointRecordId} 具有相同 sourceType/sourceKey，需先人工去重`,
+      );
+    }
+
+    const sourceIdentityLinks = identityLinks.filter((link) => link.customerId === source.id);
+    const targetIdentityLinks = identityLinks.filter((link) => link.customerId === target.id);
+    if (sourceIdentityLinks.length > 1 || targetIdentityLinks.length > 1) {
+      throw new Error(
+        "mergeCustomer: CustomerIdentityLink 資料異常；同一 Customer 出現多筆 identity link，請先人工修復",
+      );
+    }
+    if (sourceIdentityLinks.length > 0 && targetIdentityLinks.length > 0) {
+      throw new Error(
+        "mergeCustomer: 來源與目標皆有 CustomerIdentityLink；customerId 為唯一鍵，請先人工決定保留哪一筆 identity link",
+      );
+    }
+
     // ── Step 1: FK relocation ──
     // 注意：每個 updateMany 在跨店資料下也是安全的，因為 source/target 同 storeId 已驗證；
     // 直接以 customerId === sourceId 找出所有 row 搬到 targetId。
@@ -491,6 +550,9 @@ export async function mergeCustomerIntoCustomer(
       talentStageLogsResult,
       referralEventsAsCustomerResult,
       referralEventsAsReferrerResult,
+      customerFollowUpsResult,
+      customerIdentityLinksResult,
+      bookingMakeupCreditsResult,
       sponsoredResult,
     ] = await Promise.all([
       tx.booking.updateMany({
@@ -541,6 +603,18 @@ export async function mergeCustomerIntoCustomer(
         where: { referrerId: source.id },
         data: { referrerId: target.id },
       }),
+      tx.customerFollowUp.updateMany({
+        where: { customerId: source.id },
+        data: { customerId: target.id },
+      }),
+      tx.customerIdentityLink.updateMany({
+        where: { customerId: source.id },
+        data: { customerId: target.id },
+      }),
+      tx.bookingMakeupCredit.updateMany({
+        where: { customerId: source.id },
+        data: { customerId: target.id },
+      }),
       tx.customer.updateMany({
         where: { sponsorId: source.id },
         data: { sponsorId: target.id },
@@ -560,6 +634,9 @@ export async function mergeCustomerIntoCustomer(
       talentStageLogs: talentStageLogsResult.count,
       referralEventsAsCustomer: referralEventsAsCustomerResult.count,
       referralEventsAsReferrer: referralEventsAsReferrerResult.count,
+      customerFollowUps: customerFollowUpsResult.count,
+      customerIdentityLinks: customerIdentityLinksResult.count,
+      bookingMakeupCredits: bookingMakeupCreditsResult.count,
       sponsoredCustomers: sponsoredResult.count,
     };
 
