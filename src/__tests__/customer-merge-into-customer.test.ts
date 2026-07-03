@@ -3,7 +3,8 @@
  *
  * 驗證：
  *   1. FK relocation：booking / wallet / transaction / pointRecord / makeup / referral /
- *      messageLog / checkinPost / talentStageLog / referralEvent / sponsorId(self)
+ *      messageLog / checkinPost / talentStageLog / referralEvent / customerFollowUp /
+ *      customerIdentityLink / bookingMakeupCredit / sponsorId(self)
  *      全部從 source 搬到 target
  *   2. 身份欄位合併（target 為 null 才補）：phone / email / lineUserId / userId
  *   3. Source 被 archive（mergedIntoCustomerId / mergedAt 設值）+ unique 欄位清空
@@ -31,6 +32,9 @@ type Tables = {
   checkinPost: Row[];
   talentStageLog: Row[];
   referralEvent: Row[];
+  customerFollowUp: Row[];
+  customerIdentityLink: Row[];
+  bookingMakeupCredit: Row[];
 };
 
 const tables: Tables = {
@@ -45,6 +49,9 @@ const tables: Tables = {
   checkinPost: [],
   talentStageLog: [],
   referralEvent: [],
+  customerFollowUp: [],
+  customerIdentityLink: [],
+  bookingMakeupCredit: [],
 };
 
 function resetTables() {
@@ -102,6 +109,9 @@ const messageLogModel = modelFor("messageLog");
 const checkinPostModel = modelFor("checkinPost");
 const talentStageLogModel = modelFor("talentStageLog");
 const referralEventModel = modelFor("referralEvent");
+const customerFollowUpModel = modelFor("customerFollowUp");
+const customerIdentityLinkModel = modelFor("customerIdentityLink");
+const bookingMakeupCreditModel = modelFor("bookingMakeupCredit");
 
 vi.mock("@/lib/db", () => ({
   prisma: {
@@ -116,6 +126,9 @@ vi.mock("@/lib/db", () => ({
     checkinPost: checkinPostModel,
     talentStageLog: talentStageLogModel,
     referralEvent: referralEventModel,
+    customerFollowUp: customerFollowUpModel,
+    customerIdentityLink: customerIdentityLinkModel,
+    bookingMakeupCredit: bookingMakeupCreditModel,
     $transaction: (fn: (tx: unknown) => unknown) =>
       fn({
         customer: customerModel,
@@ -129,6 +142,9 @@ vi.mock("@/lib/db", () => ({
         checkinPost: checkinPostModel,
         talentStageLog: talentStageLogModel,
         referralEvent: referralEventModel,
+        customerFollowUp: customerFollowUpModel,
+        customerIdentityLink: customerIdentityLinkModel,
+        bookingMakeupCredit: bookingMakeupCreditModel,
       }),
   },
 }));
@@ -301,6 +317,31 @@ describe("mergeCustomerIntoCustomer — FK relocation", () => {
     expect(out.movedCounts.sponsoredCustomers).toBe(1);
     const child = tables.customer.find((c) => c.id === "child")!;
     expect(child.sponsorId).toBe("tgt");
+  });
+
+  it("把 customerFollowUp / customerIdentityLink / bookingMakeupCredit 從 source 搬到 target", async () => {
+    const { mergeCustomerIntoCustomer } = await import("@/server/services/customer-merge");
+
+    tables.customer.push(
+      makeCustomer({ id: "src" }) as Customer,
+      makeCustomer({ id: "tgt" }) as Customer,
+    );
+    tables.customerFollowUp.push({ id: "cfu1", customerId: "src" });
+    tables.customerIdentityLink.push({ id: "cil1", customerId: "src" });
+    tables.bookingMakeupCredit.push({ id: "bmc1", customerId: "src" });
+
+    const out = await mergeCustomerIntoCustomer({
+      sourceCustomerId: "src",
+      targetCustomerId: "tgt",
+      performedByUserId: PERFORMER,
+    });
+
+    expect(out.movedCounts.customerFollowUps).toBe(1);
+    expect(out.movedCounts.customerIdentityLinks).toBe(1);
+    expect(out.movedCounts.bookingMakeupCredits).toBe(1);
+    expect(tables.customerFollowUp[0].customerId).toBe("tgt");
+    expect(tables.customerIdentityLink[0].customerId).toBe("tgt");
+    expect(tables.bookingMakeupCredit[0].customerId).toBe("tgt");
   });
 });
 
@@ -505,6 +546,86 @@ describe("mergeCustomerIntoCustomer — rejection cases", () => {
         performedByUserId: PERFORMER,
       }),
     ).rejects.toThrow(/userId/);
+  });
+
+  it("兩邊都有不同 lineUserId → throw，避免 source 覆蓋 target LINE", async () => {
+    const { mergeCustomerIntoCustomer } = await import("@/server/services/customer-merge");
+
+    tables.customer.push(
+      makeCustomer({ id: "src", lineUserId: "U-source" }) as Customer,
+      makeCustomer({ id: "tgt", lineUserId: "U-target" }) as Customer,
+    );
+
+    await expect(
+      mergeCustomerIntoCustomer({
+        sourceCustomerId: "src",
+        targetCustomerId: "tgt",
+        performedByUserId: PERFORMER,
+      }),
+    ).rejects.toThrow(/LINE/);
+  });
+
+  it("PointRecord sourceType/sourceKey 與 target 重複 → throw，避免 unique 衝突", async () => {
+    const { mergeCustomerIntoCustomer } = await import("@/server/services/customer-merge");
+
+    tables.customer.push(
+      makeCustomer({ id: "src" }) as Customer,
+      makeCustomer({ id: "tgt" }) as Customer,
+    );
+    tables.pointRecord.push(
+      { id: "src-point", customerId: "src", sourceType: "booking", sourceKey: "b1" },
+      { id: "tgt-point", customerId: "tgt", sourceType: "booking", sourceKey: "b1" },
+    );
+
+    await expect(
+      mergeCustomerIntoCustomer({
+        sourceCustomerId: "src",
+        targetCustomerId: "tgt",
+        performedByUserId: PERFORMER,
+      }),
+    ).rejects.toThrow(/PointRecord unique/);
+  });
+
+  it("PointRecord sourceType/sourceKey 有 null 時不視為 unique 衝突", async () => {
+    const { mergeCustomerIntoCustomer } = await import("@/server/services/customer-merge");
+
+    tables.customer.push(
+      makeCustomer({ id: "src" }) as Customer,
+      makeCustomer({ id: "tgt" }) as Customer,
+    );
+    tables.pointRecord.push(
+      { id: "src-point", customerId: "src", sourceType: null, sourceKey: "same" },
+      { id: "tgt-point", customerId: "tgt", sourceType: null, sourceKey: "same" },
+    );
+
+    const out = await mergeCustomerIntoCustomer({
+      sourceCustomerId: "src",
+      targetCustomerId: "tgt",
+      performedByUserId: PERFORMER,
+    });
+
+    expect(out.movedCounts.pointRecords).toBe(1);
+  });
+
+  it("target/source 皆有 CustomerIdentityLink → throw", async () => {
+    const { mergeCustomerIntoCustomer } = await import("@/server/services/customer-merge");
+
+    tables.customer.push(
+      makeCustomer({ id: "src" }) as Customer,
+      makeCustomer({ id: "tgt" }) as Customer,
+    );
+    tables.customerIdentityLink.push(
+      { id: "src-link", customerId: "src" },
+      { id: "tgt-link", customerId: "tgt" },
+    );
+
+    await expect(
+      mergeCustomerIntoCustomer({
+        sourceCustomerId: "src",
+        targetCustomerId: "tgt",
+        performedByUserId: PERFORMER,
+      }),
+    ).rejects.toThrow(/CustomerIdentityLink/);
   });
 
   it("找不到 source → throw", async () => {
