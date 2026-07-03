@@ -14,6 +14,7 @@ interface StoreViewModeSwitcherProps {
   ownStore: ViewStoreOption;
   descendantStores: ViewStoreOption[];
   viewedStoreId: string;
+  multiStoreEnabled: boolean;
   collapsed?: boolean;
 }
 
@@ -21,6 +22,7 @@ export function StoreViewModeSwitcher({
   ownStore,
   descendantStores,
   viewedStoreId,
+  multiStoreEnabled,
   collapsed = false,
 }: StoreViewModeSwitcherProps) {
   const router = useRouter();
@@ -70,6 +72,7 @@ export function StoreViewModeSwitcher({
             ownStore={ownStore}
             descendantStores={descendantStores}
             viewedStoreId={viewedStoreId}
+            multiStoreEnabled={multiStoreEnabled}
             onSelect={handleSelect}
             compact
           />
@@ -97,6 +100,7 @@ export function StoreViewModeSwitcher({
           ownStore={ownStore}
           descendantStores={descendantStores}
           viewedStoreId={viewedStoreId}
+          multiStoreEnabled={multiStoreEnabled}
           onSelect={handleSelect}
         />
       ) : null}
@@ -108,12 +112,14 @@ function SwitcherMenu({
   ownStore,
   descendantStores,
   viewedStoreId,
+  multiStoreEnabled,
   onSelect,
   compact = false,
 }: {
   ownStore: ViewStoreOption;
   descendantStores: ViewStoreOption[];
   viewedStoreId: string;
+  multiStoreEnabled: boolean;
   onSelect: (storeId: string) => void;
   compact?: boolean;
 }) {
@@ -143,7 +149,11 @@ function SwitcherMenu({
       <div className="border-t border-earth-100 px-3 py-1.5 text-[10px] font-semibold text-earth-400">
         查看下層店
       </div>
-      {descendantStores.length > 0 ? (
+      {!multiStoreEnabled ? (
+        <div className="px-3 py-2 text-xs leading-5 text-earth-400">
+          母子店 / 多店尚未開通，請聯絡總部加購或升級方案。
+        </div>
+      ) : descendantStores.length > 0 ? (
         descendantStores.map((store) => (
           <button
             key={store.id}

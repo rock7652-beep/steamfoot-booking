@@ -6,6 +6,8 @@ import { requireStaffSession } from "@/lib/session";
 import { isOwner } from "@/lib/permissions";
 import { assertCanViewStore } from "@/lib/store-organization";
 import { OWN_STORE_VALUE, VIEWED_STORE_COOKIE_NAME } from "@/lib/store-view-mode-constants";
+import { FEATURES } from "@/lib/feature-flags";
+import { requireStoreFeature } from "@/lib/feature-gate";
 import { AppError, handleActionError } from "@/lib/errors";
 import type { ActionResult } from "@/types";
 
@@ -32,6 +34,7 @@ export async function switchViewedStore(
     if (!viewedStoreId || viewedStoreId === OWN_STORE_VALUE || viewedStoreId === user.storeId) {
       cookieStore.delete(VIEWED_STORE_COOKIE_NAME);
     } else {
+      await requireStoreFeature(user.storeId, FEATURES.MULTI_STORE);
       await assertCanViewStore(user, viewedStoreId);
       cookieStore.set(VIEWED_STORE_COOKIE_NAME, viewedStoreId, {
         path: "/",

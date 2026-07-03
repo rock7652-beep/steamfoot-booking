@@ -593,6 +593,7 @@ interface DashboardShellProps {
     ownStore: StoreViewOption;
     descendantStores: StoreViewOption[];
     viewedStoreId: string;
+    multiStoreEnabled: boolean;
   };
 }
 
@@ -961,6 +962,7 @@ export default function DashboardShell({
             ownStore={viewMode.ownStore}
             descendantStores={viewMode.descendantStores}
             viewedStoreId={viewMode.viewedStoreId}
+            multiStoreEnabled={viewMode.multiStoreEnabled}
             collapsed={collapsed}
           />
         ) : null}
@@ -1006,6 +1008,7 @@ export default function DashboardShell({
                 ownStore={viewMode.ownStore}
                 descendantStores={viewMode.descendantStores}
                 viewedStoreId={viewMode.viewedStoreId}
+                multiStoreEnabled={viewMode.multiStoreEnabled}
               />
             ) : null}
             {renderNavGroups()}

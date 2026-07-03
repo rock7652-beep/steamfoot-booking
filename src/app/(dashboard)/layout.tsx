@@ -14,6 +14,8 @@ import { ViewModeBanner } from "@/components/view-mode-banner";
 import { prisma } from "@/lib/db";
 import { computeLifecycle } from "@/lib/subscription-lifecycle";
 import { toLocalDateStr } from "@/lib/date-utils";
+import { FEATURES } from "@/lib/feature-flags";
+import { hasStoreFeature } from "@/lib/feature-gate";
 import type { StoreOperatingStatus } from "@/lib/store-operating-status";
 import {
   getViewableStoreOptions,
@@ -82,6 +84,7 @@ export default async function DashboardLayout({
   let storeName: string | null = null;
   let storeViewContext: StoreViewContext | null = null;
   let viewableStores: ViewableStoreOption[] = [];
+  let multiStoreEnabled = false;
   if (effectiveStoreId) {
     try {
       const store = await prisma.store.findUnique({
@@ -115,6 +118,7 @@ export default async function DashboardLayout({
   }
 
   if (!isAdmin && user.storeId) {
+    multiStoreEnabled = await hasStoreFeature(user.storeId, FEATURES.MULTI_STORE);
     viewableStores = await getViewableStoreOptions(user.storeId);
     try {
       storeViewContext = await resolveStoreViewContext(user, {
@@ -168,6 +172,7 @@ export default async function DashboardLayout({
               ownStore,
               descendantStores,
               viewedStoreId: storeViewContext.viewedStoreId ?? ownStore.id,
+              multiStoreEnabled,
             }
           : undefined
       }
