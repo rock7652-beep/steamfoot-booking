@@ -45,17 +45,17 @@ const CASES: Record<MergeCaseKey, MergeCase> = {
   tang: {
     key: "tang",
     label: "唐春燕",
-    targetCustomerId: "TODO_TANG_TARGET_CUSTOMER_ID_0939668262",
+    targetCustomerId: "cmr4wqi0q0001l804x3g3f8zx",
     targetPhone: "0939668262",
-    sourceCustomerId: "TODO_TANG_SOURCE_CUSTOMER_ID_0939608262",
+    sourceCustomerId: "cmr4ulu180001lb042xt8mlrh",
     sourcePhone: "0939608262",
   },
   jian: {
     key: "jian",
     label: "簡貴",
-    targetCustomerId: "TODO_JIAN_TARGET_CUSTOMER_ID_0902339233",
-    targetPhone: "0902339233",
-    sourceCustomerId: "TODO_JIAN_SOURCE_CUSTOMER_ID_0933333333",
+    targetCustomerId: "cmr4pfds80002js042bf51uc0",
+    targetPhone: "0902399233",
+    sourceCustomerId: "cmr4jypzp0007ju04qruz758p",
     sourcePhone: "0933333333",
   },
 };
