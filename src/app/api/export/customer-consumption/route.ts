@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { auth } from "@/lib/auth";
 import { checkPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
+import { requireDataExportFeature } from "@/lib/data-export-gate";
 import { getStoreFilter } from "@/lib/manager-visibility";
 import { resolveActiveStoreId } from "@/lib/store";
 
@@ -41,7 +42,7 @@ export async function GET(req: NextRequest) {
   // Permission check
   const customer = await prisma.customer.findUnique({
     where: { id: customerId, ...getStoreFilter(user, activeStoreId) },
-    select: { id: true, name: true, phone: true, assignedStaffId: true },
+    select: { id: true, name: true, phone: true, assignedStaffId: true, storeId: true },
   });
   if (!customer) return new NextResponse("Not found", { status: 404 });
 
@@ -54,6 +55,9 @@ export async function GET(req: NextRequest) {
     const allowed = await checkPermission(session.user.role, session.user.staffId, "customer.export");
     if (!allowed) return new NextResponse("Forbidden", { status: 403 });
   }
+
+  const dataExportLocked = await requireDataExportFeature(customer.storeId);
+  if (dataExportLocked) return dataExportLocked;
 
   let dateFilter: Record<string, unknown> = {};
   if (month) {

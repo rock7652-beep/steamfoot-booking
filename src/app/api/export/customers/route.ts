@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { checkPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
 import { toLocalDateStr } from "@/lib/date-utils";
+import { requireDataExportFeature } from "@/lib/data-export-gate";
 import { getStoreFilter } from "@/lib/manager-visibility";
 import { resolveActiveStoreId } from "@/lib/store";
 import { VIEWED_STORE_COOKIE_NAME } from "@/lib/store-view-mode-constants";
@@ -45,6 +46,8 @@ export async function GET() {
 
   const cookieStoreId = cookieStore.get("active-store-id")?.value ?? null;
   const activeStoreId = resolveActiveStoreId(user, cookieStoreId);
+  const dataExportLocked = await requireDataExportFeature(activeStoreId);
+  if (dataExportLocked) return dataExportLocked;
 
   // 匯出符合當前店舖視角的顧客
   const customers = await prisma.customer.findMany({

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { auth } from "@/lib/auth";
 import { checkPermission } from "@/lib/permissions";
+import { requireDataExportFeature } from "@/lib/data-export-gate";
 import { getStoreFilter } from "@/lib/manager-visibility";
 import { resolveActiveStoreId } from "@/lib/store";
 import {
@@ -38,6 +39,12 @@ export async function GET(req: NextRequest) {
   const storeFilter = getStoreFilter(readUser, reportsStoreId);
 
   const sp = req.nextUrl.searchParams;
+  const dataExportStoreId = user.role === "ADMIN"
+    ? sp.get("storeId") ?? reportsStoreId
+    : reportsStoreId;
+  const dataExportLocked = await requireDataExportFeature(dataExportStoreId);
+  if (dataExportLocked) return dataExportLocked;
+
   const reportType = sp.get("reportType") ?? "store";
   const level = sp.get("level") ?? "all";
   const startDate = sp.get("startDate");

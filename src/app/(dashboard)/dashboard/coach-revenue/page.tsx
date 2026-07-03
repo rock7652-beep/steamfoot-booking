@@ -4,6 +4,11 @@ import { redirect } from "next/navigation";
 import { getCachedStorePlan } from "@/lib/query-cache";
 import { hasFeature as hasPricingFeature } from "@/lib/feature-flags";
 import { FEATURES as FF } from "@/lib/feature-flags";
+import {
+  DATA_EXPORT_LOCKED_MESSAGE,
+  DATA_EXPORT_SELECT_STORE_MESSAGE,
+  hasDataExportFeature,
+} from "@/lib/data-export-gate";
 import { UpgradeNoticePage } from "@/components/upgrade-notice";
 import { isOwner } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
@@ -27,6 +32,10 @@ export default async function CoachRevenuePage() {
   const isViewMode = storeViewContext?.isViewMode ?? false;
   const reportsStoreId = storeIdForViewContext(activeStoreId, storeViewContext);
   const reportsUser = userForViewContext(user, storeViewContext);
+  const canExportData = !isViewMode && (await hasDataExportFeature(reportsStoreId).catch(() => false));
+  const dataExportLockedMessage = reportsStoreId
+    ? DATA_EXPORT_LOCKED_MESSAGE
+    : DATA_EXPORT_SELECT_STORE_MESSAGE;
 
   const pricingPlan = await getCachedStorePlan(reportsStoreId ?? user.storeId ?? undefined);
   if (!hasPricingFeature(pricingPlan, FF.ADVANCED_REPORTS)) {
@@ -80,6 +89,8 @@ export default async function CoachRevenuePage() {
         coaches={coaches}
         isAdmin={admin}
         isViewMode={isViewMode}
+        canExportData={canExportData}
+        dataExportLockedMessage={dataExportLockedMessage}
         defaultStartDate={defaultStart}
         defaultEndDate={defaultEnd}
       />

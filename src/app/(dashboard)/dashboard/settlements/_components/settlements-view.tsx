@@ -26,6 +26,8 @@ interface Props {
   unassignedToken: string;
   summary: SettlementSummaryRow[];
   details: SettlementDetailRow[];
+  canExportData: boolean;
+  dataExportLockedMessage: string;
 }
 
 function fmtTwd(amount: number | null): string {
@@ -71,6 +73,8 @@ export function SettlementsView({
   unassignedToken,
   summary,
   details,
+  canExportData,
+  dataExportLockedMessage,
 }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -436,14 +440,19 @@ export function SettlementsView({
               </select>
             </div>
 
-            {/* 匯出 */}
-            <a
-              href={exportHref}
-              className="rounded-md border border-primary-200 bg-primary-50 px-3 py-1 text-xs font-medium text-primary-700 hover:bg-primary-100"
-              download
-            >
-              匯出 Excel
-            </a>
+            {canExportData ? (
+              <a
+                href={exportHref}
+                className="rounded-md border border-primary-200 bg-primary-50 px-3 py-1 text-xs font-medium text-primary-700 hover:bg-primary-100"
+                download
+              >
+                匯出 Excel
+              </a>
+            ) : (
+              <span className="rounded-md border border-earth-200 bg-earth-50 px-3 py-1 text-xs font-medium text-earth-500">
+                {dataExportLockedMessage}
+              </span>
+            )}
           </div>
         </div>
 

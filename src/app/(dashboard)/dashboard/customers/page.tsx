@@ -5,6 +5,11 @@ import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { getActiveStoreForRead } from "@/lib/store";
 import {
+  DATA_EXPORT_LOCKED_MESSAGE,
+  DATA_EXPORT_SELECT_STORE_MESSAGE,
+  hasDataExportFeature,
+} from "@/lib/data-export-gate";
+import {
   resolveStoreViewContextFromCookie,
   storeIdForViewContext,
   userForViewContext,
@@ -82,6 +87,7 @@ export default async function CustomersPage({ searchParams }: PageProps) {
     canDiscount,
     canAssign,
     canEdit,
+    canExportData,
   ] = await Promise.all([
       listCustomersForUser(customersUser, {
         stage: params.stage,
@@ -128,7 +134,10 @@ export default async function CustomersPage({ searchParams }: PageProps) {
       isViewMode
         ? Promise.resolve(false)
         : checkPermission(user.role, user.staffId, "customer.update").catch(() => false),
-    ]);
+      isViewMode
+        ? Promise.resolve(false)
+        : hasDataExportFeature(customersStoreId).catch(() => false),
+  ]);
 
   // PR-4：drawer 詳情不再於 server 端依 ?customerId= 預抓，也不再用 prop
   // 傳入。CustomersListWithDrawer 直接讀 useSearchParams()，open 來源為
@@ -166,6 +175,9 @@ export default async function CustomersPage({ searchParams }: PageProps) {
     serviceNote: c.serviceNote, // 內部服務備註（後台限定）— 列表顯示一行摘要
     validPackageSessions: c.validPackageSessions, // 有效 PACKAGE 剩餘堂數加總
   }));
+  const dataExportLockedLabel = customersStoreId
+    ? DATA_EXPORT_LOCKED_MESSAGE
+    : DATA_EXPORT_SELECT_STORE_MESSAGE;
 
   return (
     <PageShell>
@@ -187,13 +199,19 @@ export default async function CustomersPage({ searchParams }: PageProps) {
             {/* PR #312-B-4：關閉背景 prefetch。匯出指向 API endpoint，prefetch
                 會在進顧客列表頁時就背景打 /api/export/customers（可能實際跑匯出查詢）；
                 新增顧客也不需背景預抓。點擊行為不變。 */}
-            <Link
-              href="/api/export/customers"
-              prefetch={false}
-              className="rounded-md border border-earth-200 bg-white px-3 py-1.5 text-xs font-medium text-earth-700 hover:bg-earth-50"
-            >
-              匯出
-            </Link>
+            {canExportData ? (
+              <Link
+                href="/api/export/customers"
+                prefetch={false}
+                className="rounded-md border border-earth-200 bg-white px-3 py-1.5 text-xs font-medium text-earth-700 hover:bg-earth-50"
+              >
+                匯出
+              </Link>
+            ) : (
+              <span className="rounded-md border border-earth-200 bg-earth-50 px-3 py-1.5 text-xs font-medium text-earth-500">
+                {dataExportLockedLabel}
+              </span>
+            )}
             <Link
               href="/dashboard/customers/new"
               prefetch={false}

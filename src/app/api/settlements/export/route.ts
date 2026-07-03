@@ -21,6 +21,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { auth } from "@/lib/auth";
 import { checkPermission } from "@/lib/permissions";
+import { requireDataExportFeature } from "@/lib/data-export-gate";
 import { resolveActiveStoreId } from "@/lib/store";
 import {
   previewStaffSettlement,
@@ -72,6 +73,8 @@ export async function GET(req: NextRequest) {
   const cookieStore = await cookies();
   const cookieStoreId = cookieStore.get("active-store-id")?.value ?? null;
   const activeStoreId = resolveActiveStoreId(session.user, cookieStoreId);
+  const dataExportLocked = await requireDataExportFeature(activeStoreId);
+  if (dataExportLocked) return dataExportLocked;
 
   let summary: Awaited<ReturnType<typeof previewStaffSettlement>>["summary"];
   let details: Awaited<ReturnType<typeof previewStaffSettlement>>["details"];

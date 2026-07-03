@@ -2,6 +2,11 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { getActiveStoreForRead } from "@/lib/store";
+import {
+  DATA_EXPORT_LOCKED_MESSAGE,
+  DATA_EXPORT_SELECT_STORE_MESSAGE,
+  hasDataExportFeature,
+} from "@/lib/data-export-gate";
 import { getPresetDateRange, type DateRangePreset } from "@/lib/date-utils";
 import { PageShell, PageHeader } from "@/components/desktop";
 import {
@@ -63,6 +68,10 @@ export default async function SettlementsPage({ searchParams }: PageProps) {
 
   // ── Multi-store scope ──
   const activeStoreId = await getActiveStoreForRead(user);
+  const canExportData = await hasDataExportFeature(activeStoreId).catch(() => false);
+  const dataExportLockedMessage = activeStoreId
+    ? DATA_EXPORT_LOCKED_MESSAGE
+    : DATA_EXPORT_SELECT_STORE_MESSAGE;
 
   // ── Parallel fetch ──
   const [{ summary, details }, staffOptions] = await Promise.all([
@@ -122,6 +131,8 @@ export default async function SettlementsPage({ searchParams }: PageProps) {
         unassignedToken={UNASSIGNED_STAFF_TOKEN}
         summary={summary}
         details={details}
+        canExportData={canExportData}
+        dataExportLockedMessage={dataExportLockedMessage}
       />
     </PageShell>
   );

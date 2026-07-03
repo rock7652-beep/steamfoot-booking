@@ -87,6 +87,8 @@ interface Props {
   coaches: CoachOption[];
   isAdmin: boolean;
   isViewMode?: boolean;
+  canExportData?: boolean;
+  dataExportLockedMessage?: string;
   defaultStartDate: string;
   defaultEndDate: string;
 }
@@ -139,6 +141,8 @@ export function RevenueReportClient({
   coaches,
   isAdmin,
   isViewMode = false,
+  canExportData = true,
+  dataExportLockedMessage = "資料匯出尚未開通",
   defaultStartDate,
   defaultEndDate,
 }: Props) {
@@ -437,6 +441,10 @@ export function RevenueReportClient({
           {isViewMode ? (
             <span className="rounded-lg border border-earth-200 bg-earth-50 px-4 py-1.5 text-sm font-medium text-earth-500">
               查看模式不可匯出
+            </span>
+          ) : !canExportData ? (
+            <span className="rounded-lg border border-earth-200 bg-earth-50 px-4 py-1.5 text-sm font-medium text-earth-500">
+              {dataExportLockedMessage}
             </span>
           ) : (
             <ExportButton buildUrl={buildExportUrl} disabled={loading} />
