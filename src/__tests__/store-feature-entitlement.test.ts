@@ -108,6 +108,16 @@ describe("hasStoreFeature", () => {
     ).resolves.toBe(true);
   });
 
+  it("低方案手動開通 multi_store 時，可用母子店 / 多店", async () => {
+    mockStore("BASIC");
+    mockEntitlement("ENABLED");
+    const { hasStoreFeature } = await import("@/lib/feature-gate");
+
+    await expect(
+      hasStoreFeature("store-1", FEATURES.MULTI_STORE),
+    ).resolves.toBe(true);
+  });
+
   it("featureKey 不存在時回 false 且不查資料庫", async () => {
     const { hasStoreFeature } = await import("@/lib/feature-gate");
 

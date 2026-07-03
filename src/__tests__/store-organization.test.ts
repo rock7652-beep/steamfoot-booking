@@ -7,6 +7,8 @@ const mockCookieGet = vi.fn();
 const mockCookieSet = vi.fn();
 const mockCookieDelete = vi.fn();
 const mockRevalidatePath = vi.fn();
+const mockHasStoreFeature = vi.fn();
+const mockRequireStoreFeature = vi.fn();
 
 vi.mock("@/lib/db", () => ({
   prisma: {
@@ -41,6 +43,11 @@ vi.mock("@/lib/session", () => ({
   requireStaffSession: (...args: unknown[]) => mockRequireStaffSession(...args),
 }));
 
+vi.mock("@/lib/feature-gate", () => ({
+  hasStoreFeature: (...args: unknown[]) => mockHasStoreFeature(...args),
+  requireStoreFeature: (...args: unknown[]) => mockRequireStoreFeature(...args),
+}));
+
 function mockStoreTree(parentToChildren: Record<string, string[]>) {
   mockFindMany.mockImplementation(({ where }: { where: { parentStoreId: { in: string[] } } }) => {
     const parentIds = where.parentStoreId.in;
@@ -59,6 +66,8 @@ describe("store organization foundation", () => {
     vi.clearAllMocks();
     mockPermissionFindMany.mockResolvedValue([{ permission: "customer.create" }]);
     mockCookieGet.mockReturnValue(undefined);
+    mockHasStoreFeature.mockResolvedValue(true);
+    mockRequireStoreFeature.mockResolvedValue(undefined);
   });
 
   it("allows viewing own store without querying descendants", async () => {
@@ -87,6 +96,32 @@ describe("store organization foundation", () => {
     });
 
     await expect(canViewStore("store-a", "store-b")).resolves.toBe(false);
+  });
+
+  it("does not expose descendant stores when multi_store is disabled", async () => {
+    const { getViewableStoreOptions } = await import("@/lib/store-organization");
+    mockHasStoreFeature.mockResolvedValueOnce(false);
+    mockFindMany.mockImplementation(({ where }: { where: { id?: { in: string[] } } }) => {
+      if (where.id?.in) {
+        return Promise.resolve([
+          { id: "store-a", name: "A", createdAt: new Date("2026-01-01T00:00:00Z") },
+        ]);
+      }
+      throw new Error("descendant query should not run");
+    });
+
+    await expect(getViewableStoreOptions("store-a")).resolves.toEqual([
+      { id: "store-a", name: "A", isOwnStore: true },
+    ]);
+    expect(mockHasStoreFeature).toHaveBeenCalledWith("store-a", "multi_store");
+  });
+
+  it("rejects descendant store viewing when multi_store is disabled", async () => {
+    const { canViewStore } = await import("@/lib/store-organization");
+    mockHasStoreFeature.mockResolvedValueOnce(false);
+
+    await expect(canViewStore("store-a", "store-b")).resolves.toBe(false);
+    expect(mockFindMany).not.toHaveBeenCalled();
   });
 
   it("rejects reverse parent viewing", async () => {
@@ -205,6 +240,23 @@ describe("store organization foundation", () => {
       expect.objectContaining({ httpOnly: true, sameSite: "lax" }),
     );
     expect(mockRevalidatePath).toHaveBeenCalledWith("/dashboard", "layout");
+  });
+
+  it("does not set viewed-store cookie when multi_store is disabled", async () => {
+    const { switchViewedStore } = await import("@/server/actions/store-view-mode");
+    mockRequireStaffSession.mockResolvedValue({
+      id: "user-a",
+      role: "OWNER",
+      staffId: "staff-a",
+      storeId: "store-a",
+    });
+    mockRequireStoreFeature.mockRejectedValueOnce(new Error("feature disabled"));
+
+    const result = await switchViewedStore("store-b");
+
+    expect(result.success).toBe(false);
+    expect(mockRequireStoreFeature).toHaveBeenCalledWith("store-a", "multi_store");
+    expect(mockCookieSet).not.toHaveBeenCalled();
   });
 
   it("clears viewed-store cookie when returning to own store", async () => {

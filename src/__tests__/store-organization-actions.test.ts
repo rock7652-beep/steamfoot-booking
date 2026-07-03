@@ -27,6 +27,7 @@ vi.mock("@/lib/session", () => ({
 }));
 
 vi.mock("next/cache", () => ({
+  unstable_cache: <T extends (...args: never[]) => unknown>(fn: T): T => fn,
   revalidatePath: (...args: unknown[]) => mockRevalidatePath(...args),
 }));
 

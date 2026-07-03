@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/db";
 import { AppError } from "@/lib/errors";
+import { FEATURES } from "@/lib/feature-flags";
+import { hasStoreFeature } from "@/lib/feature-gate";
 
 const MAX_STORE_TREE_DEPTH = 20;
 
@@ -73,7 +75,8 @@ export async function getDescendantStoreIds(ownStoreId: string): Promise<string[
 export async function getViewableStoreOptions(
   ownStoreId: string,
 ): Promise<ViewableStoreOption[]> {
-  const descendantIds = await getDescendantStoreIds(ownStoreId);
+  const multiStoreEnabled = await hasStoreFeature(ownStoreId, FEATURES.MULTI_STORE);
+  const descendantIds = multiStoreEnabled ? await getDescendantStoreIds(ownStoreId) : [];
   const storeIds = [ownStoreId, ...descendantIds];
   const stores = await prisma.store.findMany({
     where: { id: { in: storeIds } },
@@ -97,6 +100,8 @@ export async function canViewStore(
   targetStoreId: string,
 ): Promise<boolean> {
   if (ownStoreId === targetStoreId) return true;
+  if (!(await hasStoreFeature(ownStoreId, FEATURES.MULTI_STORE))) return false;
+
   const descendantIds = await getDescendantStoreIds(ownStoreId);
   return descendantIds.includes(targetStoreId);
 }
