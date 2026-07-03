@@ -76,9 +76,10 @@ export const MANAGEABLE_STORE_FEATURES: StoreFeatureCatalogItem[] = [
   },
   {
     key: FEATURES.MEMBER_PORTAL,
-    label: "會員專區",
+    label: "LINE 會員中心",
     module: "會員",
-    description: "顧客自助查詢與會員服務入口。",
+    description:
+      "顧客前台已可自助預約、取消與查詢方案；此模組用於 LINE / LIFF 品牌化會員入口。",
   },
   {
     key: FEATURES.SERVICE_FEE_CALCULATOR,
