@@ -20,6 +20,8 @@ import { getShopConfig } from "@/lib/shop-config";
 import { checkReminderSendLimit } from "@/lib/usage-gate";
 import type { StorePlanFields } from "@/lib/store-plan";
 import { deriveBaseUrl } from "@/lib/base-url";
+import { hasStoreFeature } from "@/lib/feature-gate";
+import { FEATURES } from "@/lib/feature-flags";
 import {
   toLocalDateStr,
   addTaiwanDuration,
@@ -99,10 +101,19 @@ export async function runReminders(): Promise<SendResult> {
   const shopNameCache = new Map<string, string>();
   const storePlanCache = new Map<string, StorePlanFields>();
   const storeSendCountCache = new Map<string, number>();
+  const storeLineReminderFeatureCache = new Map<string, boolean>();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
 
   for (const rule of rules) {
+    if (!storeLineReminderFeatureCache.has(rule.storeId)) {
+      storeLineReminderFeatureCache.set(
+        rule.storeId,
+        await hasStoreFeature(rule.storeId, FEATURES.LINE_REMINDER),
+      );
+    }
+    const lineReminderEnabled = storeLineReminderFeatureCache.get(rule.storeId) ?? false;
+
     const bookings = await prisma.booking.findMany({
       where: {
         storeId: rule.storeId,
@@ -119,6 +130,21 @@ export async function runReminders(): Promise<SendResult> {
     });
 
     result.total += bookings.length;
+
+    if (!lineReminderEnabled) {
+      result.skipped += bookings.length;
+      for (const booking of bookings) {
+        result.details.push({
+          customerId: booking.customer.id,
+          bookingId: booking.id,
+          ruleName: rule.name,
+          status: "SKIPPED",
+          error: "Feature not enabled",
+        });
+      }
+      continue;
+    }
+
     const templateBody = rule.template?.body ?? DEFAULT_TEMPLATE;
 
     for (const booking of bookings) {

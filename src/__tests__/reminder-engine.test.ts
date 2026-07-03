@@ -22,6 +22,7 @@ const RULE_ID = "rule-1";
 const BOOKING_ID = "booking-1";
 const CUSTOMER_ID = "customer-1";
 const LINE_USER_ID = "U1234567890";
+const OTHER_STORE_ID = "store-other";
 
 // ── In-memory stores ──
 type BookingRow = {
@@ -73,6 +74,7 @@ type LogRow = {
 let bookings: BookingRow[] = [];
 let rules: RuleRow[] = [];
 let messageLogs: LogRow[] = [];
+const mockHasStoreFeature = vi.fn();
 
 // ── Mock Prisma P2002 error class ──
 class MockPrismaError extends Error {
@@ -233,10 +235,15 @@ vi.mock("@/lib/db", () => ({ prisma: mockPrisma }));
 // ── Mock LINE & 其他依賴 ──
 const pushMessageMock = vi.fn(
   async (
-    _storeId: string,
-    _lineUserId: string,
-    _messages: unknown[],
-  ): Promise<{ success: boolean; error?: string }> => ({ success: true }),
+    storeId: string,
+    lineUserId: string,
+    messages: unknown[],
+  ): Promise<{ success: boolean; error?: string }> => {
+    void storeId;
+    void lineUserId;
+    void messages;
+    return { success: true };
+  },
 );
 vi.mock("@/lib/line", () => ({
   pushMessage: (storeId: string, lineUserId: string, messages: unknown[]) =>
@@ -248,6 +255,9 @@ vi.mock("@/lib/shop-config", () => ({
 }));
 vi.mock("@/lib/usage-gate", () => ({
   checkReminderSendLimit: () => ({ allowed: true, current: 0, limit: 1000 }),
+}));
+vi.mock("@/lib/feature-gate", () => ({
+  hasStoreFeature: (...args: unknown[]) => mockHasStoreFeature(...args),
 }));
 vi.mock("@/lib/base-url", () => ({
   deriveBaseUrl: () => "https://test.example.com",
@@ -274,6 +284,8 @@ async function loadModules() {
 /** 建立一個 PENDING booking（指定 bookingDate） */
 function makeBooking(opts: {
   id?: string;
+  storeId?: string;
+  customerId?: string;
   bookingDate: Date;
   slotTime?: string;
   status?: string;
@@ -281,12 +293,12 @@ function makeBooking(opts: {
 }): BookingRow {
   return {
     id: opts.id ?? BOOKING_ID,
-    storeId: STORE_ID,
+    storeId: opts.storeId ?? STORE_ID,
     bookingDate: opts.bookingDate,
     slotTime: opts.slotTime ?? "14:00",
     bookingStatus: opts.status ?? "CONFIRMED",
     customer: {
-      id: CUSTOMER_ID,
+      id: opts.customerId ?? CUSTOMER_ID,
       name: "Alice",
       lineUserId: opts.hasLine === false ? null : LINE_USER_ID,
       lineLinkStatus: opts.hasLine === false ? "UNLINKED" : "LINKED",
@@ -295,11 +307,11 @@ function makeBooking(opts: {
   };
 }
 
-function makeRule(): RuleRow {
+function makeRule(opts: { id?: string; storeId?: string; name?: string } = {}): RuleRow {
   return {
-    id: RULE_ID,
-    storeId: STORE_ID,
-    name: "預約前一天 18:00 提醒",
+    id: opts.id ?? RULE_ID,
+    storeId: opts.storeId ?? STORE_ID,
+    name: opts.name ?? "預約前一天 18:00 提醒",
     triggerType: "BEFORE_BOOKING_1D",
     type: "fixed",
     offsetMinutes: null,
@@ -329,6 +341,8 @@ beforeEach(() => {
   mockPrisma.messageLog.count.mockClear();
   mockPrisma.messageLog.findMany.mockClear();
   mockPrisma.store.findUnique.mockClear();
+  mockHasStoreFeature.mockClear();
+  mockHasStoreFeature.mockResolvedValue(true);
   vi.useFakeTimers();
 });
 
@@ -364,6 +378,83 @@ describe("runReminders (daily next-day batch)", () => {
     expect(pushMessageMock).toHaveBeenCalledWith(STORE_ID, LINE_USER_ID, [
       { type: "text", text: expect.any(String) },
     ]);
+  });
+
+  it("line_reminder 未授權時 → SKIPPED，不發 LINE、不寫 MessageLog", async () => {
+    vi.setSystemTime(new Date("2026-05-11T04:00:00.000Z"));
+    mockHasStoreFeature.mockResolvedValueOnce(false);
+    bookings.push(
+      makeBooking({
+        bookingDate: new Date("2026-05-12T00:00:00.000Z"),
+      }),
+    );
+    rules.push(makeRule());
+
+    const { engine } = await loadModules();
+    const result = await engine.runReminders();
+
+    expect(mockHasStoreFeature).toHaveBeenCalledWith(STORE_ID, "line_reminder");
+    expect(result.total).toBe(1);
+    expect(result.sent).toBe(0);
+    expect(result.skipped).toBe(1);
+    expect(result.details).toContainEqual({
+      customerId: CUSTOMER_ID,
+      bookingId: BOOKING_ID,
+      ruleName: "預約前一天 18:00 提醒",
+      status: "SKIPPED",
+      error: "Feature not enabled",
+    });
+    expect(pushMessageMock).not.toHaveBeenCalled();
+    expect(messageLogs).toHaveLength(0);
+  });
+
+  it("某店 line_reminder 關閉不影響其他店發送", async () => {
+    vi.setSystemTime(new Date("2026-05-11T04:00:00.000Z"));
+    mockHasStoreFeature.mockImplementation(async (storeId: string) => storeId !== STORE_ID);
+    bookings.push(
+      makeBooking({
+        id: "booking-disabled",
+        storeId: STORE_ID,
+        customerId: "customer-disabled",
+        bookingDate: new Date("2026-05-12T00:00:00.000Z"),
+      }),
+      makeBooking({
+        id: "booking-enabled",
+        storeId: OTHER_STORE_ID,
+        customerId: "customer-enabled",
+        bookingDate: new Date("2026-05-12T00:00:00.000Z"),
+      }),
+    );
+    rules.push(
+      makeRule({ id: "rule-disabled", storeId: STORE_ID, name: "關閉店提醒" }),
+      makeRule({ id: "rule-enabled", storeId: OTHER_STORE_ID, name: "開啟店提醒" }),
+    );
+
+    const { engine } = await loadModules();
+    const result = await engine.runReminders();
+
+    expect(result.total).toBe(2);
+    expect(result.sent).toBe(1);
+    expect(result.skipped).toBe(1);
+    expect(pushMessageMock).toHaveBeenCalledTimes(1);
+    expect(pushMessageMock).toHaveBeenCalledWith(OTHER_STORE_ID, LINE_USER_ID, [
+      { type: "text", text: expect.any(String) },
+    ]);
+    expect(messageLogs).toHaveLength(1);
+    expect(messageLogs[0].storeId).toBe(OTHER_STORE_ID);
+    expect(result.details).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          bookingId: "booking-disabled",
+          status: "SKIPPED",
+          error: "Feature not enabled",
+        }),
+        expect.objectContaining({
+          bookingId: "booking-enabled",
+          status: "SENT",
+        }),
+      ]),
+    );
   });
 
   it("不命中：今天的預約（不是明天）→ 不發送", async () => {

@@ -3,6 +3,9 @@ import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { getActiveStoreForRead } from "@/lib/store";
 import { formatTWTime } from "@/lib/date-utils";
+import { hasStoreFeature } from "@/lib/feature-gate";
+import { FEATURES } from "@/lib/feature-flags";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   PageShell,
   PageHeader,
@@ -58,6 +61,31 @@ function followUpText(
   return `最後追蹤：${followUp.createdByName}・${formatRelativeDaysTW(followUp.createdAt)}`;
 }
 
+function CustomerCareLockedState() {
+  return (
+    <PageShell>
+      <PageHeader
+        title="顧客經營"
+        subtitle="今天要關心誰,一頁看懂。"
+        actions={
+          <Link
+            href="/dashboard"
+            className="rounded-md border border-earth-200 bg-white px-3 py-1.5 text-xs font-medium text-earth-700 hover:bg-earth-50"
+          >
+            返回儀表板
+          </Link>
+        }
+      />
+      <EmptyState
+        icon="lock"
+        title="此功能尚未開通"
+        description="請聯絡總部加購或升級方案後,再使用顧客經營。"
+        action={{ label: "返回儀表板", href: "/dashboard" }}
+      />
+    </PageShell>
+  );
+}
+
 export default async function CustomerCarePage() {
   const user = await getCurrentUser();
   if (!user || !(await checkPermission(user.role, user.staffId, "customer.read"))) {
@@ -65,6 +93,10 @@ export default async function CustomerCarePage() {
   }
 
   const activeStoreId = await getActiveStoreForRead(user);
+  if (activeStoreId && !(await hasStoreFeature(activeStoreId, FEATURES.CUSTOMER_CARE))) {
+    return <CustomerCareLockedState />;
+  }
+
   const overview = await getCustomerCareOverview(user, activeStoreId);
   const { trialFollowUps, inactiveCustomers, lowSessionCustomers, expiringPlanCustomers, summary } =
     overview;
