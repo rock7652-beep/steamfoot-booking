@@ -45,7 +45,7 @@ const CASES: Record<MergeCaseKey, MergeCase> = {
   tang: {
     key: "tang",
     label: "唐春燕",
-    targetCustomerId: "cmr4wqi0q0001l804x3g3f8zx",
+    targetCustomerId: "cmr4wqi0q000ll804x3g3f8zx",
     targetPhone: "0939668262",
     sourceCustomerId: "cmr4ulu180001lb042xt8mlrh",
     sourcePhone: "0939608262",
