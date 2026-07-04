@@ -16,6 +16,7 @@ const mockInitializeCashDrawer = vi.fn();
 const mockOpenCashDrawer = vi.fn();
 const mockAddCashDrawerEntry = vi.fn();
 const mockCloseCashDrawer = vi.fn();
+const mockRequireStoreFeature = vi.fn();
 
 vi.mock("@/lib/db", () => ({
   prisma: {
@@ -24,6 +25,9 @@ vi.mock("@/lib/db", () => ({
       count: (...args: unknown[]) => mockCashbookCount(...args),
       groupBy: (...args: unknown[]) => mockCashbookGroupBy(...args),
       create: (...args: unknown[]) => mockCashbookCreate(...args),
+    },
+    cashDrawerSession: {
+      findUnique: vi.fn(),
     },
   },
 }));
@@ -80,6 +84,7 @@ vi.mock("@/lib/manager-visibility", () => ({
 
 vi.mock("@/lib/feature-gate", () => ({
   checkCurrentStoreFeature: vi.fn(),
+  requireStoreFeature: (...args: unknown[]) => mockRequireStoreFeature(...args),
 }));
 
 vi.mock("@/server/queries/cash-drawer", async () => {
@@ -127,6 +132,7 @@ describe("cash drawer view mode support", () => {
     mockCashbookCount.mockResolvedValue(0);
     mockCashbookGroupBy.mockResolvedValue([]);
     mockGetCurrentCashDrawer.mockResolvedValue({ session: null, liveTotals: null });
+    mockRequireStoreFeature.mockResolvedValue(undefined);
   });
 
   it("uses viewedStoreId for cashbook list reads", async () => {
@@ -164,6 +170,7 @@ describe("cash drawer view mode support", () => {
     const result = await getCurrentCashDrawerAction({ businessDate: "2026-06-20" });
 
     expect(result.success).toBe(true);
+    expect(mockRequireStoreFeature).toHaveBeenCalledWith(STORE_CHILD, "cash_drawer");
     expect(mockGetCurrentCashDrawer).toHaveBeenCalledWith(
       STORE_CHILD,
       new Date(Date.UTC(2026, 5, 20)),

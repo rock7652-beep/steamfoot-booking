@@ -22,6 +22,7 @@ import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { getCachedStorePlan } from "@/lib/query-cache";
 import { FEATURES } from "@/lib/feature-flags";
+import { hasStoreFeature } from "@/lib/feature-gate";
 import { FeatureGate } from "@/components/feature-gate";
 import { FormErrorToast } from "@/components/form-error-toast";
 import { getActiveStoreForRead } from "@/lib/store";
@@ -111,6 +112,10 @@ export default async function CashbookPage({ searchParams }: PageProps) {
     getCachedStorePlan(cashbookStoreId ?? undefined),
     canViewCashDrawer && cashbookStoreId
       ? (async () => {
+          const cashDrawerEnabled = await hasStoreFeature(cashbookStoreId, FEATURES.CASH_DRAWER);
+          if (!cashDrawerEnabled) {
+            return { locked: true as const };
+          }
           const [y, m, d] = today.split("-").map(Number);
           const todayBusinessDate = new Date(Date.UTC(y, m - 1, d));
           // 「記一筆收支」inline form 防呆提示用：近 ~180 天的已閉店營業日。
@@ -144,6 +149,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
           const canInit = !isViewMode && (user.role === "ADMIN" || user.role === "OWNER");
           const canAssignStaff = !isViewMode && user.role === "ADMIN";
           return {
+            locked: false as const,
             view,
             canInit,
             canOpen,
@@ -188,19 +194,23 @@ export default async function CashbookPage({ searchParams }: PageProps) {
         {/* 上方：今日現金抽屜工作台（無權限者不 render） */}
         {cashDrawerData && (
           <section id="cash-drawer-workspace" className="space-y-3">
-            <CashDrawerWorkspace
-              view={cashDrawerData.view}
-              todayStr={today}
-              canInit={cashDrawerData.canInit}
-              canOpen={cashDrawerData.canOpen}
-              canClose={cashDrawerData.canClose}
-              canAddEntry={cashDrawerData.canAddEntry}
-              canCreateCashbook={cashDrawerData.canCreateCashbook}
-              closedDates={cashDrawerData.closedDates}
-              canAssignStaff={cashDrawerData.canAssignStaff}
-              staffOptions={cashDrawerData.staffOptions}
-              returnPath="/dashboard/cashbook#cash-drawer-workspace"
-            />
+            {cashDrawerData.locked ? (
+              <CashDrawerInlineLockedState />
+            ) : (
+              <CashDrawerWorkspace
+                view={cashDrawerData.view}
+                todayStr={today}
+                canInit={cashDrawerData.canInit}
+                canOpen={cashDrawerData.canOpen}
+                canClose={cashDrawerData.canClose}
+                canAddEntry={cashDrawerData.canAddEntry}
+                canCreateCashbook={cashDrawerData.canCreateCashbook}
+                closedDates={cashDrawerData.closedDates}
+                canAssignStaff={cashDrawerData.canAssignStaff}
+                staffOptions={cashDrawerData.staffOptions}
+                returnPath="/dashboard/cashbook#cash-drawer-workspace"
+              />
+            )}
           </section>
         )}
 
@@ -388,5 +398,15 @@ export default async function CashbookPage({ searchParams }: PageProps) {
         </section>
       </PageShell>
     </FeatureGate>
+  );
+}
+
+function CashDrawerInlineLockedState() {
+  return (
+    <EmptyState
+      icon="lock"
+      title="現金抽屜尚未開通"
+      description="請聯絡總部加購或升級方案後，再使用每日開店點錢、閉店點錢與抽屜異動。現金帳紀錄仍可照常查看。"
+    />
   );
 }

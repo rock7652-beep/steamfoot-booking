@@ -6,6 +6,8 @@ import { getStoreFilter } from "@/lib/manager-visibility";
 import { bookingDateToday, formatTWTime, toLocalDateStr } from "@/lib/date-utils";
 import { ACTIVE_BOOKING_STATUSES, STATUS_LABEL } from "@/lib/booking-constants";
 import { checkPermission } from "@/lib/permissions";
+import { FEATURES } from "@/lib/feature-flags";
+import { hasStoreFeature } from "@/lib/feature-gate";
 import {
   resolveStoreViewContext,
   type StoreViewContext,
@@ -104,17 +106,29 @@ export default async function DashboardHomePage() {
     !isViewMode && await checkPermission(user.role, user.staffId, "cashDrawer.open");
   let cashDrawerView: CashDrawerView | null = null;
   if (canViewCashDrawer && dashboardStoreId) {
-    const todayStr = toLocalDateStr();
-    const [y, m, d] = todayStr.split("-").map(Number);
-    const todayBusinessDate = new Date(Date.UTC(y, m - 1, d));
-    cashDrawerView = await getCashDrawerView(dashboardStoreId, todayBusinessDate).catch((e) => {
-      console.error("[dashboard-home] getCashDrawerView failed", {
-        activeStoreId: dashboardStoreId,
-        userId: user.id,
-        error: e instanceof Error ? e.message : String(e),
+    const cashDrawerEnabled = await hasStoreFeature(dashboardStoreId, FEATURES.CASH_DRAWER).catch(
+      (e) => {
+        console.error("[dashboard-home] hasStoreFeature(cash_drawer) failed", {
+          activeStoreId: dashboardStoreId,
+          userId: user.id,
+          error: e instanceof Error ? e.message : String(e),
+        });
+        return false;
+      },
+    );
+    if (cashDrawerEnabled) {
+      const todayStr = toLocalDateStr();
+      const [y, m, d] = todayStr.split("-").map(Number);
+      const todayBusinessDate = new Date(Date.UTC(y, m - 1, d));
+      cashDrawerView = await getCashDrawerView(dashboardStoreId, todayBusinessDate).catch((e) => {
+        console.error("[dashboard-home] getCashDrawerView failed", {
+          activeStoreId: dashboardStoreId,
+          userId: user.id,
+          error: e instanceof Error ? e.message : String(e),
+        });
+        return null;
       });
-      return null;
-    });
+    }
   }
 
   // 各區塊獨立 catch — 任一塊失敗（DB 連線不穩、缺 store / config 等）不影響其他區塊

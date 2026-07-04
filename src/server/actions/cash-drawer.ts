@@ -3,9 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requirePermission, requireWritablePermission } from "@/lib/permissions";
+import { prisma } from "@/lib/db";
 import { AppError, handleActionError } from "@/lib/errors";
 import { currentStoreId } from "@/lib/store";
 import { toLocalDateStr } from "@/lib/date-utils";
+import { FEATURES } from "@/lib/feature-flags";
+import { requireStoreFeature } from "@/lib/feature-gate";
 import {
   resolveStoreViewContextFromCookie,
   storeIdForViewContext,
@@ -71,6 +74,21 @@ function toBusinessDate(dateStr: string | undefined): Date {
   return new Date(Date.UTC(y, m - 1, d));
 }
 
+async function requireCashDrawerFeature(storeId: string): Promise<void> {
+  await requireStoreFeature(storeId, FEATURES.CASH_DRAWER);
+}
+
+async function requireCashDrawerFeatureForSession(sessionId: string): Promise<void> {
+  const session = await prisma.cashDrawerSession.findUnique({
+    where: { id: sessionId },
+    select: { storeId: true },
+  });
+  if (!session) {
+    throw new AppError("NOT_FOUND", "找不到指定的現金抽屜 session");
+  }
+  await requireCashDrawerFeature(session.storeId);
+}
+
 // ============================================================
 // Actions
 // ============================================================
@@ -89,6 +107,7 @@ export async function initializeCashDrawerAction(
     }
     const data = initializeSchema.parse(input);
     const storeId = currentStoreId(user);
+    await requireCashDrawerFeature(storeId);
     const session = await initializeCashDrawer({
       storeId,
       businessDate: toBusinessDate(data.businessDate),
@@ -115,6 +134,7 @@ export async function openCashDrawerAction(
     const user = await requireWritablePermission("cashDrawer.open");
     const data = openSchema.parse(input);
     const storeId = currentStoreId(user);
+    await requireCashDrawerFeature(storeId);
     const session = await openCashDrawer({
       storeId,
       businessDate: toBusinessDate(data.businessDate),
@@ -151,6 +171,7 @@ export async function getCurrentCashDrawerAction(
     if (!storeId) {
       throw new AppError("UNAUTHORIZED", "缺少 storeId，請重新登入");
     }
+    await requireCashDrawerFeature(storeId);
     const result = await getCurrentCashDrawer(storeId, toBusinessDate(data.businessDate));
     return {
       success: true,
@@ -173,6 +194,7 @@ export async function addCashDrawerEntryAction(
   try {
     const user = await requireWritablePermission("cashDrawer.entry");
     const data = addEntrySchema.parse(input);
+    await requireCashDrawerFeatureForSession(data.sessionId);
     const entry = await addCashDrawerEntry({
       sessionId: data.sessionId,
       type: data.type,
@@ -199,6 +221,7 @@ export async function closeCashDrawerAction(
   try {
     const user = await requireWritablePermission("cashDrawer.close");
     const data = closeSchema.parse(input);
+    await requireCashDrawerFeatureForSession(data.sessionId);
     const session = await closeCashDrawer({
       sessionId: data.sessionId,
       closingActualCash: data.closingActualCash,
