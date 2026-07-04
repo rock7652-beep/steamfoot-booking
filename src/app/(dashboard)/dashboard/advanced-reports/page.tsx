@@ -21,6 +21,10 @@ import {
   type Column,
 } from "@/components/desktop";
 import { MonthFilter } from "./month-filter";
+import { FEATURES } from "@/lib/feature-flags";
+import { hasStoreFeature } from "@/lib/feature-gate";
+import { DashboardLink as Link } from "@/components/dashboard-link";
+import { EmptyState } from "@/components/ui/empty-state";
 
 interface PageProps {
   searchParams: Promise<{
@@ -56,6 +60,31 @@ function isEmptyMetrics(metrics: Awaited<ReturnType<typeof getAdvancedReportsMet
   );
 }
 
+function AdvancedReportsLockedState() {
+  return (
+    <PageShell>
+      <PageHeader
+        title="進階報表"
+        subtitle="體驗轉換、續購、回訪、客單價與營收趨勢"
+        actions={
+          <Link
+            href="/dashboard"
+            className="rounded-md border border-earth-200 bg-white px-3 py-1.5 text-xs font-medium text-earth-700 hover:bg-earth-50"
+          >
+            返回儀表板
+          </Link>
+        }
+      />
+      <EmptyState
+        icon="lock"
+        title="進階報表尚未開通"
+        description="請聯絡總部加購或升級方案後，再查看體驗轉換、續購、回訪與月營收趨勢。"
+        action={{ label: "返回儀表板", href: "/dashboard" }}
+      />
+    </PageShell>
+  );
+}
+
 export default async function AdvancedReportsPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const user = await getCurrentUser();
@@ -66,6 +95,11 @@ export default async function AdvancedReportsPage({ searchParams }: PageProps) {
   const activeStoreId = await getActiveStoreForRead(user);
   const storeViewContext = await resolveStoreViewContextFromCookie(user);
   const reportsStoreId = storeIdForViewContext(activeStoreId, storeViewContext);
+  const gateStoreId = reportsStoreId ?? activeStoreId;
+  if (gateStoreId && !(await hasStoreFeature(gateStoreId, FEATURES.ADVANCED_REPORTS))) {
+    return <AdvancedReportsLockedState />;
+  }
+
   const month = isValidMonth(params.month) ? params.month : toLocalMonthStr();
 
   const [metrics, store] = await Promise.all([
