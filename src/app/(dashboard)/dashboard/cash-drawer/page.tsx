@@ -19,11 +19,11 @@ import {
   storeIdForViewContext,
 } from "@/lib/store-view-context-server";
 import { toLocalDateStr } from "@/lib/date-utils";
-import { getCachedStorePlan } from "@/lib/query-cache";
 import { FEATURES } from "@/lib/feature-flags";
-import { FeatureGate } from "@/components/feature-gate";
+import { hasStoreFeature } from "@/lib/feature-gate";
 import { FormErrorToast } from "@/components/form-error-toast";
 import { DashboardLink as Link } from "@/components/dashboard-link";
+import { EmptyState } from "@/components/ui/empty-state";
 import { PageShell, PageHeader } from "@/components/desktop";
 
 import { getCashDrawerView, listClosedBusinessDates } from "@/server/queries/cash-drawer";
@@ -49,6 +49,11 @@ export default async function CashDrawerPage({ searchParams }: PageProps) {
     // ADMIN 未選店時 storeId 可能為 null
     redirect("/dashboard");
   }
+
+  if (!(await hasStoreFeature(storeId, FEATURES.CASH_DRAWER))) {
+    return <CashDrawerLockedState />;
+  }
+
   const todayStr = toLocalDateStr();
   const [y, m, d] = todayStr.split("-").map(Number);
   const todayBusinessDate = new Date(Date.UTC(y, m - 1, d));
@@ -57,7 +62,6 @@ export default async function CashDrawerPage({ searchParams }: PageProps) {
   fromDate.setUTCDate(fromDate.getUTCDate() - 180);
 
   const [
-    plan,
     view,
     canOpen,
     canClose,
@@ -66,7 +70,6 @@ export default async function CashDrawerPage({ searchParams }: PageProps) {
     closedDates,
     staffOptions,
   ] = await Promise.all([
-    getCachedStorePlan(storeId),
     getCashDrawerView(storeId, todayBusinessDate),
     isViewMode
       ? Promise.resolve(false)
@@ -87,37 +90,60 @@ export default async function CashDrawerPage({ searchParams }: PageProps) {
   const canAssignStaff = !isViewMode && user.role === "ADMIN";
 
   return (
-    <FeatureGate plan={plan} feature={FEATURES.CASHBOOK}>
-      <PageShell>
-        <FormErrorToast />
+    <PageShell>
+      <FormErrorToast />
 
-        <PageHeader
-          title="現金抽屜"
-          subtitle="每日開店點錢 / 閉店點錢 / 滾動結餘核對"
-          actions={
-            <Link
-              href="/dashboard/cashbook#cash-drawer-workspace"
-              className="rounded-lg border border-earth-200 px-3 py-1.5 text-xs font-medium text-earth-600 hover:bg-earth-50"
-            >
-              ↑ 回現金管理
-            </Link>
-          }
-        />
+      <PageHeader
+        title="現金抽屜"
+        subtitle="每日開店點錢 / 閉店點錢 / 滾動結餘核對"
+        actions={
+          <Link
+            href="/dashboard/cashbook#cash-drawer-workspace"
+            className="rounded-lg border border-earth-200 px-3 py-1.5 text-xs font-medium text-earth-600 hover:bg-earth-50"
+          >
+            ↑ 回現金管理
+          </Link>
+        }
+      />
 
-        <CashDrawerWorkspace
-          view={view}
-          todayStr={todayStr}
-          canInit={canInit}
-          canOpen={canOpen}
-          canClose={canClose}
-          canAddEntry={canAddEntry}
-          canCreateCashbook={canCreateCashbook}
-          closedDates={closedDates}
-          canAssignStaff={canAssignStaff}
-          staffOptions={staffOptions}
-          returnPath="/dashboard/cash-drawer"
-        />
-      </PageShell>
-    </FeatureGate>
+      <CashDrawerWorkspace
+        view={view}
+        todayStr={todayStr}
+        canInit={canInit}
+        canOpen={canOpen}
+        canClose={canClose}
+        canAddEntry={canAddEntry}
+        canCreateCashbook={canCreateCashbook}
+        closedDates={closedDates}
+        canAssignStaff={canAssignStaff}
+        staffOptions={staffOptions}
+        returnPath="/dashboard/cash-drawer"
+      />
+    </PageShell>
+  );
+}
+
+function CashDrawerLockedState() {
+  return (
+    <PageShell>
+      <PageHeader
+        title="現金抽屜"
+        subtitle="每日開店點錢 / 閉店點錢 / 滾動結餘核對"
+        actions={
+          <Link
+            href="/dashboard"
+            className="rounded-lg border border-earth-200 px-3 py-1.5 text-xs font-medium text-earth-600 hover:bg-earth-50"
+          >
+            返回儀表板
+          </Link>
+        }
+      />
+      <EmptyState
+        icon="lock"
+        title="現金抽屜尚未開通"
+        description="請聯絡總部加購或升級方案後，再使用每日開店點錢、閉店點錢與抽屜異動。"
+        action={{ label: "返回儀表板", href: "/dashboard" }}
+      />
+    </PageShell>
   );
 }
