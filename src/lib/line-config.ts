@@ -118,6 +118,44 @@ export function getLineWebhookDiagnosticsForStore(storeIdOrSlug: string): {
   };
 }
 
+export function getLineEnvironmentDiagnosticsForStore(storeIdOrSlug: string): {
+  storeSlug: LineStoreSlug | null;
+  accessTokenEnvName: string | null;
+  channelSecretEnvName: string | null;
+  hasAccessToken: boolean;
+  hasSecret: boolean;
+} {
+  const storeSlug = resolveLineStoreSlug(storeIdOrSlug);
+  if (!storeSlug) {
+    return {
+      storeSlug: null,
+      accessTokenEnvName: null,
+      channelSecretEnvName: null,
+      hasAccessToken: false,
+      hasSecret: false,
+    };
+  }
+
+  const envNames = LINE_ENV_BY_STORE[storeSlug];
+  if (!envNames) {
+    return {
+      storeSlug,
+      accessTokenEnvName: null,
+      channelSecretEnvName: null,
+      hasAccessToken: false,
+      hasSecret: false,
+    };
+  }
+
+  return {
+    storeSlug,
+    accessTokenEnvName: envNames.accessToken,
+    channelSecretEnvName: envNames.channelSecret,
+    hasAccessToken: Boolean(nonEmptyEnv(envNames.accessToken)),
+    hasSecret: Boolean(nonEmptyEnv(envNames.channelSecret)),
+  };
+}
+
 export function isLineSmokeTestEnabled(): boolean {
   if (process.env.LINE_SMOKE_TEST_ENABLED === "1") return true;
   if (process.env.VERCEL_ENV === "production") return false;
