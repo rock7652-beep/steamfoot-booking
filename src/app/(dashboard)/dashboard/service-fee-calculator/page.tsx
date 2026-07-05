@@ -34,11 +34,6 @@ function formatMoney(value: number): string {
   return `NT$ ${Math.round(value).toLocaleString()}`;
 }
 
-function formatMonthLabel(month: string): string {
-  const [year, mon] = month.split("-");
-  return `${year} 年 ${Number(mon)} 月`;
-}
-
 export default async function ServiceFeeCalculatorPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const user = await getCurrentUser();
@@ -64,14 +59,13 @@ export default async function ServiceFeeCalculatorPage({ searchParams }: PagePro
       ? getStoreSettlementsForStore(calculatorStoreId)
       : Promise.resolve([]),
   ]);
-  const storeName = summary.storeName;
   const empty = summary.grossRevenue === 0 && summary.refundAmount === 0;
 
   return (
     <PageShell>
       <PageHeader
-        title="營運結算工具"
-        subtitle={`${storeName} · ${formatMonthLabel(month)} 月結試算`}
+        title="月結管理"
+        subtitle="依服務金額、固定月費與加扣項，確認本月月結金額。"
         actions={<MonthFilter month={month} />}
       />
 
@@ -152,8 +146,8 @@ function ServiceFeeCalculatorLockedState() {
   return (
     <PageShell>
       <PageHeader
-        title="營運結算工具"
-        subtitle="依月份試算店舖營收、分潤與應收金額"
+        title="月結管理"
+        subtitle="依服務金額、固定月費與加扣項，確認本月月結金額。"
         actions={
           <Link
             href="/dashboard"
@@ -165,7 +159,7 @@ function ServiceFeeCalculatorLockedState() {
       />
       <EmptyState
         icon="lock"
-        title="營運結算工具尚未開通"
+        title="月結管理尚未開通"
         description="請聯絡總部加購或升級方案後，再使用月結試算、儲存、確認與匯出功能。"
         action={{ label: "返回儀表板", href: "/dashboard" }}
       />

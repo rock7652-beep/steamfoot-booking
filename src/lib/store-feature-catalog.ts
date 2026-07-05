@@ -83,9 +83,10 @@ export const MANAGEABLE_STORE_FEATURES: StoreFeatureCatalogItem[] = [
   },
   {
     key: FEATURES.SERVICE_FEE_CALCULATOR,
-    label: "服務費試算",
+    label: "月結管理",
     module: "結算",
-    description: "服務費、分潤或結算金額試算工具。",
+    description:
+      "適合有合作店長或分潤夥伴的店家，用於確認每月服務金額、固定月費、加扣項與月結紀錄。",
   },
 ];
 

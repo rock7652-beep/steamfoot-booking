@@ -180,7 +180,7 @@ describe("ServiceFeeCalculatorPage feature gate", () => {
     expect(mockGetServiceFeeCalculatorSummary).not.toHaveBeenCalled();
     expect(mockGetStoreSettlementForStoreByMonth).not.toHaveBeenCalled();
     expect(mockGetStoreSettlementsForStore).not.toHaveBeenCalled();
-    expect(html).toContain("營運結算工具尚未開通");
+    expect(html).toContain("月結管理尚未開通");
     expect(html).toContain("請聯絡總部加購或升級方案");
     expect(html).toContain("返回儀表板");
   });
@@ -200,7 +200,8 @@ describe("ServiceFeeCalculatorPage feature gate", () => {
     });
     expect(mockGetStoreSettlementForStoreByMonth).toHaveBeenCalledWith("store-1", "2026-07");
     expect(mockGetStoreSettlementsForStore).toHaveBeenCalledWith("store-1");
-    expect(html).toContain("營運結算工具");
+    expect(html).toContain("月結管理");
+    expect(html).toContain("依服務金額、固定月費與加扣項，確認本月月結金額。");
     expect(html).toContain("service fee calculator form");
   });
 });
