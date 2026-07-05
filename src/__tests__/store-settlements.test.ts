@@ -20,6 +20,7 @@ function settlement(overrides: Record<string, unknown> = {}) {
   return {
     id: "settlement-1",
     storeId: "store-1",
+    storeName: "測試店",
     month: "2026-07",
     grossRevenue: 12000,
     refundAmount: 2000,
@@ -270,5 +271,20 @@ describe("store settlements service", () => {
         }),
       }),
     );
+  });
+
+  it("builds a CSV export with settlement fields and escaped notes", async () => {
+    const { buildStoreSettlementCsv } = await import("@/server/services/store-settlements");
+
+    const record = settlement({
+      storeName: "測試店",
+      note: '含加項, 扣項與 "備註"',
+      status: "CONFIRMED",
+    }) as Parameters<typeof buildStoreSettlementCsv>[0];
+    const csv = buildStoreSettlementCsv(record);
+
+    expect(csv).toContain("店舖名稱,月份,狀態,當月總收款,退款,有效營收");
+    expect(csv).toContain("測試店,2026-07,CONFIRMED,12000,2000,10000,5,10,1000,3000,500,200,12300");
+    expect(csv).toContain('"含加項, 扣項與 ""備註"""');
   });
 });
