@@ -1,0 +1,211 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const mockSettlementUpsert = vi.fn();
+const mockSettlementFindMany = vi.fn();
+const mockSettlementFindUnique = vi.fn();
+const mockSettlementUpdate = vi.fn();
+
+vi.mock("@/lib/db", () => ({
+  prisma: {
+    storeSettlement: {
+      upsert: (...args: unknown[]) => mockSettlementUpsert(...args),
+      findMany: (...args: unknown[]) => mockSettlementFindMany(...args),
+      findUnique: (...args: unknown[]) => mockSettlementFindUnique(...args),
+      update: (...args: unknown[]) => mockSettlementUpdate(...args),
+    },
+  },
+}));
+
+function settlement(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "settlement-1",
+    storeId: "store-1",
+    month: "2026-07",
+    grossRevenue: 12000,
+    refundAmount: 2000,
+    netRevenue: 10000,
+    transactionCount: 5,
+    fixedMonthlyFee: 3000,
+    revenueShareRate: 10,
+    revenueShareAmount: 1000,
+    additionalAmount: 500,
+    deductionAmount: 200,
+    finalReceivable: 12300,
+    note: "本月調整",
+    status: "DRAFT",
+    createdAt: new Date("2026-07-05T00:00:00.000Z"),
+    updatedAt: new Date("2026-07-05T00:00:00.000Z"),
+    store: { name: "測試店" },
+    ...overrides,
+  };
+}
+
+const input = {
+  month: "2026-07",
+  grossRevenue: 12000,
+  refundAmount: 2000,
+  netRevenue: 10000,
+  transactionCount: 5,
+  fixedMonthlyFee: 3000,
+  revenueShareRate: 10,
+  additionalAmount: 500,
+  deductionAmount: 200,
+  note: "本月調整",
+  status: "DRAFT" as const,
+};
+
+describe("store settlements service", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockSettlementUpsert.mockResolvedValue(settlement());
+    mockSettlementFindMany.mockResolvedValue([]);
+    mockSettlementFindUnique.mockResolvedValue(null);
+    mockSettlementUpdate.mockResolvedValue(settlement({ status: "CONFIRMED" }));
+  });
+
+  it("creates a settlement for one store and month", async () => {
+    const { saveStoreSettlementForStore } = await import("@/server/services/store-settlements");
+
+    await saveStoreSettlementForStore({ storeId: "store-1", userId: "user-1", input });
+
+    expect(mockSettlementUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          uq_store_settlement_store_month: {
+            storeId: "store-1",
+            month: "2026-07",
+          },
+        },
+        create: expect.objectContaining({
+          storeId: "store-1",
+          month: "2026-07",
+          createdBy: "user-1",
+          updatedBy: "user-1",
+        }),
+      }),
+    );
+  });
+
+  it("updates the same store/month through the unique upsert key", async () => {
+    const { saveStoreSettlementForStore } = await import("@/server/services/store-settlements");
+
+    await saveStoreSettlementForStore({ storeId: "store-1", userId: "user-1", input });
+
+    expect(mockSettlementUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          uq_store_settlement_store_month: {
+            storeId: "store-1",
+            month: "2026-07",
+          },
+        },
+        update: expect.objectContaining({
+          fixedMonthlyFee: 3000,
+          updatedBy: "user-1",
+        }),
+      }),
+    );
+  });
+
+  it("allows different stores to save the same month independently", async () => {
+    const { saveStoreSettlementForStore } = await import("@/server/services/store-settlements");
+
+    await saveStoreSettlementForStore({ storeId: "store-1", input });
+    await saveStoreSettlementForStore({ storeId: "store-2", input });
+
+    expect(mockSettlementUpsert).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        where: { uq_store_settlement_store_month: { storeId: "store-1", month: "2026-07" } },
+      }),
+    );
+    expect(mockSettlementUpsert).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        where: { uq_store_settlement_store_month: { storeId: "store-2", month: "2026-07" } },
+      }),
+    );
+  });
+
+  it("calculates revenueShareAmount and finalReceivable correctly", async () => {
+    const { calculateStoreSettlementAmounts } = await import(
+      "@/server/services/store-settlements"
+    );
+
+    expect(calculateStoreSettlementAmounts(input)).toEqual({
+      revenueShareAmount: 1000,
+      finalReceivable: 12300,
+    });
+  });
+
+  it("can save a zero-value draft for a no-data month", async () => {
+    const { saveStoreSettlementForStore } = await import("@/server/services/store-settlements");
+
+    await saveStoreSettlementForStore({
+      storeId: "store-1",
+      input: {
+        ...input,
+        grossRevenue: 0,
+        refundAmount: 0,
+        netRevenue: 0,
+        transactionCount: 0,
+        fixedMonthlyFee: 0,
+        revenueShareRate: 0,
+        additionalAmount: 0,
+        deductionAmount: 0,
+        note: "",
+      },
+    });
+
+    expect(mockSettlementUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          grossRevenue: 0,
+          finalReceivable: 0,
+          note: null,
+        }),
+      }),
+    );
+  });
+
+  it("preserves CONFIRMED status when saving", async () => {
+    const { saveStoreSettlementForStore } = await import("@/server/services/store-settlements");
+
+    await saveStoreSettlementForStore({
+      storeId: "store-1",
+      input: { ...input, status: "CONFIRMED" },
+    });
+
+    expect(mockSettlementUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({ status: "CONFIRMED" }),
+        update: expect.objectContaining({ status: "CONFIRMED" }),
+      }),
+    );
+  });
+
+  it("confirms an existing settlement without locking edits", async () => {
+    const { confirmStoreSettlementForStore } = await import(
+      "@/server/services/store-settlements"
+    );
+
+    const record = await confirmStoreSettlementForStore({
+      storeId: "store-1",
+      month: "2026-07",
+      userId: "user-1",
+    });
+
+    expect(record.status).toBe("CONFIRMED");
+    expect(mockSettlementUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          uq_store_settlement_store_month: {
+            storeId: "store-1",
+            month: "2026-07",
+          },
+        },
+        data: { status: "CONFIRMED", updatedBy: "user-1" },
+      }),
+    );
+  });
+});

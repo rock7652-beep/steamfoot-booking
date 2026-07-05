@@ -123,8 +123,9 @@ export function calculateServiceFeeSettlement(
     summary.netRevenue * (adjustments.revenueSharePercent / 100),
   );
   const receivableAmount =
-    adjustments.fixedMonthlyFee +
+    summary.netRevenue -
     revenueShareAmount +
+    adjustments.fixedMonthlyFee +
     adjustments.additionalAmount -
     adjustments.deductionAmount;
 

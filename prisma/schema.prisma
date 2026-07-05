@@ -250,6 +250,11 @@ enum SpaceFeeStatus {
   WAIVED
 }
 
+enum StoreSettlementStatus {
+  DRAFT
+  CONFIRMED
+}
+
 enum DutyRole {
   STORE_MANAGER // 店長
   BRANCH_MANAGER // 分店長
@@ -527,6 +532,7 @@ model Store {
 
   cashDrawerSessions CashDrawerSession[]
   cashDrawerEntries  CashDrawerEntry[]
+  settlements        StoreSettlement[]
 
   @@index([parentStoreId])
 }
@@ -556,6 +562,39 @@ model StoreFeatureEntitlement {
   @@index([featureKey])
   @@index([status])
   @@index([expiresAt])
+}
+
+// ============================================================
+// StoreSettlement（月結試算紀錄）
+// ============================================================
+
+model StoreSettlement {
+  id                 String                @id @default(cuid())
+  storeId            String
+  month              String
+  grossRevenue       Int                   @default(0)
+  refundAmount       Int                   @default(0)
+  netRevenue         Int                   @default(0)
+  transactionCount   Int                   @default(0)
+  fixedMonthlyFee    Int                   @default(0)
+  revenueShareRate   Decimal               @default(0)
+  revenueShareAmount Int                   @default(0)
+  additionalAmount   Int                   @default(0)
+  deductionAmount    Int                   @default(0)
+  finalReceivable    Int                   @default(0)
+  note               String?
+  status             StoreSettlementStatus @default(DRAFT)
+  createdBy          String?
+  updatedBy          String?
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, month], name: "uq_store_settlement_store_month")
+  @@index([storeId])
+  @@index([month])
+  @@index([status])
 }
 
 // ============================================================
