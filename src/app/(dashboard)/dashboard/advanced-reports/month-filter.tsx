@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 interface MonthFilterProps {
   month: string;
@@ -12,6 +12,10 @@ export function MonthFilter({ month }: MonthFilterProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [selectedMonth, setSelectedMonth] = useState(month);
+
+  useEffect(() => {
+    setSelectedMonth(month);
+  }, [month]);
 
   function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
