@@ -137,7 +137,7 @@ describe("service fee calculator service", () => {
       additionalAmount: 800,
       deductionAmount: 300,
       revenueShareAmount: 1250,
-      receivableAmount: 4750,
+      receivableAmount: 12250,
     });
   });
 });

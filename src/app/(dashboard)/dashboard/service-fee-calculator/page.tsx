@@ -9,6 +9,10 @@ import {
   storeIdForViewContext,
 } from "@/lib/store-view-context-server";
 import { getServiceFeeCalculatorSummary } from "@/server/services/service-fee-calculator";
+import {
+  getStoreSettlementForStoreByMonth,
+  getStoreSettlementsForStore,
+} from "@/server/services/store-settlements";
 import { MonthFilter } from "../advanced-reports/month-filter";
 import { ServiceFeeCalculatorForm } from "./calculator-form";
 
@@ -43,7 +47,15 @@ export default async function ServiceFeeCalculatorPage({ searchParams }: PagePro
   const calculatorStoreId = storeIdForViewContext(activeStoreId, storeViewContext);
   const month = isValidMonth(params.month) ? params.month : toLocalMonthStr();
 
-  const summary = await getServiceFeeCalculatorSummary({ storeId: calculatorStoreId, month });
+  const [summary, currentSettlement, settlements] = await Promise.all([
+    getServiceFeeCalculatorSummary({ storeId: calculatorStoreId, month }),
+    calculatorStoreId
+      ? getStoreSettlementForStoreByMonth(calculatorStoreId, month)
+      : Promise.resolve(null),
+    calculatorStoreId
+      ? getStoreSettlementsForStore(calculatorStoreId)
+      : Promise.resolve([]),
+  ]);
   const storeName = summary.storeName;
   const empty = summary.grossRevenue === 0 && summary.refundAmount === 0;
 
@@ -117,7 +129,13 @@ export default async function ServiceFeeCalculatorPage({ searchParams }: PagePro
         </div>
       </section>
 
-      <ServiceFeeCalculatorForm netRevenue={summary.netRevenue} />
+      <ServiceFeeCalculatorForm
+        key={`${month}:${currentSettlement?.updatedAt.toISOString() ?? "new"}`}
+        summary={summary}
+        currentSettlement={currentSettlement}
+        settlements={settlements}
+        canSave={Boolean(calculatorStoreId)}
+      />
     </PageShell>
   );
 }
