@@ -6,6 +6,7 @@ import type { StoreSettlementRecord } from "@/server/services/store-settlements"
 const mockRequirePermission = vi.fn();
 const mockGetActiveStoreForRead = vi.fn();
 const mockResolveStoreViewContextFromCookie = vi.fn();
+const mockRequireStoreFeature = vi.fn();
 const mockGetStoreSettlementForStoreByMonth = vi.fn();
 
 vi.mock("@/lib/permissions", () => ({
@@ -14,6 +15,16 @@ vi.mock("@/lib/permissions", () => ({
 
 vi.mock("@/lib/store", () => ({
   getActiveStoreForRead: (...args: unknown[]) => mockGetActiveStoreForRead(...args),
+}));
+
+vi.mock("@/lib/feature-flags", () => ({
+  FEATURES: {
+    SERVICE_FEE_CALCULATOR: "service_fee_calculator",
+  },
+}));
+
+vi.mock("@/lib/feature-gate", () => ({
+  requireStoreFeature: (...args: unknown[]) => mockRequireStoreFeature(...args),
 }));
 
 vi.mock("@/lib/store-view-context-server", () => ({
@@ -76,6 +87,7 @@ describe("store settlement CSV export route", () => {
     mockRequirePermission.mockResolvedValue(user());
     mockGetActiveStoreForRead.mockResolvedValue("store-1");
     mockResolveStoreViewContextFromCookie.mockResolvedValue(null);
+    mockRequireStoreFeature.mockResolvedValue(undefined);
     mockGetStoreSettlementForStoreByMonth.mockResolvedValue(settlement());
   });
 
@@ -90,6 +102,10 @@ describe("store settlement CSV export route", () => {
     expect(response.headers.get("Content-Type")).toContain("text/csv");
     expect(response.headers.get("Content-Disposition")).toContain("store-settlement");
     expect(mockRequirePermission).toHaveBeenCalledWith("report.read");
+    expect(mockRequireStoreFeature).toHaveBeenCalledWith(
+      "store-1",
+      "service_fee_calculator",
+    );
     expect(mockGetStoreSettlementForStoreByMonth).toHaveBeenCalledWith("store-1", "2026-07");
     const body = await response.text();
     expect(body).toContain("店舖名稱,月份,狀態");
@@ -150,6 +166,25 @@ describe("store settlement CSV export route", () => {
 
     expect(response.status).toBe(403);
     expect(await response.text()).toBe("您沒有此操作的權限");
+    expect(mockGetStoreSettlementForStoreByMonth).not.toHaveBeenCalled();
+  });
+
+  it("returns forbidden and does not export when service_fee_calculator is disabled", async () => {
+    mockRequireStoreFeature.mockRejectedValueOnce(
+      new AppError("FORBIDDEN", "此功能尚未開通，請聯絡總部加購或升級方案"),
+    );
+    const { GET } = await import("@/app/api/store-settlements/export/route");
+
+    const response = await GET(
+      new NextRequest("http://localhost/api/store-settlements/export?month=2026-07"),
+    );
+
+    expect(response.status).toBe(403);
+    expect(await response.text()).toBe("此功能尚未開通，請聯絡總部加購或升級方案");
+    expect(mockRequireStoreFeature).toHaveBeenCalledWith(
+      "store-1",
+      "service_fee_calculator",
+    );
     expect(mockGetStoreSettlementForStoreByMonth).not.toHaveBeenCalled();
   });
 });

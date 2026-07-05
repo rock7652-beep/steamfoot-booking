@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { AppError } from "@/lib/errors";
+import { FEATURES } from "@/lib/feature-flags";
+import { requireStoreFeature } from "@/lib/feature-gate";
 import { requirePermission } from "@/lib/permissions";
 import { getActiveStoreForRead } from "@/lib/store";
 import {
@@ -43,6 +45,8 @@ export async function GET(req: NextRequest) {
         status: 400,
       });
     }
+
+    await requireStoreFeature(storeId, FEATURES.SERVICE_FEE_CALCULATOR);
 
     const settlement = await getStoreSettlementForStoreByMonth(storeId, month);
     if (!settlement) {

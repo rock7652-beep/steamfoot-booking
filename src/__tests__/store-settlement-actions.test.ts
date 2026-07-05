@@ -4,6 +4,7 @@ import { AppError } from "@/lib/errors";
 const mockRequireWritablePermission = vi.fn();
 const mockResolveWriteStoreId = vi.fn();
 const mockResolveStoreViewContextFromCookie = vi.fn();
+const mockRequireStoreFeature = vi.fn();
 const mockSaveStoreSettlementForStore = vi.fn();
 const mockConfirmStoreSettlementForStore = vi.fn();
 const mockReopenStoreSettlementForStore = vi.fn();
@@ -20,6 +21,16 @@ vi.mock("@/lib/permissions", () => ({
 
 vi.mock("@/lib/store", () => ({
   resolveWriteStoreId: (...args: unknown[]) => mockResolveWriteStoreId(...args),
+}));
+
+vi.mock("@/lib/feature-flags", () => ({
+  FEATURES: {
+    SERVICE_FEE_CALCULATOR: "service_fee_calculator",
+  },
+}));
+
+vi.mock("@/lib/feature-gate", () => ({
+  requireStoreFeature: (...args: unknown[]) => mockRequireStoreFeature(...args),
 }));
 
 vi.mock("@/lib/store-view-context-server", () => ({
@@ -66,6 +77,7 @@ describe("store settlement actions", () => {
     });
     mockResolveStoreViewContextFromCookie.mockResolvedValue(null);
     mockResolveWriteStoreId.mockResolvedValue("admin-selected-store");
+    mockRequireStoreFeature.mockResolvedValue(undefined);
     mockSaveStoreSettlementForStore.mockResolvedValue({ id: "settlement-1", status: "DRAFT" });
     mockConfirmStoreSettlementForStore.mockResolvedValue({
       id: "settlement-1",
@@ -88,6 +100,10 @@ describe("store settlement actions", () => {
         storeId: "store-1",
         userId: "user-1",
       }),
+    );
+    expect(mockRequireStoreFeature).toHaveBeenCalledWith(
+      "store-1",
+      "service_fee_calculator",
     );
     expect(mockSaveStoreSettlementForStore).not.toHaveBeenCalledWith(
       expect.objectContaining({ storeId: "evil-store" }),
@@ -138,6 +154,10 @@ describe("store settlement actions", () => {
       success: true,
       data: { id: "settlement-1", status: "CONFIRMED" },
     });
+    expect(mockRequireStoreFeature).toHaveBeenCalledWith(
+      "store-1",
+      "service_fee_calculator",
+    );
     expect(mockConfirmStoreSettlementForStore).toHaveBeenCalledWith({
       storeId: "store-1",
       month: "2026-07",
@@ -157,6 +177,10 @@ describe("store settlement actions", () => {
       success: true,
       data: { id: "settlement-1", status: "DRAFT" },
     });
+    expect(mockRequireStoreFeature).toHaveBeenCalledWith(
+      "store-1",
+      "service_fee_calculator",
+    );
     expect(mockReopenStoreSettlementForStore).toHaveBeenCalledWith({
       storeId: "store-1",
       month: "2026-07",
@@ -165,5 +189,50 @@ describe("store settlement actions", () => {
     expect(mockReopenStoreSettlementForStore).not.toHaveBeenCalledWith(
       expect.objectContaining({ storeId: "evil-store" }),
     );
+  });
+
+  it("does not save when service_fee_calculator is not enabled", async () => {
+    mockRequireStoreFeature.mockRejectedValueOnce(
+      new AppError("FORBIDDEN", "此功能尚未開通，請聯絡總部加購或升級方案"),
+    );
+    const { saveStoreSettlementAction } = await import("@/server/actions/store-settlement");
+
+    const result = await saveStoreSettlementAction(validFormData());
+
+    expect(result).toEqual({
+      success: false,
+      error: "此功能尚未開通，請聯絡總部加購或升級方案",
+    });
+    expect(mockSaveStoreSettlementForStore).not.toHaveBeenCalled();
+  });
+
+  it("does not confirm when service_fee_calculator is not enabled", async () => {
+    mockRequireStoreFeature.mockRejectedValueOnce(
+      new AppError("FORBIDDEN", "此功能尚未開通，請聯絡總部加購或升級方案"),
+    );
+    const { confirmStoreSettlementAction } = await import("@/server/actions/store-settlement");
+
+    const result = await confirmStoreSettlementAction(validFormData());
+
+    expect(result).toEqual({
+      success: false,
+      error: "此功能尚未開通，請聯絡總部加購或升級方案",
+    });
+    expect(mockConfirmStoreSettlementForStore).not.toHaveBeenCalled();
+  });
+
+  it("does not reopen when service_fee_calculator is not enabled", async () => {
+    mockRequireStoreFeature.mockRejectedValueOnce(
+      new AppError("FORBIDDEN", "此功能尚未開通，請聯絡總部加購或升級方案"),
+    );
+    const { reopenStoreSettlementAction } = await import("@/server/actions/store-settlement");
+
+    const result = await reopenStoreSettlementAction(validFormData());
+
+    expect(result).toEqual({
+      success: false,
+      error: "此功能尚未開通，請聯絡總部加購或升級方案",
+    });
+    expect(mockReopenStoreSettlementForStore).not.toHaveBeenCalled();
   });
 });
