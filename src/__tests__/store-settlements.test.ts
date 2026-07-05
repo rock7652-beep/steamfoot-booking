@@ -86,8 +86,9 @@ describe("store settlements service", () => {
     );
   });
 
-  it("updates the same store/month through the unique upsert key", async () => {
+  it("updates a DRAFT settlement for the same store/month through the unique upsert key", async () => {
     const { saveStoreSettlementForStore } = await import("@/server/services/store-settlements");
+    mockSettlementFindUnique.mockResolvedValueOnce({ status: "DRAFT" });
 
     await saveStoreSettlementForStore({ storeId: "store-1", userId: "user-1", input });
 
@@ -105,6 +106,18 @@ describe("store settlements service", () => {
         }),
       }),
     );
+  });
+
+  it("prevents save from overwriting a CONFIRMED settlement", async () => {
+    const { saveStoreSettlementForStore, STORE_SETTLEMENT_CONFIRMED_LOCK_MESSAGE } =
+      await import("@/server/services/store-settlements");
+    mockSettlementFindUnique.mockResolvedValueOnce({ status: "CONFIRMED" });
+
+    await expect(
+      saveStoreSettlementForStore({ storeId: "store-1", userId: "user-1", input }),
+    ).rejects.toThrow(STORE_SETTLEMENT_CONFIRMED_LOCK_MESSAGE);
+
+    expect(mockSettlementUpsert).not.toHaveBeenCalled();
   });
 
   it("allows different stores to save the same month independently", async () => {
@@ -168,7 +181,7 @@ describe("store settlements service", () => {
     );
   });
 
-  it("preserves CONFIRMED status when saving", async () => {
+  it("always saves through the DRAFT path instead of confirming via save", async () => {
     const { saveStoreSettlementForStore } = await import("@/server/services/store-settlements");
 
     await saveStoreSettlementForStore({
@@ -178,13 +191,13 @@ describe("store settlements service", () => {
 
     expect(mockSettlementUpsert).toHaveBeenCalledWith(
       expect.objectContaining({
-        create: expect.objectContaining({ status: "CONFIRMED" }),
-        update: expect.objectContaining({ status: "CONFIRMED" }),
+        create: expect.objectContaining({ status: "DRAFT" }),
+        update: expect.objectContaining({ status: "DRAFT" }),
       }),
     );
   });
 
-  it("confirms an existing settlement without locking edits", async () => {
+  it("confirms an existing settlement", async () => {
     const { confirmStoreSettlementForStore } = await import(
       "@/server/services/store-settlements"
     );
@@ -205,6 +218,56 @@ describe("store settlements service", () => {
           },
         },
         data: { status: "CONFIRMED", updatedBy: "user-1" },
+      }),
+    );
+  });
+
+  it("reopens a confirmed settlement back to DRAFT", async () => {
+    const { reopenStoreSettlementForStore } = await import(
+      "@/server/services/store-settlements"
+    );
+    mockSettlementUpdate.mockResolvedValueOnce(settlement({ status: "DRAFT" }));
+
+    const record = await reopenStoreSettlementForStore({
+      storeId: "store-1",
+      month: "2026-07",
+      userId: "user-1",
+    });
+
+    expect(record.status).toBe("DRAFT");
+    expect(mockSettlementUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          uq_store_settlement_store_month: {
+            storeId: "store-1",
+            month: "2026-07",
+          },
+        },
+        data: { status: "DRAFT", updatedBy: "user-1" },
+      }),
+    );
+  });
+
+  it("allows saving again after a confirmed settlement is reopened", async () => {
+    const { reopenStoreSettlementForStore, saveStoreSettlementForStore } = await import(
+      "@/server/services/store-settlements"
+    );
+    mockSettlementUpdate.mockResolvedValueOnce(settlement({ status: "DRAFT" }));
+    mockSettlementFindUnique.mockResolvedValueOnce({ status: "DRAFT" });
+
+    await reopenStoreSettlementForStore({
+      storeId: "store-1",
+      month: "2026-07",
+      userId: "user-1",
+    });
+    await saveStoreSettlementForStore({ storeId: "store-1", userId: "user-1", input });
+
+    expect(mockSettlementUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: expect.objectContaining({
+          fixedMonthlyFee: 3000,
+          status: "DRAFT",
+        }),
       }),
     );
   });
