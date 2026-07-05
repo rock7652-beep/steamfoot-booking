@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import type { StoreSettlementStatus } from "@prisma/client";
 import { AppError, handleActionError } from "@/lib/errors";
+import { FEATURES } from "@/lib/feature-flags";
+import { requireStoreFeature } from "@/lib/feature-gate";
 import { requirePermission, requireWritablePermission } from "@/lib/permissions";
 import { resolveWriteStoreId } from "@/lib/store";
 import {
@@ -101,6 +103,7 @@ export async function saveStoreSettlementAction(
   try {
     const user = await requireWritablePermission("report.read");
     const storeId = await resolveSettlementWriteStoreId(user);
+    await requireStoreFeature(storeId, FEATURES.SERVICE_FEE_CALCULATOR);
     const input = readSettlementInput(formData);
     const settlement = await saveStoreSettlementForStore({
       storeId,
@@ -121,6 +124,7 @@ export async function confirmStoreSettlementAction(
   try {
     const user = await requireWritablePermission("report.read");
     const storeId = await resolveSettlementWriteStoreId(user);
+    await requireStoreFeature(storeId, FEATURES.SERVICE_FEE_CALCULATOR);
     const month = readMonth(formData);
     const settlement = await confirmStoreSettlementForStore({
       storeId,
@@ -141,6 +145,7 @@ export async function reopenStoreSettlementAction(
   try {
     const user = await requireWritablePermission("report.read");
     const storeId = await resolveSettlementWriteStoreId(user);
+    await requireStoreFeature(storeId, FEATURES.SERVICE_FEE_CALCULATOR);
     const month = readMonth(formData);
     const settlement = await reopenStoreSettlementForStore({
       storeId,

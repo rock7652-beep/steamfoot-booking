@@ -1,6 +1,10 @@
 import { redirect } from "next/navigation";
 import { EmptyRow, KpiStrip, PageHeader, PageShell } from "@/components/desktop";
+import { DashboardLink as Link } from "@/components/dashboard-link";
+import { EmptyState } from "@/components/ui/empty-state";
 import { formatDateZh, toLocalMonthStr } from "@/lib/date-utils";
+import { FEATURES } from "@/lib/feature-flags";
+import { hasStoreFeature } from "@/lib/feature-gate";
 import { checkPermission } from "@/lib/permissions";
 import { getCurrentUser } from "@/lib/session";
 import { getActiveStoreForRead } from "@/lib/store";
@@ -46,6 +50,10 @@ export default async function ServiceFeeCalculatorPage({ searchParams }: PagePro
   const storeViewContext = await resolveStoreViewContextFromCookie(user);
   const calculatorStoreId = storeIdForViewContext(activeStoreId, storeViewContext);
   const month = isValidMonth(params.month) ? params.month : toLocalMonthStr();
+  const gateStoreId = calculatorStoreId ?? activeStoreId;
+  if (gateStoreId && !(await hasStoreFeature(gateStoreId, FEATURES.SERVICE_FEE_CALCULATOR))) {
+    return <ServiceFeeCalculatorLockedState />;
+  }
 
   const [summary, currentSettlement, settlements] = await Promise.all([
     getServiceFeeCalculatorSummary({ storeId: calculatorStoreId, month }),
@@ -135,6 +143,31 @@ export default async function ServiceFeeCalculatorPage({ searchParams }: PagePro
         currentSettlement={currentSettlement}
         settlements={settlements}
         canSave={Boolean(calculatorStoreId)}
+      />
+    </PageShell>
+  );
+}
+
+function ServiceFeeCalculatorLockedState() {
+  return (
+    <PageShell>
+      <PageHeader
+        title="營運結算工具"
+        subtitle="依月份試算店舖營收、分潤與應收金額"
+        actions={
+          <Link
+            href="/dashboard"
+            className="rounded-lg border border-earth-200 px-3 py-1.5 text-xs font-medium text-earth-600 hover:bg-earth-50"
+          >
+            返回儀表板
+          </Link>
+        }
+      />
+      <EmptyState
+        icon="lock"
+        title="營運結算工具尚未開通"
+        description="請聯絡總部加購或升級方案後，再使用月結試算、儲存、確認與匯出功能。"
+        action={{ label: "返回儀表板", href: "/dashboard" }}
       />
     </PageShell>
   );
