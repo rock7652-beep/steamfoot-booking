@@ -346,12 +346,12 @@ export default async function ReportsPage({ searchParams }: PageProps) {
                   </a>
                 </>
               )}
-              {/* PR-2.2：服務金額試算頁入口，歸在報表底下 */}
+              {/* 月結管理入口：服務金額是月結資料來源，最終確認與保存集中到月結管理。 */}
               <a
-                href="/dashboard/settlements"
+                href="/dashboard/service-fee-calculator"
                 className="rounded-md border border-primary-200 bg-primary-50 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-100"
               >
-                服務金額試算 →
+                月結管理 →
               </a>
             </>
           }
