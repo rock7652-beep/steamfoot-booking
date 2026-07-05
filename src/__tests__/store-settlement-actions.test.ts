@@ -1,9 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { AppError } from "@/lib/errors";
 
 const mockRequireWritablePermission = vi.fn();
 const mockResolveWriteStoreId = vi.fn();
 const mockResolveStoreViewContextFromCookie = vi.fn();
 const mockSaveStoreSettlementForStore = vi.fn();
+const mockConfirmStoreSettlementForStore = vi.fn();
+const mockReopenStoreSettlementForStore = vi.fn();
 const mockRevalidatePath = vi.fn();
 
 vi.mock("next/cache", () => ({
@@ -28,7 +31,10 @@ vi.mock("@/lib/store-view-context-server", () => ({
 
 vi.mock("@/server/services/store-settlements", () => ({
   saveStoreSettlementForStore: (...args: unknown[]) => mockSaveStoreSettlementForStore(...args),
-  confirmStoreSettlementForStore: vi.fn(),
+  confirmStoreSettlementForStore: (...args: unknown[]) =>
+    mockConfirmStoreSettlementForStore(...args),
+  reopenStoreSettlementForStore: (...args: unknown[]) =>
+    mockReopenStoreSettlementForStore(...args),
   getStoreSettlementsForStore: vi.fn(),
   getStoreSettlementForStoreByMonth: vi.fn(),
 }));
@@ -61,6 +67,14 @@ describe("store settlement actions", () => {
     mockResolveStoreViewContextFromCookie.mockResolvedValue(null);
     mockResolveWriteStoreId.mockResolvedValue("admin-selected-store");
     mockSaveStoreSettlementForStore.mockResolvedValue({ id: "settlement-1", status: "DRAFT" });
+    mockConfirmStoreSettlementForStore.mockResolvedValue({
+      id: "settlement-1",
+      status: "CONFIRMED",
+    });
+    mockReopenStoreSettlementForStore.mockResolvedValue({
+      id: "settlement-1",
+      status: "DRAFT",
+    });
   });
 
   it("does not allow formData to choose an unauthorized store", async () => {
@@ -98,6 +112,58 @@ describe("store settlement actions", () => {
         storeId: "admin-selected-store",
         userId: "admin-1",
       }),
+    );
+  });
+
+  it("returns locked result instead of 500 when saving a CONFIRMED settlement", async () => {
+    mockSaveStoreSettlementForStore.mockRejectedValueOnce(
+      new AppError("FORBIDDEN", "此月結已確認，若需修改請先解除確認"),
+    );
+    const { saveStoreSettlementAction } = await import("@/server/actions/store-settlement");
+
+    const result = await saveStoreSettlementAction(validFormData());
+
+    expect(result).toEqual({
+      success: false,
+      error: "此月結已確認，若需修改請先解除確認",
+    });
+  });
+
+  it("does not allow formData to choose another store when confirming", async () => {
+    const { confirmStoreSettlementAction } = await import("@/server/actions/store-settlement");
+
+    const result = await confirmStoreSettlementAction(validFormData());
+
+    expect(result).toEqual({
+      success: true,
+      data: { id: "settlement-1", status: "CONFIRMED" },
+    });
+    expect(mockConfirmStoreSettlementForStore).toHaveBeenCalledWith({
+      storeId: "store-1",
+      month: "2026-07",
+      userId: "user-1",
+    });
+    expect(mockConfirmStoreSettlementForStore).not.toHaveBeenCalledWith(
+      expect.objectContaining({ storeId: "evil-store" }),
+    );
+  });
+
+  it("reopens a confirmed settlement without trusting formData storeId", async () => {
+    const { reopenStoreSettlementAction } = await import("@/server/actions/store-settlement");
+
+    const result = await reopenStoreSettlementAction(validFormData());
+
+    expect(result).toEqual({
+      success: true,
+      data: { id: "settlement-1", status: "DRAFT" },
+    });
+    expect(mockReopenStoreSettlementForStore).toHaveBeenCalledWith({
+      storeId: "store-1",
+      month: "2026-07",
+      userId: "user-1",
+    });
+    expect(mockReopenStoreSettlementForStore).not.toHaveBeenCalledWith(
+      expect.objectContaining({ storeId: "evil-store" }),
     );
   });
 });

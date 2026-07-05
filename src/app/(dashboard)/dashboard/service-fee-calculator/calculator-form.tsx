@@ -6,10 +6,12 @@ import { useRouter } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import {
   confirmStoreSettlementAction,
+  reopenStoreSettlementAction,
   saveStoreSettlementAction,
 } from "@/server/actions/store-settlement";
 import type { ServiceFeeCalculatorSummary } from "@/server/services/service-fee-calculator";
 import type { StoreSettlementRecord } from "@/server/services/store-settlements";
+import { getSettlementLockState } from "./settlement-lock-state";
 
 interface CalculatorFormProps {
   summary: ServiceFeeCalculatorSummary;
@@ -62,6 +64,8 @@ export function ServiceFeeCalculatorForm({
   );
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const lockState = getSettlementLockState(status);
+  const controlsDisabled = !canSave || isPending || lockState.isLocked;
 
   const calculation = useMemo(() => {
     const fixedFee = parseAmount(fixedMonthlyFee);
@@ -80,7 +84,7 @@ export function ServiceFeeCalculatorForm({
     };
   }, [additionalAmount, deductionAmount, fixedMonthlyFee, revenueShareRate, summary.netRevenue]);
 
-  function buildFormData(nextStatus = status): FormData {
+  function buildFormData(): FormData {
     const formData = new FormData();
     formData.set("month", summary.month);
     formData.set("grossRevenue", String(Math.round(summary.grossRevenue)));
@@ -95,7 +99,7 @@ export function ServiceFeeCalculatorForm({
     formData.set("additionalAmount", additionalAmount);
     formData.set("deductionAmount", deductionAmount);
     formData.set("note", note);
-    formData.set("status", nextStatus);
+    formData.set("status", "DRAFT");
     return formData;
   }
 
@@ -124,7 +128,29 @@ export function ServiceFeeCalculatorForm({
         setError(result.error);
         return;
       }
+      if (month === summary.month) {
+        setStatus(result.data.status);
+      }
       setMessage("月結紀錄已標記為已確認");
+      router.refresh();
+    });
+  }
+
+  function reopenSettlement(month: string) {
+    setMessage(null);
+    setError(null);
+    const formData = new FormData();
+    formData.set("month", month);
+    startTransition(async () => {
+      const result = await reopenStoreSettlementAction(formData);
+      if (!result.success) {
+        setError(result.error);
+        return;
+      }
+      if (month === summary.month) {
+        setStatus(result.data.status);
+      }
+      setMessage("月結紀錄已解除確認，可重新編輯");
       router.refresh();
     });
   }
@@ -146,6 +172,7 @@ export function ServiceFeeCalculatorForm({
                 label="固定月費"
                 value={fixedMonthlyFee}
                 onChange={setFixedMonthlyFee}
+                disabled={controlsDisabled}
               />
               <NumberField
                 id="revenueShareRate"
@@ -154,31 +181,28 @@ export function ServiceFeeCalculatorForm({
                 onChange={setRevenueShareRate}
                 min={0}
                 step="0.1"
+                disabled={controlsDisabled}
               />
               <NumberField
                 id="additionalAmount"
                 label="其他加項"
                 value={additionalAmount}
                 onChange={setAdditionalAmount}
+                disabled={controlsDisabled}
               />
               <NumberField
                 id="deductionAmount"
                 label="其他扣項"
                 value={deductionAmount}
                 onChange={setDeductionAmount}
+                disabled={controlsDisabled}
               />
-              <label htmlFor="settlementStatus">
+              <div>
                 <span className="text-xs font-medium text-earth-600">狀態</span>
-                <select
-                  id="settlementStatus"
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value as StoreSettlementStatus)}
-                  className="mt-1 h-10 w-full rounded-md border border-earth-200 bg-white px-3 text-sm text-earth-800 outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
-                >
-                  <option value="DRAFT">草稿</option>
-                  <option value="CONFIRMED">已確認</option>
-                </select>
-              </label>
+                <div className="mt-1 flex h-10 items-center rounded-md border border-earth-200 bg-earth-50 px-3 text-sm text-earth-700">
+                  {statusLabel(status)}
+                </div>
+              </div>
               <label className="md:col-span-2">
                 <span className="text-xs font-medium text-earth-600">備註</span>
                 <textarea
@@ -186,7 +210,8 @@ export function ServiceFeeCalculatorForm({
                   onChange={(e) => setNote(e.target.value)}
                   rows={3}
                   placeholder="可記錄本月特殊調整原因。"
-                  className="mt-1 w-full resize-none rounded-md border border-earth-200 bg-white px-3 py-2 text-sm text-earth-800 outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
+                  disabled={controlsDisabled}
+                  className="mt-1 w-full resize-none rounded-md border border-earth-200 bg-white px-3 py-2 text-sm text-earth-800 outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100 disabled:cursor-not-allowed disabled:bg-earth-50 disabled:text-earth-500"
                 />
               </label>
             </div>
@@ -225,14 +250,41 @@ export function ServiceFeeCalculatorForm({
               ) : null}
               {message ? <p className="mb-2 text-xs text-green-700">{message}</p> : null}
               {error ? <p className="mb-2 text-xs text-red-700">{error}</p> : null}
-              <button
-                type="button"
-                onClick={saveSettlement}
-                disabled={!canSave || isPending}
-                className="h-9 rounded-md bg-primary-600 px-3 text-sm font-medium text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:bg-earth-300"
-              >
-                {isPending ? "儲存中..." : "儲存本月試算"}
-              </button>
+              {lockState.message ? (
+                <p className="mb-2 rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs text-amber-800">
+                  {lockState.message}
+                </p>
+              ) : null}
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={saveSettlement}
+                  disabled={controlsDisabled}
+                  className="h-9 rounded-md bg-primary-600 px-3 text-sm font-medium text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:bg-earth-300"
+                >
+                  {isPending ? "儲存中..." : "儲存本月試算"}
+                </button>
+                {status === "DRAFT" && currentSettlement ? (
+                  <button
+                    type="button"
+                    onClick={() => confirmSettlement(summary.month)}
+                    disabled={!canSave || isPending}
+                    className="h-9 rounded-md border border-earth-200 bg-white px-3 text-sm font-medium text-earth-700 hover:bg-earth-50 disabled:cursor-not-allowed disabled:text-earth-300"
+                  >
+                    確認月結
+                  </button>
+                ) : null}
+                {lockState.isLocked ? (
+                  <button
+                    type="button"
+                    onClick={() => reopenSettlement(summary.month)}
+                    disabled={!canSave || isPending}
+                    className="h-9 rounded-md border border-amber-300 bg-white px-3 text-sm font-medium text-amber-800 hover:bg-amber-50 disabled:cursor-not-allowed disabled:text-earth-300"
+                  >
+                    解除確認
+                  </button>
+                ) : null}
+              </div>
             </div>
           </section>
         </section>
@@ -242,7 +294,7 @@ export function ServiceFeeCalculatorForm({
         <div className="border-b border-earth-100 px-3 py-2">
           <h2 className="text-sm font-semibold text-earth-800">最近月結紀錄</h2>
           <p className="text-[11px] text-earth-400">
-            點月份可載入該月份資料；確認狀態目前不鎖定修改。
+            點月份可載入該月份資料；已確認紀錄需先解除確認才能修改。
           </p>
         </div>
         {settlements.length === 0 ? (
@@ -274,7 +326,16 @@ export function ServiceFeeCalculatorForm({
                     >
                       標記確認
                     </button>
-                  ) : null}
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => reopenSettlement(settlement.month)}
+                      disabled={isPending || !canSave}
+                      className="h-7 rounded-md border border-amber-300 bg-white px-2 text-[11px] font-medium text-amber-800 hover:bg-amber-50 disabled:cursor-not-allowed disabled:text-earth-300"
+                    >
+                      解除確認
+                    </button>
+                  )}
                 </div>
                 <div className="mt-2 grid grid-cols-2 gap-2 text-[11px] text-earth-500">
                   <span>有效營收 {formatMoney(settlement.netRevenue)}</span>
@@ -298,6 +359,7 @@ function NumberField({
   onChange,
   min,
   step = "1",
+  disabled = false,
 }: {
   id: string;
   label: string;
@@ -305,6 +367,7 @@ function NumberField({
   onChange: (value: string) => void;
   min?: number;
   step?: string;
+  disabled?: boolean;
 }) {
   return (
     <label htmlFor={id}>
@@ -317,7 +380,8 @@ function NumberField({
         step={step}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="mt-1 h-10 w-full rounded-md border border-earth-200 bg-white px-3 text-sm tabular-nums text-earth-800 outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
+        disabled={disabled}
+        className="mt-1 h-10 w-full rounded-md border border-earth-200 bg-white px-3 text-sm tabular-nums text-earth-800 outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100 disabled:cursor-not-allowed disabled:bg-earth-50 disabled:text-earth-500"
       />
     </label>
   );

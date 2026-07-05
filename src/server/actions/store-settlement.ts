@@ -13,6 +13,7 @@ import {
   confirmStoreSettlementForStore,
   getStoreSettlementForStoreByMonth,
   getStoreSettlementsForStore,
+  reopenStoreSettlementForStore,
   saveStoreSettlementForStore,
   type StoreSettlementInput,
 } from "@/server/services/store-settlements";
@@ -122,6 +123,26 @@ export async function confirmStoreSettlementAction(
     const storeId = await resolveSettlementWriteStoreId(user);
     const month = readMonth(formData);
     const settlement = await confirmStoreSettlementForStore({
+      storeId,
+      month,
+      userId: user.id,
+    });
+    revalidatePath("/dashboard/service-fee-calculator");
+    revalidatePath("/hq/dashboard/service-fee-calculator");
+    return { success: true, data: { id: settlement.id, status: settlement.status } };
+  } catch (e) {
+    return handleActionError(e);
+  }
+}
+
+export async function reopenStoreSettlementAction(
+  formData: FormData,
+): Promise<ActionResult<{ id: string; status: StoreSettlementStatus }>> {
+  try {
+    const user = await requireWritablePermission("report.read");
+    const storeId = await resolveSettlementWriteStoreId(user);
+    const month = readMonth(formData);
+    const settlement = await reopenStoreSettlementForStore({
       storeId,
       month,
       userId: user.id,

@@ -1,6 +1,10 @@
 import type { StoreSettlementStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { AppError } from "@/lib/errors";
 import { calculateServiceFeeSettlement } from "@/server/services/service-fee-calculator";
+
+export const STORE_SETTLEMENT_CONFIRMED_LOCK_MESSAGE =
+  "此月結已確認，若需修改請先解除確認";
 
 export interface StoreSettlementInput {
   month: string;
@@ -107,6 +111,19 @@ export async function saveStoreSettlementForStore({
   userId?: string | null;
   input: StoreSettlementInput;
 }): Promise<StoreSettlementRecord> {
+  const existing = await prisma.storeSettlement.findUnique({
+    where: {
+      uq_store_settlement_store_month: {
+        storeId,
+        month: input.month,
+      },
+    },
+    select: { status: true },
+  });
+  if (existing?.status === "CONFIRMED") {
+    throw new AppError("FORBIDDEN", STORE_SETTLEMENT_CONFIRMED_LOCK_MESSAGE);
+  }
+
   const amounts = calculateStoreSettlementAmounts(input);
   const settlement = await prisma.storeSettlement.upsert({
     where: {
@@ -129,7 +146,7 @@ export async function saveStoreSettlementForStore({
       deductionAmount: input.deductionAmount,
       finalReceivable: amounts.finalReceivable,
       note: input.note?.trim() || null,
-      status: input.status ?? "DRAFT",
+      status: "DRAFT",
       createdBy: userId ?? null,
       updatedBy: userId ?? null,
     },
@@ -145,7 +162,7 @@ export async function saveStoreSettlementForStore({
       deductionAmount: input.deductionAmount,
       finalReceivable: amounts.finalReceivable,
       note: input.note?.trim() || null,
-      status: input.status ?? "DRAFT",
+      status: "DRAFT",
       updatedBy: userId ?? null,
     },
     include: { store: { select: { name: true } } },
@@ -201,6 +218,31 @@ export async function confirmStoreSettlementForStore({
     },
     data: {
       status: "CONFIRMED",
+      updatedBy: userId ?? null,
+    },
+    include: { store: { select: { name: true } } },
+  });
+  return toRecord(settlement);
+}
+
+export async function reopenStoreSettlementForStore({
+  storeId,
+  month,
+  userId,
+}: {
+  storeId: string;
+  month: string;
+  userId?: string | null;
+}): Promise<StoreSettlementRecord> {
+  const settlement = await prisma.storeSettlement.update({
+    where: {
+      uq_store_settlement_store_month: {
+        storeId,
+        month,
+      },
+    },
+    data: {
+      status: "DRAFT",
       updatedBy: userId ?? null,
     },
     include: { store: { select: { name: true } } },
