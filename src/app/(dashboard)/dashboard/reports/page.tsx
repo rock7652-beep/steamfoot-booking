@@ -346,6 +346,12 @@ export default async function ReportsPage({ searchParams }: PageProps) {
                   </a>
                 </>
               )}
+              <a
+                href="/dashboard/advanced-reports"
+                className="rounded-md border border-earth-200 bg-white px-3 py-1.5 text-xs font-medium text-earth-700 hover:bg-earth-50"
+              >
+                進階報表 →
+              </a>
               {/* 月結管理入口：服務金額是月結資料來源，最終確認與保存集中到月結管理。 */}
               <a
                 href="/dashboard/service-fee-calculator"
