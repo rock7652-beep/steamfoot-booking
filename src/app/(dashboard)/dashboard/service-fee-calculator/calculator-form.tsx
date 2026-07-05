@@ -284,6 +284,18 @@ export function ServiceFeeCalculatorForm({
                     解除確認
                   </button>
                 ) : null}
+                {currentSettlement ? (
+                  <a
+                    href={`/api/store-settlements/export?month=${summary.month}`}
+                    className="inline-flex h-9 items-center rounded-md border border-earth-200 bg-white px-3 text-sm font-medium text-earth-700 hover:bg-earth-50"
+                  >
+                    匯出月結 CSV
+                  </a>
+                ) : (
+                  <span className="inline-flex min-h-9 items-center text-xs text-earth-500">
+                    尚未儲存月結單，儲存後即可匯出。
+                  </span>
+                )}
               </div>
             </div>
           </section>

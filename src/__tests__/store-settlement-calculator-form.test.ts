@@ -71,6 +71,34 @@ function settlement(overrides: Partial<StoreSettlementRecord> = {}): StoreSettle
 }
 
 describe("ServiceFeeCalculatorForm confirmed lock state", () => {
+  it("renders CSV export link when the selected month has a saved settlement", () => {
+    const html = renderToStaticMarkup(
+      React.createElement(ServiceFeeCalculatorForm, {
+        summary,
+        currentSettlement: settlement(),
+        settlements: [settlement()],
+        canSave: true,
+      }),
+    );
+
+    expect(html).toContain("匯出月結 CSV");
+    expect(html).toContain("/api/store-settlements/export?month=2026-07");
+  });
+
+  it("renders a friendly export hint before the selected month is saved", () => {
+    const html = renderToStaticMarkup(
+      React.createElement(ServiceFeeCalculatorForm, {
+        summary,
+        currentSettlement: null,
+        settlements: [],
+        canSave: true,
+      }),
+    );
+
+    expect(html).toContain("尚未儲存月結單，儲存後即可匯出。");
+    expect(html).not.toContain("匯出月結 CSV");
+  });
+
   it("renders a locked form with disabled inputs and reopen affordance when confirmed", () => {
     const html = renderToStaticMarkup(
       React.createElement(ServiceFeeCalculatorForm, {

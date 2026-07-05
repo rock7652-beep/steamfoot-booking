@@ -1,5 +1,6 @@
 import type { StoreSettlementStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { formatTWDateTime } from "@/lib/date-utils";
 import { AppError } from "@/lib/errors";
 import { calculateServiceFeeSettlement } from "@/server/services/service-fee-calculator";
 
@@ -39,6 +40,55 @@ export interface StoreSettlementRecord {
   status: StoreSettlementStatus;
   createdAt: Date;
   updatedAt: Date;
+}
+
+const STORE_SETTLEMENT_EXPORT_HEADERS = [
+  "店舖名稱",
+  "月份",
+  "狀態",
+  "當月總收款",
+  "退款",
+  "有效營收",
+  "交易數",
+  "分潤比例",
+  "分潤金額",
+  "固定月費",
+  "其他加項",
+  "其他扣項",
+  "本月應收",
+  "備註",
+  "建立時間",
+  "更新時間",
+];
+
+function escapeCsvCell(value: string | number | null): string {
+  const text = String(value ?? "");
+  return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+export function buildStoreSettlementCsv(settlement: StoreSettlementRecord): string {
+  const rows: Array<Array<string | number | null>> = [
+    STORE_SETTLEMENT_EXPORT_HEADERS,
+    [
+      settlement.storeName,
+      settlement.month,
+      settlement.status,
+      settlement.grossRevenue,
+      settlement.refundAmount,
+      settlement.netRevenue,
+      settlement.transactionCount,
+      settlement.revenueShareRate,
+      settlement.revenueShareAmount,
+      settlement.fixedMonthlyFee,
+      settlement.additionalAmount,
+      settlement.deductionAmount,
+      settlement.finalReceivable,
+      settlement.note,
+      formatTWDateTime(settlement.createdAt),
+      formatTWDateTime(settlement.updatedAt),
+    ],
+  ];
+  return `\uFEFF${rows.map((row) => row.map(escapeCsvCell).join(",")).join("\n")}`;
 }
 
 function toRecord(
