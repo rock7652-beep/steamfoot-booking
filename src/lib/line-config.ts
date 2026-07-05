@@ -21,7 +21,10 @@ const LINE_ENV_BY_STORE: Record<
     accessToken: "LINE_CHANNEL_ACCESS_TOKEN",
     channelSecret: "LINE_CHANNEL_SECRET",
   },
-  hsinchu: null,
+  hsinchu: {
+    accessToken: "LINE_HSINCHU_CHANNEL_ACCESS_TOKEN",
+    channelSecret: "LINE_HSINCHU_CHANNEL_SECRET",
+  },
   taichung: {
     accessToken: "LINE_TAICHUNG_CHANNEL_ACCESS_TOKEN",
     channelSecret: "LINE_TAICHUNG_CHANNEL_SECRET",
