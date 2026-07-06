@@ -31,6 +31,11 @@ interface Props {
 }
 
 type MonthDayInfo = { totalCapacity: number; totalBooked: number; slots: MonthSlotInfo[] };
+type SlotBadge = {
+  time: string;
+  label: string | null;
+  status: "available" | "full" | "insufficient";
+};
 
 export function BookingCalendarView({ customerId, activeWallets, makeupCredits = [], bookableUntil }: Props) {
   const today = new Date();
@@ -140,16 +145,20 @@ export function BookingCalendarView({ customerId, activeWallets, makeupCredits =
     const enabledSlots = info.slots.filter((s) => s.capacity > 0);
     if (enabledSlots.length === 0) return { badges: [], extra: 0, isClosed: true };
 
-    const badges: { time: string; label: string; isFull: boolean }[] = [];
+    const badges: SlotBadge[] = [];
     for (const s of enabledSlots) {
       const avail = s.capacity - s.booked;
       if (avail <= 0) {
-        badges.push({ time: s.startTime, label: "滿", isFull: true });
+        badges.push({ time: s.startTime, label: "額滿", status: "full" });
       } else if (avail < people) {
         // 可用名額不足以容納所選人數
-        badges.push({ time: s.startTime, label: "滿", isFull: true });
+        badges.push({
+          time: s.startTime,
+          label: "不可預約",
+          status: "insufficient",
+        });
       } else {
-        badges.push({ time: s.startTime, label: `剩 ${avail} 位`, isFull: false });
+        badges.push({ time: s.startTime, label: null, status: "available" });
       }
     }
 
@@ -287,13 +296,15 @@ export function BookingCalendarView({ customerId, activeWallets, makeupCredits =
                         key={b.time}
                         className={`truncate rounded px-1 py-0.5 text-xs font-semibold leading-tight ${
                           isSelected
-                            ? b.isFull ? "bg-white/20 text-white/80" : "bg-white/30 text-white"
-                            : b.isFull
+                            ? b.status === "available" ? "bg-white/30 text-white" : "bg-white/20 text-white/80"
+                            : b.status === "full"
                               ? "bg-red-50 text-red-700"
+                              : b.status === "insufficient"
+                                ? "bg-earth-100 text-earth-700"
                               : "bg-green-50 text-green-800"
                         }`}
                       >
-                        {b.time} {b.label}
+                        {b.time}{b.label ? ` ${b.label}` : ""}
                       </span>
                     ))}
                     {extra > 0 && (
@@ -497,6 +508,17 @@ function SlotBookingForm({
   );
 
   const availableSlots = slots.filter((s) => s.isEnabled && !s.isPast && s.available >= people);
+  const selectedSlotInfo = selectedSlot
+    ? slots.find((s) => s.startTime === selectedSlot)
+    : undefined;
+  const selectedSlotRemaining = selectedSlotInfo
+    ? selectedSlotInfo.capacity - selectedSlotInfo.bookedCount
+    : 0;
+  const selectedSlotBookable =
+    !!selectedSlotInfo &&
+    !selectedSlotInfo.isPast &&
+    selectedSlotRemaining > 0 &&
+    people <= selectedSlotRemaining;
 
   // ── 客端 blocking validation ──
   const totalRemaining = activeWallets.reduce((s, w) => s + w.remainingSessions, 0);
@@ -610,9 +632,17 @@ function SlotBookingForm({
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {slots.filter((s) => s.isEnabled).map((slot) => {
             const isPast = !!slot.isPast;
-            const isFull = !isPast && slot.available === 0;
-            const notEnough = !isPast && slot.available > 0 && slot.available < people;
+            const remaining = slot.capacity - slot.bookedCount;
+            const isFull = !isPast && remaining <= 0;
+            const notEnough = !isPast && remaining > 0 && people > remaining;
             const disabled = isPast || isFull || notEnough;
+            const statusText = isPast
+              ? "已過時段"
+              : isFull
+                ? "額滿"
+                : notEnough
+                  ? "此人數不可預約"
+                  : null;
             return (
               <label
                 key={slot.startTime}
@@ -624,9 +654,11 @@ function SlotBookingForm({
               >
                 <input type="radio" name="slotTime" value={slot.startTime} disabled={disabled} className="sr-only" required onChange={() => setSelectedSlot(slot.startTime)} />
                 <span className="text-lg font-bold">{slot.startTime}</span>
-                <span className={`mt-1 text-sm font-medium ${isPast ? "text-earth-700" : isFull ? "text-red-600" : notEnough ? "text-red-600" : "text-earth-700 has-[:checked]:text-primary-100"}`}>
-                  {isPast ? "已過時段" : isFull ? "已額滿" : notEnough ? "不足" : `剩 ${slot.available} 位`}
-                </span>
+                {statusText && (
+                  <span className={`mt-1 text-sm font-medium ${isPast ? "text-earth-700" : "text-red-600"}`}>
+                    {statusText}
+                  </span>
+                )}
               </label>
             );
           })}
@@ -652,7 +684,7 @@ function SlotBookingForm({
       )}
 
       {/* 預約確認摘要 */}
-      {selectedSlot && availableSlots.length > 0 && (
+      {selectedSlotBookable && availableSlots.length > 0 && (
         <div className={`rounded-xl border px-4 py-3 text-base ${willUseMakeup ? "border-amber-200 bg-amber-50 text-amber-900" : "border-primary-200 bg-primary-50 text-primary-800"}`}>
           <p className="font-semibold">{willUseMakeup ? "補課預約確認" : "預約確認"}</p>
           <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
