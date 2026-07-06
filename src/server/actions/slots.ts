@@ -11,6 +11,7 @@ import {
   userForViewContext,
 } from "@/lib/store-view-context-server";
 import { AppError } from "@/lib/errors";
+import { PENDING_STATUSES } from "@/lib/booking-constants";
 import { isStoreBookable } from "@/lib/store-operating-status";
 import {
   applySlotOverrides,
@@ -96,7 +97,7 @@ export async function fetchMonthAvailability(
       by: ["bookingDate", "slotTime"],
       where: {
         bookingDate: { gte: ctx.start, lte: ctx.end },
-        bookingStatus: { in: ["PENDING", "CONFIRMED"] },
+        bookingStatus: { in: [...PENDING_STATUSES] },
         ...getStoreFilter(readContext.user, storeId),
       },
       _sum: { people: true },
@@ -197,7 +198,7 @@ export async function fetchDaySlots(date: string): Promise<{ slots: SlotAvailabi
       by: ["slotTime"],
       where: {
         bookingDate: ctx.dateObj,
-        bookingStatus: { in: ["PENDING", "CONFIRMED"] },
+        bookingStatus: { in: [...PENDING_STATUSES] },
         storeId,
       },
       _sum: { people: true },
