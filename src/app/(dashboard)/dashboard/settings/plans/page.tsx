@@ -24,8 +24,8 @@ interface PlanCard {
   /** 卡片內定位副說明（目前僅展店版使用，回答「為何比專業版貴」） */
   cardSubline?: string;
   monthly: string;
-  yearly: string;
-  yearlyNote: string;
+  originalPrice: string;
+  priceNote: string;
   badge?: string;
   description: string;
   features: string[];
@@ -39,100 +39,101 @@ const PLANS: PlanCard[] = [
   {
     key: "BASIC",
     name: "基礎版",
-    positioning: "管理一家店",
-    monthly: "NT$1,980",
-    yearly: "NT$19,800",
-    yearlyNote: "現省 NT$3,960",
-    description: "適合剛開始營運，先把預約、顧客、收款管理好。",
+    positioning: "單店基本營運",
+    monthly: "NT$1,490",
+    originalPrice: "原價 NT$2,100/月",
+    priceNote: "限時優惠價",
+    description: "適合單店先把預約、顧客、方案堂數與收款管理好。",
     features: [
       "預約管理",
       "顧客管理",
-      "會員方案",
-      "收款紀錄",
-      "今日待處理",
-      "基礎營收統計",
+      "方案 / 堂數管理",
+      "基本收款紀錄",
+      "基本報表",
+      "前台預約入口",
+      "可選 1 個 $500 工具型模組",
     ],
-    audience: ["單店", "剛開店", "1–3 位人員"],
+    audience: ["單店", "基本營運", "先把資料集中"],
     ctaLabel: "開通基礎版",
   },
   {
     key: "PROFESSIONAL",
     name: "專業版",
-    positioning: "經營顧客",
-    monthly: "NT$3,980",
-    yearly: "NT$39,800",
-    yearlyNote: "現省 NT$7,960",
+    positioning: "顧客經營與現場管理",
+    monthly: "NT$2,490",
+    originalPrice: "原價 NT$3,600/月",
+    priceNote: "限時優惠價",
     badge: "推薦方案",
     recommended: true,
     isCurrent: true,
     description:
-      "幫店長找出快流失、快到期、快沒堂數的顧客，提升回流與續約。",
+      "適合想做好顧客回訪、現場現金管理與經營判斷的店。",
     features: [
       "包含基礎版全部功能",
-      "顧客經營系統",
-      "久未到店追蹤",
-      "體驗未轉換追蹤",
-      "快到期提醒",
-      "快沒堂數提醒",
-      "補課管理",
-      "開店結店",
-      "零用金管理",
-      "日帳管理",
+      "顧客經營",
+      "現金抽屜",
+      "可選 1 個 $500 工具型模組",
+      "可選 1 個 $800 經營型模組",
     ],
-    audience: ["穩定營運", "有會員制度", "想提升回流率", "想提升續約率"],
+    audience: ["穩定營運", "想提升回訪", "需要現金管理", "需要經營判斷"],
     ctaLabel: "目前方案",
   },
   {
     key: "SCALE",
     name: "展店版",
-    positioning: "複製成功門市",
-    cardSubline: "適合第二家店以上",
-    monthly: "NT$9,800",
-    yearly: "NT$98,000",
-    yearlyNote: "現省 NT$19,600",
-    description: "管理分店、店長績效與未來組織成長。",
+    positioning: "總部、多店、合作店長模式",
+    cardSubline: "含總部管理 + 1 家分店",
+    monthly: "NT$4,990 起",
+    originalPrice: "原價 NT$7,100/月起",
+    priceNote: "限時優惠價",
+    description: "適合總部管理、多店展店與合作店長月結。",
     features: [
-      "包含專業版全部功能",
+      "功能全含",
+      "包含總部管理 + 1 家分店",
+      "第二家分店起，每家 +$1,000/月分店營運費",
       "多店管理",
-      "總部儀表板",
-      "分店營收比較",
-      "店長績效分析",
-      "新店模板複製",
-      "分店權限管理",
-      "組織管理基礎",
+      "總部視角",
+      "店舖功能開關",
+      "合作店長結算管理",
     ],
-    audience: ["2 家店以上", "合夥經營", "準備展店", "未來要發展組織"],
+    audience: ["總部管理", "2 家店以上", "合作店長", "準備展店"],
     ctaLabel: "聯絡開通展店版",
   },
 ];
 
-/** 功能比較表 — true 表示該方案具備此功能 */
+/** 功能比較表 — 只做展示，不調整 PLAN_FEATURES 或 feature gate */
 const COMPARE_ROWS: {
   label: string;
-  basic: boolean;
-  professional: boolean;
-  scale: boolean;
+  basic: string;
+  professional: string;
+  scale: string;
 }[] = [
-  { label: "預約 / 顧客 / 收款", basic: true, professional: true, scale: true },
-  { label: "今日待處理", basic: true, professional: true, scale: true },
-  { label: "顧客經營", basic: false, professional: true, scale: true },
-  { label: "補課 / 日帳 / 零用金", basic: false, professional: true, scale: true },
-  { label: "多店管理", basic: false, professional: false, scale: true },
-  { label: "總部儀表板", basic: false, professional: false, scale: true },
-  { label: "店長績效", basic: false, professional: false, scale: true },
-  { label: "新店模板複製", basic: false, professional: false, scale: true },
-  { label: "組織管理", basic: false, professional: false, scale: true },
+  { label: "預約管理", basic: "內含", professional: "內含", scale: "內含" },
+  { label: "顧客管理", basic: "內含", professional: "內含", scale: "內含" },
+  { label: "方案 / 堂數管理", basic: "內含", professional: "內含", scale: "內含" },
+  { label: "基本收款紀錄", basic: "內含", professional: "內含", scale: "內含" },
+  { label: "基本報表", basic: "內含", professional: "內含", scale: "內含" },
+  { label: "前台預約入口", basic: "內含", professional: "內含", scale: "內含" },
+  { label: "LINE 綁定狀態", basic: "內含", professional: "內含", scale: "內含" },
+  { label: "AI 健康評估入口", basic: "內含", professional: "內含", scale: "內含" },
+  { label: "LINE 自動提醒", basic: "$500 工具模組", professional: "$500 工具模組", scale: "內含" },
+  { label: "資料匯出", basic: "$500 工具模組", professional: "$500 工具模組", scale: "內含" },
+  { label: "現金抽屜", basic: "$500 工具模組", professional: "內含", scale: "內含" },
+  { label: "顧客經營", basic: "$800 經營模組", professional: "內含", scale: "內含" },
+  { label: "AI 健康摘要", basic: "$800 經營模組", professional: "$800 經營模組", scale: "內含" },
+  { label: "經營診斷報表", basic: "$800 經營模組", professional: "$800 經營模組", scale: "內含" },
+  { label: "月結管理", basic: "$800 經營模組", professional: "$800 經營模組", scale: "內含" },
+  { label: "多店管理", basic: "-", professional: "-", scale: "內含" },
+  { label: "總部視角", basic: "-", professional: "-", scale: "內含" },
+  { label: "店舖功能開關", basic: "-", professional: "-", scale: "內含" },
+  { label: "合作店長結算管理", basic: "-", professional: "-", scale: "內含" },
 ];
-
-/** 年繳共通說明：所有方案年繳都等於加贈 2 個月（付 10 個月、用 14 個月） */
-const YEARLY_BONUS = "加贈 2 個月，共 14 個月使用";
 
 // ── 目前方案假資料 ──
 const CURRENT_PLAN = {
   name: "專業版",
-  positioning: "經營顧客",
-  monthly: "NT$3,980",
-  yearly: "NT$39,800",
+  positioning: "顧客經營與現場管理",
+  monthly: "NT$2,490",
   store: "竹北店",
   payment: "現金 / 轉帳",
   renewAt: "2026/12/31",
@@ -156,6 +157,30 @@ function CheckIcon() {
 function DashIcon() {
   return (
     <span className="inline-block h-px w-3 rounded bg-earth-300" aria-hidden />
+  );
+}
+
+function ComparisonText({ value }: { value: string }) {
+  if (value === "-") {
+    return (
+      <div className="flex justify-center">
+        <DashIcon />
+      </div>
+    );
+  }
+
+  if (value === "內含") {
+    return (
+      <div className="flex justify-center">
+        <CheckIcon />
+      </div>
+    );
+  }
+
+  return (
+    <div className="text-center text-[11px] font-medium leading-relaxed text-earth-600">
+      {value}
+    </div>
   );
 }
 
@@ -278,7 +303,7 @@ export default async function PlansCenterPage() {
                 /月
                 <span className="mx-1.5 text-earth-300">·</span>
                 <span className="text-earth-500">
-                  年繳 {CURRENT_PLAN.yearly}
+                  限時優惠價
                 </span>
               </p>
             </div>
@@ -341,6 +366,9 @@ export default async function PlansCenterPage() {
 
               {/* 價格 */}
               <div className="mt-3">
+                <p className="text-[11px] font-medium text-earth-400 line-through">
+                  {plan.originalPrice}
+                </p>
                 <div className="flex items-baseline gap-1">
                   <span className="text-[26px] font-bold leading-none tabular-nums text-earth-900">
                     {plan.monthly}
@@ -348,13 +376,9 @@ export default async function PlansCenterPage() {
                   <span className="text-[12px] text-earth-500">/月</span>
                 </div>
                 <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-earth-500">
-                  <span>年繳 {plan.yearly}/年</span>
                   <span className="rounded bg-primary-50 px-1.5 py-0.5 font-medium text-primary-700">
-                    {plan.yearlyNote}
+                    {plan.priceNote}
                   </span>
-                </p>
-                <p className="mt-1 text-[11px] font-medium text-primary-700">
-                  {YEARLY_BONUS}
                 </p>
               </div>
 
@@ -426,7 +450,7 @@ export default async function PlansCenterPage() {
         </header>
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[480px] text-[13px]">
+	          <table className="w-full min-w-[760px] text-[13px]">
             <thead>
               <tr className="border-y border-earth-100 text-[11px] text-earth-400">
                 <th className="px-5 py-2 text-left font-medium">功能</th>
@@ -448,21 +472,15 @@ export default async function PlansCenterPage() {
                   }
                 >
                   <td className="px-5 py-2 text-earth-600">{row.label}</td>
-                  <td className="px-3 py-2">
-                    <div className="flex justify-center">
-                      {row.basic ? <CheckIcon /> : <DashIcon />}
-                    </div>
-                  </td>
-                  <td className="bg-primary-50/40 px-3 py-2">
-                    <div className="flex justify-center">
-                      {row.professional ? <CheckIcon /> : <DashIcon />}
-                    </div>
-                  </td>
-                  <td className="px-3 py-2">
-                    <div className="flex justify-center">
-                      {row.scale ? <CheckIcon /> : <DashIcon />}
-                    </div>
-                  </td>
+	                  <td className="px-3 py-2">
+	                    <ComparisonText value={row.basic} />
+	                  </td>
+	                  <td className="bg-primary-50/40 px-3 py-2">
+	                    <ComparisonText value={row.professional} />
+	                  </td>
+	                  <td className="px-3 py-2">
+	                    <ComparisonText value={row.scale} />
+	                  </td>
                 </tr>
               ))}
             </tbody>
@@ -471,7 +489,7 @@ export default async function PlansCenterPage() {
       </section>
 
       <p className="px-1 text-[11px] leading-relaxed text-earth-400">
-        方案價格與續約日為示意資料。實際開通、升級與付款請聯絡客服協助處理。
+        本頁僅更新方案展示文案，未調整系統功能開關、PLAN_FEATURES 或正式站方案預設。實際開通、升級與付款請聯絡客服協助處理。
       </p>
     </PageShell>
   );

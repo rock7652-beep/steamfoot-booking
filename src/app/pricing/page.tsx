@@ -1,17 +1,14 @@
 import Link from "next/link";
 import {
   PRICING_PLAN_INFO,
-  PLAN_FEATURES,
   PLAN_LIMITS,
-  FEATURES,
-  type FeatureKey,
 } from "@/lib/feature-flags";
 import type { PricingPlan } from "@prisma/client";
 
 export const metadata = {
   title: "方案價格 — 蒸足預約管理系統",
   description:
-    "不是管理顧客，是培養下一間店。從基礎營運到分店複製，選擇最適合你的方案。",
+    "限時優惠價方案，從單店基本營運、顧客經營到總部多店管理，選擇最適合你的方案。",
 };
 
 // ============================================================
@@ -20,9 +17,15 @@ export const metadata = {
 
 const PLAN_PRICE: Record<PricingPlan, string> = {
   EXPERIENCE: "免費",
-  BASIC: "NT$ 990/月",
+  BASIC: "NT$ 1,490/月",
   GROWTH: "NT$ 2,490/月",
-  ALLIANCE: "洽詢",
+  ALLIANCE: "NT$ 4,990/月起",
+};
+
+const PLAN_ORIGINAL_PRICE: Partial<Record<PricingPlan, string>> = {
+  BASIC: "原價 NT$ 2,100/月",
+  GROWTH: "原價 NT$ 3,600/月",
+  ALLIANCE: "原價 NT$ 7,100/月起",
 };
 
 const PLAN_CTA_LABEL: Record<PricingPlan, string> = {
@@ -39,13 +42,25 @@ const COMPARISON_ROWS: {
   pro: string;
   alliance: string;
 }[] = [
-  { label: "預約 / 顧客", basic: "check", pro: "check", alliance: "check" },
-  { label: "金流 / 報表", basic: "check", pro: "check", alliance: "check" },
-  { label: "人才管道", basic: "lock", pro: "check", alliance: "check" },
-  { label: "升級進度", basic: "lock", pro: "check", alliance: "check" },
-  { label: "開店準備度", basic: "lock", pro: "partial", alliance: "check" },
-  { label: "sponsor tree", basic: "lock", pro: "lock", alliance: "check" },
-  { label: "分店報表", basic: "lock", pro: "lock", alliance: "check" },
+  { label: "預約管理", basic: "內含", pro: "內含", alliance: "內含" },
+  { label: "顧客管理", basic: "內含", pro: "內含", alliance: "內含" },
+  { label: "方案 / 堂數管理", basic: "內含", pro: "內含", alliance: "內含" },
+  { label: "基本收款紀錄", basic: "內含", pro: "內含", alliance: "內含" },
+  { label: "基本報表", basic: "內含", pro: "內含", alliance: "內含" },
+  { label: "前台預約入口", basic: "內含", pro: "內含", alliance: "內含" },
+  { label: "LINE 綁定狀態", basic: "內含", pro: "內含", alliance: "內含" },
+  { label: "AI 健康評估入口", basic: "內含", pro: "內含", alliance: "內含" },
+  { label: "LINE 自動提醒", basic: "$500 工具模組", pro: "$500 工具模組", alliance: "內含" },
+  { label: "資料匯出", basic: "$500 工具模組", pro: "$500 工具模組", alliance: "內含" },
+  { label: "現金抽屜", basic: "$500 工具模組", pro: "內含", alliance: "內含" },
+  { label: "顧客經營", basic: "$800 經營模組", pro: "內含", alliance: "內含" },
+  { label: "AI 健康摘要", basic: "$800 經營模組", pro: "$800 經營模組", alliance: "內含" },
+  { label: "經營診斷報表", basic: "$800 經營模組", pro: "$800 經營模組", alliance: "內含" },
+  { label: "月結管理", basic: "$800 經營模組", pro: "$800 經營模組", alliance: "內含" },
+  { label: "多店管理", basic: "-", pro: "-", alliance: "內含" },
+  { label: "總部視角", basic: "-", pro: "-", alliance: "內含" },
+  { label: "店舖功能開關", basic: "-", pro: "-", alliance: "內含" },
+  { label: "合作店長結算管理", basic: "-", pro: "-", alliance: "內含" },
 ];
 
 // ============================================================
@@ -82,15 +97,15 @@ export default function PricingPage() {
         {/* ── Hero ── */}
         <section className="mx-auto max-w-4xl px-6 pb-16 pt-20 text-center">
           <h1 className="text-3xl font-extrabold tracking-tight text-earth-900 sm:text-5xl">
-            不是管理顧客，是培養下一間店
+            蒸足系統方案｜限時優惠價
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-earth-600">
-            用一套系統，幫你做到三件事：
+            從單店基本營運、顧客經營到總部多店管理，依門市階段選擇適合方案。
           </p>
           <div className="mx-auto mt-4 flex max-w-md flex-col gap-2 text-left sm:items-center sm:text-center">
-            <HeroPoint text="找出會升級的人" />
-            <HeroPoint text="預測會開店的人" />
-            <HeroPoint text="建立可複製的團隊" />
+            <HeroPoint text="基本預約、顧客、方案堂數與收款管理" />
+            <HeroPoint text="顧客回訪、現金管理與經營診斷" />
+            <HeroPoint text="總部視角、多店管理與合作店長月結" />
           </div>
           <div className="mt-10 flex flex-wrap justify-center gap-3">
             <Link
@@ -122,13 +137,13 @@ export default function PricingPage() {
             你是否遇過這些問題？
           </h2>
           <div className="mx-auto mt-10 grid max-w-3xl gap-4 sm:grid-cols-2">
-            <PainCard text="顧客很多，但不知道誰值得培養" />
-            <PainCard text="團隊有人，但無法複製" />
-            <PainCard text="想開分店，但沒有「人才系統」" />
-            <PainCard text="一切都靠自己，沒有數據依據" />
+            <PainCard text="預約、堂數、收款分散在 LINE、紙本與 Excel" />
+            <PainCard text="不知道誰很久沒來、誰快到期、誰該回訪" />
+            <PainCard text="每日現金與交班核對靠人工，容易漏帳" />
+            <PainCard text="展店後總部看不到分店營運狀態" />
           </div>
           <p className="mx-auto mt-10 max-w-lg text-base text-earth-300">
-            不是你不夠努力，是你缺一套「會幫你判斷的系統」
+            不是只幫你記預約，而是讓店長真的看懂顧客與營收。
           </p>
         </section>
 
@@ -140,20 +155,20 @@ export default function PricingPage() {
           <div className="mt-12 grid gap-8 sm:grid-cols-3">
             <SolutionCard
               number="1"
-              title="找出可升級人才"
-              description="誰快變 PARTNER，一眼看懂"
+              title="穩定單店營運"
+              description="預約、顧客、堂數、收款與基本報表集中管理"
               color="primary"
             />
             <SolutionCard
               number="2"
-              title="預測開店候選人"
-              description="誰是 FUTURE OWNER，系統直接告訴你"
+              title="做好顧客經營"
+              description="追蹤久未到店、方案快到期與回訪機會"
               color="amber"
             />
             <SolutionCard
               number="3"
-              title="建立轉介紹與複製機制"
-              description="不再靠運氣，而是可複製流程"
+              title="支援多店展店"
+              description="總部視角、分店資料與合作店長月結一次到位"
               color="indigo"
             />
           </div>
@@ -162,30 +177,32 @@ export default function PricingPage() {
         {/* ── 方案區 ── */}
         <section id="plans" className="scroll-mt-20 bg-earth-50 px-6 py-20">
           <h2 className="text-center text-2xl font-bold text-earth-900 sm:text-3xl">
-            選擇你的成長路徑
+            選擇你的方案
           </h2>
           <p className="mt-3 text-center text-sm text-earth-500">
-            所有方案皆包含核心預約功能
+            目前為限時優惠價，未來優惠期結束後將依正式原價調整。
           </p>
 
           <div className="mx-auto mt-12 grid max-w-5xl gap-6 lg:grid-cols-3">
             {/* BASIC */}
             <PlanCard
               plan="BASIC"
-              tagline="讓你的店穩定運轉"
-              audience="單店經營，想穩定營運與顧客管理"
+              tagline="單店基本營運"
+              audience="適合單店先把預約、顧客、方案堂數與收款管理好"
               features={[
-                "預約管理系統",
+                "原價 NT$ 2,100/月",
+                "限時優惠價 NT$ 1,490/月",
+                "預約管理",
                 "顧客管理",
-                "值班與排班",
-                "交易 / 現金帳 / 對帳",
-                "基礎營收報表",
+                "方案 / 堂數管理",
+                "基本收款紀錄與基本報表",
+                "可選 1 個 $500 工具型模組",
               ]}
               locked={[
-                "人才管道",
-                "升級進度",
-                "轉介紹分析",
-                "開店準備度",
+                "顧客經營",
+                "AI 健康摘要",
+                "經營診斷報表",
+                "月結管理",
               ]}
               accent="primary"
               highlighted={false}
@@ -194,21 +211,22 @@ export default function PricingPage() {
             {/* PRO */}
             <PlanCard
               plan="GROWTH"
-              tagline="讓顧客變成團隊"
-              audience="想開始培養人才，想讓顧客變成夥伴"
+              tagline="顧客經營與現場管理"
+              audience="適合想做好回訪、續購、現金抽屜與經營判斷的店"
               features={[
-                "含基礎版全部功能",
-                "人才管道（核心功能）",
-                "升級進度追蹤",
-                "轉介紹系統",
-                "顧客經營數據",
-                "完整營運儀表板",
+                "原價 NT$ 3,600/月",
+                "限時優惠價 NT$ 2,490/月",
+                "基礎版全部功能",
+                "顧客經營",
+                "現金抽屜",
+                "可選 1 個 $500 工具型模組",
+                "可選 1 個 $800 經營型模組",
               ]}
-              unlockTitle="解鎖能力"
+              unlockTitle="適合加強"
               unlocks={[
-                "誰會升級",
-                "誰值得培養",
-                "誰開始帶人",
+                "回訪與續購",
+                "交班與現金核對",
+                "營收與顧客診斷",
               ]}
               accent="amber"
               highlighted
@@ -217,21 +235,21 @@ export default function PricingPage() {
             {/* ALLIANCE */}
             <PlanCard
               plan="ALLIANCE"
-              tagline="讓團隊可以複製成多間店"
-              audience="想開分店、想複製團隊、想建立經營系統"
+              tagline="總部、多店、合作店長模式"
+              audience="適合總部管理、展店與合作店長結算"
               features={[
-                "含專業版全部功能",
-                "開店準備度（readiness）",
-                "FUTURE_OWNER / OWNER 視圖",
-                "sponsor tree（帶人鏈路）",
-                "合作店長營收報表",
-                "聯盟 / 多店數據分析",
+                "原價 NT$ 7,100/月起",
+                "限時優惠價 NT$ 4,990/月起",
+                "功能全含",
+                "總部管理 + 1 家分店",
+                "第二家分店起，每家 +$1,000/月分店營運費",
+                "多店管理、總部視角、店舖功能開關",
               ]}
-              unlockTitle="解鎖能力"
+              unlockTitle="包含能力"
               unlocks={[
-                "預測誰會開店",
-                "建立分店體系",
-                "複製成功模式",
+                "分店資料同步",
+                "合作店長月結",
+                "總部營運管理",
               ]}
               accent="indigo"
               highlighted={false}
@@ -242,31 +260,31 @@ export default function PricingPage() {
         {/* ── 升級轉換區 ── */}
         <section className="mx-auto max-w-4xl px-6 py-20">
           <h2 className="text-center text-2xl font-bold text-earth-900 sm:text-3xl">
-            每個方案，解鎖下一步
+            每個方案，對應不同經營階段
           </h2>
           <div className="mt-12 space-y-6">
             <UpgradeScenario
-              lockLabel="BASIC 用戶"
-              feature="人才管道"
-              pain="你目前還沒有「人才系統」。你只能看到顧客，但不知道誰會升級、誰會帶人。"
-              solution="升級專業版，我們會幫你找出下一個核心夥伴"
-              cta="升級 PRO 解鎖"
+              lockLabel="基礎版"
+              feature="顧客經營"
+              pain="你已經能管理預約與顧客，但還需要知道誰很久沒來、誰快到期、誰需要回訪。"
+              solution="升級專業版，開始用顧客經營和現金抽屜管理現場。"
+              cta="查看專業版"
               color="amber"
             />
             <UpgradeScenario
-              lockLabel="PRO 用戶"
-              feature="開店準備度"
-              pain="你已經開始培養人才，但還不知道：誰真的準備好開店。"
-              solution="升級聯盟版，系統會直接告訴你下一間店在哪裡"
-              cta="升級 ALLIANCE 解鎖"
+              lockLabel="專業版"
+              feature="多店管理"
+              pain="你已經做好單店經營，但展店後需要總部視角、分店資料同步與權限管理。"
+              solution="升級展店版，讓總部能管理多店與合作店長月結。"
+              cta="查看展店版"
               color="indigo"
             />
             <UpgradeScenario
-              lockLabel="PRO 用戶"
-              feature="合作店長報表"
-              pain="你已經有團隊，但還沒有完整的「分店經營視角」。"
-              solution="升級聯盟版，查看每位店長的營收與成長"
-              cta="解鎖分店系統"
+              lockLabel="展店版"
+              feature="分店營運費"
+              pain="展店版已包含總部管理 + 1 家分店，第二家分店起才按店收取營運費。"
+              solution="每增加 1 家分店，收取 $1,000/月分店營運費，包含資料、權限、前台入口與維護支援。"
+              cta="了解展店版"
               color="indigo"
             />
           </div>
@@ -277,23 +295,23 @@ export default function PricingPage() {
           <h2 className="text-center text-2xl font-bold text-earth-900">
             功能對照表
           </h2>
-          <div className="mx-auto mt-10 max-w-2xl overflow-hidden rounded-2xl border border-earth-200 bg-white shadow-sm">
+          <div className="mx-auto mt-10 max-w-5xl overflow-hidden rounded-2xl border border-earth-200 bg-white shadow-sm">
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full min-w-[760px] text-sm">
                 <thead>
                   <tr className="border-b border-earth-100 bg-earth-50">
                     <th className="px-6 py-3 text-left font-medium text-earth-600">
                       功能
                     </th>
-                    <th className="px-4 py-3 text-center font-medium text-primary-700">
-                      BASIC
-                    </th>
-                    <th className="px-4 py-3 text-center font-medium text-amber-700">
-                      PRO
-                    </th>
-                    <th className="px-4 py-3 text-center font-medium text-indigo-700">
-                      ALLIANCE
-                    </th>
+	                    <th className="px-4 py-3 text-center font-medium text-primary-700">
+	                      基礎版
+	                    </th>
+	                    <th className="px-4 py-3 text-center font-medium text-amber-700">
+	                      專業版
+	                    </th>
+	                    <th className="px-4 py-3 text-center font-medium text-indigo-700">
+	                      展店版
+	                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -491,6 +509,7 @@ function PlanCard({
 }) {
   const info = PRICING_PLAN_INFO[plan];
   const price = PLAN_PRICE[plan];
+  const originalPrice = PLAN_ORIGINAL_PRICE[plan];
   const ctaLabel = PLAN_CTA_LABEL[plan];
 
   const borderClass = highlighted
@@ -517,7 +536,19 @@ function PlanCard({
         {info.shortLabel}
       </div>
 
-      <div className="mt-4 text-2xl font-bold text-earth-900">{price}</div>
+      <div className="mt-4">
+        {originalPrice ? (
+          <p className="text-xs font-medium text-earth-400 line-through">
+            {originalPrice}
+          </p>
+        ) : null}
+        <div className="mt-1 text-2xl font-bold text-earth-900">{price}</div>
+        {plan !== "EXPERIENCE" ? (
+          <p className="mt-1 text-xs font-semibold text-primary-700">
+            限時優惠價
+          </p>
+        ) : null}
+      </div>
 
       <p className="mt-2 text-sm text-earth-500">{audience}</p>
 
@@ -641,6 +672,14 @@ function UpgradeScenario({
 }
 
 function ComparisonCell({ value }: { value: string }) {
+  if (value === "-") {
+    return (
+      <td className="px-4 py-3 text-center">
+        <span className="text-earth-300">-</span>
+      </td>
+    );
+  }
+
   if (value === "check") {
     return (
       <td className="px-4 py-3 text-center">
@@ -665,22 +704,32 @@ function ComparisonCell({ value }: { value: string }) {
       </td>
     );
   }
-  // lock
+
+  if (value === "lock") {
+    return (
+      <td className="px-4 py-3 text-center">
+        <svg
+          className="mx-auto h-4 w-4 text-earth-300"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={2}
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"
+          />
+        </svg>
+      </td>
+    );
+  }
+
   return (
     <td className="px-4 py-3 text-center">
-      <svg
-        className="mx-auto h-4 w-4 text-earth-300"
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke="currentColor"
-        strokeWidth={2}
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"
-        />
-      </svg>
+      <span className="text-xs font-medium leading-relaxed text-earth-700">
+        {value}
+      </span>
     </td>
   );
 }
