@@ -4,10 +4,10 @@ import {
   HEALTHFLOW_CALLBACK_IDEMPOTENCY_HEADER,
   HEALTHFLOW_CALLBACK_SIGNATURE_HEADER,
   HEALTHFLOW_CALLBACK_TIMESTAMP_HEADER,
-  reserveHealthflowCallbackIdempotencyKey,
   validateHealthflowCallbackIdempotencyKey,
   verifyHealthflowCallbackAuth,
 } from "@/lib/healthflow-link-callback-auth";
+import { recordHealthflowCallbackReplay } from "@/lib/healthflow-link-callback-replay";
 import {
   validateHealthflowBridgeCallback,
   verifyHealthflowBridgeState,
@@ -42,6 +42,12 @@ function callbackErrorStatus(reason: string): number {
     return 401;
   }
   if (reason === "customer_not_found") return 404;
+  if (
+    reason === "idempotency_key_conflict" ||
+    reason === "state_jti_replay"
+  ) {
+    return 409;
+  }
   return 400;
 }
 
@@ -103,12 +109,28 @@ export async function POST(req: Request): Promise<Response> {
     });
   }
 
-  await reserveHealthflowCallbackIdempotencyKey(idempotency.key);
+  const replay = await recordHealthflowCallbackReplay({
+    idempotencyKey: idempotency.key,
+    stateJti: bridge.payload.jti,
+    callbackTimestampMs: auth.timestampMs,
+    profileId: bridge.profileId,
+    customerId: bridge.payload.customerId,
+    storeId: bridge.payload.storeId,
+    rawBody,
+    state: parsedBody.data.state,
+  });
+  if (!replay.ok) {
+    return json(callbackErrorStatus(replay.reason), {
+      status: "error",
+      code: replay.reason,
+    });
+  }
 
   return json(202, {
     status: "accepted",
     mode: "validated_only",
     linked: false,
-    replayProtection: "contract_only",
+    replayProtection:
+      replay.mode === "duplicate" ? "durable_duplicate" : "durable_consumed",
   });
 }

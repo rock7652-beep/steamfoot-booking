@@ -761,6 +761,33 @@ model Customer {
 }
 
 // ============================================================
+// HealthflowLinkCallback — durable idempotency / replay guard
+//
+// PR3-A only records validated callback consumption.
+// It does not write Customer.healthProfileId / healthLinkStatus.
+// ============================================================
+
+model HealthflowLinkCallback {
+  id                String   @id @default(cuid())
+  idempotencyKey    String   @unique
+  stateJti          String   @unique
+  callbackTimestamp DateTime
+  profileId         String
+  customerId        String
+  storeId           String
+  status            String   @default("accepted")
+  requestHash       String
+  stateHash         String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([customerId])
+  @@index([storeId])
+  @@index([profileId])
+  @@index([createdAt])
+}
+
+// ============================================================
 // CustomerIdentityLink（跨店登入身份 → 店內 Customer）
 // ============================================================
 
