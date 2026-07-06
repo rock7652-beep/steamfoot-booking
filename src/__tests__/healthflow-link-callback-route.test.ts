@@ -2,12 +2,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockCustomerFindUnique = vi.fn();
 const mockCustomerUpdate = vi.fn();
+const mockCallbackCreate = vi.fn();
+const mockCallbackFindUnique = vi.fn();
 
 vi.mock("@/lib/db", () => ({
   prisma: {
     customer: {
       findUnique: (...args: unknown[]) => mockCustomerFindUnique(...args),
       update: (...args: unknown[]) => mockCustomerUpdate(...args),
+    },
+    healthflowLinkCallback: {
+      create: (...args: unknown[]) => mockCallbackCreate(...args),
+      findUnique: (...args: unknown[]) => mockCallbackFindUnique(...args),
     },
   },
 }));
@@ -18,6 +24,7 @@ import {
   HEALTHFLOW_CALLBACK_SIGNATURE_HEADER,
   HEALTHFLOW_CALLBACK_TIMESTAMP_HEADER,
 } from "@/lib/healthflow-link-callback-auth";
+import { sha256Hex } from "@/lib/healthflow-link-callback-replay";
 import { createHealthflowBridgeState } from "@/lib/healthflow-identity-bridge";
 
 const CUSTOMER_ID = "customer_123";
@@ -49,15 +56,25 @@ async function sign(rawBody: string, timestamp: string): Promise<string> {
 }
 
 async function signedState(
-  overrides: Partial<{ customerId: string; storeId: string }> = {},
+  overrides: Partial<{ customerId: string; storeId: string; jti: string }> = {},
 ): Promise<string> {
   return createHealthflowBridgeState(
     {
       customerId: overrides.customerId ?? CUSTOMER_ID,
       storeId: overrides.storeId ?? STORE_ID,
     },
-    { now: NOW, jti: "jti-1" },
+    { now: NOW, jti: overrides.jti ?? "jti-1" },
   );
+}
+
+function encodeState(envelope: { payload: unknown; sig: string }): string {
+  return Buffer.from(JSON.stringify(envelope), "utf8").toString("base64url");
+}
+
+function p2002(): Error & { code: "P2002" } {
+  return Object.assign(new Error("Unique constraint failed"), {
+    code: "P2002" as const,
+  });
 }
 
 async function postReq(input: {
@@ -100,6 +117,9 @@ describe("POST /api/healthflow/link-callback", () => {
     vi.setSystemTime(NOW);
     mockCustomerFindUnique.mockReset();
     mockCustomerUpdate.mockReset();
+    mockCallbackCreate.mockReset();
+    mockCallbackFindUnique.mockReset();
+    mockCallbackCreate.mockResolvedValue({ id: "callback-1" });
   });
 
   afterEach(() => {
@@ -107,7 +127,7 @@ describe("POST /api/healthflow/link-callback", () => {
     vi.unstubAllEnvs();
   });
 
-  it("accepts a signed callback contract without writing Customer", async () => {
+  it("accepts the first signed callback, records durable replay state, and does not write Customer", async () => {
     const state = await signedState();
     mockCustomerFindUnique.mockResolvedValueOnce({
       id: CUSTOMER_ID,
@@ -123,11 +143,131 @@ describe("POST /api/healthflow/link-callback", () => {
       status: "accepted",
       mode: "validated_only",
       linked: false,
-      replayProtection: "contract_only",
+      replayProtection: "durable_consumed",
     });
     expect(mockCustomerFindUnique).toHaveBeenCalledWith({
       where: { id: CUSTOMER_ID },
       select: { id: true, storeId: true },
+    });
+    expect(mockCallbackCreate).toHaveBeenCalledWith({
+      data: {
+        idempotencyKey: "hf-callback-1",
+        stateJti: "jti-1",
+        callbackTimestamp: new Date(NOW),
+        profileId: PROFILE_ID,
+        customerId: CUSTOMER_ID,
+        storeId: STORE_ID,
+        status: "accepted",
+        requestHash: expect.any(String),
+        stateHash: expect.any(String),
+      },
+    });
+    expect(mockCustomerUpdate).not.toHaveBeenCalled();
+  });
+
+  it("returns accepted for the same idempotency-key and same signed-state retry", async () => {
+    const state = await signedState();
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+    });
+    mockCallbackCreate.mockRejectedValueOnce(p2002());
+    mockCallbackFindUnique.mockResolvedValueOnce({
+      idempotencyKey: "hf-callback-1",
+      stateJti: "jti-1",
+      profileId: PROFILE_ID,
+      customerId: CUSTOMER_ID,
+      storeId: STORE_ID,
+      stateHash: await sha256Hex(state),
+      status: "accepted",
+    });
+
+    const res = await POST(
+      await postReq({ body: { profileId: PROFILE_ID, state } }),
+    );
+
+    expect(res.status).toBe(202);
+    expect(await res.json()).toEqual({
+      status: "accepted",
+      mode: "validated_only",
+      linked: false,
+      replayProtection: "durable_duplicate",
+    });
+    expect(mockCallbackFindUnique).toHaveBeenCalledWith({
+      where: { idempotencyKey: "hf-callback-1" },
+      select: {
+        idempotencyKey: true,
+        stateJti: true,
+        profileId: true,
+        customerId: true,
+        storeId: true,
+        stateHash: true,
+        status: true,
+      },
+    });
+    expect(mockCustomerUpdate).not.toHaveBeenCalled();
+  });
+
+  it("rejects the same idempotency-key reused for a different signed-state payload", async () => {
+    const originalState = await signedState({ jti: "jti-original" });
+    const replayState = await signedState({ jti: "jti-reused-key" });
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+    });
+    mockCallbackCreate.mockRejectedValueOnce(p2002());
+    mockCallbackFindUnique.mockResolvedValueOnce({
+      idempotencyKey: "hf-callback-1",
+      stateJti: "jti-original",
+      profileId: PROFILE_ID,
+      customerId: CUSTOMER_ID,
+      storeId: STORE_ID,
+      stateHash: await sha256Hex(originalState),
+      status: "accepted",
+    });
+
+    const res = await POST(
+      await postReq({ body: { profileId: PROFILE_ID, state: replayState } }),
+    );
+
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({
+      status: "error",
+      code: "idempotency_key_conflict",
+    });
+    expect(mockCustomerUpdate).not.toHaveBeenCalled();
+  });
+
+  it("rejects the same signed-state jti replayed with a different idempotency-key", async () => {
+    const state = await signedState();
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+    });
+    mockCallbackCreate.mockRejectedValueOnce(p2002());
+    mockCallbackFindUnique
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        idempotencyKey: "hf-callback-original",
+        stateJti: "jti-1",
+        profileId: PROFILE_ID,
+        customerId: CUSTOMER_ID,
+        storeId: STORE_ID,
+        stateHash: await sha256Hex(state),
+        status: "accepted",
+      });
+
+    const res = await POST(
+      await postReq({
+        body: { profileId: PROFILE_ID, state },
+        idempotencyKey: "hf-callback-replay",
+      }),
+    );
+
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({
+      status: "error",
+      code: "state_jti_replay",
     });
     expect(mockCustomerUpdate).not.toHaveBeenCalled();
   });
@@ -148,6 +288,7 @@ describe("POST /api/healthflow/link-callback", () => {
       code: "missing_idempotency_key",
     });
     expect(mockCustomerFindUnique).not.toHaveBeenCalled();
+    expect(mockCallbackCreate).not.toHaveBeenCalled();
   });
 
   it("rejects missing callback secret", async () => {
@@ -164,6 +305,7 @@ describe("POST /api/healthflow/link-callback", () => {
       code: "missing_callback_secret",
     });
     expect(mockCustomerFindUnique).not.toHaveBeenCalled();
+    expect(mockCallbackCreate).not.toHaveBeenCalled();
   });
 
   it("rejects bad callback signatures", async () => {
@@ -182,6 +324,7 @@ describe("POST /api/healthflow/link-callback", () => {
       code: "invalid_signature",
     });
     expect(mockCustomerFindUnique).not.toHaveBeenCalled();
+    expect(mockCallbackCreate).not.toHaveBeenCalled();
   });
 
   it("rejects stale timestamps", async () => {
@@ -201,6 +344,7 @@ describe("POST /api/healthflow/link-callback", () => {
       code: "stale_timestamp",
     });
     expect(mockCustomerFindUnique).not.toHaveBeenCalled();
+    expect(mockCallbackCreate).not.toHaveBeenCalled();
   });
 
   it("rejects invalid JSON after callback auth passes", async () => {
@@ -214,6 +358,31 @@ describe("POST /api/healthflow/link-callback", () => {
       code: "invalid_json",
     });
     expect(mockCustomerFindUnique).not.toHaveBeenCalled();
+    expect(mockCallbackCreate).not.toHaveBeenCalled();
+  });
+
+  it("rejects invalid signed state before durable replay consumption", async () => {
+    const state = encodeState({
+      payload: {
+        customerId: CUSTOMER_ID,
+        storeId: STORE_ID,
+        issuedAt: NOW,
+        expiresAt: NOW + 60_000,
+      },
+      sig: "not-valid",
+    });
+
+    const res = await POST(
+      await postReq({ body: { profileId: PROFILE_ID, state } }),
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({
+      status: "error",
+      code: "invalid_state",
+    });
+    expect(mockCustomerFindUnique).not.toHaveBeenCalled();
+    expect(mockCallbackCreate).not.toHaveBeenCalled();
   });
 
   it("rejects invalid profileId without writing Customer", async () => {
@@ -232,6 +401,7 @@ describe("POST /api/healthflow/link-callback", () => {
       status: "error",
       code: "invalid_profile_id",
     });
+    expect(mockCallbackCreate).not.toHaveBeenCalled();
     expect(mockCustomerUpdate).not.toHaveBeenCalled();
   });
 
@@ -251,6 +421,7 @@ describe("POST /api/healthflow/link-callback", () => {
       status: "error",
       code: "store_mismatch",
     });
+    expect(mockCallbackCreate).not.toHaveBeenCalled();
     expect(mockCustomerUpdate).not.toHaveBeenCalled();
   });
 });

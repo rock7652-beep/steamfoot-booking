@@ -122,10 +122,3 @@ export function validateHealthflowCallbackIdempotencyKey(
   }
   return { ok: true, key: normalized };
 }
-
-export async function reserveHealthflowCallbackIdempotencyKey(key: string) {
-  void key;
-  // PR2 intentionally has no DB schema change. PR3 should replace this with a
-  // durable insert-or-ignore record before Customer writes are enabled.
-  return { ok: true as const, mode: "contract_only" as const };
-}
