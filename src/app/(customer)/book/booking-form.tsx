@@ -48,7 +48,6 @@ export function BookingForm({ customerId, selectedDate, slots, activeWallets, st
   );
 
   const availableSlots = slots.filter((s) => s.isEnabled && s.available > 0);
-  const fullSlots = slots.filter((s) => s.isEnabled && s.available === 0);
 
   const storeSlug = useStoreSlugRequired();
   const prefix = `/s/${storeSlug}`;
@@ -125,7 +124,8 @@ export function BookingForm({ customerId, selectedDate, slots, activeWallets, st
         {/* Slot grid */}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {slots.filter((s) => s.isEnabled).map((slot) => {
-            const isFull = slot.available === 0;
+            const remaining = slot.capacity - slot.bookedCount;
+            const isFull = remaining <= 0;
             return (
               <label
                 key={slot.startTime}
@@ -144,9 +144,11 @@ export function BookingForm({ customerId, selectedDate, slots, activeWallets, st
                   required
                 />
                 <span className="text-lg font-bold">{slot.startTime}</span>
-                <span className={`mt-1 text-sm font-medium ${isFull ? "text-red-600" : "text-earth-700 has-[:checked]:text-primary-100"}`}>
-                  {isFull ? "已額滿" : `剩 ${slot.available} 位`}
-                </span>
+                {isFull && (
+                  <span className="mt-1 text-sm font-medium text-red-600">
+                    額滿
+                  </span>
+                )}
               </label>
             );
           })}
