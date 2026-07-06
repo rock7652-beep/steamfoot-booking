@@ -19,6 +19,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const STORE_A = "store-zhubei";
+const STORE_B = "store-demo";
 const REAL_CUSTOMER_ID = "ck0000000000000000000001";
 const STALE_SESSION_CUSTOMER_ID = "ck0000000000000000000099";
 const USER_ID = "ck0000000000000000000010";
@@ -52,6 +53,8 @@ const bookingsStore: BookingRow[] = [];
 function matchWhere(row: BookingRow, where: Record<string, unknown>): boolean {
   // storeId
   if (where.storeId && where.storeId !== row.storeId) return false;
+  // slotTime
+  if (typeof where.slotTime === "string" && where.slotTime !== row.slotTime) return false;
   // customer
   const customerWhere = where.customer as { id?: string } | undefined;
   if (customerWhere?.id && customerWhere.id !== row.customerId) return false;
@@ -114,7 +117,13 @@ const mockPrisma = {
       const where = args.where ?? {};
       return bookingsStore.filter((r) => matchWhere(r, where)).length;
     }),
-    aggregate: vi.fn(async () => ({ _sum: { people: 0 } })),
+    aggregate: vi.fn(async (args: { where?: Record<string, unknown> }) => {
+      const where = args.where ?? {};
+      const people = bookingsStore
+        .filter((r) => matchWhere(r, where))
+        .reduce((sum, r) => sum + r.people, 0);
+      return { _sum: { people } };
+    }),
   },
   customer: {
     findUnique: vi.fn(),
@@ -151,6 +160,9 @@ const mockPrisma = {
   dutyAssignment: {
     count: vi.fn(async () => 0),
   },
+  walletSession: {
+    count: vi.fn(async () => 0),
+  },
   store: {
     findUnique: vi.fn(async () => ({
       id: STORE_A,
@@ -170,8 +182,13 @@ const mockPrisma = {
     findUnique: vi.fn(async () => null),
   },
   makeupCredit: {
+    count: vi.fn(async () => 0),
     findUnique: vi.fn(),
     update: vi.fn(),
+    updateMany: vi.fn(),
+  },
+  bookingMakeupCredit: {
+    createMany: vi.fn(),
   },
   $transaction: vi.fn(async (cb: (tx: unknown) => Promise<unknown>) => cb(mockPrisma)),
 };
@@ -214,10 +231,24 @@ vi.mock("@/lib/usage-gate", () => ({
 vi.mock("@/lib/date-utils", () => ({
   toLocalDateStr: () => "2026-04-26",
   getNowTaipeiHHmm: () => "00:00",
+  dayRange: (date: string) => ({
+    start: new Date(`${date}T00:00:00Z`),
+    end: new Date(`${date}T23:59:59.999Z`),
+  }),
 }));
 
 vi.mock("@/lib/revalidation", () => ({
   revalidateBookings: vi.fn(),
+}));
+
+vi.mock("@/lib/store-view-context-server", () => ({
+  resolveStoreViewContextFromCookie: vi.fn(async () => null),
+  storeIdForViewContext: (ownStoreId: string | null | undefined) => ownStoreId,
+  userForViewContext: (user: unknown) => user,
+}));
+
+vi.mock("@/lib/store-organization", () => ({
+  assertWritableStoreViewContext: vi.fn(),
 }));
 
 vi.mock("@/server/services/referral-events", () => ({
@@ -382,5 +413,58 @@ describe("Booking write-read contract — createBooking → listBookings → get
     expect(ACTIVE_BOOKING_STATUSES).toContain("PENDING");
     expect(ACTIVE_BOOKING_STATUSES).toContain("COMPLETED");
     expect(ACTIVE_BOOKING_STATUSES).not.toContain("CANCELLED");
+  });
+
+  it("createBooking 容量檢查只計同店預約，避免其他店同時段把本店誤判已滿", async () => {
+    bookingsStore.push({
+      id: "bk-other-store-full-slot",
+      customerId: "other-customer",
+      storeId: STORE_B,
+      bookingDate: new Date("2026-04-27T00:00:00Z"),
+      slotTime: "18:00",
+      bookingStatus: "PENDING",
+      isMakeup: false,
+      isCheckedIn: false,
+      people: 6,
+      revenueStaffId: null,
+      bookedByType: "STAFF",
+      bookedByStaffId: null,
+      bookingType: "SINGLE",
+      servicePlanId: null,
+      customerPlanWalletId: null,
+      makeupCreditId: null,
+      notes: null,
+      createdAt: new Date(),
+    });
+
+    mockRequireSession.mockResolvedValueOnce({
+      role: "OWNER",
+      storeId: STORE_A,
+      staffId: "ck0000000000000000000050",
+      id: STAFF_USER_ID,
+      email: "owner@x.com",
+    });
+    mockPrisma.customer.findUnique.mockResolvedValue(REAL_CUSTOMER_RECORD);
+
+    const { createBooking } = await import("@/server/actions/booking");
+    const result = await createBooking({
+      customerId: REAL_CUSTOMER_ID,
+      bookingDate: "2026-04-27",
+      slotTime: "18:00",
+      bookingType: "SINGLE",
+      people: 1,
+    });
+
+    expect(result.success).toBe(true);
+    expect(mockPrisma.booking.aggregate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          storeId: STORE_A,
+          bookingDate: new Date("2026-04-27T00:00:00Z"),
+          slotTime: "18:00",
+          bookingStatus: { in: ["PENDING", "CONFIRMED"] },
+        }),
+      }),
+    );
   });
 });
