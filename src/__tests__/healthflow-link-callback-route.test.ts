@@ -4,9 +4,22 @@ const mockCustomerFindUnique = vi.fn();
 const mockCustomerUpdate = vi.fn();
 const mockCallbackCreate = vi.fn();
 const mockCallbackFindUnique = vi.fn();
+const mockCallbackUpdate = vi.fn();
+const mockTransaction = vi.fn(async (callback: (tx: unknown) => unknown) =>
+  callback({
+    customer: {
+      update: (...args: unknown[]) => mockCustomerUpdate(...args),
+    },
+    healthflowLinkCallback: {
+      create: (...args: unknown[]) => mockCallbackCreate(...args),
+      update: (...args: unknown[]) => mockCallbackUpdate(...args),
+    },
+  }),
+);
 
 vi.mock("@/lib/db", () => ({
   prisma: {
+    $transaction: (...args: unknown[]) => mockTransaction(...args),
     customer: {
       findUnique: (...args: unknown[]) => mockCustomerFindUnique(...args),
       update: (...args: unknown[]) => mockCustomerUpdate(...args),
@@ -14,6 +27,7 @@ vi.mock("@/lib/db", () => ({
     healthflowLinkCallback: {
       create: (...args: unknown[]) => mockCallbackCreate(...args),
       findUnique: (...args: unknown[]) => mockCallbackFindUnique(...args),
+      update: (...args: unknown[]) => mockCallbackUpdate(...args),
     },
   },
 }));
@@ -119,7 +133,11 @@ describe("POST /api/healthflow/link-callback", () => {
     mockCustomerUpdate.mockReset();
     mockCallbackCreate.mockReset();
     mockCallbackFindUnique.mockReset();
+    mockCallbackUpdate.mockReset();
+    mockTransaction.mockClear();
     mockCallbackCreate.mockResolvedValue({ id: "callback-1" });
+    mockCustomerUpdate.mockResolvedValue({ id: CUSTOMER_ID });
+    mockCallbackUpdate.mockResolvedValue({ id: "callback-1" });
   });
 
   afterEach(() => {
@@ -127,7 +145,7 @@ describe("POST /api/healthflow/link-callback", () => {
     vi.unstubAllEnvs();
   });
 
-  it("accepts the first signed callback, records durable replay state, and does not write Customer", async () => {
+  it("accepts the first signed callback, records durable replay state, and writes Customer health fields once", async () => {
     const state = await signedState();
     mockCustomerFindUnique.mockResolvedValueOnce({
       id: CUSTOMER_ID,
@@ -141,10 +159,11 @@ describe("POST /api/healthflow/link-callback", () => {
     expect(res.status).toBe(202);
     expect(await res.json()).toEqual({
       status: "accepted",
-      mode: "validated_only",
-      linked: false,
+      mode: "linked",
+      linked: true,
       replayProtection: "durable_consumed",
     });
+    expect(mockTransaction).toHaveBeenCalledTimes(1);
     expect(mockCustomerFindUnique).toHaveBeenCalledWith({
       where: { id: CUSTOMER_ID },
       select: { id: true, storeId: true },
@@ -157,12 +176,19 @@ describe("POST /api/healthflow/link-callback", () => {
         profileId: PROFILE_ID,
         customerId: CUSTOMER_ID,
         storeId: STORE_ID,
-        status: "accepted",
+        status: "linked",
         requestHash: expect.any(String),
         stateHash: expect.any(String),
       },
     });
-    expect(mockCustomerUpdate).not.toHaveBeenCalled();
+    expect(mockCustomerUpdate).toHaveBeenCalledWith({
+      where: { id: CUSTOMER_ID },
+      data: {
+        healthProfileId: PROFILE_ID,
+        healthLinkStatus: "linked",
+        healthSyncedAt: new Date(NOW),
+      },
+    });
   });
 
   it("returns accepted for the same idempotency-key and same signed-state retry", async () => {
@@ -173,6 +199,52 @@ describe("POST /api/healthflow/link-callback", () => {
     });
     mockCallbackCreate.mockRejectedValueOnce(p2002());
     mockCallbackFindUnique.mockResolvedValueOnce({
+      id: "callback-1",
+      idempotencyKey: "hf-callback-1",
+      stateJti: "jti-1",
+      profileId: PROFILE_ID,
+      customerId: CUSTOMER_ID,
+      storeId: STORE_ID,
+      stateHash: await sha256Hex(state),
+      status: "linked",
+    });
+
+    const res = await POST(
+      await postReq({ body: { profileId: PROFILE_ID, state } }),
+    );
+
+    expect(res.status).toBe(202);
+    expect(await res.json()).toEqual({
+      status: "accepted",
+      mode: "linked",
+      linked: true,
+      replayProtection: "durable_duplicate",
+    });
+    expect(mockCallbackFindUnique).toHaveBeenCalledWith({
+      where: { idempotencyKey: "hf-callback-1" },
+      select: {
+        id: true,
+        idempotencyKey: true,
+        stateJti: true,
+        profileId: true,
+        customerId: true,
+        storeId: true,
+        stateHash: true,
+        status: true,
+      },
+    });
+    expect(mockCustomerUpdate).not.toHaveBeenCalled();
+  });
+
+  it("links Customer once when retrying a PR3-A accepted record that was not linked yet", async () => {
+    const state = await signedState();
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+    });
+    mockCallbackCreate.mockRejectedValueOnce(p2002());
+    mockCallbackFindUnique.mockResolvedValueOnce({
+      id: "callback-1",
       idempotencyKey: "hf-callback-1",
       stateJti: "jti-1",
       profileId: PROFILE_ID,
@@ -189,23 +261,22 @@ describe("POST /api/healthflow/link-callback", () => {
     expect(res.status).toBe(202);
     expect(await res.json()).toEqual({
       status: "accepted",
-      mode: "validated_only",
-      linked: false,
-      replayProtection: "durable_duplicate",
+      mode: "linked",
+      linked: true,
+      replayProtection: "durable_consumed",
     });
-    expect(mockCallbackFindUnique).toHaveBeenCalledWith({
-      where: { idempotencyKey: "hf-callback-1" },
-      select: {
-        idempotencyKey: true,
-        stateJti: true,
-        profileId: true,
-        customerId: true,
-        storeId: true,
-        stateHash: true,
-        status: true,
+    expect(mockCustomerUpdate).toHaveBeenCalledWith({
+      where: { id: CUSTOMER_ID },
+      data: {
+        healthProfileId: PROFILE_ID,
+        healthLinkStatus: "linked",
+        healthSyncedAt: new Date(NOW),
       },
     });
-    expect(mockCustomerUpdate).not.toHaveBeenCalled();
+    expect(mockCallbackUpdate).toHaveBeenCalledWith({
+      where: { id: "callback-1" },
+      data: { status: "linked" },
+    });
   });
 
   it("rejects the same idempotency-key reused for a different signed-state payload", async () => {
@@ -217,13 +288,14 @@ describe("POST /api/healthflow/link-callback", () => {
     });
     mockCallbackCreate.mockRejectedValueOnce(p2002());
     mockCallbackFindUnique.mockResolvedValueOnce({
+      id: "callback-1",
       idempotencyKey: "hf-callback-1",
       stateJti: "jti-original",
       profileId: PROFILE_ID,
       customerId: CUSTOMER_ID,
       storeId: STORE_ID,
       stateHash: await sha256Hex(originalState),
-      status: "accepted",
+      status: "linked",
     });
 
     const res = await POST(
@@ -248,13 +320,14 @@ describe("POST /api/healthflow/link-callback", () => {
     mockCallbackFindUnique
       .mockResolvedValueOnce(null)
       .mockResolvedValueOnce({
+        id: "callback-1",
         idempotencyKey: "hf-callback-original",
         stateJti: "jti-1",
         profileId: PROFILE_ID,
         customerId: CUSTOMER_ID,
         storeId: STORE_ID,
         stateHash: await sha256Hex(state),
-        status: "accepted",
+        status: "linked",
       });
 
     const res = await POST(

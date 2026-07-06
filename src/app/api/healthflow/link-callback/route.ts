@@ -7,7 +7,7 @@ import {
   validateHealthflowCallbackIdempotencyKey,
   verifyHealthflowCallbackAuth,
 } from "@/lib/healthflow-link-callback-auth";
-import { recordHealthflowCallbackReplay } from "@/lib/healthflow-link-callback-replay";
+import { recordHealthflowCallbackReplayAndLinkCustomer } from "@/lib/healthflow-link-callback-replay";
 import {
   validateHealthflowBridgeCallback,
   verifyHealthflowBridgeState,
@@ -109,10 +109,11 @@ export async function POST(req: Request): Promise<Response> {
     });
   }
 
-  const replay = await recordHealthflowCallbackReplay({
+  const replay = await recordHealthflowCallbackReplayAndLinkCustomer({
     idempotencyKey: idempotency.key,
     stateJti: bridge.payload.jti,
     callbackTimestampMs: auth.timestampMs,
+    linkedAtMs: Date.now(),
     profileId: bridge.profileId,
     customerId: bridge.payload.customerId,
     storeId: bridge.payload.storeId,
@@ -128,8 +129,8 @@ export async function POST(req: Request): Promise<Response> {
 
   return json(202, {
     status: "accepted",
-    mode: "validated_only",
-    linked: false,
+    mode: "linked",
+    linked: true,
     replayProtection:
       replay.mode === "duplicate" ? "durable_duplicate" : "durable_consumed",
   });
