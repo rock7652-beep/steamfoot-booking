@@ -74,6 +74,12 @@ vi.mock("@/lib/manager-visibility", () => ({
   getStoreFilter: (u: { storeId?: string | null }) => ({ storeId: u.storeId ?? null }),
 }));
 
+vi.mock("@/lib/store-view-context-server", () => ({
+  resolveStoreViewContextFromCookie: vi.fn(async () => null),
+  storeIdForViewContext: (ownStoreId: string | null | undefined) => ownStoreId,
+  userForViewContext: (user: unknown) => user,
+}));
+
 // ── Mock shop-config：竹北未開、demo 開啟 ──
 const mockIsDutyEnabled = vi.fn(async (storeId?: string | null) => {
   // 重現舊 bug：若呼叫端沒傳 storeId，會 fallback 到 demo（true）

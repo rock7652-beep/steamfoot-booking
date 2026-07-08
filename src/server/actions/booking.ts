@@ -681,6 +681,7 @@ export async function updateBooking(
 
       const bookedAgg = await prisma.booking.aggregate({
         where: {
+          storeId: updStoreId,
           bookingDate: newDate,
           slotTime: newSlot,
           bookingStatus: { in: [...PENDING_STATUSES] },

@@ -59,6 +59,12 @@ vi.mock("@/lib/permissions", () => ({
     storeId: STORE_A,
     staffId: "ck0000000000000000000stf01",
   })),
+  requireWritablePermission: vi.fn(async () => ({
+    id: "ck0000000000000000000usr01",
+    role: "OWNER",
+    storeId: STORE_A,
+    staffId: "ck0000000000000000000stf01",
+  })),
 }));
 vi.mock("@/lib/store", () => ({
   currentStoreId: (u: { storeId?: string | null }) => u.storeId ?? STORE_A,
@@ -75,11 +81,16 @@ vi.mock("@/lib/business-hours-resolver", () => ({
     slotOverrides: [],
   })),
   applySlotOverrides: () =>
-    Array.from({ length: 14 }, (_, i) => ({
-      startTime: `${String(9 + i).padStart(2, "0")}:00`,
-      isEnabled: true,
-      capacity: 10,
-    })),
+    Array.from({ length: 27 }, (_, i) => {
+      const totalMinutes = 9 * 60 + i * 30;
+      const hh = Math.floor(totalMinutes / 60);
+      const mm = totalMinutes % 60;
+      return {
+        startTime: `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`,
+        isEnabled: true,
+        capacity: 6,
+      };
+    }),
 }));
 
 vi.mock("@/lib/date-utils", () => ({
@@ -145,7 +156,7 @@ function makeBooking(overrides: Partial<{
     id: BOOKING_ID,
     storeId: STORE_A,
     customerId: CUSTOMER_ID,
-    bookingDate: new Date("2026-06-15T00:00:00Z"),
+    bookingDate: new Date("2026-12-15T00:00:00Z"),
     slotTime: "10:00",
     bookingStatus: "PENDING",
     bookingType: "PACKAGE_SESSION",
@@ -390,5 +401,114 @@ describe("updateBooking — people change wallet sync (PR-H3)", () => {
       expect.any(Object),
       expect.objectContaining({ bookingId: BOOKING_ID, count: 2 }),
     );
+  });
+
+  it("改時段容量檢查只計入同店 booked people，不受其他分店同時段影響", async () => {
+    const targetDate = new Date("2026-07-08T00:00:00Z");
+    mockBookingFindUnique.mockResolvedValue(
+      makeBooking({
+        bookingDate: targetDate,
+        slotTime: "17:30",
+        people: 3,
+        customerPlanWalletId: WALLET_ID,
+      }),
+    );
+    mockBookingAggregate.mockImplementation(async ({ where }) => ({
+      _sum: {
+        people: where.storeId === STORE_A ? 1 : 4,
+      },
+    }));
+
+    const { updateBooking } = await import("@/server/actions/booking");
+    const result = await updateBooking(BOOKING_ID, {
+      bookingDate: "2026-07-08",
+      slotTime: "18:30",
+      people: 3,
+    });
+
+    expect(result.success).toBe(true);
+    expect(mockBookingAggregate).toHaveBeenCalledWith({
+      where: expect.objectContaining({
+        storeId: STORE_A,
+        bookingDate: targetDate,
+        slotTime: "18:30",
+        bookingStatus: { in: ["PENDING", "CONFIRMED"] },
+        NOT: { id: BOOKING_ID },
+      }),
+      _sum: { people: true },
+    });
+  });
+
+  it("改時段時若同店目標時段真的滿位，仍會被容量檢查擋下", async () => {
+    const targetDate = new Date("2026-07-08T00:00:00Z");
+    mockBookingFindUnique.mockResolvedValue(
+      makeBooking({
+        bookingDate: targetDate,
+        slotTime: "17:30",
+        people: 3,
+        customerPlanWalletId: WALLET_ID,
+      }),
+    );
+    mockBookingAggregate.mockImplementation(async ({ where }) => ({
+      _sum: {
+        people: where.storeId === STORE_A ? 4 : 7,
+      },
+    }));
+
+    const { updateBooking } = await import("@/server/actions/booking");
+    const result = await updateBooking(BOOKING_ID, {
+      bookingDate: "2026-07-08",
+      slotTime: "18:30",
+      people: 3,
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("目標時段名額不足");
+    expect(mockBookingAggregate).toHaveBeenCalledWith({
+      where: expect.objectContaining({
+        storeId: STORE_A,
+        bookingDate: targetDate,
+        slotTime: "18:30",
+        bookingStatus: { in: ["PENDING", "CONFIRMED"] },
+        NOT: { id: BOOKING_ID },
+      }),
+      _sum: { people: true },
+    });
+  });
+
+  it("更新同一筆且目標時段相同時，容量檢查排除自己避免誤判滿位", async () => {
+    const targetDate = new Date("2026-07-08T00:00:00Z");
+    mockBookingFindUnique.mockResolvedValue(
+      makeBooking({
+        bookingDate: targetDate,
+        slotTime: "18:30",
+        people: 3,
+        customerPlanWalletId: WALLET_ID,
+      }),
+    );
+    mockBookingAggregate.mockImplementation(async ({ where }) => ({
+      _sum: {
+        people: where.NOT?.id === BOOKING_ID ? 3 : 6,
+      },
+    }));
+
+    const { updateBooking } = await import("@/server/actions/booking");
+    const result = await updateBooking(BOOKING_ID, {
+      bookingDate: "2026-07-08",
+      slotTime: "18:30",
+      people: 3,
+    });
+
+    expect(result.success).toBe(true);
+    expect(mockBookingAggregate).toHaveBeenCalledWith({
+      where: expect.objectContaining({
+        storeId: STORE_A,
+        bookingDate: targetDate,
+        slotTime: "18:30",
+        bookingStatus: { in: ["PENDING", "CONFIRMED"] },
+        NOT: { id: BOOKING_ID },
+      }),
+      _sum: { people: true },
+    });
   });
 });
