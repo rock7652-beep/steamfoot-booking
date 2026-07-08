@@ -6,6 +6,7 @@ import { DashboardLink as Link } from "@/components/dashboard-link";
 import { AssignPlanForm } from "../[id]/assign-plan-form";
 import { CustomerStatusBadge } from "./customer-status-badge";
 import { TrialBookingDrawer } from "../../_components/trial-booking-drawer";
+import { copyTextToClipboard } from "@/lib/browser-copy";
 import {
   updateCustomerAssignment,
   searchReferrerCandidates,
@@ -184,7 +185,7 @@ export function CustomerDetailDrawerContent({
   const identityWarning = customer.authSource === "LINE" && !lineBound;
 
   async function handleCopyLineBindingMessage() {
-    await navigator.clipboard.writeText(LINE_BINDING_MESSAGE);
+    await copyTextToClipboard(LINE_BINDING_MESSAGE);
     toast.success("已複製綁定話術");
   }
 

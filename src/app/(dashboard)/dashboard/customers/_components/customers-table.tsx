@@ -2,6 +2,7 @@
 
 import type { CustomerStage, LineLinkStatus, UserStatus } from "@prisma/client";
 import { DataTable, EmptyRow, type Column } from "@/components/desktop";
+import { copyTextToClipboard } from "@/lib/browser-copy";
 import { formatTWTime } from "@/lib/date-utils";
 import { remainingSessionsState } from "@/lib/remaining-sessions-label";
 import { CustomerStatusBadge } from "./customer-status-badge";
@@ -90,8 +91,7 @@ function formatPhoneForStaff(phone: string | null | undefined): string {
 }
 
 async function copyLineBindingMessage() {
-  if (typeof navigator === "undefined") return;
-  await navigator.clipboard.writeText(LINE_BINDING_MESSAGE);
+  await copyTextToClipboard(LINE_BINDING_MESSAGE);
 }
 
 export function CustomersTable({

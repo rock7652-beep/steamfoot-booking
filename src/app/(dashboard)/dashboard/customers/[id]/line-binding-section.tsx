@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { generateLineBindingCode, unlinkLineAccount } from "@/server/actions/reminder";
+import { copyTextToClipboard } from "@/lib/browser-copy";
 import { LINE_BINDING_MESSAGE } from "@/lib/line-notification-status";
 
 const LINE_OA_URL = process.env.NEXT_PUBLIC_LINE_OA_ADD_FRIEND_URL ?? "";
@@ -159,20 +160,9 @@ export function LineBindingSection({
   }
 
   async function handleCopyBindingMessage() {
-    try {
-      await navigator.clipboard.writeText(LINE_BINDING_MESSAGE);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      const el = document.createElement("textarea");
-      el.value = LINE_BINDING_MESSAGE;
-      document.body.appendChild(el);
-      el.select();
-      document.execCommand("copy");
-      document.body.removeChild(el);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
+    await copyTextToClipboard(LINE_BINDING_MESSAGE);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   }
 
   // ── 遮蔽 LINE User ID ──
