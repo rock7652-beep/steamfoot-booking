@@ -41,6 +41,10 @@ vi.mock("@/server/services/bind-line-to-customer", () => ({
   bindLineToCustomerInStore: (...args: unknown[]) => mockBindLine(...args),
 }));
 
+vi.mock("@/server/services/customer-identity-link", () => ({
+  upsertCustomerIdentityLink: vi.fn(),
+}));
+
 import { submitOnboarding } from "@/app/(liff)/liff/onboarding/actions";
 import { LiffIdTokenError } from "@/lib/liff/verify-id-token";
 
@@ -306,6 +310,7 @@ describe("submitOnboarding action (PR-C2)", () => {
       lineName: "DisplayName from LINE",
       phone: VALID_INPUT.phone,
       name: VALID_INPUT.name,
+      allowCreate: false,
     });
   });
 
