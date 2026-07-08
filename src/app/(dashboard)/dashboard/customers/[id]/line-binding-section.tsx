@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { generateLineBindingCode, unlinkLineAccount } from "@/server/actions/reminder";
+import { LINE_BINDING_MESSAGE } from "@/lib/line-notification-status";
 
 const LINE_OA_URL = process.env.NEXT_PUBLIC_LINE_OA_ADD_FRIEND_URL ?? "";
 
@@ -157,6 +158,23 @@ export function LineBindingSection({
     }
   }
 
+  async function handleCopyBindingMessage() {
+    try {
+      await navigator.clipboard.writeText(LINE_BINDING_MESSAGE);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      const el = document.createElement("textarea");
+      el.value = LINE_BINDING_MESSAGE;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand("copy");
+      document.body.removeChild(el);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  }
+
   // ── 遮蔽 LINE User ID ──
   function maskLineUserId(uid: string) {
     if (uid.length <= 8) return uid.slice(0, 4) + "****";
@@ -294,15 +312,23 @@ export function LineBindingSection({
               <div className="text-center py-2">
                 <p className="text-sm text-earth-600">尚未產生綁定碼</p>
                 <p className="mt-1 text-xs text-earth-400">
-                  產生綁定碼後，顧客可在 LINE 官方帳號中完成綁定
+                  顧客也可直接在 LINE 官方帳號輸入手機號碼完成系統通知綁定
                 </p>
-                <button
-                  onClick={handleGenerateCode}
-                  disabled={pending}
-                  className="mt-3 rounded-lg bg-primary-600 px-4 py-2 text-xs font-medium text-white hover:bg-primary-700 disabled:opacity-50"
-                >
-                  {pending ? "產生中..." : "產生綁定碼"}
-                </button>
+                <div className="mt-3 flex flex-wrap justify-center gap-2">
+                  <button
+                    onClick={handleCopyBindingMessage}
+                    className="rounded-lg border border-earth-200 bg-white px-4 py-2 text-xs font-medium text-earth-700 hover:bg-earth-50"
+                  >
+                    {copied ? "已複製話術" : "複製綁定話術"}
+                  </button>
+                  <button
+                    onClick={handleGenerateCode}
+                    disabled={pending}
+                    className="rounded-lg bg-primary-600 px-4 py-2 text-xs font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+                  >
+                    {pending ? "產生中..." : "產生綁定碼"}
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -332,9 +358,16 @@ export function LineBindingSection({
               <p className="text-xs font-medium text-blue-800">LINE 綁定步驟</p>
               <ol className="mt-2 space-y-1 text-xs text-blue-700">
                 <li>1. 請顧客加入 LINE 官方帳號好友</li>
-                <li>2. 在 LINE 對話框中傳送上方的綁定指令</li>
-                <li>3. 系統驗證成功後即完成綁定</li>
+                <li>2. 請顧客輸入手機號碼，或傳送上方綁定指令</li>
+                <li>3. 系統以店舖與手機號碼對應顧客資料後完成綁定</li>
               </ol>
+              <button
+                type="button"
+                onClick={handleCopyBindingMessage}
+                className="mt-2 text-xs font-medium text-blue-700 hover:underline"
+              >
+                {copied ? "已複製話術" : "複製給顧客的綁定話術"}
+              </button>
               <p className="mt-2 text-xs text-blue-500">
                 綁定完成後此頁面會自動更新
               </p>

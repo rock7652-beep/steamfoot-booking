@@ -54,6 +54,7 @@ export type LineBindResultStatus =
   | "already_bound_to_other_line"
   | "phone_taken_by_other_user"
   | "ambiguous_multiple_candidates"
+  | "customer_not_found"
   | "validation_error"
   | "unique_conflict"
   // generic
@@ -256,6 +257,7 @@ function classifyLevel(status: LineBindResultStatus): "info" | "warn" | "error" 
     case "already_bound_to_other_line":
     case "phone_taken_by_other_user":
     case "ambiguous_multiple_candidates":
+    case "customer_not_found":
     case "validation_error":
     case "unique_conflict":
       return "warn";

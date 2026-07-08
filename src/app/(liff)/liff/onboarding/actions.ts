@@ -45,6 +45,7 @@ export interface OnboardingActionInput {
 export type OnboardingActionResult =
   | { status: "ok" }                            // created_new / bound_existing / already_synced
   | { status: "invalid_phone" }
+  | { status: "not_found" }
   | { status: "bound_other" }                   // already_bound_to_other_line
   | { status: "phone_taken_by_login_account" }  // phone_taken_by_other_user
   | { status: "ambiguous" }                     // ambiguous_multiple_candidates
@@ -98,6 +99,7 @@ export async function submitOnboarding(
     lineName: verified.displayName,
     phone,
     name,
+    allowCreate: false,
   });
 
   // ── 6. Structured observability (PR-F1) ──────────────
@@ -146,6 +148,9 @@ export async function submitOnboarding(
 
     case "ambiguous_multiple_candidates":
       return { status: "ambiguous" };
+
+    case "customer_not_found":
+      return { status: "not_found" };
 
     case "unique_conflict":
       // Concurrent bind beat us; user can retry — second attempt will hit the

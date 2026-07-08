@@ -5,6 +5,11 @@ import { DataTable, EmptyRow, type Column } from "@/components/desktop";
 import { formatTWTime } from "@/lib/date-utils";
 import { remainingSessionsState } from "@/lib/remaining-sessions-label";
 import { CustomerStatusBadge } from "./customer-status-badge";
+import {
+  getLineNotificationStatus,
+  lineNotificationLabel,
+  LINE_BINDING_MESSAGE,
+} from "@/lib/line-notification-status";
 
 /**
  * 顧客列表主表格 — 桌機版重構
@@ -21,6 +26,7 @@ export interface CustomerRow {
   name: string;
   phone: string;
   lineName: string | null;
+  lineUserId: string | null;
   customerStage: CustomerStage;
   lineLinkStatus: LineLinkStatus;
   lastVisitAt: Date | null;
@@ -81,6 +87,11 @@ function formatPhoneForStaff(phone: string | null | undefined): string {
   if (!phone) return "—";
   if (phone.startsWith("_oauth_")) return "—";
   return phone;
+}
+
+async function copyLineBindingMessage() {
+  if (typeof navigator === "undefined") return;
+  await navigator.clipboard.writeText(LINE_BINDING_MESSAGE);
 }
 
 export function CustomersTable({
@@ -193,6 +204,46 @@ export function CustomersTable({
           <CustomerStatusBadge stage={c.customerStage} lineLinkStatus={c.lineLinkStatus} />
         </span>
       ),
+    },
+    {
+      key: "lineNotification",
+      header: "系統通知",
+      width: "w-32",
+      noLink: true,
+      accessor: (c) => {
+        const status = getLineNotificationStatus({
+          lineLinkStatus: c.lineLinkStatus,
+          lineUserId: c.lineUserId,
+        });
+        const tone =
+          status === "enabled"
+            ? "bg-green-50 text-green-700"
+            : status === "disabled"
+              ? "bg-earth-100 text-earth-600"
+              : status === "needs_review"
+                ? "bg-amber-50 text-amber-700"
+                : "bg-red-50 text-red-700";
+        return (
+          <div className="flex flex-col items-start gap-1">
+            <span className={`rounded px-1.5 py-0.5 text-[11px] font-medium ${tone}`}>
+              {lineNotificationLabel(status)}
+            </span>
+            {status === "disabled" ? (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  void copyLineBindingMessage();
+                }}
+                className="text-[11px] font-medium text-primary-600 hover:underline"
+              >
+                複製綁定話術
+              </button>
+            ) : null}
+          </div>
+        );
+      },
     },
     {
       // 有效堂數：用「剩 N 堂」措辭，避免與方案名稱「10堂」混淆。

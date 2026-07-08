@@ -162,6 +162,7 @@ export default async function CustomersPage({ searchParams }: PageProps) {
     name: c.name,
     phone: c.phone,
     lineName: c.lineName,
+    lineUserId: c.lineUserId,
     customerStage: c.customerStage,
     lineLinkStatus: c.lineLinkStatus,
     lastVisitAt: c.lastVisitAt,
