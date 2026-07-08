@@ -3,8 +3,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { generateLineBindingCode, unlinkLineAccount } from "@/server/actions/reminder";
-import { copyTextToClipboard } from "@/lib/browser-copy";
-import { LINE_BINDING_MESSAGE } from "@/lib/line-notification-status";
 
 const LINE_OA_URL = process.env.NEXT_PUBLIC_LINE_OA_ADD_FRIEND_URL ?? "";
 
@@ -159,12 +157,6 @@ export function LineBindingSection({
     }
   }
 
-  async function handleCopyBindingMessage() {
-    await copyTextToClipboard(LINE_BINDING_MESSAGE);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }
-
   // ── 遮蔽 LINE User ID ──
   function maskLineUserId(uid: string) {
     if (uid.length <= 8) return uid.slice(0, 4) + "****";
@@ -306,12 +298,6 @@ export function LineBindingSection({
                 </p>
                 <div className="mt-3 flex flex-wrap justify-center gap-2">
                   <button
-                    onClick={handleCopyBindingMessage}
-                    className="rounded-lg border border-earth-200 bg-white px-4 py-2 text-xs font-medium text-earth-700 hover:bg-earth-50"
-                  >
-                    {copied ? "已複製話術" : "複製綁定話術"}
-                  </button>
-                  <button
                     onClick={handleGenerateCode}
                     disabled={pending}
                     className="rounded-lg bg-primary-600 px-4 py-2 text-xs font-medium text-white hover:bg-primary-700 disabled:opacity-50"
@@ -351,13 +337,6 @@ export function LineBindingSection({
                 <li>2. 請顧客輸入手機號碼，或傳送上方綁定指令</li>
                 <li>3. 系統以店舖與手機號碼對應顧客資料後完成綁定</li>
               </ol>
-              <button
-                type="button"
-                onClick={handleCopyBindingMessage}
-                className="mt-2 text-xs font-medium text-blue-700 hover:underline"
-              >
-                {copied ? "已複製話術" : "複製給顧客的綁定話術"}
-              </button>
               <p className="mt-2 text-xs text-blue-500">
                 綁定完成後此頁面會自動更新
               </p>

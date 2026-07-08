@@ -6,7 +6,6 @@ import { DashboardLink as Link } from "@/components/dashboard-link";
 import { AssignPlanForm } from "../[id]/assign-plan-form";
 import { CustomerStatusBadge } from "./customer-status-badge";
 import { TrialBookingDrawer } from "../../_components/trial-booking-drawer";
-import { copyTextToClipboard } from "@/lib/browser-copy";
 import {
   updateCustomerAssignment,
   searchReferrerCandidates,
@@ -16,7 +15,6 @@ import { formatTWTime } from "@/lib/date-utils";
 import {
   getLineNotificationStatus,
   lineNotificationLabel,
-  LINE_BINDING_MESSAGE,
 } from "@/lib/line-notification-status";
 import type { getCustomerDrawerDetail } from "@/server/queries/customer";
 
@@ -184,11 +182,6 @@ export function CustomerDetailDrawerContent({
   });
   const identityWarning = customer.authSource === "LINE" && !lineBound;
 
-  async function handleCopyLineBindingMessage() {
-    await copyTextToClipboard(LINE_BINDING_MESSAGE);
-    toast.success("已複製綁定話術");
-  }
-
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
@@ -292,15 +285,6 @@ export function CustomerDetailDrawerContent({
             />
             <StatusItem label="綁定電話" value={phoneDisplay} tone="muted" />
           </dl>
-          {lineNotificationStatus === "disabled" ? (
-            <button
-              type="button"
-              onClick={handleCopyLineBindingMessage}
-              className="mt-3 rounded-md border border-earth-200 bg-white px-3 py-1.5 text-xs font-medium text-earth-700 hover:bg-earth-50"
-            >
-              複製 LINE 系統通知綁定話術
-            </button>
-          ) : null}
         </section>
 
         {/* 內部服務備註（後台限定，店長 / 合作店長交接用） */}

@@ -2,14 +2,12 @@
 
 import type { CustomerStage, LineLinkStatus, UserStatus } from "@prisma/client";
 import { DataTable, EmptyRow, type Column } from "@/components/desktop";
-import { copyTextToClipboard } from "@/lib/browser-copy";
 import { formatTWTime } from "@/lib/date-utils";
 import { remainingSessionsState } from "@/lib/remaining-sessions-label";
 import { CustomerStatusBadge } from "./customer-status-badge";
 import {
   getLineNotificationStatus,
   lineNotificationLabel,
-  LINE_BINDING_MESSAGE,
 } from "@/lib/line-notification-status";
 
 /**
@@ -88,10 +86,6 @@ function formatPhoneForStaff(phone: string | null | undefined): string {
   if (!phone) return "—";
   if (phone.startsWith("_oauth_")) return "—";
   return phone;
-}
-
-async function copyLineBindingMessage() {
-  await copyTextToClipboard(LINE_BINDING_MESSAGE);
 }
 
 export function CustomersTable({
@@ -224,24 +218,9 @@ export function CustomersTable({
                 ? "bg-amber-50 text-amber-700"
                 : "bg-red-50 text-red-700";
         return (
-          <div className="flex flex-col items-start gap-1">
-            <span className={`rounded px-1.5 py-0.5 text-[11px] font-medium ${tone}`}>
-              {lineNotificationLabel(status)}
-            </span>
-            {status === "disabled" ? (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  void copyLineBindingMessage();
-                }}
-                className="text-[11px] font-medium text-primary-600 hover:underline"
-              >
-                複製綁定話術
-              </button>
-            ) : null}
-          </div>
+          <span className={`rounded px-1.5 py-0.5 text-[11px] font-medium ${tone}`}>
+            {lineNotificationLabel(status)}
+          </span>
         );
       },
     },
