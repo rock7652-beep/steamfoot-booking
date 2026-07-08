@@ -5,6 +5,7 @@ import {
   type RequiredCustomerField,
 } from "@/lib/customer-completion";
 import { normalizePhone } from "@/lib/normalize";
+import { upsertCustomerIdentityLink } from "@/server/services/customer-identity-link";
 
 /**
  * 前台顧客「目前 session 對應到哪一筆 customer」的唯一 resolver
@@ -56,6 +57,7 @@ export interface ResolvedCustomer {
   gender: string | null;
   storeId: string;
   userId: string | null;
+  lineUserId: string | null;
 }
 
 export interface ResolveOpts {
@@ -95,6 +97,7 @@ const CUSTOMER_SELECT = {
   gender: true,
   storeId: true,
   userId: true,
+  lineUserId: true,
 } as const;
 
 async function getLineProviderAccountId(userId: string): Promise<string | null> {
@@ -103,6 +106,45 @@ async function getLineProviderAccountId(userId: string): Promise<string | null> 
     select: { providerAccountId: true },
   });
   return lineAcct?.providerAccountId ?? null;
+}
+
+async function bindLoginIdentityToCustomer(opts: {
+  customer: ResolvedCustomer;
+  userId: string;
+  storeId: string;
+  lineUserId: string | null;
+}): Promise<ResolvedCustomer> {
+  const lineData =
+    opts.lineUserId && !opts.customer.lineUserId
+      ? {
+          authSource: "LINE" as const,
+          lineUserId: opts.lineUserId,
+          lineLinkStatus: "LINKED" as const,
+          lineLinkedAt: new Date(),
+        }
+      : {};
+
+  const updated = await prisma.customer.update({
+    where: { id: opts.customer.id },
+    data: {
+      userId: opts.userId,
+      ...lineData,
+    },
+    select: CUSTOMER_SELECT,
+  });
+
+  if (opts.lineUserId) {
+    await upsertCustomerIdentityLink({
+      userId: opts.userId,
+      storeId: opts.storeId,
+      customerId: opts.customer.id,
+      provider: "line",
+      providerAccountId: opts.lineUserId,
+      lineUserId: opts.lineUserId,
+    });
+  }
+
+  return updated;
 }
 
 /**
@@ -277,16 +319,18 @@ export async function resolveCustomerForUser(
           if (!c.userId) {
             // 安全直綁：lineUserId 是 OAuth 簽出的不可偽造身份，
             // userId 為 null 表示 staff 建好顧客後第一次 LINE 登入回流。
-            await prisma.customer.update({
-              where: { id: c.id },
-              data: { userId: opts.userId },
+            const updated = await bindLoginIdentityToCustomer({
+              customer: c,
+              userId: opts.userId,
+              storeId: opts.storeId,
+              lineUserId,
             });
             console.info("[resolveCustomer] bound_by_line_user_id", {
               ...logCtx,
               customerId: c.id,
             });
             return {
-              customer: { ...c, userId: opts.userId },
+              customer: updated,
               reason: "bound_by_line_user_id",
             };
           }
@@ -344,12 +388,15 @@ export async function resolveCustomerForUser(
               customerId: c.id,
               previousUserId: c.userId,
             });
-            await prisma.customer.update({
-              where: { id: c.id },
-              data: { userId: opts.userId },
+            const lineUserId = await getLineProviderAccountId(opts.userId);
+            const updated = await bindLoginIdentityToCustomer({
+              customer: c,
+              userId: opts.userId,
+              storeId: opts.storeId,
+              lineUserId,
             });
             return {
-              customer: { ...c, userId: opts.userId },
+              customer: updated,
               reason: "bound_by_email",
             };
           }
@@ -366,16 +413,26 @@ export async function resolveCustomerForUser(
           };
         }
         // c.userId 為 null → 安全直綁
-        await prisma.customer.update({
-          where: { id: c.id },
-          data: { userId: opts.userId },
+        const lineUserId = await getLineProviderAccountId(opts.userId);
+        if (lineUserId && c.lineUserId && c.lineUserId !== lineUserId) {
+          return {
+            customer: null,
+            reason: "conflict_already_linked_line_user_id",
+            conflict: true,
+          };
+        }
+        const updated = await bindLoginIdentityToCustomer({
+          customer: c,
+          userId: opts.userId,
+          storeId: opts.storeId,
+          lineUserId,
         });
         console.info("[resolveCustomer] bound_by_email", {
           ...logCtx,
           customerId: c.id,
           email: emailForLookup,
         });
-        return { customer: { ...c, userId: opts.userId }, reason: "bound_by_email" };
+        return { customer: updated, reason: "bound_by_email" };
       }
     } catch (err) {
       console.error("[resolveCustomer] email lookup failed", { ...logCtx, err });
@@ -422,12 +479,15 @@ export async function resolveCustomerForUser(
               customerId: c.id,
               previousUserId: c.userId,
             });
-            await prisma.customer.update({
-              where: { id: c.id },
-              data: { userId: opts.userId },
+            const lineUserId = await getLineProviderAccountId(opts.userId);
+            const updated = await bindLoginIdentityToCustomer({
+              customer: c,
+              userId: opts.userId,
+              storeId: opts.storeId,
+              lineUserId,
             });
             return {
-              customer: { ...c, userId: opts.userId },
+              customer: updated,
               reason: "bound_by_phone",
             };
           }
@@ -443,15 +503,25 @@ export async function resolveCustomerForUser(
           };
         }
         // c.userId 為 null → 安全直綁
-        await prisma.customer.update({
-          where: { id: c.id },
-          data: { userId: opts.userId },
+        const lineUserId = await getLineProviderAccountId(opts.userId);
+        if (lineUserId && c.lineUserId && c.lineUserId !== lineUserId) {
+          return {
+            customer: null,
+            reason: "conflict_already_linked_line_user_id",
+            conflict: true,
+          };
+        }
+        const updated = await bindLoginIdentityToCustomer({
+          customer: c,
+          userId: opts.userId,
+          storeId: opts.storeId,
+          lineUserId,
         });
         console.info("[resolveCustomer] bound_by_phone", {
           ...logCtx,
           customerId: c.id,
         });
-        return { customer: { ...c, userId: opts.userId }, reason: "bound_by_phone" };
+        return { customer: updated, reason: "bound_by_phone" };
       }
     } catch (err) {
       console.error("[resolveCustomer] phone lookup failed", { ...logCtx, err });

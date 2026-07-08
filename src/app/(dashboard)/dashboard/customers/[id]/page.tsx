@@ -44,6 +44,10 @@ import { TALENT_STAGE_LABELS } from "@/types/talent";
 import type { CustomerStage, TalentStage } from "@prisma/client";
 import { deriveCustomerSource, type CustomerSourceSnapshot } from "@/lib/customer-source";
 import { sortWalletsByFEFO } from "@/lib/wallet-sort";
+import {
+  getLineNotificationStatus,
+  lineNotificationLabel,
+} from "@/lib/line-notification-status";
 
 import { CustomerBasicInfo } from "./_components/customer-basic-info";
 import { IdentityDiagnosticPanel } from "./_components/identity-diagnostic-panel";
@@ -216,6 +220,18 @@ export default async function CustomerDetailPage({ params }: PageProps) {
   const customerStageColor = CUSTOMER_STAGE_COLOR[customer.customerStage];
   const talentStageLabel = TALENT_STAGE_LABELS[customer.talentStage];
   const talentStageColor = TALENT_STAGE_COLOR[customer.talentStage];
+  const lineNotificationStatus = getLineNotificationStatus({
+    lineLinkStatus: customer.lineLinkStatus,
+    lineUserId: customer.lineUserId,
+  });
+  const lineNotificationTone =
+    lineNotificationStatus === "enabled"
+      ? "bg-green-50 text-green-700"
+      : lineNotificationStatus === "disabled"
+        ? "bg-earth-100 text-earth-600"
+        : lineNotificationStatus === "needs_review"
+          ? "bg-amber-50 text-amber-700"
+          : "bg-red-50 text-red-700";
 
   const headerActionBase =
     "rounded-md border border-earth-200 bg-white px-3 py-1.5 text-xs font-medium text-earth-700 hover:bg-earth-50";
@@ -293,13 +309,9 @@ export default async function CustomerDetailPage({ params }: PageProps) {
           {customerStageLabel}
         </span>
         <span
-          className={
-            customer.lineLinkStatus === "LINKED"
-              ? "rounded-full bg-green-50 px-2 py-0.5 text-[11px] font-medium text-green-700"
-              : "rounded-full bg-earth-100 px-2 py-0.5 text-[11px] font-medium text-earth-500"
-          }
+          className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${lineNotificationTone}`}
         >
-          {customer.lineLinkStatus === "LINKED" ? "LINE 已綁定" : "LINE 未綁定"}
+          系統通知：{lineNotificationLabel(lineNotificationStatus)}
         </span>
         <span
           className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${talentStageColor}`}
@@ -647,13 +659,16 @@ export default async function CustomerDetailPage({ params }: PageProps) {
               </span>
               {customer.lineLinkStatus === "LINKED" ? (
                 <span className="rounded bg-green-50 px-1.5 py-0.5 text-[11px] font-medium text-green-700">
-                  LINE 已綁定
+                  LINE 聯絡資料已綁定
                 </span>
               ) : (
                 <span className="rounded bg-earth-100 px-1.5 py-0.5 text-[11px] font-medium text-earth-500">
-                  LINE 未綁定
+                  LINE 聯絡資料未綁定
                 </span>
               )}
+              <span className={`rounded px-1.5 py-0.5 text-[11px] font-medium ${lineNotificationTone}`}>
+                系統通知：{lineNotificationLabel(lineNotificationStatus)}
+              </span>
               {customer.user ? (
                 <span className="rounded bg-primary-50 px-1.5 py-0.5 text-[11px] font-medium text-primary-700">
                   帳號已啟用

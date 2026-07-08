@@ -79,10 +79,19 @@ export interface BindLineInput {
   phone: string;
   /** 顧客 onboarding 輸入姓名 */
   name: string;
+  /**
+   * 找不到同店 phone 時是否允許建立新 Customer。
+   * 官方 LINE 電話綁定走 false：查無資料應請顧客聯繫店長，避免裂帳。
+   */
+  allowCreate?: boolean;
 }
 
 /** Helper 輸出 — 全部用 status discriminator，**不 throw** */
 export type BindLineResult =
+  | {
+      status: "customer_not_found";
+      phone: string;
+    }
   | {
       status: "created_new";
       customerId: string;
@@ -190,6 +199,13 @@ export async function bindLineToCustomerInStore(
 
   // ── 3a. 候選 = 0 → 建新 User + Customer + Account ──
   if (candidates.length === 0) {
+    if (input.allowCreate === false) {
+      return {
+        status: "customer_not_found",
+        phone: normalizedPhone,
+      };
+    }
+
     let user: { id: string };
     let customer: { id: string };
     try {

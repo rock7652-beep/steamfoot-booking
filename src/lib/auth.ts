@@ -974,20 +974,71 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
 
         // ─────────────────────────────────────────────────────────────────
-        // 找不到既有 Customer → 在 transaction 內直接建立完整身份鏈
+        // LINE 找不到既有 Customer：只建立登入身份，不建立 Customer。
         //
-        // 設計變更（原 PR-2 stage flow 已撤）：
-        //   PR-2 原本把 LINE 找不到 Customer 的情況導去 /oauth-confirm 要求
-        //   使用者輸入手機，目的是「防止分裂帳號」。實務上造成：
-        //     - 顧客 LINE 登入後沒回網站、卡 oauth-confirm 表單
-        //     - 顧客中斷 → 留下無 Customer 的 orphan User
-        //     - 後台看不到 LINE badge（lineUserId 從未寫入）
-        //   現改為：signIn callback 一次把 User + Customer + Account[line]
-        //   在同 transaction 內建好，登入完成 100% 有完整身份鏈。
+        // 門市標準流程是店長先建顧客；若此處用 LINE userId 直接建立
+        // `_oauth_line_xxx` placeholder Customer，顧客後續輸入同一支電話前
+        // 後台就會多出第二筆可通知的 Customer，造成預約/方案與通知裂帳。
         //
-        // Trade-off: 同一人若已在 DB 有非 LINE 來源的 Customer（staff 匯入 /
-        //   電話註冊），又從 LINE 第一次登入，會產生第二筆 Customer。
-        //   由後台合併工具處理（profile 補手機時的 merge 也仍會幫忙）。
+        // 因本專案未啟用 PrismaAdapter，callback 仍需自行建立/沿用 User +
+        // Account[line]，但 Customer 必須留給 /profile 的 phone resolver 以
+        // `storeId + normalized phone` 回綁既有資料。若查無顧客，profile 端
+        // 再依既有規則建立新 Customer。
+        // ─────────────────────────────────────────────────────────────────
+        if (provider === "line" && lineUserId) {
+          const lineUser = await prisma.$transaction(async (tx) => {
+            const u =
+              existingLineAccount
+                ? await tx.user.findUniqueOrThrow({
+                    where: { id: existingLineAccount.userId },
+                  })
+                : await tx.user.create({
+                    data: {
+                      name: oauthName,
+                      email: oauthEmail,
+                      role: "CUSTOMER",
+                      status: "ACTIVE",
+                      image: oauthImage,
+                    },
+                  });
+
+            if (!existingLineAccount) {
+              await tx.account.create({
+                data: {
+                  userId: u.id,
+                  type: account.type,
+                  provider: account.provider,
+                  providerAccountId: account.providerAccountId,
+                  access_token: account.access_token as string | undefined,
+                  refresh_token: account.refresh_token as string | undefined,
+                  expires_at: account.expires_at,
+                  token_type: account.token_type,
+                  scope: account.scope,
+                  id_token: account.id_token as string | undefined,
+                },
+              });
+            }
+
+            return u;
+          });
+
+          logLineBindEvent({
+            path: "oauth-line-signin",
+            status: "need_onboarding",
+            storeId: targetStoreId,
+            lineUserId,
+            userId: lineUser.id,
+            accountSyncStatus: existingLineAccount
+              ? "noop_already_synced"
+              : "created",
+          });
+
+          user.id = lineUser.id;
+          return true;
+        }
+
+        // ─────────────────────────────────────────────────────────────────
+        // 非 LINE OAuth 找不到既有 Customer → 保留原本建立 Customer 行為。
         // ─────────────────────────────────────────────────────────────────
 
         // OAuth 新顧客 phone 使用唯一佔位符，避免 compound unique (storeId, phone) 衝突

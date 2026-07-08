@@ -169,6 +169,7 @@ export function OnboardingForm({ storeSlug, storeName, liffId, contactUrl }: Onb
 
       case "bound_other":
       case "phone_taken_by_login_account":
+      case "not_found":
         setState({
           kind: "blocked",
           idToken,

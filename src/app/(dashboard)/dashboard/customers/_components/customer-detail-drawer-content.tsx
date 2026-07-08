@@ -6,12 +6,18 @@ import { DashboardLink as Link } from "@/components/dashboard-link";
 import { AssignPlanForm } from "../[id]/assign-plan-form";
 import { CustomerStatusBadge } from "./customer-status-badge";
 import { TrialBookingDrawer } from "../../_components/trial-booking-drawer";
+import { copyTextToClipboard } from "@/lib/browser-copy";
 import {
   updateCustomerAssignment,
   searchReferrerCandidates,
   updateCustomerServiceNoteAction,
 } from "@/server/actions/customer";
 import { formatTWTime } from "@/lib/date-utils";
+import {
+  getLineNotificationStatus,
+  lineNotificationLabel,
+  LINE_BINDING_MESSAGE,
+} from "@/lib/line-notification-status";
 import type { getCustomerDrawerDetail } from "@/server/queries/customer";
 
 type CustomerDetail = Awaited<ReturnType<typeof getCustomerDrawerDetail>>;
@@ -65,6 +71,31 @@ function maskLineUserId(id: string | null): string {
   if (!id) return "—";
   if (id.length <= 10) return id;
   return `${id.slice(0, 6)}…${id.slice(-4)}`;
+}
+
+function StatusItem({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone: "ok" | "muted" | "warn" | "error";
+}) {
+  const toneClass =
+    tone === "ok"
+      ? "text-green-700"
+      : tone === "warn"
+        ? "text-amber-700"
+        : tone === "error"
+          ? "text-red-700"
+          : "text-earth-700";
+  return (
+    <div className="rounded-md bg-earth-50 px-2.5 py-2">
+      <dt className="text-[11px] text-earth-500">{label}</dt>
+      <dd className={`mt-0.5 font-medium ${toneClass}`}>{value}</dd>
+    </div>
+  );
 }
 
 export function CustomerDetailDrawerContent({
@@ -147,7 +178,16 @@ export function CustomerDetailDrawerContent({
 
   // 身份異常旗標：來源是 LINE 但實際 LINE 未綁定時提示
   const lineBound = customer.lineLinkStatus === "LINKED";
+  const lineNotificationStatus = getLineNotificationStatus({
+    lineLinkStatus: customer.lineLinkStatus,
+    lineUserId: customer.lineUserId,
+  });
   const identityWarning = customer.authSource === "LINE" && !lineBound;
+
+  async function handleCopyLineBindingMessage() {
+    await copyTextToClipboard(LINE_BINDING_MESSAGE);
+    toast.success("已複製綁定話術");
+  }
 
   return (
     <div className="flex h-full flex-col">
@@ -226,6 +266,41 @@ export function CustomerDetailDrawerContent({
               完整詳情
             </Link>
           </div>
+        </section>
+
+        <section className="rounded-lg border border-earth-200 bg-white p-3">
+          <h3 className="mb-2 text-sm font-semibold text-earth-800">身份狀態</h3>
+          <dl className="grid grid-cols-2 gap-2 text-xs">
+            <StatusItem label="顧客資料" value="已建立" tone="ok" />
+            <StatusItem
+              label="會員帳號"
+              value={customer.user ? "已註冊" : "尚未註冊"}
+              tone={customer.user ? "ok" : "muted"}
+            />
+            <StatusItem
+              label="LINE 系統通知"
+              value={lineNotificationLabel(lineNotificationStatus)}
+              tone={
+                lineNotificationStatus === "enabled"
+                  ? "ok"
+                  : lineNotificationStatus === "disabled"
+                    ? "muted"
+                    : lineNotificationStatus === "needs_review"
+                      ? "warn"
+                      : "error"
+              }
+            />
+            <StatusItem label="綁定電話" value={phoneDisplay} tone="muted" />
+          </dl>
+          {lineNotificationStatus === "disabled" ? (
+            <button
+              type="button"
+              onClick={handleCopyLineBindingMessage}
+              className="mt-3 rounded-md border border-earth-200 bg-white px-3 py-1.5 text-xs font-medium text-earth-700 hover:bg-earth-50"
+            >
+              複製 LINE 系統通知綁定話術
+            </button>
+          ) : null}
         </section>
 
         {/* 內部服務備註（後台限定，店長 / 合作店長交接用） */}

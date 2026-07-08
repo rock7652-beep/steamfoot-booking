@@ -11,6 +11,8 @@
 import { verifyLineSignature, replyMessage } from "@/lib/line";
 import { getLineWebhookDiagnosticsForStore } from "@/lib/line-config";
 import { prisma } from "@/lib/db";
+import { normalizePhone } from "@/lib/normalize";
+import { bindLineToCustomerInStore } from "@/server/services/bind-line-to-customer";
 import { syncLineAccountForUser } from "@/server/services/line-account-sync";
 import { upsertCustomerIdentityLink } from "@/server/services/customer-identity-link";
 import {
@@ -198,12 +200,11 @@ async function handleFollow(lineUserId: string, storeId: string, replyToken?: st
         text: [
           "歡迎加入蒸足官方帳號！",
           "",
-          "如需綁定您的預約帳號，請輸入：",
-          "綁定 你的綁定碼",
+          "如需開啟預約提醒與方案通知，請直接輸入您的手機號碼完成系統通知綁定。",
           "",
-          "例如：綁定 ABC123",
+          "例如：0912345678",
           "",
-          "綁定碼可在店家後台的顧客頁面取得。",
+          "系統會依照店舖與手機號碼對應到店長建立的顧客資料。",
         ].join("\n"),
       },
     ]);
@@ -249,7 +250,63 @@ async function handleTextMessage(
       replyToken
     );
   }
+  const normalizedPhone = normalizePhone(text);
+  if (/^09\d{8}$/.test(normalizedPhone)) {
+    await handlePhoneBindingRequest(
+      lineUserId,
+      normalizedPhone,
+      storeId,
+      replyToken,
+    );
+    return;
+  }
   // 未來可在此擴充其他指令（查詢預約等）
+}
+
+async function handlePhoneBindingRequest(
+  lineUserId: string,
+  phone: string,
+  storeId: string,
+  replyToken?: string
+) {
+  const result = await bindLineToCustomerInStore({
+    storeId,
+    lineUserId,
+    lineName: null,
+    phone,
+    name: "顧客",
+    allowCreate: false,
+  });
+
+  logLineBindEvent({
+    path: "webhook-bind-code",
+    status: result.status,
+    storeId,
+    lineUserId,
+    customerId: "customerId" in result ? result.customerId : null,
+    userId: "userId" in result ? result.userId : null,
+    accountSyncStatus:
+      "lineAccountSync" in result ? result.lineAccountSync : undefined,
+  });
+
+  if (!replyToken) return;
+
+  const text =
+    result.status === "bound_existing" || result.status === "already_synced"
+      ? "系統通知綁定成功！之後您將可收到預約提醒與方案通知。"
+      : result.status === "customer_not_found"
+        ? "查無顧客資料，請確認手機號碼是否與店長登記的一致，或聯繫店長協助確認。"
+        : result.status === "ambiguous_multiple_candidates"
+          ? "系統找到多筆相同手機的顧客資料，需由店長人工確認後才能綁定。"
+          : result.status === "already_bound_to_other_line"
+            ? "此顧客資料已綁定其他 LINE，如需變更請聯繫店長協助。"
+            : result.status === "phone_taken_by_other_user"
+              ? "此手機已綁定會員帳號，請聯繫店長確認後再開啟通知。"
+              : result.status === "validation_error"
+                ? "手機號碼格式不正確，請輸入 09 開頭共 10 碼的手機號碼。"
+                : "目前無法完成綁定，請稍後再試或聯繫店長協助。";
+
+  await replyMessage(storeId, replyToken, [{ type: "text", text }]);
 }
 
 // ============================================================
