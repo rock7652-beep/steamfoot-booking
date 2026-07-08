@@ -4,17 +4,16 @@ import type { CustomerStage, LineLinkStatus, UserStatus } from "@prisma/client";
 import { DataTable, EmptyRow, type Column } from "@/components/desktop";
 import { formatTWTime } from "@/lib/date-utils";
 import { remainingSessionsState } from "@/lib/remaining-sessions-label";
-import { CustomerStatusBadge } from "./customer-status-badge";
 import {
   getLineNotificationStatus,
-  lineNotificationLabel,
+  type LineNotificationStatus,
 } from "@/lib/line-notification-status";
 
 /**
  * 顧客列表主表格 — 桌機版重構
  *
  * 對照 design/04-phase2-plan.md §2.4：統一用 `DataTable` primitive。
- * 主欄：顧客 / 狀態 / 最近來店
+ * 主欄：顧客 / 系統通知 / 有效堂數 / 直屬店長 / 最近來店 / 備註
  * 操作：查看（開 drawer）/ ＋指派（開 drawer + 展開方案區）
  *
  * 其他資訊（歸屬店長、推薦、點數、建立日、Email、LINE ID、身份診斷）統一收進 drawer。
@@ -88,6 +87,19 @@ function formatPhoneForStaff(phone: string | null | undefined): string {
   return phone;
 }
 
+function lineNotificationShortLabel(status: LineNotificationStatus): string {
+  switch (status) {
+    case "enabled":
+      return "已開啟";
+    case "disabled":
+      return "未開啟";
+    case "error":
+      return "異常";
+    case "needs_review":
+      return "需確認";
+  }
+}
+
 export function CustomersTable({
   rows,
   searchQuery,
@@ -156,12 +168,7 @@ export function CustomersTable({
       header: "顧客",
       accessor: (c) => {
         const phoneDisplay = formatPhoneForStaff(c.phone);
-        const subtitle = [
-          phoneDisplay !== "—" ? `☎ ${phoneDisplay}` : null,
-          c.lineName ? `LINE ${c.lineName}` : null,
-        ]
-          .filter(Boolean)
-          .join(" · ");
+        const subtitle = phoneDisplay !== "—" ? `☎ ${phoneDisplay}` : null;
         const inactive = isInactiveRow(c);
         return (
           <div className={`flex flex-col leading-tight ${inactive ? "opacity-60" : ""}`}>
@@ -190,19 +197,9 @@ export function CustomersTable({
       },
     },
     {
-      key: "status",
-      header: "狀態",
-      width: "w-24",
-      accessor: (c) => (
-        <span className="whitespace-nowrap">
-          <CustomerStatusBadge stage={c.customerStage} lineLinkStatus={c.lineLinkStatus} />
-        </span>
-      ),
-    },
-    {
       key: "lineNotification",
       header: "系統通知",
-      width: "w-32",
+      width: "w-24",
       noLink: true,
       accessor: (c) => {
         const status = getLineNotificationStatus({
@@ -219,7 +216,7 @@ export function CustomersTable({
                 : "bg-red-50 text-red-700";
         return (
           <span className={`rounded px-1.5 py-0.5 text-[11px] font-medium ${tone}`}>
-            {lineNotificationLabel(status)}
+            {lineNotificationShortLabel(status)}
           </span>
         );
       },
