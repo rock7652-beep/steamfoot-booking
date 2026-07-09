@@ -37,6 +37,7 @@ import { PageShell, PageHeader } from "@/components/desktop";
 import { toLocalDateStr } from "@/lib/date-utils";
 import type { CashbookEntryType } from "@prisma/client";
 import { CashDrawerWorkspace } from "../cash-drawer/cash-drawer-workspace";
+import { CashbookEntryDeleteButton } from "./cashbook-entry-delete-button";
 
 const ENTRY_TYPE_LABEL: Record<CashbookEntryType, string> = {
   INCOME: "收入",
@@ -97,6 +98,8 @@ export default async function CashbookPage({ searchParams }: PageProps) {
   const storeViewContext = await resolveStoreViewContextFromCookie(user);
   const isViewMode = storeViewContext?.isViewMode ?? false;
   const cashbookStoreId = storeIdForViewContext(activeStoreId, storeViewContext);
+  const canManageCashbook =
+    !isViewMode && (await checkPermission(user.role, user.staffId, "cashbook.create"));
 
   // 平行 fetch：cashbook（必要）+ cash drawer（依權限）
   const [cashbookList, summary, plan, cashDrawerData] = await Promise.all([
@@ -356,12 +359,15 @@ export default async function CashbookPage({ searchParams }: PageProps) {
                       {isViewMode ? (
                         <span className="text-earth-400">僅可查看</span>
                       ) : (
-                        <Link
-                          href={`/dashboard/cashbook/${e.id}/edit`}
-                          className="text-primary-600 hover:underline"
-                        >
-                          編輯
-                        </Link>
+                        <div className="flex items-center gap-3">
+                          <Link
+                            href={`/dashboard/cashbook/${e.id}/edit`}
+                            className="text-primary-600 hover:underline"
+                          >
+                            編輯
+                          </Link>
+                          {canManageCashbook && <CashbookEntryDeleteButton entryId={e.id} />}
+                        </div>
                       )}
                     </td>
                   </tr>
