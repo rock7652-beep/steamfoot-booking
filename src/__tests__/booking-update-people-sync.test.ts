@@ -404,7 +404,7 @@ describe("updateBooking — people change wallet sync (PR-H3)", () => {
   });
 
   it("改時段容量檢查只計入同店 booked people，不受其他分店同時段影響", async () => {
-    const targetDate = new Date("2026-07-08T00:00:00Z");
+    const targetDate = new Date("2026-12-16T00:00:00Z");
     mockBookingFindUnique.mockResolvedValue(
       makeBooking({
         bookingDate: targetDate,
@@ -421,7 +421,7 @@ describe("updateBooking — people change wallet sync (PR-H3)", () => {
 
     const { updateBooking } = await import("@/server/actions/booking");
     const result = await updateBooking(BOOKING_ID, {
-      bookingDate: "2026-07-08",
+      bookingDate: "2026-12-16",
       slotTime: "18:30",
       people: 3,
     });
@@ -440,7 +440,7 @@ describe("updateBooking — people change wallet sync (PR-H3)", () => {
   });
 
   it("改時段時若同店目標時段真的滿位，仍會被容量檢查擋下", async () => {
-    const targetDate = new Date("2026-07-08T00:00:00Z");
+    const targetDate = new Date("2026-12-16T00:00:00Z");
     mockBookingFindUnique.mockResolvedValue(
       makeBooking({
         bookingDate: targetDate,
@@ -457,7 +457,7 @@ describe("updateBooking — people change wallet sync (PR-H3)", () => {
 
     const { updateBooking } = await import("@/server/actions/booking");
     const result = await updateBooking(BOOKING_ID, {
-      bookingDate: "2026-07-08",
+      bookingDate: "2026-12-16",
       slotTime: "18:30",
       people: 3,
     });
@@ -477,7 +477,7 @@ describe("updateBooking — people change wallet sync (PR-H3)", () => {
   });
 
   it("更新同一筆且目標時段相同時，容量檢查排除自己避免誤判滿位", async () => {
-    const targetDate = new Date("2026-07-08T00:00:00Z");
+    const targetDate = new Date("2026-12-16T00:00:00Z");
     mockBookingFindUnique.mockResolvedValue(
       makeBooking({
         bookingDate: targetDate,
@@ -494,7 +494,7 @@ describe("updateBooking — people change wallet sync (PR-H3)", () => {
 
     const { updateBooking } = await import("@/server/actions/booking");
     const result = await updateBooking(BOOKING_ID, {
-      bookingDate: "2026-07-08",
+      bookingDate: "2026-12-16",
       slotTime: "18:30",
       people: 3,
     });
