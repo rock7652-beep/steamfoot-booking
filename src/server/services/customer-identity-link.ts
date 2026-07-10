@@ -1,6 +1,11 @@
 import { prisma } from "@/lib/db";
+import { assertSameStore } from "@/lib/store-consistency";
 
 type PrismaLike = {
+  customer: Pick<
+    typeof prisma.customer,
+    "findUnique"
+  >;
   customerIdentityLink: Pick<
     typeof prisma.customerIdentityLink,
     "upsert"
@@ -37,6 +42,15 @@ export async function upsertCustomerIdentityLink(
   }
 
   try {
+    const customer = await db.customer.findUnique({
+      where: { id: input.customerId },
+      select: { id: true, storeId: true },
+    });
+    if (!customer) {
+      return { status: "error", error: "CUSTOMER_NOT_FOUND" };
+    }
+    assertSameStore("CustomerIdentityLink.customer", customer.storeId, input.storeId);
+
     await db.customerIdentityLink.upsert({
       where: {
         uq_customer_identity_provider_store: {

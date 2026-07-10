@@ -17,6 +17,10 @@ import type { PaymentMethod, TransactionType, TransactionAuditAction } from "@pr
 import { getTransactionDetail } from "@/server/queries/transaction";
 import { assertStoreAccess } from "@/lib/manager-visibility";
 import { currentStoreId } from "@/lib/store";
+import {
+  assertCustomerInOperationStore,
+  assertSameStore,
+} from "@/lib/store-consistency";
 import { buildTransactionSnapshot, buildRefundSnapshot } from "@/lib/transaction-snapshot";
 import { awardFirstTopupReferralPointsIfEligible } from "@/server/services/referral-points";
 import { computeRefundPlan, type RefundMode } from "@/lib/refund-plan";
@@ -84,6 +88,7 @@ export async function createTransaction(
     const user = await requirePermission("transaction.create");
     await checkCurrentStoreFeature(FEATURES.TRANSACTION_MANAGEMENT);
     const data = createTransactionSchema.parse(input);
+    const storeId = currentStoreId(user);
 
     // 確認顧客存在
     const customer = await prisma.customer.findUnique({
@@ -92,6 +97,7 @@ export async function createTransaction(
     });
     if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
     assertStoreAccess(user, customer.storeId);
+    assertCustomerInOperationStore(customer, storeId);
     // 訂閱到期保護：到期店家不可建立交易 / 收款（無訂閱店不擋）
     await assertStoreSubscriptionWritable(customer.storeId);
 
@@ -101,10 +107,19 @@ export async function createTransaction(
         where: { id: data.customerPlanWalletId, customerId: data.customerId },
       });
       if (!wallet) throw new AppError("NOT_FOUND", "課程錢包不存在或不屬於該顧客");
+      assertSameStore("CustomerPlanWallet", wallet.storeId, storeId);
+    }
+
+    if (data.bookingId) {
+      const booking = await prisma.booking.findFirst({
+        where: { id: data.bookingId, customerId: data.customerId },
+        select: { id: true, storeId: true },
+      });
+      if (!booking) throw new AppError("NOT_FOUND", "預約不存在或不屬於該顧客");
+      assertSameStore("Booking", booking.storeId, storeId);
     }
 
     const revenueStaffId = customer.assignedStaffId ?? user.staffId ?? (() => { throw new AppError("FORBIDDEN", "顧客尚未指派店長，無法建立交易"); })();
-    const storeId = currentStoreId(user);
     const amountNum = Math.abs(data.amount);
 
     const result = await prisma.$transaction(async (txClient) => {
@@ -201,7 +216,7 @@ export async function refundTransactionLegacy(
           paymentMethod: data.paymentMethod as PaymentMethod,
           amount: -data.amount, // 負數
           note: data.note ? `[退款] ${data.note}` : `[退款] 原交易 ${originalTransactionId}`,
-          storeId: currentStoreId(user),
+          storeId: original.storeId,
           ...refundSnapshot,
           netAmount: -data.amount,
         },
@@ -227,6 +242,7 @@ export async function createAdjustment(
   try {
     const user = await requirePermission("transaction.create");
     const data = adjustmentSchema.parse(input);
+    const storeId = currentStoreId(user);
 
     const customer = await prisma.customer.findUnique({
       where: { id: data.customerId },
@@ -234,11 +250,11 @@ export async function createAdjustment(
     });
     if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
     assertStoreAccess(user, customer.storeId);
+    assertCustomerInOperationStore(customer, storeId);
     // 訂閱到期保護：到期店家不可建立財務調整（無訂閱店不擋）
     await assertStoreSubscriptionWritable(customer.storeId);
 
     const revenueStaffId = customer.assignedStaffId ?? user.staffId ?? (() => { throw new AppError("FORBIDDEN", "顧客尚未指派店長，無法建立交易"); })();
-    const storeId = currentStoreId(user);
     const amountNum = Math.abs(data.amount);
 
     const result = await prisma.$transaction(async (txClient) => {

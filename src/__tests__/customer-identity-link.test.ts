@@ -1,9 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockIdentityLinkUpsert = vi.fn();
+const mockCustomerFindUnique = vi.fn();
 
 vi.mock("@/lib/db", () => ({
   prisma: {
+    customer: {
+      findUnique: (...args: unknown[]) => mockCustomerFindUnique(...args),
+    },
     customerIdentityLink: {
       upsert: (...args: unknown[]) => mockIdentityLinkUpsert(...args),
     },
@@ -17,6 +21,10 @@ const LINE_USER_ID = "U_same_line_user";
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockCustomerFindUnique.mockImplementation(async (args: { where: { id: string } }) => ({
+    id: args.where.id,
+    storeId: args.where.id.includes("hsinchu") ? "store-hsinchu" : "store-zhubei",
+  }));
   mockIdentityLinkUpsert.mockResolvedValue({});
 });
 
@@ -86,6 +94,23 @@ describe("upsertCustomerIdentityLink", () => {
       }),
     ).resolves.toEqual({ status: "skipped_missing_input" });
 
+    expect(mockIdentityLinkUpsert).not.toHaveBeenCalled();
+  });
+
+  it("rejects a store-scoped identity link when the customer belongs to another store", async () => {
+    const result = await upsertCustomerIdentityLink({
+      userId: USER_ID,
+      storeId: "store-zhubei",
+      customerId: "cust-hsinchu",
+      provider: "line",
+      providerAccountId: LINE_USER_ID,
+      lineUserId: LINE_USER_ID,
+    });
+
+    expect(result).toEqual({
+      status: "error",
+      error: expect.stringContaining("STORE_CONSISTENCY_MISMATCH"),
+    });
     expect(mockIdentityLinkUpsert).not.toHaveBeenCalled();
   });
 
