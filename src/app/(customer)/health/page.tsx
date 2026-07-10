@@ -2,21 +2,20 @@ import { getCurrentUser } from "@/lib/session";
 import { getStoreContext } from "@/lib/store-context";
 import { getHealthCardData } from "@/server/queries/health-card";
 import { resolveCustomerForUser } from "@/server/queries/customer-completion";
-import { getHealthAssessmentUrl } from "@/lib/health-assessment";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { HealthAssessmentCard } from "@/components/health-assessment-card";
+import { HealthflowEntryButton } from "./healthflow-entry-button";
 
 /**
  * 顧客 Web 健康評估頁（PR-Frontend-2）
  *
  * 資訊架構歸位：AI 健康簡易數據從 /my-bookings 搬到這裡。
- *   - 上方：標題 + 輔助文字 + 「前往量測」主按鈕（外部 HealthFlow，帶 customerId）
+ *   - 上方：標題 + 輔助文字 + 「前往量測」主按鈕（signed SteamFoot → HealthFlow bridge）
  *   - 下方：AI 健康評估簡易數據卡（最近量測日期只在卡片內出現一次）
  *
- * 「前往量測」與卡片「查看完整評估」目前指向同一個 HealthFlow URL，
- * 為避免兩顆功能重複的按鈕，卡片不傳 customerId（隱藏其內建外部連結），
- * 由頁面上方單一主按鈕負責跳轉。
+ * 「前往量測」由頁面上方單一主按鈕負責跳轉，並透過 server action
+ * 產生 signed bridge state；卡片不傳 customerId 以隱藏其內建外部連結。
  *
  * 權限：沿用 (customer)/layout.tsx 的 role/store/完成註冊 gate，本頁不另做檢查
  * （與 /my-plans、/my-referrals 一致）。多店以 getStoreContext + resolver 隔離。
@@ -46,8 +45,6 @@ export default async function HealthPage() {
         ReturnType<typeof getHealthCardData>
       >,
   );
-  const measureUrl = getHealthAssessmentUrl(customerId);
-
   return (
     <div>
       {/* Header — 標題 + 輔助文字（最近量測日期不在這裡顯示，避免與卡片重複） */}
@@ -64,26 +61,8 @@ export default async function HealthPage() {
         </div>
       </div>
 
-      {/* 前往量測（主按鈕，外部 HealthFlow，帶 customerId） */}
-      <a
-        href={measureUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="mb-5 flex min-h-[48px] w-full items-center justify-center gap-1.5 rounded-xl bg-primary-600 text-base font-semibold text-white shadow-sm transition hover:bg-primary-700 active:scale-[0.98]"
-      >
-        前往量測
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-        >
-          <path d="M7.5 16.5L21 3m0 0h-5.25M21 3v5.25" />
-        </svg>
-      </a>
+      {/* 前往量測（主按鈕，signed bridge entry；不直接傳 customerId 給 HealthFlow） */}
+      <HealthflowEntryButton storeSlug={storeCtx?.storeSlug ?? "zhubei"} />
 
       {/* 簡易數據卡 — 不傳 customerId 以隱藏卡片內重複的「查看完整評估」連結 */}
       {healthCard.available ? (
