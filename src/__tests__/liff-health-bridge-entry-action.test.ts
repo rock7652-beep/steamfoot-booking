@@ -67,7 +67,9 @@ describe("createHealthflowEntryUrl", () => {
     if (result.status !== "ok") throw new Error("expected ok");
 
     const url = new URL(result.url);
-    expect(url.origin + url.pathname).toBe("https://liff.line.me/2009744225-9aSc04fR");
+    expect(url.origin).toBe("https://liff.line.me");
+    expect(url.pathname).toBe("/2009744225-9aSc04fR/liff");
+    expect(url.searchParams.getAll("state")).toHaveLength(1);
     const state = url.searchParams.get("state");
     expect(state).toBeTruthy();
 
@@ -130,10 +132,25 @@ describe("createHealthflowEntryUrl", () => {
     expect(result.status).toBe("ok");
     if (result.status !== "ok") throw new Error("expected ok");
 
+    const url = new URL(result.url);
     const rawQuery = result.url.split("?")[1] ?? "";
     expect(rawQuery).toMatch(/^state=/);
+    expect(rawQuery).not.toContain("%25");
     expect(decodeURIComponent(rawQuery.slice("state=".length))).toBe(
-      new URL(result.url).searchParams.get("state"),
+      url.searchParams.get("state"),
     );
+  });
+
+  it("keeps the original LIFF ID and deep-links to the HealthFlow LIFF endpoint path", async () => {
+    const result = await createHealthflowEntryUrl("zhubei");
+
+    expect(result.status).toBe("ok");
+    if (result.status !== "ok") throw new Error("expected ok");
+
+    const url = new URL(result.url);
+    expect(url.pathname.split("/").filter(Boolean)).toEqual([
+      "2009744225-9aSc04fR",
+      "liff",
+    ]);
   });
 });
