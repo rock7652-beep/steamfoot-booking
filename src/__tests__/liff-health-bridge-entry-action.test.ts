@@ -69,7 +69,7 @@ describe("createHealthflowEntryUrl", () => {
 
     const url = new URL(result.url);
     expect(url.origin).toBe("https://liff.line.me");
-    expect(url.pathname).toBe("/2009744225-9aSc04fR/liff");
+    expect(url.pathname).toBe("/2009744225-9aSc04fR");
     expect(url.searchParams.getAll("state")).toHaveLength(1);
     const state = url.searchParams.get("state");
     expect(state).toBeTruthy();
@@ -149,7 +149,7 @@ describe("createHealthflowEntryUrl", () => {
     );
   });
 
-  it("keeps the original LIFF ID and deep-links to the HealthFlow LIFF endpoint path", async () => {
+  it("keeps the original LIFF ID and never re-appends the HealthFlow endpoint's own /liff path", async () => {
     const result = await createHealthflowEntryUrl("zhubei");
 
     expect(result.status).toBe("ok");
@@ -158,7 +158,7 @@ describe("createHealthflowEntryUrl", () => {
     const url = new URL(result.url);
     expect(url.pathname.split("/").filter(Boolean)).toEqual([
       "2009744225-9aSc04fR",
-      "liff",
     ]);
+    expect(url.pathname).not.toMatch(/\/liff\/liff/);
   });
 });
