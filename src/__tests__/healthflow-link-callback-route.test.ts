@@ -19,7 +19,8 @@ const mockTransaction = vi.fn(async (callback: (tx: unknown) => unknown) =>
 
 vi.mock("@/lib/db", () => ({
   prisma: {
-    $transaction: (...args: unknown[]) => mockTransaction(...args),
+    $transaction: (callback: (tx: unknown) => unknown) =>
+      mockTransaction(callback),
     customer: {
       findUnique: (...args: unknown[]) => mockCustomerFindUnique(...args),
       update: (...args: unknown[]) => mockCustomerUpdate(...args),
@@ -39,7 +40,10 @@ import {
   HEALTHFLOW_CALLBACK_TIMESTAMP_HEADER,
 } from "@/lib/healthflow-link-callback-auth";
 import { sha256Hex } from "@/lib/healthflow-link-callback-replay";
-import { createHealthflowBridgeState } from "@/lib/healthflow-identity-bridge";
+import {
+  createHealthflowBridgeState,
+  fingerprintHealthflowBridgeState,
+} from "@/lib/healthflow-identity-bridge";
 
 const CUSTOMER_ID = "customer_123";
 const STORE_ID = "store_zhubei";
@@ -147,6 +151,8 @@ describe("POST /api/healthflow/link-callback", () => {
 
   it("accepts the first signed callback, records durable replay state, and writes Customer health fields once", async () => {
     const state = await signedState();
+    const fingerprint = await fingerprintHealthflowBridgeState(state);
+    const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
     mockCustomerFindUnique.mockResolvedValueOnce({
       id: CUSTOMER_ID,
       storeId: STORE_ID,
@@ -189,6 +195,19 @@ describe("POST /api/healthflow/link-callback", () => {
         healthSyncedAt: new Date(NOW),
       },
     });
+    expect(infoSpy).toHaveBeenCalledWith("[healthflow bridge] state trace", {
+      phase: "callback_received",
+      fingerprint,
+    });
+    expect(infoSpy).toHaveBeenCalledWith("[healthflow bridge] state trace", {
+      phase: "state_verification",
+      code: null,
+      status: 202,
+      fingerprint,
+    });
+    expect(JSON.stringify(infoSpy.mock.calls)).not.toContain(state);
+    expect(JSON.stringify(infoSpy.mock.calls)).not.toContain(CUSTOMER_ID);
+    expect(JSON.stringify(infoSpy.mock.calls)).not.toContain(STORE_ID);
   });
 
   it("returns accepted for the same idempotency-key and same signed-state retry", async () => {
@@ -444,6 +463,9 @@ describe("POST /api/healthflow/link-callback", () => {
       },
       sig: "not-valid",
     });
+    const fingerprint = await fingerprintHealthflowBridgeState(state);
+    const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
     const res = await POST(
       await postReq({ body: { profileId: PROFILE_ID, state } }),
@@ -456,6 +478,19 @@ describe("POST /api/healthflow/link-callback", () => {
     });
     expect(mockCustomerFindUnique).not.toHaveBeenCalled();
     expect(mockCallbackCreate).not.toHaveBeenCalled();
+    expect(infoSpy).toHaveBeenCalledWith("[healthflow bridge] state trace", {
+      phase: "callback_received",
+      fingerprint,
+    });
+    expect(warnSpy).toHaveBeenCalledWith("[healthflow bridge] state trace", {
+      phase: "state_verification",
+      code: "invalid_state",
+      status: 400,
+      fingerprint,
+    });
+    expect(JSON.stringify([...infoSpy.mock.calls, ...warnSpy.mock.calls])).not.toContain(state);
+    expect(JSON.stringify([...infoSpy.mock.calls, ...warnSpy.mock.calls])).not.toContain(CUSTOMER_ID);
+    expect(JSON.stringify([...infoSpy.mock.calls, ...warnSpy.mock.calls])).not.toContain(STORE_ID);
   });
 
   it("rejects invalid profileId without writing Customer", async () => {

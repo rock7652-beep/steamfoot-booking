@@ -78,6 +78,20 @@ function base64UrlDecode(input: string): string {
   return Buffer.from(input, "base64url").toString("utf8");
 }
 
+export async function fingerprintHealthflowBridgeState(
+  state: string | null | undefined,
+): Promise<string | null> {
+  if (!state) return null;
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(state),
+  );
+  return Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("")
+    .slice(0, 12);
+}
+
 function constantTimeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
   let result = 0;

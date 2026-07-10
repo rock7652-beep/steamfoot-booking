@@ -9,6 +9,7 @@ import {
 } from "@/lib/healthflow-link-callback-auth";
 import { recordHealthflowCallbackReplayAndLinkCustomer } from "@/lib/healthflow-link-callback-replay";
 import {
+  fingerprintHealthflowBridgeState,
   validateHealthflowBridgeCallback,
   verifyHealthflowBridgeState,
 } from "@/lib/healthflow-identity-bridge";
@@ -83,9 +84,20 @@ export async function POST(req: Request): Promise<Response> {
   if (!parsedBody.success) {
     return json(400, { status: "error", code: "invalid_body" });
   }
+  const fingerprint = await fingerprintHealthflowBridgeState(parsedBody.data.state);
+  console.info("[healthflow bridge] state trace", {
+    phase: "callback_received",
+    fingerprint,
+  });
 
   const state = await verifyHealthflowBridgeState(parsedBody.data.state);
   if (!state.ok) {
+    console.warn("[healthflow bridge] state trace", {
+      phase: "state_verification",
+      code: state.reason,
+      status: callbackErrorStatus(state.reason),
+      fingerprint,
+    });
     return json(callbackErrorStatus(state.reason), {
       status: "error",
       code: state.reason,
@@ -103,6 +115,12 @@ export async function POST(req: Request): Promise<Response> {
     customer,
   });
   if (!bridge.ok) {
+    console.warn("[healthflow bridge] state trace", {
+      phase: "state_verification",
+      code: bridge.reason,
+      status: callbackErrorStatus(bridge.reason),
+      fingerprint,
+    });
     return json(callbackErrorStatus(bridge.reason), {
       status: "error",
       code: bridge.reason,
@@ -121,12 +139,24 @@ export async function POST(req: Request): Promise<Response> {
     state: parsedBody.data.state,
   });
   if (!replay.ok) {
+    console.warn("[healthflow bridge] state trace", {
+      phase: "state_verification",
+      code: replay.reason,
+      status: callbackErrorStatus(replay.reason),
+      fingerprint,
+    });
     return json(callbackErrorStatus(replay.reason), {
       status: "error",
       code: replay.reason,
     });
   }
 
+  console.info("[healthflow bridge] state trace", {
+    phase: "state_verification",
+    code: null,
+    status: 202,
+    fingerprint,
+  });
   return json(202, {
     status: "accepted",
     mode: "linked",

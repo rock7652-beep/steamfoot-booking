@@ -61,6 +61,7 @@ afterEach(() => {
 
 describe("createHealthflowEntryUrl", () => {
   it("creates a HealthFlow LIFF URL with a signed state for the canonical customer and current store", async () => {
+    const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
     const result = await createHealthflowEntryUrl("zhubei");
 
     expect(result.status).toBe("ok");
@@ -85,6 +86,13 @@ describe("createHealthflowEntryUrl", () => {
       expect(verified.payload.jti).toEqual(expect.any(String));
       expect(verified.payload.expiresAt).toBeGreaterThan(verified.payload.issuedAt);
     }
+    expect(infoSpy).toHaveBeenCalledWith("[healthflow bridge] state trace", {
+      phase: "state_created",
+      fingerprint: expect.stringMatching(/^[a-f0-9]{12}$/),
+    });
+    expect(JSON.stringify(infoSpy.mock.calls)).not.toContain(state);
+    expect(JSON.stringify(infoSpy.mock.calls)).not.toContain("customer_1");
+    expect(JSON.stringify(infoSpy.mock.calls)).not.toContain("store_zhubei");
 
     expect(mockStoreFindUnique).toHaveBeenCalledWith({
       where: { slug: "zhubei" },

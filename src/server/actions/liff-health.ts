@@ -32,7 +32,10 @@ import {
   getCanonicalCustomerForSession,
   getCanonicalCustomerIdForSession,
 } from "@/lib/customer-identity";
-import { createHealthflowBridgeState } from "@/lib/healthflow-identity-bridge";
+import {
+  createHealthflowBridgeState,
+  fingerprintHealthflowBridgeState,
+} from "@/lib/healthflow-identity-bridge";
 import {
   getHealthSummarySafe,
   type HealthSummary,
@@ -112,6 +115,10 @@ export async function createHealthflowEntryUrl(
     const state = await createHealthflowBridgeState({
       customerId: row.id,
       storeId: row.storeId,
+    });
+    console.info("[healthflow bridge] state trace", {
+      phase: "state_created",
+      fingerprint: await fingerprintHealthflowBridgeState(state),
     });
     const url = new URL(healthFlowLiffUrl);
     const basePath = url.pathname.replace(/\/+$/, "");

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   createHealthflowBridgeState,
+  fingerprintHealthflowBridgeState,
   HEALTHFLOW_BRIDGE_STATE_TTL_MS,
   validateHealthflowBridgeCallback,
   verifyHealthflowBridgeState,
@@ -35,6 +36,26 @@ afterEach(() => {
 });
 
 describe("healthflow identity bridge state", () => {
+  it("returns deterministic short fingerprints without exposing payload", async () => {
+    const state = await createHealthflowBridgeState(
+      { customerId: CUSTOMER_ID, storeId: STORE_ID },
+      { now: NOW, jti: "jti-1" },
+    );
+    const other = await createHealthflowBridgeState(
+      { customerId: CUSTOMER_ID, storeId: STORE_ID },
+      { now: NOW, jti: "jti-2" },
+    );
+
+    const fingerprint = await fingerprintHealthflowBridgeState(state);
+
+    expect(fingerprint).toMatch(/^[a-f0-9]{12}$/);
+    expect(await fingerprintHealthflowBridgeState(state)).toBe(fingerprint);
+    expect(await fingerprintHealthflowBridgeState(other)).not.toBe(fingerprint);
+    expect(JSON.stringify({ fingerprint })).not.toContain(CUSTOMER_ID);
+    expect(JSON.stringify({ fingerprint })).not.toContain(STORE_ID);
+    expect(await fingerprintHealthflowBridgeState(null)).toBeNull();
+  });
+
   it("valid state verifies with customerId, storeId, issuedAt, expiresAt and jti", async () => {
     const state = await createHealthflowBridgeState(
       { customerId: CUSTOMER_ID, storeId: STORE_ID },
