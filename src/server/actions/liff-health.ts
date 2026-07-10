@@ -28,11 +28,16 @@
 
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/session";
-import { getCanonicalCustomerIdForSession } from "@/lib/customer-identity";
+import {
+  getCanonicalCustomerForSession,
+  getCanonicalCustomerIdForSession,
+} from "@/lib/customer-identity";
+import { createHealthflowBridgeState } from "@/lib/healthflow-identity-bridge";
 import {
   getHealthSummarySafe,
   type HealthSummary,
 } from "@/lib/health-service";
+import { healthFlowLiffUrl } from "@/lib/liff/messages";
 
 // PR-H2c：移除 self-computed score。
 // HealthFlow summary API 不回官方 score / riskLevel；Steamfoot 自算的 68 與 HealthFlow
@@ -55,6 +60,67 @@ export type FetchLiffHealthSummaryResult =
     }
   | { status: "no_customer" }
   | { status: "service_unavailable" };
+
+export type CreateHealthflowEntryUrlResult =
+  | { status: "ok"; url: string }
+  | { status: "no_customer" }
+  | { status: "store_mismatch" }
+  | { status: "service_unavailable" };
+
+export async function createHealthflowEntryUrl(
+  storeSlug: string,
+): Promise<CreateHealthflowEntryUrlResult> {
+  let user;
+  try {
+    user = await requireSession();
+  } catch {
+    return { status: "no_customer" };
+  }
+  if (user.role !== "CUSTOMER") return { status: "no_customer" };
+
+  let store;
+  try {
+    store = await prisma.store.findUnique({
+      where: { slug: storeSlug },
+      select: { id: true },
+    });
+  } catch (err) {
+    console.error("[createHealthflowEntryUrl] store query failed", err);
+    return { status: "service_unavailable" };
+  }
+  if (!store) return { status: "store_mismatch" };
+
+  const customer = await getCanonicalCustomerForSession(user);
+  if (!customer) return { status: "no_customer" };
+  if (customer.storeId !== store.id) return { status: "store_mismatch" };
+
+  let row;
+  try {
+    row = await prisma.customer.findUnique({
+      where: { id: customer.id },
+      select: { id: true, storeId: true, mergedIntoCustomerId: true },
+    });
+  } catch (err) {
+    console.error("[createHealthflowEntryUrl] customer query failed", err);
+    return { status: "service_unavailable" };
+  }
+  if (!row) return { status: "no_customer" };
+  if (row.mergedIntoCustomerId) return { status: "no_customer" };
+  if (row.storeId !== store.id) return { status: "store_mismatch" };
+
+  try {
+    const state = await createHealthflowBridgeState({
+      customerId: row.id,
+      storeId: row.storeId,
+    });
+    const url = new URL(healthFlowLiffUrl);
+    url.searchParams.set("state", state);
+    return { status: "ok", url: url.toString() };
+  } catch (err) {
+    console.error("[createHealthflowEntryUrl] state signing failed", err);
+    return { status: "service_unavailable" };
+  }
+}
 
 export async function fetchLiffHealthSummary(): Promise<FetchLiffHealthSummaryResult> {
   // ── 1. Require CUSTOMER session ────────────────────

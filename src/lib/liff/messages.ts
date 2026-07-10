@@ -312,6 +312,10 @@ export const liffMessages = {
     // CTAs
     /** primary CTA — 跳轉外部 HealthFlow */
     startHealthFlowCta: "開始 AI 健康評估",
+    /** CTA loading — 產生 SteamFoot signed bridge state */
+    linkStartLoading: "正在前往 AI 健康評估…",
+    /** CTA error — signed bridge state could not be created */
+    linkStartFailed: "暫時無法前往 AI 健康評估，請稍後再試或聯繫店家協助。",
     /** outline CTA — 已綁定狀態下，跳轉外部完整評估系統 */
     viewFullCta: "查看完整評估 ↗",
     /** LINE-green CTA */

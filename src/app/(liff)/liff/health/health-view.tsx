@@ -29,11 +29,11 @@ import {
   LiffInitError,
 } from "@/lib/liff/client";
 import {
+  createHealthflowEntryUrl,
   fetchLiffHealthSummary,
   type FetchLiffHealthSummaryResult,
 } from "@/server/actions/liff-health";
 import {
-  healthFlowLiffUrl,
   liffMessages,
 } from "@/lib/liff/messages";
 import type { HealthSummary, HealthAlert } from "@/lib/health-service";
@@ -228,7 +228,7 @@ function LinkedView({
           <p className="font-medium">{m.noMeasurementTitle}</p>
           <p className="mt-2 text-xs text-amber-800/85">{m.noMeasurementBody}</p>
         </div>
-        <StartHealthFlowButton variant="primary" />
+        <StartHealthFlowButton variant="primary" storeSlug={storeSlug} />
         <ContactStoreButton contactUrl={contactUrl} />
         <BackHomeLink storeSlug={storeSlug} />
       </>
@@ -260,7 +260,7 @@ function LinkedView({
       {summary.trend.length >= 2 && <TrendBrief summary={summary} />}
 
       {/* ── 外部完整評估 / 聯絡店家 ── */}
-      <ViewFullButton />
+      <ViewFullButton storeSlug={storeSlug} />
       <ContactStoreButton contactUrl={contactUrl} />
       <BackHomeLink storeSlug={storeSlug} />
     </>
@@ -527,7 +527,7 @@ function NotLinkedCard({
         <p className="font-medium">{m.notLinkedTitle}</p>
         <p className="mt-2 text-xs text-earth-700">{body}</p>
       </div>
-      <StartHealthFlowButton variant="primary" />
+      <StartHealthFlowButton variant="primary" storeSlug={storeSlug} />
       <ContactStoreButton contactUrl={contactUrl} />
       <BackHomeLink storeSlug={storeSlug} />
     </>
@@ -556,37 +556,63 @@ function Disclaimer() {
  */
 function StartHealthFlowButton({
   variant,
+  storeSlug,
+  label = liffMessages.health.startHealthFlowCta,
 }: {
   variant: "primary" | "outline";
+  storeSlug: string;
+  label?: string;
 }) {
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const cls =
     variant === "primary"
       ? "flex w-full min-h-[48px] items-center justify-center rounded-xl bg-earth-800 px-4 py-3 text-base font-semibold text-white shadow-sm hover:bg-earth-700 active:scale-[0.98]"
       : "flex w-full min-h-[44px] items-center justify-center rounded-xl border border-earth-300 bg-white px-4 py-2.5 text-sm font-medium text-earth-700 hover:bg-earth-50";
+  const handleClick = async () => {
+    if (pending) return;
+    setPending(true);
+    setError(null);
+    try {
+      const result = await createHealthflowEntryUrl(storeSlug);
+      if (result.status === "ok") {
+        window.location.href = result.url;
+        return;
+      }
+      setError(liffMessages.health.linkStartFailed);
+    } catch (err) {
+      console.warn("[health-view] healthflow entry failed", err);
+      setError(liffMessages.health.linkStartFailed);
+    } finally {
+      setPending(false);
+    }
+  };
   return (
-    <button
-      type="button"
-      onClick={() => {
-        window.location.href = healthFlowLiffUrl;
-      }}
-      className={cls}
-    >
-      {liffMessages.health.startHealthFlowCta}
-    </button>
+    <>
+      <button
+        type="button"
+        onClick={handleClick}
+        disabled={pending}
+        className={`${cls} disabled:cursor-wait disabled:opacity-70`}
+      >
+        {pending ? liffMessages.health.linkStartLoading : label}
+      </button>
+      {error && (
+        <p className="text-center text-xs leading-relaxed text-red-600">
+          {error}
+        </p>
+      )}
+    </>
   );
 }
 
-function ViewFullButton() {
+function ViewFullButton({ storeSlug }: { storeSlug: string }) {
   return (
-    <button
-      type="button"
-      onClick={() => {
-        window.location.href = healthFlowLiffUrl;
-      }}
-      className="flex w-full min-h-[44px] items-center justify-center rounded-xl border border-earth-300 bg-white px-4 py-2.5 text-sm font-medium text-earth-700 hover:bg-earth-50"
-    >
-      {liffMessages.health.viewFullCta}
-    </button>
+    <StartHealthFlowButton
+      variant="outline"
+      storeSlug={storeSlug}
+      label={liffMessages.health.viewFullCta}
+    />
   );
 }
 
