@@ -162,4 +162,18 @@ describe("customer actions — store consistency", () => {
     if (!result.success) expect(result.error).toContain("STORE_CONSISTENCY_MISMATCH");
     expect(h.customerUpdate).not.toHaveBeenCalled();
   });
+
+  it("allows transferCustomer when customer and new assigned staff are in the same store", async () => {
+    const { transferCustomer } = await import("@/server/actions/customer");
+    const result = await transferCustomer({
+      customerId: CUSTOMER_ID,
+      newStaffId: "ck0000000000000000000s03",
+    });
+
+    expect(result.success).toBe(true);
+    expect(h.customerUpdate).toHaveBeenCalledWith({
+      where: { id: CUSTOMER_ID },
+      data: { assignedStaffId: "ck0000000000000000000s03" },
+    });
+  });
 });

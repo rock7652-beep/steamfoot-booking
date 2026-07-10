@@ -14,6 +14,8 @@ const h = vi.hoisted(() => ({
   walletFindFirst: vi.fn(),
   bookingFindFirst: vi.fn(),
   txCreate: vi.fn(),
+  txUpdate: vi.fn(),
+  transactionFindUnique: vi.fn(),
   txRun: vi.fn(),
   buildSnapshot: vi.fn(),
   revalidateTransactions: vi.fn(),
@@ -24,7 +26,7 @@ vi.mock("@/lib/db", () => ({
     customer: { findUnique: h.customerFindUnique },
     customerPlanWallet: { findFirst: h.walletFindFirst },
     booking: { findFirst: h.bookingFindFirst },
-    transaction: { create: h.txCreate },
+    transaction: { create: h.txCreate, findUnique: h.transactionFindUnique },
     $transaction: h.txRun,
   },
 }));
@@ -91,8 +93,21 @@ beforeEach(() => {
     status: "SUCCESS",
   });
   h.txCreate.mockResolvedValue({ id: "tx-1" });
+  h.txUpdate.mockResolvedValue({});
+  h.transactionFindUnique.mockResolvedValue({
+    id: "original-tx",
+    customerId: CUSTOMER_ID,
+    bookingId: BOOKING_ID,
+    revenueStaffId: STAFF_ID,
+    customerPlanWalletId: WALLET_ID,
+    transactionType: "PACKAGE_PURCHASE",
+    storeId: "store-zhubei",
+    amount: 5990,
+    status: "SUCCESS",
+    customer: { assignedStaffId: STAFF_ID },
+  });
   h.txRun.mockImplementation(async (cb: (tx: unknown) => Promise<unknown>) =>
-    cb({ transaction: { create: h.txCreate } }),
+    cb({ transaction: { create: h.txCreate, update: h.txUpdate } }),
   );
 });
 
@@ -194,6 +209,26 @@ describe("transaction actions — store consistency", () => {
         data: expect.objectContaining({
           customerId: CUSTOMER_ID,
           storeId: "store-taichung",
+        }),
+      }),
+    );
+  });
+
+  it("legacy refund keeps the original transaction storeId", async () => {
+    const { refundTransactionLegacy } = await import("@/server/actions/transaction");
+    const result = await refundTransactionLegacy("original-tx", {
+      amount: 1000,
+      paymentMethod: "CASH",
+      note: "退款",
+    });
+
+    expect(result.success).toBe(true);
+    expect(h.txCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          customerId: CUSTOMER_ID,
+          storeId: "store-zhubei",
+          amount: -1000,
         }),
       }),
     );
