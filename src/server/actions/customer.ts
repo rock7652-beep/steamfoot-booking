@@ -24,6 +24,10 @@ import { checkCustomerLimit } from "@/lib/shop-config";
 import { assertStoreAccess } from "@/lib/manager-visibility";
 import { currentStoreId, getActiveStoreForRead } from "@/lib/store";
 import {
+  assertSameStore,
+  assertStaffInCustomerStore,
+} from "@/lib/store-consistency";
+import {
   resolveStoreViewContextFromCookie,
   storeIdForViewContext,
   userForViewContext,
@@ -68,6 +72,8 @@ export async function createCustomer(
     });
     await checkCustomerLimitOrThrow(currentCustomerCount);
 
+    const storeId = currentStoreId(user);
+
     // assignedStaffId 現在是選填
     let assignedStaffId: string | undefined;
 
@@ -76,12 +82,12 @@ export async function createCustomer(
         where: { id: data.assignedStaffId, status: "ACTIVE" },
       });
       if (!targetStaff) throw new AppError("NOT_FOUND", "指定店長不存在");
+      assertStaffInCustomerStore(targetStaff, storeId);
       assignedStaffId = targetStaff.id;
     }
     // 不再強制指派 — 顧客可稍後由店長指派
 
     // 檢查電話是否重複（同店；_oauth_xxx 佔位 phone 不會撞，因為 data.phone 已 normalize 為 09xx）
-    const storeId = currentStoreId(user);
     if (data.phone) {
       const existingPhone = await prisma.customer.findFirst({
         where: { phone: data.phone, storeId },
@@ -124,7 +130,7 @@ export async function createCustomer(
         assignedStaffId: assignedStaffId || null,
         customerStage: "LEAD",
         selfBookingEnabled: false,
-        storeId: currentStoreId(user),
+        storeId,
       },
     });
 
@@ -214,8 +220,16 @@ export async function updateCustomer(
     if (data.customerStage !== undefined) prismaData.customerStage = data.customerStage;
     if (data.selfBookingEnabled !== undefined)
       prismaData.selfBookingEnabled = data.selfBookingEnabled;
-    if (data.assignedStaffId !== undefined)
+    if (data.assignedStaffId !== undefined) {
+      if (data.assignedStaffId) {
+        const targetStaff = await prisma.staff.findUnique({
+          where: { id: data.assignedStaffId, status: "ACTIVE" },
+        });
+        if (!targetStaff) throw new AppError("NOT_FOUND", "指定店長不存在");
+        assertStaffInCustomerStore(targetStaff, customer.storeId);
+      }
       prismaData.assignedStaffId = data.assignedStaffId;
+    }
 
     await prisma.customer.update({
       where: { id: customerId },
@@ -304,6 +318,7 @@ export async function transferCustomer(
     });
     if (!newStaff) throw new AppError("NOT_FOUND", "目標店長不存在");
     assertStoreAccess(user, newStaff.storeId);
+    assertSameStore("Customer.assignedStaff", newStaff.storeId, customer.storeId);
 
     // 只更新 customer.assignedStaffId，歷史資料不動
     await prisma.customer.update({

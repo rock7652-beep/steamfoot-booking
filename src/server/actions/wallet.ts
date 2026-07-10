@@ -25,6 +25,10 @@ import {
 } from "@/lib/date-utils";
 import { assertStoreAccess, getStoreFilter } from "@/lib/manager-visibility";
 import { currentStoreId } from "@/lib/store";
+import {
+  assertCustomerInOperationStore,
+  assertSameStore,
+} from "@/lib/store-consistency";
 import { buildTransactionSnapshot } from "@/lib/transaction-snapshot";
 import { awardFirstTopupReferralPointsIfEligible } from "@/server/services/referral-points";
 import { resolveCustomerStaffAssignment } from "@/server/services/customer-assignment";
@@ -84,6 +88,7 @@ export async function assignPlanToCustomer(
   try {
     const user = await requireWritablePermission("wallet.create");
     const data = assignPlanSchema.parse(input);
+    const operationStoreId = currentStoreId(user);
 
     // 折扣權限檢查：如果有折扣，需要 transaction.discount 權限
     const hasDiscount = data.discountType && data.discountType !== "none" && data.discountValue;
@@ -100,6 +105,7 @@ export async function assignPlanToCustomer(
     });
     if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
     assertStoreAccess(user, customer.storeId);
+    assertCustomerInOperationStore(customer, operationStoreId);
     // 訂閱到期保護：到期店家不可指派 / 賣方案（無訂閱店不擋）
     await assertStoreSubscriptionWritable(customer.storeId);
 
@@ -108,7 +114,7 @@ export async function assignPlanToCustomer(
       where: { id: data.planId, isActive: true },
     });
     if (!plan) throw new AppError("NOT_FOUND", "課程方案不存在或已停用");
-    if (plan.storeId !== user.storeId) throw new AppError("FORBIDDEN", "無權限使用此方案");
+    assertSameStore("ServicePlan", plan.storeId, operationStoreId);
 
     // 折扣驗證
     const originalPrice = Number(plan.price);
@@ -185,7 +191,7 @@ export async function assignPlanToCustomer(
           startDate,
           expiryDate,
           status: "ACTIVE",
-          storeId: currentStoreId(user),
+          storeId: operationStoreId,
         },
       });
 
@@ -194,7 +200,7 @@ export async function assignPlanToCustomer(
 
       // 2. 建立交易紀錄
       const revenueStaffId = customer.assignedStaffId ?? user.staffId!;
-      const storeId = currentStoreId(user);
+      const storeId = operationStoreId;
 
       const snapshot = await buildTransactionSnapshot(tx, {
         customerId: data.customerId,

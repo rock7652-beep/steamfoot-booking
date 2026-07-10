@@ -33,6 +33,10 @@ import { checkBookingLimit, resolveBookableUntilDate } from "@/lib/shop-config";
 import { assertStoreAccess } from "@/lib/manager-visibility";
 import { currentStoreId } from "@/lib/store";
 import {
+  assertCustomerInOperationStore,
+  assertSameStore,
+} from "@/lib/store-consistency";
+import {
   getStoreOperatingStatus,
   getStoreUnavailableMessage,
   isStoreBookableStatus,
@@ -265,6 +269,16 @@ export async function createBooking(
       // 後台員工/管理員代約：才做跨店存取檢查
       assertStoreAccess(user, customer.storeId);
     }
+    assertCustomerInOperationStore(customer, storeId);
+
+    if (data.servicePlanId) {
+      const servicePlan = await prisma.servicePlan.findUnique({
+        where: { id: data.servicePlanId },
+        select: { id: true, storeId: true },
+      });
+      if (!servicePlan) throw new AppError("NOT_FOUND", "課程方案不存在");
+      assertSameStore("ServicePlan", servicePlan.storeId, storeId);
+    }
 
     // ── 3. 補課優先抵用（P0 mixed makeup + package）
     //   規則：一張券抵 1 人 / 1 堂；PACKAGE_SESSION 預約自動優先使用
@@ -289,7 +303,7 @@ export async function createBooking(
       ? await prisma.makeupCredit.count({
         where: {
           customerId: effectiveCustomerId,
-          storeId: customer.storeId,
+          storeId,
           isUsed: false,
           OR: [{ expiredAt: null }, { expiredAt: { gte: makeupValidFrom } }],
         },
@@ -311,6 +325,12 @@ export async function createBooking(
           "FORBIDDEN",
           "指定的方案不屬於該顧客",
         );
+      }
+      const selectedWallet = customer.planWallets.find(
+        (w) => w.id === data.customerPlanWalletId,
+      );
+      if (selectedWallet) {
+        assertSameStore("CustomerPlanWallet", selectedWallet.storeId, storeId);
       }
     }
     // P0：PACKAGE_SESSION 預約一律要求有效方案（看資料，不看角色）
@@ -507,7 +527,7 @@ export async function createBooking(
         const picked = await tx.$queryRaw<{ id: string }[]>`
           SELECT id FROM "MakeupCredit"
           WHERE "customerId" = ${effectiveCustomerId}
-            AND "storeId" = ${customer.storeId}
+            AND "storeId" = ${storeId}
             AND "isUsed" = false
             AND ("expiredAt" IS NULL OR "expiredAt" >= ${makeupValidFrom})
           ORDER BY "expiredAt" ASC NULLS LAST, "createdAt" ASC
@@ -550,7 +570,7 @@ export async function createBooking(
           expectedAmount: data.expectedAmount ?? null,
           // 顧客自助預約 → 使用 customer 所屬 storeId（避免 session storeId 與 customer storeId 不一致）
           // 後台代約 → 使用 session storeId
-          storeId: user.role === "CUSTOMER" ? customer.storeId : currentStoreId(user),
+          storeId,
         },
       });
 
@@ -561,7 +581,7 @@ export async function createBooking(
             bookingId: created.id,
             makeupCreditId: cid,
             customerId: effectiveCustomerId,
-            storeId: customer.storeId,
+            storeId,
           })),
         });
       }

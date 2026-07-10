@@ -51,6 +51,7 @@ vi.mock("@/lib/session", () => ({
   getCurrentUser: () => mockRequireSession(),
 }));
 vi.mock("@/lib/permissions", () => ({
+  requireWritablePermission: () => mockRequirePermission(),
   requirePermission: () => mockRequirePermission(),
   checkPermission: () => mockCheckPermission(),
 }));
@@ -304,6 +305,49 @@ describe("assignPlanToCustomer — CUSTOM_DATE", () => {
 });
 
 describe("assignPlanToCustomer — 其他不變", () => {
+  it("rejects cross-store customer + plan writes before creating wallet or transaction", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      ...CUSTOMER,
+      storeId: "store-hsinchu",
+    });
+    mockServicePlanFindUnique.mockResolvedValue(PLAN_90D);
+    const { assignPlanToCustomer } = await import("@/server/actions/wallet");
+    const result = await assignPlanToCustomer({
+      customerId: CUSTOMER_ID,
+      planId: PLAN_ID_90D,
+      paymentMethod: "CASH",
+      expiryMode: "PLAN_DEFAULT",
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error).toContain("STORE_CONSISTENCY_MISMATCH");
+    }
+    expect(mockWalletCreate).not.toHaveBeenCalled();
+    expect(mockTransactionCreate).not.toHaveBeenCalled();
+  });
+
+  it("rejects cross-store plan even when the customer belongs to the operation store", async () => {
+    mockServicePlanFindUnique.mockResolvedValue({
+      ...PLAN_90D,
+      storeId: "store-hsinchu",
+    });
+    const { assignPlanToCustomer } = await import("@/server/actions/wallet");
+    const result = await assignPlanToCustomer({
+      customerId: CUSTOMER_ID,
+      planId: PLAN_ID_90D,
+      paymentMethod: "CASH",
+      expiryMode: "PLAN_DEFAULT",
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error).toContain("STORE_CONSISTENCY_MISMATCH");
+    }
+    expect(mockWalletCreate).not.toHaveBeenCalled();
+    expect(mockTransactionCreate).not.toHaveBeenCalled();
+  });
+
   it("seedWalletSessions 仍以 plan.sessionCount 建立明細（不受 expiry 模式影響）", async () => {
     mockServicePlanFindUnique.mockResolvedValue(PLAN_90D);
     const { seedWalletSessions } = await import("@/server/services/wallet-session");
