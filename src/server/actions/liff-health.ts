@@ -121,8 +121,6 @@ export async function createHealthflowEntryUrl(
       fingerprint: await fingerprintHealthflowBridgeState(state),
     });
     const url = new URL(healthFlowLiffUrl);
-    const basePath = url.pathname.replace(/\/+$/, "");
-    url.pathname = `${basePath}/liff`;
     url.search = "";
     url.hash = "";
     url.searchParams.set("state", state);
