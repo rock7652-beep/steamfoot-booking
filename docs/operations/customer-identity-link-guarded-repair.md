@@ -34,6 +34,12 @@ Account ownership, or existing-link state is skipped or rejected. The script
 uses the existing `upsertCustomerIdentityLink` service and never updates the
 source Customer, User, or Account.
 
+Execute mode is fail-fast: the first `conflict` or `failed` result stops the
+candidate loop before another write transaction can begin. `created`,
+`already_exists`, and `skipped` may safely continue. Output includes the abort
+index, unprocessed count, and reason. The created count is also capped by the
+approved `max-writes` value.
+
 After execution, immediately run read-only counts and verify the excluded
 manual-review population is unchanged. Never loosen guards, force an overwrite,
 or repair conflicts with ad-hoc SQL.

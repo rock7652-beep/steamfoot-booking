@@ -47,10 +47,19 @@ export type ResultStatus =
   | "conflict"
   | "failed";
 
-type Result = {
+export type Result = {
   customerId: string;
   status: ResultStatus;
   reason: string;
+};
+
+export type SequenceRunResult = {
+  results: Result[];
+  created: number;
+  abortedEarly: boolean;
+  abortedAtIndex: number | null;
+  remainingNotProcessed: number;
+  abortReason: string | null;
 };
 
 type LiveState = {
@@ -134,6 +143,55 @@ export function classifyLiveState(
       : { status: "conflict", reason: "line_identity_linked_elsewhere" };
   }
   return { status: "ready", reason: "all_guards_pass" };
+}
+
+export async function runCandidateSequence<T>(input: {
+  candidates: T[];
+  execute: boolean;
+  maxWrites: number;
+  candidateId?: (candidate: T, index: number) => string;
+  processCandidate: (candidate: T, index: number) => Promise<Result>;
+}): Promise<SequenceRunResult> {
+  const results: Result[] = [];
+  let created = 0;
+  let abortedAtIndex: number | null = null;
+  let abortReason: string | null = null;
+
+  for (let index = 0; index < input.candidates.length; index++) {
+    if (input.execute && created >= input.maxWrites) {
+      abortedAtIndex = index + 1;
+      abortReason = "max_writes_reached";
+      break;
+    }
+
+    let result: Result;
+    try {
+      result = await input.processCandidate(input.candidates[index], index);
+    } catch (error) {
+      result = {
+        customerId: input.candidateId?.(input.candidates[index], index) ?? `candidate-index-${index + 1}`,
+        status: "failed",
+        reason: error instanceof Error ? error.message : String(error),
+      };
+    }
+    results.push(result);
+    if (result.status === "created") created++;
+
+    if (input.execute && (result.status === "conflict" || result.status === "failed")) {
+      abortedAtIndex = index + 1;
+      abortReason = `${result.status}:${result.reason}`;
+      break;
+    }
+  }
+
+  return {
+    results,
+    created,
+    abortedEarly: abortedAtIndex !== null,
+    abortedAtIndex,
+    remainingNotProcessed: abortedAtIndex === null ? 0 : input.candidates.length - results.length,
+    abortReason,
+  };
 }
 
 async function loadState(db: Prisma.TransactionClient | PrismaClient, expected: SnapshotCandidate): Promise<LiveState> {
@@ -228,19 +286,21 @@ async function main() {
   }
 
   const prisma = new PrismaClient();
-  const results: Result[] = [];
-  let created = 0;
+  let sequence: SequenceRunResult;
   try {
-    for (const expected of snapshot.candidates) {
-      try {
+    sequence = await runCandidateSequence({
+      candidates: snapshot.candidates,
+      execute,
+      maxWrites,
+      candidateId: (candidate) => candidate.customerId,
+      processCandidate: async (expected) => {
         if (!execute) {
           const check = classifyLiveState(expected, await loadState(prisma, expected));
-          results.push({
+          return {
             customerId: expected.customerId,
             status: check.status === "ready" ? "skipped" : check.status,
             reason: check.status === "ready" ? "dry_run_would_create" : check.reason,
-          });
-          continue;
+          };
         }
 
         const result = await prisma.$transaction(async (tx) => {
@@ -268,25 +328,31 @@ async function main() {
           return { status: "created" as const, reason: "created_in_serializable_transaction" };
         }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 
-        if (result.status === "created") created++;
-        results.push({ customerId: expected.customerId, status: result.status, reason: result.reason });
-      } catch (error) {
-        results.push({
-          customerId: expected.customerId,
-          status: "failed",
-          reason: error instanceof Error ? error.message : String(error),
-        });
-      }
-    }
+        return { customerId: expected.customerId, status: result.status, reason: result.reason };
+      },
+    });
   } finally {
     await prisma.$disconnect();
   }
 
   const summary = Object.fromEntries(
     (["created", "already_exists", "skipped", "conflict", "failed"] as ResultStatus[])
-      .map((status) => [status, results.filter((r) => r.status === status).length]),
+      .map((status) => [status, sequence.results.filter((r) => r.status === status).length]),
   );
-  console.log(JSON.stringify({ mode: execute ? "execute" : "dry-run", targetRef: detectedRef, snapshotCount: snapshot.candidateCount, snapshotSha256: actualSnapshotSha256, maxWrites, created, summary, results }, null, 2));
+  console.log(JSON.stringify({
+    mode: execute ? "execute" : "dry-run",
+    targetRef: detectedRef,
+    snapshotCount: snapshot.candidateCount,
+    snapshotSha256: actualSnapshotSha256,
+    maxWrites,
+    created: sequence.created,
+    summary,
+    abortedEarly: sequence.abortedEarly,
+    abortedAtIndex: sequence.abortedAtIndex,
+    remainingNotProcessed: sequence.remainingNotProcessed,
+    abortReason: sequence.abortReason,
+    results: sequence.results,
+  }, null, 2));
   if (summary.conflict > 0 || summary.failed > 0) process.exitCode = 2;
 }
 

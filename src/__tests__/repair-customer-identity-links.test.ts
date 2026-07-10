@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   classifyLiveState,
   projectRefFromDatabaseUrl,
+  runCandidateSequence,
   sha256,
+  type Result,
   type SnapshotCandidate,
 } from "../../scripts/repair-customer-identity-links";
 
@@ -76,5 +78,84 @@ describe("CustomerIdentityLink guarded repair", () => {
         providerAccountId: lineUserId,
       },
     })).toEqual({ status: "conflict", reason: "line_identity_linked_elsewhere" });
+  });
+
+  it("stops before the third candidate when the second conflicts", async () => {
+    const visited: number[] = [];
+    const run = await runCandidateSequence({
+      candidates: [1, 2, 3],
+      execute: true,
+      maxWrites: 3,
+      processCandidate: async (candidate): Promise<Result> => {
+        visited.push(candidate);
+        return candidate === 2
+          ? { customerId: "customer-2", status: "conflict", reason: "test_conflict" }
+          : { customerId: `customer-${candidate}`, status: "created", reason: "created" };
+      },
+    });
+    expect(visited).toEqual([1, 2]);
+    expect(run).toMatchObject({
+      created: 1,
+      abortedEarly: true,
+      abortedAtIndex: 2,
+      remainingNotProcessed: 1,
+      abortReason: "conflict:test_conflict",
+    });
+  });
+
+  it("stops before the third candidate when the second fails", async () => {
+    const visited: number[] = [];
+    const run = await runCandidateSequence({
+      candidates: [1, 2, 3],
+      execute: true,
+      maxWrites: 3,
+      processCandidate: async (candidate): Promise<Result> => {
+        visited.push(candidate);
+        if (candidate === 2) throw new Error("test_failure");
+        return { customerId: `customer-${candidate}`, status: "created", reason: "created" };
+      },
+    });
+    expect(visited).toEqual([1, 2]);
+    expect(run).toMatchObject({
+      created: 1,
+      abortedEarly: true,
+      abortedAtIndex: 2,
+      remainingNotProcessed: 1,
+      abortReason: "failed:test_failure",
+    });
+  });
+
+  it("continues after skipped and already_exists", async () => {
+    const statuses: Result["status"][] = ["skipped", "already_exists", "created"];
+    const run = await runCandidateSequence({
+      candidates: [0, 1, 2],
+      execute: true,
+      maxWrites: 3,
+      processCandidate: async (_, index) => ({
+        customerId: `customer-${index}`,
+        status: statuses[index],
+        reason: "test",
+      }),
+    });
+    expect(run.results).toHaveLength(3);
+    expect(run.abortedEarly).toBe(false);
+    expect(run.created).toBe(1);
+  });
+
+  it("never creates more than maxWrites", async () => {
+    let calls = 0;
+    const run = await runCandidateSequence({
+      candidates: [1, 2, 3],
+      execute: true,
+      maxWrites: 1,
+      processCandidate: async (candidate) => {
+        calls++;
+        return { customerId: `customer-${candidate}`, status: "created", reason: "created" };
+      },
+    });
+    expect(calls).toBe(1);
+    expect(run.created).toBe(1);
+    expect(run.abortReason).toBe("max_writes_reached");
+    expect(run.remainingNotProcessed).toBe(2);
   });
 });
