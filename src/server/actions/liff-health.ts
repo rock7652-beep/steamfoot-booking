@@ -114,6 +114,10 @@ export async function createHealthflowEntryUrl(
       storeId: row.storeId,
     });
     const url = new URL(healthFlowLiffUrl);
+    const basePath = url.pathname.replace(/\/+$/, "");
+    url.pathname = `${basePath}/liff`;
+    url.search = "";
+    url.hash = "";
     url.searchParams.set("state", state);
     return { status: "ok", url: url.toString() };
   } catch (err) {
