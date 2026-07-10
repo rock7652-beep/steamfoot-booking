@@ -144,6 +144,25 @@ describe("customer actions — store consistency", () => {
     expect(h.customerUpdate).not.toHaveBeenCalled();
   });
 
+  it("allows updateCustomer when the new assigned staff belongs to the same store", async () => {
+    const { updateCustomer } = await import("@/server/actions/customer");
+    const result = await updateCustomer(CUSTOMER_ID, {
+      name: "陳美惠",
+      phone: "0988821221",
+      assignedStaffId: "ck0000000000000000000s03",
+    });
+
+    expect(result.success).toBe(true);
+    expect(h.customerUpdate).toHaveBeenCalledWith({
+      where: { id: CUSTOMER_ID },
+      data: expect.objectContaining({
+        name: "陳美惠",
+        phone: "0988821221",
+        assignedStaffId: "ck0000000000000000000s03",
+      }),
+    });
+  });
+
   it("rejects transferCustomer for ADMIN/HQ-style cross-store staff assignment", async () => {
     h.requireWritablePermission.mockResolvedValueOnce({
       id: USER_ID,
