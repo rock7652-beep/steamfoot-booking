@@ -71,6 +71,9 @@ const baseCustomer = {
   gender: "female",
   storeId: STORE_A,
   userId: null as string | null,
+  lineUserId: LINE_USER_ID,
+  mergedIntoCustomerId: null as string | null,
+  mergedAt: null as Date | null,
 };
 
 beforeEach(() => {
@@ -79,6 +82,7 @@ beforeEach(() => {
   mockCustomerFindUnique.mockResolvedValue(null);
   mockCustomerFindMany.mockResolvedValue([]);
   mockIdentityLinkFindUnique.mockResolvedValue(null);
+  mockCustomerUpdate.mockResolvedValue({ ...baseCustomer, userId: USER_ID });
   // findFirst 多個 callsite — 每個 case 自己 setup
 });
 
@@ -94,7 +98,7 @@ describe("resolveCustomerForUser — Step C (lineUserId)", () => {
       return null;
     });
     mockAccountFindFirst.mockResolvedValue({ providerAccountId: LINE_USER_ID });
-    mockCustomerUpdate.mockResolvedValue({});
+    mockCustomerUpdate.mockResolvedValue({ ...baseCustomer, userId: USER_ID });
 
     const result: ResolveResult = await resolveCustomerForUser({
       userId: USER_ID,
@@ -110,7 +114,11 @@ describe("resolveCustomerForUser — Step C (lineUserId)", () => {
     // 應呼叫 update 把 userId 寫回
     expect(mockCustomerUpdate).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: REAL_CUSTOMER_ID },
+        where: {
+          id: REAL_CUSTOMER_ID,
+          mergedIntoCustomerId: null,
+          mergedAt: null,
+        },
         data: { userId: USER_ID },
       }),
     );
@@ -193,7 +201,7 @@ describe("resolveCustomerForUser — Step C (lineUserId)", () => {
     mockCustomerFindMany.mockResolvedValue([
       { ...baseCustomer, userId: null },
     ]);
-    mockCustomerUpdate.mockResolvedValue({});
+    mockCustomerUpdate.mockResolvedValue({ ...baseCustomer, userId: USER_ID });
 
     const result = await resolveCustomerForUser({
       userId: USER_ID,
@@ -240,7 +248,12 @@ describe("resolveCustomerForUser — Step C (lineUserId)", () => {
     expect(result.customer).toBeNull();
     expect(mockCustomerFindFirst).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { userId: USER_ID, storeId: "default-store" },
+        where: expect.objectContaining({
+          userId: USER_ID,
+          storeId: "default-store",
+          mergedIntoCustomerId: null,
+          mergedAt: null,
+        }),
       }),
     );
   });
@@ -350,7 +363,7 @@ describe("resolveCustomerForUser — Step C (lineUserId)", () => {
       if (where.storeId === STORE_A && where.lineUserId === LINE_USER_ID) return lineMatchedCustomer;
       return null;
     });
-    mockCustomerUpdate.mockResolvedValue({});
+    mockCustomerUpdate.mockResolvedValue({ ...baseCustomer, userId: USER_ID });
 
     const result = await resolveCustomerForUser({
       userId: USER_ID,
@@ -362,10 +375,16 @@ describe("resolveCustomerForUser — Step C (lineUserId)", () => {
 
     expect(result.reason).toBe("bound_by_line_user_id");
     expect(result.customer?.id).toBe(REAL_CUSTOMER_ID);
-    expect(mockCustomerUpdate).toHaveBeenCalledWith({
-      where: { id: REAL_CUSTOMER_ID },
-      data: { userId: USER_ID },
-    });
+    expect(mockCustomerUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          id: REAL_CUSTOMER_ID,
+          mergedIntoCustomerId: null,
+          mergedAt: null,
+        },
+        data: { userId: USER_ID },
+      }),
+    );
   });
 
   it("regression：sessionCustomerId 命中 row 但 userId 不符（merge 後 placeholder）→ 視為 stale，fall through 不回傳 placeholder", async () => {
@@ -393,5 +412,86 @@ describe("resolveCustomerForUser — Step C (lineUserId)", () => {
 
     expect(result.reason).toBe("found_by_userid");
     expect(result.customer?.phone).toBe("0988009145");
+  });
+
+  it("merged session Customer 在同店有 canonical userId target → fall through 到 active canonical", async () => {
+    mockCustomerFindUnique.mockResolvedValue({
+      ...baseCustomer,
+      id: "merged-shell",
+      userId: USER_ID,
+      mergedIntoCustomerId: REAL_CUSTOMER_ID,
+      mergedAt: new Date("2026-07-10T00:00:00Z"),
+    });
+    mockCustomerFindFirst.mockImplementation(async ({ where }: { where: Record<string, unknown> }) => {
+      if (
+        where.userId === USER_ID &&
+        where.storeId === STORE_A &&
+        where.mergedIntoCustomerId === null &&
+        where.mergedAt === null
+      ) {
+        return { ...baseCustomer, userId: USER_ID };
+      }
+      return null;
+    });
+
+    const result = await resolveCustomerForUser({
+      userId: USER_ID,
+      sessionCustomerId: "merged-shell",
+      sessionEmail: null,
+      storeId: STORE_A,
+    });
+
+    expect(result.reason).toBe("found_by_userid");
+    expect(result.customer?.id).toBe(REAL_CUSTOMER_ID);
+    expect(result.staleSessionCleared).toBeUndefined();
+  });
+
+  it("IdentityLink 指向 merged Customer → 不回傳 shell，且不跨店追 canonical target", async () => {
+    mockAccountFindFirst.mockResolvedValue({ providerAccountId: LINE_USER_ID });
+    mockIdentityLinkFindUnique.mockResolvedValue({
+      customer: {
+        ...baseCustomer,
+        id: "merged-shell",
+        storeId: STORE_A,
+        mergedIntoCustomerId: "canonical-other-store",
+        mergedAt: new Date("2026-07-10T00:00:00Z"),
+      },
+    });
+    mockCustomerFindFirst.mockResolvedValue(null);
+
+    const result = await resolveCustomerForUser({
+      userId: USER_ID,
+      sessionCustomerId: null,
+      sessionEmail: null,
+      storeId: STORE_A,
+      provider: "line",
+    });
+
+    expect(result.reason).toBe("not_found");
+    expect(result.customer).toBeNull();
+  });
+
+  it("lineUserId fallback query只允許 active Customer", async () => {
+    mockAccountFindFirst.mockResolvedValue({ providerAccountId: LINE_USER_ID });
+    mockCustomerFindFirst.mockResolvedValue(null);
+
+    await resolveCustomerForUser({
+      userId: USER_ID,
+      sessionCustomerId: null,
+      sessionEmail: null,
+      storeId: STORE_A,
+      provider: "line",
+    });
+
+    expect(mockCustomerFindFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          storeId: STORE_A,
+          lineUserId: LINE_USER_ID,
+          mergedIntoCustomerId: null,
+          mergedAt: null,
+        },
+      }),
+    );
   });
 });

@@ -1,5 +1,9 @@
 import { prisma } from "@/lib/db";
 import {
+  ACTIVE_CUSTOMER_FILTER,
+  isActiveCustomer,
+} from "@/lib/active-customer";
+import {
   REQUIRED_CUSTOMER_FIELDS,
   missingRequiredFields,
   type RequiredCustomerField,
@@ -58,6 +62,8 @@ export interface ResolvedCustomer {
   storeId: string;
   userId: string | null;
   lineUserId: string | null;
+  mergedIntoCustomerId: string | null;
+  mergedAt: Date | null;
 }
 
 export interface ResolveOpts {
@@ -98,6 +104,8 @@ const CUSTOMER_SELECT = {
   storeId: true,
   userId: true,
   lineUserId: true,
+  mergedIntoCustomerId: true,
+  mergedAt: true,
 } as const;
 
 async function getLineProviderAccountId(userId: string): Promise<string | null> {
@@ -125,7 +133,7 @@ async function bindLoginIdentityToCustomer(opts: {
       : {};
 
   const updated = await prisma.customer.update({
-    where: { id: opts.customer.id },
+    where: { id: opts.customer.id, ...ACTIVE_CUSTOMER_FILTER },
     data: {
       userId: opts.userId,
       ...lineData,
@@ -184,7 +192,7 @@ export async function resolveCustomerForUser(
         where: { id: opts.sessionCustomerId },
         select: CUSTOMER_SELECT,
       });
-      if (c) {
+      if (c && isActiveCustomer(c)) {
         // 額外驗 userId 仍綁在當前 user。merge 後 placeholder 仍會留在 DB（FK 擋住 delete），
         // 它的 userId 已被清成 null，但 phone 仍是 `_oauth_xxx`；JWT customerId 來不及刷新時
         // 會命中這筆 placeholder → completion gate 判定 phone 缺漏 → 死循環跳回 /profile。
@@ -245,7 +253,7 @@ export async function resolveCustomerForUser(
           },
           select: { customer: { select: CUSTOMER_SELECT } },
         });
-        if (link?.customer) {
+        if (link && isActiveCustomer(link.customer)) {
           console.info("[resolveCustomer] found_by_identity_link (provider)", {
             ...logCtx,
             customerId: link.customer.id,
@@ -263,7 +271,7 @@ export async function resolveCustomerForUser(
         },
         select: { customer: { select: CUSTOMER_SELECT } },
       });
-      if (link?.customer) {
+      if (link && isActiveCustomer(link.customer)) {
         console.info("[resolveCustomer] found_by_identity_link (user-store)", {
           ...logCtx,
           customerId: link.customer.id,
@@ -281,8 +289,8 @@ export async function resolveCustomerForUser(
   try {
     const c = await prisma.customer.findFirst({
       where: opts.storeId
-        ? { userId: opts.userId, storeId: opts.storeId }
-        : { userId: opts.userId },
+        ? { userId: opts.userId, storeId: opts.storeId, ...ACTIVE_CUSTOMER_FILTER }
+        : { userId: opts.userId, ...ACTIVE_CUSTOMER_FILTER },
       select: CUSTOMER_SELECT,
     });
     if (c) {
@@ -305,7 +313,11 @@ export async function resolveCustomerForUser(
       const lineUserId = await getLineProviderAccountId(opts.userId);
       if (lineUserId) {
         const c = await prisma.customer.findFirst({
-          where: { storeId: opts.storeId, lineUserId },
+          where: {
+            storeId: opts.storeId,
+            lineUserId,
+            ...ACTIVE_CUSTOMER_FILTER,
+          },
           select: CUSTOMER_SELECT,
         });
         if (c) {
@@ -357,7 +369,11 @@ export async function resolveCustomerForUser(
   if (emailForLookup && opts.storeId) {
     try {
       const candidates = await prisma.customer.findMany({
-        where: { email: emailForLookup, storeId: opts.storeId },
+        where: {
+          email: emailForLookup,
+          storeId: opts.storeId,
+          ...ACTIVE_CUSTOMER_FILTER,
+        },
         select: CUSTOMER_SELECT,
         take: 2,
       });
@@ -443,7 +459,11 @@ export async function resolveCustomerForUser(
   if (normalizedPayloadPhone && opts.storeId) {
     try {
       const candidates = await prisma.customer.findMany({
-        where: { phone: normalizedPayloadPhone, storeId: opts.storeId },
+        where: {
+          phone: normalizedPayloadPhone,
+          storeId: opts.storeId,
+          ...ACTIVE_CUSTOMER_FILTER,
+        },
         select: CUSTOMER_SELECT,
         take: 2,
       });

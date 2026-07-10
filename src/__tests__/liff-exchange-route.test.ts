@@ -103,6 +103,8 @@ describe("POST /api/liff/exchange", () => {
       userId: "user-1",
       name: "Alice",
       lineName: "alice-line",
+      mergedIntoCustomerId: null,
+      mergedAt: null,
     });
     mockSignIn.mockResolvedValueOnce("http://localhost:3001/");
 
@@ -131,6 +133,8 @@ describe("POST /api/liff/exchange", () => {
         id: "cust-hsinchu",
         name: "Alice Hsinchu",
         lineName: null,
+        mergedIntoCustomerId: null,
+        mergedAt: null,
       },
     });
     mockSignIn.mockResolvedValueOnce("http://localhost:3001/");
@@ -147,6 +151,51 @@ describe("POST /api/liff/exchange", () => {
       storeSlug: "zhubei",
       redirect: false,
     });
+  });
+
+  it("IdentityLink 指向 merged Customer → 409，不 fallback 或建立新 onboarding", async () => {
+    mockVerify.mockResolvedValueOnce(verifiedOk());
+    mockResolveStoreBySlug.mockResolvedValueOnce(STORE);
+    mockIdentityLinkFindUnique.mockResolvedValueOnce({
+      userId: "user-line",
+      customer: {
+        id: "merged-shell",
+        name: "Archived",
+        lineName: null,
+        mergedIntoCustomerId: "canonical-other-store",
+        mergedAt: new Date("2026-07-10T00:00:00Z"),
+      },
+    });
+
+    const res = await POST(postReq({ idToken: "tok", storeSlug: "zhubei" }));
+
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({
+      status: "error",
+      code: "CUSTOMER_ARCHIVED",
+    });
+    expect(mockCustomerFindFirst).not.toHaveBeenCalled();
+    expect(mockSignIn).not.toHaveBeenCalled();
+  });
+
+  it("legacy fallback 命中 merged Customer → 409，不進 onboarding", async () => {
+    mockVerify.mockResolvedValueOnce(verifiedOk());
+    mockResolveStoreBySlug.mockResolvedValueOnce(STORE);
+    mockIdentityLinkFindUnique.mockResolvedValueOnce(null);
+    mockCustomerFindFirst.mockResolvedValueOnce({
+      id: "merged-shell",
+      userId: null,
+      name: "Archived",
+      lineName: null,
+      mergedIntoCustomerId: "canonical-other-store",
+      mergedAt: new Date("2026-07-10T00:00:00Z"),
+    });
+
+    const res = await POST(postReq({ idToken: "tok", storeSlug: "zhubei" }));
+
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({ code: "CUSTOMER_ARCHIVED" });
+    expect(mockSignIn).not.toHaveBeenCalled();
   });
 
   it("[plan path 2] aud mismatch → 401 ID_TOKEN_AUD_MISMATCH", async () => {
@@ -257,6 +306,8 @@ describe("POST /api/liff/exchange", () => {
       userId: null,
       name: "Charlie",
       lineName: null,
+      mergedIntoCustomerId: null,
+      mergedAt: null,
     });
     const res = await POST(postReq({ idToken: "tok", storeSlug: "zhubei" }));
     expect(res.status).toBe(200);
@@ -272,6 +323,8 @@ describe("POST /api/liff/exchange", () => {
       userId: "user-1",
       name: "Alice",
       lineName: null,
+      mergedIntoCustomerId: null,
+      mergedAt: null,
     });
     mockSignIn.mockRejectedValueOnce(new Error("CredentialsSignin"));
     const res = await POST(postReq({ idToken: "tok", storeSlug: "zhubei" }));
@@ -287,6 +340,8 @@ describe("POST /api/liff/exchange", () => {
       userId: "user-3",
       name: "DB Name",
       lineName: "LINE 暱稱",
+      mergedIntoCustomerId: null,
+      mergedAt: null,
     });
     mockSignIn.mockResolvedValueOnce("http://localhost:3001/");
     const res = await POST(postReq({ idToken: "tok", storeSlug: "zhubei" }));
@@ -302,6 +357,8 @@ describe("POST /api/liff/exchange", () => {
       userId: "user-4",
       name: "DB Name",
       lineName: null,
+      mergedIntoCustomerId: null,
+      mergedAt: null,
     });
     mockSignIn.mockResolvedValueOnce("http://localhost:3001/");
     const res = await POST(postReq({ idToken: "tok", storeSlug: "zhubei" }));

@@ -23,6 +23,7 @@
 import { z } from "zod";
 import { signIn } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { isActiveCustomer } from "@/lib/active-customer";
 import {
   LiffIdTokenError,
   verifyLiffIdToken,
@@ -62,6 +63,7 @@ type ResponseBody =
         | "ID_TOKEN_ISS_MISMATCH"
         | "VERIFY_NETWORK"
         | "SESSION_MINT_FAILED"
+        | "CUSTOMER_ARCHIVED"
         | "INTERNAL";
       message: string;
     };
@@ -167,15 +169,73 @@ export async function POST(req: Request): Promise<Response> {
     },
     select: {
       userId: true,
-      customer: { select: { id: true, name: true, lineName: true } },
+      customer: {
+        select: {
+          id: true,
+          name: true,
+          lineName: true,
+          mergedIntoCustomerId: true,
+          mergedAt: true,
+        },
+      },
     },
   });
-  const customer = identityLink
-    ? { ...identityLink.customer, userId: identityLink.userId }
+  if (identityLink && !isActiveCustomer(identityLink.customer)) {
+    logLineBindEvent({
+      path: "liff-exchange",
+      status: "unexpected_error",
+      storeId: store.id,
+      storeSlug: store.slug,
+      lineUserId: verified.lineUserId,
+      customerId: identityLink.customer.id,
+      errorCode: "MERGED_CUSTOMER_BLOCKED",
+    });
+    return json(
+      {
+        status: "error",
+        code: "CUSTOMER_ARCHIVED",
+        message: "customer identity is archived; please sign in again",
+      },
+      409,
+    );
+  }
+
+  const legacyCustomer = identityLink
+    ? null
     : await prisma.customer.findFirst({
         where: { storeId: store.id, lineUserId: verified.lineUserId },
-        select: { id: true, userId: true, name: true, lineName: true },
+        select: {
+          id: true,
+          userId: true,
+          name: true,
+          lineName: true,
+          mergedIntoCustomerId: true,
+          mergedAt: true,
+        },
       });
+  if (legacyCustomer && !isActiveCustomer(legacyCustomer)) {
+    logLineBindEvent({
+      path: "liff-exchange",
+      status: "unexpected_error",
+      storeId: store.id,
+      storeSlug: store.slug,
+      lineUserId: verified.lineUserId,
+      customerId: legacyCustomer.id,
+      errorCode: "MERGED_CUSTOMER_BLOCKED",
+    });
+    return json(
+      {
+        status: "error",
+        code: "CUSTOMER_ARCHIVED",
+        message: "customer identity is archived; please sign in again",
+      },
+      409,
+    );
+  }
+
+  const customer = identityLink
+    ? { ...identityLink.customer, userId: identityLink.userId }
+    : legacyCustomer;
 
   if (!customer || !customer.userId) {
     // 沒 customer 或 customer 還沒綁 user → 走 onboarding 補手機 (PR-C)

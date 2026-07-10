@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/db";
+import { ACTIVE_CUSTOMER_FILTER } from "@/lib/active-customer";
 import { requireSession, requireStaffSession } from "@/lib/session";
 import { compareSync, hashSync } from "bcryptjs";
 import { revalidatePath } from "next/cache";
@@ -138,6 +139,7 @@ async function findRealCustomerForMerge(opts: {
   const { storeId, phone, email, lineUserId, excludeCustomerId } = opts;
   const baseWhere = {
     storeId,
+    ...ACTIVE_CUSTOMER_FILTER,
     ...(excludeCustomerId ? { id: { not: excludeCustomerId } } : {}),
   };
 
@@ -572,7 +574,7 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
 
       // 2) 當前 user 是否已有 Customer（可能是 auth.ts 首登建的佔位，可能在同/別店）
       const existingByUserId = await prisma.customer.findUnique({
-        where: { userId: user.id },
+        where: { userId: user.id, ...ACTIVE_CUSTOMER_FILTER },
         select: { id: true, storeId: true, phone: true },
       });
 
@@ -977,7 +979,12 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
     // 額外的 unique 檢查：phone/email 是否被「其他」人佔用（同店）
     if (phone !== resolved.customer.phone) {
       const existingPhone = await prisma.customer.findFirst({
-        where: { phone, id: { not: customerId }, storeId: customerStoreId },
+        where: {
+          phone,
+          id: { not: customerId },
+          storeId: customerStoreId,
+          ...ACTIVE_CUSTOMER_FILTER,
+        },
       });
       if (existingPhone) {
         return { error: "此聯絡電話已被其他帳號使用", success: false };
@@ -986,7 +993,12 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
     // email 為選填，只有實際輸入了才檢查唯一（null vs null 不算衝突）
     if (email && email !== resolved.customer.email) {
       const existingEmail = await prisma.customer.findFirst({
-        where: { email, id: { not: customerId }, storeId: customerStoreId },
+        where: {
+          email,
+          id: { not: customerId },
+          storeId: customerStoreId,
+          ...ACTIVE_CUSTOMER_FILTER,
+        },
       });
       if (existingEmail) {
         return { error: "此 Email 已被其他帳號使用", success: false };

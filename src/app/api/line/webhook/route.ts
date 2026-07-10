@@ -11,6 +11,7 @@
 import { verifyLineSignature, replyMessage } from "@/lib/line";
 import { getLineWebhookDiagnosticsForStore } from "@/lib/line-config";
 import { prisma } from "@/lib/db";
+import { ACTIVE_CUSTOMER_FILTER } from "@/lib/active-customer";
 import { normalizePhone } from "@/lib/normalize";
 import { bindLineToCustomerInStore } from "@/server/services/bind-line-to-customer";
 import { syncLineAccountForUser } from "@/server/services/line-account-sync";
@@ -168,7 +169,12 @@ async function handleFollow(lineUserId: string, storeId: string, replyToken?: st
 
   // 若之前被封鎖，自動恢復綁定（限同店）
   const blocked = await prisma.customer.findFirst({
-    where: { lineUserId, storeId, lineLinkStatus: "BLOCKED" },
+    where: {
+      lineUserId,
+      storeId,
+      lineLinkStatus: "BLOCKED",
+      ...ACTIVE_CUSTOMER_FILTER,
+    },
   });
 
   if (blocked) {
@@ -221,7 +227,7 @@ async function handleUnfollow(lineUserId: string, storeId: string) {
 
   // B7-4.5: 只更新同店的 customer
   const result = await prisma.customer.updateMany({
-    where: { lineUserId, storeId },
+    where: { lineUserId, storeId, ...ACTIVE_CUSTOMER_FILTER },
     data: { lineLinkStatus: "BLOCKED" },
   });
 
@@ -323,7 +329,12 @@ async function handleBindingRequest(
 
   // 1. 此 LINE 是否已綁定同店其他顧客
   const existingLinked = await prisma.customer.findFirst({
-    where: { lineUserId, storeId, lineLinkStatus: "LINKED" },
+    where: {
+      lineUserId,
+      storeId,
+      lineLinkStatus: "LINKED",
+      ...ACTIVE_CUSTOMER_FILTER,
+    },
   });
 
   if (existingLinked) {
@@ -349,7 +360,11 @@ async function handleBindingRequest(
 
   // 2. 查詢綁定碼（限同店）
   const customer = await prisma.customer.findFirst({
-    where: { lineBindingCode: bindingCode, storeId },
+    where: {
+      lineBindingCode: bindingCode,
+      storeId,
+      ...ACTIVE_CUSTOMER_FILTER,
+    },
   });
 
   if (!customer) {
