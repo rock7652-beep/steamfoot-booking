@@ -41,6 +41,8 @@ import {
   type HealthSummary,
 } from "@/lib/health-service";
 import { healthFlowLiffUrl } from "@/lib/liff/messages";
+import { requireStoreFeature } from "@/lib/feature-gate";
+import { FEATURES } from "@/lib/feature-flags";
 
 // PR-H2c：移除 self-computed score。
 // HealthFlow summary API 不回官方 score / riskLevel；Steamfoot 自算的 68 與 HealthFlow
@@ -62,12 +64,14 @@ export type FetchLiffHealthSummaryResult =
       reason: "unlinked" | "not_found" | "error";
     }
   | { status: "no_customer" }
+  | { status: "feature_unavailable" }
   | { status: "service_unavailable" };
 
 export type CreateHealthflowEntryUrlResult =
   | { status: "ok"; url: string }
   | { status: "no_customer" }
   | { status: "store_mismatch" }
+  | { status: "feature_unavailable" }
   | { status: "service_unavailable" };
 
 export async function createHealthflowEntryUrl(
@@ -92,6 +96,12 @@ export async function createHealthflowEntryUrl(
     return { status: "service_unavailable" };
   }
   if (!store) return { status: "store_mismatch" };
+
+  try {
+    await requireStoreFeature(store.id, FEATURES.AI_HEALTH_SUMMARY);
+  } catch {
+    return { status: "feature_unavailable" };
+  }
 
   const customer = await getCanonicalCustomerForSession(user);
   if (!customer) return { status: "no_customer" };
@@ -154,6 +164,7 @@ export async function fetchLiffHealthSummary(): Promise<FetchLiffHealthSummaryRe
       where: { id: customerId },
       select: {
         id: true,
+        storeId: true,
         healthProfileId: true,
         healthLinkStatus: true,
       },
@@ -163,6 +174,12 @@ export async function fetchLiffHealthSummary(): Promise<FetchLiffHealthSummaryRe
     return { status: "service_unavailable" };
   }
   if (!customer) return { status: "no_customer" };
+
+  try {
+    await requireStoreFeature(customer.storeId, FEATURES.AI_HEALTH_SUMMARY);
+  } catch {
+    return { status: "feature_unavailable" };
+  }
 
   // ── 4. Branch by linkStatus ────────────────────────
   if (!customer.healthProfileId || customer.healthLinkStatus !== "linked") {
@@ -179,7 +196,7 @@ export async function fetchLiffHealthSummary(): Promise<FetchLiffHealthSummaryRe
   // ── 5. Fetch HealthFlow summary (safe wrapper, 5min LRU)
   const summary = await getHealthSummarySafe(customer.healthProfileId, {
     customerId,
-    storeId: user.storeId ?? undefined,
+    storeId: customer.storeId,
   });
   if (!summary) {
     // HealthFlow API 失敗（safeApi 已 log + monitor）
