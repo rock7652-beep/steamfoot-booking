@@ -1,6 +1,10 @@
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { getActiveStoreForRead } from "@/lib/store";
+import {
+  resolveStoreViewContextFromCookie,
+  storeIdForViewContext,
+} from "@/lib/store-view-context-server";
 import { listTransactions } from "@/server/queries/transaction";
 import { monthlyStoreSummary } from "@/server/queries/report";
 import { toLocalDateStr, formatTWTime } from "@/lib/date-utils";
@@ -64,6 +68,9 @@ export default async function RevenuePage() {
   if (!allowed) redirect("/dashboard");
 
   const activeStoreId = await getActiveStoreForRead(user);
+  const storeViewContext = await resolveStoreViewContextFromCookie(user);
+  const isViewMode = storeViewContext?.isViewMode ?? false;
+  const revenueStoreId = storeIdForViewContext(activeStoreId, storeViewContext);
   const today = toLocalDateStr();
   const month = today.slice(0, 7);
 
@@ -71,10 +78,14 @@ export default async function RevenuePage() {
     listTransactions({
       excludeSessionDeduction: true,
       pageSize: 15,
-      activeStoreId,
+      activeStoreId: revenueStoreId,
     }),
-    monthlyStoreSummary(month, { startDate: today, endDate: today, activeStoreId }),
-    monthlyStoreSummary(month, { activeStoreId }),
+    monthlyStoreSummary(month, {
+      startDate: today,
+      endDate: today,
+      activeStoreId: revenueStoreId,
+    }),
+    monthlyStoreSummary(month, { activeStoreId: revenueStoreId }),
   ]);
 
   const monthOrderCount = monthSummary.staffBreakdown.reduce(
@@ -155,7 +166,9 @@ export default async function RevenuePage() {
     { href: "/dashboard/store-revenue", label: "收入總覽", hint: "月 / 季 / 年報表" },
     { href: "/dashboard/transactions", label: "交易紀錄", hint: "所有收退款明細" },
     { href: "/dashboard/cashbook", label: "現金帳", hint: "手工收支記帳" },
-    { href: "/dashboard/reconciliation", label: "對帳中心", hint: "系統對帳差異" },
+    ...(!isViewMode
+      ? [{ href: "/dashboard/reconciliation", label: "對帳中心", hint: "系統對帳差異" }]
+      : []),
   ];
 
   return (
@@ -172,6 +185,12 @@ export default async function RevenuePage() {
           </Link>
         }
       />
+
+      {isViewMode && (
+        <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
+          目前正在檢視分店營收，資料與明細皆為唯讀。
+        </div>
+      )}
 
       <KpiStrip items={kpis} />
 
@@ -195,7 +214,7 @@ export default async function RevenuePage() {
               <EmptyRow
                 title="近期尚無交易"
                 hint="本月開始累積後會出現在這裡"
-                cta={{ label: "手動記帳", href: "/dashboard/cashbook" }}
+                cta={isViewMode ? undefined : { label: "手動記帳", href: "/dashboard/cashbook" }}
               />
             ) : (
               <DataTable
@@ -211,7 +230,10 @@ export default async function RevenuePage() {
 
         {/* 右側：快速導航 + 本月概況 */}
         <aside className="col-span-12 space-y-3 lg:col-span-4">
-          <SideCard title="快速導航" subtitle="四個子系統入口">
+          <SideCard
+            title="快速導航"
+            subtitle={isViewMode ? "三個唯讀子系統入口" : "四個子系統入口"}
+          >
             <div className="flex flex-col gap-1">
               {quickLinks.map((l) => (
                 <Link
