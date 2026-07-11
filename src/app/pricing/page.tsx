@@ -49,18 +49,14 @@ const COMPARISON_ROWS: {
   { label: "基本報表", basic: "內含", pro: "內含", alliance: "內含" },
   { label: "前台預約入口", basic: "內含", pro: "內含", alliance: "內含" },
   { label: "LINE 綁定狀態", basic: "內含", pro: "內含", alliance: "內含" },
-  { label: "AI 健康評估入口", basic: "內含", pro: "內含", alliance: "內含" },
   { label: "LINE 自動提醒", basic: "$500 工具模組", pro: "$500 工具模組", alliance: "內含" },
   { label: "資料匯出", basic: "$500 工具模組", pro: "$500 工具模組", alliance: "內含" },
   { label: "現金抽屜", basic: "$500 工具模組", pro: "內含", alliance: "內含" },
   { label: "顧客經營", basic: "$800 經營模組", pro: "內含", alliance: "內含" },
-  { label: "AI 健康摘要", basic: "$800 經營模組", pro: "$800 經營模組", alliance: "內含" },
+  { label: "健康評估／摘要", basic: "$800 經營模組", pro: "$800 經營模組", alliance: "內含" },
   { label: "經營診斷報表", basic: "$800 經營模組", pro: "$800 經營模組", alliance: "內含" },
   { label: "月結管理", basic: "$800 經營模組", pro: "$800 經營模組", alliance: "內含" },
   { label: "多店管理", basic: "-", pro: "-", alliance: "內含" },
-  { label: "總部視角", basic: "-", pro: "-", alliance: "內含" },
-  { label: "店舖功能開關", basic: "-", pro: "-", alliance: "內含" },
-  { label: "合作店長結算管理", basic: "-", pro: "-", alliance: "內含" },
 ];
 
 // ============================================================
@@ -105,7 +101,7 @@ export default function PricingPage() {
           <div className="mx-auto mt-4 flex max-w-md flex-col gap-2 text-left sm:items-center sm:text-center">
             <HeroPoint text="基本預約、顧客、方案堂數與收款管理" />
             <HeroPoint text="顧客回訪、現金管理與經營診斷" />
-            <HeroPoint text="總部視角、多店管理與合作店長月結" />
+            <HeroPoint text="多店管理、分店資料與月結管理" />
           </div>
           <div className="mt-10 flex flex-wrap justify-center gap-3">
             <Link
@@ -168,7 +164,7 @@ export default function PricingPage() {
             <SolutionCard
               number="3"
               title="支援多店展店"
-              description="總部視角、分店資料與合作店長月結一次到位"
+              description="多店管理、分店資料與月結管理一次到位"
               color="indigo"
             />
           </div>
@@ -200,7 +196,7 @@ export default function PricingPage() {
               ]}
               locked={[
                 "顧客經營",
-                "AI 健康摘要",
+                "健康評估／摘要",
                 "經營診斷報表",
                 "月結管理",
               ]}
@@ -235,21 +231,22 @@ export default function PricingPage() {
             {/* ALLIANCE */}
             <PlanCard
               plan="ALLIANCE"
-              tagline="總部、多店、合作店長模式"
-              audience="適合總部管理、展店與合作店長結算"
+              tagline="多店與合作店長管理"
+              audience="適合兩家店以上、多店經營與合作店長月結"
               features={[
                 "原價 NT$ 7,100/月起",
                 "限時優惠價 NT$ 4,990/月起",
                 "功能全含",
                 "總部管理 + 1 家分店",
                 "第二家分店起，每家 +$1,000/月分店營運費",
-                "多店管理、總部視角、店舖功能開關",
+                "多店管理",
+                "月結管理",
               ]}
               unlockTitle="包含能力"
               unlocks={[
                 "分店資料同步",
-                "合作店長月結",
-                "總部營運管理",
+                "多店營運管理",
+                "月結管理",
               ]}
               accent="indigo"
               highlighted={false}
@@ -274,8 +271,8 @@ export default function PricingPage() {
             <UpgradeScenario
               lockLabel="專業版"
               feature="多店管理"
-              pain="你已經做好單店經營，但展店後需要總部視角、分店資料同步與權限管理。"
-              solution="升級展店版，讓總部能管理多店與合作店長月結。"
+              pain="你已經做好單店經營，但展店後需要多店檢視、分店資料與月結管理。"
+              solution="升級展店版，管理多店與合作店長月結。"
               cta="查看展店版"
               color="indigo"
             />
@@ -303,15 +300,15 @@ export default function PricingPage() {
                     <th className="px-6 py-3 text-left font-medium text-earth-600">
                       功能
                     </th>
-	                    <th className="px-4 py-3 text-center font-medium text-primary-700">
-	                      基礎版
-	                    </th>
-	                    <th className="px-4 py-3 text-center font-medium text-amber-700">
-	                      專業版
-	                    </th>
-	                    <th className="px-4 py-3 text-center font-medium text-indigo-700">
-	                      展店版
-	                    </th>
+                    <th className="px-4 py-3 text-center font-medium text-primary-700">
+                      基礎版
+                    </th>
+                    <th className="px-4 py-3 text-center font-medium text-amber-700">
+                      專業版
+                    </th>
+                    <th className="px-4 py-3 text-center font-medium text-indigo-700">
+                      展店版
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
