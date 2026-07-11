@@ -6,9 +6,9 @@ import {
 import type { PricingPlan } from "@prisma/client";
 
 export const metadata = {
-  title: "方案價格 — 蒸足預約管理系統",
+  title: "方案與價格 — 蒸管家",
   description:
-    "限時優惠價方案，從單店基本營運、顧客經營到總部多店管理，選擇最適合你的方案。",
+    "蒸管家服務品牌成長系統，從單店營運、顧客經營到多店管理，適用於預約制門市、工作室與服務品牌。",
 };
 
 // ============================================================
@@ -70,7 +70,7 @@ export default function PricingPage() {
       <header className="sticky top-0 z-30 border-b border-earth-100 bg-white/80 backdrop-blur-sm">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <Link href="/" className="text-lg font-bold text-earth-900">
-            蒸足
+            蒸管家
           </Link>
           <div className="flex items-center gap-3">
             <Link
@@ -93,10 +93,10 @@ export default function PricingPage() {
         {/* ── Hero ── */}
         <section className="mx-auto max-w-4xl px-6 pb-16 pt-20 text-center">
           <h1 className="text-3xl font-extrabold tracking-tight text-earth-900 sm:text-5xl">
-            蒸足系統方案｜限時優惠價
+            蒸管家｜服務品牌成長系統
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-earth-600">
-            從單店基本營運、顧客經營到總部多店管理，依門市階段選擇適合方案。
+            從單店營運、顧客經營到多店管理，適用於預約制門市、工作室與服務品牌。
           </p>
           <div className="mx-auto mt-4 flex max-w-md flex-col gap-2 text-left sm:items-center sm:text-center">
             <HeroPoint text="基本預約、顧客、方案堂數與收款管理" />
@@ -146,7 +146,7 @@ export default function PricingPage() {
         {/* ── 解法區 ── */}
         <section className="mx-auto max-w-5xl px-6 py-20">
           <h2 className="text-center text-2xl font-bold text-earth-900 sm:text-3xl">
-            蒸足系統幫你做到
+            蒸管家幫你做到
           </h2>
           <div className="mt-12 grid gap-8 sm:grid-cols-3">
             <SolutionCard
@@ -413,7 +413,7 @@ export default function PricingPage() {
 
       {/* Footer */}
       <footer className="border-t border-earth-100 bg-white px-6 py-8 text-center text-xs text-earth-400">
-        &copy; {new Date().getFullYear()} 蒸足預約管理系統
+        &copy; {new Date().getFullYear()} 蒸管家｜服務品牌成長系統
       </footer>
     </div>
   );
