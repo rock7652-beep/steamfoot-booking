@@ -132,7 +132,7 @@ export function MobileNav({
       >
         <div className="flex items-center justify-between border-b border-earth-200 px-5 py-4">
           <div>
-            <p className="text-lg font-bold text-earth-900">{storeName}</p>
+            <p className="text-lg font-bold text-earth-900">蒸管家</p>
             <p className="mt-1 text-sm text-earth-700">{userName}</p>
           </div>
           <button

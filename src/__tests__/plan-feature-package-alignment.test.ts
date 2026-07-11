@@ -14,7 +14,7 @@ function expectUnavailable(plan: "BASIC" | "GROWTH", features: FeatureKey[]) {
 }
 
 describe("plan feature package alignment", () => {
-  it("keeps 基礎版 tool and management modules as per-store add-ons", () => {
+  it("keeps 基本版 tool and management modules as per-store add-ons", () => {
     expectUnavailable("BASIC", [
       FEATURES.LINE_REMINDER,
       FEATURES.CASH_DRAWER,

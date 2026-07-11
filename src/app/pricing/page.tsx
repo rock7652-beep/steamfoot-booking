@@ -30,7 +30,7 @@ const PLAN_ORIGINAL_PRICE: Partial<Record<PricingPlan, string>> = {
 
 const PLAN_CTA_LABEL: Record<PricingPlan, string> = {
   EXPERIENCE: "免費體驗",
-  BASIC: "選擇基礎版",
+  BASIC: "選擇基本版",
   GROWTH: "選擇專業版",
   ALLIANCE: "聯繫我們",
 };
@@ -212,7 +212,7 @@ export default function PricingPage() {
               features={[
                 "原價 NT$ 3,600/月",
                 "限時優惠價 NT$ 2,490/月",
-                "基礎版全部功能",
+                "基本版全部功能",
                 "顧客經營",
                 "現金抽屜",
                 "可選 1 個 $500 工具型模組",
@@ -261,7 +261,7 @@ export default function PricingPage() {
           </h2>
           <div className="mt-12 space-y-6">
             <UpgradeScenario
-              lockLabel="基礎版"
+              lockLabel="基本版"
               feature="顧客經營"
               pain="你已經能管理預約與顧客，但還需要知道誰很久沒來、誰快到期、誰需要回訪。"
               solution="升級專業版，開始用顧客經營和現金抽屜管理現場。"
@@ -301,7 +301,7 @@ export default function PricingPage() {
                       功能
                     </th>
                     <th className="px-4 py-3 text-center font-medium text-primary-700">
-                      基礎版
+                      基本版
                     </th>
                     <th className="px-4 py-3 text-center font-medium text-amber-700">
                       專業版
@@ -342,9 +342,9 @@ export default function PricingPage() {
                 <tr className="border-b border-earth-100 bg-earth-50">
                   <th className="px-6 py-2.5 text-left font-medium text-earth-600">項目</th>
                   <th className="px-4 py-2.5 text-center font-medium text-earth-600">體驗版</th>
-                  <th className="px-4 py-2.5 text-center font-medium text-primary-700">BASIC</th>
-                  <th className="px-4 py-2.5 text-center font-medium text-amber-700">PRO</th>
-                  <th className="px-4 py-2.5 text-center font-medium text-indigo-700">ALLIANCE</th>
+                  <th className="px-4 py-2.5 text-center font-medium text-primary-700">基本版</th>
+                  <th className="px-4 py-2.5 text-center font-medium text-amber-700">專業版</th>
+                  <th className="px-4 py-2.5 text-center font-medium text-indigo-700">展店版</th>
                 </tr>
               </thead>
               <tbody>

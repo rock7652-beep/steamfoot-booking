@@ -21,7 +21,7 @@ export const FEATURES = {
   STAFF_MANAGEMENT: "staff_management",
   DUTY_SCHEDULING: "duty_scheduling",
 
-  // ── BASIC（基礎版）──
+// ── BASIC（基本版）──
   LINE_REMINDER: "line_reminder",
   TRANSACTION: "transaction",
   TRANSACTION_MANAGEMENT: "transaction_management",
@@ -222,8 +222,8 @@ export const PRICING_PLAN_INFO: Record<PricingPlan, {
     audience: "剛起步、想先試用的店家",
   },
   BASIC: {
-    label: "基礎版",
-    shortLabel: "BASIC",
+    label: "基本版",
+    shortLabel: "基本版",
     color: "text-primary-700",
     bgColor: "bg-primary-100",
     description: "適合單店日常營運",

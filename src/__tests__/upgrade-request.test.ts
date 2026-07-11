@@ -2,8 +2,8 @@
  * 方案升級 — Store.plan 唯一真相驗證
  *
  * 6 組驗收場景：
- * 1. 手動 BASIC → GROWTH（基礎版 → 專業版）
- * 2. 手動 GROWTH → BASIC（專業版 → 基礎版）
+ * 1. 手動 BASIC → GROWTH（基本版 → 專業版）
+ * 2. 手動 GROWTH → BASIC（專業版 → 基本版）
  * 3. 試用開通（adminStartTrial）
  * 4. 試用到期（processExpiredTrials）
  * 5. 升級申請審核通過（reviewUpgradeRequest UPGRADE）
@@ -89,7 +89,7 @@ vi.mock("@/lib/revalidation", () => ({
 vi.mock("@/lib/feature-flags", () => ({
   PRICING_PLAN_INFO: {
     EXPERIENCE: { label: "體驗版" },
-    BASIC: { label: "基礎版" },
+    BASIC: { label: "基本版" },
     GROWTH: { label: "專業版" },
     ALLIANCE: { label: "聯盟版" },
   },
@@ -120,10 +120,10 @@ beforeEach(() => {
 });
 
 // ============================================================
-// 1. 手動 BASIC → GROWTH（基礎版 → 專業版）
+// 1. 手動 BASIC → GROWTH（基本版 → 專業版）
 // ============================================================
 
-describe("1. 手動基礎版 → 專業版 (adminChangeStorePlan)", () => {
+describe("1. 手動基本版 → 專業版 (adminChangeStorePlan)", () => {
   it("Store.plan = GROWTH", async () => {
     storeFindUnique.mockResolvedValue({ plan: "BASIC", planStatus: "ACTIVE" });
 
@@ -140,10 +140,10 @@ describe("1. 手動基礎版 → 專業版 (adminChangeStorePlan)", () => {
 });
 
 // ============================================================
-// 2. 手動 GROWTH → BASIC（專業版 → 基礎版）
+// 2. 手動 GROWTH → BASIC（專業版 → 基本版）
 // ============================================================
 
-describe("2. 手動專業版 → 基礎版 (adminChangeStorePlan)", () => {
+describe("2. 手動專業版 → 基本版 (adminChangeStorePlan)", () => {
   it("Store.plan = BASIC", async () => {
     storeFindUnique.mockResolvedValue({ plan: "GROWTH", planStatus: "ACTIVE" });
 
