@@ -81,22 +81,20 @@ const PLANS: PlanCard[] = [
   {
     key: "SCALE",
     name: "展店版",
-    positioning: "總部、多店、合作店長模式",
+    positioning: "多店與合作店長管理",
     cardSubline: "含總部管理 + 1 家分店",
     monthly: "NT$4,990 起",
     originalPrice: "原價 NT$7,100/月起",
     priceNote: "限時優惠價",
-    description: "適合總部管理、多店展店與合作店長月結。",
+    description: "適合兩家店以上、多店經營與合作店長月結。",
     features: [
       "功能全含",
       "包含總部管理 + 1 家分店",
       "第二家分店起，每家 +$1,000/月分店營運費",
       "多店管理",
-      "總部視角",
-      "店舖功能開關",
-      "合作店長結算管理",
+      "月結管理",
     ],
-    audience: ["總部管理", "2 家店以上", "合作店長", "準備展店"],
+    audience: ["2 家店以上", "多店經營", "合作店長", "準備展店"],
     ctaLabel: "聯絡開通展店版",
   },
 ];
@@ -115,18 +113,14 @@ const COMPARE_ROWS: {
   { label: "基本報表", basic: "內含", professional: "內含", scale: "內含" },
   { label: "前台預約入口", basic: "內含", professional: "內含", scale: "內含" },
   { label: "LINE 綁定狀態", basic: "內含", professional: "內含", scale: "內含" },
-  { label: "AI 健康評估入口", basic: "內含", professional: "內含", scale: "內含" },
   { label: "LINE 自動提醒", basic: "$500 工具模組", professional: "$500 工具模組", scale: "內含" },
   { label: "資料匯出", basic: "$500 工具模組", professional: "$500 工具模組", scale: "內含" },
   { label: "現金抽屜", basic: "$500 工具模組", professional: "內含", scale: "內含" },
   { label: "顧客經營", basic: "$800 經營模組", professional: "內含", scale: "內含" },
-  { label: "AI 健康摘要", basic: "$800 經營模組", professional: "$800 經營模組", scale: "內含" },
+  { label: "健康評估／摘要", basic: "$800 經營模組", professional: "$800 經營模組", scale: "內含" },
   { label: "經營診斷報表", basic: "$800 經營模組", professional: "$800 經營模組", scale: "內含" },
   { label: "月結管理", basic: "$800 經營模組", professional: "$800 經營模組", scale: "內含" },
   { label: "多店管理", basic: "-", professional: "-", scale: "內含" },
-  { label: "總部視角", basic: "-", professional: "-", scale: "內含" },
-  { label: "店舖功能開關", basic: "-", professional: "-", scale: "內含" },
-  { label: "合作店長結算管理", basic: "-", professional: "-", scale: "內含" },
 ];
 
 // ── 目前方案假資料 ──
@@ -450,7 +444,7 @@ export default async function PlansCenterPage() {
         </header>
 
         <div className="overflow-x-auto">
-	          <table className="w-full min-w-[760px] text-[13px]">
+          <table className="w-full min-w-[760px] text-[13px]">
             <thead>
               <tr className="border-y border-earth-100 text-[11px] text-earth-400">
                 <th className="px-5 py-2 text-left font-medium">功能</th>
@@ -472,15 +466,15 @@ export default async function PlansCenterPage() {
                   }
                 >
                   <td className="px-5 py-2 text-earth-600">{row.label}</td>
-	                  <td className="px-3 py-2">
-	                    <ComparisonText value={row.basic} />
-	                  </td>
-	                  <td className="bg-primary-50/40 px-3 py-2">
-	                    <ComparisonText value={row.professional} />
-	                  </td>
-	                  <td className="px-3 py-2">
-	                    <ComparisonText value={row.scale} />
-	                  </td>
+                  <td className="px-3 py-2">
+                    <ComparisonText value={row.basic} />
+                  </td>
+                  <td className="bg-primary-50/40 px-3 py-2">
+                    <ComparisonText value={row.professional} />
+                  </td>
+                  <td className="px-3 py-2">
+                    <ComparisonText value={row.scale} />
+                  </td>
                 </tr>
               ))}
             </tbody>
