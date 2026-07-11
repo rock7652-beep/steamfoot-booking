@@ -6,7 +6,7 @@
  * 與既有 dashboard health-section / health-summary / health-history 共存不取代：
  *   - dashboard 端用 `tryAutoLinkHealth` + `getHealthSummarySafe(healthProfileId, { customerId })`
  *     顯示完整評估歷程
- *   - 本 action 是 LIFF-only read-only 投影：給顧客在 LINE 內看自己的最近評估摘要
+ *   - 本 action 是 LIFF-only read-only投影：給顧客在 LINE 內看自己的最近評估摘要
  *     （不含評估歷程列表 / 趨勢圖 — 那些在 dashboard 才有）
  *
  * 設計合約（mirror fetchLiffWallets / fetchLiffMemberBooking / etc.）：
@@ -64,7 +64,6 @@ export type FetchLiffHealthSummaryResult =
       reason: "unlinked" | "not_found" | "error";
     }
   | { status: "no_customer" }
-  | { status: "feature_unavailable" }
   | { status: "service_unavailable" };
 
 export type CreateHealthflowEntryUrlResult =
@@ -178,7 +177,9 @@ export async function fetchLiffHealthSummary(): Promise<FetchLiffHealthSummaryRe
   try {
     await requireStoreFeature(customer.storeId, FEATURES.AI_HEALTH_SUMMARY);
   } catch {
-    return { status: "feature_unavailable" };
+    // 正常 UI 會在 LIFF page server component 先顯示鎖定狀態；此處保留
+    // hard gate，避免頁面已開啟後功能被關閉時仍繼續讀 HealthFlow。
+    return { status: "service_unavailable" };
   }
 
   // ── 4. Branch by linkStatus ────────────────────────
