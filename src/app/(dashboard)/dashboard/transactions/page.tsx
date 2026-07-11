@@ -2,10 +2,14 @@ import { listTransactions } from "@/server/queries/transaction";
 import { listStaffSelectOptions } from "@/server/queries/staff";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
-import { getCurrentStorePlan } from "@/lib/store-plan";
+import { getCachedStorePlan } from "@/lib/query-cache";
 import { FEATURES } from "@/lib/feature-flags";
 import { FeatureGate } from "@/components/feature-gate";
 import { getActiveStoreForRead } from "@/lib/store";
+import {
+  resolveStoreViewContextFromCookie,
+  storeIdForViewContext,
+} from "@/lib/store-view-context-server";
 import { redirect } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -80,9 +84,14 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
   const dateTo = params.dateTo ?? today;
 
   const activeStoreId = await getActiveStoreForRead(user);
+  const storeViewContext = await resolveStoreViewContextFromCookie(user);
+  const isViewMode = storeViewContext?.isViewMode ?? false;
+  const transactionsStoreId = storeIdForViewContext(activeStoreId, storeViewContext);
   const logCtx = {
     page: "transactions" as const,
-    activeStoreId,
+    activeStoreId: transactionsStoreId,
+    ownStoreId: activeStoreId,
+    isViewMode,
     userId: user.id,
     sessionRole: user.role,
   };
@@ -95,7 +104,7 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
       excludeSessionDeduction: !params.transactionType,
       page,
       pageSize: 30,
-      activeStoreId,
+      activeStoreId: transactionsStoreId,
     }).catch((e) => {
       console.error("[transactions] listTransactions failed", {
         ...logCtx,
@@ -106,7 +115,7 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
         ReturnType<typeof listTransactions>
       >;
     }),
-    listStaffSelectOptions(activeStoreId).catch((e) => {
+    listStaffSelectOptions(transactionsStoreId).catch((e) => {
       console.error("[transactions] listStaffSelectOptions failed", {
         ...logCtx,
         step: "listStaffSelectOptions",
@@ -114,17 +123,23 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
       });
       return [] as Awaited<ReturnType<typeof listStaffSelectOptions>>;
     }),
-    getCurrentStorePlan().catch((e) => {
-      console.error("[transactions] getCurrentStorePlan failed", {
+    getCachedStorePlan(transactionsStoreId ?? user.storeId ?? undefined).catch((e) => {
+      console.error("[transactions] getCachedStorePlan failed", {
         ...logCtx,
-        step: "getCurrentStorePlan",
+        step: "getCachedStorePlan",
         error: e instanceof Error ? e.message : String(e),
       });
       return "EXPERIENCE" as const;
     }),
-    checkPermission(user.role, user.staffId, "transaction.void").catch(() => false),
-    checkPermission(user.role, user.staffId, "transaction.create").catch(() => false),
-    checkPermission(user.role, user.staffId, "transaction.refund").catch(() => false),
+    isViewMode
+      ? Promise.resolve(false)
+      : checkPermission(user.role, user.staffId, "transaction.void").catch(() => false),
+    isViewMode
+      ? Promise.resolve(false)
+      : checkPermission(user.role, user.staffId, "transaction.create").catch(() => false),
+    isViewMode
+      ? Promise.resolve(false)
+      : checkPermission(user.role, user.staffId, "transaction.refund").catch(() => false),
   ]);
 
   const totalPages = Math.ceil(total / pageSize);
@@ -153,6 +168,12 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
           <h1 className="text-xl font-bold text-earth-900">交易紀錄</h1>
         </div>
       </div>
+
+      {isViewMode && (
+        <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
+          目前正在檢視分店交易資料。此頁為唯讀，無法修改、作廢或退款。
+        </div>
+      )}
 
       {/* 篩選列 */}
       <form method="GET" className="mb-4 flex flex-wrap items-end gap-2">
