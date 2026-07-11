@@ -4,6 +4,7 @@ import { getCurrentStorePlan } from "@/lib/store-plan";
 import { FEATURES } from "@/lib/feature-flags";
 import { ServerTiming, withTiming } from "@/lib/perf";
 import { FeatureGate } from "@/components/feature-gate";
+import { resolveStoreViewContextFromCookie } from "@/lib/store-view-context-server";
 import { redirect } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -25,6 +26,26 @@ export default async function ReconciliationPage({ searchParams }: PageProps) {
   const user = await getCurrentUser();
   if (!user || !(await checkPermission(user.role, user.staffId, "report.read"))) {
     redirect("/dashboard");
+  }
+
+  const storeViewContext = await resolveStoreViewContextFromCookie(user);
+  if (storeViewContext?.isViewMode) {
+    return (
+      <div className="mx-auto max-w-3xl space-y-6">
+        <div className="flex items-center gap-3">
+          <Link href="/dashboard/revenue" className="text-sm text-earth-500 hover:text-earth-700">
+            ← 返回營收
+          </Link>
+          <h1 className="text-xl font-bold text-earth-900">對帳中心</h1>
+        </div>
+        <div className="rounded-xl border border-blue-200 bg-blue-50 p-6 text-center shadow-sm">
+          <h2 className="text-base font-semibold text-blue-900">分店檢視模式不提供對帳</h2>
+          <p className="mt-2 text-sm leading-relaxed text-blue-700">
+            目前正在查看分店資料。為避免誤觸母店對帳，請先切回母店後再執行。
+          </p>
+        </div>
+      </div>
+    );
   }
 
   const params = await searchParams;
