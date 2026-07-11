@@ -1,12 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockRequireSession = vi.fn();
+const mockRequireStoreFeature = vi.fn();
 const mockGetCanonicalCustomer = vi.fn();
 const mockStoreFindUnique = vi.fn();
 const mockCustomerFindUnique = vi.fn();
 
 vi.mock("@/lib/session", () => ({
   requireSession: (...args: unknown[]) => mockRequireSession(...args),
+}));
+
+vi.mock("@/lib/feature-gate", () => ({
+  requireStoreFeature: (...args: unknown[]) => mockRequireStoreFeature(...args),
 }));
 
 vi.mock("@/lib/customer-identity", () => ({
@@ -41,10 +46,12 @@ const CUSTOMER = { id: "customer_1", storeId: "store_zhubei" };
 beforeEach(() => {
   vi.stubEnv("HEALTHFLOW_BRIDGE_SECRET", "test-healthflow-bridge-secret");
   mockRequireSession.mockReset();
+  mockRequireStoreFeature.mockReset();
   mockGetCanonicalCustomer.mockReset();
   mockStoreFindUnique.mockReset();
   mockCustomerFindUnique.mockReset();
   mockRequireSession.mockResolvedValue(USER);
+  mockRequireStoreFeature.mockResolvedValue(undefined);
   mockGetCanonicalCustomer.mockResolvedValue(CUSTOMER);
   mockStoreFindUnique.mockResolvedValue({ id: "store_zhubei" });
   mockCustomerFindUnique.mockResolvedValue({
@@ -94,6 +101,10 @@ describe("createHealthflowEntryUrl", () => {
     expect(JSON.stringify(infoSpy.mock.calls)).not.toContain("customer_1");
     expect(JSON.stringify(infoSpy.mock.calls)).not.toContain("store_zhubei");
 
+    expect(mockRequireStoreFeature).toHaveBeenCalledWith(
+      "store_zhubei",
+      "ai_health_summary",
+    );
     expect(mockStoreFindUnique).toHaveBeenCalledWith({
       where: { slug: "zhubei" },
       select: { id: true },
@@ -102,6 +113,21 @@ describe("createHealthflowEntryUrl", () => {
       where: { id: "customer_1" },
       select: { id: true, storeId: true, mergedIntoCustomerId: true },
     });
+  });
+
+  it("blocks signed HealthFlow entry when the store health feature is unavailable", async () => {
+    mockRequireStoreFeature.mockRejectedValueOnce(new Error("FORBIDDEN"));
+
+    await expect(createHealthflowEntryUrl("zhubei")).resolves.toEqual({
+      status: "feature_unavailable",
+    });
+
+    expect(mockRequireStoreFeature).toHaveBeenCalledWith(
+      "store_zhubei",
+      "ai_health_summary",
+    );
+    expect(mockGetCanonicalCustomer).not.toHaveBeenCalled();
+    expect(mockCustomerFindUnique).not.toHaveBeenCalled();
   });
 
   it("rejects unauthenticated customers", async () => {
