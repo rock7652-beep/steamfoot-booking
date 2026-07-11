@@ -9,7 +9,8 @@ import {
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { getCachedStorePlan } from "@/lib/query-cache";
-import { hasFeature, FEATURES } from "@/lib/feature-flags";
+import { FEATURES } from "@/lib/feature-flags";
+import { hasStoreFeature } from "@/lib/feature-gate";
 import {
   DATA_EXPORT_LOCKED_MESSAGE,
   DATA_EXPORT_SELECT_STORE_MESSAGE,
@@ -44,7 +45,7 @@ import {
  * 沿用：
  *   - monthlyStoreSummary / monthlyRevenueByCategory（不改計算邏輯）
  *   - snapshot 快取策略（過去月份永不過期 / 當月 1h TTL）
- *   - FeatureGate + ADVANCED_REPORTS pricing plan 判斷
+ *   - Store-aware ADVANCED_REPORTS entitlement gate
  *   - ReportDateRange（共用日期範圍 client 元件）
  */
 
@@ -73,12 +74,12 @@ export default async function ReportsPage({ searchParams }: PageProps) {
     ? DATA_EXPORT_LOCKED_MESSAGE
     : DATA_EXPORT_SELECT_STORE_MESSAGE;
 
-  const pricingPlan = await getCachedStorePlan(reportsStoreId ?? user.storeId ?? undefined);
-  if (!hasFeature(pricingPlan, FEATURES.ADVANCED_REPORTS)) {
+  const gateStoreId = reportsStoreId ?? activeStoreId;
+  if (gateStoreId && !(await hasStoreFeature(gateStoreId, FEATURES.ADVANCED_REPORTS))) {
     return (
       <UpgradeNoticePage
-        title="進階報表需升級方案"
-        description="此功能需升級至「成長版」方案才能使用。升級後可享有完整報表、AI 健康分析等進階功能。"
+        title="進階報表尚未開通"
+        description="此功能需使用展店版，或由總部為店舖開通進階報表功能。"
       />
     );
   }
@@ -123,7 +124,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
 
   let storeSummary: StoreSummary;
   let revenueByCategory: RevenueByCategory;
-  let plan: typeof pricingPlan;
+  let plan: Awaited<ReturnType<typeof getCachedStorePlan>>;
   let snapshotHit = false;
 
   if (isMonthPreset && (isPastMonth || isCurrentMonth)) {
