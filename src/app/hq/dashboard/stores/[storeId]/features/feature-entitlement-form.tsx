@@ -46,13 +46,13 @@ export function FeatureEntitlementForm({
       <input type="hidden" name="storeId" value={storeId} />
       <input type="hidden" name="featureKey" value={featureKey} />
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2">
         <Field label="單店覆寫" htmlFor={`${featureKey}-override`}>
           <select
             id={`${featureKey}-override`}
             name="override"
             defaultValue={override}
-            className="h-9 w-full rounded-md border border-earth-200 bg-white px-2 text-xs text-earth-800 focus:border-primary-500 focus:outline-none"
+            className="h-10 w-full rounded-md border border-earth-200 bg-white px-2 text-xs text-earth-800 focus:border-primary-500 focus:outline-none"
           >
             <option value="INHERIT">跟隨方案</option>
             <option value="ENABLED">強制開啟</option>
@@ -65,7 +65,7 @@ export function FeatureEntitlementForm({
             id={`${featureKey}-source`}
             name="source"
             defaultValue={source}
-            className="h-9 w-full rounded-md border border-earth-200 bg-white px-2 text-xs text-earth-800 focus:border-primary-500 focus:outline-none"
+            className="h-10 w-full rounded-md border border-earth-200 bg-white px-2 text-xs text-earth-800 focus:border-primary-500 focus:outline-none"
           >
             {SOURCE_OPTIONS.map((option) => (
               <option key={option} value={option}>
@@ -85,7 +85,7 @@ export function FeatureEntitlementForm({
             name="startsAt"
             type="date"
             defaultValue={startsAt}
-            className="h-9 w-full rounded-md border border-earth-200 bg-white px-2 text-xs text-earth-800 focus:border-primary-500 focus:outline-none"
+            className="h-10 w-full rounded-md border border-earth-200 bg-white px-2 text-xs text-earth-800 focus:border-primary-500 focus:outline-none"
           />
         </Field>
 
@@ -99,7 +99,7 @@ export function FeatureEntitlementForm({
             name="expiresAt"
             type="date"
             defaultValue={expiresAt}
-            className="h-9 w-full rounded-md border border-earth-200 bg-white px-2 text-xs text-earth-800 focus:border-primary-500 focus:outline-none"
+            className="h-10 w-full rounded-md border border-earth-200 bg-white px-2 text-xs text-earth-800 focus:border-primary-500 focus:outline-none"
           />
         </Field>
       </div>
@@ -110,7 +110,7 @@ export function FeatureEntitlementForm({
             id={`${featureKey}-note`}
             name="note"
             defaultValue={note}
-            className="h-9 w-full rounded-md border border-earth-200 bg-white px-2 text-xs text-earth-800 focus:border-primary-500 focus:outline-none"
+            className="h-10 w-full rounded-md border border-earth-200 bg-white px-2 text-xs text-earth-800 focus:border-primary-500 focus:outline-none"
             placeholder="HQ 內部備註"
           />
         </Field>
@@ -118,7 +118,7 @@ export function FeatureEntitlementForm({
         <button
           type="submit"
           disabled={pending}
-          className="h-9 rounded-md bg-primary-600 px-3 text-xs font-medium text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-60 sm:self-end"
+          className="h-10 rounded-md bg-primary-600 px-3 text-xs font-medium text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-60 sm:self-end"
         >
           {pending ? "儲存中" : "儲存"}
         </button>
