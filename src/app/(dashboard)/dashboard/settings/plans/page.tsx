@@ -38,7 +38,7 @@ interface PlanCard {
 const PLANS: PlanCard[] = [
   {
     key: "BASIC",
-    name: "基礎版",
+    name: "基本版",
     positioning: "單店基本營運",
     monthly: "NT$1,490",
     originalPrice: "原價 NT$2,100/月",
@@ -54,7 +54,7 @@ const PLANS: PlanCard[] = [
       "可選 1 個 $500 工具型模組",
     ],
     audience: ["單店", "基本營運", "先把資料集中"],
-    ctaLabel: "開通基礎版",
+    ctaLabel: "開通基本版",
   },
   {
     key: "PROFESSIONAL",
@@ -69,7 +69,7 @@ const PLANS: PlanCard[] = [
     description:
       "適合想做好顧客回訪、現場現金管理與經營判斷的店。",
     features: [
-      "包含基礎版全部功能",
+      "包含基本版全部功能",
       "顧客經營",
       "現金抽屜",
       "可選 1 個 $500 工具型模組",
@@ -448,7 +448,7 @@ export default async function PlansCenterPage() {
             <thead>
               <tr className="border-y border-earth-100 text-[11px] text-earth-400">
                 <th className="px-5 py-2 text-left font-medium">功能</th>
-                <th className="px-3 py-2 text-center font-medium">基礎版</th>
+                <th className="px-3 py-2 text-center font-medium">基本版</th>
                 <th className="bg-primary-50/40 px-3 py-2 text-center font-semibold text-primary-700">
                   專業版
                 </th>

@@ -224,7 +224,7 @@ export default async function CustomerLayout({
           {/* Brand */}
           <div className="px-4 pb-3 pt-5">
             <Link href={`${prefix}/book`} className="text-base font-bold tracking-tight text-earth-900">
-              {customerFacingStoreName}
+              蒸管家
             </Link>
             <p className="mt-1 text-sm text-earth-700 truncate">{user.name}</p>
           </div>

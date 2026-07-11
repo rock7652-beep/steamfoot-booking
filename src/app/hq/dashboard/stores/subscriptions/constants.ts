@@ -7,7 +7,7 @@
  */
 
 export const PLAN_OPTIONS = [
-  { value: "BASIC", label: "基礎版" },
+  { value: "BASIC", label: "基本版" },
   { value: "GROWTH", label: "專業版" },
   { value: "ALLIANCE", label: "展店版" },
   { value: "EXPERIENCE", label: "體驗版" },

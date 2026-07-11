@@ -644,7 +644,7 @@ export default function DashboardShell({
     }
     return storeName ?? null;
   })();
-  const headerTitle = activeStoreName && activeStoreName !== "全部分店" ? activeStoreName : "蒸足管理";
+  const headerTitle = "蒸管家";
 
   // 關閉 user menu on outside click
   useEffect(() => {

@@ -42,7 +42,7 @@ export function DashboardBreadcrumb({ mobile }: BreadcrumbProps) {
 
   // Fallback for mobile
   if (mobile) {
-    return <span className="text-sm font-bold text-earth-800">蒸足管理</span>;
+    return <span className="text-sm font-bold text-earth-800">蒸管家</span>;
   }
 
   return null;

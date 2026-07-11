@@ -52,7 +52,7 @@ beforeEach(() => {
 });
 
 describe("hasStoreFeature", () => {
-  it("基礎版無加購時，不可用專業功能", async () => {
+  it("基本版無加購時，不可用專業功能", async () => {
     const { hasStoreFeature } = await import("@/lib/feature-gate");
 
     await expect(
@@ -60,7 +60,7 @@ describe("hasStoreFeature", () => {
     ).resolves.toBe(false);
   });
 
-  it("基礎版加購顧客經營時，可用顧客經營", async () => {
+  it("基本版加購顧客經營時，可用顧客經營", async () => {
     mockEntitlement("ENABLED");
     const { hasStoreFeature } = await import("@/lib/feature-gate");
 
