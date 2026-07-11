@@ -50,7 +50,7 @@ export const FEATURES = {
   REFERRAL_ANALYTICS: "referral_analytics",     // 轉介紹分析
   TALENT_UPGRADE_PROGRESS: "talent_upgrade_progress", // 升級進度
 
-  // ── ALLIANCE（聯盟版）── 多店複製 + 深度人才分析
+  // ── ALLIANCE（展店版）── 多店複製 + 深度人才分析
   MULTI_STORE: "multi_store",
   HEADQUARTER_VIEW: "headquarter_view",
   ALLIANCE_ANALYTICS: "alliance_analytics",
@@ -77,12 +77,10 @@ export const PLAN_FEATURES: Record<PricingPlan, FeatureKey[]> = {
     "customer_management",
     "staff_management",
     "duty_scheduling",
-    "line_reminder",
     "transaction",
     "transaction_management",
     "plan_management",
     "cashbook",
-    "cash_drawer",
     "reconciliation",
     "basic_reports",
     "ops_dashboard_basic",
@@ -93,7 +91,6 @@ export const PLAN_FEATURES: Record<PricingPlan, FeatureKey[]> = {
     "customer_management",
     "staff_management",
     "duty_scheduling",
-    "line_reminder",
     "transaction",
     "transaction_management",
     "plan_management",
@@ -103,12 +100,10 @@ export const PLAN_FEATURES: Record<PricingPlan, FeatureKey[]> = {
     "basic_reports",
     "ops_dashboard_basic",
     "store_revenue",
-    // PRO 專屬
+    // PRO 固定內含
     "customer_care",
-    "advanced_reports",
     "training_content",
     "ranking",
-    "ai_health_summary",
     "ai_health_history",
     "ai_report_pdf",
     "retention_reminder",
@@ -132,6 +127,9 @@ export const PLAN_FEATURES: Record<PricingPlan, FeatureKey[]> = {
     "basic_reports",
     "ops_dashboard_basic",
     "store_revenue",
+    "data_export",
+    "member_portal",
+    "service_fee_calculator",
     // PRO 全部
     "customer_care",
     "advanced_reports",
@@ -240,7 +238,7 @@ export const PRICING_PLAN_INFO: Record<PricingPlan, {
     audience: "想做人才經營、提升團隊複製力的經營者",
   },
   ALLIANCE: {
-    label: "聯盟版",
+    label: "展店版",
     shortLabel: "ALLIANCE",
     color: "text-indigo-700",
     bgColor: "bg-indigo-100",
