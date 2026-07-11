@@ -10,8 +10,8 @@
 
 import { prisma } from "@/lib/db";
 import { getHealthSummarySafe, type HealthSummary } from "@/lib/health-service";
-import { hasFeature, FEATURES } from "@/lib/feature-flags";
-import { getStorePlanById } from "@/lib/store-plan";
+import { FEATURES } from "@/lib/feature-flags";
+import { hasStoreFeature } from "@/lib/feature-gate";
 import { getCurrentUser } from "@/lib/session";
 import { isOwner } from "@/lib/permissions";
 
@@ -23,7 +23,12 @@ export interface HealthCardData {
 
 export interface HealthCardUnavailable {
   available: false;
-  reason: "no-customer" | "not-linked" | "no-data" | "error";
+  reason:
+    | "no-customer"
+    | "feature-unavailable"
+    | "not-linked"
+    | "no-data"
+    | "error";
 }
 
 export type HealthCardResult = HealthCardData | HealthCardUnavailable;
@@ -33,7 +38,7 @@ export type HealthCardResult = HealthCardData | HealthCardUnavailable;
  * 失敗時靜默返回 unavailable（不阻塞頁面渲染）
  */
 export async function getHealthCardData(
-  customerId: string | null | undefined
+  customerId: string | null | undefined,
 ): Promise<HealthCardResult> {
   if (!customerId) {
     return { available: false, reason: "no-customer" };
@@ -59,17 +64,20 @@ export async function getHealthCardData(
       return { available: false, reason: "no-customer" };
     }
 
-    // PricingPlan feature gate: AI 健康摘要需 GROWTH+
-    const storePlan = await getStorePlanById(customer.storeId);
-    if (!hasFeature(storePlan, FEATURES.AI_HEALTH_SUMMARY)) {
-      return { available: false, reason: "not-linked" };
+    // StoreFeatureEntitlement-aware gate：同一個 ai_health_summary 開關同時控制
+    // 顧客健康評估入口、顧客端摘要與店長後台摘要。
+    if (!(await hasStoreFeature(customer.storeId, FEATURES.AI_HEALTH_SUMMARY))) {
+      return { available: false, reason: "feature-unavailable" };
     }
 
     if (!customer.healthProfileId || customer.healthLinkStatus !== "linked") {
       return { available: false, reason: "not-linked" };
     }
 
-    const summary = await getHealthSummarySafe(customer.healthProfileId, { customerId });
+    const summary = await getHealthSummarySafe(customer.healthProfileId, {
+      customerId,
+      storeId: customer.storeId,
+    });
     if (!summary || !summary.latest) {
       return { available: false, reason: "no-data" };
     }

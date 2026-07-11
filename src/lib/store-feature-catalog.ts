@@ -64,9 +64,9 @@ export const MANAGEABLE_STORE_FEATURES: StoreFeatureCatalogItem[] = [
   },
   {
     key: FEATURES.AI_HEALTH_SUMMARY,
-    label: "AI 健康摘要",
+    label: "AI 健康評估 / 摘要",
     module: "健康",
-    description: "顧客健康評估摘要與建議。",
+    description: "顧客健康評估入口、顧客端摘要與店長後台健康摘要。",
   },
   {
     key: FEATURES.MULTI_STORE,

@@ -6,7 +6,7 @@
  * 與既有 dashboard health-section / health-summary / health-history 共存不取代：
  *   - dashboard 端用 `tryAutoLinkHealth` + `getHealthSummarySafe(healthProfileId, { customerId })`
  *     顯示完整評估歷程
- *   - 本 action 是 LIFF-only read-only 投影：給顧客在 LINE 內看自己的最近評估摘要
+ *   - 本 action 是 LIFF-only read-only投影：給顧客在 LINE 內看自己的最近評估摘要
  *     （不含評估歷程列表 / 趨勢圖 — 那些在 dashboard 才有）
  *
  * 設計合約（mirror fetchLiffWallets / fetchLiffMemberBooking / etc.）：
@@ -41,6 +41,8 @@ import {
   type HealthSummary,
 } from "@/lib/health-service";
 import { healthFlowLiffUrl } from "@/lib/liff/messages";
+import { requireStoreFeature } from "@/lib/feature-gate";
+import { FEATURES } from "@/lib/feature-flags";
 
 // PR-H2c：移除 self-computed score。
 // HealthFlow summary API 不回官方 score / riskLevel；Steamfoot 自算的 68 與 HealthFlow
@@ -68,6 +70,7 @@ export type CreateHealthflowEntryUrlResult =
   | { status: "ok"; url: string }
   | { status: "no_customer" }
   | { status: "store_mismatch" }
+  | { status: "feature_unavailable" }
   | { status: "service_unavailable" };
 
 export async function createHealthflowEntryUrl(
@@ -92,6 +95,12 @@ export async function createHealthflowEntryUrl(
     return { status: "service_unavailable" };
   }
   if (!store) return { status: "store_mismatch" };
+
+  try {
+    await requireStoreFeature(store.id, FEATURES.AI_HEALTH_SUMMARY);
+  } catch {
+    return { status: "feature_unavailable" };
+  }
 
   const customer = await getCanonicalCustomerForSession(user);
   if (!customer) return { status: "no_customer" };
@@ -154,6 +163,7 @@ export async function fetchLiffHealthSummary(): Promise<FetchLiffHealthSummaryRe
       where: { id: customerId },
       select: {
         id: true,
+        storeId: true,
         healthProfileId: true,
         healthLinkStatus: true,
       },
@@ -163,6 +173,14 @@ export async function fetchLiffHealthSummary(): Promise<FetchLiffHealthSummaryRe
     return { status: "service_unavailable" };
   }
   if (!customer) return { status: "no_customer" };
+
+  try {
+    await requireStoreFeature(customer.storeId, FEATURES.AI_HEALTH_SUMMARY);
+  } catch {
+    // 正常 UI 會在 LIFF page server component 先顯示鎖定狀態；此處保留
+    // hard gate，避免頁面已開啟後功能被關閉時仍繼續讀 HealthFlow。
+    return { status: "service_unavailable" };
+  }
 
   // ── 4. Branch by linkStatus ────────────────────────
   if (!customer.healthProfileId || customer.healthLinkStatus !== "linked") {
@@ -179,7 +197,7 @@ export async function fetchLiffHealthSummary(): Promise<FetchLiffHealthSummaryRe
   // ── 5. Fetch HealthFlow summary (safe wrapper, 5min LRU)
   const summary = await getHealthSummarySafe(customer.healthProfileId, {
     customerId,
-    storeId: user.storeId ?? undefined,
+    storeId: customer.storeId,
   });
   if (!summary) {
     // HealthFlow API 失敗（safeApi 已 log + monitor）
