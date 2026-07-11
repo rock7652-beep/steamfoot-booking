@@ -35,7 +35,7 @@ export default async function LiffHealthPage() {
     return (
       <NotOpenForLiff
         title="健康評估尚未開通"
-        message={liffMessages.health.featureUnavailable}
+        message="此店目前未開通 AI 健康評估與摘要功能。"
       />
     );
   }
