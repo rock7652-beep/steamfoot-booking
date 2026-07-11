@@ -60,12 +60,12 @@ export default async function StoreFeatureSettingsPage({ params }: PageProps) {
   );
 
   return (
-    <PageShell className="mx-auto flex max-w-[1180px] flex-col gap-4 px-5 py-5">
+    <PageShell className="mx-auto flex max-w-[1280px] flex-col gap-4 px-4 py-5 sm:px-5">
       <PageHeader
         title={`功能設定 · ${store.name}`}
         subtitle={`${store.slug} · ${PRICING_PLAN_INFO[store.plan].label}（${store.plan}）`}
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Link
               href={`/hq/dashboard/stores/${store.id}`}
               className="rounded-lg border border-earth-200 px-3 py-1.5 text-xs font-medium text-earth-600 hover:bg-earth-50"
@@ -83,7 +83,7 @@ export default async function StoreFeatureSettingsPage({ params }: PageProps) {
       />
 
       <div className="rounded-lg border border-earth-200 bg-white px-4 py-3">
-        <div className="grid gap-3 text-sm md:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 text-sm md:grid-cols-4">
           <Metric label="目前方案" value={PRICING_PLAN_INFO[store.plan].label} />
           <Metric
             label="方案內含"
@@ -110,87 +110,94 @@ export default async function StoreFeatureSettingsPage({ params }: PageProps) {
       )}
 
       <div className="overflow-hidden rounded-lg border border-earth-200 bg-white">
-        <div className="border-b border-earth-200 bg-earth-50 px-4 py-2">
+        <div className="flex flex-wrap items-center justify-between gap-1 border-b border-earth-200 bg-earth-50 px-4 py-2.5">
           <p className="text-xs font-medium text-earth-600">功能授權清單</p>
+          <p className="text-[11px] text-earth-400">預設收合，點「調整設定」再展開編輯</p>
         </div>
 
-        <div className="divide-y divide-earth-100">
+        <div className="grid gap-3 p-3 lg:grid-cols-2">
           {MANAGEABLE_STORE_FEATURES.map((feature) => {
             const entitlement = entitlements.get(feature.key) ?? null;
             const baseAllowed = hasFeature(store.plan, feature.key);
             const state = resolveStoreFeatureDisplayState(store.plan, feature.key, entitlement);
 
             return (
-              <div
+              <section
                 key={feature.key}
-                className="grid gap-4 px-4 py-4 xl:grid-cols-[minmax(240px,0.9fr)_minmax(0,1.7fr)]"
+                className="min-w-0 rounded-lg border border-earth-200 bg-white p-3 shadow-sm"
               >
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="text-sm font-semibold text-earth-900">
-                      {getStoreFeatureLabel(feature.key)}
-                    </h2>
-                    <span className="rounded-full bg-earth-100 px-2 py-0.5 text-[11px] font-medium text-earth-600">
-                      {feature.module}
-                    </span>
+                <div className="flex min-w-0 items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="text-sm font-semibold text-earth-900">
+                        {getStoreFeatureLabel(feature.key)}
+                      </h2>
+                      <span className="rounded-full bg-earth-100 px-2 py-0.5 text-[11px] font-medium text-earth-600">
+                        {feature.module}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-xs leading-relaxed text-earth-500">
+                      {feature.description}
+                    </p>
+                    <p className="mt-1 font-mono text-[11px] text-earth-400">
+                      {feature.key}
+                    </p>
                   </div>
-                  <p className="mt-1 text-xs leading-relaxed text-earth-500">
-                    {feature.description}
-                  </p>
-                  <p className="mt-1 font-mono text-[11px] text-earth-400">
-                    {feature.key}
-                  </p>
                 </div>
 
-                <div className="grid min-w-0 gap-3">
-                  <div className="grid gap-3 text-xs sm:grid-cols-3">
-                    <SummaryCell label="方案預設">
-                      <StatusPill
-                        label={baseAllowed ? "內含" : "未內含"}
-                        className={
-                          baseAllowed
-                            ? "bg-green-50 text-green-700"
-                            : "bg-earth-100 text-earth-500"
-                        }
-                      />
-                    </SummaryCell>
+                <div className="mt-3 grid gap-2 rounded-md bg-earth-50/70 p-2.5 sm:grid-cols-3">
+                  <SummaryCell label="方案預設">
+                    <StatusPill
+                      label={baseAllowed ? "內含" : "未內含"}
+                      className={
+                        baseAllowed
+                          ? "bg-green-50 text-green-700"
+                          : "bg-earth-100 text-earth-500"
+                      }
+                    />
+                  </SummaryCell>
 
-                    <SummaryCell label="最終狀態">
-                      <StatusPill
-                        label={state.statusLabel}
-                        className={state.statusClass}
-                      />
-                      <p className="mt-1 text-[11px] text-earth-500">
-                        {state.effectiveAllowed ? "目前可用" : "目前不可用"}
+                  <SummaryCell label="最終狀態">
+                    <StatusPill label={state.statusLabel} className={state.statusClass} />
+                    <p className="mt-1 text-[11px] text-earth-500">
+                      {state.effectiveAllowed ? "目前可用" : "目前不可用"}
+                    </p>
+                  </SummaryCell>
+
+                  <SummaryCell label="來源">
+                    <p className="text-xs text-earth-700">{state.sourceLabel}</p>
+                    {entitlement?.startsAt && (
+                      <p className="mt-1 text-[11px] text-earth-400">
+                        開始：{toLocalDateStr(entitlement.startsAt)}
                       </p>
-                    </SummaryCell>
-
-                    <SummaryCell label="來源">
-                      <p className="text-earth-700">{state.sourceLabel}</p>
-                      {entitlement?.startsAt && (
-                        <p className="mt-1 text-earth-400">
-                          開始：{toLocalDateStr(entitlement.startsAt)}
-                        </p>
-                      )}
-                      {entitlement?.expiresAt && (
-                        <p className="mt-1 text-earth-400">
-                          結束：{toLocalDateStr(entitlement.expiresAt)}
-                        </p>
-                      )}
-                    </SummaryCell>
-                  </div>
-
-                  <FeatureEntitlementForm
-                    storeId={store.id}
-                    featureKey={feature.key}
-                    override={entitlement?.status ?? "INHERIT"}
-                    source={entitlement?.source ?? "MANUAL"}
-                    startsAt={entitlement?.startsAt ? toLocalDateStr(entitlement.startsAt) : ""}
-                    expiresAt={entitlement?.expiresAt ? toLocalDateStr(entitlement.expiresAt) : ""}
-                    note={entitlement?.note ?? ""}
-                  />
+                    )}
+                    {entitlement?.expiresAt && (
+                      <p className="mt-1 text-[11px] text-earth-400">
+                        結束：{toLocalDateStr(entitlement.expiresAt)}
+                      </p>
+                    )}
+                  </SummaryCell>
                 </div>
-              </div>
+
+                <details className="group mt-3">
+                  <summary className="flex h-9 cursor-pointer list-none items-center justify-between rounded-md border border-earth-200 bg-white px-3 text-xs font-medium text-earth-700 transition hover:bg-earth-50 [&::-webkit-details-marker]:hidden">
+                    <span>調整設定</span>
+                    <span className="text-earth-400 group-open:hidden">展開 ＋</span>
+                    <span className="hidden text-earth-400 group-open:inline">收合 −</span>
+                  </summary>
+                  <div className="mt-3">
+                    <FeatureEntitlementForm
+                      storeId={store.id}
+                      featureKey={feature.key}
+                      override={entitlement?.status ?? "INHERIT"}
+                      source={entitlement?.source ?? "MANUAL"}
+                      startsAt={entitlement?.startsAt ? toLocalDateStr(entitlement.startsAt) : ""}
+                      expiresAt={entitlement?.expiresAt ? toLocalDateStr(entitlement.expiresAt) : ""}
+                      note={entitlement?.note ?? ""}
+                    />
+                  </div>
+                </details>
+              </section>
             );
           })}
         </div>
