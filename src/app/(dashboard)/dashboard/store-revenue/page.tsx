@@ -1,9 +1,8 @@
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { redirect } from "next/navigation";
-import { getCachedStorePlan } from "@/lib/query-cache";
-import { hasFeature as hasPricingFeature } from "@/lib/feature-flags";
 import { FEATURES as FF } from "@/lib/feature-flags";
+import { hasStoreFeature } from "@/lib/feature-gate";
 import {
   DATA_EXPORT_LOCKED_MESSAGE,
   DATA_EXPORT_SELECT_STORE_MESSAGE,
@@ -37,12 +36,12 @@ export default async function StoreRevenuePage() {
     ? DATA_EXPORT_LOCKED_MESSAGE
     : DATA_EXPORT_SELECT_STORE_MESSAGE;
 
-  const pricingPlan = await getCachedStorePlan(reportsStoreId ?? user.storeId ?? undefined);
-  if (!hasPricingFeature(pricingPlan, FF.ADVANCED_REPORTS)) {
+  const gateStoreId = reportsStoreId ?? activeStoreId;
+  if (gateStoreId && !(await hasStoreFeature(gateStoreId, FF.ADVANCED_REPORTS))) {
     return (
       <UpgradeNoticePage
-        title="店營收報表需升級方案"
-        description="此功能需要 PRO 方案才能使用，升級後可查看完整店營收數據。"
+        title="進階報表尚未開通"
+        description="此功能需使用展店版，或由總部為店舖開通進階報表功能。"
       />
     );
   }

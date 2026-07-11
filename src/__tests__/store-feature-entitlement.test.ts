@@ -99,6 +99,68 @@ describe("hasStoreFeature", () => {
     ).resolves.toBe(false);
   });
 
+  it("專業版進階報表有開通 entitlement 時，可用 advanced_reports", async () => {
+    mockStore("GROWTH");
+    mockEntitlement("ENABLED");
+    const { hasStoreFeature } = await import("@/lib/feature-gate");
+
+    await expect(
+      hasStoreFeature("store-1", FEATURES.ADVANCED_REPORTS),
+    ).resolves.toBe(true);
+  });
+
+  it("專業版進階報表無 entitlement 時，依方案預設不可用", async () => {
+    mockStore("GROWTH");
+    const { hasStoreFeature } = await import("@/lib/feature-gate");
+
+    await expect(
+      hasStoreFeature("store-1", FEATURES.ADVANCED_REPORTS),
+    ).resolves.toBe(false);
+  });
+
+  it("展店版進階報表無 entitlement 時，依方案預設可用", async () => {
+    mockStore("ALLIANCE");
+    const { hasStoreFeature } = await import("@/lib/feature-gate");
+
+    await expect(
+      hasStoreFeature("store-1", FEATURES.ADVANCED_REPORTS),
+    ).resolves.toBe(true);
+  });
+
+  it("展店版進階報表被 HQ 關閉 entitlement 時，不可用", async () => {
+    mockStore("ALLIANCE");
+    mockEntitlement("DISABLED");
+    const { hasStoreFeature } = await import("@/lib/feature-gate");
+
+    await expect(
+      hasStoreFeature("store-1", FEATURES.ADVANCED_REPORTS),
+    ).resolves.toBe(false);
+  });
+
+  it("進階報表 entitlement 尚未開始時，回到方案預設", async () => {
+    mockStore("GROWTH");
+    mockEntitlement("ENABLED", {
+      startsAt: new Date("2099-01-01T00:00:00.000Z"),
+    });
+    const { hasStoreFeature } = await import("@/lib/feature-gate");
+
+    await expect(
+      hasStoreFeature("store-1", FEATURES.ADVANCED_REPORTS),
+    ).resolves.toBe(false);
+  });
+
+  it("進階報表 entitlement 已過期時，回到方案預設", async () => {
+    mockStore("GROWTH");
+    mockEntitlement("ENABLED", {
+      expiresAt: new Date("2026-01-01T00:00:00.000Z"),
+    });
+    const { hasStoreFeature } = await import("@/lib/feature-gate");
+
+    await expect(
+      hasStoreFeature("store-1", FEATURES.ADVANCED_REPORTS),
+    ).resolves.toBe(false);
+  });
+
   it("展店版內含多店功能", async () => {
     mockStore("ALLIANCE");
     const { hasStoreFeature } = await import("@/lib/feature-gate");
