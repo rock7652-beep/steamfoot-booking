@@ -46,10 +46,10 @@ export default async function HomePage({ searchParams }: PageProps) {
     <main className="flex min-h-dvh flex-col items-center justify-center bg-earth-50 px-4">
       <RefCapture />
       <div className="w-full max-w-sm">
-        {/* Logo / Brand */}
+        {/* Store brand + product brand */}
         <div className="mb-8 text-center">
           <h1 className="text-2xl font-bold text-earth-900">{storeName}</h1>
-          <p className="mt-1 text-sm text-earth-500">會員預約系統</p>
+          <p className="mt-1 text-sm text-earth-500">蒸管家｜會員預約系統</p>
         </div>
 
         {/* 登入表單 */}

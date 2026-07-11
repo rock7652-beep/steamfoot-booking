@@ -4,8 +4,8 @@ import { NextAuthSessionProvider } from '@/components/session-provider-wrapper'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: '蒸足預約管理系統',
-  description: '蒸足店預約＋課程消費管理系統',
+  title: '蒸管家｜服務品牌成長系統',
+  description: '整合預約、會員、方案、收款、顧客經營與多店管理的服務品牌營運系統',
 }
 
 export const viewport: Viewport = {

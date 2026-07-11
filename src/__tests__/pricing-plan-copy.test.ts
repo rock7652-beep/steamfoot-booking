@@ -13,6 +13,8 @@ const PLAN_PAGES = [
   "src/app/pricing/page.tsx",
 ];
 
+const PUBLIC_PRICING_PAGE = "src/app/pricing/page.tsx";
+
 describe("pricing and growth plan copy", () => {
   it.each(PLAN_PAGES)("bundles health assessment and summary on %s", (path) => {
     const source = readSource(path);
@@ -32,5 +34,14 @@ describe("pricing and growth plan copy", () => {
     expect(source).not.toContain("總部視角");
     expect(source).not.toContain("店舖功能開關");
     expect(source).not.toContain("合作店長結算管理");
+  });
+
+  it("brands the public pricing page as 蒸管家 for service businesses", () => {
+    const source = readSource(PUBLIC_PRICING_PAGE);
+
+    expect(source).toContain("蒸管家｜服務品牌成長系統");
+    expect(source).toContain("預約制門市、工作室與服務品牌");
+    expect(source).not.toContain("蒸足系統方案");
+    expect(source).not.toContain("蒸足預約管理系統");
   });
 });
