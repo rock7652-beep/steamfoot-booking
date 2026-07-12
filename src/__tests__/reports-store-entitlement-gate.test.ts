@@ -160,6 +160,29 @@ beforeEach(() => {
 });
 
 describe("ReportsPage basic_reports entitlement gate", () => {
+  it("keeps existing data and entries while presenting the new information hierarchy", async () => {
+    const html = renderToStaticMarkup(
+      await ReportsPage({ searchParams: Promise.resolve({ preset: "today" }) }),
+    );
+
+    expect(html).toContain("營運分析");
+    expect(html).toContain("營運摘要");
+    expect(html).toContain("本期營收");
+    expect(html).toContain("完成服務");
+    expect(html).toContain("訂單數");
+    expect(html).toContain("退款");
+    expect(html).toContain("營收分析");
+    expect(html).toContain("店長分析");
+    expect(html).not.toContain("店長明細");
+    expect(html).not.toContain("收入類型</h2>");
+    expect(html).not.toMatch(/基本報表|進階報表/);
+    expect(html).toContain("經營診斷 →");
+    expect(html).toContain("月結管理 →");
+    expect(html).toContain("date range");
+    expect(mockMonthlyStoreSummary).toHaveBeenCalledTimes(1);
+    expect(mockMonthlyRevenueByCategory).toHaveBeenCalledTimes(1);
+  });
+
   it("allows a GROWTH store even when advanced_reports is unavailable", async () => {
     mockHasStoreFeature.mockImplementation(
       async (_storeId: string, feature: string) => feature !== "advanced_reports",
@@ -240,6 +263,20 @@ describe("reports basic_reports source audit", () => {
     expect(source).not.toContain("hasStoreFeature(gateStoreId, FEATURES.ADVANCED_REPORTS)");
     expect(source).not.toContain("經營診斷尚未開通");
     expect(source).not.toContain("成長版");
+  });
+
+  it("keeps the existing report queries, feature gate, and entitlement checks", () => {
+    const source = fs.readFileSync(
+      path.join(repoRoot, "src/app/(dashboard)/dashboard/reports/page.tsx"),
+      "utf8",
+    );
+
+    expect(source).toContain("monthlyStoreSummary");
+    expect(source).toContain("monthlyRevenueByCategory");
+    expect(source).toContain("getReportSnapshotWithMeta");
+    expect(source).toContain("hasDataExportFeature");
+    expect(source).toContain("hasStoreFeature(gateStoreId, FEATURES.BASIC_REPORTS)");
+    expect(source).toContain("<FeatureGate plan={plan} feature={FEATURES.BASIC_REPORTS}>");
   });
 
   it("keeps related revenue report pages store-aware for advanced_reports", () => {

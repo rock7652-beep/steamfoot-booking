@@ -40,7 +40,7 @@ import {
  * /dashboard/reports — 報表決策頁（Phase 2 桌機版 PR3）
  *
  * 對照 design/04-phase2-plan.md §3①：Decision Page
- *   PageHeader → 日期篩選 → KpiStrip → 店長明細 DataTable → 收入類型 DataTable → 匯出
+ *   PageHeader → 日期篩選 → 營運摘要 → 營收分析 → 店長分析
  *
  * 沿用：
  *   - monthlyStoreSummary / monthlyRevenueByCategory（不改計算邏輯）
@@ -370,34 +370,69 @@ export default async function ReportsPage({ searchParams }: PageProps) {
           endDate={endDate}
         />
 
-        <KpiStrip
-          items={[
-            {
-              label: "本月營收",
-              value: `NT$ ${storeSummary.netCourseRevenue.toLocaleString()}`,
-              tone: "primary",
-            },
-            {
-              label: "完成服務",
-              value: `${storeSummary.completedBookings} 堂`,
-              tone: "green",
-            },
-            { label: "訂單數", value: `${totalOrders} 筆`, tone: "blue" },
-            {
-              label: "退款",
-              value: `${storeSummary.totalRefund < 0 ? "-" : ""}NT$ ${Math.abs(storeSummary.totalRefund).toLocaleString()}`,
-              tone: storeSummary.totalRefund < 0 ? "amber" : "earth",
-            },
-          ]}
-        />
+        <section aria-labelledby="operations-summary-title">
+          <div className="mb-2">
+            <h2
+              id="operations-summary-title"
+              className="text-sm font-semibold text-earth-800"
+            >
+              營運摘要
+            </h2>
+            <p className="mt-0.5 text-[11px] text-earth-400">
+              掌握本期營收、完成服務、訂單與退款概況。
+            </p>
+          </div>
+          <KpiStrip
+            items={[
+              {
+                label: "本期營收",
+                value: `NT$ ${storeSummary.netCourseRevenue.toLocaleString()}`,
+                tone: "primary",
+              },
+              {
+                label: "完成服務",
+                value: `${storeSummary.completedBookings} 堂`,
+                tone: "green",
+              },
+              { label: "訂單數", value: `${totalOrders} 筆`, tone: "blue" },
+              {
+                label: "退款",
+                value: `${storeSummary.totalRefund < 0 ? "-" : ""}NT$ ${Math.abs(storeSummary.totalRefund).toLocaleString()}`,
+                tone: storeSummary.totalRefund < 0 ? "amber" : "earth",
+              },
+            ]}
+          />
+        </section>
 
-        {/* 店長明細 — 主表 */}
+        {/* 營收分析 — 依收入類型拆分 */}
         <section className="rounded-xl border border-earth-200 bg-white">
           <div className="flex items-center justify-between px-3 py-2">
             <div>
-              <h2 className="text-sm font-semibold text-earth-800">店長明細</h2>
+              <h2 className="text-sm font-semibold text-earth-800">營收分析</h2>
               <p className="text-[11px] text-earth-400">
-                顧客數（總 / 有效）· 完成服務 · 總收入 · 淨收
+                依體驗、單次與課程收入拆分，掌握本期營收組成。
+              </p>
+            </div>
+          </div>
+          {revenueByCategory.length === 0 ? (
+            <EmptyRow title="本期無資料" hint="選擇的期間內沒有收入類型資料" />
+          ) : (
+            <DataTable
+              columns={categoryColumns}
+              rows={revenueByCategory}
+              rowKey={(r) => r.staffId}
+              className="rounded-none border-0 border-t border-earth-100"
+            />
+          )}
+        </section>
+
+        {/* 店長分析 — 服務量、訂單與營收表現 */}
+        <section className="rounded-xl border border-earth-200 bg-white">
+          <div className="flex items-center justify-between px-3 py-2">
+            <div>
+              <h2 className="text-sm font-semibold text-earth-800">店長分析</h2>
+              <p className="text-[11px] text-earth-400">
+                比較各店長的期間內有預約顧客（總／有效）、服務量、訂單與營收表現。
               </p>
             </div>
           </div>
@@ -407,26 +442,6 @@ export default async function ReportsPage({ searchParams }: PageProps) {
             <DataTable
               columns={staffColumns}
               rows={storeSummary.staffBreakdown}
-              rowKey={(r) => r.staffId}
-              className="rounded-none border-0 border-t border-earth-100"
-            />
-          )}
-        </section>
-
-        {/* 收入類型 — 次表 */}
-        <section className="rounded-xl border border-earth-200 bg-white">
-          <div className="flex items-center justify-between px-3 py-2">
-            <div>
-              <h2 className="text-sm font-semibold text-earth-800">收入類型</h2>
-              <p className="text-[11px] text-earth-400">體驗 / 單次 / 課程 拆分 · 依店長彙總</p>
-            </div>
-          </div>
-          {revenueByCategory.length === 0 ? (
-            <EmptyRow title="本期無資料" hint="選擇的期間內沒有收入類型資料" />
-          ) : (
-            <DataTable
-              columns={categoryColumns}
-              rows={revenueByCategory}
               rowKey={(r) => r.staffId}
               className="rounded-none border-0 border-t border-earth-100"
             />
