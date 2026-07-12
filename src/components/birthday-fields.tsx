@@ -3,9 +3,18 @@
 import { useMemo, useState } from "react";
 
 interface BirthdayFieldsProps {
-  defaultValue?: string | null;
+  defaultValue?: string | Date | null;
   required?: boolean;
   className?: string;
+}
+
+export function normalizeBirthdayInput(
+  value: string | Date | null | undefined,
+): string {
+  if (!value) return "";
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  const dateOnly = value.match(/^\d{4}-\d{2}-\d{2}/)?.[0];
+  return dateOnly ?? "";
 }
 
 function daysInMonth(year: number, month: number): number {
@@ -18,8 +27,9 @@ export function BirthdayFields({
   required = false,
   className = "",
 }: BirthdayFieldsProps) {
+  const normalizedDefault = normalizeBirthdayInput(defaultValue);
   const [defaultYear = "1970", defaultMonth = "", defaultDay = ""] =
-    defaultValue?.split("-") ?? [];
+    normalizedDefault.split("-");
   const [year, setYear] = useState(defaultYear || "1970");
   const [month, setMonth] = useState(defaultMonth);
   const [day, setDay] = useState(defaultDay);
