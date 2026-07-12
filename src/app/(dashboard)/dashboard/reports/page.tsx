@@ -11,6 +11,10 @@ import {
   type ConversionComparison,
 } from "@/server/queries/conversion-metrics";
 import {
+  getRetentionMetrics,
+  type RetentionComparison,
+} from "@/server/queries/retention-metrics";
+import {
   getReportSnapshotWithMeta,
   upsertReportSnapshot,
 } from "@/server/queries/report-snapshot";
@@ -194,7 +198,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
   }
 
   timer.cacheStatus("reports-snapshot", snapshotHit ? "hit" : "miss");
-  const [customerFlowMetrics, conversionMetrics] = reportsStoreId
+  const [customerFlowMetrics, conversionMetrics, retentionMetrics] = reportsStoreId
     ? await Promise.all([
         withTiming("customerFlowMetrics", timer, () =>
           getCustomerFlowMetrics(reportsStoreId, month),
@@ -202,8 +206,11 @@ export default async function ReportsPage({ searchParams }: PageProps) {
         withTiming("conversionMetrics", timer, () =>
           getConversionMetrics(reportsStoreId, month),
         ),
+        withTiming("retentionMetrics", timer, () =>
+          getRetentionMetrics(reportsStoreId, month),
+        ),
       ])
-    : [null, null];
+    : [null, null, null];
   timer.finish();
 
   const totalOrders = storeSummary.staffBreakdown.reduce(
@@ -508,6 +515,49 @@ export default async function ReportsPage({ searchParams }: PageProps) {
           )}
         </section>
 
+        <section
+          aria-labelledby="retention-analysis-title"
+          className="rounded-xl border border-earth-200 bg-white p-3"
+        >
+          <div>
+            <h2 id="retention-analysis-title" className="text-sm font-semibold text-earth-800">
+              留存分析
+            </h2>
+            <p className="mt-0.5 text-[11px] leading-relaxed text-earth-400">
+              上個月來的顧客，這個月有多少人再次回來？僅計完成服務的唯一顧客，
+              取消與未到不計。
+            </p>
+          </div>
+          {retentionMetrics ? (
+            <div className="mt-3 grid gap-2 sm:grid-cols-3">
+              {[
+                ["本月回流人數", retentionMetrics.returnedCustomers, "count"],
+                ["上月顧客回流率", retentionMetrics.retentionRate, "rate"],
+                ["本月未回流人數", retentionMetrics.unreturnedCustomers, "count"],
+              ].map(([label, metric, kind]) => {
+                const value = metric as (typeof retentionMetrics)["returnedCustomers"];
+                const isRate = kind === "rate";
+                return (
+                  <div key={label as string} className="rounded-lg bg-earth-50/70 p-3">
+                    <p className="text-[11px] font-medium text-earth-500">{label as string}</p>
+                    <p className="mt-1 text-xl font-bold tabular-nums text-earth-900">
+                      {isRate ? `${value.current.toFixed(1)}%` : `${value.current} 位`}
+                    </p>
+                    <div className="mt-2 space-y-1 text-[11px] text-earth-500">
+                      <p>較上月：{formatRetentionComparison(value.mom, isRate)}</p>
+                      <p>去年同月：{formatRetentionComparison(value.yoy, isRate)}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="mt-3 rounded-lg bg-earth-50 px-3 py-2 text-xs text-earth-500">
+              HQ 全店視角暫不提供留存分析；請先選擇店舖，避免跨店顧客被錯誤合併。
+            </p>
+          )}
+        </section>
+
         {/* 營收分析 — 依收入類型拆分 */}
         <section className="rounded-xl border border-earth-200 bg-white">
           <div className="flex items-center justify-between px-3 py-2">
@@ -565,6 +615,17 @@ function formatCustomerFlowComparison(comparison: CustomerFlowComparison): strin
 
 function formatConversionComparison(
   comparison: ConversionComparison,
+  isRate: boolean,
+): string {
+  const difference = `${comparison.difference > 0 ? "+" : ""}${comparison.difference.toFixed(isRate ? 1 : 0)}`;
+  const unit = isRate ? " 個百分點" : " 位";
+  if (comparison.percentage === null) return `${difference}${unit}（基期為 0，無法比較）`;
+  const percentage = `${comparison.percentage > 0 ? "+" : ""}${comparison.percentage.toFixed(1)}%`;
+  return `${difference}${unit}（${percentage}）`;
+}
+
+function formatRetentionComparison(
+  comparison: RetentionComparison,
   isRate: boolean,
 ): string {
   const difference = `${comparison.difference > 0 ? "+" : ""}${comparison.difference.toFixed(isRate ? 1 : 0)}`;
