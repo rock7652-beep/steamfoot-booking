@@ -183,7 +183,7 @@ export default async function CustomerLayout({
   const customerFacingStoreName = getCustomerFacingStoreName(currentStore);
 
   // ── 完成註冊 gate ──────────────────────────────────────
-  // 顧客若尚未完成基本資料（姓名/電話/Email/生日/性別），強制導至 /profile 補齊
+  // 顧客若尚未完成必要資料（姓名／電話／生日），強制導至 /profile 補齊
   // 白名單：/profile 本身允許進入；其餘顧客頁皆受控
   const completion = await resolveCustomerCompletionStatus({
     userId: user.id,

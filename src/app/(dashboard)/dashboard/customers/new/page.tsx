@@ -8,6 +8,7 @@ import { notFound, redirect } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { SubmitButton } from "@/components/submit-button";
 import { FormErrorToast } from "@/components/form-error-toast";
+import { BirthdayFields } from "@/components/birthday-fields";
 import {
   PageShell,
   PageHeader,
@@ -181,11 +182,7 @@ export default async function NewCustomerPage({
                 </FormGrid>
                 <div>
                   <label className={labelCls}>生日</label>
-                  <input
-                    type="date"
-                    name="birthday"
-                    className={`mt-1 ${inputCls}`}
-                  />
+                  <BirthdayFields className={inputCls} />
                 </div>
               </FormSection>
 

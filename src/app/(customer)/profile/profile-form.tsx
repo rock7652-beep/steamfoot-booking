@@ -7,6 +7,7 @@ import { updateProfileAction, type ProfileState } from "@/server/actions/profile
 import { useOneShotActionState } from "@/hooks/use-one-shot-action-state";
 import { useStoreSlugRequired } from "@/lib/store-context";
 import Link from "next/link";
+import { BirthdayFields } from "@/components/birthday-fields";
 
 interface Props {
   customer: {
@@ -40,6 +41,7 @@ export function ProfileForm({
     updateProfileAction,
     { error: null, success: false }
   );
+  const birthdayRequired = onboardingMode && !customer.birthday;
 
   useOneShotActionState<ProfileState>({
     state,
@@ -144,14 +146,10 @@ export function ProfileForm({
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label htmlFor="birthday" className={labelCls}>
-            生日 <span className="text-earth-500 text-sm">（選填）</span>
+          <label className={labelCls}>
+            生日 <span className="text-red-600">*</span>
           </label>
-          <input
-            id="birthday" name="birthday" type="date"
-            defaultValue={customer.birthday ?? ""}
-            className={inputCls}
-          />
+          <BirthdayFields defaultValue={customer.birthday} required={birthdayRequired} />
           {age !== null && (
             <p className={hintCls}>{age} 歲</p>
           )}
@@ -204,7 +202,7 @@ export function ProfileForm({
           type="submit" disabled={pending}
           className="flex-1 rounded-xl bg-primary-600 min-h-[52px] px-4 text-base font-semibold text-white hover:bg-primary-700 disabled:opacity-60"
         >
-          {pending ? "儲存中..." : onboardingMode ? "完成註冊並開始使用" : "儲存變更"}
+          {pending ? "儲存中..." : birthdayRequired ? "完成填寫" : onboardingMode ? "完成註冊並開始使用" : "儲存變更"}
         </button>
         {/* onboarding 模式下不顯示取消，避免顧客繞過補件 */}
         {!onboardingMode && (

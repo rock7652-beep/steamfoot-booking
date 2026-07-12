@@ -34,6 +34,7 @@ import {
 } from "@/lib/store-view-context-server";
 import { normalizePhone } from "@/lib/normalize";
 import type { z } from "zod";
+import { birthdayToDate } from "@/lib/birthday";
 
 // ============================================================
 // createCustomer — Owner（可指定 assignedStaffId）/ Manager（自動綁自己）
@@ -124,7 +125,7 @@ export async function createCustomer(
         // email/gender/birthday 都改為 optional；缺時寫 null（DB 已是 nullable）
         email: data.email ?? null,
         gender: data.gender ?? null,
-        birthday: data.birthday ? new Date(data.birthday) : null,
+        birthday: data.birthday ? birthdayToDate(data.birthday) : null,
         lineName: data.lineName,
         notes: data.notes,
         assignedStaffId: assignedStaffId || null,
@@ -212,7 +213,7 @@ export async function updateCustomer(
       phone: data.phone,
       email: data.email ?? null,
       gender: data.gender ?? null,
-      birthday: data.birthday ? new Date(data.birthday) : null,
+      birthday: data.birthday ? birthdayToDate(data.birthday) : null,
       height: data.height ?? null,
     };
     if (data.lineName !== undefined) prismaData.lineName = data.lineName;
