@@ -14,6 +14,7 @@ const mockHasStoreFeature = vi.fn();
 const mockHasDataExportFeature = vi.fn();
 const mockMonthlyStoreSummary = vi.fn();
 const mockMonthlyRevenueByCategory = vi.fn();
+const mockGetCustomerFlowMetrics = vi.fn();
 const mockGetReportSnapshotWithMeta = vi.fn();
 const mockUpsertReportSnapshot = vi.fn();
 const mockRedirect = vi.fn((href: string) => {
@@ -59,6 +60,10 @@ vi.mock("@/lib/data-export-gate", () => ({
 vi.mock("@/server/queries/report", () => ({
   monthlyStoreSummary: (...args: unknown[]) => mockMonthlyStoreSummary(...args),
   monthlyRevenueByCategory: (...args: unknown[]) => mockMonthlyRevenueByCategory(...args),
+}));
+
+vi.mock("@/server/queries/customer-flow-metrics", () => ({
+  getCustomerFlowMetrics: (...args: unknown[]) => mockGetCustomerFlowMetrics(...args),
 }));
 
 vi.mock("@/server/queries/report-snapshot", () => ({
@@ -155,6 +160,29 @@ beforeEach(() => {
   mockHasDataExportFeature.mockResolvedValue(false);
   mockMonthlyStoreSummary.mockResolvedValue(STORE_SUMMARY);
   mockMonthlyRevenueByCategory.mockResolvedValue(REVENUE_BY_CATEGORY);
+  mockGetCustomerFlowMetrics.mockResolvedValue({
+    month: "2026-07",
+    uniqueVisitors: {
+      current: 8,
+      mom: { difference: 2, percentage: 33.3 },
+      yoy: { difference: 3, percentage: 60 },
+    },
+    newVisitors: {
+      current: 3,
+      mom: { difference: 1, percentage: 50 },
+      yoy: { difference: 0, percentage: 0 },
+    },
+    returningVisitors: {
+      current: 5,
+      mom: { difference: 1, percentage: 25 },
+      yoy: { difference: 3, percentage: 150 },
+    },
+    trialCustomers: {
+      current: 2,
+      mom: { difference: 2, percentage: null },
+      yoy: { difference: 1, percentage: 100 },
+    },
+  });
   mockGetReportSnapshotWithMeta.mockResolvedValue(null);
   mockUpsertReportSnapshot.mockResolvedValue(undefined);
 });
@@ -183,6 +211,36 @@ describe("ReportsPage basic_reports entitlement gate", () => {
     expect(mockMonthlyRevenueByCategory).toHaveBeenCalledTimes(1);
   });
 
+  it("shows only the four scoped customer-flow KPIs and their comparisons", async () => {
+    const html = renderToStaticMarkup(
+      await ReportsPage({ searchParams: Promise.resolve({ preset: "month" }) }),
+    );
+
+    expect(mockGetCustomerFlowMetrics).toHaveBeenCalledWith("store-active", expect.any(String));
+    expect(html).toContain("客流分析");
+    expect(html).toContain("本月來客數");
+    expect(html).toContain("新客數");
+    expect(html).toContain("舊客數");
+    expect(html).toContain("體驗顧客數");
+    expect(html).toContain("較上月");
+    expect(html).toContain("去年同月");
+    expect(html).toContain("基期為 0，無法比較");
+    expect(html).toContain("多人同行者需各自建立顧客與體驗預約才會納入");
+    expect(html).not.toMatch(/回流率|開卡率|客單價/);
+  });
+
+  it("does not query or aggregate customer flow for the HQ all-store view", async () => {
+    mockGetActiveStoreForRead.mockResolvedValueOnce(null);
+    mockStoreIdForViewContext.mockReturnValueOnce(null);
+
+    const html = renderToStaticMarkup(
+      await ReportsPage({ searchParams: Promise.resolve({ preset: "month" }) }),
+    );
+
+    expect(mockGetCustomerFlowMetrics).not.toHaveBeenCalled();
+    expect(html).toContain("HQ 全店視角暫不提供客流唯一顧客數");
+  });
+
   it("allows a GROWTH store even when advanced_reports is unavailable", async () => {
     mockHasStoreFeature.mockImplementation(
       async (_storeId: string, feature: string) => feature !== "advanced_reports",
@@ -207,6 +265,7 @@ describe("ReportsPage basic_reports entitlement gate", () => {
     expect(mockHasStoreFeature).toHaveBeenCalledWith("store-active", "basic_reports");
     expect(mockHasStoreFeature).not.toHaveBeenCalledWith("store-own", "basic_reports");
     expect(mockMonthlyStoreSummary).toHaveBeenCalled();
+    expect(mockGetCustomerFlowMetrics).toHaveBeenCalledWith("store-active", expect.any(String));
   });
 
   it("uses the viewed store id in multi-store view mode", async () => {
@@ -219,6 +278,7 @@ describe("ReportsPage basic_reports entitlement gate", () => {
     await ReportsPage({ searchParams: Promise.resolve({ preset: "today" }) });
 
     expect(mockHasStoreFeature).toHaveBeenCalledWith("store-viewed", "basic_reports");
+    expect(mockGetCustomerFlowMetrics).toHaveBeenCalledWith("store-viewed", expect.any(String));
   });
 
   it("renders the store-aware locked copy and does not load report data when blocked", async () => {
