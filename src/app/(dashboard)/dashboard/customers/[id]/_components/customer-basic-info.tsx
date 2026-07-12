@@ -1,4 +1,5 @@
 import { formatTWTime } from "@/lib/date-utils";
+import { formatBirthday } from "@/lib/birthday";
 import { SideCard, InfoList, type InfoListItem } from "@/components/desktop";
 import type { LineLinkStatus } from "@prisma/client";
 import type { DerivedCustomerSource } from "@/lib/customer-source";
@@ -67,7 +68,7 @@ export function CustomerBasicInfo({
     { label: "性別", value: gender ? (GENDER_LABEL[gender] ?? gender) : null },
     {
       label: "生日",
-      value: birthday ? formatTWTime(birthday, { dateOnly: true }) : null,
+      value: birthday ? formatBirthday(birthday) : "尚未填寫",
     },
     { label: "身高", value: height ? `${height} cm` : null },
     {

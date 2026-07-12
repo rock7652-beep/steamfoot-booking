@@ -4,15 +4,16 @@
  * 「註冊完成」= 以下欄位皆有值：
  *   - name
  *   - phone（必須是 09 開頭 10 碼手機；排除 OAuth 佔位符 _oauth_...）
+ *   - birthday（完整年月日）
  *
- * email / birthday / gender / address / notes 為選填，不列入必填。
+ * email / gender / address / notes 為選填，不列入必填。
  * 登入密碼（User.passwordHash）由 profile action / auth 流程獨立把關，
  * 不在此 gate 範圍。
  *
  * DB schema 不變；本檢查只在 app 層使用，舊資料 nullable 不會 crash。
  */
 
-export const REQUIRED_CUSTOMER_FIELDS = ["name", "phone"] as const;
+export const REQUIRED_CUSTOMER_FIELDS = ["name", "phone", "birthday"] as const;
 
 export type RequiredCustomerField = (typeof REQUIRED_CUSTOMER_FIELDS)[number];
 
@@ -38,6 +39,7 @@ export function missingRequiredFields(
   const missing: RequiredCustomerField[] = [];
   if (!c.name || !c.name.trim()) missing.push("name");
   if (isPlaceholderPhone(c.phone)) missing.push("phone");
+  if (!c.birthday) missing.push("birthday");
   return missing;
 }
 

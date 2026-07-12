@@ -7,6 +7,7 @@ import { AuthError } from "next-auth";
 import { cookies } from "next/headers";
 import { createRegisterEvent } from "@/server/services/referral-events";
 import { bindReferralToCustomer } from "@/server/services/referral-binding";
+import { parseBirthday } from "@/lib/birthday";
 import {
   getStoreOperatingStatus,
   getStoreUnavailableMessage,
@@ -131,8 +132,9 @@ export async function customerRegisterAction(
     return { error: "此手機號碼已註冊，請直接登入" };
   }
 
-  // 選填欄位
-  const birthday = birthdayStr ? new Date(birthdayStr) : null;
+  const parsedBirthday = parseBirthday(birthdayStr);
+  if (!parsedBirthday.success) return { error: parsedBirthday.error };
+  const birthday = parsedBirthday.value;
 
   const passwordHash = hashSync(password, 10);
 

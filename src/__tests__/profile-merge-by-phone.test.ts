@@ -171,7 +171,8 @@ describe("updateProfileAction — merge by storeId + phone", () => {
     fd.set("name", "張小明");
     fd.set("phone", "0912-345-678"); // 帶連字號驗證 normalizePhone
     fd.set("password", "secret123");
-    // 其它欄位（email/birthday/gender/address）皆留空 — 改成選填後不應擋
+    fd.set("birthday", "1990-01-15");
+    // 其它欄位（email/gender/address）皆留空，不應擋住生日必填流程
 
     const result = await updateProfileAction(
       { error: null, success: false },
@@ -227,6 +228,7 @@ describe("updateProfileAction — merge by storeId + phone", () => {
     fd.set("name", "張小明");
     fd.set("phone", "0912345678");
     fd.set("password", ""); // 留空 — 不應觸發 hash 覆蓋
+    fd.set("birthday", "1990-01-15");
 
     const result = await updateProfileAction(
       { error: null, success: false },
@@ -251,6 +253,7 @@ describe("updateProfileAction — merge by storeId + phone", () => {
     fd.set("name", "張小明");
     fd.set("phone", "0912345678");
     fd.set("password", ""); // 首次但沒填密碼
+    fd.set("birthday", "1990-01-15");
 
     const result = await updateProfileAction(
       { error: null, success: false },

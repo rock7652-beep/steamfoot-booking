@@ -145,6 +145,8 @@ export default async function ProfilePage({ searchParams }: PageProps) {
   });
   const needsCompletion = missing.length > 0;
   const showOnboardingBanner = onboardingMode || needsCompletion;
+  const birthdayOnlyCompletion =
+    !!customer && missing.length === 1 && missing[0] === "birthday";
 
   return (
     <div>
@@ -169,6 +171,13 @@ export default async function ProfilePage({ searchParams }: PageProps) {
                 </p>
                 <p className="mt-2 text-base text-primary-800">
                   請先完成基本資料，才能開始預約與使用服務。
+                </p>
+              </>
+            ) : birthdayOnlyCompletion ? (
+              <>
+                <p className="text-lg font-bold text-primary-800">完善生日資料</p>
+                <p className="mt-2 text-base text-primary-800">
+                  填寫完整生日，之後即可收到專屬優惠。
                 </p>
               </>
             ) : (

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { normalizePhone } from "@/lib/normalize";
+import { parseBirthday } from "@/lib/birthday";
 
 /**
  * 顧客基本資料 validator
@@ -23,6 +24,10 @@ const emptyToUndef = z.preprocess(
   z.unknown(),
 );
 
+const optionalBirthday = emptyToUndef.pipe(
+  z.string().trim().refine((value) => parseBirthday(value).success, "生日日期不正確").optional(),
+);
+
 // 後台新增顧客（staff 建立）— 快速建檔：只 name + phone 必填
 // email / gender / birthday 改為 optional，店長可以 10 秒內建好一筆顧客；
 // 其他欄位之後在編輯頁補。Customer.email/gender/birthday DB 已是 nullable。
@@ -33,7 +38,7 @@ export const createCustomerSchema = z.object({
     z.string().trim().email("Email 格式不正確").max(200).optional(),
   ),
   gender: emptyToUndef.pipe(z.enum(["male", "female", "other"]).optional()),
-  birthday: emptyToUndef.pipe(z.string().trim().optional()),
+  birthday: optionalBirthday,
   // lineName / notes 可空
   lineName: z.string().max(100).optional(),
   notes: z.string().max(1000).optional(),
@@ -57,7 +62,7 @@ export const updateCustomerSchema = z.object({
     z.string().trim().email("Email 格式不正確").max(200).optional(),
   ),
   gender: emptyToUndef.pipe(z.enum(["male", "female", "other"]).optional()),
-  birthday: emptyToUndef.pipe(z.string().trim().optional()),
+  birthday: optionalBirthday,
   height: z.preprocess(
     (v) => {
       if (v === undefined || v === null) return undefined;

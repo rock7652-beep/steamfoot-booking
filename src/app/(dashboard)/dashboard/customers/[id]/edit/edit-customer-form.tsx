@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { updateCustomer } from "@/server/actions/customer";
 import { normalizePhone, normalizeEmail } from "@/lib/normalize";
 import { DashboardLink as Link } from "@/components/dashboard-link";
+import { BirthdayFields } from "@/components/birthday-fields";
 import {
   FormShell,
   FormSection,
@@ -148,12 +149,7 @@ export function EditCustomerForm({ customer }: { customer: CustomerData }) {
                     生日
                     <span className="ml-1 text-xs text-earth-400">（選填）</span>
                   </label>
-                  <input
-                    name="birthday"
-                    type="date"
-                    defaultValue={customer.birthday}
-                    className={`mt-1 ${inputCls}`}
-                  />
+                  <BirthdayFields defaultValue={customer.birthday} className={inputCls} />
                 </div>
               </FormGrid>
               <div>

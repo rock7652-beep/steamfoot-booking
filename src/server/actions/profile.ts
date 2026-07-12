@@ -15,6 +15,7 @@ import {
 } from "@/server/services/customer-merge";
 import { bindReferralToCustomer } from "@/server/services/referral-binding";
 import { normalizePhone } from "@/lib/normalize";
+import { parseBirthday } from "@/lib/birthday";
 import type { UserRole } from "@prisma/client";
 
 // ============================================================
@@ -283,13 +284,10 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
     return { error: "Email 格式不正確", success: false };
   }
 
-  let birthday: Date | null = null;
-  if (birthdayStr) {
-    birthday = new Date(birthdayStr);
-    if (isNaN(birthday.getTime())) {
-      return { error: "生日格式不正確", success: false };
-    }
-  }
+  if (!birthdayStr) return { error: "請填寫完整生日", success: false };
+  const parsedBirthday = parseBirthday(birthdayStr);
+  if (!parsedBirthday.success) return { error: parsedBirthday.error, success: false };
+  const birthday = parsedBirthday.value;
 
   // 密碼：首次設定（User 還沒有 passwordHash）必填，已有 hash 則留空＝不變更。
   // 規則統一在後端：≥ 6 碼。實際 hash 寫入點在 customer 建立／更新成功之後（見下方）。
