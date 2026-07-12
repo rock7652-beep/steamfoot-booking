@@ -143,7 +143,7 @@ describe("AdvancedReportsPage feature gate", () => {
 
     expect(mockHasStoreFeature).toHaveBeenCalledWith("store-1", "advanced_reports");
     expect(mockGetAdvancedReportsMetrics).not.toHaveBeenCalled();
-    expect(html).toContain("進階報表尚未開通");
+    expect(html).toContain("經營診斷尚未開通");
     expect(html).toContain("請聯絡總部加購或升級方案");
     expect(html).toContain("返回儀表板");
   });
@@ -159,7 +159,7 @@ describe("AdvancedReportsPage feature gate", () => {
       month: "2026-07",
     });
     expect(html).toContain("體驗轉換率");
-    expect(html).toContain("本期尚無進階報表資料");
+    expect(html).toContain("本期尚無經營診斷資料");
   });
 
   it("keeps the HQ all-store view available when there is no concrete store id to gate", async () => {

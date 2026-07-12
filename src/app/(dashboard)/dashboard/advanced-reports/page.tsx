@@ -64,7 +64,7 @@ function AdvancedReportsLockedState() {
   return (
     <PageShell>
       <PageHeader
-        title="進階報表"
+        title="經營診斷"
         subtitle="體驗轉換、續購、回訪、客單價與營收趨勢"
         actions={
           <Link
@@ -77,7 +77,7 @@ function AdvancedReportsLockedState() {
       />
       <EmptyState
         icon="lock"
-        title="進階報表尚未開通"
+        title="經營診斷尚未開通"
         description="請聯絡總部加購或升級方案後，再查看體驗轉換、續購、回訪與月營收趨勢。"
         action={{ label: "返回儀表板", href: "/dashboard" }}
       />
@@ -153,7 +153,7 @@ export default async function AdvancedReportsPage({ searchParams }: PageProps) {
   return (
     <PageShell>
       <PageHeader
-        title="進階報表"
+        title="經營診斷"
         subtitle={`${storeName} · ${formatMonthLabel(month)} 經營指標`}
         actions={<MonthFilter month={month} />}
       />
@@ -196,7 +196,7 @@ export default async function AdvancedReportsPage({ searchParams }: PageProps) {
       {empty ? (
         <section className="rounded-lg border border-earth-200 bg-white">
           <EmptyRow
-            title="本期尚無進階報表資料"
+            title="本期尚無經營診斷資料"
             hint="選擇其他月份，或等體驗、購課、交易與回訪資料累積後再查看。"
           />
         </section>

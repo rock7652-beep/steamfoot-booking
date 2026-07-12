@@ -46,7 +46,7 @@ const COMPARISON_ROWS: {
   { label: "顧客管理", basic: "內含", pro: "內含", alliance: "內含" },
   { label: "方案 / 堂數管理", basic: "內含", pro: "內含", alliance: "內含" },
   { label: "基本收款紀錄", basic: "內含", pro: "內含", alliance: "內含" },
-  { label: "基本報表", basic: "內含", pro: "內含", alliance: "內含" },
+  { label: "營運分析", basic: "內含", pro: "內含", alliance: "內含" },
   { label: "前台預約入口", basic: "內含", pro: "內含", alliance: "內含" },
   { label: "LINE 綁定狀態", basic: "內含", pro: "內含", alliance: "內含" },
   { label: "LINE 自動提醒", basic: "$500 工具模組", pro: "$500 工具模組", alliance: "內含" },
@@ -54,7 +54,7 @@ const COMPARISON_ROWS: {
   { label: "現金抽屜", basic: "$500 工具模組", pro: "內含", alliance: "內含" },
   { label: "顧客經營", basic: "$800 經營模組", pro: "內含", alliance: "內含" },
   { label: "健康評估／摘要", basic: "$800 經營模組", pro: "$800 經營模組", alliance: "內含" },
-  { label: "經營診斷報表", basic: "$800 經營模組", pro: "$800 經營模組", alliance: "內含" },
+  { label: "經營診斷", basic: "$800 經營模組", pro: "$800 經營模組", alliance: "內含" },
   { label: "月結管理", basic: "$800 經營模組", pro: "$800 經營模組", alliance: "內含" },
   { label: "多店管理", basic: "-", pro: "-", alliance: "內含" },
 ];
@@ -152,7 +152,7 @@ export default function PricingPage() {
             <SolutionCard
               number="1"
               title="穩定單店營運"
-              description="預約、顧客、堂數、收款與基本報表集中管理"
+              description="預約、顧客、堂數、收款與營運分析集中管理"
               color="primary"
             />
             <SolutionCard
@@ -191,13 +191,13 @@ export default function PricingPage() {
                 "預約管理",
                 "顧客管理",
                 "方案 / 堂數管理",
-                "基本收款紀錄與基本報表",
+                "基本收款紀錄與營運分析",
                 "可選 1 個 $500 工具型模組",
               ]}
               locked={[
                 "顧客經營",
                 "健康評估／摘要",
-                "經營診斷報表",
+                "經營診斷",
                 "月結管理",
               ]}
               accent="primary"

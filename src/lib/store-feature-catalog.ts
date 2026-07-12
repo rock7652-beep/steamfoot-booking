@@ -58,9 +58,9 @@ export const MANAGEABLE_STORE_FEATURES: StoreFeatureCatalogItem[] = [
   },
   {
     key: FEATURES.ADVANCED_REPORTS,
-    label: "進階報表",
-    module: "報表",
-    description: "進階營運分析與趨勢報表。",
+    label: "經營診斷",
+    module: "分析",
+    description: "經營診斷與趨勢分析。",
   },
   {
     key: FEATURES.AI_HEALTH_SUMMARY,

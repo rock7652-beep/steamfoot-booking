@@ -124,7 +124,7 @@ const PLAN_CAPABILITIES: Record<PricingPlan, string[]> = {
     "交易與帳務管理",
     "現金帳與對帳中心",
     "店營收報表",
-    "基礎營運報表與 KPI",
+    "營運分析與 KPI",
   ],
   GROWTH: [
     "人才管道與升級進度追蹤",
@@ -132,7 +132,7 @@ const PLAN_CAPABILITIES: Record<PricingPlan, string[]> = {
     "顧客經營清單 + 自動標籤",
     "完整營運儀表板",
     "AI 顧客健康分析",
-    "進階報表與成效追蹤",
+    "經營診斷與成效追蹤",
   ],
   ALLIANCE: [
     "完整開店準備度分析",

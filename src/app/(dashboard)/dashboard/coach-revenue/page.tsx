@@ -40,8 +40,8 @@ export default async function CoachRevenuePage() {
   if (gateStoreId && !(await hasStoreFeature(gateStoreId, FF.ADVANCED_REPORTS))) {
     return (
       <UpgradeNoticePage
-        title="進階報表尚未開通"
-        description="此功能需使用展店版，或由總部為店舖開通進階報表功能。"
+        title="經營診斷尚未開通"
+        description="此功能需使用展店版，或由總部為店舖開通經營診斷功能。"
       />
     );
   }

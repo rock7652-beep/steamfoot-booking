@@ -189,8 +189,8 @@ describe("ReportsPage advanced_reports entitlement gate", () => {
 
     expect(mockMonthlyStoreSummary).not.toHaveBeenCalled();
     expect(mockMonthlyRevenueByCategory).not.toHaveBeenCalled();
-    expect(html).toContain("進階報表尚未開通");
-    expect(html).toContain("此功能需使用展店版，或由總部為店舖開通進階報表功能。");
+    expect(html).toContain("經營診斷尚未開通");
+    expect(html).toContain("此功能需使用展店版，或由總部為店舖開通經營診斷功能。");
     expect(html).not.toContain("成長版");
   });
 

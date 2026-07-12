@@ -52,7 +52,7 @@ export interface NavGroup {
 // ============================================================
 // Store Admin Navigation — 店家後台 v1（OWNER / PARTNER / Staff）
 // ============================================================
-// 扁平 7 個一級入口：首頁 / 預約管理 / 顧客管理 / 顧客經營 / 營收 / 報表 / 設定
+// 扁平 7 個一級入口：首頁 / 預約管理 / 顧客管理 / 顧客經營 / 營運 / 分析 / 設定
 // ADMIN 進入時另以 NAV_GROUPS 呈現完整總部視角。
 // 原有獨立路徑（bonus-rules、cashbook、reconciliation、transactions、
 // store-revenue、staff、plans、settings/*、reminders、duty）保留，由
@@ -113,7 +113,7 @@ export const STORE_ADMIN_NAV: NavItem[] = [
   },
   {
     href: "/dashboard/revenue",
-    label: "營收",
+    label: "營運",
     permission: "transaction.read",
     requiredFeature: FEATURES.TRANSACTION_MANAGEMENT,
     upgradeTo: "BASIC",
@@ -125,7 +125,7 @@ export const STORE_ADMIN_NAV: NavItem[] = [
   },
   {
     href: "/dashboard/reports",
-    label: "報表",
+    label: "分析",
     permission: "report.read",
     requiredFeature: FEATURES.BASIC_REPORTS,
     upgradeTo: "BASIC",
@@ -314,7 +314,7 @@ export const NAV_GROUPS: NavGroup[] = [
       },
       {
         href: "/dashboard/reports",
-        label: "報表",
+        label: "分析",
         permission: "report.read",
         requiredFeature: FEATURES.BASIC_REPORTS,
         upgradeTo: "BASIC",

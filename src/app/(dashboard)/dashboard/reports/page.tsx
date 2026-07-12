@@ -78,8 +78,8 @@ export default async function ReportsPage({ searchParams }: PageProps) {
   if (gateStoreId && !(await hasStoreFeature(gateStoreId, FEATURES.ADVANCED_REPORTS))) {
     return (
       <UpgradeNoticePage
-        title="進階報表尚未開通"
-        description="此功能需使用展店版，或由總部為店舖開通進階報表功能。"
+        title="經營診斷尚未開通"
+        description="此功能需使用展店版，或由總部為店舖開通經營診斷功能。"
       />
     );
   }
@@ -317,7 +317,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
     <FeatureGate plan={plan} feature={FEATURES.BASIC_REPORTS}>
       <PageShell>
         <PageHeader
-          title="報表"
+          title="營運分析"
           subtitle={`${displayLabel} 營收摘要`}
           actions={
             <>
@@ -351,7 +351,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
                 href="/dashboard/advanced-reports"
                 className="rounded-md border border-earth-200 bg-white px-3 py-1.5 text-xs font-medium text-earth-700 hover:bg-earth-50"
               >
-                進階報表 →
+                經營診斷 →
               </a>
               {/* 月結管理入口：服務金額是月結資料來源，最終確認與保存集中到月結管理。 */}
               <a
