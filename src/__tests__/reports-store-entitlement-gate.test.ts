@@ -15,6 +15,7 @@ const mockHasDataExportFeature = vi.fn();
 const mockMonthlyStoreSummary = vi.fn();
 const mockMonthlyRevenueByCategory = vi.fn();
 const mockGetCustomerFlowMetrics = vi.fn();
+const mockGetConversionMetrics = vi.fn();
 const mockGetReportSnapshotWithMeta = vi.fn();
 const mockUpsertReportSnapshot = vi.fn();
 const mockRedirect = vi.fn((href: string) => {
@@ -64,6 +65,10 @@ vi.mock("@/server/queries/report", () => ({
 
 vi.mock("@/server/queries/customer-flow-metrics", () => ({
   getCustomerFlowMetrics: (...args: unknown[]) => mockGetCustomerFlowMetrics(...args),
+}));
+
+vi.mock("@/server/queries/conversion-metrics", () => ({
+  getConversionMetrics: (...args: unknown[]) => mockGetConversionMetrics(...args),
 }));
 
 vi.mock("@/server/queries/report-snapshot", () => ({
@@ -183,6 +188,24 @@ beforeEach(() => {
       yoy: { difference: 1, percentage: 100 },
     },
   });
+  mockGetConversionMetrics.mockResolvedValue({
+    month: "2026-07",
+    convertedCustomers: {
+      current: 1,
+      mom: { difference: 1, percentage: null },
+      yoy: { difference: 0, percentage: 0 },
+    },
+    conversionRate: {
+      current: 50,
+      mom: { difference: 50, percentage: null },
+      yoy: { difference: 0, percentage: 0 },
+    },
+    unconvertedCustomers: {
+      current: 1,
+      mom: { difference: 0, percentage: 0 },
+      yoy: { difference: 0, percentage: 0 },
+    },
+  });
   mockGetReportSnapshotWithMeta.mockResolvedValue(null);
   mockUpsertReportSnapshot.mockResolvedValue(undefined);
 });
@@ -226,7 +249,7 @@ describe("ReportsPage basic_reports entitlement gate", () => {
     expect(html).toContain("去年同月");
     expect(html).toContain("基期為 0，無法比較");
     expect(html).toContain("多人同行者需各自建立顧客與體驗預約才會納入");
-    expect(html).not.toMatch(/回流率|開卡率|客單價/);
+    expect(html).not.toMatch(/回流率|客單價/);
   });
 
   it("does not query or aggregate customer flow for the HQ all-store view", async () => {
@@ -238,7 +261,25 @@ describe("ReportsPage basic_reports entitlement gate", () => {
     );
 
     expect(mockGetCustomerFlowMetrics).not.toHaveBeenCalled();
+    expect(mockGetConversionMetrics).not.toHaveBeenCalled();
     expect(html).toContain("HQ 全店視角暫不提供客流唯一顧客數");
+    expect(html).toContain("HQ 全店視角暫不提供成交分析");
+  });
+
+  it("shows only the three scoped conversion KPIs below customer flow", async () => {
+    const html = renderToStaticMarkup(
+      await ReportsPage({ searchParams: Promise.resolve({ preset: "month" }) }),
+    );
+
+    expect(mockGetConversionMetrics).toHaveBeenCalledWith("store-active", expect.any(String));
+    expect(html).toContain("成交分析");
+    expect(html).toContain("開卡人數");
+    expect(html).toContain("開卡率");
+    expect(html).toContain("未開卡人數");
+    expect(html.indexOf("成交分析")).toBeGreaterThan(html.indexOf("客流分析"));
+    expect(html).toContain("方案權益未取消");
+    expect(html).toContain("基期為 0，無法比較");
+    expect(html).not.toMatch(/成交率|客單價|回流率|來源分析/);
   });
 
   it("allows a GROWTH store even when advanced_reports is unavailable", async () => {
@@ -266,6 +307,7 @@ describe("ReportsPage basic_reports entitlement gate", () => {
     expect(mockHasStoreFeature).not.toHaveBeenCalledWith("store-own", "basic_reports");
     expect(mockMonthlyStoreSummary).toHaveBeenCalled();
     expect(mockGetCustomerFlowMetrics).toHaveBeenCalledWith("store-active", expect.any(String));
+    expect(mockGetConversionMetrics).toHaveBeenCalledWith("store-active", expect.any(String));
   });
 
   it("uses the viewed store id in multi-store view mode", async () => {
@@ -279,6 +321,7 @@ describe("ReportsPage basic_reports entitlement gate", () => {
 
     expect(mockHasStoreFeature).toHaveBeenCalledWith("store-viewed", "basic_reports");
     expect(mockGetCustomerFlowMetrics).toHaveBeenCalledWith("store-viewed", expect.any(String));
+    expect(mockGetConversionMetrics).toHaveBeenCalledWith("store-viewed", expect.any(String));
   });
 
   it("renders the store-aware locked copy and does not load report data when blocked", async () => {
