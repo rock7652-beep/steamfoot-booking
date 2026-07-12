@@ -17,6 +17,14 @@ export type StoreFeatureCatalogItem = {
   description: string;
 };
 
+export const STORE_FEATURE_CATEGORIES = [
+  "顧客經營",
+  "營運",
+  "分析",
+  "健康",
+  "展店",
+] as const;
+
 export type StoreFeatureEntitlementSnapshot = {
   status: StoreFeatureEntitlementStatus;
   source: StoreFeatureEntitlementSource;
@@ -35,60 +43,68 @@ export const MANAGEABLE_STORE_FEATURES: StoreFeatureCatalogItem[] = [
   {
     key: FEATURES.CUSTOMER_CARE,
     label: "顧客經營",
-    module: "顧客經營",
-    description: "待追蹤體驗客、好久不見、堂數偏低、方案快到期與追蹤紀錄。",
+    module: "顧客",
+    description: "待追蹤顧客、好久不見、堂數偏低、方案快到期與追蹤紀錄。",
   },
   {
     key: FEATURES.LINE_REMINDER,
     label: "LINE 提醒",
-    module: "LINE",
+    module: "顧客",
     description: "預約提醒規則與 LINE 訊息發送。",
+  },
+  {
+    key: FEATURES.MEMBER_PORTAL,
+    label: "LINE 會員中心",
+    module: "顧客",
+    description: "顧客可自行預約、取消與查詢方案的會員入口。",
   },
   {
     key: FEATURES.CASH_DRAWER,
     label: "現金抽屜",
-    module: "金流",
+    module: "營運",
     description: "每日現金抽屜開關帳與現金流盤點。",
+  },
+  {
+    key: FEATURES.SERVICE_FEE_CALCULATOR,
+    label: "月結管理",
+    module: "營運",
+    description: "每月服務金額、固定月費、加扣項與月結紀錄。",
   },
   {
     key: FEATURES.DATA_EXPORT,
     label: "資料匯出",
-    module: "資料",
-    description: "顧客、報表與結算資料匯出能力。",
+    module: "營運",
+    description: "匯出顧客、交易與營運資料。",
+  },
+  {
+    key: FEATURES.BASIC_REPORTS,
+    label: "營運分析",
+    module: "分析",
+    description: "查看店舖來客、營收、預約與營運數據。",
   },
   {
     key: FEATURES.ADVANCED_REPORTS,
     label: "經營診斷",
     module: "分析",
-    description: "經營診斷與趨勢分析。",
+    description: "分析店家經營健康度，找出問題與改善方向。",
   },
   {
     key: FEATURES.AI_HEALTH_SUMMARY,
     label: "健康評估／摘要",
     module: "健康",
-    description: "顧客健康評估入口、顧客端摘要與店長後台健康摘要。",
+    description: "顧客健康評估入口與店長後台健康摘要。",
   },
   {
     key: FEATURES.MULTI_STORE,
-    label: "母子店 / 多店",
-    module: "多店",
-    description: "多店管理、母子店關係與跨店檢視。",
-  },
-  {
-    key: FEATURES.MEMBER_PORTAL,
-    label: "LINE 會員中心",
-    module: "會員",
-    description:
-      "顧客前台已可自助預約、取消與查詢方案；此模組用於 LINE / LIFF 品牌化會員入口。",
-  },
-  {
-    key: FEATURES.SERVICE_FEE_CALCULATOR,
-    label: "月結管理",
-    module: "結算",
-    description:
-      "適合有合作店長或分潤夥伴的店家，用於確認每月服務金額、固定月費、加扣項與月結紀錄。",
+    label: "母子店／多店",
+    module: "展店",
+    description: "跨店管理、母子店關係與跨店檢視。",
   },
 ];
+
+export function getStoreFeatureCategory(feature: StoreFeatureCatalogItem): string {
+  return feature.module === "顧客" ? "顧客經營" : feature.module;
+}
 
 const FEATURE_LABELS = new Map(
   MANAGEABLE_STORE_FEATURES.map((feature) => [feature.key, feature.label]),

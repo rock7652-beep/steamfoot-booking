@@ -7,6 +7,8 @@ import { hasFeature, PRICING_PLAN_INFO } from "@/lib/feature-flags";
 import type { FeatureKey } from "@/lib/feature-flags";
 import {
   MANAGEABLE_STORE_FEATURES,
+  STORE_FEATURE_CATEGORIES,
+  getStoreFeatureCategory,
   getStoreFeatureLabel,
   resolveStoreFeatureDisplayState,
 } from "@/lib/store-feature-catalog";
@@ -115,17 +117,35 @@ export default async function StoreFeatureSettingsPage({ params }: PageProps) {
           <p className="text-[11px] text-earth-400">預設收合，點「調整設定」再展開編輯</p>
         </div>
 
-        <div className="grid gap-3 p-3 lg:grid-cols-2">
-          {MANAGEABLE_STORE_FEATURES.map((feature) => {
-            const entitlement = entitlements.get(feature.key) ?? null;
-            const baseAllowed = hasFeature(store.plan, feature.key);
-            const state = resolveStoreFeatureDisplayState(store.plan, feature.key, entitlement);
+        <div className="grid gap-5 p-3">
+          {STORE_FEATURE_CATEGORIES.map((category) => (
+            <section key={category} aria-labelledby={`feature-category-${category}`}>
+              <div className="mb-2 flex items-center gap-2">
+                <h2
+                  id={`feature-category-${category}`}
+                  className="text-sm font-semibold text-earth-800"
+                >
+                  {category}
+                </h2>
+                <span className="h-px flex-1 bg-earth-100" />
+              </div>
+              <div className="grid gap-3 lg:grid-cols-2">
+                {MANAGEABLE_STORE_FEATURES.filter(
+                  (feature) => getStoreFeatureCategory(feature) === category,
+                ).map((feature) => {
+                  const entitlement = entitlements.get(feature.key) ?? null;
+                  const baseAllowed = hasFeature(store.plan, feature.key);
+                  const state = resolveStoreFeatureDisplayState(
+                    store.plan,
+                    feature.key,
+                    entitlement,
+                  );
 
-            return (
-              <section
-                key={feature.key}
-                className="min-w-0 rounded-lg border border-earth-200 bg-white p-3 shadow-sm"
-              >
+                  return (
+                    <article
+                      key={feature.key}
+                      className="min-w-0 rounded-lg border border-earth-200 bg-white p-3 shadow-sm"
+                    >
                 <div className="flex min-w-0 items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
@@ -197,9 +217,12 @@ export default async function StoreFeatureSettingsPage({ params }: PageProps) {
                     />
                   </div>
                 </details>
-              </section>
-            );
-          })}
+                    </article>
+                  );
+                })}
+              </div>
+            </section>
+          ))}
         </div>
       </div>
     </PageShell>
