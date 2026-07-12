@@ -3,6 +3,10 @@ import {
   monthlyRevenueByCategory,
 } from "@/server/queries/report";
 import {
+  getCustomerFlowMetrics,
+  type CustomerFlowComparison,
+} from "@/server/queries/customer-flow-metrics";
+import {
   getReportSnapshotWithMeta,
   upsertReportSnapshot,
 } from "@/server/queries/report-snapshot";
@@ -186,6 +190,11 @@ export default async function ReportsPage({ searchParams }: PageProps) {
   }
 
   timer.cacheStatus("reports-snapshot", snapshotHit ? "hit" : "miss");
+  const customerFlowMetrics = reportsStoreId
+    ? await withTiming("customerFlowMetrics", timer, () =>
+        getCustomerFlowMetrics(reportsStoreId, month),
+      )
+    : null;
   timer.finish();
 
   const totalOrders = storeSummary.staffBreakdown.reduce(
@@ -404,6 +413,49 @@ export default async function ReportsPage({ searchParams }: PageProps) {
           />
         </section>
 
+        <section
+          aria-labelledby="customer-flow-title"
+          className="rounded-xl border border-earth-200 bg-white p-3"
+        >
+          <div>
+            <h2 id="customer-flow-title" className="text-sm font-semibold text-earth-800">
+              客流分析
+            </h2>
+            <p className="mt-0.5 text-[11px] leading-relaxed text-earth-400">
+              依完成服務的唯一顧客計算；取消與未到不計。體驗顧客數不使用預約人數，
+              多人同行者需各自建立顧客與體驗預約才會納入。
+            </p>
+          </div>
+          {customerFlowMetrics ? (
+            <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+              {[
+                ["本月來客數", customerFlowMetrics.uniqueVisitors],
+                ["新客數", customerFlowMetrics.newVisitors],
+                ["舊客數", customerFlowMetrics.returningVisitors],
+                ["體驗顧客數", customerFlowMetrics.trialCustomers],
+              ].map(([label, metric]) => {
+                const value = metric as (typeof customerFlowMetrics)["uniqueVisitors"];
+                return (
+                  <div key={label as string} className="rounded-lg bg-earth-50/70 p-3">
+                    <p className="text-[11px] font-medium text-earth-500">{label as string}</p>
+                    <p className="mt-1 text-xl font-bold tabular-nums text-earth-900">
+                      {value.current} 位
+                    </p>
+                    <div className="mt-2 space-y-1 text-[11px] text-earth-500">
+                      <p>較上月：{formatCustomerFlowComparison(value.mom)}</p>
+                      <p>去年同月：{formatCustomerFlowComparison(value.yoy)}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="mt-3 rounded-lg bg-earth-50 px-3 py-2 text-xs text-earth-500">
+              HQ 全店視角暫不提供客流唯一顧客數；請先選擇店舖，避免跨店重複顧客被錯誤加總。
+            </p>
+          )}
+        </section>
+
         {/* 營收分析 — 依收入類型拆分 */}
         <section className="rounded-xl border border-earth-200 bg-white">
           <div className="flex items-center justify-between px-3 py-2">
@@ -450,4 +502,11 @@ export default async function ReportsPage({ searchParams }: PageProps) {
       </PageShell>
     </FeatureGate>
   );
+}
+
+function formatCustomerFlowComparison(comparison: CustomerFlowComparison): string {
+  const difference = `${comparison.difference > 0 ? "+" : ""}${comparison.difference}`;
+  if (comparison.percentage === null) return `${difference} 位（基期為 0，無法比較）`;
+  const percentage = `${comparison.percentage > 0 ? "+" : ""}${comparison.percentage.toFixed(1)}%`;
+  return `${difference} 位（${percentage}）`;
 }
