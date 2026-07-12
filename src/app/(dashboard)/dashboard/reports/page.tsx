@@ -45,7 +45,7 @@ import {
  * 沿用：
  *   - monthlyStoreSummary / monthlyRevenueByCategory（不改計算邏輯）
  *   - snapshot 快取策略（過去月份永不過期 / 當月 1h TTL）
- *   - Store-aware ADVANCED_REPORTS entitlement gate
+ *   - Store-aware BASIC_REPORTS entitlement gate
  *   - ReportDateRange（共用日期範圍 client 元件）
  */
 
@@ -75,11 +75,11 @@ export default async function ReportsPage({ searchParams }: PageProps) {
     : DATA_EXPORT_SELECT_STORE_MESSAGE;
 
   const gateStoreId = reportsStoreId ?? activeStoreId;
-  if (gateStoreId && !(await hasStoreFeature(gateStoreId, FEATURES.ADVANCED_REPORTS))) {
+  if (gateStoreId && !(await hasStoreFeature(gateStoreId, FEATURES.BASIC_REPORTS))) {
     return (
       <UpgradeNoticePage
-        title="經營診斷尚未開通"
-        description="此功能需使用展店版，或由總部為店舖開通經營診斷功能。"
+        title="營運分析尚未開通"
+        description="請聯絡總部開通營運分析功能。"
       />
     );
   }

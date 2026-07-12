@@ -134,7 +134,7 @@ beforeEach(() => {
 });
 
 describe("AdvancedReportsPage feature gate", () => {
-  it("renders a friendly locked state instead of loading metrics when advanced_reports is disabled", async () => {
+  it("blocks a GROWTH store when advanced_reports is disabled", async () => {
     mockHasStoreFeature.mockResolvedValueOnce(false);
 
     const html = renderToStaticMarkup(
@@ -148,7 +148,7 @@ describe("AdvancedReportsPage feature gate", () => {
     expect(html).toContain("返回儀表板");
   });
 
-  it("renders metrics when advanced_reports is enabled", async () => {
+  it("allows /dashboard/advanced-reports when advanced_reports is enabled", async () => {
     const html = renderToStaticMarkup(
       await AdvancedReportsPage({ searchParams: Promise.resolve({ month: "2026-07" }) }),
     );
