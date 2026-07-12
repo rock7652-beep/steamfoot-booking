@@ -7,6 +7,10 @@ import {
   type CustomerFlowComparison,
 } from "@/server/queries/customer-flow-metrics";
 import {
+  getConversionMetrics,
+  type ConversionComparison,
+} from "@/server/queries/conversion-metrics";
+import {
   getReportSnapshotWithMeta,
   upsertReportSnapshot,
 } from "@/server/queries/report-snapshot";
@@ -190,11 +194,16 @@ export default async function ReportsPage({ searchParams }: PageProps) {
   }
 
   timer.cacheStatus("reports-snapshot", snapshotHit ? "hit" : "miss");
-  const customerFlowMetrics = reportsStoreId
-    ? await withTiming("customerFlowMetrics", timer, () =>
-        getCustomerFlowMetrics(reportsStoreId, month),
-      )
-    : null;
+  const [customerFlowMetrics, conversionMetrics] = reportsStoreId
+    ? await Promise.all([
+        withTiming("customerFlowMetrics", timer, () =>
+          getCustomerFlowMetrics(reportsStoreId, month),
+        ),
+        withTiming("conversionMetrics", timer, () =>
+          getConversionMetrics(reportsStoreId, month),
+        ),
+      ])
+    : [null, null];
   timer.finish();
 
   const totalOrders = storeSummary.staffBreakdown.reduce(
@@ -456,6 +465,49 @@ export default async function ReportsPage({ searchParams }: PageProps) {
           )}
         </section>
 
+        <section
+          aria-labelledby="conversion-analysis-title"
+          className="rounded-xl border border-earth-200 bg-white p-3"
+        >
+          <div>
+            <h2 id="conversion-analysis-title" className="text-sm font-semibold text-earth-800">
+              成交分析
+            </h2>
+            <p className="mt-0.5 text-[11px] leading-relaxed text-earth-400">
+              開卡以完成體驗當天成功購買正式方案、且方案權益未取消的唯一顧客計算。
+              多人同行者需各自建立顧客與體驗預約才會納入。
+            </p>
+          </div>
+          {conversionMetrics ? (
+            <div className="mt-3 grid gap-2 sm:grid-cols-3">
+              {[
+                ["開卡人數", conversionMetrics.convertedCustomers, "count"],
+                ["開卡率", conversionMetrics.conversionRate, "rate"],
+                ["未開卡人數", conversionMetrics.unconvertedCustomers, "count"],
+              ].map(([label, metric, kind]) => {
+                const value = metric as (typeof conversionMetrics)["convertedCustomers"];
+                const isRate = kind === "rate";
+                return (
+                  <div key={label as string} className="rounded-lg bg-earth-50/70 p-3">
+                    <p className="text-[11px] font-medium text-earth-500">{label as string}</p>
+                    <p className="mt-1 text-xl font-bold tabular-nums text-earth-900">
+                      {isRate ? `${value.current.toFixed(1)}%` : `${value.current} 位`}
+                    </p>
+                    <div className="mt-2 space-y-1 text-[11px] text-earth-500">
+                      <p>較上月：{formatConversionComparison(value.mom, isRate)}</p>
+                      <p>去年同月：{formatConversionComparison(value.yoy, isRate)}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="mt-3 rounded-lg bg-earth-50 px-3 py-2 text-xs text-earth-500">
+              HQ 全店視角暫不提供成交分析；請先選擇店舖，避免跨店顧客被錯誤加總。
+            </p>
+          )}
+        </section>
+
         {/* 營收分析 — 依收入類型拆分 */}
         <section className="rounded-xl border border-earth-200 bg-white">
           <div className="flex items-center justify-between px-3 py-2">
@@ -509,4 +561,15 @@ function formatCustomerFlowComparison(comparison: CustomerFlowComparison): strin
   if (comparison.percentage === null) return `${difference} 位（基期為 0，無法比較）`;
   const percentage = `${comparison.percentage > 0 ? "+" : ""}${comparison.percentage.toFixed(1)}%`;
   return `${difference} 位（${percentage}）`;
+}
+
+function formatConversionComparison(
+  comparison: ConversionComparison,
+  isRate: boolean,
+): string {
+  const difference = `${comparison.difference > 0 ? "+" : ""}${comparison.difference.toFixed(isRate ? 1 : 0)}`;
+  const unit = isRate ? " 個百分點" : " 位";
+  if (comparison.percentage === null) return `${difference}${unit}（基期為 0，無法比較）`;
+  const percentage = `${comparison.percentage > 0 ? "+" : ""}${comparison.percentage.toFixed(1)}%`;
+  return `${difference}${unit}（${percentage}）`;
 }
