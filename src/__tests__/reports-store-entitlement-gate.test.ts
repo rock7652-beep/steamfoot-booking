@@ -159,12 +159,30 @@ beforeEach(() => {
   mockUpsertReportSnapshot.mockResolvedValue(undefined);
 });
 
-describe("ReportsPage advanced_reports entitlement gate", () => {
+describe("ReportsPage basic_reports entitlement gate", () => {
+  it("allows a GROWTH store even when advanced_reports is unavailable", async () => {
+    mockHasStoreFeature.mockImplementation(
+      async (_storeId: string, feature: string) => feature !== "advanced_reports",
+    );
+
+    const html = renderToStaticMarkup(
+      await ReportsPage({ searchParams: Promise.resolve({ preset: "today" }) }),
+    );
+
+    expect(mockGetCachedStorePlan).toHaveBeenCalled();
+    expect(mockHasStoreFeature).toHaveBeenCalledWith("store-active", "basic_reports");
+    expect(mockHasStoreFeature).not.toHaveBeenCalledWith("store-active", "advanced_reports");
+    expect(mockMonthlyStoreSummary).toHaveBeenCalled();
+    expect(html).toContain("營運分析");
+    expect(html).not.toContain("營運分析尚未開通");
+    expect(html).not.toContain("經營診斷尚未開通");
+  });
+
   it("uses the currently active store id for ADMIN-selected store gating", async () => {
     await ReportsPage({ searchParams: Promise.resolve({ preset: "today" }) });
 
-    expect(mockHasStoreFeature).toHaveBeenCalledWith("store-active", "advanced_reports");
-    expect(mockHasStoreFeature).not.toHaveBeenCalledWith("store-own", "advanced_reports");
+    expect(mockHasStoreFeature).toHaveBeenCalledWith("store-active", "basic_reports");
+    expect(mockHasStoreFeature).not.toHaveBeenCalledWith("store-own", "basic_reports");
     expect(mockMonthlyStoreSummary).toHaveBeenCalled();
   });
 
@@ -177,7 +195,7 @@ describe("ReportsPage advanced_reports entitlement gate", () => {
 
     await ReportsPage({ searchParams: Promise.resolve({ preset: "today" }) });
 
-    expect(mockHasStoreFeature).toHaveBeenCalledWith("store-viewed", "advanced_reports");
+    expect(mockHasStoreFeature).toHaveBeenCalledWith("store-viewed", "basic_reports");
   });
 
   it("renders the store-aware locked copy and does not load report data when blocked", async () => {
@@ -189,8 +207,9 @@ describe("ReportsPage advanced_reports entitlement gate", () => {
 
     expect(mockMonthlyStoreSummary).not.toHaveBeenCalled();
     expect(mockMonthlyRevenueByCategory).not.toHaveBeenCalled();
-    expect(html).toContain("進階報表尚未開通");
-    expect(html).toContain("此功能需使用展店版，或由總部為店舖開通進階報表功能。");
+    expect(html).toContain("營運分析尚未開通");
+    expect(html).toContain("請聯絡總部開通營運分析功能。");
+    expect(html).not.toContain("經營診斷");
     expect(html).not.toContain("成長版");
   });
 
@@ -208,17 +227,18 @@ describe("ReportsPage advanced_reports entitlement gate", () => {
   });
 });
 
-describe("reports advanced_reports source audit", () => {
+describe("reports basic_reports source audit", () => {
   const repoRoot = process.cwd();
 
-  it("does not use a plan-only hasFeature gate for /dashboard/reports advanced_reports", () => {
+  it("gates /dashboard/reports with BASIC_REPORTS, never ADVANCED_REPORTS", () => {
     const source = fs.readFileSync(
       path.join(repoRoot, "src/app/(dashboard)/dashboard/reports/page.tsx"),
       "utf8",
     );
 
-    expect(source).toContain("hasStoreFeature(gateStoreId, FEATURES.ADVANCED_REPORTS)");
-    expect(source).not.toContain("hasFeature(pricingPlan, FEATURES.ADVANCED_REPORTS)");
+    expect(source).toContain("hasStoreFeature(gateStoreId, FEATURES.BASIC_REPORTS)");
+    expect(source).not.toContain("hasStoreFeature(gateStoreId, FEATURES.ADVANCED_REPORTS)");
+    expect(source).not.toContain("經營診斷尚未開通");
     expect(source).not.toContain("成長版");
   });
 

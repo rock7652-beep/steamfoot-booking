@@ -46,8 +46,8 @@ export default async function PlanSettingsPage() {
   /** Plan highlights for the hero cards */
   const PLAN_HIGHLIGHTS: Record<PricingPlan, string[]> = {
     EXPERIENCE: ["基礎預約管理", "顧客資料管理", "教練排班"],
-    BASIC: ["LINE 提醒通知", "金流與帳務", "基礎營運報表"],
-    GROWTH: ["進階報表分析", "AI 健康摘要", "人才管道與 KPI"],
+    BASIC: ["LINE 提醒通知", "金流與帳務", "營運分析"],
+    GROWTH: ["經營診斷", "AI 健康摘要", "人才管道與 KPI"],
     ALLIANCE: ["多店管理", "聯盟分析", "完整開店準備度"],
   };
 
@@ -70,13 +70,13 @@ export default async function PlanSettingsPage() {
         { key: "plan_management", label: "方案管理" },
         { key: "cashbook", label: "帳簿" },
         { key: "reconciliation", label: "對帳" },
-        { key: "basic_reports", label: "基礎報表" },
+        { key: "basic_reports", label: "營運分析" },
       ],
     },
     {
       group: "進階分析",
       features: [
-        { key: "advanced_reports", label: "進階報表" },
+        { key: "advanced_reports", label: "經營診斷" },
         { key: "ai_health_summary", label: "AI 健康摘要" },
         { key: "kpi_dashboard", label: "KPI 儀表板" },
         { key: "talent_pipeline", label: "人才管道" },
@@ -204,7 +204,7 @@ export default async function PlanSettingsPage() {
       {/* ── PRO Messaging Block ── */}
       <div className="rounded-xl border border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50 p-6">
         <h2 className="text-sm font-bold text-amber-800">
-          成長版 — 用數據驅動營收成長
+          專業版 — 用數據驅動營運成長
         </h2>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           {[

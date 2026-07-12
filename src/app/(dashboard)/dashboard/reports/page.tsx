@@ -45,7 +45,7 @@ import {
  * 沿用：
  *   - monthlyStoreSummary / monthlyRevenueByCategory（不改計算邏輯）
  *   - snapshot 快取策略（過去月份永不過期 / 當月 1h TTL）
- *   - Store-aware ADVANCED_REPORTS entitlement gate
+ *   - Store-aware BASIC_REPORTS entitlement gate
  *   - ReportDateRange（共用日期範圍 client 元件）
  */
 
@@ -75,11 +75,11 @@ export default async function ReportsPage({ searchParams }: PageProps) {
     : DATA_EXPORT_SELECT_STORE_MESSAGE;
 
   const gateStoreId = reportsStoreId ?? activeStoreId;
-  if (gateStoreId && !(await hasStoreFeature(gateStoreId, FEATURES.ADVANCED_REPORTS))) {
+  if (gateStoreId && !(await hasStoreFeature(gateStoreId, FEATURES.BASIC_REPORTS))) {
     return (
       <UpgradeNoticePage
-        title="進階報表尚未開通"
-        description="此功能需使用展店版，或由總部為店舖開通進階報表功能。"
+        title="營運分析尚未開通"
+        description="請聯絡總部開通營運分析功能。"
       />
     );
   }
@@ -317,7 +317,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
     <FeatureGate plan={plan} feature={FEATURES.BASIC_REPORTS}>
       <PageShell>
         <PageHeader
-          title="報表"
+          title="營運分析"
           subtitle={`${displayLabel} 營收摘要`}
           actions={
             <>
@@ -351,7 +351,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
                 href="/dashboard/advanced-reports"
                 className="rounded-md border border-earth-200 bg-white px-3 py-1.5 text-xs font-medium text-earth-700 hover:bg-earth-50"
               >
-                進階報表 →
+                經營診斷 →
               </a>
               {/* 月結管理入口：服務金額是月結資料來源，最終確認與保存集中到月結管理。 */}
               <a

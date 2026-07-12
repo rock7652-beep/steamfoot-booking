@@ -134,7 +134,7 @@ beforeEach(() => {
 });
 
 describe("AdvancedReportsPage feature gate", () => {
-  it("renders a friendly locked state instead of loading metrics when advanced_reports is disabled", async () => {
+  it("blocks a GROWTH store when advanced_reports is disabled", async () => {
     mockHasStoreFeature.mockResolvedValueOnce(false);
 
     const html = renderToStaticMarkup(
@@ -143,12 +143,12 @@ describe("AdvancedReportsPage feature gate", () => {
 
     expect(mockHasStoreFeature).toHaveBeenCalledWith("store-1", "advanced_reports");
     expect(mockGetAdvancedReportsMetrics).not.toHaveBeenCalled();
-    expect(html).toContain("進階報表尚未開通");
+    expect(html).toContain("經營診斷尚未開通");
     expect(html).toContain("請聯絡總部加購或升級方案");
     expect(html).toContain("返回儀表板");
   });
 
-  it("renders metrics when advanced_reports is enabled", async () => {
+  it("allows /dashboard/advanced-reports when advanced_reports is enabled", async () => {
     const html = renderToStaticMarkup(
       await AdvancedReportsPage({ searchParams: Promise.resolve({ month: "2026-07" }) }),
     );
@@ -159,7 +159,7 @@ describe("AdvancedReportsPage feature gate", () => {
       month: "2026-07",
     });
     expect(html).toContain("體驗轉換率");
-    expect(html).toContain("本期尚無進階報表資料");
+    expect(html).toContain("本期尚無經營診斷資料");
   });
 
   it("keeps the HQ all-store view available when there is no concrete store id to gate", async () => {

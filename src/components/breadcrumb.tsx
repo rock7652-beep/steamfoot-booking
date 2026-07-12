@@ -11,6 +11,29 @@ interface BreadcrumbProps {
 export function DashboardBreadcrumb({ mobile }: BreadcrumbProps) {
   const pathname = usePathname();
 
+  const analysisPage = pathname.startsWith("/dashboard/advanced-reports")
+    ? "經營診斷"
+    : pathname.startsWith("/dashboard/reports")
+      ? "營運分析"
+      : null;
+
+  if (analysisPage) {
+    if (mobile) {
+      return (
+        <span className="text-sm font-bold text-earth-800 truncate max-w-[200px]">
+          {analysisPage}
+        </span>
+      );
+    }
+    return (
+      <div className="flex items-center gap-1.5 text-sm text-earth-500">
+        <span>分析</span>
+        <span className="text-earth-300">/</span>
+        <span className="font-medium text-earth-700">{analysisPage}</span>
+      </div>
+    );
+  }
+
   // Find the group and item matching the current pathname
   for (const group of NAV_GROUPS) {
     for (const item of group.items) {
