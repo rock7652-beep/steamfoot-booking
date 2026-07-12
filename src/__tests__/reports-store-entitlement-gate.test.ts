@@ -316,7 +316,7 @@ describe("ReportsPage basic_reports entitlement gate", () => {
     expect(html).toContain("留存分析");
     expect(html).toContain("上個月來的顧客，這個月有多少人再次回來？");
     expect(html).toContain("本月回流人數");
-    expect(html).toContain("上月 Cohort 回流率");
+    expect(html).toContain("上月顧客回流率");
     expect(html).toContain("本月未回流人數");
     expect(html).toContain("較上月");
     expect(html).toContain("去年同月");

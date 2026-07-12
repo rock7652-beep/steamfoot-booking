@@ -532,7 +532,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
             <div className="mt-3 grid gap-2 sm:grid-cols-3">
               {[
                 ["本月回流人數", retentionMetrics.returnedCustomers, "count"],
-                ["上月 Cohort 回流率", retentionMetrics.retentionRate, "rate"],
+                ["上月顧客回流率", retentionMetrics.retentionRate, "rate"],
                 ["本月未回流人數", retentionMetrics.unreturnedCustomers, "count"],
               ].map(([label, metric, kind]) => {
                 const value = metric as (typeof retentionMetrics)["returnedCustomers"];
