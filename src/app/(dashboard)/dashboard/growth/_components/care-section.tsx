@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { DataTable, type Column } from "@/components/desktop";
 import { CareRowActions } from "./care-row-actions";
 
@@ -82,12 +82,30 @@ export function CareSection({
   totalCount,
 }: CareSectionProps) {
   const [expanded, setExpanded] = useState(false);
+  const [transitioning, setTransitioning] = useState(false);
+  const transitionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const canToggle = items.length > DEFAULT_VISIBLE_COUNT;
   const visibleItems = expanded || !canToggle ? items : items.slice(0, DEFAULT_VISIBLE_COUNT);
   const hiddenCount = Math.max(0, items.length - DEFAULT_VISIBLE_COUNT);
 
+  useEffect(
+    () => () => {
+      if (transitionTimer.current) clearTimeout(transitionTimer.current);
+    },
+    [],
+  );
+
+  function toggleExpanded() {
+    if (transitioning) return;
+    setTransitioning(true);
+    transitionTimer.current = setTimeout(() => {
+      setExpanded((value) => !value);
+      transitionTimer.current = setTimeout(() => setTransitioning(false), 140);
+    }, 120);
+  }
+
   return (
-    <section className="space-y-1.5">
+    <section className="space-y-1">
       <div className="flex items-baseline justify-between">
         <h2 className="text-sm font-semibold text-earth-900">
           {title}
@@ -97,24 +115,33 @@ export function CareSection({
         </h2>
       </div>
       <p className="text-[11px] text-earth-500">{description}</p>
-      <DataTable
-        columns={columns}
-        rows={visibleItems}
-        rowKey={(r) => r.customerId}
-        empty={
-          <div className="px-4 py-6 text-center">
-            <p className="text-sm text-earth-600">{emptyText}</p>
-          </div>
-        }
-      />
+      <div
+        className={`transition-[opacity,transform] duration-150 ease-out motion-reduce:transition-none ${
+          transitioning ? "translate-y-1 opacity-60" : "translate-y-0 opacity-100"
+        }`}
+      >
+        <DataTable
+          className="[&_th]:py-1.5 [&_tr]:h-10"
+          columns={columns}
+          rows={visibleItems}
+          rowKey={(r) => r.customerId}
+          empty={
+            <div className="px-4 py-4 text-center">
+              <p className="text-sm text-earth-600">{emptyText}</p>
+            </div>
+          }
+        />
+      </div>
       {canToggle ? (
         <div className="flex items-center justify-end gap-2 px-1 text-[11px]">
           {!expanded ? <span className="text-earth-400">還有 {hiddenCount} 位</span> : null}
           {!expanded ? <span className="text-earth-300">｜</span> : null}
           <button
             type="button"
-            onClick={() => setExpanded((value) => !value)}
-            className="rounded-md px-2 py-1 font-medium text-primary-700 transition hover:bg-primary-50 hover:text-primary-800"
+            onClick={toggleExpanded}
+            disabled={transitioning}
+            aria-expanded={expanded}
+            className="rounded-md px-2 py-0.5 font-medium text-primary-700 transition hover:bg-primary-50 hover:text-primary-800 disabled:cursor-wait disabled:opacity-70"
           >
             {expanded ? "收合" : "查看全部 →"}
           </button>
