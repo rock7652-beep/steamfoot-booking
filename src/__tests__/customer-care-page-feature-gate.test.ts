@@ -181,8 +181,35 @@ describe("CustomerCarePage feature gate", () => {
     expect(mockGetMonthlyUnconvertedCustomers).toHaveBeenCalledWith("store-1", "2026-07");
     expect(html).toContain("本月體驗未開卡");
     expect(html).toContain("測試顧客 B");
+    expect(html).toContain("09xx-xxx-0002");
     expect(html).toContain("今天最值得追蹤");
+    expect(html).not.toContain("從未追蹤");
+    expect(html).toContain("查看顧客");
+    expect(html).toContain("建立預約");
+    expect(html).toContain("複製話術");
+    expect(html).toContain("追蹤");
     expect(html).not.toContain("測試顧客 E");
+  });
+
+  it("keeps real follow-up information when a record exists", async () => {
+    mockGetMonthlyUnconvertedCustomers.mockResolvedValueOnce([
+      {
+        customerId: "customer-b",
+        customerName: "測試顧客 B",
+        customerPhone: "0911000002",
+        trialCompletedAt: new Date("2026-07-13T00:00:00.000Z"),
+        assignedStaffName: "測試店長",
+        lastFollowUp: {
+          createdAt: new Date("2026-07-12T04:00:00.000Z"),
+          createdByName: "追蹤店長",
+        },
+      },
+    ]);
+
+    const html = renderToStaticMarkup(await CustomerCarePage());
+
+    expect(html).toContain("最後追蹤：追蹤店長");
+    expect(html).not.toContain("從未追蹤");
   });
 
   it("orders the workspace by birthday, unconverted, honest inactive, return, and renewal work", async () => {
