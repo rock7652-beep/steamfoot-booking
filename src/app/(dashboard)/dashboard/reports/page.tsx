@@ -47,6 +47,7 @@ import {
   EmptyRow,
   type Column,
 } from "@/components/desktop";
+import { DashboardLink } from "@/components/dashboard-link";
 
 /**
  * /dashboard/reports — 報表決策頁（Phase 2 桌機版 PR3）
@@ -494,6 +495,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
               ].map(([label, metric, kind]) => {
                 const value = metric as (typeof conversionMetrics)["convertedCustomers"];
                 const isRate = kind === "rate";
+                const isUnconverted = label === "未開卡人數";
                 return (
                   <div key={label as string} className="rounded-lg bg-earth-50/70 p-3">
                     <p className="text-[11px] font-medium text-earth-500">{label as string}</p>
@@ -504,6 +506,14 @@ export default async function ReportsPage({ searchParams }: PageProps) {
                       <p>較上月：{formatConversionComparison(value.mom, isRate)}</p>
                       <p>去年同月：{formatConversionComparison(value.yoy, isRate)}</p>
                     </div>
+                    {isUnconverted && value.current > 0 ? (
+                      <DashboardLink
+                        href={`/dashboard/growth?segment=monthly-unconverted&month=${month}`}
+                        className="mt-2 inline-flex text-[11px] font-medium text-primary-700 hover:text-primary-800"
+                      >
+                        查看顧客 →
+                      </DashboardLink>
+                    ) : null}
                   </div>
                 );
               })}

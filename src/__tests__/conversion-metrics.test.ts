@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { buildConversionMetrics } from "@/server/queries/conversion-metrics";
+import {
+  buildConversionMetrics,
+  selectConversionCustomerIds,
+} from "@/server/queries/conversion-metrics";
 
 const trial = (customerId: string, date: string) => ({
   customerId,
@@ -17,6 +20,30 @@ const purchase = (
 });
 
 describe("buildConversionMetrics", () => {
+  it("uses one selection for KPI counts and the unconverted customer list", () => {
+    const trials = [
+      trial("unconverted", "2026-07-03"),
+      trial("unconverted", "2026-07-04"),
+      trial("converted", "2026-07-03"),
+      trial("next-day", "2026-07-03"),
+      trial("cancelled-wallet", "2026-07-03"),
+    ];
+    const purchases = [
+      purchase("converted", "2026-07-03T03:00:00.000Z"),
+      purchase("converted", "2026-07-03T04:00:00.000Z"),
+      purchase("next-day", "2026-07-04T03:00:00.000Z"),
+      purchase("cancelled-wallet", "2026-07-03T03:00:00.000Z", "CANCELLED"),
+    ];
+    const selection = selectConversionCustomerIds("2026-07", trials, purchases);
+    const metrics = buildConversionMetrics("2026-07", trials, purchases);
+
+    expect([...selection.unconvertedCustomerIds].sort()).toEqual([
+      "cancelled-wallet",
+      "next-day",
+      "unconverted",
+    ]);
+    expect(metrics.unconvertedCustomers.current).toBe(selection.unconvertedCustomerIds.size);
+  });
   it("counts a same-Taipei-day purchase once and excludes a later purchase", () => {
     const metrics = buildConversionMetrics(
       "2026-07",

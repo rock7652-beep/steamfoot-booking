@@ -7,12 +7,14 @@ const mockCheckPermission = vi.fn();
 const mockGetActiveStoreForRead = vi.fn();
 const mockHasStoreFeature = vi.fn();
 const mockGetCustomerCareOverview = vi.fn();
+const mockGetMonthlyUnconvertedCustomers = vi.fn();
 const mockRedirect = vi.fn((href: string) => {
   throw new Error(`redirect:${href}`);
 });
 
 vi.mock("next/navigation", () => ({
   redirect: (href: string) => mockRedirect(href),
+  useRouter: () => ({ refresh: vi.fn() }),
 }));
 
 vi.mock("@/lib/session", () => ({
@@ -33,6 +35,21 @@ vi.mock("@/lib/feature-gate", () => ({
 
 vi.mock("@/server/queries/customer-care", () => ({
   getCustomerCareOverview: (...args: unknown[]) => mockGetCustomerCareOverview(...args),
+}));
+
+vi.mock("@/server/queries/conversion-metrics", () => ({
+  getMonthlyUnconvertedCustomers: (...args: unknown[]) =>
+    mockGetMonthlyUnconvertedCustomers(...args),
+}));
+
+vi.mock("@/lib/store-view-context-server", () => ({
+  resolveStoreViewContextFromCookie: vi.fn().mockResolvedValue(null),
+  storeIdForViewContext: (storeId: string | null) => storeId,
+  userForViewContext: (user: unknown) => user,
+}));
+
+vi.mock("@/server/actions/customer-follow-up", () => ({
+  createCustomerFollowUpAction: vi.fn(),
 }));
 
 vi.mock("@/components/dashboard-link", () => ({
@@ -61,6 +78,38 @@ vi.mock("@/components/desktop", () => ({
     ),
   KpiStrip: ({ items }: { items: Array<{ label: string; value: number }> }) =>
     React.createElement("section", null, items.map((item) => `${item.label}:${item.value}`).join(",")),
+  DataTable: ({
+    rows,
+    columns,
+    empty,
+  }: {
+    rows: Array<Record<string, unknown>>;
+    columns: Array<{ key: string; accessor?: (row: Record<string, unknown>) => React.ReactNode }>;
+    empty?: React.ReactNode;
+  }) =>
+    rows.length === 0
+      ? React.createElement("div", null, empty)
+      : React.createElement(
+          "table",
+          null,
+          React.createElement(
+            "tbody",
+            null,
+            rows.map((row, index) =>
+              React.createElement(
+                "tr",
+                { key: String(row.customerId ?? index) },
+                columns.map((column) =>
+                  React.createElement(
+                    "td",
+                    { key: column.key },
+                    column.accessor?.(row) ?? String(row[column.key] ?? ""),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
 }));
 
 import CustomerCarePage from "@/app/(dashboard)/dashboard/growth/page";
@@ -85,6 +134,7 @@ beforeEach(() => {
       expiringPlanCustomers: 0,
     },
   });
+  mockGetMonthlyUnconvertedCustomers.mockResolvedValue([]);
 });
 
 describe("CustomerCarePage feature gate", () => {
@@ -98,5 +148,33 @@ describe("CustomerCarePage feature gate", () => {
     expect(html).toContain("此功能尚未開通");
     expect(html).toContain("請聯絡總部加購或升級方案");
     expect(html).toContain("返回儀表板");
+  });
+
+  it("parses the monthly-unconverted segment and renders only its dedicated customer list", async () => {
+    mockGetMonthlyUnconvertedCustomers.mockResolvedValueOnce([
+      {
+        customerId: "customer-b",
+        customerName: "測試顧客 B",
+        customerPhone: "0911000002",
+        trialCompletedAt: new Date("2026-07-13T00:00:00.000Z"),
+        assignedStaffName: "測試店長",
+        lastFollowUp: null,
+      },
+    ]);
+
+    const html = renderToStaticMarkup(
+      await CustomerCarePage({
+        searchParams: Promise.resolve({
+          segment: "monthly-unconverted",
+          month: "2026-07",
+        }),
+      }),
+    );
+
+    expect(mockGetMonthlyUnconvertedCustomers).toHaveBeenCalledWith("store-1", "2026-07");
+    expect(html).toContain("本月體驗未開卡");
+    expect(html).toContain("測試顧客 B");
+    expect(html).toContain("2026-07 完成體驗");
+    expect(html).not.toContain("測試顧客 E");
   });
 });

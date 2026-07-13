@@ -15,6 +15,7 @@ export interface CareItem {
   staffName: string | null;
   lastFollowUpText: string;
   script: string;
+  readOnly?: boolean;
 }
 
 interface CareSectionProps {
@@ -66,7 +67,9 @@ const columns: Column<CareItem>[] = [
     header: <span className="sr-only">操作</span>,
     align: "right",
     noLink: true,
-    accessor: (row) => <CareRowActions customerId={row.customerId} script={row.script} />,
+    accessor: (row) => (
+      <CareRowActions customerId={row.customerId} script={row.script} readOnly={row.readOnly} />
+    ),
     width: "w-[280px]",
   },
 ];

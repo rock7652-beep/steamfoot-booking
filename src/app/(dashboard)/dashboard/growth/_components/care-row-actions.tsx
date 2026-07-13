@@ -27,12 +27,13 @@ interface Props {
   customerId: string;
   /** 建議關心話術（依區塊不同,由 server 端帶入） */
   script: string;
+  readOnly?: boolean;
 }
 
 const ACTION_CLASS =
   "rounded-md border border-earth-200 bg-white px-2 py-1 text-[11px] font-medium text-earth-700 transition hover:bg-earth-50";
 
-export function CareRowActions({ customerId, script }: Props) {
+export function CareRowActions({ customerId, script, readOnly = false }: Props) {
   const router = useRouter();
   const [copied, setCopied] = useState(false);
   const [open, setOpen] = useState(false);
@@ -79,15 +80,19 @@ export function CareRowActions({ customerId, script }: Props) {
         >
           查看顧客
         </Link>
-        <Link href="/dashboard/bookings/new" className={ACTION_CLASS}>
-          建立預約
-        </Link>
+        {!readOnly ? (
+          <Link href="/dashboard/bookings/new" className={ACTION_CLASS}>
+            建立預約
+          </Link>
+        ) : null}
         <button type="button" onClick={copyScript} className={ACTION_CLASS}>
           {copied ? "已複製" : "複製話術"}
         </button>
-        <button type="button" onClick={() => setOpen(true)} className={ACTION_CLASS}>
-          追蹤
-        </button>
+        {!readOnly ? (
+          <button type="button" onClick={() => setOpen(true)} className={ACTION_CLASS}>
+            追蹤
+          </button>
+        ) : null}
       </div>
 
       {open ? (

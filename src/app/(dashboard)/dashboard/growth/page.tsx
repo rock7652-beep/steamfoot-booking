@@ -13,6 +13,12 @@ import {
 } from "@/components/desktop";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { getCustomerCareOverview } from "@/server/queries/customer-care";
+import { getMonthlyUnconvertedCustomers } from "@/server/queries/conversion-metrics";
+import {
+  resolveStoreViewContextFromCookie,
+  storeIdForViewContext,
+  userForViewContext,
+} from "@/lib/store-view-context-server";
 import { CareSection, type CareItem } from "./_components/care-section";
 import { formatRelativeDaysTW } from "@/lib/customer-follow-up";
 
@@ -86,20 +92,41 @@ function CustomerCareLockedState() {
   );
 }
 
-export default async function CustomerCarePage() {
+export default async function CustomerCarePage({
+  searchParams = Promise.resolve({}),
+}: {
+  searchParams: Promise<{ segment?: string; month?: string }>;
+} = { searchParams: Promise.resolve({}) }) {
+  const params = await searchParams;
+  const requestedMonth = /^\d{4}-(0[1-9]|1[0-2])$/.test(params.month ?? "")
+    ? params.month!
+    : null;
+  const monthlyUnconvertedRequested =
+    params.segment === "monthly-unconverted" && requestedMonth !== null;
   const user = await getCurrentUser();
   if (!user || !(await checkPermission(user.role, user.staffId, "customer.read"))) {
     redirect("/dashboard");
   }
 
   const activeStoreId = await getActiveStoreForRead(user);
-  if (activeStoreId && !(await hasStoreFeature(activeStoreId, FEATURES.CUSTOMER_CARE))) {
+  const storeViewContext = monthlyUnconvertedRequested
+    ? await resolveStoreViewContextFromCookie(user)
+    : null;
+  const isViewMode = storeViewContext?.isViewMode ?? false;
+  const viewedStoreId = storeIdForViewContext(activeStoreId, storeViewContext);
+  const queryUser = userForViewContext(user, storeViewContext);
+  if (viewedStoreId && !(await hasStoreFeature(viewedStoreId, FEATURES.CUSTOMER_CARE))) {
     return <CustomerCareLockedState />;
   }
 
-  const overview = await getCustomerCareOverview(user, activeStoreId);
+  const overview = await getCustomerCareOverview(queryUser, viewedStoreId);
   const { trialFollowUps, inactiveCustomers, lowSessionCustomers, expiringPlanCustomers, summary } =
     overview;
+  const showMonthlyUnconverted =
+    monthlyUnconvertedRequested && requestedMonth && viewedStoreId;
+  const monthlyUnconverted = showMonthlyUnconverted
+    ? await getMonthlyUnconvertedCustomers(viewedStoreId, requestedMonth)
+    : [];
 
   const totalReminders =
     summary.trialFollowUps +
@@ -163,6 +190,20 @@ export default async function CustomerCarePage() {
     script: SCRIPTS.expiring,
   }));
 
+  const monthlyUnconvertedItems: CareItem[] = monthlyUnconverted.map((r) => ({
+    customerId: r.customerId,
+    name: r.customerName,
+    phoneMasked: maskPhone(r.customerPhone),
+    reason: "本月完成體驗，未於體驗完成當天開卡",
+    meta: `體驗完成 ${dateOnly(r.trialCompletedAt)}`,
+    staffName: r.assignedStaffName,
+    lastFollowUpText: r.lastFollowUp
+      ? `最後追蹤：${r.lastFollowUp.createdByName}・${formatRelativeDaysTW(r.lastFollowUp.createdAt)}`
+      : "最後追蹤：從未追蹤",
+    script: SCRIPTS.trial,
+    readOnly: isViewMode,
+  }));
+
   return (
     <PageShell>
       <PageHeader
@@ -187,6 +228,16 @@ export default async function CustomerCarePage() {
           { label: "提醒項目", value: totalReminders, tone: "earth" },
         ]}
       />
+
+      {showMonthlyUnconverted ? (
+        <CareSection
+          title="本月體驗未開卡"
+          description={`${requestedMonth} 完成體驗、但未在同一天成功開卡的顧客；名單與營運分析未開卡人數使用相同口徑。`}
+          emptyText="這個月份沒有體驗未開卡顧客。"
+          items={monthlyUnconvertedItems}
+          totalCount={monthlyUnconvertedItems.length}
+        />
+      ) : null}
 
       {totalReminders === 0 ? (
         <div className="rounded-xl border border-earth-200 bg-white px-4 py-6 text-center">

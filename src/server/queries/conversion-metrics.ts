@@ -19,12 +19,12 @@ export type ConversionMetrics = {
   unconvertedCustomers: ConversionMetric;
 };
 
-type CompletedTrial = {
+export type CompletedTrial = {
   customerId: string;
   bookingDate: Date;
 };
 
-type PackagePurchase = {
+export type PackagePurchase = {
   customerId: string;
   transactionDate: Date;
   customerPlanWallet: { status: string } | null;
@@ -59,9 +59,30 @@ function countsForMonth(
   trials: CompletedTrial[],
   purchases: PackagePurchase[],
 ): ConversionCounts {
+  const selection = selectConversionCustomerIds(month, trials, purchases);
+  const trialCustomers = selection.trialCustomerIds.size;
+  const convertedCustomers = selection.convertedCustomerIds.size;
+  return {
+    convertedCustomers,
+    conversionRate: trialCustomers === 0 ? 0 : (convertedCustomers / trialCustomers) * 100,
+    unconvertedCustomers: trialCustomers - convertedCustomers,
+  };
+}
+
+export type ConversionCustomerSelection = {
+  trialCustomerIds: Set<string>;
+  convertedCustomerIds: Set<string>;
+  unconvertedCustomerIds: Set<string>;
+};
+
+/** KPI count 與 CRM list 共用的唯一 customerId selection。 */
+export function selectConversionCustomerIds(
+  month: string,
+  trials: CompletedTrial[],
+  purchases: PackagePurchase[],
+): ConversionCustomerSelection {
   const trialDatesByCustomer = new Map<string, Set<string>>();
   for (const trial of trials) {
-    // bookingDate 是 DB 的純日期欄位，UTC midnight 可安全取日期部分。
     const trialDate = trial.bookingDate.toISOString().slice(0, 10);
     if (!trialDate.startsWith(`${month}-`)) continue;
     const dates = trialDatesByCustomer.get(trial.customerId) ?? new Set<string>();
@@ -69,26 +90,21 @@ function countsForMonth(
     trialDatesByCustomer.set(trial.customerId, dates);
   }
 
-  const converted = new Set<string>();
+  const convertedCustomerIds = new Set<string>();
   for (const purchase of purchases) {
     const trialDates = trialDatesByCustomer.get(purchase.customerId);
     if (!trialDates) continue;
-
-    // Wallet CANCELLED 是全額退款／作廢後權益完全取消的正式依據。
-    // 正常用完或到期的方案仍是歷史上成立的開卡，不應讓過去 KPI 隨時間消失。
     if (!purchase.customerPlanWallet || purchase.customerPlanWallet.status === "CANCELLED") continue;
     if (trialDates.has(toLocalDateStr(purchase.transactionDate))) {
-      converted.add(purchase.customerId);
+      convertedCustomerIds.add(purchase.customerId);
     }
   }
 
-  const trialCustomers = trialDatesByCustomer.size;
-  const convertedCustomers = converted.size;
-  return {
-    convertedCustomers,
-    conversionRate: trialCustomers === 0 ? 0 : (convertedCustomers / trialCustomers) * 100,
-    unconvertedCustomers: trialCustomers - convertedCustomers,
-  };
+  const trialCustomerIds = new Set(trialDatesByCustomer.keys());
+  const unconvertedCustomerIds = new Set(
+    [...trialCustomerIds].filter((customerId) => !convertedCustomerIds.has(customerId)),
+  );
+  return { trialCustomerIds, convertedCustomerIds, unconvertedCustomerIds };
 }
 
 export function buildConversionMetrics(
@@ -125,6 +141,11 @@ export async function getConversionMetrics(
   month: string,
 ): Promise<ConversionMetrics> {
   const months = [month, shiftMonth(month, -1), shiftMonth(month, -12)];
+  const { trials, purchases } = await loadConversionFacts(storeId, months);
+  return buildConversionMetrics(month, trials, purchases);
+}
+
+async function loadConversionFacts(storeId: string, months: string[]) {
   const bookingRanges = months.map(bookingRangeForMonth);
   const trials = await prisma.booking.findMany({
     where: {
@@ -159,5 +180,68 @@ export async function getConversionMetrics(
       })
     : [];
 
-  return buildConversionMetrics(month, trials, purchases);
+  return { trials, purchases };
+}
+
+export type MonthlyUnconvertedCustomer = {
+  customerId: string;
+  customerName: string;
+  customerPhone: string | null;
+  trialCompletedAt: Date;
+  assignedStaffName: string | null;
+  lastFollowUp: {
+    createdAt: Date;
+    createdByName: string;
+  } | null;
+};
+
+export async function getMonthlyUnconvertedCustomers(
+  storeId: string,
+  month: string,
+): Promise<MonthlyUnconvertedCustomer[]> {
+  const { trials, purchases } = await loadConversionFacts(storeId, [month]);
+  const selection = selectConversionCustomerIds(month, trials, purchases);
+  const customerIds = [...selection.unconvertedCustomerIds];
+  if (customerIds.length === 0) return [];
+
+  const customers = await prisma.customer.findMany({
+    where: { storeId, id: { in: customerIds } },
+    select: {
+      id: true,
+      name: true,
+      phone: true,
+      assignedStaff: { select: { displayName: true } },
+      followUps: {
+        where: { storeId },
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        select: { createdAt: true, createdBy: { select: { name: true } } },
+      },
+    },
+  });
+  const trialDateByCustomer = new Map<string, Date>();
+  for (const trial of trials) {
+    const existing = trialDateByCustomer.get(trial.customerId);
+    if (!existing || trial.bookingDate < existing) {
+      trialDateByCustomer.set(trial.customerId, trial.bookingDate);
+    }
+  }
+
+  return customers
+    .flatMap((customer) => {
+      const trialCompletedAt = trialDateByCustomer.get(customer.id);
+      if (!trialCompletedAt) return [];
+      const followUp = customer.followUps[0];
+      return [{
+        customerId: customer.id,
+        customerName: customer.name ?? "(未命名)",
+        customerPhone: customer.phone,
+        trialCompletedAt,
+        assignedStaffName: customer.assignedStaff?.displayName ?? null,
+        lastFollowUp: followUp
+          ? { createdAt: followUp.createdAt, createdByName: followUp.createdBy.name }
+          : null,
+      }];
+    })
+    .sort((a, b) => b.trialCompletedAt.getTime() - a.trialCompletedAt.getTime());
 }

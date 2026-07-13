@@ -301,6 +301,8 @@ describe("ReportsPage basic_reports entitlement gate", () => {
     expect(html).toContain("開卡人數");
     expect(html).toContain("開卡率");
     expect(html).toContain("未開卡人數");
+    expect(html).toContain("查看顧客 →");
+    expect(html).toMatch(/\/dashboard\/growth\?segment=monthly-unconverted&amp;month=\d{4}-\d{2}/);
     expect(html.indexOf("成交分析")).toBeGreaterThan(html.indexOf("客流分析"));
     expect(html).toContain("方案權益未取消");
     expect(html).toContain("基期為 0，無法比較");
