@@ -12,6 +12,11 @@ import { getCustomerCareOverview } from "@/server/queries/customer-care";
 import { getMonthlyUnconvertedCustomers } from "@/server/queries/conversion-metrics";
 import { getBirthdayCustomersForMonth } from "@/server/queries/customer-birthday";
 import {
+  CUSTOMER_KPI_SEGMENTS,
+  getCustomerKpiSegmentCustomers,
+  isCustomerKpiSegment,
+} from "@/server/queries/customer-kpi-segments";
+import {
   resolveStoreViewContextFromCookie,
   storeIdForViewContext,
   userForViewContext,
@@ -43,6 +48,7 @@ const SCRIPTS = {
   expiring:
     "您好～提醒您方案快到期了,目前還有剩餘堂數,建議可以提早安排時間使用呦😊",
   birthday: "生日快樂！祝您新的一歲平安順心，也期待很快再見到您🎂",
+  general: "您好～想關心您最近的狀況，需要我們協助安排下一次服務嗎？",
 } as const;
 
 function maskPhone(phone: string | null): string {
@@ -57,9 +63,7 @@ function dateOnly(d: Date): string {
 }
 
 function followUpText(
-  followUp: NonNullable<
-    Awaited<ReturnType<typeof getCustomerCareOverview>>["trialFollowUps"][number]["lastFollowUp"]
-  > | null,
+  followUp: { createdAt: Date; createdByName: string } | null,
 ): string | null {
   if (!followUp) return null;
   return `最後追蹤：${followUp.createdByName}・${formatRelativeDaysTW(followUp.createdAt)}`;
@@ -114,6 +118,49 @@ export default async function CustomerCarePage({
   }
 
   const workspaceMonth = requestedMonth ?? toLocalMonthStr();
+  if (isCustomerKpiSegment(params.segment)) {
+    const selectedSegment = params.segment;
+    const config = CUSTOMER_KPI_SEGMENTS[selectedSegment];
+    const customers = viewedStoreId
+      ? await getCustomerKpiSegmentCustomers(viewedStoreId, workspaceMonth, selectedSegment)
+      : [];
+    const segmentItems: CareItem[] = customers.map((customer) => ({
+      customerId: customer.customerId,
+      name: customer.customerName,
+      phoneMasked: maskPhone(customer.customerPhone),
+      reason: config.description,
+      meta: `統計月份 ${workspaceMonth}`,
+      staffName: customer.assignedStaffName,
+      lastFollowUpText: followUpText(customer.lastFollowUp),
+      script: selectedSegment.includes("return") ? SCRIPTS.inactive : SCRIPTS.general,
+      readOnly: isViewMode,
+    }));
+
+    return (
+      <PageShell>
+        <PageHeader
+          title="顧客經營"
+          subtitle={`${workspaceMonth}｜${config.title}`}
+          actions={
+            <Link
+              href={`/dashboard/reports?month=${workspaceMonth}`}
+              className="rounded-md border border-earth-200 bg-white px-3 py-1.5 text-xs font-medium text-earth-700 hover:bg-earth-50"
+            >
+              返回營運分析
+            </Link>
+          }
+        />
+        <CareSection
+          title={config.title}
+          description={config.description}
+          emptyText={`${workspaceMonth} 沒有符合此條件的顧客。`}
+          items={segmentItems}
+          totalCount={segmentItems.length}
+        />
+      </PageShell>
+    );
+  }
+
   const [overview, monthlyUnconverted, birthdayCustomers] = await Promise.all([
     getCustomerCareOverview(queryUser, viewedStoreId),
     viewedStoreId ? getMonthlyUnconvertedCustomers(viewedStoreId, workspaceMonth) : [],

@@ -1,5 +1,9 @@
 import { prisma } from "@/lib/db";
 import { bookingMonthRange } from "@/lib/date-utils";
+import {
+  hydrateCustomerSegment,
+  type CustomerSegmentCustomer,
+} from "@/server/queries/customer-segment-list";
 
 export type CustomerFlowCounts = {
   uniqueVisitors: number;
@@ -44,11 +48,20 @@ function rangeForMonth(month: string) {
   return bookingMonthRange(year, mon);
 }
 
-function countsForMonth(
+export type CustomerFlowSelection = {
+  uniqueVisitorIds: Set<string>;
+  newVisitorIds: Set<string>;
+  returningVisitorIds: Set<string>;
+  trialCustomerIds: Set<string>;
+};
+
+export type CustomerFlowSegment = "monthly-customers" | "monthly-new" | "monthly-returning" | "monthly-trial";
+
+export function selectCustomerFlowCustomerIds(
   month: string,
   bookings: CompletedBooking[],
   firstCompletedByCustomer: Map<string, Date>,
-): CustomerFlowCounts {
+): CustomerFlowSelection {
   const { start, end } = rangeForMonth(month);
   const inMonth = bookings.filter(
     (booking) => booking.bookingDate >= start && booking.bookingDate <= end,
@@ -60,22 +73,36 @@ function countsForMonth(
       .map((booking) => booking.customerId),
   );
 
-  let newVisitors = 0;
-  let returningVisitors = 0;
+  const newVisitorIds = new Set<string>();
+  const returningVisitorIds = new Set<string>();
   for (const customerId of visitors) {
     const firstCompletedAt = firstCompletedByCustomer.get(customerId);
     if (firstCompletedAt && firstCompletedAt >= start && firstCompletedAt <= end) {
-      newVisitors += 1;
+      newVisitorIds.add(customerId);
     } else if (firstCompletedAt && firstCompletedAt < start) {
-      returningVisitors += 1;
+      returningVisitorIds.add(customerId);
     }
   }
 
   return {
-    uniqueVisitors: visitors.size,
-    newVisitors,
-    returningVisitors,
-    trialCustomers: trialCustomers.size,
+    uniqueVisitorIds: visitors,
+    newVisitorIds,
+    returningVisitorIds,
+    trialCustomerIds: trialCustomers,
+  };
+}
+
+function countsForMonth(
+  month: string,
+  bookings: CompletedBooking[],
+  firstCompletedByCustomer: Map<string, Date>,
+): CustomerFlowCounts {
+  const selection = selectCustomerFlowCustomerIds(month, bookings, firstCompletedByCustomer);
+  return {
+    uniqueVisitors: selection.uniqueVisitorIds.size,
+    newVisitors: selection.newVisitorIds.size,
+    returningVisitors: selection.returningVisitorIds.size,
+    trialCustomers: selection.trialCustomerIds.size,
   };
 }
 
@@ -152,4 +179,37 @@ export async function getCustomerFlowMetrics(
   );
 
   return buildCustomerFlowMetrics(month, periodBookings, firstCompletedByCustomer);
+}
+
+export async function getCustomerFlowCustomers(
+  storeId: string,
+  month: string,
+  segment: CustomerFlowSegment,
+): Promise<CustomerSegmentCustomer[]> {
+  const { start, end } = rangeForMonth(month);
+  const bookings = await prisma.booking.findMany({
+    where: { storeId, bookingStatus: "COMPLETED", bookingDate: { gte: start, lte: end } },
+    select: { customerId: true, bookingDate: true, bookingType: true },
+  });
+  const customerIds = [...new Set(bookings.map((booking) => booking.customerId))];
+  const firstCompleted = customerIds.length
+    ? await prisma.booking.groupBy({
+        by: ["customerId"],
+        where: { storeId, customerId: { in: customerIds }, bookingStatus: "COMPLETED" },
+        _min: { bookingDate: true },
+      })
+    : [];
+  const firstCompletedByCustomer = new Map(
+    firstCompleted.flatMap((row) =>
+      row._min.bookingDate ? [[row.customerId, row._min.bookingDate] as const] : [],
+    ),
+  );
+  const selection = selectCustomerFlowCustomerIds(month, bookings, firstCompletedByCustomer);
+  const idsBySegment: Record<CustomerFlowSegment, Set<string>> = {
+    "monthly-customers": selection.uniqueVisitorIds,
+    "monthly-new": selection.newVisitorIds,
+    "monthly-returning": selection.returningVisitorIds,
+    "monthly-trial": selection.trialCustomerIds,
+  };
+  return hydrateCustomerSegment(storeId, idsBySegment[segment]);
 }

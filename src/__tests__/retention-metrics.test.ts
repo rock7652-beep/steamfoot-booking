@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { buildRetentionMetrics } from "@/server/queries/retention-metrics";
+import {
+  buildRetentionMetrics,
+  selectRetentionCustomerIds,
+} from "@/server/queries/retention-metrics";
 
 const completed = (customerId: string, date: string) => ({
   customerId,
@@ -8,17 +11,21 @@ const completed = (customerId: string, date: string) => ({
 
 describe("buildRetentionMetrics", () => {
   it("counts only prior-month cohort customers who return in the target month", () => {
-    const metrics = buildRetentionMetrics("2026-07", [
+    const bookings = [
       completed("returned", "2026-06-03"),
       completed("returned", "2026-06-18"),
       completed("returned", "2026-07-08"),
       completed("not-returned", "2026-06-12"),
       completed("new-this-month", "2026-07-04"),
-    ]);
+    ];
+    const metrics = buildRetentionMetrics("2026-07", bookings);
+    const selection = selectRetentionCustomerIds("2026-07", bookings);
 
     expect(metrics.returnedCustomers.current).toBe(1);
     expect(metrics.retentionRate.current).toBe(50);
     expect(metrics.unreturnedCustomers.current).toBe(1);
+    expect(metrics.returnedCustomers.current).toBe(selection.returnedCustomerIds.size);
+    expect(metrics.unreturnedCustomers.current).toBe(selection.unreturnedCustomerIds.size);
   });
 
   it("deduplicates multiple completed bookings for the same customer", () => {
