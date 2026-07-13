@@ -203,16 +203,17 @@ describe("CustomerCarePage feature gate", () => {
     expect(html).toContain("生日顧客");
     expect(html).not.toContain("本月未回流");
     const orderedTitles = [
-      "🎂 本月生日",
-      "🟡 本月體驗未開卡",
-      "💤 好久不見",
-      "📦 建議安排回店",
-      "⏰ 建議續約",
+      "本月生日",
+      "本月體驗未開卡",
+      "好久不見",
+      "建議安排回店",
+      "建議續約",
     ];
     for (let index = 1; index < orderedTitles.length; index += 1) {
       expect(html.indexOf(orderedTitles[index])).toBeGreaterThan(
         html.indexOf(orderedTitles[index - 1]),
       );
     }
+    expect(html).not.toMatch(/[🎂🟡💤📦⏰]/u);
   });
 });

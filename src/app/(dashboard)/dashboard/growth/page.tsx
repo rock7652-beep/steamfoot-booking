@@ -222,35 +222,35 @@ export default async function CustomerCarePage({
       />
 
       <CareSection
-        title="🎂 本月生日"
+        title="本月生日"
         description="今天送上生日祝福。"
         emptyText="本月沒有生日顧客。"
         items={birthdayItems}
         totalCount={birthdayItems.length}
       />
       <CareSection
-        title="🟡 本月體驗未開卡"
+        title="本月體驗未開卡"
         description="今天最值得追蹤。"
         emptyText="本月沒有體驗未開卡顧客。"
         items={monthlyUnconvertedItems}
         totalCount={monthlyUnconvertedItems.length}
       />
       <CareSection
-        title="💤 好久不見"
+        title="好久不見"
         description="超過 30 天未到店，適合主動關心。"
         emptyText="目前沒有久未到店的顧客。"
         items={inactiveItems}
         totalCount={summary.inactiveCustomers}
       />
       <CareSection
-        title="📦 建議安排回店"
+        title="建議安排回店"
         description="適合安排下一次服務。"
         emptyText="目前沒有需要安排回店的顧客。"
         items={lowItems}
         totalCount={summary.lowSessionCustomers}
       />
       <CareSection
-        title="⏰ 建議續約"
+        title="建議續約"
         description="提前安排續約。"
         emptyText="目前沒有需要提前續約的顧客。"
         items={expiringItems}
