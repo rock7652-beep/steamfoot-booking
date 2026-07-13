@@ -17,11 +17,12 @@ describe("CustomerCareSummaryCard", () => {
       />,
     );
 
-    expect(html).toContain("🎂 本月生日");
-    expect(html).toContain("🟡 本月體驗未開卡");
-    expect(html).toContain("💤 好久不見");
-    expect(html).toContain("📦 建議安排回店");
-    expect(html).toContain("⏰ 建議續約");
+    expect(html).toContain("本月生日");
+    expect(html).toContain("本月體驗未開卡");
+    expect(html).toContain("好久不見");
+    expect(html).toContain("建議安排回店");
+    expect(html).toContain("建議續約");
+    expect(html).not.toMatch(/[🎂🟡💤📦⏰]/u);
     expect(html).toContain("前往顧客工作台");
     expect(html).toContain('href="/dashboard/growth"');
   });

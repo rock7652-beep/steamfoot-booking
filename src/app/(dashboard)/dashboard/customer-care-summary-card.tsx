@@ -20,11 +20,11 @@ export interface CustomerWorkspaceSummary {
 }
 
 const ROWS: Array<{ key: keyof CustomerWorkspaceSummary; label: string }> = [
-  { key: "birthdayCustomers", label: "🎂 本月生日" },
-  { key: "monthlyUnconvertedCustomers", label: "🟡 本月體驗未開卡" },
-  { key: "inactiveCustomers", label: "💤 好久不見" },
-  { key: "lowSessionCustomers", label: "📦 建議安排回店" },
-  { key: "expiringPlanCustomers", label: "⏰ 建議續約" },
+  { key: "birthdayCustomers", label: "本月生日" },
+  { key: "monthlyUnconvertedCustomers", label: "本月體驗未開卡" },
+  { key: "inactiveCustomers", label: "好久不見" },
+  { key: "lowSessionCustomers", label: "建議安排回店" },
+  { key: "expiringPlanCustomers", label: "建議續約" },
 ];
 
 export function CustomerCareSummaryCard({
