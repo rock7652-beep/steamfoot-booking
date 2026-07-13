@@ -8,6 +8,7 @@ const mockGetActiveStoreForRead = vi.fn();
 const mockHasStoreFeature = vi.fn();
 const mockGetCustomerCareOverview = vi.fn();
 const mockGetMonthlyUnconvertedCustomers = vi.fn();
+const mockGetBirthdayCustomersForMonth = vi.fn();
 const mockRedirect = vi.fn((href: string) => {
   throw new Error(`redirect:${href}`);
 });
@@ -40,6 +41,11 @@ vi.mock("@/server/queries/customer-care", () => ({
 vi.mock("@/server/queries/conversion-metrics", () => ({
   getMonthlyUnconvertedCustomers: (...args: unknown[]) =>
     mockGetMonthlyUnconvertedCustomers(...args),
+}));
+
+vi.mock("@/server/queries/customer-birthday", () => ({
+  getBirthdayCustomersForMonth: (...args: unknown[]) =>
+    mockGetBirthdayCustomersForMonth(...args),
 }));
 
 vi.mock("@/lib/store-view-context-server", () => ({
@@ -135,6 +141,7 @@ beforeEach(() => {
     },
   });
   mockGetMonthlyUnconvertedCustomers.mockResolvedValue([]);
+  mockGetBirthdayCustomersForMonth.mockResolvedValue([]);
 });
 
 describe("CustomerCarePage feature gate", () => {
@@ -174,7 +181,38 @@ describe("CustomerCarePage feature gate", () => {
     expect(mockGetMonthlyUnconvertedCustomers).toHaveBeenCalledWith("store-1", "2026-07");
     expect(html).toContain("本月體驗未開卡");
     expect(html).toContain("測試顧客 B");
-    expect(html).toContain("2026-07 完成體驗");
+    expect(html).toContain("今天最值得追蹤");
     expect(html).not.toContain("測試顧客 E");
+  });
+
+  it("orders the workspace by birthday, unconverted, honest inactive, return, and renewal work", async () => {
+    mockGetBirthdayCustomersForMonth.mockResolvedValueOnce([
+      {
+        customerId: "birthday-customer",
+        customerName: "生日顧客",
+        customerPhone: "0911000009",
+        birthday: new Date("1970-07-20T00:00:00.000Z"),
+        assignedStaffName: null,
+        lastFollowUp: null,
+      },
+    ]);
+
+    const html = renderToStaticMarkup(await CustomerCarePage());
+
+    expect(mockGetBirthdayCustomersForMonth).toHaveBeenCalledWith("store-1", expect.any(String));
+    expect(html).toContain("生日顧客");
+    expect(html).not.toContain("本月未回流");
+    const orderedTitles = [
+      "🎂 本月生日",
+      "🟡 本月體驗未開卡",
+      "💤 好久不見",
+      "📦 建議安排回店",
+      "⏰ 建議續約",
+    ];
+    for (let index = 1; index < orderedTitles.length; index += 1) {
+      expect(html.indexOf(orderedTitles[index])).toBeGreaterThan(
+        html.indexOf(orderedTitles[index - 1]),
+      );
+    }
   });
 });

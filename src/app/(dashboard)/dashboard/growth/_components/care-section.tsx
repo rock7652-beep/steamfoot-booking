@@ -116,7 +116,7 @@ export function CareSection({
             onClick={() => setExpanded((value) => !value)}
             className="rounded-md px-2 py-1 font-medium text-primary-700 transition hover:bg-primary-50 hover:text-primary-800"
           >
-            {expanded ? "收合" : "展開全部 →"}
+            {expanded ? "收合" : "查看全部 →"}
           </button>
         </div>
       ) : null}
