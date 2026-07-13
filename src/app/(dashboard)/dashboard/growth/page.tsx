@@ -2,18 +2,15 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { getActiveStoreForRead } from "@/lib/store";
-import { formatTWTime } from "@/lib/date-utils";
+import { formatTWTime, toLocalMonthStr } from "@/lib/date-utils";
 import { hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
 import { EmptyState } from "@/components/ui/empty-state";
-import {
-  PageShell,
-  PageHeader,
-  KpiStrip,
-} from "@/components/desktop";
+import { PageShell, PageHeader } from "@/components/desktop";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { getCustomerCareOverview } from "@/server/queries/customer-care";
 import { getMonthlyUnconvertedCustomers } from "@/server/queries/conversion-metrics";
+import { getBirthdayCustomersForMonth } from "@/server/queries/customer-birthday";
 import {
   resolveStoreViewContextFromCookie,
   storeIdForViewContext,
@@ -45,6 +42,7 @@ const SCRIPTS = {
   low: "您好～提醒您目前方案堂數快用完了,可以先幫您安排後續時間,避免中斷保養節奏。",
   expiring:
     "您好～提醒您方案快到期了,目前還有剩餘堂數,建議可以提早安排時間使用呦😊",
+  birthday: "生日快樂！祝您新的一歲平安順心，也期待很快再見到您🎂",
 } as const;
 
 function maskPhone(phone: string | null): string {
@@ -101,17 +99,13 @@ export default async function CustomerCarePage({
   const requestedMonth = /^\d{4}-(0[1-9]|1[0-2])$/.test(params.month ?? "")
     ? params.month!
     : null;
-  const monthlyUnconvertedRequested =
-    params.segment === "monthly-unconverted" && requestedMonth !== null;
   const user = await getCurrentUser();
   if (!user || !(await checkPermission(user.role, user.staffId, "customer.read"))) {
     redirect("/dashboard");
   }
 
   const activeStoreId = await getActiveStoreForRead(user);
-  const storeViewContext = monthlyUnconvertedRequested
-    ? await resolveStoreViewContextFromCookie(user)
-    : null;
+  const storeViewContext = await resolveStoreViewContextFromCookie(user);
   const isViewMode = storeViewContext?.isViewMode ?? false;
   const viewedStoreId = storeIdForViewContext(activeStoreId, storeViewContext);
   const queryUser = userForViewContext(user, storeViewContext);
@@ -119,20 +113,14 @@ export default async function CustomerCarePage({
     return <CustomerCareLockedState />;
   }
 
-  const overview = await getCustomerCareOverview(queryUser, viewedStoreId);
+  const workspaceMonth = requestedMonth ?? toLocalMonthStr();
+  const [overview, monthlyUnconverted, birthdayCustomers] = await Promise.all([
+    getCustomerCareOverview(queryUser, viewedStoreId),
+    viewedStoreId ? getMonthlyUnconvertedCustomers(viewedStoreId, workspaceMonth) : [],
+    viewedStoreId ? getBirthdayCustomersForMonth(viewedStoreId, workspaceMonth) : [],
+  ]);
   const { trialFollowUps, inactiveCustomers, lowSessionCustomers, expiringPlanCustomers, summary } =
     overview;
-  const showMonthlyUnconverted =
-    monthlyUnconvertedRequested && requestedMonth && viewedStoreId;
-  const monthlyUnconverted = showMonthlyUnconverted
-    ? await getMonthlyUnconvertedCustomers(viewedStoreId, requestedMonth)
-    : [];
-
-  const totalReminders =
-    summary.trialFollowUps +
-    summary.inactiveCustomers +
-    summary.lowSessionCustomers +
-    summary.expiringPlanCustomers;
 
   // ---- 各區轉成統一顯示模型 ----
   const trialItems: CareItem[] = trialFollowUps.map((r) => ({
@@ -204,6 +192,20 @@ export default async function CustomerCarePage({
     readOnly: isViewMode,
   }));
 
+  const birthdayItems: CareItem[] = birthdayCustomers.map((r) => ({
+    customerId: r.customerId,
+    name: r.customerName,
+    phoneMasked: maskPhone(r.customerPhone),
+    reason: "本月生日，適合送上祝福",
+    meta: `生日 ${String(r.birthday.getUTCMonth() + 1).padStart(2, "0")}/${String(r.birthday.getUTCDate()).padStart(2, "0")}`,
+    staffName: r.assignedStaffName,
+    lastFollowUpText: r.lastFollowUp
+      ? `最後追蹤：${r.lastFollowUp.createdByName}・${formatRelativeDaysTW(r.lastFollowUp.createdAt)}`
+      : "最後追蹤：從未追蹤",
+    script: SCRIPTS.birthday,
+    readOnly: isViewMode,
+  }));
+
   return (
     <PageShell>
       <PageHeader
@@ -219,61 +221,47 @@ export default async function CustomerCarePage({
         }
       />
 
-      <KpiStrip
-        items={[
-          { label: "待追蹤體驗客", value: summary.trialFollowUps, tone: "amber" },
-          { label: "好久不見", value: summary.inactiveCustomers, tone: "blue" },
-          { label: "堂數偏低", value: summary.lowSessionCustomers, tone: "green" },
-          { label: "方案快到期", value: summary.expiringPlanCustomers, tone: "primary" },
-          { label: "提醒項目", value: totalReminders, tone: "earth" },
-        ]}
-      />
-
-      {showMonthlyUnconverted ? (
-        <CareSection
-          title="本月體驗未開卡"
-          description={`${requestedMonth} 完成體驗、但未在同一天成功開卡的顧客；名單與營運分析未開卡人數使用相同口徑。`}
-          emptyText="這個月份沒有體驗未開卡顧客。"
-          items={monthlyUnconvertedItems}
-          totalCount={monthlyUnconvertedItems.length}
-        />
-      ) : null}
-
-      {totalReminders === 0 ? (
-        <div className="rounded-xl border border-earth-200 bg-white px-4 py-6 text-center">
-          <p className="text-sm font-medium text-earth-900">
-            今天沒有特別需要追蹤的顧客,可以專心服務現場顧客。
-          </p>
-        </div>
-      ) : null}
-
       <CareSection
-        title="待追蹤體驗客"
-        description="已完成體驗但尚未轉正式消費的顧客,適合關心體驗感受。"
-        emptyText="目前沒有需要追蹤的體驗客。"
-        items={trialItems}
-        totalCount={summary.trialFollowUps}
+        title="🎂 本月生日"
+        description="今天送上生日祝福。"
+        emptyText="本月沒有生日顧客。"
+        items={birthdayItems}
+        totalCount={birthdayItems.length}
       />
       <CareSection
-        title="好久不見"
-        description="仍有有效方案,但已超過 30 天沒有完成到店。"
+        title="🟡 本月體驗未開卡"
+        description="今天最值得追蹤。"
+        emptyText="本月沒有體驗未開卡顧客。"
+        items={monthlyUnconvertedItems}
+        totalCount={monthlyUnconvertedItems.length}
+      />
+      <CareSection
+        title="💤 好久不見"
+        description="超過 30 天未到店，適合主動關心。"
         emptyText="目前沒有久未到店的顧客。"
         items={inactiveItems}
         totalCount={summary.inactiveCustomers}
       />
       <CareSection
-        title="堂數偏低"
-        description="有效方案剩餘堂數偏低,適合提前提醒與安排後續。"
-        emptyText="目前沒有堂數偏低的顧客。"
+        title="📦 建議安排回店"
+        description="適合安排下一次服務。"
+        emptyText="目前沒有需要安排回店的顧客。"
         items={lowItems}
         totalCount={summary.lowSessionCustomers}
       />
       <CareSection
-        title="方案快到期"
-        description="方案即將到期且仍有剩餘堂數,適合提醒顧客安排時間。"
-        emptyText="目前沒有快到期的方案。"
+        title="⏰ 建議續約"
+        description="提前安排續約。"
+        emptyText="目前沒有需要提前續約的顧客。"
         items={expiringItems}
         totalCount={summary.expiringPlanCustomers}
+      />
+      <CareSection
+        title="其他待追蹤體驗客"
+        description="依既有體驗收款與方案狀態判斷，與本月未開卡口徑不同。"
+        emptyText="目前沒有其他需要追蹤的體驗客。"
+        items={trialItems}
+        totalCount={summary.trialFollowUps}
       />
     </PageShell>
   );
