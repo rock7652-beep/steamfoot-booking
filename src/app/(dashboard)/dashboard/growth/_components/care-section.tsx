@@ -13,7 +13,7 @@ export interface CareItem {
   reason: string;
   meta: string | null;
   staffName: string | null;
-  lastFollowUpText: string;
+  lastFollowUpText: string | null;
   script: string;
   readOnly?: boolean;
 }
@@ -33,8 +33,8 @@ const columns: Column<CareItem>[] = [
     priority: "primary",
     accessor: (row) => (
       <div className="flex flex-col">
-        <span className="text-sm font-medium text-earth-900">{row.name}</span>
-        <span className="text-[11px] tabular-nums text-earth-500">{row.phoneMasked}</span>
+        <span className="text-[15px] font-semibold text-earth-900">{row.name}</span>
+        <span className="text-[10px] tabular-nums text-earth-400">{row.phoneMasked}</span>
       </div>
     ),
     width: "w-40",
@@ -46,7 +46,9 @@ const columns: Column<CareItem>[] = [
       <div className="flex flex-col">
         <span className="text-sm text-earth-800">{row.reason}</span>
         {row.meta ? <span className="text-[11px] text-earth-500">{row.meta}</span> : null}
-        <span className="text-[11px] text-earth-500">{row.lastFollowUpText}</span>
+        {row.lastFollowUpText ? (
+          <span className="text-[11px] text-earth-500">{row.lastFollowUpText}</span>
+        ) : null}
       </div>
     ),
   },
@@ -106,13 +108,28 @@ export function CareSection({
 
   return (
     <section className="space-y-1">
-      <div className="flex items-baseline justify-between">
+      <div className="flex items-baseline justify-between gap-3">
         <h2 className="text-sm font-semibold text-earth-900">
           {title}
           {totalCount > 0 ? (
             <span className="ml-1.5 text-[11px] font-normal text-earth-500">{totalCount} 位</span>
           ) : null}
         </h2>
+        {canToggle ? (
+          <div className="flex shrink-0 items-center gap-2 text-[11px]">
+            {!expanded ? <span className="text-earth-400">還有 {hiddenCount} 位</span> : null}
+            {!expanded ? <span className="text-earth-300">｜</span> : null}
+            <button
+              type="button"
+              onClick={toggleExpanded}
+              disabled={transitioning}
+              aria-expanded={expanded}
+              className="rounded-md px-2 py-0.5 font-medium text-primary-700 transition hover:bg-primary-50 hover:text-primary-800 disabled:cursor-wait disabled:opacity-70"
+            >
+              {expanded ? "收合" : "查看全部 →"}
+            </button>
+          </div>
+        ) : null}
       </div>
       <p className="text-[11px] text-earth-500">{description}</p>
       <div
@@ -132,21 +149,6 @@ export function CareSection({
           }
         />
       </div>
-      {canToggle ? (
-        <div className="flex items-center justify-end gap-2 px-1 text-[11px]">
-          {!expanded ? <span className="text-earth-400">還有 {hiddenCount} 位</span> : null}
-          {!expanded ? <span className="text-earth-300">｜</span> : null}
-          <button
-            type="button"
-            onClick={toggleExpanded}
-            disabled={transitioning}
-            aria-expanded={expanded}
-            className="rounded-md px-2 py-0.5 font-medium text-primary-700 transition hover:bg-primary-50 hover:text-primary-800 disabled:cursor-wait disabled:opacity-70"
-          >
-            {expanded ? "收合" : "查看全部 →"}
-          </button>
-        </div>
-      ) : null}
     </section>
   );
 }

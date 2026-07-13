@@ -60,8 +60,8 @@ function followUpText(
   followUp: NonNullable<
     Awaited<ReturnType<typeof getCustomerCareOverview>>["trialFollowUps"][number]["lastFollowUp"]
   > | null,
-): string {
-  if (!followUp) return "最後追蹤：從未追蹤";
+): string | null {
+  if (!followUp) return null;
   return `最後追蹤：${followUp.createdByName}・${formatRelativeDaysTW(followUp.createdAt)}`;
 }
 
@@ -187,7 +187,7 @@ export default async function CustomerCarePage({
     staffName: r.assignedStaffName,
     lastFollowUpText: r.lastFollowUp
       ? `最後追蹤：${r.lastFollowUp.createdByName}・${formatRelativeDaysTW(r.lastFollowUp.createdAt)}`
-      : "最後追蹤：從未追蹤",
+      : null,
     script: SCRIPTS.trial,
     readOnly: isViewMode,
   }));
@@ -201,7 +201,7 @@ export default async function CustomerCarePage({
     staffName: r.assignedStaffName,
     lastFollowUpText: r.lastFollowUp
       ? `最後追蹤：${r.lastFollowUp.createdByName}・${formatRelativeDaysTW(r.lastFollowUp.createdAt)}`
-      : "最後追蹤：從未追蹤",
+      : null,
     script: SCRIPTS.birthday,
     readOnly: isViewMode,
   }));
