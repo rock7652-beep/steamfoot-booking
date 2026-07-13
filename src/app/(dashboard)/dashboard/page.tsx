@@ -3,7 +3,12 @@ import { DashboardLink as Link } from "@/components/dashboard-link";
 import { getCurrentUser } from "@/lib/session";
 import { resolveActiveStoreId } from "@/lib/store";
 import { getStoreFilter } from "@/lib/manager-visibility";
-import { bookingDateToday, formatTWTime, toLocalDateStr } from "@/lib/date-utils";
+import {
+  bookingDateToday,
+  formatTWTime,
+  toLocalDateStr,
+  toLocalMonthStr,
+} from "@/lib/date-utils";
 import { ACTIVE_BOOKING_STATUSES, STATUS_LABEL } from "@/lib/booking-constants";
 import { checkPermission } from "@/lib/permissions";
 import { FEATURES } from "@/lib/feature-flags";
@@ -24,11 +29,16 @@ import {
   getCustomerCareSummary,
   type CustomerCareSummary,
 } from "@/server/queries/customer-care";
+import { getMonthlyUnconvertedCustomers } from "@/server/queries/conversion-metrics";
+import { getBirthdayCustomersForMonth } from "@/server/queries/customer-birthday";
 import { ReconciliationBanner } from "@/components/reconciliation-banner";
 import { UpgradeResultBanner } from "@/components/upgrade-result-banner";
 import { StoreTodoCard } from "./store-todo-card";
 import { CashDrawerTodayCard } from "./cash-drawer-today-card";
-import { CustomerCareSummaryCard } from "./customer-care-summary-card";
+import {
+  CustomerCareSummaryCard,
+  type CustomerWorkspaceSummary,
+} from "./customer-care-summary-card";
 import {
   PageShell,
   PageHeader,
@@ -159,7 +169,44 @@ export default async function DashboardHomePage() {
       })
     : Promise.resolve(null);
 
-  const [summary, todayBookings, resolvedRequest, reconciliation, todos, careSummary] =
+  // 首頁只取顧客工作台既有資料來源的數量，不另建統計口徑。
+  const workspaceMonth = toLocalMonthStr();
+  const birthdayCountPromise: Promise<number | null> = canViewCustomers && dashboardStoreId
+    ? getBirthdayCustomersForMonth(dashboardStoreId, workspaceMonth)
+        .then((customers) => customers.length)
+        .catch((e) => {
+          console.error("[dashboard-home] getBirthdayCustomersForMonth failed", {
+            activeStoreId: dashboardStoreId,
+            userId: user.id,
+            error: e instanceof Error ? e.message : String(e),
+          });
+          return null;
+        })
+    : Promise.resolve(canViewCustomers ? 0 : null);
+  const monthlyUnconvertedCountPromise: Promise<number | null> =
+    canViewCustomers && dashboardStoreId
+      ? getMonthlyUnconvertedCustomers(dashboardStoreId, workspaceMonth)
+          .then((customers) => customers.length)
+          .catch((e) => {
+            console.error("[dashboard-home] getMonthlyUnconvertedCustomers failed", {
+              activeStoreId: dashboardStoreId,
+              userId: user.id,
+              error: e instanceof Error ? e.message : String(e),
+            });
+            return null;
+          })
+      : Promise.resolve(canViewCustomers ? 0 : null);
+
+  const [
+    summary,
+    todayBookings,
+    resolvedRequest,
+    reconciliation,
+    todos,
+    careSummary,
+    birthdayCount,
+    monthlyUnconvertedCount,
+  ] =
     await Promise.all([
     getDashboardTodaySummaryForUser(dashboardUser, dashboardStoreId).catch((e) => {
       console.error("[dashboard-home] getDashboardTodaySummary failed", {
@@ -209,7 +256,26 @@ export default async function DashboardHomePage() {
       respectDismissed: !isViewMode,
     }).catch(() => ({ items: [], total: 0 })),
     careSummaryPromise,
+    birthdayCountPromise,
+    monthlyUnconvertedCountPromise,
   ]);
+
+  const customerWorkspaceSummary: CustomerWorkspaceSummary | null =
+    careSummary !== null && birthdayCount !== null && monthlyUnconvertedCount !== null
+      ? {
+          birthdayCustomers: birthdayCount,
+          monthlyUnconvertedCustomers: monthlyUnconvertedCount,
+          inactiveCustomers: careSummary.inactiveCustomers,
+          lowSessionCustomers: careSummary.lowSessionCustomers,
+          expiringPlanCustomers: careSummary.expiringPlanCustomers,
+          totalReminders:
+            birthdayCount +
+            monthlyUnconvertedCount +
+            careSummary.inactiveCustomers +
+            careSummary.lowSessionCustomers +
+            careSummary.expiringPlanCustomers,
+        }
+      : null;
 
   const rows: TodayBookingRow[] = todayBookings.map((b) => ({
     id: b.id,
@@ -323,8 +389,7 @@ export default async function DashboardHomePage() {
     canViewCustomers ? (
       <CustomerCareSummaryCard
         key="customer-care"
-        summary={careSummary}
-        readOnly={isViewMode}
+        summary={customerWorkspaceSummary}
       />
     ) : null,
   ].filter(Boolean);

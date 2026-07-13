@@ -1,37 +1,41 @@
 import { SideCard } from "@/components/desktop";
-import type { CustomerCareSummary } from "@/server/queries/customer-care";
-
 /**
- * 首頁「今日顧客經營」摘要卡（PR-2C）
+ * 首頁「今日顧客經營」摘要卡。
  *
- * 只顯示四區提醒「數字」+ 進入顧客經營頁的 CTA;不讀 / 不顯示完整顧客名單。
+ * 只顯示顧客工作台五區的「數字」+ 進入工作台的 CTA；不顯示完整顧客名單。
  * summary === null → 查詢失敗,顯示友善降級文字（首頁其他區塊不受影響）。
  *
  * 完整名單在 /dashboard/growth；首頁只負責提醒店長「今天有事要看」。
  */
 
-const CTA = { label: "查看顧客經營", href: "/dashboard/growth" } as const;
+const CTA = { label: "前往顧客工作台", href: "/dashboard/growth" } as const;
 
-const ROWS: Array<{ key: keyof CustomerCareSummary; label: string }> = [
-  { key: "trialFollowUps", label: "待追蹤體驗客" },
-  { key: "inactiveCustomers", label: "好久不見" },
-  { key: "lowSessionCustomers", label: "堂數偏低" },
-  { key: "expiringPlanCustomers", label: "方案快到期" },
+export interface CustomerWorkspaceSummary {
+  birthdayCustomers: number;
+  monthlyUnconvertedCustomers: number;
+  inactiveCustomers: number;
+  lowSessionCustomers: number;
+  expiringPlanCustomers: number;
+  totalReminders: number;
+}
+
+const ROWS: Array<{ key: keyof CustomerWorkspaceSummary; label: string }> = [
+  { key: "birthdayCustomers", label: "🎂 本月生日" },
+  { key: "monthlyUnconvertedCustomers", label: "🟡 本月體驗未開卡" },
+  { key: "inactiveCustomers", label: "💤 好久不見" },
+  { key: "lowSessionCustomers", label: "📦 建議安排回店" },
+  { key: "expiringPlanCustomers", label: "⏰ 建議續約" },
 ];
 
 export function CustomerCareSummaryCard({
   summary,
-  readOnly = false,
 }: {
-  summary: CustomerCareSummary | null;
-  readOnly?: boolean;
+  summary: CustomerWorkspaceSummary | null;
 }) {
-  const action = readOnly ? undefined : CTA;
-
   // 查詢失敗 — 降級,不擋首頁
   if (summary === null) {
     return (
-      <SideCard title="今日顧客經營" action={action}>
+      <SideCard title="今日顧客經營" action={CTA}>
         <p className="text-[11px] text-earth-400">顧客經營提醒暫時無法載入</p>
       </SideCard>
     );
@@ -40,9 +44,8 @@ export function CustomerCareSummaryCard({
   // 無提醒 — 友善空狀態
   if (summary.totalReminders === 0) {
     return (
-      <SideCard title="今日顧客經營" action={action}>
-        <p className="text-xs text-earth-700">今天沒有特別需要追蹤的顧客</p>
-        <p className="text-[11px] text-earth-400">可以專心服務現場顧客</p>
+      <SideCard title="今日顧客經營" action={CTA}>
+        <p className="text-xs text-earth-700">今天沒有需要特別關心的顧客</p>
       </SideCard>
     );
   }
@@ -51,7 +54,7 @@ export function CustomerCareSummaryCard({
     <SideCard
       title="今日顧客經營"
       subtitle={`今天有 ${summary.totalReminders} 個提醒項目`}
-      action={action}
+      action={CTA}
     >
       <ul className="space-y-1">
         {ROWS.map((r) => (
