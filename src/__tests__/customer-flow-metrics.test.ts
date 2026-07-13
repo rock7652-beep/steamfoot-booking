@@ -3,6 +3,7 @@ import {
   buildCustomerFlowMetrics,
   compareCustomerFlow,
   getCustomerFlowMetrics,
+  selectCustomerFlowCustomerIds,
 } from "@/server/queries/customer-flow-metrics";
 
 const mockFindMany = vi.fn();
@@ -44,11 +45,16 @@ describe("buildCustomerFlowMetrics", () => {
     ]);
 
     const result = buildCustomerFlowMetrics("2026-07", bookings, firstCompleted);
+    const selection = selectCustomerFlowCustomerIds("2026-07", bookings, firstCompleted);
 
     expect(result.uniqueVisitors.current).toBe(2);
     expect(result.newVisitors.current).toBe(1);
     expect(result.returningVisitors.current).toBe(1);
     expect(result.trialCustomers.current).toBe(1);
+    expect(result.uniqueVisitors.current).toBe(selection.uniqueVisitorIds.size);
+    expect(result.newVisitors.current).toBe(selection.newVisitorIds.size);
+    expect(result.returningVisitors.current).toBe(selection.returningVisitorIds.size);
+    expect(result.trialCustomers.current).toBe(selection.trialCustomerIds.size);
     expect(result.uniqueVisitors.mom).toEqual({ difference: 1, percentage: 100 });
     expect(result.uniqueVisitors.yoy).toEqual({ difference: 1, percentage: 100 });
   });

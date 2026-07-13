@@ -1,5 +1,9 @@
 import { prisma } from "@/lib/db";
 import { bookingMonthRange, monthRange, toLocalDateStr } from "@/lib/date-utils";
+import {
+  hydrateCustomerSegment,
+  type CustomerSegmentCustomer,
+} from "@/server/queries/customer-segment-list";
 
 export type ConversionComparison = {
   difference: number;
@@ -244,4 +248,19 @@ export async function getMonthlyUnconvertedCustomers(
       }];
     })
     .sort((a, b) => b.trialCompletedAt.getTime() - a.trialCompletedAt.getTime());
+}
+
+export type ConversionCustomerSegment = "monthly-converted" | "monthly-unconverted";
+
+export async function getConversionCustomers(
+  storeId: string,
+  month: string,
+  segment: ConversionCustomerSegment,
+): Promise<CustomerSegmentCustomer[]> {
+  const { trials, purchases } = await loadConversionFacts(storeId, [month]);
+  const selection = selectConversionCustomerIds(month, trials, purchases);
+  const ids = segment === "monthly-converted"
+    ? selection.convertedCustomerIds
+    : selection.unconvertedCustomerIds;
+  return hydrateCustomerSegment(storeId, ids);
 }

@@ -9,6 +9,7 @@ const mockHasStoreFeature = vi.fn();
 const mockGetCustomerCareOverview = vi.fn();
 const mockGetMonthlyUnconvertedCustomers = vi.fn();
 const mockGetBirthdayCustomersForMonth = vi.fn();
+const mockGetCustomerKpiSegmentCustomers = vi.fn();
 const mockRedirect = vi.fn((href: string) => {
   throw new Error(`redirect:${href}`);
 });
@@ -46,6 +47,20 @@ vi.mock("@/server/queries/conversion-metrics", () => ({
 vi.mock("@/server/queries/customer-birthday", () => ({
   getBirthdayCustomersForMonth: (...args: unknown[]) =>
     mockGetBirthdayCustomersForMonth(...args),
+}));
+
+vi.mock("@/server/queries/customer-kpi-segments", () => ({
+  CUSTOMER_KPI_SEGMENTS: {
+    "monthly-unconverted": {
+      title: "本月體驗未開卡",
+      description: "本月完成體驗但未於當天開卡的顧客。",
+    },
+    "monthly-new": { title: "本月新客", description: "首次完成服務發生在本月的顧客。" },
+  },
+  isCustomerKpiSegment: (value: string | undefined) =>
+    value === "monthly-unconverted" || value === "monthly-new",
+  getCustomerKpiSegmentCustomers: (...args: unknown[]) =>
+    mockGetCustomerKpiSegmentCustomers(...args),
 }));
 
 vi.mock("@/lib/store-view-context-server", () => ({
@@ -142,6 +157,7 @@ beforeEach(() => {
   });
   mockGetMonthlyUnconvertedCustomers.mockResolvedValue([]);
   mockGetBirthdayCustomersForMonth.mockResolvedValue([]);
+  mockGetCustomerKpiSegmentCustomers.mockResolvedValue([]);
 });
 
 describe("CustomerCarePage feature gate", () => {
@@ -158,12 +174,11 @@ describe("CustomerCarePage feature gate", () => {
   });
 
   it("parses the monthly-unconverted segment and renders only its dedicated customer list", async () => {
-    mockGetMonthlyUnconvertedCustomers.mockResolvedValueOnce([
+    mockGetCustomerKpiSegmentCustomers.mockResolvedValueOnce([
       {
         customerId: "customer-b",
         customerName: "測試顧客 B",
         customerPhone: "0911000002",
-        trialCompletedAt: new Date("2026-07-13T00:00:00.000Z"),
         assignedStaffName: "測試店長",
         lastFollowUp: null,
       },
@@ -178,17 +193,44 @@ describe("CustomerCarePage feature gate", () => {
       }),
     );
 
-    expect(mockGetMonthlyUnconvertedCustomers).toHaveBeenCalledWith("store-1", "2026-07");
+    expect(mockGetCustomerKpiSegmentCustomers).toHaveBeenCalledWith(
+      "store-1",
+      "2026-07",
+      "monthly-unconverted",
+    );
     expect(html).toContain("本月體驗未開卡");
     expect(html).toContain("測試顧客 B");
     expect(html).toContain("09xx-xxx-0002");
-    expect(html).toContain("今天最值得追蹤");
+    expect(html).toContain("本月完成體驗但未於當天開卡的顧客");
     expect(html).not.toContain("從未追蹤");
     expect(html).toContain("查看顧客");
     expect(html).toContain("建立預約");
     expect(html).toContain("複製話術");
     expect(html).toContain("追蹤");
     expect(html).not.toContain("測試顧客 E");
+    expect(mockGetCustomerCareOverview).not.toHaveBeenCalled();
+  });
+
+  it("renders another KPI customer segment through the shared workspace route", async () => {
+    mockGetCustomerKpiSegmentCustomers.mockResolvedValueOnce([
+      {
+        customerId: "new-customer",
+        customerName: "本月新客 A",
+        customerPhone: "0911000010",
+        assignedStaffName: null,
+        lastFollowUp: null,
+      },
+    ]);
+
+    const html = renderToStaticMarkup(
+      await CustomerCarePage({
+        searchParams: Promise.resolve({ segment: "monthly-new", month: "2026-07" }),
+      }),
+    );
+
+    expect(html).toContain("本月新客");
+    expect(html).toContain("本月新客 A");
+    expect(html).toContain("返回營運分析");
   });
 
   it("keeps real follow-up information when a record exists", async () => {

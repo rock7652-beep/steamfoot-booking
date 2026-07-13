@@ -273,6 +273,10 @@ describe("ReportsPage basic_reports entitlement gate", () => {
     expect(html).toContain("基期為 0，無法比較");
     expect(html).toContain("多人同行者需各自建立顧客與體驗預約才會納入");
     expect(html).not.toContain("客單價");
+    expect(html).toMatch(/segment=monthly-customers/);
+    expect(html).toMatch(/segment=monthly-new/);
+    expect(html).toMatch(/segment=monthly-returning/);
+    expect(html).toMatch(/segment=monthly-trial/);
   });
 
   it("does not query or aggregate customer flow for the HQ all-store view", async () => {
@@ -303,6 +307,7 @@ describe("ReportsPage basic_reports entitlement gate", () => {
     expect(html).toContain("未開卡人數");
     expect(html).toContain("查看顧客 →");
     expect(html).toMatch(/\/dashboard\/growth\?segment=monthly-unconverted&amp;month=\d{4}-\d{2}/);
+    expect(html).toMatch(/segment=monthly-converted/);
     expect(html.indexOf("成交分析")).toBeGreaterThan(html.indexOf("客流分析"));
     expect(html).toContain("方案權益未取消");
     expect(html).toContain("基期為 0，無法比較");
@@ -324,6 +329,9 @@ describe("ReportsPage basic_reports entitlement gate", () => {
     expect(html).toContain("去年同月");
     expect(html).toContain("基期為 0，無法比較");
     expect(html).not.toMatch(/續約率|平均回店天數|人員回流|Benchmark|健康值/);
+    expect(html).toMatch(/segment=monthly-returned/);
+    expect(html).toMatch(/segment=monthly-not-returned/);
+    expect(html.match(/查看顧客 →/g)).toHaveLength(8);
   });
 
   it("allows a GROWTH store even when advanced_reports is unavailable", async () => {

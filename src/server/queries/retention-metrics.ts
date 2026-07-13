@@ -1,5 +1,9 @@
 import { prisma } from "@/lib/db";
 import { bookingMonthRange } from "@/lib/date-utils";
+import {
+  hydrateCustomerSegment,
+  type CustomerSegmentCustomer,
+} from "@/server/queries/customer-segment-list";
 
 export type RetentionComparison = {
   difference: number;
@@ -50,17 +54,40 @@ function customersInMonth(month: string, bookings: CompletedBooking[]): Set<stri
   );
 }
 
-function countsForMonth(month: string, bookings: CompletedBooking[]): RetentionCounts {
-  const cohort = customersInMonth(shiftMonth(month, -1), bookings);
+export type RetentionCustomerSelection = {
+  cohortCustomerIds: Set<string>;
+  returnedCustomerIds: Set<string>;
+  unreturnedCustomerIds: Set<string>;
+};
+
+export type RetentionCustomerSegment = "monthly-returned" | "monthly-not-returned";
+
+export function selectRetentionCustomerIds(
+  month: string,
+  bookings: CompletedBooking[],
+): RetentionCustomerSelection {
+  const cohortCustomerIds = customersInMonth(shiftMonth(month, -1), bookings);
   const currentCustomers = customersInMonth(month, bookings);
-  const returnedCustomers = [...cohort].filter((customerId) =>
-    currentCustomers.has(customerId),
-  ).length;
+  const returnedCustomerIds = new Set(
+    [...cohortCustomerIds].filter((customerId) => currentCustomers.has(customerId)),
+  );
+  const unreturnedCustomerIds = new Set(
+    [...cohortCustomerIds].filter((customerId) => !currentCustomers.has(customerId)),
+  );
+  return { cohortCustomerIds, returnedCustomerIds, unreturnedCustomerIds };
+}
+
+function countsForMonth(month: string, bookings: CompletedBooking[]): RetentionCounts {
+  const selection = selectRetentionCustomerIds(month, bookings);
+  const returnedCustomers = selection.returnedCustomerIds.size;
 
   return {
     returnedCustomers,
-    retentionRate: cohort.size === 0 ? 0 : (returnedCustomers / cohort.size) * 100,
-    unreturnedCustomers: cohort.size - returnedCustomers,
+    retentionRate:
+      selection.cohortCustomerIds.size === 0
+        ? 0
+        : (returnedCustomers / selection.cohortCustomerIds.size) * 100,
+    unreturnedCustomers: selection.unreturnedCustomerIds.size,
   };
 }
 
@@ -120,4 +147,25 @@ export async function getRetentionMetrics(
   });
 
   return buildRetentionMetrics(month, bookings);
+}
+
+export async function getRetentionCustomers(
+  storeId: string,
+  month: string,
+  segment: RetentionCustomerSegment,
+): Promise<CustomerSegmentCustomer[]> {
+  const ranges = [rangeForMonth(month), rangeForMonth(shiftMonth(month, -1))];
+  const bookings = await prisma.booking.findMany({
+    where: {
+      storeId,
+      bookingStatus: "COMPLETED",
+      OR: ranges.map(({ start, end }) => ({ bookingDate: { gte: start, lte: end } })),
+    },
+    select: { customerId: true, bookingDate: true },
+  });
+  const selection = selectRetentionCustomerIds(month, bookings);
+  const ids = segment === "monthly-returned"
+    ? selection.returnedCustomerIds
+    : selection.unreturnedCustomerIds;
+  return hydrateCustomerSegment(storeId, ids);
 }

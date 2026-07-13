@@ -446,11 +446,11 @@ export default async function ReportsPage({ searchParams }: PageProps) {
           {customerFlowMetrics ? (
             <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
               {[
-                ["本月來客數", customerFlowMetrics.uniqueVisitors],
-                ["新客數", customerFlowMetrics.newVisitors],
-                ["舊客數", customerFlowMetrics.returningVisitors],
-                ["體驗顧客數", customerFlowMetrics.trialCustomers],
-              ].map(([label, metric]) => {
+                ["本月來客數", customerFlowMetrics.uniqueVisitors, "monthly-customers"],
+                ["新客數", customerFlowMetrics.newVisitors, "monthly-new"],
+                ["舊客數", customerFlowMetrics.returningVisitors, "monthly-returning"],
+                ["體驗顧客數", customerFlowMetrics.trialCustomers, "monthly-trial"],
+              ].map(([label, metric, segment]) => {
                 const value = metric as (typeof customerFlowMetrics)["uniqueVisitors"];
                 return (
                   <div key={label as string} className="rounded-lg bg-earth-50/70 p-3">
@@ -462,6 +462,12 @@ export default async function ReportsPage({ searchParams }: PageProps) {
                       <p>較上月：{formatCustomerFlowComparison(value.mom)}</p>
                       <p>去年同月：{formatCustomerFlowComparison(value.yoy)}</p>
                     </div>
+                    <DashboardLink
+                      href={`/dashboard/growth?segment=${segment as string}&month=${month}`}
+                      className="mt-2 inline-flex text-[11px] font-medium text-primary-700 hover:text-primary-800"
+                    >
+                      查看顧客 →
+                    </DashboardLink>
                   </div>
                 );
               })}
@@ -489,13 +495,12 @@ export default async function ReportsPage({ searchParams }: PageProps) {
           {conversionMetrics ? (
             <div className="mt-3 grid gap-2 sm:grid-cols-3">
               {[
-                ["開卡人數", conversionMetrics.convertedCustomers, "count"],
-                ["開卡率", conversionMetrics.conversionRate, "rate"],
-                ["未開卡人數", conversionMetrics.unconvertedCustomers, "count"],
-              ].map(([label, metric, kind]) => {
+                ["開卡人數", conversionMetrics.convertedCustomers, "count", "monthly-converted"],
+                ["開卡率", conversionMetrics.conversionRate, "rate", null],
+                ["未開卡人數", conversionMetrics.unconvertedCustomers, "count", "monthly-unconverted"],
+              ].map(([label, metric, kind, segment]) => {
                 const value = metric as (typeof conversionMetrics)["convertedCustomers"];
                 const isRate = kind === "rate";
-                const isUnconverted = label === "未開卡人數";
                 return (
                   <div key={label as string} className="rounded-lg bg-earth-50/70 p-3">
                     <p className="text-[11px] font-medium text-earth-500">{label as string}</p>
@@ -506,9 +511,9 @@ export default async function ReportsPage({ searchParams }: PageProps) {
                       <p>較上月：{formatConversionComparison(value.mom, isRate)}</p>
                       <p>去年同月：{formatConversionComparison(value.yoy, isRate)}</p>
                     </div>
-                    {isUnconverted && value.current > 0 ? (
+                    {segment ? (
                       <DashboardLink
-                        href={`/dashboard/growth?segment=monthly-unconverted&month=${month}`}
+                        href={`/dashboard/growth?segment=${segment as string}&month=${month}`}
                         className="mt-2 inline-flex text-[11px] font-medium text-primary-700 hover:text-primary-800"
                       >
                         查看顧客 →
@@ -541,10 +546,10 @@ export default async function ReportsPage({ searchParams }: PageProps) {
           {retentionMetrics ? (
             <div className="mt-3 grid gap-2 sm:grid-cols-3">
               {[
-                ["本月回流人數", retentionMetrics.returnedCustomers, "count"],
-                ["上月顧客回流率", retentionMetrics.retentionRate, "rate"],
-                ["本月未回流人數", retentionMetrics.unreturnedCustomers, "count"],
-              ].map(([label, metric, kind]) => {
+                ["本月回流人數", retentionMetrics.returnedCustomers, "count", "monthly-returned"],
+                ["上月顧客回流率", retentionMetrics.retentionRate, "rate", null],
+                ["本月未回流人數", retentionMetrics.unreturnedCustomers, "count", "monthly-not-returned"],
+              ].map(([label, metric, kind, segment]) => {
                 const value = metric as (typeof retentionMetrics)["returnedCustomers"];
                 const isRate = kind === "rate";
                 return (
@@ -557,6 +562,14 @@ export default async function ReportsPage({ searchParams }: PageProps) {
                       <p>較上月：{formatRetentionComparison(value.mom, isRate)}</p>
                       <p>去年同月：{formatRetentionComparison(value.yoy, isRate)}</p>
                     </div>
+                    {segment ? (
+                      <DashboardLink
+                        href={`/dashboard/growth?segment=${segment as string}&month=${month}`}
+                        className="mt-2 inline-flex text-[11px] font-medium text-primary-700 hover:text-primary-800"
+                      >
+                        查看顧客 →
+                      </DashboardLink>
+                    ) : null}
                   </div>
                 );
               })}

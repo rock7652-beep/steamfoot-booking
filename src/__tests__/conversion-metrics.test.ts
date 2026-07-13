@@ -43,6 +43,7 @@ describe("buildConversionMetrics", () => {
       "unconverted",
     ]);
     expect(metrics.unconvertedCustomers.current).toBe(selection.unconvertedCustomerIds.size);
+    expect(metrics.convertedCustomers.current).toBe(selection.convertedCustomerIds.size);
   });
   it("counts a same-Taipei-day purchase once and excludes a later purchase", () => {
     const metrics = buildConversionMetrics(
