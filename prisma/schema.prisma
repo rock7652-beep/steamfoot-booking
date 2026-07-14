@@ -397,7 +397,7 @@ model User {
   opsActionLogs        OpsActionLog[]
   opsActionHistories   OpsActionHistory[]
   talentStageChanges   TalentStageLog[]   @relation("TalentStageChangedBy")
-  customerFollowUps    CustomerFollowUp[]  @relation("CustomerFollowUpCreatedBy")
+  customerFollowUps    CustomerFollowUp[] @relation("CustomerFollowUpCreatedBy")
   reviewedCheckinPosts CheckinPost[]      @relation("CheckinPostReviewedBy")
 
   // Transaction void / audit
@@ -493,42 +493,42 @@ model Store {
   parentStore Store?  @relation("StoreHierarchy", fields: [parentStoreId], references: [id])
   childStores Store[] @relation("StoreHierarchy")
 
-  currentSubscription StoreSubscription?  @relation("CurrentSubscription", fields: [currentSubscriptionId], references: [id])
-  subscriptions       StoreSubscription[] @relation("StoreSubscriptions")
+  currentSubscription StoreSubscription?        @relation("CurrentSubscription", fields: [currentSubscriptionId], references: [id])
+  subscriptions       StoreSubscription[]       @relation("StoreSubscriptions")
   planChanges         StorePlanChange[]
   featureEntitlements StoreFeatureEntitlement[]
 
-  staff                Staff[]
-  customers            Customer[]
+  staff                 Staff[]
+  customers             Customer[]
   customerIdentityLinks CustomerIdentityLink[]
-  bookings             Booking[]
-  transactions         Transaction[]
-  servicePlans         ServicePlan[]
-  customerPlanWallets  CustomerPlanWallet[]
-  cashbookEntries      CashbookEntry[]
-  dutyAssignments      DutyAssignment[]
-  bookingSlots         BookingSlot[]
-  businessHours        BusinessHours[]
-  specialBusinessDays  SpecialBusinessDay[]
-  slotOverrides        SlotOverride[]
-  reportSnapshots      ReportSnapshot[]
-  shopConfig           ShopConfig?
-  upgradeRequests      UpgradeRequest[]
-  reminderRules        ReminderRule[]
-  messageTemplates     MessageTemplate[]
-  opsActionLogs        OpsActionLog[]
-  reconciliationRuns   ReconciliationRun[]
-  makeupCredits        MakeupCredit[]
-  spaceFeeRecords      SpaceFeeRecord[]
-  messageLogs          MessageLog[]
-  talentStageLogs      TalentStageLog[]
-  customerFollowUps    CustomerFollowUp[]
-  referrals            Referral[]
-  pointRecords         PointRecord[]
-  bonusRules           BonusRule[]
-  referralEvents       ReferralEvent[]
-  checkinPosts         CheckinPost[]
-  transactionAuditLogs TransactionAuditLog[]
+  bookings              Booking[]
+  transactions          Transaction[]
+  servicePlans          ServicePlan[]
+  customerPlanWallets   CustomerPlanWallet[]
+  cashbookEntries       CashbookEntry[]
+  dutyAssignments       DutyAssignment[]
+  bookingSlots          BookingSlot[]
+  businessHours         BusinessHours[]
+  specialBusinessDays   SpecialBusinessDay[]
+  slotOverrides         SlotOverride[]
+  reportSnapshots       ReportSnapshot[]
+  shopConfig            ShopConfig?
+  upgradeRequests       UpgradeRequest[]
+  reminderRules         ReminderRule[]
+  messageTemplates      MessageTemplate[]
+  opsActionLogs         OpsActionLog[]
+  reconciliationRuns    ReconciliationRun[]
+  makeupCredits         MakeupCredit[]
+  spaceFeeRecords       SpaceFeeRecord[]
+  messageLogs           MessageLog[]
+  talentStageLogs       TalentStageLog[]
+  customerFollowUps     CustomerFollowUp[]
+  referrals             Referral[]
+  pointRecords          PointRecord[]
+  bonusRules            BonusRule[]
+  referralEvents        ReferralEvent[]
+  checkinPosts          CheckinPost[]
+  transactionAuditLogs  TransactionAuditLog[]
 
   cashDrawerSessions CashDrawerSession[]
   cashDrawerEntries  CashDrawerEntry[]
@@ -542,7 +542,7 @@ model Store {
 // ============================================================
 
 model StoreFeatureEntitlement {
-  id         String                         @id @default(cuid())
+  id         String                        @id @default(cuid())
   storeId    String
   featureKey String
   status     StoreFeatureEntitlementStatus @default(ENABLED)
@@ -552,8 +552,8 @@ model StoreFeatureEntitlement {
   note       String?
   createdBy  String?
   updatedBy  String?
-  createdAt  DateTime                       @default(now())
-  updatedAt  DateTime                       @updatedAt
+  createdAt  DateTime                      @default(now())
+  updatedAt  DateTime                      @updatedAt
 
   store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
 
@@ -742,7 +742,7 @@ model Customer {
   checkinPosts CheckinPost[]
 
   // 顧客經營追蹤紀錄（簡易 CRM-lite）
-  followUps CustomerFollowUp[]
+  followUps     CustomerFollowUp[]
   identityLinks CustomerIdentityLink[]
 
   @@unique([storeId, phone], name: "uq_store_customer_phone")
@@ -1515,6 +1515,7 @@ model ShopConfig {
   bankCode              String? // 銀行代號，例：「807」
   bankAccountNumber     String? // 帳號，例：「19301800020681」
   lineOfficialUrl       String? // LINE@ 連結，例：「https://lin.ee/UvRnFFK」
+  referralShareTemplate String? // 每店推薦分享模板；僅允許 {storeName} / {url}
   // === PR-trial 新增：體驗課設定（全有 default；不影響既有店家營運）===
   trialEnabled          Boolean   @default(true) // 是否啟用體驗單功能（關閉則隱藏「建立體驗單」入口）
   trialDefaultPrice     Decimal   @default(499) @db.Decimal(10, 0) // 預設體驗價格
