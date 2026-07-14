@@ -1,0 +1,110 @@
+name: PR3A referral template PR trigger
+
+on:
+  pull_request:
+    branches:
+      - main
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+
+jobs:
+  implement-and-validate:
+    if: github.head_ref == 'codex/pr3a-per-store-referral-share-template-core'
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/steamfoot
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/steamfoot
+      AUTH_SECRET: pr3a-test-secret
+      NEXTAUTH_SECRET: pr3a-test-secret
+      NEXTAUTH_URL: http://localhost:3000
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.head_ref }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Extract and apply implementation script
+        shell: bash
+        run: |
+          python <<'PY'
+          from pathlib import Path
+
+          text = Path('.github/workflows/pr3a-referral-template-implementation.yml').read_text()
+          start_marker = '      - name: Apply PR 3-A changes\n        shell: bash\n        run: |\n'
+          end_marker = '\n      - name: Install dependencies\n'
+          if start_marker not in text or end_marker not in text:
+              raise SystemExit('implementation workflow markers not found')
+          block = text.split(start_marker, 1)[1].split(end_marker, 1)[0]
+          lines = []
+          for line in block.splitlines():
+              if line.startswith('          '):
+                  lines.append(line[10:])
+              else:
+                  lines.append(line)
+          Path('/tmp/apply-pr3a.sh').write_text('\n'.join(lines) + '\n')
+          PY
+          bash /tmp/apply-pr3a.sh
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Format and validate Prisma schema
+        run: |
+          npx prisma format
+          npx prisma validate
+
+      - name: Targeted tests
+        run: >-
+          npx vitest run
+          src/__tests__/share-per-store.test.ts
+          src/__tests__/referral-share-context.test.ts
+          src/__tests__/referral-share-template-action.test.ts
+
+      - name: Targeted lint
+        run: >-
+          npx eslint
+          src/lib/share.ts
+          src/server/queries/referral-share-context.ts
+          src/server/actions/referral-share-template.ts
+          src/components/share-referral.tsx
+          'src/app/(customer)/book/share-contact-actions.tsx'
+          'src/app/(customer)/book/page.tsx'
+          'src/app/(customer)/book/booking-form.tsx'
+          'src/app/(customer)/my-referrals/page.tsx'
+          src/__tests__/share-per-store.test.ts
+          src/__tests__/referral-share-context.test.ts
+          src/__tests__/referral-share-template-action.test.ts
+
+      - name: Diff check
+        run: git diff --check
+
+      - name: Full build
+        run: npm run build
+
+      - name: Commit validated implementation
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add prisma/schema.prisma \
+            prisma/migrations/20260714_add_referral_share_template/migration.sql \
+            src/lib/share.ts \
+            src/server/queries/referral-share-context.ts \
+            src/server/actions/referral-share-template.ts \
+            src/components/share-referral.tsx \
+            'src/app/(customer)/book/share-contact-actions.tsx' \
+            'src/app/(customer)/book/page.tsx' \
+            'src/app/(customer)/book/booking-form.tsx' \
+            'src/app/(customer)/my-referrals/page.tsx' \
+            src/__tests__/share-per-store.test.ts \
+            src/__tests__/referral-share-context.test.ts \
+            src/__tests__/referral-share-template-action.test.ts
+          git commit -m "Add per-store referral share template core"
+          git push origin HEAD:${{ github.head_ref }}
