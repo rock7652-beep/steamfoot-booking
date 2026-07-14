@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { formatBirthday, parseBirthday } from "@/lib/birthday";
-import { missingRequiredFields } from "@/lib/customer-completion";
+import {
+  missingRequiredFields,
+  REQUIRED_CUSTOMER_FIELDS,
+} from "@/lib/customer-completion";
 
 const NOW = new Date("2026-07-12T04:00:00.000Z");
 
@@ -29,9 +32,13 @@ describe("birthday date-only rules", () => {
     });
   });
 
-  it("allows legacy null data but marks birthday as required for portal completion", () => {
+  it("keeps the customer portal completion gate limited to core identity fields", () => {
+    expect(REQUIRED_CUSTOMER_FIELDS).toEqual(["name", "phone"]);
+  });
+
+  it("allows legacy null birthday data through the customer portal completion gate", () => {
     expect(missingRequiredFields({ name: "王小明", phone: "0912345678", birthday: null }))
-      .toContain("birthday");
+      .toEqual([]);
     expect(
       missingRequiredFields({
         name: "王小明",
