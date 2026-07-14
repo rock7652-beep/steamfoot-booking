@@ -1,0 +1,30 @@
+name: PR 3-B validation
+
+on:
+  push:
+    branches:
+      - codex/pr3b-referral-share-settings-ui
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Targeted tests
+        run: npx vitest run src/__tests__/referral-share-settings-ui.test.ts src/__tests__/referral-share-template.test.ts src/__tests__/referral-share-template-action.test.ts
+      - name: Targeted ESLint
+        run: npx eslint 'src/app/(dashboard)/dashboard/settings/page.tsx' 'src/app/(dashboard)/dashboard/settings/referral-share/page.tsx' 'src/app/(dashboard)/dashboard/settings/referral-share/referral-share-form.tsx' src/__tests__/referral-share-settings-ui.test.ts
+      - name: Diff check
+        run: git diff --check origin/main...HEAD
+      - name: Build
+        run: npm run build
