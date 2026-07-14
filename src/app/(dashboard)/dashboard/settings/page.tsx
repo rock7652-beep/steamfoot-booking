@@ -291,7 +291,7 @@ export default async function SettingsIndexPage() {
               items={[
                 {
                   label: "目前狀態",
-                  value: shopConfig.referralShareTemplate ? (
+                  value: "referralShareTemplate" in shopConfig && shopConfig.referralShareTemplate ? (
                     <span className="text-primary-700">已自訂</span>
                   ) : (
                     <span className="text-earth-500">系統預設</span>
