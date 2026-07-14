@@ -1,0 +1,44 @@
+name: PR 3-B settings home entry
+
+on:
+  push:
+    branches:
+      - codex/pr3b-referral-share-settings-ui
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: codex/pr3b-referral-share-settings-ui
+      - name: Add settings navigation and card
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('src/app/(dashboard)/dashboard/settings/page.tsx')
+          s = p.read_text()
+          s = s.replace(
+            '        lineOfficialUrl: null as string | null,\n',
+            '        lineOfficialUrl: null as string | null,\n        referralShareTemplate: null as string | null,\n',
+          )
+          s = s.replace(
+            '        { label: "付款設定", href: "/dashboard/settings/payment" },\n',
+            '        { label: "付款設定", href: "/dashboard/settings/payment" },\n        { label: "推薦分享文案", href: "/dashboard/settings/referral-share" },\n',
+          )
+          marker = '        {/* 5b. 體驗課設定（需 trial.manage） */}'
+          card = '''        {/* 5b. 推薦分享文案 */}\n        <SettingsActionCard\n          title="推薦分享文案"\n          description="設定顧客分享給朋友時使用的推薦文字"\n          iconPath="M7.217 10.907a2.25 2.25 0 100 4.186m0-4.186c.18.18.342.38.484.593m-.484-.593l9.566-5.314m-9.066 9.814l9.066 5.313m0 0a2.25 2.25 0 103.935 2.177 2.25 2.25 0 00-3.935-2.177zm0-15.127a2.25 2.25 0 103.933-2.178 2.25 2.25 0 00-3.933 2.178z"\n          primaryHref="/dashboard/settings/referral-share"\n          primaryLabel="編輯分享文案"\n          summary={\n            <InfoList\n              density="compact"\n              items={[\n                {\n                  label: "目前狀態",\n                  value: shopConfig.referralShareTemplate ? (\n                    <span className="text-primary-700">已自訂</span>\n                  ) : (\n                    <span className="text-earth-500">系統預設</span>\n                  ),\n                },\n                { label: "可用變數", value: "{storeName}、{url}" },\n              ]}\n            />\n          }\n        />\n\n'''
+          if marker not in s:
+            raise SystemExit('card marker not found')
+          s = s.replace(marker, card + marker)
+          p.write_text(s)
+          PY
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add 'src/app/(dashboard)/dashboard/settings/page.tsx'
+          git commit -m 'Add referral share entry to settings home'
+          git push
