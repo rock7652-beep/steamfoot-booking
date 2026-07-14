@@ -10,6 +10,7 @@ describe("getReferralShareContext", () => {
 
   it("只產生店舖入口，不把 LINE URL 傳給 client", async () => {
     customerFindFirst.mockResolvedValue({
+      id: "customer-t",
       referralCode: "ABC234",
       store: {
         name: "暖沐蒸足",
@@ -34,6 +35,7 @@ describe("getReferralShareContext", () => {
 
   it("LINE 未設定時不產生分享網址", async () => {
     customerFindFirst.mockResolvedValue({
+      id: "customer-h",
       referralCode: "ABC234",
       store: {
         name: "以斯帖蒸足",
@@ -50,5 +52,30 @@ describe("getReferralShareContext", () => {
         storeSlug: "hsinchu",
       }),
     ).resolves.toEqual({ available: false, reason: "LINE_NOT_CONFIGURED" });
+  });
+
+  it("舊顧客沒有 referralCode 時暫用 customer.id", async () => {
+    customerFindFirst.mockResolvedValue({
+      id: "legacy-customer-id",
+      referralCode: null,
+      store: {
+        name: "暖暖蒸足",
+        slug: "zhubei",
+        operatingStatus: "ACTIVE",
+        shopConfig: { lineOfficialUrl: "https://lin.ee/zhubei" },
+      },
+    });
+
+    await expect(
+      getReferralShareContext({
+        customerId: "legacy-customer-id",
+        storeId: "store-z",
+        storeSlug: "zhubei",
+      }),
+    ).resolves.toEqual({
+      available: true,
+      storeName: "暖暖蒸足",
+      referralUrl: "/s/zhubei/line-entry?ref=legacy-customer-id",
+    });
   });
 });

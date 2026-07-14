@@ -67,17 +67,28 @@ describe("resolveLineReferralEntry", () => {
     expect(mocks.customerFindFirst).not.toHaveBeenCalled();
   });
 
-  it("拒絕 merged 推薦人與舊 customer id 格式", async () => {
+  it("過渡期接受舊 customer id，但仍限定同店且未 merged", async () => {
     mocks.storeFindUnique.mockResolvedValue({
       id: "store-z",
       operatingStatus: "ACTIVE",
       shopConfig: { lineOfficialUrl: "https://lin.ee/zhubei" },
     });
 
+    mocks.customerFindFirst.mockResolvedValue({ id: "customer-cuid" });
     await expect(resolveLineReferralEntry("zhubei", "customer-cuid")).resolves.toEqual({
-      status: "INVALID_REFERRAL",
+      status: "READY",
+      storeId: "store-z",
+      referrerId: "customer-cuid",
+      lineOfficialUrl: "https://lin.ee/zhubei",
     });
-    expect(mocks.customerFindFirst).not.toHaveBeenCalled();
+    expect(mocks.customerFindFirst).toHaveBeenCalledWith({
+      where: {
+        id: "customer-cuid",
+        storeId: "store-z",
+        mergedIntoCustomerId: null,
+      },
+      select: { id: true },
+    });
 
     mocks.customerFindFirst.mockResolvedValue(null);
     await expect(resolveLineReferralEntry("zhubei", "ABC234")).resolves.toEqual({

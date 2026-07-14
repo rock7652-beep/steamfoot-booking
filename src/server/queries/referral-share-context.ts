@@ -19,6 +19,7 @@ export async function getReferralShareContext(input: {
       mergedIntoCustomerId: null,
     },
     select: {
+      id: true,
       referralCode: true,
       store: {
         select: {
@@ -41,13 +42,12 @@ export async function getReferralShareContext(input: {
   if (!normalizeLineOfficialUrl(customer.store.shopConfig?.lineOfficialUrl)) {
     return { available: false, reason: "LINE_NOT_CONFIGURED" };
   }
-  if (!customer.referralCode) {
-    return { available: false, reason: "REFERRAL_CODE_MISSING" };
-  }
-
   return {
     available: true,
     storeName: customer.store.name,
-    referralUrl: buildReferralEntryUrl(customer.store.slug, customer.referralCode),
+    referralUrl: buildReferralEntryUrl(
+      customer.store.slug,
+      customer.referralCode ?? customer.id,
+    ),
   };
 }

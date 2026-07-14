@@ -28,11 +28,18 @@ export async function resolveLineReferralEntry(
   const lineOfficialUrl = normalizeLineOfficialUrl(store.shopConfig?.lineOfficialUrl);
   if (!lineOfficialUrl) return { status: "LINE_NOT_CONFIGURED" };
 
-  const referralCode = rawReferralCode?.trim().toUpperCase() ?? "";
-  if (!isReferralCodeFormat(referralCode)) return { status: "INVALID_REFERRAL" };
+  const referralRef = rawReferralCode?.trim() ?? "";
+  if (!referralRef) return { status: "INVALID_REFERRAL" };
+  const normalizedCode = referralRef.toUpperCase();
 
   const referrer = await prisma.customer.findFirst({
-    where: { referralCode, storeId: store.id, mergedIntoCustomerId: null },
+    where: {
+      ...(isReferralCodeFormat(normalizedCode)
+        ? { referralCode: normalizedCode }
+        : { id: referralRef }),
+      storeId: store.id,
+      mergedIntoCustomerId: null,
+    },
     select: { id: true },
   });
   if (!referrer) return { status: "INVALID_REFERRAL" };
