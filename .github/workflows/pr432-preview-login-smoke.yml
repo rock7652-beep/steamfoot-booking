@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - codex/p0-recover-stale-customer-session
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: read
