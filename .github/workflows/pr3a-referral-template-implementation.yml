@@ -1,0 +1,774 @@
+name: PR3A referral template implementation
+
+on:
+  push:
+    branches:
+      - codex/pr3a-per-store-referral-share-template-core
+
+permissions:
+  contents: write
+
+jobs:
+  implement-and-validate:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/steamfoot
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/steamfoot
+      AUTH_SECRET: pr3a-test-secret
+      NEXTAUTH_SECRET: pr3a-test-secret
+      NEXTAUTH_URL: http://localhost:3000
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: codex/pr3a-per-store-referral-share-template-core
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Apply PR 3-A changes
+        shell: bash
+        run: |
+          python <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              file = Path(path)
+              text = file.read_text()
+              if old not in text:
+                  raise SystemExit(f"expected snippet not found in {path}: {old[:120]!r}")
+              file.write_text(text.replace(old, new, 1))
+
+          replace_once(
+              "prisma/schema.prisma",
+              '  lineOfficialUrl       String? // LINE@ 連結，例：「https://lin.ee/UvRnFFK」\n',
+              '  lineOfficialUrl       String? // LINE@ 連結，例：「https://lin.ee/UvRnFFK」\n'
+              '  referralShareTemplate String? @db.Text // 每店推薦分享模板；null 時使用系統預設 fallback\n',
+          )
+
+          migration = Path("prisma/migrations/20260714_add_referral_share_template/migration.sql")
+          migration.parent.mkdir(parents=True, exist_ok=True)
+          migration.write_text(
+              '-- Add nullable per-store referral share template. Existing stores remain on the app fallback.\n'
+              'ALTER TABLE "ShopConfig" ADD COLUMN "referralShareTemplate" TEXT;\n'
+          )
+
+          Path("src/lib/share.ts").write_text(r'''/**
+           * 全系統唯一分享核心
+           *
+           * 所有分享行為（複製連結、LINE 分享、文案組合）必須走這裡。
+           * 禁止各頁自行拼接 URL 或 share text。
+           */
+
+          /** 系統預設分享文案；店家未設定或 DB 值失效時一律 fallback 到這份。 */
+          export const DEFAULT_REFERRAL_SHARE_TEMPLATE = [
+            "我最近去「{storeName}」",
+            "坐著45分鐘居然有點像慢跑完的感覺 😂",
+            "而且蒸完真的很好睡",
+            "",
+            "📍{storeName}",
+            "",
+            "如果你最近也有點累",
+            "可以去放鬆一下👇",
+            "{url}",
+            "",
+            "現在還有體驗價$499",
+            "想去趕快約喔",
+          ].join("\n");
+
+          export const REFERRAL_SHARE_TEMPLATE_MAX_LENGTH = 2000;
+
+          const REQUIRED_PLACEHOLDERS = ["storeName", "url"] as const;
+          const ALLOWED_PLACEHOLDERS = new Set(["storeName", "url", "inviterName"]);
+          const PLACEHOLDER_PATTERN = /\{([A-Za-z][A-Za-z0-9_]*)\}/g;
+
+          export type ReferralShareTemplateValidation =
+            | { ok: true; template: string | null }
+            | { ok: false; error: string };
+
+          /**
+           * 驗證店家自訂模板。
+           * - null / 空白：代表清除自訂值，回到系統預設
+           * - 必須保留店名與安全推薦入口
+           * - 未知 placeholder 直接拒絕，避免設定後顧客看到未替換字串
+           */
+          export function validateReferralShareTemplate(
+            value: string | null | undefined,
+          ): ReferralShareTemplateValidation {
+            const template = value?.trim() ?? "";
+            if (!template) return { ok: true, template: null };
+
+            if (template.length > REFERRAL_SHARE_TEMPLATE_MAX_LENGTH) {
+              return {
+                ok: false,
+                error: `推薦分享模板不可超過 ${REFERRAL_SHARE_TEMPLATE_MAX_LENGTH} 字`,
+              };
+            }
+
+            const placeholders = Array.from(
+              template.matchAll(PLACEHOLDER_PATTERN),
+              (match) => match[1],
+            );
+            const unknown = [...new Set(placeholders.filter((name) => !ALLOWED_PLACEHOLDERS.has(name)))];
+            if (unknown.length > 0) {
+              return {
+                ok: false,
+                error: `推薦分享模板含有不支援的變數：${unknown.map((name) => `{${name}}`).join("、")}`,
+              };
+            }
+
+            for (const required of REQUIRED_PLACEHOLDERS) {
+              if (!placeholders.includes(required)) {
+                return {
+                  ok: false,
+                  error: `推薦分享模板必須包含 {${required}}`,
+                };
+              }
+            }
+
+            return { ok: true, template };
+          }
+
+          /** DB 值無效時 fail soft，確保顧客分享按鈕仍可使用系統預設文案。 */
+          export function resolveReferralShareTemplate(
+            value: string | null | undefined,
+          ): string {
+            const validation = validateReferralShareTemplate(value);
+            return validation.ok && validation.template
+              ? validation.template
+              : DEFAULT_REFERRAL_SHARE_TEMPLATE;
+          }
+
+          export interface RenderReferralShareTemplateOpts {
+            storeName: string;
+            url: string;
+            inviterName?: string | null;
+          }
+
+          export function renderReferralShareTemplate(
+            template: string,
+            opts: RenderReferralShareTemplateOpts,
+          ): string {
+            return template
+              .replaceAll("{storeName}", opts.storeName)
+              .replaceAll("{url}", opts.url)
+              .replaceAll("{inviterName}", opts.inviterName?.trim() ?? "");
+          }
+
+          export interface BuildShareTextOpts extends RenderReferralShareTemplateOpts {
+            /** Server 已解析的每店模板；未傳或無效時使用系統預設。 */
+            template?: string | null;
+            /** 向下相容：已完成渲染的完整 body，傳入時直接使用。 */
+            body?: string;
+          }
+
+          /** 供 LINE 分享與複製使用，兩者輸出完全一致。 */
+          export function buildShareText(opts: BuildShareTextOpts): string {
+            if (opts.body) return opts.body;
+            return renderReferralShareTemplate(
+              resolveReferralShareTemplate(opts.template),
+              opts,
+            );
+          }
+
+          /**
+           * 組合推薦分享的完整 URL。
+           * 一律先進入蒸管家的店舖專屬入口，由後端驗證店舖、推薦人與 LINE 設定後轉址。
+           */
+          export function buildReferralEntryUrl(
+            storeSlug: string,
+            code: string,
+            origin?: string,
+          ): string {
+            const path = `/s/${storeSlug}/line-entry?ref=${encodeURIComponent(code)}`;
+            if (!origin) return path;
+            return `${origin.replace(/\/$/, "")}${path}`;
+          }
+
+          /** 向下相容別名；所有路徑都使用同一個安全入口。 */
+          export const buildStoreLineEntryUrl = buildReferralEntryUrl;
+
+          /** 組合 LINE share URL（分享 URL 已內嵌在 text 中）。 */
+          export function buildLineShareUrl(text: string, _shareUrl?: string): string {
+            return `https://line.me/R/share?text=${encodeURIComponent(text)}`;
+          }
+
+          /** 複製到剪貼簿（僅瀏覽器端可用）。 */
+          export async function copyToClipboard(value: string): Promise<boolean> {
+            if (typeof navigator === "undefined" || !navigator.clipboard) return false;
+            try {
+              await navigator.clipboard.writeText(value);
+              return true;
+            } catch {
+              return false;
+            }
+          }
+
+          /** 把相對連結補齊成絕對 URL（client-side 用）。 */
+          export function toAbsoluteUrl(pathOrUrl: string): string {
+            if (pathOrUrl.startsWith("http")) return pathOrUrl;
+            if (typeof window === "undefined") return pathOrUrl;
+            return `${window.location.origin}${pathOrUrl}`;
+          }
+          '''.replace("          ", ""))
+
+          Path("src/server/queries/referral-share-context.ts").write_text(r'''import { prisma } from "@/lib/db";
+          import { normalizeLineOfficialUrl } from "@/lib/line-official-url";
+          import {
+            buildReferralEntryUrl,
+            resolveReferralShareTemplate,
+          } from "@/lib/share";
+
+          export type ReferralShareContext =
+            | {
+                available: true;
+                storeName: string;
+                referralUrl: string;
+                shareTemplate: string;
+              }
+            | {
+                available: false;
+                reason:
+                  | "STORE_UNAVAILABLE"
+                  | "LINE_NOT_CONFIGURED"
+                  | "REFERRAL_CODE_MISSING";
+              };
+
+          /**
+           * 由 server 驗證顧客歸屬與店舖設定。
+           * client 不接觸 LINE 目的地，也不自行決定店舖模板 fallback。
+           */
+          export async function getReferralShareContext(input: {
+            customerId: string;
+            storeId: string;
+            storeSlug: string;
+          }): Promise<ReferralShareContext> {
+            const customer = await prisma.customer.findFirst({
+              where: {
+                id: input.customerId,
+                storeId: input.storeId,
+                mergedIntoCustomerId: null,
+              },
+              select: {
+                id: true,
+                referralCode: true,
+                store: {
+                  select: {
+                    name: true,
+                    slug: true,
+                    operatingStatus: true,
+                    shopConfig: {
+                      select: {
+                        lineOfficialUrl: true,
+                        referralShareTemplate: true,
+                      },
+                    },
+                  },
+                },
+              },
+            });
+
+            if (
+              !customer ||
+              customer.store.slug !== input.storeSlug ||
+              !["TRIAL", "ACTIVE"].includes(customer.store.operatingStatus)
+            ) {
+              return { available: false, reason: "STORE_UNAVAILABLE" };
+            }
+            if (!normalizeLineOfficialUrl(customer.store.shopConfig?.lineOfficialUrl)) {
+              return { available: false, reason: "LINE_NOT_CONFIGURED" };
+            }
+
+            return {
+              available: true,
+              storeName: customer.store.name,
+              referralUrl: buildReferralEntryUrl(
+                customer.store.slug,
+                customer.referralCode ?? customer.id,
+              ),
+              shareTemplate: resolveReferralShareTemplate(
+                customer.store.shopConfig?.referralShareTemplate,
+              ),
+            };
+          }
+          '''.replace("          ", ""))
+
+          action = Path("src/server/actions/referral-share-template.ts")
+          action.write_text(r'''"use server";
+
+          import { z } from "zod";
+          import { revalidatePath } from "next/cache";
+          import { prisma } from "@/lib/db";
+          import { AppError, handleActionError } from "@/lib/errors";
+          import { requirePermission } from "@/lib/permissions";
+          import { revalidateShopConfig } from "@/lib/revalidation";
+          import { validateReferralShareTemplate } from "@/lib/share";
+          import { resolveWriteStoreId } from "@/lib/store";
+          import type { ActionResult } from "@/types";
+
+          const updateReferralShareTemplateSchema = z.object({
+            template: z.string().nullable(),
+          });
+
+          /**
+           * PR 3-A backend write boundary.
+           * Store identity is derived from the authenticated staff context, never from client input.
+           * null / blank resets the store to the system fallback.
+           */
+          export async function updateReferralShareTemplate(
+            input: z.infer<typeof updateReferralShareTemplateSchema>,
+          ): Promise<ActionResult<void>> {
+            try {
+              const user = await requirePermission("plans.edit");
+              const storeId = await resolveWriteStoreId(user);
+              const { template } = updateReferralShareTemplateSchema.parse(input);
+              const validation = validateReferralShareTemplate(template);
+
+              if (!validation.ok) {
+                throw new AppError("VALIDATION", validation.error);
+              }
+
+              await prisma.shopConfig.upsert({
+                where: { storeId },
+                create: {
+                  storeId,
+                  referralShareTemplate: validation.template,
+                },
+                update: {
+                  referralShareTemplate: validation.template,
+                },
+              });
+
+              revalidateShopConfig();
+              revalidatePath("/dashboard/settings");
+              return { success: true, data: undefined };
+            } catch (error) {
+              return handleActionError(error);
+            }
+          }
+          '''.replace("          ", ""))
+
+          replace_once(
+              "src/components/share-referral.tsx",
+              '  referralUrl: string;\n  /** 完整模式顯示連結文字 + 統計；精簡模式只顯示按鈕 */',
+              '  referralUrl: string;\n  /** Server 已驗證並解析 fallback 的每店推薦分享模板 */\n  shareTemplate?: string | null;\n  /** 完整模式顯示連結文字 + 統計；精簡模式只顯示按鈕 */',
+          )
+          replace_once(
+              "src/components/share-referral.tsx",
+              '  referralUrl,\n  variant = "compact",',
+              '  referralUrl,\n  shareTemplate,\n  variant = "compact",',
+          )
+          replace_once(
+              "src/components/share-referral.tsx",
+              '  const shareText = buildShareText({ storeName, inviterName, url: absoluteUrl });',
+              '  const shareText = buildShareText({\n    storeName,\n    inviterName,\n    url: absoluteUrl,\n    template: shareTemplate,\n  });',
+          )
+
+          replace_once(
+              "src/app/(customer)/book/share-contact-actions.tsx",
+              '  referralUrl: string;\n  /** @deprecated PR 2 起不送入 action；保留 prop 相容，待後續清理。 */',
+              '  referralUrl: string;\n  /** Server 已驗證並解析 fallback 的每店推薦分享模板 */\n  shareTemplate?: string | null;\n  /** @deprecated PR 2 起不送入 action；保留 prop 相容，待後續清理。 */',
+          )
+          replace_once(
+              "src/app/(customer)/book/share-contact-actions.tsx",
+              '  referralUrl,\n}: Props) {',
+              '  referralUrl,\n  shareTemplate,\n}: Props) {',
+          )
+          replace_once(
+              "src/app/(customer)/book/share-contact-actions.tsx",
+              '  const shareText = buildShareText({ storeName, url: absoluteUrl });',
+              '  const shareText = buildShareText({\n    storeName,\n    url: absoluteUrl,\n    template: shareTemplate,\n  });',
+          )
+
+          replace_once(
+              "src/app/(customer)/my-referrals/page.tsx",
+              '                referralUrl={shareContext.referralUrl}\n                variant="compact"',
+              '                referralUrl={shareContext.referralUrl}\n                shareTemplate={shareContext.shareTemplate}\n                variant="compact"',
+          )
+          replace_once(
+              "src/app/(customer)/book/page.tsx",
+              '                referralUrl={shareContext.referralUrl}\n                storeId={storeId ?? undefined}',
+              '                referralUrl={shareContext.referralUrl}\n                shareTemplate={shareContext.shareTemplate}\n                storeId={storeId ?? undefined}',
+          )
+
+          replace_once(
+              "src/app/(customer)/book/booking-form.tsx",
+              '  referralUrl: string;\n  customerId: string;',
+              '  referralUrl: string;\n  shareTemplate?: string | null;\n  customerId: string;',
+          )
+          replace_once(
+              "src/app/(customer)/book/booking-form.tsx",
+              'export function BookingForm({ customerId, selectedDate, slots, activeWallets, storeId, storeName, referralUrl }: Props) {',
+              'export function BookingForm({\n  customerId,\n  selectedDate,\n  slots,\n  activeWallets,\n  storeId,\n  storeName,\n  referralUrl,\n  shareTemplate,\n}: Props) {',
+          )
+          replace_once(
+              "src/app/(customer)/book/booking-form.tsx",
+              '                referralUrl={referralUrl}\n                variant="compact"',
+              '                referralUrl={referralUrl}\n                shareTemplate={shareTemplate}\n                variant="compact"',
+          )
+
+          Path("src/__tests__/share-per-store.test.ts").write_text(r'''import { describe, expect, it } from "vitest";
+          import {
+            buildReferralEntryUrl,
+            buildShareText,
+            DEFAULT_REFERRAL_SHARE_TEMPLATE,
+            resolveReferralShareTemplate,
+            validateReferralShareTemplate,
+          } from "@/lib/share";
+
+          describe("per-store referral share", () => {
+            it("分享網址固定經過店舖入口並保留 ref", () => {
+              expect(buildReferralEntryUrl("taichung", "ABC234")).toBe(
+                "/s/taichung/line-entry?ref=ABC234",
+              );
+            });
+
+            it.each(["暖暖蒸足", "以斯帖蒸足", "暖沐蒸足"])(
+              "預設文案使用 Store.name：%s",
+              (storeName) => {
+                const text = buildShareText({
+                  storeName,
+                  url: "/s/store/line-entry?ref=ABC234",
+                });
+                expect(text).toContain(`我最近去「${storeName}」`);
+                expect(text).toContain(`📍${storeName}`);
+                expect(text).toContain("ref=ABC234");
+              },
+            );
+
+            it("有效的每店模板會替換必要變數", () => {
+              const text = buildShareText({
+                storeName: "暖沐蒸足",
+                inviterName: "小美",
+                url: "/s/taichung/line-entry?ref=ABC234",
+                template: "{inviterName}推薦你到 {storeName}\n{url}",
+              });
+              expect(text).toBe(
+                "小美推薦你到 暖沐蒸足\n/s/taichung/line-entry?ref=ABC234",
+              );
+            });
+
+            it("null、空白或失效 DB 值都 fallback 到系統預設", () => {
+              expect(resolveReferralShareTemplate(null)).toBe(
+                DEFAULT_REFERRAL_SHARE_TEMPLATE,
+              );
+              expect(resolveReferralShareTemplate("   ")).toBe(
+                DEFAULT_REFERRAL_SHARE_TEMPLATE,
+              );
+              expect(resolveReferralShareTemplate("只有店名 {storeName}")).toBe(
+                DEFAULT_REFERRAL_SHARE_TEMPLATE,
+              );
+            });
+
+            it("寫入驗證要求 {storeName} 與 {url}", () => {
+              expect(validateReferralShareTemplate("來 {storeName} 看看")).toEqual({
+                ok: false,
+                error: "推薦分享模板必須包含 {url}",
+              });
+              expect(validateReferralShareTemplate("點這裡 {url}")).toEqual({
+                ok: false,
+                error: "推薦分享模板必須包含 {storeName}",
+              });
+            });
+
+            it("未知變數會被拒絕，空白則代表清除自訂值", () => {
+              expect(
+                validateReferralShareTemplate("{storeName} {url} {coupon}"),
+              ).toEqual({
+                ok: false,
+                error: "推薦分享模板含有不支援的變數：{coupon}",
+              });
+              expect(validateReferralShareTemplate(" \n ")).toEqual({
+                ok: true,
+                template: null,
+              });
+            });
+          });
+          '''.replace("          ", ""))
+
+          Path("src/__tests__/referral-share-context.test.ts").write_text(r'''import { beforeEach, describe, expect, it, vi } from "vitest";
+
+          const customerFindFirst = vi.hoisted(() => vi.fn());
+          vi.mock("@/lib/db", () => ({
+            prisma: { customer: { findFirst: customerFindFirst } },
+          }));
+
+          import { DEFAULT_REFERRAL_SHARE_TEMPLATE } from "@/lib/share";
+          import { getReferralShareContext } from "@/server/queries/referral-share-context";
+
+          describe("getReferralShareContext", () => {
+            beforeEach(() => vi.clearAllMocks());
+
+            it("只產生店舖入口，並回傳同店有效模板", async () => {
+              customerFindFirst.mockResolvedValue({
+                id: "customer-t",
+                referralCode: "ABC234",
+                store: {
+                  name: "暖沐蒸足",
+                  slug: "taichung",
+                  operatingStatus: "ACTIVE",
+                  shopConfig: {
+                    lineOfficialUrl: "https://lin.ee/taichung",
+                    referralShareTemplate: "來 {storeName} 放鬆\n{url}",
+                  },
+                },
+              });
+
+              await expect(
+                getReferralShareContext({
+                  customerId: "customer-t",
+                  storeId: "store-t",
+                  storeSlug: "taichung",
+                }),
+              ).resolves.toEqual({
+                available: true,
+                storeName: "暖沐蒸足",
+                referralUrl: "/s/taichung/line-entry?ref=ABC234",
+                shareTemplate: "來 {storeName} 放鬆\n{url}",
+              });
+              expect(customerFindFirst).toHaveBeenCalledWith(
+                expect.objectContaining({
+                  where: {
+                    id: "customer-t",
+                    storeId: "store-t",
+                    mergedIntoCustomerId: null,
+                  },
+                }),
+              );
+            });
+
+            it("模板未設定或 DB 值失效時由 server fallback", async () => {
+              customerFindFirst.mockResolvedValue({
+                id: "customer-z",
+                referralCode: "ABC234",
+                store: {
+                  name: "暖暖蒸足",
+                  slug: "zhubei",
+                  operatingStatus: "ACTIVE",
+                  shopConfig: {
+                    lineOfficialUrl: "https://lin.ee/zhubei",
+                    referralShareTemplate: "缺少網址 {storeName}",
+                  },
+                },
+              });
+
+              const result = await getReferralShareContext({
+                customerId: "customer-z",
+                storeId: "store-z",
+                storeSlug: "zhubei",
+              });
+              expect(result).toEqual({
+                available: true,
+                storeName: "暖暖蒸足",
+                referralUrl: "/s/zhubei/line-entry?ref=ABC234",
+                shareTemplate: DEFAULT_REFERRAL_SHARE_TEMPLATE,
+              });
+            });
+
+            it("LINE 未設定時不產生分享網址或模板", async () => {
+              customerFindFirst.mockResolvedValue({
+                id: "customer-h",
+                referralCode: "ABC234",
+                store: {
+                  name: "以斯帖蒸足",
+                  slug: "hsinchu",
+                  operatingStatus: "ACTIVE",
+                  shopConfig: {
+                    lineOfficialUrl: null,
+                    referralShareTemplate: "來 {storeName}\n{url}",
+                  },
+                },
+              });
+
+              await expect(
+                getReferralShareContext({
+                  customerId: "customer-h",
+                  storeId: "store-h",
+                  storeSlug: "hsinchu",
+                }),
+              ).resolves.toEqual({
+                available: false,
+                reason: "LINE_NOT_CONFIGURED",
+              });
+            });
+
+            it("舊顧客沒有 referralCode 時暫用 customer.id", async () => {
+              customerFindFirst.mockResolvedValue({
+                id: "legacy-customer-id",
+                referralCode: null,
+                store: {
+                  name: "暖暖蒸足",
+                  slug: "zhubei",
+                  operatingStatus: "ACTIVE",
+                  shopConfig: {
+                    lineOfficialUrl: "https://lin.ee/zhubei",
+                    referralShareTemplate: null,
+                  },
+                },
+              });
+
+              await expect(
+                getReferralShareContext({
+                  customerId: "legacy-customer-id",
+                  storeId: "store-z",
+                  storeSlug: "zhubei",
+                }),
+              ).resolves.toEqual({
+                available: true,
+                storeName: "暖暖蒸足",
+                referralUrl: "/s/zhubei/line-entry?ref=legacy-customer-id",
+                shareTemplate: DEFAULT_REFERRAL_SHARE_TEMPLATE,
+              });
+            });
+          });
+          '''.replace("          ", ""))
+
+          Path("src/__tests__/referral-share-template-action.test.ts").write_text(r'''import { beforeEach, describe, expect, it, vi } from "vitest";
+
+          const mocks = vi.hoisted(() => ({
+            requirePermission: vi.fn(),
+            resolveWriteStoreId: vi.fn(),
+            upsert: vi.fn(),
+            revalidateShopConfig: vi.fn(),
+            revalidatePath: vi.fn(),
+          }));
+
+          vi.mock("@/lib/permissions", () => ({
+            requirePermission: mocks.requirePermission,
+          }));
+          vi.mock("@/lib/store", () => ({
+            resolveWriteStoreId: mocks.resolveWriteStoreId,
+          }));
+          vi.mock("@/lib/db", () => ({
+            prisma: { shopConfig: { upsert: mocks.upsert } },
+          }));
+          vi.mock("@/lib/revalidation", () => ({
+            revalidateShopConfig: mocks.revalidateShopConfig,
+          }));
+          vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidatePath }));
+
+          import { updateReferralShareTemplate } from "@/server/actions/referral-share-template";
+
+          describe("updateReferralShareTemplate", () => {
+            beforeEach(() => {
+              vi.clearAllMocks();
+              mocks.requirePermission.mockResolvedValue({
+                id: "staff-a",
+                role: "ADMIN",
+                storeId: null,
+              });
+              mocks.resolveWriteStoreId.mockResolvedValue("store-b");
+              mocks.upsert.mockResolvedValue({ id: "config-b" });
+            });
+
+            it("使用 authenticated write-store，不接受 client storeId", async () => {
+              const result = await updateReferralShareTemplate({
+                template: "  推薦你來 {storeName}\n{url}  ",
+              });
+
+              expect(result).toEqual({ success: true, data: undefined });
+              expect(mocks.requirePermission).toHaveBeenCalledWith("plans.edit");
+              expect(mocks.resolveWriteStoreId).toHaveBeenCalledWith(
+                expect.objectContaining({ id: "staff-a" }),
+              );
+              expect(mocks.upsert).toHaveBeenCalledWith({
+                where: { storeId: "store-b" },
+                create: {
+                  storeId: "store-b",
+                  referralShareTemplate: "推薦你來 {storeName}\n{url}",
+                },
+                update: {
+                  referralShareTemplate: "推薦你來 {storeName}\n{url}",
+                },
+              });
+            });
+
+            it("缺少必要網址變數時拒絕且不寫 DB", async () => {
+              const result = await updateReferralShareTemplate({
+                template: "推薦你來 {storeName}",
+              });
+
+              expect(result).toEqual({
+                success: false,
+                error: "推薦分享模板必須包含 {url}",
+              });
+              expect(mocks.upsert).not.toHaveBeenCalled();
+            });
+
+            it("空白模板寫成 null，回到系統 fallback", async () => {
+              const result = await updateReferralShareTemplate({
+                template: " \n ",
+              });
+
+              expect(result).toEqual({ success: true, data: undefined });
+              expect(mocks.upsert).toHaveBeenCalledWith({
+                where: { storeId: "store-b" },
+                create: {
+                  storeId: "store-b",
+                  referralShareTemplate: null,
+                },
+                update: { referralShareTemplate: null },
+              });
+            });
+          });
+          '''.replace("          ", ""))
+          PY
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Format and validate Prisma schema
+        run: |
+          npx prisma format
+          npx prisma validate
+
+      - name: Targeted tests
+        run: >-
+          npx vitest run
+          src/__tests__/share-per-store.test.ts
+          src/__tests__/referral-share-context.test.ts
+          src/__tests__/referral-share-template-action.test.ts
+
+      - name: Targeted lint
+        run: >-
+          npx eslint
+          src/lib/share.ts
+          src/server/queries/referral-share-context.ts
+          src/server/actions/referral-share-template.ts
+          src/components/share-referral.tsx
+          'src/app/(customer)/book/share-contact-actions.tsx'
+          'src/app/(customer)/book/page.tsx'
+          'src/app/(customer)/book/booking-form.tsx'
+          'src/app/(customer)/my-referrals/page.tsx'
+          src/__tests__/share-per-store.test.ts
+          src/__tests__/referral-share-context.test.ts
+          src/__tests__/referral-share-template-action.test.ts
+
+      - name: Diff check
+        run: git diff --check
+
+      - name: Full build
+        run: npm run build
+
+      - name: Commit validated implementation
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add prisma/schema.prisma \
+            prisma/migrations/20260714_add_referral_share_template/migration.sql \
+            src/lib/share.ts \
+            src/server/queries/referral-share-context.ts \
+            src/server/actions/referral-share-template.ts \
+            src/components/share-referral.tsx \
+            'src/app/(customer)/book/share-contact-actions.tsx' \
+            'src/app/(customer)/book/page.tsx' \
+            'src/app/(customer)/book/booking-form.tsx' \
+            'src/app/(customer)/my-referrals/page.tsx' \
+            src/__tests__/share-per-store.test.ts \
+            src/__tests__/referral-share-context.test.ts \
+            src/__tests__/referral-share-template-action.test.ts
+          git commit -m "Add per-store referral share template core"
+          git push origin HEAD:codex/pr3a-per-store-referral-share-template-core
