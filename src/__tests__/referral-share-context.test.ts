@@ -20,8 +20,8 @@ describe("getReferralShareContext", () => {
         slug: "taichung",
         operatingStatus: "ACTIVE",
         shopConfig: {
-lineOfficialUrl: "https://lin.ee/taichung",
-referralShareTemplate: "來 {storeName} 放鬆\n{url}",
+          lineOfficialUrl: "https://lin.ee/taichung",
+          referralShareTemplate: "來 {storeName} 放鬆\n{url}",
         },
       },
     });
@@ -41,9 +41,9 @@ referralShareTemplate: "來 {storeName} 放鬆\n{url}",
     expect(customerFindFirst).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
-id: "customer-t",
-storeId: "store-t",
-mergedIntoCustomerId: null,
+          id: "customer-t",
+          storeId: "store-t",
+          mergedIntoCustomerId: null,
         },
       }),
     );
@@ -58,8 +58,8 @@ mergedIntoCustomerId: null,
         slug: "zhubei",
         operatingStatus: "ACTIVE",
         shopConfig: {
-lineOfficialUrl: "https://lin.ee/zhubei",
-referralShareTemplate: "缺少網址 {storeName}",
+          lineOfficialUrl: "https://lin.ee/zhubei",
+          referralShareTemplate: "缺少網址 {storeName}",
         },
       },
     });
@@ -86,8 +86,8 @@ referralShareTemplate: "缺少網址 {storeName}",
         slug: "hsinchu",
         operatingStatus: "ACTIVE",
         shopConfig: {
-lineOfficialUrl: null,
-referralShareTemplate: "來 {storeName}\n{url}",
+          lineOfficialUrl: null,
+          referralShareTemplate: "來 {storeName}\n{url}",
         },
       },
     });
@@ -113,8 +113,8 @@ referralShareTemplate: "來 {storeName}\n{url}",
         slug: "zhubei",
         operatingStatus: "ACTIVE",
         shopConfig: {
-lineOfficialUrl: "https://lin.ee/zhubei",
-referralShareTemplate: null,
+          lineOfficialUrl: "https://lin.ee/zhubei",
+          referralShareTemplate: null,
         },
       },
     });

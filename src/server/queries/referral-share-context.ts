@@ -40,15 +40,15 @@ export async function getReferralShareContext(input: {
       referralCode: true,
       store: {
         select: {
-name: true,
-slug: true,
-operatingStatus: true,
-shopConfig: {
-  select: {
-    lineOfficialUrl: true,
-    referralShareTemplate: true,
-  },
-},
+          name: true,
+          slug: true,
+          operatingStatus: true,
+          shopConfig: {
+            select: {
+              lineOfficialUrl: true,
+              referralShareTemplate: true,
+            },
+          },
         },
       },
     },

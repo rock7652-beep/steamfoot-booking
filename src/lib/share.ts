@@ -54,7 +54,9 @@ export function validateReferralShareTemplate(
     template.matchAll(PLACEHOLDER_PATTERN),
     (match) => match[1],
   );
-  const unknown = [...new Set(placeholders.filter((name) => !ALLOWED_PLACEHOLDERS.has(name)))];
+  const unknown = [
+    ...new Set(placeholders.filter((name) => !ALLOWED_PLACEHOLDERS.has(name))),
+  ];
   if (unknown.length > 0) {
     return {
       ok: false,

@@ -23,7 +23,8 @@ function getReminderText(bookingDate: Date, slotTime: string): string {
   const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
   const diffDays = Math.floor(diffHours / 24);
 
-  if (diffDays === 0 && diffHours <= 3) return `${diffHours} 小時後就到了，準備出發吧`;
+  if (diffDays === 0 && diffHours <= 3)
+    return `${diffHours} 小時後就到了，準備出發吧`;
   if (diffDays === 0) return `今天 ${slotTime}，記得來喔`;
   if (diffDays === 1) return `明天 ${slotTime}，記得來喔`;
   if (diffDays === 2) return `後天 ${slotTime}，別忘了`;
@@ -58,7 +59,8 @@ export default async function CustomerHomePage() {
   let makeupCount = 0;
   let makeupEarliest: Date | null = null;
   let healthCard: Awaited<ReturnType<typeof getHealthCardData>> | null = null;
-  let referralSummary: Awaited<ReturnType<typeof getMyReferralSummary>> | null = null;
+  let referralSummary: Awaited<ReturnType<typeof getMyReferralSummary>> | null =
+    null;
 
   try {
     const [wallets, upcoming, credits, hc, summary] = await Promise.all([
@@ -94,7 +96,10 @@ export default async function CustomerHomePage() {
         },
         select: { expiredAt: true },
         // 最早到期優先（nulls last）→ credits[0] 即最早到期
-        orderBy: [{ expiredAt: { sort: "asc", nulls: "last" } }, { createdAt: "asc" }],
+        orderBy: [
+          { expiredAt: { sort: "asc", nulls: "last" } },
+          { createdAt: "asc" },
+        ],
       }),
       getHealthCardData(user.customerId),
       getMyReferralSummary(user.customerId, { activeStoreId: storeId }),
@@ -109,9 +114,15 @@ export default async function CustomerHomePage() {
     // 資料庫查詢失敗時顯示空狀態，不讓整頁掛掉
   }
 
-  const reminderText = nextBooking ? getReminderText(nextBooking.bookingDate, nextBooking.slotTime) : "";
+  const reminderText = nextBooking
+    ? getReminderText(nextBooking.bookingDate, nextBooking.slotTime)
+    : "";
   const shareContext = storeId
-    ? await getReferralShareContext({ customerId: user.customerId, storeId, storeSlug })
+    ? await getReferralShareContext({
+        customerId: user.customerId,
+        storeId,
+        storeSlug,
+      })
     : { available: false as const, reason: "STORE_UNAVAILABLE" as const };
 
   const showPerkProgress = !!referralSummary && referralSummary.totalPoints > 0;
@@ -153,8 +164,12 @@ export default async function CustomerHomePage() {
               <div>
                 <p className="text-sm font-medium text-earth-600">剩餘可預約</p>
                 <p className="mt-0.5 leading-none">
-                  <span className="text-4xl font-bold text-primary-700">{remaining}</span>
-                  <span className="ml-1 text-base font-semibold text-primary-700">堂</span>
+                  <span className="text-4xl font-bold text-primary-700">
+                    {remaining}
+                  </span>
+                  <span className="ml-1 text-base font-semibold text-primary-700">
+                    堂
+                  </span>
                 </p>
               </div>
             )}
@@ -162,12 +177,17 @@ export default async function CustomerHomePage() {
               <div>
                 <p className="text-sm font-medium text-earth-600">補課</p>
                 <p className="mt-0.5 leading-none">
-                  <span className="text-3xl font-bold text-amber-700">{makeupCount}</span>
-                  <span className="ml-1 text-base font-semibold text-amber-700">次</span>
+                  <span className="text-3xl font-bold text-amber-700">
+                    {makeupCount}
+                  </span>
+                  <span className="ml-1 text-base font-semibold text-amber-700">
+                    次
+                  </span>
                 </p>
                 {makeupEarliest && (
                   <p className="mt-0.5 text-xs text-amber-700">
-                    最早到期 {toLocalDateStr(makeupEarliest).split("-").join("/")}
+                    最早到期{" "}
+                    {toLocalDateStr(makeupEarliest).split("-").join("/")}
                   </p>
                 )}
               </div>
@@ -179,7 +199,15 @@ export default async function CustomerHomePage() {
           href={`${prefix}/book/new`}
           className="mt-3.5 flex h-11 w-full items-center justify-center gap-1.5 rounded-2xl bg-primary-600 text-base font-semibold text-white shadow-sm transition hover:bg-primary-700 active:scale-[0.98]"
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+          >
             <path d="M12 4.5v15m7.5-7.5h-15" />
           </svg>
           立即預約
@@ -190,7 +218,9 @@ export default async function CustomerHomePage() {
       <section className="rounded-[20px] bg-white p-3.5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
         {/* 上半段：健康評估 */}
         <div>
-          <p className="text-base font-semibold text-earth-900">看看你最近的身體狀態</p>
+          <p className="text-base font-semibold text-earth-900">
+            看看你最近的身體狀態
+          </p>
           <p className="mt-1 text-sm leading-relaxed text-earth-700">
             用 1 分鐘了解目前的身體指數
           </p>
@@ -210,7 +240,15 @@ export default async function CustomerHomePage() {
             className="mt-3 flex h-11 w-full items-center justify-center gap-1.5 rounded-xl border border-primary-200 bg-primary-50 text-base font-semibold text-primary-700 hover:bg-primary-100"
           >
             查看健康評估
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+            >
               <path d="M9 5l7 7-7 7" />
             </svg>
           </Link>
@@ -221,7 +259,9 @@ export default async function CustomerHomePage() {
 
         {/* 下半段：分享好友 */}
         <div>
-          <p className="text-base font-semibold text-earth-900">今天有一個小好康</p>
+          <p className="text-base font-semibold text-earth-900">
+            今天有一個小好康
+          </p>
           <p className="mt-1 text-sm leading-relaxed text-earth-700">
             分享給朋友，你們都有機會拿到小回饋
           </p>
@@ -263,14 +303,20 @@ export default async function CustomerHomePage() {
                   style={{
                     width: `${Math.min(
                       100,
-                      ((referralSummary.nextMilestone.target - referralSummary.nextMilestone.remaining) /
-                        referralSummary.nextMilestone.target) * 100,
+                      ((referralSummary.nextMilestone.target -
+                        referralSummary.nextMilestone.remaining) /
+                        referralSummary.nextMilestone.target) *
+                        100,
                     )}%`,
                   }}
                 />
               </div>
               <p className="mt-2 text-sm text-amber-900">
-                再 <span className="font-bold">{referralSummary.nextMilestone.remaining}</span> 點就可以解鎖小禮
+                再{" "}
+                <span className="font-bold">
+                  {referralSummary.nextMilestone.remaining}
+                </span>{" "}
+                點就可以解鎖小禮
               </p>
             </>
           ) : (
@@ -284,7 +330,9 @@ export default async function CustomerHomePage() {
       {/* ═══ 4. 我的進度（第二屏，條件式） ═══ */}
       {showMyGrowth && (
         <section className="rounded-[20px] bg-white p-3.5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-          <p className="text-base font-semibold text-earth-900">你最近的分享開始有成果了</p>
+          <p className="text-base font-semibold text-earth-900">
+            你最近的分享開始有成果了
+          </p>
           <p className="mt-1 text-sm leading-relaxed text-earth-700">
             已經有朋友來體驗，也慢慢累積自己的小成果。
           </p>
@@ -293,7 +341,15 @@ export default async function CustomerHomePage() {
             className="mt-3 flex h-11 w-full items-center justify-center gap-1 rounded-xl border border-earth-300 bg-white text-base font-semibold text-earth-800 hover:bg-earth-50"
           >
             查看我的進度
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+            >
               <path d="M9 5l7 7-7 7" />
             </svg>
           </Link>

@@ -63,12 +63,12 @@ describe("per-store referral share", () => {
   });
 
   it("未知變數會被拒絕，空白則代表清除自訂值", () => {
-    expect(
-      validateReferralShareTemplate("{storeName} {url} {coupon}"),
-    ).toEqual({
-      ok: false,
-      error: "推薦分享模板含有不支援的變數：{coupon}",
-    });
+    expect(validateReferralShareTemplate("{storeName} {url} {coupon}")).toEqual(
+      {
+        ok: false,
+        error: "推薦分享模板含有不支援的變數：{coupon}",
+      },
+    );
     expect(validateReferralShareTemplate(" \n ")).toEqual({
       ok: true,
       template: null,
