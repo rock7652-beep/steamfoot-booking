@@ -29,7 +29,8 @@ jobs:
           TEST_EMAIL: pr432-session-recovery@example.test
           TEST_PASSWORD: TempP0Test432!
         run: |
-          node <<'NODE'
+          set -o pipefail
+          node <<'NODE' 2>&1 | tee smoke.log
           const { chromium } = require('playwright');
           (async () => {
             const browser = await chromium.launch({ headless: true });
@@ -44,14 +45,16 @@ jobs:
             const start = `${process.env.BASE_URL}/hq/login?store=zhubei&_vercel_share=${process.env.SHARE_TOKEN}`;
             await page.goto(start, { waitUntil: 'networkidle', timeout: 120000 });
             console.log('LOGIN_URL', page.url());
-            console.log('LOGIN_BODY', (await page.locator('body').innerText()).slice(0, 800));
-            await page.locator('input[type="email"]').fill(process.env.TEST_EMAIL);
-            await page.locator('input[type="password"]').fill(process.env.TEST_PASSWORD);
-            const submit = page.locator('button[type="submit"]').first();
-            await submit.click();
+            console.log('LOGIN_BODY', (await page.locator('body').innerText()).slice(0, 1200));
+            console.log('INPUTS', await page.locator('input').evaluateAll(nodes => nodes.map(n => ({type:n.type,name:n.name,id:n.id}))));
+            await page.screenshot({ path: 'login-before.png', fullPage: true });
+            await page.locator('#email').fill(process.env.TEST_EMAIL);
+            await page.locator('#password').fill(process.env.TEST_PASSWORD);
+            await page.locator('button[type="submit"]').click();
             await page.waitForTimeout(3000);
             console.log('AFTER_SUBMIT_URL', page.url());
-            console.log('AFTER_SUBMIT_BODY', (await page.locator('body').innerText()).slice(0, 800));
+            console.log('AFTER_SUBMIT_BODY', (await page.locator('body').innerText()).slice(0, 1200));
+            await page.screenshot({ path: 'login-after.png', fullPage: true });
             await page.waitForURL('**/s/zhubei/book**', { timeout: 120000 });
             await page.waitForLoadState('networkidle');
             await page.waitForTimeout(8000);
@@ -59,7 +62,7 @@ jobs:
             const body = await page.locator('body').innerText();
             const bookHits = responses.filter(x => x.url.includes('/s/zhubei/book'));
             const redirects = responses.filter(x => x.status >= 300 && x.status < 400);
-            console.log('SMOKE_RESULT', JSON.stringify({ finalUrl, bookHits, redirects, bodySnippet: body.slice(0,500) }, null, 2));
+            console.log('SMOKE_RESULT', JSON.stringify({ finalUrl, bookHits, redirects, bodySnippet: body.slice(0,700) }, null, 2));
             if (!finalUrl.includes('/s/zhubei/book')) throw new Error(`unexpected final URL: ${finalUrl}`);
             if (!body.includes('立即預約')) throw new Error('booking home did not render');
             if (bookHits.length > 6) throw new Error(`possible request storm: ${bookHits.length} book responses`);
@@ -67,3 +70,12 @@ jobs:
             await browser.close();
           })().catch(err => { console.error('SMOKE_ERROR', err); process.exit(1); });
           NODE
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pr432-login-smoke-diagnostics
+          path: |
+            smoke.log
+            login-before.png
+            login-after.png
+          if-no-files-found: warn
