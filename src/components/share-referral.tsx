@@ -74,13 +74,9 @@ export function ShareReferral({
   if (variant === "full") {
     return (
       <div className="space-y-3">
-        <p className="text-base font-medium text-earth-800">
-          你的專屬邀請連結：
-        </p>
+        <p className="text-base font-medium text-earth-800">你的專屬邀請連結：</p>
         <div className="rounded-xl border border-earth-200 bg-earth-50 px-4 py-3">
-          <p className="break-all text-sm text-earth-800 font-mono">
-            {absoluteUrl}
-          </p>
+          <p className="break-all text-sm text-earth-800 font-mono">{absoluteUrl}</p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row">
           <button
@@ -100,9 +96,7 @@ export function ShareReferral({
           </a>
         </div>
         {typeof referralCount === "number" && (
-          <p className="text-base text-earth-700">
-            你已邀請：{referralCount} 人
-          </p>
+          <p className="text-base text-earth-700">你已邀請：{referralCount} 人</p>
         )}
       </div>
     );

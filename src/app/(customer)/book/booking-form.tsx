@@ -25,27 +25,12 @@ interface Props {
   storeId?: string;
 }
 
-export function BookingForm({
-  customerId,
-  selectedDate,
-  slots,
-  activeWallets,
-  storeId,
-  storeName,
-  referralUrl,
-  shareTemplate,
-}: Props) {
-  type FormState = {
-    error: string | null;
-    success: boolean;
-    bookedTime: string;
-  };
+export function BookingForm({ customerId, selectedDate, slots, activeWallets, storeId, storeName, referralUrl, shareTemplate }: Props) {
+  type FormState = { error: string | null; success: boolean; bookedTime: string };
   const [state, action, pending] = useActionState(
     async (prev: FormState, formData: FormData): Promise<FormState> => {
       const slotTime = formData.get("slotTime") as string;
-      const customerPlanWalletId = formData.get(
-        "customerPlanWalletId",
-      ) as string;
+      const customerPlanWalletId = formData.get("customerPlanWalletId") as string;
 
       const result = await createBooking({
         customerId,
@@ -62,7 +47,7 @@ export function BookingForm({
       toast.error(result.error ?? "預約失敗");
       return { error: result.error, success: false, bookedTime: "" };
     },
-    { error: null, success: false, bookedTime: "" },
+    { error: null, success: false, bookedTime: "" }
   );
 
   const availableSlots = slots.filter((s) => s.isEnabled && s.available > 0);
@@ -142,51 +127,45 @@ export function BookingForm({
       <form action={action} className="space-y-5">
         {/* Slot grid */}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {slots
-            .filter((s) => s.isEnabled)
-            .map((slot) => {
-              const remaining = slot.capacity - slot.bookedCount;
-              const isFull = remaining <= 0;
-              return (
-                <label
-                  key={slot.startTime}
-                  className={`relative flex min-h-[72px] cursor-pointer flex-col items-center justify-center rounded-xl border-2 p-3 text-center transition-colors ${
-                    isFull
-                      ? "cursor-not-allowed border-earth-200 bg-earth-50 opacity-60"
-                      : "border-earth-200 bg-white hover:border-primary-400 hover:bg-primary-50 has-[:checked]:border-primary-600 has-[:checked]:bg-primary-600 has-[:checked]:text-white"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="slotTime"
-                    value={slot.startTime}
-                    disabled={isFull}
-                    className="sr-only"
-                    required
-                  />
-                  <span className="text-lg font-bold">{slot.startTime}</span>
-                  {isFull && (
-                    <span className="mt-1 text-sm font-medium text-red-600">
-                      額滿
-                    </span>
-                  )}
-                </label>
-              );
-            })}
+          {slots.filter((s) => s.isEnabled).map((slot) => {
+            const remaining = slot.capacity - slot.bookedCount;
+            const isFull = remaining <= 0;
+            return (
+              <label
+                key={slot.startTime}
+                className={`relative flex min-h-[72px] cursor-pointer flex-col items-center justify-center rounded-xl border-2 p-3 text-center transition-colors ${
+                  isFull
+                    ? "cursor-not-allowed border-earth-200 bg-earth-50 opacity-60"
+                    : "border-earth-200 bg-white hover:border-primary-400 hover:bg-primary-50 has-[:checked]:border-primary-600 has-[:checked]:bg-primary-600 has-[:checked]:text-white"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="slotTime"
+                  value={slot.startTime}
+                  disabled={isFull}
+                  className="sr-only"
+                  required
+                />
+                <span className="text-lg font-bold">{slot.startTime}</span>
+                {isFull && (
+                  <span className="mt-1 text-sm font-medium text-red-600">
+                    額滿
+                  </span>
+                )}
+              </label>
+            );
+          })}
         </div>
 
         {availableSlots.length === 0 && (
-          <p className="text-center text-base text-earth-700">
-            今日所有時段已額滿
-          </p>
+          <p className="text-center text-base text-earth-700">今日所有時段已額滿</p>
         )}
 
         {/* Wallet selection (if multiple) */}
         {activeWallets.length > 1 && (
           <div>
-            <label className="mb-2 block text-base font-medium text-earth-800">
-              使用課程
-            </label>
+            <label className="mb-2 block text-base font-medium text-earth-800">使用課程</label>
             <select
               name="customerPlanWalletId"
               className="w-full rounded-xl border border-earth-300 px-4 text-base h-12 focus:outline-none focus:ring-2 focus:ring-primary-500"

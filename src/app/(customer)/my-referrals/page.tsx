@@ -37,17 +37,14 @@ export default async function MyPerksPage() {
 
   // 若取不到 customerId（stale session 等邊界情況）— 顯示靜態 empty state，不 redirect
   const customerId = user?.customerId ?? null;
-  const shareContext =
-    customerId && storeId
-      ? await getReferralShareContext({ customerId, storeId, storeSlug })
-      : { available: false as const, reason: "STORE_UNAVAILABLE" as const };
+  const shareContext = customerId && storeId
+    ? await getReferralShareContext({ customerId, storeId, storeSlug })
+    : { available: false as const, reason: "STORE_UNAVAILABLE" as const };
 
   let summary: MyReferralSummary = EMPTY_SUMMARY;
   if (customerId) {
     try {
-      summary = await getMyReferralSummary(customerId, {
-        activeStoreId: storeId,
-      });
+      summary = await getMyReferralSummary(customerId, { activeStoreId: storeId });
     } catch (err) {
       console.error("[my-referrals] getMyReferralSummary failed", err);
       // 保留 EMPTY_SUMMARY，頁面繼續渲染
@@ -56,20 +53,14 @@ export default async function MyPerksPage() {
 
   const milestone = summary.nextMilestone;
   const progress = milestone
-    ? Math.min(
-        100,
-        ((milestone.target - milestone.remaining) / milestone.target) * 100,
-      )
+    ? Math.min(100, ((milestone.target - milestone.remaining) / milestone.target) * 100)
     : 100;
 
   return (
     <div>
       {/* ═══ Header ═══ */}
       <div className="mb-5 flex items-center gap-3">
-        <Link
-          href={`${prefix}/book`}
-          className="flex min-h-[44px] min-w-[44px] items-center justify-center text-earth-700 hover:text-earth-900 lg:hidden"
-        >
+        <Link href={`${prefix}/book`} className="flex min-h-[44px] min-w-[44px] items-center justify-center text-earth-700 hover:text-earth-900 lg:hidden">
           &larr;
         </Link>
         <div>
@@ -119,17 +110,7 @@ export default async function MyPerksPage() {
           {/* 點數誘因提示（動態：依 milestone.remaining） */}
           {milestone && milestone.remaining > 0 && (
             <div className="mt-3 flex items-start gap-2 rounded-xl bg-amber-50 px-3 py-2.5">
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="mt-0.5 flex-shrink-0 text-amber-700"
-              >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mt-0.5 flex-shrink-0 text-amber-700">
                 <path d="M20 12V22H4V12" />
                 <path d="M2 7h20v5H2z" />
                 <path d="M12 22V7" />
@@ -137,8 +118,7 @@ export default async function MyPerksPage() {
                 <path d="M12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z" />
               </svg>
               <p className="text-sm leading-relaxed text-amber-900">
-                再 <span className="font-bold">{milestone.remaining}</span>{" "}
-                點就能解鎖小禮！
+                再 <span className="font-bold">{milestone.remaining}</span> 點就能解鎖小禮！
               </p>
             </div>
           )}
@@ -161,33 +141,18 @@ export default async function MyPerksPage() {
               </div>
               {/* 進度資訊（中性，不重複上方分享卡的誘因句） */}
               <p className="mt-3 text-sm text-amber-900">
-                目前 {summary.totalPoints} 點 · 下一階 {milestone.target}{" "}
-                點（小禮）
+                目前 {summary.totalPoints} 點 · 下一階 {milestone.target} 點（小禮）
               </p>
             </>
           ) : (
-            <p className="mt-3 text-sm text-amber-900">
-              已累積到目前上限，持續分享還會再累積好康。
-            </p>
+            <p className="mt-3 text-sm text-amber-900">已累積到目前上限，持續分享還會再累積好康。</p>
           )}
 
           {/* 回饋階段提示（對應既有 POINT_VALUES：100 → 200 點） */}
           <div className="mt-4 grid grid-cols-3 gap-2 text-center">
-            <RewardTier
-              target={50}
-              current={summary.totalPoints}
-              label="小禮"
-            />
-            <RewardTier
-              target={100}
-              current={summary.totalPoints}
-              label="升級禮"
-            />
-            <RewardTier
-              target={200}
-              current={summary.totalPoints}
-              label="VIP 好康"
-            />
+            <RewardTier target={50} current={summary.totalPoints} label="小禮" />
+            <RewardTier target={100} current={summary.totalPoints} label="升級禮" />
+            <RewardTier target={200} current={summary.totalPoints} label="VIP 好康" />
           </div>
         </section>
 
@@ -196,17 +161,8 @@ export default async function MyPerksPage() {
           <p className="text-base font-semibold text-earth-900">我的分享</p>
           <div className="mt-3 grid grid-cols-3 gap-3">
             <StatCell label="已分享" value={summary.shareCount} unit="次" />
-            <StatCell
-              label="朋友加入"
-              value={summary.lineJoinCount}
-              unit="位"
-            />
-            <StatCell
-              label="來體驗"
-              value={summary.visitedCount}
-              unit="位"
-              highlight
-            />
+            <StatCell label="朋友加入" value={summary.lineJoinCount} unit="位" />
+            <StatCell label="來體驗" value={summary.visitedCount} unit="位" highlight />
           </div>
           <p className="mt-3 text-sm leading-relaxed text-earth-700">
             每一次分享都是一次善意，不用有壓力。
@@ -219,23 +175,10 @@ export default async function MyPerksPage() {
           className="flex min-h-[56px] items-center justify-between rounded-xl bg-white px-4 py-3.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition hover:shadow-[0_1px_4px_rgba(0,0,0,0.1)]"
         >
           <div>
-            <p className="text-base font-semibold text-earth-900">
-              查看我的點數紀錄
-            </p>
-            <p className="mt-0.5 text-sm text-earth-700">
-              所有點數來源與歷史明細
-            </p>
+            <p className="text-base font-semibold text-earth-900">查看我的點數紀錄</p>
+            <p className="mt-0.5 text-sm text-earth-700">所有點數來源與歷史明細</p>
           </div>
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            className="text-earth-600"
-          >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="text-earth-600">
             <path d="M9 5l7 7-7 7" />
           </svg>
         </Link>
@@ -244,20 +187,14 @@ export default async function MyPerksPage() {
   );
 }
 
-function RewardTier({
-  target,
-  current,
-  label,
-}: {
-  target: number;
-  current: number;
-  label: string;
-}) {
+function RewardTier({ target, current, label }: { target: number; current: number; label: string }) {
   const unlocked = current >= target;
   return (
     <div
       className={`rounded-lg px-2 py-2.5 ${
-        unlocked ? "bg-amber-100 text-amber-900" : "bg-white/70 text-amber-800"
+        unlocked
+          ? "bg-amber-100 text-amber-900"
+          : "bg-white/70 text-amber-800"
       }`}
     >
       <p className="text-base font-semibold">{target} 點</p>
