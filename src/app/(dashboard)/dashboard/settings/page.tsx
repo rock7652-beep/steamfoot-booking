@@ -59,6 +59,7 @@ export default async function SettingsIndexPage() {
         bankCode: null as string | null,
         bankAccountNumber: null as string | null,
         lineOfficialUrl: null as string | null,
+        referralShareTemplate: null as string | null,
       })),
       listStaff(activeStoreId).catch(() => []),
       listReminderRules().catch(() => []),
@@ -115,6 +116,7 @@ export default async function SettingsIndexPage() {
       items: [
         { label: "成長方案中心", href: "/dashboard/settings/plans" },
         { label: "付款設定", href: "/dashboard/settings/payment" },
+        { label: "推薦分享文案", href: "/dashboard/settings/referral-share" },
         ...(canManageTrial
           ? [{ label: "體驗課設定", href: "/dashboard/settings/trial" }]
           : []),
@@ -271,6 +273,31 @@ export default async function SettingsIndexPage() {
               items={[
                 { label: "銀行帳戶", value: bankLine },
                 { label: "LINE@ 連結", value: lineOfficialLine },
+              ]}
+            />
+          }
+        />
+
+        {/* 5b. 推薦分享文案 */}
+        <SettingsActionCard
+          title="推薦分享文案"
+          description="設定顧客分享給朋友時使用的推薦文字"
+          iconPath="M7.217 10.907a2.25 2.25 0 100 4.186m0-4.186c.18.18.342.38.484.593m-.484-.593l9.566-5.314m-9.066 9.814l9.066 5.313m0 0a2.25 2.25 0 103.935 2.177 2.25 2.25 0 00-3.935-2.177zm0-15.127a2.25 2.25 0 103.933-2.178 2.25 2.25 0 00-3.933 2.178z"
+          primaryHref="/dashboard/settings/referral-share"
+          primaryLabel="編輯分享文案"
+          summary={
+            <InfoList
+              density="compact"
+              items={[
+                {
+                  label: "目前狀態",
+                  value: shopConfig.referralShareTemplate ? (
+                    <span className="text-primary-700">已自訂</span>
+                  ) : (
+                    <span className="text-earth-500">系統預設</span>
+                  ),
+                },
+                { label: "可用變數", value: "{storeName}、{url}" },
               ]}
             />
           }
