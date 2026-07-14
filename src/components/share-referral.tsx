@@ -15,6 +15,8 @@ interface ShareReferralProps {
   storeName: string;
   /** 推薦中繼頁 URL（應由呼叫端用 buildReferralEntryUrl 組好） */
   referralUrl: string;
+  /** Server 已驗證並解析 fallback 的每店推薦分享模板 */
+  shareTemplate?: string | null;
   /** 完整模式顯示連結文字 + 統計；精簡模式只顯示按鈕 */
   variant?: "full" | "compact";
   /** 已邀請人數（full 模式顯示） */
@@ -32,6 +34,7 @@ interface ShareReferralProps {
 export function ShareReferral({
   storeName,
   referralUrl,
+  shareTemplate,
   variant = "compact",
   referralCount,
   inviterName,
@@ -39,7 +42,12 @@ export function ShareReferral({
 }: ShareReferralProps) {
   const [copied, setCopied] = useState(false);
   const absoluteUrl = toAbsoluteUrl(referralUrl);
-  const shareText = buildShareText({ storeName, inviterName, url: absoluteUrl });
+  const shareText = buildShareText({
+    storeName,
+    inviterName,
+    url: absoluteUrl,
+    template: shareTemplate,
+  });
   const lineShareUrl = buildLineShareUrl(shareText);
 
   function trackShare(channel: "copy" | "line") {

@@ -1,12 +1,29 @@
 import { prisma } from "@/lib/db";
 import { normalizeLineOfficialUrl } from "@/lib/line-official-url";
-import { buildReferralEntryUrl } from "@/lib/share";
+import {
+  buildReferralEntryUrl,
+  resolveReferralShareTemplate,
+} from "@/lib/share";
 
 export type ReferralShareContext =
-  | { available: true; storeName: string; referralUrl: string }
-  | { available: false; reason: "STORE_UNAVAILABLE" | "LINE_NOT_CONFIGURED" | "REFERRAL_CODE_MISSING" };
+  | {
+      available: true;
+      storeName: string;
+      referralUrl: string;
+      shareTemplate: string;
+    }
+  | {
+      available: false;
+      reason:
+        | "STORE_UNAVAILABLE"
+        | "LINE_NOT_CONFIGURED"
+        | "REFERRAL_CODE_MISSING";
+    };
 
-/** 由 server 驗證顧客歸屬與店舖設定，client 不接觸 LINE 目的地。 */
+/**
+ * 由 server 驗證顧客歸屬與店舖設定。
+ * client 不接觸 LINE 目的地，也不自行決定店舖模板 fallback。
+ */
 export async function getReferralShareContext(input: {
   customerId: string;
   storeId: string;
@@ -23,10 +40,15 @@ export async function getReferralShareContext(input: {
       referralCode: true,
       store: {
         select: {
-          name: true,
-          slug: true,
-          operatingStatus: true,
-          shopConfig: { select: { lineOfficialUrl: true } },
+name: true,
+slug: true,
+operatingStatus: true,
+shopConfig: {
+  select: {
+    lineOfficialUrl: true,
+    referralShareTemplate: true,
+  },
+},
         },
       },
     },
@@ -42,12 +64,16 @@ export async function getReferralShareContext(input: {
   if (!normalizeLineOfficialUrl(customer.store.shopConfig?.lineOfficialUrl)) {
     return { available: false, reason: "LINE_NOT_CONFIGURED" };
   }
+
   return {
     available: true,
     storeName: customer.store.name,
     referralUrl: buildReferralEntryUrl(
       customer.store.slug,
       customer.referralCode ?? customer.id,
+    ),
+    shareTemplate: resolveReferralShareTemplate(
+      customer.store.shopConfig?.referralShareTemplate,
     ),
   };
 }
