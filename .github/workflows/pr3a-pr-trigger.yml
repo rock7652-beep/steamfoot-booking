@@ -1,0 +1,29 @@
+name: Trigger PR 3-A Bootstrap
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - reopened
+
+permissions:
+  contents: write
+
+jobs:
+  trigger:
+    if: github.event.pull_request.head.ref == 'codex/pr3a-referral-share-template-core'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: codex/pr3a-referral-share-template-core
+          fetch-depth: 0
+      - name: Trigger branch bootstrap workflow
+        run: |
+          git config user.name "rock7652-beep"
+          git config user.email "rock7652@gmail.com"
+          git commit --allow-empty -m "chore: bootstrap PR 3-A implementation"
+          git push origin HEAD:codex/pr3a-referral-share-template-core
