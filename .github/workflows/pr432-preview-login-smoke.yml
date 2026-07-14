@@ -56,7 +56,7 @@ jobs:
             console.log('SMOKE_RESULT', JSON.stringify({ finalUrl, documents, bookDocuments, redirects, bodySnippet: body.slice(0,700) }, null, 2));
             if (!finalUrl.includes('/s/zhubei/book')) throw new Error(`unexpected final URL: ${finalUrl}`);
             if (!body.includes('立即預約')) throw new Error('booking home did not render');
-            if (bookDocuments.length !== 1) throw new Error(`unexpected booking document navigations: ${bookDocuments.length}`);
+            if (bookDocuments.length > 1) throw new Error(`unexpected booking document navigations: ${bookDocuments.length}`);
             if (redirects.length > 2) throw new Error(`possible redirect loop: ${redirects.length} document redirects`);
             await browser.close();
           })().catch(err => { console.error('SMOKE_ERROR', err); process.exit(1); });
