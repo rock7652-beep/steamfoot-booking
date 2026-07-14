@@ -1,4 +1,5 @@
 import { cache } from "react";
+import { cookies, headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { AppError } from "@/lib/errors";
@@ -8,10 +9,142 @@ import { isStaffRole } from "@/lib/permissions";
 // Session helpers
 // ============================================================
 
+type CustomerSessionUser = {
+  id: string;
+  role: string;
+  customerId: string | null;
+  storeId: string | null;
+  storeSlug: string | null;
+};
+
+/**
+ * 解析這次 request 所屬店舖。
+ *
+ * 顧客可從不同店舖入口登入，因此 URL/proxy 注入的 store slug 優先於
+ * JWT 內可能過期的 storeId。若 request context 不可用，再退回 session store。
+ */
+async function resolveCustomerRequestStore(user: CustomerSessionUser): Promise<{
+  storeId: string;
+  storeSlug: string | null;
+} | null> {
+  let requestStoreSlug: string | null = null;
+  try {
+    const headerList = await headers();
+    const cookieStore = await cookies();
+    requestStoreSlug =
+      headerList.get("x-store-slug") ??
+      cookieStore.get("store-slug")?.value ??
+      null;
+  } catch {
+    // 非 request context（例如部分 isolated tests）時，改用 session store。
+  }
+
+  if (requestStoreSlug && requestStoreSlug !== "__hq__") {
+    try {
+      const store = await prisma.store.findUnique({
+        where: { slug: requestStoreSlug },
+        select: { id: true, slug: true },
+      });
+      if (store) return { storeId: store.id, storeSlug: store.slug };
+    } catch (error) {
+      console.error("[getCurrentUser] request store lookup failed", {
+        userId: user.id,
+        requestStoreSlug,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  return user.storeId
+    ? { storeId: user.storeId, storeSlug: user.storeSlug ?? requestStoreSlug }
+    : null;
+}
+
+/**
+ * 防漏網：JWT 可能在 LINE OAuth 綁定 Customer 前就已簽發，造成 session.customerId
+ * 暫時為 null，但 DB 的 Customer / CustomerIdentityLink 已經完成。
+ *
+ * 所有 server page/action 都會經過 getCurrentUser()，因此在這裡依「目前店舖」
+ * 找回 canonical Customer，可一次保護預約、方案、健康評估與個人資料等前台功能，
+ * 避免各頁用 `if (!user.customerId) redirect(...)` 形成 redirect loop。
+ */
+async function recoverMissingCustomerIdentity<T extends CustomerSessionUser>(user: T): Promise<T> {
+  if (user.role !== "CUSTOMER" || user.customerId) return user;
+
+  const requestStore = await resolveCustomerRequestStore(user);
+  if (!requestStore) return user;
+
+  try {
+    const identityLink = await prisma.customerIdentityLink.findUnique({
+      where: {
+        uq_customer_identity_user_store: {
+          userId: user.id,
+          storeId: requestStore.storeId,
+        },
+      },
+      select: {
+        customer: {
+          select: {
+            id: true,
+            storeId: true,
+            mergedIntoCustomerId: true,
+            store: { select: { slug: true } },
+          },
+        },
+      },
+    });
+
+    const linkedCustomer =
+      identityLink?.customer && !identityLink.customer.mergedIntoCustomerId
+        ? identityLink.customer
+        : null;
+
+    const customer =
+      linkedCustomer ??
+      (await prisma.customer.findFirst({
+        where: {
+          userId: user.id,
+          storeId: requestStore.storeId,
+          mergedIntoCustomerId: null,
+        },
+        select: {
+          id: true,
+          storeId: true,
+          store: { select: { slug: true } },
+        },
+      }));
+
+    if (!customer) return user;
+
+    console.info("[getCurrentUser] recovered missing customerId", {
+      userId: user.id,
+      customerId: customer.id,
+      storeId: customer.storeId,
+      source: linkedCustomer ? "identity-link" : "legacy-user-link",
+    });
+
+    return {
+      ...user,
+      customerId: customer.id,
+      storeId: customer.storeId,
+      storeSlug: customer.store.slug,
+    };
+  } catch (error) {
+    // 身份修復失敗不可讓所有頁面掛掉；保留原 session，交由既有頁面 gate 處理。
+    console.error("[getCurrentUser] customer identity recovery failed", {
+      userId: user.id,
+      storeId: requestStore.storeId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return user;
+  }
+}
+
 /** 取得當前 session user（null = 未登入）— React cache 確保同一 request 只查一次 */
 export const getCurrentUser = cache(async () => {
   const session = await auth();
-  return session?.user ?? null;
+  if (!session?.user) return null;
+  return recoverMissingCustomerIdentity(session.user);
 });
 
 /** 取得 session；若未登入拋出 UNAUTHORIZED */
