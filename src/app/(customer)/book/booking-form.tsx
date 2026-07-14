@@ -14,6 +14,8 @@ interface ActiveWallet {
 }
 
 interface Props {
+  storeName: string;
+  referralUrl: string;
   customerId: string;
   selectedDate: string;
   slots: SlotAvailability[];
@@ -22,7 +24,7 @@ interface Props {
   storeId?: string;
 }
 
-export function BookingForm({ customerId, selectedDate, slots, activeWallets, storeId }: Props) {
+export function BookingForm({ customerId, selectedDate, slots, activeWallets, storeId, storeName, referralUrl }: Props) {
   type FormState = { error: string | null; success: boolean; bookedTime: string };
   const [state, action, pending] = useActionState(
     async (prev: FormState, formData: FormData): Promise<FormState> => {
@@ -52,7 +54,6 @@ export function BookingForm({ customerId, selectedDate, slots, activeWallets, st
   const storeSlug = useStoreSlugRequired();
   const prefix = `/s/${storeSlug}`;
   const [showShare, setShowShare] = useState(false);
-  const referralUrl = `/s/${storeSlug}?ref=${customerId}`;
 
   if (state.success) {
     return (
@@ -90,6 +91,7 @@ export function BookingForm({ customerId, selectedDate, slots, activeWallets, st
           {showShare ? (
             <div className="mt-4">
               <ShareReferral
+                storeName={storeName}
                 referralUrl={referralUrl}
                 variant="compact"
                 storeId={storeId}

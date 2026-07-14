@@ -7,36 +7,29 @@
  * 用法:
  *   import { buildReferralEntryUrl, buildLineShareUrl, buildShareText } from "@/lib/share";
  *
- *   const url = buildReferralEntryUrl("zhubei", customerId);
- *   const text = buildShareText({ inviterName: user.name });
+ *   const url = buildReferralEntryUrl("zhubei", customer.referralCode);
+ *   const text = buildShareText({ storeName: store.name, url });
  *   const line = buildLineShareUrl(text, url);
  */
-
-/**
- * 官方 LINE 分享連結（含 ref tracking）。
- * 使用 lin.ee 短網址讓朋友直接加 LINE 好友，ref 供 webhook 端解析。
- */
-const OFFICIAL_LINE_BASE_URL = "https://lin.ee/8ohprFv";
 
 /**
  * 預設分享文案（v2）— 像真人聊天，不像廣告
  *
  * 必要元素：
  *   - 個人情境（我最近…）
- *   - 店名（暖暖蒸足）
- *   - 地點（竹北）
+ *   - 顧客所屬店家的正式名稱（Store.name）
  *   - 官方 LINE 連結（URL 嵌在文案中間，讓訊息讀起來自然）
  *
  * 禁止元素：幫我推薦 / 支持我 / 任務 / 過度銷售
  *
- * URL 以 `{url}` 佔位符表示；buildShareText() 會替換成實際的 lin.ee 連結（含 ref）。
+ * URL 以 `{url}` 佔位符表示；buildShareText() 會替換成店舖專屬入口（含 ref）。
  */
 const DEFAULT_SHARE_BODY_TEMPLATE = [
-  "我最近去竹北這間蒸足店",
+  "我最近去「{storeName}」",
   "坐著45分鐘居然有點像慢跑完的感覺 😂",
   "而且蒸完真的很好睡",
   "",
-  "📍暖暖蒸足",
+  "📍{storeName}",
   "",
   "如果你最近也有點累",
   "可以去放鬆一下👇",
@@ -47,47 +40,33 @@ const DEFAULT_SHARE_BODY_TEMPLATE = [
 ].join("\n");
 
 export interface BuildShareTextOpts {
+  /** 顧客所屬店家的正式名稱（Store.name） */
+  storeName: string;
   /** 邀請人姓名（可選，保留給未來 A/B） */
   inviterName?: string | null;
   /** 覆寫預設 body 文案（若傳入則不做 {url} 替換） */
   body?: string;
-  /** 要嵌入文案中的分享 URL（含 ref）。預設使用 OFFICIAL_LINE_BASE_URL */
-  url?: string;
+  /** 系統產生的店舖推薦入口（含 ref） */
+  url: string;
 }
 
 /**
  * 組合完整分享文字（URL 已內嵌於中間位置）。
  * 供 LINE 分享與複製使用，輸出完全一致。
  */
-export function buildShareText(opts: BuildShareTextOpts = {}): string {
+export function buildShareText(opts: BuildShareTextOpts): string {
   if (opts.body) return opts.body;
-  const url = opts.url ?? OFFICIAL_LINE_BASE_URL;
-  return DEFAULT_SHARE_BODY_TEMPLATE.replace("{url}", url);
+  return DEFAULT_SHARE_BODY_TEMPLATE
+    .replaceAll("{storeName}", opts.storeName)
+    .replace("{url}", opts.url);
 }
 
 /**
  * 組合推薦分享的完整 URL。
  *
- * v3: 改為官方 LINE 好友連結 https://lin.ee/... 並以 query 帶 ref。
- *     朋友點擊後直接加 LINE 官方帳號；ref 由 LINE webhook 端解析（後續實作）。
- *
- * @param storeSlug 保留簽名相容（這版本不使用，但維持介面以免打破呼叫端）
- * @param code      推薦碼（通常是 customerId）
- * @param origin    保留簽名相容
+ * 一律先進入蒸管家的店舖專屬入口，由後端驗證店舖、推薦人與 LINE 設定後轉址。
  */
 export function buildReferralEntryUrl(
-  _storeSlug: string,
-  code: string,
-  _origin?: string,
-): string {
-  return `${OFFICIAL_LINE_BASE_URL}?ref=${encodeURIComponent(code)}`;
-}
-
-/**
- * 內部用：店內 line-entry 頁連結（bot 歡迎訊息用）。
- * 前台分享已不再使用此 URL，但註冊/綁定頁仍會從 ref cookie 讀取。
- */
-export function buildStoreLineEntryUrl(
   storeSlug: string,
   code: string,
   origin?: string,
@@ -96,6 +75,9 @@ export function buildStoreLineEntryUrl(
   if (!origin) return path;
   return `${origin.replace(/\/$/, "")}${path}`;
 }
+
+/** 向下相容別名；所有路徑都使用同一個安全入口。 */
+export const buildStoreLineEntryUrl = buildReferralEntryUrl;
 
 /**
  * 組合 LINE share URL（可直接放在 <a href>）。

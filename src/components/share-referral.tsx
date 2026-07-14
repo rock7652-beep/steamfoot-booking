@@ -11,6 +11,8 @@ import {
 import { trackReferralEvent } from "@/server/actions/referral-events";
 
 interface ShareReferralProps {
+  /** Server 取得的 Store.name */
+  storeName: string;
   /** 推薦中繼頁 URL（應由呼叫端用 buildReferralEntryUrl 組好） */
   referralUrl: string;
   /** 完整模式顯示連結文字 + 統計；精簡模式只顯示按鈕 */
@@ -28,6 +30,7 @@ interface ShareReferralProps {
 }
 
 export function ShareReferral({
+  storeName,
   referralUrl,
   variant = "compact",
   referralCount,
@@ -39,7 +42,7 @@ export function ShareReferral({
   const [copied, setCopied] = useState(false);
   const absoluteUrl = toAbsoluteUrl(referralUrl);
   // v2: URL 已內嵌於 shareText 中間
-  const shareText = buildShareText({ inviterName, url: absoluteUrl });
+  const shareText = buildShareText({ storeName, inviterName, url: absoluteUrl });
   const lineShareUrl = buildLineShareUrl(shareText);
   // 複製分享文字 = LINE 分享出去的文字（完全一致）
   const fullShareText = shareText;
@@ -56,9 +59,8 @@ export function ShareReferral({
     });
   }
 
-  async function handleCopy(mode: "url" | "text" = "url") {
-    const payload = mode === "text" ? fullShareText : absoluteUrl;
-    const ok = await copyToClipboard(payload);
+  async function handleCopy() {
+    const ok = await copyToClipboard(fullShareText);
     if (ok) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
@@ -81,7 +83,7 @@ export function ShareReferral({
         </div>
         <div className="flex flex-col gap-3 sm:flex-row">
           <button
-            onClick={() => handleCopy("text")}
+            onClick={handleCopy}
             className="flex-1 min-h-[48px] rounded-xl border border-earth-300 bg-white px-4 text-base font-semibold text-earth-800 hover:bg-earth-50"
           >
             {copied ? "已複製" : "複製分享文字"}
@@ -107,10 +109,10 @@ export function ShareReferral({
   return (
     <div className="flex flex-col gap-3 sm:flex-row">
       <button
-        onClick={() => handleCopy("url")}
+        onClick={handleCopy}
         className="flex-1 min-h-[48px] rounded-xl border border-earth-300 bg-white px-4 text-base font-semibold text-earth-800 hover:bg-earth-50"
       >
-        {copied ? "已複製" : "複製連結"}
+        {copied ? "已複製" : "複製分享文字"}
       </button>
       <a
         href={lineShareUrl}
