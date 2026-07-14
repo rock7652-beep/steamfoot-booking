@@ -55,13 +55,11 @@ describe("birthday profile UI contract", () => {
     expect(picker).toContain("daysInMonth");
   });
 
-  it("shows the mandatory birthday copy without a skip action", () => {
-    const page = read("src/app/(customer)/profile/page.tsx");
+  it("keeps birthday optional in the customer profile", () => {
     const form = read("src/app/(customer)/profile/profile-form.tsx");
-    expect(page).toContain("完善生日資料");
-    expect(page).toContain("填寫完整生日，之後即可收到專屬優惠。");
-    expect(form).toContain("完成填寫");
-    expect(`${page}${form}`).not.toContain("稍後再說");
+    expect(form).toContain("生日");
+    expect(form).toContain("（選填）");
+    expect(form).not.toContain("birthdayRequired");
   });
 
   it("renders the real profile form for an existing customer with null birthday", async () => {
@@ -83,7 +81,7 @@ describe("birthday profile UI contract", () => {
         nextPath: "/s/staging/book",
       }),
     );
-    expect(html).toContain("完成填寫");
+    expect(html).toContain("完成註冊並開始使用");
     expect(html).toContain('name="birthday"');
     expect(html).toContain('id="birthday-year"');
     expect(html).toContain('id="birthday-month"');

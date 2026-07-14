@@ -29,9 +29,9 @@ describe("birthday date-only rules", () => {
     });
   });
 
-  it("allows legacy null data but marks birthday as required for portal completion", () => {
+  it("allows legacy null birthday data through the customer portal completion gate", () => {
     expect(missingRequiredFields({ name: "王小明", phone: "0912345678", birthday: null }))
-      .toContain("birthday");
+      .toEqual([]);
     expect(
       missingRequiredFields({
         name: "王小明",
