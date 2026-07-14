@@ -1,0 +1,23 @@
+name: PR 432 customer session recovery
+
+on:
+  push:
+    branches:
+      - codex/p0-recover-stale-customer-session
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  targeted-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx vitest run src/__tests__/session-customer-identity-recovery.test.ts
