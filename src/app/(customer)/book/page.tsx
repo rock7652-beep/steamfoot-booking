@@ -230,6 +230,7 @@ export default async function CustomerHomePage() {
               <ShareContactActions
                 storeName={shareContext.storeName}
                 referralUrl={shareContext.referralUrl}
+                shareTemplate={shareContext.shareTemplate}
                 storeId={storeId ?? undefined}
                 referrerId={user.customerId}
               />

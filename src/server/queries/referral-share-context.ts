@@ -3,8 +3,19 @@ import { normalizeLineOfficialUrl } from "@/lib/line-official-url";
 import { buildReferralEntryUrl } from "@/lib/share";
 
 export type ReferralShareContext =
-  | { available: true; storeName: string; referralUrl: string }
-  | { available: false; reason: "STORE_UNAVAILABLE" | "LINE_NOT_CONFIGURED" | "REFERRAL_CODE_MISSING" };
+  | {
+      available: true;
+      storeName: string;
+      referralUrl: string;
+      shareTemplate: string | null;
+    }
+  | {
+      available: false;
+      reason:
+        | "STORE_UNAVAILABLE"
+        | "LINE_NOT_CONFIGURED"
+        | "REFERRAL_CODE_MISSING";
+    };
 
 /** 由 server 驗證顧客歸屬與店舖設定，client 不接觸 LINE 目的地。 */
 export async function getReferralShareContext(input: {
@@ -26,7 +37,12 @@ export async function getReferralShareContext(input: {
           name: true,
           slug: true,
           operatingStatus: true,
-          shopConfig: { select: { lineOfficialUrl: true } },
+          shopConfig: {
+            select: {
+              lineOfficialUrl: true,
+              referralShareTemplate: true,
+            },
+          },
         },
       },
     },
@@ -42,6 +58,7 @@ export async function getReferralShareContext(input: {
   if (!normalizeLineOfficialUrl(customer.store.shopConfig?.lineOfficialUrl)) {
     return { available: false, reason: "LINE_NOT_CONFIGURED" };
   }
+
   return {
     available: true,
     storeName: customer.store.name,
@@ -49,5 +66,6 @@ export async function getReferralShareContext(input: {
       customer.store.slug,
       customer.referralCode ?? customer.id,
     ),
+    shareTemplate: customer.store.shopConfig?.referralShareTemplate ?? null,
   };
 }

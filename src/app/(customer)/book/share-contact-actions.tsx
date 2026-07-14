@@ -15,6 +15,8 @@ interface Props {
   storeName: string;
   /** 推薦中繼頁 URL（由 buildReferralEntryUrl 組好） */
   referralUrl: string;
+  /** Server 讀取的每店模板；null 使用系統預設 */
+  shareTemplate?: string | null;
   /** @deprecated PR 2 起不送入 action；保留 prop 相容，待後續清理。 */
   storeId?: string;
   /** @deprecated PR 2 起不送入 action；保留 prop 相容，待後續清理。 */
@@ -24,10 +26,15 @@ interface Props {
 export function ShareContactActions({
   storeName,
   referralUrl,
+  shareTemplate,
 }: Props) {
   const [copied, setCopied] = useState(false);
   const absoluteUrl = toAbsoluteUrl(referralUrl);
-  const shareText = buildShareText({ storeName, url: absoluteUrl });
+  const shareText = buildShareText({
+    storeName,
+    url: absoluteUrl,
+    template: shareTemplate,
+  });
   const lineShareUrl = buildLineShareUrl(shareText);
 
   function trackShare(channel: "copy" | "line") {

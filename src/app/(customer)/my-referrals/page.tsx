@@ -92,6 +92,7 @@ export default async function MyPerksPage() {
               <ShareReferral
                 storeName={shareContext.storeName}
                 referralUrl={shareContext.referralUrl}
+                shareTemplate={shareContext.shareTemplate}
                 variant="compact"
                 storeId={storeId ?? undefined}
                 referrerId={customerId ?? undefined}
