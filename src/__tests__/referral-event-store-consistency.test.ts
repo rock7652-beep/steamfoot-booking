@@ -16,10 +16,12 @@ vi.mock("@/lib/db", () => ({
 
 import { createReferralEvent } from "@/server/services/referral-events";
 
+type FindByIdArgs = { where: { id: string } };
+
 describe("ReferralEvent store consistency", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.customerFindUnique.mockImplementation(({ where }) =>
+    mocks.customerFindUnique.mockImplementation(({ where }: FindByIdArgs) =>
       Promise.resolve({
         id: where.id,
         storeId: "store-a",
@@ -49,7 +51,7 @@ describe("ReferralEvent store consistency", () => {
   });
 
   it("拒絕跨店推薦人", async () => {
-    mocks.customerFindUnique.mockImplementation(({ where }) =>
+    mocks.customerFindUnique.mockImplementation(({ where }: FindByIdArgs) =>
       Promise.resolve({
         id: where.id,
         storeId: where.id === "referrer-b" ? "store-b" : "store-a",
