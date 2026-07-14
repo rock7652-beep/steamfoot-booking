@@ -8,39 +8,30 @@ import {
   copyToClipboard,
   toAbsoluteUrl,
 } from "@/lib/share";
-import { trackReferralEvent } from "@/server/actions/referral-events";
+import { trackCurrentCustomerShare } from "@/server/actions/referral-events";
 
 interface Props {
   /** Server 取得的 Store.name */
   storeName: string;
   /** 推薦中繼頁 URL（由 buildReferralEntryUrl 組好） */
   referralUrl: string;
-  /** 店家 ID — 用於分享事件埋點 */
+  /** @deprecated PR 2 起不送入 action；保留 prop 相容，待後續清理。 */
   storeId?: string;
-  /** 顧客 ID — 用於分享事件埋點 */
+  /** @deprecated PR 2 起不送入 action；保留 prop 相容，待後續清理。 */
   referrerId?: string;
 }
 
 export function ShareContactActions({
   storeName,
   referralUrl,
-  storeId,
-  referrerId,
 }: Props) {
   const [copied, setCopied] = useState(false);
   const absoluteUrl = toAbsoluteUrl(referralUrl);
-  // 分享文字與 my-referrals 完全一致：URL 內嵌於文案中間
   const shareText = buildShareText({ storeName, url: absoluteUrl });
   const lineShareUrl = buildLineShareUrl(shareText);
 
   function trackShare(channel: "copy" | "line") {
-    if (!storeId || !referrerId) return;
-    void trackReferralEvent({
-      storeId,
-      referrerId,
-      type: "SHARE",
-      source: `book-home:${channel}`,
-    });
+    void trackCurrentCustomerShare({ source: `book-home:${channel}` });
   }
 
   async function handleCopy() {
