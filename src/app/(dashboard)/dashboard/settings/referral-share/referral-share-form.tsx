@@ -18,6 +18,64 @@ interface Props {
   initialTemplate: string | null;
 }
 
+export const REFERRAL_SHARE_EXAMPLES = [
+  {
+    key: "steamfoot",
+    label: "蒸足／放鬆",
+    template: [
+      "我最近去「{storeName}」放鬆了一下",
+      "整個人暖暖的，晚上也睡得特別好 😊",
+      "",
+      "最近有點累的話，可以去看看👇",
+      "{url}",
+    ].join("\n"),
+  },
+  {
+    key: "beauty",
+    label: "美容／美甲",
+    template: [
+      "最近在「{storeName}」做了一次保養",
+      "環境舒服，完成後整個人都更有精神 ✨",
+      "",
+      "想找時間好好照顧自己，可以看看👇",
+      "{url}",
+    ].join("\n"),
+  },
+  {
+    key: "fitness",
+    label: "健身／運動",
+    template: [
+      "最近在「{storeName}」開始運動",
+      "教練很有耐心，過程也不會讓人有壓力 💪",
+      "",
+      "想動一動、找回精神，可以先看看👇",
+      "{url}",
+    ].join("\n"),
+  },
+  {
+    key: "massage",
+    label: "按摩／療癒",
+    template: [
+      "最近去「{storeName}」放鬆",
+      "做完整個肩頸輕鬆很多，氣氛也很舒服 🌿",
+      "",
+      "最近身體有點緊繃的話，可以看看👇",
+      "{url}",
+    ].join("\n"),
+  },
+  {
+    key: "course",
+    label: "課程／教室",
+    template: [
+      "最近在「{storeName}」體驗了一堂課",
+      "老師講得很清楚，第一次參加也不會有壓力 🙌",
+      "",
+      "正在找適合自己的課程，可以先看看👇",
+      "{url}",
+    ].join("\n"),
+  },
+] as const;
+
 export function getReferralShareTemplateError(value: string): string | null {
   try {
     normalizeReferralShareTemplate(value);
@@ -51,6 +109,11 @@ export function ReferralShareSettingsForm({
   const dirty = usesDefault
     ? template !== DEFAULT_REFERRAL_SHARE_TEMPLATE || initialTemplate !== null
     : template !== initialTemplate;
+
+  function applyExample(exampleTemplate: string) {
+    setTemplate(exampleTemplate);
+    setUsesDefault(false);
+  }
 
   function save(value: string | null) {
     startTransition(async () => {
@@ -91,6 +154,26 @@ export function ReferralShareSettingsForm({
             可使用 <code>{"{storeName}"}</code> 與 <code>{"{url}"}</code>；網址必須且只能出現一次。
           </p>
         </header>
+
+        <div className="mb-4 rounded-lg border border-earth-200 bg-earth-50/60 p-3">
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <p className="text-xs font-semibold text-earth-700">套用產業範例</p>
+            <span className="text-[10px] text-earth-400">套用後仍可自由修改</span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {REFERRAL_SHARE_EXAMPLES.map((example) => (
+              <button
+                key={example.key}
+                type="button"
+                disabled={pending}
+                onClick={() => applyExample(example.template)}
+                className="rounded-full border border-earth-200 bg-white px-3 py-1.5 text-xs font-medium text-earth-600 hover:border-primary-300 hover:bg-primary-50 hover:text-primary-700 disabled:opacity-60"
+              >
+                {example.label}
+              </button>
+            ))}
+          </div>
+        </div>
 
         <textarea
           value={template}
