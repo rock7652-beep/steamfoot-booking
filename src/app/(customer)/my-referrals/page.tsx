@@ -6,7 +6,7 @@ import {
 } from "@/server/queries/my-referral-summary";
 import Link from "next/link";
 import { ShareReferral } from "@/components/share-referral";
-import { buildReferralEntryUrl } from "@/lib/share";
+import { getReferralShareContext } from "@/server/queries/referral-share-context";
 
 /**
  * 我的好康 — 把既有 referral / points / growth 資料用更輕鬆的語言整合呈現。
@@ -37,7 +37,9 @@ export default async function MyPerksPage() {
 
   // 若取不到 customerId（stale session 等邊界情況）— 顯示靜態 empty state，不 redirect
   const customerId = user?.customerId ?? null;
-  const referralUrl = customerId ? buildReferralEntryUrl(storeSlug, customerId) : "#";
+  const shareContext = customerId && storeId
+    ? await getReferralShareContext({ customerId, storeId, storeSlug })
+    : { available: false as const, reason: "STORE_UNAVAILABLE" as const };
 
   let summary: MyReferralSummary = EMPTY_SUMMARY;
   if (customerId) {
@@ -86,13 +88,22 @@ export default async function MyPerksPage() {
 
           {/* 分享 CTA */}
           <div className="mt-4">
-            <ShareReferral
-              referralUrl={referralUrl}
-              variant="compact"
-              storeId={storeId ?? undefined}
-              referrerId={customerId ?? undefined}
-              source="my-perks"
-            />
+            {shareContext.available ? (
+              <ShareReferral
+                storeName={shareContext.storeName}
+                referralUrl={shareContext.referralUrl}
+                variant="compact"
+                storeId={storeId ?? undefined}
+                referrerId={customerId ?? undefined}
+                source="my-perks"
+              />
+            ) : (
+              <p className="rounded-xl bg-white px-4 py-3 text-sm text-earth-700">
+                {shareContext.reason === "LINE_NOT_CONFIGURED"
+                  ? "尚未完成 LINE 設定，暫時無法分享。"
+                  : "推薦分享目前無法使用，請聯繫店家。"}
+              </p>
+            )}
           </div>
 
           {/* 點數誘因提示（動態：依 milestone.remaining） */}

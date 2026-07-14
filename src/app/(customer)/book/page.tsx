@@ -6,7 +6,7 @@ import { getMyReferralSummary } from "@/server/queries/my-referral-summary";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ShareContactActions } from "./share-contact-actions";
-import { buildReferralEntryUrl } from "@/lib/share";
+import { getReferralShareContext } from "@/server/queries/referral-share-context";
 import { totalAvailableToBook } from "@/lib/wallet-availability";
 import { toLocalDateStr } from "@/lib/date-utils";
 
@@ -110,7 +110,9 @@ export default async function CustomerHomePage() {
   }
 
   const reminderText = nextBooking ? getReminderText(nextBooking.bookingDate, nextBooking.slotTime) : "";
-  const referralUrl = buildReferralEntryUrl(storeSlug, user.customerId);
+  const shareContext = storeId
+    ? await getReferralShareContext({ customerId: user.customerId, storeId, storeSlug })
+    : { available: false as const, reason: "STORE_UNAVAILABLE" as const };
 
   const showPerkProgress = !!referralSummary && referralSummary.totalPoints > 0;
   const showMyGrowth =
@@ -224,11 +226,20 @@ export default async function CustomerHomePage() {
             分享給朋友，你們都有機會拿到小回饋
           </p>
           <div className="mt-3">
-            <ShareContactActions
-              referralUrl={referralUrl}
-              storeId={storeId ?? undefined}
-              referrerId={user.customerId}
-            />
+            {shareContext.available ? (
+              <ShareContactActions
+                storeName={shareContext.storeName}
+                referralUrl={shareContext.referralUrl}
+                storeId={storeId ?? undefined}
+                referrerId={user.customerId}
+              />
+            ) : (
+              <p className="rounded-xl bg-earth-50 px-4 py-3 text-sm text-earth-700">
+                {shareContext.reason === "LINE_NOT_CONFIGURED"
+                  ? "尚未完成 LINE 設定，暫時無法分享。"
+                  : "推薦分享目前無法使用，請聯繫店家。"}
+              </p>
+            )}
           </div>
         </div>
       </section>

@@ -11,6 +11,8 @@ import {
 import { trackReferralEvent } from "@/server/actions/referral-events";
 
 interface Props {
+  /** Server 取得的 Store.name */
+  storeName: string;
   /** 推薦中繼頁 URL（由 buildReferralEntryUrl 組好） */
   referralUrl: string;
   /** 店家 ID — 用於分享事件埋點 */
@@ -20,6 +22,7 @@ interface Props {
 }
 
 export function ShareContactActions({
+  storeName,
   referralUrl,
   storeId,
   referrerId,
@@ -27,7 +30,7 @@ export function ShareContactActions({
   const [copied, setCopied] = useState(false);
   const absoluteUrl = toAbsoluteUrl(referralUrl);
   // 分享文字與 my-referrals 完全一致：URL 內嵌於文案中間
-  const shareText = buildShareText({ url: absoluteUrl });
+  const shareText = buildShareText({ storeName, url: absoluteUrl });
   const lineShareUrl = buildLineShareUrl(shareText);
 
   function trackShare(channel: "copy" | "line") {
@@ -41,9 +44,9 @@ export function ShareContactActions({
   }
 
   async function handleCopy() {
-    const ok = await copyToClipboard(absoluteUrl);
+    const ok = await copyToClipboard(shareText);
     if (!ok) {
-      toast.error("無法複製，請長按連結手動複製");
+      toast.error("無法複製分享文字，請稍後再試");
       return;
     }
     setCopied(true);
@@ -73,7 +76,7 @@ export function ShareContactActions({
         onClick={handleCopy}
         className="h-11 w-full rounded-xl border border-earth-300 bg-white text-[15px] font-semibold text-earth-800 hover:bg-earth-50"
       >
-        {copied ? "已複製" : "複製連結"}
+        {copied ? "已複製" : "複製分享文字"}
       </button>
     </div>
   );
