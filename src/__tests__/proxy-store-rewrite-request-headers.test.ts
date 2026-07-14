@@ -53,6 +53,18 @@ describe("buildStoreRewriteRequestHeaders (PR-E2 Codex P1 #2)", () => {
     expect(result.get("x-store-slug")).not.toBe("attacker-supplied");
   });
 
+  it("profile request 會覆蓋前一頁殘留的 x-next-pathname", () => {
+    const incoming = new Headers({
+      "x-next-pathname": "/s/hsinchu/book/new",
+    });
+    const result = buildStoreRewriteRequestHeaders(
+      incoming,
+      "hsinchu",
+      "/s/hsinchu/profile",
+    );
+    expect(result.get("x-next-pathname")).toBe("/s/hsinchu/profile");
+  });
+
   it("不 mutate 傳入的 incoming Headers（純函數）", () => {
     const incoming = new Headers({ "user-agent": "test" });
     buildStoreRewriteRequestHeaders(incoming, "zhubei", "/s/zhubei/liff");
