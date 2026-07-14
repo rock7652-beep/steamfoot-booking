@@ -1,23 +1,8 @@
-/**
- * Referral Event Service Layer
- *
- * 提供統一的 ReferralEvent 寫入入口，供 server actions、queries、
- * 以及日後的 booking / register / line-entry / share-referral 流程接入。
- *
- * 這層不做權限檢查與 session 驗證（交給 actions 層），只負責：
- * - 欄位正規化
- * - 呼叫 prisma 寫入
- * - 回傳寫入結果
- */
-
 import { prisma } from "@/lib/db";
+import { AppError } from "@/lib/errors";
 import type { ReferralEvent, ReferralEventType } from "@prisma/client";
 
-// ============================================================
-// Input types
-// ============================================================
-
-/** 建立事件的共用輸入 */
+/** 建立 ReferralEvent 的共用輸入。 */
 export interface CreateReferralEventInput {
   storeId: string;
   type: ReferralEventType;
@@ -27,27 +12,77 @@ export interface CreateReferralEventInput {
   source?: string | null;
 }
 
-/** 特定事件類型的輸入（type 已鎖定，不需再傳） */
+/** 特定事件類型的輸入（type 已鎖定，不需再傳）。 */
 export type CreateReferralEventTypedInput = Omit<
   CreateReferralEventInput,
   "type"
 >;
 
-// ============================================================
-// Core writer
-// ============================================================
+/**
+ * ReferralEvent.storeId 是事件歸屬的 single source of truth。
+ *
+ * 任何附帶的 Customer / referrer / Booking 都必須存在、未合併（Customer），
+ * 且與事件 storeId 同店。這層是所有 service helper 的共同防線，避免呼叫端
+ * 傳錯 ID 後污染推薦漏斗或跨店報表。
+ */
+export async function assertReferralEventStoreConsistency(
+  input: CreateReferralEventInput,
+): Promise<void> {
+  const [customer, referrer, booking] = await Promise.all([
+    input.customerId
+      ? prisma.customer.findUnique({
+          where: { id: input.customerId },
+          select: { id: true, storeId: true, mergedIntoCustomerId: true },
+        })
+      : Promise.resolve(null),
+    input.referrerId
+      ? prisma.customer.findUnique({
+          where: { id: input.referrerId },
+          select: { id: true, storeId: true, mergedIntoCustomerId: true },
+        })
+      : Promise.resolve(null),
+    input.bookingId
+      ? prisma.booking.findUnique({
+          where: { id: input.bookingId },
+          select: { id: true, storeId: true },
+        })
+      : Promise.resolve(null),
+  ]);
+
+  if (input.customerId && !customer) {
+    throw new AppError("VALIDATION", "推薦事件顧客不存在");
+  }
+  if (input.referrerId && !referrer) {
+    throw new AppError("VALIDATION", "推薦事件推薦人不存在");
+  }
+  if (input.bookingId && !booking) {
+    throw new AppError("VALIDATION", "推薦事件預約不存在");
+  }
+
+  if (customer?.mergedIntoCustomerId || referrer?.mergedIntoCustomerId) {
+    throw new AppError("VALIDATION", "推薦事件不可使用已合併顧客");
+  }
+
+  const relatedStoreIds = [
+    customer?.storeId,
+    referrer?.storeId,
+    booking?.storeId,
+  ].filter((storeId): storeId is string => Boolean(storeId));
+
+  if (relatedStoreIds.some((storeId) => storeId !== input.storeId)) {
+    throw new AppError("VALIDATION", "推薦事件店舖不一致");
+  }
+}
 
 /**
- * 建立 ReferralEvent — 所有輔助函式最終都會呼叫這個。
- *
- * 注意：
- * - 不做權限檢查（服務層職責）
- * - customerId / referrerId / bookingId 允許 undefined 或 null，皆視為未填
- * - 寫入失敗會 throw（讓呼叫端決定 fire-and-forget 或 handle）
+ * 建立 ReferralEvent。所有 typed helpers 最終都會走這裡，因此每一筆事件
+ * 都先通過同店一致性驗證，再寫入資料庫。
  */
 export async function createReferralEvent(
   input: CreateReferralEventInput,
 ): Promise<ReferralEvent> {
+  await assertReferralEventStoreConsistency(input);
+
   return prisma.referralEvent.create({
     data: {
       storeId: input.storeId,
@@ -60,53 +95,49 @@ export async function createReferralEvent(
   });
 }
 
-// ============================================================
-// Typed helpers — 對應 ReferralEventType 的各個值
-// ============================================================
-
-/** SHARE — 使用者按下分享按鈕 */
+/** SHARE — 使用者按下分享按鈕。 */
 export async function createShareEvent(
   input: CreateReferralEventTypedInput,
 ): Promise<ReferralEvent> {
   return createReferralEvent({ ...input, type: "SHARE" });
 }
 
-/** LINK_CLICK — 被分享的連結被點開 */
+/** LINK_CLICK — 被分享的連結被點開。 */
 export async function createLinkClickEvent(
   input: CreateReferralEventTypedInput,
 ): Promise<ReferralEvent> {
   return createReferralEvent({ ...input, type: "LINK_CLICK" });
 }
 
-/** LINE_JOIN — 透過轉介紹加入 LINE OA */
+/** LINE_JOIN — 透過轉介紹加入 LINE OA。 */
 export async function createLineJoinEvent(
   input: CreateReferralEventTypedInput,
 ): Promise<ReferralEvent> {
   return createReferralEvent({ ...input, type: "LINE_JOIN" });
 }
 
-/** LINE_ENTRY — 使用者進入 LIFF / LINE Entry Point */
+/** LINE_ENTRY — 使用者進入 LIFF / LINE Entry Point。 */
 export async function createLineEntryEvent(
   input: CreateReferralEventTypedInput,
 ): Promise<ReferralEvent> {
   return createReferralEvent({ ...input, type: "LINE_ENTRY" });
 }
 
-/** REGISTER — 註冊成為顧客 */
+/** REGISTER — 註冊成為顧客。 */
 export async function createRegisterEvent(
   input: CreateReferralEventTypedInput,
 ): Promise<ReferralEvent> {
   return createReferralEvent({ ...input, type: "REGISTER" });
 }
 
-/** BOOKING_CREATED — 預約成立 */
+/** BOOKING_CREATED — 預約成立。 */
 export async function createBookingCreatedEvent(
   input: CreateReferralEventTypedInput,
 ): Promise<ReferralEvent> {
   return createReferralEvent({ ...input, type: "BOOKING_CREATED" });
 }
 
-/** BOOKING_COMPLETED — 預約完成（到店） */
+/** BOOKING_COMPLETED — 預約完成（到店）。 */
 export async function createBookingCompletedEvent(
   input: CreateReferralEventTypedInput,
 ): Promise<ReferralEvent> {
