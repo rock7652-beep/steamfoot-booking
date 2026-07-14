@@ -1,0 +1,62 @@
+name: PR 431 Referral Security CI
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr431-referral-security-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  referral-security:
+    if: >-
+      github.event.pull_request.number == 431 &&
+      github.event.pull_request.head.ref == 'codex/pr2-referral-store-consistency-guard'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run targeted referral tests
+        run: >-
+          npx vitest run
+          src/__tests__/referral-event-store-consistency.test.ts
+          src/__tests__/referral-share-action.test.ts
+
+      - name: Run targeted ESLint
+        run: >-
+          npx eslint
+          src/server/services/referral-events.ts
+          src/server/actions/referral-events.ts
+          src/components/share-referral.tsx
+          "src/app/(customer)/book/share-contact-actions.tsx"
+          src/__tests__/referral-event-store-consistency.test.ts
+          src/__tests__/referral-share-action.test.ts
+
+      - name: Check diff whitespace
+        run: git diff --check origin/main...HEAD
+
+      - name: Build application
+        run: npm run build
