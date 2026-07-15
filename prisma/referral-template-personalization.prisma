@@ -1,0 +1,27 @@
+enum ReferralShareTemplateUsageAction {
+  PREVIEW
+  APPLY
+  SAVE
+}
+
+model ReferralShareTemplateFavorite {
+  id         String   @id @default(cuid())
+  storeId    String
+  templateId String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([storeId, templateId])
+  @@index([storeId, updatedAt])
+}
+
+model ReferralShareTemplateUsage {
+  id         String                           @id @default(cuid())
+  storeId    String
+  templateId String
+  action     ReferralShareTemplateUsageAction
+  createdAt  DateTime                         @default(now())
+
+  @@index([storeId, createdAt])
+  @@index([storeId, templateId, action, createdAt])
+}
