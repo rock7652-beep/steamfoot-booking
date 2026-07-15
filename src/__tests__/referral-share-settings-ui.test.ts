@@ -9,6 +9,10 @@ vi.mock("sonner", () => ({
 vi.mock("@/server/actions/referral-share-template", () => ({
   updateReferralShareTemplate: vi.fn(),
 }));
+vi.mock("@/server/actions/referral-share-template-personalization", () => ({
+  recordReferralTemplateUsageAction: vi.fn(),
+  setReferralTemplateFavoriteAction: vi.fn(),
+}));
 
 import { getReferralShareTemplateError } from "@/app/(dashboard)/dashboard/settings/referral-share/referral-share-form";
 

@@ -59,6 +59,12 @@ export const MANAGEABLE_STORE_FEATURES: StoreFeatureCatalogItem[] = [
     description: "顧客可自行預約、取消與查詢方案的會員入口。",
   },
   {
+    key: FEATURES.REFERRAL_SHARE,
+    label: "推薦分享",
+    module: "顧客",
+    description: "官方分享模板、店家自訂文案、收藏、最近使用、LINE 分享與推薦追蹤。",
+  },
+  {
     key: FEATURES.CASH_DRAWER,
     label: "現金抽屜",
     module: "營運",

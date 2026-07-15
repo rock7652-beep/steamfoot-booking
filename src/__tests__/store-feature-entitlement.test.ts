@@ -52,6 +52,50 @@ beforeEach(() => {
 });
 
 describe("hasStoreFeature", () => {
+  it.each([
+    ["BASIC", false],
+    ["GROWTH", true],
+    ["ALLIANCE", true],
+  ] as const)("%s 無單店 entitlement 時 referral_share=%s", async (plan, expected) => {
+    mockStore(plan);
+    const { hasStoreFeature } = await import("@/lib/feature-gate");
+
+    await expect(
+      hasStoreFeature("store-1", FEATURES.REFERRAL_SHARE),
+    ).resolves.toBe(expected);
+  });
+
+  it("BASIC + ENABLED 可使用 referral_share", async () => {
+    mockEntitlement("ENABLED");
+    const { hasStoreFeature } = await import("@/lib/feature-gate");
+
+    await expect(
+      hasStoreFeature("store-1", FEATURES.REFERRAL_SHARE),
+    ).resolves.toBe(true);
+  });
+
+  it("GROWTH + DISABLED 不可使用 referral_share", async () => {
+    mockStore("GROWTH");
+    mockEntitlement("DISABLED");
+    const { hasStoreFeature } = await import("@/lib/feature-gate");
+
+    await expect(
+      hasStoreFeature("store-1", FEATURES.REFERRAL_SHARE),
+    ).resolves.toBe(false);
+  });
+
+  it.each([
+    { startsAt: new Date("2099-01-01T00:00:00.000Z") },
+    { expiresAt: new Date("2026-01-01T00:00:00.000Z") },
+  ])("未生效或已到期時 referral_share 回到 BASIC 方案預設", async (dates) => {
+    mockEntitlement("ENABLED", dates);
+    const { hasStoreFeature } = await import("@/lib/feature-gate");
+
+    await expect(
+      hasStoreFeature("store-1", FEATURES.REFERRAL_SHARE),
+    ).resolves.toBe(false);
+  });
+
   it("基本版無加購時，不可用專業功能", async () => {
     const { hasStoreFeature } = await import("@/lib/feature-gate");
 

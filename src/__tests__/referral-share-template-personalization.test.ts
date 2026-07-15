@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { queryRaw, executeRaw } = vi.hoisted(() => ({
+const { queryRaw, executeRaw, requireStoreFeature } = vi.hoisted(() => ({
   queryRaw: vi.fn(),
   executeRaw: vi.fn(),
+  requireStoreFeature: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -11,6 +12,7 @@ vi.mock("@/lib/db", () => ({
     $executeRaw: executeRaw,
   },
 }));
+vi.mock("@/lib/feature-gate", () => ({ requireStoreFeature }));
 
 import {
   assertOfficialReferralTemplateId,
@@ -22,6 +24,7 @@ import {
 describe("referral template personalization", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    requireStoreFeature.mockResolvedValue(undefined);
   });
 
   it("rejects unknown template ids before any database write", async () => {
@@ -50,10 +53,29 @@ describe("referral template personalization", () => {
     });
 
     expect(executeRaw).toHaveBeenCalledTimes(1);
+    expect(requireStoreFeature).toHaveBeenCalledWith("store-a", "referral_share");
     expect(JSON.stringify(executeRaw.mock.calls[0])).toContain("store-a");
     expect(JSON.stringify(executeRaw.mock.calls[0])).toContain(
       "featured-genuine-review",
     );
+  });
+
+  it("does not read or write personalization when the store is not entitled", async () => {
+    requireStoreFeature.mockRejectedValue(new Error("此功能尚未開通"));
+
+    await expect(getReferralTemplatePersonalization("store-a")).rejects.toThrow(
+      "此功能尚未開通",
+    );
+    await expect(
+      recordReferralTemplateUsage({
+        storeId: "store-a",
+        templateId: "industry-steamfoot",
+        action: "PREVIEW",
+      }),
+    ).rejects.toThrow("此功能尚未開通");
+
+    expect(queryRaw).not.toHaveBeenCalled();
+    expect(executeRaw).not.toHaveBeenCalled();
   });
 
   it("removes only the matching store and template favorite", async () => {

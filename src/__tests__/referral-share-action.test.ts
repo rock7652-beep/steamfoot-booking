@@ -4,6 +4,8 @@ const mocks = vi.hoisted(() => ({
   requireSession: vi.fn(),
   customerFindFirst: vi.fn(),
   createReferralEvent: vi.fn(),
+  hasStoreFeature: vi.fn(),
+  requireStoreFeature: vi.fn(),
 }));
 
 vi.mock("@/lib/session", () => ({ requireSession: mocks.requireSession }));
@@ -12,6 +14,10 @@ vi.mock("@/lib/db", () => ({
 }));
 vi.mock("@/server/services/referral-events", () => ({
   createReferralEvent: mocks.createReferralEvent,
+}));
+vi.mock("@/lib/feature-gate", () => ({
+  hasStoreFeature: mocks.hasStoreFeature,
+  requireStoreFeature: mocks.requireStoreFeature,
 }));
 
 import {
@@ -33,6 +39,8 @@ describe("trackCurrentCustomerShare", () => {
       storeId: "store-a",
     });
     mocks.createReferralEvent.mockResolvedValue({ id: "event-a" });
+    mocks.hasStoreFeature.mockResolvedValue(true);
+    mocks.requireStoreFeature.mockResolvedValue(undefined);
   });
 
   it("忽略 client storeId / referrerId，使用 session + DB canonical Customer", async () => {
@@ -55,6 +63,15 @@ describe("trackCurrentCustomerShare", () => {
 
     await trackCurrentCustomerShare({ source: "copy" });
 
+    expect(mocks.createReferralEvent).not.toHaveBeenCalled();
+  });
+
+  it("未開通時不寫入 SHARE 事件", async () => {
+    mocks.hasStoreFeature.mockResolvedValue(false);
+
+    await trackCurrentCustomerShare({ source: "copy" });
+
+    expect(mocks.hasStoreFeature).toHaveBeenCalledWith("store-a", "referral_share");
     expect(mocks.createReferralEvent).not.toHaveBeenCalled();
   });
 
@@ -87,6 +104,7 @@ describe("recordReferralEvent caller access", () => {
       storeId: "store-a",
     });
     mocks.createReferralEvent.mockResolvedValue({ id: "event-a" });
+    mocks.requireStoreFeature.mockResolvedValue(undefined);
   });
 
   it("Customer 不可替其他店寫 generic event", async () => {
@@ -105,6 +123,19 @@ describe("recordReferralEvent caller access", () => {
       storeId: "store-a",
       type: "SHARE",
       referrerId: "customer-b",
+    });
+
+    expect(result.success).toBe(false);
+    expect(mocks.createReferralEvent).not.toHaveBeenCalled();
+  });
+
+  it("直接呼叫 generic SHARE action 仍需 entitlement", async () => {
+    mocks.requireStoreFeature.mockRejectedValue(new Error("此功能尚未開通"));
+
+    const result = await recordReferralEvent({
+      storeId: "store-a",
+      type: "SHARE",
+      referrerId: "customer-a",
     });
 
     expect(result.success).toBe(false);

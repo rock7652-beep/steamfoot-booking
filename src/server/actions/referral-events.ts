@@ -9,6 +9,8 @@ import {
 } from "@/server/services/referral-events";
 import type { ActionResult } from "@/types";
 import type { ReferralEventType } from "@prisma/client";
+import { hasStoreFeature, requireStoreFeature } from "@/lib/feature-gate";
+import { FEATURES } from "@/lib/feature-flags";
 
 const VALID_EVENT_TYPES: readonly ReferralEventType[] = [
   "SHARE",
@@ -107,6 +109,9 @@ export async function recordReferralEvent(
   try {
     const data = parseInput(input);
     await assertActionCallerAccess(data);
+    if (data.type === "SHARE") {
+      await requireStoreFeature(data.storeId, FEATURES.REFERRAL_SHARE);
+    }
     const event = await createReferralEvent(data);
     return { success: true, data: { eventId: event.id } };
   } catch (error) {
@@ -119,6 +124,9 @@ export async function trackReferralEvent(input: unknown): Promise<void> {
   try {
     const data = parseInput(input);
     await assertActionCallerAccess(data);
+    if (data.type === "SHARE") {
+      await requireStoreFeature(data.storeId, FEATURES.REFERRAL_SHARE);
+    }
     await createReferralEvent(data);
   } catch {
     // 埋點失敗不影響主流程。
@@ -138,6 +146,7 @@ export async function trackCurrentCustomerShare(input: unknown): Promise<void> {
 
     const customer = await getActiveSessionCustomer(user);
     if (!customer) return;
+    if (!(await hasStoreFeature(customer.storeId, FEATURES.REFERRAL_SHARE))) return;
 
     await createReferralEvent({
       storeId: customer.storeId,

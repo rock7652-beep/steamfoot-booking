@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/db";
 import { normalizeLineOfficialUrl } from "@/lib/line-official-url";
 import { buildReferralEntryUrl } from "@/lib/share";
+import { hasStoreFeature } from "@/lib/feature-gate";
+import { FEATURES } from "@/lib/feature-flags";
 
 export type ReferralShareContext =
   | {
@@ -13,6 +15,7 @@ export type ReferralShareContext =
       available: false;
       reason:
         | "STORE_UNAVAILABLE"
+        | "FEATURE_NOT_ENABLED"
         | "LINE_NOT_CONFIGURED"
         | "REFERRAL_CODE_MISSING";
     };
@@ -23,6 +26,10 @@ export async function getReferralShareContext(input: {
   storeId: string;
   storeSlug: string;
 }): Promise<ReferralShareContext> {
+  if (!(await hasStoreFeature(input.storeId, FEATURES.REFERRAL_SHARE))) {
+    return { available: false, reason: "FEATURE_NOT_ENABLED" };
+  }
+
   const customer = await prisma.customer.findFirst({
     where: {
       id: input.customerId,
