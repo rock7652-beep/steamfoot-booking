@@ -202,5 +202,15 @@ describeWithPostgres("booking slot lock — real PostgreSQL", () => {
       `SELECT COUNT(*)::int AS count FROM ${table}`,
     );
     expect(rows[0]?.count).toBe(0);
+
+    await expect(
+      testDb().$transaction(async (tx) => {
+        await tx.$executeRawUnsafe("SET LOCAL statement_timeout = '2s'");
+        await acquireBookingSlotLocks(tx, [
+          { storeId: "store-a", bookingDate: "2026-08-01", slotTime: "10:00" },
+        ]);
+        return "lock reacquired";
+      }),
+    ).resolves.toBe("lock reacquired");
   });
 });

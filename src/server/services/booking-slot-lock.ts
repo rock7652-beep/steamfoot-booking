@@ -42,8 +42,15 @@ export async function acquireBookingSlotLocks(
 ): Promise<void> {
   const identities = [...new Set(keys.map(canonicalLockIdentity))].sort();
   for (const identity of identities) {
-    await tx.$queryRaw`
-      SELECT pg_advisory_xact_lock(hashtextextended(${identity}, 0))
+    const result = await tx.$queryRaw<Array<{ acquired: number }>>`
+      WITH acquired_lock AS MATERIALIZED (
+        SELECT pg_advisory_xact_lock(hashtextextended(${identity}, 0))
+      )
+      SELECT 1::int AS acquired
+      FROM acquired_lock
     `;
+    if (result.length !== 1 || result[0]?.acquired !== 1) {
+      throw new Error("Failed to acquire booking slot lock");
+    }
   }
 }

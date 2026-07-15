@@ -129,7 +129,7 @@ beforeEach(() => {
   h.bookingCount.mockResolvedValue(0);
   h.bookingAggregate.mockResolvedValue({ _sum: { people: 0 } });
   h.bookingFindFirst.mockResolvedValue(null);
-  h.txQueryRaw.mockResolvedValue([{ pg_advisory_xact_lock: null }]);
+  h.txQueryRaw.mockResolvedValue([{ acquired: 1 }]);
   h.bookingCreate.mockResolvedValue({
     id: "booking-created",
     customerId: CUSTOMER_ID,

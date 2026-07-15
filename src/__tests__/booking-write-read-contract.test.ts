@@ -193,7 +193,7 @@ const mockPrisma = {
     createMany: vi.fn(),
   },
   $transaction: vi.fn(async (cb: (tx: unknown) => Promise<unknown>) => cb(mockPrisma)),
-  $queryRaw: vi.fn(async () => []),
+  $queryRaw: vi.fn(async () => [{ acquired: 1 }]),
 };
 
 vi.mock("@/lib/db", () => ({ prisma: mockPrisma }));
