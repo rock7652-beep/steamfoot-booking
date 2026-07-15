@@ -7,16 +7,26 @@ import {
   normalizeReferralShareTemplate,
   renderReferralShareTemplate,
 } from "@/lib/referral-share-template";
+import type { OfficialReferralShareTemplate } from "@/lib/referral-share-official-templates";
+import {
+  recordReferralTemplateUsageAction,
+  setReferralTemplateFavoriteAction,
+} from "@/server/actions/referral-share-template-personalization";
 import { updateReferralShareTemplate } from "@/server/actions/referral-share-template";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { ReferralTemplateCenter } from "./referral-template-center";
+import {
+  ReferralTemplateCenter,
+  type ReferralTemplateRecentView,
+} from "./referral-template-center";
 
 interface Props {
   storeName: string;
   storeSlug: string;
   initialTemplate: string | null;
+  initialFavoriteTemplateIds: string[];
+  initialRecent: ReferralTemplateRecentView[];
 }
 
 export function getReferralShareTemplateError(value: string): string | null {
@@ -34,11 +44,18 @@ export function ReferralShareSettingsForm({
   storeName,
   storeSlug,
   initialTemplate,
+  initialFavoriteTemplateIds,
+  initialRecent,
 }: Props) {
   const [template, setTemplate] = useState(
     initialTemplate ?? DEFAULT_REFERRAL_SHARE_TEMPLATE,
   );
   const [usesDefault, setUsesDefault] = useState(initialTemplate == null);
+  const [favoriteTemplateIds, setFavoriteTemplateIds] = useState(
+    initialFavoriteTemplateIds,
+  );
+  const [recent, setRecent] = useState(initialRecent);
+  const [activeTemplateId, setActiveTemplateId] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const router = useRouter();
 
@@ -53,9 +70,59 @@ export function ReferralShareSettingsForm({
     ? template !== DEFAULT_REFERRAL_SHARE_TEMPLATE || initialTemplate !== null
     : template !== initialTemplate;
 
-  function applyOfficialTemplate(templateContent: string) {
-    setTemplate(templateContent);
+  function addRecent(templateId: string, action: ReferralTemplateRecentView["action"]) {
+    setRecent((current) => [
+      { templateId, action, createdAt: new Date().toISOString() },
+      ...current,
+    ].slice(0, 20));
+  }
+
+  async function recordUsage(
+    item: OfficialReferralShareTemplate,
+    action: ReferralTemplateRecentView["action"],
+  ) {
+    addRecent(item.id, action);
+    const result = await recordReferralTemplateUsageAction({
+      templateId: item.id,
+      action,
+    });
+    if (!result.success) {
+      toast.error(result.error ?? "使用紀錄儲存失敗");
+    }
+  }
+
+  function applyOfficialTemplate(item: OfficialReferralShareTemplate) {
+    setTemplate(item.content);
     setUsesDefault(false);
+    setActiveTemplateId(item.id);
+    void recordUsage(item, "APPLY");
+  }
+
+  function previewOfficialTemplate(item: OfficialReferralShareTemplate) {
+    void recordUsage(item, "PREVIEW");
+  }
+
+  function toggleFavorite(item: OfficialReferralShareTemplate, favorite: boolean) {
+    const previous = favoriteTemplateIds;
+    setFavoriteTemplateIds((current) =>
+      favorite
+        ? Array.from(new Set([item.id, ...current]))
+        : current.filter((id) => id !== item.id),
+    );
+
+    startTransition(async () => {
+      const result = await setReferralTemplateFavoriteAction({
+        templateId: item.id,
+        favorite,
+      });
+      if (!result.success) {
+        setFavoriteTemplateIds(previous);
+        toast.error(result.error ?? "收藏更新失敗");
+        return;
+      }
+      toast.success(favorite ? "已加入我的收藏" : "已取消收藏");
+      router.refresh();
+    });
   }
 
   function save(value: string | null) {
@@ -67,9 +134,21 @@ export function ReferralShareSettingsForm({
         toast.error(result.error ?? "儲存失敗");
         return;
       }
+
+      if (value != null && activeTemplateId) {
+        const tracked = await recordReferralTemplateUsageAction({
+          templateId: activeTemplateId,
+          action: "SAVE",
+        });
+        if (tracked.success) addRecent(activeTemplateId, "SAVE");
+      }
+
       toast.success(value == null ? "已恢復系統預設文案" : "推薦分享文案已更新");
       setUsesDefault(value == null);
-      if (value == null) setTemplate(DEFAULT_REFERRAL_SHARE_TEMPLATE);
+      if (value == null) {
+        setTemplate(DEFAULT_REFERRAL_SHARE_TEMPLATE);
+        setActiveTemplateId(null);
+      }
       router.refresh();
     });
   }
@@ -101,7 +180,11 @@ export function ReferralShareSettingsForm({
         <ReferralTemplateCenter
           storeName={storeName}
           previewUrl={previewUrl}
-          onApply={(item) => applyOfficialTemplate(item.content)}
+          favoriteTemplateIds={favoriteTemplateIds}
+          recent={recent}
+          onApply={applyOfficialTemplate}
+          onPreview={previewOfficialTemplate}
+          onToggleFavorite={toggleFavorite}
         />
 
         <textarea
