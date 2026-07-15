@@ -18,7 +18,9 @@ const h = vi.hoisted(() => ({
   makeupCreditCount: vi.fn(),
   bookingCount: vi.fn(),
   bookingAggregate: vi.fn(),
+  bookingFindFirst: vi.fn(),
   bookingCreate: vi.fn(),
+  txQueryRaw: vi.fn(),
   txRun: vi.fn(),
   createBookingCreatedEvent: vi.fn(),
   revalidateBookings: vi.fn(),
@@ -126,6 +128,8 @@ beforeEach(() => {
   h.makeupCreditCount.mockResolvedValue(0);
   h.bookingCount.mockResolvedValue(0);
   h.bookingAggregate.mockResolvedValue({ _sum: { people: 0 } });
+  h.bookingFindFirst.mockResolvedValue(null);
+  h.txQueryRaw.mockResolvedValue([{ pg_advisory_xact_lock: null }]);
   h.bookingCreate.mockResolvedValue({
     id: "booking-created",
     customerId: CUSTOMER_ID,
@@ -133,7 +137,13 @@ beforeEach(() => {
   });
   h.txRun.mockImplementation(async (cb: (tx: unknown) => Promise<unknown>) =>
     cb({
-      booking: { create: h.bookingCreate, update: vi.fn() },
+      $queryRaw: h.txQueryRaw,
+      booking: {
+        aggregate: h.bookingAggregate,
+        findFirst: h.bookingFindFirst,
+        create: h.bookingCreate,
+        update: vi.fn(),
+      },
       bookingMakeupCredit: { createMany: vi.fn() },
     }),
   );

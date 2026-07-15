@@ -9,18 +9,36 @@
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { PrismaClient } from "@prisma/client";
+import { randomUUID } from "node:crypto";
 import { acquireBookingSlotLocks } from "@/server/services/booking-slot-lock";
+import { resolveBookingConcurrencyTestDatabaseUrl } from "@/__tests__/helpers/booking-concurrency-test-db";
 
-const testDatabaseUrl = process.env.BOOKING_CONCURRENCY_TEST_DATABASE_URL;
+const testDatabaseUrl = resolveBookingConcurrencyTestDatabaseUrl(process.env);
 const describeWithPostgres = testDatabaseUrl ? describe : describe.skip;
 
 describeWithPostgres("booking slot lock — real PostgreSQL", () => {
-  const prisma = new PrismaClient({ datasourceUrl: testDatabaseUrl });
-  const table = `"BookingSlotConcurrencyTest"`;
+  // Do not even construct a client when the explicit test URL is absent;
+  // this prevents Prisma from consulting DATABASE_URL as an implicit fallback.
+  const prisma = testDatabaseUrl
+    ? new PrismaClient({ datasourceUrl: testDatabaseUrl })
+    : null;
+  const testDb = () => {
+    if (!prisma) throw new Error("Booking concurrency test database is not configured");
+    return prisma;
+  };
+  const schemaName = `booking_concurrency_${randomUUID().replaceAll("-", "")}`;
+  if (!/^booking_concurrency_[a-f0-9]{32}$/.test(schemaName)) {
+    throw new Error("Invalid generated booking concurrency test schema name");
+  }
+  const schema = `"${schemaName}"`;
+  const table = `${schema}."BookingSlotConcurrencyTest"`;
+  let schemaCreated = false;
 
   beforeAll(async () => {
-    await prisma.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS ${table} (
+    await testDb().$executeRawUnsafe(`CREATE SCHEMA ${schema}`);
+    schemaCreated = true;
+    await testDb().$executeRawUnsafe(`
+      CREATE TABLE ${table} (
         id TEXT PRIMARY KEY,
         "storeId" TEXT NOT NULL,
         "bookingDate" DATE NOT NULL,
@@ -31,12 +49,14 @@ describeWithPostgres("booking slot lock — real PostgreSQL", () => {
   });
 
   afterAll(async () => {
-    await prisma.$executeRawUnsafe(`DROP TABLE IF EXISTS ${table}`);
-    await prisma.$disconnect();
+    if (schemaCreated) {
+      await testDb().$executeRawUnsafe(`DROP SCHEMA ${schema} CASCADE`);
+    }
+    await testDb().$disconnect();
   });
 
   async function clearRows() {
-    await prisma.$executeRawUnsafe(`TRUNCATE TABLE ${table}`);
+    await testDb().$executeRawUnsafe(`TRUNCATE TABLE ${table}`);
   }
 
   async function reserve(params: {
@@ -47,7 +67,7 @@ describeWithPostgres("booking slot lock — real PostgreSQL", () => {
     people: number;
     capacity: number;
   }): Promise<boolean> {
-    return prisma.$transaction(async (tx) => {
+    return testDb().$transaction(async (tx) => {
       await acquireBookingSlotLocks(tx, [
         {
           storeId: params.storeId,
@@ -86,7 +106,7 @@ describeWithPostgres("booking slot lock — real PostgreSQL", () => {
     toSlotTime: string;
     capacity: number;
   }): Promise<boolean> {
-    return prisma.$transaction(async (tx) => {
+    return testDb().$transaction(async (tx) => {
       await acquireBookingSlotLocks(tx, [
         { storeId: params.storeId, bookingDate: params.fromDate, slotTime: params.fromSlotTime },
         { storeId: params.storeId, bookingDate: params.toDate, slotTime: params.toSlotTime },
@@ -167,7 +187,7 @@ describeWithPostgres("booking slot lock — real PostgreSQL", () => {
   it("rolls back the reservation when a later statement fails", async () => {
     await clearRows();
     await expect(
-      prisma.$transaction(async (tx) => {
+      testDb().$transaction(async (tx) => {
         await acquireBookingSlotLocks(tx, [
           { storeId: "store-a", bookingDate: "2026-08-01", slotTime: "10:00" },
         ]);
@@ -178,7 +198,7 @@ describeWithPostgres("booking slot lock — real PostgreSQL", () => {
         throw new Error("force rollback");
       }),
     ).rejects.toThrow("force rollback");
-    const rows = await prisma.$queryRawUnsafe<Array<{ count: number }>>(
+    const rows = await testDb().$queryRawUnsafe<Array<{ count: number }>>(
       `SELECT COUNT(*)::int AS count FROM ${table}`,
     );
     expect(rows[0]?.count).toBe(0);
