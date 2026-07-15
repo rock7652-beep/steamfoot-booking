@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const queryRaw = vi.fn();
-const executeRaw = vi.fn();
+const { queryRaw, executeRaw } = vi.hoisted(() => ({
+  queryRaw: vi.fn(),
+  executeRaw: vi.fn(),
+}));
 
 vi.mock("@/lib/db", () => ({
   prisma: {
