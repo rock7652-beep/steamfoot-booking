@@ -55,6 +55,8 @@ function matchWhere(row: BookingRow, where: Record<string, unknown>): boolean {
   if (where.storeId && where.storeId !== row.storeId) return false;
   // slotTime
   if (typeof where.slotTime === "string" && where.slotTime !== row.slotTime) return false;
+  const slotFilter = where.slotTime as { in?: string[] } | undefined;
+  if (slotFilter?.in && !slotFilter.in.includes(row.slotTime)) return false;
   // customer
   const customerWhere = where.customer as { id?: string } | undefined;
   if (customerWhere?.id && customerWhere.id !== row.customerId) return false;
@@ -191,6 +193,7 @@ const mockPrisma = {
     createMany: vi.fn(),
   },
   $transaction: vi.fn(async (cb: (tx: unknown) => Promise<unknown>) => cb(mockPrisma)),
+  $queryRaw: vi.fn(async () => []),
 };
 
 vi.mock("@/lib/db", () => ({ prisma: mockPrisma }));
@@ -280,7 +283,7 @@ const REAL_CUSTOMER_RECORD = {
   birthday: null,
   gender: null,
   userId: USER_ID,
-  planWallets: [{ id: WALLET_ID, remainingSessions: 5, expiryDate: null }],
+  planWallets: [{ id: WALLET_ID, storeId: STORE_A, remainingSessions: 5, expiryDate: null }],
 };
 
 beforeEach(() => {
@@ -310,7 +313,7 @@ describe("Booking write-read contract — createBooking → listBookings → get
       people: 1,
     });
 
-    expect(writeResult.success).toBe(true);
+    expect(writeResult.success, JSON.stringify(writeResult)).toBe(true);
     expect(bookingsStore).toHaveLength(1);
     const written = bookingsStore[0];
     expect(written.customerId).toBe(REAL_CUSTOMER_ID);
@@ -461,7 +464,7 @@ describe("Booking write-read contract — createBooking → listBookings → get
         where: expect.objectContaining({
           storeId: STORE_A,
           bookingDate: new Date("2026-04-27T00:00:00Z"),
-          slotTime: "18:00",
+          slotTime: { in: ["18:00", "18:00:00"] },
           bookingStatus: { in: ["PENDING", "CONFIRMED"] },
         }),
       }),

@@ -23,6 +23,7 @@ const WALLET_ID = "ck0000000000000000000wal01";
 // ── Prisma mocks ──
 const mockBookingFindUnique = vi.fn();
 const mockBookingAggregate = vi.fn();
+const mockBookingFindFirst = vi.fn();
 const mockBookingUpdate = vi.fn();
 const mockCustomerPlanWalletFindMany = vi.fn();
 const mockTxBookingUpdate = vi.fn();
@@ -41,6 +42,10 @@ vi.mock("@/lib/db", () => ({
     },
     $transaction: (cb: (tx: unknown) => Promise<unknown>) => mockTransaction(cb),
   },
+}));
+vi.mock("@/server/services/booking-slot-lock", () => ({
+  acquireBookingSlotLocks: vi.fn(async () => undefined),
+  bookingSlotTimeVariants: (slotTime: string) => [slotTime],
 }));
 
 // ── Session / permission ──
@@ -96,6 +101,10 @@ vi.mock("@/lib/business-hours-resolver", () => ({
 vi.mock("@/lib/date-utils", () => ({
   toLocalDateStr: () => "2026-05-25",
   getNowTaipeiHHmm: () => "09:00",
+  dayRange: (date: string) => ({
+    start: new Date(`${date}T00:00:00+08:00`),
+    end: new Date(`${date}T23:59:59.999+08:00`),
+  }),
 }));
 vi.mock("@/lib/booking-constants", () => ({
   PENDING_STATUSES: ["PENDING", "CONFIRMED"] as const,
@@ -151,6 +160,8 @@ function makeBooking(overrides: Partial<{
   people: number;
   isMakeup: boolean;
   customerPlanWalletId: string | null;
+  bookingDate: Date;
+  slotTime: string;
 }> = {}) {
   return {
     id: BOOKING_ID,
@@ -187,6 +198,7 @@ beforeEach(() => {
     primaryWalletId: null,
   });
   mockBookingAggregate.mockResolvedValue({ _sum: { people: 0 } });
+  mockBookingFindFirst.mockResolvedValue(null);
   mockBookingUpdate.mockResolvedValue({});
   mockCustomerPlanWalletFindMany.mockResolvedValue([
     {
@@ -199,7 +211,12 @@ beforeEach(() => {
   // $transaction default：執行 callback，並提供 tx 物件
   mockTransaction.mockImplementation(async (cb: (tx: unknown) => Promise<unknown>) =>
     cb({
-      booking: { update: mockTxBookingUpdate },
+      booking: {
+        findUnique: mockBookingFindUnique,
+        findFirst: mockBookingFindFirst,
+        aggregate: mockBookingAggregate,
+        update: mockTxBookingUpdate,
+      },
       walletSession: { count: mockTxWalletSessionCount },
     }),
   );
@@ -264,7 +281,12 @@ describe("updateBooking — people change wallet sync (PR-H3)", () => {
     // 模擬 $transaction throw 行為（callback throw 後重 throw 給 caller）
     mockTransaction.mockImplementationOnce(async (cb: (tx: unknown) => Promise<unknown>) => {
       return cb({
-        booking: { update: mockTxBookingUpdate },
+        booking: {
+          findUnique: mockBookingFindUnique,
+          findFirst: mockBookingFindFirst,
+          aggregate: mockBookingAggregate,
+          update: mockTxBookingUpdate,
+        },
         walletSession: { count: mockTxWalletSessionCount },
       });
     });
@@ -290,8 +312,8 @@ describe("updateBooking — people change wallet sync (PR-H3)", () => {
     expect(result.success).toBe(true);
     expect(mockAllocateSessionsFefo).not.toHaveBeenCalled();
     expect(mockPartialReleaseSessions).not.toHaveBeenCalled();
-    // $transaction 不該被進入（不需 session sync）
-    expect(mockTransaction).not.toHaveBeenCalled();
+    // 即使人數值相同，people mutation 仍必須走 slot lock transaction。
+    expect(mockTransaction).toHaveBeenCalledTimes(1);
   });
 
   it("people 2 → 2：no-op，不動 session", async () => {
@@ -304,7 +326,7 @@ describe("updateBooking — people change wallet sync (PR-H3)", () => {
 
     expect(mockAllocateSessionsFefo).not.toHaveBeenCalled();
     expect(mockPartialReleaseSessions).not.toHaveBeenCalled();
-    expect(mockTransaction).not.toHaveBeenCalled();
+    expect(mockTransaction).toHaveBeenCalledTimes(1);
   });
 
   it("COMPLETED booking：拒絕修改", async () => {
@@ -347,7 +369,7 @@ describe("updateBooking — people change wallet sync (PR-H3)", () => {
 
     expect(mockAllocateSessionsFefo).not.toHaveBeenCalled();
     expect(mockPartialReleaseSessions).not.toHaveBeenCalled();
-    expect(mockTransaction).not.toHaveBeenCalled();
+    expect(mockTransaction).toHaveBeenCalledTimes(1);
   });
 
   it("SINGLE 改 people 不動 session", async () => {
@@ -364,7 +386,7 @@ describe("updateBooking — people change wallet sync (PR-H3)", () => {
 
     expect(mockAllocateSessionsFefo).not.toHaveBeenCalled();
     expect(mockPartialReleaseSessions).not.toHaveBeenCalled();
-    expect(mockTransaction).not.toHaveBeenCalled();
+    expect(mockTransaction).toHaveBeenCalledTimes(1);
   });
 
   it("PACKAGE_SESSION 補課 (isMakeup) 改 people 不動 session", async () => {
@@ -382,7 +404,7 @@ describe("updateBooking — people change wallet sync (PR-H3)", () => {
 
     expect(mockAllocateSessionsFefo).not.toHaveBeenCalled();
     expect(mockPartialReleaseSessions).not.toHaveBeenCalled();
-    expect(mockTransaction).not.toHaveBeenCalled();
+    expect(mockTransaction).toHaveBeenCalledTimes(1);
   });
 
   it("Stale data 修正：booking.people=2 但 actual RESERVED=1，改 people=3 → allocate 2", async () => {
@@ -431,7 +453,7 @@ describe("updateBooking — people change wallet sync (PR-H3)", () => {
       where: expect.objectContaining({
         storeId: STORE_A,
         bookingDate: targetDate,
-        slotTime: "18:30",
+        slotTime: { in: ["18:30"] },
         bookingStatus: { in: ["PENDING", "CONFIRMED"] },
         NOT: { id: BOOKING_ID },
       }),
@@ -463,12 +485,12 @@ describe("updateBooking — people change wallet sync (PR-H3)", () => {
     });
 
     expect(result.success).toBe(false);
-    expect(result.error).toBe("目標時段名額不足");
+    if (!result.success) expect(result.error).toBe("目標時段名額不足");
     expect(mockBookingAggregate).toHaveBeenCalledWith({
       where: expect.objectContaining({
         storeId: STORE_A,
         bookingDate: targetDate,
-        slotTime: "18:30",
+        slotTime: { in: ["18:30"] },
         bookingStatus: { in: ["PENDING", "CONFIRMED"] },
         NOT: { id: BOOKING_ID },
       }),
@@ -504,7 +526,7 @@ describe("updateBooking — people change wallet sync (PR-H3)", () => {
       where: expect.objectContaining({
         storeId: STORE_A,
         bookingDate: targetDate,
-        slotTime: "18:30",
+        slotTime: { in: ["18:30"] },
         bookingStatus: { in: ["PENDING", "CONFIRMED"] },
         NOT: { id: BOOKING_ID },
       }),

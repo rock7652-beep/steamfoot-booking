@@ -30,7 +30,10 @@ const OTHER_WALLET_ID = "ck0000000000000000000021";
 const mockCustomerFindUnique = vi.fn();
 const mockBookingCount = vi.fn();
 const mockBookingAggregate = vi.fn();
+const mockBookingFindFirst = vi.fn();
 const mockBookingCreate = vi.fn();
+const mockMakeupCount = vi.fn();
+const mockWalletSessionCount = vi.fn();
 const mockTransaction = vi.fn();
 const mockBusinessHoursFindMany = vi.fn();
 const mockBusinessHoursFindFirst = vi.fn();
@@ -48,6 +51,8 @@ vi.mock("@/lib/db", () => ({
       aggregate: (...a: unknown[]) => mockBookingAggregate(...a),
       create: (...a: unknown[]) => mockBookingCreate(...a),
     },
+    makeupCredit: { count: (...a: unknown[]) => mockMakeupCount(...a) },
+    walletSession: { count: (...a: unknown[]) => mockWalletSessionCount(...a) },
     businessHours: {
       findMany: (...a: unknown[]) => mockBusinessHoursFindMany(...a),
       findFirst: (...a: unknown[]) => mockBusinessHoursFindFirst(...a),
@@ -62,6 +67,10 @@ vi.mock("@/lib/db", () => ({
     shopConfig: { findUnique: async () => null },
     $transaction: (cb: (tx: unknown) => Promise<unknown>) => mockTransaction(cb),
   },
+}));
+vi.mock("@/server/services/booking-slot-lock", () => ({
+  acquireBookingSlotLocks: vi.fn(async () => undefined),
+  bookingSlotTimeVariants: (slotTime: string) => [slotTime],
 }));
 
 // ── Mock session ──
@@ -78,6 +87,9 @@ vi.mock("@/lib/store", () => ({
   currentStoreId: (u: { storeId?: string | null }) => u.storeId ?? STORE_A,
   DEFAULT_STORE_ID: "default-store",
   getActiveStoreForRead: vi.fn(),
+}));
+vi.mock("@/lib/store-view-context-server", () => ({
+  resolveStoreViewContextFromCookie: vi.fn(async () => null),
 }));
 
 vi.mock("@/lib/manager-visibility", () => ({
@@ -105,6 +117,10 @@ vi.mock("@/lib/usage-gate", () => ({
 vi.mock("@/lib/date-utils", () => ({
   toLocalDateStr: () => "2026-04-26",
   getNowTaipeiHHmm: () => "00:00",
+  dayRange: (date: string) => ({
+    start: new Date(`${date}T00:00:00+08:00`),
+    end: new Date(`${date}T23:59:59.999+08:00`),
+  }),
 }));
 
 vi.mock("@/lib/booking-constants", () => ({
@@ -165,6 +181,9 @@ function setupDefaults() {
   mockSlotOverrideFindMany.mockResolvedValue([]);
   mockBookingCount.mockResolvedValue(0);
   mockBookingAggregate.mockResolvedValue({ _sum: { people: 0 } });
+  mockBookingFindFirst.mockResolvedValue(null);
+  mockMakeupCount.mockResolvedValue(0);
+  mockWalletSessionCount.mockResolvedValue(0);
   mockDutyAssignmentCount.mockResolvedValue(0);
   mockBookingCreate.mockImplementation(async (args: { data: { customerId: string; storeId: string } }) => ({
     id: "ck0000000000000000000099",
@@ -173,7 +192,11 @@ function setupDefaults() {
   }));
   mockTransaction.mockImplementation(async (cb: (tx: unknown) => Promise<unknown>) =>
     cb({
-      booking: { create: mockBookingCreate },
+      booking: {
+        aggregate: mockBookingAggregate,
+        findFirst: mockBookingFindFirst,
+        create: mockBookingCreate,
+      },
       makeupCredit: { update: vi.fn() },
     }),
   );
@@ -193,7 +216,7 @@ const REAL_CUSTOMER_RECORD = {
   gender: null,
   userId: USER_ID,
   planWallets: [
-    { id: WALLET_ID, remainingSessions: 5, expiryDate: null },
+    { id: WALLET_ID, storeId: STORE_A, remainingSessions: 5, expiryDate: null },
   ],
 };
 

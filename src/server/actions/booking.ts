@@ -46,6 +46,10 @@ import {
   createBookingCompletedEvent,
 } from "@/server/services/referral-events";
 import { awardFirstBookingReferralPointsIfEligible } from "@/server/services/referral-points";
+import {
+  acquireBookingSlotLocks,
+  bookingSlotTimeVariants,
+} from "@/server/services/booking-slot-lock";
 // PR-H3 清理：PR #194 之後 createBooking 走 allocateSessionsFefo，revert 走
 // reReserveSessionsFefo；單 wallet 版本不再被 booking.ts 直接使用 → 移除 unused import。
 import {
@@ -484,26 +488,6 @@ export async function createBooking(
     // 取得該時段的實際容量（applySlotOverrides 已處理 capacity_change）
     const slotCapacity = matchedSlot.capacity;
 
-    const bookedAgg = await prisma.booking.aggregate({
-      where: {
-        storeId,
-        bookingDate: bookingDateObj,
-        slotTime: data.slotTime,
-        bookingStatus: { in: [...PENDING_STATUSES] },
-      },
-      _sum: { people: true },
-    });
-    const bookedPeople = bookedAgg._sum.people ?? 0;
-    const remaining = slotCapacity - bookedPeople;
-    if (remaining < bookingPeople) {
-      throw new AppError(
-        "BUSINESS_RULE",
-        remaining <= 0
-          ? "該時段已額滿，請選擇其他時段"
-          : `該時段剩餘 ${remaining} 位，無法預約 ${bookingPeople} 位`
-      );
-    }
-
     // ── 8. 決定 bookedByType / bookedByStaffId
     let bookedByType: "CUSTOMER" | "STAFF" | "ADMIN";
     let bookedByStaffId: string | null = null;
@@ -519,6 +503,54 @@ export async function createBooking(
 
     // ── 9. 建立預約（不扣堂，狀態 = PENDING）
     const booking = await prisma.$transaction(async (tx) => {
+      // 所有會改變時段容量的入口共用同一 transaction advisory lock。
+      // 取得鎖後才重新讀取容量與同客重複預約，避免兩個請求同時通過
+      // transaction 外的舊快照後造成超賣或重複建立。
+      await acquireBookingSlotLocks(tx, [
+        { storeId, bookingDate: data.bookingDate, slotTime: data.slotTime },
+      ]);
+
+      const slotTimeVariants = bookingSlotTimeVariants(data.slotTime);
+      const [bookedAgg, duplicate] = await Promise.all([
+        tx.booking.aggregate({
+          where: {
+            storeId,
+            bookingDate: bookingDateObj,
+            slotTime: { in: slotTimeVariants },
+            bookingStatus: { in: [...PENDING_STATUSES] },
+          },
+          _sum: { people: true },
+        }),
+        tx.booking.findFirst({
+          where: {
+            storeId,
+            customerId: effectiveCustomerId,
+            bookingDate: bookingDateObj,
+            slotTime: { in: slotTimeVariants },
+            bookingStatus: { in: [...PENDING_STATUSES] },
+          },
+          select: { id: true },
+        }),
+      ]);
+
+      if (duplicate) {
+        throw new AppError(
+          "CONFLICT",
+          "您在該日期與時段已有有效預約，請勿重複預約",
+        );
+      }
+
+      const bookedPeople = bookedAgg._sum.people ?? 0;
+      const remaining = slotCapacity - bookedPeople;
+      if (remaining < bookingPeople) {
+        throw new AppError(
+          "BUSINESS_RULE",
+          remaining <= 0
+            ? "該時段已額滿，請選擇其他時段"
+            : `該時段剩餘 ${remaining} 位，無法預約 ${bookingPeople} 位`,
+        );
+      }
+
       // 補課抵用：tx 內以「最早到期優先」server 自選 makeupPeople 張有效券並加鎖
       // （FOR UPDATE SKIP LOCKED）→ 不信任 client、防併發 double-spend。people=N 取 N 張；
       // 取不到 N 張（併發被搶/過期）→ 整筆 rollback。使用券記於 BookingMakeupCredit（join table）。
@@ -665,7 +697,14 @@ export async function updateBooking(
       throw new AppError("BUSINESS_RULE", "已完成或已取消的預約無法修改");
     }
 
-    if (data.bookingDate || data.slotTime || data.people) {
+    const changesCapacity = Boolean(data.bookingDate || data.slotTime || data.people);
+    let targetDate = booking.bookingDate;
+    let targetDateStr = booking.bookingDate.toISOString().slice(0, 10);
+    let targetSlot = booking.slotTime;
+    let targetPeople = booking.people;
+    let targetCapacity: number | null = null;
+
+    if (changesCapacity) {
       const newDate = data.bookingDate
         ? new Date(data.bookingDate + "T00:00:00Z")
         : booking.bookingDate;
@@ -699,20 +738,11 @@ export async function updateBooking(
         throw new AppError("VALIDATION", `${newSlot} 不在營業時間範圍內`);
       }
 
-      const bookedAgg = await prisma.booking.aggregate({
-        where: {
-          storeId: updStoreId,
-          bookingDate: newDate,
-          slotTime: newSlot,
-          bookingStatus: { in: [...PENDING_STATUSES] },
-          NOT: { id: bookingId },
-        },
-        _sum: { people: true },
-      });
-      const booked = bookedAgg._sum.people ?? 0;
-      if (updMatched.capacity - booked < newPeople) {
-        throw new AppError("BUSINESS_RULE", "目標時段名額不足");
-      }
+      targetDate = newDate;
+      targetDateStr = newDateStr;
+      targetSlot = newSlot;
+      targetPeople = newPeople;
+      targetCapacity = updMatched.capacity;
     }
 
     // PR-H3: people 變動時，PACKAGE_SESSION 非補課需同步 WalletSession。
@@ -738,25 +768,108 @@ export async function updateBooking(
       updateData.serviceStaffId = data.serviceStaffId;
     if (data.notes !== undefined) updateData.notes = data.notes;
 
-    if (!needsSessionSync) {
-      // 不需 session 同步 → 維持原本單一 update 行為
+    if (!changesCapacity && !needsSessionSync) {
+      // 不影響容量／session 的欄位維持單一 update。
       await prisma.booking.update({ where: { id: bookingId }, data: updateData });
     } else {
-      // people 改了 PACKAGE_SESSION → transaction 包覆 booking update + session sync
-      // 任何一步失敗整段 rollback（Booking.people 不會被改）。
-      const newPeople = data.people!;
-      // 取顧客當下 ACTIVE wallets — allocateSessionsFefo 跨 wallet 用
-      const customerWallets = await prisma.customerPlanWallet.findMany({
-        where: { customerId: booking.customerId, status: "ACTIVE" },
-        select: {
-          id: true,
-          expiryDate: true,
-          createdAt: true,
-          remainingSessions: true,
-        },
-      });
+      // 影響容量的日期／時段／人數變更一律進 transaction；需要同步方案
+      // 堂數時也在同一 transaction 完成，任何一步失敗皆不留下部分更新。
+      const customerWallets = needsSessionSync
+        ? await prisma.customerPlanWallet.findMany({
+            where: { customerId: booking.customerId, status: "ACTIVE" },
+            select: {
+              id: true,
+              expiryDate: true,
+              createdAt: true,
+              remainingSessions: true,
+            },
+          })
+        : [];
 
       await prisma.$transaction(async (tx) => {
+        if (changesCapacity) {
+          await acquireBookingSlotLocks(tx, [
+            {
+              storeId: booking.storeId,
+              bookingDate: booking.bookingDate.toISOString().slice(0, 10),
+              slotTime: booking.slotTime,
+            },
+            {
+              storeId: booking.storeId,
+              bookingDate: targetDateStr,
+              slotTime: targetSlot,
+            },
+          ]);
+
+          // 防止同一 Booking 的另一個並發改期已先完成；所有正常改期入口
+          // 都會鎖原時段，因此這裡讀到的應仍與 preflight 一致。
+          const current = await tx.booking.findUnique({
+            where: { id: bookingId },
+            select: {
+              bookingDate: true,
+              slotTime: true,
+              people: true,
+              bookingStatus: true,
+            },
+          });
+          if (!current) throw new AppError("NOT_FOUND", "預約不存在");
+          if (
+            current.bookingDate.getTime() !== booking.bookingDate.getTime() ||
+            current.slotTime !== booking.slotTime ||
+            current.people !== booking.people
+          ) {
+            throw new AppError("CONFLICT", "預約已被其他操作更新，請重新整理後再試");
+          }
+          if (
+            current.bookingStatus === "COMPLETED" ||
+            current.bookingStatus === "CANCELLED"
+          ) {
+            throw new AppError("BUSINESS_RULE", "已完成或已取消的預約無法修改");
+          }
+
+          const slotTimeVariants = bookingSlotTimeVariants(targetSlot);
+          const [bookedAgg, duplicate] = await Promise.all([
+            tx.booking.aggregate({
+              where: {
+                storeId: booking.storeId,
+                bookingDate: targetDate,
+                slotTime: { in: slotTimeVariants },
+                bookingStatus: { in: [...PENDING_STATUSES] },
+                NOT: { id: bookingId },
+              },
+              _sum: { people: true },
+            }),
+            tx.booking.findFirst({
+              where: {
+                storeId: booking.storeId,
+                customerId: booking.customerId,
+                bookingDate: targetDate,
+                slotTime: { in: slotTimeVariants },
+                bookingStatus: { in: [...PENDING_STATUSES] },
+                NOT: { id: bookingId },
+              },
+              select: { id: true },
+            }),
+          ]);
+
+          if (duplicate) {
+            throw new AppError(
+              "CONFLICT",
+              "此顧客在目標日期與時段已有有效預約",
+            );
+          }
+          const booked = bookedAgg._sum.people ?? 0;
+          if ((targetCapacity ?? 0) - booked < targetPeople) {
+            throw new AppError("BUSINESS_RULE", "目標時段名額不足");
+          }
+        }
+
+        if (!needsSessionSync) {
+          await tx.booking.update({ where: { id: bookingId }, data: updateData });
+          return;
+        }
+
+        const newPeople = data.people!;
         // 先讀當下 RESERVED 數 — 對 stale 資料也能 reconcile
         const actualReservedCount = await tx.walletSession.count({
           where: { bookingId, status: "RESERVED" },
