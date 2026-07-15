@@ -47,6 +47,7 @@ export const FEATURES = {
   RETENTION_REMINDER: "retention_reminder",
   KPI_DASHBOARD: "kpi_dashboard",
   TALENT_PIPELINE: "talent_pipeline",           // 人才管道
+  REFERRAL_SHARE: "referral_share",             // 推薦分享
   REFERRAL_ANALYTICS: "referral_analytics",     // 轉介紹分析
   TALENT_UPGRADE_PROGRESS: "talent_upgrade_progress", // 升級進度
 
@@ -109,6 +110,7 @@ export const PLAN_FEATURES: Record<PricingPlan, FeatureKey[]> = {
     "retention_reminder",
     "kpi_dashboard",
     "talent_pipeline",
+    "referral_share",
     "referral_analytics",
     "talent_upgrade_progress",
   ],
@@ -141,6 +143,7 @@ export const PLAN_FEATURES: Record<PricingPlan, FeatureKey[]> = {
     "retention_reminder",
     "kpi_dashboard",
     "talent_pipeline",
+    "referral_share",
     "referral_analytics",
     "talent_upgrade_progress",
     // ALLIANCE 專屬

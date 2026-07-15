@@ -4,6 +4,8 @@ import { z } from "zod";
 import { handleActionError } from "@/lib/errors";
 import { requirePermission } from "@/lib/permissions";
 import { resolveWriteStoreId } from "@/lib/store";
+import { requireStoreFeature } from "@/lib/feature-gate";
+import { FEATURES } from "@/lib/feature-flags";
 import type { ActionResult } from "@/types";
 import { revalidatePath } from "next/cache";
 import {
@@ -25,7 +27,9 @@ const usageSchema = z.object({
 
 async function authenticatedStoreId(): Promise<string> {
   const user = await requirePermission("plans.edit");
-  return resolveWriteStoreId(user);
+  const storeId = await resolveWriteStoreId(user);
+  await requireStoreFeature(storeId, FEATURES.REFERRAL_SHARE);
+  return storeId;
 }
 
 export async function getReferralTemplatePersonalizationAction(): Promise<
