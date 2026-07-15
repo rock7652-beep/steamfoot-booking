@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { checkPermission } from "@/lib/permissions";
 import { getCurrentUser } from "@/lib/session";
 import { getActiveStoreForRead } from "@/lib/store";
+import { getReferralTemplatePersonalization } from "@/server/services/referral-share-template-personalization";
 import { redirect } from "next/navigation";
 import { ReferralShareSettingsForm } from "./referral-share-form";
 
@@ -16,7 +17,7 @@ export default async function ReferralShareSettingsPage() {
   const storeId = await getActiveStoreForRead(user);
   if (!storeId) redirect("/dashboard/settings");
 
-  const [store, config] = await Promise.all([
+  const [store, config, personalization] = await Promise.all([
     prisma.store.findUnique({
       where: { id: storeId },
       select: { name: true, slug: true },
@@ -25,6 +26,7 @@ export default async function ReferralShareSettingsPage() {
       where: { storeId },
       select: { referralShareTemplate: true },
     }),
+    getReferralTemplatePersonalization(storeId),
   ]);
 
   if (!store) redirect("/dashboard/settings");
@@ -48,6 +50,11 @@ export default async function ReferralShareSettingsPage() {
         storeName={store.name}
         storeSlug={store.slug}
         initialTemplate={config?.referralShareTemplate ?? null}
+        initialFavoriteTemplateIds={personalization.favoriteTemplateIds}
+        initialRecent={personalization.recent.map((item) => ({
+          ...item,
+          createdAt: item.createdAt.toISOString(),
+        }))}
       />
     </PageShell>
   );
