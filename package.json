@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma validate && npx vitest run src/__tests__/referral-share-template-personalization.test.ts && npx eslint src/server/services/referral-share-template-personalization.ts src/server/actions/referral-share-template-personalization.ts 'src/app/(dashboard)/dashboard/settings/referral-share/page.tsx' 'src/app/(dashboard)/dashboard/settings/referral-share/referral-share-form.tsx' 'src/app/(dashboard)/dashboard/settings/referral-share/referral-template-center.tsx' src/__tests__/referral-share-template-personalization.test.ts && git log --check --oneline -n 30 && prisma generate && next build",
+    "build": "prisma validate && npx vitest run src/__tests__/referral-share-template-personalization.test.ts && npx eslint src/server/services/referral-share-template-personalization.ts src/server/actions/referral-share-template-personalization.ts 'src/app/(dashboard)/dashboard/settings/referral-share/page.tsx' 'src/app/(dashboard)/dashboard/settings/referral-share/referral-share-form.tsx' 'src/app/(dashboard)/dashboard/settings/referral-share/referral-template-center.tsx' src/__tests__/referral-share-template-personalization.test.ts && git log --check --oneline -n 19 && prisma generate && next build",
     "start": "next start",
     "lint": "eslint",
     "seed": "npx tsx prisma/seed.ts",
