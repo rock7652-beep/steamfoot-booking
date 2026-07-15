@@ -42,13 +42,15 @@ export function ShareReferral({
 }: ShareReferralProps) {
   const [copied, setCopied] = useState(false);
   const absoluteUrl = toAbsoluteUrl(referralUrl);
-  const shareText = buildShareText({
-    storeName,
-    inviterName,
-    url: absoluteUrl,
-    template: shareTemplate,
-  });
-  const lineShareUrl = buildLineShareUrl(shareText);
+
+  function getLatestShareText() {
+    return buildShareText({
+      storeName,
+      inviterName,
+      url: absoluteUrl,
+      template: shareTemplate,
+    });
+  }
 
   function trackShare(channel: "copy" | "line") {
     void trackCurrentCustomerShare({
@@ -57,7 +59,7 @@ export function ShareReferral({
   }
 
   async function handleCopy() {
-    const ok = await copyToClipboard(shareText);
+    const ok = await copyToClipboard(getLatestShareText());
     if (ok) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
@@ -67,27 +69,28 @@ export function ShareReferral({
   }
 
   function handleLineShareClick() {
+    const lineShareUrl = buildLineShareUrl(getLatestShareText());
     trackShare("line");
     toast.success("已幫你準備好了，傳給想到的朋友就可以。");
+    window.location.assign(lineShareUrl);
   }
 
   const buttons = (
     <div className="flex flex-col gap-3 sm:flex-row">
       <button
+        type="button"
         onClick={handleCopy}
         className="flex-1 min-h-[48px] rounded-xl border border-earth-300 bg-white px-4 text-base font-semibold text-earth-800 hover:bg-earth-50"
       >
         {copied ? "已複製" : "複製分享文字"}
       </button>
-      <a
-        href={lineShareUrl}
-        target="_blank"
-        rel="noopener noreferrer"
+      <button
+        type="button"
         onClick={handleLineShareClick}
         className="flex-1 min-h-[48px] flex items-center justify-center rounded-xl bg-[#06C755] px-4 text-base font-semibold text-white hover:bg-[#05b54d]"
       >
         立即用 LINE 分享
-      </a>
+      </button>
     </div>
   );
 

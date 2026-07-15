@@ -30,19 +30,21 @@ export function ShareContactActions({
 }: Props) {
   const [copied, setCopied] = useState(false);
   const absoluteUrl = toAbsoluteUrl(referralUrl);
-  const shareText = buildShareText({
-    storeName,
-    url: absoluteUrl,
-    template: shareTemplate,
-  });
-  const lineShareUrl = buildLineShareUrl(shareText);
+
+  function getLatestShareText() {
+    return buildShareText({
+      storeName,
+      url: absoluteUrl,
+      template: shareTemplate,
+    });
+  }
 
   function trackShare(channel: "copy" | "line") {
     void trackCurrentCustomerShare({ source: `book-home:${channel}` });
   }
 
   async function handleCopy() {
-    const ok = await copyToClipboard(shareText);
+    const ok = await copyToClipboard(getLatestShareText());
     if (!ok) {
       toast.error("無法複製分享文字，請稍後再試");
       return;
@@ -54,21 +56,21 @@ export function ShareContactActions({
   }
 
   function handleLineShareClick() {
+    const lineShareUrl = buildLineShareUrl(getLatestShareText());
     trackShare("line");
     toast.success("已幫你準備好了，傳給想到的朋友就可以。");
+    window.location.assign(lineShareUrl);
   }
 
   return (
     <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-      <a
-        href={lineShareUrl}
-        target="_blank"
-        rel="noopener noreferrer"
+      <button
+        type="button"
         onClick={handleLineShareClick}
         className="inline-flex h-11 w-full items-center justify-center rounded-xl bg-[#06C755] text-[15px] font-semibold text-white hover:bg-[#05b54d]"
       >
         立即用 LINE 分享
-      </a>
+      </button>
       <button
         type="button"
         onClick={handleCopy}
