@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { normalizePhone } from "@/lib/normalize";
+import { bookingSubmissionRequestKeySchema } from "@/lib/validators/booking-submission";
 
 // 體驗 499 PR-2：建立未付款體驗預約。
 // 規則：擇一 — 既有顧客(customerId) 或 快速建檔(newCustomer name+phone)。
@@ -35,6 +36,7 @@ export const createTrialBookingSchema = z
     people: z.number().int().min(1).max(4).optional(),
     expectedAmount: z.number().int().min(0).max(1_000_000).optional(),
     notes: z.string().max(500).optional(),
+    requestKey: bookingSubmissionRequestKeySchema.optional(),
   })
   .refine((d) => Boolean(d.customerId) !== Boolean(d.newCustomer), {
     message: "請擇一：選擇既有顧客，或填寫新顧客姓名與電話",

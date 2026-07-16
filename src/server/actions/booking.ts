@@ -50,6 +50,14 @@ import {
   acquireBookingSlotLocks,
   bookingSlotTimeVariants,
 } from "@/server/services/booking-slot-lock";
+import { buildBookingCreatePayloadHash } from "@/server/services/booking-submission-payload";
+import {
+  claimBookingSubmission,
+  finalizeBookingSubmissionFinalFailure,
+  finalizeBookingSubmissionRetryableFailure,
+  finalizeBookingSubmissionSuccess,
+  type BookingIdempotencyEnvelope,
+} from "@/server/services/booking-submission";
 // PR-H3 清理：PR #194 之後 createBooking 走 allocateSessionsFefo，revert 走
 // reReserveSessionsFefo；單 wallet 版本不再被 booking.ts 直接使用 → 移除 unused import。
 import {
@@ -130,6 +138,76 @@ function revalidateAll(customerId?: string) {
   revalidateBookings(customerId);
 }
 
+async function loadCreateBookingEligibility(params: {
+  user: Awaited<ReturnType<typeof requireSession>>;
+  storeId: string;
+  bookingDate: string;
+  slotTime: string;
+}) {
+  const { user, storeId, bookingDate, slotTime } = params;
+  const bookingLimit = await checkBookingLimit(storeId);
+  if (!bookingLimit.allowed) {
+    throw new AppError(
+      "BUSINESS_RULE",
+      `體驗版預約上限 ${bookingLimit.limit} 筆已達，請升級方案以繼續新增`,
+    );
+  }
+
+  if (user.storeId) {
+    const { checkMonthlyBookingLimitOrThrow } = await import("@/lib/usage-gate");
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+    const monthlyCount = await prisma.booking.count({
+      where: { storeId: user.storeId, createdAt: { gte: monthStart, lte: monthEnd } },
+    });
+    await checkMonthlyBookingLimitOrThrow(monthlyCount, user.storeId);
+  }
+
+  const operatingStatus = await getStoreOperatingStatus(storeId);
+  if (!isStoreBookableStatus(operatingStatus)) {
+    throw new AppError("BUSINESS_RULE", getStoreUnavailableMessage(operatingStatus));
+  }
+  await assertStoreSubscriptionWritable(storeId, {
+    message: BOOKING_EXPIRED_MESSAGE,
+  });
+
+  const todayStr = toLocalDateStr();
+  if (bookingDate < todayStr) {
+    throw new AppError("VALIDATION", "不可預約過去的日期");
+  }
+  const sc = await prisma.shopConfig.findUnique({
+    where: { storeId },
+    select: { bookableUntilDate: true },
+  });
+  const bookableUntil = resolveBookableUntilDate(sc?.bookableUntilDate);
+  if (bookingDate > bookableUntil) {
+    throw new AppError(
+      "BUSINESS_RULE",
+      user.role === "CUSTOMER"
+        ? "次月預約時段尚未開放，請等候店長通知。"
+        : `店鋪目前僅開放預約至 ${bookableUntil}，請先到營業時間設定開放日期。`,
+    );
+  }
+
+  const dayCtx = await loadDayBusinessHoursContext(storeId, bookingDate);
+  if (dayCtx.rule.closed) {
+    const reasonLabel = dayCtx.rule.status === "training" ? "進修日" : "公休日";
+    throw new AppError("BUSINESS_RULE", `${bookingDate} 為${reasonLabel}，無法預約`);
+  }
+  const slotOverride = dayCtx.slotOverrides.find(
+    (override) => override.startTime === slotTime,
+  );
+  if (slotOverride?.type === "disabled") {
+    throw new AppError(
+      "BUSINESS_RULE",
+      `${bookingDate} ${slotTime} 時段已被手動關閉${slotOverride.reason ? `（${slotOverride.reason}）` : ""}`,
+    );
+  }
+
+  return { todayStr, dayCtx };
+}
+
 // ============================================================
 // createBooking
 //
@@ -141,99 +219,33 @@ function revalidateAll(customerId?: string) {
 // ============================================================
 
 export async function createBooking(
-  input: z.infer<typeof createBookingSchema>
+  input: z.infer<typeof createBookingSchema>,
+  idempotency?: BookingIdempotencyEnvelope,
 ): Promise<ActionResult<{ bookingId: string }>> {
+  let activeSubmission:
+    | { submissionId: string; attemptToken: string; payloadHash: string }
+    | null = null;
   try {
     const user = await requireSession();
     await assertStaffBookingWritable(user);
     const data = createBookingSchema.parse(input);
+    const storeId = currentStoreId(user);
     const bookingPeople = data.people ?? 1;
     const requestedMakeup = data.isMakeup ?? false;
     // 補課券有效性以「預約日期」當天 00:00（台灣）為界，而非操作當下 now。
     // 補課資格只能在期限內使用，須依「預約 / 課程日期」判斷 expiredAt >= 預約日，
     // 否則會允許用對該預約日已過期的券（例：到 6/15 的券去預約 6/22）。
     const makeupValidFrom = dayRange(data.bookingDate).start;
-
-    // ── 0. FREE 方案預約數限制
-    const bookingLimit = await checkBookingLimit(currentStoreId(user));
-    if (!bookingLimit.allowed) {
-      return {
-        success: false,
-        error: `體驗版預約上限 ${bookingLimit.limit} 筆已達，請升級方案以繼續新增`,
-      };
-    }
-
-    // ── 0.1 PricingPlan 月度預約數限制
-    // 必須傳 user.storeId — 否則 checkMonthlyBookingLimitOrThrow 會走
-    // getCurrentStoreForPlan() 內的 requireStaffSession()，CUSTOMER 自助預約即被擋。
-    if (user.storeId) {
-      const { checkMonthlyBookingLimitOrThrow } = await import("@/lib/usage-gate");
-      const now = new Date();
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-      const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
-      const monthlyCount = await prisma.booking.count({
-        where: { storeId: user.storeId, createdAt: { gte: monthStart, lte: monthEnd } },
-      });
-      await checkMonthlyBookingLimitOrThrow(monthlyCount, user.storeId);
-    }
-
-    // ── 0.4 訂閱到期保護：到期店家不可建立新預約（店長後台 + 顧客 LIFF 共用此 SoT；
-    //         無訂閱店不擋；通用訊息店長/顧客都看得懂）
-    const storeId = currentStoreId(user);
-    const operatingStatus = await getStoreOperatingStatus(storeId);
-    if (!isStoreBookableStatus(operatingStatus)) {
-      throw new AppError("BUSINESS_RULE", getStoreUnavailableMessage(operatingStatus));
-    }
-    await assertStoreSubscriptionWritable(storeId, {
-      message: BOOKING_EXPIRED_MESSAGE,
-    });
-
-    // ── 0.45 店鋪可預約日期上限（含當日）
-    // 前台與後台都必須遵守 ShopConfig.bookableUntilDate；未設定時沿用
-    // resolveBookableUntilDate(null) 的預設視窗。這裡先擋超出店鋪開放日，
-    // 避免後台手動送未開放日期繞過 UI。
-    const todayStr = toLocalDateStr(); // 台灣今天 "YYYY-MM-DD"
-    if (data.bookingDate < todayStr) {
-      throw new AppError("VALIDATION", "不可預約過去的日期");
-    }
-
-    const sc = await prisma.shopConfig.findUnique({
-      where: { storeId },
-      select: { bookableUntilDate: true },
-    });
-    const bookableUntil = resolveBookableUntilDate(sc?.bookableUntilDate);
-    // 字串比較即年代順序；含當日 → 僅當超過上限才擋
-    if (data.bookingDate > bookableUntil) {
-      throw new AppError(
-        "BUSINESS_RULE",
-        user.role === "CUSTOMER"
-          ? "次月預約時段尚未開放，請等候店長通知。"
-          : `店鋪目前僅開放預約至 ${bookableUntil}，請先到營業時間設定開放日期。`,
-      );
-    }
-
-    // ── 0.5 檢查營業日 / 公休（共用 resolver，與後台/前台月曆同源）
-    const dayCtx = await loadDayBusinessHoursContext(storeId, data.bookingDate);
-
-    if (dayCtx.rule.closed) {
-      const reasonLabel = dayCtx.rule.status === "training" ? "進修日" : "公休日";
-      return {
-        success: false,
-        error: `${data.bookingDate} 為${reasonLabel}，無法預約`,
-      };
-    }
-
-    // 檢查 SlotOverride（單一時段覆寫，最高優先）
-    const slotOverride = data.slotTime
-      ? dayCtx.slotOverrides.find((o) => o.startTime === data.slotTime) ?? null
-      : null;
-
-    if (slotOverride?.type === "disabled") {
-      return {
-        success: false,
-        error: `${data.bookingDate} ${data.slotTime} 時段已被手動關閉${slotOverride.reason ? `（${slotOverride.reason}）` : ""}`,
-      };
-    }
+    // Optional rollout contract: callers without a key retain the established
+    // validation order. Keyed calls defer mutable checks until after replay.
+    const preClaimEligibility = idempotency?.requestKey
+      ? null
+      : await loadCreateBookingEligibility({
+          user,
+          storeId,
+          bookingDate: data.bookingDate,
+          slotTime: data.slotTime,
+        });
 
     // ── 0.7 解析 canonical customerId（顧客自助流程不信任 client 傳入）
     //
@@ -284,6 +296,20 @@ export async function createBooking(
       assertSameStore("ServicePlan", servicePlan.storeId, storeId);
     }
 
+    // Explicit wallet selection is part of the user's operation intent. Validate
+    // ownership/store before hashing or claiming so an untrusted wallet ID is
+    // never persisted in the submission audit trail.
+    const requestedCustomerPlanWalletId = data.customerPlanWalletId ?? null;
+    if (requestedCustomerPlanWalletId) {
+      const selectedWallet = customer.planWallets.find(
+        (wallet) => wallet.id === requestedCustomerPlanWalletId,
+      );
+      if (!selectedWallet) {
+        throw new AppError("FORBIDDEN", "指定的方案不屬於該顧客");
+      }
+      assertSameStore("CustomerPlanWallet", selectedWallet.storeId, storeId);
+    }
+
     // ── 3. 補課優先抵用（P0 mixed makeup + package）
     //   規則：一張券抵 1 人 / 1 堂；PACKAGE_SESSION 預約自動優先使用
     //   min(有效券數, people) 張補課券；剩餘人數才保留 WalletSession。
@@ -301,6 +327,79 @@ export async function createBooking(
         );
       }
     }
+
+    if (idempotency?.requestKey) {
+      const { payloadHash } = buildBookingCreatePayloadHash({
+        storeId,
+        actorUserId: user.id,
+        canonicalCustomerId: effectiveCustomerId,
+        bookingType: data.bookingType,
+        servicePlanId: data.servicePlanId,
+        bookingDate: data.bookingDate,
+        slotTime: data.slotTime,
+        people: bookingPeople,
+        notes: data.notes,
+        expectedAmount: data.expectedAmount,
+        assignedStaffId: idempotency.assignedStaffId,
+        skipDutyCheck: data.skipDutyCheck,
+        customerPlanWalletId: requestedCustomerPlanWalletId,
+      });
+      const claim = await claimBookingSubmission({
+        storeId,
+        requestKey: idempotency.requestKey,
+        submissionType: "BOOKING_CREATE",
+        payloadHash,
+        actorUserId: user.id,
+        canonicalCustomerId: effectiveCustomerId,
+        source: idempotency.source,
+      });
+      if (claim.kind === "replay") {
+        if (claim.snapshot.result.bookingIds.length !== 1) {
+          throw new Error("BOOKING_CREATE replay must contain exactly one booking ID");
+        }
+        revalidateAll(effectiveCustomerId);
+        return {
+          success: true,
+          data: { bookingId: claim.snapshot.result.bookingIds[0] },
+        };
+      }
+      if (claim.kind === "key_reused") {
+        throw new AppError(
+          "CONFLICT",
+          "IDEMPOTENCY_KEY_REUSED：同一請求識別不可用於不同預約內容",
+        );
+      }
+      if (claim.kind === "in_progress") {
+        throw new AppError(
+          "CONFLICT",
+          "SUBMISSION_IN_PROGRESS：預約提交處理中，請稍後以相同請求重試",
+        );
+      }
+      if (claim.kind === "failed_final") {
+        throw new AppError(
+          "BUSINESS_RULE",
+          `此預約提交先前已被拒絕${claim.errorCategory ? `（${claim.errorCategory}）` : ""}`,
+        );
+      }
+      activeSubmission = {
+        submissionId: claim.submissionId,
+        attemptToken: claim.attemptToken,
+        payloadHash,
+      };
+    }
+
+    // Replay must be resolved before mutable eligibility checks. Otherwise a
+    // successful retry could be rejected because the first booking consumed
+    // the last plan/capacity slot or the store configuration changed later.
+    const { todayStr, dayCtx } =
+      preClaimEligibility ??
+      (await loadCreateBookingEligibility({
+        user,
+        storeId,
+        bookingDate: data.bookingDate,
+        slotTime: data.slotTime,
+      }));
+
     const canApplyMakeup = data.bookingType === "PACKAGE_SESSION";
     // storeId 一併比對（防多店情境：顧客的券屬於某店，僅該店可消耗）。
     const validMakeupCount = canApplyMakeup
@@ -320,23 +419,6 @@ export async function createBooking(
     // ── 4. 一般預約：需有有效課程 + 票券期限 + 人數檢查
     // 不信任 client 傳入的 customerPlanWalletId — 必須屬於 effectiveCustomerId
     // （customer.planWallets 已用 effectiveCustomerId 撈，所以同表比對即可）
-    if (walletPeople > 0 && data.customerPlanWalletId) {
-      const walletBelongs = customer.planWallets.some(
-        (w) => w.id === data.customerPlanWalletId,
-      );
-      if (!walletBelongs) {
-        throw new AppError(
-          "FORBIDDEN",
-          "指定的方案不屬於該顧客",
-        );
-      }
-      const selectedWallet = customer.planWallets.find(
-        (w) => w.id === data.customerPlanWalletId,
-      );
-      if (selectedWallet) {
-        assertSameStore("CustomerPlanWallet", selectedWallet.storeId, storeId);
-      }
-    }
     // P0：PACKAGE_SESSION 預約一律要求有效方案（看資料，不看角色）
     // ────────────────────────────────────────────────────────────
     // 系統規則：「只要是 PACKAGE_SESSION，就一定要有可扣堂數」
@@ -626,6 +708,19 @@ export async function createBooking(
         }
       }
 
+      if (activeSubmission) {
+        await finalizeBookingSubmissionSuccess(tx, {
+          ...activeSubmission,
+          snapshot: {
+            version: 1,
+            result: {
+              bookingIds: [created.id],
+              recurrenceGroupId: null,
+            },
+          },
+        });
+      }
+
       return created;
     });
 
@@ -645,6 +740,29 @@ export async function createBooking(
     revalidateAll(effectiveCustomerId);
     return { success: true, data: { bookingId: booking.id } };
   } catch (e) {
+    if (activeSubmission) {
+      const finalFailure =
+        e instanceof AppError &&
+        ["UNAUTHORIZED", "FORBIDDEN", "NOT_FOUND", "VALIDATION"].includes(e.code);
+      try {
+        const finalize = finalFailure
+          ? finalizeBookingSubmissionFinalFailure
+          : finalizeBookingSubmissionRetryableFailure;
+        await finalize({
+          submissionId: activeSubmission.submissionId,
+          attemptToken: activeSubmission.attemptToken,
+          errorCategory: e instanceof AppError ? e.code : "TRANSIENT",
+        });
+      } catch (finalizeError) {
+        console.error("[createBooking] failed to finalize idempotency failure", {
+          submissionId: activeSubmission.submissionId,
+          error:
+            finalizeError instanceof Error
+              ? finalizeError.message
+              : String(finalizeError),
+        });
+      }
+    }
     return handleActionError(e);
   }
 }

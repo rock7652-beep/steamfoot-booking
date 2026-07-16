@@ -40,8 +40,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mockRequireSession = vi.fn();
 const mockGetCanonicalId = vi.fn();
 const mockCreateBooking = vi.fn();
-// PR-NoShow-2：action 會先查有效補課券數量決定是否走 makeup。
-const mockMakeupCount = vi.fn();
+const mockBookingFindFirst = vi.fn();
 
 vi.mock("@/lib/session", () => ({
   requireSession: (...args: unknown[]) => mockRequireSession(...args),
@@ -58,7 +57,9 @@ vi.mock("@/server/actions/booking", () => ({
 
 vi.mock("@/lib/db", () => ({
   prisma: {
-    makeupCredit: { count: (...args: unknown[]) => mockMakeupCount(...args) },
+    booking: {
+      findFirst: (...args: unknown[]) => mockBookingFindFirst(...args),
+    },
   },
 }));
 
@@ -89,9 +90,8 @@ describe("submitLiffMemberBooking action (PR-G2)", () => {
     mockRequireSession.mockReset();
     mockGetCanonicalId.mockReset();
     mockCreateBooking.mockReset();
-    mockMakeupCount.mockReset();
-    // 預設無補課券 → 既有 PACKAGE_SESSION 行為不變。
-    mockMakeupCount.mockResolvedValue(0);
+    mockBookingFindFirst.mockReset();
+    mockBookingFindFirst.mockResolvedValue({ isMakeup: false });
   });
 
   afterEach(() => {
@@ -185,12 +185,12 @@ describe("submitLiffMemberBooking action (PR-G2)", () => {
       });
     });
 
-    it("6m. 有有效補課券 → createBooking 帶 isMakeup:true，回 ok usedMakeup:true (PR-NoShow-2)", async () => {
-      mockMakeupCount.mockResolvedValue(1);
+    it("6m. persisted booking 有補課券關聯 → 回 ok usedMakeup:true (PR-NoShow-2)", async () => {
       mockCreateBooking.mockResolvedValue({
         success: true,
         data: { bookingId: "book-makeup-001" },
       });
+      mockBookingFindFirst.mockResolvedValue({ isMakeup: true });
 
       const r = await submitLiffMemberBooking(VALID_INPUT);
 
@@ -200,7 +200,6 @@ describe("submitLiffMemberBooking action (PR-G2)", () => {
         slotTime: "10:00",
         bookingType: "PACKAGE_SESSION",
         people: 1,
-        isMakeup: true,
       });
       expect(r).toEqual({
         status: "ok",
@@ -209,6 +208,27 @@ describe("submitLiffMemberBooking action (PR-G2)", () => {
         slotTime: "10:00",
         usedMakeup: true,
       });
+    });
+
+    it("keyed replay derives usedMakeup from the original booking instead of current credits", async () => {
+      const requestKey = "liff_member_replay_01234567";
+      mockCreateBooking.mockResolvedValue({
+        success: true,
+        data: { bookingId: "book-makeup-replay" },
+      });
+      mockBookingFindFirst.mockResolvedValue({ isMakeup: true });
+
+      const first = await submitLiffMemberBooking({ ...VALID_INPUT, requestKey });
+      const replay = await submitLiffMemberBooking({ ...VALID_INPUT, requestKey });
+
+      expect(first).toMatchObject({
+        status: "ok",
+        bookingId: "book-makeup-replay",
+        usedMakeup: true,
+      });
+      expect(replay).toEqual(first);
+      expect(mockCreateBooking).toHaveBeenCalledTimes(2);
+      expect(mockBookingFindFirst).toHaveBeenCalledTimes(2);
     });
 
     it("6a. createBooking called with PACKAGE_SESSION + canonical customerId + zero wallet/staff/payment fields", async () => {
@@ -227,6 +247,20 @@ describe("submitLiffMemberBooking action (PR-G2)", () => {
         bookingType: "PACKAGE_SESSION",
         people: 1,
       });
+    });
+
+    it("forwards an optional request key without changing the booking intent type", async () => {
+      const requestKey = "liff_member_0123456789abcdef";
+      mockCreateBooking.mockResolvedValue({
+        success: true,
+        data: { bookingId: "book-mem-keyed" },
+      });
+      const r = await submitLiffMemberBooking({ ...VALID_INPUT, requestKey });
+      expect(r.status).toBe("ok");
+      expect(mockCreateBooking).toHaveBeenCalledWith(
+        expect.objectContaining({ bookingType: "PACKAGE_SESSION" }),
+        { requestKey, source: "liff-member" },
+      );
     });
 
     it("14. 嚴格驗證不傳任何 wallet / payment / makeup 欄位", async () => {

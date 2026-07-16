@@ -70,13 +70,16 @@ describe("booking.ts source — PR-1.5a 規則 guards", () => {
   it("不可把 assignedStaffId 當成 Customer 的 write target（防 silent re-assignment）", () => {
     // booking.ts 內現有 markCompleted 等 action 會 update customer 的
     // customerStage / selfBookingEnabled / lastVisitAt — 那些都不該觸及
-    // Customer.assignedStaffId。`assignedStaffId:` 在 booking.ts 內**只能**
-    // 在 read context 出現（例如 `customer.assignedStaffId`，沒有冒號）。
+    // Customer.assignedStaffId。Intent hash 可以合法包含 `assignedStaffId:`，
+    // 因此 guard 必須鎖定 customer.update 的 data block，而非禁止整個檔案
+    // 出現同名欄位。
     //
     // 這條 guard 同時擋掉：
     //   - data: { assignedStaffId: ... }
     //   - select: { assignedStaffId: ... } 也可，但目前不需 select 此欄
-    expect(BOOKING_SRC).not.toMatch(/assignedStaffId\s*:/);
+    expect(BOOKING_SRC).not.toMatch(
+      /customer\.update\s*\(\s*\{[\s\S]{0,500}?data\s*:\s*\{[\s\S]{0,300}?assignedStaffId\s*:/,
+    );
   });
 
   it("快照只能透過 snapshotRevenueStaffForBooking helper 寫入", () => {

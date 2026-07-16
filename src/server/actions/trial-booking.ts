@@ -192,16 +192,23 @@ export async function createTrialBooking(
     // ── 5. 建立 FIRST_TRIAL 預約（複用 createBooking：名額/營業日/值班檢查）
     //      無 customerPlanWalletId → 既有邏輯保證不 allocateSession、不扣堂。
     //      不呼叫 assignPlanToCustomer → 不建 Transaction / Wallet / 營收。
-    const result = await createBooking({
+    const bookingInput = {
       customerId,
       bookingDate: data.bookingDate,
       slotTime: data.slotTime,
-      bookingType: "FIRST_TRIAL",
+      bookingType: "FIRST_TRIAL" as const,
       servicePlanId: trialPlan.id,
       people: bookingPeople,
       expectedAmount,
       notes: data.notes,
-    });
+    };
+    const result = data.requestKey
+      ? await createBooking(bookingInput, {
+          requestKey: data.requestKey,
+          source: "staff-trial",
+          assignedStaffId: data.assignedStaffId,
+        })
+      : await createBooking(bookingInput);
     mark("createBooking");
 
     if (!result.success) {

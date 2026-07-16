@@ -46,7 +46,10 @@ vi.mock("@/lib/db", () => ({
     customer: { findFirst: h.custFindFirst, findUnique: h.custFindUnique, update: h.custUpdate },
   },
 }));
-vi.mock("@/lib/permissions", () => ({ requirePermission: h.requirePermission }));
+vi.mock("@/lib/permissions", () => ({
+  requirePermission: h.requirePermission,
+  requireWritablePermission: h.requirePermission,
+}));
 vi.mock("@/lib/store", () => ({ currentStoreId: h.currentStoreId }));
 vi.mock("@/lib/shop-config", () => ({
   getTrialSettings: h.getTrialSettings,
@@ -117,6 +120,21 @@ describe("createTrialBooking — no financial side-effects", () => {
     h.custFindFirst.mockResolvedValue({ id: CUID.cust, assignedStaffId: "x" });
     const r = await createTrialBooking({ ...base, customerId: CUID.cust });
     expect(r.success).toBe(true); // clean success ⇒ no prisma.transaction/customerPlanWallet calls
+  });
+
+  it("forwards an optional request key as BOOKING_CREATE server plumbing", async () => {
+    h.custFindFirst.mockResolvedValue({ id: CUID.cust, assignedStaffId: "x" });
+    const requestKey = "staff_trial_0123456789abcdef";
+    const r = await createTrialBooking({ ...base, customerId: CUID.cust, requestKey });
+    expect(r.success).toBe(true);
+    expect(h.createBooking).toHaveBeenCalledWith(
+      expect.objectContaining({ bookingType: "FIRST_TRIAL" }),
+      {
+        requestKey,
+        source: "staff-trial",
+        assignedStaffId: CUID.staff,
+      },
+    );
   });
 });
 
