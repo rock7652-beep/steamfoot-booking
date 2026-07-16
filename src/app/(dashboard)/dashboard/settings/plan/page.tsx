@@ -29,6 +29,7 @@ import {
   InfoList,
   type InfoListItem,
 } from "@/components/desktop";
+import { getActiveStoreForRead } from "@/lib/store";
 
 export default async function PlanSettingsPage() {
   const user = await getCurrentUser();
@@ -37,6 +38,18 @@ export default async function PlanSettingsPage() {
   }
   if (user.role !== "ADMIN" && user.role !== "OWNER" && user.role !== "PARTNER") {
     notFound();
+  }
+
+  const activeStoreId = await getActiveStoreForRead(user);
+  if (!activeStoreId) {
+    return (
+      <PageShell>
+        <PageHeader title="方案設定" subtitle="請先從右上角切換到特定店舖" />
+        <div className="rounded-xl border border-earth-200 bg-white p-8 text-center">
+          <p className="text-sm text-earth-500">全部分店模式不顯示或修改單店方案，請先選擇特定店舖。</p>
+        </div>
+      </PageShell>
+    );
   }
 
   const currentPlan = await getCurrentStorePlan();

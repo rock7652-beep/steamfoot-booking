@@ -4,7 +4,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireAdminSession } from "@/lib/session";
 import { requirePermission } from "@/lib/permissions";
-import { AppError, handleActionError } from "@/lib/errors";
+import { handleActionError } from "@/lib/errors";
 import { revalidateDutyScheduling, revalidateShopConfig } from "@/lib/revalidation";
 import type { PricingPlan } from "@prisma/client";
 import type { ActionResult } from "@/types";
@@ -96,8 +96,7 @@ export async function updateShopBankInfo(
   try {
     const user = await requirePermission("plans.edit");
     const data = updateShopBankInfoSchema.parse(input);
-    const storeId = user.storeId;
-    if (!storeId) throw new AppError("FORBIDDEN", "使用者未綁定店別");
+    const storeId = await resolveWriteStoreId(user);
 
     const clean = {
       bankName: data.bankName?.trim() || null,
@@ -154,8 +153,7 @@ export async function updateTrialSettings(
   try {
     const user = await requirePermission("trial.manage");
     const data = updateTrialSettingsSchema.parse(input);
-    const storeId = user.storeId;
-    if (!storeId) throw new AppError("FORBIDDEN", "使用者未綁定店別");
+    const storeId = await resolveWriteStoreId(user);
 
     await prisma.shopConfig.upsert({
       where: { storeId },

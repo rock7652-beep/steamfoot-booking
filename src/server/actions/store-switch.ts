@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { requireStaffSession } from "@/lib/session";
 import { isOwner } from "@/lib/permissions";
+import { validateStoreAccess } from "@/lib/store";
 import { AppError, handleActionError } from "@/lib/errors";
 import type { ActionResult } from "@/types";
 
@@ -22,6 +23,8 @@ export async function switchActiveStore(
     if (!isOwner(user.role)) {
       throw new AppError("UNAUTHORIZED", "僅店長可切換分店視角");
     }
+
+    await validateStoreAccess(user, storeId, "switch");
 
     const cookieStore = await cookies();
     cookieStore.set(COOKIE_NAME, storeId, {

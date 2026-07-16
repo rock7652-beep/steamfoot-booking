@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { updateShopBankInfo } from "@/server/actions/shop";
 
 interface Props {
+  storeId: string;
   initial: {
     bankName: string | null;
     bankCode: string | null;
@@ -18,7 +19,7 @@ const inputCls =
   "mt-1 block w-full rounded-lg border border-earth-300 bg-white px-3 py-2 text-sm text-earth-800 placeholder:text-earth-400 focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400";
 const labelCls = "block text-sm font-medium text-earth-700";
 
-export function PaymentSettingsForm({ initial }: Props) {
+export function PaymentSettingsForm({ storeId, initial }: Props) {
   const [bankName, setBankName] = useState(initial.bankName ?? "");
   const [bankCode, setBankCode] = useState(initial.bankCode ?? "");
   const [bankAccountNumber, setBankAccountNumber] = useState(initial.bankAccountNumber ?? "");
@@ -58,6 +59,7 @@ export function PaymentSettingsForm({ initial }: Props) {
 
   return (
     <form
+      data-store-id={storeId}
       onSubmit={handleSubmit}
       className="grid grid-cols-1 gap-4 lg:grid-cols-12"
     >
