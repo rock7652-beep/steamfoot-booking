@@ -5,7 +5,7 @@ import { hashSync } from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { requireStaffSession } from "@/lib/session";
 import { AppError, handleActionError } from "@/lib/errors";
-import { checkCurrentStoreFeature } from "@/lib/feature-gate";
+import { requireStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
 import {
   createDefaultPermissions,
@@ -118,9 +118,9 @@ export async function createStaff(
 ): Promise<ActionResult<{ staffId: string }>> {
   try {
     const sessionUser = await requireStaffManageSession();
-    await checkCurrentStoreFeature(FEATURES.STAFF_MANAGEMENT);
     const data = createStaffSchema.parse(input);
     const writeStoreId = await resolveWriteStoreId(sessionUser);
+    await requireStoreFeature(writeStoreId, FEATURES.STAFF_MANAGEMENT);
 
     // 用量限制：檢查員工數量上限
     const { checkStaffLimitOrThrow } = await import("@/lib/usage-gate");

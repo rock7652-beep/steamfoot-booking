@@ -272,6 +272,10 @@ vi.mock("@/lib/session", () => ({
 vi.mock("@/lib/manager-visibility", () => ({
   getStoreFilter: () => ({ storeId: STORE_ID }),
 }));
+vi.mock("@/lib/store", () => ({
+  getActiveStoreForRead: async () => STORE_ID,
+  validateStoreAccess: async (_user: unknown, requestedStoreId: string) => requestedStoreId,
+}));
 
 async function loadModules() {
   const engine = await import("@/server/reminder-engine");

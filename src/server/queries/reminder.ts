@@ -2,7 +2,8 @@ import { prisma } from "@/lib/db";
 import type { CronRunStatus } from "@prisma/client";
 import { requireStaffSession } from "@/lib/session";
 import { dayRange, toLocalDateStr } from "@/lib/date-utils";
-import { getStoreFilter } from "@/lib/manager-visibility";
+import { getActiveStoreForRead, validateStoreAccess } from "@/lib/store";
+import { AppError } from "@/lib/errors";
 import { todayReminderTriggerAt, tomorrowBookingDate } from "@/server/reminder-engine";
 
 // ============================================================
@@ -10,9 +11,9 @@ import { todayReminderTriggerAt, tomorrowBookingDate } from "@/server/reminder-e
 // ============================================================
 
 export async function listReminderRules(storeId: string) {
-  await requireStaffSession();
+  const authorizedStoreId = await resolveReminderReadStore(storeId);
   return prisma.reminderRule.findMany({
-    where: { storeId },
+    where: { storeId: authorizedStoreId },
     include: {
       template: { select: { id: true, name: true } },
       _count: { select: { logs: true } },
@@ -36,8 +37,9 @@ export async function getStoreReminderState(storeId: string): Promise<{
   enabled: boolean;
   canonicalTemplateId: string | null;
 }> {
+  const authorizedStoreId = await resolveReminderReadStore(storeId);
   const rules = await prisma.reminderRule.findMany({
-    where: { storeId },
+    where: { storeId: authorizedStoreId },
     orderBy: { createdAt: "asc" },
     select: { isEnabled: true, templateId: true },
   });
@@ -52,14 +54,15 @@ export async function getLineSmokeTestContext(storeId: string): Promise<{
   storeName: string;
   customers: Array<{ id: string; name: string; phone: string }>;
 }> {
+  const authorizedStoreId = await resolveReminderReadStore(storeId);
   const [store, customers] = await Promise.all([
     prisma.store.findUnique({
-      where: { id: storeId },
+      where: { id: authorizedStoreId },
       select: { name: true },
     }),
     prisma.customer.findMany({
       where: {
-        storeId,
+        storeId: authorizedStoreId,
         lineLinkStatus: "LINKED",
         lineUserId: { not: null },
       },
@@ -80,18 +83,18 @@ export async function getLineSmokeTestContext(storeId: string): Promise<{
 // ============================================================
 
 export async function listMessageTemplates(storeId: string) {
-  await requireStaffSession();
+  const authorizedStoreId = await resolveReminderReadStore(storeId);
   return prisma.messageTemplate.findMany({
-    where: { storeId },
+    where: { storeId: authorizedStoreId },
     include: { _count: { select: { logs: true, rules: true } } },
     orderBy: { createdAt: "desc" },
   });
 }
 
 export async function getMessageTemplate(id: string, storeId: string) {
-  await requireStaffSession();
+  const authorizedStoreId = await resolveReminderReadStore(storeId);
   const template = await prisma.messageTemplate.findFirst({
-    where: { id, storeId },
+    where: { id, storeId: authorizedStoreId },
     include: { rules: { select: { id: true, name: true } } },
   });
   return template;
@@ -109,11 +112,10 @@ export interface ListMessageLogsOptions {
 }
 
 export async function listMessageLogs(options: ListMessageLogsOptions & { activeStoreId?: string | null } = {}) {
-  const user = await requireStaffSession();
-  const storeFilter = getStoreFilter(user, options.activeStoreId);
+  const storeId = await resolveReminderReadStore(options.activeStoreId);
   const { status, search, page = 1, pageSize = 30 } = options;
 
-  const where: Record<string, unknown> = { ...storeFilter };
+  const where: Record<string, unknown> = { storeId };
   if (status && status !== "ALL") {
     where.status = status;
   }
@@ -156,8 +158,8 @@ export async function listMessageLogs(options: ListMessageLogsOptions & { active
  * ⚠ 絕對不要用 status="PENDING" 計數 — 引擎只寫入 SENT/FAILED，不會留 pending row。
  */
 export async function getReminderStats(activeStoreId?: string | null) {
-  const user = await requireStaffSession();
-  const storeFilter = getStoreFilter(user, activeStoreId);
+  const storeId = await resolveReminderReadStore(activeStoreId);
+  const storeFilter = { storeId };
   const today = toLocalDateStr();
   const { start: todayStart, end: todayEnd } = dayRange(today);
 
@@ -217,6 +219,21 @@ export async function getReminderStats(activeStoreId?: string | null) {
   }
 
   return { enabledRules, todayPending, todaySent, todayFailed };
+}
+
+async function resolveReminderReadStore(
+  requestedStoreId?: string | null,
+): Promise<string> {
+  const user = await requireStaffSession();
+  const authorizedStoreId = await getActiveStoreForRead(user);
+  if (!authorizedStoreId) {
+    throw new AppError("VALIDATION", "請先切換到特定店舖");
+  }
+  if (requestedStoreId && requestedStoreId !== authorizedStoreId) {
+    await validateStoreAccess(user, requestedStoreId, "read");
+    throw new AppError("FORBIDDEN", "頁面店舖與查詢店舖不一致");
+  }
+  return authorizedStoreId;
 }
 
 // ============================================================
