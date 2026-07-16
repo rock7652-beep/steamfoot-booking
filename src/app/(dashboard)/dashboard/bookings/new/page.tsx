@@ -14,6 +14,7 @@ import { CustomerAndPlanFields } from "./customer-and-plan-fields";
 import { DashboardBookingForm } from "./booking-form";
 import { FormErrorToast } from "@/components/form-error-toast";
 import { SubmitButton } from "@/components/submit-button";
+import { BookingRequestKeyField } from "@/components/booking-request-key-field";
 import {
   PageShell,
   PageHeader,
@@ -87,6 +88,7 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
     // 若補課券不足以覆蓋人數，createBooking 會用補課券抵一部分，剩餘人數
     // 使用 customerPlanWalletId 指定/FEFO 自選的方案堂數。
     const isMakeup = formData.get("isMakeup") === "on";
+    const requestKey = (formData.get("requestKey") as string) || undefined;
 
     if (!customerId) {
       redirect(
@@ -94,7 +96,7 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
       );
     }
 
-    const result = await createBooking({
+    const bookingInput = {
       customerId,
       bookingDate,
       slotTime,
@@ -103,8 +105,11 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
       notes,
       skipDutyCheck: skipDutyCheck || undefined,
       customerPlanWalletId,
-      ...(isMakeup ? { isMakeup: true } : {}),
-    });
+      ...(isMakeup ? { isMakeup: true as const } : {}),
+    };
+    const result = requestKey
+      ? await createBooking(bookingInput, { requestKey, source: "staff-booking" })
+      : await createBooking(bookingInput);
 
     if (!result.success) {
       redirect(
@@ -136,6 +141,7 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
 
       <FormShell width="lg">
         <form action={handleCreate} className="space-y-6 pb-4">
+          <BookingRequestKeyField />
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             {/* 左欄：預約資訊 */}
             <div className="space-y-6">

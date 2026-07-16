@@ -5,6 +5,7 @@ import { createBooking } from "@/server/actions/booking";
 import { fetchDaySlots } from "@/server/actions/slots";
 import { toast } from "sonner";
 import type { SlotAvailability } from "@/types";
+import { useBookingRequestKey } from "@/hooks/use-booking-request-key";
 
 interface ActiveWallet {
   id: string;
@@ -23,6 +24,7 @@ interface Props {
 type BookingType = "FIRST_TRIAL" | "SINGLE" | "PACKAGE_SESSION";
 
 export function CreateBookingForm({ customerId, days, activeWallets }: Props) {
+  const requestKey = useBookingRequestKey();
   const [selectedDate, setSelectedDate] = useState(days[0] ?? "");
   const [slots, setSlots] = useState<SlotAvailability[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(days.length > 0);
@@ -64,13 +66,15 @@ export function CreateBookingForm({ customerId, days, activeWallets }: Props) {
         bookingType,
         customerPlanWalletId: customerPlanWalletId || undefined,
         people,
-      });
+      }, { requestKey: requestKey.current(), source: "customer-detail" });
       if (result.success) {
+        requestKey.complete();
         toast.success("預約已建立");
         // 重新載入時段（反映新預約）
         loadSlots(bookingDate);
         return { error: null, success: true };
       }
+      requestKey.handleError(result.error);
       toast.error(result.error ?? "建立預約失敗");
       return { error: result.error ?? "發生錯誤", success: false };
     },

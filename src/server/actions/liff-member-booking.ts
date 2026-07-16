@@ -83,6 +83,7 @@ export type SubmitLiffMemberBookingResult =
   | { status: "makeup_unavailable" }
   // #305：本店訂閱到期 → 暫時無法建立新預約（查看/取消既有不受影響）。
   | { status: "store_subscription_expired" }
+  | { status: "idempotency_key_reused" }
   | { status: "service_unavailable" };
 
 export async function submitLiffMemberBooking(
@@ -217,6 +218,10 @@ function mapCreateBookingErrorToStatus(
   ctx: { customerId: string; storeId: string },
 ): SubmitLiffMemberBookingResult {
   const msg = errorMsg ?? "";
+
+  if (/IDEMPOTENCY_KEY_REUSED/.test(msg)) {
+    return { status: "idempotency_key_reused" };
+  }
 
   // ── Wallet-specific (PACKAGE_SESSION 專屬) ──
   // booking.ts:250 「目前沒有可使用的方案，請先購買課程方案或聯繫店家協助」(CUSTOMER role)

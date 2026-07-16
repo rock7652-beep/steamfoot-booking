@@ -71,6 +71,7 @@ import {
 import { NoWalletCard } from "./_components/no-wallet-card";
 import { BlockedBlock } from "./_components/blocked-block";
 import { SuccessCard } from "./_components/success-card";
+import { useBookingRequestKey } from "@/hooks/use-booking-request-key";
 
 type State =
   | { kind: "initializing" }
@@ -104,6 +105,7 @@ interface Props {
 }
 
 export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: Props) {
+  const requestKey = useBookingRequestKey();
   const [state, setState] = useState<State>({ kind: "initializing" });
   // PR-NoShow-2：有效補課券（最早到期優先）。people=N 時券 >= N 即自動使用 N 張。
   const [makeupCredits, setMakeupCredits] = useState<LiffMakeupCreditRow[]>([]);
@@ -290,6 +292,7 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
         bookingDate: selectedDate,
         slotTime: selectedSlot,
         people,
+        requestKey: requestKey.current(),
       });
     } catch (err) {
       console.error("[member-booking-form] action throw", err);
@@ -299,6 +302,7 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
 
     switch (result.status) {
       case "ok":
+        requestKey.complete();
         setState({
           kind: "success",
           bookingDate: result.bookingDate,
@@ -378,6 +382,17 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
           showRetry: false,
           showContactStore: true,
           showDismiss: false,
+        });
+        return;
+      case "idempotency_key_reused":
+        requestKey.handleError("IDEMPOTENCY_KEY_REUSED");
+        setState({
+          kind: "blocked",
+          wallet: walletCarry,
+          message: liffMessages.error.serviceUnavailable,
+          showRetry: true,
+          showContactStore: false,
+          showDismiss: true,
         });
         return;
       case "service_unavailable":

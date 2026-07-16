@@ -9,6 +9,7 @@ import {
   loadTrialBookingFormData,
 } from "@/server/actions/trial-booking";
 import { fetchDaySlots } from "@/server/actions/slots";
+import { useBookingRequestKey } from "@/hooks/use-booking-request-key";
 
 interface SlotOpt {
   startTime: string;
@@ -41,6 +42,7 @@ export function TrialBookingDrawer({
   triggerLabel = "建立體驗預約",
   triggerClassName = "rounded-md bg-primary-600 px-3 py-2 text-center text-xs font-medium text-white hover:bg-primary-700",
 }: Props) {
+  const requestKey = useBookingRequestKey();
   const router = useRouter();
   const titleId = useId();
   const [open, setOpen] = useState(false);
@@ -96,6 +98,7 @@ export function TrialBookingDrawer({
   }
 
   async function handleOpen() {
+    requestKey.complete();
     setOpen(true);
     setLoading(true);
     setLoadErr(null);
@@ -192,9 +195,11 @@ export function TrialBookingDrawer({
         people,
         expectedAmount: sendAmount,
         notes: notes.trim() || undefined,
+        requestKey: requestKey.current(),
       });
       mark("createTrialBooking returned");
       if (r.success) {
+        requestKey.complete();
         toast.success("已建立體驗預約（未收款）");
         reset();
         setOpen(false);
@@ -202,6 +207,7 @@ export function TrialBookingDrawer({
         router.refresh();
         mark("router.refresh triggered");
       } else {
+        requestKey.handleError(r.error);
         toast.error(r.error ?? "建立失敗");
       }
       console.info("[trial-booking] drawer submit timing", {

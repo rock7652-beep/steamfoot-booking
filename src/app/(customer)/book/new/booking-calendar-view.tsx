@@ -6,6 +6,7 @@ import { fetchMonthAvailability } from "@/server/actions/slots";
 import { createBooking } from "@/server/actions/booking";
 import { parseLocalDate, formatWeekdayZh } from "@/lib/date-utils";
 import { useStoreSlugRequired } from "@/lib/store-context";
+import { useBookingRequestKey } from "@/hooks/use-booking-request-key";
 import type { SlotAvailability } from "@/types";
 import type { MonthSlotInfo } from "@/server/actions/slots";
 
@@ -467,6 +468,7 @@ function SlotBookingForm({
   makeupCredits: MakeupCreditInfo[];
   initialPeople: number;
 }) {
+  const requestKey = useBookingRequestKey();
   const storeSlug = useStoreSlugRequired();
   const prefix = `/s/${storeSlug}`;
   // people 直接用 prop（無本地 setter）→ 跟著上方月曆人數即時變動，
@@ -500,8 +502,12 @@ function SlotBookingForm({
         customerPlanWalletId: customerPlanWalletId || undefined,
         people: peopleVal,
         isMakeup: isMakeup || undefined,
-      });
-      if (result.success) return { error: null, success: true, bookedTime: slotTime, bookedPeople: peopleVal, wasMakeup: isMakeup };
+      }, { requestKey: requestKey.current(), source: "web-customer" });
+      if (result.success) {
+        requestKey.complete();
+        return { error: null, success: true, bookedTime: slotTime, bookedPeople: peopleVal, wasMakeup: isMakeup };
+      }
+      requestKey.handleError(result.error);
       return { error: result.error, success: false, bookedTime: "", bookedPeople: 0, wasMakeup: false };
     },
     { error: null, success: false, bookedTime: "", bookedPeople: 0, wasMakeup: false }

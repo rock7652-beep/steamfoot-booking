@@ -47,6 +47,7 @@ import {
   SlotPicker,
   type MonthDayInfo,
 } from "@/components/liff/booking-picker";
+import { useBookingRequestKey } from "@/hooks/use-booking-request-key";
 
 type State =
   | { kind: "initializing" }
@@ -82,6 +83,7 @@ interface Props {
 }
 
 export function TrialBookingForm({ storeSlug, storeName, liffId, contactUrl }: Props) {
+  const requestKey = useBookingRequestKey();
   const [state, setState] = useState<State>({ kind: "initializing" });
 
   // calendar state — 台灣今日（client clock；server gate 才是 source of truth）
@@ -212,6 +214,7 @@ export function TrialBookingForm({ storeSlug, storeName, liffId, contactUrl }: P
       result = await submitLiffTrialBooking({
         bookingDate: selectedDate,
         slotTime: selectedSlot,
+        requestKey: requestKey.current(),
       });
     } catch (err) {
       console.error("[trial-booking-form] action throw", err);
@@ -221,6 +224,7 @@ export function TrialBookingForm({ storeSlug, storeName, liffId, contactUrl }: P
 
     switch (result.status) {
       case "ok":
+        requestKey.complete();
         setState({
           kind: "success",
           bookingDate: result.bookingDate,
@@ -291,6 +295,16 @@ export function TrialBookingForm({ storeSlug, storeName, liffId, contactUrl }: P
           showRetry: false,
           showContactStore: true,
           showDismiss: false,
+        });
+        return;
+      case "idempotency_key_reused":
+        requestKey.handleError("IDEMPOTENCY_KEY_REUSED");
+        setState({
+          kind: "blocked",
+          message: liffMessages.error.serviceUnavailable,
+          showRetry: true,
+          showContactStore: false,
+          showDismiss: true,
         });
         return;
       case "service_unavailable":
