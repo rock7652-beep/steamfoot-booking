@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireAdminSession, requireStaffSession } from "@/lib/session";
-import { checkCurrentStoreFeature } from "@/lib/feature-gate";
+import { requireStoreFeature } from "@/lib/feature-gate";
 import { requirePermission } from "@/lib/permissions";
 import { FEATURES } from "@/lib/feature-flags";
 import { AppError, handleActionError } from "@/lib/errors";
@@ -71,9 +71,9 @@ export async function createReminderRule(
 ): Promise<ActionResult<{ ruleId: string }>> {
   try {
     const user = await requireStaffSession();
-    await checkCurrentStoreFeature(FEATURES.LINE_REMINDER);
     const data = createRuleSchema.parse(input);
     const storeId = await resolveWriteStoreId(user);
+    await requireStoreFeature(storeId, FEATURES.LINE_REMINDER);
 
     const rule = await prisma.reminderRule.create({
       data: {
@@ -103,9 +103,9 @@ export async function updateReminderRule(
 ): Promise<ActionResult<void>> {
   try {
     const user = await requireStaffSession();
-    await checkCurrentStoreFeature(FEATURES.LINE_REMINDER);
     const data = updateRuleSchema.parse(input);
     const storeId = await resolveWriteStoreId(user);
+    await requireStoreFeature(storeId, FEATURES.LINE_REMINDER);
 
     // Ownership check
     const existing = await prisma.reminderRule.findUnique({ where: { id: ruleId } });
@@ -131,8 +131,8 @@ export async function toggleReminderRule(
 ): Promise<ActionResult<void>> {
   try {
     const user = await requireStaffSession();
-    await checkCurrentStoreFeature(FEATURES.LINE_REMINDER);
     const storeId = await resolveWriteStoreId(user);
+    await requireStoreFeature(storeId, FEATURES.LINE_REMINDER);
 
     // Ownership check
     const existing = await prisma.reminderRule.findUnique({ where: { id: ruleId } });
@@ -175,8 +175,8 @@ export async function setReminderEnabled(
 ): Promise<ActionResult<{ ruleId: string | null }>> {
   try {
     const user = await requireStaffSession();
-    await checkCurrentStoreFeature(FEATURES.LINE_REMINDER);
     const storeId = await resolveWriteStoreId(user);
+    await requireStoreFeature(storeId, FEATURES.LINE_REMINDER);
 
     if (!enabled) {
       await prisma.reminderRule.updateMany({
@@ -246,8 +246,8 @@ export async function setReminderTemplate(
 ): Promise<ActionResult<void>> {
   try {
     const user = await requireStaffSession();
-    await checkCurrentStoreFeature(FEATURES.LINE_REMINDER);
     const storeId = await resolveWriteStoreId(user);
+    await requireStoreFeature(storeId, FEATURES.LINE_REMINDER);
 
     const canonical =
       (await prisma.reminderRule.findFirst({
@@ -296,9 +296,9 @@ export async function createMessageTemplate(
 ): Promise<ActionResult<{ templateId: string }>> {
   try {
     const user = await requireStaffSession();
-    await checkCurrentStoreFeature(FEATURES.LINE_REMINDER);
     const data = createTemplateSchema.parse(input);
     const storeId = await resolveWriteStoreId(user);
+    await requireStoreFeature(storeId, FEATURES.LINE_REMINDER);
 
     // If setting as default, unset others (scoped to store)
     if (data.isDefault) {
@@ -331,9 +331,9 @@ export async function updateMessageTemplate(
 ): Promise<ActionResult<void>> {
   try {
     const user = await requireStaffSession();
-    await checkCurrentStoreFeature(FEATURES.LINE_REMINDER);
     const data = updateTemplateSchema.parse(input);
     const storeId = await resolveWriteStoreId(user);
+    await requireStoreFeature(storeId, FEATURES.LINE_REMINDER);
 
     // Ownership check
     const existing = await prisma.messageTemplate.findUnique({ where: { id: templateId } });
@@ -370,21 +370,20 @@ export async function testSendLineMessage(
 ): Promise<ActionResult<void>> {
   try {
     const adminUser = await requireAdminSession();
-    await checkCurrentStoreFeature(FEATURES.LINE_REMINDER);
+    const storeId = await resolveWriteStoreId(adminUser);
+    await requireStoreFeature(storeId, FEATURES.LINE_REMINDER);
 
     const [customer, template] = await Promise.all([
       prisma.customer.findUnique({
-        where: { id: customerId },
+        where: { id: customerId, storeId },
         include: { assignedStaff: true },
       }),
-      prisma.messageTemplate.findUnique({ where: { id: templateId } }),
+      prisma.messageTemplate.findUnique({ where: { id: templateId, storeId } }),
     ]);
     const shopConfig = customer ? await getShopConfig(customer.storeId) : null;
 
     if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
-    assertStoreAccess(adminUser, customer.storeId);
     if (!template) throw new AppError("NOT_FOUND", "模板不存在");
-    if (template.storeId !== adminUser.storeId) throw new AppError("NOT_FOUND", "模板不存在");
     if (!customer.lineUserId) {
       throw new AppError("BUSINESS_RULE", "此顧客尚未綁定 LINE");
     }
@@ -434,12 +433,12 @@ export async function sendLineSmokeTest(
 ): Promise<ActionResult<{ messageLogId: string; storeName: string }>> {
   try {
     const user = await requirePermission("customer.read");
-    await checkCurrentStoreFeature(FEATURES.LINE_REMINDER);
     if (!isLineSmokeTestEnabled()) {
       throw new AppError("FORBIDDEN", "LINE smoke test is disabled");
     }
 
     const storeId = await resolveWriteStoreId(user);
+    await requireStoreFeature(storeId, FEATURES.LINE_REMINDER);
     const data = lineSmokeTestSchema.parse(input);
     const store = await prisma.store.findUnique({
       where: { id: storeId },

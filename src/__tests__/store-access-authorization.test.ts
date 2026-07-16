@@ -1,27 +1,35 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockFindMany = vi.fn();
+const mockFindUnique = vi.fn();
 const mockHasStoreFeature = vi.fn();
 const mockCookieGet = vi.fn();
+const mockHeaderGet = vi.fn();
 
 vi.mock("@/lib/db", () => ({
-  prisma: { store: { findMany: (...args: unknown[]) => mockFindMany(...args) } },
+  prisma: {
+    store: {
+      findMany: (...args: unknown[]) => mockFindMany(...args),
+      findUnique: (...args: unknown[]) => mockFindUnique(...args),
+    },
+  },
 }));
 vi.mock("@/lib/feature-gate", () => ({
   hasStoreFeature: (...args: unknown[]) => mockHasStoreFeature(...args),
 }));
 vi.mock("next/headers", () => ({
   cookies: () => Promise.resolve({ get: (...args: unknown[]) => mockCookieGet(...args) }),
+  headers: () => Promise.resolve({ get: (...args: unknown[]) => mockHeaderGet(...args) }),
 }));
 vi.mock("react", () => ({ cache: <T extends (...args: never[]) => unknown>(fn: T) => fn }));
 
 const stores = [
-  { id: "hq", name: "HQ", isDefault: true, parentStoreId: null, operatingStatus: "ACTIVE", createdAt: new Date(1) },
-  { id: "branch-a", name: "A", isDefault: false, parentStoreId: "hq", operatingStatus: "ACTIVE", createdAt: new Date(2) },
-  { id: "branch-b", name: "B", isDefault: false, parentStoreId: "hq", operatingStatus: "TRIAL", createdAt: new Date(3) },
-  { id: "inactive", name: "Off", isDefault: false, parentStoreId: "hq", operatingStatus: "INACTIVE", createdAt: new Date(4) },
-  { id: "other", name: "Other", isDefault: false, parentStoreId: null, operatingStatus: "ACTIVE", createdAt: new Date(5) },
-  { id: "paused", name: "Paused", isDefault: false, parentStoreId: "hq", operatingStatus: "PAUSED", createdAt: new Date(6) },
+  { id: "hq", slug: "hq", name: "HQ", isDefault: true, parentStoreId: null, operatingStatus: "ACTIVE", createdAt: new Date(1) },
+  { id: "branch-a", slug: "branch-a", name: "A", isDefault: false, parentStoreId: "hq", operatingStatus: "ACTIVE", createdAt: new Date(2) },
+  { id: "branch-b", slug: "branch-b", name: "B", isDefault: false, parentStoreId: "hq", operatingStatus: "TRIAL", createdAt: new Date(3) },
+  { id: "inactive", slug: "inactive", name: "Off", isDefault: false, parentStoreId: "hq", operatingStatus: "INACTIVE", createdAt: new Date(4) },
+  { id: "other", slug: "other", name: "Other", isDefault: false, parentStoreId: null, operatingStatus: "ACTIVE", createdAt: new Date(5) },
+  { id: "paused", slug: "paused", name: "Paused", isDefault: false, parentStoreId: "hq", operatingStatus: "PAUSED", createdAt: new Date(6) },
 ];
 
 function installStoreQueryMock() {
@@ -45,8 +53,13 @@ function installStoreQueryMock() {
 describe("organization store authorization", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockHeaderGet.mockReturnValue(null);
     mockHasStoreFeature.mockResolvedValue(true);
     installStoreQueryMock();
+    mockFindUnique.mockImplementation(({ where }: { where: { slug?: string } }) => {
+      const store = stores.find((item) => item.slug === where.slug);
+      return Promise.resolve(store ? { id: store.id } : null);
+    });
   });
 
   it("lets ADMIN access ACTIVE and TRIAL stores and platform all", async () => {
@@ -124,5 +137,45 @@ describe("organization store authorization", () => {
     mockCookieGet.mockImplementation(() => ({ value: "other" }));
     await expect(getActiveStoreForRead(user)).rejects.toThrow("無權存取");
     await expect(resolveWriteStoreId(user)).rejects.toThrow("無權存取");
+  });
+
+  it("prefers an authorized route store over mother and forged cookies", async () => {
+    const { getActiveStoreForRead, resolveWriteStoreId } = await import("@/lib/store");
+    mockHeaderGet.mockImplementation((name: string) => {
+      if (name === "x-next-pathname") return "/s/branch-b/admin/dashboard/reminders";
+      if (name === "x-store-slug") return "branch-b";
+      return null;
+    });
+    mockCookieGet.mockImplementation(() => ({ value: "other" }));
+    const user = { role: "OWNER", storeId: "hq" };
+
+    await expect(getActiveStoreForRead(user)).resolves.toBe("branch-b");
+    await expect(resolveWriteStoreId(user)).resolves.toBe("branch-b");
+  });
+
+  it("rejects an unauthorized route even when the cookie is the own store", async () => {
+    const { getActiveStoreForRead, resolveWriteStoreId } = await import("@/lib/store");
+    mockHeaderGet.mockImplementation((name: string) => {
+      if (name === "x-next-pathname") return "/s/other/admin/dashboard/staff";
+      if (name === "x-store-slug") return "other";
+      return null;
+    });
+    mockCookieGet.mockImplementation(() => ({ value: "hq" }));
+    const user = { role: "OWNER", storeId: "hq" };
+
+    await expect(getActiveStoreForRead(user)).rejects.toThrow("無權存取");
+    await expect(resolveWriteStoreId(user)).rejects.toThrow("無權存取");
+  });
+
+  it("rejects mismatched forwarded route headers", async () => {
+    const { getActiveStoreForRead } = await import("@/lib/store");
+    mockHeaderGet.mockImplementation((name: string) => {
+      if (name === "x-next-pathname") return "/s/branch-b/admin/dashboard";
+      if (name === "x-store-slug") return "attacker-supplied";
+      return null;
+    });
+
+    await expect(getActiveStoreForRead({ role: "OWNER", storeId: "hq" }))
+      .rejects.toThrow("店舖路由資訊無效");
   });
 });

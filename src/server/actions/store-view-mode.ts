@@ -3,7 +3,7 @@
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { requireStaffSession } from "@/lib/session";
-import { validateStoreAccess } from "@/lib/store";
+import { resolveAuthorizedConcreteStore } from "@/lib/store";
 import { OWN_STORE_VALUE, VIEWED_STORE_COOKIE_NAME } from "@/lib/store-view-mode-constants";
 import { AppError, handleActionError } from "@/lib/errors";
 import type { ActionResult } from "@/types";
@@ -17,7 +17,7 @@ import type { ActionResult } from "@/types";
  */
 export async function switchViewedStore(
   viewedStoreId: string,
-): Promise<ActionResult<void>> {
+): Promise<ActionResult<{ storeId: string; slug: string }>> {
   try {
     const user = await requireStaffSession();
     if (user.role !== "OWNER") {
@@ -28,12 +28,19 @@ export async function switchViewedStore(
     }
 
     const cookieStore = await cookies();
-    if (!viewedStoreId || viewedStoreId === OWN_STORE_VALUE || viewedStoreId === user.storeId) {
-      await validateStoreAccess(user, user.storeId, "switch");
+    const requestedStoreId = !viewedStoreId || viewedStoreId === OWN_STORE_VALUE
+      ? user.storeId
+      : viewedStoreId;
+    const authorizedStore = await resolveAuthorizedConcreteStore(
+      user,
+      requestedStoreId,
+      "switch",
+    );
+
+    if (authorizedStore.id === user.storeId) {
       cookieStore.delete(VIEWED_STORE_COOKIE_NAME);
     } else {
-      await validateStoreAccess(user, viewedStoreId, "switch");
-      cookieStore.set(VIEWED_STORE_COOKIE_NAME, viewedStoreId, {
+      cookieStore.set(VIEWED_STORE_COOKIE_NAME, authorizedStore.id, {
         path: "/",
         sameSite: "lax",
         httpOnly: true,
@@ -42,7 +49,10 @@ export async function switchViewedStore(
 
     revalidatePath("/dashboard", "layout");
     revalidatePath("/hq/dashboard", "layout");
-    return { success: true, data: undefined };
+    return {
+      success: true,
+      data: { storeId: authorizedStore.id, slug: authorizedStore.slug },
+    };
   } catch (e) {
     return handleActionError(e);
   }

@@ -14,6 +14,8 @@ import {
   verifyHealthflowBridgeState,
 } from "@/lib/healthflow-identity-bridge";
 import { prisma } from "@/lib/db";
+import { requireStoreFeature } from "@/lib/feature-gate";
+import { FEATURES } from "@/lib/feature-flags";
 
 export const dynamic = "force-dynamic";
 
@@ -43,6 +45,8 @@ function callbackErrorStatus(reason: string): number {
     return 401;
   }
   if (reason === "customer_not_found") return 404;
+  if (reason === "requested_store_not_found") return 404;
+  if (reason === "feature_unavailable") return 403;
   if (
     reason === "idempotency_key_conflict" ||
     reason === "state_jti_replay"
@@ -105,9 +109,31 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   const customer = await prisma.customer.findUnique({
-    where: { id: state.payload.customerId },
-    select: { id: true, storeId: true },
+    where: { id: state.payload.identityCustomerId },
+    select: { id: true },
   });
+
+  const requestedStore = await prisma.store.findUnique({
+    where: { id: state.payload.requestedStoreId },
+    select: { id: true },
+  });
+  if (!requestedStore) {
+    return json(callbackErrorStatus("requested_store_not_found"), {
+      status: "error",
+      code: "requested_store_not_found",
+    });
+  }
+  try {
+    await requireStoreFeature(
+      requestedStore.id,
+      FEATURES.AI_HEALTH_SUMMARY,
+    );
+  } catch {
+    return json(callbackErrorStatus("feature_unavailable"), {
+      status: "error",
+      code: "feature_unavailable",
+    });
+  }
 
   const bridge = await validateHealthflowBridgeCallback({
     state: parsedBody.data.state,
@@ -133,8 +159,8 @@ export async function POST(req: Request): Promise<Response> {
     callbackTimestampMs: auth.timestampMs,
     linkedAtMs: Date.now(),
     profileId: bridge.profileId,
-    customerId: bridge.payload.customerId,
-    storeId: bridge.payload.storeId,
+    customerId: bridge.payload.identityCustomerId,
+    storeId: bridge.payload.requestedStoreId,
     rawBody,
     state: parsedBody.data.state,
   });

@@ -10,7 +10,8 @@ type SessionLike = { role: string; storeId?: string | null };
 export const ALL_STORES_ID = "__all__";
 
 export type StoreAccessMode = "read" | "write" | "switch";
-export type AccessibleStore = { id: string; name: string; isDefault: boolean };
+export type AccessibleStore = { id: string; slug: string; name: string; isDefault: boolean };
+export type AuthorizedConcreteStore = { id: string; slug: string; name: string };
 
 const MAX_STORE_TREE_DEPTH = 20;
 
@@ -50,7 +51,7 @@ export async function getAccessibleStores(user: SessionLike): Promise<Accessible
   if (user.role === "ADMIN") {
     return prisma.store.findMany({
       where: { operatingStatus: { in: ACCESSIBLE_STORE_OPERATING_STATUSES } },
-      select: { id: true, name: true, isDefault: true },
+      select: { id: true, slug: true, name: true, isDefault: true },
       orderBy: { createdAt: "asc" },
     });
   }
@@ -76,10 +77,10 @@ export async function getAccessibleStores(user: SessionLike): Promise<Accessible
       id: { in: ids },
       operatingStatus: { in: ACCESSIBLE_STORE_OPERATING_STATUSES },
     },
-    select: { id: true, name: true, isDefault: true, createdAt: true },
+    select: { id: true, slug: true, name: true, isDefault: true, createdAt: true },
     orderBy: { createdAt: "asc" },
   });
-  return stores.map(({ id, name, isDefault }) => ({ id, name, isDefault }));
+  return stores.map(({ id, slug, name, isDefault }) => ({ id, slug, name, isDefault }));
 }
 
 export async function getAccessibleStoreIds(user: SessionLike): Promise<string[]> {
@@ -120,6 +121,63 @@ export async function validateStoreAccess(
   return requestedStoreId;
 }
 
+/** Resolve a requested concrete store only after organization authorization. */
+export async function resolveAuthorizedConcreteStore(
+  user: SessionLike,
+  requestedStoreId: string,
+  mode: StoreAccessMode,
+): Promise<AuthorizedConcreteStore> {
+  const storeId = await validateStoreAccess(user, requestedStoreId, mode);
+  if (!storeId) {
+    throw new AppError("VALIDATION", "請先在上方切換到指定分店");
+  }
+
+  const store = (await getAccessibleStores(user)).find((item) => item.id === storeId);
+  if (!store) {
+    throw new AppError("FORBIDDEN", "店舖不存在、已停用或無權存取");
+  }
+  return { id: store.id, slug: store.slug, name: store.name };
+}
+
+function routeStoreSlugFromPathname(pathname: string | null): string | null {
+  if (!pathname) return null;
+  const match = pathname.match(/^\/s\/([^/]+)\/admin(?:\/|$)/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+/**
+ * Resolve the concrete store encoded by the public /s/:slug/admin route.
+ *
+ * Both headers are overwritten by proxy.ts. They only transport route context;
+ * the slug is always looked up in DB and authorized again before use.
+ */
+async function resolveAuthorizedRouteStore(
+  user: SessionLike,
+  mode: StoreAccessMode,
+): Promise<AuthorizedConcreteStore | null> {
+  const nextHeaders = await import("next/headers");
+  if (typeof nextHeaders.headers !== "function") return null;
+  const requestHeaders = await nextHeaders.headers();
+  const pathname = requestHeaders.get("x-next-pathname");
+  const routeSlug = routeStoreSlugFromPathname(pathname);
+  if (!routeSlug) return null;
+
+  const forwardedSlug = requestHeaders.get("x-store-slug");
+  if (!forwardedSlug || forwardedSlug !== routeSlug) {
+    throw new AppError("FORBIDDEN", "店舖路由資訊無效");
+  }
+
+  const { prisma } = await import("@/lib/db");
+  const requested = await prisma.store.findUnique({
+    where: { slug: routeSlug },
+    select: { id: true },
+  });
+  if (!requested) {
+    throw new AppError("FORBIDDEN", "店舖不存在、已停用或無權存取");
+  }
+  return resolveAuthorizedConcreteStore(user, requested.id, mode);
+}
+
 /**
  * 系統預設 storeId — 用於無 user context 的系統查詢（cron、cache preload 等）。
  * Cron jobs 使用 getAllActiveStoreIds() 迭代各店。
@@ -153,6 +211,9 @@ export async function resolveWriteStoreId(user: SessionLike): Promise<string> {
   if (user.role !== "ADMIN" && !user.storeId) {
     throw new AppError("UNAUTHORIZED", "缺少 storeId，請重新登入");
   }
+  const routeStore = await resolveAuthorizedRouteStore(user, "write");
+  if (routeStore) return routeStore.id;
+
   const { cookies } = await import("next/headers");
   const cookieStore = await cookies();
   const cookieStoreId = user.role === "ADMIN"
@@ -215,6 +276,9 @@ export async function resolveActiveStoreId(
  */
 export const getActiveStoreForRead = cache(
   async (user: SessionLike): Promise<string | null> => {
+    const routeStore = await resolveAuthorizedRouteStore(user, "read");
+    if (routeStore) return routeStore.id;
+
     const { cookies } = await import("next/headers");
     const cookieStore = await cookies();
     if (user.role === "ADMIN") {

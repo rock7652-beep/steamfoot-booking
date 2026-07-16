@@ -70,8 +70,8 @@ describe("/s/[store]/health HealthFlow entry CTA", () => {
   it("calls the signed entry action for the current store and navigates to the returned LIFF URL", async () => {
     vi.stubEnv("HEALTHFLOW_BRIDGE_SECRET", "test-healthflow-bridge-secret");
     const state = await createHealthflowBridgeState({
-      customerId: "customer_1",
-      storeId: "store_zhubei",
+      identityCustomerId: "customer_1",
+      requestedStoreId: "store_zhubei",
     });
     const signedUrl = `https://liff.line.me/2009744225-9aSc04fR/liff?state=${encodeURIComponent(
       state,
@@ -106,8 +106,8 @@ describe("/s/[store]/health HealthFlow entry CTA", () => {
     expect(verified).toMatchObject({
       ok: true,
       payload: {
-        customerId: "customer_1",
-        storeId: "store_zhubei",
+        identityCustomerId: "customer_1",
+        requestedStoreId: "store_zhubei",
       },
     });
 

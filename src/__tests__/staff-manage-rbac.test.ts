@@ -19,6 +19,7 @@ const GGG = { id: "u-ggg", role: "OWNER" as const, staffId: "s-ggg" };
 const ADMIN = { id: "u-admin", role: "ADMIN" as const, staffId: null };
 
 const mockStaffFindUnique = vi.fn();
+const mockStaffFindFirst = vi.fn();
 const mockStaffUpdate = vi.fn();
 const mockUserUpdate = vi.fn();
 const mockTx = vi.fn(async (ops: unknown) =>
@@ -28,6 +29,7 @@ vi.mock("@/lib/db", () => ({
   prisma: {
     staff: {
       findUnique: (...a: unknown[]) => mockStaffFindUnique(...a),
+      findFirst: (...a: unknown[]) => mockStaffFindFirst(...a),
       update: (...a: unknown[]) => mockStaffUpdate(...a),
     },
     user: { update: (...a: unknown[]) => mockUserUpdate(...a) },
@@ -46,7 +48,7 @@ vi.mock("@/lib/revalidation", () => ({
   revalidateStaff: vi.fn(),
   revalidateStaffPermissions: vi.fn(),
 }));
-vi.mock("@/lib/feature-gate", () => ({ checkCurrentStoreFeature: vi.fn() }));
+vi.mock("@/lib/feature-gate", () => ({ requireStoreFeature: vi.fn() }));
 vi.mock("@/lib/feature-flags", () => ({ FEATURES: {} }));
 
 const mockCheckPermission = vi.fn();
@@ -79,10 +81,15 @@ async function editPerms(staffId = "s-ggg") {
   const { updateStaffPermissionsAction } = await import("@/server/actions/staff");
   return updateStaffPermissionsAction(staffId, {} as never);
 }
+async function resetPassword(userId = "u-ggg") {
+  const { resetStaffPasswordAction } = await import("@/server/actions/staff");
+  return resetStaffPasswordAction({ userId, newPassword: "password-123" });
+}
 
 beforeEach(() => {
   vi.clearAllMocks();
   mockStaffFindUnique.mockResolvedValue(targetStaff());
+  mockStaffFindFirst.mockResolvedValue(targetStaff());
 });
 
 describe("ggg（無 staff.manage）一律不可管理帳號", () => {
@@ -110,6 +117,26 @@ describe("pass（有 staff.manage, 主要店長）", () => {
     const r = await deactivate("s-ggg");
     expect(r.success).toBe(true);
     expect(mockStaffUpdate).toHaveBeenCalled();
+  });
+  it("不可用其他店 staffId 停用或修改權限", async () => {
+    mockRequireStaffSession.mockResolvedValue(PASS);
+    mockCheckPermission.mockResolvedValue(true);
+    mockStaffFindUnique.mockResolvedValue(targetStaff({ storeId: "store-other" }));
+
+    await expect(deactivate("s-foreign")).resolves.toMatchObject({ success: false });
+    await expect(editPerms("s-foreign")).resolves.toMatchObject({ success: false });
+    expect(mockStaffUpdate).not.toHaveBeenCalled();
+    expect(mockUpdateStaffPermissions).not.toHaveBeenCalled();
+  });
+  it("重設密碼只查目前 concrete store 的 target staff", async () => {
+    mockRequireStaffSession.mockResolvedValue(PASS);
+    mockStaffFindFirst.mockResolvedValue(null);
+
+    await expect(resetPassword("u-foreign")).resolves.toMatchObject({ success: false });
+    expect(mockStaffFindFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: { userId: "u-foreign", storeId: STORE },
+    }));
+    expect(mockUserUpdate).not.toHaveBeenCalled();
   });
   it("不可停用自己（防自鎖）", async () => {
     mockRequireStaffSession.mockResolvedValue(PASS);
