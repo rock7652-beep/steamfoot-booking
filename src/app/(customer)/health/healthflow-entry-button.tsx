@@ -8,7 +8,24 @@ import {
 
 const START_LABEL = "前往量測";
 const LOADING_LABEL = "正在前往…";
-const ERROR_MESSAGE = "暫時無法前往 AI 健康評估，請稍後再試。";
+
+type EntryFailureStatus = Exclude<
+  CreateHealthflowEntryUrlResult["status"],
+  "ok"
+>;
+
+const ERROR_MESSAGES: Record<EntryFailureStatus, string> = {
+  no_customer: "目前無法辨識顧客資料，請重新登入或聯繫門市。",
+  store_mismatch: "目前登入資料與此門市不一致，請由原門市入口進入。",
+  feature_unavailable: "此門市目前尚未開放健康評估。",
+  service_unavailable: "健康評估服務暫時無法使用，請稍後再試。",
+};
+
+const CLIENT_ERROR_MESSAGE = "健康評估服務暫時無法使用，請稍後再試。";
+
+export function getHealthflowEntryErrorMessage(status: EntryFailureStatus) {
+  return ERROR_MESSAGES[status];
+}
 
 type CreateEntryUrlAction = (
   storeSlug: string,
@@ -16,8 +33,16 @@ type CreateEntryUrlAction = (
 
 type Navigate = (url: string) => void;
 
-export type StartHealthflowEntryResult = "navigated" | "failed";
+export type StartHealthflowEntryResult =
+  | { outcome: "navigated" }
+  | { outcome: "failed"; status: EntryFailureStatus; requestId: string }
+  | { outcome: "ignored" };
 type InFlightRef = { current: boolean };
+
+export function formatHealthflowEntryErrorCode(requestId: string) {
+  const suffix = requestId.replace(/[^a-zA-Z0-9]/g, "").slice(-6).toUpperCase();
+  return `HF-${suffix || "UNKNOWN"}`;
+}
 
 export async function startHealthflowEntryNavigation({
   storeSlug,
@@ -29,16 +54,22 @@ export async function startHealthflowEntryNavigation({
   createEntryUrl?: CreateEntryUrlAction;
   navigate: Navigate;
   inFlightRef?: InFlightRef;
-}): Promise<StartHealthflowEntryResult | "ignored"> {
-  if (inFlightRef?.current) return "ignored";
+}): Promise<StartHealthflowEntryResult> {
+  if (inFlightRef?.current) return { outcome: "ignored" };
   if (inFlightRef) inFlightRef.current = true;
 
   try {
     const result = await createEntryUrl(storeSlug);
-    if (result.status !== "ok") return "failed";
+    if (result.status !== "ok") {
+      return {
+        outcome: "failed",
+        status: result.status,
+        requestId: result.requestId,
+      };
+    }
 
     navigate(result.url);
-    return "navigated";
+    return { outcome: "navigated" };
   } finally {
     if (inFlightRef) inFlightRef.current = false;
   }
@@ -46,7 +77,10 @@ export async function startHealthflowEntryNavigation({
 
 export function HealthflowEntryButton({ storeSlug }: { storeSlug: string }) {
   const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{
+    message: string;
+    requestId: string | null;
+  } | null>(null);
   const inFlightRef = useRef(false);
 
   const handleClick = async () => {
@@ -63,11 +97,24 @@ export function HealthflowEntryButton({ storeSlug }: { storeSlug: string }) {
           window.location.href = url;
         },
       });
-      if (outcome === "failed") {
-        setError(ERROR_MESSAGE);
+      if (outcome.outcome === "failed") {
+        console.warn("healthflow_entry_client_result", {
+          requestId: outcome.requestId,
+          resultStatus: outcome.status,
+        });
+        setError({
+          message: getHealthflowEntryErrorMessage(outcome.status),
+          requestId: outcome.requestId,
+        });
       }
-    } catch {
-      setError(ERROR_MESSAGE);
+    } catch (exception) {
+      console.error("healthflow_entry_client_exception", {
+        requestId: null,
+        resultStatus: "transport_exception",
+        exceptionName:
+          exception instanceof Error ? exception.name : "UnknownClientException",
+      });
+      setError({ message: CLIENT_ERROR_MESSAGE, requestId: null });
     } finally {
       inFlightRef.current = false;
       setPending(false);
@@ -101,7 +148,12 @@ export function HealthflowEntryButton({ storeSlug }: { storeSlug: string }) {
       </button>
       {error && (
         <p className="mt-2 text-center text-xs leading-relaxed text-red-600">
-          {error}
+          {error.message}
+          {error.requestId && (
+            <span className="mt-1 block font-mono text-[11px]">
+              錯誤代碼：{formatHealthflowEntryErrorCode(error.requestId)}
+            </span>
+          )}
         </p>
       )}
     </div>

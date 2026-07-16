@@ -42,6 +42,17 @@ const USER = {
   email: null,
 };
 const CUSTOMER = { id: "customer_1", storeId: "store_zhubei" };
+const REQUEST_ID = expect.stringMatching(/^hf_entry_[0-9a-f-]{36}$/);
+
+function healthflowResultLogs(infoSpy: { mock: { calls: unknown[][] } }) {
+  return infoSpy.mock.calls
+    .map((call) => call[0])
+    .filter(
+      (message): message is string =>
+        typeof message === "string" && message.startsWith("{"),
+    )
+    .map((message) => JSON.parse(message));
+}
 
 beforeEach(() => {
   vi.stubEnv("HEALTHFLOW_BRIDGE_SECRET", "test-healthflow-bridge-secret");
@@ -73,6 +84,7 @@ describe("createHealthflowEntryUrl", () => {
 
     expect(result.status).toBe("ok");
     if (result.status !== "ok") throw new Error("expected ok");
+    expect(result.requestId).toEqual(REQUEST_ID);
 
     const url = new URL(result.url);
     expect(url.origin).toBe("https://liff.line.me");
@@ -101,6 +113,25 @@ describe("createHealthflowEntryUrl", () => {
     expect(JSON.stringify(infoSpy.mock.calls)).not.toContain("customer_1");
     expect(JSON.stringify(infoSpy.mock.calls)).not.toContain("store_zhubei");
 
+    expect(healthflowResultLogs(infoSpy)).toEqual([
+      expect.objectContaining({
+        event: "healthflow_entry_result",
+        requestId: result.requestId,
+        resultStatus: "ok",
+        storeSlug: "zhubei",
+        anonymizedUserId: expect.stringMatching(/^[a-f0-9]{12}$/),
+        anonymizedCustomerId: expect.stringMatching(/^[a-f0-9]{12}$/),
+        canonicalCustomerResolved: true,
+        resolvedCustomerStoreSlug: "zhubei",
+        entitlementPassed: true,
+        timestamp: expect.any(String),
+      }),
+    ]);
+    expect(JSON.stringify(healthflowResultLogs(infoSpy))).not.toContain("user_1");
+    expect(JSON.stringify(healthflowResultLogs(infoSpy))).not.toContain(
+      "customer_1",
+    );
+
     expect(mockRequireStoreFeature).toHaveBeenCalledWith(
       "store_zhubei",
       "ai_health_summary",
@@ -116,11 +147,20 @@ describe("createHealthflowEntryUrl", () => {
   });
 
   it("blocks signed HealthFlow entry when the store health feature is unavailable", async () => {
+    const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
     mockRequireStoreFeature.mockRejectedValueOnce(new Error("FORBIDDEN"));
 
-    await expect(createHealthflowEntryUrl("zhubei")).resolves.toEqual({
+    await expect(createHealthflowEntryUrl("zhubei")).resolves.toMatchObject({
       status: "feature_unavailable",
+      requestId: REQUEST_ID,
     });
+    expect(healthflowResultLogs(infoSpy)).toEqual([
+      expect.objectContaining({
+        event: "healthflow_entry_result",
+        resultStatus: "feature_unavailable",
+        entitlementPassed: false,
+      }),
+    ]);
 
     expect(mockRequireStoreFeature).toHaveBeenCalledWith(
       "store_zhubei",
@@ -131,33 +171,98 @@ describe("createHealthflowEntryUrl", () => {
   });
 
   it("rejects unauthenticated customers", async () => {
+    const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
     mockRequireSession.mockRejectedValueOnce(new Error("UNAUTHORIZED"));
 
-    await expect(createHealthflowEntryUrl("zhubei")).resolves.toEqual({
+    await expect(createHealthflowEntryUrl("zhubei")).resolves.toMatchObject({
       status: "no_customer",
+      requestId: REQUEST_ID,
     });
+    expect(healthflowResultLogs(infoSpy)).toEqual([
+      expect.objectContaining({
+        event: "healthflow_entry_result",
+        resultStatus: "no_customer",
+        canonicalCustomerResolved: false,
+        entitlementPassed: "unknown",
+      }),
+    ]);
     expect(mockStoreFindUnique).not.toHaveBeenCalled();
   });
 
   it("rejects merged customers", async () => {
+    vi.spyOn(console, "info").mockImplementation(() => {});
     mockCustomerFindUnique.mockResolvedValueOnce({
       id: "customer_1",
       storeId: "store_zhubei",
       mergedIntoCustomerId: "customer_target",
     });
 
-    await expect(createHealthflowEntryUrl("zhubei")).resolves.toEqual({
+    await expect(createHealthflowEntryUrl("zhubei")).resolves.toMatchObject({
       status: "no_customer",
+      requestId: REQUEST_ID,
     });
   });
 
   it("rejects when the current LIFF store does not match the canonical customer store", async () => {
+    const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
     mockStoreFindUnique.mockResolvedValueOnce({ id: "store_hsinchu" });
 
-    await expect(createHealthflowEntryUrl("hsinchu")).resolves.toEqual({
+    await expect(createHealthflowEntryUrl("hsinchu")).resolves.toMatchObject({
       status: "store_mismatch",
+      requestId: REQUEST_ID,
     });
+    expect(healthflowResultLogs(infoSpy)).toEqual([
+      expect.objectContaining({
+        event: "healthflow_entry_result",
+        resultStatus: "store_mismatch",
+        canonicalCustomerResolved: true,
+        resolvedCustomerStoreSlug: null,
+        entitlementPassed: true,
+      }),
+    ]);
     expect(mockCustomerFindUnique).not.toHaveBeenCalled();
+  });
+
+  it("returns service_unavailable and logs a sanitized exception", async () => {
+    const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    mockCustomerFindUnique.mockRejectedValueOnce(
+      new TypeError(
+        "database offline for customer_1 using test-healthflow-bridge-secret",
+      ),
+    );
+
+    const actionResult = await createHealthflowEntryUrl("zhubei");
+
+    expect(actionResult).toMatchObject({
+      status: "service_unavailable",
+      requestId: REQUEST_ID,
+    });
+    expect(healthflowResultLogs(infoSpy)).toEqual([
+      expect.objectContaining({
+        event: "healthflow_entry_result",
+        resultStatus: "service_unavailable",
+      }),
+    ]);
+
+    const exceptionLog = JSON.parse(String(errorSpy.mock.calls[0]?.[0]));
+    expect(exceptionLog).toMatchObject({
+      event: "healthflow_entry_exception",
+      requestId:
+        actionResult.status === "service_unavailable"
+          ? actionResult.requestId
+          : expect.any(String),
+      storeSlug: "zhubei",
+      name: "TypeError",
+      message: "database offline for [REDACTED] using [REDACTED]",
+      stack: expect.any(String),
+      timestamp: expect.any(String),
+    });
+    expect(JSON.stringify(exceptionLog)).not.toContain("user_1");
+    expect(JSON.stringify(exceptionLog)).not.toContain("customer_1");
+    expect(JSON.stringify(exceptionLog)).not.toContain(
+      "test-healthflow-bridge-secret",
+    );
   });
 
   it("URL-encodes the signed state exactly once", async () => {

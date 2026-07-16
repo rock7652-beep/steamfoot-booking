@@ -43,6 +43,7 @@ import {
 import { healthFlowLiffUrl } from "@/lib/liff/messages";
 import { requireStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
+import { createHash, randomUUID } from "node:crypto";
 
 // PR-H2c：移除 self-computed score。
 // HealthFlow summary API 不回官方 score / riskLevel；Steamfoot 自算的 68 與 HealthFlow
@@ -67,22 +68,103 @@ export type FetchLiffHealthSummaryResult =
   | { status: "service_unavailable" };
 
 export type CreateHealthflowEntryUrlResult =
-  | { status: "ok"; url: string }
-  | { status: "no_customer" }
-  | { status: "store_mismatch" }
-  | { status: "feature_unavailable" }
-  | { status: "service_unavailable" };
+  | { status: "ok"; url: string; requestId: string }
+  | { status: "no_customer"; requestId: string }
+  | { status: "store_mismatch"; requestId: string }
+  | { status: "feature_unavailable"; requestId: string }
+  | { status: "service_unavailable"; requestId: string };
+
+type HealthflowEntryResultStatus = CreateHealthflowEntryUrlResult["status"];
+
+type HealthflowEntryDiagnostics = {
+  requestId: string;
+  storeSlug: string;
+  anonymizedUserId: string | null;
+  anonymizedCustomerId: string | null;
+  canonicalCustomerResolved: boolean;
+  resolvedCustomerStoreSlug: string | null;
+  entitlementPassed: boolean | "unknown";
+};
+
+function anonymizeHealthflowEntryId(value: string | null | undefined) {
+  if (!value) return null;
+  return createHash("sha256").update(value).digest("hex").slice(0, 12);
+}
+
+function logHealthflowEntryResult(
+  diagnostics: HealthflowEntryDiagnostics,
+  resultStatus: HealthflowEntryResultStatus,
+) {
+  console.info(
+    JSON.stringify({
+      event: "healthflow_entry_result",
+      ...diagnostics,
+      resultStatus,
+      timestamp: new Date().toISOString(),
+    }),
+  );
+}
+
+function logHealthflowEntryException(
+  diagnostics: HealthflowEntryDiagnostics,
+  error: unknown,
+  sensitiveValues: ReadonlyArray<string | null | undefined> = [],
+) {
+  const exception = error instanceof Error ? error : new Error(String(error));
+  const redact = (value: string | null | undefined): string | null => {
+    if (!value) return null;
+    return sensitiveValues.reduce<string>(
+      (sanitized, sensitive) =>
+        sensitive ? sanitized.replaceAll(sensitive, "[REDACTED]") : sanitized,
+      value,
+    );
+  };
+  console.error(
+    JSON.stringify({
+      event: "healthflow_entry_exception",
+      requestId: diagnostics.requestId,
+      storeSlug: diagnostics.storeSlug,
+      name: exception.name,
+      message: redact(exception.message),
+      stack: redact(exception.stack),
+      timestamp: new Date().toISOString(),
+    }),
+  );
+}
 
 export async function createHealthflowEntryUrl(
   storeSlug: string,
 ): Promise<CreateHealthflowEntryUrlResult> {
+  const diagnostics: HealthflowEntryDiagnostics = {
+    requestId: `hf_entry_${randomUUID()}`,
+    storeSlug,
+    anonymizedUserId: null,
+    anonymizedCustomerId: null,
+    canonicalCustomerResolved: false,
+    resolvedCustomerStoreSlug: null,
+    entitlementPassed: "unknown",
+  };
+  const sensitiveValues = [
+    process.env.HEALTHFLOW_BRIDGE_SECRET,
+    process.env.HEALTHFLOW_CALLBACK_SECRET,
+    process.env.HEALTH_API_KEY,
+  ];
+  const result = <T extends CreateHealthflowEntryUrlResult>(value: T): T => {
+    logHealthflowEntryResult(diagnostics, value.status);
+    return value;
+  };
+
   let user;
   try {
     user = await requireSession();
   } catch {
-    return { status: "no_customer" };
+    return result({ status: "no_customer", requestId: diagnostics.requestId });
   }
-  if (user.role !== "CUSTOMER") return { status: "no_customer" };
+  diagnostics.anonymizedUserId = anonymizeHealthflowEntryId(user.id);
+  sensitiveValues.push(user.id);
+  if (user.role !== "CUSTOMER") {
+    return result({ status: "no_customer", requestId: diagnostics.requestId });
+  }
 
   let store;
   try {
@@ -91,20 +173,48 @@ export async function createHealthflowEntryUrl(
       select: { id: true },
     });
   } catch (err) {
-    console.error("[createHealthflowEntryUrl] store query failed", err);
-    return { status: "service_unavailable" };
+    logHealthflowEntryException(diagnostics, err, sensitiveValues);
+    return result({
+      status: "service_unavailable",
+      requestId: diagnostics.requestId,
+    });
   }
-  if (!store) return { status: "store_mismatch" };
+  if (!store) {
+    return result({ status: "store_mismatch", requestId: diagnostics.requestId });
+  }
+  sensitiveValues.push(store.id);
 
   try {
     await requireStoreFeature(store.id, FEATURES.AI_HEALTH_SUMMARY);
+    diagnostics.entitlementPassed = true;
   } catch {
-    return { status: "feature_unavailable" };
+    diagnostics.entitlementPassed = false;
+    return result({
+      status: "feature_unavailable",
+      requestId: diagnostics.requestId,
+    });
   }
 
-  const customer = await getCanonicalCustomerForSession(user);
-  if (!customer) return { status: "no_customer" };
-  if (customer.storeId !== store.id) return { status: "store_mismatch" };
+  let customer;
+  try {
+    customer = await getCanonicalCustomerForSession(user);
+  } catch (err) {
+    logHealthflowEntryException(diagnostics, err, sensitiveValues);
+    return result({
+      status: "service_unavailable",
+      requestId: diagnostics.requestId,
+    });
+  }
+  if (!customer) {
+    return result({ status: "no_customer", requestId: diagnostics.requestId });
+  }
+  diagnostics.canonicalCustomerResolved = true;
+  diagnostics.anonymizedCustomerId = anonymizeHealthflowEntryId(customer.id);
+  sensitiveValues.push(customer.id, customer.storeId);
+  if (customer.storeId !== store.id) {
+    return result({ status: "store_mismatch", requestId: diagnostics.requestId });
+  }
+  diagnostics.resolvedCustomerStoreSlug = storeSlug;
 
   let row;
   try {
@@ -113,12 +223,18 @@ export async function createHealthflowEntryUrl(
       select: { id: true, storeId: true, mergedIntoCustomerId: true },
     });
   } catch (err) {
-    console.error("[createHealthflowEntryUrl] customer query failed", err);
-    return { status: "service_unavailable" };
+    logHealthflowEntryException(diagnostics, err, sensitiveValues);
+    return result({
+      status: "service_unavailable",
+      requestId: diagnostics.requestId,
+    });
   }
-  if (!row) return { status: "no_customer" };
-  if (row.mergedIntoCustomerId) return { status: "no_customer" };
-  if (row.storeId !== store.id) return { status: "store_mismatch" };
+  if (!row || row.mergedIntoCustomerId) {
+    return result({ status: "no_customer", requestId: diagnostics.requestId });
+  }
+  if (row.storeId !== store.id) {
+    return result({ status: "store_mismatch", requestId: diagnostics.requestId });
+  }
 
   try {
     const state = await createHealthflowBridgeState({
@@ -133,10 +249,17 @@ export async function createHealthflowEntryUrl(
     url.search = "";
     url.hash = "";
     url.searchParams.set("state", state);
-    return { status: "ok", url: url.toString() };
+    return result({
+      status: "ok",
+      url: url.toString(),
+      requestId: diagnostics.requestId,
+    });
   } catch (err) {
-    console.error("[createHealthflowEntryUrl] state signing failed", err);
-    return { status: "service_unavailable" };
+    logHealthflowEntryException(diagnostics, err, sensitiveValues);
+    return result({
+      status: "service_unavailable",
+      requestId: diagnostics.requestId,
+    });
   }
 }
 
