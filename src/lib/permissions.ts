@@ -310,7 +310,17 @@ const getStaffPermissionCodes = unstable_cache(
  * - 同請求：React cache 把 array 轉成 Set 並 memoize，sidebar / 各 page guard 共用
  */
 export const getStaffPermissions = cache(
-  async (staffId: string): Promise<Set<PermissionCode>> => {
+  async (staffId: string, authorizedStoreId?: string): Promise<Set<PermissionCode>> => {
+    if (authorizedStoreId) {
+      const staff = await prisma.staff.findFirst({
+        where: { id: staffId, storeId: authorizedStoreId },
+        select: { id: true },
+      });
+      if (!staff) {
+        const { AppError } = await import("@/lib/errors");
+        throw new AppError("NOT_FOUND", "員工不存在");
+      }
+    }
     const codes = await getStaffPermissionCodes(staffId);
     return new Set(codes);
   },

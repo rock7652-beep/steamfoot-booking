@@ -76,13 +76,10 @@ export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | n
       if (role === "CUSTOMER") {
         return NextResponse.redirect(new URL(`/s/${storeSlug}/book`, req.url));
       }
-      // ADMIN 可進任何店
+      // Store organization authorization intentionally does not live in proxy.
+      // The server resolver looks up this route slug and validates it against the
+      // authenticated user's accessible stores before any page query/action runs.
       if (role !== "ADMIN") {
-        // OWNER / PARTNER — 必須是自己的店（用 session.storeSlug 比對 URL slug）
-        if (userSlug && userSlug !== storeSlug) {
-          const adminSubPath = subPath.slice("/admin".length) || "/dashboard";
-          return NextResponse.redirect(new URL(`/s/${userSlug}/admin${adminSubPath}`, req.url));
-        }
         if (!sessionStoreId) {
           // stale JWT（storeId 遺失）→ 導回顧客登入頁，不進後台
           return NextResponse.redirect(new URL(`/s/${storeSlug}/`, req.url));

@@ -56,6 +56,7 @@ function mockStoreTree(parentToChildren: Record<string, string[]>) {
     if (where.id?.in) {
       return Promise.resolve(where.id.in.map((id) => ({
         id,
+        slug: id,
         name: id,
         isDefault: id === "store-a",
         parentStoreId: id === "store-a" ? null : "store-a",
@@ -248,7 +249,7 @@ describe("store organization foundation", () => {
 
     await expect(switchViewedStore("store-b")).resolves.toEqual({
       success: true,
-      data: undefined,
+      data: { storeId: "store-b", slug: "store-b" },
     });
     expect(mockCookieSet).toHaveBeenCalledWith(
       "viewed-store-id",
@@ -286,7 +287,7 @@ describe("store organization foundation", () => {
 
     await expect(switchViewedStore("__own__")).resolves.toEqual({
       success: true,
-      data: undefined,
+      data: { storeId: "store-a", slug: "store-a" },
     });
     expect(mockCookieDelete).toHaveBeenCalledWith("viewed-store-id");
   });

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { switchViewedStore } from "@/server/actions/store-view-mode";
 import { OWN_STORE_VALUE } from "@/lib/store-view-mode-constants";
 import { toast } from "sonner";
@@ -27,6 +27,7 @@ export function StoreViewModeSwitcher({
   collapsed = false,
 }: StoreViewModeSwitcherProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const ref = useRef<HTMLDivElement>(null);
@@ -52,6 +53,11 @@ export function StoreViewModeSwitcher({
     startTransition(async () => {
       const result = await switchViewedStore(nextStoreId);
       if (result.success) {
+        const nextPathname = pathname.replace(
+          /^\/s\/[^/]+\/admin(?=\/|$)/,
+          `/s/${encodeURIComponent(result.data.slug)}/admin`,
+        );
+        router.replace(nextPathname);
         router.refresh();
       } else {
         toast.error(result.error ?? "切換店舖失敗，已保留原店舖");

@@ -37,7 +37,7 @@ export default async function EditStaffPage({ params, searchParams }: PageProps)
   // 取得該店長的現有權限
   const currentPerms = staff.isOwner
     ? new Set<PermissionCode>(ALL_PERMISSIONS as unknown as PermissionCode[])
-    : await getStaffPermissions(id);
+    : await getStaffPermissions(id, activeStoreId!);
 
   // Layer 1：是否可管理店員（ADMIN 由 checkPermission 自動 true；
   // 否則須具 staff.manage）。false → 頁面唯讀，不顯示變更用 UI。
