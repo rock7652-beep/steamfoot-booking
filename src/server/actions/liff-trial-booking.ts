@@ -34,6 +34,7 @@ import { getTrialSettings } from "@/lib/shop-config";
 import { createBooking } from "@/server/actions/booking";
 import { isStoreSubscriptionWriteBlocked } from "@/lib/subscription-guard";
 import { bookingSubmissionRequestKeySchema } from "@/lib/validators/booking-submission";
+import { bookingSubmissionExists } from "@/server/services/booking-submission";
 
 const InputSchema = z.object({
   bookingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "invalid_date_format"),
@@ -113,7 +114,41 @@ export async function submitLiffTrialBooking(
     return { status: "store_subscription_expired" };
   }
 
-  // ── 4. Duplicate FIRST_TRIAL check ─────────────────
+  // A keyed retry must reach createBooking before the duplicate-trial guard.
+  // createBooking remains the source of truth for payload-hash validation and
+  // snapshot replay; this existence check never returns replay data itself.
+  if (requestKey) {
+    try {
+      if (await bookingSubmissionExists({ storeId, requestKey })) {
+        const settings = await getTrialSettings(storeId);
+        const trialPlan = await ensureTrialPlan(storeId, settings.trialDefaultPrice);
+        const replay = await createBooking({
+          customerId,
+          bookingDate,
+          slotTime,
+          bookingType: "FIRST_TRIAL",
+          servicePlanId: trialPlan.id,
+        }, {
+          requestKey,
+          source: "liff-trial",
+        });
+        if (!replay.success) {
+          return mapCreateBookingErrorToStatus(replay.error, { customerId, storeId });
+        }
+        return {
+          status: "ok",
+          bookingId: replay.data.bookingId,
+          bookingDate,
+          slotTime,
+        };
+      }
+    } catch (err) {
+      console.error("[submitLiffTrialBooking] submission preflight failed", err);
+      return { status: "service_unavailable" };
+    }
+  }
+
+  // ── 5. Duplicate FIRST_TRIAL check ─────────────────
   //
   // 商業規則 (PR-D1A patch 拍板, "A2 規則")：
   //   - PENDING / CONFIRMED → 擋（避免同顧客同時開兩張體驗單）
@@ -146,7 +181,7 @@ export async function submitLiffTrialBooking(
     return { status: "service_unavailable" };
   }
 
-  // ── 5. Resolve trial plan (idempotent) ─────────────
+  // ── 5.5 Resolve trial plan (idempotent) ────────────
   let trialPlanId: string;
   try {
     const settings = await getTrialSettings(storeId);
@@ -161,6 +196,14 @@ export async function submitLiffTrialBooking(
     return { status: "service_unavailable" };
   }
 
+  const bookingInput = {
+    customerId,
+    bookingDate,
+    slotTime,
+    bookingType: "FIRST_TRIAL" as const,
+    servicePlanId: trialPlanId,
+  };
+
   // ── 6. Delegate to createBooking ───────────────────
   //
   // createBooking 內部會：
@@ -172,13 +215,6 @@ export async function submitLiffTrialBooking(
   //   - 不寫 transaction / wallet / cashbook
   //
   // 我們不傳 expectedAmount / customerPlanWalletId / isMakeup / makeupCreditId。
-  const bookingInput = {
-    customerId,
-    bookingDate,
-    slotTime,
-    bookingType: "FIRST_TRIAL" as const,
-    servicePlanId: trialPlanId,
-  };
   const result = requestKey
     ? await createBooking(bookingInput, { requestKey, source: "liff-trial" })
     : await createBooking(bookingInput);

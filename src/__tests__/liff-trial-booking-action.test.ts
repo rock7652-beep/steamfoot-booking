@@ -28,6 +28,7 @@ const mockBookingFindFirst = vi.fn();
 const mockGetTrialSettings = vi.fn();
 const mockEnsureTrialPlan = vi.fn();
 const mockCreateBooking = vi.fn();
+const mockBookingSubmissionExists = vi.fn();
 
 vi.mock("@/lib/session", () => ({
   requireSession: (...args: unknown[]) => mockRequireSession(...args),
@@ -56,6 +57,11 @@ vi.mock("@/server/services/trial-plan", () => ({
 
 vi.mock("@/server/actions/booking", () => ({
   createBooking: (...args: unknown[]) => mockCreateBooking(...args),
+}));
+
+vi.mock("@/server/services/booking-submission", () => ({
+  bookingSubmissionExists: (...args: unknown[]) =>
+    mockBookingSubmissionExists(...args),
 }));
 
 import { submitLiffTrialBooking } from "@/server/actions/liff-trial-booking";
@@ -91,6 +97,7 @@ function setupHappyPathPreconditions() {
   mockBookingFindFirst.mockResolvedValue(null); // no duplicate
   mockGetTrialSettings.mockResolvedValue(DEFAULT_TRIAL_SETTINGS);
   mockEnsureTrialPlan.mockResolvedValue({ id: TRIAL_PLAN_ID });
+  mockBookingSubmissionExists.mockResolvedValue(false);
 }
 
 describe("submitLiffTrialBooking action (PR-D1A)", () => {
@@ -101,6 +108,8 @@ describe("submitLiffTrialBooking action (PR-D1A)", () => {
     mockGetTrialSettings.mockReset();
     mockEnsureTrialPlan.mockReset();
     mockCreateBooking.mockReset();
+    mockBookingSubmissionExists.mockReset();
+    mockBookingSubmissionExists.mockResolvedValue(false);
   });
 
   afterEach(() => {
@@ -196,6 +205,45 @@ describe("submitLiffTrialBooking action (PR-D1A)", () => {
       expect(r.status).toBe("ok");
       expect(mockCreateBooking).toHaveBeenCalledWith(
         expect.objectContaining({ bookingType: "FIRST_TRIAL" }),
+        { requestKey, source: "liff-trial" },
+      );
+    });
+
+    it("replays a keyed trial before the duplicate-trial guard", async () => {
+      const requestKey = "liff_trial_replay_0123456789";
+      setupHappyPathPreconditions();
+      mockBookingSubmissionExists
+        .mockResolvedValueOnce(false)
+        .mockResolvedValueOnce(true);
+      mockCreateBooking.mockResolvedValue({
+        success: true,
+        data: { bookingId: "book-trial-keyed" },
+      });
+
+      const first = await submitLiffTrialBooking({ ...VALID_INPUT, requestKey });
+      // The first successful booking now satisfies the duplicate-trial query.
+      // The retry must bypass that query and let createBooking replay instead.
+      mockBookingFindFirst.mockResolvedValue({
+        id: "book-trial-keyed",
+        bookingDate: new Date("2026-05-25T00:00:00Z"),
+        slotTime: "10:00",
+      });
+      const replay = await submitLiffTrialBooking({ ...VALID_INPUT, requestKey });
+
+      expect(first).toEqual({
+        status: "ok",
+        bookingId: "book-trial-keyed",
+        bookingDate: "2026-05-25",
+        slotTime: "10:00",
+      });
+      expect(replay).toEqual(first);
+      expect(mockBookingFindFirst).toHaveBeenCalledTimes(1);
+      expect(mockCreateBooking).toHaveBeenCalledTimes(2);
+      expect(mockCreateBooking).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          bookingType: "FIRST_TRIAL",
+          servicePlanId: TRIAL_PLAN_ID,
+        }),
         { requestKey, source: "liff-trial" },
       );
     });

@@ -43,7 +43,6 @@ import { requireSession } from "@/lib/session";
 import { getCanonicalCustomerIdForSession } from "@/lib/customer-identity";
 import { createBooking } from "@/server/actions/booking";
 import { isStoreSubscriptionWriteBlocked } from "@/lib/subscription-guard";
-import { dayRange } from "@/lib/date-utils";
 import { bookingSubmissionRequestKeySchema } from "@/lib/validators/booking-submission";
 
 const InputSchema = z.object({
@@ -144,21 +143,6 @@ export async function submitLiffMemberBooking(
   //   - 對 CUSTOMER 跳過 assertStoreAccess（已用 canonical override）
   //   - 不寫 Transaction / Cashbook / Wallet purchase（PACKAGE_SESSION booking 純扣堂語意）
   //
-  // ── 4.5 補課優先（PR-NoShow-2）─────────────────────
-  // people=N 時，只要有有效補課券就交給 createBooking 優先混合抵用：
-  // min(有效券數, people) 張補課券 + 剩餘人數用方案堂數。
-  // 實際用哪 N 張由 createBooking 在 transaction 內依「最早到期」server 自選 + 加鎖。
-  const makeupValidFrom = dayRange(bookingDate).start;
-  const validMakeupCount = await prisma.makeupCredit.count({
-    where: {
-      customerId,
-      storeId,
-      isUsed: false,
-      OR: [{ expiredAt: null }, { expiredAt: { gte: makeupValidFrom } }],
-    },
-  });
-  const useMakeup = validMakeupCount > 0;
-
   // 我們**不傳** customerPlanWalletId / servicePlanId / makeupCreditId / expectedAmount —
   // FEFO（方案）/ 最早到期券（補課）皆由 server 自動選。
   const bookingInput = {
@@ -167,7 +151,6 @@ export async function submitLiffMemberBooking(
     slotTime,
     bookingType: "PACKAGE_SESSION" as const,
     people,
-    ...(useMakeup ? { isMakeup: true } : {}),
   };
   const result = requestKey
     ? await createBooking(bookingInput, { requestKey, source: "liff-member" })
@@ -177,12 +160,32 @@ export async function submitLiffMemberBooking(
     return mapCreateBookingErrorToStatus(result.error, { customerId, storeId });
   }
 
+  // Derive the wrapper response from the persisted result. On keyed replay the
+  // current credit inventory may differ from the first attempt, but the booking
+  // keeps the original isMakeup outcome as stable replay evidence.
+  let persistedBooking: { isMakeup: boolean } | null;
+  try {
+    persistedBooking = await prisma.booking.findFirst({
+      where: { id: result.data.bookingId, customerId, storeId },
+      select: { isMakeup: true },
+    });
+  } catch (err) {
+    console.error("[submitLiffMemberBooking] persisted booking lookup failed", err);
+    return { status: "service_unavailable" };
+  }
+  if (!persistedBooking) {
+    console.error("[submitLiffMemberBooking] persisted booking not found", {
+      bookingId: result.data.bookingId,
+      storeId,
+    });
+    return { status: "service_unavailable" };
+  }
   return {
     status: "ok",
     bookingId: result.data.bookingId,
     bookingDate,
     slotTime,
-    usedMakeup: useMakeup,
+    usedMakeup: persistedBooking.isMakeup,
   };
 }
 

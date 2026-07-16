@@ -191,6 +191,28 @@ export async function claimBookingSubmission(
   }
 }
 
+/**
+ * Read-only wrapper preflight used when an outer business guard would reject a
+ * retry before createBooking can resolve the existing submission itself.
+ *
+ * This deliberately returns only existence. The caller must still delegate to
+ * createBooking, which validates the canonical payload hash and parses the
+ * stored response snapshot before replaying anything.
+ */
+export async function bookingSubmissionExists(input: {
+  storeId: string;
+  requestKey: string;
+}): Promise<boolean> {
+  const requestKey = bookingSubmissionRequestKeySchema.parse(input.requestKey);
+  const existing = await prisma.bookingSubmission.findUnique({
+    where: {
+      storeId_requestKey: { storeId: input.storeId, requestKey },
+    },
+    select: { id: true },
+  });
+  return existing !== null;
+}
+
 export async function finalizeBookingSubmissionSuccess(
   tx: Prisma.TransactionClient,
   input: {

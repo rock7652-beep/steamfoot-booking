@@ -14,6 +14,7 @@ vi.mock("@/lib/db", () => ({
 }));
 
 import {
+  bookingSubmissionExists,
   claimBookingSubmission,
   finalizeBookingSubmissionSuccess,
 } from "@/server/services/booking-submission";
@@ -69,6 +70,28 @@ describe("booking submission claim service", () => {
         }),
       }),
     );
+  });
+
+  it("checks wrapper replay existence without claiming or parsing a snapshot", async () => {
+    db.findUnique.mockResolvedValue({ id: "submission-a" });
+
+    await expect(
+      bookingSubmissionExists({
+        storeId: claimInput.storeId,
+        requestKey: claimInput.requestKey,
+      }),
+    ).resolves.toBe(true);
+    expect(db.findUnique).toHaveBeenCalledWith({
+      where: {
+        storeId_requestKey: {
+          storeId: claimInput.storeId,
+          requestKey: claimInput.requestKey,
+        },
+      },
+      select: { id: true },
+    });
+    expect(db.create).not.toHaveBeenCalled();
+    expect(db.updateMany).not.toHaveBeenCalled();
   });
 
   it("replays a successful versioned snapshot", async () => {
