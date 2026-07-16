@@ -4,6 +4,7 @@ import { useRef, useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { switchViewedStore } from "@/server/actions/store-view-mode";
 import { OWN_STORE_VALUE } from "@/lib/store-view-mode-constants";
+import { toast } from "sonner";
 
 interface ViewStoreOption {
   id: string;
@@ -50,7 +51,12 @@ export function StoreViewModeSwitcher({
     setOpen(false);
     startTransition(async () => {
       const result = await switchViewedStore(nextStoreId);
-      if (result.success) router.refresh();
+      if (result.success) {
+        router.refresh();
+      } else {
+        toast.error(result.error ?? "切換店舖失敗，已保留原店舖");
+        router.refresh();
+      }
     });
   }
 

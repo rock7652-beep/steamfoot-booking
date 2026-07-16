@@ -49,8 +49,20 @@ vi.mock("@/lib/feature-gate", () => ({
 }));
 
 function mockStoreTree(parentToChildren: Record<string, string[]>) {
-  mockFindMany.mockImplementation(({ where }: { where: { parentStoreId: { in: string[] } } }) => {
-    const parentIds = where.parentStoreId.in;
+  mockFindMany.mockImplementation(({ where }: { where: { parentStoreId?: { in: string[] }; id?: { in: string[] } | string } }) => {
+    if (typeof where.id === "string") {
+      return Promise.resolve([{ id: where.id, parentStoreId: null }]);
+    }
+    if (where.id?.in) {
+      return Promise.resolve(where.id.in.map((id) => ({
+        id,
+        name: id,
+        isDefault: id === "store-a",
+        parentStoreId: id === "store-a" ? null : "store-a",
+        createdAt: new Date("2026-01-01T00:00:00Z"),
+      })));
+    }
+    const parentIds = where.parentStoreId?.in ?? [];
     const rows = parentIds.flatMap((parentId) =>
       (parentToChildren[parentId] ?? []).map((id) => ({
         id,
@@ -101,7 +113,10 @@ describe("store organization foundation", () => {
   it("does not expose descendant stores when multi_store is disabled", async () => {
     const { getViewableStoreOptions } = await import("@/lib/store-organization");
     mockHasStoreFeature.mockResolvedValueOnce(false);
-    mockFindMany.mockImplementation(({ where }: { where: { id?: { in: string[] } } }) => {
+    mockFindMany.mockImplementation(({ where }: { where: { id?: { in: string[] } | string } }) => {
+      if (typeof where.id === "string") {
+        return Promise.resolve([{ id: where.id, parentStoreId: null }]);
+      }
       if (where.id?.in) {
         return Promise.resolve([
           { id: "store-a", name: "A", createdAt: new Date("2026-01-01T00:00:00Z") },
@@ -154,7 +169,7 @@ describe("store organization foundation", () => {
     ).rejects.toThrow("店舖組織不可形成循環關係");
   });
 
-  it("denies writable guard when a staff user is in descendant view mode", async () => {
+  it("allows an authorized mother OWNER to write a descendant", async () => {
     const { requireWritablePermission } = await import("@/lib/permissions");
     mockRequireStaffSession.mockResolvedValue({
       id: "user-a",
@@ -168,10 +183,10 @@ describe("store organization foundation", () => {
 
     await expect(
       requireWritablePermission("customer.create", { viewedStoreId: "store-b" }),
-    ).rejects.toThrow("查看模式下不可執行操作");
+    ).resolves.toMatchObject({ role: "OWNER", storeId: "store-a" });
   });
 
-  it("denies writable guard from viewed-store cookie when no explicit options are passed", async () => {
+  it("allows authorized descendant writes from the validated viewed-store cookie", async () => {
     const { requireWritablePermission } = await import("@/lib/permissions");
     mockRequireStaffSession.mockResolvedValue({
       id: "user-a",
@@ -186,9 +201,10 @@ describe("store organization foundation", () => {
       "store-a": ["store-b"],
     });
 
-    await expect(requireWritablePermission("customer.create")).rejects.toThrow(
-      "查看模式下不可執行操作",
-    );
+    await expect(requireWritablePermission("customer.create")).resolves.toMatchObject({
+      role: "OWNER",
+      storeId: "store-a",
+    });
   });
 
   it("resolves view context fields for own store and descendant view mode", async () => {
@@ -214,7 +230,7 @@ describe("store organization foundation", () => {
       ownStoreId: "store-a",
       viewedStoreId: "store-b",
       isViewMode: true,
-      canWrite: false,
+      canWrite: true,
     });
   });
 
@@ -250,12 +266,12 @@ describe("store organization foundation", () => {
       staffId: "staff-a",
       storeId: "store-a",
     });
-    mockRequireStoreFeature.mockRejectedValueOnce(new Error("feature disabled"));
+    mockHasStoreFeature.mockResolvedValueOnce(false);
 
     const result = await switchViewedStore("store-b");
 
     expect(result.success).toBe(false);
-    expect(mockRequireStoreFeature).toHaveBeenCalledWith("store-a", "multi_store");
+    expect(mockHasStoreFeature).toHaveBeenCalledWith("store-a", "multi_store");
     expect(mockCookieSet).not.toHaveBeenCalled();
   });
 

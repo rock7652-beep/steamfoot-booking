@@ -4,8 +4,7 @@ import { getCurrentUser } from "@/lib/session";
 import { logoutAction } from "@/server/actions/auth";
 import { getUserPermissions, ROLE_LABELS } from "@/lib/permissions";
 import { getCachedStorePlan, getCachedTrialStatus } from "@/lib/query-cache";
-import { getStoreOptions, resolveActiveStoreId } from "@/lib/store";
-import { getActiveStoreCookie } from "@/server/actions/store-switch";
+import { getActiveStoreForRead, getStoreOptions } from "@/lib/store";
 import DashboardShell from "@/components/sidebar";
 import { LogoutButton } from "@/components/logout-button";
 import { SubscriptionStatusBanner } from "@/components/subscription-status-banner";
@@ -18,12 +17,10 @@ import { FEATURES } from "@/lib/feature-flags";
 import { hasStoreFeature } from "@/lib/feature-gate";
 import type { StoreOperatingStatus } from "@/lib/store-operating-status";
 import {
-  getViewableStoreOptions,
   resolveStoreViewContext,
   type StoreViewContext,
   type ViewableStoreOption,
 } from "@/lib/store-organization";
-import { getViewedStoreCookie } from "@/server/actions/store-view-mode";
 
 export default async function DashboardLayout({
   children,
@@ -48,24 +45,20 @@ export default async function DashboardLayout({
   const isOwnerLevel = isAdmin || user.role === "OWNER" || user.role === "PARTNER";
 
   // Source of truth: Store.plan (PricingPlan)
-  const [permissions, trialStatus, storeOptions, cookieStoreId, viewedStoreCookie] =
+  const [permissions, storeOptions, activeStoreId] =
     await Promise.all([
       getUserPermissions(user.role, user.staffId),
-      getCachedTrialStatus(user.storeId ?? undefined),
-      isAdmin ? getStoreOptions() : Promise.resolve([]),
-      isAdmin ? getActiveStoreCookie() : Promise.resolve(null),
-      isAdmin ? Promise.resolve(null) : getViewedStoreCookie(),
+      getStoreOptions(user),
+      getActiveStoreForRead(user),
     ]);
-
-  // Resolve the effective active store for read views（ADMIN 可切店）
-  const activeStoreId = resolveActiveStoreId(user, cookieStoreId);
+  const trialStatus = await getCachedTrialStatus(activeStoreId ?? undefined);
 
   // ADMIN 看到的 plan：切到特定店時用該店 plan，全部分店時解鎖全部功能（ALLIANCE）
   // OWNER/PARTNER：用自己店的 plan
   // 走 unstable_cache（60s TTL, tag: "store-plan"）— 之前直接呼叫
   // getStorePlanById 是同步阻塞，每次切頁都打一次 prisma，現在多人切頁
   // 共享 cache。Mutation 路徑已透過 revalidation.ts 失效對應 tag。
-  const effectiveStoreId = isAdmin ? (activeStoreId ?? undefined) : (user.storeId ?? undefined);
+  const effectiveStoreId = activeStoreId ?? undefined;
   const pricingPlan = isAdmin && !activeStoreId
     ? ("ALLIANCE" as const)
     : effectiveStoreId
@@ -117,22 +110,16 @@ export default async function DashboardLayout({
     }
   }
 
-  if (!isAdmin && user.storeId) {
+  if (user.role === "OWNER" && user.storeId) {
     multiStoreEnabled = await hasStoreFeature(user.storeId, FEATURES.MULTI_STORE);
-    viewableStores = await getViewableStoreOptions(user.storeId);
-    try {
-      storeViewContext = await resolveStoreViewContext(user, {
-        viewedStoreId: viewedStoreCookie,
-      });
-    } catch (err) {
-      console.warn("[DashboardLayout] invalid store view context, falling back to own store", {
-        userId: user.id,
-        ownStoreId: user.storeId,
-        viewedStoreId: viewedStoreCookie,
-        error: err instanceof Error ? err.message : String(err),
-      });
-      storeViewContext = await resolveStoreViewContext(user);
-    }
+    viewableStores = storeOptions.map((store) => ({
+      id: store.id,
+      name: store.name,
+      isOwnStore: store.id === user.storeId,
+    }));
+    storeViewContext = await resolveStoreViewContext(user, {
+      viewedStoreId: activeStoreId,
+    });
   }
 
   const ownStore = user.storeId
@@ -167,7 +154,7 @@ export default async function DashboardLayout({
       storeOptions={isAdmin ? storeOptions : undefined}
       activeStoreId={isAdmin ? activeStoreId : undefined}
       viewMode={
-        !isAdmin && ownStore && storeViewContext
+        user.role === "OWNER" && ownStore && storeViewContext
           ? {
               ownStore,
               descendantStores,

@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
   const user = session.user;
   const cookieStore = await cookies();
   const cookieStoreId = cookieStore.get("active-store-id")?.value ?? null;
-  const activeStoreId = resolveActiveStoreId(user, cookieStoreId);
+  const activeStoreId = await resolveActiveStoreId(user, cookieStoreId);
   const storeViewContext = await resolveStoreViewContextFromCookie(user);
   const readUser = userForViewContext(user, storeViewContext);
   const reportsStoreId = storeIdForViewContext(activeStoreId, storeViewContext);

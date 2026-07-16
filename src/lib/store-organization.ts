@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { AppError } from "@/lib/errors";
 import { FEATURES } from "@/lib/feature-flags";
 import { hasStoreFeature } from "@/lib/feature-gate";
+import { getAccessibleStores, validateStoreAccess } from "@/lib/store";
 
 const MAX_STORE_TREE_DEPTH = 20;
 
@@ -75,24 +76,11 @@ export async function getDescendantStoreIds(ownStoreId: string): Promise<string[
 export async function getViewableStoreOptions(
   ownStoreId: string,
 ): Promise<ViewableStoreOption[]> {
-  const multiStoreEnabled = await hasStoreFeature(ownStoreId, FEATURES.MULTI_STORE);
-  const descendantIds = multiStoreEnabled ? await getDescendantStoreIds(ownStoreId) : [];
-  const storeIds = [ownStoreId, ...descendantIds];
-  const stores = await prisma.store.findMany({
-    where: { id: { in: storeIds } },
-    select: { id: true, name: true, createdAt: true },
-    orderBy: { createdAt: "asc" },
-  });
-  const storeById = new Map(stores.map((store) => [store.id, store]));
-
-  return storeIds
-    .map((id) => storeById.get(id))
-    .filter((store): store is NonNullable<typeof store> => Boolean(store))
-    .map((store) => ({
-      id: store.id,
-      name: store.name,
-      isOwnStore: store.id === ownStoreId,
-    }));
+  return (await getAccessibleStores({ role: "OWNER", storeId: ownStoreId })).map((store) => ({
+    id: store.id,
+    name: store.name,
+    isOwnStore: store.id === ownStoreId,
+  }));
 }
 
 export async function canViewStore(
@@ -110,13 +98,7 @@ export async function assertCanViewStore(
   user: SessionLike,
   targetStoreId: string,
 ): Promise<void> {
-  if (user.role === "ADMIN") return;
-  if (!user.storeId) {
-    throw new AppError("UNAUTHORIZED", "缺少店舖資訊，請重新登入");
-  }
-  if (!(await canViewStore(user.storeId, targetStoreId))) {
-    throw new AppError("FORBIDDEN", "無權查看此店舖");
-  }
+  await validateStoreAccess(user, targetStoreId, "read");
 }
 
 /**
@@ -157,14 +139,14 @@ export async function resolveStoreViewContext(
   }
 
   const viewedStoreId = options.viewedStoreId ?? user.storeId;
-  await assertCanViewStore(user, viewedStoreId);
+  await validateStoreAccess(user, viewedStoreId, "read");
 
   const isViewMode = viewedStoreId !== user.storeId;
   return {
     ownStoreId: user.storeId,
     viewedStoreId,
     isViewMode,
-    canWrite: !isViewMode,
+    canWrite: user.role === "OWNER" || !isViewMode,
   };
 }
 

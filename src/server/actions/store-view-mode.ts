@@ -3,11 +3,8 @@
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { requireStaffSession } from "@/lib/session";
-import { isOwner } from "@/lib/permissions";
-import { assertCanViewStore } from "@/lib/store-organization";
+import { validateStoreAccess } from "@/lib/store";
 import { OWN_STORE_VALUE, VIEWED_STORE_COOKIE_NAME } from "@/lib/store-view-mode-constants";
-import { FEATURES } from "@/lib/feature-flags";
-import { requireStoreFeature } from "@/lib/feature-gate";
 import { AppError, handleActionError } from "@/lib/errors";
 import type { ActionResult } from "@/types";
 
@@ -23,8 +20,8 @@ export async function switchViewedStore(
 ): Promise<ActionResult<void>> {
   try {
     const user = await requireStaffSession();
-    if (isOwner(user.role)) {
-      throw new AppError("FORBIDDEN", "HQ 不使用店長查看模式");
+    if (user.role !== "OWNER") {
+      throw new AppError("FORBIDDEN", "只有母店店長可切換展店");
     }
     if (!user.storeId) {
       throw new AppError("UNAUTHORIZED", "缺少店舖資訊，請重新登入");
@@ -32,10 +29,10 @@ export async function switchViewedStore(
 
     const cookieStore = await cookies();
     if (!viewedStoreId || viewedStoreId === OWN_STORE_VALUE || viewedStoreId === user.storeId) {
+      await validateStoreAccess(user, user.storeId, "switch");
       cookieStore.delete(VIEWED_STORE_COOKIE_NAME);
     } else {
-      await requireStoreFeature(user.storeId, FEATURES.MULTI_STORE);
-      await assertCanViewStore(user, viewedStoreId);
+      await validateStoreAccess(user, viewedStoreId, "switch");
       cookieStore.set(VIEWED_STORE_COOKIE_NAME, viewedStoreId, {
         path: "/",
         sameSite: "lax",
@@ -44,6 +41,7 @@ export async function switchViewedStore(
     }
 
     revalidatePath("/dashboard", "layout");
+    revalidatePath("/hq/dashboard", "layout");
     return { success: true, data: undefined };
   } catch (e) {
     return handleActionError(e);

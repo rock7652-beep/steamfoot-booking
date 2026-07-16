@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
 
   const cookieStore = await cookies();
   const cookieStoreId = cookieStore.get("active-store-id")?.value ?? null;
-  const activeStoreId = resolveActiveStoreId(user, cookieStoreId);
+  const activeStoreId = await resolveActiveStoreId(user, cookieStoreId);
   const readUser = userForViewContext(user, storeViewContext);
   const reportsStoreId = storeIdForViewContext(activeStoreId, storeViewContext);
   const storeFilter = getStoreFilter(readUser, reportsStoreId);

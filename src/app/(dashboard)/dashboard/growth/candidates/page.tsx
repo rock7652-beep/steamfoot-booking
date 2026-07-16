@@ -33,7 +33,7 @@ export default async function GrowthCandidatesPage({ searchParams }: PageProps) 
   const params = await searchParams;
   const cookieStore = await cookies();
   const cookieStoreId = cookieStore.get("active-store-id")?.value ?? null;
-  const activeStoreId = resolveActiveStoreId(user, cookieStoreId);
+  const activeStoreId = await resolveActiveStoreId(user, cookieStoreId);
 
   const filter: GrowthCandidateFilter = FILTER_KEYS.includes(
     params.filter as GrowthCandidateFilter,

@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
   const user = session.user;
   const cookieStore = await cookies();
   const cookieStoreId = cookieStore.get("active-store-id")?.value ?? null;
-  const activeStoreId = resolveActiveStoreId(user, cookieStoreId);
+  const activeStoreId = await resolveActiveStoreId(user, cookieStoreId);
 
   // Permission check
   const customer = await prisma.customer.findUnique({
