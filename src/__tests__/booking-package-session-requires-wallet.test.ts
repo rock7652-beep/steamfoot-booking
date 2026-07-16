@@ -800,7 +800,7 @@ describe("createBooking — 補課自助預約 (PR-NoShow-2)", () => {
     expect(mockTxJoinCreateMany).not.toHaveBeenCalled();
   });
 
-  it("slot lock 後才在 transaction 內檢查容量與同客有效重複預約", async () => {
+  it("slot lock 後才在 transaction 內檢查容量，不永久禁止同客同時段多筆預約", async () => {
     mockCustomerFindUnique.mockResolvedValue(PLAN_CUSTOMER_RECORD);
     mockBookingFindFirst.mockResolvedValue({ id: "existing-booking" });
 
@@ -813,8 +813,7 @@ describe("createBooking — 補課自助預約 (PR-NoShow-2)", () => {
       people: 1,
     });
 
-    expect(r.success).toBe(false);
-    if (!r.success) expect(r.error).toMatch(/已有有效預約|重複預約/);
+    expect(r.success).toBe(true);
     expect(mockAcquireBookingSlotLocks).toHaveBeenCalledTimes(1);
     expect(mockBookingAggregate).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -824,16 +823,8 @@ describe("createBooking — 補課自助預約 (PR-NoShow-2)", () => {
         }),
       }),
     );
-    expect(mockBookingFindFirst).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          storeId: STORE_A,
-          customerId: PLAN_CUSTOMER_ID,
-          bookingStatus: { in: ["PENDING", "CONFIRMED"] },
-        }),
-      }),
-    );
-    expect(mockBookingCreate).not.toHaveBeenCalled();
+    expect(mockBookingFindFirst).not.toHaveBeenCalled();
+    expect(mockBookingCreate).toHaveBeenCalledTimes(1);
   });
 
   it("cancel makeup 預約 → 退回全部 N 張券、刪 join row、清 legacy makeupCreditId（防 @unique 卡重訂）", async () => {

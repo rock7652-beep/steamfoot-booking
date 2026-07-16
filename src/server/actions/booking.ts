@@ -504,41 +504,23 @@ export async function createBooking(
     // ── 9. 建立預約（不扣堂，狀態 = PENDING）
     const booking = await prisma.$transaction(async (tx) => {
       // 所有會改變時段容量的入口共用同一 transaction advisory lock。
-      // 取得鎖後才重新讀取容量與同客重複預約，避免兩個請求同時通過
-      // transaction 外的舊快照後造成超賣或重複建立。
+      // 取得鎖後才重新讀取容量，避免兩個請求同時通過
+      // transaction 外的舊快照後造成超賣。同一顧客可以在同時段
+      // 建立多筆預約（例如 4+1 拆單或後續追加同行者），只由總人數容量限制。
       await acquireBookingSlotLocks(tx, [
         { storeId, bookingDate: data.bookingDate, slotTime: data.slotTime },
       ]);
 
       const slotTimeVariants = bookingSlotTimeVariants(data.slotTime);
-      const [bookedAgg, duplicate] = await Promise.all([
-        tx.booking.aggregate({
-          where: {
-            storeId,
-            bookingDate: bookingDateObj,
-            slotTime: { in: slotTimeVariants },
-            bookingStatus: { in: [...PENDING_STATUSES] },
-          },
-          _sum: { people: true },
-        }),
-        tx.booking.findFirst({
-          where: {
-            storeId,
-            customerId: effectiveCustomerId,
-            bookingDate: bookingDateObj,
-            slotTime: { in: slotTimeVariants },
-            bookingStatus: { in: [...PENDING_STATUSES] },
-          },
-          select: { id: true },
-        }),
-      ]);
-
-      if (duplicate) {
-        throw new AppError(
-          "CONFLICT",
-          "您在該日期與時段已有有效預約，請勿重複預約",
-        );
-      }
+      const bookedAgg = await tx.booking.aggregate({
+        where: {
+          storeId,
+          bookingDate: bookingDateObj,
+          slotTime: { in: slotTimeVariants },
+          bookingStatus: { in: [...PENDING_STATUSES] },
+        },
+        _sum: { people: true },
+      });
 
       const bookedPeople = bookedAgg._sum.people ?? 0;
       const remaining = slotCapacity - bookedPeople;
@@ -828,36 +810,16 @@ export async function updateBooking(
           }
 
           const slotTimeVariants = bookingSlotTimeVariants(targetSlot);
-          const [bookedAgg, duplicate] = await Promise.all([
-            tx.booking.aggregate({
-              where: {
-                storeId: booking.storeId,
-                bookingDate: targetDate,
-                slotTime: { in: slotTimeVariants },
-                bookingStatus: { in: [...PENDING_STATUSES] },
-                NOT: { id: bookingId },
-              },
-              _sum: { people: true },
-            }),
-            tx.booking.findFirst({
-              where: {
-                storeId: booking.storeId,
-                customerId: booking.customerId,
-                bookingDate: targetDate,
-                slotTime: { in: slotTimeVariants },
-                bookingStatus: { in: [...PENDING_STATUSES] },
-                NOT: { id: bookingId },
-              },
-              select: { id: true },
-            }),
-          ]);
-
-          if (duplicate) {
-            throw new AppError(
-              "CONFLICT",
-              "此顧客在目標日期與時段已有有效預約",
-            );
-          }
+          const bookedAgg = await tx.booking.aggregate({
+            where: {
+              storeId: booking.storeId,
+              bookingDate: targetDate,
+              slotTime: { in: slotTimeVariants },
+              bookingStatus: { in: [...PENDING_STATUSES] },
+              NOT: { id: bookingId },
+            },
+            _sum: { people: true },
+          });
           const booked = bookedAgg._sum.people ?? 0;
           if ((targetCapacity ?? 0) - booked < targetPeople) {
             throw new AppError("BUSINESS_RULE", "目標時段名額不足");

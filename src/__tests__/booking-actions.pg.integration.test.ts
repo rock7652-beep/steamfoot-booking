@@ -443,15 +443,42 @@ describeWithPostgres("booking production actions — real schema PostgreSQL", ()
     expect(boundary.createBookingCreatedEvent).not.toHaveBeenCalled();
   });
 
-  it("E: enforces canonical duplicate scope and permits cancelled rebooking", async () => {
-    const pendingBase = await createStore("duplicate-pending");
-    const pending = await createCustomerWallet(pendingBase, "holder", { remaining: 2, ledger: 2 });
-    expect((await actions.createBooking(createInput(pendingBase, pending, "10:00"))).success).toBe(true);
-    const duplicate = await actions.createBooking(createInput(pendingBase, pending, "10:00"));
-    expect(duplicate.success).toBe(false);
+  it("E: allows same-customer split bookings while canonical capacity remains enforced", async () => {
+    const splitBase = await createStore("same-customer-split", 5);
+    const split = await createCustomerWallet(splitBase, "holder", { remaining: 5, ledger: 5 });
+    expect((await actions.createBooking(createInput(splitBase, split, "10:00", 4))).success).toBe(true);
+    expect((await actions.createBooking(createInput(splitBase, split, "10:00", 1))).success).toBe(true);
+    const splitBookings = await db().booking.findMany({
+      where: { storeId: splitBase.storeId, bookingDate: dateObj, slotTime: "10:00" },
+    });
+    expect(splitBookings).toHaveLength(2);
+    expect(splitBookings.reduce((sum, booking) => sum + booking.people, 0)).toBe(5);
+    expect(
+      await db().walletSession.count({
+        where: { walletId: split.wallet.id, status: "RESERVED", bookingId: { not: null } },
+      }),
+    ).toBe(5);
 
-    const legacyBase = await createStore("duplicate-legacy");
-    const legacy = await createCustomerWallet(legacyBase, "holder");
+    const appendBase = await createStore("same-customer-append", 3);
+    const append = await createCustomerWallet(appendBase, "holder", { remaining: 3, ledger: 3 });
+    expect((await actions.createBooking(createInput(appendBase, append, "10:00", 1))).success).toBe(true);
+    expect((await actions.createBooking(createInput(appendBase, append, "10:00", 2))).success).toBe(true);
+    expect(
+      await db().booking.aggregate({
+        where: { storeId: appendBase.storeId, bookingDate: dateObj, slotTime: "10:00" },
+        _sum: { people: true },
+      }),
+    ).toMatchObject({ _sum: { people: 3 } });
+
+    const fullBase = await createStore("same-customer-full", 4);
+    const full = await createCustomerWallet(fullBase, "holder", { remaining: 5, ledger: 5 });
+    expect((await actions.createBooking(createInput(fullBase, full, "10:00", 4))).success).toBe(true);
+    expect((await actions.createBooking(createInput(fullBase, full, "10:00", 1))).success).toBe(false);
+    expect(await db().booking.count({ where: { storeId: fullBase.storeId } })).toBe(1);
+    expect(await db().walletSession.count({ where: { walletId: full.wallet.id, status: "RESERVED" } })).toBe(4);
+
+    const legacyBase = await createStore("legacy-capacity", 2);
+    const legacy = await createCustomerWallet(legacyBase, "holder", { remaining: 2, ledger: 2 });
     await db().booking.create({
       data: {
         storeId: legacyBase.storeId,
@@ -463,34 +490,44 @@ describeWithPostgres("booking production actions — real schema PostgreSQL", ()
         people: 1,
       },
     });
+    expect((await actions.createBooking(createInput(legacyBase, legacy, "10:00"))).success).toBe(true);
     expect((await actions.createBooking(createInput(legacyBase, legacy, "10:00"))).success).toBe(false);
+    expect(
+      await db().booking.aggregate({
+        where: {
+          storeId: legacyBase.storeId,
+          bookingDate: dateObj,
+          slotTime: { in: ["10:00", "10:00:00"] },
+        },
+        _sum: { people: true },
+      }),
+    ).toMatchObject({ _sum: { people: 2 } });
+  });
 
-    const cancelledBase = await createStore("duplicate-cancelled");
-    const cancelled = await createCustomerWallet(cancelledBase, "holder", { remaining: 2, ledger: 2 });
-    const first = await actions.createBooking(createInput(cancelledBase, cancelled, "10:00"));
-    expect(first.success).toBe(true);
-    if (first.success) {
-      await db().$transaction([
-        db().booking.update({ where: { id: first.data.bookingId }, data: { bookingStatus: "CANCELLED" } }),
-        db().walletSession.updateMany({
-          where: { bookingId: first.data.bookingId },
-          data: { status: "AVAILABLE", bookingId: null, reservedAt: null },
-        }),
-      ]);
-    }
-    expect((await actions.createBooking(createInput(cancelledBase, cancelled, "10:00"))).success).toBe(true);
+  it("allows rescheduling beside the same customer's booking until capacity is full", async () => {
+    const base = await createStore("same-customer-reschedule", 3);
+    const holder = await createCustomerWallet(base, "holder", { remaining: 4, ledger: 4 });
+    const target = await actions.createBooking(createInput(base, holder, "10:00", 1));
+    const source = await actions.createBooking(createInput(base, holder, "09:00", 2));
+    expect(target.success && source.success).toBe(true);
+    if (!target.success || !source.success) return;
 
-    const scopedBase = await createStore("duplicate-scopes");
-    const scoped = await createCustomerWallet(scopedBase, "holder", { remaining: 4, ledger: 4 });
-    const otherStore = await createStore("duplicate-other-store");
-    admin(scopedBase.storeId);
-    await db().booking.createMany({
-      data: [
-        { storeId: otherStore.storeId, customerId: scoped.customer.id, bookingDate: dateObj, slotTime: "10:00", bookingType: "PACKAGE_SESSION", bookingStatus: "PENDING", people: 1 },
-        { storeId: scopedBase.storeId, customerId: scoped.customer.id, bookingDate: new Date("2099-01-06T00:00:00Z"), slotTime: "10:00", bookingType: "PACKAGE_SESSION", bookingStatus: "PENDING", people: 1 },
-        { storeId: scopedBase.storeId, customerId: scoped.customer.id, bookingDate: dateObj, slotTime: "11:00", bookingType: "PACKAGE_SESSION", bookingStatus: "PENDING", people: 1 },
-      ],
-    });
-    expect((await actions.createBooking(createInput(scopedBase, scoped, "10:00"))).success).toBe(true);
+    expect((await actions.updateBooking(source.data.bookingId, { slotTime: "10:00" })).success).toBe(true);
+    expect(
+      await db().booking.aggregate({
+        where: { storeId: base.storeId, bookingDate: dateObj, slotTime: "10:00" },
+        _sum: { people: true },
+      }),
+    ).toMatchObject({ _sum: { people: 3 } });
+
+    const overflow = await actions.createBooking(createInput(base, holder, "11:00", 1));
+    expect(overflow.success).toBe(true);
+    if (!overflow.success) return;
+    const failedMove = await actions.updateBooking(overflow.data.bookingId, { slotTime: "10:00" });
+    expect(failedMove.success).toBe(false);
+    const unchanged = await db().booking.findUniqueOrThrow({ where: { id: overflow.data.bookingId } });
+    expect(unchanged.slotTime).toBe("11:00");
+    expect(unchanged.people).toBe(1);
+    expect(await db().walletSession.count({ where: { bookingId: overflow.data.bookingId, status: "RESERVED" } })).toBe(1);
   });
 });
