@@ -126,6 +126,21 @@ describe("Google review core", () => {
     });
   });
 
+  it("第二次點擊仍轉址，但 update 條件不會覆寫首次 clickedAt", async () => {
+    h.inviteUpdateMany.mockResolvedValue({ count: 0 });
+    const { GET } = await import("@/app/s/[slug]/google-review/route");
+    const response = await GET(
+      new Request("https://example.com/s/zhubei/google-review?i=token-1"),
+      { params: Promise.resolve({ slug: "zhubei" }) },
+    );
+
+    expect(response.status).toBe(307);
+    expect(h.inviteUpdateMany).toHaveBeenCalledWith({
+      where: { id: "invite-1", clickedAt: null },
+      data: { clickedAt: expect.any(Date) },
+    });
+  });
+
   it("無效或跨店 token 只回傳通用 404，不轉址也不寫入", async () => {
     h.inviteFindFirst.mockResolvedValue(null);
     const { GET } = await import("@/app/s/[slug]/google-review/route");
@@ -137,5 +152,32 @@ describe("Google review core", () => {
     expect(response.status).toBe(404);
     expect(await response.text()).toBe("找不到該連結");
     expect(h.inviteUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("缺少 token 時回傳通用 404，不查詢邀請", async () => {
+    const { GET } = await import("@/app/s/[slug]/google-review/route");
+    const response = await GET(
+      new Request("https://example.com/s/zhubei/google-review"),
+      { params: Promise.resolve({ slug: "zhubei" }) },
+    );
+
+    expect(response.status).toBe(404);
+    expect(await response.text()).toBe("找不到該連結");
+    expect(h.inviteFindFirst).not.toHaveBeenCalled();
+  });
+
+  it("店別 googleReviewUrl 非法時回傳通用 404", async () => {
+    h.storeFindUnique.mockResolvedValue({
+      id: "store-1",
+      googleReviewUrl: "https://evil.example/review",
+    });
+    const { GET } = await import("@/app/s/[slug]/google-review/route");
+    const response = await GET(
+      new Request("https://example.com/s/zhubei/google-review?i=token-1"),
+      { params: Promise.resolve({ slug: "zhubei" }) },
+    );
+
+    expect(response.status).toBe(404);
+    expect(h.inviteFindFirst).not.toHaveBeenCalled();
   });
 });
