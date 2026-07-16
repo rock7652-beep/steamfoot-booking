@@ -1,5 +1,6 @@
 import { getCurrentUser } from "@/lib/session";
 import { getCurrentStorePlan } from "@/lib/store-plan";
+import { hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
 import { FeatureGate } from "@/components/feature-gate";
 import { getActiveStoreForRead } from "@/lib/store";
@@ -52,7 +53,7 @@ export default async function RemindersPage({ searchParams }: PageProps) {
 
   const activeStoreId = await getActiveStoreForRead(user);
 
-  if (!activeStoreId && user.role === "ADMIN") {
+  if (!activeStoreId) {
     return (
       <PageShell>
         <PageHeader
@@ -73,7 +74,18 @@ export default async function RemindersPage({ searchParams }: PageProps) {
     );
   }
 
-  const plan = await getCurrentStorePlan();
+  const [plan, lineReminderEnabled] = await Promise.all([
+    getCurrentStorePlan(),
+    hasStoreFeature(activeStoreId, FEATURES.LINE_REMINDER),
+  ]);
+  if (!lineReminderEnabled) {
+    return (
+      <FeatureGate plan={plan} feature={FEATURES.LINE_REMINDER} enabled={false}>
+        {null}
+      </FeatureGate>
+    );
+  }
+
   const activeTab = params.tab ?? "rules";
   const smokeTestEnabled = isLineSmokeTestEnabled();
 
@@ -111,7 +123,7 @@ export default async function RemindersPage({ searchParams }: PageProps) {
   ];
 
   return (
-    <FeatureGate plan={plan} feature={FEATURES.LINE_REMINDER}>
+    <FeatureGate plan={plan} feature={FEATURES.LINE_REMINDER} enabled={lineReminderEnabled}>
       <PageShell>
         <PageHeader
           title="提醒管理"
