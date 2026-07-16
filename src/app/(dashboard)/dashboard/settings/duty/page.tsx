@@ -95,7 +95,7 @@ export default async function DutySettingsPage() {
   }
 
   const { getActiveStoreForRead } = await import("@/lib/store");
-  const storeId = user.role === "ADMIN" ? await getActiveStoreForRead(user) : user.storeId;
+  const storeId = await getActiveStoreForRead(user);
   if (!storeId) {
     return (
       <PageShell>

@@ -3,6 +3,7 @@
 import { useState, useTransition, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { switchActiveStore } from "@/server/actions/store-switch";
+import { toast } from "sonner";
 
 interface StoreOption {
   id: string;
@@ -50,11 +51,12 @@ export default function StoreSwitcher({
   function handleSelect(value: string) {
     setOpen(false);
     startTransition(async () => {
-      try {
-        await switchActiveStore(value);
+      const result = await switchActiveStore(value);
+      if (result.success) {
         router.refresh();
-      } catch {
-        // switchActiveStore 失敗時回退 UI — 不阻斷使用者
+      } else {
+        toast.error(result.error ?? "切換店舖失敗，已保留原店舖");
+        router.refresh();
       }
     });
   }

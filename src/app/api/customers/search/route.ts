@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
 
     const cookieStore = await cookies();
     const cookieStoreId = cookieStore.get("active-store-id")?.value ?? null;
-    const activeStoreId = resolveActiveStoreId(user, cookieStoreId);
+    const activeStoreId = await resolveActiveStoreId(user, cookieStoreId);
 
     if (isOwner(user.role) && !activeStoreId) {
       return NextResponse.json(

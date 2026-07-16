@@ -1,7 +1,6 @@
-import { cookies } from "next/headers";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { getCurrentUser } from "@/lib/session";
-import { resolveActiveStoreId } from "@/lib/store";
+import { getActiveStoreForRead } from "@/lib/store";
 import { getStoreFilter } from "@/lib/manager-visibility";
 import {
   bookingDateToday,
@@ -23,7 +22,6 @@ import { getDashboardTodaySummaryForUser } from "@/server/queries/dashboard-summ
 import { getLatestResolvedRequest } from "@/server/queries/upgrade-request";
 import { getLatestReconciliationRun } from "@/server/queries/reconciliation";
 import { getStoreTodosForUser } from "@/server/queries/store-todos";
-import { getViewedStoreCookie } from "@/server/actions/store-view-mode";
 import { getCashDrawerView, type CashDrawerView } from "@/server/queries/cash-drawer";
 import {
   getCustomerCareSummary,
@@ -73,37 +71,20 @@ export default async function DashboardHomePage() {
   const user = await getCurrentUser();
   if (!user) return null;
 
-  const cookieStore = await cookies();
-  const cookieStoreId = cookieStore.get("active-store-id")?.value ?? null;
-  const activeStoreId = resolveActiveStoreId(user, cookieStoreId);
-  const viewedStoreCookie = user.role === "ADMIN" ? null : await getViewedStoreCookie();
+  const activeStoreId = await getActiveStoreForRead(user);
   let storeViewContext: StoreViewContext | null = null;
   if (user.role !== "ADMIN" && user.storeId) {
-    try {
-      storeViewContext = await resolveStoreViewContext(user, {
-        viewedStoreId: viewedStoreCookie,
-      });
-    } catch (err) {
-      console.warn("[dashboard-home] invalid store view context, falling back to own store", {
-        userId: user.id,
-        ownStoreId: user.storeId,
-        viewedStoreId: viewedStoreCookie,
-        error: err instanceof Error ? err.message : String(err),
-      });
-      storeViewContext = await resolveStoreViewContext(user);
-    }
+    storeViewContext = await resolveStoreViewContext(user, { viewedStoreId: activeStoreId });
   }
   const isViewMode = storeViewContext?.isViewMode ?? false;
-  const dashboardStoreId = isViewMode
-    ? storeViewContext?.viewedStoreId ?? user.storeId ?? null
-    : activeStoreId;
-  const dashboardUser = isViewMode && dashboardStoreId
+  const dashboardStoreId = activeStoreId;
+  const dashboardUser = dashboardStoreId
     ? { ...user, storeId: dashboardStoreId }
     : user;
   const isOwner = user.role === "ADMIN" || user.role === "OWNER";
   // #307 唯讀模式：到期店家隱藏 / 停用「新增」入口（後端已擋，這裡避免店長白點）
   const subscriptionWriteBlocked = await isStoreSubscriptionWriteBlocked(activeStoreId);
-  const isReadOnly = subscriptionWriteBlocked || isViewMode;
+  const isReadOnly = subscriptionWriteBlocked || (isViewMode && !storeViewContext?.canWrite);
 
   const todayLabel = formatTWTime(new Date(), { dateOnly: true });
   const storeFilter = getStoreFilter(dashboardUser, dashboardStoreId);
@@ -111,9 +92,9 @@ export default async function DashboardHomePage() {
 
   // 現金抽屜首頁卡（PR-3 UX revision）— 需 cashDrawer.read 權限 + 已選店
   const canViewCashDrawer = await checkPermission(user.role, user.staffId, "cashDrawer.read");
-  const canInitCashDrawer = isOwner && !isViewMode;
+  const canInitCashDrawer = isOwner && !isReadOnly;
   const canOpenCashDrawer =
-    !isViewMode && await checkPermission(user.role, user.staffId, "cashDrawer.open");
+    !isReadOnly && await checkPermission(user.role, user.staffId, "cashDrawer.open");
   let cashDrawerView: CashDrawerView | null = null;
   if (canViewCashDrawer && dashboardStoreId) {
     const cashDrawerEnabled = await hasStoreFeature(dashboardStoreId, FEATURES.CASH_DRAWER).catch(

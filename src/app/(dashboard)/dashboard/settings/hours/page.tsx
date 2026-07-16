@@ -43,9 +43,7 @@ export default async function ScheduleSettingsPage() {
   const canManage = await checkPermission(user.role, user.staffId, "business_hours.manage");
 
   const { getActiveStoreForRead } = await import("@/lib/store");
-  const effectiveStoreId = user.role === "ADMIN"
-    ? await getActiveStoreForRead(user)
-    : user.storeId;
+  const effectiveStoreId = await getActiveStoreForRead(user);
   if (!effectiveStoreId) {
     return (
       <PageShell>
