@@ -1,12 +1,47 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const customerFindFirst = vi.hoisted(() => vi.fn());
+const hasStoreFeature = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/db", () => ({ prisma: { customer: { findFirst: customerFindFirst } } }));
+vi.mock("@/lib/feature-gate", () => ({ hasStoreFeature }));
 
 import { getReferralShareContext } from "@/server/queries/referral-share-context";
 
 describe("getReferralShareContext", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    hasStoreFeature.mockResolvedValue(true);
+  });
+
+  it("未開通時不讀取或回傳分享 context", async () => {
+    hasStoreFeature.mockResolvedValue(false);
+
+    await expect(
+      getReferralShareContext({
+        customerId: "customer-t",
+        storeId: "store-t",
+        storeSlug: "taichung",
+      }),
+    ).resolves.toEqual({ available: false, reason: "FEATURE_NOT_ENABLED" });
+    expect(customerFindFirst).not.toHaveBeenCalled();
+  });
+
+  it("偽造其他 storeId 時不會讀到原店顧客資料", async () => {
+    customerFindFirst.mockResolvedValue(null);
+
+    await expect(
+      getReferralShareContext({
+        customerId: "customer-a",
+        storeId: "store-b",
+        storeSlug: "store-b",
+      }),
+    ).resolves.toEqual({ available: false, reason: "STORE_UNAVAILABLE" });
+    expect(customerFindFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ id: "customer-a", storeId: "store-b" }),
+      }),
+    );
+  });
 
   it("只產生店舖入口，不把 LINE URL 傳給 client", async () => {
     customerFindFirst.mockResolvedValue({
@@ -30,6 +65,7 @@ describe("getReferralShareContext", () => {
       available: true,
       storeName: "暖沐蒸足",
       referralUrl: "/s/taichung/line-entry?ref=ABC234",
+      shareTemplate: null,
     });
   });
 
@@ -76,6 +112,7 @@ describe("getReferralShareContext", () => {
       available: true,
       storeName: "暖暖蒸足",
       referralUrl: "/s/zhubei/line-entry?ref=legacy-customer-id",
+      shareTemplate: null,
     });
   });
 });

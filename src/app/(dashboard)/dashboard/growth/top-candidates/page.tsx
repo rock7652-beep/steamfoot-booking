@@ -24,7 +24,7 @@ export default async function TopCandidatesPage() {
 
   const cookieStore = await cookies();
   const cookieStoreId = cookieStore.get("active-store-id")?.value ?? null;
-  const activeStoreId = resolveActiveStoreId(user, cookieStoreId);
+  const activeStoreId = await resolveActiveStoreId(user, cookieStoreId);
 
   const reqId = Math.random().toString(36).slice(2, 10);
   const t0 = performance.now();

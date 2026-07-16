@@ -9,10 +9,10 @@ import { todayReminderTriggerAt, tomorrowBookingDate } from "@/server/reminder-e
 // ReminderRule queries
 // ============================================================
 
-export async function listReminderRules() {
-  const user = await requireStaffSession();
+export async function listReminderRules(storeId: string) {
+  await requireStaffSession();
   return prisma.reminderRule.findMany({
-    where: { storeId: user.storeId! },
+    where: { storeId },
     include: {
       template: { select: { id: true, name: true } },
       _count: { select: { logs: true } },
@@ -79,24 +79,21 @@ export async function getLineSmokeTestContext(storeId: string): Promise<{
 // MessageTemplate queries
 // ============================================================
 
-export async function listMessageTemplates() {
-  const user = await requireStaffSession();
+export async function listMessageTemplates(storeId: string) {
+  await requireStaffSession();
   return prisma.messageTemplate.findMany({
-    where: { storeId: user.storeId! },
+    where: { storeId },
     include: { _count: { select: { logs: true, rules: true } } },
     orderBy: { createdAt: "desc" },
   });
 }
 
-export async function getMessageTemplate(id: string) {
-  const user = await requireStaffSession();
-  const template = await prisma.messageTemplate.findUnique({
-    where: { id },
+export async function getMessageTemplate(id: string, storeId: string) {
+  await requireStaffSession();
+  const template = await prisma.messageTemplate.findFirst({
+    where: { id, storeId },
     include: { rules: { select: { id: true, name: true } } },
   });
-  if (template && template.storeId !== user.storeId!) {
-    return null; // ownership check: don't expose other store's templates
-  }
   return template;
 }
 

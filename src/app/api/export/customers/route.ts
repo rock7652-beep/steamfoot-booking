@@ -45,7 +45,7 @@ export async function GET() {
   }
 
   const cookieStoreId = cookieStore.get("active-store-id")?.value ?? null;
-  const activeStoreId = resolveActiveStoreId(user, cookieStoreId);
+  const activeStoreId = await resolveActiveStoreId(user, cookieStoreId);
   const dataExportLocked = await requireDataExportFeature(activeStoreId);
   if (dataExportLocked) return dataExportLocked;
 

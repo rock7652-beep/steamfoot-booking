@@ -43,6 +43,19 @@ export default async function SettingsIndexPage() {
 
   const activeStoreId = await getActiveStoreForRead(user);
 
+  if (!activeStoreId) {
+    return (
+      <PageShell className="mx-auto flex max-w-[1440px] flex-col gap-3 px-5 py-4">
+        <PageHeader title="設定" subtitle="請先從右上角切換到特定店舖" />
+        <div className="rounded-xl border border-earth-200 bg-white p-8 text-center">
+          <p className="text-sm text-earth-500">
+            全部分店模式不顯示或儲存單店設定，請先選擇特定店舖。
+          </p>
+        </div>
+      </PageShell>
+    );
+  }
+
   const canManageTrial = await checkPermission(
     user.role,
     user.staffId,
@@ -62,16 +75,12 @@ export default async function SettingsIndexPage() {
         referralShareTemplate: null as string | null,
       })),
       listStaff(activeStoreId).catch(() => []),
-      listReminderRules().catch(() => []),
-      activeStoreId
-        ? getCachedBusinessHours(activeStoreId).catch(() => [])
-        : Promise.resolve([]),
-      activeStoreId
-        ? prisma.store.findUnique({
-            where: { id: activeStoreId },
-            select: { name: true, slug: true },
-          })
-        : Promise.resolve(null),
+      listReminderRules(activeStoreId).catch(() => []),
+      getCachedBusinessHours(activeStoreId).catch(() => []),
+      prisma.store.findUnique({
+        where: { id: activeStoreId },
+        select: { name: true, slug: true },
+      }),
       getTrialSettings(activeStoreId).catch(() => null),
     ]);
 

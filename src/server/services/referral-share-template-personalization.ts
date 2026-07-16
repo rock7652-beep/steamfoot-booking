@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 import { prisma } from "@/lib/db";
 import { OFFICIAL_REFERRAL_SHARE_TEMPLATES } from "@/lib/referral-share-official-templates";
 import { Prisma } from "@prisma/client";
+import { requireStoreFeature } from "@/lib/feature-gate";
+import { FEATURES } from "@/lib/feature-flags";
 
 export type ReferralShareTemplateUsageAction = "PREVIEW" | "APPLY" | "SAVE";
 
@@ -29,6 +31,7 @@ export function assertOfficialReferralTemplateId(templateId: string): void {
 export async function getReferralTemplatePersonalization(
   storeId: string,
 ): Promise<ReferralShareTemplatePersonalization> {
+  await requireStoreFeature(storeId, FEATURES.REFERRAL_SHARE);
   const [favorites, recent] = await Promise.all([
     prisma.$queryRaw<Array<{ templateId: string }>>(Prisma.sql`
       SELECT "templateId"
@@ -56,6 +59,7 @@ export async function setReferralTemplateFavorite(params: {
   templateId: string;
   favorite: boolean;
 }): Promise<void> {
+  await requireStoreFeature(params.storeId, FEATURES.REFERRAL_SHARE);
   assertOfficialReferralTemplateId(params.templateId);
 
   if (params.favorite) {
@@ -82,6 +86,7 @@ export async function recordReferralTemplateUsage(params: {
   templateId: string;
   action: ReferralShareTemplateUsageAction;
 }): Promise<void> {
+  await requireStoreFeature(params.storeId, FEATURES.REFERRAL_SHARE);
   assertOfficialReferralTemplateId(params.templateId);
 
   await prisma.$executeRaw(Prisma.sql`

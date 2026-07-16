@@ -2,7 +2,6 @@ import { getStaffDetail } from "@/server/queries/staff";
 import { updateStaff, updateStaffPermissionsAction } from "@/server/actions/staff";
 import { getCurrentUser } from "@/lib/session";
 import { getActiveStoreForRead } from "@/lib/store";
-import { cookies } from "next/headers";
 import { SubmitButton } from "@/components/submit-button";
 import {
   getStaffPermissions,
@@ -27,17 +26,11 @@ export default async function EditStaffPage({ params, searchParams }: PageProps)
   const { err } = await searchParams;
   const user = await getCurrentUser();
   if (!user) notFound();
-  const adminActiveStoreCookie =
-    user.role === "ADMIN"
-      ? (await cookies()).get("active-store-id")?.value ?? null
-      : null;
-  const adminHasStore =
-    user.role === "ADMIN" && !!adminActiveStoreCookie && adminActiveStoreCookie !== "__all__";
-  if (user.role !== "OWNER" && !adminHasStore) notFound();
+  const activeStoreId = await getActiveStoreForRead(user);
+  if (user.role !== "OWNER" && !(user.role === "ADMIN" && activeStoreId)) notFound();
 
   const { id } = await params;
 
-  const activeStoreId = await getActiveStoreForRead(user);
   const staff = await getStaffDetail(id, activeStoreId).catch(() => null);
   if (!staff) notFound();
 

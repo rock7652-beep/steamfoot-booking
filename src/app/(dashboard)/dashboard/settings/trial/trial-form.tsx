@@ -7,6 +7,7 @@ import { updateTrialSettings } from "@/server/actions/shop";
 import type { TrialSettings } from "@/lib/shop-config";
 
 interface Props {
+  storeId: string;
   initial: TrialSettings;
 }
 
@@ -19,7 +20,7 @@ function toInt(v: string): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-export function TrialSettingsForm({ initial }: Props) {
+export function TrialSettingsForm({ storeId, initial }: Props) {
   const [trialEnabled, setTrialEnabled] = useState(initial.trialEnabled);
   const [defaultPrice, setDefaultPrice] = useState(String(initial.trialDefaultPrice));
   const [allowEdit, setAllowEdit] = useState(initial.trialAllowPriceEdit);
@@ -62,7 +63,11 @@ export function TrialSettingsForm({ initial }: Props) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+    <form
+      data-store-id={storeId}
+      onSubmit={handleSubmit}
+      className="grid grid-cols-1 gap-4 lg:grid-cols-12"
+    >
       {/* Left: form */}
       <div className="lg:col-span-7">
         <section className="rounded-xl border border-earth-200 bg-white p-5 shadow-sm">

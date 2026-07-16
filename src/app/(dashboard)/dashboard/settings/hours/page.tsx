@@ -43,9 +43,7 @@ export default async function ScheduleSettingsPage() {
   const canManage = await checkPermission(user.role, user.staffId, "business_hours.manage");
 
   const { getActiveStoreForRead } = await import("@/lib/store");
-  const effectiveStoreId = user.role === "ADMIN"
-    ? await getActiveStoreForRead(user)
-    : user.storeId;
+  const effectiveStoreId = await getActiveStoreForRead(user);
   if (!effectiveStoreId) {
     return (
       <PageShell>
@@ -176,6 +174,7 @@ export default async function ScheduleSettingsPage() {
 
       {/* 顧客可預約到日期 */}
       <BookableUntilForm
+        key={`bookable-until-${effectiveStoreId}`}
         initialDate={bookableUntilInitial}
         defaultUntil={bookableUntilDefault}
         today={todayStr}
@@ -186,6 +185,7 @@ export default async function ScheduleSettingsPage() {
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
         <div className="xl:col-span-8">
           <ScheduleManager
+            key={`schedule-${effectiveStoreId}`}
             weeklyHours={weeklyHours.map((h) => ({
               dayOfWeek: h.dayOfWeek,
               dayName: h.dayName,

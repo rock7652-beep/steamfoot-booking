@@ -51,7 +51,7 @@ export default async function GrowthReferralsPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const cookieStore = await cookies();
   const cookieStoreId = cookieStore.get("active-store-id")?.value ?? null;
-  const activeStoreId = resolveActiveStoreId(user, cookieStoreId);
+  const activeStoreId = await resolveActiveStoreId(user, cookieStoreId);
 
   const page = params.page ? Math.max(1, parseInt(params.page) || 1) : 1;
 

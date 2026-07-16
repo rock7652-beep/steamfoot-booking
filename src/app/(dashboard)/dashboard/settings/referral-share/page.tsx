@@ -4,6 +4,8 @@ import { prisma } from "@/lib/db";
 import { checkPermission } from "@/lib/permissions";
 import { getCurrentUser } from "@/lib/session";
 import { getActiveStoreForRead } from "@/lib/store";
+import { hasStoreFeature } from "@/lib/feature-gate";
+import { FEATURES } from "@/lib/feature-flags";
 import { getReferralTemplatePersonalization } from "@/server/services/referral-share-template-personalization";
 import { redirect } from "next/navigation";
 import { ReferralShareSettingsForm } from "./referral-share-form";
@@ -16,6 +18,25 @@ export default async function ReferralShareSettingsPage() {
 
   const storeId = await getActiveStoreForRead(user);
   if (!storeId) redirect("/dashboard/settings");
+
+  if (!(await hasStoreFeature(storeId, FEATURES.REFERRAL_SHARE))) {
+    return (
+      <PageShell>
+        <PageHeader
+          title="推薦分享目前未開通"
+          subtitle="此功能需升級方案或由總部單店開通"
+          actions={
+            <Link
+              href="/dashboard/settings"
+              className="rounded-lg border border-earth-200 px-3 py-1.5 text-xs font-medium text-earth-600 hover:bg-earth-50"
+            >
+              ← 返回設定
+            </Link>
+          }
+        />
+      </PageShell>
+    );
+  }
 
   const [store, config, personalization] = await Promise.all([
     prisma.store.findUnique({
@@ -47,6 +68,7 @@ export default async function ReferralShareSettingsPage() {
       />
 
       <ReferralShareSettingsForm
+        key={storeId}
         storeName={store.name}
         storeSlug={store.slug}
         initialTemplate={config?.referralShareTemplate ?? null}

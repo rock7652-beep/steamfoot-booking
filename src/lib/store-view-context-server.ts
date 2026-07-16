@@ -20,17 +20,7 @@ export async function resolveStoreViewContextFromCookie(
 
   const cookieStore = await cookies();
   const viewedStoreId = cookieStore.get(VIEWED_STORE_COOKIE_NAME)?.value ?? null;
-  try {
-    return await resolveStoreViewContext(user, { viewedStoreId });
-  } catch (err) {
-    console.warn("[store-view-context] invalid viewed-store-id cookie, falling back to own store", {
-      userId: user.id,
-      ownStoreId: user.storeId,
-      viewedStoreId,
-      error: err instanceof Error ? err.message : String(err),
-    });
-    return resolveStoreViewContext(user);
-  }
+  return resolveStoreViewContext(user, { viewedStoreId });
 }
 
 export function storeIdForViewContext(

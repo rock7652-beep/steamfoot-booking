@@ -3,7 +3,7 @@
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { requireStaffSession } from "@/lib/session";
-import { isOwner } from "@/lib/permissions";
+import { validateStoreAccess } from "@/lib/store";
 import { AppError, handleActionError } from "@/lib/errors";
 import type { ActionResult } from "@/types";
 
@@ -19,9 +19,11 @@ export async function switchActiveStore(
 ): Promise<ActionResult<void>> {
   try {
     const user = await requireStaffSession();
-    if (!isOwner(user.role)) {
-      throw new AppError("UNAUTHORIZED", "僅店長可切換分店視角");
+    if (user.role !== "ADMIN") {
+      throw new AppError("UNAUTHORIZED", "僅總部管理者可使用平台店舖切換");
     }
+
+    await validateStoreAccess(user, storeId, "switch");
 
     const cookieStore = await cookies();
     cookieStore.set(COOKIE_NAME, storeId, {
@@ -33,6 +35,7 @@ export async function switchActiveStore(
 
     // Revalidate all dashboard pages so server components re-fetch with new store
     revalidatePath("/dashboard", "layout");
+    revalidatePath("/hq/dashboard", "layout");
 
     return { success: true, data: undefined };
   } catch (e) {

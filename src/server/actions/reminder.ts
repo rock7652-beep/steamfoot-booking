@@ -114,7 +114,7 @@ export async function updateReminderRule(
     }
 
     await prisma.reminderRule.update({
-      where: { id: ruleId },
+      where: { id: ruleId, storeId },
       data,
     });
 
@@ -141,7 +141,7 @@ export async function toggleReminderRule(
     }
 
     await prisma.reminderRule.update({
-      where: { id: ruleId },
+      where: { id: ruleId, storeId },
       data: { isEnabled },
     });
 
@@ -217,12 +217,12 @@ export async function setReminderEnabled(
 
     await prisma.$transaction([
       prisma.reminderRule.update({
-        where: { id: canonical.id },
+        where: { id: canonical.id, storeId },
         data: { isEnabled: true },
       }),
       ...extras.map((r) =>
         prisma.reminderRule.update({
-          where: { id: r.id },
+          where: { id: r.id, storeId },
           data: { isEnabled: false },
         })
       ),
@@ -276,7 +276,7 @@ export async function setReminderTemplate(
     }
 
     await prisma.reminderRule.update({
-      where: { id: canonical.id },
+      where: { id: canonical.id, storeId },
       data: { templateId },
     });
 
@@ -349,7 +349,7 @@ export async function updateMessageTemplate(
     }
 
     await prisma.messageTemplate.update({
-      where: { id: templateId },
+      where: { id: templateId, storeId },
       data,
     });
 

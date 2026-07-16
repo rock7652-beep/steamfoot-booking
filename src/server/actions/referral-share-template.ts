@@ -11,6 +11,8 @@ import {
 } from "@/lib/referral-share-template";
 import { revalidateShopConfig } from "@/lib/revalidation";
 import { resolveWriteStoreId } from "@/lib/store";
+import { requireStoreFeature } from "@/lib/feature-gate";
+import { FEATURES } from "@/lib/feature-flags";
 import type { ActionResult } from "@/types";
 import { revalidatePath } from "next/cache";
 
@@ -34,6 +36,7 @@ export async function updateReferralShareTemplate(
   try {
     const user = await requirePermission("plans.edit");
     const storeId = await resolveWriteStoreId(user);
+    await requireStoreFeature(storeId, FEATURES.REFERRAL_SHARE);
     const data = inputSchema.parse(input);
 
     let referralShareTemplate: string | null;
