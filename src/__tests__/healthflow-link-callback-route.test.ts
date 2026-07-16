@@ -559,6 +559,33 @@ describe("POST /api/healthflow/link-callback", () => {
     expect(mockCustomerUpdate).toHaveBeenCalledOnce();
   });
 
+  it("rejects a missing identity customer before replay or link writes", async () => {
+    const state = await signedState();
+    mockCustomerFindUnique.mockResolvedValueOnce(null);
+
+    const res = await POST(
+      await postReq({ body: { profileId: PROFILE_ID, state } }),
+    );
+
+    expect(res.status).toBe(404);
+    expect(await res.json()).toEqual({
+      status: "error",
+      code: "customer_not_found",
+    });
+    expect(mockStoreFindUnique).toHaveBeenCalledWith({
+      where: { id: STORE_ID },
+      select: { id: true },
+    });
+    expect(mockRequireStoreFeature).toHaveBeenCalledWith(
+      STORE_ID,
+      "ai_health_summary",
+    );
+    expect(mockCallbackCreate).not.toHaveBeenCalled();
+    expect(mockCallbackFindUnique).not.toHaveBeenCalled();
+    expect(mockCustomerUpdate).not.toHaveBeenCalled();
+    expect(mockCallbackUpdate).not.toHaveBeenCalled();
+  });
+
   it("rejects when the requested store no longer exists", async () => {
     const state = await signedState();
     mockCustomerFindUnique.mockResolvedValueOnce({

@@ -32,7 +32,11 @@ export type HealthflowBridgeVerificationFailure =
   | "invalid_payload"
   | "missing_secret"
   | "bad_signature"
-  | "expired";
+  | "expired"
+  | "legacy_cutoff_missing"
+  | "legacy_issued_after_cutoff"
+  | "legacy_invalid_ttl"
+  | "legacy_rollout_expired";
 
 export type HealthflowBridgeCallbackFailure =
   | HealthflowBridgeVerificationFailure
@@ -136,6 +140,39 @@ type EncodedHealthflowBridgePayload =
   | HealthflowBridgePayload
   | LegacyHealthflowBridgePayload;
 
+/**
+ * Rollout-only cutoff for the legacy `{ customerId, storeId }` state shape.
+ *
+ * Set this once to the production rollout time as an ISO-8601 UTC timestamp.
+ * Missing or invalid configuration fails closed for legacy states. The new
+ * state shape never reads this value.
+ */
+function getLegacyStateCutoffMs(): number | null {
+  const value = process.env.HEALTHFLOW_LEGACY_STATE_CUTOFF;
+  if (!value) return null;
+  const cutoff = Date.parse(value);
+  return Number.isFinite(cutoff) ? cutoff : null;
+}
+
+function validateLegacyStateWindow(
+  payload: LegacyHealthflowBridgePayload,
+  now: number,
+): HealthflowBridgeVerificationFailure | null {
+  const cutoff = getLegacyStateCutoffMs();
+  if (cutoff === null) return "legacy_cutoff_missing";
+  if (payload.issuedAt > cutoff) return "legacy_issued_after_cutoff";
+  if (
+    payload.expiresAt <= payload.issuedAt ||
+    payload.expiresAt > payload.issuedAt + HEALTHFLOW_BRIDGE_STATE_TTL_MS
+  ) {
+    return "legacy_invalid_ttl";
+  }
+  if (now > cutoff + HEALTHFLOW_BRIDGE_STATE_TTL_MS) {
+    return "legacy_rollout_expired";
+  }
+  return null;
+}
+
 function hasCommonPayloadFields(candidate: Record<string, unknown>): boolean {
   return (
     typeof candidate.issuedAt === "number" &&
@@ -230,6 +267,10 @@ export async function verifyHealthflowBridgeState(
   }
 
   const now = options.now ?? Date.now();
+  if (!("identityCustomerId" in encodedPayload)) {
+    const legacyFailure = validateLegacyStateWindow(encodedPayload, now);
+    if (legacyFailure) return { ok: false, reason: legacyFailure };
+  }
   if (now > encodedPayload.expiresAt) {
     return { ok: false, reason: "expired" };
   }

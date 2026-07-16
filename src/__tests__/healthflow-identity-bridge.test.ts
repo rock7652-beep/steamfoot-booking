@@ -12,6 +12,8 @@ const CUSTOMER_ID = "customer_123";
 const STORE_ID = "store_zhubei";
 const PROFILE_ID = "11111111-1111-4111-8111-111111111111";
 const NOW = 1_783_300_000_000;
+const LEGACY_CUTOFF = NOW + 5 * 60 * 1000;
+const LEGACY_CUTOFF_ISO = new Date(LEGACY_CUTOFF).toISOString();
 
 function decodeState(state: string): {
   payload: Record<string, unknown>;
@@ -27,12 +29,19 @@ function encodeState(envelope: { payload: unknown; sig: string }): string {
   return Buffer.from(JSON.stringify(envelope), "utf8").toString("base64url");
 }
 
-async function createLegacyState(): Promise<string> {
+async function createLegacyState(
+  overrides: Partial<{
+    issuedAt: number;
+    expiresAt: number;
+  }> = {},
+): Promise<string> {
+  const issuedAt = overrides.issuedAt ?? NOW;
   const payload = {
     customerId: CUSTOMER_ID,
     storeId: STORE_ID,
-    issuedAt: NOW,
-    expiresAt: NOW + HEALTHFLOW_BRIDGE_STATE_TTL_MS,
+    issuedAt,
+    expiresAt:
+      overrides.expiresAt ?? issuedAt + HEALTHFLOW_BRIDGE_STATE_TTL_MS,
     jti: "legacy-jti",
   };
   const key = await crypto.subtle.importKey(
@@ -53,6 +62,7 @@ async function createLegacyState(): Promise<string> {
 
 beforeEach(() => {
   vi.stubEnv("HEALTHFLOW_BRIDGE_SECRET", "test-healthflow-bridge-secret");
+  vi.stubEnv("HEALTHFLOW_LEGACY_STATE_CUTOFF", LEGACY_CUTOFF_ISO);
 });
 
 afterEach(() => {
@@ -113,6 +123,79 @@ describe("healthflow identity bridge state", () => {
         issuedAt: NOW,
         expiresAt: NOW + HEALTHFLOW_BRIDGE_STATE_TTL_MS,
         jti: "legacy-jti",
+      },
+    });
+  });
+
+  it("rejects a legacy state issued after the fixed cutoff", async () => {
+    const issuedAt = LEGACY_CUTOFF + 1;
+    const result = await verifyHealthflowBridgeState(
+      await createLegacyState({
+        issuedAt,
+        expiresAt: issuedAt + HEALTHFLOW_BRIDGE_STATE_TTL_MS,
+      }),
+      { now: LEGACY_CUTOFF },
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      reason: "legacy_issued_after_cutoff",
+    });
+  });
+
+  it("rejects a legacy state whose TTL exceeds the existing maximum", async () => {
+    const result = await verifyHealthflowBridgeState(
+      await createLegacyState({
+        expiresAt: NOW + HEALTHFLOW_BRIDGE_STATE_TTL_MS + 1,
+      }),
+      { now: NOW },
+    );
+
+    expect(result).toEqual({ ok: false, reason: "legacy_invalid_ttl" });
+  });
+
+  it("permanently rejects legacy states after cutoff plus the rollout TTL", async () => {
+    const result = await verifyHealthflowBridgeState(await createLegacyState(), {
+      now: LEGACY_CUTOFF + HEALTHFLOW_BRIDGE_STATE_TTL_MS + 1,
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      reason: "legacy_rollout_expired",
+    });
+  });
+
+  it("fails closed for legacy states when the cutoff is not configured", async () => {
+    vi.stubEnv("HEALTHFLOW_LEGACY_STATE_CUTOFF", "");
+
+    const result = await verifyHealthflowBridgeState(await createLegacyState(), {
+      now: NOW,
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      reason: "legacy_cutoff_missing",
+    });
+  });
+
+  it("keeps the new state shape valid after the legacy rollout window", async () => {
+    const state = await createHealthflowBridgeState(
+      { identityCustomerId: CUSTOMER_ID, requestedStoreId: STORE_ID },
+      {
+        now: LEGACY_CUTOFF + HEALTHFLOW_BRIDGE_STATE_TTL_MS + 1,
+        jti: "new-state-after-cutoff",
+      },
+    );
+
+    const result = await verifyHealthflowBridgeState(state, {
+      now: LEGACY_CUTOFF + HEALTHFLOW_BRIDGE_STATE_TTL_MS + 1,
+    });
+
+    expect(result).toMatchObject({
+      ok: true,
+      payload: {
+        identityCustomerId: CUSTOMER_ID,
+        requestedStoreId: STORE_ID,
       },
     });
   });
