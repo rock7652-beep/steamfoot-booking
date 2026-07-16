@@ -3,6 +3,7 @@ import { AppError } from "@/lib/errors";
 import { FEATURES } from "@/lib/feature-flags";
 import { hasStoreFeature } from "@/lib/feature-gate";
 import { VIEWED_STORE_COOKIE_NAME } from "@/lib/store-view-mode-constants";
+import { ACCESSIBLE_STORE_OPERATING_STATUSES } from "@/lib/store-operating-status";
 
 type SessionLike = { role: string; storeId?: string | null };
 
@@ -13,7 +14,7 @@ export type AccessibleStore = { id: string; name: string; isDefault: boolean };
 
 const MAX_STORE_TREE_DEPTH = 20;
 
-async function getActiveDescendantStoreIds(ownStoreId: string): Promise<string[]> {
+async function getAccessibleDescendantStoreIds(ownStoreId: string): Promise<string[]> {
   const { prisma } = await import("@/lib/db");
   const descendants: string[] = [];
   const visited = new Set([ownStoreId]);
@@ -21,7 +22,10 @@ async function getActiveDescendantStoreIds(ownStoreId: string): Promise<string[]
 
   for (let depth = 0; depth < MAX_STORE_TREE_DEPTH && frontier.length; depth += 1) {
     const children = await prisma.store.findMany({
-      where: { parentStoreId: { in: frontier }, operatingStatus: "ACTIVE" },
+      where: {
+        parentStoreId: { in: frontier },
+        operatingStatus: { in: ACCESSIBLE_STORE_OPERATING_STATUSES },
+      },
       select: { id: true },
     });
     const next: string[] = [];
@@ -45,7 +49,7 @@ export async function getAccessibleStores(user: SessionLike): Promise<Accessible
   const { prisma } = await import("@/lib/db");
   if (user.role === "ADMIN") {
     return prisma.store.findMany({
-      where: { operatingStatus: "ACTIVE" },
+      where: { operatingStatus: { in: ACCESSIBLE_STORE_OPERATING_STATUSES } },
       select: { id: true, name: true, isDefault: true },
       orderBy: { createdAt: "asc" },
     });
@@ -53,7 +57,10 @@ export async function getAccessibleStores(user: SessionLike): Promise<Accessible
   if (!user.storeId) throw new AppError("UNAUTHORIZED", "缺少 storeId，請重新登入");
 
   const [ownStore] = await prisma.store.findMany({
-    where: { id: user.storeId, operatingStatus: "ACTIVE" },
+    where: {
+      id: user.storeId,
+      operatingStatus: { in: ACCESSIBLE_STORE_OPERATING_STATUSES },
+    },
     select: { id: true, parentStoreId: true },
     take: 1,
   });
@@ -62,10 +69,13 @@ export async function getAccessibleStores(user: SessionLike): Promise<Accessible
   let ids = [user.storeId];
   const isMotherOwner = user.role === "OWNER" && ownStore.parentStoreId === null;
   if (isMotherOwner && await hasStoreFeature(user.storeId, FEATURES.MULTI_STORE)) {
-    ids = [...ids, ...await getActiveDescendantStoreIds(user.storeId)];
+    ids = [...ids, ...await getAccessibleDescendantStoreIds(user.storeId)];
   }
   const stores = await prisma.store.findMany({
-    where: { id: { in: ids }, operatingStatus: "ACTIVE" },
+    where: {
+      id: { in: ids },
+      operatingStatus: { in: ACCESSIBLE_STORE_OPERATING_STATUSES },
+    },
     select: { id: true, name: true, isDefault: true, createdAt: true },
     orderBy: { createdAt: "asc" },
   });
@@ -157,12 +167,12 @@ export async function resolveWriteStoreId(user: SessionLike): Promise<string> {
 }
 
 /**
- * 取得所有 active store 的 ID（供 cron / background jobs 使用）
+ * 取得所有可營運 store 的 ID（ACTIVE / TRIAL，供 cron / background jobs 使用）
  */
 export async function getAllActiveStoreIds(): Promise<string[]> {
   const { prisma } = await import("@/lib/db");
   const stores = await prisma.store.findMany({
-    where: { operatingStatus: "ACTIVE" },
+    where: { operatingStatus: { in: ACCESSIBLE_STORE_OPERATING_STATUSES } },
     select: { id: true },
     orderBy: { createdAt: "asc" },
   });

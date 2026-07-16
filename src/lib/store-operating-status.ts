@@ -1,5 +1,11 @@
 export type StoreOperatingStatus = "TRIAL" | "ACTIVE" | "PAUSED" | "INACTIVE";
 
+/** Store states that participate in normal staff access and background operations. */
+export const ACCESSIBLE_STORE_OPERATING_STATUSES: StoreOperatingStatus[] = [
+  "ACTIVE",
+  "TRIAL",
+];
+
 export const STORE_OPERATING_STATUS_LABELS: Record<StoreOperatingStatus, string> = {
   TRIAL: "試營運",
   ACTIVE: "營運中",
