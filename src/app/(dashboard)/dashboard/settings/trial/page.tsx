@@ -42,7 +42,7 @@ export default async function TrialSettingsPage() {
         }
       />
 
-      <TrialSettingsForm initial={trial} />
+      <TrialSettingsForm key={storeId} storeId={storeId} initial={trial} />
     </PageShell>
   );
 }

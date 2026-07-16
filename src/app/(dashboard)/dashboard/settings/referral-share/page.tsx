@@ -68,6 +68,7 @@ export default async function ReferralShareSettingsPage() {
       />
 
       <ReferralShareSettingsForm
+        key={storeId}
         storeName={store.name}
         storeSlug={store.slug}
         initialTemplate={config?.referralShareTemplate ?? null}

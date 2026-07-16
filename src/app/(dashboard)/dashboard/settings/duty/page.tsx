@@ -189,7 +189,7 @@ export default async function DutySettingsPage() {
             )}
           </div>
 
-          <DutySchedulingToggle enabled={enabled} compact />
+          <DutySchedulingToggle key={storeId} enabled={enabled} compact />
         </div>
       </section>
 

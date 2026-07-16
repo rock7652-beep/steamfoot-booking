@@ -62,6 +62,33 @@ describe("per-store ShopConfig mutations", () => {
     });
   });
 
+  it("keeps explicit nulls in the upsert payload so every payment field can be cleared", async () => {
+    const result = await updateShopBankInfo({
+      bankName: null,
+      bankCode: null,
+      bankAccountNumber: null,
+      lineOfficialUrl: null,
+    });
+
+    expect(result.success).toBe(true);
+    expect(mocks.upsert).toHaveBeenCalledWith({
+      where: { storeId: "branch-a" },
+      create: {
+        storeId: "branch-a",
+        bankName: null,
+        bankCode: null,
+        bankAccountNumber: null,
+        lineOfficialUrl: null,
+      },
+      update: {
+        bankName: null,
+        bankCode: null,
+        bankAccountNumber: null,
+        lineOfficialUrl: null,
+      },
+    });
+  });
+
   it("writes trial settings and ensures the canonical plan in the same store", async () => {
     const settings = {
       trialEnabled: true,

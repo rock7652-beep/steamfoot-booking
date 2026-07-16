@@ -162,7 +162,7 @@ export default async function RemindersPage({ searchParams }: PageProps) {
             })}
           </div>
           <div className="pb-1.5">
-            {activeTab === "templates" && <CreateTemplateForm />}
+            {activeTab === "templates" && <CreateTemplateForm key={activeStoreId} />}
           </div>
         </div>
 
@@ -170,12 +170,14 @@ export default async function RemindersPage({ searchParams }: PageProps) {
         {activeTab === "rules" && (
           <section className="space-y-4">
             <ReminderCard
+              key={activeStoreId}
               initialEnabled={reminderState.enabled}
               initialTemplateId={reminderState.canonicalTemplateId}
               templates={templates.map((t) => ({ id: t.id, name: t.name }))}
             />
             {smokeTestContext && (
               <LineSmokeTestCard
+                key={activeStoreId}
                 storeName={smokeTestContext.storeName}
                 customers={smokeTestContext.customers}
               />

@@ -43,6 +43,8 @@ export default async function PaymentSettingsPage() {
       />
 
       <PaymentSettingsForm
+        key={storeId}
+        storeId={storeId}
         initial={{
           bankName: shopConfig.bankName,
           bankCode: shopConfig.bankCode,
