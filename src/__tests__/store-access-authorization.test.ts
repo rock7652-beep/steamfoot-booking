@@ -56,6 +56,28 @@ describe("organization store authorization", () => {
     await expect(validateStoreAccess(user, "__all__", "read")).resolves.toBeNull();
   });
 
+  it.each(["OWNER", "PARTNER"])(
+    "lets a TRIAL branch %s access its own store",
+    async (role) => {
+      const { getAccessibleStoreIds, validateStoreAccess } = await import("@/lib/store");
+      const user = { role, storeId: "branch-b" };
+
+      await expect(getAccessibleStoreIds(user)).resolves.toEqual(["branch-b"]);
+      await expect(validateStoreAccess(user, "branch-b", "read")).resolves.toBe("branch-b");
+      await expect(validateStoreAccess(user, "branch-b", "write")).resolves.toBe("branch-b");
+    },
+  );
+
+  it.each(["inactive", "paused"])(
+    "denies staff access when their own store is %s",
+    async (storeId) => {
+      const { getAccessibleStoreIds } = await import("@/lib/store");
+      await expect(getAccessibleStoreIds({ role: "OWNER", storeId })).rejects.toThrow(
+        "店舖已停用或無法存取",
+      );
+    },
+  );
+
   it("lets an entitled mother OWNER read, switch to, and write TRIAL descendants", async () => {
     const { getAccessibleStoreIds, validateStoreAccess } = await import("@/lib/store");
     const user = { role: "OWNER", storeId: "hq" };
