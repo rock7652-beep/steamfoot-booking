@@ -578,6 +578,8 @@ interface DashboardShellProps {
   isOwner: boolean;
   permissions: string[];
   pricingPlan: PricingPlan;
+  /** Server-resolved effective entitlements for features migrated off plan-only gating. */
+  effectiveFeatures?: Partial<Record<FeatureKey, boolean>>;
   userName: string;
   roleLabel: string;
   logoutButton: React.ReactNode;
@@ -601,6 +603,7 @@ export default function DashboardShell({
   isOwner,
   permissions,
   pricingPlan,
+  effectiveFeatures = {},
   userName,
   roleLabel,
   logoutButton,
@@ -699,7 +702,10 @@ export default function DashboardShell({
         if (item.ownerOnly && !isOwner) return { item, visible: false, locked: false };
         if (item.permission && !isOwner && !permissions.includes(item.permission))
           return { item, visible: false, locked: false };
-        if (item.requiredFeature && !hasFeature(pricingPlan, item.requiredFeature))
+        if (
+          item.requiredFeature &&
+          !(effectiveFeatures[item.requiredFeature] ?? hasFeature(pricingPlan, item.requiredFeature))
+        )
           return { item, visible: true, locked: true };
         return { item, visible: true, locked: false };
       });
@@ -718,7 +724,7 @@ export default function DashboardShell({
     const activeGid = groups.find((g) => g.hasActive)?.group.id ?? null;
 
     return { visibleGroups: groups, activeGroupId: activeGid };
-  }, [pathname, isOwner, permissions, pricingPlan, navGroupsToRender]);
+  }, [pathname, isOwner, permissions, pricingPlan, effectiveFeatures, navGroupsToRender]);
 
   // Group expand/collapse state — core always open; others collapsed unless they contain active item
   const [openGroups, setOpenGroups] = useState<Set<string>>(() => {

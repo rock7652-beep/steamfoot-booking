@@ -19,13 +19,15 @@ import { getFeatureGateCopy, TRIAL_CONVERSION_COPY } from "@/lib/upgrade-copy";
 interface FeatureGateProps {
   plan: PricingPlan;
   feature: FeatureKey;
+  /** Server-resolved effective entitlement. Falls back to the plan default for legacy callers. */
+  enabled?: boolean;
   children: React.ReactNode;
   /** 無權限時的替代內容（預設：升級提示卡片） */
   fallback?: React.ReactNode;
 }
 
-export function FeatureGate({ plan, feature, children, fallback }: FeatureGateProps) {
-  if (hasFeature(plan, feature)) {
+export function FeatureGate({ plan, feature, enabled, children, fallback }: FeatureGateProps) {
+  if (enabled ?? hasFeature(plan, feature)) {
     return <>{children}</>;
   }
   return <>{fallback ?? <UpgradeCard feature={feature} />}</>;

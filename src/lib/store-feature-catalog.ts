@@ -9,6 +9,7 @@ import {
   hasFeature,
   type FeatureKey,
 } from "@/lib/feature-flags";
+import { resolveEffectiveEntitlement } from "@/lib/effective-entitlement";
 
 export type StoreFeatureCatalogItem = {
   key: FeatureKey;
@@ -140,48 +141,49 @@ export function resolveStoreFeatureDisplayState(
   now: Date = new Date(),
 ): StoreFeatureDisplayState {
   const baseAllowed = hasFeature(plan, feature);
-  if (!entitlement) {
+  const resolution = resolveEffectiveEntitlement(baseAllowed, entitlement, now);
+  if (resolution.source === "PLAN_DEFAULT") {
     return {
-      effectiveAllowed: baseAllowed,
-      statusLabel: baseAllowed ? "可用" : "未開通",
-      statusClass: baseAllowed
+      effectiveAllowed: resolution.enabled,
+      statusLabel: resolution.enabled ? "可用" : "未開通",
+      statusClass: resolution.enabled
         ? "bg-green-50 text-green-700"
         : "bg-earth-100 text-earth-500",
-      sourceLabel: baseAllowed ? PRICING_PLAN_INFO[plan].label : "跟隨方案",
+      sourceLabel: resolution.enabled ? PRICING_PLAN_INFO[plan].label : "跟隨方案",
     };
   }
 
-  if (entitlement.startsAt && entitlement.startsAt > now) {
+  if (resolution.source === "NOT_STARTED") {
     return {
       effectiveAllowed: baseAllowed,
       statusLabel: "尚未開始",
       statusClass: "bg-blue-50 text-blue-700",
-      sourceLabel: `${getStoreFeatureSourceLabel(entitlement.source)}（回到方案）`,
+      sourceLabel: `${getStoreFeatureSourceLabel(entitlement!.source)}（回到方案）`,
     };
   }
 
-  if (entitlement.expiresAt && entitlement.expiresAt < now) {
+  if (resolution.source === "EXPIRED") {
     return {
       effectiveAllowed: baseAllowed,
       statusLabel: "已過期",
       statusClass: "bg-amber-50 text-amber-700",
-      sourceLabel: `${getStoreFeatureSourceLabel(entitlement.source)}（回到方案）`,
+      sourceLabel: `${getStoreFeatureSourceLabel(entitlement!.source)}（回到方案）`,
     };
   }
 
-  if (entitlement.status === "DISABLED") {
+  if (resolution.source === "DISABLED") {
     return {
       effectiveAllowed: false,
       statusLabel: "強制關閉",
       statusClass: "bg-red-50 text-red-700",
-      sourceLabel: getStoreFeatureSourceLabel(entitlement.source),
+      sourceLabel: getStoreFeatureSourceLabel(entitlement!.source),
     };
   }
 
   return {
-    effectiveAllowed: true,
+    effectiveAllowed: resolution.enabled,
     statusLabel: "可用",
     statusClass: "bg-green-50 text-green-700",
-    sourceLabel: getStoreFeatureSourceLabel(entitlement.source),
+    sourceLabel: getStoreFeatureSourceLabel(entitlement!.source),
   };
 }

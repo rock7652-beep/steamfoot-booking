@@ -5,7 +5,12 @@ const pushMessageMock = vi.fn(
     _storeId: string,
     _lineUserId: string,
     _messages: unknown[],
-  ): Promise<{ success: boolean; error?: string }> => ({ success: true }),
+  ): Promise<{ success: boolean; error?: string }> => {
+    void _storeId;
+    void _lineUserId;
+    void _messages;
+    return { success: true };
+  },
 );
 const revalidatePathMock = vi.fn();
 
@@ -56,6 +61,7 @@ vi.mock("@/lib/session", () => ({
 
 vi.mock("@/lib/feature-gate", () => ({
   checkCurrentStoreFeature: vi.fn(async () => undefined),
+  requireStoreFeature: vi.fn(async () => undefined),
 }));
 
 vi.mock("@/lib/manager-visibility", () => ({

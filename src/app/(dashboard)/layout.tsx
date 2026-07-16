@@ -64,6 +64,14 @@ export default async function DashboardLayout({
     : effectiveStoreId
       ? await getCachedStorePlan(effectiveStoreId)
       : ("EXPERIENCE" as const);
+  const effectiveFeatures = effectiveStoreId
+    ? {
+        [FEATURES.LINE_REMINDER]: await hasStoreFeature(
+          effectiveStoreId,
+          FEATURES.LINE_REMINDER,
+        ),
+      }
+    : {};
 
   // 讀取 store-slug 用於 logout redirect（ADMIN 不帶 slug，回 /）
   const ckStore = await cookies();
@@ -135,6 +143,7 @@ export default async function DashboardLayout({
       isOwner={isOwnerLevel}
       permissions={permissions}
       pricingPlan={pricingPlan}
+      effectiveFeatures={effectiveFeatures}
       userName={user.name ?? ""}
       roleLabel={roleLabel}
       logoutButton={
