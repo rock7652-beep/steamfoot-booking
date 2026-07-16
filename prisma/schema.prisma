@@ -1193,23 +1193,23 @@ model Booking {
 // ============================================================
 
 model BookingSubmission {
-  id                  String                  @id @default(cuid())
-  storeId             String
-  requestKey          String                  @db.VarChar(128)
-  submissionType      BookingSubmissionType
-  payloadHash         String                  @db.Char(64)
-  status              BookingSubmissionStatus @default(PROCESSING)
-  actorUserId         String?
-  canonicalCustomerId String?
-  source              String?                 @db.VarChar(32)
-  attemptToken        String?                 @db.VarChar(64)
-  leaseExpiresAt      DateTime?
-  responseSnapshot    Json?
-  responseVersion     Int                     @default(1)
-  errorCategory       String?
-  expiresAt           DateTime?
-  createdAt           DateTime                @default(now())
-  updatedAt           DateTime                @updatedAt
+  id                    String                  @id @default(cuid())
+  storeId               String
+  requestKey            String                  @db.VarChar(128)
+  submissionType        BookingSubmissionType
+  payloadHash           String                  @db.Char(64)
+  status                BookingSubmissionStatus @default(PROCESSING)
+  actorUserId           String?
+  canonicalCustomerId   String?
+  source                String?                 @db.VarChar(32)
+  attemptToken          String?                 @db.VarChar(64)
+  leaseExpiresAt        DateTime?
+  responseSnapshot      Json?
+  responseSchemaVersion Int                     @default(1)
+  errorCategory         String?
+  expiresAt             DateTime?
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
 
   store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
 

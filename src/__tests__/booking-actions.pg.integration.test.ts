@@ -573,7 +573,7 @@ describeWithPostgres("booking production actions — real schema PostgreSQL", ()
       }),
     ).toMatchObject({
       status: "SUCCEEDED",
-      responseVersion: 1,
+      responseSchemaVersion: 1,
       attemptToken: null,
       leaseExpiresAt: null,
     });
@@ -601,6 +601,36 @@ describeWithPostgres("booking production actions — real schema PostgreSQL", ()
     expect(await db().booking.count({ where: { storeId: base.storeId } })).toBe(1);
     expect(await db().bookingSubmission.count({ where: { storeId: base.storeId } })).toBe(1);
     expect(await db().walletSession.count({ where: { walletId: holder.wallet.id, status: "RESERVED" } })).toBe(1);
+  });
+
+  it("fails closed on a malformed replay snapshot without creating another booking", async () => {
+    const base = await createStore("malformed-replay", 2);
+    const holder = await createCustomerWallet(base, "holder", { remaining: 2, ledger: 2 });
+    const input = createInput(base, holder, "10:00");
+    const envelope = {
+      requestKey: `${base.prefix}_request_malformed`,
+      source: "pg-integration",
+    };
+    const first = await actions.createBooking(input, envelope);
+    expect(first.success).toBe(true);
+    await db().bookingSubmission.update({
+      where: {
+        storeId_requestKey: {
+          storeId: base.storeId,
+          requestKey: envelope.requestKey,
+        },
+      },
+      data: { responseSnapshot: { version: 1 } },
+    });
+
+    const replay = await actions.createBooking(input, envelope);
+    expect(replay).toMatchObject({
+      success: false,
+      error: expect.stringContaining("系統錯誤"),
+    });
+    expect(await db().booking.count({ where: { storeId: base.storeId } })).toBe(1);
+    expect(await db().walletSession.count({ where: { walletId: holder.wallet.id, status: "RESERVED" } })).toBe(1);
+    expect(boundary.createBookingCreatedEvent).toHaveBeenCalledTimes(1);
   });
 
   it("rejects preferred-wallet mismatch before touching the second wallet", async () => {

@@ -9,12 +9,17 @@ import {
 
 export const BOOKING_SUBMISSION_LEASE_MS = 120_000;
 export const BOOKING_SUBMISSION_RETENTION_MS = 30 * 24 * 60 * 60 * 1_000;
-export const BOOKING_SUBMISSION_RESPONSE_VERSION = 1;
+export const BOOKING_SUBMISSION_RESPONSE_SCHEMA_VERSION = 1;
 
-const responseSnapshotV1Schema = z.object({
+const responseResultV1Schema = z.object({
   bookingIds: z.array(z.string().min(1)).min(1),
   recurrenceGroupId: z.string().min(1).nullable(),
-});
+}).strict();
+
+const responseSnapshotV1Schema = z.object({
+  version: z.number().int(),
+  result: responseResultV1Schema,
+}).strict();
 
 export type BookingSubmissionResponseSnapshot = z.infer<
   typeof responseSnapshotV1Schema
@@ -57,13 +62,21 @@ function newAttemptToken(): string {
 }
 
 export function parseBookingSubmissionResponseSnapshot(
-  responseVersion: number,
+  responseSchemaVersion: number,
   snapshot: Prisma.JsonValue | null,
 ): BookingSubmissionResponseSnapshot {
-  if (responseVersion !== BOOKING_SUBMISSION_RESPONSE_VERSION) {
-    throw new Error(`Unsupported booking submission response version: ${responseVersion}`);
+  if (responseSchemaVersion !== BOOKING_SUBMISSION_RESPONSE_SCHEMA_VERSION) {
+    throw new Error(
+      `Unsupported booking submission response schema version: ${responseSchemaVersion}`,
+    );
   }
-  return responseSnapshotV1Schema.parse(snapshot);
+  const parsed = responseSnapshotV1Schema.parse(snapshot);
+  if (parsed.version !== responseSchemaVersion) {
+    throw new Error(
+      `Booking submission response schema version mismatch: db=${responseSchemaVersion}, snapshot=${parsed.version}`,
+    );
+  }
+  return parsed;
 }
 
 async function readExistingClaim(input: ClaimInput): Promise<BookingSubmissionClaim> {
@@ -83,12 +96,23 @@ async function readExistingClaim(input: ClaimInput): Promise<BookingSubmissionCl
   }
 
   if (existing.status === "SUCCEEDED") {
+    let snapshot: BookingSubmissionResponseSnapshot;
+    try {
+      snapshot = parseBookingSubmissionResponseSnapshot(
+        existing.responseSchemaVersion,
+        existing.responseSnapshot,
+      );
+    } catch (error) {
+      console.error("[booking-submission] invalid replay snapshot", {
+        submissionId: existing.id,
+        responseSchemaVersion: existing.responseSchemaVersion,
+        error: error instanceof Error ? error.message : "unknown_validation_error",
+      });
+      throw new Error("BOOKING_SUBMISSION_INVALID_RESPONSE_SNAPSHOT");
+    }
     return {
       kind: "replay",
-      snapshot: parseBookingSubmissionResponseSnapshot(
-        existing.responseVersion,
-        existing.responseSnapshot,
-      ),
+      snapshot,
     };
   }
 
@@ -190,7 +214,7 @@ export async function finalizeBookingSubmissionSuccess(
     data: {
       status: "SUCCEEDED",
       responseSnapshot: validSnapshot,
-      responseVersion: BOOKING_SUBMISSION_RESPONSE_VERSION,
+      responseSchemaVersion: BOOKING_SUBMISSION_RESPONSE_SCHEMA_VERSION,
       attemptToken: null,
       leaseExpiresAt: null,
       errorCategory: null,

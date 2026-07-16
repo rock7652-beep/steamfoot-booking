@@ -30,7 +30,7 @@ CREATE TABLE "BookingSubmission" (
   "attemptToken" VARCHAR(64),
   "leaseExpiresAt" TIMESTAMP(3),
   "responseSnapshot" JSONB,
-  "responseVersion" INTEGER NOT NULL DEFAULT 1,
+  "responseSchemaVersion" INTEGER NOT NULL DEFAULT 1,
   "errorCategory" TEXT,
   "expiresAt" TIMESTAMP(3),
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,

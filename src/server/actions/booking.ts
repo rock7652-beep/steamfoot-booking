@@ -354,11 +354,14 @@ export async function createBooking(
         source: idempotency.source,
       });
       if (claim.kind === "replay") {
-        if (claim.snapshot.bookingIds.length !== 1) {
+        if (claim.snapshot.result.bookingIds.length !== 1) {
           throw new Error("BOOKING_CREATE replay must contain exactly one booking ID");
         }
         revalidateAll(effectiveCustomerId);
-        return { success: true, data: { bookingId: claim.snapshot.bookingIds[0] } };
+        return {
+          success: true,
+          data: { bookingId: claim.snapshot.result.bookingIds[0] },
+        };
       }
       if (claim.kind === "key_reused") {
         throw new AppError(
@@ -709,8 +712,11 @@ export async function createBooking(
         await finalizeBookingSubmissionSuccess(tx, {
           ...activeSubmission,
           snapshot: {
-            bookingIds: [created.id],
-            recurrenceGroupId: null,
+            version: 1,
+            result: {
+              bookingIds: [created.id],
+              recurrenceGroupId: null,
+            },
           },
         });
       }

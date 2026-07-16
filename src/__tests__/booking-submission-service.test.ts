@@ -45,7 +45,7 @@ function existing(
     submissionType: "BOOKING_CREATE",
     status: "PROCESSING",
     leaseExpiresAt: new Date(now.getTime() + 60_000),
-    responseVersion: 1,
+    responseSchemaVersion: 1,
     responseSnapshot: null,
     errorCategory: null,
     ...overrides,
@@ -77,13 +77,19 @@ describe("booking submission claim service", () => {
       existing({
         status: "SUCCEEDED",
         leaseExpiresAt: null,
-        responseSnapshot: { bookingIds: ["booking-a"], recurrenceGroupId: null },
+        responseSnapshot: {
+          version: 1,
+          result: { bookingIds: ["booking-a"], recurrenceGroupId: null },
+        },
       }),
     );
 
     await expect(claimBookingSubmission(claimInput)).resolves.toEqual({
       kind: "replay",
-      snapshot: { bookingIds: ["booking-a"], recurrenceGroupId: null },
+      snapshot: {
+        version: 1,
+        result: { bookingIds: ["booking-a"], recurrenceGroupId: null },
+      },
     });
     expect(db.updateMany).not.toHaveBeenCalled();
   });
@@ -136,7 +142,10 @@ describe("booking submission claim service", () => {
         submissionId: "submission-a",
         attemptToken: "stale-attempt",
         payloadHash: claimInput.payloadHash,
-        snapshot: { bookingIds: ["booking-a"], recurrenceGroupId: null },
+        snapshot: {
+          version: 1,
+          result: { bookingIds: ["booking-a"], recurrenceGroupId: null },
+        },
         now,
       }),
     ).rejects.toThrow("no longer owns the lease");

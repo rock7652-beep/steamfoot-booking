@@ -23,21 +23,56 @@ describe("booking submission contracts", () => {
   it("validates the versioned response snapshot", () => {
     expect(
       parseBookingSubmissionResponseSnapshot(1, {
-        bookingIds: ["booking-a"],
-        recurrenceGroupId: null,
+        version: 1,
+        result: { bookingIds: ["booking-a"], recurrenceGroupId: null },
       }),
-    ).toEqual({ bookingIds: ["booking-a"], recurrenceGroupId: null });
-    expect(() =>
-      parseBookingSubmissionResponseSnapshot(2, {
-        bookingIds: ["booking-a"],
-        recurrenceGroupId: null,
-      }),
-    ).toThrow("Unsupported booking submission response version");
+    ).toEqual({
+      version: 1,
+      result: { bookingIds: ["booking-a"], recurrenceGroupId: null },
+    });
     expect(() =>
       parseBookingSubmissionResponseSnapshot(1, {
-        bookingIds: [],
-        recurrenceGroupId: null,
+        version: 2,
+        result: { bookingIds: ["booking-a"], recurrenceGroupId: null },
+      }),
+    ).toThrow("response schema version mismatch");
+    expect(() =>
+      parseBookingSubmissionResponseSnapshot(2, {
+        version: 2,
+        result: { bookingIds: ["booking-a"], recurrenceGroupId: null },
+      }),
+    ).toThrow("Unsupported booking submission response schema version");
+    expect(() =>
+      parseBookingSubmissionResponseSnapshot(1, {
+        version: 1,
+        result: { bookingIds: [], recurrenceGroupId: null },
       }),
     ).toThrow();
+  });
+
+  it.each([
+    { version: 1 },
+    { version: 1, result: { bookingIds: [1], recurrenceGroupId: null } },
+    { version: 1, result: { bookingIds: ["booking-a"], recurrenceGroupId: 1 } },
+  ])("rejects malformed snapshots", (snapshot) => {
+    expect(() => parseBookingSubmissionResponseSnapshot(1, snapshot)).toThrow();
+  });
+
+  it("accepts a future recurring-shaped v1 result without creating it", () => {
+    expect(
+      parseBookingSubmissionResponseSnapshot(1, {
+        version: 1,
+        result: {
+          bookingIds: ["booking-a", "booking-b"],
+          recurrenceGroupId: "group-a",
+        },
+      }),
+    ).toEqual({
+      version: 1,
+      result: {
+        bookingIds: ["booking-a", "booking-b"],
+        recurrenceGroupId: "group-a",
+      },
+    });
   });
 });
