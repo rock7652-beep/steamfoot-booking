@@ -27,6 +27,30 @@ function encodeState(envelope: { payload: unknown; sig: string }): string {
   return Buffer.from(JSON.stringify(envelope), "utf8").toString("base64url");
 }
 
+async function createLegacyState(): Promise<string> {
+  const payload = {
+    customerId: CUSTOMER_ID,
+    storeId: STORE_ID,
+    issuedAt: NOW,
+    expiresAt: NOW + HEALTHFLOW_BRIDGE_STATE_TTL_MS,
+    jti: "legacy-jti",
+  };
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode("test-healthflow-bridge-secret"),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const signature = await crypto.subtle.sign(
+    "HMAC",
+    key,
+    new TextEncoder().encode(JSON.stringify(payload)),
+  );
+  const sig = Buffer.from(new Uint8Array(signature)).toString("base64url");
+  return encodeState({ payload, sig });
+}
+
 beforeEach(() => {
   vi.stubEnv("HEALTHFLOW_BRIDGE_SECRET", "test-healthflow-bridge-secret");
 });
@@ -38,11 +62,11 @@ afterEach(() => {
 describe("healthflow identity bridge state", () => {
   it("returns deterministic short fingerprints without exposing payload", async () => {
     const state = await createHealthflowBridgeState(
-      { customerId: CUSTOMER_ID, storeId: STORE_ID },
+      { identityCustomerId: CUSTOMER_ID, requestedStoreId: STORE_ID },
       { now: NOW, jti: "jti-1" },
     );
     const other = await createHealthflowBridgeState(
-      { customerId: CUSTOMER_ID, storeId: STORE_ID },
+      { identityCustomerId: CUSTOMER_ID, requestedStoreId: STORE_ID },
       { now: NOW, jti: "jti-2" },
     );
 
@@ -56,9 +80,9 @@ describe("healthflow identity bridge state", () => {
     expect(await fingerprintHealthflowBridgeState(null)).toBeNull();
   });
 
-  it("valid state verifies with customerId, storeId, issuedAt, expiresAt and jti", async () => {
+  it("separates identity owner from requested store context", async () => {
     const state = await createHealthflowBridgeState(
-      { customerId: CUSTOMER_ID, storeId: STORE_ID },
+      { identityCustomerId: CUSTOMER_ID, requestedStoreId: STORE_ID },
       { now: NOW, jti: "jti-1" },
     );
 
@@ -67,8 +91,8 @@ describe("healthflow identity bridge state", () => {
     expect(result).toEqual({
       ok: true,
       payload: {
-        customerId: CUSTOMER_ID,
-        storeId: STORE_ID,
+        identityCustomerId: CUSTOMER_ID,
+        requestedStoreId: STORE_ID,
         issuedAt: NOW,
         expiresAt: NOW + HEALTHFLOW_BRIDGE_STATE_TTL_MS,
         jti: "jti-1",
@@ -76,13 +100,30 @@ describe("healthflow identity bridge state", () => {
     });
   });
 
-  it("tampered customerId fails signature verification", async () => {
+  it("normalizes a valid legacy state during the rollout window", async () => {
+    const result = await verifyHealthflowBridgeState(await createLegacyState(), {
+      now: NOW,
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      payload: {
+        identityCustomerId: CUSTOMER_ID,
+        requestedStoreId: STORE_ID,
+        issuedAt: NOW,
+        expiresAt: NOW + HEALTHFLOW_BRIDGE_STATE_TTL_MS,
+        jti: "legacy-jti",
+      },
+    });
+  });
+
+  it("tampered identityCustomerId fails signature verification", async () => {
     const state = await createHealthflowBridgeState(
-      { customerId: CUSTOMER_ID, storeId: STORE_ID },
+      { identityCustomerId: CUSTOMER_ID, requestedStoreId: STORE_ID },
       { now: NOW, jti: "jti-1" },
     );
     const envelope = decodeState(state);
-    envelope.payload.customerId = "customer_attacker";
+    envelope.payload.identityCustomerId = "customer_attacker";
 
     const result = await verifyHealthflowBridgeState(encodeState(envelope), {
       now: NOW,
@@ -93,7 +134,7 @@ describe("healthflow identity bridge state", () => {
 
   it("expired state fails", async () => {
     const state = await createHealthflowBridgeState(
-      { customerId: CUSTOMER_ID, storeId: STORE_ID },
+      { identityCustomerId: CUSTOMER_ID, requestedStoreId: STORE_ID },
       { now: NOW, jti: "jti-1" },
     );
 
@@ -106,7 +147,7 @@ describe("healthflow identity bridge state", () => {
 
   it("missing secret fails closed", async () => {
     const state = await createHealthflowBridgeState(
-      { customerId: CUSTOMER_ID, storeId: STORE_ID },
+      { identityCustomerId: CUSTOMER_ID, requestedStoreId: STORE_ID },
       { now: NOW, jti: "jti-1" },
     );
     vi.stubEnv("HEALTHFLOW_BRIDGE_SECRET", "");
@@ -120,68 +161,75 @@ describe("healthflow identity bridge state", () => {
 });
 
 describe("healthflow identity bridge callback validation", () => {
-  it("valid callback passes only when signed state, profileId and customer/store all match", async () => {
+  it("valid callback preserves identity owner and requested store context", async () => {
     const state = await createHealthflowBridgeState(
-      { customerId: CUSTOMER_ID, storeId: STORE_ID },
+      { identityCustomerId: CUSTOMER_ID, requestedStoreId: STORE_ID },
       { now: NOW, jti: "jti-1" },
     );
 
     const result = await validateHealthflowBridgeCallback({
       state,
       profileId: PROFILE_ID,
-      customer: { id: CUSTOMER_ID, storeId: STORE_ID },
+      customer: { id: CUSTOMER_ID },
       now: NOW,
     });
 
     expect(result).toMatchObject({
       ok: true,
       profileId: PROFILE_ID,
-      customer: { id: CUSTOMER_ID, storeId: STORE_ID },
+      customer: { id: CUSTOMER_ID },
     });
   });
 
   it("customer mismatch fails even when the state signature is valid", async () => {
     const state = await createHealthflowBridgeState(
-      { customerId: CUSTOMER_ID, storeId: STORE_ID },
+      { identityCustomerId: CUSTOMER_ID, requestedStoreId: STORE_ID },
       { now: NOW, jti: "jti-1" },
     );
 
     const result = await validateHealthflowBridgeCallback({
       state,
       profileId: PROFILE_ID,
-      customer: { id: "customer_other", storeId: STORE_ID },
+      customer: { id: "customer_other" },
       now: NOW,
     });
 
     expect(result).toEqual({ ok: false, reason: "customer_mismatch" });
   });
 
-  it("store mismatch fails to prevent cross-store writes", async () => {
+  it("allows the identity owner to belong to a different store", async () => {
     const state = await createHealthflowBridgeState(
-      { customerId: CUSTOMER_ID, storeId: STORE_ID },
+      { identityCustomerId: CUSTOMER_ID, requestedStoreId: STORE_ID },
       { now: NOW, jti: "jti-1" },
     );
 
     const result = await validateHealthflowBridgeCallback({
       state,
       profileId: PROFILE_ID,
-      customer: { id: CUSTOMER_ID, storeId: "store_hsinchu" },
+      customer: { id: CUSTOMER_ID },
       now: NOW,
     });
 
-    expect(result).toEqual({ ok: false, reason: "store_mismatch" });
+    expect(result).toMatchObject({
+      ok: true,
+      payload: {
+        identityCustomerId: CUSTOMER_ID,
+        requestedStoreId: STORE_ID,
+      },
+      customer: { id: CUSTOMER_ID },
+    });
   });
 
   it("missing profileId fails", async () => {
     const state = await createHealthflowBridgeState(
-      { customerId: CUSTOMER_ID, storeId: STORE_ID },
+      { identityCustomerId: CUSTOMER_ID, requestedStoreId: STORE_ID },
       { now: NOW, jti: "jti-1" },
     );
 
     const result = await validateHealthflowBridgeCallback({
       state,
       profileId: "",
-      customer: { id: CUSTOMER_ID, storeId: STORE_ID },
+      customer: { id: CUSTOMER_ID },
       now: NOW,
     });
 
@@ -192,7 +240,7 @@ describe("healthflow identity bridge callback validation", () => {
     const result = await validateHealthflowBridgeCallback({
       state: "not-a-valid-state",
       profileId: PROFILE_ID,
-      customer: { id: CUSTOMER_ID, storeId: STORE_ID },
+      customer: { id: CUSTOMER_ID },
       now: NOW,
       name: "同名顧客",
       phone: "0912345678",

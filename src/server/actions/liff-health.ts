@@ -227,16 +227,14 @@ export async function createHealthflowEntryUrl(
   diagnostics.canonicalCustomerResolved = true;
   diagnostics.anonymizedCustomerId = anonymizeHealthflowEntryId(customer.id);
   sensitiveValues.push(customer.id, customer.storeId);
-  if (customer.storeId !== store.id) {
-    return result({ status: "store_mismatch", ...resultMeta });
-  }
-  diagnostics.resolvedCustomerStoreSlug = storeSlug;
+  diagnostics.resolvedCustomerStoreSlug =
+    customer.storeId === store.id ? storeSlug : null;
 
   let row;
   try {
     row = await prisma.customer.findUnique({
       where: { id: customer.id },
-      select: { id: true, storeId: true, mergedIntoCustomerId: true },
+      select: { id: true, mergedIntoCustomerId: true },
     });
   } catch (err) {
     logHealthflowEntryException(diagnostics, err, sensitiveValues);
@@ -248,14 +246,10 @@ export async function createHealthflowEntryUrl(
   if (!row || row.mergedIntoCustomerId) {
     return result({ status: "no_customer", ...resultMeta });
   }
-  if (row.storeId !== store.id) {
-    return result({ status: "store_mismatch", ...resultMeta });
-  }
-
   try {
     const state = await createHealthflowBridgeState({
-      customerId: row.id,
-      storeId: row.storeId,
+      identityCustomerId: row.id,
+      requestedStoreId: store.id,
     });
     console.info("[healthflow bridge] state trace", {
       phase: "state_created",
