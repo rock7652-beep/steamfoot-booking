@@ -5,6 +5,10 @@ import {
   createHealthflowEntryUrl,
   type CreateHealthflowEntryUrlResult,
 } from "@/server/actions/liff-health";
+import {
+  createHealthflowEntryAttemptId,
+  createHealthflowEntryErrorCode,
+} from "@/lib/healthflow-entry-correlation";
 
 const START_LABEL = "前往量測";
 const LOADING_LABEL = "正在前往…";
@@ -27,30 +31,43 @@ export function getHealthflowEntryErrorMessage(status: EntryFailureStatus) {
   return ERROR_MESSAGES[status];
 }
 
+export function getHealthflowTransportFailure(attemptId: string) {
+  return {
+    message: CLIENT_ERROR_MESSAGE,
+    attemptId,
+    errorCode: createHealthflowEntryErrorCode(attemptId),
+    resultStatus: "transport_exception" as const,
+  };
+}
+
 type CreateEntryUrlAction = (
   storeSlug: string,
+  attemptId: string,
 ) => Promise<CreateHealthflowEntryUrlResult>;
 
 type Navigate = (url: string) => void;
 
 export type StartHealthflowEntryResult =
   | { outcome: "navigated" }
-  | { outcome: "failed"; status: EntryFailureStatus; requestId: string }
+  | {
+      outcome: "failed";
+      status: EntryFailureStatus;
+      requestId: string;
+      attemptId: string;
+      errorCode: string;
+    }
   | { outcome: "ignored" };
 type InFlightRef = { current: boolean };
 
-export function formatHealthflowEntryErrorCode(requestId: string) {
-  const suffix = requestId.replace(/[^a-zA-Z0-9]/g, "").slice(-6).toUpperCase();
-  return `HF-${suffix || "UNKNOWN"}`;
-}
-
 export async function startHealthflowEntryNavigation({
   storeSlug,
+  attemptId,
   createEntryUrl = createHealthflowEntryUrl,
   navigate,
   inFlightRef,
 }: {
   storeSlug: string;
+  attemptId: string;
   createEntryUrl?: CreateEntryUrlAction;
   navigate: Navigate;
   inFlightRef?: InFlightRef;
@@ -59,12 +76,14 @@ export async function startHealthflowEntryNavigation({
   if (inFlightRef) inFlightRef.current = true;
 
   try {
-    const result = await createEntryUrl(storeSlug);
+    const result = await createEntryUrl(storeSlug, attemptId);
     if (result.status !== "ok") {
       return {
         outcome: "failed",
         status: result.status,
         requestId: result.requestId,
+        attemptId: result.attemptId,
+        errorCode: result.errorCode,
       };
     }
 
@@ -79,7 +98,7 @@ export function HealthflowEntryButton({ storeSlug }: { storeSlug: string }) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<{
     message: string;
-    requestId: string | null;
+    errorCode: string;
   } | null>(null);
   const inFlightRef = useRef(false);
 
@@ -88,10 +107,13 @@ export function HealthflowEntryButton({ storeSlug }: { storeSlug: string }) {
 
     setPending(true);
     setError(null);
+    const attemptId = createHealthflowEntryAttemptId();
+    const transportFailure = getHealthflowTransportFailure(attemptId);
 
     try {
       const outcome = await startHealthflowEntryNavigation({
         storeSlug,
+        attemptId,
         inFlightRef,
         navigate: (url) => {
           window.location.href = url;
@@ -100,21 +122,28 @@ export function HealthflowEntryButton({ storeSlug }: { storeSlug: string }) {
       if (outcome.outcome === "failed") {
         console.warn("healthflow_entry_client_result", {
           requestId: outcome.requestId,
+          attemptId: outcome.attemptId,
+          errorCode: outcome.errorCode,
           resultStatus: outcome.status,
         });
         setError({
           message: getHealthflowEntryErrorMessage(outcome.status),
-          requestId: outcome.requestId,
+          errorCode: outcome.errorCode,
         });
       }
     } catch (exception) {
       console.error("healthflow_entry_client_exception", {
         requestId: null,
-        resultStatus: "transport_exception",
+        attemptId: transportFailure.attemptId,
+        errorCode: transportFailure.errorCode,
+        resultStatus: transportFailure.resultStatus,
         exceptionName:
           exception instanceof Error ? exception.name : "UnknownClientException",
       });
-      setError({ message: CLIENT_ERROR_MESSAGE, requestId: null });
+      setError({
+        message: transportFailure.message,
+        errorCode: transportFailure.errorCode,
+      });
     } finally {
       inFlightRef.current = false;
       setPending(false);
@@ -149,11 +178,9 @@ export function HealthflowEntryButton({ storeSlug }: { storeSlug: string }) {
       {error && (
         <p className="mt-2 text-center text-xs leading-relaxed text-red-600">
           {error.message}
-          {error.requestId && (
-            <span className="mt-1 block font-mono text-[11px]">
-              錯誤代碼：{formatHealthflowEntryErrorCode(error.requestId)}
-            </span>
-          )}
+          <span className="mt-1 block font-mono text-[11px]">
+            錯誤代碼：{error.errorCode}
+          </span>
         </p>
       )}
     </div>

@@ -37,6 +37,10 @@ import {
   liffMessages,
 } from "@/lib/liff/messages";
 import type { HealthSummary, HealthAlert } from "@/lib/health-service";
+import {
+  createHealthflowEntryAttemptId,
+  createHealthflowEntryErrorCode,
+} from "@/lib/healthflow-entry-correlation";
 
 // PR-H2c：移除 self-computed score 顯示 — HealthFlow API 不回官方 score，
 // Steamfoot 自算與 HealthFlow 原站不一致，會誤導顧客。改顯示 metrics + alerts +
@@ -573,16 +577,32 @@ function StartHealthFlowButton({
     if (pending) return;
     setPending(true);
     setError(null);
+    const attemptId = createHealthflowEntryAttemptId();
+    const transportErrorCode = createHealthflowEntryErrorCode(attemptId);
     try {
-      const result = await createHealthflowEntryUrl(storeSlug);
+      const result = await createHealthflowEntryUrl(storeSlug, attemptId);
       if (result.status === "ok") {
         window.location.href = result.url;
         return;
       }
-      setError(liffMessages.health.linkStartFailed);
+      console.warn("healthflow_entry_client_result", {
+        requestId: result.requestId,
+        attemptId: result.attemptId,
+        errorCode: result.errorCode,
+        resultStatus: result.status,
+      });
+      setError(`${liffMessages.health.linkStartFailed} 錯誤代碼：${result.errorCode}`);
     } catch (err) {
-      console.warn("[health-view] healthflow entry failed", err);
-      setError(liffMessages.health.linkStartFailed);
+      console.error("healthflow_entry_client_exception", {
+        requestId: null,
+        attemptId,
+        errorCode: transportErrorCode,
+        resultStatus: "transport_exception",
+        exceptionName: err instanceof Error ? err.name : "UnknownClientException",
+      });
+      setError(
+        `${liffMessages.health.linkStartFailed} 錯誤代碼：${transportErrorCode}`,
+      );
     } finally {
       setPending(false);
     }

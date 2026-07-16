@@ -44,6 +44,11 @@ import { healthFlowLiffUrl } from "@/lib/liff/messages";
 import { requireStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
 import { createHash, randomUUID } from "node:crypto";
+import {
+  createHealthflowEntryErrorCode,
+  normalizeHealthflowEntryAttemptId,
+} from "@/lib/healthflow-entry-correlation";
+import { sanitizeHealthflowException } from "@/lib/healthflow-entry-redaction";
 
 // PR-H2c：移除 self-computed score。
 // HealthFlow summary API 不回官方 score / riskLevel；Steamfoot 自算的 68 與 HealthFlow
@@ -68,16 +73,24 @@ export type FetchLiffHealthSummaryResult =
   | { status: "service_unavailable" };
 
 export type CreateHealthflowEntryUrlResult =
-  | { status: "ok"; url: string; requestId: string }
-  | { status: "no_customer"; requestId: string }
-  | { status: "store_mismatch"; requestId: string }
-  | { status: "feature_unavailable"; requestId: string }
-  | { status: "service_unavailable"; requestId: string };
+  | HealthflowEntryResultMeta & { status: "ok"; url: string }
+  | HealthflowEntryResultMeta & { status: "no_customer" }
+  | HealthflowEntryResultMeta & { status: "store_mismatch" }
+  | HealthflowEntryResultMeta & { status: "feature_unavailable" }
+  | HealthflowEntryResultMeta & { status: "service_unavailable" };
+
+type HealthflowEntryResultMeta = {
+  requestId: string;
+  attemptId: string;
+  errorCode: string;
+};
 
 type HealthflowEntryResultStatus = CreateHealthflowEntryUrlResult["status"];
 
 type HealthflowEntryDiagnostics = {
   requestId: string;
+  attemptId: string;
+  errorCode: string;
   storeSlug: string;
   anonymizedUserId: string | null;
   anonymizedCustomerId: string | null;
@@ -110,23 +123,17 @@ function logHealthflowEntryException(
   error: unknown,
   sensitiveValues: ReadonlyArray<string | null | undefined> = [],
 ) {
-  const exception = error instanceof Error ? error : new Error(String(error));
-  const redact = (value: string | null | undefined): string | null => {
-    if (!value) return null;
-    return sensitiveValues.reduce<string>(
-      (sanitized, sensitive) =>
-        sensitive ? sanitized.replaceAll(sensitive, "[REDACTED]") : sanitized,
-      value,
-    );
-  };
+  const exception = sanitizeHealthflowException(error, sensitiveValues);
   console.error(
     JSON.stringify({
       event: "healthflow_entry_exception",
       requestId: diagnostics.requestId,
+      attemptId: diagnostics.attemptId,
+      errorCode: diagnostics.errorCode,
       storeSlug: diagnostics.storeSlug,
       name: exception.name,
-      message: redact(exception.message),
-      stack: redact(exception.stack),
+      message: exception.message,
+      stack: exception.stack,
       timestamp: new Date().toISOString(),
     }),
   );
@@ -134,9 +141,13 @@ function logHealthflowEntryException(
 
 export async function createHealthflowEntryUrl(
   storeSlug: string,
+  clientAttemptId: string,
 ): Promise<CreateHealthflowEntryUrlResult> {
+  const attemptId = normalizeHealthflowEntryAttemptId(clientAttemptId);
   const diagnostics: HealthflowEntryDiagnostics = {
     requestId: `hf_entry_${randomUUID()}`,
+    attemptId,
+    errorCode: createHealthflowEntryErrorCode(attemptId),
     storeSlug,
     anonymizedUserId: null,
     anonymizedCustomerId: null,
@@ -153,17 +164,22 @@ export async function createHealthflowEntryUrl(
     logHealthflowEntryResult(diagnostics, value.status);
     return value;
   };
+  const resultMeta: HealthflowEntryResultMeta = {
+    requestId: diagnostics.requestId,
+    attemptId: diagnostics.attemptId,
+    errorCode: diagnostics.errorCode,
+  };
 
   let user;
   try {
     user = await requireSession();
   } catch {
-    return result({ status: "no_customer", requestId: diagnostics.requestId });
+    return result({ status: "no_customer", ...resultMeta });
   }
   diagnostics.anonymizedUserId = anonymizeHealthflowEntryId(user.id);
   sensitiveValues.push(user.id);
   if (user.role !== "CUSTOMER") {
-    return result({ status: "no_customer", requestId: diagnostics.requestId });
+    return result({ status: "no_customer", ...resultMeta });
   }
 
   let store;
@@ -176,11 +192,11 @@ export async function createHealthflowEntryUrl(
     logHealthflowEntryException(diagnostics, err, sensitiveValues);
     return result({
       status: "service_unavailable",
-      requestId: diagnostics.requestId,
+      ...resultMeta,
     });
   }
   if (!store) {
-    return result({ status: "store_mismatch", requestId: diagnostics.requestId });
+    return result({ status: "store_mismatch", ...resultMeta });
   }
   sensitiveValues.push(store.id);
 
@@ -191,7 +207,7 @@ export async function createHealthflowEntryUrl(
     diagnostics.entitlementPassed = false;
     return result({
       status: "feature_unavailable",
-      requestId: diagnostics.requestId,
+      ...resultMeta,
     });
   }
 
@@ -202,17 +218,17 @@ export async function createHealthflowEntryUrl(
     logHealthflowEntryException(diagnostics, err, sensitiveValues);
     return result({
       status: "service_unavailable",
-      requestId: diagnostics.requestId,
+      ...resultMeta,
     });
   }
   if (!customer) {
-    return result({ status: "no_customer", requestId: diagnostics.requestId });
+    return result({ status: "no_customer", ...resultMeta });
   }
   diagnostics.canonicalCustomerResolved = true;
   diagnostics.anonymizedCustomerId = anonymizeHealthflowEntryId(customer.id);
   sensitiveValues.push(customer.id, customer.storeId);
   if (customer.storeId !== store.id) {
-    return result({ status: "store_mismatch", requestId: diagnostics.requestId });
+    return result({ status: "store_mismatch", ...resultMeta });
   }
   diagnostics.resolvedCustomerStoreSlug = storeSlug;
 
@@ -226,14 +242,14 @@ export async function createHealthflowEntryUrl(
     logHealthflowEntryException(diagnostics, err, sensitiveValues);
     return result({
       status: "service_unavailable",
-      requestId: diagnostics.requestId,
+      ...resultMeta,
     });
   }
   if (!row || row.mergedIntoCustomerId) {
-    return result({ status: "no_customer", requestId: diagnostics.requestId });
+    return result({ status: "no_customer", ...resultMeta });
   }
   if (row.storeId !== store.id) {
-    return result({ status: "store_mismatch", requestId: diagnostics.requestId });
+    return result({ status: "store_mismatch", ...resultMeta });
   }
 
   try {
@@ -244,6 +260,9 @@ export async function createHealthflowEntryUrl(
     console.info("[healthflow bridge] state trace", {
       phase: "state_created",
       fingerprint: await fingerprintHealthflowBridgeState(state),
+      requestId: diagnostics.requestId,
+      attemptId: diagnostics.attemptId,
+      errorCode: diagnostics.errorCode,
     });
     const url = new URL(healthFlowLiffUrl);
     url.search = "";
@@ -252,13 +271,13 @@ export async function createHealthflowEntryUrl(
     return result({
       status: "ok",
       url: url.toString(),
-      requestId: diagnostics.requestId,
+      ...resultMeta,
     });
   } catch (err) {
     logHealthflowEntryException(diagnostics, err, sensitiveValues);
     return result({
       status: "service_unavailable",
-      requestId: diagnostics.requestId,
+      ...resultMeta,
     });
   }
 }

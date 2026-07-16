@@ -33,6 +33,7 @@ vi.mock("@/lib/db", () => ({
 
 import { createHealthflowEntryUrl } from "@/server/actions/liff-health";
 import { verifyHealthflowBridgeState } from "@/lib/healthflow-identity-bridge";
+import { sanitizeHealthflowException } from "@/lib/healthflow-entry-redaction";
 
 const USER = {
   id: "user_1",
@@ -42,6 +43,8 @@ const USER = {
   email: null,
 };
 const CUSTOMER = { id: "customer_1", storeId: "store_zhubei" };
+const ATTEMPT_ID = "hf_attempt_12345678-abcd-4000-9000-abcdef12ab34";
+const ERROR_CODE = "HF-EF12AB34";
 const REQUEST_ID = expect.stringMatching(/^hf_entry_[0-9a-f-]{36}$/);
 
 function healthflowResultLogs(infoSpy: { mock: { calls: unknown[][] } }) {
@@ -80,11 +83,13 @@ afterEach(() => {
 describe("createHealthflowEntryUrl", () => {
   it("creates a HealthFlow LIFF URL with a signed state for the canonical customer and current store", async () => {
     const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
-    const result = await createHealthflowEntryUrl("zhubei");
+    const result = await createHealthflowEntryUrl("zhubei", ATTEMPT_ID);
 
     expect(result.status).toBe("ok");
     if (result.status !== "ok") throw new Error("expected ok");
     expect(result.requestId).toEqual(REQUEST_ID);
+    expect(result.attemptId).toBe(ATTEMPT_ID);
+    expect(result.errorCode).toBe(ERROR_CODE);
 
     const url = new URL(result.url);
     expect(url.origin).toBe("https://liff.line.me");
@@ -108,6 +113,9 @@ describe("createHealthflowEntryUrl", () => {
     expect(infoSpy).toHaveBeenCalledWith("[healthflow bridge] state trace", {
       phase: "state_created",
       fingerprint: expect.stringMatching(/^[a-f0-9]{12}$/),
+      requestId: result.requestId,
+      attemptId: ATTEMPT_ID,
+      errorCode: ERROR_CODE,
     });
     expect(JSON.stringify(infoSpy.mock.calls)).not.toContain(state);
     expect(JSON.stringify(infoSpy.mock.calls)).not.toContain("customer_1");
@@ -117,6 +125,8 @@ describe("createHealthflowEntryUrl", () => {
       expect.objectContaining({
         event: "healthflow_entry_result",
         requestId: result.requestId,
+        attemptId: ATTEMPT_ID,
+        errorCode: ERROR_CODE,
         resultStatus: "ok",
         storeSlug: "zhubei",
         anonymizedUserId: expect.stringMatching(/^[a-f0-9]{12}$/),
@@ -150,9 +160,13 @@ describe("createHealthflowEntryUrl", () => {
     const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
     mockRequireStoreFeature.mockRejectedValueOnce(new Error("FORBIDDEN"));
 
-    await expect(createHealthflowEntryUrl("zhubei")).resolves.toMatchObject({
+    await expect(
+      createHealthflowEntryUrl("zhubei", ATTEMPT_ID),
+    ).resolves.toMatchObject({
       status: "feature_unavailable",
       requestId: REQUEST_ID,
+      attemptId: ATTEMPT_ID,
+      errorCode: ERROR_CODE,
     });
     expect(healthflowResultLogs(infoSpy)).toEqual([
       expect.objectContaining({
@@ -174,9 +188,13 @@ describe("createHealthflowEntryUrl", () => {
     const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
     mockRequireSession.mockRejectedValueOnce(new Error("UNAUTHORIZED"));
 
-    await expect(createHealthflowEntryUrl("zhubei")).resolves.toMatchObject({
+    await expect(
+      createHealthflowEntryUrl("zhubei", ATTEMPT_ID),
+    ).resolves.toMatchObject({
       status: "no_customer",
       requestId: REQUEST_ID,
+      attemptId: ATTEMPT_ID,
+      errorCode: ERROR_CODE,
     });
     expect(healthflowResultLogs(infoSpy)).toEqual([
       expect.objectContaining({
@@ -197,9 +215,13 @@ describe("createHealthflowEntryUrl", () => {
       mergedIntoCustomerId: "customer_target",
     });
 
-    await expect(createHealthflowEntryUrl("zhubei")).resolves.toMatchObject({
+    await expect(
+      createHealthflowEntryUrl("zhubei", ATTEMPT_ID),
+    ).resolves.toMatchObject({
       status: "no_customer",
       requestId: REQUEST_ID,
+      attemptId: ATTEMPT_ID,
+      errorCode: ERROR_CODE,
     });
   });
 
@@ -207,9 +229,13 @@ describe("createHealthflowEntryUrl", () => {
     const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
     mockStoreFindUnique.mockResolvedValueOnce({ id: "store_hsinchu" });
 
-    await expect(createHealthflowEntryUrl("hsinchu")).resolves.toMatchObject({
+    await expect(
+      createHealthflowEntryUrl("hsinchu", ATTEMPT_ID),
+    ).resolves.toMatchObject({
       status: "store_mismatch",
       requestId: REQUEST_ID,
+      attemptId: ATTEMPT_ID,
+      errorCode: ERROR_CODE,
     });
     expect(healthflowResultLogs(infoSpy)).toEqual([
       expect.objectContaining({
@@ -228,15 +254,23 @@ describe("createHealthflowEntryUrl", () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     mockCustomerFindUnique.mockRejectedValueOnce(
       new TypeError(
-        "database offline for customer_1 using test-healthflow-bridge-secret",
+        "database offline for customer_1 using test-healthflow-bridge-secret " +
+          "test@example.com 0912345678 +886912345678 " +
+          "customerName=王小明 " +
+          "Bearer abcdef1234567890 " +
+          "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJjdXN0b21lcl8xIn0.signature12345 " +
+          "https://example.com/callback?state=signed-state&token=top-secret " +
+          'parameters=["customer_1","test@example.com"]',
       ),
     );
 
-    const actionResult = await createHealthflowEntryUrl("zhubei");
+    const actionResult = await createHealthflowEntryUrl("zhubei", ATTEMPT_ID);
 
     expect(actionResult).toMatchObject({
       status: "service_unavailable",
       requestId: REQUEST_ID,
+      attemptId: ATTEMPT_ID,
+      errorCode: ERROR_CODE,
     });
     expect(healthflowResultLogs(infoSpy)).toEqual([
       expect.objectContaining({
@@ -252,9 +286,11 @@ describe("createHealthflowEntryUrl", () => {
         actionResult.status === "service_unavailable"
           ? actionResult.requestId
           : expect.any(String),
+      attemptId: ATTEMPT_ID,
+      errorCode: ERROR_CODE,
       storeSlug: "zhubei",
       name: "TypeError",
-      message: "database offline for [REDACTED] using [REDACTED]",
+      message: expect.stringContaining("database offline for [REDACTED]"),
       stack: expect.any(String),
       timestamp: expect.any(String),
     });
@@ -263,10 +299,55 @@ describe("createHealthflowEntryUrl", () => {
     expect(JSON.stringify(exceptionLog)).not.toContain(
       "test-healthflow-bridge-secret",
     );
+    for (const sensitive of [
+      "test@example.com",
+      "0912345678",
+      "+886912345678",
+      "王小明",
+      "abcdef1234567890",
+      "eyJhbGciOiJIUzI1NiJ9",
+      "signed-state",
+      "top-secret",
+      'parameters=["customer_1","test@example.com"]',
+    ]) {
+      expect(JSON.stringify(exceptionLog)).not.toContain(sensitive);
+    }
+    expect(exceptionLog.stack.split("\n")).toHaveLength(6);
+  });
+
+  it("fails closed when exception redaction itself cannot stringify input", () => {
+    const unsafe = {
+      toString() {
+        throw new Error("must not escape");
+      },
+    };
+
+    expect(sanitizeHealthflowException(unsafe)).toEqual({
+      name: "[REDACTION_FAILED]",
+      message: "[REDACTION_FAILED]",
+      stack: "[REDACTION_FAILED]",
+    });
+  });
+
+  it("rebuilds a malformed client attempt id before logging or returning it", async () => {
+    const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
+    const result = await createHealthflowEntryUrl(
+      "zhubei",
+      "attacker@example.com?state=signed-state",
+    );
+
+    expect(result.attemptId).toMatch(
+      /^hf_attempt_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+    );
+    expect(result.attemptId).not.toContain("attacker");
+    expect(result.errorCode).toMatch(/^HF-[0-9A-F]{8}$/);
+    expect(JSON.stringify(healthflowResultLogs(infoSpy))).not.toContain(
+      "signed-state",
+    );
   });
 
   it("URL-encodes the signed state exactly once", async () => {
-    const result = await createHealthflowEntryUrl("zhubei");
+    const result = await createHealthflowEntryUrl("zhubei", ATTEMPT_ID);
 
     expect(result.status).toBe("ok");
     if (result.status !== "ok") throw new Error("expected ok");
@@ -281,7 +362,7 @@ describe("createHealthflowEntryUrl", () => {
   });
 
   it("keeps the original LIFF ID and never re-appends the HealthFlow endpoint's own /liff path", async () => {
-    const result = await createHealthflowEntryUrl("zhubei");
+    const result = await createHealthflowEntryUrl("zhubei", ATTEMPT_ID);
 
     expect(result.status).toBe("ok");
     if (result.status !== "ok") throw new Error("expected ok");

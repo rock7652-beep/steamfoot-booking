@@ -7,14 +7,22 @@ vi.mock("@/server/actions/liff-health", () => ({
 }));
 
 import {
-  formatHealthflowEntryErrorCode,
   getHealthflowEntryErrorMessage,
+  getHealthflowTransportFailure,
   HealthflowEntryButton,
   startHealthflowEntryNavigation,
 } from "@/app/(customer)/health/healthflow-entry-button";
+import {
+  createHealthflowEntryErrorCode,
+  isHealthflowEntryAttemptId,
+  normalizeHealthflowEntryAttemptId,
+} from "@/lib/healthflow-entry-correlation";
 import { createHealthflowBridgeState, verifyHealthflowBridgeState } from "@/lib/healthflow-identity-bridge";
 
 describe("/s/[store]/health HealthFlow entry CTA", () => {
+  const attemptId = "hf_attempt_12345678-abcd-4000-9000-abcdef12ab34";
+  const errorCode = "HF-EF12AB34";
+
   it.each([
     ["no_customer", "目前無法辨識顧客資料，請重新登入或聯繫門市。"],
     ["store_mismatch", "目前登入資料與此門市不一致，請由原門市入口進入。"],
@@ -24,11 +32,28 @@ describe("/s/[store]/health HealthFlow entry CTA", () => {
     expect(getHealthflowEntryErrorMessage(status)).toBe(message);
   });
 
-  it("formats a short support code without exposing the full request id", () => {
-    const requestId = "hf_entry_12345678-abcd-4000-9000-abcdef12ab34";
+  it("creates a stable support code from a validated attempt id", () => {
+    expect(isHealthflowEntryAttemptId(attemptId)).toBe(true);
+    expect(createHealthflowEntryErrorCode(attemptId)).toBe(errorCode);
+    expect(createHealthflowEntryErrorCode(attemptId)).not.toContain(attemptId);
+  });
 
-    expect(formatHealthflowEntryErrorCode(requestId)).toBe("HF-12AB34");
-    expect(formatHealthflowEntryErrorCode(requestId)).not.toContain(requestId);
+  it("replaces an untrusted attempt id instead of reflecting it", () => {
+    const normalized = normalizeHealthflowEntryAttemptId(
+      "attacker@example.com?token=secret",
+    );
+
+    expect(isHealthflowEntryAttemptId(normalized)).toBe(true);
+    expect(normalized).not.toContain("attacker");
+  });
+
+  it("keeps an error code available when the action transport fails", () => {
+    expect(getHealthflowTransportFailure(attemptId)).toEqual({
+      message: "健康評估服務暫時無法使用，請稍後再試。",
+      attemptId,
+      errorCode,
+      resultStatus: "transport_exception",
+    });
   });
 
   it("renders a button instead of a fixed HealthFlow URL", () => {
@@ -55,19 +80,22 @@ describe("/s/[store]/health HealthFlow entry CTA", () => {
       status: "ok",
       url: signedUrl,
       requestId: "hf_entry_success123456",
+      attemptId,
+      errorCode,
     });
     const navigate = vi.fn();
 
     await expect(
       startHealthflowEntryNavigation({
         storeSlug: "zhubei",
+        attemptId,
         createEntryUrl,
         navigate,
       }),
     ).resolves.toEqual({ outcome: "navigated" });
 
     expect(createEntryUrl).toHaveBeenCalledOnce();
-    expect(createEntryUrl).toHaveBeenCalledWith("zhubei");
+    expect(createEntryUrl).toHaveBeenCalledWith("zhubei", attemptId);
     expect(navigate).toHaveBeenCalledWith(signedUrl);
 
     const url = new URL(signedUrl);
@@ -90,12 +118,15 @@ describe("/s/[store]/health HealthFlow entry CTA", () => {
     const createEntryUrl = vi.fn().mockResolvedValue({
       status: "store_mismatch",
       requestId: "hf_entry_mismatch123456",
+      attemptId,
+      errorCode,
     });
     const navigate = vi.fn();
 
     await expect(
       startHealthflowEntryNavigation({
         storeSlug: "zhubei",
+        attemptId,
         createEntryUrl,
         navigate,
       }),
@@ -103,6 +134,8 @@ describe("/s/[store]/health HealthFlow entry CTA", () => {
       outcome: "failed",
       status: "store_mismatch",
       requestId: "hf_entry_mismatch123456",
+      attemptId,
+      errorCode,
     });
 
     expect(createEntryUrl).toHaveBeenCalledOnce();
@@ -114,10 +147,18 @@ describe("/s/[store]/health HealthFlow entry CTA", () => {
       status: "ok";
       url: string;
       requestId: string;
+      attemptId: string;
+      errorCode: string;
     }) => void;
     const createEntryUrl = vi.fn(
       () =>
-        new Promise<{ status: "ok"; url: string; requestId: string }>((resolve) => {
+        new Promise<{
+          status: "ok";
+          url: string;
+          requestId: string;
+          attemptId: string;
+          errorCode: string;
+        }>((resolve) => {
           resolveAction = resolve;
         }),
     );
@@ -126,12 +167,14 @@ describe("/s/[store]/health HealthFlow entry CTA", () => {
 
     const first = startHealthflowEntryNavigation({
       storeSlug: "zhubei",
+      attemptId,
       createEntryUrl,
       navigate,
       inFlightRef,
     });
     const second = startHealthflowEntryNavigation({
       storeSlug: "zhubei",
+      attemptId,
       createEntryUrl,
       navigate,
       inFlightRef,
@@ -144,6 +187,8 @@ describe("/s/[store]/health HealthFlow entry CTA", () => {
       status: "ok",
       url: "https://liff.line.me/2009744225-9aSc04fR/liff?state=signed",
       requestId: "hf_entry_success654321",
+      attemptId,
+      errorCode,
     });
 
     await expect(first).resolves.toEqual({ outcome: "navigated" });
