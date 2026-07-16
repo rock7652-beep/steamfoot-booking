@@ -44,12 +44,14 @@ import { getCanonicalCustomerIdForSession } from "@/lib/customer-identity";
 import { createBooking } from "@/server/actions/booking";
 import { isStoreSubscriptionWriteBlocked } from "@/lib/subscription-guard";
 import { dayRange } from "@/lib/date-utils";
+import { bookingSubmissionRequestKeySchema } from "@/lib/validators/booking-submission";
 
 const InputSchema = z.object({
   bookingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "invalid_date_format"),
   slotTime: z.string().regex(/^\d{2}:\d{2}$/, "invalid_slot_format"),
   // PR-NoShow-2：LIFF 也支援多人預約（1~4）；未帶預設 1。
   people: z.number().int().min(1).max(4).optional(),
+  requestKey: bookingSubmissionRequestKeySchema.optional(),
 });
 
 export type SubmitLiffMemberBookingInput = z.infer<typeof InputSchema>;
@@ -96,7 +98,7 @@ export async function submitLiffMemberBooking(
       field: field === "slotTime" ? "slotTime" : "bookingDate",
     };
   }
-  const { bookingDate, slotTime } = parsed.data;
+  const { bookingDate, slotTime, requestKey } = parsed.data;
   const people = parsed.data.people ?? 1;
 
   // ── 2. Require CUSTOMER session ────────────────────
@@ -159,14 +161,17 @@ export async function submitLiffMemberBooking(
 
   // 我們**不傳** customerPlanWalletId / servicePlanId / makeupCreditId / expectedAmount —
   // FEFO（方案）/ 最早到期券（補課）皆由 server 自動選。
-  const result = await createBooking({
+  const bookingInput = {
     customerId,
     bookingDate,
     slotTime,
-    bookingType: "PACKAGE_SESSION",
+    bookingType: "PACKAGE_SESSION" as const,
     people,
     ...(useMakeup ? { isMakeup: true } : {}),
-  });
+  };
+  const result = requestKey
+    ? await createBooking(bookingInput, { requestKey, source: "liff-member" })
+    : await createBooking(bookingInput);
 
   if (!result.success) {
     return mapCreateBookingErrorToStatus(result.error, { customerId, storeId });

@@ -184,6 +184,21 @@ describe("submitLiffTrialBooking action (PR-D1A)", () => {
         in: ["PENDING", "CONFIRMED", "COMPLETED"],
       });
     });
+
+    it("forwards an optional request key without changing the booking intent type", async () => {
+      const requestKey = "liff_trial_0123456789abcdef";
+      setupHappyPathPreconditions();
+      mockCreateBooking.mockResolvedValue({
+        success: true,
+        data: { bookingId: "book-trial-keyed" },
+      });
+      const r = await submitLiffTrialBooking({ ...VALID_INPUT, requestKey });
+      expect(r.status).toBe("ok");
+      expect(mockCreateBooking).toHaveBeenCalledWith(
+        expect.objectContaining({ bookingType: "FIRST_TRIAL" }),
+        { requestKey, source: "liff-trial" },
+      );
+    });
   });
 
   // ────────────────────────────────────────────────────────

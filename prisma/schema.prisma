@@ -140,6 +140,20 @@ enum BookingType {
   PACKAGE_SESSION
 }
 
+enum BookingSubmissionStatus {
+  PROCESSING
+  SUCCEEDED
+  FAILED_RETRYABLE
+  FAILED_FINAL
+}
+
+enum BookingSubmissionType {
+  BOOKING_CREATE
+  BOOKING_UPDATE
+  BOOKING_CANCEL
+  BOOKING_RECURRING
+}
+
 enum TransactionType {
   TRIAL_PURCHASE // 體驗購買
   SINGLE_PURCHASE // 單次消費
@@ -502,6 +516,7 @@ model Store {
   customers             Customer[]
   customerIdentityLinks CustomerIdentityLink[]
   bookings              Booking[]
+  bookingSubmissions    BookingSubmission[]
   transactions          Transaction[]
   servicePlans          ServicePlan[]
   customerPlanWallets   CustomerPlanWallet[]
@@ -1168,6 +1183,41 @@ model Booking {
   @@index([revenueStaffId, bookingDate]) // 店長月報查詢
   @@index([bookingStatus])
   @@index([customerPlanWalletId]) // ⚡ 方案使用紀錄查詢
+}
+
+// ============================================================
+// BookingSubmission（預約操作意圖）
+//
+// 只記錄一次提交與可 replay 的 versioned result，不擁有 Booking，亦不直接
+// 關聯單筆／多筆 Booking。未來循環預約仍由 RecurrenceGroup 管理 Booking 關係。
+// ============================================================
+
+model BookingSubmission {
+  id                  String                  @id @default(cuid())
+  storeId             String
+  requestKey          String                  @db.VarChar(128)
+  submissionType      BookingSubmissionType
+  payloadHash         String                  @db.Char(64)
+  status              BookingSubmissionStatus @default(PROCESSING)
+  actorUserId         String?
+  canonicalCustomerId String?
+  source              String?                 @db.VarChar(32)
+  attemptToken        String?                 @db.VarChar(64)
+  leaseExpiresAt      DateTime?
+  responseSnapshot    Json?
+  responseVersion     Int                     @default(1)
+  errorCategory       String?
+  expiresAt           DateTime?
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, requestKey])
+  @@index([storeId])
+  @@index([status, leaseExpiresAt])
+  @@index([expiresAt])
+  @@index([canonicalCustomerId])
 }
 
 // ============================================================

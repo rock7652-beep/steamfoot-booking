@@ -229,6 +229,20 @@ describe("submitLiffMemberBooking action (PR-G2)", () => {
       });
     });
 
+    it("forwards an optional request key without changing the booking intent type", async () => {
+      const requestKey = "liff_member_0123456789abcdef";
+      mockCreateBooking.mockResolvedValue({
+        success: true,
+        data: { bookingId: "book-mem-keyed" },
+      });
+      const r = await submitLiffMemberBooking({ ...VALID_INPUT, requestKey });
+      expect(r.status).toBe("ok");
+      expect(mockCreateBooking).toHaveBeenCalledWith(
+        expect.objectContaining({ bookingType: "PACKAGE_SESSION" }),
+        { requestKey, source: "liff-member" },
+      );
+    });
+
     it("14. 嚴格驗證不傳任何 wallet / payment / makeup 欄位", async () => {
       mockCreateBooking.mockResolvedValue({
         success: true,

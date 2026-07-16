@@ -33,10 +33,12 @@ import { ensureTrialPlan } from "@/server/services/trial-plan";
 import { getTrialSettings } from "@/lib/shop-config";
 import { createBooking } from "@/server/actions/booking";
 import { isStoreSubscriptionWriteBlocked } from "@/lib/subscription-guard";
+import { bookingSubmissionRequestKeySchema } from "@/lib/validators/booking-submission";
 
 const InputSchema = z.object({
   bookingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "invalid_date_format"),
   slotTime: z.string().regex(/^\d{2}:\d{2}$/, "invalid_slot_format"),
+  requestKey: bookingSubmissionRequestKeySchema.optional(),
 });
 
 export type SubmitLiffTrialBookingInput = z.infer<typeof InputSchema>;
@@ -82,7 +84,7 @@ export async function submitLiffTrialBooking(
       field: field === "slotTime" ? "slotTime" : "bookingDate",
     };
   }
-  const { bookingDate, slotTime } = parsed.data;
+  const { bookingDate, slotTime, requestKey } = parsed.data;
 
   // ── 2. Require CUSTOMER session ────────────────────
   let user;
@@ -170,13 +172,16 @@ export async function submitLiffTrialBooking(
   //   - 不寫 transaction / wallet / cashbook
   //
   // 我們不傳 expectedAmount / customerPlanWalletId / isMakeup / makeupCreditId。
-  const result = await createBooking({
+  const bookingInput = {
     customerId,
     bookingDate,
     slotTime,
-    bookingType: "FIRST_TRIAL",
+    bookingType: "FIRST_TRIAL" as const,
     servicePlanId: trialPlanId,
-  });
+  };
+  const result = requestKey
+    ? await createBooking(bookingInput, { requestKey, source: "liff-trial" })
+    : await createBooking(bookingInput);
 
   if (!result.success) {
     return mapCreateBookingErrorToStatus(result.error, { customerId, storeId });

@@ -2,6 +2,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { Prisma, PrismaClient } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 import { resolveBookingIntegrationTestDatabaseUrl } from "@/__tests__/helpers/booking-integration-test-db";
+import { buildBookingCreatePayloadHash } from "@/server/services/booking-submission-payload";
 
 const boundary = vi.hoisted(() => ({
   requireSession: vi.fn(),
@@ -184,6 +185,7 @@ describeWithPostgres("booking production actions — real schema PostgreSQL", ()
     const creditIds = credits.map(({ id }) => id);
 
     await db().$transaction(async (tx) => {
+      await tx.bookingSubmission.deleteMany({ where: { storeId: { in: storeIds } } });
       await tx.bookingMakeupCredit.deleteMany({ where: { storeId: { in: storeIds } } });
       await tx.messageLog.deleteMany({ where: { storeId: { in: storeIds } } });
       await tx.referralEvent.deleteMany({ where: { storeId: { in: storeIds } } });
@@ -208,6 +210,7 @@ describeWithPostgres("booking production actions — real schema PostgreSQL", ()
     });
 
     const residualCounts = await Promise.all([
+      db().bookingSubmission.count({ where: { storeId: { in: storeIds } } }),
       db().booking.count({ where: { id: { in: bookingIds } } }),
       db().customer.count({ where: { id: { in: customerIds } } }),
       db().store.count({ where: { id: { in: storeIds } } }),
@@ -215,7 +218,7 @@ describeWithPostgres("booking production actions — real schema PostgreSQL", ()
       db().makeupCredit.count({ where: { id: { in: creditIds } } }),
       db().bookingMakeupCredit.count({ where: { storeId: { in: storeIds } } }),
     ]);
-    expect(residualCounts).toEqual([0, 0, 0, 0, 0, 0]);
+    expect(residualCounts).toEqual([0, 0, 0, 0, 0, 0, 0]);
     stores.clear();
   }
 
@@ -529,5 +532,177 @@ describeWithPostgres("booking production actions — real schema PostgreSQL", ()
     expect(unchanged.slotTime).toBe("11:00");
     expect(unchanged.people).toBe(1);
     expect(await db().walletSession.count({ where: { bookingId: overflow.data.bookingId, status: "RESERVED" } })).toBe(1);
+  });
+
+  it("replays the same request without reallocating wallet sessions", async () => {
+    const base = await createStore("idempotent-replay", 2);
+    const holder = await createCustomerWallet(base, "holder", { remaining: 2, ledger: 2 });
+    const input = createInput(base, holder, "10:00");
+    const envelope = {
+      requestKey: `${base.prefix}_request_0001`,
+      source: "pg-integration",
+    };
+
+    const first = await actions.createBooking(input, envelope);
+    expect(first.success).toBe(true);
+    await db().customerPlanWallet.update({
+      where: { id: holder.wallet.id },
+      data: { remainingSessions: 0 },
+    });
+    await db().walletSession.updateMany({
+      where: { walletId: holder.wallet.id, status: "AVAILABLE" },
+      data: { status: "VOIDED" },
+    });
+    const second = await actions.createBooking(input, envelope);
+    expect(second).toEqual(first);
+    expect(await db().booking.count({ where: { storeId: base.storeId } })).toBe(1);
+    expect(
+      await db().walletSession.count({
+        where: { walletId: holder.wallet.id, status: "RESERVED" },
+      }),
+    ).toBe(1);
+    expect(boundary.createBookingCreatedEvent).toHaveBeenCalledTimes(1);
+    expect(
+      await db().bookingSubmission.findUniqueOrThrow({
+        where: {
+          storeId_requestKey: {
+            storeId: base.storeId,
+            requestKey: envelope.requestKey,
+          },
+        },
+      }),
+    ).toMatchObject({
+      status: "SUCCEEDED",
+      responseVersion: 1,
+      attemptToken: null,
+      leaseExpiresAt: null,
+    });
+  });
+
+  it("lets only one parallel worker own the same request key", async () => {
+    const base = await createStore("idempotent-parallel", 2);
+    const holder = await createCustomerWallet(base, "holder", { remaining: 2, ledger: 2 });
+    const input = createInput(base, holder, "10:00");
+    const envelope = {
+      requestKey: `${base.prefix}_request_0002`,
+      source: "pg-integration",
+    };
+
+    const results = await startTogether(
+      () => actions.createBooking(input, envelope),
+      () => actions.createBooking(input, envelope),
+    );
+    expect(results.filter((result) => result.success)).toHaveLength(1);
+    expect(results.filter((result) => !result.success)).toHaveLength(1);
+    expect(results.find((result) => !result.success)).toMatchObject({
+      success: false,
+      error: expect.stringContaining("SUBMISSION_IN_PROGRESS"),
+    });
+    expect(await db().booking.count({ where: { storeId: base.storeId } })).toBe(1);
+    expect(await db().bookingSubmission.count({ where: { storeId: base.storeId } })).toBe(1);
+    expect(await db().walletSession.count({ where: { walletId: holder.wallet.id, status: "RESERVED" } })).toBe(1);
+  });
+
+  it("rejects preferred-wallet mismatch before touching the second wallet", async () => {
+    const base = await createStore("wallet-mismatch", 3);
+    const holder = await createCustomerWallet(base, "holder", { remaining: 2, ledger: 2 });
+    const walletB = await db().customerPlanWallet.create({
+      data: {
+        id: `${base.prefix}_wallet_b`,
+        customerId: holder.customer.id,
+        storeId: base.storeId,
+        planId: base.planId,
+        purchasedPrice: 1000,
+        totalSessions: 1,
+        remainingSessions: 1,
+        startDate: new Date("2098-01-01T00:00:00Z"),
+        expiryDate,
+        sessions: {
+          create: { id: `${base.prefix}_wallet_b_session`, sessionNo: 1 },
+        },
+      },
+    });
+    const requestKey = `${base.prefix}_request_0003`;
+    const first = await actions.createBooking(createInput(base, holder, "10:00"), {
+      requestKey,
+    });
+    expect(first.success).toBe(true);
+    const mismatch = await actions.createBooking(
+      { ...createInput(base, holder, "10:00"), customerPlanWalletId: walletB.id },
+      { requestKey },
+    );
+    expect(mismatch).toMatchObject({
+      success: false,
+      error: expect.stringContaining("IDEMPOTENCY_KEY_REUSED"),
+    });
+    expect(await db().booking.count({ where: { storeId: base.storeId } })).toBe(1);
+    expect(await db().walletSession.count({ where: { walletId: walletB.id, status: "RESERVED" } })).toBe(0);
+
+    const differentKey = await actions.createBooking(
+      { ...createInput(base, holder, "10:00"), customerPlanWalletId: walletB.id },
+      { requestKey: `${base.prefix}_request_0003_b` },
+    );
+    expect(differentKey.success).toBe(true);
+    expect(await db().booking.count({ where: { storeId: base.storeId } })).toBe(2);
+    expect(await db().walletSession.count({ where: { walletId: walletB.id, status: "RESERVED" } })).toBe(1);
+  });
+
+  it("does not create a submission for an invalid preferred wallet", async () => {
+    const base = await createStore("invalid-wallet", 2);
+    const holder = await createCustomerWallet(base, "holder", { remaining: 2, ledger: 2 });
+    const other = await createCustomerWallet(base, "other", { remaining: 1, ledger: 1 });
+    const result = await actions.createBooking(
+      { ...createInput(base, holder, "10:00"), customerPlanWalletId: other.wallet.id },
+      { requestKey: `${base.prefix}_request_0004` },
+    );
+    expect(result.success).toBe(false);
+    expect(await db().bookingSubmission.count({ where: { storeId: base.storeId } })).toBe(0);
+    expect(await db().booking.count({ where: { storeId: base.storeId } })).toBe(0);
+  });
+
+  it("recovers an expired PROCESSING lease and replaces the stale attempt", async () => {
+    const base = await createStore("expired-lease", 2);
+    const holder = await createCustomerWallet(base, "holder", { remaining: 2, ledger: 2 });
+    const input = createInput(base, holder, "10:00");
+    const requestKey = `${base.prefix}_request_0005`;
+    const actorUserId = `admin_${base.storeId}`;
+    const { payloadHash } = buildBookingCreatePayloadHash({
+      storeId: base.storeId,
+      actorUserId,
+      canonicalCustomerId: holder.customer.id,
+      bookingType: input.bookingType,
+      servicePlanId: input.servicePlanId,
+      bookingDate: input.bookingDate,
+      slotTime: input.slotTime,
+      people: input.people,
+      skipDutyCheck: input.skipDutyCheck,
+      customerPlanWalletId: input.customerPlanWalletId,
+    });
+    await db().bookingSubmission.create({
+      data: {
+        storeId: base.storeId,
+        requestKey,
+        submissionType: "BOOKING_CREATE",
+        payloadHash,
+        actorUserId,
+        canonicalCustomerId: holder.customer.id,
+        attemptToken: "stale-attempt",
+        leaseExpiresAt: new Date(Date.now() - 60_000),
+        expiresAt: new Date(Date.now() + 60_000),
+      },
+    });
+
+    const result = await actions.createBooking(input, { requestKey });
+    expect(result.success).toBe(true);
+    expect(await db().booking.count({ where: { storeId: base.storeId } })).toBe(1);
+    expect(
+      await db().bookingSubmission.findUniqueOrThrow({
+        where: { storeId_requestKey: { storeId: base.storeId, requestKey } },
+      }),
+    ).toMatchObject({
+      status: "SUCCEEDED",
+      attemptToken: null,
+      leaseExpiresAt: null,
+    });
   });
 });
