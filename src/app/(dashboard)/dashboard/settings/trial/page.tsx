@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { PageShell, PageHeader } from "@/components/desktop";
 import { TrialSettingsForm } from "./trial-form";
+import { getActiveStoreForRead } from "@/lib/store";
 
 export default async function TrialSettingsPage() {
   const user = await getCurrentUser();
@@ -12,7 +13,19 @@ export default async function TrialSettingsPage() {
     redirect("/dashboard");
   }
 
-  const trial = await getTrialSettings(user.storeId);
+  const storeId = await getActiveStoreForRead(user);
+  if (!storeId) {
+    return (
+      <PageShell>
+        <PageHeader title="體驗課設定" subtitle="請先從右上角切換到特定店舖" />
+        <div className="rounded-xl border border-earth-200 bg-white p-8 text-center">
+          <p className="text-sm text-earth-500">請先切換到特定店舖，才能查看或儲存體驗課設定。</p>
+        </div>
+      </PageShell>
+    );
+  }
+
+  const trial = await getTrialSettings(storeId);
 
   return (
     <PageShell>

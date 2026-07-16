@@ -199,7 +199,7 @@ export async function updateStaff(
     // 更新 Staff 基本資料
     const { role: newRole, ...staffData } = data;
     await prisma.staff.update({
-      where: { id: staffId },
+      where: { id: staffId, storeId: writeStoreId },
       data: staffData,
     });
 
@@ -253,7 +253,7 @@ export async function deactivateStaff(staffId: string): Promise<ActionResult<voi
     await assertNotLastStoreManager(staff.storeId, staff.id);
 
     await prisma.$transaction([
-      prisma.staff.update({ where: { id: staffId }, data: { status: "INACTIVE" } }),
+      prisma.staff.update({ where: { id: staffId, storeId: writeStoreId }, data: { status: "INACTIVE" } }),
       prisma.user.update({ where: { id: staff.userId }, data: { status: "SUSPENDED" } }),
     ]);
 
@@ -340,7 +340,7 @@ export async function activateStaff(staffId: string): Promise<ActionResult<void>
     });
 
     await prisma.$transaction([
-      prisma.staff.update({ where: { id: staffId }, data: { status: "ACTIVE" } }),
+      prisma.staff.update({ where: { id: staffId, storeId: writeStoreId }, data: { status: "ACTIVE" } }),
       prisma.user.update({ where: { id: staff.userId }, data: { status: "ACTIVE" } }),
     ]);
 

@@ -79,7 +79,7 @@ export default async function RemindersPage({ searchParams }: PageProps) {
 
   const [stats, templates, cronStatus, reminderState] = await Promise.all([
     getReminderStats(activeStoreId),
-    listMessageTemplates(),
+    listMessageTemplates(activeStoreId!),
     getTodayCronRunStatus(),
     getStoreReminderState(activeStoreId!),
   ]);
