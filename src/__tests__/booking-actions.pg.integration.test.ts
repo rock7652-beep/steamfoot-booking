@@ -1,5 +1,5 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { PrismaClient } from "@prisma/client";
+import { Prisma, PrismaClient } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 import { resolveBookingIntegrationTestDatabaseUrl } from "@/__tests__/helpers/booking-integration-test-db";
 
@@ -317,6 +317,90 @@ describeWithPostgres("booking production actions — real schema PostgreSQL", ()
     expect(new Set(sessions.map((session) => session.bookingId))).toEqual(
       new Set([sourceA.data.bookingId, sourceB.data.bookingId]),
     );
+  });
+
+  it("moves a production booking across both date and slot", async () => {
+    const base = await createStore("cross-date-move", 2);
+    const holder = await createCustomerWallet(base, "holder");
+    const sourceDate = "2026-07-20";
+    const targetDate = "2026-07-27";
+    const sourceDateObj = new Date(`${sourceDate}T00:00:00Z`);
+    const targetDateObj = new Date(`${targetDate}T00:00:00Z`);
+    const source = await actions.createBooking({
+      ...createInput(base, holder, "10:00"),
+      bookingDate: sourceDate,
+    });
+    expect(source.success).toBe(true);
+    if (!source.success) return;
+
+    const reservedBefore = await db().walletSession.findFirstOrThrow({
+      where: { bookingId: source.data.bookingId, status: "RESERVED" },
+    });
+    const activeWhere = {
+      bookingStatus: { in: ["PENDING", "CONFIRMED"] },
+    } satisfies Prisma.BookingWhereInput;
+    expect(
+      await db().booking.aggregate({
+        where: {
+          storeId: base.storeId,
+          bookingDate: sourceDateObj,
+          slotTime: "10:00",
+          ...activeWhere,
+        },
+        _sum: { people: true },
+      }),
+    ).toMatchObject({ _sum: { people: 1 } });
+    expect(
+      await db().booking.aggregate({
+        where: {
+          storeId: base.storeId,
+          bookingDate: targetDateObj,
+          slotTime: "12:00",
+          ...activeWhere,
+        },
+        _sum: { people: true },
+      }),
+    ).toMatchObject({ _sum: { people: null } });
+
+    const result = await actions.updateBooking(source.data.bookingId, {
+      bookingDate: targetDate,
+      slotTime: "12:00",
+    });
+    expect(result.success).toBe(true);
+
+    const moved = await db().booking.findUniqueOrThrow({
+      where: { id: source.data.bookingId },
+    });
+    expect(moved.bookingDate).toEqual(targetDateObj);
+    expect(moved.slotTime).toBe("12:00");
+
+    const reservedAfter = await db().walletSession.findFirstOrThrow({
+      where: { id: reservedBefore.id },
+    });
+    expect(reservedAfter.status).toBe("RESERVED");
+    expect(reservedAfter.bookingId).toBe(source.data.bookingId);
+    expect(
+      await db().booking.aggregate({
+        where: {
+          storeId: base.storeId,
+          bookingDate: sourceDateObj,
+          slotTime: "10:00",
+          ...activeWhere,
+        },
+        _sum: { people: true },
+      }),
+    ).toMatchObject({ _sum: { people: null } });
+    expect(
+      await db().booking.aggregate({
+        where: {
+          storeId: base.storeId,
+          bookingDate: targetDateObj,
+          slotTime: "12:00",
+          ...activeWhere,
+        },
+        _sum: { people: true },
+      }),
+    ).toMatchObject({ _sum: { people: 1 } });
   });
 
   it("D: rolls back Booking, makeup links, credit state, wallet ledger, and cached counter", async () => {
