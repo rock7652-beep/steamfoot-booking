@@ -3,8 +3,10 @@ const DEFAULT_TTL_MS = 15 * 60 * 1000;
 export const HEALTHFLOW_BRIDGE_STATE_TTL_MS = DEFAULT_TTL_MS;
 
 export type HealthflowBridgePayload = {
-  customerId: string;
-  storeId: string;
+  /** Canonical identity owner. This customer may belong to another store. */
+  identityCustomerId: string;
+  /** Store whose HealthFlow entry and entitlement the customer requested. */
+  requestedStoreId: string;
   issuedAt: number;
   expiresAt: number;
   jti: string;
@@ -16,13 +18,12 @@ export type SignedHealthflowBridgeEnvelope = {
 };
 
 export type CreateHealthflowBridgeStateInput = {
-  customerId: string;
-  storeId: string;
+  identityCustomerId: string;
+  requestedStoreId: string;
 };
 
 export type HealthflowBridgeCustomerRef = {
   id: string;
-  storeId: string;
 };
 
 export type HealthflowBridgeVerificationFailure =
@@ -39,7 +40,8 @@ export type HealthflowBridgeCallbackFailure =
   | "invalid_profile_id"
   | "customer_not_found"
   | "customer_mismatch"
-  | "store_mismatch";
+  | "requested_store_not_found"
+  | "feature_unavailable";
 
 export type HealthflowBridgeVerifyResult =
   | { ok: true; payload: HealthflowBridgePayload }
@@ -122,14 +124,20 @@ async function hmacSign(message: string): Promise<string> {
   return base64UrlEncode(new Uint8Array(sig));
 }
 
-function isPayloadShape(value: unknown): value is HealthflowBridgePayload {
-  if (typeof value !== "object" || value === null) return false;
-  const candidate = value as Record<string, unknown>;
+type LegacyHealthflowBridgePayload = {
+  customerId: string;
+  storeId: string;
+  issuedAt: number;
+  expiresAt: number;
+  jti: string;
+};
+
+type EncodedHealthflowBridgePayload =
+  | HealthflowBridgePayload
+  | LegacyHealthflowBridgePayload;
+
+function hasCommonPayloadFields(candidate: Record<string, unknown>): boolean {
   return (
-    typeof candidate.customerId === "string" &&
-    candidate.customerId.length > 0 &&
-    typeof candidate.storeId === "string" &&
-    candidate.storeId.length > 0 &&
     typeof candidate.issuedAt === "number" &&
     Number.isFinite(candidate.issuedAt) &&
     typeof candidate.expiresAt === "number" &&
@@ -139,7 +147,28 @@ function isPayloadShape(value: unknown): value is HealthflowBridgePayload {
   );
 }
 
-function isEnvelopeShape(value: unknown): value is SignedHealthflowBridgeEnvelope {
+function isPayloadShape(value: unknown): value is EncodedHealthflowBridgePayload {
+  if (typeof value !== "object" || value === null) return false;
+  const candidate = value as Record<string, unknown>;
+  return (
+    hasCommonPayloadFields(candidate) &&
+    ((typeof candidate.identityCustomerId === "string" &&
+      candidate.identityCustomerId.length > 0 &&
+      typeof candidate.requestedStoreId === "string" &&
+      candidate.requestedStoreId.length > 0) ||
+      (typeof candidate.customerId === "string" &&
+        candidate.customerId.length > 0 &&
+        typeof candidate.storeId === "string" &&
+        candidate.storeId.length > 0))
+  );
+}
+
+type EncodedHealthflowBridgeEnvelope = {
+  payload: EncodedHealthflowBridgePayload;
+  sig: string;
+};
+
+function isEnvelopeShape(value: unknown): value is EncodedHealthflowBridgeEnvelope {
   if (typeof value !== "object" || value === null) return false;
   const candidate = value as Record<string, unknown>;
   return (
@@ -149,7 +178,7 @@ function isEnvelopeShape(value: unknown): value is SignedHealthflowBridgeEnvelop
   );
 }
 
-function parseState(state: string): SignedHealthflowBridgeEnvelope | null {
+function parseState(state: string): EncodedHealthflowBridgeEnvelope | null {
   try {
     const decoded = base64UrlDecode(state);
     const parsed = JSON.parse(decoded) as unknown;
@@ -165,8 +194,8 @@ export async function createHealthflowBridgeState(
 ): Promise<string> {
   const now = options.now ?? Date.now();
   const payload: HealthflowBridgePayload = {
-    customerId: input.customerId,
-    storeId: input.storeId,
+    identityCustomerId: input.identityCustomerId,
+    requestedStoreId: input.requestedStoreId,
     issuedAt: now,
     expiresAt: now + HEALTHFLOW_BRIDGE_STATE_TTL_MS,
     jti: options.jti ?? crypto.randomUUID(),
@@ -184,12 +213,14 @@ export async function verifyHealthflowBridgeState(
   const envelope = parseState(state);
   if (!envelope) return { ok: false, reason: "invalid_state" };
 
-  const { payload, sig } = envelope;
-  if (!isPayloadShape(payload)) return { ok: false, reason: "invalid_payload" };
+  const { payload: encodedPayload, sig } = envelope;
+  if (!isPayloadShape(encodedPayload)) {
+    return { ok: false, reason: "invalid_payload" };
+  }
 
   let expected: string;
   try {
-    expected = await hmacSign(JSON.stringify(payload));
+    expected = await hmacSign(JSON.stringify(encodedPayload));
   } catch {
     return { ok: false, reason: "missing_secret" };
   }
@@ -199,10 +230,20 @@ export async function verifyHealthflowBridgeState(
   }
 
   const now = options.now ?? Date.now();
-  if (now > payload.expiresAt) {
+  if (now > encodedPayload.expiresAt) {
     return { ok: false, reason: "expired" };
   }
 
+  const payload: HealthflowBridgePayload =
+    "identityCustomerId" in encodedPayload
+      ? encodedPayload
+      : {
+          identityCustomerId: encodedPayload.customerId,
+          requestedStoreId: encodedPayload.storeId,
+          issuedAt: encodedPayload.issuedAt,
+          expiresAt: encodedPayload.expiresAt,
+          jti: encodedPayload.jti,
+        };
   return { ok: true, payload };
 }
 
@@ -229,11 +270,8 @@ export async function validateHealthflowBridgeCallback(input: {
   if (!verified.ok) return verified;
 
   if (!input.customer) return { ok: false, reason: "customer_not_found" };
-  if (input.customer.id !== verified.payload.customerId) {
+  if (input.customer.id !== verified.payload.identityCustomerId) {
     return { ok: false, reason: "customer_mismatch" };
-  }
-  if (input.customer.storeId !== verified.payload.storeId) {
-    return { ok: false, reason: "store_mismatch" };
   }
 
   return {

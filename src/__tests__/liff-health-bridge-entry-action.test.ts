@@ -102,8 +102,8 @@ describe("createHealthflowEntryUrl", () => {
     expect(verified).toMatchObject({
       ok: true,
       payload: {
-        customerId: "customer_1",
-        storeId: "store_zhubei",
+        identityCustomerId: "customer_1",
+        requestedStoreId: "store_zhubei",
       },
     });
     if (verified.ok) {
@@ -152,7 +152,7 @@ describe("createHealthflowEntryUrl", () => {
     });
     expect(mockCustomerFindUnique).toHaveBeenCalledWith({
       where: { id: "customer_1" },
-      select: { id: true, storeId: true, mergedIntoCustomerId: true },
+      select: { id: true, mergedIntoCustomerId: true },
     });
   });
 
@@ -225,28 +225,37 @@ describe("createHealthflowEntryUrl", () => {
     });
   });
 
-  it("rejects when the current LIFF store does not match the canonical customer store", async () => {
+  it("allows a canonical identity from another store and signs the requested store context", async () => {
     const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
     mockStoreFindUnique.mockResolvedValueOnce({ id: "store_hsinchu" });
 
-    await expect(
-      createHealthflowEntryUrl("hsinchu", ATTEMPT_ID),
-    ).resolves.toMatchObject({
-      status: "store_mismatch",
+    const result = await createHealthflowEntryUrl("hsinchu", ATTEMPT_ID);
+
+    expect(result).toMatchObject({
+      status: "ok",
       requestId: REQUEST_ID,
       attemptId: ATTEMPT_ID,
       errorCode: ERROR_CODE,
     });
+    if (result.status !== "ok") throw new Error("expected ok");
+    const state = new URL(result.url).searchParams.get("state");
+    await expect(verifyHealthflowBridgeState(state)).resolves.toMatchObject({
+      ok: true,
+      payload: {
+        identityCustomerId: "customer_1",
+        requestedStoreId: "store_hsinchu",
+      },
+    });
     expect(healthflowResultLogs(infoSpy)).toEqual([
       expect.objectContaining({
         event: "healthflow_entry_result",
-        resultStatus: "store_mismatch",
+        resultStatus: "ok",
         canonicalCustomerResolved: true,
         resolvedCustomerStoreSlug: null,
         entitlementPassed: true,
       }),
     ]);
-    expect(mockCustomerFindUnique).not.toHaveBeenCalled();
+    expect(mockCustomerFindUnique).toHaveBeenCalledOnce();
   });
 
   it("returns service_unavailable and logs a sanitized exception", async () => {

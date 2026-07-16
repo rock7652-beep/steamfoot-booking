@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockCustomerFindUnique = vi.fn();
+const mockStoreFindUnique = vi.fn();
+const mockRequireStoreFeature = vi.fn();
 const mockCustomerUpdate = vi.fn();
 const mockCallbackCreate = vi.fn();
 const mockCallbackFindUnique = vi.fn();
@@ -25,12 +27,19 @@ vi.mock("@/lib/db", () => ({
       findUnique: (...args: unknown[]) => mockCustomerFindUnique(...args),
       update: (...args: unknown[]) => mockCustomerUpdate(...args),
     },
+    store: {
+      findUnique: (...args: unknown[]) => mockStoreFindUnique(...args),
+    },
     healthflowLinkCallback: {
       create: (...args: unknown[]) => mockCallbackCreate(...args),
       findUnique: (...args: unknown[]) => mockCallbackFindUnique(...args),
       update: (...args: unknown[]) => mockCallbackUpdate(...args),
     },
   },
+}));
+
+vi.mock("@/lib/feature-gate", () => ({
+  requireStoreFeature: (...args: unknown[]) => mockRequireStoreFeature(...args),
 }));
 
 import { POST } from "@/app/api/healthflow/link-callback/route";
@@ -78,8 +87,8 @@ async function signedState(
 ): Promise<string> {
   return createHealthflowBridgeState(
     {
-      customerId: overrides.customerId ?? CUSTOMER_ID,
-      storeId: overrides.storeId ?? STORE_ID,
+      identityCustomerId: overrides.customerId ?? CUSTOMER_ID,
+      requestedStoreId: overrides.storeId ?? STORE_ID,
     },
     { now: NOW, jti: overrides.jti ?? "jti-1" },
   );
@@ -134,12 +143,16 @@ describe("POST /api/healthflow/link-callback", () => {
     vi.useFakeTimers();
     vi.setSystemTime(NOW);
     mockCustomerFindUnique.mockReset();
+    mockStoreFindUnique.mockReset();
+    mockRequireStoreFeature.mockReset();
     mockCustomerUpdate.mockReset();
     mockCallbackCreate.mockReset();
     mockCallbackFindUnique.mockReset();
     mockCallbackUpdate.mockReset();
     mockTransaction.mockClear();
     mockCallbackCreate.mockResolvedValue({ id: "callback-1" });
+    mockStoreFindUnique.mockResolvedValue({ id: STORE_ID });
+    mockRequireStoreFeature.mockResolvedValue(undefined);
     mockCustomerUpdate.mockResolvedValue({ id: CUSTOMER_ID });
     mockCallbackUpdate.mockResolvedValue({ id: "callback-1" });
   });
@@ -172,8 +185,16 @@ describe("POST /api/healthflow/link-callback", () => {
     expect(mockTransaction).toHaveBeenCalledTimes(1);
     expect(mockCustomerFindUnique).toHaveBeenCalledWith({
       where: { id: CUSTOMER_ID },
-      select: { id: true, storeId: true },
+      select: { id: true },
     });
+    expect(mockStoreFindUnique).toHaveBeenCalledWith({
+      where: { id: STORE_ID },
+      select: { id: true },
+    });
+    expect(mockRequireStoreFeature).toHaveBeenCalledWith(
+      STORE_ID,
+      "ai_health_summary",
+    );
     expect(mockCallbackCreate).toHaveBeenCalledWith({
       data: {
         idempotencyKey: "hf-callback-1",
@@ -513,7 +534,7 @@ describe("POST /api/healthflow/link-callback", () => {
     expect(mockCustomerUpdate).not.toHaveBeenCalled();
   });
 
-  it("rejects store mismatch from signed state", async () => {
+  it("accepts an identity owner from another store", async () => {
     const state = await signedState();
     mockCustomerFindUnique.mockResolvedValueOnce({
       id: CUSTOMER_ID,
@@ -524,10 +545,57 @@ describe("POST /api/healthflow/link-callback", () => {
       await postReq({ body: { profileId: PROFILE_ID, state } }),
     );
 
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(202);
     expect(await res.json()).toMatchObject({
+      status: "accepted",
+      linked: true,
+    });
+    expect(mockCallbackCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        customerId: CUSTOMER_ID,
+        storeId: STORE_ID,
+      }),
+    });
+    expect(mockCustomerUpdate).toHaveBeenCalledOnce();
+  });
+
+  it("rejects when the requested store no longer exists", async () => {
+    const state = await signedState();
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: "store_hsinchu",
+    });
+    mockStoreFindUnique.mockResolvedValueOnce(null);
+
+    const res = await POST(
+      await postReq({ body: { profileId: PROFILE_ID, state } }),
+    );
+
+    expect(res.status).toBe(404);
+    expect(await res.json()).toEqual({
       status: "error",
-      code: "store_mismatch",
+      code: "requested_store_not_found",
+    });
+    expect(mockRequireStoreFeature).not.toHaveBeenCalled();
+    expect(mockCallbackCreate).not.toHaveBeenCalled();
+  });
+
+  it("revalidates requested-store entitlement before linking", async () => {
+    const state = await signedState();
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: "store_hsinchu",
+    });
+    mockRequireStoreFeature.mockRejectedValueOnce(new Error("FORBIDDEN"));
+
+    const res = await POST(
+      await postReq({ body: { profileId: PROFILE_ID, state } }),
+    );
+
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({
+      status: "error",
+      code: "feature_unavailable",
     });
     expect(mockCallbackCreate).not.toHaveBeenCalled();
     expect(mockCustomerUpdate).not.toHaveBeenCalled();
