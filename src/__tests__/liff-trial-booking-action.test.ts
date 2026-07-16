@@ -253,6 +253,19 @@ describe("submitLiffTrialBooking action (PR-D1A)", () => {
   // Already has trial
   // ────────────────────────────────────────────────────────
 
+  it("exposes payload mismatch so the client can rotate its request key", async () => {
+    const requestKey = "liff_trial_mismatch_01234567";
+    setupHappyPathPreconditions();
+    mockCreateBooking.mockResolvedValue({
+      success: false,
+      error: "IDEMPOTENCY_KEY_REUSED：同一請求識別不可用於不同預約內容",
+    });
+
+    const result = await submitLiffTrialBooking({ ...VALID_INPUT, requestKey });
+
+    expect(result).toEqual({ status: "idempotency_key_reused" });
+  });
+
   it("already PENDING trial → already_has_trial with existing booking detail", async () => {
     mockRequireSession.mockResolvedValue(CUSTOMER_USER);
     mockGetCanonicalId.mockResolvedValue(CANONICAL_CUSTOMER_ID);

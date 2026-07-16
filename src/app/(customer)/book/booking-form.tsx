@@ -5,6 +5,7 @@ import { createBooking } from "@/server/actions/booking";
 import { toast } from "sonner";
 import { ShareReferral } from "@/components/share-referral";
 import { useStoreSlugRequired } from "@/lib/store-context";
+import { useBookingRequestKey } from "@/hooks/use-booking-request-key";
 import type { SlotAvailability } from "@/types";
 
 interface ActiveWallet {
@@ -25,6 +26,7 @@ interface Props {
 }
 
 export function BookingForm({ customerId, selectedDate, slots, activeWallets, storeId, storeName, referralUrl }: Props) {
+  const requestKey = useBookingRequestKey();
   type FormState = { error: string | null; success: boolean; bookedTime: string };
   const [state, action, pending] = useActionState(
     async (prev: FormState, formData: FormData): Promise<FormState> => {
@@ -37,12 +39,14 @@ export function BookingForm({ customerId, selectedDate, slots, activeWallets, st
         slotTime,
         bookingType: "PACKAGE_SESSION",
         customerPlanWalletId: customerPlanWalletId || undefined,
-      });
+      }, { requestKey: requestKey.current(), source: "web-customer" });
 
       if (result.success) {
+        requestKey.complete();
         toast.success("預約成功！");
         return { error: null, success: true, bookedTime: slotTime };
       }
+      requestKey.handleError(result.error);
       toast.error(result.error ?? "預約失敗");
       return { error: result.error, success: false, bookedTime: "" };
     },

@@ -299,6 +299,20 @@ describe("submitLiffMemberBooking action (PR-G2)", () => {
       setupHappyPathPreconditions();
     });
 
+    it("exposes payload mismatch so the client can rotate its request key", async () => {
+      mockCreateBooking.mockResolvedValue({
+        success: false,
+        error: "IDEMPOTENCY_KEY_REUSED：同一請求識別不可用於不同預約內容",
+      });
+
+      const result = await submitLiffMemberBooking({
+        ...VALID_INPUT,
+        requestKey: "liff_member_mismatch_01234567",
+      });
+
+      expect(result).toEqual({ status: "idempotency_key_reused" });
+    });
+
     // ── PACKAGE_SESSION 專屬 errors (booking.ts:247-307) ──
 
     it.each([

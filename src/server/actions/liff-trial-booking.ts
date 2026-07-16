@@ -71,6 +71,7 @@ export type SubmitLiffTrialBookingResult =
   | { status: "booking_limit_reached" }
   // #305：本店訂閱到期 → 暫時無法建立新預約。
   | { status: "store_subscription_expired" }
+  | { status: "idempotency_key_reused" }
   | { status: "service_unavailable" };
 
 export async function submitLiffTrialBooking(
@@ -259,6 +260,10 @@ function mapCreateBookingErrorToStatus(
   ctx: { customerId: string; storeId: string }
 ): SubmitLiffTrialBookingResult {
   const msg = errorMsg ?? "";
+
+  if (/IDEMPOTENCY_KEY_REUSED/.test(msg)) {
+    return { status: "idempotency_key_reused" };
+  }
 
   if (/體驗版預約上限|月度預約/.test(msg)) {
     return { status: "booking_limit_reached" };
