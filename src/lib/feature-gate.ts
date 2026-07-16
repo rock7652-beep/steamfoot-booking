@@ -9,6 +9,7 @@ import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/db";
 import { CACHE_TAGS } from "@/lib/cache-tags";
 import { AppError } from "@/lib/errors";
+import { resolveEffectiveEntitlement } from "@/lib/effective-entitlement";
 import { requireFeature, getPlanLimits, hasFeature, FEATURES } from "@/lib/feature-flags";
 import { getCurrentStoreForPlan, getStoreForPlanByStoreId } from "@/lib/store-plan";
 import type { FeatureKey, PlanLimits } from "@/lib/feature-flags";
@@ -74,12 +75,7 @@ export async function hasStoreFeature(
   const store = await getStoreForPlanByStoreId(storeId);
   const baseAllowed = hasFeature(store.plan, feature);
   const entitlement = await getActiveStoreFeatureEntitlement(storeId, feature);
-
-  if (!entitlement) return baseAllowed;
-  if (entitlement.status === "DISABLED") return false;
-  if (entitlement.status === "ENABLED") return true;
-
-  return baseAllowed;
+  return resolveEffectiveEntitlement(baseAllowed, entitlement).enabled;
 }
 
 export async function requireStoreFeature(
