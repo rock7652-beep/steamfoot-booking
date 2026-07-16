@@ -27,6 +27,7 @@ const WALLET_LATE_EXPIRY = "ck0000000000000000000l01"; // 中間、8/31 到期
 const mockCustomerFindUnique = vi.fn();
 const mockBookingCount = vi.fn();
 const mockBookingAggregate = vi.fn();
+const mockBookingFindFirst = vi.fn();
 const mockBookingCreate = vi.fn();
 const mockBookingUpdate = vi.fn();
 const mockTransactionCreate = vi.fn();
@@ -67,6 +68,10 @@ vi.mock("@/lib/db", () => ({
     store: { findUnique: (...a: unknown[]) => mockStoreFindUnique(...a) },
     $transaction: (cb: (tx: unknown) => Promise<unknown>) => mockTx(cb),
   },
+}));
+vi.mock("@/server/services/booking-slot-lock", () => ({
+  acquireBookingSlotLocks: vi.fn(async () => undefined),
+  bookingSlotTimeVariants: (slotTime: string) => [slotTime],
 }));
 
 const mockRequireSession = vi.fn();
@@ -164,6 +169,7 @@ function setupBusinessHours() {
   mockSlotOverrideFindMany.mockResolvedValue([]);
   mockBookingCount.mockResolvedValue(0);
   mockBookingAggregate.mockResolvedValue({ _sum: { people: 0 } });
+  mockBookingFindFirst.mockResolvedValue(null);
   mockDutyAssignmentCount.mockResolvedValue(0);
   mockWalletSessionCount.mockResolvedValue(0);
   mockMakeupCount.mockResolvedValue(0);
@@ -176,7 +182,12 @@ function setupBusinessHours() {
   );
   mockTx.mockImplementation(async (cb: (tx: unknown) => Promise<unknown>) =>
     cb({
-      booking: { create: mockBookingCreate, update: mockBookingUpdate },
+      booking: {
+        aggregate: mockBookingAggregate,
+        findFirst: mockBookingFindFirst,
+        create: mockBookingCreate,
+        update: mockBookingUpdate,
+      },
       makeupCredit: { update: vi.fn(), create: vi.fn() },
       customerPlanWallet: {
         findUnique: vi.fn(async () => ({ remainingSessions: 5 })),
@@ -191,6 +202,7 @@ function setupBusinessHours() {
 
 function customerWith(planWallets: Array<{
   id: string;
+  storeId?: string;
   remainingSessions: number;
   expiryDate: Date | null;
   createdAt: Date;
@@ -207,7 +219,7 @@ function customerWith(planWallets: Array<{
     birthday: null,
     gender: null,
     userId: "ck0000000000000000000010",
-    planWallets,
+    planWallets: planWallets.map((wallet) => ({ storeId: STORE_A, ...wallet })),
   };
 }
 
@@ -258,7 +270,7 @@ describe("createBooking auto-pick — FEFO（最早到期優先）", () => {
       people: 1,
     });
 
-    expect(result.success).toBe(true);
+    expect(result.success, JSON.stringify(result)).toBe(true);
     const createCall = mockBookingCreate.mock.calls[0][0];
     expect(createCall.data.customerPlanWalletId).toBe(WALLET_EARLY_EXPIRY);
   });

@@ -31,6 +31,7 @@ const mockCustomerFindUnique = vi.fn();
 const mockBookingFindUnique = vi.fn();
 const mockBookingCount = vi.fn();
 const mockBookingAggregate = vi.fn();
+const mockBookingFindFirst = vi.fn();
 const mockBookingCreate = vi.fn();
 const mockBookingUpdate = vi.fn();
 const mockTransactionCreate = vi.fn();
@@ -52,7 +53,8 @@ const mockTxJoinCreateMany = vi.fn();
 const mockTxJoinFindMany = vi.fn();
 const mockTxJoinDeleteMany = vi.fn();
 const mockWalletSessionCount = vi.fn();
-const mockAllocateSessionsFefo = vi.fn(async () => ({ allocations: [], primaryWalletId: null }));
+const mockAllocateSessionsFefo = vi.fn<(...args: unknown[]) => Promise<{ allocations: unknown[]; primaryWalletId: string | null }>>(async () => ({ allocations: [], primaryWalletId: null }));
+const mockAcquireBookingSlotLocks = vi.fn<(...args: unknown[]) => Promise<void>>(async () => undefined);
 
 vi.mock("@/lib/db", () => ({
   prisma: {
@@ -85,6 +87,10 @@ vi.mock("@/lib/db", () => ({
     store: { findUnique: (...a: unknown[]) => mockStoreFindUnique(...a) },
     $transaction: (cb: (tx: unknown) => Promise<unknown>) => mockTx(cb),
   },
+}));
+vi.mock("@/server/services/booking-slot-lock", () => ({
+  acquireBookingSlotLocks: (...args: unknown[]) => mockAcquireBookingSlotLocks(...args),
+  bookingSlotTimeVariants: (slotTime: string) => [slotTime],
 }));
 
 const mockRequireSession = vi.fn();
@@ -184,6 +190,7 @@ function setupBusinessHours() {
   mockBookingCount.mockResolvedValue(0);
   mockWalletSessionCount.mockResolvedValue(0);
   mockBookingAggregate.mockResolvedValue({ _sum: { people: 0 } });
+  mockBookingFindFirst.mockResolvedValue(null);
   mockDutyAssignmentCount.mockResolvedValue(0);
   mockBookingCreate.mockImplementation(async (args: { data: { customerId: string; storeId: string } }) => ({
     id: "ck0000000000000000000099",
@@ -200,7 +207,12 @@ function setupBusinessHours() {
   mockTx.mockImplementation(async (cb: (tx: unknown) => Promise<unknown>) =>
     cb({
       $queryRaw: (...a: unknown[]) => mockTxQueryRaw(...a),
-      booking: { create: mockBookingCreate, update: mockBookingUpdate },
+      booking: {
+        aggregate: mockBookingAggregate,
+        findFirst: mockBookingFindFirst,
+        create: mockBookingCreate,
+        update: mockBookingUpdate,
+      },
       makeupCredit: { updateMany: (...a: unknown[]) => mockTxMakeupUpdateMany(...a), update: vi.fn(), create: vi.fn() },
       bookingMakeupCredit: {
         createMany: (...a: unknown[]) => mockTxJoinCreateMany(...a),
@@ -250,6 +262,7 @@ const PLAN_CUSTOMER_RECORD = {
   planWallets: [
     {
       id: WALLET_ID,
+      storeId: STORE_A,
       remainingSessions: 5,
       expiryDate: null,
       createdAt: new Date("2026-01-01T00:00:00Z"),
@@ -785,6 +798,33 @@ describe("createBooking — 補課自助預約 (PR-NoShow-2)", () => {
 
     expect(r.success).toBe(false);
     expect(mockTxJoinCreateMany).not.toHaveBeenCalled();
+  });
+
+  it("slot lock 後才在 transaction 內檢查容量，不永久禁止同客同時段多筆預約", async () => {
+    mockCustomerFindUnique.mockResolvedValue(PLAN_CUSTOMER_RECORD);
+    mockBookingFindFirst.mockResolvedValue({ id: "existing-booking" });
+
+    const { createBooking } = await import("@/server/actions/booking");
+    const r = await createBooking({
+      customerId: PLAN_CUSTOMER_ID,
+      bookingDate: "2026-04-27",
+      slotTime: "11:00",
+      bookingType: "PACKAGE_SESSION",
+      people: 1,
+    });
+
+    expect(r.success).toBe(true);
+    expect(mockAcquireBookingSlotLocks).toHaveBeenCalledTimes(1);
+    expect(mockBookingAggregate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          storeId: STORE_A,
+          bookingStatus: { in: ["PENDING", "CONFIRMED"] },
+        }),
+      }),
+    );
+    expect(mockBookingFindFirst).not.toHaveBeenCalled();
+    expect(mockBookingCreate).toHaveBeenCalledTimes(1);
   });
 
   it("cancel makeup 預約 → 退回全部 N 張券、刪 join row、清 legacy makeupCreditId（防 @unique 卡重訂）", async () => {
