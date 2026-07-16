@@ -32,6 +32,11 @@ export type HealthflowBridgeVerificationFailure =
   | "invalid_payload"
   | "missing_secret"
   | "bad_signature"
+  | "legacy_cutoff_missing"
+  | "legacy_cutoff_invalid"
+  | "legacy_issued_after_cutoff"
+  | "legacy_invalid_ttl"
+  | "legacy_rollout_expired"
   | "expired";
 
 export type HealthflowBridgeCallbackFailure =
@@ -136,6 +141,56 @@ type EncodedHealthflowBridgePayload =
   | HealthflowBridgePayload
   | LegacyHealthflowBridgePayload;
 
+const ISO_UTC_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
+
+type LegacyCutoffResult =
+  | { ok: true; cutoffMs: number }
+  | {
+      ok: false;
+      reason: "legacy_cutoff_missing" | "legacy_cutoff_invalid";
+    };
+
+function getLegacyStateCutoff(): LegacyCutoffResult {
+  const value = process.env.HEALTHFLOW_LEGACY_STATE_CUTOFF;
+  if (!value) return { ok: false, reason: "legacy_cutoff_missing" };
+  if (!ISO_UTC_PATTERN.test(value)) {
+    return { ok: false, reason: "legacy_cutoff_invalid" };
+  }
+
+  const cutoffMs = Date.parse(value);
+  const normalizedValue = value.includes(".")
+    ? value
+    : value.replace("Z", ".000Z");
+  if (
+    !Number.isFinite(cutoffMs) ||
+    new Date(cutoffMs).toISOString() !== normalizedValue
+  ) {
+    return { ok: false, reason: "legacy_cutoff_invalid" };
+  }
+  return { ok: true, cutoffMs };
+}
+
+function validateLegacyStateWindow(
+  payload: LegacyHealthflowBridgePayload,
+  now: number,
+): HealthflowBridgeVerificationFailure | null {
+  const cutoff = getLegacyStateCutoff();
+  if (!cutoff.ok) return cutoff.reason;
+  if (payload.issuedAt > cutoff.cutoffMs) {
+    return "legacy_issued_after_cutoff";
+  }
+  if (
+    payload.expiresAt <= payload.issuedAt ||
+    payload.expiresAt - payload.issuedAt > HEALTHFLOW_BRIDGE_STATE_TTL_MS
+  ) {
+    return "legacy_invalid_ttl";
+  }
+  if (now > cutoff.cutoffMs + HEALTHFLOW_BRIDGE_STATE_TTL_MS) {
+    return "legacy_rollout_expired";
+  }
+  return null;
+}
+
 function hasCommonPayloadFields(candidate: Record<string, unknown>): boolean {
   return (
     typeof candidate.issuedAt === "number" &&
@@ -230,6 +285,10 @@ export async function verifyHealthflowBridgeState(
   }
 
   const now = options.now ?? Date.now();
+  if (!("identityCustomerId" in encodedPayload)) {
+    const legacyFailure = validateLegacyStateWindow(encodedPayload, now);
+    if (legacyFailure) return { ok: false, reason: legacyFailure };
+  }
   if (now > encodedPayload.expiresAt) {
     return { ok: false, reason: "expired" };
   }
