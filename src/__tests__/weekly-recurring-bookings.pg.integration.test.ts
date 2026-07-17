@@ -7,6 +7,9 @@ const boundary = vi.hoisted(() => ({
   requireSession: vi.fn(),
   requireWritablePermission: vi.fn(),
   revalidateBookings: vi.fn(),
+  checkMonthlyBookingLimitOrThrow: vi.fn(),
+  createBookingCreatedEvent: vi.fn(),
+  createBookingCompletedEvent: vi.fn(),
 }));
 
 vi.mock("@/lib/session", () => ({ requireSession: boundary.requireSession }));
@@ -15,6 +18,13 @@ vi.mock("@/lib/permissions", async (importOriginal) => ({
   requireWritablePermission: boundary.requireWritablePermission,
 }));
 vi.mock("@/lib/revalidation", () => ({ revalidateBookings: boundary.revalidateBookings }));
+vi.mock("@/lib/usage-gate", () => ({
+  checkMonthlyBookingLimitOrThrow: boundary.checkMonthlyBookingLimitOrThrow,
+}));
+vi.mock("@/server/services/referral-events", () => ({
+  createBookingCreatedEvent: boundary.createBookingCreatedEvent,
+  createBookingCompletedEvent: boundary.createBookingCompletedEvent,
+}));
 
 const testDatabaseUrl = resolveBookingIntegrationTestDatabaseUrl(process.env);
 const describeWithPostgres = testDatabaseUrl ? describe : describe.skip;
@@ -27,6 +37,7 @@ describeWithPostgres("weekly recurring bookings — real PostgreSQL", () => {
   };
   const stores = new Set<string>();
   let createRecurringBookings: typeof import("@/server/actions/recurring-booking").createRecurringBookings;
+  let createBooking: typeof import("@/server/actions/booking").createBooking;
   const startDate = "2099-01-07";
 
   function key(label: string) {
@@ -121,8 +132,14 @@ describeWithPostgres("weekly recurring bookings — real PostgreSQL", () => {
   beforeAll(async () => {
     vi.doMock("@/lib/db", () => ({ prisma: db() }));
     ({ createRecurringBookings } = await import("@/server/actions/recurring-booking"));
+    ({ createBooking } = await import("@/server/actions/booking"));
   });
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    boundary.checkMonthlyBookingLimitOrThrow.mockResolvedValue(undefined);
+    boundary.createBookingCreatedEvent.mockResolvedValue(undefined);
+    boundary.createBookingCompletedEvent.mockResolvedValue(undefined);
+  });
   afterEach(cleanup);
   afterAll(async () => db().$disconnect());
 
@@ -214,6 +231,26 @@ describeWithPostgres("weekly recurring bookings — real PostgreSQL", () => {
     ]);
     expect(results.filter((result) => result.success)).toHaveLength(1);
     expect(await db().bookingRecurrenceGroup.count({ where: { storeId: f.storeId } })).toBe(1);
+    expect(await db().booking.count({ where: { storeId: f.storeId } })).toBe(1);
+    expect(await db().walletSession.count({ where: { walletId: f.wallet.id, status: "RESERVED" } })).toBe(1);
+  });
+
+  it("does not oversell when a single create races a recurring create for the last capacity", async () => {
+    const f = await fixture({ weeks: 1, sessions: 2, capacity: 1 });
+    const [single, recurring] = await Promise.all([
+      createBooking({
+        customerId: f.customer.id,
+        bookingDate: startDate,
+        slotTime: "10:00",
+        bookingType: "PACKAGE_SESSION",
+        servicePlanId: f.plan.id,
+        customerPlanWalletId: f.wallet.id,
+        people: 1,
+        skipDutyCheck: true,
+      }),
+      createRecurringBookings(input(f), { requestKey: key("single-race"), source: "pg-test" }),
+    ]);
+    expect([single, recurring].filter((result) => result.success)).toHaveLength(1);
     expect(await db().booking.count({ where: { storeId: f.storeId } })).toBe(1);
     expect(await db().walletSession.count({ where: { walletId: f.wallet.id, status: "RESERVED" } })).toBe(1);
   });
