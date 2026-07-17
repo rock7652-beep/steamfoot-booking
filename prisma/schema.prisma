@@ -512,38 +512,39 @@ model Store {
   planChanges         StorePlanChange[]
   featureEntitlements StoreFeatureEntitlement[]
 
-  staff                 Staff[]
-  customers             Customer[]
-  customerIdentityLinks CustomerIdentityLink[]
-  bookings              Booking[]
-  bookingSubmissions    BookingSubmission[]
-  transactions          Transaction[]
-  servicePlans          ServicePlan[]
-  customerPlanWallets   CustomerPlanWallet[]
-  cashbookEntries       CashbookEntry[]
-  dutyAssignments       DutyAssignment[]
-  bookingSlots          BookingSlot[]
-  businessHours         BusinessHours[]
-  specialBusinessDays   SpecialBusinessDay[]
-  slotOverrides         SlotOverride[]
-  reportSnapshots       ReportSnapshot[]
-  shopConfig            ShopConfig?
-  upgradeRequests       UpgradeRequest[]
-  reminderRules         ReminderRule[]
-  messageTemplates      MessageTemplate[]
-  opsActionLogs         OpsActionLog[]
-  reconciliationRuns    ReconciliationRun[]
-  makeupCredits         MakeupCredit[]
-  spaceFeeRecords       SpaceFeeRecord[]
-  messageLogs           MessageLog[]
-  talentStageLogs       TalentStageLog[]
-  customerFollowUps     CustomerFollowUp[]
-  referrals             Referral[]
-  pointRecords          PointRecord[]
-  bonusRules            BonusRule[]
-  referralEvents        ReferralEvent[]
-  checkinPosts          CheckinPost[]
-  transactionAuditLogs  TransactionAuditLog[]
+  staff                   Staff[]
+  customers               Customer[]
+  customerIdentityLinks   CustomerIdentityLink[]
+  bookings                Booking[]
+  bookingRecurrenceGroups BookingRecurrenceGroup[]
+  bookingSubmissions      BookingSubmission[]
+  transactions            Transaction[]
+  servicePlans            ServicePlan[]
+  customerPlanWallets     CustomerPlanWallet[]
+  cashbookEntries         CashbookEntry[]
+  dutyAssignments         DutyAssignment[]
+  bookingSlots            BookingSlot[]
+  businessHours           BusinessHours[]
+  specialBusinessDays     SpecialBusinessDay[]
+  slotOverrides           SlotOverride[]
+  reportSnapshots         ReportSnapshot[]
+  shopConfig              ShopConfig?
+  upgradeRequests         UpgradeRequest[]
+  reminderRules           ReminderRule[]
+  messageTemplates        MessageTemplate[]
+  opsActionLogs           OpsActionLog[]
+  reconciliationRuns      ReconciliationRun[]
+  makeupCredits           MakeupCredit[]
+  spaceFeeRecords         SpaceFeeRecord[]
+  messageLogs             MessageLog[]
+  talentStageLogs         TalentStageLog[]
+  customerFollowUps       CustomerFollowUp[]
+  referrals               Referral[]
+  pointRecords            PointRecord[]
+  bonusRules              BonusRule[]
+  referralEvents          ReferralEvent[]
+  checkinPosts            CheckinPost[]
+  transactionAuditLogs    TransactionAuditLog[]
 
   cashDrawerSessions CashDrawerSession[]
   cashDrawerEntries  CashDrawerEntry[]
@@ -739,7 +740,8 @@ model Customer {
   referralEventsAsReferrer ReferralEvent[] @relation("ReferralEventReferrer")
 
   // 課程錢包
-  planWallets CustomerPlanWallet[]
+  planWallets             CustomerPlanWallet[]
+  bookingRecurrenceGroups BookingRecurrenceGroup[]
 
   // 預約
   bookings Booking[]
@@ -1138,16 +1140,19 @@ model Booking {
   // nullable：其他預約型別 / 既有資料一律 NULL。未來體驗價調整不回寫舊預約。
   // 實際收款金額在 PR-3 以 Transaction.amount 記錄，不存這裡。
   expectedAmount       Decimal?      @db.Decimal(10, 0)
+  recurrenceGroupId    String?
+  recurrenceIndex      Int?
   createdAt            DateTime      @default(now())
   updatedAt            DateTime      @updatedAt
 
-  customer           Customer            @relation(fields: [customerId], references: [id])
-  store              Store               @relation(fields: [storeId], references: [id])
-  revenueStaff       Staff?              @relation("RevenueStaff", fields: [revenueStaffId], references: [id])
-  serviceStaff       Staff?              @relation("ServiceStaff", fields: [serviceStaffId], references: [id])
-  bookedByStaff      Staff?              @relation("BookedByStaff", fields: [bookedByStaffId], references: [id])
-  servicePlan        ServicePlan?        @relation(fields: [servicePlanId], references: [id])
-  customerPlanWallet CustomerPlanWallet? @relation(fields: [customerPlanWalletId], references: [id])
+  customer           Customer                @relation(fields: [customerId], references: [id])
+  store              Store                   @relation(fields: [storeId], references: [id])
+  revenueStaff       Staff?                  @relation("RevenueStaff", fields: [revenueStaffId], references: [id])
+  serviceStaff       Staff?                  @relation("ServiceStaff", fields: [serviceStaffId], references: [id])
+  bookedByStaff      Staff?                  @relation("BookedByStaff", fields: [bookedByStaffId], references: [id])
+  servicePlan        ServicePlan?            @relation(fields: [servicePlanId], references: [id])
+  customerPlanWallet CustomerPlanWallet?     @relation(fields: [customerPlanWalletId], references: [id])
+  recurrenceGroup    BookingRecurrenceGroup? @relation(fields: [recurrenceGroupId], references: [id], onDelete: SetNull)
 
   // 補課關聯
   // legacy（PR-NoShow-2 之前）：單張券。新流程改用 makeupCreditLinks（join table），
@@ -1173,6 +1178,7 @@ model Booking {
   // 對應的單堂明細（一對一：RESERVED / COMPLETED 時掛上）
   walletSessions WalletSession[]
 
+  @@unique([recurrenceGroupId, recurrenceIndex])
   @@index([storeId])
   @@index([bookingDate])
   @@index([bookingDate, slotTime]) // 查詢某天某時段預約數
@@ -1183,6 +1189,33 @@ model Booking {
   @@index([revenueStaffId, bookingDate]) // 店長月報查詢
   @@index([bookingStatus])
   @@index([customerPlanWalletId]) // ⚡ 方案使用紀錄查詢
+  @@index([recurrenceGroupId])
+}
+
+// ============================================================
+// BookingRecurrenceGroup（每週循環預約批次）
+//
+// 只擁有建立當下的意圖快照與 Booking 關係。後續單筆取消／改期
+// 不回寫 group，也不影響其他 Booking。
+// ============================================================
+
+model BookingRecurrenceGroup {
+  id               String   @id @default(cuid())
+  storeId          String
+  customerId       String
+  startDate        DateTime @db.Date
+  slotTime         String
+  totalOccurrences Int
+  people           Int
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  store    Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  customer Customer  @relation(fields: [customerId], references: [id])
+  bookings Booking[]
+
+  @@index([storeId])
+  @@index([customerId])
 }
 
 // ============================================================
@@ -1556,31 +1589,33 @@ model SpaceFeeRecord {
 // ============================================================
 
 model ShopConfig {
-  id                    String    @id @default(cuid())
-  storeId               String    @unique
-  shopName              String    @default("蒸足")
-  dutySchedulingEnabled Boolean   @default(false)
+  id                       String    @id @default(cuid())
+  storeId                  String    @unique
+  shopName                 String    @default("蒸足")
+  dutySchedulingEnabled    Boolean   @default(false)
   // === PR-2 新增：前台購買頁顯示用（全 nullable；格式驗證交給 app layer）===
-  bankName              String? // 銀行名稱，例：「永豐銀行」
-  bankCode              String? // 銀行代號，例：「807」
-  bankAccountNumber     String? // 帳號，例：「19301800020681」
-  lineOfficialUrl       String? // LINE@ 連結，例：「https://lin.ee/UvRnFFK」
-  referralShareTemplate String? // 每店推薦分享模板；僅允許 {storeName} / {url}
+  bankName                 String? // 銀行名稱，例：「永豐銀行」
+  bankCode                 String? // 銀行代號，例：「807」
+  bankAccountNumber        String? // 帳號，例：「19301800020681」
+  lineOfficialUrl          String? // LINE@ 連結，例：「https://lin.ee/UvRnFFK」
+  referralShareTemplate    String? // 每店推薦分享模板；僅允許 {storeName} / {url}
   // === PR-trial 新增：體驗課設定（全有 default；不影響既有店家營運）===
-  trialEnabled          Boolean   @default(true) // 是否啟用體驗單功能（關閉則隱藏「建立體驗單」入口）
-  trialDefaultPrice     Decimal   @default(499) @db.Decimal(10, 0) // 預設體驗價格
-  trialAllowPriceEdit   Boolean   @default(true) // 建立體驗單時是否允許調整價格
-  trialMinPrice         Decimal   @default(0) @db.Decimal(10, 0) // 最低可輸入價格
-  trialMaxPrice         Decimal   @default(3000) @db.Decimal(10, 0) // 最高可輸入價格
+  trialEnabled             Boolean   @default(true) // 是否啟用體驗單功能（關閉則隱藏「建立體驗單」入口）
+  trialDefaultPrice        Decimal   @default(499) @db.Decimal(10, 0) // 預設體驗價格
+  trialAllowPriceEdit      Boolean   @default(true) // 建立體驗單時是否允許調整價格
+  trialMinPrice            Decimal   @default(0) @db.Decimal(10, 0) // 最低可輸入價格
+  trialMaxPrice            Decimal   @default(3000) @db.Decimal(10, 0) // 最高可輸入價格
   // === PR-1 新增：顧客自助預約可預約到的日期（含當日）；null = 回到預設 +14 天 ===
-  bookableUntilDate     DateTime? @db.Date
+  bookableUntilDate        DateTime? @db.Date
+  weeklyRecurrenceEnabled  Boolean   @default(false)
+  weeklyRecurrenceMaxWeeks Int       @default(8)
   // === PR-E 新增：店家地址與 Google Maps 短網址（per-store LIFF 顯示用）===
   // 取代 src/lib/liff/messages.ts 的 storeAddress / storeMapUrl 全域常數。
   // Nullable：未填 → server resolver 回退到常數，確保任何時點 LIFF 不空白。
-  address               String? // 例：「302新竹縣竹北市中崙里科大一路80號」
-  mapUrl                String? // 例：「https://maps.app.goo.gl/EyqUvkAaHCxu6iWz5?g_st=ic」
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
+  address                  String? // 例：「302新竹縣竹北市中崙里科大一路80號」
+  mapUrl                   String? // 例：「https://maps.app.goo.gl/EyqUvkAaHCxu6iWz5?g_st=ic」
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
 
   store Store @relation(fields: [storeId], references: [id])
 }
