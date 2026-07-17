@@ -44,11 +44,18 @@ export default async function NewBookingPage() {
           where: { status: "ACTIVE" },
           select: {
             id: true,
+            planId: true,
             createdAt: true,
             totalSessions: true,
             remainingSessions: true,
             expiryDate: true,
             plan: { select: { name: true } },
+            // 循環預約會一次保留多堂；其 client preview 必須與 server
+            // createRecurringBookings() 相同，僅計算實際 AVAILABLE 的堂數。
+            sessions: {
+              where: { status: "AVAILABLE" },
+              select: { id: true },
+            },
             bookings: {
               where: { isMakeup: false },
               select: { bookingStatus: true, isMakeup: true },
@@ -75,7 +82,11 @@ export default async function NewBookingPage() {
     bookingStoreId
       ? prisma.shopConfig.findUnique({
           where: { storeId: bookingStoreId },
-          select: { bookableUntilDate: true },
+          select: {
+            bookableUntilDate: true,
+            weeklyRecurrenceEnabled: true,
+            weeklyRecurrenceMaxWeeks: true,
+          },
         })
       : Promise.resolve(null),
   ]);
@@ -149,10 +160,14 @@ export default async function NewBookingPage() {
         <BookingCalendarView
           customerId={customerId}
           bookableUntil={bookableUntil}
+          weeklyRecurrenceEnabled={shopConfig?.weeklyRecurrenceEnabled === true}
+          weeklyRecurrenceMaxWeeks={shopConfig?.weeklyRecurrenceMaxWeeks ?? 0}
           activeWallets={activeWallets.map((w) => ({
             id: w.id,
+            planId: w.planId,
             planName: w.plan.name,
             remainingSessions: w.computedRemaining,
+            recurringAvailableSessions: w.sessions.length,
             expiryDate: w.expiryDate?.toISOString().slice(0, 10) ?? null,
           }))}
           makeupCredits={makeupCredits.map((c) => ({
