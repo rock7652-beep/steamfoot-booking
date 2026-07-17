@@ -20,6 +20,7 @@
  */
 
 import type { MonthSlotInfo } from "@/server/actions/slots";
+import { getDayCapacityIndicator } from "@/lib/slot-capacity-display";
 
 /**
  * 月曆顯示需要的單日資訊。原為 `trial-booking-form.tsx` 內部 type；本 PR 移到
@@ -71,6 +72,8 @@ export interface MonthCalendarProps {
   onNextMonth: () => void;
   /** 全月曆 disabled（送出中時 caller 傳 true） */
   disabled: boolean;
+  /** 此次預約的人數；影響日期狀態點的聚合結果。 */
+  requestedPeople?: number;
   /** 文案；由 caller 從 liffMessages 構造 */
   labels: MonthCalendarLabels;
 }
@@ -86,6 +89,7 @@ export function MonthCalendar({
   onPrevMonth,
   onNextMonth,
   disabled,
+  requestedPeople = 1,
   labels,
 }: MonthCalendarProps) {
   const firstDay = new Date(calYear, calMonth, 1);
@@ -105,10 +109,13 @@ export function MonthCalendar({
     if (!info) return false;
     return info.totalCapacity === 0;
   }
-  function isFullDay(dateStr: string): boolean {
+  function dayIndicator(dateStr: string) {
     const info = monthData[dateStr];
-    if (!info) return false;
-    return info.totalCapacity > 0 && info.totalBooked >= info.totalCapacity;
+    if (!info || info.totalCapacity === 0) return null;
+    return getDayCapacityIndicator(
+      info.slots.map((slot) => ({ capacity: slot.capacity, bookedPeople: slot.booked })),
+      requestedPeople,
+    );
   }
 
   return (
@@ -176,7 +183,8 @@ export function MonthCalendar({
             const isSelected = dateStr === selectedDate;
             const isToday = dateObj.getTime() === today.getTime();
             const closed = !isPast && isClosedDay(dateStr);
-            const full = !isPast && !closed && isFullDay(dateStr);
+            const indicator = !isPast && !closed ? dayIndicator(dateStr) : null;
+            const full = indicator === "full";
             const cellDisabled = disabled || isPast || closed;
 
             return (
@@ -197,6 +205,9 @@ export function MonthCalendar({
               >
                 <div className="flex w-full items-center gap-1">
                   <span className="text-base font-bold leading-none">{day}</span>
+                  {indicator && !isSelected && (
+                    <span className={`h-2 w-2 rounded-full ${indicator === "available" ? "bg-green-400" : indicator === "low" ? "bg-yellow-400" : "bg-red-400"}`} />
+                  )}
                   {isToday && !isSelected && (
                     <span className="ml-auto rounded bg-earth-200 px-1 text-[10px] font-bold leading-none text-earth-800">
                       {labels.todayLabel}

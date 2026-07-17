@@ -591,6 +591,7 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
             onPrevMonth={handlePrevMonth}
             onNextMonth={handleNextMonth}
             disabled={state.kind === "submitting"}
+            requestedPeople={people}
             labels={{
               monthPrev: liffMessages.memberBooking.monthPrev,
               monthNext: liffMessages.memberBooking.monthNext,
@@ -609,6 +610,7 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
               selectedSlot={selectedSlot}
               onSelectSlot={setSelectedSlot}
               disabled={state.kind === "submitting"}
+              requestedPeople={people}
               labels={{
                 loadingText: liffMessages.memberBooking.slotsLoading,
                 emptyText: liffMessages.memberBooking.noSlotsForDay,
