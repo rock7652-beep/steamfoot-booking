@@ -29,5 +29,7 @@ describe("customer recurring booking UI wiring", () => {
   it("uses real AVAILABLE WalletSession counts for recurring eligibility", () => {
     expect(source).toContain("recurringAvailableSessions");
     expect(source).toContain("wallet.recurringAvailableSessions");
+    expect(source).toContain("formatBookingWalletOption(w, isRecurringActive)");
+    expect(source).not.toContain("formatRecurringWalletOption");
   });
 });

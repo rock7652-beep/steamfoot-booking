@@ -6,7 +6,7 @@ import { fetchMonthAvailability } from "@/server/actions/slots";
 import { createBooking } from "@/server/actions/booking";
 import { createRecurringBookings } from "@/server/actions/recurring-booking";
 import { generateWeeklyDateStrings, parseLocalDate, formatWeekdayZh } from "@/lib/date-utils";
-import { buildRecurringPreview, formatRecurringWalletOption, recurringWeekOptions } from "@/lib/recurring-booking-preview";
+import { buildRecurringPreview, formatBookingWalletOption, recurringWeekOptions } from "@/lib/recurring-booking-preview";
 import { useStoreSlugRequired } from "@/lib/store-context";
 import { useBookingRequestKey } from "@/hooks/use-booking-request-key";
 import type { SlotAvailability } from "@/types";
@@ -864,9 +864,7 @@ function SlotBookingForm({
           >
             {activeWallets.map((w) => (
               <option key={w.id} value={w.id}>
-                {isRecurringActive
-                  ? formatRecurringWalletOption(w)
-                  : `${w.planName}（剩 ${w.remainingSessions} 堂）`}
+                {formatBookingWalletOption(w, isRecurringActive)}
               </option>
             ))}
           </select>

@@ -11,17 +11,22 @@ export type RecurringPreviewOccurrence = {
  * 同名方案可能有多張不同到期日的錢包。循環預約必須顯示與 server
  * eligibility 相同的 AVAILABLE WalletSession 數，而不是快取堂數。
  */
-export function formatRecurringWalletOption({
-  planName,
-  recurringAvailableSessions,
-  expiryDate,
-}: {
+export function formatBookingWalletOption(
+  {
+    planName,
+    remainingSessions,
+    recurringAvailableSessions,
+    expiryDate,
+  }: {
   planName: string;
-  /** 快取值保留在輸入型別中，明確不作為循環預約顯示依據。 */
   remainingSessions: number;
   recurringAvailableSessions: number;
   expiryDate: string | null;
-}): string {
+  },
+  isRecurring: boolean,
+): string {
+  if (!isRecurring) return `${planName}（剩 ${remainingSessions} 堂）`;
+
   const expiry = expiryDate ? `｜到期 ${expiryDate.replaceAll("-", "/")}` : "";
   return `${planName}｜可用 ${recurringAvailableSessions} 堂${expiry}`;
 }

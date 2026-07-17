@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildRecurringPreview, formatRecurringWalletOption, recurringWeekOptions } from "@/lib/recurring-booking-preview";
+import { buildRecurringPreview, formatBookingWalletOption, recurringWeekOptions } from "@/lib/recurring-booking-preview";
 
 describe("customer recurring booking preview", () => {
   it("limits UI choices to 2 through the store maximum, capped at 8", () => {
@@ -43,14 +43,18 @@ describe("customer recurring booking preview", () => {
   });
 
   it("shows AVAILABLE sessions rather than cached remaining sessions in recurring wallet labels", () => {
-    const label = formatRecurringWalletOption({
+    const wallet = {
       planName: "10 堂套餐（Staging）",
       remainingSessions: 5,
       recurringAvailableSessions: 3,
       expiryDate: "2026-08-31",
-    });
+    };
+    const recurringLabel = formatBookingWalletOption(wallet, true);
+    const singleLabel = formatBookingWalletOption(wallet, false);
 
-    expect(label).toBe("10 堂套餐（Staging）｜可用 3 堂｜到期 2026/08/31");
-    expect(label).not.toContain("5 堂");
+    expect(recurringLabel).toBe("10 堂套餐（Staging）｜可用 3 堂｜到期 2026/08/31");
+    expect(recurringLabel).not.toContain("5 堂");
+    expect(singleLabel).toBe("10 堂套餐（Staging）（剩 5 堂）");
+    expect(singleLabel).not.toContain("可用 3 堂");
   });
 });
