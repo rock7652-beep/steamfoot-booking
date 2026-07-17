@@ -26,6 +26,19 @@ export const createBookingSchema = z.object({
   expectedAmount: z.number().int().min(0).max(1_000_000).optional(),
 });
 
+export const createRecurringBookingsSchema = z.object({
+  customerId: z.string().min(1),
+  bookingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  slotTime: z.string().regex(/^\d{2}:\d{2}$/),
+  bookingType: z.literal("PACKAGE_SESSION"),
+  servicePlanId: z.string().min(1),
+  customerPlanWalletId: z.string().min(1).optional(),
+  people: z.number().int().min(1).max(4).default(1),
+  weeks: z.number().int().min(1).max(12),
+  notes: z.string().max(500).optional(),
+  skipDutyCheck: z.boolean().optional(),
+});
+
 export const updateBookingSchema = z.object({
   bookingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   slotTime: z.string().regex(/^\d{2}:\d{2}$/).optional(),

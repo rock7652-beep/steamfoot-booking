@@ -114,3 +114,43 @@ export function buildBookingCreatePayloadHash(
   const intent = buildCanonicalBookingCreateIntent(input);
   return { intent, payloadHash: hashCanonicalBookingCreateIntent(intent) };
 }
+
+export type BookingRecurringIntentInput = {
+  storeId: string;
+  actorUserId: string;
+  canonicalCustomerId: string;
+  servicePlanId: string;
+  customerPlanWalletId?: string | null;
+  bookingDate: string;
+  slotTime: string;
+  people: number;
+  weeks: number;
+  notes?: string | null;
+  skipDutyCheck?: boolean;
+};
+
+export function buildBookingRecurringPayloadHash(
+  input: BookingRecurringIntentInput,
+): { payloadHash: string } {
+  const tuple = [
+    BOOKING_SUBMISSION_PAYLOAD_VERSION,
+    "BOOKING_RECURRING",
+    input.storeId,
+    input.actorUserId,
+    input.canonicalCustomerId,
+    "PACKAGE_SESSION",
+    input.servicePlanId,
+    canonicalizeBookingSlotTime(input.slotTime),
+    input.bookingDate,
+    input.people,
+    input.weeks,
+    normalizeNotes(input.notes),
+    input.skipDutyCheck ?? false,
+    input.customerPlanWalletId ? "PREFERRED_WALLET" : "AUTO_FEFO",
+    input.customerPlanWalletId ?? null,
+    "NO_MAKEUP_CREDITS",
+  ];
+  return {
+    payloadHash: createHash("sha256").update(JSON.stringify(tuple)).digest("hex"),
+  };
+}

@@ -261,6 +261,36 @@ export function parseTaiwanDateToDbDate(dateStr: string): Date {
 }
 
 /**
+ * 產生包含起始日的每週日期。全程以 UTC 的純日期整數運算，
+ * 不受 server 所在時區、跨月／跨年或日光節約影響。
+ */
+export function generateWeeklyDateStrings(
+  startDate: string,
+  weeks: number,
+): string[] {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate)) {
+    throw new Error(`Invalid Taiwan date: ${startDate}`);
+  }
+  if (!Number.isInteger(weeks) || weeks < 1) {
+    throw new Error(`Weeks must be a positive integer: ${weeks}`);
+  }
+  const [year, month, day] = startDate.split("-").map(Number);
+  const startMs = Date.UTC(year, month - 1, day);
+  const parsed = new Date(startMs);
+  if (
+    parsed.getUTCFullYear() !== year ||
+    parsed.getUTCMonth() !== month - 1 ||
+    parsed.getUTCDate() !== day
+  ) {
+    throw new Error(`Invalid Taiwan date: ${startDate}`);
+  }
+  return Array.from({ length: weeks }, (_, index) => {
+    const date = new Date(startMs + index * 7 * 24 * 60 * 60 * 1000);
+    return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`;
+  });
+}
+
+/**
  * 對「台灣 YYYY-MM-DD」字串加上一段期間，回傳「台灣 YYYY-MM-DD」字串。
  *
  * 月份語意：1/31 + 1 月 → 2/28（clamp 到目標月份的最後一天）。
