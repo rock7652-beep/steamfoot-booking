@@ -6,7 +6,7 @@ import { fetchMonthAvailability } from "@/server/actions/slots";
 import { createBooking } from "@/server/actions/booking";
 import { createRecurringBookings } from "@/server/actions/recurring-booking";
 import { generateWeeklyDateStrings, parseLocalDate, formatWeekdayZh } from "@/lib/date-utils";
-import { buildRecurringPreview, recurringWeekOptions } from "@/lib/recurring-booking-preview";
+import { buildRecurringPreview, formatRecurringWalletOption, recurringWeekOptions } from "@/lib/recurring-booking-preview";
 import { useStoreSlugRequired } from "@/lib/store-context";
 import { useBookingRequestKey } from "@/hooks/use-booking-request-key";
 import type { SlotAvailability } from "@/types";
@@ -863,7 +863,11 @@ function SlotBookingForm({
             className="w-full rounded-xl border border-earth-300 px-4 h-12 text-base focus:outline-none focus:ring-2 focus:ring-primary-500"
           >
             {activeWallets.map((w) => (
-              <option key={w.id} value={w.id}>{w.planName}（剩 {w.remainingSessions} 堂）</option>
+              <option key={w.id} value={w.id}>
+                {isRecurringActive
+                  ? formatRecurringWalletOption(w)
+                  : `${w.planName}（剩 ${w.remainingSessions} 堂）`}
+              </option>
             ))}
           </select>
         </div>
@@ -887,7 +891,9 @@ function SlotBookingForm({
               ))}
             </ul>
           )}
-          <p className="mt-3 font-semibold">共建立 {weeks} 筆預約，共扣除 {weeks * people} 堂</p>
+          <p className="mt-3 font-semibold">
+            共建立 {weeks} 筆預約，共扣除 {weeks * people} 堂（此方案可用 {totalRemaining} 堂）
+          </p>
           {!loadingRecurringPreview && recurrenceHasUnavailableDate && (
             <p className="mt-2 font-semibold text-red-700">無法建立循環預約；請選擇其他日期、時段或週數。</p>
           )}

@@ -7,6 +7,25 @@ export type RecurringPreviewOccurrence = {
   reason?: string;
 };
 
+/**
+ * 同名方案可能有多張不同到期日的錢包。循環預約必須顯示與 server
+ * eligibility 相同的 AVAILABLE WalletSession 數，而不是快取堂數。
+ */
+export function formatRecurringWalletOption({
+  planName,
+  recurringAvailableSessions,
+  expiryDate,
+}: {
+  planName: string;
+  /** 快取值保留在輸入型別中，明確不作為循環預約顯示依據。 */
+  remainingSessions: number;
+  recurringAvailableSessions: number;
+  expiryDate: string | null;
+}): string {
+  const expiry = expiryDate ? `｜到期 ${expiryDate.replaceAll("-", "/")}` : "";
+  return `${planName}｜可用 ${recurringAvailableSessions} 堂${expiry}`;
+}
+
 /** 顧客 UI 第一版最多提供 2～8 週；後端仍會套用店家與系統上限。 */
 export function recurringWeekOptions(storeMaxWeeks: number): number[] {
   const maximum = Math.min(8, Math.max(0, storeMaxWeeks));
