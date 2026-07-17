@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/db";
+import { ACTIVE_CUSTOMER_FILTER } from "@/lib/active-customer";
 import { Prisma } from "@prisma/client";
 import { AuthError } from "next-auth";
 import { auth, signIn } from "@/lib/auth";
@@ -57,7 +58,11 @@ export async function resolveLineLogin(input: {
   // 避免「A 已綁 LINE → 又走 oauth-confirm → 輸入 B 的手機 → LINE 從 A 跳到 B」
   // 的身份轉移攻擊（比分裂更慘）。詳見 docs/identity-flow.md §3 Step 0。
   const byLine = await prisma.customer.findFirst({
-    where: { storeId: session.storeId, lineUserId: session.lineUserId },
+    where: {
+      storeId: session.storeId,
+      lineUserId: session.lineUserId,
+      ...ACTIVE_CUSTOMER_FILTER,
+    },
     select: { id: true },
   });
   if (byLine) {
@@ -68,7 +73,7 @@ export async function resolveLineLogin(input: {
   // ── Step 1：用 phone + storeId 查既有 Customer ──
   // 一次撈完啟用判斷與資產數量，避免多次 round-trip。
   const byPhone = await prisma.customer.findFirst({
-    where: { storeId: session.storeId, phone },
+    where: { storeId: session.storeId, phone, ...ACTIVE_CUSTOMER_FILTER },
     select: {
       id: true,
       userId: true,
@@ -210,7 +215,11 @@ export async function oauthConfirmLoginAction(
 
   // 拿 customer 的 phone — 必須 belong to session.storeId
   const customer = await prisma.customer.findFirst({
-    where: { id: customerId, storeId: session.storeId },
+    where: {
+      id: customerId,
+      storeId: session.storeId,
+      ...ACTIVE_CUSTOMER_FILTER,
+    },
     select: { phone: true },
   });
   if (!customer) {
@@ -307,6 +316,7 @@ export async function finalizeLineBind(input: {
       id: input.customerId,
       storeId: tempSession.storeId,
       userId: nextAuthSession.user.id,
+      ...ACTIVE_CUSTOMER_FILTER,
     },
     select: { id: true, lineUserId: true },
   });
@@ -326,6 +336,7 @@ export async function finalizeLineBind(input: {
       storeId: tempSession.storeId,
       lineUserId: tempSession.lineUserId,
       id: { not: customer.id },
+      ...ACTIVE_CUSTOMER_FILTER,
     },
     select: { id: true },
   });

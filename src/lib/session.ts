@@ -1,6 +1,7 @@
 import { cache } from "react";
 import { cookies, headers } from "next/headers";
 import { auth } from "@/lib/auth";
+import { ACTIVE_CUSTOMER_FILTER } from "@/lib/active-customer";
 import { prisma } from "@/lib/db";
 import { AppError } from "@/lib/errors";
 import { isStaffRole } from "@/lib/permissions";
@@ -213,7 +214,7 @@ export async function getCurrentCustomer() {
   const user = await getCurrentUser();
   if (!user?.customerId) return null;
   const customer = await prisma.customer.findUnique({
-    where: { id: user.customerId },
+    where: { id: user.customerId, ...ACTIVE_CUSTOMER_FILTER },
   });
   if (!customer) {
     console.warn("[getCurrentCustomer] sessionCustomerId STALE — returning null", {
@@ -243,7 +244,7 @@ export async function resolveValidatedCustomerId(
 ): Promise<string | null> {
   if (!user?.customerId) return null;
   const exists = await prisma.customer.findUnique({
-    where: { id: user.customerId },
+    where: { id: user.customerId, ...ACTIVE_CUSTOMER_FILTER },
     select: { id: true },
   });
   if (!exists) {

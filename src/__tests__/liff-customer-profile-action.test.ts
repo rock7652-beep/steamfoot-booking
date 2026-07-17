@@ -136,6 +136,8 @@ describe("ok (CUSTOMER session + canonical id + row found)", () => {
     expect(call.where).toEqual({
       id: CANONICAL_CUSTOMER_ID,
       storeId: CUSTOMER_USER.storeId,
+      mergedIntoCustomerId: null,
+      mergedAt: null,
     });
   });
 });

@@ -136,6 +136,8 @@ describe("auth.ts liff-token provider", () => {
       customer: {
         id: "cust-hsinchu",
         storeId: STORE.id,
+        mergedIntoCustomerId: null,
+        mergedAt: null,
         store: { slug: STORE.slug },
       },
       user: {
@@ -187,6 +189,8 @@ describe("auth.ts liff-token provider", () => {
     mockCustomerFindFirst.mockResolvedValueOnce({
       id: "cust-hsinchu-legacy",
       storeId: STORE.id,
+      mergedIntoCustomerId: null,
+      mergedAt: null,
       store: { slug: STORE.slug },
       user: {
         id: "user-line",
@@ -209,5 +213,43 @@ describe("auth.ts liff-token provider", () => {
         where: { storeId: STORE.id, lineUserId: LINE_USER_ID },
       }),
     );
+  });
+
+  it("rejects an IdentityLink that points at a merged Customer", async () => {
+    const authorize = await getLiffAuthorize();
+    mockIdentityLinkFindUnique.mockResolvedValueOnce({
+      customer: {
+        id: "merged-shell",
+        storeId: STORE.id,
+        mergedIntoCustomerId: "canonical-other-store",
+        mergedAt: new Date("2026-07-10T00:00:00Z"),
+        store: { slug: STORE.slug },
+      },
+      user: {
+        id: "user-line",
+        name: "LINE User",
+        email: null,
+        role: "CUSTOMER",
+        status: "ACTIVE",
+      },
+    });
+
+    await expect(authorize({ idToken: "tok", storeSlug: STORE.slug })).resolves.toBeNull();
+    expect(mockCustomerFindFirst).not.toHaveBeenCalled();
+  });
+
+  it("rejects a merged legacy fallback instead of treating it as a new Customer", async () => {
+    const authorize = await getLiffAuthorize();
+    mockIdentityLinkFindUnique.mockResolvedValueOnce(null);
+    mockCustomerFindFirst.mockResolvedValueOnce({
+      id: "merged-shell",
+      storeId: STORE.id,
+      mergedIntoCustomerId: "canonical-other-store",
+      mergedAt: new Date("2026-07-10T00:00:00Z"),
+      store: { slug: STORE.slug },
+      user: null,
+    });
+
+    await expect(authorize({ idToken: "tok", storeSlug: STORE.slug })).resolves.toBeNull();
   });
 });

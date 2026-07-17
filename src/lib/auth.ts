@@ -3,6 +3,10 @@ import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
 import { compareSync } from "bcryptjs";
 import { prisma } from "@/lib/db";
+import {
+  ACTIVE_CUSTOMER_FILTER,
+  isActiveCustomer,
+} from "@/lib/active-customer";
 import type { Provider } from "next-auth/providers";
 import type { UserRole } from "@prisma/client";
 import { normalizePhone } from "@/lib/normalize";
@@ -87,7 +91,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             role: true,
             status: true,
             staff: { select: { id: true, storeId: true, store: { select: { slug: true } } } },
-            customer: { select: { id: true, storeId: true, store: { select: { slug: true } } } },
+            customer: {
+              select: {
+                id: true,
+                storeId: true,
+                mergedIntoCustomerId: true,
+                mergedAt: true,
+                store: { select: { slug: true } },
+              },
+            },
           },
         });
 
@@ -111,15 +123,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           };
         }
 
+        const activeCustomer = isActiveCustomer(user.customer)
+          ? user.customer
+          : null;
         return {
           id: user.id,
           name: user.name,
           email: user.email ?? null,
           role: user.role,
           staffId: user.staff?.id ?? null,
-          customerId: user.customer?.id ?? null,
-          storeId: user.staff?.storeId ?? user.customer?.storeId ?? null,
-          storeSlug: user.staff?.store?.slug ?? user.customer?.store?.slug ?? null,
+          customerId: activeCustomer?.id ?? null,
+          storeId: user.staff?.storeId ?? activeCustomer?.storeId ?? null,
+          storeSlug: user.staff?.store?.slug ?? activeCustomer?.store?.slug ?? null,
         };
       },
     }),
@@ -147,7 +162,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         // B7-4: 若有 storeId，先從 Customer 表按店查找對應 User
         if (storeId) {
           const customer = await prisma.customer.findFirst({
-            where: { phone, storeId },
+            where: { phone, storeId, ...ACTIVE_CUSTOMER_FILTER },
             select: {
               id: true,
               storeId: true,
@@ -198,11 +213,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             passwordHash: true,
             role: true,
             status: true,
-            customer: { select: { id: true, storeId: true, store: { select: { slug: true } } } },
+            customer: {
+              select: {
+                id: true,
+                storeId: true,
+                mergedIntoCustomerId: true,
+                mergedAt: true,
+                store: { select: { slug: true } },
+              },
+            },
           },
         });
 
-        if (!user || !user.passwordHash) return null;
+        if (!user || !user.passwordHash || !isActiveCustomer(user.customer)) return null;
         if (user.status !== "ACTIVE") return null;
 
         const valid = compareSync(password, user.passwordHash);
@@ -368,6 +391,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               select: {
                 id: true,
                 storeId: true,
+                mergedIntoCustomerId: true,
+                mergedAt: true,
                 store: { select: { slug: true } },
               },
             },
@@ -377,24 +402,45 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           },
         });
 
+        if (identityLink && !isActiveCustomer(identityLink.customer)) {
+          console.warn("[auth][liff-token] merged customer blocked", {
+            customerId: identityLink.customer.id,
+            storeId: store.id,
+          });
+          return null;
+        }
+
         // Customer 必須先以同店 identity link 命中；legacy fallback 才看
         // Customer(storeId, lineUserId, userId)。
-        const customer = identityLink
-          ? {
-              ...identityLink.customer,
-              user: identityLink.user,
-            }
+        const legacyCustomer = identityLink
+          ? null
           : await prisma.customer.findFirst({
               where: { storeId: store.id, lineUserId: verified.lineUserId },
               select: {
                 id: true,
                 storeId: true,
+                mergedIntoCustomerId: true,
+                mergedAt: true,
                 store: { select: { slug: true } },
                 user: {
                   select: { id: true, name: true, email: true, role: true, status: true },
                 },
               },
             });
+        if (legacyCustomer && !isActiveCustomer(legacyCustomer)) {
+          console.warn("[auth][liff-token] merged legacy customer blocked", {
+            customerId: legacyCustomer.id,
+            storeId: store.id,
+          });
+          return null;
+        }
+
+        const customer = identityLink
+          ? {
+              ...identityLink.customer,
+              user: identityLink.user,
+            }
+          : legacyCustomer;
 
         if (!customer || !customer.user || customer.user.status !== "ACTIVE") {
           // race condition：exchange route 確認過後 customer 被解綁；視為認證失敗
@@ -528,9 +574,20 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           customer = await prisma.customer.findFirst({
             where: { storeId: targetStoreId, lineUserId },
           });
+          if (customer && !isActiveCustomer(customer)) {
+            logLineBindEvent({
+              path: "oauth-line-signin",
+              status: "unexpected_error",
+              storeId: targetStoreId,
+              lineUserId,
+              customerId: customer.id,
+              errorCode: "MERGED_CUSTOMER_BLOCKED",
+            });
+            return "/?error=CustomerArchived";
+          }
           if (!customer) {
             const crossStore = await prisma.customer.findFirst({
-              where: { lineUserId },
+              where: { lineUserId, ...ACTIVE_CUSTOMER_FILTER },
               select: { id: true, storeId: true },
             });
             if (crossStore) {
@@ -548,7 +605,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
         if (!customer && provider === "google" && googleId) {
           const candidates = await prisma.customer.findMany({
-            where: { googleId },
+            where: { googleId, ...ACTIVE_CUSTOMER_FILTER },
             take: 2,
           });
           if (candidates.length === 1) {
@@ -567,7 +624,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
         if (!customer && oauthEmail) {
           customer = await prisma.customer.findFirst({
-            where: { email: oauthEmail, storeId: targetStoreId },
+            where: {
+              email: oauthEmail,
+              storeId: targetStoreId,
+              ...ACTIVE_CUSTOMER_FILTER,
+            },
           });
         }
 
@@ -1221,10 +1282,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             select: {
               role: true,
               staff: { select: { id: true, storeId: true, store: { select: { slug: true } } } },
-              customer: { select: { id: true, storeId: true, store: { select: { slug: true } } } },
+              customer: {
+                select: {
+                  id: true,
+                  storeId: true,
+                  mergedIntoCustomerId: true,
+                  mergedAt: true,
+                  store: { select: { slug: true } },
+                },
+              },
             },
           });
           if (dbUser) {
+            const activeDirectCustomer = isActiveCustomer(dbUser.customer)
+              ? dbUser.customer
+              : null;
             appToken.role = dbUser.role;
             if (dbUser.role === "ADMIN") {
               appToken.staffId = null;
@@ -1233,9 +1305,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               appToken.storeSlug = null;
             } else {
               appToken.staffId = dbUser.staff?.id ?? null;
-              appToken.customerId = dbUser.customer?.id ?? null;
-              appToken.storeId = dbUser.staff?.storeId ?? dbUser.customer?.storeId ?? null;
-              appToken.storeSlug = dbUser.staff?.store?.slug ?? dbUser.customer?.store?.slug ?? null;
+              appToken.customerId = activeDirectCustomer?.id ?? null;
+              appToken.storeId = dbUser.staff?.storeId ?? activeDirectCustomer?.storeId ?? null;
+              appToken.storeSlug = dbUser.staff?.store?.slug ?? activeDirectCustomer?.store?.slug ?? null;
             }
           }
         } catch (err) {
@@ -1330,12 +1402,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                         select: {
                           id: true,
                           storeId: true,
+                          mergedIntoCustomerId: true,
+                          mergedAt: true,
                           store: { select: { slug: true } },
                         },
                       },
                     },
                   });
-                  if (link?.customer) {
+                  if (link && isActiveCustomer(link.customer)) {
                     appToken.customerId = link.customer.id;
                     appToken.storeId = link.customer.storeId;
                     appToken.storeSlug = link.customer.store?.slug ?? null;

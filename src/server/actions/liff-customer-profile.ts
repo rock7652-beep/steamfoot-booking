@@ -35,6 +35,7 @@
  */
 
 import { prisma } from "@/lib/db";
+import { ACTIVE_CUSTOMER_FILTER } from "@/lib/active-customer";
 import { requireSession } from "@/lib/session";
 import { getCanonicalCustomerIdForSession } from "@/lib/customer-identity";
 
@@ -176,7 +177,7 @@ export async function fetchLiffCustomerProfile(): Promise<FetchLiffCustomerProfi
   } | null;
   try {
     row = await prisma.customer.findFirst({
-      where: { id: customerId, storeId },
+      where: { id: customerId, storeId, ...ACTIVE_CUSTOMER_FILTER },
       select: {
         id: true,
         name: true,
