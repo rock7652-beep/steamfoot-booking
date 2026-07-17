@@ -17,6 +17,8 @@ interface ActiveWallet {
   planId: string;
   planName: string;
   remainingSessions: number;
+  /** 與 createRecurringBookings() 對齊：僅可實際保留的 WalletSession。 */
+  recurringAvailableSessions: number;
   expiryDate: string | null;
 }
 
@@ -628,7 +630,10 @@ function SlotBookingForm({
 
   // ── 客端 blocking validation ──
   const totalRemaining = (isRecurringActive ? walletsForSelectedPlan : activeWallets)
-    .reduce((sum, wallet) => sum + wallet.remainingSessions, 0);
+    .reduce(
+      (sum, wallet) => sum + (isRecurringActive ? wallet.recurringAvailableSessions : wallet.remainingSessions),
+      0,
+    );
 
   // 票券期限檢查
   const walletsForDate = activeWallets.filter(
@@ -636,8 +641,10 @@ function SlotBookingForm({
   );
   const recurrenceRequiredSessions = isRecurringActive ? people * weeks : packagePeople;
   const finalRecurringDate = recurrenceDateStrings.at(-1) ?? selectedDate;
+  // 後端先檢查錢包能否覆蓋最後日期，再以 AVAILABLE WalletSession
+  // 檢查堂數；前端維持同一順序，避免把堂數不足誤顯示成到期問題。
   const walletsForFinalDate = walletsForSelectedPlan.filter(
-    (w) => w.remainingSessions > 0 && (!w.expiryDate || w.expiryDate >= finalRecurringDate)
+    (w) => !w.expiryDate || w.expiryDate >= finalRecurringDate,
   );
   const hasWalletForDate = isRecurringActive
     ? walletsForFinalDate.length > 0

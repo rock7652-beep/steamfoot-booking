@@ -25,4 +25,9 @@ describe("customer recurring booking UI wiring", () => {
     expect(source).toContain("無法建立循環預約");
     expect(source).toContain("loadingRecurringPreview");
   });
+
+  it("uses real AVAILABLE WalletSession counts for recurring eligibility", () => {
+    expect(source).toContain("recurringAvailableSessions");
+    expect(source).toContain("wallet.recurringAvailableSessions");
+  });
 });
