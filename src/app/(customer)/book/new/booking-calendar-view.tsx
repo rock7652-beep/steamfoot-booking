@@ -9,6 +9,11 @@ import { generateWeeklyDateStrings, parseLocalDate, formatWeekdayZh } from "@/li
 import { buildRecurringPreview, formatBookingWalletOption, recurringWeekOptions } from "@/lib/recurring-booking-preview";
 import { useStoreSlugRequired } from "@/lib/store-context";
 import { useBookingRequestKey } from "@/hooks/use-booking-request-key";
+import {
+  getDayCapacityIndicator,
+  getSlotCapacityDisplay,
+  type SlotSelectionStatus,
+} from "@/lib/slot-capacity-display";
 import type { SlotAvailability } from "@/types";
 import type { MonthSlotInfo } from "@/server/actions/slots";
 
@@ -42,7 +47,7 @@ type MonthDayInfo = { totalCapacity: number; totalBooked: number; slots: MonthSl
 type SlotBadge = {
   time: string;
   label: string | null;
-  status: "available" | "full" | "insufficient";
+  status: SlotSelectionStatus;
 };
 
 export function BookingCalendarView({
@@ -162,19 +167,8 @@ export function BookingCalendarView({
 
     const badges: SlotBadge[] = [];
     for (const s of enabledSlots) {
-      const avail = s.capacity - s.booked;
-      if (avail <= 0) {
-        badges.push({ time: s.startTime, label: "額滿", status: "full" });
-      } else if (avail < people) {
-        // 可用名額不足以容納所選人數
-        badges.push({
-          time: s.startTime,
-          label: "不可預約",
-          status: "insufficient",
-        });
-      } else {
-        badges.push({ time: s.startTime, label: null, status: "available" });
-      }
+      const display = getSlotCapacityDisplay(s.capacity, s.booked, people);
+      badges.push({ time: s.startTime, label: display.label, status: display.selectionStatus });
     }
 
     const shown = badges.slice(0, MAX_BADGES);
@@ -186,18 +180,15 @@ export function BookingCalendarView({
   const getDayIndicator = (dateStr: string) => {
     const info = monthData[dateStr];
     if (!info || info.totalCapacity === 0) return null;
-    // 計算以當前人數能預約的時段數
-    const bookableSlots = info.slots.filter((s) => (s.capacity - s.booked) >= people);
-    if (bookableSlots.length === 0) return "full";
-    const totalAvail = info.slots.reduce((sum, s) => sum + Math.max(0, s.capacity - s.booked), 0);
-    const ratio = totalAvail / info.totalCapacity;
-    if (ratio <= 0.3) return "scarce";
-    return "available";
+    return getDayCapacityIndicator(
+      info.slots.map((slot) => ({ capacity: slot.capacity, bookedPeople: slot.booked })),
+      people,
+    );
   };
 
   const indicatorColors = {
     available: "bg-green-400",
-    scarce: "bg-yellow-400",
+    low: "bg-yellow-400",
     full: "bg-red-300",
   };
 
@@ -309,14 +300,17 @@ export function BookingCalendarView({
                     {badges.map((b) => (
                       <span
                         key={b.time}
-                        className={`truncate rounded px-1 py-0.5 text-xs font-semibold leading-tight ${
+                        aria-label={`${b.time}，${b.label ?? "可預約"}`}
+                        className={`rounded px-1 py-0.5 text-xs font-semibold leading-tight break-words ${
                           isSelected
                             ? b.status === "available" ? "bg-white/30 text-white" : "bg-white/20 text-white/80"
                             : b.status === "full"
                               ? "bg-red-50 text-red-700"
                               : b.status === "insufficient"
                                 ? "bg-earth-100 text-earth-700"
-                              : "bg-green-50 text-green-800"
+                                : b.status === "low"
+                                  ? "bg-yellow-50 text-yellow-800"
+                                : "bg-green-50 text-green-800"
                         }`}
                       >
                         {b.time}{b.label ? ` ${b.label}` : ""}
@@ -341,15 +335,15 @@ export function BookingCalendarView({
           <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 border-t border-earth-100 px-4 py-3">
             <div className="flex items-center gap-1.5">
               <span className="h-2.5 w-2.5 rounded-full bg-green-500" />
-              <span className="text-sm text-earth-700">充裕</span>
+              <span className="text-sm text-earth-700">名額充足</span>
             </div>
             <div className="flex items-center gap-1.5">
               <span className="h-2.5 w-2.5 rounded-full bg-yellow-500" />
-              <span className="text-sm text-earth-700">快滿</span>
+              <span className="text-sm text-earth-700">剩餘 1–2 位</span>
             </div>
             <div className="flex items-center gap-1.5">
               <span className="h-2.5 w-2.5 rounded-full bg-red-400" />
-              <span className="text-sm text-earth-700">額滿</span>
+              <span className="text-sm text-earth-700">已額滿</span>
             </div>
             <div className="flex items-center gap-1.5">
               <span className="rounded bg-earth-100 px-1.5 text-sm font-medium text-earth-700">公休</span>
@@ -805,24 +799,20 @@ function SlotBookingForm({
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {slots.filter((s) => s.isEnabled).map((slot) => {
             const isPast = !!slot.isPast;
-            const remaining = slot.capacity - slot.bookedCount;
-            const isFull = !isPast && remaining <= 0;
-            const notEnough = !isPast && remaining > 0 && people > remaining;
-            const disabled = isPast || isFull || notEnough;
+            const display = getSlotCapacityDisplay(slot.capacity, slot.bookedCount, people);
+            const disabled = isPast || !display.canFitRequestedPeople;
             const statusText = isPast
               ? "已過時段"
-              : isFull
-                ? "額滿"
-                : notEnough
-                  ? "此人數不可預約"
-                  : null;
+              : display.label;
             return (
               <label
                 key={slot.startTime}
                 className={`relative flex min-h-[72px] cursor-pointer flex-col items-center justify-center rounded-xl border-2 p-3 text-center transition-colors ${
                   disabled
                     ? "cursor-not-allowed border-earth-200 bg-earth-50 opacity-60"
-                    : "border-earth-200 bg-white hover:border-primary-400 hover:bg-primary-50 has-[:checked]:border-primary-600 has-[:checked]:bg-primary-600 has-[:checked]:text-white"
+                    : display.capacityStatus === "low"
+                      ? "border-yellow-300 bg-yellow-50 text-yellow-900 hover:border-yellow-400 has-[:checked]:border-primary-600 has-[:checked]:bg-primary-600 has-[:checked]:text-white"
+                      : "border-earth-200 bg-white hover:border-primary-400 hover:bg-primary-50 has-[:checked]:border-primary-600 has-[:checked]:bg-primary-600 has-[:checked]:text-white"
                 }`}
               >
                 <input
@@ -839,7 +829,7 @@ function SlotBookingForm({
                 />
                 <span className="text-lg font-bold">{slot.startTime}</span>
                 {statusText && (
-                  <span className={`mt-1 text-sm font-medium ${isPast ? "text-earth-700" : "text-red-600"}`}>
+                  <span className={`mt-1 text-sm font-medium ${isPast || display.selectionStatus === "insufficient" ? "text-earth-700" : display.selectionStatus === "low" ? "text-yellow-800" : "text-red-600"}`}>
                     {statusText}
                   </span>
                 )}

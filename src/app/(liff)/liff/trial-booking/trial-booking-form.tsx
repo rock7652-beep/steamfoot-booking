@@ -417,6 +417,7 @@ export function TrialBookingForm({ storeSlug, storeName, liffId, contactUrl }: P
             onPrevMonth={handlePrevMonth}
             onNextMonth={handleNextMonth}
             disabled={state.kind === "submitting"}
+            requestedPeople={1}
             labels={{
               monthPrev: liffMessages.trialBooking.monthPrev,
               monthNext: liffMessages.trialBooking.monthNext,
@@ -435,6 +436,7 @@ export function TrialBookingForm({ storeSlug, storeName, liffId, contactUrl }: P
               selectedSlot={selectedSlot}
               onSelectSlot={setSelectedSlot}
               disabled={state.kind === "submitting"}
+              requestedPeople={1}
               labels={{
                 loadingText: liffMessages.trialBooking.slotsLoading,
                 emptyText: liffMessages.trialBooking.noSlotsForDay,

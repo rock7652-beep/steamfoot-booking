@@ -29,7 +29,6 @@ interface PageProps {
 
 const inputCls =
   "block w-full rounded-lg border border-earth-300 bg-white px-3 py-2 text-sm text-earth-800 placeholder:text-earth-400 focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400";
-const labelCls = "block text-sm font-medium text-earth-700";
 
 export default async function NewBookingPage({ searchParams }: PageProps) {
   const user = await getCurrentUser();
@@ -152,19 +151,6 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
                   todayStr={todayStr}
                   initialSlots={initialSlots}
                 />
-                <div>
-                  <label className={labelCls}>預約人數</label>
-                  <select
-                    name="people"
-                    defaultValue="1"
-                    className={`mt-1 ${inputCls}`}
-                  >
-                    <option value="1">1 人</option>
-                    <option value="2">2 人</option>
-                    <option value="3">3 人</option>
-                    <option value="4">4 人</option>
-                  </select>
-                </div>
               </FormSection>
             </div>
 
