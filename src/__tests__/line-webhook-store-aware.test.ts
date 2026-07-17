@@ -10,6 +10,7 @@ const replyMessageMock = vi.fn(
     _messages: unknown[],
   ): Promise<{ success: boolean; error?: string }> => ({ success: true }),
 );
+const bindLineToCustomerInStoreMock = vi.fn();
 
 const mockPrisma = {
   store: {
@@ -39,6 +40,11 @@ vi.mock("@/server/services/customer-identity-link", () => ({
   upsertCustomerIdentityLink: vi.fn(),
 }));
 
+vi.mock("@/server/services/bind-line-to-customer", () => ({
+  bindLineToCustomerInStore: (...args: unknown[]) =>
+    bindLineToCustomerInStoreMock(...args),
+}));
+
 vi.mock("@/lib/line-bind-log", () => ({
   logLineBindEvent: vi.fn(),
 }));
@@ -56,6 +62,7 @@ describe("LINE webhook store-aware signature and reply", () => {
     vi.clearAllMocks();
     verifyLineSignatureMock.mockReturnValue(true);
     replyMessageMock.mockResolvedValue({ success: true });
+    bindLineToCustomerInStoreMock.mockReset();
     mockPrisma.store.findFirst.mockResolvedValue({ id: "store-hsinchu" });
   });
 
@@ -108,6 +115,28 @@ describe("LINE webhook store-aware signature and reply", () => {
     const res = await POST(postReq(body));
 
     expect(res.status).toBe(401);
+    expect(replyMessageMock).not.toHaveBeenCalled();
+  });
+
+  it("does not enter phone binding when the hsinchu signature is unavailable", async () => {
+    verifyLineSignatureMock.mockReturnValueOnce(false);
+    const body = {
+      destination: "D_hsinchu",
+      events: [
+        {
+          type: "message",
+          replyToken: "reply-token-phone",
+          source: { type: "user", userId: "U_hsinchu_customer" },
+          message: { type: "text", text: "0912345678" },
+        },
+      ],
+    };
+
+    const { POST } = await import("@/app/api/line/webhook/route");
+    const res = await POST(postReq(body));
+
+    expect(res.status).toBe(401);
+    expect(bindLineToCustomerInStoreMock).not.toHaveBeenCalled();
     expect(replyMessageMock).not.toHaveBeenCalled();
   });
 });

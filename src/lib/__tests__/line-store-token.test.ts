@@ -74,6 +74,23 @@ describe("store-aware LINE Messaging config", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("fails closed when the hsinchu webhook secret is missing", () => {
+    const body = JSON.stringify({ destination: "D_hsinchu", events: [] });
+    const signature = crypto
+      .createHmac("SHA256", "hsinchu-secret")
+      .update(body)
+      .digest("base64");
+
+    expect(verifyLineSignature("store-hsinchu", body, signature)).toBe(false);
+    expect(getLineWebhookDiagnosticsForStore("store-hsinchu")).toEqual({
+      storeSlug: "hsinchu",
+      secretEnvName: "LINE_HSINCHU_CHANNEL_SECRET",
+      hasSecret: false,
+      secretLength: null,
+      hasAccessToken: false,
+    });
+  });
+
   it("does not fallback hsinchu to zhubei or taichung LINE tokens", async () => {
     vi.stubEnv("LINE_CHANNEL_ACCESS_TOKEN", "zhubei-token");
     vi.stubEnv("LINE_CHANNEL_SECRET", "zhubei-secret");
