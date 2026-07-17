@@ -14,6 +14,7 @@ describe("customer recurring booking UI wiring", () => {
 
   it("uses the existing recurring action with the stable request key", () => {
     expect(source).toContain("createRecurringBookings({");
+    expect(source).toContain("servicePlanId: selectedPlanWallet?.planId ?? \"\"");
     expect(source).toContain('source: "web-customer-recurring"');
     expect(source).toContain("requestKey.current()");
     expect(source).toContain("requestKey.complete()");

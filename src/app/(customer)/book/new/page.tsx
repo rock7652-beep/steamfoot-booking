@@ -44,6 +44,7 @@ export default async function NewBookingPage() {
           where: { status: "ACTIVE" },
           select: {
             id: true,
+            planId: true,
             createdAt: true,
             totalSessions: true,
             remainingSessions: true,
@@ -157,6 +158,7 @@ export default async function NewBookingPage() {
           weeklyRecurrenceMaxWeeks={shopConfig?.weeklyRecurrenceMaxWeeks ?? 0}
           activeWallets={activeWallets.map((w) => ({
             id: w.id,
+            planId: w.planId,
             planName: w.plan.name,
             remainingSessions: w.computedRemaining,
             expiryDate: w.expiryDate?.toISOString().slice(0, 10) ?? null,

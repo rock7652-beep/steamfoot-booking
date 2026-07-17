@@ -14,6 +14,7 @@ import type { MonthSlotInfo } from "@/server/actions/slots";
 
 interface ActiveWallet {
   id: string;
+  planId: string;
   planName: string;
   remainingSessions: number;
   expiryDate: string | null;
@@ -495,6 +496,7 @@ function SlotBookingForm({
   // 確保補課自動判斷（people===1）與送出人數一致。
   const people = initialPeople;
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+  const [selectedWalletId, setSelectedWalletId] = useState(activeWallets[0]?.id ?? "");
   const [isRecurring, setIsRecurring] = useState(false);
   const recurrenceOptions = useMemo(
     () => recurringWeekOptions(weeklyRecurrenceMaxWeeks),
@@ -553,6 +555,9 @@ function SlotBookingForm({
     willUseMakeup && makeupCredits[0]?.expiredAt
       ? makeupCredits[0].expiredAt.split("-").join("/")
       : null;
+  const selectedWallet = activeWallets.find((wallet) => wallet.id === selectedWalletId) ?? activeWallets[0];
+  const selectedPlanId = selectedWallet?.planId ?? "";
+  const walletsForSelectedPlan = activeWallets.filter((wallet) => wallet.planId === selectedPlanId);
 
   type FormState = {
     error: string | null;
@@ -569,6 +574,7 @@ function SlotBookingForm({
       const peopleVal = Number(formData.get("people")) || 1;
       const isMakeup = formData.get("isMakeup") === "true";
       const recurrenceWeeks = Number(formData.get("weeks")) || 0;
+      const selectedPlanWallet = activeWallets.find((wallet) => wallet.id === customerPlanWalletId) ?? activeWallets[0];
 
       const result = isRecurringActive
         ? await createRecurringBookings({
@@ -576,6 +582,7 @@ function SlotBookingForm({
           bookingDate: selectedDate,
           slotTime,
           bookingType: "PACKAGE_SESSION",
+          servicePlanId: selectedPlanWallet?.planId ?? "",
           customerPlanWalletId: customerPlanWalletId || undefined,
           people: peopleVal,
           weeks: recurrenceWeeks,
@@ -620,7 +627,8 @@ function SlotBookingForm({
     people <= selectedSlotRemaining;
 
   // ── 客端 blocking validation ──
-  const totalRemaining = activeWallets.reduce((s, w) => s + w.remainingSessions, 0);
+  const totalRemaining = (isRecurringActive ? walletsForSelectedPlan : activeWallets)
+    .reduce((sum, wallet) => sum + wallet.remainingSessions, 0);
 
   // 票券期限檢查
   const walletsForDate = activeWallets.filter(
@@ -628,7 +636,7 @@ function SlotBookingForm({
   );
   const recurrenceRequiredSessions = isRecurringActive ? people * weeks : packagePeople;
   const finalRecurringDate = recurrenceDateStrings.at(-1) ?? selectedDate;
-  const walletsForFinalDate = activeWallets.filter(
+  const walletsForFinalDate = walletsForSelectedPlan.filter(
     (w) => w.remainingSessions > 0 && (!w.expiryDate || w.expiryDate >= finalRecurringDate)
   );
   const hasWalletForDate = isRecurringActive
@@ -841,7 +849,12 @@ function SlotBookingForm({
       {packagePeople > 0 && activeWallets.length > 1 && (
         <div>
           <label className="mb-2 block text-base font-medium text-earth-800">使用課程</label>
-          <select name="customerPlanWalletId" className="w-full rounded-xl border border-earth-300 px-4 h-12 text-base focus:outline-none focus:ring-2 focus:ring-primary-500">
+          <select
+            name="customerPlanWalletId"
+            value={selectedWalletId}
+            onChange={(event) => setSelectedWalletId(event.target.value)}
+            className="w-full rounded-xl border border-earth-300 px-4 h-12 text-base focus:outline-none focus:ring-2 focus:ring-primary-500"
+          >
             {activeWallets.map((w) => (
               <option key={w.id} value={w.id}>{w.planName}（剩 {w.remainingSessions} 堂）</option>
             ))}
