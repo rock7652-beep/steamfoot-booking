@@ -41,7 +41,10 @@ import {
 } from "@/server/services/recurring-booking-errors";
 import { revalidateBookings } from "@/lib/revalidation";
 
-export const WEEKLY_RECURRENCE_SYSTEM_MAX_WEEKS = 12;
+// Next.js "use server" modules may only export async functions. Keep this
+// implementation limit module-local so createRecurringBookings() remains
+// callable from the customer Client Component.
+const WEEKLY_RECURRENCE_SYSTEM_MAX_WEEKS = 12;
 
 type Input = z.infer<typeof createRecurringBookingsSchema>;
 type Result = { recurrenceGroupId: string; bookingIds: string[] };

@@ -75,7 +75,11 @@ export default async function NewBookingPage() {
     bookingStoreId
       ? prisma.shopConfig.findUnique({
           where: { storeId: bookingStoreId },
-          select: { bookableUntilDate: true },
+          select: {
+            bookableUntilDate: true,
+            weeklyRecurrenceEnabled: true,
+            weeklyRecurrenceMaxWeeks: true,
+          },
         })
       : Promise.resolve(null),
   ]);
@@ -149,6 +153,8 @@ export default async function NewBookingPage() {
         <BookingCalendarView
           customerId={customerId}
           bookableUntil={bookableUntil}
+          weeklyRecurrenceEnabled={shopConfig?.weeklyRecurrenceEnabled === true}
+          weeklyRecurrenceMaxWeeks={shopConfig?.weeklyRecurrenceMaxWeeks ?? 0}
           activeWallets={activeWallets.map((w) => ({
             id: w.id,
             planName: w.plan.name,
