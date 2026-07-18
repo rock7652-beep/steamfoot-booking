@@ -184,6 +184,23 @@ export default async function CustomerDetailPage({ params }: PageProps) {
   const derivedSource = deriveCustomerSource(identitySnapshot);
 
   const canEdit = user.role !== "CUSTOMER" && !isViewMode;
+  const [canManageLineRebind, activeLineRebindRequest] = await Promise.all([
+    checkPermission(user.role, user.staffId, "customer.identity.rebind").catch(() => false),
+    prisma.lineRebindRequest.findFirst({
+      where: {
+        customerId: id,
+        storeId: effectiveStoreId,
+        status: { in: ["PENDING_CAPTURE", "CANDIDATE_CAPTURED"] },
+      },
+      select: {
+        id: true,
+        status: true,
+        capturedAt: true,
+        expiresAt: true,
+        candidate: { select: { userIdHash: true } },
+      },
+    }),
+  ]);
   const todayStr = toLocalDateStr();
   const bookingDays = enumerateBookableDates(
     todayStr,
@@ -705,6 +722,14 @@ export default async function CustomerDetailPage({ params }: PageProps) {
                   lineBindingCodeCreatedAt={
                     customer.lineBindingCodeCreatedAt?.toISOString() ?? null
                   }
+                  canManageLineRebind={canManageLineRebind && !isViewMode}
+                  activeLineRebindRequest={activeLineRebindRequest ? {
+                    id: activeLineRebindRequest.id,
+                    status: activeLineRebindRequest.status,
+                    capturedAt: activeLineRebindRequest.capturedAt?.toISOString() ?? null,
+                    expiresAt: activeLineRebindRequest.expiresAt.toISOString(),
+                    userIdHashPrefix: activeLineRebindRequest.candidate?.userIdHash.slice(0, 8) ?? null,
+                  } : null}
                 />
               </div>
             )}

@@ -54,6 +54,7 @@ export const ALL_PERMISSIONS = [
   "customer.update",
   "customer.assign",   // 指派/變更直屬店長
   "customer.export",
+  "customer.identity.rebind", // 店長核准式 LINE 重新綁定（捕捉/執行分離）
   // 預約
   "booking.read",
   "booking.create",
@@ -107,7 +108,7 @@ export type PermissionCode = (typeof ALL_PERMISSIONS)[number];
 export const PERMISSION_GROUPS: Record<string, { label: string; codes: PermissionCode[] }> = {
   customer: {
     label: "顧客管理",
-    codes: ["customer.read", "customer.create", "customer.update", "customer.assign", "customer.export"],
+    codes: ["customer.read", "customer.create", "customer.update", "customer.assign", "customer.export", "customer.identity.rebind"],
   },
   booking: {
     label: "預約管理",
@@ -166,6 +167,7 @@ export const PERMISSION_LABELS: Record<PermissionCode, string> = {
   "customer.update": "編輯顧客",
   "customer.assign": "指派直屬店長",
   "customer.export": "匯出顧客資料",
+  "customer.identity.rebind": "管理 LINE 重新綁定申請",
   "booking.read": "查看預約",
   "booking.create": "新增預約",
   "booking.update": "修改/取消預約",
@@ -212,6 +214,7 @@ export const DEFAULT_OWNER_PERMISSIONS: PermissionCode[] = [
   "customer.update",
   "customer.assign",
   "customer.export",
+  "customer.identity.rebind",
   "booking.read",
   "booking.create",
   "booking.update",

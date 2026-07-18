@@ -13,10 +13,15 @@ import { getLineWebhookDiagnosticsForStore } from "@/lib/line-config";
 import { prisma } from "@/lib/db";
 import { normalizePhone } from "@/lib/normalize";
 import { bindLineToCustomerInStore } from "@/server/services/bind-line-to-customer";
+import {
+  captureLineRebindCandidate,
+  lineWebhookEventKey,
+} from "@/server/services/line-rebind";
 import { syncLineAccountForUser } from "@/server/services/line-account-sync";
 import { upsertCustomerIdentityLink } from "@/server/services/customer-identity-link";
 import {
   logLineBindEvent,
+  maskLineUserId,
   type AccountSyncStatus,
 } from "@/lib/line-bind-log";
 
@@ -42,17 +47,17 @@ export async function POST(req: Request) {
     const storeId = await resolveStoreFromDestination(destination);
 
     if (!storeId) {
-      console.warn("[LINE Webhook] Cannot resolve store — aborting", { destination });
+      console.warn("[LINE Webhook] Cannot resolve store — aborting", { destination: maskLineUserId(destination) });
       return new Response("OK", { status: 200 });
     }
 
-    console.log("[LINE Webhook] Resolved store", { destination, storeId });
+    console.log("[LINE Webhook] Resolved store", { destination: maskLineUserId(destination), storeId });
 
     // 簽章驗證必須使用該 store 的 LINE channel secret；缺 secret 也視為驗證失敗。
     const lineDiagnostics = getLineWebhookDiagnosticsForStore(storeId);
     console.log("[LINE Webhook] Signature config diagnostics", {
       storeId,
-      destination,
+      destination: maskLineUserId(destination),
       resolvedLineStoreSlug: lineDiagnostics.storeSlug,
       envName: lineDiagnostics.secretEnvName,
       hasSecret: lineDiagnostics.hasSecret,
@@ -66,7 +71,7 @@ export async function POST(req: Request) {
 
     for (const event of events) {
       try {
-        await handleLineEvent(event, storeId);
+        await handleLineEvent(event, storeId, destination);
       } catch (err) {
         console.error("[LINE Webhook] Event handler error:", err);
       }
@@ -114,7 +119,7 @@ async function resolveStoreFromDestination(
   });
 
   if (!store) {
-    console.warn("[LINE Webhook] No store found for destination:", destination);
+    console.warn("[LINE Webhook] No store found for destination:", maskLineUserId(destination));
     return null;
   }
 
@@ -125,15 +130,15 @@ async function resolveStoreFromDestination(
 // Event dispatcher
 // ============================================================
 
-async function handleLineEvent(event: LineWebhookEvent, storeId: string) {
+async function handleLineEvent(event: LineWebhookEvent, storeId: string, destination?: string) {
   const lineUserId = event.source?.userId;
   console.log("[LINE] Event:", {
     type: event.type,
-    userId: lineUserId,
+    userId: maskLineUserId(lineUserId),
     storeId,
     hasReplyToken: !!event.replyToken,
     messageType: event.message?.type,
-    messageText: event.message?.text,
+    hasMessageText: Boolean(event.message?.text),
   });
   if (!lineUserId) return;
 
@@ -152,7 +157,14 @@ async function handleLineEvent(event: LineWebhookEvent, storeId: string) {
           lineUserId,
           event.message.text.trim(),
           storeId,
-          event.replyToken
+          event.replyToken,
+          {
+            webhookEventId: event.webhookEventId,
+            destination,
+            sourceUserId: lineUserId,
+            timestamp: event.timestamp,
+            messageId: event.message.id,
+          },
         );
       }
       break;
@@ -164,7 +176,7 @@ async function handleLineEvent(event: LineWebhookEvent, storeId: string) {
 // ============================================================
 
 async function handleFollow(lineUserId: string, storeId: string, replyToken?: string) {
-  console.log(`[LINE] Follow from ${lineUserId} (store: ${storeId})`);
+  console.log(`[LINE] Follow received`, { userId: maskLineUserId(lineUserId), storeId });
 
   // 若之前被封鎖，自動恢復綁定（限同店）
   const blocked = await prisma.customer.findFirst({
@@ -217,7 +229,7 @@ async function handleFollow(lineUserId: string, storeId: string, replyToken?: st
 // ============================================================
 
 async function handleUnfollow(lineUserId: string, storeId: string) {
-  console.log(`[LINE] Unfollow from ${lineUserId} (store: ${storeId})`);
+  console.log(`[LINE] Unfollow received`, { userId: maskLineUserId(lineUserId), storeId });
 
   // B7-4.5: 只更新同店的 customer
   const result = await prisma.customer.updateMany({
@@ -236,9 +248,10 @@ async function handleTextMessage(
   lineUserId: string,
   text: string,
   storeId: string,
-  replyToken?: string
+  replyToken?: string,
+  eventIdentity?: Parameters<typeof lineWebhookEventKey>[0],
 ) {
-  console.log(`[LINE] Message from ${lineUserId}: ${text} (store: ${storeId})`);
+  console.log("[LINE] Text message received", { userId: maskLineUserId(lineUserId), storeId, textLength: text.length });
 
   // 解析「綁定 XXXXXX」格式（大小寫不敏感）
   const bindMatch = text.match(/^綁定\s*([A-Z0-9]{6})$/i);
@@ -257,6 +270,7 @@ async function handleTextMessage(
       normalizedPhone,
       storeId,
       replyToken,
+      eventIdentity,
     );
     return;
   }
@@ -267,7 +281,8 @@ async function handlePhoneBindingRequest(
   lineUserId: string,
   phone: string,
   storeId: string,
-  replyToken?: string
+  replyToken?: string,
+  eventIdentity?: Parameters<typeof lineWebhookEventKey>[0],
 ) {
   const result = await bindLineToCustomerInStore({
     storeId,
@@ -288,6 +303,28 @@ async function handlePhoneBindingRequest(
     accountSyncStatus:
       "lineAccountSync" in result ? result.lineAccountSync : undefined,
   });
+
+  // A candidate is captured only after the existing binding helper has safely
+  // rejected an overwrite and only when a staff-authorized request exists.
+  if (result.status === "already_bound_to_other_line" && eventIdentity) {
+    const eventKey = lineWebhookEventKey(eventIdentity);
+    if (eventKey) {
+      try {
+        const captured = await captureLineRebindCandidate({
+          storeId,
+          customerId: result.customerId,
+          normalizedPhone: phone,
+          lineUserId,
+          webhookEventKey: eventKey,
+          eventTimestamp: eventIdentity.timestamp ? new Date(eventIdentity.timestamp) : undefined,
+        });
+        // No raw LINE id, phone, candidate data, or encryption error is logged.
+        console.info("[LINE Webhook] Rebind candidate capture", { storeId, customerId: result.customerId, status: captured.status });
+      } catch {
+        console.error("[LINE Webhook] Rebind candidate capture failed", { storeId, customerId: result.customerId });
+      }
+    }
+  }
 
   if (!replyToken) return;
 
@@ -319,7 +356,7 @@ async function handleBindingRequest(
   storeId: string,
   replyToken?: string
 ) {
-  console.log(`[LINE] Binding request: code=${bindingCode}, lineUser=${lineUserId}, store=${storeId}`);
+  console.log("[LINE] Binding code request", { userId: maskLineUserId(lineUserId), storeId });
 
   // 1. 此 LINE 是否已綁定同店其他顧客
   const existingLinked = await prisma.customer.findFirst({
@@ -434,7 +471,7 @@ async function handleBindingRequest(
     },
   });
 
-  console.log(`[LINE] Binding success: ${customer.name} (${customer.id}) <-> ${lineUserId} (store: ${storeId})`);
+  console.log("[LINE] Binding success", { customerId: customer.id, userId: maskLineUserId(lineUserId), storeId });
 
   // 同步 NextAuth Account[line]：webhook 只設 Customer.lineUserId 不同步 Account 會造成
   // 「後台看似已綁定但 LINE OAuth 仍走新身份建立流程」的分裂。Customer.userId 為 null
@@ -501,5 +538,8 @@ interface LineWebhookEvent {
   type: string;
   source?: { type: string; userId?: string };
   replyToken?: string;
-  message?: { type: string; text?: string };
+  webhookEventId?: string;
+  timestamp?: number;
+  deliveryContext?: { isRedelivery?: boolean };
+  message?: { type: string; id?: string; text?: string };
 }

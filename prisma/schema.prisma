@@ -250,6 +250,16 @@ enum LineLinkStatus {
   BLOCKED
 }
 
+// 店長核准式 LINE 重新綁定的安全工作流。PR-1 只會捕捉候選身份，
+// 不會修改 Customer 或 CustomerIdentityLink。
+enum LineRebindRequestStatus {
+  PENDING_CAPTURE
+  CANDIDATE_CAPTURED
+  CANCELLED
+  EXPIRED
+  CONSUMED
+}
+
 enum MessageLogStatus {
   PENDING
   SENT
@@ -404,6 +414,8 @@ model User {
   staff                 Staff?
   customer              Customer?
   customerIdentityLinks CustomerIdentityLink[]
+  lineRebindRequestsCreated LineRebindRequest[] @relation("LineRebindRequestCreatedBy")
+  lineRebindRequestsCancelled LineRebindRequest[] @relation("LineRebindRequestCancelledBy")
 
   // Audit
   auditLogs            AuditLog[]
@@ -515,6 +527,7 @@ model Store {
   staff                   Staff[]
   customers               Customer[]
   customerIdentityLinks   CustomerIdentityLink[]
+  lineRebindRequests     LineRebindRequest[]
   bookings                Booking[]
   bookingRecurrenceGroups BookingRecurrenceGroup[]
   bookingSubmissions      BookingSubmission[]
@@ -761,6 +774,7 @@ model Customer {
   // 顧客經營追蹤紀錄（簡易 CRM-lite）
   followUps     CustomerFollowUp[]
   identityLinks CustomerIdentityLink[]
+  lineRebindRequests LineRebindRequest[]
 
   @@unique([storeId, phone], name: "uq_store_customer_phone")
   @@unique([storeId, email], name: "uq_store_customer_email")
@@ -827,6 +841,58 @@ model CustomerIdentityLink {
   @@unique([userId, storeId], name: "uq_customer_identity_user_store")
   @@index([storeId])
   @@index([userId])
+}
+
+// ============================================================
+// LINE rebind request / candidate — PR-1
+//
+// candidate userId is never stored in plaintext.  The request retains only
+// non-sensitive workflow/audit metadata after candidate deletion.
+// ============================================================
+
+model LineRebindRequest {
+  id                  String                  @id @default(cuid())
+  storeId             String
+  customerId          String
+  createdByUserId     String
+  cancelledByUserId   String?
+  reason              String
+  phoneHash           String
+  status              LineRebindRequestStatus @default(PENDING_CAPTURE)
+  expiresAt           DateTime
+  capturedAt          DateTime?
+  consumedAt          DateTime?
+  expiredAt           DateTime?
+  cancelledAt         DateTime?
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
+
+  store       Store     @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  customer    Customer  @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  createdBy   User      @relation("LineRebindRequestCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  cancelledBy User?     @relation("LineRebindRequestCancelledBy", fields: [cancelledByUserId], references: [id], onDelete: Restrict)
+  candidate   LineRebindCandidate?
+
+  @@index([storeId, customerId, status, expiresAt])
+  @@index([expiresAt])
+}
+
+model LineRebindCandidate {
+  id              String   @id @default(cuid())
+  requestId       String   @unique
+  webhookEventKey String   @unique
+  userIdHash      String
+  ciphertext      Bytes
+  iv              Bytes
+  authTag         Bytes
+  keyVersion      String
+  eventTimestamp  DateTime?
+  expiresAt       DateTime
+  createdAt       DateTime @default(now())
+
+  request LineRebindRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
 }
 
 // ============================================================
