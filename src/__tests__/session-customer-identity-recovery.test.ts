@@ -5,7 +5,7 @@ const mocks = vi.hoisted(() => ({
   headers: vi.fn(),
   cookies: vi.fn(),
   storeFindUnique: vi.fn(),
-  identityLinkFindUnique: vi.fn(),
+  identityLinkFindMany: vi.fn(),
   customerFindFirst: vi.fn(),
   customerFindUnique: vi.fn(),
   staffFindUnique: vi.fn(),
@@ -24,7 +24,7 @@ vi.mock("@/lib/auth", () => ({ auth: mocks.auth }));
 vi.mock("@/lib/db", () => ({
   prisma: {
     store: { findUnique: mocks.storeFindUnique },
-    customerIdentityLink: { findUnique: mocks.identityLinkFindUnique },
+    customerIdentityLink: { findMany: mocks.identityLinkFindMany },
     customer: {
       findFirst: mocks.customerFindFirst,
       findUnique: mocks.customerFindUnique,
@@ -54,20 +54,20 @@ beforeEach(() => {
   });
   mocks.cookies.mockResolvedValue({ get: () => undefined });
   mocks.storeFindUnique.mockResolvedValue({ id: "store-zhubei", slug: "zhubei" });
-  mocks.identityLinkFindUnique.mockResolvedValue(null);
+  mocks.identityLinkFindMany.mockResolvedValue([]);
   mocks.customerFindFirst.mockResolvedValue(null);
 });
 
 describe("getCurrentUser customer identity recovery", () => {
   it("recovers customerId from the same-store CustomerIdentityLink", async () => {
-    mocks.identityLinkFindUnique.mockResolvedValue({
+    mocks.identityLinkFindMany.mockResolvedValue([{
       customer: {
         id: "customer-zhubei",
         storeId: "store-zhubei",
         mergedIntoCustomerId: null,
         store: { slug: "zhubei" },
       },
-    });
+    }]);
 
     await expect(getCurrentUser()).resolves.toEqual(
       expect.objectContaining({
@@ -78,14 +78,9 @@ describe("getCurrentUser customer identity recovery", () => {
       }),
     );
 
-    expect(mocks.identityLinkFindUnique).toHaveBeenCalledWith(
+    expect(mocks.identityLinkFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: {
-          uq_customer_identity_user_store: {
-            userId: "user-zhubei",
-            storeId: "store-zhubei",
-          },
-        },
+        where: { userId: "user-zhubei", storeId: "store-zhubei" },
       }),
     );
     expect(mocks.customerFindFirst).not.toHaveBeenCalled();
@@ -136,19 +131,19 @@ describe("getCurrentUser customer identity recovery", () => {
 
     expect(mocks.headers).not.toHaveBeenCalled();
     expect(mocks.storeFindUnique).not.toHaveBeenCalled();
-    expect(mocks.identityLinkFindUnique).not.toHaveBeenCalled();
+    expect(mocks.identityLinkFindMany).not.toHaveBeenCalled();
     expect(mocks.customerFindFirst).not.toHaveBeenCalled();
   });
 
   it("fails closed for a merged identity instead of reviving the old customer", async () => {
-    mocks.identityLinkFindUnique.mockResolvedValue({
+    mocks.identityLinkFindMany.mockResolvedValue([{
       customer: {
         id: "merged-customer",
         storeId: "store-zhubei",
         mergedIntoCustomerId: "canonical-customer",
         store: { slug: "zhubei" },
       },
-    });
+    }]);
 
     await expect(getCurrentUser()).resolves.toEqual(
       expect.objectContaining({ customerId: null }),

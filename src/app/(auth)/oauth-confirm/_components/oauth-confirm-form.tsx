@@ -23,9 +23,10 @@ import { normalizePhone } from "@/lib/normalize";
 
 interface Props {
   callbackUrl: string;
+  taichungCoordinator?: boolean;
 }
 
-export function OAuthConfirmForm({ callbackUrl }: Props) {
+export function OAuthConfirmForm({ callbackUrl, taichungCoordinator = false }: Props) {
   const [phone, setPhone] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -71,7 +72,9 @@ export function OAuthConfirmForm({ callbackUrl }: Props) {
           // 不用 /api/auth/signin/line（自動跳）— 避免 loop / callbackUrl 混亂；
           // 改用 /api/auth/signin（provider 選擇頁），使用者明確點 LINE 完成。
           setTransitioning("正在完成 LINE 登入…");
-          window.location.href = `/api/auth/signin?callbackUrl=${encodeURIComponent(callbackUrl)}`;
+          window.location.href = taichungCoordinator
+            ? "/api/line-oauth/taichung/start"
+            : `/api/auth/signin?callbackUrl=${encodeURIComponent(callbackUrl)}`;
           break;
         case "NEED_LOGIN": {
           // 已啟用顧客 → 強制密碼登入；登入後 finalize 才寫 lineUserId

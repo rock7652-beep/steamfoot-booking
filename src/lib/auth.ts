@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db";
 import type { Provider } from "next-auth/providers";
 import type { UserRole } from "@prisma/client";
 import { normalizePhone } from "@/lib/normalize";
+import { TAICHUNG_LINE_SESSION_COOKIE, verifyTaichungLineSession } from "@/lib/line-oauth/taichung-session";
 import { repairCustomerIdentityOnLogin } from "@/lib/identity-repair";
 import {
   logLineBindEvent,
@@ -218,6 +219,37 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           storeId: user.customer?.storeId ?? null,
           storeSlug: user.customer?.store?.slug ?? null,
         };
+      },
+    }),
+
+    // Taiwan's custom callback exchanges LINE tokens itself, then this
+    // one-time, HttpOnly-cookie bridge mints the normal Auth.js JWT.  It never
+    // reads or creates the legacy global `Account(provider=line)` record.
+    Credentials({
+      id: "line-taichung-coordinator",
+      name: "line-taichung-coordinator",
+      credentials: {},
+      async authorize(_credentials, request) {
+        const rawCookie = request.headers.get("cookie")
+          ?.split(";").map((v) => v.trim()).find((v) => v.startsWith(`${TAICHUNG_LINE_SESSION_COOKIE}=`))?.slice(TAICHUNG_LINE_SESSION_COOKIE.length + 1);
+        const bridge = verifyTaichungLineSession(rawCookie);
+        if (!bridge) return null;
+        const claimed = await prisma.lineOAuthAttempt.updateMany({
+          where: {
+            id: bridge.attemptId,
+            status: "CONSUMED",
+            sessionConsumedAt: null,
+            expiresAt: { gt: new Date() },
+          },
+          data: { sessionConsumedAt: new Date() },
+        });
+        if (claimed.count !== 1) return null;
+        const customer = await prisma.customer.findFirst({
+          where: { id: bridge.customerId, storeId: bridge.storeId, userId: bridge.userId, mergedIntoCustomerId: null },
+          select: { id: true, storeId: true, store: { select: { slug: true } }, user: { select: { id: true, name: true, email: true, role: true, status: true } } },
+        });
+        if (!customer?.user || customer.user.status !== "ACTIVE" || customer.user.role !== "CUSTOMER") return null;
+        return { id: customer.user.id, name: customer.user.name, email: customer.user.email ?? null, role: customer.user.role, staffId: null, customerId: customer.id, storeId: customer.storeId, storeSlug: customer.store.slug };
       },
     }),
 

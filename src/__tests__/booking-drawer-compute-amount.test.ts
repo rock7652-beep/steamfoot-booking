@@ -49,6 +49,8 @@ function makeBooking(overrides: Partial<Booking> = {}): Booking {
     serviceStaff: null,
     servicePlan: null,
     customerPlanWallet: null,
+    makeupCreditLinks: [],
+    walletSessions: [],
     expectedAmount: null,
     attendedPeople: null,
     ...overrides,

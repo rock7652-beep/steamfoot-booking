@@ -5,6 +5,7 @@ import { ProfileForm } from "./profile-form";
 import { missingRequiredFields } from "@/lib/customer-completion";
 import { getStoreContext } from "@/lib/store-context";
 import { resolveCustomerForUser } from "@/server/queries/customer-completion";
+import { customerWelcomeTitle } from "@/lib/customer-welcome";
 
 interface PageProps {
   searchParams: Promise<{ complete?: string; next?: string }>;
@@ -30,6 +31,16 @@ export default async function ProfilePage({ searchParams }: PageProps) {
   const user = await getCurrentUser();
   const profileStoreCtx = await getStoreContext();
   const prefix = `/s/${profileStoreCtx?.storeSlug ?? "zhubei"}`;
+  // Customer-facing brand text must come from the same resolved Store record
+  // as the page context. Do not map a slug to a brand or silently default to
+  // another store's name.
+  const profileStore = profileStoreCtx?.storeId
+    ? await prisma.store.findUnique({
+        where: { id: profileStoreCtx.storeId },
+        select: { name: true },
+      })
+    : null;
+  const welcomeTitle = customerWelcomeTitle(profileStore);
 
   // ── 以統一 resolver 找出本 session 對應的 customer ──────
   // 同一份邏輯也用於 updateProfileAction，確保「顯示看到的人」= 「儲存更新的人」
@@ -164,7 +175,7 @@ export default async function ProfilePage({ searchParams }: PageProps) {
             {!customer ? (
               <>
                 <p className="text-lg font-bold text-primary-800">
-                  歡迎使用暖暖蒸足
+                  {welcomeTitle}
                 </p>
                 <p className="mt-2 text-base text-primary-800">
                   請先完成基本資料，才能開始預約與使用服務。

@@ -60,6 +60,7 @@ export type OAuthTempSession = {
   nonce: string;
   createdAt: number;
   expiresAt: number;
+  channelKey?: "taichung";
 };
 
 /**
@@ -68,7 +69,7 @@ export type OAuthTempSession = {
  */
 export type OAuthTempSessionInput = Pick<
   OAuthTempSession,
-  "lineUserId" | "displayName" | "storeId"
+  "lineUserId" | "displayName" | "storeId" | "channelKey"
 >;
 
 /**
@@ -93,7 +94,8 @@ export function isOAuthTempSessionShape(v: unknown): v is OAuthTempSession {
     typeof o.storeId === "string" &&
     typeof o.nonce === "string" &&
     typeof o.createdAt === "number" &&
-    typeof o.expiresAt === "number"
+    typeof o.expiresAt === "number" &&
+    (o.channelKey === undefined || o.channelKey === "taichung")
   );
 }
 
