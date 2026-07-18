@@ -858,6 +858,7 @@ model LineRebindRequest {
   cancelledByUserId   String?
   reason              String
   phoneHash           String
+  oldUserIdHash       String?
   status              LineRebindRequestStatus @default(PENDING_CAPTURE)
   expiresAt           DateTime
   capturedAt          DateTime?

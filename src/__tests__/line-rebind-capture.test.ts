@@ -97,7 +97,7 @@ describe("LINE rebind candidate capture security", () => {
 
   it("maps active-request unique conflicts to a safe conflict result", async () => {
     h.transaction.mockRejectedValueOnce(new Prisma.PrismaClientKnownRequestError("collision", { code: "P2002", clientVersion: "test" }));
-    await expect(createLineRebindRequest({ storeId: "store-a", customerId: "customer-a", createdByUserId: "owner-a", reason: "x".repeat(20), normalizedPhone: input.normalizedPhone }))
+    await expect(createLineRebindRequest({ storeId: "store-a", customerId: "customer-a", createdByUserId: "owner-a", reason: "x".repeat(20), normalizedPhone: input.normalizedPhone, oldLineUserId: input.lineUserId }))
       .resolves.toEqual({ status: "active_request_exists" });
   });
 });

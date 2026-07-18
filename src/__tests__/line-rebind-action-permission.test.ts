@@ -14,7 +14,7 @@ import { cancelLineRebindCaptureRequest, createLineRebindCaptureRequest } from "
 describe("LINE rebind actions require OWNER or ADMIN", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    h.findUnique.mockResolvedValue({ id: "cmqwagvm10001l904qqvxry7y", storeId: "store-a", phone: "0912345678" });
+    h.findUnique.mockResolvedValue({ id: "cmqwagvm10001l904qqvxry7y", storeId: "store-a", phone: "0912345678", lineUserId: "Uold" });
     h.create.mockResolvedValue({ status: "created", requestId: "request-a", expiresAt: new Date() });
     h.cancel.mockResolvedValue(true);
   });
@@ -39,9 +39,15 @@ describe("LINE rebind actions require OWNER or ADMIN", () => {
   });
   it("returns a validation error for an invalid stored customer phone", async () => {
     h.requirePermission.mockResolvedValue({ id: "owner-a", role: "OWNER" });
-    h.findUnique.mockResolvedValue({ id: "cmqwagvm10001l904qqvxry7y", storeId: "store-a", phone: "invalid" });
+    h.findUnique.mockResolvedValue({ id: "cmqwagvm10001l904qqvxry7y", storeId: "store-a", phone: "invalid", lineUserId: "Uold" });
     await expect(createLineRebindCaptureRequest({ customerId: "cmqwagvm10001l904qqvxry7y", reason: "approved by the customer and store owner" }))
       .resolves.toMatchObject({ success: false, error: "顧客手機資料格式不正確" });
+    expect(h.create).not.toHaveBeenCalled();
+  });
+  it("rejects a customer without an existing LINE binding", async () => {
+    h.requirePermission.mockResolvedValue({ id: "owner-a", role: "OWNER" });
+    h.findUnique.mockResolvedValue({ id: "cmqwagvm10001l904qqvxry7y", storeId: "store-a", phone: "0912345678", lineUserId: null });
+    await expect(createLineRebindCaptureRequest({ customerId: "cmqwagvm10001l904qqvxry7y", reason: "approved by the customer and store owner" })).resolves.toMatchObject({ success: false });
     expect(h.create).not.toHaveBeenCalled();
   });
   it("returns a validation error when an active request cannot be cancelled", async () => {

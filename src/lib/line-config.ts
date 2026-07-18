@@ -15,19 +15,22 @@ const STORE_ID_TO_LINE_SLUG: Record<string, LineStoreSlug> = {
 
 const LINE_ENV_BY_STORE: Record<
   LineStoreSlug,
-  { accessToken: string; channelSecret: string } | null
+  { accessToken: string; channelSecret: string; expectedBasicId: string | null } | null
 > = {
   zhubei: {
     accessToken: "LINE_CHANNEL_ACCESS_TOKEN",
     channelSecret: "LINE_CHANNEL_SECRET",
+    expectedBasicId: null,
   },
   hsinchu: {
     accessToken: "LINE_HSINCHU_CHANNEL_ACCESS_TOKEN",
     channelSecret: "LINE_HSINCHU_CHANNEL_SECRET",
+    expectedBasicId: "@788umzem",
   },
   taichung: {
     accessToken: "LINE_TAICHUNG_CHANNEL_ACCESS_TOKEN",
     channelSecret: "LINE_TAICHUNG_CHANNEL_SECRET",
+    expectedBasicId: null,
   },
 };
 
@@ -60,21 +63,23 @@ export function getLineConfigForStore(storeIdOrSlug: string): {
   accessToken: string | null;
   channelSecret: string | null;
   storeSlug: LineStoreSlug | null;
+  expectedBasicId: string | null;
 } {
   const storeSlug = resolveLineStoreSlug(storeIdOrSlug);
   if (!storeSlug) {
-    return { accessToken: null, channelSecret: null, storeSlug: null };
+    return { accessToken: null, channelSecret: null, storeSlug: null, expectedBasicId: null };
   }
 
   const envNames = LINE_ENV_BY_STORE[storeSlug];
   if (!envNames) {
-    return { accessToken: null, channelSecret: null, storeSlug };
+    return { accessToken: null, channelSecret: null, storeSlug, expectedBasicId: null };
   }
 
   return {
     storeSlug,
     accessToken: nonEmptyEnv(envNames.accessToken),
     channelSecret: nonEmptyEnv(envNames.channelSecret),
+    expectedBasicId: envNames.expectedBasicId,
   };
 }
 
