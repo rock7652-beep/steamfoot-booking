@@ -62,6 +62,7 @@ export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | n
   if (pathname === "/line-oauth/complete") {
     return withDomainCookie(NextResponse.next(), domainStoreId);
   }
+  if (pathname === "/store-select") return withDomainCookie(NextResponse.next(), domainStoreId);
 
   // ==========================================================
   // /s/[storeSlug]/* — 分店路由（rewrite 到現有頁面）

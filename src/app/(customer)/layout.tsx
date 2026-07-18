@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { headers, cookies } from "next/headers";
+import { headers } from "next/headers";
 import { getCurrentUser } from "@/lib/session";
 import { logoutAction } from "@/server/actions/auth";
 import Link from "next/link";
@@ -96,9 +96,9 @@ export default async function CustomerLayout({
   children: React.ReactNode;
 }) {
   const user = await getCurrentUser();
-  const cookieStore = await cookies();
-  const storeSlug = cookieStore.get("store-slug")?.value ?? "zhubei";
-  const prefix = `/s/${storeSlug}`;
+  const storeCtx = await getStoreContext();
+  const storeSlug = storeCtx?.storeSlug ?? user?.storeSlug ?? null;
+  const prefix = storeSlug ? `/s/${storeSlug}` : "/store-select";
 
   if (!user) {
     redirect(`${prefix}/`);
@@ -112,8 +112,6 @@ export default async function CustomerLayout({
   const rawPathname = headerList.get("x-next-pathname") || `${prefix}/book`;
   // 去掉 /s/[slug] 前綴，還原成 /book、/my-bookings 等格式供比對
   const pathname = rawPathname.replace(/^\/s\/[^/]+/, "") || "/book";
-
-  const storeCtx = await getStoreContext();
 
   // ── Store context gate ──────────────────────────────────
   // 若 store context 解析失敗（cookie 遺失 / slug 在 DB 找不到對應店），
@@ -166,7 +164,7 @@ export default async function CustomerLayout({
             {getStoreUnavailableMessage(operatingStatus)}
           </p>
           <form action={logoutAction}>
-            <input type="hidden" name="storeSlug" value={storeSlug} />
+            <input type="hidden" name="storeSlug" value={storeCtx.storeSlug} />
             <button
               type="submit"
               className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-earth-200 px-6 text-sm font-semibold text-earth-700 hover:bg-earth-50"
@@ -190,7 +188,7 @@ export default async function CustomerLayout({
     sessionCustomerId: user.customerId ?? null,
     sessionEmail: user.email ?? null,
     storeId: user.storeId ?? storeCtx?.storeId ?? null,
-    storeSlug,
+    storeSlug: storeCtx.storeSlug,
   });
   const isOnProfile = pathname === "/profile" || pathname.startsWith("/profile/");
   if (!completion.isComplete && !isOnProfile) {
@@ -215,7 +213,7 @@ export default async function CustomerLayout({
         userName={user.name ?? "顧客"}
         pathname={pathname}
         storeName={customerFacingStoreName}
-        storeSlug={storeSlug}
+        storeSlug={storeCtx.storeSlug}
       />
 
       <div className="lg:flex">
@@ -259,7 +257,7 @@ export default async function CustomerLayout({
           {/* Logout */}
           <div className="border-t border-earth-100 px-2.5 py-3">
             <form action={logoutAction}>
-              <input type="hidden" name="storeSlug" value={storeSlug} />
+              <input type="hidden" name="storeSlug" value={storeCtx.storeSlug} />
               <LogoutButton
                 className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm text-earth-700 hover:bg-earth-50 hover:text-earth-900 transition"
                 iconClassName="text-earth-600"
