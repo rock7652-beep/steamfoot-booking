@@ -6,6 +6,8 @@ import { isSlotPastToday } from "@/lib/booking-constants";
 import { formatWeekdayZh } from "@/lib/date-utils";
 import { getSlotCapacityDisplay } from "@/lib/slot-capacity-display";
 import type { SlotAvailability } from "@/types";
+import { useBookingFormValidation } from "./booking-create-form";
+import { shouldClearSelectedSlot } from "./booking-submit-validation";
 
 interface Props {
   days: string[];
@@ -37,6 +39,7 @@ export function DashboardBookingForm({
   todayStr,
   initialSlots,
 }: Props) {
+  const { errors, clearError } = useBookingFormValidation();
   const initialDate = days.includes(defaultDate) ? defaultDate : (days[0] ?? "");
   const [selectedDate, setSelectedDate] = useState(initialDate);
   // SSR 已帶初始日時段 → 首屏直接顯示、loading=false；否則沿用原本 client 載入。
@@ -44,6 +47,7 @@ export function DashboardBookingForm({
   const [loading, setLoading] = useState(initialSlots === undefined);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [people, setPeople] = useState(1);
+  const [slotResetMessage, setSlotResetMessage] = useState(false);
   // 把 SSR 時段種進 cache → mount effect 的 loadSlots 直接 cache hit，不打 server、不閃 skeleton。
   const slotCacheRef = useRef<Map<string, SlotAvailability[]>>(
     new Map(initialSlots ? [[initialDate, initialSlots]] : [])
@@ -89,6 +93,16 @@ export function DashboardBookingForm({
 
   const isClosed = !loading && !isPastDate && slots.length === 0;
 
+  const handlePeopleChange = (nextPeople: number) => {
+    setPeople(nextPeople);
+    setSlotResetMessage(false);
+    if (!selectedSlot) return;
+    if (shouldClearSelectedSlot(selectedSlot, slots, nextPeople)) {
+      setSelectedSlot(null);
+      setSlotResetMessage(true);
+    }
+  };
+
   return (
     <>
       {/* Date */}
@@ -131,8 +145,28 @@ export function DashboardBookingForm({
         </div>
       )}
 
-      {/* Slot Time */}
       <div>
+        <label className="block text-sm font-medium text-earth-700">預約人數</label>
+        <select
+          name="people"
+          value={people}
+          onChange={(event) => handlePeopleChange(Number(event.target.value))}
+          className="mt-1.5 block w-full rounded-lg border border-earth-300 bg-white px-3 py-2 text-sm text-earth-800 focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-300"
+        >
+          <option value="1">1 人</option>
+          <option value="2">2 人</option>
+          <option value="3">3 人</option>
+          <option value="4">4 人</option>
+        </select>
+        {slotResetMessage && (
+          <p className="mt-1.5 text-sm text-amber-700" role="alert">
+            人數已變更，請重新選擇時段。
+          </p>
+        )}
+      </div>
+
+      {/* Slot Time */}
+      <div data-booking-slot-section tabIndex={-1}>
         <label className="block text-sm font-medium text-earth-700">
           時段 <span className="text-red-500">*</span>
         </label>
@@ -187,8 +221,11 @@ export function DashboardBookingForm({
                     value={s.startTime}
                     disabled={disabled}
                     checked={selectedSlot === s.startTime}
-                    onChange={() => setSelectedSlot(s.startTime)}
-                    required
+                    onChange={() => {
+                      setSelectedSlot(s.startTime);
+                      setSlotResetMessage(false);
+                      clearError("slot");
+                    }}
                     className="sr-only"
                   />
                   <span>{s.startTime}</span>
@@ -199,6 +236,12 @@ export function DashboardBookingForm({
               );
             })}
           </div>
+        )}
+
+        {errors.slot && (
+          <p className="mt-2 text-sm text-red-600" role="alert">
+            {errors.slot}
+          </p>
         )}
 
         {/* 若今天所有時段都已過或已滿 */}
@@ -212,23 +255,6 @@ export function DashboardBookingForm({
           )}
       </div>
 
-      <div>
-        <label className="block text-sm font-medium text-earth-700">預約人數</label>
-        <select
-          name="people"
-          value={people}
-          onChange={(event) => {
-            setPeople(Number(event.target.value));
-            setSelectedSlot(null);
-          }}
-          className="mt-1.5 block w-full rounded-lg border border-earth-300 bg-white px-3 py-2 text-sm text-earth-800 focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-300"
-        >
-          <option value="1">1 人</option>
-          <option value="2">2 人</option>
-          <option value="3">3 人</option>
-          <option value="4">4 人</option>
-        </select>
-      </div>
     </>
   );
 }
