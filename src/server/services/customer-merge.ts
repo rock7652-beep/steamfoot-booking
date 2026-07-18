@@ -27,14 +27,23 @@ async function assertPlaceholderHasNoOperationalData(
   tx: Prisma.TransactionClient,
   customerId: string,
 ) {
-  const [bookings, wallets, transactions, points, referralEvents] = await Promise.all([
+  const counts = await Promise.all([
     tx.booking.count({ where: { customerId } }),
     tx.customerPlanWallet.count({ where: { customerId } }),
     tx.transaction.count({ where: { customerId } }),
     tx.pointRecord.count({ where: { customerId } }),
     tx.referralEvent.count({ where: { customerId } }),
+    tx.makeupCredit.count({ where: { customerId } }),
+    tx.messageLog.count({ where: { customerId } }),
+    tx.checkinPost.count({ where: { customerId } }),
+    tx.customerFollowUp.count({ where: { customerId } }),
+    tx.talentStageLog.count({ where: { customerId } }),
+    tx.customerIdentityLink.count({ where: { customerId } }),
+    tx.bookingMakeupCredit.count({ where: { customerId } }),
+    tx.referral.count({ where: { OR: [{ referrerId: customerId }, { convertedCustomerId: customerId }] } }),
+    tx.customer.count({ where: { sponsorId: customerId } }),
   ]);
-  if (bookings + wallets + transactions + points + referralEvents > 0) {
+  if (counts.some((count) => count > 0)) {
     throw new Error(
       "mergePlaceholder: placeholder has operational data; use mergeCustomerIntoCustomer instead",
     );

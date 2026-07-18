@@ -233,6 +233,20 @@ describe("transaction actions — store consistency", () => {
     expect(h.txTransactionUpdateMany).not.toHaveBeenCalled();
   });
 
+  it("rejects a PACKAGE_PURCHASE without a wallet link before any writes", async () => {
+    h.transactionFindUnique.mockResolvedValueOnce({
+      id: "package-without-wallet", storeId: "store-taichung", customerId: CUSTOMER_ID,
+      status: "SUCCESS", paymentStatus: "PENDING", paymentMethod: "TRANSFER",
+      transactionType: "PACKAGE_PURCHASE", customerPlanWalletId: null, amount: 0, note: null,
+    });
+    const { voidTransaction } = await import("@/server/actions/transaction");
+    const result = await voidTransaction({ transactionId: "package-without-wallet", reason: "repair" });
+    expect(result.success).toBe(false);
+    expect(h.walletSessionUpdateMany).not.toHaveBeenCalled();
+    expect(h.txWalletUpdateMany).not.toHaveBeenCalled();
+    expect(h.txTransactionUpdateMany).not.toHaveBeenCalled();
+  });
+
   it("allows same-store createTransaction", async () => {
     const { createTransaction } = await import("@/server/actions/transaction");
     const result = await createTransaction({

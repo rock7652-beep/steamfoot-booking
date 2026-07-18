@@ -800,6 +800,9 @@ export async function voidTransaction(
     const now = new Date();
 
     await prisma.$transaction(async (tx) => {
+      if (original.transactionType === "PACKAGE_PURCHASE" && !original.customerPlanWalletId) {
+        throw new AppError("BUSINESS_RULE", "套餐購買缺少錢包關聯，無法取消");
+      }
       // 只要交易實際綁有 wallet，就必須以 wallet 為單位完整作廢。
       // 單次贈送方案同樣會建立 1 堂 wallet；過去只處理 PACKAGE_PURCHASE，
       // 會留下可使用的幽靈堂數。
