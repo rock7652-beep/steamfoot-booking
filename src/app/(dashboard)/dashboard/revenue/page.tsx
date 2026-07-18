@@ -8,6 +8,7 @@ import {
 import { listTransactions } from "@/server/queries/transaction";
 import { monthlyStoreSummary } from "@/server/queries/report";
 import { toLocalDateStr, formatTWTime } from "@/lib/date-utils";
+import { isVoidedTransaction, transactionStatusLabel } from "@/lib/transaction-display";
 import { redirect } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import {
@@ -110,7 +111,7 @@ export default async function RevenuePage() {
       key: "date",
       header: "日期",
       accessor: (t) => (
-        <span className="tabular-nums text-sm text-earth-800">
+        <span className={`tabular-nums text-sm ${isVoidedTransaction(t) ? "text-earth-400" : "text-earth-800"}`}>
           {formatTWTime(t.createdAt, { dateOnly: true })}
         </span>
       ),
@@ -119,7 +120,9 @@ export default async function RevenuePage() {
       key: "customer",
       header: "顧客",
       accessor: (t) => (
-        <span className="text-sm font-medium text-earth-900">{t.customer.name}</span>
+        <span className={`text-sm font-medium ${isVoidedTransaction(t) ? "text-earth-400" : "text-earth-900"}`}>
+          {t.customer.name}
+        </span>
       ),
     },
     {
@@ -129,7 +132,7 @@ export default async function RevenuePage() {
         <span
           className={`rounded px-1.5 py-0.5 text-[11px] font-medium ${
             TX_TYPE_COLOR[t.transactionType] ?? "bg-earth-100 text-earth-600"
-          }`}
+          } ${isVoidedTransaction(t) ? "opacity-60" : ""}`}
         >
           {TX_TYPE_LABEL[t.transactionType] ?? t.transactionType}
         </span>
@@ -141,11 +144,27 @@ export default async function RevenuePage() {
       align: "right",
       accessor: (t) => {
         const amt = Number(t.amount);
+        const isVoided = isVoidedTransaction(t);
         return (
-          <span className={`font-medium tabular-nums ${amt < 0 ? "text-red-600" : "text-earth-900"}`}>
+          <span
+            className={`font-medium tabular-nums ${
+              isVoided ? "text-earth-400 line-through" : amt < 0 ? "text-red-600" : "text-earth-900"
+            }`}
+          >
             {amt < 0 ? "-" : ""}NT$ {Math.abs(amt).toLocaleString()}
           </span>
         );
+      },
+    },
+    {
+      key: "status",
+      header: "狀態",
+      priority: "secondary",
+      accessor: (t) => {
+        const label = transactionStatusLabel(t);
+        return label ? (
+          <span className="rounded bg-gray-200 px-1.5 py-0.5 text-[11px] font-medium text-gray-600">{label}</span>
+        ) : null;
       },
     },
     {
@@ -222,6 +241,9 @@ export default async function RevenuePage() {
                 rows={transactions}
                 rowKey={(t) => t.id}
                 rowHref={(t) => `/dashboard/customers/${t.customer.id}`}
+                rowClassName={(t) =>
+                  isVoidedTransaction(t) ? "bg-earth-50/60 text-earth-400" : ""
+                }
                 className="rounded-none border-0 border-t border-earth-100"
               />
             )}

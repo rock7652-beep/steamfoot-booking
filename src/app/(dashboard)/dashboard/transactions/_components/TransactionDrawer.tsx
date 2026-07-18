@@ -14,6 +14,7 @@ import {
 } from "@/server/actions/transaction";
 import { formatTWTime } from "@/lib/date-utils";
 import { computeRefundPlan, type RefundMode } from "@/lib/refund-plan";
+import { isVoidedTransaction, transactionStatusLabel } from "@/lib/transaction-display";
 
 // ============================================================
 // Drawer for transaction detail / safe corrections / void
@@ -269,6 +270,8 @@ export function TransactionDrawer({
           ].map((s, i) => ({ id: `preview-${i}`, status: s.status as "AVAILABLE" | "RESERVED" | "COMPLETED" | "VOIDED" })),
         })
       : null;
+  const isVoided = data ? isVoidedTransaction(data) : false;
+  const voidedLabel = data ? transactionStatusLabel(data) : null;
 
   return (
     <RightSheet open={open} onClose={onClose} width={520}>
@@ -290,10 +293,12 @@ export function TransactionDrawer({
             <div className="mt-2 flex items-center gap-2 text-xs text-earth-500">
               <span
                 className={`rounded px-2 py-0.5 font-medium ${
-                  STATUS_LABEL[data.status]?.color ?? "bg-earth-100 text-earth-600"
+                  voidedLabel
+                    ? "bg-gray-200 text-gray-600"
+                    : STATUS_LABEL[data.status]?.color ?? "bg-earth-100 text-earth-600"
                 }`}
               >
-                {STATUS_LABEL[data.status]?.text ?? data.status}
+                {voidedLabel ?? STATUS_LABEL[data.status]?.text ?? data.status}
               </span>
               <span>{TX_TYPE_LABEL[data.transactionType] ?? data.transactionType}</span>
               <span>·</span>
@@ -319,9 +324,13 @@ export function TransactionDrawer({
                 <Row label="顧客" value={data.customerName} />
                 <Row
                   label="金額"
-                  value={`NT$ ${Math.abs(data.amount).toLocaleString()}${
-                    data.amount < 0 ? " (負)" : ""
-                  }`}
+                  value={
+                    <span className={isVoided ? "text-earth-400 line-through" : undefined}>
+                      {`NT$ ${Math.abs(data.amount).toLocaleString()}${
+                        data.amount < 0 ? " (負)" : ""
+                      }`}
+                    </span>
+                  }
                 />
                 <Row
                   label="付款方式"
@@ -356,7 +365,7 @@ export function TransactionDrawer({
               )}
 
               {/* VOIDED 顯示作廢資訊 */}
-              {data.status === "VOIDED" && (
+              {isVoided && (
                 <Section title="作廢資訊">
                   <Row
                     label="作廢時間"
@@ -368,7 +377,7 @@ export function TransactionDrawer({
               )}
 
               {/* 編輯區（VOIDED 不顯示） */}
-              {data.status !== "VOIDED" && canEdit && (
+              {!isVoided && canEdit && (
                 <Section title="備註">
                   {!editingNote ? (
                     <div className="flex items-start justify-between gap-2">
@@ -417,7 +426,7 @@ export function TransactionDrawer({
                 </Section>
               )}
 
-              {data.status !== "VOIDED" && canVoid && (
+              {!isVoided && canVoid && (
                 <Section title="更正付款方式">
                   {!editingPayment ? (
                     <button
@@ -469,7 +478,7 @@ export function TransactionDrawer({
                 </Section>
               )}
 
-              {data.status !== "VOIDED" && canVoid && (
+              {!isVoided && canVoid && (
                 <Section title="更正歸屬店長">
                   {!editingStaff ? (
                     <button
@@ -540,7 +549,7 @@ export function TransactionDrawer({
                 )}
 
               {/* 危險區（VOIDED 不顯示） */}
-              {data.status !== "VOIDED" && canVoid && (
+              {!isVoided && canVoid && (
                 <Section title="危險操作" tone="danger">
                   <button
                     type="button"
@@ -759,7 +768,7 @@ function Section({
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex justify-between gap-3 py-1 text-sm">
       <span className="text-earth-500">{label}</span>
