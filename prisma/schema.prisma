@@ -260,6 +260,15 @@ enum LineRebindRequestStatus {
   CONSUMED
 }
 
+// Server-side LINE OAuth coordinator attempts.  Only SHA-256 hashes of the
+// browser-visible state / nonce are retained; raw OAuth material never enters
+// the database.
+enum LineOAuthAttemptStatus {
+  PENDING
+  CONSUMED
+  EXPIRED
+}
+
 enum MessageLogStatus {
   PENDING
   SENT
@@ -528,6 +537,7 @@ model Store {
   customers               Customer[]
   customerIdentityLinks   CustomerIdentityLink[]
   lineRebindRequests     LineRebindRequest[]
+  lineOAuthAttempts      LineOAuthAttempt[]
   bookings                Booking[]
   bookingRecurrenceGroups BookingRecurrenceGroup[]
   bookingSubmissions      BookingSubmission[]
@@ -826,7 +836,7 @@ model CustomerIdentityLink {
   id                String   @id @default(cuid())
   userId            String
   storeId           String
-  customerId        String   @unique
+  customerId        String
   provider          String
   providerAccountId String
   lineUserId        String?
@@ -838,7 +848,8 @@ model CustomerIdentityLink {
   customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId, storeId], name: "uq_customer_identity_provider_store")
-  @@unique([userId, storeId], name: "uq_customer_identity_user_store")
+  @@unique([customerId, provider], name: "uq_customer_identity_customer_provider")
+  @@unique([userId, storeId, provider], name: "uq_customer_identity_user_store_provider")
   @@index([storeId])
   @@index([userId])
 }
@@ -893,6 +904,29 @@ model LineRebindCandidate {
 
   request LineRebindRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
 
+  @@index([expiresAt])
+}
+
+// One attempt per Taiwan LINE authorization.  This table is deliberately
+// provider-neutral enough to support another store later, but PR-B only
+// creates rows with channelKey = "taichung".
+model LineOAuthAttempt {
+  id         String                 @id @default(cuid())
+  storeId    String
+  storeSlug  String
+  channelKey String
+  stateHash  String                 @unique
+  nonceHash  String
+  status     LineOAuthAttemptStatus @default(PENDING)
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime               @default(now())
+  updatedAt  DateTime               @updatedAt
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Restrict)
+
+  @@unique([storeId, nonceHash])
+  @@index([storeId, status, expiresAt])
   @@index([expiresAt])
 }
 

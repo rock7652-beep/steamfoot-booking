@@ -254,13 +254,8 @@ export async function resolveCustomerForUser(
         }
       }
 
-      const link = await prisma.customerIdentityLink.findUnique({
-        where: {
-          uq_customer_identity_user_store: {
-            userId: opts.userId,
-            storeId: opts.storeId,
-          },
-        },
+      const link = await prisma.customerIdentityLink.findFirst({
+        where: { userId: opts.userId, storeId: opts.storeId },
         select: { customer: { select: CUSTOMER_SELECT } },
       });
       if (link?.customer) {

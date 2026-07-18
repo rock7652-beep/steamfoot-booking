@@ -75,13 +75,8 @@ async function recoverMissingCustomerIdentity<T extends CustomerSessionUser>(use
   if (!requestStore) return user;
 
   try {
-    const identityLink = await prisma.customerIdentityLink.findUnique({
-      where: {
-        uq_customer_identity_user_store: {
-          userId: user.id,
-          storeId: requestStore.storeId,
-        },
-      },
+    const identityLink = await prisma.customerIdentityLink.findFirst({
+      where: { userId: user.id, storeId: requestStore.storeId },
       select: {
         customer: {
           select: {

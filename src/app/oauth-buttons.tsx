@@ -9,6 +9,12 @@ export function OAuthButtons({ storeSlug = "zhubei" }: { storeSlug?: string }) {
   async function handleSignIn(provider: string) {
     setLoadingProvider(provider);
     try {
+      // Taiwan owns a separate LINE Login channel.  Do not set the legacy
+      // global store cookie or call Auth.js's global `line` provider here.
+      if (provider === "line" && storeSlug === "taichung") {
+        window.location.assign("/api/line-oauth/taichung/start");
+        return;
+      }
       // B7-4: 設定 cookie 讓 auth signIn callback 知道 store context
       document.cookie = `oauth-store-slug=${storeSlug};path=/;max-age=600;samesite=lax`;
       await signIn(provider, { callbackUrl: `/s/${storeSlug}/book` });

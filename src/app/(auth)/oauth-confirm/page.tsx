@@ -65,7 +65,7 @@ export default async function OAuthConfirmPage({ searchParams }: PageProps) {
             LINE 帳號：<span className="font-medium text-earth-700">{session.displayName}</span>
           </p>
         )}
-        <OAuthConfirmForm callbackUrl={callbackUrl ?? "/"} />
+        <OAuthConfirmForm callbackUrl={callbackUrl ?? "/"} taichungCoordinator={session.channelKey === "taichung"} />
       </div>
     </main>
   );
