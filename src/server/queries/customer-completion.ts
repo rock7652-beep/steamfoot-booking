@@ -254,16 +254,22 @@ export async function resolveCustomerForUser(
         }
       }
 
-      const link = await prisma.customerIdentityLink.findFirst({
+      const links = await prisma.customerIdentityLink.findMany({
         where: { userId: opts.userId, storeId: opts.storeId },
         select: { customer: { select: CUSTOMER_SELECT } },
       });
-      if (link?.customer) {
+      const customers = links.map((link) => link.customer).filter(Boolean);
+      const link =
+        customers.length > 0 &&
+        customers.every((customer) => customer.id === customers[0].id)
+          ? customers[0]
+          : null;
+      if (link) {
         console.info("[resolveCustomer] found_by_identity_link (user-store)", {
           ...logCtx,
-          customerId: link.customer.id,
+          customerId: link.id,
         });
-        return { customer: link.customer, reason: "found_by_identity_link" };
+        return { customer: link, reason: "found_by_identity_link" };
       }
     } catch (err) {
       console.error("[resolveCustomer] identity link lookup failed", { ...logCtx, err });

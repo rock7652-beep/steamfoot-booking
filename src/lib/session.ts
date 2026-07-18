@@ -75,7 +75,7 @@ async function recoverMissingCustomerIdentity<T extends CustomerSessionUser>(use
   if (!requestStore) return user;
 
   try {
-    const identityLink = await prisma.customerIdentityLink.findFirst({
+    const identityLinks = await prisma.customerIdentityLink.findMany({
       where: { userId: user.id, storeId: requestStore.storeId },
       select: {
         customer: {
@@ -89,9 +89,16 @@ async function recoverMissingCustomerIdentity<T extends CustomerSessionUser>(use
       },
     });
 
+    // Google + LINE links may coexist.  They are only a recovery source when
+    // every non-merged provider link agrees on the same Customer; otherwise
+    // fail closed rather than letting provider ordering choose an identity.
+    const linkedCustomers = identityLinks
+      .map((link) => link.customer)
+      .filter((customer) => !customer.mergedIntoCustomerId);
     const linkedCustomer =
-      identityLink?.customer && !identityLink.customer.mergedIntoCustomerId
-        ? identityLink.customer
+      linkedCustomers.length > 0 &&
+      linkedCustomers.every((customer) => customer.id === linkedCustomers[0].id)
+        ? linkedCustomers[0]
         : null;
 
     const customer =
