@@ -18,6 +18,19 @@ describe("Taichung LINE OAuth coordinator", () => {
     process.env.LINE_TAICHUNG_LOGIN_CHANNEL_SECRET = "taichung-secret";
   });
 
+  async function createState() {
+    db.store.findUnique.mockResolvedValue({ id: "store-taichung", slug: "taichung" });
+    db.lineOAuthAttempt.create.mockResolvedValue({ id: "attempt-1" });
+    const { createTaichungAuthorization } = await import("@/lib/line-oauth/taichung-coordinator");
+    return new URL(await createTaichungAuthorization("https://www.steamfoot.com/api/auth/callback/line")).searchParams.get("state")!;
+  }
+
+  function successfulLineFetch() {
+    vi.stubGlobal("fetch", vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ access_token: "never-persisted" }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ userId: "line-user", displayName: "台中測試" }), { status: 200 })));
+  }
+
   it("issues a signed tc1 state while persisting only hashes", async () => {
     db.store.findUnique.mockResolvedValue({ id: "store-taichung", slug: "taichung" });
     db.lineOAuthAttempt.create.mockResolvedValue({ id: "attempt-1" });
@@ -36,6 +49,49 @@ describe("Taichung LINE OAuth coordinator", () => {
     const { verifyTaichungState, TaichungOAuthError } = await import("@/lib/line-oauth/taichung-coordinator");
     expect(() => verifyTaichungState("tc1.payload.tampered")).toThrow(TaichungOAuthError);
     expect(db.lineOAuthAttempt.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when the signed state payload has expired", async () => {
+    vi.useFakeTimers();
+    const state = await createState();
+    vi.advanceTimersByTime(10 * 60 * 1000 + 1);
+    const { consumeTaichungCallback, TaichungOAuthError } = await import("@/lib/line-oauth/taichung-coordinator");
+    await expect(consumeTaichungCallback({ state, code: "code", callbackUrl: "https://www.steamfoot.com/api/auth/callback/line" })).rejects.toBeInstanceOf(TaichungOAuthError);
+    expect(db.lineOAuthAttempt.updateMany).not.toHaveBeenCalled();
+    vi.useRealTimers();
+  });
+
+  it("fails closed when the durable attempt has expired or any store/context hash mismatches", async () => {
+    const state = await createState();
+    db.lineOAuthAttempt.updateMany.mockResolvedValue({ count: 0 });
+    const { consumeTaichungCallback, TaichungOAuthError } = await import("@/lib/line-oauth/taichung-coordinator");
+    await expect(consumeTaichungCallback({ state, code: "code", callbackUrl: "https://www.steamfoot.com/api/auth/callback/line" })).rejects.toBeInstanceOf(TaichungOAuthError);
+    const where = db.lineOAuthAttempt.updateMany.mock.calls[0][0].where;
+    expect(where).toMatchObject({ storeId: "store-taichung", storeSlug: "taichung", channelKey: "taichung", stateHash: expect.any(String), nonceHash: expect.any(String), status: "PENDING", consumedAt: null, expiresAt: { gt: expect.any(Date) } });
+  });
+
+  it("consumes a state exactly once: replay and concurrent callback lose the CAS", async () => {
+    const state = await createState();
+    db.lineOAuthAttempt.updateMany
+      .mockResolvedValueOnce({ count: 1 })
+      .mockResolvedValueOnce({ count: 0 })
+      .mockResolvedValueOnce({ count: 0 });
+    successfulLineFetch();
+    const { consumeTaichungCallback, TaichungOAuthError } = await import("@/lib/line-oauth/taichung-coordinator");
+    await expect(consumeTaichungCallback({ state, code: "one", callbackUrl: "https://www.steamfoot.com/api/auth/callback/line" })).resolves.toMatchObject({ storeId: "store-taichung", profile: { userId: "line-user" } });
+    await expect(consumeTaichungCallback({ state, code: "replay", callbackUrl: "https://www.steamfoot.com/api/auth/callback/line" })).rejects.toBeInstanceOf(TaichungOAuthError);
+    await expect(consumeTaichungCallback({ state, code: "concurrent", callbackUrl: "https://www.steamfoot.com/api/auth/callback/line" })).rejects.toBeInstanceOf(TaichungOAuthError);
+    expect(db.lineOAuthAttempt.updateMany).toHaveBeenCalledTimes(3);
+  });
+
+  it("creates independent multi-tab attempts that retain distinct state and nonce hashes", async () => {
+    db.store.findUnique.mockResolvedValue({ id: "store-taichung", slug: "taichung" });
+    db.lineOAuthAttempt.create.mockResolvedValueOnce({ id: "attempt-a" }).mockResolvedValueOnce({ id: "attempt-b" });
+    const { createTaichungAuthorization } = await import("@/lib/line-oauth/taichung-coordinator");
+    const [a, b] = await Promise.all([createTaichungAuthorization("https://www.steamfoot.com/api/auth/callback/line"), createTaichungAuthorization("https://www.steamfoot.com/api/auth/callback/line")]);
+    expect(new URL(a).searchParams.get("state")).not.toEqual(new URL(b).searchParams.get("state"));
+    expect(db.lineOAuthAttempt.create.mock.calls[0][0].data.nonceHash).not.toEqual(db.lineOAuthAttempt.create.mock.calls[1][0].data.nonceHash);
+    expect(db.lineOAuthAttempt.update).toHaveBeenCalledTimes(2);
   });
 
   it("resolves a same-store CustomerIdentityLink before legacy Customer.lineUserId", async () => {

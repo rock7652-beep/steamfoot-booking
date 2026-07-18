@@ -3,6 +3,7 @@ import { handlers } from "@/lib/auth";
 import { activateTaichungCustomer, consumeTaichungCallback, isTaichungCoordinatorState, resolveTaichungCustomer, TaichungOAuthError } from "@/lib/line-oauth/taichung-coordinator";
 import { issueTaichungLineSession, TAICHUNG_LINE_SESSION_COOKIE, TAICHUNG_LINE_SESSION_MAX_AGE } from "@/lib/line-oauth/taichung-session";
 import { setOAuthTempSession } from "@/lib/server/oauth-temp-session";
+import { resolveTaichungCallbackUrl } from "@/lib/line-oauth/callback-url";
 
 export async function GET(request: NextRequest) {
   const state = request.nextUrl.searchParams.get("state");
@@ -12,7 +13,8 @@ export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get("code");
   if (!code || !state) return NextResponse.json({ error: "Invalid LINE callback" }, { status: 400 });
   try {
-    const callbackUrl = `${request.nextUrl.origin}/api/auth/callback/line`;
+    const callbackUrl = resolveTaichungCallbackUrl(request.nextUrl.host);
+    if (!callbackUrl) return NextResponse.json({ error: "Invalid LINE callback host" }, { status: 400 });
     const { profile, storeId } = await consumeTaichungCallback({ state, code, callbackUrl });
     const customer = await resolveTaichungCustomer(storeId, profile.userId);
     if (customer) {
