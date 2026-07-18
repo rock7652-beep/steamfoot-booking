@@ -47,6 +47,7 @@ vi.mock("@/server/services/bind-line-to-customer", () => ({
 
 vi.mock("@/lib/line-bind-log", () => ({
   logLineBindEvent: vi.fn(),
+  maskLineUserId: (value: string | null | undefined) => value ? "masked" : "(none)",
 }));
 
 function postReq(body: unknown, signature = "line-signature") {

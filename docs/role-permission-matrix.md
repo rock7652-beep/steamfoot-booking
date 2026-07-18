@@ -22,6 +22,7 @@
 | | `customer.update` | 編輯顧客資料 |
 | | `customer.assign` | 轉移顧客歸屬 |
 | | `customer.export` | 匯出顧客資料 |
+| | `customer.identity.rebind` | 建立或取消受控 LINE 重新綁定 capture request；不含實際重新綁定 |
 | 預約 | `booking.read` | 查看預約 |
 | | `booking.create` | 新增預約 |
 | | `booking.update` | 更新預約（報到/完成/未到） |

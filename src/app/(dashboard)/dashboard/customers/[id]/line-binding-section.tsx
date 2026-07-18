@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { generateLineBindingCode, unlinkLineAccount } from "@/server/actions/reminder";
+import { createLineRebindCaptureRequest, cancelLineRebindCaptureRequest } from "@/server/actions/line-rebind";
 
 const LINE_OA_URL = process.env.NEXT_PUBLIC_LINE_OA_ADD_FRIEND_URL ?? "";
 
@@ -13,6 +14,10 @@ interface LineBindingSectionProps {
   lineLinkedAt: string | null; // ISO string
   lineBindingCode: string | null;
   lineBindingCodeCreatedAt: string | null; // ISO string
+  canManageLineRebind: boolean;
+  activeLineRebindRequest: {
+    id: string; status: string; capturedAt: string | null; expiresAt: string; userIdHashPrefix: string | null;
+  } | null;
 }
 
 export function LineBindingSection({
@@ -22,6 +27,8 @@ export function LineBindingSection({
   lineLinkedAt,
   lineBindingCode: initialCode,
   lineBindingCodeCreatedAt: initialCodeCreatedAt,
+  canManageLineRebind,
+  activeLineRebindRequest,
 }: LineBindingSectionProps) {
   const router = useRouter();
   const [bindingCode, setBindingCode] = useState(initialCode);
@@ -137,6 +144,27 @@ export function LineBindingSection({
     }
   }
 
+  async function handleCreateRebindRequest() {
+    const reason = window.prompt("請填寫重新綁定原因（20–500 字；不要填寫電話或 LINE ID）：");
+    if (!reason) return;
+    setPending(true);
+    const result = await createLineRebindCaptureRequest({ customerId, reason });
+    setMessage(result.success
+      ? { text: result.data.status === "created" ? "已建立 15 分鐘的重新綁定捕捉申請。" : "已有有效的重新綁定申請。", type: "success" }
+      : { text: result.error, type: "error" });
+    setPending(false);
+    router.refresh();
+  }
+
+  async function handleCancelRebindRequest() {
+    if (!activeLineRebindRequest || !confirm("取消後候選 LINE 身份密文會立即刪除，確定取消？")) return;
+    setPending(true);
+    const result = await cancelLineRebindCaptureRequest(activeLineRebindRequest.id);
+    setMessage(result.success ? { text: "重新綁定捕捉申請已取消。", type: "success" } : { text: result.error, type: "error" });
+    setPending(false);
+    router.refresh();
+  }
+
   // ── 複製綁定指令 ──
   async function handleCopy() {
     if (!bindingCode) return;
@@ -171,6 +199,20 @@ export function LineBindingSection({
         </svg>
         LINE 綁定
       </h3>
+
+      {canManageLineRebind && (
+        <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+          <p className="font-medium">受控 LINE 重新綁定（僅捕捉候選身份）</p>
+          {activeLineRebindRequest ? <>
+            <p className="mt-1">狀態：{activeLineRebindRequest.status}；到期：{new Date(activeLineRebindRequest.expiresAt).toLocaleString("zh-TW")}</p>
+            {activeLineRebindRequest.capturedAt && <p className="mt-1">已捕捉；userId hash：{activeLineRebindRequest.userIdHashPrefix ?? "—"}</p>}
+            <button onClick={handleCancelRebindRequest} disabled={pending} className="mt-2 text-amber-800 underline disabled:opacity-50">取消申請並刪除候選密文</button>
+          </> : <>
+            <p className="mt-1">建立後，顧客下一次輸入正確電話才會捕捉候選身份；不會直接變更綁定。</p>
+            <button onClick={handleCreateRebindRequest} disabled={pending} className="mt-2 text-amber-800 underline disabled:opacity-50">建立 15 分鐘捕捉申請</button>
+          </>}
+        </div>
+      )}
 
       {/* ═══════════════ 已綁定 ═══════════════ */}
       {status === "LINKED" && (
