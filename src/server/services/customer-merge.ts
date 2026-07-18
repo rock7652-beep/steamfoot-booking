@@ -7,6 +7,8 @@ import { syncLineAccountForUser } from "@/server/services/line-account-sync";
 const THIRD_PARTY_IDENTITY_SELECT = {
   id: true,
   storeId: true,
+  phone: true,
+  email: true,
   userId: true,
   authSource: true,
   lineUserId: true,
@@ -20,6 +22,33 @@ const THIRD_PARTY_IDENTITY_SELECT = {
 } as const;
 
 type IdentityRow = Prisma.CustomerGetPayload<{ select: typeof THIRD_PARTY_IDENTITY_SELECT }>;
+
+async function assertPlaceholderHasNoOperationalData(
+  tx: Prisma.TransactionClient,
+  customerId: string,
+) {
+  const counts = await Promise.all([
+    tx.booking.count({ where: { customerId } }),
+    tx.customerPlanWallet.count({ where: { customerId } }),
+    tx.transaction.count({ where: { customerId } }),
+    tx.pointRecord.count({ where: { customerId } }),
+    tx.referralEvent.count({ where: { customerId } }),
+    tx.makeupCredit.count({ where: { customerId } }),
+    tx.messageLog.count({ where: { customerId } }),
+    tx.checkinPost.count({ where: { customerId } }),
+    tx.customerFollowUp.count({ where: { customerId } }),
+    tx.talentStageLog.count({ where: { customerId } }),
+    tx.customerIdentityLink.count({ where: { customerId } }),
+    tx.bookingMakeupCredit.count({ where: { customerId } }),
+    tx.referral.count({ where: { OR: [{ referrerId: customerId }, { convertedCustomerId: customerId }] } }),
+    tx.customer.count({ where: { sponsorId: customerId } }),
+  ]);
+  if (counts.some((count) => count > 0)) {
+    throw new Error(
+      "mergePlaceholder: placeholder has operational data; use mergeCustomerIntoCustomer instead",
+    );
+  }
+}
 
 export type BasicProfileUpdate = {
   name?: string;
@@ -202,10 +231,17 @@ export async function mergePlaceholderCustomerIntoRealCustomer(
 
     const mergedIdentity = mergeIdentityFields(placeholder, real);
 
+    // lightweight merge 只適用於真正空白的 OAuth placeholder。若已有方案、交易或
+    // 預約，清身份後保留 source 會讓營運資料斷裂，必須改走 guarded full merge。
+    await assertPlaceholderHasNoOperationalData(tx, placeholder.id);
+
     // Step 1: 釋放 placeholder 的 unique 欄位 + userId（為 real 的 update 讓位）
     await tx.customer.update({
       where: { id: placeholder.id },
       data: {
+        // phone 為 NOT NULL 且同店 unique，不能清成 null；tombstone 讓位給 real。
+        phone: `_merged_${placeholder.id}`,
+        email: null,
         userId: null,
         lineUserId: null,
         googleId: null,
@@ -492,7 +528,8 @@ export async function mergeCustomerIntoCustomer(
       );
     }
 
-    const [sourcePointRecords, targetPointRecords, identityLinks] = await Promise.all([
+    const effectiveUserId = target.userId ?? source.userId;
+    const [sourcePointRecords, targetPointRecords, identityLinks, googleAccount] = await Promise.all([
       tx.pointRecord.findMany({
         where: { customerId: source.id },
         select: { id: true, sourceType: true, sourceKey: true },
@@ -505,6 +542,12 @@ export async function mergeCustomerIntoCustomer(
         where: { customerId: { in: [source.id, target.id] } },
         select: { id: true, customerId: true },
       }),
+      effectiveUserId
+        ? tx.account.findFirst({
+            where: { userId: effectiveUserId, provider: "google" },
+            select: { userId: true, provider: true, providerAccountId: true },
+          })
+        : null,
     ]);
 
     const targetPointKeys = new Map<string, string>();
@@ -532,6 +575,23 @@ export async function mergeCustomerIntoCustomer(
       throw new Error(
         "mergeCustomer: 來源與目標皆有 CustomerIdentityLink；customerId 為唯一鍵，請先人工決定保留哪一筆 identity link",
       );
+    }
+    const createGoogleIdentityLink =
+      identityLinks.length === 0 && googleAccount != null && effectiveUserId != null;
+    if (createGoogleIdentityLink) {
+      const conflictingGoogleLink = await tx.customerIdentityLink.findFirst({
+        where: {
+          storeId: source.storeId,
+          provider: googleAccount.provider,
+          providerAccountId: googleAccount.providerAccountId,
+        },
+        select: { id: true, customerId: true, userId: true },
+      });
+      if (conflictingGoogleLink) {
+        throw new Error(
+          `mergeCustomer: Google identity 已綁定 Customer ${conflictingGoogleLink.customerId}，無法建立 target link`,
+        );
+      }
     }
 
     // ── Step 1: FK relocation ──
@@ -669,6 +729,20 @@ export async function mergeCustomerIntoCustomer(
       await tx.customer.update({
         where: { id: target.id },
         data: targetUpdate,
+      });
+    }
+
+    // 沒有既有 link 時，將已驗證的 Google Account 建成 store-scoped identity truth。
+    // Account 的 userId 必須與 merge 後 Target 的 userId 相同（上方 query 已限定）。
+    if (createGoogleIdentityLink && googleAccount && effectiveUserId) {
+      await tx.customerIdentityLink.create({
+        data: {
+          userId: effectiveUserId,
+          storeId: target.storeId,
+          customerId: target.id,
+          provider: googleAccount.provider,
+          providerAccountId: googleAccount.providerAccountId,
+        },
       });
     }
 

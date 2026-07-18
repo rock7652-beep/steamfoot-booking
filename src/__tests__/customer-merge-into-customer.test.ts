@@ -35,6 +35,7 @@ type Tables = {
   customerFollowUp: Row[];
   customerIdentityLink: Row[];
   bookingMakeupCredit: Row[];
+  account: Row[];
 };
 
 const tables: Tables = {
@@ -52,6 +53,7 @@ const tables: Tables = {
   customerFollowUp: [],
   customerIdentityLink: [],
   bookingMakeupCredit: [],
+  account: [],
 };
 
 function resetTables() {
@@ -69,6 +71,15 @@ function modelFor<T extends keyof Tables>(name: T) {
     findMany: vi.fn(async (args?: { where?: Record<string, unknown> }) => {
       const where = args?.where ?? {};
       return tables[name].filter((row) => matchWhere(row, where));
+    }),
+    findFirst: vi.fn(async (args?: { where?: Record<string, unknown> }) => {
+      const where = args?.where ?? {};
+      return tables[name].find((row) => matchWhere(row, where)) ?? null;
+    }),
+    create: vi.fn(async (args: { data: Record<string, unknown> }) => {
+      const row = { id: `created-${tables[name].length + 1}`, ...args.data } as Row;
+      tables[name].push(row as Tables[T][number]);
+      return row;
     }),
     update: vi.fn(async (args: { where: { id: string }; data: Record<string, unknown> }) => {
       const row = tables[name].find((r) => r.id === args.where.id);
@@ -112,6 +123,7 @@ const referralEventModel = modelFor("referralEvent");
 const customerFollowUpModel = modelFor("customerFollowUp");
 const customerIdentityLinkModel = modelFor("customerIdentityLink");
 const bookingMakeupCreditModel = modelFor("bookingMakeupCredit");
+const accountModel = modelFor("account");
 
 vi.mock("@/lib/db", () => ({
   prisma: {
@@ -129,6 +141,7 @@ vi.mock("@/lib/db", () => ({
     customerFollowUp: customerFollowUpModel,
     customerIdentityLink: customerIdentityLinkModel,
     bookingMakeupCredit: bookingMakeupCreditModel,
+    account: accountModel,
     $transaction: (fn: (tx: unknown) => unknown) =>
       fn({
         customer: customerModel,
@@ -145,6 +158,7 @@ vi.mock("@/lib/db", () => ({
         customerFollowUp: customerFollowUpModel,
         customerIdentityLink: customerIdentityLinkModel,
         bookingMakeupCredit: bookingMakeupCreditModel,
+        account: accountModel,
       }),
   },
 }));
@@ -346,6 +360,68 @@ describe("mergeCustomerIntoCustomer — FK relocation", () => {
 });
 
 describe("mergeCustomerIntoCustomer — identity merge", () => {
+  it("source 的 Google Account 在 target 沒有 identity link 時會建立 store-scoped link", async () => {
+    const { mergeCustomerIntoCustomer } = await import("@/server/services/customer-merge");
+
+    tables.customer.push(
+      makeCustomer({ id: "src", userId: "google-user", googleId: "google-sub" }) as Customer,
+      makeCustomer({ id: "tgt", userId: null }) as Customer,
+    );
+    tables.account.push({
+      id: "google-account",
+      userId: "google-user",
+      provider: "google",
+      providerAccountId: "google-sub",
+    });
+
+    await mergeCustomerIntoCustomer({
+      sourceCustomerId: "src",
+      targetCustomerId: "tgt",
+      performedByUserId: PERFORMER,
+    });
+
+    expect(tables.customerIdentityLink).toContainEqual(expect.objectContaining({
+      customerId: "tgt",
+      userId: "google-user",
+      storeId: STORE_A,
+      provider: "google",
+      providerAccountId: "google-sub",
+    }));
+  });
+
+  it("Google identity 已在同店綁定第三筆 customer 時拒絕並 rollback", async () => {
+    const { mergeCustomerIntoCustomer } = await import("@/server/services/customer-merge");
+
+    tables.customer.push(
+      makeCustomer({ id: "src", userId: "google-user" }) as Customer,
+      makeCustomer({ id: "tgt", userId: null }) as Customer,
+      makeCustomer({ id: "other" }) as Customer,
+    );
+    tables.account.push({
+      id: "google-account",
+      userId: "google-user",
+      provider: "google",
+      providerAccountId: "google-sub",
+    });
+    tables.customerIdentityLink.push({
+      id: "existing-google-link",
+      customerId: "other",
+      userId: "other-user",
+      storeId: STORE_A,
+      provider: "google",
+      providerAccountId: "google-sub",
+    });
+
+    await expect(mergeCustomerIntoCustomer({
+      sourceCustomerId: "src",
+      targetCustomerId: "tgt",
+      performedByUserId: PERFORMER,
+    })).rejects.toThrow(/Google identity/);
+
+    expect(tables.customer.find((customer) => customer.id === "src")?.userId).toBe("google-user");
+    expect(tables.customer.find((customer) => customer.id === "tgt")?.userId).toBe(null);
+  });
+
   it("target.userId == null & source.userId set → userId 搬到 target，source.userId 清空", async () => {
     const { mergeCustomerIntoCustomer } = await import("@/server/services/customer-merge");
 

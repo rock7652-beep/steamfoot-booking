@@ -859,6 +859,7 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
   });
 
   if (isResolvedPlaceholder) {
+    let mergeTransactionStarted = false;
     try {
       // 同 storeId + (phone | lineUserId | email) 找 real（排除目前 placeholder 自身）。
       // lineUserId 必帶 — placeholder 雖然帶 _oauth_ phone，但若使用者輸入錯 phone /
@@ -936,6 +937,7 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
         });
 
         // 透過共用 helper 搬 LINE/Google 身份欄位到 real row，並清空/刪除 placeholder
+        mergeTransactionStarted = true;
         const mergeResult = await mergePlaceholderCustomerIntoRealCustomer({
           placeholderCustomerId: customerId,
           realCustomerId: real.id,
@@ -964,6 +966,23 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
       }
       // real 不存在 → 放行繼續下方正常 update（更新佔位並換成使用者輸入的真資料）
     } catch (err) {
+      // probe 未完成時才可回落到一般更新；一旦 merge transaction 已開始，
+      // 不可吞掉錯誤後再寫 placeholder，否則 P2002 會被誤記為 probe failure。
+      if (mergeTransactionStarted) {
+        const prismaCode = (err as { code?: string })?.code;
+        const prismaMeta = (err as { meta?: { target?: string[] } })?.meta;
+        console.error("[updateProfileAction] merge transaction failed", {
+          userId: user.id,
+          customerId,
+          prismaCode,
+          prismaTarget: prismaMeta?.target,
+          err,
+        });
+        return {
+          error: "資料合併暫時未完成，請聯繫店家協助處理。",
+          success: false,
+        };
+      }
       console.error("[updateProfileAction] merge probe failed", {
         userId: user.id,
         customerId,
