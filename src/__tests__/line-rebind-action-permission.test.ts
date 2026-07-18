@@ -11,7 +11,7 @@ vi.mock("@/server/services/line-rebind", () => ({ createLineRebindRequest: h.cre
 
 import { cancelLineRebindCaptureRequest, createLineRebindCaptureRequest } from "@/server/actions/line-rebind";
 
-describe("LINE rebind actions are OWNER-only", () => {
+describe("LINE rebind actions require OWNER or ADMIN", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     h.findUnique.mockResolvedValue({ id: "cmqwagvm10001l904qqvxry7y", storeId: "store-a", phone: "0912345678" });
@@ -22,14 +22,18 @@ describe("LINE rebind actions are OWNER-only", () => {
     h.requirePermission.mockResolvedValue({ id: "owner-a", role: "OWNER" });
     await expect(createLineRebindCaptureRequest({ customerId: "cmqwagvm10001l904qqvxry7y", reason: "approved by the customer and store owner" })).resolves.toMatchObject({ success: true });
   });
-  it.each(["PARTNER", "MANAGER", "STAFF", "ADMIN"])("rejects %s even if permission was granted", async (role) => {
+  it("allows an ADMIN with the dedicated permission", async () => {
+    h.requirePermission.mockResolvedValue({ id: "admin-a", role: "ADMIN" });
+    await expect(createLineRebindCaptureRequest({ customerId: "cmqwagvm10001l904qqvxry7y", reason: "approved by the customer and headquarters" })).resolves.toMatchObject({ success: true });
+  });
+  it.each(["PARTNER", "MANAGER", "STAFF"])("rejects %s even if permission was granted", async (role) => {
     h.requirePermission.mockResolvedValue({ id: "actor-a", role });
     await expect(createLineRebindCaptureRequest({ customerId: "cmqwagvm10001l904qqvxry7y", reason: "approved by the customer and store owner" })).resolves.toMatchObject({ success: false });
     await expect(cancelLineRebindCaptureRequest("request-a")).resolves.toMatchObject({ success: false });
     expect(h.create).not.toHaveBeenCalled();
     expect(h.cancel).not.toHaveBeenCalled();
   });
-  it("rejects when the dedicated permission is missing", async () => {
+  it.each(["OWNER", "ADMIN"])("rejects %s when the dedicated permission is missing", async () => {
     h.requirePermission.mockRejectedValue(new Error("FORBIDDEN"));
     await expect(createLineRebindCaptureRequest({ customerId: "cmqwagvm10001l904qqvxry7y", reason: "approved by the customer and store owner" })).resolves.toMatchObject({ success: false });
   });

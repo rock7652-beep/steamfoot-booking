@@ -14,9 +14,9 @@ const createSchema = z.object({
   reason: z.string().trim().min(20).max(500),
 });
 
-function requireOwnerActor(actor: { role: string }) {
-  if (actor.role !== "OWNER") {
-    throw new AppError("FORBIDDEN", "僅限 OWNER 管理 LINE 重新綁定申請");
+function requireRebindAdministrator(actor: { role: string }) {
+  if (actor.role !== "OWNER" && actor.role !== "ADMIN") {
+    throw new AppError("FORBIDDEN", "僅限 OWNER 或 ADMIN 管理 LINE 重新綁定申請");
   }
 }
 
@@ -26,7 +26,7 @@ export async function createLineRebindCaptureRequest(
 ): Promise<ActionResult<{ requestId?: string; expiresAt?: string; status: "created" | "active_request_exists" }>> {
   try {
     const actor = await requirePermission("customer.identity.rebind");
-    requireOwnerActor(actor);
+    requireRebindAdministrator(actor);
     const data = createSchema.parse(input);
     const customer = await prisma.customer.findUnique({
       where: { id: data.customerId }, select: { id: true, storeId: true, phone: true },
@@ -50,7 +50,7 @@ export async function createLineRebindCaptureRequest(
 export async function cancelLineRebindCaptureRequest(requestId: string): Promise<ActionResult> {
   try {
     const actor = await requirePermission("customer.identity.rebind");
-    requireOwnerActor(actor);
+    requireRebindAdministrator(actor);
     const request = await prisma.lineRebindRequest.findUnique({ where: { id: requestId }, select: { storeId: true } });
     if (!request) throw new AppError("NOT_FOUND", "重新綁定申請不存在");
     assertStoreAccess(actor, request.storeId);
