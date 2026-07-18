@@ -54,6 +54,8 @@ interface DataTableProps<Row> {
   rowKey: (row: Row) => string;
   /** 整 row 可點 — 傳回 href；不給則 row 不可點 */
   rowHref?: (row: Row) => string;
+  /** 依資料套用 row 樣式；例如終態交易以低對比呈現，仍可維持原本的連結行為。 */
+  rowClassName?: (row: Row) => string;
   /**
    * PR #312-B-5：一般左鍵點 row → 改走此 callback（client 開，不 soft-nav、不重跑整頁）。
    * cmd/ctrl/shift/alt（開新分頁等）與中鍵仍走 rowHref 的原生 <a>（新分頁 / deep-link 不破）。
@@ -76,6 +78,7 @@ export function DataTable<Row>({
   rows,
   rowKey,
   rowHref,
+  rowClassName,
   onRowActivate,
   empty,
   className,
@@ -114,6 +117,7 @@ export function DataTable<Row>({
             const firstLinkColIdx = columns.findIndex((c) => !c.noLink);
             return rows.map((row, i) => {
               const href = rowHref?.(row);
+              const rowClass = rowClassName?.(row) ?? "";
               const content = columns.map((c) => {
                 const priorityClass =
                   c.priority === "secondary"
@@ -133,7 +137,7 @@ export function DataTable<Row>({
                 return (
                   <tr
                     key={rowKey(row)}
-                    className="h-11 cursor-pointer transition hover:bg-primary-50/40"
+                    className={`h-11 cursor-pointer transition hover:bg-primary-50/40 ${rowClass}`}
                   >
                     {columns.map((c, colIdx) => {
                       const priorityClass =
@@ -178,7 +182,7 @@ export function DataTable<Row>({
               return (
                 <tr
                   key={rowKey(row)}
-                  className="h-11 transition hover:bg-primary-50/40"
+                  className={`h-11 transition hover:bg-primary-50/40 ${rowClass}`}
                 >
                   {content}
                 </tr>

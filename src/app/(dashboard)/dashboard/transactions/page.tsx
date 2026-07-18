@@ -15,6 +15,7 @@ import { DashboardLink as Link } from "@/components/dashboard-link";
 import { EmptyState } from "@/components/ui/empty-state";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { CASH_TRANSACTION_TYPES } from "@/lib/booking-constants";
+import { isVoidedTransaction, transactionStatusLabel } from "@/lib/transaction-display";
 import type { TransactionType, PaymentMethod } from "@prisma/client";
 import { TransactionRowActions } from "./_components/TransactionRowActions";
 
@@ -304,8 +305,11 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
               </tr>
             )}
             {transactions.map((t) => {
-              const isVoided = t.status === "VOIDED";
-              const badge = STATUS_BADGE[t.status] ?? { text: t.status, color: "bg-earth-100 text-earth-600" };
+              const isVoided = isVoidedTransaction(t);
+              const voidedLabel = transactionStatusLabel(t);
+              const badge = voidedLabel
+                ? { text: voidedLabel, color: "bg-gray-200 text-gray-600" }
+                : STATUS_BADGE[t.status] ?? { text: t.status, color: "bg-earth-100 text-earth-600" };
               return (
                 <tr
                   key={t.id}
