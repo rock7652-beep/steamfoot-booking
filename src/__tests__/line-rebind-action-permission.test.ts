@@ -37,4 +37,17 @@ describe("LINE rebind actions require OWNER or ADMIN", () => {
     h.requirePermission.mockRejectedValue(new Error("FORBIDDEN"));
     await expect(createLineRebindCaptureRequest({ customerId: "cmqwagvm10001l904qqvxry7y", reason: "approved by the customer and store owner" })).resolves.toMatchObject({ success: false });
   });
+  it("returns a validation error for an invalid stored customer phone", async () => {
+    h.requirePermission.mockResolvedValue({ id: "owner-a", role: "OWNER" });
+    h.findUnique.mockResolvedValue({ id: "cmqwagvm10001l904qqvxry7y", storeId: "store-a", phone: "invalid" });
+    await expect(createLineRebindCaptureRequest({ customerId: "cmqwagvm10001l904qqvxry7y", reason: "approved by the customer and store owner" }))
+      .resolves.toMatchObject({ success: false, error: "顧客手機資料格式不正確" });
+    expect(h.create).not.toHaveBeenCalled();
+  });
+  it("returns a validation error when an active request cannot be cancelled", async () => {
+    h.requirePermission.mockResolvedValue({ id: "owner-a", role: "OWNER" });
+    h.cancel.mockResolvedValue(false);
+    await expect(cancelLineRebindCaptureRequest("request-a"))
+      .resolves.toMatchObject({ success: false, error: "此申請已不可取消" });
+  });
 });

@@ -34,7 +34,7 @@ export async function createLineRebindCaptureRequest(
     if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
     assertStoreAccess(actor, customer.storeId);
     const phone = normalizePhone(customer.phone);
-    if (!/^09\d{8}$/.test(phone)) throw new AppError("VALIDATION_ERROR", "顧客手機資料格式不正確");
+    if (!/^09\d{8}$/.test(phone)) throw new AppError("VALIDATION", "顧客手機資料格式不正確");
     const result = await createLineRebindRequest({
       storeId: customer.storeId, customerId: customer.id, createdByUserId: actor.id,
       reason: data.reason, normalizedPhone: phone,
@@ -55,7 +55,7 @@ export async function cancelLineRebindCaptureRequest(requestId: string): Promise
     if (!request) throw new AppError("NOT_FOUND", "重新綁定申請不存在");
     assertStoreAccess(actor, request.storeId);
     const cancelled = await cancelLineRebindRequest({ requestId, storeId: request.storeId, cancelledByUserId: actor.id });
-    if (!cancelled) throw new AppError("VALIDATION_ERROR", "此申請已不可取消");
+    if (!cancelled) throw new AppError("VALIDATION", "此申請已不可取消");
     return { success: true, data: undefined };
   } catch (error) {
     return handleActionError(error);
