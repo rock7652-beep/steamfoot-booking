@@ -20,6 +20,7 @@ CREATE TABLE "LineOAuthAttempt" (
     "status" "LineOAuthAttemptStatus" NOT NULL DEFAULT 'PENDING',
     "expiresAt" TIMESTAMP(3) NOT NULL,
     "consumedAt" TIMESTAMP(3),
+    "sessionConsumedAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 

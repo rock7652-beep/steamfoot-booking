@@ -56,6 +56,13 @@ export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | n
   const host = req.headers.get("host")?.split(":")[0] ?? "";
   const domainStoreId = DOMAIN_STORE_MAP[host];
 
+  // Exact public completion endpoint for Taiwan's server-coordinated LINE
+  // login. Do not broaden this to /line-oauth/*: only this page needs to run
+  // before an Auth.js session exists.
+  if (pathname === "/line-oauth/complete") {
+    return withDomainCookie(NextResponse.next(), domainStoreId);
+  }
+
   // ==========================================================
   // /s/[storeSlug]/* — 分店路由（rewrite 到現有頁面）
   // ==========================================================

@@ -234,6 +234,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           ?.split(";").map((v) => v.trim()).find((v) => v.startsWith(`${TAICHUNG_LINE_SESSION_COOKIE}=`))?.slice(TAICHUNG_LINE_SESSION_COOKIE.length + 1);
         const bridge = verifyTaichungLineSession(rawCookie);
         if (!bridge) return null;
+        const claimed = await prisma.lineOAuthAttempt.updateMany({
+          where: {
+            id: bridge.attemptId,
+            status: "CONSUMED",
+            sessionConsumedAt: null,
+            expiresAt: { gt: new Date() },
+          },
+          data: { sessionConsumedAt: new Date() },
+        });
+        if (claimed.count !== 1) return null;
         const customer = await prisma.customer.findFirst({
           where: { id: bridge.customerId, storeId: bridge.storeId, userId: bridge.userId, mergedIntoCustomerId: null },
           select: { id: true, storeId: true, store: { select: { slug: true } }, user: { select: { id: true, name: true, email: true, role: true, status: true } } },

@@ -145,7 +145,7 @@ export async function consumeTaichungCallback(input: {
   state: string;
   code: string;
   callbackUrl: string;
-}): Promise<{ profile: TaichungLineProfile; storeId: string }> {
+}): Promise<{ profile: TaichungLineProfile; storeId: string; attemptId: string }> {
   const payload = verifyTaichungState(input.state);
   if (payload.exp <= Date.now()) throw new TaichungOAuthError("LINE OAuth state expired");
   const now = new Date();
@@ -180,7 +180,7 @@ export async function consumeTaichungCallback(input: {
   const profileResponse = await fetch(LINE_PROFILE_URL, { headers: { Authorization: `Bearer ${token.access_token}` }, cache: "no-store" });
   const profile = await profileResponse.json().catch(() => null) as TaichungLineProfile | null;
   if (!profileResponse.ok || !profile?.userId) throw new TaichungOAuthError("LINE OAuth profile lookup failed");
-  return { profile, storeId: payload.storeId };
+  return { profile, storeId: payload.storeId, attemptId: payload.attemptId };
 }
 
 export async function resolveTaichungCustomer(storeId: string, lineUserId: string) {

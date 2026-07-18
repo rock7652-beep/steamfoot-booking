@@ -15,15 +15,14 @@ export async function GET(request: NextRequest) {
   try {
     const callbackUrl = resolveTaichungCallbackUrl(request.nextUrl.host);
     if (!callbackUrl) return NextResponse.json({ error: "Invalid LINE callback host" }, { status: 400 });
-    const { profile, storeId } = await consumeTaichungCallback({ state, code, callbackUrl });
+    const { profile, storeId, attemptId } = await consumeTaichungCallback({ state, code, callbackUrl });
     const customer = await resolveTaichungCustomer(storeId, profile.userId);
     if (customer) {
       const active = await activateTaichungCustomer({ storeId, customerId: customer.id, lineUserId: profile.userId, displayName: profile.displayName });
       const url = new URL("/line-oauth/complete", request.url);
-      url.searchParams.set("callbackUrl", "/s/taichung/book");
       const response = NextResponse.redirect(url);
       response.cookies.set(TAICHUNG_LINE_SESSION_COOKIE, issueTaichungLineSession({
-        attemptId: "consumed", userId: active.userId, customerId: active.id, storeId,
+        attemptId: attemptId, userId: active.userId, customerId: active.id, storeId,
       }), { httpOnly: true, secure: true, sameSite: "lax", path: "/", maxAge: TAICHUNG_LINE_SESSION_MAX_AGE });
       return response;
     }

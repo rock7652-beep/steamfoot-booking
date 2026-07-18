@@ -920,6 +920,7 @@ model LineOAuthAttempt {
   status     LineOAuthAttemptStatus @default(PENDING)
   expiresAt  DateTime
   consumedAt DateTime?
+  sessionConsumedAt DateTime?
   createdAt  DateTime               @default(now())
   updatedAt  DateTime               @updatedAt
 

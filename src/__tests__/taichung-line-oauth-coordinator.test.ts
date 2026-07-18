@@ -80,7 +80,7 @@ describe("Taichung LINE OAuth coordinator", () => {
       .mockResolvedValueOnce({ count: 0 });
     successfulLineFetch();
     const { consumeTaichungCallback, TaichungOAuthError } = await import("@/lib/line-oauth/taichung-coordinator");
-    await expect(consumeTaichungCallback({ state, code: "one", callbackUrl: "https://www.steamfoot.com/api/auth/callback/line" })).resolves.toMatchObject({ storeId: "store-taichung", profile: { userId: "line-user" } });
+    await expect(consumeTaichungCallback({ state, code: "one", callbackUrl: "https://www.steamfoot.com/api/auth/callback/line" })).resolves.toMatchObject({ attemptId: "attempt-1", storeId: "store-taichung", profile: { userId: "line-user" } });
     await expect(consumeTaichungCallback({ state, code: "replay", callbackUrl: "https://www.steamfoot.com/api/auth/callback/line" })).rejects.toBeInstanceOf(TaichungOAuthError);
     await expect(consumeTaichungCallback({ state, code: "concurrent", callbackUrl: "https://www.steamfoot.com/api/auth/callback/line" })).rejects.toBeInstanceOf(TaichungOAuthError);
     expect(db.lineOAuthAttempt.updateMany).toHaveBeenCalledTimes(3);
