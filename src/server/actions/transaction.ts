@@ -856,6 +856,7 @@ export async function voidTransaction(
             status: "VOIDED",
             voidedAt: now,
             voidReason: `交易取消：${data.reason}`,
+            voidedByStaffId: user.staffId ?? null,
           },
         });
         if (voidSessions.count !== wallet.totalSessions) {
