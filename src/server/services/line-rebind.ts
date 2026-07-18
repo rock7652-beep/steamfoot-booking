@@ -1,5 +1,5 @@
 import { createCipheriv, createHash, randomBytes } from "node:crypto";
-import { Prisma, LineRebindRequestStatus } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 
 const REBIND_TTL_MS = 15 * 60 * 1000;
@@ -152,7 +152,7 @@ export async function captureLineRebindCandidate(input: {
           FROM "LineRebindRequest"
           WHERE "storeId" = ${input.storeId}
             AND "customerId" = ${input.customerId}
-            AND "status" = ${LineRebindRequestStatus.PENDING_CAPTURE}::"LineRebindRequestStatus"
+            AND "status" = ${"PENDING_CAPTURE"}::"LineRebindRequestStatus"
           FOR UPDATE
         `;
         const request = rows[0];
