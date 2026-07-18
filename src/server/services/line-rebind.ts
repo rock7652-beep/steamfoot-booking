@@ -54,6 +54,7 @@ export async function createLineRebindRequest(input: {
   createdByUserId: string;
   reason: string;
   normalizedPhone: string;
+  oldLineUserId: string;
 }): Promise<CreateLineRebindRequestResult> {
   const now = new Date();
   const expiresAt = new Date(now.getTime() + REBIND_TTL_MS);
@@ -77,6 +78,7 @@ export async function createLineRebindRequest(input: {
             createdByUserId: input.createdByUserId,
             reason: input.reason,
             phoneHash: sha256(input.normalizedPhone),
+            oldUserIdHash: sha256(input.oldLineUserId),
             expiresAt,
           },
           select: { id: true, expiresAt: true },

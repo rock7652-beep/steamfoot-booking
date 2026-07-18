@@ -29,15 +29,16 @@ export async function createLineRebindCaptureRequest(
     requireRebindAdministrator(actor);
     const data = createSchema.parse(input);
     const customer = await prisma.customer.findUnique({
-      where: { id: data.customerId }, select: { id: true, storeId: true, phone: true },
+      where: { id: data.customerId }, select: { id: true, storeId: true, phone: true, lineUserId: true },
     });
     if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
     assertStoreAccess(actor, customer.storeId);
     const phone = normalizePhone(customer.phone);
     if (!/^09\d{8}$/.test(phone)) throw new AppError("VALIDATION", "顧客手機資料格式不正確");
+    if (!customer.lineUserId) throw new AppError("VALIDATION", "顧客尚無既有 LINE 綁定，無法建立重新綁定申請");
     const result = await createLineRebindRequest({
       storeId: customer.storeId, customerId: customer.id, createdByUserId: actor.id,
-      reason: data.reason, normalizedPhone: phone,
+      reason: data.reason, normalizedPhone: phone, oldLineUserId: customer.lineUserId,
     });
     return { success: true, data: result.status === "created"
       ? { status: result.status, requestId: result.requestId, expiresAt: result.expiresAt.toISOString() }
