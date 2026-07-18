@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { toast } from "sonner";
+import { useBookingFormValidation } from "./booking-create-form";
 
 interface CustomerResult {
   id: string;
@@ -35,6 +36,7 @@ export default function CustomerSearch({
   defaultCustomerLabel,
   onSelect,
 }: CustomerSearchProps) {
+  const { errors, clearError } = useBookingFormValidation();
   const [query, setQuery] = useState(defaultCustomerLabel ?? "");
   const [results, setResults] = useState<CustomerResult[]>([]);
   const [selectedId, setSelectedId] = useState(defaultCustomerId ?? "");
@@ -116,6 +118,7 @@ export default function CustomerSearch({
     setSelectedId(c.id);
     setQuery(`${c.name}（${c.phone || c.email || ""}）`);
     setIsOpen(false);
+    clearError("customer");
     onSelect?.(c.id);
   }
 
@@ -131,12 +134,23 @@ export default function CustomerSearch({
             setSelectedId("");
             onSelect?.(null);
           }
+          clearError("customer");
         }}
         onFocus={() => results.length > 0 && setIsOpen(true)}
         placeholder="搜尋姓名、電話或 Email..."
-        className="block w-full rounded-lg border border-earth-300 bg-white px-3 py-2 text-sm text-earth-800 placeholder:text-earth-400 focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
+        data-booking-customer-search
+        aria-invalid={errors.customer ? "true" : undefined}
+        aria-describedby={errors.customer ? "booking-customer-error" : undefined}
+        className={`block w-full rounded-lg border bg-white px-3 py-2 text-sm text-earth-800 placeholder:text-earth-400 focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400 ${
+          errors.customer ? "border-red-500 ring-1 ring-red-300" : "border-earth-300"
+        }`}
         autoComplete="off"
       />
+      {errors.customer && (
+        <p id="booking-customer-error" className="mt-1.5 text-sm text-red-600" role="alert">
+          {errors.customer}
+        </p>
+      )}
       {loading && (
         <div className="absolute right-3 top-2.5 text-xs text-earth-400">
           搜尋中...
@@ -187,17 +201,6 @@ export default function CustomerSearch({
         <div className="absolute z-20 mt-1 w-full rounded-lg border border-earth-200 bg-white p-3 shadow-lg text-center text-sm text-earth-400">
           找不到匹配的顧客
         </div>
-      )}
-
-      {!selectedId && (
-        <input
-          type="text"
-          required
-          tabIndex={-1}
-          className="absolute opacity-0 h-0 w-0"
-          value={selectedId}
-          onChange={() => {}}
-        />
       )}
     </div>
   );

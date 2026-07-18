@@ -15,6 +15,7 @@ import { DashboardBookingForm } from "./booking-form";
 import { FormErrorToast } from "@/components/form-error-toast";
 import { SubmitButton } from "@/components/submit-button";
 import { BookingRequestKeyField } from "@/components/booking-request-key-field";
+import { BookingCreateForm } from "./booking-create-form";
 import {
   PageShell,
   PageHeader,
@@ -139,7 +140,7 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
       />
 
       <FormShell width="lg">
-        <form action={handleCreate} className="space-y-6 pb-4">
+        <BookingCreateForm action={handleCreate}>
           <BookingRequestKeyField />
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             {/* 左欄：預約資訊 */}
@@ -196,7 +197,7 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
               className="bg-primary-600 text-white hover:bg-primary-700"
             />
           </StickyFormActions>
-        </form>
+        </BookingCreateForm>
       </FormShell>
     </PageShell>
   );
