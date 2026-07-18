@@ -21,6 +21,28 @@ type StatePayload = {
 
 export class TaichungOAuthError extends Error {}
 
+function logTokenExchangeFailure(input: {
+  status: number;
+  response: unknown;
+  callbackUrl: string;
+}): void {
+  const body = input.response && typeof input.response === "object"
+    ? input.response as Record<string, unknown>
+    : {};
+  // This is deliberately an allowlist. Do not add request material, raw OAuth
+  // values, or arbitrary response bodies to this diagnostic event.
+  console.warn("[line-oauth][taichung] token exchange failed", {
+    tokenEndpointStatus: input.status,
+    lineError: typeof body.error === "string" ? body.error.slice(0, 200) : null,
+    lineErrorDescription: typeof body.error_description === "string"
+      ? body.error_description.slice(0, 500)
+      : null,
+    deploymentEnvironment: process.env.VERCEL_ENV ?? process.env.NODE_ENV ?? "unknown",
+    callbackHost: new URL(input.callbackUrl).host,
+    channelKey: "taichung",
+  });
+}
+
 function contextSecret(): string {
   const secret = process.env.LINE_OAUTH_STORE_CONTEXT_SECRET;
   if (!secret) throw new TaichungOAuthError("LINE OAuth store context is unavailable");
@@ -151,7 +173,10 @@ export async function consumeTaichungCallback(input: {
     cache: "no-store",
   });
   const token = await tokenResponse.json().catch(() => null) as { access_token?: string } | null;
-  if (!tokenResponse.ok || !token?.access_token) throw new TaichungOAuthError("LINE OAuth token exchange failed");
+  if (!tokenResponse.ok || !token?.access_token) {
+    logTokenExchangeFailure({ status: tokenResponse.status, response: token, callbackUrl: input.callbackUrl });
+    throw new TaichungOAuthError("LINE OAuth token exchange failed");
+  }
   const profileResponse = await fetch(LINE_PROFILE_URL, { headers: { Authorization: `Bearer ${token.access_token}` }, cache: "no-store" });
   const profile = await profileResponse.json().catch(() => null) as TaichungLineProfile | null;
   if (!profileResponse.ok || !profile?.userId) throw new TaichungOAuthError("LINE OAuth profile lookup failed");

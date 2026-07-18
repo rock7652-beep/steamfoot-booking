@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const db = vi.hoisted(() => ({
   store: { findUnique: vi.fn() },
@@ -17,6 +17,8 @@ describe("Taichung LINE OAuth coordinator", () => {
     process.env.LINE_TAICHUNG_LOGIN_CHANNEL_ID = "2010751515";
     process.env.LINE_TAICHUNG_LOGIN_CHANNEL_SECRET = "taichung-secret";
   });
+
+  afterEach(() => vi.unstubAllGlobals());
 
   async function createState() {
     db.store.findUnique.mockResolvedValue({ id: "store-taichung", slug: "taichung" });
@@ -109,5 +111,33 @@ describe("Taichung LINE OAuth coordinator", () => {
     db.store.findUnique.mockResolvedValue({ id: "store-taichung", slug: "taichung" });
     const { createTaichungAuthorization, TaichungOAuthError } = await import("@/lib/line-oauth/taichung-coordinator");
     await expect(createTaichungAuthorization("https://www.steamfoot.com/api/auth/callback/line")).rejects.toBeInstanceOf(TaichungOAuthError);
+  });
+
+  it.each([
+    ["invalid client secret", 401, { error: "invalid_client", error_description: "Bad client authentication" }],
+    ["invalid redirect URI", 400, { error: "invalid_request", error_description: "Invalid redirect_uri" }],
+    ["invalid or reused code", 400, { error: "invalid_grant", error_description: "Authorization code is invalid or expired" }],
+    ["a non-JSON token response", 502, "upstream unavailable"],
+  ])("logs only allowlisted diagnostics for %s", async (_label, status, body) => {
+    const state = await createState();
+    db.lineOAuthAttempt.updateMany.mockResolvedValue({ count: 1 });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(
+      typeof body === "string"
+        ? new Response(body, { status, headers: { "content-type": "text/plain" } })
+        : new Response(JSON.stringify(body), { status }),
+    ));
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { consumeTaichungCallback, TaichungOAuthError } = await import("@/lib/line-oauth/taichung-coordinator");
+    await expect(consumeTaichungCallback({ state, code: "sensitive-code-must-not-log", callbackUrl: "https://www.steamfoot.com/api/auth/callback/line" })).rejects.toBeInstanceOf(TaichungOAuthError);
+    expect(warn).toHaveBeenCalledWith("[line-oauth][taichung] token exchange failed", {
+      tokenEndpointStatus: status,
+      lineError: typeof body === "string" ? null : body.error,
+      lineErrorDescription: typeof body === "string" ? null : body.error_description,
+      deploymentEnvironment: expect.any(String),
+      callbackHost: "www.steamfoot.com",
+      channelKey: "taichung",
+    });
+    expect(JSON.stringify(warn.mock.calls)).not.toContain("sensitive-code-must-not-log");
+    expect(JSON.stringify(warn.mock.calls)).not.toContain("taichung-secret");
   });
 });
