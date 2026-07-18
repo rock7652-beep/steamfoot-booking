@@ -745,11 +745,10 @@ export async function updateTransactionOwnerStaff(
  * Permission: transaction.void
  *
  * 行為：
- *   - SINGLE_PURCHASE / TRIAL_PURCHASE：直接 VOID
- *   - PACKAGE_PURCHASE：
- *       * 全 AVAILABLE → wallet=CANCELLED, walletSessions=VOIDED, transaction=VOIDED
- *       * 有 RESERVED → 拒絕（請先取消預約）
- *       * 有 COMPLETED → 拒絕（需走退款流程）
+ *   - 沒有 wallet 的 SINGLE_PURCHASE / TRIAL_PURCHASE：直接 VOID
+ *   - 任一購買交易只要綁有 wallet：
+ *       * 全 AVAILABLE 且未綁 booking → wallet=CANCELLED, walletSessions=VOIDED
+ *       * 有 RESERVED / COMPLETED / BACKFILLED / VOIDED → 拒絕，避免部分作廢
  *   - 其他 type：v1 範圍外，拒絕
  *
  * 並發保護：updateMany WHERE status=SUCCESS，count===1 才繼續，避免同時兩人 void
@@ -772,6 +771,8 @@ export async function voidTransaction(
         status: true,
         transactionType: true,
         customerPlanWalletId: true,
+        paymentStatus: true,
+        paymentMethod: true,
         amount: true,
         note: true,
       },
@@ -799,39 +800,57 @@ export async function voidTransaction(
     const now = new Date();
 
     await prisma.$transaction(async (tx) => {
-      // ── PACKAGE_PURCHASE：先檢查 walletSession 狀態 ──
-      if (original.transactionType === "PACKAGE_PURCHASE") {
-        if (!original.customerPlanWalletId) {
-          throw new AppError("BUSINESS_RULE", "套餐購買缺少錢包關聯，無法取消");
+      // 只要交易實際綁有 wallet，就必須以 wallet 為單位完整作廢。
+      // 單次贈送方案同樣會建立 1 堂 wallet；過去只處理 PACKAGE_PURCHASE，
+      // 會留下可使用的幽靈堂數。
+      if (original.customerPlanWalletId) {
+        // 已付款方案應走退款流程；這個受控作廢路徑只處理尚未入帳的誤建單。
+        if (
+          original.paymentStatus !== "PENDING" ||
+          (original.paymentMethod !== "TRANSFER" && original.paymentMethod !== "UNPAID")
+        ) {
+          throw new AppError(
+            "BUSINESS_RULE",
+            "綁定方案的交易僅能作廢待確認的轉帳或未付款交易；已付款請使用退款流程。",
+          );
+        }
+        const wallet = await tx.customerPlanWallet.findFirst({
+          where: {
+            id: original.customerPlanWalletId,
+            customerId: original.customerId,
+            storeId: original.storeId,
+            status: "ACTIVE",
+          },
+          select: { id: true, totalSessions: true, remainingSessions: true },
+        });
+        if (!wallet) {
+          throw new AppError("CONFLICT", "課程錢包狀態或所屬顧客已變更，無法取消交易");
+        }
+        if (wallet.remainingSessions !== wallet.totalSessions) {
+          throw new AppError("BUSINESS_RULE", "此方案已有堂數異動，不能直接取消交易");
         }
         const sessions = await tx.walletSession.findMany({
-          where: { walletId: original.customerPlanWalletId },
-          select: { id: true, status: true },
+          where: { walletId: wallet.id },
+          select: { id: true, status: true, bookingId: true },
         });
-        // BACKFILLED 視同 COMPLETED：已實際消耗，不可作廢交易（會掩蓋使用紀錄）
-        const completedCount = sessions.filter(
-          (s) => s.status === "COMPLETED" || s.status === "BACKFILLED",
-        ).length;
-        const reservedCount = sessions.filter((s) => s.status === "RESERVED").length;
-
-        if (completedCount > 0) {
+        if (sessions.length !== wallet.totalSessions) {
           throw new AppError(
-            "BUSINESS_RULE",
-            "此方案已有完成堂數，不能直接取消交易。如需退款，請使用退款流程。",
+            "CONFLICT",
+            "課程錢包堂數明細不完整，無法安全取消交易",
           );
         }
-        if (reservedCount > 0) {
+        if (sessions.some((session) => session.status !== "AVAILABLE" || session.bookingId != null)) {
           throw new AppError(
             "BUSINESS_RULE",
-            "此方案已有預約佔用堂數，請先取消相關預約後，再取消交易。",
+            "此方案已有預約或堂數異動，不能直接取消交易。",
           );
         }
 
-        // 全部 AVAILABLE → 連動作廢
-        await tx.walletSession.updateMany({
+        const voidSessions = await tx.walletSession.updateMany({
           where: {
-            walletId: original.customerPlanWalletId,
+            walletId: wallet.id,
             status: "AVAILABLE",
+            bookingId: null,
           },
           data: {
             status: "VOIDED",
@@ -839,20 +858,33 @@ export async function voidTransaction(
             voidReason: `交易取消：${data.reason}`,
           },
         });
-        await tx.customerPlanWallet.update({
-          where: { id: original.customerPlanWalletId },
+        if (voidSessions.count !== wallet.totalSessions) {
+          throw new AppError("CONFLICT", "課程堂數狀態已變更，請重新整理後再試一次");
+        }
+        const cancelWallet = await tx.customerPlanWallet.updateMany({
+          where: {
+            id: wallet.id,
+            customerId: original.customerId,
+            storeId: original.storeId,
+            status: "ACTIVE",
+            remainingSessions: wallet.totalSessions,
+          },
           data: {
             status: "CANCELLED",
             remainingSessions: 0,
           },
         });
+        if (cancelWallet.count !== 1) {
+          throw new AppError("CONFLICT", "課程錢包狀態已變更，請重新整理後再試一次");
+        }
       }
 
       // ── CAS：交易標記 VOIDED ──
       const result = await tx.transaction.updateMany({
-        where: { id: original.id, status: "SUCCESS" },
+        where: { id: original.id, status: "SUCCESS", paymentStatus: original.paymentStatus },
         data: {
           status: "VOIDED",
+          ...(original.paymentStatus === "PENDING" && { paymentStatus: "CANCELLED" }),
           voidedAt: now,
           voidedByUserId: user.id,
           voidReason: data.reason,
