@@ -29,7 +29,25 @@ export async function runLineRebindDryRun(requestId: string): Promise<LineRebind
   const request = await prisma.lineRebindRequest.findUnique({ where: { id: requestId }, include: { candidate: true, customer: { include: { identityLinks: true } } } });
   if (!request) throw new Error("LINE_REBIND_REQUEST_NOT_FOUND");
   const base = { requestId: request.id, storeId: request.storeId, customerId: request.customerId, requestStatus: request.status, expiresAt: request.expiresAt.toISOString() };
-  const expired = request.expiresAt <= new Date();
+  if (request.expiresAt <= new Date()) {
+    const expired = fail("REQUEST_EXPIRED");
+    return {
+      ...base,
+      candidateHashPrefix: null,
+      candidateMaskedUserId: null,
+      botBasicId: null,
+      checks: {
+        candidateIntegrity: expired,
+        phoneConsistency: expired,
+        oldBindingConsistency: expired,
+        identityLinkConsistency: expired,
+        customerConflict: expired,
+        lineBot: expired,
+        lineProfile: expired,
+      },
+      overall: "EXPIRED",
+    };
+  }
   let candidateIntegrity: Check = fail("CANDIDATE_MISSING"), candidateUserId: string | null = null;
   if (request.candidate && request.status === "CANDIDATE_CAPTURED" && request.candidate.expiresAt.getTime() === request.expiresAt.getTime() && request.candidate.ciphertext.length && request.candidate.iv.length && request.candidate.authTag.length) {
     try { candidateUserId = decryptLineRebindCandidateUserId(request.candidate); candidateIntegrity = sha256(candidateUserId) === request.candidate.userIdHash ? pass() : fail("CANDIDATE_HASH_MISMATCH"); }
@@ -65,6 +83,6 @@ export async function runLineRebindDryRun(requestId: string): Promise<LineRebind
   }
   const checks = { candidateIntegrity, phoneConsistency, oldBindingConsistency, identityLinkConsistency, customerConflict, lineBot, lineProfile };
   const values = Object.values(checks);
-  const overall = expired ? "EXPIRED" : values.some((x) => x.status === "RETRY") ? "RETRY_REQUIRED" : values.some((x) => x.status === "FAIL") ? "NOT_READY" : "READY_FOR_REBIND";
+  const overall = values.some((x) => x.status === "RETRY") ? "RETRY_REQUIRED" : values.some((x) => x.status === "FAIL") ? "NOT_READY" : "READY_FOR_REBIND";
   return { ...base, candidateHashPrefix: request.candidate?.userIdHash.slice(0, 8) ?? null, candidateMaskedUserId: candidateUserId ? maskLineRebindUserId(candidateUserId) : null, botBasicId, checks, overall };
 }

@@ -17,8 +17,19 @@ describe("LINE rebind dry-run security", () => {
   it("returns READY_FOR_REBIND when all checks pass", async () => { const r = await runLineRebindDryRun("r1"); expect(r.overall).toBe("READY_FOR_REBIND"); expect(r.checks.lineProfile).toMatchObject({ status: "PASS" }); expect(r.candidateMaskedUserId).not.toBe(uid); });
   it("rejects a missing request", async () => { h.findUnique.mockResolvedValue(null); await expect(runLineRebindDryRun("none")).rejects.toThrow("LINE_REBIND_REQUEST_NOT_FOUND"); });
   it("fails when candidate is missing", async () => { h.findUnique.mockResolvedValue(request({ candidate: null })); const r = await runLineRebindDryRun("r1"); expect(r.overall).toBe("NOT_READY"); expect(r.checks.candidateIntegrity.code).toBe("CANDIDATE_MISSING"); });
-  it("returns EXPIRED before other failures", async () => { h.findUnique.mockResolvedValue(request({ expiresAt: new Date(Date.now() - 1) })); const r = await runLineRebindDryRun("r1"); expect(r.overall).toBe("EXPIRED"); });
-  it("prioritizes EXPIRED over retry and validation failures", async () => { const r0 = request({ expiresAt: new Date(Date.now() - 1), oldUserIdHash: hash("wrong") }); h.findUnique.mockResolvedValue(r0); vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new DOMException("aborted", "AbortError"))); const r = await runLineRebindDryRun("r1"); expect(r.overall).toBe("EXPIRED"); });
+  it("short-circuits expired requests before decrypting, querying, or calling LINE", async () => {
+    const r0 = request({ expiresAt: new Date(Date.now() - 1), oldUserIdHash: hash("wrong") });
+    h.findUnique.mockResolvedValue({ ...r0, candidate: { ...r0.candidate, authTag: Buffer.alloc(16, 1) } });
+    const r = await runLineRebindDryRun("r1");
+    expect(r.overall).toBe("EXPIRED");
+    expect(r.candidateMaskedUserId).toBeNull();
+    expect(r.candidateHashPrefix).toBeNull();
+    expect(r.checks.candidateIntegrity.code).toBe("REQUEST_EXPIRED");
+    expect(h.customers).not.toHaveBeenCalled();
+    expect(h.links).not.toHaveBeenCalled();
+    expect(h.accounts).not.toHaveBeenCalled();
+    expect(fetch).not.toHaveBeenCalled();
+  });
   it("fails closed for an oldUserIdHash mismatch", async () => { h.findUnique.mockResolvedValue(request({ oldUserIdHash: hash("other") })); const r = await runLineRebindDryRun("r1"); expect(r.overall).toBe("NOT_READY"); expect(r.checks.oldBindingConsistency.code).toBe("OLD_BINDING_INCONSISTENT"); });
   it("fails closed when expectedBasicId is absent", async () => { h.config.mockReturnValue({ accessToken: "test", expectedBasicId: null }); const r = await runLineRebindDryRun("r1"); expect(r.overall).toBe("NOT_READY"); expect(r.checks.lineBot.code).toBe("LINE_BOT_EXPECTED_ID_MISSING"); });
   it("fails when Bot Info basicId mismatches", async () => { vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ basicId: "@wrong" }), { status: 200 }))); const r = await runLineRebindDryRun("r1"); expect(r.overall).toBe("NOT_READY"); expect(r.checks.lineBot.code).toBe("LINE_BOT_MISMATCH"); });
