@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { generateLineBindingCode, unlinkLineAccount } from "@/server/actions/reminder";
-import { createLineRebindCaptureRequest, cancelLineRebindCaptureRequest, dryRunLineRebind } from "@/server/actions/line-rebind";
+import { createLineRebindCaptureRequest, cancelLineRebindCaptureRequest, cleanupPr2PreviewSmokeFixture, createPr2PreviewSmokeFixture, dryRunLineRebind } from "@/server/actions/line-rebind";
 
 const LINE_OA_URL = process.env.NEXT_PUBLIC_LINE_OA_ADD_FRIEND_URL ?? "";
 
@@ -15,6 +15,7 @@ interface LineBindingSectionProps {
   lineBindingCode: string | null;
   lineBindingCodeCreatedAt: string | null; // ISO string
   canManageLineRebind: boolean;
+  showPreviewSmokeFixture: boolean;
   activeLineRebindRequest: {
     id: string; status: string; capturedAt: string | null; expiresAt: string; userIdHashPrefix: string | null;
   } | null;
@@ -28,6 +29,7 @@ export function LineBindingSection({
   lineBindingCode: initialCode,
   lineBindingCodeCreatedAt: initialCodeCreatedAt,
   canManageLineRebind,
+  showPreviewSmokeFixture,
   activeLineRebindRequest,
 }: LineBindingSectionProps) {
   const router = useRouter();
@@ -39,6 +41,7 @@ export function LineBindingSection({
   const [copied, setCopied] = useState(false);
   const [expiryText, setExpiryText] = useState("");
   const [dryRun, setDryRun] = useState<{ overall: string; candidateHashPrefix: string | null; candidateMaskedUserId: string | null; checks: Record<string, { status: string; code: string }> } | null>(null);
+  const [smokeFixture, setSmokeFixture] = useState<{ customerId: string; requestId: string; expiresAt: string } | null>(null);
 
   // ── 計算綁定碼剩餘有效時間 ──
   const updateExpiry = useCallback(() => {
@@ -176,6 +179,22 @@ export function LineBindingSection({
     setPending(false);
   }
 
+  async function handleCreateSmokeFixture() {
+    setPending(true);
+    const result = await createPr2PreviewSmokeFixture();
+    if (result.success) setSmokeFixture(result.data);
+    else setMessage({ text: result.error, type: "error" });
+    setPending(false);
+  }
+
+  async function handleCleanupSmokeFixture() {
+    setPending(true);
+    const result = await cleanupPr2PreviewSmokeFixture();
+    if (result.success) setSmokeFixture(null);
+    else setMessage({ text: result.error, type: "error" });
+    setPending(false);
+  }
+
   // ── 複製綁定指令 ──
   async function handleCopy() {
     if (!bindingCode) return;
@@ -224,6 +243,15 @@ export function LineBindingSection({
             <p className="mt-1">建立後，顧客下一次輸入正確電話才會捕捉候選身份；不會直接變更綁定。</p>
             <button onClick={handleCreateRebindRequest} disabled={pending} className="mt-2 text-amber-800 underline disabled:opacity-50">建立 15 分鐘捕捉申請</button>
           </>}
+        </div>
+      )}
+
+      {showPreviewSmokeFixture && (
+        <div className="mb-3 rounded-lg border border-violet-300 bg-violet-50 p-3 text-xs text-violet-900">
+          <p className="font-medium">PR-2 Preview Smoke Fixture（暫時入口）</p>
+          <button onClick={handleCreateSmokeFixture} disabled={pending} className="mt-2 mr-3 underline disabled:opacity-50">建立 PR2 Smoke Fixture</button>
+          <button onClick={handleCleanupSmokeFixture} disabled={pending} className="mt-2 underline disabled:opacity-50">清除 PR2 Smoke Fixture</button>
+          {smokeFixture && <p className="mt-2">customerId：{smokeFixture.customerId}；requestId：{smokeFixture.requestId}</p>}
         </div>
       )}
 

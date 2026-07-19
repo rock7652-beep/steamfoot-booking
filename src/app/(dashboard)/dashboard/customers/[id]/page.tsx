@@ -723,6 +723,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
                     customer.lineBindingCodeCreatedAt?.toISOString() ?? null
                   }
                   canManageLineRebind={canManageLineRebind && !isViewMode}
+                  showPreviewSmokeFixture={process.env.VERCEL_ENV === "preview" && user.role === "OWNER" && !isViewMode}
                   activeLineRebindRequest={activeLineRebindRequest ? {
                     id: activeLineRebindRequest.id,
                     status: activeLineRebindRequest.status,
