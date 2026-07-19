@@ -33,21 +33,21 @@ function assertCleanable(value: NonNullable<Awaited<ReturnType<typeof graph>>>) 
   if (!value.userId || value.identityLinks.length !== 1 || value.identityLinks[0]?.provider !== "line" || value.identityLinks[0]?.providerAccountId !== OLD_LINE_ID || value.lineRebindRequests.length !== 1 || request?.reason !== `${PR2_SMOKE_MARKER} browser smoke fixture` || request.candidate?.webhookEventKey !== EVENT_KEY || value._count.bookings || value._count.transactions || value._count.planWallets || value._count.messageLogs) throw new Error("PR2_SMOKE_FIXTURE_INCONSISTENT");
 }
 
-export async function createPr2SmokeFixture(): Promise<Fixture> {
+export async function createPr2SmokeFixture(createdByUserId: string): Promise<Fixture> {
   await assertStore();
   if (await graph()) throw new Error("PR2_SMOKE_FIXTURE_ALREADY_EXISTS");
   const created = await prisma.$transaction(async (tx) => {
     const user = await tx.user.create({ data: { name: NAME, email: EMAIL, role: "CUSTOMER" }, select: { id: true } });
     const customer = await tx.customer.create({ data: { userId: user.id, storeId: STORE_ID, name: NAME, phone: PHONE, email: EMAIL, authSource: "LINE", lineName: NAME, lineUserId: OLD_LINE_ID, lineLinkedAt: new Date(), lineLinkStatus: "LINKED", notes: PR2_SMOKE_MARKER }, select: { id: true } });
     await tx.customerIdentityLink.create({ data: { userId: user.id, storeId: STORE_ID, customerId: customer.id, provider: "line", providerAccountId: OLD_LINE_ID, lineUserId: OLD_LINE_ID } });
-    return { customer, user };
+    return customer;
   });
   try {
-    const request = await createLineRebindRequest({ storeId: STORE_ID, customerId: created.customer.id, createdByUserId: created.user.id, reason: `${PR2_SMOKE_MARKER} browser smoke fixture`, normalizedPhone: PHONE, oldLineUserId: OLD_LINE_ID });
+    const request = await createLineRebindRequest({ storeId: STORE_ID, customerId: created.id, createdByUserId, reason: `${PR2_SMOKE_MARKER} browser smoke fixture`, normalizedPhone: PHONE, oldLineUserId: OLD_LINE_ID });
     if (request.status !== "created") throw new Error("PR2_SMOKE_REQUEST_NOT_CREATED");
-    const capture = await captureLineRebindCandidate({ storeId: STORE_ID, customerId: created.customer.id, normalizedPhone: PHONE, lineUserId: CANDIDATE_LINE_ID, webhookEventKey: EVENT_KEY });
+    const capture = await captureLineRebindCandidate({ storeId: STORE_ID, customerId: created.id, normalizedPhone: PHONE, lineUserId: CANDIDATE_LINE_ID, webhookEventKey: EVENT_KEY });
     if (capture.status !== "captured") throw new Error("PR2_SMOKE_CAPTURE_FAILED");
-    return { customerId: created.customer.id, requestId: request.requestId, expiresAt: request.expiresAt.toISOString() };
+    return { customerId: created.id, requestId: request.requestId, expiresAt: request.expiresAt.toISOString() };
   } catch (error) { await cleanupPr2SmokeFixture(); throw error; }
 }
 
