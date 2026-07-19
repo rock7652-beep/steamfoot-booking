@@ -26,6 +26,13 @@ describe("PR-2 Preview smoke runtime guard", () => {
     expect(assertPr2PreviewSmokeRuntime).not.toThrow();
   });
 
+  it("accepts the expected ref in a Supabase pooler username", () => {
+    process.env.VERCEL_ENV = "preview";
+    process.env.DATABASE_URL = "postgresql://postgres.ttworfzgwejdeolegkxl:password@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres";
+    process.env.DIRECT_URL = "postgresql://db.ttworfzgwejdeolegkxl.supabase.co/postgres";
+    expect(pr2PreviewSmokeGuardReason()).toBeNull();
+  });
+
   it.each(["production", "development", undefined])("rejects non-Preview environment %s", (environment) => {
     staging();
     if (environment === undefined) delete process.env.VERCEL_ENV;
