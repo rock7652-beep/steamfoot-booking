@@ -57,9 +57,9 @@ describe("PR-2 preview smoke fixture service", () => {
 
   it("creates only a new marked fixture and delegates capture without external LINE calls", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
-    await expect(createPr2SmokeFixture("owner-a")).resolves.toEqual({ customerId: "customer-fixture", requestId: "request-fixture", expiresAt: "2099-01-01T00:00:00.000Z" });
+    await expect(createPr2SmokeFixture()).resolves.toEqual({ customerId: "customer-fixture", requestId: "request-fixture", expiresAt: "2099-01-01T00:00:00.000Z" });
     expect(h.customerCreate).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ notes: PR2_SMOKE_MARKER, lineLinkStatus: "LINKED" }) }));
-    expect(h.createRequest).toHaveBeenCalledWith(expect.objectContaining({ customerId: "customer-fixture", createdByUserId: "owner-a" }));
+    expect(h.createRequest).toHaveBeenCalledWith(expect.objectContaining({ customerId: "customer-fixture", createdByUserId: "user-fixture" }));
     expect(h.captureCandidate).toHaveBeenCalledOnce();
     expect(fetchSpy).not.toHaveBeenCalled();
     fetchSpy.mockRestore();

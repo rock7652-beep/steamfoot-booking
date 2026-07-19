@@ -156,7 +156,7 @@ describe("LINE rebind dry-run action security", () => {
     const result = await createPr2PreviewSmokeFixture();
     expect(result.success).toBe(true);
     expect(h.access).toHaveBeenCalledWith({ id: "actor-a", role: "OWNER" }, "staging-store");
-    expect(h.fixtureCreate).toHaveBeenCalledWith("actor-a");
+    expect(h.fixtureCreate).toHaveBeenCalledWith();
   });
 
   it("uses the same guarded OWNER path for cleanup", async () => {
