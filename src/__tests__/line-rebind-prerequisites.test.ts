@@ -8,6 +8,7 @@ describe("LINE rebind prerequisites", () => {
   });
   it("fails closed for stores without an explicitly configured Basic ID", () => {
     expect(getLineConfigForStore("store-zhubei").expectedBasicId).toBeNull();
+    expect(getLineConfigForStore("store-taichung").expectedBasicId).toBeNull();
   });
   it("uses only a SHA-256 fingerprint for the old user ID", () => {
     const raw = "Uold-line-user-id";
