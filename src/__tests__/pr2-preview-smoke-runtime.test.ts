@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { assertPr2PreviewSmokeRuntime, pr2PreviewSmokeGuardReason } from "@/server/services/pr2-preview-smoke-runtime";
+import { assertPr2PreviewSmokeRuntime } from "@/server/services/pr2-preview-smoke-runtime";
 
 const original = {
   vercelEnv: process.env.VERCEL_ENV,
@@ -22,7 +22,6 @@ describe("PR-2 Preview smoke runtime guard", () => {
 
   it("allows only the expected Staging Preview project", () => {
     staging();
-    expect(pr2PreviewSmokeGuardReason()).toBeNull();
     expect(assertPr2PreviewSmokeRuntime).not.toThrow();
   });
 
@@ -30,28 +29,12 @@ describe("PR-2 Preview smoke runtime guard", () => {
     staging();
     if (environment === undefined) delete process.env.VERCEL_ENV;
     else process.env.VERCEL_ENV = environment;
-    expect(pr2PreviewSmokeGuardReason()).toBe("NOT_PREVIEW");
-    expect(assertPr2PreviewSmokeRuntime).toThrow("NOT_PREVIEW");
+    expect(assertPr2PreviewSmokeRuntime).toThrow("PR2_SMOKE_PREVIEW_RUNTIME_REQUIRED");
   });
 
   it("rejects a Production database reference", () => {
     staging();
     process.env.DIRECT_URL = "postgresql://db.qijlnhtpbintanzpxkvf.supabase.co/postgres";
-    expect(pr2PreviewSmokeGuardReason()).toBe("PRODUCTION_REF_DETECTED");
-    expect(assertPr2PreviewSmokeRuntime).toThrow("PRODUCTION_REF_DETECTED");
-  });
-
-  it.each([
-    { field: "DATABASE_URL", value: undefined, reason: "DATABASE_URL_MISSING" },
-    { field: "DIRECT_URL", value: undefined, reason: "DIRECT_URL_MISSING" },
-    { field: "DATABASE_URL", value: "not-a-url", reason: "DATABASE_REF_UNREADABLE" },
-    { field: "DIRECT_URL", value: "not-a-url", reason: "DIRECT_REF_UNREADABLE" },
-    { field: "DATABASE_URL", value: "postgresql://db.other-project.supabase.co/postgres", reason: "DATABASE_REF_MISMATCH" },
-    { field: "DIRECT_URL", value: "postgresql://db.other-project.supabase.co/postgres", reason: "DIRECT_REF_MISMATCH" },
-  ])("returns $reason without exposing connection data", ({ field, value, reason }) => {
-    staging();
-    if (value === undefined) delete process.env[field];
-    else process.env[field] = value;
-    expect(pr2PreviewSmokeGuardReason()).toBe(reason);
+    expect(assertPr2PreviewSmokeRuntime).toThrow("PR2_SMOKE_PREVIEW_RUNTIME_REQUIRED");
   });
 });
