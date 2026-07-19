@@ -2,6 +2,7 @@ import "server-only";
 
 import { prisma } from "@/lib/db";
 import { captureLineRebindCandidate, createLineRebindRequest } from "@/server/services/line-rebind";
+import { runLineRebindDryRun } from "@/server/services/line-rebind-dry-run";
 
 export const PR2_SMOKE_MARKER = "[PR2_DRY_RUN_SMOKE:steamfoot-preview:v1]";
 const STORE_ID = "staging-store";
@@ -108,4 +109,12 @@ export async function cleanupPr2SmokeFixture() {
     await tx.user.delete({ where: { id: value.userId! } });
   });
   return { removed: true };
+}
+
+/** Temporary fixed-marker, read-only PR-2 smoke verification. */
+export async function dryRunPr2SmokeFixture() {
+  const value = await graph();
+  if (!value) throw new Error("PR2_SMOKE_FIXTURE_ABSENT");
+  assertCleanable(value);
+  return runLineRebindDryRun(value.lineRebindRequests[0]!.id);
 }

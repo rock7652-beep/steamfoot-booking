@@ -8,7 +8,7 @@ const h = vi.hoisted(() => ({
   createRequest: vi.fn(), captureCandidate: vi.fn(),
 }));
 
-vi.mock("server-only", () => ({}), { virtual: true });
+vi.mock("server-only", () => ({}));
 vi.mock("@/lib/db", () => ({
   prisma: {
     store: { findUnique: h.storeFindUnique },
