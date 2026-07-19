@@ -21,7 +21,7 @@ vi.mock("@/server/services/line-rebind", () => ({
   captureLineRebindCandidate: h.captureCandidate,
 }));
 
-import { PR2_SMOKE_MARKER, cleanupPr2SmokeFixture, createPr2SmokeFixture } from "@/server/services/line-rebind-smoke-fixture";
+import { PR2_SMOKE_MARKER, cleanupPr2SmokeFixture, createPr2SmokeFixture, recoverPr2SmokeOrphan } from "@/server/services/line-rebind-smoke-fixture";
 
 function tx() {
   return {
@@ -37,8 +37,9 @@ function tx() {
 function validGraph() {
   return {
     id: "customer-fixture", userId: "user-fixture",
-    identityLinks: [{ id: "link-fixture", provider: "line", providerAccountId: "Upr2smokeold000000000000000000001" }],
-    lineRebindRequests: [{ id: "request-fixture", reason: `${PR2_SMOKE_MARKER} browser smoke fixture`, candidate: { id: "candidate-fixture", webhookEventKey: "pr2-smoke-fixture-v1-candidate" } }],
+    user: { id: "user-fixture", name: "PR2 Dry Run Smoke", email: "pr2-dry-run-smoke@invalid.example" },
+    identityLinks: [{ id: "link-fixture", userId: "user-fixture", storeId: "staging-store", customerId: "customer-fixture", provider: "line", providerAccountId: "Upr2smokeold000000000000000000001" }],
+    lineRebindRequests: [{ id: "request-fixture", storeId: "staging-store", customerId: "customer-fixture", createdByUserId: "user-fixture", reason: `${PR2_SMOKE_MARKER} browser smoke fixture`, candidate: { id: "candidate-fixture", webhookEventKey: "pr2-smoke-fixture-v1-candidate" } }],
     _count: { bookings: 0, transactions: 0, planWallets: 0, messageLogs: 0 },
   };
 }
@@ -78,5 +79,26 @@ describe("PR-2 preview smoke fixture service", () => {
     h.customerFindMany.mockResolvedValue([validGraph(), validGraph()]);
     await expect(cleanupPr2SmokeFixture()).rejects.toThrow("PR2_SMOKE_FIXTURE_MULTIPLE");
     expect(h.transaction).not.toHaveBeenCalled();
+  });
+
+  it("recovers only the exact orphan request graph", async () => {
+    const orphan = validGraph();
+    orphan.lineRebindRequests[0]!.candidate = null as never;
+    h.customerFindMany.mockResolvedValue([orphan]);
+    await expect(recoverPr2SmokeOrphan()).resolves.toEqual({ removed: true });
+    expect(h.requestDelete).toHaveBeenCalledBefore(h.linkDelete);
+    expect(h.linkDelete).toHaveBeenCalledBefore(h.customerDelete);
+  });
+
+  it.each([
+    (value: ReturnType<typeof validGraph>) => { value.lineRebindRequests[0]!.candidate = { id: "candidate", webhookEventKey: "x" }; },
+    (value: ReturnType<typeof validGraph>) => { value.identityLinks.push({ ...value.identityLinks[0]!, id: "another" }); },
+    (value: ReturnType<typeof validGraph>) => { value.lineRebindRequests[0]!.customerId = "other-customer"; },
+  ])("refuses recovery for any non-exact orphan graph", async (mutate) => {
+    const value = validGraph();
+    mutate(value);
+    h.customerFindMany.mockResolvedValue([value]);
+    await expect(recoverPr2SmokeOrphan()).rejects.toThrow("PR2_SMOKE_ORPHAN_RECOVERY_REFUSED");
+    expect(h.requestDelete).not.toHaveBeenCalled();
   });
 });

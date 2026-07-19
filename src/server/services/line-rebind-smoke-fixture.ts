@@ -22,10 +22,53 @@ async function assertStore() {
 async function graph() {
   const rows = await prisma.customer.findMany({
     where: { storeId: STORE_ID, name: NAME, email: EMAIL, notes: PR2_SMOKE_MARKER },
-    select: { id: true, userId: true, identityLinks: { select: { id: true, provider: true, providerAccountId: true } }, lineRebindRequests: { select: { id: true, reason: true, candidate: { select: { id: true, webhookEventKey: true } } } }, _count: { select: { bookings: true, transactions: true, planWallets: true, messageLogs: true } } },
+    select: { id: true, userId: true, user: { select: { id: true, name: true, email: true } }, identityLinks: { select: { id: true, userId: true, storeId: true, customerId: true, provider: true, providerAccountId: true } }, lineRebindRequests: { select: { id: true, storeId: true, customerId: true, createdByUserId: true, reason: true, candidate: { select: { id: true, webhookEventKey: true } } } }, _count: { select: { bookings: true, transactions: true, planWallets: true, messageLogs: true } } },
   });
   if (rows.length > 1) throw new Error("PR2_SMOKE_FIXTURE_MULTIPLE");
   return rows[0] ?? null;
+}
+
+function orphanRecoveryState(value: NonNullable<Awaited<ReturnType<typeof graph>>>) {
+  const link = value.identityLinks[0];
+  const request = value.lineRebindRequests[0];
+  const counts = {
+    user: value.user?.id === value.userId && value.user.name === NAME && value.user.email === EMAIL ? 1 : 0,
+    customer: 1,
+    identityLink: value.identityLinks.length,
+    request: value.lineRebindRequests.length,
+    candidate: request?.candidate ? 1 : 0,
+  };
+  const consistent = Boolean(
+    counts.user === 1 && counts.identityLink === 1 && counts.request === 1 && counts.candidate === 0
+    && link?.userId === value.userId && link.storeId === STORE_ID && link.customerId === value.id
+    && link.provider === "line" && link.providerAccountId === OLD_LINE_ID
+    && request?.storeId === STORE_ID && request.customerId === value.id && request.createdByUserId === value.userId
+    && request.reason === `${PR2_SMOKE_MARKER} browser smoke fixture`,
+  );
+  return { counts, consistent, customerId: value.id, userId: value.userId, linkId: link?.id, requestId: request?.id };
+}
+
+export async function diagnosePr2SmokeFixture() {
+  const value = await graph();
+  if (!value) return { counts: { user: 0, customer: 0, identityLink: 0, request: 0, candidate: 0 }, consistent: true, ids: {} };
+  const state = orphanRecoveryState(value);
+  return { counts: state.counts, consistent: state.consistent, ids: { customerId: state.customerId, requestId: state.requestId } };
+}
+
+/** One-time recovery for only the confirmed 1 request / 0 candidate orphan graph. */
+export async function recoverPr2SmokeOrphan() {
+  const value = await graph();
+  if (!value) return { removed: false };
+  const state = orphanRecoveryState(value);
+  if (!state.consistent) throw new Error("PR2_SMOKE_ORPHAN_RECOVERY_REFUSED");
+  await prisma.$transaction(async (tx) => {
+    await tx.auditLog.deleteMany({ where: { targetType: "LineRebindRequest", targetId: state.requestId!, actorUserId: state.userId! } });
+    await tx.lineRebindRequest.delete({ where: { id: state.requestId! } });
+    await tx.customerIdentityLink.delete({ where: { id: state.linkId! } });
+    await tx.customer.delete({ where: { id: state.customerId } });
+    await tx.user.delete({ where: { id: state.userId! } });
+  });
+  return { removed: true };
 }
 
 function assertCleanable(value: NonNullable<Awaited<ReturnType<typeof graph>>>) {
