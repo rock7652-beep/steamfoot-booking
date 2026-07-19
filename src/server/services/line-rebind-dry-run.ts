@@ -47,7 +47,10 @@ export async function runLineRebindDryRun(requestId: string): Promise<LineRebind
       prisma.account.findMany({ where: { provider: "line", providerAccountId: candidateUserId }, select: { userId: true } }),
     ]);
     const knownUsers = new Set([request.customer.userId, ...request.customer.identityLinks.map((x) => x.userId)].filter(Boolean));
-    const foreign = [...customers.map((x) => x.userId), ...links.map((x) => x.userId), ...accounts.map((x) => x.userId)].some((id) => id && !knownUsers.has(id));
+    const foreignCustomer = customers.some((customer) => customer.id !== request.customerId);
+    const foreignIdentityLink = links.some((link) => link.customerId !== request.customerId || (Boolean(link.userId) && !knownUsers.has(link.userId)));
+    const foreignAccount = accounts.some((account) => Boolean(account.userId) && !knownUsers.has(account.userId));
+    const foreign = foreignCustomer || foreignIdentityLink || foreignAccount;
     customerConflict = foreign ? fail("CANDIDATE_USED_BY_OTHER_CUSTOMER") : pass("NO_CONFLICT");
     const { accessToken: token, expectedBasicId } = getLineConfigForStore(request.storeId);
     if (!expectedBasicId) lineBot = fail("LINE_BOT_EXPECTED_ID_MISSING");
