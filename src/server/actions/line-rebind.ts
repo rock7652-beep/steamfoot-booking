@@ -7,7 +7,7 @@ import { assertStoreAccess } from "@/lib/manager-visibility";
 import { normalizePhone } from "@/lib/normalize";
 import { AppError, handleActionError } from "@/lib/errors";
 import { cancelLineRebindRequest, createLineRebindRequest } from "@/server/services/line-rebind";
-import { runLineRebindDryRun, type LineRebindDryRunResult } from "@/server/services/line-rebind-dry-run";
+import type { LineRebindDryRunResult } from "@/server/services/line-rebind-dry-run";
 import type { ActionResult } from "@/types";
 
 const createSchema = z.object({
@@ -72,6 +72,7 @@ export async function dryRunLineRebind(requestId: string): Promise<ActionResult<
     const request = await prisma.lineRebindRequest.findUnique({ where: { id: requestId }, select: { storeId: true } });
     if (!request) throw new AppError("NOT_FOUND", "重新綁定申請不存在");
     assertStoreAccess(actor, request.storeId);
+    const { runLineRebindDryRun } = await import("@/server/services/line-rebind-dry-run");
     return { success: true, data: await runLineRebindDryRun(requestId) };
   } catch (error) {
     return handleActionError(error);
