@@ -42,8 +42,8 @@ export async function runLineRebindDryRun(requestId: string): Promise<LineRebind
   let customerConflict: Check = pass("NO_CONFLICT"), lineBot: Check = fail("LINE_TOKEN_NOT_CONFIGURED"), lineProfile: Check = fail("LINE_PROFILE_NOT_CHECKED"), botBasicId: string | null = null;
   if (candidateUserId && candidateIntegrity.status === "PASS") {
     const [customers, links, accounts] = await Promise.all([
-      prisma.customer.findMany({ where: { lineUserId: candidateUserId }, select: { id: true, userId: true } }),
-      prisma.customerIdentityLink.findMany({ where: { OR: [{ lineUserId: candidateUserId }, { provider: "line", providerAccountId: candidateUserId }] }, select: { customerId: true, userId: true } }),
+      prisma.customer.findMany({ where: { storeId: request.storeId, lineUserId: candidateUserId }, select: { id: true, userId: true } }),
+      prisma.customerIdentityLink.findMany({ where: { storeId: request.storeId, OR: [{ lineUserId: candidateUserId }, { provider: "line", providerAccountId: candidateUserId }] }, select: { customerId: true, userId: true } }),
       prisma.account.findMany({ where: { provider: "line", providerAccountId: candidateUserId }, select: { userId: true } }),
     ]);
     const knownUsers = new Set([request.customer.userId, ...request.customer.identityLinks.map((x) => x.userId)].filter(Boolean));
