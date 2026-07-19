@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { generateLineBindingCode, unlinkLineAccount } from "@/server/actions/reminder";
-import { createLineRebindCaptureRequest, cancelLineRebindCaptureRequest } from "@/server/actions/line-rebind";
+import { createLineRebindCaptureRequest, cancelLineRebindCaptureRequest, dryRunLineRebind } from "@/server/actions/line-rebind";
 
 const LINE_OA_URL = process.env.NEXT_PUBLIC_LINE_OA_ADD_FRIEND_URL ?? "";
 
@@ -38,6 +38,7 @@ export function LineBindingSection({
   const [status, setStatus] = useState(lineLinkStatus);
   const [copied, setCopied] = useState(false);
   const [expiryText, setExpiryText] = useState("");
+  const [dryRun, setDryRun] = useState<{ overall: string; candidateHashPrefix: string | null; candidateMaskedUserId: string | null; checks: Record<string, { status: string; code: string }> } | null>(null);
 
   // ── 計算綁定碼剩餘有效時間 ──
   const updateExpiry = useCallback(() => {
@@ -165,6 +166,16 @@ export function LineBindingSection({
     router.refresh();
   }
 
+  async function handleDryRun() {
+    if (!activeLineRebindRequest) return;
+    setPending(true);
+    setDryRun(null);
+    const result = await dryRunLineRebind(activeLineRebindRequest.id);
+    if (result.success) setDryRun(result.data);
+    else setMessage({ text: result.error, type: "error" });
+    setPending(false);
+  }
+
   // ── 複製綁定指令 ──
   async function handleCopy() {
     if (!bindingCode) return;
@@ -206,7 +217,9 @@ export function LineBindingSection({
           {activeLineRebindRequest ? <>
             <p className="mt-1">狀態：{activeLineRebindRequest.status}；到期：{new Date(activeLineRebindRequest.expiresAt).toLocaleString("zh-TW")}</p>
             {activeLineRebindRequest.capturedAt && <p className="mt-1">已捕捉；userId hash：{activeLineRebindRequest.userIdHashPrefix ?? "—"}</p>}
+            {activeLineRebindRequest.status === "CANDIDATE_CAPTURED" && <button onClick={handleDryRun} disabled={pending} className="mt-2 mr-3 text-amber-800 underline disabled:opacity-50">執行安全檢查</button>}
             <button onClick={handleCancelRebindRequest} disabled={pending} className="mt-2 text-amber-800 underline disabled:opacity-50">取消申請並刪除候選密文</button>
+            {dryRun && <div className="mt-2 space-y-1"><p>整體：{dryRun.overall}</p><p>候選：{dryRun.candidateMaskedUserId ?? "—"}（hash：{dryRun.candidateHashPrefix ?? "—"}）</p>{Object.entries(dryRun.checks).map(([name, check]) => <p key={name}>{name}：{check.status}（{check.code}）</p>)}</div>}
           </> : <>
             <p className="mt-1">建立後，顧客下一次輸入正確電話才會捕捉候選身份；不會直接變更綁定。</p>
             <button onClick={handleCreateRebindRequest} disabled={pending} className="mt-2 text-amber-800 underline disabled:opacity-50">建立 15 分鐘捕捉申請</button>

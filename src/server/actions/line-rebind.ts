@@ -7,6 +7,7 @@ import { assertStoreAccess } from "@/lib/manager-visibility";
 import { normalizePhone } from "@/lib/normalize";
 import { AppError, handleActionError } from "@/lib/errors";
 import { cancelLineRebindRequest, createLineRebindRequest } from "@/server/services/line-rebind";
+import { runLineRebindDryRun, type LineRebindDryRunResult } from "@/server/services/line-rebind-dry-run";
 import type { ActionResult } from "@/types";
 
 const createSchema = z.object({
@@ -58,6 +59,20 @@ export async function cancelLineRebindCaptureRequest(requestId: string): Promise
     const cancelled = await cancelLineRebindRequest({ requestId, storeId: request.storeId, cancelledByUserId: actor.id });
     if (!cancelled) throw new AppError("VALIDATION", "此申請已不可取消");
     return { success: true, data: undefined };
+  } catch (error) {
+    return handleActionError(error);
+  }
+}
+
+/** PR-2: strictly read-only verification; PR-3 owns every binding write. */
+export async function dryRunLineRebind(requestId: string): Promise<ActionResult<LineRebindDryRunResult>> {
+  try {
+    const actor = await requirePermission("customer.identity.rebind");
+    requireRebindAdministrator(actor);
+    const request = await prisma.lineRebindRequest.findUnique({ where: { id: requestId }, select: { storeId: true } });
+    if (!request) throw new AppError("NOT_FOUND", "重新綁定申請不存在");
+    assertStoreAccess(actor, request.storeId);
+    return { success: true, data: await runLineRebindDryRun(requestId) };
   } catch (error) {
     return handleActionError(error);
   }
