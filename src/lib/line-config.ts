@@ -1,7 +1,7 @@
 export const LINE_TOKEN_NOT_CONFIGURED_ERROR = "LINE token not configured for store";
 export const LINE_SECRET_NOT_CONFIGURED_ERROR = "LINE secret not configured for store";
 
-type LineStoreSlug = "zhubei" | "hsinchu" | "taichung" | "staging";
+type LineStoreSlug = "zhubei" | "hsinchu" | "taichung";
 
 const STORE_ID_TO_LINE_SLUG: Record<string, LineStoreSlug> = {
   zhubei: "zhubei",
@@ -11,13 +11,11 @@ const STORE_ID_TO_LINE_SLUG: Record<string, LineStoreSlug> = {
   "store-hsinchu": "hsinchu",
   taichung: "taichung",
   "store-taichung": "taichung",
-  staging: "staging",
-  "staging-store": "staging",
 };
 
 const LINE_ENV_BY_STORE: Record<
   LineStoreSlug,
-  { accessToken: string; channelSecret: string; expectedBasicId: string | null; expectedBasicIdEnv?: string } | null
+  { accessToken: string; channelSecret: string; expectedBasicId: string | null } | null
 > = {
   zhubei: {
     accessToken: "LINE_CHANNEL_ACCESS_TOKEN",
@@ -34,22 +32,12 @@ const LINE_ENV_BY_STORE: Record<
     channelSecret: "LINE_TAICHUNG_CHANNEL_SECRET",
     expectedBasicId: null,
   },
-  staging: {
-    accessToken: "LINE_STAGING_CHANNEL_ACCESS_TOKEN",
-    channelSecret: "LINE_STAGING_CHANNEL_SECRET",
-    expectedBasicId: null,
-    expectedBasicIdEnv: "LINE_STAGING_EXPECTED_BASIC_ID",
-  },
 };
 
 function nonEmptyEnv(name: string): string | null {
   const value = process.env[name]?.trim();
   return value ? value : null;
 }
-
-function isPreviewRuntime() { return process.env.VERCEL_ENV === "preview"; }
-
-function isUnavailableOutsidePreview(slug: LineStoreSlug) { return slug === "staging" && !isPreviewRuntime(); }
 
 export function resolveLineStoreSlug(storeIdOrSlug: string): LineStoreSlug | null {
   return STORE_ID_TO_LINE_SLUG[storeIdOrSlug] ?? null;
@@ -58,7 +46,6 @@ export function resolveLineStoreSlug(storeIdOrSlug: string): LineStoreSlug | nul
 export function getLineAccessTokenForStore(storeIdOrSlug: string): string | null {
   const slug = resolveLineStoreSlug(storeIdOrSlug);
   if (!slug) return null;
-  if (isUnavailableOutsidePreview(slug)) return null;
   const envNames = LINE_ENV_BY_STORE[slug];
   if (!envNames) return null;
   return nonEmptyEnv(envNames.accessToken);
@@ -67,7 +54,6 @@ export function getLineAccessTokenForStore(storeIdOrSlug: string): string | null
 export function getLineSecretForStore(storeIdOrSlug: string): string | null {
   const slug = resolveLineStoreSlug(storeIdOrSlug);
   if (!slug) return null;
-  if (isUnavailableOutsidePreview(slug)) return null;
   const envNames = LINE_ENV_BY_STORE[slug];
   if (!envNames) return null;
   return nonEmptyEnv(envNames.channelSecret);
@@ -83,9 +69,6 @@ export function getLineConfigForStore(storeIdOrSlug: string): {
   if (!storeSlug) {
     return { accessToken: null, channelSecret: null, storeSlug: null, expectedBasicId: null };
   }
-  if (isUnavailableOutsidePreview(storeSlug)) {
-    return { accessToken: null, channelSecret: null, storeSlug, expectedBasicId: null };
-  }
 
   const envNames = LINE_ENV_BY_STORE[storeSlug];
   if (!envNames) {
@@ -96,7 +79,7 @@ export function getLineConfigForStore(storeIdOrSlug: string): {
     storeSlug,
     accessToken: nonEmptyEnv(envNames.accessToken),
     channelSecret: nonEmptyEnv(envNames.channelSecret),
-    expectedBasicId: envNames.expectedBasicId ?? (envNames.expectedBasicIdEnv ? nonEmptyEnv(envNames.expectedBasicIdEnv) : null),
+    expectedBasicId: envNames.expectedBasicId,
   };
 }
 
