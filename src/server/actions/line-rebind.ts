@@ -9,7 +9,6 @@ import { AppError, handleActionError } from "@/lib/errors";
 import { cancelLineRebindRequest, createLineRebindRequest } from "@/server/services/line-rebind";
 import { runLineRebindDryRun, type LineRebindDryRunResult } from "@/server/services/line-rebind-dry-run";
 import { cleanupPr2SmokeFixture, createPr2SmokeFixture } from "@/server/services/line-rebind-smoke-fixture";
-import { assertPr2PreviewSmokeRuntime } from "@/server/services/pr2-preview-smoke-runtime";
 import type { ActionResult } from "@/types";
 
 const createSchema = z.object({
@@ -24,8 +23,11 @@ function requireRebindAdministrator(actor: { role: string }) {
 }
 
 function requirePreviewSmokeRuntime() {
-  try { assertPr2PreviewSmokeRuntime(); }
-  catch { throw new AppError("FORBIDDEN", "此測試入口僅限 Staging Preview 執行"); }
+  const databaseUrl = process.env.DATABASE_URL ?? "";
+  const directUrl = process.env.DIRECT_URL ?? "";
+  if (process.env.VERCEL_ENV !== "preview" || !databaseUrl.includes("ttworfzgwejdeolegkxl") || !directUrl.includes("ttworfzgwejdeolegkxl") || databaseUrl.includes("qijlnhtpbintanzpxkvf") || directUrl.includes("qijlnhtpbintanzpxkvf")) {
+    throw new AppError("FORBIDDEN", "此測試入口僅限 Staging Preview 執行");
+  }
 }
 
 function requireSmokeOwner(actor: { role: string }) {
@@ -96,7 +98,7 @@ export async function createPr2PreviewSmokeFixture(): Promise<ActionResult<{ cus
     const actor = await requirePermission("customer.identity.rebind");
     requireSmokeOwner(actor);
     assertStoreAccess(actor, "staging-store");
-    return { success: true, data: await createPr2SmokeFixture() };
+    return { success: true, data: await createPr2SmokeFixture(actor.id) };
   } catch (error) { return handleActionError(error); }
 }
 
