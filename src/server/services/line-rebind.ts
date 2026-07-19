@@ -1,4 +1,4 @@
-import { createCipheriv, createHash, randomBytes } from "node:crypto";
+import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 
@@ -37,6 +37,18 @@ function encryptCandidateUserId(userId: string) {
   const cipher = createCipheriv("aes-256-gcm", encryptionKey(), iv);
   const ciphertext = Buffer.concat([cipher.update(userId, "utf8"), cipher.final()]);
   return { ciphertext, iv, authTag: cipher.getAuthTag(), keyVersion: KEY_VERSION };
+}
+
+/** Server-only: PR-2 may decrypt only for one request and return a masked DTO. */
+export function decryptLineRebindCandidateUserId(input: { ciphertext: Uint8Array; iv: Uint8Array; authTag: Uint8Array; keyVersion: string }): string {
+  if (input.keyVersion !== KEY_VERSION) throw new Error("LINE_REBIND_KEY_VERSION_UNSUPPORTED");
+  const decipher = createDecipheriv("aes-256-gcm", encryptionKey(), input.iv);
+  decipher.setAuthTag(input.authTag);
+  return Buffer.concat([decipher.update(input.ciphertext), decipher.final()]).toString("utf8");
+}
+
+export function maskLineRebindUserId(userId: string): string {
+  return userId.length <= 8 ? `${userId.slice(0, 4)}****` : `${userId.slice(0, 4)}****${userId.slice(-4)}`;
 }
 
 function isUniqueViolation(error: unknown): boolean {

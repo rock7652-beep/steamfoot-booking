@@ -53,6 +53,7 @@ import { CustomerBasicInfo } from "./_components/customer-basic-info";
 import { IdentityDiagnosticPanel } from "./_components/identity-diagnostic-panel";
 import { HealthStatusBody } from "./_components/health-status-card";
 import { LineBindingSection } from "./line-binding-section";
+import { getLineConfigForStore } from "@/lib/line-config";
 import { RecentRecordsTabs } from "./recent-records-tabs";
 
 const TX_TYPE_LABEL: Record<string, string> = {
@@ -184,6 +185,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
   const derivedSource = deriveCustomerSource(identitySnapshot);
 
   const canEdit = user.role !== "CUSTOMER" && !isViewMode;
+  const canRunLineRebindDryRun = Boolean(getLineConfigForStore(effectiveStoreId).expectedBasicId);
   const [canManageLineRebind, activeLineRebindRequest] = await Promise.all([
     checkPermission(user.role, user.staffId, "customer.identity.rebind").catch(() => false),
     prisma.lineRebindRequest.findFirst({
@@ -723,6 +725,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
                     customer.lineBindingCodeCreatedAt?.toISOString() ?? null
                   }
                   canManageLineRebind={canManageLineRebind && !isViewMode}
+                  canRunLineRebindDryRun={canRunLineRebindDryRun}
                   activeLineRebindRequest={activeLineRebindRequest ? {
                     id: activeLineRebindRequest.id,
                     status: activeLineRebindRequest.status,
