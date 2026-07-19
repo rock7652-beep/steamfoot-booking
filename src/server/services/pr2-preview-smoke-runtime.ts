@@ -13,7 +13,10 @@ export type Pr2PreviewSmokeGuardReason =
 
 function projectRefStatus(value: string): "staging" | "production" | "mismatch" | "unreadable" {
   try {
-    const labels = new URL(value).hostname.split(".");
+    const parsed = new URL(value);
+    // Supabase direct URLs place the ref in the hostname; pooler URLs place it
+    // in the PostgreSQL username (for example postgres.<project-ref>).
+    const labels = [...parsed.hostname.split("."), ...parsed.username.split(".")];
     if (labels.includes(PRODUCTION_PROJECT_REF)) return "production";
     return labels.includes(STAGING_PROJECT_REF) ? "staging" : "mismatch";
   } catch { return "unreadable"; }
