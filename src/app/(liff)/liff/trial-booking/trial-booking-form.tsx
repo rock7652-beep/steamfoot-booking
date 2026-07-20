@@ -40,6 +40,7 @@ import {
   type SubmitLiffTrialBookingResult,
 } from "@/server/actions/liff-trial-booking";
 import { liffMessages } from "@/lib/liff/messages";
+import { loadProfileWithSessionRefresh } from "@/lib/liff/profile-loader";
 import { parseLocalDate, formatWeekdayZh } from "@/lib/date-utils";
 import type { SlotAvailability } from "@/types";
 import {
@@ -256,11 +257,29 @@ export function TrialBookingForm({ storeSlug, storeName, liffId, contactUrl }: P
           showDismiss: false,
         });
         return;
-      case "profile_incomplete":
-        window.location.replace(
-          `/s/${storeSlug}/profile?complete=1&next=${encodeURIComponent(`/s/${storeSlug}/liff/trial-booking`)}`,
-        );
+      case "profile_incomplete": {
+        const currentIdToken = getIDToken();
+        if (!currentIdToken) {
+          setState({ kind: "expired" });
+          return;
+        }
+        const refreshed = await loadProfileWithSessionRefresh({
+          idToken: currentIdToken,
+          storeSlug,
+        });
+        if (refreshed.kind === "ok") {
+          window.location.replace(
+            `/s/${storeSlug}/profile?complete=1&next=${encodeURIComponent(`/s/${storeSlug}/liff/trial-booking`)}`,
+          );
+        } else if (refreshed.kind === "need_onboarding") {
+          window.location.replace(`/s/${storeSlug}/liff/onboarding`);
+        } else if (refreshed.kind === "expired") {
+          setState({ kind: "expired" });
+        } else {
+          setState({ kind: "service_unavailable" });
+        }
         return;
+      }
       case "slot_full":
         // reload slots 讓顧客重新選；user can dismiss + 重選
         if (selectedDate) void loadSlots(selectedDate);
