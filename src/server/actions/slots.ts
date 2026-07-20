@@ -20,6 +20,7 @@ import {
   loadMonthBusinessHoursContext,
 } from "@/lib/business-hours-resolver";
 import type { SlotAvailability } from "@/types";
+import type { DayStatus } from "@/lib/business-hours-resolver";
 
 /**
  * 解析當前讀取視角的 storeId：
@@ -60,6 +61,14 @@ export interface MonthSlotInfo {
   booked: number;
 }
 
+export interface MonthDayAvailability {
+  totalCapacity: number;
+  totalBooked: number;
+  slots: MonthSlotInfo[];
+  /** 讓前台能區分「公休」與「進修」，不再把所有零時段日期都標成公休。 */
+  status: DayStatus;
+}
+
 // ============================================================
 // fetchMonthAvailability — 月曆用：整月每天的可預約概覽
 // ============================================================
@@ -71,16 +80,16 @@ export async function fetchMonthAvailability(
   year: number,
   month: number, // 1-based
 ): Promise<{
-  days: Record<string, { totalCapacity: number; totalBooked: number; slots: MonthSlotInfo[] }>;
+  days: Record<string, MonthDayAvailability>;
 }> {
   const user = await requireSession();
   const readContext = await resolveReadStoreContextOrThrow(user);
   const { storeId } = readContext;
 
   if (!(await isStoreBookable(storeId))) {
-    const closedDays: Record<string, { totalCapacity: number; totalBooked: number; slots: MonthSlotInfo[] }> = {};
+    const closedDays: Record<string, MonthDayAvailability> = {};
     for (const { dateStr } of enumerateMonthDates(year, month)) {
-      closedDays[dateStr] = { totalCapacity: 0, totalBooked: 0, slots: [] };
+      closedDays[dateStr] = { totalCapacity: 0, totalBooked: 0, slots: [], status: "closed" };
     }
     return { days: closedDays };
   }
@@ -132,12 +141,12 @@ export async function fetchMonthAvailability(
   const todayStr = toLocalDateStr();
   const nowHHmm = getNowTaipeiHHmm();
 
-  const days: Record<string, { totalCapacity: number; totalBooked: number; slots: MonthSlotInfo[] }> = {};
+  const days: Record<string, MonthDayAvailability> = {};
 
   for (const { dateStr } of enumerateMonthDates(year, month)) {
     const rule = ctx.rules.get(dateStr)!;
     if (rule.closed) {
-      days[dateStr] = { totalCapacity: 0, totalBooked: 0, slots: [] };
+      days[dateStr] = { totalCapacity: 0, totalBooked: 0, slots: [], status: rule.status };
       continue;
     }
 
@@ -164,9 +173,9 @@ export async function fetchMonthAvailability(
       const filtered = slotInfos.filter((s) => dutySlotKeys.has(`${dateStr}|${s.startTime}`));
       const filteredCap = filtered.reduce((sum, s) => sum + s.capacity, 0);
       const filteredBooked = filtered.reduce((sum, s) => sum + s.booked, 0);
-      days[dateStr] = { totalCapacity: filteredCap, totalBooked: filteredBooked, slots: filtered };
+      days[dateStr] = { totalCapacity: filteredCap, totalBooked: filteredBooked, slots: filtered, status: rule.status };
     } else {
-      days[dateStr] = { totalCapacity: totalCap, totalBooked, slots: slotInfos };
+      days[dateStr] = { totalCapacity: totalCap, totalBooked, slots: slotInfos, status: rule.status };
     }
   }
 
