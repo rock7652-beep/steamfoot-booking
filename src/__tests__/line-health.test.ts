@@ -19,7 +19,7 @@ describe("Taichung OA token health check", () => {
   it("passes only when Bot Info matches the stored Taichung destination", async () => {
     await expect(checkTaichungLineBotHealth()).resolves.toMatchObject({ success: true, data: { status: "PASS", code: "BOT_IDENTITY_MATCH", matchesTaichungStore: true, basicId: "@taichung" } });
     expect(h.store).toHaveBeenCalledWith({ where: { id: "taichung-store" }, select: { slug: true, lineDestination: true } });
-    expect(h.botInfo).toHaveBeenCalledWith("taichung");
+    expect(h.botInfo).toHaveBeenCalledWith("taichung-store");
   });
 
   it("fails closed for a mismatched OA without exposing its user ID", async () => {

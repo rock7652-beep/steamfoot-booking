@@ -43,7 +43,10 @@ export async function checkTaichungLineBotHealth(): Promise<ActionResult<Taichun
       return { success: true, data: { status: "FAIL", code: "STORE_DESTINATION_MISSING", displayName: null, basicId: null, matchesTaichungStore: false, checkedAt } };
     }
 
-    const result = await getLineBotInfo(TAICHUNG_STORE_SLUG);
+    // Use the same DB store id that the reminder send path passes to LINE.
+    // This prevents the health check from validating a slug token that sends
+    // would not actually resolve for the active store.
+    const result = await getLineBotInfo(activeStoreId);
     if (!result.ok) {
       return { success: true, data: { status: "FAIL", code: result.code, displayName: null, basicId: null, matchesTaichungStore: false, checkedAt } };
     }
