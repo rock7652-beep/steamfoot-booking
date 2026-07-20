@@ -25,6 +25,7 @@ import { ReminderCard } from "./reminder-card";
 import { CreateTemplateForm } from "./create-template-form";
 import { CronRunBanner } from "./cron-run-banner";
 import { LineSmokeTestCard } from "./line-smoke-test-card";
+import { TaichungLineHealthCard } from "./taichung-line-health-card";
 
 const LOG_STATUS_LABEL: Record<string, string> = {
   PENDING: "待發送",
@@ -88,6 +89,7 @@ export default async function RemindersPage({ searchParams }: PageProps) {
 
   const activeTab = params.tab ?? "rules";
   const smokeTestEnabled = isLineSmokeTestEnabled();
+  const canCheckTaichungLineHealth = activeStoreId === "store-taichung" && (user.role === "OWNER" || user.role === "ADMIN");
 
   const [stats, templates, cronStatus, reminderState] = await Promise.all([
     getReminderStats(activeStoreId),
@@ -194,6 +196,7 @@ export default async function RemindersPage({ searchParams }: PageProps) {
                 customers={smokeTestContext.customers}
               />
             )}
+            {canCheckTaichungLineHealth && <TaichungLineHealthCard />}
           </section>
         )}
 

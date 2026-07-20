@@ -14,6 +14,51 @@ import {
 } from "@/lib/line-config";
 
 const LINE_API_BASE = "https://api.line.me/v2/bot";
+const LINE_BOT_INFO_TIMEOUT_MS = 8_000;
+
+export type LineBotInfo = {
+  displayName: string;
+  basicId: string;
+  userId: string;
+};
+
+export type LineBotInfoResult =
+  | { ok: true; data: LineBotInfo }
+  | { ok: false; code: "TOKEN_NOT_CONFIGURED" | "TOKEN_UNAUTHORIZED" | "UPSTREAM_ERROR" | "TIMEOUT" | "INVALID_RESPONSE" };
+
+/**
+ * Read the Messaging API Bot Info for a store without logging or exposing the
+ * access token. Callers must keep `userId` server-side unless they have an
+ * explicit reason to disclose it.
+ */
+export async function getLineBotInfo(storeId: string): Promise<LineBotInfoResult> {
+  const token = getLineAccessTokenForStore(storeId);
+  if (!token) return { ok: false, code: "TOKEN_NOT_CONFIGURED" };
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), LINE_BOT_INFO_TIMEOUT_MS);
+  try {
+    const response = await fetch(`${LINE_API_BASE}/info`, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: controller.signal,
+      cache: "no-store",
+    });
+    if (response.status === 401 || response.status === 403) {
+      return { ok: false, code: "TOKEN_UNAUTHORIZED" };
+    }
+    if (!response.ok) return { ok: false, code: "UPSTREAM_ERROR" };
+
+    const body = await response.json().catch(() => null) as Partial<LineBotInfo> | null;
+    if (!body || typeof body.displayName !== "string" || typeof body.basicId !== "string" || typeof body.userId !== "string") {
+      return { ok: false, code: "INVALID_RESPONSE" };
+    }
+    return { ok: true, data: { displayName: body.displayName, basicId: body.basicId, userId: body.userId } };
+  } catch (error) {
+    return { ok: false, code: error instanceof DOMException && error.name === "AbortError" ? "TIMEOUT" : "UPSTREAM_ERROR" };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 /** 驗證 LINE webhook signature */
 export function verifyLineSignature(
