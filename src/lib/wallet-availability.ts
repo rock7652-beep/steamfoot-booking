@@ -3,7 +3,8 @@
  *
  * canonical 定義（與 src/server/services/wallet-session.ts 的 refreshWalletCounter 一致）：
  *   remainingSessions ≡ count(WalletSession AVAILABLE) + count(RESERVED)
- *   可預約堂數         = remainingSessions − 非補課 PENDING/CONFIRMED 預約筆數（不可為負）
+ *   可預約堂數         = count(WalletSession AVAILABLE)
+ *   待到店堂數         = count(WalletSession RESERVED)
  *   已使用             = WalletSession COMPLETED + BACKFILLED（含補登紙本已使用）
  *   已註銷             = WalletSession VOIDED（獨立呈現，不可混入已使用）
  *
@@ -16,22 +17,41 @@ import { PENDING_STATUSES } from "@/lib/booking-constants";
 export interface AvailabilityBooking {
   bookingStatus: string;
   isMakeup: boolean;
+  /** Legacy fallback only. Modern wallets use WalletSession ledger rows. */
+  people?: number;
 }
 
 export interface AvailabilityWallet {
   remainingSessions: number;
-  bookings: AvailabilityBooking[];
+  bookings?: AvailabilityBooking[];
+  /** Canonical per-session ledger. Empty/missing means legacy wallet fallback. */
+  sessions?: WalletSessionRow[];
 }
 
-/** 單一 wallet 待到店（占用 remaining 但尚未消耗）的非補課預約筆數。 */
+/** 單一 wallet 待到店（占用 remaining 但尚未消耗）的堂數。 */
 export function walletPendingCount(w: AvailabilityWallet): number {
-  return w.bookings.filter(
-    (b) => !b.isMakeup && (PENDING_STATUSES as readonly string[]).includes(b.bookingStatus)
-  ).length;
+  const sessions = w.sessions ?? [];
+  if (sessions.length > 0) {
+    return sessions.filter((s) => s.status === "RESERVED").length;
+  }
+
+  // Legacy wallets without WalletSession rows: retain compatibility, but count
+  // reserved people rather than booking rows. Modern mixed makeup/package and
+  // cross-wallet bookings are always resolved by the ledger branch above.
+  return (w.bookings ?? []).reduce((sum, b) => {
+    if (b.isMakeup || !(PENDING_STATUSES as readonly string[]).includes(b.bookingStatus)) {
+      return sum;
+    }
+    return sum + Math.max(1, Math.trunc(b.people ?? 1));
+  }, 0);
 }
 
 /** 單一 wallet 目前還可預約的堂數（不可為負）。 */
 export function walletAvailableToBook(w: AvailabilityWallet): number {
+  const sessions = w.sessions ?? [];
+  if (sessions.length > 0) {
+    return sessions.filter((s) => s.status === "AVAILABLE").length;
+  }
   return Math.max(0, w.remainingSessions - walletPendingCount(w));
 }
 

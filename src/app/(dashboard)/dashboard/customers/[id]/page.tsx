@@ -45,6 +45,11 @@ import type { CustomerStage, TalentStage } from "@prisma/client";
 import { deriveCustomerSource, type CustomerSourceSnapshot } from "@/lib/customer-source";
 import { sortWalletsByFEFO } from "@/lib/wallet-sort";
 import {
+  totalAvailableToBook,
+  walletAvailableToBook,
+  walletPendingCount,
+} from "@/lib/wallet-availability";
+import {
   getLineNotificationStatus,
   lineNotificationLabel,
 } from "@/lib/line-notification-status";
@@ -219,6 +224,11 @@ export default async function CustomerDetailPage({ params }: PageProps) {
   const activeWallets = sortWalletsByFEFO(wallets.filter((w) => w.status === "ACTIVE"));
   const inactiveWallets = wallets.filter((w) => w.status !== "ACTIVE");
   const totalRemaining = activeWallets.reduce((s, w) => s + w.remainingSessions, 0);
+  const totalPendingSessions = activeWallets.reduce(
+    (sum, w) => sum + walletPendingCount(w),
+    0,
+  );
+  const totalAvailableSessions = totalAvailableToBook(activeWallets);
 
   const bookings = customer.bookings ?? [];
   const upcomingBookings = bookings.filter(
@@ -339,16 +349,24 @@ export default async function CustomerDetailPage({ params }: PageProps) {
         </span>
         <span className="ml-2 text-earth-200">｜</span>
         <span className="inline-flex items-center gap-1 text-[12px] text-earth-700">
-          <span className="text-[11px] text-earth-500">剩餘堂數</span>
+          <span className="text-[11px] text-earth-500">可再預約</span>
           <span
             className={`text-[14px] font-bold tabular-nums ${
-              totalRemaining > 0 ? "text-primary-700" : "text-earth-500"
+              totalAvailableSessions > 0 ? "text-primary-700" : "text-earth-500"
             }`}
           >
-            {totalRemaining}
+            {totalAvailableSessions}
           </span>
           <span className="text-[11px] text-earth-500">堂</span>
         </span>
+        {totalPendingSessions > 0 && (
+          <>
+            <span className="text-earth-200">｜</span>
+            <span className="inline-flex items-center gap-1 text-[11px] text-earth-600">
+              方案剩餘 {totalRemaining} 堂（待到店 {totalPendingSessions} 堂）
+            </span>
+          </>
+        )}
         <span className="text-earth-200">｜</span>
         <span className="inline-flex items-center gap-1 text-[12px] text-earth-700">
           <span className="text-[11px] text-earth-500">點數</span>
@@ -488,7 +506,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
                   activeWallets={activeWallets.map((w) => ({
                     id: w.id,
                     planName: w.plan.name,
-                    remainingSessions: w.remainingSessions,
+                    remainingSessions: walletAvailableToBook(w),
                     expiryDate: w.expiryDate?.toISOString().slice(0, 10) ?? null,
                   }))}
                 />
@@ -1098,8 +1116,14 @@ function WalletItem({
             </div>
           </div>
           <div className="shrink-0 text-right text-sm">
-            <span className="text-lg font-bold text-primary-700">{w.remainingSessions}</span>
-            <span className="text-earth-500"> / {w.totalSessions} 堂</span>
+            <div>
+              <span className="text-lg font-bold text-primary-700">{availableCount}</span>
+              <span className="text-earth-500"> 堂可再預約</span>
+            </div>
+            <div className="text-[11px] text-earth-500">
+              方案剩餘 {w.remainingSessions} / {w.totalSessions} 堂
+              {reservedCount > 0 ? `・待到店 ${reservedCount} 堂` : ""}
+            </div>
           </div>
         </div>
       </div>

@@ -71,7 +71,11 @@ export default async function CustomerHomePage() {
               bookingStatus: { in: ["PENDING", "CONFIRMED"] },
               isMakeup: false,
             },
-            select: { bookingStatus: true, isMakeup: true },
+            select: { bookingStatus: true, isMakeup: true, people: true },
+          },
+          sessions: {
+            where: { status: { in: ["AVAILABLE", "RESERVED"] } },
+            select: { status: true },
           },
         },
       }),
