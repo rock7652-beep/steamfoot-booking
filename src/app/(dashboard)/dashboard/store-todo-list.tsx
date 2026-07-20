@@ -40,9 +40,9 @@ export function StoreTodoList({
       <ul className="divide-y divide-earth-100">
         {visible.map((item) => (
           <li key={item.id}>
-            {/* 整列包進 form：點 ○ → dismissTodo → 該筆從本人首頁消失。
+            {/* 整列包進 form：點「關閉提示」→ dismissTodo → 該筆從本人首頁消失。
                 狀態改變（回訪 / 補堂 / 收款確認 / 過今天）→ todoKey 變 → 重新出現。
-                送出期間 useFormStatus 立即給 pending 回饋（整列變淡 + ○ 轉圈 + 禁用）。 */}
+                送出期間 useFormStatus 立即給 pending 回饋並禁用按鈕。 */}
             {readOnly ? (
               <TodoRow item={item} readOnly />
             ) : (
@@ -75,7 +75,7 @@ export function StoreTodoList({
 
 /**
  * 單列待辦內容 — 必須是 <form> 的子元件,才能用 useFormStatus 讀到送出狀態。
- * pending 時:整列變淡(opacity)、○ 變轉圈 spinner、按鈕 disabled(防重複提交)。
+ * pending 時：整列變淡、關閉按鈕顯示處理中並禁用（防重複提交）。
  * 失敗時 dismissTodoFormAction 不丟錯,pending 結束後自動恢復可點。
  * pending 只作用於本 row,不影響整張卡或其他列。
  */
@@ -94,32 +94,6 @@ function TodoRow({
       }`}
     >
       <div className="flex min-w-0 flex-1 items-start gap-3">
-        {readOnly ? (
-          <span
-            aria-hidden
-            className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-earth-200 bg-earth-50"
-          />
-        ) : (
-          <button
-            type="submit"
-            disabled={pending}
-            aria-busy={pending}
-            aria-label={`標記「${item.message}」為已知悉`}
-            title={pending ? "處理中…" : "標記為已知悉（從首頁收起）"}
-            className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-earth-300 text-transparent hover:border-primary-500 hover:bg-primary-50 hover:text-primary-600 disabled:cursor-wait disabled:hover:border-earth-300 disabled:hover:bg-transparent"
-          >
-            {pending ? (
-              <span
-                aria-hidden
-                className="h-2.5 w-2.5 animate-spin rounded-full border border-primary-500 border-t-transparent"
-              />
-            ) : (
-              <span aria-hidden className="text-[10px] leading-none">
-                ✓
-              </span>
-            )}
-          </button>
-        )}
         <span
           className={`shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium ${TYPE_BADGE[item.type]}`}
         >
@@ -130,16 +104,28 @@ function TodoRow({
         </p>
       </div>
       {readOnly ? (
-        <span className="ml-7 w-fit shrink-0 rounded-md border border-earth-200 bg-earth-50 px-3 py-1 text-[11px] font-medium text-earth-400 sm:ml-0">
+        <span className="w-fit shrink-0 rounded-md border border-earth-200 bg-earth-50 px-3 py-1 text-[11px] font-medium text-earth-400">
           查看模式
         </span>
       ) : (
-        <Link
-          href={item.href}
-          className="ml-7 w-fit shrink-0 rounded-md border border-earth-200 bg-white px-3 py-1 text-[11px] font-medium text-earth-700 hover:bg-earth-50 sm:ml-0"
-        >
-          {item.actionLabel}
-        </Link>
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            type="submit"
+            disabled={pending}
+            aria-busy={pending}
+            aria-label={`關閉「${item.message}」提示`}
+            title="只從我的首頁關閉，不會變更交易或顧客狀態"
+            className="w-fit rounded-md px-2 py-1 text-[11px] font-medium text-earth-400 hover:bg-earth-100 hover:text-earth-700 disabled:cursor-wait disabled:opacity-60"
+          >
+            {pending ? "關閉中…" : "關閉提示"}
+          </button>
+          <Link
+            href={item.href}
+            className="w-fit rounded-md border border-earth-200 bg-white px-3 py-1 text-[11px] font-medium text-earth-700 hover:bg-earth-50"
+          >
+            {item.actionLabel}
+          </Link>
+        </div>
       )}
     </div>
   );
