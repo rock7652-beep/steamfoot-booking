@@ -493,6 +493,7 @@ export const liffMessages = {
     boundOther: "這支手機目前需要店家協助確認，請透過 LINE 聯繫我們。",
     ambiguous: "我們需要協助您確認會員資料，請透過 LINE 聯繫我們。",
     expired: "登入已逾時，請重新從 LINE 開啟此頁。",
+    paymentPending: "此方案尚待店家確認付款，暫時無法預約，請聯繫店家確認。",
     serviceUnavailable: "目前服務暫時無法使用，請稍後再試，或透過 LINE 聯繫我們。",
     contactStoreCta: "聯繫店家",
     /** PR-E2：LIFF 頁拿不到 store context（x-store-slug header + store-slug cookie 皆無）時的安全提示。
