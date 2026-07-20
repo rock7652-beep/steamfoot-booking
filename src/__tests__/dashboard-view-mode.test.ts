@@ -140,4 +140,34 @@ describe("dashboard view mode support", () => {
     );
     expect(mockTodoDismissFindMany).not.toHaveBeenCalled();
   });
+
+  it("shows the newest pending payment and deep-links to that transaction", async () => {
+    mockTransactionFindMany.mockResolvedValueOnce([
+      {
+        id: "tx-new-purchase",
+        amount: 12000,
+        customer: { id: "customer-new", name: "黃彥陸" },
+      },
+    ]);
+
+    const { getStoreTodosForUser } = await import("@/server/queries/store-todos");
+    const result = await getStoreTodosForUser(viewModeDashboardUser(), {
+      activeStoreId: "store-child",
+      respectDismissed: false,
+    });
+
+    expect(mockTransactionFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderBy: { createdAt: "desc" },
+        take: 10,
+      }),
+    );
+    expect(result.items[0]).toEqual(
+      expect.objectContaining({
+        id: "payment:tx-new-purchase",
+        message: "黃彥陸 有一筆 NT$ 12,000 收款待確認",
+        href: "/dashboard/payments?transactionId=tx-new-purchase",
+      }),
+    );
+  });
 });
