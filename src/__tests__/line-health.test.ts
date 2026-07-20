@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const h = vi.hoisted(() => ({ permission: vi.fn(), activeStore: vi.fn(), store: vi.fn(), botInfo: vi.fn() }));
+const h = vi.hoisted(() => ({ permission: vi.fn(), activeStore: vi.fn(), feature: vi.fn(), store: vi.fn(), botInfo: vi.fn() }));
 vi.mock("@/lib/permissions", () => ({ requirePermission: h.permission }));
 vi.mock("@/lib/store", () => ({ getActiveStoreForRead: h.activeStore }));
+vi.mock("@/lib/feature-gate", () => ({ requireStoreFeature: h.feature }));
 vi.mock("@/lib/db", () => ({ prisma: { store: { findUnique: h.store } } }));
 vi.mock("@/lib/line", () => ({ getLineBotInfo: h.botInfo }));
 import { checkTaichungLineBotHealth } from "@/server/actions/line-health";
@@ -12,6 +13,7 @@ describe("Taichung OA token health check", () => {
     vi.clearAllMocks();
     h.permission.mockResolvedValue({ role: "OWNER", storeId: "taichung-store" });
     h.activeStore.mockResolvedValue("taichung-store");
+    h.feature.mockResolvedValue(undefined);
     h.store.mockResolvedValue({ slug: "taichung", lineDestination: "Ustored-bot-id" });
     h.botInfo.mockResolvedValue({ ok: true, data: { displayName: "台中通知", basicId: "@taichung", userId: "Ustored-bot-id" } });
   });
@@ -42,6 +44,14 @@ describe("Taichung OA token health check", () => {
   it("fails closed when no concrete active store is selected", async () => {
     h.activeStore.mockResolvedValue(null);
     await expect(checkTaichungLineBotHealth()).resolves.toMatchObject({ success: false });
+    expect(h.store).not.toHaveBeenCalled();
+    expect(h.botInfo).not.toHaveBeenCalled();
+  });
+
+  it("does not query the store or LINE when the reminder feature is unavailable", async () => {
+    h.feature.mockRejectedValue(new Error("feature unavailable"));
+    await expect(checkTaichungLineBotHealth()).resolves.toMatchObject({ success: false });
+    expect(h.feature).toHaveBeenCalledWith("taichung-store", "line_reminder");
     expect(h.store).not.toHaveBeenCalled();
     expect(h.botInfo).not.toHaveBeenCalled();
   });

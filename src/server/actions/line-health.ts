@@ -2,6 +2,8 @@
 
 import { prisma } from "@/lib/db";
 import { AppError, handleActionError } from "@/lib/errors";
+import { requireStoreFeature } from "@/lib/feature-gate";
+import { FEATURES } from "@/lib/feature-flags";
 import { getLineBotInfo } from "@/lib/line";
 import { requirePermission } from "@/lib/permissions";
 import { getActiveStoreForRead } from "@/lib/store";
@@ -31,6 +33,7 @@ export async function checkTaichungLineBotHealth(): Promise<ActionResult<Taichun
     if (!activeStoreId) {
       throw new AppError("FORBIDDEN", "請先切換至台中店後再執行檢查");
     }
+    await requireStoreFeature(activeStoreId, FEATURES.LINE_REMINDER);
     const store = await prisma.store.findUnique({
       where: { id: activeStoreId },
       select: { slug: true, lineDestination: true },
