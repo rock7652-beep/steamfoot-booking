@@ -24,6 +24,8 @@ import {
 import { buildTransactionSnapshot, buildRefundSnapshot } from "@/lib/transaction-snapshot";
 import { awardFirstTopupReferralPointsIfEligible } from "@/server/services/referral-points";
 import { computeRefundPlan, type RefundMode } from "@/lib/refund-plan";
+import { seedWalletSessions } from "@/server/services/wallet-session";
+import { addTaiwanDuration, parseTaiwanDateToDbDate, toLocalDateStr } from "@/lib/date-utils";
 
 // ============================================================
 // Validators
@@ -320,6 +322,11 @@ export async function confirmTransactionPayment(
         paymentStatus: true,
         paymentMethod: true,
         status: true,
+        customerPlanWalletId: true,
+        planId: true,
+        amount: true,
+        planSessionCountSnapshot: true,
+        planValidityDaysSnapshot: true,
       },
     });
     if (!original) throw new AppError("NOT_FOUND", "交易紀錄不存在");
@@ -372,7 +379,39 @@ export async function confirmTransactionPayment(
         throw new AppError("CONFLICT", "此交易已被確認或狀態已變更，無法重複確認");
       }
 
-      // CAS 成功 → 重現 PR-3 skip 掉的狀態升等 + 首儲推薦獎勵
+      // 新式 PENDING transaction 在 CAS 成功後才開通。歷史 PENDING 已有
+      // wallet 時絕不重建 ledger，僅完成付款確認與既有後續權益流程。
+      if (!original.customerPlanWalletId) {
+        if (!original.planId || original.planSessionCountSnapshot == null) {
+          throw new AppError("BUSINESS_RULE", "此待付款交易缺少方案開通快照，請人工核帳處理");
+        }
+        const today = toLocalDateStr();
+        const expiryDate = original.planValidityDaysSnapshot == null
+          ? null
+          : parseTaiwanDateToDbDate(
+              addTaiwanDuration(today, original.planValidityDaysSnapshot, "DAY"),
+            );
+        const wallet = await tx.customerPlanWallet.create({
+          data: {
+            customerId: original.customerId,
+            storeId: original.storeId,
+            planId: original.planId,
+            purchasedPrice: original.amount,
+            totalSessions: original.planSessionCountSnapshot,
+            remainingSessions: original.planSessionCountSnapshot,
+            startDate: parseTaiwanDateToDbDate(today),
+            expiryDate,
+            status: "ACTIVE",
+          },
+        });
+        await seedWalletSessions(tx, wallet.id, original.planSessionCountSnapshot);
+        await tx.transaction.update({
+          where: { id: transactionId },
+          data: { customerPlanWalletId: wallet.id },
+        });
+      }
+
+      // CAS 成功 → 重現 PENDING 時 skip 的狀態升等 + 首儲推薦獎勵
       const customer = await tx.customer.findUnique({
         where: { id: original.customerId },
         select: { convertedAt: true },
@@ -434,6 +473,7 @@ export async function voidPendingTransaction(
         paymentMethod: true,
         status: true,
         note: true,
+        customerPlanWalletId: true,
       },
     });
     if (!original) throw new AppError("NOT_FOUND", "交易紀錄不存在");
@@ -458,25 +498,51 @@ export async function voidPendingTransaction(
       );
     }
 
-    const voidNote = `[作廢 ${new Date().toISOString().slice(0, 10)}${data.reason ? ` ${data.reason}` : ""}]`;
+    const voidNote = `[作廢 ${toLocalDateStr()}${data.reason ? ` ${data.reason}` : ""}]`;
     const newNote = original.note ? `${original.note}\n${voidNote}` : voidNote;
 
-    const result = await prisma.transaction.updateMany({
-      where: {
-        id: transactionId,
-        paymentStatus: "PENDING",
-        status: { notIn: ["CANCELLED", "REFUNDED"] },
-      },
-      data: {
-        status: "CANCELLED",
-        paymentStatus: "CANCELLED",
-        note: newNote,
-      },
-    });
+    await prisma.$transaction(async (tx) => {
+      if (original.customerPlanWalletId) {
+        const [wallet, sessionGroups, relatedTransactions] = await Promise.all([
+          tx.customerPlanWallet.findUnique({
+            where: { id: original.customerPlanWalletId },
+            select: { id: true, totalSessions: true, status: true },
+          }),
+          tx.walletSession.groupBy({
+            by: ["status"],
+            where: { walletId: original.customerPlanWalletId },
+            _count: { _all: true },
+          }),
+          tx.transaction.count({
+            where: { customerPlanWalletId: original.customerPlanWalletId, id: { not: transactionId } },
+          }),
+        ]);
+        if (!wallet) throw new AppError("BUSINESS_RULE", "既有方案錢包不存在，請人工核帳處理");
+        const available = sessionGroups.find((row) => row.status === "AVAILABLE")?._count._all ?? 0;
+        const usedOrAdjusted = sessionGroups.some((row) => row.status !== "AVAILABLE") ||
+          available !== wallet.totalSessions || relatedTransactions > 0 || wallet.status !== "ACTIVE";
+        if (usedOrAdjusted) {
+          throw new AppError("BUSINESS_RULE", "此待付款交易的既有方案已有預約、扣堂或人工調整，請人工核帳處理，系統不會自動作廢");
+        }
+        const voided = await tx.walletSession.updateMany({
+          where: { walletId: wallet.id, status: "AVAILABLE" },
+          data: { status: "VOIDED", voidedAt: new Date(), voidReason: "待付款交易作廢" },
+        });
+        if (voided.count !== wallet.totalSessions) {
+          throw new AppError("CONFLICT", "方案堂數狀態已變更，請重新確認後人工核帳");
+        }
+        await tx.customerPlanWallet.update({
+          where: { id: wallet.id },
+          data: { status: "CANCELLED", remainingSessions: 0 },
+        });
+      }
 
-    if (result.count === 0) {
-      throw new AppError("CONFLICT", "此交易狀態已變更，無法作廢");
-    }
+      const result = await tx.transaction.updateMany({
+        where: { id: transactionId, paymentStatus: "PENDING", status: { notIn: ["CANCELLED", "REFUNDED"] } },
+        data: { status: "CANCELLED", paymentStatus: "CANCELLED", note: newNote },
+      });
+      if (result.count === 0) throw new AppError("CONFLICT", "此交易狀態已變更，無法作廢");
+    });
 
     revalidateTransactions(original.customerId);
     return { success: true, data: { transactionId: original.id } };

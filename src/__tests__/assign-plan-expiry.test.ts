@@ -182,6 +182,29 @@ describe("assignPlanToCustomer — PLAN_DEFAULT", () => {
   });
 });
 
+describe("assignPlanToCustomer — pending payment entitlement gate", () => {
+  it.each(["TRANSFER", "UNPAID"] as const)("%s 僅建立待確認交易，不建立 wallet", async (paymentMethod) => {
+    mockServicePlanFindUnique.mockResolvedValue(PLAN_90D);
+    const { assignPlanToCustomer } = await import("@/server/actions/wallet");
+    const result = await assignPlanToCustomer({
+      customerId: CUSTOMER_ID,
+      planId: PLAN_ID_90D,
+      paymentMethod,
+    });
+
+    expect(result.success).toBe(true);
+    expect(mockWalletCreate).not.toHaveBeenCalled();
+    expect(mockTransactionCreate).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        paymentStatus: "PENDING",
+        customerPlanWalletId: null,
+        planSessionCountSnapshot: PLAN_90D.sessionCount,
+        planValidityDaysSnapshot: PLAN_90D.validityDays,
+      }),
+    }));
+  });
+});
+
 describe("assignPlanToCustomer — CUSTOM_DURATION", () => {
   beforeEach(() => mockServicePlanFindUnique.mockResolvedValue(PLAN_90D));
 

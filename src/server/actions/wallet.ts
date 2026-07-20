@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import {
   requirePermission,
@@ -17,7 +18,6 @@ import {
   extendWalletExpirySchema,
 } from "@/lib/validators/plan";
 import type { ActionResult } from "@/types";
-import { addDays } from "date-fns";
 import {
   toLocalDateStr,
   parseTaiwanDateToDbDate,
@@ -84,7 +84,7 @@ export async function assignPlanToCustomer(
   // 用 z.input 而非 z.infer：讓帶 .default() 的欄位（discountType / expiryMode）
   // 對 caller 維持可選，但 server 端 parse 後會獲得完整 default 值。
   input: z.input<typeof assignPlanSchema>
-): Promise<ActionResult<{ walletId: string; transactionId: string }>> {
+): Promise<ActionResult<{ walletId: string | null; transactionId: string }>> {
   try {
     const user = await requireWritablePermission("wallet.create");
     const data = assignPlanSchema.parse(input);
@@ -180,12 +180,12 @@ export async function assignPlanToCustomer(
 
     // 使用 Prisma transaction 確保原子性
     const result = await prisma.$transaction(async (tx) => {
-      // 1. 建立課程錢包（快照購買時的價格 = 實收金額）
-      const wallet = await tx.customerPlanWallet.create({
+      // 待確認付款絕不可先發堂；已收款方式維持既有立即開通行為。
+      const wallet = isPending ? null : await tx.customerPlanWallet.create({
         data: {
           customerId: data.customerId,
           planId: data.planId,
-          purchasedPrice: finalAmount,          // 快照：實收金額
+          purchasedPrice: finalAmount,
           totalSessions: plan.sessionCount,
           remainingSessions: plan.sessionCount,
           startDate,
@@ -194,9 +194,7 @@ export async function assignPlanToCustomer(
           storeId: operationStoreId,
         },
       });
-
-      // 1b. 建立 N 筆 AVAILABLE 單堂明細（PR-1 wallet-session）
-      await seedWalletSessions(tx, wallet.id, plan.sessionCount);
+      if (wallet) await seedWalletSessions(tx, wallet.id, plan.sessionCount);
 
       // 2. 建立交易紀錄
       const revenueStaffId = customer.assignedStaffId ?? user.staffId!;
@@ -227,7 +225,9 @@ export async function assignPlanToCustomer(
           discountType: hasDiscount ? discountType : null,
           discountValue: hasDiscount ? discountValue : null,
           discountReason: data.discountReason || null,
-          customerPlanWalletId: wallet.id,
+          customerPlanWalletId: wallet?.id ?? null,
+          planSessionCountSnapshot: plan.sessionCount,
+          planValidityDaysSnapshot: plan.validityDays,
           note: data.note,
           storeId,
           ...snapshot,
@@ -264,7 +264,7 @@ export async function assignPlanToCustomer(
     revalidatePath(`/dashboard/customers/${data.customerId}`);
     return {
       success: true,
-      data: { walletId: result.wallet.id, transactionId: result.transaction.id },
+      data: { walletId: result.wallet?.id ?? null, transactionId: result.transaction.id },
     };
   } catch (e) {
     return handleActionError(e);
@@ -911,7 +911,7 @@ const initiateCustomerPurchaseSchema = z.object({
 
 export async function initiateCustomerPlanPurchase(
   input: z.infer<typeof initiateCustomerPurchaseSchema>
-): Promise<ActionResult<{ transactionId: string; walletId: string }>> {
+): Promise<ActionResult<{ transactionId: string; walletId: null }>> {
   try {
     const user = await getCurrentUser();
     if (!user) throw new AppError("FORBIDDEN", "請先登入後再購買");
@@ -955,9 +955,6 @@ export async function initiateCustomerPlanPurchase(
     }
 
     const originalPrice = Number(plan.price);
-    const now = new Date();
-    const expiryDate = plan.validityDays ? addDays(now, plan.validityDays) : null;
-
     const txType =
       plan.category === "TRIAL"
         ? "TRIAL_PURCHASE"
@@ -974,23 +971,6 @@ export async function initiateCustomerPlanPurchase(
         { tx }
       );
       const revenueStaffId = assignment.staffId;
-
-      const wallet = await tx.customerPlanWallet.create({
-        data: {
-          customerId: customer.id,
-          planId: plan.id,
-          purchasedPrice: originalPrice,
-          totalSessions: plan.sessionCount,
-          remainingSessions: plan.sessionCount,
-          startDate: now,
-          expiryDate,
-          status: "ACTIVE",
-          storeId: customer.storeId,
-        },
-      });
-
-      // 建立 N 筆 AVAILABLE 單堂明細（PR-1 wallet-session）
-      await seedWalletSessions(tx, wallet.id, plan.sessionCount);
 
       const snapshot = await buildTransactionSnapshot(tx, {
         customerId: customer.id,
@@ -1011,7 +991,9 @@ export async function initiateCustomerPlanPurchase(
           paymentStatus: "PENDING",
           paidAt: null,
           amount: originalPrice,
-          customerPlanWalletId: wallet.id,
+          customerPlanWalletId: null,
+          planSessionCountSnapshot: plan.sessionCount,
+          planValidityDaysSnapshot: plan.validityDays,
           note: "顧客線上申請購買（轉帳待確認）",
           transferLastFour: data.transferLastFour,
           customerNote: data.customerNote ?? null,
@@ -1021,7 +1003,7 @@ export async function initiateCustomerPlanPurchase(
       });
 
       // PR-3 gate：PENDING 不動 customer 狀態、不發獎，等 PR-4 confirmTransactionPayment 觸發
-      return { wallet, transaction, assignmentSource: assignment.source };
+      return { transaction, assignmentSource: assignment.source };
     });
 
     // 紀錄歸屬解析結果（Vercel logs），方便未來 audit 顧客歸屬異常
@@ -1037,9 +1019,14 @@ export async function initiateCustomerPlanPurchase(
     revalidatePath("/dashboard/payments"); // 店長端即時看到
     return {
       success: true,
-      data: { transactionId: result.transaction.id, walletId: result.wallet.id },
+      data: { transactionId: result.transaction.id, walletId: null },
     };
   } catch (e) {
+    // DB partial unique index is the concurrency guard. Translate its P2002
+    // into a useful result when the request is double-submitted in parallel.
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+      return { success: false, error: "已有一筆待確認付款，請勿重複申請" };
+    }
     return handleActionError(e);
   }
 }
