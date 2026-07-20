@@ -11,6 +11,7 @@ const STORE_ID_TO_LINE_SLUG: Record<string, LineStoreSlug> = {
   "store-hsinchu": "hsinchu",
   taichung: "taichung",
   "store-taichung": "taichung",
+  "taichung-store": "taichung",
 };
 
 const LINE_ENV_BY_STORE: Record<

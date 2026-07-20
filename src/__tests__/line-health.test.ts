@@ -20,6 +20,8 @@ describe("Taichung OA token health check", () => {
     await expect(checkTaichungLineBotHealth()).resolves.toMatchObject({ success: true, data: { status: "PASS", code: "BOT_IDENTITY_MATCH", matchesTaichungStore: true, basicId: "@taichung" } });
     expect(h.store).toHaveBeenCalledWith({ where: { id: "taichung-store" }, select: { slug: true, lineDestination: true } });
     expect(h.botInfo).toHaveBeenCalledWith("taichung-store");
+    const { resolveLineStoreSlug } = await import("@/lib/line-config");
+    expect(resolveLineStoreSlug("taichung-store")).toBe("taichung");
   });
 
   it("fails closed for a mismatched OA without exposing its user ID", async () => {
