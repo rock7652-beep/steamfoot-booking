@@ -104,7 +104,7 @@ export async function getStoreTodosForUser(
     message: `${tx.customer?.name ?? "未知顧客"} 有一筆 NT$ ${Number(
       tx.amount
     ).toLocaleString()} 收款待確認`,
-    href: "/dashboard/payments",
+    href: `/dashboard/payments?transactionId=${tx.id}`,
     actionLabel: "確認收款",
     priority: TYPE_PRIORITY.PAYMENT,
   }));
@@ -188,7 +188,9 @@ async function fetchPayments(storeFilter: StoreFilter) {
       amount: true,
       customer: { select: { id: true, name: true } },
     },
-    orderBy: { createdAt: "asc" },
+    // 首頁是即時提醒入口：優先顯示剛從顧客前台送出的申請，避免舊待辦
+    // 佔滿 PER_TYPE_FETCH 後讓新申請完全消失。
+    orderBy: { createdAt: "desc" },
     take: PER_TYPE_FETCH,
   });
 }
