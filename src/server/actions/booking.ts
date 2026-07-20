@@ -46,6 +46,7 @@ import {
   createBookingCompletedEvent,
 } from "@/server/services/referral-events";
 import { awardFirstBookingReferralPointsIfEligible } from "@/server/services/referral-points";
+import { requireCustomerBookingEligibility } from "@/lib/customer-booking-eligibility";
 import {
   acquireBookingSlotLocks,
   bookingSlotTimeVariants,
@@ -256,16 +257,9 @@ export async function createBooking(
     // 員工/管理員代約：input.customerId 才是要操作的 target，照舊使用。
     let effectiveCustomerId = data.customerId;
     if (user.role === "CUSTOMER") {
-      const { getCanonicalCustomerIdForSession } = await import("@/lib/customer-identity");
-      const canonicalId = await getCanonicalCustomerIdForSession(user);
-      if (!canonicalId) {
-        throw new AppError(
-          "UNAUTHORIZED",
-          "找不到您的顧客資料，請重新登入後再試",
-        );
-      }
+      const eligibleCustomer = await requireCustomerBookingEligibility(user);
       // ⚠ 強制覆寫 — 不信任 client 傳入的 customerId
-      effectiveCustomerId = canonicalId;
+      effectiveCustomerId = eligibleCustomer.customerId;
     }
 
     // ── 1. 取顧客（含 ACTIVE wallets）— 使用 canonical customerId
@@ -1010,6 +1004,7 @@ export async function cancelBooking(
 
     // 顧客只能取消自己的 + 12hr 限制
     if (user.role === "CUSTOMER") {
+      await requireCustomerBookingEligibility(user);
       // 走 canonical resolver — session.customerId 可能 stale
       const { getCanonicalCustomerIdForSession } = await import("@/lib/customer-identity");
       const canonicalId = await getCanonicalCustomerIdForSession(user);

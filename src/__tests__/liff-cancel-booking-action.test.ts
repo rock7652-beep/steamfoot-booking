@@ -29,6 +29,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // ── mocks (必須在 import action 之前) ──
 const mockRequireSession = vi.fn();
 const mockCancelBooking = vi.fn();
+const mockGetCustomerBookingEligibility = vi.fn();
 
 vi.mock("@/lib/session", () => ({
   requireSession: (...args: unknown[]) => mockRequireSession(...args),
@@ -36,6 +37,11 @@ vi.mock("@/lib/session", () => ({
 
 vi.mock("@/server/actions/booking", () => ({
   cancelBooking: (...args: unknown[]) => mockCancelBooking(...args),
+}));
+
+vi.mock("@/lib/customer-booking-eligibility", () => ({
+  getCustomerBookingEligibility: (...args: unknown[]) =>
+    mockGetCustomerBookingEligibility(...args),
 }));
 
 import { cancelLiffBooking } from "@/server/actions/liff-cancel-booking";
@@ -58,6 +64,10 @@ describe("cancelLiffBooking action (PR-D4A-1)", () => {
   beforeEach(() => {
     mockRequireSession.mockReset();
     mockCancelBooking.mockReset();
+    mockGetCustomerBookingEligibility.mockReset();
+    mockGetCustomerBookingEligibility.mockResolvedValue({
+      status: "ok", customerId: "cust-canonical", storeId: "store-zhubei",
+    });
   });
 
   afterEach(() => {
@@ -88,6 +98,12 @@ describe("cancelLiffBooking action (PR-D4A-1)", () => {
   // ────────────────────────────────────────────────────
 
   describe("no_customer 分支", () => {
+    it("未完成姓名或有效手機 → profile_incomplete，且不取消預約", async () => {
+      mockRequireSession.mockResolvedValue(CUSTOMER_USER);
+      mockGetCustomerBookingEligibility.mockResolvedValue({ status: "profile_incomplete" });
+      await expect(cancelLiffBooking(VALID_INPUT)).resolves.toEqual({ status: "profile_incomplete" });
+      expect(mockCancelBooking).not.toHaveBeenCalled();
+    });
     it("requireSession throw → no_customer", async () => {
       mockRequireSession.mockRejectedValue(new Error("no session"));
       const r = await cancelLiffBooking(VALID_INPUT);

@@ -40,7 +40,7 @@
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/session";
-import { getCanonicalCustomerIdForSession } from "@/lib/customer-identity";
+import { getCustomerBookingEligibility } from "@/lib/customer-booking-eligibility";
 import { createBooking } from "@/server/actions/booking";
 import { isStoreSubscriptionWriteBlocked } from "@/lib/subscription-guard";
 import { bookingSubmissionRequestKeySchema } from "@/lib/validators/booking-submission";
@@ -73,6 +73,7 @@ export type SubmitLiffMemberBookingResult =
       field: "bookingDate" | "slotTime";
     }
   | { status: "no_customer" }
+  | { status: "profile_incomplete" }
   | { status: "no_wallet_available" }
   | { status: "wallet_expired" }
   | { status: "insufficient_sessions" }
@@ -115,14 +116,10 @@ export async function submitLiffMemberBooking(
 
   // ── 3. Resolve canonical customer + store ──────────
   // 不信任 session.customerId（可能 stale；同 PR-D1A / D2 / D4A / E2 設計）
-  const customerId = await getCanonicalCustomerIdForSession(user);
-  if (!customerId) {
-    return { status: "no_customer" };
-  }
-  const storeId = user.storeId;
-  if (!storeId) {
-    return { status: "no_customer" };
-  }
+  const eligibility = await getCustomerBookingEligibility(user);
+  if (eligibility.status === "no_customer") return { status: "no_customer" };
+  if (eligibility.status === "profile_incomplete") return { status: "profile_incomplete" };
+  const { customerId, storeId } = eligibility;
 
   // ── 3.5 訂閱到期保護：到期店家顧客不可新增預約（查看/取消既有不受影響）──
   if (await isStoreSubscriptionWriteBlocked(storeId)) {

@@ -40,6 +40,7 @@ import {
   type RecurringBookingEligibilityCode,
 } from "@/server/services/recurring-booking-errors";
 import { revalidateBookings } from "@/lib/revalidation";
+import { requireCustomerBookingEligibility } from "@/lib/customer-booking-eligibility";
 
 // Next.js "use server" modules may only export async functions. Keep this
 // implementation limit module-local so createRecurringBookings() remains
@@ -107,10 +108,8 @@ export async function createRecurringBookings(
 
     let effectiveCustomerId = data.customerId;
     if (user.role === "CUSTOMER") {
-      const { getCanonicalCustomerIdForSession } = await import("@/lib/customer-identity");
-      const canonicalId = await getCanonicalCustomerIdForSession(user);
-      if (!canonicalId) throw new AppError("UNAUTHORIZED", "找不到您的顧客資料，請重新登入後再試");
-      effectiveCustomerId = canonicalId;
+      const eligibleCustomer = await requireCustomerBookingEligibility(user);
+      effectiveCustomerId = eligibleCustomer.customerId;
     }
 
     const { payloadHash } = buildBookingRecurringPayloadHash({

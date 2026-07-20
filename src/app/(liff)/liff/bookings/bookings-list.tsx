@@ -46,6 +46,7 @@ import {
   getIDToken,
 } from "@/lib/liff/client";
 import { liffMessages } from "@/lib/liff/messages";
+import { loadProfileWithSessionRefresh } from "@/lib/liff/profile-loader";
 import {
   fetchLiffBookings,
   type LiffBookingRow,
@@ -131,6 +132,36 @@ export function BookingsList({
     }
   }
 
+  async function redirectToCompletedProfile(nextPath: string) {
+    // The caller enters with the confirmation modal locked in `submitting`.
+    // Dismiss it before any refresh branch changes the page-level state so an
+    // expired token or exchange failure cannot leave an undismissable overlay.
+    setCancelTarget(null);
+    setCancelStatus("idle");
+    setCancelError(null);
+
+    const currentIdToken = getIDToken();
+    if (!currentIdToken) {
+      setState({ kind: "expired" });
+      return;
+    }
+    const refreshed = await loadProfileWithSessionRefresh({
+      idToken: currentIdToken,
+      storeSlug,
+    });
+    if (refreshed.kind === "ok") {
+      router.replace(
+        `/s/${storeSlug}/profile?complete=1&next=${encodeURIComponent(nextPath)}`,
+      );
+    } else if (refreshed.kind === "need_onboarding") {
+      router.replace(`/s/${storeSlug}/liff/onboarding`);
+    } else if (refreshed.kind === "expired") {
+      setState({ kind: "expired" });
+    } else {
+      setState({ kind: "service_unavailable" });
+    }
+  }
+
   async function handleConfirmCancel() {
     if (!cancelTarget) return;
     setCancelStatus("submitting");
@@ -143,6 +174,10 @@ export function BookingsList({
         setCancelStatus("idle");
         setCancelError(null);
         await refetchBookings();
+        return;
+      }
+      if (r.status === "profile_incomplete") {
+        await redirectToCompletedProfile(`/s/${storeSlug}/liff/bookings`);
         return;
       }
       setCancelStatus("error");
@@ -181,6 +216,10 @@ export function BookingsList({
         setCancelStatus("idle");
         setCancelError(null);
         router.push(`/s/${storeSlug}/liff/trial-booking`);
+        return;
+      }
+      if (r.status === "profile_incomplete") {
+        await redirectToCompletedProfile(`/s/${storeSlug}/liff/bookings`);
         return;
       }
       setCancelStatus("error");
