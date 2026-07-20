@@ -57,6 +57,7 @@ import {
   type LiffMakeupCreditRow,
 } from "@/server/actions/liff-my-wallets";
 import { liffMessages } from "@/lib/liff/messages";
+import { loadProfileWithSessionRefresh } from "@/lib/liff/profile-loader";
 import type { SlotAvailability } from "@/types";
 import {
   MonthCalendar,
@@ -331,11 +332,29 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
           showDismiss: false,
         });
         return;
-      case "profile_incomplete":
-        window.location.replace(
-          `/s/${storeSlug}/profile?complete=1&next=${encodeURIComponent(`/s/${storeSlug}/liff/member-booking`)}`,
-        );
+      case "profile_incomplete": {
+        const currentIdToken = getIDToken();
+        if (!currentIdToken) {
+          setState({ kind: "expired" });
+          return;
+        }
+        const refreshed = await loadProfileWithSessionRefresh({
+          idToken: currentIdToken,
+          storeSlug,
+        });
+        if (refreshed.kind === "ok") {
+          window.location.replace(
+            `/s/${storeSlug}/profile?complete=1&next=${encodeURIComponent(`/s/${storeSlug}/liff/member-booking`)}`,
+          );
+        } else if (refreshed.kind === "need_onboarding") {
+          window.location.replace(`/s/${storeSlug}/liff/onboarding`);
+        } else if (refreshed.kind === "expired") {
+          setState({ kind: "expired" });
+        } else {
+          setState({ kind: "service_unavailable" });
+        }
         return;
+      }
       case "no_wallet_available":
         setState({ kind: "no_wallet", reason: "none" });
         return;
