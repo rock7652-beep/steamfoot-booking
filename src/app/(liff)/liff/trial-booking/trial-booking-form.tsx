@@ -256,6 +256,11 @@ export function TrialBookingForm({ storeSlug, storeName, liffId, contactUrl }: P
           showDismiss: false,
         });
         return;
+      case "profile_incomplete":
+        window.location.replace(
+          `/s/${storeSlug}/profile?complete=1&next=${encodeURIComponent(`/s/${storeSlug}/liff/trial-booking`)}`,
+        );
+        return;
       case "slot_full":
         // reload slots 讓顧客重新選；user can dismiss + 重選
         if (selectedDate) void loadSlots(selectedDate);

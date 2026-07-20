@@ -32,6 +32,7 @@
 import { z } from "zod";
 import { requireSession } from "@/lib/session";
 import { cancelBooking } from "@/server/actions/booking";
+import { getCustomerBookingEligibility } from "@/lib/customer-booking-eligibility";
 
 const InputSchema = z.object({
   bookingId: z.string().min(1, "invalid_booking_id"),
@@ -47,6 +48,7 @@ export type CancelLiffBookingResult =
   | { status: "ok" }
   | { status: "invalid_input" }
   | { status: "no_customer" }
+  | { status: "profile_incomplete" }
   | { status: "not_found" }
   | { status: "forbidden" }
   | { status: "cutoff_breach" }
@@ -71,6 +73,10 @@ export async function cancelLiffBooking(
     return { status: "no_customer" };
   }
   if (user.role !== "CUSTOMER") return { status: "no_customer" };
+
+  const eligibility = await getCustomerBookingEligibility(user);
+  if (eligibility.status === "no_customer") return { status: "no_customer" };
+  if (eligibility.status === "profile_incomplete") return { status: "profile_incomplete" };
 
   // ── 3. Delegate to cancelBooking ───────────────────
   //

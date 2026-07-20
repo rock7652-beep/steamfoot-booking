@@ -24,6 +24,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // ── mocks (必須在 import action 之前) ──
 const mockRequireSession = vi.fn();
 const mockGetCanonicalId = vi.fn();
+const mockGetCustomerBookingEligibility = vi.fn();
 const mockBookingFindFirst = vi.fn();
 const mockGetTrialSettings = vi.fn();
 const mockEnsureTrialPlan = vi.fn();
@@ -37,6 +38,11 @@ vi.mock("@/lib/session", () => ({
 vi.mock("@/lib/customer-identity", () => ({
   getCanonicalCustomerIdForSession: (...args: unknown[]) =>
     mockGetCanonicalId(...args),
+}));
+
+vi.mock("@/lib/customer-booking-eligibility", () => ({
+  getCustomerBookingEligibility: (...args: unknown[]) =>
+    mockGetCustomerBookingEligibility(...args),
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -109,6 +115,10 @@ describe("submitLiffTrialBooking action (PR-D1A)", () => {
     mockEnsureTrialPlan.mockReset();
     mockCreateBooking.mockReset();
     mockBookingSubmissionExists.mockReset();
+    mockGetCustomerBookingEligibility.mockReset();
+    mockGetCustomerBookingEligibility.mockResolvedValue({
+      status: "ok", customerId: CANONICAL_CUSTOMER_ID, storeId: STORE_ID,
+    });
     mockBookingSubmissionExists.mockResolvedValue(false);
   });
 
@@ -171,7 +181,7 @@ describe("submitLiffTrialBooking action (PR-D1A)", () => {
 
       await submitLiffTrialBooking(VALID_INPUT);
 
-      expect(mockGetCanonicalId).toHaveBeenCalledWith(CUSTOMER_USER);
+      expect(mockGetCustomerBookingEligibility).toHaveBeenCalledWith(CUSTOMER_USER);
     });
 
     it("queries duplicate trial scoped to canonical customerId + FIRST_TRIAL + A2 statuses", async () => {
@@ -408,6 +418,12 @@ describe("submitLiffTrialBooking action (PR-D1A)", () => {
   // ────────────────────────────────────────────────────────
 
   describe("no_customer", () => {
+    it("未完成姓名或有效手機 → profile_incomplete，且不建立預約", async () => {
+      mockRequireSession.mockResolvedValue(CUSTOMER_USER);
+      mockGetCustomerBookingEligibility.mockResolvedValue({ status: "profile_incomplete" });
+      await expect(submitLiffTrialBooking(VALID_INPUT)).resolves.toEqual({ status: "profile_incomplete" });
+      expect(mockCreateBooking).not.toHaveBeenCalled();
+    });
     it("session missing (requireSession throws) → no_customer", async () => {
       mockRequireSession.mockRejectedValue(new Error("no session"));
       const r = await submitLiffTrialBooking(VALID_INPUT);
@@ -437,7 +453,7 @@ describe("submitLiffTrialBooking action (PR-D1A)", () => {
 
     it("canonical customerId resolves null → no_customer", async () => {
       mockRequireSession.mockResolvedValue(CUSTOMER_USER);
-      mockGetCanonicalId.mockResolvedValue(null);
+      mockGetCustomerBookingEligibility.mockResolvedValue({ status: "no_customer" });
       const r = await submitLiffTrialBooking(VALID_INPUT);
       expect(r).toEqual({ status: "no_customer" });
     });
@@ -447,7 +463,7 @@ describe("submitLiffTrialBooking action (PR-D1A)", () => {
         ...CUSTOMER_USER,
         storeId: null,
       });
-      mockGetCanonicalId.mockResolvedValue(CANONICAL_CUSTOMER_ID);
+      mockGetCustomerBookingEligibility.mockResolvedValue({ status: "no_customer" });
       const r = await submitLiffTrialBooking(VALID_INPUT);
       expect(r).toEqual({ status: "no_customer" });
     });

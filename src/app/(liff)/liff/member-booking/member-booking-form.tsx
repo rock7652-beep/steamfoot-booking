@@ -331,6 +331,11 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
           showDismiss: false,
         });
         return;
+      case "profile_incomplete":
+        window.location.replace(
+          `/s/${storeSlug}/profile?complete=1&next=${encodeURIComponent(`/s/${storeSlug}/liff/member-booking`)}`,
+        );
+        return;
       case "no_wallet_available":
         setState({ kind: "no_wallet", reason: "none" });
         return;

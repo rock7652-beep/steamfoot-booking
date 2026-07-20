@@ -145,6 +145,12 @@ export function BookingsList({
         await refetchBookings();
         return;
       }
+      if (r.status === "profile_incomplete") {
+        router.replace(
+          `/s/${storeSlug}/profile?complete=1&next=${encodeURIComponent(`/s/${storeSlug}/liff/bookings`)}`,
+        );
+        return;
+      }
       setCancelStatus("error");
       setCancelError(mapCancelStatusToMessage(r.status));
     } catch (err) {
@@ -181,6 +187,12 @@ export function BookingsList({
         setCancelStatus("idle");
         setCancelError(null);
         router.push(`/s/${storeSlug}/liff/trial-booking`);
+        return;
+      }
+      if (r.status === "profile_incomplete") {
+        router.replace(
+          `/s/${storeSlug}/profile?complete=1&next=${encodeURIComponent(`/s/${storeSlug}/liff/bookings`)}`,
+        );
         return;
       }
       setCancelStatus("error");

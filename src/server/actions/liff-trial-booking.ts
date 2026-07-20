@@ -28,7 +28,7 @@
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/session";
-import { getCanonicalCustomerIdForSession } from "@/lib/customer-identity";
+import { getCustomerBookingEligibility } from "@/lib/customer-booking-eligibility";
 import { ensureTrialPlan } from "@/server/services/trial-plan";
 import { getTrialSettings } from "@/lib/shop-config";
 import { createBooking } from "@/server/actions/booking";
@@ -66,6 +66,7 @@ export type SubmitLiffTrialBookingResult =
       field: "bookingDate" | "slotTime";
     }
   | { status: "no_customer" }
+  | { status: "profile_incomplete" }
   | { status: "slot_full" }
   | { status: "slot_unavailable" }
   | { status: "booking_limit_reached" }
@@ -101,14 +102,10 @@ export async function submitLiffTrialBooking(
   }
 
   // ── 3. Resolve canonical customer ──────────────────
-  const customerId = await getCanonicalCustomerIdForSession(user);
-  if (!customerId) {
-    return { status: "no_customer" };
-  }
-  const storeId = user.storeId;
-  if (!storeId) {
-    return { status: "no_customer" };
-  }
+  const eligibility = await getCustomerBookingEligibility(user);
+  if (eligibility.status === "no_customer") return { status: "no_customer" };
+  if (eligibility.status === "profile_incomplete") return { status: "profile_incomplete" };
+  const { customerId, storeId } = eligibility;
 
   // ── 3.5 訂閱到期保護：到期店家顧客不可新增體驗預約 ──
   if (await isStoreSubscriptionWriteBlocked(storeId)) {
