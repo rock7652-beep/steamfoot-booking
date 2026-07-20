@@ -80,6 +80,8 @@ describe("LINE rebind execution", () => {
     expect(JSON.stringify(audit)).not.toContain(candidateUserId);
     expect(JSON.stringify(audit)).not.toContain(phone);
     expect(JSON.stringify(audit)).not.toContain("ciphertext");
+    expect(JSON.stringify(audit)).toContain(hash(request().reason));
+    expect(JSON.stringify(audit)).not.toContain(request().reason);
   });
 
   it.each([

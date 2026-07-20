@@ -159,7 +159,7 @@ export async function executeLineRebind(input: {
           targetType: "LineRebindRequest",
           targetId: request.id,
           action: "EXECUTE_LINE_REBIND",
-          beforeJson: { storeId: request.storeId, customerId: request.customerId, reason: request.reason, oldUserIdHash: request.oldUserIdHash, newUserIdHash: request.candidate.userIdHash, dryRun: Object.fromEntries(Object.entries(dryRun.checks).map(([name, check]) => [name, check.code])) },
+          beforeJson: { storeId: request.storeId, customerId: request.customerId, reasonHash: sha256(request.reason), oldUserIdHash: request.oldUserIdHash, newUserIdHash: request.candidate.userIdHash, dryRun: Object.fromEntries(Object.entries(dryRun.checks).map(([name, check]) => [name, check.code])) },
           afterJson: { status: "CONSUMED", consumedAt: now.toISOString(), actorRole: input.actorRole },
         },
       });
