@@ -51,6 +51,14 @@ describe("Taichung OA token health check", () => {
     expect(h.botInfo).not.toHaveBeenCalled();
   });
 
+  it("does not query the store or LINE when the action permission is denied", async () => {
+    h.permission.mockRejectedValue(new Error("forbidden"));
+    await expect(checkTaichungLineBotHealth()).resolves.toMatchObject({ success: false });
+    expect(h.activeStore).not.toHaveBeenCalled();
+    expect(h.store).not.toHaveBeenCalled();
+    expect(h.botInfo).not.toHaveBeenCalled();
+  });
+
   it("fails closed when the store destination or token check is unavailable", async () => {
     h.store.mockResolvedValue({ slug: "taichung", lineDestination: null });
     await expect(checkTaichungLineBotHealth()).resolves.toMatchObject({ success: true, data: { status: "FAIL", code: "STORE_DESTINATION_MISSING" } });

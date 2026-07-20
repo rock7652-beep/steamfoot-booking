@@ -1,9 +1,11 @@
 import { getCurrentUser } from "@/lib/session";
+import { checkPermission } from "@/lib/permissions";
 import { getCurrentStorePlan } from "@/lib/store-plan";
 import { hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
 import { FeatureGate } from "@/components/feature-gate";
 import { getActiveStoreForRead } from "@/lib/store";
+import { prisma } from "@/lib/db";
 import { redirect } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import {
@@ -20,7 +22,7 @@ import {
   getTodayCronRunStatus,
   getLineSmokeTestContext,
 } from "@/server/queries/reminder";
-import { isLineSmokeTestEnabled, resolveLineStoreSlug } from "@/lib/line-config";
+import { isLineSmokeTestEnabled } from "@/lib/line-config";
 import { ReminderCard } from "./reminder-card";
 import { CreateTemplateForm } from "./create-template-form";
 import { CronRunBanner } from "./cron-run-banner";
@@ -75,9 +77,11 @@ export default async function RemindersPage({ searchParams }: PageProps) {
     );
   }
 
-  const [plan, lineReminderEnabled] = await Promise.all([
+  const [plan, lineReminderEnabled, activeStore, canManageLineHealth] = await Promise.all([
     getCurrentStorePlan(),
     hasStoreFeature(activeStoreId, FEATURES.LINE_REMINDER),
+    prisma.store.findUnique({ where: { id: activeStoreId }, select: { slug: true } }),
+    checkPermission(user.role, user.staffId, "business_hours.manage"),
   ]);
   if (!lineReminderEnabled) {
     return (
@@ -89,7 +93,9 @@ export default async function RemindersPage({ searchParams }: PageProps) {
 
   const activeTab = params.tab ?? "rules";
   const smokeTestEnabled = isLineSmokeTestEnabled();
-  const canCheckTaichungLineHealth = resolveLineStoreSlug(activeStoreId) === "taichung" && (user.role === "OWNER" || user.role === "ADMIN");
+  const canCheckTaichungLineHealth = activeStore?.slug === "taichung"
+    && (user.role === "OWNER" || user.role === "ADMIN")
+    && canManageLineHealth;
 
   const [stats, templates, cronStatus, reminderState] = await Promise.all([
     getReminderStats(activeStoreId),
