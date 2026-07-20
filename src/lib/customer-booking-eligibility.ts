@@ -22,6 +22,11 @@ export type CustomerBookingEligibility =
 export async function getCustomerBookingEligibility(
   user: CustomerBookingSession,
 ): Promise<CustomerBookingEligibility> {
+  // Booking mutations require an explicit store-scoped session. Recovering the
+  // store from Customer here would let stale sessions pass this guard only to
+  // fail later in currentStoreId(user) with the wrong error classification.
+  if (!user.storeId) return { status: "no_customer" };
+
   const customerId = await getCanonicalCustomerIdForSession(user);
   if (!customerId) return { status: "no_customer" };
 
@@ -30,7 +35,7 @@ export async function getCustomerBookingEligibility(
     select: { id: true, storeId: true, name: true, phone: true },
   });
   if (!customer) return { status: "no_customer" };
-  if (user.storeId && customer.storeId !== user.storeId) {
+  if (customer.storeId !== user.storeId) {
     return { status: "no_customer" };
   }
   if (missingRequiredFields(customer).length > 0) {
