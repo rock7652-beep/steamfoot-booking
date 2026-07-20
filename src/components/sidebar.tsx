@@ -39,6 +39,8 @@ interface NavItem {
   upgradeTo?: PricingPlan;
   /** Visual emphasis for key features (e.g. 人才管道) */
   highlighted?: boolean;
+  /** 顯示待處理數量的動態 badge key */
+  badgeKey?: "pendingPayments";
 }
 
 export interface NavGroup {
@@ -120,6 +122,19 @@ export const STORE_ADMIN_NAV: NavItem[] = [
     icon: (
       <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    ),
+  },
+  {
+    href: "/dashboard/payments",
+    label: "待確認付款",
+    permission: "transaction.create",
+    requiredFeature: FEATURES.TRANSACTION_MANAGEMENT,
+    upgradeTo: "BASIC",
+    badgeKey: "pendingPayments",
+    icon: (
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 14.25l2.25 2.25L15 12.75m5.25-7.5v13.5A2.25 2.25 0 0118 21H6a2.25 2.25 0 01-2.25-2.25V5.25M8.25 3h7.5A2.25 2.25 0 0118 5.25v.75H6v-.75A2.25 2.25 0 018.25 3z" />
       </svg>
     ),
   },
@@ -254,6 +269,19 @@ export const NAV_GROUPS: NavGroup[] = [
       </svg>
     ),
     items: [
+      {
+        href: "/dashboard/payments",
+        label: "待確認付款",
+        permission: "transaction.create",
+        requiredFeature: FEATURES.TRANSACTION_MANAGEMENT,
+        upgradeTo: "BASIC",
+        badgeKey: "pendingPayments",
+        icon: (
+          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 14.25l2.25 2.25L15 12.75m5.25-7.5v13.5A2.25 2.25 0 0118 21H6a2.25 2.25 0 01-2.25-2.25V5.25M8.25 3h7.5A2.25 2.25 0 0118 5.25v.75H6v-.75A2.25 2.25 0 018.25 3z" />
+          </svg>
+        ),
+      },
       {
         href: "/dashboard/duty",
         label: "值班安排",
@@ -591,6 +619,7 @@ interface DashboardShellProps {
   storeOptions?: StoreOption[];
   /** Current active store cookie value (null = all stores) */
   activeStoreId?: string | null;
+  pendingPaymentCount?: number;
   viewMode?: {
     ownStore: StoreViewOption;
     descendantStores: StoreViewOption[];
@@ -612,6 +641,7 @@ export default function DashboardShell({
   storeName,
   storeOptions,
   activeStoreId,
+  pendingPaymentCount = 0,
   viewMode,
 }: DashboardShellProps) {
   const rawPathname = usePathname();
@@ -818,8 +848,13 @@ export default function DashboardShell({
             {item.icon}
           </span>
           <span>{item.label}</span>
+          {item.badgeKey === "pendingPayments" && pendingPaymentCount > 0 && (
+            <span className="ml-auto inline-flex min-w-5 items-center justify-center rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold leading-none text-amber-700">
+              {pendingPaymentCount > 99 ? "99+" : pendingPaymentCount}
+            </span>
+          )}
           {isHighlighted && <span className="ml-auto text-xs text-amber-400">&#9733;</span>}
-          {!isHighlighted && (
+          {!isHighlighted && !(item.badgeKey === "pendingPayments" && pendingPaymentCount > 0) && (
             <NavItemPending tone={active ? "primary" : "earth"} />
           )}
         </Link>
@@ -861,6 +896,11 @@ export default function DashboardShell({
           <span className={`shrink-0 ${active ? "text-primary-600" : "text-earth-500 group-hover:text-earth-700"}`}>
             {item.icon}
           </span>
+          {item.badgeKey === "pendingPayments" && pendingPaymentCount > 0 && (
+            <span className="pointer-events-none absolute right-0 top-0 inline-flex min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[9px] font-bold leading-4 text-white">
+              {pendingPaymentCount > 9 ? "9+" : pendingPaymentCount}
+            </span>
+          )}
           <NavItemPendingDot />
         </Link>
       </li>
