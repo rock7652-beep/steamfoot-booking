@@ -77,19 +77,34 @@ function ActionCell({
   );
 }
 
-export default async function PendingPaymentsPage() {
+export default async function PendingPaymentsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ transactionId?: string }>;
+}) {
   const user = await getCurrentUser();
   if (!user || !(await checkPermission(user.role, user.staffId, "transaction.create"))) {
     redirect("/dashboard");
   }
 
-  const activeStoreId = await getActiveStoreForRead(user);
-  const { transactions, total, totalAmount, confirmableCount } =
+  const [{ transactionId: focusedTransactionId }, activeStoreId] = await Promise.all([
+    searchParams,
+    getActiveStoreForRead(user),
+  ]);
+  const result =
     await getPendingPaymentTransactions({
       activeStoreId,
       page: 1,
       pageSize: 50,
     });
+  const { total, totalAmount, confirmableCount } = result;
+  const transactions = focusedTransactionId
+    ? [...result.transactions].sort((a, b) => {
+        if (a.id === focusedTransactionId) return -1;
+        if (b.id === focusedTransactionId) return 1;
+        return 0;
+      })
+    : result.transactions;
 
   return (
     <div>
@@ -147,9 +162,14 @@ export default async function PendingPaymentsPage() {
                   const amount = Number(tx.amount);
                   const planName =
                     tx.customerPlanWallet?.plan?.name ?? tx.planNameSnapshot ?? "—";
-                  const transferLast5 = tx.bankLast5 || tx.transferLastFour || "";
+                  const transferCode = tx.transferLastFour || tx.bankLast5 || "";
+                  const isFocused = tx.id === focusedTransactionId;
+                  const isOnlinePurchase = !tx.soldByStaffId && !tx.customerPlanWalletId;
                   return (
-                    <tr key={tx.id} className="transition-colors hover:bg-earth-50">
+                    <tr
+                      key={tx.id}
+                      className={`transition-colors ${isFocused ? "bg-amber-50 ring-2 ring-inset ring-amber-300" : "hover:bg-earth-50"}`}
+                    >
                       <td className="px-4 py-3">
                         <StatusBadge status={tx.rowStatus} />
                       </td>
@@ -172,6 +192,9 @@ export default async function PendingPaymentsPage() {
                       </td>
                       <td className="px-4 py-3">
                         <span className="text-earth-700">{planName}</span>
+                        {isOnlinePurchase && (
+                          <div className="mt-1 text-[11px] font-medium text-primary-600">顧客線上購買</div>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-right font-semibold text-primary-700">
                         NT$ {amount.toLocaleString()}
@@ -192,7 +215,7 @@ export default async function PendingPaymentsPage() {
                           <div className="space-y-0.5">
                             {tx.transferLastFour && (
                               <div>
-                                顧客末四碼：
+                                轉帳後四碼：
                                 <span className="font-mono font-semibold text-earth-800">
                                   {tx.transferLastFour}
                                 </span>
@@ -224,7 +247,7 @@ export default async function PendingPaymentsPage() {
                             amount,
                             paymentMethodLabel:
                               PAYMENT_METHOD_LABEL[tx.paymentMethod] ?? tx.paymentMethod,
-                            transferLast5,
+                            transferCode,
                             initialReferenceNo: tx.referenceNo ?? "",
                             initialBankLast5: tx.bankLast5 ?? "",
                             customerTransferLastFour: tx.transferLastFour,
@@ -253,9 +276,14 @@ export default async function PendingPaymentsPage() {
               const amount = Number(tx.amount);
               const planName =
                 tx.customerPlanWallet?.plan?.name ?? tx.planNameSnapshot ?? "—";
-              const transferLast5 = tx.bankLast5 || tx.transferLastFour || "";
+              const transferCode = tx.transferLastFour || tx.bankLast5 || "";
+              const isFocused = tx.id === focusedTransactionId;
+              const isOnlinePurchase = !tx.soldByStaffId && !tx.customerPlanWalletId;
               return (
-                <div key={tx.id} className="p-4">
+                <div
+                  key={tx.id}
+                  className={`p-4 ${isFocused ? "bg-amber-50 ring-2 ring-inset ring-amber-300" : ""}`}
+                >
                   <div className="mb-2 flex items-center justify-between">
                     <StatusBadge status={tx.rowStatus} />
                     <span className="font-semibold text-primary-700">
@@ -274,7 +302,13 @@ export default async function PendingPaymentsPage() {
                       ) : (
                         <span className="text-earth-400">—</span>
                       )}
+                      {tx.customer?.phone && (
+                        <div className="mt-0.5 text-xs text-earth-500">{tx.customer.phone}</div>
+                      )}
                       <div className="mt-0.5 text-xs text-earth-400">{planName}</div>
+                      {isOnlinePurchase && (
+                        <div className="mt-1 text-[11px] font-medium text-primary-600">顧客線上購買</div>
+                      )}
                     </div>
                   </div>
                   <div className="mb-2 flex flex-wrap items-center gap-2 text-xs">
@@ -295,7 +329,7 @@ export default async function PendingPaymentsPage() {
                     <div className="mb-2 space-y-0.5 text-xs text-earth-500">
                       {tx.transferLastFour && (
                         <div>
-                          顧客末四碼：
+                          轉帳後四碼：
                           <span className="font-mono font-semibold text-earth-800">
                             {tx.transferLastFour}
                           </span>
@@ -320,7 +354,7 @@ export default async function PendingPaymentsPage() {
                       amount,
                       paymentMethodLabel:
                         PAYMENT_METHOD_LABEL[tx.paymentMethod] ?? tx.paymentMethod,
-                      transferLast5,
+                      transferCode,
                       initialReferenceNo: tx.referenceNo ?? "",
                       initialBankLast5: tx.bankLast5 ?? "",
                       customerTransferLastFour: tx.transferLastFour,
