@@ -227,7 +227,8 @@ export async function assignPlanToCustomer(
           discountReason: data.discountReason || null,
           customerPlanWalletId: wallet?.id ?? null,
           planSessionCountSnapshot: plan.sessionCount,
-          planValidityDaysSnapshot: plan.validityDays,
+          // 付款確認時必須直接使用申請當下已選定的日期，不能重算 plan。
+          pendingWalletExpiryDateSnapshot: isPending ? expiryDate : null,
           note: data.note,
           storeId,
           ...snapshot,
@@ -955,6 +956,10 @@ export async function initiateCustomerPlanPurchase(
     }
 
     const originalPrice = Number(plan.price);
+    // 自助購買沒有自訂效期選項，仍在申請當下封存方案規則解析出的確切日期。
+    const pendingExpiryDate = plan.validityDays == null
+      ? null
+      : parseTaiwanDateToDbDate(addTaiwanDuration(toLocalDateStr(), plan.validityDays, "DAY"));
     const txType =
       plan.category === "TRIAL"
         ? "TRIAL_PURCHASE"
@@ -993,7 +998,7 @@ export async function initiateCustomerPlanPurchase(
           amount: originalPrice,
           customerPlanWalletId: null,
           planSessionCountSnapshot: plan.sessionCount,
-          planValidityDaysSnapshot: plan.validityDays,
+          pendingWalletExpiryDateSnapshot: pendingExpiryDate,
           note: "顧客線上申請購買（轉帳待確認）",
           transferLastFour: data.transferLastFour,
           customerNote: data.customerNote ?? null,

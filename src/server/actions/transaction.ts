@@ -25,7 +25,7 @@ import { buildTransactionSnapshot, buildRefundSnapshot } from "@/lib/transaction
 import { awardFirstTopupReferralPointsIfEligible } from "@/server/services/referral-points";
 import { computeRefundPlan, type RefundMode } from "@/lib/refund-plan";
 import { seedWalletSessions } from "@/server/services/wallet-session";
-import { addTaiwanDuration, parseTaiwanDateToDbDate, toLocalDateStr } from "@/lib/date-utils";
+import { parseTaiwanDateToDbDate, toLocalDateStr } from "@/lib/date-utils";
 
 // ============================================================
 // Validators
@@ -326,7 +326,7 @@ export async function confirmTransactionPayment(
         planId: true,
         amount: true,
         planSessionCountSnapshot: true,
-        planValidityDaysSnapshot: true,
+        pendingWalletExpiryDateSnapshot: true,
       },
     });
     if (!original) throw new AppError("NOT_FOUND", "交易紀錄不存在");
@@ -386,11 +386,9 @@ export async function confirmTransactionPayment(
           throw new AppError("BUSINESS_RULE", "此待付款交易缺少方案開通快照，請人工核帳處理");
         }
         const today = toLocalDateStr();
-        const expiryDate = original.planValidityDaysSnapshot == null
-          ? null
-          : parseTaiwanDateToDbDate(
-              addTaiwanDuration(today, original.planValidityDaysSnapshot, "DAY"),
-            );
+        // startDate 是實際入帳日；expiryDate 是購買申請時已解析完成的快照。
+        // 不可重讀或重算可能已變更的 ServicePlan。
+        const expiryDate = original.pendingWalletExpiryDateSnapshot;
         const wallet = await tx.customerPlanWallet.create({
           data: {
             customerId: original.customerId,

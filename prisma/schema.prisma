@@ -1453,8 +1453,9 @@ model Transaction {
   planType          String? // 方案類型快照（TRIAL / SINGLE / PACKAGE）
   // 待付款方案開通快照：確認付款時絕不可重新讀取可能已變更的 ServicePlan。
   // nullable 以相容既有交易；新建立的待付款方案交易必填。
-  planSessionCountSnapshot Int?
-  planValidityDaysSnapshot Int?
+  planSessionCountSnapshot       Int?
+  // 購買申請當下已解析的確切到期日；確認付款時直接沿用，不重算方案。
+  pendingWalletExpiryDateSnapshot DateTime? @db.Date
   grossAmount       Decimal?          @db.Decimal(10, 0) // 原價（始終填入）
   discountAmount    Decimal?          @db.Decimal(10, 0) // 折扣金額
   netAmount         Decimal           @default(0) @db.Decimal(10, 0) // 實收金額（報表用）

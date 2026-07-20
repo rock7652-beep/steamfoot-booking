@@ -2,7 +2,7 @@
 -- Additive only: no production data is read, updated, or backfilled.
 ALTER TABLE "Transaction"
   ADD COLUMN "planSessionCountSnapshot" INTEGER,
-  ADD COLUMN "planValidityDaysSnapshot" INTEGER;
+  ADD COLUMN "pendingWalletExpiryDateSnapshot" DATE;
 
 -- One unconfirmed self-service purchase per customer/store/plan.  Historical
 -- pending transactions that already have a wallet and staff-created transfers
