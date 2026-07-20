@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { generateLineBindingCode, unlinkLineAccount } from "@/server/actions/reminder";
-import { createLineRebindCaptureRequest, cancelLineRebindCaptureRequest, dryRunLineRebind } from "@/server/actions/line-rebind";
+import { createLineRebindCaptureRequest, cancelLineRebindCaptureRequest, dryRunLineRebind, executeLineRebindAction } from "@/server/actions/line-rebind";
 
 const LINE_OA_URL = process.env.NEXT_PUBLIC_LINE_OA_ADD_FRIEND_URL ?? "";
 
@@ -41,6 +41,8 @@ export function LineBindingSection({
   const [copied, setCopied] = useState(false);
   const [expiryText, setExpiryText] = useState("");
   const [dryRun, setDryRun] = useState<{ requestId: string; overall: string; candidateHashPrefix: string | null; candidateMaskedUserId: string | null; checks: Record<string, { status: string; code: string }> } | null>(null);
+  const [executeConfirmOpen, setExecuteConfirmOpen] = useState(false);
+  const [executeConfirmation, setExecuteConfirmation] = useState("");
 
   // ── 計算綁定碼剩餘有效時間 ──
   const updateExpiry = useCallback(() => {
@@ -184,6 +186,22 @@ export function LineBindingSection({
     setPending(false);
   }
 
+  async function handleExecuteRebind() {
+    if (!activeLineRebindRequest || activeDryRun?.overall !== "READY_FOR_REBIND" || executeConfirmation !== "確認重新綁定") return;
+    setPending(true);
+    const result = await executeLineRebindAction(activeLineRebindRequest.id);
+    if (result.success) {
+      setDryRun(null);
+      setExecuteConfirmOpen(false);
+      setExecuteConfirmation("");
+      setMessage({ text: "LINE 重新綁定完成。", type: "success" });
+      router.refresh();
+    } else {
+      setMessage({ text: result.error, type: "error" });
+    }
+    setPending(false);
+  }
+
   const activeDryRun = dryRun?.requestId === activeLineRebindRequest?.id ? dryRun : null;
 
   // ── 複製綁定指令 ──
@@ -229,8 +247,10 @@ export function LineBindingSection({
             <p className="mt-1">狀態：{activeLineRebindRequest.status}；到期：{new Date(activeLineRebindRequest.expiresAt).toLocaleString("zh-TW")}</p>
             {activeLineRebindRequest.capturedAt && <p className="mt-1">已捕捉；userId hash：{activeLineRebindRequest.userIdHashPrefix ?? "—"}</p>}
             {canRunLineRebindDryRun && activeLineRebindRequest.status === "CANDIDATE_CAPTURED" && <button onClick={handleDryRun} disabled={pending} className="mt-2 mr-3 text-amber-800 underline disabled:opacity-50">執行安全檢查</button>}
+            {activeDryRun?.overall === "READY_FOR_REBIND" && <button onClick={() => setExecuteConfirmOpen(true)} disabled={pending} className="mt-2 mr-3 text-red-800 underline disabled:opacity-50">確認正式重新綁定</button>}
             <button onClick={handleCancelRebindRequest} disabled={pending} className="mt-2 text-amber-800 underline disabled:opacity-50">取消申請並刪除候選密文</button>
             {activeDryRun && <div className="mt-2 space-y-1"><p>整體：{activeDryRun.overall}</p><p>候選：{activeDryRun.candidateMaskedUserId ?? "—"}（hash：{activeDryRun.candidateHashPrefix ?? "—"}）</p>{Object.entries(activeDryRun.checks).map(([name, check]) => <p key={name}>{name}：{check.status}（{check.code}）</p>)}</div>}
+            {executeConfirmOpen && <div role="dialog" aria-modal="true" className="mt-3 rounded border border-red-200 bg-white p-3 text-earth-800"><p className="font-medium">確定要正式重新綁定 LINE 嗎？</p><p className="mt-1">此操作會將目前顧客的 LINE 身份改為候選身份；舊身份將停止接收此顧客的通知。操作會留下稽核紀錄，完成後不能由畫面直接復原。</p><label className="mt-2 block">請輸入「確認重新綁定」<input value={executeConfirmation} onChange={(event) => setExecuteConfirmation(event.target.value)} disabled={pending} className="mt-1 w-full rounded border p-1" /></label><div className="mt-2 flex gap-2"><button onClick={() => { setExecuteConfirmOpen(false); setExecuteConfirmation(""); }} disabled={pending} className="underline">取消</button><button onClick={handleExecuteRebind} disabled={pending || executeConfirmation !== "確認重新綁定"} className="text-red-800 underline disabled:opacity-50">確認正式重新綁定</button></div></div>}
           </> : <>
             <p className="mt-1">建立後，顧客下一次輸入正確電話才會捕捉候選身份；不會直接變更綁定。</p>
             {canRunLineRebindDryRun && <button onClick={handleCreateRebindRequest} disabled={pending} className="mt-2 text-amber-800 underline disabled:opacity-50">建立 15 分鐘捕捉申請</button>}

@@ -14,4 +14,10 @@ describe("LINE rebind dry-run UI state", () => {
     expect(source).toContain("const activeDryRun = dryRun?.requestId === activeLineRebindRequest?.id ? dryRun : null;");
     expect(source).toContain("{activeDryRun &&");
   });
+
+  it("requires a current READY dry-run and exact typed confirmation before execution", () => {
+    expect(source).toContain('activeDryRun?.overall === "READY_FOR_REBIND"');
+    expect(source).toContain('executeConfirmation !== "確認重新綁定"');
+    expect(source).toContain('executeLineRebindAction(activeLineRebindRequest.id)');
+  });
 });

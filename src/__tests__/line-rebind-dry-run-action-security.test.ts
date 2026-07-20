@@ -5,6 +5,7 @@ const h = vi.hoisted(() => ({
   access: vi.fn(),
   request: vi.fn(),
   service: vi.fn(),
+  execute: vi.fn(),
 }));
 
 vi.mock("@/lib/permissions", () => ({ requirePermission: h.permission }));
@@ -15,8 +16,9 @@ vi.mock("@/server/services/line-rebind", () => ({
   cancelLineRebindRequest: vi.fn(),
 }));
 vi.mock("@/server/services/line-rebind-dry-run", () => ({ runLineRebindDryRun: h.service }));
+vi.mock("@/server/services/line-rebind-execute", () => ({ executeLineRebind: h.execute }));
 
-import { dryRunLineRebind } from "@/server/actions/line-rebind";
+import { dryRunLineRebind, executeLineRebindAction } from "@/server/actions/line-rebind";
 
 const sentinels = {
   oldLineUserId: "Uold-line-user-id-sentinel",
@@ -55,6 +57,7 @@ describe("LINE rebind dry-run action security", () => {
     h.permission.mockResolvedValue({ id: "actor-a", role: "OWNER" });
     h.request.mockResolvedValue({ storeId: "store-a" });
     h.service.mockResolvedValue({ overall: "READY_FOR_REBIND", candidateMaskedUserId: "U123****abcd" });
+    h.execute.mockResolvedValue({ status: "executed", requestId: "request-a" });
   });
 
   afterEach(() => assertConsoleHasNoSensitiveValues());
@@ -67,6 +70,21 @@ describe("LINE rebind dry-run action security", () => {
     h.permission.mockResolvedValue({ id: "actor-a", role });
 
     expect((await dryRunLineRebind("request-a")).success).toBe(true);
+  });
+
+  it("executes only after the same owner/admin and store guards", async () => {
+    await expect(executeLineRebindAction("request-a")).resolves.toEqual({ success: true, data: { requestId: "request-a" } });
+    expect(h.execute).toHaveBeenCalledWith({ requestId: "request-a", actorUserId: "actor-a", actorRole: "OWNER" });
+  });
+
+  it("rejects execution before loading the execute service when permission or store access fails", async () => {
+    h.permission.mockRejectedValueOnce(new Error(`FORBIDDEN ${sentinels.lineAccessToken}`));
+    expect((await executeLineRebindAction("request-a")).success).toBe(false);
+    expect(h.execute).not.toHaveBeenCalled();
+    h.permission.mockResolvedValue({ id: "actor-a", role: "OWNER" });
+    h.access.mockImplementationOnce(() => { throw new Error(`FORBIDDEN ${sentinels.lineChannelSecret}`); });
+    expect((await executeLineRebindAction("request-a")).success).toBe(false);
+    expect(h.execute).not.toHaveBeenCalled();
   });
 
   it("rejects a missing customer.identity.rebind permission before querying or running the service", async () => {
