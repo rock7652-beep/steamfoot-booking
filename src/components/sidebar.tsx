@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import dynamic from "next/dynamic";
-import Link, { useLinkStatus } from "next/link";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import BuildFooter from "@/components/build-footer";
 import UpdateBanner from "@/components/update-banner";
@@ -528,66 +528,6 @@ export const NAV_GROUPS: NavGroup[] = [
 ];
 
 // ============================================================
-// Pending click indicator (Next.js useLinkStatus)
-// ============================================================
-//
-// Next 16: dynamic routes only prefetch loading.tsx — clicking a sidebar
-// item still incurs a server roundtrip to fetch the page RSC payload.
-// Without feedback, users can perceive 80–200ms of "nothing happens".
-//
-// This component must be a *child* of <Link> for useLinkStatus to bind.
-// We render a fixed-size element and toggle opacity to avoid layout
-// shift, per Next docs guidance.
-//
-// Behaviour:
-//  - When the linked route is already prefetched and navigation is
-//    instant, pending stays false → indicator hidden.
-//  - When the route is not prefetched (most dashboard routes) or the
-//    payload is mid-flight, pending=true → spinner visible immediately.
-
-function NavItemPending({ tone = "earth" }: { tone?: "earth" | "primary" | "amber" }) {
-  const { pending } = useLinkStatus();
-  const colorClass =
-    tone === "primary"
-      ? "text-primary-500"
-      : tone === "amber"
-        ? "text-amber-500"
-        : "text-earth-400";
-  return (
-    <span
-      aria-hidden
-      className={`ml-auto inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center transition-opacity duration-150 ${colorClass} ${
-        pending ? "opacity-100" : "opacity-0"
-      }`}
-    >
-      <svg
-        className="h-3.5 w-3.5 animate-spin"
-        viewBox="0 0 16 16"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-      >
-        <circle cx="8" cy="8" r="6" strokeOpacity="0.25" />
-        <path d="M14 8a6 6 0 0 0-6-6" strokeLinecap="round" />
-      </svg>
-    </span>
-  );
-}
-
-function NavItemPendingDot() {
-  // collapsed (icon-only) variant: small corner dot, no layout shift
-  const { pending } = useLinkStatus();
-  return (
-    <span
-      aria-hidden
-      className={`pointer-events-none absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-primary-500 transition-opacity duration-150 ${
-        pending ? "opacity-100" : "opacity-0"
-      }`}
-    />
-  );
-}
-
-// ============================================================
 // Component
 // ============================================================
 
@@ -825,13 +765,11 @@ export default function DashboardShell({
 
     return (
       <li key={item.href}>
-        <Link
+        <a
           href={`${dashboardPrefix}${item.href}`}
-          // PR #312-B-2：關閉側邊欄背景 prefetch。dashboard route 多為動態頁，
-          // 預設 auto 會各打一筆 loading-shell RSC（~8–13 筆/render），在正式站
-          // connection_limit=1 單連線下排隊、拖慢真正要看的頁。點擊回饋已由
-          // NavItemPending（useLinkStatus）+ 各頁 loading.tsx 提供，故可安全關閉。
-          prefetch={false}
+          // 後台跨頁刻意使用原生導頁。Next 16 的 client navigation 偶發在 RSC
+          // 已回 200 後仍不 commit，導致導頁指示永久 pending；完整導頁可確保
+          // 每次點擊都由瀏覽器完成並清除舊頁狀態。
           className={`group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
             active
               ? "bg-primary-100 text-primary-800"
@@ -854,10 +792,7 @@ export default function DashboardShell({
             </span>
           )}
           {isHighlighted && <span className="ml-auto text-xs text-amber-400">&#9733;</span>}
-          {!isHighlighted && !(item.badgeKey === "pendingPayments" && pendingPaymentCount > 0) && (
-            <NavItemPending tone={active ? "primary" : "earth"} />
-          )}
-        </Link>
+        </a>
       </li>
     );
   };
@@ -881,11 +816,8 @@ export default function DashboardShell({
     const active = isActive(item.href);
     return (
       <li key={item.href}>
-        <Link
-          href={item.href}
-          // PR #312-B-2：收合版同樣關閉背景 prefetch（見展開版註解）。
-          // 回饋由 NavItemPendingDot（useLinkStatus）+ 各頁 loading.tsx 提供。
-          prefetch={false}
+        <a
+          href={`${dashboardPrefix}${item.href}`}
           className={`group relative flex items-center justify-center rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
             active
               ? "bg-primary-100 text-primary-800"
@@ -901,8 +833,7 @@ export default function DashboardShell({
               {pendingPaymentCount > 9 ? "9+" : pendingPaymentCount}
             </span>
           )}
-          <NavItemPendingDot />
-        </Link>
+        </a>
       </li>
     );
   };
