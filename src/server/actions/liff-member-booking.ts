@@ -75,6 +75,7 @@ export type SubmitLiffMemberBookingResult =
   | { status: "no_customer" }
   | { status: "profile_incomplete" }
   | { status: "no_wallet_available" }
+  | { status: "payment_pending" }
   | { status: "wallet_expired" }
   | { status: "insufficient_sessions" }
   | { status: "slot_full" }
@@ -226,6 +227,11 @@ function mapCreateBookingErrorToStatus(
   // booking.ts:302 「找不到可用方案，請先指派或購買方案後再建立預約」(FEFO fallback)
   if (/沒有可(使用的|用)方案|找不到可用方案/.test(msg)) {
     return { status: "no_wallet_available" };
+  }
+  // booking.ts：待付款方案沒有可用 WalletSession 前必須先完成店家收款確認。
+  // 這是預期的業務規則，不能落入泛用 service_unavailable。
+  if (/此方案尚待確認付款，暫時不能預約或扣堂/.test(msg)) {
+    return { status: "payment_pending" };
   }
   // booking.ts:272 「票券期限不足，方案有效期限至 YYYY-MM-DD，請選擇期限內日期」
   // booking.ts:273 「方案已超過可使用期限，請聯繫店家協助」

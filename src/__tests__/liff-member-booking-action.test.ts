@@ -341,6 +341,17 @@ describe("submitLiffMemberBooking action (PR-G2)", () => {
       expect(r).toEqual({ status: "no_wallet_available" });
     });
 
+    it("待確認付款方案 → payment_pending，不得落入 service_unavailable", async () => {
+      mockCreateBooking.mockResolvedValue({
+        success: false,
+        error: "此方案尚待確認付款，暫時不能預約或扣堂",
+      });
+
+      await expect(submitLiffMemberBooking(VALID_INPUT)).resolves.toEqual({
+        status: "payment_pending",
+      });
+    });
+
     it.each([
       "票券期限不足，方案有效期限至 2026-06-01，請選擇期限內日期",
       "方案已超過可使用期限，請聯繫店家協助",

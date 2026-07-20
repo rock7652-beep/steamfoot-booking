@@ -358,6 +358,16 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
       case "no_wallet_available":
         setState({ kind: "no_wallet", reason: "none" });
         return;
+      case "payment_pending":
+        setState({
+          kind: "blocked",
+          wallet: walletCarry,
+          message: liffMessages.error.paymentPending,
+          showRetry: false,
+          showContactStore: true,
+          showDismiss: false,
+        });
+        return;
       case "wallet_expired":
         setState({ kind: "no_wallet", reason: "expired" });
         return;
