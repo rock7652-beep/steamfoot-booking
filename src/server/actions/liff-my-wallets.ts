@@ -49,7 +49,7 @@ export interface LiffWalletRow {
   /** Raw remainingSessions = AVAILABLE + RESERVED（含待到店預約占用）
    *  ⚠️ 這個數字不是「還能再預約幾次」— 顧客面別單獨顯示，需配 availableToBook 拆分。 */
   remainingSessions: number;
-  /** 真正「還能再預約幾次」 = remainingSessions − walletPendingCount。canonical。 */
+  /** 真正「還能再預約幾次」 = WalletSession AVAILABLE。canonical。 */
   availableToBook: number;
   /** 待到店（已預約未到店的非補課堂數） */
   pendingCount: number;
@@ -116,7 +116,7 @@ export async function fetchLiffWallets(): Promise<FetchLiffWalletsResult> {
     expiryDate: Date | null;
     status: string;
     plan: { name: string; category: string };
-    bookings: Array<{ bookingStatus: string; isMakeup: boolean }>;
+    bookings: Array<{ bookingStatus: string; isMakeup: boolean; people: number }>;
     sessions: Array<{ status: string }>;
   }>;
   try {
@@ -130,10 +130,10 @@ export async function fetchLiffWallets(): Promise<FetchLiffWalletsResult> {
         expiryDate: true,
         status: true,
         plan: { select: { name: true, category: true } },
-        // walletPendingCount 只需要 PENDING/CONFIRMED 非補課的 booking 筆數
+        // booking.people 僅供 legacy 無 WalletSession ledger 的相容 fallback。
         bookings: {
           where: { bookingStatus: { in: [...PENDING_STATUSES] } },
-          select: { bookingStatus: true, isMakeup: true },
+          select: { bookingStatus: true, isMakeup: true, people: true },
         },
         // ledgerUsage 只需要 session.status (COMPLETED/BACKFILLED/VOIDED 分類)
         sessions: {

@@ -2,7 +2,8 @@
  * fix/wallet-availability-consistency — 顧客前台堂數計算唯一來源
  *
  * 回歸重點（黃彥陸案例與其延伸）：
- *   - 可預約 = remainingSessions − 非補課 PENDING/CONFIRMED 筆數（逐 wallet clamp 不為負）
+ *   - 可預約 = WalletSession AVAILABLE；待到店 = RESERVED（逐人／逐堂）
+ *   - legacy 無 ledger 時，以 booking.people 加總，不再以 booking 筆數計算
  *   - 已使用 = WalletSession COMPLETED + BACKFILLED（補登紙本已使用要算進去）
  *   - 已註銷 = WalletSession VOIDED（獨立，不可混入已使用）
  *   - 首頁 / my-plans 上方 / booking form 對同一輸入必須得到同一個可預約數字
@@ -29,6 +30,34 @@ describe("walletAvailableToBook — 可預約 = remaining − 待到店", () => 
     };
     expect(walletPendingCount(w)).toBe(1);
     expect(walletAvailableToBook(w)).toBe(0);
+  });
+
+  it("多人預約依 people 占用：remaining=10，兩筆各 2 人 → 可預約 6", () => {
+    const w = {
+      remainingSessions: 10,
+      bookings: [
+        { bookingStatus: "PENDING", isMakeup: false, people: 2 },
+        { bookingStatus: "PENDING", isMakeup: false, people: 2 },
+      ],
+    };
+    expect(walletPendingCount(w)).toBe(4);
+    expect(walletAvailableToBook(w)).toBe(6);
+  });
+
+  it("現代 wallet 以逐堂帳本為準，支援跨 wallet 與混用補課券", () => {
+    const w = {
+      remainingSessions: 5,
+      bookings: [{ bookingStatus: "PENDING", isMakeup: true, people: 3 }],
+      sessions: [
+        { status: "AVAILABLE" },
+        { status: "AVAILABLE" },
+        { status: "AVAILABLE" },
+        { status: "RESERVED" },
+        { status: "RESERVED" },
+      ],
+    };
+    expect(walletPendingCount(w)).toBe(2);
+    expect(walletAvailableToBook(w)).toBe(3);
   });
 
   it("CONFIRMED 也算待到店；逐 wallet clamp 不為負", () => {

@@ -53,12 +53,12 @@ export default async function NewBookingPage() {
             // 循環預約會一次保留多堂；其 client preview 必須與 server
             // createRecurringBookings() 相同，僅計算實際 AVAILABLE 的堂數。
             sessions: {
-              where: { status: "AVAILABLE" },
-              select: { id: true },
+              where: { status: { in: ["AVAILABLE", "RESERVED"] } },
+              select: { id: true, status: true },
             },
             bookings: {
               where: { isMakeup: false },
-              select: { bookingStatus: true, isMakeup: true },
+              select: { bookingStatus: true, isMakeup: true, people: true },
             },
           },
         },
@@ -167,7 +167,7 @@ export default async function NewBookingPage() {
             planId: w.planId,
             planName: w.plan.name,
             remainingSessions: w.computedRemaining,
-            recurringAvailableSessions: w.sessions.length,
+            recurringAvailableSessions: w.sessions.filter((s) => s.status === "AVAILABLE").length,
             expiryDate: w.expiryDate?.toISOString().slice(0, 10) ?? null,
           }))}
           makeupCredits={makeupCredits.map((c) => ({
