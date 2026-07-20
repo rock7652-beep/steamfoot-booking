@@ -10,12 +10,10 @@ import { buildRecurringPreview, formatBookingWalletOption, recurringWeekOptions 
 import { useStoreSlugRequired } from "@/lib/store-context";
 import { useBookingRequestKey } from "@/hooks/use-booking-request-key";
 import {
-  getDayCapacityIndicator,
   getSlotCapacityDisplay,
-  type SlotSelectionStatus,
 } from "@/lib/slot-capacity-display";
 import type { SlotAvailability } from "@/types";
-import type { MonthSlotInfo } from "@/server/actions/slots";
+import type { MonthDayAvailability } from "@/server/actions/slots";
 
 interface ActiveWallet {
   id: string;
@@ -43,13 +41,6 @@ interface Props {
   weeklyRecurrenceMaxWeeks: number;
 }
 
-type MonthDayInfo = { totalCapacity: number; totalBooked: number; slots: MonthSlotInfo[] };
-type SlotBadge = {
-  time: string;
-  label: string | null;
-  status: SlotSelectionStatus;
-};
-
 export function BookingCalendarView({
   customerId,
   activeWallets,
@@ -71,7 +62,7 @@ export function BookingCalendarView({
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [calYear, setCalYear] = useState(today.getFullYear());
   const [calMonth, setCalMonth] = useState(today.getMonth()); // 0-based
-  const [monthData, setMonthData] = useState<Record<string, MonthDayInfo>>({});
+  const [monthData, setMonthData] = useState<Record<string, MonthDayAvailability>>({});
   const [loadingMonth, setLoadingMonth] = useState(false);
 
   // 載入整月可預約概覽
@@ -154,44 +145,6 @@ export function BookingCalendarView({
     setSlots([]);
   };
 
-  // 依人數計算某天的 slot badges（最多顯示 MAX_BADGES 筆）
-  const MAX_BADGES = 3;
-
-  const getDayBadges = (dateStr: string) => {
-    const info = monthData[dateStr];
-    if (!info) return { badges: [], extra: 0, isClosed: true };
-    if (info.totalCapacity === 0) return { badges: [], extra: 0, isClosed: true };
-
-    const enabledSlots = info.slots.filter((s) => s.capacity > 0);
-    if (enabledSlots.length === 0) return { badges: [], extra: 0, isClosed: true };
-
-    const badges: SlotBadge[] = [];
-    for (const s of enabledSlots) {
-      const display = getSlotCapacityDisplay(s.capacity, s.booked, people);
-      badges.push({ time: s.startTime, label: display.label, status: display.selectionStatus });
-    }
-
-    const shown = badges.slice(0, MAX_BADGES);
-    const extra = badges.length - shown.length;
-    return { badges: shown, extra, isClosed: false };
-  };
-
-  // 整體狀態指示（考慮人數）
-  const getDayIndicator = (dateStr: string) => {
-    const info = monthData[dateStr];
-    if (!info || info.totalCapacity === 0) return null;
-    return getDayCapacityIndicator(
-      info.slots.map((slot) => ({ capacity: slot.capacity, bookedPeople: slot.booked })),
-      people,
-    );
-  };
-
-  const indicatorColors = {
-    available: "bg-green-400",
-    low: "bg-yellow-400",
-    full: "bg-red-300",
-  };
-
   return (
     <div>
       {/* 人數選擇 — 放在月曆上方，影響整個月曆顯示 */}
@@ -247,110 +200,56 @@ export function BookingCalendarView({
             dateObj.setHours(0, 0, 0, 0);
             const isPast = dateObj < today;
             const isBeyond = dateObj > maxDate;
-            const disabled = isPast || isBeyond;
             const dateStr = `${calYear}-${String(calMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+            const dayInfo = monthData[dateStr];
+            const isTraining = dayInfo?.status === "training";
+            const isClosed = !!dayInfo && (dayInfo.status === "closed" || dayInfo.totalCapacity === 0);
+            const isFull = !!dayInfo && dayInfo.totalCapacity > 0 && !dayInfo.slots.some((slot) => {
+              const display = getSlotCapacityDisplay(slot.capacity, slot.booked, people);
+              return display.canFitRequestedPeople;
+            });
+            const disabled = isPast || isBeyond || loadingMonth || !dayInfo || isClosed || isTraining || isFull;
             const isSelected = dateStr === selectedDate;
             const isToday = dateObj.getTime() === today.getTime();
-            const indicator = !disabled ? getDayIndicator(dateStr) : null;
-            const { badges, extra, isClosed } = !disabled ? getDayBadges(dateStr) : { badges: [], extra: 0, isClosed: false };
 
             return (
               <button
                 key={day}
                 disabled={disabled}
                 onClick={() => handleSelectDate(dateStr)}
-                className={`relative flex min-h-[92px] flex-col items-start border-b border-r border-earth-100 p-1.5 transition ${
+                aria-label={`${dateStr}${isTraining ? "，進修" : isClosed ? "，公休" : isFull ? "，已額滿" : ""}`}
+                className={`relative flex min-h-[64px] flex-col items-start border-b border-r border-earth-100 p-2 transition ${
                   isSelected
                     ? "bg-primary-600 text-white"
-                    : disabled
+                    : disabled || isFull
                       ? "bg-earth-50 text-earth-400"
                       : "bg-white text-earth-800 hover:bg-primary-50"
                 }`}
               >
-                {/* 日期數字 + 狀態點 */}
+                {/* 月曆只負責選日期；名額狀態留到時段畫面顯示。 */}
                 <div className="flex w-full items-center gap-1">
                   <span className={`text-base font-bold leading-none ${
                     isSelected ? "text-white" : isToday ? "text-primary-700" : ""
                   }`}>
                     {day}
                   </span>
-                  {indicator && !isSelected && (
-                    <span className={`h-2 w-2 rounded-full ${indicatorColors[indicator]}`} />
-                  )}
-                  {indicator && isSelected && (
-                    <span className="h-2 w-2 rounded-full bg-white/80" />
-                  )}
                   {isToday && !isSelected && (
                     <span className="ml-auto rounded bg-primary-100 px-1 text-xs font-bold leading-none text-primary-800">今</span>
                   )}
                 </div>
 
-                {/* 公休 badge */}
-                {!disabled && isClosed && (
-                  <span className={`mt-1 rounded px-1.5 py-0.5 text-xs font-semibold leading-tight ${
-                    isSelected ? "bg-white/20 text-white" : "bg-earth-100 text-earth-800"
+                {(isClosed || isTraining) && !isPast && !isBeyond && (
+                  <span className={`mt-2 rounded px-1.5 py-0.5 text-xs font-semibold leading-tight ${
+                    isTraining ? "bg-amber-50 text-amber-800" : "bg-earth-100 text-earth-700"
                   }`}>
-                    公休
+                    {isTraining ? "進修" : "公休"}
                   </span>
-                )}
-
-                {/* 時段 badges */}
-                {!disabled && !isClosed && badges.length > 0 && (
-                  <div className="mt-1 flex w-full flex-col gap-0.5 overflow-hidden">
-                    {badges.map((b) => (
-                      <span
-                        key={b.time}
-                        aria-label={`${b.time}，${b.label ?? "可預約"}`}
-                        className={`rounded px-1 py-0.5 text-xs font-semibold leading-tight break-words ${
-                          isSelected
-                            ? b.status === "available" ? "bg-white/30 text-white" : "bg-white/20 text-white/80"
-                            : b.status === "full"
-                              ? "bg-red-50 text-red-700"
-                              : b.status === "insufficient"
-                                ? "bg-earth-100 text-earth-700"
-                                : b.status === "low"
-                                  ? "bg-yellow-50 text-yellow-800"
-                                : "bg-green-50 text-green-800"
-                        }`}
-                      >
-                        {b.time}{b.label ? ` ${b.label}` : ""}
-                      </span>
-                    ))}
-                    {extra > 0 && (
-                      <span className={`text-xs font-semibold leading-tight ${
-                        isSelected ? "text-white/80" : "text-earth-700"
-                      }`}>
-                        +{extra}
-                      </span>
-                    )}
-                  </div>
                 )}
               </button>
             );
           })}
         </div>
 
-        {/* 圖例 */}
-        {!loadingMonth && (
-          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 border-t border-earth-100 px-4 py-3">
-            <div className="flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-full bg-green-500" />
-              <span className="text-sm text-earth-700">名額充足</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-full bg-yellow-500" />
-              <span className="text-sm text-earth-700">剩餘 1–2 位</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-full bg-red-400" />
-              <span className="text-sm text-earth-700">已額滿</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="rounded bg-earth-100 px-1.5 text-sm font-medium text-earth-700">公休</span>
-              <span className="text-sm text-earth-700">無時段</span>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* 可預約範圍提示 */}
@@ -803,16 +702,20 @@ function SlotBookingForm({
             const disabled = isPast || !display.canFitRequestedPeople;
             const statusText = isPast
               ? "已過時段"
-              : display.label;
+              : display.selectionStatus === "available"
+                ? "名額充足"
+                : display.label;
             return (
               <label
                 key={slot.startTime}
                 className={`relative flex min-h-[72px] cursor-pointer flex-col items-center justify-center rounded-xl border-2 p-3 text-center transition-colors ${
-                  disabled
+                  isPast || display.selectionStatus === "insufficient"
                     ? "cursor-not-allowed border-earth-200 bg-earth-50 opacity-60"
+                    : display.selectionStatus === "full"
+                      ? "cursor-not-allowed border-red-200 bg-red-50 text-red-700 opacity-75"
                     : display.capacityStatus === "low"
                       ? "border-yellow-300 bg-yellow-50 text-yellow-900 hover:border-yellow-400 has-[:checked]:border-primary-600 has-[:checked]:bg-primary-600 has-[:checked]:text-white"
-                      : "border-earth-200 bg-white hover:border-primary-400 hover:bg-primary-50 has-[:checked]:border-primary-600 has-[:checked]:bg-primary-600 has-[:checked]:text-white"
+                      : "border-green-200 bg-green-50 text-green-900 hover:border-green-400 has-[:checked]:border-primary-600 has-[:checked]:bg-primary-600 has-[:checked]:text-white"
                 }`}
               >
                 <input
@@ -829,13 +732,27 @@ function SlotBookingForm({
                 />
                 <span className="text-lg font-bold">{slot.startTime}</span>
                 {statusText && (
-                  <span className={`mt-1 text-sm font-medium ${isPast || display.selectionStatus === "insufficient" ? "text-earth-700" : display.selectionStatus === "low" ? "text-yellow-800" : "text-red-600"}`}>
+                  <span className={`mt-1 text-sm font-medium ${isPast || display.selectionStatus === "insufficient" ? "text-earth-700" : display.selectionStatus === "low" ? "text-yellow-800" : display.selectionStatus === "full" ? "text-red-600" : "text-green-700"}`}>
                     {statusText}
                   </span>
                 )}
               </label>
             );
           })}
+        </div>
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 border-t border-earth-100 pt-4">
+          <div className="flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-full bg-green-500" />
+            <span className="text-sm text-earth-700">名額充足</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-full bg-yellow-500" />
+            <span className="text-sm text-earth-700">剩餘 1–2 位</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-full bg-red-400" />
+            <span className="text-sm text-earth-700">已額滿</span>
+          </div>
         </div>
       </div>
 
