@@ -182,6 +182,65 @@ describe("assignPlanToCustomer — PLAN_DEFAULT", () => {
   });
 });
 
+describe("assignPlanToCustomer — pending payment entitlement gate", () => {
+  it.each(["TRANSFER", "UNPAID"] as const)("%s 僅建立待確認交易，不建立 wallet", async (paymentMethod) => {
+    mockServicePlanFindUnique.mockResolvedValue(PLAN_90D);
+    const { assignPlanToCustomer } = await import("@/server/actions/wallet");
+    const result = await assignPlanToCustomer({
+      customerId: CUSTOMER_ID,
+      planId: PLAN_ID_90D,
+      paymentMethod,
+    });
+
+    expect(result.success).toBe(true);
+    expect(mockWalletCreate).not.toHaveBeenCalled();
+    expect(mockTransactionCreate).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        paymentStatus: "PENDING",
+        customerPlanWalletId: null,
+        planId: PLAN_90D.id,
+        planSessionCountSnapshot: PLAN_90D.sessionCount,
+        pendingWalletExpiryDateSnapshot: expect.any(Date),
+      }),
+    }));
+  });
+
+  it("CUSTOM_DURATION 將已解析的確切到期日封存到待付款交易", async () => {
+    mockServicePlanFindUnique.mockResolvedValue(PLAN_90D);
+    const { assignPlanToCustomer } = await import("@/server/actions/wallet");
+    await assignPlanToCustomer({
+      customerId: CUSTOMER_ID,
+      planId: PLAN_ID_90D,
+      paymentMethod: "TRANSFER",
+      expiryMode: "CUSTOM_DURATION",
+      customExpiryValue: 6,
+      customExpiryUnit: "MONTH",
+    });
+    expect(mockTransactionCreate).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        pendingWalletExpiryDateSnapshot: new Date("2026-11-03T00:00:00.000Z"),
+      }),
+    }));
+  });
+
+  it("CUSTOM_DATE 將店長指定日期封存到待付款交易", async () => {
+    mockServicePlanFindUnique.mockResolvedValue(PLAN_90D);
+    const { assignPlanToCustomer } = await import("@/server/actions/wallet");
+    await assignPlanToCustomer({
+      customerId: CUSTOMER_ID,
+      planId: PLAN_ID_90D,
+      paymentMethod: "UNPAID",
+      expiryMode: "CUSTOM_DATE",
+      customExpiryDate: "2026-12-31",
+    });
+    expect(mockTransactionCreate).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        pendingWalletExpiryDateSnapshot: new Date("2026-12-31T00:00:00.000Z"),
+      }),
+    }));
+  });
+});
+
 describe("assignPlanToCustomer — CUSTOM_DURATION", () => {
   beforeEach(() => mockServicePlanFindUnique.mockResolvedValue(PLAN_90D));
 

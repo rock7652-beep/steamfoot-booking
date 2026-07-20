@@ -107,6 +107,23 @@ export async function allocateSessions(
     throw new WalletSessionError("VALIDATION", `allocateSessions count 必須為正整數，收到 ${count}`);
   }
 
+  // Defence in depth for historical PENDING transactions that were created
+  // before the entitlement gate and already own a wallet.  All booking entry
+  // points eventually reserve sessions here, so a UI/query regression cannot
+  // consume unconfirmed credit.
+  const pendingPurchase = await tx.transaction.findFirst({
+    where: {
+      customerPlanWalletId: walletId,
+      paymentStatus: "PENDING",
+      status: "SUCCESS",
+      transactionType: { in: ["TRIAL_PURCHASE", "SINGLE_PURCHASE", "PACKAGE_PURCHASE"] },
+    },
+    select: { id: true },
+  });
+  if (pendingPurchase) {
+    throw new WalletSessionError("NOT_AVAILABLE", "此方案尚待確認付款，暫時不能預約或扣堂");
+  }
+
   const reservedAt = new Date();
   let allocated = 0;
   // 最多重試 count*2 次以容忍並行搶占；正常 1 次完成
