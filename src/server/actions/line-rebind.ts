@@ -78,3 +78,30 @@ export async function dryRunLineRebind(requestId: string): Promise<ActionResult<
     return handleActionError(error);
   }
 }
+
+const EXECUTION_MESSAGES: Record<string, string> = {
+  LINE_REBIND_REQUEST_NOT_FOUND: "重新綁定申請不存在。",
+  LINE_REBIND_REQUEST_EXPIRED: "此申請已過期，請重新建立並執行安全檢查。",
+  LINE_REBIND_REQUEST_NOT_READY: "安全檢查未通過，無法正式重新綁定。",
+  LINE_REBIND_RETRY_REQUIRED: "安全檢查暫時無法完成，請稍後重新執行。",
+  LINE_REBIND_REQUEST_STATE_CHANGED: "申請狀態已變更，請重新整理並再次執行安全檢查。",
+  LINE_REBIND_CONFLICT: "候選 LINE 身份目前無法安全使用，未執行任何變更。",
+  LINE_REBIND_EXECUTION_FAILED: "重新綁定未完成，未執行任何變更。",
+};
+
+/** PR-3: revalidates server-side and performs the atomic, audited rebind. */
+export async function executeLineRebindAction(requestId: string): Promise<ActionResult<{ requestId: string }>> {
+  try {
+    const actor = await requirePermission("customer.identity.rebind");
+    requireRebindAdministrator(actor);
+    const request = await prisma.lineRebindRequest.findUnique({ where: { id: requestId }, select: { storeId: true } });
+    if (!request) throw new AppError("NOT_FOUND", "重新綁定申請不存在");
+    assertStoreAccess(actor, request.storeId);
+    const { executeLineRebind } = await import("@/server/services/line-rebind-execute");
+    const result = await executeLineRebind({ requestId, actorUserId: actor.id, actorRole: actor.role });
+    if (result.status !== "executed") throw new AppError("VALIDATION", EXECUTION_MESSAGES[result.code]);
+    return { success: true, data: { requestId: result.requestId } };
+  } catch (error) {
+    return handleActionError(error);
+  }
+}
