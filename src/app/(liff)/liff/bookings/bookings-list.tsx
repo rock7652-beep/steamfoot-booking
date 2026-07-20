@@ -133,6 +133,13 @@ export function BookingsList({
   }
 
   async function redirectToCompletedProfile(nextPath: string) {
+    // The caller enters with the confirmation modal locked in `submitting`.
+    // Dismiss it before any refresh branch changes the page-level state so an
+    // expired token or exchange failure cannot leave an undismissable overlay.
+    setCancelTarget(null);
+    setCancelStatus("idle");
+    setCancelError(null);
+
     const currentIdToken = getIDToken();
     if (!currentIdToken) {
       setState({ kind: "expired" });
