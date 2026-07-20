@@ -16,6 +16,7 @@ import { toLocalDateStr } from "@/lib/date-utils";
 import { FEATURES } from "@/lib/feature-flags";
 import { hasStoreFeature } from "@/lib/feature-gate";
 import type { StoreOperatingStatus } from "@/lib/store-operating-status";
+import { countPendingPaymentTransactions } from "@/server/queries/transaction";
 import {
   resolveStoreViewContext,
   type StoreViewContext,
@@ -72,6 +73,20 @@ export default async function DashboardLayout({
         ),
       }
     : {};
+
+  let pendingPaymentCount = 0;
+  if (
+    effectiveStoreId &&
+    (isOwnerLevel || permissions.includes("transaction.create"))
+  ) {
+    try {
+      pendingPaymentCount = await countPendingPaymentTransactions({
+        activeStoreId: effectiveStoreId,
+      });
+    } catch {
+      // 導覽 badge 非關鍵功能；查詢失敗不可阻斷整個後台。
+    }
+  }
 
   // 讀取 store-slug 用於 logout redirect（ADMIN 不帶 slug，回 /）
   const ckStore = await cookies();
@@ -162,6 +177,7 @@ export default async function DashboardLayout({
       storeName={storeName}
       storeOptions={isAdmin ? storeOptions : undefined}
       activeStoreId={isAdmin ? activeStoreId : undefined}
+      pendingPaymentCount={pendingPaymentCount}
       viewMode={
         user.role === "OWNER" && ownStore && storeViewContext
           ? {
