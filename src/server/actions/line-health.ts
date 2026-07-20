@@ -7,7 +7,7 @@ import { requirePermission } from "@/lib/permissions";
 import { getActiveStoreForRead } from "@/lib/store";
 import type { ActionResult } from "@/types";
 
-const TAICHUNG_STORE_ID = "store-taichung";
+const TAICHUNG_STORE_SLUG = "taichung";
 
 export type TaichungLineBotHealth = {
   status: "PASS" | "FAIL";
@@ -28,20 +28,22 @@ export async function checkTaichungLineBotHealth(): Promise<ActionResult<Taichun
     }
 
     const activeStoreId = await getActiveStoreForRead(user);
-    if (activeStoreId !== TAICHUNG_STORE_ID) {
+    if (!activeStoreId) {
       throw new AppError("FORBIDDEN", "請先切換至台中店後再執行檢查");
     }
-
     const store = await prisma.store.findUnique({
-      where: { id: TAICHUNG_STORE_ID },
-      select: { lineDestination: true },
+      where: { id: activeStoreId },
+      select: { slug: true, lineDestination: true },
     });
+    if (store?.slug !== TAICHUNG_STORE_SLUG) {
+      throw new AppError("FORBIDDEN", "請先切換至台中店後再執行檢查");
+    }
     const checkedAt = new Date().toISOString();
     if (!store?.lineDestination) {
       return { success: true, data: { status: "FAIL", code: "STORE_DESTINATION_MISSING", displayName: null, basicId: null, matchesTaichungStore: false, checkedAt } };
     }
 
-    const result = await getLineBotInfo(TAICHUNG_STORE_ID);
+    const result = await getLineBotInfo(TAICHUNG_STORE_SLUG);
     if (!result.ok) {
       return { success: true, data: { status: "FAIL", code: result.code, displayName: null, basicId: null, matchesTaichungStore: false, checkedAt } };
     }

@@ -30,6 +30,7 @@ describe("store-aware LINE Messaging config", () => {
     ["e182e256-98ca-4c78-970b-d4b118066c51", "LINE_CHANNEL_ACCESS_TOKEN", "zhubei-token"],
     ["store-hsinchu", "LINE_HSINCHU_CHANNEL_ACCESS_TOKEN", "hsinchu-token"],
     ["store-taichung", "LINE_TAICHUNG_CHANNEL_ACCESS_TOKEN", "taichung-token"],
+    ["taichung-store", "LINE_TAICHUNG_CHANNEL_ACCESS_TOKEN", "taichung-token"],
   ])("pushMessage(%s) uses the matching store token", async (storeId, envKey, token) => {
     vi.stubEnv(envKey, token);
     const fetchMock = mockLineOk();

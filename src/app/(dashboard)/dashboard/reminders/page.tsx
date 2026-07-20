@@ -20,7 +20,7 @@ import {
   getTodayCronRunStatus,
   getLineSmokeTestContext,
 } from "@/server/queries/reminder";
-import { isLineSmokeTestEnabled } from "@/lib/line-config";
+import { isLineSmokeTestEnabled, resolveLineStoreSlug } from "@/lib/line-config";
 import { ReminderCard } from "./reminder-card";
 import { CreateTemplateForm } from "./create-template-form";
 import { CronRunBanner } from "./cron-run-banner";
@@ -89,7 +89,7 @@ export default async function RemindersPage({ searchParams }: PageProps) {
 
   const activeTab = params.tab ?? "rules";
   const smokeTestEnabled = isLineSmokeTestEnabled();
-  const canCheckTaichungLineHealth = activeStoreId === "store-taichung" && (user.role === "OWNER" || user.role === "ADMIN");
+  const canCheckTaichungLineHealth = resolveLineStoreSlug(activeStoreId) === "taichung" && (user.role === "OWNER" || user.role === "ADMIN");
 
   const [stats, templates, cronStatus, reminderState] = await Promise.all([
     getReminderStats(activeStoreId),
