@@ -11,8 +11,8 @@ interface Props {
   planName: string;
   amount: number;
   paymentMethodLabel: string;
-  /** 顯示用：優先用店長對帳完成的末五碼，否則顧客自報的末四碼 */
-  transferLast5?: string;
+  /** 顯示用：店長既有對帳碼或顧客自報的轉帳後四碼 */
+  transferCode?: string;
   /** 預留：保持與表頁面一致的傳值，目前不在彈窗內編輯 */
   initialReferenceNo?: string;
   initialBankLast5?: string;
@@ -26,7 +26,7 @@ export function ConfirmPaymentButton({
   planName,
   amount,
   paymentMethodLabel,
-  transferLast5 = "",
+  transferCode = "",
 }: Props) {
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -85,9 +85,9 @@ export function ConfirmPaymentButton({
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-earth-500">轉帳末五碼</span>
-                <span className={transferLast5 ? "font-mono font-semibold text-earth-800" : "text-earth-400"}>
-                  {transferLast5 || "未填"}
+                <span className="text-earth-500">轉帳後四碼</span>
+                <span className={transferCode ? "font-mono font-semibold text-earth-800" : "text-earth-400"}>
+                  {transferCode || "未填"}
                 </span>
               </div>
             </div>
