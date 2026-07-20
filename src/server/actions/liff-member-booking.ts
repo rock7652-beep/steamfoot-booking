@@ -228,8 +228,8 @@ function mapCreateBookingErrorToStatus(
   if (/沒有可(使用的|用)方案|找不到可用方案/.test(msg)) {
     return { status: "no_wallet_available" };
   }
-  // booking.ts：待付款方案沒有可用 WalletSession 前必須先完成店家收款確認。
-  // 這是預期的業務規則，不能落入泛用 service_unavailable。
+  // 相容舊版 server 或非預期來源仍可能傳回此錯誤；現行預約流程不會因付款待確認而阻擋。
+  // 保留明確提示，避免這類殘留錯誤落入泛用 service_unavailable。
   if (/此方案尚待確認付款，暫時不能預約或扣堂/.test(msg)) {
     return { status: "payment_pending" };
   }

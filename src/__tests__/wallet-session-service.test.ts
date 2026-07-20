@@ -64,8 +64,6 @@ function makeTx(initialWallets: WalletRow[]) {
   const wallets: WalletRow[] = initialWallets.map((w) => ({ ...w }));
   let idSeq = 0;
   const nextId = () => `s${++idSeq}`;
-  let pendingPurchase: { paymentStatus: string; status: string; transactionType: string } | null = null;
-  let transactionFindWhere: Record<string, unknown> | null = null;
 
   const matches = (row: SessionRow, where: Record<string, unknown>): boolean => {
     const r = row as unknown as Record<string, unknown>;
@@ -164,14 +162,6 @@ function makeTx(initialWallets: WalletRow[]) {
         return w;
       },
     },
-    transaction: {
-      findFirst: async (args: { where: Record<string, unknown> }) => {
-        transactionFindWhere = args.where;
-        return pendingPurchase;
-      },
-    },
-    _setPendingPurchase: (value: typeof pendingPurchase) => { pendingPurchase = value; },
-    _transactionFindWhere: () => transactionFindWhere,
     _wallets: wallets,
     _sessions: sessions,
   };
@@ -617,36 +607,14 @@ describe("wallet-session service", () => {
       );
     });
 
-    it("blocks a wallet tied to a PENDING successful purchase", async () => {
+    it("allows a wallet with available sessions even when its purchase payment is pending", async () => {
       await seedWalletSessions(tx, W, 2);
       tx._wallets[0].remainingSessions = 2;
-      tx._setPendingPurchase({ paymentStatus: "PENDING", status: "SUCCESS", transactionType: "PACKAGE_PURCHASE" });
-      await expect(allocateSessions(tx, W, "booking-pending", 1)).rejects.toMatchObject({ code: "NOT_AVAILABLE" });
-      expect(tx._sessions.every((s: SessionRow) => s.status === "AVAILABLE")).toBe(true);
-      expect(tx._transactionFindWhere()).toMatchObject({
-        customerPlanWalletId: W,
-        paymentStatus: "PENDING",
-        status: "SUCCESS",
-        transactionType: { in: ["TRIAL_PURCHASE", "SINGLE_PURCHASE", "PACKAGE_PURCHASE"] },
-      });
-    });
-
-    it.each([
-      { paymentStatus: "CONFIRMED", status: "SUCCESS", transactionType: "PACKAGE_PURCHASE" },
-      { paymentStatus: "CANCELLED", status: "CANCELLED", transactionType: "PACKAGE_PURCHASE" },
-      { paymentStatus: "PENDING", status: "SUCCESS", transactionType: "ADJUSTMENT" },
-    ])("does not block confirmed, cancelled, or non-purchase transactions", async (transaction) => {
-      await seedWalletSessions(tx, W, 2);
-      tx._wallets[0].remainingSessions = 2;
-      // The mock mirrors the DB query's exact predicate: only a matching
-      // PENDING + SUCCESS purchase is returned by findFirst.
-      tx._setPendingPurchase(
-        transaction.paymentStatus === "PENDING" && transaction.status === "SUCCESS" &&
-        ["TRIAL_PURCHASE", "SINGLE_PURCHASE", "PACKAGE_PURCHASE"].includes(transaction.transactionType)
-          ? transaction
-          : null,
-      );
-      await expect(allocateSessions(tx, W, "booking-allowed", 1)).resolves.toMatchObject({ allocated: 1 });
+      await expect(allocateSessions(tx, W, "booking-pending", 1)).resolves.toMatchObject({ allocated: 1 });
+      expect(tx._sessions).toMatchObject([
+        { sessionNo: 1, status: "RESERVED", bookingId: "booking-pending" },
+        { sessionNo: 2, status: "AVAILABLE", bookingId: null },
+      ]);
     });
 
     it("completeSessions marks ALL RESERVED rows for the booking as COMPLETED", async () => {
