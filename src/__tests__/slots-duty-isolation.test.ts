@@ -167,6 +167,31 @@ describe("fetchMonthAvailability — duty storeId 隔離", () => {
     expect(result.days["2026-05-05"]).toBeDefined();
     expect(result.days["2026-05-05"].totalCapacity).toBeGreaterThan(0);
     expect(result.days["2026-05-05"].slots.length).toBeGreaterThan(0);
+    expect(result.days["2026-05-05"].status).toBe("open");
+  });
+
+  it("特殊進修日保留 training 狀態，讓前台不會誤標成公休", async () => {
+    mockSpecialDayFindMany.mockResolvedValue([
+      {
+        date: new Date("2026-05-05T00:00:00.000Z"),
+        type: "training",
+        reason: "員工進修",
+        openTime: null,
+        closeTime: null,
+        slotInterval: null,
+        defaultCapacity: null,
+      },
+    ]);
+
+    const { fetchMonthAvailability } = await import("@/server/actions/slots");
+    const result = await fetchMonthAvailability(2026, 5);
+
+    expect(result.days["2026-05-05"]).toEqual({
+      totalCapacity: 0,
+      totalBooked: 0,
+      slots: [],
+      status: "training",
+    });
   });
 
   it("店舖 PAUSED 時，月曆回傳全月 0 capacity 且不查營業時間", async () => {
@@ -179,6 +204,7 @@ describe("fetchMonthAvailability — duty storeId 隔離", () => {
       totalCapacity: 0,
       totalBooked: 0,
       slots: [],
+      status: "closed",
     });
     expect(mockBusinessHoursFindMany).not.toHaveBeenCalled();
   });
