@@ -197,7 +197,7 @@ export async function getCustomerTransactionSummary(customerId: string) {
 // ============================================================
 // getPendingPaymentTransactions — PR-4
 // 後台待確認付款清單（TRANSFER / UNPAID 且 paymentStatus=PENDING）
-// 按 createdAt asc（最舊的先顯示，督促店長處理）
+// 新申請優先顯示，避免歷史待付款讓顧客剛送出的申請落到頁面之外。
 // 附 totalAmount 聚合供 KPI 卡片使用
 // ============================================================
 
@@ -286,7 +286,7 @@ export async function getPendingPaymentTransactions(options?: {
           select: { id: true, plan: { select: { name: true } } },
         },
       },
-      orderBy: { createdAt: "asc" },
+      orderBy: { createdAt: "desc" },
       skip: (page - 1) * pageSize,
       take: pageSize,
     }),
@@ -297,13 +297,16 @@ export async function getPendingPaymentTransactions(options?: {
     }),
   ]);
 
-  // 標註處理狀態並依「complete → review → unpaid → anomaly，組內 createdAt asc」排序
+  // 顧客前台的新申請最優先；其後依處理狀態分組，組內維持最新優先。
   const transactions = rows
     .map((tx) => ({ ...tx, rowStatus: computeRowStatus(tx) }))
     .sort((a, b) => {
+      const aOnlinePurchase = !a.soldByStaffId && !a.customerPlanWalletId;
+      const bOnlinePurchase = !b.soldByStaffId && !b.customerPlanWalletId;
+      if (aOnlinePurchase !== bOnlinePurchase) return aOnlinePurchase ? -1 : 1;
       const diff = ROW_STATUS_ORDER[a.rowStatus] - ROW_STATUS_ORDER[b.rowStatus];
       if (diff !== 0) return diff;
-      return a.createdAt.getTime() - b.createdAt.getTime();
+      return b.createdAt.getTime() - a.createdAt.getTime();
     });
 
   const confirmableCount = transactions.filter((t) => t.rowStatus === "complete").length;
