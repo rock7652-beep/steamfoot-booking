@@ -226,6 +226,8 @@ export async function assignPlanToCustomer(
           discountValue: hasDiscount ? discountValue : null,
           discountReason: data.discountReason || null,
           customerPlanWalletId: wallet?.id ?? null,
+          // 明確寫入，不能只依賴 report snapshot helper；PENDING partial unique index 需要它。
+          planId: plan.id,
           planSessionCountSnapshot: plan.sessionCount,
           // 付款確認時必須直接使用申請當下已選定的日期，不能重算 plan。
           pendingWalletExpiryDateSnapshot: isPending ? expiryDate : null,
@@ -997,6 +999,8 @@ export async function initiateCustomerPlanPurchase(
           paidAt: null,
           amount: originalPrice,
           customerPlanWalletId: null,
+          // partial unique index 的第三個 key，必須是非 null。
+          planId: plan.id,
           planSessionCountSnapshot: plan.sessionCount,
           pendingWalletExpiryDateSnapshot: pendingExpiryDate,
           note: "顧客線上申請購買（轉帳待確認）",

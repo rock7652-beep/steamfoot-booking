@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { Prisma } from "@prisma/client";
 import {
   isStoreBookableStatus,
   isStoreCustomerPortalBlocked,
@@ -16,6 +17,7 @@ const mockServicePlanFindFirst = vi.fn();
 const mockWalletCreate = vi.fn();
 const mockTransactionCreate = vi.fn();
 const mockDbTransaction = vi.fn();
+const mockCustomerFindUnique = vi.fn();
 
 vi.mock("@/lib/db", () => ({
   prisma: {
@@ -28,7 +30,7 @@ vi.mock("@/lib/db", () => ({
     },
     customer: {
       findFirst: vi.fn(),
-      findUnique: vi.fn(),
+      findUnique: (...args: unknown[]) => mockCustomerFindUnique(...args),
     },
     servicePlan: {
       findFirst: (...args: unknown[]) => mockServicePlanFindFirst(...args),
@@ -156,6 +158,8 @@ beforeEach(() => {
     sessionCount: 4,
     validityDays: 30,
   });
+  mockCustomerFindUnique.mockResolvedValue({ id: CUSTOMER_ID, storeId: STORE_ID });
+  mockTransactionCreate.mockResolvedValue({ id: "tx_1" });
   mockDbTransaction.mockImplementation(async (cb: (tx: unknown) => Promise<unknown>) =>
     cb({
       customerPlanWallet: { create: mockWalletCreate },
@@ -200,6 +204,26 @@ describe("store operating status customer-facing guards", () => {
 
     expect(mockWalletCreate).not.toHaveBeenCalled();
     expect(mockTransactionCreate).not.toHaveBeenCalled();
+  });
+
+  it("自助購買遇到 partial unique P2002 回傳友善錯誤且交易含 planId", async () => {
+    const { initiateCustomerPlanPurchase } = await import("@/server/actions/wallet");
+    mockDbTransaction.mockRejectedValueOnce(new Prisma.PrismaClientKnownRequestError(
+      "duplicate pending purchase",
+      { code: "P2002", clientVersion: "6.19.2" },
+    ));
+    const result = await initiateCustomerPlanPurchase({ planId: PLAN_ID, transferLastFour: "1234" });
+    expect(result).toEqual({ success: false, error: "已有一筆待確認付款，請勿重複申請" });
+    // The mocked transaction callback is not reached for P2002; assert the
+    // source contract separately in the successful path below.
+
+    mockDbTransaction.mockImplementationOnce(async (cb: (tx: unknown) => Promise<unknown>) =>
+      cb({ transaction: { create: mockTransactionCreate } }),
+    );
+    await initiateCustomerPlanPurchase({ planId: PLAN_ID, transferLastFour: "1234" });
+    expect(mockTransactionCreate).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ planId: PLAN_ID, customerPlanWalletId: null }),
+    }));
   });
 
   it("PAUSED 不阻擋整個顧客既有資料區，INACTIVE 才硬擋顧客區", () => {

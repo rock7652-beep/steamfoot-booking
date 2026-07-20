@@ -198,6 +198,7 @@ describe("assignPlanToCustomer — pending payment entitlement gate", () => {
       data: expect.objectContaining({
         paymentStatus: "PENDING",
         customerPlanWalletId: null,
+        planId: PLAN_90D.id,
         planSessionCountSnapshot: PLAN_90D.sessionCount,
         pendingWalletExpiryDateSnapshot: expect.any(Date),
       }),
