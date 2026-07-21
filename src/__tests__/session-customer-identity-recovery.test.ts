@@ -61,11 +61,21 @@ beforeEach(() => {
 describe("getCurrentUser customer identity recovery", () => {
   it("recovers customerId from the same-store CustomerIdentityLink", async () => {
     mocks.identityLinkFindMany.mockResolvedValue([{
+      id: "link-zhubei",
+      userId: "user-zhubei",
+      storeId: "store-zhubei",
+      provider: "line",
       customer: {
         id: "customer-zhubei",
+        userId: "user-zhubei",
         storeId: "store-zhubei",
         mergedIntoCustomerId: null,
-        store: { slug: "zhubei" },
+        store: {
+          id: "store-zhubei",
+          name: "暖暖蒸足",
+          slug: "zhubei",
+          operatingStatus: "ACTIVE",
+        },
       },
     }]);
 
@@ -80,7 +90,7 @@ describe("getCurrentUser customer identity recovery", () => {
 
     expect(mocks.identityLinkFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { userId: "user-zhubei", storeId: "store-zhubei" },
+        where: { userId: "user-zhubei" },
       }),
     );
     expect(mocks.customerFindFirst).not.toHaveBeenCalled();
@@ -137,11 +147,21 @@ describe("getCurrentUser customer identity recovery", () => {
 
   it("fails closed for a merged identity instead of reviving the old customer", async () => {
     mocks.identityLinkFindMany.mockResolvedValue([{
+      id: "link-merged",
+      userId: "user-zhubei",
+      storeId: "store-zhubei",
+      provider: "line",
       customer: {
         id: "merged-customer",
+        userId: null,
         storeId: "store-zhubei",
         mergedIntoCustomerId: "canonical-customer",
-        store: { slug: "zhubei" },
+        store: {
+          id: "store-zhubei",
+          name: "暖暖蒸足",
+          slug: "zhubei",
+          operatingStatus: "ACTIVE",
+        },
       },
     }]);
 

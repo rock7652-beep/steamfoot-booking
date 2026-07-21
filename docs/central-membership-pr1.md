@@ -28,7 +28,7 @@ PR-1 不建立第二套帳號系統。現有全域 `User`／`Account` 是登入�
 ## 分階段計畫
 
 1. **PR-1（本 PR）**：中央會員身份契約、唯讀 aggregate audit、read-only regression guard。
-2. **PR-2**：中央會員 resolver。登入後列出該 User 已驗證連結的門市，不以電話 fallback 自動認領。
+2. **PR-2**：中央會員 resolver。登入後列出該 User 已驗證連結的門市，不以電話 fallback 自動認領。不同 provider 在同店必須指向同一 Customer，否則 fail closed 並進人工衝突流程。
 3. **PR-3**：既有顧客安全認領。以手機密碼或一次性驗證完成所有權驗證後，才建立跨店 link；衝突進人工流程。
 4. **PR-4**：中央 LINE Login 入口。各店 Messaging API 保持獨立，登入與通知 channel 分離。
 5. **PR-5**：少量真實會員試跑、drift audit、登入與通知驗收。
