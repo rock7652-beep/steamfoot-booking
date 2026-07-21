@@ -28,6 +28,7 @@ import {
   type CustomerCareSummary,
 } from "@/server/queries/customer-care";
 import { getMonthlyUnconvertedCustomers } from "@/server/queries/conversion-metrics";
+import { countPendingCentralMemberLinkReviews } from "@/server/queries/central-member-link-review";
 import { getBirthdayCustomersForMonth } from "@/server/queries/customer-birthday";
 import { ReconciliationBanner } from "@/components/reconciliation-banner";
 import { UpgradeResultBanner } from "@/components/upgrade-result-banner";
@@ -139,6 +140,10 @@ export default async function DashboardHomePage() {
   // 顧客經營摘要 — 需 customer.read；只讀 count（不讀名單）。
   // 獨立 catch：查詢失敗回 null,卡片降級顯示,不影響首頁其他區塊。
   const canViewCustomers = await checkPermission(user.role, user.staffId, "customer.read");
+  const canReviewMemberLinks = await checkPermission(user.role, user.staffId, "customer.identity.rebind");
+  const pendingMemberLinkReviews = canReviewMemberLinks && dashboardStoreId
+    ? await countPendingCentralMemberLinkReviews(dashboardStoreId).catch(() => 0)
+    : 0;
   const careSummaryPromise: Promise<CustomerCareSummary | null> = canViewCustomers
     ? getCustomerCareSummary(dashboardUser, dashboardStoreId).catch((e) => {
         console.error("[dashboard-home] getCustomerCareSummary failed", {
@@ -400,6 +405,15 @@ export default async function DashboardHomePage() {
       />
 
       <div className="space-y-3">
+        {pendingMemberLinkReviews > 0 ? (
+          <Link
+            href="/dashboard/member-link-reviews"
+            className="flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+          >
+            <span>待處理會員連結申請</span>
+            <strong>{pendingMemberLinkReviews} 筆 →</strong>
+          </Link>
+        ) : null}
         {summaryCards.length > 1 ? (
           <div className="grid grid-cols-1 items-start gap-3 lg:grid-cols-2">
             {summaryCards}

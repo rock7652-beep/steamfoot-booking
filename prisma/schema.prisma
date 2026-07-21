@@ -877,16 +877,19 @@ model CentralMemberLinkReviewRequest {
   userId         String
   storeId        String
   customerId     String
-  identityLinkId String
+  identityLinkId String?
   type           CentralMemberLinkReviewType
   status         CentralMemberLinkReviewStatus @default(PENDING)
   createdAt      DateTime                      @default(now())
   updatedAt      DateTime                      @updatedAt
+  reviewedAt     DateTime?
+  reviewedByUserId String?
+  reviewNote     String?
 
   user         User                 @relation(fields: [userId], references: [id], onDelete: Restrict)
   store        Store                @relation(fields: [storeId], references: [id], onDelete: Restrict)
   customer     Customer             @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  identityLink CustomerIdentityLink @relation(fields: [identityLinkId], references: [id], onDelete: Restrict)
+  identityLink CustomerIdentityLink? @relation(fields: [identityLinkId], references: [id], onDelete: SetNull)
 
   @@index([userId, status, createdAt])
   @@index([storeId, status, createdAt])
