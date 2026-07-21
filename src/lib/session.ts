@@ -70,7 +70,7 @@ async function resolveCustomerRequestStore(user: CustomerSessionUser): Promise<{
  * 避免各頁用 `if (!user.customerId) redirect(...)` 形成 redirect loop。
  */
 async function recoverMissingCustomerIdentity<T extends CustomerSessionUser>(user: T): Promise<T> {
-  if (user.role !== "CUSTOMER" || user.customerId) return user;
+  if (user.role !== "CUSTOMER") return user;
 
   const requestStore = await resolveCustomerRequestStore(user);
   if (!requestStore) return user;
@@ -89,27 +89,44 @@ async function recoverMissingCustomerIdentity<T extends CustomerSessionUser>(use
             store: { slug: linkedMembership.storeSlug },
           }
         : null) ??
-      (await prisma.customer.findFirst({
-        where: {
-          userId: user.id,
+      (!user.customerId
+        ? await prisma.customer.findFirst({
+            where: {
+              userId: user.id,
+              storeId: requestStore.storeId,
+              mergedIntoCustomerId: null,
+            },
+            select: {
+              id: true,
+              storeId: true,
+              store: { select: { slug: true } },
+            },
+          })
+        : null);
+
+    if (!customer) {
+      // A store-scoped request must never retain another store's Customer from
+      // the JWT. Clearing it makes direct URL tampering fail closed even when a
+      // Server Action runs without rendering the customer layout first.
+      if (user.customerId && user.storeId !== requestStore.storeId) {
+        return {
+          ...user,
+          customerId: null,
           storeId: requestStore.storeId,
-          mergedIntoCustomerId: null,
-        },
-        select: {
-          id: true,
-          storeId: true,
-          store: { select: { slug: true } },
-        },
-      }));
+          storeSlug: requestStore.storeSlug,
+        };
+      }
+      return user;
+    }
 
-    if (!customer) return user;
-
-    console.info("[getCurrentUser] recovered missing customerId", {
-      userId: user.id,
-      customerId: customer.id,
-      storeId: customer.storeId,
-      source: linkedMembership ? "identity-link" : "legacy-user-link",
-    });
+    if (user.customerId !== customer.id || user.storeId !== customer.storeId) {
+      console.info("[getCurrentUser] resolved customer for request store", {
+        userId: user.id,
+        customerId: customer.id,
+        storeId: customer.storeId,
+        source: linkedMembership ? "identity-link" : "legacy-user-link",
+      });
+    }
 
     return {
       ...user,

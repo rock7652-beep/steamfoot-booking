@@ -109,6 +109,7 @@ export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | n
       "/my-growth",
       "/health",
       "/profile",
+      "/member-stores",
     ];
     const isCustomerRoute = customerPrefixes.some(
       (p) => subPath === p || subPath.startsWith(p + "/")
