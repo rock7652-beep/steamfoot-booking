@@ -6,6 +6,7 @@ import { missingRequiredFields } from "@/lib/customer-completion";
 import { getStoreContext } from "@/lib/store-context";
 import { resolveCustomerForUser } from "@/server/queries/customer-completion";
 import { customerWelcomeTitle } from "@/lib/customer-welcome";
+import { CentralMemberClaimForm } from "./central-member-claim-form";
 
 interface PageProps {
   searchParams: Promise<{ complete?: string; next?: string }>;
@@ -205,6 +206,16 @@ export default async function ProfilePage({ searchParams }: PageProps) {
             nextPath={nextPath}
           />
         </div>
+
+        {!showOnboardingBanner && hasPassword && (
+          <div className="rounded-2xl border border-earth-200 bg-white p-6 shadow-sm">
+            <h2 className="text-lg font-bold text-earth-900">認領其他門市會員資料</h2>
+            <p className="mb-5 mt-2 text-sm leading-6 text-earth-700">
+              若你曾用相同手機在其他門市留下資料，可再次驗證密碼後安全連結。各店方案、堂數、預約與交易仍分開計算。
+            </p>
+            <CentralMemberClaimForm />
+          </div>
+        )}
 
       </div>
     </div>

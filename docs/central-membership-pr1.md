@@ -34,6 +34,15 @@ PR-1 不建立第二套帳號系統。現有全域 `User`／`Account` 是登入�
 5. **PR-5**：少量真實會員試跑、drift audit、登入與通知驗收。
 6. **PR-6**：先隱藏 Google 登入按鈕，保留 callback 過渡期；確認無遺漏後才關閉 Google provider。
 
+## PR-3 安全認領契約
+
+- 顧客必須在已登入狀態再次輸入中央帳號密碼；只有 session 不構成手機所有權證明。
+- 後端只使用該 User 資料庫內的有效手機查找候選，不接受表單提交任意手機。
+- 每店必須恰好一筆有效同手機 Customer，且不可屬於其他 User 或其他 identity。
+- 同一 User 在該店若已連到不同 Customer，整筆拒絕並交由人工處理。
+- 所有候選在單一 transaction 內重新檢查、建立 phone identity link 並寫入不含個資的 AuditLog。
+- 認領只新增中央身份連結；不合併 Customer，不搬動方案、堂數、預約或交易。
+
 ## 驗收指標
 
 執行：
