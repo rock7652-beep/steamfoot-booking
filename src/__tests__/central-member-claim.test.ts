@@ -26,6 +26,10 @@ describe("verifyLinePhoneClaimEvidence", () => {
     expect(verifyLinePhoneClaimEvidence(validEvidence)).toBeNull();
   });
 
+  it("accepts a verified current-store phone when the central account phone is empty", () => {
+    expect(verifyLinePhoneClaimEvidence({ ...validEvidence, userPhone: null })).toBeNull();
+  });
+
   it("does not require a password but rejects accounts without LINE identity", () => {
     expect(verifyLinePhoneClaimEvidence({ ...validEvidence, hasLineAccount: false }))
       .toBe("line_identity_required");
@@ -35,6 +39,11 @@ describe("verifyLinePhoneClaimEvidence", () => {
     expect(verifyLinePhoneClaimEvidence({ ...validEvidence, enteredPhone: "0987654321" }))
       .toBe("phone_mismatch");
     expect(verifyLinePhoneClaimEvidence({ ...validEvidence, currentCustomerPhone: "0987654321" }))
+      .toBe("phone_mismatch");
+  });
+
+  it("rejects a phone that conflicts with an existing central account phone", () => {
+    expect(verifyLinePhoneClaimEvidence({ ...validEvidence, userPhone: "0987654321" }))
       .toBe("phone_mismatch");
   });
 

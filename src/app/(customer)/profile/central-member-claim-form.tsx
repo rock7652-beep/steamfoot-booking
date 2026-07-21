@@ -15,7 +15,7 @@ export function CentralMemberClaimForm() {
     <form action={action} className="space-y-4">
       <div>
         <label htmlFor="claimPhone" className="mb-2 block text-base font-medium text-earth-800">
-          輸入目前會員手機號碼
+          輸入會員手機號碼
         </label>
         <input
           id="claimPhone"
@@ -32,8 +32,8 @@ export function CentralMemberClaimForm() {
       {state.success && (
         <p className="rounded-xl bg-green-50 px-4 py-3 text-sm text-green-800">
           {state.claimedCount > 0
-            ? `已安全認領 ${state.claimedCount} 間門市的會員資料。`
-            : "目前沒有其他可認領的門市會員資料。"}
+            ? `已自動連結 ${state.claimedCount} 間門市的會員資料。`
+            : "同手機的門市會員資料都已連結。"}
         </p>
       )}
       <button
@@ -41,7 +41,7 @@ export function CentralMemberClaimForm() {
         disabled={pending}
         className="min-h-12 w-full rounded-xl bg-earth-900 px-4 font-semibold text-white hover:bg-earth-800 disabled:opacity-60"
       >
-        {pending ? "確認中…" : "確認手機並認領其他門市"}
+        {pending ? "確認中…" : "確認手機並自動連結"}
       </button>
     </form>
   );

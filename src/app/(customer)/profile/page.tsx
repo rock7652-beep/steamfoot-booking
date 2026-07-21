@@ -259,9 +259,9 @@ export default async function ProfilePage({ searchParams }: PageProps) {
 
         {!showOnboardingBanner && (
           <div className="rounded-2xl border border-earth-200 bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-bold text-earth-900">認領其他門市會員資料</h2>
+            <h2 className="text-lg font-bold text-earth-900">連結其他門市會員資料</h2>
             <p className="mb-5 mt-2 text-sm leading-6 text-earth-700">
-              若你曾用相同手機在其他門市留下資料，可透過已綁定的 LINE 身份與目前會員手機完成確認，不需要設定密碼。無法確認時仍可照常使用目前門市。
+              輸入目前門市登記的手機後，系統會自動連結所有使用相同手機的門市會員資料，不需要逐店認領或設定密碼。
             </p>
             <CentralMemberClaimForm />
           </div>

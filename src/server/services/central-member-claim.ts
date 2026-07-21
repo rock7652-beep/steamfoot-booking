@@ -47,7 +47,7 @@ export type CentralMemberClaimPlan =
     };
 
 /**
- * Builds a fail-closed claim plan from rows selected by an already verified phone.
+ * Builds a fail-closed link plan from rows selected by an already verified phone.
  * It never treats a matching phone as proof by itself. The caller must first verify
  * an existing LINE identity and the phone on the current, already linked membership.
  */
@@ -131,14 +131,16 @@ export function verifyLinePhoneClaimEvidence(input: {
   const enteredPhone = normalizePhone(input.enteredPhone);
   const userPhone = normalizePhone(input.userPhone ?? "");
   const currentCustomerPhone = normalizePhone(input.currentCustomerPhone ?? "");
-  if (!enteredPhone || !userPhone || !currentCustomerPhone) return "phone_unavailable";
-  if (enteredPhone !== userPhone || enteredPhone !== currentCustomerPhone) {
+  if (!enteredPhone || !currentCustomerPhone) return "phone_unavailable";
+  // The store membership is the phone source of truth. A central account created
+  // through LINE may not have a phone yet; the verified value is backfilled below.
+  if ((userPhone && enteredPhone !== userPhone) || enteredPhone !== currentCustomerPhone) {
     return "phone_mismatch";
   }
   return null;
 }
 
-/** Verifies LINE + the current membership phone, then atomically claims safe store rows. */
+/** Verifies LINE + the current membership phone, then atomically links safe store rows. */
 export async function claimExistingCustomersByLineAndPhone(input: {
   userId: string;
   currentCustomerId: string;
@@ -179,7 +181,10 @@ export async function claimExistingCustomersByLineAndPhone(input: {
   if (evidenceError) {
     return { status: "conflict", reason: evidenceError, claimedStoreIds: [] };
   }
-  const phone = normalizePhone(input.enteredPhone)!;
+  const phone = normalizePhone(input.enteredPhone);
+  if (!phone) {
+    return { status: "conflict", reason: "phone_unavailable", claimedStoreIds: [] };
+  }
 
   try {
     return await prisma.$transaction(
@@ -210,7 +215,14 @@ export async function claimExistingCustomersByLineAndPhone(input: {
           } as const;
         }
         if (plan.status === "nothing_to_claim") {
+          if (!normalizePhone(user.phone ?? "")) {
+            await tx.user.update({ where: { id: user.id }, data: { phone } });
+          }
           return { status: "nothing_to_claim", claimedStoreIds: [] } as const;
+        }
+
+        if (!normalizePhone(user.phone ?? "")) {
+          await tx.user.update({ where: { id: user.id }, data: { phone } });
         }
 
         for (const candidate of plan.candidates) {
