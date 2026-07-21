@@ -24,7 +24,7 @@ import {
 import { buildTransactionSnapshot, buildRefundSnapshot } from "@/lib/transaction-snapshot";
 import { awardFirstTopupReferralPointsIfEligible } from "@/server/services/referral-points";
 import { computeRefundPlan, type RefundMode } from "@/lib/refund-plan";
-import { seedWalletSessions } from "@/server/services/wallet-session";
+import { allocateSessionsFefo, seedWalletSessions } from "@/server/services/wallet-session";
 import { parseTaiwanDateToDbDate, toLocalDateStr } from "@/lib/date-utils";
 
 // ============================================================
@@ -327,6 +327,7 @@ export async function confirmTransactionPayment(
         amount: true,
         planSessionCountSnapshot: true,
         pendingWalletExpiryDateSnapshot: true,
+        bookingId: true,
       },
     });
     if (!original) throw new AppError("NOT_FOUND", "交易紀錄不存在");
@@ -407,6 +408,48 @@ export async function confirmTransactionPayment(
           where: { id: transactionId },
           data: { customerPlanWalletId: wallet.id },
         });
+
+        // 單次預約現場轉購：轉帳確認入帳後，才把同一筆預約改成新方案扣堂。
+        // 所有寫入都在本交易內；狀態不符時連付款確認與 wallet 建立一併回滾。
+        if (original.bookingId) {
+          await tx.$queryRaw`SELECT id FROM "Booking" WHERE id = ${original.bookingId} FOR UPDATE`;
+          const booking = await tx.booking.findUnique({
+            where: { id: original.bookingId },
+            select: { id: true, customerId: true, storeId: true, bookingType: true, bookingStatus: true, isMakeup: true, people: true },
+          });
+          if (
+            !booking ||
+            booking.customerId !== original.customerId ||
+            booking.storeId !== original.storeId ||
+            booking.bookingType !== "SINGLE" ||
+            booking.isMakeup ||
+            (booking.bookingStatus !== "PENDING" && booking.bookingStatus !== "CONFIRMED")
+          ) {
+            throw new AppError("BUSINESS_RULE", "關聯預約狀態已變更，請先人工核對後再確認付款");
+          }
+          if (original.planSessionCountSnapshot < booking.people) {
+            throw new AppError("BUSINESS_RULE", "新方案堂數不足本次預約人數，請人工核對");
+          }
+          await allocateSessionsFefo(tx, {
+            candidates: [{
+              id: wallet.id,
+              expiryDate,
+              createdAt: now,
+              remainingSessions: original.planSessionCountSnapshot,
+            }],
+            bookingId: booking.id,
+            count: booking.people,
+            preferredWalletId: wallet.id,
+          });
+          await tx.booking.update({
+            where: { id: booking.id },
+            data: {
+              bookingType: "PACKAGE_SESSION",
+              customerPlanWalletId: wallet.id,
+              servicePlanId: original.planId,
+            },
+          });
+        }
       }
 
       // CAS 成功 → 重現 PENDING 時 skip 的狀態升等 + 首儲推薦獎勵

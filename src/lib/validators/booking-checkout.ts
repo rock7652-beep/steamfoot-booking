@@ -10,6 +10,13 @@ export const adjustCheckoutToPackageSchema = z.object({
   walletId: z.string().min(1),
 });
 
+// SINGLE 未收款 → 現場購買新方案；現金類付款立即開通，轉帳待確認後開通。
+export const purchasePlanForSingleBookingSchema = z.object({
+  bookingId: z.string().min(1),
+  planId: z.string().min(1),
+  paymentMethod: z.enum(["CASH", "TRANSFER", "LINE_PAY", "CREDIT_CARD", "OTHER"]),
+});
+
 // 調整結帳方式（Phase 2 / Mode B — PACKAGE_SESSION 方案扣堂 → SINGLE 單次未收款）。
 //
 // reason 為「選填」：現場店長可能只是快速把方案扣堂改成單次，不應因少填原因卡流程；
