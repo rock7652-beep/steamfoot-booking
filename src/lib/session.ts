@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { AppError } from "@/lib/errors";
 import { isStaffRole } from "@/lib/permissions";
+import { resolveCentralMemberCustomerForStore } from "@/server/services/central-member-resolver";
 
 // ============================================================
 // Session helpers
@@ -75,34 +76,19 @@ async function recoverMissingCustomerIdentity<T extends CustomerSessionUser>(use
   if (!requestStore) return user;
 
   try {
-    const identityLinks = await prisma.customerIdentityLink.findMany({
-      where: { userId: user.id, storeId: requestStore.storeId },
-      select: {
-        customer: {
-          select: {
-            id: true,
-            storeId: true,
-            mergedIntoCustomerId: true,
-            store: { select: { slug: true } },
-          },
-        },
-      },
-    });
-
-    // Google + LINE links may coexist.  They are only a recovery source when
-    // every non-merged provider link agrees on the same Customer; otherwise
-    // fail closed rather than letting provider ordering choose an identity.
-    const linkedCustomers = identityLinks
-      .map((link) => link.customer)
-      .filter((customer) => !customer.mergedIntoCustomerId);
-    const linkedCustomer =
-      linkedCustomers.length > 0 &&
-      linkedCustomers.every((customer) => customer.id === linkedCustomers[0].id)
-        ? linkedCustomers[0]
-        : null;
+    const linkedMembership = await resolveCentralMemberCustomerForStore(
+      user.id,
+      requestStore.storeId,
+    );
 
     const customer =
-      linkedCustomer ??
+      (linkedMembership
+        ? {
+            id: linkedMembership.customerId,
+            storeId: linkedMembership.storeId,
+            store: { slug: linkedMembership.storeSlug },
+          }
+        : null) ??
       (await prisma.customer.findFirst({
         where: {
           userId: user.id,
@@ -122,7 +108,7 @@ async function recoverMissingCustomerIdentity<T extends CustomerSessionUser>(use
       userId: user.id,
       customerId: customer.id,
       storeId: customer.storeId,
-      source: linkedCustomer ? "identity-link" : "legacy-user-link",
+      source: linkedMembership ? "identity-link" : "legacy-user-link",
     });
 
     return {
