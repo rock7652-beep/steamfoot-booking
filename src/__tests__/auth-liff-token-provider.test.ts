@@ -10,6 +10,8 @@ const mockVerifyLiffIdToken = vi.fn();
 const mockResolveStoreBySlug = vi.fn();
 const mockIdentityLinkFindUnique = vi.fn();
 const mockCustomerFindFirst = vi.fn();
+const mockSyncVerifiedCentralIdentity = vi.fn();
+const mockCompareSync = vi.fn();
 
 vi.mock("next-auth", () => ({
   default: (config: Record<string, unknown>) => {
@@ -32,7 +34,7 @@ vi.mock("next-auth/providers/google", () => ({
 }));
 
 vi.mock("bcryptjs", () => ({
-  compareSync: vi.fn(),
+  compareSync: (...args: unknown[]) => mockCompareSync(...args),
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -77,6 +79,11 @@ vi.mock("@/lib/identity-repair", () => ({
   repairCustomerIdentityOnLogin: vi.fn(),
 }));
 
+vi.mock("@/server/services/sync-verified-central-identity", () => ({
+  syncVerifiedCentralIdentity: (...args: unknown[]) =>
+    mockSyncVerifiedCentralIdentity(...args),
+}));
+
 vi.mock("@/lib/line-bind-log", async () => {
   const actual = await vi.importActual<typeof import("@/lib/line-bind-log")>(
     "@/lib/line-bind-log",
@@ -103,6 +110,17 @@ async function getLiffAuthorize() {
   return provider.authorize;
 }
 
+async function getCredentialsAuthorize(providerId: string) {
+  vi.resetModules();
+  await import("@/lib/auth");
+  const config = mockNextAuth.mock.calls.at(-1)?.[0] as
+    | { providers?: CredentialsProviderConfig[] }
+    | undefined;
+  const provider = config?.providers?.find((p) => p.id === providerId);
+  if (!provider?.authorize) throw new Error(`${providerId} authorize not captured`);
+  return provider.authorize;
+}
+
 const LINE_USER_ID = "U_same_line_user";
 const STORE = { id: "store-hsinchu", slug: "hsinchu" };
 
@@ -119,6 +137,8 @@ beforeEach(() => {
   mockResolveStoreBySlug.mockReset();
   mockIdentityLinkFindUnique.mockReset();
   mockCustomerFindFirst.mockReset();
+  mockSyncVerifiedCentralIdentity.mockReset();
+  mockCompareSync.mockReset();
   vi.stubEnv("LINE_LOGIN_CHANNEL_ID", "channel-123");
   mockVerifyLiffIdToken.mockResolvedValue({
     lineUserId: LINE_USER_ID,
@@ -127,6 +147,70 @@ beforeEach(() => {
   mockResolveStoreBySlug.mockResolvedValue(STORE);
   mockIdentityLinkFindUnique.mockResolvedValue(null);
   mockCustomerFindFirst.mockResolvedValue(null);
+  mockSyncVerifiedCentralIdentity.mockResolvedValue({ status: "linked" });
+  mockCompareSync.mockReturnValue(true);
+});
+
+describe("auth.ts customer-phone provider", () => {
+  it("creates the store-scoped phone identity only after password verification", async () => {
+    const authorize = await getCredentialsAuthorize("customer-phone");
+    mockCustomerFindFirst.mockResolvedValueOnce({
+      id: "customer-phone",
+      storeId: STORE.id,
+      store: { slug: STORE.slug },
+      user: {
+        id: "user-phone",
+        name: "Phone User",
+        email: null,
+        passwordHash: "hash",
+        role: "CUSTOMER",
+        status: "ACTIVE",
+      },
+    });
+
+    await expect(authorize({
+      phone: "+886 912-345-678",
+      password: "verified-password",
+      storeId: STORE.id,
+    })).resolves.toMatchObject({ id: "user-phone", customerId: "customer-phone" });
+
+    expect(mockSyncVerifiedCentralIdentity).toHaveBeenCalledWith({
+      entryPoint: "phone_password",
+      userId: "user-phone",
+      storeId: STORE.id,
+      customerId: "customer-phone",
+      provider: "phone",
+      providerAccountId: "0912345678",
+      verifiedPhoneMatches: true,
+    });
+  });
+
+  it("fails closed when the verified phone link conflicts", async () => {
+    const authorize = await getCredentialsAuthorize("customer-phone");
+    mockCustomerFindFirst.mockResolvedValueOnce({
+      id: "customer-phone",
+      storeId: STORE.id,
+      store: { slug: STORE.slug },
+      user: {
+        id: "user-phone",
+        name: "Phone User",
+        email: null,
+        passwordHash: "hash",
+        role: "CUSTOMER",
+        status: "ACTIVE",
+      },
+    });
+    mockSyncVerifiedCentralIdentity.mockResolvedValueOnce({
+      status: "manual_review",
+      reason: "existing_membership_conflict",
+    });
+
+    await expect(authorize({
+      phone: "0912345678",
+      password: "verified-password",
+      storeId: STORE.id,
+    })).resolves.toBeNull();
+  });
 });
 
 describe("auth.ts liff-token provider", () => {

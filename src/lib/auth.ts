@@ -11,6 +11,7 @@ import { repairCustomerIdentityOnLogin } from "@/lib/identity-repair";
 import {
   logLineBindEvent,
 } from "@/lib/line-bind-log";
+import { syncVerifiedCentralIdentity } from "@/server/services/sync-verified-central-identity";
 
 // ============================================================
 // NextAuth v5 type augmentation
@@ -165,6 +166,28 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           if (!customer?.user || !customer.user.passwordHash) return null;
           if (customer.user.status !== "ACTIVE") return null;
           if (!compareSync(password, customer.user.passwordHash)) return null;
+
+          const identitySync = await syncVerifiedCentralIdentity({
+            entryPoint: "phone_password",
+            userId: customer.user.id,
+            storeId: customer.storeId,
+            customerId: customer.id,
+            provider: "phone",
+            providerAccountId: phone,
+            verifiedPhoneMatches: true,
+          });
+          if (
+            identitySync.status === "manual_review" ||
+            identitySync.status === "rejected"
+          ) {
+            console.warn("[auth][customer-phone] central identity rejected", {
+              userId: customer.user.id,
+              storeId: customer.storeId,
+              customerId: customer.id,
+              reason: identitySync.reason,
+            });
+            return null;
+          }
 
           // Defensive identity repair: if any other Customer in the same store
           // matches by phone/email but lost its userId binding, rebind it.
@@ -487,6 +510,29 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 select: { userId: true },
               })
             : null;
+        const existingGoogleAccount =
+          provider === "google" && googleId
+            ? await prisma.account.findUnique({
+                where: {
+                  provider_providerAccountId: {
+                    provider: "google",
+                    providerAccountId: googleId,
+                  },
+                },
+                select: {
+                  userId: true,
+                  user: { select: { role: true, status: true } },
+                },
+              })
+            : null;
+
+        if (
+          existingGoogleAccount &&
+          (existingGoogleAccount.user.role !== "CUSTOMER" ||
+            existingGoogleAccount.user.status !== "ACTIVE")
+        ) {
+          return "/?error=StaffEmailBlocked";
+        }
 
         // BLOCK: Don't allow OAuth to link to staff accounts
         // 員工帳號必須透過 /login（email+密碼）登入，不可透過 OAuth 進入前台
@@ -579,23 +625,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           }
         }
         if (!customer && provider === "google" && googleId) {
-          const candidates = await prisma.customer.findMany({
-            where: { googleId },
-            take: 2,
+          const verifiedLink = await prisma.customerIdentityLink.findUnique({
+            where: {
+              uq_customer_identity_provider_store: {
+                provider: "google",
+                providerAccountId: googleId,
+                storeId: targetStoreId,
+              },
+            },
+            select: { customer: true },
           });
-          if (candidates.length === 1) {
-            customer = candidates[0];
-            if (customer.storeId !== targetStoreId) {
-              console.info("[auth] signIn: google user cross-store — using existing customer", {
-                googleId,
-                customerStoreId: customer.storeId,
-                cookieStoreId: targetStoreId,
-              });
-              targetStoreId = customer.storeId;
-            }
-          } else if (candidates.length > 1) {
-            customer = candidates.find((c) => c.storeId === targetStoreId) ?? null;
-          }
+          customer = verifiedLink?.customer ?? await prisma.customer.findFirst({
+            where: { googleId, storeId: targetStoreId },
+          });
         }
         if (!customer && oauthEmail) {
           customer = await prisma.customer.findFirst({
@@ -731,12 +773,26 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             return true;
           }
 
-          // Non-LINE branch (Google today). UNCHANGED 2-write inline
-          // path. D3 is LINE-only; Google convergence is out of scope.
-          const existingAccount = await prisma.account.findUnique({
-            where: { provider_providerAccountId: { provider, providerAccountId: account.providerAccountId } },
-            select: { userId: true },
+          // Google uses the verified central Account and the current store.
+          // A cross-user collision fails closed instead of moving the Account.
+          const existingAccount = existingGoogleAccount;
+          if (existingAccount && existingAccount.userId !== customer.userId) {
+            return false;
+          }
+          const identitySync = await syncVerifiedCentralIdentity({
+            entryPoint: "google",
+            userId: customer.userId,
+            storeId: customer.storeId,
+            customerId: customer.id,
+            provider: "google",
+            providerAccountId: account.providerAccountId,
           });
+          if (
+            identitySync.status === "manual_review" ||
+            identitySync.status === "rejected"
+          ) {
+            return false;
+          }
           let accountCreated = false;
           if (!existingAccount) {
             await prisma.account.create({
@@ -953,44 +1009,59 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             return true;
           }
 
-          // Non-LINE branch (Google today). UNCHANGED 3-write inline
-          // path. PR-G5.5.b is the future convergence target for
-          // existing-User Case A; Google Case B has no canonical helper
-          // yet and is out of scope.
-          const newUser = await prisma.user.create({
-            data: {
-              name: customer.name,
-              email: oauthEmail,
-              phone: customer.phone || null,
-              role: "CUSTOMER",
-              status: "ACTIVE",
-              image: oauthImage,
-              customer: { connect: { id: customer.id } },
-            },
-          });
+          const newUser = await prisma.$transaction(async (tx) => {
+            const centralUser = existingGoogleAccount
+              ? await tx.user.findUniqueOrThrow({
+                  where: { id: existingGoogleAccount.userId },
+                })
+              : await tx.user.create({
+                  data: {
+                    name: customer.name,
+                    email: oauthEmail,
+                    phone: customer.phone || null,
+                    role: "CUSTOMER",
+                    status: "ACTIVE",
+                    image: oauthImage,
+                  },
+                });
 
-          await prisma.account.create({
-            data: {
-              userId: newUser.id,
-              type: account.type,
-              provider: account.provider,
-              providerAccountId: account.providerAccountId,
-              access_token: account.access_token as string | undefined,
-              refresh_token: account.refresh_token as string | undefined,
-              expires_at: account.expires_at,
-              token_type: account.token_type,
-              scope: account.scope,
-              id_token: account.id_token as string | undefined,
-            },
-          });
+            if (!existingGoogleAccount) {
+              await tx.account.create({
+                data: {
+                  userId: centralUser.id,
+                  type: account.type,
+                  provider: account.provider,
+                  providerAccountId: account.providerAccountId,
+                  access_token: account.access_token as string | undefined,
+                  refresh_token: account.refresh_token as string | undefined,
+                  expires_at: account.expires_at,
+                  token_type: account.token_type,
+                  scope: account.scope,
+                  id_token: account.id_token as string | undefined,
+                },
+              });
+            }
 
-          // Update Customer
-          const updateData: Record<string, unknown> = { authSource: "GOOGLE" };
-          if (provider === "google" && googleId) {
-            updateData.googleId = googleId;
-            if (oauthImage) updateData.avatar = oauthImage;
-          }
-          await prisma.customer.update({ where: { id: customer.id }, data: updateData });
+            await tx.customer.update({
+              where: { id: customer.id },
+              data: {
+                userId: centralUser.id,
+                authSource: "GOOGLE",
+                googleId,
+                ...(oauthImage ? { avatar: oauthImage } : {}),
+              },
+            });
+            await tx.customerIdentityLink.create({
+              data: {
+                userId: centralUser.id,
+                storeId: customer.storeId,
+                customerId: customer.id,
+                provider: "google",
+                providerAccountId: account.providerAccountId,
+              },
+            });
+            return centralUser;
+          });
 
           await repairCustomerIdentityOnLogin({
             userId: newUser.id,
@@ -1081,7 +1152,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         // 任一失敗 → 全部回滾，不會產生 orphan User / 半綁 Customer
         const { newUser, newCustomer } = await prisma.$transaction(async (tx) => {
           const u =
-            provider === "line" && existingLineAccount
+            provider === "google" && existingGoogleAccount
+              ? await tx.user.findUniqueOrThrow({
+                  where: { id: existingGoogleAccount.userId },
+                })
+              : provider === "line" && existingLineAccount
               ? await tx.user.findUniqueOrThrow({
                   where: { id: existingLineAccount.userId },
                 })
@@ -1121,7 +1196,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             select: { id: true },
           });
 
-          if (!(provider === "line" && existingLineAccount)) {
+          if (
+            !(provider === "line" && existingLineAccount) &&
+            !existingGoogleAccount
+          ) {
             await tx.account.create({
               data: {
                 userId: u.id,
@@ -1134,6 +1212,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 token_type: account.token_type,
                 scope: account.scope,
                 id_token: account.id_token as string | undefined,
+              },
+            });
+          }
+
+          if (provider === "google" && googleId) {
+            await tx.customerIdentityLink.create({
+              data: {
+                userId: u.id,
+                storeId: targetStoreId,
+                customerId: c.id,
+                provider: "google",
+                providerAccountId: googleId,
               },
             });
           }
