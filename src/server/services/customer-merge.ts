@@ -38,7 +38,6 @@ async function assertPlaceholderHasNoOperationalData(
     tx.checkinPost.count({ where: { customerId } }),
     tx.customerFollowUp.count({ where: { customerId } }),
     tx.talentStageLog.count({ where: { customerId } }),
-    tx.customerIdentityLink.count({ where: { customerId } }),
     tx.bookingMakeupCredit.count({ where: { customerId } }),
     tx.referral.count({ where: { OR: [{ referrerId: customerId }, { convertedCustomerId: customerId }] } }),
     tx.customer.count({ where: { sponsorId: customerId } }),
@@ -47,6 +46,41 @@ async function assertPlaceholderHasNoOperationalData(
     throw new Error(
       "mergePlaceholder: placeholder has operational data; use mergeCustomerIntoCustomer instead",
     );
+  }
+}
+
+async function movePlaceholderIdentityLinks(
+  tx: Prisma.TransactionClient,
+  placeholderCustomerId: string,
+  realCustomerId: string,
+) {
+  const [placeholderLinks, realLinks] = await Promise.all([
+    tx.customerIdentityLink.findMany({ where: { customerId: placeholderCustomerId } }),
+    tx.customerIdentityLink.findMany({ where: { customerId: realCustomerId } }),
+  ]);
+
+  for (const link of placeholderLinks) {
+    const targetLink = realLinks.find((candidate) => candidate.provider === link.provider);
+    if (!targetLink) {
+      await tx.customerIdentityLink.update({
+        where: { id: link.id },
+        data: { customerId: realCustomerId },
+      });
+      continue;
+    }
+
+    const isSameIdentity =
+      targetLink.userId === link.userId &&
+      targetLink.storeId === link.storeId &&
+      targetLink.providerAccountId === link.providerAccountId &&
+      targetLink.lineUserId === link.lineUserId;
+    if (!isSameIdentity) {
+      throw new Error(
+        `mergePlaceholder: CustomerIdentityLink conflict for provider ${link.provider}`,
+      );
+    }
+
+    await tx.customerIdentityLink.delete({ where: { id: link.id } });
   }
 }
 
@@ -233,7 +267,9 @@ export async function mergePlaceholderCustomerIntoRealCustomer(
 
     // lightweight merge 只適用於真正空白的 OAuth placeholder。若已有方案、交易或
     // 預約，清身份後保留 source 會讓營運資料斷裂，必須改走 guarded full merge。
+    // CustomerIdentityLink 是登入身份本身，不是營運資料；安全檢查通過後搬到 real。
     await assertPlaceholderHasNoOperationalData(tx, placeholder.id);
+    await movePlaceholderIdentityLinks(tx, placeholder.id, realCustomerId);
 
     // Step 1: 釋放 placeholder 的 unique 欄位 + userId（為 real 的 update 讓位）
     await tx.customer.update({
