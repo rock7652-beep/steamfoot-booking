@@ -44,12 +44,22 @@ export async function upsertCustomerIdentityLink(
   try {
     const customer = await db.customer.findUnique({
       where: { id: input.customerId },
-      select: { id: true, storeId: true },
+      select: { id: true, storeId: true, userId: true, mergedIntoCustomerId: true },
     });
     if (!customer) {
       return { status: "error", error: "CUSTOMER_NOT_FOUND" };
     }
     assertSameStore("CustomerIdentityLink.customer", customer.storeId, input.storeId);
+    if (customer.mergedIntoCustomerId) {
+      return { status: "error", error: "CUSTOMER_ALREADY_MERGED" };
+    }
+    // CustomerIdentityLink is the cross-store identity truth, but a conflicting
+    // legacy Customer.userId would make the central resolver hide this store.
+    // Never create that half-linked state. A reviewed identity-consolidation
+    // workflow must clear/transfer the legacy owner before retrying.
+    if (customer.userId && customer.userId !== input.userId) {
+      return { status: "error", error: "CUSTOMER_OWNED_BY_ANOTHER_USER" };
+    }
 
     await db.customerIdentityLink.upsert({
       where: {

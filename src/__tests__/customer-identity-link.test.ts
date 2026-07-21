@@ -24,6 +24,8 @@ beforeEach(() => {
   mockCustomerFindUnique.mockImplementation(async (args: { where: { id: string } }) => ({
     id: args.where.id,
     storeId: args.where.id.includes("hsinchu") ? "store-hsinchu" : "store-zhubei",
+    userId: null,
+    mergedIntoCustomerId: null,
   }));
   mockIdentityLinkUpsert.mockResolvedValue({});
 });
@@ -111,6 +113,49 @@ describe("upsertCustomerIdentityLink", () => {
       status: "error",
       error: expect.stringContaining("STORE_CONSISTENCY_MISMATCH"),
     });
+    expect(mockIdentityLinkUpsert).not.toHaveBeenCalled();
+  });
+
+  it("rejects a half-linked membership when legacy userId belongs to another user", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: "cust-zhubei",
+      storeId: "store-zhubei",
+      userId: "legacy-user",
+      mergedIntoCustomerId: null,
+    });
+
+    await expect(
+      upsertCustomerIdentityLink({
+        userId: USER_ID,
+        storeId: "store-zhubei",
+        customerId: "cust-zhubei",
+        provider: "line",
+        providerAccountId: LINE_USER_ID,
+      }),
+    ).resolves.toEqual({
+      status: "error",
+      error: "CUSTOMER_OWNED_BY_ANOTHER_USER",
+    });
+    expect(mockIdentityLinkUpsert).not.toHaveBeenCalled();
+  });
+
+  it("rejects links to a merged customer", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: "cust-zhubei",
+      storeId: "store-zhubei",
+      userId: null,
+      mergedIntoCustomerId: "target-customer",
+    });
+
+    await expect(
+      upsertCustomerIdentityLink({
+        userId: USER_ID,
+        storeId: "store-zhubei",
+        customerId: "cust-zhubei",
+        provider: "line",
+        providerAccountId: LINE_USER_ID,
+      }),
+    ).resolves.toEqual({ status: "error", error: "CUSTOMER_ALREADY_MERGED" });
     expect(mockIdentityLinkUpsert).not.toHaveBeenCalled();
   });
 
