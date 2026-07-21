@@ -223,7 +223,7 @@ export async function countPendingPaymentTransactions(options?: {
 
 // 處理狀態（店長視角）：
 // - complete：可直接確認入帳（匯款 + 有轉帳資訊）
-// - review  ：匯款但缺轉帳資訊，需先核對
+// - review  ：匯款但缺轉帳資訊；店長核對銀行入帳後仍可直接確認
 // - unpaid  ：尚未付款
 // - anomaly ：缺關鍵欄位（customerId / planId / amount），不可處理
 export type PendingRowStatus = "complete" | "review" | "unpaid" | "anomaly";
@@ -309,7 +309,9 @@ export async function getPendingPaymentTransactions(options?: {
       return b.createdAt.getTime() - a.createdAt.getTime();
     });
 
-  const confirmableCount = transactions.filter((t) => t.rowStatus === "complete").length;
+  const confirmableCount = transactions.filter(
+    (t) => t.rowStatus === "complete" || t.rowStatus === "review"
+  ).length;
 
   return {
     transactions,
