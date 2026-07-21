@@ -1,8 +1,12 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { collectSinglePayment } from "@/server/actions/single-booking";
+import {
+  getSingleBookingPurchasePlans,
+  purchasePlanForSingleBooking,
+} from "@/server/actions/booking-plan-purchase";
 
 /**
  * 單次（SINGLE，不扣堂）現場收款 Modal（drawer-only 入口）。
@@ -46,7 +50,23 @@ export function CollectSingleModal({
   const [amount, setAmount] = useState(String(defaultPrice));
   const [method, setMethod] = useState<string>("CASH");
   const [discountReason, setDiscountReason] = useState("");
+  const [mode, setMode] = useState<"single" | "plan">("single");
+  const [plans, setPlans] = useState<Array<{ id: string; name: string; price: number; sessionCount: number }>>([]);
+  const [planId, setPlanId] = useState("");
   const [pending, startTransition] = useTransition();
+
+  useEffect(() => {
+    if (!open || mode !== "plan" || plans.length > 0) return;
+    startTransition(async () => {
+      const r = await getSingleBookingPurchasePlans(bookingId);
+      if (!r.success) {
+        toast.error(r.error ?? "讀取方案失敗");
+        return;
+      }
+      setPlans(r.data);
+      setPlanId(r.data[0]?.id ?? "");
+    });
+  }, [bookingId, mode, open, plans.length]);
 
   if (!open) return null;
 
@@ -61,6 +81,21 @@ export function CollectSingleModal({
   const overPaid = validAmount && amountNum > defaultPrice;
 
   function handleConfirm() {
+    if (mode === "plan") {
+      if (!planId) return toast.error("請選擇儲值方案");
+      startTransition(async () => {
+        const r = await purchasePlanForSingleBooking({
+          bookingId,
+          planId,
+          paymentMethod: method as "CASH" | "TRANSFER" | "LINE_PAY" | "CREDIT_CARD" | "OTHER",
+        });
+        if (r.success) {
+          toast.success(r.data.pendingPayment ? "已建立，待確認轉帳後發放堂數" : "已轉購方案並保留本次扣堂");
+          onCollected();
+        } else toast.error(r.error ?? "轉購方案失敗");
+      });
+      return;
+    }
     if (!validAmount) {
       toast.error("實收金額無效");
       return;
@@ -108,9 +143,12 @@ export function CollectSingleModal({
         <h3 className="mb-3 text-lg font-semibold text-earth-900">
           單次收款
         </h3>
+        <div className="mb-4 grid grid-cols-2 rounded-lg bg-earth-100 p-1 text-sm">
+          <button type="button" disabled={pending} onClick={() => setMode("single")} className={`rounded-md px-3 py-2 ${mode === "single" ? "bg-white font-medium text-earth-900 shadow-sm" : "text-earth-500"}`}>本次單次收款</button>
+          <button type="button" disabled={pending} onClick={() => setMode("plan")} className={`rounded-md px-3 py-2 ${mode === "plan" ? "bg-white font-medium text-primary-700 shadow-sm" : "text-earth-500"}`}>轉購新儲值方案</button>
+        </div>
         <p className="mb-3 text-sm text-earth-600">
-          請確認顧客已付款。送出後會建立一筆單次收款交易（計入營收），
-          不會扣堂、也不會建立方案。
+          {mode === "single" ? "只收取本次費用，不建立方案。" : "購買新方案後，本次預約會改為使用新方案堂數；轉帳須待店長確認入帳後才發放。"}
         </p>
 
         <div className="mb-4 space-y-1.5 rounded-lg bg-earth-50 p-3 text-sm">
@@ -130,7 +168,14 @@ export function CollectSingleModal({
           </div>
         </div>
 
-        <label className="mb-1 block text-xs font-medium text-earth-600">
+        {mode === "plan" ? (
+          <>
+            <label className="mb-1 block text-xs font-medium text-earth-600">選擇新儲值方案</label>
+            <select value={planId} disabled={pending} onChange={(e) => setPlanId(e.target.value)} className="mb-3 w-full rounded-lg border border-earth-300 px-3 py-2 text-sm">
+              {plans.length === 0 ? <option value="">目前沒有可購買的多堂方案</option> : plans.map((p) => <option key={p.id} value={p.id}>{p.name}｜{p.sessionCount} 堂｜NT$ {p.price.toLocaleString()}</option>)}
+            </select>
+          </>
+        ) : <><label className="mb-1 block text-xs font-medium text-earth-600">
           實收金額（NT$）
         </label>
         <input
@@ -155,7 +200,7 @@ export function CollectSingleModal({
           ) : (
             "預設等於原價；若需折扣請改數字"
           )}
-        </p>
+        </p></>}
 
         <label className="mb-1 block text-xs font-medium text-earth-600">
           付款方式
@@ -173,7 +218,7 @@ export function CollectSingleModal({
           ))}
         </select>
 
-        <label className="mb-1 block text-xs font-medium text-earth-600">
+        {mode === "single" && <><label className="mb-1 block text-xs font-medium text-earth-600">
           折扣原因 / 備註{discountAmount > 0 ? "" : "（選填）"}
         </label>
         <textarea
@@ -188,7 +233,7 @@ export function CollectSingleModal({
               : "若有折扣請填原因；無折扣可留空"
           }
           className="mb-4 w-full resize-none rounded-lg border border-earth-300 px-3 py-2 text-sm"
-        />
+        /></>}
 
         <div className="flex justify-end gap-2">
           <button
@@ -202,10 +247,10 @@ export function CollectSingleModal({
           <button
             type="button"
             onClick={handleConfirm}
-            disabled={pending || !validAmount || overPaid}
+            disabled={pending || (mode === "single" ? !validAmount || overPaid : !planId)}
             className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-60"
           >
-            {pending ? "處理中..." : "確認收款"}
+            {pending ? "處理中..." : mode === "plan" ? "確認轉購方案" : "確認收款"}
           </button>
         </div>
       </div>
