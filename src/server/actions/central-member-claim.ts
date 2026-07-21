@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { requireSession } from "@/lib/session";
-import { claimExistingCustomersByVerifiedPhone } from "@/server/services/central-member-claim";
+import { claimExistingCustomersByLineAndPhone } from "@/server/services/central-member-claim";
 import { CENTRAL_MEMBER_STORE_COOKIE } from "@/lib/central-member-store";
 
 export type CentralMemberClaimState = {
@@ -20,14 +20,15 @@ export async function claimCentralMembershipsAction(
   if (session.role !== "CUSTOMER") {
     return { error: "只有顧客帳號可以認領會員資料", success: false, claimedCount: 0 };
   }
-  const password = String(formData.get("claimPassword") ?? "");
-  if (!password) {
-    return { error: "請輸入登入密碼完成驗證", success: false, claimedCount: 0 };
+  if (!session.customerId) {
+    return { error: "目前門市會員身份尚未完成連結，請聯繫店家協助確認", success: false, claimedCount: 0 };
   }
+  const phone = String(formData.get("claimPhone") ?? "");
 
-  const result = await claimExistingCustomersByVerifiedPhone({
+  const result = await claimExistingCustomersByLineAndPhone({
     userId: session.id,
-    password,
+    currentCustomerId: session.customerId,
+    enteredPhone: phone,
   });
   if (result.status === "claimed") {
     (await cookies()).delete(CENTRAL_MEMBER_STORE_COOKIE);
@@ -39,7 +40,9 @@ export async function claimCentralMembershipsAction(
   }
 
   const messages: Record<string, string> = {
-    invalid_credentials: "密碼錯誤，請重新輸入",
+    line_identity_required: "此功能需從已綁定的 LINE 會員帳號使用；原門市預約不受影響",
+    phone_mismatch: "手機號碼與目前會員資料不一致，請重新確認或聯繫店家",
+    current_membership_unverified: "目前門市會員身份尚未完成連結，請聯繫店家協助確認",
     phone_unavailable: "中央帳號尚未設定有效手機，請先更新基本資料",
     multiple_customers_in_store: "同一門市有多筆相同手機資料，請聯繫店家協助確認",
     customer_owned_by_another_user: "此會員資料已屬於另一個登入帳號，請聯繫店家協助確認",
