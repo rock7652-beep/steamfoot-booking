@@ -398,6 +398,18 @@ enum RequestSource {
   ADMIN_CREATED
 }
 
+enum CentralMemberLinkReviewType {
+  NOT_MY_MEMBERSHIP
+  UNLINK_REQUEST
+}
+
+enum CentralMemberLinkReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
 // ============================================================
 // Auth - NextAuth.js Models
 // ============================================================
@@ -423,6 +435,7 @@ model User {
   staff                 Staff?
   customer              Customer?
   customerIdentityLinks CustomerIdentityLink[]
+  centralMemberLinkReviewRequests CentralMemberLinkReviewRequest[]
   lineRebindRequestsCreated LineRebindRequest[] @relation("LineRebindRequestCreatedBy")
   lineRebindRequestsCancelled LineRebindRequest[] @relation("LineRebindRequestCancelledBy")
 
@@ -536,6 +549,7 @@ model Store {
   staff                   Staff[]
   customers               Customer[]
   customerIdentityLinks   CustomerIdentityLink[]
+  centralMemberLinkReviewRequests CentralMemberLinkReviewRequest[]
   lineRebindRequests     LineRebindRequest[]
   lineOAuthAttempts      LineOAuthAttempt[]
   bookings                Booking[]
@@ -784,6 +798,7 @@ model Customer {
   // 顧客經營追蹤紀錄（簡易 CRM-lite）
   followUps     CustomerFollowUp[]
   identityLinks CustomerIdentityLink[]
+  centralMemberLinkReviewRequests CentralMemberLinkReviewRequest[]
   lineRebindRequests LineRebindRequest[]
 
   @@unique([storeId, phone], name: "uq_store_customer_phone")
@@ -846,12 +861,36 @@ model CustomerIdentityLink {
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   store    Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
   customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  reviewRequests CentralMemberLinkReviewRequest[]
 
   @@unique([provider, providerAccountId, storeId], name: "uq_customer_identity_provider_store")
   @@unique([customerId, provider], name: "uq_customer_identity_customer_provider")
   @@unique([userId, storeId, provider], name: "uq_customer_identity_user_store_provider")
   @@index([storeId])
   @@index([userId])
+}
+
+// Customer-submitted review only. Creating a request never removes or mutates
+// an identity link; a separate staff-reviewed workflow must resolve it.
+model CentralMemberLinkReviewRequest {
+  id             String                        @id @default(cuid())
+  userId         String
+  storeId        String
+  customerId     String
+  identityLinkId String
+  type           CentralMemberLinkReviewType
+  status         CentralMemberLinkReviewStatus @default(PENDING)
+  createdAt      DateTime                      @default(now())
+  updatedAt      DateTime                      @updatedAt
+
+  user         User                 @relation(fields: [userId], references: [id], onDelete: Restrict)
+  store        Store                @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  customer     Customer             @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  identityLink CustomerIdentityLink @relation(fields: [identityLinkId], references: [id], onDelete: Restrict)
+
+  @@index([userId, status, createdAt])
+  @@index([storeId, status, createdAt])
+  @@index([identityLinkId, status])
 }
 
 // ============================================================

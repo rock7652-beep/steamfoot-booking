@@ -16,6 +16,7 @@ function link(
     provider: overrides.provider,
     customer: {
       id: customerId,
+      name: overrides.customer?.name ?? "測試會員",
       userId: overrides.customer?.userId ?? null,
       storeId: overrides.customer?.storeId ?? overrides.storeId,
       mergedIntoCustomerId: overrides.customer?.mergedIntoCustomerId ?? null,
@@ -46,6 +47,7 @@ describe("resolveCentralMemberLinks", () => {
   it("deduplicates providers that agree on one customer", () => {
     const customer = {
       id: "customer-a",
+      name: "測試會員",
       userId: "user-1",
       storeId: "a",
       mergedIntoCustomerId: null,
@@ -76,6 +78,7 @@ describe("resolveCentralMemberLinks", () => {
         provider: "google",
         customer: {
           id: "other",
+          name: "其他會員",
           userId: null,
           storeId: "a",
           mergedIntoCustomerId: null,

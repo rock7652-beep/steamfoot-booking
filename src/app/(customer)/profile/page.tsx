@@ -7,6 +7,8 @@ import { getStoreContext } from "@/lib/store-context";
 import { resolveCustomerForUser } from "@/server/queries/customer-completion";
 import { customerWelcomeTitle } from "@/lib/customer-welcome";
 import { CentralMemberClaimForm } from "./central-member-claim-form";
+import { CentralMemberLinkReviewForm } from "./central-member-link-review-form";
+import { resolveCentralMembershipsForUser } from "@/server/services/central-member-resolver";
 
 interface PageProps {
   searchParams: Promise<{ complete?: string; next?: string }>;
@@ -42,6 +44,16 @@ export default async function ProfilePage({ searchParams }: PageProps) {
       })
     : null;
   const welcomeTitle = customerWelcomeTitle(profileStore);
+  const centralMember = user
+    ? await resolveCentralMembershipsForUser(user.id)
+    : { memberships: [], conflicts: [] };
+  const pendingLinkReviews = user
+    ? await prisma.centralMemberLinkReviewRequest.findMany({
+        where: { userId: user.id, status: "PENDING" },
+        select: { storeId: true, type: true, createdAt: true },
+      })
+    : [];
+  const pendingReviewByStore = new Map(pendingLinkReviews.map((request) => [request.storeId, request]));
 
   // ── 以統一 resolver 找出本 session 對應的 customer ──────
   // 同一份邏輯也用於 updateProfileAction，確保「顯示看到的人」= 「儲存更新的人」
@@ -209,9 +221,47 @@ export default async function ProfilePage({ searchParams }: PageProps) {
 
         {!showOnboardingBanner && (
           <div className="rounded-2xl border border-earth-200 bg-white p-6 shadow-sm">
+            <h2 className="text-lg font-bold text-earth-900">我的門市會員</h2>
+            <p className="mt-2 text-sm leading-6 text-earth-700">
+              這裡只顯示已安全認領的門市。各店方案、堂數、預約與交易仍分開計算。
+            </p>
+            <div className="mt-5 space-y-4">
+              {centralMember.memberships.map((membership) => {
+                const pendingReview = pendingReviewByStore.get(membership.storeId);
+                return (
+                  <section key={membership.storeId} className="rounded-xl border border-earth-200 bg-earth-50/50 p-4" aria-labelledby={`membership-${membership.storeId}`}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <h3 id={`membership-${membership.storeId}`} className="font-bold text-earth-900">{membership.storeName}</h3>
+                        <p className="mt-1 text-sm text-earth-700">會員姓名：{membership.customerName}</p>
+                      </div>
+                      <span className="shrink-0 rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-800">已連結</span>
+                    </div>
+                    {pendingReview ? (
+                      <p className="mt-3 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                        {pendingReview.type === "NOT_MY_MEMBERSHIP" ? "非本人資料回報" : "解除連結申請"}待門市確認中；目前連結仍保留。
+                      </p>
+                    ) : (
+                      <CentralMemberLinkReviewForm storeId={membership.storeId} />
+                    )}
+                  </section>
+                );
+              })}
+              {centralMember.memberships.length === 0 && (
+                <p className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">目前尚未找到可管理的門市會員連結，原門市預約不受影響。</p>
+              )}
+              {centralMember.conflicts.length > 0 && (
+                <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">部分門市連結狀態異常，系統已停止顯示，請聯繫店家協助確認。</p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {!showOnboardingBanner && (
+          <div className="rounded-2xl border border-earth-200 bg-white p-6 shadow-sm">
             <h2 className="text-lg font-bold text-earth-900">認領其他門市會員資料</h2>
             <p className="mb-5 mt-2 text-sm leading-6 text-earth-700">
-              若你曾用相同手機在其他門市留下資料，可透過已綁定的 LINE 身份與目前會員手機完成確認，不需要設定密碼。無法確認時仍可照常使用目前門市；各店方案、堂數、預約與交易仍分開計算。
+              若你曾用相同手機在其他門市留下資料，可透過已綁定的 LINE 身份與目前會員手機完成確認，不需要設定密碼。無法確認時仍可照常使用目前門市。
             </p>
             <CentralMemberClaimForm />
           </div>

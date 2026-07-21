@@ -7,6 +7,7 @@ export interface CentralMemberLinkRow {
   provider: string;
   customer: {
     id: string;
+    name: string;
     userId: string | null;
     storeId: string;
     mergedIntoCustomerId: string | null;
@@ -26,6 +27,7 @@ export interface CentralMemberStoreMembership {
   storeSlug: string;
   storeOperatingStatus: string;
   customerId: string;
+  customerName: string;
   providers: string[];
 }
 
@@ -109,6 +111,7 @@ export function resolveCentralMemberLinks(
       storeSlug: first.customer.store.slug,
       storeOperatingStatus: first.customer.store.operatingStatus,
       customerId: first.customer.id,
+      customerName: first.customer.name,
       providers: [...new Set(storeLinks.map((link) => link.provider))].sort(),
     });
   }
@@ -132,6 +135,7 @@ export async function resolveCentralMembershipsForUser(
       customer: {
         select: {
           id: true,
+          name: true,
           userId: true,
           storeId: true,
           mergedIntoCustomerId: true,
