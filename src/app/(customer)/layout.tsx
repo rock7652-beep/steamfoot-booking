@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { getCurrentUser } from "@/lib/session";
 import { logoutAction } from "@/server/actions/auth";
 import Link from "next/link";
@@ -18,6 +18,9 @@ import {
   isStoreCustomerPortalBlocked,
 } from "@/lib/store-operating-status";
 import { resolveCustomerCompletionStatus } from "@/server/queries/customer-completion";
+import { resolveCentralMembershipsForUser } from "@/server/services/central-member-resolver";
+import { CENTRAL_MEMBER_STORE_COOKIE } from "@/lib/central-member-store";
+import { CentralMemberStoreSwitcher } from "./central-member-store-switcher";
 
 // SVG icon paths (Heroicons outline, 24x24 viewBox) — 拆成多段 path 確保正確渲染
 const ICON_PATHS: Record<string, string[]> = {
@@ -151,6 +154,32 @@ export default async function CustomerLayout({
     );
   }
 
+  const centralMemberships = await resolveCentralMembershipsForUser(user.id);
+  const membershipStores = centralMemberships.memberships.map((membership) => ({
+    storeId: membership.storeId,
+    storeName: membership.storeName,
+    storeSlug: membership.storeSlug,
+  }));
+  const currentMembership = centralMemberships.memberships.find(
+    (membership) => membership.storeId === storeCtx.storeId,
+  );
+  const isOnStoreChooser = pathname === "/member-stores";
+
+  // 已有中央身份連結時，URL 不能切到尚未認領的門市。
+  if (centralMemberships.memberships.length > 0 && !currentMembership) {
+    redirect("/store-select");
+  }
+
+  if (centralMemberships.memberships.length > 1 && !isOnStoreChooser) {
+    const selectedStoreSlug = (await cookies()).get(CENTRAL_MEMBER_STORE_COOKIE)?.value;
+    const selectedMembership = centralMemberships.memberships.find(
+      (membership) => membership.storeSlug === selectedStoreSlug,
+    );
+    if (!selectedMembership) {
+      redirect(`/s/${storeCtx.storeSlug}/member-stores`);
+    }
+  }
+
   const operatingStatus = await getStoreOperatingStatus(storeCtx.storeId);
   if (isStoreCustomerPortalBlocked(operatingStatus)) {
     return (
@@ -214,6 +243,7 @@ export default async function CustomerLayout({
         pathname={pathname}
         storeName={customerFacingStoreName}
         storeSlug={storeCtx.storeSlug}
+        stores={membershipStores}
       />
 
       <div className="lg:flex">
@@ -225,6 +255,14 @@ export default async function CustomerLayout({
               蒸管家
             </Link>
             <p className="mt-1 text-sm text-earth-700 truncate">{user.name}</p>
+            <div className="mt-3">
+              <p className="mb-1 px-2 text-[11px] font-medium text-earth-400">目前門市</p>
+              <CentralMemberStoreSwitcher
+                currentStoreName={customerFacingStoreName}
+                currentStoreSlug={storeCtx.storeSlug}
+                stores={membershipStores}
+              />
+            </div>
           </div>
 
           {/* Nav */}

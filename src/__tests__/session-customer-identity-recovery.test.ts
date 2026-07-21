@@ -125,7 +125,7 @@ describe("getCurrentUser customer identity recovery", () => {
     });
   });
 
-  it("does not query recovery tables when the JWT already has customerId", async () => {
+  it("keeps the JWT customer when the current store has no replacement membership", async () => {
     mocks.auth.mockResolvedValue({
       user: {
         ...staleCustomerSession,
@@ -139,10 +139,75 @@ describe("getCurrentUser customer identity recovery", () => {
       expect.objectContaining({ customerId: "customer-existing" }),
     );
 
-    expect(mocks.headers).not.toHaveBeenCalled();
-    expect(mocks.storeFindUnique).not.toHaveBeenCalled();
-    expect(mocks.identityLinkFindMany).not.toHaveBeenCalled();
+    expect(mocks.headers).toHaveBeenCalled();
+    expect(mocks.storeFindUnique).toHaveBeenCalled();
+    expect(mocks.identityLinkFindMany).toHaveBeenCalled();
     expect(mocks.customerFindFirst).not.toHaveBeenCalled();
+  });
+
+  it("replaces a stale JWT customer with the verified customer for the requested store", async () => {
+    mocks.auth.mockResolvedValue({
+      user: {
+        ...staleCustomerSession,
+        customerId: "customer-zhubei",
+        storeId: "store-zhubei",
+        storeSlug: "zhubei",
+      },
+    });
+    mocks.headers.mockResolvedValue({
+      get: (name: string) => (name === "x-store-slug" ? "taichung" : null),
+    });
+    mocks.storeFindUnique.mockResolvedValue({ id: "store-taichung", slug: "taichung" });
+    mocks.identityLinkFindMany.mockResolvedValue([{
+      id: "link-taichung",
+      userId: "user-zhubei",
+      storeId: "store-taichung",
+      provider: "phone",
+      customer: {
+        id: "customer-taichung",
+        userId: null,
+        storeId: "store-taichung",
+        mergedIntoCustomerId: null,
+        store: {
+          id: "store-taichung",
+          name: "暖沐蒸足",
+          slug: "taichung",
+          operatingStatus: "ACTIVE",
+        },
+      },
+    }]);
+
+    await expect(getCurrentUser()).resolves.toEqual(
+      expect.objectContaining({
+        customerId: "customer-taichung",
+        storeId: "store-taichung",
+        storeSlug: "taichung",
+      }),
+    );
+    expect(mocks.customerFindFirst).not.toHaveBeenCalled();
+  });
+
+  it("clears the JWT customer when the requested store has not been claimed", async () => {
+    mocks.auth.mockResolvedValue({
+      user: {
+        ...staleCustomerSession,
+        customerId: "customer-zhubei",
+        storeId: "store-zhubei",
+        storeSlug: "zhubei",
+      },
+    });
+    mocks.headers.mockResolvedValue({
+      get: (name: string) => (name === "x-store-slug" ? "unclaimed" : null),
+    });
+    mocks.storeFindUnique.mockResolvedValue({ id: "store-unclaimed", slug: "unclaimed" });
+
+    await expect(getCurrentUser()).resolves.toEqual(
+      expect.objectContaining({
+        customerId: null,
+        storeId: "store-unclaimed",
+        storeSlug: "unclaimed",
+      }),
+    );
   });
 
   it("fails closed for a merged identity instead of reviving the old customer", async () => {

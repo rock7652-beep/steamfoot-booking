@@ -1,8 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { requireSession } from "@/lib/session";
 import { claimExistingCustomersByVerifiedPhone } from "@/server/services/central-member-claim";
+import { CENTRAL_MEMBER_STORE_COOKIE } from "@/lib/central-member-store";
 
 export type CentralMemberClaimState = {
   error: string | null;
@@ -28,6 +30,7 @@ export async function claimCentralMembershipsAction(
     password,
   });
   if (result.status === "claimed") {
+    (await cookies()).delete(CENTRAL_MEMBER_STORE_COOKIE);
     revalidatePath("/", "layout");
     return { error: null, success: true, claimedCount: result.claimedStoreIds.length };
   }

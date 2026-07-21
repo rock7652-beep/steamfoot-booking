@@ -4,6 +4,10 @@ import { useState } from "react";
 import Link from "next/link";
 import { logoutAction } from "@/server/actions/auth";
 import { LogoutButton } from "@/components/logout-button";
+import {
+  CentralMemberStoreSwitcher,
+  type CustomerStoreOption,
+} from "./central-member-store-switcher";
 
 // SVG icon paths (Heroicons outline, 24x24 viewBox) — 與桌面版 sidebar 共用同一套
 const ICON_PATHS: Record<string, string[]> = {
@@ -80,11 +84,13 @@ export function MobileNav({
   pathname,
   storeName,
   storeSlug = "zhubei",
+  stores,
 }: {
   userName: string;
   pathname: string;
   storeName: string;
   storeSlug?: string;
+  stores: CustomerStoreOption[];
 }) {
   const prefix = `/s/${storeSlug}`;
   const NAV_ITEMS = NAV_ITEMS_BASE.map((item) => ({
@@ -109,9 +115,12 @@ export function MobileNav({
               <line x1="3" y1="18" x2="21" y2="18" />
             </svg>
           </button>
-          <Link href={`${prefix}/book`} className="text-base font-bold text-earth-900">
-            {storeName}
-          </Link>
+          <CentralMemberStoreSwitcher
+            currentStoreName={storeName}
+            currentStoreSlug={storeSlug}
+            stores={stores}
+            compact
+          />
           <span className="text-sm text-earth-700 max-w-[88px] truncate">{userName}</span>
         </div>
       </header>
