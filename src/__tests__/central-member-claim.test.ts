@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { planCentralMemberClaims } from "@/server/services/central-member-claim";
+import {
+  planCentralMemberClaims,
+  verifyLinePhoneClaimEvidence,
+} from "@/server/services/central-member-claim";
 
 const candidate = (overrides: Record<string, unknown> = {}) => ({
   id: "customer-a",
@@ -8,6 +11,39 @@ const candidate = (overrides: Record<string, unknown> = {}) => ({
   mergedIntoCustomerId: null,
   identityLinks: [],
   ...overrides,
+});
+
+describe("verifyLinePhoneClaimEvidence", () => {
+  const validEvidence = {
+    enteredPhone: "0912-345-678",
+    userPhone: "0912345678",
+    currentCustomerPhone: "+886912345678",
+    hasLineAccount: true,
+    currentMembershipBelongsToUser: true,
+  };
+
+  it("accepts LINE identity plus the same normalized phone on the current membership", () => {
+    expect(verifyLinePhoneClaimEvidence(validEvidence)).toBeNull();
+  });
+
+  it("does not require a password but rejects accounts without LINE identity", () => {
+    expect(verifyLinePhoneClaimEvidence({ ...validEvidence, hasLineAccount: false }))
+      .toBe("line_identity_required");
+  });
+
+  it("rejects a phone that does not match both central and current-store records", () => {
+    expect(verifyLinePhoneClaimEvidence({ ...validEvidence, enteredPhone: "0987654321" }))
+      .toBe("phone_mismatch");
+    expect(verifyLinePhoneClaimEvidence({ ...validEvidence, currentCustomerPhone: "0987654321" }))
+      .toBe("phone_mismatch");
+  });
+
+  it("rejects an unlinked current-store customer", () => {
+    expect(verifyLinePhoneClaimEvidence({
+      ...validEvidence,
+      currentMembershipBelongsToUser: false,
+    })).toBe("current_membership_unverified");
+  });
 });
 
 describe("planCentralMemberClaims", () => {

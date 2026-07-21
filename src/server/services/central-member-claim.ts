@@ -1,10 +1,11 @@
-import { compareSync } from "bcryptjs";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { normalizePhone } from "@/lib/normalize";
 
 export type CentralMemberClaimConflictReason =
-  | "invalid_credentials"
+  | "line_identity_required"
+  | "phone_mismatch"
+  | "current_membership_unverified"
   | "phone_unavailable"
   | "multiple_customers_in_store"
   | "customer_owned_by_another_user"
@@ -40,15 +41,15 @@ export type CentralMemberClaimPlan =
       status: "conflict";
       reason: Exclude<
         CentralMemberClaimConflictReason,
-        "invalid_credentials" | "phone_unavailable"
+        "line_identity_required" | "phone_mismatch" | "current_membership_unverified" | "phone_unavailable"
       >;
       candidates: [];
     };
 
 /**
  * Builds a fail-closed claim plan from rows selected by an already verified phone.
- * It never treats a matching phone as proof by itself; the caller must re-check the
- * current central User's password before reading candidates or applying this plan.
+ * It never treats a matching phone as proof by itself. The caller must first verify
+ * an existing LINE identity and the phone on the current, already linked membership.
  */
 export function planCentralMemberClaims(
   userId: string,
@@ -117,29 +118,68 @@ export function planCentralMemberClaims(
     : { status: "nothing_to_claim", candidates: [] };
 }
 
-/** Re-authenticates the central account, then atomically claims every safe store row. */
-export async function claimExistingCustomersByVerifiedPhone(input: {
+export function verifyLinePhoneClaimEvidence(input: {
+  enteredPhone: string;
+  userPhone: string | null;
+  currentCustomerPhone: string | null;
+  hasLineAccount: boolean;
+  currentMembershipBelongsToUser: boolean;
+}): CentralMemberClaimConflictReason | null {
+  if (!input.hasLineAccount) return "line_identity_required";
+  if (!input.currentMembershipBelongsToUser) return "current_membership_unverified";
+
+  const enteredPhone = normalizePhone(input.enteredPhone);
+  const userPhone = normalizePhone(input.userPhone ?? "");
+  const currentCustomerPhone = normalizePhone(input.currentCustomerPhone ?? "");
+  if (!enteredPhone || !userPhone || !currentCustomerPhone) return "phone_unavailable";
+  if (enteredPhone !== userPhone || enteredPhone !== currentCustomerPhone) {
+    return "phone_mismatch";
+  }
+  return null;
+}
+
+/** Verifies LINE + the current membership phone, then atomically claims safe store rows. */
+export async function claimExistingCustomersByLineAndPhone(input: {
   userId: string;
-  password: string;
+  currentCustomerId: string;
+  enteredPhone: string;
 }): Promise<CentralMemberClaimResult> {
   const user = await prisma.user.findUnique({
     where: { id: input.userId },
-    select: { id: true, phone: true, passwordHash: true, role: true, status: true },
+    select: {
+      id: true,
+      phone: true,
+      role: true,
+      status: true,
+      accounts: { where: { provider: "line" }, select: { id: true }, take: 1 },
+    },
   });
-  if (
-    !user ||
-    user.role !== "CUSTOMER" ||
-    user.status !== "ACTIVE" ||
-    !user.passwordHash ||
-    !compareSync(input.password, user.passwordHash)
-  ) {
-    return { status: "conflict", reason: "invalid_credentials", claimedStoreIds: [] };
+  if (!user || user.role !== "CUSTOMER" || user.status !== "ACTIVE") {
+    return { status: "conflict", reason: "current_membership_unverified", claimedStoreIds: [] };
   }
 
-  const phone = normalizePhone(user.phone ?? "");
-  if (!phone) {
-    return { status: "conflict", reason: "phone_unavailable", claimedStoreIds: [] };
+  const currentCustomer = await prisma.customer.findUnique({
+    where: { id: input.currentCustomerId },
+    select: {
+      phone: true,
+      userId: true,
+      mergedIntoCustomerId: true,
+      identityLinks: { where: { userId: user.id }, select: { id: true }, take: 1 },
+    },
+  });
+  const evidenceError = verifyLinePhoneClaimEvidence({
+    enteredPhone: input.enteredPhone,
+    userPhone: user.phone,
+    currentCustomerPhone: currentCustomer?.phone ?? null,
+    hasLineAccount: user.accounts.length > 0,
+    currentMembershipBelongsToUser: !!currentCustomer &&
+      currentCustomer.mergedIntoCustomerId === null &&
+      (currentCustomer.userId === user.id || currentCustomer.identityLinks.length > 0),
+  });
+  if (evidenceError) {
+    return { status: "conflict", reason: evidenceError, claimedStoreIds: [] };
   }
+  const phone = normalizePhone(input.enteredPhone)!;
 
   try {
     return await prisma.$transaction(

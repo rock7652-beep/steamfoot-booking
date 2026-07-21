@@ -207,11 +207,11 @@ export default async function ProfilePage({ searchParams }: PageProps) {
           />
         </div>
 
-        {!showOnboardingBanner && hasPassword && (
+        {!showOnboardingBanner && (
           <div className="rounded-2xl border border-earth-200 bg-white p-6 shadow-sm">
             <h2 className="text-lg font-bold text-earth-900">認領其他門市會員資料</h2>
             <p className="mb-5 mt-2 text-sm leading-6 text-earth-700">
-              若你曾用相同手機在其他門市留下資料，可再次驗證密碼後安全連結。各店方案、堂數、預約與交易仍分開計算。
+              若你曾用相同手機在其他門市留下資料，可透過已綁定的 LINE 身份與目前會員手機完成確認，不需要設定密碼。無法確認時仍可照常使用目前門市；各店方案、堂數、預約與交易仍分開計算。
             </p>
             <CentralMemberClaimForm />
           </div>

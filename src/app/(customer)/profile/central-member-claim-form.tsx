@@ -14,15 +14,17 @@ export function CentralMemberClaimForm() {
   return (
     <form action={action} className="space-y-4">
       <div>
-        <label htmlFor="claimPassword" className="mb-2 block text-base font-medium text-earth-800">
-          再次輸入登入密碼
+        <label htmlFor="claimPhone" className="mb-2 block text-base font-medium text-earth-800">
+          輸入目前會員手機號碼
         </label>
         <input
-          id="claimPassword"
-          name="claimPassword"
-          type="password"
+          id="claimPhone"
+          name="claimPhone"
+          type="tel"
           required
-          autoComplete="current-password"
+          inputMode="tel"
+          autoComplete="tel"
+          placeholder="例如：0912345678"
           className="h-12 w-full rounded-xl border border-earth-300 px-4 text-base text-earth-900 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
         />
       </div>
@@ -39,7 +41,7 @@ export function CentralMemberClaimForm() {
         disabled={pending}
         className="min-h-12 w-full rounded-xl bg-earth-900 px-4 font-semibold text-white hover:bg-earth-800 disabled:opacity-60"
       >
-        {pending ? "驗證中…" : "驗證並認領跨店會員"}
+        {pending ? "確認中…" : "確認手機並認領其他門市"}
       </button>
     </form>
   );
