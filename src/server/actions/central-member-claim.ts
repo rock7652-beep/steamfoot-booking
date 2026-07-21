@@ -43,7 +43,7 @@ export async function claimCentralMembershipsAction(
     line_identity_required: "此功能需從已綁定的 LINE 會員帳號使用；原門市預約不受影響",
     phone_mismatch: "手機號碼與目前會員資料不一致，請重新確認或聯繫店家",
     current_membership_unverified: "目前門市會員身份尚未完成連結，請聯繫店家協助確認",
-    phone_unavailable: "中央帳號尚未設定有效手機，請先更新基本資料",
+    phone_unavailable: "目前門市尚未設定有效手機，請聯繫店家協助確認",
     multiple_customers_in_store: "同一門市有多筆相同手機資料，請聯繫店家協助確認",
     customer_owned_by_another_user: "此會員資料已屬於另一個登入帳號，請聯繫店家協助確認",
     identity_owned_by_another_user: "此會員身份已連到另一個帳號，請聯繫店家協助確認",
