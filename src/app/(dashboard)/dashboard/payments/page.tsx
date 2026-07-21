@@ -48,21 +48,8 @@ function ActionCell({
 }) {
   return (
     <div className="flex flex-wrap items-center justify-center gap-1.5">
-      {status === "complete" ? (
+      {status === "complete" || status === "review" ? (
         <ConfirmPaymentButton {...confirmProps} />
-      ) : status === "review" ? (
-        customerId ? (
-          <Link
-            href={`/dashboard/customers/${customerId}`}
-            className="inline-block rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-50"
-          >
-            查看資料
-          </Link>
-        ) : (
-          <span className="inline-block rounded-lg bg-earth-100 px-3 py-1.5 text-xs text-earth-400">
-            待核對
-          </span>
-        )
       ) : status === "unpaid" ? (
         <span className="inline-block cursor-not-allowed rounded-lg bg-earth-100 px-3 py-1.5 text-xs text-earth-400">
           尚未付款
@@ -71,6 +58,22 @@ function ActionCell({
         <span className="inline-block cursor-not-allowed rounded-lg bg-earth-100 px-3 py-1.5 text-xs text-earth-400">
           不可處理
         </span>
+      )}
+      {(status === "complete" || status === "review" || status === "unpaid") && (
+        <Link
+          href="/dashboard"
+          className="inline-block rounded-lg border border-earth-300 bg-white px-3 py-1.5 text-xs font-medium text-earth-600 hover:bg-earth-50"
+        >
+          尚未入帳
+        </Link>
+      )}
+      {customerId && (
+        <Link
+          href={`/dashboard/customers/${customerId}`}
+          className="inline-block px-2 py-1.5 text-xs text-earth-400 hover:text-earth-600 hover:underline"
+        >
+          查看顧客資料
+        </Link>
       )}
       <VoidPaymentButton {...voidProps} />
     </div>

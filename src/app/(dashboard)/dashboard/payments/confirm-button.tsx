@@ -51,7 +51,7 @@ export function ConfirmPaymentButton({
         onClick={() => setOpen(true)}
         className="rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-700"
       >
-        確認入帳
+        確認已入帳
       </button>
 
       {open && (
@@ -93,7 +93,9 @@ export function ConfirmPaymentButton({
             </div>
 
             <p className="mb-4 rounded bg-amber-50 px-3 py-2 text-xs text-amber-700">
-              提醒：確認後會立即開通顧客方案與堂數，顧客前台會看得到。
+              {transferCode
+                ? "提醒：確認後會立即開通顧客方案與堂數，顧客前台會看得到。"
+                : "顧客未提供轉帳末碼，請先核對銀行帳戶確實入帳。確認後會立即開通方案與堂數。"}
             </p>
 
             <div className="flex justify-end gap-2">
@@ -109,7 +111,7 @@ export function ConfirmPaymentButton({
                 disabled={pending}
                 className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-60"
               >
-                {pending ? "處理中..." : "確認入帳並開通"}
+                {pending ? "處理中..." : "確認已入帳並開通"}
               </button>
             </div>
           </div>
