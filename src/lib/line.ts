@@ -28,6 +28,15 @@ export type LineBotInfoResult =
   | { ok: true; data: LineBotInfo }
   | { ok: false; code: "TOKEN_NOT_CONFIGURED" | "TOKEN_UNAUTHORIZED" | "UPSTREAM_ERROR" | "TIMEOUT" | "INVALID_RESPONSE" };
 
+export type LineReplyResult =
+  | { success: true }
+  | {
+      success: false;
+      error: string;
+      httpStatus: number | null;
+      errorType: "token_not_configured" | "line_api_rejected" | "network_error";
+    };
+
 /**
  * Read the Messaging API Bot Info for a store without logging or exposing the
  * access token. Callers must keep `userId` server-side unless they have an
@@ -134,14 +143,14 @@ export async function replyMessage(
   storeId: string,
   replyToken: string,
   messages: LineMessage[]
-): Promise<{ success: boolean; error?: string }> {
+): Promise<LineReplyResult> {
   return replyMessageWithAccessToken(getLineAccessTokenForStore(storeId), replyToken, messages);
 }
 
 export async function replySteamButlerMessage(
   replyToken: string,
   messages: LineMessage[]
-): Promise<{ success: boolean; error?: string }> {
+): Promise<LineReplyResult> {
   return replyMessageWithAccessToken(getSteamButlerLineAccessToken(), replyToken, messages);
 }
 
@@ -149,10 +158,15 @@ async function replyMessageWithAccessToken(
   token: string | null,
   replyToken: string,
   messages: LineMessage[]
-): Promise<{ success: boolean; error?: string }> {
+): Promise<LineReplyResult> {
   try {
     if (!token) {
-      return { success: false, error: LINE_TOKEN_NOT_CONFIGURED_ERROR };
+      return {
+        success: false,
+        error: LINE_TOKEN_NOT_CONFIGURED_ERROR,
+        httpStatus: null,
+        errorType: "token_not_configured",
+      };
     }
     const res = await fetch(`${LINE_API_BASE}/message/reply`, {
       method: "POST",
@@ -167,18 +181,21 @@ async function replyMessageWithAccessToken(
     });
 
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
       return {
         success: false,
-        error: `LINE API ${res.status}: ${JSON.stringify(err)}`,
+        error: `LINE API ${res.status}`,
+        httpStatus: res.status,
+        errorType: "line_api_rejected",
       };
     }
 
     return { success: true };
-  } catch (e) {
+  } catch {
     return {
       success: false,
-      error: e instanceof Error ? e.message : "Unknown error",
+      error: "LINE API request failed",
+      httpStatus: null,
+      errorType: "network_error",
     };
   }
 }

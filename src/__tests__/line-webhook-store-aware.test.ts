@@ -20,6 +20,7 @@ const replySteamButlerMessageMock = vi.fn(
   ): Promise<{ success: boolean; error?: string }> => ({ success: true }),
 );
 const bindLineToCustomerInStoreMock = vi.fn();
+let consoleLogSpy: ReturnType<typeof vi.spyOn>;
 
 const mockPrisma = {
   store: {
@@ -71,9 +72,26 @@ function postReq(body: unknown, signature = "line-signature") {
   });
 }
 
+function brandLogEvents() {
+  return consoleLogSpy.mock.calls
+    .map(([message]) => {
+      if (typeof message !== "string") return null;
+      try {
+        const parsed: unknown = JSON.parse(message);
+        return typeof parsed === "object" && parsed !== null && "event" in parsed
+          ? parsed
+          : null;
+      } catch {
+        return null;
+      }
+    })
+    .filter((event): event is Record<string, unknown> => event !== null);
+}
+
 describe("LINE webhook store-aware signature and reply", () => {
   afterEach(() => {
     vi.unstubAllEnvs();
+    consoleLogSpy.mockRestore();
   });
 
   beforeEach(() => {
@@ -84,6 +102,7 @@ describe("LINE webhook store-aware signature and reply", () => {
     replySteamButlerMessageMock.mockResolvedValue({ success: true });
     bindLineToCustomerInStoreMock.mockReset();
     mockPrisma.store.findFirst.mockResolvedValue({ id: "store-hsinchu" });
+    consoleLogSpy = vi.spyOn(console, "log").mockImplementation(() => undefined);
   });
 
   it("resolves destination before signature verification and uses that store for replies", async () => {
@@ -190,6 +209,8 @@ describe("LINE webhook store-aware signature and reply", () => {
 
   it("handles the brand destination without querying a Store", async () => {
     vi.stubEnv("STEAM_BUTLER_LINE_DESTINATION", "D_brand_support");
+    vi.stubEnv("STEAM_BUTLER_LINE_CHANNEL_SECRET", "brand-secret-value");
+    vi.stubEnv("STEAM_BUTLER_LINE_CHANNEL_ACCESS_TOKEN", "brand-access-token-value");
     const body = {
       destination: "D_brand_support",
       events: [
@@ -210,6 +231,21 @@ describe("LINE webhook store-aware signature and reply", () => {
     expect(replySteamButlerMessageMock).toHaveBeenCalledWith("reply-token-brand-plan", [
       expect.objectContaining({ type: "flex", altText: "找到適合你的方案" }),
     ]);
+    expect(brandLogEvents()).toEqual(expect.arrayContaining([
+      { event: "brand_line_destination_matched" },
+      { event: "brand_line_signature_valid" },
+      { event: "brand_line_text_received", textLength: "找到適合方案".length },
+      { event: "brand_line_command_matched", command: "show_plan" },
+      { event: "brand_line_reply_attempted" },
+      { event: "brand_line_reply_success" },
+    ]));
+
+    const logs = JSON.stringify(brandLogEvents());
+    expect(logs).not.toContain("D_brand_support");
+    expect(logs).not.toContain("reply-token-brand-plan");
+    expect(logs).not.toContain("找到適合方案");
+    expect(logs).not.toContain("brand-secret-value");
+    expect(logs).not.toContain("brand-access-token-value");
   });
 
   it("rejects an invalid signature for the brand destination before handling events", async () => {
@@ -241,6 +277,44 @@ describe("LINE webhook store-aware signature and reply", () => {
     expect(res.status).toBe(200);
     expect(mockPrisma.store.findFirst).not.toHaveBeenCalled();
     expect(replySteamButlerMessageMock).not.toHaveBeenCalled();
+    expect(brandLogEvents()).toEqual(expect.arrayContaining([
+      { event: "brand_line_text_received", textLength: "其他文字".length },
+      { event: "brand_line_command_ignored" },
+    ]));
+    expect(JSON.stringify(brandLogEvents())).not.toContain("其他文字");
+  });
+
+  it("logs only sanitized status and error type when a brand reply fails", async () => {
+    vi.stubEnv("STEAM_BUTLER_LINE_DESTINATION", "D_brand_support");
+    replySteamButlerMessageMock.mockResolvedValueOnce({
+      success: false,
+      error: "sensitive upstream response body",
+      httpStatus: 401,
+      errorType: "line_api_rejected",
+    });
+    const body = {
+      destination: "D_brand_support",
+      events: [{
+        type: "message",
+        replyToken: "reply-token-brand-plan",
+        message: { type: "text", text: "找到適合方案" },
+      }],
+    };
+
+    const { POST } = await import("@/app/api/line/webhook/route");
+    const res = await POST(postReq(body));
+
+    expect(res.status).toBe(200);
+    expect(brandLogEvents()).toContainEqual({
+      event: "brand_line_reply_failed",
+      httpStatus: 401,
+      errorType: "line_api_rejected",
+    });
+    const logs = JSON.stringify(brandLogEvents());
+    expect(logs).not.toContain("sensitive upstream response body");
+    expect(logs).not.toContain("D_brand_support");
+    expect(logs).not.toContain("reply-token-brand-plan");
+    expect(logs).not.toContain("找到適合方案");
   });
 
   it("returns 200 for signed brand verification events without querying a Store", async () => {

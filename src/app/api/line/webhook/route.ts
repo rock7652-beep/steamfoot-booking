@@ -54,10 +54,12 @@ export async function POST(req: Request) {
     const destination: string | undefined = data.destination;
 
     if (isSteamButlerLineDestination(destination)) {
+      logBrandLineEvent("brand_line_destination_matched");
       if (!signature || !verifySteamButlerLineSignature(body, signature)) {
         console.warn("[Brand LINE] Invalid signature");
         return new Response("Invalid signature", { status: 401 });
       }
+      logBrandLineEvent("brand_line_signature_valid");
 
       for (const event of events) {
         try {
@@ -112,19 +114,38 @@ export async function POST(req: Request) {
 }
 
 async function handleSteamButlerEvent(event: LineWebhookEvent) {
-  if (
-    event.type !== "message" ||
-    event.message?.type !== "text" ||
-    event.message.text !== "找到適合方案" ||
-    !event.replyToken
-  ) {
+  if (event.type !== "message" || event.message?.type !== "text") {
     return;
   }
 
-  const result = await replySteamButlerMessage(event.replyToken, [PLAN_RECOMMENDATION_MESSAGE]);
-  if (!result.success) {
-    console.error("[Brand LINE] Reply failed");
+  const text = event.message.text ?? "";
+  logBrandLineEvent("brand_line_text_received", { textLength: text.length });
+
+  if (text !== "找到適合方案") {
+    logBrandLineEvent("brand_line_command_ignored");
+    return;
   }
+
+  logBrandLineEvent("brand_line_command_matched", { command: "show_plan" });
+  if (!event.replyToken) return;
+
+  logBrandLineEvent("brand_line_reply_attempted");
+  const result = await replySteamButlerMessage(event.replyToken, [PLAN_RECOMMENDATION_MESSAGE]);
+  if (result.success) {
+    logBrandLineEvent("brand_line_reply_success");
+  } else {
+    logBrandLineEvent("brand_line_reply_failed", {
+      httpStatus: result.httpStatus,
+      errorType: result.errorType,
+    });
+  }
+}
+
+function logBrandLineEvent(
+  event: string,
+  fields: Record<string, string | number | null> = {},
+) {
+  console.log(JSON.stringify({ event, ...fields }));
 }
 
 // ── GET: Verify 用 ──
