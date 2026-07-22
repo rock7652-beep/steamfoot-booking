@@ -170,11 +170,9 @@ export async function assignPlanToCustomer(
     }
     const expiryDate = expiryDateStr ? parseTaiwanDateToDbDate(expiryDateStr) : null;
 
-    // PR-3：付款確認語意
-    // TRANSFER / UNPAID → 需店長在 PR-4 confirmTransactionPayment 確認後才算入帳
-    // 其他付款方式（CASH / LINE_PAY / CREDIT_CARD / OTHER）→ 建單即視為成功收款
-    const isPending =
-      data.paymentMethod === "TRANSFER" || data.paymentMethod === "UNPAID";
+    // 後台指派由店長明確決定是否已確認收款，不能只依付款方式推斷。
+    // 例如店長已核對轉帳時應立即發堂；只有選擇「尚待確認」才進付款清單。
+    const isPending = data.paymentStatus === "PENDING";
     const paymentStatus = isPending ? "PENDING" : "SUCCESS";
     const paidAt = isPending ? null : now;
 
