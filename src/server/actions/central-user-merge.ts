@@ -10,7 +10,7 @@ export async function executeCentralUserMergeAction(input: {
   sourceUserId: string;
   targetUserId: string;
   confirmation: string;
-}): Promise<ActionResult<{ movedAccounts: number; movedLinks: number }>> {
+}): Promise<ActionResult<{ movedAccounts: number; movedLinks: number; checkedCustomers: number }>> {
   try {
     const user = await getCurrentUser();
     if (!user || user.role !== "ADMIN") throw new AppError("FORBIDDEN", "僅限總部管理員執行");
@@ -22,7 +22,11 @@ export async function executeCentralUserMergeAction(input: {
     });
     revalidatePath("/dashboard/central-user-merges");
     revalidatePath("/dashboard/member-link-reviews");
-    return { success: true, data: { movedAccounts: plan.moves.accounts, movedLinks: plan.moves.identityLinks } };
+    return { success: true, data: {
+      movedAccounts: plan.moves.accounts,
+      movedLinks: plan.moves.identityLinks,
+      checkedCustomers: plan.verification.checkedCustomerRecords,
+    } };
   } catch (error) {
     return handleActionError(error);
   }

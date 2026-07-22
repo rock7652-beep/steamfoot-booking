@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { PageHeader, PageShell } from "@/components/desktop";
 import { getCurrentUser } from "@/lib/session";
-import { getCentralUserMergeCandidates } from "@/server/queries/central-user-merge";
+import { getCentralUserMergeCandidates, getRecentCentralUserMergeReceipts } from "@/server/queries/central-user-merge";
 import { previewCentralUserMerge } from "@/server/services/central-user-merge";
 import { CentralUserMergeForm } from "./merge-form";
 
@@ -16,8 +16,9 @@ export default async function CentralUserMergesPage({
   const params = await searchParams;
   const sourceId = (params.source ?? "").trim();
   const targetId = (params.target ?? "").trim();
-  const [candidates, preview] = await Promise.all([
+  const [candidates, receipts, preview] = await Promise.all([
     getCentralUserMergeCandidates(),
+    getRecentCentralUserMergeReceipts(),
     sourceId && targetId && sourceId !== targetId
       ? previewCentralUserMerge(sourceId, targetId).catch(() => null)
       : Promise.resolve(null),
@@ -33,6 +34,12 @@ export default async function CentralUserMergesPage({
 
       <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
         姓名相同不視為重複。請先核對本人與分店資料，再指定來源帳號及主要帳號。任何 LINE、Google、店內顧客或跨店連結衝突都會阻擋。
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        <SummaryCard label="待人工核對" value={`${candidates.length} 組`} tone={candidates.length ? "amber" : "green"} />
+        <SummaryCard label="涉及中央帳號" value={`${new Set(candidates.flatMap((group) => group.users.map((item) => item.id))).size} 個`} tone="earth" />
+        <SummaryCard label="近期驗收通過" value={`${receipts.filter((item) => item.status === "PASS").length} 筆`} tone="green" />
       </div>
 
       <form method="GET" className="rounded-lg border border-earth-200 bg-white p-4">
@@ -80,8 +87,48 @@ export default async function CentralUserMergesPage({
           </div>
         ))}
       </section>
+
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-sm font-semibold text-earth-900">近期整合驗收憑證</h2>
+          <p className="mt-1 text-xs text-earth-600">只顯示不含姓名、手機、Email、provider ID 或 token 的安全結果。</p>
+        </div>
+        {receipts.length === 0 ? (
+          <div className="rounded-lg border border-earth-200 bg-white p-4 text-sm text-earth-700">尚無中央會員整合紀錄。</div>
+        ) : (
+          <div className="overflow-hidden rounded-lg border border-earth-200 bg-white">
+            {receipts.map((receipt) => (
+              <div key={receipt.id} className="grid gap-2 border-b border-earth-100 p-4 text-xs text-earth-700 last:border-b-0 md:grid-cols-[1.2fr_1fr_1fr]">
+                <div>
+                  <p className="font-medium text-earth-900">{receipt.status === "PASS" ? "驗收通過" : "舊版紀錄（無自動驗收憑證）"}</p>
+                  <p className="mt-1">{receipt.createdAt.toLocaleString("zh-TW", { timeZone: "Asia/Taipei" })}</p>
+                </div>
+                <div><p>主要 User</p><p className="mt-1 font-mono">{receipt.targetUserId}</p></div>
+                <div>
+                  <p>移動登入 {receipt.movedAccounts}、跨店連結 {receipt.movedLinks}</p>
+                  <p className="mt-1">{receipt.checkedCustomers === null ? "未記錄門店驗收數" : `已核對 ${receipt.checkedCustomers} 筆門店會員；保留 ${receipt.targetLoginMethods} 種登入方式`}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
+        <p className="font-medium">異常處理與復原</p>
+        <p className="mt-1">若畫面未顯示「驗收通過」，請勿重複執行或人工修改資料庫。保留 User ID 與發生時間交由工程檢查 transaction／audit；驗收失敗時系統會自動回滾，不會留下半套合併。</p>
+      </div>
     </PageShell>
   );
+}
+
+function SummaryCard({ label, value, tone }: { label: string; value: string; tone: "amber" | "green" | "earth" }) {
+  const styles = tone === "amber"
+    ? "border-amber-200 bg-amber-50 text-amber-900"
+    : tone === "green"
+      ? "border-green-200 bg-green-50 text-green-900"
+      : "border-earth-200 bg-white text-earth-900";
+  return <div className={`rounded-lg border p-4 ${styles}`}><p className="text-xs">{label}</p><p className="mt-1 text-xl font-semibold">{value}</p></div>;
 }
 
 function UserCard({ title, user }: { title: string; user: Awaited<ReturnType<typeof previewCentralUserMerge>>["source"] }) {
