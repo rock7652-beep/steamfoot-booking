@@ -160,16 +160,29 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                   passwordHash: true, role: true, status: true,
                 },
               },
+              identityLinks: {
+                where: { provider: "phone", providerAccountId: phone },
+                select: {
+                  user: {
+                    select: {
+                      id: true, name: true, email: true,
+                      passwordHash: true, role: true, status: true,
+                    },
+                  },
+                },
+                take: 1,
+              },
             },
           });
 
-          if (!customer?.user || !customer.user.passwordHash) return null;
-          if (customer.user.status !== "ACTIVE") return null;
-          if (!compareSync(password, customer.user.passwordHash)) return null;
+          const centralUser = customer?.user ?? customer?.identityLinks[0]?.user;
+          if (!customer || !centralUser?.passwordHash) return null;
+          if (centralUser.status !== "ACTIVE") return null;
+          if (!compareSync(password, centralUser.passwordHash)) return null;
 
           const identitySync = await syncVerifiedCentralIdentity({
             entryPoint: "phone_password",
-            userId: customer.user.id,
+            userId: centralUser.id,
             storeId: customer.storeId,
             customerId: customer.id,
             provider: "phone",
@@ -181,7 +194,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             identitySync.status === "rejected"
           ) {
             console.warn("[auth][customer-phone] central identity rejected", {
-              userId: customer.user.id,
+              userId: centralUser.id,
               storeId: customer.storeId,
               customerId: customer.id,
               reason: identitySync.reason,
@@ -193,18 +206,23 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           // matches by phone/email but lost its userId binding, rebind it.
           // 99% of the time this is a no-op (the Customer we just authenticated
           // against is already correctly bound). Best-effort — never blocks login.
-          await repairCustomerIdentityOnLogin({
-            userId: customer.user.id,
-            storeId: customer.storeId,
-            phone,
-            email: customer.user.email ?? null,
-          });
+          // The legacy repair writes Customer.userId.  Do not run it for a
+          // second-store membership resolved through CustomerIdentityLink,
+          // because User.customer is intentionally one-to-one.
+          if (customer.user) {
+            await repairCustomerIdentityOnLogin({
+              userId: centralUser.id,
+              storeId: customer.storeId,
+              phone,
+              email: centralUser.email ?? null,
+            });
+          }
 
           return {
-            id: customer.user.id,
-            name: customer.user.name,
-            email: customer.user.email ?? null,
-            role: customer.user.role,
+            id: centralUser.id,
+            name: centralUser.name,
+            email: centralUser.email ?? null,
+            role: centralUser.role,
             staffId: null,
             customerId: customer.id,
             storeId: customer.storeId,
@@ -1176,7 +1194,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               phone: oauthPlaceholderPhone,
               email: oauthEmail,
               authSource: provider === "line" ? "LINE" : "GOOGLE",
-              userId: provider === "line" && existingLineAccount ? undefined : u.id,
+              // A verified Google User is central, while Customer.userId is
+              // still a legacy one-to-one relation.  A second-store
+              // membership is represented by CustomerIdentityLink below.
+              userId: existingGoogleAccount ? undefined : u.id,
               storeId: targetStoreId,
               ...(provider === "line" && lineUserId
                 ? {
@@ -1434,7 +1455,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               appToken.storeSlug = dbUser.staff?.store?.slug ?? dbUser.customer?.store?.slug ?? null;
             }
 
-            if (account?.provider === "line" && account.providerAccountId) {
+            // Resolve the current store membership from the verified provider
+            // link for every OAuth provider.  Previously this override was
+            // LINE-only, so a central Google user entering a second store was
+            // sent back to the legacy first-store Customer.userId relation.
+            if (account?.provider && account.providerAccountId) {
               try {
                 const { resolveStoreFromOAuthCookie } = await import("@/lib/store-resolver");
                 const storeCtx = await resolveStoreFromOAuthCookie();
@@ -1442,7 +1467,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                   const link = await prisma.customerIdentityLink.findUnique({
                     where: {
                       uq_customer_identity_provider_store: {
-                        provider: "line",
+                        provider: account.provider,
                         providerAccountId: account.providerAccountId,
                         storeId: storeCtx.storeId,
                       },
@@ -1466,6 +1491,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               } catch (err) {
                 console.warn("[auth] jwt: identity link lookup failed", {
                   userId: user.id,
+                  provider: account.provider,
                   error: err instanceof Error ? err.message : String(err),
                 });
               }
