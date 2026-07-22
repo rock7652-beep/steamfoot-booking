@@ -1,7 +1,8 @@
 "use server";
 
 import { prisma } from "@/lib/db";
-import { hashSync } from "bcryptjs";
+import { Prisma } from "@prisma/client";
+import { compareSync, hashSync } from "bcryptjs";
 import { signIn } from "@/lib/auth";
 import { AuthError } from "next-auth";
 import { cookies } from "next/headers";
@@ -126,10 +127,32 @@ export async function customerRegisterAction(
   // 也檢查 User 表（跨店同手機的 CUSTOMER User）
   const existingUser = await prisma.user.findFirst({
     where: { phone, role: "CUSTOMER" },
-    include: { customer: { select: { storeId: true } } },
+    include: {
+      customer: { select: { storeId: true } },
+      customerIdentityLinks: {
+        where: { storeId, provider: "phone" },
+        select: { customerId: true },
+        take: 1,
+      },
+    },
   });
-  if (existingUser?.customer?.storeId === storeId) {
+  if (
+    existingUser?.customer?.storeId === storeId ||
+    existingUser?.customerIdentityLinks.length
+  ) {
     return { error: "此手機號碼已註冊，請直接登入" };
+  }
+
+  // PR-7 create gate: a phone may identify one central User across stores,
+  // but knowledge of the phone alone is not proof of ownership.  Reuse is
+  // allowed only after the existing password has been verified.
+  if (
+    existingUser &&
+    (!existingUser.passwordHash ||
+      existingUser.status !== "ACTIVE" ||
+      !compareSync(password, existingUser.passwordHash))
+  ) {
+    return { error: "此手機已是其他門市會員，請使用原本密碼登入或聯繫門市協助" };
   }
 
   const parsedBirthday = parseBirthday(birthdayStr);
@@ -140,28 +163,67 @@ export async function customerRegisterAction(
 
   try {
     // 建立 User + Customer（sponsorId 先留空，由 bindReferralToCustomer 在下方補）
-    const created = await prisma.user.create({
-      data: {
-        name,
-        phone,
-        passwordHash,
-        role: "CUSTOMER",
-        status: "ACTIVE",
-        customer: {
-          create: {
+    const created = existingUser
+      ? await prisma.$transaction(async (tx) => {
+          const customer = await tx.customer.create({
+            data: {
+              name,
+              phone,
+              gender,
+              birthday,
+              notes,
+              authSource: "EMAIL",
+              customerStage: "LEAD",
+              storeId,
+            },
+            select: { id: true },
+          });
+          await tx.customerIdentityLink.create({
+            data: {
+              userId: existingUser.id,
+              storeId,
+              customerId: customer.id,
+              provider: "phone",
+              providerAccountId: phone,
+            },
+          });
+          await tx.auditLog.create({
+            data: {
+              actorUserId: existingUser.id,
+              targetType: "Customer",
+              targetId: customer.id,
+              action: "CREATE",
+              afterJson: {
+                storeId,
+                entryPoint: "phone_password",
+                identityLink: "phone",
+              },
+            },
+          });
+          return { customer };
+        })
+      : await prisma.user.create({
+          data: {
             name,
             phone,
-            gender,
-            birthday,
-            notes,
-            authSource: "EMAIL",
-            customerStage: "LEAD",
-            storeId,
+            passwordHash,
+            role: "CUSTOMER",
+            status: "ACTIVE",
+            customer: {
+              create: {
+                name,
+                phone,
+                gender,
+                birthday,
+                notes,
+                authSource: "EMAIL",
+                customerStage: "LEAD",
+                storeId,
+              },
+            },
           },
-        },
-      },
-      include: { customer: { select: { id: true } } },
-    });
+          include: { customer: { select: { id: true } } },
+        });
 
     // 推薦綁定（靜默失敗；不覆蓋既有 sponsorId、不自綁）
     if (created.customer?.id) {
@@ -202,6 +264,12 @@ export async function customerRegisterAction(
   } catch (e) {
     if (e instanceof AuthError) {
       return { error: "註冊成功但自動登入失敗，請手動登入" };
+    }
+    if (
+      e instanceof Prisma.PrismaClientKnownRequestError &&
+      (e.code === "P2002" || e.code === "P2034")
+    ) {
+      return { error: "會員資料正在建立或已存在，請重新登入；若仍無法進入請聯繫門市" };
     }
     // Re-throw redirect
     throw e;
