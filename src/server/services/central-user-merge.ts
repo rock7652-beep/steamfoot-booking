@@ -1,4 +1,5 @@
 import type { Prisma } from "@prisma/client";
+import { createHash } from "node:crypto";
 import { prisma } from "@/lib/db";
 
 export type CentralUserMergeSnapshot = {
@@ -23,6 +24,14 @@ export type CentralUserMergePlan = {
     identityLinks: number;
     directCustomer: number;
   };
+};
+
+export type CentralUserMergeVerification = {
+  operationalDataPreserved: true;
+  sourceLoginDisabled: true;
+  sourceSessionsCleared: true;
+  targetLoginMethods: number;
+  checkedCustomerRecords: number;
 };
 
 export function buildCentralUserMergePlan(
@@ -118,6 +127,41 @@ async function loadPair(tx: Prisma.TransactionClient, sourceUserId: string, targ
   return { source: toSnapshot(source), target: toSnapshot(target) };
 }
 
+async function operationalFingerprint(
+  tx: Prisma.TransactionClient,
+  customerIds: string[],
+) {
+  if (customerIds.length === 0) {
+    return { hash: createHash("sha256").update("[]").digest("hex"), records: 0 };
+  }
+  const customers = await tx.customer.findMany({
+    where: { id: { in: customerIds } },
+    orderBy: { id: "asc" },
+    select: {
+      id: true,
+      storeId: true,
+      lineUserId: true,
+      lineLinkStatus: true,
+      planWallets: {
+        orderBy: { id: "asc" },
+        select: { id: true, totalSessions: true, remainingSessions: true, status: true },
+      },
+      bookings: {
+        orderBy: { id: "asc" },
+        select: { id: true, bookingStatus: true, customerPlanWalletId: true, reminderSent: true },
+      },
+      transactions: {
+        orderBy: { id: "asc" },
+        select: { id: true, amount: true, paymentStatus: true, status: true },
+      },
+    },
+  });
+  return {
+    hash: createHash("sha256").update(JSON.stringify(customers)).digest("hex"),
+    records: customers.length,
+  };
+}
+
 export async function previewCentralUserMerge(sourceUserId: string, targetUserId: string) {
   const pair = await loadPair(prisma, sourceUserId, targetUserId);
   return { ...pair, plan: buildCentralUserMergePlan(pair.source, pair.target) };
@@ -132,6 +176,14 @@ export async function executeCentralUserMerge(input: {
     const { source, target } = await loadPair(tx, input.sourceUserId, input.targetUserId);
     const plan = buildCentralUserMergePlan(source, target);
     if (!plan.executable) throw new Error(`中央會員整合已阻擋：${plan.blockers.join("；")}`);
+
+    const affectedCustomerIds = [...new Set([
+      ...(source.customer ? [source.customer.id] : []),
+      ...(target.customer ? [target.customer.id] : []),
+      ...source.identityLinks.map((link) => link.customerId),
+      ...target.identityLinks.map((link) => link.customerId),
+    ])];
+    const beforeOperations = await operationalFingerprint(tx, affectedCustomerIds);
 
     const targetProviders = new Set(target.accounts.map((account) => account.provider));
     const movableAccounts = source.accounts.filter((account) => !targetProviders.has(account.provider));
@@ -159,6 +211,31 @@ export async function executeCentralUserMerge(input: {
       where: { id: source.id },
       data: { status: "SUSPENDED", email: null, phone: null, passwordHash: null },
     });
+    const [afterOperations, sourceAccounts, sourceLinks, sourceSessions, sourceCustomers, targetAccounts] = await Promise.all([
+      operationalFingerprint(tx, affectedCustomerIds),
+      tx.account.count({ where: { userId: source.id } }),
+      tx.customerIdentityLink.count({ where: { userId: source.id } }),
+      tx.session.count({ where: { userId: source.id } }),
+      tx.customer.count({ where: { userId: source.id } }),
+      tx.account.count({ where: { userId: target.id } }),
+    ]);
+    if (beforeOperations.hash !== afterOperations.hash) {
+      throw new Error("中央會員整合驗收失敗：方案、堂數、預約、付款或 LINE 綁定發生變化，已回滾");
+    }
+    if (sourceAccounts !== 0 || sourceLinks !== 0 || sourceSessions !== 0 || sourceCustomers !== 0) {
+      throw new Error("中央會員整合驗收失敗：來源登入或會員關聯尚未清除，已回滾");
+    }
+    const targetLoginMethods = targetAccounts + (target.hasPassword ? 1 : 0);
+    if (targetLoginMethods === 0) {
+      throw new Error("中央會員整合驗收失敗：主要會員沒有可用登入方式，已回滾");
+    }
+    const verification: CentralUserMergeVerification = {
+      operationalDataPreserved: true,
+      sourceLoginDisabled: true,
+      sourceSessionsCleared: true,
+      targetLoginMethods,
+      checkedCustomerRecords: afterOperations.records,
+    };
     await tx.auditLog.create({
       data: {
         actorUserId: input.actorUserId,
@@ -166,9 +243,9 @@ export async function executeCentralUserMerge(input: {
         targetId: target.id,
         action: "MERGE_CENTRAL_USER",
         beforeJson: { sourceUserId: source.id, targetUserId: target.id },
-        afterJson: { ...plan.moves, sourceStatus: "SUSPENDED" },
+        afterJson: { ...plan.moves, sourceStatus: "SUSPENDED", verification },
       },
     });
-    return plan;
+    return { ...plan, verification };
   });
 }

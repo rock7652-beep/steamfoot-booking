@@ -57,3 +57,45 @@ export async function getCentralUserMergeCandidates() {
     }))
     .sort((a, b) => a.phone.localeCompare(b.phone));
 }
+
+type MergeAuditPayload = {
+  accounts?: number;
+  identityLinks?: number;
+  directCustomer?: number;
+  sourceStatus?: string;
+  verification?: {
+    operationalDataPreserved?: boolean;
+    sourceLoginDisabled?: boolean;
+    sourceSessionsCleared?: boolean;
+    targetLoginMethods?: number;
+    checkedCustomerRecords?: number;
+  };
+};
+
+export async function getRecentCentralUserMergeReceipts() {
+  const rows = await prisma.auditLog.findMany({
+    where: { action: "MERGE_CENTRAL_USER", targetType: "User" },
+    orderBy: { createdAt: "desc" },
+    take: 20,
+    select: { id: true, targetId: true, createdAt: true, afterJson: true },
+  });
+
+  return rows.map((row) => {
+    const payload = (row.afterJson ?? {}) as MergeAuditPayload;
+    const verification = payload.verification;
+    const passed = verification?.operationalDataPreserved === true
+      && verification.sourceLoginDisabled === true
+      && verification.sourceSessionsCleared === true
+      && (verification.targetLoginMethods ?? 0) > 0;
+    return {
+      id: row.id,
+      targetUserId: row.targetId,
+      createdAt: row.createdAt,
+      status: passed ? "PASS" as const : "LEGACY" as const,
+      checkedCustomers: verification?.checkedCustomerRecords ?? null,
+      targetLoginMethods: verification?.targetLoginMethods ?? null,
+      movedAccounts: payload.accounts ?? 0,
+      movedLinks: payload.identityLinks ?? 0,
+    };
+  });
+}

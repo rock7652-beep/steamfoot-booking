@@ -21,7 +21,7 @@ export function CentralUserMergeForm({ sourceUserId, targetUserId }: { sourceUse
             setMessage(null);
             const result = await executeCentralUserMergeAction({ sourceUserId, targetUserId, confirmation });
             setMessage(result.success
-              ? `整合完成：移動 ${result.data.movedAccounts} 個登入方式、${result.data.movedLinks} 個跨店連結。`
+              ? `整合與驗收完成：移動 ${result.data.movedAccounts} 個登入方式、${result.data.movedLinks} 個跨店連結；${result.data.checkedCustomers} 筆門店會員的方案、堂數、預約、付款與 LINE 綁定皆保持不變。`
               : result.error);
           })}
           className="rounded-md bg-red-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"

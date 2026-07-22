@@ -12,11 +12,11 @@ const target = {
 };
 const tx = {
   user: { findUnique: vi.fn(), update: vi.fn() },
-  account: { updateMany: vi.fn(), deleteMany: vi.fn() },
-  customerIdentityLink: { updateMany: vi.fn() },
-  customer: { update: vi.fn() },
+  account: { updateMany: vi.fn(), deleteMany: vi.fn(), count: vi.fn() },
+  customerIdentityLink: { updateMany: vi.fn(), count: vi.fn() },
+  customer: { update: vi.fn(), findMany: vi.fn(), count: vi.fn() },
   centralMemberLinkReviewRequest: { updateMany: vi.fn() },
-  session: { deleteMany: vi.fn() },
+  session: { deleteMany: vi.fn(), count: vi.fn() },
   auditLog: { create: vi.fn() },
 };
 
@@ -25,6 +25,11 @@ vi.mock("@/lib/db", () => ({ prisma: { $transaction: (callback: (client: typeof 
 beforeEach(() => {
   vi.clearAllMocks();
   tx.user.findUnique.mockImplementation(({ where }: { where: { id: string } }) => where.id === source.id ? source : target);
+  tx.customer.findMany.mockResolvedValue([{ id: "customer-a", storeId: "store-a", lineUserId: "line-source", lineLinkStatus: "LINKED", planWallets: [], bookings: [], transactions: [] }]);
+  tx.account.count.mockImplementation(({ where }: { where: { userId: string } }) => where.userId === source.id ? 0 : 1);
+  tx.customerIdentityLink.count.mockResolvedValue(0);
+  tx.session.count.mockResolvedValue(0);
+  tx.customer.count.mockResolvedValue(0);
 });
 
 describe("executeCentralUserMerge", () => {
@@ -33,6 +38,13 @@ describe("executeCentralUserMerge", () => {
     const result = await executeCentralUserMerge({ sourceUserId: source.id, targetUserId: target.id, actorUserId: "admin" });
 
     expect(result.executable).toBe(true);
+    expect(result.verification).toEqual({
+      operationalDataPreserved: true,
+      sourceLoginDisabled: true,
+      sourceSessionsCleared: true,
+      targetLoginMethods: 2,
+      checkedCustomerRecords: 1,
+    });
     expect(tx.account.updateMany).toHaveBeenCalledWith({ where: { id: { in: ["line-account"] } }, data: { userId: target.id } });
     expect(tx.customerIdentityLink.updateMany).toHaveBeenCalledWith({ where: { id: { in: ["line-link"] } }, data: { userId: target.id } });
     expect(tx.session.deleteMany).toHaveBeenCalledWith({ where: { userId: source.id } });
@@ -54,6 +66,16 @@ describe("executeCentralUserMerge", () => {
       .rejects.toThrow("中央會員整合已阻擋");
     expect(tx.account.updateMany).not.toHaveBeenCalled();
     expect(tx.user.update).not.toHaveBeenCalled();
+    expect(tx.auditLog.create).not.toHaveBeenCalled();
+  });
+
+  it("rolls back before audit when operational records change during the merge", async () => {
+    tx.customer.findMany
+      .mockResolvedValueOnce([{ id: "customer-a", storeId: "store-a", lineUserId: "line-source", lineLinkStatus: "LINKED", planWallets: [], bookings: [], transactions: [] }])
+      .mockResolvedValueOnce([{ id: "customer-a", storeId: "store-a", lineUserId: "line-source", lineLinkStatus: "LINKED", planWallets: [{ id: "wallet-a", totalSessions: 10, remainingSessions: 9, status: "ACTIVE" }], bookings: [], transactions: [] }]);
+    const { executeCentralUserMerge } = await import("@/server/services/central-user-merge");
+    await expect(executeCentralUserMerge({ sourceUserId: source.id, targetUserId: target.id, actorUserId: "admin" }))
+      .rejects.toThrow("方案、堂數、預約、付款或 LINE 綁定發生變化");
     expect(tx.auditLog.create).not.toHaveBeenCalled();
   });
 });
