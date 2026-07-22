@@ -44,6 +44,7 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [errors, setErrors] = useState<FieldErrors>({});
+  const [dismissedExistingMember, setDismissedExistingMember] = useState(false);
 
   // B7-4: 從 URL 路徑讀取 storeSlug
   const storeSlug = typeof window !== "undefined"
@@ -90,6 +91,7 @@ export default function RegisterPage() {
     "mt-1 block w-full rounded-lg border px-3 py-2.5 text-sm focus:outline-none focus:ring-1";
   const inputOk = "border-earth-300 focus:border-primary-500 focus:ring-primary-500";
   const inputErr = "border-red-400 focus:border-red-500 focus:ring-red-500";
+  const showExistingMember = !!state.existingMember && !dismissedExistingMember;
 
   return (
     <div
@@ -118,8 +120,45 @@ export default function RegisterPage() {
             </p>
           )}
 
+          {showExistingMember && state.existingMember && (
+            <div className="rounded-xl border border-primary-200 bg-primary-50 p-4">
+              <p className="text-sm font-semibold text-primary-900">
+                找到您原有的蒸管家會員
+              </p>
+              <p className="mt-1 text-sm text-primary-800">
+                手機號碼：{state.existingMember.maskedPhone}
+              </p>
+              <p className="mt-2 text-xs leading-5 text-primary-700">
+                確認後只會新增「{storeName}」的會員關聯；其他門店的方案、堂數、預約與帳務不會合併或移動。
+              </p>
+              <div className="mt-4 space-y-2">
+                <button
+                  type="submit"
+                  name="confirmExistingMember"
+                  value="yes"
+                  disabled={pending}
+                  className="w-full rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-60"
+                >
+                  {pending ? "連結中..." : "是，連結我的原有會員"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDismissedExistingMember(true);
+                    setPhone("");
+                    setPassword("");
+                    setConfirmPassword("");
+                  }}
+                  className="w-full rounded-lg border border-earth-300 bg-white px-4 py-2.5 text-sm font-medium text-earth-700 hover:bg-earth-50"
+                >
+                  這不是我的帳號
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* 姓名 */}
-          <div>
+          <div className={showExistingMember ? "hidden" : undefined}>
             <label htmlFor="name" className="block text-sm font-medium text-earth-700">
               姓名 <span className="text-red-500">*</span>
             </label>
@@ -142,7 +181,7 @@ export default function RegisterPage() {
           </div>
 
           {/* 手機 */}
-          <div>
+          <div className={showExistingMember ? "hidden" : undefined}>
             <label htmlFor="phone" className="block text-sm font-medium text-earth-700">
               手機號碼 <span className="text-red-500">*</span>
             </label>
@@ -155,6 +194,7 @@ export default function RegisterPage() {
               value={phone}
               maxLength={10}
               onChange={(e) => {
+                setDismissedExistingMember(false);
                 setPhone(e.target.value.replace(/\D/g, "").slice(0, 10));
                 if (errors.phone) setErrors((p) => ({ ...p, phone: undefined }));
               }}
@@ -171,7 +211,7 @@ export default function RegisterPage() {
           </div>
 
           {/* 密碼 */}
-          <div>
+          <div className={showExistingMember ? "hidden" : undefined}>
             <label htmlFor="password" className="block text-sm font-medium text-earth-700">
               密碼 <span className="text-red-500">*</span>
             </label>
@@ -210,7 +250,7 @@ export default function RegisterPage() {
           </div>
 
           {/* 確認密碼 */}
-          <div>
+          <div className={showExistingMember ? "hidden" : undefined}>
             <label htmlFor="confirmPassword" className="block text-sm font-medium text-earth-700">
               確認密碼 <span className="text-red-500">*</span>
             </label>
@@ -253,7 +293,7 @@ export default function RegisterPage() {
           </div>
 
           {/* 基本資料（必填，除備註外） */}
-          <div className="border-t border-earth-200 pt-4 space-y-4">
+          <div className={`border-t border-earth-200 pt-4 space-y-4 ${showExistingMember ? "hidden" : ""}`}>
             <div>
               <label htmlFor="gender" className="block text-sm font-medium text-earth-700">
                 性別 <span className="text-red-500">*</span>
@@ -299,14 +339,14 @@ export default function RegisterPage() {
             </div>
           </div>
 
-          <p className="rounded-lg bg-primary-50 px-3 py-2 text-xs text-primary-700">
+          <p className={`rounded-lg bg-primary-50 px-3 py-2 text-xs text-primary-700 ${showExistingMember ? "hidden" : ""}`}>
             完成註冊後，我們會透過 LINE 通知你預約資訊
           </p>
 
           <button
             type="submit"
             disabled={pending}
-            className="w-full rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-60"
+            className={`w-full rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-60 ${showExistingMember ? "hidden" : ""}`}
           >
             {pending ? "註冊中..." : "註冊"}
           </button>
