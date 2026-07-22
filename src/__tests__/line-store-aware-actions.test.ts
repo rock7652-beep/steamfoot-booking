@@ -13,6 +13,7 @@ const pushMessageMock = vi.fn(
   },
 );
 const revalidatePathMock = vi.fn();
+const resolveCentralLineRecipientForCustomerMock = vi.fn();
 
 const mockPrisma = {
   customer: {
@@ -36,6 +37,11 @@ vi.mock("next/cache", () => ({
 }));
 
 vi.mock("@/lib/db", () => ({ prisma: mockPrisma }));
+
+vi.mock("@/server/services/central-line-recipient-loader", () => ({
+  resolveCentralLineRecipientForCustomer: (...args: unknown[]) =>
+    resolveCentralLineRecipientForCustomerMock(...args),
+}));
 
 vi.mock("@/lib/line", async () => {
   const actual = await vi.importActual<typeof import("@/lib/line")>("@/lib/line");
@@ -92,6 +98,11 @@ describe("LINE sending actions are store-aware", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     pushMessageMock.mockResolvedValue({ success: true });
+    resolveCentralLineRecipientForCustomerMock.mockResolvedValue({
+      status: "READY",
+      deliverable: true,
+      recipientLineUserId: "U_central_customer",
+    });
   });
 
   afterEach(() => {
@@ -116,7 +127,7 @@ describe("LINE sending actions are store-aware", () => {
     const result = await testSendLineMessage("customer-1", "template-1");
 
     expect(result.success).toBe(true);
-    expect(pushMessageMock).toHaveBeenCalledWith("store-hsinchu", "U_hsinchu_customer", [
+    expect(pushMessageMock).toHaveBeenCalledWith("store-hsinchu", "U_central_customer", [
       { type: "text", text: expect.any(String) },
     ]);
     expect(mockPrisma.messageLog.create).toHaveBeenCalledWith(
@@ -167,7 +178,7 @@ describe("LINE sending actions are store-aware", () => {
     const result = await sendLineSmokeTest({ customerId: "customer-3" });
 
     expect(result.success).toBe(true);
-    expect(pushMessageMock).toHaveBeenCalledWith("store-hsinchu", "U_hsinchu_customer", [
+    expect(pushMessageMock).toHaveBeenCalledWith("store-hsinchu", "U_central_customer", [
       { type: "text", text: "這是 以斯帖蒸足坊 LINE 系統通知測試" },
     ]);
     expect(mockPrisma.messageLog.create).toHaveBeenCalledWith(
@@ -196,7 +207,7 @@ describe("LINE sending actions are store-aware", () => {
     });
 
     const { sendLineSmokeTest } = await import("@/server/actions/reminder");
-    const result = await sendLineSmokeTest({ lineUserId: "U_hsinchu_customer" });
+    const result = await sendLineSmokeTest({ customerId: "customer-4" });
 
     expect(result.success).toBe(false);
     if (!result.success) {
@@ -212,5 +223,24 @@ describe("LINE sending actions are store-aware", () => {
         }),
       }),
     );
+  });
+
+  it("sendLineSmokeTest fails closed before push when the central recipient is blocked", async () => {
+    vi.stubEnv("LINE_SMOKE_TEST_ENABLED", "1");
+    mockPrisma.store.findUnique.mockResolvedValueOnce({ name: "以斯帖蒸足坊" });
+    mockPrisma.customer.findFirst.mockResolvedValueOnce({ id: "customer-5" });
+    resolveCentralLineRecipientForCustomerMock.mockResolvedValueOnce({
+      status: "LEGACY_LINE_CONFLICT",
+      deliverable: false,
+      recipientLineUserId: null,
+    });
+
+    const { sendLineSmokeTest } = await import("@/server/actions/reminder");
+    const result = await sendLineSmokeTest({ customerId: "customer-5" });
+
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toContain("LEGACY_LINE_CONFLICT");
+    expect(pushMessageMock).not.toHaveBeenCalled();
+    expect(mockPrisma.messageLog.create).not.toHaveBeenCalled();
   });
 });

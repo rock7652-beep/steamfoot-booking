@@ -15,6 +15,7 @@ import type { ActionResult } from "@/types";
 import { getShopConfig } from "@/lib/shop-config";
 import { deriveBaseUrl } from "@/lib/base-url";
 import { resolveWriteStoreId } from "@/lib/store";
+import { resolveCentralLineRecipientForCustomer } from "@/server/services/central-line-recipient-loader";
 
 // ============================================================
 // Validators
@@ -56,10 +57,7 @@ const updateTemplateSchema = z.object({
 });
 
 const lineSmokeTestSchema = z.object({
-  customerId: z.string().optional(),
-  lineUserId: z.string().trim().optional(),
-}).refine((data) => Boolean(data.customerId || data.lineUserId), {
-  message: "請選擇顧客或輸入測試 lineUserId",
+  customerId: z.string().min(1),
 });
 
 // ============================================================
@@ -384,8 +382,9 @@ export async function testSendLineMessage(
 
     if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
     if (!template) throw new AppError("NOT_FOUND", "模板不存在");
-    if (!customer.lineUserId) {
-      throw new AppError("BUSINESS_RULE", "此顧客尚未綁定 LINE");
+    const recipient = await resolveCentralLineRecipientForCustomer(customer.id, customer.storeId);
+    if (!recipient?.deliverable || !recipient.recipientLineUserId) {
+      throw new AppError("BUSINESS_RULE", `中央 LINE 收件人無法使用（${recipient?.status ?? "CUSTOMER_NOT_FOUND"}）`);
     }
 
     const vars: TemplateVariables = {
@@ -399,7 +398,7 @@ export async function testSendLineMessage(
 
     const renderedBody = renderTemplate(template.body, vars);
 
-    const result = await pushMessage(customer.storeId, customer.lineUserId, [
+    const result = await pushMessage(customer.storeId, recipient.recipientLineUserId, [
       { type: "text", text: renderedBody },
     ]);
 
@@ -446,31 +445,20 @@ export async function sendLineSmokeTest(
     });
     const storeName = store?.name ?? "本店";
 
-    const customer = data.customerId
-      ? await prisma.customer.findFirst({
-          where: {
-            id: data.customerId,
-            storeId,
-            lineLinkStatus: "LINKED",
-            lineUserId: { not: null },
-          },
-          select: { id: true, lineUserId: true },
-        })
-      : await prisma.customer.findFirst({
-          where: {
-            storeId,
-            lineUserId: data.lineUserId,
-            lineLinkStatus: "LINKED",
-          },
-          select: { id: true, lineUserId: true },
-        });
-
-    if (!customer?.lineUserId) {
-      throw new AppError("VALIDATION", "找不到同店已綁定 LINE 的測試顧客");
+    const customer = await prisma.customer.findFirst({
+      where: { id: data.customerId, storeId },
+      select: { id: true },
+    });
+    if (!customer) {
+      throw new AppError("VALIDATION", "找不到同店測試顧客");
+    }
+    const recipient = await resolveCentralLineRecipientForCustomer(customer.id, storeId);
+    if (!recipient?.deliverable || !recipient.recipientLineUserId) {
+      throw new AppError("BUSINESS_RULE", `中央 LINE 收件人無法使用（${recipient?.status ?? "CUSTOMER_NOT_FOUND"}）`);
     }
 
     const renderedBody = `這是 ${storeName} LINE 系統通知測試`;
-    const result = await pushMessage(storeId, customer.lineUserId, [
+    const result = await pushMessage(storeId, recipient.recipientLineUserId, [
       { type: "text", text: renderedBody },
     ]);
 

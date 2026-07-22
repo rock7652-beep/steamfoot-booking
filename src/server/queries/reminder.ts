@@ -5,6 +5,7 @@ import { dayRange, toLocalDateStr } from "@/lib/date-utils";
 import { getActiveStoreForRead, validateStoreAccess } from "@/lib/store";
 import { AppError } from "@/lib/errors";
 import { todayReminderTriggerAt, tomorrowBookingDate } from "@/server/reminder-engine";
+import { resolveCentralLineRecipientsForCustomers } from "@/server/services/central-line-recipient-loader";
 
 // ============================================================
 // ReminderRule queries
@@ -61,20 +62,17 @@ export async function getLineSmokeTestContext(storeId: string): Promise<{
       select: { name: true },
     }),
     prisma.customer.findMany({
-      where: {
-        storeId: authorizedStoreId,
-        lineLinkStatus: "LINKED",
-        lineUserId: { not: null },
-      },
+      where: { storeId: authorizedStoreId, mergedIntoCustomerId: null },
       select: { id: true, name: true, phone: true },
       orderBy: { updatedAt: "desc" },
       take: 50,
     }),
   ]);
 
+  const resolutions = await resolveCentralLineRecipientsForCustomers(customers.map((customer) => customer.id));
   return {
     storeName: store?.name ?? "本店",
-    customers,
+    customers: customers.filter((customer) => resolutions.get(customer.id)?.deliverable),
   };
 }
 
@@ -191,14 +189,11 @@ export async function getReminderStats(activeStoreId?: string | null) {
           storeId: rule.storeId,
           bookingDate: tomorrowDate,
           bookingStatus: { in: ["PENDING", "CONFIRMED"] },
-          customer: {
-            lineLinkStatus: "LINKED",
-            lineUserId: { not: null },
-          },
         },
-        select: { id: true },
+        select: { id: true, customerId: true },
       });
       if (bookings.length === 0) continue;
+      const recipients = await resolveCentralLineRecipientsForCustomers(bookings.map((booking) => booking.customerId));
 
       // 已 SENT (ruleId, bookingId, triggerAt) 從 pending 扣掉
       const sentLogs = await prisma.messageLog.findMany({
@@ -213,7 +208,7 @@ export async function getReminderStats(activeStoreId?: string | null) {
       const sentSet = new Set(sentLogs.map((l) => l.bookingId).filter(Boolean));
 
       for (const b of bookings) {
-        if (!sentSet.has(b.id)) todayPending++;
+        if (!sentSet.has(b.id) && recipients.get(b.customerId)?.deliverable) todayPending++;
       }
     }
   }

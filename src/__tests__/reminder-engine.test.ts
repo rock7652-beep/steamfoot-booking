@@ -28,6 +28,7 @@ const OTHER_STORE_ID = "store-other";
 type BookingRow = {
   id: string;
   storeId: string;
+  customerId: string;
   bookingDate: Date;
   slotTime: string;
   bookingStatus: string;
@@ -232,6 +233,22 @@ const mockPrisma = {
 
 vi.mock("@/lib/db", () => ({ prisma: mockPrisma }));
 
+vi.mock("@/server/services/central-line-recipient-loader", () => ({
+  resolveCentralLineRecipientsForCustomers: async (customerIds: string[]) =>
+    new Map(
+      customerIds.map((customerId) => {
+        const booking = bookings.find((row) => row.customerId === customerId);
+        const lineUserId = booking?.customer.lineUserId ?? null;
+        return [
+          customerId,
+          lineUserId
+            ? { status: "READY", deliverable: true, recipientLineUserId: lineUserId }
+            : { status: "NO_CENTRAL_LINE", deliverable: false, recipientLineUserId: null },
+        ];
+      }),
+    ),
+}));
+
 // ── Mock LINE & 其他依賴 ──
 const pushMessageMock = vi.fn(
   async (
@@ -298,6 +315,7 @@ function makeBooking(opts: {
   return {
     id: opts.id ?? BOOKING_ID,
     storeId: opts.storeId ?? STORE_ID,
+    customerId: opts.customerId ?? CUSTOMER_ID,
     bookingDate: opts.bookingDate,
     slotTime: opts.slotTime ?? "14:00",
     bookingStatus: opts.status ?? "CONFIRMED",
@@ -721,9 +739,9 @@ describe("getReminderStats (daily-batch model)", () => {
   it("CANCELLED / 未綁 LINE 的明日預約 → 不算入 pending", async () => {
     vi.setSystemTime(new Date("2026-05-11T04:00:00.000Z"));
     bookings.push(
-      makeBooking({ id: "b1", bookingDate: new Date("2026-05-12T00:00:00.000Z"), status: "CANCELLED" }),
-      makeBooking({ id: "b2", bookingDate: new Date("2026-05-12T00:00:00.000Z"), hasLine: false }),
-      makeBooking({ id: "b3", bookingDate: new Date("2026-05-12T00:00:00.000Z") }), // 唯一有效
+      makeBooking({ id: "b1", customerId: "c1", bookingDate: new Date("2026-05-12T00:00:00.000Z"), status: "CANCELLED" }),
+      makeBooking({ id: "b2", customerId: "c2", bookingDate: new Date("2026-05-12T00:00:00.000Z"), hasLine: false }),
+      makeBooking({ id: "b3", customerId: "c3", bookingDate: new Date("2026-05-12T00:00:00.000Z") }), // 唯一有效
     );
     rules.push(makeRule());
 
