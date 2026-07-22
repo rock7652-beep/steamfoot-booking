@@ -14,6 +14,10 @@ export async function reviewCentralMemberLinkAction(
   formData: FormData,
 ): Promise<ReviewCentralMemberLinkState> {
   const actor = await requirePermission("customer.identity.rebind");
+  if (actor.role !== "ADMIN") {
+    return { error: "會員資料健康檢查僅限總部管理員處理", success: false };
+  }
+
   const storeId = await getActiveStoreForRead(actor);
   if (!storeId) return { error: "請先選擇門市", success: false };
 
