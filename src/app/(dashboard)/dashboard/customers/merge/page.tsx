@@ -8,12 +8,14 @@ import {
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { PageShell, PageHeader } from "@/components/desktop";
 import { MergeConfirmForm } from "./merge-confirm-form";
+import { prisma } from "@/lib/db";
+import { getActiveStoreForRead } from "@/lib/store";
 
 /**
- * 顧客合併（Phase 1）
+ * 重複顧客處理
  *
  * 流程：
- *   1. 進頁無參數 → 顯示兩個 input（sourceCustomerId / targetCustomerId）
+ *   1. 從顧客詳情帶入 source，或以姓名 / 電話搜尋候選
  *   2. 點「載入預覽」→ ?source=...&target=... 帶回，server 端 fetch preview
  *   3. 確認後在 client form 呼叫 mergeCustomerAction
  *
@@ -26,7 +28,7 @@ import { MergeConfirmForm } from "./merge-confirm-form";
 export default async function CustomerMergePage({
   searchParams,
 }: {
-  searchParams: Promise<{ source?: string; target?: string; result?: string; error?: string }>;
+  searchParams: Promise<{ source?: string; target?: string; q?: string; result?: string; error?: string }>;
 }) {
   const user = await getCurrentUser();
   if (!user) notFound();
@@ -41,6 +43,23 @@ export default async function CustomerMergePage({
   const params = await searchParams;
   const sourceId = (params.source ?? "").trim();
   const targetId = (params.target ?? "").trim();
+  const query = (params.q ?? "").trim();
+  const activeStoreId = await getActiveStoreForRead(user);
+  const candidates = query && activeStoreId
+    ? await prisma.customer.findMany({
+        where: {
+          storeId: activeStoreId,
+          mergedIntoCustomerId: null,
+          OR: [
+            { name: { contains: query, mode: "insensitive" } },
+            { phone: { contains: query } },
+          ],
+        },
+        select: { id: true, name: true, phone: true, lineLinkStatus: true, createdAt: true },
+        orderBy: { createdAt: "desc" },
+        take: 8,
+      })
+    : [];
 
   let preview: { source: CustomerMergePreviewRow; target: CustomerMergePreviewRow } | null = null;
   let previewError: string | null = null;
@@ -67,8 +86,8 @@ export default async function CustomerMergePage({
   return (
     <PageShell>
       <PageHeader
-        title="顧客合併（Phase 1）"
-        subtitle="把兩筆同人 Customer 合併為一筆。Source 會被歸檔，所有預約 / 方案 / 交易 / 點數搬到 Target。"
+        title="重複顧客處理"
+        subtitle="確認是同一人後，保留正確資料並安全整併重複帳號。"
         actions={
           <Link
             href="/dashboard/customers"
@@ -82,12 +101,38 @@ export default async function CustomerMergePage({
       <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm">
         <p className="font-medium text-amber-900">注意事項</p>
         <ul className="mt-2 list-disc space-y-1 pl-5 text-amber-800">
-          <li>合併不可復原。Source 會被標記為已合併（mergedIntoCustomerId），列表不再顯示。</li>
-          <li>所有預約、課程方案、交易、點數紀錄都會搬到 Target。</li>
-          <li>不允許跨店合併。兩邊都已綁定登入帳號（userId）時 Phase 1 會直接拒絕。</li>
-          <li>Phase 1 為手動雙 ID 模式；候選清單與衝突解決 UI 將於 Phase 2 提供。</li>
+          <li>「被整併資料」會歸檔；預約、方案、交易及點數會完整移到「保留資料」。</li>
+          <li>不允許跨店整併；資料只會在目前門市內處理。</li>
+          <li>若兩邊綁定不同登入身分，系統會停止，不會自行覆蓋。</li>
         </ul>
       </div>
+
+      <form method="GET" action="/dashboard/customers/merge" className="rounded-lg border border-earth-200 bg-white p-4">
+        {sourceId ? <input type="hidden" name="source" value={sourceId} /> : null}
+        {targetId ? <input type="hidden" name="target" value={targetId} /> : null}
+        <label className="block text-xs font-medium text-earth-700">搜尋另一筆顧客資料</label>
+        <div className="mt-2 flex gap-2">
+          <input name="q" defaultValue={query} placeholder="輸入姓名或手機" className="min-w-0 flex-1 rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300" />
+          <button type="submit" className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white">搜尋</button>
+        </div>
+        {query ? (
+          <div className="mt-3 space-y-2">
+            {candidates.length === 0 ? <p className="text-xs text-earth-500">找不到符合的顧客。</p> : candidates.map((candidate) => {
+              const chooseHref = sourceId
+                ? `/dashboard/customers/merge?source=${sourceId}&target=${candidate.id}`
+                : targetId
+                  ? `/dashboard/customers/merge?source=${candidate.id}&target=${targetId}`
+                  : `/dashboard/customers/merge?source=${candidate.id}`;
+              return (
+                <Link key={candidate.id} href={chooseHref} className="flex items-center justify-between rounded-lg border border-earth-100 px-3 py-2 hover:bg-earth-50">
+                  <span><span className="text-sm font-medium text-earth-900">{candidate.name}</span><span className="ml-2 text-xs text-earth-500">{candidate.phone}</span></span>
+                  <span className="text-xs font-medium text-primary-700">選擇</span>
+                </Link>
+              );
+            })}
+          </div>
+        ) : null}
+      </form>
 
       {/* Step 1: 輸入兩個 ID 載入預覽 */}
       <form
@@ -95,11 +140,11 @@ export default async function CustomerMergePage({
         action="/dashboard/customers/merge"
         className="rounded-lg border border-earth-200 bg-white p-4"
       >
-        <h2 className="text-sm font-medium text-earth-700">Step 1 載入預覽</h2>
+        <h2 className="text-sm font-medium text-earth-700">選擇兩筆資料</h2>
         <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
             <label className="block text-xs font-medium text-earth-700">
-              來源顧客 ID（將被合併並歸檔）
+              被整併資料 ID（將歸檔）
             </label>
             <input
               type="text"
@@ -112,7 +157,7 @@ export default async function CustomerMergePage({
           </div>
           <div>
             <label className="block text-xs font-medium text-earth-700">
-              目標顧客 ID（保留並接收所有資料）
+              保留資料 ID（接收所有紀錄）
             </label>
             <input
               type="text"
@@ -129,7 +174,7 @@ export default async function CustomerMergePage({
             type="submit"
             className="rounded-md bg-primary-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-700"
           >
-            載入預覽
+            比對資料
           </button>
         </div>
       </form>
@@ -143,10 +188,10 @@ export default async function CustomerMergePage({
 
       {preview && !previewError ? (
         <div className="space-y-4">
-          <h2 className="text-sm font-medium text-earth-700">Step 2 確認合併</h2>
+          <h2 className="text-sm font-medium text-earth-700">確認資料與影響</h2>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <PreviewCard title="來源（Source — 將被歸檔）" tone="warning" row={preview.source} />
-            <PreviewCard title="目標（Target — 將保留並接收）" tone="success" row={preview.target} />
+            <PreviewCard title="被整併資料（將歸檔）" tone="warning" row={preview.source} />
+            <PreviewCard title="保留資料（接收所有紀錄）" tone="success" row={preview.target} />
           </div>
 
           <div className="rounded-lg border border-earth-200 bg-white p-4 text-sm text-earth-700">
@@ -162,9 +207,9 @@ export default async function CustomerMergePage({
             <strong className="mx-1 text-earth-900">{preview.target.name}</strong>。
           </div>
 
-          {preview.source.hasUserId && preview.target.hasUserId ? (
+          {preview.source.userId && preview.target.userId && preview.source.userId !== preview.target.userId ? (
             <div className="rounded-lg border border-red-300 bg-red-50 p-4 text-sm text-red-700">
-              來源與目標都有綁定的登入帳號（userId）。Phase 1 不自動處理此情境，請先人工取消其中一邊的 userId 綁定後再合併。
+              兩筆資料綁定不同登入身分，系統已停止整併。請先確認本人身分，再使用 LINE 重新綁定或交由系統管理者處理。
             </div>
           ) : (
             <MergeConfirmForm

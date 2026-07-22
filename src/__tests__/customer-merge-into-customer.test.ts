@@ -36,6 +36,7 @@ type Tables = {
   customerIdentityLink: Row[];
   bookingMakeupCredit: Row[];
   account: Row[];
+  auditLog: Row[];
 };
 
 const tables: Tables = {
@@ -54,6 +55,7 @@ const tables: Tables = {
   customerIdentityLink: [],
   bookingMakeupCredit: [],
   account: [],
+  auditLog: [],
 };
 
 function resetTables() {
@@ -124,6 +126,7 @@ const customerFollowUpModel = modelFor("customerFollowUp");
 const customerIdentityLinkModel = modelFor("customerIdentityLink");
 const bookingMakeupCreditModel = modelFor("bookingMakeupCredit");
 const accountModel = modelFor("account");
+const auditLogModel = modelFor("auditLog");
 
 vi.mock("@/lib/db", () => ({
   prisma: {
@@ -142,6 +145,7 @@ vi.mock("@/lib/db", () => ({
     customerIdentityLink: customerIdentityLinkModel,
     bookingMakeupCredit: bookingMakeupCreditModel,
     account: accountModel,
+    auditLog: auditLogModel,
     $transaction: (fn: (tx: unknown) => unknown) =>
       fn({
         customer: customerModel,
@@ -159,6 +163,7 @@ vi.mock("@/lib/db", () => ({
         customerIdentityLink: customerIdentityLinkModel,
         bookingMakeupCredit: bookingMakeupCreditModel,
         account: accountModel,
+        auditLog: auditLogModel,
       }),
   },
 }));
@@ -353,6 +358,12 @@ describe("mergeCustomerIntoCustomer — FK relocation", () => {
     expect(out.movedCounts.customerFollowUps).toBe(1);
     expect(out.movedCounts.customerIdentityLinks).toBe(1);
     expect(out.movedCounts.bookingMakeupCredits).toBe(1);
+    expect(tables.auditLog).toContainEqual(expect.objectContaining({
+      actorUserId: PERFORMER,
+      targetType: "Customer",
+      targetId: "tgt",
+      action: "MERGE_DUPLICATE_CUSTOMER",
+    }));
     expect(tables.customerFollowUp[0].customerId).toBe("tgt");
     expect(tables.customerIdentityLink[0].customerId).toBe("tgt");
     expect(tables.bookingMakeupCredit[0].customerId).toBe("tgt");
