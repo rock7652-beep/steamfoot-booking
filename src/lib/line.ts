@@ -9,6 +9,8 @@ import crypto from "crypto";
 import {
   getLineAccessTokenForStore,
   getLineSecretForStore,
+  getSteamButlerLineAccessToken,
+  getSteamButlerLineSecret,
   LINE_SECRET_NOT_CONFIGURED_ERROR,
   LINE_TOKEN_NOT_CONFIGURED_ERROR,
 } from "@/lib/line-config";
@@ -25,6 +27,15 @@ export type LineBotInfo = {
 export type LineBotInfoResult =
   | { ok: true; data: LineBotInfo }
   | { ok: false; code: "TOKEN_NOT_CONFIGURED" | "TOKEN_UNAUTHORIZED" | "UPSTREAM_ERROR" | "TIMEOUT" | "INVALID_RESPONSE" };
+
+export type LineReplyResult =
+  | { success: true }
+  | {
+      success: false;
+      error: string;
+      httpStatus: number | null;
+      errorType: "token_not_configured" | "line_api_rejected" | "network_error";
+    };
 
 /**
  * Read the Messaging API Bot Info for a store without logging or exposing the
@@ -68,11 +79,23 @@ export function verifyLineSignature(
 ): boolean {
   const secret = getLineSecretForStore(storeId);
   if (!secret) return false;
+  return verifyLineSignatureWithSecret(body, signature, secret);
+}
+
+export function verifySteamButlerLineSignature(body: string, signature: string): boolean {
+  const secret = getSteamButlerLineSecret();
+  if (!secret) return false;
+  return verifyLineSignatureWithSecret(body, signature, secret);
+}
+
+function verifyLineSignatureWithSecret(body: string, signature: string, secret: string): boolean {
   const hash = crypto
     .createHmac("SHA256", secret)
     .update(body)
     .digest("base64");
-  return hash === signature;
+  const expected = Buffer.from(hash, "utf8");
+  const received = Buffer.from(signature, "utf8");
+  return expected.length === received.length && crypto.timingSafeEqual(expected, received);
 }
 
 /** Push message to a specific user */
@@ -120,11 +143,30 @@ export async function replyMessage(
   storeId: string,
   replyToken: string,
   messages: LineMessage[]
-): Promise<{ success: boolean; error?: string }> {
+): Promise<LineReplyResult> {
+  return replyMessageWithAccessToken(getLineAccessTokenForStore(storeId), replyToken, messages);
+}
+
+export async function replySteamButlerMessage(
+  replyToken: string,
+  messages: LineMessage[]
+): Promise<LineReplyResult> {
+  return replyMessageWithAccessToken(getSteamButlerLineAccessToken(), replyToken, messages);
+}
+
+async function replyMessageWithAccessToken(
+  token: string | null,
+  replyToken: string,
+  messages: LineMessage[]
+): Promise<LineReplyResult> {
   try {
-    const token = getLineAccessTokenForStore(storeId);
     if (!token) {
-      return { success: false, error: LINE_TOKEN_NOT_CONFIGURED_ERROR };
+      return {
+        success: false,
+        error: LINE_TOKEN_NOT_CONFIGURED_ERROR,
+        httpStatus: null,
+        errorType: "token_not_configured",
+      };
     }
     const res = await fetch(`${LINE_API_BASE}/message/reply`, {
       method: "POST",
@@ -139,18 +181,21 @@ export async function replyMessage(
     });
 
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
       return {
         success: false,
-        error: `LINE API ${res.status}: ${JSON.stringify(err)}`,
+        error: `LINE API ${res.status}`,
+        httpStatus: res.status,
+        errorType: "line_api_rejected",
       };
     }
 
     return { success: true };
-  } catch (e) {
+  } catch {
     return {
       success: false,
-      error: e instanceof Error ? e.message : "Unknown error",
+      error: "LINE API request failed",
+      httpStatus: null,
+      errorType: "network_error",
     };
   }
 }
@@ -186,7 +231,13 @@ export interface LineTextMessage {
   text: string;
 }
 
-export type LineMessage = LineTextMessage;
+export interface LineFlexMessage {
+  type: "flex";
+  altText: string;
+  contents: Record<string, unknown>;
+}
+
+export type LineMessage = LineTextMessage | LineFlexMessage;
 
 // ============================================================
 // Template rendering

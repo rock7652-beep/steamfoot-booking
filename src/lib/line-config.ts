@@ -1,6 +1,10 @@
 export const LINE_TOKEN_NOT_CONFIGURED_ERROR = "LINE token not configured for store";
 export const LINE_SECRET_NOT_CONFIGURED_ERROR = "LINE secret not configured for store";
 
+const STEAM_BUTLER_LINE_DESTINATION_ENV = "STEAM_BUTLER_LINE_DESTINATION";
+const STEAM_BUTLER_LINE_CHANNEL_SECRET_ENV = "STEAM_BUTLER_LINE_CHANNEL_SECRET";
+const STEAM_BUTLER_LINE_CHANNEL_ACCESS_TOKEN_ENV = "STEAM_BUTLER_LINE_CHANNEL_ACCESS_TOKEN";
+
 type LineStoreSlug = "zhubei" | "hsinchu" | "taichung";
 
 const STORE_ID_TO_LINE_SLUG: Record<string, LineStoreSlug> = {
@@ -38,6 +42,19 @@ const LINE_ENV_BY_STORE: Record<
 function nonEmptyEnv(name: string): string | null {
   const value = process.env[name]?.trim();
   return value ? value : null;
+}
+
+export function isSteamButlerLineDestination(destination: string | undefined): boolean {
+  const configuredDestination = nonEmptyEnv(STEAM_BUTLER_LINE_DESTINATION_ENV);
+  return Boolean(destination && configuredDestination && destination === configuredDestination);
+}
+
+export function getSteamButlerLineSecret(): string | null {
+  return nonEmptyEnv(STEAM_BUTLER_LINE_CHANNEL_SECRET_ENV);
+}
+
+export function getSteamButlerLineAccessToken(): string | null {
+  return nonEmptyEnv(STEAM_BUTLER_LINE_CHANNEL_ACCESS_TOKEN_ENV);
 }
 
 export function resolveLineStoreSlug(storeIdOrSlug: string): LineStoreSlug | null {

@@ -2,10 +2,15 @@ import crypto from "crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   pushMessage,
+  replySteamButlerMessage,
   verifyLineSignature,
+  verifySteamButlerLineSignature,
   LINE_TOKEN_NOT_CONFIGURED_ERROR,
 } from "@/lib/line";
-import { getLineWebhookDiagnosticsForStore } from "@/lib/line-config";
+import {
+  getLineWebhookDiagnosticsForStore,
+  isSteamButlerLineDestination,
+} from "@/lib/line-config";
 
 function mockLineOk() {
   const fetchMock = vi.fn(async (_url: string | URL, _init?: RequestInit) => ({
@@ -189,5 +194,35 @@ describe("store-aware LINE Messaging config", () => {
       secretLength: "taichung-secret".length,
       hasAccessToken: true,
     });
+  });
+
+  it("uses only the brand channel settings for brand signature verification and replies", async () => {
+    const body = JSON.stringify({ destination: "D_brand_support", events: [] });
+    vi.stubEnv("STEAM_BUTLER_LINE_DESTINATION", "D_brand_support");
+    vi.stubEnv("STEAM_BUTLER_LINE_CHANNEL_SECRET", "brand-secret");
+    vi.stubEnv("STEAM_BUTLER_LINE_CHANNEL_ACCESS_TOKEN", "brand-token");
+    vi.stubEnv("LINE_CHANNEL_SECRET", "store-secret");
+    const brandSignature = crypto
+      .createHmac("SHA256", "brand-secret")
+      .update(body)
+      .digest("base64");
+    const storeSignature = crypto
+      .createHmac("SHA256", "store-secret")
+      .update(body)
+      .digest("base64");
+    const fetchMock = mockLineOk();
+
+    expect(isSteamButlerLineDestination("D_brand_support")).toBe(true);
+    expect(isSteamButlerLineDestination("D_other")).toBe(false);
+    expect(verifySteamButlerLineSignature(body, brandSignature)).toBe(true);
+    expect(verifySteamButlerLineSignature(body, storeSignature)).toBe(false);
+
+    await expect(replySteamButlerMessage("reply-token", [{ type: "text", text: "hello" }])).resolves.toEqual({ success: true });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.line.me/v2/bot/message/reply",
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: "Bearer brand-token" }),
+      }),
+    );
   });
 });

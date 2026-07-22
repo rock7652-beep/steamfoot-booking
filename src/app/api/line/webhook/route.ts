@@ -8,8 +8,16 @@
 //   4. B7-4.5: 每個 webhook 必須先 resolve store，失敗則安全中止
 // ============================================================
 
-import { verifyLineSignature, replyMessage } from "@/lib/line";
-import { getLineWebhookDiagnosticsForStore } from "@/lib/line-config";
+import {
+  verifyLineSignature,
+  verifySteamButlerLineSignature,
+  replyMessage,
+  replySteamButlerMessage,
+} from "@/lib/line";
+import {
+  getLineWebhookDiagnosticsForStore,
+  isSteamButlerLineDestination,
+} from "@/lib/line-config";
 import { prisma } from "@/lib/db";
 import { normalizePhone } from "@/lib/normalize";
 import { bindLineToCustomerInStore } from "@/server/services/bind-line-to-customer";
@@ -44,6 +52,26 @@ export async function POST(req: Request) {
 
     // B7-4.5: 從 destination 解析 store
     const destination: string | undefined = data.destination;
+
+    if (isSteamButlerLineDestination(destination)) {
+      logBrandLineEvent("brand_line_destination_matched");
+      if (!signature || !verifySteamButlerLineSignature(body, signature)) {
+        console.warn("[Brand LINE] Invalid signature");
+        return new Response("Invalid signature", { status: 401 });
+      }
+      logBrandLineEvent("brand_line_signature_valid");
+
+      for (const event of events) {
+        try {
+          await handleSteamButlerEvent(event);
+        } catch {
+          console.error("[Brand LINE] Event handler error");
+        }
+      }
+
+      return new Response("OK", { status: 200 });
+    }
+
     const storeId = await resolveStoreFromDestination(destination);
 
     if (!storeId) {
@@ -83,6 +111,41 @@ export async function POST(req: Request) {
     // 即使出錯也回 200，避免 LINE 重試轟炸
     return new Response("OK", { status: 200 });
   }
+}
+
+async function handleSteamButlerEvent(event: LineWebhookEvent) {
+  if (event.type !== "message" || event.message?.type !== "text") {
+    return;
+  }
+
+  const text = event.message.text ?? "";
+  logBrandLineEvent("brand_line_text_received", { textLength: text.length });
+
+  if (text !== "找到適合方案") {
+    logBrandLineEvent("brand_line_command_ignored");
+    return;
+  }
+
+  logBrandLineEvent("brand_line_command_matched", { command: "show_plan" });
+  if (!event.replyToken) return;
+
+  logBrandLineEvent("brand_line_reply_attempted");
+  const result = await replySteamButlerMessage(event.replyToken, [PLAN_RECOMMENDATION_MESSAGE]);
+  if (result.success) {
+    logBrandLineEvent("brand_line_reply_success");
+  } else {
+    logBrandLineEvent("brand_line_reply_failed", {
+      httpStatus: result.httpStatus,
+      errorType: result.errorType,
+    });
+  }
+}
+
+function logBrandLineEvent(
+  event: string,
+  fields: Record<string, string | number | null> = {},
+) {
+  console.log(JSON.stringify({ event, ...fields }));
 }
 
 // ── GET: Verify 用 ──
@@ -253,6 +316,13 @@ async function handleTextMessage(
 ) {
   console.log("[LINE] Text message received", { userId: maskLineUserId(lineUserId), storeId, textLength: text.length });
 
+  if (text === "找到適合方案") {
+    if (replyToken) {
+      await replyMessage(storeId, replyToken, [PLAN_RECOMMENDATION_MESSAGE]);
+    }
+    return;
+  }
+
   // 解析「綁定 XXXXXX」格式（大小寫不敏感）
   const bindMatch = text.match(/^綁定\s*([A-Z0-9]{6})$/i);
   if (bindMatch) {
@@ -276,6 +346,60 @@ async function handleTextMessage(
   }
   // 未來可在此擴充其他指令（查詢預約等）
 }
+
+const PLAN_RECOMMENDATION_MESSAGE = {
+  type: "flex" as const,
+  altText: "找到適合你的方案",
+  contents: {
+    type: "bubble",
+    body: {
+      type: "box",
+      layout: "vertical",
+      spacing: "md",
+      contents: [
+        {
+          type: "text",
+          text: "找到適合你的方案",
+          weight: "bold",
+          size: "xl",
+          wrap: true,
+        },
+        {
+          type: "text",
+          text: "蒸管家依照店家規模與需求，提供適合的方案。\n另有幫助店家省心、省錢的顧客經營加購功能。\n不確定怎麼選？我們會協助你找到適合的方案。",
+          size: "sm",
+          color: "#666666",
+          wrap: true,
+        },
+      ],
+    },
+    footer: {
+      type: "box",
+      layout: "vertical",
+      spacing: "sm",
+      contents: [
+        {
+          type: "button",
+          style: "primary",
+          action: {
+            type: "uri",
+            label: "開始 1 分鐘店務健檢",
+            uri: "https://steam-butler-check.vercel.app/",
+          },
+        },
+        {
+          type: "button",
+          style: "secondary",
+          action: {
+            type: "message",
+            label: "找真人管家聊聊",
+            text: "我想了解適合我的方案",
+          },
+        },
+      ],
+    },
+  },
+};
 
 async function handlePhoneBindingRequest(
   lineUserId: string,
