@@ -59,7 +59,14 @@ export async function customerLoginAction(
 // 顧客註冊
 // ============================================================
 
-export type RegisterState = { error: string | null };
+export type RegisterState = {
+  error: string | null;
+  existingMember?: { maskedPhone: string };
+};
+
+function maskPhone(phone: string): string {
+  return `*******${phone.slice(-3)}`;
+}
 
 export async function customerRegisterAction(
   _prev: RegisterState,
@@ -69,6 +76,7 @@ export async function customerRegisterAction(
   const phone = (formData.get("phone") as string)?.trim();
   const password = formData.get("password") as string;
   const confirmPassword = formData.get("confirmPassword") as string;
+  const confirmExistingMember = formData.get("confirmExistingMember") === "yes";
   const gender = (formData.get("gender") as string)?.trim() || null;
   const birthdayStr = (formData.get("birthday") as string)?.trim() || null;
   const notes = (formData.get("notes") as string)?.trim() || null;
@@ -153,6 +161,15 @@ export async function customerRegisterAction(
       !compareSync(password, existingUser.passwordHash))
   ) {
     return { error: "此手機已是其他門市會員，請使用原本密碼登入或聯繫門市協助" };
+  }
+
+  // The password proves ownership; a separate explicit confirmation keeps a
+  // cross-store registration from silently linking an existing identity.
+  if (existingUser && !confirmExistingMember) {
+    return {
+      error: null,
+      existingMember: { maskedPhone: maskPhone(phone) },
+    };
   }
 
   const parsedBirthday = parseBirthday(birthdayStr);
