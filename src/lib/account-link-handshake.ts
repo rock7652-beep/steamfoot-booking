@@ -2,10 +2,12 @@ export const ACCOUNT_LINK_COOKIE = "customer-account-link";
 export const ACCOUNT_LINK_TTL_SECONDS = 5 * 60;
 
 export type LinkableOAuthProvider = "google" | "line";
+export type AccountLinkIntent = "link" | "replace";
 
 type AccountLinkPayload = {
   userId: string;
   provider: LinkableOAuthProvider;
+  intent: AccountLinkIntent;
   nonce: string;
   expiresAt: number;
 };
@@ -63,9 +65,12 @@ function constantTimeEqual(left: string, right: string): boolean {
 export async function issueAccountLinkHandshake(input: {
   userId: string;
   provider: LinkableOAuthProvider;
+  intent?: AccountLinkIntent;
 }): Promise<string> {
   const payload: AccountLinkPayload = {
-    ...input,
+    userId: input.userId,
+    provider: input.provider,
+    intent: input.intent ?? "link",
     nonce: crypto.randomUUID(),
     expiresAt: Date.now() + ACCOUNT_LINK_TTL_SECONDS * 1000,
   };
@@ -89,6 +94,7 @@ export async function verifyAccountLinkHandshake(
       typeof payload.userId !== "string" ||
       payload.userId.length === 0 ||
       payload.provider !== provider ||
+      (payload.intent !== "link" && payload.intent !== "replace") ||
       typeof payload.nonce !== "string" ||
       payload.nonce.length === 0 ||
       typeof payload.expiresAt !== "number" ||

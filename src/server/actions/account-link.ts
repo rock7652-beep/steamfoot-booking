@@ -12,6 +12,7 @@ import { prisma } from "@/lib/db";
 
 export async function beginOAuthAccountLinkAction(
   provider: LinkableOAuthProvider,
+  intent: "link" | "replace" = "link",
 ): Promise<{ ok: true } | { ok: false; message: string }> {
   if (provider !== "google" && provider !== "line") {
     return { ok: false, message: "不支援的登入方式" };
@@ -28,10 +29,20 @@ export async function beginOAuthAccountLinkAction(
   if (!user || user.role !== "CUSTOMER" || user.status !== "ACTIVE") {
     return { ok: false, message: "目前帳號無法補綁，請聯絡門市協助" };
   }
+  if (intent === "replace") {
+    const current = await prisma.account.findFirst({
+      where: { userId: session.id, provider },
+      select: { id: true },
+    });
+    if (!current) {
+      return { ok: false, message: "此登入方式尚未連結，請改用安全補綁" };
+    }
+  }
 
   const token = await issueAccountLinkHandshake({
     userId: session.id,
     provider,
+    intent,
   });
   const cookieStore = await cookies();
   cookieStore.set(ACCOUNT_LINK_COOKIE, token, {

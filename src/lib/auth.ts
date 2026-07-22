@@ -534,6 +534,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               targetUserId: handshake.userId,
               provider,
               account,
+              replace: handshake.intent === "replace",
             });
             if (linked.status === "rejected") {
               return `/profile?link=conflict&provider=${provider}`;
