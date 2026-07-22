@@ -35,11 +35,13 @@ interface Props {
 }
 
 type PaymentMethod = "CASH" | "TRANSFER" | "LINE_PAY" | "CREDIT_CARD" | "OTHER" | "UNPAID";
+type StaffPaymentStatus = "CONFIRMED" | "PENDING";
 
 export function AssignPlanForm({ customerId, plans, canDiscount = false, alwaysOpen = false, onSuccess, defaultPlanId }: Props) {
   const [open, setOpen] = useState(alwaysOpen);
   const [selectedPlanId, setSelectedPlanId] = useState(defaultPlanId ?? "");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("CASH");
+  const [paymentStatus, setPaymentStatus] = useState<StaffPaymentStatus>("CONFIRMED");
   const [referenceNo, setReferenceNo] = useState("");
   const [bankLast5, setBankLast5] = useState("");
   const [discountType, setDiscountType] = useState<"none" | "fixed" | "percentage">("none");
@@ -52,7 +54,8 @@ export function AssignPlanForm({ customerId, plans, canDiscount = false, alwaysO
   const [customExpiryUnit, setCustomExpiryUnit] = useState<ExpiryUnit>("DAY");
   const [customExpiryDate, setCustomExpiryDate] = useState(todayTW);
 
-  const isPending = paymentMethod === "TRANSFER" || paymentMethod === "UNPAID";
+  const isPending = paymentStatus === "PENDING";
+  const showsTransferDetails = paymentMethod === "TRANSFER" || paymentMethod === "UNPAID";
 
   const selectedPlan = useMemo(
     () => plans.find((p) => p.id === selectedPlanId),
@@ -111,12 +114,13 @@ export function AssignPlanForm({ customerId, plans, canDiscount = false, alwaysO
         customerId,
         planId,
         paymentMethod,
+        paymentStatus,
         note,
         discountType: discountType,
         discountValue: hasDiscount ? parseFloat(discountValue) : undefined,
         discountReason: discountReason || undefined,
-        referenceNo: isPending && referenceNo.trim() ? referenceNo.trim() : undefined,
-        bankLast5: isPending && bankLast5.trim() ? bankLast5.trim() : undefined,
+        referenceNo: showsTransferDetails && referenceNo.trim() ? referenceNo.trim() : undefined,
+        bankLast5: showsTransferDetails && bankLast5.trim() ? bankLast5.trim() : undefined,
         expiryMode,
         customExpiryValue:
           expiryMode === "CUSTOM_DURATION"
@@ -135,6 +139,7 @@ export function AssignPlanForm({ customerId, plans, canDiscount = false, alwaysO
         if (!alwaysOpen) setOpen(false);
         setSelectedPlanId("");
         setPaymentMethod("CASH");
+        setPaymentStatus("CONFIRMED");
         setReferenceNo("");
         setBankLast5("");
         setDiscountType("none");
@@ -195,7 +200,11 @@ export function AssignPlanForm({ customerId, plans, canDiscount = false, alwaysO
         <label className="block text-xs font-medium text-earth-600">付款方式</label>
         <select
           value={paymentMethod}
-          onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
+          onChange={(e) => {
+            const nextMethod = e.target.value as PaymentMethod;
+            setPaymentMethod(nextMethod);
+            setPaymentStatus(nextMethod === "UNPAID" ? "PENDING" : "CONFIRMED");
+          }}
           className="mt-1 w-full rounded-lg border border-earth-300 px-2.5 py-1.5 text-sm"
         >
           <option value="CASH">現金</option>
@@ -207,11 +216,32 @@ export function AssignPlanForm({ customerId, plans, canDiscount = false, alwaysO
         </select>
       </div>
 
+      {/* 款項狀態：後台由店長核帳，預設已確認收款 */}
+      <div className="mb-3">
+        <label className="block text-xs font-medium text-earth-600">款項狀態</label>
+        <select
+          value={paymentStatus}
+          onChange={(e) => setPaymentStatus(e.target.value as StaffPaymentStatus)}
+          disabled={paymentMethod === "UNPAID"}
+          className="mt-1 w-full rounded-lg border border-earth-300 px-2.5 py-1.5 text-sm disabled:bg-earth-100"
+        >
+          <option value="CONFIRMED">已確認收款（立即發放堂數）</option>
+          <option value="PENDING">尚待確認（確認入帳後發放）</option>
+        </select>
+        <p className="mt-1 text-xs text-earth-500">
+          {isPending
+            ? "送出後會進入待確認付款清單，暫不發放堂數。"
+            : "店長已確認收到款項，送出後立即發放堂數。"}
+        </p>
+      </div>
+
       {/* 轉帳參考資訊（TRANSFER / UNPAID 才顯示；optional）*/}
-      {isPending && (
+      {showsTransferDetails && (
         <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
           <p className="mb-2 text-xs text-amber-800">
-            此筆會進入「待確認付款」，需在 <code className="rounded bg-amber-100 px-1">/dashboard/payments</code> 確認入帳後才算成功。
+            {isPending
+              ? "此筆會進入「待確認付款」，確認入帳後才會發放堂數。"
+              : "此筆已確認收款，送出後會立即發放堂數，不需再次確認入帳。"}
           </p>
           <div className="grid grid-cols-2 gap-2">
             <div>
@@ -472,6 +502,7 @@ export function AssignPlanForm({ customerId, plans, canDiscount = false, alwaysO
             onClick={() => {
               setOpen(false);
               setPaymentMethod("CASH");
+              setPaymentStatus("CONFIRMED");
               setReferenceNo("");
               setBankLast5("");
               setDiscountType("none");
