@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   userFindUnique: vi.fn(),
   accountFindUnique: vi.fn(),
   accountCreate: vi.fn(),
+  accountDeleteMany: vi.fn(),
   auditCreate: vi.fn(),
 }));
 
@@ -16,6 +17,7 @@ vi.mock("@/lib/db", () => ({
         account: {
           findUnique: mocks.accountFindUnique,
           create: mocks.accountCreate,
+          deleteMany: mocks.accountDeleteMany,
         },
         auditLog: { create: mocks.auditCreate },
       }),
@@ -81,6 +83,26 @@ describe("linkVerifiedOAuthAccount", () => {
     });
     expect(mocks.accountCreate).not.toHaveBeenCalled();
     expect(mocks.auditCreate).not.toHaveBeenCalled();
+  });
+
+  it("replaces the old provider only after the verified new account is conflict-free", async () => {
+    await expect(
+      linkVerifiedOAuthAccount({
+        targetUserId: "user-1",
+        provider: "google",
+        account,
+        replace: true,
+      }),
+    ).resolves.toEqual({ status: "linked" });
+    expect(mocks.accountDeleteMany).toHaveBeenCalledWith({
+      where: { userId: "user-1", provider: "google" },
+    });
+    expect(mocks.accountDeleteMany.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.accountCreate.mock.invocationCallOrder[0],
+    );
+    expect(mocks.auditCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({ action: "LOGIN_METHOD_GOOGLE_REPLACED" }),
+    });
   });
 
   it("rejects an inactive or non-customer target", async () => {

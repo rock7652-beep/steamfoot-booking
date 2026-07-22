@@ -10,6 +10,7 @@ export async function linkVerifiedOAuthAccount(input: {
   targetUserId: string;
   provider: LinkableOAuthProvider;
   account: Account;
+  replace?: boolean;
 }): Promise<LinkOAuthAccountResult> {
   return prisma.$transaction(async (tx) => {
     const target = await tx.user.findUnique({
@@ -36,6 +37,11 @@ export async function linkVerifiedOAuthAccount(input: {
       return { status: "rejected", reason: "owned_by_other_user" } as const;
     }
 
+    if (input.replace) {
+      await tx.account.deleteMany({
+        where: { userId: input.targetUserId, provider: input.provider },
+      });
+    }
     await tx.account.create({
       data: {
         userId: input.targetUserId,
@@ -59,7 +65,7 @@ export async function linkVerifiedOAuthAccount(input: {
         actorUserId: input.targetUserId,
         targetType: "User",
         targetId: input.targetUserId,
-        action: `LOGIN_METHOD_${input.provider.toUpperCase()}_LINKED`,
+        action: `LOGIN_METHOD_${input.provider.toUpperCase()}_${input.replace ? "REPLACED" : "LINKED"}`,
       },
     });
     return { status: "linked" } as const;

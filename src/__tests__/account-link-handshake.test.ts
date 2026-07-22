@@ -21,9 +21,21 @@ describe("account link handshake", () => {
       expect.objectContaining({
         userId: "customer-user-1",
         provider: "google",
+        intent: "link",
       }),
     );
     await expect(verifyAccountLinkHandshake(token, "line")).resolves.toBeNull();
+  });
+
+  it("keeps replacement intent inside the signed payload", async () => {
+    const token = await issueAccountLinkHandshake({
+      userId: "customer-user-1",
+      provider: "google",
+      intent: "replace",
+    });
+    await expect(verifyAccountLinkHandshake(token, "google")).resolves.toEqual(
+      expect.objectContaining({ intent: "replace" }),
+    );
   });
 
   it("rejects tampering and expiry", async () => {
