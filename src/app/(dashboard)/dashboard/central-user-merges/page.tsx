@@ -29,7 +29,7 @@ export default async function CentralUserMergesPage({
       <PageHeader
         title="重複中央會員整合"
         subtitle="僅列出手機完全相符的疑似重複帳號；不會自動合併。"
-        actions={<Link href="/dashboard/member-link-reviews" className="text-sm text-primary-700">← 會員健康檢查</Link>}
+        actions={<div className="flex gap-3"><Link href="/dashboard/central-line-recipients" className="text-sm text-primary-700">中央 LINE 盤點</Link><Link href="/dashboard/member-link-reviews" className="text-sm text-primary-700">← 會員健康檢查</Link></div>}
       />
 
       <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
