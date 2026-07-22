@@ -30,7 +30,7 @@ export type ResolveLineLoginResult =
   | { status: "NEW_USER"; action: "RELOGIN"; customerId: string }
   | { status: "BOUND_EXISTING"; action: "RELOGIN"; customerId: string }
   // 已啟用顧客必須先過密碼閘
-  | { status: "NEED_LOGIN"; phone: string; customerId: string }
+  | { status: "NEED_LOGIN"; phone: string; maskedPhone: string; customerId: string }
   // 占位符 + 已預載資產（wallet/booking/transactions/points）→ 不可 silent claim
   | { status: "BLOCKED_NEEDS_STAFF"; customerId: string };
 
@@ -98,7 +98,12 @@ export async function resolveLineLogin(input: {
     if (isActivated) {
       // 🔴 NEED_LOGIN — 不動 DB，保留 temp session 等 finalize 階段使用。
       // 「找到 phone ≠ 找到本人」: 已啟用顧客必須過密碼這道閘。
-      return { status: "NEED_LOGIN", phone, customerId: byPhone.id };
+      return {
+        status: "NEED_LOGIN",
+        phone,
+        maskedPhone: `*******${phone.slice(-3)}`,
+        customerId: byPhone.id,
+      };
     }
 
     // 🟠 占位符 + 有資產（wallet/booking/transactions/points）→ BLOCKED_NEEDS_STAFF
