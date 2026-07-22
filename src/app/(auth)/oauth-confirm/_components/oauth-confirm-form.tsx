@@ -78,9 +78,9 @@ export function OAuthConfirmForm({ callbackUrl, taichungCoordinator = false }: P
           break;
         case "NEED_LOGIN": {
           // 已啟用顧客 → 強制密碼登入；登入後 finalize 才寫 lineUserId
-          setTransitioning("此手機已有會員資料，正在帶你完成 LINE 綁定…");
+          setTransitioning(`找到原有會員（手機末三碼 ${result.maskedPhone.slice(-3)}），正在帶你完成安全驗證…`);
           // 用 /oauth-confirm/login（自有頁面）而非 /login（後台 email 登入）
-          const loginUrl = `/oauth-confirm/login?phone=${encodeURIComponent(result.phone)}&customerId=${encodeURIComponent(result.customerId)}&callbackUrl=${encodeURIComponent(callbackUrl)}`;
+          const loginUrl = `/oauth-confirm/login?phone=${encodeURIComponent(result.maskedPhone)}&customerId=${encodeURIComponent(result.customerId)}&callbackUrl=${encodeURIComponent(callbackUrl)}`;
           window.location.href = loginUrl;
           break;
         }

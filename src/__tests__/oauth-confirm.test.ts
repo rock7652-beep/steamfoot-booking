@@ -168,6 +168,7 @@ describe("resolveLineLogin", () => {
     expect(r).toEqual({
       status: "NEED_LOGIN",
       phone: VALID_PHONE,
+      maskedPhone: `*******${VALID_PHONE.slice(-3)}`,
       customerId: CUSTOMER_ID,
     });
     expect(mockClearOAuthTempSession).not.toHaveBeenCalled();
@@ -193,6 +194,7 @@ describe("resolveLineLogin", () => {
     expect(r).toEqual({
       status: "NEED_LOGIN",
       phone: VALID_PHONE,
+      maskedPhone: `*******${VALID_PHONE.slice(-3)}`,
       customerId: CUSTOMER_ID,
     });
   });
