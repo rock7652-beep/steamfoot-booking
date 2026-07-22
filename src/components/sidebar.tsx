@@ -207,6 +207,16 @@ export const NAV_GROUPS: NavGroup[] = [
         ),
       },
       {
+        href: "/dashboard/member-link-reviews",
+        label: "會員資料健康檢查",
+        ownerOnly: true,
+        icon: (
+          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75l2.25 2.25L15 9.75m6-3.75c-4.5 0-7.5-1.5-9-3-1.5 1.5-4.5 3-9 3v4.5c0 5.25 3.375 8.625 9 10.5 5.625-1.875 9-5.25 9-10.5V6z" />
+          </svg>
+        ),
+      },
+      {
         href: "/dashboard/growth",
         label: "顧客經營",
         permission: "customer.read",
