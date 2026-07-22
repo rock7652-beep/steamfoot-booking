@@ -44,3 +44,26 @@ describe("assignPlanSchema — ID 欄位放寬 (.min(1))", () => {
     ).toThrow();
   });
 });
+
+describe("assignPlanSchema — 後台款項狀態", () => {
+  it("未指定時預設為已確認收款", () => {
+    expect(assignPlanSchema.parse({ ...base, paymentMethod: "TRANSFER" }).paymentStatus)
+      .toBe("CONFIRMED");
+  });
+
+  it("允許店長明確將轉帳設為尚待確認", () => {
+    expect(assignPlanSchema.parse({
+      ...base,
+      paymentMethod: "TRANSFER",
+      paymentStatus: "PENDING",
+    }).paymentStatus).toBe("PENDING");
+  });
+
+  it("未付款不可標示為已確認", () => {
+    expect(() => assignPlanSchema.parse({
+      ...base,
+      paymentMethod: "UNPAID",
+      paymentStatus: "CONFIRMED",
+    })).toThrow("未付款的款項狀態必須為尚待確認");
+  });
+});
