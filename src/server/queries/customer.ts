@@ -436,6 +436,7 @@ export type CustomerMergePreviewRow = {
   customerStage: string;
   totalPoints: number;
   hasUserId: boolean;
+  userId: string | null;
   mergedIntoCustomerId: string | null;
   bookingCount: number;
   walletCount: number;
@@ -492,6 +493,7 @@ export async function getCustomerMergePreview(
     customerStage: c.customerStage,
     totalPoints: c.totalPoints,
     hasUserId: c.userId != null,
+    userId: c.userId,
     mergedIntoCustomerId: c.mergedIntoCustomerId,
     bookingCount: c._count.bookings,
     walletCount: c._count.planWallets,

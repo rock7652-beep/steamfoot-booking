@@ -795,7 +795,28 @@ export async function mergeCustomerIntoCustomer(
       },
     });
 
-    // 簡單 audit log（實際 AuditLog 模型存在但需要更完整 schema；先 server log 留痕）
+    await tx.auditLog.create({
+      data: {
+        actorUserId: performedByUserId,
+        targetType: "Customer",
+        targetId: target.id,
+        action: "MERGE_DUPLICATE_CUSTOMER",
+        beforeJson: {
+          sourceCustomerId: source.id,
+          targetCustomerId: target.id,
+          storeId: target.storeId,
+        },
+        afterJson: {
+          sourceCustomerId: source.id,
+          targetCustomerId: target.id,
+          movedCounts,
+          mergedFields,
+          mergedAt: mergedAt.toISOString(),
+        },
+      },
+    });
+
+    // Structured runtime log complements the durable AuditLog without storing PII.
     console.info("[mergeCustomerIntoCustomer] merge completed", {
       sourceId: source.id,
       targetId: target.id,

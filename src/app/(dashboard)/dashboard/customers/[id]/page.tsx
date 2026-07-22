@@ -837,6 +837,12 @@ export default async function CustomerDetailPage({ params }: PageProps) {
                   <span>→</span>
                 </span>
               )}
+              {canManageLineRebind ? (
+                <Link href={`/dashboard/customers/merge?source=${id}`} className={quickActionBase}>
+                  <span>處理重複顧客</span>
+                  <span>→</span>
+                </Link>
+              ) : null}
               {isViewMode ? (
                 <span className={`${quickActionBase} cursor-not-allowed opacity-50`}>
                   <span>新增預約</span>
