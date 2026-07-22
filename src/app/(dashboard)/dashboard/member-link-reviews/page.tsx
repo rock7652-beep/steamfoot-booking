@@ -1,8 +1,7 @@
-import { redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { PageHeader, PageShell } from "@/components/desktop";
 import { bookingDateToday, formatTWTime } from "@/lib/date-utils";
-import { checkPermission } from "@/lib/permissions";
 import { getCurrentUser } from "@/lib/session";
 import { getActiveStoreForRead } from "@/lib/store";
 import { prisma } from "@/lib/db";
@@ -27,9 +26,25 @@ const reasonLabel = {
 
 export default async function MemberLinkReviewsPage() {
   const user = await getCurrentUser();
-  if (!user || !(await checkPermission(user.role, user.staffId, "customer.identity.rebind"))) redirect("/dashboard");
+  // Central identity health spans stores and login providers. It is an HQ
+  // operation, not a delegable store permission: OWNER may hold
+  // customer.identity.rebind for store workflows but must never reach here.
+  if (!user || user.role !== "ADMIN") notFound();
   const storeId = await getActiveStoreForRead(user);
-  if (!storeId) redirect("/dashboard");
+  if (!storeId) {
+    return (
+      <PageShell>
+        <PageHeader
+          title="中央會員資料健康檢查"
+          subtitle="僅限總部管理員使用。"
+          actions={<Link href="/dashboard" className="text-sm text-primary-700">← 回首頁</Link>}
+        />
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
+          請先從上方的分店切換器選擇一間分店，再查看該店的會員資料健康狀態。
+        </div>
+      </PageShell>
+    );
+  }
 
   const [requests, healthIssues] = await Promise.all([
     getCentralMemberLinkReviewRequests(storeId),

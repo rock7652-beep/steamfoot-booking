@@ -42,7 +42,7 @@ function form(decision = "APPROVED", note = "本人提出解除") {
 describe("reviewCentralMemberLinkAction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    h.actor.mockResolvedValue({ id: "staff-1", storeId: "store-a", role: "OWNER" });
+    h.actor.mockResolvedValue({ id: "admin-1", storeId: null, role: "ADMIN" });
     h.store.mockResolvedValue("store-a");
     h.request.mockResolvedValue({
       id: "request-1",
@@ -55,6 +55,18 @@ describe("reviewCentralMemberLinkAction", () => {
     h.wallets.mockResolvedValue(0);
     h.bookings.mockResolvedValue(0);
     h.link.mockResolvedValue({ id: "link-1" });
+  });
+
+  it("rejects store owners before resolving a store or reading review data", async () => {
+    h.actor.mockResolvedValue({ id: "owner-1", storeId: "store-a", role: "OWNER" });
+
+    await expect(reviewCentralMemberLinkAction({ error: null, success: false }, form()))
+      .resolves.toEqual({
+        error: "會員資料健康檢查僅限總部管理員處理",
+        success: false,
+      });
+    expect(h.store).not.toHaveBeenCalled();
+    expect(h.request).not.toHaveBeenCalled();
   });
 
   it("removes only the exact store-scoped identity link and audits approval", async () => {
