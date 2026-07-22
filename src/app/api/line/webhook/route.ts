@@ -5,7 +5,7 @@
 //   1. 使用原生 Response，不使用 NextResponse（避免 307）
 //   2. POST 最後一定 return 200
 //   3. 所有錯誤在 try-catch 內處理，不外拋
-//   4. B7-4.5: 每個 webhook 必須先 resolve store，失敗則安全中止
+//   4. 品牌 Channel 先以自身簽章識別；其餘 webhook 才 resolve store
 // ============================================================
 
 import {
@@ -50,16 +50,19 @@ export async function POST(req: Request) {
     const data = JSON.parse(body);
     const events: LineWebhookEvent[] = data.events ?? [];
 
-    // B7-4.5: 從 destination 解析 store
     const destination: string | undefined = data.destination;
 
-    if (isSteamButlerLineDestination(destination)) {
-      logBrandLineEvent("brand_line_destination_matched");
-      if (!signature || !verifySteamButlerLineSignature(body, signature)) {
-        console.warn("[Brand LINE] Invalid signature");
-        return new Response("Invalid signature", { status: 401 });
-      }
+    // 品牌 Channel 的身分由其簽章證明，不能依賴人工設定的 destination。
+    // 只有品牌簽章驗證失敗時，才回到既有 Store destination 解析流程。
+    if (signature && verifySteamButlerLineSignature(body, signature)) {
       logBrandLineEvent("brand_line_signature_valid");
+      if (isSteamButlerLineDestination(destination)) {
+        logBrandLineEvent("brand_line_destination_matched");
+      } else {
+        logBrandLineEvent("brand_line_destination_mismatch", {
+          destination: maskLineUserId(destination),
+        });
+      }
 
       for (const event of events) {
         try {
