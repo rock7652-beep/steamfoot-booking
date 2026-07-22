@@ -12,6 +12,12 @@ import {
   logLineBindEvent,
 } from "@/lib/line-bind-log";
 import { syncVerifiedCentralIdentity } from "@/server/services/sync-verified-central-identity";
+import { cookies } from "next/headers";
+import {
+  ACCOUNT_LINK_COOKIE,
+  verifyAccountLinkHandshake,
+} from "@/lib/account-link-handshake";
+import { linkVerifiedOAuthAccount } from "@/server/services/link-oauth-account";
 
 // ============================================================
 // NextAuth v5 type augmentation
@@ -509,6 +515,40 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!account || (account.type !== "oauth" && account.type !== "oidc")) return true;
 
         const provider = account.provider; // "google" or "line"
+
+        // Account settings uses a separately signed, short-lived HttpOnly
+        // handshake. It is issued only to an authenticated CUSTOMER and binds
+        // the verified OAuth identity back to that exact central User. This
+        // branch deliberately runs before normal store/customer resolution so
+        // linking can never create, move, or merge a store membership.
+        if (provider === "google" || provider === "line") {
+          const cookieStore = await cookies();
+          const rawHandshake = cookieStore.get(ACCOUNT_LINK_COOKIE)?.value;
+          const handshake = await verifyAccountLinkHandshake(
+            rawHandshake,
+            provider,
+          );
+          if (handshake) {
+            cookieStore.delete(ACCOUNT_LINK_COOKIE);
+            const linked = await linkVerifiedOAuthAccount({
+              targetUserId: handshake.userId,
+              provider,
+              account,
+            });
+            if (linked.status === "rejected") {
+              return `/profile?link=conflict&provider=${provider}`;
+            }
+            user.id = handshake.userId;
+            return true;
+          }
+          // A browser that entered linking mode must never silently fall back
+          // to the normal OAuth sign-in/onboarding path. Expired, tampered, or
+          // provider-mismatched handshakes fail closed with zero account write.
+          if (rawHandshake) {
+            cookieStore.delete(ACCOUNT_LINK_COOKIE);
+            return "/profile?link=expired";
+          }
+        }
 
         // Get OAuth profile info
         const oauthEmail = user.email;

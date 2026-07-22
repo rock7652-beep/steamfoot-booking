@@ -7,9 +7,16 @@ import { getStoreContext } from "@/lib/store-context";
 import { resolveCustomerForUser } from "@/server/queries/customer-completion";
 import { customerWelcomeTitle } from "@/lib/customer-welcome";
 import { resolveCentralMembershipsForUser } from "@/server/services/central-member-resolver";
+import { getCustomerLoginMethods } from "@/server/queries/customer-login-methods";
+import { LoginMethodsCard } from "./login-methods-card";
 
 interface PageProps {
-  searchParams: Promise<{ complete?: string; next?: string }>;
+  searchParams: Promise<{
+    complete?: string;
+    next?: string;
+    link?: string;
+    provider?: string;
+  }>;
 }
 
 /**
@@ -45,6 +52,13 @@ export default async function ProfilePage({ searchParams }: PageProps) {
   const centralMember = user
     ? await resolveCentralMembershipsForUser(user.id)
     : { memberships: [], conflicts: [] };
+  const loginMethods = user
+    ? await getCustomerLoginMethods(user.id)
+    : {
+        phone: { linked: false, maskedValue: null },
+        google: { linked: false, maskedValue: null },
+        line: { linked: false },
+      };
   // ── 以統一 resolver 找出本 session 對應的 customer ──────
   // 同一份邏輯也用於 updateProfileAction，確保「顯示看到的人」= 「儲存更新的人」
   type ProfileCustomer = {
@@ -170,6 +184,21 @@ export default async function ProfilePage({ searchParams }: PageProps) {
       </div>
 
       <div className="space-y-6">
+        {sp.link === "success" && (
+          <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-800">
+            登入方式已安全連結。
+          </div>
+        )}
+        {sp.link === "conflict" && (
+          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+            此{sp.provider === "line" ? " LINE" : " Google"}帳號已連結其他會員，系統未做任何變更。請聯絡門市協助確認。
+          </div>
+        )}
+        {sp.link === "expired" && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
+            安全補綁已逾時或驗證不完整，系統未做任何變更。請重新操作一次。
+          </div>
+        )}
         {/* 完成註冊 / 補件 onboarding 提示 */}
         {showOnboardingBanner && (
           <div className="rounded-2xl border border-primary-200 bg-primary-50/60 px-5 py-5 text-base">
@@ -196,7 +225,12 @@ export default async function ProfilePage({ searchParams }: PageProps) {
         )}
 
         {/* 基本資料 */}
-        <div className="rounded-2xl border border-earth-200 bg-white p-6 shadow-sm">
+        {!showOnboardingBanner && <LoginMethodsCard methods={loginMethods} />}
+
+        <div
+          id="phone-login-settings"
+          className="scroll-mt-6 rounded-2xl border border-earth-200 bg-white p-6 shadow-sm"
+        >
           <h2 className="mb-5 text-lg font-bold text-earth-900">基本資料</h2>
           <ProfileForm
             customer={customerForForm}

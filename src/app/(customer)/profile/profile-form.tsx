@@ -96,7 +96,7 @@ export function ProfileForm({
 
       <div>
         <label htmlFor="phone" className={labelCls}>
-          聯絡電話 <span className="text-red-600">*</span>
+          手機號碼 <span className="text-red-600">*</span>
         </label>
         <input
           id="phone" name="phone" type="tel" required
@@ -125,8 +125,8 @@ export function ProfileForm({
         />
         <p className={hintCls}>
           {hasPassword
-            ? "已設定密碼，可用手機號碼＋密碼登入。如要更換，輸入新密碼即可。"
-            : "首次設定後，可用手機號碼＋密碼登入。"}
+            ? "已設定手機登入。密碼留空表示不變更。"
+            : "設定後即可使用上方手機號碼＋密碼登入。"}
         </p>
       </div>
 
