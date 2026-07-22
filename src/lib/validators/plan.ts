@@ -31,6 +31,8 @@ export const assignPlanSchema = z
     customerId: z.string().min(1),
     planId: z.string().min(1),
     paymentMethod: z.enum(["CASH", "TRANSFER", "LINE_PAY", "CREDIT_CARD", "OTHER", "UNPAID"]),
+    // 後台指派方案預設代表店長已核帳；只有明確選擇 PENDING 才延後發堂。
+    paymentStatus: z.enum(["CONFIRMED", "PENDING"]).optional().default("CONFIRMED"),
     note: z.string().max(500).optional(),
     // 折扣
     discountType: z.enum(["none", "fixed", "percentage"]).optional().default("none"),
@@ -56,6 +58,13 @@ export const assignPlanSchema = z
       .optional(),
   })
   .superRefine((data, ctx) => {
+    if (data.paymentMethod === "UNPAID" && data.paymentStatus !== "PENDING") {
+      ctx.addIssue({
+        code: "custom",
+        path: ["paymentStatus"],
+        message: "未付款的款項狀態必須為尚待確認",
+      });
+    }
     if (data.expiryMode === "CUSTOM_DURATION") {
       if (data.customExpiryValue == null || data.customExpiryValue <= 0) {
         ctx.addIssue({

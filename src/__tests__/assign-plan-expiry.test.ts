@@ -17,6 +17,7 @@ const PLAN_ID_90D = "ck0000000000000000000p90";
 const PLAN_ID_NO_EXPIRY = "ck0000000000000000000p00";
 const STAFF_ID = "ck0000000000000000000s01";
 const OWNER_USER_ID = "ck0000000000000000000u01";
+const WALLET_ID = "ck0000000000000000000w01";
 
 // 固定「台灣今天 = 2026-05-03」讓 expiryDate 計算結果可預期
 vi.mock("@/lib/date-utils", async () => {
@@ -127,7 +128,7 @@ beforeEach(() => {
   mockCheckPermission.mockResolvedValue(true);
   mockCustomerFindUnique.mockResolvedValue(CUSTOMER);
   mockWalletCreate.mockImplementation(async (args: { data: { expiryDate: Date | null } }) => ({
-    id: "ck0000000000000000000w01",
+    id: WALLET_ID,
     expiryDate: args.data.expiryDate,
   }));
   mockTransactionCreate.mockImplementation(async () => ({
@@ -182,14 +183,35 @@ describe("assignPlanToCustomer — PLAN_DEFAULT", () => {
   });
 });
 
-describe("assignPlanToCustomer — pending payment entitlement gate", () => {
-  it.each(["TRANSFER", "UNPAID"] as const)("%s 僅建立待確認交易，不建立 wallet", async (paymentMethod) => {
+describe("assignPlanToCustomer — staff payment status", () => {
+  it("轉帳預設已確認，立即建立 wallet", async () => {
+    mockServicePlanFindUnique.mockResolvedValue(PLAN_90D);
+    const { assignPlanToCustomer } = await import("@/server/actions/wallet");
+    const result = await assignPlanToCustomer({
+      customerId: CUSTOMER_ID,
+      planId: PLAN_ID_90D,
+      paymentMethod: "TRANSFER",
+    });
+
+    expect(result.success).toBe(true);
+    expect(mockWalletCreate).toHaveBeenCalled();
+    expect(mockTransactionCreate).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        paymentStatus: "SUCCESS",
+        customerPlanWalletId: WALLET_ID,
+        pendingWalletExpiryDateSnapshot: null,
+      }),
+    }));
+  });
+
+  it.each(["TRANSFER", "UNPAID"] as const)("%s 明確選擇尚待確認時不建立 wallet", async (paymentMethod) => {
     mockServicePlanFindUnique.mockResolvedValue(PLAN_90D);
     const { assignPlanToCustomer } = await import("@/server/actions/wallet");
     const result = await assignPlanToCustomer({
       customerId: CUSTOMER_ID,
       planId: PLAN_ID_90D,
       paymentMethod,
+      paymentStatus: "PENDING",
     });
 
     expect(result.success).toBe(true);
@@ -212,6 +234,7 @@ describe("assignPlanToCustomer — pending payment entitlement gate", () => {
       customerId: CUSTOMER_ID,
       planId: PLAN_ID_90D,
       paymentMethod: "TRANSFER",
+      paymentStatus: "PENDING",
       expiryMode: "CUSTOM_DURATION",
       customExpiryValue: 6,
       customExpiryUnit: "MONTH",
@@ -230,6 +253,7 @@ describe("assignPlanToCustomer — pending payment entitlement gate", () => {
       customerId: CUSTOMER_ID,
       planId: PLAN_ID_90D,
       paymentMethod: "UNPAID",
+      paymentStatus: "PENDING",
       expiryMode: "CUSTOM_DATE",
       customExpiryDate: "2026-12-31",
     });
