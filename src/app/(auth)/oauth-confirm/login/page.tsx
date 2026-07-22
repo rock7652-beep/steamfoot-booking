@@ -55,10 +55,10 @@ export default async function OAuthConfirmLoginPage({ searchParams }: PageProps)
       <div className="rounded-lg border border-earth-200 bg-white p-5 shadow-sm">
         <h1 className="mb-1 flex items-center gap-1.5 text-base font-semibold text-earth-900">
           <span aria-hidden>🔐</span>
-          <span>請輸入密碼</span>
+          <span>找到您原有的蒸管家會員</span>
         </h1>
         <p className="mb-4 text-sm text-earth-600">
-          此手機已有會員資料，請先登入以完成 LINE 綁定
+          請輸入原本密碼確認本人，再完成 LINE 綁定。
         </p>
         <div className="mb-4 rounded-md bg-earth-50 px-3 py-2">
           <p className="text-xs text-earth-500">手機號碼</p>
@@ -68,6 +68,9 @@ export default async function OAuthConfirmLoginPage({ searchParams }: PageProps)
           customerId={customerId}
           callbackUrl={callbackUrl ?? "/"}
         />
+        <p className="mt-4 text-xs leading-5 text-earth-500">
+          完成後只連結目前門店，不會合併其他門店的方案、堂數、預約或帳務。
+        </p>
       </div>
     </main>
   );
