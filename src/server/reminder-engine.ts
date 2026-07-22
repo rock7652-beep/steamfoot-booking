@@ -27,6 +27,7 @@ import {
   addTaiwanDuration,
   parseTaiwanDateToDbDate,
 } from "@/lib/date-utils";
+import { resolveCentralLineRecipientsForCustomers } from "@/server/services/central-line-recipient-loader";
 
 const DEFAULT_TEMPLATE = `{{customerName}} 您好！
 
@@ -81,7 +82,7 @@ export function tomorrowBookingDate(now: Date = new Date()): Date {
  * 流程：
  *   1. 取所有啟用的 ReminderRule
  *   2. 對每個 rule，找「明天 (TW)」的所有 PENDING / CONFIRMED 預約
- *      （顧客已綁 LINE）
+ *      （收件人稍後由中央 LINE 身份解析器判定）
  *   3. 對每筆預約：dedupe 後送 LINE push，寫入 MessageLog
  */
 export async function runReminders(): Promise<SendResult> {
@@ -119,10 +120,6 @@ export async function runReminders(): Promise<SendResult> {
         storeId: rule.storeId,
         bookingDate,
         bookingStatus: { in: ["PENDING", "CONFIRMED"] },
-        customer: {
-          lineLinkStatus: "LINKED",
-          lineUserId: { not: null },
-        },
       },
       include: {
         customer: { include: { assignedStaff: true } },
@@ -146,10 +143,25 @@ export async function runReminders(): Promise<SendResult> {
     }
 
     const templateBody = rule.template?.body ?? DEFAULT_TEMPLATE;
+    const recipients = await resolveCentralLineRecipientsForCustomers(
+      bookings.map((booking) => booking.customer.id),
+    );
 
     for (const booking of bookings) {
       const customer = booking.customer;
       const bookingStoreId = booking.storeId;
+      const recipient = recipients.get(customer.id);
+      if (!recipient?.deliverable || !recipient.recipientLineUserId) {
+        result.skipped++;
+        result.details.push({
+          customerId: customer.id,
+          bookingId: booking.id,
+          ruleName: rule.name,
+          status: "SKIPPED",
+          error: `Central LINE recipient blocked: ${recipient?.status ?? "CUSTOMER_NOT_FOUND"}`,
+        });
+        continue;
+      }
 
       // 防重複（同 ruleId + bookingId + 今天的 triggerAt）— unique 索引兜底
       const existingLog = await prisma.messageLog.findFirst({
@@ -229,7 +241,7 @@ export async function runReminders(): Promise<SendResult> {
       const renderedBody = renderTemplate(templateBody, vars);
 
       // 發送 LINE push
-      const sendResult = await pushMessage(bookingStoreId, customer.lineUserId!, [
+      const sendResult = await pushMessage(bookingStoreId, recipient.recipientLineUserId, [
         { type: "text", text: renderedBody },
       ]);
 

@@ -11,7 +11,6 @@ interface Props {
 
 export function LineSmokeTestCard({ storeName, customers }: Props) {
   const [customerId, setCustomerId] = useState("");
-  const [lineUserId, setLineUserId] = useState("");
   const [pending, setPending] = useState(false);
   const [lastResult, setLastResult] = useState<{
     status: "success" | "error";
@@ -25,8 +24,7 @@ export function LineSmokeTestCard({ storeName, customers }: Props) {
 
     try {
       const result = await sendLineSmokeTest({
-        customerId: customerId || undefined,
-        lineUserId: lineUserId || undefined,
+        customerId,
       });
 
       if (result.success) {
@@ -64,7 +62,7 @@ export function LineSmokeTestCard({ storeName, customers }: Props) {
         </span>
       </div>
 
-      <form onSubmit={handleSubmit} className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+      <form onSubmit={handleSubmit} className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
         <label className="block">
           <span className="text-xs font-medium text-earth-700">已綁定顧客</span>
           <select
@@ -72,7 +70,7 @@ export function LineSmokeTestCard({ storeName, customers }: Props) {
             onChange={(e) => setCustomerId(e.target.value)}
             className="mt-1 h-10 w-full rounded-lg border border-earth-200 bg-white px-3 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-200"
           >
-            <option value="">不選擇</option>
+            <option value="">請選擇中央 LINE 已對齊顧客</option>
             {customers.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name} / {c.phone}
@@ -81,20 +79,10 @@ export function LineSmokeTestCard({ storeName, customers }: Props) {
           </select>
         </label>
 
-        <label className="block">
-          <span className="text-xs font-medium text-earth-700">測試 lineUserId</span>
-          <input
-            value={lineUserId}
-            onChange={(e) => setLineUserId(e.target.value.trim())}
-            placeholder="同店已綁定顧客的 LINE userId"
-            className="mt-1 h-10 w-full rounded-lg border border-earth-200 bg-white px-3 text-sm text-earth-800 placeholder:text-earth-400 focus:outline-none focus:ring-2 focus:ring-primary-200"
-          />
-        </label>
-
         <div className="flex items-end">
           <button
             type="submit"
-            disabled={pending || (!customerId && !lineUserId)}
+            disabled={pending || !customerId}
             className="h-10 rounded-lg bg-primary-600 px-4 text-sm font-medium text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {pending ? "送出中..." : "送出測試"}
