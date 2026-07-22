@@ -73,7 +73,7 @@ export default async function MemberLinkReviewsPage() {
       <PageHeader
         title="中央會員資料健康檢查"
         subtitle="集中查看重複顧客、登入身分衝突與顧客提出的會員連結申請。"
-        actions={<Link href="/dashboard" className="text-sm text-primary-700">← 回首頁</Link>}
+        actions={<div className="flex gap-3"><Link href="/dashboard/central-user-merges" className="text-sm text-primary-700">重複中央會員整合</Link><Link href="/dashboard" className="text-sm text-primary-700">← 回首頁</Link></div>}
       />
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
