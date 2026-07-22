@@ -9,6 +9,8 @@ import crypto from "crypto";
 import {
   getLineAccessTokenForStore,
   getLineSecretForStore,
+  getSteamButlerLineAccessToken,
+  getSteamButlerLineSecret,
   LINE_SECRET_NOT_CONFIGURED_ERROR,
   LINE_TOKEN_NOT_CONFIGURED_ERROR,
 } from "@/lib/line-config";
@@ -68,11 +70,23 @@ export function verifyLineSignature(
 ): boolean {
   const secret = getLineSecretForStore(storeId);
   if (!secret) return false;
+  return verifyLineSignatureWithSecret(body, signature, secret);
+}
+
+export function verifySteamButlerLineSignature(body: string, signature: string): boolean {
+  const secret = getSteamButlerLineSecret();
+  if (!secret) return false;
+  return verifyLineSignatureWithSecret(body, signature, secret);
+}
+
+function verifyLineSignatureWithSecret(body: string, signature: string, secret: string): boolean {
   const hash = crypto
     .createHmac("SHA256", secret)
     .update(body)
     .digest("base64");
-  return hash === signature;
+  const expected = Buffer.from(hash, "utf8");
+  const received = Buffer.from(signature, "utf8");
+  return expected.length === received.length && crypto.timingSafeEqual(expected, received);
 }
 
 /** Push message to a specific user */
@@ -121,8 +135,22 @@ export async function replyMessage(
   replyToken: string,
   messages: LineMessage[]
 ): Promise<{ success: boolean; error?: string }> {
+  return replyMessageWithAccessToken(getLineAccessTokenForStore(storeId), replyToken, messages);
+}
+
+export async function replySteamButlerMessage(
+  replyToken: string,
+  messages: LineMessage[]
+): Promise<{ success: boolean; error?: string }> {
+  return replyMessageWithAccessToken(getSteamButlerLineAccessToken(), replyToken, messages);
+}
+
+async function replyMessageWithAccessToken(
+  token: string | null,
+  replyToken: string,
+  messages: LineMessage[]
+): Promise<{ success: boolean; error?: string }> {
   try {
-    const token = getLineAccessTokenForStore(storeId);
     if (!token) {
       return { success: false, error: LINE_TOKEN_NOT_CONFIGURED_ERROR };
     }

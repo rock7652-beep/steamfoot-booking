@@ -8,8 +8,16 @@
 //   4. B7-4.5: 每個 webhook 必須先 resolve store，失敗則安全中止
 // ============================================================
 
-import { verifyLineSignature, replyMessage } from "@/lib/line";
-import { getLineWebhookDiagnosticsForStore } from "@/lib/line-config";
+import {
+  verifyLineSignature,
+  verifySteamButlerLineSignature,
+  replyMessage,
+  replySteamButlerMessage,
+} from "@/lib/line";
+import {
+  getLineWebhookDiagnosticsForStore,
+  isSteamButlerLineDestination,
+} from "@/lib/line-config";
 import { prisma } from "@/lib/db";
 import { normalizePhone } from "@/lib/normalize";
 import { bindLineToCustomerInStore } from "@/server/services/bind-line-to-customer";
@@ -44,6 +52,24 @@ export async function POST(req: Request) {
 
     // B7-4.5: 從 destination 解析 store
     const destination: string | undefined = data.destination;
+
+    if (isSteamButlerLineDestination(destination)) {
+      if (!signature || !verifySteamButlerLineSignature(body, signature)) {
+        console.warn("[Brand LINE] Invalid signature");
+        return new Response("Invalid signature", { status: 401 });
+      }
+
+      for (const event of events) {
+        try {
+          await handleSteamButlerEvent(event);
+        } catch {
+          console.error("[Brand LINE] Event handler error");
+        }
+      }
+
+      return new Response("OK", { status: 200 });
+    }
+
     const storeId = await resolveStoreFromDestination(destination);
 
     if (!storeId) {
@@ -82,6 +108,22 @@ export async function POST(req: Request) {
     console.error("[LINE Webhook] Fatal error:", err);
     // 即使出錯也回 200，避免 LINE 重試轟炸
     return new Response("OK", { status: 200 });
+  }
+}
+
+async function handleSteamButlerEvent(event: LineWebhookEvent) {
+  if (
+    event.type !== "message" ||
+    event.message?.type !== "text" ||
+    event.message.text !== "找到適合方案" ||
+    !event.replyToken
+  ) {
+    return;
+  }
+
+  const result = await replySteamButlerMessage(event.replyToken, [PLAN_RECOMMENDATION_MESSAGE]);
+  if (!result.success) {
+    console.error("[Brand LINE] Reply failed");
   }
 }
 

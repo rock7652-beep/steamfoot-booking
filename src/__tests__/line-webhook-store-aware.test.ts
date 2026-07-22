@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const verifyLineSignatureMock = vi.fn(
   (_storeId: string, _body: string, _signature: string) => true,
@@ -6,6 +6,15 @@ const verifyLineSignatureMock = vi.fn(
 const replyMessageMock = vi.fn(
   async (
     _storeId: string,
+    _replyToken: string,
+    _messages: unknown[],
+  ): Promise<{ success: boolean; error?: string }> => ({ success: true }),
+);
+const verifySteamButlerLineSignatureMock = vi.fn(
+  (_body: string, _signature: string) => true,
+);
+const replySteamButlerMessageMock = vi.fn(
+  async (
     _replyToken: string,
     _messages: unknown[],
   ): Promise<{ success: boolean; error?: string }> => ({ success: true }),
@@ -30,6 +39,10 @@ vi.mock("@/lib/line", () => ({
     verifyLineSignatureMock(storeId, body, signature),
   replyMessage: (storeId: string, replyToken: string, messages: unknown[]) =>
     replyMessageMock(storeId, replyToken, messages),
+  verifySteamButlerLineSignature: (body: string, signature: string) =>
+    verifySteamButlerLineSignatureMock(body, signature),
+  replySteamButlerMessage: (replyToken: string, messages: unknown[]) =>
+    replySteamButlerMessageMock(replyToken, messages),
 }));
 
 vi.mock("@/server/services/line-account-sync", () => ({
@@ -59,10 +72,16 @@ function postReq(body: unknown, signature = "line-signature") {
 }
 
 describe("LINE webhook store-aware signature and reply", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     verifyLineSignatureMock.mockReturnValue(true);
     replyMessageMock.mockResolvedValue({ success: true });
+    verifySteamButlerLineSignatureMock.mockReturnValue(true);
+    replySteamButlerMessageMock.mockResolvedValue({ success: true });
     bindLineToCustomerInStoreMock.mockReset();
     mockPrisma.store.findFirst.mockResolvedValue({ id: "store-hsinchu" });
   });
@@ -167,6 +186,71 @@ describe("LINE webhook store-aware signature and reply", () => {
 
     expect(res.status).toBe(200);
     expect(replyMessageMock).not.toHaveBeenCalled();
+  });
+
+  it("handles the brand destination without querying a Store", async () => {
+    vi.stubEnv("STEAM_BUTLER_LINE_DESTINATION", "D_brand_support");
+    const body = {
+      destination: "D_brand_support",
+      events: [
+        {
+          type: "message",
+          replyToken: "reply-token-brand-plan",
+          message: { type: "text", id: "message-brand-plan", text: "找到適合方案" },
+        },
+      ],
+    };
+
+    const { POST } = await import("@/app/api/line/webhook/route");
+    const res = await POST(postReq(body, "brand-signature"));
+
+    expect(res.status).toBe(200);
+    expect(verifySteamButlerLineSignatureMock).toHaveBeenCalledWith(JSON.stringify(body), "brand-signature");
+    expect(mockPrisma.store.findFirst).not.toHaveBeenCalled();
+    expect(replySteamButlerMessageMock).toHaveBeenCalledWith("reply-token-brand-plan", [
+      expect.objectContaining({ type: "flex", altText: "找到適合你的方案" }),
+    ]);
+  });
+
+  it("rejects an invalid signature for the brand destination before handling events", async () => {
+    vi.stubEnv("STEAM_BUTLER_LINE_DESTINATION", "D_brand_support");
+    verifySteamButlerLineSignatureMock.mockReturnValueOnce(false);
+    const body = {
+      destination: "D_brand_support",
+      events: [{ type: "message", replyToken: "reply-token", message: { type: "text", text: "找到適合方案" } }],
+    };
+
+    const { POST } = await import("@/app/api/line/webhook/route");
+    const res = await POST(postReq(body, "invalid-brand-signature"));
+
+    expect(res.status).toBe(401);
+    expect(mockPrisma.store.findFirst).not.toHaveBeenCalled();
+    expect(replySteamButlerMessageMock).not.toHaveBeenCalled();
+  });
+
+  it("does not reply to non-whitelisted brand text", async () => {
+    vi.stubEnv("STEAM_BUTLER_LINE_DESTINATION", "D_brand_support");
+    const body = {
+      destination: "D_brand_support",
+      events: [{ type: "message", replyToken: "reply-token", message: { type: "text", text: "其他文字" } }],
+    };
+
+    const { POST } = await import("@/app/api/line/webhook/route");
+    const res = await POST(postReq(body));
+
+    expect(res.status).toBe(200);
+    expect(mockPrisma.store.findFirst).not.toHaveBeenCalled();
+    expect(replySteamButlerMessageMock).not.toHaveBeenCalled();
+  });
+
+  it("returns 200 for signed brand verification events without querying a Store", async () => {
+    vi.stubEnv("STEAM_BUTLER_LINE_DESTINATION", "D_brand_support");
+    const { POST } = await import("@/app/api/line/webhook/route");
+    const res = await POST(postReq({ destination: "D_brand_support", events: [] }));
+
+    expect(res.status).toBe(200);
+    expect(mockPrisma.store.findFirst).not.toHaveBeenCalled();
+    expect(replySteamButlerMessageMock).not.toHaveBeenCalled();
   });
 
   it("safely ignores events whose destination does not map to a store", async () => {
