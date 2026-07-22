@@ -253,6 +253,13 @@ async function handleTextMessage(
 ) {
   console.log("[LINE] Text message received", { userId: maskLineUserId(lineUserId), storeId, textLength: text.length });
 
+  if (text === "找到適合方案") {
+    if (replyToken) {
+      await replyMessage(storeId, replyToken, [PLAN_RECOMMENDATION_MESSAGE]);
+    }
+    return;
+  }
+
   // 解析「綁定 XXXXXX」格式（大小寫不敏感）
   const bindMatch = text.match(/^綁定\s*([A-Z0-9]{6})$/i);
   if (bindMatch) {
@@ -276,6 +283,60 @@ async function handleTextMessage(
   }
   // 未來可在此擴充其他指令（查詢預約等）
 }
+
+const PLAN_RECOMMENDATION_MESSAGE = {
+  type: "flex" as const,
+  altText: "找到適合你的方案",
+  contents: {
+    type: "bubble",
+    body: {
+      type: "box",
+      layout: "vertical",
+      spacing: "md",
+      contents: [
+        {
+          type: "text",
+          text: "找到適合你的方案",
+          weight: "bold",
+          size: "xl",
+          wrap: true,
+        },
+        {
+          type: "text",
+          text: "蒸管家依照店家規模與需求，提供適合的方案。\n另有幫助店家省心、省錢的顧客經營加購功能。\n不確定怎麼選？我們會協助你找到適合的方案。",
+          size: "sm",
+          color: "#666666",
+          wrap: true,
+        },
+      ],
+    },
+    footer: {
+      type: "box",
+      layout: "vertical",
+      spacing: "sm",
+      contents: [
+        {
+          type: "button",
+          style: "primary",
+          action: {
+            type: "uri",
+            label: "開始 1 分鐘店務健檢",
+            uri: "https://steam-butler-check.vercel.app/",
+          },
+        },
+        {
+          type: "button",
+          style: "secondary",
+          action: {
+            type: "message",
+            label: "找真人管家聊聊",
+            text: "我想了解適合我的方案",
+          },
+        },
+      ],
+    },
+  },
+};
 
 async function handlePhoneBindingRequest(
   lineUserId: string,

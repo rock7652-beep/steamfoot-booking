@@ -186,7 +186,13 @@ export interface LineTextMessage {
   text: string;
 }
 
-export type LineMessage = LineTextMessage;
+export interface LineFlexMessage {
+  type: "flex";
+  altText: string;
+  contents: Record<string, unknown>;
+}
+
+export type LineMessage = LineTextMessage | LineFlexMessage;
 
 // ============================================================
 // Template rendering

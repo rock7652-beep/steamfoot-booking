@@ -119,6 +119,78 @@ describe("LINE webhook store-aware signature and reply", () => {
     expect(replyMessageMock).not.toHaveBeenCalled();
   });
 
+  it("replies with the plan Flex Message for the exact trigger text", async () => {
+    const body = {
+      destination: "D_hsinchu",
+      events: [
+        {
+          type: "message",
+          replyToken: "reply-token-plan",
+          source: { type: "user", userId: "U_hsinchu_customer" },
+          message: { type: "text", id: "message-plan", text: "找到適合方案" },
+        },
+      ],
+    };
+
+    const { POST } = await import("@/app/api/line/webhook/route");
+    const res = await POST(postReq(body));
+
+    expect(res.status).toBe(200);
+    expect(replyMessageMock).toHaveBeenCalledWith("store-hsinchu", "reply-token-plan", [
+      expect.objectContaining({
+        type: "flex",
+        altText: "找到適合你的方案",
+        contents: expect.objectContaining({
+          body: expect.objectContaining({
+            contents: expect.arrayContaining([
+              expect.objectContaining({ text: "找到適合你的方案" }),
+            ]),
+          }),
+          footer: expect.objectContaining({
+            contents: expect.arrayContaining([
+              expect.objectContaining({
+                action: expect.objectContaining({ uri: "https://steam-butler-check.vercel.app/" }),
+              }),
+              expect.objectContaining({
+                action: expect.objectContaining({ text: "我想了解適合我的方案" }),
+              }),
+            ]),
+          }),
+        }),
+      }),
+    ]);
+  });
+
+  it("returns 200 for LINE webhook verification events without replying", async () => {
+    const { POST } = await import("@/app/api/line/webhook/route");
+    const res = await POST(postReq({ destination: "D_hsinchu", events: [] }));
+
+    expect(res.status).toBe(200);
+    expect(replyMessageMock).not.toHaveBeenCalled();
+  });
+
+  it("safely ignores events whose destination does not map to a store", async () => {
+    mockPrisma.store.findFirst.mockResolvedValueOnce(null);
+    const body = {
+      destination: "D_unmapped",
+      events: [
+        {
+          type: "message",
+          replyToken: "reply-token-plan",
+          source: { type: "user", userId: "U_customer" },
+          message: { type: "text", id: "message-plan", text: "找到適合方案" },
+        },
+      ],
+    };
+
+    const { POST } = await import("@/app/api/line/webhook/route");
+    const res = await POST(postReq(body));
+
+    expect(res.status).toBe(200);
+    expect(verifyLineSignatureMock).not.toHaveBeenCalled();
+    expect(replyMessageMock).not.toHaveBeenCalled();
+  });
+
   it("does not enter phone binding when the hsinchu signature is unavailable", async () => {
     verifyLineSignatureMock.mockReturnValueOnce(false);
     const body = {
