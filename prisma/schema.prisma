@@ -238,6 +238,13 @@ enum ReminderChannel {
   SMS
 }
 
+// Messaging API route selected for a LINE reminder.
+// NULL on legacy/manual rows where no automatic route was selected.
+enum ReminderLineRoute {
+  CENTRAL
+  STORE
+}
+
 enum ReminderStatus {
   PENDING
   SENT
@@ -1830,6 +1837,7 @@ model MessageLog {
   // 規範：自動規則路徑（ruleId + bookingId 同時有值）必須寫入；純手動發送可為 NULL
   triggerAt    DateTime?
   channel      ReminderChannel  @default(LINE)
+  lineRoute    ReminderLineRoute?
   status       MessageLogStatus @default(PENDING)
   renderedBody String? // 替換變數後的實際內容
   errorMessage String?
@@ -1848,6 +1856,7 @@ model MessageLog {
   @@index([bookingId])
   @@index([status])
   @@index([storeId])
+  @@index([lineRoute])
   @@index([createdAt])
 }
 
