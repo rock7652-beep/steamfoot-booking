@@ -141,6 +141,9 @@ CREATE UNIQUE INDEX "DigitalButlerStep_flowVersionId_position_key" ON "DigitalBu
 CREATE UNIQUE INDEX "DigitalButlerStep_id_storeId_key" ON "DigitalButlerStep"("id", "storeId");
 CREATE INDEX "DigitalButlerStep_storeId_flowVersionId_idx" ON "DigitalButlerStep"("storeId", "flowVersionId");
 CREATE INDEX "DigitalButlerConversation_storeId_channelIdentity_lineUserIdHash_status_idx" ON "DigitalButlerConversation"("storeId", "channelIdentity", "lineUserIdHash", "status");
+CREATE UNIQUE INDEX "DigitalButlerConversation_one_active_identity_key"
+  ON "DigitalButlerConversation"("storeId", "channelIdentity", "lineUserIdHash")
+  WHERE "status" IN ('IN_PROGRESS', 'WAITING_INPUT');
 CREATE INDEX "DigitalButlerConversation_storeId_expiresAt_idx" ON "DigitalButlerConversation"("storeId", "expiresAt");
 CREATE UNIQUE INDEX "DigitalButlerConversation_id_storeId_key" ON "DigitalButlerConversation"("id", "storeId");
 CREATE UNIQUE INDEX "DigitalButlerAnswer_conversationId_stepId_key" ON "DigitalButlerAnswer"("conversationId", "stepId");

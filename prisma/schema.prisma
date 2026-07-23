@@ -743,6 +743,9 @@ model DigitalButlerConversation {
   leads           DigitalButlerLead[]
   executionLogs   DigitalButlerExecutionLog[]
 
+  // PostgreSQL partial unique index in the PR-1 migration enforces one
+  // IN_PROGRESS/WAITING_INPUT row per store + LINE identity. Prisma schema
+  // cannot represent that predicate, so keep this lookup index as well.
   @@unique([id, storeId])
   @@index([storeId, channelIdentity, lineUserIdHash, status])
   @@index([storeId, expiresAt])

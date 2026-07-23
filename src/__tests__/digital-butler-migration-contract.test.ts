@@ -40,4 +40,24 @@ describe("Digital Butler PR-1 additive migration contract", () => {
     expect(migration).toContain('FOREIGN KEY ("conversationId", "storeId") REFERENCES "DigitalButlerConversation"("id", "storeId")');
     expect(migration).toContain('FOREIGN KEY ("stepId", "storeId") REFERENCES "DigitalButlerStep"("id", "storeId")');
   });
+
+  it("rejects concurrent or retried active conversations for the same LINE identity", () => {
+    const activeIdentityIndex = [
+      'CREATE UNIQUE INDEX "DigitalButlerConversation_one_active_identity_key"',
+      'ON "DigitalButlerConversation"("storeId", "channelIdentity", "lineUserIdHash")',
+      `WHERE "status" IN ('IN_PROGRESS', 'WAITING_INPUT')`,
+    ];
+
+    for (const clause of activeIdentityIndex) {
+      expect(migration).toContain(clause);
+    }
+
+    // Completed, cancelled, and expired rows remain valid history and must not
+    // prevent a later conversation for the same store-scoped LINE identity.
+    const predicate = migration.slice(
+      migration.indexOf(activeIdentityIndex[0]),
+      migration.indexOf(";", migration.indexOf(activeIdentityIndex[0])) + 1,
+    );
+    expect(predicate).not.toMatch(/\b(COMPLETED|CANCELLED|EXPIRED|IDLE)\b/);
+  });
 });
