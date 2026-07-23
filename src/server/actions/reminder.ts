@@ -86,7 +86,7 @@ export async function previewBookingLineTestReminder(
       select: {
         customerId: true,
         storeId: true,
-        customer: { select: { lineUserId: true } },
+        customer: { select: { lineUserId: true, lineLinkStatus: true } },
       },
     });
     if (!booking) throw new AppError("NOT_FOUND", "找不到同店預約");
@@ -95,7 +95,12 @@ export async function previewBookingLineTestReminder(
       booking.customerId,
       booking.storeId,
     );
-    const route = resolveReminderLineRoute(booking.customer.lineUserId, recipient);
+    const route = resolveReminderLineRoute(
+      booking.customer.lineLinkStatus === "LINKED"
+        ? booking.customer.lineUserId
+        : null,
+      recipient,
+    );
     if (route.status === "BLOCKED") {
       throw new AppError("BUSINESS_RULE", `LINE 收件人無法使用（${route.reason}）`);
     }
@@ -581,7 +586,12 @@ export async function sendBookingLineTestReminder(
       booking.customerId,
       booking.storeId,
     );
-    const route = resolveReminderLineRoute(booking.customer.lineUserId, recipient);
+    const route = resolveReminderLineRoute(
+      booking.customer.lineLinkStatus === "LINKED"
+        ? booking.customer.lineUserId
+        : null,
+      recipient,
+    );
     if (route.status === "BLOCKED") {
       throw new AppError("BUSINESS_RULE", `LINE 收件人無法使用（${route.reason}）`);
     }

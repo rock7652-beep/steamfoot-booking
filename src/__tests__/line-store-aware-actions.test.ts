@@ -315,6 +315,7 @@ describe("LINE sending actions are store-aware", () => {
         id: "customer-1",
         name: "黃彥陸",
         lineUserId: "U_store_customer",
+        lineLinkStatus: "LINKED",
         assignedStaff: { displayName: "店長" },
       },
     });
@@ -355,5 +356,34 @@ describe("LINE sending actions are store-aware", () => {
         action: "SEND_LINE_TEST_REMINDER",
       }),
     });
+  });
+
+  it("single-booking test does not use a stale store LINE id when the customer is blocked", async () => {
+    mockPrisma.booking.findFirst.mockResolvedValueOnce({
+      id: "booking-blocked",
+      storeId: "store-hsinchu",
+      customerId: "customer-blocked",
+      bookingStatus: "CONFIRMED",
+      bookingDate: new Date("2026-07-24T00:00:00.000Z"),
+      slotTime: "16:30",
+      customer: {
+        id: "customer-blocked",
+        name: "封鎖顧客",
+        lineUserId: "U_stale_store_customer",
+        lineLinkStatus: "BLOCKED",
+        assignedStaff: null,
+      },
+    });
+    mockPrisma.messageLog.findFirst.mockResolvedValueOnce(null);
+
+    const { sendBookingLineTestReminder } = await import("@/server/actions/reminder");
+    const result = await sendBookingLineTestReminder({ bookingId: "booking-blocked" });
+
+    expect(result).toEqual({
+      success: false,
+      error: "LINE 收件人無法使用（NO_CENTRAL_LINE）",
+    });
+    expect(pushMessageMock).not.toHaveBeenCalled();
+    expect(pushSteamButlerMessageMock).not.toHaveBeenCalled();
   });
 });
