@@ -36,9 +36,20 @@ describe("Digital Butler PR-1 additive migration contract", () => {
 
   it("enforces same-store foreign keys instead of relying only on service checks", () => {
     expect(migration).toContain('FOREIGN KEY ("flowId", "storeId") REFERENCES "StoreDigitalButlerFlow"("id", "storeId")');
-    expect(migration).toContain('FOREIGN KEY ("flowVersionId", "storeId") REFERENCES "DigitalButlerFlowVersion"("id", "storeId")');
     expect(migration).toContain('FOREIGN KEY ("conversationId", "storeId") REFERENCES "DigitalButlerConversation"("id", "storeId")');
     expect(migration).toContain('FOREIGN KEY ("stepId", "storeId") REFERENCES "DigitalButlerStep"("id", "storeId")');
+  });
+
+  it("rejects a conversation whose version belongs to another flow in the same store", () => {
+    expect(migration).toContain(
+      'CREATE UNIQUE INDEX "DigitalButlerFlowVersion_id_flowId_storeId_key" ON "DigitalButlerFlowVersion"("id", "flowId", "storeId")',
+    );
+    expect(migration).toContain(
+      'FOREIGN KEY ("flowVersionId", "flowId", "storeId") REFERENCES "DigitalButlerFlowVersion"("id", "flowId", "storeId")',
+    );
+    expect(schema).toContain(
+      "@relation(fields: [flowVersionId, flowId, storeId], references: [id, flowId, storeId], onDelete: Restrict)",
+    );
   });
 
   it("rejects concurrent or retried active conversations for the same LINE identity", () => {

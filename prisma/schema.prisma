@@ -701,6 +701,7 @@ model DigitalButlerFlowVersion {
 
   @@unique([flowId, version])
   @@unique([id, storeId])
+  @@unique([id, flowId, storeId])
   @@index([storeId, flowId])
 }
 
@@ -738,7 +739,7 @@ model DigitalButlerConversation {
   updatedAt       DateTime                        @updatedAt
   store           Store                           @relation(fields: [storeId], references: [id], onDelete: Cascade)
   flow            StoreDigitalButlerFlow          @relation(fields: [flowId, storeId], references: [id, storeId], onDelete: Restrict)
-  flowVersion     DigitalButlerFlowVersion        @relation(fields: [flowVersionId, storeId], references: [id, storeId], onDelete: Restrict)
+  flowVersion     DigitalButlerFlowVersion        @relation(fields: [flowVersionId, flowId, storeId], references: [id, flowId, storeId], onDelete: Restrict)
   answers         DigitalButlerAnswer[]
   leads           DigitalButlerLead[]
   executionLogs   DigitalButlerExecutionLog[]
