@@ -46,7 +46,8 @@ function maskLineUserId(value: string | null): string | null {
  * - Customer.userId and verified identity links may identify the central User;
  * - phone/name/email never participate;
  * - the recipient always comes from Account(provider="line"), never a legacy field;
- * - every legacy/identity-link LINE value must agree with that account;
+ * - store-channel LINE ids are historical channel-scoped identities and do not
+ *   need to equal the central LINE Login id;
  * - conflicts return no recipient so callers cannot accidentally send.
  */
 export function resolveCentralLineRecipient(
@@ -86,23 +87,6 @@ export function resolveCentralLineRecipient(
   }
 
   const recipientLineUserId = [...accountLineIds][0];
-  const linkedLineIds = new Set(
-    input.identityLinks
-      .filter((link) => link.provider === "line")
-      .flatMap((link) => [link.providerAccountId, link.lineUserId])
-      .filter((value): value is string => Boolean(value?.trim()))
-      .map((value) => value.trim()),
-  );
-  if ([...linkedLineIds].some((value) => value !== recipientLineUserId)) {
-    return { ...base, centralUserId, status: "IDENTITY_LINK_CONFLICT" };
-  }
-  if (
-    input.legacyLineUserId?.trim() &&
-    input.legacyLineUserId.trim() !== recipientLineUserId
-  ) {
-    return { ...base, centralUserId, status: "LEGACY_LINE_CONFLICT" };
-  }
-
   return {
     customerId: input.customerId,
     status: "READY",
