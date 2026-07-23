@@ -29,20 +29,23 @@ export function resolveReminderLineRoute(
   legacyStoreLineUserId: string | null,
   centralRecipient: CentralLineRecipientResolution | null | undefined,
 ): ReminderLineRoute {
+  // A verified central identity is the canonical route. The historical
+  // store-scoped recipient remains a compatibility fallback only while the
+  // customer has not completed central LINE binding.
+  if (centralRecipient?.deliverable && centralRecipient.recipientLineUserId) {
+    return {
+      status: "READY",
+      channel: "CENTRAL",
+      recipientLineUserId: centralRecipient.recipientLineUserId,
+    };
+  }
+
   const legacyRecipient = legacyStoreLineUserId?.trim();
   if (legacyRecipient) {
     return {
       status: "READY",
       channel: "STORE",
       recipientLineUserId: legacyRecipient,
-    };
-  }
-
-  if (centralRecipient?.deliverable && centralRecipient.recipientLineUserId) {
-    return {
-      status: "READY",
-      channel: "CENTRAL",
-      recipientLineUserId: centralRecipient.recipientLineUserId,
     };
   }
 

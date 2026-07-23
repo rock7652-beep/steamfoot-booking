@@ -89,6 +89,7 @@ async function recordSkippedReminder(input: {
   triggerAt: Date;
   storeId: string;
   reason: string;
+  lineRoute?: "CENTRAL" | "STORE" | null;
 }): Promise<void> {
   try {
     await prisma.messageLog.create({
@@ -99,6 +100,7 @@ async function recordSkippedReminder(input: {
         bookingId: input.bookingId,
         triggerAt: input.triggerAt,
         channel: "LINE",
+        lineRoute: input.lineRoute ?? null,
         status: "SKIPPED",
         errorMessage: input.reason,
         storeId: input.storeId,
@@ -282,6 +284,7 @@ export async function runReminders(): Promise<SendResult> {
             triggerAt,
             storeId: bookingStoreId,
             reason,
+            lineRoute: route.channel,
           });
           result.skipped++;
           result.details.push({
@@ -327,6 +330,7 @@ export async function runReminders(): Promise<SendResult> {
             bookingId: booking.id,
             triggerAt,
             channel: "LINE",
+            lineRoute: route.channel,
             status: sendResult.success ? "SENT" : "FAILED",
             renderedBody,
             errorMessage: sendResult.error ?? null,

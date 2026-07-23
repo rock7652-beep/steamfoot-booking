@@ -68,6 +68,7 @@ type LogRow = {
   sentAt: Date | null;
   templateId?: string | null;
   channel?: string;
+  lineRoute?: "CENTRAL" | "STORE" | null;
   renderedBody?: string | null;
   errorMessage?: string | null;
 };
@@ -191,6 +192,7 @@ const mockPrisma = {
         createdAt: new Date(),
         templateId: data.templateId ?? null,
         channel: data.channel ?? "LINE",
+        lineRoute: data.lineRoute ?? null,
         renderedBody: data.renderedBody ?? null,
         errorMessage: data.errorMessage ?? null,
       };
@@ -244,13 +246,9 @@ vi.mock("@/server/services/central-line-recipient-loader", () => ({
       customerIds.map((customerId) => {
         const override = centralRecipientOverrides.get(customerId);
         if (override) return [customerId, override];
-        const booking = bookings.find((row) => row.customerId === customerId);
-        const lineUserId = booking?.customer.lineUserId ?? null;
         return [
           customerId,
-          lineUserId
-            ? { status: "READY", deliverable: true, recipientLineUserId: lineUserId }
-            : { status: "NO_CENTRAL_LINE", deliverable: false, recipientLineUserId: null },
+          { status: "NO_CENTRAL_LINE", deliverable: false, recipientLineUserId: null },
         ];
       }),
     ),
@@ -416,6 +414,7 @@ describe("runReminders (daily next-day batch)", () => {
     expect(result.failed).toBe(0);
     expect(messageLogs).toHaveLength(1);
     expect(messageLogs[0].status).toBe("SENT");
+    expect(messageLogs[0].lineRoute).toBe("STORE");
     // triggerAt = 今天 18:00 TW = 今天 10:00 UTC
     expect(messageLogs[0].triggerAt?.toISOString()).toBe("2026-05-11T10:00:00.000Z");
     expect(pushMessageMock).toHaveBeenCalledTimes(1);
@@ -625,9 +624,10 @@ describe("runReminders (daily next-day batch)", () => {
     expect(pushSteamButlerMessageMock).toHaveBeenCalledWith("U-central-only", [
       { type: "text", text: expect.any(String) },
     ]);
+    expect(messageLogs[0].lineRoute).toBe("CENTRAL");
   });
 
-  it("中央與分店 LINE 同時存在時只送分店 Channel 一次", async () => {
+  it("中央與分店 LINE 同時存在時只送中央 Channel 一次", async () => {
     vi.setSystemTime(new Date("2026-05-11T10:00:00.000Z"));
     bookings.push(
       makeBooking({
@@ -646,11 +646,45 @@ describe("runReminders (daily next-day batch)", () => {
     const result = await engine.runReminders();
 
     expect(result.sent).toBe(1);
-    expect(pushMessageMock).toHaveBeenCalledTimes(1);
-    expect(pushMessageMock).toHaveBeenCalledWith(STORE_ID, LINE_USER_ID, [
+    expect(pushMessageMock).not.toHaveBeenCalled();
+    expect(pushSteamButlerMessageMock).toHaveBeenCalledTimes(1);
+    expect(pushSteamButlerMessageMock).toHaveBeenCalledWith("U-central", [
       { type: "text", text: expect.any(String) },
     ]);
-    expect(pushSteamButlerMessageMock).not.toHaveBeenCalled();
+    expect(messageLogs[0].lineRoute).toBe("CENTRAL");
+  });
+
+  it("中央發送失敗時不改送分店，避免狀態不明造成重複通知", async () => {
+    vi.setSystemTime(new Date("2026-05-11T10:00:00.000Z"));
+    bookings.push(
+      makeBooking({
+        customerId: "central-failure",
+        bookingDate: new Date("2026-05-12T00:00:00.000Z"),
+      }),
+    );
+    centralRecipientOverrides.set("central-failure", {
+      status: "READY",
+      deliverable: true,
+      recipientLineUserId: "U-central-failure",
+    });
+    rules.push(makeRule());
+    pushSteamButlerMessageMock.mockResolvedValueOnce({
+      success: false,
+      error: "LINE central 500",
+    });
+
+    const { engine } = await loadModules();
+    const result = await engine.runReminders();
+
+    expect(result.failed).toBe(1);
+    expect(result.sent).toBe(0);
+    expect(pushSteamButlerMessageMock).toHaveBeenCalledTimes(1);
+    expect(pushMessageMock).not.toHaveBeenCalled();
+    expect(messageLogs[0]).toMatchObject({
+      status: "FAILED",
+      lineRoute: "CENTRAL",
+      errorMessage: "LINE central 500",
+    });
   });
 
   it("idempotent：同一天重跑兩次 → 第二次 SKIPPED 不重複寫入", async () => {

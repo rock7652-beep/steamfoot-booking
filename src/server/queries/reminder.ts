@@ -6,6 +6,7 @@ import { getActiveStoreForRead, validateStoreAccess } from "@/lib/store";
 import { AppError } from "@/lib/errors";
 import { todayReminderTriggerAt, tomorrowBookingDate } from "@/server/reminder-engine";
 import { resolveCentralLineRecipientsForCustomers } from "@/server/services/central-line-recipient-loader";
+import { resolveReminderLineRoute } from "@/server/services/reminder-line-route";
 
 // ============================================================
 // ReminderRule queries
@@ -190,7 +191,11 @@ export async function getReminderStats(activeStoreId?: string | null) {
           bookingDate: tomorrowDate,
           bookingStatus: { in: ["PENDING", "CONFIRMED"] },
         },
-        select: { id: true, customerId: true },
+        select: {
+          id: true,
+          customerId: true,
+          customer: { select: { lineUserId: true } },
+        },
       });
       if (bookings.length === 0) continue;
       const recipients = await resolveCentralLineRecipientsForCustomers(bookings.map((booking) => booking.customerId));
@@ -208,7 +213,12 @@ export async function getReminderStats(activeStoreId?: string | null) {
       const sentSet = new Set(sentLogs.map((l) => l.bookingId).filter(Boolean));
 
       for (const b of bookings) {
-        if (!sentSet.has(b.id) && recipients.get(b.customerId)?.deliverable) todayPending++;
+        if (sentSet.has(b.id)) continue;
+        const route = resolveReminderLineRoute(
+          b.customer.lineUserId,
+          recipients.get(b.customerId),
+        );
+        if (route.status === "READY") todayPending++;
       }
     }
   }
