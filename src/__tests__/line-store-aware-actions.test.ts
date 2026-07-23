@@ -16,7 +16,12 @@ const pushSteamButlerMessageMock = vi.fn(
   async (
     _lineUserId: string,
     _messages: unknown[],
-  ): Promise<{ success: boolean; error?: string }> => {
+  ): Promise<{
+    success: boolean;
+    error?: string;
+    httpStatus?: number;
+    errorType?: "line_api_rejected";
+  }> => {
     void _lineUserId;
     void _messages;
     return { success: true };
@@ -355,6 +360,53 @@ describe("LINE sending actions are store-aware", () => {
         targetId: "booking-1",
         action: "SEND_LINE_TEST_REMINDER",
       }),
+    });
+  });
+
+  it("single-booking test falls back to an active store route after a definite central 400 rejection", async () => {
+    resolveCentralLineRecipientForCustomerMock.mockResolvedValueOnce({
+      status: "READY",
+      deliverable: true,
+      recipientLineUserId: "U_central_customer",
+    });
+    mockPrisma.booking.findFirst.mockResolvedValueOnce({
+      id: "booking-central-400",
+      storeId: "store-hsinchu",
+      customerId: "customer-1",
+      bookingStatus: "CONFIRMED",
+      bookingDate: new Date("2026-07-24T00:00:00.000Z"),
+      slotTime: "16:30",
+      customer: {
+        id: "customer-1",
+        name: "黃彥陸",
+        lineUserId: "U_store_customer",
+        lineLinkStatus: "LINKED",
+        assignedStaff: null,
+      },
+    });
+    mockPrisma.messageLog.findFirst.mockResolvedValueOnce(null);
+    mockPrisma.reminderRule.findFirst.mockResolvedValueOnce(null);
+    pushSteamButlerMessageMock.mockResolvedValueOnce({
+      success: false,
+      error: 'LINE API 400: {"message":"Failed to send messages"}',
+      httpStatus: 400,
+      errorType: "line_api_rejected",
+    });
+
+    const { sendBookingLineTestReminder } = await import("@/server/actions/reminder");
+    const result = await sendBookingLineTestReminder({ bookingId: "booking-central-400" });
+
+    expect(result).toEqual({
+      success: true,
+      data: { messageLogId: "message-log-1", lineRoute: "STORE" },
+    });
+    expect(pushMessageMock).toHaveBeenCalledWith(
+      "store-hsinchu",
+      "U_store_customer",
+      [{ type: "text", text: expect.stringContaining("【測試提醒｜不影響正式排程】") }],
+    );
+    expect(mockPrisma.messageLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ lineRoute: "STORE", status: "SENT" }),
     });
   });
 

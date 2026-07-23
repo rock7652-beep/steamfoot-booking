@@ -37,6 +37,13 @@ export type LineReplyResult =
       errorType: "token_not_configured" | "line_api_rejected" | "network_error";
     };
 
+export type LinePushResult = {
+  success: boolean;
+  error?: string;
+  httpStatus?: number;
+  errorType?: "line_api_rejected";
+};
+
 /**
  * Read the Messaging API Bot Info for a store without logging or exposing the
  * access token. Callers must keep `userId` server-side unless they have an
@@ -103,7 +110,7 @@ export async function pushMessage(
   storeId: string,
   lineUserId: string,
   messages: LineMessage[]
-): Promise<{ success: boolean; error?: string }> {
+): Promise<LinePushResult> {
   return pushMessageWithAccessToken(
     getLineAccessTokenForStore(storeId),
     lineUserId,
@@ -114,7 +121,7 @@ export async function pushMessage(
 export async function pushSteamButlerMessage(
   lineUserId: string,
   messages: LineMessage[],
-): Promise<{ success: boolean; error?: string }> {
+): Promise<LinePushResult> {
   return pushMessageWithAccessToken(
     getSteamButlerLineAccessToken(),
     lineUserId,
@@ -126,7 +133,7 @@ async function pushMessageWithAccessToken(
   token: string | null,
   lineUserId: string,
   messages: LineMessage[],
-): Promise<{ success: boolean; error?: string }> {
+): Promise<LinePushResult> {
   try {
     if (!token) {
       return { success: false, error: LINE_TOKEN_NOT_CONFIGURED_ERROR };
@@ -148,6 +155,8 @@ async function pushMessageWithAccessToken(
       return {
         success: false,
         error: `LINE API ${res.status}: ${JSON.stringify(err)}`,
+        httpStatus: res.status,
+        errorType: "line_api_rejected",
       };
     }
 

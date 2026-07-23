@@ -626,10 +626,24 @@ export async function sendBookingLineTestReminder(
 
 ${renderedReminder}`;
     const messages = [{ type: "text" as const, text: renderedBody }];
-    const result =
+    let actualRoute = route.channel;
+    let result =
       route.channel === "STORE"
         ? await pushMessage(storeId, route.recipientLineUserId, messages)
         : await pushSteamButlerMessage(route.recipientLineUserId, messages);
+    const storeRecipient =
+      booking.customer.lineLinkStatus === "LINKED"
+        ? booking.customer.lineUserId?.trim()
+        : null;
+    if (
+      route.channel === "CENTRAL" &&
+      !result.success &&
+      result.httpStatus === 400 &&
+      storeRecipient
+    ) {
+      result = await pushMessage(storeId, storeRecipient, messages);
+      actualRoute = "STORE";
+    }
 
     const [log] = await prisma.$transaction([
       prisma.messageLog.create({
@@ -638,7 +652,7 @@ ${renderedReminder}`;
           bookingId: booking.id,
           templateId: rule?.templateId ?? null,
           channel: "LINE",
-          lineRoute: route.channel,
+          lineRoute: actualRoute,
           status: result.success ? "SENT" : "FAILED",
           renderedBody,
           errorMessage: result.error ?? null,
@@ -653,7 +667,7 @@ ${renderedReminder}`;
           targetId: booking.id,
           action: "SEND_LINE_TEST_REMINDER",
           afterJson: {
-            lineRoute: route.channel,
+            lineRoute: actualRoute,
             success: result.success,
           },
         },
@@ -668,7 +682,7 @@ ${renderedReminder}`;
     }
     return {
       success: true,
-      data: { messageLogId: log.id, lineRoute: route.channel },
+      data: { messageLogId: log.id, lineRoute: actualRoute },
     };
   } catch (e) {
     return handleActionError(e);

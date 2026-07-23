@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
   previewBookingLineTestReminder,
@@ -22,7 +22,8 @@ export function LineTestReminderModal({
   customerName,
   dateLabel,
 }: Props) {
-  const [pending, startTransition] = useTransition();
+  const [pending, setPending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
   const [sentRoute, setSentRoute] = useState<"CENTRAL" | "STORE" | null>(null);
   const [plannedRoute, setPlannedRoute] = useState<"CENTRAL" | "STORE" | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
@@ -33,6 +34,7 @@ export function LineTestReminderModal({
     setSentRoute(null);
     setPlannedRoute(null);
     setPreviewError(null);
+    setSendError(null);
   } else if (!open && previewedFor !== null) {
     setPreviewedFor(null);
   }
@@ -64,18 +66,28 @@ export function LineTestReminderModal({
 
   if (!open) return null;
 
-  function handleSend() {
-    startTransition(async () => {
+  async function handleSend() {
+    setPending(true);
+    setSendError(null);
+    try {
       const result = await sendBookingLineTestReminder({ bookingId });
       if (!result.success) {
-        toast.error(result.error ?? "測試提醒發送失敗");
+        const message = result.error ?? "測試提醒發送失敗";
+        setSendError(message);
+        toast.error(message);
         return;
       }
       setSentRoute(result.data.lineRoute);
       toast.success(
         `測試提醒已由${result.data.lineRoute === "CENTRAL" ? "蒸管家中央 LINE" : "分店 LINE"}發送`,
       );
-    });
+    } catch {
+      const message = "發送失敗，請稍後再試";
+      setSendError(message);
+      toast.error(message);
+    } finally {
+      setPending(false);
+    }
   }
 
   return (
@@ -121,6 +133,11 @@ export function LineTestReminderModal({
           {sentRoute && (
             <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800">
               發送成功：{sentRoute === "CENTRAL" ? "蒸管家中央 LINE" : "分店 LINE"}
+            </div>
+          )}
+          {sendError && (
+            <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {sendError}
             </div>
           )}
         </div>
