@@ -34,6 +34,19 @@ export type CentralUserMergeVerification = {
   checkedCustomerRecords: number;
 };
 
+function storeMemberships(user: CentralUserMergeSnapshot) {
+  const memberships = new Map<string, Set<string>>();
+  const add = (storeId: string, customerId: string) => {
+    const customerIds = memberships.get(storeId) ?? new Set<string>();
+    customerIds.add(customerId);
+    memberships.set(storeId, customerIds);
+  };
+
+  if (user.customer) add(user.customer.storeId, user.customer.id);
+  for (const link of user.identityLinks) add(link.storeId, link.customerId);
+  return memberships;
+}
+
 export function buildCentralUserMergePlan(
   source: CentralUserMergeSnapshot,
   target: CentralUserMergeSnapshot,
@@ -69,6 +82,25 @@ export function buildCentralUserMergePlan(
   if (source.customer && target.customer) {
     blockers.push("兩個會員都直接連到顧客資料；請先完成店內重複顧客處理");
   }
+
+  // A central User must resolve to exactly one Customer per store, regardless
+  // of whether that membership came from the legacy direct relation or a
+  // phone / LINE / Google CustomerIdentityLink.  Comparing by provider alone
+  // can miss a LINE link and a Google link that point at different Customers
+  // in the same store.  Fail during dry-run instead of relying on a later
+  // database unique violation and transaction rollback.
+  const combinedStoreMemberships = storeMemberships(source);
+  for (const [storeId, customerIds] of storeMemberships(target)) {
+    const combined = combinedStoreMemberships.get(storeId) ?? new Set<string>();
+    for (const customerId of customerIds) combined.add(customerId);
+    combinedStoreMemberships.set(storeId, combined);
+  }
+  for (const [storeId, customerIds] of combinedStoreMemberships) {
+    if (customerIds.size > 1) {
+      blockers.push(`分店 ${storeId} 對應不同顧客；一個中央會員在同店只能有一筆會員資料`);
+    }
+  }
+
   if (!target.hasPassword && source.hasPassword) {
     warnings.push("來源會員的密碼不會覆蓋主要會員；請確認主要會員仍有可用登入方式");
   }

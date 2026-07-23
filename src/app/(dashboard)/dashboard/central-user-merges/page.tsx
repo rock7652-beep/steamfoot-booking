@@ -33,7 +33,7 @@ export default async function CentralUserMergesPage({
       />
 
       <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-        姓名相同不視為重複。請先核對本人與分店資料，再指定來源帳號及主要帳號。任何 LINE、Google、店內顧客或跨店連結衝突都會阻擋。
+        姓名相同不視為重複。請先核對本人與分店資料，再指定來源帳號及主要帳號。同一個中央會員在同一家店只能對應一筆顧客；即使分別使用 LINE、Google 或手機登入，只要指向不同顧客就會阻擋。
       </div>
 
       <div className="grid gap-3 sm:grid-cols-3">
