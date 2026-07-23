@@ -563,7 +563,7 @@ describe("markCompleted — PACKAGE_SESSION 必須綁定方案才能完成", () 
     expect(result.success).toBe(true);
   });
 
-  it("FIRST_TRIAL + 無 wallet → 允許（體驗不需方案）", async () => {
+  it("FIRST_TRIAL + 已收款 + 無 wallet → 允許（提前收款後完成服務）", async () => {
     mockBookingFindUnique.mockResolvedValue({
       id: "booking-3",
       storeId: STORE_A,
@@ -579,11 +579,38 @@ describe("markCompleted — PACKAGE_SESSION 必須綁定方案才能完成", () 
       serviceStaffId: null,
       customer: { sponsorId: null, customerStage: "ACTIVE" },
     });
+    mockTransactionFindFirst.mockResolvedValue({ id: "tx_trial_paid" });
 
     const { markCompleted } = await import("@/server/actions/booking");
     const result = await markCompleted("booking-3");
 
     expect(result.success).toBe(true);
+  });
+
+  it("FIRST_TRIAL + 尚未收款 → 拒絕完成服務", async () => {
+    mockBookingFindUnique.mockResolvedValue({
+      id: "booking-trial-unpaid",
+      storeId: STORE_A,
+      customerId: NO_PLAN_CUSTOMER_ID,
+      bookingDate: new Date("2026-04-27T00:00:00Z"),
+      slotTime: "11:00",
+      bookingStatus: "PENDING",
+      bookingType: "FIRST_TRIAL",
+      isMakeup: false,
+      customerPlanWalletId: null,
+      customerPlanWallet: null,
+      revenueStaffId: null,
+      serviceStaffId: null,
+      customer: { sponsorId: null, customerStage: "ACTIVE" },
+    });
+    mockTransactionFindFirst.mockResolvedValue(null);
+
+    const { markCompleted } = await import("@/server/actions/booking");
+    const result = await markCompleted("booking-trial-unpaid");
+
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toMatch(/請先完成體驗收款/);
+    expect(mockTx).not.toHaveBeenCalled();
   });
 });
 

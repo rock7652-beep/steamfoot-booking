@@ -22,6 +22,8 @@ import {
 } from "@/lib/validators/trial-booking";
 import { buildTransactionSnapshot } from "@/lib/transaction-snapshot";
 import { revalidateBookings, revalidateTransactions } from "@/lib/revalidation";
+import { completePaidBookingInTransaction } from "@/server/services/paid-booking-completion";
+import { createBookingCompletedEvent } from "@/server/services/referral-events";
 import type { TrialSettings } from "@/lib/shop-config";
 import type { ActionResult } from "@/types";
 import type { PaymentMethod, TransactionType } from "@prisma/client";
@@ -259,10 +261,11 @@ export async function createTrialBooking(
 
 export async function collectTrialPayment(
   input: z.infer<typeof collectTrialPaymentSchema>,
-): Promise<ActionResult<{ transactionId: string }>> {
+): Promise<ActionResult<{ transactionId: string; serviceCompleted: boolean }>> {
   try {
     const user = await requireWritablePermission("trial.confirm");
     const data = collectTrialPaymentSchema.parse(input);
+    const completeService = data.completeService === true;
     const storeId = currentStoreId(user);
     // 訂閱到期保護：到期店家不可體驗收款（無訂閱店不擋）
     await assertStoreSubscriptionWritable(storeId);
@@ -282,7 +285,9 @@ export async function collectTrialPayment(
         people: true,
         // PR-3d：實到人數（partial attendance）。null = 未記錄 → 視為全到。
         attendedPeople: true,
-        customer: { select: { assignedStaffId: true } },
+        bookingDate: true,
+        slotTime: true,
+        customer: { select: { assignedStaffId: true, sponsorId: true } },
       },
     });
     if (!booking) throw new AppError("NOT_FOUND", "預約不存在或不屬於本店");
@@ -372,7 +377,7 @@ export async function collectTrialPayment(
       // PR-3d flow pivot：收款時若同步確認了實際到店人數，在同一 transaction 內
       // 寫入 Booking.attendedPeople。同 transaction 保證「收款成功 AND
       // attendedPeople 已記錄」原子成立；取消收款／中途錯誤皆 rollback，DB 不留髒值。
-      if (data.attendedPeople != null) {
+      if (data.attendedPeople != null && !completeService) {
         await txClient.booking.update({
           where: { id: booking.id },
           data: { attendedPeople: data.attendedPeople },
@@ -381,7 +386,7 @@ export async function collectTrialPayment(
 
       // wallet-free：不帶 customerPlanWalletId，不建 WalletSession，
       // 不呼叫 assignPlanToCustomer。
-      return txClient.transaction.create({
+      const transaction = await txClient.transaction.create({
         data: {
           customerId: booking.customerId,
           bookingId: booking.id,
@@ -397,11 +402,43 @@ export async function collectTrialPayment(
           ...snapshot,
         },
       });
+
+      if (completeService) {
+        await completePaidBookingInTransaction(txClient, {
+          bookingId: booking.id,
+          bookingType: booking.bookingType,
+          customerId: booking.customerId,
+          storeId,
+          bookingDate: booking.bookingDate,
+          slotTime: booking.slotTime,
+          serviceStaffId: user.staffId ?? null,
+          attendedPeople: effectivePeople,
+        });
+      }
+
+      return transaction;
     });
+
+    if (completeService) {
+      try {
+        await createBookingCompletedEvent({
+          storeId,
+          customerId: booking.customerId,
+          referrerId: booking.customer.sponsorId ?? null,
+          bookingId: booking.id,
+          source: "collect-and-complete",
+        });
+      } catch {
+        // 埋點失敗不影響已原子完成的收款與服務。
+      }
+    }
 
     revalidateBookings(booking.customerId);
     revalidateTransactions(booking.customerId);
-    return { success: true, data: { transactionId: result.id } };
+    return {
+      success: true,
+      data: { transactionId: result.id, serviceCompleted: completeService },
+    };
   } catch (e) {
     return handleActionError(e);
   }

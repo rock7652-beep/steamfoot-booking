@@ -58,6 +58,9 @@ export const collectTrialPaymentSchema = z.object({
   // 1..booking.people（server 端再驗 ≤ booking.people 與 type=FIRST_TRIAL）；
   // 省略則維持向後相容（不寫 attendedPeople，沿用 booking.attendedPeople 計算 clamp）。
   attendedPeople: z.number().int().min(1).max(4).optional(),
+  // 現場服務結束後收款時，一個 transaction 同時收款並完成服務；
+  // 提前轉帳僅收款時傳 false。預設 false 保留既有呼叫的向後相容。
+  completeService: z.boolean().optional(),
 });
 
 // 體驗 499 PR-3b：收款更正 = 作廢原 TRIAL_PURCHASE + 重建新 TRIAL_PURCHASE SUCCESS。

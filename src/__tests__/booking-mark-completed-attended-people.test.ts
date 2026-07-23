@@ -40,6 +40,7 @@ vi.mock("@/lib/session", () => ({
 }));
 vi.mock("@/lib/permissions", () => ({
   requirePermission: vi.fn(async () => ({ id: "u1", role: "OWNER", storeId: STORE, staffId: "s1" })),
+  requireWritablePermission: vi.fn(async () => ({ id: "u1", role: "OWNER", storeId: STORE, staffId: "s1" })),
 }));
 vi.mock("@/lib/store", () => ({
   currentStoreId: (u: { storeId?: string | null }) => u.storeId ?? STORE,
@@ -106,7 +107,8 @@ const lastUpdateData = (): Record<string, unknown> =>
 beforeEach(() => {
   vi.clearAllMocks();
   mockTxBookingUpdate.mockResolvedValue({});
-  mockTxTransactionFindFirst.mockResolvedValue(null);
+  // FIRST_TRIAL 必須已有成功收款，才能單獨走 markCompleted（提前收款情境）。
+  mockTxTransactionFindFirst.mockResolvedValue({ id: "tx_paid" });
   mockTransaction.mockImplementation(async (cb: (tx: unknown) => Promise<unknown>) => {
     return cb({
       booking: { update: mockTxBookingUpdate },

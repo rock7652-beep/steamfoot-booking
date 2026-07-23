@@ -18,4 +18,6 @@ export const collectSinglePaymentSchema = z.object({
   amount: z.number().int().min(1).max(1_000_000).optional(),
   discountReason: z.string().max(500).optional(),
   note: z.string().max(500).optional(),
+  // 現場收款預設由 UI 傳 true；提前轉帳可傳 false，僅留下已收款狀態。
+  completeService: z.boolean().optional(),
 });
