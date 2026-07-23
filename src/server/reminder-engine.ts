@@ -316,9 +316,23 @@ export async function runReminders(): Promise<SendResult> {
 
       // 發送 LINE push
       const messages = [{ type: "text" as const, text: renderedBody }];
-      const sendResult = route.channel === "STORE"
+      let actualRoute = route.channel;
+      let sendResult = route.channel === "STORE"
         ? await pushMessage(bookingStoreId, route.recipientLineUserId, messages)
         : await pushSteamButlerMessage(route.recipientLineUserId, messages);
+      const storeRecipient =
+        customer.lineLinkStatus === "LINKED"
+          ? customer.lineUserId?.trim()
+          : null;
+      if (
+        route.channel === "CENTRAL" &&
+        !sendResult.success &&
+        sendResult.httpStatus === 400 &&
+        storeRecipient
+      ) {
+        sendResult = await pushMessage(bookingStoreId, storeRecipient, messages);
+        actualRoute = "STORE";
+      }
 
       // 寫入 MessageLog（unique 索引為 race condition 保險）
       try {
@@ -330,7 +344,7 @@ export async function runReminders(): Promise<SendResult> {
             bookingId: booking.id,
             triggerAt,
             channel: "LINE",
-            lineRoute: route.channel,
+            lineRoute: actualRoute,
             status: sendResult.success ? "SENT" : "FAILED",
             renderedBody,
             errorMessage: sendResult.error ?? null,
