@@ -104,8 +104,30 @@ export async function pushMessage(
   lineUserId: string,
   messages: LineMessage[]
 ): Promise<{ success: boolean; error?: string }> {
+  return pushMessageWithAccessToken(
+    getLineAccessTokenForStore(storeId),
+    lineUserId,
+    messages,
+  );
+}
+
+export async function pushSteamButlerMessage(
+  lineUserId: string,
+  messages: LineMessage[],
+): Promise<{ success: boolean; error?: string }> {
+  return pushMessageWithAccessToken(
+    getSteamButlerLineAccessToken(),
+    lineUserId,
+    messages,
+  );
+}
+
+async function pushMessageWithAccessToken(
+  token: string | null,
+  lineUserId: string,
+  messages: LineMessage[],
+): Promise<{ success: boolean; error?: string }> {
   try {
-    const token = getLineAccessTokenForStore(storeId);
     if (!token) {
       return { success: false, error: LINE_TOKEN_NOT_CONFIGURED_ERROR };
     }

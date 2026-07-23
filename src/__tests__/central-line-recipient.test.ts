@@ -41,16 +41,16 @@ describe("resolveCentralLineRecipient", () => {
     expect(resolveCentralLineRecipient(input({ users: [{ id: "user-a", status: "ACTIVE", accounts: [{ provider: "line", providerAccountId: LINE_ID }, { provider: "line", providerAccountId: "U-different-central" }] }] })).status).toBe("CENTRAL_LINE_CONFLICT");
   });
 
-  it("blocks identity-link drift", () => {
+  it("allows a channel-scoped identity-link id when it belongs to the same central user", () => {
     const result = resolveCentralLineRecipient(input({ identityLinks: [{ userId: "user-a", provider: "line", providerAccountId: "U-other", lineUserId: "U-other" }] }));
-    expect(result.status).toBe("IDENTITY_LINK_CONFLICT");
-    expect(result.deliverable).toBe(false);
+    expect(result.status).toBe("READY");
+    expect(result.recipientLineUserId).toBe(LINE_ID);
   });
 
-  it("blocks legacy store binding drift", () => {
+  it("allows a channel-scoped legacy store id to differ from central LINE", () => {
     const result = resolveCentralLineRecipient(input({ legacyLineUserId: "U-other-store-binding" }));
-    expect(result.status).toBe("LEGACY_LINE_CONFLICT");
-    expect(result.recipientLineUserId).toBeNull();
+    expect(result.status).toBe("READY");
+    expect(result.recipientLineUserId).toBe(LINE_ID);
   });
 
   it("blocks inactive central users", () => {

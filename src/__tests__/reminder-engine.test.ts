@@ -75,6 +75,11 @@ type LogRow = {
 let bookings: BookingRow[] = [];
 let rules: RuleRow[] = [];
 let messageLogs: LogRow[] = [];
+let centralRecipientOverrides = new Map<string, {
+  status: string;
+  deliverable: boolean;
+  recipientLineUserId: string | null;
+}>();
 const mockHasStoreFeature = vi.fn();
 
 // ── Mock Prisma P2002 error class ──
@@ -237,6 +242,8 @@ vi.mock("@/server/services/central-line-recipient-loader", () => ({
   resolveCentralLineRecipientsForCustomers: async (customerIds: string[]) =>
     new Map(
       customerIds.map((customerId) => {
+        const override = centralRecipientOverrides.get(customerId);
+        if (override) return [customerId, override];
         const booking = bookings.find((row) => row.customerId === customerId);
         const lineUserId = booking?.customer.lineUserId ?? null;
         return [
@@ -262,9 +269,21 @@ const pushMessageMock = vi.fn(
     return { success: true };
   },
 );
+const pushSteamButlerMessageMock = vi.fn(
+  async (
+    lineUserId: string,
+    messages: unknown[],
+  ): Promise<{ success: boolean; error?: string }> => {
+    void lineUserId;
+    void messages;
+    return { success: true };
+  },
+);
 vi.mock("@/lib/line", () => ({
   pushMessage: (storeId: string, lineUserId: string, messages: unknown[]) =>
     pushMessageMock(storeId, lineUserId, messages),
+  pushSteamButlerMessage: (lineUserId: string, messages: unknown[]) =>
+    pushSteamButlerMessageMock(lineUserId, messages),
   renderTemplate: (body: string) => body,
 }));
 vi.mock("@/lib/shop-config", () => ({
@@ -352,8 +371,11 @@ beforeEach(() => {
   bookings = [];
   rules = [];
   messageLogs = [];
+  centralRecipientOverrides = new Map();
   pushMessageMock.mockClear();
   pushMessageMock.mockResolvedValue({ success: true });
+  pushSteamButlerMessageMock.mockClear();
+  pushSteamButlerMessageMock.mockResolvedValue({ success: true });
   // Reset call records on prisma mocks（讓 not.toHaveBeenCalled() 斷言可靠）
   mockPrisma.reminderRule.findMany.mockClear();
   mockPrisma.reminderRule.count.mockClear();
@@ -402,7 +424,7 @@ describe("runReminders (daily next-day batch)", () => {
     ]);
   });
 
-  it("line_reminder 未授權時 → SKIPPED，不發 LINE、不寫 MessageLog", async () => {
+  it("line_reminder 未授權時 → SKIPPED，不發 LINE並寫入稽核紀錄", async () => {
     vi.setSystemTime(new Date("2026-05-11T04:00:00.000Z"));
     mockHasStoreFeature.mockResolvedValueOnce(false);
     bookings.push(
@@ -427,7 +449,12 @@ describe("runReminders (daily next-day batch)", () => {
       error: "Feature not enabled",
     });
     expect(pushMessageMock).not.toHaveBeenCalled();
-    expect(messageLogs).toHaveLength(0);
+    expect(pushSteamButlerMessageMock).not.toHaveBeenCalled();
+    expect(messageLogs).toHaveLength(1);
+    expect(messageLogs[0]).toMatchObject({
+      status: "SKIPPED",
+      errorMessage: "Feature not enabled",
+    });
   });
 
   it("某店 line_reminder 關閉不影響其他店發送", async () => {
@@ -462,8 +489,20 @@ describe("runReminders (daily next-day batch)", () => {
     expect(pushMessageMock).toHaveBeenCalledWith(OTHER_STORE_ID, LINE_USER_ID, [
       { type: "text", text: expect.any(String) },
     ]);
-    expect(messageLogs).toHaveLength(1);
-    expect(messageLogs[0].storeId).toBe(OTHER_STORE_ID);
+    expect(messageLogs).toHaveLength(2);
+    expect(messageLogs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          storeId: STORE_ID,
+          status: "SKIPPED",
+          errorMessage: "Feature not enabled",
+        }),
+        expect.objectContaining({
+          storeId: OTHER_STORE_ID,
+          status: "SENT",
+        }),
+      ]),
+    );
     expect(result.details).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -555,7 +594,63 @@ describe("runReminders (daily next-day batch)", () => {
     const { engine } = await loadModules();
     const result = await engine.runReminders();
     expect(result.sent).toBe(0);
-    expect(messageLogs).toHaveLength(0);
+    expect(messageLogs).toHaveLength(1);
+    expect(messageLogs[0]).toMatchObject({
+      status: "SKIPPED",
+      errorMessage: "LINE recipient unavailable: NO_CENTRAL_LINE",
+    });
+  });
+
+  it("只有中央 LINE 時使用中央 Channel，不呼叫分店 Channel", async () => {
+    vi.setSystemTime(new Date("2026-05-11T10:00:00.000Z"));
+    bookings.push(
+      makeBooking({
+        customerId: "central-only",
+        bookingDate: new Date("2026-05-12T00:00:00.000Z"),
+        hasLine: false,
+      }),
+    );
+    centralRecipientOverrides.set("central-only", {
+      status: "READY",
+      deliverable: true,
+      recipientLineUserId: "U-central-only",
+    });
+    rules.push(makeRule());
+
+    const { engine } = await loadModules();
+    const result = await engine.runReminders();
+
+    expect(result.sent).toBe(1);
+    expect(pushMessageMock).not.toHaveBeenCalled();
+    expect(pushSteamButlerMessageMock).toHaveBeenCalledWith("U-central-only", [
+      { type: "text", text: expect.any(String) },
+    ]);
+  });
+
+  it("中央與分店 LINE 同時存在時只送分店 Channel 一次", async () => {
+    vi.setSystemTime(new Date("2026-05-11T10:00:00.000Z"));
+    bookings.push(
+      makeBooking({
+        customerId: "both-routes",
+        bookingDate: new Date("2026-05-12T00:00:00.000Z"),
+      }),
+    );
+    centralRecipientOverrides.set("both-routes", {
+      status: "READY",
+      deliverable: true,
+      recipientLineUserId: "U-central",
+    });
+    rules.push(makeRule());
+
+    const { engine } = await loadModules();
+    const result = await engine.runReminders();
+
+    expect(result.sent).toBe(1);
+    expect(pushMessageMock).toHaveBeenCalledTimes(1);
+    expect(pushMessageMock).toHaveBeenCalledWith(STORE_ID, LINE_USER_ID, [
+      { type: "text", text: expect.any(String) },
+    ]);
+    expect(pushSteamButlerMessageMock).not.toHaveBeenCalled();
   });
 
   it("idempotent：同一天重跑兩次 → 第二次 SKIPPED 不重複寫入", async () => {
@@ -579,6 +674,38 @@ describe("runReminders (daily next-day batch)", () => {
     expect(r2.skipped).toBe(1);
     expect(messageLogs).toHaveLength(1); // 沒新增
     expect(pushMessageMock).toHaveBeenCalledTimes(1); // LINE 沒被打第二次
+  });
+
+  it("已有 FAILED 結果時重跑不會先發送再撞唯一索引", async () => {
+    vi.setSystemTime(new Date("2026-05-11T10:00:00.000Z"));
+    bookings.push(
+      makeBooking({
+        bookingDate: new Date("2026-05-12T00:00:00.000Z"),
+      }),
+    );
+    rules.push(makeRule());
+    messageLogs.push({
+      id: "log-failed",
+      ruleId: RULE_ID,
+      bookingId: BOOKING_ID,
+      customerId: CUSTOMER_ID,
+      triggerAt: new Date("2026-05-11T10:00:00.000Z"),
+      status: "FAILED",
+      storeId: STORE_ID,
+      createdAt: new Date("2026-05-11T10:00:00.000Z"),
+      sentAt: null,
+      errorMessage: "LINE API 500",
+    });
+
+    const { engine } = await loadModules();
+    const result = await engine.runReminders();
+
+    expect(result.sent).toBe(0);
+    expect(result.skipped).toBe(1);
+    expect(result.details[0]?.error).toBe("Already processed today");
+    expect(pushMessageMock).not.toHaveBeenCalled();
+    expect(pushSteamButlerMessageMock).not.toHaveBeenCalled();
+    expect(messageLogs).toHaveLength(1);
   });
 
   it("並行 race（unique constraint P2002）→ SKIPPED 不 throw", async () => {

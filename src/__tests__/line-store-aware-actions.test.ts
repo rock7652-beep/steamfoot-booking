@@ -12,6 +12,16 @@ const pushMessageMock = vi.fn(
     return { success: true };
   },
 );
+const pushSteamButlerMessageMock = vi.fn(
+  async (
+    _lineUserId: string,
+    _messages: unknown[],
+  ): Promise<{ success: boolean; error?: string }> => {
+    void _lineUserId;
+    void _messages;
+    return { success: true };
+  },
+);
 const revalidatePathMock = vi.fn();
 const resolveCentralLineRecipientForCustomerMock = vi.fn();
 
@@ -49,6 +59,8 @@ vi.mock("@/lib/line", async () => {
     ...actual,
     pushMessage: (storeId: string, lineUserId: string, messages: unknown[]) =>
       pushMessageMock(storeId, lineUserId, messages),
+    pushSteamButlerMessage: (lineUserId: string, messages: unknown[]) =>
+      pushSteamButlerMessageMock(lineUserId, messages),
   };
 });
 
@@ -98,6 +110,7 @@ describe("LINE sending actions are store-aware", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     pushMessageMock.mockResolvedValue({ success: true });
+    pushSteamButlerMessageMock.mockResolvedValue({ success: true });
     resolveCentralLineRecipientForCustomerMock.mockResolvedValue({
       status: "READY",
       deliverable: true,
@@ -127,7 +140,7 @@ describe("LINE sending actions are store-aware", () => {
     const result = await testSendLineMessage("customer-1", "template-1");
 
     expect(result.success).toBe(true);
-    expect(pushMessageMock).toHaveBeenCalledWith("store-hsinchu", "U_central_customer", [
+    expect(pushMessageMock).toHaveBeenCalledWith("store-hsinchu", "U_hsinchu_customer", [
       { type: "text", text: expect.any(String) },
     ]);
     expect(mockPrisma.messageLog.create).toHaveBeenCalledWith(
@@ -178,7 +191,7 @@ describe("LINE sending actions are store-aware", () => {
     const result = await sendLineSmokeTest({ customerId: "customer-3" });
 
     expect(result.success).toBe(true);
-    expect(pushMessageMock).toHaveBeenCalledWith("store-hsinchu", "U_central_customer", [
+    expect(pushMessageMock).toHaveBeenCalledWith("store-hsinchu", "U_hsinchu_customer", [
       { type: "text", text: "這是 以斯帖蒸足坊 LINE 系統通知測試" },
     ]);
     expect(mockPrisma.messageLog.create).toHaveBeenCalledWith(
@@ -225,10 +238,13 @@ describe("LINE sending actions are store-aware", () => {
     );
   });
 
-  it("sendLineSmokeTest fails closed before push when the central recipient is blocked", async () => {
+  it("sendLineSmokeTest keeps a usable store route when the central recipient is blocked", async () => {
     vi.stubEnv("LINE_SMOKE_TEST_ENABLED", "1");
     mockPrisma.store.findUnique.mockResolvedValueOnce({ name: "以斯帖蒸足坊" });
-    mockPrisma.customer.findFirst.mockResolvedValueOnce({ id: "customer-5" });
+    mockPrisma.customer.findFirst.mockResolvedValueOnce({
+      id: "customer-5",
+      lineUserId: "U_hsinchu_customer",
+    });
     resolveCentralLineRecipientForCustomerMock.mockResolvedValueOnce({
       status: "LEGACY_LINE_CONFLICT",
       deliverable: false,
@@ -238,9 +254,29 @@ describe("LINE sending actions are store-aware", () => {
     const { sendLineSmokeTest } = await import("@/server/actions/reminder");
     const result = await sendLineSmokeTest({ customerId: "customer-5" });
 
-    expect(result.success).toBe(false);
-    if (!result.success) expect(result.error).toContain("LEGACY_LINE_CONFLICT");
+    expect(result.success).toBe(true);
+    expect(pushMessageMock).toHaveBeenCalledWith("store-hsinchu", "U_hsinchu_customer", [
+      { type: "text", text: "這是 以斯帖蒸足坊 LINE 系統通知測試" },
+    ]);
+    expect(pushSteamButlerMessageMock).not.toHaveBeenCalled();
+    expect(mockPrisma.messageLog.create).toHaveBeenCalled();
+  });
+
+  it("sendLineSmokeTest uses the central Channel for a central-only customer", async () => {
+    vi.stubEnv("LINE_SMOKE_TEST_ENABLED", "1");
+    mockPrisma.store.findUnique.mockResolvedValueOnce({ name: "暖暖蒸足" });
+    mockPrisma.customer.findFirst.mockResolvedValueOnce({
+      id: "customer-central-only",
+      lineUserId: null,
+    });
+
+    const { sendLineSmokeTest } = await import("@/server/actions/reminder");
+    const result = await sendLineSmokeTest({ customerId: "customer-central-only" });
+
+    expect(result.success).toBe(true);
     expect(pushMessageMock).not.toHaveBeenCalled();
-    expect(mockPrisma.messageLog.create).not.toHaveBeenCalled();
+    expect(pushSteamButlerMessageMock).toHaveBeenCalledWith("U_central_customer", [
+      { type: "text", text: "這是 暖暖蒸足 LINE 系統通知測試" },
+    ]);
   });
 });
