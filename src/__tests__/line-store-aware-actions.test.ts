@@ -37,8 +37,21 @@ const mockPrisma = {
     findUnique: vi.fn(),
   },
   messageLog: {
+    findFirst: vi.fn(),
     create: vi.fn(async ({ data }) => ({ id: "message-log-1", ...data })),
   },
+  booking: {
+    findFirst: vi.fn(),
+  },
+  reminderRule: {
+    findFirst: vi.fn(),
+  },
+  auditLog: {
+    create: vi.fn(async ({ data }) => ({ id: "audit-log-1", ...data })),
+  },
+  $transaction: vi.fn(async (operations: Array<Promise<unknown>>) =>
+    Promise.all(operations),
+  ),
 };
 
 vi.mock("next/cache", () => ({
@@ -112,9 +125,9 @@ describe("LINE sending actions are store-aware", () => {
     pushMessageMock.mockResolvedValue({ success: true });
     pushSteamButlerMessageMock.mockResolvedValue({ success: true });
     resolveCentralLineRecipientForCustomerMock.mockResolvedValue({
-      status: "READY",
-      deliverable: true,
-      recipientLineUserId: "U_central_customer",
+      status: "NO_CENTRAL_LINE",
+      deliverable: false,
+      recipientLineUserId: null,
     });
   });
 
@@ -269,6 +282,11 @@ describe("LINE sending actions are store-aware", () => {
       id: "customer-central-only",
       lineUserId: null,
     });
+    resolveCentralLineRecipientForCustomerMock.mockResolvedValueOnce({
+      status: "READY",
+      deliverable: true,
+      recipientLineUserId: "U_central_customer",
+    });
 
     const { sendLineSmokeTest } = await import("@/server/actions/reminder");
     const result = await sendLineSmokeTest({ customerId: "customer-central-only" });
@@ -278,5 +296,64 @@ describe("LINE sending actions are store-aware", () => {
     expect(pushSteamButlerMessageMock).toHaveBeenCalledWith("U_central_customer", [
       { type: "text", text: "這是 暖暖蒸足 LINE 系統通知測試" },
     ]);
+  });
+
+  it("single-booking test uses central route and does not consume the scheduled reminder key", async () => {
+    resolveCentralLineRecipientForCustomerMock.mockResolvedValueOnce({
+      status: "READY",
+      deliverable: true,
+      recipientLineUserId: "U_central_customer",
+    });
+    mockPrisma.booking.findFirst.mockResolvedValueOnce({
+      id: "booking-1",
+      storeId: "store-hsinchu",
+      customerId: "customer-1",
+      bookingStatus: "CONFIRMED",
+      bookingDate: new Date("2026-07-24T00:00:00.000Z"),
+      slotTime: "16:30",
+      customer: {
+        id: "customer-1",
+        name: "黃彥陸",
+        lineUserId: "U_store_customer",
+        assignedStaff: { displayName: "店長" },
+      },
+    });
+    mockPrisma.messageLog.findFirst.mockResolvedValueOnce(null);
+    mockPrisma.reminderRule.findFirst.mockResolvedValueOnce({
+      id: "rule-1",
+      templateId: null,
+      template: null,
+    });
+
+    const { sendBookingLineTestReminder } = await import("@/server/actions/reminder");
+    const result = await sendBookingLineTestReminder({ bookingId: "booking-1" });
+
+    expect(result).toEqual({
+      success: true,
+      data: { messageLogId: "message-log-1", lineRoute: "CENTRAL" },
+    });
+    expect(pushSteamButlerMessageMock).toHaveBeenCalledWith(
+      "U_central_customer",
+      [{ type: "text", text: expect.stringContaining("【測試提醒｜不影響正式排程】") }],
+    );
+    expect(mockPrisma.messageLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        bookingId: "booking-1",
+        lineRoute: "CENTRAL",
+        status: "SENT",
+        // No ruleId / triggerAt: the 18:00 cron can still send the real reminder.
+      }),
+    });
+    const logData = mockPrisma.messageLog.create.mock.calls.at(-1)?.[0].data;
+    expect(logData).not.toHaveProperty("ruleId");
+    expect(logData).not.toHaveProperty("triggerAt");
+    expect(mockPrisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        actorUserId: "admin-user-1",
+        targetType: "Booking",
+        targetId: "booking-1",
+        action: "SEND_LINE_TEST_REMINDER",
+      }),
+    });
   });
 });

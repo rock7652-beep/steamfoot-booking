@@ -66,6 +66,45 @@ const lineSmokeTestSchema = z.object({
   customerId: z.string().min(1),
 });
 
+const bookingLineTestSchema = z.object({
+  bookingId: z.string().min(1),
+});
+
+const BOOKING_LINE_TEST_PREFIX = "【測試提醒｜不影響正式排程】";
+const BOOKING_LINE_TEST_COOLDOWN_MS = 60_000;
+
+export async function previewBookingLineTestReminder(
+  input: z.input<typeof bookingLineTestSchema>
+): Promise<ActionResult<{ lineRoute: "CENTRAL" | "STORE" }>> {
+  try {
+    const user = await requirePermission("booking.update");
+    const storeId = await resolveWriteStoreId(user);
+    await requireStoreFeature(storeId, FEATURES.LINE_REMINDER);
+    const { bookingId } = bookingLineTestSchema.parse(input);
+    const booking = await prisma.booking.findFirst({
+      where: { id: bookingId, storeId },
+      select: {
+        customerId: true,
+        storeId: true,
+        customer: { select: { lineUserId: true } },
+      },
+    });
+    if (!booking) throw new AppError("NOT_FOUND", "找不到同店預約");
+
+    const recipient = await resolveCentralLineRecipientForCustomer(
+      booking.customerId,
+      booking.storeId,
+    );
+    const route = resolveReminderLineRoute(booking.customer.lineUserId, recipient);
+    if (route.status === "BLOCKED") {
+      throw new AppError("BUSINESS_RULE", `LINE 收件人無法使用（${route.reason}）`);
+    }
+    return { success: true, data: { lineRoute: route.channel } };
+  } catch (e) {
+    return handleActionError(e);
+  }
+}
+
 // ============================================================
 // ReminderRule CRUD
 // ============================================================
@@ -491,6 +530,136 @@ export async function sendLineSmokeTest(
     }
 
     return { success: true, data: { messageLogId: log.id, storeName } };
+  } catch (e) {
+    return handleActionError(e);
+  }
+}
+
+/**
+ * 針對單筆預約立即發送測試提醒。
+ *
+ * 測試 MessageLog 刻意不帶 ruleId / triggerAt，避免占用正式排程的
+ * uniq_rule_booking_trigger；正式 18:00 提醒仍會照常處理同一筆預約。
+ */
+export async function sendBookingLineTestReminder(
+  input: z.input<typeof bookingLineTestSchema>
+): Promise<ActionResult<{ messageLogId: string; lineRoute: "CENTRAL" | "STORE" }>> {
+  try {
+    const user = await requirePermission("booking.update");
+    const storeId = await resolveWriteStoreId(user);
+    await requireStoreFeature(storeId, FEATURES.LINE_REMINDER);
+    const { bookingId } = bookingLineTestSchema.parse(input);
+
+    const booking = await prisma.booking.findFirst({
+      where: { id: bookingId, storeId },
+      include: {
+        customer: { include: { assignedStaff: true } },
+      },
+    });
+    if (!booking) {
+      throw new AppError("NOT_FOUND", "找不到同店預約");
+    }
+    if (!["PENDING", "CONFIRMED"].includes(booking.bookingStatus)) {
+      throw new AppError("BUSINESS_RULE", "只有待服務或已確認的預約可以發送測試提醒");
+    }
+
+    const recentTest = await prisma.messageLog.findFirst({
+      where: {
+        bookingId,
+        storeId,
+        channel: "LINE",
+        renderedBody: { startsWith: BOOKING_LINE_TEST_PREFIX },
+        createdAt: { gte: new Date(Date.now() - BOOKING_LINE_TEST_COOLDOWN_MS) },
+      },
+      select: { id: true },
+    });
+    if (recentTest) {
+      throw new AppError("BUSINESS_RULE", "這筆預約剛剛已發送測試提醒，請稍後再試");
+    }
+
+    const recipient = await resolveCentralLineRecipientForCustomer(
+      booking.customerId,
+      booking.storeId,
+    );
+    const route = resolveReminderLineRoute(booking.customer.lineUserId, recipient);
+    if (route.status === "BLOCKED") {
+      throw new AppError("BUSINESS_RULE", `LINE 收件人無法使用（${route.reason}）`);
+    }
+
+    const [rule, shopConfig] = await Promise.all([
+      prisma.reminderRule.findFirst({
+        where: { storeId, isEnabled: true },
+        orderBy: { createdAt: "asc" },
+        include: { template: true },
+      }),
+      getShopConfig(storeId),
+    ]);
+    const templateBody =
+      rule?.template?.body ??
+      `{{customerName}} 您好！
+
+明天 ({{bookingDate}}) {{bookingTime}} 有一筆蒸足預約，請記得準時到店。
+
+如需取消或改期，請點擊：{{bookingLink}}
+
+{{shopName}} 敬上`;
+    const renderedReminder = renderTemplate(templateBody, {
+      customerName: booking.customer.name,
+      bookingDate: booking.bookingDate.toISOString().slice(0, 10),
+      bookingTime: booking.slotTime,
+      shopName: shopConfig.shopName,
+      staffName: booking.customer.assignedStaff?.displayName ?? "店長",
+      bookingLink: `${deriveBaseUrl()}/my-bookings`,
+    });
+    const renderedBody = `${BOOKING_LINE_TEST_PREFIX}
+這是管理者手動發送的通知測試，無須回覆。
+
+${renderedReminder}`;
+    const messages = [{ type: "text" as const, text: renderedBody }];
+    const result =
+      route.channel === "STORE"
+        ? await pushMessage(storeId, route.recipientLineUserId, messages)
+        : await pushSteamButlerMessage(route.recipientLineUserId, messages);
+
+    const [log] = await prisma.$transaction([
+      prisma.messageLog.create({
+        data: {
+          customerId: booking.customerId,
+          bookingId: booking.id,
+          templateId: rule?.templateId ?? null,
+          channel: "LINE",
+          lineRoute: route.channel,
+          status: result.success ? "SENT" : "FAILED",
+          renderedBody,
+          errorMessage: result.error ?? null,
+          sentAt: result.success ? new Date() : null,
+          storeId,
+        },
+      }),
+      prisma.auditLog.create({
+        data: {
+          actorUserId: user.id,
+          targetType: "Booking",
+          targetId: booking.id,
+          action: "SEND_LINE_TEST_REMINDER",
+          afterJson: {
+            lineRoute: route.channel,
+            success: result.success,
+          },
+        },
+      }),
+    ]);
+
+    revalidatePath("/dashboard/reminders");
+    revalidatePath("/dashboard/bookings");
+
+    if (!result.success) {
+      throw new AppError("BUSINESS_RULE", result.error ?? "LINE 測試提醒發送失敗");
+    }
+    return {
+      success: true,
+      data: { messageLogId: log.id, lineRoute: route.channel },
+    };
   } catch (e) {
     return handleActionError(e);
   }
