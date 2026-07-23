@@ -214,6 +214,13 @@ export default async function CustomersPage({ searchParams }: PageProps) {
               </span>
             )}
             <Link
+              href="/dashboard/customers/central-binding"
+              prefetch={false}
+              className="rounded-md border border-earth-200 bg-white px-3 py-1.5 text-xs font-medium text-earth-700 hover:bg-earth-50"
+            >
+              中央綁定狀態
+            </Link>
+            <Link
               href="/dashboard/customers/new"
               prefetch={false}
               className="rounded-md bg-primary-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-primary-700"
