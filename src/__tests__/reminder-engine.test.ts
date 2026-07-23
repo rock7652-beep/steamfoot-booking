@@ -654,6 +654,39 @@ describe("runReminders (daily next-day batch)", () => {
     expect(messageLogs[0].lineRoute).toBe("CENTRAL");
   });
 
+  it("中央發送失敗時不改送分店，避免狀態不明造成重複通知", async () => {
+    vi.setSystemTime(new Date("2026-05-11T10:00:00.000Z"));
+    bookings.push(
+      makeBooking({
+        customerId: "central-failure",
+        bookingDate: new Date("2026-05-12T00:00:00.000Z"),
+      }),
+    );
+    centralRecipientOverrides.set("central-failure", {
+      status: "READY",
+      deliverable: true,
+      recipientLineUserId: "U-central-failure",
+    });
+    rules.push(makeRule());
+    pushSteamButlerMessageMock.mockResolvedValueOnce({
+      success: false,
+      error: "LINE central 500",
+    });
+
+    const { engine } = await loadModules();
+    const result = await engine.runReminders();
+
+    expect(result.failed).toBe(1);
+    expect(result.sent).toBe(0);
+    expect(pushSteamButlerMessageMock).toHaveBeenCalledTimes(1);
+    expect(pushMessageMock).not.toHaveBeenCalled();
+    expect(messageLogs[0]).toMatchObject({
+      status: "FAILED",
+      lineRoute: "CENTRAL",
+      errorMessage: "LINE central 500",
+    });
+  });
+
   it("idempotent：同一天重跑兩次 → 第二次 SKIPPED 不重複寫入", async () => {
     vi.setSystemTime(new Date("2026-05-11T10:00:00.000Z")); // 剛好 18:00 TW
     bookings.push(
