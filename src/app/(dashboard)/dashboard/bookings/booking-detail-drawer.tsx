@@ -24,6 +24,7 @@ import { CorrectTrialCollectionModal } from "./correct-trial-collection-modal";
 import { AttendanceModal } from "./attendance-modal";
 import { CollectSingleModal } from "./collect-single-modal";
 import { AdjustCheckoutModal } from "./adjust-checkout-modal";
+import { LineTestReminderModal } from "./line-test-reminder-modal";
 import { computeAmount, resolveTrialDisplayAmount } from "./compute-amount";
 import { PeopleBadge } from "./people-badge";
 import { formatWeekdayZh } from "@/lib/date-utils";
@@ -153,6 +154,7 @@ export function BookingDetailDrawer({
   const [collectSingleOpen, setCollectSingleOpen] = useState(false);
   const [adjustCheckoutOpen, setAdjustCheckoutOpen] = useState(false);
   const [adjustToSingleOpen, setAdjustToSingleOpen] = useState(false);
+  const [lineTestOpen, setLineTestOpen] = useState(false);
   // 收款 / 更正成功後預約狀態不變、但 trial.collected 會翻轉 → 用 nonce 觸發重抓
   const [reloadNonce, setReloadNonce] = useState(0);
   // 記錄 `data` 上次 seed 的 bookingId — 讓我們能在 render 期（而非 effect 內）
@@ -475,6 +477,7 @@ export function BookingDetailDrawer({
               collectSingle: () => setCollectSingleOpen(true),
               adjustCheckout: () => setAdjustCheckoutOpen(true),
               adjustToSingle: () => setAdjustToSingleOpen(true),
+              lineTest: () => setLineTestOpen(true),
             }}
           />
         ) : showPrefill && prefill ? (
@@ -519,6 +522,15 @@ export function BookingDetailDrawer({
           trialDefaultUnit={data.trial?.settings.defaultPrice ?? null}
           onConfirm={handleAttendanceConfirm}
           loading={isActing}
+        />
+      )}
+      {!readOnly && data && (
+        <LineTestReminderModal
+          open={lineTestOpen}
+          onClose={() => setLineTestOpen(false)}
+          bookingId={data.booking.id}
+          customerName={data.booking.customer.name}
+          dateLabel={`${data.booking.bookingDate} ${data.booking.slotTime}`}
         />
       )}
       {!readOnly && data && (
@@ -635,6 +647,7 @@ interface DrawerActions {
   collectSingle: () => void;
   adjustCheckout: () => void;
   adjustToSingle: () => void;
+  lineTest: () => void;
 }
 
 function DrawerContent({
@@ -1298,6 +1311,7 @@ function ActionFooter({
       secondaries.push({ label: "調整結帳", onClick: actions.adjustToSingle });
     }
     secondaries.push({ label: "改時間", onClick: actions.reschedule });
+    secondaries.push({ label: "測試 LINE 提醒", onClick: actions.lineTest });
     secondaries.push({ label: "標記未到", onClick: actions.noShow });
     secondaries.push({ label: "取消預約", onClick: actions.cancel, tone: "danger" });
   } else if (status === "COMPLETED") {
