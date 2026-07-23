@@ -15,7 +15,12 @@
 
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { pushMessage, renderTemplate, type TemplateVariables } from "@/lib/line";
+import {
+  pushMessage,
+  pushSteamButlerMessage,
+  renderTemplate,
+  type TemplateVariables,
+} from "@/lib/line";
 import { getShopConfig } from "@/lib/shop-config";
 import { checkReminderSendLimit } from "@/lib/usage-gate";
 import type { StorePlanFields } from "@/lib/store-plan";
@@ -28,6 +33,7 @@ import {
   parseTaiwanDateToDbDate,
 } from "@/lib/date-utils";
 import { resolveCentralLineRecipientsForCustomers } from "@/server/services/central-line-recipient-loader";
+import { resolveReminderLineRoute } from "@/server/services/reminder-line-route";
 
 const DEFAULT_TEMPLATE = `{{customerName}} 您好！
 
@@ -73,6 +79,40 @@ export function todayReminderTriggerAt(now: Date = new Date()): Date {
 export function tomorrowBookingDate(now: Date = new Date()): Date {
   const tomorrowStr = addTaiwanDuration(toLocalDateStr(now), 1, "DAY");
   return parseTaiwanDateToDbDate(tomorrowStr);
+}
+
+async function recordSkippedReminder(input: {
+  ruleId: string;
+  templateId: string | null;
+  customerId: string;
+  bookingId: string;
+  triggerAt: Date;
+  storeId: string;
+  reason: string;
+}): Promise<void> {
+  try {
+    await prisma.messageLog.create({
+      data: {
+        ruleId: input.ruleId,
+        templateId: input.templateId,
+        customerId: input.customerId,
+        bookingId: input.bookingId,
+        triggerAt: input.triggerAt,
+        channel: "LINE",
+        status: "SKIPPED",
+        errorMessage: input.reason,
+        storeId: input.storeId,
+      },
+    });
+  } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002"
+    ) {
+      return;
+    }
+    throw error;
+  }
 }
 
 /**
@@ -131,6 +171,15 @@ export async function runReminders(): Promise<SendResult> {
     if (!lineReminderEnabled) {
       result.skipped += bookings.length;
       for (const booking of bookings) {
+        await recordSkippedReminder({
+          ruleId: rule.id,
+          templateId: rule.templateId,
+          customerId: booking.customer.id,
+          bookingId: booking.id,
+          triggerAt,
+          storeId: booking.storeId,
+          reason: "Feature not enabled",
+        });
         result.details.push({
           customerId: booking.customer.id,
           bookingId: booking.id,
@@ -150,26 +199,14 @@ export async function runReminders(): Promise<SendResult> {
     for (const booking of bookings) {
       const customer = booking.customer;
       const bookingStoreId = booking.storeId;
-      const recipient = recipients.get(customer.id);
-      if (!recipient?.deliverable || !recipient.recipientLineUserId) {
-        result.skipped++;
-        result.details.push({
-          customerId: customer.id,
-          bookingId: booking.id,
-          ruleName: rule.name,
-          status: "SKIPPED",
-          error: `Central LINE recipient blocked: ${recipient?.status ?? "CUSTOMER_NOT_FOUND"}`,
-        });
-        continue;
-      }
 
-      // 防重複（同 ruleId + bookingId + 今天的 triggerAt）— unique 索引兜底
+      // Any prior outcome for this rule/booking/day is terminal. This prevents
+      // retries from sending first and then colliding with the unique log row.
       const existingLog = await prisma.messageLog.findFirst({
         where: {
           ruleId: rule.id,
           bookingId: booking.id,
           triggerAt,
-          status: { in: ["SENT", "PENDING"] },
         },
       });
       if (existingLog) {
@@ -179,7 +216,31 @@ export async function runReminders(): Promise<SendResult> {
           bookingId: booking.id,
           ruleName: rule.name,
           status: "SKIPPED",
-          error: "Already sent today",
+          error: "Already processed today",
+        });
+        continue;
+      }
+
+      const recipient = recipients.get(customer.id);
+      const route = resolveReminderLineRoute(customer.lineUserId, recipient);
+      if (route.status === "BLOCKED") {
+        const reason = `LINE recipient unavailable: ${route.reason}`;
+        await recordSkippedReminder({
+          ruleId: rule.id,
+          templateId: rule.templateId,
+          customerId: customer.id,
+          bookingId: booking.id,
+          triggerAt,
+          storeId: bookingStoreId,
+          reason,
+        });
+        result.skipped++;
+        result.details.push({
+          customerId: customer.id,
+          bookingId: booking.id,
+          ruleName: rule.name,
+          status: "SKIPPED",
+          error: reason,
         });
         continue;
       }
@@ -212,13 +273,23 @@ export async function runReminders(): Promise<SendResult> {
         const sendCount = storeSendCountCache.get(bookingStoreId) ?? 0;
         const limitCheck = checkReminderSendLimit(storePlan, sendCount);
         if (!limitCheck.allowed) {
+          const reason = `Reminder send limit reached (${limitCheck.current}/${limitCheck.limit})`;
+          await recordSkippedReminder({
+            ruleId: rule.id,
+            templateId: rule.templateId,
+            customerId: customer.id,
+            bookingId: booking.id,
+            triggerAt,
+            storeId: bookingStoreId,
+            reason,
+          });
           result.skipped++;
           result.details.push({
             customerId: customer.id,
             bookingId: booking.id,
             ruleName: rule.name,
             status: "SKIPPED",
-            error: `Reminder send limit reached (${limitCheck.current}/${limitCheck.limit})`,
+            error: reason,
           });
           continue;
         }
@@ -241,9 +312,10 @@ export async function runReminders(): Promise<SendResult> {
       const renderedBody = renderTemplate(templateBody, vars);
 
       // 發送 LINE push
-      const sendResult = await pushMessage(bookingStoreId, recipient.recipientLineUserId, [
-        { type: "text", text: renderedBody },
-      ]);
+      const messages = [{ type: "text" as const, text: renderedBody }];
+      const sendResult = route.channel === "STORE"
+        ? await pushMessage(bookingStoreId, route.recipientLineUserId, messages)
+        : await pushSteamButlerMessage(route.recipientLineUserId, messages);
 
       // 寫入 MessageLog（unique 索引為 race condition 保險）
       try {
