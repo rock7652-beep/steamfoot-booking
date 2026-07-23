@@ -6,6 +6,7 @@ import {
   CENTRAL_LINE_STATUS_LABEL,
   getCentralLineRecipientAudit,
 } from "@/server/queries/central-line-recipient";
+import { CENTRAL_LINE_ACCEPTANCE_LABEL } from "@/server/services/central-line-acceptance";
 
 export default async function CentralLineRecipientsPage() {
   const user = await getCurrentUser();
@@ -16,7 +17,7 @@ export default async function CentralLineRecipientsPage() {
     <PageShell>
       <PageHeader
         title="中央 LINE 收件人盤點"
-        subtitle="唯讀檢查蒸管家 LINE Login、跨店身份與舊分店綁定是否一致。"
+        subtitle="以正式資料即時檢查中央 LINE 可通知率，並把待綁定與身份衝突分開處理。"
         actions={<Link href="/dashboard/central-user-merges" className="text-sm text-primary-700">← 中央會員整合</Link>}
       />
 
@@ -28,6 +29,26 @@ export default async function CentralLineRecipientsPage() {
         <SummaryCard label="有效顧客" value={audit.total} tone="earth" />
         <SummaryCard label="已對齊中央 LINE" value={audit.ready} tone="green" />
         <SummaryCard label="待處理／已阻擋" value={audit.blocked} tone={audit.blocked ? "red" : "green"} />
+      </div>
+
+      <section className={`rounded-lg border p-4 ${audit.conflictFree ? "border-green-200 bg-green-50 text-green-900" : "border-red-200 bg-red-50 text-red-900"}`}>
+        <h2 className="text-sm font-semibold">中央 LINE 驗收：{audit.conflictFree ? "身份衝突檢查通過" : "尚有身份衝突，禁止自動對齊"}</h2>
+        <p className="mt-1 text-xs">
+          {audit.fullyDeliverable
+            ? "所有有效顧客皆可由中央 LINE Account 解析並通知。"
+            : "尚未綁定的顧客需自行完成蒸管家 LINE Login；系統不會用姓名、手機或舊 LINE ID 猜測收件人。"}
+        </p>
+      </section>
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        {Object.entries(audit.acceptanceCounts).map(([bucket, count]) => (
+          <SummaryCard
+            key={bucket}
+            label={CENTRAL_LINE_ACCEPTANCE_LABEL[bucket as keyof typeof CENTRAL_LINE_ACCEPTANCE_LABEL]}
+            value={count}
+            tone={bucket === "ACCEPTED" ? "green" : bucket === "MANUAL_REVIEW_REQUIRED" && count ? "red" : "earth"}
+          />
+        ))}
       </div>
 
       <section className="rounded-lg border border-earth-200 bg-white p-4">
@@ -44,16 +65,17 @@ export default async function CentralLineRecipientsPage() {
 
       <section className="space-y-3">
         <div>
-          <h2 className="text-sm font-semibold text-earth-900">待人工處理（最多顯示 200 筆）</h2>
-          <p className="mt-1 text-xs text-earth-600">完整 LINE userId 不會顯示；PR-13 也不提供自動修復。</p>
+          <h2 className="text-sm font-semibold text-earth-900">正式待辦與衝突清單（衝突優先，最多顯示 200 筆）</h2>
+          <p className="mt-1 text-xs text-earth-600">完整 LINE userId 不會顯示；待顧客綁定不等於錯綁，身份衝突則一律阻擋且不自動覆蓋。</p>
         </div>
         {audit.rows.length === 0 ? (
           <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-900">目前所有有效顧客皆已安全對齊中央 LINE。</div>
         ) : (
           <div className="overflow-hidden rounded-lg border border-earth-200 bg-white">
             {audit.rows.map((row) => (
-              <div key={row.customerId} className="grid gap-2 border-b border-earth-100 p-4 text-sm last:border-b-0 md:grid-cols-[1fr_1fr_1.3fr]">
+              <div key={row.customerId} className="grid gap-2 border-b border-earth-100 p-4 text-sm last:border-b-0 md:grid-cols-[1fr_1fr_1.2fr_1.3fr]">
                 <div><p className="font-medium text-earth-900">{row.customerName}</p><p className="text-xs text-earth-500">{row.storeName}</p></div>
+                <p className={row.acceptanceBucket === "MANUAL_REVIEW_REQUIRED" ? "font-medium text-red-700" : "text-amber-700"}>{CENTRAL_LINE_ACCEPTANCE_LABEL[row.acceptanceBucket]}</p>
                 <p className="text-earth-700">{CENTRAL_LINE_STATUS_LABEL[row.status]}</p>
                 <p className="text-xs text-earth-500">中央收件人：{row.maskedRecipient ?? "未提供（已阻擋）"}</p>
               </div>

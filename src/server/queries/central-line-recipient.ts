@@ -5,6 +5,11 @@ import {
   resolveCentralLineRecipient,
   type CentralLineRecipientStatus,
 } from "@/server/services/central-line-recipient";
+import {
+  buildCentralLineAcceptanceSummary,
+  classifyCentralLineAcceptance,
+  type CentralLineAcceptanceBucket,
+} from "@/server/services/central-line-acceptance";
 
 export const CENTRAL_LINE_STATUS_LABEL: Record<CentralLineRecipientStatus, string> = {
   READY: "已對齊中央 LINE",
@@ -21,12 +26,16 @@ export interface CentralLineRecipientAudit {
   total: number;
   ready: number;
   blocked: number;
+  acceptanceCounts: Record<CentralLineAcceptanceBucket, number>;
+  conflictFree: boolean;
+  fullyDeliverable: boolean;
   statusCounts: Record<CentralLineRecipientStatus, number>;
   rows: Array<{
     customerId: string;
     customerName: string;
     storeName: string;
     status: CentralLineRecipientStatus;
+    acceptanceBucket: CentralLineAcceptanceBucket;
     maskedRecipient: string | null;
   }>;
 }
@@ -72,7 +81,7 @@ export async function getCentralLineRecipientAudit(): Promise<CentralLineRecipie
 
   const statuses = Object.keys(CENTRAL_LINE_STATUS_LABEL) as CentralLineRecipientStatus[];
   const statusCounts = Object.fromEntries(statuses.map((status) => [status, 0])) as Record<CentralLineRecipientStatus, number>;
-  const rows = customers.map((customer) => {
+  const resolvedRows = customers.map((customer) => {
     const users = new Map<string, NonNullable<typeof customer.user>>();
     if (customer.user) users.set(customer.user.id, customer.user);
     for (const link of customer.identityLinks) users.set(link.user.id, link.user);
@@ -94,15 +103,38 @@ export async function getCentralLineRecipientAudit(): Promise<CentralLineRecipie
       customerName: customer.name,
       storeName: customer.store.name,
       status: resolution.status,
+      acceptanceBucket: classifyCentralLineAcceptance(resolution),
       maskedRecipient: resolution.maskedRecipient,
+      resolution,
     };
   });
+
+  const acceptance = buildCentralLineAcceptanceSummary(
+    resolvedRows.map((row) => row.resolution),
+  );
+  const rows = resolvedRows.map((row) => ({
+    customerId: row.customerId,
+    customerName: row.customerName,
+    storeName: row.storeName,
+    status: row.status,
+    acceptanceBucket: row.acceptanceBucket,
+    maskedRecipient: row.maskedRecipient,
+  }));
 
   return {
     total: rows.length,
     ready: statusCounts.READY,
     blocked: rows.length - statusCounts.READY,
+    acceptanceCounts: acceptance.counts,
+    conflictFree: acceptance.conflictFree,
+    fullyDeliverable: acceptance.fullyDeliverable,
     statusCounts,
-    rows: rows.filter((row) => row.status !== "READY").slice(0, 200),
+    rows: rows
+      .filter((row) => row.acceptanceBucket !== "ACCEPTED")
+      .sort((a, b) => {
+        if (a.acceptanceBucket === b.acceptanceBucket) return 0;
+        return a.acceptanceBucket === "MANUAL_REVIEW_REQUIRED" ? -1 : 1;
+      })
+      .slice(0, 200),
   };
 }
