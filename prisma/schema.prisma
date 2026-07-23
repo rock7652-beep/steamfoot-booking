@@ -353,6 +353,42 @@ enum StoreFeatureEntitlementSource {
   HQ_OVERRIDE
 }
 
+enum DigitalButlerFlowStatus {
+  DRAFT
+  PUBLISHED
+  PAUSED
+  ARCHIVED
+}
+
+enum DigitalButlerConversationStatus {
+  IDLE
+  IN_PROGRESS
+  WAITING_INPUT
+  COMPLETED
+  CANCELLED
+  EXPIRED
+}
+
+enum DigitalButlerLeadStatus {
+  NEW
+  CONTACTING
+  QUOTED
+  WON
+  LOST
+  PAUSED
+}
+
+enum DigitalButlerStepType {
+  TEXT
+  FLEX_OPENING
+  FLEX_COMPLETION
+  FREE_TEXT
+  SINGLE_CHOICE
+  TAIWAN_MOBILE
+  CREATE_LEAD
+  COMPLETE_FLOW
+}
+
 enum BillingStatus {
   NOT_REQUIRED
   PENDING
@@ -439,12 +475,12 @@ model User {
   sessions Session[]
 
   // Domain relations
-  staff                 Staff?
-  customer              Customer?
-  customerIdentityLinks CustomerIdentityLink[]
+  staff                           Staff?
+  customer                        Customer?
+  customerIdentityLinks           CustomerIdentityLink[]
   centralMemberLinkReviewRequests CentralMemberLinkReviewRequest[]
-  lineRebindRequestsCreated LineRebindRequest[] @relation("LineRebindRequestCreatedBy")
-  lineRebindRequestsCancelled LineRebindRequest[] @relation("LineRebindRequestCancelledBy")
+  lineRebindRequestsCreated       LineRebindRequest[]              @relation("LineRebindRequestCreatedBy")
+  lineRebindRequestsCancelled     LineRebindRequest[]              @relation("LineRebindRequestCancelledBy")
 
   // Audit
   auditLogs            AuditLog[]
@@ -542,59 +578,225 @@ model Store {
   // Nullable：未設 → server 端會 fallback 到 NEXT_PUBLIC_LIFF_ID_<SLUG> env var（過渡期），
   // env 也無則顯示「尚未開通 LINE Mini App」（NotOpenForLiff UI 路徑不變）。
   liffId                     String?
+  digitalButlerEnabled       Boolean              @default(false)
   createdAt                  DateTime             @default(now())
   updatedAt                  DateTime             @updatedAt
 
   parentStore Store?  @relation("StoreHierarchy", fields: [parentStoreId], references: [id])
   childStores Store[] @relation("StoreHierarchy")
 
-  currentSubscription StoreSubscription?        @relation("CurrentSubscription", fields: [currentSubscriptionId], references: [id])
-  subscriptions       StoreSubscription[]       @relation("StoreSubscriptions")
-  planChanges         StorePlanChange[]
-  featureEntitlements StoreFeatureEntitlement[]
+  currentSubscription        StoreSubscription?          @relation("CurrentSubscription", fields: [currentSubscriptionId], references: [id])
+  subscriptions              StoreSubscription[]         @relation("StoreSubscriptions")
+  planChanges                StorePlanChange[]
+  featureEntitlements        StoreFeatureEntitlement[]
+  digitalButlerFlows         StoreDigitalButlerFlow[]
+  digitalButlerConversations DigitalButlerConversation[]
+  digitalButlerLeads         DigitalButlerLead[]
+  digitalButlerExecutionLogs DigitalButlerExecutionLog[]
 
-  staff                   Staff[]
-  customers               Customer[]
-  customerIdentityLinks   CustomerIdentityLink[]
+  staff                           Staff[]
+  customers                       Customer[]
+  customerIdentityLinks           CustomerIdentityLink[]
   centralMemberLinkReviewRequests CentralMemberLinkReviewRequest[]
-  lineRebindRequests     LineRebindRequest[]
-  lineOAuthAttempts      LineOAuthAttempt[]
-  bookings                Booking[]
-  bookingRecurrenceGroups BookingRecurrenceGroup[]
-  bookingSubmissions      BookingSubmission[]
-  transactions            Transaction[]
-  servicePlans            ServicePlan[]
-  customerPlanWallets     CustomerPlanWallet[]
-  cashbookEntries         CashbookEntry[]
-  dutyAssignments         DutyAssignment[]
-  bookingSlots            BookingSlot[]
-  businessHours           BusinessHours[]
-  specialBusinessDays     SpecialBusinessDay[]
-  slotOverrides           SlotOverride[]
-  reportSnapshots         ReportSnapshot[]
-  shopConfig              ShopConfig?
-  upgradeRequests         UpgradeRequest[]
-  reminderRules           ReminderRule[]
-  messageTemplates        MessageTemplate[]
-  opsActionLogs           OpsActionLog[]
-  reconciliationRuns      ReconciliationRun[]
-  makeupCredits           MakeupCredit[]
-  spaceFeeRecords         SpaceFeeRecord[]
-  messageLogs             MessageLog[]
-  talentStageLogs         TalentStageLog[]
-  customerFollowUps       CustomerFollowUp[]
-  referrals               Referral[]
-  pointRecords            PointRecord[]
-  bonusRules              BonusRule[]
-  referralEvents          ReferralEvent[]
-  checkinPosts            CheckinPost[]
-  transactionAuditLogs    TransactionAuditLog[]
+  lineRebindRequests              LineRebindRequest[]
+  lineOAuthAttempts               LineOAuthAttempt[]
+  bookings                        Booking[]
+  bookingRecurrenceGroups         BookingRecurrenceGroup[]
+  bookingSubmissions              BookingSubmission[]
+  transactions                    Transaction[]
+  servicePlans                    ServicePlan[]
+  customerPlanWallets             CustomerPlanWallet[]
+  cashbookEntries                 CashbookEntry[]
+  dutyAssignments                 DutyAssignment[]
+  bookingSlots                    BookingSlot[]
+  businessHours                   BusinessHours[]
+  specialBusinessDays             SpecialBusinessDay[]
+  slotOverrides                   SlotOverride[]
+  reportSnapshots                 ReportSnapshot[]
+  shopConfig                      ShopConfig?
+  upgradeRequests                 UpgradeRequest[]
+  reminderRules                   ReminderRule[]
+  messageTemplates                MessageTemplate[]
+  opsActionLogs                   OpsActionLog[]
+  reconciliationRuns              ReconciliationRun[]
+  makeupCredits                   MakeupCredit[]
+  spaceFeeRecords                 SpaceFeeRecord[]
+  messageLogs                     MessageLog[]
+  talentStageLogs                 TalentStageLog[]
+  customerFollowUps               CustomerFollowUp[]
+  referrals                       Referral[]
+  pointRecords                    PointRecord[]
+  bonusRules                      BonusRule[]
+  referralEvents                  ReferralEvent[]
+  checkinPosts                    CheckinPost[]
+  transactionAuditLogs            TransactionAuditLog[]
 
   cashDrawerSessions CashDrawerSession[]
   cashDrawerEntries  CashDrawerEntry[]
   settlements        StoreSettlement[]
 
   @@index([parentStoreId])
+}
+
+// Digital Butler PR-1: all store-owned records are explicitly store-scoped.
+model DigitalButlerTemplate {
+  id         String                         @id @default(cuid())
+  key        String                         @unique
+  name       String
+  isOfficial Boolean                        @default(true)
+  createdAt  DateTime                       @default(now())
+  updatedAt  DateTime                       @updatedAt
+  versions   DigitalButlerTemplateVersion[]
+}
+
+model DigitalButlerTemplateVersion {
+  id         String                   @id @default(cuid())
+  templateId String
+  version    Int
+  definition Json
+  createdAt  DateTime                 @default(now())
+  template   DigitalButlerTemplate    @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  flows      StoreDigitalButlerFlow[]
+
+  @@unique([templateId, version])
+}
+
+model StoreDigitalButlerFlow {
+  id                        String                        @id @default(cuid())
+  storeId                   String
+  sourceTemplateId          String?
+  sourceTemplateVersionId   String?
+  name                      String
+  status                    DigitalButlerFlowStatus       @default(DRAFT)
+  enabled                   Boolean                       @default(false)
+  draftDefinition           Json?
+  currentPublishedVersionId String?                       @unique
+  createdAt                 DateTime                      @default(now())
+  updatedAt                 DateTime                      @updatedAt
+  store                     Store                         @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  sourceTemplateVersion     DigitalButlerTemplateVersion? @relation(fields: [sourceTemplateVersionId], references: [id], onDelete: SetNull)
+  versions                  DigitalButlerFlowVersion[]    @relation("FlowVersions")
+  publishedVersion          DigitalButlerFlowVersion?     @relation("CurrentPublishedVersion", fields: [currentPublishedVersionId], references: [id], onDelete: SetNull)
+  conversations             DigitalButlerConversation[]
+  leads                     DigitalButlerLead[]
+
+  @@index([storeId, status, enabled])
+  @@index([storeId])
+}
+
+model DigitalButlerFlowVersion {
+  id             String                      @id @default(cuid())
+  storeId        String
+  flowId         String
+  version        Int
+  definition     Json
+  publishedAt    DateTime?
+  createdAt      DateTime                    @default(now())
+  flow           StoreDigitalButlerFlow      @relation("FlowVersions", fields: [flowId], references: [id], onDelete: Cascade)
+  currentForFlow StoreDigitalButlerFlow?     @relation("CurrentPublishedVersion")
+  steps          DigitalButlerStep[]
+  conversations  DigitalButlerConversation[]
+
+  @@unique([flowId, version])
+  @@index([storeId, flowId])
+}
+
+model DigitalButlerStep {
+  id            String                   @id @default(cuid())
+  storeId       String
+  flowVersionId String
+  stepKey       String
+  position      Int
+  type          DigitalButlerStepType
+  config        Json
+  required      Boolean                  @default(false)
+  flowVersion   DigitalButlerFlowVersion @relation(fields: [flowVersionId], references: [id], onDelete: Cascade)
+  answers       DigitalButlerAnswer[]
+
+  @@unique([flowVersionId, stepKey])
+  @@unique([flowVersionId, position])
+  @@index([storeId, flowVersionId])
+}
+
+model DigitalButlerConversation {
+  id              String                          @id @default(cuid())
+  storeId         String
+  flowId          String
+  flowVersionId   String
+  channelIdentity String
+  lineUserIdHash  String
+  status          DigitalButlerConversationStatus @default(IN_PROGRESS)
+  expiresAt       DateTime
+  currentStepKey  String?
+  cancelledAt     DateTime?
+  completedAt     DateTime?
+  createdAt       DateTime                        @default(now())
+  updatedAt       DateTime                        @updatedAt
+  store           Store                           @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  flow            StoreDigitalButlerFlow          @relation(fields: [flowId], references: [id], onDelete: Restrict)
+  flowVersion     DigitalButlerFlowVersion        @relation(fields: [flowVersionId], references: [id], onDelete: Restrict)
+  answers         DigitalButlerAnswer[]
+  leads           DigitalButlerLead[]
+
+  @@index([storeId, channelIdentity, lineUserIdHash, status])
+  @@index([storeId, expiresAt])
+}
+
+model DigitalButlerAnswer {
+  id              String                    @id @default(cuid())
+  storeId         String
+  conversationId  String
+  stepId          String
+  value           Json?
+  phoneCiphertext Bytes?
+  phoneIv         Bytes?
+  phoneAuthTag    Bytes?
+  phoneHash       String?
+  createdAt       DateTime                  @default(now())
+  conversation    DigitalButlerConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  step            DigitalButlerStep         @relation(fields: [stepId], references: [id], onDelete: Restrict)
+
+  @@unique([conversationId, stepId])
+  @@index([storeId, conversationId])
+  @@index([storeId, phoneHash])
+}
+
+model DigitalButlerLead {
+  id                  String                    @id @default(cuid())
+  storeId             String
+  flowId              String
+  conversationId      String
+  completionActionKey String
+  status              DigitalButlerLeadStatus   @default(NEW)
+  submittedAnswers    Json
+  phoneCiphertext     Bytes?
+  phoneIv             Bytes?
+  phoneAuthTag        Bytes?
+  phoneHash           String?
+  createdAt           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
+  store               Store                     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  flow                StoreDigitalButlerFlow    @relation(fields: [flowId], references: [id], onDelete: Restrict)
+  conversation        DigitalButlerConversation @relation(fields: [conversationId], references: [id], onDelete: Restrict)
+
+  @@unique([storeId, conversationId, completionActionKey])
+  @@index([storeId, status, createdAt])
+}
+
+model DigitalButlerExecutionLog {
+  id                String   @id @default(cuid())
+  storeId           String
+  conversationId    String?
+  webhookEventId    String?
+  fallbackEventHash String?
+  eventKey          String
+  eventType         String
+  outcome           String
+  createdAt         DateTime @default(now())
+  store             Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, eventKey])
+  @@index([storeId, conversationId, createdAt])
 }
 
 // ============================================================
@@ -803,10 +1005,10 @@ model Customer {
   checkinPosts CheckinPost[]
 
   // 顧客經營追蹤紀錄（簡易 CRM-lite）
-  followUps     CustomerFollowUp[]
-  identityLinks CustomerIdentityLink[]
+  followUps                       CustomerFollowUp[]
+  identityLinks                   CustomerIdentityLink[]
   centralMemberLinkReviewRequests CentralMemberLinkReviewRequest[]
-  lineRebindRequests LineRebindRequest[]
+  lineRebindRequests              LineRebindRequest[]
 
   @@unique([storeId, phone], name: "uq_store_customer_phone")
   @@unique([storeId, email], name: "uq_store_customer_email")
@@ -865,9 +1067,9 @@ model CustomerIdentityLink {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
-  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  store    Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  user           User                             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  store          Store                            @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  customer       Customer                         @relation(fields: [customerId], references: [id], onDelete: Cascade)
   reviewRequests CentralMemberLinkReviewRequest[]
 
   @@unique([provider, providerAccountId, storeId], name: "uq_customer_identity_provider_store")
@@ -880,22 +1082,22 @@ model CustomerIdentityLink {
 // Customer-submitted review only. Creating a request never removes or mutates
 // an identity link; a separate staff-reviewed workflow must resolve it.
 model CentralMemberLinkReviewRequest {
-  id             String                        @id @default(cuid())
-  userId         String
-  storeId        String
-  customerId     String
-  identityLinkId String?
-  type           CentralMemberLinkReviewType
-  status         CentralMemberLinkReviewStatus @default(PENDING)
-  createdAt      DateTime                      @default(now())
-  updatedAt      DateTime                      @updatedAt
-  reviewedAt     DateTime?
+  id               String                        @id @default(cuid())
+  userId           String
+  storeId          String
+  customerId       String
+  identityLinkId   String?
+  type             CentralMemberLinkReviewType
+  status           CentralMemberLinkReviewStatus @default(PENDING)
+  createdAt        DateTime                      @default(now())
+  updatedAt        DateTime                      @updatedAt
+  reviewedAt       DateTime?
   reviewedByUserId String?
-  reviewNote     String?
+  reviewNote       String?
 
-  user         User                 @relation(fields: [userId], references: [id], onDelete: Restrict)
-  store        Store                @relation(fields: [storeId], references: [id], onDelete: Restrict)
-  customer     Customer             @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  user         User                  @relation(fields: [userId], references: [id], onDelete: Restrict)
+  store        Store                 @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  customer     Customer              @relation(fields: [customerId], references: [id], onDelete: Restrict)
   identityLink CustomerIdentityLink? @relation(fields: [identityLinkId], references: [id], onDelete: SetNull)
 
   @@index([userId, status, createdAt])
@@ -911,27 +1113,27 @@ model CentralMemberLinkReviewRequest {
 // ============================================================
 
 model LineRebindRequest {
-  id                  String                  @id @default(cuid())
-  storeId             String
-  customerId          String
-  createdByUserId     String
-  cancelledByUserId   String?
-  reason              String
-  phoneHash           String
-  oldUserIdHash       String?
-  status              LineRebindRequestStatus @default(PENDING_CAPTURE)
-  expiresAt           DateTime
-  capturedAt          DateTime?
-  consumedAt          DateTime?
-  expiredAt           DateTime?
-  cancelledAt         DateTime?
-  createdAt           DateTime                @default(now())
-  updatedAt           DateTime                @updatedAt
+  id                String                  @id @default(cuid())
+  storeId           String
+  customerId        String
+  createdByUserId   String
+  cancelledByUserId String?
+  reason            String
+  phoneHash         String
+  oldUserIdHash     String?
+  status            LineRebindRequestStatus @default(PENDING_CAPTURE)
+  expiresAt         DateTime
+  capturedAt        DateTime?
+  consumedAt        DateTime?
+  expiredAt         DateTime?
+  cancelledAt       DateTime?
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
 
-  store       Store     @relation(fields: [storeId], references: [id], onDelete: Restrict)
-  customer    Customer  @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  createdBy   User      @relation("LineRebindRequestCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
-  cancelledBy User?     @relation("LineRebindRequestCancelledBy", fields: [cancelledByUserId], references: [id], onDelete: Restrict)
+  store       Store                @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  customer    Customer             @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  createdBy   User                 @relation("LineRebindRequestCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  cancelledBy User?                @relation("LineRebindRequestCancelledBy", fields: [cancelledByUserId], references: [id], onDelete: Restrict)
   candidate   LineRebindCandidate?
 
   @@index([storeId, customerId, status, expiresAt])
@@ -939,9 +1141,9 @@ model LineRebindRequest {
 }
 
 model LineRebindCandidate {
-  id              String   @id @default(cuid())
-  requestId       String   @unique
-  webhookEventKey String   @unique
+  id              String    @id @default(cuid())
+  requestId       String    @unique
+  webhookEventKey String    @unique
   userIdHash      String
   ciphertext      Bytes
   iv              Bytes
@@ -949,7 +1151,7 @@ model LineRebindCandidate {
   keyVersion      String
   eventTimestamp  DateTime?
   expiresAt       DateTime
-  createdAt       DateTime @default(now())
+  createdAt       DateTime  @default(now())
 
   request LineRebindRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
 
@@ -960,18 +1162,18 @@ model LineRebindCandidate {
 // provider-neutral enough to support another store later, but PR-B only
 // creates rows with channelKey = "taichung".
 model LineOAuthAttempt {
-  id         String                 @id @default(cuid())
-  storeId    String
-  storeSlug  String
-  channelKey String
-  stateHash  String                 @unique
-  nonceHash  String
-  status     LineOAuthAttemptStatus @default(PENDING)
-  expiresAt  DateTime
-  consumedAt DateTime?
+  id                String                 @id @default(cuid())
+  storeId           String
+  storeSlug         String
+  channelKey        String
+  stateHash         String                 @unique
+  nonceHash         String
+  status            LineOAuthAttemptStatus @default(PENDING)
+  expiresAt         DateTime
+  consumedAt        DateTime?
   sessionConsumedAt DateTime?
-  createdAt  DateTime               @default(now())
-  updatedAt  DateTime               @updatedAt
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
 
   store Store @relation(fields: [storeId], references: [id], onDelete: Restrict)
 
@@ -1491,27 +1693,27 @@ model Transaction {
   customerNote     String? // 顧客自助購買時自填的備註（匯款人姓名 / 補充事項）
 
   // === 報表用欄位（快照 + 歸屬鎖定）===
-  transactionNo     String? // 交易編號 TXN-YYYYMMDD-NNN
-  transactionDate   DateTime          @default(now()) // 交易業務日期
-  status            TransactionStatus @default(SUCCESS)
-  coachNameSnapshot String? // 合作店長姓名快照
-  coachRoleSnapshot String? // 合作店長角色快照（OWNER / PARTNER）
-  storeNameSnapshot String? // 店名快照
-  planId            String? // 直接關聯 ServicePlan
-  planNameSnapshot  String? // 方案名稱快照
-  planType          String? // 方案類型快照（TRIAL / SINGLE / PACKAGE）
+  transactionNo                   String? // 交易編號 TXN-YYYYMMDD-NNN
+  transactionDate                 DateTime          @default(now()) // 交易業務日期
+  status                          TransactionStatus @default(SUCCESS)
+  coachNameSnapshot               String? // 合作店長姓名快照
+  coachRoleSnapshot               String? // 合作店長角色快照（OWNER / PARTNER）
+  storeNameSnapshot               String? // 店名快照
+  planId                          String? // 直接關聯 ServicePlan
+  planNameSnapshot                String? // 方案名稱快照
+  planType                        String? // 方案類型快照（TRIAL / SINGLE / PACKAGE）
   // 待付款方案開通快照：確認付款時絕不可重新讀取可能已變更的 ServicePlan。
   // nullable 以相容既有交易；新建立的待付款方案交易必填。
-  planSessionCountSnapshot       Int?
+  planSessionCountSnapshot        Int?
   // 購買申請當下已解析的確切到期日；確認付款時直接沿用，不重算方案。
-  pendingWalletExpiryDateSnapshot DateTime? @db.Date
-  grossAmount       Decimal?          @db.Decimal(10, 0) // 原價（始終填入）
-  discountAmount    Decimal?          @db.Decimal(10, 0) // 折扣金額
-  netAmount         Decimal           @default(0) @db.Decimal(10, 0) // 實收金額（報表用）
+  pendingWalletExpiryDateSnapshot DateTime?         @db.Date
+  grossAmount                     Decimal?          @db.Decimal(10, 0) // 原價（始終填入）
+  discountAmount                  Decimal?          @db.Decimal(10, 0) // 折扣金額
+  netAmount                       Decimal           @default(0) @db.Decimal(10, 0) // 實收金額（報表用）
   /// @deprecated v2 起不再寫入；報表改靠 refunds back-relation sum 計算
   /// 既有歷史 row 保留為 legacy snapshot；refundTransactionLegacy 仍會更新
-  refundAmount      Decimal           @default(0) @db.Decimal(10, 0)
-  isFirstPurchase   Boolean           @default(false) // 是否新客首次購買
+  refundAmount                    Decimal           @default(0) @db.Decimal(10, 0)
+  isFirstPurchase                 Boolean           @default(false) // 是否新客首次購買
 
   // === Void 相關（v1：取消交易）===
   voidedAt       DateTime?
@@ -1828,7 +2030,7 @@ model MessageTemplate {
 // ============================================================
 
 model MessageLog {
-  id           String           @id @default(cuid())
+  id           String             @id @default(cuid())
   ruleId       String?
   templateId   String?
   customerId   String
@@ -1836,13 +2038,13 @@ model MessageLog {
   // 觸發時間（UTC）— 改期後 triggerAt 變更可重新發送
   // 規範：自動規則路徑（ruleId + bookingId 同時有值）必須寫入；純手動發送可為 NULL
   triggerAt    DateTime?
-  channel      ReminderChannel  @default(LINE)
+  channel      ReminderChannel    @default(LINE)
   lineRoute    ReminderLineRoute?
-  status       MessageLogStatus @default(PENDING)
+  status       MessageLogStatus   @default(PENDING)
   renderedBody String? // 替換變數後的實際內容
   errorMessage String?
   sentAt       DateTime?
-  createdAt    DateTime         @default(now())
+  createdAt    DateTime           @default(now())
 
   storeId  String
   rule     ReminderRule?    @relation(fields: [ruleId], references: [id])
