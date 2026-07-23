@@ -227,6 +227,19 @@ export default async function ProfilePage({ searchParams }: PageProps) {
         {/* 基本資料 */}
         {!showOnboardingBanner && <LoginMethodsCard methods={loginMethods} />}
 
+        {!showOnboardingBanner && (
+          <Link
+            href={`${prefix}/member-link`}
+            className="block rounded-2xl border border-primary-200 bg-primary-50/60 p-5 transition hover:border-primary-300 hover:bg-primary-50"
+          >
+            <p className="font-bold text-primary-800">連結我的會員資料</p>
+            <p className="mt-1 text-sm leading-relaxed text-primary-700">
+              用同一個中央帳號連結各門市會員，並確認 LINE 通知身份。
+            </p>
+            <p className="mt-3 text-sm font-semibold text-primary-800">開始安全連結 →</p>
+          </Link>
+        )}
+
         <div
           id="phone-login-settings"
           className="scroll-mt-6 rounded-2xl border border-earth-200 bg-white p-6 shadow-sm"
