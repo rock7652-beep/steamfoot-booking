@@ -292,7 +292,7 @@ export default async function RemindersPage({ searchParams }: PageProps) {
                     <th className="px-3 py-2 text-left">發送時間</th>
                     <th className="px-3 py-2 text-left">顧客</th>
                     <th className="px-3 py-2 text-left">規則</th>
-                    <th className="px-3 py-2 text-left">通路</th>
+                    <th className="px-3 py-2 text-left">LINE 路由</th>
                     <th className="px-3 py-2 text-left">狀態</th>
                     <th className="px-3 py-2 text-left">失敗原因</th>
                   </tr>
@@ -324,7 +324,13 @@ export default async function RemindersPage({ searchParams }: PageProps) {
                           {log.rule?.name ?? "手動發送"}
                         </td>
                         <td className="px-3 text-[13px] text-earth-600">
-                          {log.channel}
+                          {log.channel === "LINE"
+                            ? log.lineRoute === "CENTRAL"
+                              ? "LINE（中央）"
+                              : log.lineRoute === "STORE"
+                                ? "LINE（分店）"
+                                : "LINE（舊紀錄）"
+                            : log.channel}
                         </td>
                         <td className="px-3">
                           <span
