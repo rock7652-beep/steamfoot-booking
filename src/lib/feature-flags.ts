@@ -15,6 +15,7 @@ import { AppError } from "@/lib/errors";
 // ============================================================
 
 export const FEATURES = {
+  DIGITAL_BUTLER: "digital_butler",
   // ── EXPERIENCE（體驗版）──
   BASIC_BOOKING: "basic_booking",
   CUSTOMER_MANAGEMENT: "customer_management",
