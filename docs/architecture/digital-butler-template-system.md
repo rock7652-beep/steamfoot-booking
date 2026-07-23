@@ -103,8 +103,9 @@ DigitalButlerLead
 1. 總部發行官方模板 `v1`。
 2. 店家安裝時，建立自己的 flow 副本，並記錄 `sourceTemplateId` 與 `sourceTemplateVersion`。
 3. 店家可修改副本；其草稿與發布版本由店家獨立擁有。
-4. 官方發行 `v2` 時，店家顯示「有新版」；不自動覆蓋店家副本。
-5. 第一版只記錄來源版本與更新可用狀態；查看差異、選擇更新與合併策略為後續 Marketplace 能力。
+4. 官方發行 `v2` 時，店家顯示「有新版」；不自動覆蓋或合併店家副本。
+5. MVP 中店長可將新版模板重新安裝成另一份店家 flow；舊 flow、已發布版本與 Lead 歷史均保留。
+6. 第一版只記錄來源版本與更新可用狀態；差異比較、選擇性更新與合併策略為後續 Marketplace 能力。
 
 複製店家流程會建立新的 flow identity 與草稿，不共用可編輯 steps 或發布狀態。任何修改都先寫入草稿；發布才產生不可變、可執行的版本快照。
 
@@ -123,7 +124,7 @@ DigitalButlerLead
 | Action | 建立名單 | 無顧客輸入 | 依 conversation 與 flow version 的冪等鍵建立 Lead |
 | Action | 完成流程 | 無顧客輸入 | 轉為 `COMPLETED`，不得再次執行完成 action |
 
-電話接受常見輸入形式後再正規化為一種儲存格式；具體正規化函式和加密儲存方案由 PR-1／安全設計決定。Flex 只允許經 schema validation 的安全 payload，不能由 runtime 任意代入不受控 JSON。
+電話接受常見輸入形式後再正規化為一種儲存格式，並以加密欄位保存；另存不可逆 hash 供去重或查詢。完整電話不得以普通明文 JSON 放在 Answer 或 Lead，僅通過後端權限驗證的必要畫面可讀取完整值。Flex 只允許經 schema validation 的安全 payload，不能由 runtime 任意代入不受控 JSON。
 
 ## 8. 多店、Channel 與權限隔離（強制）
 
@@ -157,16 +158,16 @@ DigitalButlerLead
 - 同一 `(storeId, channelIdentity, lineUserId)` 同時只能有一筆 `IN_PROGRESS`／`WAITING_INPUT` conversation。
 - 啟動時固定流程發布版本快照；後續發布新版不改寫舊對話。
 - 「重新開始」只將同一 scope 的未完成 conversation 標為 `CANCELLED`，再從當前發布版本開始；不得取消其他店／Channel 對話。
-- 預設 24 小時未有有效輸入即標為 `EXPIRED`。此值應為日後可配置的店家設定；配置變更只影響新判斷，不回寫歷史。
-- 流程暫停、店家總開關關閉或 entitlement 移除均阻止**新** conversation；已開始的對話允許完成，除非日後另訂明確的安全中止政策。
+- MVP 固定 24 小時未有有效輸入即標為 `EXPIRED`。過期 conversation 不續接舊答案；顧客其後再次輸入觸發詞時，從當前發布版本建立新的 conversation。模板可調整的超時時間留待後續版本。
+- `PAUSED` 與店家總開關關閉均阻止**新** conversation，但已開始的對話允許完成。總部撤銷 entitlement 則立即安全中止該店所有未完成 conversation：不得再回覆、前進 step 或執行 action。
 
 ## 11. Lead、去重與安全紀錄
 
 Lead 至少具有 `storeId`、`flowId`、`conversationId`、`lineUserId`、`lineDisplayName`、`submittedAnswers`、`status`、`source`、`createdAt`、`updatedAt`。狀態列舉為 `NEW`、`CONTACTING`、`QUOTED`、`WON`、`LOST`、`PAUSED`。
 
-建立 Lead 必須對 `(storeId, conversationId, completionActionKey)` 冪等：LINE redelivery、重試或 action 重放不可產生重複 Lead。webhook event 另以可安全保存的 event identity 去重；在 event identity 缺失時，以受限時間窗及訊息／reply identity 的雜湊作輔助，不能將 raw body 存入 log。
+建立 Lead 必須對 `(storeId, conversationId, completionActionKey)` 冪等：LINE redelivery、重試或 action 重放不可產生重複 Lead。LINE event 的第一順位冪等鍵為 `webhookEventId`。若該欄位缺失，必須以 `storeId`、`channelIdentity`、`lineUserId`、event timestamp、`messageId`、event type 與 flow／conversation context 建立 deterministic hash。實作必須使用資料庫唯一約束或等價的原子防重機制；重送不得重複回覆、前進 step 或建立 Lead，且不得保存 raw body。
 
-`DigitalButlerExecutionLog` 可記錄：時間、store／flow／conversation 的安全識別、事件類型、處理結果、重試／去重結果與遮罩後錯誤碼。不得記錄 raw request body、Channel secret、access token、signature、完整電話、完整 LINE ID 或完整答案。電話與 LINE ID 在一般 log 中必須遮罩或以不可逆相關識別取代；具個資存取權的受保護欄位只供必要畫面使用。
+`DigitalButlerExecutionLog` 可記錄：時間、store／flow／conversation 的安全識別、事件類型、處理結果、重試／去重結果與遮罩後錯誤碼。不得記錄 raw request body、Channel secret、access token、signature、完整電話、完整 LINE ID 或完整答案。電話與 LINE ID 在 runtime／execution log 中必須遮罩或以不可逆相關識別取代；完整電話只供通過後端權限驗證的必要畫面使用。
 
 Webhook 中任何流程錯誤、訊息回覆失敗或單一 event 例外都必須被隔離、寫入安全錯誤事件並回覆成功的 webhook acknowledgement（不得 500 造成 LINE 重送風暴）。發布前必須完成完整 schema validation；無效流程不可發布。
 
@@ -181,7 +182,7 @@ Webhook 中任何流程錯誤、訊息回覆失敗或單一 event 例外都必�
 | `PAUSED` | 是 | 不可 | 允許完成 |
 | `ARCHIVED` | 不可直接使用；需複製 | 不可 | 歷史仍可稽核 |
 
-「發布」將草稿驗證後建立不可變版本快照並指向目前發布版本；編輯草稿絕不影響已發布版本。預覽只使用草稿的模擬／測試會話，不能建立正式 Lead、寫入既有 Customer 或向真實顧客推播。
+「發布」將草稿驗證後建立不可變版本快照並指向目前發布版本；編輯草稿絕不影響已發布版本。預覽只使用草稿的模擬／測試會話，不能建立正式 Lead、寫入既有 Customer 或向真實顧客推播。若總部撤銷店家 entitlement，這是高於流程狀態的強制停用：未完成對話立即安全中止，不再回覆或執行 action。
 
 ## 13. 與既有系統的隔離
 
@@ -234,17 +235,17 @@ Webhook 中任何流程錯誤、訊息回覆失敗或單一 event 例外都必�
 7. 保留指令先處理；衝突 trigger 無法發布；無效 flow 無法發布。
 8. redelivery 或重試不會重複建立 Lead；流程或回覆錯誤不造成 webhook 500，且 log 不洩漏個資或 secrets。
 
-## 17. 未決事項與建議預設值
+## 17. 已定案決策與後續設計事項
 
-| 項目 | 建議預設 | 後續決策點 |
+| 項目 | MVP 定案 | 後續設計事項（不阻擋 PR-1） |
 | --- | --- | --- |
-| Conversation 超時 | 24 小時 | 是否開放逐店設定與最大／最小值 |
-| 同 trigger 衝突 | 阻止發布 | 未來是否提供顯式優先序或互斥群組 |
-| 暫停後進行中對話 | 允許完成 | 安全事件時是否需總部強制中止 |
-| 官方更新 | 顯示新版，不自動更新 | 差異檢視、選擇性更新與三方合併設計 |
-| 電話保存 | 受保護／加密欄位、log 遮罩 | 加密金鑰管理、保留期限與匯出規則 |
-| Headquarter 授權 | 明確跨店 permission，預設拒絕 | 現有角色／品牌營運身份的正式對應 |
-| redelivery key | 優先 LINE event identity | 供應商欄位可用性與 fallback 時窗 |
+| Conversation 超時 | 固定 24 小時；到期為 `EXPIRED`，不續接答案，再次觸發建立新 conversation | 模板可調整超時時間與允許範圍 |
+| 暫停與 entitlement | `PAUSED` 阻止新對話、既有可完成；撤銷 entitlement 立即安全中止未完成對話 | 總部緊急中止的稽核／通知 UX |
+| 官方更新 | 只顯示新版；不自動覆蓋或合併；可重新安裝為新 flow，歷史保留 | 差異比較、選擇性更新、三方合併 |
+| 電話保存 | 正規化後加密保存，另存不可逆 hash；一般 JSON 與 runtime／execution log 不存完整值；完整顯示需後端授權 | 金鑰管理、保留期限、匯出規則 |
+| LINE redelivery | 優先 `webhookEventId`；缺失時使用指定欄位的 deterministic hash；唯一約束或等價原子防重 | 供應商欄位可用性監測與 fallback 時窗 |
+| 同 trigger 衝突 | 阻止發布 | 顯式優先序或互斥群組 |
+| 總部授權 | 明確跨店 permission，預設拒絕 | 與既有角色／品牌營運身份的正式對應 |
 | 預覽 | 測試會話，不發真實訊息、不建 Lead | 測試身分與預覽 UI 的具體方案 |
 
-任何未決事項在實作 PR 中定案前，都不得以預設店家、隱性優先序或直接改寫既有系統的方式繞過本規格。
+後續設計事項不得以預設店家、隱性優先序或直接改寫既有系統的方式繞過本規格。
