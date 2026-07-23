@@ -1,5 +1,6 @@
 import { hashDigitalButlerSensitiveValue, encryptDigitalButlerValue } from "@/lib/digital-butler-crypto";
 import { requireDigitalButlerEntitlement } from "@/lib/digital-butler-entitlement";
+import { assertDigitalButlerSubmittedAnswersSafe } from "@/lib/digital-butler-sensitive-json";
 import {
   DigitalButlerRepository,
   type CreateDigitalButlerDraftFlowInput,
@@ -60,6 +61,7 @@ export class DigitalButlerService {
     requiredStoreId(input.storeId);
     await this.entitlementGate.requireEntitledStore(input.storeId);
     const { normalizedPhone, ...repositoryInput } = input;
+    assertDigitalButlerSubmittedAnswersSafe(repositoryInput.submittedAnswers);
     const encryptedPhone = normalizedPhone
       ? encryptDigitalButlerValue(normalizedPhone)
       : undefined;

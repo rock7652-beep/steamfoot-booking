@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import type { EncryptedDigitalButlerValue } from "@/lib/digital-butler-crypto";
+import { assertDigitalButlerSubmittedAnswersSafe } from "@/lib/digital-butler-sensitive-json";
 
 export class DigitalButlerScopeError extends Error {
   constructor() {
@@ -112,6 +113,7 @@ export class DigitalButlerRepository {
   }
 
   async createLead(input: CreateDigitalButlerLeadInput) {
+    assertDigitalButlerSubmittedAnswersSafe(input.submittedAnswers);
     return prisma.$transaction(async (tx) => {
       const conversation = await tx.digitalButlerConversation.findFirst({
         where: {

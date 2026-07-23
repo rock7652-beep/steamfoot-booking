@@ -63,4 +63,13 @@ describe("DigitalButlerRepository cross-store isolation", () => {
     });
     expect(h.leadUpsert).not.toHaveBeenCalled();
   });
+
+  it("rejects direct repository calls that try to persist plaintext contact data in JSON", async () => {
+    const repository = new DigitalButlerRepository();
+    await expect(repository.createLead({
+      storeId: "store-a", flowId: "flow-a", conversationId: "conversation-a",
+      completionActionKey: "complete", submittedAnswers: { mobile: "0912345678" },
+    })).rejects.toThrow("DIGITAL_BUTLER_SENSITIVE_ANSWER_JSON_REJECTED");
+    expect(h.transaction).not.toHaveBeenCalled();
+  });
 });

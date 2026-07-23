@@ -45,6 +45,15 @@ describe("DigitalButlerService", () => {
     expect(input.encryptedPhone.ciphertext.equals(Buffer.from("0912345678"))).toBe(false);
   });
 
+  it("rejects sensitive submittedAnswers before a lead can reach persistence", async () => {
+    const service = new DigitalButlerService(repository as never, gate);
+    await expect(service.createLead({
+      storeId: "store-a", flowId: "flow-a", conversationId: "conversation-a", completionActionKey: "complete",
+      submittedAnswers: { phone: "0912345678" },
+    })).rejects.toThrow("DIGITAL_BUTLER_SENSITIVE_ANSWER_JSON_REJECTED");
+    expect(repository.createLead).not.toHaveBeenCalled();
+  });
+
   it("rejects missing store scope before database access", async () => {
     const service = new DigitalButlerService(repository as never, gate);
     await expect(service.getFlow("  ", "flow-a")).rejects.toThrow("DIGITAL_BUTLER_STORE_ID_REQUIRED");

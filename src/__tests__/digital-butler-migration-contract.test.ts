@@ -33,4 +33,11 @@ describe("Digital Butler PR-1 additive migration contract", () => {
     }
     expect(migration).toContain('"storeId", "conversationId", "completionActionKey"');
   });
+
+  it("enforces same-store foreign keys instead of relying only on service checks", () => {
+    expect(migration).toContain('FOREIGN KEY ("flowId", "storeId") REFERENCES "StoreDigitalButlerFlow"("id", "storeId")');
+    expect(migration).toContain('FOREIGN KEY ("flowVersionId", "storeId") REFERENCES "DigitalButlerFlowVersion"("id", "storeId")');
+    expect(migration).toContain('FOREIGN KEY ("conversationId", "storeId") REFERENCES "DigitalButlerConversation"("id", "storeId")');
+    expect(migration).toContain('FOREIGN KEY ("stepId", "storeId") REFERENCES "DigitalButlerStep"("id", "storeId")');
+  });
 });
