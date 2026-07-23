@@ -271,7 +271,12 @@ const pushSteamButlerMessageMock = vi.fn(
   async (
     lineUserId: string,
     messages: unknown[],
-  ): Promise<{ success: boolean; error?: string }> => {
+  ): Promise<{
+    success: boolean;
+    error?: string;
+    httpStatus?: number;
+    errorType?: "line_api_rejected";
+  }> => {
     void lineUserId;
     void messages;
     return { success: true };
@@ -684,6 +689,41 @@ describe("runReminders (daily next-day batch)", () => {
       status: "FAILED",
       lineRoute: "CENTRAL",
       errorMessage: "LINE central 500",
+    });
+  });
+
+  it("中央明確回覆 400 未送達時改送仍有效的分店 LINE", async () => {
+    vi.setSystemTime(new Date("2026-05-11T10:00:00.000Z"));
+    bookings.push(
+      makeBooking({
+        customerId: "central-400",
+        bookingDate: new Date("2026-05-12T00:00:00.000Z"),
+      }),
+    );
+    centralRecipientOverrides.set("central-400", {
+      status: "READY",
+      deliverable: true,
+      recipientLineUserId: "U-central-400",
+    });
+    rules.push(makeRule());
+    pushSteamButlerMessageMock.mockResolvedValueOnce({
+      success: false,
+      error: 'LINE API 400: {"message":"Failed to send messages"}',
+      httpStatus: 400,
+      errorType: "line_api_rejected",
+    });
+
+    const { engine } = await loadModules();
+    const result = await engine.runReminders();
+
+    expect(result.sent).toBe(1);
+    expect(result.failed).toBe(0);
+    expect(pushSteamButlerMessageMock).toHaveBeenCalledTimes(1);
+    expect(pushMessageMock).toHaveBeenCalledTimes(1);
+    expect(messageLogs[0]).toMatchObject({
+      status: "SENT",
+      lineRoute: "STORE",
+      errorMessage: null,
     });
   });
 
