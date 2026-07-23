@@ -9,6 +9,8 @@ import { currentStoreId } from "@/lib/store";
 import { collectSinglePaymentSchema } from "@/lib/validators/single-booking";
 import { buildTransactionSnapshot } from "@/lib/transaction-snapshot";
 import { revalidateBookings, revalidateTransactions } from "@/lib/revalidation";
+import { completePaidBookingInTransaction } from "@/server/services/paid-booking-completion";
+import { createBookingCompletedEvent } from "@/server/services/referral-events";
 import type { ActionResult } from "@/types";
 import type { PaymentMethod, TransactionType } from "@prisma/client";
 
@@ -34,10 +36,11 @@ const SINGLE_DEFAULT_PRICE = 799;
 
 export async function collectSinglePayment(
   input: z.infer<typeof collectSinglePaymentSchema>,
-): Promise<ActionResult<{ transactionId: string }>> {
+): Promise<ActionResult<{ transactionId: string; serviceCompleted: boolean }>> {
   try {
     const user = await requireWritablePermission("booking.update");
     const data = collectSinglePaymentSchema.parse(input);
+    const completeService = data.completeService === true;
     const storeId = currentStoreId(user);
     // 訂閱到期保護：到期店家不可收款（無訂閱店不擋）
     await assertStoreSubscriptionWritable(storeId);
@@ -52,8 +55,10 @@ export async function collectSinglePayment(
         customerId: true,
         revenueStaffId: true,
         servicePlanId: true,
+        bookingDate: true,
+        slotTime: true,
         servicePlan: { select: { price: true } },
-        customer: { select: { assignedStaffId: true } },
+        customer: { select: { assignedStaffId: true, sponsorId: true } },
       },
     });
     if (!booking) throw new AppError("NOT_FOUND", "預約不存在或不屬於本店");
@@ -130,7 +135,7 @@ export async function collectSinglePayment(
       });
 
       // wallet-free：不帶 customerPlanWalletId，不建 WalletSession，不扣堂。
-      return txClient.transaction.create({
+      const transaction = await txClient.transaction.create({
         data: {
           customerId: booking.customerId,
           bookingId: booking.id,
@@ -148,11 +153,42 @@ export async function collectSinglePayment(
           ...snapshot,
         },
       });
+
+      if (completeService) {
+        await completePaidBookingInTransaction(txClient, {
+          bookingId: booking.id,
+          bookingType: booking.bookingType,
+          customerId: booking.customerId,
+          storeId,
+          bookingDate: booking.bookingDate,
+          slotTime: booking.slotTime,
+          serviceStaffId: user.staffId ?? null,
+        });
+      }
+
+      return transaction;
     });
+
+    if (completeService) {
+      try {
+        await createBookingCompletedEvent({
+          storeId,
+          customerId: booking.customerId,
+          referrerId: booking.customer.sponsorId ?? null,
+          bookingId: booking.id,
+          source: "collect-and-complete",
+        });
+      } catch {
+        // 埋點失敗不影響已原子完成的收款與服務。
+      }
+    }
 
     revalidateBookings(booking.customerId);
     revalidateTransactions(booking.customerId);
-    return { success: true, data: { transactionId: result.id } };
+    return {
+      success: true,
+      data: { transactionId: result.id, serviceCompleted: completeService },
+    };
   } catch (e) {
     return handleActionError(e);
   }

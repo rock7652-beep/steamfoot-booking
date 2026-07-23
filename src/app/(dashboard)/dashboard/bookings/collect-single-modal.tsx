@@ -27,7 +27,7 @@ interface Props {
   /** 原價（servicePlan.price ?? 799），由 drawer payload 帶入 */
   defaultPrice: number;
   /** 收款成功後回呼（母層負責關閉 / 重抓 detail / 重整月曆）。 */
-  onCollected: () => void;
+  onCollected: (serviceCompleted: boolean) => void;
 }
 
 const PAYMENT_METHODS: { value: string; label: string }[] = [
@@ -49,6 +49,7 @@ export function CollectSingleModal({
 }: Props) {
   const [amount, setAmount] = useState(String(defaultPrice));
   const [method, setMethod] = useState<string>("CASH");
+  const [completeService, setCompleteService] = useState(true);
   const [discountReason, setDiscountReason] = useState("");
   const [mode, setMode] = useState<"single" | "plan">("single");
   const [plans, setPlans] = useState<Array<{ id: string; name: string; price: number; sessionCount: number }>>([]);
@@ -91,7 +92,7 @@ export function CollectSingleModal({
         });
         if (r.success) {
           toast.success(r.data.pendingPayment ? "已建立，待確認轉帳後發放堂數" : "已轉購方案並保留本次扣堂");
-          onCollected();
+          onCollected(false);
         } else toast.error(r.error ?? "轉購方案失敗");
       });
       return;
@@ -121,10 +122,11 @@ export function CollectSingleModal({
         amount: amountNum,
         discountReason:
           discountReason.trim().length > 0 ? discountReason.trim() : undefined,
+        completeService,
       });
       if (r.success) {
-        toast.success("已收款");
-        onCollected();
+        toast.success(r.data.serviceCompleted ? "已收款並完成服務" : "已確認收款");
+        onCollected(r.data.serviceCompleted);
       } else {
         toast.error(r.error ?? "收款失敗");
       }
@@ -141,14 +143,14 @@ export function CollectSingleModal({
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="mb-3 text-lg font-semibold text-earth-900">
-          單次收款
+          {mode === "single" ? "單次收款並完成服務" : "轉購新儲值方案"}
         </h3>
         <div className="mb-4 grid grid-cols-2 rounded-lg bg-earth-100 p-1 text-sm">
           <button type="button" disabled={pending} onClick={() => setMode("single")} className={`rounded-md px-3 py-2 ${mode === "single" ? "bg-white font-medium text-earth-900 shadow-sm" : "text-earth-500"}`}>本次單次收款</button>
           <button type="button" disabled={pending} onClick={() => setMode("plan")} className={`rounded-md px-3 py-2 ${mode === "plan" ? "bg-white font-medium text-primary-700 shadow-sm" : "text-earth-500"}`}>轉購新儲值方案</button>
         </div>
         <p className="mb-3 text-sm text-earth-600">
-          {mode === "single" ? "只收取本次費用，不建立方案。" : "購買新方案後，本次預約會改為使用新方案堂數；轉帳須待店長確認入帳後才發放。"}
+          {mode === "single" ? "一次記錄本次收入並完成服務，不建立方案。" : "購買新方案後，本次預約會改為使用新方案堂數；轉帳須待店長確認入帳後才發放。"}
         </p>
 
         <div className="mb-4 space-y-1.5 rounded-lg bg-earth-50 p-3 text-sm">
@@ -167,6 +169,22 @@ export function CollectSingleModal({
             </span>
           </div>
         </div>
+
+        {mode === "single" && (
+          <label className="mb-4 flex items-start gap-2 rounded-lg border border-earth-200 bg-white p-3 text-sm text-earth-700">
+            <input
+              type="checkbox"
+              checked={!completeService}
+              disabled={pending}
+              onChange={(e) => setCompleteService(!e.target.checked)}
+              className="mt-0.5"
+            />
+            <span>
+              <span className="block font-medium text-earth-900">這是提前收款</span>
+              <span className="text-xs text-earth-500">僅記錄收款，顧客實際到店服務後再按「完成服務」。</span>
+            </span>
+          </label>
+        )}
 
         {mode === "plan" ? (
           <>
@@ -250,7 +268,7 @@ export function CollectSingleModal({
             disabled={pending || (mode === "single" ? !validAmount || overPaid : !planId)}
             className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-60"
           >
-            {pending ? "處理中..." : mode === "plan" ? "確認轉購方案" : "確認收款"}
+            {pending ? "處理中..." : mode === "plan" ? "確認轉購方案" : completeService ? "確認收款並完成服務" : "僅確認收款"}
           </button>
         </div>
       </div>

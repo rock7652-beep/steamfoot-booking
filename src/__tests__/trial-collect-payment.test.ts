@@ -88,7 +88,10 @@ vi.mock("@/lib/db", () => ({
     $transaction: h.txRun,
   },
 }));
-vi.mock("@/lib/permissions", () => ({ requirePermission: h.requirePermission }));
+vi.mock("@/lib/permissions", () => ({
+  requirePermission: h.requirePermission,
+  requireWritablePermission: h.requirePermission,
+}));
 vi.mock("@/lib/store", () => ({ currentStoreId: h.currentStoreId }));
 vi.mock("@/lib/shop-config", () => ({
   getTrialSettings: h.getTrialSettings,

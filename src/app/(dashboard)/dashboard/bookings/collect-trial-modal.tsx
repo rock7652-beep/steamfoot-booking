@@ -35,7 +35,7 @@ interface Props {
     maxPrice: number;
   };
   /** 收款成功後回呼（母層負責關閉 / 重抓 detail / 重整月曆）。 */
-  onCollected: () => void;
+  onCollected: (serviceCompleted: boolean) => void;
 }
 
 const PAYMENT_METHODS: { value: string; label: string }[] = [
@@ -76,6 +76,7 @@ export function CollectTrialModal({
       : totalDefaultByActual; // 部分到店且 expectedAmount 是自動快照 → 重算
   const [amount, setAmount] = useState(String(initialAmount));
   const [method, setMethod] = useState("CASH");
+  const [completeService, setCompleteService] = useState(true);
   const [pending, startTransition] = useTransition();
 
   if (!open) return null;
@@ -97,10 +98,11 @@ export function CollectTrialModal({
         // PR-3d flow pivot：當收款入口前先過 AttendanceModal 時，
         // attendedPeople 透過 prop 帶入；同 transaction 一併寫入 Booking。
         attendedPeople: attendedPeople ?? undefined,
+        completeService,
       });
       if (r.success) {
-        toast.success("已收款");
-        onCollected();
+        toast.success(r.data.serviceCompleted ? "已收款並完成服務" : "已確認收款");
+        onCollected(r.data.serviceCompleted);
       } else {
         toast.error(r.error ?? "收款失敗");
       }
@@ -117,10 +119,10 @@ export function CollectTrialModal({
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="mb-3 text-lg font-semibold text-earth-900">
-          確認現場收款
+          收款並完成服務
         </h3>
         <p className="mb-3 text-sm text-earth-600">
-          請確認顧客已付款。送出後會建立一筆體驗收款交易（計入營收），
+          請確認顧客已完成服務並付款。送出後會一次建立體驗營收並完成服務，
           不會開通堂數，也不影響正式方案。
         </p>
 
@@ -161,6 +163,20 @@ export function CollectTrialModal({
             </div>
           )}
         </div>
+
+        <label className="mb-4 flex items-start gap-2 rounded-lg border border-earth-200 bg-white p-3 text-sm text-earth-700">
+          <input
+            type="checkbox"
+            checked={!completeService}
+            disabled={pending}
+            onChange={(e) => setCompleteService(!e.target.checked)}
+            className="mt-0.5"
+          />
+          <span>
+            <span className="block font-medium text-earth-900">這是提前收款</span>
+            <span className="text-xs text-earth-500">僅記錄收款，顧客實際到店服務後再按「完成服務」。</span>
+          </span>
+        </label>
 
         {isPartial && isManualOverride && (
           <div className="mb-3 rounded-md bg-amber-50 px-3 py-2 text-[12px] leading-relaxed text-amber-800">
@@ -221,7 +237,7 @@ export function CollectTrialModal({
             disabled={pending}
             className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-60"
           >
-            {pending ? "處理中..." : "確認收款"}
+            {pending ? "處理中..." : completeService ? "確認收款並完成服務" : "僅確認收款"}
           </button>
         </div>
       </div>

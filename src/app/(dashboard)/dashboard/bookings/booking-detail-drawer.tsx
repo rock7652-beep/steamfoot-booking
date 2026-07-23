@@ -399,19 +399,19 @@ export function BookingDetailDrawer({
   // （月曆 strip 的 badge 一併更新）。
   // flow pivot：成功後 pendingAttendedPeople 已隨 server transaction 寫入 DB，
   // 清掉 in-memory 暫存即可。
-  function handleCollected() {
+  function handleCollected(serviceCompleted: boolean) {
     setCollectOpen(false);
     setPendingAttendedPeople(null);
     setReloadNonce((n) => n + 1);
-    if (bookingId) onUpdated?.(bookingId, null);
+    if (bookingId) onUpdated?.(bookingId, serviceCompleted ? "COMPLETED" : null);
   }
 
   // 單次（SINGLE，不扣堂）收款成功 — 同 trial 行為：重抓 detail 翻成
   // 「已收款」，並通知母層當日資料重整。
-  function handleSingleCollected() {
+  function handleSingleCollected(serviceCompleted: boolean) {
     setCollectSingleOpen(false);
     setReloadNonce((n) => n + 1);
-    if (bookingId) onUpdated?.(bookingId, null);
+    if (bookingId) onUpdated?.(bookingId, serviceCompleted ? "COMPLETED" : null);
   }
 
   // 體驗 499 PR-3b：收款更正成功 — 同理重抓 detail（金額/付款方式翻新）
@@ -1274,12 +1274,16 @@ function ActionFooter({
 
   if (status === "PENDING" || status === "CONFIRMED") {
     if (canCollect) {
-      primaries.push({ label: "收款", onClick: actions.collect });
+      primaries.push({ label: "收款並完成服務", onClick: actions.collect });
     }
     if (canCollectSingle) {
-      primaries.push({ label: "收款", onClick: actions.collectSingle });
+      primaries.push({ label: "收款並完成服務", onClick: actions.collectSingle });
     }
-    primaries.push({ label: "完成服務", onClick: actions.complete });
+    // 體驗／單次尚未收款時不得繞過金流直接完成；收款 modal 會在同一
+    // transaction 完成兩件事。已提前收款者才保留單獨「完成服務」。
+    if (!canCollect && !canCollectSingle) {
+      primaries.push({ label: "完成服務", onClick: actions.complete });
+    }
     if (canCorrect) {
       secondaries.push({
         label: "收款更正",
