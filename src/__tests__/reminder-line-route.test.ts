@@ -15,15 +15,15 @@ const central = (
 });
 
 describe("resolveReminderLineRoute", () => {
-  it("keeps the store channel paired with its legacy store recipient", () => {
+  it("prefers the verified central channel when both recipients exist", () => {
     expect(resolveReminderLineRoute(" U-store ", central())).toEqual({
       status: "READY",
-      channel: "STORE",
-      recipientLineUserId: "U-store",
+      channel: "CENTRAL",
+      recipientLineUserId: "U-central",
     });
   });
 
-  it("uses the central channel only when no store recipient exists", () => {
+  it("uses the central channel when no store recipient exists", () => {
     expect(resolveReminderLineRoute(null, central())).toEqual({
       status: "READY",
       channel: "CENTRAL",
@@ -31,13 +31,13 @@ describe("resolveReminderLineRoute", () => {
     });
   });
 
-  it("does not double-send when both recipients exist", () => {
+  it("selects exactly one recipient when both routes exist", () => {
     const route = resolveReminderLineRoute("U-store", central());
-    expect(route.channel).toBe("STORE");
-    expect(route.recipientLineUserId).toBe("U-store");
+    expect(route.channel).toBe("CENTRAL");
+    expect(route.recipientLineUserId).toBe("U-central");
   });
 
-  it("preserves a usable store route during central onboarding", () => {
+  it("preserves a usable store fallback during central onboarding", () => {
     expect(resolveReminderLineRoute("U-store", central({
       status: "NO_CENTRAL_LINE",
       deliverable: false,
