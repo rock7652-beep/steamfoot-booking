@@ -60,7 +60,93 @@ describe("buildCentralUserMergePlan", () => {
     expect(plan.blockers).toEqual(expect.arrayContaining([
       "兩個會員都直接連到顧客資料；請先完成店內重複顧客處理",
       "分店 store-a 的 line 會員連結指向不同顧客",
+      "分店 store-a 對應不同顧客；一個中央會員在同店只能有一筆會員資料",
     ]));
+  });
+
+  it("blocks different customers in the same store even across providers", () => {
+    const source = user({
+      accounts: [{ id: "account-line", provider: "line", providerAccountId: "line-a" }],
+      identityLinks: [{
+        id: "link-line",
+        storeId: "store-a",
+        customerId: "customer-a",
+        provider: "line",
+        providerAccountId: "line-a",
+      }],
+    });
+    const target = user({
+      id: "user-2",
+      accounts: [{ id: "account-google", provider: "google", providerAccountId: "google-b" }],
+      identityLinks: [{
+        id: "link-google",
+        storeId: "store-a",
+        customerId: "customer-b",
+        provider: "google",
+        providerAccountId: "google-b",
+      }],
+    });
+
+    expect(buildCentralUserMergePlan(source, target)).toMatchObject({
+      executable: false,
+      blockers: [
+        "分店 store-a 對應不同顧客；一個中央會員在同店只能有一筆會員資料",
+      ],
+    });
+  });
+
+  it("blocks a direct customer and a different linked customer in the same store", () => {
+    const source = user({
+      customer: {
+        id: "customer-a",
+        storeId: "store-a",
+        name: "A",
+        phone: "0911111111",
+      },
+    });
+    const target = user({
+      id: "user-2",
+      identityLinks: [{
+        id: "link-google",
+        storeId: "store-a",
+        customerId: "customer-b",
+        provider: "google",
+        providerAccountId: "google-b",
+      }],
+    });
+
+    expect(buildCentralUserMergePlan(source, target).blockers).toContain(
+      "分店 store-a 對應不同顧客；一個中央會員在同店只能有一筆會員資料",
+    );
+  });
+
+  it("allows multiple providers when they resolve to the same customer", () => {
+    const source = user({
+      accounts: [{ id: "account-line", provider: "line", providerAccountId: "line-a" }],
+      identityLinks: [{
+        id: "link-line",
+        storeId: "store-a",
+        customerId: "customer-a",
+        provider: "line",
+        providerAccountId: "line-a",
+      }],
+    });
+    const target = user({
+      id: "user-2",
+      accounts: [{ id: "account-google", provider: "google", providerAccountId: "google-b" }],
+      identityLinks: [{
+        id: "link-google",
+        storeId: "store-a",
+        customerId: "customer-a",
+        provider: "google",
+        providerAccountId: "google-b",
+      }],
+    });
+
+    expect(buildCentralUserMergePlan(source, target)).toMatchObject({
+      executable: true,
+      blockers: [],
+    });
   });
 
   it("never permits staff or an already suspended source", () => {
