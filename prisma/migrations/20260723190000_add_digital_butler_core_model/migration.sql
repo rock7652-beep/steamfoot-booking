@@ -135,6 +135,7 @@ CREATE INDEX "StoreDigitalButlerFlow_storeId_status_enabled_idx" ON "StoreDigita
 CREATE INDEX "StoreDigitalButlerFlow_storeId_idx" ON "StoreDigitalButlerFlow"("storeId");
 CREATE UNIQUE INDEX "DigitalButlerFlowVersion_flowId_version_key" ON "DigitalButlerFlowVersion"("flowId", "version");
 CREATE UNIQUE INDEX "DigitalButlerFlowVersion_id_storeId_key" ON "DigitalButlerFlowVersion"("id", "storeId");
+CREATE UNIQUE INDEX "DigitalButlerFlowVersion_id_flowId_storeId_key" ON "DigitalButlerFlowVersion"("id", "flowId", "storeId");
 CREATE INDEX "DigitalButlerFlowVersion_storeId_flowId_idx" ON "DigitalButlerFlowVersion"("storeId", "flowId");
 CREATE UNIQUE INDEX "DigitalButlerStep_flowVersionId_stepKey_key" ON "DigitalButlerStep"("flowVersionId", "stepKey");
 CREATE UNIQUE INDEX "DigitalButlerStep_flowVersionId_position_key" ON "DigitalButlerStep"("flowVersionId", "position");
@@ -162,7 +163,7 @@ ALTER TABLE "StoreDigitalButlerFlow" ADD CONSTRAINT "StoreDigitalButlerFlow_curr
 ALTER TABLE "DigitalButlerStep" ADD CONSTRAINT "DigitalButlerStep_flowVersionId_storeId_fkey" FOREIGN KEY ("flowVersionId", "storeId") REFERENCES "DigitalButlerFlowVersion"("id", "storeId") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "DigitalButlerConversation" ADD CONSTRAINT "DigitalButlerConversation_storeId_fkey" FOREIGN KEY ("storeId") REFERENCES "Store"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "DigitalButlerConversation" ADD CONSTRAINT "DigitalButlerConversation_flowId_storeId_fkey" FOREIGN KEY ("flowId", "storeId") REFERENCES "StoreDigitalButlerFlow"("id", "storeId") ON DELETE RESTRICT ON UPDATE CASCADE;
-ALTER TABLE "DigitalButlerConversation" ADD CONSTRAINT "DigitalButlerConversation_flowVersionId_storeId_fkey" FOREIGN KEY ("flowVersionId", "storeId") REFERENCES "DigitalButlerFlowVersion"("id", "storeId") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "DigitalButlerConversation" ADD CONSTRAINT "DigitalButlerConversation_flowVersionId_flowId_storeId_fkey" FOREIGN KEY ("flowVersionId", "flowId", "storeId") REFERENCES "DigitalButlerFlowVersion"("id", "flowId", "storeId") ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE "DigitalButlerAnswer" ADD CONSTRAINT "DigitalButlerAnswer_conversationId_storeId_fkey" FOREIGN KEY ("conversationId", "storeId") REFERENCES "DigitalButlerConversation"("id", "storeId") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "DigitalButlerAnswer" ADD CONSTRAINT "DigitalButlerAnswer_stepId_storeId_fkey" FOREIGN KEY ("stepId", "storeId") REFERENCES "DigitalButlerStep"("id", "storeId") ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE "DigitalButlerLead" ADD CONSTRAINT "DigitalButlerLead_storeId_fkey" FOREIGN KEY ("storeId") REFERENCES "Store"("id") ON DELETE CASCADE ON UPDATE CASCADE;
