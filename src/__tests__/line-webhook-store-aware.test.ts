@@ -148,27 +148,19 @@ describe("LINE webhook store-aware signature and reply", () => {
     );
   });
 
-  it("repairs a central-login id only after the store channel rejects it", async () => {
-    bindLineToCustomerInStoreMock
-      .mockResolvedValueOnce({
-        status: "already_bound_to_other_line",
-        customerId: "customer-hsinchu",
-        existingLineUserId: "U-central-login",
-      })
-      .mockResolvedValueOnce({
-        status: "phone_taken_by_other_user",
-        customerId: "customer-hsinchu",
-        sameLineUserId: false,
-      });
+  it("updates only the store recipient when the customer already has a central User", async () => {
+    bindLineToCustomerInStoreMock.mockResolvedValueOnce({
+      status: "already_bound_to_other_line",
+      customerId: "customer-hsinchu",
+      existingLineUserId: "U-central-login",
+    });
     probeStoreLineRecipientMock.mockResolvedValue({ status: "INCOMPATIBLE" });
     mockPrisma.customer.findFirst.mockResolvedValue({
       id: "customer-hsinchu",
       lineUserId: "U-central-login",
+      userId: "central-user",
     });
-    mockPrisma.customer.findUnique.mockResolvedValue({ userId: "central-user" });
-    mockPrisma.customer.updateMany
-      .mockResolvedValueOnce({ count: 1 })
-      .mockResolvedValueOnce({ count: 1 });
+    mockPrisma.customer.updateMany.mockResolvedValueOnce({ count: 1 });
 
     const { POST } = await import("@/app/api/line/webhook/route");
     const res = await POST(postReq({
@@ -187,13 +179,15 @@ describe("LINE webhook store-aware signature and reply", () => {
       "store-hsinchu",
       "U-central-login",
     );
-    expect(mockPrisma.customer.updateMany).toHaveBeenLastCalledWith({
+    expect(bindLineToCustomerInStoreMock).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.customer.updateMany).toHaveBeenCalledWith({
       where: {
         id: "customer-hsinchu",
         storeId: "store-hsinchu",
         phone: "0912345678",
+        userId: "central-user",
+        lineUserId: "U-central-login",
         mergedIntoCustomerId: null,
-        OR: [{ lineUserId: null }, { lineUserId: "U-hsinchu-store" }],
       },
       data: {
         lineUserId: "U-hsinchu-store",

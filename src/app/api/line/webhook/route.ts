@@ -451,37 +451,75 @@ async function handlePhoneBindingRequest(
   if (result.status === "already_bound_to_other_line") {
     const existing = await prisma.customer.findFirst({
       where: { id: result.customerId, storeId },
-      select: { id: true, lineUserId: true },
+      select: { id: true, lineUserId: true, userId: true },
     });
     if (existing?.lineUserId) {
       const compatibility = await probeStoreLineRecipient(storeId, existing.lineUserId);
       if (compatibility.status === "INCOMPATIBLE") {
-        const released = await prisma.customer.updateMany({
-          where: {
-            id: existing.id,
-            storeId,
-            lineUserId: existing.lineUserId,
-          },
-          data: {
-            lineUserId: null,
-            lineLinkStatus: "UNLINKED",
-            lineLinkedAt: null,
-          },
-        });
-        if (released.count === 1) {
-          result = await bindLineToCustomerInStore({
-            storeId,
-            lineUserId,
-            lineName: null,
-            phone,
-            name: "顧客",
-            allowCreate: false,
+        // An activated central member already owns the canonical User for this
+        // phone. Re-entering the generic binder after clearing lineUserId would
+        // try to create a duplicate CUSTOMER User before it can return the
+        // phone_taken_by_other_user status. The verified store webhook only
+        // needs to replace this store's notification recipient, so perform that
+        // CAS directly and leave the central User / Account identities intact.
+        if (existing.userId) {
+          const rebound = await prisma.customer.updateMany({
+            where: {
+              id: existing.id,
+              storeId,
+              phone,
+              userId: existing.userId,
+              lineUserId: existing.lineUserId,
+              mergedIntoCustomerId: null,
+            },
+            data: {
+              lineUserId,
+              lineLinkStatus: "LINKED",
+              lineLinkedAt: new Date(),
+            },
           });
-          console.info("[LINE Webhook] Repaired incompatible store recipient", {
-            storeId,
-            customerId: existing.id,
-            status: result.status,
+          if (rebound.count === 1) {
+            result = {
+              status: "bound_existing",
+              customerId: existing.id,
+              userId: existing.userId,
+              userCreated: false,
+              lineAccountSync: "noop_already_synced",
+            };
+            console.info("[LINE Webhook] Repaired store recipient for central member", {
+              storeId,
+              customerId: existing.id,
+              status: result.status,
+            });
+          }
+        } else {
+          const released = await prisma.customer.updateMany({
+            where: {
+              id: existing.id,
+              storeId,
+              lineUserId: existing.lineUserId,
+            },
+            data: {
+              lineUserId: null,
+              lineLinkStatus: "UNLINKED",
+              lineLinkedAt: null,
+            },
           });
+          if (released.count === 1) {
+            result = await bindLineToCustomerInStore({
+              storeId,
+              lineUserId,
+              lineName: null,
+              phone,
+              name: "顧客",
+              allowCreate: false,
+            });
+            console.info("[LINE Webhook] Repaired incompatible store recipient", {
+              storeId,
+              customerId: existing.id,
+              status: result.status,
+            });
+          }
         }
       }
     }
