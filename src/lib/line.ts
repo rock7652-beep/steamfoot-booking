@@ -260,6 +260,12 @@ export { LINE_SECRET_NOT_CONFIGURED_ERROR, LINE_TOKEN_NOT_CONFIGURED_ERROR };
 export interface LineTextMessage {
   type: "text";
   text: string;
+  quickReply?: {
+    items: Array<{
+      type: "action";
+      action: { type: "message"; label: string; text: string };
+    }>;
+  };
 }
 
 export interface LineFlexMessage {
