@@ -20,6 +20,7 @@ const replySteamButlerMessageMock = vi.fn(
   ): Promise<{ success: boolean; error?: string }> => ({ success: true }),
 );
 const bindLineToCustomerInStoreMock = vi.fn();
+const probeStoreLineRecipientMock = vi.fn();
 let consoleLogSpy: ReturnType<typeof vi.spyOn>;
 
 const mockPrisma = {
@@ -27,7 +28,8 @@ const mockPrisma = {
     findFirst: vi.fn(),
   },
   customer: {
-    findFirst: vi.fn(async () => null),
+    findFirst: vi.fn(async (): Promise<Record<string, unknown> | null> => null),
+    findUnique: vi.fn(async (): Promise<Record<string, unknown> | null> => null),
     update: vi.fn(),
     updateMany: vi.fn(async () => ({ count: 0 })),
   },
@@ -44,6 +46,8 @@ vi.mock("@/lib/line", () => ({
     verifySteamButlerLineSignatureMock(body, signature),
   replySteamButlerMessage: (replyToken: string, messages: unknown[]) =>
     replySteamButlerMessageMock(replyToken, messages),
+  probeStoreLineRecipient: (...args: unknown[]) =>
+    probeStoreLineRecipientMock(...args),
 }));
 
 vi.mock("@/server/services/line-account-sync", () => ({
@@ -107,6 +111,7 @@ describe("LINE webhook store-aware signature and reply", () => {
     verifySteamButlerLineSignatureMock.mockReturnValue(false);
     replySteamButlerMessageMock.mockResolvedValue({ success: true });
     bindLineToCustomerInStoreMock.mockReset();
+    probeStoreLineRecipientMock.mockReset();
     mockPrisma.store.findFirst.mockResolvedValue({ id: "store-hsinchu" });
     consoleLogSpy = vi.spyOn(console, "log").mockImplementation(() => undefined);
   });
@@ -140,6 +145,66 @@ describe("LINE webhook store-aware signature and reply", () => {
       "store-hsinchu",
       "reply-token-1",
       expect.any(Array),
+    );
+  });
+
+  it("repairs a central-login id only after the store channel rejects it", async () => {
+    bindLineToCustomerInStoreMock
+      .mockResolvedValueOnce({
+        status: "already_bound_to_other_line",
+        customerId: "customer-hsinchu",
+        existingLineUserId: "U-central-login",
+      })
+      .mockResolvedValueOnce({
+        status: "phone_taken_by_other_user",
+        customerId: "customer-hsinchu",
+        sameLineUserId: false,
+      });
+    probeStoreLineRecipientMock.mockResolvedValue({ status: "INCOMPATIBLE" });
+    mockPrisma.customer.findFirst.mockResolvedValue({
+      id: "customer-hsinchu",
+      lineUserId: "U-central-login",
+    });
+    mockPrisma.customer.findUnique.mockResolvedValue({ userId: "central-user" });
+    mockPrisma.customer.updateMany
+      .mockResolvedValueOnce({ count: 1 })
+      .mockResolvedValueOnce({ count: 1 });
+
+    const { POST } = await import("@/app/api/line/webhook/route");
+    const res = await POST(postReq({
+      destination: "D_hsinchu",
+      events: [{
+        type: "message",
+        replyToken: "reply-token-phone",
+        source: { type: "user", userId: "U-hsinchu-store" },
+        message: { type: "text", id: "message-1", text: "0912345678" },
+        timestamp: 1_721_234_567_890,
+      }],
+    }));
+
+    expect(res.status).toBe(200);
+    expect(probeStoreLineRecipientMock).toHaveBeenCalledWith(
+      "store-hsinchu",
+      "U-central-login",
+    );
+    expect(mockPrisma.customer.updateMany).toHaveBeenLastCalledWith({
+      where: {
+        id: "customer-hsinchu",
+        storeId: "store-hsinchu",
+        phone: "0912345678",
+        mergedIntoCustomerId: null,
+        OR: [{ lineUserId: null }, { lineUserId: "U-hsinchu-store" }],
+      },
+      data: {
+        lineUserId: "U-hsinchu-store",
+        lineLinkStatus: "LINKED",
+        lineLinkedAt: expect.any(Date),
+      },
+    });
+    expect(replyMessageMock).toHaveBeenCalledWith(
+      "store-hsinchu",
+      "reply-token-phone",
+      [{ type: "text", text: "系統通知綁定成功！之後您將可收到預約提醒與方案通知。" }],
     );
   });
 

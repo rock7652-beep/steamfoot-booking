@@ -13,6 +13,7 @@ import {
   verifySteamButlerLineSignature,
   replyMessage,
   replySteamButlerMessage,
+  probeStoreLineRecipient,
 } from "@/lib/line";
 import {
   getLineWebhookDiagnosticsForStore,
@@ -433,7 +434,7 @@ async function handlePhoneBindingRequest(
   replyToken?: string,
   eventIdentity?: Parameters<typeof lineWebhookEventKey>[0],
 ) {
-  const result = await bindLineToCustomerInStore({
+  let result = await bindLineToCustomerInStore({
     storeId,
     lineUserId,
     lineName: null,
@@ -441,6 +442,86 @@ async function handlePhoneBindingRequest(
     name: "顧客",
     allowCreate: false,
   });
+
+  // Central LINE Login historically wrote its provider-scoped id into the
+  // same Customer.lineUserId field used by store notifications. When a
+  // verified store webhook supplies the matching phone, replace that stale id
+  // only after LINE definitively confirms it is not valid for this store
+  // channel. Outages and auth/config errors never authorize a replacement.
+  if (result.status === "already_bound_to_other_line") {
+    const existing = await prisma.customer.findFirst({
+      where: { id: result.customerId, storeId },
+      select: { id: true, lineUserId: true },
+    });
+    if (existing?.lineUserId) {
+      const compatibility = await probeStoreLineRecipient(storeId, existing.lineUserId);
+      if (compatibility.status === "INCOMPATIBLE") {
+        const released = await prisma.customer.updateMany({
+          where: {
+            id: existing.id,
+            storeId,
+            lineUserId: existing.lineUserId,
+          },
+          data: {
+            lineUserId: null,
+            lineLinkStatus: "UNLINKED",
+            lineLinkedAt: null,
+          },
+        });
+        if (released.count === 1) {
+          result = await bindLineToCustomerInStore({
+            storeId,
+            lineUserId,
+            lineName: null,
+            phone,
+            name: "顧客",
+            allowCreate: false,
+          });
+          console.info("[LINE Webhook] Repaired incompatible store recipient", {
+            storeId,
+            customerId: existing.id,
+            status: result.status,
+          });
+        }
+      }
+    }
+  }
+
+  // An activated central member already has Customer.userId, so the generic
+  // login-identity binder intentionally returns phone_taken_by_other_user.
+  // This webhook path is different: the store signature proves the channel,
+  // and the phone scopes the existing same-store customer. Bind only the
+  // notification recipient; never create/replace NextAuth Account[line] or a
+  // central CustomerIdentityLink with this store-scoped id.
+  if (result.status === "phone_taken_by_other_user") {
+    const bound = await prisma.customer.updateMany({
+      where: {
+        id: result.customerId,
+        storeId,
+        phone,
+        mergedIntoCustomerId: null,
+        OR: [{ lineUserId: null }, { lineUserId }],
+      },
+      data: {
+        lineUserId,
+        lineLinkStatus: "LINKED",
+        lineLinkedAt: new Date(),
+      },
+    });
+    if (bound.count === 1) {
+      const customer = await prisma.customer.findUnique({
+        where: { id: result.customerId },
+        select: { userId: true },
+      });
+      result = {
+        status: "bound_existing",
+        customerId: result.customerId,
+        userId: customer?.userId ?? "",
+        userCreated: false,
+        lineAccountSync: "noop_already_synced",
+      };
+    }
+  }
 
   logLineBindEvent({
     path: "webhook-bind-code",

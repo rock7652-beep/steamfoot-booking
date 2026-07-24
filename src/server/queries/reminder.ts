@@ -6,7 +6,7 @@ import { getActiveStoreForRead, validateStoreAccess } from "@/lib/store";
 import { AppError } from "@/lib/errors";
 import { todayReminderTriggerAt, tomorrowBookingDate } from "@/server/reminder-engine";
 import { resolveCentralLineRecipientsForCustomers } from "@/server/services/central-line-recipient-loader";
-import { resolveReminderLineRoute } from "@/server/services/reminder-line-route";
+import { resolveVerifiedReminderLineRoute } from "@/server/services/verified-reminder-line-route";
 
 // ============================================================
 // ReminderRule queries
@@ -214,7 +214,8 @@ export async function getReminderStats(activeStoreId?: string | null) {
 
       for (const b of bookings) {
         if (sentSet.has(b.id)) continue;
-        const route = resolveReminderLineRoute(
+        const route = await resolveVerifiedReminderLineRoute(
+          rule.storeId,
           b.customer.lineUserId,
           recipients.get(b.customerId),
         );

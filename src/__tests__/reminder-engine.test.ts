@@ -287,6 +287,7 @@ vi.mock("@/lib/line", () => ({
     pushMessageMock(storeId, lineUserId, messages),
   pushSteamButlerMessage: (lineUserId: string, messages: unknown[]) =>
     pushSteamButlerMessageMock(lineUserId, messages),
+  probeStoreLineRecipient: vi.fn(async () => ({ status: "COMPATIBLE" })),
   renderTemplate: (body: string) => body,
 }));
 vi.mock("@/lib/shop-config", () => ({
