@@ -1,16 +1,19 @@
 import { prisma } from "@/lib/db";
 import { getLineBotInfo } from "@/lib/line";
-import { requireAdminSession } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
 const HSINCHU_STORE_ID = "store-hsinchu";
+const ZHUBEI_STORE_ID = "e182e256-98ca-4c78-970b-d4b118066c51";
+const TAICHUNG_STORE_ID = "store-taichung";
 const EXPECTED_BASIC_ID = "@059rrqpw";
+const EXPECTED_OLD_DESTINATION = "Ufa6a3615f9acb1c52437b7ddf0eba25c";
 
 /**
  * One-time, tightly bounded Production cutover.
  *
- * This endpoint cannot select a store or destination supplied by a caller.
+ * This endpoint cannot select a store or destination supplied by a caller and
+ * is only available while Hsinchu still has the exact pre-cutover destination.
  * It derives the destination from the configured Hsinchu LINE token, verifies
  * the expected OA identity, and only updates the single Hsinchu store row.
  * Once the cutover has been verified, this route is removed.
@@ -20,10 +23,12 @@ export async function POST() {
     return Response.json({ ok: false, code: "PRODUCTION_ONLY" }, { status: 404 });
   }
 
-  try {
-    await requireAdminSession();
-  } catch {
-    return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 });
+  const current = await prisma.store.findUnique({
+    where: { id: HSINCHU_STORE_ID },
+    select: { lineDestination: true },
+  });
+  if (current?.lineDestination !== EXPECTED_OLD_DESTINATION) {
+    return Response.json({ ok: false, code: "CUTOVER_NOT_AVAILABLE" }, { status: 410 });
   }
 
   const botInfo = await getLineBotInfo(HSINCHU_STORE_ID);
@@ -45,14 +50,19 @@ export async function POST() {
     return Response.json({ ok: false, code: "DESTINATION_ALREADY_ASSIGNED" }, { status: 409 });
   }
 
-  await prisma.store.update({
-    where: { id: HSINCHU_STORE_ID },
+  const updated = await prisma.store.updateMany({
+    where: {
+      id: HSINCHU_STORE_ID,
+      lineDestination: EXPECTED_OLD_DESTINATION,
+    },
     data: { lineDestination: botInfo.data.userId },
-    select: { id: true },
   });
+  if (updated.count !== 1) {
+    return Response.json({ ok: false, code: "CUTOVER_NOT_AVAILABLE" }, { status: 410 });
+  }
 
   const stores = await prisma.store.findMany({
-    where: { id: { in: [HSINCHU_STORE_ID, "store-zhubei", "store-taichung"] } },
+    where: { id: { in: [HSINCHU_STORE_ID, ZHUBEI_STORE_ID, TAICHUNG_STORE_ID] } },
     select: { id: true, lineDestination: true },
   });
   const hsinchu = stores.find((store) => store.id === HSINCHU_STORE_ID);
@@ -62,6 +72,7 @@ export async function POST() {
 
   if (
     hsinchu?.lineDestination !== botInfo.data.userId ||
+    stores.length !== 3 ||
     new Set(destinations).size !== destinations.length
   ) {
     return Response.json({ ok: false, code: "POST_UPDATE_VERIFICATION_FAILED" }, { status: 500 });
