@@ -18,6 +18,7 @@ import {
   verifyAccountLinkHandshake,
 } from "@/lib/account-link-handshake";
 import { linkVerifiedOAuthAccount } from "@/server/services/link-oauth-account";
+import { resolveCentralMemberCustomerForStore } from "@/server/services/central-member-resolver";
 
 // ============================================================
 // NextAuth v5 type augmentation
@@ -1417,9 +1418,37 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               appToken.storeSlug = null;
             } else {
               appToken.staffId = dbUser.staff?.id ?? null;
-              appToken.customerId = dbUser.customer?.id ?? null;
-              appToken.storeId = dbUser.staff?.storeId ?? dbUser.customer?.storeId ?? null;
-              appToken.storeSlug = dbUser.staff?.store?.slug ?? dbUser.customer?.store?.slug ?? null;
+              if (dbUser.staff) {
+                appToken.customerId = null;
+                appToken.storeId = dbUser.staff.storeId;
+                appToken.storeSlug = dbUser.staff.store?.slug ?? null;
+              } else {
+                // Central members can have one legacy Customer.userId relation plus
+                // additional per-store CustomerIdentityLink rows.  A profile save
+                // calls useSession().update(); resolving only dbUser.customer here
+                // switched the JWT back to the legacy first store immediately after
+                // a new-store registration, causing /member-stores to refresh-loop.
+                //
+                // Prefer the verified membership for the current store cookie.  The
+                // resolver fails closed on cross-store drift/conflicting links.
+                const { resolveStoreFromOAuthCookie } = await import("@/lib/store-resolver");
+                const storeCtx = await resolveStoreFromOAuthCookie();
+                const currentMembership = storeCtx
+                  ? await resolveCentralMemberCustomerForStore(
+                      appToken.sub,
+                      storeCtx.storeId,
+                    )
+                  : null;
+
+                appToken.customerId =
+                  currentMembership?.customerId ?? dbUser.customer?.id ?? null;
+                appToken.storeId =
+                  currentMembership?.storeId ?? dbUser.customer?.storeId ?? null;
+                appToken.storeSlug =
+                  currentMembership?.storeSlug ??
+                  dbUser.customer?.store?.slug ??
+                  null;
+              }
             }
           }
         } catch (err) {

@@ -12,6 +12,7 @@ const mockResolveStoreFromOAuthCookie = vi.fn();
 const mockIdentityLinkFindUnique = vi.fn();
 const mockCustomerFindFirst = vi.fn();
 const mockSyncVerifiedCentralIdentity = vi.fn();
+const mockResolveCentralMemberCustomerForStore = vi.fn();
 const mockCompareSync = vi.fn();
 
 vi.mock("next-auth", () => ({
@@ -86,6 +87,11 @@ vi.mock("@/server/services/sync-verified-central-identity", () => ({
     mockSyncVerifiedCentralIdentity(...args),
 }));
 
+vi.mock("@/server/services/central-member-resolver", () => ({
+  resolveCentralMemberCustomerForStore: (...args: unknown[]) =>
+    mockResolveCentralMemberCustomerForStore(...args),
+}));
+
 vi.mock("@/lib/line-bind-log", async () => {
   const actual = await vi.importActual<typeof import("@/lib/line-bind-log")>(
     "@/lib/line-bind-log",
@@ -155,6 +161,7 @@ beforeEach(() => {
   mockIdentityLinkFindUnique.mockReset();
   mockCustomerFindFirst.mockReset();
   mockSyncVerifiedCentralIdentity.mockReset();
+  mockResolveCentralMemberCustomerForStore.mockReset();
   mockCompareSync.mockReset();
   vi.stubEnv("LINE_LOGIN_CHANNEL_ID", "channel-123");
   mockVerifyLiffIdToken.mockResolvedValue({
@@ -169,6 +176,7 @@ beforeEach(() => {
   mockIdentityLinkFindUnique.mockResolvedValue(null);
   mockCustomerFindFirst.mockResolvedValue(null);
   mockSyncVerifiedCentralIdentity.mockResolvedValue({ status: "linked" });
+  mockResolveCentralMemberCustomerForStore.mockResolvedValue(null);
   mockCompareSync.mockReturnValue(true);
 });
 
@@ -199,6 +207,46 @@ describe("auth.ts OAuth pending store onboarding", () => {
 
     expect(token).toMatchObject({
       customerId: null,
+      storeId: STORE.id,
+      storeSlug: STORE.slug,
+    });
+  });
+
+  it("refreshes the JWT to the newly registered current-store membership", async () => {
+    const jwt = await getJwtCallback();
+    const { prisma } = await import("@/lib/db");
+    vi.mocked(prisma.user.findUnique).mockResolvedValueOnce({
+      role: "CUSTOMER",
+      staff: null,
+      customer: {
+        id: "customer-zhubei",
+        storeId: "store-zhubei",
+        store: { slug: "zhubei" },
+      },
+    } as never);
+    mockResolveCentralMemberCustomerForStore.mockResolvedValueOnce({
+      customerId: "customer-hsinchu",
+      storeId: STORE.id,
+      storeSlug: STORE.slug,
+    });
+
+    const token = await jwt({
+      token: {
+        sub: "user-central",
+        role: "CUSTOMER",
+        customerId: null,
+        storeId: STORE.id,
+        storeSlug: STORE.slug,
+      },
+      trigger: "update",
+    });
+
+    expect(mockResolveCentralMemberCustomerForStore).toHaveBeenCalledWith(
+      "user-central",
+      STORE.id,
+    );
+    expect(token).toMatchObject({
+      customerId: "customer-hsinchu",
       storeId: STORE.id,
       storeSlug: STORE.slug,
     });
