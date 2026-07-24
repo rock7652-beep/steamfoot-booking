@@ -32,6 +32,7 @@ import {
   maskLineUserId,
   type AccountSyncStatus,
 } from "@/lib/line-bind-log";
+import { DigitalButlerRuntime } from "@/server/services/digital-butler-runtime";
 
 export const dynamic = "force-dynamic";
 
@@ -335,6 +336,7 @@ async function handleTextMessage(
       storeId,
       replyToken
     );
+    return;
   }
   const normalizedPhone = normalizePhone(text);
   if (/^09\d{8}$/.test(normalizedPhone)) {
@@ -347,7 +349,27 @@ async function handleTextMessage(
     );
     return;
   }
-  // 未來可在此擴充其他指令（查詢預約等）
+
+  // 系統保留指令全部處理完畢後，才允許數位管家接手。執行層本身
+  // fail-closed；未啟用、未命中或內部失敗都不改變既有 webhook 行為。
+  if (replyToken && eventIdentity?.destination && eventIdentity.messageId) {
+    try {
+      const result = await new DigitalButlerRuntime().handleText({
+        storeId,
+        channelIdentity: eventIdentity.destination,
+        lineUserId,
+        text,
+        webhookEventId: eventIdentity.webhookEventId,
+        timestamp: eventIdentity.timestamp,
+        messageId: eventIdentity.messageId,
+      });
+      if (result.handled && result.messages.length > 0) {
+        await replyMessage(storeId, replyToken, result.messages);
+      }
+    } catch {
+      console.error("[Digital Butler] Isolated runtime failure", { storeId });
+    }
+  }
 }
 
 const PLAN_RECOMMENDATION_MESSAGE = {

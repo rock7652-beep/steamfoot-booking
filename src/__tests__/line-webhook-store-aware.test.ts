@@ -64,6 +64,12 @@ vi.mock("@/lib/line-bind-log", () => ({
   maskLineUserId: (value: string | null | undefined) => value ? "masked" : "(none)",
 }));
 
+vi.mock("@/server/services/digital-butler-runtime", () => ({
+  DigitalButlerRuntime: class {
+    handleText = vi.fn(async () => ({ handled: false, messages: [], outcome: "NO_MATCH" }));
+  },
+}));
+
 function postReq(body: unknown, signature = "line-signature") {
   return new Request("https://example.test/api/line/webhook", {
     method: "POST",
