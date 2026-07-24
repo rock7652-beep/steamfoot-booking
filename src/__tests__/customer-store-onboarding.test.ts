@@ -24,7 +24,13 @@ describe("decideCustomerStoreAccess", () => {
   it("allows only the target store profile during onboarding", () => {
     expect(
       decideCustomerStoreAccess({ ...base, pathname: "/profile" }),
-    ).toEqual({ action: "allow" });
+    ).toEqual({ action: "allow", onboarding: true });
+  });
+
+  it("marks nested target-store profile routes as onboarding", () => {
+    expect(
+      decideCustomerStoreAccess({ ...base, pathname: "/profile/security" }),
+    ).toEqual({ action: "allow", onboarding: true });
   });
 
   it("rejects a forged or stale store mismatch", () => {

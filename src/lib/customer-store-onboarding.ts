@@ -1,5 +1,5 @@
 export type CustomerStoreAccessDecision =
-  | { action: "allow" }
+  | { action: "allow"; onboarding?: boolean }
   | { action: "onboard"; redirectTo: string }
   | { action: "choose-membership" };
 
@@ -31,7 +31,7 @@ export function decideCustomerStoreAccess(input: {
   }
 
   if (input.pathname === "/profile" || input.pathname.startsWith("/profile/")) {
-    return { action: "allow" };
+    return { action: "allow", onboarding: true };
   }
 
   const params = new URLSearchParams({
