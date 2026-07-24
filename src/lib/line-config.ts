@@ -23,8 +23,8 @@ const LINE_ENV_BY_STORE: Record<
   { accessToken: string; channelSecret: string; expectedBasicId: string | null } | null
 > = {
   zhubei: {
-    accessToken: "LINE_CHANNEL_ACCESS_TOKEN",
-    channelSecret: "LINE_CHANNEL_SECRET",
+    accessToken: "LINE_ZHUBEI_CHANNEL_ACCESS_TOKEN",
+    channelSecret: "LINE_ZHUBEI_CHANNEL_SECRET",
     expectedBasicId: null,
   },
   hsinchu: {
