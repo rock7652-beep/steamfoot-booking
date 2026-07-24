@@ -35,7 +35,7 @@ const LINE_ENV_BY_STORE: Record<
   taichung: {
     accessToken: "LINE_TAICHUNG_CHANNEL_ACCESS_TOKEN",
     channelSecret: "LINE_TAICHUNG_CHANNEL_SECRET",
-    expectedBasicId: null,
+    expectedBasicId: "@096ulbei",
   },
 };
 
