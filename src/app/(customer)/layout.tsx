@@ -21,6 +21,7 @@ import { resolveCustomerCompletionStatus } from "@/server/queries/customer-compl
 import { resolveCentralMembershipsForUser } from "@/server/services/central-member-resolver";
 import { CENTRAL_MEMBER_STORE_COOKIE } from "@/lib/central-member-store";
 import { CentralMemberStoreSwitcher } from "./central-member-store-switcher";
+import { decideCustomerStoreAccess } from "@/lib/customer-store-onboarding";
 
 // SVG icon paths (Heroicons outline, 24x24 viewBox) — 拆成多段 path 確保正確渲染
 const ICON_PATHS: Record<string, string[]> = {
@@ -165,9 +166,23 @@ export default async function CustomerLayout({
   );
   const isOnStoreChooser = pathname === "/member-stores";
 
-  // 已有中央身份連結時，URL 不能切到尚未認領的門市。
-  if (centralMemberships.memberships.length > 0 && !currentMembership) {
+  // 已有中央身份連結時，URL 不能切到尚未認領的門市；唯一例外是本次
+  // OAuth 已驗證的目標店 onboarding，而且只可進完成註冊頁。
+  const storeAccess = decideCustomerStoreAccess({
+    membershipCount: centralMemberships.memberships.length,
+    hasCurrentMembership: !!currentMembership,
+    sessionCustomerId: user.customerId ?? null,
+    sessionStoreId: user.storeId ?? null,
+    sessionStoreSlug: user.storeSlug ?? null,
+    requestedStoreId: storeCtx.storeId,
+    requestedStoreSlug: storeCtx.storeSlug,
+    pathname,
+  });
+  if (storeAccess.action === "choose-membership") {
     redirect("/store-select");
+  }
+  if (storeAccess.action === "onboard") {
+    redirect(storeAccess.redirectTo);
   }
 
   if (centralMemberships.memberships.length > 1 && !isOnStoreChooser) {
