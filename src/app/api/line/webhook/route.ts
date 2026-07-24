@@ -561,6 +561,59 @@ async function handlePhoneBindingRequest(
     }
   }
 
+  // Older repair attempts could clear the incompatible central-login
+  // recipient before the generic binder failed while creating a duplicate
+  // CUSTOMER User. That durable half-state returns P2002(phone, role) on every
+  // retry and no longer has an old lineUserId to enter the compatibility path
+  // above. A store-signed webhook plus an exact same-store phone match is
+  // sufficient to restore only the notification recipient. Never create or
+  // change the canonical User / Account identity here.
+  if (
+    result.status === "unique_conflict" &&
+    result.conflictTarget.split(",").map((field) => field.trim()).includes("phone") &&
+    result.conflictTarget.split(",").map((field) => field.trim()).includes("role")
+  ) {
+    const customer = await prisma.customer.findFirst({
+      where: {
+        storeId,
+        phone,
+        lineUserId: null,
+        mergedIntoCustomerId: null,
+      },
+      select: { id: true, userId: true },
+    });
+    if (customer) {
+      const rebound = await prisma.customer.updateMany({
+        where: {
+          id: customer.id,
+          storeId,
+          phone,
+          lineUserId: null,
+          mergedIntoCustomerId: null,
+        },
+        data: {
+          lineUserId,
+          lineLinkStatus: "LINKED",
+          lineLinkedAt: new Date(),
+        },
+      });
+      if (rebound.count === 1) {
+        result = {
+          status: "bound_existing",
+          customerId: customer.id,
+          userId: customer.userId ?? "",
+          userCreated: false,
+          lineAccountSync: "noop_already_synced",
+        };
+        console.info("[LINE Webhook] Repaired store recipient after duplicate User conflict", {
+          storeId,
+          customerId: customer.id,
+          status: result.status,
+        });
+      }
+    }
+  }
+
   logLineBindEvent({
     path: "webhook-bind-code",
     status: result.status,

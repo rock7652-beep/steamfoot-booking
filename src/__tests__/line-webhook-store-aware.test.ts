@@ -202,6 +202,61 @@ describe("LINE webhook store-aware signature and reply", () => {
     );
   });
 
+  it("repairs a recipient cleared by an earlier duplicate User conflict", async () => {
+    bindLineToCustomerInStoreMock.mockResolvedValueOnce({
+      status: "unique_conflict",
+      conflictTarget: "phone,role",
+    });
+    mockPrisma.customer.findFirst.mockResolvedValue({
+      id: "customer-hsinchu",
+      userId: null,
+    });
+    mockPrisma.customer.updateMany.mockResolvedValueOnce({ count: 1 });
+
+    const { POST } = await import("@/app/api/line/webhook/route");
+    const res = await POST(postReq({
+      destination: "D_hsinchu",
+      events: [{
+        type: "message",
+        replyToken: "reply-token-phone",
+        source: { type: "user", userId: "U-hsinchu-store" },
+        message: { type: "text", id: "message-1", text: "0912345678" },
+        timestamp: 1_721_234_567_890,
+      }],
+    }));
+
+    expect(res.status).toBe(200);
+    expect(bindLineToCustomerInStoreMock).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.customer.findFirst).toHaveBeenCalledWith({
+      where: {
+        storeId: "store-hsinchu",
+        phone: "0912345678",
+        lineUserId: null,
+        mergedIntoCustomerId: null,
+      },
+      select: { id: true, userId: true },
+    });
+    expect(mockPrisma.customer.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "customer-hsinchu",
+        storeId: "store-hsinchu",
+        phone: "0912345678",
+        lineUserId: null,
+        mergedIntoCustomerId: null,
+      },
+      data: {
+        lineUserId: "U-hsinchu-store",
+        lineLinkStatus: "LINKED",
+        lineLinkedAt: expect.any(Date),
+      },
+    });
+    expect(replyMessageMock).toHaveBeenCalledWith(
+      "store-hsinchu",
+      "reply-token-phone",
+      [{ type: "text", text: "系統通知綁定成功！之後您將可收到預約提醒與方案通知。" }],
+    );
+  });
+
   it("rejects invalid per-store signatures before handling events", async () => {
     verifyLineSignatureMock.mockReturnValueOnce(false);
     const body = {
