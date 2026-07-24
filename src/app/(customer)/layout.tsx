@@ -185,7 +185,11 @@ export default async function CustomerLayout({
     redirect(storeAccess.redirectTo);
   }
 
-  if (centralMemberships.memberships.length > 1 && !isOnStoreChooser) {
+  if (
+    centralMemberships.memberships.length > 1 &&
+    !isOnStoreChooser &&
+    !storeAccess.onboarding
+  ) {
     const selectedStoreSlug = (await cookies()).get(CENTRAL_MEMBER_STORE_COOKIE)?.value;
     const selectedMembership = centralMemberships.memberships.find(
       (membership) => membership.storeSlug === selectedStoreSlug,
