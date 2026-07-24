@@ -8,6 +8,7 @@ const mockGoogle = vi.fn((config: Record<string, unknown>) => ({
 }));
 const mockVerifyLiffIdToken = vi.fn();
 const mockResolveStoreBySlug = vi.fn();
+const mockResolveStoreFromOAuthCookie = vi.fn();
 const mockIdentityLinkFindUnique = vi.fn();
 const mockCustomerFindFirst = vi.fn();
 const mockSyncVerifiedCentralIdentity = vi.fn();
@@ -72,7 +73,8 @@ vi.mock("@/lib/liff/verify-id-token", async () => {
 
 vi.mock("@/lib/store-resolver", () => ({
   resolveStoreBySlug: (...args: unknown[]) => mockResolveStoreBySlug(...args),
-  resolveStoreFromOAuthCookie: vi.fn(),
+  resolveStoreFromOAuthCookie: (...args: unknown[]) =>
+    mockResolveStoreFromOAuthCookie(...args),
 }));
 
 vi.mock("@/lib/identity-repair", () => ({
@@ -121,6 +123,20 @@ async function getCredentialsAuthorize(providerId: string) {
   return provider.authorize;
 }
 
+async function getJwtCallback() {
+  vi.resetModules();
+  await import("@/lib/auth");
+  const config = mockNextAuth.mock.calls.at(-1)?.[0] as
+    | {
+        callbacks?: {
+          jwt?: (input: Record<string, unknown>) => Promise<Record<string, unknown>>;
+        };
+      }
+    | undefined;
+  if (!config?.callbacks?.jwt) throw new Error("jwt callback not captured");
+  return config.callbacks.jwt;
+}
+
 const LINE_USER_ID = "U_same_line_user";
 const STORE = { id: "store-hsinchu", slug: "hsinchu" };
 
@@ -135,6 +151,7 @@ beforeEach(() => {
   }));
   mockVerifyLiffIdToken.mockReset();
   mockResolveStoreBySlug.mockReset();
+  mockResolveStoreFromOAuthCookie.mockReset();
   mockIdentityLinkFindUnique.mockReset();
   mockCustomerFindFirst.mockReset();
   mockSyncVerifiedCentralIdentity.mockReset();
@@ -145,10 +162,47 @@ beforeEach(() => {
     displayName: "LINE User",
   });
   mockResolveStoreBySlug.mockResolvedValue(STORE);
+  mockResolveStoreFromOAuthCookie.mockResolvedValue({
+    storeId: STORE.id,
+    storeSlug: STORE.slug,
+  });
   mockIdentityLinkFindUnique.mockResolvedValue(null);
   mockCustomerFindFirst.mockResolvedValue(null);
   mockSyncVerifiedCentralIdentity.mockResolvedValue({ status: "linked" });
   mockCompareSync.mockReturnValue(true);
+});
+
+describe("auth.ts OAuth pending store onboarding", () => {
+  it("keeps the verified Hsinchu store and clears a legacy customer from another store", async () => {
+    const jwt = await getJwtCallback();
+    const { prisma } = await import("@/lib/db");
+    vi.mocked(prisma.user.findUnique).mockResolvedValueOnce({
+      role: "CUSTOMER",
+      staff: null,
+      customer: {
+        id: "customer-zhubei",
+        storeId: "store-zhubei",
+        store: { slug: "zhubei" },
+      },
+    } as never);
+    mockIdentityLinkFindUnique.mockResolvedValueOnce(null);
+
+    const token = await jwt({
+      token: {},
+      user: { id: "user-central" },
+      account: {
+        type: "oauth",
+        provider: "line",
+        providerAccountId: LINE_USER_ID,
+      },
+    });
+
+    expect(token).toMatchObject({
+      customerId: null,
+      storeId: STORE.id,
+      storeSlug: STORE.slug,
+    });
+  });
 });
 
 describe("auth.ts customer-phone provider", () => {

@@ -1527,6 +1527,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                     appToken.customerId = link.customer.id;
                     appToken.storeId = link.customer.storeId;
                     appToken.storeSlug = link.customer.store?.slug ?? null;
+                  } else {
+                    // LINE/Google OAuth 已經由 provider 驗證，且 storeCtx 是本次
+                    // 登入入口的有效店舖。若中央會員尚未在該店建立 Customer，
+                    // JWT 仍須保留「這次要加入的店」，否則會退回 legacy 第一店
+                    // 或 null，導致 /store-select 顯示「店舖資料遺失」。
+                    //
+                    // customerId 必須清空：dbUser.customer 可能是另一間門市的
+                    // legacy Customer.userId 關聯，絕不可帶進目標店。
+                    appToken.customerId = null;
+                    appToken.storeId = storeCtx.storeId;
+                    appToken.storeSlug = storeCtx.storeSlug;
                   }
                 }
               } catch (err) {

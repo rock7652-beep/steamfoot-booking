@@ -16,7 +16,7 @@ import {
 import { bindReferralToCustomer } from "@/server/services/referral-binding";
 import { normalizePhone } from "@/lib/normalize";
 import { parseBirthday } from "@/lib/birthday";
-import type { UserRole } from "@prisma/client";
+import { Prisma, type UserRole } from "@prisma/client";
 
 // ============================================================
 // Stale session 自癒：保證 User row 存在
@@ -585,6 +585,140 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
         existingByUserIdId: existingByUserId?.id ?? null,
         existingByUserIdStoreId: existingByUserId?.storeId ?? null,
       });
+
+      // ── Central member: 在新店建立獨立 Customer，不搬動 legacy Customer ──
+      //
+      // Customer.userId 是全域 unique。中央會員第一次加入第三間店時，
+      // existingByUserId 通常指向第一間店的 legacy Customer。舊 Case C 會把
+      // 那筆 Customer.storeId 改成新店，等於把既有門市資料搬走。
+      //
+      // 正確模型：新店 Customer.userId=null，透過 CustomerIdentityLink 連到
+      // 中央 User。Customer + identity link 必須同交易建立。
+      if (existingByUserId && existingByUserId.storeId !== storeId) {
+        if (real) {
+          console.warn("[updateProfileAction] central onboarding found existing target-store customer", {
+            requestPath,
+            userId: user.id,
+            storeId,
+            existingLegacyCustomerId: existingByUserId.id,
+            candidateCustomerId: real.id,
+            matchedBy,
+          });
+          return {
+            error:
+              "新竹店已有相同電話或 LINE 的顧客資料。為保護會員資料，請由門市協助確認後連結。",
+            success: false,
+          };
+        }
+
+        const lineUserId = await getLineUserIdForUser(user.id);
+        if (!lineUserId) {
+          return {
+            error: "請重新從新竹店 LINE 登入後再完成註冊。",
+            success: false,
+          };
+        }
+
+        try {
+          const created = await prisma.$transaction(
+            async (tx) => {
+              const existingLink = await tx.customerIdentityLink.findUnique({
+                where: {
+                  uq_customer_identity_provider_store: {
+                    provider: "line",
+                    providerAccountId: lineUserId,
+                    storeId,
+                  },
+                },
+                select: { customerId: true },
+              });
+              if (existingLink) {
+                throw new Error("CENTRAL_MEMBERSHIP_ALREADY_EXISTS");
+              }
+
+              const customer = await tx.customer.create({
+                data: {
+                  name,
+                  phone,
+                  email,
+                  gender,
+                  birthday,
+                  address,
+                  notes,
+                  storeId,
+                  userId: null,
+                  authSource: "LINE",
+                  customerStage: "LEAD",
+                  lineUserId,
+                  lineName: user.name ?? null,
+                  lineLinkStatus: "LINKED",
+                  lineLinkedAt: new Date(),
+                },
+                select: { id: true },
+              });
+
+              const identityLink = await tx.customerIdentityLink.create({
+                data: {
+                  userId: user.id,
+                  storeId,
+                  customerId: customer.id,
+                  provider: "line",
+                  providerAccountId: lineUserId,
+                  lineUserId,
+                },
+                select: { id: true },
+              });
+
+              await tx.auditLog.create({
+                data: {
+                  actorUserId: user.id,
+                  targetType: "CustomerIdentityLink",
+                  targetId: identityLink.id,
+                  action: "CENTRAL_MEMBER_STORE_REGISTER",
+                  afterJson: {
+                    storeId,
+                    customerId: customer.id,
+                    provider: "line",
+                  },
+                },
+              });
+
+              return customer;
+            },
+            { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+          );
+
+          console.info("[updateProfileAction] central store membership created", {
+            userId: user.id,
+            storeId,
+            customerId: created.id,
+            preservedLegacyCustomerId: existingByUserId.id,
+            preservedLegacyStoreId: existingByUserId.storeId,
+          });
+          return verifySuccess(created.id);
+        } catch (error) {
+          if (
+            error instanceof Prisma.PrismaClientKnownRequestError &&
+            (error.code === "P2002" || error.code === "P2034")
+          ) {
+            return {
+              error:
+                "新竹店已有相同顧客資料，或註冊同時被重複送出。請重新整理；若仍無法完成，請聯繫門市。",
+              success: false,
+            };
+          }
+          if (
+            error instanceof Error &&
+            error.message === "CENTRAL_MEMBERSHIP_ALREADY_EXISTS"
+          ) {
+            return {
+              error: "新竹店會員已建立，請重新整理頁面。",
+              success: false,
+            };
+          }
+          throw error;
+        }
+      }
 
       // ── Case A: 有 real，且 real 與當前使用者的 existing 是不同 row → merge ──
       if (real && (!existingByUserId || existingByUserId.id !== real.id)) {
