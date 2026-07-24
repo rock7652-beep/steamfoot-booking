@@ -33,7 +33,7 @@ import {
   parseTaiwanDateToDbDate,
 } from "@/lib/date-utils";
 import { resolveCentralLineRecipientsForCustomers } from "@/server/services/central-line-recipient-loader";
-import { resolveReminderLineRoute } from "@/server/services/reminder-line-route";
+import { resolveVerifiedReminderLineRoute } from "@/server/services/verified-reminder-line-route";
 
 const DEFAULT_TEMPLATE = `{{customerName}} 您好！
 
@@ -224,7 +224,11 @@ export async function runReminders(): Promise<SendResult> {
       }
 
       const recipient = recipients.get(customer.id);
-      const route = resolveReminderLineRoute(customer.lineUserId, recipient);
+      const route = await resolveVerifiedReminderLineRoute(
+        bookingStoreId,
+        customer.lineUserId,
+        recipient,
+      );
       if (route.status === "BLOCKED") {
         const reason = `LINE recipient unavailable: ${route.reason}`;
         await recordSkippedReminder({

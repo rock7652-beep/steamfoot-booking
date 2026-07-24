@@ -44,6 +44,11 @@ export type LinePushResult = {
   errorType?: "line_api_rejected";
 };
 
+export type StoreLineRecipientProbe =
+  | { status: "COMPATIBLE" }
+  | { status: "INCOMPATIBLE" }
+  | { status: "UNAVAILABLE"; httpStatus: number | null };
+
 /**
  * Read the Messaging API Bot Info for a store without logging or exposing the
  * access token. Callers must keep `userId` server-side unless they have an
@@ -248,6 +253,32 @@ export async function getUserProfile(
     return await res.json();
   } catch {
     return null;
+  }
+}
+
+/**
+ * Checks whether a recipient id belongs to (and is reachable from) the
+ * store's Messaging API channel. Only LINE's definitive 404 response is
+ * treated as an incompatible identity. Configuration, auth, rate-limit and
+ * network failures remain indeterminate so callers never overwrite identity
+ * data during an outage.
+ */
+export async function probeStoreLineRecipient(
+  storeId: string,
+  lineUserId: string,
+): Promise<StoreLineRecipientProbe> {
+  const token = getLineAccessTokenForStore(storeId);
+  if (!token) return { status: "UNAVAILABLE", httpStatus: null };
+  try {
+    const res = await fetch(`${LINE_API_BASE}/profile/${lineUserId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    });
+    if (res.ok) return { status: "COMPATIBLE" };
+    if (res.status === 404) return { status: "INCOMPATIBLE" };
+    return { status: "UNAVAILABLE", httpStatus: res.status };
+  } catch {
+    return { status: "UNAVAILABLE", httpStatus: null };
   }
 }
 

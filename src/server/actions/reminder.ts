@@ -21,7 +21,7 @@ import { getShopConfig } from "@/lib/shop-config";
 import { deriveBaseUrl } from "@/lib/base-url";
 import { resolveWriteStoreId } from "@/lib/store";
 import { resolveCentralLineRecipientForCustomer } from "@/server/services/central-line-recipient-loader";
-import { resolveReminderLineRoute } from "@/server/services/reminder-line-route";
+import { resolveVerifiedReminderLineRoute } from "@/server/services/verified-reminder-line-route";
 
 // ============================================================
 // Validators
@@ -95,7 +95,8 @@ export async function previewBookingLineTestReminder(
       booking.customerId,
       booking.storeId,
     );
-    const route = resolveReminderLineRoute(
+    const route = await resolveVerifiedReminderLineRoute(
+      booking.storeId,
       booking.customer.lineLinkStatus === "LINKED"
         ? booking.customer.lineUserId
         : null,
@@ -433,7 +434,11 @@ export async function testSendLineMessage(
     if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
     if (!template) throw new AppError("NOT_FOUND", "模板不存在");
     const recipient = await resolveCentralLineRecipientForCustomer(customer.id, customer.storeId);
-    const route = resolveReminderLineRoute(customer.lineUserId, recipient);
+    const route = await resolveVerifiedReminderLineRoute(
+      customer.storeId,
+      customer.lineUserId,
+      recipient,
+    );
     if (route.status === "BLOCKED") {
       throw new AppError("BUSINESS_RULE", `LINE 收件人無法使用（${route.reason}）`);
     }
@@ -505,7 +510,11 @@ export async function sendLineSmokeTest(
       throw new AppError("VALIDATION", "找不到同店測試顧客");
     }
     const recipient = await resolveCentralLineRecipientForCustomer(customer.id, storeId);
-    const route = resolveReminderLineRoute(customer.lineUserId, recipient);
+    const route = await resolveVerifiedReminderLineRoute(
+      storeId,
+      customer.lineUserId,
+      recipient,
+    );
     if (route.status === "BLOCKED") {
       throw new AppError("BUSINESS_RULE", `LINE 收件人無法使用（${route.reason}）`);
     }
@@ -586,7 +595,8 @@ export async function sendBookingLineTestReminder(
       booking.customerId,
       booking.storeId,
     );
-    const route = resolveReminderLineRoute(
+    const route = await resolveVerifiedReminderLineRoute(
+      booking.storeId,
       booking.customer.lineLinkStatus === "LINKED"
         ? booking.customer.lineUserId
         : null,

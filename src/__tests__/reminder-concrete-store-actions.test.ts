@@ -35,7 +35,11 @@ vi.mock("@/lib/feature-gate", () => ({
 }));
 vi.mock("@/lib/permissions", () => ({ requirePermission: vi.fn() }));
 vi.mock("@/lib/manager-visibility", () => ({ assertStoreAccess: vi.fn() }));
-vi.mock("@/lib/line", () => ({ pushMessage: vi.fn(), renderTemplate: vi.fn() }));
+vi.mock("@/lib/line", () => ({
+  pushMessage: vi.fn(),
+  renderTemplate: vi.fn(),
+  probeStoreLineRecipient: vi.fn(async () => ({ status: "COMPATIBLE" })),
+}));
 vi.mock("@/lib/line-config", () => ({ isLineSmokeTestEnabled: vi.fn(() => false) }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
