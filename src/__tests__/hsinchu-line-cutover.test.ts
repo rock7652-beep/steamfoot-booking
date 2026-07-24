@@ -2,23 +2,23 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const h = vi.hoisted(() => ({
   getLineBotInfo: vi.fn(),
+  findUnique: vi.fn(),
   findFirst: vi.fn(),
-  update: vi.fn(),
+  updateMany: vi.fn(),
   findMany: vi.fn(),
-  requireAdminSession: vi.fn(),
 }));
 
 vi.mock("@/lib/line", () => ({ getLineBotInfo: h.getLineBotInfo }));
 vi.mock("@/lib/db", () => ({
   prisma: {
     store: {
+      findUnique: h.findUnique,
       findFirst: h.findFirst,
-      update: h.update,
+      updateMany: h.updateMany,
       findMany: h.findMany,
     },
   },
 }));
-vi.mock("@/lib/session", () => ({ requireAdminSession: h.requireAdminSession }));
 
 describe("Hsinchu LINE one-time cutover", () => {
   beforeEach(() => {
@@ -29,12 +29,14 @@ describe("Hsinchu LINE one-time cutover", () => {
       ok: true,
       data: { displayName: "以斯帖蒸足坊", basicId: "@059rrqpw", userId: "Unew-hsinchu" },
     });
+    h.findUnique.mockResolvedValue({
+      lineDestination: "Ufa6a3615f9acb1c52437b7ddf0eba25c",
+    });
     h.findFirst.mockResolvedValue(null);
-    h.update.mockResolvedValue({ id: "store-hsinchu" });
-    h.requireAdminSession.mockResolvedValue({ id: "admin" });
+    h.updateMany.mockResolvedValue({ count: 1 });
     h.findMany.mockResolvedValue([
       { id: "store-hsinchu", lineDestination: "Unew-hsinchu" },
-      { id: "store-zhubei", lineDestination: "Uzhubei" },
+      { id: "e182e256-98ca-4c78-970b-d4b118066c51", lineDestination: "Uzhubei" },
       { id: "store-taichung", lineDestination: "Utaichung" },
     ]);
   });
@@ -45,10 +47,12 @@ describe("Hsinchu LINE one-time cutover", () => {
 
     expect(response.status).toBe(200);
     expect(h.getLineBotInfo).toHaveBeenCalledWith("store-hsinchu");
-    expect(h.update).toHaveBeenCalledWith({
-      where: { id: "store-hsinchu" },
+    expect(h.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "store-hsinchu",
+        lineDestination: "Ufa6a3615f9acb1c52437b7ddf0eba25c",
+      },
       data: { lineDestination: "Unew-hsinchu" },
-      select: { id: true },
     });
     expect(await response.json()).toMatchObject({ ok: true, basicId: "@059rrqpw" });
   });
@@ -62,17 +66,17 @@ describe("Hsinchu LINE one-time cutover", () => {
     const response = await POST();
 
     expect(response.status).toBe(409);
-    expect(h.update).not.toHaveBeenCalled();
+    expect(h.updateMany).not.toHaveBeenCalled();
   });
 
-  it("refuses unauthenticated callers", async () => {
-    h.requireAdminSession.mockRejectedValue(new Error("UNAUTHORIZED"));
+  it("is permanently unavailable after the old destination has changed", async () => {
+    h.findUnique.mockResolvedValue({ lineDestination: "Ualready-cut-over" });
     const { POST } = await import("@/app/api/internal/hsinchu-line-cutover/route");
     const response = await POST();
 
-    expect(response.status).toBe(401);
+    expect(response.status).toBe(410);
     expect(h.getLineBotInfo).not.toHaveBeenCalled();
-    expect(h.update).not.toHaveBeenCalled();
+    expect(h.updateMany).not.toHaveBeenCalled();
   });
 
   it("refuses a destination already assigned to another store", async () => {
@@ -81,7 +85,7 @@ describe("Hsinchu LINE one-time cutover", () => {
     const response = await POST();
 
     expect(response.status).toBe(409);
-    expect(h.update).not.toHaveBeenCalled();
+    expect(h.updateMany).not.toHaveBeenCalled();
   });
 
   it("is unavailable outside Production", async () => {
