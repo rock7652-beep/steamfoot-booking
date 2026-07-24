@@ -25,7 +25,7 @@ const LINE_ENV_BY_STORE: Record<
   zhubei: {
     accessToken: "LINE_ZHUBEI_CHANNEL_ACCESS_TOKEN",
     channelSecret: "LINE_ZHUBEI_CHANNEL_SECRET",
-    expectedBasicId: null,
+    expectedBasicId: "@083vmikb",
   },
   hsinchu: {
     accessToken: "LINE_HSINCHU_CHANNEL_ACCESS_TOKEN",
