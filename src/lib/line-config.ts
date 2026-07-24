@@ -30,7 +30,7 @@ const LINE_ENV_BY_STORE: Record<
   hsinchu: {
     accessToken: "LINE_HSINCHU_CHANNEL_ACCESS_TOKEN",
     channelSecret: "LINE_HSINCHU_CHANNEL_SECRET",
-    expectedBasicId: "@788umzem",
+    expectedBasicId: "@059rrqpw",
   },
   taichung: {
     accessToken: "LINE_TAICHUNG_CHANNEL_ACCESS_TOKEN",
