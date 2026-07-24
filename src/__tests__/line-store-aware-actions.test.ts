@@ -303,7 +303,7 @@ describe("LINE sending actions are store-aware", () => {
     ]);
   });
 
-  it("single-booking test uses central route and does not consume the scheduled reminder key", async () => {
+  it("single-booking test uses the booking store route and does not consume the scheduled reminder key", async () => {
     resolveCentralLineRecipientForCustomerMock.mockResolvedValueOnce({
       status: "READY",
       deliverable: true,
@@ -336,16 +336,18 @@ describe("LINE sending actions are store-aware", () => {
 
     expect(result).toEqual({
       success: true,
-      data: { messageLogId: "message-log-1", lineRoute: "CENTRAL" },
+      data: { messageLogId: "message-log-1", lineRoute: "STORE" },
     });
-    expect(pushSteamButlerMessageMock).toHaveBeenCalledWith(
-      "U_central_customer",
+    expect(pushMessageMock).toHaveBeenCalledWith(
+      "store-hsinchu",
+      "U_store_customer",
       [{ type: "text", text: expect.stringContaining("【測試提醒｜不影響正式排程】") }],
     );
+    expect(pushSteamButlerMessageMock).not.toHaveBeenCalled();
     expect(mockPrisma.messageLog.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         bookingId: "booking-1",
-        lineRoute: "CENTRAL",
+        lineRoute: "STORE",
         status: "SENT",
         // No ruleId / triggerAt: the 18:00 cron can still send the real reminder.
       }),

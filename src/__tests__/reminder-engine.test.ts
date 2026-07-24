@@ -632,7 +632,7 @@ describe("runReminders (daily next-day batch)", () => {
     expect(messageLogs[0].lineRoute).toBe("CENTRAL");
   });
 
-  it("中央與分店 LINE 同時存在時只送中央 Channel 一次", async () => {
+  it("中央與分店 LINE 同時存在時只送預約分店 Channel 一次", async () => {
     vi.setSystemTime(new Date("2026-05-11T10:00:00.000Z"));
     bookings.push(
       makeBooking({
@@ -651,12 +651,12 @@ describe("runReminders (daily next-day batch)", () => {
     const result = await engine.runReminders();
 
     expect(result.sent).toBe(1);
-    expect(pushMessageMock).not.toHaveBeenCalled();
-    expect(pushSteamButlerMessageMock).toHaveBeenCalledTimes(1);
-    expect(pushSteamButlerMessageMock).toHaveBeenCalledWith("U-central", [
+    expect(pushMessageMock).toHaveBeenCalledTimes(1);
+    expect(pushMessageMock).toHaveBeenCalledWith("store-test", "U1234567890", [
       { type: "text", text: expect.any(String) },
     ]);
-    expect(messageLogs[0].lineRoute).toBe("CENTRAL");
+    expect(pushSteamButlerMessageMock).not.toHaveBeenCalled();
+    expect(messageLogs[0].lineRoute).toBe("STORE");
   });
 
   it("中央發送失敗時不改送分店，避免狀態不明造成重複通知", async () => {
@@ -665,6 +665,7 @@ describe("runReminders (daily next-day batch)", () => {
       makeBooking({
         customerId: "central-failure",
         bookingDate: new Date("2026-05-12T00:00:00.000Z"),
+        hasLine: false,
       }),
     );
     centralRecipientOverrides.set("central-failure", {
@@ -692,7 +693,7 @@ describe("runReminders (daily next-day batch)", () => {
     });
   });
 
-  it("中央明確回覆 400 未送達時改送仍有效的分店 LINE", async () => {
+  it("中央與分店皆存在時不先嘗試中央 Channel", async () => {
     vi.setSystemTime(new Date("2026-05-11T10:00:00.000Z"));
     bookings.push(
       makeBooking({
@@ -706,19 +707,12 @@ describe("runReminders (daily next-day batch)", () => {
       recipientLineUserId: "U-central-400",
     });
     rules.push(makeRule());
-    pushSteamButlerMessageMock.mockResolvedValueOnce({
-      success: false,
-      error: 'LINE API 400: {"message":"Failed to send messages"}',
-      httpStatus: 400,
-      errorType: "line_api_rejected",
-    });
-
     const { engine } = await loadModules();
     const result = await engine.runReminders();
 
     expect(result.sent).toBe(1);
     expect(result.failed).toBe(0);
-    expect(pushSteamButlerMessageMock).toHaveBeenCalledTimes(1);
+    expect(pushSteamButlerMessageMock).not.toHaveBeenCalled();
     expect(pushMessageMock).toHaveBeenCalledTimes(1);
     expect(messageLogs[0]).toMatchObject({
       status: "SENT",

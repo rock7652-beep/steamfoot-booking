@@ -15,11 +15,11 @@ const central = (
 });
 
 describe("resolveReminderLineRoute", () => {
-  it("prefers the verified central channel when both recipients exist", () => {
+  it("prefers the booking store channel when both recipients exist", () => {
     expect(resolveReminderLineRoute(" U-store ", central())).toEqual({
       status: "READY",
-      channel: "CENTRAL",
-      recipientLineUserId: "U-central",
+      channel: "STORE",
+      recipientLineUserId: "U-store",
     });
   });
 
@@ -33,8 +33,8 @@ describe("resolveReminderLineRoute", () => {
 
   it("selects exactly one recipient when both routes exist", () => {
     const route = resolveReminderLineRoute("U-store", central());
-    expect(route.channel).toBe("CENTRAL");
-    expect(route.recipientLineUserId).toBe("U-central");
+    expect(route.channel).toBe("STORE");
+    expect(route.recipientLineUserId).toBe("U-store");
   });
 
   it("preserves a usable store fallback during central onboarding", () => {
