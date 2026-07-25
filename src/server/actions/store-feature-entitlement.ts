@@ -138,3 +138,53 @@ export async function saveStoreFeatureEntitlement(
     return { success: false, error: e instanceof Error ? e.message : "操作失敗" };
   }
 }
+
+export async function setDigitalButlerActivationAction(
+  _previous: StoreFeatureEntitlementFormState,
+  formData: FormData,
+): Promise<StoreFeatureEntitlementFormState> {
+  try {
+    await requireAdminSession();
+    const storeId = readString(formData, "storeId");
+    const enabled = readString(formData, "enabled") === "true";
+    if (!storeId) return { success: null, error: "缺少店舖資訊" };
+
+    if (enabled) {
+      const entitlement = await prisma.storeFeatureEntitlement.findUnique({
+        where: {
+          uq_store_feature_entitlement: {
+            storeId,
+            featureKey: FEATURES.DIGITAL_BUTLER,
+          },
+        },
+        select: { status: true, startsAt: true, expiresAt: true },
+      });
+      const now = new Date();
+      const active =
+        entitlement?.status === "ENABLED" &&
+        (!entitlement.startsAt || entitlement.startsAt <= now) &&
+        (!entitlement.expiresAt || entitlement.expiresAt >= now);
+      if (!active) {
+        return { success: null, error: "請先為此店開啟有效的數位管家功能授權" };
+      }
+    }
+
+    const updated = await prisma.store.updateMany({
+      where: { id: storeId },
+      data: { digitalButlerEnabled: enabled },
+    });
+    if (updated.count !== 1) return { success: null, error: "店舖不存在" };
+    revalidatePath(`/hq/dashboard/stores/${storeId}/features`);
+    revalidatePath("/dashboard/settings/digital-butler");
+    revalidatePath("/dashboard/digital-butler/leads");
+    return {
+      success: enabled ? "數位管家已啟用" : "數位管家已緊急關閉",
+      error: null,
+    };
+  } catch (error) {
+    return {
+      success: null,
+      error: error instanceof Error ? error.message : "操作失敗",
+    };
+  }
+}

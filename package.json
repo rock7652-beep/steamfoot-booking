@@ -14,6 +14,7 @@
     "db:push": "npx prisma db push",
     "db:studio": "npx prisma studio",
     "db:reset": "npx prisma db push --force-reset && npm run seed",
+    "preflight:digital-butler": "tsx scripts/digital-butler-production-preflight.ts",
     "postinstall": "prisma generate"
   },
   "prisma": {

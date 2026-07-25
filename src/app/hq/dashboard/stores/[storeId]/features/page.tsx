@@ -15,6 +15,7 @@ import {
 import { getCurrentUser } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { FeatureEntitlementForm } from "./feature-entitlement-form";
+import { DigitalButlerActivationForm } from "./digital-butler-activation-form";
 
 interface PageProps {
   params: Promise<{ storeId: string }>;
@@ -32,6 +33,7 @@ export default async function StoreFeatureSettingsPage({ params }: PageProps) {
       name: true,
       slug: true,
       plan: true,
+      digitalButlerEnabled: true,
       featureEntitlements: {
         orderBy: { updatedAt: "desc" },
         select: {
@@ -101,6 +103,11 @@ export default async function StoreFeatureSettingsPage({ params }: PageProps) {
           />
         </div>
       </div>
+
+      <DigitalButlerActivationForm
+        storeId={store.id}
+        enabled={store.digitalButlerEnabled}
+      />
 
       {unknownEntitlements.length > 0 && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">

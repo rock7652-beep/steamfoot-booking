@@ -483,13 +483,14 @@ model User {
   lineRebindRequestsCancelled     LineRebindRequest[]              @relation("LineRebindRequestCancelledBy")
 
   // Audit
-  auditLogs            AuditLog[]
-  cashbookEntries      CashbookEntry[]    @relation("CashbookCreatedBy")
-  opsActionLogs        OpsActionLog[]
-  opsActionHistories   OpsActionHistory[]
-  talentStageChanges   TalentStageLog[]   @relation("TalentStageChangedBy")
-  customerFollowUps    CustomerFollowUp[] @relation("CustomerFollowUpCreatedBy")
-  reviewedCheckinPosts CheckinPost[]      @relation("CheckinPostReviewedBy")
+  auditLogs                   AuditLog[]
+  cashbookEntries             CashbookEntry[]             @relation("CashbookCreatedBy")
+  opsActionLogs               OpsActionLog[]
+  opsActionHistories          OpsActionHistory[]
+  talentStageChanges          TalentStageLog[]            @relation("TalentStageChangedBy")
+  customerFollowUps           CustomerFollowUp[]          @relation("CustomerFollowUpCreatedBy")
+  digitalButlerLeadActivities DigitalButlerLeadActivity[] @relation("DigitalButlerLeadActivityCreatedBy")
+  reviewedCheckinPosts        CheckinPost[]               @relation("CheckinPostReviewedBy")
 
   // Transaction void / audit
   voidedTransactions   Transaction[]         @relation("VoidedTransactions")
@@ -585,14 +586,15 @@ model Store {
   parentStore Store?  @relation("StoreHierarchy", fields: [parentStoreId], references: [id])
   childStores Store[] @relation("StoreHierarchy")
 
-  currentSubscription        StoreSubscription?          @relation("CurrentSubscription", fields: [currentSubscriptionId], references: [id])
-  subscriptions              StoreSubscription[]         @relation("StoreSubscriptions")
-  planChanges                StorePlanChange[]
-  featureEntitlements        StoreFeatureEntitlement[]
-  digitalButlerFlows         StoreDigitalButlerFlow[]
-  digitalButlerConversations DigitalButlerConversation[]
-  digitalButlerLeads         DigitalButlerLead[]
-  digitalButlerExecutionLogs DigitalButlerExecutionLog[]
+  currentSubscription         StoreSubscription?          @relation("CurrentSubscription", fields: [currentSubscriptionId], references: [id])
+  subscriptions               StoreSubscription[]         @relation("StoreSubscriptions")
+  planChanges                 StorePlanChange[]
+  featureEntitlements         StoreFeatureEntitlement[]
+  digitalButlerFlows          StoreDigitalButlerFlow[]
+  digitalButlerConversations  DigitalButlerConversation[]
+  digitalButlerLeads          DigitalButlerLead[]
+  digitalButlerLeadActivities DigitalButlerLeadActivity[]
+  digitalButlerExecutionLogs  DigitalButlerExecutionLog[]
 
   staff                           Staff[]
   customers                       Customer[]
@@ -772,25 +774,51 @@ model DigitalButlerAnswer {
 }
 
 model DigitalButlerLead {
-  id                  String                    @id @default(cuid())
+  id                  String                      @id @default(cuid())
   storeId             String
   flowId              String
   conversationId      String
   completionActionKey String
-  status              DigitalButlerLeadStatus   @default(NEW)
+  status              DigitalButlerLeadStatus     @default(NEW)
   submittedAnswers    Json
   phoneCiphertext     Bytes?
   phoneIv             Bytes?
   phoneAuthTag        Bytes?
   phoneHash           String?
-  createdAt           DateTime                  @default(now())
-  updatedAt           DateTime                  @updatedAt
-  store               Store                     @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  flow                StoreDigitalButlerFlow    @relation(fields: [flowId, storeId], references: [id, storeId], onDelete: Restrict)
-  conversation        DigitalButlerConversation @relation(fields: [conversationId, storeId], references: [id, storeId], onDelete: Restrict)
+  assignedStaffId     String?
+  internalNote        String?
+  lastContactedAt     DateTime?
+  createdAt           DateTime                    @default(now())
+  updatedAt           DateTime                    @updatedAt
+  store               Store                       @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  flow                StoreDigitalButlerFlow      @relation(fields: [flowId, storeId], references: [id, storeId], onDelete: Restrict)
+  conversation        DigitalButlerConversation   @relation(fields: [conversationId, storeId], references: [id, storeId], onDelete: Restrict)
+  assignedStaff       Staff?                      @relation("DigitalButlerLeadAssignee", fields: [assignedStaffId, storeId], references: [id, storeId], onDelete: Restrict)
+  activities          DigitalButlerLeadActivity[]
 
   @@unique([storeId, conversationId, completionActionKey])
+  @@unique([id, storeId])
   @@index([storeId, status, createdAt])
+  @@index([storeId, assignedStaffId, status])
+}
+
+model DigitalButlerLeadActivity {
+  id              String                   @id @default(cuid())
+  leadId          String
+  storeId         String
+  createdByUserId String
+  fromStatus      DigitalButlerLeadStatus?
+  toStatus        DigitalButlerLeadStatus
+  note            String?
+  contactedAt     DateTime?
+  createdAt       DateTime                 @default(now())
+  lead            DigitalButlerLead        @relation(fields: [leadId, storeId], references: [id, storeId], onDelete: Cascade)
+  store           Store                    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  createdBy       User                     @relation("DigitalButlerLeadActivityCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+
+  @@index([leadId, createdAt])
+  @@index([storeId, createdAt])
+  @@index([createdByUserId])
 }
 
 model DigitalButlerExecutionLog {
@@ -891,7 +919,8 @@ model Staff {
   store Store @relation(fields: [storeId], references: [id])
 
   // 名下顧客
-  assignedCustomers Customer[] @relation("AssignedStaff")
+  assignedCustomers          Customer[]          @relation("AssignedStaff")
+  assignedDigitalButlerLeads DigitalButlerLead[] @relation("DigitalButlerLeadAssignee")
 
   // 動態權限設定（key-value）
   permissions StaffPermission[]
@@ -920,6 +949,7 @@ model Staff {
   // 註銷的單堂明細
   voidedSessions WalletSession[] @relation("VoidedSessions")
 
+  @@unique([id, storeId])
   @@index([storeId])
 }
 
