@@ -9,6 +9,10 @@ import { DigitalButlerService } from "@/server/services/digital-butler";
 const repository = {
   createDraftFlow: vi.fn(),
   getFlow: vi.fn(),
+  listFlows: vi.fn(),
+  updateDraft: vi.fn(),
+  publishFlow: vi.fn(),
+  setFlowEnabled: vi.fn(),
   upsertPhoneAnswer: vi.fn(),
   createLead: vi.fn(),
 };
@@ -59,5 +63,31 @@ describe("DigitalButlerService", () => {
     await expect(service.getFlow("  ", "flow-a")).rejects.toThrow("DIGITAL_BUTLER_STORE_ID_REQUIRED");
     expect(gate.requireEntitledStore).not.toHaveBeenCalled();
     expect(repository.getFlow).not.toHaveBeenCalled();
+  });
+
+  it("publishes an immutable validated version for the scoped store", async () => {
+    repository.getFlow.mockResolvedValue({
+      id: "flow-a",
+      storeId: "store-a",
+      status: "DRAFT",
+      enabled: false,
+      draftDefinition: {
+        trigger: { keywords: ["我想了解"] },
+        steps: [
+          { stepKey: "question", type: "FREE_TEXT", config: { text: "姓名？" } },
+          { stepKey: "complete", type: "COMPLETE_FLOW", config: {} },
+        ],
+      },
+    });
+    const service = new DigitalButlerService(repository as never, gate);
+    await service.publishFlow("store-a", "flow-a");
+    expect(repository.publishFlow).toHaveBeenCalledWith(expect.objectContaining({
+      storeId: "store-a",
+      flowId: "flow-a",
+      steps: [
+        expect.objectContaining({ stepKey: "question", position: 0 }),
+        expect.objectContaining({ stepKey: "complete", position: 1 }),
+      ],
+    }));
   });
 });

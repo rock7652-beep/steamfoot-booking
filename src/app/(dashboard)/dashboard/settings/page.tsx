@@ -7,6 +7,8 @@ import { getCachedShopConfig, getCachedBusinessHours } from "@/lib/query-cache";
 import { listStaff } from "@/server/queries/staff";
 import { listReminderRules } from "@/server/queries/reminder";
 import { PRICING_PLAN_INFO } from "@/lib/feature-flags";
+import { FEATURES } from "@/lib/feature-flags";
+import { hasStoreFeature } from "@/lib/feature-gate";
 import { prisma } from "@/lib/db";
 import { notFound } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
@@ -86,7 +88,7 @@ export default async function SettingsIndexPage() {
   );
 
   // 並行拉 summary（皆為既有 query）
-  const [plan, shopConfig, staffList, rules, weeklyHours, store, trialSettings] =
+  const [plan, shopConfig, staffList, rules, weeklyHours, store, trialSettings, hasDigitalButler] =
     await Promise.all([
       getCurrentStorePlan().catch(() => "EXPERIENCE" as const),
       getCachedShopConfig(activeStoreId).catch(() => ({
@@ -105,6 +107,7 @@ export default async function SettingsIndexPage() {
         select: { name: true, slug: true },
       }),
       getTrialSettings(activeStoreId).catch(() => null),
+      hasStoreFeature(activeStoreId, FEATURES.DIGITAL_BUTLER).catch(() => false),
     ]);
 
   // ==== Summary 組裝 ====
@@ -153,6 +156,9 @@ export default async function SettingsIndexPage() {
           ? [{ label: "體驗課設定", href: "/dashboard/settings/trial" }]
           : []),
         { label: "提醒管理", href: "/dashboard/reminders" },
+        ...(hasDigitalButler
+          ? [{ label: "數位管家", href: "/dashboard/settings/digital-butler" }]
+          : []),
       ],
     },
     {
@@ -387,6 +393,22 @@ export default async function SettingsIndexPage() {
             />
           }
         />
+
+        {hasDigitalButler ? (
+          <SettingsActionCard
+            title="數位管家"
+            description="建立、發布與暫停 LINE 自動互動流程"
+            iconPath="M8.625 9.75a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M3 13.5h18M5.25 6.75h13.5A2.25 2.25 0 0121 9v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V9a2.25 2.25 0 012.25-2.25z"
+            primaryHref="/dashboard/settings/digital-butler"
+            primaryLabel="管理流程"
+            summary={
+              <InfoList
+                density="compact"
+                items={[{ label: "授權狀態", value: "已開通" }]}
+              />
+            }
+          />
+        ) : null}
       </SettingsShell>
     </PageShell>
   );
