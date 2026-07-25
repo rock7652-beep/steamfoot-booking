@@ -42,6 +42,19 @@ export type CreateDigitalButlerLeadInput = {
   phoneHash?: string;
 };
 
+export type PublishDigitalButlerFlowInput = {
+  storeId: string;
+  flowId: string;
+  definition: Prisma.InputJsonValue;
+  steps: Array<{
+    stepKey: string;
+    position: number;
+    type: Prisma.DigitalButlerStepCreateWithoutFlowVersionInput["type"];
+    config: Prisma.InputJsonValue;
+    required: boolean;
+  }>;
+};
+
 /**
  * Store-scoped persistence boundary. IDs from callers are never sufficient on
  * their own: each lookup constrains storeId before it can read or write.
@@ -63,8 +76,91 @@ export class DigitalButlerRepository {
   async getFlow(storeId: string, flowId: string) {
     return prisma.storeDigitalButlerFlow.findFirst({
       where: { id: flowId, storeId },
-      select: { id: true, storeId: true, status: true, enabled: true },
+      select: { id: true, storeId: true, status: true, enabled: true, draftDefinition: true },
     });
+  }
+
+  async listFlows(storeId: string) {
+    return prisma.storeDigitalButlerFlow.findMany({
+      where: { storeId, status: { not: "ARCHIVED" } },
+      orderBy: { updatedAt: "desc" },
+      select: {
+        id: true,
+        name: true,
+        status: true,
+        enabled: true,
+        draftDefinition: true,
+        updatedAt: true,
+      },
+    });
+  }
+
+  async updateDraft(
+    storeId: string,
+    flowId: string,
+    input: { name: string; draftDefinition: Prisma.InputJsonValue },
+  ) {
+    const result = await prisma.storeDigitalButlerFlow.updateMany({
+      where: { id: flowId, storeId, status: { not: "ARCHIVED" } },
+      data: { name: input.name, draftDefinition: input.draftDefinition },
+    });
+    if (result.count !== 1) throw new DigitalButlerScopeError();
+  }
+
+  async publishFlow(input: PublishDigitalButlerFlowInput) {
+    return prisma.$transaction(async (tx) => {
+      const flow = await tx.storeDigitalButlerFlow.findFirst({
+        where: { id: input.flowId, storeId: input.storeId, status: { not: "ARCHIVED" } },
+        select: { id: true },
+      });
+      if (!flow) throw new DigitalButlerScopeError();
+      const latest = await tx.digitalButlerFlowVersion.aggregate({
+        where: { flowId: flow.id, storeId: input.storeId },
+        _max: { version: true },
+      });
+      const version = await tx.digitalButlerFlowVersion.create({
+        data: {
+          storeId: input.storeId,
+          flowId: flow.id,
+          version: (latest._max.version ?? 0) + 1,
+          definition: input.definition,
+          publishedAt: new Date(),
+          steps: {
+            create: input.steps.map((step) => ({
+              storeId: input.storeId,
+              stepKey: step.stepKey,
+              position: step.position,
+              type: step.type,
+              config: step.config,
+              required: step.required,
+            })),
+          },
+        },
+        select: { id: true, version: true },
+      });
+      await tx.storeDigitalButlerFlow.update({
+        where: { id_storeId: { id: flow.id, storeId: input.storeId } },
+        data: {
+          status: "PUBLISHED",
+          enabled: true,
+          currentPublishedVersionId: version.id,
+        },
+      });
+      return version;
+    });
+  }
+
+  async setFlowEnabled(storeId: string, flowId: string, enabled: boolean) {
+    const result = await prisma.storeDigitalButlerFlow.updateMany({
+      where: {
+        id: flowId,
+        storeId,
+        status: { in: ["PUBLISHED", "PAUSED"] },
+        currentPublishedVersionId: { not: null },
+      },
+      data: { enabled, status: enabled ? "PUBLISHED" : "PAUSED" },
+    });
+    if (result.count !== 1) throw new DigitalButlerScopeError();
   }
 
   async upsertPhoneAnswer(input: UpsertDigitalButlerPhoneAnswerInput) {
