@@ -5,7 +5,7 @@ import { logoutAction } from "@/server/actions/auth";
 import { getUserPermissions, ROLE_LABELS } from "@/lib/permissions";
 import { getCachedStorePlan, getCachedTrialStatus } from "@/lib/query-cache";
 import { getActiveStoreForRead, getStoreOptions } from "@/lib/store";
-import DashboardShell from "@/components/sidebar";
+import DashboardShell from "@/components/dashboard-shell-with-hq-line";
 import { LogoutButton } from "@/components/logout-button";
 import { SubscriptionStatusBanner } from "@/components/subscription-status-banner";
 import { StoreOperatingStatusBanner } from "@/components/store-operating-status-banner";
