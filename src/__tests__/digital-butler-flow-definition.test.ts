@@ -38,6 +38,45 @@ describe("digital butler draft definition", () => {
     })).toThrow("至少需要兩個選項");
   });
 
+  it("accepts valid branch targets and rejects missing targets", () => {
+    expect(parseDigitalButlerDraftDefinition({
+      trigger: { keywords: ["我想了解蒸足"] },
+      steps: [
+        {
+          stepKey: "menu",
+          type: "SINGLE_CHOICE",
+          config: {
+            text: "想了解哪一方面？",
+            options: [
+              { label: "了解流程", value: "process", nextStepKey: "process" },
+              { label: "預約體驗", value: "booking", nextStepKey: "complete" },
+            ],
+          },
+        },
+        { stepKey: "process", type: "TEXT", config: { text: "蒸足流程", nextStepKey: "menu" } },
+        { stepKey: "complete", type: "COMPLETE_FLOW", config: {} },
+      ],
+    } as never).steps).toHaveLength(3);
+
+    expect(() => parseDigitalButlerDraftDefinition({
+      trigger: { keywords: ["我想了解蒸足"] },
+      steps: [
+        {
+          stepKey: "menu",
+          type: "SINGLE_CHOICE",
+          config: {
+            text: "想了解哪一方面？",
+            options: [
+              { label: "了解流程", value: "process", nextStepKey: "missing" },
+              { label: "預約體驗", value: "booking", nextStepKey: "complete" },
+            ],
+          },
+        },
+        { stepKey: "complete", type: "COMPLETE_FLOW", config: {} },
+      ],
+    } as never)).toThrow("指定的下一步不存在");
+  });
+
   it("keeps browser actions scoped to the authenticated store", async () => {
     const source = await import("node:fs/promises").then((fs) =>
       fs.readFile(

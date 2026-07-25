@@ -201,6 +201,35 @@ function validateAnswer(step: RuntimeStep, text: string): { value?: Prisma.Input
   return { value: text };
 }
 
+function configuredNextStepKey(
+  step: RuntimeStep,
+  answer?: Prisma.InputJsonValue,
+): string | null {
+  const config = objectConfig(step.config);
+  if (step.type === "SINGLE_CHOICE" && answer && typeof answer === "object" && !Array.isArray(answer)) {
+    const selectedValue = objectConfig(answer as Prisma.JsonValue).value;
+    const options = Array.isArray(config.options) ? config.options : [];
+    const selected = options.find((option) => {
+      const parsed = objectConfig(option as Prisma.JsonValue);
+      return parsed.value === selectedValue || (parsed.value === undefined && parsed.label === selectedValue);
+    });
+    const optionTarget = selected ? objectConfig(selected as Prisma.JsonValue).nextStepKey : null;
+    if (typeof optionTarget === "string" && optionTarget.trim()) return optionTarget.trim();
+  }
+  return typeof config.nextStepKey === "string" && config.nextStepKey.trim()
+    ? config.nextStepKey.trim()
+    : null;
+}
+
+function nextStepIndex(
+  steps: RuntimeStep[],
+  currentIndex: number,
+  answer?: Prisma.InputJsonValue,
+): number {
+  const target = configuredNextStepKey(steps[currentIndex], answer);
+  return target ? steps.findIndex((step) => step.stepKey === target) : currentIndex + 1;
+}
+
 class PrismaDigitalButlerRuntimeRepository implements RuntimeRepository {
   async claimEvent(input: { storeId: string; eventKey: string; webhookEventId?: string; fallbackEventHash?: string }) {
     try {
@@ -420,13 +449,19 @@ export class DigitalButlerRuntime {
       conversation.answers = conversation.answers.filter((item) => item.step.stepKey !== step.stepKey);
       conversation.answers.push({ step: { stepKey: step.stepKey }, value: answer.value as Prisma.JsonValue });
     }
-    return finish(await this.runAutomaticSteps(conversation, index + 1), conversation.id);
+    return finish(
+      await this.runAutomaticSteps(conversation, nextStepIndex(steps, index, answer.value)),
+      conversation.id,
+    );
   }
 
   private async runAutomaticSteps(conversation: RuntimeConversation, startIndex: number): Promise<DigitalButlerRuntimeResult> {
     const messages: LineMessage[] = [];
     const steps = conversation.flowVersion.steps;
-    for (let index = startIndex; index < steps.length; index += 1) {
+    let index = startIndex;
+    let transitions = 0;
+    while (index >= 0 && index < steps.length && transitions < 100) {
+      transitions += 1;
       const step = steps[index];
       if (["FREE_TEXT", "SINGLE_CHOICE", "TAIWAN_MOBILE"].includes(step.type)) {
         await this.repository.advanceConversation({
@@ -467,6 +502,10 @@ export class DigitalButlerRuntime {
         });
         return { handled: true, messages: messages.slice(0, 5), outcome: "COMPLETED" };
       }
+      index = nextStepIndex(steps, index);
+    }
+    if (transitions >= 100) {
+      return { handled: true, messages: messages.slice(0, 5), outcome: "INVALID_STATE" };
     }
     await this.repository.advanceConversation({
       storeId: conversation.storeId, conversationId: conversation.id,

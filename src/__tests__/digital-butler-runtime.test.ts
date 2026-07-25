@@ -183,4 +183,58 @@ describe("DigitalButlerRuntime", () => {
     expect(repository.findTriggeredFlow).toHaveBeenCalledWith(input.storeId, input.text);
     expect(result).toMatchObject({ handled: false, outcome: "NO_MATCH" });
   });
+
+  it("branches from a selected answer and returns to the main menu", async () => {
+    const steps = [
+      {
+        id: "step-1", stepKey: "menu", position: 0, type: "SINGLE_CHOICE" as const,
+        config: {
+          text: "想了解哪一方面？",
+          options: [
+            { label: "蒸足如何進行", value: "process", nextStepKey: "process" },
+            { label: "我想預約體驗", value: "booking", nextStepKey: "name" },
+          ],
+        },
+        required: true,
+      },
+      {
+        id: "step-2", stepKey: "process", position: 1, type: "TEXT" as const,
+        config: { text: "蒸足是一種舒適的日常保養方式", nextStepKey: "menu" },
+        required: false,
+      },
+      questionStep("step-3", "name", 2),
+      { id: "step-4", stepKey: "complete", position: 3, type: "COMPLETE_FLOW" as const, config: {}, required: false },
+    ];
+    repository.findActiveConversation.mockResolvedValue({
+      id: "conversation-1", storeId: input.storeId, flowId: "flow-1",
+      flowVersionId: "version-1", currentStepKey: "menu",
+      expiresAt: new Date(Date.now() + 60_000),
+      flowVersion: { steps }, answers: [],
+    });
+
+    const result = await new DigitalButlerRuntime(repository as never, gate).handleText({
+      ...input, text: "蒸足如何進行",
+    });
+
+    expect(result).toEqual({
+      handled: true,
+      messages: [
+        { type: "text", text: "蒸足是一種舒適的日常保養方式" },
+        {
+          type: "text",
+          text: "想了解哪一方面？",
+          quickReply: {
+            items: [
+              { type: "action", action: { type: "message", label: "蒸足如何進行", text: "process" } },
+              { type: "action", action: { type: "message", label: "我想預約體驗", text: "booking" } },
+            ],
+          },
+        },
+      ],
+      outcome: "WAITING_INPUT",
+    });
+    expect(repository.advanceConversation).toHaveBeenLastCalledWith(expect.objectContaining({
+      currentStepKey: "menu", status: "WAITING_INPUT",
+    }));
+  });
 });
