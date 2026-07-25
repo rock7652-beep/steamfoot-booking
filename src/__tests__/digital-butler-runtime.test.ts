@@ -137,6 +137,37 @@ describe("DigitalButlerRuntime", () => {
     });
   });
 
+  it("completes a lead when the final answer key is contact-time", async () => {
+    const steps = [
+      questionStep("step-1", "contact-time", 0),
+      { id: "step-2", stepKey: "create-lead", position: 1, type: "CREATE_LEAD" as const, config: {}, required: false },
+      textStep("step-3", "completion-message", 2, "資料已收到，我們會盡快與您聯絡"),
+      { id: "step-4", stepKey: "complete", position: 3, type: "COMPLETE_FLOW" as const, config: {}, required: false },
+    ];
+    repository.findActiveConversation.mockResolvedValue({
+      id: "conversation-1", storeId: input.storeId, flowId: "flow-1",
+      flowVersionId: "version-1", currentStepKey: "contact-time",
+      expiresAt: new Date(Date.now() + 60_000),
+      flowVersion: { steps }, answers: [],
+    });
+
+    const result = await new DigitalButlerRuntime(repository as never, gate).handleText({
+      ...input, text: "下午",
+    });
+
+    expect(repository.createLead).toHaveBeenCalledWith(expect.objectContaining({
+      submittedAnswers: { "contact-time": "下午" },
+    }));
+    expect(repository.advanceConversation).toHaveBeenLastCalledWith(expect.objectContaining({
+      status: "COMPLETED", currentStepKey: null,
+    }));
+    expect(result).toEqual({
+      handled: true,
+      messages: [{ type: "text", text: "資料已收到，我們會盡快與您聯絡" }],
+      outcome: "COMPLETED",
+    });
+  });
+
   it("expires stale conversations and allows a fresh trigger lookup", async () => {
     repository.findActiveConversation.mockResolvedValue({
       id: "stale", storeId: input.storeId, flowId: "flow-old",
