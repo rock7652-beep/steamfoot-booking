@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 
-const SENSITIVE_KEY = /(?:phone|mobile|tel|email|line(?:User)?Id|identity|contact)/i;
+const SENSITIVE_KEY =
+  /(?:phone|mobile|tel|email|line(?:User)?Id|identity|^contact$|contact[-_ ]?(?:phone|mobile|tel|email|id|identity))/i;
 const TAIWAN_MOBILE = /(?:^|\D)(?:\+?886|0)9\d{8}(?!\d)/;
 const EMAIL = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i;
 const LINE_USER_ID = /\bU[0-9a-f]{32}\b/i;
