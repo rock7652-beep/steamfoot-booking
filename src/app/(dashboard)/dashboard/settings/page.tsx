@@ -157,7 +157,10 @@ export default async function SettingsIndexPage() {
           : []),
         { label: "提醒管理", href: "/dashboard/reminders" },
         ...(hasDigitalButler
-          ? [{ label: "數位管家", href: "/dashboard/settings/digital-butler" }]
+          ? [
+              { label: "數位管家流程", href: "/dashboard/settings/digital-butler" },
+              { label: "數位管家名單", href: "/dashboard/digital-butler/leads" },
+            ]
           : []),
       ],
     },
@@ -401,6 +404,8 @@ export default async function SettingsIndexPage() {
             iconPath="M8.625 9.75a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M3 13.5h18M5.25 6.75h13.5A2.25 2.25 0 0121 9v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V9a2.25 2.25 0 012.25-2.25z"
             primaryHref="/dashboard/settings/digital-butler"
             primaryLabel="管理流程"
+            secondaryHref="/dashboard/digital-butler/leads"
+            secondaryLabel="查看名單"
             summary={
               <InfoList
                 density="compact"

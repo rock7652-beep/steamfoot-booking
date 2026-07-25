@@ -112,6 +112,17 @@ export const STORE_ADMIN_NAV: NavItem[] = [
     ),
   },
   {
+    href: "/dashboard/digital-butler/leads",
+    label: "數位管家名單",
+    permission: "customer.read",
+    requiredFeature: FEATURES.DIGITAL_BUTLER,
+    icon: (
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 9.75a.375.375 0 11-.75 0 .375.375 0 01.75 0zm3.75 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm3.75 0a.375.375 0 11-.75 0 .375.375 0 01.75 0M3 13.5h18M5.25 6.75h13.5A2.25 2.25 0 0121 9v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V9a2.25 2.25 0 012.25-2.25z" />
+      </svg>
+    ),
+  },
+  {
     href: "/dashboard/revenue",
     label: "營運",
     permission: "transaction.read",
