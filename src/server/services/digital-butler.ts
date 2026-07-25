@@ -1,6 +1,8 @@
+import { Prisma } from "@prisma/client";
 import { hashDigitalButlerSensitiveValue, encryptDigitalButlerValue } from "@/lib/digital-butler-crypto";
 import { requireDigitalButlerEntitlement } from "@/lib/digital-butler-entitlement";
 import { assertDigitalButlerSubmittedAnswersSafe } from "@/lib/digital-butler-sensitive-json";
+import { parseDigitalButlerDraftDefinition } from "@/lib/digital-butler-flow-definition";
 import {
   DigitalButlerRepository,
   type CreateDigitalButlerDraftFlowInput,
@@ -11,7 +13,7 @@ import {
 type EntitlementGate = { requireEntitledStore(storeId: string): Promise<void> };
 type Repository = Pick<
   DigitalButlerRepository,
-  "createDraftFlow" | "getFlow" | "upsertPhoneAnswer" | "createLead"
+  "createDraftFlow" | "getFlow" | "listFlows" | "updateDraft" | "publishFlow" | "setFlowEnabled" | "upsertPhoneAnswer" | "createLead"
 >;
 
 const productionGate: EntitlementGate = {
@@ -43,6 +45,51 @@ export class DigitalButlerService {
     requiredStoreId(storeId);
     await this.entitlementGate.requireEntitledStore(storeId);
     return this.repository.getFlow(storeId, flowId);
+  }
+
+  async listFlows(storeId: string) {
+    requiredStoreId(storeId);
+    await this.entitlementGate.requireEntitledStore(storeId);
+    return this.repository.listFlows(storeId);
+  }
+
+  async updateDraft(storeId: string, flowId: string, name: string, draftDefinition: Prisma.JsonValue) {
+    requiredStoreId(storeId);
+    await this.entitlementGate.requireEntitledStore(storeId);
+    if (!name.trim()) throw new Error("DIGITAL_BUTLER_FLOW_NAME_REQUIRED");
+    parseDigitalButlerDraftDefinition(draftDefinition);
+    await this.repository.updateDraft(storeId, flowId, {
+      name: name.trim(),
+      draftDefinition: draftDefinition as Prisma.InputJsonValue,
+    });
+  }
+
+  async publishFlow(storeId: string, flowId: string) {
+    requiredStoreId(storeId);
+    await this.entitlementGate.requireEntitledStore(storeId);
+    const flow = await this.repository.getFlow(storeId, flowId);
+    if (!flow) throw new Error("DIGITAL_BUTLER_FLOW_NOT_FOUND");
+    const definition = flow.draftDefinition;
+    if (!definition) throw new Error("DIGITAL_BUTLER_DRAFT_REQUIRED");
+    const parsed = parseDigitalButlerDraftDefinition(definition);
+    return this.repository.publishFlow({
+      storeId,
+      flowId,
+      definition: parsed as unknown as Prisma.InputJsonValue,
+      steps: parsed.steps.map((step, position) => ({
+        stepKey: step.stepKey,
+        position,
+        type: step.type,
+        config: step.config as Prisma.InputJsonValue,
+        required: step.required ?? false,
+      })),
+    });
+  }
+
+  async setFlowEnabled(storeId: string, flowId: string, enabled: boolean) {
+    requiredStoreId(storeId);
+    await this.entitlementGate.requireEntitledStore(storeId);
+    await this.repository.setFlowEnabled(storeId, flowId, enabled);
   }
 
   async recordPhoneAnswer(input: Omit<UpsertDigitalButlerPhoneAnswerInput, "encryptedPhone" | "phoneHash"> & { normalizedPhone: string }) {
