@@ -88,6 +88,14 @@ export function parseDigitalButlerDraftDefinition(
       if (!Array.isArray(options) || options.length < 2) {
         throw new DigitalButlerDefinitionError("單選題至少需要兩個選項");
       }
+      for (const option of options) {
+        const parsed = objectValue(option);
+        const label = typeof parsed.label === "string" ? parsed.label.trim() : "";
+        const optionValue = typeof parsed.value === "string" ? parsed.value.trim() : label;
+        if (!label || !optionValue) {
+          throw new DigitalButlerDefinitionError(`第 ${index + 1} 步的選項格式不正確`);
+        }
+      }
     }
     if (["TEXT", "FREE_TEXT", "SINGLE_CHOICE", "TAIWAN_MOBILE"].includes(type)) {
       if (typeof config.text !== "string" || !config.text.trim()) {
@@ -102,6 +110,24 @@ export function parseDigitalButlerDraftDefinition(
       config: config as Record<string, Prisma.JsonValue>,
     };
   });
+
+  const stepKeys = new Set(steps.map((step) => step.stepKey));
+  for (const [index, step] of steps.entries()) {
+    const targets = [
+      step.config.nextStepKey,
+      ...(step.type === "SINGLE_CHOICE" && Array.isArray(step.config.options)
+        ? step.config.options.map((option) => objectValue(option).nextStepKey)
+        : []),
+    ].filter((target): target is string => typeof target === "string" && Boolean(target.trim()));
+    for (const target of targets) {
+      if (!stepKeys.has(target.trim())) {
+        throw new DigitalButlerDefinitionError(`第 ${index + 1} 步指定的下一步不存在`);
+      }
+      if (target.trim() === step.stepKey) {
+        throw new DigitalButlerDefinitionError(`第 ${index + 1} 步不可跳回自己`);
+      }
+    }
+  }
 
   if (steps.at(-1)?.type !== "COMPLETE_FLOW") {
     throw new DigitalButlerDefinitionError("流程最後一步必須為完成流程");
