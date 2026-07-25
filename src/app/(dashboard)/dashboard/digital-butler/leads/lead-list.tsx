@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { DigitalButlerLeadStatus } from "@prisma/client";
+import { digitalButlerAnswerSummary } from "@/lib/digital-butler-answer-summary";
 import { updateDigitalButlerLeadAction } from "@/server/actions/digital-butler-leads";
 
 const LABELS: Record<DigitalButlerLeadStatus, string> = {
@@ -34,14 +35,6 @@ type Lead = {
     createdBy: { name: string };
   }>;
 };
-
-function answerSummary(value: unknown): string {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return "—";
-  const entries = Object.entries(value as Record<string, unknown>)
-    .filter(([, item]) => typeof item === "string" || typeof item === "number")
-    .slice(0, 4);
-  return entries.length ? entries.map(([key, item]) => `${key}：${String(item)}`).join(" · ") : "—";
-}
 
 export function DigitalButlerLeadList({
   leads,
@@ -129,7 +122,9 @@ export function DigitalButlerLeadList({
               </span>
             </div>
             <p className="mt-3 text-lg font-semibold text-earth-900">{lead.phone ?? "未提供電話"}</p>
-            <p className="mt-2 text-xs leading-relaxed text-earth-500">{answerSummary(lead.submittedAnswers)}</p>
+            <p className="mt-2 text-xs leading-relaxed text-earth-500">
+              {digitalButlerAnswerSummary(lead.submittedAnswers)}
+            </p>
             {lead.activities.length > 0 && (
               <div className="mt-3 border-t border-earth-100 pt-2">
                 <p className="text-[11px] font-medium text-earth-400">最近追蹤</p>
