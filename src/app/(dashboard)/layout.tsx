@@ -70,6 +70,10 @@ export default async function DashboardLayout({
           effectiveStoreId,
           FEATURES.LINE_REMINDER,
         ),
+        [FEATURES.DIGITAL_BUTLER]: await hasStoreFeature(
+          effectiveStoreId,
+          FEATURES.DIGITAL_BUTLER,
+        ),
       }
     : {};
 
