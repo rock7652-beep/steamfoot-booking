@@ -5,7 +5,6 @@ import { hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
 import { FeatureGate } from "@/components/feature-gate";
 import { getActiveStoreForRead } from "@/lib/store";
-import { prisma } from "@/lib/db";
 import { redirect } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import {
@@ -22,12 +21,13 @@ import {
   getTodayCronRunStatus,
   getLineSmokeTestContext,
 } from "@/server/queries/reminder";
+import { getCurrentLineOfficialAccountStatus } from "@/server/actions/line-official-accounts";
 import { isLineSmokeTestEnabled } from "@/lib/line-config";
 import { ReminderCard } from "./reminder-card";
 import { CreateTemplateForm } from "./create-template-form";
 import { CronRunBanner } from "./cron-run-banner";
 import { LineSmokeTestCard } from "./line-smoke-test-card";
-import { TaichungLineHealthCard } from "./taichung-line-health-card";
+import { StoreLineHealthCard } from "./store-line-health-card";
 
 const LOG_STATUS_LABEL: Record<string, string> = {
   PENDING: "待發送",
@@ -77,10 +77,9 @@ export default async function RemindersPage({ searchParams }: PageProps) {
     );
   }
 
-  const [plan, lineReminderEnabled, activeStore, canManageLineHealth] = await Promise.all([
+  const [plan, lineReminderEnabled, canManageLineHealth] = await Promise.all([
     getCurrentStorePlan(),
     hasStoreFeature(activeStoreId, FEATURES.LINE_REMINDER),
-    prisma.store.findUnique({ where: { id: activeStoreId }, select: { slug: true } }),
     checkPermission(user.role, user.staffId, "business_hours.manage"),
   ]);
   if (!lineReminderEnabled) {
@@ -93,18 +92,18 @@ export default async function RemindersPage({ searchParams }: PageProps) {
 
   const activeTab = params.tab ?? "rules";
   const smokeTestEnabled = isLineSmokeTestEnabled();
-  const canCheckTaichungLineHealth = activeStore?.slug === "taichung"
-    && (user.role === "OWNER" || user.role === "ADMIN")
-    && canManageLineHealth;
 
   const [stats, templates, cronStatus, reminderState] = await Promise.all([
     getReminderStats(activeStoreId),
-    listMessageTemplates(activeStoreId!),
+    listMessageTemplates(activeStoreId),
     getTodayCronRunStatus(),
-    getStoreReminderState(activeStoreId!),
+    getStoreReminderState(activeStoreId),
   ]);
   const smokeTestContext = smokeTestEnabled
-    ? await getLineSmokeTestContext(activeStoreId!)
+    ? await getLineSmokeTestContext(activeStoreId)
+    : null;
+  const lineHealthStatus = canManageLineHealth
+    ? await getCurrentLineOfficialAccountStatus().catch(() => null)
     : null;
 
   const logsData = activeTab === "logs"
@@ -202,7 +201,12 @@ export default async function RemindersPage({ searchParams }: PageProps) {
                 customers={smokeTestContext.customers}
               />
             )}
-            {canCheckTaichungLineHealth && <TaichungLineHealthCard />}
+            {lineHealthStatus && (
+              <StoreLineHealthCard
+                key={`${activeStoreId}-line-health`}
+                initialStatus={lineHealthStatus}
+              />
+            )}
           </section>
         )}
 
