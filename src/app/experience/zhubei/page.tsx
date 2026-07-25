@@ -3,10 +3,11 @@ import { ExperienceAttributionCapture } from "@/components/experience-attributio
 
 export const metadata = {
   title: "竹北蒸足體驗｜暖暖蒸足",
-  description: "暖暖蒸足竹北店，新客蒸足體驗 NT$499，約 45 分鐘。",
+  description: "暖暖蒸足竹北店，蒸足原價 NT$799，首次體驗 NT$499，約 45 分鐘。",
 };
 
 const lineUrl = "https://lin.ee/Nki2OjA";
+const bookingUrl = "/s/zhubei/register?next=%2Fpricing%2Fexperience%2Fzhubei%2Fbook";
 const mapUrl = "https://www.google.com/maps/search/?api=1&query=" +
   encodeURIComponent("新竹縣竹北市科大一路80號");
 
@@ -28,20 +29,23 @@ export default function ZhubeiExperiencePage() {
         </p>
 
         <div className="mt-6 rounded-2xl border border-primary-100 bg-white p-5 shadow-sm">
-          <p className="text-sm text-earth-500">新客蒸足體驗</p>
+          <p className="text-sm text-earth-500">蒸足原價 <span className="line-through">NT$799</span></p>
           <div className="mt-1 flex items-end justify-between gap-3">
-            <p className="text-3xl font-bold text-primary-700">NT$499</p>
+            <div>
+              <p className="text-sm font-medium text-primary-700">首次體驗</p>
+              <p className="text-3xl font-bold text-primary-700">NT$499</p>
+            </div>
             <p className="pb-1 text-sm text-earth-500">約 45 分鐘</p>
           </div>
         </div>
 
         <Link
-          href="/s/zhubei/register?next=%2Fs%2Fzhubei%2Fbook"
+          href={bookingUrl}
           className="mt-5 flex h-12 w-full items-center justify-center rounded-xl bg-primary-600 px-5 text-base font-semibold text-white shadow-sm hover:bg-primary-700"
         >
-          查看可預約時段
+          預約首次體驗
         </Link>
-        <p className="mt-2 text-center text-xs text-earth-400">第一次預約會先協助建立會員資料</p>
+        <p className="mt-2 text-center text-xs text-earth-400">不需要先購買正式方案，註冊後即可選擇體驗時段</p>
       </section>
 
       <section className="border-y border-earth-100 bg-white">
@@ -102,8 +106,9 @@ export default function ZhubeiExperiencePage() {
       <section className="mx-auto max-w-md px-5 py-10">
         <h2 className="text-xl font-bold">竹北店體驗資訊</h2>
         <dl className="mt-5 space-y-3 rounded-2xl bg-white p-5 text-sm shadow-sm">
-          <div className="flex justify-between gap-4"><dt className="text-earth-500">體驗</dt><dd className="font-medium">蒸足</dd></div>
-          <div className="flex justify-between gap-4"><dt className="text-earth-500">價格</dt><dd className="font-medium">NT$499</dd></div>
+          <div className="flex justify-between gap-4"><dt className="text-earth-500">體驗</dt><dd className="font-medium">首次蒸足體驗</dd></div>
+          <div className="flex justify-between gap-4"><dt className="text-earth-500">原價</dt><dd className="font-medium line-through">NT$799</dd></div>
+          <div className="flex justify-between gap-4"><dt className="text-earth-500">體驗價</dt><dd className="font-medium text-primary-700">NT$499</dd></div>
           <div className="flex justify-between gap-4"><dt className="text-earth-500">時間</dt><dd className="font-medium">約 45 分鐘</dd></div>
           <div className="flex justify-between gap-4"><dt className="text-earth-500">地址</dt><dd className="text-right font-medium">新竹縣竹北市科大一路 80 號</dd></div>
           <div className="flex justify-between gap-4"><dt className="text-earth-500">停車</dt><dd className="font-medium">周邊路邊停車格</dd></div>
@@ -116,8 +121,8 @@ export default function ZhubeiExperiencePage() {
       <section className="border-t border-earth-100 bg-white px-5 py-8">
         <div className="mx-auto max-w-md">
           <p className="text-center text-lg font-bold">準備好給自己 45 分鐘了嗎？</p>
-          <Link href="/s/zhubei/register?next=%2Fs%2Fzhubei%2Fbook" className="mt-4 flex h-12 items-center justify-center rounded-xl bg-primary-600 text-base font-semibold text-white">
-            查看可預約時段
+          <Link href={bookingUrl} className="mt-4 flex h-12 items-center justify-center rounded-xl bg-primary-600 text-base font-semibold text-white">
+            預約首次體驗 NT$499
           </Link>
           <a href={lineUrl} target="_blank" rel="noreferrer" className="mt-3 flex h-11 items-center justify-center rounded-xl border border-primary-200 text-sm font-medium text-primary-700">
             我想先用 LINE 詢問
