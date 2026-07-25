@@ -56,7 +56,10 @@ export function DigitalButlerFlowEditor({ flows }: { flows: Flow[] }) {
   function run(operation: () => Promise<{ success: boolean; error?: string }>, success: string) {
     startTransition(async () => {
       const result = await operation();
-      if (!result.success) return toast.error(result.error ?? "操作失敗");
+      if (!result.success) {
+        toast.error(result.error ?? "操作失敗");
+        return;
+      }
       toast.success(success);
       router.refresh();
     });
