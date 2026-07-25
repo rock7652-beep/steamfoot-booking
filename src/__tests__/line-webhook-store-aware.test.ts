@@ -21,6 +21,13 @@ const replySteamButlerMessageMock = vi.fn(
 );
 const bindLineToCustomerInStoreMock = vi.fn();
 const probeStoreLineRecipientMock = vi.fn();
+const digitalButlerHandleTextMock = vi.fn(
+  async (_input: unknown): Promise<{ handled: boolean; messages: unknown[]; outcome: string }> => ({
+    handled: false,
+    messages: [],
+    outcome: "NO_MATCH",
+  }),
+);
 let consoleLogSpy: ReturnType<typeof vi.spyOn>;
 
 const mockPrisma = {
@@ -70,7 +77,7 @@ vi.mock("@/lib/line-bind-log", () => ({
 
 vi.mock("@/server/services/digital-butler-runtime", () => ({
   DigitalButlerRuntime: class {
-    handleText = vi.fn(async () => ({ handled: false, messages: [], outcome: "NO_MATCH" }));
+    handleText = (input: unknown) => digitalButlerHandleTextMock(input);
   },
 }));
 
@@ -112,6 +119,12 @@ describe("LINE webhook store-aware signature and reply", () => {
     replySteamButlerMessageMock.mockResolvedValue({ success: true });
     bindLineToCustomerInStoreMock.mockReset();
     probeStoreLineRecipientMock.mockReset();
+    digitalButlerHandleTextMock.mockReset();
+    digitalButlerHandleTextMock.mockResolvedValue({
+      handled: false,
+      messages: [],
+      outcome: "NO_MATCH",
+    });
     mockPrisma.store.findFirst.mockResolvedValue({ id: "store-hsinchu" });
     consoleLogSpy = vi.spyOn(console, "log").mockImplementation(() => undefined);
   });
@@ -195,6 +208,93 @@ describe("LINE webhook store-aware signature and reply", () => {
         lineLinkedAt: expect.any(Date),
       },
     });
+    expect(replyMessageMock).toHaveBeenCalledWith(
+      "store-hsinchu",
+      "reply-token-phone",
+      [{ type: "text", text: "系統通知綁定成功！之後您將可收到預約提醒與方案通知。" }],
+    );
+  });
+
+  it("continues an active Digital Butler flow after synchronizing phone binding", async () => {
+    digitalButlerHandleTextMock.mockResolvedValueOnce({
+      handled: true,
+      messages: [{ type: "text", text: "請問您想了解哪一項服務？" }],
+      outcome: "WAITING_INPUT",
+    });
+    bindLineToCustomerInStoreMock.mockResolvedValueOnce({
+      status: "bound_existing",
+      customerId: "customer-hsinchu",
+      userId: "customer-user",
+      userCreated: false,
+      lineAccountSync: "noop_already_synced",
+    });
+
+    const { POST } = await import("@/app/api/line/webhook/route");
+    const res = await POST(postReq({
+      destination: "D_hsinchu",
+      events: [{
+        type: "message",
+        replyToken: "reply-token-phone",
+        source: { type: "user", userId: "U-hsinchu-store" },
+        message: { type: "text", id: "message-phone-answer", text: "0912345678" },
+        timestamp: 1_721_234_567_890,
+      }],
+    }));
+
+    expect(res.status).toBe(200);
+    expect(digitalButlerHandleTextMock).toHaveBeenCalledWith({
+      storeId: "store-hsinchu",
+      channelIdentity: "D_hsinchu",
+      lineUserId: "U-hsinchu-store",
+      text: "0912345678",
+      webhookEventId: undefined,
+      timestamp: 1_721_234_567_890,
+      messageId: "message-phone-answer",
+    });
+    expect(bindLineToCustomerInStoreMock).toHaveBeenCalledWith({
+      storeId: "store-hsinchu",
+      lineUserId: "U-hsinchu-store",
+      lineName: null,
+      phone: "0912345678",
+      name: "顧客",
+      allowCreate: false,
+    });
+    expect(replyMessageMock).toHaveBeenCalledTimes(1);
+    expect(replyMessageMock).toHaveBeenCalledWith(
+      "store-hsinchu",
+      "reply-token-phone",
+      [{ type: "text", text: "請問您想了解哪一項服務？" }],
+    );
+  });
+
+  it("keeps standalone phone binding behavior when Digital Butler does not handle the message", async () => {
+    digitalButlerHandleTextMock.mockResolvedValueOnce({
+      handled: false,
+      messages: [],
+      outcome: "NO_MATCH",
+    });
+    bindLineToCustomerInStoreMock.mockResolvedValueOnce({
+      status: "bound_existing",
+      customerId: "customer-hsinchu",
+      userId: "customer-user",
+      userCreated: false,
+      lineAccountSync: "noop_already_synced",
+    });
+
+    const { POST } = await import("@/app/api/line/webhook/route");
+    const res = await POST(postReq({
+      destination: "D_hsinchu",
+      events: [{
+        type: "message",
+        replyToken: "reply-token-phone",
+        source: { type: "user", userId: "U-hsinchu-store" },
+        message: { type: "text", id: "message-standalone-phone", text: "0912345678" },
+        timestamp: 1_721_234_567_890,
+      }],
+    }));
+
+    expect(res.status).toBe(200);
+    expect(replyMessageMock).toHaveBeenCalledTimes(1);
     expect(replyMessageMock).toHaveBeenCalledWith(
       "store-hsinchu",
       "reply-token-phone",

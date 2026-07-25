@@ -341,6 +341,37 @@ async function handleTextMessage(
   }
   const normalizedPhone = normalizePhone(text);
   if (/^09\d{8}$/.test(normalizedPhone)) {
+    // A phone number can be both a Digital Butler answer and a notification
+    // binding request. Let an active Butler conversation consume and persist
+    // the answer first; then perform the binding without spending the LINE
+    // reply token, so the single reply can continue the Butler flow.
+    const digitalButlerResult = await handleDigitalButlerText(
+      lineUserId,
+      text,
+      storeId,
+      eventIdentity,
+    );
+    if (digitalButlerResult?.handled) {
+      if (digitalButlerResult.outcome !== "DUPLICATE") {
+        try {
+          await handlePhoneBindingRequest(
+            lineUserId,
+            normalizedPhone,
+            storeId,
+            undefined,
+            eventIdentity,
+          );
+        } catch {
+          // Binding is a compatible side effect. It must never interrupt an
+          // already-persisted Digital Butler answer or the next question.
+          console.error("[LINE Webhook] Digital Butler phone binding sync failed", { storeId });
+        }
+      }
+      if (replyToken && digitalButlerResult.messages.length > 0) {
+        await replyMessage(storeId, replyToken, digitalButlerResult.messages);
+      }
+      return;
+    }
     await handlePhoneBindingRequest(
       lineUserId,
       normalizedPhone,
@@ -354,22 +385,34 @@ async function handleTextMessage(
   // 系統保留指令全部處理完畢後，才允許數位管家接手。執行層本身
   // fail-closed；未啟用、未命中或內部失敗都不改變既有 webhook 行為。
   if (replyToken && eventIdentity?.destination && eventIdentity.messageId) {
-    try {
-      const result = await new DigitalButlerRuntime().handleText({
-        storeId,
-        channelIdentity: eventIdentity.destination,
-        lineUserId,
-        text,
-        webhookEventId: eventIdentity.webhookEventId,
-        timestamp: eventIdentity.timestamp,
-        messageId: eventIdentity.messageId,
-      });
-      if (result.handled && result.messages.length > 0) {
-        await replyMessage(storeId, replyToken, result.messages);
-      }
-    } catch {
-      console.error("[Digital Butler] Isolated runtime failure", { storeId });
+    const result = await handleDigitalButlerText(lineUserId, text, storeId, eventIdentity);
+    if (result?.handled && result.messages.length > 0) {
+      await replyMessage(storeId, replyToken, result.messages);
     }
+  }
+}
+
+async function handleDigitalButlerText(
+  lineUserId: string,
+  text: string,
+  storeId: string,
+  eventIdentity?: Parameters<typeof lineWebhookEventKey>[0],
+) {
+  if (!eventIdentity?.destination || !eventIdentity.messageId) return null;
+
+  try {
+    return await new DigitalButlerRuntime().handleText({
+      storeId,
+      channelIdentity: eventIdentity.destination,
+      lineUserId,
+      text,
+      webhookEventId: eventIdentity.webhookEventId,
+      timestamp: eventIdentity.timestamp,
+      messageId: eventIdentity.messageId,
+    });
+  } catch {
+    console.error("[Digital Butler] Isolated runtime failure", { storeId });
+    return null;
   }
 }
 
