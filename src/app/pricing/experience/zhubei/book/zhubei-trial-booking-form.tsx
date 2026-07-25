@@ -151,22 +151,23 @@ export function ZhubeiTrialBookingForm() {
         ) : (
           <div className="mt-3 grid grid-cols-2 gap-3">
             {slots.map((slot) => {
-              const available = slot.available;
+              const available = slot.isEnabled && !slot.isPast && slot.available > 0;
               return (
                 <button
-                  key={slot.time}
+                  key={slot.startTime}
                   type="button"
                   disabled={!available}
-                  onClick={() => setSlotTime(slot.time)}
+                  onClick={() => setSlotTime(slot.startTime)}
                   className={`min-h-11 rounded-xl border px-3 text-sm font-medium transition ${
-                    slotTime === slot.time
+                    slotTime === slot.startTime
                       ? "border-primary-600 bg-primary-50 text-primary-700"
                       : available
                         ? "border-earth-200 bg-white text-earth-700"
                         : "cursor-not-allowed border-earth-100 bg-earth-50 text-earth-300"
                   }`}
                 >
-                  {slot.time}
+                  {slot.startTime}
+                  {available && slot.available <= 2 ? `（剩 ${slot.available} 位）` : ""}
                 </button>
               );
             })}
