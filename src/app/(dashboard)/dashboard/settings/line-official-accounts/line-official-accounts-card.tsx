@@ -4,7 +4,7 @@ import { useState } from "react";
 import {
   checkAllLineOfficialAccounts,
   type LineOfficialAccountStatus,
-} from "@/server/actions/line-health";
+} from "@/server/actions/line-official-accounts";
 
 type Props = {
   initialStatuses: LineOfficialAccountStatus[];
