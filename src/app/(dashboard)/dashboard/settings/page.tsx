@@ -9,6 +9,7 @@ import { listReminderRules } from "@/server/queries/reminder";
 import { PRICING_PLAN_INFO } from "@/lib/feature-flags";
 import { prisma } from "@/lib/db";
 import { notFound } from "next/navigation";
+import { DashboardLink as Link } from "@/components/dashboard-link";
 import {
   PageShell,
   PageHeader,
@@ -44,14 +45,36 @@ export default async function SettingsIndexPage() {
   const activeStoreId = await getActiveStoreForRead(user);
 
   if (!activeStoreId) {
+    const canManageHeadquarters = user.role === "OWNER" || user.role === "ADMIN";
+
     return (
       <PageShell className="mx-auto flex max-w-[1440px] flex-col gap-3 px-5 py-4">
-        <PageHeader title="設定" subtitle="請先從右上角切換到特定店舖" />
-        <div className="rounded-xl border border-earth-200 bg-white p-8 text-center">
-          <p className="text-sm text-earth-500">
-            全部分店模式不顯示或儲存單店設定，請先選擇特定店舖。
-          </p>
-        </div>
+        <PageHeader
+          title="總部設定"
+          subtitle="管理跨店系統設定；單店設定請先切換到特定店舖"
+        />
+        {canManageHeadquarters ? (
+          <div className="grid gap-3 md:grid-cols-2">
+            <section className="rounded-xl border border-earth-200 bg-white p-5 shadow-sm">
+              <h2 className="text-base font-semibold text-earth-900">LINE 官方帳號管理</h2>
+              <p className="mt-2 text-sm leading-relaxed text-earth-500">
+                查看竹北、新竹與台中分店的 LINE 通知狀態，並可一次重新驗證。
+              </p>
+              <Link
+                href="/dashboard/settings/line-official-accounts"
+                className="mt-4 inline-flex h-9 items-center rounded-lg bg-primary-600 px-4 text-sm font-medium text-white hover:bg-primary-700"
+              >
+                進入 LINE 官方帳號管理
+              </Link>
+            </section>
+          </div>
+        ) : (
+          <div className="rounded-xl border border-earth-200 bg-white p-8 text-center">
+            <p className="text-sm text-earth-500">
+              全部分店模式不顯示或儲存單店設定，請先選擇特定店舖。
+            </p>
+          </div>
+        )}
       </PageShell>
     );
   }
