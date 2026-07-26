@@ -5,6 +5,7 @@ import {
   encryptDigitalButlerValue,
 } from "@/lib/digital-butler-crypto";
 import { requireDigitalButlerConversationActivation } from "@/lib/digital-butler-entitlement";
+import { classifyDigitalButlerGlobalCommand } from "@/lib/digital-butler-global-command";
 import { normalizePhone } from "@/lib/normalize";
 import type { LineMessage } from "@/lib/line";
 import { assertDigitalButlerSubmittedAnswersSafe } from "@/lib/digital-butler-sensitive-json";
@@ -69,6 +70,8 @@ type RuntimeRepository = {
   setEventOutcome(storeId: string, eventKey: string, outcome: string, conversationId?: string): Promise<void>;
   findActiveConversation(storeId: string, channelIdentity: string, lineUserIdHash: string): Promise<RuntimeConversation | null>;
   expireConversation(storeId: string, conversationId: string): Promise<void>;
+  cancelConversation(storeId: string, conversationId: string): Promise<void>;
+  resetConversation(storeId: string, conversationId: string, currentStepKey: string | null): Promise<void>;
   findTriggeredFlow(storeId: string, text: string): Promise<{
     id: string;
     currentPublishedVersionId: string;
@@ -201,10 +204,7 @@ function validateAnswer(step: RuntimeStep, text: string): { value?: Prisma.Input
   return { value: text };
 }
 
-function configuredNextStepKey(
-  step: RuntimeStep,
-  answer?: Prisma.InputJsonValue,
-): string | null {
+function configuredNextStepKey(step: RuntimeStep, answer?: Prisma.InputJsonValue): string | null {
   const config = objectConfig(step.config);
   if (step.type === "SINGLE_CHOICE" && answer && typeof answer === "object" && !Array.isArray(answer)) {
     const selectedValue = objectConfig(answer as Prisma.JsonValue).value;
@@ -221,11 +221,7 @@ function configuredNextStepKey(
     : null;
 }
 
-function nextStepIndex(
-  steps: RuntimeStep[],
-  currentIndex: number,
-  answer?: Prisma.InputJsonValue,
-): number {
+function nextStepIndex(steps: RuntimeStep[], currentIndex: number, answer?: Prisma.InputJsonValue): number {
   const target = configuredNextStepKey(steps[currentIndex], answer);
   return target ? steps.findIndex((step) => step.stepKey === target) : currentIndex + 1;
 }
@@ -270,6 +266,29 @@ class PrismaDigitalButlerRuntimeRepository implements RuntimeRepository {
     await prisma.digitalButlerConversation.updateMany({
       where: { id: conversationId, storeId, status: { in: [...ACTIVE_STATUSES] } },
       data: { status: "EXPIRED" },
+    });
+  }
+
+  async cancelConversation(storeId: string, conversationId: string) {
+    await prisma.digitalButlerConversation.updateMany({
+      where: { id: conversationId, storeId, status: { in: [...ACTIVE_STATUSES] } },
+      data: { status: "CANCELLED", currentStepKey: null, cancelledAt: new Date() },
+    });
+  }
+
+  async resetConversation(storeId: string, conversationId: string, currentStepKey: string | null) {
+    await prisma.$transaction(async (tx) => {
+      await tx.digitalButlerAnswer.deleteMany({ where: { storeId, conversationId } });
+      await tx.digitalButlerConversation.updateMany({
+        where: { id: conversationId, storeId, status: { in: [...ACTIVE_STATUSES] } },
+        data: {
+          status: "IN_PROGRESS",
+          currentStepKey,
+          expiresAt: new Date(Date.now() + CONVERSATION_TTL_MS),
+          cancelledAt: null,
+          completedAt: null,
+        },
+      });
     });
   }
 
@@ -347,14 +366,8 @@ class PrismaDigitalButlerRuntimeRepository implements RuntimeRepository {
     assertDigitalButlerSubmittedAnswersSafe(input.submittedAnswers);
     await prisma.$transaction(async (tx) => {
       const phoneAnswer = await tx.digitalButlerAnswer.findFirst({
-        where: {
-          storeId: input.storeId,
-          conversationId: input.conversationId,
-          phoneHash: { not: null },
-        },
-        select: {
-          phoneCiphertext: true, phoneIv: true, phoneAuthTag: true, phoneHash: true,
-        },
+        where: { storeId: input.storeId, conversationId: input.conversationId, phoneHash: { not: null } },
+        select: { phoneCiphertext: true, phoneIv: true, phoneAuthTag: true, phoneHash: true },
       });
       await tx.digitalButlerLead.upsert({
         where: { storeId_conversationId_completionActionKey: {
@@ -431,6 +444,13 @@ export class DigitalButlerRuntime {
       return finish(await this.runAutomaticSteps(conversation, 0), conversation.id);
     }
 
+    // Global commands intentionally run before current-field validation. This
+    // prevents commands such as「停」from being rejected as an invalid phone.
+    const globalCommand = classifyDigitalButlerGlobalCommand(input.text);
+    if (globalCommand) {
+      return finish(await this.handleGlobalCommand(conversation, globalCommand), conversation.id);
+    }
+
     const steps = conversation.flowVersion.steps;
     const index = steps.findIndex((step) => step.stepKey === conversation?.currentStepKey);
     const step = steps[index];
@@ -453,6 +473,44 @@ export class DigitalButlerRuntime {
       await this.runAutomaticSteps(conversation, nextStepIndex(steps, index, answer.value)),
       conversation.id,
     );
+  }
+
+  private async handleGlobalCommand(
+    conversation: RuntimeConversation,
+    command: ReturnType<typeof classifyDigitalButlerGlobalCommand> & {},
+  ): Promise<DigitalButlerRuntimeResult> {
+    if (command === "CANCEL") {
+      await this.repository.cancelConversation(conversation.storeId, conversation.id);
+      return {
+        handled: true,
+        messages: [{ type: "text", text: "好的，已停止目前流程。需要時再傳訊息給我就可以了。" }],
+        outcome: "CANCELLED_BY_USER",
+      };
+    }
+    if (command === "HANDOFF") {
+      await this.repository.cancelConversation(conversation.storeId, conversation.id);
+      return {
+        handled: true,
+        messages: [{ type: "text", text: "好的，已停止自動流程，將由門市夥伴接手協助您。" }],
+        outcome: "HANDOFF_REQUESTED",
+      };
+    }
+
+    const steps = conversation.flowVersion.steps;
+    const targetIndex = command === "MAIN_MENU"
+      ? Math.max(0, steps.findIndex((step) => step.stepKey === "menu"))
+      : 0;
+    const target = steps[targetIndex] ?? null;
+    await this.repository.resetConversation(conversation.storeId, conversation.id, target?.stepKey ?? null);
+    conversation.currentStepKey = target?.stepKey ?? null;
+    conversation.answers = [];
+    conversation.expiresAt = new Date(Date.now() + CONVERSATION_TTL_MS);
+
+    const result = await this.runAutomaticSteps(conversation, targetIndex);
+    return {
+      ...result,
+      outcome: command === "MAIN_MENU" ? "MAIN_MENU_RESTARTED" : "FLOW_RESTARTED",
+    };
   }
 
   private async runAutomaticSteps(conversation: RuntimeConversation, startIndex: number): Promise<DigitalButlerRuntimeResult> {
