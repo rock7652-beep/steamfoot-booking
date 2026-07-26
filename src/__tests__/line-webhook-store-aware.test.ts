@@ -13,11 +13,17 @@ const replyMessageMock = vi.fn(
 const verifySteamButlerLineSignatureMock = vi.fn(
   (_body: string, _signature: string) => true,
 );
+type LineReplyResult = {
+  success: boolean;
+  error?: string;
+  httpStatus?: number;
+  errorType?: string;
+};
 const replySteamButlerMessageMock = vi.fn(
   async (
     _replyToken: string,
     _messages: unknown[],
-  ): Promise<{ success: boolean; error?: string }> => ({ success: true }),
+  ): Promise<LineReplyResult> => ({ success: true }),
 );
 const bindLineToCustomerInStoreMock = vi.fn();
 const probeStoreLineRecipientMock = vi.fn();
@@ -91,7 +97,8 @@ function postReq(body: unknown, signature = "line-signature") {
 
 function brandLogEvents() {
   return consoleLogSpy.mock.calls
-    .map(([message]) => {
+    .map((call: unknown[]) => {
+      const [message] = call;
       if (typeof message !== "string") return null;
       try {
         const parsed: unknown = JSON.parse(message);
@@ -102,7 +109,7 @@ function brandLogEvents() {
         return null;
       }
     })
-    .filter((event): event is Record<string, unknown> => event !== null);
+    .filter((event: unknown): event is Record<string, unknown> => event !== null);
 }
 
 describe("LINE webhook store-aware signature and reply", () => {
