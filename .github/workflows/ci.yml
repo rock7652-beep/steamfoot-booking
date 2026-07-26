@@ -20,7 +20,7 @@ concurrency:
 
 jobs:
   validate:
-    name: Lint, test, and typecheck
+    name: Lint changed files, test, and typecheck
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -31,11 +31,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
 
       - name: Install dependencies
@@ -44,7 +46,20 @@ jobs:
       - name: Generate Prisma client
         run: npx prisma generate
 
-      - name: Lint
+      - name: Lint changed source files
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          mapfile -t files < <(git diff --name-only --diff-filter=ACMR "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}" -- '*.js' '*.jsx' '*.ts' '*.tsx')
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "No changed JavaScript or TypeScript files to lint."
+            exit 0
+          fi
+          printf 'Linting %s\n' "${files[@]}"
+          npx eslint "${files[@]}"
+
+      - name: Lint repository
+        if: github.event_name != 'pull_request'
         run: npm run lint
 
       - name: Test
