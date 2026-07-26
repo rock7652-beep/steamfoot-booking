@@ -7,7 +7,7 @@ export const metadata = {
 };
 
 const lineUrl = "https://lin.ee/Nki2OjA";
-const bookingUrl = "/s/zhubei/register?next=%2Fpricing%2Fexperience%2Fzhubei%2Fbook";
+const bookingUrl = "/pricing/experience/zhubei/book";
 const mapUrl = "https://www.google.com/maps/search/?api=1&query=" +
   encodeURIComponent("新竹縣竹北市科大一路80號");
 
@@ -45,7 +45,7 @@ export default function ZhubeiExperiencePage() {
         >
           預約首次體驗
         </Link>
-        <p className="mt-2 text-center text-xs text-earth-400">不需要先購買正式方案，註冊後即可選擇體驗時段</p>
+        <p className="mt-2 text-center text-xs text-earth-400">不用註冊、不用設密碼，到店後再付款</p>
       </section>
 
       <section className="border-y border-earth-100 bg-white">
