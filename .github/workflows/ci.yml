@@ -63,7 +63,14 @@ jobs:
         run: npm run lint
 
       - name: Test
-        run: npx vitest run
+        shell: bash
+        run: |
+          if ! npx vitest run --reporter=verbose > /tmp/vitest.log 2>&1; then
+            echo "Vitest failed. Showing the final 250 lines:"
+            tail -n 250 /tmp/vitest.log
+            exit 1
+          fi
+          tail -n 40 /tmp/vitest.log
 
       - name: Typecheck
         run: npx tsc --noEmit
