@@ -65,12 +65,16 @@ jobs:
       - name: Test
         shell: bash
         run: |
-          if ! npx vitest run --reporter=verbose > /tmp/vitest.log 2>&1; then
-            echo "Vitest failed. Showing the final 250 lines:"
-            tail -n 250 /tmp/vitest.log
-            exit 1
-          fi
-          tail -n 40 /tmp/vitest.log
+          npx vitest run --reporter=verbose > /tmp/vitest.log 2>&1
+
+      - name: Upload Vitest log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vitest-log
+          path: /tmp/vitest.log
+          if-no-files-found: error
+          retention-days: 1
 
       - name: Typecheck
         run: npx tsc --noEmit
