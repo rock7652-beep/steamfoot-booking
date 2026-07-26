@@ -29,7 +29,7 @@ const repository = {
   setEventOutcome: vi.fn(async () => undefined),
   findActiveConversation: vi.fn(),
   expireConversation: vi.fn(async () => undefined),
-  cancelConversation: vi.fn(async () => undefined),
+  cancelConversation: vi.fn(async () => true),
   findTriggeredFlow: vi.fn(),
   createConversation: vi.fn(),
   saveAnswer: vi.fn(async () => true),
@@ -77,6 +77,28 @@ describe("Digital Butler global command runtime priority", () => {
     expect(repository.saveAnswer).not.toHaveBeenCalled();
     expect(result.outcome).toBe("HANDOFF_REQUESTED");
     expect(result.messages[0]).toMatchObject({ type: "text", text: expect.stringContaining("門市夥伴") });
+  });
+
+  it("does not pretend to cancel when another webhook has already ended the conversation", async () => {
+    repository.cancelConversation.mockResolvedValueOnce(false);
+
+    const result = await new DigitalButlerRuntime(repository as never, gate).handleText(
+      input("停", "event-already-ended-cancel"),
+    );
+
+    expect(repository.cancelConversation).toHaveBeenCalledWith("store-zhubei", "conversation-1");
+    expect(result).toEqual({ handled: true, messages: [], outcome: "INACTIVE_CONVERSATION" });
+  });
+
+  it("does not pretend to hand off when another webhook has already ended the conversation", async () => {
+    repository.cancelConversation.mockResolvedValueOnce(false);
+
+    const result = await new DigitalButlerRuntime(repository as never, gate).handleText(
+      input("轉接客服", "event-already-ended-handoff"),
+    );
+
+    expect(repository.cancelConversation).toHaveBeenCalledWith("store-zhubei", "conversation-1");
+    expect(result).toEqual({ handled: true, messages: [], outcome: "INACTIVE_CONVERSATION" });
   });
 
   it("stops a concurrent answer after cancellation before it can advance or create a lead", async () => {

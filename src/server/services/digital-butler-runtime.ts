@@ -73,7 +73,7 @@ type RuntimeRepository = {
   setEventOutcome(storeId: string, eventKey: string, outcome: string, conversationId?: string): Promise<void>;
   findActiveConversation(storeId: string, channelIdentity: string, lineUserIdHash: string): Promise<RuntimeConversation | null>;
   expireConversation(storeId: string, conversationId: string): Promise<void>;
-  cancelConversation(storeId: string, conversationId: string): Promise<void>;
+  cancelConversation(storeId: string, conversationId: string): Promise<boolean>;
   findTriggeredFlow(storeId: string, text: string): Promise<{
     id: string;
     currentPublishedVersionId: string;
@@ -272,10 +272,11 @@ class PrismaDigitalButlerRuntimeRepository implements RuntimeRepository {
   }
 
   async cancelConversation(storeId: string, conversationId: string) {
-    await prisma.digitalButlerConversation.updateMany({
+    const cancelled = await prisma.digitalButlerConversation.updateMany({
       where: { id: conversationId, storeId, status: { in: [...ACTIVE_STATUSES] } },
       data: { status: "CANCELLED", currentStepKey: null, cancelledAt: new Date() },
     });
+    return cancelled.count === 1;
   }
 
   async findTriggeredFlow(storeId: string, text: string) {
@@ -494,7 +495,8 @@ export class DigitalButlerRuntime {
     command: DigitalButlerGlobalCommand,
   ): Promise<DigitalButlerRuntimeResult> {
     if (command === "CANCEL") {
-      await this.repository.cancelConversation(conversation.storeId, conversation.id);
+      const cancelled = await this.repository.cancelConversation(conversation.storeId, conversation.id);
+      if (!cancelled) return { handled: true, messages: [], outcome: "INACTIVE_CONVERSATION" };
       return {
         handled: true,
         messages: [{ type: "text", text: "好的，已停止目前流程。需要時再傳訊息給我就可以了。" }],
@@ -502,7 +504,8 @@ export class DigitalButlerRuntime {
       };
     }
     if (command === "HANDOFF") {
-      await this.repository.cancelConversation(conversation.storeId, conversation.id);
+      const cancelled = await this.repository.cancelConversation(conversation.storeId, conversation.id);
+      if (!cancelled) return { handled: true, messages: [], outcome: "INACTIVE_CONVERSATION" };
       return {
         handled: true,
         messages: [{ type: "text", text: "好的，已停止自動流程，將由門市夥伴接手協助您。" }],

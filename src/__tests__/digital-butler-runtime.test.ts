@@ -19,7 +19,7 @@ const repository = {
   setEventOutcome: vi.fn(async () => undefined),
   findActiveConversation: vi.fn(),
   expireConversation: vi.fn(async () => undefined),
-  cancelConversation: vi.fn(async () => undefined),
+  cancelConversation: vi.fn(async () => true),
   findTriggeredFlow: vi.fn(),
   createConversation: vi.fn(),
   saveAnswer: vi.fn(async () => true),
