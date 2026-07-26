@@ -5,7 +5,10 @@ import {
   encryptDigitalButlerValue,
 } from "@/lib/digital-butler-crypto";
 import { requireDigitalButlerConversationActivation } from "@/lib/digital-butler-entitlement";
-import { classifyDigitalButlerGlobalCommand } from "@/lib/digital-butler-global-command";
+import {
+  classifyDigitalButlerGlobalCommand,
+  type DigitalButlerGlobalCommand,
+} from "@/lib/digital-butler-global-command";
 import { normalizePhone } from "@/lib/normalize";
 import type { LineMessage } from "@/lib/line";
 import { assertDigitalButlerSubmittedAnswersSafe } from "@/lib/digital-butler-sensitive-json";
@@ -477,7 +480,7 @@ export class DigitalButlerRuntime {
 
   private async handleGlobalCommand(
     conversation: RuntimeConversation,
-    command: ReturnType<typeof classifyDigitalButlerGlobalCommand> & {},
+    command: DigitalButlerGlobalCommand,
   ): Promise<DigitalButlerRuntimeResult> {
     if (command === "CANCEL") {
       await this.repository.cancelConversation(conversation.storeId, conversation.id);
@@ -497,9 +500,8 @@ export class DigitalButlerRuntime {
     }
 
     const steps = conversation.flowVersion.steps;
-    const targetIndex = command === "MAIN_MENU"
-      ? Math.max(0, steps.findIndex((step) => step.stepKey === "menu"))
-      : 0;
+    const menuIndex = steps.findIndex((step) => step.stepKey === "menu");
+    const targetIndex = command === "MAIN_MENU" && menuIndex >= 0 ? menuIndex : 0;
     const target = steps[targetIndex] ?? null;
     await this.repository.resetConversation(conversation.storeId, conversation.id, target?.stepKey ?? null);
     conversation.currentStepKey = target?.stepKey ?? null;
