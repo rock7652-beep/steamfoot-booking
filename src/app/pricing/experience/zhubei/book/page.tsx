@@ -25,9 +25,55 @@ const trustItems = [
   { title: "可預約 1–4 人", detail: "朋友家人一起來" },
 ];
 
+const firstVisitItems = [
+  {
+    title: "依預約時間抵達門市",
+    detail: "到店後向夥伴說明是首次體驗預約即可。",
+  },
+  {
+    title: "由門市夥伴說明流程",
+    detail: "第一次體驗不需要先了解設備，現場會有人協助。",
+  },
+  {
+    title: "完成約 45 分鐘的蒸足體驗",
+    detail: "請替自己保留充裕時間，放慢步調感受整個過程。",
+  },
+  {
+    title: "體驗結束後再完成付款",
+    detail: "首次體驗每人 NT$499，不需要先購買正式方案。",
+  },
+];
+
+const faqItems = [
+  {
+    question: "第一次來，需要先加入會員嗎？",
+    answer: "不需要。直接在這一頁選日期、時段、人數，留下姓名與手機即可完成預約。",
+  },
+  {
+    question: "一次可以預約幾個人？",
+    answer: "一次可預約 1–4 人；系統會依照該時段剩餘名額提供可選人數。",
+  },
+  {
+    question: "體驗大約需要多久？",
+    answer: "首次蒸足體驗約 45 分鐘，建議另外保留抵達、說明與付款的時間。",
+  },
+  {
+    question: "預約後需要先付款嗎？",
+    answer: "不用。預約成功後，依約到竹北店完成體驗，再由門市夥伴協助付款。",
+  },
+  {
+    question: "送出後，怎麼知道有沒有預約成功？",
+    answer: "頁面會顯示預約成功資訊，同時系統會直接在竹北店後台建立首次體驗預約。",
+  },
+  {
+    question: "有特殊健康狀況，也可以預約嗎？",
+    answer: "如有懷孕、慢性病、近期手術或其他需要留意的狀況，建議預約前先透過官方 LINE 詢問，必要時先諮詢專業醫療人員。",
+  },
+];
+
 export default function ZhubeiTrialBookingPage() {
   return (
-    <main className="min-h-dvh bg-[#f7f2ea] pb-12 text-earth-900">
+    <main className="min-h-dvh bg-[#f7f2ea] pb-28 text-earth-900 sm:pb-12">
       <section className="mx-auto max-w-3xl overflow-hidden bg-white shadow-sm sm:mt-8 sm:rounded-[2rem]">
         <div className="relative aspect-[4/3] min-h-[360px] overflow-hidden sm:aspect-[16/10]">
           <Image
@@ -104,6 +150,48 @@ export default function ZhubeiTrialBookingPage() {
             <ZhubeiTrialBookingForm />
           </section>
 
+          <section className="mt-10 rounded-3xl bg-[#fcfaf7] p-5 sm:p-7">
+            <p className="text-sm font-semibold text-primary-700">第一次來會發生什麼？</p>
+            <h2 className="mt-2 text-2xl font-bold">從進門到離開，都有人陪你完成</h2>
+            <div className="mt-6 space-y-5">
+              {firstVisitItems.map((item, index) => (
+                <div key={item.title} className="flex gap-4">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-earth-900 text-sm font-bold text-white">
+                    {index + 1}
+                  </span>
+                  <div>
+                    <h3 className="font-semibold text-earth-900">{item.title}</h3>
+                    <p className="mt-1 text-sm leading-6 text-earth-500">{item.detail}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="mt-10">
+            <div className="text-center">
+              <p className="text-sm font-semibold text-primary-700">預約前常見問題</p>
+              <h2 className="mt-2 text-2xl font-bold">把第一次來的疑問先回答清楚</h2>
+            </div>
+            <div className="mt-5 space-y-3">
+              {faqItems.map((item) => (
+                <details key={item.question} className="group rounded-2xl border border-earth-100 bg-white px-5 py-4">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-semibold text-earth-900">
+                    <span>{item.question}</span>
+                    <span className="text-xl font-normal text-primary-700 transition-transform group-open:rotate-45">＋</span>
+                  </summary>
+                  <p className="mt-3 pr-8 text-sm leading-6 text-earth-500">{item.answer}</p>
+                </details>
+              ))}
+            </div>
+            <p className="mt-4 text-center text-sm text-earth-500">
+              還有其他問題？
+              <a href={lineUrl} target="_blank" rel="noreferrer" className="ml-1 font-semibold text-primary-700 underline underline-offset-4">
+                先用官方 LINE 詢問
+              </a>
+            </p>
+          </section>
+
           <section className="mt-10 overflow-hidden rounded-3xl border border-earth-100 bg-white">
             <div className="relative aspect-[4/3] overflow-hidden">
               <Image
@@ -152,6 +240,21 @@ export default function ZhubeiTrialBookingPage() {
           </section>
         </div>
       </section>
+
+      <div className="fixed inset-x-0 bottom-0 z-50 border-t border-earth-100 bg-white/95 px-4 py-3 shadow-[0_-8px_24px_rgba(57,45,36,0.12)] backdrop-blur sm:hidden">
+        <div className="mx-auto flex max-w-md items-center gap-4">
+          <div className="shrink-0">
+            <p className="text-[11px] text-earth-500">首次體驗／人</p>
+            <p className="text-lg font-bold text-earth-900">NT$499</p>
+          </div>
+          <a
+            href="#booking-form"
+            className="flex h-12 flex-1 items-center justify-center rounded-2xl bg-primary-600 px-5 text-base font-semibold text-white shadow-sm"
+          >
+            立即預約
+          </a>
+        </div>
+      </div>
     </main>
   );
 }
