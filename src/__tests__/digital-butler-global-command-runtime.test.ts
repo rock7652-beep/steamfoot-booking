@@ -24,7 +24,9 @@ const menuStep = {
   required: true,
 };
 
-function activeConversation(steps = [phoneStep]) {
+type TestStep = typeof phoneStep | typeof menuStep;
+
+function activeConversation(steps: TestStep[] = [phoneStep]) {
   return {
     id: "conversation-1",
     storeId: "store-zhubei",
@@ -118,14 +120,6 @@ describe("Digital Butler global command runtime priority", () => {
     const conversation = activeConversation([
       { ...phoneStep, position: 0 },
       { ...menuStep, position: 1 },
-      {
-        id: "step-lead",
-        stepKey: "create-lead",
-        position: 2,
-        type: "CREATE_LEAD" as const,
-        config: {},
-        required: false,
-      },
     ]);
     conversation.currentStepKey = "phone";
     repository.findActiveConversation.mockResolvedValue(conversation);
