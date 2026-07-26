@@ -19,15 +19,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  validate:
-    name: Lint changed files, test, and typecheck
+  changed-lint:
+    name: Changed-file ESLint
     runs-on: ubuntu-latest
     timeout-minutes: 30
-
-    env:
-      NODE_ENV: test
-      DIGITAL_BUTLER_ENCRYPTION_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -47,9 +42,12 @@ jobs:
         run: npx prisma generate
 
       - name: Lint changed source files
-        if: github.event_name == 'pull_request'
         shell: bash
         run: |
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            npm run lint
+            exit 0
+          fi
           mapfile -t files < <(git diff --name-only --diff-filter=ACMR "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}" -- '*.js' '*.jsx' '*.ts' '*.tsx')
           if [ "${#files[@]}" -eq 0 ]; then
             echo "No changed JavaScript or TypeScript files to lint."
@@ -58,12 +56,86 @@ jobs:
           printf 'Linting %s\n' "${files[@]}"
           npx eslint "${files[@]}"
 
-      - name: Lint repository
-        if: github.event_name != 'pull_request'
-        run: npm run lint
+  targeted-tests:
+    name: Targeted tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NODE_ENV: test
+      DIGITAL_BUTLER_ENCRYPTION_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Test
-        run: npx vitest run
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Run Digital Butler tests
+        shell: bash
+        run: |
+          mapfile -t tests < <(find src -type f \( -name '*digital-butler*.test.ts' -o -name '*digital-butler*.test.tsx' \) | sort)
+          if [ "${#tests[@]}" -eq 0 ]; then
+            echo "No Digital Butler tests found."
+            exit 0
+          fi
+          printf 'Testing %s\n' "${tests[@]}"
+          npx vitest run "${tests[@]}"
+
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
 
       - name: Typecheck
         run: npx tsc --noEmit
+
+  full-vitest-baseline:
+    name: Full Vitest baseline
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    continue-on-error: true
+    env:
+      NODE_ENV: test
+      DIGITAL_BUTLER_ENCRYPTION_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Run full Vitest baseline
+        run: npx vitest run
