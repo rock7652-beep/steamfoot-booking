@@ -20,12 +20,11 @@ const repository = {
   findActiveConversation: vi.fn(),
   expireConversation: vi.fn(async () => undefined),
   cancelConversation: vi.fn(async () => undefined),
-  resetConversation: vi.fn(async () => undefined),
   findTriggeredFlow: vi.fn(),
   createConversation: vi.fn(),
-  saveAnswer: vi.fn(async () => undefined),
-  advanceConversation: vi.fn(async () => undefined),
-  createLead: vi.fn(async () => undefined),
+  saveAnswer: vi.fn(async () => true),
+  advanceConversation: vi.fn(async () => true),
+  createLead: vi.fn(async () => true),
 };
 const gate = vi.fn(async () => undefined);
 
@@ -129,6 +128,28 @@ describe("DigitalButlerRuntime", () => {
       messages: [{ type: "text", text: "謝謝，我們會盡快聯繫您" }],
       outcome: "COMPLETED",
     });
+  });
+
+  it("does not create a lead or complete a flow when cancellation wins after an answer is saved", async () => {
+    const steps = [
+      questionStep("step-1", "need", 0),
+      { id: "step-2", stepKey: "create-lead", position: 1, type: "CREATE_LEAD" as const, config: {}, required: false },
+      { id: "step-3", stepKey: "complete", position: 2, type: "COMPLETE_FLOW" as const, config: {}, required: false },
+    ];
+    repository.findActiveConversation.mockResolvedValue({
+      id: "conversation-1", storeId: input.storeId, flowId: "flow-1",
+      flowVersionId: "version-1", currentStepKey: "need",
+      expiresAt: new Date(Date.now() + 60_000),
+      flowVersion: { steps }, answers: [],
+    });
+    repository.createLead.mockResolvedValueOnce(false);
+
+    const result = await new DigitalButlerRuntime(repository as never, gate).handleText({ ...input, text: "增加新客" });
+
+    expect(repository.saveAnswer).toHaveBeenCalledTimes(1);
+    expect(repository.createLead).toHaveBeenCalledTimes(1);
+    expect(repository.advanceConversation).not.toHaveBeenCalled();
+    expect(result).toEqual({ handled: true, messages: [], outcome: "INACTIVE_CONVERSATION" });
   });
 
   it("completes a lead when the final answer key is contact-time", async () => {

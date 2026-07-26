@@ -1,7 +1,5 @@
 export type DigitalButlerGlobalCommand =
   | "CANCEL"
-  | "RESTART"
-  | "MAIN_MENU"
   | "HANDOFF";
 
 const COMMANDS: ReadonlyArray<{
@@ -11,14 +9,6 @@ const COMMANDS: ReadonlyArray<{
   {
     command: "HANDOFF",
     phrases: ["轉接客服", "真人客服", "轉真人", "找客服"],
-  },
-  {
-    command: "RESTART",
-    phrases: ["重新開始", "重來", "從頭開始"],
-  },
-  {
-    command: "MAIN_MENU",
-    phrases: ["主選單", "回首頁", "回主選單"],
   },
   {
     command: "CANCEL",
