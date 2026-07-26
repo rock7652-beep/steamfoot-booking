@@ -19,11 +19,16 @@ const repository = {
   setEventOutcome: vi.fn(async () => undefined),
   findActiveConversation: vi.fn(),
   expireConversation: vi.fn(async () => undefined),
+  cancelConversation: vi.fn(async () => true),
   findTriggeredFlow: vi.fn(),
   createConversation: vi.fn(),
-  saveAnswer: vi.fn(async () => undefined),
-  advanceConversation: vi.fn(async () => undefined),
-  createLead: vi.fn(async () => undefined),
+  saveAnswer: vi.fn(async () => true),
+  advanceConversation: vi.fn(async () => true),
+  createLead: vi.fn(async () => true),
+  deliverReplyIfActive: vi.fn(async (_storeId: string, _conversationId: string, deliver: () => Promise<void>) => {
+    await deliver();
+    return true;
+  }),
 };
 const gate = vi.fn(async () => undefined);
 
@@ -81,19 +86,29 @@ describe("DigitalButlerRuntime", () => {
 
   it("deduplicates a LINE redelivery before reading or advancing a conversation", async () => {
     repository.claimEvent.mockResolvedValue(false);
-
     const result = await new DigitalButlerRuntime(repository as never, gate).handleText(input);
-
     expect(result).toEqual({ handled: true, messages: [], outcome: "DUPLICATE" });
     expect(gate).not.toHaveBeenCalled();
     expect(repository.findActiveConversation).not.toHaveBeenCalled();
   });
 
+  it("drops a pending question reply when cancellation has already made the conversation inactive", async () => {
+    repository.deliverReplyIfActive.mockResolvedValueOnce(false);
+    const deliver = vi.fn(async () => undefined);
+
+    const sent = await new DigitalButlerRuntime(repository as never, gate).deliverReplyIfActive(
+      input.storeId,
+      "conversation-1",
+      deliver,
+    );
+
+    expect(sent).toBe(false);
+    expect(deliver).not.toHaveBeenCalled();
+  });
+
   it("fails closed when entitlement or the store activation flag is disabled", async () => {
     gate.mockRejectedValueOnce(new Error("FORBIDDEN"));
-
     const result = await new DigitalButlerRuntime(repository as never, gate).handleText(input);
-
     expect(result).toEqual({ handled: false, messages: [], outcome: "INACTIVE" });
     expect(repository.findTriggeredFlow).not.toHaveBeenCalled();
     expect(repository.setEventOutcome).toHaveBeenCalledWith(
@@ -115,17 +130,13 @@ describe("DigitalButlerRuntime", () => {
       flowVersion: { steps }, answers: [],
     });
 
-    const result = await new DigitalButlerRuntime(repository as never, gate).handleText({
-      ...input, text: "增加新客",
-    });
-
+    const result = await new DigitalButlerRuntime(repository as never, gate).handleText({ ...input, text: "增加新客" });
     expect(repository.saveAnswer).toHaveBeenCalledWith(expect.objectContaining({
       storeId: input.storeId, conversationId: "conversation-1", value: "增加新客",
     }));
     expect(repository.createLead).toHaveBeenCalledTimes(1);
     expect(repository.createLead).toHaveBeenCalledWith(expect.objectContaining({
-      completionActionKey: "create-lead",
-      submittedAnswers: { need: "增加新客" },
+      completionActionKey: "create-lead", submittedAnswers: { need: "增加新客" },
     }));
     expect(repository.advanceConversation).toHaveBeenLastCalledWith(expect.objectContaining({
       status: "COMPLETED", currentStepKey: null,
@@ -135,6 +146,28 @@ describe("DigitalButlerRuntime", () => {
       messages: [{ type: "text", text: "謝謝，我們會盡快聯繫您" }],
       outcome: "COMPLETED",
     });
+  });
+
+  it("does not create a lead or complete a flow when cancellation wins after an answer is saved", async () => {
+    const steps = [
+      questionStep("step-1", "need", 0),
+      { id: "step-2", stepKey: "create-lead", position: 1, type: "CREATE_LEAD" as const, config: {}, required: false },
+      { id: "step-3", stepKey: "complete", position: 2, type: "COMPLETE_FLOW" as const, config: {}, required: false },
+    ];
+    repository.findActiveConversation.mockResolvedValue({
+      id: "conversation-1", storeId: input.storeId, flowId: "flow-1",
+      flowVersionId: "version-1", currentStepKey: "need",
+      expiresAt: new Date(Date.now() + 60_000),
+      flowVersion: { steps }, answers: [],
+    });
+    repository.createLead.mockResolvedValueOnce(false);
+
+    const result = await new DigitalButlerRuntime(repository as never, gate).handleText({ ...input, text: "增加新客" });
+
+    expect(repository.saveAnswer).toHaveBeenCalledTimes(1);
+    expect(repository.createLead).toHaveBeenCalledTimes(1);
+    expect(repository.advanceConversation).not.toHaveBeenCalled();
+    expect(result).toEqual({ handled: true, messages: [], outcome: "INACTIVE_CONVERSATION" });
   });
 
   it("completes a lead when the final answer key is contact-time", async () => {
@@ -151,10 +184,7 @@ describe("DigitalButlerRuntime", () => {
       flowVersion: { steps }, answers: [],
     });
 
-    const result = await new DigitalButlerRuntime(repository as never, gate).handleText({
-      ...input, text: "下午",
-    });
-
+    const result = await new DigitalButlerRuntime(repository as never, gate).handleText({ ...input, text: "下午" });
     expect(repository.createLead).toHaveBeenCalledWith(expect.objectContaining({
       submittedAnswers: { "contact-time": "下午" },
     }));
@@ -176,9 +206,7 @@ describe("DigitalButlerRuntime", () => {
       flowVersion: { steps: [] }, answers: [],
     });
     repository.findTriggeredFlow.mockResolvedValue(null);
-
     const result = await new DigitalButlerRuntime(repository as never, gate).handleText(input);
-
     expect(repository.expireConversation).toHaveBeenCalledWith(input.storeId, "stale");
     expect(repository.findTriggeredFlow).toHaveBeenCalledWith(input.storeId, input.text);
     expect(result).toMatchObject({ handled: false, outcome: "NO_MATCH" });
@@ -232,6 +260,7 @@ describe("DigitalButlerRuntime", () => {
         },
       ],
       outcome: "WAITING_INPUT",
+      replyGuard: { conversationId: "conversation-1", requiresActiveConversation: true },
     });
     expect(repository.advanceConversation).toHaveBeenLastCalledWith(expect.objectContaining({
       currentStepKey: "menu", status: "WAITING_INPUT",

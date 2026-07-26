@@ -28,11 +28,22 @@ const replySteamButlerMessageMock = vi.fn(
 const bindLineToCustomerInStoreMock = vi.fn();
 const probeStoreLineRecipientMock = vi.fn();
 const digitalButlerHandleTextMock = vi.fn(
-  async (_input: unknown): Promise<{ handled: boolean; messages: unknown[]; outcome: string }> => ({
+  async (_input: unknown): Promise<{
+    handled: boolean;
+    messages: unknown[];
+    outcome: string;
+    replyGuard?: { conversationId: string; requiresActiveConversation: true };
+  }> => ({
     handled: false,
     messages: [],
     outcome: "NO_MATCH",
   }),
+);
+const digitalButlerDeliverReplyIfActiveMock = vi.fn(
+  async (_storeId: string, _conversationId: string, deliver: () => Promise<void>) => {
+    await deliver();
+    return true;
+  },
 );
 let consoleLogSpy: ReturnType<typeof vi.spyOn>;
 
@@ -84,6 +95,11 @@ vi.mock("@/lib/line-bind-log", () => ({
 vi.mock("@/server/services/digital-butler-runtime", () => ({
   DigitalButlerRuntime: class {
     handleText = (input: unknown) => digitalButlerHandleTextMock(input);
+    deliverReplyIfActive = (
+      storeId: string,
+      conversationId: string,
+      deliver: () => Promise<void>,
+    ) => digitalButlerDeliverReplyIfActiveMock(storeId, conversationId, deliver);
   },
 }));
 
@@ -131,6 +147,11 @@ describe("LINE webhook store-aware signature and reply", () => {
       handled: false,
       messages: [],
       outcome: "NO_MATCH",
+    });
+    digitalButlerDeliverReplyIfActiveMock.mockReset();
+    digitalButlerDeliverReplyIfActiveMock.mockImplementation(async (_storeId, _conversationId, deliver) => {
+      await deliver();
+      return true;
     });
     mockPrisma.store.findFirst.mockResolvedValue({ id: "store-hsinchu" });
     consoleLogSpy = vi.spyOn(console, "log").mockImplementation(() => undefined);
@@ -271,6 +292,67 @@ describe("LINE webhook store-aware signature and reply", () => {
       "store-hsinchu",
       "reply-token-phone",
       [{ type: "text", text: "請問您想了解哪一項服務？" }],
+    );
+  });
+
+  it("drops an already-prepared active-flow reply after cancellation wins the outbound guard", async () => {
+    digitalButlerHandleTextMock.mockResolvedValueOnce({
+      handled: true,
+      messages: [{ type: "text", text: "舊的下一題" }],
+      outcome: "WAITING_INPUT",
+      replyGuard: { conversationId: "conversation-1", requiresActiveConversation: true },
+    });
+    digitalButlerDeliverReplyIfActiveMock.mockResolvedValueOnce(false);
+    const body = {
+      destination: "D_hsinchu",
+      events: [{
+        type: "message",
+        replyToken: "reply-token-old-question",
+        source: { userId: "U-hsinchu-store" },
+        message: { id: "message-old-question", type: "text", text: "繼續" },
+        timestamp: 1_721_234_567_890,
+      }],
+    };
+
+    const { POST } = await import("@/app/api/line/webhook/route");
+    const res = await POST(postReq(body));
+
+    expect(res.status).toBe(200);
+    expect(digitalButlerDeliverReplyIfActiveMock).toHaveBeenCalledWith(
+      "store-hsinchu",
+      "conversation-1",
+      expect.any(Function),
+    );
+    expect(replyMessageMock).not.toHaveBeenCalled();
+  });
+
+  it("sends a successful cancellation acknowledgement once without applying the active-flow reply guard", async () => {
+    digitalButlerHandleTextMock.mockResolvedValueOnce({
+      handled: true,
+      messages: [{ type: "text", text: "好的，已停止目前流程。" }],
+      outcome: "CANCELLED_BY_USER",
+    });
+    const body = {
+      destination: "D_hsinchu",
+      events: [{
+        type: "message",
+        replyToken: "reply-token-cancel",
+        source: { userId: "U-hsinchu-store" },
+        message: { id: "message-cancel", type: "text", text: "停" },
+        timestamp: 1_721_234_567_890,
+      }],
+    };
+
+    const { POST } = await import("@/app/api/line/webhook/route");
+    const res = await POST(postReq(body));
+
+    expect(res.status).toBe(200);
+    expect(digitalButlerDeliverReplyIfActiveMock).not.toHaveBeenCalled();
+    expect(replyMessageMock).toHaveBeenCalledTimes(1);
+    expect(replyMessageMock).toHaveBeenCalledWith(
+      "store-hsinchu",
+      "reply-token-cancel",
+      [{ type: "text", text: "好的，已停止目前流程。" }],
     );
   });
 

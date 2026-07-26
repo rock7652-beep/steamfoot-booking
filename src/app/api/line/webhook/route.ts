@@ -368,7 +368,7 @@ async function handleTextMessage(
         }
       }
       if (replyToken && digitalButlerResult.messages.length > 0) {
-        await replyMessage(storeId, replyToken, digitalButlerResult.messages);
+        await replyDigitalButlerMessages(storeId, replyToken, digitalButlerResult);
       }
       return;
     }
@@ -387,9 +387,29 @@ async function handleTextMessage(
   if (replyToken && eventIdentity?.destination && eventIdentity.messageId) {
     const result = await handleDigitalButlerText(lineUserId, text, storeId, eventIdentity);
     if (result?.handled && result.messages.length > 0) {
-      await replyMessage(storeId, replyToken, result.messages);
+      await replyDigitalButlerMessages(storeId, replyToken, result);
     }
   }
+}
+
+async function replyDigitalButlerMessages(
+  storeId: string,
+  replyToken: string,
+  result: Awaited<ReturnType<typeof handleDigitalButlerText>>,
+) {
+  if (!result) return;
+  const deliver = async () => {
+    await replyMessage(storeId, replyToken, result.messages);
+  };
+  if (result.replyGuard?.requiresActiveConversation) {
+    await new DigitalButlerRuntime().deliverReplyIfActive(
+      storeId,
+      result.replyGuard.conversationId,
+      deliver,
+    );
+    return;
+  }
+  await deliver();
 }
 
 async function handleDigitalButlerText(

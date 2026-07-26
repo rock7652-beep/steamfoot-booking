@@ -5,6 +5,10 @@ import {
   encryptDigitalButlerValue,
 } from "@/lib/digital-butler-crypto";
 import { requireDigitalButlerConversationActivation } from "@/lib/digital-butler-entitlement";
+import {
+  classifyDigitalButlerGlobalCommand,
+  type DigitalButlerGlobalCommand,
+} from "@/lib/digital-butler-global-command";
 import { normalizePhone } from "@/lib/normalize";
 import type { LineMessage } from "@/lib/line";
 import { assertDigitalButlerSubmittedAnswersSafe } from "@/lib/digital-butler-sensitive-json";
@@ -57,6 +61,10 @@ export type DigitalButlerRuntimeResult = {
   handled: boolean;
   messages: LineMessage[];
   outcome: string;
+  replyGuard?: {
+    conversationId: string;
+    requiresActiveConversation: true;
+  };
 };
 
 type RuntimeRepository = {
@@ -69,6 +77,7 @@ type RuntimeRepository = {
   setEventOutcome(storeId: string, eventKey: string, outcome: string, conversationId?: string): Promise<void>;
   findActiveConversation(storeId: string, channelIdentity: string, lineUserIdHash: string): Promise<RuntimeConversation | null>;
   expireConversation(storeId: string, conversationId: string): Promise<void>;
+  cancelConversation(storeId: string, conversationId: string): Promise<boolean>;
   findTriggeredFlow(storeId: string, text: string): Promise<{
     id: string;
     currentPublishedVersionId: string;
@@ -89,20 +98,25 @@ type RuntimeRepository = {
     step: RuntimeStep;
     value?: Prisma.InputJsonValue;
     phone?: string;
-  }): Promise<void>;
+  }): Promise<boolean>;
   advanceConversation(input: {
     storeId: string;
     conversationId: string;
     currentStepKey: string | null;
     status: "IN_PROGRESS" | "WAITING_INPUT" | "COMPLETED";
-  }): Promise<void>;
+  }): Promise<boolean>;
   createLead(input: {
     storeId: string;
     flowId: string;
     conversationId: string;
     completionActionKey: string;
     submittedAnswers: Prisma.InputJsonObject;
-  }): Promise<void>;
+  }): Promise<boolean>;
+  deliverReplyIfActive(
+    storeId: string,
+    conversationId: string,
+    deliver: () => Promise<void>,
+  ): Promise<boolean>;
 };
 
 function objectConfig(value: Prisma.JsonValue): Record<string, unknown> {
@@ -201,10 +215,7 @@ function validateAnswer(step: RuntimeStep, text: string): { value?: Prisma.Input
   return { value: text };
 }
 
-function configuredNextStepKey(
-  step: RuntimeStep,
-  answer?: Prisma.InputJsonValue,
-): string | null {
+function configuredNextStepKey(step: RuntimeStep, answer?: Prisma.InputJsonValue): string | null {
   const config = objectConfig(step.config);
   if (step.type === "SINGLE_CHOICE" && answer && typeof answer === "object" && !Array.isArray(answer)) {
     const selectedValue = objectConfig(answer as Prisma.JsonValue).value;
@@ -221,11 +232,7 @@ function configuredNextStepKey(
     : null;
 }
 
-function nextStepIndex(
-  steps: RuntimeStep[],
-  currentIndex: number,
-  answer?: Prisma.InputJsonValue,
-): number {
+function nextStepIndex(steps: RuntimeStep[], currentIndex: number, answer?: Prisma.InputJsonValue): number {
   const target = configuredNextStepKey(steps[currentIndex], answer);
   return target ? steps.findIndex((step) => step.stepKey === target) : currentIndex + 1;
 }
@@ -273,6 +280,14 @@ class PrismaDigitalButlerRuntimeRepository implements RuntimeRepository {
     });
   }
 
+  async cancelConversation(storeId: string, conversationId: string) {
+    const cancelled = await prisma.digitalButlerConversation.updateMany({
+      where: { id: conversationId, storeId, status: { in: [...ACTIVE_STATUSES] } },
+      data: { status: "CANCELLED", currentStepKey: null, cancelledAt: new Date() },
+    });
+    return cancelled.count === 1;
+  }
+
   async findTriggeredFlow(storeId: string, text: string) {
     const flows = await prisma.storeDigitalButlerFlow.findMany({
       where: { storeId, status: "PUBLISHED", enabled: true, currentPublishedVersionId: { not: null } },
@@ -306,23 +321,25 @@ class PrismaDigitalButlerRuntimeRepository implements RuntimeRepository {
     value?: Prisma.InputJsonValue; phone?: string;
   }) {
     const encrypted = input.phone ? encryptDigitalButlerValue(input.phone) : null;
-    await prisma.digitalButlerAnswer.upsert({
-      where: { conversationId_stepId: { conversationId: input.conversationId, stepId: input.step.id } },
-      create: {
-        storeId: input.storeId, conversationId: input.conversationId, stepId: input.step.id,
-        value: input.value,
-        phoneCiphertext: encrypted ? prismaBytes(encrypted.ciphertext) : undefined,
-        phoneIv: encrypted ? prismaBytes(encrypted.iv) : undefined,
-        phoneAuthTag: encrypted ? prismaBytes(encrypted.authTag) : undefined,
-        phoneHash: input.phone ? hashDigitalButlerSensitiveValue(input.phone) : undefined,
-      },
-      update: {
-        value: input.value,
-        phoneCiphertext: encrypted ? prismaBytes(encrypted.ciphertext) : undefined,
-        phoneIv: encrypted ? prismaBytes(encrypted.iv) : undefined,
-        phoneAuthTag: encrypted ? prismaBytes(encrypted.authTag) : undefined,
-        phoneHash: input.phone ? hashDigitalButlerSensitiveValue(input.phone) : undefined,
-      },
+    return this.withActiveConversation(input.storeId, input.conversationId, async (tx) => {
+      await tx.digitalButlerAnswer.upsert({
+        where: { conversationId_stepId: { conversationId: input.conversationId, stepId: input.step.id } },
+        create: {
+          storeId: input.storeId, conversationId: input.conversationId, stepId: input.step.id,
+          value: input.value,
+          phoneCiphertext: encrypted ? prismaBytes(encrypted.ciphertext) : undefined,
+          phoneIv: encrypted ? prismaBytes(encrypted.iv) : undefined,
+          phoneAuthTag: encrypted ? prismaBytes(encrypted.authTag) : undefined,
+          phoneHash: input.phone ? hashDigitalButlerSensitiveValue(input.phone) : undefined,
+        },
+        update: {
+          value: input.value,
+          phoneCiphertext: encrypted ? prismaBytes(encrypted.ciphertext) : undefined,
+          phoneIv: encrypted ? prismaBytes(encrypted.iv) : undefined,
+          phoneAuthTag: encrypted ? prismaBytes(encrypted.authTag) : undefined,
+          phoneHash: input.phone ? hashDigitalButlerSensitiveValue(input.phone) : undefined,
+        },
+      });
     });
   }
 
@@ -330,13 +347,15 @@ class PrismaDigitalButlerRuntimeRepository implements RuntimeRepository {
     storeId: string; conversationId: string; currentStepKey: string | null;
     status: "IN_PROGRESS" | "WAITING_INPUT" | "COMPLETED";
   }) {
-    await prisma.digitalButlerConversation.updateMany({
-      where: { id: input.conversationId, storeId: input.storeId },
-      data: {
-        currentStepKey: input.currentStepKey,
-        status: input.status,
-        completedAt: input.status === "COMPLETED" ? new Date() : undefined,
-      },
+    return this.withActiveConversation(input.storeId, input.conversationId, async (tx) => {
+      await tx.digitalButlerConversation.update({
+        where: { id_storeId: { id: input.conversationId, storeId: input.storeId } },
+        data: {
+          currentStepKey: input.currentStepKey,
+          status: input.status,
+          completedAt: input.status === "COMPLETED" ? new Date() : undefined,
+        },
+      });
     });
   }
 
@@ -345,16 +364,10 @@ class PrismaDigitalButlerRuntimeRepository implements RuntimeRepository {
     completionActionKey: string; submittedAnswers: Prisma.InputJsonObject;
   }) {
     assertDigitalButlerSubmittedAnswersSafe(input.submittedAnswers);
-    await prisma.$transaction(async (tx) => {
+    return this.withActiveConversation(input.storeId, input.conversationId, async (tx) => {
       const phoneAnswer = await tx.digitalButlerAnswer.findFirst({
-        where: {
-          storeId: input.storeId,
-          conversationId: input.conversationId,
-          phoneHash: { not: null },
-        },
-        select: {
-          phoneCiphertext: true, phoneIv: true, phoneAuthTag: true, phoneHash: true,
-        },
+        where: { storeId: input.storeId, conversationId: input.conversationId, phoneHash: { not: null } },
+        select: { phoneCiphertext: true, phoneIv: true, phoneAuthTag: true, phoneHash: true },
       });
       await tx.digitalButlerLead.upsert({
         where: { storeId_conversationId_completionActionKey: {
@@ -374,6 +387,37 @@ class PrismaDigitalButlerRuntimeRepository implements RuntimeRepository {
         },
         update: {},
       });
+    });
+  }
+
+  async deliverReplyIfActive(
+    storeId: string,
+    conversationId: string,
+    deliver: () => Promise<void>,
+  ) {
+    return this.withActiveConversation(storeId, conversationId, async () => {
+      await deliver();
+    });
+  }
+
+  /**
+   * Lock the scoped conversation while performing a state-changing action.
+   * If a cancellation/handoff has committed first, the guarded action is a no-op;
+   * if it is concurrent, PostgreSQL serializes it behind this row lock.
+   */
+  private async withActiveConversation(
+    storeId: string,
+    conversationId: string,
+    action: (tx: Prisma.TransactionClient) => Promise<void>,
+  ): Promise<boolean> {
+    return prisma.$transaction(async (tx) => {
+      const active = await tx.digitalButlerConversation.updateMany({
+        where: { id: conversationId, storeId, status: { in: [...ACTIVE_STATUSES] } },
+        data: { updatedAt: new Date() },
+      });
+      if (active.count !== 1) return false;
+      await action(tx);
+      return true;
     });
   }
 }
@@ -397,6 +441,16 @@ export class DigitalButlerRuntime {
 
     const finish = async (result: DigitalButlerRuntimeResult, conversationId?: string) => {
       await this.repository.setEventOutcome(input.storeId, identity.eventKey, result.outcome, conversationId);
+      if (
+        conversationId &&
+        result.messages.length > 0 &&
+        (result.outcome === "WAITING_INPUT" || result.outcome === "VALIDATION_FAILED")
+      ) {
+        return {
+          ...result,
+          replyGuard: { conversationId, requiresActiveConversation: true as const },
+        };
+      }
       return result;
     };
 
@@ -431,6 +485,13 @@ export class DigitalButlerRuntime {
       return finish(await this.runAutomaticSteps(conversation, 0), conversation.id);
     }
 
+    // Global commands intentionally run before current-field validation. This
+    // prevents commands such as「停」from being rejected as an invalid phone.
+    const globalCommand = classifyDigitalButlerGlobalCommand(input.text);
+    if (globalCommand) {
+      return finish(await this.handleGlobalCommand(conversation, globalCommand), conversation.id);
+    }
+
     const steps = conversation.flowVersion.steps;
     const index = steps.findIndex((step) => step.stepKey === conversation?.currentStepKey);
     const step = steps[index];
@@ -441,10 +502,13 @@ export class DigitalButlerRuntime {
     if (answer.error) {
       return finish({ handled: true, messages: [questionMessage(step, answer.error)], outcome: "VALIDATION_FAILED" }, conversation.id);
     }
-    await this.repository.saveAnswer({
+    const saved = await this.repository.saveAnswer({
       storeId: input.storeId, conversationId: conversation.id, step,
       value: answer.value, phone: answer.phone,
     });
+    if (!saved) {
+      return finish({ handled: true, messages: [], outcome: "INACTIVE_CONVERSATION" }, conversation.id);
+    }
     if (answer.value !== undefined) {
       conversation.answers = conversation.answers.filter((item) => item.step.stepKey !== step.stepKey);
       conversation.answers.push({ step: { stepKey: step.stepKey }, value: answer.value as Prisma.JsonValue });
@@ -453,6 +517,46 @@ export class DigitalButlerRuntime {
       await this.runAutomaticSteps(conversation, nextStepIndex(steps, index, answer.value)),
       conversation.id,
     );
+  }
+
+  /**
+   * Serializes an active-flow LINE reply with cancellation. The callback runs
+   * while the scoped conversation row lock is held: a cancellation that wins
+   * first makes this a no-op; a reply that wins first is delivered before the
+   * cancellation can commit and send its terminal acknowledgement.
+   */
+  async deliverReplyIfActive(
+    storeId: string,
+    conversationId: string,
+    deliver: () => Promise<void>,
+  ): Promise<boolean> {
+    return this.repository.deliverReplyIfActive(storeId, conversationId, deliver);
+  }
+
+  private async handleGlobalCommand(
+    conversation: RuntimeConversation,
+    command: DigitalButlerGlobalCommand,
+  ): Promise<DigitalButlerRuntimeResult> {
+    if (command === "CANCEL") {
+      const cancelled = await this.repository.cancelConversation(conversation.storeId, conversation.id);
+      if (!cancelled) return { handled: true, messages: [], outcome: "INACTIVE_CONVERSATION" };
+      return {
+        handled: true,
+        messages: [{ type: "text", text: "好的，已停止目前流程。需要時再傳訊息給我就可以了。" }],
+        outcome: "CANCELLED_BY_USER",
+      };
+    }
+    if (command === "HANDOFF") {
+      const cancelled = await this.repository.cancelConversation(conversation.storeId, conversation.id);
+      if (!cancelled) return { handled: true, messages: [], outcome: "INACTIVE_CONVERSATION" };
+      return {
+        handled: true,
+        messages: [{ type: "text", text: "好的，已停止自動流程，將由門市夥伴接手協助您。" }],
+        outcome: "HANDOFF_REQUESTED",
+      };
+    }
+
+    return { handled: true, messages: [], outcome: "INVALID_GLOBAL_COMMAND" };
   }
 
   private async runAutomaticSteps(conversation: RuntimeConversation, startIndex: number): Promise<DigitalButlerRuntimeResult> {
@@ -464,10 +568,11 @@ export class DigitalButlerRuntime {
       transitions += 1;
       const step = steps[index];
       if (["FREE_TEXT", "SINGLE_CHOICE", "TAIWAN_MOBILE"].includes(step.type)) {
-        await this.repository.advanceConversation({
+        const advanced = await this.repository.advanceConversation({
           storeId: conversation.storeId, conversationId: conversation.id,
           currentStepKey: step.stepKey, status: "WAITING_INPUT",
         });
+        if (!advanced) return { handled: true, messages: [], outcome: "INACTIVE_CONVERSATION" };
         messages.push(questionMessage(step));
         return { handled: true, messages: messages.slice(0, 5), outcome: "WAITING_INPUT" };
       }
@@ -490,16 +595,18 @@ export class DigitalButlerRuntime {
             .map((answer) => [answer.step.stepKey, answer.value]),
         ) as Prisma.InputJsonObject;
         assertDigitalButlerSubmittedAnswersSafe(submittedAnswers);
-        await this.repository.createLead({
+        const leadCreated = await this.repository.createLead({
           storeId: conversation.storeId, flowId: conversation.flowId,
           conversationId: conversation.id, completionActionKey: step.stepKey,
           submittedAnswers,
         });
+        if (!leadCreated) return { handled: true, messages: [], outcome: "INACTIVE_CONVERSATION" };
       } else if (step.type === "COMPLETE_FLOW") {
-        await this.repository.advanceConversation({
+        const completed = await this.repository.advanceConversation({
           storeId: conversation.storeId, conversationId: conversation.id,
           currentStepKey: null, status: "COMPLETED",
         });
+        if (!completed) return { handled: true, messages: [], outcome: "INACTIVE_CONVERSATION" };
         return { handled: true, messages: messages.slice(0, 5), outcome: "COMPLETED" };
       }
       index = nextStepIndex(steps, index);
@@ -507,10 +614,11 @@ export class DigitalButlerRuntime {
     if (transitions >= 100) {
       return { handled: true, messages: messages.slice(0, 5), outcome: "INVALID_STATE" };
     }
-    await this.repository.advanceConversation({
+    const completed = await this.repository.advanceConversation({
       storeId: conversation.storeId, conversationId: conversation.id,
       currentStepKey: null, status: "COMPLETED",
     });
+    if (!completed) return { handled: true, messages: [], outcome: "INACTIVE_CONVERSATION" };
     return { handled: true, messages: messages.slice(0, 5), outcome: "COMPLETED" };
   }
 }
