@@ -24,7 +24,7 @@ function resultMessage(result: PublicTrialBookingResult): string {
   switch (result.status) {
     case "invalid_input": return result.message;
     case "already_has_trial": return `這支手機已有首次體驗預約：${result.bookingDate} ${result.slotTime}`;
-    case "slot_full": return "這個時段剛剛已額滿，請重新選擇。";
+    case "slot_full": return "這個時段剩餘名額不足，請調整人數或重新選擇時段。";
     case "slot_unavailable": return "這個時段目前無法預約，請重新選擇。";
     case "store_unavailable": return "門市目前暫時無法接受線上預約，請用 LINE 聯繫我們。";
     case "limit_reached": return "目前線上預約已達上限，請用 LINE 聯繫門市協助。";
@@ -57,6 +57,14 @@ function dayBadge(status: PublicTrialDayStatus): string {
   }
 }
 
+function formatCurrency(value: number): string {
+  return new Intl.NumberFormat("zh-TW", {
+    style: "currency",
+    currency: "TWD",
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
 export function ZhubeiTrialBookingForm() {
   const today = useMemo(taiwanToday, []);
   const initialMonth = useMemo(() => ({
@@ -70,13 +78,14 @@ export function ZhubeiTrialBookingForm() {
   const [bookingDate, setBookingDate] = useState("");
   const [slots, setSlots] = useState<SlotAvailability[]>([]);
   const [slotTime, setSlotTime] = useState("");
+  const [people, setPeople] = useState(1);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [website, setWebsite] = useState("");
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState("");
-  const [success, setSuccess] = useState<{ date: string; time: string } | null>(null);
+  const [success, setSuccess] = useState<{ date: string; time: string; people: number; expectedAmount: number } | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -97,6 +106,7 @@ export function ZhubeiTrialBookingForm() {
   async function loadSlots(date: string) {
     setBookingDate(date);
     setSlotTime("");
+    setPeople(1);
     setMessage("");
     setSlots([]);
     setLoadingSlots(true);
@@ -117,18 +127,35 @@ export function ZhubeiTrialBookingForm() {
     setViewMonth(next.getUTCMonth() + 1);
     setBookingDate("");
     setSlotTime("");
+    setPeople(1);
     setSlots([]);
     setMessage("");
   }
 
+  function selectPeople(nextPeople: number) {
+    setPeople(nextPeople);
+    setMessage("");
+    if (!slotTime) return;
+    const selectedSlot = slots.find((slot) => slot.startTime === slotTime);
+    if (selectedSlot && selectedSlot.available < nextPeople) {
+      setSlotTime("");
+      setMessage(`${selectedSlot.startTime} 目前只剩 ${selectedSlot.available} 位，請重新選擇可容納 ${nextPeople} 人的時段。`);
+    }
+  }
+
   async function submit() {
-    if (!bookingDate || !slotTime || !name.trim() || !phone.trim() || submitting) return;
+    if (!bookingDate || !slotTime || !people || !name.trim() || !phone.trim() || submitting) return;
     setSubmitting(true);
     setMessage("");
     try {
-      const result = await submitPublicTrialBooking({ name, phone, bookingDate, slotTime, website });
+      const result = await submitPublicTrialBooking({ name, phone, bookingDate, slotTime, people, website });
       if (result.status === "ok") {
-        setSuccess({ date: result.bookingDate, time: result.slotTime });
+        setSuccess({
+          date: result.bookingDate,
+          time: result.slotTime,
+          people: result.people,
+          expectedAmount: result.expectedAmount,
+        });
         return;
       }
       setMessage(resultMessage(result));
@@ -146,7 +173,9 @@ export function ZhubeiTrialBookingForm() {
         <div className="text-3xl">✓</div>
         <h2 className="mt-3 text-xl font-bold text-earth-900">體驗預約成功</h2>
         <p className="mt-3 text-sm text-earth-600">{success.date}　{success.time}</p>
-        <p className="mt-2 text-sm text-earth-600">首次蒸足體驗 NT$499｜約 45 分鐘</p>
+        <p className="mt-2 text-sm text-earth-600">預約人數：{success.people} 人</p>
+        <p className="mt-2 text-sm font-semibold text-primary-700">到店付款：{formatCurrency(success.expectedAmount)}</p>
+        <p className="mt-2 text-sm text-earth-600">首次蒸足體驗每人 NT$499｜約 45 分鐘</p>
         <p className="mt-4 text-xs leading-5 text-earth-500">到店後再付款即可。這次預約不需要會員帳號，也不會扣除任何正式方案堂數。</p>
         <a href="https://lin.ee/Nki2OjA" target="_blank" rel="noreferrer" className="mt-5 flex h-11 items-center justify-center rounded-xl border border-primary-200 text-sm font-medium text-primary-700">加入官方 LINE（選填）</a>
       </section>
@@ -155,7 +184,8 @@ export function ZhubeiTrialBookingForm() {
 
   const firstDow = new Date(Date.UTC(viewYear, viewMonth - 1, 1)).getUTCDay();
   const isCurrentMonth = viewYear === initialMonth.year && viewMonth === initialMonth.month;
-  const ready = bookingDate && slotTime && name.trim() && phone.trim();
+  const ready = bookingDate && slotTime && people && name.trim() && phone.trim();
+  const expectedAmount = 499 * people;
 
   return (
     <section className="mt-6 rounded-2xl bg-white p-5 shadow-sm">
@@ -208,8 +238,8 @@ export function ZhubeiTrialBookingForm() {
             {slots.map((slot) => {
               const available = slot.isEnabled && !slot.isPast && slot.available > 0;
               return (
-                <button key={slot.startTime} type="button" disabled={!available} onClick={() => setSlotTime(slot.startTime)} className={`min-h-11 rounded-xl border px-3 text-sm font-medium transition ${slotTime === slot.startTime ? "border-primary-600 bg-primary-50 text-primary-700" : available ? "border-earth-200 bg-white text-earth-700" : "cursor-not-allowed border-earth-100 bg-earth-50 text-earth-300"}`}>
-                  {slot.startTime}{!available ? "（已額滿）" : slot.available <= 2 ? `（剩 ${slot.available} 位）` : ""}
+                <button key={slot.startTime} type="button" disabled={!available} onClick={() => { setSlotTime(slot.startTime); setPeople(1); setMessage(""); }} className={`min-h-11 rounded-xl border px-3 text-sm font-medium transition ${slotTime === slot.startTime ? "border-primary-600 bg-primary-50 text-primary-700" : available ? "border-earth-200 bg-white text-earth-700" : "cursor-not-allowed border-earth-100 bg-earth-50 text-earth-300"}`}>
+                  {slot.startTime}{!available ? "（已額滿）" : slot.available <= 4 ? `（剩 ${slot.available} 位）` : ""}
                 </button>
               );
             })}
@@ -217,14 +247,44 @@ export function ZhubeiTrialBookingForm() {
         )}
       </div>
 
+      <div className="mt-6">
+        <p className="text-sm font-medium text-earth-800">3. 預約人數</p>
+        {!slotTime ? (
+          <p className="mt-3 rounded-xl bg-earth-50 px-4 py-3 text-sm text-earth-500">請先選擇時段。</p>
+        ) : (
+          <>
+            <div className="mt-3 grid grid-cols-4 gap-2">
+              {[1, 2, 3, 4].map((count) => {
+                const selectedSlot = slots.find((slot) => slot.startTime === slotTime);
+                const disabled = !selectedSlot || selectedSlot.available < count;
+                return (
+                  <button
+                    key={count}
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => selectPeople(count)}
+                    className={`h-11 rounded-xl border text-sm font-medium ${people === count ? "border-primary-600 bg-primary-50 text-primary-700" : disabled ? "cursor-not-allowed border-earth-100 bg-earth-50 text-earth-300" : "border-earth-200 bg-white text-earth-700"}`}
+                  >
+                    {count} 人
+                  </button>
+                );
+              })}
+            </div>
+            <div className="mt-3 rounded-xl bg-primary-50 px-4 py-3 text-sm text-primary-800">
+              每人 NT$499，共 {people} 人，到店付款 <span className="font-semibold">{formatCurrency(expectedAmount)}</span>
+            </div>
+          </>
+        )}
+      </div>
+
       <div className="mt-6 grid gap-4">
-        <div><label className="block text-sm font-medium text-earth-800" htmlFor="trial-name">3. 姓名</label><input id="trial-name" autoComplete="name" value={name} onChange={(event) => setName(event.target.value)} placeholder="請輸入姓名" className="mt-2 h-12 w-full rounded-xl border border-earth-200 px-3 text-base outline-none focus:border-primary-500" /></div>
-        <div><label className="block text-sm font-medium text-earth-800" htmlFor="trial-phone">4. 手機</label><input id="trial-phone" type="tel" inputMode="tel" autoComplete="tel" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="例如 0912-345-678" className="mt-2 h-12 w-full rounded-xl border border-earth-200 px-3 text-base outline-none focus:border-primary-500" /></div>
+        <div><label className="block text-sm font-medium text-earth-800" htmlFor="trial-name">4. 姓名</label><input id="trial-name" autoComplete="name" value={name} onChange={(event) => setName(event.target.value)} placeholder="請輸入姓名" className="mt-2 h-12 w-full rounded-xl border border-earth-200 px-3 text-base outline-none focus:border-primary-500" /></div>
+        <div><label className="block text-sm font-medium text-earth-800" htmlFor="trial-phone">5. 手機</label><input id="trial-phone" type="tel" inputMode="tel" autoComplete="tel" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="例如 0912-345-678" className="mt-2 h-12 w-full rounded-xl border border-earth-200 px-3 text-base outline-none focus:border-primary-500" /></div>
       </div>
 
       <div className="hidden" aria-hidden="true"><label htmlFor="website">網站</label><input id="website" tabIndex={-1} autoComplete="off" value={website} onChange={(event) => setWebsite(event.target.value)} /></div>
       {message && <div className="mt-5 rounded-xl bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-800">{message}</div>}
-      <button type="button" disabled={!ready || submitting} onClick={() => void submit()} className="mt-6 flex h-12 w-full items-center justify-center rounded-xl bg-primary-600 px-4 text-base font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40">{submitting ? "正在建立預約…" : "立即預約 NT$499 體驗"}</button>
+      <button type="button" disabled={!ready || submitting} onClick={() => void submit()} className="mt-6 flex h-12 w-full items-center justify-center rounded-xl bg-primary-600 px-4 text-base font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40">{submitting ? "正在建立預約…" : `立即預約｜${formatCurrency(expectedAmount)}`}</button>
       <p className="mt-3 text-center text-xs leading-5 text-earth-500">不用註冊、不用設密碼，到店後再付款。</p>
     </section>
   );
