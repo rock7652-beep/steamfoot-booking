@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import Image from "next/image";
+import interiorImage from "../../../../../../public/images/zhubei/trial-booking-interior.webp";
+import storefrontImage from "../../../../../../public/images/zhubei/trial-booking-storefront.webp";
 import { ZhubeiTrialBookingForm } from "./zhubei-trial-booking-form";
 
 const lineUrl = "https://lin.ee/Nki2OjA";
-const mapUrl =
-  "https://www.google.com/maps/search/?api=1&query=" +
-  encodeURIComponent("新竹縣竹北市科大一路80號");
+const mapUrl = "https://maps.app.goo.gl/hD7Mkc78NCakz3M9A?g_st=ic";
 
 export const metadata: Metadata = {
   title: "竹北首次蒸足體驗 NT$499｜暖暖蒸足線上預約",
@@ -18,21 +18,14 @@ export const metadata: Metadata = {
   },
 };
 
-const trustItems = [
-  { title: "不用註冊", detail: "免帳號、免密碼" },
-  { title: "直接選時段", detail: "送出即建立預約" },
-  { title: "到店再付款", detail: "每人 NT$499" },
-  { title: "可預約 1–4 人", detail: "朋友家人一起來" },
-];
-
 const firstVisitItems = [
   {
-    title: "依預約時間抵達門市",
-    detail: "到店後向夥伴說明是首次體驗預約即可。",
+    title: "可依預約時間提早 10 分鐘抵達門市",
+    detail: "提早抵達即可，由店長協助報到。",
   },
   {
-    title: "由門市夥伴說明流程",
-    detail: "第一次體驗不需要先了解設備，現場會有人協助。",
+    title: "由門市店長說明流程",
+    detail: "第一次體驗不用擔心，店長會一步一步協助。",
   },
   {
     title: "完成約 45 分鐘的蒸足體驗",
@@ -59,7 +52,7 @@ const faqItems = [
   },
   {
     question: "預約後需要先付款嗎？",
-    answer: "不用。預約成功後，依約到竹北店完成體驗，再由門市夥伴協助付款。",
+    answer: "不用。預約成功後，依約到竹北店完成體驗，再由門市店長協助付款。",
   },
   {
     question: "送出後，怎麼知道有沒有預約成功？",
@@ -77,7 +70,7 @@ export default function ZhubeiTrialBookingPage() {
       <section className="mx-auto max-w-3xl overflow-hidden bg-white shadow-sm sm:mt-8 sm:rounded-[2rem]">
         <div className="relative aspect-[4/3] min-h-[360px] overflow-hidden sm:aspect-[16/10]">
           <Image
-            src="/images/zhubei/trial-booking-interior.webp"
+            src={interiorImage}
             alt="暖暖蒸足竹北店真實服務現場"
             fill
             priority
@@ -88,9 +81,9 @@ export default function ZhubeiTrialBookingPage() {
           <div className="absolute inset-x-0 bottom-0 p-6 text-white sm:p-10">
             <p className="text-sm font-medium tracking-[0.16em] text-white/85">暖暖蒸足｜竹北店</p>
             <h1 className="mt-3 text-3xl font-bold leading-tight sm:text-4xl">
-              第一次來，
+              第一次來暖暖蒸足，
               <br />
-              也能輕鬆完成預約
+              從這裡開始
             </h1>
             <div className="mt-4 flex flex-wrap items-end gap-x-3 gap-y-1">
               <span className="text-sm text-white/75 line-through">原價 NT$799</span>
@@ -99,24 +92,15 @@ export default function ZhubeiTrialBookingPage() {
             <p className="mt-2 text-sm text-white/85">約 45 分鐘・不用先購買正式方案・到店再付款</p>
             <a
               href="#booking-form"
-              className="mt-5 flex h-12 w-full items-center justify-center rounded-2xl bg-white px-5 text-base font-semibold text-primary-700 shadow-lg sm:w-fit sm:min-w-48"
+              className="mt-5 flex h-12 w-full items-center justify-center rounded-2xl bg-white px-5 text-base font-semibold text-primary-700 shadow-lg sm:w-fit sm:min-w-56"
             >
-              查看可預約時段
+              立即預約首次體驗
             </a>
           </div>
         </div>
 
         <div className="px-4 py-6 sm:px-10 sm:py-9">
-          <section aria-label="預約特色" className="grid grid-cols-2 gap-3">
-            {trustItems.map((item) => (
-              <div key={item.title} className="rounded-2xl border border-earth-100 bg-[#fcfaf7] p-4">
-                <p className="font-semibold text-earth-900">{item.title}</p>
-                <p className="mt-1 text-xs leading-5 text-earth-500">{item.detail}</p>
-              </div>
-            ))}
-          </section>
-
-          <section className="mt-8 rounded-3xl bg-primary-50/70 p-5 sm:p-6">
+          <section className="rounded-3xl bg-primary-50/70 p-5 sm:p-6">
             <p className="text-xs font-semibold tracking-[0.16em] text-primary-700">第一次蒸足也不用擔心</p>
             <h2 className="mt-2 text-xl font-bold text-earth-900">從線上預約到到店，只要四個步驟</h2>
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
@@ -124,7 +108,7 @@ export default function ZhubeiTrialBookingPage() {
                 ["1", "選日期與時段", "查看門市即時可約時間"],
                 ["2", "選擇同行人數", "單次可預約 1–4 人"],
                 ["3", "留下姓名與手機", "不用註冊會員帳號"],
-                ["4", "到店由夥伴協助", "約 45 分鐘，到店再付款"],
+                ["4", "到店由店長協助", "約 45 分鐘，到店再付款"],
               ].map(([number, title, detail]) => (
                 <div key={number} className="flex gap-3">
                   <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-600 text-sm font-bold text-white">
@@ -152,7 +136,7 @@ export default function ZhubeiTrialBookingPage() {
 
           <section className="mt-10 rounded-3xl bg-[#fcfaf7] p-5 sm:p-7">
             <p className="text-sm font-semibold text-primary-700">第一次來會發生什麼？</p>
-            <h2 className="mt-2 text-2xl font-bold">從進門到離開，都有人陪你完成</h2>
+            <h2 className="mt-2 text-2xl font-bold">從進門到離開，都有店長陪你完成</h2>
             <div className="mt-6 space-y-5">
               {firstVisitItems.map((item, index) => (
                 <div key={item.title} className="flex gap-4">
@@ -195,7 +179,7 @@ export default function ZhubeiTrialBookingPage() {
           <section className="mt-10 overflow-hidden rounded-3xl border border-earth-100 bg-white">
             <div className="relative aspect-[4/3] overflow-hidden">
               <Image
-                src="/images/zhubei/trial-booking-storefront.webp"
+                src={storefrontImage}
                 alt="暖暖蒸足竹北店門市外觀"
                 fill
                 sizes="(max-width: 768px) 100vw, 640px"
@@ -235,7 +219,7 @@ export default function ZhubeiTrialBookingPage() {
               href="#booking-form"
               className="mt-5 flex h-12 items-center justify-center rounded-2xl bg-white text-base font-semibold text-earth-900"
             >
-              立即選擇日期與時段
+              立即預約首次體驗
             </a>
           </section>
         </div>
