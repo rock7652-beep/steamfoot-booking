@@ -239,7 +239,7 @@ export function ZhubeiTrialBookingForm() {
               const available = slot.isEnabled && !slot.isPast && slot.available > 0;
               return (
                 <button key={slot.startTime} type="button" disabled={!available} onClick={() => { setSlotTime(slot.startTime); setPeople(1); setMessage(""); }} className={`min-h-11 rounded-xl border px-3 text-sm font-medium transition ${slotTime === slot.startTime ? "border-primary-600 bg-primary-50 text-primary-700" : available ? "border-earth-200 bg-white text-earth-700" : "cursor-not-allowed border-earth-100 bg-earth-50 text-earth-300"}`}>
-                  {slot.startTime}{!available ? "（已額滿）" : slot.available <= 4 ? `（剩 ${slot.available} 位）` : ""}
+                  {slot.startTime}{!available ? "（已額滿）" : slot.available <= 2 ? `（剩 ${slot.available} 位）` : ""}
                 </button>
               );
             })}
