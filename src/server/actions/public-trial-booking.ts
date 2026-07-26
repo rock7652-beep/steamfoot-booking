@@ -28,9 +28,17 @@ const InputSchema = z.object({
   phone: z.string().transform(normalizePhone).pipe(z.string().regex(/^09\d{8}$/, "請輸入正確手機號碼")),
   bookingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   slotTime: z.string().regex(/^\d{2}:\d{2}$/),
-  // 蜜罐欄位：一般顧客看不到；機器人若填值直接拒絕。
   website: z.string().max(0).optional().default(""),
 });
+
+export type PublicTrialDayStatus =
+  | "open"
+  | "closed"
+  | "training"
+  | "full"
+  | "no_duty"
+  | "past"
+  | "store_unavailable";
 
 export type PublicTrialBookingResult =
   | { status: "ok"; bookingId: string; bookingDate: string; slotTime: string }
@@ -49,20 +57,28 @@ async function resolvePublicStore() {
   });
 }
 
-export async function fetchPublicTrialSlots(date: string): Promise<{ slots: SlotAvailability[] }> {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { slots: [] };
+export async function fetchPublicTrialSlots(date: string): Promise<{
+  slots: SlotAvailability[];
+  dayStatus: PublicTrialDayStatus;
+}> {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { slots: [], dayStatus: "past" };
   const store = await resolvePublicStore();
-  if (!store || !(await isStoreBookable(store.id))) return { slots: [] };
-  if (await isStoreSubscriptionWriteBlocked(store.id)) return { slots: [] };
+  if (!store || !(await isStoreBookable(store.id))) return { slots: [], dayStatus: "store_unavailable" };
+  if (await isStoreSubscriptionWriteBlocked(store.id)) return { slots: [], dayStatus: "store_unavailable" };
 
   const today = toLocalDateStr();
-  if (date < today) return { slots: [] };
+  if (date < today) return { slots: [], dayStatus: "past" };
 
   const ctx = await loadDayBusinessHoursContext(store.id, date);
-  if (ctx.rule.closed) return { slots: [] };
+  if (ctx.rule.closed) {
+    return {
+      slots: [],
+      dayStatus: ctx.rule.status === "training" ? "training" : "closed",
+    };
+  }
 
   const resolved = applySlotOverrides(ctx.rule, ctx.slotOverrides).filter((slot) => slot.isEnabled);
-  if (resolved.length === 0) return { slots: [] };
+  if (resolved.length === 0) return { slots: [], dayStatus: "closed" };
 
   const dutyEnabled = await isDutySchedulingEnabled(store.id);
   const [bookings, dutyRows] = await Promise.all([
@@ -89,23 +105,25 @@ export async function fetchPublicTrialSlots(date: string): Promise<{ slots: Slot
   const isToday = date === today;
   const now = isToday ? getNowTaipeiHHmm() : null;
 
-  return {
-    slots: resolved
-      .filter((slot) => !dutyEnabled || duty.has(slot.startTime))
-      .map((slot) => {
-        const bookedCount = booked.get(slot.startTime) ?? 0;
-        const isPast = isToday && now !== null && slot.startTime <= now;
-        return {
-          startTime: slot.startTime,
-          capacity: slot.capacity,
-          bookedCount,
-          available: isPast ? 0 : Math.max(0, slot.capacity - bookedCount),
-          isEnabled: true,
-          isPast,
-        };
-      })
-      .sort((a, b) => a.startTime.localeCompare(b.startTime)),
-  };
+  const slots = resolved
+    .filter((slot) => !dutyEnabled || duty.has(slot.startTime))
+    .map((slot) => {
+      const bookedCount = booked.get(slot.startTime) ?? 0;
+      const isPast = isToday && now !== null && slot.startTime <= now;
+      return {
+        startTime: slot.startTime,
+        capacity: slot.capacity,
+        bookedCount,
+        available: isPast ? 0 : Math.max(0, slot.capacity - bookedCount),
+        isEnabled: true,
+        isPast,
+      };
+    })
+    .sort((a, b) => a.startTime.localeCompare(b.startTime));
+
+  if (slots.length === 0) return { slots: [], dayStatus: dutyEnabled ? "no_duty" : "closed" };
+  if (slots.every((slot) => slot.available <= 0 || slot.isPast)) return { slots, dayStatus: "full" };
+  return { slots, dayStatus: "open" };
 }
 
 export async function submitPublicTrialBooking(input: unknown): Promise<PublicTrialBookingResult> {
