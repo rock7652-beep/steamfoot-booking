@@ -1,13 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
-import { fetchDaySlots } from "@/server/actions/slots";
 import {
-  submitLiffTrialBooking,
-  type SubmitLiffTrialBookingResult,
-} from "@/server/actions/liff-trial-booking";
-import { useBookingRequestKey } from "@/hooks/use-booking-request-key";
+  fetchPublicTrialSlots,
+  submitPublicTrialBooking,
+  type PublicTrialBookingResult,
+} from "@/server/actions/public-trial-booking";
 import type { SlotAvailability } from "@/types";
 
 function taiwanToday(): string {
@@ -19,37 +17,35 @@ function taiwanToday(): string {
   }).format(new Date());
 }
 
-function resultMessage(result: SubmitLiffTrialBookingResult): string {
+function resultMessage(result: PublicTrialBookingResult): string {
   switch (result.status) {
+    case "invalid_input":
+      return result.message;
     case "already_has_trial":
-      return `你已經有一筆體驗預約：${result.existingBookingDate} ${result.existingSlotTime}`;
-    case "no_customer":
-      return "請先完成會員註冊或登入，再進行體驗預約。";
-    case "profile_incomplete":
-      return "請先補齊姓名與手機資料，再進行體驗預約。";
+      return `這支手機已有首次體驗預約：${result.bookingDate} ${result.slotTime}`;
     case "slot_full":
       return "這個時段剛剛已額滿，請重新選擇。";
     case "slot_unavailable":
       return "這個時段目前無法預約，請重新選擇。";
-    case "booking_limit_reached":
-      return "目前預約數已達上限，請聯繫門市協助。";
-    case "store_subscription_expired":
-      return "門市目前暫時無法接受線上預約，請聯繫門市。";
-    case "invalid_input":
-    case "idempotency_key_reused":
+    case "store_unavailable":
+      return "門市目前暫時無法接受線上預約，請用 LINE 聯繫我們。";
+    case "limit_reached":
+      return "目前線上預約已達上限，請用 LINE 聯繫門市協助。";
     case "service_unavailable":
-      return "預約暫時沒有完成，請稍後再試或聯繫門市。";
+      return "預約暫時沒有完成，請稍後再試或用 LINE 聯繫門市。";
     case "ok":
       return "";
   }
 }
 
 export function ZhubeiTrialBookingForm() {
-  const requestKey = useBookingRequestKey();
   const minDate = useMemo(taiwanToday, []);
   const [bookingDate, setBookingDate] = useState("");
   const [slots, setSlots] = useState<SlotAvailability[]>([]);
   const [slotTime, setSlotTime] = useState("");
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [website, setWebsite] = useState("");
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState("");
@@ -64,7 +60,7 @@ export function ZhubeiTrialBookingForm() {
 
     setLoadingSlots(true);
     try {
-      const result = await fetchDaySlots(date);
+      const result = await fetchPublicTrialSlots(date);
       setSlots(result.slots);
       if (result.slots.length === 0) {
         setMessage("這一天目前沒有可預約時段，請選擇其他日期。");
@@ -77,32 +73,30 @@ export function ZhubeiTrialBookingForm() {
   }
 
   async function submit() {
-    if (!bookingDate || !slotTime || submitting) return;
+    if (!bookingDate || !slotTime || !name.trim() || !phone.trim() || submitting) return;
     setSubmitting(true);
     setMessage("");
 
     try {
-      const result = await submitLiffTrialBooking({
+      const result = await submitPublicTrialBooking({
+        name,
+        phone,
         bookingDate,
         slotTime,
-        requestKey: requestKey.current(),
+        website,
       });
 
       if (result.status === "ok") {
-        requestKey.complete();
         setSuccess({ date: result.bookingDate, time: result.slotTime });
         return;
       }
 
-      if (result.status === "idempotency_key_reused") {
-        requestKey.handleError("IDEMPOTENCY_KEY_REUSED");
-      }
       setMessage(resultMessage(result));
       if (result.status === "slot_full" || result.status === "slot_unavailable") {
         await loadSlots(bookingDate);
       }
     } catch {
-      setMessage("預約暫時沒有完成，請稍後再試或聯繫門市。");
+      setMessage("預約暫時沒有完成，請稍後再試或用 LINE 聯繫門市。");
     } finally {
       setSubmitting(false);
     }
@@ -116,7 +110,7 @@ export function ZhubeiTrialBookingForm() {
         <p className="mt-3 text-sm text-earth-600">{success.date}　{success.time}</p>
         <p className="mt-2 text-sm text-earth-600">首次蒸足體驗 NT$499｜約 45 分鐘</p>
         <p className="mt-4 text-xs leading-5 text-earth-500">
-          到店後由門市夥伴協助收款與完成服務，不會扣除任何正式方案堂數。
+          到店後再付款即可。這次預約不需要會員帳號，也不會扣除任何正式方案堂數。
         </p>
         <a
           href="https://lin.ee/Nki2OjA"
@@ -124,11 +118,13 @@ export function ZhubeiTrialBookingForm() {
           rel="noreferrer"
           className="mt-5 flex h-11 items-center justify-center rounded-xl border border-primary-200 text-sm font-medium text-primary-700"
         >
-          加入官方 LINE
+          加入官方 LINE（選填）
         </a>
       </section>
     );
   }
+
+  const ready = bookingDate && slotTime && name.trim() && phone.trim();
 
   return (
     <section className="mt-6 rounded-2xl bg-white p-5 shadow-sm">
@@ -145,7 +141,7 @@ export function ZhubeiTrialBookingForm() {
       />
 
       <div className="mt-6">
-        <p className="text-sm font-medium text-earth-800">2. 選擇可預約時段</p>
+        <p className="text-sm font-medium text-earth-800">2. 選擇時段</p>
         {loadingSlots ? (
           <p className="mt-3 text-sm text-earth-500">正在讀取可預約時段…</p>
         ) : (
@@ -175,31 +171,59 @@ export function ZhubeiTrialBookingForm() {
         )}
       </div>
 
+      <div className="mt-6 grid gap-4">
+        <div>
+          <label className="block text-sm font-medium text-earth-800" htmlFor="trial-name">
+            3. 姓名
+          </label>
+          <input
+            id="trial-name"
+            autoComplete="name"
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            placeholder="請輸入姓名"
+            className="mt-2 h-12 w-full rounded-xl border border-earth-200 px-3 text-base outline-none focus:border-primary-500"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-earth-800" htmlFor="trial-phone">
+            4. 手機
+          </label>
+          <input
+            id="trial-phone"
+            type="tel"
+            inputMode="tel"
+            autoComplete="tel"
+            value={phone}
+            onChange={(event) => setPhone(event.target.value)}
+            placeholder="例如 0912-345-678"
+            className="mt-2 h-12 w-full rounded-xl border border-earth-200 px-3 text-base outline-none focus:border-primary-500"
+          />
+        </div>
+      </div>
+
+      <div className="hidden" aria-hidden="true">
+        <label htmlFor="website">網站</label>
+        <input id="website" tabIndex={-1} autoComplete="off" value={website} onChange={(event) => setWebsite(event.target.value)} />
+      </div>
+
       {message && (
         <div className="mt-5 rounded-xl bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-800">
           {message}
-          {message.includes("註冊或登入") && (
-            <Link
-              href="/s/zhubei/register?next=%2Fpricing%2Fexperience%2Fzhubei%2Fbook"
-              className="mt-2 block font-semibold underline"
-            >
-              前往註冊／登入
-            </Link>
-          )}
         </div>
       )}
 
       <button
         type="button"
-        disabled={!bookingDate || !slotTime || submitting}
+        disabled={!ready || submitting}
         onClick={() => void submit()}
         className="mt-6 flex h-12 w-full items-center justify-center rounded-xl bg-primary-600 px-4 text-base font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
       >
-        {submitting ? "正在建立預約…" : "確認預約 NT$499 蒸足體驗"}
+        {submitting ? "正在建立預約…" : "立即預約 NT$499 體驗"}
       </button>
 
       <p className="mt-3 text-center text-xs leading-5 text-earth-500">
-        原價 NT$799，首次體驗優惠限尚未完成過首次體驗的顧客。
+        不用註冊、不用設密碼，到店後再付款。
       </p>
     </section>
   );
