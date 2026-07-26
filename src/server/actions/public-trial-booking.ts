@@ -30,6 +30,7 @@ const InputSchema = z.object({
   phone: z.string().transform(normalizePhone).pipe(z.string().regex(/^09\d{8}$/, "請輸入正確手機號碼")),
   bookingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   slotTime: z.string().regex(/^\d{2}:\d{2}$/),
+  people: z.coerce.number().int().min(1, "預約人數至少 1 人").max(4, "單次最多預約 4 人"),
   website: z.string().max(0).optional().default(""),
 });
 
@@ -49,7 +50,7 @@ export type PublicTrialCalendarDay = {
 };
 
 export type PublicTrialBookingResult =
-  | { status: "ok"; bookingId: string; bookingDate: string; slotTime: string }
+  | { status: "ok"; bookingId: string; bookingDate: string; slotTime: string; people: number; expectedAmount: number }
   | { status: "invalid_input"; message: string }
   | { status: "already_has_trial"; bookingDate: string; slotTime: string }
   | { status: "slot_full" }
@@ -300,6 +301,7 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
       };
     }
 
+    const expectedAmount = settings.trialDefaultPrice * data.people;
     const booking = await prisma.$transaction(
       async (tx) => {
         const aggregate = await tx.booking.aggregate({
@@ -311,7 +313,7 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
           },
           _sum: { people: true },
         });
-        if ((aggregate._sum.people ?? 0) >= slot.capacity) return null;
+        if ((aggregate._sum.people ?? 0) + data.people > slot.capacity) return null;
 
         return tx.booking.create({
           data: {
@@ -323,8 +325,8 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
             bookingType: "FIRST_TRIAL",
             bookingStatus: "PENDING",
             servicePlanId: trialPlan.id,
-            people: 1,
-            expectedAmount: settings.trialDefaultPrice,
+            people: data.people,
+            expectedAmount,
             revenueStaffId: customer.assignedStaffId,
             notes: "公開快速體驗預約",
           },
@@ -335,7 +337,14 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
     );
 
     if (!booking) return { status: "slot_full" };
-    return { status: "ok", bookingId: booking.id, bookingDate: data.bookingDate, slotTime: data.slotTime };
+    return {
+      status: "ok",
+      bookingId: booking.id,
+      bookingDate: data.bookingDate,
+      slotTime: data.slotTime,
+      people: data.people,
+      expectedAmount,
+    };
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2034") return { status: "slot_full" };
     console.error("[public-trial-booking] submit failed", error);
