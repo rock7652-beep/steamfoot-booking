@@ -8,7 +8,9 @@ import { getNowTaipeiHHmm, toLocalDateStr } from "@/lib/date-utils";
 import { PENDING_STATUSES } from "@/lib/booking-constants";
 import {
   applySlotOverrides,
+  enumerateMonthDates,
   loadDayBusinessHoursContext,
+  loadMonthBusinessHoursContext,
 } from "@/lib/business-hours-resolver";
 import {
   checkBookingLimit,
@@ -40,6 +42,12 @@ export type PublicTrialDayStatus =
   | "past"
   | "store_unavailable";
 
+export type PublicTrialCalendarDay = {
+  date: string;
+  status: PublicTrialDayStatus;
+  availableSlots: number;
+};
+
 export type PublicTrialBookingResult =
   | { status: "ok"; bookingId: string; bookingDate: string; slotTime: string }
   | { status: "invalid_input"; message: string }
@@ -57,6 +65,93 @@ async function resolvePublicStore() {
   });
 }
 
+export async function fetchPublicTrialMonth(year: number, month: number): Promise<{
+  days: PublicTrialCalendarDay[];
+}> {
+  if (!Number.isInteger(year) || !Number.isInteger(month) || month < 1 || month > 12) return { days: [] };
+
+  const store = await resolvePublicStore();
+  const dates = enumerateMonthDates(year, month);
+  if (!store || !(await isStoreBookable(store.id)) || (await isStoreSubscriptionWriteBlocked(store.id))) {
+    return { days: dates.map(({ dateStr }) => ({ date: dateStr, status: "store_unavailable", availableSlots: 0 })) };
+  }
+
+  const context = await loadMonthBusinessHoursContext(store.id, year, month);
+  const dutyEnabled = await isDutySchedulingEnabled(store.id);
+  const [bookings, dutyRows] = await Promise.all([
+    prisma.booking.groupBy({
+      by: ["bookingDate", "slotTime"],
+      where: {
+        storeId: store.id,
+        bookingDate: { gte: context.start, lte: context.end },
+        bookingStatus: { in: [...PENDING_STATUSES] },
+      },
+      _sum: { people: true },
+    }),
+    dutyEnabled
+      ? prisma.dutyAssignment.findMany({
+          where: { storeId: store.id, date: { gte: context.start, lte: context.end } },
+          select: { date: true, slotTime: true },
+          distinct: ["date", "slotTime"],
+        })
+      : Promise.resolve([]),
+  ]);
+
+  const bookingMap = new Map(
+    bookings.map((row) => [`${row.bookingDate.toISOString().slice(0, 10)}|${row.slotTime}`, row._sum.people ?? 0]),
+  );
+  const dutySet = new Set(dutyRows.map((row) => `${row.date.toISOString().slice(0, 10)}|${row.slotTime}`));
+  const overridesByDate = new Map<string, typeof context.slotOverrides>();
+  for (const override of context.slotOverrides) {
+    const date = override.date.toISOString().slice(0, 10);
+    const list = overridesByDate.get(date) ?? [];
+    list.push(override);
+    overridesByDate.set(date, list);
+  }
+
+  const today = toLocalDateStr();
+  const now = getNowTaipeiHHmm();
+  const days: PublicTrialCalendarDay[] = [];
+
+  for (const { dateStr } of dates) {
+    if (dateStr < today) {
+      days.push({ date: dateStr, status: "past", availableSlots: 0 });
+      continue;
+    }
+
+    const rule = context.rules.get(dateStr);
+    if (!rule || rule.closed) {
+      days.push({
+        date: dateStr,
+        status: rule?.status === "training" ? "training" : "closed",
+        availableSlots: 0,
+      });
+      continue;
+    }
+
+    const resolved = applySlotOverrides(rule, overridesByDate.get(dateStr) ?? []).filter((slot) => slot.isEnabled);
+    const bookableSlots = resolved.filter((slot) => !dutyEnabled || dutySet.has(`${dateStr}|${slot.startTime}`));
+    if (bookableSlots.length === 0) {
+      days.push({ date: dateStr, status: dutyEnabled ? "no_duty" : "closed", availableSlots: 0 });
+      continue;
+    }
+
+    const availableSlots = bookableSlots.filter((slot) => {
+      if (dateStr === today && slot.startTime <= now) return false;
+      const booked = bookingMap.get(`${dateStr}|${slot.startTime}`) ?? 0;
+      return booked < slot.capacity;
+    }).length;
+
+    days.push({
+      date: dateStr,
+      status: availableSlots > 0 ? "open" : "full",
+      availableSlots,
+    });
+  }
+
+  return { days };
+}
+
 export async function fetchPublicTrialSlots(date: string): Promise<{
   slots: SlotAvailability[];
   dayStatus: PublicTrialDayStatus;
@@ -71,10 +166,7 @@ export async function fetchPublicTrialSlots(date: string): Promise<{
 
   const ctx = await loadDayBusinessHoursContext(store.id, date);
   if (ctx.rule.closed) {
-    return {
-      slots: [],
-      dayStatus: ctx.rule.status === "training" ? "training" : "closed",
-    };
+    return { slots: [], dayStatus: ctx.rule.status === "training" ? "training" : "closed" };
   }
 
   const resolved = applySlotOverrides(ctx.rule, ctx.slotOverrides).filter((slot) => slot.isEnabled);
@@ -84,11 +176,7 @@ export async function fetchPublicTrialSlots(date: string): Promise<{
   const [bookings, dutyRows] = await Promise.all([
     prisma.booking.groupBy({
       by: ["slotTime"],
-      where: {
-        storeId: store.id,
-        bookingDate: ctx.dateObj,
-        bookingStatus: { in: [...PENDING_STATUSES] },
-      },
+      where: { storeId: store.id, bookingDate: ctx.dateObj, bookingStatus: { in: [...PENDING_STATUSES] } },
       _sum: { people: true },
     }),
     dutyEnabled
@@ -155,9 +243,7 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
       (candidate) => candidate.startTime === data.slotTime && candidate.isEnabled,
     );
     if (!slot) return { status: "slot_unavailable" };
-    if (data.bookingDate === today && data.slotTime <= getNowTaipeiHHmm()) {
-      return { status: "slot_unavailable" };
-    }
+    if (data.bookingDate === today && data.slotTime <= getNowTaipeiHHmm()) return { status: "slot_unavailable" };
 
     if (await isDutySchedulingEnabled(store.id)) {
       const duty = await prisma.dutyAssignment.findFirst({
@@ -249,16 +335,9 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
     );
 
     if (!booking) return { status: "slot_full" };
-    return {
-      status: "ok",
-      bookingId: booking.id,
-      bookingDate: data.bookingDate,
-      slotTime: data.slotTime,
-    };
+    return { status: "ok", bookingId: booking.id, bookingDate: data.bookingDate, slotTime: data.slotTime };
   } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2034") {
-      return { status: "slot_full" };
-    }
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2034") return { status: "slot_full" };
     console.error("[public-trial-booking] submit failed", error);
     return { status: "service_unavailable" };
   }
