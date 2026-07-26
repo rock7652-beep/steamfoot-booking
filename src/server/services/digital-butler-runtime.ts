@@ -61,6 +61,10 @@ export type DigitalButlerRuntimeResult = {
   handled: boolean;
   messages: LineMessage[];
   outcome: string;
+  replyGuard?: {
+    conversationId: string;
+    requiresActiveConversation: true;
+  };
 };
 
 type RuntimeRepository = {
@@ -108,6 +112,11 @@ type RuntimeRepository = {
     completionActionKey: string;
     submittedAnswers: Prisma.InputJsonObject;
   }): Promise<boolean>;
+  deliverReplyIfActive(
+    storeId: string,
+    conversationId: string,
+    deliver: () => Promise<void>,
+  ): Promise<boolean>;
 };
 
 function objectConfig(value: Prisma.JsonValue): Record<string, unknown> {
@@ -381,6 +390,16 @@ class PrismaDigitalButlerRuntimeRepository implements RuntimeRepository {
     });
   }
 
+  async deliverReplyIfActive(
+    storeId: string,
+    conversationId: string,
+    deliver: () => Promise<void>,
+  ) {
+    return this.withActiveConversation(storeId, conversationId, async () => {
+      await deliver();
+    });
+  }
+
   /**
    * Lock the scoped conversation while performing a state-changing action.
    * If a cancellation/handoff has committed first, the guarded action is a no-op;
@@ -422,6 +441,16 @@ export class DigitalButlerRuntime {
 
     const finish = async (result: DigitalButlerRuntimeResult, conversationId?: string) => {
       await this.repository.setEventOutcome(input.storeId, identity.eventKey, result.outcome, conversationId);
+      if (
+        conversationId &&
+        result.messages.length > 0 &&
+        (result.outcome === "WAITING_INPUT" || result.outcome === "VALIDATION_FAILED")
+      ) {
+        return {
+          ...result,
+          replyGuard: { conversationId, requiresActiveConversation: true as const },
+        };
+      }
       return result;
     };
 
@@ -488,6 +517,20 @@ export class DigitalButlerRuntime {
       await this.runAutomaticSteps(conversation, nextStepIndex(steps, index, answer.value)),
       conversation.id,
     );
+  }
+
+  /**
+   * Serializes an active-flow LINE reply with cancellation. The callback runs
+   * while the scoped conversation row lock is held: a cancellation that wins
+   * first makes this a no-op; a reply that wins first is delivered before the
+   * cancellation can commit and send its terminal acknowledgement.
+   */
+  async deliverReplyIfActive(
+    storeId: string,
+    conversationId: string,
+    deliver: () => Promise<void>,
+  ): Promise<boolean> {
+    return this.repository.deliverReplyIfActive(storeId, conversationId, deliver);
   }
 
   private async handleGlobalCommand(

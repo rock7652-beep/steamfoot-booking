@@ -25,6 +25,10 @@ const repository = {
   saveAnswer: vi.fn(async () => true),
   advanceConversation: vi.fn(async () => true),
   createLead: vi.fn(async () => true),
+  deliverReplyIfActive: vi.fn(async (_storeId: string, _conversationId: string, deliver: () => Promise<void>) => {
+    await deliver();
+    return true;
+  }),
 };
 const gate = vi.fn(async () => undefined);
 
@@ -86,6 +90,20 @@ describe("DigitalButlerRuntime", () => {
     expect(result).toEqual({ handled: true, messages: [], outcome: "DUPLICATE" });
     expect(gate).not.toHaveBeenCalled();
     expect(repository.findActiveConversation).not.toHaveBeenCalled();
+  });
+
+  it("drops a pending question reply when cancellation has already made the conversation inactive", async () => {
+    repository.deliverReplyIfActive.mockResolvedValueOnce(false);
+    const deliver = vi.fn(async () => undefined);
+
+    const sent = await new DigitalButlerRuntime(repository as never, gate).deliverReplyIfActive(
+      input.storeId,
+      "conversation-1",
+      deliver,
+    );
+
+    expect(sent).toBe(false);
+    expect(deliver).not.toHaveBeenCalled();
   });
 
   it("fails closed when entitlement or the store activation flag is disabled", async () => {
@@ -242,6 +260,7 @@ describe("DigitalButlerRuntime", () => {
         },
       ],
       outcome: "WAITING_INPUT",
+      replyGuard: { conversationId: "conversation-1", requiresActiveConversation: true },
     });
     expect(repository.advanceConversation).toHaveBeenLastCalledWith(expect.objectContaining({
       currentStepKey: "menu", status: "WAITING_INPUT",

@@ -40,6 +40,10 @@ const repository = {
   saveAnswer: vi.fn(async () => true),
   advanceConversation: vi.fn(async () => true),
   createLead: vi.fn(async () => true),
+  deliverReplyIfActive: vi.fn(async (_storeId: string, _conversationId: string, deliver: () => Promise<void>) => {
+    await deliver();
+    return true;
+  }),
 };
 const gate = vi.fn(async () => undefined);
 
