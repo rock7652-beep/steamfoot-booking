@@ -1,4 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("@/lib/digital-butler-entitlement", () => ({
+  requireDigitalButlerConversationActivation: vi.fn(),
+}));
+
 import { DigitalButlerRuntime } from "@/server/services/digital-butler-runtime";
 
 const phoneStep = {
