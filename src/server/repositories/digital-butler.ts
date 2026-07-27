@@ -112,6 +112,18 @@ export class DigitalButlerRepository {
         status: true,
         enabled: true,
         draftDefinition: true,
+        currentPublishedVersionId: true,
+        publishedVersion: {
+          select: {
+            id: true,
+            version: true,
+            publishedAt: true,
+            steps: {
+              orderBy: { position: "asc" },
+              select: { stepKey: true, position: true, type: true, config: true },
+            },
+          },
+        },
         updatedAt: true,
       },
     });
@@ -145,7 +157,15 @@ export class DigitalButlerRepository {
       });
       const version = await tx.digitalButlerFlowVersion.create({
         data: publishedFlowVersionCreateData(input, (latest._max.version ?? 0) + 1),
-        select: { id: true, version: true },
+        select: {
+          id: true,
+          version: true,
+          publishedAt: true,
+          steps: {
+            orderBy: { position: "asc" },
+            select: { stepKey: true, position: true, type: true, config: true },
+          },
+        },
       });
       await tx.storeDigitalButlerFlow.update({
         where: { id_storeId: { id: input.flowId, storeId: input.storeId } },

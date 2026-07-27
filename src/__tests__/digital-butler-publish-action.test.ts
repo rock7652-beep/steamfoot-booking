@@ -48,4 +48,33 @@ describe("publishDigitalButlerFlowAction diagnostics", () => {
       error: failure,
     });
   });
+
+  it("returns the created version and its menu labels from published step rows", async () => {
+    h.publishFlow.mockResolvedValue({
+      id: "version-8",
+      version: 8,
+      publishedAt: new Date("2026-07-27T00:00:00.000Z"),
+      steps: [
+        { stepKey: "opening", position: 0, type: "TEXT", config: { text: "歡迎" } },
+        {
+          stepKey: "想了解的內容", position: 1, type: "SINGLE_CHOICE", config: {
+            options: [
+              { label: "我想預約體驗", value: "booking", nextStepKey: "name" },
+              { label: "首次體驗與費用", value: "price", nextStepKey: "price" },
+            ],
+          },
+        },
+      ],
+    });
+
+    await expect(publishDigitalButlerFlowAction("flow-1")).resolves.toEqual({
+      success: true,
+      publishedVersion: {
+        id: "version-8",
+        version: 8,
+        publishedAt: "2026-07-27T00:00:00.000Z",
+        menuLabels: ["我想預約體驗", "首次體驗與費用"],
+      },
+    });
+  });
 });
