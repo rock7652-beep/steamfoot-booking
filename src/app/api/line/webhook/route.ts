@@ -39,6 +39,7 @@ import {
   sanitizeDigitalButlerReplyMessages,
 } from "@/server/services/digital-butler-line-reply";
 import { digitalButlerIntentsToLineMessages } from "@/server/services/digital-butler-channel";
+import { handleSessionBalanceLineResponse } from "@/server/services/session-balance-notifications";
 
 export const dynamic = "force-dynamic";
 
@@ -329,6 +330,20 @@ async function handleTextMessage(
   if (text === "找到適合方案") {
     if (replyToken) {
       await replyMessage(storeId, replyToken, [PLAN_RECOMMENDATION_MESSAGE]);
+    }
+    return;
+  }
+
+  const sessionBalanceResponse = await handleSessionBalanceLineResponse({
+    storeId,
+    lineUserId,
+    text,
+  });
+  if (sessionBalanceResponse.handled) {
+    if (replyToken) {
+      await replyMessage(storeId, replyToken, [
+        { type: "text", text: sessionBalanceResponse.customerReply },
+      ]);
     }
     return;
   }
