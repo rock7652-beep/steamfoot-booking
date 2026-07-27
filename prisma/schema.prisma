@@ -360,6 +360,12 @@ enum DigitalButlerFlowStatus {
   ARCHIVED
 }
 
+enum DigitalButlerProvider {
+  LINE
+  MESSENGER
+  INSTAGRAM
+}
+
 enum DigitalButlerConversationStatus {
   IDLE
   IN_PROGRESS
@@ -726,31 +732,36 @@ model DigitalButlerStep {
 }
 
 model DigitalButlerConversation {
-  id              String                          @id @default(cuid())
-  storeId         String
-  flowId          String
-  flowVersionId   String
-  channelIdentity String
-  lineUserIdHash  String
-  status          DigitalButlerConversationStatus @default(IN_PROGRESS)
-  expiresAt       DateTime
-  currentStepKey  String?
-  cancelledAt     DateTime?
-  completedAt     DateTime?
-  createdAt       DateTime                        @default(now())
-  updatedAt       DateTime                        @updatedAt
-  store           Store                           @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  flow            StoreDigitalButlerFlow          @relation(fields: [flowId, storeId], references: [id, storeId], onDelete: Restrict)
-  flowVersion     DigitalButlerFlowVersion        @relation(fields: [flowVersionId, flowId, storeId], references: [id, flowId, storeId], onDelete: Restrict)
-  answers         DigitalButlerAnswer[]
-  leads           DigitalButlerLead[]
-  executionLogs   DigitalButlerExecutionLog[]
+  id                 String                          @id @default(cuid())
+  storeId            String
+  flowId             String
+  flowVersionId      String
+  provider           DigitalButlerProvider           @default(LINE)
+  channelAccountId   String
+  senderIdHash       String
+  senderIdCiphertext Bytes?
+  senderIdIv         Bytes?
+  senderIdAuthTag    Bytes?
+  senderIdKeyVersion String?
+  status             DigitalButlerConversationStatus @default(IN_PROGRESS)
+  expiresAt          DateTime
+  currentStepKey     String?
+  cancelledAt        DateTime?
+  completedAt        DateTime?
+  createdAt          DateTime                        @default(now())
+  updatedAt          DateTime                        @updatedAt
+  store              Store                           @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  flow               StoreDigitalButlerFlow          @relation(fields: [flowId, storeId], references: [id, storeId], onDelete: Restrict)
+  flowVersion        DigitalButlerFlowVersion        @relation(fields: [flowVersionId, flowId, storeId], references: [id, flowId, storeId], onDelete: Restrict)
+  answers            DigitalButlerAnswer[]
+  leads              DigitalButlerLead[]
+  executionLogs      DigitalButlerExecutionLog[]
 
   // PostgreSQL partial unique index in the PR-1 migration enforces one
-  // IN_PROGRESS/WAITING_INPUT row per store + LINE identity. Prisma schema
+  // IN_PROGRESS/WAITING_INPUT row per store + provider-scoped identity. Prisma schema
   // cannot represent that predicate, so keep this lookup index as well.
   @@unique([id, storeId])
-  @@index([storeId, channelIdentity, lineUserIdHash, status])
+  @@index([storeId, provider, channelAccountId, senderIdHash, status])
   @@index([storeId, expiresAt])
 }
 
@@ -824,6 +835,7 @@ model DigitalButlerLeadActivity {
 model DigitalButlerExecutionLog {
   id                String                     @id @default(cuid())
   storeId           String
+  provider          DigitalButlerProvider      @default(LINE)
   conversationId    String?
   webhookEventId    String?
   fallbackEventHash String?
