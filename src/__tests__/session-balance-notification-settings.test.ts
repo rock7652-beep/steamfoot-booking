@@ -68,6 +68,23 @@ describe("session balance notification settings", () => {
     expect(sql).not.toMatch(/\bDROP\s+(TABLE|COLUMN|TYPE)\b/i);
   });
 
+  it("keeps the LINE response closure migration additive", () => {
+    const sql = readFileSync(
+      resolve(
+        process.cwd(),
+        "prisma/migrations/20260727194500_add_session_balance_response_closure/migration.sql",
+      ),
+      "utf8",
+    );
+    expect(sql).toContain('ALTER TABLE "SessionBalanceNotification"');
+    expect(sql).toContain('"responseAction" TEXT');
+    expect(sql).toContain('"managerNotificationStatus" "MessageLogStatus"');
+    expect(sql).toContain(
+      'ALTER TABLE "SessionBalanceNotification" ENABLE ROW LEVEL SECURITY',
+    );
+    expect(sql).not.toMatch(/\bDROP\s+(TABLE|COLUMN|TYPE)\b/i);
+  });
+
   it("renders all supported dynamic variables", () => {
     expect(
       renderSessionBalanceTemplate(
