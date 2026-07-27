@@ -169,12 +169,7 @@ describe("LINE webhook store-aware signature and reply", () => {
         {
           type: "text",
           text: "\u200B",
-          quickReply: {
-            items: [{
-              type: "action",
-              action: { type: "message", label: "我想預約體驗", text: "我想預約體驗" },
-            }],
-          },
+          choices: [{ label: "我想預約體驗", value: "我想預約體驗" }],
         },
       ],
       replyGuard: undefined,
@@ -342,12 +337,13 @@ describe("LINE webhook store-aware signature and reply", () => {
     expect(res.status).toBe(200);
     expect(digitalButlerHandleTextMock).toHaveBeenCalledWith({
       storeId: "store-hsinchu",
-      channelIdentity: "D_hsinchu",
-      lineUserId: "U-hsinchu-store",
+      provider: "LINE",
+      channelAccountId: "D_hsinchu",
+      senderId: "U-hsinchu-store",
       text: "0912345678",
       webhookEventId: undefined,
-      timestamp: 1_721_234_567_890,
       messageId: "message-phone-answer",
+      occurredAt: new Date(1_721_234_567_890),
     });
     expect(bindLineToCustomerInStoreMock).toHaveBeenCalledWith({
       storeId: "store-hsinchu",
