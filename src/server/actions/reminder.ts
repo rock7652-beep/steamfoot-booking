@@ -397,18 +397,18 @@ function sessionBalanceSettingData(data: SessionBalanceSettingInput) {
   };
 }
 
-const sessionBalanceRuleSettingSchema = sessionBalanceSettingSchema.pick({
-  isEnabled: true,
-  lastSessionEnabled: true,
-  planUsedUpEnabled: true,
+const sessionBalanceRuleSettingSchema = z.object({
+  isEnabled: z.boolean(),
+  lastSessionEnabled: z.boolean(),
+  planUsedUpEnabled: z.boolean(),
 });
 
-const sessionBalanceTemplateSettingSchema = sessionBalanceSettingSchema.pick({
-  lastSessionUnbookedTemplate: true,
-  lastSessionBookedTemplate: true,
-  planUsedUpTemplate: true,
-  learnMoreButtonLabel: true,
-  laterButtonLabel: true,
+const sessionBalanceTemplateSettingSchema = z.object({
+  lastSessionUnbookedTemplate: z.string().min(1).max(1500),
+  lastSessionBookedTemplate: z.string().min(1).max(1500),
+  planUsedUpTemplate: z.string().min(1).max(1500),
+  learnMoreButtonLabel: z.string().min(1).max(20),
+  laterButtonLabel: z.string().min(1).max(20),
 }).superRefine((data, ctx) => {
   const required = [
     { field: "lastSessionUnbookedTemplate" as const, variables: ["{customerName}", "{planName}", "{bookingUrl}"] },
