@@ -13,6 +13,10 @@ const questionStep = (id: string, stepKey: string, position: number) => ({
   id, stepKey, position, type: "FREE_TEXT" as const,
   config: { prompt: "請告訴我們您的需求" }, required: true,
 });
+const mobileStep = (id: string, stepKey: string, position: number) => ({
+  id, stepKey, position, type: "TAIWAN_MOBILE" as const,
+  config: { prompt: "請輸入 09 開頭的手機號碼" }, required: true,
+});
 
 const repository = {
   claimEvent: vi.fn(async () => true),
@@ -265,5 +269,105 @@ describe("DigitalButlerRuntime", () => {
     expect(repository.advanceConversation).toHaveBeenLastCalledWith(expect.objectContaining({
       currentStepKey: "menu", status: "WAITING_INPUT",
     }));
+  });
+
+  it("answers a price question during phone collection without validating or advancing the phone step", async () => {
+    const steps = [
+      mobileStep("step-phone", "phone", 0),
+      textStep("step-price", "price", 1, "首次體驗 NT$499（原價 NT$799）。"),
+    ];
+    repository.findActiveConversation.mockResolvedValue({
+      id: "conversation-1", storeId: input.storeId, flowId: "flow-1",
+      flowVersionId: "version-1", currentStepKey: "phone",
+      expiresAt: new Date(Date.now() + 60_000), flowVersion: { steps }, answers: [],
+    });
+
+    const result = await new DigitalButlerRuntime(repository as never, gate).handleText({
+      ...input, text: "首次體驗多少錢",
+    });
+
+    expect(result).toEqual({
+      handled: true,
+      messages: [
+        { type: "text", text: "首次體驗 NT$499（原價 NT$799）。" },
+        { type: "text", text: "請輸入 09 開頭的手機號碼" },
+      ],
+      outcome: "INFORMATION_ANSWERED",
+      replyGuard: { conversationId: "conversation-1", requiresActiveConversation: true },
+    });
+    expect(repository.saveAnswer).not.toHaveBeenCalled();
+    expect(repository.advanceConversation).not.toHaveBeenCalled();
+    expect(repository.createLead).not.toHaveBeenCalled();
+
+    await new DigitalButlerRuntime(repository as never, gate).handleText({
+      ...input, webhookEventId: "event-2", text: "0912345678",
+    });
+    expect(repository.saveAnswer).toHaveBeenCalledWith(expect.objectContaining({
+      conversationId: "conversation-1", phone: "0912345678",
+    }));
+  });
+
+  it("answers an address question during name collection without creating a new conversation or lead", async () => {
+    const steps = [
+      questionStep("step-name", "name", 0),
+      textStep("step-address", "address", 1, "地址：新竹縣竹北市科大一路 80 號。"),
+    ];
+    repository.findActiveConversation.mockResolvedValue({
+      id: "conversation-1", storeId: input.storeId, flowId: "flow-1",
+      flowVersionId: "version-1", currentStepKey: "name",
+      expiresAt: new Date(Date.now() + 60_000), flowVersion: { steps }, answers: [],
+    });
+
+    const result = await new DigitalButlerRuntime(repository as never, gate).handleText({
+      ...input, text: "地址在哪裡",
+    });
+
+    expect(result).toMatchObject({
+      outcome: "INFORMATION_ANSWERED",
+      messages: [
+        { type: "text", text: "地址：新竹縣竹北市科大一路 80 號。" },
+        { type: "text", text: "請告訴我們您的需求" },
+      ],
+    });
+    expect(repository.createConversation).not.toHaveBeenCalled();
+    expect(repository.saveAnswer).not.toHaveBeenCalled();
+    expect(repository.createLead).not.toHaveBeenCalled();
+  });
+
+  it("keeps phone validation for non-information text", async () => {
+    const steps = [mobileStep("step-phone", "phone", 0)];
+    repository.findActiveConversation.mockResolvedValue({
+      id: "conversation-1", storeId: input.storeId, flowId: "flow-1",
+      flowVersionId: "version-1", currentStepKey: "phone",
+      expiresAt: new Date(Date.now() + 60_000), flowVersion: { steps }, answers: [],
+    });
+
+    const result = await new DigitalButlerRuntime(repository as never, gate).handleText({
+      ...input, text: "0912",
+    });
+
+    expect(result).toMatchObject({ outcome: "VALIDATION_FAILED" });
+    expect(result.messages).toEqual([{
+      type: "text",
+      text: "手機格式不正確，請輸入 09 開頭的 10 碼手機號碼。",
+    }]);
+    expect(repository.saveAnswer).not.toHaveBeenCalled();
+  });
+
+  it("keeps HANDOFF ahead of information matching and free-text validation", async () => {
+    const steps = [questionStep("step-name", "name", 0)];
+    repository.findActiveConversation.mockResolvedValue({
+      id: "conversation-1", storeId: input.storeId, flowId: "flow-1",
+      flowVersionId: "version-1", currentStepKey: "name",
+      expiresAt: new Date(Date.now() + 60_000), flowVersion: { steps }, answers: [],
+    });
+
+    const result = await new DigitalButlerRuntime(repository as never, gate).handleText({
+      ...input, text: "轉接客服",
+    });
+
+    expect(result).toMatchObject({ outcome: "HANDOFF_REQUESTED" });
+    expect(repository.cancelConversation).toHaveBeenCalledWith(input.storeId, "conversation-1");
+    expect(repository.saveAnswer).not.toHaveBeenCalled();
   });
 });
