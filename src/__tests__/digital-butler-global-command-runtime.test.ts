@@ -50,11 +50,12 @@ const gate = vi.fn(async () => undefined);
 function input(text: string, event: string) {
   return {
     storeId: "store-zhubei",
-    channelIdentity: "destination-zhubei",
-    lineUserId: "U1234567890abcdef1234567890abcdef",
+    provider: "LINE" as const,
+    channelAccountId: "destination-zhubei",
+    senderId: "U1234567890abcdef1234567890abcdef",
     text,
     webhookEventId: event,
-    timestamp: 1_753_000_000_000,
+    occurredAt: new Date(1_753_000_000_000),
     messageId: event,
   };
 }
@@ -62,6 +63,7 @@ function input(text: string, event: string) {
 describe("Digital Butler global command runtime priority", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    process.env.DIGITAL_BUTLER_ENCRYPTION_KEY = Buffer.alloc(32, 7).toString("base64url");
     repository.claimEvent.mockResolvedValue(true);
     repository.findActiveConversation.mockResolvedValue(activeConversation());
   });
