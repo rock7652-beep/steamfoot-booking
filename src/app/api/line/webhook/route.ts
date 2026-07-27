@@ -38,6 +38,7 @@ import {
   digitalButlerReplyDiagnostics,
   sanitizeDigitalButlerReplyMessages,
 } from "@/server/services/digital-butler-line-reply";
+import { digitalButlerIntentsToLineMessages } from "@/server/services/digital-butler-channel";
 
 export const dynamic = "force-dynamic";
 
@@ -402,7 +403,9 @@ async function replyDigitalButlerMessages(
   result: Awaited<ReturnType<typeof handleDigitalButlerText>>,
 ) {
   if (!result) return;
-  const messages = sanitizeDigitalButlerReplyMessages(result.messages);
+  const messages = sanitizeDigitalButlerReplyMessages(
+    digitalButlerIntentsToLineMessages(result.messages),
+  );
   if (!messages.length) {
     console.error(JSON.stringify({
       event: "digital_butler_reply_skipped",
@@ -450,12 +453,13 @@ async function handleDigitalButlerText(
   try {
     return await new DigitalButlerRuntime().handleText({
       storeId,
-      channelIdentity: eventIdentity.destination,
-      lineUserId,
+      provider: "LINE",
+      channelAccountId: eventIdentity.destination,
+      senderId: lineUserId,
       text,
       webhookEventId: eventIdentity.webhookEventId,
-      timestamp: eventIdentity.timestamp,
       messageId: eventIdentity.messageId,
+      occurredAt: new Date(eventIdentity.timestamp ?? Date.now()),
     });
   } catch {
     console.error("[Digital Butler] Isolated runtime failure", { storeId });

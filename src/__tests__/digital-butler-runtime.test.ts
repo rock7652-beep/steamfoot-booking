@@ -38,11 +38,12 @@ const gate = vi.fn(async () => undefined);
 
 const input = {
   storeId: "store-hsinchu",
-  channelIdentity: "destination-hsinchu",
-  lineUserId: "U1234567890abcdef1234567890abcdef",
+  provider: "LINE" as const,
+  channelAccountId: "destination-hsinchu",
+  senderId: "U1234567890abcdef1234567890abcdef",
   text: "我想了解適合我的方案",
   webhookEventId: "event-1",
-  timestamp: 1_753_000_000_000,
+  occurredAt: new Date(1_753_000_000_000),
   messageId: "message-1",
 };
 
@@ -80,8 +81,11 @@ describe("DigitalButlerRuntime", () => {
     ]);
     expect(repository.createConversation).toHaveBeenCalledWith(expect.objectContaining({
       storeId: input.storeId,
-      channelIdentity: input.channelIdentity,
-      lineUserIdHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+      provider: "LINE",
+      channelAccountId: input.channelAccountId,
+      senderIdHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+      senderIdCiphertext: expect.any(Uint8Array),
+      senderIdKeyVersion: "v1",
     }));
     expect(repository.advanceConversation).toHaveBeenCalledWith(expect.objectContaining({
       currentStepKey: "need", status: "WAITING_INPUT",
@@ -143,6 +147,28 @@ describe("DigitalButlerRuntime", () => {
     expect(result).toEqual({ handled: true, messages: [], outcome: "DUPLICATE" });
     expect(gate).not.toHaveBeenCalled();
     expect(repository.findActiveConversation).not.toHaveBeenCalled();
+  });
+
+  it("scopes the same sender to its provider and channel account", async () => {
+    repository.findTriggeredFlow.mockResolvedValue(null);
+
+    await new DigitalButlerRuntime(repository as never, gate).handleText({
+      ...input,
+      provider: "MESSENGER",
+      channelAccountId: "page-hsinchu",
+      webhookEventId: "meta-event-1",
+    });
+
+    expect(repository.findActiveConversation).toHaveBeenCalledWith(
+      input.storeId,
+      "MESSENGER",
+      "page-hsinchu",
+      expect.stringMatching(/^[a-f0-9]{64}$/),
+    );
+    expect(repository.claimEvent).toHaveBeenCalledWith(expect.objectContaining({
+      provider: "MESSENGER",
+      eventKey: "messenger:meta-event-1",
+    }));
   });
 
   it("drops a pending question reply when cancellation has already made the conversation inactive", async () => {
@@ -304,12 +330,10 @@ describe("DigitalButlerRuntime", () => {
         {
           type: "text",
           text: "想了解哪一方面？",
-          quickReply: {
-            items: [
-              { type: "action", action: { type: "message", label: "蒸足如何進行", text: "process" } },
-              { type: "action", action: { type: "message", label: "我想預約體驗", text: "booking" } },
-            ],
-          },
+          choices: [
+            { label: "蒸足如何進行", value: "process" },
+            { label: "我想預約體驗", value: "booking" },
+          ],
         },
       ],
       outcome: "WAITING_INPUT",

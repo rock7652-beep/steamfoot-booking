@@ -10,8 +10,11 @@ import {
   type DigitalButlerGlobalCommand,
 } from "@/lib/digital-butler-global-command";
 import { normalizePhone } from "@/lib/normalize";
-import type { LineMessage } from "@/lib/line";
 import { assertDigitalButlerSubmittedAnswersSafe } from "@/lib/digital-butler-sensitive-json";
+import type {
+  DigitalButlerInboundTextMessage,
+  DigitalButlerOutboundMessageIntent,
+} from "@/server/services/digital-butler-channel";
 
 const ACTIVE_STATUSES = ["IN_PROGRESS", "WAITING_INPUT"] as const;
 const CONVERSATION_TTL_MS = 24 * 60 * 60 * 1000;
@@ -47,19 +50,9 @@ type RuntimeConversation = {
   }>;
 };
 
-export type DigitalButlerWebhookEvent = {
-  storeId: string;
-  channelIdentity: string;
-  lineUserId: string;
-  text: string;
-  webhookEventId?: string;
-  timestamp?: number;
-  messageId?: string;
-};
-
 export type DigitalButlerRuntimeResult = {
   handled: boolean;
-  messages: LineMessage[];
+  messages: DigitalButlerOutboundMessageIntent[];
   outcome: string;
   replyGuard?: {
     conversationId: string;
@@ -70,12 +63,18 @@ export type DigitalButlerRuntimeResult = {
 type RuntimeRepository = {
   claimEvent(input: {
     storeId: string;
+    provider: DigitalButlerInboundTextMessage["provider"];
     eventKey: string;
     webhookEventId?: string;
     fallbackEventHash?: string;
   }): Promise<boolean>;
   setEventOutcome(storeId: string, eventKey: string, outcome: string, conversationId?: string): Promise<void>;
-  findActiveConversation(storeId: string, channelIdentity: string, lineUserIdHash: string): Promise<RuntimeConversation | null>;
+  findActiveConversation(
+    storeId: string,
+    provider: DigitalButlerInboundTextMessage["provider"],
+    channelAccountId: string,
+    senderIdHash: string,
+  ): Promise<RuntimeConversation | null>;
   expireConversation(storeId: string, conversationId: string): Promise<void>;
   cancelConversation(storeId: string, conversationId: string): Promise<boolean>;
   findTriggeredFlow(storeId: string, text: string): Promise<{
@@ -87,8 +86,13 @@ type RuntimeRepository = {
     storeId: string;
     flowId: string;
     flowVersionId: string;
-    channelIdentity: string;
-    lineUserIdHash: string;
+    provider: DigitalButlerInboundTextMessage["provider"];
+    channelAccountId: string;
+    senderIdHash: string;
+    senderIdCiphertext: Uint8Array<ArrayBuffer>;
+    senderIdIv: Uint8Array<ArrayBuffer>;
+    senderIdAuthTag: Uint8Array<ArrayBuffer>;
+    senderIdKeyVersion: string;
     currentStepKey: string | null;
     expiresAt: Date;
   }): Promise<RuntimeConversation>;
@@ -142,24 +146,29 @@ function triggerKeywords(definition: Prisma.JsonValue): string[] {
     : typeof candidates === "string" ? [candidates.trim()] : [];
 }
 
-function eventIdentity(input: DigitalButlerWebhookEvent): {
+function eventIdentity(input: DigitalButlerInboundTextMessage): {
   eventKey: string;
   fallbackEventHash?: string;
 } | null {
-  if (input.webhookEventId) return { eventKey: `line:${input.webhookEventId}` };
-  if (!input.timestamp || !input.messageId) return null;
+  const providerKey = input.provider.toLowerCase();
+  if (input.webhookEventId) return { eventKey: `${providerKey}:${input.webhookEventId}` };
+  if (!input.occurredAt || !input.messageId) return null;
   const fallbackEventHash = hashDigitalButlerSensitiveValue([
+    input.provider,
     input.storeId,
-    input.channelIdentity,
-    input.lineUserId,
-    input.timestamp,
+    input.channelAccountId,
+    input.senderId,
+    input.occurredAt.getTime(),
     input.messageId,
     "message.text",
   ].join(":"));
-  return { eventKey: `fallback:${fallbackEventHash}`, fallbackEventHash };
+  return { eventKey: `${providerKey}:fallback:${fallbackEventHash}`, fallbackEventHash };
 }
 
-function questionMessage(step: RuntimeStep, error?: string): LineMessage {
+function questionMessage(
+  step: RuntimeStep,
+  error?: string,
+): DigitalButlerOutboundMessageIntent {
   const config = objectConfig(step.config);
   const prompt = error ?? textFromConfig(step) ?? "請輸入回答";
   const options = Array.isArray(config.options)
@@ -171,15 +180,13 @@ function questionMessage(step: RuntimeStep, error?: string): LineMessage {
     text: prompt,
     ...(step.type === "SINGLE_CHOICE" && options.length
       ? {
-          quickReply: {
-            items: options.slice(0, 13).flatMap((option) => {
+          choices: options.slice(0, 13).flatMap((option) => {
               const label = typeof option.label === "string" ? option.label : null;
               const value = typeof option.value === "string" ? option.value : label;
               return label && value
-                ? [{ type: "action" as const, action: { type: "message" as const, label, text: value } }]
+                ? [{ label, value }]
                 : [];
             }),
-          },
         }
       : {}),
   };
@@ -212,7 +219,7 @@ const INFORMATION_INTENTS: ReadonlyArray<{
 function informationReply(
   steps: RuntimeStep[],
   input: string,
-): LineMessage | null {
+): DigitalButlerOutboundMessageIntent | null {
   const intent = INFORMATION_INTENTS.find((candidate) => candidate.matches(input));
   if (!intent) return null;
 
@@ -275,7 +282,13 @@ function nextStepIndex(steps: RuntimeStep[], currentIndex: number, answer?: Pris
 }
 
 class PrismaDigitalButlerRuntimeRepository implements RuntimeRepository {
-  async claimEvent(input: { storeId: string; eventKey: string; webhookEventId?: string; fallbackEventHash?: string }) {
+  async claimEvent(input: {
+    storeId: string;
+    provider: DigitalButlerInboundTextMessage["provider"];
+    eventKey: string;
+    webhookEventId?: string;
+    fallbackEventHash?: string;
+  }) {
     try {
       await prisma.digitalButlerExecutionLog.create({
         data: { ...input, eventType: "message.text", outcome: "CLAIMED" },
@@ -294,9 +307,14 @@ class PrismaDigitalButlerRuntimeRepository implements RuntimeRepository {
     });
   }
 
-  async findActiveConversation(storeId: string, channelIdentity: string, lineUserIdHash: string) {
+  async findActiveConversation(
+    storeId: string,
+    provider: DigitalButlerInboundTextMessage["provider"],
+    channelAccountId: string,
+    senderIdHash: string,
+  ) {
     return prisma.digitalButlerConversation.findFirst({
-      where: { storeId, channelIdentity, lineUserIdHash, status: { in: [...ACTIVE_STATUSES] } },
+      where: { storeId, provider, channelAccountId, senderIdHash, status: { in: [...ACTIVE_STATUSES] } },
       include: {
         flowVersion: { include: { steps: { orderBy: { position: "asc" } } } },
         answers: {
@@ -335,8 +353,12 @@ class PrismaDigitalButlerRuntimeRepository implements RuntimeRepository {
   }
 
   async createConversation(input: {
-    storeId: string; flowId: string; flowVersionId: string; channelIdentity: string;
-    lineUserIdHash: string; currentStepKey: string | null; expiresAt: Date;
+    storeId: string; flowId: string; flowVersionId: string;
+    provider: DigitalButlerInboundTextMessage["provider"]; channelAccountId: string;
+    senderIdHash: string; senderIdCiphertext: Uint8Array<ArrayBuffer>;
+    senderIdIv: Uint8Array<ArrayBuffer>; senderIdAuthTag: Uint8Array<ArrayBuffer>;
+    senderIdKeyVersion: string;
+    currentStepKey: string | null; expiresAt: Date;
   }) {
     return prisma.digitalButlerConversation.create({
       data: { ...input, status: "IN_PROGRESS" },
@@ -465,11 +487,12 @@ export class DigitalButlerRuntime {
     private readonly requireActivation: (storeId: string) => Promise<void> = requireDigitalButlerConversationActivation,
   ) {}
 
-  async handleText(input: DigitalButlerWebhookEvent): Promise<DigitalButlerRuntimeResult> {
+  async handleText(input: DigitalButlerInboundTextMessage): Promise<DigitalButlerRuntimeResult> {
     const identity = eventIdentity(input);
     if (!identity) return { handled: false, messages: [], outcome: "IDENTITY_INCOMPLETE" };
     const claimed = await this.repository.claimEvent({
       storeId: input.storeId,
+      provider: input.provider,
       eventKey: identity.eventKey,
       webhookEventId: input.webhookEventId,
       fallbackEventHash: identity.fallbackEventHash,
@@ -499,9 +522,9 @@ export class DigitalButlerRuntime {
       return finish({ handled: false, messages: [], outcome: "INACTIVE" });
     }
 
-    const lineUserIdHash = hashDigitalButlerSensitiveValue(input.lineUserId);
+    const senderIdHash = hashDigitalButlerSensitiveValue(input.senderId);
     let conversation = await this.repository.findActiveConversation(
-      input.storeId, input.channelIdentity, lineUserIdHash,
+      input.storeId, input.provider, input.channelAccountId, senderIdHash,
     );
     if (conversation && conversation.expiresAt.getTime() <= Date.now()) {
       await this.repository.expireConversation(input.storeId, conversation.id);
@@ -512,12 +535,18 @@ export class DigitalButlerRuntime {
       const flow = await this.repository.findTriggeredFlow(input.storeId, input.text);
       if (!flow?.publishedVersion) return finish({ handled: false, messages: [], outcome: "NO_MATCH" });
       const first = flow.publishedVersion.steps[0] ?? null;
+      const encryptedSenderId = encryptDigitalButlerValue(input.senderId);
       conversation = await this.repository.createConversation({
         storeId: input.storeId,
         flowId: flow.id,
         flowVersionId: flow.currentPublishedVersionId,
-        channelIdentity: input.channelIdentity,
-        lineUserIdHash,
+        provider: input.provider,
+        channelAccountId: input.channelAccountId,
+        senderIdHash,
+        senderIdCiphertext: prismaBytes(encryptedSenderId.ciphertext),
+        senderIdIv: prismaBytes(encryptedSenderId.iv),
+        senderIdAuthTag: prismaBytes(encryptedSenderId.authTag),
+        senderIdKeyVersion: encryptedSenderId.keyVersion,
         currentStepKey: first?.stepKey ?? null,
         expiresAt: new Date(Date.now() + CONVERSATION_TTL_MS),
       });
@@ -613,7 +642,7 @@ export class DigitalButlerRuntime {
   }
 
   private async runAutomaticSteps(conversation: RuntimeConversation, startIndex: number): Promise<DigitalButlerRuntimeResult> {
-    const messages: LineMessage[] = [];
+    const messages: DigitalButlerOutboundMessageIntent[] = [];
     const steps = conversation.flowVersion.steps;
     let index = startIndex;
     let transitions = 0;
@@ -636,9 +665,9 @@ export class DigitalButlerRuntime {
         const config = objectConfig(step.config);
         if (config.contents && typeof config.contents === "object") {
           messages.push({
-            type: "flex",
+            type: "card",
             altText: typeof config.altText === "string" ? config.altText : "數位管家訊息",
-            contents: config.contents as Record<string, unknown>,
+            payload: config.contents as Record<string, unknown>,
           });
         }
       } else if (step.type === "CREATE_LEAD") {
