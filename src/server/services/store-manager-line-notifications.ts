@@ -107,7 +107,7 @@ export function buildStoreManagerNotificationMessage(
           `金額：${formatCurrency(event.amount)}`,
           `後四碼：${event.lastFourDigits?.trim() || "尚未提供"}`,
           "",
-          `確認入帳：${managerUrl(`/dashboard/payments/pending?paymentId=${encodeURIComponent(event.paymentId)}`)}`,
+          `前往後台確認：${managerUrl(`/dashboard/payments?transactionId=${encodeURIComponent(event.paymentId)}`)}`,
         ].join("\n"),
       }];
   }
