@@ -1,10 +1,11 @@
 import { execSync } from "node:child_process";
+import { PrismaClient } from "@prisma/client";
 
 const EXPECTED_MIGRATIONS = [
-  "20260723183000_add_reminder_line_route",
   "20260727090000_channel_neutral_digital_butler",
   "20260727100000_add_session_balance_notifications",
 ];
+const LEGACY_MIGRATION = "20260723183000_add_reminder_line_route";
 const PROD_REF = "qijlnhtpbintanzpxkvf";
 const STAGING_REF = "ttworfzgwejdeolegkxl";
 const log = (message) => console.log(`[ci-migrate] ${message}`);
@@ -42,7 +43,51 @@ function pendingMigrations(statusText) {
   return pending;
 }
 
-function main() {
+async function reconcileLegacyMigration() {
+  const prisma = new PrismaClient();
+  try {
+    const [failed] = await prisma.$queryRaw`
+      SELECT EXISTS (
+        SELECT 1
+        FROM "_prisma_migrations"
+        WHERE "migration_name" = ${LEGACY_MIGRATION}
+          AND "finished_at" IS NULL
+          AND "rolled_back_at" IS NULL
+      ) AS "exists"
+    `;
+    if (!failed?.exists) return;
+
+    const [objects] = await prisma.$queryRaw`
+      SELECT
+        EXISTS (
+          SELECT 1 FROM "pg_type" WHERE "typname" = 'ReminderLineRoute'
+        ) AS "typeExists",
+        EXISTS (
+          SELECT 1
+          FROM "information_schema"."columns"
+          WHERE "table_schema" = 'public'
+            AND "table_name" = 'MessageLog'
+            AND "column_name" = 'lineRoute'
+            AND "is_nullable" = 'YES'
+        ) AS "columnExists",
+        TO_REGCLASS('public."MessageLog_lineRoute_idx"') IS NOT NULL AS "indexExists"
+    `;
+    if (!objects?.typeExists || !objects?.columnExists || !objects?.indexExists) {
+      throw new Error(
+        `Cannot reconcile ${LEGACY_MIGRATION}: expected enum, nullable column, and index are not all present`,
+      );
+    }
+
+    execSync(`npx prisma migrate resolve --applied ${LEGACY_MIGRATION}`, {
+      stdio: "inherit",
+    });
+    log(`${LEGACY_MIGRATION} reconciled after catalog verification`);
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
+async function main() {
   const databaseRef = projectRef(process.env.DATABASE_URL);
   const directRef = projectRef(process.env.DIRECT_URL);
   log(`VERCEL_ENV=${process.env.VERCEL_ENV ?? "(none)"} DATABASE_URL.ref=${databaseRef ?? "?"} DIRECT_URL.ref=${directRef ?? "?"}`);
@@ -60,6 +105,7 @@ function main() {
     return;
   }
 
+  await reconcileLegacyMigration();
   const status = migrationStatus();
   if (/Database schema is up to date/i.test(status)) {
     log("database is already up to date");
@@ -77,4 +123,4 @@ function main() {
   log("approved production migrations applied");
 }
 
-main();
+await main();
