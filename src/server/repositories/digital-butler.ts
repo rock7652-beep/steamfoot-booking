@@ -109,19 +109,22 @@ export class DigitalButlerRepository {
 
   async publishFlow(input: PublishDigitalButlerFlowInput) {
     return prisma.$transaction(async (tx) => {
-      const flow = await tx.storeDigitalButlerFlow.findFirst({
+      // The version is allocated from the current maximum. Lock this scoped
+      // flow row before reading it so concurrent publishers cannot both see
+      // the same maximum and attempt to create the same next version.
+      const lock = await tx.storeDigitalButlerFlow.updateMany({
         where: { id: input.flowId, storeId: input.storeId, status: { not: "ARCHIVED" } },
-        select: { id: true },
+        data: { updatedAt: new Date() },
       });
-      if (!flow) throw new DigitalButlerScopeError();
+      if (lock.count !== 1) throw new DigitalButlerScopeError();
       const latest = await tx.digitalButlerFlowVersion.aggregate({
-        where: { flowId: flow.id, storeId: input.storeId },
+        where: { flowId: input.flowId, storeId: input.storeId },
         _max: { version: true },
       });
       const version = await tx.digitalButlerFlowVersion.create({
         data: {
           storeId: input.storeId,
-          flowId: flow.id,
+          flowId: input.flowId,
           version: (latest._max.version ?? 0) + 1,
           definition: input.definition,
           publishedAt: new Date(),
@@ -139,7 +142,7 @@ export class DigitalButlerRepository {
         select: { id: true, version: true },
       });
       await tx.storeDigitalButlerFlow.update({
-        where: { id_storeId: { id: flow.id, storeId: input.storeId } },
+        where: { id_storeId: { id: input.flowId, storeId: input.storeId } },
         data: {
           status: "PUBLISHED",
           enabled: true,
