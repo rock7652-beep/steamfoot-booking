@@ -55,6 +55,28 @@ export type PublishDigitalButlerFlowInput = {
   }>;
 };
 
+function publishedFlowVersionCreateData(
+  input: PublishDigitalButlerFlowInput,
+  version: number,
+): Prisma.DigitalButlerFlowVersionUncheckedCreateInput {
+  return {
+    storeId: input.storeId,
+    flowId: input.flowId,
+    version,
+    definition: input.definition,
+    publishedAt: new Date(),
+    steps: {
+      create: input.steps.map((step): Prisma.DigitalButlerStepUncheckedCreateWithoutFlowVersionInput => ({
+        stepKey: step.stepKey,
+        position: step.position,
+        type: step.type,
+        config: step.config,
+        required: step.required,
+      })),
+    },
+  };
+}
+
 /**
  * Store-scoped persistence boundary. IDs from callers are never sufficient on
  * their own: each lookup constrains storeId before it can read or write.
@@ -122,23 +144,7 @@ export class DigitalButlerRepository {
         _max: { version: true },
       });
       const version = await tx.digitalButlerFlowVersion.create({
-        data: {
-          storeId: input.storeId,
-          flowId: input.flowId,
-          version: (latest._max.version ?? 0) + 1,
-          definition: input.definition,
-          publishedAt: new Date(),
-          steps: {
-            create: input.steps.map((step) => ({
-              storeId: input.storeId,
-              stepKey: step.stepKey,
-              position: step.position,
-              type: step.type,
-              config: step.config,
-              required: step.required,
-            })),
-          },
-        },
+        data: publishedFlowVersionCreateData(input, (latest._max.version ?? 0) + 1),
         select: { id: true, version: true },
       });
       await tx.storeDigitalButlerFlow.update({

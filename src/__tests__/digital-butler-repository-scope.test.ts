@@ -79,7 +79,7 @@ describe("DigitalButlerRepository cross-store isolation", () => {
     expect(h.transaction).not.toHaveBeenCalled();
   });
 
-  it("locks the scoped flow before allocating the next published version", async () => {
+  it("locks the scoped flow and creates a Prisma-valid published version", async () => {
     h.flowUpdateMany.mockResolvedValue({ count: 1 });
     h.flowVersionAggregate.mockResolvedValue({ _max: { version: 5 } });
     h.flowVersionCreate.mockResolvedValue({ id: "version-6", version: 6 });
@@ -90,7 +90,12 @@ describe("DigitalButlerRepository cross-store isolation", () => {
       storeId: "store-a",
       flowId: "flow-a",
       definition: { trigger: { keywords: ["測試"] }, steps: [] },
-      steps: [],
+      steps: [
+        { stepKey: "opening", position: 0, type: "TEXT", config: { text: "您好" }, required: false },
+        { stepKey: "name", position: 1, type: "FREE_TEXT", config: { text: "姓名" }, required: true },
+        { stepKey: "create-lead", position: 2, type: "CREATE_LEAD", config: {}, required: false },
+        { stepKey: "complete", position: 3, type: "COMPLETE_FLOW", config: {}, required: false },
+      ],
     });
 
     expect(h.flowUpdateMany).toHaveBeenCalledWith({
@@ -104,5 +109,13 @@ describe("DigitalButlerRepository cross-store isolation", () => {
     expect(h.flowVersionCreate).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({ flowId: "flow-a", version: 6 }),
     }));
+    const createData = h.flowVersionCreate.mock.calls[0][0].data;
+    expect(createData.steps.create).toEqual([
+      expect.objectContaining({ stepKey: "opening", position: 0, type: "TEXT" }),
+      expect.objectContaining({ stepKey: "name", position: 1, type: "FREE_TEXT" }),
+      expect.objectContaining({ stepKey: "create-lead", position: 2, type: "CREATE_LEAD" }),
+      expect.objectContaining({ stepKey: "complete", position: 3, type: "COMPLETE_FLOW" }),
+    ]);
+    expect(createData.steps.create).not.toContainEqual(expect.objectContaining({ storeId: expect.anything() }));
   });
 });
