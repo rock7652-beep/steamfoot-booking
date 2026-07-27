@@ -645,12 +645,32 @@ model Store {
   referralEvents                    ReferralEvent[]
   checkinPosts                      CheckinPost[]
   transactionAuditLogs              TransactionAuditLog[]
+  lineNotificationRecipients        StoreLineNotificationRecipient[]
 
   cashDrawerSessions CashDrawerSession[]
   cashDrawerEntries  CashDrawerEntry[]
   settlements        StoreSettlement[]
 
   @@index([parentStoreId])
+}
+
+model StoreLineNotificationRecipient {
+  id                   String   @id @default(cuid())
+  storeId              String
+  displayName          String
+  roleLabel            String
+  lineUserId           String?
+  bindingCode          String?  @unique
+  bindingCodeExpiresAt DateTime?
+  isActive             Boolean  @default(false)
+  linkedAt             DateTime?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, lineUserId])
+  @@index([storeId, isActive])
 }
 
 // Digital Butler PR-1: all store-owned records are explicitly store-scoped.

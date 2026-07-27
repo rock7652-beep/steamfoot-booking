@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import {
   hashDigitalButlerSensitiveValue,
   encryptDigitalButlerValue,
+  decryptDigitalButlerValue,
 } from "@/lib/digital-butler-crypto";
 import { requireDigitalButlerConversationActivation } from "@/lib/digital-butler-entitlement";
 import {
@@ -15,6 +16,7 @@ import type {
   DigitalButlerInboundTextMessage,
   DigitalButlerOutboundMessageIntent,
 } from "@/server/services/digital-butler-channel";
+import { notifyStoreManagerOnLine } from "@/server/services/store-manager-line-notifications";
 
 const ACTIVE_STATUSES = ["IN_PROGRESS", "WAITING_INPUT"] as const;
 const CONVERSATION_TTL_MS = 24 * 60 * 60 * 1000;
@@ -683,6 +685,12 @@ export class DigitalButlerRuntime {
           submittedAnswers,
         });
         if (!leadCreated) return { handled: true, messages: [], outcome: "INACTIVE_CONVERSATION" };
+        await this.notifyLeadCreated({
+          storeId: conversation.storeId,
+          conversationId: conversation.id,
+          completionActionKey: step.stepKey,
+          submittedAnswers,
+        });
       } else if (step.type === "COMPLETE_FLOW") {
         const completed = await this.repository.advanceConversation({
           storeId: conversation.storeId, conversationId: conversation.id,
@@ -702,5 +710,54 @@ export class DigitalButlerRuntime {
     });
     if (!completed) return { handled: true, messages: [], outcome: "INACTIVE_CONVERSATION" };
     return { handled: true, messages: messages.slice(0, 5), outcome: "COMPLETED" };
+  }
+
+  private async notifyLeadCreated(input: {
+    storeId: string;
+    conversationId: string;
+    completionActionKey: string;
+    submittedAnswers: Prisma.InputJsonObject;
+  }) {
+    try {
+      const lead = await prisma.digitalButlerLead.findUnique({
+        where: {
+          storeId_conversationId_completionActionKey: {
+            storeId: input.storeId,
+            conversationId: input.conversationId,
+            completionActionKey: input.completionActionKey,
+          },
+        },
+        select: {
+          id: true,
+          phoneCiphertext: true,
+          phoneIv: true,
+          phoneAuthTag: true,
+          store: { select: { slug: true } },
+        },
+      });
+      if (!lead?.phoneCiphertext || !lead.phoneIv || !lead.phoneAuthTag) return;
+      const phone = decryptDigitalButlerValue({
+        ciphertext: Buffer.from(lead.phoneCiphertext),
+        iv: Buffer.from(lead.phoneIv),
+        authTag: Buffer.from(lead.phoneAuthTag),
+        keyVersion: "v1",
+      });
+      const rawName = input.submittedAnswers.name;
+      const customerName = typeof rawName === "string" && rawName.trim() ? rawName.trim() : "LINE 顧客";
+      await notifyStoreManagerOnLine({
+        type: "DIGITAL_BUTLER_LEAD_CREATED",
+        eventKey: `digital-butler-lead:${lead.id}`,
+        storeId: input.storeId,
+        storeSlug: lead.store.slug,
+        customerName,
+        phone,
+        leadId: lead.id,
+      });
+    } catch (error) {
+      console.error("[DigitalButler] manager notification failed", {
+        storeId: input.storeId,
+        error: error instanceof Error ? error.message : "unknown",
+      });
+    }
   }
 }

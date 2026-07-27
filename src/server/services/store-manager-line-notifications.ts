@@ -1,5 +1,6 @@
 import { deriveBaseUrl } from "@/lib/base-url";
 import { pushMessage, type LineMessage } from "@/lib/line";
+import { prisma } from "@/lib/db";
 
 type StoreManagerNotificationEvent =
   | {
@@ -37,7 +38,7 @@ type StoreManagerNotificationEvent =
     };
 
 export type StoreManagerNotificationResult =
-  | { status: "sent" }
+  | { status: "sent"; sentCount: number; failedCount: number }
   | { status: "skipped"; reason: "recipient_not_configured" }
   | { status: "failed"; error: string };
 
@@ -51,11 +52,7 @@ export function resolveStoreManagerLineRecipient(storeSlug: string): string | nu
 }
 
 function formatCurrency(value: number): string {
-  return new Intl.NumberFormat("zh-TW", {
-    style: "currency",
-    currency: "TWD",
-    maximumFractionDigits: 0,
-  }).format(value);
+  return `NT$${new Intl.NumberFormat("zh-TW", { maximumFractionDigits: 0 }).format(value)}`;
 }
 
 function managerUrl(path: string): string {
@@ -125,8 +122,18 @@ export function buildStoreManagerNotificationMessage(
 export async function notifyStoreManagerOnLine(
   event: StoreManagerNotificationEvent,
 ): Promise<StoreManagerNotificationResult> {
-  const recipientLineUserId = resolveStoreManagerLineRecipient(event.storeSlug);
-  if (!recipientLineUserId) {
+  const configured = await prisma.storeLineNotificationRecipient.findMany({
+    where: { storeId: event.storeId, isActive: true, lineUserId: { not: null } },
+    select: { lineUserId: true },
+  });
+  const legacyRecipient = resolveStoreManagerLineRecipient(event.storeSlug);
+  const recipientLineUserIds = [
+    ...new Set([
+      ...configured.flatMap((item) => item.lineUserId ? [item.lineUserId] : []),
+      ...(legacyRecipient ? [legacyRecipient] : []),
+    ]),
+  ];
+  if (recipientLineUserIds.length === 0) {
     console.warn("[StoreManagerLineNotification] recipient not configured", {
       eventType: event.type,
       eventKey: event.eventKey,
@@ -137,31 +144,25 @@ export async function notifyStoreManagerOnLine(
     return { status: "skipped", reason: "recipient_not_configured" };
   }
 
-  try {
-    const result = await pushMessage(
-      event.storeId,
-      recipientLineUserId,
-      buildStoreManagerNotificationMessage(event),
-    );
-    if (!result.success) {
-      const error = result.error ?? "LINE delivery failed";
-      console.error("[StoreManagerLineNotification] delivery failed", {
-        eventType: event.type,
-        eventKey: event.eventKey,
-        storeId: event.storeId,
-        error,
-      });
-      return { status: "failed", error };
+  let sentCount = 0;
+  const errors: string[] = [];
+  for (const recipientLineUserId of recipientLineUserIds) {
+    try {
+      const result = await pushMessage(
+        event.storeId,
+        recipientLineUserId,
+        buildStoreManagerNotificationMessage(event),
+      );
+      if (result.success) sentCount += 1;
+      else errors.push(result.error ?? "LINE delivery failed");
+    } catch (error) {
+      errors.push(error instanceof Error ? error.message : "Unknown LINE delivery error");
     }
-    return { status: "sent" };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown LINE delivery error";
-    console.error("[StoreManagerLineNotification] unexpected failure", {
-      eventType: event.type,
-      eventKey: event.eventKey,
-      storeId: event.storeId,
-      error: message,
-    });
-    return { status: "failed", error: message };
   }
+  if (sentCount > 0) return { status: "sent", sentCount, failedCount: errors.length };
+  const error = errors[0] ?? "LINE delivery failed";
+  console.error("[StoreManagerLineNotification] delivery failed", {
+    eventType: event.type, eventKey: event.eventKey, storeId: event.storeId, error,
+  });
+  return { status: "failed", error };
 }
