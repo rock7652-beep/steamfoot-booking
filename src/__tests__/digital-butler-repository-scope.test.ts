@@ -10,11 +10,13 @@ const h = vi.hoisted(() => ({
   flowVersionAggregate: vi.fn(),
   flowVersionCreate: vi.fn(),
   flowUpdate: vi.fn(),
+  flowFindMany: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({
   prisma: {
     $transaction: (callback: (tx: unknown) => unknown) => h.transaction(callback),
+    storeDigitalButlerFlow: { findMany: h.flowFindMany },
   },
 }));
 
@@ -117,5 +119,25 @@ describe("DigitalButlerRepository cross-store isolation", () => {
       expect.objectContaining({ stepKey: "complete", position: 3, type: "COMPLETE_FLOW" }),
     ]);
     expect(createData.steps.create).not.toContainEqual(expect.objectContaining({ storeId: expect.anything() }));
+  });
+
+  it("loads the published preview from the current version's ordered step rows", async () => {
+    h.flowFindMany.mockResolvedValue([]);
+    await new DigitalButlerRepository().listFlows("store-a");
+
+    expect(h.flowFindMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { storeId: "store-a", status: { not: "ARCHIVED" } },
+      select: expect.objectContaining({
+        currentPublishedVersionId: true,
+        publishedVersion: {
+          select: expect.objectContaining({
+            steps: {
+              orderBy: { position: "asc" },
+              select: { stepKey: true, position: true, type: true, config: true },
+            },
+          }),
+        },
+      }),
+    }));
   });
 });
