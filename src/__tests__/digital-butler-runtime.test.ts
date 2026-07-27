@@ -88,6 +88,55 @@ describe("DigitalButlerRuntime", () => {
     }));
   });
 
+  it("starts a fresh menu after cancellation when the user sends the trigger again", async () => {
+    const previousSteps = [questionStep("old-step", "phone", 0)];
+    const newSteps = [
+      textStep("new-opening", "opening", 0, "歡迎回來"),
+      {
+        id: "new-menu", stepKey: "menu", position: 1, type: "SINGLE_CHOICE" as const,
+        config: { text: "請選擇：", options: [{ label: "我想預約體驗", value: "booking" }] },
+        required: true,
+      },
+    ];
+    repository.findActiveConversation
+      .mockResolvedValueOnce({
+        id: "cancelled-conversation", storeId: input.storeId, flowId: "old-flow",
+        flowVersionId: "old-version", currentStepKey: "phone",
+        expiresAt: new Date(Date.now() + 60_000), flowVersion: { steps: previousSteps }, answers: [],
+      })
+      .mockResolvedValueOnce(null);
+    repository.findTriggeredFlow.mockResolvedValueOnce({
+      id: "new-flow",
+      currentPublishedVersionId: "new-version",
+      publishedVersion: { definition: { trigger: { keywords: ["我想了解蒸足"] } }, steps: newSteps },
+    });
+    repository.createConversation.mockResolvedValueOnce({
+      id: "new-conversation", storeId: input.storeId, flowId: "new-flow",
+      flowVersionId: "new-version", currentStepKey: "opening",
+      expiresAt: new Date(Date.now() + 60_000), flowVersion: { steps: newSteps }, answers: [],
+    });
+
+    const cancelled = await new DigitalButlerRuntime(repository as never, gate).handleText({
+      ...input, text: "取消",
+    });
+    const restarted = await new DigitalButlerRuntime(repository as never, gate).handleText({
+      ...input, text: "我想了解蒸足", webhookEventId: "event-after-cancel", messageId: "message-after-cancel",
+    });
+
+    expect(cancelled.outcome).toBe("CANCELLED_BY_USER");
+    expect(restarted).toMatchObject({
+      handled: true,
+      outcome: "WAITING_INPUT",
+      messages: [
+        { type: "text", text: "歡迎回來" },
+        { type: "text", text: "請選擇：" },
+      ],
+    });
+    expect(repository.createConversation).toHaveBeenCalledWith(expect.objectContaining({
+      flowId: "new-flow", flowVersionId: "new-version",
+    }));
+  });
+
   it("deduplicates a LINE redelivery before reading or advancing a conversation", async () => {
     repository.claimEvent.mockResolvedValue(false);
     const result = await new DigitalButlerRuntime(repository as never, gate).handleText(input);

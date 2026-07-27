@@ -3,22 +3,22 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const verifyLineSignatureMock = vi.fn(
   (_storeId: string, _body: string, _signature: string) => true,
 );
+type LineReplyResult = {
+  success: boolean;
+  error?: string;
+  httpStatus?: number | null;
+  errorType?: string;
+};
 const replyMessageMock = vi.fn(
   async (
     _storeId: string,
     _replyToken: string,
     _messages: unknown[],
-  ): Promise<{ success: boolean; error?: string }> => ({ success: true }),
+  ): Promise<LineReplyResult> => ({ success: true }),
 );
 const verifySteamButlerLineSignatureMock = vi.fn(
   (_body: string, _signature: string) => true,
 );
-type LineReplyResult = {
-  success: boolean;
-  error?: string;
-  httpStatus?: number;
-  errorType?: string;
-};
 const replySteamButlerMessageMock = vi.fn(
   async (
     _replyToken: string,
@@ -46,6 +46,7 @@ const digitalButlerDeliverReplyIfActiveMock = vi.fn(
   },
 );
 let consoleLogSpy: ReturnType<typeof vi.spyOn>;
+let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
 
 const mockPrisma = {
   store: {
@@ -132,6 +133,7 @@ describe("LINE webhook store-aware signature and reply", () => {
   afterEach(() => {
     vi.unstubAllEnvs();
     consoleLogSpy.mockRestore();
+    consoleErrorSpy.mockRestore();
   });
 
   beforeEach(() => {
@@ -155,6 +157,74 @@ describe("LINE webhook store-aware signature and reply", () => {
     });
     mockPrisma.store.findFirst.mockResolvedValue({ id: "store-hsinchu" });
     consoleLogSpy = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+  });
+
+  it("sanitizes an invisible Digital Butler quick reply carrier and logs a safe failed reply diagnostic", async () => {
+    digitalButlerHandleTextMock.mockResolvedValueOnce({
+      handled: true,
+      outcome: "WAITING_INPUT",
+      messages: [
+        { type: "text", text: "歡迎來到暖暖蒸足竹北店！" },
+        {
+          type: "text",
+          text: "\u200B",
+          quickReply: {
+            items: [{
+              type: "action",
+              action: { type: "message", label: "我想預約體驗", text: "我想預約體驗" },
+            }],
+          },
+        },
+      ],
+      replyGuard: undefined,
+    });
+    replyMessageMock.mockResolvedValueOnce({
+      success: false,
+      error: "LINE API response includes sensitive detail",
+      httpStatus: 400,
+      errorType: "line_api_rejected",
+    });
+    const body = {
+      destination: "D_hsinchu",
+      events: [{
+        type: "message",
+        replyToken: "reply-token-sensitive",
+        source: { type: "user", userId: "U_hsinchu_customer" },
+        message: { type: "text", id: "message-trigger", text: "我想了解蒸足" },
+        timestamp: 1_721_234_567_890,
+      }],
+    };
+
+    const { POST } = await import("@/app/api/line/webhook/route");
+    const res = await POST(postReq(body));
+
+    expect(res.status).toBe(200);
+    expect(replyMessageMock).toHaveBeenCalledWith("store-hsinchu", "reply-token-sensitive", [{
+      type: "text",
+      text: "歡迎來到暖暖蒸足竹北店！",
+      quickReply: expect.any(Object),
+    }]);
+    const diagnostics = consoleErrorSpy.mock.calls
+      .map((call: unknown[]) => {
+        const [message] = call;
+        return typeof message === "string" ? JSON.parse(message) as Record<string, unknown> : null;
+      })
+      .find((entry: Record<string, unknown> | null) => entry?.event === "digital_butler_reply");
+    expect(diagnostics).toEqual({
+      event: "digital_butler_reply",
+      storeId: "store-hsinchu",
+      outcome: "WAITING_INPUT",
+      messageCount: 1,
+      hasQuickReply: true,
+      success: false,
+      httpStatus: 400,
+      errorType: "line_api_rejected",
+    });
+    const output = JSON.stringify(consoleErrorSpy.mock.calls);
+    expect(output).not.toContain("reply-token-sensitive");
+    expect(output).not.toContain("LINE API response includes sensitive detail");
+    expect(output).not.toContain("我想了解蒸足");
   });
 
   it("resolves destination before signature verification and uses that store for replies", async () => {
