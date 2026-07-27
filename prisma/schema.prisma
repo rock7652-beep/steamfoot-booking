@@ -607,43 +607,44 @@ model Store {
   digitalButlerLeadActivities DigitalButlerLeadActivity[]
   digitalButlerExecutionLogs  DigitalButlerExecutionLog[]
 
-  staff                           Staff[]
-  customers                       Customer[]
-  customerIdentityLinks           CustomerIdentityLink[]
-  centralMemberLinkReviewRequests CentralMemberLinkReviewRequest[]
-  lineRebindRequests              LineRebindRequest[]
-  lineOAuthAttempts               LineOAuthAttempt[]
-  bookings                        Booking[]
-  bookingRecurrenceGroups         BookingRecurrenceGroup[]
-  bookingSubmissions              BookingSubmission[]
-  transactions                    Transaction[]
-  servicePlans                    ServicePlan[]
-  customerPlanWallets             CustomerPlanWallet[]
-  cashbookEntries                 CashbookEntry[]
-  dutyAssignments                 DutyAssignment[]
-  bookingSlots                    BookingSlot[]
-  businessHours                   BusinessHours[]
-  specialBusinessDays             SpecialBusinessDay[]
-  slotOverrides                   SlotOverride[]
-  reportSnapshots                 ReportSnapshot[]
-  shopConfig                      ShopConfig?
-  upgradeRequests                 UpgradeRequest[]
-  reminderRules                   ReminderRule[]
-  messageTemplates                MessageTemplate[]
-  opsActionLogs                   OpsActionLog[]
-  reconciliationRuns              ReconciliationRun[]
-  makeupCredits                   MakeupCredit[]
-  spaceFeeRecords                 SpaceFeeRecord[]
-  messageLogs                     MessageLog[]
-  sessionBalanceNotifications     SessionBalanceNotification[]
-  talentStageLogs                 TalentStageLog[]
-  customerFollowUps               CustomerFollowUp[]
-  referrals                       Referral[]
-  pointRecords                    PointRecord[]
-  bonusRules                      BonusRule[]
-  referralEvents                  ReferralEvent[]
-  checkinPosts                    CheckinPost[]
-  transactionAuditLogs            TransactionAuditLog[]
+  staff                             Staff[]
+  customers                         Customer[]
+  customerIdentityLinks             CustomerIdentityLink[]
+  centralMemberLinkReviewRequests   CentralMemberLinkReviewRequest[]
+  lineRebindRequests                LineRebindRequest[]
+  lineOAuthAttempts                 LineOAuthAttempt[]
+  bookings                          Booking[]
+  bookingRecurrenceGroups           BookingRecurrenceGroup[]
+  bookingSubmissions                BookingSubmission[]
+  transactions                      Transaction[]
+  servicePlans                      ServicePlan[]
+  customerPlanWallets               CustomerPlanWallet[]
+  cashbookEntries                   CashbookEntry[]
+  dutyAssignments                   DutyAssignment[]
+  bookingSlots                      BookingSlot[]
+  businessHours                     BusinessHours[]
+  specialBusinessDays               SpecialBusinessDay[]
+  slotOverrides                     SlotOverride[]
+  reportSnapshots                   ReportSnapshot[]
+  shopConfig                        ShopConfig?
+  upgradeRequests                   UpgradeRequest[]
+  reminderRules                     ReminderRule[]
+  messageTemplates                  MessageTemplate[]
+  opsActionLogs                     OpsActionLog[]
+  reconciliationRuns                ReconciliationRun[]
+  makeupCredits                     MakeupCredit[]
+  spaceFeeRecords                   SpaceFeeRecord[]
+  messageLogs                       MessageLog[]
+  sessionBalanceNotificationSetting SessionBalanceNotificationSetting?
+  sessionBalanceNotifications       SessionBalanceNotification[]
+  talentStageLogs                   TalentStageLog[]
+  customerFollowUps                 CustomerFollowUp[]
+  referrals                         Referral[]
+  pointRecords                      PointRecord[]
+  bonusRules                        BonusRule[]
+  referralEvents                    ReferralEvent[]
+  checkinPosts                      CheckinPost[]
+  transactionAuditLogs              TransactionAuditLog[]
 
   cashDrawerSessions CashDrawerSession[]
   cashDrawerEntries  CashDrawerEntry[]
@@ -2147,6 +2148,27 @@ model SessionBalanceNotification {
   @@unique([walletId, type], map: "uniq_wallet_session_balance_notification")
   @@index([storeId, status])
   @@index([customerId])
+}
+
+// ============================================================
+// SessionBalanceNotificationSetting（分店剩餘堂數提醒設定）
+// ============================================================
+
+model SessionBalanceNotificationSetting {
+  id                          String   @id @default(cuid())
+  storeId                     String   @unique
+  isEnabled                   Boolean  @default(true)
+  lastSessionEnabled          Boolean  @default(true)
+  planUsedUpEnabled           Boolean  @default(true)
+  lastSessionUnbookedTemplate String
+  lastSessionBookedTemplate   String
+  planUsedUpTemplate          String
+  learnMoreButtonLabel        String   @default("了解適合我的方案")
+  laterButtonLabel            String   @default("之後再看看")
+  createdAt                   DateTime @default(now())
+  updatedAt                   DateTime @updatedAt
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
 }
 
 // ============================================================

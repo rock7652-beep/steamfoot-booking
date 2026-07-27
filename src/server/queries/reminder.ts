@@ -7,6 +7,10 @@ import { AppError } from "@/lib/errors";
 import { todayReminderTriggerAt, tomorrowBookingDate } from "@/server/reminder-engine";
 import { resolveCentralLineRecipientsForCustomers } from "@/server/services/central-line-recipient-loader";
 import { resolveVerifiedReminderLineRoute } from "@/server/services/verified-reminder-line-route";
+import {
+  DEFAULT_SESSION_BALANCE_NOTIFICATION_SETTING,
+  type SessionBalanceNotificationSettingValue,
+} from "@/lib/session-balance-notification-settings";
 
 // ============================================================
 // ReminderRule queries
@@ -50,6 +54,26 @@ export async function getStoreReminderState(storeId: string): Promise<{
     enabled: rules.some((r) => r.isEnabled),
     canonicalTemplateId: canonical?.templateId ?? null,
   };
+}
+
+export async function getSessionBalanceNotificationSetting(
+  storeId: string,
+): Promise<SessionBalanceNotificationSettingValue> {
+  const authorizedStoreId = await resolveReminderReadStore(storeId);
+  const setting = await prisma.sessionBalanceNotificationSetting.findUnique({
+    where: { storeId: authorizedStoreId },
+    select: {
+      isEnabled: true,
+      lastSessionEnabled: true,
+      planUsedUpEnabled: true,
+      lastSessionUnbookedTemplate: true,
+      lastSessionBookedTemplate: true,
+      planUsedUpTemplate: true,
+      learnMoreButtonLabel: true,
+      laterButtonLabel: true,
+    },
+  });
+  return setting ?? { ...DEFAULT_SESSION_BALANCE_NOTIFICATION_SETTING };
 }
 
 export async function getLineSmokeTestContext(storeId: string): Promise<{
@@ -137,6 +161,34 @@ export async function listMessageLogs(options: ListMessageLogsOptions & { active
     prisma.messageLog.count({ where }),
   ]);
 
+  return { logs, total, pageSize };
+}
+
+export async function listSessionBalanceNotificationLogs(
+  options: ListMessageLogsOptions & { activeStoreId?: string | null } = {},
+) {
+  const storeId = await resolveReminderReadStore(options.activeStoreId);
+  const { status, search, page = 1, pageSize = 30 } = options;
+  const where = {
+    storeId,
+    ...(status && status !== "ALL" ? { status: status as "PENDING" | "SENT" | "FAILED" | "SKIPPED" } : {}),
+    ...(search
+      ? { customer: { name: { contains: search, mode: "insensitive" as const } } }
+      : {}),
+  };
+  const [logs, total] = await Promise.all([
+    prisma.sessionBalanceNotification.findMany({
+      where,
+      include: {
+        customer: { select: { id: true, name: true } },
+        wallet: { select: { plan: { select: { name: true } } } },
+      },
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.sessionBalanceNotification.count({ where }),
+  ]);
   return { logs, total, pageSize };
 }
 

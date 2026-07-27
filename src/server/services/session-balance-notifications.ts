@@ -2,6 +2,11 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { deriveBaseUrl } from "@/lib/base-url";
 import {
+  DEFAULT_SESSION_BALANCE_NOTIFICATION_SETTING,
+  renderSessionBalanceTemplate,
+  type SessionBalanceNotificationSettingValue,
+} from "@/lib/session-balance-notification-settings";
+import {
   pushMessage,
   pushSteamButlerMessage,
   type LineMessage,
@@ -23,23 +28,35 @@ export async function enqueueSessionBalanceNotifications(
   const walletIds = [...new Set(input.walletIds)];
   if (walletIds.length === 0) return [];
 
-  const wallets = await tx.customerPlanWallet.findMany({
-    where: {
-      id: { in: walletIds },
-      customerId: input.customerId,
-      storeId: input.storeId,
-    },
-    select: { id: true, remainingSessions: true },
-  });
-  const activeContinuationWallets = await tx.customerPlanWallet.findMany({
-    where: {
-      customerId: input.customerId,
-      storeId: input.storeId,
-      status: "ACTIVE",
-      remainingSessions: { gt: 0 },
-    },
-    select: { id: true },
-  });
+  const [wallets, activeContinuationWallets, setting] = await Promise.all([
+    tx.customerPlanWallet.findMany({
+      where: {
+        id: { in: walletIds },
+        customerId: input.customerId,
+        storeId: input.storeId,
+      },
+      select: { id: true, remainingSessions: true },
+    }),
+    tx.customerPlanWallet.findMany({
+      where: {
+        customerId: input.customerId,
+        storeId: input.storeId,
+        status: "ACTIVE",
+        remainingSessions: { gt: 0 },
+      },
+      select: { id: true },
+    }),
+    tx.sessionBalanceNotificationSetting.findUnique({
+      where: { storeId: input.storeId },
+      select: {
+        isEnabled: true,
+        lastSessionEnabled: true,
+        planUsedUpEnabled: true,
+      },
+    }),
+  ]);
+  const effectiveSetting = setting ?? DEFAULT_SESSION_BALANCE_NOTIFICATION_SETTING;
+  if (!effectiveSetting.isEnabled) return [];
   const activeContinuationIds = new Set(
     activeContinuationWallets.map((wallet) => wallet.id),
   );
@@ -51,7 +68,13 @@ export async function enqueueSessionBalanceNotifications(
         (walletId) => walletId !== wallet.id,
       ),
     });
-    return decision.type
+    const typeEnabled =
+      decision.type === "LAST_SESSION"
+        ? effectiveSetting.lastSessionEnabled
+        : decision.type === "PLAN_USED_UP"
+          ? effectiveSetting.planUsedUpEnabled
+          : false;
+    return decision.type && typeEnabled
       ? [{
           storeId: input.storeId,
           customerId: input.customerId,
@@ -84,15 +107,28 @@ function buildMessages(input: {
   planName: string;
   storeSlug: string;
   reservedBooking: { bookingDate: Date; slotTime: string } | null;
+  setting: SessionBalanceNotificationSettingValue;
 }): { body: string; messages: LineMessage[] } {
+  const variables = {
+    customerName: input.customerName,
+    planName: input.planName,
+    bookingDateTime: input.reservedBooking
+      ? `${input.reservedBooking.bookingDate.toISOString().slice(0, 10)} ${input.reservedBooking.slotTime}`
+      : "",
+    bookingUrl: `${deriveBaseUrl()}/s/${input.storeSlug}/liff/member-booking`,
+  };
   if (input.type === "LAST_SESSION") {
-    const body = input.reservedBooking
-      ? `${input.customerName} 您好，溫馨提醒，您的「${input.planName}」目前剩下最後 1 堂，已安排於 ${input.reservedBooking.bookingDate.toISOString().slice(0, 10)} ${input.reservedBooking.slotTime}。\n\n若您希望之後持續保養，也可以在到店時和我們聊聊下一階段怎麼安排，完全依照您的需求決定就好。`
-      : `${input.customerName} 您好，您的「${input.planName}」目前剩下最後 1 堂囉 🌿\n\n如果最近有想安排放鬆保養，歡迎提前選擇適合的時間。不著急，依照自己的步調安排就可以了。\n\n查看可預約時段：${deriveBaseUrl()}/s/${input.storeSlug}/liff/member-booking`;
+    const template = input.reservedBooking
+      ? input.setting.lastSessionBookedTemplate
+      : input.setting.lastSessionUnbookedTemplate;
+    const body = renderSessionBalanceTemplate(template, variables);
     return { body, messages: [{ type: "text", text: body }] };
   }
 
-  const body = `${input.customerName} 您好，謝謝您完成這一期的「${input.planName}」蒸足保養 🤎\n\n如果覺得這段時間對身體有幫助，歡迎再依照自己的狀態，安排下一階段的保養頻率。\n\n還不確定也沒關係，我們可以先陪您了解目前的需求，再決定是否繼續。`;
+  const body = renderSessionBalanceTemplate(
+    input.setting.planUsedUpTemplate,
+    variables,
+  );
   return {
     body,
     messages: [{
@@ -104,7 +140,7 @@ function buildMessages(input: {
             type: "action",
             action: {
               type: "message",
-              label: "了解適合我的方案",
+              label: input.setting.learnMoreButtonLabel,
               text: "我想了解適合我的方案",
             },
           },
@@ -112,7 +148,7 @@ function buildMessages(input: {
             type: "action",
             action: {
               type: "message",
-              label: "之後再看看",
+              label: input.setting.laterButtonLabel,
               text: "之後再看看",
             },
           },
@@ -152,10 +188,44 @@ export async function dispatchSessionBalanceNotifications(
               },
             },
           },
-          store: { select: { slug: true } },
+          store: {
+            select: {
+              slug: true,
+              sessionBalanceNotificationSetting: {
+                select: {
+                  isEnabled: true,
+                  lastSessionEnabled: true,
+                  planUsedUpEnabled: true,
+                  lastSessionUnbookedTemplate: true,
+                  lastSessionBookedTemplate: true,
+                  planUsedUpTemplate: true,
+                  learnMoreButtonLabel: true,
+                  laterButtonLabel: true,
+                },
+              },
+            },
+          },
         },
       });
       if (!notification) continue;
+
+      const setting =
+        notification.store.sessionBalanceNotificationSetting ??
+        DEFAULT_SESSION_BALANCE_NOTIFICATION_SETTING;
+      const typeEnabled =
+        notification.type === "LAST_SESSION"
+          ? setting.lastSessionEnabled
+          : setting.planUsedUpEnabled;
+      if (!setting.isEnabled || !typeEnabled) {
+        await prisma.sessionBalanceNotification.update({
+          where: { id },
+          data: {
+            status: "SKIPPED",
+            errorMessage: "該分店已停用此類提醒",
+          },
+        });
+        continue;
+      }
 
       const centralRecipient = await resolveCentralLineRecipientForCustomer(
         notification.customerId,
@@ -174,6 +244,7 @@ export async function dispatchSessionBalanceNotifications(
         planName: notification.wallet.plan.name,
         storeSlug: notification.store.slug,
         reservedBooking: notification.wallet.sessions[0]?.booking ?? null,
+        setting,
       });
 
       if (route.status === "BLOCKED") {

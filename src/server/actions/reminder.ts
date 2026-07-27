@@ -22,6 +22,8 @@ import { deriveBaseUrl } from "@/lib/base-url";
 import { resolveWriteStoreId } from "@/lib/store";
 import { resolveCentralLineRecipientForCustomer } from "@/server/services/central-line-recipient-loader";
 import { resolveVerifiedReminderLineRoute } from "@/server/services/verified-reminder-line-route";
+import { getAllActiveStoreIds } from "@/lib/store";
+import { DEFAULT_SESSION_BALANCE_NOTIFICATION_SETTING } from "@/lib/session-balance-notification-settings";
 
 // ============================================================
 // Validators
@@ -70,8 +72,50 @@ const bookingLineTestSchema = z.object({
   bookingId: z.string().min(1),
 });
 
+const sessionBalanceSettingSchema = z.object({
+  isEnabled: z.boolean(),
+  lastSessionEnabled: z.boolean(),
+  planUsedUpEnabled: z.boolean(),
+  lastSessionUnbookedTemplate: z.string().min(1).max(1500),
+  lastSessionBookedTemplate: z.string().min(1).max(1500),
+  planUsedUpTemplate: z.string().min(1).max(1500),
+  learnMoreButtonLabel: z.string().min(1).max(20),
+  laterButtonLabel: z.string().min(1).max(20),
+}).superRefine((data, ctx) => {
+  const required: Array<{
+    field: "lastSessionUnbookedTemplate" | "lastSessionBookedTemplate" | "planUsedUpTemplate";
+    variables: string[];
+  }> = [
+    {
+      field: "lastSessionUnbookedTemplate",
+      variables: ["{customerName}", "{planName}", "{bookingUrl}"],
+    },
+    {
+      field: "lastSessionBookedTemplate",
+      variables: ["{customerName}", "{planName}", "{bookingDateTime}"],
+    },
+    {
+      field: "planUsedUpTemplate",
+      variables: ["{customerName}", "{planName}"],
+    },
+  ];
+  for (const requirement of required) {
+    for (const variable of requirement.variables) {
+      if (!data[requirement.field].includes(variable)) {
+        ctx.addIssue({
+          code: "custom",
+          path: [requirement.field],
+          message: `必須保留變數 ${variable}`,
+        });
+      }
+    }
+  }
+});
+
 const BOOKING_LINE_TEST_PREFIX = "【測試提醒｜不影響正式排程】";
 const BOOKING_LINE_TEST_COOLDOWN_MS = 60_000;
+
+type SessionBalanceSettingInput = z.input<typeof sessionBalanceSettingSchema>;
 
 export async function previewBookingLineTestReminder(
   input: z.input<typeof bookingLineTestSchema>
@@ -331,6 +375,78 @@ export async function setReminderTemplate(
 
     revalidatePath("/dashboard/reminders");
     return { success: true, data: undefined };
+  } catch (e) {
+    return handleActionError(e);
+  }
+}
+
+// ============================================================
+// Session balance / renewal reminder settings
+// ============================================================
+
+function sessionBalanceSettingData(data: SessionBalanceSettingInput) {
+  return {
+    isEnabled: data.isEnabled,
+    lastSessionEnabled: data.lastSessionEnabled,
+    planUsedUpEnabled: data.planUsedUpEnabled,
+    lastSessionUnbookedTemplate: data.lastSessionUnbookedTemplate,
+    lastSessionBookedTemplate: data.lastSessionBookedTemplate,
+    planUsedUpTemplate: data.planUsedUpTemplate,
+    learnMoreButtonLabel: data.learnMoreButtonLabel,
+    laterButtonLabel: data.laterButtonLabel,
+  };
+}
+
+export async function saveSessionBalanceNotificationSetting(
+  input: SessionBalanceSettingInput,
+): Promise<ActionResult<void>> {
+  try {
+    const user = await requirePermission("business_hours.manage");
+    const storeId = await resolveWriteStoreId(user);
+    await requireStoreFeature(storeId, FEATURES.LINE_REMINDER);
+    const data = sessionBalanceSettingSchema.parse(input);
+
+    await prisma.sessionBalanceNotificationSetting.upsert({
+      where: { storeId },
+      create: { storeId, ...sessionBalanceSettingData(data) },
+      update: sessionBalanceSettingData(data),
+    });
+
+    revalidatePath("/dashboard/reminders");
+    return { success: true, data: undefined };
+  } catch (e) {
+    return handleActionError(e);
+  }
+}
+
+export async function resetSessionBalanceNotificationSetting(): Promise<
+  ActionResult<void>
+> {
+  return saveSessionBalanceNotificationSetting({
+    ...DEFAULT_SESSION_BALANCE_NOTIFICATION_SETTING,
+  });
+}
+
+export async function applySessionBalanceSettingToAllStores(
+  input: SessionBalanceSettingInput,
+): Promise<ActionResult<{ storeCount: number }>> {
+  try {
+    await requireAdminSession();
+    const data = sessionBalanceSettingSchema.parse(input);
+    const storeIds = await getAllActiveStoreIds();
+
+    await prisma.$transaction(
+      storeIds.map((storeId) =>
+        prisma.sessionBalanceNotificationSetting.upsert({
+          where: { storeId },
+          create: { storeId, ...sessionBalanceSettingData(data) },
+          update: sessionBalanceSettingData(data),
+        }),
+      ),
+    );
+
+    revalidatePath("/dashboard/reminders");
+    return { success: true, data: { storeCount: storeIds.length } };
   } catch (e) {
     return handleActionError(e);
   }
