@@ -27,7 +27,12 @@ import { checkPermission } from "@/lib/permissions";
 import { customerIdFromTodoId } from "@/lib/store-todo-key";
 import type { PaymentMethod } from "@prisma/client";
 
-export type StoreTodoType = "PAYMENT" | "BOOKING" | "FOLLOW_UP" | "LOW_SESSIONS";
+export type StoreTodoType =
+  | "VIP_INTEREST"
+  | "PAYMENT"
+  | "BOOKING"
+  | "FOLLOW_UP"
+  | "LOW_SESSIONS";
 
 export interface StoreTodoItem {
   id: string;
@@ -45,6 +50,7 @@ export interface StoreTodosResult {
 }
 
 const TYPE_LABEL: Record<StoreTodoType, string> = {
+  VIP_INTEREST: "VIP 續購",
   PAYMENT: "收款",
   BOOKING: "預約",
   FOLLOW_UP: "回訪",
@@ -52,10 +58,11 @@ const TYPE_LABEL: Record<StoreTodoType, string> = {
 };
 
 const TYPE_PRIORITY: Record<StoreTodoType, number> = {
-  PAYMENT: 1,
-  BOOKING: 2,
-  FOLLOW_UP: 3,
-  LOW_SESSIONS: 4,
+  VIP_INTEREST: 1,
+  PAYMENT: 2,
+  BOOKING: 3,
+  FOLLOW_UP: 4,
+  LOW_SESSIONS: 5,
 };
 
 const FOLLOW_UP_DAYS = 14;
@@ -90,12 +97,23 @@ export async function getStoreTodosForUser(
   const cutoff = new Date(`${todayStr}T00:00:00+08:00`);
   cutoff.setUTCDate(cutoff.getUTCDate() - FOLLOW_UP_DAYS);
 
-  const [paymentRaw, bookingRaw, followUpRaw, lowSessionRaw] = await Promise.all([
+  const [vipInterestRaw, paymentRaw, bookingRaw, followUpRaw, lowSessionRaw] = await Promise.all([
+    fetchVipInterests(storeFilter),
     canSeePayments ? fetchPayments(storeFilter) : Promise.resolve([]),
     fetchTodayBookings(storeFilter, todayBookingDate),
     fetchFollowUps(storeFilter, todayBookingDate, cutoff),
     fetchLowSessions(storeFilter),
   ]);
+
+  const vipInterests: StoreTodoItem[] = vipInterestRaw.map((item) => ({
+    id: `vipinterest:${item.customer.id}:${item.id}`,
+    type: "VIP_INTEREST",
+    label: TYPE_LABEL.VIP_INTEREST,
+    message: `${item.customer.name} 想了解蒸足 VIP 方案，請主動聯絡說明續購優惠`,
+    href: `/dashboard/customers/${item.customer.id}`,
+    actionLabel: "立即跟進",
+    priority: TYPE_PRIORITY.VIP_INTEREST,
+  }));
 
   const payments: StoreTodoItem[] = paymentRaw.map((tx) => ({
     id: `payment:${tx.id}`,
@@ -143,7 +161,7 @@ export async function getStoreTodosForUser(
     priority: TYPE_PRIORITY.LOW_SESSIONS,
   }));
 
-  const allItems = [...payments, ...bookings, ...followUps, ...lowSessions];
+  const allItems = [...vipInterests, ...payments, ...bookings, ...followUps, ...lowSessions];
 
   // 過濾掉當前 user 已 dismiss 的項目（per-user；只查本批 key，避免 table 長期累積拖慢）
   const allKeys = allItems.map((i) => i.id);
@@ -174,6 +192,28 @@ export async function getStoreTodosForUser(
 // ============================================================
 
 type StoreFilter = ReturnType<typeof getStoreFilter>;
+
+async function fetchVipInterests(storeFilter: StoreFilter) {
+  return prisma.sessionBalanceNotification.findMany({
+    where: {
+      ...storeFilter,
+      type: "PLAN_USED_UP",
+      responseAction: "VIP_INTEREST",
+      customer: {
+        mergedIntoCustomerId: null,
+        planWallets: {
+          none: { status: "ACTIVE", remainingSessions: { gt: 0 } },
+        },
+      },
+    },
+    select: {
+      id: true,
+      customer: { select: { id: true, name: true } },
+    },
+    orderBy: { responseAt: "desc" },
+    take: PER_TYPE_FETCH,
+  });
+}
 
 async function fetchPayments(storeFilter: StoreFilter) {
   return prisma.transaction.findMany({
