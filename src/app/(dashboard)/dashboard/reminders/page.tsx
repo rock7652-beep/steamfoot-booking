@@ -212,9 +212,10 @@ export default async function RemindersPage({ searchParams }: PageProps) {
               templates={templates.map((t) => ({ id: t.id, name: t.name }))}
             />
             <SessionBalanceReminderCard
-              key={`${activeStoreId}-session-balance`}
+              key={`${activeStoreId}-session-balance-rules`}
               initialSetting={sessionBalanceSetting}
               canApplyToAllStores={user.role === "ADMIN"}
+              mode="rules"
             />
             {smokeTestContext && (
               <LineSmokeTestCard
@@ -234,7 +235,13 @@ export default async function RemindersPage({ searchParams }: PageProps) {
 
         {/* Templates — denser grid */}
         {activeTab === "templates" && (
-          <section>
+          <section className="space-y-4">
+            <SessionBalanceReminderCard
+              key={`${activeStoreId}-session-balance-templates`}
+              initialSetting={sessionBalanceSetting}
+              canApplyToAllStores={user.role === "ADMIN"}
+              mode="templates"
+            />
             {templates.length === 0 ? (
               <div className="rounded-xl border border-earth-200 bg-white p-8 text-center text-sm text-earth-400">
                 尚未建立訊息模板
