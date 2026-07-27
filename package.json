@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && if [ \"$VERCEL_ENV\" = \"preview\" ]; then prisma migrate deploy; fi && next build",
+    "build": "prisma generate && if [ \"$VERCEL_ENV\" = \"preview\" ]; then prisma migrate resolve --rolled-back 20260727090000_channel_neutral_digital_butler || true; prisma migrate deploy; fi && next build",
     "start": "next start",
     "lint": "eslint",
     "seed": "npx tsx prisma/seed.ts",
