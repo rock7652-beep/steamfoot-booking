@@ -34,6 +34,10 @@ import {
   type AccountSyncStatus,
 } from "@/lib/line-bind-log";
 import { DigitalButlerRuntime } from "@/server/services/digital-butler-runtime";
+import {
+  digitalButlerReplyDiagnostics,
+  sanitizeDigitalButlerReplyMessages,
+} from "@/server/services/digital-butler-line-reply";
 
 export const dynamic = "force-dynamic";
 
@@ -398,8 +402,31 @@ async function replyDigitalButlerMessages(
   result: Awaited<ReturnType<typeof handleDigitalButlerText>>,
 ) {
   if (!result) return;
+  const messages = sanitizeDigitalButlerReplyMessages(result.messages);
+  if (!messages.length) {
+    console.error(JSON.stringify({
+      event: "digital_butler_reply_skipped",
+      storeId,
+      outcome: result.outcome,
+      reason: "no_sendable_messages",
+    }));
+    return;
+  }
+  const diagnostics = digitalButlerReplyDiagnostics(storeId, result.outcome, messages);
   const deliver = async () => {
-    await replyMessage(storeId, replyToken, result.messages);
+    const replyResult = await replyMessage(storeId, replyToken, messages);
+    const fields = {
+      event: "digital_butler_reply",
+      ...diagnostics,
+      success: replyResult.success,
+      httpStatus: replyResult.success ? null : replyResult.httpStatus,
+      errorType: replyResult.success ? null : replyResult.errorType,
+    };
+    if (replyResult.success) {
+      console.info(JSON.stringify(fields));
+    } else {
+      console.error(JSON.stringify(fields));
+    }
   };
   if (result.replyGuard?.requiresActiveConversation) {
     await new DigitalButlerRuntime().deliverReplyIfActive(
