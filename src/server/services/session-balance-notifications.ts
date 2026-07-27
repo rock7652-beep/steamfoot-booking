@@ -141,7 +141,7 @@ function buildMessages(input: {
             action: {
               type: "message",
               label: input.setting.learnMoreButtonLabel,
-              text: "我想了解適合我的方案",
+              text: "了解蒸足 VIP 方案",
             },
           },
           {
@@ -156,6 +156,177 @@ function buildMessages(input: {
       },
     }],
   };
+}
+
+export const SESSION_BALANCE_VIP_COMMAND = "了解蒸足 VIP 方案";
+export const SESSION_BALANCE_LATER_COMMAND = "之後再看看";
+
+export type SessionBalanceResponseResult =
+  | { handled: false }
+  | {
+      handled: true;
+      response: "VIP_INTEREST" | "LATER";
+      customerReply: string;
+    };
+
+export async function handleSessionBalanceLineResponse(input: {
+  storeId: string;
+  lineUserId: string;
+  text: string;
+}): Promise<SessionBalanceResponseResult> {
+  const response =
+    input.text === SESSION_BALANCE_VIP_COMMAND
+      ? "VIP_INTEREST"
+      : input.text === SESSION_BALANCE_LATER_COMMAND
+        ? "LATER"
+        : null;
+  if (!response) return { handled: false };
+
+  const notification = await prisma.sessionBalanceNotification.findFirst({
+    where: {
+      storeId: input.storeId,
+      type: "PLAN_USED_UP",
+      status: "SENT",
+      customer: {
+        lineUserId: input.lineUserId,
+        lineLinkStatus: "LINKED",
+        mergedIntoCustomerId: null,
+      },
+    },
+    orderBy: { sentAt: "desc" },
+    select: {
+      id: true,
+      responseAction: true,
+      customerId: true,
+      customer: {
+        select: {
+          name: true,
+          phone: true,
+          assignedStaffId: true,
+        },
+      },
+      wallet: { select: { plan: { select: { name: true } } } },
+      store: { select: { name: true } },
+    },
+  });
+  if (!notification) return { handled: false };
+
+  const recordedAt = new Date();
+  const mayRecord =
+    !notification.responseAction ||
+    (notification.responseAction === "LATER" && response === "VIP_INTEREST");
+  if (mayRecord) {
+    const recorded = await prisma.sessionBalanceNotification.updateMany({
+      where: {
+        id: notification.id,
+        storeId: input.storeId,
+        responseAction: notification.responseAction,
+      },
+      data: { responseAction: response, responseAt: recordedAt },
+    });
+    if (recorded.count === 1 && response === "VIP_INTEREST") {
+      await notifyManagerOfVipInterest({
+        notificationId: notification.id,
+        storeId: input.storeId,
+        customerId: notification.customerId,
+        customerName: notification.customer.name,
+        customerPhone: notification.customer.phone,
+        assignedStaffId: notification.customer.assignedStaffId,
+        planName: notification.wallet.plan.name,
+        storeName: notification.store.name,
+      });
+    }
+  }
+
+  return {
+    handled: true,
+    response,
+    customerReply:
+      response === "VIP_INTEREST"
+        ? "收到囉 😊\n\n已經幫您通知店長，店長會親自為您說明「蒸足 VIP 方案」的內容與續購優惠，了解後再決定就可以了。"
+        : "好的，沒問題 😊\n\n您可以依照自己的步調安排，不需要有壓力。\n\n之後想繼續保養，或想了解「蒸足 VIP 方案」，隨時傳訊息給我們就可以了。",
+  };
+}
+
+async function notifyManagerOfVipInterest(input: {
+  notificationId: string;
+  storeId: string;
+  customerId: string;
+  customerName: string;
+  customerPhone: string;
+  assignedStaffId: string | null;
+  planName: string;
+  storeName: string;
+}) {
+  const staff = await prisma.staff.findMany({
+    where: {
+      storeId: input.storeId,
+      status: "ACTIVE",
+      ...(input.assignedStaffId
+        ? { OR: [{ id: input.assignedStaffId }, { isOwner: true }] }
+        : { isOwner: true }),
+    },
+    orderBy: [{ isOwner: "desc" }, { createdAt: "asc" }],
+    select: {
+      id: true,
+      user: {
+        select: {
+          accounts: {
+            where: { provider: "line" },
+            select: { providerAccountId: true },
+          },
+        },
+      },
+    },
+  });
+  const managerLineIds = [
+    ...new Set(
+      staff
+        .sort((a, b) =>
+          a.id === input.assignedStaffId
+            ? -1
+            : b.id === input.assignedStaffId
+              ? 1
+              : 0,
+        )
+        .flatMap((item) =>
+          item.user.accounts.map((account) => account.providerAccountId.trim()),
+        ),
+    ),
+  ].filter(Boolean);
+  const managerMessage: LineMessage = {
+    type: "text",
+    text: [
+      "【蒸足 VIP 續購需求】",
+      `分店：${input.storeName}`,
+      `顧客：${input.customerName}`,
+      `電話：${input.customerPhone}`,
+      `原方案：${input.planName}`,
+      "",
+      "顧客已點選「了解蒸足 VIP 方案」，請主動聯絡並說明續購優惠。",
+      `${deriveBaseUrl()}/dashboard/customers/${input.customerId}`,
+    ].join("\n"),
+  };
+
+  let sent = false;
+  let lastError = managerLineIds.length === 0 ? "店長尚未綁定可接收通知的 LINE" : null;
+  for (const managerLineId of managerLineIds) {
+    const result = await pushMessage(input.storeId, managerLineId, [managerMessage]);
+    if (result.success) {
+      sent = true;
+      lastError = null;
+      break;
+    }
+    lastError = result.error ?? "LINE 店長通知失敗";
+  }
+  await prisma.sessionBalanceNotification.update({
+    where: { id: input.notificationId },
+    data: {
+      managerNotificationStatus: sent ? "SENT" : "FAILED",
+      managerNotificationError: lastError,
+      managerNotifiedAt: sent ? new Date() : null,
+    },
+  });
 }
 
 export async function dispatchSessionBalanceNotifications(

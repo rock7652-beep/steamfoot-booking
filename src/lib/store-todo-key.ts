@@ -8,6 +8,7 @@
  *   booking:${bookingId}                         （BOOKING，各自成 bucket）
  *   followup:${customerId}:${lastBookingDate}    （FOLLOW_UP，date 為狀態 token）
  *   lowsessions:${customerId}:${walletToken}     （LOW_SESSIONS，wallet 組成為狀態 token）
+ *   vipinterest:${customerId}:${notificationId}  （VIP_INTEREST，單筆續購意願）
  *
  * FOLLOW_UP / LOW_SESSIONS 內嵌狀態 token：顧客回訪 / 補堂換錢包 →
  * token 變 → key 變 → 舊 TodoDismiss 不再 match → 重新提醒。

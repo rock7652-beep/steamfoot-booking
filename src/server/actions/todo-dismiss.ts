@@ -20,6 +20,7 @@ import { handleActionError } from "@/lib/errors";
 import type { ActionResult } from "@/types";
 
 const VALID_TODO_TYPES = [
+  "VIP_INTEREST",
   "PAYMENT",
   "BOOKING",
   "FOLLOW_UP",

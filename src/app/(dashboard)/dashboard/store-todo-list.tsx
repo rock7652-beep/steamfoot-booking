@@ -9,6 +9,7 @@ import { dismissTodoFormAction } from "@/server/actions/todo-dismiss";
 const DEFAULT_VISIBLE = 5;
 
 const TYPE_BADGE: Record<StoreTodoType, string> = {
+  VIP_INTEREST: "bg-emerald-100 text-emerald-800",
   PAYMENT: "bg-amber-100 text-amber-800",
   BOOKING: "bg-blue-100 text-blue-800",
   FOLLOW_UP: "bg-earth-100 text-earth-700",
