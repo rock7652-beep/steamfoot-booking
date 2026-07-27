@@ -20,6 +20,7 @@ import {
 } from "@/lib/shop-config";
 import { isStoreSubscriptionWriteBlocked } from "@/lib/subscription-guard";
 import { isStoreBookable } from "@/lib/store-operating-status";
+import { notifyManagerOfPublicTrialBooking } from "@/server/services/public-trial-manager-notification";
 import { ensureTrialPlan } from "@/server/services/trial-plan";
 import type { SlotAvailability } from "@/types";
 
@@ -337,6 +338,17 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
     );
 
     if (!booking) return { status: "slot_full" };
+    await notifyManagerOfPublicTrialBooking({
+      storeId: store.id,
+      storeSlug: store.slug,
+      bookingId: booking.id,
+      customerName: data.name,
+      phone: data.phone,
+      bookingDate: data.bookingDate,
+      slotTime: data.slotTime,
+      people: data.people,
+      expectedAmount,
+    });
     return {
       status: "ok",
       bookingId: booking.id,
