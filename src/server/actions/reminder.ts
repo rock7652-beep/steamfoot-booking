@@ -397,6 +397,131 @@ function sessionBalanceSettingData(data: SessionBalanceSettingInput) {
   };
 }
 
+const sessionBalanceRuleSettingSchema = sessionBalanceSettingSchema.pick({
+  isEnabled: true,
+  lastSessionEnabled: true,
+  planUsedUpEnabled: true,
+});
+
+const sessionBalanceTemplateSettingSchema = sessionBalanceSettingSchema.pick({
+  lastSessionUnbookedTemplate: true,
+  lastSessionBookedTemplate: true,
+  planUsedUpTemplate: true,
+  learnMoreButtonLabel: true,
+  laterButtonLabel: true,
+}).superRefine((data, ctx) => {
+  const required = [
+    { field: "lastSessionUnbookedTemplate" as const, variables: ["{customerName}", "{planName}", "{bookingUrl}"] },
+    { field: "lastSessionBookedTemplate" as const, variables: ["{customerName}", "{planName}", "{bookingDateTime}"] },
+    { field: "planUsedUpTemplate" as const, variables: ["{customerName}", "{planName}"] },
+  ];
+  for (const requirement of required) {
+    for (const variable of requirement.variables) {
+      if (!data[requirement.field].includes(variable)) {
+        ctx.addIssue({
+          code: "custom",
+          path: [requirement.field],
+          message: `必須保留變數 ${variable}`,
+        });
+      }
+    }
+  }
+});
+
+export async function saveSessionBalanceRuleSetting(
+  input: z.input<typeof sessionBalanceRuleSettingSchema>,
+): Promise<ActionResult<void>> {
+  try {
+    const user = await requirePermission("business_hours.manage");
+    const storeId = await resolveWriteStoreId(user);
+    await requireStoreFeature(storeId, FEATURES.LINE_REMINDER);
+    const data = sessionBalanceRuleSettingSchema.parse(input);
+    await prisma.sessionBalanceNotificationSetting.upsert({
+      where: { storeId },
+      create: {
+        storeId,
+        ...DEFAULT_SESSION_BALANCE_NOTIFICATION_SETTING,
+        ...data,
+      },
+      update: data,
+    });
+    revalidatePath("/dashboard/reminders");
+    return { success: true, data: undefined };
+  } catch (e) {
+    return handleActionError(e);
+  }
+}
+
+export async function saveSessionBalanceTemplateSetting(
+  input: z.input<typeof sessionBalanceTemplateSettingSchema>,
+): Promise<ActionResult<void>> {
+  try {
+    const user = await requirePermission("business_hours.manage");
+    const storeId = await resolveWriteStoreId(user);
+    await requireStoreFeature(storeId, FEATURES.LINE_REMINDER);
+    const data = sessionBalanceTemplateSettingSchema.parse(input);
+    await prisma.sessionBalanceNotificationSetting.upsert({
+      where: { storeId },
+      create: {
+        storeId,
+        ...DEFAULT_SESSION_BALANCE_NOTIFICATION_SETTING,
+        ...data,
+      },
+      update: data,
+    });
+    revalidatePath("/dashboard/reminders");
+    return { success: true, data: undefined };
+  } catch (e) {
+    return handleActionError(e);
+  }
+}
+
+export async function applySessionBalanceRulesToAllStores(
+  input: z.input<typeof sessionBalanceRuleSettingSchema>,
+): Promise<ActionResult<{ storeCount: number }>> {
+  try {
+    await requireAdminSession();
+    const data = sessionBalanceRuleSettingSchema.parse(input);
+    const storeIds = await getAllActiveStoreIds();
+    await prisma.$transaction(
+      storeIds.map((storeId) =>
+        prisma.sessionBalanceNotificationSetting.upsert({
+          where: { storeId },
+          create: { storeId, ...DEFAULT_SESSION_BALANCE_NOTIFICATION_SETTING, ...data },
+          update: data,
+        }),
+      ),
+    );
+    revalidatePath("/dashboard/reminders");
+    return { success: true, data: { storeCount: storeIds.length } };
+  } catch (e) {
+    return handleActionError(e);
+  }
+}
+
+export async function applySessionBalanceTemplatesToAllStores(
+  input: z.input<typeof sessionBalanceTemplateSettingSchema>,
+): Promise<ActionResult<{ storeCount: number }>> {
+  try {
+    await requireAdminSession();
+    const data = sessionBalanceTemplateSettingSchema.parse(input);
+    const storeIds = await getAllActiveStoreIds();
+    await prisma.$transaction(
+      storeIds.map((storeId) =>
+        prisma.sessionBalanceNotificationSetting.upsert({
+          where: { storeId },
+          create: { storeId, ...DEFAULT_SESSION_BALANCE_NOTIFICATION_SETTING, ...data },
+          update: data,
+        }),
+      ),
+    );
+    revalidatePath("/dashboard/reminders");
+    return { success: true, data: { storeCount: storeIds.length } };
+  } catch (e) {
+    return handleActionError(e);
+  }
+}
+
 export async function saveSessionBalanceNotificationSetting(
   input: SessionBalanceSettingInput,
 ): Promise<ActionResult<void>> {
