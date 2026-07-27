@@ -19,6 +19,7 @@
       }
     ],
     "paths": {
+      "@/server/actions/wallet": ["./src/server/actions/wallet-with-notifications.ts"],
       "@/*": ["./src/*"]
     }
   },
