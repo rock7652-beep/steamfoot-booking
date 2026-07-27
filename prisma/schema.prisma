@@ -2129,17 +2129,22 @@ model MessageLog {
 // ============================================================
 
 model SessionBalanceNotification {
-  id           String                         @id @default(cuid())
-  storeId      String
-  customerId   String
-  walletId     String
-  type         SessionBalanceNotificationType
-  status       MessageLogStatus               @default(PENDING)
-  renderedBody String?
-  errorMessage String?
-  sentAt       DateTime?
-  createdAt    DateTime                       @default(now())
-  updatedAt    DateTime                       @updatedAt
+  id                        String                         @id @default(cuid())
+  storeId                   String
+  customerId                String
+  walletId                  String
+  type                      SessionBalanceNotificationType
+  status                    MessageLogStatus               @default(PENDING)
+  renderedBody              String?
+  errorMessage              String?
+  sentAt                    DateTime?
+  responseAction            String?
+  responseAt                DateTime?
+  managerNotificationStatus MessageLogStatus?
+  managerNotificationError  String?
+  managerNotifiedAt         DateTime?
+  createdAt                 DateTime                       @default(now())
+  updatedAt                 DateTime                       @updatedAt
 
   store    Store              @relation(fields: [storeId], references: [id])
   customer Customer           @relation(fields: [customerId], references: [id])
@@ -2147,6 +2152,7 @@ model SessionBalanceNotification {
 
   @@unique([walletId, type], map: "uniq_wallet_session_balance_notification")
   @@index([storeId, status])
+  @@index([storeId, responseAction, responseAt])
   @@index([customerId])
 }
 
