@@ -46,6 +46,10 @@ import {
   createBookingCompletedEvent,
 } from "@/server/services/referral-events";
 import { awardFirstBookingReferralPointsIfEligible } from "@/server/services/referral-points";
+import {
+  dispatchSessionBalanceNotifications,
+  enqueueSessionBalanceNotifications,
+} from "@/server/services/session-balance-notifications";
 import { requireCustomerBookingEligibility } from "@/lib/customer-booking-eligibility";
 import {
   acquireBookingSlotLocks,
@@ -1178,6 +1182,7 @@ export async function markCompleted(
       attendedPeopleToWrite = data.attendedPeople;
     }
 
+    let sessionBalanceNotificationIds: string[] = [];
     await prisma.$transaction(async (tx) => {
       // 1. 標記出席
       await tx.booking.update({
@@ -1198,6 +1203,7 @@ export async function markCompleted(
       // 每堂可能來自不同 wallet（FEFO split），SESSION_DEDUCTION 對應寫入。
       const wallet = booking.customerPlanWallet;
       if (wallet) {
+        const touchedWalletIds = new Set<string>();
         // 優先走單堂明細：RESERVED → COMPLETED（同步所有觸及 wallet 的 counter / status）
         const { completed, items } = await completeSessions(
           tx,
@@ -1213,6 +1219,7 @@ export async function markCompleted(
           // 每個 session row 各寫 1 筆 SESSION_DEDUCTION，customerPlanWalletId 對應該 session 所屬 wallet
           // (multi-wallet FEFO split：可能來自不同 wallet)
           for (const it of items) {
+            touchedWalletIds.add(it.walletId);
             await tx.transaction.create({
               data: {
                 customerId: booking.customerId,
@@ -1233,6 +1240,7 @@ export async function markCompleted(
         } else {
           // Fallback：legacy wallet 無 ledger row → 沿用 counter 邏輯，全扣到 primary wallet
           if (fallbackWalletPeople > 0) {
+            touchedWalletIds.add(wallet.id);
             const newRemaining = Math.max(
               0,
               wallet.remainingSessions - fallbackWalletPeople,
@@ -1276,6 +1284,15 @@ export async function markCompleted(
             data: { customerStage: "INACTIVE", selfBookingEnabled: false },
           });
         }
+
+        sessionBalanceNotificationIds = await enqueueSessionBalanceNotifications(
+          tx,
+          {
+            walletIds: [...touchedWalletIds],
+            customerId: booking.customerId,
+            storeId: booking.storeId,
+          },
+        );
       }
       // 🆕 自動給分：出席 +5（在同一事務內）
       try {
@@ -1301,6 +1318,9 @@ export async function markCompleted(
         tx,
       });
     });
+
+    // 通知失敗不得回滾已完成的服務；唯一鍵確保同方案同階段最多一次。
+    await dispatchSessionBalanceNotifications(sessionBalanceNotificationIds);
 
     // BOOKING_COMPLETED 事件埋點（交易外 fire-and-forget；埋點失敗不回滾業務）
     try {
