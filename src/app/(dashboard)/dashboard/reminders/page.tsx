@@ -20,6 +20,8 @@ import {
   getStoreReminderState,
   getTodayCronRunStatus,
   getLineSmokeTestContext,
+  getSessionBalanceNotificationSetting,
+  listSessionBalanceNotificationLogs,
 } from "@/server/queries/reminder";
 import { getCurrentLineOfficialAccountStatus } from "@/server/actions/line-official-accounts";
 import { isLineSmokeTestEnabled } from "@/lib/line-config";
@@ -28,6 +30,7 @@ import { CreateTemplateForm } from "./create-template-form";
 import { CronRunBanner } from "./cron-run-banner";
 import { LineSmokeTestCard } from "./line-smoke-test-card";
 import { StoreLineHealthCard } from "./store-line-health-card";
+import { SessionBalanceReminderCard } from "./session-balance-reminder-card";
 
 const LOG_STATUS_LABEL: Record<string, string> = {
   PENDING: "待發送",
@@ -77,11 +80,14 @@ export default async function RemindersPage({ searchParams }: PageProps) {
     );
   }
 
-  const [plan, lineReminderEnabled, canManageLineHealth] = await Promise.all([
+  const [plan, lineReminderEnabled, canManageReminders] = await Promise.all([
     getCurrentStorePlan(),
     hasStoreFeature(activeStoreId, FEATURES.LINE_REMINDER),
     checkPermission(user.role, user.staffId, "business_hours.manage"),
   ]);
+  if (!canManageReminders) {
+    redirect("/dashboard");
+  }
   if (!lineReminderEnabled) {
     return (
       <FeatureGate plan={plan} feature={FEATURES.LINE_REMINDER} enabled={false}>
@@ -93,27 +99,38 @@ export default async function RemindersPage({ searchParams }: PageProps) {
   const activeTab = params.tab ?? "rules";
   const smokeTestEnabled = isLineSmokeTestEnabled();
 
-  const [stats, templates, cronStatus, reminderState] = await Promise.all([
+  const [stats, templates, cronStatus, reminderState, sessionBalanceSetting] = await Promise.all([
     getReminderStats(activeStoreId),
     listMessageTemplates(activeStoreId),
     getTodayCronRunStatus(),
     getStoreReminderState(activeStoreId),
+    getSessionBalanceNotificationSetting(activeStoreId),
   ]);
   const smokeTestContext = smokeTestEnabled
     ? await getLineSmokeTestContext(activeStoreId)
     : null;
-  const lineHealthStatus = canManageLineHealth
-    ? await getCurrentLineOfficialAccountStatus().catch(() => null)
-    : null;
+  const lineHealthStatus =
+    await getCurrentLineOfficialAccountStatus().catch(() => null);
 
-  const logsData = activeTab === "logs"
-    ? await listMessageLogs({
-        status: params.status,
-        search: params.search,
-        page: Number(params.page ?? 1),
-        activeStoreId,
-      })
-    : { logs: [], total: 0, pageSize: 30 };
+  const [logsData, sessionBalanceLogsData] = activeTab === "logs"
+    ? await Promise.all([
+        listMessageLogs({
+          status: params.status,
+          search: params.search,
+          page: Number(params.page ?? 1),
+          activeStoreId,
+        }),
+        listSessionBalanceNotificationLogs({
+          status: params.status,
+          search: params.search,
+          page: Number(params.page ?? 1),
+          activeStoreId,
+        }),
+      ])
+    : [
+        { logs: [], total: 0, pageSize: 30 },
+        { logs: [], total: 0, pageSize: 30 },
+      ];
 
   // 「今日待發送」KPI 已移除：18:00 後寫死 0 會讓 cron 沒跑被誤判正常（2026-05-24 事故）。
   // 改由頂部 CronRunBanner 顯示「今日批次有沒有跑 + 結果」這個唯一可信訊號（durable record）。
@@ -193,6 +210,11 @@ export default async function RemindersPage({ searchParams }: PageProps) {
               initialEnabled={reminderState.enabled}
               initialTemplateId={reminderState.canonicalTemplateId}
               templates={templates.map((t) => ({ id: t.id, name: t.name }))}
+            />
+            <SessionBalanceReminderCard
+              key={`${activeStoreId}-session-balance`}
+              initialSetting={sessionBalanceSetting}
+              canApplyToAllStores={user.role === "ADMIN"}
             />
             {smokeTestContext && (
               <LineSmokeTestCard
@@ -285,7 +307,7 @@ export default async function RemindersPage({ searchParams }: PageProps) {
                 篩選
               </button>
               <span className="ml-auto text-[11px] text-earth-400">
-                共 {logsData.total} 筆
+                共 {logsData.total + sessionBalanceLogsData.total} 筆
               </span>
             </form>
 
@@ -353,9 +375,82 @@ export default async function RemindersPage({ searchParams }: PageProps) {
               </table>
             </div>
 
-            {logsData.total > logsData.pageSize && (
+            <div className="overflow-x-auto rounded-xl border border-earth-200 bg-white shadow-sm">
+              <div className="border-b border-earth-100 px-3 py-2">
+                <h3 className="text-sm font-semibold text-earth-800">
+                  剩餘堂數與續購提醒
+                </h3>
+              </div>
+              <table className="w-full text-sm">
+                <thead className="bg-earth-50 text-[11px] font-medium text-earth-500">
+                  <tr>
+                    <th className="px-3 py-2 text-left">發送時間</th>
+                    <th className="px-3 py-2 text-left">顧客</th>
+                    <th className="px-3 py-2 text-left">提醒類型</th>
+                    <th className="px-3 py-2 text-left">方案</th>
+                    <th className="px-3 py-2 text-left">狀態</th>
+                    <th className="px-3 py-2 text-left">失敗／跳過原因</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-earth-100">
+                  {sessionBalanceLogsData.logs.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-3 py-8 text-center text-earth-400">
+                        尚無剩餘堂數提醒紀錄
+                      </td>
+                    </tr>
+                  ) : (
+                    sessionBalanceLogsData.logs.map((log) => (
+                      <tr key={log.id} className="h-11 hover:bg-primary-50/40">
+                        <td className="px-3 text-[13px] text-earth-600">
+                          {new Date(log.sentAt ?? log.createdAt).toLocaleString("zh-TW", {
+                            timeZone: "Asia/Taipei",
+                          })}
+                        </td>
+                        <td className="px-3">
+                          <Link
+                            href={`/dashboard/customers/${log.customer.id}`}
+                            className="text-primary-600 hover:underline"
+                          >
+                            {log.customer.name}
+                          </Link>
+                        </td>
+                        <td className="px-3 text-[13px] text-earth-600">
+                          {log.type === "LAST_SESSION" ? "剩餘 1 堂" : "方案已用完"}
+                        </td>
+                        <td className="px-3 text-[13px] text-earth-600">
+                          {log.wallet.plan.name}
+                        </td>
+                        <td className="px-3">
+                          <span
+                            className={`rounded px-1.5 py-0.5 text-[11px] font-medium ${
+                              LOG_STATUS_COLOR[log.status] ?? ""
+                            }`}
+                          >
+                            {LOG_STATUS_LABEL[log.status] ?? log.status}
+                          </span>
+                        </td>
+                        <td className="px-3 text-[11px] text-red-500">
+                          {log.errorMessage ?? "—"}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {Math.max(logsData.total, sessionBalanceLogsData.total) >
+              logsData.pageSize && (
               <div className="flex justify-center gap-1">
-                {Array.from({ length: Math.ceil(logsData.total / logsData.pageSize) }, (_, i) => (
+                {Array.from(
+                  {
+                    length: Math.ceil(
+                      Math.max(logsData.total, sessionBalanceLogsData.total) /
+                        logsData.pageSize,
+                    ),
+                  },
+                  (_, i) => (
                   <Link
                     key={i}
                     href={`/dashboard/reminders?tab=logs&page=${i + 1}${params.status ? `&status=${params.status}` : ""}${params.search ? `&search=${params.search}` : ""}`}
@@ -367,7 +462,8 @@ export default async function RemindersPage({ searchParams }: PageProps) {
                   >
                     {i + 1}
                   </Link>
-                ))}
+                  ),
+                )}
               </div>
             )}
           </section>
