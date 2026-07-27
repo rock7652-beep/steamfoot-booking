@@ -283,6 +283,11 @@ enum MessageLogStatus {
   SKIPPED
 }
 
+enum SessionBalanceNotificationType {
+  LAST_SESSION
+  PLAN_USED_UP
+}
+
 enum SpaceFeeStatus {
   PENDING
   PAID
@@ -624,6 +629,7 @@ model Store {
   makeupCredits                   MakeupCredit[]
   spaceFeeRecords                 SpaceFeeRecord[]
   messageLogs                     MessageLog[]
+  sessionBalanceNotifications     SessionBalanceNotification[]
   talentStageLogs                 TalentStageLog[]
   customerFollowUps               CustomerFollowUp[]
   referrals                       Referral[]
@@ -1027,8 +1033,9 @@ model Customer {
   referralEventsAsReferrer ReferralEvent[] @relation("ReferralEventReferrer")
 
   // 課程錢包
-  planWallets             CustomerPlanWallet[]
-  bookingRecurrenceGroups BookingRecurrenceGroup[]
+  planWallets                 CustomerPlanWallet[]
+  sessionBalanceNotifications SessionBalanceNotification[]
+  bookingRecurrenceGroups     BookingRecurrenceGroup[]
 
   // 預約
   bookings Booking[]
@@ -1432,7 +1439,8 @@ model CustomerPlanWallet {
   transactions Transaction[]
 
   // 單堂明細（每張錢包 totalSessions 個 row）
-  sessions WalletSession[]
+  sessions                    WalletSession[]
+  sessionBalanceNotifications SessionBalanceNotification[]
 
   @@index([storeId])
   @@index([customerId])
@@ -2101,6 +2109,32 @@ model MessageLog {
   @@index([storeId])
   @@index([lineRoute])
   @@index([createdAt])
+}
+
+// ============================================================
+// SessionBalanceNotification（剩餘堂數／續購通知）
+// ============================================================
+
+model SessionBalanceNotification {
+  id           String                         @id @default(cuid())
+  storeId      String
+  customerId   String
+  walletId     String
+  type         SessionBalanceNotificationType
+  status       MessageLogStatus               @default(PENDING)
+  renderedBody String?
+  errorMessage String?
+  sentAt       DateTime?
+  createdAt    DateTime                       @default(now())
+  updatedAt    DateTime                       @updatedAt
+
+  store    Store              @relation(fields: [storeId], references: [id])
+  customer Customer           @relation(fields: [customerId], references: [id])
+  wallet   CustomerPlanWallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@unique([walletId, type], map: "uniq_wallet_session_balance_notification")
+  @@index([storeId, status])
+  @@index([customerId])
 }
 
 // ============================================================
