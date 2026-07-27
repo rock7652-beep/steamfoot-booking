@@ -1,6 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import {
+  createDigitalButlerPublishDiagnosticId,
+  logDigitalButlerPublishFailure,
+} from "@/lib/digital-butler-publish-diagnostics";
 import { digitalButlerPublishErrorMessage } from "@/lib/digital-butler-publish-error";
 import { requirePermission } from "@/lib/permissions";
 import { getActiveStoreForRead } from "@/lib/store";
@@ -58,13 +62,19 @@ export async function saveDigitalButlerFlowAction(input: {
 }
 
 export async function publishDigitalButlerFlowAction(flowId: string): Promise<ActionResult> {
+  let storeId: string | null = null;
   try {
-    const storeId = await writableStoreId();
+    storeId = await writableStoreId();
     await new DigitalButlerService().publishFlow(storeId, flowId);
     revalidatePath("/dashboard/settings/digital-butler");
     return { success: true };
   } catch (error) {
-    return { success: false, error: digitalButlerPublishErrorMessage(error) };
+    const diagnosticId = createDigitalButlerPublishDiagnosticId();
+    logDigitalButlerPublishFailure({ diagnosticId, storeId, flowId, error });
+    return {
+      success: false,
+      error: `${digitalButlerPublishErrorMessage(error)}\n診斷代碼：${diagnosticId}`,
+    };
   }
 }
 

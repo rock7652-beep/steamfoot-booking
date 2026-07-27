@@ -11,5 +11,5 @@ export function digitalButlerPublishErrorMessage(error: unknown): string {
     }
     return `流程發布的資料庫操作失敗（${error.code}）。`;
   }
-  return error instanceof Error ? error.message : "操作失敗";
+  return "數位管家發布失敗，請稍後再試。";
 }
