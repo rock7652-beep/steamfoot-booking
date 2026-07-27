@@ -6,6 +6,10 @@ const h = vi.hoisted(() => ({
   stepFindFirst: vi.fn(),
   answerUpsert: vi.fn(),
   leadUpsert: vi.fn(),
+  flowUpdateMany: vi.fn(),
+  flowVersionAggregate: vi.fn(),
+  flowVersionCreate: vi.fn(),
+  flowUpdate: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -33,6 +37,8 @@ describe("DigitalButlerRepository cross-store isolation", () => {
       digitalButlerStep: { findFirst: h.stepFindFirst },
       digitalButlerAnswer: { upsert: h.answerUpsert },
       digitalButlerLead: { upsert: h.leadUpsert },
+      storeDigitalButlerFlow: { updateMany: h.flowUpdateMany, update: h.flowUpdate },
+      digitalButlerFlowVersion: { aggregate: h.flowVersionAggregate, create: h.flowVersionCreate },
     }));
   });
 
@@ -71,5 +77,32 @@ describe("DigitalButlerRepository cross-store isolation", () => {
       completionActionKey: "complete", submittedAnswers: { mobile: "0912345678" },
     })).rejects.toThrow("DIGITAL_BUTLER_SENSITIVE_ANSWER_JSON_REJECTED");
     expect(h.transaction).not.toHaveBeenCalled();
+  });
+
+  it("locks the scoped flow before allocating the next published version", async () => {
+    h.flowUpdateMany.mockResolvedValue({ count: 1 });
+    h.flowVersionAggregate.mockResolvedValue({ _max: { version: 5 } });
+    h.flowVersionCreate.mockResolvedValue({ id: "version-6", version: 6 });
+    h.flowUpdate.mockResolvedValue({});
+
+    const repository = new DigitalButlerRepository();
+    await repository.publishFlow({
+      storeId: "store-a",
+      flowId: "flow-a",
+      definition: { trigger: { keywords: ["測試"] }, steps: [] },
+      steps: [],
+    });
+
+    expect(h.flowUpdateMany).toHaveBeenCalledWith({
+      where: { id: "flow-a", storeId: "store-a", status: { not: "ARCHIVED" } },
+      data: { updatedAt: expect.any(Date) },
+    });
+    expect(h.flowVersionAggregate).toHaveBeenCalledWith({
+      where: { flowId: "flow-a", storeId: "store-a" },
+      _max: { version: true },
+    });
+    expect(h.flowVersionCreate).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ flowId: "flow-a", version: 6 }),
+    }));
   });
 });

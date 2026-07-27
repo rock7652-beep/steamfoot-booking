@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { digitalButlerPublishErrorMessage } from "@/lib/digital-butler-publish-error";
 import { requirePermission } from "@/lib/permissions";
 import { getActiveStoreForRead } from "@/lib/store";
 import { DigitalButlerService } from "@/server/services/digital-butler";
@@ -63,7 +64,7 @@ export async function publishDigitalButlerFlowAction(flowId: string): Promise<Ac
     revalidatePath("/dashboard/settings/digital-butler");
     return { success: true };
   } catch (error) {
-    return { success: false, error: message(error) };
+    return { success: false, error: digitalButlerPublishErrorMessage(error) };
   }
 }
 
