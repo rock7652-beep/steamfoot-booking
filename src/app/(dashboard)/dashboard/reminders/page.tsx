@@ -31,6 +31,8 @@ import { CronRunBanner } from "./cron-run-banner";
 import { LineSmokeTestCard } from "./line-smoke-test-card";
 import { StoreLineHealthCard } from "./store-line-health-card";
 import { SessionBalanceReminderCard } from "./session-balance-reminder-card";
+import { LineNotificationRecipientsCard } from "./line-notification-recipients-card";
+import { listStoreLineNotificationRecipients } from "@/server/actions/store-line-notification-recipients";
 
 const LOG_STATUS_LABEL: Record<string, string> = {
   PENDING: "待發送",
@@ -99,12 +101,13 @@ export default async function RemindersPage({ searchParams }: PageProps) {
   const activeTab = params.tab ?? "rules";
   const smokeTestEnabled = isLineSmokeTestEnabled();
 
-  const [stats, templates, cronStatus, reminderState, sessionBalanceSetting] = await Promise.all([
+  const [stats, templates, cronStatus, reminderState, sessionBalanceSetting, notificationRecipients] = await Promise.all([
     getReminderStats(activeStoreId),
     listMessageTemplates(activeStoreId),
     getTodayCronRunStatus(),
     getStoreReminderState(activeStoreId),
     getSessionBalanceNotificationSetting(activeStoreId),
+    listStoreLineNotificationRecipients(),
   ]);
   const smokeTestContext = smokeTestEnabled
     ? await getLineSmokeTestContext(activeStoreId)
@@ -205,6 +208,7 @@ export default async function RemindersPage({ searchParams }: PageProps) {
         {/* 提醒設定 — 單一「明日預約提醒」開關 */}
         {activeTab === "rules" && (
           <section className="space-y-4">
+            <LineNotificationRecipientsCard recipients={notificationRecipients} />
             <ReminderCard
               key={activeStoreId}
               initialEnabled={reminderState.enabled}

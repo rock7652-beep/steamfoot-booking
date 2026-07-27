@@ -258,40 +258,49 @@ async function notifyManagerOfVipInterest(input: {
   planName: string;
   storeName: string;
 }) {
-  const staff = await prisma.staff.findMany({
-    where: {
-      storeId: input.storeId,
-      status: "ACTIVE",
-      ...(input.assignedStaffId
-        ? { OR: [{ id: input.assignedStaffId }, { isOwner: true }] }
-        : { isOwner: true }),
-    },
-    orderBy: [{ isOwner: "desc" }, { createdAt: "asc" }],
-    select: {
-      id: true,
-      user: {
-        select: {
-          accounts: {
-            where: { provider: "line" },
-            select: { providerAccountId: true },
+  const [staff, configuredRecipients] = await Promise.all([
+    prisma.staff.findMany({
+      where: {
+        storeId: input.storeId,
+        status: "ACTIVE",
+        ...(input.assignedStaffId
+          ? { OR: [{ id: input.assignedStaffId }, { isOwner: true }] }
+          : { isOwner: true }),
+      },
+      orderBy: [{ isOwner: "desc" }, { createdAt: "asc" }],
+      select: {
+        id: true,
+        user: {
+          select: {
+            accounts: {
+              where: { provider: "line" },
+              select: { providerAccountId: true },
+            },
           },
         },
       },
-    },
-  });
+    }),
+    prisma.storeLineNotificationRecipient.findMany({
+      where: { storeId: input.storeId, isActive: true, lineUserId: { not: null } },
+      select: { lineUserId: true },
+    }),
+  ]);
   const managerLineIds = [
     ...new Set(
-      staff
-        .sort((a, b) =>
-          a.id === input.assignedStaffId
-            ? -1
-            : b.id === input.assignedStaffId
-              ? 1
-              : 0,
-        )
-        .flatMap((item) =>
-          item.user.accounts.map((account) => account.providerAccountId.trim()),
-        ),
+      [
+        ...configuredRecipients.flatMap((item) => item.lineUserId ? [item.lineUserId] : []),
+        ...staff
+          .sort((a, b) =>
+            a.id === input.assignedStaffId
+              ? -1
+              : b.id === input.assignedStaffId
+                ? 1
+                : 0,
+          )
+          .flatMap((item) =>
+            item.user.accounts.map((account) => account.providerAccountId.trim()),
+          ),
+      ],
     ),
   ].filter(Boolean);
   const managerMessage: LineMessage = {
@@ -315,7 +324,7 @@ async function notifyManagerOfVipInterest(input: {
     if (result.success) {
       sent = true;
       lastError = null;
-      break;
+      continue;
     }
     lastError = result.error ?? "LINE 店長通知失敗";
   }
@@ -323,7 +332,7 @@ async function notifyManagerOfVipInterest(input: {
     where: { id: input.notificationId },
     data: {
       managerNotificationStatus: sent ? "SENT" : "FAILED",
-      managerNotificationError: lastError,
+      managerNotificationError: sent ? null : lastError,
       managerNotifiedAt: sent ? new Date() : null,
     },
   });

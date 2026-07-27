@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { findFirst, updateMany, update, staffFindMany, pushMessage } = vi.hoisted(
+const { findFirst, updateMany, update, staffFindMany, recipientFindMany, pushMessage } = vi.hoisted(
   () => ({
     findFirst: vi.fn(),
     updateMany: vi.fn(),
     update: vi.fn(),
     staffFindMany: vi.fn(),
+    recipientFindMany: vi.fn(),
     pushMessage: vi.fn(),
   }),
 );
@@ -14,6 +15,7 @@ vi.mock("@/lib/db", () => ({
   prisma: {
     sessionBalanceNotification: { findFirst, updateMany, update },
     staff: { findMany: staffFindMany },
+    storeLineNotificationRecipient: { findMany: recipientFindMany },
   },
 }));
 vi.mock("@/lib/line", () => ({
@@ -57,6 +59,7 @@ describe("session balance LINE response closure", () => {
         user: { accounts: [{ providerAccountId: "U-manager" }] },
       },
     ]);
+    recipientFindMany.mockResolvedValue([]);
     pushMessage.mockResolvedValue({ success: true });
   });
 

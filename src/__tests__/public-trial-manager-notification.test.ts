@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const notifyStoreManagerOnLine = vi.fn();
+const { notifyStoreManagerOnLine } = vi.hoisted(() => ({
+  notifyStoreManagerOnLine: vi.fn(),
+}));
 
 vi.mock("@/server/services/store-manager-line-notifications", () => ({
   notifyStoreManagerOnLine,

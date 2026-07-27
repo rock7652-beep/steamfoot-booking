@@ -1,9 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const pushMessage = vi.fn();
+const { pushMessage, recipientFindMany } = vi.hoisted(() => ({
+  pushMessage: vi.fn(),
+  recipientFindMany: vi.fn(),
+}));
 
 vi.mock("@/lib/base-url", () => ({ deriveBaseUrl: () => "https://www.steamfoot.com" }));
 vi.mock("@/lib/line", () => ({ pushMessage }));
+vi.mock("@/lib/db", () => ({
+  prisma: { storeLineNotificationRecipient: { findMany: recipientFindMany } },
+}));
 
 import {
   buildStoreManagerNotificationMessage,
@@ -15,6 +21,7 @@ describe("store manager LINE notifications", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     delete process.env.LINE_MANAGER_USER_ID_ZHUBEI;
+    recipientFindMany.mockResolvedValue([]);
   });
 
   it("resolves one store-scoped manager recipient", () => {
@@ -81,12 +88,35 @@ describe("store manager LINE notifications", () => {
       lastFourDigits: "1234",
     });
 
-    expect(result).toEqual({ status: "sent" });
+    expect(result).toEqual({ status: "sent", sentCount: 1, failedCount: 0 });
     expect(pushMessage).toHaveBeenCalledWith(
       "store_1",
       "Umanager123",
       [expect.objectContaining({ type: "text", text: expect.stringContaining("💰 等待確認入帳") })],
     );
+  });
+
+  it("notifies every active recipient in the same store", async () => {
+    recipientFindMany.mockResolvedValue([
+      { lineUserId: "Uowner" },
+      { lineUserId: "Upartner" },
+    ]);
+    pushMessage.mockResolvedValue({ success: true });
+
+    const result = await notifyStoreManagerOnLine({
+      type: "DIGITAL_BUTLER_LEAD_CREATED",
+      eventKey: "lead:lead_1",
+      storeId: "store_1",
+      storeSlug: "zhubei",
+      customerName: "王小美",
+      phone: "0912345678",
+      leadId: "lead_1",
+    });
+
+    expect(result).toEqual({ status: "sent", sentCount: 2, failedCount: 0 });
+    expect(pushMessage).toHaveBeenCalledTimes(2);
+    expect(pushMessage).toHaveBeenCalledWith("store_1", "Uowner", expect.any(Array));
+    expect(pushMessage).toHaveBeenCalledWith("store_1", "Upartner", expect.any(Array));
   });
 
   it("returns failed without throwing into the business flow", async () => {
