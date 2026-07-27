@@ -20,6 +20,9 @@ describe("Digital Butler channel-neutral migration", () => {
 
   it("scopes active identities by store, provider, channel account, and sender hash", () => {
     expect(migration).toContain(
+      'DROP INDEX IF EXISTS "DigitalButlerConversation_one_active_identity_key"',
+    );
+    expect(migration).toContain(
       'ON "DigitalButlerConversation"("storeId", "provider", "channelAccountId", "senderIdHash")',
     );
     expect(migration).toContain(`WHERE "status" IN ('IN_PROGRESS', 'WAITING_INPUT')`);
