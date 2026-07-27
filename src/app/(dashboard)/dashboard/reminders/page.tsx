@@ -396,13 +396,14 @@ export default async function RemindersPage({ searchParams }: PageProps) {
                     <th className="px-3 py-2 text-left">提醒類型</th>
                     <th className="px-3 py-2 text-left">方案</th>
                     <th className="px-3 py-2 text-left">狀態</th>
+                    <th className="px-3 py-2 text-left">顧客回覆</th>
                     <th className="px-3 py-2 text-left">失敗／跳過原因</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-earth-100">
                   {sessionBalanceLogsData.logs.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-3 py-8 text-center text-earth-400">
+                      <td colSpan={7} className="px-3 py-8 text-center text-earth-400">
                         尚無剩餘堂數提醒紀錄
                       </td>
                     </tr>
@@ -437,8 +438,17 @@ export default async function RemindersPage({ searchParams }: PageProps) {
                             {LOG_STATUS_LABEL[log.status] ?? log.status}
                           </span>
                         </td>
+                        <td className="px-3 text-[11px] text-earth-600">
+                          {log.responseAction === "VIP_INTEREST"
+                            ? "想了解 VIP 方案"
+                            : log.responseAction === "LATER"
+                              ? "之後再看看"
+                              : "尚未回覆"}
+                        </td>
                         <td className="px-3 text-[11px] text-red-500">
-                          {log.errorMessage ?? "—"}
+                          {log.errorMessage ??
+                            log.managerNotificationError ??
+                            "—"}
                         </td>
                       </tr>
                     ))
