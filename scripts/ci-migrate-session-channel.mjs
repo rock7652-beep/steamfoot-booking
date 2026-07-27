@@ -1,6 +1,7 @@
 import { execSync } from "node:child_process";
 
 const EXPECTED_MIGRATIONS = [
+  "20260723183000_add_reminder_line_route",
   "20260727090000_channel_neutral_digital_butler",
   "20260727100000_add_session_balance_notifications",
 ];
