@@ -185,6 +185,43 @@ function questionMessage(step: RuntimeStep, error?: string): LineMessage {
   };
 }
 
+type InformationIntent = "PRICE" | "LOCATION";
+
+const INFORMATION_INTENTS: ReadonlyArray<{
+  intent: InformationIntent;
+  matches: (text: string) => boolean;
+  stepKeyPattern: RegExp;
+}> = [
+  {
+    intent: "PRICE",
+    matches: (text) => /(?:多少錢|費用|價格|價錢)/.test(text),
+    stepKeyPattern: /(?:price|fee|cost|費用|價格|價錢)/i,
+  },
+  {
+    intent: "LOCATION",
+    matches: (text) => /(?:地址|在哪裡|營業時間)/.test(text),
+    stepKeyPattern: /(?:address|location|hours|地址|地點|營業時間)/i,
+  },
+];
+
+/**
+ * Answers a configured informational TEXT step without changing the active
+ * conversation. Step keys are deliberately used only as stable flow metadata:
+ * the customer-facing reply continues to come from the published step config.
+ */
+function informationReply(
+  steps: RuntimeStep[],
+  input: string,
+): LineMessage | null {
+  const intent = INFORMATION_INTENTS.find((candidate) => candidate.matches(input));
+  if (!intent) return null;
+
+  const step = steps.find((candidate) =>
+    candidate.type === "TEXT" && intent.stepKeyPattern.test(candidate.stepKey));
+  const text = step ? textFromConfig(step) : "";
+  return text ? { type: "text", text } : null;
+}
+
 function validateAnswer(step: RuntimeStep, text: string): { value?: Prisma.InputJsonValue; phone?: string; error?: string } {
   if (step.type === "TAIWAN_MOBILE") {
     const phone = normalizePhone(text);
@@ -444,7 +481,9 @@ export class DigitalButlerRuntime {
       if (
         conversationId &&
         result.messages.length > 0 &&
-        (result.outcome === "WAITING_INPUT" || result.outcome === "VALIDATION_FAILED")
+        (result.outcome === "WAITING_INPUT"
+          || result.outcome === "VALIDATION_FAILED"
+          || result.outcome === "INFORMATION_ANSWERED")
       ) {
         return {
           ...result,
@@ -498,6 +537,20 @@ export class DigitalButlerRuntime {
     if (!step || !["FREE_TEXT", "SINGLE_CHOICE", "TAIWAN_MOBILE"].includes(step.type)) {
       return finish({ handled: true, messages: [], outcome: "INVALID_STATE" }, conversation.id);
     }
+
+    // Information questions intentionally run after terminal global commands
+    // but before field validation. They use published flow content and leave
+    // the current step untouched, so an interrupted phone/name answer can
+    // continue normally afterwards.
+    const information = informationReply(steps, input.text);
+    if (information) {
+      return finish({
+        handled: true,
+        messages: [information, questionMessage(step)],
+        outcome: "INFORMATION_ANSWERED",
+      }, conversation.id);
+    }
+
     const answer = validateAnswer(step, input.text);
     if (answer.error) {
       return finish({ handled: true, messages: [questionMessage(step, answer.error)], outcome: "VALIDATION_FAILED" }, conversation.id);
