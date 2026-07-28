@@ -158,7 +158,7 @@ async function main() {
     await tx.account.updateMany({ where: { userId: source.id }, data: { userId: target.id } });
     await tx.customer.update({
       where: { id: customer.id },
-      data: { userId: target.id, name: input.newCustomerName },
+      data: { userId: null, name: input.newCustomerName },
     });
     await tx.user.update({
       where: { id: source.id },
@@ -188,7 +188,7 @@ async function main() {
           customerId: customer.id,
           sourceStatus: "SUSPENDED",
           sessionsRevoked: true,
-          operationalCustomerRowsMoved: false,
+          legacyCustomerUserIdCleared: true,\n          operationalCustomerRowsMoved: false,
         },
       },
     });
