@@ -6,10 +6,6 @@
       "schedule": "0 1 * * *"
     },
     {
-      "path": "/api/cron/human-support-reminders",
-      "schedule": "*/30 * * * *"
-    },
-    {
       "path": "/api/cron/reminders",
       "schedule": "0 10 * * *"
     },
