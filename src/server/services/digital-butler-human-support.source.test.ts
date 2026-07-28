@@ -17,7 +17,7 @@ describe("Digital Butler human support handoff contract", () => {
     expect(handoff).toContain('status: "CANCELLED"');
   });
 
-  it("sends one immediate notification and one final reminder only while NEW", () => {
+  it("sends one immediate notification and keeps a deduplicated 30-minute reminder worker ready", () => {
     const handoff = source("src/server/services/human-support-handoff.ts");
     const messages = source("src/server/services/store-manager-line-notifications.ts");
 
@@ -31,7 +31,7 @@ describe("Digital Butler human support handoff contract", () => {
     expect(messages).toContain("這是最後一次即時提醒");
   });
 
-  it("adds unresolved support to the 09:00 digest and protects cron access", () => {
+  it("adds unresolved support to the 09:00 digest and keeps Hobby cron config deployable", () => {
     const digest = source("src/server/services/daily-action-digest.ts");
     const route = source("src/app/api/cron/human-support-reminders/route.ts");
     const vercel = source("vercel.json");
@@ -40,7 +40,6 @@ describe("Digital Butler human support handoff contract", () => {
     expect(digest).toContain("HUMAN_SUPPORT_COMPLETION_ACTION_KEY");
     expect(route).toContain("CRON_SECRET");
     expect(route).toContain("Bearer ${cronSecret}");
-    expect(vercel).toContain('"path": "/api/cron/human-support-reminders"');
-    expect(vercel).toContain('"schedule": "*/30 * * * *"');
+    expect(vercel).not.toContain('"schedule": "*/30 * * * *"');
   });
 });
