@@ -25,6 +25,13 @@ enum UserStatus {
   DELETED
 }
 
+enum MessengerAuditStatus {
+  RUNNING
+  COMPLETED
+  COMPLETED_WITH_ERRORS
+  FAILED
+}
+
 enum StaffStatus {
   ACTIVE
   INACTIVE
@@ -495,6 +502,7 @@ model User {
 
   // Audit
   auditLogs                   AuditLog[]
+  messengerAuditRuns          MessengerAuditRun[]
   cashbookEntries             CashbookEntry[]             @relation("CashbookCreatedBy")
   opsActionLogs               OpsActionLog[]
   opsActionHistories          OpsActionHistory[]
@@ -646,6 +654,7 @@ model Store {
   checkinPosts                      CheckinPost[]
   transactionAuditLogs              TransactionAuditLog[]
   lineNotificationRecipients        StoreLineNotificationRecipient[]
+  messengerAuditRuns                MessengerAuditRun[]
 
   cashDrawerSessions CashDrawerSession[]
   cashDrawerEntries  CashDrawerEntry[]
@@ -1911,6 +1920,31 @@ model AuditLog {
   @@index([targetType, targetId])
   @@index([actorUserId])
   @@index([createdAt])
+}
+
+// Messenger control-plane diagnostics. Stores only de-identified outcomes;
+// Graph credentials, PSIDs and raw Graph responses must never be persisted.
+model MessengerAuditRun {
+  id                    String                @id @default(cuid())
+  storeId               String
+  requestedByUserId     String
+  createdAt             DateTime              @default(now())
+  completedAt           DateTime?
+  status                MessengerAuditStatus  @default(RUNNING)
+  appValidated          Boolean?
+  pageTokenMatches      Boolean?
+  callbackMatches       Boolean?
+  configuredFields      String[]              @default([])
+  missingFields         String[]              @default([])
+  pageAttached          Boolean?
+  callsSafeSummary      Json?
+  errorCode             String?
+
+  store       Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  requestedBy User  @relation(fields: [requestedByUserId], references: [id], onDelete: Restrict)
+
+  @@index([storeId, createdAt])
+  @@index([requestedByUserId, createdAt])
 }
 
 // ============================================================
