@@ -188,7 +188,8 @@ async function main() {
           customerId: customer.id,
           sourceStatus: "SUSPENDED",
           sessionsRevoked: true,
-          legacyCustomerUserIdCleared: true,\n          operationalCustomerRowsMoved: false,
+          legacyCustomerUserIdCleared: true,
+          operationalCustomerRowsMoved: false,
         },
       },
     });
