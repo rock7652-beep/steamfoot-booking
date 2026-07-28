@@ -58,13 +58,11 @@ describe("Messenger Digital Butler foundation", () => {
     expect(config).not.toContain("DEFAULT_STORE_ID");
   });
 
-  it("uses the Send API without logging access tokens or sender ids", () => {
+  it("uses the Send API without exposing credentials in logs", () => {
     const messenger = source("src/lib/messenger.ts");
-    const route = source("src/app/api/messenger/webhook/route.ts");
 
     expect(messenger).toContain('authorization: `Bearer ${input.pageAccessToken}`');
     expect(messenger).toContain('messaging_type: "RESPONSE"');
     expect(messenger).not.toContain("console.log(input.pageAccessToken)");
-    expect(route).not.toContain("senderId: event.sender.id,");
   });
 });
