@@ -5,9 +5,9 @@ import { notifyStoreManagerOnLine } from "@/server/services/store-manager-line-n
 import {
   assignPlanToCustomer as assignPlanToCustomerCore,
   initiateCustomerPlanPurchase as initiateCustomerPlanPurchaseCore,
-} from "./wallet";
+} from "@/server/actions/wallet-core";
 
-export * from "./wallet";
+export * from "@/server/actions/wallet-core";
 
 type AssignPlanInput = Parameters<typeof assignPlanToCustomerCore>[0];
 type CustomerPurchaseInput = Parameters<typeof initiateCustomerPlanPurchaseCore>[0];
