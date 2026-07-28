@@ -29,7 +29,7 @@ describe("central customer account merge repair", () => {
 
   it("preserves operational rows and both login identities", () => {
     expect(script).toContain("tx.account.updateMany");
-    expect(script).toContain("data: { userId: target.id }");
+    expect(script).toContain("data: { userId: target.id }");\n    expect(script).toContain("data: { userId: null, name: input.newCustomerName }");\n    expect(script).toContain("legacyCustomerUserIdCleared: true");
     expect(script).toContain("tx.customer.update");
     expect(script).not.toContain("tx.booking.updateMany");
     expect(script).not.toContain("tx.customerPlanWallet.updateMany");
