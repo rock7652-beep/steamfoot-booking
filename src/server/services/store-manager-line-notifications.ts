@@ -35,6 +35,15 @@ type StoreManagerNotificationEvent =
       planName: string;
       amount: number;
       lastFourDigits?: string | null;
+    }
+  | {
+      type: "DAILY_ACTION_DIGEST";
+      eventKey: string;
+      storeId: string;
+      storeSlug: string;
+      pendingPaymentCount: number;
+      incompleteServiceCount: number;
+      waitingSupportCount?: number;
     };
 
 export type StoreManagerNotificationResult =
@@ -110,6 +119,17 @@ export function buildStoreManagerNotificationMessage(
           `前往後台確認：${managerUrl(`/dashboard/payments?transactionId=${encodeURIComponent(event.paymentId)}`)}`,
         ].join("\n"),
       }];
+
+    case "DAILY_ACTION_DIGEST": {
+      const waitingSupportCount = event.waitingSupportCount ?? 0;
+      const total = event.pendingPaymentCount + event.incompleteServiceCount + waitingSupportCount;
+      const lines = ["☀️ 今日待辦", ""];
+      if (event.pendingPaymentCount > 0) lines.push(`💰 待確認付款：${event.pendingPaymentCount} 筆`);
+      if (event.incompleteServiceCount > 0) lines.push(`🔔 昨日未完成服務：${event.incompleteServiceCount} 筆`);
+      if (waitingSupportCount > 0) lines.push(`🙋 尚未接手客服：${waitingSupportCount} 位`);
+      lines.push("", `共 ${total} 件待處理`, "", `前往後台：${managerUrl("/dashboard")}`);
+      return [{ type: "text", text: lines.join("\n") }];
+    }
   }
 }
 

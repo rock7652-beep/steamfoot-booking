@@ -2,6 +2,10 @@
   "regions": ["hnd1"],
   "crons": [
     {
+      "path": "/api/cron/daily-action-digest",
+      "schedule": "0 1 * * *"
+    },
+    {
       "path": "/api/cron/reminders",
       "schedule": "0 10 * * *"
     },
