@@ -21,6 +21,8 @@
     "paths": {
       "@/server/actions/wallet": ["./src/server/actions/wallet-with-notifications.ts"],
       "@/server/actions/wallet-core": ["./src/server/actions/wallet.ts"],
+      "@/server/services/digital-butler-runtime": ["./src/server/services/digital-butler-runtime-with-handoff.ts"],
+      "@/server/services/digital-butler-runtime-core": ["./src/server/services/digital-butler-runtime.ts"],
       "@/*": ["./src/*"]
     }
   },
