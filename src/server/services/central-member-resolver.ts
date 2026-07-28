@@ -125,34 +125,105 @@ export function resolveCentralMemberLinks(
 export async function resolveCentralMembershipsForUser(
   userId: string,
 ): Promise<CentralMemberResolution> {
-  const links = await prisma.customerIdentityLink.findMany({
-    where: { userId },
-    select: {
-      id: true,
-      userId: true,
-      storeId: true,
-      provider: true,
-      customer: {
-        select: {
-          id: true,
-          name: true,
-          userId: true,
-          storeId: true,
-          mergedIntoCustomerId: true,
-          store: {
-            select: {
-              id: true,
-              name: true,
-              slug: true,
-              operatingStatus: true,
+  const [links, legacyCustomers, approvedUnlinks] = await Promise.all([
+    prisma.customerIdentityLink.findMany({
+      where: { userId },
+      select: {
+        id: true,
+        userId: true,
+        storeId: true,
+        provider: true,
+        customer: {
+          select: {
+            id: true,
+            name: true,
+            userId: true,
+            storeId: true,
+            mergedIntoCustomerId: true,
+            store: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                operatingStatus: true,
+              },
             },
           },
         },
       },
-    },
-  });
+    }),
+    prisma.customer.findMany({
+      where: {
+        userId,
+        mergedIntoCustomerId: null,
+      },
+      select: {
+        id: true,
+        name: true,
+        storeId: true,
+        store: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            operatingStatus: true,
+          },
+        },
+      },
+    }),
+    prisma.centralMemberLinkReviewRequest.findMany({
+      where: {
+        userId,
+        type: "UNLINK_REQUEST",
+        status: "APPROVED",
+      },
+      select: { storeId: true, customerId: true },
+    }),
+  ]);
 
-  return resolveCentralMemberLinks(userId, links);
+  const resolved = resolveCentralMemberLinks(userId, links);
+  const linkedStoreIds = new Set(resolved.memberships.map((membership) => membership.storeId));
+  const conflictedStoreIds = new Set(resolved.conflicts.map((conflict) => conflict.storeId));
+  const approvedUnlinkKeys = new Set(
+    approvedUnlinks.map((request) => `${request.storeId}:${request.customerId}`),
+  );
+  const legacyByStore = new Map<string, typeof legacyCustomers>();
+
+  for (const customer of legacyCustomers) {
+    if (linkedStoreIds.has(customer.storeId) || conflictedStoreIds.has(customer.storeId)) continue;
+    if (approvedUnlinkKeys.has(`${customer.storeId}:${customer.id}`)) continue;
+    const storeCustomers = legacyByStore.get(customer.storeId) ?? [];
+    storeCustomers.push(customer);
+    legacyByStore.set(customer.storeId, storeCustomers);
+  }
+
+  for (const [storeId, customers] of legacyByStore) {
+    if (customers.length !== 1) {
+      resolved.conflicts.push({ storeId, reason: "multiple_customers_in_store" });
+      continue;
+    }
+
+    const customer = customers[0];
+    if (customer.store.id !== storeId) {
+      resolved.conflicts.push({ storeId, reason: "link_store_mismatch" });
+      continue;
+    }
+
+    resolved.memberships.push({
+      userId,
+      storeId,
+      storeName: customer.store.name,
+      storeSlug: customer.store.slug,
+      storeOperatingStatus: customer.store.operatingStatus,
+      customerId: customer.id,
+      customerName: customer.name,
+      providers: ["legacy_user_id"],
+    });
+  }
+
+  resolved.memberships.sort((a, b) => a.storeSlug.localeCompare(b.storeSlug));
+  resolved.conflicts.sort((a, b) => a.storeId.localeCompare(b.storeId));
+  return resolved;
 }
 
 export async function resolveCentralMemberCustomerForStore(
