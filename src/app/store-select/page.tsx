@@ -20,7 +20,7 @@ export default async function StoreSelectPage() {
         <p className="mt-3 text-sm leading-6 text-earth-600">
           {resolved.memberships.length > 0
             ? "只會顯示已連結到您帳號的門市，各店方案、堂數與預約分開管理。"
-            : "目前找不到可選擇的門市，請由店家提供的專屬連結重新進入。"}
+            : "目前找不到可選擇的門市，請由店家提供的專屬連結重新進入，或請聯絡店家協助確認會員資料。"}
         </p>
       </div>
 
