@@ -44,6 +44,16 @@ type StoreManagerNotificationEvent =
       leadId: string;
     }
   | {
+      type: "INCOMPLETE_SERVICE_REMINDER";
+      eventKey: string;
+      storeId: string;
+      storeSlug: string;
+      bookingId: string;
+      customerName: string;
+      bookingDate: string;
+      slotTime: string;
+    }
+  | {
       type: "DAILY_ACTION_DIGEST";
       eventKey: string;
       storeId: string;
@@ -79,6 +89,10 @@ function supportLeadUrl(leadId: string): string {
   return managerUrl(`/dashboard/digital-butler/leads?leadId=${encodeURIComponent(leadId)}`);
 }
 
+function bookingUrl(bookingId: string): string {
+  return managerUrl(`/dashboard/bookings?bookingId=${encodeURIComponent(bookingId)}`);
+}
+
 export function buildStoreManagerNotificationMessage(
   event: StoreManagerNotificationEvent,
 ): LineMessage[] {
@@ -112,7 +126,7 @@ export function buildStoreManagerNotificationMessage(
           `應收：${formatCurrency(event.expectedAmount)}`,
           "來源：官網公開預約",
           "",
-          `查看預約：${managerUrl(`/dashboard/bookings?bookingId=${encodeURIComponent(event.bookingId)}`)}`,
+          `查看預約：${bookingUrl(event.bookingId)}`,
         ].join("\n"),
       }];
 
@@ -154,6 +168,21 @@ export function buildStoreManagerNotificationMessage(
           "這是最後一次即時提醒，後續會保留在今日待辦。",
           "",
           `前往後台接手：${supportLeadUrl(event.leadId)}`,
+        ].join("\n"),
+      }];
+
+    case "INCOMPLETE_SERVICE_REMINDER":
+      return [{
+        type: "text",
+        text: [
+          "🔔 服務尚未完成",
+          "",
+          `顧客：${event.customerName}`,
+          `預約日期：${event.bookingDate}`,
+          `預約時間：${event.slotTime}`,
+          "狀態：服務時段結束後仍未完成",
+          "",
+          `前往後台處理：${bookingUrl(event.bookingId)}`,
         ].join("\n"),
       }];
 
