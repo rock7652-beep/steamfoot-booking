@@ -3,11 +3,15 @@
 import { prisma } from "@/lib/db";
 import { notifyStoreManagerOnLine } from "@/server/services/store-manager-line-notifications";
 import {
+  adjustRemainingSessions as adjustRemainingSessionsCore,
   assignPlanToCustomer as assignPlanToCustomerCore,
+  backfillUsedSessions as backfillUsedSessionsCore,
+  extendWalletExpiry as extendWalletExpiryCore,
+  getLatestActiveWalletSummary as getLatestActiveWalletSummaryCore,
   initiateCustomerPlanPurchase as initiateCustomerPlanPurchaseCore,
+  migratePaperPlan as migratePaperPlanCore,
+  voidWalletSession as voidWalletSessionCore,
 } from "@/server/actions/wallet-core";
-
-export * from "@/server/actions/wallet-core";
 
 type AssignPlanInput = Parameters<typeof assignPlanToCustomerCore>[0];
 type CustomerPurchaseInput = Parameters<typeof initiateCustomerPlanPurchaseCore>[0];
@@ -75,11 +79,6 @@ async function notifyPendingPaymentBestEffort(transactionId: string): Promise<vo
   }
 }
 
-/**
- * Staff-side plan assignment. The core transaction remains authoritative;
- * notification is attempted only after a newly-created PENDING transaction
- * has committed successfully.
- */
 export async function assignPlanToCustomer(input: AssignPlanInput) {
   const result = await assignPlanToCustomerCore(input);
   if (result.success && input.paymentStatus === "PENDING") {
@@ -88,14 +87,46 @@ export async function assignPlanToCustomer(input: AssignPlanInput) {
   return result;
 }
 
-/**
- * Customer self-purchase always creates a TRANSFER/PENDING transaction.
- * LINE delivery is best-effort and never changes the purchase result.
- */
 export async function initiateCustomerPlanPurchase(input: CustomerPurchaseInput) {
   const result = await initiateCustomerPlanPurchaseCore(input);
   if (result.success) {
     await notifyPendingPaymentBestEffort(result.data.transactionId);
   }
   return result;
+}
+
+export async function adjustRemainingSessions(
+  ...args: Parameters<typeof adjustRemainingSessionsCore>
+) {
+  return adjustRemainingSessionsCore(...args);
+}
+
+export async function voidWalletSession(
+  ...args: Parameters<typeof voidWalletSessionCore>
+) {
+  return voidWalletSessionCore(...args);
+}
+
+export async function backfillUsedSessions(
+  ...args: Parameters<typeof backfillUsedSessionsCore>
+) {
+  return backfillUsedSessionsCore(...args);
+}
+
+export async function migratePaperPlan(
+  ...args: Parameters<typeof migratePaperPlanCore>
+) {
+  return migratePaperPlanCore(...args);
+}
+
+export async function getLatestActiveWalletSummary(
+  ...args: Parameters<typeof getLatestActiveWalletSummaryCore>
+) {
+  return getLatestActiveWalletSummaryCore(...args);
+}
+
+export async function extendWalletExpiry(
+  ...args: Parameters<typeof extendWalletExpiryCore>
+) {
+  return extendWalletExpiryCore(...args);
 }
