@@ -37,6 +37,13 @@ type StoreManagerNotificationEvent =
       lastFourDigits?: string | null;
     }
   | {
+      type: "HUMAN_SUPPORT_REQUESTED" | "HUMAN_SUPPORT_FINAL_REMINDER";
+      eventKey: string;
+      storeId: string;
+      storeSlug: string;
+      leadId: string;
+    }
+  | {
       type: "DAILY_ACTION_DIGEST";
       eventKey: string;
       storeId: string;
@@ -68,6 +75,10 @@ function managerUrl(path: string): string {
   return `${deriveBaseUrl()}${path}`;
 }
 
+function supportLeadUrl(leadId: string): string {
+  return managerUrl(`/dashboard/digital-butler/leads?leadId=${encodeURIComponent(leadId)}`);
+}
+
 export function buildStoreManagerNotificationMessage(
   event: StoreManagerNotificationEvent,
 ): LineMessage[] {
@@ -83,7 +94,7 @@ export function buildStoreManagerNotificationMessage(
           "來源：LINE 數位管家",
           "目前進度：已留下聯絡資料",
           "",
-          `查看名單：${managerUrl(`/dashboard/digital-butler/leads?leadId=${encodeURIComponent(event.leadId)}`)}`,
+          `查看名單：${supportLeadUrl(event.leadId)}`,
         ].join("\n"),
       }];
 
@@ -120,6 +131,32 @@ export function buildStoreManagerNotificationMessage(
         ].join("\n"),
       }];
 
+    case "HUMAN_SUPPORT_REQUESTED":
+      return [{
+        type: "text",
+        text: [
+          "🙋 顧客要求真人客服",
+          "",
+          "來源：LINE 數位管家",
+          "狀態：等待門市夥伴接手",
+          "",
+          `前往後台接手：${supportLeadUrl(event.leadId)}`,
+        ].join("\n"),
+      }];
+
+    case "HUMAN_SUPPORT_FINAL_REMINDER":
+      return [{
+        type: "text",
+        text: [
+          "⚠️ 真人客服仍未接手",
+          "",
+          "已等待超過 30 分鐘。",
+          "這是最後一次即時提醒，後續會保留在今日待辦。",
+          "",
+          `前往後台接手：${supportLeadUrl(event.leadId)}`,
+        ].join("\n"),
+      }];
+
     case "DAILY_ACTION_DIGEST": {
       const waitingSupportCount = event.waitingSupportCount ?? 0;
       const total = event.pendingPaymentCount + event.incompleteServiceCount + waitingSupportCount;
@@ -137,7 +174,7 @@ export function buildStoreManagerNotificationMessage(
  * Best-effort notification boundary.
  * Business data must already be committed before this function is called.
  * Delivery failure is reported and logged, but never throws back into the
- * customer-facing lead, booking, or payment flow.
+ * customer-facing lead, booking, payment, or handoff flow.
  */
 export async function notifyStoreManagerOnLine(
   event: StoreManagerNotificationEvent,

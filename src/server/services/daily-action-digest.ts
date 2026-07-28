@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { parseTaiwanDateToDbDate, toLocalDateStr } from "@/lib/date-utils";
+import { HUMAN_SUPPORT_COMPLETION_ACTION_KEY } from "@/server/services/human-support-handoff";
 import { notifyStoreManagerOnLine } from "@/server/services/store-manager-line-notifications";
 
 export interface DailyActionDigestResult {
@@ -33,7 +34,7 @@ export async function runDailyActionDigest(): Promise<DailyActionDigestResult> {
     let claimId: string | null = null;
 
     try {
-      const [pendingPaymentCount, incompleteServiceCount] = await Promise.all([
+      const [pendingPaymentCount, incompleteServiceCount, waitingSupportCount] = await Promise.all([
         prisma.transaction.count({
           where: {
             storeId: store.id,
@@ -49,9 +50,16 @@ export async function runDailyActionDigest(): Promise<DailyActionDigestResult> {
             bookingStatus: { in: ["PENDING", "CONFIRMED"] },
           },
         }),
+        prisma.digitalButlerLead.count({
+          where: {
+            storeId: store.id,
+            completionActionKey: HUMAN_SUPPORT_COMPLETION_ACTION_KEY,
+            status: "NEW",
+          },
+        }),
       ]);
 
-      if (pendingPaymentCount + incompleteServiceCount === 0) {
+      if (pendingPaymentCount + incompleteServiceCount + waitingSupportCount === 0) {
         result.storesSkipped += 1;
         continue;
       }
@@ -82,6 +90,7 @@ export async function runDailyActionDigest(): Promise<DailyActionDigestResult> {
         storeSlug: store.slug,
         pendingPaymentCount,
         incompleteServiceCount,
+        waitingSupportCount,
       });
 
       if (delivery.status === "sent") {
