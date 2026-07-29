@@ -696,7 +696,14 @@ export class DigitalButlerRuntime {
     const index = steps.findIndex((step) => step.stepKey === conversation?.currentStepKey);
     const step = steps[index];
     if (!step || !["FREE_TEXT", "SINGLE_CHOICE", "TAIWAN_MOBILE"].includes(step.type)) {
-      return finish({ handled: true, messages: [], outcome: "INVALID_STATE" }, conversation.id);
+      const cancelled = await this.repository.cancelConversation(conversation.storeId, conversation.id);
+      return finish({
+        handled: true,
+        messages: cancelled
+          ? [{ type: "text", text: "流程已更新，請重新輸入「我想了解蒸足」開始。" }]
+          : [],
+        outcome: cancelled ? "RESTART_REQUIRED" : "INACTIVE_CONVERSATION",
+      }, conversation.id);
     }
 
     // Information questions intentionally run after terminal global commands

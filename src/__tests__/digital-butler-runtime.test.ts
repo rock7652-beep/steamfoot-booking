@@ -264,6 +264,22 @@ describe("DigitalButlerRuntime", () => {
     expect(deliver).not.toHaveBeenCalled();
   });
 
+  it("safely ends a conversation whose saved step no longer exists and asks the customer to restart", async () => {
+    repository.findActiveConversation.mockResolvedValue({
+      id: "conversation-1", storeId: input.storeId, flowId: "flow-1",
+      flowVersionId: "version-1", currentStepKey: "removed-step",
+      expiresAt: new Date(Date.now() + 60_000), flowVersion: { steps: [] }, answers: [],
+    });
+
+    const result = await new DigitalButlerRuntime(repository as never, gate).handleText(input);
+
+    expect(repository.cancelConversation).toHaveBeenCalledWith(input.storeId, "conversation-1");
+    expect(result).toMatchObject({
+      outcome: "RESTART_REQUIRED",
+      messages: [{ type: "text", text: expect.stringContaining("重新輸入") }],
+    });
+  });
+
   it("fails closed when entitlement or the store activation flag is disabled", async () => {
     gate.mockRejectedValueOnce(new Error("FORBIDDEN"));
     const result = await new DigitalButlerRuntime(repository as never, gate).handleText(input);
