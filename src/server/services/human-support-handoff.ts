@@ -80,6 +80,7 @@ export async function recordHumanSupportHandoff(input: DigitalButlerInboundTextM
       storeId: input.storeId,
       storeSlug: store.slug,
       leadId: lead.id,
+      provider: input.provider,
     });
 
     if (delivery.status === "sent") {

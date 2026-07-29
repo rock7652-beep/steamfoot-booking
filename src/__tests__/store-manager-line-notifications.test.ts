@@ -66,6 +66,7 @@ describe("store manager LINE notifications", () => {
       customerName: "王小美",
       phone: "0912345678",
       leadId: "lead_1",
+      provider: "LINE",
     });
 
     expect(result).toEqual({ status: "skipped", reason: "recipient_not_configured" });
@@ -111,6 +112,7 @@ describe("store manager LINE notifications", () => {
       customerName: "王小美",
       phone: "0912345678",
       leadId: "lead_1",
+      provider: "LINE",
     });
 
     expect(result).toEqual({ status: "sent", sentCount: 2, failedCount: 0 });
@@ -131,8 +133,29 @@ describe("store manager LINE notifications", () => {
       customerName: "王小美",
       phone: "0912345678",
       leadId: "lead_1",
+      provider: "LINE",
     });
 
     expect(result).toEqual({ status: "failed", error: "LINE API 400" });
+  });
+
+  it("uses the Messenger source in a Messenger lead notification", () => {
+    const messages = buildStoreManagerNotificationMessage({
+      type: "DIGITAL_BUTLER_LEAD_CREATED",
+      eventKey: "lead:lead_messenger",
+      storeId: "store_1",
+      storeSlug: "zhubei",
+      customerName: "王小美",
+      phone: "0912345678",
+      leadId: "lead_messenger",
+      provider: "MESSENGER",
+    });
+
+    expect(messages[0]).toMatchObject({
+      text: expect.stringContaining("來源：Messenger 數位管家"),
+    });
+    expect(messages[0]).not.toMatchObject({
+      text: expect.stringContaining("來源：LINE 數位管家"),
+    });
   });
 });

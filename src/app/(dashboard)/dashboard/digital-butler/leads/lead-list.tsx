@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { DigitalButlerLeadStatus } from "@prisma/client";
 import { digitalButlerAnswerSummary } from "@/lib/digital-butler-answer-summary";
+import { DIGITAL_BUTLER_PROVIDER_FILTERS, providerLabel } from "@/lib/digital-butler-provider";
 import { updateDigitalButlerLeadAction } from "@/server/actions/digital-butler-leads";
 
 const LABELS: Record<DigitalButlerLeadStatus, string> = {
@@ -25,6 +26,7 @@ type Lead = {
   lastContactedAt: Date | null;
   createdAt: Date;
   flow: { name: string };
+  conversation: { provider: string | null };
   assignedStaff: { id: string; displayName: string } | null;
   activities: Array<{
     id: string;
@@ -41,20 +43,23 @@ export function DigitalButlerLeadList({
   staff,
   selectedStatus,
   selectedStaffId,
+  selectedProvider,
 }: {
   leads: Lead[];
   staff: Array<{ id: string; displayName: string }>;
   selectedStatus: string;
   selectedStaffId: string;
+  selectedProvider: string;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  function filter(status: string, staffId: string) {
+  function filter(status: string, staffId: string, provider: string) {
     const params = new URLSearchParams();
     if (status) params.set("status", status);
     if (staffId) params.set("staff", staffId);
+    if (provider) params.set("provider", provider);
     router.push(`/dashboard/digital-butler/leads?${params.toString()}`);
   }
 
@@ -63,7 +68,7 @@ export function DigitalButlerLeadList({
       <div className="flex flex-wrap gap-2 rounded-xl border border-earth-200 bg-white p-3">
         <select
           value={selectedStatus}
-          onChange={(event) => filter(event.target.value, selectedStaffId)}
+          onChange={(event) => filter(event.target.value, selectedStaffId, selectedProvider)}
           className="h-9 rounded-lg border border-earth-200 bg-white px-3 text-sm"
         >
           <option value="">全部狀態</option>
@@ -71,11 +76,22 @@ export function DigitalButlerLeadList({
         </select>
         <select
           value={selectedStaffId}
-          onChange={(event) => filter(selectedStatus, event.target.value)}
+          onChange={(event) => filter(selectedStatus, event.target.value, selectedProvider)}
           className="h-9 rounded-lg border border-earth-200 bg-white px-3 text-sm"
         >
           <option value="">全部負責人</option>
           {staff.map((item) => <option key={item.id} value={item.id}>{item.displayName}</option>)}
+        </select>
+        <select
+          value={selectedProvider}
+          onChange={(event) => filter(selectedStatus, selectedStaffId, event.target.value)}
+          className="h-9 rounded-lg border border-earth-200 bg-white px-3 text-sm"
+          aria-label="來源篩選"
+        >
+          <option value="">全部來源</option>
+          {DIGITAL_BUTLER_PROVIDER_FILTERS.map((provider) => (
+            <option key={provider.value} value={provider.value}>{provider.label}</option>
+          ))}
         </select>
         <span className="self-center text-xs text-earth-500">共 {leads.length} 筆</span>
       </div>
@@ -113,6 +129,9 @@ export function DigitalButlerLeadList({
         >
           <div>
             <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full bg-earth-100 px-2 py-0.5 text-xs font-medium text-earth-700">
+                {providerLabel(lead.conversation.provider)}
+              </span>
               <span className="rounded-full bg-primary-50 px-2 py-0.5 text-xs font-medium text-primary-700">
                 {LABELS[lead.status]}
               </span>
