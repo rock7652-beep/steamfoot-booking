@@ -4,7 +4,10 @@ vi.mock("@/lib/digital-butler-entitlement", () => ({
   requireDigitalButlerConversationActivation: vi.fn(),
 }));
 
-import { DigitalButlerRuntime } from "@/server/services/digital-butler-runtime";
+import {
+  DigitalButlerRuntime,
+  topLevelChoiceEntryStepKey,
+} from "@/server/services/digital-butler-runtime";
 
 const textStep = (id: string, stepKey: string, position: number, text: string) => ({
   id, stepKey, position, type: "TEXT" as const, config: { text }, required: false,
@@ -55,6 +58,29 @@ describe("DigitalButlerRuntime", () => {
     repository.findActiveConversation.mockResolvedValue(null);
   });
 
+  it("only treats the first choice step as a fresh conversation entry point", () => {
+    const steps = [
+      {
+        id: "menu", stepKey: "menu", position: 0, type: "SINGLE_CHOICE" as const,
+        config: {
+          options: [{ label: "我想預約體驗", value: "booking", nextStepKey: "name" }],
+        },
+        required: true,
+      },
+      {
+        id: "later", stepKey: "later", position: 1, type: "SINGLE_CHOICE" as const,
+        config: {
+          options: [{ label: "下午", value: "afternoon", nextStepKey: "phone" }],
+        },
+        required: true,
+      },
+    ];
+
+    expect(topLevelChoiceEntryStepKey(steps, "我想預約體驗")).toBe("name");
+    expect(topLevelChoiceEntryStepKey(steps, "booking")).toBe("name");
+    expect(topLevelChoiceEntryStepKey(steps, "下午")).toBeNull();
+  });
+
   it("starts only a published triggered flow and stops at the first question", async () => {
     const steps = [
       textStep("step-1", "opening", 0, "真人管家會協助您"),
@@ -64,6 +90,7 @@ describe("DigitalButlerRuntime", () => {
       id: "flow-1",
       currentPublishedVersionId: "version-1",
       publishedVersion: { definition: { trigger: { keywords: [input.text] } }, steps },
+      startStepKey: null,
     });
     repository.createConversation.mockResolvedValue({
       id: "conversation-1", storeId: input.storeId, flowId: "flow-1",
@@ -113,6 +140,7 @@ describe("DigitalButlerRuntime", () => {
       id: "new-flow",
       currentPublishedVersionId: "new-version",
       publishedVersion: { definition: { trigger: { keywords: ["我想了解蒸足"] } }, steps: newSteps },
+      startStepKey: null,
     });
     repository.createConversation.mockResolvedValueOnce({
       id: "new-conversation", storeId: input.storeId, flowId: "new-flow",
@@ -138,6 +166,57 @@ describe("DigitalButlerRuntime", () => {
     });
     expect(repository.createConversation).toHaveBeenCalledWith(expect.objectContaining({
       flowId: "new-flow", flowVersionId: "new-version",
+    }));
+  });
+
+  it("resumes from a top-level menu choice after handoff ended the previous conversation", async () => {
+    const steps = [
+      textStep("opening", "opening", 0, "歡迎"),
+      {
+        id: "menu", stepKey: "menu", position: 1, type: "SINGLE_CHOICE" as const,
+        config: {
+          text: "請選擇：",
+          options: [{ label: "我想預約體驗", value: "booking", nextStepKey: "name" }],
+        },
+        required: true,
+      },
+      {
+        id: "name", stepKey: "name", position: 2, type: "FREE_TEXT" as const,
+        config: { prompt: "請問怎麼稱呼您？" }, required: true,
+      },
+    ];
+    repository.findTriggeredFlow.mockResolvedValueOnce({
+      id: "flow-1",
+      currentPublishedVersionId: "version-1",
+      publishedVersion: { definition: { trigger: { keywords: ["我想了解蒸足"] } }, steps },
+      startStepKey: "name",
+    });
+    repository.createConversation.mockResolvedValueOnce({
+      id: "new-conversation", storeId: input.storeId, flowId: "flow-1",
+      flowVersionId: "version-1", currentStepKey: "name",
+      expiresAt: new Date(Date.now() + 60_000), flowVersion: { steps }, answers: [],
+    });
+
+    const result = await new DigitalButlerRuntime(repository as never, gate).handleText({
+      ...input,
+      provider: "MESSENGER",
+      text: "我想預約體驗",
+      webhookEventId: "event-after-handoff",
+      messageId: "message-after-handoff",
+    });
+
+    expect(result).toMatchObject({
+      handled: true,
+      outcome: "WAITING_INPUT",
+      messages: [{ type: "text", text: "請問怎麼稱呼您？" }],
+    });
+    expect(repository.createConversation).toHaveBeenCalledWith(expect.objectContaining({
+      provider: "MESSENGER",
+      currentStepKey: "name",
+    }));
+    expect(repository.advanceConversation).toHaveBeenCalledWith(expect.objectContaining({
+      currentStepKey: "name",
+      status: "WAITING_INPUT",
     }));
   });
 
