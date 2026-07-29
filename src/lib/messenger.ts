@@ -4,13 +4,37 @@ import type { DigitalButlerOutboundMessageIntent } from "@/server/services/digit
 const GRAPH_API_VERSION = process.env.MESSENGER_GRAPH_API_VERSION?.trim() || "v23.0";
 
 export type MessengerMessage = {
-  text: string;
+  text?: string;
   quick_replies?: Array<{
     content_type: "text";
     title: string;
     payload: string;
   }>;
+  attachment?: {
+    type: "template";
+    payload: {
+      template_type: "button";
+      text: string;
+      buttons: Array<{ type: "postback"; title: string; payload: string }>;
+    };
+  };
 };
+
+type MessengerChoice = { title: string; payload: string };
+
+function messengerChoices(choices: Array<{ label: string; value: string }> | undefined): MessengerChoice[] {
+  return (choices ?? []).flatMap((choice) => {
+    const title = choice.label.trim().slice(0, 20);
+    const payload = choice.value.trim();
+    return title && payload ? [{ title, payload }] : [];
+  }).slice(0, 13);
+}
+
+function visibleChoiceFallback(text: string, choices: MessengerChoice[]): string {
+  const visibleText = text.replace(/[\u200B-\u200D\uFEFF]/g, "").trim();
+  if (visibleText) return visibleText;
+  return `請選擇：${choices.map((choice) => choice.title).join("、")}`;
+}
 
 export function verifyMessengerSignature(
   rawBody: string,
@@ -29,23 +53,41 @@ export function verifyMessengerSignature(
 export function digitalButlerIntentsToMessengerMessages(
   intents: DigitalButlerOutboundMessageIntent[],
 ): MessengerMessage[] {
-  return intents.map((intent) => {
+  return intents.flatMap((intent): MessengerMessage[] => {
     if (intent.type === "card") {
-      return { text: intent.altText };
+      return [{ text: intent.altText }];
     }
 
-    return {
-      text: intent.text,
-      ...(intent.choices?.length
+    const choices = messengerChoices(intent.choices);
+    const text = visibleChoiceFallback(intent.text, choices);
+    if (choices.length > 0 && choices.length <= 3) {
+      return [
+        { text },
+        {
+          attachment: {
+            type: "template",
+            payload: {
+              template_type: "button",
+              text: text.slice(0, 640),
+              buttons: choices.map((choice) => ({ type: "postback", title: choice.title, payload: choice.payload })),
+            },
+          },
+        },
+      ];
+    }
+
+    return [{
+      text,
+      ...(choices.length
         ? {
-            quick_replies: intent.choices.slice(0, 13).map((choice) => ({
+            quick_replies: choices.map((choice) => ({
               content_type: "text" as const,
-              title: choice.label.slice(0, 20),
-              payload: choice.value,
+              title: choice.title,
+              payload: choice.payload,
             })),
           }
         : {}),
-    };
+    }];
   });
 }
 
