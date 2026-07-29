@@ -82,6 +82,7 @@ describe("Messenger Digital Butler foundation", () => {
   it("connects verified Page events to the channel-neutral runtime", () => {
     const route = source("src/app/api/messenger/webhook/route.ts");
     const config = source("src/lib/messenger-config.ts");
+    const proxy = source("src/proxy.ts");
 
     expect(route).toContain('url.searchParams.get("hub.verify_token")');
     expect(route).toContain('request.headers.get("x-hub-signature-256")');
@@ -93,6 +94,8 @@ describe("Messenger Digital Butler foundation", () => {
     expect(config).toContain("MESSENGER_PAGE_ID_${suffix}");
     expect(config).toContain("MESSENGER_PAGE_ACCESS_TOKEN_${suffix}");
     expect(config).not.toContain("DEFAULT_STORE_ID");
+    expect(proxy).toContain('pathname === "/book/zhubei"');
+    expect(proxy).toContain('"/pricing/experience/zhubei/book#booking-form"');
   });
 
   it("uses the Send API without exposing credentials in logs", () => {
