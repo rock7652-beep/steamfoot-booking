@@ -28,6 +28,11 @@ const nextConfig: NextConfig = {
   },
   async redirects() {
     return [
+      {
+        source: "/book/zhubei",
+        destination: "/pricing/experience/zhubei/book#booking-form",
+        permanent: false,
+      },
       // 保底轉址：LINE 圖文選單 / 舊連結 / 外部分享連結
       // query string 自動保留（Next.js 預設行為）
       {
