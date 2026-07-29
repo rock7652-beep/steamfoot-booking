@@ -253,8 +253,8 @@ export function ZhubeiTrialBookingForm() {
           <p className="mt-3 rounded-xl bg-earth-50 px-4 py-3 text-sm text-earth-500">請先選擇時段。</p>
         ) : (
           <>
-            <div className="mt-3 grid grid-cols-4 gap-2">
-              {[1, 2, 3, 4].map((count) => {
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              {[1, 2].map((count) => {
                 const selectedSlot = slots.find((slot) => slot.startTime === slotTime);
                 const disabled = !selectedSlot || selectedSlot.available < count;
                 return (
