@@ -4,6 +4,10 @@ vi.mock("@/lib/digital-butler-entitlement", () => ({
   requireDigitalButlerConversationActivation: vi.fn(),
 }));
 
+vi.mock("@/lib/db", () => ({
+  prisma: { digitalButlerLead: { findUnique: vi.fn(async () => null) } },
+}));
+
 import { DigitalButlerRuntime } from "@/server/services/digital-butler-runtime";
 
 const repository = {
@@ -16,7 +20,7 @@ const repository = {
   createConversation: vi.fn(),
   saveAnswer: vi.fn(async () => true),
   advanceConversation: vi.fn(async () => true),
-  createLead: vi.fn(async () => true),
+  createLead: vi.fn(async (): Promise<{ leadId: string; created: boolean } | null> => ({ leadId: "lead-1", created: true })),
   deliverReplyIfActive: vi.fn(async () => true),
 };
 const gate = vi.fn(async () => undefined);
@@ -26,12 +30,13 @@ const steps = [
   { id: "name", stepKey: "name", position: 1, type: "FREE_TEXT" as const, required: true, config: { text: "姓名", field: "name", nextStepKey: "phone" } },
   { id: "phone", stepKey: "phone", position: 2, type: "TAIWAN_MOBILE" as const, required: true, config: { text: "手機", nextStepKey: "confirm" } },
   { id: "confirm", stepKey: "confirm", position: 3, type: "SINGLE_CHOICE" as const, required: true, config: { text: "確認", contactConfirmation: true, options: [{ label: "確認送出", value: "CONFIRM", nextStepKey: "create" }, { label: "重新填寫", value: "RESTART", nextStepKey: "name" }] } },
-  { id: "create", stepKey: "create", position: 4, type: "CREATE_LEAD" as const, required: false, config: { requireCompleteContact: true, nameStepKey: "name", phoneStepKey: "phone" } },
-  { id: "complete", stepKey: "complete", position: 5, type: "COMPLETE_FLOW" as const, required: false, config: {} },
+  { id: "create", stepKey: "create", position: 4, type: "CREATE_LEAD" as const, required: false, config: { requireCompleteContact: true, nameStepKey: "name", phoneStepKey: "phone", requestTypeFromStepKey: "requestType", nextStepKey: "completion" } },
+  { id: "completion", stepKey: "completion", position: 5, type: "TEXT" as const, required: false, config: { text: "已收到您的資料，店家將儘快與您聯絡。", nextStepKey: "complete" } },
+  { id: "complete", stepKey: "complete", position: 6, type: "COMPLETE_FLOW" as const, required: false, config: {} },
 ];
 
 function conversation(currentStepKey: string, answers: Array<{ step: { stepKey: string }; value: unknown; phoneHash?: string | null }> = []) {
-  return { id: "conversation-1", storeId: "store-1", flowId: "flow-1", flowVersionId: "version-1", currentStepKey, expiresAt: new Date(Date.now() + 60_000), flowVersion: { steps }, answers };
+  return { id: "conversation-1", storeId: "store-1", provider: "MESSENGER" as const, flowId: "flow-1", flowVersionId: "version-1", currentStepKey, expiresAt: new Date(Date.now() + 60_000), flowVersion: { steps }, answers };
 }
 
 function input(text: string, webhookEventId: string) {
@@ -83,5 +88,50 @@ describe("complete contact lead flow", () => {
     const result = await new DigitalButlerRuntime(repository as never, gate).handleText(input("CONFIRM", "m-duplicate"));
     expect(result.outcome).toBe("DUPLICATE");
     expect(repository.createLead).not.toHaveBeenCalled();
+  });
+
+  it("adds the canonical booking link only after a successful Messenger BOOKING lead", async () => {
+    repository.findActiveConversation.mockResolvedValue(conversation("confirm", [
+      { step: { stepKey: "requestType" }, value: { value: "BOOKING", label: "預約體驗" } },
+      { step: { stepKey: "name" }, value: "王小美" },
+      { step: { stepKey: "phone" }, value: null, phoneHash: "hash" },
+    ]));
+
+    const result = await new DigitalButlerRuntime(repository as never, gate).handleText(input("CONFIRM", "m-booking"));
+
+    expect(result.messages).toEqual([expect.objectContaining({
+      type: "text",
+      text: expect.stringContaining("https://www.steamfoot.com/pricing/experience/zhubei/book#booking-form"),
+      urlButton: {
+        label: "立即預約體驗",
+        url: "https://www.steamfoot.com/pricing/experience/zhubei/book#booking-form",
+      },
+    })]);
+  });
+
+  it("keeps CONTACT_STORE completion free of a booking link", async () => {
+    repository.findActiveConversation.mockResolvedValue(conversation("confirm", [
+      { step: { stepKey: "requestType" }, value: { value: "CONTACT_STORE", label: "請店家聯絡" } },
+      { step: { stepKey: "name" }, value: "王小美" },
+      { step: { stepKey: "phone" }, value: null, phoneHash: "hash" },
+    ]));
+
+    const result = await new DigitalButlerRuntime(repository as never, gate).handleText(input("CONFIRM", "m-contact"));
+
+    expect(result.messages).toEqual([{ type: "text", text: "已收到您的資料，店家將儘快與您聯絡。" }]);
+  });
+
+  it("does not show a booking link when lead creation fails", async () => {
+    repository.createLead.mockResolvedValueOnce(null);
+    repository.findActiveConversation.mockResolvedValue(conversation("confirm", [
+      { step: { stepKey: "requestType" }, value: { value: "BOOKING", label: "預約體驗" } },
+      { step: { stepKey: "name" }, value: "王小美" },
+      { step: { stepKey: "phone" }, value: null, phoneHash: "hash" },
+    ]));
+
+    const result = await new DigitalButlerRuntime(repository as never, gate).handleText(input("CONFIRM", "m-lead-failed"));
+
+    expect(result.messages).toEqual([]);
+    expect(result.outcome).toBe("INACTIVE_CONVERSATION");
   });
 });

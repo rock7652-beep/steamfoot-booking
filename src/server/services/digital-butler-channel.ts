@@ -20,6 +20,8 @@ export type DigitalButlerOutboundMessageIntent =
       type: "text";
       text: string;
       choices?: Array<{ label: string; value: string }>;
+      singleMessageChoices?: boolean;
+      urlButton?: { label: string; url: string };
     }
   | {
       type: "card";

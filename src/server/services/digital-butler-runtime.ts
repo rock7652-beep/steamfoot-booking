@@ -11,6 +11,7 @@ import {
   type DigitalButlerGlobalCommand,
 } from "@/lib/digital-butler-global-command";
 import { normalizePhone } from "@/lib/normalize";
+import { ZHUBEI_EXPERIENCE_BOOKING_URL } from "@/lib/booking-links";
 import { assertDigitalButlerSubmittedAnswersSafe } from "@/lib/digital-butler-sensitive-json";
 import type {
   DigitalButlerInboundTextMessage,
@@ -20,6 +21,14 @@ import { notifyStoreManagerOnLine } from "@/server/services/store-manager-line-n
 
 const ACTIVE_STATUSES = ["IN_PROGRESS", "WAITING_INPUT"] as const;
 const CONVERSATION_TTL_MS = 24 * 60 * 60 * 1000;
+const MESSENGER_BOOKING_COMPLETION_TEXT = [
+  "已收到您的資料，店家將儘快與您聯絡。",
+  "",
+  "您也可以直接點選下方連結，自行選擇方便的體驗時間：",
+  ZHUBEI_EXPERIENCE_BOOKING_URL,
+  "",
+  "期待為您服務 😊",
+].join("\n");
 
 function prismaBytes(value: Uint8Array): Uint8Array<ArrayBuffer> {
   return Uint8Array.from(value);
@@ -37,6 +46,7 @@ type RuntimeStep = {
 type RuntimeConversation = {
   id: string;
   storeId: string;
+  provider: DigitalButlerInboundTextMessage["provider"];
   flowId: string;
   flowVersionId: string;
   currentStepKey: string | null;
@@ -224,6 +234,7 @@ function contactConfirmationMessage(
   if (typeof name !== "string" || !phone || typeof requestValue !== "string") return fallback;
   return {
     ...fallback,
+    singleMessageChoices: true,
     text: [
       "請確認您的資料：",
       `姓名：${name}`,
@@ -318,6 +329,11 @@ function completeContactError(step: RuntimeStep, answers: RuntimeConversation["a
     return "請先完成姓名與手機填寫並確認資料後，再建立名單。";
   }
   return null;
+}
+
+function isBookingRequest(value: Prisma.InputJsonValue | undefined): boolean {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value === "BOOKING";
+  return objectConfig(value as Prisma.JsonValue).value === "BOOKING";
 }
 
 function configuredNextStepKey(step: RuntimeStep, answer?: Prisma.InputJsonValue): string | null {
@@ -844,6 +860,7 @@ export class DigitalButlerRuntime {
     const steps = conversation.flowVersion.steps;
     let index = startIndex;
     let transitions = 0;
+    let messengerBookingCompletionPending = false;
     while (index >= 0 && index < steps.length && transitions < 100) {
       transitions += 1;
       const step = steps[index];
@@ -857,8 +874,17 @@ export class DigitalButlerRuntime {
         return { handled: true, messages: messages.slice(0, 5), outcome: "WAITING_INPUT" };
       }
       if (step.type === "TEXT") {
-        const text = textFromConfig(step);
-        if (text) messages.push({ type: "text", text });
+        if (messengerBookingCompletionPending) {
+          messages.push({
+            type: "text",
+            text: MESSENGER_BOOKING_COMPLETION_TEXT,
+            urlButton: { label: "立即預約體驗", url: ZHUBEI_EXPERIENCE_BOOKING_URL },
+          });
+          messengerBookingCompletionPending = false;
+        } else {
+          const text = textFromConfig(step);
+          if (text) messages.push({ type: "text", text });
+        }
       } else if (step.type === "FLEX_OPENING" || step.type === "FLEX_COMPLETION") {
         const config = objectConfig(step.config);
         if (config.contents && typeof config.contents === "object") {
@@ -891,6 +917,8 @@ export class DigitalButlerRuntime {
           submittedAnswers: submittedAnswers as Prisma.InputJsonObject,
         });
         if (!leadCreation) return { handled: true, messages: [], outcome: "INACTIVE_CONVERSATION" };
+        messengerBookingCompletionPending = leadCreation.created && conversation.provider === "MESSENGER"
+          && isBookingRequest(requestTypeValue);
         if (leadCreation.created) {
           await this.notifyLeadCreated({
             storeId: conversation.storeId,

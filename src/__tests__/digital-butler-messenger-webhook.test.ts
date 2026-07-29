@@ -51,7 +51,7 @@ describe("Messenger Digital Butler foundation", () => {
 
     expect(messages[0]?.text).toContain("首次蒸足體驗優惠價 NT$499");
     expect(messages[0]?.text).toContain("點擊下方連結，立即選擇日期與時段");
-    expect(messages[0]?.text).toContain("https://www.steamfoot.com/book/zhubei");
+    expect(messages[0]?.text).toContain("https://www.steamfoot.com/pricing/experience/zhubei/book#booking-form");
     expect(messages[1].attachment?.payload).toMatchObject({
       template_type: "button",
       text: "如果還不確定時間，也可以選擇由店家聯絡您：",
@@ -77,6 +77,53 @@ describe("Messenger Digital Butler foundation", () => {
         expect(quickReply.payload.trim()).not.toBe("");
       }
     }
+  });
+
+  it("renders a confirmation intent with choices as one Messenger button message", () => {
+    const messages = digitalButlerIntentsToMessengerMessages([{
+      type: "text",
+      text: "請確認您的資料：\n姓名：王小美\n手機：0912345678\n需求：預約體驗\n資料正確後請選擇確認送出。",
+      singleMessageChoices: true,
+      choices: [
+        { label: "確認送出", value: "CONFIRM" },
+        { label: "重新填寫", value: "RESTART" },
+      ],
+    }]);
+
+    expect(messages).toHaveLength(1);
+    expect(messages[0]?.attachment?.payload).toMatchObject({
+      text: expect.stringContaining("姓名：王小美"),
+      buttons: [
+        { type: "postback", title: "確認送出", payload: "CONFIRM" },
+        { type: "postback", title: "重新填寫", payload: "RESTART" },
+      ],
+    });
+  });
+
+  it("renders a completion URL as a Messenger web URL button", () => {
+    const messages = digitalButlerIntentsToMessengerMessages([{
+      type: "text",
+      text: "已收到您的資料，店家將儘快與您聯絡。\nhttps://www.steamfoot.com/pricing/experience/zhubei/book#booking-form",
+      urlButton: {
+        label: "立即預約體驗",
+        url: "https://www.steamfoot.com/pricing/experience/zhubei/book#booking-form",
+      },
+    }]);
+
+    expect(messages).toEqual([{
+      attachment: {
+        type: "template",
+        payload: {
+          template_type: "button",
+          text: expect.stringContaining("https://www.steamfoot.com/pricing/experience/zhubei/book#booking-form"),
+          buttons: [{
+            type: "web_url",
+            title: "立即預約體驗",
+            url: "https://www.steamfoot.com/pricing/experience/zhubei/book#booking-form",
+          }],
+        },
+      },
+    }]);
   });
 
   it("connects verified Page events to the channel-neutral runtime", () => {
