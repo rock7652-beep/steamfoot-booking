@@ -917,7 +917,7 @@ export class DigitalButlerRuntime {
           submittedAnswers: submittedAnswers as Prisma.InputJsonObject,
         });
         if (!leadCreation) return { handled: true, messages: [], outcome: "INACTIVE_CONVERSATION" };
-        messengerBookingCompletionPending = leadCreation.created && conversation.provider === "MESSENGER"
+        messengerBookingCompletionPending = conversation.provider === "MESSENGER"
           && isBookingRequest(requestTypeValue);
         if (leadCreation.created) {
           await this.notifyLeadCreated({

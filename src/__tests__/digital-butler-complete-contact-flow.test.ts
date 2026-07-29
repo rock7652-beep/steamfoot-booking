@@ -26,15 +26,14 @@ const repository = {
 const gate = vi.fn(async () => undefined);
 
 const steps = [
-  { id: "request", stepKey: "requestType", position: 0, type: "SINGLE_CHOICE" as const, required: true, config: { text: "需求", options: [{ label: "預約體驗", value: "BOOKING", nextStepKey: "name" }, { label: "請店家聯絡", value: "CONTACT", nextStepKey: "name" }] } },
+  { id: "request", stepKey: "menu", position: 0, type: "SINGLE_CHOICE" as const, required: true, config: { text: "需求", options: [{ label: "預約體驗", value: "BOOKING", nextStepKey: "name" }, { label: "請店家聯絡", value: "CONTACT", nextStepKey: "name" }] } },
   { id: "name", stepKey: "name", position: 1, type: "FREE_TEXT" as const, required: true, config: { text: "姓名", field: "name", nextStepKey: "phone" } },
   { id: "phone", stepKey: "phone", position: 2, type: "TAIWAN_MOBILE" as const, required: true, config: { text: "手機", nextStepKey: "confirm" } },
-  { id: "confirm", stepKey: "confirm", position: 3, type: "SINGLE_CHOICE" as const, required: true, config: { text: "確認", contactConfirmation: true, options: [{ label: "確認送出", value: "CONFIRM", nextStepKey: "create" }, { label: "重新填寫", value: "RESTART", nextStepKey: "name" }] } },
-  { id: "create", stepKey: "create", position: 4, type: "CREATE_LEAD" as const, required: false, config: { requireCompleteContact: true, nameStepKey: "name", phoneStepKey: "phone", requestTypeFromStepKey: "requestType", nextStepKey: "completion" } },
+  { id: "confirm", stepKey: "confirm", position: 3, type: "SINGLE_CHOICE" as const, required: true, config: { text: "確認", contactConfirmation: true, requestStepKey: "menu", options: [{ label: "確認送出", value: "CONFIRM", nextStepKey: "create" }, { label: "重新填寫", value: "RESTART", nextStepKey: "name" }] } },
+  { id: "create", stepKey: "create", position: 4, type: "CREATE_LEAD" as const, required: false, config: { requireCompleteContact: true, nameStepKey: "name", phoneStepKey: "phone", requestTypeFromStepKey: "menu", nextStepKey: "completion" } },
   { id: "completion", stepKey: "completion", position: 5, type: "TEXT" as const, required: false, config: { text: "已收到您的資料，店家將儘快與您聯絡。", nextStepKey: "complete" } },
   { id: "complete", stepKey: "complete", position: 6, type: "COMPLETE_FLOW" as const, required: false, config: {} },
 ];
-
 function conversation(currentStepKey: string, answers: Array<{ step: { stepKey: string }; value: unknown; phoneHash?: string | null }> = []) {
   return { id: "conversation-1", storeId: "store-1", provider: "MESSENGER" as const, flowId: "flow-1", flowVersionId: "version-1", currentStepKey, expiresAt: new Date(Date.now() + 60_000), flowVersion: { steps }, answers };
 }
@@ -61,7 +60,7 @@ describe("complete contact lead flow", () => {
 
   it("normalizes Messenger phone punctuation and creates only after confirmation", async () => {
     repository.findActiveConversation.mockResolvedValue(conversation("phone", [
-      { step: { stepKey: "requestType" }, value: { value: "BOOKING", label: "預約體驗" } },
+      { step: { stepKey: "menu" }, value: { value: "BOOKING", label: "預約體驗" } },
       { step: { stepKey: "name" }, value: "王小美" },
     ]));
     const phoneResult = await new DigitalButlerRuntime(repository as never, gate).handleText(input("0912-345-678", "m-phone"));
@@ -72,13 +71,13 @@ describe("complete contact lead flow", () => {
     expect(phoneResult.messages[0]).toMatchObject({ text: expect.stringContaining("需求：預約體驗") });
 
     repository.findActiveConversation.mockResolvedValue(conversation("confirm", [
-      { step: { stepKey: "requestType" }, value: { value: "BOOKING", label: "預約體驗" } },
+      { step: { stepKey: "menu" }, value: { value: "BOOKING", label: "預約體驗" } },
       { step: { stepKey: "name" }, value: "王小美" },
       { step: { stepKey: "phone" }, value: null, phoneHash: "hash" },
     ]));
     await new DigitalButlerRuntime(repository as never, gate).handleText(input("CONFIRM", "m-confirm"));
     expect(repository.createLead).toHaveBeenCalledWith(expect.objectContaining({
-      submittedAnswers: { requestType: { value: "BOOKING", label: "預約體驗" }, name: "王小美", confirm: { value: "CONFIRM", label: "確認送出" } },
+      submittedAnswers: { menu: { value: "BOOKING", label: "預約體驗" }, name: "王小美", confirm: { value: "CONFIRM", label: "確認送出" }, requestType: { value: "BOOKING", label: "預約體驗" } },
     }));
     expect(JSON.stringify(repository.createLead.mock.calls)).not.toContain("0912345678");
   });
@@ -90,9 +89,10 @@ describe("complete contact lead flow", () => {
     expect(repository.createLead).not.toHaveBeenCalled();
   });
 
-  it("adds the canonical booking link only after a successful Messenger BOOKING lead", async () => {
+  it("adds the canonical booking link when a Messenger BOOKING completion refreshes an existing lead", async () => {
+    repository.createLead.mockResolvedValueOnce({ leadId: "existing-lead", created: false });
     repository.findActiveConversation.mockResolvedValue(conversation("confirm", [
-      { step: { stepKey: "requestType" }, value: { value: "BOOKING", label: "預約體驗" } },
+      { step: { stepKey: "menu" }, value: { value: "BOOKING", label: "預約體驗" } },
       { step: { stepKey: "name" }, value: "王小美" },
       { step: { stepKey: "phone" }, value: null, phoneHash: "hash" },
     ]));
@@ -107,11 +107,17 @@ describe("complete contact lead flow", () => {
         url: "https://www.steamfoot.com/pricing/experience/zhubei/book#booking-form",
       },
     })]);
+    expect(repository.createLead).toHaveBeenCalledWith(expect.objectContaining({
+      submittedAnswers: expect.objectContaining({
+        menu: { value: "BOOKING", label: "預約體驗" },
+        requestType: { value: "BOOKING", label: "預約體驗" },
+      }),
+    }));
   });
 
   it("keeps CONTACT_STORE completion free of a booking link", async () => {
     repository.findActiveConversation.mockResolvedValue(conversation("confirm", [
-      { step: { stepKey: "requestType" }, value: { value: "CONTACT_STORE", label: "請店家聯絡" } },
+      { step: { stepKey: "menu" }, value: { value: "CONTACT_STORE", label: "請店家聯絡" } },
       { step: { stepKey: "name" }, value: "王小美" },
       { step: { stepKey: "phone" }, value: null, phoneHash: "hash" },
     ]));
@@ -124,7 +130,7 @@ describe("complete contact lead flow", () => {
   it("does not show a booking link when lead creation fails", async () => {
     repository.createLead.mockResolvedValueOnce(null);
     repository.findActiveConversation.mockResolvedValue(conversation("confirm", [
-      { step: { stepKey: "requestType" }, value: { value: "BOOKING", label: "預約體驗" } },
+      { step: { stepKey: "menu" }, value: { value: "BOOKING", label: "預約體驗" } },
       { step: { stepKey: "name" }, value: "王小美" },
       { step: { stepKey: "phone" }, value: null, phoneHash: "hash" },
     ]));
