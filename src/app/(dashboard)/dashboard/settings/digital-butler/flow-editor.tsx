@@ -15,6 +15,7 @@ import {
   saveDigitalButlerFlowAction,
   setDigitalButlerFlowEnabledAction,
 } from "./actions";
+import { DigitalButlerLeadCollectionUpgrade } from "./lead-collection-upgrade";
 
 type Flow = {
   id: string;
@@ -23,7 +24,7 @@ type Flow = {
   enabled: boolean;
   draftDefinition: unknown;
   currentPublishedVersionId: string | null;
-  publishedVersion: PublishedDigitalButlerView | null;
+  publishedVersion: (PublishedDigitalButlerView & { definition: unknown }) | null;
 };
 
 const starterDefinition = {
@@ -41,7 +42,13 @@ const starterDefinition = {
   ],
 };
 
-export function DigitalButlerFlowEditor({ flows }: { flows: Flow[] }) {
+export function DigitalButlerFlowEditor({
+  flows,
+  leadCollectionUpgrade,
+}: {
+  flows: Flow[];
+  leadCollectionUpgrade: { storeName: string; storeSlug: string } | null;
+}) {
   const [selectedId, setSelectedId] = useState(flows[0]?.id ?? "");
   const selected = flows.find((flow) => flow.id === selectedId);
   const [name, setName] = useState(selected?.name ?? "新流程");
@@ -132,7 +139,9 @@ export function DigitalButlerFlowEditor({ flows }: { flows: Flow[] }) {
   }
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[280px_1fr]">
+    <>
+      {leadCollectionUpgrade ? <DigitalButlerLeadCollectionUpgrade {...leadCollectionUpgrade} /> : null}
+      <div className="grid gap-4 lg:grid-cols-[280px_1fr]">
       <aside className="rounded-xl border border-earth-200 bg-white p-4">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="font-semibold text-earth-900">流程</h2>
@@ -248,6 +257,7 @@ export function DigitalButlerFlowEditor({ flows }: { flows: Flow[] }) {
           <div className="py-20 text-center text-sm text-earth-500">請先建立第一個流程</div>
         )}
       </section>
-    </div>
+      </div>
+    </>
   );
 }
