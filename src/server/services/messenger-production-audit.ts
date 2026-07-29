@@ -1,7 +1,7 @@
 import "server-only";
 
 import { prisma } from "@/lib/db";
-import { getMessengerPageConfig } from "@/lib/messenger-config";
+import { getMessengerAppAccessToken, getMessengerPageConfig } from "@/lib/messenger-config";
 
 const REQUIRED_FIELDS = ["messages", "messaging_postbacks", "messaging_optins", "messaging_referrals"];
 
@@ -38,7 +38,7 @@ function requiredConfigNames(storeSlug: string): string[] {
   const page = getMessengerPageConfig(storeSlug);
   const required: Array<[string, string | null | undefined]> = [
     ["MESSENGER_APP_ID", process.env.MESSENGER_APP_ID?.trim()],
-    ["MESSENGER_APP_ACCESS_TOKEN", process.env.MESSENGER_APP_ACCESS_TOKEN?.trim()],
+    ["MESSENGER_APP_SECRET or MESSENGER_APP_ACCESS_TOKEN", getMessengerAppAccessToken()],
     [`MESSENGER_PAGE_ID_${envSlug(storeSlug)}`, page.pageId],
     [`MESSENGER_PAGE_ACCESS_TOKEN_${envSlug(storeSlug)}`, page.accessToken],
     ["MESSENGER_WEBHOOK_URL", process.env.MESSENGER_WEBHOOK_URL?.trim()],
@@ -53,7 +53,7 @@ function getAuditConfig(storeSlug: string): AuditConfig {
   }
   return {
     appId: process.env.MESSENGER_APP_ID!.trim(),
-    appAccessToken: process.env.MESSENGER_APP_ACCESS_TOKEN!.trim(),
+    appAccessToken: getMessengerAppAccessToken()!,
     pageId: page.pageId,
     pageAccessToken: page.accessToken,
     webhookUrl: process.env.MESSENGER_WEBHOOK_URL!.trim(),

@@ -1,7 +1,7 @@
 import "server-only";
 
 import { prisma } from "@/lib/db";
-import { getMessengerPageConfig } from "@/lib/messenger-config";
+import { getMessengerAppAccessToken, getMessengerPageConfig } from "@/lib/messenger-config";
 import { createMessengerAuditRun, type MessengerAuditSafeResult } from "@/server/services/messenger-production-audit";
 
 const EXPECTED_APP_ID = "1019175470965183";
@@ -83,7 +83,7 @@ export async function repairMessengerPageBinding(input: { storeId: string; store
 
   const page = getMessengerPageConfig(input.storeSlug);
   const appId = process.env.MESSENGER_APP_ID?.trim();
-  const appAccessToken = process.env.MESSENGER_APP_ACCESS_TOKEN?.trim();
+  const appAccessToken = getMessengerAppAccessToken();
   if (!page.pageId || !page.accessToken || !appId || !appAccessToken) {
     return { status: "blocked", code: "REPAIR_CONFIGURATION_INCOMPLETE", classification: "other_graph_error", calls: {} };
   }

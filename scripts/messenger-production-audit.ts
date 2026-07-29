@@ -3,7 +3,7 @@
  * subscription and attaches the configured Page to this Meta app.
  *
  * Required environment variables are intentionally server-only:
- * MESSENGER_APP_ID, MESSENGER_APP_ACCESS_TOKEN, MESSENGER_VERIFY_TOKEN,
+ * MESSENGER_APP_ID, MESSENGER_APP_SECRET (or fallback MESSENGER_APP_ACCESS_TOKEN), MESSENGER_VERIFY_TOKEN,
  * MESSENGER_WEBHOOK_URL, MESSENGER_PAGE_ID_<STORE>, and
  * MESSENGER_PAGE_ACCESS_TOKEN_<STORE>. Run with --store=<store slug>.
  */
@@ -14,7 +14,7 @@ const storeSlug = process.argv.find((arg) => arg.startsWith("--store="))?.slice(
 if (!storeSlug) throw new Error("--store=<store slug> is required");
 const storeSuffix = storeSlug.replace(/[^a-zA-Z0-9]/g, "_").toUpperCase();
 const required = [
-  "MESSENGER_APP_ID", "MESSENGER_APP_ACCESS_TOKEN", "MESSENGER_VERIFY_TOKEN",
+  "MESSENGER_APP_ID", "MESSENGER_VERIFY_TOKEN",
   "MESSENGER_WEBHOOK_URL",
 ] as const;
 const fields = ["messages", "messaging_postbacks", "messaging_optins", "messaging_referrals"];
@@ -29,6 +29,11 @@ const config = Object.fromEntries(required.map((name) => [name, env(name)])) as 
   pageId: string;
   pageAccessToken: string;
 };
+const appSecret = process.env.MESSENGER_APP_SECRET?.trim();
+const configuredAppToken = process.env.MESSENGER_APP_ACCESS_TOKEN?.trim();
+const appAccessToken = appSecret ? `${config.MESSENGER_APP_ID}|${appSecret}` : configuredAppToken;
+if (!appAccessToken) throw new Error("MESSENGER_APP_SECRET or MESSENGER_APP_ACCESS_TOKEN is required");
+const resolvedAppAccessToken: string = appAccessToken;
 config.pageId = env(`MESSENGER_PAGE_ID_${storeSuffix}`);
 config.pageAccessToken = env(`MESSENGER_PAGE_ACCESS_TOKEN_${storeSuffix}`);
 const graphApiVersion = process.env.MESSENGER_GRAPH_API_VERSION?.trim() || "v23.0";
@@ -43,10 +48,10 @@ async function graph(path: string, accessToken: string, init?: RequestInit) {
 }
 
 async function main() {
-  const app = await graph(`/${config.MESSENGER_APP_ID}?fields=id,name`, config.MESSENGER_APP_ACCESS_TOKEN);
+  const app = await graph(`/${config.MESSENGER_APP_ID}?fields=id,name`, resolvedAppAccessToken);
   const page = await graph(`/${config.pageId}?fields=id,name`, config.pageAccessToken);
   const pageTokenIdentity = await graph(`/me?fields=id,name`, config.pageAccessToken);
-  const subscriptions = await graph(`/${config.MESSENGER_APP_ID}/subscriptions?fields=object,callback_url,fields`, config.MESSENGER_APP_ACCESS_TOKEN);
+  const subscriptions = await graph(`/${config.MESSENGER_APP_ID}/subscriptions?fields=object,callback_url,fields`, resolvedAppAccessToken);
   const subscribedApps = await graph(`/${config.pageId}/subscribed_apps?fields=id`, config.pageAccessToken);
   const appSubscription = Array.isArray(subscriptions.data)
     ? subscriptions.data.find((item) => item && typeof item === "object" && (item as { object?: string }).object === "page") as Record<string, unknown> | undefined
@@ -66,7 +71,7 @@ async function main() {
   }
 
   const form = new URLSearchParams({ object: "page", callback_url: config.MESSENGER_WEBHOOK_URL, verify_token: config.MESSENGER_VERIFY_TOKEN, fields: fields.join(",") });
-  await graph(`/${config.MESSENGER_APP_ID}/subscriptions`, config.MESSENGER_APP_ACCESS_TOKEN, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: form });
+  await graph(`/${config.MESSENGER_APP_ID}/subscriptions`, resolvedAppAccessToken, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: form });
   await graph(`/${config.pageId}/subscribed_apps`, config.pageAccessToken, { method: "POST" });
   console.log("Messenger Page webhook and Page app subscription applied. Re-run without --apply to verify.");
   if (sendSmoke) await runSendSmoke();

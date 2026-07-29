@@ -31,6 +31,7 @@ type TokenFingerprintResult = {
 type GraphDiagnosticResult = {
   classification: string;
   findings: string[];
+  appToken: { source: string; fingerprint: string; tokenLength: number; hasAppIdPrefix: boolean; hasSingleDelimiter: boolean; hasWrappingQuotes: boolean; hasNewline: boolean; trimChangesLength: boolean };
   calls: Record<string, SafeCall & { error: { type?: string; code?: number; subcode?: number; fbtraceId?: string; messageSummary?: string } | null; identity?: string }>;
 };
 
@@ -236,6 +237,7 @@ function GraphDiagnosticSummary({ result }: { result: GraphDiagnosticResult }) {
   return <div className="mt-4 space-y-3">
     <p className="font-medium">判定：{result.classification}</p>
     <p>證據分類：{result.findings.join("、")}</p>
+    <p>App token：{result.appToken.source}；指紋 {result.appToken.fingerprint}；長度 {result.appToken.tokenLength}；App ID 前綴 {result.appToken.hasAppIdPrefix ? "是" : "否"}；單一分隔符 {result.appToken.hasSingleDelimiter ? "是" : "否"}；引號 {result.appToken.hasWrappingQuotes ? "有" : "無"}；換行 {result.appToken.hasNewline ? "有" : "無"}；trim 改變 {result.appToken.trimChangesLength ? "是" : "否"}</p>
     <ul className="space-y-1">{Object.entries(result.calls).map(([name, call]) => <li key={name}>{name}: {call.ok ? "OK" : "失敗"}（HTTP {call.httpStatus ?? "—"}{call.identity ? `，${call.identity}` : ""}{call.error?.type ? `，${call.error.type}` : ""}{call.error?.code !== undefined ? `，code ${call.error.code}` : ""}{call.error?.subcode !== undefined ? `，subcode ${call.error.subcode}` : ""}{call.error?.fbtraceId ? `，fbtrace ${call.error.fbtraceId}` : ""}{call.error?.messageSummary ? `，${call.error.messageSummary}` : ""}）</li>)}</ul>
   </div>;
 }

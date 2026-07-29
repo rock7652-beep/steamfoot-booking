@@ -6,7 +6,7 @@ The Messenger integration is intentionally fail-closed: invalid webhook signatur
 
 The existing runtime configuration is store-aware: set `MESSENGER_PAGE_ID_<STORE>` and `MESSENGER_PAGE_ACCESS_TOKEN_<STORE>` for each active store, where `<STORE>` is the upper-case store slug with non-alphanumeric characters replaced by `_`. `MESSENGER_VERIFY_TOKEN` and `MESSENGER_APP_SECRET` are shared webhook credentials. `MESSENGER_WEBHOOK_URL` must be the public production URL ending in `/api/messenger/webhook`; do not use a preview deployment.
 
-The Page access token must be issued for the exact `MESSENGER_PAGE_ID`. The app access token is used only by the production audit/configuration tool and is not used to send messages at runtime.
+The Page access token must be issued for the exact `MESSENGER_PAGE_ID`. The app access token is used only by the production audit/configuration tool and is not used to send messages at runtime. Production derives the standard App token from `MESSENGER_APP_ID` and `MESSENGER_APP_SECRET`; `MESSENGER_APP_ACCESS_TOKEN` is only a compatibility fallback when the secret is intentionally unavailable. Do not put a User or Page token in that fallback variable.
 
 ## Verify and repair
 
