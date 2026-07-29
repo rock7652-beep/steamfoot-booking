@@ -16,10 +16,15 @@ type AuditRun = {
   errorCode: string | null;
 };
 
+type RepairAudit = Pick<AuditRun, "appValidated" | "pageTokenMatches" | "callbackMatches" | "configuredFields" | "missingFields" | "pageAttached"> & {
+  calls: Record<string, SafeCall>;
+};
+
 export function MessengerAuditPanel({ storeId }: { storeId: string }) {
   const [run, setRun] = useState<AuditRun | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
+  const [repairMessage, setRepairMessage] = useState<string | null>(null);
 
   async function runAudit() {
     setRunning(true);
@@ -46,6 +51,33 @@ export function MessengerAuditPanel({ storeId }: { storeId: string }) {
     }
   }
 
+  async function repairPageBinding() {
+    setRunning(true);
+    setError(null);
+    setRepairMessage(null);
+    try {
+      const response = await fetch("/api/admin/messenger/repair", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ storeId }),
+        cache: "no-store",
+      });
+      const result = await response.json() as { status?: string; code?: string; classification?: string; audit?: RepairAudit };
+      if (result.status === "repaired" && result.audit) {
+        setRun({ id: "", status: "COMPLETED", errorCode: null, callsSafeSummary: result.audit.calls, ...result.audit });
+        setRepairMessage("Page 已完成綁定與欄位訂閱，並已重新稽核。");
+      } else if (result.status === "blocked") {
+        setRepairMessage(`未執行 Meta 寫入：${result.code ?? "PAGE_TOKEN_VALIDATION_FAILED"}（${result.classification ?? "other_graph_error"}）。請依安全摘要更新正確的 Page Access Token 後再試。`);
+      } else {
+        setRepairMessage(`修復未完成：${result.code ?? "repair_unavailable"}。系統已停止後續操作。`);
+      }
+    } catch {
+      setRepairMessage("目前無法完成修復；系統未確認寫入結果，請稍後再試。");
+    } finally {
+      setRunning(false);
+    }
+  }
+
   return (
     <section className="rounded-xl border border-earth-200 bg-white p-5 shadow-sm">
       <p className="text-sm text-earth-600">此操作只會讀取 Meta 控制面設定並保存去識別化結果，不會訂閱、更新或傳送任何資料。</p>
@@ -57,6 +89,19 @@ export function MessengerAuditPanel({ storeId }: { storeId: string }) {
       >
         {running ? "稽核中…" : "執行 Messenger 稽核"}
       </button>
+
+      <div className="mt-5 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+        <p>僅竹北店可用。此修復會先驗證 Page Token 是否確實對應目標粉專；驗證失敗時不會呼叫任何 Meta 寫入。</p>
+        <button
+          type="button"
+          onClick={repairPageBinding}
+          disabled={running}
+          className="mt-3 rounded-lg bg-amber-700 px-4 py-2 text-sm font-medium text-white hover:bg-amber-800 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {running ? "處理中…" : "驗證並修復竹北 Messenger 訂閱"}
+        </button>
+        {repairMessage ? <p className="mt-3">{repairMessage}</p> : null}
+      </div>
 
       {error ? <p className="mt-4 text-sm text-red-600">{error}</p> : null}
       {run ? (

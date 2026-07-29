@@ -98,15 +98,18 @@ export async function runMessengerProductionAudit(storeSlug: string): Promise<Me
     graphJson(`/${encodeURIComponent(config.pageId)}?fields=id`, config.pageAccessToken, config.graphApiVersion),
     graphJson("/me?fields=id", config.pageAccessToken, config.graphApiVersion),
     graphJson(`/${encodeURIComponent(config.appId)}/subscriptions?fields=object,callback_url,fields`, config.appAccessToken, config.graphApiVersion),
-    graphJson(`/${encodeURIComponent(config.pageId)}/subscribed_apps?fields=id`, config.pageAccessToken, config.graphApiVersion),
+    graphJson(`/${encodeURIComponent(config.pageId)}/subscribed_apps?fields=id,subscribed_fields`, config.pageAccessToken, config.graphApiVersion),
   ]);
 
   const appData = objectData(app.data);
   const pageData = objectData(page.data);
   const identityData = objectData(pageTokenIdentity.data);
   const pageSubscription = dataItems(subscriptions.data).find((item) => item.object === "page");
-  const configuredFields = Array.isArray(pageSubscription?.fields)
-    ? pageSubscription.fields.filter((field): field is string => typeof field === "string")
+  const installedApp = dataItems(subscribedApps.data).find((item) => item.id === config.appId);
+  // Messenger field delivery is a Page-level setting. App subscriptions only own
+  // the callback configuration, so fields must be read from Page/subscribed_apps.
+  const configuredFields = Array.isArray(installedApp?.subscribed_fields)
+    ? installedApp.subscribed_fields.filter((field): field is string => typeof field === "string")
     : [];
 
   return {
@@ -115,7 +118,7 @@ export async function runMessengerProductionAudit(storeSlug: string): Promise<Me
     callbackMatches: subscriptions.call.ok && pageSubscription?.callback_url === config.webhookUrl,
     configuredFields,
     missingFields: REQUIRED_FIELDS.filter((field) => !configuredFields.includes(field)),
-    pageAttached: subscribedApps.call.ok && dataItems(subscribedApps.data).some((item) => item.id === config.appId),
+    pageAttached: subscribedApps.call.ok && Boolean(installedApp),
     calls: {
       app: app.call,
       page: page.call,
