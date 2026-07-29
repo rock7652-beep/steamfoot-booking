@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { DigitalButlerLeadStatus } from "@prisma/client";
 import { digitalButlerAnswerSummary } from "@/lib/digital-butler-answer-summary";
+import { digitalButlerLeadFilterHref } from "@/lib/digital-butler-lead-filters";
 import { DIGITAL_BUTLER_PROVIDER_FILTERS, providerLabel } from "@/lib/digital-butler-provider";
 import { updateDigitalButlerLeadAction } from "@/server/actions/digital-butler-leads";
 
@@ -52,15 +53,13 @@ export function DigitalButlerLeadList({
   selectedProvider: string;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  function filter(status: string, staffId: string, provider: string) {
-    const params = new URLSearchParams();
-    if (status) params.set("status", status);
-    if (staffId) params.set("staff", staffId);
-    if (provider) params.set("provider", provider);
-    router.push(`/dashboard/digital-butler/leads?${params.toString()}`);
+  function filter(key: "status" | "staff" | "provider", value: string) {
+    router.push(digitalButlerLeadFilterHref(pathname, searchParams.toString(), key, value));
   }
 
   return (
@@ -68,7 +67,7 @@ export function DigitalButlerLeadList({
       <div className="flex flex-wrap gap-2 rounded-xl border border-earth-200 bg-white p-3">
         <select
           value={selectedStatus}
-          onChange={(event) => filter(event.target.value, selectedStaffId, selectedProvider)}
+          onChange={(event) => filter("status", event.target.value)}
           className="h-9 rounded-lg border border-earth-200 bg-white px-3 text-sm"
         >
           <option value="">全部狀態</option>
@@ -76,7 +75,7 @@ export function DigitalButlerLeadList({
         </select>
         <select
           value={selectedStaffId}
-          onChange={(event) => filter(selectedStatus, event.target.value, selectedProvider)}
+          onChange={(event) => filter("staff", event.target.value)}
           className="h-9 rounded-lg border border-earth-200 bg-white px-3 text-sm"
         >
           <option value="">全部負責人</option>
@@ -84,7 +83,7 @@ export function DigitalButlerLeadList({
         </select>
         <select
           value={selectedProvider}
-          onChange={(event) => filter(selectedStatus, selectedStaffId, event.target.value)}
+          onChange={(event) => filter("provider", event.target.value)}
           className="h-9 rounded-lg border border-earth-200 bg-white px-3 text-sm"
           aria-label="來源篩選"
         >
