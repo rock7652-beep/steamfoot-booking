@@ -15,6 +15,7 @@
     "db:studio": "npx prisma studio",
     "db:reset": "npx prisma db push --force-reset && npm run seed",
     "preflight:digital-butler": "tsx scripts/digital-butler-production-preflight.ts",
+    "upgrade:zhubei-messenger-flow": "tsx scripts/upgrade-zhubei-messenger-digital-butler-flow.ts",
     "audit:messenger-production": "tsx scripts/messenger-production-audit.ts",
     "postinstall": "prisma generate"
   },
