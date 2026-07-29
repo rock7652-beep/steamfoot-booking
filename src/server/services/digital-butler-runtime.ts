@@ -202,6 +202,7 @@ function contactConfirmationMessage(
   const config = objectConfig(step.config);
   const fallback = questionMessage(step);
   if (config.contactConfirmation !== true) return fallback;
+  if (fallback.type !== "text") return fallback;
   const nameStepKey = typeof config.nameStepKey === "string" ? config.nameStepKey : "name";
   const phoneStepKey = typeof config.phoneStepKey === "string" ? config.phoneStepKey : "phone";
   const requestStepKey = typeof config.requestStepKey === "string" ? config.requestStepKey : "requestType";

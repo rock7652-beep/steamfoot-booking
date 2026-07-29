@@ -13,6 +13,7 @@ describe("classifyDigitalButlerGlobalCommand", () => {
     ["真人客服", "HANDOFF"],
     ["轉真人", "HANDOFF"],
     ["找客服", "HANDOFF"],
+    ["回主選單", "MAIN_MENU"],
   ] as const)("classifies %s as %s", (text, expected) => {
     expect(classifyDigitalButlerGlobalCommand(text)).toBe(expected);
   });
@@ -24,7 +25,6 @@ describe("classifyDigitalButlerGlobalCommand", () => {
     "請問可以轉接客服嗎",
     "停止流汗後要注意什麼",
     "重新開始",
-    "回主選單",
     "",
   ])("does not over-match normal conversation text: %s", (text) => {
     expect(classifyDigitalButlerGlobalCommand(text)).toBeNull();
