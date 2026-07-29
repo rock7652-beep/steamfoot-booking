@@ -83,6 +83,7 @@ type RuntimeRepository = {
     id: string;
     currentPublishedVersionId: string;
     publishedVersion: { definition: Prisma.JsonValue; steps: RuntimeStep[] };
+    startStepKey: string | null;
   } | null>;
   createConversation(input: {
     storeId: string;
@@ -283,6 +284,24 @@ function nextStepIndex(steps: RuntimeStep[], currentIndex: number, answer?: Pris
   return target ? steps.findIndex((step) => step.stepKey === target) : currentIndex + 1;
 }
 
+export function topLevelChoiceEntryStepKey(steps: RuntimeStep[], text: string): string | null {
+  const menuStep = steps.find((step) => step.type === "SINGLE_CHOICE");
+  if (!menuStep) return null;
+  const options = objectConfig(menuStep.config).options;
+  const selected = Array.isArray(options)
+    ? options.find((option) => {
+        const parsed = objectConfig(option as Prisma.JsonValue);
+        return parsed.label === text || parsed.value === text;
+      })
+    : null;
+  const startStepKey = selected
+    ? objectConfig(selected as Prisma.JsonValue).nextStepKey
+    : null;
+  return typeof startStepKey === "string" && startStepKey.trim()
+    ? startStepKey.trim()
+    : null;
+}
+
 class PrismaDigitalButlerRuntimeRepository implements RuntimeRepository {
   async claimEvent(input: {
     storeId: string;
@@ -350,8 +369,25 @@ class PrismaDigitalButlerRuntimeRepository implements RuntimeRepository {
       where: { storeId, status: "PUBLISHED", enabled: true, currentPublishedVersionId: { not: null } },
       include: { publishedVersion: { include: { steps: { orderBy: { position: "asc" } } } } },
     });
-    return flows.find((flow) => flow.publishedVersion &&
-      triggerKeywords(flow.publishedVersion.definition).includes(text)) as Awaited<ReturnType<RuntimeRepository["findTriggeredFlow"]>>;
+    for (const flow of flows) {
+      if (!flow.publishedVersion) continue;
+      if (triggerKeywords(flow.publishedVersion.definition).includes(text)) {
+        return { ...flow, startStepKey: null } as Awaited<ReturnType<RuntimeRepository["findTriggeredFlow"]>>;
+      }
+
+      // A top-level menu choice is also a safe entry point after a completed,
+      // cancelled, or handed-off conversation. Only the first choice step is
+      // considered so answers from deeper in a flow cannot unexpectedly start
+      // a new conversation.
+      const startStepKey = topLevelChoiceEntryStepKey(flow.publishedVersion.steps, text);
+      if (startStepKey) {
+        return {
+          ...flow,
+          startStepKey,
+        } as Awaited<ReturnType<RuntimeRepository["findTriggeredFlow"]>>;
+      }
+    }
+    return null;
   }
 
   async createConversation(input: {
@@ -537,6 +573,12 @@ export class DigitalButlerRuntime {
       const flow = await this.repository.findTriggeredFlow(input.storeId, input.text);
       if (!flow?.publishedVersion) return finish({ handled: false, messages: [], outcome: "NO_MATCH" });
       const first = flow.publishedVersion.steps[0] ?? null;
+      const startStepIndex = flow.startStepKey
+        ? flow.publishedVersion.steps.findIndex((step) => step.stepKey === flow.startStepKey)
+        : 0;
+      if (startStepIndex < 0) {
+        return finish({ handled: true, messages: [], outcome: "INVALID_STATE" });
+      }
       const encryptedSenderId = encryptDigitalButlerValue(input.senderId);
       conversation = await this.repository.createConversation({
         storeId: input.storeId,
@@ -549,10 +591,10 @@ export class DigitalButlerRuntime {
         senderIdIv: prismaBytes(encryptedSenderId.iv),
         senderIdAuthTag: prismaBytes(encryptedSenderId.authTag),
         senderIdKeyVersion: encryptedSenderId.keyVersion,
-        currentStepKey: first?.stepKey ?? null,
+        currentStepKey: flow.startStepKey ?? first?.stepKey ?? null,
         expiresAt: new Date(Date.now() + CONVERSATION_TTL_MS),
       });
-      return finish(await this.runAutomaticSteps(conversation, 0), conversation.id);
+      return finish(await this.runAutomaticSteps(conversation, startStepIndex), conversation.id);
     }
 
     // Global commands intentionally run before current-field validation. This
