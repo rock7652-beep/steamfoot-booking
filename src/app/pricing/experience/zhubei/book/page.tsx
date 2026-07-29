@@ -13,7 +13,7 @@ export const metadata: Metadata = {
     "暖暖蒸足竹北店公開預約。直接選日期、時段與人數，不用註冊、不用設密碼，到店再付款。",
   openGraph: {
     title: "竹北首次蒸足體驗 NT$499｜暖暖蒸足",
-    description: "真實門市、線上選時段，到店再付款。約 45 分鐘，1–4 人皆可預約。",
+    description: "真實門市、線上選時段，到店再付款。約 45 分鐘，1–2 人皆可預約。",
     images: ["/images/zhubei/trial-booking-interior.webp"],
   },
 };
@@ -44,7 +44,7 @@ const faqItems = [
   },
   {
     question: "一次可以預約幾個人？",
-    answer: "一次可預約 1–4 人；系統會依照該時段剩餘名額提供可選人數。",
+    answer: "一次可預約 1–2 人；系統會依照該時段剩餘名額提供可選人數。",
   },
   {
     question: "體驗大約需要多久？",
@@ -106,7 +106,7 @@ export default function ZhubeiTrialBookingPage() {
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
               {[
                 ["1", "選日期與時段", "查看門市即時可約時間"],
-                ["2", "選擇同行人數", "單次可預約 1–4 人"],
+                ["2", "選擇同行人數", "單次可預約 1–2 人"],
                 ["3", "留下姓名與手機", "不用註冊會員帳號"],
                 ["4", "到店由店長協助", "約 45 分鐘，到店再付款"],
               ].map(([number, title, detail]) => (
