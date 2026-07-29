@@ -1,6 +1,7 @@
 import "server-only";
 
 import { prisma } from "@/lib/db";
+import { getMessengerAppAccessToken, getMessengerAppAccessTokenInfo, type MessengerAppAccessTokenInfo } from "@/lib/messenger-config";
 
 const EXPECTED_PAGE_ID = "536890669508668";
 
@@ -31,6 +32,7 @@ export type MessengerGraphClassification =
 export type MessengerGraphDiagnosticResult = {
   classification: MessengerGraphClassification;
   findings: MessengerGraphClassification[];
+  appToken: MessengerAppAccessTokenInfo;
   calls: {
     app: SafeGraphCall;
     me: SafeGraphCall;
@@ -106,9 +108,10 @@ function classify(calls: MessengerGraphDiagnosticResult["calls"]): Pick<Messenge
 
 /** Runs GET-only calls using runtime secrets and persists only de-identified results. */
 export async function diagnoseMessengerGraph(input: { actorUserId: string; storeId: string }): Promise<MessengerGraphDiagnosticResult> {
-  const appToken = process.env.MESSENGER_APP_ACCESS_TOKEN;
+  const appTokenInfo = getMessengerAppAccessTokenInfo();
+  const appToken = getMessengerAppAccessToken();
   const pageToken = process.env.MESSENGER_PAGE_ACCESS_TOKEN_ZHUBEI;
-  if (!appToken || !pageToken) throw new Error("messenger_graph_diagnostic_configuration_missing");
+  if (!appTokenInfo || !appToken || !pageToken) throw new Error("messenger_graph_diagnostic_configuration_missing");
 
   const [app, me, page, pageWithFields, subscribedApps] = await Promise.all([
     readGraph("/app", appToken),
@@ -118,7 +121,7 @@ export async function diagnoseMessengerGraph(input: { actorUserId: string; store
     readGraph(`/${EXPECTED_PAGE_ID}/subscribed_apps`, pageToken),
   ]);
   const calls = { app, me, page, pageWithFields, subscribedApps };
-  const result: MessengerGraphDiagnosticResult = { ...classify(calls), calls };
+  const result: MessengerGraphDiagnosticResult = { ...classify(calls), appToken: appTokenInfo, calls };
 
   await prisma.auditLog.create({
     data: {
