@@ -20,11 +20,54 @@ type RepairAudit = Pick<AuditRun, "appValidated" | "pageTokenMatches" | "callbac
   calls: Record<string, SafeCall>;
 };
 
+type TokenFormat = { tokenLength: number; hasWrappingQuotes: boolean; hasNewline: boolean; trimChangesLength: boolean };
+type TokenFingerprintResult = {
+  runtime: TokenFormat & { fingerprint: string };
+  local: TokenFormat & { fingerprint: string };
+  fingerprintsMatch: boolean;
+  graphChecks: Record<string, SafeCall & { error: { type?: string; code?: number; subcode?: number; fbtraceId?: string; messageSummary?: string } | null }>;
+};
+
 export function MessengerAuditPanel({ storeId }: { storeId: string }) {
   const [run, setRun] = useState<AuditRun | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
   const [repairMessage, setRepairMessage] = useState<string | null>(null);
+  const [localToken, setLocalToken] = useState("");
+  const [tokenDiagnosis, setTokenDiagnosis] = useState<TokenFingerprintResult | null>(null);
+  const [tokenDiagnosisError, setTokenDiagnosisError] = useState<string | null>(null);
+
+  async function sha256Prefix(value: string): Promise<string> {
+    const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+    return Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, "0")).join("").slice(0, 12);
+  }
+
+  async function diagnoseTokenFingerprint() {
+    setRunning(true);
+    setTokenDiagnosis(null);
+    setTokenDiagnosisError(null);
+    try {
+      const localFormat: TokenFormat = {
+        tokenLength: localToken.length,
+        hasWrappingQuotes: (localToken.startsWith('"') && localToken.endsWith('"')) || (localToken.startsWith("'") && localToken.endsWith("'")),
+        hasNewline: /[\r\n]/.test(localToken),
+        trimChangesLength: localToken.length !== localToken.trim().length,
+      };
+      const response = await fetch("/api/admin/messenger/token-fingerprint", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ storeId, localFingerprint: await sha256Prefix(localToken), localFormat }),
+        cache: "no-store",
+      });
+      if (!response.ok) throw new Error("token_diagnosis_failed");
+      setTokenDiagnosis(await response.json() as TokenFingerprintResult);
+    } catch {
+      setTokenDiagnosisError("目前無法完成指紋診斷；Token 不會傳送到伺服器。");
+    } finally {
+      setLocalToken("");
+      setRunning(false);
+    }
+  }
 
   async function runAudit() {
     setRunning(true);
@@ -103,6 +146,18 @@ export function MessengerAuditPanel({ storeId }: { storeId: string }) {
         {repairMessage ? <p className="mt-3">{repairMessage}</p> : null}
       </div>
 
+      <div className="mt-5 rounded-lg border border-sky-200 bg-sky-50 p-4 text-sm text-sky-950">
+        <p className="font-medium">Production Page Token 指紋比對</p>
+        <p className="mt-1">Token 僅在此瀏覽器計算 SHA-256 指紋，不會傳送、記錄或顯示原文。</p>
+        <label className="mt-3 block" htmlFor="messenger-page-token">剛複製的 Page Access Token</label>
+        <input id="messenger-page-token" type="password" autoComplete="off" value={localToken} onChange={(event) => setLocalToken(event.target.value)} className="mt-1 w-full rounded border border-sky-300 bg-white px-3 py-2" />
+        <button type="button" onClick={diagnoseTokenFingerprint} disabled={running || !localToken} className="mt-3 rounded-lg bg-sky-700 px-4 py-2 text-sm font-medium text-white hover:bg-sky-800 disabled:cursor-not-allowed disabled:opacity-60">
+          {running ? "處理中…" : "比對 Production Token 指紋"}
+        </button>
+        {tokenDiagnosisError ? <p className="mt-3 text-red-700">{tokenDiagnosisError}</p> : null}
+        {tokenDiagnosis ? <TokenFingerprintSummary result={tokenDiagnosis} /> : null}
+      </div>
+
       {error ? <p className="mt-4 text-sm text-red-600">{error}</p> : null}
       {run ? (
         <div className="mt-5 space-y-4 text-sm">
@@ -127,6 +182,20 @@ export function MessengerAuditPanel({ storeId }: { storeId: string }) {
       ) : null}
     </section>
   );
+}
+
+function TokenFingerprintSummary({ result }: { result: TokenFingerprintResult }) {
+  return <div className="mt-4 space-y-3">
+    <p className="font-medium">指紋{result.fingerprintsMatch ? "一致" : "不一致"}</p>
+    <p>Production：{result.runtime.fingerprint}；本機：{result.local.fingerprint}</p>
+    <TokenFormatSummary label="Production" value={result.runtime} />
+    <TokenFormatSummary label="本機貼上值" value={result.local} />
+    <div><p className="font-medium">唯讀 Graph 檢查</p><ul className="mt-1 space-y-1">{Object.entries(result.graphChecks).map(([name, call]) => <li key={name}>{name}: {call.ok ? "OK" : "失敗"}（HTTP {call.httpStatus ?? "—"}{call.error?.type ? `，${call.error.type}` : ""}{call.error?.code !== undefined ? `，code ${call.error.code}` : ""}{call.error?.subcode !== undefined ? `，subcode ${call.error.subcode}` : ""}{call.error?.fbtraceId ? `，fbtrace ${call.error.fbtraceId}` : ""}{call.error?.messageSummary ? `，${call.error.messageSummary}` : ""}）</li>)}</ul></div>
+  </div>;
+}
+
+function TokenFormatSummary({ label, value }: { label: string; value: TokenFormat }) {
+  return <p>{label}：長度 {value.tokenLength}；前後引號 {value.hasWrappingQuotes ? "有" : "無"}；換行 {value.hasNewline ? "有" : "無"}；trim 長度改變 {value.trimChangesLength ? "是" : "否"}</p>;
 }
 
 function Result({ label, value }: { label: string; value: boolean | null }) {
