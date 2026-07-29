@@ -28,6 +28,12 @@ type TokenFingerprintResult = {
   graphChecks: Record<string, SafeCall & { error: { type?: string; code?: number; subcode?: number; fbtraceId?: string; messageSummary?: string } | null }>;
 };
 
+type GraphDiagnosticResult = {
+  classification: string;
+  findings: string[];
+  calls: Record<string, SafeCall & { error: { type?: string; code?: number; subcode?: number; fbtraceId?: string; messageSummary?: string } | null; identity?: string }>;
+};
+
 export function MessengerAuditPanel({ storeId }: { storeId: string }) {
   const [run, setRun] = useState<AuditRun | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -36,6 +42,8 @@ export function MessengerAuditPanel({ storeId }: { storeId: string }) {
   const [localToken, setLocalToken] = useState("");
   const [tokenDiagnosis, setTokenDiagnosis] = useState<TokenFingerprintResult | null>(null);
   const [tokenDiagnosisError, setTokenDiagnosisError] = useState<string | null>(null);
+  const [graphDiagnosis, setGraphDiagnosis] = useState<GraphDiagnosticResult | null>(null);
+  const [graphDiagnosisError, setGraphDiagnosisError] = useState<string | null>(null);
 
   async function sha256Prefix(value: string): Promise<string> {
     const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
@@ -65,6 +73,26 @@ export function MessengerAuditPanel({ storeId }: { storeId: string }) {
       setTokenDiagnosisError("目前無法完成指紋診斷；Token 不會傳送到伺服器。");
     } finally {
       setLocalToken("");
+      setRunning(false);
+    }
+  }
+
+  async function runGraphDiagnostic() {
+    setRunning(true);
+    setGraphDiagnosis(null);
+    setGraphDiagnosisError(null);
+    try {
+      const response = await fetch("/api/admin/messenger/graph-diagnostic", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ storeId }),
+        cache: "no-store",
+      });
+      if (!response.ok) throw new Error("graph_diagnosis_failed");
+      setGraphDiagnosis(await response.json() as GraphDiagnosticResult);
+    } catch {
+      setGraphDiagnosisError("目前無法完成 Graph 診斷；未執行任何 Meta 寫入。");
+    } finally {
       setRunning(false);
     }
   }
@@ -158,6 +186,16 @@ export function MessengerAuditPanel({ storeId }: { storeId: string }) {
         {tokenDiagnosis ? <TokenFingerprintSummary result={tokenDiagnosis} /> : null}
       </div>
 
+      <div className="mt-5 rounded-lg border border-violet-200 bg-violet-50 p-4 text-sm text-violet-950">
+        <p className="font-medium">Production Meta Graph 唯讀診斷</p>
+        <p className="mt-1">使用 runtime App 與 Page token 執行 GET-only 檢查；結果只保留安全錯誤欄位，不含憑證、Page 名稱或原始回應。</p>
+        <button type="button" onClick={runGraphDiagnostic} disabled={running} className="mt-3 rounded-lg bg-violet-700 px-4 py-2 text-sm font-medium text-white hover:bg-violet-800 disabled:cursor-not-allowed disabled:opacity-60">
+          {running ? "處理中…" : "執行 Meta Graph 診斷"}
+        </button>
+        {graphDiagnosisError ? <p className="mt-3 text-red-700">{graphDiagnosisError}</p> : null}
+        {graphDiagnosis ? <GraphDiagnosticSummary result={graphDiagnosis} /> : null}
+      </div>
+
       {error ? <p className="mt-4 text-sm text-red-600">{error}</p> : null}
       {run ? (
         <div className="mt-5 space-y-4 text-sm">
@@ -191,6 +229,14 @@ function TokenFingerprintSummary({ result }: { result: TokenFingerprintResult })
     <TokenFormatSummary label="Production" value={result.runtime} />
     <TokenFormatSummary label="本機貼上值" value={result.local} />
     <div><p className="font-medium">唯讀 Graph 檢查</p><ul className="mt-1 space-y-1">{Object.entries(result.graphChecks).map(([name, call]) => <li key={name}>{name}: {call.ok ? "OK" : "失敗"}（HTTP {call.httpStatus ?? "—"}{call.error?.type ? `，${call.error.type}` : ""}{call.error?.code !== undefined ? `，code ${call.error.code}` : ""}{call.error?.subcode !== undefined ? `，subcode ${call.error.subcode}` : ""}{call.error?.fbtraceId ? `，fbtrace ${call.error.fbtraceId}` : ""}{call.error?.messageSummary ? `，${call.error.messageSummary}` : ""}）</li>)}</ul></div>
+  </div>;
+}
+
+function GraphDiagnosticSummary({ result }: { result: GraphDiagnosticResult }) {
+  return <div className="mt-4 space-y-3">
+    <p className="font-medium">判定：{result.classification}</p>
+    <p>證據分類：{result.findings.join("、")}</p>
+    <ul className="space-y-1">{Object.entries(result.calls).map(([name, call]) => <li key={name}>{name}: {call.ok ? "OK" : "失敗"}（HTTP {call.httpStatus ?? "—"}{call.identity ? `，${call.identity}` : ""}{call.error?.type ? `，${call.error.type}` : ""}{call.error?.code !== undefined ? `，code ${call.error.code}` : ""}{call.error?.subcode !== undefined ? `，subcode ${call.error.subcode}` : ""}{call.error?.fbtraceId ? `，fbtrace ${call.error.fbtraceId}` : ""}{call.error?.messageSummary ? `，${call.error.messageSummary}` : ""}）</li>)}</ul>
   </div>;
 }
 
