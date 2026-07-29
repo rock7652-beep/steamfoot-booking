@@ -2,14 +2,13 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import type { DigitalButlerOutboundMessageIntent } from "@/server/services/digital-butler-channel";
 
 const GRAPH_API_VERSION = process.env.MESSENGER_GRAPH_API_VERSION?.trim() || "v23.0";
-const ZHUBEI_TRIAL_BOOKING_URL =
-  "https://www.steamfoot.com/pricing/experience/zhubei/book#booking-form";
+const ZHUBEI_TRIAL_BOOKING_URL = "https://www.steamfoot.com/book/zhubei";
 const TRIAL_BOOKING_PROMPT =
-  "首次蒸足體驗優惠價 NT$499（原價 NT$799）\n您可以直接選擇日期與時段完成預約；如果還不確定時間，也可以請店家與您聯絡。";
+  `首次蒸足體驗優惠價 NT$499（原價 NT$799）\n點擊下方連結，立即選擇日期與時段：\n${ZHUBEI_TRIAL_BOOKING_URL}`;
+const TRIAL_BOOKING_ASSISTANCE_PROMPT =
+  "如果還不確定時間，也可以選擇由店家聯絡您：";
 
-type MessengerButton =
-  | { type: "postback"; title: string; payload: string }
-  | { type: "web_url"; title: string; url: string };
+type MessengerButton = { type: "postback"; title: string; payload: string };
 
 export type MessengerMessage = {
   text?: string;
@@ -50,7 +49,6 @@ function trialBookingButtons(choices: MessengerChoice[]): MessengerButton[] | nu
   if (!contactStore || !mainMenu) return null;
 
   return [
-    { type: "web_url", title: "立即線上預約", url: ZHUBEI_TRIAL_BOOKING_URL },
     { type: "postback", title: contactStore.title, payload: contactStore.payload },
     { type: "postback", title: mainMenu.title, payload: mainMenu.payload },
   ];
@@ -91,7 +89,7 @@ export function digitalButlerIntentsToMessengerMessages(
             type: "template",
             payload: {
               template_type: "button",
-              text: text.slice(0, 640),
+              text: (bookingButtons ? TRIAL_BOOKING_ASSISTANCE_PROMPT : text).slice(0, 640),
               buttons: bookingButtons
                 ?? choices.map((choice) => ({ type: "postback", title: choice.title, payload: choice.payload })),
             },
