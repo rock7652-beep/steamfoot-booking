@@ -19,6 +19,21 @@ describe("Digital Butler LINE channel adapter", () => {
     }]);
   });
 
+  it("keeps confirmation choices as LINE quick replies", () => {
+    expect(digitalButlerIntentsToLineMessages([{
+      type: "text",
+      text: "請確認您的資料：",
+      singleMessageChoices: true,
+      choices: [{ label: "確認送出", value: "CONFIRM" }],
+    }])).toMatchObject([{
+      type: "text",
+      text: "請確認您的資料：",
+      quickReply: {
+        items: [{ action: { label: "確認送出", text: "CONFIRM" } }],
+      },
+    }]);
+  });
+
   it("renders a neutral card payload as a LINE Flex message", () => {
     const payload = { type: "bubble", body: { type: "box", layout: "vertical", contents: [] } };
     expect(digitalButlerIntentsToLineMessages([{

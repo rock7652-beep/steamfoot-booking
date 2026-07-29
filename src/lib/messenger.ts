@@ -1,14 +1,16 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { ZHUBEI_EXPERIENCE_BOOKING_URL } from "@/lib/booking-links";
 import type { DigitalButlerOutboundMessageIntent } from "@/server/services/digital-butler-channel";
 
 const GRAPH_API_VERSION = process.env.MESSENGER_GRAPH_API_VERSION?.trim() || "v23.0";
-const ZHUBEI_TRIAL_BOOKING_URL = "https://www.steamfoot.com/book/zhubei";
 const TRIAL_BOOKING_PROMPT =
-  `首次蒸足體驗優惠價 NT$499（原價 NT$799）\n點擊下方連結，立即選擇日期與時段：\n${ZHUBEI_TRIAL_BOOKING_URL}`;
+  `首次蒸足體驗優惠價 NT$499（原價 NT$799）\n點擊下方連結，立即選擇日期與時段：\n${ZHUBEI_EXPERIENCE_BOOKING_URL}`;
 const TRIAL_BOOKING_ASSISTANCE_PROMPT =
   "如果還不確定時間，也可以選擇由店家聯絡您：";
 
-type MessengerButton = { type: "postback"; title: string; payload: string };
+type MessengerButton =
+  | { type: "postback"; title: string; payload: string }
+  | { type: "web_url"; title: string; url: string };
 
 export type MessengerMessage = {
   text?: string;
@@ -81,10 +83,27 @@ export function digitalButlerIntentsToMessengerMessages(
     const text = bookingButtons
       ? TRIAL_BOOKING_PROMPT
       : visibleChoiceFallback(intent.text, choices);
+    const urlButton = intent.urlButton?.label.trim() && intent.urlButton.url.trim()
+      ? {
+          type: "web_url" as const,
+          title: intent.urlButton.label.trim().slice(0, 20),
+          url: intent.urlButton.url.trim(),
+        }
+      : null;
+    if (urlButton) {
+      return [{
+        attachment: {
+          type: "template",
+          payload: {
+            template_type: "button",
+            text: text.slice(0, 640),
+            buttons: [urlButton],
+          },
+        },
+      }];
+    }
     if (choices.length > 0 && choices.length <= 3) {
-      return [
-        { text },
-        {
+      const buttonTemplate: MessengerMessage = {
           attachment: {
             type: "template",
             payload: {
@@ -94,8 +113,8 @@ export function digitalButlerIntentsToMessengerMessages(
                 ?? choices.map((choice) => ({ type: "postback", title: choice.title, payload: choice.payload })),
             },
           },
-        },
-      ];
+        };
+      return intent.singleMessageChoices ? [buttonTemplate] : [{ text }, buttonTemplate];
     }
 
     return [{
