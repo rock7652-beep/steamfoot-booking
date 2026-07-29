@@ -2,7 +2,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import type { DigitalButlerOutboundMessageIntent } from "@/server/services/digital-butler-channel";
 
 const GRAPH_API_VERSION = process.env.MESSENGER_GRAPH_API_VERSION?.trim() || "v23.0";
-const ZHUBEI_TRIAL_BOOKING_URL = "https://www.steamfoot.com/book/zhubei";
+const ZHUBEI_TRIAL_BOOKING_URL = "https://www.steamfoot.com/zhubei-book";
 const TRIAL_BOOKING_PROMPT =
   `首次蒸足體驗優惠價 NT$499（原價 NT$799）\n點擊下方連結，立即選擇日期與時段：\n${ZHUBEI_TRIAL_BOOKING_URL}`;
 const TRIAL_BOOKING_ASSISTANCE_PROMPT =
