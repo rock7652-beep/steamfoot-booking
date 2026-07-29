@@ -102,6 +102,13 @@ export function parseDigitalButlerDraftDefinition(
         throw new DigitalButlerDefinitionError(`第 ${index + 1} 步缺少顯示文字`);
       }
     }
+    if (type === "CREATE_LEAD" && config.requireCompleteContact === true) {
+      const nameStepKey = typeof config.nameStepKey === "string" ? config.nameStepKey.trim() : "";
+      const phoneStepKey = typeof config.phoneStepKey === "string" ? config.phoneStepKey.trim() : "";
+      if (!nameStepKey || !phoneStepKey) {
+        throw new DigitalButlerDefinitionError("完整名單建立步驟必須指定姓名與手機欄位");
+      }
+    }
     seen.add(stepKey);
     return {
       stepKey,
@@ -126,6 +133,20 @@ export function parseDigitalButlerDraftDefinition(
       if (target.trim() === step.stepKey) {
         throw new DigitalButlerDefinitionError(`第 ${index + 1} 步不可跳回自己`);
       }
+    }
+  }
+
+  for (const [index, step] of steps.entries()) {
+    if (step.type !== "CREATE_LEAD" || step.config.requireCompleteContact !== true) continue;
+    const nameStepKey = String(step.config.nameStepKey).trim();
+    const phoneStepKey = String(step.config.phoneStepKey).trim();
+    const nameStep = steps.find((candidate) => candidate.stepKey === nameStepKey);
+    const phoneStep = steps.find((candidate) => candidate.stepKey === phoneStepKey);
+    if (!nameStep || nameStep.type !== "FREE_TEXT" || !nameStep.required) {
+      throw new DigitalButlerDefinitionError(`第 ${index + 1} 步指定的姓名欄位必須是必填文字題`);
+    }
+    if (!phoneStep || phoneStep.type !== "TAIWAN_MOBILE" || !phoneStep.required) {
+      throw new DigitalButlerDefinitionError(`第 ${index + 1} 步指定的手機欄位必須是必填台灣手機題`);
     }
   }
 

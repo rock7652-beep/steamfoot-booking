@@ -91,6 +91,7 @@ describe("Messenger Digital Butler foundation", () => {
     expect(route).toContain("const messageId = event.postback?.mid || message?.mid");
     expect(route).toContain("message?.is_echo");
     expect(route).toContain("resolveMessengerStoreByPageId(entry.id)");
+    expect(route).toContain("runtime.deliverReplyIfActive");
     expect(config).toContain("MESSENGER_PAGE_ID_${suffix}");
     expect(config).toContain("MESSENGER_PAGE_ACCESS_TOKEN_${suffix}");
     expect(config).not.toContain("DEFAULT_STORE_ID");

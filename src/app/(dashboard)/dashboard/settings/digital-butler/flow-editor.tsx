@@ -27,11 +27,16 @@ type Flow = {
 };
 
 const starterDefinition = {
-  trigger: { keywords: ["我想了解"] },
+  trigger: { keywords: ["我想了解蒸足"] },
   steps: [
-    { stepKey: "opening", type: "TEXT", config: { text: "您好，請問怎麼稱呼您？" } },
-    { stepKey: "name", type: "FREE_TEXT", required: true, config: { text: "請輸入姓名" } },
-    { stepKey: "create-lead", type: "CREATE_LEAD", config: {} },
+    { stepKey: "opening", type: "TEXT", config: { text: "您好，想了解蒸足的哪一方面呢？" } },
+    { stepKey: "menu", type: "SINGLE_CHOICE", required: true, config: { text: "請選擇想了解的內容：", options: [{ label: "我想預約體驗", value: "BOOKING", nextStepKey: "requestType" }, { label: "請店家聯絡我", value: "CONTACT_STORE", nextStepKey: "requestType" }, { label: "轉接真人客服", value: "HUMAN_SUPPORT", nextStepKey: "requestType" }] } },
+    { stepKey: "requestType", type: "SINGLE_CHOICE", required: true, config: { text: "請確認您需要的協助：", options: [{ label: "預約體驗", value: "BOOKING", nextStepKey: "name" }, { label: "請店家聯絡", value: "CONTACT_STORE", nextStepKey: "name" }, { label: "真人客服", value: "HUMAN_SUPPORT", nextStepKey: "name" }] } },
+    { stepKey: "name", type: "FREE_TEXT", required: true, config: { text: "請問怎麼稱呼您？", field: "name", nextStepKey: "phone" } },
+    { stepKey: "phone", type: "TAIWAN_MOBILE", required: true, config: { text: "請輸入手機號碼（例如 0912-345-678）", nextStepKey: "confirm" } },
+    { stepKey: "confirm", type: "SINGLE_CHOICE", required: true, config: { text: "請確認資料正確後送出；如需修改，請選擇重新填寫。", contactConfirmation: true, nameStepKey: "name", phoneStepKey: "phone", requestStepKey: "requestType", options: [{ label: "確認送出", value: "CONFIRM", nextStepKey: "create-lead" }, { label: "重新填寫", value: "RESTART", nextStepKey: "name" }] } },
+    { stepKey: "create-lead", type: "CREATE_LEAD", config: { requireCompleteContact: true, nameStepKey: "name", phoneStepKey: "phone" } },
+    { stepKey: "completion", type: "TEXT", config: { text: "已收到您的資料，店家將儘快與您聯絡。需要時可回到主選單繼續了解。" } },
     { stepKey: "complete", type: "COMPLETE_FLOW", config: {} },
   ],
 };

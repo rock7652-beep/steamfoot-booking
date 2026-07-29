@@ -79,6 +79,17 @@ describe("Digital Butler global command runtime priority", () => {
     expect(result.messages[0]).toMatchObject({ type: "text", text: expect.stringContaining("已停止") });
   });
 
+  it("lets the customer safely leave collection with 回到主選單 before phone validation", async () => {
+    const result = await new DigitalButlerRuntime(repository as never, gate).handleText(
+      input("回到主選單", "event-main-menu"),
+    );
+
+    expect(repository.cancelConversation).toHaveBeenCalledWith("store-zhubei", "conversation-1");
+    expect(repository.saveAnswer).not.toHaveBeenCalled();
+    expect(result.outcome).toBe("RETURNED_TO_MAIN_MENU");
+    expect(result.messages[0]).toMatchObject({ type: "text", text: expect.stringContaining("主選單") });
+  });
+
   it("records a handoff request without validating or saving the current field", async () => {
     const result = await new DigitalButlerRuntime(repository as never, gate).handleText(
       input("轉接客服", "event-handoff"),

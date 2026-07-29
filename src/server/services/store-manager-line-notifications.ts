@@ -13,6 +13,8 @@ type StoreManagerNotificationEvent =
       phone: string;
       leadId: string;
       provider: string | null;
+      requestType: string;
+      storeName: string;
     }
   | {
       type: "PUBLIC_TRIAL_BOOKING_CREATED";
@@ -115,7 +117,9 @@ export function buildStoreManagerNotificationMessage(
           "",
           `姓名：${event.customerName}`,
           `電話：${event.phone}`,
+          `需求：${event.requestType}`,
           `來源：${providerNotificationLabel(event.provider)}`,
+          `店別：${event.storeName}`,
           "目前進度：已留下聯絡資料",
           "",
           `查看名單：${supportLeadUrl(event.leadId)}`,

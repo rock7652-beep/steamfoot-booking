@@ -1,5 +1,6 @@
 export type DigitalButlerGlobalCommand =
   | "CANCEL"
+  | "MAIN_MENU"
   | "HANDOFF";
 
 const COMMANDS: ReadonlyArray<{
@@ -13,6 +14,10 @@ const COMMANDS: ReadonlyArray<{
   {
     command: "CANCEL",
     phrases: ["停", "停止", "取消", "結束", "退出", "不用了"],
+  },
+  {
+    command: "MAIN_MENU",
+    phrases: ["回到主選單", "主選單", "回主選單"],
   },
 ];
 

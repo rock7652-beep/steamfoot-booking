@@ -79,7 +79,8 @@ async function handleMessagingEvent(
 ): Promise<void> {
   const message = event.message;
   const messageId = event.postback?.mid || message?.mid;
-  if (message?.is_echo || !event.sender?.id || !messageId) return;
+  const senderId = event.sender?.id;
+  if (message?.is_echo || !senderId || !messageId) return;
 
   const text = event.postback?.payload?.trim() || message?.quick_reply?.payload?.trim() || message?.text?.trim();
   if (!text) return;
@@ -89,7 +90,7 @@ async function handleMessagingEvent(
     storeId: store.id,
     provider: "MESSENGER",
     channelAccountId: pageId,
-    senderId: event.sender.id,
+    senderId,
     messageId,
     webhookEventId: messageId,
     occurredAt: new Date(event.timestamp || Date.now()),
@@ -98,20 +99,27 @@ async function handleMessagingEvent(
 
   if (!result.handled || result.messages.length === 0) return;
 
-  const delivery = await sendMessengerMessages({
-    pageId,
-    pageAccessToken: store.accessToken,
-    recipientId: event.sender.id,
-    messages: digitalButlerIntentsToMessengerMessages(result.messages),
-  });
-
-  if (!delivery.success) {
+  const deliver = async (): Promise<void> => {
+    const delivery = await sendMessengerMessages({
+      pageId,
+      pageAccessToken: store.accessToken,
+      recipientId: senderId,
+      messages: digitalButlerIntentsToMessengerMessages(result.messages),
+    });
+    if (delivery.success) return;
     console.error("[Messenger Webhook] Reply failed", {
       pageId,
       storeId: store.id,
       error: delivery.error,
     });
+    throw new Error(delivery.error ?? "Messenger reply delivery failed");
+  };
+
+  if (result.replyGuard?.requiresActiveConversation) {
+    await runtime.deliverReplyIfActive(store.id, result.replyGuard.conversationId, deliver);
+    return;
   }
+  await deliver();
 }
 
 type MessengerWebhookPayload = {
