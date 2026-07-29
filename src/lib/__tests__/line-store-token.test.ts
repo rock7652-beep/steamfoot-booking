@@ -32,7 +32,7 @@ describe("store-aware LINE Messaging config", () => {
   });
 
   it.each([
-    ["e182e256-98ca-4c78-970b-d4b118066c51", "LINE_CHANNEL_ACCESS_TOKEN", "zhubei-token"],
+    ["e182e256-98ca-4c78-970b-d4b118066c51", "LINE_ZHUBEI_CHANNEL_ACCESS_TOKEN", "zhubei-token"],
     ["store-hsinchu", "LINE_HSINCHU_CHANNEL_ACCESS_TOKEN", "hsinchu-token"],
     ["store-taichung", "LINE_TAICHUNG_CHANNEL_ACCESS_TOKEN", "taichung-token"],
   ])("pushMessage(%s) uses the matching store token", async (storeId, envKey, token) => {
@@ -98,7 +98,7 @@ describe("store-aware LINE Messaging config", () => {
 
   it("does not fallback hsinchu to zhubei or taichung LINE tokens", async () => {
     vi.stubEnv("LINE_CHANNEL_ACCESS_TOKEN", "zhubei-token");
-    vi.stubEnv("LINE_CHANNEL_SECRET", "zhubei-secret");
+    vi.stubEnv("LINE_ZHUBEI_CHANNEL_SECRET", "zhubei-secret");
     vi.stubEnv("LINE_TAICHUNG_CHANNEL_ACCESS_TOKEN", "taichung-token");
     vi.stubEnv("LINE_TAICHUNG_CHANNEL_SECRET", "taichung-secret");
     const fetchMock = mockLineOk();
@@ -137,7 +137,7 @@ describe("store-aware LINE Messaging config", () => {
 
   it("verifyLineSignature uses the matching store secret", () => {
     const body = JSON.stringify({ destination: "D_taichung", events: [] });
-    vi.stubEnv("LINE_CHANNEL_SECRET", "zhubei-secret");
+    vi.stubEnv("LINE_ZHUBEI_CHANNEL_SECRET", "zhubei-secret");
     vi.stubEnv("LINE_TAICHUNG_CHANNEL_SECRET", "taichung-secret");
     const taichungSignature = crypto
       .createHmac("SHA256", "taichung-secret")
