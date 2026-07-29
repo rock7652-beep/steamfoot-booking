@@ -34,7 +34,7 @@ function successfulGraphResponses() {
     .mockResolvedValueOnce(Response.json({ id: secrets.pageId }))
     .mockResolvedValueOnce(Response.json({ id: secrets.pageId }))
     .mockResolvedValueOnce(Response.json({ data: [{ object: "page", callback_url: secrets.webhookUrl, fields: ["messages", "messaging_postbacks", "messaging_optins", "messaging_referrals"] }] }))
-    .mockResolvedValueOnce(Response.json({ data: [{ id: secrets.appId }] }));
+    .mockResolvedValueOnce(Response.json({ data: [{ id: secrets.appId, subscribed_fields: ["messages", "messaging_postbacks", "messaging_optins", "messaging_referrals"] }] }));
 }
 
 beforeEach(() => {
