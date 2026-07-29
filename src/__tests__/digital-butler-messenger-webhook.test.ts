@@ -49,10 +49,16 @@ describe("Messenger Digital Butler foundation", () => {
       { type: "card", altText: "蒸足介紹", payload: { type: "bubble" } },
     ]);
 
-    expect(messages[0]).toEqual({ text: "如果還不確定日期，也可以選擇由店家聯絡您：" });
+    expect(messages[0]?.text).toContain("首次蒸足體驗優惠價 NT$499");
+    expect(messages[0]?.text).toContain("直接選擇日期與時段完成預約");
     expect(messages[1].attachment?.payload).toMatchObject({
       template_type: "button",
       buttons: [
+        {
+          type: "web_url",
+          title: "立即線上預約",
+          url: "https://www.steamfoot.com/pricing/experience/zhubei/book#booking-form",
+        },
         { type: "postback", title: "請店家聯絡我", payload: "CONTACT_STORE" },
         { type: "postback", title: "回到主選單", payload: "MAIN_MENU" },
       ],
