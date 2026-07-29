@@ -78,9 +78,10 @@ async function handleMessagingEvent(
   store: { id: string; slug: string; accessToken: string },
 ): Promise<void> {
   const message = event.message;
-  if (!message || message.is_echo || !event.sender?.id || !message.mid) return;
+  const messageId = event.postback?.mid || message?.mid;
+  if (message?.is_echo || !event.sender?.id || !messageId) return;
 
-  const text = message.quick_reply?.payload?.trim() || message.text?.trim();
+  const text = event.postback?.payload?.trim() || message?.quick_reply?.payload?.trim() || message?.text?.trim();
   if (!text) return;
 
   const runtime = new DigitalButlerRuntime();
@@ -89,8 +90,8 @@ async function handleMessagingEvent(
     provider: "MESSENGER",
     channelAccountId: pageId,
     senderId: event.sender.id,
-    messageId: message.mid,
-    webhookEventId: message.mid,
+    messageId,
+    webhookEventId: messageId,
     occurredAt: new Date(event.timestamp || Date.now()),
     text,
   });
@@ -132,4 +133,5 @@ type MessengerMessagingEvent = {
     is_echo?: boolean;
     quick_reply?: { payload?: string };
   };
+  postback?: { mid?: string; payload?: string };
 };
