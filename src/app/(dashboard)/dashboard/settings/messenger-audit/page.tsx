@@ -4,6 +4,7 @@ import { checkPermission } from "@/lib/permissions";
 import { getCurrentUser } from "@/lib/session";
 import { getActiveStoreForRead } from "@/lib/store";
 import { MessengerAuditPanel } from "./messenger-audit-panel";
+import { ConversationResetPanel } from "./conversation-reset-panel";
 
 export default async function MessengerAuditPage() {
   const user = await getCurrentUser();
@@ -20,6 +21,7 @@ export default async function MessengerAuditPage() {
         subtitle="唯讀檢查 Meta App、Page、Webhook 與訂閱狀態；結果不含任何憑證。"
       />
       <MessengerAuditPanel storeId={storeId} />
+      <ConversationResetPanel />
     </PageShell>
   );
 }
