@@ -1,6 +1,7 @@
 import { deriveBaseUrl } from "@/lib/base-url";
 import { pushMessage, type LineMessage } from "@/lib/line";
 import { prisma } from "@/lib/db";
+import { providerNotificationLabel } from "@/lib/digital-butler-provider";
 
 type StoreManagerNotificationEvent =
   | {
@@ -11,6 +12,7 @@ type StoreManagerNotificationEvent =
       customerName: string;
       phone: string;
       leadId: string;
+      provider: string | null;
     }
   | {
       type: "PUBLIC_TRIAL_BOOKING_CREATED";
@@ -37,7 +39,15 @@ type StoreManagerNotificationEvent =
       lastFourDigits?: string | null;
     }
   | {
-      type: "HUMAN_SUPPORT_REQUESTED" | "HUMAN_SUPPORT_FINAL_REMINDER";
+      type: "HUMAN_SUPPORT_REQUESTED";
+      eventKey: string;
+      storeId: string;
+      storeSlug: string;
+      leadId: string;
+      provider: string | null;
+    }
+  | {
+      type: "HUMAN_SUPPORT_FINAL_REMINDER";
       eventKey: string;
       storeId: string;
       storeSlug: string;
@@ -105,7 +115,7 @@ export function buildStoreManagerNotificationMessage(
           "",
           `姓名：${event.customerName}`,
           `電話：${event.phone}`,
-          "來源：LINE 數位管家",
+          `來源：${providerNotificationLabel(event.provider)}`,
           "目前進度：已留下聯絡資料",
           "",
           `查看名單：${supportLeadUrl(event.leadId)}`,
@@ -151,7 +161,7 @@ export function buildStoreManagerNotificationMessage(
         text: [
           "🙋 顧客要求真人客服",
           "",
-          "來源：LINE 數位管家",
+          `來源：${providerNotificationLabel(event.provider)}`,
           "狀態：等待門市夥伴接手",
           "",
           `前往後台接手：${supportLeadUrl(event.leadId)}`,

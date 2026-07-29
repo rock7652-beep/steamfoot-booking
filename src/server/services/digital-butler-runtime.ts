@@ -733,6 +733,7 @@ export class DigitalButlerRuntime {
           phoneIv: true,
           phoneAuthTag: true,
           store: { select: { slug: true } },
+          conversation: { select: { provider: true } },
         },
       });
       if (!lead?.phoneCiphertext || !lead.phoneIv || !lead.phoneAuthTag) return;
@@ -743,7 +744,7 @@ export class DigitalButlerRuntime {
         keyVersion: "v1",
       });
       const rawName = input.submittedAnswers.name;
-      const customerName = typeof rawName === "string" && rawName.trim() ? rawName.trim() : "LINE 顧客";
+      const customerName = typeof rawName === "string" && rawName.trim() ? rawName.trim() : "數位管家顧客";
       await notifyStoreManagerOnLine({
         type: "DIGITAL_BUTLER_LEAD_CREATED",
         eventKey: `digital-butler-lead:${lead.id}`,
@@ -752,6 +753,7 @@ export class DigitalButlerRuntime {
         customerName,
         phone,
         leadId: lead.id,
+        provider: lead.conversation.provider,
       });
     } catch (error) {
       console.error("[DigitalButler] manager notification failed", {
