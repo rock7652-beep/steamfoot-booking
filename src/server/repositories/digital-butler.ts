@@ -1,6 +1,10 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import type { EncryptedDigitalButlerValue } from "@/lib/digital-butler-crypto";
+import {
+  hasCompleteDigitalButlerLeadCollection,
+  isLeadCollectionTrigger,
+} from "@/lib/digital-butler-lead-collection-upgrade";
 import { assertDigitalButlerSubmittedAnswersSafe } from "@/lib/digital-butler-sensitive-json";
 
 export class DigitalButlerScopeError extends Error {
@@ -53,6 +57,9 @@ export type PublishDigitalButlerFlowInput = {
     config: Prisma.InputJsonValue;
     required: boolean;
   }>;
+  /** Kept inside the publish transaction for upgrade flows. */
+  draftUpdate?: { name: string; definition: Prisma.InputJsonValue };
+  audit?: { actorUserId: string; action: string; after: Prisma.InputJsonObject };
 };
 
 function publishedFlowVersionCreateData(
@@ -118,6 +125,7 @@ export class DigitalButlerRepository {
             id: true,
             version: true,
             publishedAt: true,
+            definition: true,
             steps: {
               orderBy: { position: "asc" },
               select: { stepKey: true, position: true, type: true, config: true },
@@ -127,6 +135,44 @@ export class DigitalButlerRepository {
         updatedAt: true,
       },
     });
+  }
+
+  /** Read-only, store-scoped candidate lookup for the safe lead collection upgrade. */
+  async getLeadCollectionUpgradeCandidate(storeId: string) {
+    const flows = await prisma.storeDigitalButlerFlow.findMany({
+      where: {
+        storeId,
+        status: "PUBLISHED",
+        enabled: true,
+        currentPublishedVersionId: { not: null },
+      },
+      select: {
+        id: true,
+        storeId: true,
+        name: true,
+        currentPublishedVersionId: true,
+        publishedVersion: {
+          select: {
+            id: true,
+            version: true,
+            definition: true,
+            steps: { orderBy: { position: "asc" }, select: { stepKey: true } },
+          },
+        },
+      },
+    });
+    const matching = flows.filter((flow) => flow.publishedVersion && isLeadCollectionTrigger(flow.publishedVersion.definition));
+    if (matching.length !== 1) return null;
+    const flow = matching[0];
+    if (!flow?.publishedVersion) return null;
+    const activeConversationCount = await prisma.digitalButlerConversation.count({
+      where: { storeId, flowId: flow.id, status: { in: ["IN_PROGRESS", "WAITING_INPUT"] } },
+    });
+    return {
+      ...flow,
+      alreadyUpgraded: hasCompleteDigitalButlerLeadCollection(flow.publishedVersion.definition),
+      activeConversationCount,
+    };
   }
 
   async updateDraft(
@@ -151,6 +197,12 @@ export class DigitalButlerRepository {
         data: { updatedAt: new Date() },
       });
       if (lock.count !== 1) throw new DigitalButlerScopeError();
+      if (input.draftUpdate) {
+        await tx.storeDigitalButlerFlow.update({
+          where: { id_storeId: { id: input.flowId, storeId: input.storeId } },
+          data: { name: input.draftUpdate.name, draftDefinition: input.draftUpdate.definition },
+        });
+      }
       const latest = await tx.digitalButlerFlowVersion.aggregate({
         where: { flowId: input.flowId, storeId: input.storeId },
         _max: { version: true },
@@ -175,6 +227,21 @@ export class DigitalButlerRepository {
           currentPublishedVersionId: version.id,
         },
       });
+      if (input.audit) {
+        await tx.auditLog.create({
+          data: {
+            actorUserId: input.audit.actorUserId,
+            targetType: "DigitalButlerFlow",
+            targetId: input.flowId,
+            action: input.audit.action,
+            afterJson: {
+              ...input.audit.after,
+              newActiveVersionId: version.id,
+              newActiveVersion: version.version,
+            },
+          },
+        });
+      }
       return version;
     });
   }
