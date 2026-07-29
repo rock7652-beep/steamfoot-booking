@@ -67,6 +67,8 @@ describe("store manager LINE notifications", () => {
       phone: "0912345678",
       leadId: "lead_1",
       provider: "LINE",
+      requestType: "預約體驗",
+      storeName: "竹北店",
     });
 
     expect(result).toEqual({ status: "skipped", reason: "recipient_not_configured" });
@@ -113,6 +115,8 @@ describe("store manager LINE notifications", () => {
       phone: "0912345678",
       leadId: "lead_1",
       provider: "LINE",
+      requestType: "預約體驗",
+      storeName: "竹北店",
     });
 
     expect(result).toEqual({ status: "sent", sentCount: 2, failedCount: 0 });
@@ -134,6 +138,8 @@ describe("store manager LINE notifications", () => {
       phone: "0912345678",
       leadId: "lead_1",
       provider: "LINE",
+      requestType: "預約體驗",
+      storeName: "竹北店",
     });
 
     expect(result).toEqual({ status: "failed", error: "LINE API 400" });
@@ -149,6 +155,8 @@ describe("store manager LINE notifications", () => {
       phone: "0912345678",
       leadId: "lead_messenger",
       provider: "MESSENGER",
+      requestType: "請店家聯絡",
+      storeName: "竹北店",
     });
 
     expect(messages[0]).toMatchObject({
@@ -156,6 +164,12 @@ describe("store manager LINE notifications", () => {
     });
     expect(messages[0]).not.toMatchObject({
       text: expect.stringContaining("來源：LINE 數位管家"),
+    });
+    expect(messages[0]).toMatchObject({
+      text: expect.stringContaining("需求：請店家聯絡"),
+    });
+    expect(messages[0]).toMatchObject({
+      text: expect.stringContaining("店別：竹北店"),
     });
   });
 });

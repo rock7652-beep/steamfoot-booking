@@ -118,7 +118,7 @@ type RuntimeRepository = {
     conversationId: string;
     completionActionKey: string;
     submittedAnswers: Prisma.InputJsonObject;
-  }): Promise<boolean>;
+  }): Promise<{ leadId: string; created: boolean } | null>;
   deliverReplyIfActive(
     storeId: string,
     conversationId: string,
@@ -195,6 +195,43 @@ function questionMessage(
   };
 }
 
+function contactConfirmationMessage(
+  step: RuntimeStep,
+  answers: RuntimeConversation["answers"],
+): DigitalButlerOutboundMessageIntent {
+  const config = objectConfig(step.config);
+  const fallback = questionMessage(step);
+  if (config.contactConfirmation !== true) return fallback;
+  const nameStepKey = typeof config.nameStepKey === "string" ? config.nameStepKey : "name";
+  const phoneStepKey = typeof config.phoneStepKey === "string" ? config.phoneStepKey : "phone";
+  const requestStepKey = typeof config.requestStepKey === "string" ? config.requestStepKey : "requestType";
+  const name = answers.find((answer) => answer.step.stepKey === nameStepKey)?.value;
+  const phoneAnswer = answers.find((answer) => answer.step.stepKey === phoneStepKey);
+  const request = answers.find((answer) => answer.step.stepKey === requestStepKey)?.value;
+  const phone = phoneAnswer?.phoneCiphertext && phoneAnswer.phoneIv && phoneAnswer.phoneAuthTag
+    ? decryptDigitalButlerValue({
+        ciphertext: Buffer.from(phoneAnswer.phoneCiphertext),
+        iv: Buffer.from(phoneAnswer.phoneIv),
+        authTag: Buffer.from(phoneAnswer.phoneAuthTag),
+        keyVersion: "v1",
+      })
+    : null;
+  const requestValue = request && typeof request === "object" && !Array.isArray(request)
+    ? objectConfig(request).label ?? objectConfig(request).value
+    : request;
+  if (typeof name !== "string" || !phone || typeof requestValue !== "string") return fallback;
+  return {
+    ...fallback,
+    text: [
+      "請確認您的資料：",
+      `姓名：${name}`,
+      `手機：${phone}`,
+      `需求：${requestValue}`,
+      "資料正確後請選擇確認送出。",
+    ].join("\n"),
+  };
+}
+
 type InformationIntent = "PRICE" | "LOCATION";
 
 const INFORMATION_INTENTS: ReadonlyArray<{
@@ -251,15 +288,34 @@ function validateAnswer(step: RuntimeStep, text: string): { value?: Prisma.Input
     const option = objectConfig(matched as Prisma.JsonValue);
     return { value: { value: String(option.value ?? option.label), label: String(option.label ?? option.value) } };
   }
-  if (step.required && !text.trim()) return { error: "此題為必填，請輸入回答。" };
-  const maxLength = Number(objectConfig(step.config).maxLength ?? 500);
+  const trimmed = text.trim();
+  if (step.required && !trimmed) return { error: "此題為必填，請輸入回答。" };
+  const config = objectConfig(step.config);
+  const isName = config.field === "name" || /(?:^|[-_])name(?:$|[-_])|姓名/i.test(step.stepKey);
+  if (isName && !/[\p{L}\p{N}]/u.test(trimmed)) {
+    return { error: "請輸入方便稱呼的姓名，不能只使用符號。" };
+  }
+  const maxLength = Number(config.maxLength ?? 500);
   if (text.length > maxLength) return { error: `回答請勿超過 ${maxLength} 個字。` };
   try {
     assertDigitalButlerSubmittedAnswersSafe(text);
   } catch {
     return { error: "為保護個資，這一題請勿輸入手機、Email 或 LINE ID。" };
   }
-  return { value: text };
+  return { value: trimmed };
+}
+
+function completeContactError(step: RuntimeStep, answers: RuntimeConversation["answers"]): string | null {
+  const config = objectConfig(step.config);
+  if (config.requireCompleteContact !== true) return null;
+  const nameStepKey = typeof config.nameStepKey === "string" ? config.nameStepKey : "name";
+  const phoneStepKey = typeof config.phoneStepKey === "string" ? config.phoneStepKey : "phone";
+  const name = answers.find((answer) => answer.step.stepKey === nameStepKey)?.value;
+  const phone = answers.find((answer) => answer.step.stepKey === phoneStepKey);
+  if (typeof name !== "string" || !/[\p{L}\p{N}]/u.test(name) || !phone?.phoneHash) {
+    return "請先完成姓名與手機填寫並確認資料後，再建立名單。";
+  }
+  return null;
 }
 
 function configuredNextStepKey(step: RuntimeStep, answer?: Prisma.InputJsonValue): string | null {
@@ -459,14 +515,42 @@ class PrismaDigitalButlerRuntimeRepository implements RuntimeRepository {
   async createLead(input: {
     storeId: string; flowId: string; conversationId: string;
     completionActionKey: string; submittedAnswers: Prisma.InputJsonObject;
-  }) {
+  }): Promise<{ leadId: string; created: boolean } | null> {
     assertDigitalButlerSubmittedAnswersSafe(input.submittedAnswers);
-    return this.withActiveConversation(input.storeId, input.conversationId, async (tx) => {
+    let leadResult: { leadId: string; created: boolean } | null = null;
+    const active = await this.withActiveConversation(input.storeId, input.conversationId, async (tx) => {
       const phoneAnswer = await tx.digitalButlerAnswer.findFirst({
         where: { storeId: input.storeId, conversationId: input.conversationId, phoneHash: { not: null } },
         select: { phoneCiphertext: true, phoneIv: true, phoneAuthTag: true, phoneHash: true },
       });
-      await tx.digitalButlerLead.upsert({
+      const conversation = await tx.digitalButlerConversation.findFirst({
+        where: { id: input.conversationId, storeId: input.storeId },
+        select: { provider: true },
+      });
+      // A phone number is never enough to merge records across channels. Within
+      // one store and provider it is the established encrypted identity key, so
+      // a later confirmed contact refreshes the existing lead rather than
+      // creating a parallel follow-up list item.
+      const existing = phoneAnswer?.phoneHash && conversation
+        ? await tx.digitalButlerLead.findFirst({
+            where: {
+              storeId: input.storeId,
+              phoneHash: phoneAnswer.phoneHash,
+              conversation: { provider: conversation.provider },
+            },
+            select: { id: true },
+            orderBy: { updatedAt: "desc" },
+          })
+        : null;
+      if (existing) {
+        await tx.digitalButlerLead.update({
+          where: { id_storeId: { id: existing.id, storeId: input.storeId } },
+          data: { updatedAt: new Date() },
+        });
+        leadResult = { leadId: existing.id, created: false };
+        return;
+      }
+      const lead = await tx.digitalButlerLead.upsert({
         where: { storeId_conversationId_completionActionKey: {
           storeId: input.storeId, conversationId: input.conversationId,
           completionActionKey: input.completionActionKey,
@@ -483,8 +567,11 @@ class PrismaDigitalButlerRuntimeRepository implements RuntimeRepository {
           phoneHash: phoneAnswer?.phoneHash,
         },
         update: {},
+        select: { id: true },
       });
+      leadResult = { leadId: lead.id, created: true };
     });
+    return active ? leadResult : null;
   }
 
   async deliverReplyIfActive(
@@ -638,6 +725,19 @@ export class DigitalButlerRuntime {
     if (answer.value !== undefined) {
       conversation.answers = conversation.answers.filter((item) => item.step.stepKey !== step.stepKey);
       conversation.answers.push({ step: { stepKey: step.stepKey }, value: answer.value as Prisma.JsonValue });
+    } else if (answer.phone) {
+      conversation.answers = conversation.answers.filter((item) => item.step.stepKey !== step.stepKey);
+      // The plaintext phone remains only in encrypted persistence. This marker
+      // is enough for the in-memory completion guard to prove it was supplied.
+      const encryptedPhone = encryptDigitalButlerValue(answer.phone);
+      conversation.answers.push({
+        step: { stepKey: step.stepKey },
+        value: null,
+        phoneHash: "present",
+        phoneCiphertext: prismaBytes(encryptedPhone.ciphertext),
+        phoneIv: prismaBytes(encryptedPhone.iv),
+        phoneAuthTag: prismaBytes(encryptedPhone.authTag),
+      });
     }
     return finish(
       await this.runAutomaticSteps(conversation, nextStepIndex(steps, index, answer.value)),
@@ -663,13 +763,15 @@ export class DigitalButlerRuntime {
     conversation: RuntimeConversation,
     command: DigitalButlerGlobalCommand,
   ): Promise<DigitalButlerRuntimeResult> {
-    if (command === "CANCEL") {
+    if (command === "CANCEL" || command === "MAIN_MENU") {
       const cancelled = await this.repository.cancelConversation(conversation.storeId, conversation.id);
       if (!cancelled) return { handled: true, messages: [], outcome: "INACTIVE_CONVERSATION" };
       return {
         handled: true,
-        messages: [{ type: "text", text: "好的，已停止目前流程。需要時再傳訊息給我就可以了。" }],
-        outcome: "CANCELLED_BY_USER",
+        messages: [{ type: "text", text: command === "MAIN_MENU"
+          ? "好的，已回到主選單。請選擇想了解的內容，或隨時再傳訊息給我。"
+          : "好的，已停止目前流程。需要時再傳訊息給我就可以了。" }],
+        outcome: command === "MAIN_MENU" ? "RETURNED_TO_MAIN_MENU" : "CANCELLED_BY_USER",
       };
     }
     if (command === "HANDOFF") {
@@ -699,7 +801,7 @@ export class DigitalButlerRuntime {
           currentStepKey: step.stepKey, status: "WAITING_INPUT",
         });
         if (!advanced) return { handled: true, messages: [], outcome: "INACTIVE_CONVERSATION" };
-        messages.push(questionMessage(step));
+        messages.push(contactConfirmationMessage(step, conversation.answers));
         return { handled: true, messages: messages.slice(0, 5), outcome: "WAITING_INPUT" };
       }
       if (step.type === "TEXT") {
@@ -715,24 +817,29 @@ export class DigitalButlerRuntime {
           });
         }
       } else if (step.type === "CREATE_LEAD") {
+        const contactError = completeContactError(step, conversation.answers);
+        if (contactError) {
+          return { handled: true, messages: [{ type: "text", text: contactError }], outcome: "VALIDATION_FAILED" };
+        }
         const submittedAnswers = Object.fromEntries(
           conversation.answers
             .filter((answer) => answer.value !== null)
             .map((answer) => [answer.step.stepKey, answer.value]),
         ) as Prisma.InputJsonObject;
         assertDigitalButlerSubmittedAnswersSafe(submittedAnswers);
-        const leadCreated = await this.repository.createLead({
+        const leadCreation = await this.repository.createLead({
           storeId: conversation.storeId, flowId: conversation.flowId,
           conversationId: conversation.id, completionActionKey: step.stepKey,
           submittedAnswers,
         });
-        if (!leadCreated) return { handled: true, messages: [], outcome: "INACTIVE_CONVERSATION" };
-        await this.notifyLeadCreated({
-          storeId: conversation.storeId,
-          conversationId: conversation.id,
-          completionActionKey: step.stepKey,
-          submittedAnswers,
-        });
+        if (!leadCreation) return { handled: true, messages: [], outcome: "INACTIVE_CONVERSATION" };
+        if (leadCreation.created) {
+          await this.notifyLeadCreated({
+            storeId: conversation.storeId,
+            leadId: leadCreation.leadId,
+            submittedAnswers,
+          });
+        }
       } else if (step.type === "COMPLETE_FLOW") {
         const completed = await this.repository.advanceConversation({
           storeId: conversation.storeId, conversationId: conversation.id,
@@ -756,25 +863,20 @@ export class DigitalButlerRuntime {
 
   private async notifyLeadCreated(input: {
     storeId: string;
-    conversationId: string;
-    completionActionKey: string;
+    leadId: string;
     submittedAnswers: Prisma.InputJsonObject;
   }) {
     try {
       const lead = await prisma.digitalButlerLead.findUnique({
         where: {
-          storeId_conversationId_completionActionKey: {
-            storeId: input.storeId,
-            conversationId: input.conversationId,
-            completionActionKey: input.completionActionKey,
-          },
+          id_storeId: { id: input.leadId, storeId: input.storeId },
         },
         select: {
           id: true,
           phoneCiphertext: true,
           phoneIv: true,
           phoneAuthTag: true,
-          store: { select: { slug: true } },
+          store: { select: { slug: true, name: true } },
           conversation: { select: { provider: true } },
         },
       });
@@ -787,6 +889,10 @@ export class DigitalButlerRuntime {
       });
       const rawName = input.submittedAnswers.name;
       const customerName = typeof rawName === "string" && rawName.trim() ? rawName.trim() : "數位管家顧客";
+      const requestValue = input.submittedAnswers.requestType ?? input.submittedAnswers["request-type"];
+      const requestType = requestValue && typeof requestValue === "object" && !Array.isArray(requestValue)
+        ? String((requestValue as Record<string, unknown>).label ?? (requestValue as Record<string, unknown>).value ?? "未指定")
+        : typeof requestValue === "string" ? requestValue : "未指定";
       await notifyStoreManagerOnLine({
         type: "DIGITAL_BUTLER_LEAD_CREATED",
         eventKey: `digital-butler-lead:${lead.id}`,
@@ -796,6 +902,8 @@ export class DigitalButlerRuntime {
         phone,
         leadId: lead.id,
         provider: lead.conversation.provider,
+        requestType,
+        storeName: lead.store.name,
       });
     } catch (error) {
       console.error("[DigitalButler] manager notification failed", {

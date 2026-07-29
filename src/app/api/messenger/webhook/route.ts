@@ -98,12 +98,18 @@ async function handleMessagingEvent(
 
   if (!result.handled || result.messages.length === 0) return;
 
-  const delivery = await sendMessengerMessages({
+  const deliver = () => sendMessengerMessages({
     pageId,
     pageAccessToken: store.accessToken,
     recipientId: event.sender.id,
     messages: digitalButlerIntentsToMessengerMessages(result.messages),
   });
+
+  const delivery = result.replyGuard?.requiresActiveConversation
+    ? await runtime.deliverReplyIfActive(store.id, result.replyGuard.conversationId, deliver)
+      ? { success: true }
+      : { success: false, error: "Conversation ended before reply delivery" }
+    : await deliver();
 
   if (!delivery.success) {
     console.error("[Messenger Webhook] Reply failed", {
