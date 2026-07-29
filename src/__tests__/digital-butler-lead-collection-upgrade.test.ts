@@ -19,7 +19,8 @@ const legacyDefinition = {
       { label: "轉接真人客服", value: "HUMAN_SUPPORT", nextStepKey: "support-info" },
       { label: "療程介紹", value: "INFO", nextStepKey: "info" },
     ] } },
-    { stepKey: "booking-info", type: "TEXT", config: { text: "預約說明", nextStepKey: "complete" } },
+    { stepKey: "booking-intro", type: "TEXT", config: { text: "預約說明", nextStepKey: "booking-path" } },
+    { stepKey: "booking-path", type: "TEXT", config: { text: "https://booking.example", nextStepKey: "complete" } },
     { stepKey: "contact-info", type: "TEXT", config: { text: "聯絡說明", nextStepKey: "complete" } },
     { stepKey: "support-info", type: "TEXT", config: { text: "客服說明", nextStepKey: "complete" } },
     { stepKey: "info", type: "TEXT", config: { text: "介紹", nextStepKey: "complete" } },
@@ -37,14 +38,18 @@ function candidate(alreadyUpgraded = false) {
 }
 
 describe("digital butler full lead collection upgrade", () => {
-  it("preserves unrelated branches and sends all lead entries through name → phone → confirm", () => {
+  it("redirects booking and contact to name while preserving informational and handoff branches", () => {
     const upgraded = upgradeDigitalButlerLeadCollectionDefinition(legacyDefinition);
     expect(hasCompleteDigitalButlerLeadCollection(upgraded)).toBe(true);
     expect(upgraded.steps.find((step) => step.stepKey === "info")).toBeTruthy();
     const menu = upgraded.steps.find((step) => step.stepKey === "menu");
-    expect((menu?.config.options as Array<{ value: string; nextStepKey: string }>)
-      .filter((option) => option.value !== "INFO")
-      .every((option) => option.nextStepKey === "requestType")).toBe(true);
+    const options = menu?.config.options as Array<{ value: string; nextStepKey: string }>;
+    expect(options.find((option) => option.value === "BOOKING")?.nextStepKey).toBe("name");
+    expect(options.find((option) => option.value === "CONTACT_STORE")?.nextStepKey).toBe("name");
+    expect(options.find((option) => option.value === "HUMAN_SUPPORT")?.nextStepKey).toBe("support-info");
+    expect(options.find((option) => option.value === "INFO")?.nextStepKey).toBe("info");
+    expect(upgraded.steps.find((step) => step.stepKey === "booking-path")).toBeTruthy();
+    expect(upgraded.steps.find((step) => step.stepKey === "create-lead")?.config.requestTypeFromStepKey).toBe("menu");
     expect(DIGITAL_BUTLER_LEAD_COLLECTION_STEP_KEYS.every((key) => upgraded.steps.some((step) => step.stepKey === key))).toBe(true);
   });
 

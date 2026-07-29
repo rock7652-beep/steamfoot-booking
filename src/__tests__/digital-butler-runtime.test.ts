@@ -119,6 +119,34 @@ describe("DigitalButlerRuntime", () => {
     }));
   });
 
+  it("persists a top-level booking choice before starting the contact name step", async () => {
+    const steps = [
+      { id: "menu", stepKey: "menu", position: 0, type: "SINGLE_CHOICE" as const, required: true, config: {
+        text: "請選擇", options: [{ label: "我想預約體驗", value: "BOOKING", nextStepKey: "name" }, { label: "其他", value: "INFO", nextStepKey: "name" }],
+      } },
+      questionStep("name", "name", 1),
+    ];
+    repository.findTriggeredFlow.mockResolvedValue({
+      id: "flow-1", currentPublishedVersionId: "version-1",
+      publishedVersion: { definition: { trigger: { keywords: [] } }, steps },
+      startStepKey: "name",
+      initialAnswer: { step: steps[0], value: { label: "我想預約體驗", value: "BOOKING", nextStepKey: "name" } },
+    });
+    repository.createConversation.mockResolvedValue({
+      id: "conversation-1", storeId: input.storeId, flowId: "flow-1", flowVersionId: "version-1",
+      currentStepKey: "name", expiresAt: new Date(Date.now() + 60_000), flowVersion: { steps },
+      answers: [{ step: { stepKey: "menu" }, value: { label: "我想預約體驗", value: "BOOKING" } }],
+    });
+
+    const result = await new DigitalButlerRuntime(repository as never, gate).handleText({ ...input, text: "我想預約體驗" });
+
+    expect(result.messages).toEqual([{ type: "text", text: "請告訴我們您的需求" }]);
+    expect(repository.createConversation).toHaveBeenCalledWith(expect.objectContaining({ currentStepKey: "name" }));
+    expect(repository.saveAnswer).toHaveBeenCalledWith(expect.objectContaining({
+      step: expect.objectContaining({ stepKey: "menu" }), value: expect.objectContaining({ value: "BOOKING" }),
+    }));
+  });
+
   it("starts a fresh menu after cancellation when the user sends the trigger again", async () => {
     const previousSteps = [questionStep("old-step", "phone", 0)];
     const newSteps = [

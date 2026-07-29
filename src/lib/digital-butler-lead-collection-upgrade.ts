@@ -19,12 +19,19 @@ function object(value: Prisma.JsonValue | undefined): JsonObject {
     : {};
 }
 
-function leadEntryOption(option: Prisma.JsonValue): boolean {
+function contactEntryOption(option: Prisma.JsonValue): boolean {
   const value = object(option);
   const label = typeof value.label === "string" ? value.label : "";
   const key = typeof value.value === "string" ? value.value : "";
-  return ["我想預約體驗", "請店家聯絡我", "轉接真人客服"].includes(label)
-    || ["BOOKING", "CONTACT_STORE", "HUMAN_SUPPORT"].includes(key);
+  return ["我想預約體驗", "請店家聯絡我"].includes(label)
+    || ["BOOKING", "CONTACT_STORE"].includes(key);
+}
+
+function isTopLevelContactMenu(step: FlowStep): boolean {
+  if (step.type !== "SINGLE_CHOICE" || !Array.isArray(step.config.options)) return false;
+  const options = step.config.options as Prisma.JsonValue[];
+  const labels = new Set(options.map((option) => object(option).label));
+  return labels.has("我想預約體驗") && labels.has("請店家聯絡我");
 }
 
 function cloneDefinition(value: Prisma.JsonValue): LeadCollectionFlowDefinition {
@@ -56,7 +63,6 @@ function contactSteps(): FlowStep[] {
         options: [
           { label: "預約體驗", value: "BOOKING", nextStepKey: "name" },
           { label: "請店家聯絡", value: "CONTACT_STORE", nextStepKey: "name" },
-          { label: "真人客服", value: "HUMAN_SUPPORT", nextStepKey: "name" },
         ],
       },
     },
@@ -69,14 +75,14 @@ function contactSteps(): FlowStep[] {
         contactConfirmation: true,
         nameStepKey: "name",
         phoneStepKey: "phone",
-        requestStepKey: "requestType",
+        requestStepKey: "menu",
         options: [
           { label: "確認送出", value: "CONFIRM", nextStepKey: "create-lead" },
           { label: "重新填寫", value: "RESTART", nextStepKey: "name" },
         ],
       },
     },
-    { stepKey: "create-lead", type: "CREATE_LEAD", config: { requireCompleteContact: true, nameStepKey: "name", phoneStepKey: "phone", nextStepKey: "completion" } },
+    { stepKey: "create-lead", type: "CREATE_LEAD", config: { requireCompleteContact: true, nameStepKey: "name", phoneStepKey: "phone", requestTypeFromStepKey: "menu", nextStepKey: "completion" } },
     { stepKey: "completion", type: "TEXT", config: { text: "已收到您的資料，店家將儘快與您聯絡。需要時可回到主選單繼續了解。", nextStepKey: "complete" } },
   ];
 }
@@ -87,15 +93,14 @@ function contactSteps(): FlowStep[] {
  */
 export function upgradeDigitalButlerLeadCollectionDefinition(value: Prisma.JsonValue): LeadCollectionFlowDefinition {
   const definition = cloneDefinition(value);
-  const menu = definition.steps.find((step) => step.type === "SINGLE_CHOICE" && Array.isArray(step.config.options)
-    && (step.config.options as Prisma.JsonValue[]).some(leadEntryOption));
+  const menu = definition.steps.find(isTopLevelContactMenu);
   if (!menu) throw new Error("DIGITAL_BUTLER_LEAD_ENTRY_MENU_NOT_FOUND");
 
   menu.config = {
     ...menu.config,
     options: (menu.config.options as Prisma.JsonValue[]).map((option) => {
       const parsed = object(option);
-      return leadEntryOption(option) ? { ...parsed, nextStepKey: "requestType" } : parsed;
+      return contactEntryOption(option) ? { ...parsed, nextStepKey: "name" } : parsed;
     }),
   };
   const replacement = new Map(contactSteps().map((step) => [step.stepKey, step]));
@@ -112,17 +117,17 @@ export function hasCompleteDigitalButlerLeadCollection(value: Prisma.JsonValue):
   try {
     const definition = cloneDefinition(value);
     const keys = new Set(definition.steps.map((step) => step.stepKey));
-    const menu = definition.steps.find((step) => step.type === "SINGLE_CHOICE" && Array.isArray(step.config.options)
-      && (step.config.options as Prisma.JsonValue[]).some(leadEntryOption));
+    const menu = definition.steps.find(isTopLevelContactMenu);
     const menuPointsToCollection = menu && (menu.config.options as Prisma.JsonValue[])
-      .filter(leadEntryOption)
-      .every((option) => object(option).nextStepKey === "requestType");
+      .filter(contactEntryOption)
+      .every((option) => object(option).nextStepKey === "name");
     const create = definition.steps.find((step) => step.stepKey === "create-lead");
     return Boolean(menuPointsToCollection)
       && ["requestType", ...DIGITAL_BUTLER_LEAD_COLLECTION_STEP_KEYS, "completion"].every((key) => keys.has(key))
       && create?.config.requireCompleteContact === true
       && create.config.nameStepKey === "name"
-      && create.config.phoneStepKey === "phone";
+      && create.config.phoneStepKey === "phone"
+      && create.config.requestTypeFromStepKey === "menu";
   } catch {
     return false;
   }
