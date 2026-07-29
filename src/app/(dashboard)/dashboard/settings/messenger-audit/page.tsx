@@ -3,6 +3,7 @@ import { PageHeader, PageShell } from "@/components/desktop";
 import { checkPermission } from "@/lib/permissions";
 import { getCurrentUser } from "@/lib/session";
 import { getActiveStoreForRead } from "@/lib/store";
+import { prisma } from "@/lib/db";
 import { MessengerAuditPanel } from "./messenger-audit-panel";
 import { ConversationResetPanel } from "./conversation-reset-panel";
 
@@ -13,6 +14,8 @@ export default async function MessengerAuditPage() {
 
   const storeId = await getActiveStoreForRead(user);
   if (!storeId) notFound();
+  const store = await prisma.store.findUnique({ where: { id: storeId }, select: { slug: true } });
+  if (store?.slug !== "zhubei") notFound();
 
   return (
     <PageShell className="mx-auto flex max-w-3xl flex-col gap-4 px-5 py-4">

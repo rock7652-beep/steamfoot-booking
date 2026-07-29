@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { diagnoseMessengerConversationAction, endMessengerConversationAction } from "./conversation-actions";
+import { RecentConversationsPanel } from "./recent-conversations-panel";
 
 type Conversation = {
   id: string; status: string; currentStepKey: string | null; expiresAt: string;
@@ -16,11 +17,12 @@ export function ConversationResetPanel() {
   const [message, setMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  function diagnose() {
+  function diagnose(selectedConversationId = conversationId) {
     startTransition(async () => {
       setMessage(null);
       setConversation(null);
-      const result = await diagnoseMessengerConversationAction(conversationId);
+      setConversationId(selectedConversationId);
+      const result = await diagnoseMessengerConversationAction(selectedConversationId);
       if (result.success) setConversation(result.conversation);
       else setMessage(result.error);
     });
@@ -38,12 +40,12 @@ export function ConversationResetPanel() {
     });
   }
 
-  return <section className="rounded-xl border border-rose-200 bg-rose-50 p-5 shadow-sm">
+  return <><RecentConversationsPanel onDiagnose={diagnose} /><section className="rounded-xl border border-rose-200 bg-rose-50 p-5 shadow-sm">
     <h2 className="text-base font-semibold text-rose-950">單筆 Messenger conversation 診斷與安全結束</h2>
     <p className="mt-1 text-sm text-rose-900">限定 OWNER／ADMIN、竹北店及 MESSENGER。診斷不會改變 conversation；結束只會把進行中對話標記為 CANCELLED，且全程保留稽核紀錄。</p>
     <label className="mt-4 block text-sm font-medium text-rose-950" htmlFor="conversation-id">Conversation ID</label>
     <input id="conversation-id" value={conversationId} onChange={(event) => setConversationId(event.target.value)} autoComplete="off" className="mt-1 w-full rounded border border-rose-300 bg-white px-3 py-2 font-mono text-sm" />
-    <button type="button" disabled={pending || !conversationId.trim()} onClick={diagnose} className="mt-3 rounded-lg bg-rose-800 px-4 py-2 text-sm font-medium text-white hover:bg-rose-900 disabled:cursor-not-allowed disabled:opacity-60">{pending ? "處理中…" : "唯讀診斷"}</button>
+    <button type="button" disabled={pending || !conversationId.trim()} onClick={() => diagnose()} className="mt-3 rounded-lg bg-rose-800 px-4 py-2 text-sm font-medium text-white hover:bg-rose-900 disabled:cursor-not-allowed disabled:opacity-60">{pending ? "處理中…" : "唯讀診斷"}</button>
     {conversation ? <div className="mt-4 space-y-2 rounded-lg border border-rose-200 bg-white p-4 text-sm text-rose-950">
       <p>狀態：<strong>{conversation.status}</strong></p>
       <p>目前步驟：{conversation.currentStepKey ?? "—"}</p>
@@ -57,5 +59,5 @@ export function ConversationResetPanel() {
       </div>
     </div> : null}
     {message ? <p className="mt-3 text-sm text-rose-800">{message}</p> : null}
-  </section>;
+  </section></>;
 }
