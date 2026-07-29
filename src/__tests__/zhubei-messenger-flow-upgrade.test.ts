@@ -29,7 +29,7 @@ describe("Zhubei Messenger flow upgrade", () => {
     expect(upgraded.steps.find((step) => step.stepKey === "process")?.config.text).toBe("介紹內容");
     const menu = upgraded.steps.find((step) => step.stepKey === "menu");
     expect(menu?.config.options).toContainEqual(expect.objectContaining({ label: "蒸足如何進行", nextStepKey: "process" }));
-    expect(menu?.config.options).toContainEqual(expect.objectContaining({ label: "我想預約體驗", nextStepKey: "requestType" }));
+    expect(menu?.config.options).toContainEqual(expect.objectContaining({ label: "我想預約體驗", nextStepKey: "name" }));
     expect(hasCompleteZhubeiLeadCollection(upgraded as never)).toBe(true);
   });
 

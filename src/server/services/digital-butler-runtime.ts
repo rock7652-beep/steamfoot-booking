@@ -84,6 +84,7 @@ type RuntimeRepository = {
     currentPublishedVersionId: string;
     publishedVersion: { definition: Prisma.JsonValue; steps: RuntimeStep[] };
     startStepKey: string | null;
+    initialAnswer?: { step: RuntimeStep; value: Prisma.InputJsonValue };
   } | null>;
   createConversation(input: {
     storeId: string;
@@ -359,6 +360,21 @@ export function topLevelChoiceEntryStepKey(steps: RuntimeStep[], text: string): 
     : null;
 }
 
+function topLevelChoiceEntry(steps: RuntimeStep[], text: string): { step: RuntimeStep; value: Prisma.InputJsonValue; startStepKey: string } | null {
+  const step = steps.find((candidate) => candidate.type === "SINGLE_CHOICE");
+  if (!step) return null;
+  const options = objectConfig(step.config).options;
+  const selected = Array.isArray(options)
+    ? options.find((option) => {
+        const parsed = objectConfig(option as Prisma.JsonValue);
+        return parsed.label === text || parsed.value === text;
+      })
+    : null;
+  const startStepKey = selected ? objectConfig(selected as Prisma.JsonValue).nextStepKey : null;
+  if (typeof startStepKey !== "string" || !startStepKey.trim()) return null;
+  return { step, value: objectConfig(selected as Prisma.JsonValue) as Prisma.InputJsonObject, startStepKey: startStepKey.trim() };
+}
+
 class PrismaDigitalButlerRuntimeRepository implements RuntimeRepository {
   async claimEvent(input: {
     storeId: string;
@@ -436,11 +452,12 @@ class PrismaDigitalButlerRuntimeRepository implements RuntimeRepository {
       // cancelled, or handed-off conversation. Only the first choice step is
       // considered so answers from deeper in a flow cannot unexpectedly start
       // a new conversation.
-      const startStepKey = topLevelChoiceEntryStepKey(flow.publishedVersion.steps, text);
-      if (startStepKey) {
+      const entry = topLevelChoiceEntry(flow.publishedVersion.steps, text);
+      if (entry) {
         return {
           ...flow,
-          startStepKey,
+          startStepKey: entry.startStepKey,
+          initialAnswer: { step: entry.step, value: entry.value },
         } as Awaited<ReturnType<RuntimeRepository["findTriggeredFlow"]>>;
       }
     }
@@ -456,7 +473,21 @@ class PrismaDigitalButlerRuntimeRepository implements RuntimeRepository {
     currentStepKey: string | null; expiresAt: Date;
   }) {
     return prisma.digitalButlerConversation.create({
-      data: { ...input, status: "IN_PROGRESS" },
+      data: {
+        storeId: input.storeId,
+        flowId: input.flowId,
+        flowVersionId: input.flowVersionId,
+        provider: input.provider,
+        channelAccountId: input.channelAccountId,
+        senderIdHash: input.senderIdHash,
+        senderIdCiphertext: input.senderIdCiphertext,
+        senderIdIv: input.senderIdIv,
+        senderIdAuthTag: input.senderIdAuthTag,
+        senderIdKeyVersion: input.senderIdKeyVersion,
+        currentStepKey: input.currentStepKey,
+        expiresAt: input.expiresAt,
+        status: "IN_PROGRESS",
+      },
       include: {
         flowVersion: { include: { steps: { orderBy: { position: "asc" } } } },
         answers: {
@@ -682,6 +713,19 @@ export class DigitalButlerRuntime {
         currentStepKey: flow.startStepKey ?? first?.stepKey ?? null,
         expiresAt: new Date(Date.now() + CONVERSATION_TTL_MS),
       });
+      if (flow.initialAnswer) {
+        const saved = await this.repository.saveAnswer({
+          storeId: input.storeId,
+          conversationId: conversation.id,
+          step: flow.initialAnswer.step,
+          value: flow.initialAnswer.value,
+        });
+        if (!saved) {
+          await this.repository.cancelConversation(input.storeId, conversation.id);
+          return finish({ handled: true, messages: [], outcome: "INACTIVE_CONVERSATION" }, conversation.id);
+        }
+        conversation.answers.push({ step: { stepKey: flow.initialAnswer.step.stepKey }, value: flow.initialAnswer.value as Prisma.JsonValue });
+      }
       return finish(await this.runAutomaticSteps(conversation, startStepIndex), conversation.id);
     }
 
@@ -829,16 +873,22 @@ export class DigitalButlerRuntime {
         if (contactError) {
           return { handled: true, messages: [{ type: "text", text: contactError }], outcome: "VALIDATION_FAILED" };
         }
-        const submittedAnswers = Object.fromEntries(
-          conversation.answers
-            .filter((answer) => answer.value !== null)
-            .map((answer) => [answer.step.stepKey, answer.value]),
-        ) as Prisma.InputJsonObject;
-        assertDigitalButlerSubmittedAnswersSafe(submittedAnswers);
+        const submittedAnswers: Record<string, Prisma.InputJsonValue> = {};
+        for (const answer of conversation.answers) {
+          if (answer.value !== null) submittedAnswers[answer.step.stepKey] = answer.value;
+        }
+        const requestTypeFromStepKey = typeof objectConfig(step.config).requestTypeFromStepKey === "string"
+          ? String(objectConfig(step.config).requestTypeFromStepKey)
+          : null;
+        const requestTypeValue = requestTypeFromStepKey ? submittedAnswers[requestTypeFromStepKey] : undefined;
+        if (requestTypeValue !== undefined) {
+          submittedAnswers.requestType = requestTypeValue;
+        }
+        assertDigitalButlerSubmittedAnswersSafe(submittedAnswers as Prisma.InputJsonObject);
         const leadCreation = await this.repository.createLead({
           storeId: conversation.storeId, flowId: conversation.flowId,
           conversationId: conversation.id, completionActionKey: step.stepKey,
-          submittedAnswers,
+          submittedAnswers: submittedAnswers as Prisma.InputJsonObject,
         });
         if (!leadCreation) return { handled: true, messages: [], outcome: "INACTIVE_CONVERSATION" };
         if (leadCreation.created) {
