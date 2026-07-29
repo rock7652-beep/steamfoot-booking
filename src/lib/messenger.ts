@@ -2,6 +2,14 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import type { DigitalButlerOutboundMessageIntent } from "@/server/services/digital-butler-channel";
 
 const GRAPH_API_VERSION = process.env.MESSENGER_GRAPH_API_VERSION?.trim() || "v23.0";
+const ZHUBEI_TRIAL_BOOKING_URL =
+  "https://www.steamfoot.com/pricing/experience/zhubei/book#booking-form";
+const TRIAL_BOOKING_PROMPT =
+  "首次蒸足體驗優惠價 NT$499（原價 NT$799）\n您可以直接選擇日期與時段完成預約；如果還不確定時間，也可以請店家與您聯絡。";
+
+type MessengerButton =
+  | { type: "postback"; title: string; payload: string }
+  | { type: "web_url"; title: string; url: string };
 
 export type MessengerMessage = {
   text?: string;
@@ -15,7 +23,7 @@ export type MessengerMessage = {
     payload: {
       template_type: "button";
       text: string;
-      buttons: Array<{ type: "postback"; title: string; payload: string }>;
+      buttons: MessengerButton[];
     };
   };
 };
@@ -34,6 +42,18 @@ function visibleChoiceFallback(text: string, choices: MessengerChoice[]): string
   const visibleText = text.replace(/[\u200B-\u200D\uFEFF]/g, "").trim();
   if (visibleText) return visibleText;
   return `請選擇：${choices.map((choice) => choice.title).join("、")}`;
+}
+
+function trialBookingButtons(choices: MessengerChoice[]): MessengerButton[] | null {
+  const contactStore = choices.find((choice) => choice.payload === "CONTACT_STORE");
+  const mainMenu = choices.find((choice) => choice.payload === "MAIN_MENU");
+  if (!contactStore || !mainMenu) return null;
+
+  return [
+    { type: "web_url", title: "立即線上預約", url: ZHUBEI_TRIAL_BOOKING_URL },
+    { type: "postback", title: contactStore.title, payload: contactStore.payload },
+    { type: "postback", title: mainMenu.title, payload: mainMenu.payload },
+  ];
 }
 
 export function verifyMessengerSignature(
@@ -59,7 +79,10 @@ export function digitalButlerIntentsToMessengerMessages(
     }
 
     const choices = messengerChoices(intent.choices);
-    const text = visibleChoiceFallback(intent.text, choices);
+    const bookingButtons = trialBookingButtons(choices);
+    const text = bookingButtons
+      ? TRIAL_BOOKING_PROMPT
+      : visibleChoiceFallback(intent.text, choices);
     if (choices.length > 0 && choices.length <= 3) {
       return [
         { text },
@@ -69,7 +92,8 @@ export function digitalButlerIntentsToMessengerMessages(
             payload: {
               template_type: "button",
               text: text.slice(0, 640),
-              buttons: choices.map((choice) => ({ type: "postback", title: choice.title, payload: choice.payload })),
+              buttons: bookingButtons
+                ?? choices.map((choice) => ({ type: "postback", title: choice.title, payload: choice.payload })),
             },
           },
         },
