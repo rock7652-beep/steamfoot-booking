@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { diagnoseMessengerConversationAction, endMessengerConversationAction } from "./conversation-actions";
+import { RecentConversationsPanel } from "./recent-conversations-panel";
 
 type Conversation = {
   id: string; status: string; currentStepKey: string | null; expiresAt: string;
@@ -16,11 +17,12 @@ export function ConversationResetPanel() {
   const [message, setMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  function diagnose() {
+  function diagnose(selectedConversationId = conversationId) {
     startTransition(async () => {
       setMessage(null);
       setConversation(null);
-      const result = await diagnoseMessengerConversationAction(conversationId);
+      setConversationId(selectedConversationId);
+      const result = await diagnoseMessengerConversationAction(selectedConversationId);
       if (result.success) setConversation(result.conversation);
       else setMessage(result.error);
     });
@@ -38,7 +40,7 @@ export function ConversationResetPanel() {
     });
   }
 
-  return <section className="rounded-xl border border-rose-200 bg-rose-50 p-5 shadow-sm">
+  return <><RecentConversationsPanel onDiagnose={diagnose} /><section className="rounded-xl border border-rose-200 bg-rose-50 p-5 shadow-sm">
     <h2 className="text-base font-semibold text-rose-950">單筆 Messenger conversation 診斷與安全結束</h2>
     <p className="mt-1 text-sm text-rose-900">限定 OWNER／ADMIN、竹北店及 MESSENGER。診斷不會改變 conversation；結束只會把進行中對話標記為 CANCELLED，且全程保留稽核紀錄。</p>
     <label className="mt-4 block text-sm font-medium text-rose-950" htmlFor="conversation-id">Conversation ID</label>
@@ -57,5 +59,5 @@ export function ConversationResetPanel() {
       </div>
     </div> : null}
     {message ? <p className="mt-3 text-sm text-rose-800">{message}</p> : null}
-  </section>;
+  </section></>;
 }

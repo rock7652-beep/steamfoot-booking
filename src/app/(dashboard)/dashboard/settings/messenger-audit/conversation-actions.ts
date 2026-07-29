@@ -27,6 +27,19 @@ type ActionResult =
   | { success: true; conversation: ConversationSummary }
   | { success: false; error: string };
 
+export type RecentMessengerConversation = {
+  id: string;
+  status: string;
+  currentStepKey: string | null;
+  updatedAt: string;
+  flowVersion: number;
+  usesCurrentActiveVersion: boolean;
+};
+
+export type RecentMessengerConversationsResult =
+  | { success: true; conversations: RecentMessengerConversation[] }
+  | { success: false; error: string };
+
 function summary(conversation: {
   id: string; status: string; currentStepKey: string | null; expiresAt: Date;
   cancelledAt: Date | null; completedAt: Date | null; createdAt: Date; updatedAt: Date;
@@ -61,6 +74,47 @@ const conversationSelect = {
   completedAt: true, createdAt: true, updatedAt: true,
   _count: { select: { answers: true, leads: true, executionLogs: true } },
 } as const;
+
+/** Lists only safe operational metadata. Sender identity, answers and message content are never selected. */
+export async function listRecentMessengerConversationsAction(): Promise<RecentMessengerConversationsResult> {
+  try {
+    const { storeId } = await secureZhubeiMessengerContext();
+    const [flows, conversations] = await Promise.all([
+      prisma.storeDigitalButlerFlow.findMany({
+        where: { storeId },
+        select: { id: true, currentPublishedVersionId: true },
+      }),
+      prisma.digitalButlerConversation.findMany({
+        where: { storeId, provider: "MESSENGER" },
+        orderBy: { updatedAt: "desc" },
+        take: 20,
+        select: {
+          id: true,
+          status: true,
+          currentStepKey: true,
+          updatedAt: true,
+          flowId: true,
+          flowVersionId: true,
+          flowVersion: { select: { version: true } },
+        },
+      }),
+    ]);
+    const activeVersionByFlowId = new Map(flows.map((flow) => [flow.id, flow.currentPublishedVersionId]));
+    return {
+      success: true,
+      conversations: conversations.map((conversation) => ({
+        id: conversation.id,
+        status: conversation.status,
+        currentStepKey: conversation.currentStepKey,
+        updatedAt: conversation.updatedAt.toISOString(),
+        flowVersion: conversation.flowVersion.version,
+        usesCurrentActiveVersion: activeVersionByFlowId.get(conversation.flowId) === conversation.flowVersionId,
+      })),
+    };
+  } catch {
+    return { success: false, error: "暫時無法載入 Messenger 對話，請稍後再試。" };
+  }
+}
 
 export async function diagnoseMessengerConversationAction(conversationIdInput: string): Promise<ActionResult> {
   try {
