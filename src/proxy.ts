@@ -64,6 +64,12 @@ export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | n
   }
   if (pathname === "/store-select") return withDomainCookie(NextResponse.next(), domainStoreId);
 
+  if (pathname === "/book/zhubei") {
+    return NextResponse.redirect(
+      new URL("/pricing/experience/zhubei/book#booking-form", req.url),
+    );
+  }
+
   // ==========================================================
   // /s/[storeSlug]/* — 分店路由（rewrite 到現有頁面）
   // ==========================================================
