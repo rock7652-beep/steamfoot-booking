@@ -31,7 +31,7 @@ const InputSchema = z.object({
   phone: z.string().transform(normalizePhone).pipe(z.string().regex(/^09\d{8}$/, "請輸入正確手機號碼")),
   bookingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   slotTime: z.string().regex(/^\d{2}:\d{2}$/),
-  people: z.coerce.number().int().min(1, "預約人數至少 1 人").max(4, "單次最多預約 4 人"),
+  people: z.coerce.number().int().min(1, "預約人數至少 1 人").max(2, "單次最多預約 2 人"),
   website: z.string().max(0).optional().default(""),
 });
 
