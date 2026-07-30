@@ -8,6 +8,13 @@ type Conversation = {
   id: string; status: string; currentStepKey: string | null; expiresAt: string;
   cancelledAt: string | null; completedAt: string | null; createdAt: string; updatedAt: string;
   answerCount: number; leadCount: number; executionLogCount: number;
+  completionDiagnostic?: {
+    conversationFlowVersion: number; activeFlowVersion: number | null; usesActiveFlowVersion: boolean;
+    createLeadStepKey: string | null; requestTypeFromStepKey: string | null;
+    selectorCategory: "BOOKING" | "CONTACT_STORE" | "MISSING" | "OTHER";
+    predictedCompletionType: "URL_BUTTON" | "TEXT_ONLY";
+    completionReason: "BOOKING_SELECTOR_MATCHED" | "CONTACT_STORE_SELECTOR_MATCHED" | "SELECTOR_MISSING" | "SELECTOR_OTHER" | "CREATE_LEAD_STEP_MISSING" | "GENERIC_COMPLETION_SELECTED";
+  };
 };
 
 export function ConversationResetPanel() {
@@ -52,6 +59,17 @@ export function ConversationResetPanel() {
       <p>建立：{new Date(conversation.createdAt).toLocaleString("zh-TW")}</p>
       <p>到期：{new Date(conversation.expiresAt).toLocaleString("zh-TW")}</p>
       <p>答案 {conversation.answerCount}、lead {conversation.leadCount}、執行紀錄 {conversation.executionLogCount}</p>
+      {conversation.completionDiagnostic ? <div className="rounded border border-rose-100 bg-rose-50 p-3">
+        <p className="font-medium">Completion 唯讀診斷</p>
+        <p>Conversation flow version：v{conversation.completionDiagnostic.conversationFlowVersion}</p>
+        <p>Active flow version：{conversation.completionDiagnostic.activeFlowVersion === null ? "—" : `v${conversation.completionDiagnostic.activeFlowVersion}`}</p>
+        <p>使用 active version：{conversation.completionDiagnostic.usesActiveFlowVersion ? "是" : "否"}</p>
+        <p>CREATE_LEAD step：{conversation.completionDiagnostic.createLeadStepKey ?? "—"}</p>
+        <p>requestType selector：{conversation.completionDiagnostic.requestTypeFromStepKey ?? "—"}</p>
+        <p>Selector category：<strong>{conversation.completionDiagnostic.selectorCategory}</strong></p>
+        <p>Predicted completion：<strong>{conversation.completionDiagnostic.predictedCompletionType}</strong></p>
+        <p>Completion reason：<strong>{conversation.completionDiagnostic.completionReason}</strong></p>
+      </div> : null}
       <div className="border-t border-rose-100 pt-4">
         <label className="block font-medium" htmlFor="conversation-confirmation">再次輸入完全相同的 Conversation ID 以安全結束</label>
         <input id="conversation-confirmation" value={confirmationConversationId} onChange={(event) => setConfirmationConversationId(event.target.value)} autoComplete="off" className="mt-1 w-full rounded border border-rose-300 px-3 py-2 font-mono text-sm" />
