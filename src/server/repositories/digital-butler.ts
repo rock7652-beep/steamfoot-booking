@@ -60,6 +60,8 @@ export type PublishDigitalButlerFlowInput = {
   /** Kept inside the publish transaction for upgrade flows. */
   draftUpdate?: { name: string; definition: Prisma.InputJsonValue };
   audit?: { actorUserId: string; action: string; after: Prisma.InputJsonObject };
+  /** Runs after the flow row lock, before allocating a new immutable version. */
+  beforePublish?: (tx: Prisma.TransactionClient) => Promise<void>;
 };
 
 function publishedFlowVersionCreateData(
@@ -197,6 +199,7 @@ export class DigitalButlerRepository {
         data: { updatedAt: new Date() },
       });
       if (lock.count !== 1) throw new DigitalButlerScopeError();
+      await input.beforePublish?.(tx);
       if (input.draftUpdate) {
         await tx.storeDigitalButlerFlow.update({
           where: { id_storeId: { id: input.flowId, storeId: input.storeId } },
