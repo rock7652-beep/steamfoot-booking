@@ -217,11 +217,15 @@ export async function activateTaichungCustomer(input: {
     });
     if (conflictingLink && conflictingLink.customerId !== customer.id) throw new TaichungOAuthError("LINE identity is linked to another Taiwan customer");
 
-    const userId = customer.userId ?? (await tx.user.create({
+    // Store-scoped identity links are the source of truth for multi-store members.
+    // A central User may already belong to another store's Customer, so do not
+    // create a duplicate User or force the same User.id into Customer.userId.
+    const linkedUserId = conflictingLink?.userId;
+    const userId = customer.userId ?? linkedUserId ?? (await tx.user.create({
       data: { name: customer.name || input.displayName || "LINE 用戶", phone: customer.phone, role: "CUSTOMER", status: "ACTIVE" },
       select: { id: true },
     })).id;
-    if (!customer.userId) {
+    if (!customer.userId && !linkedUserId) {
       const updated = await tx.customer.updateMany({ where: { id: customer.id, userId: null }, data: { userId } });
       if (updated.count !== 1) throw new TaichungOAuthError("Taiwan customer was changed concurrently");
     }
