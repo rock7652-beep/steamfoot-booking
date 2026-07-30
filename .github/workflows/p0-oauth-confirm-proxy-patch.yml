@@ -1,0 +1,62 @@
+name: Apply P0 OAuth Confirm Proxy Patch
+
+on:
+  push:
+    branches:
+      - hotfix/p0-oauth-confirm-proxy-pass-through
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: hotfix/p0-oauth-confirm-proxy-pass-through
+          fetch-depth: 0
+      - name: Patch proxy and add regression test
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          proxy = Path('src/proxy.ts')
+          text = proxy.read_text()
+          anchor = '''  if (pathname === "/line-oauth/complete") {
+              return withDomainCookie(NextResponse.next(), domainStoreId);
+            }
+            if (pathname === "/store-select") return withDomainCookie(NextResponse.next(), domainStoreId);
+          '''
+          replacement = '''  if (pathname === "/line-oauth/complete") {
+              return withDomainCookie(NextResponse.next(), domainStoreId);
+            }
+
+            // OAuth identity confirmation is part of the public LINE handoff. It must
+            // run even when the LINE in-app browser has no Auth.js session or still
+            // carries a stale session from another store. The signed temp session and
+            // server actions enforce store/customer ownership inside these pages.
+            if (pathname === "/oauth-confirm" || pathname.startsWith("/oauth-confirm/")) {
+              return withDomainCookie(NextResponse.next(), domainStoreId);
+            }
+
+            if (pathname === "/store-select") return withDomainCookie(NextResponse.next(), domainStoreId);
+          '''
+          if anchor not in text:
+              raise SystemExit('proxy anchor not found; refusing broad edit')
+          proxy.write_text(text.replace(anchor, replacement, 1))
+
+          test = Path('src/__tests__/oauth-confirm-proxy-routing.test.ts')
+          test.write_text('''import { readFileSync } from "node:fs";\nimport { resolve } from "node:path";\nimport { describe, expect, it } from "vitest";\n\nconst proxy = readFileSync(resolve(process.cwd(), "src/proxy.ts"), "utf8");\n\ndescribe("OAuth confirmation proxy routing", () => {\n  it("passes the complete oauth-confirm flow before the unauthenticated default-store fallback", () => {\n    const flowGate = proxy.indexOf('pathname === "/oauth-confirm" || pathname.startsWith("/oauth-confirm/")');\n    const defaultFallback = proxy.indexOf('if (!isLoggedIn) {\\n    return NextResponse.redirect(new URL(`/s/${DEFAULT_STORE_SLUG}/`, req.url));');\n\n    expect(flowGate).toBeGreaterThan(-1);\n    expect(defaultFallback).toBeGreaterThan(-1);\n    expect(flowGate).toBeLessThan(defaultFallback);\n  });\n\n  it("does not rewrite oauth-confirm through a store route", () => {\n    expect(proxy).toContain('return withDomainCookie(NextResponse.next(), domainStoreId);');\n    expect(proxy).not.toContain('`/s/${DEFAULT_STORE_SLUG}/oauth-confirm`');\n  });\n});\n''')
+          PY
+          rm -f .github/workflows/p0-oauth-confirm-proxy-patch.yml
+      - name: Commit patch
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/proxy.ts src/__tests__/oauth-confirm-proxy-routing.test.ts .github/workflows/p0-oauth-confirm-proxy-patch.yml
+          git commit -m "fix: allow LINE identity confirmation through proxy"
+          git push origin HEAD:hotfix/p0-oauth-confirm-proxy-pass-through
