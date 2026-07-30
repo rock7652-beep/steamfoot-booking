@@ -121,6 +121,20 @@ describe("DigitalButlerRepository cross-store isolation", () => {
     expect(createData.steps.create).not.toContainEqual(expect.objectContaining({ storeId: expect.anything() }));
   });
 
+  it("runs an upgrade precondition after acquiring the scoped publish lock", async () => {
+    h.flowUpdateMany.mockResolvedValue({ count: 1 });
+    h.flowVersionAggregate.mockResolvedValue({ _max: { version: 12 } });
+    h.flowVersionCreate.mockResolvedValue({ id: "version-13", version: 13, steps: [] });
+    h.flowUpdate.mockResolvedValue({});
+    const beforePublish = vi.fn().mockResolvedValue(undefined);
+    await new DigitalButlerRepository().publishFlow({
+      storeId: "store-a", flowId: "flow-a", definition: { trigger: { keywords: ["測試"] }, steps: [] }, steps: [], beforePublish,
+    });
+    expect(beforePublish).toHaveBeenCalledTimes(1);
+    expect(beforePublish.mock.invocationCallOrder[0]).toBeGreaterThan(h.flowUpdateMany.mock.invocationCallOrder[0]);
+    expect(beforePublish.mock.invocationCallOrder[0]).toBeLessThan(h.flowVersionAggregate.mock.invocationCallOrder[0]);
+  });
+
   it("loads the published preview from the current version's ordered step rows", async () => {
     h.flowFindMany.mockResolvedValue([]);
     await new DigitalButlerRepository().listFlows("store-a");
