@@ -3,6 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
+import {
+  diagnoseMessengerCompletion,
+  type MessengerCompletionReason,
+  type MessengerPredictedCompletionType,
+  type MessengerSelectorCategory,
+} from "@/lib/messenger-completion-diagnostic";
 import { requirePermission } from "@/lib/permissions";
 import { resolveWriteStoreId } from "@/lib/store";
 
@@ -21,6 +27,16 @@ type ConversationSummary = {
   answerCount: number;
   leadCount: number;
   executionLogCount: number;
+  completionDiagnostic?: {
+    conversationFlowVersion: number;
+    activeFlowVersion: number | null;
+    usesActiveFlowVersion: boolean;
+    createLeadStepKey: string | null;
+    requestTypeFromStepKey: string | null;
+    selectorCategory: MessengerSelectorCategory;
+    predictedCompletionType: MessengerPredictedCompletionType;
+    completionReason: MessengerCompletionReason;
+  };
 };
 
 type ActionResult =
@@ -44,7 +60,7 @@ function summary(conversation: {
   id: string; status: string; currentStepKey: string | null; expiresAt: Date;
   cancelledAt: Date | null; completedAt: Date | null; createdAt: Date; updatedAt: Date;
   _count: { answers: number; leads: number; executionLogs: number };
-}): ConversationSummary {
+}, completionDiagnostic?: NonNullable<ConversationSummary["completionDiagnostic"]>): ConversationSummary {
   return {
     id: conversation.id,
     status: conversation.status,
@@ -57,6 +73,7 @@ function summary(conversation: {
     answerCount: conversation._count.answers,
     leadCount: conversation._count.leads,
     executionLogCount: conversation._count.executionLogs,
+    ...(completionDiagnostic ? { completionDiagnostic } : {}),
   };
 }
 
@@ -122,7 +139,17 @@ export async function diagnoseMessengerConversationAction(conversationIdInput: s
     const { actorUserId, storeId } = await secureZhubeiMessengerContext();
     const conversation = await prisma.digitalButlerConversation.findFirst({
       where: { id: conversationId, storeId, provider: "MESSENGER" },
-      select: conversationSelect,
+      select: {
+        ...conversationSelect,
+        flow: { select: { currentPublishedVersionId: true, publishedVersion: { select: { version: true } } } },
+        flowVersion: {
+          select: {
+            id: true,
+            version: true,
+            steps: { select: { id: true, stepKey: true, type: true, config: true } },
+          },
+        },
+      },
     });
     await prisma.auditLog.create({
       data: {
@@ -134,7 +161,38 @@ export async function diagnoseMessengerConversationAction(conversationIdInput: s
       },
     });
     if (!conversation) return { success: false, error: "找不到竹北店的 Messenger conversation" };
-    return { success: true, conversation: summary(conversation) };
+    const createLeadStep = conversation.flowVersion.steps.find((step) => step.type === "CREATE_LEAD") ?? null;
+    const configuredSelector = createLeadStep && isRecord(createLeadStep.config) && typeof createLeadStep.config.requestTypeFromStepKey === "string"
+      ? createLeadStep.config.requestTypeFromStepKey
+      : null;
+    const selectorStep = configuredSelector
+      ? conversation.flowVersion.steps.find((step) => step.stepKey === configuredSelector) ?? null
+      : null;
+    // Read one value only when the configured step is a choice. This avoids
+    // loading free-text answers such as customer name or phone number.
+    const selectorAnswer = selectorStep?.type === "SINGLE_CHOICE"
+      ? await prisma.digitalButlerAnswer.findFirst({
+          where: { storeId, conversationId: conversation.id, stepId: selectorStep.id },
+          select: { value: true },
+        })
+      : null;
+    const predicted = diagnoseMessengerCompletion({
+      createLeadStepFound: Boolean(createLeadStep),
+      selectorConfigured: Boolean(configuredSelector),
+      selectorIsSafeChoice: selectorStep?.type === "SINGLE_CHOICE",
+      selectorValue: selectorAnswer?.value,
+    });
+    return {
+      success: true,
+      conversation: summary(conversation, {
+        conversationFlowVersion: conversation.flowVersion.version,
+        activeFlowVersion: conversation.flow.publishedVersion?.version ?? null,
+        usesActiveFlowVersion: conversation.flow.currentPublishedVersionId === conversation.flowVersion.id,
+        createLeadStepKey: createLeadStep?.stepKey ?? null,
+        requestTypeFromStepKey: configuredSelector,
+        ...predicted,
+      }),
+    };
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : "診斷失敗" };
   }
@@ -175,4 +233,8 @@ export async function endMessengerConversationAction(input: { conversationId: st
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : "結束失敗" };
   }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
