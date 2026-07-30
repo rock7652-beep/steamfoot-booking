@@ -12,5 +12,12 @@ export async function POST() {
   }
   const response = NextResponse.json({ ok: true });
   response.cookies.delete(TAICHUNG_LINE_SESSION_COOKIE);
+  response.cookies.set("store-slug", "taichung", {
+    path: "/",
+    httpOnly: false,
+    secure: true,
+    sameSite: "lax",
+    maxAge: 60 * 60 * 24,
+  });
   return response;
 }
