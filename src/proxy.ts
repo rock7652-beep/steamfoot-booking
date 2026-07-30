@@ -70,6 +70,15 @@ export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | n
   if (pathname === "/line-oauth/complete") {
     return withDomainCookie(NextResponse.next(), domainStoreId);
   }
+
+  // OAuth identity confirmation is part of the public LINE handoff. It must
+  // run even when the LINE in-app browser has no Auth.js session or still
+  // carries a stale session from another store. The signed temp session and
+  // server actions enforce store/customer ownership inside these pages.
+  if (pathname === "/oauth-confirm" || pathname.startsWith("/oauth-confirm/")) {
+    return withDomainCookie(NextResponse.next(), domainStoreId);
+  }
+
   if (pathname === "/store-select") return withDomainCookie(NextResponse.next(), domainStoreId);
 
   if (pathname === "/book/zhubei") {
