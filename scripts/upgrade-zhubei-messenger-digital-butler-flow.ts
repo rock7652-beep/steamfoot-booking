@@ -3,17 +3,19 @@ import { Prisma, PrismaClient } from "@prisma/client";
 import { pathToFileURL } from "node:url";
 import {
   DIGITAL_BUTLER_LEAD_COLLECTION_TRIGGER,
-  hasCompleteDigitalButlerLeadCollection,
   isLeadCollectionTrigger,
-  upgradeDigitalButlerLeadCollectionDefinition,
 } from "@/lib/digital-butler-lead-collection-upgrade";
+import {
+  hasZhubeiMessengerCompletionSelector,
+  repairZhubeiMessengerCompletionSelector,
+} from "@/lib/zhubei-messenger-completion-selector-upgrade";
 import { parseDigitalButlerDraftDefinition } from "@/lib/digital-butler-flow-definition";
 import { DigitalButlerRepository } from "@/server/repositories/digital-butler";
 
 export {
-  hasCompleteDigitalButlerLeadCollection as hasCompleteZhubeiLeadCollection,
-  upgradeDigitalButlerLeadCollectionDefinition as upgradeZhubeiLeadCollectionDefinition,
-} from "@/lib/digital-butler-lead-collection-upgrade";
+  hasZhubeiMessengerCompletionSelector as hasCompleteZhubeiLeadCollection,
+  repairZhubeiMessengerCompletionSelector as upgradeZhubeiLeadCollectionDefinition,
+} from "@/lib/zhubei-messenger-completion-selector-upgrade";
 
 const STORE_SLUG = "zhubei";
 const APPLY = process.argv.includes("--apply");
@@ -35,14 +37,14 @@ export async function runZhubeiMessengerFlowUpgrade(): Promise<void> {
   const flow = matching[0];
   const current = flow.publishedVersion;
   if (!current) throw new Error("ZHUBEI_ACTIVE_FLOW_VERSION_NOT_FOUND");
-  const upgraded = upgradeDigitalButlerLeadCollectionDefinition(current.definition);
+  const upgraded = repairZhubeiMessengerCompletionSelector(current.definition);
   console.log(JSON.stringify({
     mode: APPLY ? "APPLY" : "DRY_RUN", storeSlug: STORE_SLUG, flowId: flow.id,
     activeVersion: current.version, activeVersionId: current.id,
-    alreadyUpgraded: hasCompleteDigitalButlerLeadCollection(current.definition),
+    alreadyUpgraded: hasZhubeiMessengerCompletionSelector(current.definition),
     activeConversationCount: await prisma.digitalButlerConversation.count({ where: { storeId: store.id, flowId: flow.id, status: { in: ["IN_PROGRESS", "WAITING_INPUT"] } } }),
   }, null, 2));
-  if (hasCompleteDigitalButlerLeadCollection(current.definition) || !APPLY) return;
+  if (hasZhubeiMessengerCompletionSelector(current.definition) || !APPLY) return;
 
   const repository = new DigitalButlerRepository();
   await repository.updateDraft(store.id, flow.id, { name: flow.name, draftDefinition: upgraded as Prisma.InputJsonValue });
