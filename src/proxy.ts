@@ -51,6 +51,14 @@ export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | n
   const sessionStoreId = session?.user?.storeId;
   /** B7-4.5: 從 JWT session 讀取 storeSlug，不依賴靜態 map */
   const userSlug = session?.user?.storeSlug ?? DEFAULT_STORE_SLUG;
+  /**
+   * 顧客從 /s/[store] 入口進入時，storeRewrite 會刷新這個 cookie。
+   * 對通用 /、/book 等 legacy 入口，這個最近的明確店別應優先於 stale JWT。
+   * cookie 只決定導向；實際 membership 仍由 customer layout / server resolver 驗證。
+   */
+  const cookieStoreSlug = req.cookies.get("store-slug")?.value;
+  const customerRouteSlug =
+    cookieStoreSlug && cookieStoreSlug !== "__hq__" ? cookieStoreSlug : userSlug;
 
   // ── 自訂網域路由 — 設定 domain-store-id cookie ──
   const host = req.headers.get("host")?.split(":")[0] ?? "";
@@ -282,13 +290,13 @@ export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | n
     return NextResponse.redirect(new URL(`/s/${DEFAULT_STORE_SLUG}/reset-password${req.nextUrl.search}`, req.url));
   }
 
-  // /book, /my-bookings, /my-plans, /profile → /s/{sessionSlug}/...
+  // /book, /my-bookings, /my-plans, /profile → /s/{recentStoreOrSessionSlug}/...
   const customerLegacyPrefixes = ["/book", "/my-bookings", "/my-plans", "/profile"];
   const matchedCustomer = customerLegacyPrefixes.find(
     (p) => pathname === p || pathname.startsWith(p + "/")
   );
   if (matchedCustomer) {
-    const slug = userSlug;
+    const slug = role === "CUSTOMER" ? customerRouteSlug : userSlug;
     const rest = pathname.slice(matchedCustomer.length);
     return NextResponse.redirect(new URL(`/s/${slug}${matchedCustomer}${rest}`, req.url));
   }
@@ -316,7 +324,7 @@ export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | n
   if (pathname === "/") {
     if (isLoggedIn) {
       if (role === "CUSTOMER") {
-        return NextResponse.redirect(new URL(`/s/${userSlug}/book`, req.url));
+        return NextResponse.redirect(new URL(`/s/${customerRouteSlug}/book`, req.url));
       }
       if (role === "ADMIN") {
         return NextResponse.redirect(new URL("/hq/dashboard", req.url));
