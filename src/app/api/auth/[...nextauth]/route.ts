@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { handlers } from "@/lib/auth";
 import { activateTaichungCustomer, consumeTaichungCallback, isTaichungCoordinatorState, resolveTaichungCustomer, TaichungOAuthError } from "@/lib/line-oauth/taichung-coordinator";
@@ -16,6 +17,13 @@ function preserveTaichungStore(response: NextResponse): NextResponse {
   return response;
 }
 
+function lineIdentityFingerprint(value: string): { suffix: string; sha256Prefix: string } {
+  return {
+    suffix: value.slice(-8),
+    sha256Prefix: createHash("sha256").update(value).digest("hex").slice(0, 12),
+  };
+}
+
 export async function GET(request: NextRequest) {
   const state = request.nextUrl.searchParams.get("state");
   // `tc1.` is coordinator-owned. Invalid coordinator state must fail closed
@@ -28,6 +36,14 @@ export async function GET(request: NextRequest) {
     if (!callbackUrl) return NextResponse.json({ error: "Invalid LINE callback host" }, { status: 400 });
     const { profile, storeId, attemptId } = await consumeTaichungCallback({ state, code, callbackUrl });
     const customer = await resolveTaichungCustomer(storeId, profile.userId);
+
+    console.info("[line-oauth][taichung] identity diagnostic", {
+      attemptId,
+      storeId,
+      profileLine: lineIdentityFingerprint(profile.userId),
+      matchedCustomer: !!customer,
+    });
+
     if (customer) {
       const active = await activateTaichungCustomer({ storeId, customerId: customer.id, lineUserId: profile.userId, displayName: profile.displayName });
       const url = new URL("/line-oauth/complete", request.url);
