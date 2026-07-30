@@ -1,4 +1,5 @@
 import { auth } from "@/lib/auth";
+import { getOAuthTempSession } from "@/lib/server/oauth-temp-session";
 import { FinalizeTrigger } from "./_components/finalize-trigger";
 
 /**
@@ -8,7 +9,8 @@ import { FinalizeTrigger } from "./_components/finalize-trigger";
  *   1. 從 customer-phone signIn redirect 過來，現在 NextAuth session 已建立
  *   2. 此頁讀 auth() 確認登入 + 帶 customerId / callbackUrl 給 client
  *   3. client 元件 onMount 自動 call finalizeLineBind 寫 lineUserId + 清 temp
- *   4. 寫完 → window.location.href = /api/auth/signin?callbackUrl=...（RELOGIN）
+ *   4. 寫完後依原始 OAuth 通道重建 JWT：台中必須回 dedicated coordinator，
+ *      其他店才走 legacy provider selection。
  *
  * 為什麼是「auto-call on mount」而非按鈕？
  *   到這頁的使用者已經完成意圖確認（輸入手機 + 密碼），bind 是流程的最後一步，
@@ -26,6 +28,7 @@ export default async function OAuthConfirmFinalizePage({
   searchParams,
 }: PageProps) {
   const session = await auth();
+  const tempSession = await getOAuthTempSession();
   const { customerId, callbackUrl } = await searchParams;
 
   // 必須有 NextAuth session（從 customer-phone 登入過來）
@@ -41,7 +44,7 @@ export default async function OAuthConfirmFinalizePage({
           </p>
           {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
           <a
-            href="/api/auth/signin/line"
+            href={tempSession?.channelKey === "taichung" ? "/api/line-oauth/taichung/start" : "/api/auth/signin/line"}
             className="mt-4 inline-block rounded-md bg-[#06C755] px-4 py-2 text-sm font-medium text-white hover:bg-[#05b04c]"
           >
             重新登入
@@ -69,6 +72,7 @@ export default async function OAuthConfirmFinalizePage({
         <FinalizeTrigger
           customerId={customerId}
           callbackUrl={callbackUrl ?? "/"}
+          taichungCoordinator={tempSession?.channelKey === "taichung"}
         />
       </div>
     </main>
