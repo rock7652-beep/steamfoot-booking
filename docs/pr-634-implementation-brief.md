@@ -35,4 +35,4 @@ After implementation, run targeted tests, lint/typecheck as appropriate, and pro
 
 Execution trigger: run the branch implementation workflow and commit only the reviewed auth wiring and tests.
 
-Temporary workflow trigger: 2026-07-31T06:02+04:00.
+Temporary workflow trigger: 2026-07-31T06:14+04:00.
