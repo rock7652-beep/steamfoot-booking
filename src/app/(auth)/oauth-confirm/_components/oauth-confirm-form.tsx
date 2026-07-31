@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { resolveLineLogin } from "@/server/actions/oauth-confirm";
+import { resolveTaichungProviderLineLogin } from "@/server/actions/taichung-provider-line-login";
 import { normalizePhone } from "@/lib/normalize";
 
 /**
@@ -44,7 +45,9 @@ export function OAuthConfirmForm({ callbackUrl, taichungCoordinator = false }: P
 
     setPending(true);
     try {
-      const result = await resolveLineLogin({ phone: normalized });
+      const result = taichungCoordinator
+        ? await resolveTaichungProviderLineLogin({ phone: normalized })
+        : await resolveLineLogin({ phone: normalized });
 
       if ("error" in result) {
         setPending(false);
