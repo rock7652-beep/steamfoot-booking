@@ -101,6 +101,10 @@ function supportLeadUrl(leadId: string): string {
   return managerUrl(`/dashboard/digital-butler/leads?leadId=${encodeURIComponent(leadId)}`);
 }
 
+function waitingSupportUrl(): string {
+  return managerUrl("/dashboard/digital-butler/leads?support=unassigned");
+}
+
 function bookingUrl(bookingId: string): string {
   return managerUrl(`/dashboard/bookings?bookingId=${encodeURIComponent(bookingId)}`);
 }
@@ -207,7 +211,9 @@ export function buildStoreManagerNotificationMessage(
       if (event.pendingPaymentCount > 0) lines.push(`💰 待確認付款：${event.pendingPaymentCount} 筆`);
       if (event.incompleteServiceCount > 0) lines.push(`🔔 昨日未完成服務：${event.incompleteServiceCount} 筆`);
       if (waitingSupportCount > 0) lines.push(`🙋 尚未接手客服：${waitingSupportCount} 位`);
-      lines.push("", `共 ${total} 件待處理`, "", `前往後台：${managerUrl("/dashboard")}`);
+      lines.push("", `共 ${total} 件待處理`);
+      if (waitingSupportCount > 0) lines.push("", `前往接手客服：${waitingSupportUrl()}`);
+      else lines.push("", `前往後台：${managerUrl("/dashboard")}`);
       return [{ type: "text", text: lines.join("\n") }];
     }
   }

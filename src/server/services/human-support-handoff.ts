@@ -112,6 +112,7 @@ export async function runHumanSupportFinalReminders(now = new Date()): Promise<H
     where: {
       completionActionKey: HUMAN_SUPPORT_COMPLETION_ACTION_KEY,
       status: "NEW",
+      assignedStaffId: null,
       createdAt: { lte: threshold },
     },
     select: { id: true, storeId: true, store: { select: { slug: true } } },
@@ -137,6 +138,7 @@ export async function runHumanSupportFinalReminders(now = new Date()): Promise<H
           storeId: candidate.storeId,
           completionActionKey: HUMAN_SUPPORT_COMPLETION_ACTION_KEY,
           status: "NEW",
+          assignedStaffId: null,
         },
         select: { id: true },
       });

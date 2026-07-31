@@ -8,14 +8,28 @@ const STORED_PROVIDERS: DigitalButlerProvider[] = ["LINE", "MESSENGER", "INSTAGR
 
 export async function listDigitalButlerLeads(
   storeId: string,
-  filters: { status?: DigitalButlerLeadStatus; assignedStaffId?: string; provider?: DigitalButlerProviderFilter } = {},
+  filters: {
+    status?: DigitalButlerLeadStatus;
+    assignedStaffId?: string;
+    provider?: DigitalButlerProviderFilter;
+    leadId?: string;
+    unassignedHumanSupport?: boolean;
+  } = {},
 ) {
   await requireDigitalButlerEntitlement(storeId);
   const leads = await prisma.digitalButlerLead.findMany({
     where: {
       storeId,
+      ...(filters.leadId ? { id: filters.leadId } : {}),
       ...(filters.status ? { status: filters.status } : {}),
       ...(filters.assignedStaffId ? { assignedStaffId: filters.assignedStaffId } : {}),
+      ...(filters.unassignedHumanSupport
+        ? {
+            completionActionKey: "__human_support_handoff__",
+            status: "NEW",
+            assignedStaffId: null,
+          }
+        : {}),
       ...(filters.provider === "OTHER"
         ? { conversation: { provider: { notIn: STORED_PROVIDERS } } }
         // WEB is deliberately retained as a UI/filter value for future inbound support.

@@ -24,6 +24,7 @@ describe("Digital Butler human support handoff contract", () => {
     expect(handoff).toContain('eventKey = `human-support-requested:${lead.id}`');
     expect(handoff).toContain('eventKey = `human-support-final-reminder:${candidate.id}`');
     expect(handoff).toContain('status: "NEW"');
+    expect(handoff).toContain("assignedStaffId: null");
     expect(handoff).toContain("30 * 60 * 1000");
     expect(handoff).toContain("digitalButlerExecutionLog.create");
     expect(messages).toContain("🙋 顧客要求真人客服");
@@ -38,6 +39,9 @@ describe("Digital Butler human support handoff contract", () => {
 
     expect(digest).toContain("waitingSupportCount");
     expect(digest).toContain("HUMAN_SUPPORT_COMPLETION_ACTION_KEY");
+    expect(digest).toContain("assignedStaffId: null");
+    expect(source("src/server/services/store-manager-line-notifications.ts"))
+      .toContain("/dashboard/digital-butler/leads?support=unassigned");
     expect(route).toContain("CRON_SECRET");
     expect(route).toContain("Bearer ${cronSecret}");
     expect(vercel).not.toContain('"schedule": "*/30 * * * *"');
