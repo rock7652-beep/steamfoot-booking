@@ -2,15 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import { finalizeLineBind } from "@/server/actions/oauth-confirm";
+import { finalizeTaichungProviderLineBind } from "@/server/actions/taichung-provider-line-finalize";
 
 /**
  * /oauth-confirm/finalize 客戶端 trigger
  *
- * onMount 自動 call finalizeLineBind 寫 lineUserId（temp session 在 NEED_LOGIN 路徑
- * 一直保留到現在）。成功後必須依原始 OAuth 通道重建 JWT：台中走 dedicated
- * coordinator，其他店才走 legacy provider selection。
- *
- * 用 ref 防 React Strict Mode 雙呼叫（dev 環境 useEffect 會跑兩次）。
+ * onMount 自動完成 LINE 綁定。台中專用 LINE Provider 必須走 provider-aware
+ * finalize，其他店維持既有 finalizeLineBind。
  */
 
 interface Props {
@@ -29,6 +27,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   auth_required: "需要先登入才能完成綁定。",
   customer_mismatch: "資料不一致，請重新從 LINE 登入流程開始。",
   line_already_bound_other: "此 LINE 帳號已綁定其他會員，無法重複綁定。",
+  bind_conflict: "綁定資料正在更新，請重新嘗試。",
+  write_conflict: "綁定資料正在更新，請重新嘗試。",
 };
 
 export function FinalizeTrigger({
@@ -43,7 +43,11 @@ export function FinalizeTrigger({
     if (triggered.current) return;
     triggered.current = true;
 
-    finalizeLineBind({ customerId, callbackUrl })
+    const finalize = taichungCoordinator
+      ? finalizeTaichungProviderLineBind
+      : finalizeLineBind;
+
+    finalize({ customerId, callbackUrl })
       .then((result) => {
         if ("error" in result) {
           setState({
@@ -54,9 +58,6 @@ export function FinalizeTrigger({
         }
 
         setState({ kind: "success" });
-        // P0: 台中確認流程不能回到 global /api/auth/signin，否則使用者會重新
-        // 走 legacy LINE provider，JWT 可能再次綁到竹北。必須回 dedicated
-        // Taichung coordinator，讓 signed store context 建立台中 session。
         window.location.href = taichungCoordinator
           ? "/api/line-oauth/taichung/start"
           : `/api/auth/signin?callbackUrl=${encodeURIComponent(result.callbackUrl)}`;
