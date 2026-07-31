@@ -1,1 +1,0 @@
-@codex Please implement docs/pr-634-implementation-brief.md on this branch. Keep PR #634 Draft. Commit the auth wiring and behavioral tests, run targeted tests and production build, and report exact results in the PR. Do not change schema, migrations, or Production data.

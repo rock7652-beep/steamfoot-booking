@@ -1,36 +1,96 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const read = (path: string) => readFileSync(resolve(process.cwd(), path), "utf8");
+const mockCustomerFindFirst = vi.fn();
+
+vi.mock("@/lib/db", () => ({
+  prisma: {
+    customer: {
+      findFirst: (...args: unknown[]) => mockCustomerFindFirst(...args),
+    },
+  },
+}));
+
+import { resolveCentralUserForStoreCustomer } from "@/server/services/resolve-central-user-for-store-customer";
+
+const STORE_ID = "store-hsinchu";
+const user = (id: string) => ({
+  id,
+  name: `User ${id}`,
+  email: null,
+  passwordHash: "hash",
+  role: "CUSTOMER",
+  status: "ACTIVE",
+});
+const customer = (overrides: Record<string, unknown> = {}) => ({
+  id: "customer-hsinchu",
+  storeId: STORE_ID,
+  store: { slug: "hsinchu" },
+  user: null,
+  identityLinks: [],
+  ...overrides,
+});
+
+beforeEach(() => {
+  mockCustomerFindFirst.mockReset();
+});
 
 describe("all-store central User resolver", () => {
-  it("treats CustomerIdentityLink as the cross-store ownership truth", () => {
-    const source = read(
-      "src/server/services/resolve-central-user-for-store-customer.ts",
-    );
+  it("resolves a direct Customer.userId", async () => {
+    mockCustomerFindFirst.mockResolvedValueOnce(customer({ user: user("direct-user") }));
 
-    expect(source).toContain("customer.identityLinks");
-    expect(source).toContain('source: "identity_link"');
-    expect(source).toContain('status: "identity_conflict"');
-    expect(source).not.toContain('provider: "phone"');
+    await expect(resolveCentralUserForStoreCustomer({
+      storeId: STORE_ID,
+      phone: "0912345678",
+    })).resolves.toMatchObject({
+      status: "resolved",
+      source: "customer_user",
+      customer: { hasDirectUser: true },
+      user: { id: "direct-user" },
+    });
   });
 
-  it("fails closed when direct and linked identities disagree", () => {
-    const source = read(
-      "src/server/services/resolve-central-user-for-store-customer.ts",
-    );
+  it("resolves an identity-link-only Customer", async () => {
+    mockCustomerFindFirst.mockResolvedValueOnce(customer({
+      identityLinks: [{ user: user("central-user") }],
+    }));
 
-    expect(source).toContain("linkedUserId !== customer.user.id");
-    expect(source).toContain("linkedUsers.size !== 1");
+    await expect(resolveCentralUserForStoreCustomer({
+      customerId: "customer-hsinchu",
+      storeId: STORE_ID,
+    })).resolves.toMatchObject({
+      status: "resolved",
+      source: "identity_link",
+      customer: { hasDirectUser: false },
+      user: { id: "central-user" },
+    });
   });
 
-  it("is store scoped and excludes merged Customers", () => {
-    const source = read(
-      "src/server/services/resolve-central-user-for-store-customer.ts",
-    );
+  it("fails closed for conflicting identity links", async () => {
+    mockCustomerFindFirst.mockResolvedValueOnce(customer({
+      identityLinks: [{ user: user("user-a") }, { user: user("user-b") }],
+    }));
 
-    expect(source).toContain("storeId: input.storeId");
-    expect(source).toContain("mergedIntoCustomerId: null");
+    await expect(resolveCentralUserForStoreCustomer({
+      customerId: "customer-hsinchu",
+      storeId: STORE_ID,
+    })).resolves.toEqual({ status: "identity_conflict" });
+  });
+
+  it.each([
+    ["merged Customer", { customerId: "merged-customer" }],
+    ["Customer from another store", { customerId: "customer-other-store" }],
+  ])("does not resolve a %s", async (_case, input) => {
+    mockCustomerFindFirst.mockResolvedValueOnce(null);
+
+    await expect(resolveCentralUserForStoreCustomer({
+      ...input,
+      storeId: STORE_ID,
+    })).resolves.toEqual({ status: "not_found" });
+    expect(mockCustomerFindFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        storeId: STORE_ID,
+        mergedIntoCustomerId: null,
+      }),
+    }));
   });
 });

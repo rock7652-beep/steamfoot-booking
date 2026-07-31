@@ -13,7 +13,11 @@ const mockIdentityLinkFindUnique = vi.fn();
 const mockCustomerFindFirst = vi.fn();
 const mockSyncVerifiedCentralIdentity = vi.fn();
 const mockResolveCentralMemberCustomerForStore = vi.fn();
+const mockResolveCentralUserForStoreCustomer = vi.fn();
 const mockCompareSync = vi.fn();
+const mockVerifyTaichungLineSession = vi.fn();
+const mockLineOAuthAttemptUpdateMany = vi.fn();
+const mockRepairCustomerIdentityOnLogin = vi.fn();
 
 vi.mock("next-auth", () => ({
   default: (config: Record<string, unknown>) => {
@@ -48,6 +52,9 @@ vi.mock("@/lib/db", () => ({
       findFirst: (...args: unknown[]) => mockCustomerFindFirst(...args),
       findUnique: vi.fn(),
     },
+    lineOAuthAttempt: {
+      updateMany: (...args: unknown[]) => mockLineOAuthAttemptUpdateMany(...args),
+    },
     user: {
       findUnique: vi.fn(),
       findFirst: vi.fn(),
@@ -79,7 +86,8 @@ vi.mock("@/lib/store-resolver", () => ({
 }));
 
 vi.mock("@/lib/identity-repair", () => ({
-  repairCustomerIdentityOnLogin: vi.fn(),
+  repairCustomerIdentityOnLogin: (...args: unknown[]) =>
+    mockRepairCustomerIdentityOnLogin(...args),
 }));
 
 vi.mock("@/server/services/sync-verified-central-identity", () => ({
@@ -90,6 +98,17 @@ vi.mock("@/server/services/sync-verified-central-identity", () => ({
 vi.mock("@/server/services/central-member-resolver", () => ({
   resolveCentralMemberCustomerForStore: (...args: unknown[]) =>
     mockResolveCentralMemberCustomerForStore(...args),
+}));
+
+vi.mock("@/server/services/resolve-central-user-for-store-customer", () => ({
+  resolveCentralUserForStoreCustomer: (...args: unknown[]) =>
+    mockResolveCentralUserForStoreCustomer(...args),
+}));
+
+vi.mock("@/lib/line-oauth/taichung-session", () => ({
+  TAICHUNG_LINE_SESSION_COOKIE: "taichung_line_session",
+  verifyTaichungLineSession: (...args: unknown[]) =>
+    mockVerifyTaichungLineSession(...args),
 }));
 
 vi.mock("@/lib/line-bind-log", async () => {
@@ -104,7 +123,7 @@ vi.mock("@/lib/line-bind-log", async () => {
 
 type CredentialsProviderConfig = {
   id: string;
-  authorize?: (credentials: Record<string, unknown>) => Promise<unknown>;
+  authorize?: (credentials: Record<string, unknown>, request?: Request) => Promise<unknown>;
 };
 
 async function getLiffAuthorize() {
@@ -162,6 +181,10 @@ beforeEach(() => {
   mockCustomerFindFirst.mockReset();
   mockSyncVerifiedCentralIdentity.mockReset();
   mockResolveCentralMemberCustomerForStore.mockReset();
+  mockResolveCentralUserForStoreCustomer.mockReset();
+  mockVerifyTaichungLineSession.mockReset();
+  mockLineOAuthAttemptUpdateMany.mockReset();
+  mockRepairCustomerIdentityOnLogin.mockReset();
   mockCompareSync.mockReset();
   vi.stubEnv("LINE_LOGIN_CHANNEL_ID", "channel-123");
   mockVerifyLiffIdToken.mockResolvedValue({
@@ -177,6 +200,9 @@ beforeEach(() => {
   mockCustomerFindFirst.mockResolvedValue(null);
   mockSyncVerifiedCentralIdentity.mockResolvedValue({ status: "linked" });
   mockResolveCentralMemberCustomerForStore.mockResolvedValue(null);
+  mockResolveCentralUserForStoreCustomer.mockResolvedValue({ status: "not_found" });
+  mockVerifyTaichungLineSession.mockReturnValue(null);
+  mockLineOAuthAttemptUpdateMany.mockResolvedValue({ count: 1 });
   mockCompareSync.mockReturnValue(true);
 });
 
@@ -254,12 +280,17 @@ describe("auth.ts OAuth pending store onboarding", () => {
 });
 
 describe("auth.ts customer-phone provider", () => {
-  it("creates the store-scoped phone identity only after password verification", async () => {
+  it("uses the resolved direct central User and keeps the current store customer context", async () => {
     const authorize = await getCredentialsAuthorize("customer-phone");
-    mockCustomerFindFirst.mockResolvedValueOnce({
-      id: "customer-phone",
-      storeId: STORE.id,
-      store: { slug: STORE.slug },
+    mockResolveCentralUserForStoreCustomer.mockResolvedValueOnce({
+      status: "resolved",
+      source: "customer_user",
+      customer: {
+        id: "customer-phone",
+        storeId: STORE.id,
+        store: { slug: STORE.slug },
+        hasDirectUser: true,
+      },
       user: {
         id: "user-phone",
         name: "Phone User",
@@ -274,7 +305,17 @@ describe("auth.ts customer-phone provider", () => {
       phone: "+886 912-345-678",
       password: "verified-password",
       storeId: STORE.id,
-    })).resolves.toMatchObject({ id: "user-phone", customerId: "customer-phone" });
+    })).resolves.toMatchObject({
+      id: "user-phone",
+      customerId: "customer-phone",
+      storeId: STORE.id,
+      storeSlug: STORE.slug,
+    });
+
+    expect(mockResolveCentralUserForStoreCustomer).toHaveBeenCalledWith({
+      phone: "0912345678",
+      storeId: STORE.id,
+    });
 
     expect(mockSyncVerifiedCentralIdentity).toHaveBeenCalledWith({
       entryPoint: "phone_password",
@@ -287,12 +328,17 @@ describe("auth.ts customer-phone provider", () => {
     });
   });
 
-  it("fails closed when the verified phone link conflicts", async () => {
+  it("accepts an identity-link-only Customer without running legacy repair", async () => {
     const authorize = await getCredentialsAuthorize("customer-phone");
-    mockCustomerFindFirst.mockResolvedValueOnce({
-      id: "customer-phone",
-      storeId: STORE.id,
-      store: { slug: STORE.slug },
+    mockResolveCentralUserForStoreCustomer.mockResolvedValueOnce({
+      status: "resolved",
+      source: "identity_link",
+      customer: {
+        id: "customer-phone",
+        storeId: STORE.id,
+        store: { slug: STORE.slug },
+        hasDirectUser: false,
+      },
       user: {
         id: "user-phone",
         name: "Phone User",
@@ -302,9 +348,19 @@ describe("auth.ts customer-phone provider", () => {
         status: "ACTIVE",
       },
     });
-    mockSyncVerifiedCentralIdentity.mockResolvedValueOnce({
-      status: "manual_review",
-      reason: "existing_membership_conflict",
+    await expect(authorize({
+      phone: "0912345678",
+      password: "verified-password",
+      storeId: STORE.id,
+    })).resolves.toMatchObject({ id: "user-phone", customerId: "customer-phone" });
+
+    expect(mockRepairCustomerIdentityOnLogin).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when resolver reports conflicting identities", async () => {
+    const authorize = await getCredentialsAuthorize("customer-phone");
+    mockResolveCentralUserForStoreCustomer.mockResolvedValueOnce({
+      status: "identity_conflict",
     });
 
     await expect(authorize({
@@ -312,6 +368,46 @@ describe("auth.ts customer-phone provider", () => {
       password: "verified-password",
       storeId: STORE.id,
     })).resolves.toBeNull();
+    expect(mockCompareSync).not.toHaveBeenCalled();
+  });
+});
+
+describe("auth.ts line-taichung-coordinator provider", () => {
+  it("fails closed when the resolved central User does not own the coordinator bridge", async () => {
+    const authorize = await getCredentialsAuthorize("line-taichung-coordinator");
+    mockVerifyTaichungLineSession.mockReturnValue({
+      attemptId: "attempt-1",
+      customerId: "customer-hsinchu",
+      storeId: STORE.id,
+      userId: "bridge-user",
+    });
+    mockResolveCentralUserForStoreCustomer.mockResolvedValueOnce({
+      status: "resolved",
+      source: "identity_link",
+      customer: {
+        id: "customer-hsinchu",
+        storeId: STORE.id,
+        store: { slug: STORE.slug },
+        hasDirectUser: false,
+      },
+      user: {
+        id: "different-central-user",
+        name: "Wrong owner",
+        email: null,
+        passwordHash: null,
+        role: "CUSTOMER",
+        status: "ACTIVE",
+      },
+    });
+
+    await expect(authorize({}, new Request("https://example.test", {
+      headers: { cookie: "taichung_line_session=bridge" },
+    }))).resolves.toBeNull();
+
+    expect(mockResolveCentralUserForStoreCustomer).toHaveBeenCalledWith({
+      customerId: "customer-hsinchu",
+      storeId: STORE.id,
+    });
   });
 });
 

@@ -19,6 +19,7 @@ import {
 } from "@/lib/account-link-handshake";
 import { linkVerifiedOAuthAccount } from "@/server/services/link-oauth-account";
 import { resolveCentralMemberCustomerForStore } from "@/server/services/central-member-resolver";
+import { resolveCentralUserForStoreCustomer } from "@/server/services/resolve-central-user-for-store-customer";
 
 // ============================================================
 // NextAuth v5 type augmentation
@@ -153,38 +154,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const phone = normalizePhone(phoneRaw);
         if (!phone) return null;
 
-        // B7-4: 若有 storeId，先從 Customer 表按店查找對應 User
+        // B7-4: 若有 storeId，從該店 Customer 解析其唯一的中央 User。
+        // CustomerIdentityLink is the ownership truth for additional stores.
         if (storeId) {
-          const customer = await prisma.customer.findFirst({
-            where: { phone, storeId },
-            select: {
-              id: true,
-              storeId: true,
-              store: { select: { slug: true } },
-              user: {
-                select: {
-                  id: true, name: true, email: true,
-                  passwordHash: true, role: true, status: true,
-                },
-              },
-              identityLinks: {
-                where: { provider: "phone", providerAccountId: phone },
-                select: {
-                  user: {
-                    select: {
-                      id: true, name: true, email: true,
-                      passwordHash: true, role: true, status: true,
-                    },
-                  },
-                },
-                take: 1,
-              },
-            },
+          const resolution = await resolveCentralUserForStoreCustomer({
+            storeId,
+            phone,
           });
+          if (resolution.status !== "resolved") return null;
 
-          const centralUser = customer?.user ?? customer?.identityLinks[0]?.user;
-          if (!customer || !centralUser?.passwordHash) return null;
-          if (centralUser.status !== "ACTIVE") return null;
+          const { customer, user: centralUser } = resolution;
+          if (
+            centralUser.role !== "CUSTOMER" ||
+            centralUser.status !== "ACTIVE" ||
+            !centralUser.passwordHash
+          ) return null;
           if (!compareSync(password, centralUser.passwordHash)) return null;
 
           const identitySync = await syncVerifiedCentralIdentity({
@@ -216,7 +200,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           // The legacy repair writes Customer.userId.  Do not run it for a
           // second-store membership resolved through CustomerIdentityLink,
           // because User.customer is intentionally one-to-one.
-          if (customer.user) {
+          if (customer.hasDirectUser) {
             await repairCustomerIdentityOnLogin({
               userId: centralUser.id,
               storeId: customer.storeId,
@@ -292,12 +276,20 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           data: { sessionConsumedAt: new Date() },
         });
         if (claimed.count !== 1) return null;
-        const customer = await prisma.customer.findFirst({
-          where: { id: bridge.customerId, storeId: bridge.storeId, userId: bridge.userId, mergedIntoCustomerId: null },
-          select: { id: true, storeId: true, store: { select: { slug: true } }, user: { select: { id: true, name: true, email: true, role: true, status: true } } },
+        const resolution = await resolveCentralUserForStoreCustomer({
+          customerId: bridge.customerId,
+          storeId: bridge.storeId,
         });
-        if (!customer?.user || customer.user.status !== "ACTIVE" || customer.user.role !== "CUSTOMER") return null;
-        return { id: customer.user.id, name: customer.user.name, email: customer.user.email ?? null, role: customer.user.role, staffId: null, customerId: customer.id, storeId: customer.storeId, storeSlug: customer.store.slug };
+        if (resolution.status !== "resolved") return null;
+
+        const { customer, user } = resolution;
+        if (
+          user.id !== bridge.userId ||
+          user.role !== "CUSTOMER" ||
+          user.status !== "ACTIVE"
+        ) return null;
+
+        return { id: user.id, name: user.name, email: user.email ?? null, role: user.role, staffId: null, customerId: customer.id, storeId: customer.storeId, storeSlug: customer.store.slug };
       },
     }),
 
