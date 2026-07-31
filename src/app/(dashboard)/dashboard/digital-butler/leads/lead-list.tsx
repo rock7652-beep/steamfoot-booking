@@ -45,12 +45,14 @@ export function DigitalButlerLeadList({
   selectedStatus,
   selectedStaffId,
   selectedProvider,
+  waitingForHumanSupport,
 }: {
   leads: Lead[];
   staff: Array<{ id: string; displayName: string }>;
   selectedStatus: string;
   selectedStaffId: string;
   selectedProvider: string;
+  waitingForHumanSupport: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -59,11 +61,18 @@ export function DigitalButlerLeadList({
   const [error, setError] = useState<string | null>(null);
 
   function filter(key: "status" | "staff" | "provider", value: string) {
-    router.push(digitalButlerLeadFilterHref(pathname, searchParams.toString(), key, value));
+    const params = new URLSearchParams(searchParams.toString());
+    if (waitingForHumanSupport) params.delete("handoff");
+    router.push(digitalButlerLeadFilterHref(pathname, params, key, value));
   }
 
   return (
     <div className="space-y-3">
+      {waitingForHumanSupport && (
+        <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          目前顯示尚未接手的真人客服需求；指派負責人後將不再列入每日待辦。
+        </p>
+      )}
       <div className="flex flex-wrap gap-2 rounded-xl border border-earth-200 bg-white p-3">
         <select
           value={selectedStatus}

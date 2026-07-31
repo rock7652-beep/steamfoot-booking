@@ -31,7 +31,7 @@ export async function updateDigitalButlerLeadAction(
     await prisma.$transaction(async (tx) => {
       const lead = await tx.digitalButlerLead.findFirst({
         where: { id: data.leadId, storeId },
-        select: { id: true, status: true },
+        select: { id: true, status: true, assignedStaffId: true },
       });
       if (!lead) throw new AppError("NOT_FOUND", "名單不存在");
 
@@ -55,7 +55,7 @@ export async function updateDigitalButlerLeadAction(
       });
       if (updated.count !== 1) throw new AppError("NOT_FOUND", "名單不存在");
 
-      if (lead.status !== data.status || note || contactedAt) {
+      if (lead.status !== data.status || lead.assignedStaffId !== data.assignedStaffId || note || contactedAt) {
         await tx.digitalButlerLeadActivity.create({
           data: {
             leadId: lead.id,

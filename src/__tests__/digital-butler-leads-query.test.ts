@@ -13,6 +13,8 @@ vi.mock("@/lib/digital-butler-entitlement", () => ({
 
 import { listDigitalButlerLeads } from "@/server/queries/digital-butler-leads";
 
+const HUMAN_SUPPORT_COMPLETION_ACTION_KEY = "__human_support_handoff__";
+
 describe("Digital Butler lead source filters", () => {
   beforeEach(() => {
     findMany.mockReset();
@@ -41,6 +43,19 @@ describe("Digital Butler lead source filters", () => {
 
     expect(findMany).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({ conversation: { provider: "LINE" } }),
+    }));
+  });
+
+  it("limits the waiting-support view to unassigned NEW human-support leads in the active store", async () => {
+    await listDigitalButlerLeads("store-a", { waitingForHumanSupport: true });
+
+    expect(findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        storeId: "store-a",
+        completionActionKey: HUMAN_SUPPORT_COMPLETION_ACTION_KEY,
+        status: "NEW",
+        assignedStaffId: null,
+      }),
     }));
   });
 });

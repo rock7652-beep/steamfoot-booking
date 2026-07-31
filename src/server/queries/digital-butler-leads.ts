@@ -3,12 +3,18 @@ import { prisma } from "@/lib/db";
 import { decryptDigitalButlerValue } from "@/lib/digital-butler-crypto";
 import { requireDigitalButlerEntitlement } from "@/lib/digital-butler-entitlement";
 import type { DigitalButlerProviderFilter } from "@/lib/digital-butler-provider";
+import { HUMAN_SUPPORT_COMPLETION_ACTION_KEY } from "@/server/services/human-support-handoff";
 
 const STORED_PROVIDERS: DigitalButlerProvider[] = ["LINE", "MESSENGER", "INSTAGRAM"];
 
 export async function listDigitalButlerLeads(
   storeId: string,
-  filters: { status?: DigitalButlerLeadStatus; assignedStaffId?: string; provider?: DigitalButlerProviderFilter } = {},
+  filters: {
+    status?: DigitalButlerLeadStatus;
+    assignedStaffId?: string;
+    provider?: DigitalButlerProviderFilter;
+    waitingForHumanSupport?: boolean;
+  } = {},
 ) {
   await requireDigitalButlerEntitlement(storeId);
   const leads = await prisma.digitalButlerLead.findMany({
@@ -16,6 +22,13 @@ export async function listDigitalButlerLeads(
       storeId,
       ...(filters.status ? { status: filters.status } : {}),
       ...(filters.assignedStaffId ? { assignedStaffId: filters.assignedStaffId } : {}),
+      ...(filters.waitingForHumanSupport
+        ? {
+            completionActionKey: HUMAN_SUPPORT_COMPLETION_ACTION_KEY,
+            status: "NEW",
+            assignedStaffId: null,
+          }
+        : {}),
       ...(filters.provider === "OTHER"
         ? { conversation: { provider: { notIn: STORED_PROVIDERS } } }
         // WEB is deliberately retained as a UI/filter value for future inbound support.
