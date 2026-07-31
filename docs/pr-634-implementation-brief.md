@@ -32,3 +32,5 @@ Implement the remaining production-safe wiring for the all-store central User re
 - Keep the solution store-agnostic; no Taichung-specific identity rules beyond the existing coordinator provider name.
 
 After implementation, run targeted tests, lint/typecheck as appropriate, and production build. Keep the PR Draft until all checks are green.
+
+Execution trigger: run the branch implementation workflow and commit only the reviewed auth wiring and tests.
