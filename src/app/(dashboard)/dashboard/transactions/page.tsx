@@ -277,7 +277,7 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
       </div>
 
       {/* 交易列表 */}
-      <div className="overflow-hidden rounded-xl border border-earth-200 bg-white shadow-sm">
+      <div className="overflow-x-auto rounded-xl border border-earth-200 bg-white shadow-sm">
         <table className="min-w-full divide-y divide-gray-200 text-sm">
           <thead className="bg-earth-50">
             <tr>
