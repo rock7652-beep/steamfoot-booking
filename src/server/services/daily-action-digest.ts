@@ -11,9 +11,34 @@ export interface DailyActionDigestResult {
   failed: number;
 }
 
-export async function runDailyActionDigest(): Promise<DailyActionDigestResult> {
-  const todayTW = toLocalDateStr();
-  const todayDate = parseTaiwanDateToDbDate(todayTW);
+export function yesterdayBookingDateTaipei(now = new Date()): Date {
+  const todayDate = parseTaiwanDateToDbDate(toLocalDateStr(now));
+  todayDate.setUTCDate(todayDate.getUTCDate() - 1);
+  return todayDate;
+}
+
+export function yesterdayIncompleteBookingWhere(
+  storeId: string,
+  now = new Date(),
+): Prisma.BookingWhereInput {
+  return {
+    storeId,
+    bookingDate: yesterdayBookingDateTaipei(now),
+    bookingStatus: { in: ["PENDING", "CONFIRMED"] },
+  };
+}
+
+export async function countYesterdayIncompleteServices(
+  storeId: string,
+  now = new Date(),
+): Promise<number> {
+  return prisma.booking.count({
+    where: yesterdayIncompleteBookingWhere(storeId, now),
+  });
+}
+
+export async function runDailyActionDigest(now = new Date()): Promise<DailyActionDigestResult> {
+  const todayTW = toLocalDateStr(now);
   const stores = await prisma.store.findMany({
     where: {
       isDemo: false,
@@ -43,13 +68,7 @@ export async function runDailyActionDigest(): Promise<DailyActionDigestResult> {
             status: "SUCCESS",
           },
         }),
-        prisma.booking.count({
-          where: {
-            storeId: store.id,
-            bookingDate: { lt: todayDate },
-            bookingStatus: { in: ["PENDING", "CONFIRMED"] },
-          },
-        }),
+        countYesterdayIncompleteServices(store.id, now),
         prisma.digitalButlerLead.count({
           where: {
             storeId: store.id,
