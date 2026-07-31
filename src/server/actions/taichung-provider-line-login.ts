@@ -17,16 +17,11 @@ import {
 const PHONE_RE = /^09\d{8}$/;
 
 /**
- * Handles the provider-scoped LINE ID transition for the dedicated Taichung
- * Login channel. The same person can receive a different LINE user ID when the
- * channel belongs to a different LINE Provider. We only rotate the Taichung
- * store identity when all three sources agree on the same central user:
- *
- * 1. signed Taichung OAuth temp session,
- * 2. an already authenticated central User session,
- * 3. the existing Taichung CustomerIdentityLink for the submitted phone.
- *
- * The legacy global Account(provider=line) record is deliberately untouched.
+ * Dedicated Taichung LINE Login uses a provider-scoped LINE user ID. When the
+ * browser has no central Auth.js session yet, do not fall back to the legacy
+ * resolver and reject the historical ID mismatch. Instead require the existing
+ * password gate; the finalize step will prove central-user ownership and rotate
+ * only the Taichung store identity.
  */
 export async function resolveTaichungProviderLineLogin(input: {
   phone: string;
@@ -40,12 +35,6 @@ export async function resolveTaichungProviderLineLogin(input: {
     return resolveLineLogin({ phone });
   }
 
-  const nextAuthSession = await auth();
-  const authenticatedUserId = nextAuthSession?.user?.id;
-  if (!authenticatedUserId) {
-    return resolveLineLogin({ phone });
-  }
-
   const customer = await prisma.customer.findFirst({
     where: {
       storeId: tempSession.storeId,
@@ -55,6 +44,8 @@ export async function resolveTaichungProviderLineLogin(input: {
     select: {
       id: true,
       lineUserId: true,
+      userId: true,
+      user: { select: { passwordHash: true } },
       identityLinks: {
         where: { provider: "line" },
         select: { id: true, userId: true, providerAccountId: true },
@@ -64,8 +55,27 @@ export async function resolveTaichungProviderLineLogin(input: {
   });
 
   const link = customer?.identityLinks[0];
-  if (!customer || !link || link.userId !== authenticatedUserId) {
+  if (!customer || !link) {
     return resolveLineLogin({ phone });
+  }
+
+  const nextAuthSession = await auth();
+  const authenticatedUserId = nextAuthSession?.user?.id;
+
+  // Normal LINE in-app browser entry has no central Auth.js session. The
+  // existing store identity link proves that this is an activated member, but
+  // not yet that the current browser owns it, so require password verification.
+  if (!authenticatedUserId) {
+    return {
+      status: "NEED_LOGIN",
+      phone,
+      maskedPhone: `*******${phone.slice(-3)}`,
+      customerId: customer.id,
+    };
+  }
+
+  if (link.userId !== authenticatedUserId) {
+    return { error: "line_already_bound_other" };
   }
 
   const conflictingLink = await prisma.customerIdentityLink.findUnique({
