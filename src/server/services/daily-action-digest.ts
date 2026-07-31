@@ -74,6 +74,7 @@ export async function runDailyActionDigest(now = new Date()): Promise<DailyActio
             storeId: store.id,
             completionActionKey: HUMAN_SUPPORT_COMPLETION_ACTION_KEY,
             status: "NEW",
+            assignedStaffId: null,
           },
         }),
       ]);

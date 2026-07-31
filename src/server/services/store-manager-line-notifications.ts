@@ -101,6 +101,10 @@ function supportLeadUrl(leadId: string): string {
   return managerUrl(`/dashboard/digital-butler/leads?leadId=${encodeURIComponent(leadId)}`);
 }
 
+function waitingHumanSupportUrl(): string {
+  return managerUrl("/dashboard/digital-butler/leads?handoff=waiting");
+}
+
 function bookingUrl(bookingId: string): string {
   return managerUrl(`/dashboard/bookings?bookingId=${encodeURIComponent(bookingId)}`);
 }
@@ -168,7 +172,7 @@ export function buildStoreManagerNotificationMessage(
           `來源：${providerNotificationLabel(event.provider)}`,
           "狀態：等待門市夥伴接手",
           "",
-          `前往後台接手：${supportLeadUrl(event.leadId)}`,
+          `前往後台接手：${waitingHumanSupportUrl()}`,
         ].join("\n"),
       }];
 
@@ -181,7 +185,7 @@ export function buildStoreManagerNotificationMessage(
           "已等待超過 30 分鐘。",
           "這是最後一次即時提醒，後續會保留在今日待辦。",
           "",
-          `前往後台接手：${supportLeadUrl(event.leadId)}`,
+          `前往後台接手：${waitingHumanSupportUrl()}`,
         ].join("\n"),
       }];
 
@@ -207,7 +211,9 @@ export function buildStoreManagerNotificationMessage(
       if (event.pendingPaymentCount > 0) lines.push(`💰 待確認付款：${event.pendingPaymentCount} 筆`);
       if (event.incompleteServiceCount > 0) lines.push(`🔔 昨日未完成服務：${event.incompleteServiceCount} 筆`);
       if (waitingSupportCount > 0) lines.push(`🙋 尚未接手客服：${waitingSupportCount} 位`);
-      lines.push("", `共 ${total} 件待處理`, "", `前往後台：${managerUrl("/dashboard")}`);
+      lines.push("", `共 ${total} 件待處理`);
+      if (waitingSupportCount > 0) lines.push(``, `前往接手客服：${waitingHumanSupportUrl()}`);
+      else lines.push("", `前往後台：${managerUrl("/dashboard")}`);
       return [{ type: "text", text: lines.join("\n") }];
     }
   }

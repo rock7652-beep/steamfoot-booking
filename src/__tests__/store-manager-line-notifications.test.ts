@@ -172,4 +172,20 @@ describe("store manager LINE notifications", () => {
       text: expect.stringContaining("店別：竹北店"),
     });
   });
+
+  it("links unresolved human-support notifications directly to the waiting-support list", () => {
+    const messages = buildStoreManagerNotificationMessage({
+      type: "DAILY_ACTION_DIGEST",
+      eventKey: "daily-action-digest:store_1:2026-08-01",
+      storeId: "store_1",
+      storeSlug: "zhubei",
+      pendingPaymentCount: 0,
+      incompleteServiceCount: 0,
+      waitingSupportCount: 1,
+    });
+
+    expect(messages[0]).toMatchObject({
+      text: expect.stringContaining("/dashboard/digital-butler/leads?handoff=waiting"),
+    });
+  });
 });

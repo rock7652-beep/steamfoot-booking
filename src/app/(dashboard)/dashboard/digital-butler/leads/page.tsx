@@ -25,7 +25,7 @@ const STATUSES = new Set<DigitalButlerLeadStatus>([
 const PROVIDER_FILTERS = new Set<DigitalButlerProviderFilter>(["LINE", "MESSENGER", "INSTAGRAM", "WEB", "OTHER"]);
 
 interface PageProps {
-  searchParams: Promise<{ status?: string; staff?: string; provider?: string }>;
+  searchParams: Promise<{ status?: string; staff?: string; provider?: string; handoff?: string }>;
 }
 
 export default async function DigitalButlerLeadsPage({ searchParams }: PageProps) {
@@ -42,8 +42,14 @@ export default async function DigitalButlerLeadsPage({ searchParams }: PageProps
   const provider = PROVIDER_FILTERS.has(params.provider as DigitalButlerProviderFilter)
     ? (params.provider as DigitalButlerProviderFilter)
     : undefined;
+  const waitingForHumanSupport = params.handoff === "waiting";
   const [leads, staff] = await Promise.all([
-    listDigitalButlerLeads(storeId, { status, assignedStaffId: params.staff || undefined, provider }),
+    listDigitalButlerLeads(storeId, {
+      status,
+      assignedStaffId: params.staff || undefined,
+      provider,
+      waitingForHumanSupport,
+    }),
     listDigitalButlerLeadStaff(storeId),
   ]);
 
@@ -59,6 +65,7 @@ export default async function DigitalButlerLeadsPage({ searchParams }: PageProps
         selectedStatus={status ?? ""}
         selectedStaffId={params.staff ?? ""}
         selectedProvider={provider ?? ""}
+        waitingForHumanSupport={waitingForHumanSupport}
       />
     </PageShell>
   );

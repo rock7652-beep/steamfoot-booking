@@ -25,6 +25,7 @@ describe("Digital Butler human support handoff contract", () => {
     expect(handoff).toContain('eventKey = `human-support-final-reminder:${candidate.id}`');
     expect(handoff).toContain('status: "NEW"');
     expect(handoff).toContain("30 * 60 * 1000");
+    expect(handoff).toContain("assignedStaffId: null");
     expect(handoff).toContain("digitalButlerExecutionLog.create");
     expect(messages).toContain("🙋 顧客要求真人客服");
     expect(messages).toContain("⚠️ 真人客服仍未接手");
