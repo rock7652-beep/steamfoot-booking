@@ -1,0 +1,252 @@
+name: PR634 wire central user resolver
+
+on:
+  push:
+    branches:
+      - hotfix/p0-central-user-resolver-all-stores
+
+permissions:
+  contents: write
+
+jobs:
+  wire:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: hotfix/p0-central-user-resolver-all-stores
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Patch auth wiring
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('src/lib/auth.ts')
+          s = p.read_text()
+          imp = 'import { resolveCentralMemberCustomerForStore } from "@/server/services/central-member-resolver";\n'
+          add = imp + 'import { resolveCentralUserForStoreCustomer } from "@/server/services/resolve-central-user-for-store-customer";\n'
+          if 'resolveCentralUserForStoreCustomer' not in s:
+              s = s.replace(imp, add)
+
+          old = '''        // B7-4: 若有 storeId，先從 Customer 表按店查找對應 User
+        if (storeId) {
+          const customer = await prisma.customer.findFirst({
+            where: { phone, storeId },
+            select: {
+              id: true,
+              storeId: true,
+              store: { select: { slug: true } },
+              user: {
+                select: {
+                  id: true, name: true, email: true,
+                  passwordHash: true, role: true, status: true,
+                },
+              },
+              identityLinks: {
+                where: { provider: "phone", providerAccountId: phone },
+                select: {
+                  user: {
+                    select: {
+                      id: true, name: true, email: true,
+                      passwordHash: true, role: true, status: true,
+                    },
+                  },
+                },
+                take: 1,
+              },
+            },
+          });
+
+          const centralUser = customer?.user ?? customer?.identityLinks[0]?.user;
+          if (!customer || !centralUser?.passwordHash) return null;
+          if (centralUser.status !== "ACTIVE") return null;
+          if (!compareSync(password, centralUser.passwordHash)) return null;
+
+          const identitySync = await syncVerifiedCentralIdentity({
+            entryPoint: "phone_password",
+            userId: centralUser.id,
+            storeId: customer.storeId,
+            customerId: customer.id,
+            provider: "phone",
+            providerAccountId: phone,
+            verifiedPhoneMatches: true,
+          });
+          if (
+            identitySync.status === "manual_review" ||
+            identitySync.status === "rejected"
+          ) {
+            console.warn("[auth][customer-phone] central identity rejected", {
+              userId: centralUser.id,
+              storeId: customer.storeId,
+              customerId: customer.id,
+              reason: identitySync.reason,
+            });
+            return null;
+          }
+
+          // Defensive identity repair: if any other Customer in the same store
+          // matches by phone/email but lost its userId binding, rebind it.
+          // 99% of the time this is a no-op (the Customer we just authenticated
+          // against is already correctly bound). Best-effort — never blocks login.
+          // The legacy repair writes Customer.userId.  Do not run it for a
+          // second-store membership resolved through CustomerIdentityLink,
+          // because User.customer is intentionally one-to-one.
+          if (customer.user) {
+            await repairCustomerIdentityOnLogin({
+              userId: centralUser.id,
+              storeId: customer.storeId,
+              phone,
+              email: centralUser.email ?? null,
+            });
+          }
+
+          return {
+            id: centralUser.id,
+            name: centralUser.name,
+            email: centralUser.email ?? null,
+            role: centralUser.role,
+            staffId: null,
+            customerId: customer.id,
+            storeId: customer.storeId,
+            storeSlug: customer.store?.slug ?? null,
+          };
+        }
+'''
+          new = '''        // Store-scoped customer login resolves one central User through the
+        // legacy direct relation or provider-independent identity links.
+        if (storeId) {
+          const resolution = await resolveCentralUserForStoreCustomer({
+            storeId,
+            phone,
+          });
+          if (resolution.status !== "resolved") return null;
+
+          const { customer, user: centralUser } = resolution;
+          if (
+            centralUser.role !== "CUSTOMER" ||
+            centralUser.status !== "ACTIVE" ||
+            !centralUser.passwordHash
+          ) return null;
+          if (!compareSync(password, centralUser.passwordHash)) return null;
+
+          const identitySync = await syncVerifiedCentralIdentity({
+            entryPoint: "phone_password",
+            userId: centralUser.id,
+            storeId: customer.storeId,
+            customerId: customer.id,
+            provider: "phone",
+            providerAccountId: phone,
+            verifiedPhoneMatches: true,
+          });
+          if (
+            identitySync.status === "manual_review" ||
+            identitySync.status === "rejected"
+          ) {
+            console.warn("[auth][customer-phone] central identity rejected", {
+              userId: centralUser.id,
+              storeId: customer.storeId,
+              customerId: customer.id,
+              reason: identitySync.reason,
+            });
+            return null;
+          }
+
+          if (customer.hasDirectUser) {
+            await repairCustomerIdentityOnLogin({
+              userId: centralUser.id,
+              storeId: customer.storeId,
+              phone,
+              email: centralUser.email ?? null,
+            });
+          }
+
+          return {
+            id: centralUser.id,
+            name: centralUser.name,
+            email: centralUser.email ?? null,
+            role: centralUser.role as UserRole,
+            staffId: null,
+            customerId: customer.id,
+            storeId: customer.storeId,
+            storeSlug: customer.store.slug,
+          };
+        }
+'''
+          if old not in s:
+              raise SystemExit('customer-phone block not found')
+          s = s.replace(old, new)
+
+          old2 = '''        const customer = await prisma.customer.findFirst({
+          where: { id: bridge.customerId, storeId: bridge.storeId, userId: bridge.userId, mergedIntoCustomerId: null },
+          select: { id: true, storeId: true, store: { select: { slug: true } }, user: { select: { id: true, name: true, email: true, role: true, status: true } } },
+        });
+        if (!customer?.user || customer.user.status !== "ACTIVE" || customer.user.role !== "CUSTOMER") return null;
+        return { id: customer.user.id, name: customer.user.name, email: customer.user.email ?? null, role: customer.user.role, staffId: null, customerId: customer.id, storeId: customer.storeId, storeSlug: customer.store.slug };
+'''
+          new2 = '''        const resolution = await resolveCentralUserForStoreCustomer({
+          customerId: bridge.customerId,
+          storeId: bridge.storeId,
+        });
+        if (resolution.status !== "resolved") return null;
+        const { customer, user: centralUser } = resolution;
+        if (
+          centralUser.id !== bridge.userId ||
+          centralUser.status !== "ACTIVE" ||
+          centralUser.role !== "CUSTOMER"
+        ) return null;
+        return { id: centralUser.id, name: centralUser.name, email: centralUser.email ?? null, role: centralUser.role as UserRole, staffId: null, customerId: customer.id, storeId: customer.storeId, storeSlug: customer.store.slug };
+'''
+          if old2 not in s:
+              raise SystemExit('coordinator block not found')
+          s = s.replace(old2, new2)
+          p.write_text(s)
+          PY
+      - name: Add wiring regression tests
+        shell: bash
+        run: |
+          cat > src/__tests__/central-user-auth-wiring.test.ts <<'EOF'
+          import { readFileSync } from "node:fs";
+          import { resolve } from "node:path";
+          import { describe, expect, it } from "vitest";
+
+          const source = readFileSync(resolve(process.cwd(), "src/lib/auth.ts"), "utf8");
+
+          describe("all-store central User auth wiring", () => {
+            it("uses the shared resolver for phone login without provider filtering", () => {
+              expect(source).toContain("resolveCentralUserForStoreCustomer({\n            storeId,\n            phone,");
+              expect(source).not.toContain('where: { provider: "phone", providerAccountId: phone }');
+              expect(source).toContain("if (customer.hasDirectUser)");
+            });
+
+            it("uses the shared resolver for coordinator relogin and checks bridge ownership", () => {
+              expect(source).toContain("customerId: bridge.customerId");
+              expect(source).toContain("centralUser.id !== bridge.userId");
+              expect(source).not.toContain("userId: bridge.userId, mergedIntoCustomerId: null");
+            });
+          });
+          EOF
+      - name: Install dependencies
+        run: npm ci
+      - name: Targeted tests
+        run: npx vitest run src/__tests__/central-user-all-store-resolver.test.ts src/__tests__/central-user-auth-wiring.test.ts
+      - name: Typecheck
+        run: npx tsc --noEmit
+      - name: Production build
+        run: npm run build
+      - name: Commit implementation
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            echo "No changes"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/lib/auth.ts src/__tests__/central-user-auth-wiring.test.ts
+          git commit -m "fix: use all-store central user resolver"
+          git push origin HEAD:hotfix/p0-central-user-resolver-all-stores
