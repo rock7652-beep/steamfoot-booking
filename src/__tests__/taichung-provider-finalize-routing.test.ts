@@ -17,10 +17,11 @@ describe("Taichung provider-scoped LINE finalize", () => {
     expect(trigger).toContain("taichungCoordinator");
   });
 
-  it("rotates only Taichung store identity rows", () => {
+  it("hands verified ownership to the signed bridge without writing any identity", () => {
     const finalize = read("src/server/actions/taichung-provider-line-finalize.ts");
-    expect(finalize).toContain("tx.customer.update");
-    expect(finalize).toContain("tx.customerIdentityLink.update");
-    expect(finalize).not.toContain("tx.account.update");
+    expect(finalize).toContain("issueTaichungLineSession");
+    expect(finalize).not.toContain("customer.update");
+    expect(finalize).not.toContain("account.");
+    expect(finalize).not.toContain("customerIdentityLink");
   });
 });

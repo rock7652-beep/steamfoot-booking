@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { TAICHUNG_LINE_SESSION_COOKIE, verifyTaichungLineSession } from "@/lib/line-oauth/taichung-session";
-import { upsertCustomerIdentityLink } from "@/server/services/customer-identity-link";
+import { createVerifiedCustomerIdentityLink } from "@/server/services/namespaced-customer-identity-link";
 
 export async function POST(request: NextRequest) {
   const session = await auth();
@@ -28,14 +28,14 @@ export async function POST(request: NextRequest) {
   }
 
   // Auth.js signIn() has already returned success before this endpoint is
-  // called. This is the first permitted write for a legacy identity migration.
-  const migration = await upsertCustomerIdentityLink({
+  // called. This is the first permitted write for the verified LINE Login
+  // subject; Messaging and legacy identities are never touched here.
+  const migration = await createVerifiedCustomerIdentityLink({
     userId: bridge.userId,
     storeId: bridge.storeId,
     customerId: bridge.customerId,
-    provider: "line",
+    provider: "line_login",
     providerAccountId: bridge.lineUserId,
-    lineUserId: bridge.lineUserId,
   });
   if (migration.status !== "upserted") {
     return NextResponse.json({ error: "Identity migration rejected" }, { status: 409 });

@@ -7,7 +7,7 @@ import { prisma } from "@/lib/db";
 
 type PrismaLike = {
   customer: Pick<typeof prisma.customer, "findUnique">;
-  customerIdentityLink: Pick<typeof prisma.customerIdentityLink, "findUnique" | "upsert">;
+  customerIdentityLink: Pick<typeof prisma.customerIdentityLink, "findMany" | "findUnique" | "upsert">;
 };
 
 export type NamespacedIdentityLinkError =
@@ -21,6 +21,7 @@ export type NamespacedIdentityLinkError =
   | "IDENTITY_PROVIDER_ACCOUNT_CONFLICT"
   | "CUSTOMER_PROVIDER_CONFLICT"
   | "USER_STORE_PROVIDER_CONFLICT"
+  | "LINE_LOGIN_GLOBAL_IDENTITY_CONFLICT"
   | "LINE_LOGIN_CANNOT_WRITE_MESSAGING_ID"
   | "NON_MESSAGING_PROVIDER_CANNOT_WRITE_LINE_ID"
   | "IDENTITY_LINK_WRITE_FAILED";
@@ -88,7 +89,7 @@ export async function createVerifiedCustomerIdentityLink(
   const provider = input.provider as WritableCustomerIdentityProvider;
   const db = input.tx ?? prisma;
   try {
-    const [customer, byProviderAccount, byCustomerProvider, byUserStoreProvider] = await Promise.all([
+    const [customer, byProviderAccount, byCustomerProvider, byUserStoreProvider, lineLoginMatches] = await Promise.all([
       db.customer.findUnique({
         where: { id: input.customerId },
         select: { id: true, storeId: true, userId: true, mergedIntoCustomerId: true },
@@ -122,6 +123,12 @@ export async function createVerifiedCustomerIdentityLink(
         },
         select: { customerId: true, providerAccountId: true },
       }),
+      provider === CUSTOMER_IDENTITY_PROVIDER.LINE_LOGIN
+        ? db.customerIdentityLink.findMany({
+          where: { provider, providerAccountId: input.providerAccountId },
+          select: { userId: true, customerId: true, storeId: true },
+        })
+        : Promise.resolve([]),
     ]);
 
     if (!customer) return { status: "error", error: "CUSTOMER_NOT_FOUND" };
@@ -144,6 +151,11 @@ export async function createVerifiedCustomerIdentityLink(
       byUserStoreProvider &&
       (byUserStoreProvider.customerId !== input.customerId || byUserStoreProvider.providerAccountId !== input.providerAccountId)
     ) return { status: "error", error: "USER_STORE_PROVIDER_CONFLICT" };
+    if (lineLoginMatches.some((match) =>
+      match.userId !== input.userId ||
+      match.customerId !== input.customerId ||
+      match.storeId !== input.storeId,
+    )) return { status: "error", error: "LINE_LOGIN_GLOBAL_IDENTITY_CONFLICT" };
 
     await db.customerIdentityLink.upsert({
       where: {

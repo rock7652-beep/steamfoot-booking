@@ -3,15 +3,15 @@ import { NextRequest } from "next/server";
 
 const mockAuth = vi.hoisted(() => vi.fn());
 const mockVerifyTaichungLineSession = vi.hoisted(() => vi.fn());
-const mockUpsertCustomerIdentityLink = vi.hoisted(() => vi.fn());
+const mockCreateVerifiedCustomerIdentityLink = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/auth", () => ({ auth: (...args: unknown[]) => mockAuth(...args) }));
 vi.mock("@/lib/line-oauth/taichung-session", () => ({
   TAICHUNG_LINE_SESSION_COOKIE: "taichung_line_oauth_session",
   verifyTaichungLineSession: (...args: unknown[]) => mockVerifyTaichungLineSession(...args),
 }));
-vi.mock("@/server/services/customer-identity-link", () => ({
-  upsertCustomerIdentityLink: (...args: unknown[]) => mockUpsertCustomerIdentityLink(...args),
+vi.mock("@/server/services/namespaced-customer-identity-link", () => ({
+  createVerifiedCustomerIdentityLink: (...args: unknown[]) => mockCreateVerifiedCustomerIdentityLink(...args),
 }));
 
 describe("Taichung LINE post-session lazy identity migration", () => {
@@ -36,7 +36,7 @@ describe("Taichung LINE post-session lazy identity migration", () => {
       },
     });
     mockVerifyTaichungLineSession.mockReturnValue(bridge);
-    mockUpsertCustomerIdentityLink.mockResolvedValue({ status: "upserted" });
+    mockCreateVerifiedCustomerIdentityLink.mockResolvedValue({ status: "upserted" });
   });
 
   async function complete() {
@@ -51,13 +51,12 @@ describe("Taichung LINE post-session lazy identity migration", () => {
     const response = await complete();
 
     expect(response.status).toBe(200);
-    expect(mockUpsertCustomerIdentityLink).toHaveBeenCalledWith({
+    expect(mockCreateVerifiedCustomerIdentityLink).toHaveBeenCalledWith({
       userId: bridge.userId,
       storeId: bridge.storeId,
       customerId: bridge.customerId,
-      provider: "line",
+      provider: "line_login",
       providerAccountId: bridge.lineUserId,
-      lineUserId: bridge.lineUserId,
     });
     expect(response.headers.get("set-cookie")).toContain("taichung_line_oauth_session=;");
   });
@@ -68,7 +67,7 @@ describe("Taichung LINE post-session lazy identity migration", () => {
     const response = await complete();
 
     expect(response.status).toBe(401);
-    expect(mockUpsertCustomerIdentityLink).not.toHaveBeenCalled();
+    expect(mockCreateVerifiedCustomerIdentityLink).not.toHaveBeenCalled();
   });
 
   it("does not migrate when the signed bridge does not belong to the session", async () => {
@@ -77,11 +76,11 @@ describe("Taichung LINE post-session lazy identity migration", () => {
     const response = await complete();
 
     expect(response.status).toBe(401);
-    expect(mockUpsertCustomerIdentityLink).not.toHaveBeenCalled();
+    expect(mockCreateVerifiedCustomerIdentityLink).not.toHaveBeenCalled();
   });
 
   it("keeps the bridge for a safe retry when migration rejects ownership", async () => {
-    mockUpsertCustomerIdentityLink.mockResolvedValue({ status: "error", error: "CUSTOMER_OWNED_BY_ANOTHER_USER" });
+    mockCreateVerifiedCustomerIdentityLink.mockResolvedValue({ status: "error", error: "CUSTOMER_OWNED_BY_ANOTHER_USER" });
 
     const response = await complete();
 

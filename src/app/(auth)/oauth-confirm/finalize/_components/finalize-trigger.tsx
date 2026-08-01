@@ -58,7 +58,9 @@ export function FinalizeTrigger({
         }
 
         setState({ kind: "success" });
-        window.location.href = taichungCoordinator
+        window.location.href = taichungCoordinator && result.action === "COMPLETE"
+          ? "/line-oauth/complete"
+          : taichungCoordinator
           ? "/api/line-oauth/taichung/start"
           : `/api/auth/signin?callbackUrl=${encodeURIComponent(result.callbackUrl)}`;
       })
@@ -84,7 +86,6 @@ export function FinalizeTrigger({
       <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
         {state.message}
       </p>
-      {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
       <a
         href={taichungCoordinator ? "/api/line-oauth/taichung/start" : "/api/auth/signin/line"}
         className="mt-4 inline-block rounded-md bg-[#06C755] px-4 py-2 text-sm font-medium text-white hover:bg-[#05b04c]"

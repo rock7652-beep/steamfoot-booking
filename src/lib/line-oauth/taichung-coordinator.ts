@@ -1,5 +1,6 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { prisma } from "@/lib/db";
+import { readLineLoginIdentity } from "@/server/queries/customer-identity-readers";
 import { resolveCentralUserForStoreCustomer } from "@/server/services/resolve-central-user-for-store-customer";
 
 const STATE_PREFIX = "tc1";
@@ -193,22 +194,21 @@ export async function consumeTaichungCallback(input: {
 export async function resolveTaichungLinkedCustomer(input: {
   storeId: string;
   lineUserId: string;
-}): Promise<{ id: string; userId: string; source: "identity_link" | "legacy_customer" } | null> {
-  const link = await prisma.customerIdentityLink.findUnique({
-    where: {
-      uq_customer_identity_provider_store: {
-        provider: "line",
-        providerAccountId: input.lineUserId,
-        storeId: input.storeId,
-      },
-    },
-    select: {
-      customerId: true,
-      userId: true,
-      customer: { select: { id: true, storeId: true, mergedIntoCustomerId: true } },
-    },
+}): Promise<{ id: string; userId: string; source: "identity_link" } | null> {
+  const link = await readLineLoginIdentity({
+    storeId: input.storeId,
+    providerAccountId: input.lineUserId,
   });
-  if (link?.customer && !link.customer.mergedIntoCustomerId && link.customer.storeId === input.storeId) {
+  if (link) {
+    const customer = await prisma.customer.findFirst({
+      where: {
+        id: link.customerId,
+        storeId: input.storeId,
+        mergedIntoCustomerId: null,
+      },
+      select: { id: true },
+    });
+    if (!customer) return null;
     const resolution = await resolveCentralUserForStoreCustomer({
       customerId: link.customerId,
       storeId: input.storeId,
@@ -226,32 +226,9 @@ export async function resolveTaichungLinkedCustomer(input: {
     return null;
   }
 
-  // Compatibility path for members linked before CustomerIdentityLink existed.
-  // Customer.lineUserId is only a candidate: central ownership is resolved and
-  // checked below before a signed session bridge is ever issued.
-  const legacyCustomer = await prisma.customer.findFirst({
-    where: {
-      storeId: input.storeId,
-      lineUserId: input.lineUserId,
-      mergedIntoCustomerId: null,
-    },
-    select: { id: true, storeId: true, mergedIntoCustomerId: true },
-  });
-  if (!legacyCustomer || legacyCustomer.storeId !== input.storeId || legacyCustomer.mergedIntoCustomerId) return null;
-
-  const resolution = await resolveCentralUserForStoreCustomer({
-    customerId: legacyCustomer.id,
-    storeId: input.storeId,
-  });
-  if (
-    resolution.status !== "resolved" ||
-    resolution.customer.id !== legacyCustomer.id ||
-    resolution.customer.storeId !== input.storeId ||
-    resolution.user.role !== "CUSTOMER" ||
-    resolution.user.status !== "ACTIVE"
-  ) return null;
-
-  return { id: resolution.customer.id, userId: resolution.user.id, source: "legacy_customer" };
+  // Customer.lineUserId, line_messaging, and legacy provider="line" are
+  // deliberately not login fallbacks. They have Messaging/unknown semantics.
+  return null;
 }
 
 export function isTaichungCoordinatorState(state: string | null): boolean {
