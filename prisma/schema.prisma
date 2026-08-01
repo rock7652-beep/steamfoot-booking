@@ -2699,3 +2699,19 @@ model CronRunLog {
 
   @@index([jobName, startedAt(sort: Desc)])
 }
+
+// Prisma's own migration ledger is mapped solely for the fixed Production
+// reconciliation guard. It is never used for application data and the guard
+// performs reads only.
+model PrismaMigrationLedger {
+  id                String    @id @db.VarChar
+  checksum          String    @db.VarChar
+  finishedAt        DateTime? @map("finished_at") @db.Timestamptz(6)
+  migrationName     String    @map("migration_name") @db.VarChar
+  logs              String?
+  rolledBackAt      DateTime? @map("rolled_back_at") @db.Timestamptz(6)
+  startedAt         DateTime  @default(now()) @map("started_at") @db.Timestamptz(6)
+  appliedStepsCount Int       @default(0) @map("applied_steps_count")
+
+  @@map("_prisma_migrations")
+}
