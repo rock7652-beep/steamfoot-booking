@@ -336,6 +336,12 @@ export function TransactionDrawer({
                   label="付款方式"
                   value={PAY_METHOD_LABEL[data.paymentMethod] ?? data.paymentMethod}
                 />
+                {data.paymentSplits.length > 0 && (
+                  <Row
+                    label="付款拆分"
+                    value={data.paymentSplits.map((split) => `${PAY_METHOD_LABEL[split.paymentMethod] ?? split.paymentMethod} NT$ ${split.amount.toLocaleString()}`).join("＋")}
+                  />
+                )}
                 <Row label="歸屬店長" value={data.revenueStaffName} />
                 {data.serviceStaffName && (
                   <Row label="服務店長" value={data.serviceStaffName} />
@@ -643,6 +649,11 @@ export function TransactionDrawer({
                 <p className="mb-3 text-xs text-earth-500">
                   退款不修改原交易；新增一筆負向 REFUND 交易並連動方案堂數。
                 </p>
+                {data.paymentSplits.length > 0 && (
+                  <div className="mb-3 rounded border border-earth-200 bg-earth-50 px-3 py-2 text-xs text-earth-700">
+                    原付款拆分：{data.paymentSplits.map((split) => `${PAY_METHOD_LABEL[split.paymentMethod] ?? split.paymentMethod} NT$ ${split.amount.toLocaleString()}`).join("＋")}
+                  </div>
+                )}
 
                 {/* 退款方式 */}
                 <div className="mb-3">

@@ -13,6 +13,7 @@ import {
   getStoreRevenueSummary,
   getTransactionDetails,
   getRevenueKpi,
+  getPaymentMethodRevenueSummary,
   type ReportFilters,
 } from "@/lib/report-queries";
 
@@ -66,6 +67,11 @@ export async function GET(req: NextRequest) {
       const pageSize = parseInt(sp.get("pageSize") ?? "50", 10);
       const details = await getTransactionDetails(filters, page, pageSize);
       return NextResponse.json(details);
+    }
+
+    if (level === "payment-methods") {
+      const paymentMethods = await getPaymentMethodRevenueSummary(filters);
+      return NextResponse.json({ paymentMethods });
     }
 
     // all: summary + details

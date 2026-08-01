@@ -3,6 +3,8 @@
 import { useState, useActionState, useMemo } from "react";
 import { assignPlanToCustomer } from "@/server/actions/wallet";
 import { toast } from "sonner";
+import { PaymentSplitFields } from "@/components/admin/payment-split-fields";
+import type { PaymentSplitInput } from "@/lib/payment-splits";
 import {
   toLocalDateStr,
   addTaiwanDuration,
@@ -41,6 +43,7 @@ export function AssignPlanForm({ customerId, plans, canDiscount = false, alwaysO
   const [open, setOpen] = useState(alwaysOpen);
   const [selectedPlanId, setSelectedPlanId] = useState(defaultPlanId ?? "");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("CASH");
+  const [paymentSplits, setPaymentSplits] = useState<PaymentSplitInput[] | undefined>();
   const [paymentStatus, setPaymentStatus] = useState<StaffPaymentStatus>("CONFIRMED");
   const [referenceNo, setReferenceNo] = useState("");
   const [bankLast5, setBankLast5] = useState("");
@@ -114,6 +117,7 @@ export function AssignPlanForm({ customerId, plans, canDiscount = false, alwaysO
         customerId,
         planId,
         paymentMethod,
+        paymentSplits,
         paymentStatus,
         note,
         discountType: discountType,
@@ -139,6 +143,7 @@ export function AssignPlanForm({ customerId, plans, canDiscount = false, alwaysO
         if (!alwaysOpen) setOpen(false);
         setSelectedPlanId("");
         setPaymentMethod("CASH");
+        setPaymentSplits(undefined);
         setPaymentStatus("CONFIRMED");
         setReferenceNo("");
         setBankLast5("");
@@ -215,6 +220,15 @@ export function AssignPlanForm({ customerId, plans, canDiscount = false, alwaysO
           <option value="UNPAID">未付款</option>
         </select>
       </div>
+
+      {!isPending && finalAmount > 0 && paymentMethod !== "UNPAID" && (
+        <PaymentSplitFields
+          totalAmount={finalAmount}
+          primaryMethod={paymentMethod as PaymentSplitInput["paymentMethod"]}
+          disabled={pending}
+          onChange={setPaymentSplits}
+        />
+      )}
 
       {/* 款項狀態：後台由店長核帳，預設已確認收款 */}
       <div className="mb-3">

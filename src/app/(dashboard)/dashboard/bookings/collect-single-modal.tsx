@@ -3,6 +3,8 @@
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { collectSinglePayment } from "@/server/actions/single-booking";
+import { PaymentSplitFields } from "@/components/admin/payment-split-fields";
+import type { PaymentSplitInput } from "@/lib/payment-splits";
 import {
   getSingleBookingPurchasePlans,
   purchasePlanForSingleBooking,
@@ -49,6 +51,7 @@ export function CollectSingleModal({
 }: Props) {
   const [amount, setAmount] = useState(String(defaultPrice));
   const [method, setMethod] = useState<string>("CASH");
+  const [paymentSplits, setPaymentSplits] = useState<PaymentSplitInput[] | undefined>();
   const [completeService, setCompleteService] = useState(true);
   const [discountReason, setDiscountReason] = useState("");
   const [mode, setMode] = useState<"single" | "plan">("single");
@@ -119,6 +122,7 @@ export function CollectSingleModal({
           | "LINE_PAY"
           | "CREDIT_CARD"
           | "OTHER",
+        paymentSplits,
         amount: amountNum,
         discountReason:
           discountReason.trim().length > 0 ? discountReason.trim() : undefined,
@@ -235,6 +239,7 @@ export function CollectSingleModal({
             </option>
           ))}
         </select>
+        {mode === "single" && validAmount && <PaymentSplitFields totalAmount={amountNum} primaryMethod={method as PaymentSplitInput["paymentMethod"]} disabled={pending} onChange={setPaymentSplits} />}
 
         {mode === "single" && <><label className="mb-1 block text-xs font-medium text-earth-600">
           折扣原因 / 備註{discountAmount > 0 ? "" : "（選填）"}

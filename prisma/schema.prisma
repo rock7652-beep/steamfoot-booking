@@ -1832,6 +1832,7 @@ model Transaction {
   refundOfTransaction Transaction?          @relation("TransactionRefunds", fields: [refundOfTransactionId], references: [id], onDelete: Restrict)
   refunds             Transaction[]         @relation("TransactionRefunds")
   refundedBy          User?                 @relation("RefundedTransactions", fields: [refundedByUserId], references: [id])
+  paymentSplits       TransactionPaymentSplit[]
 
   @@index([storeId])
   @@index([customerId])
@@ -1850,6 +1851,21 @@ model Transaction {
   @@index([refundOfTransactionId]) // v2: 反查某原交易的所有 refund tx
   @@index([refundOfTransactionId, transactionType]) // v2: 報表 / Drawer 同時 filter refund + type 查詢
   @@index([transactionType, transactionDate]) // v2: 報表「總收入 / 退款 / 淨收入」分類聚合
+}
+
+// Additive mixed-payment detail. Transaction remains the single source of
+// revenue and entitlement; legacy rows have no details and retain paymentMethod.
+model TransactionPaymentSplit {
+  id            String        @id @default(cuid())
+  transactionId String
+  paymentMethod PaymentMethod
+  amount        Decimal       @db.Decimal(10, 0)
+  createdAt     DateTime      @default(now())
+
+  transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  @@index([transactionId])
+  @@index([paymentMethod])
 }
 
 // ============================================================

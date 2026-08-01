@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { normalizePhone } from "@/lib/normalize";
 import { bookingSubmissionRequestKeySchema } from "@/lib/validators/booking-submission";
+import { paymentSplitSchema } from "@/lib/payment-splits";
 
 // 體驗 499 PR-2：建立未付款體驗預約。
 // 規則：擇一 — 既有顧客(customerId) 或 快速建檔(newCustomer name+phone)。
@@ -53,6 +54,7 @@ export const createTrialBookingSchema = z
 export const collectTrialPaymentSchema = z.object({
   bookingId: z.string().min(1),
   paymentMethod: z.enum(["CASH", "TRANSFER", "LINE_PAY", "CREDIT_CARD", "OTHER"]),
+  paymentSplits: z.array(paymentSplitSchema).min(2).max(5).optional(),
   amount: z.number().int().min(0).max(1_000_000).optional(),
   // PR-3d flow pivot：收款時若同步確認實際到店人數，一併寫入 Booking.attendedPeople。
   // 1..booking.people（server 端再驗 ≤ booking.people 與 type=FIRST_TRIAL）；

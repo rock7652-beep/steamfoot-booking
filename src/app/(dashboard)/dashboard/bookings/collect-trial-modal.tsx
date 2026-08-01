@@ -3,6 +3,8 @@
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { collectTrialPayment } from "@/server/actions/trial-booking";
+import { PaymentSplitFields } from "@/components/admin/payment-split-fields";
+import type { PaymentSplitInput } from "@/lib/payment-splits";
 
 /**
  * 體驗 499 PR-3：現場收款確認 Modal（drawer-only 入口）。
@@ -76,8 +78,11 @@ export function CollectTrialModal({
       : totalDefaultByActual; // 部分到店且 expectedAmount 是自動快照 → 重算
   const [amount, setAmount] = useState(String(initialAmount));
   const [method, setMethod] = useState("CASH");
+  const [paymentSplits, setPaymentSplits] = useState<PaymentSplitInput[] | undefined>();
   const [completeService, setCompleteService] = useState(true);
   const [pending, startTransition] = useTransition();
+
+  const displayedAmount = settings.allowEdit ? Math.round(Number(amount)) : totalDefaultByActual;
 
   if (!open) return null;
 
@@ -94,6 +99,7 @@ export function CollectTrialModal({
           | "LINE_PAY"
           | "CREDIT_CARD"
           | "OTHER",
+        paymentSplits,
         amount: Number.isFinite(amountNum) ? amountNum : undefined,
         // PR-3d flow pivot：當收款入口前先過 AttendanceModal 時，
         // attendedPeople 透過 prop 帶入；同 transaction 一併寫入 Booking。
@@ -221,6 +227,7 @@ export function CollectTrialModal({
             </option>
           ))}
         </select>
+        <PaymentSplitFields totalAmount={Number.isFinite(displayedAmount) ? displayedAmount : 0} primaryMethod={method as PaymentSplitInput["paymentMethod"]} disabled={pending} onChange={setPaymentSplits} />
 
         <div className="flex justify-end gap-2">
           <button

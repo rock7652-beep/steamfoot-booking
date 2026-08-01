@@ -24,6 +24,7 @@ import { buildTransactionSnapshot } from "@/lib/transaction-snapshot";
 import { revalidateBookings, revalidateTransactions } from "@/lib/revalidation";
 import { completePaidBookingInTransaction } from "@/server/services/paid-booking-completion";
 import { createBookingCompletedEvent } from "@/server/services/referral-events";
+import { normalizePaymentSplits, paymentSplitCreateData } from "@/lib/payment-splits";
 import type { TrialSettings } from "@/lib/shop-config";
 import type { ActionResult } from "@/types";
 import type { PaymentMethod, TransactionType } from "@prisma/client";
@@ -331,6 +332,7 @@ export async function collectTrialPayment(
         ? undefined
         : Number(booking.expectedAmount));
     const amount = clampTrialTotal(baseAmount, effectivePeople, settings);
+    const paymentSplits = normalizePaymentSplits(data.paymentSplits, amount);
 
     const revenueStaffId =
       booking.customer.assignedStaffId ??
@@ -395,6 +397,7 @@ export async function collectTrialPayment(
           soldByStaffId: user.staffId ?? null,
           transactionType: "TRIAL_PURCHASE" as TransactionType,
           paymentMethod: data.paymentMethod as PaymentMethod,
+          ...paymentSplitCreateData(paymentSplits),
           paymentStatus: "SUCCESS",
           paidAt: new Date(),
           amount,

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { paymentSplitSchema } from "@/lib/payment-splits";
 
 // 單次（SINGLE，不扣堂）現場收款。
 // SUCCESS-only baseline：店長只在顧客「已付款」後按收款，當下即建立
@@ -15,6 +16,7 @@ import { z } from "zod";
 export const collectSinglePaymentSchema = z.object({
   bookingId: z.string().min(1),
   paymentMethod: z.enum(["CASH", "TRANSFER", "LINE_PAY", "CREDIT_CARD", "OTHER"]),
+  paymentSplits: z.array(paymentSplitSchema).min(2).max(5).optional(),
   amount: z.number().int().min(1).max(1_000_000).optional(),
   discountReason: z.string().max(500).optional(),
   note: z.string().max(500).optional(),

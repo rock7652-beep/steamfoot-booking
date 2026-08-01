@@ -10,7 +10,7 @@
 // 本 PR-1 不加：歷史交易 backfill=SUCCESS，現行報表語意與上線前完全一致。
 
 import { prisma } from "@/lib/db";
-import { Prisma } from "@prisma/client";
+import { Prisma, PaymentMethod } from "@prisma/client";
 
 // ============================================================
 // Types
@@ -113,7 +113,17 @@ function buildWhereClause(filters: ReportFilters): Prisma.TransactionWhereInput 
     where.planType = filters.planType;
   }
   if (filters.paymentMethod) {
-    where.paymentMethod = filters.paymentMethod as Prisma.EnumPaymentMethodFilter;
+    // New mixed payments contribute their split amount to payment-method reports;
+    // this filter only selects relevant transactions for details. Aggregate totals
+    // must use getPaymentMethodRevenueSummary below rather than Transaction.amount.
+    where.AND = [
+      {
+        OR: [
+          { paymentSplits: { some: { paymentMethod: filters.paymentMethod as PaymentMethod } } },
+          { paymentSplits: { none: {} }, paymentMethod: filters.paymentMethod as PaymentMethod },
+        ],
+      },
+    ];
   }
   if (filters.keyword) {
     where.OR = [
@@ -125,6 +135,34 @@ function buildWhereClause(filters: ReportFilters): Prisma.TransactionWhereInput 
   }
 
   return where;
+}
+
+/** Payment-method report that counts each Transaction once in revenue but assigns
+ * its amount by TransactionPaymentSplit. Historical rows without splits retain
+ * their original single paymentMethod. */
+export async function getPaymentMethodRevenueSummary(filters: ReportFilters) {
+  const base = buildWhereClause({ ...filters, paymentMethod: null });
+  const active: Prisma.TransactionWhereInput = {
+    ...base,
+    status: { notIn: ["CANCELLED", "VOIDED"] },
+    transactionType: { notIn: ["SESSION_DEDUCTION", "REFUND"] },
+  };
+  const [splitRows, legacyRows] = await Promise.all([
+    prisma.transactionPaymentSplit.groupBy({
+      by: ["paymentMethod"],
+      where: { transaction: active },
+      _sum: { amount: true },
+    }),
+    prisma.transaction.groupBy({
+      by: ["paymentMethod"],
+      where: { ...active, paymentSplits: { none: {} } },
+      _sum: { netAmount: true },
+    }),
+  ]);
+  const totals = new Map<string, number>();
+  for (const row of splitRows) totals.set(row.paymentMethod, Number(row._sum.amount ?? 0));
+  for (const row of legacyRows) totals.set(row.paymentMethod, (totals.get(row.paymentMethod) ?? 0) + Number(row._sum.netAmount ?? 0));
+  return Array.from(totals, ([paymentMethod, amount]) => ({ paymentMethod, amount }));
 }
 
 // ============================================================

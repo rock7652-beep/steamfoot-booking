@@ -1059,6 +1059,7 @@ export async function fetchTransactionDetailDTO(
       status: tx.status,
       transactionType: tx.transactionType,
       paymentMethod: tx.paymentMethod,
+      paymentSplits: tx.paymentSplits.map((split) => ({ paymentMethod: split.paymentMethod, amount: Number(split.amount) })),
       paymentStatus: tx.paymentStatus,
       amount: Number(tx.amount),
       originalAmount: tx.originalAmount ? Number(tx.originalAmount) : null,
@@ -1113,6 +1114,7 @@ export type TransactionDetailDTO = {
   status: string;
   transactionType: string;
   paymentMethod: string;
+  paymentSplits: Array<{ paymentMethod: string; amount: number }>;
   paymentStatus: string;
   amount: number;
   originalAmount: number | null;
