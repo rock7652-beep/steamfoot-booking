@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { TAICHUNG_LINE_SESSION_COOKIE, verifyTaichungLineSession } from "@/lib/line-oauth/taichung-session";
 import { createVerifiedCustomerIdentityLink } from "@/server/services/namespaced-customer-identity-link";
+import { logTaichungLineHandoff } from "@/lib/line-oauth/taichung-handoff-log";
 
 export async function POST(request: NextRequest) {
   const session = await auth();
@@ -12,6 +13,8 @@ export async function POST(request: NextRequest) {
     !session.user.customerId ||
     !session.user.storeId
   ) {
+    logTaichungLineHandoff("completion_writer_failed", { errorCode: "auth_required" });
+    logTaichungLineHandoff("final_redirect_blocked", { errorCode: "auth_required" });
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -24,8 +27,20 @@ export async function POST(request: NextRequest) {
     bridge.customerId !== session.user.customerId ||
     bridge.storeId !== session.user.storeId
   ) {
+    logTaichungLineHandoff("completion_writer_failed", {
+      customerId: session.user.customerId,
+      storeId: session.user.storeId,
+      errorCode: "bridge_ownership_mismatch",
+    });
+    logTaichungLineHandoff("final_redirect_blocked", {
+      customerId: session.user.customerId,
+      storeId: session.user.storeId,
+      errorCode: "bridge_ownership_mismatch",
+    });
     return NextResponse.json({ error: "Invalid coordinator bridge" }, { status: 401 });
   }
+
+  logTaichungLineHandoff("completion_requested", bridge);
 
   // Auth.js signIn() has already returned success before this endpoint is
   // called. This is the first permitted write for the verified LINE Login
@@ -38,8 +53,21 @@ export async function POST(request: NextRequest) {
     providerAccountId: bridge.lineUserId,
   });
   if (migration.status !== "upserted") {
+    logTaichungLineHandoff("completion_writer_failed", {
+      ...bridge,
+      errorCode: migration.error,
+    });
+    logTaichungLineHandoff("final_redirect_blocked", {
+      ...bridge,
+      errorCode: migration.error,
+    });
     return NextResponse.json({ error: "Identity migration rejected" }, { status: 409 });
   }
+
+  logTaichungLineHandoff("completion_writer_created", bridge);
+  // The client receives this successful response before it performs its fixed
+  // internal redirect; failures return non-2xx above and cannot redirect.
+  logTaichungLineHandoff("final_redirect_success", bridge);
 
   const response = NextResponse.json({ ok: true });
   response.cookies.delete(TAICHUNG_LINE_SESSION_COOKIE);

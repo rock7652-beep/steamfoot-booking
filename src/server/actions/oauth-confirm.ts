@@ -226,8 +226,13 @@ export async function oauthConfirmLoginAction(
     return { error: "請輸入密碼" };
   }
 
-  // signIn redirect 到 /oauth-confirm/finalize；finalize 頁負責呼叫 finalizeLineBind
-  const finalizePath = `/oauth-confirm/finalize?customerId=${encodeURIComponent(customerId)}&callbackUrl=${encodeURIComponent(callbackUrl)}`;
+  // The Taichung coordinator must issue its signed bridge in a server route.
+  // Do not send it through the client-side finalize effect: an interrupted
+  // effect can create a customer-phone session without ever completing LINE
+  // Login identity migration.
+  const finalizePath = session.channelKey === "taichung"
+    ? `/api/line-oauth/taichung/finalize?customerId=${encodeURIComponent(customerId)}`
+    : `/oauth-confirm/finalize?customerId=${encodeURIComponent(customerId)}&callbackUrl=${encodeURIComponent(callbackUrl)}`;
 
   try {
     await signIn("customer-phone", {

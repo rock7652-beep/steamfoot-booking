@@ -16,9 +16,12 @@ describe("Taiwan LINE OAuth completion routing", () => {
   });
 
   it("uses the Taiwan credentials bridge, never the legacy line provider", () => {
-    expect(completion).toContain('signIn("line-taichung-coordinator"');
+    expect(completion).toContain("completeTaichungLineLogin");
     expect(completion).not.toContain('signIn("line"');
-    expect(completion).toContain('window.location.assign("/s/taichung/book")');
+    expect(completion).toContain('fetch("/api/line-oauth/taichung/complete"');
+    const helper = read("src/lib/line-oauth/taichung-completion-client.ts");
+    expect(helper).toContain('signIn("line-taichung-coordinator"');
+    expect(helper).toContain('redirect("/s/taichung/book")');
   });
 
   it("uses a fixed internal callback destination and claims the bridge once", () => {

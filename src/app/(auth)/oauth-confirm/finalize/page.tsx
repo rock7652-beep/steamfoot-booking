@@ -5,12 +5,12 @@ import { FinalizeTrigger } from "./_components/finalize-trigger";
 /**
  * /oauth-confirm/finalize — PR-2 step 4d
  *
- * NEED_LOGIN 流程完成密碼登入後的綁定執行頁。流程：
+ * NEED_LOGIN 流程完成密碼登入後的 legacy 綁定執行頁。流程：
  *   1. 從 customer-phone signIn redirect 過來，現在 NextAuth session 已建立
  *   2. 此頁讀 auth() 確認登入 + 帶 customerId / callbackUrl 給 client
  *   3. client 元件 onMount 自動 call finalizeLineBind 寫 lineUserId + 清 temp
- *   4. 寫完後依原始 OAuth 通道重建 JWT：台中必須回 dedicated coordinator，
- *      其他店才走 legacy provider selection。
+ *   4. 台中不會進這個 client trigger：它改由 server-side finalize route
+ *      issue the signed bridge before redirecting to the coordinator.
  *
  * 為什麼是「auto-call on mount」而非按鈕？
  *   到這頁的使用者已經完成意圖確認（輸入手機 + 密碼），bind 是流程的最後一步，
@@ -21,6 +21,7 @@ interface PageProps {
   searchParams: Promise<{
     customerId?: string;
     callbackUrl?: string;
+    error?: string;
   }>;
 }
 
@@ -29,7 +30,19 @@ export default async function OAuthConfirmFinalizePage({
 }: PageProps) {
   const session = await auth();
   const tempSession = await getOAuthTempSession();
-  const { customerId, callbackUrl } = await searchParams;
+  const { customerId, callbackUrl, error } = await searchParams;
+
+  if (error) {
+    return (
+      <main className="mx-auto max-w-sm px-4 py-12">
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4">
+          <h1 className="mb-2 text-base font-semibold text-red-700">無法完成登入</h1>
+          <p className="text-sm text-red-700">登入驗證未完成，請重新從 LINE 登入流程開始。</p>
+          <a href="/api/line-oauth/taichung/start" className="mt-4 inline-block rounded-md bg-[#06C755] px-4 py-2 text-sm font-medium text-white hover:bg-[#05b04c]">重新登入</a>
+        </div>
+      </main>
+    );
+  }
 
   // 必須有 NextAuth session（從 customer-phone 登入過來）
   if (!session?.user?.id) {
@@ -42,7 +55,6 @@ export default async function OAuthConfirmFinalizePage({
           <p className="text-sm text-amber-800">
             此頁面需先完成手機+密碼登入才能進入。請重新從 LINE 登入流程開始。
           </p>
-          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
           <a
             href={tempSession?.channelKey === "taichung" ? "/api/line-oauth/taichung/start" : "/api/auth/signin/line"}
             className="mt-4 inline-block rounded-md bg-[#06C755] px-4 py-2 text-sm font-medium text-white hover:bg-[#05b04c]"
@@ -72,7 +84,6 @@ export default async function OAuthConfirmFinalizePage({
         <FinalizeTrigger
           customerId={customerId}
           callbackUrl={callbackUrl ?? "/"}
-          taichungCoordinator={tempSession?.channelKey === "taichung"}
         />
       </div>
     </main>
