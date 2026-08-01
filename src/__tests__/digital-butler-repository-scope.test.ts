@@ -11,11 +11,12 @@ const h = vi.hoisted(() => ({
   flowVersionCreate: vi.fn(),
   flowUpdate: vi.fn(),
   flowFindMany: vi.fn(),
+  auditCreate: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({
   prisma: {
-    $transaction: (callback: (tx: unknown) => unknown) => h.transaction(callback),
+    $transaction: (callback: (tx: unknown) => unknown, options?: unknown) => h.transaction(callback, options),
     storeDigitalButlerFlow: { findMany: h.flowFindMany },
   },
 }));
@@ -45,6 +46,7 @@ describe("DigitalButlerRepository cross-store isolation", () => {
       digitalButlerLead: { upsert: h.leadUpsert },
       storeDigitalButlerFlow: { updateMany: h.flowUpdateMany, update: h.flowUpdate },
       digitalButlerFlowVersion: { aggregate: h.flowVersionAggregate, create: h.flowVersionCreate },
+      auditLog: { create: h.auditCreate },
     }));
   });
 
@@ -150,6 +152,54 @@ describe("DigitalButlerRepository cross-store isolation", () => {
       name: "DigitalButlerPublishStageError",
       code: "VERSION_AND_STEPS_CREATE_FAILED",
     } satisfies Partial<DigitalButlerPublishStageError>));
+    expect(h.flowUpdate).not.toHaveBeenCalled();
+    expect(h.auditCreate).not.toHaveBeenCalled();
+  });
+
+  it("keeps the v13 publisher's bounded transaction and every publish write on the supplied transaction client", async () => {
+    h.flowUpdateMany.mockResolvedValue({ count: 1 });
+    h.flowVersionAggregate.mockResolvedValue({ _max: { version: 12 } });
+    h.flowVersionCreate.mockResolvedValue({ id: "version-13", version: 13, steps: [] });
+    h.flowUpdate.mockResolvedValue({});
+    h.auditCreate.mockResolvedValue({});
+
+    await new DigitalButlerRepository().publishFlow({
+      storeId: "store-a", flowId: "flow-a", definition: { trigger: { keywords: ["測試"] }, steps: [] }, steps: [],
+      transactionOptions: { maxWait: 5_000, timeout: 15_000 },
+      audit: { actorUserId: "owner-a", action: "PUBLISH", after: { result: "PUBLISHED" } },
+    });
+
+    expect(h.transaction).toHaveBeenCalledWith(expect.any(Function), { maxWait: 5_000, timeout: 15_000 });
+    expect(h.flowUpdateMany).toHaveBeenCalledTimes(1);
+    expect(h.flowVersionAggregate).toHaveBeenCalledTimes(1);
+    expect(h.flowVersionCreate).toHaveBeenCalledTimes(1);
+    expect(h.flowUpdate).toHaveBeenCalledTimes(1);
+    expect(h.auditCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it("aborts the transaction callback before active-version or audit writes when a required nested write fails", async () => {
+    let committed = false;
+    h.transaction.mockImplementation(async (callback) => {
+      const result = await callback({
+        storeDigitalButlerFlow: { updateMany: h.flowUpdateMany, update: h.flowUpdate },
+        digitalButlerFlowVersion: { aggregate: h.flowVersionAggregate, create: h.flowVersionCreate },
+        auditLog: { create: h.auditCreate },
+      });
+      committed = true;
+      return result;
+    });
+    h.flowUpdateMany.mockResolvedValue({ count: 1 });
+    h.flowVersionAggregate.mockResolvedValue({ _max: { version: 12 } });
+    h.flowVersionCreate.mockRejectedValue(new Error("nested write rejected"));
+
+    await expect(new DigitalButlerRepository().publishFlow({
+      storeId: "store-a", flowId: "flow-a", definition: { trigger: { keywords: ["測試"] }, steps: [] }, steps: [], diagnosticStages: true,
+      transactionOptions: { maxWait: 5_000, timeout: 15_000 },
+    })).rejects.toMatchObject({ code: "VERSION_AND_STEPS_CREATE_FAILED" });
+
+    expect(committed).toBe(false);
+    expect(h.flowUpdate).not.toHaveBeenCalled();
+    expect(h.auditCreate).not.toHaveBeenCalled();
   });
 
   it("loads the published preview from the current version's ordered step rows", async () => {

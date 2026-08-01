@@ -78,6 +78,7 @@ describe("Zhubei Messenger v13 publish service diagnostics", () => {
     expect(h.publishFlow).toHaveBeenCalledTimes(1);
     const input = h.publishFlow.mock.calls[0]?.[0];
     expect(input.diagnosticStages).toBe(true);
+    expect(input.transactionOptions).toEqual({ maxWait: 5_000, timeout: 15_000 });
     expect(input.definition.steps.find((step: { stepKey: string }) => step.stepKey === "inquiry-create-lead").config)
       .toMatchObject({ requestTypeFromStepKey: "menu" });
     expect(definition.steps.find((step) => step.stepKey === "inquiry-create-lead")?.config)
