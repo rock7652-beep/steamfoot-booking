@@ -25,6 +25,7 @@ import {
   DigitalButlerPublishStageError,
   DigitalButlerRepository,
   DigitalButlerScopeError,
+  type DigitalButlerTransactionRunner,
 } from "@/server/repositories/digital-butler";
 
 function encryptedPhone() {
@@ -200,6 +201,38 @@ describe("DigitalButlerRepository cross-store isolation", () => {
     expect(committed).toBe(false);
     expect(h.flowUpdate).not.toHaveBeenCalled();
     expect(h.auditCreate).not.toHaveBeenCalled();
+  });
+
+  it("distinguishes a transaction begin failure from a callback failure without invoking the callback", async () => {
+    const beginError = new Error("BEGIN_FAILED");
+    const runner: DigitalButlerTransactionRunner = async () => { throw beginError; };
+    await expect(new DigitalButlerRepository(runner).publishFlow({
+      storeId: "store-a", flowId: "flow-a", definition: {}, steps: [], diagnosticStages: true,
+      transactionOptions: { maxWait: 5_000, timeout: 15_000 },
+    })).rejects.toBe(beginError);
+    expect(h.flowUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("reports a post-callback connection or commit failure as TRANSACTION_COMMIT_FAILED", async () => {
+    const tx = {
+      storeDigitalButlerFlow: { updateMany: h.flowUpdateMany, update: h.flowUpdate },
+      digitalButlerFlowVersion: { aggregate: h.flowVersionAggregate, create: h.flowVersionCreate },
+      auditLog: { create: h.auditCreate },
+    };
+    const runner: DigitalButlerTransactionRunner = async (callback) => {
+      await callback(tx as never);
+      throw new Error("COMMIT_FAILED");
+    };
+    h.flowUpdateMany.mockResolvedValue({ count: 1 });
+    h.flowVersionAggregate.mockResolvedValue({ _max: { version: 12 } });
+    h.flowVersionCreate.mockResolvedValue({ id: "version-13", version: 13, steps: [] });
+    h.flowUpdate.mockResolvedValue({});
+    h.auditCreate.mockResolvedValue({});
+    await expect(new DigitalButlerRepository(runner).publishFlow({
+      storeId: "store-a", flowId: "flow-a", definition: {}, steps: [], diagnosticStages: true,
+      transactionOptions: { maxWait: 5_000, timeout: 15_000 },
+      audit: { actorUserId: "owner-a", action: "PUBLISH", after: {} },
+    })).rejects.toMatchObject({ code: "TRANSACTION_COMMIT_FAILED" });
   });
 
   it("loads the published preview from the current version's ordered step rows", async () => {

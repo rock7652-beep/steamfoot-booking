@@ -108,6 +108,12 @@ export type PublishDigitalButlerFlowInput = {
   transactionOptions?: { maxWait: number; timeout: number };
 };
 
+/** Injectable only for repository contract tests; runtime always uses Prisma. */
+export type DigitalButlerTransactionRunner = <T>(
+  callback: (tx: Prisma.TransactionClient) => Promise<T>,
+  options?: { maxWait: number; timeout: number },
+) => Promise<T>;
+
 function publishedFlowVersionCreateData(
   input: PublishDigitalButlerFlowInput,
   version: number,
@@ -135,6 +141,8 @@ function publishedFlowVersionCreateData(
  * their own: each lookup constrains storeId before it can read or write.
  */
 export class DigitalButlerRepository {
+  constructor(private readonly runTransaction: DigitalButlerTransactionRunner = (callback, options) =>
+    options ? prisma.$transaction(callback, options) : prisma.$transaction(callback)) {}
   async createDraftFlow(input: CreateDigitalButlerDraftFlowInput) {
     return prisma.storeDigitalButlerFlow.create({
       data: {
@@ -296,9 +304,7 @@ export class DigitalButlerRepository {
       return version;
     };
     try {
-      return await (input.transactionOptions
-        ? prisma.$transaction(publish, input.transactionOptions)
-        : prisma.$transaction(publish));
+      return await this.runTransaction(publish, input.transactionOptions);
     } catch (error) {
       if (error instanceof DigitalButlerScopeError || error instanceof DigitalButlerPublishStageError) throw error;
       if (input.diagnosticStages === true && transactionCallbackCompleted) {
