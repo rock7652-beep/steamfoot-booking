@@ -36,4 +36,11 @@ describe("mixed payment wiring", () => {
     expect(report).toContain('paymentParams.set("level", "payment-methods")');
     expect(report).toContain("付款方式拆分");
   });
+
+  it("clears split state before a plan purchase becomes pending", () => {
+    const form = read("src/app/(dashboard)/dashboard/customers/[id]/assign-plan-form.tsx");
+    expect(form).toContain('if (nextStatus === "PENDING")');
+    expect(form).toContain("setPaymentSplits(undefined)");
+    expect(form).toContain("setPaymentSplitsValid(true)");
+  });
 });

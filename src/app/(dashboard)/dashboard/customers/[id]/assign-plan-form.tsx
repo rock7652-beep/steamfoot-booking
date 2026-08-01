@@ -209,7 +209,12 @@ export function AssignPlanForm({ customerId, plans, canDiscount = false, alwaysO
           onChange={(e) => {
             const nextMethod = e.target.value as PaymentMethod;
             setPaymentMethod(nextMethod);
-            setPaymentStatus(nextMethod === "UNPAID" ? "PENDING" : "CONFIRMED");
+            const nextStatus = nextMethod === "UNPAID" ? "PENDING" : "CONFIRMED";
+            setPaymentStatus(nextStatus);
+            if (nextStatus === "PENDING") {
+              setPaymentSplits(undefined);
+              setPaymentSplitsValid(true);
+            }
           }}
           className="mt-1 w-full rounded-lg border border-earth-300 px-2.5 py-1.5 text-sm"
         >
@@ -237,7 +242,14 @@ export function AssignPlanForm({ customerId, plans, canDiscount = false, alwaysO
         <label className="block text-xs font-medium text-earth-600">款項狀態</label>
         <select
           value={paymentStatus}
-          onChange={(e) => setPaymentStatus(e.target.value as StaffPaymentStatus)}
+          onChange={(e) => {
+            const nextStatus = e.target.value as StaffPaymentStatus;
+            setPaymentStatus(nextStatus);
+            if (nextStatus === "PENDING") {
+              setPaymentSplits(undefined);
+              setPaymentSplitsValid(true);
+            }
+          }}
           disabled={paymentMethod === "UNPAID"}
           className="mt-1 w-full rounded-lg border border-earth-300 px-2.5 py-1.5 text-sm disabled:bg-earth-100"
         >

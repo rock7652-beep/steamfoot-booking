@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createInitialPaymentSplits, isValidPaymentSplitSet, normalizePaymentSplits } from "@/lib/payment-splits";
+import { createInitialPaymentSplits, isValidPaymentSplitSet, normalizePaymentSplits, paymentMethodReportAmount } from "@/lib/payment-splits";
 
 describe("mixed payment validation", () => {
   it("accepts matching two-method totals and preserves one transaction's detail", () => {
@@ -45,5 +45,20 @@ describe("mixed payment validation", () => {
       { paymentMethod: "CASH", amount: 5000 },
       { paymentMethod: "TRANSFER", amount: 0 },
     ], 5000)).toThrow();
+  });
+
+  it("attributes a mixed transaction to each method once while legacy single payments keep their original amount", () => {
+    const mixed = {
+      paymentMethod: "CASH",
+      amount: 5000,
+      paymentSplits: [
+        { paymentMethod: "CASH", amount: 2000 },
+        { paymentMethod: "TRANSFER", amount: 3000 },
+      ],
+    };
+    expect(paymentMethodReportAmount(mixed, "CASH")).toBe(2000);
+    expect(paymentMethodReportAmount(mixed, "TRANSFER")).toBe(3000);
+    expect(paymentMethodReportAmount(mixed, "CASH") + paymentMethodReportAmount(mixed, "TRANSFER")).toBe(5000);
+    expect(paymentMethodReportAmount({ paymentMethod: "CASH", amount: 800, paymentSplits: [] }, "CASH")).toBe(800);
   });
 });

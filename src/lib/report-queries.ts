@@ -11,6 +11,7 @@
 
 import { prisma } from "@/lib/db";
 import { Prisma, PaymentMethod } from "@prisma/client";
+import { paymentMethodReportAmount } from "@/lib/payment-splits";
 
 // ============================================================
 // Types
@@ -165,6 +166,66 @@ export async function getPaymentMethodRevenueSummary(filters: ReportFilters) {
   return Array.from(totals, ([paymentMethod, amount]) => ({ paymentMethod, amount }));
 }
 
+/** The one amount a payment-method-filtered report may attribute to a transaction.
+ * A split row replaces the legacy transaction-level payment method; it never adds
+ * a second copy of the transaction's revenue. */
+function selectedPaymentAmount(
+  tx: { paymentMethod: PaymentMethod; netAmount: Prisma.Decimal; paymentSplits: Array<{ paymentMethod: PaymentMethod; amount: Prisma.Decimal }> },
+  paymentMethod: PaymentMethod,
+): number {
+  if (tx.paymentSplits.length === 0) {
+    return paymentMethodReportAmount({
+      paymentMethod: tx.paymentMethod,
+      amount: Number(tx.netAmount),
+      paymentSplits: [],
+    }, paymentMethod);
+  }
+  return paymentMethodReportAmount({
+    paymentMethod: tx.paymentMethod,
+    amount: Number(tx.netAmount),
+    paymentSplits: tx.paymentSplits.map((split) => ({ paymentMethod: split.paymentMethod, amount: Number(split.amount) })),
+  }, paymentMethod);
+}
+
+function activeRevenueWhere(filters: ReportFilters): Prisma.TransactionWhereInput {
+  const where = buildWhereClause(filters);
+  return {
+    ...where,
+    status: { notIn: ["CANCELLED", "VOIDED"] },
+    transactionType: { notIn: ["SESSION_DEDUCTION", "REFUND"] },
+  };
+}
+
+async function getPaymentFilteredRevenueTransactions(filters: ReportFilters) {
+  return prisma.transaction.findMany({
+    where: activeRevenueWhere(filters),
+    select: {
+      storeId: true,
+      storeNameSnapshot: true,
+      planType: true,
+      customerId: true,
+      revenueStaffId: true,
+      coachNameSnapshot: true,
+      coachRoleSnapshot: true,
+      isFirstPurchase: true,
+      paymentMethod: true,
+      netAmount: true,
+      refundAmount: true,
+      paymentSplits: { select: { paymentMethod: true, amount: true } },
+      store: { select: { name: true } },
+      revenueStaff: { select: { displayName: true, user: { select: { role: true } } } },
+    },
+  });
+}
+
+function paymentFilteredRefundAmount(
+  tx: { netAmount: Prisma.Decimal; refundAmount: Prisma.Decimal | null },
+  selectedAmount: number,
+): number {
+  const total = Number(tx.netAmount);
+  return total === 0 ? 0 : Math.round(Number(tx.refundAmount ?? 0) * (selectedAmount / total));
+}
+
 // ============================================================
 // 店營收 Summary
 // ============================================================
@@ -172,6 +233,7 @@ export async function getPaymentMethodRevenueSummary(filters: ReportFilters) {
 export async function getStoreRevenueSummary(
   filters: ReportFilters
 ): Promise<StoreRevenueSummary[]> {
+  if (filters.paymentMethod) return getStoreRevenueSummaryByPaymentMethod(filters);
   const where = buildWhereClause(filters);
 
   // 排除 CANCELLED / REFUND — 交由 DB 層過濾，不再於 JS 端 skip
@@ -279,6 +341,39 @@ export async function getStoreRevenueSummary(
   });
 }
 
+async function getStoreRevenueSummaryByPaymentMethod(filters: ReportFilters): Promise<StoreRevenueSummary[]> {
+  const paymentMethod = filters.paymentMethod as PaymentMethod;
+  const rows = await getPaymentFilteredRevenueTransactions(filters);
+  const stores = new Map<string, StoreRevenueSummary>();
+  const customers = new Map<string, Set<string>>();
+  for (const row of rows) {
+    const amount = selectedPaymentAmount(row, paymentMethod);
+    if (amount === 0) continue;
+    const current = stores.get(row.storeId) ?? {
+      storeId: row.storeId, storeName: row.storeNameSnapshot ?? row.store?.name ?? "未知店舖",
+      totalRevenue: 0, refundAmount: 0, netRevenue: 0, txCount: 0, customerCount: 0,
+      avgPerCustomer: 0, trialRevenue: 0, packageRevenue: 0, singleRevenue: 0, otherRevenue: 0,
+    };
+    current.totalRevenue += amount;
+    current.refundAmount += paymentFilteredRefundAmount(row, amount);
+    current.txCount += 1;
+    if (row.planType === "TRIAL") current.trialRevenue += amount;
+    else if (row.planType === "PACKAGE") current.packageRevenue += amount;
+    else if (row.planType === "SINGLE") current.singleRevenue += amount;
+    else current.otherRevenue += amount;
+    stores.set(row.storeId, current);
+    const storeCustomers = customers.get(row.storeId) ?? new Set<string>();
+    storeCustomers.add(row.customerId);
+    customers.set(row.storeId, storeCustomers);
+  }
+  return Array.from(stores.values()).map((store) => {
+    store.customerCount = customers.get(store.storeId)?.size ?? 0;
+    store.netRevenue = store.totalRevenue - store.refundAmount;
+    store.avgPerCustomer = store.customerCount > 0 ? Math.round(store.netRevenue / store.customerCount) : 0;
+    return store;
+  });
+}
+
 // ============================================================
 // 教練營收 Summary
 // ============================================================
@@ -286,6 +381,7 @@ export async function getStoreRevenueSummary(
 export async function getCoachRevenueSummary(
   filters: ReportFilters
 ): Promise<CoachRevenueSummary[]> {
+  if (filters.paymentMethod) return getCoachRevenueSummaryByPaymentMethod(filters);
   const where = buildWhereClause(filters);
 
   const whereActive: Prisma.TransactionWhereInput = {
@@ -421,6 +517,44 @@ export async function getCoachRevenueSummary(
   });
 }
 
+async function getCoachRevenueSummaryByPaymentMethod(filters: ReportFilters): Promise<CoachRevenueSummary[]> {
+  const paymentMethod = filters.paymentMethod as PaymentMethod;
+  const rows = await getPaymentFilteredRevenueTransactions(filters);
+  const coaches = new Map<string, CoachRevenueSummary>();
+  const customers = new Map<string, Set<string>>();
+  for (const row of rows) {
+    const amount = selectedPaymentAmount(row, paymentMethod);
+    if (amount === 0) continue;
+    const current = coaches.get(row.revenueStaffId) ?? {
+      coachId: row.revenueStaffId,
+      coachName: row.coachNameSnapshot ?? row.revenueStaff?.displayName ?? "未知教練",
+      coachRole: row.coachRoleSnapshot ?? row.revenueStaff?.user?.role ?? "PARTNER",
+      storeName: row.storeNameSnapshot ?? row.store?.name ?? "未知店舖",
+      totalRevenue: 0, refundAmount: 0, netRevenue: 0, txCount: 0, customerCount: 0, avgPerTx: 0,
+      newCustomerRevenue: 0, existingCustomerRevenue: 0, trialRevenue: 0, packageRevenue: 0, singleRevenue: 0, otherRevenue: 0,
+    };
+    current.totalRevenue += amount;
+    current.refundAmount += paymentFilteredRefundAmount(row, amount);
+    current.txCount += 1;
+    if (row.isFirstPurchase) current.newCustomerRevenue += amount;
+    else current.existingCustomerRevenue += amount;
+    if (row.planType === "TRIAL") current.trialRevenue += amount;
+    else if (row.planType === "PACKAGE") current.packageRevenue += amount;
+    else if (row.planType === "SINGLE") current.singleRevenue += amount;
+    else current.otherRevenue += amount;
+    coaches.set(row.revenueStaffId, current);
+    const coachCustomers = customers.get(row.revenueStaffId) ?? new Set<string>();
+    coachCustomers.add(row.customerId);
+    customers.set(row.revenueStaffId, coachCustomers);
+  }
+  return Array.from(coaches.values()).map((coach) => {
+    coach.customerCount = customers.get(coach.coachId)?.size ?? 0;
+    coach.netRevenue = coach.totalRevenue - coach.refundAmount;
+    coach.avgPerTx = coach.txCount > 0 ? Math.round(coach.netRevenue / coach.txCount) : 0;
+    return coach;
+  });
+}
+
 // ============================================================
 // 明細查詢（分頁）
 // ============================================================
@@ -492,6 +626,7 @@ export async function getRevenueKpi(
   filters: ReportFilters,
   includeNewExisting: boolean = false
 ): Promise<RevenueKpi> {
+  if (filters.paymentMethod) return getRevenueKpiByPaymentMethod(filters, includeNewExisting);
   const where = buildWhereClause(filters);
 
   // 排除 CANCELLED / REFUND — DB-side 處理，不再拉全量 rows
@@ -551,6 +686,33 @@ export async function getRevenueKpi(
     txCount,
     customerCount,
     avgPerCustomer: customerCount > 0 ? Math.round(netRevenue / customerCount) : 0,
+    ...(includeNewExisting && { newCustomerRevenue, existingCustomerRevenue }),
+  };
+}
+
+async function getRevenueKpiByPaymentMethod(filters: ReportFilters, includeNewExisting: boolean): Promise<RevenueKpi> {
+  const paymentMethod = filters.paymentMethod as PaymentMethod;
+  const rows = await getPaymentFilteredRevenueTransactions(filters);
+  let totalRevenue = 0;
+  let refundAmount = 0;
+  let newCustomerRevenue = 0;
+  let existingCustomerRevenue = 0;
+  const customers = new Set<string>();
+  let txCount = 0;
+  for (const row of rows) {
+    const amount = selectedPaymentAmount(row, paymentMethod);
+    if (amount === 0) continue;
+    totalRevenue += amount;
+    refundAmount += paymentFilteredRefundAmount(row, amount);
+    txCount += 1;
+    customers.add(row.customerId);
+    if (row.isFirstPurchase) newCustomerRevenue += amount;
+    else existingCustomerRevenue += amount;
+  }
+  const netRevenue = totalRevenue - refundAmount;
+  return {
+    totalRevenue, refundAmount, netRevenue, txCount, customerCount: customers.size,
+    avgPerCustomer: customers.size > 0 ? Math.round(netRevenue / customers.size) : 0,
     ...(includeNewExisting && { newCustomerRevenue, existingCustomerRevenue }),
   };
 }

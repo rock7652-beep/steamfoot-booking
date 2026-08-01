@@ -5,6 +5,21 @@ export const paymentMethodValues = ["CASH", "TRANSFER", "LINE_PAY", "CREDIT_CARD
 export type PaymentMethodValue = (typeof paymentMethodValues)[number];
 export type PaymentSplitInput = { paymentMethod: PaymentMethodValue; amount: number };
 
+/**
+ * Returns the amount attributable to one payment method without duplicating a
+ * mixed-payment transaction. Rows without split details are historical single
+ * payments and retain their original transaction-level amount.
+ */
+export function paymentMethodReportAmount(
+  transaction: { paymentMethod: string; amount: number; paymentSplits: Array<{ paymentMethod: string; amount: number }> },
+  paymentMethod: string,
+): number {
+  if (transaction.paymentSplits.length === 0) {
+    return transaction.paymentMethod === paymentMethod ? transaction.amount : 0;
+  }
+  return transaction.paymentSplits.find((split) => split.paymentMethod === paymentMethod)?.amount ?? 0;
+}
+
 /** Reset-safe initial state after the total or primary method changes. */
 export function createInitialPaymentSplits(primaryMethod: PaymentMethodValue, totalAmount: number): PaymentSplitInput[] {
   const fallback = paymentMethodValues.find((method) => method !== primaryMethod)!;
