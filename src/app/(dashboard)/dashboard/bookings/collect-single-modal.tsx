@@ -52,6 +52,7 @@ export function CollectSingleModal({
   const [amount, setAmount] = useState(String(defaultPrice));
   const [method, setMethod] = useState<string>("CASH");
   const [paymentSplits, setPaymentSplits] = useState<PaymentSplitInput[] | undefined>();
+  const [paymentSplitsValid, setPaymentSplitsValid] = useState(true);
   const [completeService, setCompleteService] = useState(true);
   const [discountReason, setDiscountReason] = useState("");
   const [mode, setMode] = useState<"single" | "plan">("single");
@@ -239,7 +240,7 @@ export function CollectSingleModal({
             </option>
           ))}
         </select>
-        {mode === "single" && validAmount && <PaymentSplitFields totalAmount={amountNum} primaryMethod={method as PaymentSplitInput["paymentMethod"]} disabled={pending} onChange={setPaymentSplits} />}
+        {mode === "single" && validAmount && <PaymentSplitFields totalAmount={amountNum} primaryMethod={method as PaymentSplitInput["paymentMethod"]} disabled={pending} onChange={setPaymentSplits} onValidityChange={setPaymentSplitsValid} />}
 
         {mode === "single" && <><label className="mb-1 block text-xs font-medium text-earth-600">
           折扣原因 / 備註{discountAmount > 0 ? "" : "（選填）"}
@@ -270,7 +271,7 @@ export function CollectSingleModal({
           <button
             type="button"
             onClick={handleConfirm}
-            disabled={pending || (mode === "single" ? !validAmount || overPaid : !planId)}
+            disabled={pending || (mode === "single" ? !validAmount || overPaid || !paymentSplitsValid : !planId)}
             className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-60"
           >
             {pending ? "處理中..." : mode === "plan" ? "確認轉購方案" : completeService ? "確認收款並完成服務" : "僅確認收款"}

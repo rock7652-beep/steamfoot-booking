@@ -5,6 +5,19 @@ export const paymentMethodValues = ["CASH", "TRANSFER", "LINE_PAY", "CREDIT_CARD
 export type PaymentMethodValue = (typeof paymentMethodValues)[number];
 export type PaymentSplitInput = { paymentMethod: PaymentMethodValue; amount: number };
 
+/** Reset-safe initial state after the total or primary method changes. */
+export function createInitialPaymentSplits(primaryMethod: PaymentMethodValue, totalAmount: number): PaymentSplitInput[] {
+  const fallback = paymentMethodValues.find((method) => method !== primaryMethod)!;
+  return [{ paymentMethod: primaryMethod, amount: totalAmount }, { paymentMethod: fallback, amount: 0 }];
+}
+
+export function isValidPaymentSplitSet(splits: PaymentSplitInput[], totalAmount: number): boolean {
+  return splits.length >= 2 && splits.length <= 5 &&
+    new Set(splits.map((split) => split.paymentMethod)).size === splits.length &&
+    splits.every((split) => Number.isInteger(split.amount) && split.amount > 0) &&
+    splits.reduce((sum, split) => sum + split.amount, 0) === totalAmount;
+}
+
 export const paymentSplitSchema = z.object({
   paymentMethod: z.enum(paymentMethodValues),
   amount: z.number().int().positive("各付款方式金額須大於 0").max(1_000_000),

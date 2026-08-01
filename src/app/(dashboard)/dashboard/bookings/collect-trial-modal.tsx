@@ -79,6 +79,7 @@ export function CollectTrialModal({
   const [amount, setAmount] = useState(String(initialAmount));
   const [method, setMethod] = useState("CASH");
   const [paymentSplits, setPaymentSplits] = useState<PaymentSplitInput[] | undefined>();
+  const [paymentSplitsValid, setPaymentSplitsValid] = useState(true);
   const [completeService, setCompleteService] = useState(true);
   const [pending, startTransition] = useTransition();
 
@@ -227,7 +228,7 @@ export function CollectTrialModal({
             </option>
           ))}
         </select>
-        <PaymentSplitFields totalAmount={Number.isFinite(displayedAmount) ? displayedAmount : 0} primaryMethod={method as PaymentSplitInput["paymentMethod"]} disabled={pending} onChange={setPaymentSplits} />
+        <PaymentSplitFields totalAmount={Number.isFinite(displayedAmount) ? displayedAmount : 0} primaryMethod={method as PaymentSplitInput["paymentMethod"]} disabled={pending} onChange={setPaymentSplits} onValidityChange={setPaymentSplitsValid} />
 
         <div className="flex justify-end gap-2">
           <button
@@ -241,7 +242,7 @@ export function CollectTrialModal({
           <button
             type="button"
             onClick={handleConfirm}
-            disabled={pending}
+            disabled={pending || !paymentSplitsValid}
             className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-60"
           >
             {pending ? "處理中..." : completeService ? "確認收款並完成服務" : "僅確認收款"}

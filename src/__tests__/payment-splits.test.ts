@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizePaymentSplits } from "@/lib/payment-splits";
+import { createInitialPaymentSplits, isValidPaymentSplitSet, normalizePaymentSplits } from "@/lib/payment-splits";
 
 describe("mixed payment validation", () => {
   it("accepts matching two-method totals and preserves one transaction's detail", () => {
@@ -21,6 +21,19 @@ describe("mixed payment validation", () => {
 
   it("keeps legacy single payment requests unchanged", () => {
     expect(normalizePaymentSplits(undefined, 5000)).toBeNull();
+  });
+
+  it("resets safely when the total or primary payment method changes", () => {
+    expect(createInitialPaymentSplits("TRANSFER", 6000)).toEqual([
+      { paymentMethod: "TRANSFER", amount: 6000 },
+      { paymentMethod: "CASH", amount: 0 },
+    ]);
+    expect(isValidPaymentSplitSet([
+      { paymentMethod: "CASH", amount: 2000 },
+      { paymentMethod: "TRANSFER", amount: 3000 },
+      { paymentMethod: "LINE_PAY", amount: 1000 },
+    ], 6000)).toBe(true);
+    expect(isValidPaymentSplitSet(Array.from({ length: 6 }, (_, index) => ({ paymentMethod: "CASH" as const, amount: index + 1 })), 21)).toBe(false);
   });
 
   it("rejects duplicate-only or zero-value split rows", () => {

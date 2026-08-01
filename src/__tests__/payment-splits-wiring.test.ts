@@ -25,4 +25,15 @@ describe("mixed payment wiring", () => {
     expect(drawer).toContain("原付款拆分");
     expect(read("src/app/api/reports/store-revenue/route.ts")).toContain('level === "payment-methods"');
   });
+
+  it("keeps the client split editor safe and connects the live revenue screen", () => {
+    const editor = read("src/components/admin/payment-split-fields.tsx");
+    expect(editor).toContain("splits.length >= 5");
+    expect(editor).toContain("splits.length <= 2");
+    expect(editor).toContain("實收金額或主要付款方式已變更");
+    expect(editor).toContain("onValidityChange");
+    const report = read("src/components/reports/RevenueReportClient.tsx");
+    expect(report).toContain('paymentParams.set("level", "payment-methods")');
+    expect(report).toContain("付款方式拆分");
+  });
 });

@@ -44,6 +44,7 @@ export function AssignPlanForm({ customerId, plans, canDiscount = false, alwaysO
   const [selectedPlanId, setSelectedPlanId] = useState(defaultPlanId ?? "");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("CASH");
   const [paymentSplits, setPaymentSplits] = useState<PaymentSplitInput[] | undefined>();
+  const [paymentSplitsValid, setPaymentSplitsValid] = useState(true);
   const [paymentStatus, setPaymentStatus] = useState<StaffPaymentStatus>("CONFIRMED");
   const [referenceNo, setReferenceNo] = useState("");
   const [bankLast5, setBankLast5] = useState("");
@@ -227,6 +228,7 @@ export function AssignPlanForm({ customerId, plans, canDiscount = false, alwaysO
           primaryMethod={paymentMethod as PaymentSplitInput["paymentMethod"]}
           disabled={pending}
           onChange={setPaymentSplits}
+          onValidityChange={setPaymentSplitsValid}
         />
       )}
 
@@ -495,7 +497,7 @@ export function AssignPlanForm({ customerId, plans, canDiscount = false, alwaysO
       <div className="flex gap-2">
         <button
           type="submit"
-          disabled={pending || !selectedPlanId || isCustomDateInPast}
+          disabled={pending || !selectedPlanId || isCustomDateInPast || !paymentSplitsValid}
           className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-60"
         >
           {pending ? (
