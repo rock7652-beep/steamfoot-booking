@@ -11,15 +11,18 @@ describe("Taichung provider-scoped LINE finalize", () => {
     expect(resolver).not.toContain('if (!authenticatedUserId) {\n    return resolveLineLogin');
   });
 
-  it("uses a provider-aware finalize after password verification", () => {
-    const trigger = read("src/app/(auth)/oauth-confirm/finalize/_components/finalize-trigger.tsx");
-    expect(trigger).toContain("finalizeTaichungProviderLineBind");
-    expect(trigger).toContain("taichungCoordinator");
+  it("uses a provider-aware server route after password verification", () => {
+    const login = read("src/server/actions/oauth-confirm.ts");
+    const finalizeRoute = read("src/app/api/line-oauth/taichung/finalize/route.ts");
+    expect(login).toContain("/api/line-oauth/taichung/finalize?customerId=");
+    expect(finalizeRoute).toContain("prepareTaichungProviderLineBridge");
+    expect(finalizeRoute).toContain("issueTaichungLineSession");
+    expect(finalizeRoute).toContain('new URL("/line-oauth/complete"');
   });
 
   it("hands verified ownership to the signed bridge without writing any identity", () => {
     const finalize = read("src/server/actions/taichung-provider-line-finalize.ts");
-    expect(finalize).toContain("issueTaichungLineSession");
+    expect(finalize).toContain("prepareTaichungProviderLineBridge");
     expect(finalize).not.toContain("customer.update");
     expect(finalize).not.toContain("account.");
     expect(finalize).not.toContain("customerIdentityLink");

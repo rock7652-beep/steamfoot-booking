@@ -411,6 +411,33 @@ describe("auth.ts line-taichung-coordinator provider", () => {
     expect(mockLineOAuthAttemptUpdateMany).toHaveBeenCalledOnce();
   });
 
+  it("fails closed when the same signed bridge is replayed after its first consume", async () => {
+    const authorize = await getCredentialsAuthorize("line-taichung-coordinator");
+    const bridge = {
+      attemptId: "attempt-1",
+      customerId: "customer-taichung",
+      storeId: "store-taichung",
+      userId: "central-user",
+    };
+    mockVerifyTaichungLineSession.mockReturnValue(bridge);
+    mockLineOAuthAttemptUpdateMany
+      .mockResolvedValueOnce({ count: 1 })
+      .mockResolvedValueOnce({ count: 0 });
+    mockResolveCentralUserForStoreCustomer.mockResolvedValue({
+      status: "resolved",
+      source: "identity_link",
+      customer: { id: bridge.customerId, storeId: bridge.storeId, store: { slug: "taichung" }, hasDirectUser: false },
+      user: { id: bridge.userId, name: "Taichung User", email: null, passwordHash: null, role: "CUSTOMER", status: "ACTIVE" },
+    });
+    const request = new Request("https://example.test", {
+      headers: { cookie: "taichung_line_session=bridge" },
+    });
+
+    await expect(authorize({}, request)).resolves.toMatchObject({ id: bridge.userId });
+    await expect(authorize({}, request)).resolves.toBeNull();
+    expect(mockLineOAuthAttemptUpdateMany).toHaveBeenCalledTimes(2);
+  });
+
   it("fails closed when the resolved central User does not own the coordinator bridge", async () => {
     const authorize = await getCredentialsAuthorize("line-taichung-coordinator");
     mockVerifyTaichungLineSession.mockReturnValue({

@@ -20,6 +20,7 @@ import {
 import { linkVerifiedOAuthAccount } from "@/server/services/link-oauth-account";
 import { resolveCentralMemberCustomerForStore } from "@/server/services/central-member-resolver";
 import { resolveCentralUserForStoreCustomer } from "@/server/services/resolve-central-user-for-store-customer";
+import { logTaichungLineHandoff } from "@/lib/line-oauth/taichung-handoff-log";
 
 // ============================================================
 // NextAuth v5 type augmentation
@@ -265,7 +266,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const rawCookie = request.headers.get("cookie")
           ?.split(";").map((v) => v.trim()).find((v) => v.startsWith(`${TAICHUNG_LINE_SESSION_COOKIE}=`))?.slice(TAICHUNG_LINE_SESSION_COOKIE.length + 1);
         const bridge = verifyTaichungLineSession(rawCookie);
-        if (!bridge) return null;
+        if (!bridge) {
+          logTaichungLineHandoff("bridge_replay_rejected", { errorCode: "invalid_bridge" });
+          return null;
+        }
         const claimed = await prisma.lineOAuthAttempt.updateMany({
           where: {
             id: bridge.attemptId,
@@ -275,20 +279,31 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           },
           data: { sessionConsumedAt: new Date() },
         });
-        if (claimed.count !== 1) return null;
+        if (claimed.count !== 1) {
+          logTaichungLineHandoff("bridge_replay_rejected", { ...bridge, errorCode: "attempt_unavailable" });
+          return null;
+        }
+        logTaichungLineHandoff("bridge_consume_succeeded", bridge);
         const resolution = await resolveCentralUserForStoreCustomer({
           customerId: bridge.customerId,
           storeId: bridge.storeId,
         });
-        if (resolution.status !== "resolved") return null;
+        if (resolution.status !== "resolved") {
+          logTaichungLineHandoff("auth_session_failed", { ...bridge, errorCode: "ownership_unresolved" });
+          return null;
+        }
 
         const { customer, user } = resolution;
         if (
           user.id !== bridge.userId ||
           user.role !== "CUSTOMER" ||
           user.status !== "ACTIVE"
-        ) return null;
+        ) {
+          logTaichungLineHandoff("auth_session_failed", { ...bridge, errorCode: "ownership_mismatch" });
+          return null;
+        }
 
+        logTaichungLineHandoff("auth_session_created", bridge);
         return { id: user.id, name: user.name, email: user.email ?? null, role: user.role, staffId: null, customerId: customer.id, storeId: customer.storeId, storeSlug: customer.store.slug };
       },
     }),

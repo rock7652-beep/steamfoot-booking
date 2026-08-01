@@ -2,19 +2,18 @@
 
 import { useEffect, useRef, useState } from "react";
 import { finalizeLineBind } from "@/server/actions/oauth-confirm";
-import { finalizeTaichungProviderLineBind } from "@/server/actions/taichung-provider-line-finalize";
 
 /**
  * /oauth-confirm/finalize 客戶端 trigger
  *
- * onMount 自動完成 LINE 綁定。台中專用 LINE Provider 必須走 provider-aware
- * finalize，其他店維持既有 finalizeLineBind。
+ * This remains for non-Taichung compatibility. Taichung's provider-aware
+ * finalize is a server route so bridge issuance cannot be skipped when a
+ * client effect is interrupted.
  */
 
 interface Props {
   customerId: string;
   callbackUrl: string;
-  taichungCoordinator?: boolean;
 }
 
 type State =
@@ -34,7 +33,6 @@ const ERROR_MESSAGES: Record<string, string> = {
 export function FinalizeTrigger({
   customerId,
   callbackUrl,
-  taichungCoordinator = false,
 }: Props) {
   const [state, setState] = useState<State>({ kind: "binding" });
   const triggered = useRef(false);
@@ -43,11 +41,7 @@ export function FinalizeTrigger({
     if (triggered.current) return;
     triggered.current = true;
 
-    const finalize = taichungCoordinator
-      ? finalizeTaichungProviderLineBind
-      : finalizeLineBind;
-
-    finalize({ customerId, callbackUrl })
+    finalizeLineBind({ customerId, callbackUrl })
       .then((result) => {
         if ("error" in result) {
           setState({
@@ -58,16 +52,12 @@ export function FinalizeTrigger({
         }
 
         setState({ kind: "success" });
-        window.location.href = taichungCoordinator && result.action === "COMPLETE"
-          ? "/line-oauth/complete"
-          : taichungCoordinator
-          ? "/api/line-oauth/taichung/start"
-          : `/api/auth/signin?callbackUrl=${encodeURIComponent(result.callbackUrl)}`;
+        window.location.href = `/api/auth/signin?callbackUrl=${encodeURIComponent(result.callbackUrl)}`;
       })
       .catch(() => {
         setState({ kind: "error", message: "綁定失敗，請稍後再試。" });
       });
-  }, [customerId, callbackUrl, taichungCoordinator]);
+  }, [customerId, callbackUrl]);
 
   if (state.kind === "binding" || state.kind === "success") {
     return (
@@ -86,8 +76,9 @@ export function FinalizeTrigger({
       <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
         {state.message}
       </p>
+      {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
       <a
-        href={taichungCoordinator ? "/api/line-oauth/taichung/start" : "/api/auth/signin/line"}
+        href="/api/auth/signin/line"
         className="mt-4 inline-block rounded-md bg-[#06C755] px-4 py-2 text-sm font-medium text-white hover:bg-[#05b04c]"
       >
         重新登入

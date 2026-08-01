@@ -1,43 +1,58 @@
-"use server";
-
-import { cookies } from "next/headers";
-import { auth } from "@/lib/auth";
-import {
-  issueTaichungLineSession,
-  TAICHUNG_LINE_SESSION_COOKIE,
-  TAICHUNG_LINE_SESSION_MAX_AGE,
-} from "@/lib/line-oauth/taichung-session";
-import {
-  clearOAuthTempSession,
-  getOAuthTempSession,
-} from "@/lib/server/oauth-temp-session";
-import type { FinalizeLineBindResult } from "@/server/actions/oauth-confirm";
+import type { OAuthTempSession } from "@/lib/oauth-temp-session";
 import { resolveCentralUserForStoreCustomer } from "@/server/services/resolve-central-user-for-store-customer";
 
+type CustomerSession = {
+  user?: {
+    id?: string;
+    role?: string;
+    storeId?: string | null;
+    storeSlug?: string | null;
+  };
+} | null;
+
+export type TaichungFinalizeError =
+  | "auth_required"
+  | "session_expired"
+  | "customer_mismatch";
+
+export type TaichungBridgePreparation =
+  | {
+      status: "ready";
+      bridge: {
+        attemptId: string;
+        userId: string;
+        customerId: string;
+        storeId: string;
+        lineUserId: string;
+      };
+    }
+  | { status: "rejected"; error: TaichungFinalizeError };
+
 /**
- * Completes one verified ownership proof. This action runs only after the
- * customer-phone Auth.js session exists and hands it to the signed one-time
- * bridge. The completion endpoint creates line_login only after the bridge
- * mints the store-scoped Auth.js session successfully.
+ * Validates the post-password ownership proof before a route handler issues
+ * the one-time coordinator bridge. This deliberately does not write any
+ * identity: line_login is created only after Auth.js consumes that bridge.
  */
-export async function finalizeTaichungProviderLineBind(input: {
+export async function prepareTaichungProviderLineBridge(input: {
   customerId: string;
-  callbackUrl: string;
-}): Promise<FinalizeLineBindResult> {
-  const nextAuthSession = await auth();
-  const authenticatedUserId = nextAuthSession?.user?.id;
+  session: CustomerSession;
+  tempSession: OAuthTempSession | null;
+}): Promise<TaichungBridgePreparation> {
+  const authenticatedUserId = input.session?.user?.id;
   if (
     !authenticatedUserId ||
-    nextAuthSession.user.role !== "CUSTOMER" ||
-    nextAuthSession.user.storeSlug !== "taichung"
-  ) return { error: "auth_required" };
+    input.session?.user?.role !== "CUSTOMER" ||
+    input.session.user.storeSlug !== "taichung"
+  ) return { status: "rejected", error: "auth_required" };
 
-  const tempSession = await getOAuthTempSession();
-  if (!tempSession || !tempSession.attemptId) return { error: "session_expired" };
+  const tempSession = input.tempSession;
+  if (!tempSession || !tempSession.attemptId) {
+    return { status: "rejected", error: "session_expired" };
+  }
   if (
     tempSession.channelKey !== "taichung" ||
-    nextAuthSession.user.storeId !== tempSession.storeId
-  ) return { error: "customer_mismatch" };
+    input.session.user.storeId !== tempSession.storeId
+  ) return { status: "rejected", error: "customer_mismatch" };
 
   const resolution = await resolveCentralUserForStoreCustomer({
     customerId: input.customerId,
@@ -50,26 +65,16 @@ export async function finalizeTaichungProviderLineBind(input: {
     resolution.user.id !== authenticatedUserId ||
     resolution.user.role !== "CUSTOMER" ||
     resolution.user.status !== "ACTIVE"
-  ) return { error: "customer_mismatch" };
+  ) return { status: "rejected", error: "customer_mismatch" };
 
-  const cookieStore = await cookies();
-  cookieStore.set(
-    TAICHUNG_LINE_SESSION_COOKIE,
-    issueTaichungLineSession({
+  return {
+    status: "ready",
+    bridge: {
       attemptId: tempSession.attemptId,
       userId: resolution.user.id,
       customerId: resolution.customer.id,
       storeId: tempSession.storeId,
       lineUserId: tempSession.lineUserId,
-    }),
-    {
-      httpOnly: true,
-      secure: true,
-      sameSite: "lax",
-      path: "/",
-      maxAge: TAICHUNG_LINE_SESSION_MAX_AGE,
     },
-  );
-  await clearOAuthTempSession();
-  return { status: "BOUND", action: "COMPLETE", callbackUrl: input.callbackUrl };
+  };
 }
