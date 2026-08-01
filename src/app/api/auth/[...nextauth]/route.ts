@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { handlers } from "@/lib/auth";
-import { activateTaichungCustomer, consumeTaichungCallback, isTaichungCoordinatorState, resolveTaichungCustomer, TaichungOAuthError } from "@/lib/line-oauth/taichung-coordinator";
+import { consumeTaichungCallback, isTaichungCoordinatorState, resolveTaichungLinkedCustomer, TaichungOAuthError } from "@/lib/line-oauth/taichung-coordinator";
 import { issueTaichungLineSession, TAICHUNG_LINE_SESSION_COOKIE, TAICHUNG_LINE_SESSION_MAX_AGE } from "@/lib/line-oauth/taichung-session";
 import { setOAuthTempSession } from "@/lib/server/oauth-temp-session";
 import { resolveTaichungCallbackUrl } from "@/lib/line-oauth/callback-url";
@@ -35,7 +35,10 @@ export async function GET(request: NextRequest) {
     const callbackUrl = resolveTaichungCallbackUrl(request.nextUrl.host);
     if (!callbackUrl) return NextResponse.json({ error: "Invalid LINE callback host" }, { status: 400 });
     const { profile, storeId, attemptId } = await consumeTaichungCallback({ state, code, callbackUrl });
-    const customer = await resolveTaichungCustomer(storeId, profile.userId);
+    const customer = await resolveTaichungLinkedCustomer({
+      storeId,
+      lineUserId: profile.userId,
+    });
 
     console.info("[line-oauth][taichung] identity diagnostic", {
       attemptId,
@@ -45,17 +48,15 @@ export async function GET(request: NextRequest) {
     });
 
     if (customer) {
-      const active = await activateTaichungCustomer({ storeId, customerId: customer.id, lineUserId: profile.userId, displayName: profile.displayName });
       const url = new URL("/line-oauth/complete", request.url);
       const response = preserveTaichungStore(NextResponse.redirect(url));
       response.cookies.set(TAICHUNG_LINE_SESSION_COOKIE, issueTaichungLineSession({
-        attemptId: attemptId, userId: active.userId, customerId: active.id, storeId,
+        attemptId: attemptId, userId: customer.userId, customerId: customer.id, storeId,
       }), { httpOnly: true, secure: true, sameSite: "lax", path: "/", maxAge: TAICHUNG_LINE_SESSION_MAX_AGE });
       return response;
     }
-    // No same-store identity/customer: retain the existing verified phone
-    // confirmation path. No Customer, Account, or identity link is written
-    // by the coordinator callback.
+    // No valid same-store identity link: retain the verified phone confirmation
+    // path. No Customer, Account, or identity link is written by the callback.
     await setOAuthTempSession({ lineUserId: profile.userId, displayName: profile.displayName ?? "LINE 用戶", storeId, channelKey: "taichung" });
     return preserveTaichungStore(
       NextResponse.redirect(new URL("/oauth-confirm?callbackUrl=%2Fs%2Ftaichung%2Fbook", request.url)),
