@@ -14,6 +14,11 @@ import {
 export const ZHUBEI_V13_UPGRADE_ID = "messenger-flow-selector-v13";
 export const ZHUBEI_V13_CONFIRMATION = "PUBLISH_ZHUBEI_MESSENGER_V13";
 const CREATE_LEAD_STEP_KEY = "inquiry-create-lead";
+// This one-time publisher performs a scoped lock plus an in-transaction
+// recheck before its immutable nested write. Keep the transaction bounded,
+// but allow enough time for a pooled production connection to complete that
+// contract instead of Prisma's 5s interactive-transaction default.
+const ZHUBEI_V13_TRANSACTION_OPTIONS = { maxWait: 5_000, timeout: 15_000 } as const;
 
 type Candidate = {
   id: string; name: string; storeId: string; currentPublishedVersionId: string | null;
@@ -109,6 +114,7 @@ export async function applyZhubeiMessengerV13Publish(input: { storeId: string; a
     const version = await new DigitalButlerRepository().publishFlow({
       storeId: input.storeId, flowId: before.candidate.id, definition: parsed as Prisma.InputJsonValue,
       diagnosticStages: true,
+      transactionOptions: ZHUBEI_V13_TRANSACTION_OPTIONS,
       draftUpdate: { name: before.candidate.name, definition: parsed as Prisma.InputJsonValue },
       steps: parsed.steps.map((step, position) => ({ stepKey: step.stepKey, position, type: step.type, config: step.config as Prisma.InputJsonValue, required: step.required ?? false })),
       beforePublish: async (tx) => {

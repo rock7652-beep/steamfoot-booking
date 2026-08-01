@@ -99,6 +99,13 @@ export type PublishDigitalButlerFlowInput = {
   beforePublish?: (tx: Prisma.TransactionClient) => Promise<void>;
   /** Enables fixed, safe stage codes for a one-time diagnostic publisher. */
   diagnosticStages?: boolean;
+  /**
+   * Bounded interactive-transaction settings for a privileged publisher.
+   * These are server-owned options; callers cannot supply them through a
+   * client request. They are intentionally opt-in so normal flow publishing
+   * keeps its existing transaction behavior.
+   */
+  transactionOptions?: { maxWait: number; timeout: number };
 };
 
 function publishedFlowVersionCreateData(
@@ -228,8 +235,7 @@ export class DigitalButlerRepository {
 
   async publishFlow(input: PublishDigitalButlerFlowInput) {
     let transactionCallbackCompleted = false;
-    try {
-      return await prisma.$transaction(async (tx) => {
+    const publish = async (tx: Prisma.TransactionClient) => {
       // The version is allocated from the current maximum. Lock this scoped
       // flow row before reading it so concurrent publishers cannot both see
       // the same maximum and attempt to create the same next version.
@@ -288,7 +294,11 @@ export class DigitalButlerRepository {
       }
       transactionCallbackCompleted = true;
       return version;
-      });
+    };
+    try {
+      return await (input.transactionOptions
+        ? prisma.$transaction(publish, input.transactionOptions)
+        : prisma.$transaction(publish));
     } catch (error) {
       if (error instanceof DigitalButlerScopeError || error instanceof DigitalButlerPublishStageError) throw error;
       if (input.diagnosticStages === true && transactionCallbackCompleted) {
