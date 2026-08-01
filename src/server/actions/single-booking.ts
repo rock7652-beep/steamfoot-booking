@@ -11,6 +11,7 @@ import { buildTransactionSnapshot } from "@/lib/transaction-snapshot";
 import { revalidateBookings, revalidateTransactions } from "@/lib/revalidation";
 import { completePaidBookingInTransaction } from "@/server/services/paid-booking-completion";
 import { createBookingCompletedEvent } from "@/server/services/referral-events";
+import { normalizePaymentSplits, paymentSplitCreateData } from "@/lib/payment-splits";
 import type { ActionResult } from "@/types";
 import type { PaymentMethod, TransactionType } from "@prisma/client";
 
@@ -83,6 +84,7 @@ export async function collectSinglePayment(
         ? Number(booking.servicePlan.price)
         : SINGLE_DEFAULT_PRICE;
     const netAmount = data.amount ?? originalAmount;
+    const paymentSplits = normalizePaymentSplits(data.paymentSplits, netAmount);
 
     if (netAmount > originalAmount) {
       throw new AppError("VALIDATION", "實收金額不可高於原價");
@@ -144,6 +146,7 @@ export async function collectSinglePayment(
           soldByStaffId: user.staffId ?? null,
           transactionType: "SINGLE_PURCHASE" as TransactionType,
           paymentMethod: data.paymentMethod as PaymentMethod,
+          ...paymentSplitCreateData(paymentSplits),
           paymentStatus: "SUCCESS",
           paidAt: new Date(),
           amount: netAmount,

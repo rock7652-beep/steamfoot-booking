@@ -23,6 +23,7 @@ import type {
   CashDrawerEntry,
   CashDrawerEntryType,
   CashDrawerDirection,
+  PaymentMethod,
 } from "@prisma/client";
 
 const ZERO = new Prisma.Decimal(0);
@@ -144,38 +145,51 @@ function businessDayWindow(businessDate: Date): { gte: Date; lte: Date } {
 export async function computeCashIncomeForSession(
   session: Pick<CashDrawerSession, "storeId" | "businessDate">,
 ): Promise<Prisma.Decimal> {
-  const result = await prisma.transaction.aggregate({
-    _sum: { amount: true },
-    where: {
-      storeId: session.storeId,
-      paymentMethod: "CASH",
-      transactionType: { in: CASH_INCOME_TYPES as unknown as string[] as never },
-      status: "SUCCESS",
-      paymentStatus: { in: ["SUCCESS", "CONFIRMED"] },
-      voidedAt: null,
-      transactionDate: businessDayWindow(session.businessDate),
-    },
-  });
-  return result._sum.amount ?? ZERO;
+  return computeTransactionIncomeByPaymentMethods(session, ["CASH"]);
+}
+
+/**
+ * New mixed-payment transactions are allocated by their child rows.  The
+ * top-level paymentMethod remains a legacy fallback only, so a CASH +
+ * TRANSFER sale never puts its entire amount into the cash drawer.
+ */
+async function computeTransactionIncomeByPaymentMethods(
+  session: Pick<CashDrawerSession, "storeId" | "businessDate">,
+  paymentMethods: readonly PaymentMethod[],
+): Promise<Prisma.Decimal> {
+  const transactionWhere: Prisma.TransactionWhereInput = {
+    storeId: session.storeId,
+    transactionType: { in: CASH_INCOME_TYPES as unknown as string[] as never },
+    status: "SUCCESS",
+    paymentStatus: { in: ["SUCCESS", "CONFIRMED"] },
+    voidedAt: null,
+    transactionDate: businessDayWindow(session.businessDate),
+  };
+  const [splitResult, legacyResult] = await Promise.all([
+    prisma.transactionPaymentSplit.aggregate({
+      _sum: { amount: true },
+      where: {
+        paymentMethod: { in: [...paymentMethods] },
+        transaction: transactionWhere,
+      },
+    }),
+    prisma.transaction.aggregate({
+      _sum: { amount: true },
+      where: {
+        ...transactionWhere,
+        paymentMethod: { in: [...paymentMethods] },
+        paymentSplits: { none: {} },
+      },
+    }),
+  ]);
+  return (splitResult._sum?.amount ?? ZERO).add(legacyResult._sum?.amount ?? ZERO);
 }
 
 /** 計算 session 營業日的 Transaction 非現金收入（gross，不含退款）— 不影響 expectedClosingCash */
 export async function computeTransactionNonCashIncomeForSession(
   session: Pick<CashDrawerSession, "storeId" | "businessDate">,
 ): Promise<Prisma.Decimal> {
-  const result = await prisma.transaction.aggregate({
-    _sum: { amount: true },
-    where: {
-      storeId: session.storeId,
-      paymentMethod: { in: NON_CASH_INCOME_METHODS as unknown as string[] as never },
-      transactionType: { in: CASH_INCOME_TYPES as unknown as string[] as never },
-      status: "SUCCESS",
-      paymentStatus: { in: ["SUCCESS", "CONFIRMED"] },
-      voidedAt: null,
-      transactionDate: businessDayWindow(session.businessDate),
-    },
-  });
-  return result._sum.amount ?? ZERO;
+  return computeTransactionIncomeByPaymentMethods(session, NON_CASH_INCOME_METHODS);
 }
 
 export async function computeCashbookIncomeOverviewForSession(

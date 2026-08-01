@@ -52,7 +52,12 @@ export async function listTransactions(options: ListTransactionsOptions & { acti
     ...(customerId ? { customerId } : {}),
     ...(transactionType ? { transactionType } : {}),
     ...(!transactionType && excludeSessionDeduction ? { transactionType: { not: "SESSION_DEDUCTION" as TransactionType } } : {}),
-    ...(paymentMethod ? { paymentMethod } : {}),
+    ...(paymentMethod ? {
+      OR: [
+        { paymentSplits: { some: { paymentMethod } } },
+        { paymentSplits: { none: {} }, paymentMethod },
+      ],
+    } : {}),
     ...(dateFrom || dateTo
       ? {
           createdAt: {
@@ -123,6 +128,7 @@ export async function getTransactionDetail(transactionId: string) {
         orderBy: { createdAt: "asc" },
         include: { actor: { select: { id: true, name: true } } },
       },
+      paymentSplits: { select: { paymentMethod: true, amount: true }, orderBy: { createdAt: "asc" } },
     },
   });
   if (!tx) throw new AppError("NOT_FOUND", "交易紀錄不存在");

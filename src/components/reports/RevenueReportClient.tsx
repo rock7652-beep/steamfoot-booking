@@ -78,6 +78,7 @@ interface DetailRow {
   createdByName: string | null;
   createdAt: string;
 }
+interface PaymentMethodSummary { paymentMethod: string; amount: number }
 
 type ReportMode = "store" | "coach";
 
@@ -164,6 +165,7 @@ export function RevenueReportClient({
   const [details, setDetails] = useState<DetailRow[]>([]);
   const [detailTotal, setDetailTotal] = useState(0);
   const [detailPage, setDetailPage] = useState(1);
+  const [paymentMethodSummary, setPaymentMethodSummary] = useState<PaymentMethodSummary[]>([]);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<"summary" | "details">("summary");
   const [dateError, setDateError] = useState<string | null>(null);
@@ -210,6 +212,16 @@ export function RevenueReportClient({
       setKpi(summaryData.kpi);
       if (mode === "store") {
         setStoreSummary(summaryData.summary);
+        // Payment totals use TransactionPaymentSplit when present and the legacy
+        // transaction field otherwise. Do not apply the detail-only method filter:
+        // this table is the actual payment-method breakdown for the selected period.
+        const paymentParams = buildParams();
+        paymentParams.delete("paymentMethod");
+        paymentParams.set("level", "payment-methods");
+        const paymentRes = await fetch(`/api/reports/store-revenue?${paymentParams.toString()}`);
+        if (!paymentRes.ok) throw new Error("付款方式彙總查詢失敗");
+        const paymentData = await paymentRes.json();
+        setPaymentMethodSummary(paymentData.paymentMethods);
       } else {
         setCoachSummary(summaryData.summary);
       }
@@ -543,6 +555,20 @@ export function RevenueReportClient({
                 </tbody>
               </table>
             </div>
+          )}
+
+          {mode === "store" && (
+            <section className="mt-4 rounded-xl border border-earth-200 bg-white p-4">
+              <h3 className="text-sm font-semibold text-earth-800">付款方式拆分</h3>
+              <p className="mt-1 text-xs text-earth-500">混合付款依各付款明細金額分攤；單一付款歷史交易沿用原付款方式。</p>
+              {paymentMethodSummary.length === 0 ? (
+                <p className="mt-3 text-sm text-earth-400">本期尚無付款資料</p>
+              ) : (
+                <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {paymentMethodSummary.map((row) => <div key={row.paymentMethod} className="rounded-lg bg-earth-50 px-3 py-2"><p className="text-xs text-earth-500">{fmtPayment(row.paymentMethod)}</p><p className="mt-1 font-semibold tabular-nums text-earth-900">NT$ {fmtMoney(row.amount)}</p></div>)}
+                </div>
+              )}
+            </section>
           )}
 
           {mode === "coach" && coachSummary.length === 0 && (

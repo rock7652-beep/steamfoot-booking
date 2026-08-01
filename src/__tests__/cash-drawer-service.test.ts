@@ -23,6 +23,7 @@ const {
   mockEntryFindMany,
   mockEntryCreate,
   mockTxAggregate,
+  mockPaymentSplitAggregate,
   mockTransactionCreate,
   mockTransactionUpdate,
   mockCashbookCreate,
@@ -38,6 +39,7 @@ const {
     mockEntryFindMany: vi.fn(),
     mockEntryCreate: vi.fn(),
     mockTxAggregate: vi.fn(),
+    mockPaymentSplitAggregate: vi.fn(),
     mockTransactionCreate: vi.fn(),
     mockTransactionUpdate: vi.fn(),
     mockCashbookCreate: vi.fn(),
@@ -59,6 +61,9 @@ const {
       aggregate: (...a: unknown[]) => fns.mockTxAggregate(...a),
       create: (...a: unknown[]) => fns.mockTransactionCreate(...a),
       update: (...a: unknown[]) => fns.mockTransactionUpdate(...a),
+    },
+    transactionPaymentSplit: {
+      aggregate: (...a: unknown[]) => fns.mockPaymentSplitAggregate(...a),
     },
     cashbookEntry: {
       create: (...a: unknown[]) => fns.mockCashbookCreate(...a),
@@ -110,6 +115,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   // Defaults — aggregate returns null（無資料）
   mockTxAggregate.mockResolvedValue({ _sum: { amount: null } });
+  mockPaymentSplitAggregate.mockResolvedValue({ _sum: { amount: null } });
   mockEntryFindMany.mockResolvedValue([]);
   // PR-3：預設無現金帳異動，個別測試可覆寫
   mockCashbookGroupBy.mockResolvedValue([]);
@@ -456,17 +462,32 @@ describe("computeCashIncomeForSession", () => {
     expect(result.toNumber()).toBe(8000);
   });
 
-  it("過濾條件包含 paymentMethod=CASH / status=SUCCESS / voidedAt=null", async () => {
+  it("新交易以 CASH 拆分額、歷史交易以 paymentMethod=CASH 加總", async () => {
     mockTxAggregate.mockResolvedValue({ _sum: { amount: null } });
     await computeCashIncomeForSession({
       storeId: STORE_A,
       businessDate: new Date(Date.UTC(2026, 4, 13)),
     });
     const call = mockTxAggregate.mock.calls[0][0] as { where: Record<string, unknown> };
-    expect(call.where.paymentMethod).toBe("CASH");
+    expect(call.where.paymentMethod).toEqual({ in: ["CASH"] });
+    expect(call.where.paymentSplits).toEqual({ none: {} });
     expect(call.where.status).toBe("SUCCESS");
     expect(call.where.voidedAt).toBe(null);
     expect(call.where.storeId).toBe(STORE_A);
+  });
+
+  it("混合付款只把現金拆分額計入抽屜，歷史單一付款維持原額", async () => {
+    mockPaymentSplitAggregate.mockResolvedValue({ _sum: { amount: D(2000) } });
+    mockTxAggregate.mockResolvedValue({ _sum: { amount: D(800) } });
+
+    const result = await computeCashIncomeForSession({
+      storeId: STORE_A,
+      businessDate: new Date(Date.UTC(2026, 4, 13)),
+    });
+
+    expect(result.toNumber()).toBe(2800);
+    const splitCall = mockPaymentSplitAggregate.mock.calls[0][0] as { where: { paymentMethod: { in: string[] } } };
+    expect(splitCall.where.paymentMethod.in).toEqual(["CASH"]);
   });
 
   it("transactionType filter 含 REVENUE_TYPES，不含 REFUND / SESSION_DEDUCTION / MANUAL_USED_BACKFILL / PAPER_MIGRATION / ADJUSTMENT", async () => {
@@ -556,7 +577,7 @@ describe("computeCashIncomeForSession", () => {
       mockTxAggregate.mockResolvedValue({ _sum: { amount: null } });
       await computeCashIncomeForSession({ storeId: STORE_A, businessDate });
       const call = mockTxAggregate.mock.calls[0][0] as { where: Record<string, unknown> };
-      expect(call.where.paymentMethod).toBe("CASH");
+      expect(call.where.paymentMethod).toEqual({ in: ["CASH"] });
     });
 
     it("case 5：作廢交易 → 由 voidedAt=null 過濾排除", async () => {
@@ -652,6 +673,18 @@ describe("computeTransactionNonCashIncomeForSession / computePaymentOverviewForS
     expect(call.where.transactionType.in).not.toContain("MANUAL_USED_BACKFILL");
     expect(call.where.transactionType.in).not.toContain("PAPER_MIGRATION");
     expect(call.where.transactionType.in).not.toContain("ADJUSTMENT");
+  });
+
+  it("混合付款的非現金收入只計入非現金拆分額", async () => {
+    mockPaymentSplitAggregate.mockResolvedValue({ _sum: { amount: D(3000) } });
+    mockTxAggregate.mockResolvedValue({ _sum: { amount: D(1500) } });
+
+    const result = await computeTransactionNonCashIncomeForSession({
+      storeId: STORE_A,
+      businessDate: new Date(Date.UTC(2026, 4, 13)),
+    });
+
+    expect(result.toNumber()).toBe(4500);
   });
 
   it("Cashbook INCOME 依 CASH / OTHER 分組，且排除支出、提領、調整", async () => {

@@ -30,6 +30,7 @@ import {
   assertSameStore,
 } from "@/lib/store-consistency";
 import { buildTransactionSnapshot } from "@/lib/transaction-snapshot";
+import { normalizePaymentSplits, paymentSplitCreateData } from "@/lib/payment-splits";
 import { awardFirstTopupReferralPointsIfEligible } from "@/server/services/referral-points";
 import { resolveCustomerStaffAssignment } from "@/server/services/customer-assignment";
 import {
@@ -130,6 +131,7 @@ export async function assignPlanToCustomer(
 
     // 計算實收金額
     const finalAmount = calculateFinalAmount(originalPrice, discountType, discountValue);
+    const paymentSplits = normalizePaymentSplits(data.paymentSplits, finalAmount);
 
     // 決定 transactionType
     const txType =
@@ -214,6 +216,7 @@ export async function assignPlanToCustomer(
           soldByStaffId: user.staffId ?? null, // 紀錄本次操作/成交店長
           transactionType: txType,
           paymentMethod: data.paymentMethod,
+          ...paymentSplitCreateData(paymentSplits),
           paymentStatus,                          // PR-3：PENDING (TRANSFER/UNPAID) or SUCCESS
           paidAt,                                  // PR-3：null (PENDING) or now
           referenceNo: data.referenceNo ?? null,   // PR-3：轉帳參考號
