@@ -1,5 +1,6 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { prisma } from "@/lib/db";
+import { resolveCentralUserForStoreCustomer } from "@/server/services/resolve-central-user-for-store-customer";
 
 const STATE_PREFIX = "tc1";
 const ATTEMPT_TTL_MS = 10 * 60 * 1000;
@@ -183,57 +184,52 @@ export async function consumeTaichungCallback(input: {
   return { profile, storeId: payload.storeId, attemptId: payload.attemptId };
 }
 
-export async function resolveTaichungCustomer(storeId: string, lineUserId: string) {
-  const link = await prisma.customerIdentityLink.findUnique({
-    where: { uq_customer_identity_provider_store: { provider: "line", providerAccountId: lineUserId, storeId } },
-    select: { customer: { select: { id: true, userId: true, mergedIntoCustomerId: true } } },
-  });
-  if (link?.customer && !link.customer.mergedIntoCustomerId) return link.customer;
-  return prisma.customer.findFirst({
-    where: { storeId, lineUserId, mergedIntoCustomerId: null },
-    select: { id: true, userId: true, mergedIntoCustomerId: true },
-  });
-}
-
-// A confirmed Taiwan flow may have just claimed a safe, inactive placeholder
-// through /oauth-confirm.  Activate that exact same Customer and create the
-// store-scoped link atomically.  This intentionally does not create or alter
-// the legacy global `Account(provider=line)` record.
-export async function activateTaichungCustomer(input: {
+/**
+ * Resolve a previously verified, store-scoped LINE identity for the callback
+ * bridge.  This is intentionally read-only: an existing identity link is
+ * sufficient to authenticate again, while first-time binding remains in the
+ * phone-and-password confirmation flow.
+ */
+export async function resolveTaichungLinkedCustomer(input: {
   storeId: string;
-  customerId: string;
   lineUserId: string;
-  displayName?: string;
-}): Promise<{ id: string; userId: string }> {
-  return prisma.$transaction(async (tx) => {
-    const customer = await tx.customer.findFirst({
-      where: { id: input.customerId, storeId: input.storeId, lineUserId: input.lineUserId, mergedIntoCustomerId: null },
-      select: { id: true, userId: true, name: true, phone: true },
-    });
-    if (!customer) throw new TaichungOAuthError("Taiwan customer context no longer matches");
-    const conflictingLink = await tx.customerIdentityLink.findUnique({
-      where: { uq_customer_identity_provider_store: { provider: "line", providerAccountId: input.lineUserId, storeId: input.storeId } },
-      select: { customerId: true, userId: true },
-    });
-    if (conflictingLink && conflictingLink.customerId !== customer.id) throw new TaichungOAuthError("LINE identity is linked to another Taiwan customer");
-
-    // Store-scoped identity links are the source of truth for multi-store members.
-    // A central User may already belong to another store's Customer, so do not
-    // create a duplicate User or force the same User.id into Customer.userId.
-    const linkedUserId = conflictingLink?.userId;
-    const userId = customer.userId ?? linkedUserId ?? (await tx.user.create({
-      data: { name: customer.name || input.displayName || "LINE 用戶", phone: customer.phone, role: "CUSTOMER", status: "ACTIVE" },
-      select: { id: true },
-    })).id;
-    if (!customer.userId && !linkedUserId) {
-      const updated = await tx.customer.updateMany({ where: { id: customer.id, userId: null }, data: { userId } });
-      if (updated.count !== 1) throw new TaichungOAuthError("Taiwan customer was changed concurrently");
-    }
-    if (!conflictingLink) {
-      await tx.customerIdentityLink.create({ data: { userId, storeId: input.storeId, customerId: customer.id, provider: "line", providerAccountId: input.lineUserId, lineUserId: input.lineUserId } });
-    }
-    return { id: customer.id, userId };
+}): Promise<{ id: string; userId: string } | null> {
+  const link = await prisma.customerIdentityLink.findUnique({
+    where: {
+      uq_customer_identity_provider_store: {
+        provider: "line",
+        providerAccountId: input.lineUserId,
+        storeId: input.storeId,
+      },
+    },
+    select: {
+      customerId: true,
+      userId: true,
+      customer: { select: { id: true, storeId: true, mergedIntoCustomerId: true } },
+    },
   });
+  if (
+    !link?.customer ||
+    link.customer.mergedIntoCustomerId ||
+    link.customer.storeId !== input.storeId
+  ) return null;
+
+  const resolution = await resolveCentralUserForStoreCustomer({
+    customerId: link.customerId,
+    storeId: input.storeId,
+  });
+  if (resolution.status !== "resolved") return null;
+
+  const { customer, user } = resolution;
+  if (
+    customer.id !== link.customerId ||
+    customer.storeId !== input.storeId ||
+    user.id !== link.userId ||
+    user.role !== "CUSTOMER" ||
+    user.status !== "ACTIVE"
+  ) return null;
+
+  return { id: customer.id, userId: user.id };
 }
 
 export function isTaichungCoordinatorState(state: string | null): boolean {

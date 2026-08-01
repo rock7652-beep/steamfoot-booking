@@ -373,6 +373,44 @@ describe("auth.ts customer-phone provider", () => {
 });
 
 describe("auth.ts line-taichung-coordinator provider", () => {
+  it("creates a fresh Taichung customer session from a valid one-time bridge", async () => {
+    const authorize = await getCredentialsAuthorize("line-taichung-coordinator");
+    mockVerifyTaichungLineSession.mockReturnValue({
+      attemptId: "attempt-1",
+      customerId: "customer-taichung",
+      storeId: "store-taichung",
+      userId: "central-user",
+    });
+    mockResolveCentralUserForStoreCustomer.mockResolvedValueOnce({
+      status: "resolved",
+      source: "identity_link",
+      customer: {
+        id: "customer-taichung",
+        storeId: "store-taichung",
+        store: { slug: "taichung" },
+        hasDirectUser: false,
+      },
+      user: {
+        id: "central-user",
+        name: "Taichung User",
+        email: null,
+        passwordHash: null,
+        role: "CUSTOMER",
+        status: "ACTIVE",
+      },
+    });
+
+    await expect(authorize({}, new Request("https://example.test", {
+      headers: { cookie: "taichung_line_session=bridge" },
+    }))).resolves.toMatchObject({
+      id: "central-user",
+      customerId: "customer-taichung",
+      storeId: "store-taichung",
+      storeSlug: "taichung",
+    });
+    expect(mockLineOAuthAttemptUpdateMany).toHaveBeenCalledOnce();
+  });
+
   it("fails closed when the resolved central User does not own the coordinator bridge", async () => {
     const authorize = await getCredentialsAuthorize("line-taichung-coordinator");
     mockVerifyTaichungLineSession.mockReturnValue({
@@ -408,6 +446,38 @@ describe("auth.ts line-taichung-coordinator provider", () => {
       customerId: "customer-hsinchu",
       storeId: STORE.id,
     });
+  });
+
+  it("rejects an inactive bridge owner", async () => {
+    const authorize = await getCredentialsAuthorize("line-taichung-coordinator");
+    mockVerifyTaichungLineSession.mockReturnValue({
+      attemptId: "attempt-1",
+      customerId: "customer-taichung",
+      storeId: "store-taichung",
+      userId: "central-user",
+    });
+    mockResolveCentralUserForStoreCustomer.mockResolvedValueOnce({
+      status: "resolved",
+      source: "identity_link",
+      customer: {
+        id: "customer-taichung",
+        storeId: "store-taichung",
+        store: { slug: "taichung" },
+        hasDirectUser: false,
+      },
+      user: {
+        id: "central-user",
+        name: "Inactive User",
+        email: null,
+        passwordHash: null,
+        role: "CUSTOMER",
+        status: "INACTIVE",
+      },
+    });
+
+    await expect(authorize({}, new Request("https://example.test", {
+      headers: { cookie: "taichung_line_session=bridge" },
+    }))).resolves.toBeNull();
   });
 });
 
