@@ -30,6 +30,10 @@ export type CustomerIdentityLinkSyncResult =
 export async function upsertCustomerIdentityLink(
   input: UpsertCustomerIdentityLinkInput,
 ): Promise<CustomerIdentityLinkSyncResult> {
+  // TRANSITIONAL / DEPRECATED: existing callers may still write provider="line"
+  // while PR 2 (LINE Login) and PR 3 (Messaging) move them to
+  // createVerifiedCustomerIdentityLink. Do not add new callers here.
+  // This function intentionally preserves legacy runtime behavior in PR 1.
   const db = input.tx ?? prisma;
   if (
     !input.userId ||
