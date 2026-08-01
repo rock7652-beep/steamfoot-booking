@@ -75,6 +75,24 @@ describe("Zhubei Messenger v13 publish service diagnostics", () => {
       .not.toHaveProperty("requestTypeFromStepKey");
   });
 
+  it("publishes a normalized clone for the known v12 legacy required flags", async () => {
+    const legacy = structuredClone(definition);
+    const name = legacy.steps.find((step) => step.stepKey === "inquiry-name");
+    const phone = legacy.steps.find((step) => step.stepKey === "inquiry-phone");
+    if (!name || !phone) throw new Error("fixture is missing legacy contact steps");
+    delete name.required;
+    delete phone.required;
+    setCandidate(legacy);
+
+    await applyZhubeiMessengerV13Publish({ storeId: "store-zhubei", actorUserId: "owner-1" });
+
+    const input = h.publishFlow.mock.calls[0]?.[0];
+    expect(input.definition.steps.find((step: { stepKey: string }) => step.stepKey === "inquiry-name").required).toBe(true);
+    expect(input.definition.steps.find((step: { stepKey: string }) => step.stepKey === "inquiry-phone").required).toBe(true);
+    expect(legacy.steps.find((step) => step.stepKey === "inquiry-name")).not.toHaveProperty("required");
+    expect(legacy.steps.find((step) => step.stepKey === "inquiry-phone")).not.toHaveProperty("required");
+  });
+
   it("does not start a publish transaction when the active version is already upgraded", async () => {
     const upgraded = structuredClone(definition);
     const createLead = upgraded.steps.find((step) => step.stepKey === "inquiry-create-lead") as { config: Record<string, unknown> } | undefined;
