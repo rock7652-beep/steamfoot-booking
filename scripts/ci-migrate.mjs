@@ -1,9 +1,15 @@
 import { execFileSync } from "node:child_process";
 import { readdirSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 const EXPECTED_ENVIRONMENT = "production";
 const EXPECTED_PROJECT_REF = "qijlnhtpbintanzpxkvf";
-const EXPECTED_MIGRATION = "20260801090000_add_transaction_payment_splits";
+export const EXPECTED_MIGRATIONS = [
+  "20260729090000_add_messenger_audit_runs",
+  "20260801090000_add_transaction_payment_splits",
+];
+const PENDING_MIGRATIONS_HEADER =
+  "Following migrations have not yet been applied:";
 
 function abort(message) {
   console.error(`ci-migrate: abort: ${message}`);
@@ -49,11 +55,27 @@ function runPrisma(args, allowFailure = false) {
   }
 }
 
-function pendingMigrations(statusOutput) {
+export function pendingMigrations(statusOutput) {
+  const headerIndex = statusOutput.indexOf(PENDING_MIGRATIONS_HEADER);
+  if (headerIndex === -1) return [];
+
+  const pendingSection = statusOutput.slice(
+    headerIndex + PENDING_MIGRATIONS_HEADER.length,
+  );
   return readdirSync("prisma/migrations", { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
     .map((entry) => entry.name)
-    .filter((name) => statusOutput.includes(name));
+    .map((name) => ({ name, index: pendingSection.indexOf(name) }))
+    .filter((entry) => entry.index >= 0)
+    .sort((left, right) => left.index - right.index)
+    .map((entry) => entry.name);
+}
+
+export function hasExpectedMigrations(pending) {
+  return (
+    pending.length === EXPECTED_MIGRATIONS.length &&
+    pending.every((name, index) => name === EXPECTED_MIGRATIONS[index])
+  );
 }
 
 function main() {
@@ -82,21 +104,24 @@ function main() {
     status.exitCode === 0 &&
     status.output.includes("Database schema is up to date")
   ) {
-    console.log("ci-migrate: target migration is already applied; skipping deploy");
+    console.log("ci-migrate: approved migrations are already applied; skipping deploy");
     return;
   }
 
   if (
     status.exitCode !== 1 ||
-    !status.output.includes("Following migration have not yet been applied") ||
-    pending.length !== 1 ||
-    pending[0] !== EXPECTED_MIGRATION
+    !status.output.includes(PENDING_MIGRATIONS_HEADER) ||
+    !hasExpectedMigrations(pending)
   ) {
     process.stderr.write(status.output);
-    abort(`expected exactly one pending migration: ${EXPECTED_MIGRATION}`);
+    abort(
+      `expected fixed pending migration sequence: ${EXPECTED_MIGRATIONS.join(", ")}`,
+    );
   }
 
-  console.log(`ci-migrate: applying ${EXPECTED_MIGRATION}`);
+  console.log(
+    `ci-migrate: applying fixed migration sequence: ${EXPECTED_MIGRATIONS.join(", ")}`,
+  );
   const deploy = runPrisma(["migrate", "deploy"]);
   process.stdout.write(deploy.output);
 
@@ -108,4 +133,6 @@ function main() {
   console.log("ci-migrate: schema is up to date");
 }
 
-main();
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  main();
+}
