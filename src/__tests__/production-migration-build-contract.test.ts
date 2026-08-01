@@ -38,12 +38,18 @@ describe("Production migration build guard", () => {
     expect(result.stderr).toContain("DATABASE_URL is missing");
   });
 
-  it("allows only the payment-split migration on the approved Production pooler", () => {
+  it("allows only the payment-split migration on the approved Production poolers", () => {
     expect(script).toContain('const EXPECTED_PROJECT_REF = "qijlnhtpbintanzpxkvf"');
     expect(script).toContain('const EXPECTED_MIGRATION = "20260801090000_add_transaction_payment_splits"');
-    expect(script).toContain('url.port !== "5432"');
+    expect(script).toContain('"DATABASE_URL",\n    "6543"');
+    expect(script).toContain('"DIRECT_URL",\n    "5432"');
     expect(script).toContain("pending.length !== 1");
     expect(script).toContain('runPrisma(["migrate", "deploy"])');
+  });
+
+  it("allows a later build to continue after the target migration is applied", () => {
+    expect(script).toContain("status.exitCode === 0");
+    expect(script).toContain("target migration is already applied; skipping deploy");
   });
 
   it("does not provide a manual SQL fallback", () => {

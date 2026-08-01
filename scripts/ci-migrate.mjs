@@ -10,7 +10,7 @@ function abort(message) {
   process.exit(1);
 }
 
-function projectRefFromConnectionString(value, variableName) {
+function projectRefFromConnectionString(value, variableName, expectedPort) {
   if (!value) abort(`${variableName} is missing in the Production build environment`);
 
   let url;
@@ -23,8 +23,8 @@ function projectRefFromConnectionString(value, variableName) {
   if (!["postgres:", "postgresql:"].includes(url.protocol)) {
     abort(`${variableName} does not use a PostgreSQL protocol`);
   }
-  if (url.port !== "5432") {
-    abort(`${variableName} is not using the approved Session pooler port`);
+  if (url.port !== expectedPort) {
+    abort(`${variableName} is not using its approved pooler port`);
   }
 
   const match = url.username.match(/^postgres\.([a-z0-9]+)$/);
@@ -62,14 +62,30 @@ function main() {
     return;
   }
 
-  const databaseRef = projectRefFromConnectionString(process.env.DATABASE_URL, "DATABASE_URL");
-  const directRef = projectRefFromConnectionString(process.env.DIRECT_URL, "DIRECT_URL");
+  const databaseRef = projectRefFromConnectionString(
+    process.env.DATABASE_URL,
+    "DATABASE_URL",
+    "6543",
+  );
+  const directRef = projectRefFromConnectionString(
+    process.env.DIRECT_URL,
+    "DIRECT_URL",
+    "5432",
+  );
   if (databaseRef !== EXPECTED_PROJECT_REF || directRef !== EXPECTED_PROJECT_REF) {
     abort("connection strings do not both target the approved Production project");
   }
 
   const status = runPrisma(["migrate", "status"], true);
   const pending = pendingMigrations(status.output);
+  if (
+    status.exitCode === 0 &&
+    status.output.includes("Database schema is up to date")
+  ) {
+    console.log("ci-migrate: target migration is already applied; skipping deploy");
+    return;
+  }
+
   if (
     status.exitCode !== 1 ||
     !status.output.includes("Following migration have not yet been applied") ||
