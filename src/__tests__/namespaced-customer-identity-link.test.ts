@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const findCustomer = vi.fn();
 const findLink = vi.fn();
+const findLinks = vi.fn();
 const upsertLink = vi.fn();
 
 vi.mock("@/lib/db", () => ({
@@ -9,6 +10,7 @@ vi.mock("@/lib/db", () => ({
     customer: { findUnique: (...args: unknown[]) => findCustomer(...args) },
     customerIdentityLink: {
       findUnique: (...args: unknown[]) => findLink(...args),
+      findMany: (...args: unknown[]) => findLinks(...args),
       upsert: (...args: unknown[]) => upsertLink(...args),
     },
   },
@@ -39,6 +41,7 @@ beforeEach(() => {
     mergedIntoCustomerId: null,
   });
   findLink.mockResolvedValue(null);
+  findLinks.mockResolvedValue([]);
   upsertLink.mockResolvedValue({});
 });
 
@@ -91,7 +94,7 @@ describe("createVerifiedCustomerIdentityLink", () => {
     const accountUpsert = vi.fn();
     const tx = {
       customer: { findUnique: findCustomer, update: customerUpdate },
-      customerIdentityLink: { findUnique: findLink, upsert: upsertLink },
+      customerIdentityLink: { findMany: findLinks, findUnique: findLink, upsert: upsertLink },
       account: { upsert: accountUpsert },
     };
 
@@ -127,6 +130,14 @@ describe("createVerifiedCustomerIdentityLink", () => {
 
     await expect(createVerifiedCustomerIdentityLink({ ...base, provider: "line_login" }))
       .resolves.toEqual({ status: "error", error: "CUSTOMER_STORE_MISMATCH" });
+    expect(upsertLink).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when a LINE Login subject is held in any other store", async () => {
+    findLinks.mockResolvedValueOnce([{ userId: base.userId, customerId: base.customerId, storeId: "store-zhubei" }]);
+
+    await expect(createVerifiedCustomerIdentityLink({ ...base, provider: "line_login" }))
+      .resolves.toEqual({ status: "error", error: "LINE_LOGIN_GLOBAL_IDENTITY_CONFLICT" });
     expect(upsertLink).not.toHaveBeenCalled();
   });
 

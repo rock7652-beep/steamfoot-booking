@@ -54,6 +54,8 @@ export const OAUTH_TEMP_TTL_MS = OAUTH_TEMP_TTL_SECONDS * 1000;
  * createdAt / expiresAt 由 sign 端寫入；verify 端用 expiresAt（簽進去的）做 TTL 判斷。
  */
 export type OAuthTempSession = {
+  /** Coordinator attempt that verified this LINE Login subject, if applicable. */
+  attemptId?: string;
   lineUserId: string;
   displayName: string;
   storeId: string;
@@ -69,7 +71,7 @@ export type OAuthTempSession = {
  */
 export type OAuthTempSessionInput = Pick<
   OAuthTempSession,
-  "lineUserId" | "displayName" | "storeId" | "channelKey"
+  "attemptId" | "lineUserId" | "displayName" | "storeId" | "channelKey"
 >;
 
 /**
@@ -95,7 +97,8 @@ export function isOAuthTempSessionShape(v: unknown): v is OAuthTempSession {
     typeof o.nonce === "string" &&
     typeof o.createdAt === "number" &&
     typeof o.expiresAt === "number" &&
-    (o.channelKey === undefined || o.channelKey === "taichung")
+    (o.channelKey === undefined || o.channelKey === "taichung") &&
+    (o.attemptId === undefined || typeof o.attemptId === "string")
   );
 }
 

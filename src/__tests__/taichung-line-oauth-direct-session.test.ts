@@ -80,6 +80,7 @@ describe("Taichung LINE callback direct session", () => {
       displayName: "LINE User",
       storeId: "store-taichung",
       channelKey: "taichung",
+      attemptId: "attempt-1",
     });
     expect(response.headers.get("location")).toBe(
       "https://www.steamfoot.com/oauth-confirm?callbackUrl=%2Fs%2Ftaichung%2Fbook",

@@ -276,7 +276,7 @@ export async function oauthConfirmLoginAction(
 //   main 但無 caller、是 dead code，這支接上後 finalize 流程正式 atomic。
 
 export type FinalizeLineBindResult =
-  | { status: "BOUND"; action: "RELOGIN"; callbackUrl: string }
+  | { status: "BOUND"; action: "RELOGIN" | "COMPLETE"; callbackUrl: string }
   | {
       error:
         | "session_expired"

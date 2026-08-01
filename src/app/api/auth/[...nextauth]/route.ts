@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
     }
     // No valid same-store identity link: retain the verified phone confirmation
     // path. No Customer, Account, or identity link is written by the callback.
-    await setOAuthTempSession({ lineUserId: profile.userId, displayName: profile.displayName ?? "LINE 用戶", storeId, channelKey: "taichung" });
+    await setOAuthTempSession({ attemptId, lineUserId: profile.userId, displayName: profile.displayName ?? "LINE 用戶", storeId, channelKey: "taichung" });
     return preserveTaichungStore(
       NextResponse.redirect(new URL("/oauth-confirm?callbackUrl=%2Fs%2Ftaichung%2Fbook", request.url)),
     );

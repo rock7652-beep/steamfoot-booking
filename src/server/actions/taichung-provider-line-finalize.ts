@@ -1,17 +1,24 @@
 "use server";
 
-import { Prisma } from "@prisma/client";
+import { cookies } from "next/headers";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/db";
+import {
+  issueTaichungLineSession,
+  TAICHUNG_LINE_SESSION_COOKIE,
+  TAICHUNG_LINE_SESSION_MAX_AGE,
+} from "@/lib/line-oauth/taichung-session";
 import {
   clearOAuthTempSession,
   getOAuthTempSession,
 } from "@/lib/server/oauth-temp-session";
 import type { FinalizeLineBindResult } from "@/server/actions/oauth-confirm";
+import { resolveCentralUserForStoreCustomer } from "@/server/services/resolve-central-user-for-store-customer";
 
 /**
- * Finalizes a Taichung provider-scoped LINE identity after the existing
- * customer-password gate has authenticated the central User.
+ * Completes one verified ownership proof. This action runs only after the
+ * customer-phone Auth.js session exists and hands it to the signed one-time
+ * bridge. The completion endpoint creates line_login only after the bridge
+ * mints the store-scoped Auth.js session successfully.
  */
 export async function finalizeTaichungProviderLineBind(input: {
   customerId: string;
@@ -19,120 +26,50 @@ export async function finalizeTaichungProviderLineBind(input: {
 }): Promise<FinalizeLineBindResult> {
   const nextAuthSession = await auth();
   const authenticatedUserId = nextAuthSession?.user?.id;
-  if (!authenticatedUserId) return { error: "auth_required" };
+  if (
+    !authenticatedUserId ||
+    nextAuthSession.user.role !== "CUSTOMER" ||
+    nextAuthSession.user.storeSlug !== "taichung"
+  ) return { error: "auth_required" };
 
   const tempSession = await getOAuthTempSession();
-  if (!tempSession) return { error: "session_expired" };
-  if (tempSession.channelKey !== "taichung") {
-    return { error: "customer_mismatch" };
-  }
+  if (!tempSession || !tempSession.attemptId) return { error: "session_expired" };
+  if (
+    tempSession.channelKey !== "taichung" ||
+    nextAuthSession.user.storeId !== tempSession.storeId
+  ) return { error: "customer_mismatch" };
 
-  const customer = await prisma.customer.findFirst({
-    where: {
-      id: input.customerId,
-      storeId: tempSession.storeId,
-      mergedIntoCustomerId: null,
-    },
-    select: {
-      id: true,
-      identityLinks: {
-        where: { provider: "line" },
-        select: { id: true, userId: true },
-        take: 1,
-      },
-    },
-  });
-  const link = customer?.identityLinks[0];
-  if (!customer || !link || link.userId !== authenticatedUserId) {
-    return { error: "customer_mismatch" };
-  }
-
-  const conflictingLink = await prisma.customerIdentityLink.findUnique({
-    where: {
-      uq_customer_identity_provider_store: {
-        provider: "line",
-        providerAccountId: tempSession.lineUserId,
-        storeId: tempSession.storeId,
-      },
-    },
-    select: { customerId: true, userId: true },
+  const resolution = await resolveCentralUserForStoreCustomer({
+    customerId: input.customerId,
+    storeId: tempSession.storeId,
   });
   if (
-    conflictingLink &&
-    (conflictingLink.customerId !== customer.id ||
-      conflictingLink.userId !== authenticatedUserId)
-  ) {
-    return { error: "line_already_bound_other" };
-  }
+    resolution.status !== "resolved" ||
+    resolution.customer.id !== input.customerId ||
+    resolution.customer.storeId !== tempSession.storeId ||
+    resolution.user.id !== authenticatedUserId ||
+    resolution.user.role !== "CUSTOMER" ||
+    resolution.user.status !== "ACTIVE"
+  ) return { error: "customer_mismatch" };
 
-  const otherCustomer = await prisma.customer.findFirst({
-    where: {
+  const cookieStore = await cookies();
+  cookieStore.set(
+    TAICHUNG_LINE_SESSION_COOKIE,
+    issueTaichungLineSession({
+      attemptId: tempSession.attemptId,
+      userId: resolution.user.id,
+      customerId: resolution.customer.id,
       storeId: tempSession.storeId,
       lineUserId: tempSession.lineUserId,
-      id: { not: customer.id },
-      mergedIntoCustomerId: null,
+    }),
+    {
+      httpOnly: true,
+      secure: true,
+      sameSite: "lax",
+      path: "/",
+      maxAge: TAICHUNG_LINE_SESSION_MAX_AGE,
     },
-    select: { id: true },
-  });
-  if (otherCustomer) return { error: "line_already_bound_other" };
-
-  try {
-    await prisma.$transaction(
-      async (tx) => {
-        const lockedLink = await tx.customerIdentityLink.findUnique({
-          where: { id: link.id },
-          select: {
-            customerId: true,
-            userId: true,
-            storeId: true,
-            provider: true,
-          },
-        });
-        if (
-          !lockedLink ||
-          lockedLink.customerId !== customer.id ||
-          lockedLink.userId !== authenticatedUserId ||
-          lockedLink.storeId !== tempSession.storeId ||
-          lockedLink.provider !== "line"
-        ) {
-          throw new Error("TAICHUNG_IDENTITY_CONTEXT_CHANGED");
-        }
-
-        await tx.customer.update({
-          where: { id: customer.id },
-          data: {
-            lineUserId: tempSession.lineUserId,
-            lineLinkStatus: "LINKED",
-            lineLinkedAt: new Date(),
-            lineName: tempSession.displayName,
-            authSource: "LINE",
-          },
-        });
-
-        await tx.customerIdentityLink.update({
-          where: { id: link.id },
-          data: {
-            providerAccountId: tempSession.lineUserId,
-            lineUserId: tempSession.lineUserId,
-          },
-        });
-      },
-      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
-    );
-  } catch (error) {
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      (error.code === "P2002" || error.code === "P2034")
-    ) {
-      return { error: "bind_conflict" };
-    }
-    throw error;
-  }
-
+  );
   await clearOAuthTempSession();
-  return {
-    status: "BOUND",
-    action: "RELOGIN",
-    callbackUrl: input.callbackUrl,
-  };
+  return { status: "BOUND", action: "COMPLETE", callbackUrl: input.callbackUrl };
 }
