@@ -57,7 +57,7 @@ export default async function DigitalButlerLeadsPage({ searchParams }: PageProps
     <PageShell>
       <PageHeader
         title="數位管家名單"
-        subtitle="查看各來源流程完成名單、分派負責人並記錄後續結果"
+        subtitle="查看顧客需求、指派負責人並更新處理進度"
       />
       <DigitalButlerLeadList
         leads={leads}
