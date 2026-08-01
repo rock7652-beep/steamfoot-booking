@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { signOut } from "next-auth/react";
 
 export default function CustomerBookError({
   reset,
@@ -29,12 +29,13 @@ export default function CustomerBookError({
           >
             重新載入
           </button>
-          <Link
-            href={`/s/${storeSlug}/`}
+          <button
+            type="button"
+            onClick={() => signOut({ callbackUrl: `/s/${storeSlug}/` })}
             className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-earth-200 px-5 text-sm font-semibold text-earth-700 hover:bg-earth-50"
           >
-            回到登入頁
-          </Link>
+            登出並重新登入
+          </button>
         </div>
       </div>
     </section>
