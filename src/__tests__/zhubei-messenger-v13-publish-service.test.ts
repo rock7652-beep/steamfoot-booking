@@ -9,6 +9,13 @@ const h = vi.hoisted(() => ({
       this.code = input.code;
     }
   },
+  PublishStageError: class PublishStageError extends Error {
+    code: string;
+    constructor(code: string) {
+      super(`DIGITAL_BUTLER_PUBLISH_${code}`);
+      this.code = code;
+    }
+  },
 }));
 
 vi.mock("@prisma/client", () => ({
@@ -25,6 +32,7 @@ vi.mock("@/lib/db", () => ({
 vi.mock("@/server/repositories/digital-butler", () => ({
   DigitalButlerRepository: class { publishFlow = h.publishFlow; },
   DigitalButlerScopeError: class DigitalButlerScopeError extends Error {},
+  DigitalButlerPublishStageError: h.PublishStageError,
 }));
 
 import {
@@ -69,6 +77,7 @@ describe("Zhubei Messenger v13 publish service diagnostics", () => {
       .resolves.toMatchObject({ result: "PUBLISHED", version: { id: "version-13", version: 13 } });
     expect(h.publishFlow).toHaveBeenCalledTimes(1);
     const input = h.publishFlow.mock.calls[0]?.[0];
+    expect(input.diagnosticStages).toBe(true);
     expect(input.definition.steps.find((step: { stepKey: string }) => step.stepKey === "inquiry-create-lead").config)
       .toMatchObject({ requestTypeFromStepKey: "menu" });
     expect(definition.steps.find((step) => step.stepKey === "inquiry-create-lead")?.config)
@@ -116,5 +125,12 @@ describe("Zhubei Messenger v13 publish service diagnostics", () => {
     expect(classifyZhubeiV13PublishFailure(new Error("ZHUBEI_INQUIRY_CREATE_LEAD_STEP_NOT_FOUND"))).toBe("DEFINITION_INVALID");
     expect(classifyZhubeiV13PublishFailure(new h.PrismaError("unique", { code: "P2002" }))).toBe("DATABASE_CONSTRAINT");
     expect(classifyZhubeiV13PublishFailure(new h.PrismaError("conflict", { code: "P2034" }))).toBe("TRANSACTION_FAILED");
+  });
+
+  it("exposes only a fixed transaction stage code", () => {
+    expect(classifyZhubeiV13PublishFailure(new h.PublishStageError("AUDIT_CREATE_FAILED")))
+      .toBe("AUDIT_CREATE_FAILED");
+    expect(classifyZhubeiV13PublishFailure(new h.PublishStageError("TRANSACTION_COMMIT_FAILED")))
+      .toBe("TRANSACTION_COMMIT_FAILED");
   });
 });

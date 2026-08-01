@@ -4,7 +4,12 @@ import { DigitalButlerDefinitionError, parseDigitalButlerDraftDefinition } from 
 import { isLeadCollectionTrigger } from "@/lib/digital-butler-lead-collection-upgrade";
 import { hasZhubeiMessengerCompletionSelector, repairZhubeiMessengerCompletionSelector } from "@/lib/zhubei-messenger-completion-selector-upgrade";
 import { prisma } from "@/lib/db";
-import { DigitalButlerRepository, DigitalButlerScopeError } from "@/server/repositories/digital-butler";
+import {
+  DigitalButlerPublishStageError,
+  DigitalButlerRepository,
+  DigitalButlerScopeError,
+  type DigitalButlerPublishStageCode,
+} from "@/server/repositories/digital-butler";
 
 export const ZHUBEI_V13_UPGRADE_ID = "messenger-flow-selector-v13";
 export const ZHUBEI_V13_CONFIRMATION = "PUBLISH_ZHUBEI_MESSENGER_V13";
@@ -30,9 +35,11 @@ export type ZhubeiV13PublishFailureCode =
   | "PRECONDITION_CHANGED"
   | "DEFINITION_INVALID"
   | "DATABASE_CONSTRAINT"
-  | "TRANSACTION_FAILED";
+  | "TRANSACTION_FAILED"
+  | DigitalButlerPublishStageCode;
 
 export function classifyZhubeiV13PublishFailure(error: unknown): ZhubeiV13PublishFailureCode {
+  if (error instanceof DigitalButlerPublishStageError) return error.code;
   if (error instanceof ZhubeiV13PublishError || error instanceof DigitalButlerScopeError) {
     return "PRECONDITION_CHANGED";
   }
@@ -101,6 +108,7 @@ export async function applyZhubeiMessengerV13Publish(input: { storeId: string; a
   try {
     const version = await new DigitalButlerRepository().publishFlow({
       storeId: input.storeId, flowId: before.candidate.id, definition: parsed as Prisma.InputJsonValue,
+      diagnosticStages: true,
       draftUpdate: { name: before.candidate.name, definition: parsed as Prisma.InputJsonValue },
       steps: parsed.steps.map((step, position) => ({ stepKey: step.stepKey, position, type: step.type, config: step.config as Prisma.InputJsonValue, required: step.required ?? false })),
       beforePublish: async (tx) => {

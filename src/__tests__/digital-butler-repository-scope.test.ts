@@ -20,7 +20,11 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
-import { DigitalButlerRepository, DigitalButlerScopeError } from "@/server/repositories/digital-butler";
+import {
+  DigitalButlerPublishStageError,
+  DigitalButlerRepository,
+  DigitalButlerScopeError,
+} from "@/server/repositories/digital-butler";
 
 function encryptedPhone() {
   return {
@@ -133,6 +137,19 @@ describe("DigitalButlerRepository cross-store isolation", () => {
     expect(beforePublish).toHaveBeenCalledTimes(1);
     expect(beforePublish.mock.invocationCallOrder[0]).toBeGreaterThan(h.flowUpdateMany.mock.invocationCallOrder[0]);
     expect(beforePublish.mock.invocationCallOrder[0]).toBeLessThan(h.flowVersionAggregate.mock.invocationCallOrder[0]);
+  });
+
+  it("redacts a version-and-steps create failure to its fixed publish stage", async () => {
+    h.flowUpdateMany.mockResolvedValue({ count: 1 });
+    h.flowVersionAggregate.mockResolvedValue({ _max: { version: 12 } });
+    h.flowVersionCreate.mockRejectedValue(new Error("database detail must not escape"));
+
+    await expect(new DigitalButlerRepository().publishFlow({
+      storeId: "store-a", flowId: "flow-a", definition: { trigger: { keywords: ["測試"] }, steps: [] }, steps: [], diagnosticStages: true,
+    })).rejects.toEqual(expect.objectContaining({
+      name: "DigitalButlerPublishStageError",
+      code: "VERSION_AND_STEPS_CREATE_FAILED",
+    } satisfies Partial<DigitalButlerPublishStageError>));
   });
 
   it("loads the published preview from the current version's ordered step rows", async () => {
