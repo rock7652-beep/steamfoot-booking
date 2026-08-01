@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const h = vi.hoisted(() => ({
   requirePermission: vi.fn(), resolveWriteStoreId: vi.fn(), findStore: vi.fn(),
-  preview: vi.fn(), apply: vi.fn(), revalidatePath: vi.fn(),
+  preview: vi.fn(), apply: vi.fn(), classify: vi.fn(), revalidatePath: vi.fn(),
 }));
 
 vi.mock("next/cache", () => ({ revalidatePath: h.revalidatePath }));
@@ -13,6 +13,7 @@ vi.mock("@/server/services/zhubei-messenger-v13-publish", () => ({
   ZHUBEI_V13_CONFIRMATION: "PUBLISH_ZHUBEI_MESSENGER_V13",
   previewZhubeiMessengerV13Publish: h.preview,
   applyZhubeiMessengerV13Publish: h.apply,
+  classifyZhubeiV13PublishFailure: h.classify,
 }));
 
 import { applyZhubeiMessengerV13PublishAction, previewZhubeiMessengerV13PublishAction } from "@/app/(dashboard)/dashboard/settings/messenger-audit/flow-v13-publish-actions";
@@ -27,6 +28,7 @@ describe("Zhubei Messenger v13 publish action", () => {
     h.findStore.mockResolvedValue({ id: "store-zhubei", slug: "zhubei" });
     h.preview.mockResolvedValue({ preview });
     h.apply.mockResolvedValue({ result: "PUBLISHED", preview, version: { id: "version-13", version: 13 } });
+    h.classify.mockReturnValue("TRANSACTION_FAILED");
   });
 
   it("lets only the scoped OWNER perform a read-only preview", async () => {
@@ -51,5 +53,19 @@ describe("Zhubei Messenger v13 publish action", () => {
     await expect(applyZhubeiMessengerV13PublishAction("PUBLISH_ZHUBEI_MESSENGER_V13")).resolves.toMatchObject({ success: true, result: "PUBLISHED", version: { version: 13 } });
     expect(h.apply).toHaveBeenCalledWith({ storeId: "store-zhubei", actorUserId: "owner-1" });
     expect(h.revalidatePath).toHaveBeenCalledWith("/dashboard/settings/messenger-audit");
+  });
+
+  it("returns and logs only a classified safe code when apply fails", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    h.apply.mockRejectedValue(new Error("raw database failure must not reach the client"));
+
+    await expect(applyZhubeiMessengerV13PublishAction("PUBLISH_ZHUBEI_MESSENGER_V13")).resolves.toEqual({
+      success: false,
+      error: "目前無法安全發布 Messenger Flow v13。",
+      code: "TRANSACTION_FAILED",
+    });
+    expect(h.classify).toHaveBeenCalled();
+    expect(log).toHaveBeenCalledWith("zhubei_messenger_v13_publish_apply_failed", { code: "TRANSACTION_FAILED" });
+    expect(JSON.stringify(log.mock.calls)).not.toContain("raw database failure");
   });
 });

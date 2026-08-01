@@ -18,7 +18,7 @@ export function FlowV13PublishPanel() {
   });
   const apply = () => startTransition(async () => {
     const result = await applyZhubeiMessengerV13PublishAction(confirmation);
-    if (!result.success) return setMessage(result.error);
+    if (!result.success) return setMessage(`${result.error}（${result.code}）`);
     setMessage(result.result === "ALREADY_UPGRADED" ? "流程已升級；未建立新版本。" : `已安全發布 v${result.version.version}。`);
     setPreview(result.preview); setConfirmation("");
   });
