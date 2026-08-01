@@ -63,6 +63,7 @@ describe("Taichung LINE callback direct session", () => {
       customerId: "customer-taichung",
       storeId: "store-taichung",
       userId: "central-user",
+      lineUserId: "line-user",
     });
     expect(mockSetOAuthTempSession).not.toHaveBeenCalled();
     expect(response.headers.get("location")).toBe("https://www.steamfoot.com/line-oauth/complete");

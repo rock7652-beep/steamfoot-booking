@@ -193,7 +193,7 @@ export async function consumeTaichungCallback(input: {
 export async function resolveTaichungLinkedCustomer(input: {
   storeId: string;
   lineUserId: string;
-}): Promise<{ id: string; userId: string } | null> {
+}): Promise<{ id: string; userId: string; source: "identity_link" | "legacy_customer" } | null> {
   const link = await prisma.customerIdentityLink.findUnique({
     where: {
       uq_customer_identity_provider_store: {
@@ -208,28 +208,50 @@ export async function resolveTaichungLinkedCustomer(input: {
       customer: { select: { id: true, storeId: true, mergedIntoCustomerId: true } },
     },
   });
-  if (
-    !link?.customer ||
-    link.customer.mergedIntoCustomerId ||
-    link.customer.storeId !== input.storeId
-  ) return null;
+  if (link?.customer && !link.customer.mergedIntoCustomerId && link.customer.storeId === input.storeId) {
+    const resolution = await resolveCentralUserForStoreCustomer({
+      customerId: link.customerId,
+      storeId: input.storeId,
+    });
+    if (
+      resolution.status === "resolved" &&
+      resolution.customer.id === link.customerId &&
+      resolution.customer.storeId === input.storeId &&
+      resolution.user.id === link.userId &&
+      resolution.user.role === "CUSTOMER" &&
+      resolution.user.status === "ACTIVE"
+    ) {
+      return { id: resolution.customer.id, userId: resolution.user.id, source: "identity_link" };
+    }
+    return null;
+  }
+
+  // Compatibility path for members linked before CustomerIdentityLink existed.
+  // Customer.lineUserId is only a candidate: central ownership is resolved and
+  // checked below before a signed session bridge is ever issued.
+  const legacyCustomer = await prisma.customer.findFirst({
+    where: {
+      storeId: input.storeId,
+      lineUserId: input.lineUserId,
+      mergedIntoCustomerId: null,
+    },
+    select: { id: true, storeId: true, mergedIntoCustomerId: true },
+  });
+  if (!legacyCustomer || legacyCustomer.storeId !== input.storeId || legacyCustomer.mergedIntoCustomerId) return null;
 
   const resolution = await resolveCentralUserForStoreCustomer({
-    customerId: link.customerId,
+    customerId: legacyCustomer.id,
     storeId: input.storeId,
   });
-  if (resolution.status !== "resolved") return null;
-
-  const { customer, user } = resolution;
   if (
-    customer.id !== link.customerId ||
-    customer.storeId !== input.storeId ||
-    user.id !== link.userId ||
-    user.role !== "CUSTOMER" ||
-    user.status !== "ACTIVE"
+    resolution.status !== "resolved" ||
+    resolution.customer.id !== legacyCustomer.id ||
+    resolution.customer.storeId !== input.storeId ||
+    resolution.user.role !== "CUSTOMER" ||
+    resolution.user.status !== "ACTIVE"
   ) return null;
 
-  return { id: customer.id, userId: user.id };
+  return { id: resolution.customer.id, userId: resolution.user.id, source: "legacy_customer" };
 }
 
 export function isTaichungCoordinatorState(state: string | null): boolean {
