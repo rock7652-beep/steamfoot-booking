@@ -2,6 +2,10 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const authSource = readFileSync("src/lib/auth.ts", "utf8");
+const centralUserResolverSource = readFileSync(
+  "src/server/services/resolve-central-user-for-store-customer.ts",
+  "utf8",
+);
 const customerAuthSource = readFileSync("src/server/actions/customer-auth.ts", "utf8");
 const registerSource = readFileSync("src/app/(auth)/register/page.tsx", "utf8");
 const oauthConfirmSource = readFileSync("src/server/actions/oauth-confirm.ts", "utf8");
@@ -25,10 +29,25 @@ describe("PR-7 login customer creation gate", () => {
     expect(customerAuthSource).toContain("entryPoint: \"phone_password\"");
   });
 
-  it("logs in a linked second-store phone membership through the central User", () => {
-    expect(authSource).toContain("customer?.user ?? customer?.identityLinks[0]?.user");
-    expect(authSource).toContain("where: { provider: \"phone\", providerAccountId: phone }");
-    expect(authSource).toContain("if (customer.user)");
+  it("resolves a linked second-store phone membership through the central User", () => {
+    expect(authSource).toContain("resolveCentralUserForStoreCustomer({\n            storeId,\n            phone,");
+    expect(authSource).toContain('if (resolution.status !== "resolved") return null');
+    expect(authSource).toContain('centralUser.role !== "CUSTOMER"');
+    expect(authSource).toContain('centralUser.status !== "ACTIVE"');
+    expect(authSource).toContain("!centralUser.passwordHash");
+
+    // Store ownership is resolved through every valid identity link, not a
+    // phone-provider-only fallback. Multiple owners must fail closed.
+    expect(centralUserResolverSource).toContain("customer.identityLinks.map");
+    expect(centralUserResolverSource).toContain("if (linkedUsers.size !== 1)");
+    expect(centralUserResolverSource).not.toContain('provider: "phone"');
+
+    // A credentials JWT must describe the current store Customer, while the
+    // legacy direct-User repair remains unavailable to linked-only Customers.
+    expect(authSource).toContain("if (customer.hasDirectUser)");
+    expect(authSource).toContain("customerId: customer.id");
+    expect(authSource).toContain("storeId: customer.storeId");
+    expect(authSource).toContain("storeSlug: customer.store?.slug ?? null");
   });
 
   it("blocks an already-linked membership in the target store", () => {
