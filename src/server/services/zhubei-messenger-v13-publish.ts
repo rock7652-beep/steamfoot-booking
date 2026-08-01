@@ -118,7 +118,13 @@ export async function applyZhubeiMessengerV13Publish(input: { storeId: string; a
       draftUpdate: { name: before.candidate.name, definition: parsed as Prisma.InputJsonValue },
       steps: parsed.steps.map((step, position) => ({ stepKey: step.stepKey, position, type: step.type, config: step.config as Prisma.InputJsonValue, required: step.required ?? false })),
       beforePublish: async (tx) => {
-        const locked = await inspect(input.storeId, tx);
+        let locked: Awaited<ReturnType<typeof inspect>>;
+        try {
+          locked = await inspect(input.storeId, tx);
+        } catch (error) {
+          if (error instanceof ZhubeiV13PublishError || error instanceof DigitalButlerScopeError || error instanceof DigitalButlerPublishStageError) throw error;
+          throw new DigitalButlerPublishStageError("PRE_PUBLISH_CHECK_FAILED");
+        }
         if (locked.preview.status === "ALREADY_UPGRADED") throw new ZhubeiV13PublishError("ZHUBEI_V13_ALREADY_UPGRADED");
         if (locked.preview.status !== "READY") throw new ZhubeiV13PublishError("ZHUBEI_V13_PRECONDITION_CHANGED");
       },

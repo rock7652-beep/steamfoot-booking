@@ -121,6 +121,16 @@ describe("Zhubei Messenger v13 publish service diagnostics", () => {
     expect(classifyZhubeiV13PublishFailure(error)).toBe("PRECONDITION_CHANGED");
   });
 
+  it("reports a failed in-transaction recheck without exposing its database detail", async () => {
+    await applyZhubeiMessengerV13Publish({ storeId: "store-zhubei", actorUserId: "owner-1" });
+    const input = h.publishFlow.mock.calls[0]?.[0];
+    const error = await input.beforePublish({
+      storeDigitalButlerFlow: { findMany: vi.fn().mockRejectedValue(new Error("SENSITIVE_DATABASE_DETAIL")) },
+    }).catch((value: unknown) => value);
+    expect(classifyZhubeiV13PublishFailure(error)).toBe("PRE_PUBLISH_CHECK_FAILED");
+    expect(error.message).not.toContain("SENSITIVE_DATABASE_DETAIL");
+  });
+
   it("classifies invalid definitions, database constraints, and transaction failures", () => {
     expect(classifyZhubeiV13PublishFailure(new DigitalButlerDefinitionError("流程格式不正確"))).toBe("DEFINITION_INVALID");
     expect(classifyZhubeiV13PublishFailure(new Error("ZHUBEI_INQUIRY_CREATE_LEAD_STEP_NOT_FOUND"))).toBe("DEFINITION_INVALID");
@@ -129,6 +139,10 @@ describe("Zhubei Messenger v13 publish service diagnostics", () => {
   });
 
   it("exposes only a fixed transaction stage code", () => {
+    expect(classifyZhubeiV13PublishFailure(new h.PublishStageError("TRANSACTION_BEGIN_FAILED")))
+      .toBe("TRANSACTION_BEGIN_FAILED");
+    expect(classifyZhubeiV13PublishFailure(new h.PublishStageError("PRE_PUBLISH_CHECK_FAILED")))
+      .toBe("PRE_PUBLISH_CHECK_FAILED");
     expect(classifyZhubeiV13PublishFailure(new h.PublishStageError("AUDIT_CREATE_FAILED")))
       .toBe("AUDIT_CREATE_FAILED");
     expect(classifyZhubeiV13PublishFailure(new h.PublishStageError("TRANSACTION_COMMIT_FAILED")))

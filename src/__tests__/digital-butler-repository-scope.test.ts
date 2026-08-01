@@ -203,13 +203,13 @@ describe("DigitalButlerRepository cross-store isolation", () => {
     expect(h.auditCreate).not.toHaveBeenCalled();
   });
 
-  it("distinguishes a transaction begin failure from a callback failure without invoking the callback", async () => {
+  it("reports a transaction begin or maxWait failure without invoking the callback", async () => {
     const beginError = new Error("BEGIN_FAILED");
     const runner: DigitalButlerTransactionRunner = async () => { throw beginError; };
     await expect(new DigitalButlerRepository(runner).publishFlow({
       storeId: "store-a", flowId: "flow-a", definition: {}, steps: [], diagnosticStages: true,
       transactionOptions: { maxWait: 5_000, timeout: 15_000 },
-    })).rejects.toBe(beginError);
+    })).rejects.toMatchObject({ code: "TRANSACTION_BEGIN_FAILED" });
     expect(h.flowUpdateMany).not.toHaveBeenCalled();
   });
 

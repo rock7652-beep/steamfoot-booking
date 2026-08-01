@@ -19,7 +19,9 @@ export class DigitalButlerScopeError extends Error {
  * a useful diagnostic without exposing database or definition details.
  */
 export type DigitalButlerPublishStageCode =
+  | "TRANSACTION_BEGIN_FAILED"
   | "FLOW_LOCK_FAILED"
+  | "PRE_PUBLISH_CHECK_FAILED"
   | "DRAFT_UPDATE_FAILED"
   | "VERSION_ALLOCATION_FAILED"
   | "VERSION_AND_STEPS_CREATE_FAILED"
@@ -36,7 +38,7 @@ export class DigitalButlerPublishStageError extends Error {
 
 async function publishStage<T>(
   enabled: boolean,
-  code: Exclude<DigitalButlerPublishStageCode, "TRANSACTION_COMMIT_FAILED">,
+  code: Exclude<DigitalButlerPublishStageCode, "TRANSACTION_BEGIN_FAILED" | "TRANSACTION_COMMIT_FAILED">,
   operation: () => Promise<T>,
 ): Promise<T> {
   try {
@@ -242,8 +244,10 @@ export class DigitalButlerRepository {
   }
 
   async publishFlow(input: PublishDigitalButlerFlowInput) {
+    let transactionCallbackStarted = false;
     let transactionCallbackCompleted = false;
     const publish = async (tx: Prisma.TransactionClient) => {
+      transactionCallbackStarted = true;
       // The version is allocated from the current maximum. Lock this scoped
       // flow row before reading it so concurrent publishers cannot both see
       // the same maximum and attempt to create the same next version.
@@ -307,6 +311,9 @@ export class DigitalButlerRepository {
       return await this.runTransaction(publish, input.transactionOptions);
     } catch (error) {
       if (error instanceof DigitalButlerScopeError || error instanceof DigitalButlerPublishStageError) throw error;
+      if (input.diagnosticStages === true && !transactionCallbackStarted) {
+        throw new DigitalButlerPublishStageError("TRANSACTION_BEGIN_FAILED");
+      }
       if (input.diagnosticStages === true && transactionCallbackCompleted) {
         throw new DigitalButlerPublishStageError("TRANSACTION_COMMIT_FAILED");
       }
