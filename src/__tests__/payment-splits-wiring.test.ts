@@ -28,8 +28,8 @@ describe("mixed payment wiring", () => {
 
   it("keeps the client split editor safe and connects the live revenue screen", () => {
     const editor = read("src/components/admin/payment-split-fields.tsx");
-    expect(editor).toContain("splits.length >= 5");
-    expect(editor).toContain("splits.length <= 2");
+    expect(editor).toContain("displayedSplits.length >= 5");
+    expect(editor).toContain("displayedSplits.length <= 2");
     expect(editor).toContain("實收金額或主要付款方式已變更");
     expect(editor).toContain("onValidityChange");
     const report = read("src/components/reports/RevenueReportClient.tsx");
