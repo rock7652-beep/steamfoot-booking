@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/permissions";
 import { resolveWriteStoreId } from "@/lib/store";
-import { applyZhubeiMessengerV13Publish, previewZhubeiMessengerV13Publish, ZHUBEI_V13_CONFIRMATION } from "@/server/services/zhubei-messenger-v13-publish";
+import { applyZhubeiMessengerV13Publish, classifyZhubeiV13PublishFailure, previewZhubeiMessengerV13Publish, ZHUBEI_V13_CONFIRMATION } from "@/server/services/zhubei-messenger-v13-publish";
 
 async function ownerZhubeiContext() {
   const user = await requirePermission("plans.edit");
@@ -32,7 +32,10 @@ export async function applyZhubeiMessengerV13PublishAction(confirmation: string)
     const result = await applyZhubeiMessengerV13Publish({ storeId, actorUserId });
     revalidatePath("/dashboard/settings/messenger-audit");
     return { success: true as const, result: result.result, version: { id: result.version.id, version: result.version.version }, preview: result.preview };
-  } catch {
-    return { success: false as const, error: "目前無法安全發布 Messenger Flow v13。" };
+  } catch (error) {
+    const code = classifyZhubeiV13PublishFailure(error);
+    // The code is deliberately finite and contains no database, flow, or customer data.
+    console.error("zhubei_messenger_v13_publish_apply_failed", { code });
+    return { success: false as const, error: "目前無法安全發布 Messenger Flow v13。", code };
   }
 }

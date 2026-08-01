@@ -1,10 +1,10 @@
 import { createHash } from "node:crypto";
 import { Prisma } from "@prisma/client";
-import { parseDigitalButlerDraftDefinition } from "@/lib/digital-butler-flow-definition";
+import { DigitalButlerDefinitionError, parseDigitalButlerDraftDefinition } from "@/lib/digital-butler-flow-definition";
 import { isLeadCollectionTrigger } from "@/lib/digital-butler-lead-collection-upgrade";
 import { hasZhubeiMessengerCompletionSelector, repairZhubeiMessengerCompletionSelector } from "@/lib/zhubei-messenger-completion-selector-upgrade";
 import { prisma } from "@/lib/db";
-import { DigitalButlerRepository } from "@/server/repositories/digital-butler";
+import { DigitalButlerRepository, DigitalButlerScopeError } from "@/server/repositories/digital-butler";
 
 export const ZHUBEI_V13_UPGRADE_ID = "messenger-flow-selector-v13";
 export const ZHUBEI_V13_CONFIRMATION = "PUBLISH_ZHUBEI_MESSENGER_V13";
@@ -24,6 +24,29 @@ export type V13Preview = {
 };
 
 export class ZhubeiV13PublishError extends Error {}
+
+/** Safe diagnostic categories: no database details or flow content are exposed. */
+export type ZhubeiV13PublishFailureCode =
+  | "PRECONDITION_CHANGED"
+  | "DEFINITION_INVALID"
+  | "DATABASE_CONSTRAINT"
+  | "TRANSACTION_FAILED";
+
+export function classifyZhubeiV13PublishFailure(error: unknown): ZhubeiV13PublishFailureCode {
+  if (error instanceof ZhubeiV13PublishError || error instanceof DigitalButlerScopeError) {
+    return "PRECONDITION_CHANGED";
+  }
+  if (error instanceof DigitalButlerDefinitionError) return "DEFINITION_INVALID";
+  if (error instanceof Error && error.message.startsWith("ZHUBEI_INQUIRY_CREATE_LEAD_STEP_")) {
+    return "DEFINITION_INVALID";
+  }
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    return error.code === "P2028" || error.code === "P2034"
+      ? "TRANSACTION_FAILED"
+      : "DATABASE_CONSTRAINT";
+  }
+  return "TRANSACTION_FAILED";
+}
 
 function object(value: Prisma.JsonValue): Record<string, Prisma.JsonValue> {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, Prisma.JsonValue> : {};
