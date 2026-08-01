@@ -569,6 +569,13 @@ export interface BindLineToExistingCustomerByIdInput {
   /** LINE displayName for Customer.lineName; null is allowed. */
   lineName: string | null;
   /**
+   * Set only by the OAuth callback after it has resolved an exact,
+   * store-scoped CustomerIdentityLink for this Login subject, Customer and
+   * User.  Messaging API IDs on Customer.lineUserId are a different channel
+   * identity and must not veto that verified Login mapping.
+   */
+  trustedLoginIdentityLink?: boolean;
+  /**
    * PR-G5.5.b: optional full OAuth Account bundle for callers that have
    * the LINE access_token / refresh_token / id_token from a fresh
    * OAuth handshake (auth.ts Case A signIn callback).
@@ -947,6 +954,26 @@ export async function bindLineToExistingCustomerById(
         // oauth-confirm caller's 4-field minimal row.
         oauthAccount: input.oauthAccount,
       });
+    }
+
+    // A verified, exact CustomerIdentityLink is the LINE Login ownership
+    // authority. Only after normal same-channel handling do we allow it to
+    // bypass a different Customer.lineUserId, which belongs to Messaging API.
+    // Account absence/foreign ownership is still a controlled refusal.
+    if (input.trustedLoginIdentityLink) {
+      const existingAccount = await prisma.account.findUnique({
+        where: { provider_providerAccountId: { provider: "line", providerAccountId: input.lineUserId } },
+        select: { userId: true },
+      });
+      if (existingAccount?.userId === customerUserId) {
+        return { status: "already_synced", customerId: customer.id, userId: customerUserId };
+      }
+      console.warn("[bindLineToExistingCustomerById] customer_locked (verified-link account mismatch)", {
+        storeId: maskId(input.storeId), customerId: maskId(customer.id),
+        lineUserId: maskLineUserId(input.lineUserId),
+        accountState: existingAccount ? "other_user" : "missing",
+      });
+      return { status: "customer_locked", customerId: customer.id, existingLineUserId: null };
     }
 
     // 5b. Different lineUserId already attached → reject.

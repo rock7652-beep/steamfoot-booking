@@ -638,6 +638,42 @@ describe("customer_locked (Customer.lineUserId set to a different lineUserId)", 
     expect(mockTx).not.toHaveBeenCalled();
     expect(mockAccountFindUnique).not.toHaveBeenCalled();
   });
+
+  it("trusts an exact Login identity link over a different Messaging API ID", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: OTHER_LINE_USER_ID,
+      lineLinkStatus: "LINKED",
+    });
+    mockAccountFindUnique.mockResolvedValueOnce({ userId: USER_ID });
+
+    const r = await bindLineToExistingCustomerById(
+      makeValidInput({ trustedLoginIdentityLink: true }),
+    );
+
+    expect(r).toEqual({ status: "already_synced", customerId: CUSTOMER_ID, userId: USER_ID });
+    expect(mockTx).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when the verified-link Login Account belongs to another user", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce({
+      id: CUSTOMER_ID,
+      storeId: STORE_ID,
+      userId: USER_ID,
+      lineUserId: OTHER_LINE_USER_ID,
+      lineLinkStatus: "LINKED",
+    });
+    mockAccountFindUnique.mockResolvedValueOnce({ userId: "another-user" });
+
+    const r = await bindLineToExistingCustomerById(
+      makeValidInput({ trustedLoginIdentityLink: true }),
+    );
+
+    expect(r).toMatchObject({ status: "customer_locked", customerId: CUSTOMER_ID });
+    expect(mockTx).not.toHaveBeenCalled();
+  });
 });
 
 // ════════════════════════════════════════════════════════════════════════════

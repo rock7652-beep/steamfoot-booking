@@ -121,6 +121,8 @@ export interface AuthCaseALineBindInput {
   customerLineName: string | null;
   /** Verified LINE userId; must equal `account.providerAccountId`. */
   lineUserId: string;
+  /** Exact, store-scoped CustomerIdentityLink was verified by auth.ts. */
+  trustedLoginIdentityLink?: boolean;
   /**
    * `user.name ?? "顧客"` from the OAuth profile (matches auth.ts
    * inline baseline). Used as fallback for the Customer.lineName
@@ -248,6 +250,7 @@ export async function bindLineCaseAForAuthSignIn(
     storeId: input.storeId,
     customerId: input.customerId,
     lineUserId: input.lineUserId,
+    trustedLoginIdentityLink: input.trustedLoginIdentityLink,
     lineName: lineNameForBind,
     // PR-G5.5.b stage 1: forward the 10-field OAuth bundle so D3's
     // tx.account.create writes the same Account row shape as the
