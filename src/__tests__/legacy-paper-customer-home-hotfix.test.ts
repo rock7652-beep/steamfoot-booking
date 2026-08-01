@@ -26,6 +26,15 @@ describe("legacy paper customer home hotfix", () => {
     expect(error).not.toContain("return null");
   });
 
+  it("provides a real sign-out escape instead of linking an authenticated customer back into the failing page", () => {
+    const error = source("src/app/(customer)/book/error.tsx");
+
+    expect(error).toContain('import { signOut } from "next-auth/react"');
+    expect(error).toContain("signOut({ callbackUrl:");
+    expect(error).toContain("登出並重新登入");
+    expect(error).not.toContain("回到登入頁");
+  });
+
   it("keeps the legacy paper customer contract independent of CustomerIdentityLink", () => {
     const resolver = source("src/server/services/central-member-resolver.ts");
     const layout = source("src/app/(customer)/book/layout.tsx");
