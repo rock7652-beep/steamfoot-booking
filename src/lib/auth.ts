@@ -647,33 +647,32 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return "/?error=OAuthStoreContextLost";
         }
 
-        // lineUserId / googleId 同店唯一查找 — 必須先於任何 placeholder create。
+        // OAuth identity / googleId 同店唯一查找 — 必須先於任何 placeholder create。
         //
-        // LINE 路徑採嚴格同店：schema 上 (storeId, lineUserId) 是 unique，這裡只認
-        // 同 store 的命中。若全站他店有同 lineUserId（罕見：同一人同時綁兩家店），
-        // 留 diagnostic log，但仍在 targetStoreId 下處理（不再切 storeId — 否則
-        // session 會被推到 cookie 不指的店，profile 補資料會落到錯店）。
+        // LINE Login only resolves through the explicit, store-scoped identity
+        // link (or the already-owned Account). Customer.lineUserId belongs to
+        // the store's Messaging API channel and MUST NOT be compared with a
+        // LINE Login subject: LINE assigns those channels independent IDs.
         let customer = null;
         if (provider === "line" && lineUserId) {
-          customer = await prisma.customer.findFirst({
-            where: { storeId: targetStoreId, lineUserId },
+          const verifiedLink = await prisma.customerIdentityLink.findUnique({
+            where: {
+              uq_customer_identity_provider_store: {
+                provider: "line",
+                providerAccountId: lineUserId,
+                storeId: targetStoreId,
+              },
+            },
+            select: { customer: true },
           });
-          if (!customer) {
-            const crossStore = await prisma.customer.findFirst({
-              where: { lineUserId },
-              select: { id: true, storeId: true },
+          customer = verifiedLink?.customer ?? null;
+          // Older direct memberships may predate CustomerIdentityLink. The
+          // Account is a verified LINE Login identity, so its owner is safe
+          // to use as a legacy fallback; Customer.lineUserId is not.
+          if (!customer && existingLineAccount) {
+            customer = await prisma.customer.findFirst({
+              where: { storeId: targetStoreId, userId: existingLineAccount.userId },
             });
-            if (crossStore) {
-              console.warn(
-                "[auth] signIn: line user has customer in different store — keeping target store",
-                {
-                  lineUserId,
-                  existingCustomerId: crossStore.id,
-                  existingStoreId: crossStore.storeId,
-                  targetStoreId,
-                },
-              );
-            }
           }
         }
         if (!customer && provider === "google" && googleId) {
