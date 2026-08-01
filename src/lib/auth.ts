@@ -654,6 +654,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         // the store's Messaging API channel and MUST NOT be compared with a
         // LINE Login subject: LINE assigns those channels independent IDs.
         let customer = null;
+        let hasVerifiedLineLoginIdentityLink = false;
         if (provider === "line" && lineUserId) {
           const verifiedLink = await prisma.customerIdentityLink.findUnique({
             where: {
@@ -663,9 +664,26 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 storeId: targetStoreId,
               },
             },
-            select: { customer: true },
+            select: { userId: true, customer: true },
           });
-          customer = verifiedLink?.customer ?? null;
+          if (verifiedLink) {
+            // An exact store-scoped Login mapping is authoritative only when
+            // its Customer and User ownership agree. Never fall back to, or
+            // compare against, the Messaging API Customer.lineUserId here.
+            if (!verifiedLink.customer.userId || verifiedLink.customer.userId !== verifiedLink.userId) {
+              logLineBindEvent({
+                path: "oauth-line-signin",
+                status: "unexpected_error",
+                storeId: targetStoreId,
+                lineUserId,
+                customerId: verifiedLink.customer.id,
+                errorCode: "IDENTITY_LINK_OWNER_MISMATCH",
+              });
+              return false;
+            }
+            customer = verifiedLink.customer;
+            hasVerifiedLineLoginIdentityLink = true;
+          }
           // Older direct memberships may predate CustomerIdentityLink. The
           // Account is a verified LINE Login identity, so its owner is safe
           // to use as a legacy fallback; Customer.lineUserId is not.
@@ -742,6 +760,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               // `if (oauthName && !customer.lineName)` guard.
               customerLineName: customer.lineName,
               lineUserId,
+              trustedLoginIdentityLink: hasVerifiedLineLoginIdentityLink,
               oauthName,
               account: {
                 type: account.type,
@@ -790,7 +809,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               userId: customer.userId,
               storeId: customer.storeId,
               phone: customer.phone ?? null,
-              lineUserId,
+              // LINE Login subject is deliberately not written to the
+              // Messaging API field on the identity link.
+              lineUserId: null,
               googleId,
               email: oauthEmail ?? null,
             });
