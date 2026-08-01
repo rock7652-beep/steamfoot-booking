@@ -25,9 +25,10 @@ describe("Taichung provider-scoped LINE identity", () => {
 
   it("requires the authenticated central user before issuing the one-time bridge", () => {
     const action = read("src/server/actions/taichung-provider-line-finalize.ts");
+    const route = read("src/app/api/line-oauth/taichung/finalize/route.ts");
 
     expect(action).toContain("resolveCentralUserForStoreCustomer");
-    expect(action).toContain("issueTaichungLineSession");
+    expect(route).toContain("issueTaichungLineSession");
     expect(action).not.toContain("customer.update");
     expect(action).not.toContain("account.");
   });

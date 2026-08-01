@@ -24,8 +24,11 @@ describe("Taichung LINE OAuth store context", () => {
 
   it("keeps the final browser destination explicitly store-scoped", () => {
     const client = read("src/app/(auth)/line-oauth/complete/line-oauth-complete.tsx");
+    const handoff = read("src/lib/line-oauth/taichung-completion-client.ts");
 
-    expect(client).toContain('window.location.assign("/s/taichung/book")');
-    expect(client).toContain('window.location.assign("/s/taichung/?error=LineLoginFailed")');
+    expect(client).toContain("completeTaichungLineLogin");
+    expect(client).toContain('fetch("/api/line-oauth/taichung/complete"');
+    expect(handoff).toContain('redirect("/s/taichung/book")');
+    expect(handoff).toContain("completion_failed");
   });
 });
