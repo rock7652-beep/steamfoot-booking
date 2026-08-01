@@ -3,7 +3,17 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 export const TAICHUNG_LINE_SESSION_COOKIE = "taichung_line_oauth_session";
 const TTL_MS = 5 * 60 * 1000;
 
-type Payload = { attemptId: string; userId: string; customerId: string; storeId: string; expiresAt: number };
+type Payload = {
+  attemptId: string;
+  userId: string;
+  customerId: string;
+  storeId: string;
+  // This is the LINE identity verified by the coordinator callback. It is
+  // retained only inside the signed, HttpOnly bridge so post-session lazy
+  // migration never trusts a browser-supplied provider account id.
+  lineUserId: string;
+  expiresAt: number;
+};
 
 function secret(): string {
   const value = process.env.LINE_OAUTH_STORE_CONTEXT_SECRET;
@@ -31,7 +41,7 @@ export function verifyTaichungLineSession(raw: string | undefined): Payload | nu
   if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
   try {
     const payload = JSON.parse(Buffer.from(body, "base64url").toString("utf8")) as Payload;
-    if (!payload.attemptId || !payload.userId || !payload.customerId || !payload.storeId || payload.expiresAt <= Date.now()) return null;
+    if (!payload.attemptId || !payload.userId || !payload.customerId || !payload.storeId || !payload.lineUserId || payload.expiresAt <= Date.now()) return null;
     return payload;
   } catch { return null; }
 }

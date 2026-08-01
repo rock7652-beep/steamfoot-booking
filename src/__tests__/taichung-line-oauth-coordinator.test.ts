@@ -4,6 +4,7 @@ const db = vi.hoisted(() => ({
   store: { findUnique: vi.fn() },
   lineOAuthAttempt: { create: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
   customerIdentityLink: { findUnique: vi.fn() },
+  customer: { findFirst: vi.fn() },
 }));
 const mockResolveCentralUserForStoreCustomer = vi.hoisted(() => vi.fn());
 
@@ -122,6 +123,7 @@ describe("Taichung LINE OAuth coordinator", () => {
     await expect(resolveTaichungLinkedCustomer({ storeId: "store-taichung", lineUserId: "line-user" })).resolves.toEqual({
       id: "customer-taichung",
       userId: "central-user",
+      source: "identity_link",
     });
     expect(mockResolveCentralUserForStoreCustomer).toHaveBeenCalledWith({
       customerId: "customer-taichung",
@@ -131,8 +133,75 @@ describe("Taichung LINE OAuth coordinator", () => {
 
   it("does not use a different store's link to create a Taichung session", async () => {
     db.customerIdentityLink.findUnique.mockResolvedValue(null);
+    db.customer.findFirst.mockResolvedValue(null);
     const { resolveTaichungLinkedCustomer } = await import("@/lib/line-oauth/taichung-coordinator");
 
+    await expect(resolveTaichungLinkedCustomer({ storeId: "store-taichung", lineUserId: "line-user" })).resolves.toBeNull();
+    expect(mockResolveCentralUserForStoreCustomer).not.toHaveBeenCalled();
+  });
+
+  it("uses a verified same-store legacy Customer.lineUserId only when no identity link exists", async () => {
+    db.customerIdentityLink.findUnique.mockResolvedValue(null);
+    db.customer.findFirst.mockResolvedValue({
+      id: "legacy-customer",
+      storeId: "store-taichung",
+      mergedIntoCustomerId: null,
+    });
+    mockResolveCentralUserForStoreCustomer.mockResolvedValue({
+      status: "resolved",
+      customer: { id: "legacy-customer", storeId: "store-taichung", store: { slug: "taichung" }, hasDirectUser: true },
+      user: { id: "central-user", role: "CUSTOMER", status: "ACTIVE" },
+    });
+
+    const { resolveTaichungLinkedCustomer } = await import("@/lib/line-oauth/taichung-coordinator");
+    await expect(resolveTaichungLinkedCustomer({ storeId: "store-taichung", lineUserId: "line-user" })).resolves.toEqual({
+      id: "legacy-customer",
+      userId: "central-user",
+      source: "legacy_customer",
+    });
+    expect(db.customer.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        storeId: "store-taichung",
+        lineUserId: "line-user",
+        mergedIntoCustomerId: null,
+      }),
+    }));
+  });
+
+  it.each([
+    ["cannot resolve one central user", { status: "not_found" }],
+    ["has conflicting central identities", { status: "identity_conflict" }],
+    ["resolves an inactive central user", {
+      status: "resolved",
+      customer: { id: "legacy-customer", storeId: "store-taichung", store: { slug: "taichung" }, hasDirectUser: true },
+      user: { id: "central-user", role: "CUSTOMER", status: "INACTIVE" },
+    }],
+    ["resolves a non-customer central user", {
+      status: "resolved",
+      customer: { id: "legacy-customer", storeId: "store-taichung", store: { slug: "taichung" }, hasDirectUser: true },
+      user: { id: "central-user", role: "STAFF", status: "ACTIVE" },
+    }],
+    ["resolves a customer in another store", {
+      status: "resolved",
+      customer: { id: "legacy-customer", storeId: "store-other", store: { slug: "other" }, hasDirectUser: true },
+      user: { id: "central-user", role: "CUSTOMER", status: "ACTIVE" },
+    }],
+  ])("rejects a legacy fallback that %s", async (_reason, resolution) => {
+    db.customerIdentityLink.findUnique.mockResolvedValue(null);
+    db.customer.findFirst.mockResolvedValue({
+      id: "legacy-customer",
+      storeId: "store-taichung",
+      mergedIntoCustomerId: null,
+    });
+    mockResolveCentralUserForStoreCustomer.mockResolvedValue(resolution);
+    const { resolveTaichungLinkedCustomer } = await import("@/lib/line-oauth/taichung-coordinator");
+    await expect(resolveTaichungLinkedCustomer({ storeId: "store-taichung", lineUserId: "line-user" })).resolves.toBeNull();
+  });
+
+  it("rejects a merged legacy Customer without resolving or creating a bridge", async () => {
+    db.customerIdentityLink.findUnique.mockResolvedValue(null);
+    db.customer.findFirst.mockResolvedValue(null);
+    const { resolveTaichungLinkedCustomer } = await import("@/lib/line-oauth/taichung-coordinator");
     await expect(resolveTaichungLinkedCustomer({ storeId: "store-taichung", lineUserId: "line-user" })).resolves.toBeNull();
     expect(mockResolveCentralUserForStoreCustomer).not.toHaveBeenCalled();
   });
