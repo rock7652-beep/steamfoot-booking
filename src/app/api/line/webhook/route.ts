@@ -26,8 +26,6 @@ import {
   captureLineRebindCandidate,
   lineWebhookEventKey,
 } from "@/server/services/line-rebind";
-import { syncLineAccountForUser } from "@/server/services/line-account-sync";
-import { upsertCustomerIdentityLink } from "@/server/services/customer-identity-link";
 import {
   logLineBindEvent,
   maskLineUserId,
@@ -951,28 +949,10 @@ async function handleBindingRequest(
 
   console.log("[LINE] Binding success", { customerId: customer.id, userId: maskLineUserId(lineUserId), storeId });
 
-  // 同步 NextAuth Account[line]：webhook 只設 Customer.lineUserId 不同步 Account 會造成
-  // 「後台看似已綁定但 LINE OAuth 仍走新身份建立流程」的分裂。Customer.userId 為 null
-  // 時無 user 可綁，跳過（顧客之後若走 /profile 啟用流程仍可在那條鏈補上）。
-  let accountSyncStatus: AccountSyncStatus = "skipped_no_user";
-  if (customer.userId) {
-    const syncResult = await syncLineAccountForUser({
-      userId: customer.userId,
-      lineUserId,
-    });
-    await upsertCustomerIdentityLink({
-      userId: customer.userId,
-      storeId,
-      customerId: customer.id,
-      provider: "line",
-      providerAccountId: lineUserId,
-      lineUserId,
-    });
-    accountSyncStatus = syncResult.status;
-    console.log(`[LINE] Account sync result for ${customer.name}: ${syncResult.status}`);
-  } else {
-    console.log(`[LINE] Account sync skipped: Customer.userId is null (customer not yet activated)`);
-  }
+  // A webhook identity is issued by this store's Messaging API channel. It
+  // must never create Account[line] or a LINE Login CustomerIdentityLink:
+  // those values are issued by a different channel and are not comparable.
+  const accountSyncStatus: AccountSyncStatus = "skipped_no_user";
 
   logLineBindEvent({
     path: "webhook-bind-code",

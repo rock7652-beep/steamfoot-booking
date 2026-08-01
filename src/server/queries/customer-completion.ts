@@ -17,10 +17,8 @@ import { upsertCustomerIdentityLink } from "@/server/services/customer-identity-
  *   A. session.customerId 直查（會驗證 DB 是否存在且同店，stale 則 fall through）
  *   B. CustomerIdentityLink（provider+providerAccountId+storeId / userId+storeId）
  *   C. Customer.userId = session.userId（legacy；有 storeId 時必須同店）
- *   D. 同店 (lineUserId) 唯一匹配 — LINE OAuth user 即使 session.email 為 null
- *      也能命中既有 Customer（避免被誤判 not_found 後再建一筆 placeholder）
- *   E. 同店 email 唯一匹配（來源：session.email 或 payload.email）
- *   F. 同店 phone 唯一匹配（僅 payload.phone；session 無 phone）
+ *   D. 同店 email 唯一匹配（來源：session.email 或 payload.email）
+ *   E. 同店 phone 唯一匹配（僅 payload.phone；session 無 phone）
  *
  * 穩定性保證：
  *   - sessionCustomerId 可能 stale（顧客被刪、清庫後 cookie 殘留、跨環境 JWT），
@@ -114,21 +112,14 @@ async function bindLoginIdentityToCustomer(opts: {
   storeId: string;
   lineUserId: string | null;
 }): Promise<ResolvedCustomer> {
-  const lineData =
-    opts.lineUserId && !opts.customer.lineUserId
-      ? {
-          authSource: "LINE" as const,
-          lineUserId: opts.lineUserId,
-          lineLinkStatus: "LINKED" as const,
-          lineLinkedAt: new Date(),
-        }
-      : {};
-
   const updated = await prisma.customer.update({
     where: { id: opts.customer.id },
     data: {
       userId: opts.userId,
-      ...lineData,
+      // This says how the customer activated their login. Do not write the
+      // Login subject into Customer.lineUserId: that field is the store
+      // Messaging API identity and may be a different LINE ID.
+      ...(opts.lineUserId ? { authSource: "LINE" as const } : {}),
     },
     select: CUSTOMER_SELECT,
   });
@@ -140,7 +131,7 @@ async function bindLoginIdentityToCustomer(opts: {
       customerId: opts.customer.id,
       provider: "line",
       providerAccountId: opts.lineUserId,
-      lineUserId: opts.lineUserId,
+      lineUserId: null,
     });
   }
 
@@ -297,63 +288,7 @@ export async function resolveCustomerForUser(
     console.error("[resolveCustomer] lookup by userId failed", { ...logCtx, err });
   }
 
-  // ── D. 同店 (lineUserId) 唯一匹配 ───────────────────
-  // LINE OAuth 顧客的 session.email 常常是 null，B path 又只在 Customer.userId
-  // 已被回填時才能命中。先用 lineUserId 救一輪，避免 LINE 重綁 / 手動 merge 後
-  // userId 為 null 時被誤判 not_found 重新跳「補資料」。
-  if (opts.storeId) {
-    try {
-      const lineUserId = await getLineProviderAccountId(opts.userId);
-      if (lineUserId) {
-        const c = await prisma.customer.findFirst({
-          where: { storeId: opts.storeId, lineUserId },
-          select: CUSTOMER_SELECT,
-        });
-        if (c) {
-          if (c.userId === opts.userId) {
-            console.info("[resolveCustomer] bound_by_line_user_id (already)", {
-              ...logCtx,
-              customerId: c.id,
-            });
-            return { customer: c, reason: "bound_by_line_user_id" };
-          }
-          if (!c.userId) {
-            // 安全直綁：lineUserId 是 OAuth 簽出的不可偽造身份，
-            // userId 為 null 表示 staff 建好顧客後第一次 LINE 登入回流。
-            const updated = await bindLoginIdentityToCustomer({
-              customer: c,
-              userId: opts.userId,
-              storeId: opts.storeId,
-              lineUserId,
-            });
-            console.info("[resolveCustomer] bound_by_line_user_id", {
-              ...logCtx,
-              customerId: c.id,
-            });
-            return {
-              customer: updated,
-              reason: "bound_by_line_user_id",
-            };
-          }
-          // c.userId 已綁到別人 — 不能搶 LINE 身份，回 conflict
-          console.warn("[resolveCustomer] conflict_already_linked_line_user_id", {
-            ...logCtx,
-            customerId: c.id,
-            existingUserId: c.userId,
-          });
-          return {
-            customer: null,
-            reason: "conflict_already_linked_line_user_id",
-            conflict: true,
-          };
-        }
-      }
-    } catch (err) {
-      console.error("[resolveCustomer] lineUserId lookup failed", { ...logCtx, err });
-    }
-  }
-
-  // ── E. 同店 email 唯一匹配 ───────────────────────────
+  // ── D. 同店 email 唯一匹配 ───────────────────────────
   const emailForLookup = opts.payloadEmail ?? opts.sessionEmail;
   if (emailForLookup && opts.storeId) {
     try {
@@ -415,13 +350,6 @@ export async function resolveCustomerForUser(
         }
         // c.userId 為 null → 安全直綁
         const lineUserId = await getLineProviderAccountId(opts.userId);
-        if (lineUserId && c.lineUserId && c.lineUserId !== lineUserId) {
-          return {
-            customer: null,
-            reason: "conflict_already_linked_line_user_id",
-            conflict: true,
-          };
-        }
         const updated = await bindLoginIdentityToCustomer({
           customer: c,
           userId: opts.userId,
@@ -440,7 +368,7 @@ export async function resolveCustomerForUser(
     }
   }
 
-  // ── F. 同店 phone 唯一匹配（僅 submit 路徑有 payloadPhone） ──
+  // ── E. 同店 phone 唯一匹配（僅 submit 路徑有 payloadPhone） ──
   if (normalizedPayloadPhone && opts.storeId) {
     try {
       const candidates = await prisma.customer.findMany({
@@ -505,13 +433,6 @@ export async function resolveCustomerForUser(
         }
         // c.userId 為 null → 安全直綁
         const lineUserId = await getLineProviderAccountId(opts.userId);
-        if (lineUserId && c.lineUserId && c.lineUserId !== lineUserId) {
-          return {
-            customer: null,
-            reason: "conflict_already_linked_line_user_id",
-            conflict: true,
-          };
-        }
         const updated = await bindLoginIdentityToCustomer({
           customer: c,
           userId: opts.userId,
