@@ -38,6 +38,44 @@ describe("Zhubei Messenger flow completion selector upgrade", () => {
     expect(hasCompleteZhubeiLeadCollection(upgraded as never)).toBe(true);
   });
 
+  it("normalizes only the published v12 legacy contact contract before adding the selector", () => {
+    const legacy = structuredClone(currentFlow);
+    const name = legacy.steps.find((step) => step.stepKey === "inquiry-name");
+    const phone = legacy.steps.find((step) => step.stepKey === "inquiry-phone");
+    if (!name || !phone) throw new Error("fixture is missing legacy contact steps");
+    delete name.required;
+    delete phone.required;
+
+    const upgraded = upgradeZhubeiLeadCollectionDefinition(legacy as never);
+
+    expect(upgraded.steps.find((step) => step.stepKey === "inquiry-name")?.required).toBe(true);
+    expect(upgraded.steps.find((step) => step.stepKey === "inquiry-phone")?.required).toBe(true);
+    expect(upgraded.steps.find((step) => step.stepKey === "inquiry-create-lead")?.config)
+      .toMatchObject({ requestTypeFromStepKey: "menu" });
+    expect(name).not.toHaveProperty("required");
+    expect(phone).not.toHaveProperty("required");
+  });
+
+  it("does not normalize an arbitrary invalid definition", () => {
+    const invalid = structuredClone(currentFlow);
+    const createLead = invalid.steps.find((step) => step.stepKey === "inquiry-create-lead");
+    if (!createLead) throw new Error("fixture is missing create lead step");
+    createLead.config.nameStepKey = "unrelated-name";
+
+    expect(() => upgradeZhubeiLeadCollectionDefinition(invalid as never))
+      .toThrow("ZHUBEI_V12_LEGACY_CONTACT_CONTRACT_NOT_FOUND");
+  });
+
+  it("continues to reject invalid definitions through the standard parser", () => {
+    const invalid = structuredClone(currentFlow);
+    const menu = invalid.steps.find((step) => step.stepKey === "menu");
+    if (!menu) throw new Error("fixture is missing menu step");
+    menu.config.text = "";
+
+    expect(() => upgradeZhubeiLeadCollectionDefinition(invalid as never))
+      .toThrow("缺少顯示文字");
+  });
+
   it("is idempotent: an already upgraded active definition needs no further version", () => {
     const once = upgradeZhubeiLeadCollectionDefinition(currentFlow as never);
     expect(hasCompleteZhubeiLeadCollection(once as never)).toBe(true);
