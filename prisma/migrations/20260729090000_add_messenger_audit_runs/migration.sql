@@ -27,6 +27,3 @@ ALTER TABLE "MessengerAuditRun"
 ALTER TABLE "MessengerAuditRun"
   ADD CONSTRAINT "MessengerAuditRun_requestedByUserId_fkey"
   FOREIGN KEY ("requestedByUserId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- Server-only audit records: no public policy is created, so RLS fails closed.
-ALTER TABLE "MessengerAuditRun" ENABLE ROW LEVEL SECURITY;
