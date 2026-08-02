@@ -15,7 +15,7 @@ export const MESSENGER_CHECKSUM =
 export const PAYMENT_SPLIT_CHECKSUM =
   "74750d2d3f24dba84a4f58380a8ed9868734500ddd50e8d632d223cefeb07287";
 const PENDING_MIGRATIONS_HEADER =
-  "Following migrations have not yet been applied:";
+  /Following migrations? have not yet been applied:/;
 const MESSENGER_MIGRATION_FILE =
   `prisma/migrations/${MESSENGER_MIGRATION}/migration.sql`;
 const PAYMENT_SPLIT_MIGRATION_FILE =
@@ -131,11 +131,11 @@ export function migrationChecksum(path) {
 }
 
 export function pendingMigrations(statusOutput) {
-  const headerIndex = statusOutput.indexOf(PENDING_MIGRATIONS_HEADER);
-  if (headerIndex === -1) return [];
+  const header = statusOutput.match(PENDING_MIGRATIONS_HEADER);
+  if (!header || header.index === undefined) return [];
 
   const pendingSection = statusOutput.slice(
-    headerIndex + PENDING_MIGRATIONS_HEADER.length,
+    header.index + header[0].length,
   );
   return pendingSection
     .split("\n")
