@@ -148,12 +148,31 @@ export function hasOnlyPaymentSplitPending(statusOutput) {
   return pending.length === 1 && pending[0] === PAYMENT_SPLIT_MIGRATION;
 }
 
-export function classifyMessengerMigration(row, failedMigrationNames) {
-  if (!row || row.checksum !== MESSENGER_CHECKSUM || row.rolledBackAt !== null) {
+export function classifyMessengerMigration(input, failedMigrationNames) {
+  const rows = (Array.isArray(input) ? input : [input]).filter(Boolean);
+  if (rows.length === 0 || rows.some((row) => row.checksum !== MESSENGER_CHECKSUM)) {
     return "invalid";
   }
-  if (row.finishedAt !== null && failedMigrationNames.length === 0) return "applied";
+
+  const activeRows = rows.filter((row) => row.rolledBackAt === null);
+  const rolledBackRows = rows.filter((row) => row.rolledBackAt !== null);
+  if (activeRows.length !== 1 || rolledBackRows.length > 1) return "invalid";
+
+  const row = activeRows[0];
+  const validRolledBackHistory = rolledBackRows.length === 0 || (
+    rolledBackRows[0].finishedAt === null &&
+    rolledBackRows[0].appliedStepsCount === 0 &&
+    rolledBackRows[0].logs?.includes("MessengerAuditStatus")
+  );
+  if (!validRolledBackHistory) return "invalid";
+
   if (
+    row.finishedAt !== null &&
+    failedMigrationNames.length === 0 &&
+    row.appliedStepsCount === 0
+  ) return "applied";
+  if (
+    rolledBackRows.length === 0 &&
     row.finishedAt === null &&
     row.appliedStepsCount === 0 &&
     row.logs?.includes("MessengerAuditStatus") &&
@@ -262,7 +281,7 @@ async function readMessengerLedger(prisma) {
     prisma.$queryRaw`SELECT migration_name AS "migrationName", checksum, finished_at AS "finishedAt", rolled_back_at AS "rolledBackAt", applied_steps_count::int AS "appliedStepsCount", logs FROM "_prisma_migrations" WHERE migration_name = ${MESSENGER_MIGRATION}`,
     prisma.$queryRaw`SELECT migration_name AS "migrationName" FROM "_prisma_migrations" WHERE finished_at IS NULL AND rolled_back_at IS NULL ORDER BY migration_name`,
   ]);
-  return { row: rows.length === 1 ? rows[0] : null, failedMigrationNames: failedRows.map((row) => row.migrationName) };
+  return { rows, failedMigrationNames: failedRows.map((row) => row.migrationName) };
 }
 
 async function readPaymentSplitLedger(prisma) {
@@ -301,7 +320,7 @@ async function main() {
   try {
     const ledger = await readMessengerLedger(prisma);
     const messengerState = classifyMessengerMigration(
-      ledger.row,
+      ledger.rows,
       ledger.failedMigrationNames,
     );
     if (messengerState === "invalid") abort("messenger_state_rejected");
@@ -340,7 +359,7 @@ async function main() {
       });
       try {
         const resolvedLedger = await readMessengerLedger(resolvedPrisma);
-        if (classifyMessengerMigration(resolvedLedger.row, resolvedLedger.failedMigrationNames) !== "applied") {
+        if (classifyMessengerMigration(resolvedLedger.rows, resolvedLedger.failedMigrationNames) !== "applied") {
           abort("messenger_resolve_verification_failed");
         }
       } finally {
@@ -389,7 +408,7 @@ async function main() {
         readMessengerSnapshot(finalPrisma),
       ]);
       if (
-        classifyMessengerMigration(finalLedger.row, finalLedger.failedMigrationNames) !== "applied" ||
+        classifyMessengerMigration(finalLedger.rows, finalLedger.failedMigrationNames) !== "applied" ||
         !isAppliedPaymentSplitMigration(finalPaymentLedger) ||
         !hasExpectedPaymentSplitSchema(finalPayment) ||
         finalMessenger.rlsEnabled !== false
