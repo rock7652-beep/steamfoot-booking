@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { requireSession, requireStaffSession } from "@/lib/session";
 import { AppError } from "@/lib/errors";
 import { getManagerReadFilter, getStoreFilter, getVisibilityMode } from "@/lib/manager-visibility";
+import { dayRange } from "@/lib/date-utils";
 import type { TransactionType, PaymentMethod } from "@prisma/client";
 
 export interface ListTransactionsOptions {
@@ -40,11 +41,10 @@ export async function listTransactions(options: ListTransactionsOptions & { acti
   // Manager 篩選（讀取型：受 visibility mode 控制）
   const visibilityFilter = getManagerReadFilter(user.role, user.staffId, "revenueStaffId", activeStoreId ?? user.storeId);
   // 若 UI 層有傳入 revenueStaffId 篩選，且 visibility 沒有強制篩選 → 使用 UI 篩選
-  const staffFilter = Object.keys(visibilityFilter).length > 0
-    ? visibilityFilter
-    : revenueStaffId
-    ? { revenueStaffId }
-    : {};
+  const staffFilter = {
+    ...visibilityFilter,
+    ...(revenueStaffId && !("revenueStaffId" in visibilityFilter) ? { revenueStaffId } : {}),
+  };
 
   const where = {
     ...getStoreFilter(user, activeStoreId),
@@ -61,14 +61,14 @@ export async function listTransactions(options: ListTransactionsOptions & { acti
     ...(dateFrom || dateTo
       ? {
           createdAt: {
-            ...(dateFrom ? { gte: new Date(dateFrom + "T00:00:00") } : {}),
-            ...(dateTo ? { lte: new Date(dateTo + "T23:59:59") } : {}),
+            ...(dateFrom ? { gte: dayRange(dateFrom).start } : {}),
+            ...(dateTo ? { lte: dayRange(dateTo).end } : {}),
           },
         }
       : {}),
   };
 
-  const [transactions, total] = await Promise.all([
+  const [transactions, total, revenue] = await Promise.all([
     prisma.transaction.findMany({
       where,
       include: {
@@ -91,9 +91,29 @@ export async function listTransactions(options: ListTransactionsOptions & { acti
       take: pageSize,
     }),
     prisma.transaction.count({ where }),
+    prisma.transaction.aggregate({
+      where: {
+        AND: [
+          where,
+          {
+            transactionType: {
+              in: ["TRIAL_PURCHASE", "SINGLE_PURCHASE", "PACKAGE_PURCHASE", "SUPPLEMENT"],
+            },
+            status: "SUCCESS",
+          },
+        ],
+      },
+      _sum: { amount: true },
+    }),
   ]);
 
-  return { transactions, total, page, pageSize };
+  return {
+    transactions,
+    total,
+    page,
+    pageSize,
+    periodRevenue: Number(revenue._sum.amount ?? 0),
+  };
 }
 
 // ============================================================

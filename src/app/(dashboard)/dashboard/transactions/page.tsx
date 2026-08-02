@@ -14,7 +14,6 @@ import { redirect } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { EmptyState } from "@/components/ui/empty-state";
 import { toLocalDateStr } from "@/lib/date-utils";
-import { CASH_TRANSACTION_TYPES } from "@/lib/booking-constants";
 import { isVoidedTransaction, transactionStatusLabel } from "@/lib/transaction-display";
 import type { TransactionType, PaymentMethod } from "@prisma/client";
 import { TransactionRowActions } from "./_components/TransactionRowActions";
@@ -96,7 +95,7 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
     userId: user.id,
     sessionRole: user.role,
   };
-  const [{ transactions, total, pageSize }, staffOptions, plan, canVoid, canEdit, canRefund] = await Promise.all([
+  const [{ transactions, total, pageSize, periodRevenue }, staffOptions, plan, canVoid, canEdit, canRefund] = await Promise.all([
     listTransactions({
       dateFrom,
       dateTo,
@@ -112,7 +111,7 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
         step: "listTransactions",
         error: e instanceof Error ? e.message : String(e),
       });
-      return { transactions: [], total: 0, page, pageSize: 30 } as Awaited<
+      return { transactions: [], total: 0, page, pageSize: 30, periodRevenue: 0 } as Awaited<
         ReturnType<typeof listTransactions>
       >;
     }),
@@ -147,16 +146,6 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
 
   const hasActiveFilters = !!(params.transactionType || params.staff);
   const activeFilterCount = [params.transactionType, params.staff].filter(Boolean).length;
-
-  // 統計本頁收入（規格 v1：排除 VOIDED）
-  const pageRevenue = transactions
-    .filter(
-      (t) =>
-        ["TRIAL_PURCHASE", "SINGLE_PURCHASE", "PACKAGE_PURCHASE", "SUPPLEMENT"].includes(
-          t.transactionType
-        ) && t.status === "SUCCESS"
-    )
-    .reduce((sum, t) => sum + Number(t.amount), 0);
 
   return (
     <FeatureGate plan={plan} feature={FEATURES.TRANSACTION_MANAGEMENT}>
@@ -271,8 +260,8 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
 
       {/* 快速統計 */}
       <div className="mb-4 rounded-lg bg-primary-50 px-4 py-3 text-sm text-primary-800">
-        本頁收入合計：
-        <strong className="ml-1">NT$ {pageRevenue.toLocaleString()}</strong>
+        指定期間營業額：
+        <strong className="ml-1">NT$ {periodRevenue.toLocaleString()}</strong>
         <span className="ml-3 text-xs text-primary-500">（共 {total} 筆交易）</span>
       </div>
 

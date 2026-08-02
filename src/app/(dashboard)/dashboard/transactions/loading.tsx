@@ -1,6 +1,6 @@
 /**
  * 交易紀錄 skeleton — 對齊實際頁面：
- *   返回鏈 + 標題 → 篩選表單 → 本頁收入 banner → DataTable
+ *   返回鏈 + 標題 → 篩選表單 → 指定期間營業額 banner → DataTable
  *
  * 注意：transactions 頁目前不走 PageShell / PageHeader，仍是 `<div>` 容器，
  * 這份 skeleton 對齊現況；若後續頁面改用 PageShell，此檔需同步調整。
@@ -31,7 +31,7 @@ export default function Loading() {
         <div className="h-8 w-16 self-end rounded-lg bg-earth-100" />
       </div>
 
-      {/* 本頁收入 banner */}
+      {/* 指定期間營業額 banner */}
       <div className="mb-4 flex items-center gap-3 rounded-lg bg-primary-50 px-4 py-3">
         <div className="h-3.5 w-20 rounded bg-primary-100" />
         <div className="h-4 w-24 rounded bg-primary-200" />
