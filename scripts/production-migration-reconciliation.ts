@@ -78,7 +78,7 @@ export function repositoryMigrationChecksum() {
 
 export function hasResolvePreconditions(records: MigrationHistoryRecord[], statusOutput: string) {
   const [record] = records;
-  const mentioned = statusOutput.match(/20\d{10}_[a-z0-9_]+/g) ?? [];
+  const mentioned = statusOutput.match(/20\d{12}_[a-z0-9_]+/g) ?? [];
   return (
     records.length === 1 &&
     record.migrationName === AUDIT_RUN_MIGRATION &&
