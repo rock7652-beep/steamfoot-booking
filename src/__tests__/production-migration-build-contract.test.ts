@@ -73,7 +73,12 @@ describe("Production migration recovery guard", () => {
   });
 
   it("supports the applied Messenger path without resolve", () => {
-    expect(classifyMessengerMigration({ checksum: MESSENGER_CHECKSUM, finishedAt: new Date(), rolledBackAt: null }, [])).toBe("applied");
+    const applied = { checksum: MESSENGER_CHECKSUM, finishedAt: new Date(), rolledBackAt: null, appliedStepsCount: 0 };
+    expect(classifyMessengerMigration(applied, [])).toBe("applied");
+    expect(classifyMessengerMigration([
+      { checksum: MESSENGER_CHECKSUM, finishedAt: null, rolledBackAt: new Date(), appliedStepsCount: 0, logs: "MessengerAuditStatus already exists" },
+      applied,
+    ], [])).toBe("applied");
     expect(script).toContain("messenger_state_applied");
   });
 
@@ -89,6 +94,12 @@ describe("Production migration recovery guard", () => {
     expect(classifyMessengerMigration({ checksum: "wrong", finishedAt: new Date(), rolledBackAt: null }, [])).toBe("invalid");
     expect(classifyMessengerMigration({ checksum: MESSENGER_CHECKSUM, finishedAt: null, rolledBackAt: null, appliedStepsCount: 1, logs: "MessengerAuditStatus" }, [MESSENGER_MIGRATION])).toBe("invalid");
     expect(classifyMessengerMigration({ checksum: MESSENGER_CHECKSUM, finishedAt: new Date(), rolledBackAt: new Date() }, [])).toBe("invalid");
+    const applied = { checksum: MESSENGER_CHECKSUM, finishedAt: new Date(), rolledBackAt: null, appliedStepsCount: 0 };
+    const rolledBack = { checksum: MESSENGER_CHECKSUM, finishedAt: null, rolledBackAt: new Date(), appliedStepsCount: 0, logs: "MessengerAuditStatus already exists" };
+    expect(classifyMessengerMigration([rolledBack, applied, rolledBack], [])).toBe("invalid");
+    expect(classifyMessengerMigration([{ ...rolledBack, checksum: "wrong" }, applied], [])).toBe("invalid");
+    expect(classifyMessengerMigration([{ ...rolledBack, appliedStepsCount: 1 }, applied], [])).toBe("invalid");
+    expect(classifyMessengerMigration([rolledBack, applied], [MESSENGER_MIGRATION])).toBe("invalid");
   });
 
   it("requires the complete pre-recovery Messenger schema and disabled RLS", () => {
