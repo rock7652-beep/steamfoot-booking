@@ -15,6 +15,7 @@ import {
   isAppliedPaymentSplitMigration,
   migrationChecksum,
   projectRefFromConnectionString,
+  uniqueActiveMessengerLedgerRow,
 } from "../../scripts/ci-migrate.mjs";
 
 const scriptPath = resolve(process.cwd(), "scripts/ci-migrate.mjs");
@@ -83,6 +84,52 @@ describe("Production migration recovery guard", () => {
     expect(classifyMessengerMigration(failed, [MESSENGER_MIGRATION, "other"])).toBe("invalid");
     expect(script).toContain('runPrisma(["migrate", "resolve", "--applied", MESSENGER_MIGRATION])');
     expect(script).toContain("messenger_resolve_verification_failed");
+  });
+
+  it("verifies exactly one active applied Messenger ledger row after resolve", () => {
+    const historicalRolledBack = {
+      checksum: "historical-checksum-does-not-matter",
+      finishedAt: null,
+      rolledBackAt: new Date(),
+      appliedStepsCount: 0,
+      logs: "MessengerAuditStatus already exists",
+    };
+    const activeApplied = {
+      checksum: MESSENGER_CHECKSUM,
+      finishedAt: new Date(),
+      rolledBackAt: null,
+      appliedStepsCount: 0,
+      logs: null,
+    };
+
+    expect(
+      uniqueActiveMessengerLedgerRow([historicalRolledBack, activeApplied]),
+    ).toBe(activeApplied);
+    expect(classifyMessengerMigration(activeApplied, [])).toBe("applied");
+    expect(uniqueActiveMessengerLedgerRow([historicalRolledBack])).toBeNull();
+    expect(
+      uniqueActiveMessengerLedgerRow([activeApplied, { ...activeApplied }]),
+    ).toBeNull();
+    expect(
+      uniqueActiveMessengerLedgerRow([
+        { ...activeApplied, checksum: "wrong" },
+      ]),
+    ).toMatchObject({ checksum: "wrong" });
+    expect(
+      classifyMessengerMigration(
+        uniqueActiveMessengerLedgerRow([
+          { ...activeApplied, checksum: "wrong" },
+        ]),
+        [],
+      ),
+    ).toBe("invalid");
+    expect(
+      classifyMessengerMigration(
+        uniqueActiveMessengerLedgerRow([{ ...activeApplied, finishedAt: null }]),
+        [],
+      ),
+    ).toBe("invalid");
+    expect(script).toContain("AND rolled_back_at IS NULL");
   });
 
   it("rejects Messenger checksum, rollback, partial-apply, and unrelated failed states", () => {

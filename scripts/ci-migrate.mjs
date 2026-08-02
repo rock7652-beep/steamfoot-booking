@@ -165,6 +165,11 @@ export function classifyMessengerMigration(row, failedMigrationNames) {
   return "invalid";
 }
 
+export function uniqueActiveMessengerLedgerRow(rows) {
+  const activeRows = rows.filter((row) => row.rolledBackAt === null);
+  return activeRows.length === 1 ? activeRows[0] : null;
+}
+
 function normalizeDefault(value) {
   return value?.replaceAll(" ", "") ?? null;
 }
@@ -259,10 +264,13 @@ async function readPaymentSplitSnapshot(prisma) {
 
 async function readMessengerLedger(prisma) {
   const [rows, failedRows] = await Promise.all([
-    prisma.$queryRaw`SELECT migration_name AS "migrationName", checksum, finished_at AS "finishedAt", rolled_back_at AS "rolledBackAt", applied_steps_count::int AS "appliedStepsCount", logs FROM "_prisma_migrations" WHERE migration_name = ${MESSENGER_MIGRATION}`,
+    prisma.$queryRaw`SELECT migration_name AS "migrationName", checksum, finished_at AS "finishedAt", rolled_back_at AS "rolledBackAt", applied_steps_count::int AS "appliedStepsCount", logs FROM "_prisma_migrations" WHERE migration_name = ${MESSENGER_MIGRATION} AND rolled_back_at IS NULL`,
     prisma.$queryRaw`SELECT migration_name AS "migrationName" FROM "_prisma_migrations" WHERE finished_at IS NULL AND rolled_back_at IS NULL ORDER BY migration_name`,
   ]);
-  return { row: rows.length === 1 ? rows[0] : null, failedMigrationNames: failedRows.map((row) => row.migrationName) };
+  return {
+    row: uniqueActiveMessengerLedgerRow(rows),
+    failedMigrationNames: failedRows.map((row) => row.migrationName),
+  };
 }
 
 async function readPaymentSplitLedger(prisma) {
