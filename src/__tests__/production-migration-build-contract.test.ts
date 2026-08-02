@@ -8,6 +8,7 @@ import {
   PAYMENT_SPLIT_CHECKSUM,
   PAYMENT_SPLIT_MIGRATION,
   classifyMessengerMigration,
+  hasExpectedMessengerRls,
   hasExpectedMessengerSchema,
   hasExpectedPaymentSplitSchema,
   hasNoPaymentSplitObjects,
@@ -42,6 +43,9 @@ const completeMessengerSnapshot = {
   foreignKeys: ["MessengerAuditRun_requestedByUserId_fkey", "MessengerAuditRun_storeId_fkey"],
   indexes: ["MessengerAuditRun_requestedByUserId_createdAt_idx", "MessengerAuditRun_storeId_createdAt_idx"],
   rlsEnabled: false,
+  rlsForced: false,
+  policyCount: 0,
+  clientGrantCount: 0,
 };
 
 describe("Production migration recovery guard", () => {
@@ -102,14 +106,27 @@ describe("Production migration recovery guard", () => {
     expect(classifyMessengerMigration([rolledBack, applied], [MESSENGER_MIGRATION])).toBe("invalid");
   });
 
-  it("requires the complete pre-recovery Messenger schema and disabled RLS", () => {
+  it("requires the complete Messenger schema independently of its safe RLS phase", () => {
     expect(hasExpectedMessengerSchema(completeMessengerSnapshot)).toBe(true);
-    expect(hasExpectedMessengerSchema({ ...completeMessengerSnapshot, rlsEnabled: true })).toBe(false);
+    expect(hasExpectedMessengerSchema({ ...completeMessengerSnapshot, rlsEnabled: true })).toBe(true);
     expect(hasExpectedMessengerSchema({ ...completeMessengerSnapshot, enumValues: ["RUNNING"] })).toBe(false);
     expect(hasExpectedMessengerSchema({ ...completeMessengerSnapshot, columns: completeMessengerSnapshot.columns.slice(1) })).toBe(false);
     expect(hasExpectedMessengerSchema({ ...completeMessengerSnapshot, foreignKeys: ["MessengerAuditRun_storeId_fkey"] })).toBe(false);
     expect(hasExpectedMessengerSchema({ ...completeMessengerSnapshot, indexes: ["MessengerAuditRun_storeId_createdAt_idx"] })).toBe(false);
     expect(script).toContain("messenger_rls_rejected");
+  });
+
+  it("accepts only the exact pre-repair or repaired server-only RLS state", () => {
+    expect(hasExpectedMessengerRls(completeMessengerSnapshot)).toBe(true);
+    expect(hasExpectedMessengerRls({
+      ...completeMessengerSnapshot,
+      rlsEnabled: true,
+      rlsForced: true,
+    })).toBe(true);
+    expect(hasExpectedMessengerRls({ ...completeMessengerSnapshot, rlsEnabled: true })).toBe(false);
+    expect(hasExpectedMessengerRls({ ...completeMessengerSnapshot, rlsForced: true })).toBe(false);
+    expect(hasExpectedMessengerRls({ ...completeMessengerSnapshot, policyCount: 1 })).toBe(false);
+    expect(hasExpectedMessengerRls({ ...completeMessengerSnapshot, clientGrantCount: 1 })).toBe(false);
   });
 
   it("allows only payment split as the pending migration", () => {

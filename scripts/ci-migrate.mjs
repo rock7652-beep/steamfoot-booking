@@ -189,7 +189,6 @@ function normalizeDefault(value) {
 }
 
 export function hasExpectedMessengerSchema(snapshot) {
-  if (snapshot.rlsEnabled !== false) return false;
   if (snapshot.enumValues.join("|") !== "RUNNING|COMPLETED|COMPLETED_WITH_ERRORS|FAILED") {
     return false;
   }
@@ -208,6 +207,16 @@ export function hasExpectedMessengerSchema(snapshot) {
     snapshot.primaryKey === "MessengerAuditRun_pkey" &&
     sameValues(snapshot.foreignKeys, expectedMessengerForeignKeys) &&
     sameValues(snapshot.indexes, expectedMessengerIndexes);
+}
+
+export function hasExpectedMessengerRls(snapshot) {
+  const disabledBaseline =
+    snapshot.rlsEnabled === false && snapshot.rlsForced === false;
+  const repairedServerOnly =
+    snapshot.rlsEnabled === true && snapshot.rlsForced === true;
+  return (disabledBaseline || repairedServerOnly) &&
+    snapshot.policyCount === 0 &&
+    snapshot.clientGrantCount === 0;
 }
 
 export function hasNoPaymentSplitObjects(snapshot) {
@@ -241,13 +250,15 @@ function sameValues(actual, expected) {
 }
 
 async function readMessengerSnapshot(prisma) {
-  const [enumValues, columns, primaryKey, foreignKeys, indexes, rls] = await Promise.all([
+  const [enumValues, columns, primaryKey, foreignKeys, indexes, rls, policies, clientGrants] = await Promise.all([
     prisma.$queryRaw`SELECT e.enumlabel AS "value" FROM pg_type t JOIN pg_enum e ON e.enumtypid = t.oid WHERE t.typname = 'MessengerAuditStatus' ORDER BY e.enumsortorder`,
     prisma.$queryRaw`SELECT column_name AS "columnName", data_type AS "dataType", udt_name AS "udtName", is_nullable AS "isNullable", column_default AS "columnDefault" FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'MessengerAuditRun' ORDER BY ordinal_position`,
     prisma.$queryRaw`SELECT conname AS "name" FROM pg_constraint WHERE conrelid = 'public."MessengerAuditRun"'::regclass AND contype = 'p'`,
     prisma.$queryRaw`SELECT conname AS "name" FROM pg_constraint WHERE conrelid = 'public."MessengerAuditRun"'::regclass AND contype = 'f' ORDER BY conname`,
     prisma.$queryRaw`SELECT indexname AS "name" FROM pg_indexes WHERE schemaname = 'public' AND tablename = 'MessengerAuditRun' AND indexname <> 'MessengerAuditRun_pkey' ORDER BY indexname`,
-    prisma.$queryRaw`SELECT c.relrowsecurity AS "enabled" FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public' AND c.relname = 'MessengerAuditRun' AND c.relkind = 'r'`,
+    prisma.$queryRaw`SELECT c.relrowsecurity AS "enabled", c.relforcerowsecurity AS "forced" FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public' AND c.relname = 'MessengerAuditRun' AND c.relkind = 'r'`,
+    prisma.$queryRaw`SELECT count(*)::int AS "count" FROM pg_policies WHERE schemaname = 'public' AND tablename = 'MessengerAuditRun'`,
+    prisma.$queryRaw`SELECT count(*)::int AS "count" FROM information_schema.role_table_grants WHERE table_schema = 'public' AND table_name = 'MessengerAuditRun' AND grantee IN ('anon', 'authenticated')`,
   ]);
   return {
     enumValues: enumValues.map((row) => row.value),
@@ -256,6 +267,9 @@ async function readMessengerSnapshot(prisma) {
     foreignKeys: foreignKeys.map((row) => row.name),
     indexes: indexes.map((row) => row.name),
     rlsEnabled: rls.length === 1 ? rls[0].enabled : null,
+    rlsForced: rls.length === 1 ? rls[0].forced : null,
+    policyCount: policies.length === 1 ? policies[0].count : null,
+    clientGrantCount: clientGrants.length === 1 ? clientGrants[0].count : null,
   };
 }
 
@@ -326,7 +340,7 @@ async function main() {
     if (messengerState === "invalid") abort("messenger_state_rejected");
 
     const messengerSnapshot = await readMessengerSnapshot(prisma);
-    if (messengerSnapshot.rlsEnabled !== false) abort("messenger_rls_rejected");
+    if (!hasExpectedMessengerRls(messengerSnapshot)) abort("messenger_rls_rejected");
 
     const initialStatus = runPrisma(["migrate", "status"]);
     if (messengerState === "applied" && isStatusUpToDate(initialStatus)) {
@@ -411,7 +425,7 @@ async function main() {
         classifyMessengerMigration(finalLedger.rows, finalLedger.failedMigrationNames) !== "applied" ||
         !isAppliedPaymentSplitMigration(finalPaymentLedger) ||
         !hasExpectedPaymentSplitSchema(finalPayment) ||
-        finalMessenger.rlsEnabled !== false
+        !hasExpectedMessengerRls(finalMessenger)
       ) {
         abort("final_schema_verification_failed");
       }
