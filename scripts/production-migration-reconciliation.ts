@@ -1,4 +1,7 @@
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { PrismaClient } from "@prisma/client";
 
 export const RECONCILIATION_SEQUENCE = [
@@ -59,6 +62,38 @@ export function safeRlsState(snapshot: Snapshot) {
   return hasSchemaContract(snapshot) && snapshot.rlsEnabled && snapshot.rlsForced && snapshot.policyCount === 0;
 }
 
+export type MigrationHistoryRecord = {
+  migrationName: string;
+  checksum: string;
+  finishedAt: Date | null;
+  rolledBackAt: Date | null;
+  appliedStepsCount: number;
+};
+
+export function repositoryMigrationChecksum() {
+  return createHash("sha256")
+    .update(readFileSync(resolve("prisma/migrations", AUDIT_RUN_MIGRATION, "migration.sql")))
+    .digest("hex");
+}
+
+export function hasResolvePreconditions(records: MigrationHistoryRecord[], statusOutput: string) {
+  const [record] = records;
+  const mentioned = statusOutput.match(/20\d{10}_[a-z0-9_]+/g) ?? [];
+  return (
+    records.length === 1 &&
+    record.migrationName === AUDIT_RUN_MIGRATION &&
+    record.checksum === repositoryMigrationChecksum() &&
+    record.finishedAt === null &&
+    record.rolledBackAt === null &&
+    record.appliedStepsCount === 0 &&
+    mentioned.length === 2 &&
+    mentioned[0] === AUDIT_RUN_MIGRATION &&
+    mentioned[1] === RECONCILIATION_SEQUENCE[1] &&
+    /failed/i.test(statusOutput) &&
+    /pending|not yet been applied/i.test(statusOutput)
+  );
+}
+
 function requireProduction() {
   if (process.env.VERCEL_ENV !== "production") throw new Error("PRODUCTION_ENV_REQUIRED");
   const directUrl = process.env.DIRECT_URL;
@@ -108,6 +143,15 @@ async function main() {
       return console.log("RLS_REPAIRED");
     }
     if (!safeRlsState(before) || !apply || confirmation !== RESOLVE_CONFIRMATION) throw new Error("CONFIRMATION_REQUIRED");
+    const records = await prisma.$queryRaw<Array<{ migration_name: string; checksum: string; finished_at: Date | null; rolled_back_at: Date | null; applied_steps_count: number }>>`SELECT migration_name, checksum, finished_at, rolled_back_at, applied_steps_count FROM "_prisma_migrations" WHERE migration_name = ${AUDIT_RUN_MIGRATION}`;
+    let status: string;
+    try {
+      status = execFileSync("npx", ["prisma", "migrate", "status"], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+    } catch (error) {
+      const result = error as { stdout?: string; stderr?: string };
+      status = `${result.stdout ?? ""}${result.stderr ?? ""}`;
+    }
+    if (!hasResolvePreconditions(records.map((record) => ({ migrationName: record.migration_name, checksum: record.checksum, finishedAt: record.finished_at, rolledBackAt: record.rolled_back_at, appliedStepsCount: record.applied_steps_count })), status)) throw new Error("PRECONDITION_FAILED");
     execFileSync("npx", ["prisma", "migrate", "resolve", "--applied", AUDIT_RUN_MIGRATION], { stdio: "inherit" });
     console.log("RESOLVED");
   } finally {

@@ -6,6 +6,8 @@ import {
   RESOLVE_CONFIRMATION,
   hasSchemaContract,
   safeRlsState,
+  hasResolvePreconditions,
+  repositoryMigrationChecksum,
 } from "../../scripts/production-migration-reconciliation";
 
 const validSnapshot = {
@@ -41,5 +43,14 @@ describe("Production migration reconciliation contract", () => {
     expect(source).toContain('"--stage=repair-rls"');
     expect(source).toContain('"--stage=resolve-audit-run"');
     expect(source).toContain('"migrate", "resolve", "--applied"');
+  });
+
+  it("requires exactly one zero-step unresolved audit migration with the repository checksum", () => {
+    const record = { migrationName: AUDIT_RUN_MIGRATION, checksum: repositoryMigrationChecksum(), finishedAt: null, rolledBackAt: null, appliedStepsCount: 0 };
+    const status = `${AUDIT_RUN_MIGRATION} failed\n${RECONCILIATION_SEQUENCE[1]} pending`;
+    expect(hasResolvePreconditions([record], status)).toBe(true);
+    expect(hasResolvePreconditions([{ ...record, appliedStepsCount: 1 }], status)).toBe(false);
+    expect(hasResolvePreconditions([record, record], status)).toBe(false);
+    expect(hasResolvePreconditions([record], `${status}\n20260901090000_other failed`)).toBe(false);
   });
 });
