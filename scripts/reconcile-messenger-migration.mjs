@@ -113,6 +113,18 @@ export function hasExpectedMessengerSchema(introspection) {
   ].every((pattern) => pattern.test(introspection));
 }
 
+async function hasExpectedRlsBaseline(prisma) {
+  const rows = await prisma.$queryRaw`
+    SELECT NOT c.relrowsecurity AS "isRlsDisabled"
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public'
+      AND c.relname = 'MessengerAuditRun'
+      AND c.relkind = 'r'
+  `;
+  return rows.length === 1 && rows[0].isRlsDisabled === true;
+}
+
 function assertProductionConnection() {
   if (process.env.VERCEL_ENV !== EXPECTED_ENVIRONMENT) {
     abort("only Vercel Production may run reconciliation");
@@ -169,6 +181,10 @@ async function main() {
   ) {
     await prisma.$disconnect();
     abort("Prisma migration ledger is not the approved failed Messenger state");
+  }
+  if (!(await hasExpectedRlsBaseline(prisma))) {
+    await prisma.$disconnect();
+    abort("MessengerAuditRun RLS state is not the expected disabled baseline");
   }
 
   const before = runPrisma(["migrate", "status"], true);

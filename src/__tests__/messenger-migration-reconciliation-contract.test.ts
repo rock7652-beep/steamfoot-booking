@@ -104,6 +104,7 @@ describe("Messenger Production migration reconciliation", () => {
   it("does not use manual SQL or deploy the payment split", () => {
     expect(script).not.toContain("$executeRaw");
     expect(script).not.toContain("db execute");
+    expect(script).not.toContain("ALTER TABLE");
     expect(script).not.toContain('runPrisma(["migrate", "deploy"])');
   });
 
