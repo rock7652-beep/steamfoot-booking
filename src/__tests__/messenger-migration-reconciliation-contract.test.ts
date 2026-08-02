@@ -21,6 +21,13 @@ const script = readFileSync(
   resolve(process.cwd(), "scripts/reconcile-messenger-migration.mjs"),
   "utf8",
 );
+const migrationSql = readFileSync(
+  resolve(
+    process.cwd(),
+    "prisma/migrations/20260729090000_add_messenger_audit_runs/migration.sql",
+  ),
+  "utf8",
+);
 
 describe("Messenger Production migration reconciliation", () => {
   it("is a fixed, Production-only tool with no user arguments", () => {
@@ -31,10 +38,11 @@ describe("Messenger Production migration reconciliation", () => {
     expect(script).toContain('"5432"');
   });
 
-  it("stops when the migration SQL checksum has changed", () => {
-    expect(migrationChecksum()).not.toBe(EXPECTED_FAILED_CHECKSUM);
+  it("matches the recorded immutable migration checksum and stops on changes", () => {
+    expect(migrationChecksum()).toBe(EXPECTED_FAILED_CHECKSUM);
     const altered = createHash("sha256").update("altered migration").digest("hex");
     expect(altered).not.toBe(EXPECTED_FAILED_CHECKSUM);
+    expect(migrationSql).not.toContain("ENABLE ROW LEVEL SECURITY");
   });
 
   it("requires the expected failed migration state", () => {

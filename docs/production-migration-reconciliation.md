@@ -23,9 +23,9 @@ After resolving, it requires Prisma status to report exactly one pending
 migration: `20260801090000_add_transaction_payment_splits`. It never deploys
 that migration.
 
-The current repository intentionally fails the checksum condition because a
-later change appended RLS SQL to the historical Messenger migration. RLS is a
-separate security remediation and must not be folded into this reconciliation.
+The historical Messenger migration is immutable and its checksum matches the
+recorded Production failed-migration checksum. RLS remains a separate security
+remediation and must not be folded into this reconciliation.
 
 ## Phase two: payment split
 
