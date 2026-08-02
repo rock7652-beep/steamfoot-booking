@@ -85,6 +85,10 @@ export async function listTransactions(options: ListTransactionsOptions & { acti
         booking: {
           select: { id: true, bookingDate: true, slotTime: true },
         },
+        paymentSplits: {
+          select: { paymentMethod: true, amount: true },
+          orderBy: { createdAt: "asc" },
+        },
       },
       orderBy: { createdAt: "desc" },
       skip: (page - 1) * pageSize,

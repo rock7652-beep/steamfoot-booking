@@ -171,7 +171,10 @@ export default async function RevenuePage() {
       key: "payment",
       header: "付款",
       priority: "secondary",
-      accessor: (t) => PAY_METHOD_LABEL[t.paymentMethod] ?? t.paymentMethod,
+      accessor: (t) =>
+        t.paymentSplits.length > 0
+          ? "混合付款"
+          : PAY_METHOD_LABEL[t.paymentMethod] ?? t.paymentMethod,
     },
     {
       key: "staff",

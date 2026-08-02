@@ -37,6 +37,22 @@ describe("mixed payment wiring", () => {
     expect(report).toContain("付款方式拆分");
   });
 
+  it("shows saved split payments as mixed across operational transaction screens", () => {
+    const query = read("src/server/queries/transaction.ts");
+    expect(query).toContain("paymentSplits: {");
+    expect(query).toContain('select: { paymentMethod: true, amount: true }');
+
+    for (const path of [
+      "src/app/(dashboard)/dashboard/revenue/page.tsx",
+      "src/app/(dashboard)/dashboard/transactions/page.tsx",
+      "src/app/(dashboard)/dashboard/transactions/_components/TransactionDrawer.tsx",
+    ]) {
+      const source = read(path);
+      expect(source).toContain("paymentSplits.length > 0");
+      expect(source).toContain('"混合付款"');
+    }
+  });
+
   it("clears split state before a plan purchase becomes pending", () => {
     const form = read("src/app/(dashboard)/dashboard/customers/[id]/assign-plan-form.tsx");
     expect(form).toContain('if (nextStatus === "PENDING")');
