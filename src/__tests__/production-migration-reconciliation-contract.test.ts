@@ -9,10 +9,13 @@ import {
 } from "../../scripts/production-migration-reconciliation";
 
 const validSnapshot = {
-  columns: ["id", "storeId", "requestedByUserId", "createdAt", "completedAt", "status", "appValidated", "pageTokenMatches", "callbackMatches", "configuredFields", "missingFields", "pageAttached", "callsSafeSummary", "errorCode"],
-  indexes: ["MessengerAuditRun_pkey", "MessengerAuditRun_storeId_createdAt_idx", "MessengerAuditRun_requestedByUserId_createdAt_idx"],
-  constraints: ["MessengerAuditRun_storeId_fkey", "MessengerAuditRun_requestedByUserId_fkey"],
+  columns: [
+    ["id", "text", false, "text"], ["storeId", "text", false, "text"], ["requestedByUserId", "text", false, "text"], ["createdAt", "timestamp without time zone", false, "timestamp"], ["completedAt", "timestamp without time zone", true, "timestamp"], ["status", "USER-DEFINED", false, "MessengerAuditStatus"], ["appValidated", "boolean", true, "bool"], ["pageTokenMatches", "boolean", true, "bool"], ["callbackMatches", "boolean", true, "bool"], ["configuredFields", "ARRAY", false, "_text"], ["missingFields", "ARRAY", false, "_text"], ["pageAttached", "boolean", true, "bool"], ["callsSafeSummary", "jsonb", true, "jsonb"], ["errorCode", "text", true, "text"],
+  ].map(([name, type, nullable, udt]) => ({ name: name as string, type: type as string, nullable: nullable as boolean, defaultValue: null, udt: udt as string })),
+  indexes: ["MessengerAuditRun_pkey", "MessengerAuditRun_storeId_createdAt_idx", "MessengerAuditRun_requestedByUserId_createdAt_idx"].map((name) => ({ name, definition: 'CREATE INDEX ON public."MessengerAuditRun"' })),
+  constraints: ["MessengerAuditRun_storeId_fkey", "MessengerAuditRun_requestedByUserId_fkey"].map((name) => ({ name, definition: "FOREIGN KEY" })),
   rlsEnabled: true,
+  rlsForced: true,
   policyCount: 0,
   rowCount: 7,
 };
@@ -28,6 +31,7 @@ describe("Production migration reconciliation contract", () => {
     expect(safeRlsState(validSnapshot)).toBe(true);
     expect(hasSchemaContract({ ...validSnapshot, columns: validSnapshot.columns.slice(1) })).toBe(false);
     expect(safeRlsState({ ...validSnapshot, rlsEnabled: false })).toBe(false);
+    expect(safeRlsState({ ...validSnapshot, rlsForced: false })).toBe(false);
     expect(safeRlsState({ ...validSnapshot, policyCount: 1 })).toBe(false);
   });
 
