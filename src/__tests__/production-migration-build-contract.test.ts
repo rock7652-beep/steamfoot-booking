@@ -115,6 +115,7 @@ describe("Production migration recovery guard", () => {
   it("allows only payment split as the pending migration", () => {
     const onlyPayment = `${PENDING}\n${PAYMENT_SPLIT_MIGRATION}\n`;
     expect(hasOnlyPaymentSplitPending(onlyPayment)).toBe(true);
+    expect(hasOnlyPaymentSplitPending(`${PENDING_SINGULAR}\n${PAYMENT_SPLIT_MIGRATION}\n`)).toBe(true);
     expect(hasOnlyPaymentSplitPending(`${onlyPayment}${MESSENGER_MIGRATION}\n`)).toBe(false);
     expect(hasOnlyPaymentSplitPending(`${onlyPayment}20260901090000_unapproved\n`)).toBe(false);
   });
@@ -146,3 +147,4 @@ describe("Production migration recovery guard", () => {
 });
 
 const PENDING = "Following migrations have not yet been applied:";
+const PENDING_SINGULAR = "Following migration have not yet been applied:";
