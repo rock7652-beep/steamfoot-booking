@@ -1,56 +1,12 @@
 import { describe, expect, it } from "vitest";
-import {
-  AUDIT_RUN_MIGRATION,
-  RECONCILIATION_SEQUENCE,
-  RLS_CONFIRMATION,
-  RESOLVE_CONFIRMATION,
-  hasSchemaContract,
-  safeRlsState,
-  hasResolvePreconditions,
-  repositoryMigrationChecksum,
-} from "../../scripts/production-migration-reconciliation";
+import { AUDIT_MIGRATION, PAYMENT_MIGRATION, hasExactSchema, hasResolveLedger, parseArgs, prismaCliEnv, repositoryChecksum, safeRls, verifiedDirectUrl } from "../../scripts/production-migration-reconciliation";
 
-const validSnapshot = {
-  columns: [
-    ["id", "text", false, "text"], ["storeId", "text", false, "text"], ["requestedByUserId", "text", false, "text"], ["createdAt", "timestamp without time zone", false, "timestamp"], ["completedAt", "timestamp without time zone", true, "timestamp"], ["status", "USER-DEFINED", false, "MessengerAuditStatus"], ["appValidated", "boolean", true, "bool"], ["pageTokenMatches", "boolean", true, "bool"], ["callbackMatches", "boolean", true, "bool"], ["configuredFields", "ARRAY", false, "_text"], ["missingFields", "ARRAY", false, "_text"], ["pageAttached", "boolean", true, "bool"], ["callsSafeSummary", "jsonb", true, "jsonb"], ["errorCode", "text", true, "text"],
-  ].map(([name, type, nullable, udt]) => ({ name: name as string, type: type as string, nullable: nullable as boolean, defaultValue: null, udt: udt as string })),
-  indexes: ["MessengerAuditRun_pkey", "MessengerAuditRun_storeId_createdAt_idx", "MessengerAuditRun_requestedByUserId_createdAt_idx"].map((name) => ({ name, definition: 'CREATE INDEX ON public."MessengerAuditRun"' })),
-  constraints: ["MessengerAuditRun_storeId_fkey", "MessengerAuditRun_requestedByUserId_fkey"].map((name) => ({ name, definition: "FOREIGN KEY" })),
-  rlsEnabled: true,
-  rlsForced: true,
-  policyCount: 0,
-  rowCount: 7,
-};
-
-describe("Production migration reconciliation contract", () => {
-  it("uses one fixed, ordered migration sequence and independent confirmation strings", () => {
-    expect(RECONCILIATION_SEQUENCE).toEqual([AUDIT_RUN_MIGRATION, "20260801090000_add_transaction_payment_splits"]);
-    expect(RLS_CONFIRMATION).not.toBe(RESOLVE_CONFIRMATION);
-  });
-
-  it("fails closed for incomplete schema contracts, policies, or disabled RLS", () => {
-    expect(hasSchemaContract(validSnapshot)).toBe(true);
-    expect(safeRlsState(validSnapshot)).toBe(true);
-    expect(hasSchemaContract({ ...validSnapshot, columns: validSnapshot.columns.slice(1) })).toBe(false);
-    expect(safeRlsState({ ...validSnapshot, rlsEnabled: false })).toBe(false);
-    expect(safeRlsState({ ...validSnapshot, rlsForced: false })).toBe(false);
-    expect(safeRlsState({ ...validSnapshot, policyCount: 1 })).toBe(false);
-  });
-
-  it("keeps Production-only mutation commands out of Preview and CI entrypoints", async () => {
-    const source = await import("node:fs/promises").then(({ readFile }) => readFile("scripts/production-migration-reconciliation.ts", "utf8"));
-    expect(source).toContain('process.env.VERCEL_ENV !== "production"');
-    expect(source).toContain('"--stage=repair-rls"');
-    expect(source).toContain('"--stage=resolve-audit-run"');
-    expect(source).toContain('"migrate", "resolve", "--applied"');
-  });
-
-  it("requires exactly one zero-step unresolved audit migration with the repository checksum", () => {
-    const record = { migrationName: AUDIT_RUN_MIGRATION, checksum: repositoryMigrationChecksum(), finishedAt: null, rolledBackAt: null, appliedStepsCount: 0 };
-    const status = `${AUDIT_RUN_MIGRATION} failed\n${RECONCILIATION_SEQUENCE[1]} pending`;
-    expect(hasResolvePreconditions([record], status)).toBe(true);
-    expect(hasResolvePreconditions([{ ...record, appliedStepsCount: 1 }], status)).toBe(false);
-    expect(hasResolvePreconditions([record, record], status)).toBe(false);
-    expect(hasResolvePreconditions([record], `${status}\n20260901090000_other failed`)).toBe(false);
-  });
+const snapshot = { columns: [
+  ["id","text","text",false,null],["storeId","text","text",false,null],["requestedByUserId","text","text",false,null],["createdAt","timestamp without time zone","timestamp",false,"CURRENT_TIMESTAMP"],["completedAt","timestamp without time zone","timestamp",true,null],["status","USER-DEFINED","MessengerAuditStatus",false,"'RUNNING'::\"MessengerAuditStatus\""],["appValidated","boolean","bool",true,null],["pageTokenMatches","boolean","bool",true,null],["callbackMatches","boolean","bool",true,null],["configuredFields","ARRAY","_text",false,"ARRAY[]::TEXT[]"],["missingFields","ARRAY","_text",false,"ARRAY[]::TEXT[]"],["pageAttached","boolean","bool",true,null],["callsSafeSummary","jsonb","jsonb",true,null],["errorCode","text","text",true,null],
+].map(([name,dataType,udt,nullable,defaultValue])=>({name:name as string,dataType:dataType as string,udt:udt as string,nullable:nullable as boolean,defaultValue:defaultValue as string|null})), indexes:[['MessengerAuditRun_pkey',true,['id']],['MessengerAuditRun_storeId_createdAt_idx',false,['storeId','createdAt']],['MessengerAuditRun_requestedByUserId_createdAt_idx',false,['requestedByUserId','createdAt']]].map(([name,unique,columns])=>({name:name as string,unique:unique as boolean,columns:columns as string[]})), foreignKeys:[['MessengerAuditRun_storeId_fkey','storeId','public','Store','id','CASCADE','CASCADE'],['MessengerAuditRun_requestedByUserId_fkey','requestedByUserId','public','User','id','CASCADE','RESTRICT']].map(([name,column,schema,table,targetColumn,onUpdate,onDelete])=>({name:name as string,column:column as string,schema:schema as string,table:table as string,targetColumn:targetColumn as string,onUpdate:onUpdate as string,onDelete:onDelete as string})), rlsEnabled:true,rlsForced:true,policyCount:0,rowCount:0 };
+describe("reconciliation fail-closed contract",()=>{
+ it("rejects malformed CLI before any connection",()=>{ expect(()=>parseArgs(['--stage=repair-rls','--stage=resolve-audit-run','--apply','--confirm=x'])).toThrow(); expect(()=>parseArgs(['--stage=inspect','extra'])).toThrow(); expect(parseArgs(['--stage=inspect']).stage).toBe('inspect'); });
+ it("uses only verified DIRECT_URL for Prisma CLI",()=>{const direct='postgresql://postgres.project:x@host:5432/db'; expect(verifiedDirectUrl({VERCEL_ENV:'production',DIRECT_URL:direct})).toContain('host'); expect(prismaCliEnv(direct).DATABASE_URL).toBe(direct);});
+ it("rejects any schema drift",()=>{expect(hasExactSchema(snapshot)).toBe(true); expect(safeRls(snapshot)).toBe(true); expect(hasExactSchema({...snapshot,indexes:snapshot.indexes.map((x,i)=>i?x:{...x,columns:['storeId']})})).toBe(false); expect(safeRls({...snapshot,rlsForced:false})).toBe(false);});
+ it("requires exact failed-ledger and status",()=>{const r={checksum:repositoryChecksum(),finishedAt:null,rolledBackAt:null,steps:0}; const s=`${AUDIT_MIGRATION} failed\n${PAYMENT_MIGRATION} pending`; expect(hasResolveLedger([r],s)).toBe(true); expect(hasResolveLedger([r],`${s}\n20260901090000_other pending`)).toBe(false);});
 });

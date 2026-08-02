@@ -4,165 +4,84 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { PrismaClient } from "@prisma/client";
 
-export const RECONCILIATION_SEQUENCE = [
-  "20260729090000_add_messenger_audit_runs",
-  "20260801090000_add_transaction_payment_splits",
-] as const;
-export const AUDIT_RUN_MIGRATION = RECONCILIATION_SEQUENCE[0];
+export const AUDIT_MIGRATION = "20260729090000_add_messenger_audit_runs";
+export const PAYMENT_MIGRATION = "20260801090000_add_transaction_payment_splits";
 export const RLS_CONFIRMATION = "REPAIR_MESSENGER_AUDIT_RUN_RLS";
 export const RESOLVE_CONFIRMATION = "RESOLVE_MESSENGER_AUDIT_RUN_MIGRATION";
+export type Stage = "inspect" | "repair-rls" | "resolve-audit-run";
+type Parsed = { stage: Stage; apply: boolean; confirmation?: string };
 
-export type ReconciliationCode =
-  | "SCHEMA_CONTRACT_OK"
-  | "RLS_REPAIR_READY"
-  | "RLS_REPAIRED"
-  | "ALREADY_SECURED"
-  | "RESOLVE_READY"
-  | "RESOLVED"
-  | "PRECONDITION_FAILED"
-  | "CONFIRMATION_REQUIRED"
-  | "PRODUCTION_ENV_REQUIRED";
+const expectedColumns = {
+  id: ["text", "text", false, null], storeId: ["text", "text", false, null], requestedByUserId: ["text", "text", false, null],
+  createdAt: ["timestamp without time zone", "timestamp", false, "CURRENT_TIMESTAMP"], completedAt: ["timestamp without time zone", "timestamp", true, null],
+  status: ["USER-DEFINED", "MessengerAuditStatus", false, "'RUNNING'::\"MessengerAuditStatus\""],
+  appValidated: ["boolean", "bool", true, null], pageTokenMatches: ["boolean", "bool", true, null], callbackMatches: ["boolean", "bool", true, null],
+  configuredFields: ["ARRAY", "_text", false, "ARRAY[]::TEXT[]"], missingFields: ["ARRAY", "_text", false, "ARRAY[]::TEXT[]"],
+  pageAttached: ["boolean", "bool", true, null], callsSafeSummary: ["jsonb", "jsonb", true, null], errorCode: ["text", "text", true, null],
+} as const;
+const expectedIndexes = {
+  MessengerAuditRun_pkey: [true, ["id"]],
+  MessengerAuditRun_storeId_createdAt_idx: [false, ["storeId", "createdAt"]],
+  MessengerAuditRun_requestedByUserId_createdAt_idx: [false, ["requestedByUserId", "createdAt"]],
+} as const;
+const expectedForeignKeys = {
+  MessengerAuditRun_storeId_fkey: ["storeId", "public", "Store", "id", "CASCADE", "CASCADE"],
+  MessengerAuditRun_requestedByUserId_fkey: ["requestedByUserId", "public", "User", "id", "CASCADE", "RESTRICT"],
+} as const;
 
-type Snapshot = {
-  columns: Array<{ name: string; type: string; nullable: boolean; defaultValue: string | null; udt: string }>;
-  indexes: Array<{ name: string; definition: string }>;
-  constraints: Array<{ name: string; definition: string }>;
-  rlsEnabled: boolean;
-  rlsForced: boolean;
-  policyCount: number;
-  rowCount: number;
-};
-
-const REQUIRED_COLUMNS: Record<string, readonly [string, boolean, string]> = {
-  id: ["text", false, "text"], storeId: ["text", false, "text"], requestedByUserId: ["text", false, "text"],
-  createdAt: ["timestamp without time zone", false, "timestamp"], completedAt: ["timestamp without time zone", true, "timestamp"],
-  status: ["USER-DEFINED", false, "MessengerAuditStatus"], appValidated: ["boolean", true, "bool"],
-  pageTokenMatches: ["boolean", true, "bool"], callbackMatches: ["boolean", true, "bool"], configuredFields: ["ARRAY", false, "_text"],
-  missingFields: ["ARRAY", false, "_text"], pageAttached: ["boolean", true, "bool"], callsSafeSummary: ["jsonb", true, "jsonb"], errorCode: ["text", true, "text"],
-};
-const REQUIRED_INDEXES = [
-  "MessengerAuditRun_pkey",
-  "MessengerAuditRun_storeId_createdAt_idx",
-  "MessengerAuditRun_requestedByUserId_createdAt_idx",
-];
-const REQUIRED_CONSTRAINTS = [
-  "MessengerAuditRun_storeId_fkey",
-  "MessengerAuditRun_requestedByUserId_fkey",
-];
-
-export function hasSchemaContract(snapshot: Snapshot) {
-  return (
-    Object.entries(REQUIRED_COLUMNS).every(([name, [type, nullable, udt]]) => snapshot.columns.some((column) => column.name === name && column.type === type && column.nullable === nullable && column.udt === udt)) &&
-    REQUIRED_INDEXES.every((name) => snapshot.indexes.some((index) => index.name === name && index.definition.includes('"MessengerAuditRun"'))) &&
-    REQUIRED_CONSTRAINTS.every((name) => snapshot.constraints.some((constraint) => constraint.name === name && constraint.definition.includes('FOREIGN KEY')))
-  );
+export function parseArgs(args: string[]): Parsed {
+  const stages = args.filter((arg) => arg.startsWith("--stage="));
+  if (stages.length !== 1 || new Set(stages).size !== 1 || args.some((arg) => arg !== "--apply" && !arg.startsWith("--stage=") && !arg.startsWith("--confirm=")) || args.filter((arg) => arg === "--apply").length > 1 || args.filter((arg) => arg.startsWith("--confirm=")).length > 1) throw new Error("INVALID_ARGUMENTS");
+  const stage = stages[0].slice(8) as Stage;
+  if (!(["inspect", "repair-rls", "resolve-audit-run"] as string[]).includes(stage)) throw new Error("INVALID_ARGUMENTS");
+  const apply = args.includes("--apply");
+  const confirmation = args.find((arg) => arg.startsWith("--confirm="))?.slice(10);
+  if (stage === "inspect" ? apply || confirmation : !apply || confirmation !== (stage === "repair-rls" ? RLS_CONFIRMATION : RESOLVE_CONFIRMATION)) throw new Error("INVALID_ARGUMENTS");
+  return { stage, apply, confirmation };
 }
 
-export function safeRlsState(snapshot: Snapshot) {
-  return hasSchemaContract(snapshot) && snapshot.rlsEnabled && snapshot.rlsForced && snapshot.policyCount === 0;
+export function verifiedDirectUrl(env: { VERCEL_ENV?: string; DIRECT_URL?: string }) {
+  if (env.VERCEL_ENV !== "production" || !env.DIRECT_URL) throw new Error("PRODUCTION_DIRECT_URL_REQUIRED");
+  const value = new URL(env.DIRECT_URL);
+  if (!(["5432", "6543"].includes(value.port)) || !/^postgres\.[a-z0-9]+$/.test(value.username)) throw new Error("PRODUCTION_DIRECT_URL_REQUIRED");
+  return value.toString();
 }
 
-export type MigrationHistoryRecord = {
-  migrationName: string;
-  checksum: string;
-  finishedAt: Date | null;
-  rolledBackAt: Date | null;
-  appliedStepsCount: number;
-};
+export function prismaCliEnv(directUrl: string) { return { ...process.env, DATABASE_URL: directUrl, DIRECT_URL: directUrl }; }
 
-export function repositoryMigrationChecksum() {
-  return createHash("sha256")
-    .update(readFileSync(resolve("prisma/migrations", AUDIT_RUN_MIGRATION, "migration.sql")))
-    .digest("hex");
+type Column = { name: string; dataType: string; udt: string; nullable: boolean; defaultValue: string | null };
+type Index = { name: string; unique: boolean; columns: string[] };
+type ForeignKey = { name: string; column: string; schema: string; table: string; targetColumn: string; onUpdate: string; onDelete: string };
+export type SchemaSnapshot = { columns: Column[]; indexes: Index[]; foreignKeys: ForeignKey[]; rlsEnabled: boolean; rlsForced: boolean; policyCount: number; rowCount: number };
+type RawMetadata = { columns: Array<{ column_name:string; data_type:string; udt_name:string; is_nullable:string; column_default:string|null }>; indexes: Array<{ index_name:string; is_unique:boolean; columns:string[] }>; foreignKeys: Array<{ constraint_name:string; local_column:string; target_schema:string; target_table:string; target_column:string; on_update:string; on_delete:string }>; rls: Array<{ enabled:boolean; forced:boolean }>; policies: Array<{ count:bigint }>; rows: Array<{ count:bigint }> };
+export function normalizeMetadata(raw: RawMetadata): SchemaSnapshot { return { columns: raw.columns.map(c=>({name:c.column_name,dataType:c.data_type,udt:c.udt_name,nullable:c.is_nullable==='YES',defaultValue:c.column_default})).sort((a,b)=>a.name.localeCompare(b.name)), indexes:raw.indexes.map(i=>({name:i.index_name,unique:i.is_unique,columns:i.columns})).sort((a,b)=>a.name.localeCompare(b.name)), foreignKeys:raw.foreignKeys.map(f=>({name:f.constraint_name,column:f.local_column,schema:f.target_schema,table:f.target_table,targetColumn:f.target_column,onUpdate:f.on_update,onDelete:f.on_delete})).sort((a,b)=>a.name.localeCompare(b.name)),rlsEnabled:raw.rls[0]?.enabled===true,rlsForced:raw.rls[0]?.forced===true,policyCount:Number(raw.policies[0]?.count??-1),rowCount:Number(raw.rows[0]?.count??-1) }; }
+export function hasExactSchema(snapshot: SchemaSnapshot) {
+  return Object.entries(expectedColumns).every(([name, [dataType, udt, nullable, defaultValue]]) => snapshot.columns.some((c) => c.name === name && c.dataType === dataType && c.udt === udt && c.nullable === nullable && c.defaultValue === defaultValue)) && snapshot.columns.length === Object.keys(expectedColumns).length && Object.entries(expectedIndexes).every(([name, [unique, columns]]) => snapshot.indexes.some((i) => i.name === name && i.unique === unique && JSON.stringify(i.columns) === JSON.stringify(columns))) && snapshot.indexes.length === Object.keys(expectedIndexes).length && Object.entries(expectedForeignKeys).every(([name, [column, schema, table, targetColumn, onUpdate, onDelete]]) => snapshot.foreignKeys.some((f) => f.name === name && f.column === column && f.schema === schema && f.table === table && f.targetColumn === targetColumn && f.onUpdate === onUpdate && f.onDelete === onDelete)) && snapshot.foreignKeys.length === Object.keys(expectedForeignKeys).length;
 }
-
-export function hasResolvePreconditions(records: MigrationHistoryRecord[], statusOutput: string) {
-  const [record] = records;
-  const mentioned = statusOutput.match(/20\d{12}_[a-z0-9_]+/g) ?? [];
-  return (
-    records.length === 1 &&
-    record.migrationName === AUDIT_RUN_MIGRATION &&
-    record.checksum === repositoryMigrationChecksum() &&
-    record.finishedAt === null &&
-    record.rolledBackAt === null &&
-    record.appliedStepsCount === 0 &&
-    mentioned.length === 2 &&
-    mentioned[0] === AUDIT_RUN_MIGRATION &&
-    mentioned[1] === RECONCILIATION_SEQUENCE[1] &&
-    /failed/i.test(statusOutput) &&
-    /pending|not yet been applied/i.test(statusOutput)
-  );
-}
-
-function requireProduction() {
-  if (process.env.VERCEL_ENV !== "production") throw new Error("PRODUCTION_ENV_REQUIRED");
-  const directUrl = process.env.DIRECT_URL;
-  if (!process.env.DATABASE_URL || !directUrl) throw new Error("PRECONDITION_FAILED");
-  const parsed = new URL(directUrl);
-  if (!["5432", "6543"].includes(parsed.port) || !parsed.username.startsWith("postgres.")) throw new Error("PRECONDITION_FAILED");
-}
-
-async function snapshot(prisma: PrismaClient): Promise<Snapshot> {
-  const [columns, indexes, constraints, rls, policies, rowCount] = await Promise.all([
-    prisma.$queryRaw<Array<{ column_name: string; data_type: string; is_nullable: string; column_default: string | null; udt_name: string }>>`SELECT column_name, data_type, is_nullable, column_default, udt_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'MessengerAuditRun'`,
-    prisma.$queryRaw<Array<{ indexname: string; indexdef: string }>>`SELECT indexname, indexdef FROM pg_indexes WHERE schemaname = 'public' AND tablename = 'MessengerAuditRun'`,
-    prisma.$queryRaw<Array<{ conname: string; definition: string }>>`SELECT conname, pg_get_constraintdef(oid) AS definition FROM pg_constraint WHERE conrelid = 'public."MessengerAuditRun"'::regclass`,
-    prisma.$queryRaw<Array<{ relrowsecurity: boolean; relforcerowsecurity: boolean }>>`SELECT relrowsecurity, relforcerowsecurity FROM pg_class WHERE oid = 'public."MessengerAuditRun"'::regclass`,
-    prisma.$queryRaw<Array<{ count: bigint }>>`SELECT count(*)::bigint AS count FROM pg_policies WHERE schemaname = 'public' AND tablename = 'MessengerAuditRun'`,
-    prisma.$queryRaw<Array<{ count: bigint }>>`SELECT count(*)::bigint AS count FROM "MessengerAuditRun"`,
-  ]);
-  return {
-    columns: columns.map((column) => ({ name: column.column_name, type: column.data_type, nullable: column.is_nullable === "YES", defaultValue: column.column_default, udt: column.udt_name })),
-    indexes: indexes.map(({ indexname, indexdef }) => ({ name: indexname, definition: indexdef })),
-    constraints: constraints.map(({ conname, definition }) => ({ name: conname, definition })),
-    rlsEnabled: rls[0]?.relrowsecurity === true,
-    rlsForced: rls[0]?.relforcerowsecurity === true,
-    policyCount: Number(policies[0]?.count ?? -1),
-    rowCount: Number(rowCount[0]?.count ?? -1),
-  };
-}
+export function safeRls(snapshot: SchemaSnapshot) { return hasExactSchema(snapshot) && snapshot.rlsEnabled && snapshot.rlsForced && snapshot.policyCount === 0; }
+export function repositoryChecksum() { return createHash("sha256").update(readFileSync(resolve("prisma/migrations", AUDIT_MIGRATION, "migration.sql"))).digest("hex"); }
+export function hasResolveLedger(records: Array<{ checksum: string; finishedAt: Date | null; rolledBackAt: Date | null; steps: number }>, status: string) { const ids = status.match(/20\d{12}_[a-z0-9_]+/g) ?? []; return records.length === 1 && records[0].checksum === repositoryChecksum() && records[0].finishedAt === null && records[0].rolledBackAt === null && records[0].steps === 0 && JSON.stringify(ids) === JSON.stringify([AUDIT_MIGRATION, PAYMENT_MIGRATION]) && /failed/i.test(status) && /pending|not yet been applied/i.test(status); }
 
 async function main() {
-  const args = new Set(process.argv.slice(2));
-  const stage = args.has("--stage=resolve-audit-run") ? "resolve" : args.has("--stage=repair-rls") ? "repair" : "inspect";
-  const apply = args.has("--apply");
-  const confirmation = [...args].find((value) => value.startsWith("--confirm="))?.slice(10);
-  requireProduction();
-  const prisma = new PrismaClient();
+  const input = parseArgs(process.argv.slice(2)); const directUrl = verifiedDirectUrl({ VERCEL_ENV: process.env.VERCEL_ENV, DIRECT_URL: process.env.DIRECT_URL }); const prisma = new PrismaClient({ datasources: { db: { url: directUrl } } });
   try {
-    const before = await snapshot(prisma);
-    if (!hasSchemaContract(before) || before.policyCount !== 0) throw new Error("PRECONDITION_FAILED");
-    if (stage === "inspect") return console.log(before.rlsEnabled && before.rlsForced ? "ALREADY_SECURED" : "RLS_REPAIR_READY");
-    if (stage === "repair") {
-      if (before.rlsEnabled && before.rlsForced) return console.log("ALREADY_SECURED");
-      if (!apply || confirmation !== RLS_CONFIRMATION) throw new Error("CONFIRMATION_REQUIRED");
-      await prisma.$executeRaw`ALTER TABLE "MessengerAuditRun" ENABLE ROW LEVEL SECURITY`;
-      await prisma.$executeRaw`ALTER TABLE "MessengerAuditRun" FORCE ROW LEVEL SECURITY`;
-      const after = await snapshot(prisma);
-      if (!safeRlsState(after) || after.rowCount !== before.rowCount) throw new Error("PRECONDITION_FAILED");
-      return console.log("RLS_REPAIRED");
-    }
-    if (!safeRlsState(before) || !apply || confirmation !== RESOLVE_CONFIRMATION) throw new Error("CONFIRMATION_REQUIRED");
-    const records = await prisma.$queryRaw<Array<{ migration_name: string; checksum: string; finished_at: Date | null; rolled_back_at: Date | null; applied_steps_count: number }>>`SELECT migration_name, checksum, finished_at, rolled_back_at, applied_steps_count FROM "_prisma_migrations" WHERE migration_name = ${AUDIT_RUN_MIGRATION}`;
-    let status: string;
-    try {
-      status = execFileSync("npx", ["prisma", "migrate", "status"], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
-    } catch (error) {
-      const result = error as { stdout?: string; stderr?: string };
-      status = `${result.stdout ?? ""}${result.stderr ?? ""}`;
-    }
-    if (!hasResolvePreconditions(records.map((record) => ({ migrationName: record.migration_name, checksum: record.checksum, finishedAt: record.finished_at, rolledBackAt: record.rolled_back_at, appliedStepsCount: record.applied_steps_count })), status)) throw new Error("PRECONDITION_FAILED");
-    execFileSync("npx", ["prisma", "migrate", "resolve", "--applied", AUDIT_RUN_MIGRATION], { stdio: "inherit" });
-    console.log("RESOLVED");
-  } finally {
-    await prisma.$disconnect();
-  }
+    const [columns,indexes,foreignKeys,rls,policies,rows] = await Promise.all([
+      prisma.$queryRaw<RawMetadata['columns']>`SELECT column_name,data_type,udt_name,is_nullable,column_default FROM information_schema.columns WHERE table_schema='public' AND table_name='MessengerAuditRun'`,
+      prisma.$queryRaw<RawMetadata['indexes']>`SELECT i.relname AS index_name, ix.indisunique AS is_unique, array_agg(a.attname ORDER BY key.ordinality) AS columns FROM pg_index ix JOIN pg_class t ON t.oid=ix.indrelid JOIN pg_class i ON i.oid=ix.indexrelid JOIN unnest(ix.indkey) WITH ORDINALITY key(attnum,ordinality) ON true JOIN pg_attribute a ON a.attrelid=t.oid AND a.attnum=key.attnum WHERE t.oid='public."MessengerAuditRun"'::regclass GROUP BY i.relname,ix.indisunique`,
+      prisma.$queryRaw<RawMetadata['foreignKeys']>`SELECT c.conname AS constraint_name,la.attname AS local_column,ns.nspname AS target_schema,rt.relname AS target_table,ra.attname AS target_column,CASE c.confupdtype WHEN 'c' THEN 'CASCADE' WHEN 'r' THEN 'RESTRICT' ELSE 'OTHER' END AS on_update,CASE c.confdeltype WHEN 'c' THEN 'CASCADE' WHEN 'r' THEN 'RESTRICT' ELSE 'OTHER' END AS on_delete FROM pg_constraint c JOIN pg_class lt ON lt.oid=c.conrelid JOIN pg_namespace ns ON ns.oid=(SELECT relnamespace FROM pg_class WHERE oid=c.confrelid) JOIN pg_class rt ON rt.oid=c.confrelid JOIN unnest(c.conkey,c.confkey) WITH ORDINALITY k(local_attnum,target_attnum,ordinality) ON true JOIN pg_attribute la ON la.attrelid=lt.oid AND la.attnum=k.local_attnum JOIN pg_attribute ra ON ra.attrelid=rt.oid AND ra.attnum=k.target_attnum WHERE c.contype='f' AND c.conrelid='public."MessengerAuditRun"'::regclass`,
+      prisma.$queryRaw<RawMetadata['rls']>`SELECT relrowsecurity AS enabled,relforcerowsecurity AS forced FROM pg_class WHERE oid='public."MessengerAuditRun"'::regclass`,
+      prisma.$queryRaw<RawMetadata['policies']>`SELECT count(*)::bigint AS count FROM pg_policies WHERE schemaname='public' AND tablename='MessengerAuditRun'`,
+      prisma.$queryRaw<RawMetadata['rows']>`SELECT count(*)::bigint AS count FROM "MessengerAuditRun"`,
+    ]);
+    const before = normalizeMetadata({columns,indexes,foreignKeys,rls,policies,rows});
+    if (!hasExactSchema(before)) throw new Error("PRECONDITION_FAILED");
+    if (input.stage === "inspect") return console.log(before.rlsEnabled&&before.rlsForced?"SCHEMA_CONTRACT_OK":"RLS_REPAIR_READY");
+    if (input.stage === "repair-rls") { if (before.policyCount!==0) throw new Error("PRECONDITION_FAILED"); await prisma.$executeRaw`ALTER TABLE "MessengerAuditRun" ENABLE ROW LEVEL SECURITY`; await prisma.$executeRaw`ALTER TABLE "MessengerAuditRun" FORCE ROW LEVEL SECURITY`; return console.log("RLS_REPAIRED"); }
+    if (!safeRls(before)) throw new Error("PRECONDITION_FAILED");
+    let status = ""; try { status = execFileSync("npx", ["prisma", "migrate", "status"], { encoding: "utf8", env: prismaCliEnv(directUrl) }); } catch (error) { const e = error as { stdout?: string; stderr?: string }; status = `${e.stdout ?? ""}${e.stderr ?? ""}`; }
+    const ledger = await prisma.$queryRaw<Array<{ checksum: string; finishedAt: Date | null; rolledBackAt: Date | null; steps: number }>>`SELECT checksum, finished_at AS "finishedAt", rolled_back_at AS "rolledBackAt", applied_steps_count AS steps FROM "_prisma_migrations" WHERE migration_name = ${AUDIT_MIGRATION}`;
+    if (!hasResolveLedger(ledger, status)) throw new Error("PRECONDITION_FAILED");
+    execFileSync("npx", ["prisma", "migrate", "resolve", "--applied", AUDIT_MIGRATION], { stdio: "inherit", env: prismaCliEnv(directUrl) }); console.log("RESOLVED");
+  } finally { await prisma.$disconnect(); }
 }
-
-if (process.argv[1]?.endsWith("production-migration-reconciliation.ts")) {
-  main().catch((error: unknown) => {
-    const code = error instanceof Error && /^[A-Z_]+$/.test(error.message) ? error.message : "PRECONDITION_FAILED";
-    console.error(code);
-    process.exitCode = 1;
-  });
-}
+if (process.argv[1]?.endsWith("production-migration-reconciliation.ts")) main().catch(() => { console.error("PRECONDITION_FAILED"); process.exitCode = 1; });
