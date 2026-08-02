@@ -17,7 +17,7 @@ describe("Taichung provider-scoped LINE finalize", () => {
     expect(login).toContain("/api/line-oauth/taichung/finalize?customerId=");
     expect(finalizeRoute).toContain("prepareTaichungProviderLineBridge");
     expect(finalizeRoute).toContain("issueTaichungLineSession");
-    expect(finalizeRoute).toContain('new URL("/line-oauth/complete"');
+    expect(finalizeRoute).toContain('new URL("/api/line-oauth/taichung/coordinator"');
   });
 
   it("hands verified ownership to the signed bridge without writing any identity", () => {

@@ -23,12 +23,11 @@ describe("Taichung LINE OAuth store context", () => {
   });
 
   it("keeps the final browser destination explicitly store-scoped", () => {
-    const client = read("src/app/(auth)/line-oauth/complete/line-oauth-complete.tsx");
-    const handoff = read("src/lib/line-oauth/taichung-completion-client.ts");
+    const coordinator = read("src/app/api/line-oauth/taichung/coordinator/route.ts");
+    const completion = read("src/app/api/line-oauth/taichung/complete/route.ts");
 
-    expect(client).toContain("completeTaichungLineLogin");
-    expect(client).toContain('fetch("/api/line-oauth/taichung/complete"');
-    expect(handoff).toContain('redirect("/s/taichung/book")');
-    expect(handoff).toContain("completion_failed");
+    expect(coordinator).toContain('"/api/line-oauth/taichung/complete"');
+    expect(completion).toContain('new URL("/s/taichung/book"');
+    expect(completion).toContain("redirectOnSuccess");
   });
 });
