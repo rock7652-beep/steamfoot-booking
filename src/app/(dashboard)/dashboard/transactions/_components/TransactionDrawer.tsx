@@ -334,7 +334,7 @@ export function TransactionDrawer({
                 />
                 <Row
                   label="付款方式"
-                  value={PAY_METHOD_LABEL[data.paymentMethod] ?? data.paymentMethod}
+                  value={data.paymentSplits.length > 0 ? "混合付款" : PAY_METHOD_LABEL[data.paymentMethod] ?? data.paymentMethod}
                 />
                 {data.paymentSplits.length > 0 && (
                   <Row

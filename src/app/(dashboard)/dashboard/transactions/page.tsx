@@ -352,7 +352,7 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
                     )}
                   </td>
                   <td className={`px-4 py-3 ${isVoided ? "text-earth-400" : "text-earth-600"}`}>
-                    {PAY_METHOD_LABEL[t.paymentMethod]}
+                    {t.paymentSplits.length > 0 ? "混合付款" : PAY_METHOD_LABEL[t.paymentMethod]}
                   </td>
                   <td className={`px-4 py-3 ${isVoided ? "text-earth-400" : "text-earth-600"}`}>
                     {t.revenueStaff.displayName}
