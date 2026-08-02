@@ -184,6 +184,10 @@ export function classifyMessengerMigration(input, failedMigrationNames) {
   return "invalid";
 }
 
+export function awaitsManualReconciliation(state) {
+  return state === "failed";
+}
+
 function normalizeDefault(value) {
   return value?.replaceAll(" ", "") ?? null;
 }
@@ -363,23 +367,8 @@ async function main() {
         abort("messenger_schema_fingerprint_mismatch");
       }
       log("messenger_state_failed_verified");
-      await prisma.$disconnect();
-      log("messenger_resolve_started");
-      if (runPrisma(["migrate", "resolve", "--applied", MESSENGER_MIGRATION]).exitCode !== 0) {
-        abort("messenger_resolve_failed");
-      }
-      const resolvedPrisma = new PrismaClient({
-        datasources: { db: { url: process.env.DIRECT_URL } },
-      });
-      try {
-        const resolvedLedger = await readMessengerLedger(resolvedPrisma);
-        if (classifyMessengerMigration(resolvedLedger.rows, resolvedLedger.failedMigrationNames) !== "applied") {
-          abort("messenger_resolve_verification_failed");
-        }
-      } finally {
-        await resolvedPrisma.$disconnect();
-      }
-      log("messenger_resolve_succeeded");
+      log("manual_reconciliation_required");
+      return;
     } else {
       log("messenger_state_applied");
       await prisma.$disconnect();

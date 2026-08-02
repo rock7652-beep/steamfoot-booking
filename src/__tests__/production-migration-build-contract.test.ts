@@ -14,6 +14,7 @@ import {
   hasNoPaymentSplitObjects,
   hasOnlyPaymentSplitPending,
   isAppliedPaymentSplitMigration,
+  awaitsManualReconciliation,
   migrationChecksum,
   projectRefFromConnectionString,
 } from "../../scripts/ci-migrate.mjs";
@@ -86,12 +87,16 @@ describe("Production migration recovery guard", () => {
     expect(script).toContain("messenger_state_applied");
   });
 
-  it("supports only the known failed Messenger path before resolve", () => {
+  it("allows only the known failed Messenger path to continue the build without migration writes", () => {
     const failed = { checksum: MESSENGER_CHECKSUM, finishedAt: null, rolledBackAt: null, appliedStepsCount: 0, logs: "MessengerAuditStatus already exists" };
     expect(classifyMessengerMigration(failed, [MESSENGER_MIGRATION])).toBe("failed");
     expect(classifyMessengerMigration(failed, [MESSENGER_MIGRATION, "other"])).toBe("invalid");
-    expect(script).toContain('runPrisma(["migrate", "resolve", "--applied", MESSENGER_MIGRATION])');
-    expect(script).toContain("messenger_resolve_verification_failed");
+    expect(awaitsManualReconciliation("failed")).toBe(true);
+    expect(awaitsManualReconciliation("applied")).toBe(false);
+    const failedBranch = script.slice(script.indexOf('if (messengerState === "failed")'), script.indexOf("} else {", script.indexOf('if (messengerState === "failed")')));
+    expect(failedBranch).toContain("manual_reconciliation_required");
+    expect(failedBranch).toContain("return;");
+    expect(failedBranch).not.toContain("migrate");
   });
 
   it("rejects Messenger checksum, rollback, partial-apply, and unrelated failed states", () => {
