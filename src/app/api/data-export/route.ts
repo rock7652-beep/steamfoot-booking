@@ -8,18 +8,21 @@ import { dayRange, formatTWTime } from "@/lib/date-utils";
 import { requireDataExportFeature } from "@/lib/data-export-gate";
 import { getStoreFilter } from "@/lib/manager-visibility";
 import { resolveActiveStoreId } from "@/lib/store";
+import {
+  DATA_EXPORT_TYPE_LABELS,
+  DATA_EXPORT_HEADERS,
+  dataExportTypes,
+  formatBookingStatus,
+  formatBookingType,
+  formatPaymentMethod,
+  formatTransactionStatus,
+  formatTransactionType,
+  formatWalletStatus,
+  isDataExportStatus,
+  type DataExportType,
+} from "@/lib/data-export-labels";
 
 const MAX_EXPORT_ROWS = 10_000;
-const types = ["customers", "transactions", "bookings", "wallets"] as const;
-type ExportType = (typeof types)[number];
-
-const labels: Record<ExportType, string> = {
-  customers: "顧客資料",
-  transactions: "營收與交易明細",
-  bookings: "預約與服務紀錄",
-  wallets: "方案與堂數明細",
-};
-
 function safeText(value: unknown): string {
   const text = String(value ?? "");
   return /^[=+\-@]/.test(text.trimStart()) ? `'${text}` : text;
@@ -59,11 +62,11 @@ export async function GET(req: NextRequest) {
   if (!permitted.some(Boolean)) return new NextResponse("Forbidden", { status: 403 });
 
   const sp = req.nextUrl.searchParams;
-  const type = sp.get("type") as ExportType;
+  const type = sp.get("type") as DataExportType;
   const startDate = sp.get("startDate");
   const endDate = sp.get("endDate");
   const status = sp.get("status") || undefined;
-  if (!types.includes(type) || !validDate(startDate) || !validDate(endDate) || startDate > endDate) {
+  if (!dataExportTypes.includes(type) || !validDate(startDate) || !validDate(endDate) || startDate > endDate || (status && !isDataExportStatus(type, status))) {
     return new NextResponse("Invalid export filters", { status: 400 });
   }
   if ((type === "customers" && !permitted[0]) || (type !== "customers" && !permitted[1])) {
@@ -87,7 +90,7 @@ export async function GET(req: NextRequest) {
       orderBy: { createdAt: "desc" }, take: MAX_EXPORT_ROWS + 1,
     });
     count = rows.length;
-    if (count <= MAX_EXPORT_ROWS) addRows(workbook.addWorksheet(labels[type]), ["分店", "姓名", "電話", "Email", "狀態", "直屬店長", "首次到訪", "最近消費", "建立時間"], rows.map((r) => [r.store.name, r.name, r.phone, r.email, r.customerStage, r.assignedStaff?.displayName ?? "未指派", r.firstVisitAt ? formatTWTime(r.firstVisitAt, { dateOnly: true }) : "", r.lastVisitAt ? formatTWTime(r.lastVisitAt, { dateOnly: true }) : "", formatTWTime(r.createdAt)]));
+    if (count <= MAX_EXPORT_ROWS) addRows(workbook.addWorksheet(DATA_EXPORT_TYPE_LABELS[type]), [...DATA_EXPORT_HEADERS.customers], rows.map((r) => [r.name, r.phone, r.email, r.store.name, r.assignedStaff?.displayName ?? "未指派", r.firstVisitAt ? formatTWTime(r.firstVisitAt, { dateOnly: true }) : "", r.lastVisitAt ? formatTWTime(r.lastVisitAt, { dateOnly: true }) : "", formatTWTime(r.createdAt)]));
   } else if (type === "transactions") {
     const rows = await prisma.transaction.findMany({
       where: { ...storeFilter, transactionDate: period, ...(status ? { status: status as never } : {}) },
@@ -95,7 +98,11 @@ export async function GET(req: NextRequest) {
       orderBy: { transactionDate: "desc" }, take: MAX_EXPORT_ROWS + 1,
     });
     count = rows.length;
-    if (count <= MAX_EXPORT_ROWS) addRows(workbook.addWorksheet(labels[type]), ["交易日期", "交易單號", "分店", "顧客", "電話", "類型", "狀態", "付款方式明細", "實收金額"], rows.map((r) => [formatTWTime(r.transactionDate, { dateOnly: true }), r.transactionNo, r.store.name, r.customer.name, r.customer.phone, r.transactionType, r.status, r.paymentSplits.length ? r.paymentSplits.map((p) => `${p.paymentMethod} ${Number(p.amount)}`).join("；") : r.paymentMethod, Number(r.netAmount)]));
+    if (count <= MAX_EXPORT_ROWS) addRows(workbook.addWorksheet(DATA_EXPORT_TYPE_LABELS[type]), [...DATA_EXPORT_HEADERS.transactions], rows.map((r) => {
+      const payments = r.paymentSplits.length ? r.paymentSplits : [{ paymentMethod: r.paymentMethod, amount: r.netAmount }];
+      const paymentAmount = (method: string) => Number(payments.find((payment) => payment.paymentMethod === method)?.amount ?? 0);
+      return [formatTWTime(r.transactionDate, { dateOnly: true }), r.customer.name, r.store.name, formatTransactionType(r.transactionType), payments.length > 1 ? "混合付款" : formatPaymentMethod(r.paymentMethod), paymentAmount("CASH"), paymentAmount("TRANSFER"), paymentAmount("LINE_PAY"), paymentAmount("CREDIT_CARD"), paymentAmount("OTHER"), paymentAmount("UNPAID"), Number(r.netAmount), formatTransactionStatus(r.status)];
+    }));
   } else if (type === "bookings") {
     const rows = await prisma.booking.findMany({
       where: { ...storeFilter, bookingDate: { gte: new Date(`${startDate}T00:00:00.000Z`), lte: new Date(`${endDate}T00:00:00.000Z`) }, ...(status ? { bookingStatus: status as never } : {}) },
@@ -103,7 +110,7 @@ export async function GET(req: NextRequest) {
       orderBy: [{ bookingDate: "desc" }, { slotTime: "desc" }], take: MAX_EXPORT_ROWS + 1,
     });
     count = rows.length;
-    if (count <= MAX_EXPORT_ROWS) addRows(workbook.addWorksheet(labels[type]), ["服務日期", "時段", "分店", "顧客", "電話", "服務類型", "狀態", "人數", "服務人員"], rows.map((r) => [r.bookingDate.toISOString().slice(0, 10), r.slotTime, r.store.name, r.customer.name, r.customer.phone, r.bookingType, r.bookingStatus, r.people, r.serviceStaff?.displayName ?? ""]));
+    if (count <= MAX_EXPORT_ROWS) addRows(workbook.addWorksheet(DATA_EXPORT_TYPE_LABELS[type]), [...DATA_EXPORT_HEADERS.bookings], rows.map((r) => [r.bookingDate.toISOString().slice(0, 10), r.slotTime, r.customer.name, r.store.name, formatBookingType(r.bookingType), formatBookingStatus(r.bookingStatus), r.people, r.serviceStaff?.displayName ?? "未指派"]));
   } else {
     const rows = await prisma.customerPlanWallet.findMany({
       where: { ...storeFilter, createdAt: period, ...(status ? { status: status as never } : {}) },
@@ -111,12 +118,12 @@ export async function GET(req: NextRequest) {
       orderBy: { createdAt: "desc" }, take: MAX_EXPORT_ROWS + 1,
     });
     count = rows.length;
-    if (count <= MAX_EXPORT_ROWS) addRows(workbook.addWorksheet(labels[type]), ["分店", "顧客", "電話", "方案", "購入金額", "總堂數", "剩餘堂數", "狀態", "開始日期", "到期日"], rows.map((r) => [r.store.name, r.customer.name, r.customer.phone, r.plan.name, Number(r.purchasedPrice), r.totalSessions, r.remainingSessions, r.status, r.startDate.toISOString().slice(0, 10), r.expiryDate?.toISOString().slice(0, 10) ?? "無期限"]));
+    if (count <= MAX_EXPORT_ROWS) addRows(workbook.addWorksheet(DATA_EXPORT_TYPE_LABELS[type]), [...DATA_EXPORT_HEADERS.wallets], rows.map((r) => [r.customer.name, r.store.name, r.plan.name, Number(r.purchasedPrice), r.totalSessions, r.remainingSessions, formatWalletStatus(r.status), r.startDate.toISOString().slice(0, 10), r.expiryDate?.toISOString().slice(0, 10) ?? "無期限"]));
   }
 
   if (count > MAX_EXPORT_ROWS) return new NextResponse(`單次最多匯出 ${MAX_EXPORT_ROWS.toLocaleString()} 筆，請縮小篩選範圍`, { status: 413 });
   await prisma.auditLog.create({ data: { actorUserId: user.id, targetType: "DataExport", targetId: `${type}:${Date.now()}`, action: "EXPORT", afterJson: { type, storeId: requestedStoreId, startDate, endDate, status: status ?? null, rowCount: count, timezone: "Asia/Taipei", exportedAtTaipei: formatTWTime(new Date()) } } });
   const buffer = await workbook.xlsx.writeBuffer();
-  const filename = encodeURIComponent(`${labels[type]}_${startDate}_${endDate}.xlsx`);
+  const filename = encodeURIComponent(`${DATA_EXPORT_TYPE_LABELS[type]}_${startDate}_${endDate}.xlsx`);
   return new NextResponse(buffer, { headers: { "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Content-Disposition": `attachment; filename*=UTF-8''${filename}` } });
 }
