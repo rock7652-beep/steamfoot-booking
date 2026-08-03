@@ -10,6 +10,10 @@ export const MESSENGER_MIGRATION =
   "20260729090000_add_messenger_audit_runs";
 export const PAYMENT_SPLIT_MIGRATION =
   "20260801090000_add_transaction_payment_splits";
+export const PRODUCTION_MIGRATION_TARGET_ENV = "PRODUCTION_MIGRATION_TARGET";
+export const APPROVED_PRODUCTION_MIGRATION_TARGETS = [
+  PAYMENT_SPLIT_MIGRATION,
+];
 export const MESSENGER_CHECKSUM =
   "6edbd88d9fd2ab9e368b963d21f7d90ef2ed1f8e8c467a29c20f9a3c8d8e1488";
 export const PAYMENT_SPLIT_CHECKSUM =
@@ -107,6 +111,24 @@ function assertProductionConnection() {
     abort("production_connection_rejected");
   }
   log("production_connection_verified");
+}
+
+/** Production builds are database-free unless deployment config names one exact approved migration. */
+export function resolveProductionMigrationTarget(value) {
+  if (!value) return null;
+  return APPROVED_PRODUCTION_MIGRATION_TARGETS.includes(value) ? value : null;
+}
+
+function assertApprovedMigrationTarget(value) {
+  if (!resolveProductionMigrationTarget(value)) {
+    abort("migration_target_rejected");
+  }
+  if (value !== PAYMENT_SPLIT_MIGRATION) {
+    abort("migration_target_unsupported");
+  }
+  if (migrationChecksum(PAYMENT_SPLIT_MIGRATION_FILE) !== PAYMENT_SPLIT_CHECKSUM) {
+    abort("migration_target_checksum_mismatch");
+  }
 }
 
 function runPrisma(args) {
@@ -322,6 +344,14 @@ async function main() {
     log("recovery_skipped_outside_production");
     return;
   }
+
+  const target = process.env[PRODUCTION_MIGRATION_TARGET_ENV];
+  if (!target) {
+    log("migration_skipped_no_target");
+    return;
+  }
+
+  assertApprovedMigrationTarget(target);
 
   log("recovery_preflight_started");
   assertProductionConnection();

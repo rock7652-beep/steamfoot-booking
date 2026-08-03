@@ -26,6 +26,7 @@
 | `CRON_SECRET` | 隨機字串 | 隨機字串（可不同） | 任意 |
 | `HEALTH_API_URL` | 正式 | 正式或測試 | 開發用 |
 | `HEALTH_API_KEY` | 對應 | 對應 | 對應 |
+| `PRODUCTION_MIGRATION_TARGET` | 預設不設定；僅單次、明確核准的 migration target | ❌ 不可設 | ❌ 不可設 |
 
 ---
 
@@ -36,6 +37,13 @@
 - Production **MUST** set `NEXTAUTH_URL`（fixed value，例：`https://www.steamfoot.com`）
 - All environments **MUST** share a compatible `NEXTAUTH_SECRET`（否則 JWT 跨環境不相容 → cookie 失效）
 - 程式碼層 **絕不硬編碼** `https://www.steamfoot.com` 作為 fallback
+- Production build **預設不連線資料庫**。未設定 `PRODUCTION_MIGRATION_TARGET` 時，migration guard 會直接跳過，不會讀取 schema、migration ledger 或執行 Prisma migration 指令。
+
+### Production migration guard
+
+一般沒有 schema 變更的 PR 不需要、也不得設定 `PRODUCTION_MIGRATION_TARGET`；因此合併後的 Production build 不會連線 Production DB。
+
+只有已由程式碼固定 allowlist 的**單一精確 migration ID**才能作為 target。target 不接受多筆值、glob 或任意 migration 名稱；任何不符、連線驗證、status 或 deploy 失敗都會 fail closed。設定 target 前須由維運人員獨立審核並在 migration 成功後移除，避免後續一般部署再次連線資料庫。
 
 ---
 
