@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   DATA_EXPORT_STATUS_OPTIONS,
   DATA_EXPORT_HEADERS,
+  MIXED_PAYMENT_LABEL,
   buildTransactionExportRow,
   formatBookingStatus,
   formatBookingType,
@@ -47,10 +48,18 @@ describe("data export Chinese labels", () => {
     ]);
   });
 
-  it("keeps a mixed payment in one row and lists each payment amount", () => {
-    const row = buildTransactionExportRow({ date: "2026/8/4", customerName: "王小明", storeName: "台北店", transactionType: "PACKAGE_PURCHASE", paymentMethod: "CASH", netAmount: 1_000, status: "SUCCESS", paymentSplits: [{ paymentMethod: "CASH", amount: 300 }, { paymentMethod: "TRANSFER", amount: 700 }] });
+  it("keeps a true mixed payment in one row and lists each payment amount", () => {
+    const row = buildTransactionExportRow({ date: "2026/8/4", customerName: "王小明", storeName: "台北店", transactionType: "PACKAGE_PURCHASE", paymentMethod: "CASH", netAmount: 3_000, status: "SUCCESS", paymentSplits: [{ paymentMethod: "CASH", amount: 1_000 }, { paymentMethod: "TRANSFER", amount: 2_000 }] });
 
-    expect(row).toEqual(["2026/8/4", "王小明", "台北店", "方案購買", "混合付款", 300, 700, 0, 0, 0, 0, 1_000, "已完成"]);
+    expect(MIXED_PAYMENT_LABEL).toBe("混合付款");
+    expect(row).toEqual(["2026/8/4", "王小明", "台北店", "方案購買", "混合付款", 1_000, 2_000, 0, 0, 0, 0, 3_000, "已完成"]);
+  });
+
+  it("does not call repeated splits of one payment method a mixed payment", () => {
+    const row = buildTransactionExportRow({ date: "2026/8/4", customerName: "王小明", storeName: "台北店", transactionType: "PACKAGE_PURCHASE", paymentMethod: "TRANSFER", netAmount: 3_000, status: "SUCCESS", paymentSplits: [{ paymentMethod: "TRANSFER", amount: 799 }, { paymentMethod: "TRANSFER", amount: 2_201 }] });
+
+    expect(row).toEqual(expect.arrayContaining(["匯款", 3_000, "已完成"]));
+    expect(row).not.toContain("混合付款");
   });
 
   it("sums duplicate split records per payment method without duplicating the transaction", () => {

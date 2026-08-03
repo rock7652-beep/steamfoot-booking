@@ -106,6 +106,7 @@ export function formatPaymentMethod(value: string | null | undefined): string {
 }
 
 const PAYMENT_METHOD_COLUMNS = ["CASH", "TRANSFER", "LINE_PAY", "CREDIT_CARD", "OTHER", "UNPAID"] as const;
+export const MIXED_PAYMENT_LABEL = "混合付款";
 
 export function buildTransactionExportRow(input: {
   date: string;
@@ -132,7 +133,7 @@ export function buildTransactionExportRow(input: {
     input.customerName,
     input.storeName,
     formatTransactionType(input.transactionType),
-    payments.length > 1 ? "混合付款" : formatPaymentMethod(payments[0]?.paymentMethod),
+    amounts.size > 1 ? MIXED_PAYMENT_LABEL : formatPaymentMethod(payments[0]?.paymentMethod),
     ...PAYMENT_METHOD_COLUMNS.map((method) => amounts.get(method) ?? 0),
     input.netAmount,
     formatTransactionStatus(input.status),
