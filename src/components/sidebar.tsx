@@ -267,7 +267,7 @@ export const NAV_GROUPS: NavGroup[] = [
   // ── 第二層：營運工具（預設收起） ──
   {
     id: "operations",
-    label: "營運工具",
+    label: "營運管理",
     icon: (
       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M11.42 15.17l-5.1-3.06a1.5 1.5 0 010-2.58l5.1-3.06a1.5 1.5 0 011.58 0l5.1 3.06a1.5 1.5 0 010 2.58l-5.1 3.06a1.5 1.5 0 01-1.58 0z" />
@@ -342,6 +342,18 @@ export const NAV_GROUPS: NavGroup[] = [
         icon: (
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+          </svg>
+        ),
+      },
+      {
+        href: "/dashboard/data-export",
+        label: "資料匯出",
+        permission: "report.export",
+        requiredFeature: FEATURES.DATA_EXPORT,
+        upgradeTo: "ALLIANCE",
+        icon: (
+          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v12m0 0 4-4m-4 4-4-4m-3 7v2a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2" />
           </svg>
         ),
       },
