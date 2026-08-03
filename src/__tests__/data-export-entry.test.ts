@@ -40,6 +40,7 @@ describe("data export entry", () => {
     expect(client).toContain('periodPreset === "custom"');
     expect(client).toContain("DATA_EXPORT_STATUS_OPTIONS[type]");
     expect(client).toContain("全部狀態");
+    expect(client).toContain("顧客建立期間（預設本月）");
     expect(client).not.toContain('placeholder="例如 SUCCESS');
   });
 

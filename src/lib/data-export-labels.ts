@@ -104,3 +104,37 @@ export function formatPaymentMethod(value: string | null | undefined): string {
     UNPAID: "未付款",
   } as Record<string, string>)[value ?? ""] ?? "未分類";
 }
+
+const PAYMENT_METHOD_COLUMNS = ["CASH", "TRANSFER", "LINE_PAY", "CREDIT_CARD", "OTHER", "UNPAID"] as const;
+
+export function buildTransactionExportRow(input: {
+  date: string;
+  customerName: string;
+  storeName: string;
+  transactionType: string;
+  paymentMethod: string;
+  netAmount: number;
+  status: string;
+  paymentSplits: Array<{ paymentMethod: string; amount: number }>;
+}): Array<string | number> {
+  // A transaction remains one workbook row. Split amounts are summed by method,
+  // so a malformed duplicate split cannot produce duplicate transaction rows.
+  const payments = input.paymentSplits.length > 0
+    ? input.paymentSplits
+    : [{ paymentMethod: input.paymentMethod, amount: input.netAmount }];
+  const amounts = new Map<string, number>();
+  for (const payment of payments) {
+    amounts.set(payment.paymentMethod, (amounts.get(payment.paymentMethod) ?? 0) + payment.amount);
+  }
+
+  return [
+    input.date,
+    input.customerName,
+    input.storeName,
+    formatTransactionType(input.transactionType),
+    payments.length > 1 ? "混合付款" : formatPaymentMethod(payments[0]?.paymentMethod),
+    ...PAYMENT_METHOD_COLUMNS.map((method) => amounts.get(method) ?? 0),
+    input.netAmount,
+    formatTransactionStatus(input.status),
+  ];
+}

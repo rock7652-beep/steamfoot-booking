@@ -11,12 +11,10 @@ import { resolveActiveStoreId } from "@/lib/store";
 import {
   DATA_EXPORT_TYPE_LABELS,
   DATA_EXPORT_HEADERS,
+  buildTransactionExportRow,
   dataExportTypes,
   formatBookingStatus,
   formatBookingType,
-  formatPaymentMethod,
-  formatTransactionStatus,
-  formatTransactionType,
   formatWalletStatus,
   isDataExportStatus,
   type DataExportType,
@@ -94,15 +92,15 @@ export async function GET(req: NextRequest) {
   } else if (type === "transactions") {
     const rows = await prisma.transaction.findMany({
       where: { ...storeFilter, transactionDate: period, ...(status ? { status: status as never } : {}) },
-      select: { transactionNo: true, transactionDate: true, transactionType: true, status: true, paymentMethod: true, netAmount: true, customer: { select: { name: true, phone: true } }, store: { select: { name: true } }, paymentSplits: { select: { paymentMethod: true, amount: true } } },
+      select: { transactionDate: true, transactionType: true, status: true, paymentMethod: true, netAmount: true, customer: { select: { name: true } }, store: { select: { name: true } }, paymentSplits: { select: { paymentMethod: true, amount: true } } },
       orderBy: { transactionDate: "desc" }, take: MAX_EXPORT_ROWS + 1,
     });
     count = rows.length;
-    if (count <= MAX_EXPORT_ROWS) addRows(workbook.addWorksheet(DATA_EXPORT_TYPE_LABELS[type]), [...DATA_EXPORT_HEADERS.transactions], rows.map((r) => {
-      const payments = r.paymentSplits.length ? r.paymentSplits : [{ paymentMethod: r.paymentMethod, amount: r.netAmount }];
-      const paymentAmount = (method: string) => Number(payments.find((payment) => payment.paymentMethod === method)?.amount ?? 0);
-      return [formatTWTime(r.transactionDate, { dateOnly: true }), r.customer.name, r.store.name, formatTransactionType(r.transactionType), payments.length > 1 ? "混合付款" : formatPaymentMethod(r.paymentMethod), paymentAmount("CASH"), paymentAmount("TRANSFER"), paymentAmount("LINE_PAY"), paymentAmount("CREDIT_CARD"), paymentAmount("OTHER"), paymentAmount("UNPAID"), Number(r.netAmount), formatTransactionStatus(r.status)];
-    }));
+    if (count <= MAX_EXPORT_ROWS) addRows(workbook.addWorksheet(DATA_EXPORT_TYPE_LABELS[type]), [...DATA_EXPORT_HEADERS.transactions], rows.map((r) => buildTransactionExportRow({
+      date: formatTWTime(r.transactionDate, { dateOnly: true }), customerName: r.customer.name, storeName: r.store.name,
+      transactionType: r.transactionType, paymentMethod: r.paymentMethod, netAmount: Number(r.netAmount), status: r.status,
+      paymentSplits: r.paymentSplits.map((payment) => ({ paymentMethod: payment.paymentMethod, amount: Number(payment.amount) })),
+    })));
   } else if (type === "bookings") {
     const rows = await prisma.booking.findMany({
       where: { ...storeFilter, bookingDate: { gte: new Date(`${startDate}T00:00:00.000Z`), lte: new Date(`${endDate}T00:00:00.000Z`) }, ...(status ? { bookingStatus: status as never } : {}) },

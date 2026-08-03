@@ -34,6 +34,7 @@ export default function DataExportClient({ isAdmin, stores, canCustomerExport, c
   const [status, setStatus] = useState("");
   const [storeId, setStoreId] = useState(stores[0]?.id ?? "");
   const [loading, setLoading] = useState(false);
+  const isCustomerExport = type === "customers";
 
   function selectPeriod(preset: PeriodPreset) {
     setPeriodPreset(preset);
@@ -89,15 +90,15 @@ export default function DataExportClient({ isAdmin, stores, canCustomerExport, c
         </label>
 
         <fieldset className="mt-4">
-          <legend className="text-sm font-medium">期間（預設本月）</legend>
+          <legend className="text-sm font-medium">{isCustomerExport ? "顧客建立期間（預設本月）" : "期間（預設本月）"}</legend>
           <div className="mt-1 grid grid-cols-3 gap-2">
             {(["thisMonth", "lastMonth", "custom"] as const).map((preset) => <button type="button" key={preset} onClick={() => selectPeriod(preset)} className={`rounded border px-3 py-2 text-sm ${periodPreset === preset ? "border-green-700 bg-green-50 text-green-800" : "border-gray-300"}`}>{({ thisMonth: "本月", lastMonth: "上月", custom: "自訂期間" } as const)[preset]}</button>)}
           </div>
         </fieldset>
 
         {periodPreset === "custom" ? <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <label className="text-sm font-medium">開始日期（必填）<input className="mt-1 block w-full rounded border p-2" type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} /></label>
-          <label className="text-sm font-medium">結束日期（必填）<input className="mt-1 block w-full rounded border p-2" type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} /></label>
+          <label className="text-sm font-medium">{isCustomerExport ? "開始建立日期（必填）" : "開始日期（必填）"}<input className="mt-1 block w-full rounded border p-2" type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} /></label>
+          <label className="text-sm font-medium">{isCustomerExport ? "結束建立日期（必填）" : "結束日期（必填）"}<input className="mt-1 block w-full rounded border p-2" type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} /></label>
         </div> : null}
 
         <label className="mt-4 block text-sm font-medium">狀態（選填）

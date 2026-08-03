@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   DATA_EXPORT_STATUS_OPTIONS,
   DATA_EXPORT_HEADERS,
+  buildTransactionExportRow,
   formatBookingStatus,
   formatBookingType,
   formatCustomerStage,
@@ -38,5 +39,24 @@ describe("data export Chinese labels", () => {
     expect(DATA_EXPORT_HEADERS.transactions).not.toContain("交易單號");
     expect(DATA_EXPORT_HEADERS.bookings).toEqual(expect.arrayContaining(["日期", "時段", "顧客", "服務類型", "預約狀態", "人數", "服務人員"]));
     expect(DATA_EXPORT_HEADERS.wallets).toEqual(expect.arrayContaining(["顧客", "方案名稱", "購買金額", "總堂數", "剩餘堂數", "方案狀態", "開始日", "到期日"]));
+  });
+
+  it("exports a normal payment as one row with the correct received amount", () => {
+    expect(buildTransactionExportRow({ date: "2026/8/4", customerName: "王小明", storeName: "台北店", transactionType: "SINGLE_PURCHASE", paymentMethod: "CASH", netAmount: 900, status: "SUCCESS", paymentSplits: [] })).toEqual([
+      "2026/8/4", "王小明", "台北店", "單次消費", "現金", 900, 0, 0, 0, 0, 0, 900, "已完成",
+    ]);
+  });
+
+  it("keeps a mixed payment in one row and lists each payment amount", () => {
+    const row = buildTransactionExportRow({ date: "2026/8/4", customerName: "王小明", storeName: "台北店", transactionType: "PACKAGE_PURCHASE", paymentMethod: "CASH", netAmount: 1_000, status: "SUCCESS", paymentSplits: [{ paymentMethod: "CASH", amount: 300 }, { paymentMethod: "TRANSFER", amount: 700 }] });
+
+    expect(row).toEqual(["2026/8/4", "王小明", "台北店", "方案購買", "混合付款", 300, 700, 0, 0, 0, 0, 1_000, "已完成"]);
+  });
+
+  it("sums duplicate split records per payment method without duplicating the transaction", () => {
+    const row = buildTransactionExportRow({ date: "2026/8/4", customerName: "王小明", storeName: "台北店", transactionType: "PACKAGE_PURCHASE", paymentMethod: "CASH", netAmount: 1_000, status: "VOIDED", paymentSplits: [{ paymentMethod: "CASH", amount: 200 }, { paymentMethod: "CASH", amount: 100 }, { paymentMethod: "TRANSFER", amount: 700 }] });
+
+    expect(row).toHaveLength(DATA_EXPORT_HEADERS.transactions.length);
+    expect(row).toEqual(expect.arrayContaining([300, 700, "已作廢"]));
   });
 });
