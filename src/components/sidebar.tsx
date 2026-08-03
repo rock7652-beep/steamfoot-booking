@@ -346,18 +346,6 @@ export const NAV_GROUPS: NavGroup[] = [
         ),
       },
       {
-        href: "/dashboard/data-export",
-        label: "資料匯出",
-        permission: "report.export",
-        requiredFeature: FEATURES.DATA_EXPORT,
-        upgradeTo: "ALLIANCE",
-        icon: (
-          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v12m0 0 4-4m-4 4-4-4m-3 7v2a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2" />
-          </svg>
-        ),
-      },
-      {
         href: "/dashboard/ops",
         label: "營運儀表板",
         ownerOnly: true,
