@@ -3,39 +3,26 @@ import { NextRequest } from "next/server";
 
 const mockAuth = vi.hoisted(() => vi.fn());
 const mockGetOAuthTempSession = vi.hoisted(() => vi.fn());
-const mockPrepare = vi.hoisted(() => vi.fn());
-const mockIssue = vi.hoisted(() => vi.fn());
+const mockComplete = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/auth", () => ({ auth: () => mockAuth() }));
 vi.mock("@/lib/server/oauth-temp-session", () => ({
   getOAuthTempSession: () => mockGetOAuthTempSession(),
 }));
 vi.mock("@/server/actions/taichung-provider-line-finalize", () => ({
-  prepareTaichungProviderLineBridge: (input: unknown) => mockPrepare(input),
-}));
-vi.mock("@/lib/line-oauth/taichung-session", () => ({
-  TAICHUNG_LINE_SESSION_COOKIE: "taichung_line_oauth_session",
-  TAICHUNG_LINE_SESSION_COOKIE_OPTIONS: {
-    httpOnly: true,
-    secure: true,
-    sameSite: "lax",
-    path: "/api/line-oauth/taichung",
-    maxAge: 300,
-  },
-  issueTaichungLineSession: (input: unknown) => mockIssue(input),
+  completeTaichungProviderLineOwnershipProof: (input: unknown) => mockComplete(input),
 }));
 
 describe("Taichung LINE finalize server handoff", () => {
   const temp = { attemptId: "attempt-1", storeId: "store-taichung", lineUserId: "line-login" };
-  const bridge = { attemptId: "attempt-1", userId: "user-1", customerId: "customer-1", storeId: "store-taichung", lineUserId: "line-login" };
+  const completion = { attemptId: "attempt-1", userId: "user-1", customerId: "customer-1", storeId: "store-taichung" };
 
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
     mockAuth.mockResolvedValue({ user: { id: "user-1" } });
     mockGetOAuthTempSession.mockResolvedValue(temp);
-    mockPrepare.mockResolvedValue({ status: "ready", bridge });
-    mockIssue.mockReturnValue("signed-bridge");
+    mockComplete.mockResolvedValue({ status: "completed", completion });
   });
 
   async function finalize(customerId = "customer-1") {
@@ -43,28 +30,23 @@ describe("Taichung LINE finalize server handoff", () => {
     return GET(new NextRequest(`https://www.steamfoot.com/api/line-oauth/taichung/finalize?customerId=${customerId}`));
   }
 
-  it("issues the signed bridge in the server redirect before coordinator sign-in", async () => {
+  it("completes ownership binding on the server and redirects without a bridge cookie", async () => {
     const response = await finalize();
 
     expect(response.status).toBe(303);
-    expect(response.headers.get("location")).toBe("https://www.steamfoot.com/api/line-oauth/taichung/coordinator");
-    expect(mockPrepare).toHaveBeenCalledWith({ customerId: "customer-1", session: { user: { id: "user-1" } }, tempSession: temp });
-    expect(mockIssue).toHaveBeenCalledWith(bridge);
-    expect(response.headers.get("set-cookie")).toContain("taichung_line_oauth_session=signed-bridge");
-    expect(response.headers.get("set-cookie")).toContain("Path=/api/line-oauth/taichung");
-    expect(response.headers.get("set-cookie")).toContain("HttpOnly");
-    expect(response.headers.get("set-cookie")).toContain("Secure");
+    expect(response.headers.get("location")).toBe("https://www.steamfoot.com/s/taichung/book");
+    expect(mockComplete).toHaveBeenCalledWith({ customerId: "customer-1", session: { user: { id: "user-1" } }, tempSession: temp });
     expect(response.headers.get("set-cookie")).toContain("oauth_line_session=;");
   });
 
   it("keeps the temp cookie intact and blocks completion when a guard rejects", async () => {
-    mockPrepare.mockResolvedValue({ status: "rejected", error: "customer_mismatch" });
+    mockComplete.mockResolvedValue({ status: "rejected", error: "customer_mismatch" });
 
     const response = await finalize();
 
     expect(response.status).toBe(303);
     expect(response.headers.get("location")).toContain("/oauth-confirm/finalize?error=customer_mismatch");
     expect(response.headers.get("set-cookie")).toBeNull();
-    expect(mockIssue).not.toHaveBeenCalled();
+    expect(mockComplete).toHaveBeenCalledOnce();
   });
 });

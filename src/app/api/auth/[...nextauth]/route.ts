@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { handlers } from "@/lib/auth";
+import { handlers, signIn } from "@/lib/auth";
 import { consumeTaichungCallback, isTaichungCoordinatorState, resolveTaichungLinkedCustomer, TaichungOAuthError } from "@/lib/line-oauth/taichung-coordinator";
-import { issueTaichungLineSession, TAICHUNG_LINE_SESSION_COOKIE, TAICHUNG_LINE_SESSION_COOKIE_OPTIONS } from "@/lib/line-oauth/taichung-session";
+import { issueTaichungLineSession } from "@/lib/line-oauth/taichung-session";
 import { setOAuthTempSession } from "@/lib/server/oauth-temp-session";
 import { resolveTaichungCallbackUrl } from "@/lib/line-oauth/callback-url";
 
@@ -48,16 +48,24 @@ export async function GET(request: NextRequest) {
     });
 
     if (customer) {
-      const url = new URL("/api/line-oauth/taichung/coordinator", request.url);
-      const response = preserveTaichungStore(NextResponse.redirect(url));
-      response.cookies.set(TAICHUNG_LINE_SESSION_COOKIE, issueTaichungLineSession({
+      const ticket = issueTaichungLineSession({
         attemptId: attemptId,
         userId: customer.userId,
         customerId: customer.id,
         storeId,
         lineUserId: profile.userId,
-      }), TAICHUNG_LINE_SESSION_COOKIE_OPTIONS);
-      return response;
+      });
+      const redirectTo = new URL("/s/taichung/book", request.url).toString();
+      const responseUrl = await signIn("line-taichung-coordinator", {
+        redirect: false,
+        redirectTo,
+        ticket,
+      });
+      const destination = new URL(String(responseUrl), request.url);
+      if (destination.origin !== request.nextUrl.origin || destination.pathname !== "/s/taichung/book") {
+        return NextResponse.json({ error: "LINE callback failed" }, { status: 400 });
+      }
+      return preserveTaichungStore(NextResponse.redirect(destination, 303));
     }
     // No valid same-store identity link: retain the verified phone confirmation
     // path. No Customer, Account, or identity link is written by the callback.

@@ -31,6 +31,9 @@ export type ResolveLineLoginResult =
   | { status: "BOUND_EXISTING"; action: "RELOGIN"; customerId: string }
   // 已啟用顧客必須先過密碼閘
   | { status: "NEED_LOGIN"; phone: string; maskedPhone: string; customerId: string }
+  // Historical Customer has no usable central password account. This is not a
+  // password retry state; a separately reviewed activation flow owns it.
+  | { status: "ACCOUNT_ACTIVATION_REQUIRED"; customerId: string }
   // 占位符 + 已預載資產（wallet/booking/transactions/points）→ 不可 silent claim
   | { status: "BLOCKED_NEEDS_STAFF"; customerId: string };
 

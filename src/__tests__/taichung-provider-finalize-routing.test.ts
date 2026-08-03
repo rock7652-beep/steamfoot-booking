@@ -15,16 +15,18 @@ describe("Taichung provider-scoped LINE finalize", () => {
     const login = read("src/server/actions/oauth-confirm.ts");
     const finalizeRoute = read("src/app/api/line-oauth/taichung/finalize/route.ts");
     expect(login).toContain("/api/line-oauth/taichung/finalize?customerId=");
-    expect(finalizeRoute).toContain("prepareTaichungProviderLineBridge");
-    expect(finalizeRoute).toContain("issueTaichungLineSession");
-    expect(finalizeRoute).toContain('new URL("/api/line-oauth/taichung/coordinator"');
+    expect(finalizeRoute).toContain("completeTaichungProviderLineOwnershipProof");
+    expect(finalizeRoute).not.toContain("issueTaichungLineSession");
+    expect(finalizeRoute).toContain('new URL("/s/taichung/book"');
   });
 
-  it("hands verified ownership to the signed bridge without writing any identity", () => {
+  it("writes only a namespaced line_login identity inside a server transaction", () => {
     const finalize = read("src/server/actions/taichung-provider-line-finalize.ts");
-    expect(finalize).toContain("prepareTaichungProviderLineBridge");
+    expect(finalize).toContain("completeTaichungProviderLineOwnershipProof");
+    expect(finalize).toContain("createVerifiedCustomerIdentityLink");
+    expect(finalize).toContain("$transaction");
     expect(finalize).not.toContain("customer.update");
     expect(finalize).not.toContain("account.");
-    expect(finalize).not.toContain("customerIdentityLink");
+    expect(finalize).not.toContain("provider: \"line\"");
   });
 });

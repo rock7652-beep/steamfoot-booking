@@ -7,8 +7,9 @@ const mockResolveTaichungLinkedCustomer = vi.hoisted(() => vi.fn());
 const mockIssueTaichungLineSession = vi.hoisted(() => vi.fn());
 const mockSetOAuthTempSession = vi.hoisted(() => vi.fn());
 const mockResolveTaichungCallbackUrl = vi.hoisted(() => vi.fn());
+const mockSignIn = vi.hoisted(() => vi.fn());
 
-vi.mock("@/lib/auth", () => ({ handlers: { GET: vi.fn(), POST: vi.fn() } }));
+vi.mock("@/lib/auth", () => ({ handlers: { GET: vi.fn(), POST: vi.fn() }, signIn: (...args: unknown[]) => mockSignIn(...args) }));
 vi.mock("@/lib/line-oauth/taichung-coordinator", () => ({
   consumeTaichungCallback: (...args: unknown[]) => mockConsumeTaichungCallback(...args),
   isTaichungCoordinatorState: (...args: unknown[]) => mockIsTaichungCoordinatorState(...args),
@@ -16,14 +17,6 @@ vi.mock("@/lib/line-oauth/taichung-coordinator", () => ({
   TaichungOAuthError: class TaichungOAuthError extends Error {},
 }));
 vi.mock("@/lib/line-oauth/taichung-session", () => ({
-  TAICHUNG_LINE_SESSION_COOKIE: "taichung_line_session",
-  TAICHUNG_LINE_SESSION_COOKIE_OPTIONS: {
-    httpOnly: true,
-    secure: true,
-    sameSite: "lax",
-    path: "/api/line-oauth/taichung",
-    maxAge: 300,
-  },
   issueTaichungLineSession: (...args: unknown[]) => mockIssueTaichungLineSession(...args),
 }));
 vi.mock("@/lib/server/oauth-temp-session", () => ({
@@ -45,6 +38,7 @@ describe("Taichung LINE callback direct session", () => {
       profile: { userId: "line-user", displayName: "LINE User" },
     });
     mockIssueTaichungLineSession.mockReturnValue("signed-bridge");
+    mockSignIn.mockResolvedValue("https://www.steamfoot.com/s/taichung/book");
   });
 
   async function callback() {
@@ -52,7 +46,7 @@ describe("Taichung LINE callback direct session", () => {
     return GET(new NextRequest("https://www.steamfoot.com/api/auth/callback/line?state=tc1.state&code=code"));
   }
 
-  it("issues a new Taichung bridge for an already linked same-store member without a phone challenge", async () => {
+  it("starts a server-internal coordinator session for an already linked same-store member without a browser bridge", async () => {
     mockResolveTaichungLinkedCustomer.mockResolvedValue({
       id: "customer-taichung",
       userId: "central-user",
@@ -72,9 +66,12 @@ describe("Taichung LINE callback direct session", () => {
       lineUserId: "line-user",
     });
     expect(mockSetOAuthTempSession).not.toHaveBeenCalled();
-    expect(response.headers.get("location")).toBe("https://www.steamfoot.com/api/line-oauth/taichung/coordinator");
-    expect(response.headers.get("set-cookie")).toContain("taichung_line_session=signed-bridge");
-    expect(response.headers.get("set-cookie")).toContain("Path=/api/line-oauth/taichung");
+    expect(mockSignIn).toHaveBeenCalledWith("line-taichung-coordinator", {
+      redirect: false,
+      redirectTo: "https://www.steamfoot.com/s/taichung/book",
+      ticket: "signed-bridge",
+    });
+    expect(response.headers.get("location")).toBe("https://www.steamfoot.com/s/taichung/book");
   });
 
   it("keeps the phone-and-password challenge for a first-time or other-store-only LINE identity", async () => {
@@ -92,5 +89,6 @@ describe("Taichung LINE callback direct session", () => {
     expect(response.headers.get("location")).toBe(
       "https://www.steamfoot.com/oauth-confirm?callbackUrl=%2Fs%2Ftaichung%2Fbook",
     );
+    expect(mockSignIn).not.toHaveBeenCalled();
   });
 });

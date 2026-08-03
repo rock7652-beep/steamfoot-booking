@@ -9,12 +9,13 @@ describe("Taichung oauth-confirm session rebuilding", () => {
     "src/app/(auth)/oauth-confirm/finalize/_components/finalize-trigger.tsx",
   );
 
-  it("issues the coordinator bridge from the server-side finalization route", () => {
+  it("completes on the server-side finalization route without a bridge cookie", () => {
     const login = read("src/server/actions/oauth-confirm.ts");
     const route = read("src/app/api/line-oauth/taichung/finalize/route.ts");
     expect(login).toContain('session.channelKey === "taichung"');
     expect(route).toContain("getOAuthTempSession");
-    expect(route).toContain("TAICHUNG_LINE_SESSION_COOKIE");
+    expect(route).toContain("completeTaichungProviderLineOwnershipProof");
+    expect(route).not.toContain("TAICHUNG_LINE_SESSION_COOKIE");
   });
 
   it("never rebuilds a Taichung JWT through the legacy global LINE provider", () => {
