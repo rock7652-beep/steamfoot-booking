@@ -6,10 +6,7 @@ import { prisma } from "@/lib/db";
 import type { Provider } from "next-auth/providers";
 import type { UserRole } from "@prisma/client";
 import { normalizePhone } from "@/lib/normalize";
-import {
-  TAICHUNG_LINE_SESSION_COOKIE,
-  verifyTaichungLineSessionDetailed,
-} from "@/lib/line-oauth/taichung-session";
+import { verifyTaichungLineSessionDetailed } from "@/lib/line-oauth/taichung-session";
 import { repairCustomerIdentityOnLogin } from "@/lib/identity-repair";
 import {
   logLineBindEvent,
@@ -264,11 +261,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     Credentials({
       id: "line-taichung-coordinator",
       name: "line-taichung-coordinator",
-      credentials: {},
-      async authorize(_credentials, request) {
-        const rawCookie = request.headers.get("cookie")
-          ?.split(";").map((v) => v.trim()).find((v) => v.startsWith(`${TAICHUNG_LINE_SESSION_COOKIE}=`))?.slice(TAICHUNG_LINE_SESSION_COOKIE.length + 1);
-        const verification = verifyTaichungLineSessionDetailed(rawCookie);
+      credentials: { ticket: { label: "ticket", type: "text" } },
+      async authorize(credentials) {
+        const ticket = typeof credentials?.ticket === "string" ? credentials.ticket : undefined;
+        const verification = verifyTaichungLineSessionDetailed(ticket);
         if (verification.status === "rejected") {
           logTaichungLineHandoff("bridge_replay_rejected", { errorCode: verification.error });
           return null;

@@ -380,7 +380,7 @@ describe("auth.ts customer-phone provider", () => {
 });
 
 describe("auth.ts line-taichung-coordinator provider", () => {
-  it("creates a fresh Taichung customer session from a valid one-time bridge", async () => {
+  it("creates a fresh Taichung customer session from a server-internal one-time ticket", async () => {
     const authorize = await getCredentialsAuthorize("line-taichung-coordinator");
     mockVerifyTaichungLineSessionDetailed.mockReturnValue({ status: "verified", bridge: {
       attemptId: "attempt-1",
@@ -409,14 +409,13 @@ describe("auth.ts line-taichung-coordinator provider", () => {
       },
     });
 
-    await expect(authorize({}, new Request("https://example.test", {
-      headers: { cookie: "taichung_line_session=bridge" },
-    }))).resolves.toMatchObject({
+    await expect(authorize({ ticket: "server-ticket" }, new Request("https://example.test"))).resolves.toMatchObject({
       id: "central-user",
       customerId: "customer-taichung",
       storeId: "store-taichung",
       storeSlug: "taichung",
     });
+    expect(mockVerifyTaichungLineSessionDetailed).toHaveBeenCalledWith("server-ticket");
     expect(mockLineOAuthAttemptUpdateMany).toHaveBeenCalledOnce();
   });
 
@@ -441,12 +440,10 @@ describe("auth.ts line-taichung-coordinator provider", () => {
       customer: { id: bridge.customerId, storeId: bridge.storeId, store: { slug: "taichung" }, hasDirectUser: false },
       user: { id: bridge.userId, name: "Taichung User", email: null, passwordHash: null, role: "CUSTOMER", status: "ACTIVE" },
     });
-    const request = new Request("https://example.test", {
-      headers: { cookie: "taichung_line_session=bridge" },
-    });
+    const request = new Request("https://example.test");
 
-    await expect(authorize({}, request)).resolves.toMatchObject({ id: bridge.userId });
-    await expect(authorize({}, request)).resolves.toBeNull();
+    await expect(authorize({ ticket: "server-ticket" }, request)).resolves.toMatchObject({ id: bridge.userId });
+    await expect(authorize({ ticket: "server-ticket" }, request)).resolves.toBeNull();
     expect(mockLineOAuthAttemptUpdateMany).toHaveBeenCalledTimes(2);
   });
 
@@ -467,9 +464,7 @@ describe("auth.ts line-taichung-coordinator provider", () => {
       sessionConsumedAt: null,
     });
 
-    await expect(authorize({}, new Request("https://example.test", {
-      headers: { cookie: "taichung_line_session=bridge" },
-    }))).resolves.toBeNull();
+    await expect(authorize({ ticket: "server-ticket" }, new Request("https://example.test"))).resolves.toBeNull();
     expect(mockResolveCentralUserForStoreCustomer).not.toHaveBeenCalled();
   });
 
@@ -485,9 +480,7 @@ describe("auth.ts line-taichung-coordinator provider", () => {
     mockLineOAuthAttemptUpdateMany.mockResolvedValueOnce({ count: 0 });
     mockLineOAuthAttemptFindUnique.mockResolvedValueOnce(null);
 
-    await expect(authorize({}, new Request("https://example.test", {
-      headers: { cookie: "taichung_line_session=bridge" },
-    }))).resolves.toBeNull();
+    await expect(authorize({ ticket: "server-ticket" }, new Request("https://example.test"))).resolves.toBeNull();
     expect(mockResolveCentralUserForStoreCustomer).not.toHaveBeenCalled();
   });
 
@@ -519,9 +512,7 @@ describe("auth.ts line-taichung-coordinator provider", () => {
       },
     });
 
-    await expect(authorize({}, new Request("https://example.test", {
-      headers: { cookie: "taichung_line_session=bridge" },
-    }))).resolves.toBeNull();
+    await expect(authorize({ ticket: "server-ticket" }, new Request("https://example.test"))).resolves.toBeNull();
 
     expect(mockResolveCentralUserForStoreCustomer).toHaveBeenCalledWith({
       customerId: "customer-hsinchu",
@@ -557,9 +548,7 @@ describe("auth.ts line-taichung-coordinator provider", () => {
       },
     });
 
-    await expect(authorize({}, new Request("https://example.test", {
-      headers: { cookie: "taichung_line_session=bridge" },
-    }))).resolves.toBeNull();
+    await expect(authorize({ ticket: "server-ticket" }, new Request("https://example.test"))).resolves.toBeNull();
   });
 });
 

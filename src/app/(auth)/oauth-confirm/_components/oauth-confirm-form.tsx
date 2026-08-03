@@ -93,6 +93,11 @@ export function OAuthConfirmForm({ callbackUrl, taichungCoordinator = false }: P
             "此手機已有店家建立的會員資料，請聯繫店家協助綁定 LINE。",
           );
           break;
+        case "ACCOUNT_ACTIVATION_REQUIRED":
+          setError(
+            "此會員尚未啟用密碼帳號，請聯繫暖沐協助完成首次啟用。",
+          );
+          break;
       }
     } catch {
       setPending(false);

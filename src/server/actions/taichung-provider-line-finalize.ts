@@ -1,4 +1,6 @@
 import type { OAuthTempSession } from "@/lib/oauth-temp-session";
+import { prisma } from "@/lib/db";
+import { createVerifiedCustomerIdentityLink } from "@/server/services/namespaced-customer-identity-link";
 import { resolveCentralUserForStoreCustomer } from "@/server/services/resolve-central-user-for-store-customer";
 
 type CustomerSession = {
@@ -15,29 +17,25 @@ export type TaichungFinalizeError =
   | "session_expired"
   | "customer_mismatch";
 
-export type TaichungBridgePreparation =
+export type TaichungServerCompletion =
   | {
-      status: "ready";
-      bridge: {
-        attemptId: string;
-        userId: string;
-        customerId: string;
-        storeId: string;
-        lineUserId: string;
-      };
+      status: "completed";
+      completion: { attemptId: string; userId: string; customerId: string; storeId: string };
     }
-  | { status: "rejected"; error: TaichungFinalizeError };
+  | { status: "rejected"; error: TaichungFinalizeError | "identity_conflict" | "completion_replayed" | "completion_failed" };
 
 /**
- * Validates the post-password ownership proof before a route handler issues
- * the one-time coordinator bridge. This deliberately does not write any
- * identity: line_login is created only after Auth.js consumes that bridge.
+ * Completes a Taichung phone/password ownership proof on the server that
+ * already holds both the authenticated customer session and verified OAuth
+ * temp context. This intentionally never relays a bridge through a browser
+ * cookie. The attempt claim and identity write share one transaction: a
+ * failed write rolls back the claim, while a replay cannot write twice.
  */
-export async function prepareTaichungProviderLineBridge(input: {
+export async function completeTaichungProviderLineOwnershipProof(input: {
   customerId: string;
   session: CustomerSession;
   tempSession: OAuthTempSession | null;
-}): Promise<TaichungBridgePreparation> {
+}): Promise<TaichungServerCompletion> {
   const authenticatedUserId = input.session?.user?.id;
   if (
     !authenticatedUserId ||
@@ -67,14 +65,50 @@ export async function prepareTaichungProviderLineBridge(input: {
     resolution.user.status !== "ACTIVE"
   ) return { status: "rejected", error: "customer_mismatch" };
 
-  return {
-    status: "ready",
-    bridge: {
-      attemptId: tempSession.attemptId,
-      userId: resolution.user.id,
-      customerId: resolution.customer.id,
-      storeId: tempSession.storeId,
-      lineUserId: tempSession.lineUserId,
-    },
+  const completion = {
+    attemptId: tempSession.attemptId,
+    userId: resolution.user.id,
+    customerId: resolution.customer.id,
+    storeId: tempSession.storeId,
   };
+
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      const claimed = await tx.lineOAuthAttempt.updateMany({
+        where: {
+          id: tempSession.attemptId,
+          storeId: tempSession.storeId,
+          storeSlug: "taichung",
+          channelKey: "taichung",
+          status: "CONSUMED",
+          sessionConsumedAt: null,
+          expiresAt: { gt: new Date() },
+        },
+        data: { sessionConsumedAt: new Date() },
+      });
+      if (claimed.count !== 1) return { status: "replayed" as const };
+
+      const identity = await createVerifiedCustomerIdentityLink({
+        ...completion,
+        provider: "line_login",
+        providerAccountId: tempSession.lineUserId,
+        tx,
+      });
+      if (identity.status !== "upserted") {
+        throw new Error(`identity:${identity.error}`);
+      }
+      return { status: "completed" as const };
+    });
+    if (result.status === "replayed") return { status: "rejected", error: "completion_replayed" };
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith("identity:")) {
+      return { status: "rejected", error: "identity_conflict" };
+    }
+    // The transaction rolls back the compare-and-set claim on any database
+    // failure. Return a safe code rather than treating a failed write as a
+    // completed identity binding.
+    return { status: "rejected", error: "completion_failed" };
+  }
+
+  return { status: "completed", completion };
 }
