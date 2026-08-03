@@ -41,7 +41,7 @@ describe("Taichung LINE finalize server handoff", () => {
     const response = await finalize();
 
     expect(response.status).toBe(303);
-    expect(response.headers.get("location")).toBe("https://www.steamfoot.com/line-oauth/complete");
+    expect(response.headers.get("location")).toBe("https://www.steamfoot.com/api/line-oauth/taichung/coordinator");
     expect(mockPrepare).toHaveBeenCalledWith({ customerId: "customer-1", session: { user: { id: "user-1" } }, tempSession: temp });
     expect(mockIssue).toHaveBeenCalledWith(bridge);
     expect(response.headers.get("set-cookie")).toContain("taichung_line_oauth_session=signed-bridge");

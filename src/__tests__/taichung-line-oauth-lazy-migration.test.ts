@@ -47,6 +47,13 @@ describe("Taichung LINE post-session lazy identity migration", () => {
     }));
   }
 
+  async function completeServerRedirect() {
+    const { GET } = await import("@/app/api/line-oauth/taichung/complete/route");
+    return GET(new NextRequest("https://www.steamfoot.com/api/line-oauth/taichung/complete", {
+      headers: { cookie: "taichung_line_oauth_session=signed-bridge" },
+    }));
+  }
+
   it("upserts the verified LINE identity only after the matching Auth.js session exists", async () => {
     const response = await complete();
 
@@ -59,6 +66,16 @@ describe("Taichung LINE post-session lazy identity migration", () => {
       providerAccountId: bridge.lineUserId,
     });
     expect(response.headers.get("set-cookie")).toContain("taichung_line_oauth_session=;");
+  });
+
+  it("redirects to the Taichung book page only after server completion succeeds", async () => {
+    const response = await completeServerRedirect();
+
+    expect(response.status).toBe(303);
+    expect(response.headers.get("location")).toBe(
+      "https://www.steamfoot.com/s/taichung/book",
+    );
+    expect(mockCreateVerifiedCustomerIdentityLink).toHaveBeenCalledOnce();
   });
 
   it("does not migrate when Auth.js session creation did not succeed", async () => {

@@ -4,7 +4,7 @@ import { TAICHUNG_LINE_SESSION_COOKIE, verifyTaichungLineSession } from "@/lib/l
 import { createVerifiedCustomerIdentityLink } from "@/server/services/namespaced-customer-identity-link";
 import { logTaichungLineHandoff } from "@/lib/line-oauth/taichung-handoff-log";
 
-export async function POST(request: NextRequest) {
+async function complete(request: NextRequest, redirectOnSuccess: boolean) {
   const session = await auth();
   if (
     session?.user?.role !== "CUSTOMER" ||
@@ -69,7 +69,9 @@ export async function POST(request: NextRequest) {
   // internal redirect; failures return non-2xx above and cannot redirect.
   logTaichungLineHandoff("final_redirect_success", bridge);
 
-  const response = NextResponse.json({ ok: true });
+  const response = redirectOnSuccess
+    ? NextResponse.redirect(new URL("/s/taichung/book", request.url), 303)
+    : NextResponse.json({ ok: true });
   response.cookies.delete(TAICHUNG_LINE_SESSION_COOKIE);
   response.cookies.set("store-slug", "taichung", {
     path: "/",
@@ -79,4 +81,16 @@ export async function POST(request: NextRequest) {
     maxAge: 60 * 60 * 24,
   });
   return response;
+}
+
+// The server-driven coordinator route redirects here only after Auth.js has
+// minted the session cookie. This is the normal completion path.
+export async function GET(request: NextRequest) {
+  return complete(request, true);
+}
+
+// Retained temporarily for callers already using the JSON contract. It has
+// the same ownership and bridge checks and never redirects on failure.
+export async function POST(request: NextRequest) {
+  return complete(request, false);
 }

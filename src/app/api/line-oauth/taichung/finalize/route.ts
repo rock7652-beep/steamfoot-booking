@@ -37,7 +37,10 @@ export async function GET(request: NextRequest) {
   }
 
   logTaichungLineHandoff("finalize_guard_passed", prepared.bridge);
-  const response = NextResponse.redirect(new URL("/line-oauth/complete", request.url), 303);
+  const response = NextResponse.redirect(
+    new URL("/api/line-oauth/taichung/coordinator", request.url),
+    303,
+  );
   response.cookies.set(
     TAICHUNG_LINE_SESSION_COOKIE,
     issueTaichungLineSession(prepared.bridge),
