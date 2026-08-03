@@ -112,6 +112,7 @@ type MergeCandidate = {
   phone: string | null;
   email: string | null;
   lineUserId: string | null;
+  identityLinks?: Array<{ userId: string }>;
 };
 
 type MergeMatchedBy = "phone" | "lineUserId" | "email";
@@ -127,7 +128,12 @@ const MERGE_CANDIDATE_SELECT = {
   phone: true,
   email: true,
   lineUserId: true,
+  identityLinks: { select: { userId: true } },
 } as const;
+
+function hasForeignIdentityLink(candidate: MergeCandidate, userId: string) {
+  return (candidate.identityLinks ?? []).some((link) => link.userId !== userId);
+}
 
 async function findRealCustomerForMerge(opts: {
   storeId: string;
@@ -139,6 +145,7 @@ async function findRealCustomerForMerge(opts: {
   const { storeId, phone, email, lineUserId, excludeCustomerId } = opts;
   const baseWhere = {
     storeId,
+    mergedIntoCustomerId: null,
     ...(excludeCustomerId ? { id: { not: excludeCustomerId } } : {}),
   };
 
@@ -726,7 +733,10 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
         // LINE OAuth 只能證明 LINE 身分，不能證明輸入的 phone/email 是本人。
         // 拒絕靜默覆蓋既有 user 綁定，避免「知道別人電話就能綁進別人顧客資料」的劫持風險。
         // 已知髒資料案例由 cleanup script 明確 merge，不走自動流程。
-        if (real.userId && real.userId !== user.id) {
+        if (
+          (real.userId && real.userId !== user.id) ||
+          hasForeignIdentityLink(real, user.id)
+        ) {
           console.warn(
             "[updateProfileAction] HIGH_RISK Case A: real already linked to another user — blocking auto-merge",
             {
@@ -735,6 +745,7 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
               placeholderId: existingByUserId?.id ?? null,
               realId: real.id,
               previousUserId: real.userId,
+              hasForeignIdentityLink: hasForeignIdentityLink(real, user.id),
               matchedBy,
               realPhone: real.phone,
               realEmail: real.email,
@@ -744,7 +755,7 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
           );
           return {
             error:
-              "此電話或 Email 已綁定另一個登入帳號。為保護您的資料安全，請聯繫店家協助合併或確認身分。",
+              "此電話或 Email 已綁定另一個登入帳號或登入身分。為保護您的資料安全，請聯繫店家協助合併或確認身分。",
             success: false,
           };
         }
@@ -1039,7 +1050,10 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
         // ── 安全 guard：real 已被另一 user 佔用 → BLOCK + 高風險 log ──
         // LINE OAuth 只能證明 LINE 身分，不能證明輸入的 phone/email 是本人。
         // 拒絕靜默覆蓋既有 user 綁定。已知髒資料案例由 cleanup script 明確 merge。
-        if (real.userId && real.userId !== user.id) {
+        if (
+          (real.userId && real.userId !== user.id) ||
+          hasForeignIdentityLink(real, user.id)
+        ) {
           console.warn(
             "[updateProfileAction] HIGH_RISK placeholder-merge: real already linked to another user — blocking auto-merge",
             {
@@ -1048,6 +1062,7 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
               placeholderId: customerId,
               realId: real.id,
               previousUserId: real.userId,
+              hasForeignIdentityLink: hasForeignIdentityLink(real, user.id),
               matchedBy: probe.matchedBy,
               realPhone: real.phone,
               realEmail: real.email,
@@ -1057,7 +1072,7 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
           );
           return {
             error:
-              "此電話或 Email 已綁定另一個登入帳號。為保護您的資料安全，請聯繫店家協助合併或確認身分。",
+              "此電話或 Email 已綁定另一個登入帳號或登入身分。為保護您的資料安全，請聯繫店家協助合併或確認身分。",
             success: false,
           };
         }

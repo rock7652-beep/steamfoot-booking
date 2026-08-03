@@ -265,4 +265,43 @@ describe("updateProfileAction — merge by storeId + phone", () => {
     expect(mockMergePlaceholder).not.toHaveBeenCalled();
     expect(mockCustomerCreate).not.toHaveBeenCalled();
   });
+
+  it("同店手機命中但 CustomerIdentityLink 屬於另一個登入帳號 → 停止並要求人工確認", async () => {
+    mockUserFindUnique.mockResolvedValue({
+      id: USER_ID,
+      passwordHash:
+        "$2b$10$abcdefghijklmnopqrstuvwxyz.zyxwvutsrqponmlkjihgfedcba1234",
+    });
+    mockCustomerFindMany.mockResolvedValue([
+      { ...ADMIN_CREATED_CUSTOMER, identityLinks: [{ userId: "other-user" }] },
+    ]);
+
+    const { updateProfileAction } = await import("@/server/actions/profile");
+    const fd = new FormData();
+    fd.set("name", "張小明");
+    fd.set("phone", "0912345678");
+    fd.set("birthday", "1990-01-15");
+
+    const result = await updateProfileAction({ error: null, success: false }, fd);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/登入帳號或登入身分/);
+    expect(mockMergePlaceholder).not.toHaveBeenCalled();
+    expect(mockCustomerCreate).not.toHaveBeenCalled();
+  });
+
+  it("候選查找維持同店且排除已合併 Customer", async () => {
+    const { updateProfileAction } = await import("@/server/actions/profile");
+    const fd = new FormData();
+    fd.set("name", "張小明");
+    fd.set("phone", "0912345678");
+    fd.set("password", "secret123");
+    fd.set("birthday", "1990-01-15");
+
+    await updateProfileAction({ error: null, success: false }, fd);
+
+    const lookup = mockCustomerFindMany.mock.calls[0]?.[0] as { where: Record<string, unknown> };
+    expect(lookup.where.storeId).toBe(STORE_A);
+    expect(lookup.where.mergedIntoCustomerId).toBeNull();
+  });
 });
