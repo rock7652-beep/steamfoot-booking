@@ -6,7 +6,7 @@ import { logTaichungLineHandoff } from "@/lib/line-oauth/taichung-handoff-log";
 import {
   issueTaichungLineSession,
   TAICHUNG_LINE_SESSION_COOKIE,
-  TAICHUNG_LINE_SESSION_MAX_AGE,
+  TAICHUNG_LINE_SESSION_COOKIE_OPTIONS,
 } from "@/lib/line-oauth/taichung-session";
 import { prepareTaichungProviderLineBridge } from "@/server/actions/taichung-provider-line-finalize";
 
@@ -44,13 +44,7 @@ export async function GET(request: NextRequest) {
   response.cookies.set(
     TAICHUNG_LINE_SESSION_COOKIE,
     issueTaichungLineSession(prepared.bridge),
-    {
-      httpOnly: true,
-      secure: true,
-      sameSite: "lax",
-      path: "/",
-      maxAge: TAICHUNG_LINE_SESSION_MAX_AGE,
-    },
+    TAICHUNG_LINE_SESSION_COOKIE_OPTIONS,
   );
   // Delete only after the signed bridge is attached to this response. Guard
   // failures leave the temp session intact so the user can safely restart.

@@ -11,8 +11,9 @@ describe("Taiwan LINE OAuth completion routing", () => {
   const page = read("src/app/(auth)/line-oauth/complete/page.tsx");
   const auth = read("src/lib/auth.ts");
 
-  it("allows only the exact completion route before a session exists", () => {
+  it("allows only the exact completion page and server handoff routes before a session exists", () => {
     expect(proxy).toContain('pathname === "/line-oauth/complete"');
+    expect(proxy).toContain('pathname.startsWith("/api/line-oauth/taichung/")');
     expect(proxy).not.toContain('pathname.startsWith("/line-oauth/")');
   });
 

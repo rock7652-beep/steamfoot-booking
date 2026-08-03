@@ -15,7 +15,13 @@ vi.mock("@/server/actions/taichung-provider-line-finalize", () => ({
 }));
 vi.mock("@/lib/line-oauth/taichung-session", () => ({
   TAICHUNG_LINE_SESSION_COOKIE: "taichung_line_oauth_session",
-  TAICHUNG_LINE_SESSION_MAX_AGE: 300,
+  TAICHUNG_LINE_SESSION_COOKIE_OPTIONS: {
+    httpOnly: true,
+    secure: true,
+    sameSite: "lax",
+    path: "/api/line-oauth/taichung",
+    maxAge: 300,
+  },
   issueTaichungLineSession: (input: unknown) => mockIssue(input),
 }));
 
@@ -45,6 +51,9 @@ describe("Taichung LINE finalize server handoff", () => {
     expect(mockPrepare).toHaveBeenCalledWith({ customerId: "customer-1", session: { user: { id: "user-1" } }, tempSession: temp });
     expect(mockIssue).toHaveBeenCalledWith(bridge);
     expect(response.headers.get("set-cookie")).toContain("taichung_line_oauth_session=signed-bridge");
+    expect(response.headers.get("set-cookie")).toContain("Path=/api/line-oauth/taichung");
+    expect(response.headers.get("set-cookie")).toContain("HttpOnly");
+    expect(response.headers.get("set-cookie")).toContain("Secure");
     expect(response.headers.get("set-cookie")).toContain("oauth_line_session=;");
   });
 
