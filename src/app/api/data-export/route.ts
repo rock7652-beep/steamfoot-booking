@@ -33,7 +33,7 @@ function addRows(sheet: ExcelJS.Worksheet, headers: string[], rows: unknown[][])
   sheet.views = [{ state: "frozen", ySplit: 1 }];
   sheet.columns.forEach((column) => {
     let width = 10;
-    column.eachCell({ includeEmpty: true }, (cell) => { width = Math.max(width, String(cell.value ?? "").length + 2); });
+    column.eachCell?.({ includeEmpty: true }, (cell) => { width = Math.max(width, String(cell.value ?? "").length + 2); });
     column.width = Math.min(width, 36);
   });
 }
