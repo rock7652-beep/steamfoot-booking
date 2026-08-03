@@ -6,7 +6,10 @@ import { prisma } from "@/lib/db";
 import type { Provider } from "next-auth/providers";
 import type { UserRole } from "@prisma/client";
 import { normalizePhone } from "@/lib/normalize";
-import { TAICHUNG_LINE_SESSION_COOKIE, verifyTaichungLineSession } from "@/lib/line-oauth/taichung-session";
+import {
+  TAICHUNG_LINE_SESSION_COOKIE,
+  verifyTaichungLineSessionDetailed,
+} from "@/lib/line-oauth/taichung-session";
 import { repairCustomerIdentityOnLogin } from "@/lib/identity-repair";
 import {
   logLineBindEvent,
@@ -265,11 +268,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       async authorize(_credentials, request) {
         const rawCookie = request.headers.get("cookie")
           ?.split(";").map((v) => v.trim()).find((v) => v.startsWith(`${TAICHUNG_LINE_SESSION_COOKIE}=`))?.slice(TAICHUNG_LINE_SESSION_COOKIE.length + 1);
-        const bridge = verifyTaichungLineSession(rawCookie);
-        if (!bridge) {
-          logTaichungLineHandoff("bridge_replay_rejected", { errorCode: "invalid_bridge" });
+        const verification = verifyTaichungLineSessionDetailed(rawCookie);
+        if (verification.status === "rejected") {
+          logTaichungLineHandoff("bridge_replay_rejected", { errorCode: verification.error });
           return null;
         }
+        const { bridge } = verification;
         const claimed = await prisma.lineOAuthAttempt.updateMany({
           where: {
             id: bridge.attemptId,
@@ -280,7 +284,25 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           data: { sessionConsumedAt: new Date() },
         });
         if (claimed.count !== 1) {
-          logTaichungLineHandoff("bridge_replay_rejected", { ...bridge, errorCode: "attempt_unavailable" });
+          const attempt = await prisma.lineOAuthAttempt.findUnique({
+            where: { id: bridge.attemptId },
+            select: {
+              storeId: true,
+              status: true,
+              expiresAt: true,
+              sessionConsumedAt: true,
+            },
+          });
+          const errorCode = !attempt || attempt.status !== "CONSUMED"
+            ? "bridge_attempt_mismatch"
+            : attempt.storeId !== bridge.storeId
+              ? "bridge_store_mismatch"
+              : attempt.expiresAt <= new Date()
+                ? "bridge_expired"
+                : attempt.sessionConsumedAt
+                  ? "bridge_replay_rejected"
+                  : "bridge_attempt_mismatch";
+          logTaichungLineHandoff("bridge_replay_rejected", { ...bridge, errorCode });
           return null;
         }
         logTaichungLineHandoff("bridge_consume_succeeded", bridge);

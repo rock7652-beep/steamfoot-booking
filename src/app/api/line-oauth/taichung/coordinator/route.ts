@@ -2,11 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { signIn } from "@/lib/auth";
 import {
   TAICHUNG_LINE_SESSION_COOKIE,
-  verifyTaichungLineSession,
+  type TaichungBridgeVerificationError,
+  verifyTaichungLineSessionDetailed,
 } from "@/lib/line-oauth/taichung-session";
 import { logTaichungLineHandoff } from "@/lib/line-oauth/taichung-handoff-log";
 
-function blocked(request: NextRequest, errorCode: string) {
+function blocked(request: NextRequest, errorCode: TaichungBridgeVerificationError | "coordinator_signin_failed") {
+  logTaichungLineHandoff("bridge_validation_rejected", { errorCode });
   logTaichungLineHandoff("final_redirect_blocked", { errorCode });
   const url = new URL("/line-oauth/complete", request.url);
   url.searchParams.set("error", errorCode);
@@ -18,10 +20,11 @@ function blocked(request: NextRequest, errorCode: string) {
  * the finalize redirect, so it does not rely on client hydration or an effect.
  */
 export async function GET(request: NextRequest) {
-  const bridge = verifyTaichungLineSession(
+  const verification = verifyTaichungLineSessionDetailed(
     request.cookies.get(TAICHUNG_LINE_SESSION_COOKIE)?.value,
   );
-  if (!bridge) return blocked(request, "bridge_missing_or_expired");
+  if (verification.status === "rejected") return blocked(request, verification.error);
+  const { bridge } = verification;
 
   logTaichungLineHandoff("coordinator_signin_started", bridge);
   try {

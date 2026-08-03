@@ -2,13 +2,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 const mockAuth = vi.hoisted(() => vi.fn());
-const mockVerifyTaichungLineSession = vi.hoisted(() => vi.fn());
+const mockVerifyTaichungLineSessionDetailed = vi.hoisted(() => vi.fn());
 const mockCreateVerifiedCustomerIdentityLink = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/auth", () => ({ auth: (...args: unknown[]) => mockAuth(...args) }));
 vi.mock("@/lib/line-oauth/taichung-session", () => ({
   TAICHUNG_LINE_SESSION_COOKIE: "taichung_line_oauth_session",
-  verifyTaichungLineSession: (...args: unknown[]) => mockVerifyTaichungLineSession(...args),
+  verifyTaichungLineSessionDetailed: (...args: unknown[]) => mockVerifyTaichungLineSessionDetailed(...args),
 }));
 vi.mock("@/server/services/namespaced-customer-identity-link", () => ({
   createVerifiedCustomerIdentityLink: (...args: unknown[]) => mockCreateVerifiedCustomerIdentityLink(...args),
@@ -35,7 +35,7 @@ describe("Taichung LINE post-session lazy identity migration", () => {
         storeSlug: "taichung",
       },
     });
-    mockVerifyTaichungLineSession.mockReturnValue(bridge);
+    mockVerifyTaichungLineSessionDetailed.mockReturnValue({ status: "verified", bridge });
     mockCreateVerifiedCustomerIdentityLink.mockResolvedValue({ status: "upserted" });
   });
 
@@ -88,7 +88,10 @@ describe("Taichung LINE post-session lazy identity migration", () => {
   });
 
   it("does not migrate when the signed bridge does not belong to the session", async () => {
-    mockVerifyTaichungLineSession.mockReturnValue({ ...bridge, customerId: "other-customer" });
+    mockVerifyTaichungLineSessionDetailed.mockReturnValue({
+      status: "verified",
+      bridge: { ...bridge, customerId: "other-customer" },
+    });
 
     const response = await complete();
 

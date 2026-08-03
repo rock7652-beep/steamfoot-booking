@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { handlers } from "@/lib/auth";
 import { consumeTaichungCallback, isTaichungCoordinatorState, resolveTaichungLinkedCustomer, TaichungOAuthError } from "@/lib/line-oauth/taichung-coordinator";
-import { issueTaichungLineSession, TAICHUNG_LINE_SESSION_COOKIE, TAICHUNG_LINE_SESSION_MAX_AGE } from "@/lib/line-oauth/taichung-session";
+import { issueTaichungLineSession, TAICHUNG_LINE_SESSION_COOKIE, TAICHUNG_LINE_SESSION_COOKIE_OPTIONS } from "@/lib/line-oauth/taichung-session";
 import { setOAuthTempSession } from "@/lib/server/oauth-temp-session";
 import { resolveTaichungCallbackUrl } from "@/lib/line-oauth/callback-url";
 
@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
     });
 
     if (customer) {
-      const url = new URL("/line-oauth/complete", request.url);
+      const url = new URL("/api/line-oauth/taichung/coordinator", request.url);
       const response = preserveTaichungStore(NextResponse.redirect(url));
       response.cookies.set(TAICHUNG_LINE_SESSION_COOKIE, issueTaichungLineSession({
         attemptId: attemptId,
@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
         customerId: customer.id,
         storeId,
         lineUserId: profile.userId,
-      }), { httpOnly: true, secure: true, sameSite: "lax", path: "/", maxAge: TAICHUNG_LINE_SESSION_MAX_AGE });
+      }), TAICHUNG_LINE_SESSION_COOKIE_OPTIONS);
       return response;
     }
     // No valid same-store identity link: retain the verified phone confirmation

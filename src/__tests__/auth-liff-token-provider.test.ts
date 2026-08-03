@@ -15,8 +15,9 @@ const mockSyncVerifiedCentralIdentity = vi.fn();
 const mockResolveCentralMemberCustomerForStore = vi.fn();
 const mockResolveCentralUserForStoreCustomer = vi.fn();
 const mockCompareSync = vi.fn();
-const mockVerifyTaichungLineSession = vi.fn();
+const mockVerifyTaichungLineSessionDetailed = vi.fn();
 const mockLineOAuthAttemptUpdateMany = vi.fn();
+const mockLineOAuthAttemptFindUnique = vi.fn();
 const mockRepairCustomerIdentityOnLogin = vi.fn();
 
 vi.mock("next-auth", () => ({
@@ -54,6 +55,7 @@ vi.mock("@/lib/db", () => ({
     },
     lineOAuthAttempt: {
       updateMany: (...args: unknown[]) => mockLineOAuthAttemptUpdateMany(...args),
+      findUnique: (...args: unknown[]) => mockLineOAuthAttemptFindUnique(...args),
     },
     user: {
       findUnique: vi.fn(),
@@ -107,8 +109,8 @@ vi.mock("@/server/services/resolve-central-user-for-store-customer", () => ({
 
 vi.mock("@/lib/line-oauth/taichung-session", () => ({
   TAICHUNG_LINE_SESSION_COOKIE: "taichung_line_session",
-  verifyTaichungLineSession: (...args: unknown[]) =>
-    mockVerifyTaichungLineSession(...args),
+  verifyTaichungLineSessionDetailed: (...args: unknown[]) =>
+    mockVerifyTaichungLineSessionDetailed(...args),
 }));
 
 vi.mock("@/lib/line-bind-log", async () => {
@@ -182,8 +184,9 @@ beforeEach(() => {
   mockSyncVerifiedCentralIdentity.mockReset();
   mockResolveCentralMemberCustomerForStore.mockReset();
   mockResolveCentralUserForStoreCustomer.mockReset();
-  mockVerifyTaichungLineSession.mockReset();
+  mockVerifyTaichungLineSessionDetailed.mockReset();
   mockLineOAuthAttemptUpdateMany.mockReset();
+  mockLineOAuthAttemptFindUnique.mockReset();
   mockRepairCustomerIdentityOnLogin.mockReset();
   mockCompareSync.mockReset();
   vi.stubEnv("LINE_LOGIN_CHANNEL_ID", "channel-123");
@@ -201,8 +204,12 @@ beforeEach(() => {
   mockSyncVerifiedCentralIdentity.mockResolvedValue({ status: "linked" });
   mockResolveCentralMemberCustomerForStore.mockResolvedValue(null);
   mockResolveCentralUserForStoreCustomer.mockResolvedValue({ status: "not_found" });
-  mockVerifyTaichungLineSession.mockReturnValue(null);
+  mockVerifyTaichungLineSessionDetailed.mockReturnValue({
+    status: "rejected",
+    error: "bridge_cookie_missing",
+  });
   mockLineOAuthAttemptUpdateMany.mockResolvedValue({ count: 1 });
+  mockLineOAuthAttemptFindUnique.mockResolvedValue(null);
   mockCompareSync.mockReturnValue(true);
 });
 
@@ -375,11 +382,13 @@ describe("auth.ts customer-phone provider", () => {
 describe("auth.ts line-taichung-coordinator provider", () => {
   it("creates a fresh Taichung customer session from a valid one-time bridge", async () => {
     const authorize = await getCredentialsAuthorize("line-taichung-coordinator");
-    mockVerifyTaichungLineSession.mockReturnValue({
+    mockVerifyTaichungLineSessionDetailed.mockReturnValue({ status: "verified", bridge: {
       attemptId: "attempt-1",
       customerId: "customer-taichung",
       storeId: "store-taichung",
       userId: "central-user",
+      lineUserId: "line-user",
+    },
     });
     mockResolveCentralUserForStoreCustomer.mockResolvedValueOnce({
       status: "resolved",
@@ -419,7 +428,10 @@ describe("auth.ts line-taichung-coordinator provider", () => {
       storeId: "store-taichung",
       userId: "central-user",
     };
-    mockVerifyTaichungLineSession.mockReturnValue(bridge);
+    mockVerifyTaichungLineSessionDetailed.mockReturnValue({ status: "verified", bridge: {
+      ...bridge,
+      lineUserId: "line-user",
+    } });
     mockLineOAuthAttemptUpdateMany
       .mockResolvedValueOnce({ count: 1 })
       .mockResolvedValueOnce({ count: 0 });
@@ -438,14 +450,56 @@ describe("auth.ts line-taichung-coordinator provider", () => {
     expect(mockLineOAuthAttemptUpdateMany).toHaveBeenCalledTimes(2);
   });
 
+  it("fails closed with a store mismatch when the attempt does not belong to the bridge", async () => {
+    const authorize = await getCredentialsAuthorize("line-taichung-coordinator");
+    mockVerifyTaichungLineSessionDetailed.mockReturnValue({ status: "verified", bridge: {
+      attemptId: "attempt-1",
+      customerId: "customer-taichung",
+      storeId: "store-taichung",
+      userId: "central-user",
+      lineUserId: "line-user",
+    } });
+    mockLineOAuthAttemptUpdateMany.mockResolvedValueOnce({ count: 0 });
+    mockLineOAuthAttemptFindUnique.mockResolvedValueOnce({
+      storeId: "other-store",
+      status: "CONSUMED",
+      expiresAt: new Date(Date.now() + 60_000),
+      sessionConsumedAt: null,
+    });
+
+    await expect(authorize({}, new Request("https://example.test", {
+      headers: { cookie: "taichung_line_session=bridge" },
+    }))).resolves.toBeNull();
+    expect(mockResolveCentralUserForStoreCustomer).not.toHaveBeenCalled();
+  });
+
+  it("fails closed with an attempt mismatch when the bridge attempt is absent", async () => {
+    const authorize = await getCredentialsAuthorize("line-taichung-coordinator");
+    mockVerifyTaichungLineSessionDetailed.mockReturnValue({ status: "verified", bridge: {
+      attemptId: "unknown-attempt",
+      customerId: "customer-taichung",
+      storeId: "store-taichung",
+      userId: "central-user",
+      lineUserId: "line-user",
+    } });
+    mockLineOAuthAttemptUpdateMany.mockResolvedValueOnce({ count: 0 });
+    mockLineOAuthAttemptFindUnique.mockResolvedValueOnce(null);
+
+    await expect(authorize({}, new Request("https://example.test", {
+      headers: { cookie: "taichung_line_session=bridge" },
+    }))).resolves.toBeNull();
+    expect(mockResolveCentralUserForStoreCustomer).not.toHaveBeenCalled();
+  });
+
   it("fails closed when the resolved central User does not own the coordinator bridge", async () => {
     const authorize = await getCredentialsAuthorize("line-taichung-coordinator");
-    mockVerifyTaichungLineSession.mockReturnValue({
+    mockVerifyTaichungLineSessionDetailed.mockReturnValue({ status: "verified", bridge: {
       attemptId: "attempt-1",
       customerId: "customer-hsinchu",
       storeId: STORE.id,
       userId: "bridge-user",
-    });
+      lineUserId: "line-user",
+    } });
     mockResolveCentralUserForStoreCustomer.mockResolvedValueOnce({
       status: "resolved",
       source: "identity_link",
@@ -477,12 +531,13 @@ describe("auth.ts line-taichung-coordinator provider", () => {
 
   it("rejects an inactive bridge owner", async () => {
     const authorize = await getCredentialsAuthorize("line-taichung-coordinator");
-    mockVerifyTaichungLineSession.mockReturnValue({
+    mockVerifyTaichungLineSessionDetailed.mockReturnValue({ status: "verified", bridge: {
       attemptId: "attempt-1",
       customerId: "customer-taichung",
       storeId: "store-taichung",
       userId: "central-user",
-    });
+      lineUserId: "line-user",
+    } });
     mockResolveCentralUserForStoreCustomer.mockResolvedValueOnce({
       status: "resolved",
       source: "identity_link",

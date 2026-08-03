@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { TAICHUNG_LINE_SESSION_COOKIE, verifyTaichungLineSession } from "@/lib/line-oauth/taichung-session";
+import {
+  TAICHUNG_LINE_SESSION_COOKIE,
+  verifyTaichungLineSessionDetailed,
+} from "@/lib/line-oauth/taichung-session";
 import { createVerifiedCustomerIdentityLink } from "@/server/services/namespaced-customer-identity-link";
 import { logTaichungLineHandoff } from "@/lib/line-oauth/taichung-handoff-log";
 
@@ -18,9 +21,10 @@ async function complete(request: NextRequest, redirectOnSuccess: boolean) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const bridge = verifyTaichungLineSession(
+  const verification = verifyTaichungLineSessionDetailed(
     request.cookies.get(TAICHUNG_LINE_SESSION_COOKIE)?.value,
   );
+  const bridge = verification.status === "verified" ? verification.bridge : null;
   if (
     !bridge ||
     bridge.userId !== session.user.id ||
@@ -30,7 +34,9 @@ async function complete(request: NextRequest, redirectOnSuccess: boolean) {
     logTaichungLineHandoff("completion_writer_failed", {
       customerId: session.user.customerId,
       storeId: session.user.storeId,
-      errorCode: "bridge_ownership_mismatch",
+      errorCode: verification.status === "rejected"
+        ? verification.error
+        : "bridge_ownership_mismatch",
     });
     logTaichungLineHandoff("final_redirect_blocked", {
       customerId: session.user.customerId,

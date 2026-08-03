@@ -2,12 +2,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 const mockSignIn = vi.hoisted(() => vi.fn());
-const mockVerify = vi.hoisted(() => vi.fn());
+const mockVerifyDetailed = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/auth", () => ({ signIn: (...args: unknown[]) => mockSignIn(...args) }));
 vi.mock("@/lib/line-oauth/taichung-session", () => ({
   TAICHUNG_LINE_SESSION_COOKIE: "taichung_line_oauth_session",
-  verifyTaichungLineSession: (...args: unknown[]) => mockVerify(...args),
+  verifyTaichungLineSessionDetailed: (...args: unknown[]) => mockVerifyDetailed(...args),
 }));
 vi.mock("@/lib/line-oauth/taichung-handoff-log", () => ({
   logTaichungLineHandoff: vi.fn(),
@@ -25,7 +25,7 @@ describe("Taichung LINE server-driven coordinator handoff", () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
-    mockVerify.mockReturnValue(bridge);
+    mockVerifyDetailed.mockReturnValue({ status: "verified", bridge });
     mockSignIn.mockResolvedValue(
       "https://www.steamfoot.com/api/line-oauth/taichung/complete",
     );
@@ -52,14 +52,27 @@ describe("Taichung LINE server-driven coordinator handoff", () => {
   });
 
   it("fails closed without a signed bridge or after credentials failure", async () => {
-    mockVerify.mockReturnValue(null);
+    mockVerifyDetailed.mockReturnValue({ status: "rejected", error: "bridge_cookie_missing" });
     let response = await coordinator();
     expect(mockSignIn).not.toHaveBeenCalled();
-    expect(response.headers.get("location")).toContain("bridge_missing_or_expired");
+    expect(response.headers.get("location")).toContain("bridge_cookie_missing");
 
-    mockVerify.mockReturnValue(bridge);
+    mockVerifyDetailed.mockReturnValue({ status: "verified", bridge });
     mockSignIn.mockResolvedValue("https://www.steamfoot.com/api/auth/error");
     response = await coordinator();
     expect(response.headers.get("location")).toContain("coordinator_signin_failed");
+  });
+
+  it.each([
+    "bridge_signature_invalid",
+    "bridge_expired",
+    "bridge_payload_invalid",
+  ])("reports %s without starting credentials sign-in", async (error) => {
+    mockVerifyDetailed.mockReturnValue({ status: "rejected", error });
+
+    const response = await coordinator();
+
+    expect(response.headers.get("location")).toContain(error);
+    expect(mockSignIn).not.toHaveBeenCalled();
   });
 });

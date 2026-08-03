@@ -17,7 +17,13 @@ vi.mock("@/lib/line-oauth/taichung-coordinator", () => ({
 }));
 vi.mock("@/lib/line-oauth/taichung-session", () => ({
   TAICHUNG_LINE_SESSION_COOKIE: "taichung_line_session",
-  TAICHUNG_LINE_SESSION_MAX_AGE: 300,
+  TAICHUNG_LINE_SESSION_COOKIE_OPTIONS: {
+    httpOnly: true,
+    secure: true,
+    sameSite: "lax",
+    path: "/api/line-oauth/taichung",
+    maxAge: 300,
+  },
   issueTaichungLineSession: (...args: unknown[]) => mockIssueTaichungLineSession(...args),
 }));
 vi.mock("@/lib/server/oauth-temp-session", () => ({
@@ -66,8 +72,9 @@ describe("Taichung LINE callback direct session", () => {
       lineUserId: "line-user",
     });
     expect(mockSetOAuthTempSession).not.toHaveBeenCalled();
-    expect(response.headers.get("location")).toBe("https://www.steamfoot.com/line-oauth/complete");
+    expect(response.headers.get("location")).toBe("https://www.steamfoot.com/api/line-oauth/taichung/coordinator");
     expect(response.headers.get("set-cookie")).toContain("taichung_line_session=signed-bridge");
+    expect(response.headers.get("set-cookie")).toContain("Path=/api/line-oauth/taichung");
   });
 
   it("keeps the phone-and-password challenge for a first-time or other-store-only LINE identity", async () => {

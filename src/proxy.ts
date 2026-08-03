@@ -71,6 +71,13 @@ export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | n
     return withDomainCookie(NextResponse.next(), domainStoreId);
   }
 
+  // The signed bridge, coordinator credentials sign-in, and completion route
+  // are their own authenticated handoff. Never let a generic proxy redirect
+  // replace their Set-Cookie / redirect response.
+  if (pathname.startsWith("/api/line-oauth/taichung/")) {
+    return withDomainCookie(NextResponse.next(), domainStoreId);
+  }
+
   // OAuth identity confirmation is part of the public LINE handoff. It must
   // run even when the LINE in-app browser has no Auth.js session or still
   // carries a stale session from another store. The signed temp session and
