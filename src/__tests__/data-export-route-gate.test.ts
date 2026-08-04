@@ -10,6 +10,7 @@ const mockAuth = vi.fn();
 const mockCheckPermission = vi.fn();
 const mockRequireStoreFeature = vi.fn();
 const mockCustomerFindMany = vi.fn();
+const mockStoreFindMany = vi.fn();
 const mockGetStoreRevenueSummary = vi.fn();
 const mockGetCoachRevenueSummary = vi.fn();
 const mockGetTransactionDetails = vi.fn();
@@ -32,6 +33,9 @@ vi.mock("@/lib/feature-gate", () => ({
 
 vi.mock("@/lib/db", () => ({
   prisma: {
+    store: {
+      findMany: (...args: unknown[]) => mockStoreFindMany(...args),
+    },
     customer: {
       findMany: (...args: unknown[]) => mockCustomerFindMany(...args),
     },
@@ -76,6 +80,9 @@ describe("data_export route gates", () => {
     mockCheckPermission.mockResolvedValue(true);
     mockRequireStoreFeature.mockResolvedValue(undefined);
     mockCustomerFindMany.mockResolvedValue([]);
+    mockStoreFindMany.mockResolvedValue([
+      { id: "store-1", slug: "store-1", name: "測試店", isDefault: true },
+    ]);
     mockGetStoreRevenueSummary.mockResolvedValue([]);
     mockGetCoachRevenueSummary.mockResolvedValue([]);
     mockGetTransactionDetails.mockResolvedValue({ data: [] });

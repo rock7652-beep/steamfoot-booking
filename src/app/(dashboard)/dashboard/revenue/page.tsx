@@ -68,7 +68,12 @@ export default async function RevenuePage() {
   const allowed = await checkPermission(user.role, user.staffId, "transaction.read");
   if (!allowed) redirect("/dashboard");
 
-  const activeStoreId = await getActiveStoreForRead(user);
+  const [activeStoreId, canCustomerExport, canReportExport] = await Promise.all([
+    getActiveStoreForRead(user),
+    checkPermission(user.role, user.staffId, "customer.export"),
+    checkPermission(user.role, user.staffId, "report.export"),
+  ]);
+  const canDataExport = canCustomerExport || canReportExport;
   const storeViewContext = await resolveStoreViewContextFromCookie(user);
   const isViewMode = storeViewContext?.isViewMode ?? false;
   const revenueStoreId = storeIdForViewContext(activeStoreId, storeViewContext);
@@ -199,14 +204,33 @@ export default async function RevenuePage() {
         title="營收"
         subtitle="今日 / 本月 核心指標，再快速進入對應明細"
         actions={
-          <Link
-            href="/dashboard/transactions"
-            className="rounded-md border border-earth-200 bg-white px-3 py-1.5 text-xs font-medium text-earth-700 hover:bg-earth-50"
-          >
-            所有交易 →
-          </Link>
+          <>
+            {canDataExport ? (
+              <Link
+                href="/dashboard/data-export"
+                className="hidden rounded-md bg-primary-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-700 md:inline-flex"
+              >
+                匯出資料
+              </Link>
+            ) : null}
+            <Link
+              href="/dashboard/transactions"
+              className="rounded-md border border-earth-200 bg-white px-3 py-1.5 text-xs font-medium text-earth-700 hover:bg-earth-50"
+            >
+              所有交易 →
+            </Link>
+          </>
         }
       />
+
+      {canDataExport ? (
+        <Link
+          href="/dashboard/data-export"
+          className="flex min-h-11 items-center justify-center rounded-md bg-primary-600 px-3 py-2 text-sm font-medium text-white hover:bg-primary-700 md:hidden"
+        >
+          匯出資料
+        </Link>
+      ) : null}
 
       {isViewMode && (
         <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">

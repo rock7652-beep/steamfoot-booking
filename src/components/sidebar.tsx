@@ -267,7 +267,7 @@ export const NAV_GROUPS: NavGroup[] = [
   // ── 第二層：營運工具（預設收起） ──
   {
     id: "operations",
-    label: "營運工具",
+    label: "營運管理",
     icon: (
       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M11.42 15.17l-5.1-3.06a1.5 1.5 0 010-2.58l5.1-3.06a1.5 1.5 0 011.58 0l5.1 3.06a1.5 1.5 0 010 2.58l-5.1 3.06a1.5 1.5 0 01-1.58 0z" />
