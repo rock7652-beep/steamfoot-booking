@@ -94,9 +94,8 @@ export function OAuthConfirmForm({ callbackUrl, taichungCoordinator = false }: P
           );
           break;
         case "ACCOUNT_ACTIVATION_REQUIRED":
-          setError(
-            "此會員尚未啟用密碼帳號，請聯繫暖沐協助完成首次啟用。",
-          );
+          setTransitioning("找到您的暖沐會員資料，正在前往首次啟用…");
+          window.location.href = `/oauth-confirm/activate?customerId=${encodeURIComponent(result.customerId)}`;
           break;
       }
     } catch {

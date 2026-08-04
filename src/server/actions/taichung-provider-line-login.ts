@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { normalizePhone } from "@/lib/normalize";
 import { getOAuthTempSession } from "@/lib/server/oauth-temp-session";
 import { resolveCentralUserForStoreCustomer } from "@/server/services/resolve-central-user-for-store-customer";
+import { CUSTOMER_IDENTITY_PROVIDER } from "@/lib/customer-identity-provider";
 import type {
   ResolveLineLoginError,
   ResolveLineLoginResult,
@@ -33,7 +34,14 @@ export async function resolveTaichungProviderLineLogin(input: {
       phone,
       mergedIntoCustomerId: null,
     },
-    select: { id: true },
+    select: {
+      id: true,
+      userId: true,
+      identityLinks: {
+        where: { provider: { in: [CUSTOMER_IDENTITY_PROVIDER.PHONE, CUSTOMER_IDENTITY_PROVIDER.LINE_LOGIN] } },
+        select: { provider: true },
+      },
+    },
   });
   if (!customer) return { error: "line_already_bound_other" };
 
@@ -41,6 +49,22 @@ export async function resolveTaichungProviderLineLogin(input: {
   // ownership through this password gate. Do not show a fake "old password"
   // prompt or accept a default password; the separate activation flow owns
   // account creation and verification.
+  // Only a genuinely unactivated legacy customer enters self-service
+  // activation. Any partial identity state is an ownership conflict, never a
+  // reason to offer a claim form.
+  if (customer.userId === null) {
+    if (customer.identityLinks.length !== 0) return { error: "line_already_bound_other" };
+    const existingLineLogin = await prisma.customerIdentityLink.findFirst({
+      where: {
+        provider: CUSTOMER_IDENTITY_PROVIDER.LINE_LOGIN,
+        providerAccountId: tempSession.lineUserId,
+      },
+      select: { id: true },
+    });
+    if (existingLineLogin) return { error: "line_already_bound_other" };
+    return { status: "ACCOUNT_ACTIVATION_REQUIRED", customerId: customer.id };
+  }
+
   const resolution = await resolveCentralUserForStoreCustomer({
     customerId: customer.id,
     storeId: tempSession.storeId,

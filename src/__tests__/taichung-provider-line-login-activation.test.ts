@@ -2,12 +2,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockCustomerFindFirst = vi.hoisted(() => vi.fn());
 const mockUserFindUnique = vi.hoisted(() => vi.fn());
+const mockIdentityFindFirst = vi.hoisted(() => vi.fn());
 const mockTemp = vi.hoisted(() => vi.fn());
 const mockResolve = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/db", () => ({
   prisma: {
     customer: { findFirst: (...args: unknown[]) => mockCustomerFindFirst(...args) },
+    customerIdentityLink: { findFirst: (...args: unknown[]) => mockIdentityFindFirst(...args) },
     user: { findUnique: (...args: unknown[]) => mockUserFindUnique(...args) },
   },
 }));
@@ -23,10 +25,19 @@ describe("Taichung legacy account activation gate", () => {
     vi.resetModules();
     vi.clearAllMocks();
     mockTemp.mockResolvedValue({ storeId: "store-taichung", channelKey: "taichung" });
-    mockCustomerFindFirst.mockResolvedValue({ id: "legacy-customer" });
+    mockCustomerFindFirst.mockResolvedValue({ id: "legacy-customer", userId: "central-user", identityLinks: [] });
+    mockIdentityFindFirst.mockResolvedValue(null);
     mockResolve.mockResolvedValue({
       status: "resolved",
       user: { id: "central-user", role: "CUSTOMER", status: "ACTIVE" },
+    });
+  });
+
+  it("only offers activation to a Customer with no central user or login identities", async () => {
+    mockCustomerFindFirst.mockResolvedValue({ id: "legacy-customer", userId: null, identityLinks: [] });
+    const { resolveTaichungProviderLineLogin } = await import("@/server/actions/taichung-provider-line-login");
+    await expect(resolveTaichungProviderLineLogin({ phone: "0912345678" })).resolves.toEqual({
+      status: "ACCOUNT_ACTIVATION_REQUIRED", customerId: "legacy-customer",
     });
   });
 
