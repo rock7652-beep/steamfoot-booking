@@ -7,6 +7,8 @@ import {
   MESSENGER_MIGRATION,
   PAYMENT_SPLIT_CHECKSUM,
   PAYMENT_SPLIT_MIGRATION,
+  APPROVED_PRODUCTION_MIGRATION_TARGETS,
+  PRODUCTION_MIGRATION_TARGET_ENV,
   classifyMessengerMigration,
   hasExpectedMessengerRls,
   hasExpectedMessengerSchema,
@@ -17,6 +19,7 @@ import {
   awaitsManualReconciliation,
   migrationChecksum,
   projectRefFromConnectionString,
+  resolveProductionMigrationTarget,
 } from "../../scripts/ci-migrate.mjs";
 
 const scriptPath = resolve(process.cwd(), "scripts/ci-migrate.mjs");
@@ -50,6 +53,18 @@ const completeMessengerSnapshot = {
 };
 
 describe("Production migration recovery guard", () => {
+  it("skips a Production build without a migration target before any DB preflight", () => {
+    const result = spawnSync(process.execPath, [scriptPath], {
+      encoding: "utf8",
+      env: { ...process.env, VERCEL_ENV: "production", DATABASE_URL: "", DIRECT_URL: "", [PRODUCTION_MIGRATION_TARGET_ENV]: "" },
+    });
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("migration_skipped_no_target");
+    expect(result.stdout).not.toContain("production_connection_verified");
+    expect(result.stderr).not.toContain("production_connection_rejected");
+  });
+
   it("skips Preview and Development before accessing any database", () => {
     for (const environment of ["preview", "development"]) {
       const result = spawnSync(process.execPath, [scriptPath], {
@@ -59,6 +74,42 @@ describe("Production migration recovery guard", () => {
       expect(result.status).toBe(0);
       expect(result.stdout).toContain("recovery_skipped_outside_production");
     }
+  });
+
+  it("skips Preview even if a migration target is accidentally configured", () => {
+    const result = spawnSync(process.execPath, [scriptPath], {
+      encoding: "utf8",
+      env: { ...process.env, VERCEL_ENV: "preview", DATABASE_URL: "", DIRECT_URL: "", [PRODUCTION_MIGRATION_TARGET_ENV]: PAYMENT_SPLIT_MIGRATION },
+    });
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("recovery_skipped_outside_production");
+    expect(result.stdout).not.toContain("migration_target_rejected");
+  });
+
+  it("rejects every non-allowlisted target before creating a Production connection", () => {
+    const result = spawnSync(process.execPath, [scriptPath], {
+      encoding: "utf8",
+      env: { ...process.env, VERCEL_ENV: "production", DATABASE_URL: "", DIRECT_URL: "", [PRODUCTION_MIGRATION_TARGET_ENV]: "20269999999999_unapproved" },
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("migration_target_rejected");
+    expect(result.stderr).not.toContain("production_connection_rejected");
+    expect(resolveProductionMigrationTarget("20269999999999_unapproved")).toBeNull();
+  });
+
+  it("allows only one exact repository-pinned migration target into the guarded flow", () => {
+    expect(APPROVED_PRODUCTION_MIGRATION_TARGETS).toEqual([PAYMENT_SPLIT_MIGRATION]);
+    expect(resolveProductionMigrationTarget(PAYMENT_SPLIT_MIGRATION)).toBe(PAYMENT_SPLIT_MIGRATION);
+
+    const result = spawnSync(process.execPath, [scriptPath], {
+      encoding: "utf8",
+      env: { ...process.env, VERCEL_ENV: "production", DATABASE_URL: "", DIRECT_URL: "", [PRODUCTION_MIGRATION_TARGET_ENV]: PAYMENT_SPLIT_MIGRATION },
+    });
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("production_connection_rejected");
+    expect(result.stderr).not.toContain("migration_target_rejected");
   });
 
   it("validates only approved Production pooler and direct URLs without logging them", () => {
@@ -165,6 +216,8 @@ describe("Production migration recovery guard", () => {
     expect(script).toContain("recovery_aborted code=");
     expect(script).not.toContain("$executeRaw");
     expect(script).not.toContain("db execute");
+    expect(script).toContain("migration_skipped_no_target");
+    expect(script).toContain("migration_target_rejected");
   });
 });
 
