@@ -6,8 +6,13 @@ import { checkPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
 import { dayRange, formatTWTime } from "@/lib/date-utils";
 import { requireDataExportFeature } from "@/lib/data-export-gate";
-import { getStoreFilter } from "@/lib/manager-visibility";
+import { getManagerReadFilter, getStoreFilter } from "@/lib/manager-visibility";
 import { resolveActiveStoreId } from "@/lib/store";
+import {
+  resolveStoreViewContextFromCookie,
+  storeIdForViewContext,
+  userForViewContext,
+} from "@/lib/store-view-context-server";
 import {
   DATA_EXPORT_TYPE_LABELS,
   DATA_EXPORT_HEADERS,
@@ -73,10 +78,13 @@ export async function GET(req: NextRequest) {
 
   const cookieStore = await cookies();
   const activeStoreId = await resolveActiveStoreId(user, cookieStore.get("active-store-id")?.value ?? null);
-  const requestedStoreId = user.role === "ADMIN" ? sp.get("storeId") ?? activeStoreId : activeStoreId;
+  const storeViewContext = await resolveStoreViewContextFromCookie(user);
+  const readUser = userForViewContext(user, storeViewContext);
+  const viewedStoreId = storeIdForViewContext(activeStoreId, storeViewContext);
+  const requestedStoreId = user.role === "ADMIN" ? sp.get("storeId") ?? viewedStoreId : viewedStoreId;
   const feature = await requireDataExportFeature(requestedStoreId);
   if (feature) return feature;
-  const storeFilter = getStoreFilter(user, requestedStoreId);
+  const storeFilter = getStoreFilter(readUser, requestedStoreId);
   const workbook = new ExcelJS.Workbook();
   let count = 0;
   const period = dateWhere(startDate, endDate);
@@ -90,8 +98,14 @@ export async function GET(req: NextRequest) {
     count = rows.length;
     if (count <= MAX_EXPORT_ROWS) addRows(workbook.addWorksheet(DATA_EXPORT_TYPE_LABELS[type]), [...DATA_EXPORT_HEADERS.customers], rows.map((r) => [r.name, r.phone, r.email, r.store.name, r.assignedStaff?.displayName ?? "未指派", r.firstVisitAt ? formatTWTime(r.firstVisitAt, { dateOnly: true }) : "", r.lastVisitAt ? formatTWTime(r.lastVisitAt, { dateOnly: true }) : "", formatTWTime(r.createdAt)]));
   } else if (type === "transactions") {
+    const revenueFilter = getManagerReadFilter(
+      readUser.role,
+      readUser.staffId ?? null,
+      "revenueStaffId",
+      requestedStoreId,
+    );
     const rows = await prisma.transaction.findMany({
-      where: { ...storeFilter, transactionDate: period, ...(status ? { status: status as never } : {}) },
+      where: { ...storeFilter, ...revenueFilter, transactionDate: period, ...(status ? { status: status as never } : {}) },
       select: { transactionDate: true, transactionType: true, status: true, paymentMethod: true, netAmount: true, customer: { select: { name: true } }, store: { select: { name: true } }, paymentSplits: { select: { paymentMethod: true, amount: true } } },
       orderBy: { transactionDate: "desc" }, take: MAX_EXPORT_ROWS + 1,
     });

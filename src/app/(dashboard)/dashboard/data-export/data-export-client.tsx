@@ -22,7 +22,7 @@ function previousMonth(month: string): string {
   return monthNumber === 1 ? `${year - 1}-12` : `${year}-${String(monthNumber - 1).padStart(2, "0")}`;
 }
 
-export default function DataExportClient({ isAdmin, stores, canCustomerExport, canReportExport }: { isAdmin: boolean; stores: { id: string; name: string }[]; canCustomerExport: boolean; canReportExport: boolean }) {
+export default function DataExportClient({ isAdmin, stores, activeStoreId, canCustomerExport, canReportExport }: { isAdmin: boolean; stores: { id: string; name: string }[]; activeStoreId: string | null; canCustomerExport: boolean; canReportExport: boolean }) {
   const today = toLocalDateStr();
   const thisMonth = today.slice(0, 7);
   const currentMonthDates = { startDate: `${thisMonth}-01`, endDate: today };
@@ -32,7 +32,8 @@ export default function DataExportClient({ isAdmin, stores, canCustomerExport, c
   const [startDate, setStartDate] = useState(currentMonthDates.startDate);
   const [endDate, setEndDate] = useState(currentMonthDates.endDate);
   const [status, setStatus] = useState("");
-  const [storeId, setStoreId] = useState(stores[0]?.id ?? "");
+  const initialStoreId = stores.some((store) => store.id === activeStoreId) ? activeStoreId ?? "" : stores[0]?.id ?? "";
+  const [storeId, setStoreId] = useState(initialStoreId);
   const [loading, setLoading] = useState(false);
   const isCustomerExport = type === "customers";
 

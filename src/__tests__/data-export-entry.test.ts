@@ -49,4 +49,13 @@ describe("data export entry", () => {
     expect(exportPage).toContain('checkPermission(user.role, user.staffId, "report.export")');
     expect(exportPage).toContain('if (!user || (!canCustomerExport && !canReportExport)) redirect("/dashboard")');
   });
+
+  it("initializes the ADMIN store selector from the active store", () => {
+    const client = readSource("src/app/(dashboard)/dashboard/data-export/data-export-client.tsx");
+
+    expect(exportPage).toContain("getActiveStoreForRead(user)");
+    expect(exportPage).toContain("activeStoreId={activeStoreId}");
+    expect(client).toContain("stores.some((store) => store.id === activeStoreId)");
+    expect(client).toContain("useState(initialStoreId)");
+  });
 });
