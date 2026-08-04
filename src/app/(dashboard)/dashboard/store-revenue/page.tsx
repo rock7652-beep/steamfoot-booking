@@ -1,6 +1,7 @@
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { redirect } from "next/navigation";
+import { DashboardLink as Link } from "@/components/dashboard-link";
 import { FEATURES as FF } from "@/lib/feature-flags";
 import { hasStoreFeature } from "@/lib/feature-gate";
 import {
@@ -26,7 +27,12 @@ export default async function StoreRevenuePage() {
     redirect("/dashboard");
   }
 
-  const activeStoreId = await getActiveStoreForRead(user);
+  const [activeStoreId, canCustomerExport, canReportExport] = await Promise.all([
+    getActiveStoreForRead(user),
+    checkPermission(user.role, user.staffId, "customer.export"),
+    checkPermission(user.role, user.staffId, "report.export"),
+  ]);
+  const canDataExportEntry = canCustomerExport || canReportExport;
   const storeViewContext = await resolveStoreViewContextFromCookie(user);
   const isViewMode = storeViewContext?.isViewMode ?? false;
   const reportsStoreId = storeIdForViewContext(activeStoreId, storeViewContext);
@@ -79,10 +85,29 @@ export default async function StoreRevenuePage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-bold text-earth-800">店營收報表</h1>
-        <p className="text-sm text-earth-500">查看各分店營收數據、交易明細，並匯出 Excel</p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-bold text-earth-800">店營收報表</h1>
+          <p className="text-sm text-earth-500">查看各分店營收數據、交易明細，並匯出 Excel</p>
+        </div>
+        {canDataExportEntry ? (
+          <Link
+            href="/dashboard/data-export"
+            className="hidden rounded-md bg-primary-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-700 md:inline-flex"
+          >
+            匯出資料
+          </Link>
+        ) : null}
       </div>
+
+      {canDataExportEntry ? (
+        <Link
+          href="/dashboard/data-export"
+          className="flex min-h-11 items-center justify-center rounded-md bg-primary-600 px-3 py-2 text-sm font-medium text-white hover:bg-primary-700 md:hidden"
+        >
+          匯出資料
+        </Link>
+      ) : null}
 
       <RevenueReportClient
         mode="store"

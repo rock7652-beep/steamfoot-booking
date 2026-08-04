@@ -10,6 +10,7 @@ function readSource(path: string): string {
 
 describe("data export entry", () => {
   const revenuePage = readSource("src/app/(dashboard)/dashboard/revenue/page.tsx");
+  const storeRevenuePage = readSource("src/app/(dashboard)/dashboard/store-revenue/page.tsx");
   const exportPage = readSource("src/app/(dashboard)/dashboard/data-export/page.tsx");
   const sidebar = readSource("src/components/sidebar.tsx");
 
@@ -26,6 +27,15 @@ describe("data export entry", () => {
     expect(revenuePage).toContain("md:inline-flex");
     expect(revenuePage).toContain("min-h-11");
     expect(revenuePage).toContain("md:hidden");
+  });
+
+  it("keeps the export entry discoverable for headquarters from its existing store-revenue page", () => {
+    expect(storeRevenuePage).toContain('checkPermission(user.role, user.staffId, "customer.export")');
+    expect(storeRevenuePage).toContain('checkPermission(user.role, user.staffId, "report.export")');
+    expect(storeRevenuePage).toContain("const canDataExportEntry = canCustomerExport || canReportExport");
+    expect(storeRevenuePage).toContain('href="/dashboard/data-export"');
+    expect(storeRevenuePage).toContain("md:inline-flex");
+    expect(storeRevenuePage).toContain("min-h-11");
   });
 
   it("does not add data export to the sidebar", () => {
