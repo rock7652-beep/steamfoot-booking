@@ -20,7 +20,7 @@ describe("Taichung legacy customer first activation", () => {
   };
   const tx = {
     customer: { findFirst: vi.fn(), updateMany: vi.fn() },
-    user: { findFirst: vi.fn(), create: vi.fn() },
+    user: { findMany: vi.fn(), create: vi.fn(), updateMany: vi.fn() },
     customerIdentityLink: { findFirst: vi.fn() },
     lineOAuthAttempt: { updateMany: vi.fn() },
   };
@@ -29,7 +29,7 @@ describe("Taichung legacy customer first activation", () => {
     vi.resetModules();
     vi.clearAllMocks();
     tx.customer.findFirst.mockResolvedValue({ id: "legacy-customer", name: "黃淳詩", storeId: "store-taichung", identityLinks: [] });
-    tx.user.findFirst.mockResolvedValue(null);
+    tx.user.findMany.mockResolvedValue([]);
     tx.customerIdentityLink.findFirst.mockResolvedValue(null);
     tx.user.create.mockResolvedValue({ id: "new-central-user" });
     tx.customer.updateMany.mockResolvedValue({ count: 1 });
@@ -57,17 +57,55 @@ describe("Taichung legacy customer first activation", () => {
     }));
   });
 
-  it("fails closed when the phone belongs to any central user", async () => {
-    tx.user.findFirst.mockResolvedValue({ id: "other-user" });
-    await expect(activate()).resolves.toEqual({ status: "rejected", error: "identity_conflict" });
+  it("reuses the exact eligible suspended orphan User without creating another User", async () => {
+    tx.user.findMany.mockResolvedValue([{
+      id: "orphan-user", role: "CUSTOMER", status: "SUSPENDED", passwordHash: null,
+      customer: null, accounts: [], customerIdentityLinks: [],
+    }]);
+    tx.user.updateMany.mockResolvedValue({ count: 1 });
+
+    await expect(activate()).resolves.toEqual({ status: "activated", userId: "orphan-user" });
     expect(tx.user.create).not.toHaveBeenCalled();
+    expect(tx.user.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ id: "orphan-user", status: "SUSPENDED", passwordHash: null }),
+      data: expect.objectContaining({ status: "ACTIVE", passwordHash: "$2b$hash" }),
+    }));
+    expect(tx.customer.updateMany).toHaveBeenCalledWith(expect.objectContaining({ data: { userId: "orphan-user" } }));
+    expect(mockWrite).toHaveBeenNthCalledWith(1, expect.objectContaining({ userId: "orphan-user", provider: "phone" }));
+    expect(mockWrite).toHaveBeenNthCalledWith(2, expect.objectContaining({ userId: "orphan-user", provider: "line_login" }));
+  });
+
+  it("fails closed when more than one central User has the phone", async () => {
+    tx.user.findMany.mockResolvedValue([
+      { id: "user-a", role: "CUSTOMER", status: "SUSPENDED", passwordHash: null, customer: null, accounts: [], customerIdentityLinks: [] },
+      { id: "user-b", role: "STAFF", status: "ACTIVE", passwordHash: null, customer: null, accounts: [], customerIdentityLinks: [] },
+    ]);
+    await expect(activate()).resolves.toEqual({ status: "rejected", error: "phone_identity_conflict" });
+    expect(tx.user.create).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["has a non-customer role", { role: "STAFF" }, "orphan_user_not_eligible"],
+    ["has a password", { passwordHash: "$2b$existing" }, "orphan_user_has_password"],
+    ["is not suspended", { status: "ACTIVE" }, "orphan_user_status_changed"],
+    ["has a Customer", { customer: { id: "other-customer" } }, "orphan_user_has_customer"],
+    ["has any identity", { customerIdentityLinks: [{ id: "phone-link" }] }, "orphan_user_has_identity"],
+    ["has an OAuth Account", { accounts: [{ id: "oauth-account" }] }, "orphan_user_has_identity"],
+  ])("rejects an orphan User that %s", async (_label, override, error) => {
+    tx.user.findMany.mockResolvedValue([{
+      id: "orphan-user", role: "CUSTOMER", status: "SUSPENDED", passwordHash: null,
+      customer: null, accounts: [], customerIdentityLinks: [], ...override,
+    }]);
+    await expect(activate()).resolves.toEqual({ status: "rejected", error });
+    expect(tx.user.create).not.toHaveBeenCalled();
+    expect(tx.user.updateMany).not.toHaveBeenCalled();
   });
 
   it("fails closed when the verified LINE Login identity is already occupied", async () => {
     tx.customerIdentityLink.findFirst.mockImplementation(async (query: { where: { provider: string } }) =>
       query.where.provider === "line_login" ? { id: "other-line-login" } : null,
     );
-    await expect(activate()).resolves.toEqual({ status: "rejected", error: "identity_conflict" });
+    await expect(activate()).resolves.toEqual({ status: "rejected", error: "line_login_conflict" });
     expect(tx.user.create).not.toHaveBeenCalled();
   });
 
@@ -75,7 +113,7 @@ describe("Taichung legacy customer first activation", () => {
     tx.customerIdentityLink.findFirst.mockImplementation(async (query: { where: { provider: string } }) =>
       query.where.provider === "phone" ? { id: "other-store-phone" } : null,
     );
-    await expect(activate()).resolves.toEqual({ status: "rejected", error: "identity_conflict" });
+    await expect(activate()).resolves.toEqual({ status: "rejected", error: "phone_identity_conflict" });
     expect(tx.user.create).not.toHaveBeenCalled();
   });
 
@@ -84,9 +122,25 @@ describe("Taichung legacy customer first activation", () => {
     await expect(activate()).resolves.toEqual({ status: "rejected", error: "activation_replayed" });
   });
 
+  it("fails closed when the orphan User changes after the eligibility read", async () => {
+    tx.user.findMany.mockResolvedValue([{
+      id: "orphan-user", role: "CUSTOMER", status: "SUSPENDED", passwordHash: null,
+      customer: null, accounts: [], customerIdentityLinks: [],
+    }]);
+    tx.user.updateMany.mockResolvedValue({ count: 0 });
+    await expect(activate()).resolves.toEqual({ status: "rejected", error: "orphan_user_status_changed" });
+    expect(mockWrite).not.toHaveBeenCalled();
+  });
+
+  it("fails closed before attempt consumption when an identity write fails", async () => {
+    mockWrite.mockResolvedValue({ status: "error", error: "IDENTITY_LINK_WRITE_FAILED" });
+    await expect(activate()).resolves.toEqual({ status: "rejected", error: "transaction_failed" });
+    expect(tx.lineOAuthAttempt.updateMany).not.toHaveBeenCalled();
+  });
+
   it("rejects a legacy customer with an existing phone or LINE Login identity", async () => {
     tx.customer.findFirst.mockResolvedValue({ id: "legacy-customer", name: "黃淳詩", storeId: "store-taichung", identityLinks: [{ id: "existing" }] });
-    await expect(activate()).resolves.toEqual({ status: "rejected", error: "activation_not_allowed" });
+    await expect(activate()).resolves.toEqual({ status: "rejected", error: "customer_already_linked" });
     expect(tx.user.create).not.toHaveBeenCalled();
   });
 });
