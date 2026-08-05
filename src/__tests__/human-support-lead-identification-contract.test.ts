@@ -35,6 +35,12 @@ describe("human-support lead identification safety contract", () => {
     );
   });
 
+  it("renders handoff timestamps in Taipei time", () => {
+    expect(list).toContain(
+      'new Date(lead.lastMessageAt).toLocaleString("zh-TW", { timeZone: "Asia/Taipei" })',
+    );
+  });
+
   it("does not claim a per-customer LINE or Messenger deep link", () => {
     expect(list).toContain("前往 LINE 官方帳號");
     expect(list).toContain("前往 Messenger 收件匣");
