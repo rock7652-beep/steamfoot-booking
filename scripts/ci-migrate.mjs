@@ -13,8 +13,6 @@ export const PAYMENT_SPLIT_MIGRATION =
 export const HUMAN_SUPPORT_SUMMARY_MIGRATION =
   "20260802090000_add_digital_butler_human_support_summary";
 export const PRODUCTION_MIGRATION_TARGET_ENV = "PRODUCTION_MIGRATION_TARGET";
-export const ONE_TIME_PRODUCTION_MIGRATION_TARGET =
-  HUMAN_SUPPORT_SUMMARY_MIGRATION;
 export const APPROVED_PRODUCTION_MIGRATION_TARGETS = [
   PAYMENT_SPLIT_MIGRATION,
   HUMAN_SUPPORT_SUMMARY_MIGRATION,
@@ -146,18 +144,6 @@ function assertProductionConnection() {
 export function resolveProductionMigrationTarget(value) {
   if (!value) return null;
   return APPROVED_PRODUCTION_MIGRATION_TARGETS.includes(value) ? value : null;
-}
-
-export function resolveConfiguredProductionMigrationTarget(env) {
-  const configured = env[PRODUCTION_MIGRATION_TARGET_ENV];
-  if (configured) return configured;
-  if (
-    env.VERCEL_ENV === EXPECTED_ENVIRONMENT &&
-    env.VERCEL_GIT_COMMIT_REF === "main"
-  ) {
-    return ONE_TIME_PRODUCTION_MIGRATION_TARGET;
-  }
-  return null;
 }
 
 function assertApprovedMigrationTarget(value) {
@@ -482,7 +468,7 @@ async function main() {
     return;
   }
 
-  const target = resolveConfiguredProductionMigrationTarget(process.env);
+  const target = process.env[PRODUCTION_MIGRATION_TARGET_ENV];
   if (!target) {
     log("migration_skipped_no_target");
     return;
