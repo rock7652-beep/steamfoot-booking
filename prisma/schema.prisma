@@ -854,7 +854,7 @@ model DigitalButlerLead {
   @@unique([id, storeId])
   @@index([storeId, status, createdAt])
   @@index([storeId, assignedStaffId, status])
-  @@index([storeId, completionActionKey, assignedStaffId])
+  @@index([storeId, completionActionKey, assignedStaffId], map: "DigitalButlerLead_handoff_lookup_idx")
 }
 
 model DigitalButlerLeadActivity {
