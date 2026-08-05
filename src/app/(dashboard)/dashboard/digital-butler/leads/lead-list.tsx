@@ -174,7 +174,7 @@ export function DigitalButlerLeadList({
             </div>
             <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
               {lead.customerAvatarUrl ? <Image src={lead.customerAvatarUrl} alt="" width={32} height={32} className="h-8 w-8 rounded-full" /> : <span className="flex h-8 w-8 items-center justify-center rounded-full bg-earth-100 text-xs text-earth-500">客</span>}
-              <p className="text-base font-semibold text-earth-900">{lead.customerDisplayName ?? lead.customerReference ?? "未辨識顧客"}</p>
+              <p className="text-base font-semibold text-earth-900">{lead.customerDisplayName ?? lead.customerReference ?? lead.phone ?? "未辨識顧客"}</p>
               <p className="text-xs text-earth-500">
                 負責人：{lead.assignedStaff?.displayName ?? "尚未指派"}
               </p>
