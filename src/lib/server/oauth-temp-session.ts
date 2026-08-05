@@ -31,14 +31,17 @@ import { cookies } from "next/headers";
 import {
   type OAuthTempSession,
   type OAuthTempSessionInput,
+  type OAuthTempSessionVerification,
   OAUTH_TEMP_COOKIE_NAME,
   OAUTH_TEMP_TTL_SECONDS,
+  TAICHUNG_OAUTH_TEMP_TTL_SECONDS,
   signOAuthTempSession,
+  verifyOAuthTempSessionDetailed,
   verifyOAuthTempSession,
 } from "@/lib/oauth-temp-session";
 
 // 方便 caller 一次 import 拿到型別 + 函式（型別 re-export 不會帶來 runtime cost）
-export type { OAuthTempSession, OAuthTempSessionInput };
+export type { OAuthTempSession, OAuthTempSessionInput, OAuthTempSessionVerification };
 
 /**
  * 寫入 temp session cookie — payload 一律 HMAC 簽章後寫入。
@@ -56,7 +59,9 @@ export async function setOAuthTempSession(
     secure: true,
     sameSite: "lax",
     path: "/",
-    maxAge: OAUTH_TEMP_TTL_SECONDS,
+    maxAge: input.channelKey === "taichung"
+      ? TAICHUNG_OAUTH_TEMP_TTL_SECONDS
+      : OAUTH_TEMP_TTL_SECONDS,
   });
 }
 
@@ -68,6 +73,13 @@ export async function getOAuthTempSession(): Promise<OAuthTempSession | null> {
   const cookieStore = await cookies();
   const raw = cookieStore.get(OAUTH_TEMP_COOKIE_NAME)?.value;
   return verifyOAuthTempSession(raw);
+}
+
+/** Read a signed temp session without collapsing recoverable failure reasons. */
+export async function getOAuthTempSessionDetailed(): Promise<OAuthTempSessionVerification> {
+  const cookieStore = await cookies();
+  const raw = cookieStore.get(OAUTH_TEMP_COOKIE_NAME)?.value;
+  return verifyOAuthTempSessionDetailed(raw);
 }
 
 /**

@@ -48,6 +48,11 @@
 export const OAUTH_TEMP_COOKIE_NAME = "oauth_line_session";
 export const OAUTH_TEMP_TTL_SECONDS = 5 * 60;
 export const OAUTH_TEMP_TTL_MS = OAUTH_TEMP_TTL_SECONDS * 1000;
+// A Taichung activation starts from a callback attempt with a 10-minute
+// durable lifetime. Keep the signed browser context aligned with that attempt
+// so a normal page refresh / password-entry interval cannot expire earlier.
+export const TAICHUNG_OAUTH_TEMP_TTL_SECONDS = 10 * 60;
+export const TAICHUNG_OAUTH_TEMP_TTL_MS = TAICHUNG_OAUTH_TEMP_TTL_SECONDS * 1000;
 
 /**
  * 從 cookie 解出來的「被簽過的 payload」。
@@ -82,6 +87,10 @@ export type SignedOAuthTempSessionEnvelope = {
   payload: OAuthTempSession;
   sig: string;
 };
+
+export type OAuthTempSessionVerification =
+  | { status: "verified"; session: OAuthTempSession }
+  | { status: "rejected"; error: "missing" | "invalid" | "expired" };
 
 /**
  * 形狀驗證 — payload 物件是否為合法 OAuthTempSession（所有欄位齊全且型別正確）。
@@ -211,7 +220,9 @@ export async function signOAuthTempSession(
     ...input,
     nonce: crypto.randomUUID(),
     createdAt: now,
-    expiresAt: now + OAUTH_TEMP_TTL_MS,
+    expiresAt: input.channelKey === "taichung"
+      ? now + TAICHUNG_OAUTH_TEMP_TTL_MS
+      : now + OAUTH_TEMP_TTL_MS,
   };
   const sig = await hmacSign(JSON.stringify(payload));
   return { payload, sig };
@@ -231,16 +242,31 @@ export async function signOAuthTempSession(
 export async function verifyOAuthTempSession(
   raw: string | null | undefined,
 ): Promise<OAuthTempSession | null> {
-  if (!raw) return null;
+  const result = await verifyOAuthTempSessionDetailed(raw);
+  return result.status === "verified" ? result.session : null;
+}
+
+/**
+ * Detailed verification is intentionally server-only in practice: callers may
+ * render safe recovery UI or map it to an allowlisted error code, but must
+ * never reveal the signed payload, its signature, or the verification reason
+ * to an untrusted client beyond that code.
+ */
+export async function verifyOAuthTempSessionDetailed(
+  raw: string | null | undefined,
+): Promise<OAuthTempSessionVerification> {
+  if (!raw) return { status: "rejected", error: "missing" };
 
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
   } catch {
-    return null;
+    return { status: "rejected", error: "invalid" };
   }
 
-  if (!isSignedOAuthTempSessionEnvelopeShape(parsed)) return null;
+  if (!isSignedOAuthTempSessionEnvelopeShape(parsed)) {
+    return { status: "rejected", error: "invalid" };
+  }
 
   const { payload, sig } = parsed;
 
@@ -249,12 +275,16 @@ export async function verifyOAuthTempSession(
   try {
     expected = await hmacSign(JSON.stringify(payload));
   } catch {
-    return null;
+    return { status: "rejected", error: "invalid" };
   }
-  if (!constantTimeEqual(sig, expected)) return null;
+  if (!constantTimeEqual(sig, expected)) {
+    return { status: "rejected", error: "invalid" };
+  }
 
   // TTL — 用簽進去的 expiresAt
-  if (Date.now() > payload.expiresAt) return null;
+  if (Date.now() > payload.expiresAt) {
+    return { status: "rejected", error: "expired" };
+  }
 
-  return payload;
+  return { status: "verified", session: payload };
 }

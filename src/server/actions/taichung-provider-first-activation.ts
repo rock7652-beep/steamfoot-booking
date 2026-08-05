@@ -5,7 +5,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { CUSTOMER_IDENTITY_PROVIDER } from "@/lib/customer-identity-provider";
 import { normalizePhone } from "@/lib/normalize";
-import { getOAuthTempSession } from "@/lib/server/oauth-temp-session";
+import { clearOAuthTempSession, getOAuthTempSessionDetailed } from "@/lib/server/oauth-temp-session";
 import { signIn } from "@/lib/auth";
 import { createVerifiedCustomerIdentityLink } from "@/server/services/namespaced-customer-identity-link";
 import { logTaichungLineHandoff } from "@/lib/line-oauth/taichung-handoff-log";
@@ -13,9 +13,16 @@ import { logTaichungLineHandoff } from "@/lib/line-oauth/taichung-handoff-log";
 const PHONE_RE = /^09\d{8}$/;
 
 type ActivationError =
-  | "session_expired"
+  | "activation_context_missing"
+  | "activation_context_expired"
+  | "activation_context_replayed"
+  | "activation_context_store_mismatch"
   | "invalid_input"
+  | "customer_not_found"
+  | "customer_store_mismatch"
   | "customer_already_linked"
+  | "customer_merged"
+  | "phone_mismatch"
   | "orphan_user_not_eligible"
   | "orphan_user_status_changed"
   | "orphan_user_has_password"
@@ -23,10 +30,9 @@ type ActivationError =
   | "orphan_user_has_identity"
   | "phone_identity_conflict"
   | "line_login_conflict"
-  | "activation_replayed"
-  | "transaction_failed";
+  | "activation_transaction_failed";
 
-export type TaichungFirstActivationState = { error: string | null };
+export type TaichungFirstActivationState = { error: string | null; code?: string };
 
 export type TaichungFirstActivationResult =
   | { status: "activated"; userId: string }
@@ -41,37 +47,56 @@ export async function activateTaichungLegacyCustomer(input: {
   customerId: string;
   phone: string;
   passwordHash: string;
-  tempSession: Awaited<ReturnType<typeof getOAuthTempSession>>;
+  tempSession: {
+    attemptId?: string;
+    lineUserId: string;
+    storeId: string;
+    channelKey?: "taichung";
+  } | null;
 }): Promise<TaichungFirstActivationResult> {
   const phone = normalizePhone(input.phone);
   const temp = input.tempSession;
   if (!PHONE_RE.test(phone)) return { status: "rejected", error: "invalid_input" };
   if (!temp?.attemptId || temp.channelKey !== "taichung") {
-    return { status: "rejected", error: "session_expired" };
+    return { status: "rejected", error: "activation_context_missing" };
   }
 
   try {
     const result = await prisma.$transaction(async (tx): Promise<TaichungFirstActivationResult> => {
-      const customer = await tx.customer.findFirst({
-        where: {
-          id: input.customerId,
-          storeId: temp.storeId,
-          phone,
-          userId: null,
-          mergedIntoCustomerId: null,
-        },
+      const customer = await tx.customer.findUnique({
+        where: { id: input.customerId },
         select: {
           id: true,
           name: true,
           storeId: true,
+          phone: true,
+          userId: true,
+          mergedIntoCustomerId: true,
           identityLinks: {
             where: { provider: { in: [CUSTOMER_IDENTITY_PROVIDER.PHONE, CUSTOMER_IDENTITY_PROVIDER.LINE_LOGIN] } },
             select: { id: true },
           },
         },
       });
-      if (!customer || customer.identityLinks.length !== 0) {
+      if (!customer) return { status: "rejected", error: "customer_not_found" };
+      if (customer.storeId !== temp.storeId) return { status: "rejected", error: "customer_store_mismatch" };
+      if (customer.phone !== phone) return { status: "rejected", error: "phone_mismatch" };
+      if (customer.mergedIntoCustomerId !== null) return { status: "rejected", error: "customer_merged" };
+      if (customer.userId !== null || customer.identityLinks.length !== 0) {
         return { status: "rejected", error: "customer_already_linked" };
+      }
+
+      const attempt = await tx.lineOAuthAttempt.findUnique({
+        where: { id: temp.attemptId },
+        select: { storeId: true, storeSlug: true, channelKey: true, status: true, expiresAt: true, consumedAt: true, sessionConsumedAt: true },
+      });
+      if (!attempt) return { status: "rejected", error: "activation_context_missing" };
+      if (attempt.storeId !== temp.storeId || attempt.storeSlug !== "taichung" || attempt.channelKey !== "taichung") {
+        return { status: "rejected", error: "activation_context_store_mismatch" };
+      }
+      if (attempt.expiresAt <= new Date()) return { status: "rejected", error: "activation_context_expired" };
+      if (attempt.status !== "CONSUMED" || attempt.consumedAt === null || attempt.sessionConsumedAt !== null) {
+        return { status: "rejected", error: "activation_context_replayed" };
       }
 
       // A phone may have a historical, suspended central shell. It is reusable
@@ -194,7 +219,7 @@ export async function activateTaichungLegacyCustomer(input: {
         },
         data: { sessionConsumedAt: new Date() },
       });
-      if (claimed.count !== 1) throw new Error("activation_replayed");
+      if (claimed.count !== 1) throw new Error("activation_context_replayed");
       return { status: "activated", userId };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
     if (result.status === "rejected") {
@@ -214,12 +239,12 @@ export async function activateTaichungLegacyCustomer(input: {
     return result;
   } catch (error) {
     const errorCode = error instanceof Error && [
-      "activation_replayed",
+      "activation_context_replayed",
       "orphan_user_status_changed",
       "customer_already_linked",
     ].includes(error.message)
       ? error.message as ActivationError
-      : "transaction_failed";
+      : "activation_transaction_failed";
     logTaichungLineHandoff("activation_failed", {
       attemptId: temp.attemptId,
       customerId: input.customerId,
@@ -242,7 +267,12 @@ export async function taichungFirstActivationAction(
     return { error: "請確認手機號碼，並設定至少 8 碼且兩次相同的密碼" };
   }
 
-  const tempSession = await getOAuthTempSession();
+  const verification = await getOAuthTempSessionDetailed();
+  if (verification.status === "rejected") {
+    const code = verification.error === "expired" ? "activation_context_expired" : "activation_context_missing";
+    return { error: code === "activation_context_expired" ? "登入驗證已過期，請重新從暖沐 LINE 登入" : "登入驗證資料遺失，請重新從暖沐 LINE 登入", code };
+  }
+  const tempSession = verification.session;
   const result = await activateTaichungLegacyCustomer({
     customerId,
     phone,
@@ -250,8 +280,12 @@ export async function taichungFirstActivationAction(
     tempSession,
   });
   if (result.status === "rejected") {
-    return { error: result.error === "session_expired" ? "登入流程已過期，請重新從暖沐 LINE 登入" : "無法完成首次啟用，請重新從暖沐 LINE 登入" };
+    return { error: result.error === "activation_context_expired" ? "登入驗證已過期，請重新從暖沐 LINE 登入" : result.error === "activation_context_missing" ? "登入驗證資料遺失，請重新從暖沐 LINE 登入" : "無法完成首次啟用，請重新從暖沐 LINE 登入", code: result.error };
   }
+
+  // The durable attempt is claimed in the committed transaction above. Clear
+  // only now; GET / refresh paths keep the signed context intact.
+  await clearOAuthTempSession();
 
   // Auth.js writes the session cookie on this response. The identity records
   // above are already committed atomically; a sign-in failure is never shown
@@ -265,11 +299,11 @@ export async function taichungFirstActivationAction(
     });
   } catch (error) {
     if (error && typeof error === "object" && "type" in error && (error as { type?: unknown }).type === "CredentialsSignin") {
-      return { error: "帳號已啟用，但無法建立登入 Session；請重新從暖沐 LINE 登入" };
+      return { error: "帳號已啟用，但無法建立登入 Session；請重新從暖沐 LINE 登入", code: "session_create_failed" };
     }
     // Next.js redirects are intentionally rethrown; this is the only success
     // path to the member page.
     throw error;
   }
-  return { error: "無法建立登入 Session，請重新從暖沐 LINE 登入" };
+  return { error: "無法建立登入 Session，請重新從暖沐 LINE 登入", code: "session_create_failed" };
 }

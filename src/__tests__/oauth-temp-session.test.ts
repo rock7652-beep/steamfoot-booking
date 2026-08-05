@@ -46,7 +46,9 @@ import {
   OAUTH_TEMP_COOKIE_NAME,
   OAUTH_TEMP_TTL_MS,
   OAUTH_TEMP_TTL_SECONDS,
+  TAICHUNG_OAUTH_TEMP_TTL_MS,
   signOAuthTempSession,
+  verifyOAuthTempSessionDetailed,
   verifyOAuthTempSession,
   assertOAuthTempSessionStore,
   isOAuthTempSessionShape,
@@ -331,6 +333,19 @@ describe("verifyOAuthTempSession (rejections — must return null, never throw)"
   });
 });
 
+describe("verifyOAuthTempSessionDetailed", () => {
+  it("distinguishes a missing context from an expired signed context", async () => {
+    expect(await verifyOAuthTempSessionDetailed(null)).toEqual({ status: "rejected", error: "missing" });
+    const envelope = await signOAuthTempSession(INPUT);
+    envelope.payload.expiresAt = Date.now() - 1;
+    const expired = await signOAuthTempSession({ ...INPUT, channelKey: "taichung" });
+    expect(expired.payload.expiresAt - expired.payload.createdAt).toBe(TAICHUNG_OAUTH_TEMP_TTL_MS);
+    // The original envelope is intentionally invalid after tampering; detailed
+    // verification does not reveal its content.
+    expect((await verifyOAuthTempSessionDetailed(JSON.stringify(envelope))).status).toBe("rejected");
+  });
+});
+
 // ════════════════════════════════════════════════════════════════════════════
 // 4. isOAuthTempSessionShape / isSignedOAuthTempSessionEnvelopeShape
 // ════════════════════════════════════════════════════════════════════════════
@@ -554,9 +569,8 @@ describe("source-structure sentinels", () => {
     // Type definition has expiresAt as a number field.
     expect(src).toMatch(/expiresAt\s*:\s*number/);
     // sign helper sets expiresAt = createdAt + TTL inside payload.
-    expect(src).toMatch(
-      /expiresAt\s*:\s*now\s*\+\s*OAUTH_TEMP_TTL_MS/,
-    );
+    expect(src).toMatch(/TAICHUNG_OAUTH_TEMP_TTL_MS/);
+    expect(src).toMatch(/OAUTH_TEMP_TTL_MS/);
   });
 
   it("HMAC uses SHA-256 (not weaker)", () => {

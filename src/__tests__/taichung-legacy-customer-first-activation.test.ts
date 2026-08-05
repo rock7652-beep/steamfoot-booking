@@ -19,21 +19,22 @@ describe("Taichung legacy customer first activation", () => {
     createdAt: Date.now(), expiresAt: Date.now() + 60_000,
   };
   const tx = {
-    customer: { findFirst: vi.fn(), updateMany: vi.fn() },
+    customer: { findUnique: vi.fn(), updateMany: vi.fn() },
     user: { findMany: vi.fn(), create: vi.fn(), updateMany: vi.fn() },
     customerIdentityLink: { findFirst: vi.fn() },
-    lineOAuthAttempt: { updateMany: vi.fn() },
+    lineOAuthAttempt: { findUnique: vi.fn(), updateMany: vi.fn() },
   };
 
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
-    tx.customer.findFirst.mockResolvedValue({ id: "legacy-customer", name: "黃淳詩", storeId: "store-taichung", identityLinks: [] });
+    tx.customer.findUnique.mockResolvedValue({ id: "legacy-customer", name: "黃淳詩", storeId: "store-taichung", phone: "0912345678", userId: null, mergedIntoCustomerId: null, identityLinks: [] });
     tx.user.findMany.mockResolvedValue([]);
     tx.customerIdentityLink.findFirst.mockResolvedValue(null);
     tx.user.create.mockResolvedValue({ id: "new-central-user" });
     tx.customer.updateMany.mockResolvedValue({ count: 1 });
     tx.lineOAuthAttempt.updateMany.mockResolvedValue({ count: 1 });
+    tx.lineOAuthAttempt.findUnique.mockResolvedValue({ storeId: "store-taichung", storeSlug: "taichung", channelKey: "taichung", status: "CONSUMED", expiresAt: new Date(Date.now() + 60_000), consumedAt: new Date(), sessionConsumedAt: null });
     mockWrite.mockResolvedValue({ status: "upserted" });
     mockTransaction.mockImplementation(async (callback: (value: typeof tx) => unknown) => callback(tx));
   });
@@ -119,7 +120,7 @@ describe("Taichung legacy customer first activation", () => {
 
   it("rejects a replay rather than reporting a completed activation", async () => {
     tx.lineOAuthAttempt.updateMany.mockResolvedValue({ count: 0 });
-    await expect(activate()).resolves.toEqual({ status: "rejected", error: "activation_replayed" });
+    await expect(activate()).resolves.toEqual({ status: "rejected", error: "activation_context_replayed" });
   });
 
   it("fails closed when the orphan User changes after the eligibility read", async () => {
@@ -134,13 +135,45 @@ describe("Taichung legacy customer first activation", () => {
 
   it("fails closed before attempt consumption when an identity write fails", async () => {
     mockWrite.mockResolvedValue({ status: "error", error: "IDENTITY_LINK_WRITE_FAILED" });
-    await expect(activate()).resolves.toEqual({ status: "rejected", error: "transaction_failed" });
+    await expect(activate()).resolves.toEqual({ status: "rejected", error: "activation_transaction_failed" });
     expect(tx.lineOAuthAttempt.updateMany).not.toHaveBeenCalled();
   });
 
   it("rejects a legacy customer with an existing phone or LINE Login identity", async () => {
-    tx.customer.findFirst.mockResolvedValue({ id: "legacy-customer", name: "黃淳詩", storeId: "store-taichung", identityLinks: [{ id: "existing" }] });
+    tx.customer.findUnique.mockResolvedValue({ id: "legacy-customer", name: "黃淳詩", storeId: "store-taichung", phone: "0912345678", userId: null, mergedIntoCustomerId: null, identityLinks: [{ id: "existing" }] });
     await expect(activate()).resolves.toEqual({ status: "rejected", error: "customer_already_linked" });
+    expect(tx.user.create).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["missing", null, "activation_context_missing"],
+    ["expired", { ...tempSession, attemptId: "attempt-1", channelKey: "taichung" }, "activation_context_expired"],
+  ])("rejects an activation context that is %s", async (_label, session, error) => {
+    if (_label === "expired") {
+      tx.lineOAuthAttempt.findUnique.mockResolvedValue({ storeId: "store-taichung", storeSlug: "taichung", channelKey: "taichung", status: "CONSUMED", expiresAt: new Date(Date.now() - 1), consumedAt: new Date(), sessionConsumedAt: null });
+    }
+    await expect(activate({ tempSession: session })).resolves.toEqual({ status: "rejected", error });
+    expect(tx.user.create).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["another store", { storeId: "store-other", storeSlug: "taichung", channelKey: "taichung" }, "activation_context_store_mismatch"],
+    ["already consumed", { storeId: "store-taichung", storeSlug: "taichung", channelKey: "taichung", sessionConsumedAt: new Date() }, "activation_context_replayed"],
+  ])("fails closed when the durable attempt belongs to %s", async (_label, override, error) => {
+    tx.lineOAuthAttempt.findUnique.mockResolvedValue({ status: "CONSUMED", expiresAt: new Date(Date.now() + 60_000), consumedAt: new Date(), sessionConsumedAt: null, ...override });
+    await expect(activate()).resolves.toEqual({ status: "rejected", error });
+    expect(tx.user.create).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [null, "customer_not_found"],
+    [{ id: "legacy-customer", name: "x", storeId: "store-other", phone: "0912345678", userId: null, mergedIntoCustomerId: null, identityLinks: [] }, "customer_store_mismatch"],
+    [{ id: "legacy-customer", name: "x", storeId: "store-taichung", phone: "0999999999", userId: null, mergedIntoCustomerId: null, identityLinks: [] }, "phone_mismatch"],
+    [{ id: "legacy-customer", name: "x", storeId: "store-taichung", phone: "0912345678", userId: null, mergedIntoCustomerId: "merged-target", identityLinks: [] }, "customer_merged"],
+    [{ id: "legacy-customer", name: "x", storeId: "store-taichung", phone: "0912345678", userId: "linked-user", mergedIntoCustomerId: null, identityLinks: [] }, "customer_already_linked"],
+  ])("revalidates customer activation guards", async (customer, error) => {
+    tx.customer.findUnique.mockResolvedValue(customer);
+    await expect(activate()).resolves.toEqual({ status: "rejected", error });
     expect(tx.user.create).not.toHaveBeenCalled();
   });
 });
