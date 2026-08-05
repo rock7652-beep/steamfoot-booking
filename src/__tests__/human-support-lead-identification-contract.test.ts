@@ -29,6 +29,12 @@ describe("human-support lead identification safety contract", () => {
     expect(query).not.toContain("senderIdCiphertext");
   });
 
+  it("keeps the ordinary lead phone as the final identification fallback", () => {
+    expect(list).toContain(
+      'lead.customerDisplayName ?? lead.customerReference ?? lead.phone ?? "未辨識顧客"',
+    );
+  });
+
   it("does not claim a per-customer LINE or Messenger deep link", () => {
     expect(list).toContain("前往 LINE 官方帳號");
     expect(list).toContain("前往 Messenger 收件匣");
