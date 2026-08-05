@@ -184,7 +184,7 @@ export function DigitalButlerLeadList({
               {digitalButlerAnswerSummary(lead.submittedAnswers)}
             </p>
             {lead.lastMessage && <p className="mt-1 text-xs text-earth-600">最後訊息：{lead.lastMessage}</p>}
-            {lead.lastMessageAt && <p className="mt-1 text-[11px] text-earth-400">{new Date(lead.lastMessageAt).toLocaleString("zh-TW")}</p>}
+            {lead.lastMessageAt && <p className="mt-1 text-[11px] text-earth-400">{new Date(lead.lastMessageAt).toLocaleString("zh-TW", { timeZone: "Asia/Taipei" })}</p>}
             {entry && <a href={entry.href} target="_blank" rel="noreferrer noopener" className="mt-2 inline-block text-xs font-medium text-primary-700 underline">{entry.label}</a>}
             {lead.activities.length > 0 && (
               <details className="mt-2 text-xs text-earth-500">
