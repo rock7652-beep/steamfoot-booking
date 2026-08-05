@@ -63,6 +63,10 @@ describe("recordHumanSupportHandoff", () => {
     mocks.getUserProfile.mockReturnValue(new Promise(() => undefined));
 
     const recording = recordHumanSupportHandoff(input);
+    expect(mocks.conversationFindFirst).toHaveBeenCalledOnce();
+    expect(mocks.getUserProfile).not.toHaveBeenCalled();
+    await Promise.resolve();
+    expect(mocks.getUserProfile).toHaveBeenCalledOnce();
     await vi.advanceTimersByTimeAsync(1_000);
     await recording;
 

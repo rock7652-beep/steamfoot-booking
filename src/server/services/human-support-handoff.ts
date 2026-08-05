@@ -65,19 +65,6 @@ async function releaseClaim(claimId: string): Promise<void> {
 export async function recordHumanSupportHandoff(input: DigitalButlerInboundTextMessage): Promise<void> {
   try {
     const senderIdHash = hashDigitalButlerSensitiveValue(input.senderId);
-    const profile = await getOptionalLineProfile(input);
-    const lastMessage = input.text.trim().slice(0, 160);
-    const encryptedMessage = lastMessage ? encryptDigitalButlerValue(lastMessage) : null;
-    const messageSnapshot = encryptedMessage ? {
-      lastMessageCiphertext: new Uint8Array(encryptedMessage.ciphertext),
-      lastMessageIv: new Uint8Array(encryptedMessage.iv),
-      lastMessageAuthTag: new Uint8Array(encryptedMessage.authTag),
-      lastMessageAt: input.occurredAt,
-    } : {};
-    const profileSnapshot = profile ? {
-      customerDisplayName: profile.displayName.trim() || null,
-      customerAvatarUrl: safeHttpsAvatarUrl(profile.pictureUrl),
-    } : {};
     const conversation = await prisma.digitalButlerConversation.findFirst({
       where: {
         storeId: input.storeId,
@@ -94,6 +81,19 @@ export async function recordHumanSupportHandoff(input: DigitalButlerInboundTextM
       return;
     }
 
+    const profile = await getOptionalLineProfile(input);
+    const lastMessage = input.text.trim().slice(0, 160);
+    const encryptedMessage = lastMessage ? encryptDigitalButlerValue(lastMessage) : null;
+    const messageSnapshot = encryptedMessage ? {
+      lastMessageCiphertext: new Uint8Array(encryptedMessage.ciphertext),
+      lastMessageIv: new Uint8Array(encryptedMessage.iv),
+      lastMessageAuthTag: new Uint8Array(encryptedMessage.authTag),
+      lastMessageAt: input.occurredAt,
+    } : {};
+    const profileSnapshot = profile ? {
+      customerDisplayName: profile.displayName.trim() || null,
+      customerAvatarUrl: safeHttpsAvatarUrl(profile.pictureUrl),
+    } : {};
     const lead = await prisma.digitalButlerLead.upsert({
       where: {
         storeId_conversationId_completionActionKey: {
