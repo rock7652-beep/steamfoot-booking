@@ -9,5 +9,5 @@ ALTER TABLE "DigitalButlerLead"
   ADD COLUMN "lastMessageAuthTag" BYTEA,
   ADD COLUMN "lastMessageAt" TIMESTAMP(3);
 
-CREATE INDEX "DigitalButlerLead_storeId_completionActionKey_assignedStaffId_idx"
+CREATE INDEX "DigitalButlerLead_handoff_lookup_idx"
   ON "DigitalButlerLead"("storeId", "completionActionKey", "assignedStaffId");
