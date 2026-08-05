@@ -152,10 +152,15 @@ describe("Production migration recovery guard", () => {
 
   it("validates only approved Production pooler and direct URLs without logging them", () => {
     const pooler = "postgresql://postgres.qijlnhtpbintanzpxkvf:secret@example:6543/postgres";
-    const direct = "postgresql://postgres.qijlnhtpbintanzpxkvf:secret@example:5432/postgres";
+    const sessionPooler = "postgresql://postgres.qijlnhtpbintanzpxkvf:secret@example:5432/postgres";
+    const direct = "postgresql://postgres:secret@db.qijlnhtpbintanzpxkvf.supabase.co:5432/postgres";
     expect(projectRefFromConnectionString(pooler, "6543")).toBe("qijlnhtpbintanzpxkvf");
+    expect(projectRefFromConnectionString(sessionPooler, "5432")).toBe("qijlnhtpbintanzpxkvf");
     expect(projectRefFromConnectionString(direct, "5432")).toBe("qijlnhtpbintanzpxkvf");
     expect(projectRefFromConnectionString(pooler, "5432")).toBeNull();
+    expect(projectRefFromConnectionString("postgresql://postgres:secret@db.qijlnhtpbintanzpxkvf.supabase.co:6543/postgres", "5432")).toBeNull();
+    expect(projectRefFromConnectionString("postgresql://postgres:secret@db.qijlnhtpbintanzpxkvf.supabase.co.evil.test:5432/postgres", "5432")).toBeNull();
+    expect(projectRefFromConnectionString("postgresql://other:secret@db.qijlnhtpbintanzpxkvf.supabase.co:5432/postgres", "5432")).toBeNull();
     expect(projectRefFromConnectionString("postgresql://postgres.other:secret@example:6543/postgres", "6543")).toBe("other");
     expect(script).toContain("production_connection_rejected");
     expect(script).not.toContain("process.stderr.write(output)");
