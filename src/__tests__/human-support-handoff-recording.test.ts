@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   getUserProfile: vi.fn(),
@@ -52,6 +52,33 @@ describe("recordHumanSupportHandoff", () => {
     mocks.conversationFindFirst.mockResolvedValue({ id: "conversation-a", flowId: "flow-a" });
     mocks.leadUpsert.mockResolvedValue({ id: "lead-a" });
     mocks.executionLogCreate.mockResolvedValue(null);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("records the support lead when optional LINE profile enrichment never settles", async () => {
+    vi.useFakeTimers();
+    mocks.getUserProfile.mockReturnValue(new Promise(() => undefined));
+
+    const recording = recordHumanSupportHandoff(input);
+    await vi.advanceTimersByTimeAsync(1_000);
+    await recording;
+
+    expect(mocks.getUserProfile).toHaveBeenCalledWith(
+      input.storeId,
+      input.senderId,
+      { signal: expect.any(AbortSignal) },
+    );
+    expect(mocks.leadUpsert).toHaveBeenCalledOnce();
+    expect(mocks.leadUpsert).toHaveBeenCalledWith(expect.objectContaining({
+      create: expect.objectContaining({
+        customerDisplayName: null,
+        customerAvatarUrl: null,
+        customerReference: "客服-01234567",
+      }),
+    }));
   });
 
   it("creates the support lead even when optional LINE profile enrichment throws", async () => {

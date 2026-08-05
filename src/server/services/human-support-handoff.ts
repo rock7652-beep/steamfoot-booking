@@ -19,14 +19,29 @@ function safeHttpsAvatarUrl(value: string | undefined): string | null {
   }
 }
 
+const OPTIONAL_LINE_PROFILE_TIMEOUT_MS = 1_000;
+
 async function getOptionalLineProfile(input: DigitalButlerInboundTextMessage): Promise<LineProfile> {
   if (input.provider !== "LINE") return null;
+  const controller = new AbortController();
+  let timeout: ReturnType<typeof setTimeout> | null = null;
   try {
-    const profile = await getUserProfile(input.storeId, input.senderId);
+    const timeoutProfile = new Promise<null>((resolve) => {
+      timeout = setTimeout(() => {
+        controller.abort();
+        resolve(null);
+      }, OPTIONAL_LINE_PROFILE_TIMEOUT_MS);
+    });
+    const profile = await Promise.race([
+      getUserProfile(input.storeId, input.senderId, { signal: controller.signal }),
+      timeoutProfile,
+    ]);
     if (!profile || profile.error || !profile.displayName.trim()) return null;
     return profile;
   } catch {
     return null;
+  } finally {
+    if (timeout) clearTimeout(timeout);
   }
 }
 
