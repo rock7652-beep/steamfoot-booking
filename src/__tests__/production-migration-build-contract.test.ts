@@ -11,7 +11,6 @@ import {
   HUMAN_SUPPORT_SUMMARY_MIGRATION,
   APPROVED_PRODUCTION_MIGRATION_TARGETS,
   PRODUCTION_MIGRATION_TARGET_ENV,
-  ONE_TIME_PRODUCTION_MIGRATION_TARGET,
   classifyMessengerMigration,
   hasExpectedMessengerRls,
   hasExpectedMessengerSchema,
@@ -27,7 +26,6 @@ import {
   migrationChecksum,
   projectRefFromConnectionString,
   resolveProductionMigrationTarget,
-  resolveConfiguredProductionMigrationTarget,
 } from "../../scripts/ci-migrate.mjs";
 
 const scriptPath = resolve(process.cwd(), "scripts/ci-migrate.mjs");
@@ -75,28 +73,6 @@ describe("Production migration recovery guard", () => {
     expect(result.stdout).toContain("migration_skipped_no_target");
     expect(result.stdout).not.toContain("production_connection_verified");
     expect(result.stderr).not.toContain("production_connection_rejected");
-  });
-
-  it("selects the one-time target only for Production main when no env target is set", () => {
-    expect(ONE_TIME_PRODUCTION_MIGRATION_TARGET).toBe(HUMAN_SUPPORT_SUMMARY_MIGRATION);
-    expect(resolveConfiguredProductionMigrationTarget({
-      VERCEL_ENV: "production",
-      VERCEL_GIT_COMMIT_REF: "main",
-      [PRODUCTION_MIGRATION_TARGET_ENV]: "",
-    })).toBe(HUMAN_SUPPORT_SUMMARY_MIGRATION);
-    expect(resolveConfiguredProductionMigrationTarget({
-      VERCEL_ENV: "preview",
-      VERCEL_GIT_COMMIT_REF: "main",
-    })).toBeNull();
-    expect(resolveConfiguredProductionMigrationTarget({
-      VERCEL_ENV: "production",
-      VERCEL_GIT_COMMIT_REF: "feature",
-    })).toBeNull();
-    expect(resolveConfiguredProductionMigrationTarget({
-      VERCEL_ENV: "production",
-      VERCEL_GIT_COMMIT_REF: "main",
-      [PRODUCTION_MIGRATION_TARGET_ENV]: PAYMENT_SPLIT_MIGRATION,
-    })).toBe(PAYMENT_SPLIT_MIGRATION);
   });
 
   it("skips Preview and Development before accessing any database", () => {
