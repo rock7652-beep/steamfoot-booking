@@ -826,6 +826,13 @@ model DigitalButlerLead {
   flowId              String
   conversationId      String
   completionActionKey String
+  customerDisplayName String?
+  customerAvatarUrl   String?
+  customerReference   String?
+  lastMessageCiphertext Bytes?
+  lastMessageIv       Bytes?
+  lastMessageAuthTag  Bytes?
+  lastMessageAt       DateTime?
   status              DigitalButlerLeadStatus     @default(NEW)
   submittedAnswers    Json
   phoneCiphertext     Bytes?
@@ -847,6 +854,7 @@ model DigitalButlerLead {
   @@unique([id, storeId])
   @@index([storeId, status, createdAt])
   @@index([storeId, assignedStaffId, status])
+  @@index([storeId, completionActionKey, assignedStaffId])
 }
 
 model DigitalButlerLeadActivity {
