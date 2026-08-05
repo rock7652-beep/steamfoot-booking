@@ -1,22 +1,30 @@
 "use server";
 
 import { hashSync } from "bcryptjs";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { CUSTOMER_IDENTITY_PROVIDER } from "@/lib/customer-identity-provider";
 import { normalizePhone } from "@/lib/normalize";
 import { getOAuthTempSession } from "@/lib/server/oauth-temp-session";
 import { signIn } from "@/lib/auth";
 import { createVerifiedCustomerIdentityLink } from "@/server/services/namespaced-customer-identity-link";
+import { logTaichungLineHandoff } from "@/lib/line-oauth/taichung-handoff-log";
 
 const PHONE_RE = /^09\d{8}$/;
 
 type ActivationError =
   | "session_expired"
   | "invalid_input"
-  | "activation_not_allowed"
-  | "identity_conflict"
+  | "customer_already_linked"
+  | "orphan_user_not_eligible"
+  | "orphan_user_status_changed"
+  | "orphan_user_has_password"
+  | "orphan_user_has_customer"
+  | "orphan_user_has_identity"
+  | "phone_identity_conflict"
+  | "line_login_conflict"
   | "activation_replayed"
-  | "activation_failed";
+  | "transaction_failed";
 
 export type TaichungFirstActivationState = { error: string | null };
 
@@ -43,7 +51,7 @@ export async function activateTaichungLegacyCustomer(input: {
   }
 
   try {
-    return await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx): Promise<TaichungFirstActivationResult> => {
       const customer = await tx.customer.findFirst({
         where: {
           id: input.customerId,
@@ -63,16 +71,28 @@ export async function activateTaichungLegacyCustomer(input: {
         },
       });
       if (!customer || customer.identityLinks.length !== 0) {
-        return { status: "rejected", error: "activation_not_allowed" };
+        return { status: "rejected", error: "customer_already_linked" };
       }
 
-      // A phone is a central account identifier. Do not claim it from any
-      // existing User, including a user in another store or role.
-      const existingUser = await tx.user.findFirst({
+      // A phone may have a historical, suspended central shell. It is reusable
+      // only when exactly one such shell is entirely orphaned. Any account,
+      // customer, password, or identity is an ownership boundary, not a repair
+      // opportunity.
+      const matchingUsers = await tx.user.findMany({
         where: { phone },
-        select: { id: true },
+        select: {
+          id: true,
+          role: true,
+          status: true,
+          passwordHash: true,
+          customer: { select: { id: true } },
+          accounts: { select: { id: true } },
+          customerIdentityLinks: { select: { id: true } },
+        },
       });
-      if (existingUser) return { status: "rejected", error: "identity_conflict" };
+      if (matchingUsers.length > 1) {
+        return { status: "rejected", error: "phone_identity_conflict" };
+      }
 
       const [existingPhoneIdentity, existingLineLogin] = await Promise.all([
         tx.customerIdentityLink.findFirst({
@@ -87,32 +107,72 @@ export async function activateTaichungLegacyCustomer(input: {
           select: { id: true },
         }),
       ]);
-      if (existingPhoneIdentity || existingLineLogin) {
-        return { status: "rejected", error: "identity_conflict" };
+      if (existingPhoneIdentity) {
+        return { status: "rejected", error: "phone_identity_conflict" };
+      }
+      if (existingLineLogin) {
+        return { status: "rejected", error: "line_login_conflict" };
       }
 
-      const user = await tx.user.create({
-        data: {
-          name: customer.name,
-          phone,
-          passwordHash: input.passwordHash,
-          role: "CUSTOMER",
-          status: "ACTIVE",
-        },
-        select: { id: true },
-      });
+      let userId: string;
+      const orphan = matchingUsers[0];
+      if (!orphan) {
+        const user = await tx.user.create({
+          data: {
+            name: customer.name,
+            phone,
+            passwordHash: input.passwordHash,
+            role: "CUSTOMER",
+            status: "ACTIVE",
+          },
+          select: { id: true },
+        });
+        userId = user.id;
+      } else {
+        if (orphan.role !== "CUSTOMER") {
+          return { status: "rejected", error: "orphan_user_not_eligible" };
+        }
+        if (orphan.status !== "SUSPENDED") {
+          return { status: "rejected", error: "orphan_user_status_changed" };
+        }
+        if (orphan.passwordHash !== null) {
+          return { status: "rejected", error: "orphan_user_has_password" };
+        }
+        if (orphan.customer !== null) {
+          return { status: "rejected", error: "orphan_user_has_customer" };
+        }
+        if (orphan.accounts.length !== 0 || orphan.customerIdentityLinks.length !== 0) {
+          return { status: "rejected", error: "orphan_user_has_identity" };
+        }
+
+        // Compare-and-set turns the read-time orphan proof into a write-time
+        // proof. Under Serializable isolation a concurrent link/account write
+        // either conflicts or makes this update count zero.
+        const reactivated = await tx.user.updateMany({
+          where: {
+            id: orphan.id,
+            phone,
+            role: "CUSTOMER",
+            status: "SUSPENDED",
+            passwordHash: null,
+          },
+          data: { passwordHash: input.passwordHash, status: "ACTIVE" },
+        });
+        if (reactivated.count !== 1) throw new Error("orphan_user_status_changed");
+        userId = orphan.id;
+      }
       const attached = await tx.customer.updateMany({
         where: { id: customer.id, storeId: temp.storeId, userId: null, mergedIntoCustomerId: null },
-        data: { userId: user.id },
+        data: { userId },
       });
-      if (attached.count !== 1) throw new Error("activation_customer_claim_conflict");
+      if (attached.count !== 1) throw new Error("customer_already_linked");
 
       for (const identity of [
         { provider: CUSTOMER_IDENTITY_PROVIDER.PHONE, providerAccountId: phone },
         { provider: CUSTOMER_IDENTITY_PROVIDER.LINE_LOGIN, providerAccountId: temp.lineUserId },
       ]) {
         const written = await createVerifiedCustomerIdentityLink({
-          userId: user.id,
+          userId,
           storeId: temp.storeId,
           customerId: customer.id,
           provider: identity.provider,
@@ -135,16 +195,38 @@ export async function activateTaichungLegacyCustomer(input: {
         data: { sessionConsumedAt: new Date() },
       });
       if (claimed.count !== 1) throw new Error("activation_replayed");
-      return { status: "activated", userId: user.id };
-    });
+      return { status: "activated", userId };
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    if (result.status === "rejected") {
+      logTaichungLineHandoff("activation_rejected", {
+        attemptId: temp.attemptId,
+        customerId: input.customerId,
+        storeId: temp.storeId,
+        errorCode: result.error,
+      });
+    } else {
+      logTaichungLineHandoff("activation_committed", {
+        attemptId: temp.attemptId,
+        customerId: input.customerId,
+        storeId: temp.storeId,
+      });
+    }
+    return result;
   } catch (error) {
-    if (error instanceof Error && error.message === "activation_replayed") {
-      return { status: "rejected", error: "activation_replayed" };
-    }
-    if (error instanceof Error && error.message.startsWith("identity:")) {
-      return { status: "rejected", error: "identity_conflict" };
-    }
-    return { status: "rejected", error: "activation_failed" };
+    const errorCode = error instanceof Error && [
+      "activation_replayed",
+      "orphan_user_status_changed",
+      "customer_already_linked",
+    ].includes(error.message)
+      ? error.message as ActivationError
+      : "transaction_failed";
+    logTaichungLineHandoff("activation_failed", {
+      attemptId: temp.attemptId,
+      customerId: input.customerId,
+      storeId: temp.storeId,
+      errorCode,
+    });
+    return { status: "rejected", error: errorCode };
   }
 }
 
