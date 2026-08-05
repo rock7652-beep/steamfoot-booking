@@ -232,7 +232,7 @@ describe("Production migration recovery guard", () => {
     const complete = {
       columns,
       indexes: [{
-        name: "DigitalButlerLead_storeId_completionActionKey_assignedStaffId_idx",
+        name: "DigitalButlerLead_handoff_lookup_idx",
         isUnique: false,
         columns: ["storeId", "completionActionKey", "assignedStaffId"],
       }],
