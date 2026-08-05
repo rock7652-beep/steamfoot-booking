@@ -10,20 +10,27 @@ export const MESSENGER_MIGRATION =
   "20260729090000_add_messenger_audit_runs";
 export const PAYMENT_SPLIT_MIGRATION =
   "20260801090000_add_transaction_payment_splits";
+export const HUMAN_SUPPORT_SUMMARY_MIGRATION =
+  "20260802090000_add_digital_butler_human_support_summary";
 export const PRODUCTION_MIGRATION_TARGET_ENV = "PRODUCTION_MIGRATION_TARGET";
 export const APPROVED_PRODUCTION_MIGRATION_TARGETS = [
   PAYMENT_SPLIT_MIGRATION,
+  HUMAN_SUPPORT_SUMMARY_MIGRATION,
 ];
 export const MESSENGER_CHECKSUM =
   "6edbd88d9fd2ab9e368b963d21f7d90ef2ed1f8e8c467a29c20f9a3c8d8e1488";
 export const PAYMENT_SPLIT_CHECKSUM =
   "74750d2d3f24dba84a4f58380a8ed9868734500ddd50e8d632d223cefeb07287";
+export const HUMAN_SUPPORT_SUMMARY_CHECKSUM =
+  "ef883e6487344fa13e76b865a39de36a436eac0d1125b3848b86d6c9072411df";
 const PENDING_MIGRATIONS_HEADER =
   /Following migrations? have not yet been applied:/;
 const MESSENGER_MIGRATION_FILE =
   `prisma/migrations/${MESSENGER_MIGRATION}/migration.sql`;
 const PAYMENT_SPLIT_MIGRATION_FILE =
   `prisma/migrations/${PAYMENT_SPLIT_MIGRATION}/migration.sql`;
+const HUMAN_SUPPORT_SUMMARY_MIGRATION_FILE =
+  `prisma/migrations/${HUMAN_SUPPORT_SUMMARY_MIGRATION}/migration.sql`;
 
 const expectedMessengerColumns = [
   ["id", "text", "text", "NO", null],
@@ -66,6 +73,20 @@ const expectedPaymentSplitColumns = [
   ["paymentMethod", "USER-DEFINED", "PaymentMethod", "NO", null],
   ["amount", "numeric", "numeric", "NO", null],
   ["createdAt", "timestamp without time zone", "timestamp", "NO", "CURRENT_TIMESTAMP"],
+];
+const expectedHumanSupportSummaryColumns = [
+  ["customerDisplayName", "text", "text", "YES", null],
+  ["customerAvatarUrl", "text", "text", "YES", null],
+  ["customerReference", "text", "text", "YES", null],
+  ["lastMessageCiphertext", "bytea", "bytea", "YES", null],
+  ["lastMessageIv", "bytea", "bytea", "YES", null],
+  ["lastMessageAuthTag", "bytea", "bytea", "YES", null],
+  ["lastMessageAt", "timestamp without time zone", "timestamp", "YES", null],
+];
+const HUMAN_SUPPORT_SUMMARY_INDEX =
+  "DigitalButlerLead_storeId_completionActionKey_assignedStaffId_idx";
+const expectedHumanSupportSummaryIndexColumns = [
+  "storeId", "completionActionKey", "assignedStaffId",
 ];
 
 function log(event) {
@@ -123,10 +144,13 @@ function assertApprovedMigrationTarget(value) {
   if (!resolveProductionMigrationTarget(value)) {
     abort("migration_target_rejected");
   }
-  if (value !== PAYMENT_SPLIT_MIGRATION) {
-    abort("migration_target_unsupported");
-  }
-  if (migrationChecksum(PAYMENT_SPLIT_MIGRATION_FILE) !== PAYMENT_SPLIT_CHECKSUM) {
+  const targetFile = value === PAYMENT_SPLIT_MIGRATION
+    ? PAYMENT_SPLIT_MIGRATION_FILE
+    : HUMAN_SUPPORT_SUMMARY_MIGRATION_FILE;
+  const targetChecksum = value === PAYMENT_SPLIT_MIGRATION
+    ? PAYMENT_SPLIT_CHECKSUM
+    : HUMAN_SUPPORT_SUMMARY_CHECKSUM;
+  if (migrationChecksum(targetFile) !== targetChecksum) {
     abort("migration_target_checksum_mismatch");
   }
 }
@@ -168,6 +192,11 @@ export function pendingMigrations(statusOutput) {
 export function hasOnlyPaymentSplitPending(statusOutput) {
   const pending = pendingMigrations(statusOutput);
   return pending.length === 1 && pending[0] === PAYMENT_SPLIT_MIGRATION;
+}
+
+export function hasOnlyHumanSupportSummaryPending(statusOutput) {
+  const pending = pendingMigrations(statusOutput);
+  return pending.length === 1 && pending[0] === HUMAN_SUPPORT_SUMMARY_MIGRATION;
 }
 
 export function classifyMessengerMigration(input, failedMigrationNames) {
@@ -270,6 +299,31 @@ export function hasExpectedPaymentSplitSchema(snapshot) {
     sameValues(snapshot.indexes, expectedPaymentSplitIndexes);
 }
 
+export function hasNoHumanSupportSummaryObjects(snapshot) {
+  return snapshot.columns.length === 0 && snapshot.indexes.length === 0;
+}
+
+export function hasExpectedHumanSupportSummarySchema(snapshot) {
+  const columnsMatch = snapshot.columns.length === expectedHumanSupportSummaryColumns.length &&
+    expectedHumanSupportSummaryColumns.every((expected, index) => {
+      const actual = snapshot.columns[index];
+      return actual &&
+        actual.columnName === expected[0] &&
+        actual.dataType === expected[1] &&
+        actual.udtName === expected[2] &&
+        actual.isNullable === expected[3] &&
+        normalizeDefault(actual.columnDefault) === normalizeDefault(expected[4]);
+    });
+  return columnsMatch &&
+    snapshot.indexes.length === 1 &&
+    snapshot.indexes[0].name === HUMAN_SUPPORT_SUMMARY_INDEX &&
+    snapshot.indexes[0].isUnique === false &&
+    snapshot.indexes[0].columns.length === expectedHumanSupportSummaryIndexColumns.length &&
+    snapshot.indexes[0].columns.every(
+      (column, index) => column === expectedHumanSupportSummaryIndexColumns[index],
+    );
+}
+
 function sameValues(actual, expected) {
   return actual.length === expected.length &&
     [...actual].sort().every((value, index) => value === [...expected].sort()[index]);
@@ -316,6 +370,14 @@ async function readPaymentSplitSnapshot(prisma) {
   };
 }
 
+async function readHumanSupportSummarySnapshot(prisma) {
+  const [columns, indexes] = await Promise.all([
+    prisma.$queryRaw`SELECT column_name AS "columnName", data_type AS "dataType", udt_name AS "udtName", is_nullable AS "isNullable", column_default AS "columnDefault" FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'DigitalButlerLead' AND column_name IN ('customerDisplayName', 'customerAvatarUrl', 'customerReference', 'lastMessageCiphertext', 'lastMessageIv', 'lastMessageAuthTag', 'lastMessageAt') ORDER BY ordinal_position`,
+    prisma.$queryRaw`SELECT i.relname AS "name", ix.indisunique AS "isUnique", array_agg(a.attname ORDER BY keys.ordinality) AS "columns" FROM pg_class t JOIN pg_namespace n ON n.oid = t.relnamespace JOIN pg_index ix ON t.oid = ix.indrelid JOIN pg_class i ON i.oid = ix.indexrelid JOIN unnest(ix.indkey) WITH ORDINALITY AS keys(attnum, ordinality) ON true JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = keys.attnum WHERE n.nspname = 'public' AND t.relname = 'DigitalButlerLead' AND i.relname = ${HUMAN_SUPPORT_SUMMARY_INDEX} GROUP BY i.relname, ix.indisunique`,
+  ]);
+  return { columns, indexes };
+}
+
 async function readMessengerLedger(prisma) {
   const [rows, failedRows] = await Promise.all([
     prisma.$queryRaw`SELECT migration_name AS "migrationName", checksum, finished_at AS "finishedAt", rolled_back_at AS "rolledBackAt", applied_steps_count::int AS "appliedStepsCount", logs FROM "_prisma_migrations" WHERE migration_name = ${MESSENGER_MIGRATION}`,
@@ -333,6 +395,47 @@ export function isAppliedPaymentSplitMigration(row) {
   return row?.checksum === PAYMENT_SPLIT_CHECKSUM &&
     row.finishedAt !== null &&
     row.rolledBackAt === null;
+}
+
+export function isAppliedHumanSupportSummaryMigration(row) {
+  return row?.checksum === HUMAN_SUPPORT_SUMMARY_CHECKSUM &&
+    row.finishedAt !== null &&
+    row.rolledBackAt === null;
+}
+
+async function readHumanSupportSummaryLedger(prisma) {
+  const rows = await prisma.$queryRaw`SELECT checksum, finished_at AS "finishedAt", rolled_back_at AS "rolledBackAt" FROM "_prisma_migrations" WHERE migration_name = ${HUMAN_SUPPORT_SUMMARY_MIGRATION}`;
+  return rows.length === 1 ? rows[0] : null;
+}
+
+async function runHumanSupportSummaryMigration(prisma) {
+  const initialStatus = runPrisma(["migrate", "status"]);
+  if (initialStatus.exitCode !== 1 || !hasOnlyHumanSupportSummaryPending(initialStatus.output)) {
+    abort("human_support_pending_allowlist_rejected");
+  }
+  const before = await readHumanSupportSummarySnapshot(prisma);
+  if (!hasNoHumanSupportSummaryObjects(before)) {
+    abort("human_support_preflight_rejected");
+  }
+  log("human_support_preflight_verified");
+  log("human_support_deploy_started");
+  if (runPrisma(["migrate", "deploy"]).exitCode !== 0) {
+    abort("human_support_deploy_failed");
+  }
+  log("human_support_deploy_succeeded");
+  const finalStatus = runPrisma(["migrate", "status"]);
+  if (!isStatusUpToDate(finalStatus)) abort("human_support_final_status_rejected");
+  const [after, ledger] = await Promise.all([
+    readHumanSupportSummarySnapshot(prisma),
+    readHumanSupportSummaryLedger(prisma),
+  ]);
+  if (
+    !hasExpectedHumanSupportSummarySchema(after) ||
+    !isAppliedHumanSupportSummaryMigration(ledger)
+  ) {
+    abort("human_support_final_schema_rejected");
+  }
+  log("human_support_final_schema_verified");
 }
 
 function isStatusUpToDate(result) {
@@ -366,6 +469,10 @@ async function main() {
     datasources: { db: { url: process.env.DIRECT_URL } },
   });
   try {
+    if (target === HUMAN_SUPPORT_SUMMARY_MIGRATION) {
+      await runHumanSupportSummaryMigration(prisma);
+      return;
+    }
     const ledger = await readMessengerLedger(prisma);
     const messengerState = classifyMessengerMigration(
       ledger.rows,
