@@ -114,8 +114,14 @@ export function projectRefFromConnectionString(value, expectedPort) {
     return null;
   }
 
-  const match = url.username.match(/^postgres\.([a-z0-9]+)$/);
-  return match?.[1] ?? null;
+  const poolerMatch = url.username.match(/^postgres\.([a-z0-9]+)$/);
+  if (poolerMatch) return poolerMatch[1];
+
+  if (url.username !== "postgres") return null;
+  const directHostMatch = url.hostname.match(
+    /^db\.([a-z0-9]+)\.supabase\.co$/,
+  );
+  return directHostMatch?.[1] ?? null;
 }
 
 function assertProductionConnection() {
