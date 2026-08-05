@@ -22,7 +22,7 @@ export const MESSENGER_CHECKSUM =
 export const PAYMENT_SPLIT_CHECKSUM =
   "74750d2d3f24dba84a4f58380a8ed9868734500ddd50e8d632d223cefeb07287";
 export const HUMAN_SUPPORT_SUMMARY_CHECKSUM =
-  "ef883e6487344fa13e76b865a39de36a436eac0d1125b3848b86d6c9072411df";
+  "9218b485f642748141666778d7643bc5ba1aee27541ae8dc17461dacd3884ad5";
 const PENDING_MIGRATIONS_HEADER =
   /Following migrations? have not yet been applied:/;
 const MESSENGER_MIGRATION_FILE =
@@ -84,7 +84,7 @@ const expectedHumanSupportSummaryColumns = [
   ["lastMessageAt", "timestamp without time zone", "timestamp", "YES", null],
 ];
 const HUMAN_SUPPORT_SUMMARY_INDEX =
-  "DigitalButlerLead_storeId_completionActionKey_assignedStaffId_idx";
+  "DigitalButlerLead_handoff_lookup_idx";
 const expectedHumanSupportSummaryIndexColumns = [
   "storeId", "completionActionKey", "assignedStaffId",
 ];
