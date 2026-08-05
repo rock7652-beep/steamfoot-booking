@@ -7,6 +7,8 @@ import {
   MESSENGER_MIGRATION,
   PAYMENT_SPLIT_CHECKSUM,
   PAYMENT_SPLIT_MIGRATION,
+  HUMAN_SUPPORT_SUMMARY_CHECKSUM,
+  HUMAN_SUPPORT_SUMMARY_MIGRATION,
   APPROVED_PRODUCTION_MIGRATION_TARGETS,
   PRODUCTION_MIGRATION_TARGET_ENV,
   classifyMessengerMigration,
@@ -15,7 +17,11 @@ import {
   hasExpectedPaymentSplitSchema,
   hasNoPaymentSplitObjects,
   hasOnlyPaymentSplitPending,
+  hasOnlyHumanSupportSummaryPending,
+  hasNoHumanSupportSummaryObjects,
+  hasExpectedHumanSupportSummarySchema,
   isAppliedPaymentSplitMigration,
+  isAppliedHumanSupportSummaryMigration,
   awaitsManualReconciliation,
   migrationChecksum,
   projectRefFromConnectionString,
@@ -31,6 +37,10 @@ const messengerMigration = resolve(
 const paymentSplitMigration = resolve(
   process.cwd(),
   `prisma/migrations/${PAYMENT_SPLIT_MIGRATION}/migration.sql`,
+);
+const humanSupportSummaryMigration = resolve(
+  process.cwd(),
+  `prisma/migrations/${HUMAN_SUPPORT_SUMMARY_MIGRATION}/migration.sql`,
 );
 const completeMessengerSnapshot = {
   enumValues: ["RUNNING", "COMPLETED", "COMPLETED_WITH_ERRORS", "FAILED"],
@@ -100,8 +110,12 @@ describe("Production migration recovery guard", () => {
   });
 
   it("allows only one exact repository-pinned migration target into the guarded flow", () => {
-    expect(APPROVED_PRODUCTION_MIGRATION_TARGETS).toEqual([PAYMENT_SPLIT_MIGRATION]);
+    expect(APPROVED_PRODUCTION_MIGRATION_TARGETS).toEqual([
+      PAYMENT_SPLIT_MIGRATION,
+      HUMAN_SUPPORT_SUMMARY_MIGRATION,
+    ]);
     expect(resolveProductionMigrationTarget(PAYMENT_SPLIT_MIGRATION)).toBe(PAYMENT_SPLIT_MIGRATION);
+    expect(resolveProductionMigrationTarget(HUMAN_SUPPORT_SUMMARY_MIGRATION)).toBe(HUMAN_SUPPORT_SUMMARY_MIGRATION);
 
     const result = spawnSync(process.execPath, [scriptPath], {
       encoding: "utf8",
@@ -126,6 +140,7 @@ describe("Production migration recovery guard", () => {
   it("pins both approved migration checksums", () => {
     expect(migrationChecksum(messengerMigration)).toBe(MESSENGER_CHECKSUM);
     expect(migrationChecksum(paymentSplitMigration)).toBe(PAYMENT_SPLIT_CHECKSUM);
+    expect(migrationChecksum(humanSupportSummaryMigration)).toBe(HUMAN_SUPPORT_SUMMARY_CHECKSUM);
   });
 
   it("supports the applied Messenger path without resolve", () => {
@@ -193,6 +208,47 @@ describe("Production migration recovery guard", () => {
     expect(hasOnlyPaymentSplitPending(`${onlyPayment}20260901090000_unapproved\n`)).toBe(false);
   });
 
+  it("allows only the fixed human-support summary migration in its independent path", () => {
+    const onlyHumanSupport = `${PENDING}\n${HUMAN_SUPPORT_SUMMARY_MIGRATION}\n`;
+    expect(hasOnlyHumanSupportSummaryPending(onlyHumanSupport)).toBe(true);
+    expect(hasOnlyHumanSupportSummaryPending(`${PENDING_SINGULAR}\n${HUMAN_SUPPORT_SUMMARY_MIGRATION}\n`)).toBe(true);
+    expect(hasOnlyHumanSupportSummaryPending(`${onlyHumanSupport}${PAYMENT_SPLIT_MIGRATION}\n`)).toBe(false);
+    expect(hasOnlyHumanSupportSummaryPending(`${onlyHumanSupport}20260901090000_unapproved\n`)).toBe(false);
+  });
+
+  it("rejects partial human-support schema and verifies its exact final shape", () => {
+    const absent = { columns: [], indexes: [] };
+    const columns = [
+      ["customerDisplayName", "text", "text"],
+      ["customerAvatarUrl", "text", "text"],
+      ["customerReference", "text", "text"],
+      ["lastMessageCiphertext", "bytea", "bytea"],
+      ["lastMessageIv", "bytea", "bytea"],
+      ["lastMessageAuthTag", "bytea", "bytea"],
+      ["lastMessageAt", "timestamp without time zone", "timestamp"],
+    ].map(([columnName, dataType, udtName]) => ({
+      columnName, dataType, udtName, isNullable: "YES", columnDefault: null,
+    }));
+    const complete = {
+      columns,
+      indexes: [{
+        name: "DigitalButlerLead_storeId_completionActionKey_assignedStaffId_idx",
+        isUnique: false,
+        columns: ["storeId", "completionActionKey", "assignedStaffId"],
+      }],
+    };
+    expect(hasNoHumanSupportSummaryObjects(absent)).toBe(true);
+    expect(hasNoHumanSupportSummaryObjects({ ...absent, columns: columns.slice(0, 1) })).toBe(false);
+    expect(hasNoHumanSupportSummaryObjects({ ...absent, indexes: complete.indexes })).toBe(false);
+    expect(hasExpectedHumanSupportSummarySchema(complete)).toBe(true);
+    expect(hasExpectedHumanSupportSummarySchema({ ...complete, columns: columns.slice(1) })).toBe(false);
+    expect(hasExpectedHumanSupportSummarySchema({ ...complete, indexes: [{ ...complete.indexes[0], isUnique: true }] })).toBe(false);
+    expect(hasExpectedHumanSupportSummarySchema({ ...complete, indexes: [{ ...complete.indexes[0], columns: ["storeId"] }] })).toBe(false);
+    expect(hasExpectedHumanSupportSummarySchema({ ...complete, indexes: [{ ...complete.indexes[0], columns: [...complete.indexes[0].columns].reverse() }] })).toBe(false);
+    expect(isAppliedHumanSupportSummaryMigration({ checksum: HUMAN_SUPPORT_SUMMARY_CHECKSUM, finishedAt: new Date(), rolledBackAt: null })).toBe(true);
+    expect(isAppliedHumanSupportSummaryMigration({ checksum: HUMAN_SUPPORT_SUMMARY_CHECKSUM, finishedAt: null, rolledBackAt: null })).toBe(false);
+  });
+
   it("rejects existing or partial payment-split objects and verifies the final shape", () => {
     const absent = { tableExists: false, columns: [], constraints: [], indexes: [], paymentMethodValues: ["CASH", "TRANSFER", "LINE_PAY", "CREDIT_CARD", "OTHER", "UNPAID"] };
     expect(hasNoPaymentSplitObjects(absent)).toBe(true);
@@ -218,6 +274,8 @@ describe("Production migration recovery guard", () => {
     expect(script).not.toContain("db execute");
     expect(script).toContain("migration_skipped_no_target");
     expect(script).toContain("migration_target_rejected");
+    expect(script).toContain("human_support_preflight_verified");
+    expect(script).toContain("human_support_final_schema_verified");
   });
 });
 
