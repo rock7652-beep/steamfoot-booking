@@ -1,10 +1,34 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { hashDigitalButlerSensitiveValue } from "@/lib/digital-butler-crypto";
+import { encryptDigitalButlerValue, hashDigitalButlerSensitiveValue } from "@/lib/digital-butler-crypto";
+import { getUserProfile } from "@/lib/line";
 import type { DigitalButlerInboundTextMessage } from "@/server/services/digital-butler-channel";
 import { notifyStoreManagerOnLine } from "@/server/services/store-manager-line-notifications";
 
 export const HUMAN_SUPPORT_COMPLETION_ACTION_KEY = "__human_support_handoff__";
+
+type LineProfile = Awaited<ReturnType<typeof getUserProfile>>;
+
+function safeHttpsAvatarUrl(value: string | undefined): string | null {
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" && url.hostname === "profile.line-scdn.net" ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
+async function getOptionalLineProfile(input: DigitalButlerInboundTextMessage): Promise<LineProfile> {
+  if (input.provider !== "LINE") return null;
+  try {
+    const profile = await getUserProfile(input.storeId, input.senderId);
+    if (!profile || profile.error || !profile.displayName.trim()) return null;
+    return profile;
+  } catch {
+    return null;
+  }
+}
 
 async function claimNotification(storeId: string, eventKey: string, eventType: string): Promise<string | null> {
   try {
@@ -26,6 +50,19 @@ async function releaseClaim(claimId: string): Promise<void> {
 export async function recordHumanSupportHandoff(input: DigitalButlerInboundTextMessage): Promise<void> {
   try {
     const senderIdHash = hashDigitalButlerSensitiveValue(input.senderId);
+    const profile = await getOptionalLineProfile(input);
+    const lastMessage = input.text.trim().slice(0, 160);
+    const encryptedMessage = lastMessage ? encryptDigitalButlerValue(lastMessage) : null;
+    const messageSnapshot = encryptedMessage ? {
+      lastMessageCiphertext: new Uint8Array(encryptedMessage.ciphertext),
+      lastMessageIv: new Uint8Array(encryptedMessage.iv),
+      lastMessageAuthTag: new Uint8Array(encryptedMessage.authTag),
+      lastMessageAt: input.occurredAt,
+    } : {};
+    const profileSnapshot = profile ? {
+      customerDisplayName: profile.displayName.trim() || null,
+      customerAvatarUrl: safeHttpsAvatarUrl(profile.pictureUrl),
+    } : {};
     const conversation = await prisma.digitalButlerConversation.findFirst({
       where: {
         storeId: input.storeId,
@@ -50,13 +87,20 @@ export async function recordHumanSupportHandoff(input: DigitalButlerInboundTextM
           completionActionKey: HUMAN_SUPPORT_COMPLETION_ACTION_KEY,
         },
       },
-      update: {},
+      update: {
+        ...profileSnapshot,
+        ...messageSnapshot,
+      },
       create: {
         storeId: input.storeId,
         flowId: conversation.flowId,
         conversationId: conversation.id,
         completionActionKey: HUMAN_SUPPORT_COMPLETION_ACTION_KEY,
         submittedAnswers: { requestType: "HUMAN_SUPPORT", provider: input.provider },
+        customerDisplayName: profile?.displayName.trim() || null,
+        customerAvatarUrl: safeHttpsAvatarUrl(profile?.pictureUrl),
+        customerReference: `客服-${senderIdHash.slice(0, 8)}`,
+        ...messageSnapshot,
       },
       select: { id: true },
     });

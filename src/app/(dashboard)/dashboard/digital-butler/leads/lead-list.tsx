@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Image from "next/image";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { DigitalButlerLeadStatus } from "@prisma/client";
 import { digitalButlerAnswerSummary } from "@/lib/digital-butler-answer-summary";
@@ -26,10 +27,21 @@ const STATUS_STYLES: Record<DigitalButlerLeadStatus, string> = {
 };
 const STATUS_OPTIONS = Object.keys(LABELS) as DigitalButlerLeadStatus[];
 
+function sourceEntry(provider: string | null): { href: string; label: string } | null {
+  if (provider === "LINE") return { href: "https://manager.line.biz/", label: "前往 LINE 官方帳號" };
+  if (provider === "MESSENGER") return { href: "https://business.facebook.com/latest/inbox/", label: "前往 Messenger 收件匣" };
+  return null;
+}
+
 type Lead = {
   id: string;
   status: DigitalButlerLeadStatus;
   phone: string | null;
+  customerDisplayName: string | null;
+  customerAvatarUrl: string | null;
+  customerReference: string | null;
+  lastMessage: string | null;
+  lastMessageAt: Date | null;
   submittedAnswers: unknown;
   internalNote: string | null;
   lastContactedAt: Date | null;
@@ -121,6 +133,9 @@ export function DigitalButlerLeadList({
       )}
 
       {leads.map((lead) => (
+        (() => {
+          const entry = sourceEntry(lead.conversation.provider);
+          return (
         <form
           key={lead.id}
           className="grid gap-3 rounded-xl border border-earth-200 bg-white p-3 shadow-sm lg:grid-cols-[minmax(0,1.15fr)_minmax(340px,0.85fr)] lg:gap-4"
@@ -157,8 +172,9 @@ export function DigitalButlerLeadList({
                 {new Date(lead.createdAt).toLocaleString("zh-TW")}
               </span>
             </div>
-            <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <p className="text-base font-semibold text-earth-900">{lead.phone ?? "未提供電話"}</p>
+            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+              {lead.customerAvatarUrl ? <Image src={lead.customerAvatarUrl} alt="" width={32} height={32} className="h-8 w-8 rounded-full" /> : <span className="flex h-8 w-8 items-center justify-center rounded-full bg-earth-100 text-xs text-earth-500">客</span>}
+              <p className="text-base font-semibold text-earth-900">{lead.customerDisplayName ?? lead.customerReference ?? "未辨識顧客"}</p>
               <p className="text-xs text-earth-500">
                 負責人：{lead.assignedStaff?.displayName ?? "尚未指派"}
               </p>
@@ -167,6 +183,9 @@ export function DigitalButlerLeadList({
               <span className="font-medium text-earth-700">顧客需求：</span>
               {digitalButlerAnswerSummary(lead.submittedAnswers)}
             </p>
+            {lead.lastMessage && <p className="mt-1 text-xs text-earth-600">最後訊息：{lead.lastMessage}</p>}
+            {lead.lastMessageAt && <p className="mt-1 text-[11px] text-earth-400">{new Date(lead.lastMessageAt).toLocaleString("zh-TW")}</p>}
+            {entry && <a href={entry.href} target="_blank" rel="noreferrer noopener" className="mt-2 inline-block text-xs font-medium text-primary-700 underline">{entry.label}</a>}
             {lead.activities.length > 0 && (
               <details className="mt-2 text-xs text-earth-500">
                 <summary className="cursor-pointer select-none text-[11px] font-medium text-earth-400">
@@ -221,6 +240,8 @@ export function DigitalButlerLeadList({
             </div>
           </fieldset>
         </form>
+          );
+        })()
       ))}
     </div>
   );

@@ -188,4 +188,21 @@ describe("store manager LINE notifications", () => {
       text: expect.stringContaining("/dashboard/digital-butler/leads?handoff=waiting"),
     });
   });
+
+  it("includes at most five safe human-support details in the daily digest", () => {
+    const details = Array.from({ length: 6 }, (_, index) => ({
+      name: `顧客 #${index + 1}`,
+      provider: index % 2 ? "MESSENGER" : "LINE",
+      lastMessageAt: new Date("2026-08-02T15:05:00.000Z"),
+    }));
+    const [message] = buildStoreManagerNotificationMessage({
+      type: "DAILY_ACTION_DIGEST", eventKey: "digest", storeId: "store_1", storeSlug: "zhubei",
+      pendingPaymentCount: 0, incompleteServiceCount: 0, waitingSupportCount: 6, waitingSupportDetails: details,
+    });
+    expect(message).toMatchObject({ type: "text", text: expect.stringContaining("顧客 #1") });
+    const text = (message as { type: "text"; text: string }).text;
+    expect(text).not.toContain("顧客 #6");
+    expect(text).toContain("想找真人客服");
+    expect(text).not.toContain("U123");
+  });
 });

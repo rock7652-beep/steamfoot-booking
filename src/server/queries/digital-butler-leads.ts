@@ -43,6 +43,13 @@ export async function listDigitalButlerLeads(
       id: true,
       status: true,
       submittedAnswers: true,
+      customerDisplayName: true,
+      customerAvatarUrl: true,
+      customerReference: true,
+      lastMessageCiphertext: true,
+      lastMessageIv: true,
+      lastMessageAuthTag: true,
+      lastMessageAt: true,
       phoneCiphertext: true,
       phoneIv: true,
       phoneAuthTag: true,
@@ -82,9 +89,21 @@ export async function listDigitalButlerLeads(
             keyVersion: "v1",
           })
         : null,
+    lastMessage:
+      lead.lastMessageCiphertext && lead.lastMessageIv && lead.lastMessageAuthTag
+        ? decryptDigitalButlerValue({
+            ciphertext: Buffer.from(lead.lastMessageCiphertext),
+            iv: Buffer.from(lead.lastMessageIv),
+            authTag: Buffer.from(lead.lastMessageAuthTag),
+            keyVersion: "v1",
+          })
+        : null,
     phoneCiphertext: undefined,
     phoneIv: undefined,
     phoneAuthTag: undefined,
+    lastMessageCiphertext: undefined,
+    lastMessageIv: undefined,
+    lastMessageAuthTag: undefined,
   }));
 }
 

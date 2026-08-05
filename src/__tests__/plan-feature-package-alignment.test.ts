@@ -43,13 +43,16 @@ describe("plan feature package alignment", () => {
     ]);
   });
 
-  it("includes every HQ-manageable store feature in 展店版", () => {
-    for (const feature of MANAGEABLE_STORE_FEATURES) {
+  it("includes every plan-managed HQ feature in 展店版 while Digital Butler remains entitlement-only", () => {
+    for (const feature of MANAGEABLE_STORE_FEATURES.filter(
+      (feature) => feature.key !== FEATURES.DIGITAL_BUTLER,
+    )) {
       expect(
         hasFeature("ALLIANCE", feature.key),
         `ALLIANCE should include ${feature.key}`,
       ).toBe(true);
     }
+    expect(hasFeature("ALLIANCE", FEATURES.DIGITAL_BUTLER)).toBe(false);
   });
 
   it("uses 展店版 as the ALLIANCE display label", () => {

@@ -3,6 +3,9 @@ import type { NextConfig } from "next";
 const HEALTH_TRACKER_URL = "https://www.healthflow-ai.com/liff";
 
 const nextConfig: NextConfig = {
+  images: {
+    remotePatterns: [{ protocol: "https", hostname: "profile.line-scdn.net" }],
+  },
   env: {
     NEXT_PUBLIC_BUILD_VERSION: "2.8.0",
     NEXT_PUBLIC_BUILD_TIME: new Date().toLocaleString("zh-TW", {
