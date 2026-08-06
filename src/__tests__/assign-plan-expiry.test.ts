@@ -156,6 +156,24 @@ function expectExpiryDateISO(expected: string | null) {
 }
 
 describe("assignPlanToCustomer — PLAN_DEFAULT", () => {
+  it("does not modify the customer name while assigning a plan", async () => {
+    mockServicePlanFindUnique.mockResolvedValue(PLAN_90D);
+    const { assignPlanToCustomer } = await import("@/server/actions/wallet");
+
+    const result = await assignPlanToCustomer({
+      customerId: CUSTOMER_ID,
+      planId: PLAN_ID_90D,
+      paymentMethod: "CASH",
+    });
+
+    expect(result.success).toBe(true);
+    expect(mockCustomerUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.not.objectContaining({ name: expect.anything() }),
+      }),
+    );
+  });
+
   it("plan.validityDays=90 → 台灣今天 + 90 天 = 2026-08-01", async () => {
     mockServicePlanFindUnique.mockResolvedValue(PLAN_90D);
     const { assignPlanToCustomer } = await import("@/server/actions/wallet");

@@ -130,6 +130,7 @@ export async function createTrialBooking(
 
     // ── 1. 解析顧客：既有 or 快速建檔（去重，不建第二筆）
     let customerId: string;
+    let reusedExistingCustomer = false;
     const resolveCustomerStartedAt = Date.now();
     if (data.customerId) {
       const existing = await prisma.customer.findFirst({
@@ -158,6 +159,7 @@ export async function createTrialBooking(
       } else if (created.existingCustomerId) {
         // 同店電話已存在 → 沿用既有顧客，不建立第二筆（避免身分分裂）
         customerId = created.existingCustomerId;
+        reusedExistingCustomer = true;
       } else {
         logTiming("createCustomer_failed");
         return { success: false, error: created.error };
@@ -168,6 +170,26 @@ export async function createTrialBooking(
       ms: Date.now() - resolveCustomerStartedAt,
     });
     lastMarkAt = Date.now();
+
+    // 同店電話去重時，createCustomer 只回傳既有 Customer ID。若那筆資料仍是
+    // 預設姓名，才用本次體驗預約的具體姓名補正。updateMany 的 storeId + name
+    // 條件同時防止跨店寫入、覆蓋既有姓名與競態下的誤寫。
+    const trialCustomerName = data.newCustomer?.name;
+    if (
+      reusedExistingCustomer &&
+      trialCustomerName &&
+      trialCustomerName !== "顧客"
+    ) {
+      await prisma.customer.updateMany({
+        where: {
+          id: customerId,
+          storeId,
+          name: "顧客",
+        },
+        data: { name: trialCustomerName },
+      });
+    }
+    mark("preserve trial customer name");
 
     // ── 2. 直屬店長：僅在「尚未指派」時補上，不覆蓋既有歸屬
     const cust = await prisma.customer.findUnique({
