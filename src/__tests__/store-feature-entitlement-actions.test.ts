@@ -103,6 +103,50 @@ describe("saveStoreFeatureEntitlement", () => {
     expect(payload.update.updatedBy).toBe("admin-1");
   });
 
+  it("HQ can formally grant and revoke the entitlement-only Digital Butler feature", async () => {
+    const { saveStoreFeatureEntitlement } = await import(
+      "@/server/actions/store-feature-entitlement"
+    );
+
+    const enabled = await saveStoreFeatureEntitlement(
+      formData({
+        storeId: "store-1",
+        featureKey: FEATURES.DIGITAL_BUTLER,
+        override: "ENABLED",
+        source: "MANUAL",
+      }),
+    );
+
+    expect(enabled.success).toBe(true);
+    expect(mockEntitlementUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          uq_store_feature_entitlement: {
+            storeId: "store-1",
+            featureKey: FEATURES.DIGITAL_BUTLER,
+          },
+        },
+        create: expect.objectContaining({ status: "ENABLED", source: "MANUAL" }),
+      }),
+    );
+
+    const disabled = await saveStoreFeatureEntitlement(
+      formData({
+        storeId: "store-1",
+        featureKey: FEATURES.DIGITAL_BUTLER,
+        override: "DISABLED",
+        source: "HQ_OVERRIDE",
+      }),
+    );
+
+    expect(disabled.success).toBe(true);
+    expect(mockEntitlementUpsert).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({ status: "DISABLED", source: "HQ_OVERRIDE" }),
+      }),
+    );
+  });
+
   it("DISABLED can be saved as an HQ override", async () => {
     const { saveStoreFeatureEntitlement } = await import(
       "@/server/actions/store-feature-entitlement"
@@ -154,7 +198,7 @@ describe("saveStoreFeatureEntitlement", () => {
     const result = await saveStoreFeatureEntitlement(
       formData({
         storeId: "store-1",
-        featureKey: FEATURES.CUSTOMER_CARE,
+        featureKey: FEATURES.DIGITAL_BUTLER,
         override: "ENABLED",
       }),
     );

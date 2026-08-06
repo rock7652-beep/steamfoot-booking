@@ -59,7 +59,7 @@ export async function runDailyActionDigest(now = new Date()): Promise<DailyActio
     let claimId: string | null = null;
 
     try {
-      const [pendingPaymentCount, incompleteServiceCount, waitingSupportCount] = await Promise.all([
+      const [pendingPaymentCount, incompleteServiceCount, waitingSupportCount, waitingSupportLeads] = await Promise.all([
         prisma.transaction.count({
           where: {
             storeId: store.id,
@@ -76,6 +76,15 @@ export async function runDailyActionDigest(now = new Date()): Promise<DailyActio
             status: "NEW",
             assignedStaffId: null,
           },
+        }),
+        prisma.digitalButlerLead.findMany({
+          where: { storeId: store.id, completionActionKey: HUMAN_SUPPORT_COMPLETION_ACTION_KEY, status: "NEW", assignedStaffId: null },
+          select: { customerDisplayName: true, customerReference: true, conversation: { select: { provider: true } }, lastMessageAt: true },
+          orderBy: [
+            { lastMessageAt: { sort: "desc", nulls: "last" } },
+            { createdAt: "desc" },
+          ],
+          take: 5,
         }),
       ]);
 
@@ -111,6 +120,7 @@ export async function runDailyActionDigest(now = new Date()): Promise<DailyActio
         pendingPaymentCount,
         incompleteServiceCount,
         waitingSupportCount,
+        waitingSupportDetails: waitingSupportLeads.map((lead) => ({ name: lead.customerDisplayName ?? lead.customerReference ?? "未辨識顧客", provider: lead.conversation.provider, lastMessageAt: lead.lastMessageAt })),
       });
 
       if (delivery.status === "sent") {

@@ -42,6 +42,14 @@ export type StoreFeatureDisplayState = {
 
 export const MANAGEABLE_STORE_FEATURES: StoreFeatureCatalogItem[] = [
   {
+    // Digital Butler is intentionally HQ-entitlement-only: no plan grants it
+    // by default, but HQ must be able to grant or revoke a per-store override.
+    key: FEATURES.DIGITAL_BUTLER,
+    label: "數位管家",
+    module: "顧客",
+    description: "LINE 與 Messenger 數位管家對話、名單與真人客服交接。",
+  },
+  {
     key: FEATURES.CUSTOMER_CARE,
     label: "顧客經營",
     module: "顧客",

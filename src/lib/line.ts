@@ -239,7 +239,8 @@ async function replyMessageWithAccessToken(
 /** Get user profile */
 export async function getUserProfile(
   storeId: string,
-  lineUserId: string
+  lineUserId: string,
+  options?: { signal?: AbortSignal },
 ): Promise<{ displayName: string; pictureUrl?: string; error?: string } | null> {
   try {
     const token = getLineAccessTokenForStore(storeId);
@@ -248,6 +249,7 @@ export async function getUserProfile(
     }
     const res = await fetch(`${LINE_API_BASE}/profile/${lineUserId}`, {
       headers: { Authorization: `Bearer ${token}` },
+      signal: options?.signal,
     });
     if (!res.ok) return null;
     return await res.json();

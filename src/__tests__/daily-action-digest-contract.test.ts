@@ -16,11 +16,14 @@ describe("daily action digest source contract", () => {
 
     expect(vercel).toContain('"path": "/api/cron/daily-action-digest"');
     expect(vercel).toContain('"schedule": "0 1 * * *"');
-    expect(service).toContain("pendingPaymentCount + incompleteServiceCount === 0");
+    expect(service).toContain("pendingPaymentCount + incompleteServiceCount + waitingSupportCount === 0");
     expect(service).toContain('type: "DAILY_ACTION_DIGEST"');
     expect(notification).toContain("☀️ 今日待辦");
     expect(notification).toContain("待確認付款");
     expect(notification).toContain("昨日未完成服務");
+    expect(notification).toContain("尚未接手客服");
+    expect(service).toContain('nulls: "last"');
+    expect(service).toContain('{ createdAt: "desc" }');
   });
 
   it("protects the cron route and isolates failures by store", () => {

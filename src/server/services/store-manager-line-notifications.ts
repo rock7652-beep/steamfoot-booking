@@ -73,6 +73,7 @@ type StoreManagerNotificationEvent =
       pendingPaymentCount: number;
       incompleteServiceCount: number;
       waitingSupportCount?: number;
+      waitingSupportDetails?: Array<{ name: string; provider: string | null; lastMessageAt: Date | null }>;
     };
 
 export type StoreManagerNotificationResult =
@@ -211,6 +212,9 @@ export function buildStoreManagerNotificationMessage(
       if (event.pendingPaymentCount > 0) lines.push(`💰 待確認付款：${event.pendingPaymentCount} 筆`);
       if (event.incompleteServiceCount > 0) lines.push(`🔔 昨日未完成服務：${event.incompleteServiceCount} 筆`);
       if (waitingSupportCount > 0) lines.push(`🙋 尚未接手客服：${waitingSupportCount} 位`);
+      for (const item of (event.waitingSupportDetails ?? []).slice(0, 5)) {
+        lines.push(`・${item.name}｜${providerNotificationLabel(item.provider)}｜想找真人客服${item.lastMessageAt ? `｜${item.lastMessageAt.toLocaleString("zh-TW", { timeZone: "Asia/Taipei" })}` : ""}`);
+      }
       lines.push("", `共 ${total} 件待處理`);
       if (waitingSupportCount > 0) lines.push(``, `前往接手客服：${waitingHumanSupportUrl()}`);
       else lines.push("", `前往後台：${managerUrl("/dashboard")}`);

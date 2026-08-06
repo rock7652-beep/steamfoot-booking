@@ -33,12 +33,26 @@ describe("store feature catalog", () => {
     );
 
     expect(grouped).toEqual({
-      顧客經營: ["customer_care", "line_reminder", "member_portal"],
+      顧客經營: ["digital_butler", "customer_care", "line_reminder", "member_portal", "referral_share"],
       營運: ["cash_drawer", "service_fee_calculator", "data_export"],
       分析: ["basic_reports", "advanced_reports"],
       健康: ["ai_health_summary"],
       展店: ["multi_store"],
     });
+  });
+
+  it("makes Digital Butler HQ-manageable without granting it by plan", () => {
+    const feature = MANAGEABLE_STORE_FEATURES.find(
+      (item) => item.key === FEATURES.DIGITAL_BUTLER,
+    );
+
+    expect(feature).toMatchObject({
+      key: "digital_butler",
+      label: "數位管家",
+      module: "顧客",
+    });
+    expect(getStoreFeatureLabel(FEATURES.DIGITAL_BUTLER)).toBe("數位管家");
+    expect(MANAGEABLE_STORE_FEATURES.map((item) => item.key)).not.toContain("not_a_feature");
   });
 
   it("keeps analysis display names and technical identifiers aligned", () => {
