@@ -38,12 +38,18 @@ const h = vi.hoisted(() => ({
   custFindFirst: vi.fn(async () => ({ id: "ckcustomer0000000000000aa", assignedStaffId: null as string | null }) as { id: string; assignedStaffId: string | null } | null),
   custFindUnique: vi.fn(async () => ({ assignedStaffId: null as string | null }) as { assignedStaffId: string | null } | null),
   custUpdate: vi.fn(async () => ({})),
+  custUpdateMany: vi.fn(async () => ({ count: 0 })),
 }));
 
 vi.mock("@/lib/db", () => ({
   prisma: {
     staff: { findFirst: h.staffFindFirst },
-    customer: { findFirst: h.custFindFirst, findUnique: h.custFindUnique, update: h.custUpdate },
+    customer: {
+      findFirst: h.custFindFirst,
+      findUnique: h.custFindUnique,
+      update: h.custUpdate,
+      updateMany: h.custUpdateMany,
+    },
   },
 }));
 vi.mock("@/lib/permissions", () => ({
@@ -139,6 +145,22 @@ describe("createTrialBooking — no financial side-effects", () => {
 });
 
 describe("createTrialBooking — customer dedupe", () => {
+  it("new trial customer keeps the submitted name", async () => {
+    h.createCustomer.mockResolvedValue({ success: true, data: { customerId: CUID.cust } });
+    h.custFindUnique.mockResolvedValue({ assignedStaffId: "x" });
+
+    const r = await createTrialBooking({
+      ...base,
+      newCustomer: { name: "王小明", phone: "0912345678" },
+    });
+
+    expect(r.success).toBe(true);
+    expect(h.createCustomer).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "王小明" }),
+    );
+    expect(h.custUpdateMany).not.toHaveBeenCalled();
+  });
+
   it("duplicate phone → reuses existingCustomerId, no second Customer", async () => {
     h.createCustomer.mockResolvedValue({ success: false, error: "dup", existingCustomerId: CUID.custExisting });
     h.custFindUnique.mockResolvedValue({ assignedStaffId: "x" });
@@ -146,6 +168,88 @@ describe("createTrialBooking — customer dedupe", () => {
     expect(r.success).toBe(true);
     expect((r as { data: { customerId: string } }).data.customerId).toBe(CUID.custExisting);
     expect(lastBookingArg().customerId).toBe(CUID.custExisting);
+  });
+
+  it("upgrades only this store's placeholder name from the submitted trial name", async () => {
+    h.createCustomer.mockResolvedValue({ success: false, error: "dup", existingCustomerId: CUID.custExisting });
+    h.custFindUnique.mockResolvedValue({ assignedStaffId: "x" });
+    h.custUpdateMany.mockResolvedValue({ count: 1 });
+
+    const r = await createTrialBooking({
+      ...base,
+      newCustomer: { name: "王小明", phone: "0912345678" },
+    });
+
+    expect(r.success).toBe(true);
+    expect(h.custUpdateMany).toHaveBeenCalledWith({
+      where: { id: CUID.custExisting, storeId: "store_1", name: "顧客" },
+      data: { name: "王小明" },
+    });
+  });
+
+  it("does not overwrite a concrete existing name", async () => {
+    h.createCustomer.mockResolvedValue({ success: false, error: "dup", existingCustomerId: CUID.custExisting });
+    h.custFindUnique.mockResolvedValue({ assignedStaffId: "x" });
+    // A concrete existing name fails the atomic placeholder-name condition.
+    h.custUpdateMany.mockResolvedValue({ count: 0 });
+
+    const r = await createTrialBooking({
+      ...base,
+      newCustomer: { name: "王小明", phone: "0912345678" },
+    });
+
+    expect(r.success).toBe(true);
+    expect(h.custUpdateMany).toHaveBeenCalledWith({
+      where: { id: CUID.custExisting, storeId: "store_1", name: "顧客" },
+      data: { name: "王小明" },
+    });
+  });
+
+  it("does not update a same-phone customer from another store", async () => {
+    h.createCustomer.mockResolvedValue({ success: false, error: "dup", existingCustomerId: CUID.custExisting });
+    h.custFindUnique.mockResolvedValue({ assignedStaffId: "x" });
+    // A cross-store record fails the atomic storeId condition.
+    h.custUpdateMany.mockResolvedValue({ count: 0 });
+
+    const r = await createTrialBooking({
+      ...base,
+      newCustomer: { name: "王小明", phone: "0912345678" },
+    });
+
+    expect(r.success).toBe(true);
+    expect(h.custUpdateMany).toHaveBeenCalledWith({
+      where: { id: CUID.custExisting, storeId: "store_1", name: "顧客" },
+      data: { name: "王小明" },
+    });
+  });
+
+  it.each(["顧客", "   "])("does not replace a name with %j", async (name) => {
+    h.createCustomer.mockResolvedValue({ success: false, error: "dup", existingCustomerId: CUID.custExisting });
+    h.custFindUnique.mockResolvedValue({ assignedStaffId: "x" });
+
+    const r = await createTrialBooking({
+      ...base,
+      newCustomer: { name, phone: "0912345678" },
+    });
+
+    if (name.trim() === "") expect(r.success).toBe(false);
+    else expect(r.success).toBe(true);
+    expect(h.custUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("returns failure without creating a duplicate when the conditional name update fails", async () => {
+    h.createCustomer.mockResolvedValue({ success: false, error: "dup", existingCustomerId: CUID.custExisting });
+    h.custUpdateMany.mockRejectedValueOnce(new Error("database unavailable"));
+
+    const r = await createTrialBooking({
+      ...base,
+      newCustomer: { name: "王小明", phone: "0912345678" },
+    });
+
+    expect(r).toEqual({ success: false, error: "database unavailable" });
+    expect(h.createCustomer).toHaveBeenCalledTimes(1);
+    expect(h.custUpdate).not.toHaveBeenCalled();
+    expect(h.createBooking).not.toHaveBeenCalled();
   });
 });
 
