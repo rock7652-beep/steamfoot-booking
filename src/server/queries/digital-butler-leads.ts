@@ -94,6 +94,7 @@ export async function listDigitalButlerLeads(
 
     return {
       ...safeLead,
+      isHumanSupportHandoff: completionActionKey === HUMAN_SUPPORT_COMPLETION_ACTION_KEY,
       customerReference:
         lead.customerReference ??
         (completionActionKey === HUMAN_SUPPORT_COMPLETION_ACTION_KEY
