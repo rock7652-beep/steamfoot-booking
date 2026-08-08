@@ -33,6 +33,8 @@ describe("digital butler lead tracking security contract", () => {
   it("decrypts phone only inside the authorized server query", () => {
     expect(query).toContain("requireDigitalButlerEntitlement(storeId)");
     expect(query).toContain("decryptDigitalButlerValue");
-    expect(query).toContain("phoneCiphertext: undefined");
+    expect(query).toMatch(
+      /const \{[\s\S]*phoneCiphertext,[\s\S]*\.\.\.safeLead[\s\S]*\} = lead;/,
+    );
   });
 });

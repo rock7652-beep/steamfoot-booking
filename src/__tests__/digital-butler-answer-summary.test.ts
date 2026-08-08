@@ -21,4 +21,15 @@ describe("digitalButlerAnswerSummary", () => {
     expect(digitalButlerAnswerSummary(null)).toBe("—");
     expect(digitalButlerAnswerSummary({ skipped: null })).toBe("—");
   });
+
+  it("describes a human-support handoff without exposing technical fields", () => {
+    expect(digitalButlerAnswerSummary({
+      provider: "LINE",
+      requestType: "HUMAN_SUPPORT",
+    })).toBe("顧客希望轉接真人客服");
+    expect(digitalButlerAnswerSummary({
+      provider: "MESSENGER",
+      requestType: { value: "HUMAN_SUPPORT", label: "轉接客服" },
+    })).toBe("顧客希望轉接真人客服");
+  });
 });

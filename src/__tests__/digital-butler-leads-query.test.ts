@@ -58,4 +58,43 @@ describe("Digital Butler lead source filters", () => {
       }),
     }));
   });
+
+  it("derives a bounded legacy handoff reference without exposing the sender hash", async () => {
+    const senderIdHash = "0123456789abcdef0123456789abcdef";
+    findMany.mockResolvedValueOnce([
+      {
+        id: "lead-a",
+        status: "NEW",
+        completionActionKey: HUMAN_SUPPORT_COMPLETION_ACTION_KEY,
+        submittedAnswers: { requestType: "HUMAN_SUPPORT", provider: "LINE" },
+        customerDisplayName: null,
+        customerAvatarUrl: null,
+        customerReference: null,
+        lastMessageCiphertext: null,
+        lastMessageIv: null,
+        lastMessageAuthTag: null,
+        lastMessageAt: null,
+        phoneCiphertext: null,
+        phoneIv: null,
+        phoneAuthTag: null,
+        internalNote: null,
+        lastContactedAt: null,
+        createdAt: new Date("2026-07-31T00:00:00.000Z"),
+        updatedAt: new Date("2026-07-31T00:00:00.000Z"),
+        flow: { name: "客服流程" },
+        conversation: { provider: "LINE", senderIdHash },
+        assignedStaff: null,
+        activities: [],
+      },
+    ]);
+
+    const [lead] = await listDigitalButlerLeads("store-a", { waitingForHumanSupport: true });
+
+    expect(lead.customerReference).toBe("客服-01234567");
+    expect(lead.conversation).toEqual({ provider: "LINE" });
+    expect(lead).not.toHaveProperty("completionActionKey");
+    expect(lead).not.toHaveProperty("phoneCiphertext");
+    expect(lead).not.toHaveProperty("lastMessageCiphertext");
+    expect(JSON.stringify(lead)).not.toContain(senderIdHash);
+  });
 });

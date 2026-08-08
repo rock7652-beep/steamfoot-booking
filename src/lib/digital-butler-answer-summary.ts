@@ -28,10 +28,29 @@ function answerText(value: unknown): string | null {
   return null;
 }
 
+function answerValue(value: unknown): string | null {
+  if (typeof value === "string" || typeof value === "number") {
+    return String(value);
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  const option = value as Record<string, unknown>;
+  return typeof option.value === "string" || typeof option.value === "number"
+    ? String(option.value)
+    : null;
+}
+
 export function digitalButlerAnswerSummary(value: unknown): string {
   if (!value || typeof value !== "object" || Array.isArray(value)) return "—";
 
-  const entries = Object.entries(value as Record<string, unknown>)
+  const answers = value as Record<string, unknown>;
+  if (answerValue(answers.requestType) === "HUMAN_SUPPORT") {
+    return "顧客希望轉接真人客服";
+  }
+
+  const entries = Object.entries(answers)
     .flatMap(([key, item]) => {
       const text = answerText(item);
       return text ? [`${answerLabel(key)}：${text}`] : [];
