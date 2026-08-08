@@ -26,6 +26,7 @@ describe("human-support lead identification safety contract", () => {
   it("decrypts the preview only in the authorized store-scoped query", () => {
     expect(query).toContain("requireDigitalButlerEntitlement(storeId)");
     expect(query).toContain("decryptDigitalButlerValue");
+    expect(query).toContain("客服-${conversation.senderIdHash.slice(0, 8)}");
     expect(query).not.toContain("senderIdCiphertext");
   });
 

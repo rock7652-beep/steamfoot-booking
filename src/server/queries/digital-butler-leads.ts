@@ -42,6 +42,7 @@ export async function listDigitalButlerLeads(
     select: {
       id: true,
       status: true,
+      completionActionKey: true,
       submittedAnswers: true,
       customerDisplayName: true,
       customerAvatarUrl: true,
@@ -58,7 +59,7 @@ export async function listDigitalButlerLeads(
       createdAt: true,
       updatedAt: true,
       flow: { select: { name: true } },
-      conversation: { select: { provider: true } },
+      conversation: { select: { provider: true, senderIdHash: true } },
       assignedStaff: { select: { id: true, displayName: true } },
       activities: {
         orderBy: { createdAt: "desc" },
@@ -78,33 +79,48 @@ export async function listDigitalButlerLeads(
     take: 200,
   });
 
-  return leads.map((lead) => ({
-    ...lead,
-    phone:
-      lead.phoneCiphertext && lead.phoneIv && lead.phoneAuthTag
-        ? decryptDigitalButlerValue({
-            ciphertext: Buffer.from(lead.phoneCiphertext),
-            iv: Buffer.from(lead.phoneIv),
-            authTag: Buffer.from(lead.phoneAuthTag),
-            keyVersion: "v1",
-          })
-        : null,
-    lastMessage:
-      lead.lastMessageCiphertext && lead.lastMessageIv && lead.lastMessageAuthTag
-        ? decryptDigitalButlerValue({
-            ciphertext: Buffer.from(lead.lastMessageCiphertext),
-            iv: Buffer.from(lead.lastMessageIv),
-            authTag: Buffer.from(lead.lastMessageAuthTag),
-            keyVersion: "v1",
-          })
-        : null,
-    phoneCiphertext: undefined,
-    phoneIv: undefined,
-    phoneAuthTag: undefined,
-    lastMessageCiphertext: undefined,
-    lastMessageIv: undefined,
-    lastMessageAuthTag: undefined,
-  }));
+  return leads.map((lead) => {
+    const {
+      completionActionKey,
+      conversation,
+      phoneCiphertext,
+      phoneIv,
+      phoneAuthTag,
+      lastMessageCiphertext,
+      lastMessageIv,
+      lastMessageAuthTag,
+      ...safeLead
+    } = lead;
+
+    return {
+      ...safeLead,
+      isHumanSupportHandoff: completionActionKey === HUMAN_SUPPORT_COMPLETION_ACTION_KEY,
+      customerReference:
+        lead.customerReference ??
+        (completionActionKey === HUMAN_SUPPORT_COMPLETION_ACTION_KEY
+          ? `客服-${conversation.senderIdHash.slice(0, 8)}`
+          : null),
+      conversation: { provider: conversation.provider },
+      phone:
+        phoneCiphertext && phoneIv && phoneAuthTag
+          ? decryptDigitalButlerValue({
+              ciphertext: Buffer.from(phoneCiphertext),
+              iv: Buffer.from(phoneIv),
+              authTag: Buffer.from(phoneAuthTag),
+              keyVersion: "v1",
+            })
+          : null,
+      lastMessage:
+        lastMessageCiphertext && lastMessageIv && lastMessageAuthTag
+          ? decryptDigitalButlerValue({
+              ciphertext: Buffer.from(lastMessageCiphertext),
+              iv: Buffer.from(lastMessageIv),
+              authTag: Buffer.from(lastMessageAuthTag),
+              keyVersion: "v1",
+            })
+          : null,
+    };
+  });
 }
 
 export async function listDigitalButlerLeadStaff(storeId: string) {

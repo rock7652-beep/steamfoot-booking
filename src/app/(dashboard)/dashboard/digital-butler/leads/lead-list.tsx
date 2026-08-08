@@ -42,6 +42,7 @@ type Lead = {
   customerReference: string | null;
   lastMessage: string | null;
   lastMessageAt: Date | null;
+  isHumanSupportHandoff: boolean;
   submittedAnswers: unknown;
   internalNote: string | null;
   lastContactedAt: Date | null;
@@ -181,7 +182,9 @@ export function DigitalButlerLeadList({
             </div>
             <p className="mt-1.5 rounded-lg bg-earth-50 px-2.5 py-2 text-xs leading-relaxed text-earth-600">
               <span className="font-medium text-earth-700">顧客需求：</span>
-              {digitalButlerAnswerSummary(lead.submittedAnswers)}
+              {digitalButlerAnswerSummary(lead.submittedAnswers, {
+                isHumanSupportHandoff: lead.isHumanSupportHandoff,
+              })}
             </p>
             {lead.lastMessage && <p className="mt-1 text-xs text-earth-600">最後訊息：{lead.lastMessage}</p>}
             {lead.lastMessageAt && <p className="mt-1 text-[11px] text-earth-400">{new Date(lead.lastMessageAt).toLocaleString("zh-TW", { timeZone: "Asia/Taipei" })}</p>}

@@ -21,4 +21,23 @@ describe("digitalButlerAnswerSummary", () => {
     expect(digitalButlerAnswerSummary(null)).toBe("—");
     expect(digitalButlerAnswerSummary({ skipped: null })).toBe("—");
   });
+
+  it("describes a human-support handoff without exposing technical fields", () => {
+    expect(digitalButlerAnswerSummary({
+      provider: "LINE",
+      requestType: "HUMAN_SUPPORT",
+    }, { isHumanSupportHandoff: true })).toBe("顧客希望轉接真人客服");
+    expect(digitalButlerAnswerSummary({
+      provider: "MESSENGER",
+      requestType: { value: "HUMAN_SUPPORT", label: "轉接客服" },
+    }, { isHumanSupportHandoff: true })).toBe("顧客希望轉接真人客服");
+  });
+
+  it("keeps collected answers when a normal lead selected the human-support option", () => {
+    expect(digitalButlerAnswerSummary({
+      name: "黃彥陸",
+      requestType: { value: "HUMAN_SUPPORT", label: "真人客服" },
+      "contact-time": { value: "afternoon", label: "下午" },
+    })).toBe("姓名：黃彥陸 · requestType：真人客服 · 方便聯絡時間：下午");
+  });
 });

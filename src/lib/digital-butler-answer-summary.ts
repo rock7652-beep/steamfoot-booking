@@ -28,10 +28,19 @@ function answerText(value: unknown): string | null {
   return null;
 }
 
-export function digitalButlerAnswerSummary(value: unknown): string {
+export function digitalButlerAnswerSummary(
+  value: unknown,
+  options: { isHumanSupportHandoff?: boolean } = {},
+): string {
+  if (options.isHumanSupportHandoff) {
+    return "顧客希望轉接真人客服";
+  }
+
   if (!value || typeof value !== "object" || Array.isArray(value)) return "—";
 
-  const entries = Object.entries(value as Record<string, unknown>)
+  const answers = value as Record<string, unknown>;
+
+  const entries = Object.entries(answers)
     .flatMap(([key, item]) => {
       const text = answerText(item);
       return text ? [`${answerLabel(key)}：${text}`] : [];
