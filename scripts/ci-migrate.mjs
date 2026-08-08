@@ -12,10 +12,13 @@ export const PAYMENT_SPLIT_MIGRATION =
   "20260801090000_add_transaction_payment_splits";
 export const HUMAN_SUPPORT_SUMMARY_MIGRATION =
   "20260802090000_add_digital_butler_human_support_summary";
+export const PAYMENT_SPLIT_RLS_MIGRATION =
+  "20260808090000_enable_transaction_payment_split_rls";
 export const PRODUCTION_MIGRATION_TARGET_ENV = "PRODUCTION_MIGRATION_TARGET";
 export const APPROVED_PRODUCTION_MIGRATION_TARGETS = [
   PAYMENT_SPLIT_MIGRATION,
   HUMAN_SUPPORT_SUMMARY_MIGRATION,
+  PAYMENT_SPLIT_RLS_MIGRATION,
 ];
 export const MESSENGER_CHECKSUM =
   "6edbd88d9fd2ab9e368b963d21f7d90ef2ed1f8e8c467a29c20f9a3c8d8e1488";
@@ -23,6 +26,8 @@ export const PAYMENT_SPLIT_CHECKSUM =
   "74750d2d3f24dba84a4f58380a8ed9868734500ddd50e8d632d223cefeb07287";
 export const HUMAN_SUPPORT_SUMMARY_CHECKSUM =
   "9218b485f642748141666778d7643bc5ba1aee27541ae8dc17461dacd3884ad5";
+export const PAYMENT_SPLIT_RLS_CHECKSUM =
+  "bdc2cd86ea67507df334271b3589c7e416bad4ec2c1cddc96da23b7f3d0f2064";
 const PENDING_MIGRATIONS_HEADER =
   /Following migrations? have not yet been applied:/;
 const MESSENGER_MIGRATION_FILE =
@@ -31,6 +36,8 @@ const PAYMENT_SPLIT_MIGRATION_FILE =
   `prisma/migrations/${PAYMENT_SPLIT_MIGRATION}/migration.sql`;
 const HUMAN_SUPPORT_SUMMARY_MIGRATION_FILE =
   `prisma/migrations/${HUMAN_SUPPORT_SUMMARY_MIGRATION}/migration.sql`;
+const PAYMENT_SPLIT_RLS_MIGRATION_FILE =
+  `prisma/migrations/${PAYMENT_SPLIT_RLS_MIGRATION}/migration.sql`;
 
 const expectedMessengerColumns = [
   ["id", "text", "text", "NO", null],
@@ -150,12 +157,12 @@ function assertApprovedMigrationTarget(value) {
   if (!resolveProductionMigrationTarget(value)) {
     abort("migration_target_rejected");
   }
-  const targetFile = value === PAYMENT_SPLIT_MIGRATION
-    ? PAYMENT_SPLIT_MIGRATION_FILE
-    : HUMAN_SUPPORT_SUMMARY_MIGRATION_FILE;
-  const targetChecksum = value === PAYMENT_SPLIT_MIGRATION
-    ? PAYMENT_SPLIT_CHECKSUM
-    : HUMAN_SUPPORT_SUMMARY_CHECKSUM;
+  const targetFiles = {
+    [PAYMENT_SPLIT_MIGRATION]: [PAYMENT_SPLIT_MIGRATION_FILE, PAYMENT_SPLIT_CHECKSUM],
+    [HUMAN_SUPPORT_SUMMARY_MIGRATION]: [HUMAN_SUPPORT_SUMMARY_MIGRATION_FILE, HUMAN_SUPPORT_SUMMARY_CHECKSUM],
+    [PAYMENT_SPLIT_RLS_MIGRATION]: [PAYMENT_SPLIT_RLS_MIGRATION_FILE, PAYMENT_SPLIT_RLS_CHECKSUM],
+  };
+  const [targetFile, targetChecksum] = targetFiles[value];
   if (migrationChecksum(targetFile) !== targetChecksum) {
     abort("migration_target_checksum_mismatch");
   }
@@ -203,6 +210,11 @@ export function hasOnlyPaymentSplitPending(statusOutput) {
 export function hasOnlyHumanSupportSummaryPending(statusOutput) {
   const pending = pendingMigrations(statusOutput);
   return pending.length === 1 && pending[0] === HUMAN_SUPPORT_SUMMARY_MIGRATION;
+}
+
+export function hasOnlyPaymentSplitRlsPending(statusOutput) {
+  const pending = pendingMigrations(statusOutput);
+  return pending.length === 1 && pending[0] === PAYMENT_SPLIT_RLS_MIGRATION;
 }
 
 export function classifyMessengerMigration(input, failedMigrationNames) {
@@ -360,12 +372,15 @@ async function readMessengerSnapshot(prisma) {
 }
 
 async function readPaymentSplitSnapshot(prisma) {
-  const [table, constraints, indexes, paymentMethodValues, columns] = await Promise.all([
+  const [table, constraints, indexes, paymentMethodValues, columns, rls, policies, clientGrants] = await Promise.all([
     prisma.$queryRaw`SELECT to_regclass('public."TransactionPaymentSplit"') IS NOT NULL AS "exists"`,
     prisma.$queryRaw`SELECT conname AS "name" FROM pg_constraint WHERE conrelid = to_regclass('public."TransactionPaymentSplit"') ORDER BY conname`,
     prisma.$queryRaw`SELECT indexname AS "name" FROM pg_indexes WHERE schemaname = 'public' AND tablename = 'TransactionPaymentSplit' AND indexname <> 'TransactionPaymentSplit_pkey' ORDER BY indexname`,
     prisma.$queryRaw`SELECT e.enumlabel AS "value" FROM pg_type t JOIN pg_enum e ON e.enumtypid = t.oid WHERE t.typname = 'PaymentMethod' ORDER BY e.enumsortorder`,
     prisma.$queryRaw`SELECT column_name AS "columnName", data_type AS "dataType", udt_name AS "udtName", is_nullable AS "isNullable", column_default AS "columnDefault" FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'TransactionPaymentSplit' ORDER BY ordinal_position`,
+    prisma.$queryRaw`SELECT c.relrowsecurity AS "enabled", c.relforcerowsecurity AS "forced" FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public' AND c.relname = 'TransactionPaymentSplit' AND c.relkind = 'r'`,
+    prisma.$queryRaw`SELECT count(*)::int AS "count" FROM pg_policies WHERE schemaname = 'public' AND tablename = 'TransactionPaymentSplit'`,
+    prisma.$queryRaw`SELECT count(*)::int AS "count" FROM information_schema.role_table_grants WHERE table_schema = 'public' AND table_name = 'TransactionPaymentSplit' AND grantee IN ('anon', 'authenticated')`,
   ]);
   return {
     tableExists: table.length === 1 && table[0].exists === true,
@@ -373,7 +388,18 @@ async function readPaymentSplitSnapshot(prisma) {
     indexes: indexes.map((row) => row.name),
     paymentMethodValues: paymentMethodValues.map((row) => row.value),
     columns,
+    rlsEnabled: rls.length === 1 ? rls[0].enabled : null,
+    rlsForced: rls.length === 1 ? rls[0].forced : null,
+    policyCount: policies.length === 1 ? policies[0].count : null,
+    clientGrantCount: clientGrants.length === 1 ? clientGrants[0].count : null,
   };
+}
+
+export function hasExpectedPaymentSplitRls(snapshot, enabled) {
+  return snapshot.rlsEnabled === enabled &&
+    snapshot.rlsForced === false &&
+    snapshot.policyCount === 0 &&
+    snapshot.clientGrantCount === 0;
 }
 
 async function readHumanSupportSummarySnapshot(prisma) {
@@ -412,6 +438,54 @@ export function isAppliedHumanSupportSummaryMigration(row) {
 async function readHumanSupportSummaryLedger(prisma) {
   const rows = await prisma.$queryRaw`SELECT checksum, finished_at AS "finishedAt", rolled_back_at AS "rolledBackAt" FROM "_prisma_migrations" WHERE migration_name = ${HUMAN_SUPPORT_SUMMARY_MIGRATION}`;
   return rows.length === 1 ? rows[0] : null;
+}
+
+async function readPaymentSplitRlsLedger(prisma) {
+  const rows = await prisma.$queryRaw`SELECT checksum, finished_at AS "finishedAt", rolled_back_at AS "rolledBackAt" FROM "_prisma_migrations" WHERE migration_name = ${PAYMENT_SPLIT_RLS_MIGRATION}`;
+  return rows.length === 1 ? rows[0] : null;
+}
+
+export function isAppliedPaymentSplitRlsMigration(row) {
+  return row?.checksum === PAYMENT_SPLIT_RLS_CHECKSUM &&
+    row.finishedAt !== null && row.rolledBackAt === null;
+}
+
+async function runPaymentSplitRlsMigration(prisma) {
+  const initialStatus = runPrisma(["migrate", "status"]);
+  if (isStatusUpToDate(initialStatus)) {
+    const [current, ledger] = await Promise.all([
+      readPaymentSplitSnapshot(prisma), readPaymentSplitRlsLedger(prisma),
+    ]);
+    if (!hasExpectedPaymentSplitSchema(current) ||
+        !hasExpectedPaymentSplitRls(current, true) ||
+        !isAppliedPaymentSplitRlsMigration(ledger)) {
+      abort("payment_split_rls_applied_state_rejected");
+    }
+    log("payment_split_rls_already_applied_verified");
+    return;
+  }
+  if (initialStatus.exitCode !== 1 || !hasOnlyPaymentSplitRlsPending(initialStatus.output)) {
+    abort("payment_split_rls_pending_allowlist_rejected");
+  }
+  const before = await readPaymentSplitSnapshot(prisma);
+  if (!hasExpectedPaymentSplitSchema(before) || !hasExpectedPaymentSplitRls(before, false)) {
+    abort("payment_split_rls_preflight_rejected");
+  }
+  log("payment_split_rls_preflight_verified");
+  log("payment_split_rls_deploy_started");
+  if (runPrisma(["migrate", "deploy"]).exitCode !== 0) abort("payment_split_rls_deploy_failed");
+  log("payment_split_rls_deploy_succeeded");
+  const finalStatus = runPrisma(["migrate", "status"]);
+  if (!isStatusUpToDate(finalStatus)) abort("payment_split_rls_final_status_rejected");
+  const [after, ledger] = await Promise.all([
+    readPaymentSplitSnapshot(prisma), readPaymentSplitRlsLedger(prisma),
+  ]);
+  if (!hasExpectedPaymentSplitSchema(after) ||
+      !hasExpectedPaymentSplitRls(after, true) ||
+      !isAppliedPaymentSplitRlsMigration(ledger)) {
+    abort("payment_split_rls_final_schema_rejected");
+  }
+  log("payment_split_rls_final_schema_verified");
 }
 
 async function runHumanSupportSummaryMigration(prisma) {
@@ -491,6 +565,10 @@ async function main() {
   try {
     if (target === HUMAN_SUPPORT_SUMMARY_MIGRATION) {
       await runHumanSupportSummaryMigration(prisma);
+      return;
+    }
+    if (target === PAYMENT_SPLIT_RLS_MIGRATION) {
+      await runPaymentSplitRlsMigration(prisma);
       return;
     }
     const ledger = await readMessengerLedger(prisma);
