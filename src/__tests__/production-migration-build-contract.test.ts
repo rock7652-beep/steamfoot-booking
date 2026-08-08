@@ -9,6 +9,8 @@ import {
   PAYMENT_SPLIT_MIGRATION,
   HUMAN_SUPPORT_SUMMARY_CHECKSUM,
   HUMAN_SUPPORT_SUMMARY_MIGRATION,
+  PAYMENT_SPLIT_RLS_CHECKSUM,
+  PAYMENT_SPLIT_RLS_MIGRATION,
   APPROVED_PRODUCTION_MIGRATION_TARGETS,
   PRODUCTION_MIGRATION_TARGET_ENV,
   classifyMessengerMigration,
@@ -18,10 +20,13 @@ import {
   hasNoPaymentSplitObjects,
   hasOnlyPaymentSplitPending,
   hasOnlyHumanSupportSummaryPending,
+  hasOnlyPaymentSplitRlsPending,
   hasNoHumanSupportSummaryObjects,
   hasExpectedHumanSupportSummarySchema,
   isAppliedPaymentSplitMigration,
   isAppliedHumanSupportSummaryMigration,
+  isAppliedPaymentSplitRlsMigration,
+  hasExpectedPaymentSplitRls,
   awaitsManualReconciliation,
   migrationChecksum,
   projectRefFromConnectionString,
@@ -41,6 +46,10 @@ const paymentSplitMigration = resolve(
 const humanSupportSummaryMigration = resolve(
   process.cwd(),
   `prisma/migrations/${HUMAN_SUPPORT_SUMMARY_MIGRATION}/migration.sql`,
+);
+const paymentSplitRlsMigration = resolve(
+  process.cwd(),
+  `prisma/migrations/${PAYMENT_SPLIT_RLS_MIGRATION}/migration.sql`,
 );
 const completeMessengerSnapshot = {
   enumValues: ["RUNNING", "COMPLETED", "COMPLETED_WITH_ERRORS", "FAILED"],
@@ -113,9 +122,11 @@ describe("Production migration recovery guard", () => {
     expect(APPROVED_PRODUCTION_MIGRATION_TARGETS).toEqual([
       PAYMENT_SPLIT_MIGRATION,
       HUMAN_SUPPORT_SUMMARY_MIGRATION,
+      PAYMENT_SPLIT_RLS_MIGRATION,
     ]);
     expect(resolveProductionMigrationTarget(PAYMENT_SPLIT_MIGRATION)).toBe(PAYMENT_SPLIT_MIGRATION);
     expect(resolveProductionMigrationTarget(HUMAN_SUPPORT_SUMMARY_MIGRATION)).toBe(HUMAN_SUPPORT_SUMMARY_MIGRATION);
+    expect(resolveProductionMigrationTarget(PAYMENT_SPLIT_RLS_MIGRATION)).toBe(PAYMENT_SPLIT_RLS_MIGRATION);
 
     const result = spawnSync(process.execPath, [scriptPath], {
       encoding: "utf8",
@@ -146,6 +157,7 @@ describe("Production migration recovery guard", () => {
     expect(migrationChecksum(messengerMigration)).toBe(MESSENGER_CHECKSUM);
     expect(migrationChecksum(paymentSplitMigration)).toBe(PAYMENT_SPLIT_CHECKSUM);
     expect(migrationChecksum(humanSupportSummaryMigration)).toBe(HUMAN_SUPPORT_SUMMARY_CHECKSUM);
+    expect(migrationChecksum(paymentSplitRlsMigration)).toBe(PAYMENT_SPLIT_RLS_CHECKSUM);
   });
 
   it("supports the applied Messenger path without resolve", () => {
@@ -221,6 +233,25 @@ describe("Production migration recovery guard", () => {
     expect(hasOnlyHumanSupportSummaryPending(`${onlyHumanSupport}20260901090000_unapproved\n`)).toBe(false);
   });
 
+  it("allows only the fixed payment-split RLS migration in its independent path", () => {
+    const onlyRls = `${PENDING}\n${PAYMENT_SPLIT_RLS_MIGRATION}\n`;
+    expect(hasOnlyPaymentSplitRlsPending(onlyRls)).toBe(true);
+    expect(hasOnlyPaymentSplitRlsPending(`${PENDING_SINGULAR}\n${PAYMENT_SPLIT_RLS_MIGRATION}\n`)).toBe(true);
+    expect(hasOnlyPaymentSplitRlsPending(`${onlyRls}${PAYMENT_SPLIT_MIGRATION}\n`)).toBe(false);
+    expect(hasOnlyPaymentSplitRlsPending(`${onlyRls}20260901090000_unapproved\n`)).toBe(false);
+  });
+
+  it("pins the exact payment-split RLS preflight and final states", () => {
+    const baseline = { rlsEnabled: false, rlsForced: false, policyCount: 0, clientGrantCount: 0 };
+    expect(hasExpectedPaymentSplitRls(baseline, false)).toBe(true);
+    expect(hasExpectedPaymentSplitRls({ ...baseline, rlsEnabled: true }, true)).toBe(true);
+    expect(hasExpectedPaymentSplitRls({ ...baseline, rlsForced: true }, false)).toBe(false);
+    expect(hasExpectedPaymentSplitRls({ ...baseline, policyCount: 1 }, false)).toBe(false);
+    expect(hasExpectedPaymentSplitRls({ ...baseline, clientGrantCount: 1 }, false)).toBe(false);
+    expect(isAppliedPaymentSplitRlsMigration({ checksum: PAYMENT_SPLIT_RLS_CHECKSUM, finishedAt: new Date(), rolledBackAt: null })).toBe(true);
+    expect(isAppliedPaymentSplitRlsMigration({ checksum: PAYMENT_SPLIT_RLS_CHECKSUM, finishedAt: null, rolledBackAt: null })).toBe(false);
+  });
+
   it("rejects partial human-support schema and verifies its exact final shape", () => {
     const absent = { columns: [], indexes: [] };
     const columns = [
@@ -282,6 +313,9 @@ describe("Production migration recovery guard", () => {
     expect(script).toContain("human_support_preflight_verified");
     expect(script).toContain("human_support_final_schema_verified");
     expect(script).toContain("human_support_already_applied_verified");
+    expect(script).toContain("payment_split_rls_preflight_verified");
+    expect(script).toContain("payment_split_rls_final_schema_verified");
+    expect(script).toContain("payment_split_rls_already_applied_verified");
   });
 });
 
