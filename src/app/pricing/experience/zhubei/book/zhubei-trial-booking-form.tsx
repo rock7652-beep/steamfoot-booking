@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
 import {
   fetchPublicTrialMonth,
   fetchPublicTrialSlots,
@@ -66,9 +65,7 @@ function formatCurrency(value: number): string {
   }).format(value);
 }
 
-export function ZhubeiTrialBookingForm() {
-  const searchParams = useSearchParams();
-  const entry = searchParams.get("entry") ?? undefined;
+export function ZhubeiTrialBookingForm({ entry }: { entry?: string }) {
   const today = useMemo(taiwanToday, []);
   const initialMonth = useMemo(() => ({
     year: Number(today.slice(0, 4)),
