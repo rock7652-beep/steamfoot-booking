@@ -34,6 +34,7 @@ import {
 } from "@/lib/date-utils";
 import { resolveCentralLineRecipientsForCustomers } from "@/server/services/central-line-recipient-loader";
 import { resolveVerifiedReminderLineRoute } from "@/server/services/verified-reminder-line-route";
+import { createTrialBookingActionToken } from "@/server/services/trial-booking-self-service";
 
 const DEFAULT_TEMPLATE = `{{customerName}} 您好！
 
@@ -90,6 +91,7 @@ async function recordSkippedReminder(input: {
   storeId: string;
   reason: string;
   lineRoute?: "CENTRAL" | "STORE" | null;
+  channel?: "LINE" | "MESSENGER";
 }): Promise<void> {
   try {
     await prisma.messageLog.create({
@@ -99,7 +101,7 @@ async function recordSkippedReminder(input: {
         customerId: input.customerId,
         bookingId: input.bookingId,
         triggerAt: input.triggerAt,
-        channel: "LINE",
+        channel: input.channel ?? "LINE",
         lineRoute: input.lineRoute ?? null,
         status: "SKIPPED",
         errorMessage: input.reason,
@@ -201,6 +203,20 @@ export async function runReminders(): Promise<SendResult> {
     for (const booking of bookings) {
       const customer = booking.customer;
       const bookingStoreId = booking.storeId;
+
+      // The installed Messenger integration only uses `RESPONSE`; Meta limits
+      // that to an active conversation window. A next-day cron must never
+      // impersonate LINE or claim success when that window cannot be proven.
+      if (booking.trialBookingChannel === "MESSENGER") {
+        await recordSkippedReminder({
+          ruleId: rule.id, templateId: rule.templateId, customerId: customer.id,
+          bookingId: booking.id, triggerAt, storeId: bookingStoreId,
+          channel: "MESSENGER", reason: "MESSENGER_PROACTIVE_MESSAGE_NOT_PERMITTED",
+        });
+        result.skipped++;
+        result.details.push({ customerId: customer.id, bookingId: booking.id, ruleName: rule.name, status: "SKIPPED", error: "MESSENGER_PROACTIVE_MESSAGE_NOT_PERMITTED" });
+        continue;
+      }
 
       // Any prior outcome for this rule/booking/day is terminal. This prevents
       // retries from sending first and then colliding with the unique log row.
@@ -308,13 +324,17 @@ export async function runReminders(): Promise<SendResult> {
         shopNameCache.set(bookingStoreId, sc.shopName);
       }
       const bookingDateStr = booking.bookingDate.toISOString().slice(0, 10);
+      let bookingLink = `${baseUrl}/my-bookings`;
+      if (booking.bookingType === "FIRST_TRIAL" && booking.trialBookingChannel && process.env.TRIAL_BOOKING_ACTION_SECRET) {
+        bookingLink = `${baseUrl}/trial-booking/manage?token=${encodeURIComponent(createTrialBookingActionToken(booking))}`;
+      }
       const vars: TemplateVariables = {
         customerName: customer.name,
         bookingDate: bookingDateStr,
         bookingTime: booking.slotTime,
         shopName: shopNameCache.get(bookingStoreId) ?? "蒸足",
         staffName: customer.assignedStaff?.displayName ?? "店長",
-        bookingLink: `${baseUrl}/my-bookings`,
+        bookingLink,
       };
       const renderedBody = renderTemplate(templateBody, vars);
 

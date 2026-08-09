@@ -242,7 +242,16 @@ enum CashDrawerDirection {
 enum ReminderChannel {
   EMAIL
   LINE
+  MESSENGER
   SMS
+}
+
+// The channel that supplied the opaque public trial booking link.  This is
+// deliberately separate from ReminderChannel: Messenger is a booking source,
+// but is not a generally permitted scheduled-notification channel.
+enum TrialBookingChannel {
+  LINE
+  MESSENGER
 }
 
 // Messaging API route selected for a LINE reminder.
@@ -622,6 +631,7 @@ model Store {
   lineRebindRequests                LineRebindRequest[]
   lineOAuthAttempts                 LineOAuthAttempt[]
   bookings                          Booking[]
+  trialBookingLinks                 TrialBookingLink[]
   bookingRecurrenceGroups           BookingRecurrenceGroup[]
   bookingSubmissions                BookingSubmission[]
   transactions                      Transaction[]
@@ -1587,6 +1597,16 @@ model Booking {
   noShowPolicy         String? // "DEDUCTED" | "NOT_DEDUCTED"，僅 NO_SHOW 時有值
   noShowMakeupGranted  Boolean? // 是否有發補課資格（true=有發, false=沒發, null=非NO_SHOW）
   reminderSent         Boolean       @default(false)
+  // Customer-operated trial booking lifecycle. Nullable/default values keep
+  // every historical booking compatible with the existing payment flow.
+  trialBookingChannel  TrialBookingChannel?
+  customerConfirmedAt  DateTime?
+  customerRescheduledAt DateTime?
+  customerCancelledAt DateTime?
+  customerCancelledSource String?
+  customerRescheduleCount Int          @default(0)
+  originalBookingDate  DateTime?       @db.Date
+  originalSlotTime     String?
   notes                String?
   // 體驗 499 PR-2：建立體驗預約當下的預計收款金額快照（僅 FIRST_TRIAL 設值）。
   // nullable：其他預約型別 / 既有資料一律 NULL。未來體驗價調整不回寫舊預約。
@@ -1620,6 +1640,7 @@ model Booking {
 
   // 提醒
   reminders Reminder[]
+  trialBookingLinks TrialBookingLink[]
 
   // 訊息紀錄
   messageLogs MessageLog[]
@@ -1642,6 +1663,31 @@ model Booking {
   @@index([bookingStatus])
   @@index([customerPlanWalletId]) // ⚡ 方案使用紀錄查詢
   @@index([recurrenceGroupId])
+}
+
+// Opaque, short-lived links issued from a chat webhook. The URL contains only
+// id.secret; the chat identity is encrypted at rest and never appears in a URL
+// or log. A link is single-use after it has created a booking.
+model TrialBookingLink {
+  id                 String              @id @default(cuid())
+  storeId            String
+  channel            TrialBookingChannel
+  identityHash       String
+  identityCiphertext Bytes
+  identityIv         Bytes
+  identityAuthTag    Bytes
+  identityKeyVersion String
+  tokenHash          String              @unique
+  expiresAt          DateTime
+  consumedAt         DateTime?
+  bookingId          String?             @unique
+  createdAt          DateTime            @default(now())
+
+  store   Store   @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  booking Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+
+  @@index([storeId, expiresAt])
+  @@index([bookingId])
 }
 
 // ============================================================
