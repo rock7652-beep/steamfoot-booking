@@ -109,6 +109,7 @@ vi.mock("@/lib/normalize", async () => {
 
 const ADMIN_CREATED_CUSTOMER = {
   id: ADMIN_CUSTOMER_ID,
+  name: "葉麗娟",
   userId: null, // admin 建立時還沒綁帳號
   storeId: STORE_A,
   phone: "0912345678",
@@ -199,7 +200,7 @@ describe("updateProfileAction — merge by storeId + phone", () => {
     expect(mergeCall.placeholderCustomerId).toBeNull();
     // basicProfile 帶上 normalize 後的 phone（純 10 碼）
     expect(mergeCall.basicProfile.phone).toBe("0912345678");
-    expect(mergeCall.basicProfile.name).toBe("張小明");
+    expect(mergeCall.basicProfile.name).toBe("葉麗娟");
 
     // ── 3) 密碼寫入 User.passwordHash ──
     // verifySuccess 會呼叫 user.update 兩次：先 password、case A 路徑也會 sync name
@@ -213,6 +214,53 @@ describe("updateProfileAction — merge by storeId + phone", () => {
     expect(hash).toMatch(/^\$2[aby]\$/); // bcryptjs hash signature
     expect(compareSync("secret123", hash)).toBe(true);
   });
+
+  it("LINE 暱稱不會覆蓋既有體驗客正式姓名，User 姓名也同步保留", async () => {
+    const { updateProfileAction } = await import("@/server/actions/profile");
+    const fd = new FormData();
+    fd.set("name", "lita");
+    fd.set("phone", "0912345678");
+    fd.set("password", "secret123");
+    fd.set("birthday", "1990-01-15");
+
+    const result = await updateProfileAction({ error: null, success: false }, fd);
+
+    expect(result.success).toBe(true);
+    expect(mockMergePlaceholder).toHaveBeenCalledWith(
+      expect.objectContaining({
+        realCustomerId: ADMIN_CUSTOMER_ID,
+        basicProfile: expect.objectContaining({ name: "葉麗娟" }),
+      }),
+    );
+    expect(mockUserUpdate).toHaveBeenCalledWith({
+      where: { id: USER_ID },
+      data: { name: "葉麗娟" },
+    });
+  });
+
+  it.each(["顧客", "LINE 用戶", "Google 用戶"])(
+    "既有名稱為佔位值 %s 時仍可補入正式姓名",
+    async (placeholderName) => {
+      mockCustomerFindMany.mockResolvedValue([
+        { ...ADMIN_CREATED_CUSTOMER, name: placeholderName },
+      ]);
+      const { updateProfileAction } = await import("@/server/actions/profile");
+      const fd = new FormData();
+      fd.set("name", "王小明");
+      fd.set("phone", "0912345678");
+      fd.set("password", "secret123");
+      fd.set("birthday", "1990-01-15");
+
+      const result = await updateProfileAction({ error: null, success: false }, fd);
+
+      expect(result.success).toBe(true);
+      expect(mockMergePlaceholder).toHaveBeenCalledWith(
+        expect.objectContaining({
+          basicProfile: expect.objectContaining({ name: "王小明" }),
+        }),
+      );
+    },
+  );
 
   it("user 已有 passwordHash + 表單留空 → 不更新密碼（只做 Customer 合併）", async () => {
     // 已有密碼的 user
