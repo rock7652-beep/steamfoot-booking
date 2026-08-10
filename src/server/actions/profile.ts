@@ -108,6 +108,7 @@ export type ProfileState = { error: string | null; success: boolean };
 // 已知髒資料案例由 cleanup script 明確 merge，不走自動流程。
 type MergeCandidate = {
   id: string;
+  name: string;
   userId: string | null;
   phone: string | null;
   email: string | null;
@@ -124,12 +125,22 @@ type MergeProbe =
 
 const MERGE_CANDIDATE_SELECT = {
   id: true,
+  name: true,
   userId: true,
   phone: true,
   email: true,
   lineUserId: true,
   identityLinks: { select: { userId: true } },
 } as const;
+
+const PLACEHOLDER_CUSTOMER_NAMES = new Set(["顧客", "LINE 用戶", "Google 用戶"]);
+
+function preserveExistingCustomerName(existingName: string, submittedName: string) {
+  const normalizedExistingName = existingName.trim();
+  return normalizedExistingName && !PLACEHOLDER_CUSTOMER_NAMES.has(normalizedExistingName)
+    ? normalizedExistingName
+    : submittedName;
+}
 
 function hasForeignIdentityLink(candidate: MergeCandidate, userId: string) {
   return (candidate.identityLinks ?? []).some((link) => link.userId !== userId);
@@ -767,13 +778,26 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
           realPreviousUserId: real.userId,
           mergedBy: matchedBy,
         });
+        // OAuth 首次登入的姓名欄會預填 LINE / Google 顯示名稱。若手機等強信號
+        // 命中店家已建立的真人顧客，不可把第三方暱稱當成正式姓名覆蓋；只有既有
+        // 姓名仍是系統佔位值時，才採用本次送出的姓名。顧客日後在已解析完成的
+        // profile 正常修改姓名會走下方一般 update，不受此首次接回防護影響。
+        const preservedName = preserveExistingCustomerName(real.name, name);
         // 透過共用 helper 搬 LINE/Google 身份欄位到 real row，並清空/刪除 placeholder
         try {
           const mergeResult = await mergePlaceholderCustomerIntoRealCustomer({
             placeholderCustomerId: existingByUserId?.id ?? null,
             realCustomerId: real.id,
             userId: user.id,
-            basicProfile: { name, phone, email, gender, birthday, address, notes },
+            basicProfile: {
+              name: preservedName,
+              phone,
+              email,
+              gender,
+              birthday,
+              address,
+              notes,
+            },
           });
           console.info("[updateProfileAction] Case A merge result", {
             userId: user.id,
@@ -818,7 +842,7 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
         try {
           await prisma.user.update({
             where: { id: user.id },
-            data: { name },
+            data: { name: preservedName },
           });
         } catch (userUpdateErr) {
           console.warn("[updateProfileAction] user.name sync failed (non-fatal)", {
