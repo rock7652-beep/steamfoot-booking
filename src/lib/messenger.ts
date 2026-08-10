@@ -168,3 +168,51 @@ export async function sendMessengerMessages(input: {
 
   return { success: true };
 }
+
+export type MessengerUtilityTemplate = {
+  name: string;
+  language: string;
+  parameters: string[];
+};
+
+/**
+ * Sends an approved Messenger Utility template.  This is intentionally a
+ * separate sender from the 24-hour RESPONSE sender above: scheduled messages
+ * must never silently fall back to RESPONSE.
+ */
+export async function sendMessengerUtilityTemplate(input: {
+  pageId: string;
+  pageAccessToken: string;
+  recipientId: string;
+  template: MessengerUtilityTemplate;
+}): Promise<{ success: boolean; failureCode?: "FAILED_META_REJECTED" | "FAILED_TRANSPORT" }> {
+  try {
+    const response = await fetch(
+      `https://graph.facebook.com/${GRAPH_API_VERSION}/${encodeURIComponent(input.pageId)}/messages`,
+      {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${input.pageAccessToken}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          recipient: { id: input.recipientId },
+          messaging_type: "UTILITY",
+          template: {
+            name: input.template.name,
+            language: { code: input.template.language },
+            components: [{
+              type: "body",
+              parameters: input.template.parameters.map((text) => ({ type: "text", text })),
+            }],
+          },
+        }),
+      },
+    );
+    // Deliberately do not read or persist Meta's raw response: it may contain
+    // recipient or configuration details that are not safe diagnostic data.
+    return response.ok ? { success: true } : { success: false, failureCode: "FAILED_META_REJECTED" };
+  } catch {
+    return { success: false, failureCode: "FAILED_TRANSPORT" };
+  }
+}

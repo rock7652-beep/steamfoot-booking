@@ -2239,7 +2239,9 @@ model MessageLog {
   booking  Booking?         @relation(fields: [bookingId], references: [id])
   store    Store            @relation(fields: [storeId], references: [id])
 
-  @@unique([ruleId, bookingId, triggerAt], map: "uniq_rule_booking_trigger") // 防重複（含改期重發）— map: 對齊 DB index 名稱
+  // Successful sends are deduplicated by the partial unique index created in
+  // 20260810120000. FAILED/SKIPPED attempts must remain retryable.
+  @@index([ruleId, bookingId, triggerAt], map: "idx_rule_booking_trigger")
   @@index([customerId])
   @@index([bookingId])
   @@index([status])
