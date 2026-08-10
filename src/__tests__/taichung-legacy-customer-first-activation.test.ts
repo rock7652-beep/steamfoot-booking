@@ -76,6 +76,48 @@ describe("Taichung legacy customer first activation", () => {
     expect(mockWrite).toHaveBeenNthCalledWith(2, expect.objectContaining({ userId: "orphan-user", provider: "line_login" }));
   });
 
+  it("sets a password on the exact active central User already owning this Customer", async () => {
+    tx.customer.findUnique.mockResolvedValue({
+      id: "legacy-customer", name: "黃淳詩", storeId: "store-taichung", phone: "0912345678",
+      userId: "central-user", mergedIntoCustomerId: null, identityLinks: [],
+    });
+    tx.user.findMany.mockResolvedValue([{
+      id: "central-user", role: "CUSTOMER", status: "ACTIVE", passwordHash: null,
+      customer: { id: "legacy-customer" }, accounts: [{ id: "existing-oauth" }], customerIdentityLinks: [],
+    }]);
+    tx.user.updateMany.mockResolvedValue({ count: 1 });
+
+    await expect(activate()).resolves.toEqual({ status: "activated", userId: "central-user" });
+    expect(tx.user.create).not.toHaveBeenCalled();
+    expect(tx.customer.updateMany).not.toHaveBeenCalled();
+    expect(tx.user.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ id: "central-user", status: "ACTIVE", passwordHash: null }),
+      data: { passwordHash: "$2b$hash" },
+    }));
+    expect(mockWrite).toHaveBeenNthCalledWith(1, expect.objectContaining({ userId: "central-user", provider: "phone" }));
+    expect(mockWrite).toHaveBeenNthCalledWith(2, expect.objectContaining({ userId: "central-user", provider: "line_login" }));
+  });
+
+  it.each([
+    ["belongs to a different Customer", { customer: { id: "other-customer" } }, "central_user_not_eligible"],
+    ["is suspended", { status: "SUSPENDED" }, "central_user_status_changed"],
+    ["already has a password", { passwordHash: "$2b$existing" }, "central_user_has_password"],
+  ])("rejects an unsafe existing central User that %s", async (_label, override, error) => {
+    tx.customer.findUnique.mockResolvedValue({
+      id: "legacy-customer", name: "黃淳詩", storeId: "store-taichung", phone: "0912345678",
+      userId: "central-user", mergedIntoCustomerId: null, identityLinks: [],
+    });
+    tx.user.findMany.mockResolvedValue([{
+      id: "central-user", role: "CUSTOMER", status: "ACTIVE", passwordHash: null,
+      customer: { id: "legacy-customer" }, accounts: [], customerIdentityLinks: [], ...override,
+    }]);
+
+    await expect(activate()).resolves.toEqual({ status: "rejected", error });
+    expect(tx.user.create).not.toHaveBeenCalled();
+    expect(tx.user.updateMany).not.toHaveBeenCalled();
+    expect(tx.customer.updateMany).not.toHaveBeenCalled();
+  });
+
   it("fails closed when more than one central User has the phone", async () => {
     tx.user.findMany.mockResolvedValue([
       { id: "user-a", role: "CUSTOMER", status: "SUSPENDED", passwordHash: null, customer: null, accounts: [], customerIdentityLinks: [] },
@@ -170,7 +212,7 @@ describe("Taichung legacy customer first activation", () => {
     [{ id: "legacy-customer", name: "x", storeId: "store-other", phone: "0912345678", userId: null, mergedIntoCustomerId: null, identityLinks: [] }, "customer_store_mismatch"],
     [{ id: "legacy-customer", name: "x", storeId: "store-taichung", phone: "0999999999", userId: null, mergedIntoCustomerId: null, identityLinks: [] }, "phone_mismatch"],
     [{ id: "legacy-customer", name: "x", storeId: "store-taichung", phone: "0912345678", userId: null, mergedIntoCustomerId: "merged-target", identityLinks: [] }, "customer_merged"],
-    [{ id: "legacy-customer", name: "x", storeId: "store-taichung", phone: "0912345678", userId: "linked-user", mergedIntoCustomerId: null, identityLinks: [] }, "customer_already_linked"],
+    [{ id: "legacy-customer", name: "x", storeId: "store-taichung", phone: "0912345678", userId: "linked-user", mergedIntoCustomerId: null, identityLinks: [] }, "central_user_not_eligible"],
   ])("revalidates customer activation guards", async (customer, error) => {
     tx.customer.findUnique.mockResolvedValue(customer);
     await expect(activate()).resolves.toEqual({ status: "rejected", error });

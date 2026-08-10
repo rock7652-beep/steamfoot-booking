@@ -9,7 +9,18 @@ export default async function TaichungFirstActivationPage({ searchParams }: Page
   const temp = verification.status === "verified" ? verification.session : null;
   const { customerId } = await searchParams;
   const customer = temp?.channelKey === "taichung" && customerId
-    ? await prisma.customer.findFirst({ where: { id: customerId, storeId: temp.storeId, userId: null, mergedIntoCustomerId: null }, select: { id: true, phone: true } })
+    ? await prisma.customer.findFirst({
+      where: {
+        id: customerId,
+        storeId: temp.storeId,
+        mergedIntoCustomerId: null,
+        OR: [
+          { userId: null },
+          { user: { is: { role: "CUSTOMER", status: "ACTIVE", passwordHash: null } } },
+        ],
+      },
+      select: { id: true, phone: true },
+    })
     : null;
   if (!customer) {
     const code = verification.status === "rejected"

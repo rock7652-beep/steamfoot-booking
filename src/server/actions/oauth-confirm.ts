@@ -91,6 +91,18 @@ export async function resolveLineLogin(input: {
       return { error: "line_already_bound_other" };
     }
 
+    // A central User without a password cannot complete NEED_LOGIN.  Keep the
+    // verified LINE handoff intact and send this narrow, same-customer state
+    // through the first-activation flow instead of binding LINE then asking
+    // the member to enter a password that does not exist.
+    if (
+      session.channelKey === "taichung" &&
+      byPhone.userId &&
+      !byPhone.user?.passwordHash
+    ) {
+      return { status: "ACCOUNT_ACTIVATION_REQUIRED", customerId: byPhone.id };
+    }
+
     // 判斷「已啟用」：有 passwordHash 或有任何 OAuth Account
     const hasPassword = !!byPhone.user?.passwordHash;
     const hasOAuth = byPhone.userId

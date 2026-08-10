@@ -23,6 +23,9 @@ type ActivationError =
   | "customer_already_linked"
   | "customer_merged"
   | "phone_mismatch"
+  | "central_user_not_eligible"
+  | "central_user_status_changed"
+  | "central_user_has_password"
   | "orphan_user_not_eligible"
   | "orphan_user_status_changed"
   | "orphan_user_has_password"
@@ -39,9 +42,10 @@ export type TaichungFirstActivationResult =
   | { status: "rejected"; error: ActivationError };
 
 /**
- * Atomically turns a strictly-unactivated Taichung Customer into a central
- * customer account. It deliberately never reads or writes the legacy LINE
- * Messaging fields or Auth.js Account(provider="line").
+ * Atomically turns an unactivated Taichung Customer into a central customer
+ * account. It can also finish the narrow recovery state where that Customer
+ * already owns an ACTIVE central User with no password. It deliberately never
+ * reads or writes the legacy LINE Messaging fields or Auth.js Account(provider="line").
  */
 export async function activateTaichungLegacyCustomer(input: {
   customerId: string;
@@ -82,7 +86,7 @@ export async function activateTaichungLegacyCustomer(input: {
       if (customer.storeId !== temp.storeId) return { status: "rejected", error: "customer_store_mismatch" };
       if (customer.phone !== phone) return { status: "rejected", error: "phone_mismatch" };
       if (customer.mergedIntoCustomerId !== null) return { status: "rejected", error: "customer_merged" };
-      if (customer.userId !== null || customer.identityLinks.length !== 0) {
+      if (customer.identityLinks.length !== 0) {
         return { status: "rejected", error: "customer_already_linked" };
       }
 
@@ -141,7 +145,40 @@ export async function activateTaichungLegacyCustomer(input: {
 
       let userId: string;
       const orphan = matchingUsers[0];
-      if (!orphan) {
+      if (customer.userId !== null) {
+        // This is the only existing-member activation transition: the User is
+        // already the direct owner of this exact Customer, is active, and has
+        // never had a password. No ownership is transferred or inferred.
+        if (
+          !orphan ||
+          orphan.id !== customer.userId ||
+          orphan.customer?.id !== customer.id ||
+          orphan.role !== "CUSTOMER"
+        ) {
+          return { status: "rejected", error: "central_user_not_eligible" };
+        }
+        if (orphan.status !== "ACTIVE") {
+          return { status: "rejected", error: "central_user_status_changed" };
+        }
+        if (orphan.passwordHash !== null) {
+          return { status: "rejected", error: "central_user_has_password" };
+        }
+
+        // The compare-and-set means a concurrent password setup cannot be
+        // overwritten. Existing OAuth accounts remain untouched.
+        const activated = await tx.user.updateMany({
+          where: {
+            id: orphan.id,
+            phone,
+            role: "CUSTOMER",
+            status: "ACTIVE",
+            passwordHash: null,
+          },
+          data: { passwordHash: input.passwordHash },
+        });
+        if (activated.count !== 1) throw new Error("central_user_status_changed");
+        userId = orphan.id;
+      } else if (!orphan) {
         const user = await tx.user.create({
           data: {
             name: customer.name,
@@ -186,11 +223,13 @@ export async function activateTaichungLegacyCustomer(input: {
         if (reactivated.count !== 1) throw new Error("orphan_user_status_changed");
         userId = orphan.id;
       }
-      const attached = await tx.customer.updateMany({
-        where: { id: customer.id, storeId: temp.storeId, userId: null, mergedIntoCustomerId: null },
-        data: { userId },
-      });
-      if (attached.count !== 1) throw new Error("customer_already_linked");
+      if (customer.userId === null) {
+        const attached = await tx.customer.updateMany({
+          where: { id: customer.id, storeId: temp.storeId, userId: null, mergedIntoCustomerId: null },
+          data: { userId },
+        });
+        if (attached.count !== 1) throw new Error("customer_already_linked");
+      }
 
       for (const identity of [
         { provider: CUSTOMER_IDENTITY_PROVIDER.PHONE, providerAccountId: phone },
@@ -240,6 +279,7 @@ export async function activateTaichungLegacyCustomer(input: {
   } catch (error) {
     const errorCode = error instanceof Error && [
       "activation_context_replayed",
+      "central_user_status_changed",
       "orphan_user_status_changed",
       "customer_already_linked",
     ].includes(error.message)
