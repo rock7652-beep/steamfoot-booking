@@ -60,8 +60,19 @@ export async function activateTaichungLegacyCustomer(input: {
 }): Promise<TaichungFirstActivationResult> {
   const phone = normalizePhone(input.phone);
   const temp = input.tempSession;
-  if (!PHONE_RE.test(phone)) return { status: "rejected", error: "invalid_input" };
+  if (!PHONE_RE.test(phone)) {
+    logTaichungLineHandoff("activation_rejected", {
+      customerId: input.customerId,
+      errorCode: "invalid_input",
+    });
+    return { status: "rejected", error: "invalid_input" };
+  }
   if (!temp?.attemptId || temp.channelKey !== "taichung") {
+    logTaichungLineHandoff("activation_rejected", {
+      customerId: input.customerId,
+      storeId: temp?.storeId,
+      errorCode: "activation_context_missing",
+    });
     return { status: "rejected", error: "activation_context_missing" };
   }
 
@@ -310,6 +321,7 @@ export async function taichungFirstActivationAction(
   const verification = await getOAuthTempSessionDetailed();
   if (verification.status === "rejected") {
     const code = verification.error === "expired" ? "activation_context_expired" : "activation_context_missing";
+    logTaichungLineHandoff("activation_rejected", { errorCode: code });
     return { error: code === "activation_context_expired" ? "登入驗證已過期，請重新從暖沐 LINE 登入" : "登入驗證資料遺失，請重新從暖沐 LINE 登入", code };
   }
   const tempSession = verification.session;
@@ -339,11 +351,21 @@ export async function taichungFirstActivationAction(
     });
   } catch (error) {
     if (error && typeof error === "object" && "type" in error && (error as { type?: unknown }).type === "CredentialsSignin") {
+      logTaichungLineHandoff("activation_session_failed", {
+        customerId,
+        storeId: tempSession!.storeId,
+        errorCode: "session_create_failed",
+      });
       return { error: "帳號已啟用，但無法建立登入 Session；請重新從暖沐 LINE 登入", code: "session_create_failed" };
     }
     // Next.js redirects are intentionally rethrown; this is the only success
     // path to the member page.
     throw error;
   }
+  logTaichungLineHandoff("activation_session_failed", {
+    customerId,
+    storeId: tempSession!.storeId,
+    errorCode: "session_create_failed",
+  });
   return { error: "無法建立登入 Session，請重新從暖沐 LINE 登入", code: "session_create_failed" };
 }
