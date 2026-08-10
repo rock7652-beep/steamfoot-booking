@@ -235,11 +235,10 @@ describe("resolveLineLogin", () => {
     expect(mockSyncLineAccount).not.toHaveBeenCalled();
   });
 
-  it("Case 3 變體: phone 命中 + 已有 userId 但 placeholder phone → BOUND_EXISTING + 補建 Account", async () => {
-    // 模擬 staff 早就建了 Customer（已啟用：有 passwordHash）但 lineUserId 還沒寫，
-    // 然後 LINE OAuth 走進 oauth-confirm 補手機 → resolveLineLogin Step 1 命中。
-    // 此時 byPhone.userId 存在，必須同步 syncLineAccountForUser 補建 Account[line]。
-    mockGetOAuthTempSession.mockResolvedValue(validTempSession);
+  it("Case 3 變體: phone 命中 + 已有中央 User 但尚未設定密碼 → ACCOUNT_ACTIVATION_REQUIRED", async () => {
+    // A direct central member with no password used to have LINE bound and was
+    // then sent to password login, where no password could succeed.
+    mockGetOAuthTempSession.mockResolvedValue({ ...validTempSession, channelKey: "taichung" });
     mockCustomerFindFirst
       .mockResolvedValueOnce(null) // Step 0 miss
       .mockResolvedValueOnce({
@@ -250,20 +249,18 @@ describe("resolveLineLogin", () => {
         user: { passwordHash: null }, // hasPassword=false
         _count: { planWallets: 0, bookings: 0, transactions: 0 },
       });
-    mockAccountCount.mockResolvedValue(0); // hasOAuth=false → 視為未啟用 → 走 BOUND_EXISTING bind 路徑
-    mockSyncLineAccount.mockResolvedValue({ status: "created" });
+    mockAccountCount.mockResolvedValue(1); // Even an existing OAuth account is not a password.
 
     const r = await resolveLineLogin({ phone: VALID_PHONE });
 
     expect(r).toEqual({
-      status: "BOUND_EXISTING",
-      action: "RELOGIN",
+      status: "ACCOUNT_ACTIVATION_REQUIRED",
       customerId: CUSTOMER_ID,
     });
-    expect(mockSyncLineAccount).toHaveBeenCalledWith({
-      userId: NEXT_AUTH_USER_ID,
-      lineUserId: LINE_USER_ID,
-    });
+    expect(mockAccountCount).not.toHaveBeenCalled();
+    expect(mockCustomerUpdate).not.toHaveBeenCalled();
+    expect(mockSyncLineAccount).not.toHaveBeenCalled();
+    expect(mockClearOAuthTempSession).not.toHaveBeenCalled();
   });
 
   it("Case 4: phone 命中 + 未啟用 + 有 wallet → BLOCKED_NEEDS_STAFF（不寫 DB）", async () => {
