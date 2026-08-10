@@ -5,6 +5,7 @@ const mockUserFindUnique = vi.hoisted(() => vi.fn());
 const mockIdentityFindFirst = vi.hoisted(() => vi.fn());
 const mockTemp = vi.hoisted(() => vi.fn());
 const mockResolve = vi.hoisted(() => vi.fn());
+const mockLog = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/db", () => ({
   prisma: {
@@ -18,6 +19,9 @@ vi.mock("@/lib/server/oauth-temp-session", () => ({
 }));
 vi.mock("@/server/services/resolve-central-user-for-store-customer", () => ({
   resolveCentralUserForStoreCustomer: (...args: unknown[]) => mockResolve(...args),
+}));
+vi.mock("@/lib/line-oauth/taichung-handoff-log", () => ({
+  logTaichungLineHandoff: (...args: unknown[]) => mockLog(...args),
 }));
 
 describe("Taichung legacy account activation gate", () => {
@@ -48,6 +52,26 @@ describe("Taichung legacy account activation gate", () => {
     await expect(resolveTaichungProviderLineLogin({ phone: "0912345678" })).resolves.toEqual({
       status: "ACCOUNT_ACTIVATION_REQUIRED",
       customerId: "legacy-customer",
+    });
+    expect(mockLog).toHaveBeenCalledWith("login_gate_rejected", {
+      customerId: "legacy-customer",
+      storeId: "store-taichung",
+      errorCode: "password_activation_required",
+    });
+  });
+
+  it("records a fixed fail-closed code when the LINE Login identity belongs elsewhere", async () => {
+    mockCustomerFindFirst.mockResolvedValue({ id: "legacy-customer", userId: null, identityLinks: [] });
+    mockIdentityFindFirst.mockResolvedValue({ id: "other-line-login" });
+    const { resolveTaichungProviderLineLogin } = await import("@/server/actions/taichung-provider-line-login");
+
+    await expect(resolveTaichungProviderLineLogin({ phone: "0912345678" })).resolves.toEqual({
+      error: "line_already_bound_other",
+    });
+    expect(mockLog).toHaveBeenCalledWith("login_gate_rejected", {
+      customerId: "legacy-customer",
+      storeId: "store-taichung",
+      errorCode: "line_login_conflict",
     });
   });
 

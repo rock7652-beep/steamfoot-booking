@@ -5,6 +5,7 @@ import { normalizePhone } from "@/lib/normalize";
 import { getOAuthTempSession } from "@/lib/server/oauth-temp-session";
 import { resolveCentralUserForStoreCustomer } from "@/server/services/resolve-central-user-for-store-customer";
 import { CUSTOMER_IDENTITY_PROVIDER } from "@/lib/customer-identity-provider";
+import { logTaichungLineHandoff } from "@/lib/line-oauth/taichung-handoff-log";
 import type {
   ResolveLineLoginError,
   ResolveLineLoginResult,
@@ -22,11 +23,23 @@ export async function resolveTaichungProviderLineLogin(input: {
   phone: string;
 }): Promise<ResolveLineLoginResult | ResolveLineLoginError> {
   const phone = normalizePhone(input.phone ?? "");
-  if (!PHONE_RE.test(phone)) return { error: "invalid_phone" };
+  if (!PHONE_RE.test(phone)) {
+    logTaichungLineHandoff("login_gate_rejected", { errorCode: "invalid_phone" });
+    return { error: "invalid_phone" };
+  }
 
   const tempSession = await getOAuthTempSession();
-  if (!tempSession) return { error: "session_expired" };
-  if (tempSession.channelKey !== "taichung") return { error: "session_expired" };
+  if (!tempSession) {
+    logTaichungLineHandoff("login_gate_rejected", { errorCode: "session_expired" });
+    return { error: "session_expired" };
+  }
+  if (tempSession.channelKey !== "taichung") {
+    logTaichungLineHandoff("login_gate_rejected", {
+      storeId: tempSession.storeId,
+      errorCode: "session_store_mismatch",
+    });
+    return { error: "session_expired" };
+  }
 
   const customer = await prisma.customer.findFirst({
     where: {
@@ -43,7 +56,13 @@ export async function resolveTaichungProviderLineLogin(input: {
       },
     },
   });
-  if (!customer) return { error: "line_already_bound_other" };
+  if (!customer) {
+    logTaichungLineHandoff("login_gate_rejected", {
+      storeId: tempSession.storeId,
+      errorCode: "customer_not_found",
+    });
+    return { error: "line_already_bound_other" };
+  }
 
   // A historical Customer without a central password account cannot prove
   // ownership through this password gate. Do not show a fake "old password"
@@ -53,7 +72,14 @@ export async function resolveTaichungProviderLineLogin(input: {
   // activation. Any partial identity state is an ownership conflict, never a
   // reason to offer a claim form.
   if (customer.userId === null) {
-    if (customer.identityLinks.length !== 0) return { error: "line_already_bound_other" };
+    if (customer.identityLinks.length !== 0) {
+      logTaichungLineHandoff("login_gate_rejected", {
+        customerId: customer.id,
+        storeId: tempSession.storeId,
+        errorCode: "customer_identity_conflict",
+      });
+      return { error: "line_already_bound_other" };
+    }
     const existingLineLogin = await prisma.customerIdentityLink.findFirst({
       where: {
         provider: CUSTOMER_IDENTITY_PROVIDER.LINE_LOGIN,
@@ -61,7 +87,14 @@ export async function resolveTaichungProviderLineLogin(input: {
       },
       select: { id: true },
     });
-    if (existingLineLogin) return { error: "line_already_bound_other" };
+    if (existingLineLogin) {
+      logTaichungLineHandoff("login_gate_rejected", {
+        customerId: customer.id,
+        storeId: tempSession.storeId,
+        errorCode: "line_login_conflict",
+      });
+      return { error: "line_already_bound_other" };
+    }
     return { status: "ACCOUNT_ACTIVATION_REQUIRED", customerId: customer.id };
   }
 
@@ -73,12 +106,26 @@ export async function resolveTaichungProviderLineLogin(input: {
     resolution.status !== "resolved" ||
     resolution.user.role !== "CUSTOMER" ||
     resolution.user.status !== "ACTIVE"
-  ) return { status: "ACCOUNT_ACTIVATION_REQUIRED", customerId: customer.id };
+  ) {
+    logTaichungLineHandoff("login_gate_rejected", {
+      customerId: customer.id,
+      storeId: tempSession.storeId,
+      errorCode: "central_user_not_eligible",
+    });
+    return { status: "ACCOUNT_ACTIVATION_REQUIRED", customerId: customer.id };
+  }
   const user = await prisma.user.findUnique({
     where: { id: resolution.user.id },
     select: { passwordHash: true },
   });
-  if (!user?.passwordHash) return { status: "ACCOUNT_ACTIVATION_REQUIRED", customerId: customer.id };
+  if (!user?.passwordHash) {
+    logTaichungLineHandoff("login_gate_rejected", {
+      customerId: customer.id,
+      storeId: tempSession.storeId,
+      errorCode: "password_activation_required",
+    });
+    return { status: "ACCOUNT_ACTIVATION_REQUIRED", customerId: customer.id };
+  }
 
   return {
     status: "NEED_LOGIN",
