@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { parseTaiwanDateToDbDate, toLocalDateStr } from "@/lib/date-utils";
 import { PENDING_STATUSES } from "@/lib/booking-constants";
 import { applySlotOverrides, loadDayBusinessHoursContext } from "@/lib/business-hours-resolver";
+import { isDutySchedulingEnabled } from "@/lib/shop-config";
 
 const TOKEN_TTL_DAYS = 7;
 function tokenSignature(value: string): string {
@@ -36,8 +37,16 @@ function bookingStartsAt(booking: { bookingDate: Date; slotTime: string }): Date
   return new Date(`${booking.bookingDate.toISOString().slice(0, 10)}T${booking.slotTime}:00+08:00`);
 }
 
+const SELF_SERVICE_CUTOFF_MS = 2 * 60 * 60 * 1000;
+
 function selfServiceAllowed(booking: { bookingDate: Date; slotTime: string }, now: Date): boolean {
-  return bookingStartsAt(booking).getTime() - now.getTime() > 2 * 60 * 60 * 1000;
+  return bookingStartsAt(booking).getTime() - now.getTime() > SELF_SERVICE_CUTOFF_MS;
+}
+
+function targetSlotAllowed(date: string, slotTime: string, now: Date): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(slotTime)) return false;
+  const startsAt = new Date(`${date}T${slotTime}:00+08:00`);
+  return Number.isFinite(startsAt.getTime()) && startsAt.getTime() - now.getTime() > SELF_SERVICE_CUTOFF_MS;
 }
 
 async function loadAuthorizedBooking(token: string, now = new Date()) {
@@ -76,14 +85,30 @@ export async function listTrialRescheduleSlots(token: string, date: string, now 
   if (!booking || booking.customerRescheduleCount >= 1 || !selfServiceAllowed(booking, now) || date < toLocalDateStr(now)) return [];
   const ctx = await loadDayBusinessHoursContext(booking.storeId, date);
   if (ctx.rule.closed) return [];
-  const grouped = await prisma.booking.groupBy({
-    by: ["slotTime"],
-    where: { storeId: booking.storeId, bookingDate: ctx.dateObj, bookingStatus: { in: [...PENDING_STATUSES] } },
-    _sum: { people: true },
-  });
+  const dutyEnabled = await isDutySchedulingEnabled(booking.storeId);
+  const [grouped, dutyRows] = await Promise.all([
+    prisma.booking.groupBy({
+      by: ["slotTime"],
+      where: { storeId: booking.storeId, bookingDate: ctx.dateObj, bookingStatus: { in: [...PENDING_STATUSES] } },
+      _sum: { people: true },
+    }),
+    dutyEnabled
+      ? prisma.dutyAssignment.findMany({
+          where: { storeId: booking.storeId, date: ctx.dateObj },
+          select: { slotTime: true },
+          distinct: ["slotTime"],
+        })
+      : Promise.resolve([]),
+  ]);
   const used = new Map(grouped.map(row => [row.slotTime, row._sum.people ?? 0]));
+  const duty = new Set(dutyRows.map(row => row.slotTime));
   return applySlotOverrides(ctx.rule, ctx.slotOverrides)
-    .filter(slot => slot.isEnabled && (slot.capacity - (used.get(slot.startTime) ?? 0)) >= booking.people)
+    .filter(slot =>
+      slot.isEnabled &&
+      targetSlotAllowed(date, slot.startTime, now) &&
+      (!dutyEnabled || duty.has(slot.startTime)) &&
+      (slot.capacity - (used.get(slot.startTime) ?? 0)) >= booking.people
+    )
     .map(slot => slot.startTime);
 }
 
@@ -91,12 +116,23 @@ export async function rescheduleTrialBooking(token: string, date: string, slotTi
   const booking = await loadAuthorizedBooking(token, now);
   if (!booking || booking.customerRescheduleCount >= 1 || !selfServiceAllowed(booking, now) || date < toLocalDateStr(now)) return "unavailable";
   const ctx = await loadDayBusinessHoursContext(booking.storeId, date);
-  const slot = !ctx.rule.closed && applySlotOverrides(ctx.rule, ctx.slotOverrides).find(item => item.isEnabled && item.startTime === slotTime);
+  const slot = !ctx.rule.closed && targetSlotAllowed(date, slotTime, now)
+    ? applySlotOverrides(ctx.rule, ctx.slotOverrides).find(item => item.isEnabled && item.startTime === slotTime)
+    : undefined;
   if (!slot) return "unavailable";
+  const dutyEnabled = await isDutySchedulingEnabled(booking.storeId);
   try {
     return await prisma.$transaction(async tx => {
       const current = await tx.booking.findFirst({ where: { id: booking.id, storeId: booking.storeId }, select: { bookingStatus: true, customerRescheduleCount: true } });
       if (!current || !["PENDING", "CONFIRMED"].includes(current.bookingStatus) || current.customerRescheduleCount >= 1) return "unavailable";
+      if (!targetSlotAllowed(date, slotTime, now)) return "unavailable";
+      if (dutyEnabled) {
+        const duty = await tx.dutyAssignment.findFirst({
+          where: { storeId: booking.storeId, date: ctx.dateObj, slotTime },
+          select: { id: true },
+        });
+        if (!duty) return "unavailable";
+      }
       const occupied = await tx.booking.aggregate({ where: { storeId: booking.storeId, bookingDate: ctx.dateObj, slotTime, bookingStatus: { in: [...PENDING_STATUSES] } }, _sum: { people: true } });
       if ((occupied._sum.people ?? 0) + booking.people > slot.capacity) return "slot_full";
       await tx.booking.update({ where: { id: booking.id }, data: {
