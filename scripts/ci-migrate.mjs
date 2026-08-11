@@ -558,7 +558,8 @@ export function hasExpectedTrialReminderSchema(snapshot) {
     uniqueIndex?.definition.includes("UNIQUE INDEX") &&
     uniqueIndex.definition.includes('("ruleId", "bookingId", "triggerAt")') &&
     uniqueIndex.definition.includes("WHERE (status = 'SENT'") &&
-    lookupIndex?.definition.includes('("ruleId", "bookingId", "triggerAt")');
+    lookupIndex?.definition.includes('("ruleId", "bookingId", "triggerAt")') &&
+    !lookupIndex.definition.includes("UNIQUE INDEX");
 }
 
 async function readTrialReminderLedger(prisma) {
