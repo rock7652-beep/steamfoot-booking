@@ -49,6 +49,15 @@ describe("trial reminder convergence contract", () => {
     expect(form).toContain("fetchPublicTrialSlots(date, entry)");
   });
 
+  it("keeps the Zhubei presentation from accepting another store's chat entry", () => {
+    const booking = source("src/server/actions/public-trial-booking.ts");
+    const chatLink = source("src/server/services/trial-booking-chat-link.ts");
+    expect(booking).toContain("store?.slug === STORE_SLUG ? store : null");
+    expect(booking).toContain("chatLink && store?.slug !== STORE_SLUG");
+    expect(chatLink).toContain('SUPPORTED_PUBLIC_BOOKING_STORE_SLUG = "zhubei"');
+    expect(chatLink).toContain("TRIAL_BOOKING_STORE_NOT_SUPPORTED");
+  });
+
   it("never falls back from a LINE chat link to an unrelated phone owner", () => {
     const booking = source("src/server/actions/public-trial-booking.ts");
     expect(booking).toContain("A phone number typed into a public form is not proof");
