@@ -64,13 +64,7 @@ const faqItems = [
   },
 ];
 
-export default async function ZhubeiTrialBookingPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ entry?: string | string[] }>;
-}) {
-  const params = await searchParams;
-  const entry = typeof params.entry === "string" ? params.entry : undefined;
+export default function ZhubeiTrialBookingPage() {
   return (
     <main className="min-h-dvh bg-[#f7f2ea] pb-28 text-earth-900 sm:pb-12">
       <section className="mx-auto max-w-3xl overflow-hidden bg-white shadow-sm sm:mt-8 sm:rounded-[2rem]">
@@ -137,7 +131,7 @@ export default async function ZhubeiTrialBookingPage({
                 送出成功後，系統會直接在竹北店後台建立首次體驗預約。
               </p>
             </div>
-            <ZhubeiTrialBookingForm entry={entry} />
+            <ZhubeiTrialBookingForm />
           </section>
 
           <section className="mt-10 rounded-3xl bg-[#fcfaf7] p-5 sm:p-7">
