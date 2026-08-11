@@ -1,7 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { parseTaiwanDateToDbDate, toLocalDateStr } from "@/lib/date-utils";
+import { parseTaipeiDateTime, parseTaiwanDateToDbDate, toLocalDateStr } from "@/lib/date-utils";
 import { PENDING_STATUSES } from "@/lib/booking-constants";
 import { applySlotOverrides, loadDayBusinessHoursContext } from "@/lib/business-hours-resolver";
 import { isDutySchedulingEnabled } from "@/lib/shop-config";
@@ -34,7 +34,7 @@ export function verifyTrialBookingActionToken(token: string, now = new Date()): 
 }
 
 function bookingStartsAt(booking: { bookingDate: Date; slotTime: string }): Date {
-  return new Date(`${booking.bookingDate.toISOString().slice(0, 10)}T${booking.slotTime}:00+08:00`);
+  return parseTaipeiDateTime(booking.bookingDate.toISOString().slice(0, 10), booking.slotTime) ?? new Date(Number.NaN);
 }
 
 const SELF_SERVICE_CUTOFF_MS = 2 * 60 * 60 * 1000;
@@ -44,9 +44,8 @@ function selfServiceAllowed(booking: { bookingDate: Date; slotTime: string }, no
 }
 
 export function isTrialRescheduleTargetAllowed(date: string, slotTime: string, now: Date): boolean {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(slotTime)) return false;
-  const startsAt = new Date(`${date}T${slotTime}:00+08:00`);
-  return Number.isFinite(startsAt.getTime()) && startsAt.getTime() - now.getTime() > SELF_SERVICE_CUTOFF_MS;
+  const startsAt = parseTaipeiDateTime(date, slotTime);
+  return startsAt !== null && startsAt.getTime() - now.getTime() > SELF_SERVICE_CUTOFF_MS;
 }
 
 async function loadAuthorizedBooking(token: string, now = new Date()) {
