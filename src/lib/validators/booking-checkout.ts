@@ -15,6 +15,9 @@ export const purchasePlanForSingleBookingSchema = z.object({
   bookingId: z.string().min(1),
   planId: z.string().min(1),
   paymentMethod: z.enum(["CASH", "TRANSFER", "LINE_PAY", "CREDIT_CARD", "OTHER"]),
+  amount: z.number().int().min(1).max(1_000_000),
+  discountReason: z.string().trim().max(500).optional(),
+  note: z.string().trim().max(500).optional(),
 });
 
 // 調整結帳方式（Phase 2 / Mode B — PACKAGE_SESSION 方案扣堂 → SINGLE 單次未收款）。

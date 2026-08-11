@@ -81,6 +81,8 @@ export function CollectTrialModal({
   const [paymentSplits, setPaymentSplits] = useState<PaymentSplitInput[] | undefined>();
   const [paymentSplitsValid, setPaymentSplitsValid] = useState(true);
   const [completeService, setCompleteService] = useState(true);
+  const [discountReason, setDiscountReason] = useState("");
+  const [note, setNote] = useState("");
   const [pending, startTransition] = useTransition();
 
   const displayedAmount = settings.allowEdit ? Math.round(Number(amount)) : totalDefaultByActual;
@@ -106,6 +108,8 @@ export function CollectTrialModal({
         // attendedPeople 透過 prop 帶入；同 transaction 一併寫入 Booking。
         attendedPeople: attendedPeople ?? undefined,
         completeService,
+        discountReason: discountReason.trim() || undefined,
+        note: note.trim() || undefined,
       });
       if (r.success) {
         toast.success(r.data.serviceCompleted ? "已收款並完成服務" : "已確認收款");
@@ -229,6 +233,11 @@ export function CollectTrialModal({
           ))}
         </select>
         <PaymentSplitFields totalAmount={Number.isFinite(displayedAmount) ? displayedAmount : 0} primaryMethod={method as PaymentSplitInput["paymentMethod"]} disabled={pending} onChange={setPaymentSplits} onValidityChange={setPaymentSplitsValid} />
+
+        <label className="mb-1 block text-xs font-medium text-earth-600">折扣原因（選填）</label>
+        <input value={discountReason} disabled={pending} onChange={(e) => setDiscountReason(e.target.value)} maxLength={500} placeholder="例：好友介紹優惠" className="mb-3 w-full rounded-lg border border-earth-300 px-3 py-2 text-sm" />
+        <label className="mb-1 block text-xs font-medium text-earth-600">備註（選填）</label>
+        <textarea value={note} disabled={pending} onChange={(e) => setNote(e.target.value)} rows={2} maxLength={500} placeholder="其他收款說明，可留空" className="mb-4 w-full resize-none rounded-lg border border-earth-300 px-3 py-2 text-sm" />
 
         <div className="flex justify-end gap-2">
           <button

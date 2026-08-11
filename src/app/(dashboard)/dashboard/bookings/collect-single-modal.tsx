@@ -55,6 +55,7 @@ export function CollectSingleModal({
   const [paymentSplitsValid, setPaymentSplitsValid] = useState(true);
   const [completeService, setCompleteService] = useState(true);
   const [discountReason, setDiscountReason] = useState("");
+  const [note, setNote] = useState("");
   const [mode, setMode] = useState<"single" | "plan">("single");
   const [plans, setPlans] = useState<Array<{ id: string; name: string; price: number; sessionCount: number }>>([]);
   const [planId, setPlanId] = useState("");
@@ -70,6 +71,7 @@ export function CollectSingleModal({
       }
       setPlans(r.data);
       setPlanId(r.data[0]?.id ?? "");
+      if (r.data[0]) setAmount(String(r.data[0].price));
     });
   }, [bookingId, mode, open, plans.length]);
 
@@ -84,6 +86,9 @@ export function CollectSingleModal({
     ? Math.max(0, defaultPrice - amountNum)
     : 0;
   const overPaid = validAmount && amountNum > defaultPrice;
+  const selectedPlan = plans.find((plan) => plan.id === planId);
+  const planAmountNum = trimmed === "" ? NaN : Math.round(Number(trimmed));
+  const validPlanAmount = !!selectedPlan && Number.isFinite(planAmountNum) && planAmountNum > 0 && planAmountNum <= selectedPlan.price;
 
   function handleConfirm() {
     if (mode === "plan") {
@@ -93,6 +98,9 @@ export function CollectSingleModal({
           bookingId,
           planId,
           paymentMethod: method as "CASH" | "TRANSFER" | "LINE_PAY" | "CREDIT_CARD" | "OTHER",
+          amount: planAmountNum,
+          discountReason: discountReason.trim() || undefined,
+          note: note.trim() || undefined,
         });
         if (r.success) {
           toast.success(r.data.pendingPayment ? "已建立，待確認轉帳後發放堂數" : "已轉購方案並保留本次扣堂");
@@ -127,6 +135,7 @@ export function CollectSingleModal({
         amount: amountNum,
         discountReason:
           discountReason.trim().length > 0 ? discountReason.trim() : undefined,
+        note: note.trim() || undefined,
         completeService,
       });
       if (r.success) {
@@ -194,9 +203,11 @@ export function CollectSingleModal({
         {mode === "plan" ? (
           <>
             <label className="mb-1 block text-xs font-medium text-earth-600">選擇新儲值方案</label>
-            <select value={planId} disabled={pending} onChange={(e) => setPlanId(e.target.value)} className="mb-3 w-full rounded-lg border border-earth-300 px-3 py-2 text-sm">
+            <select value={planId} disabled={pending} onChange={(e) => { const next = plans.find((plan) => plan.id === e.target.value); setPlanId(e.target.value); if (next) setAmount(String(next.price)); }} className="mb-3 w-full rounded-lg border border-earth-300 px-3 py-2 text-sm">
               {plans.length === 0 ? <option value="">目前沒有可購買的多堂方案</option> : plans.map((p) => <option key={p.id} value={p.id}>{p.name}｜{p.sessionCount} 堂｜NT$ {p.price.toLocaleString()}</option>)}
             </select>
+            <label className="mb-1 block text-xs font-medium text-earth-600">實收金額（NT$）</label>
+            <input type="number" inputMode="numeric" value={amount} min={1} max={selectedPlan?.price} disabled={pending || !selectedPlan} onChange={(e) => setAmount(e.target.value)} className="mb-3 w-full rounded-lg border border-earth-300 px-3 py-2 text-sm" />
           </>
         ) : <><label className="mb-1 block text-xs font-medium text-earth-600">
           實收金額（NT$）
@@ -242,8 +253,8 @@ export function CollectSingleModal({
         </select>
         {mode === "single" && validAmount && <PaymentSplitFields totalAmount={amountNum} primaryMethod={method as PaymentSplitInput["paymentMethod"]} disabled={pending} onChange={setPaymentSplits} onValidityChange={setPaymentSplitsValid} />}
 
-        {mode === "single" && <><label className="mb-1 block text-xs font-medium text-earth-600">
-          折扣原因 / 備註{discountAmount > 0 ? "" : "（選填）"}
+        <><label className="mb-1 block text-xs font-medium text-earth-600">
+          折扣原因（選填）
         </label>
         <textarea
           value={discountReason}
@@ -257,7 +268,10 @@ export function CollectSingleModal({
               : "若有折扣請填原因；無折扣可留空"
           }
           className="mb-4 w-full resize-none rounded-lg border border-earth-300 px-3 py-2 text-sm"
-        /></>}
+        />
+        <label className="mb-1 block text-xs font-medium text-earth-600">備註（選填）</label>
+        <textarea value={note} disabled={pending} onChange={(e) => setNote(e.target.value)} rows={2} maxLength={500} placeholder="其他收款說明，可留空" className="mb-4 w-full resize-none rounded-lg border border-earth-300 px-3 py-2 text-sm" />
+        </>
 
         <div className="flex justify-end gap-2">
           <button
@@ -271,7 +285,7 @@ export function CollectSingleModal({
           <button
             type="button"
             onClick={handleConfirm}
-            disabled={pending || (mode === "single" ? !validAmount || overPaid || !paymentSplitsValid : !planId)}
+            disabled={pending || (mode === "single" ? !validAmount || overPaid || !paymentSplitsValid : !validPlanAmount)}
             className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-60"
           >
             {pending ? "處理中..." : mode === "plan" ? "確認轉購方案" : completeService ? "確認收款並完成服務" : "僅確認收款"}
