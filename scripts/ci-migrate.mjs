@@ -14,11 +14,18 @@ export const HUMAN_SUPPORT_SUMMARY_MIGRATION =
   "20260802090000_add_digital_butler_human_support_summary";
 export const PAYMENT_SPLIT_RLS_MIGRATION =
   "20260808090000_enable_transaction_payment_split_rls";
+export const TRIAL_BOOKING_SELF_SERVICE_MIGRATION =
+  "20260808100000_add_trial_booking_chat_self_service";
+export const REMINDER_IDEMPOTENCY_MIGRATION =
+  "20260810120000_messenger_utility_reminder_idempotency";
+export const TRIAL_REMINDER_MIGRATION_BUNDLE_TARGET =
+  `${TRIAL_BOOKING_SELF_SERVICE_MIGRATION},${REMINDER_IDEMPOTENCY_MIGRATION}`;
 export const PRODUCTION_MIGRATION_TARGET_ENV = "PRODUCTION_MIGRATION_TARGET";
 export const APPROVED_PRODUCTION_MIGRATION_TARGETS = [
   PAYMENT_SPLIT_MIGRATION,
   HUMAN_SUPPORT_SUMMARY_MIGRATION,
   PAYMENT_SPLIT_RLS_MIGRATION,
+  TRIAL_REMINDER_MIGRATION_BUNDLE_TARGET,
 ];
 export const MESSENGER_CHECKSUM =
   "6edbd88d9fd2ab9e368b963d21f7d90ef2ed1f8e8c467a29c20f9a3c8d8e1488";
@@ -28,6 +35,10 @@ export const HUMAN_SUPPORT_SUMMARY_CHECKSUM =
   "9218b485f642748141666778d7643bc5ba1aee27541ae8dc17461dacd3884ad5";
 export const PAYMENT_SPLIT_RLS_CHECKSUM =
   "bdc2cd86ea67507df334271b3589c7e416bad4ec2c1cddc96da23b7f3d0f2064";
+export const TRIAL_BOOKING_SELF_SERVICE_CHECKSUM =
+  "fcd758f18d3a157e7cbb7512632871812c976723a13e373fe6ad0c2cf8d0ba08";
+export const REMINDER_IDEMPOTENCY_CHECKSUM =
+  "fd25c2412c5c64cc7c20d502753747964b0e20feaebeee200c6d69bc997bb894";
 const PENDING_MIGRATIONS_HEADER =
   /Following migrations? have not yet been applied:/;
 const MESSENGER_MIGRATION_FILE =
@@ -38,6 +49,10 @@ const HUMAN_SUPPORT_SUMMARY_MIGRATION_FILE =
   `prisma/migrations/${HUMAN_SUPPORT_SUMMARY_MIGRATION}/migration.sql`;
 const PAYMENT_SPLIT_RLS_MIGRATION_FILE =
   `prisma/migrations/${PAYMENT_SPLIT_RLS_MIGRATION}/migration.sql`;
+const TRIAL_BOOKING_SELF_SERVICE_MIGRATION_FILE =
+  `prisma/migrations/${TRIAL_BOOKING_SELF_SERVICE_MIGRATION}/migration.sql`;
+const REMINDER_IDEMPOTENCY_MIGRATION_FILE =
+  `prisma/migrations/${REMINDER_IDEMPOTENCY_MIGRATION}/migration.sql`;
 
 const expectedMessengerColumns = [
   ["id", "text", "text", "NO", null],
@@ -94,6 +109,27 @@ const HUMAN_SUPPORT_SUMMARY_INDEX =
   "DigitalButlerLead_handoff_lookup_idx";
 const expectedHumanSupportSummaryIndexColumns = [
   "storeId", "completionActionKey", "assignedStaffId",
+];
+const expectedTrialBookingColumns = [
+  ["trialBookingChannel", "USER-DEFINED", "TrialBookingChannel", "YES", null],
+  ["customerConfirmedAt", "timestamp without time zone", "timestamp", "YES", null],
+  ["customerRescheduledAt", "timestamp without time zone", "timestamp", "YES", null],
+  ["customerCancelledAt", "timestamp without time zone", "timestamp", "YES", null],
+  ["customerCancelledSource", "text", "text", "YES", null],
+  ["customerRescheduleCount", "integer", "int4", "NO", "0"],
+  ["originalBookingDate", "date", "date", "YES", null],
+  ["originalSlotTime", "text", "text", "YES", null],
+];
+const expectedTrialLinkConstraints = [
+  "TrialBookingLink_bookingId_fkey",
+  "TrialBookingLink_pkey",
+  "TrialBookingLink_storeId_fkey",
+];
+const expectedTrialLinkIndexes = [
+  "TrialBookingLink_bookingId_idx",
+  "TrialBookingLink_bookingId_key",
+  "TrialBookingLink_storeId_expiresAt_idx",
+  "TrialBookingLink_tokenHash_key",
 ];
 
 function log(event) {
@@ -161,7 +197,15 @@ function assertApprovedMigrationTarget(value) {
     [PAYMENT_SPLIT_MIGRATION]: [PAYMENT_SPLIT_MIGRATION_FILE, PAYMENT_SPLIT_CHECKSUM],
     [HUMAN_SUPPORT_SUMMARY_MIGRATION]: [HUMAN_SUPPORT_SUMMARY_MIGRATION_FILE, HUMAN_SUPPORT_SUMMARY_CHECKSUM],
     [PAYMENT_SPLIT_RLS_MIGRATION]: [PAYMENT_SPLIT_RLS_MIGRATION_FILE, PAYMENT_SPLIT_RLS_CHECKSUM],
+    [TRIAL_REMINDER_MIGRATION_BUNDLE_TARGET]: null,
   };
+  if (value === TRIAL_REMINDER_MIGRATION_BUNDLE_TARGET) {
+    if (
+      migrationChecksum(TRIAL_BOOKING_SELF_SERVICE_MIGRATION_FILE) !== TRIAL_BOOKING_SELF_SERVICE_CHECKSUM ||
+      migrationChecksum(REMINDER_IDEMPOTENCY_MIGRATION_FILE) !== REMINDER_IDEMPOTENCY_CHECKSUM
+    ) abort("migration_target_checksum_mismatch");
+    return;
+  }
   const [targetFile, targetChecksum] = targetFiles[value];
   if (migrationChecksum(targetFile) !== targetChecksum) {
     abort("migration_target_checksum_mismatch");
@@ -215,6 +259,13 @@ export function hasOnlyHumanSupportSummaryPending(statusOutput) {
 export function hasOnlyPaymentSplitRlsPending(statusOutput) {
   const pending = pendingMigrations(statusOutput);
   return pending.length === 1 && pending[0] === PAYMENT_SPLIT_RLS_MIGRATION;
+}
+
+export function hasOnlyTrialReminderBundlePending(statusOutput) {
+  const pending = pendingMigrations(statusOutput);
+  return pending.length === 2 &&
+    pending[0] === TRIAL_BOOKING_SELF_SERVICE_MIGRATION &&
+    pending[1] === REMINDER_IDEMPOTENCY_MIGRATION;
 }
 
 export function classifyMessengerMigration(input, failedMigrationNames) {
@@ -402,6 +453,134 @@ export function hasExpectedPaymentSplitRls(snapshot, enabled) {
     snapshot.clientGrantCount === 0;
 }
 
+async function readTrialReminderSnapshot(prisma) {
+  const [
+    trialEnum, reminderEnum, bookingColumns, trialTable, trialConstraints,
+    trialIndexes, trialRls, trialPolicies, trialClientGrants, messageIndexes,
+  ] = await Promise.all([
+    prisma.$queryRaw`SELECT e.enumlabel AS "value" FROM pg_type t JOIN pg_enum e ON e.enumtypid = t.oid WHERE t.typname = 'TrialBookingChannel' ORDER BY e.enumsortorder`,
+    prisma.$queryRaw`SELECT e.enumlabel AS "value" FROM pg_type t JOIN pg_enum e ON e.enumtypid = t.oid WHERE t.typname = 'ReminderChannel' ORDER BY e.enumsortorder`,
+    prisma.$queryRaw`SELECT column_name AS "columnName", data_type AS "dataType", udt_name AS "udtName", is_nullable AS "isNullable", column_default AS "columnDefault" FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'Booking' AND column_name IN ('trialBookingChannel', 'customerConfirmedAt', 'customerRescheduledAt', 'customerCancelledAt', 'customerCancelledSource', 'customerRescheduleCount', 'originalBookingDate', 'originalSlotTime') ORDER BY ordinal_position`,
+    prisma.$queryRaw`SELECT to_regclass('public."TrialBookingLink"') IS NOT NULL AS "exists"`,
+    prisma.$queryRaw`SELECT conname AS "name" FROM pg_constraint WHERE conrelid = to_regclass('public."TrialBookingLink"') ORDER BY conname`,
+    prisma.$queryRaw`SELECT indexname AS "name" FROM pg_indexes WHERE schemaname = 'public' AND tablename = 'TrialBookingLink' AND indexname <> 'TrialBookingLink_pkey' ORDER BY indexname`,
+    prisma.$queryRaw`SELECT c.relrowsecurity AS "enabled", c.relforcerowsecurity AS "forced" FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public' AND c.relname = 'TrialBookingLink' AND c.relkind = 'r'`,
+    prisma.$queryRaw`SELECT count(*)::int AS "count" FROM pg_policies WHERE schemaname = 'public' AND tablename = 'TrialBookingLink'`,
+    prisma.$queryRaw`SELECT count(*)::int AS "count" FROM information_schema.role_table_grants WHERE table_schema = 'public' AND table_name = 'TrialBookingLink' AND grantee IN ('anon', 'authenticated')`,
+    prisma.$queryRaw`SELECT indexname AS "name", indexdef AS "definition" FROM pg_indexes WHERE schemaname = 'public' AND tablename = 'MessageLog' AND indexname IN ('uniq_rule_booking_trigger', 'uniq_sent_rule_booking_trigger', 'idx_rule_booking_trigger') ORDER BY indexname`,
+  ]);
+  return {
+    trialEnumValues: trialEnum.map((row) => row.value),
+    reminderEnumValues: reminderEnum.map((row) => row.value),
+    bookingColumns,
+    trialTableExists: trialTable.length === 1 && trialTable[0].exists === true,
+    trialConstraints: trialConstraints.map((row) => row.name),
+    trialIndexes: trialIndexes.map((row) => row.name),
+    trialRlsEnabled: trialRls.length === 1 ? trialRls[0].enabled : null,
+    trialRlsForced: trialRls.length === 1 ? trialRls[0].forced : null,
+    trialPolicyCount: trialPolicies.length === 1 ? trialPolicies[0].count : null,
+    trialClientGrantCount: trialClientGrants.length === 1 ? trialClientGrants[0].count : null,
+    messageIndexes,
+  };
+}
+
+export function hasNoTrialReminderObjects(snapshot) {
+  return snapshot.trialEnumValues.length === 0 &&
+    snapshot.bookingColumns.length === 0 &&
+    snapshot.trialTableExists === false &&
+    snapshot.trialConstraints.length === 0 &&
+    snapshot.trialIndexes.length === 0 &&
+    snapshot.messageIndexes.length === 1 &&
+    snapshot.messageIndexes[0].name === "uniq_rule_booking_trigger";
+}
+
+export function hasExpectedTrialReminderSchema(snapshot) {
+  const bookingColumnsMatch =
+    snapshot.bookingColumns.length === expectedTrialBookingColumns.length &&
+    expectedTrialBookingColumns.every((expected, index) => {
+      const actual = snapshot.bookingColumns[index];
+      return actual &&
+        actual.columnName === expected[0] &&
+        actual.dataType === expected[1] &&
+        actual.udtName === expected[2] &&
+        actual.isNullable === expected[3] &&
+        normalizeDefault(actual.columnDefault) === normalizeDefault(expected[4]);
+    });
+  const messageIndexNames = snapshot.messageIndexes.map((index) => index.name);
+  const uniqueIndex = snapshot.messageIndexes.find(
+    (index) => index.name === "uniq_sent_rule_booking_trigger",
+  );
+  const lookupIndex = snapshot.messageIndexes.find(
+    (index) => index.name === "idx_rule_booking_trigger",
+  );
+  return sameValues(snapshot.trialEnumValues, ["LINE", "MESSENGER"]) &&
+    snapshot.reminderEnumValues.includes("MESSENGER") &&
+    bookingColumnsMatch &&
+    snapshot.trialTableExists === true &&
+    sameValues(snapshot.trialConstraints, expectedTrialLinkConstraints) &&
+    sameValues(snapshot.trialIndexes, expectedTrialLinkIndexes) &&
+    snapshot.trialRlsEnabled === true &&
+    snapshot.trialRlsForced === false &&
+    snapshot.trialPolicyCount === 0 &&
+    snapshot.trialClientGrantCount === 0 &&
+    sameValues(messageIndexNames, ["uniq_sent_rule_booking_trigger", "idx_rule_booking_trigger"]) &&
+    uniqueIndex?.definition.includes("UNIQUE INDEX") &&
+    uniqueIndex.definition.includes("WHERE (status = 'SENT'") &&
+    lookupIndex?.definition.includes('("ruleId", "bookingId", "triggerAt")');
+}
+
+async function readTrialReminderLedger(prisma) {
+  return prisma.$queryRaw`SELECT migration_name AS "migrationName", checksum, finished_at AS "finishedAt", rolled_back_at AS "rolledBackAt" FROM "_prisma_migrations" WHERE migration_name IN (${TRIAL_BOOKING_SELF_SERVICE_MIGRATION}, ${REMINDER_IDEMPOTENCY_MIGRATION}) ORDER BY migration_name`;
+}
+
+export function hasAppliedTrialReminderBundle(rows) {
+  const expected = [
+    [TRIAL_BOOKING_SELF_SERVICE_MIGRATION, TRIAL_BOOKING_SELF_SERVICE_CHECKSUM],
+    [REMINDER_IDEMPOTENCY_MIGRATION, REMINDER_IDEMPOTENCY_CHECKSUM],
+  ];
+  return rows.length === expected.length && expected.every(([name, checksum], index) => {
+    const row = rows[index];
+    return row?.migrationName === name &&
+      row.checksum === checksum &&
+      row.finishedAt !== null &&
+      row.rolledBackAt === null;
+  });
+}
+
+async function runTrialReminderMigrationBundle(prisma) {
+  const initialStatus = runPrisma(["migrate", "status"]);
+  if (isStatusUpToDate(initialStatus)) {
+    const [current, ledger] = await Promise.all([
+      readTrialReminderSnapshot(prisma), readTrialReminderLedger(prisma),
+    ]);
+    if (!hasExpectedTrialReminderSchema(current) || !hasAppliedTrialReminderBundle(ledger)) {
+      abort("trial_reminder_applied_state_rejected");
+    }
+    log("trial_reminder_already_applied_verified");
+    return;
+  }
+  if (initialStatus.exitCode !== 1 || !hasOnlyTrialReminderBundlePending(initialStatus.output)) {
+    abort("trial_reminder_pending_allowlist_rejected");
+  }
+  const before = await readTrialReminderSnapshot(prisma);
+  if (!hasNoTrialReminderObjects(before)) abort("trial_reminder_preflight_rejected");
+  log("trial_reminder_preflight_verified");
+  log("trial_reminder_deploy_started");
+  if (runPrisma(["migrate", "deploy"]).exitCode !== 0) {
+    abort("trial_reminder_deploy_failed");
+  }
+  log("trial_reminder_deploy_succeeded");
+  const finalStatus = runPrisma(["migrate", "status"]);
+  if (!isStatusUpToDate(finalStatus)) abort("trial_reminder_final_status_rejected");
+  const [after, ledger] = await Promise.all([
+    readTrialReminderSnapshot(prisma), readTrialReminderLedger(prisma),
+  ]);
+  if (!hasExpectedTrialReminderSchema(after) || !hasAppliedTrialReminderBundle(ledger)) {
+    abort("trial_reminder_final_schema_rejected");
+  }
+  log("trial_reminder_final_schema_verified");
+}
+
 async function readHumanSupportSummarySnapshot(prisma) {
   const [columns, indexes] = await Promise.all([
     prisma.$queryRaw`SELECT column_name AS "columnName", data_type AS "dataType", udt_name AS "udtName", is_nullable AS "isNullable", column_default AS "columnDefault" FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'DigitalButlerLead' AND column_name IN ('customerDisplayName', 'customerAvatarUrl', 'customerReference', 'lastMessageCiphertext', 'lastMessageIv', 'lastMessageAuthTag', 'lastMessageAt') ORDER BY ordinal_position`,
@@ -569,6 +748,10 @@ async function main() {
     }
     if (target === PAYMENT_SPLIT_RLS_MIGRATION) {
       await runPaymentSplitRlsMigration(prisma);
+      return;
+    }
+    if (target === TRIAL_REMINDER_MIGRATION_BUNDLE_TARGET) {
+      await runTrialReminderMigrationBundle(prisma);
       return;
     }
     const ledger = await readMessengerLedger(prisma);
