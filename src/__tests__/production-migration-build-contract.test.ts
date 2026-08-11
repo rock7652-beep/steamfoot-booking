@@ -11,6 +11,11 @@ import {
   HUMAN_SUPPORT_SUMMARY_MIGRATION,
   PAYMENT_SPLIT_RLS_CHECKSUM,
   PAYMENT_SPLIT_RLS_MIGRATION,
+  TRIAL_BOOKING_SELF_SERVICE_CHECKSUM,
+  TRIAL_BOOKING_SELF_SERVICE_MIGRATION,
+  REMINDER_IDEMPOTENCY_CHECKSUM,
+  REMINDER_IDEMPOTENCY_MIGRATION,
+  TRIAL_REMINDER_MIGRATION_BUNDLE_TARGET,
   APPROVED_PRODUCTION_MIGRATION_TARGETS,
   PRODUCTION_MIGRATION_TARGET_ENV,
   classifyMessengerMigration,
@@ -21,6 +26,10 @@ import {
   hasOnlyPaymentSplitPending,
   hasOnlyHumanSupportSummaryPending,
   hasOnlyPaymentSplitRlsPending,
+  hasOnlyTrialReminderBundlePending,
+  hasNoTrialReminderObjects,
+  hasExpectedTrialReminderSchema,
+  hasAppliedTrialReminderBundle,
   hasNoHumanSupportSummaryObjects,
   hasExpectedHumanSupportSummarySchema,
   isAppliedPaymentSplitMigration,
@@ -50,6 +59,14 @@ const humanSupportSummaryMigration = resolve(
 const paymentSplitRlsMigration = resolve(
   process.cwd(),
   `prisma/migrations/${PAYMENT_SPLIT_RLS_MIGRATION}/migration.sql`,
+);
+const trialBookingSelfServiceMigration = resolve(
+  process.cwd(),
+  `prisma/migrations/${TRIAL_BOOKING_SELF_SERVICE_MIGRATION}/migration.sql`,
+);
+const reminderIdempotencyMigration = resolve(
+  process.cwd(),
+  `prisma/migrations/${REMINDER_IDEMPOTENCY_MIGRATION}/migration.sql`,
 );
 const completeMessengerSnapshot = {
   enumValues: ["RUNNING", "COMPLETED", "COMPLETED_WITH_ERRORS", "FAILED"],
@@ -123,10 +140,15 @@ describe("Production migration recovery guard", () => {
       PAYMENT_SPLIT_MIGRATION,
       HUMAN_SUPPORT_SUMMARY_MIGRATION,
       PAYMENT_SPLIT_RLS_MIGRATION,
+      TRIAL_REMINDER_MIGRATION_BUNDLE_TARGET,
     ]);
     expect(resolveProductionMigrationTarget(PAYMENT_SPLIT_MIGRATION)).toBe(PAYMENT_SPLIT_MIGRATION);
     expect(resolveProductionMigrationTarget(HUMAN_SUPPORT_SUMMARY_MIGRATION)).toBe(HUMAN_SUPPORT_SUMMARY_MIGRATION);
     expect(resolveProductionMigrationTarget(PAYMENT_SPLIT_RLS_MIGRATION)).toBe(PAYMENT_SPLIT_RLS_MIGRATION);
+    expect(resolveProductionMigrationTarget(TRIAL_REMINDER_MIGRATION_BUNDLE_TARGET))
+      .toBe(TRIAL_REMINDER_MIGRATION_BUNDLE_TARGET);
+    expect(resolveProductionMigrationTarget(TRIAL_BOOKING_SELF_SERVICE_MIGRATION)).toBeNull();
+    expect(resolveProductionMigrationTarget(REMINDER_IDEMPOTENCY_MIGRATION)).toBeNull();
 
     const result = spawnSync(process.execPath, [scriptPath], {
       encoding: "utf8",
@@ -158,6 +180,8 @@ describe("Production migration recovery guard", () => {
     expect(migrationChecksum(paymentSplitMigration)).toBe(PAYMENT_SPLIT_CHECKSUM);
     expect(migrationChecksum(humanSupportSummaryMigration)).toBe(HUMAN_SUPPORT_SUMMARY_CHECKSUM);
     expect(migrationChecksum(paymentSplitRlsMigration)).toBe(PAYMENT_SPLIT_RLS_CHECKSUM);
+    expect(migrationChecksum(trialBookingSelfServiceMigration)).toBe(TRIAL_BOOKING_SELF_SERVICE_CHECKSUM);
+    expect(migrationChecksum(reminderIdempotencyMigration)).toBe(REMINDER_IDEMPOTENCY_CHECKSUM);
   });
 
   it("supports the applied Messenger path without resolve", () => {
@@ -241,6 +265,103 @@ describe("Production migration recovery guard", () => {
     expect(hasOnlyPaymentSplitRlsPending(`${onlyRls}20260901090000_unapproved\n`)).toBe(false);
   });
 
+  it("allows only the two trial-reminder migrations in their exact order", () => {
+    const exact = `${PENDING}\n${TRIAL_BOOKING_SELF_SERVICE_MIGRATION}\n${REMINDER_IDEMPOTENCY_MIGRATION}\n`;
+    expect(hasOnlyTrialReminderBundlePending(exact)).toBe(true);
+    expect(hasOnlyTrialReminderBundlePending(
+      `${PENDING}\n${REMINDER_IDEMPOTENCY_MIGRATION}\n${TRIAL_BOOKING_SELF_SERVICE_MIGRATION}\n`,
+    )).toBe(false);
+    expect(hasOnlyTrialReminderBundlePending(
+      `${exact}20260901090000_unapproved\n`,
+    )).toBe(false);
+    expect(hasOnlyTrialReminderBundlePending(
+      `${PENDING_SINGULAR}\n${TRIAL_BOOKING_SELF_SERVICE_MIGRATION}\n`,
+    )).toBe(false);
+  });
+
+  it("rejects partial trial-reminder state and verifies the final schema and ledger", () => {
+    const absent = {
+      trialEnumValues: [],
+      reminderEnumValues: ["LINE"],
+      bookingColumns: [],
+      trialTableExists: false,
+      trialConstraints: [],
+      trialIndexes: [],
+      trialRlsEnabled: null,
+      trialRlsForced: null,
+      trialPolicyCount: 0,
+      trialClientGrantCount: 0,
+      messageIndexes: [{ name: "uniq_rule_booking_trigger", definition: "CREATE UNIQUE INDEX" }],
+    };
+    expect(hasNoTrialReminderObjects(absent)).toBe(true);
+    expect(hasNoTrialReminderObjects({ ...absent, trialEnumValues: ["LINE", "MESSENGER"] })).toBe(false);
+    expect(hasNoTrialReminderObjects({ ...absent, bookingColumns: [{ columnName: "trialBookingChannel" }] })).toBe(false);
+
+    const bookingColumns = [
+      ["trialBookingChannel", "USER-DEFINED", "TrialBookingChannel", "YES", null],
+      ["customerConfirmedAt", "timestamp without time zone", "timestamp", "YES", null],
+      ["customerRescheduledAt", "timestamp without time zone", "timestamp", "YES", null],
+      ["customerCancelledAt", "timestamp without time zone", "timestamp", "YES", null],
+      ["customerCancelledSource", "text", "text", "YES", null],
+      ["customerRescheduleCount", "integer", "int4", "NO", "0"],
+      ["originalBookingDate", "date", "date", "YES", null],
+      ["originalSlotTime", "text", "text", "YES", null],
+    ].map(([columnName, dataType, udtName, isNullable, columnDefault]) => ({
+      columnName, dataType, udtName, isNullable, columnDefault,
+    }));
+    const complete = {
+      ...absent,
+      trialEnumValues: ["LINE", "MESSENGER"],
+      reminderEnumValues: ["LINE", "MESSENGER"],
+      bookingColumns,
+      trialTableExists: true,
+      trialConstraints: [
+        "TrialBookingLink_bookingId_fkey",
+        "TrialBookingLink_pkey",
+        "TrialBookingLink_storeId_fkey",
+      ],
+      trialIndexes: [
+        "TrialBookingLink_bookingId_idx",
+        "TrialBookingLink_bookingId_key",
+        "TrialBookingLink_storeId_expiresAt_idx",
+        "TrialBookingLink_tokenHash_key",
+      ],
+      trialRlsEnabled: true,
+      trialRlsForced: false,
+      messageIndexes: [
+        {
+          name: "idx_rule_booking_trigger",
+          definition: 'CREATE INDEX idx_rule_booking_trigger ON public."MessageLog" USING btree ("ruleId", "bookingId", "triggerAt")',
+        },
+        {
+          name: "uniq_sent_rule_booking_trigger",
+          definition: 'CREATE UNIQUE INDEX uniq_sent_rule_booking_trigger ON public."MessageLog" USING btree ("ruleId", "bookingId", "triggerAt") WHERE (status = \'SENT\'::"MessageStatus")',
+        },
+      ],
+    };
+    expect(hasExpectedTrialReminderSchema(complete)).toBe(true);
+    expect(hasExpectedTrialReminderSchema({ ...complete, trialRlsEnabled: false })).toBe(false);
+    expect(hasExpectedTrialReminderSchema({ ...complete, messageIndexes: complete.messageIndexes.slice(1) })).toBe(false);
+
+    const applied = [
+      {
+        migrationName: TRIAL_BOOKING_SELF_SERVICE_MIGRATION,
+        checksum: TRIAL_BOOKING_SELF_SERVICE_CHECKSUM,
+        finishedAt: new Date(),
+        rolledBackAt: null,
+      },
+      {
+        migrationName: REMINDER_IDEMPOTENCY_MIGRATION,
+        checksum: REMINDER_IDEMPOTENCY_CHECKSUM,
+        finishedAt: new Date(),
+        rolledBackAt: null,
+      },
+    ];
+    expect(hasAppliedTrialReminderBundle(applied)).toBe(true);
+    expect(hasAppliedTrialReminderBundle([...applied].reverse())).toBe(false);
+    expect(hasAppliedTrialReminderBundle([{ ...applied[0], checksum: "wrong" }, applied[1]])).toBe(false);
+  });
+
   it("pins the exact payment-split RLS preflight and final states", () => {
     const baseline = { rlsEnabled: false, rlsForced: false, policyCount: 0, clientGrantCount: 0 };
     expect(hasExpectedPaymentSplitRls(baseline, false)).toBe(true);
@@ -316,6 +437,9 @@ describe("Production migration recovery guard", () => {
     expect(script).toContain("payment_split_rls_preflight_verified");
     expect(script).toContain("payment_split_rls_final_schema_verified");
     expect(script).toContain("payment_split_rls_already_applied_verified");
+    expect(script).toContain("trial_reminder_preflight_verified");
+    expect(script).toContain("trial_reminder_final_schema_verified");
+    expect(script).toContain("trial_reminder_already_applied_verified");
   });
 });
 
