@@ -84,4 +84,39 @@ export async function resolveTrialBookingChatLink(token: string, now = new Date(
   }
 }
 
+/**
+ * Resolve the original chat recipient only from the consumed link for this exact
+ * booking, store, and channel. Never fall back to phone or Customer.lineUserId.
+ */
+export async function loadScopedTrialBookingChatIdentity(input: {
+  bookingId: string;
+  storeId: string;
+  channel: TrialBookingChannel;
+}): Promise<string | null> {
+  const link = await prisma.trialBookingLink.findUnique({
+    where: { bookingId: input.bookingId },
+    select: {
+      storeId: true,
+      channel: true,
+      consumedAt: true,
+      identityCiphertext: true,
+      identityIv: true,
+      identityAuthTag: true,
+      identityKeyVersion: true,
+    },
+  });
+  if (!link || !link.consumedAt || link.storeId !== input.storeId || link.channel !== input.channel) return null;
+  try {
+    const identity = decryptDigitalButlerValue({
+      ciphertext: Buffer.from(link.identityCiphertext),
+      iv: Buffer.from(link.identityIv),
+      authTag: Buffer.from(link.identityAuthTag),
+      keyVersion: link.identityKeyVersion as "v1",
+    }).trim();
+    return identity || null;
+  } catch {
+    return null;
+  }
+}
+
 export { LINK_TTL_MS };
