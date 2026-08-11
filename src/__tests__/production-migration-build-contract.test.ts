@@ -29,6 +29,7 @@ import {
   hasOnlyTrialReminderBundlePending,
   hasNoTrialReminderObjects,
   hasExpectedTrialReminderSchema,
+  readTrialReminderSnapshot,
   hasAppliedTrialReminderBundle,
   hasNoHumanSupportSummaryObjects,
   hasExpectedHumanSupportSummarySchema,
@@ -279,7 +280,7 @@ describe("Production migration recovery guard", () => {
     )).toBe(false);
   });
 
-  it("rejects partial trial-reminder state and verifies the final schema and ledger", () => {
+  it("rejects partial trial-reminder state and verifies the final schema and ledger", async () => {
     const absent = {
       trialEnumValues: [],
       reminderEnumValues: ["LINE"],
@@ -358,11 +359,59 @@ describe("Production migration recovery guard", () => {
         },
       ],
     };
-    // The post-deploy snapshot must retain the full pg_constraint rows so the
-    // checker can verify type, columns, references, and FK actions.
-    expect(script).toContain("    trialConstraints,");
-    expect(script).not.toContain("trialConstraints: trialConstraints.map");
-    expect(hasExpectedTrialReminderSchema(complete)).toBe(true);
+    const queryResults = [
+      complete.trialEnumValues.map((value) => ({ value })),
+      complete.reminderEnumValues.map((value) => ({ value })),
+      complete.bookingColumns,
+      [{ exists: true }],
+      complete.trialLinkColumns,
+      complete.trialConstraints,
+      complete.trialIndexes,
+      [{ enabled: true, forced: false }],
+      [{ count: 0 }],
+      [{ count: 0 }],
+      complete.messageIndexes,
+    ];
+    let queryIndex = 0;
+    const prisma = {
+      $queryRaw: () => Promise.resolve(queryResults[queryIndex++]),
+    };
+    const readerSnapshot = await readTrialReminderSnapshot(prisma);
+    expect(queryIndex).toBe(queryResults.length);
+    expect(readerSnapshot.trialConstraints).toEqual(complete.trialConstraints);
+    expect(readerSnapshot.trialConstraints).toEqual([
+      expect.objectContaining({
+        name: "TrialBookingLink_bookingId_fkey",
+        constraintType: "f",
+        localColumns: ["bookingId"],
+        referencedSchema: "public",
+        referencedTable: "Booking",
+        referencedColumns: ["id"],
+        updateAction: "c",
+        deleteAction: "n",
+      }),
+      expect.objectContaining({
+        name: "TrialBookingLink_pkey",
+        constraintType: "p",
+        localColumns: ["id"],
+        referencedSchema: null,
+        referencedTable: null,
+        referencedColumns: [],
+        updateAction: null,
+        deleteAction: null,
+      }),
+      expect.objectContaining({
+        name: "TrialBookingLink_storeId_fkey",
+        constraintType: "f",
+        localColumns: ["storeId"],
+        referencedSchema: "public",
+        referencedTable: "Store",
+        referencedColumns: ["id"],
+        updateAction: "c",
+        deleteAction: "c",
+      }),
+    ]);
+    expect(hasExpectedTrialReminderSchema(readerSnapshot)).toBe(true);
     expect(hasExpectedTrialReminderSchema({
       ...complete,
       trialConstraints: complete.trialConstraints.map((constraint) => (
