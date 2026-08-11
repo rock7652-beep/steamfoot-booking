@@ -34,6 +34,7 @@ import {
 } from "@/lib/date-utils";
 import { resolveCentralLineRecipientsForCustomers } from "@/server/services/central-line-recipient-loader";
 import { resolveVerifiedReminderLineRoute } from "@/server/services/verified-reminder-line-route";
+import { createTrialBookingActionToken } from "@/server/services/trial-booking-self-service";
 import { sendMessengerUtilityReminder } from "@/server/services/messenger-utility-reminder";
 
 const DEFAULT_TEMPLATE = `{{customerName}} 您好！
@@ -199,7 +200,17 @@ export async function runReminders(): Promise<SendResult> {
           const config = await getShopConfig(bookingStoreId);
           shopNameCache.set(bookingStoreId, config.shopName);
         }
-        const bookingLink = `${baseUrl}/my-bookings`;
+        if (!process.env.TRIAL_BOOKING_ACTION_SECRET) {
+          await recordSkippedReminder({
+            ruleId: rule.id, templateId: rule.templateId, customerId: customer.id,
+            bookingId: booking.id, triggerAt, storeId: bookingStoreId,
+            channel: "MESSENGER", reason: "FAILED_CONFIGURATION",
+          });
+          result.failed++;
+          result.details.push({ customerId: customer.id, bookingId: booking.id, ruleName: rule.name, status: "FAILED", error: "FAILED_CONFIGURATION" });
+          continue;
+        }
+        const bookingLink = `${baseUrl}/trial-booking/manage?token=${encodeURIComponent(createTrialBookingActionToken(booking))}`;
         const code = await sendMessengerUtilityReminder({
           ruleId: rule.id, templateId: rule.templateId, triggerAt,
           booking: { id: booking.id, storeId: bookingStoreId, customerId: customer.id, bookingDate: booking.bookingDate, slotTime: booking.slotTime, people: booking.people },
@@ -328,13 +339,17 @@ export async function runReminders(): Promise<SendResult> {
         shopNameCache.set(bookingStoreId, sc.shopName);
       }
       const bookingDateStr = booking.bookingDate.toISOString().slice(0, 10);
+      let bookingLink = `${baseUrl}/my-bookings`;
+      if (booking.bookingType === "FIRST_TRIAL" && booking.trialBookingChannel && process.env.TRIAL_BOOKING_ACTION_SECRET) {
+        bookingLink = `${baseUrl}/trial-booking/manage?token=${encodeURIComponent(createTrialBookingActionToken(booking))}`;
+      }
       const vars: TemplateVariables = {
         customerName: customer.name,
         bookingDate: bookingDateStr,
         bookingTime: booking.slotTime,
         shopName: shopNameCache.get(bookingStoreId) ?? "蒸足",
         staffName: customer.assignedStaff?.displayName ?? "店長",
-        bookingLink: `${baseUrl}/my-bookings`,
+        bookingLink,
       };
       const renderedBody = renderTemplate(templateBody, vars);
 

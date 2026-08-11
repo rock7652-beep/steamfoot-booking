@@ -381,6 +381,7 @@ function makeRule(opts: { id?: string; storeId?: string; name?: string } = {}): 
 }
 
 beforeEach(() => {
+  process.env.TRIAL_BOOKING_ACTION_SECRET = "test-only-trial-booking-secret";
   bookings = [];
   rules = [];
   messageLogs = [];
@@ -546,7 +547,24 @@ describe("runReminders (daily next-day batch)", () => {
     expect(pushMessageMock).not.toHaveBeenCalled();
     expect(sendMessengerUtilityReminderMock).toHaveBeenCalledWith(expect.objectContaining({
       booking: expect.objectContaining({ id: BOOKING_ID, storeId: STORE_ID }),
+      bookingLink: expect.stringMatching(/^https:\/\/test\.example\.com\/trial-booking\/manage\?token=/),
     }));
+  });
+
+  it("缺少簽章 secret 時不傳送無法操作的 Messenger 連結", async () => {
+    vi.setSystemTime(new Date("2026-05-11T04:00:00.000Z"));
+    delete process.env.TRIAL_BOOKING_ACTION_SECRET;
+    mockHasStoreFeature.mockResolvedValue(false);
+    mockPrisma.store.findUnique.mockResolvedValue({ slug: "store-test" } as never);
+    bookings.push(makeBooking({ bookingDate: new Date("2026-05-12T00:00:00.000Z"), hasLine: false, channel: "MESSENGER" }));
+    rules.push(makeRule());
+
+    const { engine } = await loadModules();
+    await expect(engine.runReminders()).resolves.toMatchObject({ sent: 0, failed: 1 });
+    expect(sendMessengerUtilityReminderMock).not.toHaveBeenCalled();
+    expect(messageLogs).toEqual(expect.arrayContaining([
+      expect.objectContaining({ bookingId: BOOKING_ID, status: "SKIPPED", errorMessage: "FAILED_CONFIGURATION" }),
+    ]));
   });
 
   it("不命中：今天的預約（不是明天）→ 不發送", async () => {
