@@ -74,10 +74,11 @@ async function resolveAvailabilityStore(entry?: string) {
   if (entry.length > 512) return null;
   const chatLink = await resolveTrialBookingChatLink(entry);
   if (!chatLink) return null;
-  return prisma.store.findUnique({
+  const store = await prisma.store.findUnique({
     where: { id: chatLink.storeId },
     select: { id: true, slug: true },
   });
+  return store?.slug === STORE_SLUG ? store : null;
 }
 
 export async function fetchPublicTrialMonth(year: number, month: number, entry?: string): Promise<{
@@ -244,6 +245,9 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
     const store = chatLink
       ? await prisma.store.findUnique({ where: { id: chatLink.storeId }, select: { id: true, slug: true } })
       : await resolvePublicStore();
+    if (chatLink && store?.slug !== STORE_SLUG) {
+      return { status: "invalid_input", message: "此連結不適用於竹北店預約頁，請回到原本的聊天視窗重新取得正確門市連結。" };
+    }
     if (!store || !(await isStoreBookable(store.id))) return { status: "store_unavailable" };
     if (await isStoreSubscriptionWriteBlocked(store.id)) return { status: "store_unavailable" };
 
