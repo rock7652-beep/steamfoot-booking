@@ -340,7 +340,28 @@ export async function runReminders(): Promise<SendResult> {
       }
       const bookingDateStr = booking.bookingDate.toISOString().slice(0, 10);
       let bookingLink = `${baseUrl}/my-bookings`;
-      if (booking.bookingType === "FIRST_TRIAL" && booking.trialBookingChannel && process.env.TRIAL_BOOKING_ACTION_SECRET) {
+      if (booking.bookingType === "FIRST_TRIAL" && booking.trialBookingChannel && !process.env.TRIAL_BOOKING_ACTION_SECRET) {
+        await recordSkippedReminder({
+          ruleId: rule.id,
+          templateId: rule.templateId,
+          customerId: customer.id,
+          bookingId: booking.id,
+          triggerAt,
+          storeId: bookingStoreId,
+          reason: "TRIAL_BOOKING_ACTION_SECRET_NOT_CONFIGURED",
+          lineRoute: route.channel,
+        });
+        result.failed++;
+        result.details.push({
+          customerId: customer.id,
+          bookingId: booking.id,
+          ruleName: rule.name,
+          status: "FAILED",
+          error: "TRIAL_BOOKING_ACTION_SECRET_NOT_CONFIGURED",
+        });
+        continue;
+      }
+      if (booking.bookingType === "FIRST_TRIAL" && booking.trialBookingChannel) {
         bookingLink = `${baseUrl}/trial-booking/manage?token=${encodeURIComponent(createTrialBookingActionToken(booking))}`;
       }
       const vars: TemplateVariables = {

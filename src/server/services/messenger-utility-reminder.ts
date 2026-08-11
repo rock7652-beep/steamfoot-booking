@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { decryptDigitalButlerValue } from "@/lib/digital-butler-crypto";
@@ -55,6 +56,34 @@ async function record(input: MessengerUtilityReminderInput, code: MessengerUtili
       sentAt: code === "SENT" ? new Date() : null,
     },
   });
+}
+
+function claimEventKey(input: MessengerUtilityReminderInput): string {
+  const raw = `${input.ruleId}:${input.booking.id}:${input.triggerAt.toISOString()}`;
+  return `messenger-utility-reminder:${createHash("sha256").update(raw).digest("hex")}`;
+}
+
+async function claimDelivery(input: MessengerUtilityReminderInput): Promise<string | null> {
+  try {
+    const claim = await prisma.digitalButlerExecutionLog.create({
+      data: {
+        storeId: input.booking.storeId,
+        provider: "MESSENGER",
+        eventKey: claimEventKey(input),
+        eventType: "MESSENGER_UTILITY_REMINDER",
+        outcome: "CLAIMED",
+      },
+      select: { id: true },
+    });
+    return claim.id;
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") return null;
+    throw error;
+  }
+}
+
+async function releaseClaim(claimId: string): Promise<void> {
+  await prisma.digitalButlerExecutionLog.delete({ where: { id: claimId } }).catch(() => undefined);
 }
 
 /**
@@ -115,19 +144,11 @@ export async function sendMessengerUtilityReminder(input: MessengerUtilityRemind
     return code;
   }
 
-  // A successful send is terminal. Failures are intentionally not considered
-  // idempotent success, so the cron may retry them under its normal schedule.
-  const alreadySent = await prisma.messageLog.findFirst({
-    where: {
-      ruleId: input.ruleId,
-      bookingId: input.booking.id,
-      triggerAt: input.triggerAt,
-      channel: "MESSENGER",
-      status: "SENT",
-    },
-    select: { id: true },
-  });
-  if (alreadySent) return "SENT";
+  // Claim before the external side effect. A concurrent worker, or a retry
+  // after Meta accepted the message but local finalization failed, must never
+  // send the same reminder twice.
+  const claimId = await claimDelivery(input);
+  if (!claimId) return "SENT";
 
   const values = {
     shopName: input.store.shopName,
@@ -136,24 +157,30 @@ export async function sendMessengerUtilityReminder(input: MessengerUtilityRemind
     people: String(input.booking.people),
     bookingLink: input.bookingLink,
   };
-  const result = await sendMessengerUtilityTemplate({
-    pageId: page.pageId,
-    pageAccessToken: page.accessToken,
-    recipientId: recipient.recipientId,
-    template: {
-      name: template.name,
-      language: template.language,
-      parameters: template.parameterOrder.map((key) => values[key]),
-    },
-  });
-  const code = result.success ? "SENT" : result.failureCode ?? "FAILED_TRANSPORT";
   try {
+    const result = await sendMessengerUtilityTemplate({
+      pageId: page.pageId,
+      pageAccessToken: page.accessToken,
+      recipientId: recipient.recipientId,
+      template: {
+        name: template.name,
+        language: template.language,
+        parameters: template.parameterOrder.map((key) => values[key]),
+      },
+    });
+    const code = result.success ? "SENT" : result.failureCode ?? "FAILED_TRANSPORT";
     await record(input, code);
+    if (code === "SENT") {
+      await prisma.digitalButlerExecutionLog.update({ where: { id: claimId }, data: { outcome: "SENT" } });
+    } else {
+      // A definite failed attempt remains auditable in MessageLog, while the
+      // claim is released so the backup cron can retry it.
+      await releaseClaim(claimId);
+    }
+    return code;
   } catch (error) {
-    // A race that already persisted SENT is safe to treat as sent; no PII is
-    // surfaced. Other persistence failures must make the cron retry safely.
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002" && code === "SENT") return "SENT";
+    // Keep the claim when delivery may already have happened. This deliberately
+    // prefers a visible uncertain outcome over a duplicate customer message.
     throw error;
   }
-  return code;
 }

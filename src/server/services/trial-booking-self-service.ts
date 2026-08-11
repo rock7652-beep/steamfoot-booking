@@ -114,6 +114,7 @@ export async function listTrialRescheduleSlots(token: string, date: string, now 
   return applySlotOverrides(ctx.rule, ctx.slotOverrides)
     .filter(slot =>
       slot.isEnabled &&
+      !(date === booking.bookingDate.toISOString().slice(0, 10) && slot.startTime === booking.slotTime) &&
       isTrialRescheduleTargetAllowed(date, slot.startTime, now) &&
       (!dutyEnabled || duty.has(slot.startTime)) &&
       (slot.capacity - (used.get(slot.startTime) ?? 0)) >= booking.people
@@ -128,6 +129,7 @@ export async function rescheduleTrialBooking(token: string, date: string, slotTi
     booking.customerRescheduleCount >= 1 ||
     !selfServiceAllowed(booking, now) ||
     !isTrialRescheduleTargetAllowed(date, slotTime, now) ||
+    (date === booking.bookingDate.toISOString().slice(0, 10) && slotTime === booking.slotTime) ||
     date < toLocalDateStr(now)
   ) return "unavailable";
   const ctx = await loadDayBusinessHoursContext(booking.storeId, date);
@@ -138,8 +140,12 @@ export async function rescheduleTrialBooking(token: string, date: string, slotTi
   const dutyEnabled = await isDutySchedulingEnabled(booking.storeId);
   try {
     return await prisma.$transaction(async tx => {
-      const current = await tx.booking.findFirst({ where: { id: booking.id, storeId: booking.storeId }, select: { bookingStatus: true, customerRescheduleCount: true } });
+      const current = await tx.booking.findFirst({
+        where: { id: booking.id, storeId: booking.storeId },
+        select: { bookingStatus: true, customerRescheduleCount: true, bookingDate: true, slotTime: true },
+      });
       if (!current || !["PENDING", "CONFIRMED"].includes(current.bookingStatus) || current.customerRescheduleCount >= 1) return "unavailable";
+      if (date === current.bookingDate.toISOString().slice(0, 10) && slotTime === current.slotTime) return "unavailable";
       if (!isTrialRescheduleTargetAllowed(date, slotTime, now)) return "unavailable";
       if (dutyEnabled) {
         const duty = await tx.dutyAssignment.findFirst({
