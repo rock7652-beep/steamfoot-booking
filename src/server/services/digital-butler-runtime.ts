@@ -160,6 +160,30 @@ function triggerKeywords(definition: Prisma.JsonValue): string[] {
     : typeof candidates === "string" ? [candidates.trim()] : [];
 }
 
+const TRIAL_EXPERIENCE_TRIGGER = "我想了解蒸足";
+const TRIAL_EXPERIENCE_TRIGGER_ALIASES = new Set([
+  "我想體驗蒸足",
+  "我想預約蒸足",
+  "我想預約體驗蒸足",
+]);
+
+function normalizeTriggerText(text: string): string {
+  return text
+    .normalize("NFKC")
+    .trim()
+    .replace(/[！!。．,.，？?～~]+$/g, "")
+    .replace(/\s+/g, "");
+}
+
+export function matchesDigitalButlerTriggerKeyword(keywords: string[], text: string): boolean {
+  const normalizedText = normalizeTriggerText(text);
+  const normalizedKeywords = keywords.map(normalizeTriggerText);
+  if (normalizedKeywords.includes(normalizedText)) return true;
+
+  return normalizedKeywords.includes(TRIAL_EXPERIENCE_TRIGGER)
+    && TRIAL_EXPERIENCE_TRIGGER_ALIASES.has(normalizedText);
+}
+
 function eventIdentity(input: DigitalButlerInboundTextMessage): {
   eventKey: string;
   fallbackEventHash?: string;
@@ -460,7 +484,7 @@ class PrismaDigitalButlerRuntimeRepository implements RuntimeRepository {
     });
     for (const flow of flows) {
       if (!flow.publishedVersion) continue;
-      if (triggerKeywords(flow.publishedVersion.definition).includes(text)) {
+      if (matchesDigitalButlerTriggerKeyword(triggerKeywords(flow.publishedVersion.definition), text)) {
         return { ...flow, startStepKey: null } as Awaited<ReturnType<RuntimeRepository["findTriggeredFlow"]>>;
       }
 

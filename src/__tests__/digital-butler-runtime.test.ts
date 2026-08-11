@@ -6,6 +6,7 @@ vi.mock("@/lib/digital-butler-entitlement", () => ({
 
 import {
   DigitalButlerRuntime,
+  matchesDigitalButlerTriggerKeyword,
   topLevelChoiceEntryStepKey,
 } from "@/server/services/digital-butler-runtime";
 
@@ -117,6 +118,19 @@ describe("DigitalButlerRuntime", () => {
     expect(repository.advanceConversation).toHaveBeenCalledWith(expect.objectContaining({
       currentStepKey: "need", status: "WAITING_INPUT",
     }));
+  });
+
+  it.each([
+    "我想體驗蒸足",
+    "我想預約蒸足",
+    "我想預約體驗蒸足！",
+    " 我 想 了解 蒸 足 ",
+  ])("accepts a safe trial-experience trigger alias: %s", async (text) => {
+    expect(matchesDigitalButlerTriggerKeyword(["我想了解蒸足"], text)).toBe(true);
+  });
+
+  it("does not apply trial aliases to unrelated published flows", () => {
+    expect(matchesDigitalButlerTriggerKeyword(["我想了解課程"], "我想體驗蒸足")).toBe(false);
   });
 
   it("persists a top-level booking choice before starting the contact name step", async () => {
