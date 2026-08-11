@@ -83,6 +83,15 @@ export function tomorrowBookingDate(now: Date = new Date()): Date {
   return parseTaiwanDateToDbDate(tomorrowStr);
 }
 
+/** UTC range for the calendar month containing `now` in Asia/Taipei. */
+export function taiwanReminderMonthRange(now: Date = new Date()): { start: Date; end: Date } {
+  const [year, month] = toLocalDateStr(now).split("-").map(Number);
+  // Taiwan is UTC+8, so local midnight is 16:00 UTC on the previous day.
+  const start = new Date(Date.UTC(year, month - 1, 1) - 8 * 60 * 60 * 1000);
+  const end = new Date(Date.UTC(year, month, 1) - 8 * 60 * 60 * 1000);
+  return { start, end };
+}
+
 async function recordSkippedReminder(input: {
   ruleId: string;
   templateId: string | null;
@@ -175,8 +184,7 @@ export async function runReminders(): Promise<SendResult> {
   const storePlanCache = new Map<string, StorePlanFields>();
   const storeSendCountCache = new Map<string, number>();
   const storeLineReminderFeatureCache = new Map<string, boolean>();
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+  const { start: monthStart, end: monthEnd } = taiwanReminderMonthRange(now);
 
   for (const rule of rules) {
     if (!storeLineReminderFeatureCache.has(rule.storeId)) {
@@ -224,14 +232,16 @@ export async function runReminders(): Promise<SendResult> {
         if (storeData) storePlanCache.set(bookingStoreId, storeData);
       }
       if (!storeSendCountCache.has(bookingStoreId)) {
-        const cnt = await prisma.messageLog.count({
+        const sentDeliveries = await prisma.messageLog.findMany({
           where: {
             status: "SENT",
-            sentAt: { gte: monthStart, lte: monthEnd },
+            sentAt: { gte: monthStart, lt: monthEnd },
             storeId: bookingStoreId,
           },
+          select: { ruleId: true, bookingId: true, triggerAt: true, channel: true },
+          distinct: ["ruleId", "bookingId", "triggerAt", "channel"],
         });
-        storeSendCountCache.set(bookingStoreId, cnt);
+        storeSendCountCache.set(bookingStoreId, sentDeliveries.length);
       }
       const storePlan = storePlanCache.get(bookingStoreId);
       if (storePlan) {
