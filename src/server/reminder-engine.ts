@@ -36,6 +36,7 @@ import { resolveCentralLineRecipientsForCustomers } from "@/server/services/cent
 import { resolveVerifiedReminderLineRoute } from "@/server/services/verified-reminder-line-route";
 import { createTrialBookingActionToken } from "@/server/services/trial-booking-self-service";
 import { sendMessengerUtilityReminder } from "@/server/services/messenger-utility-reminder";
+import { loadScopedTrialBookingChatIdentity } from "@/server/services/trial-booking-chat-link";
 
 const DEFAULT_TEMPLATE = `{{customerName}} 您好！
 
@@ -248,11 +249,22 @@ export async function runReminders(): Promise<SendResult> {
       }
 
       const recipient = recipients.get(customer.id);
-      const route = await resolveVerifiedReminderLineRoute(
-        bookingStoreId,
-        customer.lineUserId,
-        recipient,
-      );
+      const scopedTrialLineRecipient = booking.trialBookingChannel === "LINE"
+        ? await loadScopedTrialBookingChatIdentity({
+            bookingId: booking.id,
+            storeId: bookingStoreId,
+            channel: "LINE",
+          })
+        : null;
+      const route = booking.trialBookingChannel === "LINE"
+        ? scopedTrialLineRecipient
+          ? { status: "READY" as const, channel: "STORE" as const, recipientLineUserId: scopedTrialLineRecipient }
+          : { status: "BLOCKED" as const, reason: "TRIAL_CHAT_IDENTITY_UNAVAILABLE" }
+        : await resolveVerifiedReminderLineRoute(
+            bookingStoreId,
+            customer.lineUserId,
+            recipient,
+          );
       if (route.status === "BLOCKED") {
         const reason = `LINE recipient unavailable: ${route.reason}`;
         await recordSkippedReminder({
