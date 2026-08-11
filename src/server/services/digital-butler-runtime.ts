@@ -432,6 +432,19 @@ function topLevelChoiceEntry(steps: RuntimeStep[], text: string): { step: Runtim
   return { step, value: objectConfig(selected as Prisma.JsonValue) as Prisma.InputJsonObject, startStepKey: startStepKey.trim() };
 }
 
+export function trialExperienceBookingEntry(
+  definition: Prisma.JsonValue,
+  steps: RuntimeStep[],
+  text: string,
+): { step: RuntimeStep; value: Prisma.InputJsonValue; startStepKey: string } | null {
+  if (
+    !TRIAL_EXPERIENCE_TRIGGER_ALIASES.has(normalizeTriggerText(text)) ||
+    !matchesDigitalButlerTriggerKeyword(triggerKeywords(definition), text)
+  ) return null;
+  const menuStep = steps.find((step) => step.type === "SINGLE_CHOICE");
+  return menuStep ? topLevelChoiceEntry(steps, singleChoiceInputText(menuStep, text)) : null;
+}
+
 class PrismaDigitalButlerRuntimeRepository implements RuntimeRepository {
   async claimEvent(input: {
     storeId: string;
@@ -501,6 +514,18 @@ class PrismaDigitalButlerRuntimeRepository implements RuntimeRepository {
     });
     for (const flow of flows) {
       if (!flow.publishedVersion) continue;
+      const trialBookingEntry = trialExperienceBookingEntry(
+        flow.publishedVersion.definition,
+        flow.publishedVersion.steps,
+        text,
+      );
+      if (trialBookingEntry) {
+        return {
+          ...flow,
+          startStepKey: trialBookingEntry.startStepKey,
+          initialAnswer: { step: trialBookingEntry.step, value: trialBookingEntry.value },
+        } as Awaited<ReturnType<RuntimeRepository["findTriggeredFlow"]>>;
+      }
       if (matchesDigitalButlerTriggerKeyword(triggerKeywords(flow.publishedVersion.definition), text)) {
         return { ...flow, startStepKey: null } as Awaited<ReturnType<RuntimeRepository["findTriggeredFlow"]>>;
       }
