@@ -315,6 +315,8 @@ describe("LINE sending actions are store-aware", () => {
       storeId: "store-hsinchu",
       customerId: "customer-1",
       bookingStatus: "CONFIRMED",
+      bookingType: "PACKAGE_SESSION",
+      trialBookingChannel: null,
       bookingDate: new Date("2026-07-24T00:00:00.000Z"),
       slotTime: "16:30",
       customer: {
@@ -364,6 +366,38 @@ describe("LINE sending actions are store-aware", () => {
         action: "SEND_LINE_TEST_REMINDER",
       }),
     });
+  });
+
+  it("single-booking test renders a first-trial self-service link for an older channel-null booking", async () => {
+    vi.stubEnv("TRIAL_BOOKING_ACTION_SECRET", "test-secret");
+    mockPrisma.booking.findFirst.mockResolvedValueOnce({
+      id: "trial-booking-1",
+      storeId: "store-hsinchu",
+      customerId: "customer-1",
+      bookingStatus: "PENDING",
+      bookingType: "FIRST_TRIAL",
+      trialBookingChannel: null,
+      bookingDate: new Date("2026-08-12T00:00:00.000Z"),
+      slotTime: "14:00",
+      customer: {
+        id: "customer-1",
+        name: "黃彥陸",
+        lineUserId: "U_store_customer",
+        lineLinkStatus: "LINKED",
+        assignedStaff: null,
+      },
+    });
+    mockPrisma.messageLog.findFirst.mockResolvedValueOnce(null);
+    mockPrisma.reminderRule.findFirst.mockResolvedValueOnce(null);
+
+    const { sendBookingLineTestReminder } = await import("@/server/actions/reminder");
+    const result = await sendBookingLineTestReminder({ bookingId: "trial-booking-1" });
+
+    expect(result.success).toBe(true);
+    const message = pushMessageMock.mock.calls.at(-1)?.[2]?.[0] as { text: string };
+    expect(message.text).toContain("體驗預約提醒");
+    expect(message.text).toContain("/trial-booking/manage?token=");
+    expect(message.text).not.toContain("/my-bookings");
   });
 
   it("single-booking test falls back to an active store route after a definite central 400 rejection", async () => {

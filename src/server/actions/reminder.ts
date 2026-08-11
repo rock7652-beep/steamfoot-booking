@@ -24,6 +24,7 @@ import { resolveCentralLineRecipientForCustomer } from "@/server/services/centra
 import { resolveVerifiedReminderLineRoute } from "@/server/services/verified-reminder-line-route";
 import { getAllActiveStoreIds } from "@/lib/store";
 import { DEFAULT_SESSION_BALANCE_NOTIFICATION_SETTING } from "@/lib/session-balance-notification-settings";
+import { createTrialBookingActionToken } from "@/server/services/trial-booking-self-service";
 
 // ============================================================
 // Validators
@@ -817,6 +818,9 @@ export async function sendBookingLineTestReminder(
     if (!["PENDING", "CONFIRMED"].includes(booking.bookingStatus)) {
       throw new AppError("BUSINESS_RULE", "只有待服務或已確認的預約可以發送測試提醒");
     }
+    if (booking.bookingType === "FIRST_TRIAL" && booking.trialBookingChannel === "MESSENGER") {
+      throw new AppError("BUSINESS_RULE", "此體驗預約綁定 Messenger，不能改由 LINE 發送測試提醒");
+    }
 
     const recentTest = await prisma.messageLog.findFirst({
       where: {
@@ -855,8 +859,19 @@ export async function sendBookingLineTestReminder(
       }),
       getShopConfig(storeId),
     ]);
-    const templateBody =
-      rule?.template?.body ??
+    const isLineTrialBooking = booking.bookingType === "FIRST_TRIAL";
+    if (isLineTrialBooking && !process.env.TRIAL_BOOKING_ACTION_SECRET) {
+      throw new AppError("BUSINESS_RULE", "體驗預約專屬連結尚未設定，已停止發送一般預約通知");
+    }
+    const templateBody = isLineTrialBooking
+      ? `{{customerName}} 您好！
+
+這是您明天 ({{bookingDate}}) {{bookingTime}} 的體驗預約提醒，請記得準時到店。
+
+請點擊專屬連結確認會到；如需取消或改期，也可在同一頁完成：{{bookingLink}}
+
+{{shopName}} 敬上`
+      : rule?.template?.body ??
       `{{customerName}} 您好！
 
 明天 ({{bookingDate}}) {{bookingTime}} 有一筆蒸足預約，請記得準時到店。
@@ -864,13 +879,16 @@ export async function sendBookingLineTestReminder(
 如需取消或改期，請點擊：{{bookingLink}}
 
 {{shopName}} 敬上`;
+    const bookingLink = isLineTrialBooking
+      ? `${deriveBaseUrl()}/trial-booking/manage?token=${encodeURIComponent(createTrialBookingActionToken(booking))}`
+      : `${deriveBaseUrl()}/my-bookings`;
     const renderedReminder = renderTemplate(templateBody, {
       customerName: booking.customer.name,
       bookingDate: booking.bookingDate.toISOString().slice(0, 10),
       bookingTime: booking.slotTime,
       shopName: shopConfig.shopName,
       staffName: booking.customer.assignedStaff?.displayName ?? "店長",
-      bookingLink: `${deriveBaseUrl()}/my-bookings`,
+      bookingLink,
     });
     const renderedBody = `${BOOKING_LINE_TEST_PREFIX}
 這是管理者手動發送的通知測試，無須回覆。
