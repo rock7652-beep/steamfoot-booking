@@ -340,10 +340,10 @@ describe("Production migration recovery guard", () => {
         "TrialBookingLink_storeId_fkey",
       ],
       trialIndexes: [
-        "TrialBookingLink_bookingId_idx",
-        "TrialBookingLink_bookingId_key",
-        "TrialBookingLink_storeId_expiresAt_idx",
-        "TrialBookingLink_tokenHash_key",
+        { name: "TrialBookingLink_bookingId_idx", isUnique: false, columns: ["bookingId"] },
+        { name: "TrialBookingLink_bookingId_key", isUnique: true, columns: ["bookingId"] },
+        { name: "TrialBookingLink_storeId_expiresAt_idx", isUnique: false, columns: ["storeId", "expiresAt"] },
+        { name: "TrialBookingLink_tokenHash_key", isUnique: true, columns: ["tokenHash"] },
       ],
       trialRlsEnabled: true,
       trialRlsForced: false,
@@ -359,6 +359,30 @@ describe("Production migration recovery guard", () => {
       ],
     };
     expect(hasExpectedTrialReminderSchema(complete)).toBe(true);
+    expect(hasExpectedTrialReminderSchema({
+      ...complete,
+      trialIndexes: complete.trialIndexes.map((index) => (
+        index.name === "TrialBookingLink_tokenHash_key"
+          ? { ...index, columns: ["storeId"] }
+          : index
+      )),
+    })).toBe(false);
+    expect(hasExpectedTrialReminderSchema({
+      ...complete,
+      trialIndexes: complete.trialIndexes.map((index) => (
+        index.name === "TrialBookingLink_bookingId_idx"
+          ? { ...index, isUnique: true }
+          : index
+      )),
+    })).toBe(false);
+    expect(hasExpectedTrialReminderSchema({
+      ...complete,
+      trialIndexes: complete.trialIndexes.map((index) => (
+        index.name === "TrialBookingLink_storeId_expiresAt_idx"
+          ? { ...index, columns: [...index.columns].reverse() }
+          : index
+      )),
+    })).toBe(false);
     expect(hasExpectedTrialReminderSchema({
       ...complete,
       trialLinkColumns: trialLinkColumns.filter(
