@@ -48,6 +48,10 @@ export function isTrialRescheduleTargetAllowed(date: string, slotTime: string, n
   return startsAt !== null && startsAt.getTime() - now.getTime() > SELF_SERVICE_CUTOFF_MS;
 }
 
+function isValidTrialRescheduleDate(date: string): boolean {
+  return parseTaipeiDateTime(date, "00:00") !== null;
+}
+
 async function loadAuthorizedBooking(token: string, now = new Date()) {
   const verified = verifyTrialBookingActionToken(token, now);
   if (!verified) return null;
@@ -81,7 +85,13 @@ export async function cancelTrialBooking(token: string, now = new Date()): Promi
 
 export async function listTrialRescheduleSlots(token: string, date: string, now = new Date()) {
   const booking = await loadAuthorizedBooking(token, now);
-  if (!booking || booking.customerRescheduleCount >= 1 || !selfServiceAllowed(booking, now) || date < toLocalDateStr(now)) return [];
+  if (
+    !booking ||
+    booking.customerRescheduleCount >= 1 ||
+    !selfServiceAllowed(booking, now) ||
+    !isValidTrialRescheduleDate(date) ||
+    date < toLocalDateStr(now)
+  ) return [];
   const ctx = await loadDayBusinessHoursContext(booking.storeId, date);
   if (ctx.rule.closed) return [];
   const dutyEnabled = await isDutySchedulingEnabled(booking.storeId);
@@ -113,9 +123,15 @@ export async function listTrialRescheduleSlots(token: string, date: string, now 
 
 export async function rescheduleTrialBooking(token: string, date: string, slotTime: string, now = new Date()): Promise<"rescheduled" | "unavailable" | "slot_full"> {
   const booking = await loadAuthorizedBooking(token, now);
-  if (!booking || booking.customerRescheduleCount >= 1 || !selfServiceAllowed(booking, now) || date < toLocalDateStr(now)) return "unavailable";
+  if (
+    !booking ||
+    booking.customerRescheduleCount >= 1 ||
+    !selfServiceAllowed(booking, now) ||
+    !isTrialRescheduleTargetAllowed(date, slotTime, now) ||
+    date < toLocalDateStr(now)
+  ) return "unavailable";
   const ctx = await loadDayBusinessHoursContext(booking.storeId, date);
-  const slot = !ctx.rule.closed && isTrialRescheduleTargetAllowed(date, slotTime, now)
+  const slot = !ctx.rule.closed
     ? applySlotOverrides(ctx.rule, ctx.slotOverrides).find(item => item.isEnabled && item.startTime === slotTime)
     : undefined;
   if (!slot) return "unavailable";
