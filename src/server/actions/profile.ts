@@ -142,6 +142,16 @@ function preserveExistingCustomerName(existingName: string, submittedName: strin
     : submittedName;
 }
 
+function preventPlaceholderNameOverwrite(existingName: string, submittedName: string) {
+  const normalizedExistingName = existingName.trim();
+  const normalizedSubmittedName = submittedName.trim();
+  return normalizedExistingName &&
+    !PLACEHOLDER_CUSTOMER_NAMES.has(normalizedExistingName) &&
+    PLACEHOLDER_CUSTOMER_NAMES.has(normalizedSubmittedName)
+    ? normalizedExistingName
+    : normalizedSubmittedName;
+}
+
 function hasForeignIdentityLink(candidate: MergeCandidate, userId: string) {
   return (candidate.identityLinks ?? []).some((link) => link.userId !== userId);
 }
@@ -591,7 +601,7 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
       // 2) 當前 user 是否已有 Customer（可能是 auth.ts 首登建的佔位，可能在同/別店）
       const existingByUserId = await prisma.customer.findUnique({
         where: { userId: user.id },
-        select: { id: true, storeId: true, phone: true },
+        select: { id: true, name: true, storeId: true, phone: true },
       });
 
       console.info("[updateProfileAction] not_found analysis", {
@@ -864,7 +874,16 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
       if (real && existingByUserId && existingByUserId.id === real.id) {
         await prisma.customer.update({
           where: { id: real.id },
-          data: { name, phone, email, gender, birthday, address, notes, storeId },
+          data: {
+            name: preventPlaceholderNameOverwrite(real.name, name),
+            phone,
+            email,
+            gender,
+            birthday,
+            address,
+            notes,
+            storeId,
+          },
         });
         console.info("[updateProfileAction] updated self (real === existing)", {
           userId: user.id,
@@ -878,7 +897,7 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
         await prisma.customer.update({
           where: { id: existingByUserId.id },
           data: {
-            name,
+            name: preventPlaceholderNameOverwrite(existingByUserId.name, name),
             phone,
             email,
             gender,
@@ -1115,7 +1134,15 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
           placeholderCustomerId: customerId,
           realCustomerId: real.id,
           userId: user.id,
-          basicProfile: { name, phone, email, gender, birthday, address, notes },
+          basicProfile: {
+            name: preserveExistingCustomerName(real.name, name),
+            phone,
+            email,
+            gender,
+            birthday,
+            address,
+            notes,
+          },
         });
 
         console.info("[updateProfileAction] placeholder merged into real", {
@@ -1132,7 +1159,7 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
         // 同步 User.name
         await prisma.user.update({
           where: { id: user.id },
-          data: { name },
+          data: { name: preserveExistingCustomerName(real.name, name) },
         });
 
         return verifySuccess(real.id);
@@ -1185,16 +1212,17 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
       }
     }
 
+    const safeName = preventPlaceholderNameOverwrite(resolved.customer.name, name);
     await prisma.customer.update({
       where: { id: customerId },
-      data: { name, phone, email, gender, birthday, address, notes },
+      data: { name: safeName, phone, email, gender, birthday, address, notes },
     });
 
-    // 同步 User.name
+    // 同步 User.name；登入預填的系統佔位名稱不可覆蓋既有正式姓名。
     if (resolved.customer.userId) {
       await prisma.user.update({
         where: { id: resolved.customer.userId },
-        data: { name },
+        data: { name: safeName },
       });
     }
 

@@ -215,6 +215,45 @@ describe("updateProfileAction — merge by storeId + phone", () => {
     expect(compareSync("secret123", hash)).toBe(true);
   });
 
+  it("已綁定顧客再次補資料時，系統佔位名不會覆蓋正式姓名", async () => {
+    mockUserFindUnique.mockResolvedValue({
+      id: USER_ID,
+      passwordHash:
+        "$2b$10$abcdefghijklmnopqrstuvwxyz.zyxwvutsrqponmlkjihgfedcba1234",
+    });
+    mockResolveCustomerForUser.mockResolvedValue({
+      customer: {
+        id: ADMIN_CUSTOMER_ID,
+        name: "莊彩鳳",
+        userId: USER_ID,
+        storeId: STORE_A,
+        phone: "0983277059",
+        email: null,
+      },
+      reason: "session_customer_id",
+    });
+
+    const { updateProfileAction } = await import("@/server/actions/profile");
+    const fd = new FormData();
+    fd.set("name", "顧客");
+    fd.set("phone", "0983277059");
+    fd.set("password", "");
+
+    const result = await updateProfileAction({ error: null, success: false }, fd);
+
+    expect(result.success).toBe(true);
+    expect(mockCustomerUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: ADMIN_CUSTOMER_ID },
+        data: expect.objectContaining({ name: "莊彩鳳" }),
+      }),
+    );
+    expect(mockUserUpdate).toHaveBeenCalledWith({
+      where: { id: USER_ID },
+      data: { name: "莊彩鳳" },
+    });
+  });
+
   it("LINE 暱稱不會覆蓋既有體驗客正式姓名，User 姓名也同步保留", async () => {
     const { updateProfileAction } = await import("@/server/actions/profile");
     const fd = new FormData();
