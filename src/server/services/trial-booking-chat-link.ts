@@ -9,6 +9,7 @@ import {
 } from "@/lib/digital-butler-crypto";
 
 const LINK_TTL_MS = 30 * 60 * 1000;
+const SUPPORTED_PUBLIC_BOOKING_STORE_SLUG = "zhubei";
 
 function prismaBytes(value: Uint8Array): Uint8Array<ArrayBuffer> {
   return Uint8Array.from(value);
@@ -25,6 +26,14 @@ export async function createTrialBookingChatLink(input: {
   chatIdentity: string;
   now?: Date;
 }): Promise<{ url: string; expiresAt: Date }> {
+  const store = await prisma.store.findUnique({
+    where: { id: input.storeId },
+    select: { slug: true },
+  });
+  if (store?.slug !== SUPPORTED_PUBLIC_BOOKING_STORE_SLUG) {
+    throw new Error("TRIAL_BOOKING_STORE_NOT_SUPPORTED");
+  }
+
   const now = input.now ?? new Date();
   const token = randomBytes(32).toString("base64url");
   const encrypted = encryptDigitalButlerValue(input.chatIdentity);
