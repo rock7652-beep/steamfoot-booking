@@ -22,6 +22,7 @@ import { isStoreSubscriptionWriteBlocked } from "@/lib/subscription-guard";
 import { isStoreBookable } from "@/lib/store-operating-status";
 import { notifyManagerOfPublicTrialBooking } from "@/server/services/public-trial-manager-notification";
 import { ensureTrialPlan } from "@/server/services/trial-plan";
+import { resolveTrialBookingChatLink } from "@/server/services/trial-booking-chat-link";
 import type { SlotAvailability } from "@/types";
 
 const STORE_SLUG = "zhubei";
@@ -33,6 +34,7 @@ const InputSchema = z.object({
   slotTime: z.string().regex(/^\d{2}:\d{2}$/),
   people: z.coerce.number().int().min(1, "預約人數至少 1 人").max(2, "單次最多預約 2 人"),
   website: z.string().max(0).optional().default(""),
+  entry: z.string().max(512).optional(),
 });
 
 export type PublicTrialDayStatus =
@@ -67,12 +69,24 @@ async function resolvePublicStore() {
   });
 }
 
-export async function fetchPublicTrialMonth(year: number, month: number): Promise<{
+async function resolveAvailabilityStore(entry?: string) {
+  if (!entry) return resolvePublicStore();
+  if (entry.length > 512) return null;
+  const chatLink = await resolveTrialBookingChatLink(entry);
+  if (!chatLink) return null;
+  const store = await prisma.store.findUnique({
+    where: { id: chatLink.storeId },
+    select: { id: true, slug: true },
+  });
+  return store?.slug === STORE_SLUG ? store : null;
+}
+
+export async function fetchPublicTrialMonth(year: number, month: number, entry?: string): Promise<{
   days: PublicTrialCalendarDay[];
 }> {
   if (!Number.isInteger(year) || !Number.isInteger(month) || month < 1 || month > 12) return { days: [] };
 
-  const store = await resolvePublicStore();
+  const store = await resolveAvailabilityStore(entry);
   const dates = enumerateMonthDates(year, month);
   if (!store || !(await isStoreBookable(store.id)) || (await isStoreSubscriptionWriteBlocked(store.id))) {
     return { days: dates.map(({ dateStr }) => ({ date: dateStr, status: "store_unavailable", availableSlots: 0 })) };
@@ -154,12 +168,12 @@ export async function fetchPublicTrialMonth(year: number, month: number): Promis
   return { days };
 }
 
-export async function fetchPublicTrialSlots(date: string): Promise<{
+export async function fetchPublicTrialSlots(date: string, entry?: string): Promise<{
   slots: SlotAvailability[];
   dayStatus: PublicTrialDayStatus;
 }> {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { slots: [], dayStatus: "past" };
-  const store = await resolvePublicStore();
+  const store = await resolveAvailabilityStore(entry);
   if (!store || !(await isStoreBookable(store.id))) return { slots: [], dayStatus: "store_unavailable" };
   if (await isStoreSubscriptionWriteBlocked(store.id)) return { slots: [], dayStatus: "store_unavailable" };
 
@@ -224,7 +238,16 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
 
   const data = parsed.data;
   try {
-    const store = await resolvePublicStore();
+    const chatLink = data.entry ? await resolveTrialBookingChatLink(data.entry) : null;
+    if (data.entry && !chatLink) {
+      return { status: "invalid_input", message: "此預約連結已失效，請回到原本的聊天視窗重新取得連結。" };
+    }
+    const store = chatLink
+      ? await prisma.store.findUnique({ where: { id: chatLink.storeId }, select: { id: true, slug: true } })
+      : await resolvePublicStore();
+    if (chatLink && store?.slug !== STORE_SLUG) {
+      return { status: "invalid_input", message: "此連結不適用於竹北店預約頁，請回到原本的聊天視窗重新取得正確門市連結。" };
+    }
     if (!store || !(await isStoreBookable(store.id))) return { status: "store_unavailable" };
     if (await isStoreSubscriptionWriteBlocked(store.id)) return { status: "store_unavailable" };
 
@@ -258,9 +281,23 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
     const trialPlan = await ensureTrialPlan(store.id, settings.trialDefaultPrice);
 
     let customer = await prisma.customer.findFirst({
-      where: { storeId: store.id, phone: data.phone, mergedIntoCustomerId: null },
+      where: chatLink?.channel === "LINE"
+        ? { storeId: store.id, lineUserId: chatLink.chatIdentity, mergedIntoCustomerId: null }
+        : { storeId: store.id, phone: data.phone, mergedIntoCustomerId: null },
       select: { id: true, assignedStaffId: true },
     });
+    if (!customer && chatLink?.channel === "LINE") {
+      const phoneCustomer = await prisma.customer.findFirst({
+        where: { storeId: store.id, phone: data.phone, mergedIntoCustomerId: null },
+        select: { id: true, assignedStaffId: true, lineUserId: true },
+      });
+      if (phoneCustomer) {
+        // A phone number typed into a public form is not proof that the sender
+        // owns the existing customer row. Never attach or route a reminder to
+        // that row unless it was already linked to this exact LINE sender.
+        return { status: "invalid_input", message: "此手機已有顧客資料，請聯繫門市協助確認 LINE 身分後再預約。" };
+      }
+    }
     if (!customer) {
       try {
         customer = await prisma.customer.create({
@@ -271,16 +308,27 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
             authSource: "MANUAL",
             customerStage: "LEAD",
             selfBookingEnabled: false,
+            ...(chatLink?.channel === "LINE"
+              ? { lineUserId: chatLink.chatIdentity, lineLinkStatus: "LINKED" as const, lineLinkedAt: new Date() }
+              : {}),
           },
           select: { id: true, assignedStaffId: true },
         });
       } catch (error) {
         if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2002") throw error;
-        customer = await prisma.customer.findFirst({
-          where: { storeId: store.id, phone: data.phone, mergedIntoCustomerId: null },
+        const concurrent = await prisma.customer.findFirst({
+          where: chatLink?.channel === "LINE"
+            ? { storeId: store.id, lineUserId: chatLink.chatIdentity, mergedIntoCustomerId: null }
+            : { storeId: store.id, phone: data.phone, mergedIntoCustomerId: null },
           select: { id: true, assignedStaffId: true },
         });
-        if (!customer) throw error;
+        if (!concurrent) {
+          if (chatLink?.channel === "LINE") {
+            return { status: "invalid_input", message: "此手機或 LINE 身分已被使用，請聯繫門市協助確認。" };
+          }
+          throw error;
+        }
+        customer = concurrent;
       }
     }
 
@@ -316,7 +364,7 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
         });
         if ((aggregate._sum.people ?? 0) + data.people > slot.capacity) return null;
 
-        return tx.booking.create({
+        const created = await tx.booking.create({
           data: {
             storeId: store.id,
             customerId: customer.id,
@@ -330,9 +378,23 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
             expectedAmount,
             revenueStaffId: customer.assignedStaffId,
             notes: "公開快速體驗預約",
+            ...(chatLink ? { trialBookingChannel: chatLink.channel } : {}),
           },
           select: { id: true },
         });
+        if (chatLink) {
+          const claimed = await tx.trialBookingLink.updateMany({
+            where: {
+              id: chatLink.linkId,
+              storeId: store.id,
+              consumedAt: null,
+              expiresAt: { gt: new Date() },
+            },
+            data: { consumedAt: new Date(), bookingId: created.id },
+          });
+          if (claimed.count !== 1) throw new Error("TRIAL_BOOKING_LINK_CONSUMED");
+        }
+        return created;
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
     );

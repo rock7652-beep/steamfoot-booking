@@ -148,7 +148,7 @@ export async function GET(request: NextRequest) {
   const otherFailed = failedTasks.some((k) => k !== "reminders");
 
   let terminalStatus: CronRunStatus;
-  if (reminderFailed) {
+  if (reminderFailed || (reminderResult?.failed ?? 0) > 0) {
     terminalStatus = CronRunStatus.FAILED;
   } else if (otherFailed) {
     terminalStatus = CronRunStatus.PARTIAL;

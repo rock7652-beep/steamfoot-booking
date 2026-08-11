@@ -21,7 +21,7 @@ import { notifyStoreManagerOnLine } from "@/server/services/store-manager-line-n
 
 const ACTIVE_STATUSES = ["IN_PROGRESS", "WAITING_INPUT"] as const;
 const CONVERSATION_TTL_MS = 24 * 60 * 60 * 1000;
-const MESSENGER_BOOKING_COMPLETION_TEXT = [
+const CHAT_BOOKING_COMPLETION_TEXT = [
   "已收到您的資料，店家將儘快與您聯絡。",
   "",
   "您也可以直接點選下方連結，自行選擇方便的體驗時間：",
@@ -860,7 +860,7 @@ export class DigitalButlerRuntime {
     const steps = conversation.flowVersion.steps;
     let index = startIndex;
     let transitions = 0;
-    let messengerBookingCompletionPending = false;
+    let chatBookingCompletionPending = false;
     while (index >= 0 && index < steps.length && transitions < 100) {
       transitions += 1;
       const step = steps[index];
@@ -874,13 +874,13 @@ export class DigitalButlerRuntime {
         return { handled: true, messages: messages.slice(0, 5), outcome: "WAITING_INPUT" };
       }
       if (step.type === "TEXT") {
-        if (messengerBookingCompletionPending) {
+        if (chatBookingCompletionPending) {
           messages.push({
             type: "text",
-            text: MESSENGER_BOOKING_COMPLETION_TEXT,
+            text: CHAT_BOOKING_COMPLETION_TEXT,
             urlButton: { label: "立即預約體驗", url: ZHUBEI_EXPERIENCE_BOOKING_URL },
           });
-          messengerBookingCompletionPending = false;
+          chatBookingCompletionPending = false;
         } else {
           const text = textFromConfig(step);
           if (text) messages.push({ type: "text", text });
@@ -917,8 +917,9 @@ export class DigitalButlerRuntime {
           submittedAnswers: submittedAnswers as Prisma.InputJsonObject,
         });
         if (!leadCreation) return { handled: true, messages: [], outcome: "INACTIVE_CONVERSATION" };
-        messengerBookingCompletionPending = conversation.provider === "MESSENGER"
-          && isBookingRequest(requestTypeValue);
+        chatBookingCompletionPending = (
+          conversation.provider === "LINE" || conversation.provider === "MESSENGER"
+        ) && isBookingRequest(requestTypeValue);
         if (leadCreation.created) {
           await this.notifyLeadCreated({
             storeId: conversation.storeId,

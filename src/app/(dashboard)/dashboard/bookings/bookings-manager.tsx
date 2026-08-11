@@ -40,6 +40,7 @@ interface BookingEntry {
   isMakeup: boolean;
   isCheckedIn: boolean;
   people: number;
+  customerConfirmedAt: Date | null;
   /** PR-3d：實際到店人數（FIRST_TRIAL；null = 未記錄／全到）。 */
   attendedPeople: number | null;
   bookingType: string;
@@ -252,6 +253,7 @@ export function BookingsManager({
       id: b.id,
       slotTime: b.slotTime,
       people: b.people,
+      customerConfirmedAt: b.customerConfirmedAt,
       attendedPeople: b.attendedPeople,
       isMakeup: b.isMakeup,
       isCheckedIn: b.isCheckedIn,

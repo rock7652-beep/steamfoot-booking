@@ -39,7 +39,9 @@ export function digitalButlerIntentsToLineMessages(
     }
     return {
       type: "text",
-      text: intent.text,
+      text: intent.urlButton
+        ? `${intent.text}\n\n${intent.urlButton.label}：${intent.urlButton.url}`
+        : intent.text,
       ...(intent.choices?.length
         ? {
             quickReply: {

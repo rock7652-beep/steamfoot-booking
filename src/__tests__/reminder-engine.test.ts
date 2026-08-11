@@ -31,6 +31,8 @@ type BookingRow = {
   customerId: string;
   bookingDate: Date;
   slotTime: string;
+  people: number;
+  trialBookingChannel?: "LINE" | "MESSENGER" | null;
   bookingStatus: string;
   customer: {
     id: string;
@@ -82,6 +84,8 @@ let centralRecipientOverrides = new Map<string, {
   recipientLineUserId: string | null;
 }>();
 const mockHasStoreFeature = vi.fn();
+const sendMessengerUtilityReminderMock = vi.fn();
+const checkReminderSendLimitMock = vi.fn();
 
 // ── Mock Prisma P2002 error class ──
 class MockPrismaError extends Error {
@@ -166,10 +170,11 @@ const mockPrisma = {
       );
     }),
     create: vi.fn(async ({ data }: { data: Partial<LogRow> }) => {
-      // 模擬 unique (ruleId, bookingId, triggerAt) constraint
-      if (data.ruleId && data.bookingId) {
+      // 模擬 partial unique：只有成功發送需要防重，FAILED 可重試。
+      if (data.ruleId && data.bookingId && data.status === "SENT") {
         const dup = messageLogs.find(
           (l) =>
+            l.status === "SENT" &&
             l.ruleId === data.ruleId &&
             l.bookingId === data.bookingId &&
             l.triggerAt &&
@@ -204,9 +209,10 @@ const mockPrisma = {
       return messageLogs.filter((l) => {
         if (where.status && l.status !== where.status) return false;
         if (where.storeId && l.storeId !== where.storeId) return false;
-        const sentAtFilter = where.sentAt as { gte?: Date; lte?: Date } | undefined;
+        const sentAtFilter = where.sentAt as { gte?: Date; lt?: Date; lte?: Date } | undefined;
         if (sentAtFilter) {
           if (sentAtFilter.gte && (!l.sentAt || l.sentAt < sentAtFilter.gte)) return false;
+          if (sentAtFilter.lt && (!l.sentAt || l.sentAt >= sentAtFilter.lt)) return false;
           if (sentAtFilter.lte && (!l.sentAt || l.sentAt > sentAtFilter.lte)) return false;
         }
         const createdAtFilter = where.createdAt as { gte?: Date; lte?: Date } | undefined;
@@ -217,9 +223,9 @@ const mockPrisma = {
         return true;
       }).length;
     }),
-    findMany: vi.fn(async (args: { where?: Record<string, unknown> }) => {
+    findMany: vi.fn(async (args: { where?: Record<string, unknown>; distinct?: string[] }) => {
       const where = args.where ?? {};
-      return messageLogs.filter((l) => {
+      const matches = messageLogs.filter((l) => {
         if (where.ruleId && l.ruleId !== where.ruleId) return false;
         if (where.status && l.status !== where.status) return false;
         if (where.triggerAt instanceof Date) {
@@ -229,6 +235,25 @@ const mockPrisma = {
         if (bookingIdFilter?.in && (!l.bookingId || !bookingIdFilter.in.includes(l.bookingId))) {
           return false;
         }
+        const storeId = where.storeId as string | undefined;
+        if (storeId && l.storeId !== storeId) return false;
+        const sentAtFilter = where.sentAt as { gte?: Date; lt?: Date; lte?: Date } | undefined;
+        if (sentAtFilter) {
+          if (sentAtFilter.gte && (!l.sentAt || l.sentAt < sentAtFilter.gte)) return false;
+          if (sentAtFilter.lt && (!l.sentAt || l.sentAt >= sentAtFilter.lt)) return false;
+          if (sentAtFilter.lte && (!l.sentAt || l.sentAt > sentAtFilter.lte)) return false;
+        }
+        return true;
+      });
+      if (!args.distinct?.length) return matches;
+      const seen = new Set<string>();
+      return matches.filter((row) => {
+        const key = args.distinct!.map((field) => {
+          const value = row[field as keyof LogRow];
+          return value instanceof Date ? value.toISOString() : String(value);
+        }).join(":");
+        if (seen.has(key)) return false;
+        seen.add(key);
         return true;
       });
     }),
@@ -294,13 +319,16 @@ vi.mock("@/lib/shop-config", () => ({
   getShopConfig: async () => ({ shopName: "Test Shop" }),
 }));
 vi.mock("@/lib/usage-gate", () => ({
-  checkReminderSendLimit: () => ({ allowed: true, current: 0, limit: 1000 }),
+  checkReminderSendLimit: (...args: unknown[]) => checkReminderSendLimitMock(...args),
 }));
 vi.mock("@/lib/feature-gate", () => ({
   hasStoreFeature: (...args: unknown[]) => mockHasStoreFeature(...args),
 }));
 vi.mock("@/lib/base-url", () => ({
   deriveBaseUrl: () => "https://test.example.com",
+}));
+vi.mock("@/server/services/messenger-utility-reminder", () => ({
+  sendMessengerUtilityReminder: (...args: unknown[]) => sendMessengerUtilityReminderMock(...args),
 }));
 vi.mock("@/lib/session", () => ({
   requireStaffSession: async () => ({
@@ -334,6 +362,7 @@ function makeBooking(opts: {
   slotTime?: string;
   status?: string;
   hasLine?: boolean;
+  channel?: "LINE" | "MESSENGER";
 }): BookingRow {
   return {
     id: opts.id ?? BOOKING_ID,
@@ -341,6 +370,8 @@ function makeBooking(opts: {
     customerId: opts.customerId ?? CUSTOMER_ID,
     bookingDate: opts.bookingDate,
     slotTime: opts.slotTime ?? "14:00",
+    people: 1,
+    trialBookingChannel: opts.channel ?? null,
     bookingStatus: opts.status ?? "CONFIRMED",
     customer: {
       id: opts.customerId ?? CUSTOMER_ID,
@@ -372,6 +403,7 @@ function makeRule(opts: { id?: string; storeId?: string; name?: string } = {}): 
 }
 
 beforeEach(() => {
+  process.env.TRIAL_BOOKING_ACTION_SECRET = "test-only-trial-booking-secret";
   bookings = [];
   rules = [];
   messageLogs = [];
@@ -389,8 +421,13 @@ beforeEach(() => {
   mockPrisma.messageLog.count.mockClear();
   mockPrisma.messageLog.findMany.mockClear();
   mockPrisma.store.findUnique.mockClear();
+  mockPrisma.store.findUnique.mockResolvedValue(null);
   mockHasStoreFeature.mockClear();
   mockHasStoreFeature.mockResolvedValue(true);
+  sendMessengerUtilityReminderMock.mockClear();
+  sendMessengerUtilityReminderMock.mockResolvedValue({ code: "SENT", quotaConsumed: true });
+  checkReminderSendLimitMock.mockClear();
+  checkReminderSendLimitMock.mockReturnValue({ allowed: true, current: 0, limit: 1000 });
   vi.useFakeTimers();
 });
 
@@ -403,6 +440,54 @@ afterEach(() => {
 // ============================================================
 
 describe("runReminders (daily next-day batch)", () => {
+  it("額度矩陣：自動提醒完整鍵去重，手動／測試訊息逐筆計算", async () => {
+    const { engine } = await loadModules();
+    const triggerAt = new Date("2026-05-10T10:00:00.000Z");
+    expect(engine.countReminderQuotaUsage([
+      // Same automatic Messenger delivery retried twice: one charge.
+      { id: "m1", ruleId: RULE_ID, bookingId: "b1", triggerAt, channel: "MESSENGER" },
+      { id: "m2", ruleId: RULE_ID, bookingId: "b1", triggerAt, channel: "MESSENGER" },
+      // LINE is a separate delivered message even with the same automatic key.
+      { id: "l1", ruleId: RULE_ID, bookingId: "b1", triggerAt, channel: "LINE" },
+      // Incomplete manual/test keys never collapse into each other.
+      { id: "manual-1", ruleId: null, bookingId: null, triggerAt: null, channel: "LINE" },
+      { id: "manual-2", ruleId: null, bookingId: null, triggerAt: null, channel: "LINE" },
+      { id: "test-1", ruleId: RULE_ID, bookingId: null, triggerAt, channel: "LINE" },
+    ])).toBe(5);
+  });
+
+  it("月初 00:00–07:59 以台灣月份查詢共用提醒額度", async () => {
+    vi.setSystemTime(new Date("2026-06-30T16:30:00.000Z")); // 7/1 00:30 TW
+    mockPrisma.store.findUnique.mockResolvedValue({
+      id: STORE_ID, slug: "store-test", plan: "BASIC",
+      maxStaffOverride: null, maxCustomersOverride: null,
+      maxMonthlyBookingsOverride: null, maxMonthlyReportsOverride: null,
+      maxReminderSendsOverride: null, maxStoresOverride: null,
+    } as never);
+    bookings.push(makeBooking({ bookingDate: new Date("2026-07-02T00:00:00.000Z"), hasLine: true, channel: "LINE" }));
+    rules.push(makeRule());
+
+    const { engine } = await loadModules();
+    await engine.runReminders();
+
+    expect(mockPrisma.messageLog.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        sentAt: {
+          gte: new Date("2026-06-30T16:00:00.000Z"),
+          lt: new Date("2026-07-31T16:00:00.000Z"),
+        },
+      }),
+    }));
+  });
+
+  it("台灣月底最後一毫秒仍屬本月，次月 00:00 排除", async () => {
+    const { engine } = await loadModules();
+    expect(engine.taiwanReminderMonthRange(new Date("2026-07-31T15:59:59.999Z"))).toEqual({
+      start: new Date("2026-06-30T16:00:00.000Z"),
+      end: new Date("2026-07-31T16:00:00.000Z"),
+    });
+  });
+
   it("命中：明天 (TW) 的有效預約 → SENT，triggerAt = 今天 18:00 TW", async () => {
     // now = 5/11 12:00 TW = 5/11 04:00 UTC（假設 cron 提早觸發）
     vi.setSystemTime(new Date("2026-05-11T04:00:00.000Z"));
@@ -521,6 +606,18 @@ describe("runReminders (daily next-day batch)", () => {
         }),
       ]),
     );
+  });
+
+  it("Messenger 排程提醒與 LINE PR 隔離，不呼叫正式發送服務", async () => {
+    vi.setSystemTime(new Date("2026-05-11T04:00:00.000Z"));
+    mockHasStoreFeature.mockResolvedValue(false);
+    bookings.push(makeBooking({ bookingDate: new Date("2026-05-12T00:00:00.000Z"), hasLine: false, channel: "MESSENGER" }));
+    rules.push(makeRule());
+    const { engine } = await loadModules();
+    await expect(engine.runReminders()).resolves.toMatchObject({ sent: 0, skipped: 1, failed: 0 });
+    expect(pushMessageMock).not.toHaveBeenCalled();
+    expect(sendMessengerUtilityReminderMock).not.toHaveBeenCalled();
+    expect(messageLogs).toEqual([]);
   });
 
   it("不命中：今天的預約（不是明天）→ 不發送", async () => {
@@ -745,7 +842,7 @@ describe("runReminders (daily next-day batch)", () => {
     expect(pushMessageMock).toHaveBeenCalledTimes(1); // LINE 沒被打第二次
   });
 
-  it("已有 FAILED 結果時重跑不會先發送再撞唯一索引", async () => {
+  it("已有 FAILED 結果時會重試 LINE 發送", async () => {
     vi.setSystemTime(new Date("2026-05-11T10:00:00.000Z"));
     bookings.push(
       makeBooking({
@@ -769,12 +866,12 @@ describe("runReminders (daily next-day batch)", () => {
     const { engine } = await loadModules();
     const result = await engine.runReminders();
 
-    expect(result.sent).toBe(0);
-    expect(result.skipped).toBe(1);
-    expect(result.details[0]?.error).toBe("Already processed today");
-    expect(pushMessageMock).not.toHaveBeenCalled();
+    expect(result.sent).toBe(1);
+    expect(result.skipped).toBe(0);
+    expect(pushMessageMock).toHaveBeenCalledTimes(1);
     expect(pushSteamButlerMessageMock).not.toHaveBeenCalled();
-    expect(messageLogs).toHaveLength(1);
+    expect(messageLogs).toHaveLength(2);
+    expect(messageLogs[1]).toMatchObject({ status: "SENT" });
   });
 
   it("並行 race（unique constraint P2002）→ SKIPPED 不 throw", async () => {

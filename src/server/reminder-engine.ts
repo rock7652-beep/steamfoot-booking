@@ -29,11 +29,14 @@ import { hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
 import {
   toLocalDateStr,
+  toLocalMonthStr,
+  monthRange,
   addTaiwanDuration,
   parseTaiwanDateToDbDate,
 } from "@/lib/date-utils";
 import { resolveCentralLineRecipientsForCustomers } from "@/server/services/central-line-recipient-loader";
 import { resolveVerifiedReminderLineRoute } from "@/server/services/verified-reminder-line-route";
+import { createTrialBookingActionToken } from "@/server/services/trial-booking-self-service";
 
 const DEFAULT_TEMPLATE = `{{customerName}} 您好！
 
@@ -81,6 +84,40 @@ export function tomorrowBookingDate(now: Date = new Date()): Date {
   return parseTaiwanDateToDbDate(tomorrowStr);
 }
 
+/** UTC half-open range for the calendar month containing `now` in Asia/Taipei. */
+export function taiwanReminderMonthRange(now: Date = new Date()): { start: Date; end: Date } {
+  const range = monthRange(toLocalMonthStr(now));
+  return { start: range.start, end: new Date(range.end.getTime() + 1) };
+}
+
+type ReminderQuotaLog = {
+  id: string;
+  ruleId: string | null;
+  bookingId: string | null;
+  triggerAt: Date | null;
+  channel: string;
+};
+
+/**
+ * One quota rule for every reminder transport:
+ * - automatic deliveries with a complete idempotency key are charged once;
+ * - manual/test rows with any missing key are real sends and are charged row by row.
+ */
+export function countReminderQuotaUsage(logs: ReminderQuotaLog[]): number {
+  const automaticDeliveries = new Set<string>();
+  let individualDeliveries = 0;
+  for (const log of logs) {
+    if (!log.ruleId || !log.bookingId || !log.triggerAt) {
+      individualDeliveries++;
+      continue;
+    }
+    automaticDeliveries.add(
+      `${log.channel}:${log.ruleId}:${log.bookingId}:${log.triggerAt.toISOString()}`,
+    );
+  }
+  return individualDeliveries + automaticDeliveries.size;
+}
+
 async function recordSkippedReminder(input: {
   ruleId: string;
   templateId: string | null;
@@ -90,6 +127,7 @@ async function recordSkippedReminder(input: {
   storeId: string;
   reason: string;
   lineRoute?: "CENTRAL" | "STORE" | null;
+  channel?: "LINE" | "MESSENGER";
 }): Promise<void> {
   try {
     await prisma.messageLog.create({
@@ -99,7 +137,7 @@ async function recordSkippedReminder(input: {
         customerId: input.customerId,
         bookingId: input.bookingId,
         triggerAt: input.triggerAt,
-        channel: "LINE",
+        channel: input.channel ?? "LINE",
         lineRoute: input.lineRoute ?? null,
         status: "SKIPPED",
         errorMessage: input.reason,
@@ -115,6 +153,33 @@ async function recordSkippedReminder(input: {
     }
     throw error;
   }
+}
+
+async function recordFailedReminder(input: {
+  ruleId: string;
+  templateId: string | null;
+  customerId: string;
+  bookingId: string;
+  triggerAt: Date;
+  storeId: string;
+  reason: string;
+  lineRoute?: "CENTRAL" | "STORE" | null;
+  channel?: "LINE" | "MESSENGER";
+}): Promise<void> {
+  await prisma.messageLog.create({
+    data: {
+      ruleId: input.ruleId,
+      templateId: input.templateId,
+      customerId: input.customerId,
+      bookingId: input.bookingId,
+      triggerAt: input.triggerAt,
+      channel: input.channel ?? "LINE",
+      lineRoute: input.lineRoute ?? null,
+      status: "FAILED",
+      errorMessage: input.reason,
+      storeId: input.storeId,
+    },
+  });
 }
 
 /**
@@ -145,8 +210,7 @@ export async function runReminders(): Promise<SendResult> {
   const storePlanCache = new Map<string, StorePlanFields>();
   const storeSendCountCache = new Map<string, number>();
   const storeLineReminderFeatureCache = new Map<string, boolean>();
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+  const { start: monthStart, end: monthEnd } = taiwanReminderMonthRange(now);
 
   for (const rule of rules) {
     if (!storeLineReminderFeatureCache.has(rule.storeId)) {
@@ -170,29 +234,6 @@ export async function runReminders(): Promise<SendResult> {
 
     result.total += bookings.length;
 
-    if (!lineReminderEnabled) {
-      result.skipped += bookings.length;
-      for (const booking of bookings) {
-        await recordSkippedReminder({
-          ruleId: rule.id,
-          templateId: rule.templateId,
-          customerId: booking.customer.id,
-          bookingId: booking.id,
-          triggerAt,
-          storeId: booking.storeId,
-          reason: "Feature not enabled",
-        });
-        result.details.push({
-          customerId: booking.customer.id,
-          bookingId: booking.id,
-          ruleName: rule.name,
-          status: "SKIPPED",
-          error: "Feature not enabled",
-        });
-      }
-      continue;
-    }
-
     const templateBody = rule.template?.body ?? DEFAULT_TEMPLATE;
     const recipients = await resolveCentralLineRecipientsForCustomers(
       bookings.map((booking) => booking.customer.id),
@@ -202,13 +243,93 @@ export async function runReminders(): Promise<SendResult> {
       const customer = booking.customer;
       const bookingStoreId = booking.storeId;
 
-      // Any prior outcome for this rule/booking/day is terminal. This prevents
-      // retries from sending first and then colliding with the unique log row.
+      // Messenger scheduled delivery is intentionally isolated from this PR.
+      // Messenger can still issue a chat-bound booking link, but only LINE is
+      // permitted to send the next-day reminder until the separate delivery,
+      // quota, retry, and concurrency work has passed review.
+      if (booking.trialBookingChannel === "MESSENGER") {
+        result.skipped++;
+        result.details.push({
+          customerId: customer.id,
+          bookingId: booking.id,
+          ruleName: rule.name,
+          status: "SKIPPED",
+          error: "MESSENGER_SCHEDULED_REMINDER_ISOLATED",
+        });
+        continue;
+      }
+
+      // LINE and Messenger share the same plan allowance. Check it before
+      // either transport sends so one channel cannot bypass or starve the other.
+      if (!storePlanCache.has(bookingStoreId)) {
+        const storeData = await prisma.store.findUnique({
+          where: { id: bookingStoreId },
+          select: {
+            id: true, plan: true,
+            maxStaffOverride: true, maxCustomersOverride: true,
+            maxMonthlyBookingsOverride: true, maxMonthlyReportsOverride: true,
+            maxReminderSendsOverride: true, maxStoresOverride: true,
+          },
+        });
+        if (storeData) storePlanCache.set(bookingStoreId, storeData);
+      }
+      if (!storeSendCountCache.has(bookingStoreId)) {
+        const sentDeliveries = await prisma.messageLog.findMany({
+          where: {
+            status: "SENT",
+            sentAt: { gte: monthStart, lt: monthEnd },
+            storeId: bookingStoreId,
+          },
+          select: { id: true, ruleId: true, bookingId: true, triggerAt: true, channel: true },
+        });
+        storeSendCountCache.set(bookingStoreId, countReminderQuotaUsage(sentDeliveries));
+      }
+      const storePlan = storePlanCache.get(bookingStoreId);
+      if (storePlan) {
+        const sendCount = storeSendCountCache.get(bookingStoreId) ?? 0;
+        const limitCheck = checkReminderSendLimit(storePlan, sendCount);
+        if (!limitCheck.allowed) {
+          const reason = `Reminder send limit reached (${limitCheck.current}/${limitCheck.limit})`;
+          await recordSkippedReminder({
+            ruleId: rule.id,
+            templateId: rule.templateId,
+            customerId: customer.id,
+            bookingId: booking.id,
+            triggerAt,
+            storeId: bookingStoreId,
+            channel: "LINE",
+            reason,
+          });
+          result.skipped++;
+          result.details.push({
+            customerId: customer.id,
+            bookingId: booking.id,
+            ruleName: rule.name,
+            status: "SKIPPED",
+            error: reason,
+          });
+          continue;
+        }
+      }
+
+      if (!lineReminderEnabled) {
+        await recordSkippedReminder({
+          ruleId: rule.id, templateId: rule.templateId, customerId: customer.id,
+          bookingId: booking.id, triggerAt, storeId: bookingStoreId, reason: "Feature not enabled",
+        });
+        result.skipped++;
+        result.details.push({ customerId: customer.id, bookingId: booking.id, ruleName: rule.name, status: "SKIPPED", error: "Feature not enabled" });
+        continue;
+      }
+
+      // Only terminal outcomes suppress another delivery. FAILED attempts are
+      // deliberately retryable under the partial unique index.
       const existingLog = await prisma.messageLog.findFirst({
         where: {
           ruleId: rule.id,
           bookingId: booking.id,
           triggerAt,
+          status: { in: ["SENT", "SKIPPED"] },
         },
       });
       if (existingLog) {
@@ -251,70 +372,44 @@ export async function runReminders(): Promise<SendResult> {
         continue;
       }
 
-      // 用量限制：檢查此店的提醒發送是否超過上限
-      if (!storePlanCache.has(bookingStoreId)) {
-        const storeData = await prisma.store.findUnique({
-          where: { id: bookingStoreId },
-          select: {
-            id: true, plan: true,
-            maxStaffOverride: true, maxCustomersOverride: true,
-            maxMonthlyBookingsOverride: true, maxMonthlyReportsOverride: true,
-            maxReminderSendsOverride: true, maxStoresOverride: true,
-          },
-        });
-        if (storeData) storePlanCache.set(bookingStoreId, storeData);
-      }
-      if (!storeSendCountCache.has(bookingStoreId)) {
-        const cnt = await prisma.messageLog.count({
-          where: {
-            status: "SENT",
-            sentAt: { gte: monthStart, lte: monthEnd },
-            storeId: bookingStoreId,
-          },
-        });
-        storeSendCountCache.set(bookingStoreId, cnt);
-      }
-      const storePlan = storePlanCache.get(bookingStoreId);
-      if (storePlan) {
-        const sendCount = storeSendCountCache.get(bookingStoreId) ?? 0;
-        const limitCheck = checkReminderSendLimit(storePlan, sendCount);
-        if (!limitCheck.allowed) {
-          const reason = `Reminder send limit reached (${limitCheck.current}/${limitCheck.limit})`;
-          await recordSkippedReminder({
-            ruleId: rule.id,
-            templateId: rule.templateId,
-            customerId: customer.id,
-            bookingId: booking.id,
-            triggerAt,
-            storeId: bookingStoreId,
-            reason,
-            lineRoute: route.channel,
-          });
-          result.skipped++;
-          result.details.push({
-            customerId: customer.id,
-            bookingId: booking.id,
-            ruleName: rule.name,
-            status: "SKIPPED",
-            error: reason,
-          });
-          continue;
-        }
-      }
-
       // 渲染模板
       if (!shopNameCache.has(bookingStoreId)) {
         const sc = await getShopConfig(bookingStoreId);
         shopNameCache.set(bookingStoreId, sc.shopName);
       }
       const bookingDateStr = booking.bookingDate.toISOString().slice(0, 10);
+      let bookingLink = `${baseUrl}/my-bookings`;
+      if (booking.bookingType === "FIRST_TRIAL" && booking.trialBookingChannel && !process.env.TRIAL_BOOKING_ACTION_SECRET) {
+        await recordFailedReminder({
+          ruleId: rule.id,
+          templateId: rule.templateId,
+          customerId: customer.id,
+          bookingId: booking.id,
+          triggerAt,
+          storeId: bookingStoreId,
+          reason: "TRIAL_BOOKING_ACTION_SECRET_NOT_CONFIGURED",
+          lineRoute: route.channel,
+        });
+        result.failed++;
+        result.details.push({
+          customerId: customer.id,
+          bookingId: booking.id,
+          ruleName: rule.name,
+          status: "FAILED",
+          error: "TRIAL_BOOKING_ACTION_SECRET_NOT_CONFIGURED",
+        });
+        continue;
+      }
+      if (booking.bookingType === "FIRST_TRIAL" && booking.trialBookingChannel) {
+        bookingLink = `${baseUrl}/trial-booking/manage?token=${encodeURIComponent(createTrialBookingActionToken(booking))}`;
+      }
       const vars: TemplateVariables = {
         customerName: customer.name,
         bookingDate: bookingDateStr,
         bookingTime: booking.slotTime,
         shopName: shopNameCache.get(bookingStoreId) ?? "蒸足",
         staffName: customer.assignedStaff?.displayName ?? "店長",
-        bookingLink: `${baseUrl}/my-bookings`,
+        bookingLink,
       };
       const renderedBody = renderTemplate(templateBody, vars);
 

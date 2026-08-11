@@ -9,6 +9,8 @@ import {
   sendMessengerMessages,
   verifyMessengerSignature,
 } from "@/lib/messenger";
+import { createTrialBookingChatLink } from "@/server/services/trial-booking-chat-link";
+import { ZHUBEI_EXPERIENCE_BOOKING_URL } from "@/lib/booking-links";
 
 export const dynamic = "force-dynamic";
 
@@ -99,12 +101,40 @@ async function handleMessagingEvent(
 
   if (!result.handled || result.messages.length === 0) return;
 
+  const messages = await Promise.all(result.messages.map(async (intent) => {
+    if (intent.type !== "text" || intent.urlButton?.url !== ZHUBEI_EXPERIENCE_BOOKING_URL) return intent;
+    try {
+      const link = await createTrialBookingChatLink({
+        storeId: store.id,
+        channel: "MESSENGER",
+        chatIdentity: senderId,
+      });
+      return {
+        ...intent,
+        text: intent.text.replace(ZHUBEI_EXPERIENCE_BOOKING_URL, "請使用下方專屬連結完成預約。"),
+        urlButton: { ...intent.urlButton, url: link.url },
+      };
+    } catch {
+      // Never downgrade a chat booking CTA to the shared form: that would lose
+      // the identity required for a safe reminder.
+      console.error("[Messenger Webhook] booking link issue failed", { storeId: store.id });
+      return {
+        ...intent,
+        text: intent.text.replace(
+          ZHUBEI_EXPERIENCE_BOOKING_URL,
+          "專屬預約連結暫時無法建立，請稍後再輸入「我想體驗蒸足」。",
+        ),
+        urlButton: undefined,
+      };
+    }
+  }));
+
   const deliver = async (): Promise<void> => {
     const delivery = await sendMessengerMessages({
       pageId,
       pageAccessToken: store.accessToken,
       recipientId: senderId,
-      messages: digitalButlerIntentsToMessengerMessages(result.messages),
+      messages: digitalButlerIntentsToMessengerMessages(messages),
     });
     if (delivery.success) return;
     console.error("[Messenger Webhook] Reply failed", {

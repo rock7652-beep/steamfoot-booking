@@ -342,6 +342,7 @@ async function computeMonthBookingSummary(
         isMakeup: true,
         isCheckedIn: true,
         people: true,
+        customerConfirmedAt: true,
         // PR-3d：實際到店人數（FIRST_TRIAL 部分到店；day-panel 行尾顯示「實到 N/M」）
         attendedPeople: true,
         // 體驗 499 PR-2：日面板 badge「體驗·未收款｜NT$xxx」用（最小新增 2 欄）
@@ -447,6 +448,7 @@ async function computeMonthBookingSummary(
     isMakeup: boolean;
     isCheckedIn: boolean;
     people: number;
+    customerConfirmedAt: Date | null;
     // PR-3d：實際到店人數（FIRST_TRIAL 部分到店；null = 未記錄／全到）
     attendedPeople: number | null;
     bookingType: string;
@@ -507,6 +509,7 @@ async function computeMonthBookingSummary(
       isMakeup: b.isMakeup,
       isCheckedIn: b.isCheckedIn,
       people: b.people,
+      customerConfirmedAt: b.customerConfirmedAt,
       attendedPeople: b.attendedPeople,
       bookingType: b.bookingType,
       // Decimal → number 在 server 邊界轉換，避免 RSC 序列化問題
