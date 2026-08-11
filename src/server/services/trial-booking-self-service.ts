@@ -43,7 +43,7 @@ function selfServiceAllowed(booking: { bookingDate: Date; slotTime: string }, no
   return bookingStartsAt(booking).getTime() - now.getTime() > SELF_SERVICE_CUTOFF_MS;
 }
 
-function targetSlotAllowed(date: string, slotTime: string, now: Date): boolean {
+export function isTrialRescheduleTargetAllowed(date: string, slotTime: string, now: Date): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(slotTime)) return false;
   const startsAt = new Date(`${date}T${slotTime}:00+08:00`);
   return Number.isFinite(startsAt.getTime()) && startsAt.getTime() - now.getTime() > SELF_SERVICE_CUTOFF_MS;
@@ -105,7 +105,7 @@ export async function listTrialRescheduleSlots(token: string, date: string, now 
   return applySlotOverrides(ctx.rule, ctx.slotOverrides)
     .filter(slot =>
       slot.isEnabled &&
-      targetSlotAllowed(date, slot.startTime, now) &&
+      isTrialRescheduleTargetAllowed(date, slot.startTime, now) &&
       (!dutyEnabled || duty.has(slot.startTime)) &&
       (slot.capacity - (used.get(slot.startTime) ?? 0)) >= booking.people
     )
@@ -116,7 +116,7 @@ export async function rescheduleTrialBooking(token: string, date: string, slotTi
   const booking = await loadAuthorizedBooking(token, now);
   if (!booking || booking.customerRescheduleCount >= 1 || !selfServiceAllowed(booking, now) || date < toLocalDateStr(now)) return "unavailable";
   const ctx = await loadDayBusinessHoursContext(booking.storeId, date);
-  const slot = !ctx.rule.closed && targetSlotAllowed(date, slotTime, now)
+  const slot = !ctx.rule.closed && isTrialRescheduleTargetAllowed(date, slotTime, now)
     ? applySlotOverrides(ctx.rule, ctx.slotOverrides).find(item => item.isEnabled && item.startTime === slotTime)
     : undefined;
   if (!slot) return "unavailable";
@@ -125,7 +125,7 @@ export async function rescheduleTrialBooking(token: string, date: string, slotTi
     return await prisma.$transaction(async tx => {
       const current = await tx.booking.findFirst({ where: { id: booking.id, storeId: booking.storeId }, select: { bookingStatus: true, customerRescheduleCount: true } });
       if (!current || !["PENDING", "CONFIRMED"].includes(current.bookingStatus) || current.customerRescheduleCount >= 1) return "unavailable";
-      if (!targetSlotAllowed(date, slotTime, now)) return "unavailable";
+      if (!isTrialRescheduleTargetAllowed(date, slotTime, now)) return "unavailable";
       if (dutyEnabled) {
         const duty = await tx.dutyAssignment.findFirst({
           where: { storeId: booking.storeId, date: ctx.dateObj, slotTime },
