@@ -5,6 +5,8 @@ import { parseTaipeiDateTime, parseTaiwanDateToDbDate, toLocalDateStr } from "@/
 import { PENDING_STATUSES } from "@/lib/booking-constants";
 import { applySlotOverrides, loadDayBusinessHoursContext } from "@/lib/business-hours-resolver";
 import { isDutySchedulingEnabled } from "@/lib/shop-config";
+import { isStoreBookable } from "@/lib/store-operating-status";
+import { isStoreSubscriptionWriteBlocked } from "@/lib/subscription-guard";
 
 const TOKEN_TTL_DAYS = 7;
 function tokenSignature(value: string): string {
@@ -61,6 +63,14 @@ async function loadAuthorizedBooking(token: string, now = new Date()) {
   });
 }
 
+async function isRescheduleStoreWritable(storeId: string): Promise<boolean> {
+  const [bookable, subscriptionWriteBlocked] = await Promise.all([
+    isStoreBookable(storeId),
+    isStoreSubscriptionWriteBlocked(storeId),
+  ]);
+  return bookable && !subscriptionWriteBlocked;
+}
+
 export async function confirmTrialBooking(token: string, now = new Date()): Promise<"confirmed" | "already_confirmed" | "unavailable"> {
   const booking = await loadAuthorizedBooking(token, now);
   if (!booking || booking.bookingStatus === "CANCELLED" || !selfServiceAllowed(booking, now)) return "unavailable";
@@ -92,6 +102,7 @@ export async function listTrialRescheduleSlots(token: string, date: string, now 
     !isValidTrialRescheduleDate(date) ||
     date < toLocalDateStr(now)
   ) return [];
+  if (!(await isRescheduleStoreWritable(booking.storeId))) return [];
   const ctx = await loadDayBusinessHoursContext(booking.storeId, date);
   if (ctx.rule.closed) return [];
   const dutyEnabled = await isDutySchedulingEnabled(booking.storeId);
@@ -132,12 +143,17 @@ export async function rescheduleTrialBooking(token: string, date: string, slotTi
     (date === booking.bookingDate.toISOString().slice(0, 10) && slotTime === booking.slotTime) ||
     date < toLocalDateStr(now)
   ) return "unavailable";
+  if (!(await isRescheduleStoreWritable(booking.storeId))) return "unavailable";
   const ctx = await loadDayBusinessHoursContext(booking.storeId, date);
   const slot = !ctx.rule.closed
     ? applySlotOverrides(ctx.rule, ctx.slotOverrides).find(item => item.isEnabled && item.startTime === slotTime)
     : undefined;
   if (!slot) return "unavailable";
   const dutyEnabled = await isDutySchedulingEnabled(booking.storeId);
+  // Re-check immediately before opening the write transaction. A customer may
+  // keep an old reminder page open while the store is paused or becomes
+  // read-only after availability was loaded.
+  if (!(await isRescheduleStoreWritable(booking.storeId))) return "unavailable";
   try {
     return await prisma.$transaction(async tx => {
       const current = await tx.booking.findFirst({
