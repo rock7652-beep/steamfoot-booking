@@ -184,6 +184,22 @@ export function matchesDigitalButlerTriggerKeyword(keywords: string[], text: str
     && TRIAL_EXPERIENCE_TRIGGER_ALIASES.has(normalizedText);
 }
 
+function singleChoiceInputText(step: RuntimeStep, text: string): string {
+  if (!TRIAL_EXPERIENCE_TRIGGER_ALIASES.has(normalizeTriggerText(text))) return text;
+  const options = objectConfig(step.config).options;
+  if (!Array.isArray(options)) return text;
+  const bookingOption = options.find((option) => {
+    const parsed = objectConfig(option as Prisma.JsonValue);
+    return parsed.value === "BOOKING" || parsed.label === "我想預約體驗";
+  });
+  const parsed = bookingOption ? objectConfig(bookingOption as Prisma.JsonValue) : null;
+  return typeof parsed?.value === "string"
+    ? parsed.value
+    : typeof parsed?.label === "string"
+      ? parsed.label
+      : text;
+}
+
 function eventIdentity(input: DigitalButlerInboundTextMessage): {
   eventKey: string;
   fallbackEventHash?: string;
@@ -315,10 +331,11 @@ function validateAnswer(step: RuntimeStep, text: string): { value?: Prisma.Input
   }
   if (step.type === "SINGLE_CHOICE") {
     const options = objectConfig(step.config).options;
+    const choiceText = singleChoiceInputText(step, text);
     const matched = Array.isArray(options)
       ? options.find((option) => {
           const value = objectConfig(option as Prisma.JsonValue);
-          return value.value === text || value.label === text;
+          return value.value === choiceText || value.label === choiceText;
         })
       : undefined;
     if (!matched) return { error: "請點選下方提供的選項。" };
