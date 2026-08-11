@@ -36,6 +36,13 @@ describe("trial reminder convergence contract", () => {
     expect(changeHandler).toContain('setSelected("")');
   });
 
+  it("only lets the latest reschedule-slot request update the page", () => {
+    const manager = source("src/app/trial-booking/manage/trial-booking-manager.tsx");
+    expect(manager).toContain("slotRequestGate.invalidate()");
+    expect(manager).toContain("const requestId = slotRequestGate.issue()");
+    expect(manager).toContain("slotRequestGate.isCurrent(requestId)");
+  });
+
   it("marks a batch with individual failures as retryable", () => {
     const route = source("src/app/api/cron/reminders/route.ts");
     const retry = source("src/server/reminder-cron-retry.ts");
