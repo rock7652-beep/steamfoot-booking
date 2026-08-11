@@ -120,6 +120,21 @@ const expectedTrialBookingColumns = [
   ["originalBookingDate", "date", "date", "YES", null],
   ["originalSlotTime", "text", "text", "YES", null],
 ];
+const expectedTrialLinkColumns = [
+  ["id", "text", "text", "NO", null],
+  ["storeId", "text", "text", "NO", null],
+  ["channel", "USER-DEFINED", "TrialBookingChannel", "NO", null],
+  ["identityHash", "text", "text", "NO", null],
+  ["identityCiphertext", "bytea", "bytea", "NO", null],
+  ["identityIv", "bytea", "bytea", "NO", null],
+  ["identityAuthTag", "bytea", "bytea", "NO", null],
+  ["identityKeyVersion", "text", "text", "NO", null],
+  ["tokenHash", "text", "text", "NO", null],
+  ["expiresAt", "timestamp without time zone", "timestamp", "NO", null],
+  ["consumedAt", "timestamp without time zone", "timestamp", "YES", null],
+  ["bookingId", "text", "text", "YES", null],
+  ["createdAt", "timestamp without time zone", "timestamp", "NO", "CURRENT_TIMESTAMP"],
+];
 const expectedTrialLinkConstraints = [
   "TrialBookingLink_bookingId_fkey",
   "TrialBookingLink_pkey",
@@ -455,13 +470,15 @@ export function hasExpectedPaymentSplitRls(snapshot, enabled) {
 
 async function readTrialReminderSnapshot(prisma) {
   const [
-    trialEnum, reminderEnum, bookingColumns, trialTable, trialConstraints,
-    trialIndexes, trialRls, trialPolicies, trialClientGrants, messageIndexes,
+    trialEnum, reminderEnum, bookingColumns, trialTable, trialLinkColumns,
+    trialConstraints, trialIndexes, trialRls, trialPolicies, trialClientGrants,
+    messageIndexes,
   ] = await Promise.all([
     prisma.$queryRaw`SELECT e.enumlabel AS "value" FROM pg_type t JOIN pg_enum e ON e.enumtypid = t.oid WHERE t.typname = 'TrialBookingChannel' ORDER BY e.enumsortorder`,
     prisma.$queryRaw`SELECT e.enumlabel AS "value" FROM pg_type t JOIN pg_enum e ON e.enumtypid = t.oid WHERE t.typname = 'ReminderChannel' ORDER BY e.enumsortorder`,
     prisma.$queryRaw`SELECT column_name AS "columnName", data_type AS "dataType", udt_name AS "udtName", is_nullable AS "isNullable", column_default AS "columnDefault" FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'Booking' AND column_name IN ('trialBookingChannel', 'customerConfirmedAt', 'customerRescheduledAt', 'customerCancelledAt', 'customerCancelledSource', 'customerRescheduleCount', 'originalBookingDate', 'originalSlotTime') ORDER BY ordinal_position`,
     prisma.$queryRaw`SELECT to_regclass('public."TrialBookingLink"') IS NOT NULL AS "exists"`,
+    prisma.$queryRaw`SELECT column_name AS "columnName", data_type AS "dataType", udt_name AS "udtName", is_nullable AS "isNullable", column_default AS "columnDefault" FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'TrialBookingLink' ORDER BY ordinal_position`,
     prisma.$queryRaw`SELECT conname AS "name" FROM pg_constraint WHERE conrelid = to_regclass('public."TrialBookingLink"') ORDER BY conname`,
     prisma.$queryRaw`SELECT indexname AS "name" FROM pg_indexes WHERE schemaname = 'public' AND tablename = 'TrialBookingLink' AND indexname <> 'TrialBookingLink_pkey' ORDER BY indexname`,
     prisma.$queryRaw`SELECT c.relrowsecurity AS "enabled", c.relforcerowsecurity AS "forced" FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public' AND c.relname = 'TrialBookingLink' AND c.relkind = 'r'`,
@@ -474,6 +491,7 @@ async function readTrialReminderSnapshot(prisma) {
     reminderEnumValues: reminderEnum.map((row) => row.value),
     bookingColumns,
     trialTableExists: trialTable.length === 1 && trialTable[0].exists === true,
+    trialLinkColumns,
     trialConstraints: trialConstraints.map((row) => row.name),
     trialIndexes: trialIndexes.map((row) => row.name),
     trialRlsEnabled: trialRls.length === 1 ? trialRls[0].enabled : null,
@@ -488,6 +506,7 @@ export function hasNoTrialReminderObjects(snapshot) {
   return snapshot.trialEnumValues.length === 0 &&
     snapshot.bookingColumns.length === 0 &&
     snapshot.trialTableExists === false &&
+    snapshot.trialLinkColumns.length === 0 &&
     snapshot.trialConstraints.length === 0 &&
     snapshot.trialIndexes.length === 0 &&
     snapshot.messageIndexes.length === 1 &&
@@ -506,6 +525,17 @@ export function hasExpectedTrialReminderSchema(snapshot) {
         actual.isNullable === expected[3] &&
         normalizeDefault(actual.columnDefault) === normalizeDefault(expected[4]);
     });
+  const trialLinkColumnsMatch =
+    snapshot.trialLinkColumns.length === expectedTrialLinkColumns.length &&
+    expectedTrialLinkColumns.every((expected, index) => {
+      const actual = snapshot.trialLinkColumns[index];
+      return actual &&
+        actual.columnName === expected[0] &&
+        actual.dataType === expected[1] &&
+        actual.udtName === expected[2] &&
+        actual.isNullable === expected[3] &&
+        normalizeDefault(actual.columnDefault) === normalizeDefault(expected[4]);
+    });
   const messageIndexNames = snapshot.messageIndexes.map((index) => index.name);
   const uniqueIndex = snapshot.messageIndexes.find(
     (index) => index.name === "uniq_sent_rule_booking_trigger",
@@ -517,6 +547,7 @@ export function hasExpectedTrialReminderSchema(snapshot) {
     snapshot.reminderEnumValues.includes("MESSENGER") &&
     bookingColumnsMatch &&
     snapshot.trialTableExists === true &&
+    trialLinkColumnsMatch &&
     sameValues(snapshot.trialConstraints, expectedTrialLinkConstraints) &&
     sameValues(snapshot.trialIndexes, expectedTrialLinkIndexes) &&
     snapshot.trialRlsEnabled === true &&
@@ -525,6 +556,7 @@ export function hasExpectedTrialReminderSchema(snapshot) {
     snapshot.trialClientGrantCount === 0 &&
     sameValues(messageIndexNames, ["uniq_sent_rule_booking_trigger", "idx_rule_booking_trigger"]) &&
     uniqueIndex?.definition.includes("UNIQUE INDEX") &&
+    uniqueIndex.definition.includes('("ruleId", "bookingId", "triggerAt")') &&
     uniqueIndex.definition.includes("WHERE (status = 'SENT'") &&
     lookupIndex?.definition.includes('("ruleId", "bookingId", "triggerAt")');
 }
