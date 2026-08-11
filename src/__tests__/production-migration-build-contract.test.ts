@@ -336,9 +336,9 @@ describe("Production migration recovery guard", () => {
       trialTableExists: true,
       trialLinkColumns,
       trialConstraints: [
-        { name: "TrialBookingLink_bookingId_fkey", constraintType: "f", localColumns: ["bookingId"], referencedSchema: "public", referencedTable: "Booking", referencedColumns: ["id"], updateAction: "c", deleteAction: "n" },
-        { name: "TrialBookingLink_pkey", constraintType: "p", localColumns: ["id"], referencedSchema: null, referencedTable: null, referencedColumns: [], updateAction: null, deleteAction: null },
-        { name: "TrialBookingLink_storeId_fkey", constraintType: "f", localColumns: ["storeId"], referencedSchema: "public", referencedTable: "Store", referencedColumns: ["id"], updateAction: "c", deleteAction: "c" },
+        { name: "TrialBookingLink_bookingId_fkey", constraintType: "f", isValidated: true, localColumns: ["bookingId"], referencedSchema: "public", referencedTable: "Booking", referencedColumns: ["id"], updateAction: "c", deleteAction: "n" },
+        { name: "TrialBookingLink_pkey", constraintType: "p", isValidated: true, localColumns: ["id"], referencedSchema: null, referencedTable: null, referencedColumns: [], updateAction: null, deleteAction: null },
+        { name: "TrialBookingLink_storeId_fkey", constraintType: "f", isValidated: true, localColumns: ["storeId"], referencedSchema: "public", referencedTable: "Store", referencedColumns: ["id"], updateAction: "c", deleteAction: "c" },
       ],
       trialIndexes: [
         { name: "TrialBookingLink_bookingId_idx", isUnique: false, keyColumns: ["bookingId"], includeColumns: [], isValid: true, isReady: true, predicate: null },
@@ -383,6 +383,7 @@ describe("Production migration recovery guard", () => {
       expect.objectContaining({
         name: "TrialBookingLink_bookingId_fkey",
         constraintType: "f",
+        isValidated: true,
         localColumns: ["bookingId"],
         referencedSchema: "public",
         referencedTable: "Booking",
@@ -393,6 +394,7 @@ describe("Production migration recovery guard", () => {
       expect.objectContaining({
         name: "TrialBookingLink_pkey",
         constraintType: "p",
+        isValidated: true,
         localColumns: ["id"],
         referencedSchema: null,
         referencedTable: null,
@@ -403,6 +405,7 @@ describe("Production migration recovery guard", () => {
       expect.objectContaining({
         name: "TrialBookingLink_storeId_fkey",
         constraintType: "f",
+        isValidated: true,
         localColumns: ["storeId"],
         referencedSchema: "public",
         referencedTable: "Store",
@@ -433,6 +436,14 @@ describe("Production migration recovery guard", () => {
       trialConstraints: complete.trialConstraints.map((constraint) => (
         constraint.name === "TrialBookingLink_bookingId_fkey"
           ? { ...constraint, deleteAction: "c" }
+          : constraint
+      )),
+    })).toBe(false);
+    expect(hasExpectedTrialReminderSchema({
+      ...complete,
+      trialConstraints: complete.trialConstraints.map((constraint) => (
+        constraint.name === "TrialBookingLink_storeId_fkey"
+          ? { ...constraint, isValidated: false }
           : constraint
       )),
     })).toBe(false);
