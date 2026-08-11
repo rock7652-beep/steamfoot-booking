@@ -14,6 +14,8 @@ export interface DayBooking {
   id: string;
   slotTime: string;
   people: number;
+  /** 顧客透過提醒連結確認會到；有值時門市預約清單顯示確認標記。 */
+  customerConfirmedAt?: Date | null;
   /** PR-3d：實際到店人數（FIRST_TRIAL；null = 未記錄／全到）。
    *  部分到店時 list row 在 PeopleBadge 後顯示「實到 N/M」。 */
   attendedPeople: number | null;
@@ -444,6 +446,11 @@ function TimelineItem({
           <StatusBadge variant={meta.variant} dot={false}>
             {meta.label}
           </StatusBadge>
+          {booking.customerConfirmedAt ? (
+            <span className="shrink-0 rounded bg-sky-100 px-1.5 py-0.5 text-[11px] font-medium text-sky-800">
+              顧客已確認會到
+            </span>
+          ) : null}
           {booking.bookingType === "FIRST_TRIAL" ? (
             booking.collected ? (
               <span className="shrink-0 rounded bg-emerald-100 px-1.5 py-0.5 text-[11px] font-medium text-emerald-800">

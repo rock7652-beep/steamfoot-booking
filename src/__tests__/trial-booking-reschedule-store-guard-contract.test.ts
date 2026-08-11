@@ -28,4 +28,14 @@ describe("trial booking reschedule store write guard", () => {
     expect(checks).toHaveLength(2);
     expect(checks[1]?.index).toBeLessThan(rescheduleBody.indexOf("prisma.$transaction"));
   });
+
+  it("uses the party size re-read inside the transaction for capacity", () => {
+    const rescheduleStart = source.indexOf("export async function rescheduleTrialBooking");
+    const rescheduleBody = source.slice(rescheduleStart);
+
+    expect(rescheduleBody).toContain("slotTime: true, people: true");
+    expect(rescheduleBody).toContain("+ current.people > slot.capacity");
+    expect(rescheduleBody).not.toContain("+ booking.people > slot.capacity");
+    expect(rescheduleBody).toContain("originalBookingDate: current.bookingDate, originalSlotTime: current.slotTime");
+  });
 });

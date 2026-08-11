@@ -158,7 +158,7 @@ export async function rescheduleTrialBooking(token: string, date: string, slotTi
     return await prisma.$transaction(async tx => {
       const current = await tx.booking.findFirst({
         where: { id: booking.id, storeId: booking.storeId },
-        select: { bookingStatus: true, customerRescheduleCount: true, bookingDate: true, slotTime: true },
+        select: { bookingStatus: true, customerRescheduleCount: true, bookingDate: true, slotTime: true, people: true },
       });
       if (!current || !["PENDING", "CONFIRMED"].includes(current.bookingStatus) || current.customerRescheduleCount >= 1) return "unavailable";
       if (date === current.bookingDate.toISOString().slice(0, 10) && slotTime === current.slotTime) return "unavailable";
@@ -171,9 +171,9 @@ export async function rescheduleTrialBooking(token: string, date: string, slotTi
         if (!duty) return "unavailable";
       }
       const occupied = await tx.booking.aggregate({ where: { storeId: booking.storeId, bookingDate: ctx.dateObj, slotTime, bookingStatus: { in: [...PENDING_STATUSES] } }, _sum: { people: true } });
-      if ((occupied._sum.people ?? 0) + booking.people > slot.capacity) return "slot_full";
+      if ((occupied._sum.people ?? 0) + current.people > slot.capacity) return "slot_full";
       await tx.booking.update({ where: { id: booking.id }, data: {
-        originalBookingDate: booking.bookingDate, originalSlotTime: booking.slotTime,
+        originalBookingDate: current.bookingDate, originalSlotTime: current.slotTime,
         bookingDate: parseTaiwanDateToDbDate(date), slotTime, customerRescheduleCount: { increment: 1 }, customerRescheduledAt: now, customerConfirmedAt: null,
       } });
       return "rescheduled";
