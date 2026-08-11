@@ -9,8 +9,6 @@ import {
   sendMessengerMessages,
   verifyMessengerSignature,
 } from "@/lib/messenger";
-import { createTrialBookingChatLink } from "@/server/services/trial-booking-chat-link";
-import { ZHUBEI_EXPERIENCE_BOOKING_URL } from "@/lib/booking-links";
 
 export const dynamic = "force-dynamic";
 
@@ -101,26 +99,12 @@ async function handleMessagingEvent(
 
   if (!result.handled || result.messages.length === 0) return;
 
-  // A web_url is the only public bridge from the existing Messenger flow.
-  // Replace the legacy shared URL with a per-chat opaque link before it leaves
-  // this signed webhook; failures deliberately retain the ordinary shared form.
-  const messages = await Promise.all(result.messages.map(async (intent) => {
-    if (intent.type !== "text" || intent.urlButton?.url !== ZHUBEI_EXPERIENCE_BOOKING_URL) return intent;
-    try {
-      const link = await createTrialBookingChatLink({ storeId: store.id, channel: "MESSENGER", chatIdentity: senderId });
-      return { ...intent, urlButton: { ...intent.urlButton, url: link.url } };
-    } catch {
-      console.error("[Messenger Webhook] booking link issue failed", { storeId: store.id });
-      return intent;
-    }
-  }));
-
   const deliver = async (): Promise<void> => {
     const delivery = await sendMessengerMessages({
       pageId,
       pageAccessToken: store.accessToken,
       recipientId: senderId,
-      messages: digitalButlerIntentsToMessengerMessages(messages),
+      messages: digitalButlerIntentsToMessengerMessages(result.messages),
     });
     if (delivery.success) return;
     console.error("[Messenger Webhook] Reply failed", {

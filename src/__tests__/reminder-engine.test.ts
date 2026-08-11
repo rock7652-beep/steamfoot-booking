@@ -31,8 +31,6 @@ type BookingRow = {
   customerId: string;
   bookingDate: Date;
   slotTime: string;
-  people: number;
-  trialBookingChannel?: "LINE" | "MESSENGER" | null;
   bookingStatus: string;
   customer: {
     id: string;
@@ -84,7 +82,6 @@ let centralRecipientOverrides = new Map<string, {
   recipientLineUserId: string | null;
 }>();
 const mockHasStoreFeature = vi.fn();
-const sendMessengerUtilityReminderMock = vi.fn();
 
 // ── Mock Prisma P2002 error class ──
 class MockPrismaError extends Error {
@@ -305,9 +302,6 @@ vi.mock("@/lib/feature-gate", () => ({
 vi.mock("@/lib/base-url", () => ({
   deriveBaseUrl: () => "https://test.example.com",
 }));
-vi.mock("@/server/services/messenger-utility-reminder", () => ({
-  sendMessengerUtilityReminder: (...args: unknown[]) => sendMessengerUtilityReminderMock(...args),
-}));
 vi.mock("@/lib/session", () => ({
   requireStaffSession: async () => ({
     id: "user-1",
@@ -340,7 +334,6 @@ function makeBooking(opts: {
   slotTime?: string;
   status?: string;
   hasLine?: boolean;
-  channel?: "LINE" | "MESSENGER";
 }): BookingRow {
   return {
     id: opts.id ?? BOOKING_ID,
@@ -348,8 +341,6 @@ function makeBooking(opts: {
     customerId: opts.customerId ?? CUSTOMER_ID,
     bookingDate: opts.bookingDate,
     slotTime: opts.slotTime ?? "14:00",
-    people: 1,
-    trialBookingChannel: opts.channel ?? null,
     bookingStatus: opts.status ?? "CONFIRMED",
     customer: {
       id: opts.customerId ?? CUSTOMER_ID,
@@ -398,11 +389,8 @@ beforeEach(() => {
   mockPrisma.messageLog.count.mockClear();
   mockPrisma.messageLog.findMany.mockClear();
   mockPrisma.store.findUnique.mockClear();
-  mockPrisma.store.findUnique.mockResolvedValue(null);
   mockHasStoreFeature.mockClear();
   mockHasStoreFeature.mockResolvedValue(true);
-  sendMessengerUtilityReminderMock.mockClear();
-  sendMessengerUtilityReminderMock.mockResolvedValue("SENT");
   vi.useFakeTimers();
 });
 
@@ -533,20 +521,6 @@ describe("runReminders (daily next-day batch)", () => {
         }),
       ]),
     );
-  });
-
-  it("LINE gate 關閉仍會獨立處理 Messenger Utility reminder", async () => {
-    vi.setSystemTime(new Date("2026-05-11T04:00:00.000Z"));
-    mockHasStoreFeature.mockResolvedValue(false);
-    mockPrisma.store.findUnique.mockResolvedValue({ slug: "store-test" } as never);
-    bookings.push(makeBooking({ bookingDate: new Date("2026-05-12T00:00:00.000Z"), hasLine: false, channel: "MESSENGER" }));
-    rules.push(makeRule());
-    const { engine } = await loadModules();
-    await expect(engine.runReminders()).resolves.toMatchObject({ sent: 1, skipped: 0 });
-    expect(pushMessageMock).not.toHaveBeenCalled();
-    expect(sendMessengerUtilityReminderMock).toHaveBeenCalledWith(expect.objectContaining({
-      booking: expect.objectContaining({ id: BOOKING_ID, storeId: STORE_ID }),
-    }));
   });
 
   it("不命中：今天的預約（不是明天）→ 不發送", async () => {
