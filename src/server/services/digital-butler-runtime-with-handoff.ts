@@ -9,7 +9,6 @@ export type { DigitalButlerRuntimeResult } from "@/server/services/digital-butle
 export {
   matchesDigitalButlerTriggerKeyword,
   topLevelChoiceEntryStepKey,
-  trialExperienceBookingEntry,
 } from "./digital-butler-runtime";
 
 export class DigitalButlerRuntime extends CoreDigitalButlerRuntime {
