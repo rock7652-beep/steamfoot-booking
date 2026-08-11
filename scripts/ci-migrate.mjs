@@ -492,7 +492,7 @@ async function readTrialReminderSnapshot(prisma) {
     bookingColumns,
     trialTableExists: trialTable.length === 1 && trialTable[0].exists === true,
     trialLinkColumns,
-    trialConstraints: trialConstraints.map((row) => row.name),
+    trialConstraints,
     trialIndexes,
     trialRlsEnabled: trialRls.length === 1 ? trialRls[0].enabled : null,
     trialRlsForced: trialRls.length === 1 ? trialRls[0].forced : null,
