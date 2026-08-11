@@ -358,6 +358,10 @@ describe("Production migration recovery guard", () => {
         },
       ],
     };
+    // The post-deploy snapshot must retain the full pg_constraint rows so the
+    // checker can verify type, columns, references, and FK actions.
+    expect(script).toContain("    trialConstraints,");
+    expect(script).not.toContain("trialConstraints: trialConstraints.map");
     expect(hasExpectedTrialReminderSchema(complete)).toBe(true);
     expect(hasExpectedTrialReminderSchema({
       ...complete,
