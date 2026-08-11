@@ -17,11 +17,17 @@ export async function confirmTrialBookingFromChat(token: string) {
   if (result === "confirmed") revalidateBookings();
   return result;
 }
-export async function cancelTrialBookingFromChat(token: string) { return cancelTrialBooking(tokenSchema.parse(token)); }
+export async function cancelTrialBookingFromChat(token: string) {
+  const result = await cancelTrialBooking(tokenSchema.parse(token));
+  if (result === "cancelled") revalidateBookings();
+  return result;
+}
 export async function getTrialRescheduleSlotsFromChat(token: string, date: string) {
   return listTrialRescheduleSlots(tokenSchema.parse(token), z.string().regex(/^\d{4}-\d{2}-\d{2}$/).parse(date));
 }
 export async function rescheduleTrialBookingFromChat(input: z.input<typeof slotSchema>) {
   const { token, date, slotTime } = slotSchema.parse(input);
-  return rescheduleTrialBooking(token, date, slotTime);
+  const result = await rescheduleTrialBooking(token, date, slotTime);
+  if (result === "rescheduled") revalidateBookings();
+  return result;
 }
