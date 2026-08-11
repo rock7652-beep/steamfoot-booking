@@ -90,7 +90,7 @@ export function ZhubeiTrialBookingForm({ entry }: { entry?: string }) {
   useEffect(() => {
     let active = true;
     setLoadingCalendar(true);
-    void fetchPublicTrialMonth(viewYear, viewMonth)
+    void fetchPublicTrialMonth(viewYear, viewMonth, entry)
       .then((result) => {
         if (active) setCalendarDays(result.days);
       })
@@ -101,7 +101,7 @@ export function ZhubeiTrialBookingForm({ entry }: { entry?: string }) {
         if (active) setLoadingCalendar(false);
       });
     return () => { active = false; };
-  }, [viewYear, viewMonth]);
+  }, [entry, viewYear, viewMonth]);
 
   async function loadSlots(date: string) {
     setBookingDate(date);
@@ -111,7 +111,7 @@ export function ZhubeiTrialBookingForm({ entry }: { entry?: string }) {
     setSlots([]);
     setLoadingSlots(true);
     try {
-      const result = await fetchPublicTrialSlots(date);
+      const result = await fetchPublicTrialSlots(date, entry);
       setSlots(result.slots);
       if (result.dayStatus !== "open") setMessage(dayStatusMessage(result.dayStatus));
     } catch {

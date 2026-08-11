@@ -169,10 +169,11 @@ const mockPrisma = {
       );
     }),
     create: vi.fn(async ({ data }: { data: Partial<LogRow> }) => {
-      // 模擬 unique (ruleId, bookingId, triggerAt) constraint
-      if (data.ruleId && data.bookingId) {
+      // 模擬 partial unique：只有成功發送需要防重，FAILED 可重試。
+      if (data.ruleId && data.bookingId && data.status === "SENT") {
         const dup = messageLogs.find(
           (l) =>
+            l.status === "SENT" &&
             l.ruleId === data.ruleId &&
             l.bookingId === data.bookingId &&
             l.triggerAt &&
@@ -789,7 +790,7 @@ describe("runReminders (daily next-day batch)", () => {
     expect(pushMessageMock).toHaveBeenCalledTimes(1); // LINE 沒被打第二次
   });
 
-  it("已有 FAILED 結果時重跑不會先發送再撞唯一索引", async () => {
+  it("已有 FAILED 結果時會重試 LINE 發送", async () => {
     vi.setSystemTime(new Date("2026-05-11T10:00:00.000Z"));
     bookings.push(
       makeBooking({
@@ -813,12 +814,12 @@ describe("runReminders (daily next-day batch)", () => {
     const { engine } = await loadModules();
     const result = await engine.runReminders();
 
-    expect(result.sent).toBe(0);
-    expect(result.skipped).toBe(1);
-    expect(result.details[0]?.error).toBe("Already processed today");
-    expect(pushMessageMock).not.toHaveBeenCalled();
+    expect(result.sent).toBe(1);
+    expect(result.skipped).toBe(0);
+    expect(pushMessageMock).toHaveBeenCalledTimes(1);
     expect(pushSteamButlerMessageMock).not.toHaveBeenCalled();
-    expect(messageLogs).toHaveLength(1);
+    expect(messageLogs).toHaveLength(2);
+    expect(messageLogs[1]).toMatchObject({ status: "SENT" });
   });
 
   it("並行 race（unique constraint P2002）→ SKIPPED 不 throw", async () => {

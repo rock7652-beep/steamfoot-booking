@@ -471,10 +471,21 @@ async function replyDigitalButlerMessages(
     if (intent.type !== "text" || intent.urlButton?.url !== ZHUBEI_EXPERIENCE_BOOKING_URL) return intent;
     try {
       const link = await createTrialBookingChatLink({ storeId, channel: "LINE", chatIdentity: lineUserId });
-      return { ...intent, urlButton: { ...intent.urlButton, url: link.url } };
+      return {
+        ...intent,
+        text: intent.text.replace(ZHUBEI_EXPERIENCE_BOOKING_URL, "請使用下方專屬連結完成預約。"),
+        urlButton: { ...intent.urlButton, url: link.url },
+      };
     } catch {
       console.error("[LINE Webhook] booking link issue failed", { storeId });
-      return { ...intent, urlButton: undefined };
+      return {
+        ...intent,
+        text: intent.text.replace(
+          ZHUBEI_EXPERIENCE_BOOKING_URL,
+          "專屬預約連結暫時無法建立，請稍後再輸入「我想體驗蒸足」。",
+        ),
+        urlButton: undefined,
+      };
     }
   }));
   const messages = sanitizeDigitalButlerReplyMessages(

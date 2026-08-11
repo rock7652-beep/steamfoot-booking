@@ -46,4 +46,15 @@ describe("Digital Butler LINE channel adapter", () => {
       contents: payload,
     }]);
   });
+
+  it("renders a signed URL button as a visible LINE link", () => {
+    expect(digitalButlerIntentsToLineMessages([{
+      type: "text",
+      text: "請使用專屬連結預約。",
+      urlButton: { label: "立即預約", url: "https://example.test/book?entry=signed" },
+    }])).toEqual([{
+      type: "text",
+      text: "請使用專屬連結預約。\n\n立即預約：https://example.test/book?entry=signed",
+    }]);
+  });
 });

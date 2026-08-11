@@ -69,12 +69,23 @@ async function resolvePublicStore() {
   });
 }
 
-export async function fetchPublicTrialMonth(year: number, month: number): Promise<{
+async function resolveAvailabilityStore(entry?: string) {
+  if (!entry) return resolvePublicStore();
+  if (entry.length > 512) return null;
+  const chatLink = await resolveTrialBookingChatLink(entry);
+  if (!chatLink) return null;
+  return prisma.store.findUnique({
+    where: { id: chatLink.storeId },
+    select: { id: true, slug: true },
+  });
+}
+
+export async function fetchPublicTrialMonth(year: number, month: number, entry?: string): Promise<{
   days: PublicTrialCalendarDay[];
 }> {
   if (!Number.isInteger(year) || !Number.isInteger(month) || month < 1 || month > 12) return { days: [] };
 
-  const store = await resolvePublicStore();
+  const store = await resolveAvailabilityStore(entry);
   const dates = enumerateMonthDates(year, month);
   if (!store || !(await isStoreBookable(store.id)) || (await isStoreSubscriptionWriteBlocked(store.id))) {
     return { days: dates.map(({ dateStr }) => ({ date: dateStr, status: "store_unavailable", availableSlots: 0 })) };
@@ -156,12 +167,12 @@ export async function fetchPublicTrialMonth(year: number, month: number): Promis
   return { days };
 }
 
-export async function fetchPublicTrialSlots(date: string): Promise<{
+export async function fetchPublicTrialSlots(date: string, entry?: string): Promise<{
   slots: SlotAvailability[];
   dayStatus: PublicTrialDayStatus;
 }> {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { slots: [], dayStatus: "past" };
-  const store = await resolvePublicStore();
+  const store = await resolveAvailabilityStore(entry);
   if (!store || !(await isStoreBookable(store.id))) return { slots: [], dayStatus: "store_unavailable" };
   if (await isStoreSubscriptionWriteBlocked(store.id)) return { slots: [], dayStatus: "store_unavailable" };
 
@@ -271,6 +282,18 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
         : { storeId: store.id, phone: data.phone, mergedIntoCustomerId: null },
       select: { id: true, assignedStaffId: true },
     });
+    if (!customer && chatLink?.channel === "LINE") {
+      const phoneCustomer = await prisma.customer.findFirst({
+        where: { storeId: store.id, phone: data.phone, mergedIntoCustomerId: null },
+        select: { id: true, assignedStaffId: true, lineUserId: true },
+      });
+      if (phoneCustomer) {
+        // A phone number typed into a public form is not proof that the sender
+        // owns the existing customer row. Never attach or route a reminder to
+        // that row unless it was already linked to this exact LINE sender.
+        return { status: "invalid_input", message: "此手機已有顧客資料，請聯繫門市協助確認 LINE 身分後再預約。" };
+      }
+    }
     if (!customer) {
       try {
         customer = await prisma.customer.create({
@@ -289,11 +312,19 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
         });
       } catch (error) {
         if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2002") throw error;
-        customer = await prisma.customer.findFirst({
-          where: { storeId: store.id, phone: data.phone, mergedIntoCustomerId: null },
+        const concurrent = await prisma.customer.findFirst({
+          where: chatLink?.channel === "LINE"
+            ? { storeId: store.id, lineUserId: chatLink.chatIdentity, mergedIntoCustomerId: null }
+            : { storeId: store.id, phone: data.phone, mergedIntoCustomerId: null },
           select: { id: true, assignedStaffId: true },
         });
-        if (!customer) throw error;
+        if (!concurrent) {
+          if (chatLink?.channel === "LINE") {
+            return { status: "invalid_input", message: "此手機或 LINE 身分已被使用，請聯繫門市協助確認。" };
+          }
+          throw error;
+        }
+        customer = concurrent;
       }
     }
 

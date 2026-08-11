@@ -233,13 +233,14 @@ export async function runReminders(): Promise<SendResult> {
         continue;
       }
 
-      // Any prior outcome for this rule/booking/day is terminal. This prevents
-      // retries from sending first and then colliding with the unique log row.
+      // Only terminal outcomes suppress another delivery. FAILED attempts are
+      // deliberately retryable under the partial unique index.
       const existingLog = await prisma.messageLog.findFirst({
         where: {
           ruleId: rule.id,
           bookingId: booking.id,
           triggerAt,
+          status: { in: ["SENT", "SKIPPED"] },
         },
       });
       if (existingLog) {

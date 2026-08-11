@@ -41,6 +41,29 @@ describe("trial reminder convergence contract", () => {
     expect(booking).toContain("bookingId: created.id");
   });
 
+  it("scopes calendar and slots to the same chat entry as submission", () => {
+    const booking = source("src/server/actions/public-trial-booking.ts");
+    const form = source("src/app/pricing/experience/zhubei/book/zhubei-trial-booking-form.tsx");
+    expect(booking).toContain("resolveAvailabilityStore(entry)");
+    expect(form).toContain("fetchPublicTrialMonth(viewYear, viewMonth, entry)");
+    expect(form).toContain("fetchPublicTrialSlots(date, entry)");
+  });
+
+  it("never falls back from a LINE chat link to an unrelated phone owner", () => {
+    const booking = source("src/server/actions/public-trial-booking.ts");
+    expect(booking).toContain("A phone number typed into a public form is not proof");
+    expect(booking).toContain("此手機已有顧客資料");
+    expect(booking).not.toContain("customer = { id: phoneCustomer.id");
+  });
+
+  it("removes the shared booking URL on both secure-link success and failure", () => {
+    for (const path of ["src/app/api/line/webhook/route.ts", "src/app/api/messenger/webhook/route.ts"]) {
+      const webhook = source(path);
+      expect(webhook).toContain('intent.text.replace(ZHUBEI_EXPERIENCE_BOOKING_URL');
+      expect(webhook).toContain("專屬預約連結暫時無法建立");
+    }
+  });
+
   it("fails closed for anonymous chat links without a signing secret", () => {
     const engine = source("src/server/reminder-engine.ts");
     expect(engine).toContain("TRIAL_BOOKING_ACTION_SECRET_NOT_CONFIGURED");
