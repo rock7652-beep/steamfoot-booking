@@ -209,9 +209,10 @@ const mockPrisma = {
       return messageLogs.filter((l) => {
         if (where.status && l.status !== where.status) return false;
         if (where.storeId && l.storeId !== where.storeId) return false;
-        const sentAtFilter = where.sentAt as { gte?: Date; lte?: Date } | undefined;
+        const sentAtFilter = where.sentAt as { gte?: Date; lt?: Date; lte?: Date } | undefined;
         if (sentAtFilter) {
           if (sentAtFilter.gte && (!l.sentAt || l.sentAt < sentAtFilter.gte)) return false;
+          if (sentAtFilter.lt && (!l.sentAt || l.sentAt >= sentAtFilter.lt)) return false;
           if (sentAtFilter.lte && (!l.sentAt || l.sentAt > sentAtFilter.lte)) return false;
         }
         const createdAtFilter = where.createdAt as { gte?: Date; lte?: Date } | undefined;
@@ -222,9 +223,9 @@ const mockPrisma = {
         return true;
       }).length;
     }),
-    findMany: vi.fn(async (args: { where?: Record<string, unknown> }) => {
+    findMany: vi.fn(async (args: { where?: Record<string, unknown>; distinct?: string[] }) => {
       const where = args.where ?? {};
-      return messageLogs.filter((l) => {
+      const matches = messageLogs.filter((l) => {
         if (where.ruleId && l.ruleId !== where.ruleId) return false;
         if (where.status && l.status !== where.status) return false;
         if (where.triggerAt instanceof Date) {
@@ -234,6 +235,25 @@ const mockPrisma = {
         if (bookingIdFilter?.in && (!l.bookingId || !bookingIdFilter.in.includes(l.bookingId))) {
           return false;
         }
+        const storeId = where.storeId as string | undefined;
+        if (storeId && l.storeId !== storeId) return false;
+        const sentAtFilter = where.sentAt as { gte?: Date; lt?: Date; lte?: Date } | undefined;
+        if (sentAtFilter) {
+          if (sentAtFilter.gte && (!l.sentAt || l.sentAt < sentAtFilter.gte)) return false;
+          if (sentAtFilter.lt && (!l.sentAt || l.sentAt >= sentAtFilter.lt)) return false;
+          if (sentAtFilter.lte && (!l.sentAt || l.sentAt > sentAtFilter.lte)) return false;
+        }
+        return true;
+      });
+      if (!args.distinct?.length) return matches;
+      const seen = new Set<string>();
+      return matches.filter((row) => {
+        const key = args.distinct!.map((field) => {
+          const value = row[field as keyof LogRow];
+          return value instanceof Date ? value.toISOString() : String(value);
+        }).join(":");
+        if (seen.has(key)) return false;
+        seen.add(key);
         return true;
       });
     }),
@@ -420,6 +440,56 @@ afterEach(() => {
 // ============================================================
 
 describe("runReminders (daily next-day batch)", () => {
+  it("月初 00:00–07:59 以台灣月份查詢共用提醒額度", async () => {
+    vi.setSystemTime(new Date("2026-06-30T16:30:00.000Z")); // 7/1 00:30 TW
+    mockPrisma.store.findUnique.mockResolvedValue({
+      id: STORE_ID, slug: "store-test", plan: "BASIC",
+      maxStaffOverride: null, maxCustomersOverride: null,
+      maxMonthlyBookingsOverride: null, maxMonthlyReportsOverride: null,
+      maxReminderSendsOverride: null, maxStoresOverride: null,
+    } as never);
+    bookings.push(makeBooking({ bookingDate: new Date("2026-07-02T00:00:00.000Z"), hasLine: false, channel: "MESSENGER" }));
+    rules.push(makeRule());
+
+    const { engine } = await loadModules();
+    await engine.runReminders();
+
+    expect(mockPrisma.messageLog.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        sentAt: {
+          gte: new Date("2026-06-30T16:00:00.000Z"),
+          lt: new Date("2026-07-31T16:00:00.000Z"),
+        },
+      }),
+    }));
+  });
+
+  it("Messenger 同一提醒的重試成功紀錄只占用一次月額度", async () => {
+    vi.setSystemTime(new Date("2026-05-11T04:00:00.000Z"));
+    mockPrisma.store.findUnique.mockResolvedValue({
+      id: STORE_ID, slug: "store-test", plan: "BASIC",
+      maxStaffOverride: null, maxCustomersOverride: null,
+      maxMonthlyBookingsOverride: null, maxMonthlyReportsOverride: null,
+      maxReminderSendsOverride: 10, maxStoresOverride: null,
+    } as never);
+    const sentAt = new Date("2026-05-10T10:00:00.000Z");
+    for (const id of ["retry-log-1", "retry-log-2"]) {
+      messageLogs.push({
+        id, ruleId: RULE_ID, bookingId: "previous-booking", customerId: CUSTOMER_ID,
+        triggerAt: new Date("2026-05-10T10:00:00.000Z"), status: "SENT",
+        storeId: STORE_ID, sentAt, createdAt: sentAt, channel: "MESSENGER",
+      });
+    }
+    bookings.push(makeBooking({ bookingDate: new Date("2026-05-12T00:00:00.000Z"), hasLine: false, channel: "MESSENGER" }));
+    rules.push(makeRule());
+
+    const { engine } = await loadModules();
+    await engine.runReminders();
+
+    expect(checkReminderSendLimitMock).toHaveBeenCalledWith(expect.anything(), 1);
+    expect(sendMessengerUtilityReminderMock).toHaveBeenCalledTimes(1);
+  });
+
   it("命中：明天 (TW) 的有效預約 → SENT，triggerAt = 今天 18:00 TW", async () => {
     // now = 5/11 12:00 TW = 5/11 04:00 UTC（假設 cron 提早觸發）
     vi.setSystemTime(new Date("2026-05-11T04:00:00.000Z"));
