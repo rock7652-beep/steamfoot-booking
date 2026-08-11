@@ -285,6 +285,7 @@ describe("Production migration recovery guard", () => {
       reminderEnumValues: ["LINE"],
       bookingColumns: [],
       trialTableExists: false,
+      trialLinkColumns: [],
       trialConstraints: [],
       trialIndexes: [],
       trialRlsEnabled: null,
@@ -309,12 +310,30 @@ describe("Production migration recovery guard", () => {
     ].map(([columnName, dataType, udtName, isNullable, columnDefault]) => ({
       columnName, dataType, udtName, isNullable, columnDefault,
     }));
+    const trialLinkColumns = [
+      ["id", "text", "text", "NO", null],
+      ["storeId", "text", "text", "NO", null],
+      ["channel", "USER-DEFINED", "TrialBookingChannel", "NO", null],
+      ["identityHash", "text", "text", "NO", null],
+      ["identityCiphertext", "bytea", "bytea", "NO", null],
+      ["identityIv", "bytea", "bytea", "NO", null],
+      ["identityAuthTag", "bytea", "bytea", "NO", null],
+      ["identityKeyVersion", "text", "text", "NO", null],
+      ["tokenHash", "text", "text", "NO", null],
+      ["expiresAt", "timestamp without time zone", "timestamp", "NO", null],
+      ["consumedAt", "timestamp without time zone", "timestamp", "YES", null],
+      ["bookingId", "text", "text", "YES", null],
+      ["createdAt", "timestamp without time zone", "timestamp", "NO", "CURRENT_TIMESTAMP"],
+    ].map(([columnName, dataType, udtName, isNullable, columnDefault]) => ({
+      columnName, dataType, udtName, isNullable, columnDefault,
+    }));
     const complete = {
       ...absent,
       trialEnumValues: ["LINE", "MESSENGER"],
       reminderEnumValues: ["LINE", "MESSENGER"],
       bookingColumns,
       trialTableExists: true,
+      trialLinkColumns,
       trialConstraints: [
         "TrialBookingLink_bookingId_fkey",
         "TrialBookingLink_pkey",
@@ -340,8 +359,33 @@ describe("Production migration recovery guard", () => {
       ],
     };
     expect(hasExpectedTrialReminderSchema(complete)).toBe(true);
+    expect(hasExpectedTrialReminderSchema({
+      ...complete,
+      trialLinkColumns: trialLinkColumns.filter(
+        (column) => column.columnName !== "identityCiphertext",
+      ),
+    })).toBe(false);
+    expect(hasExpectedTrialReminderSchema({
+      ...complete,
+      trialLinkColumns: trialLinkColumns.map((column) => (
+        column.columnName === "identityCiphertext"
+          ? { ...column, isNullable: "YES" }
+          : column
+      )),
+    })).toBe(false);
     expect(hasExpectedTrialReminderSchema({ ...complete, trialRlsEnabled: false })).toBe(false);
     expect(hasExpectedTrialReminderSchema({ ...complete, messageIndexes: complete.messageIndexes.slice(1) })).toBe(false);
+    expect(hasExpectedTrialReminderSchema({
+      ...complete,
+      messageIndexes: complete.messageIndexes.map((index) => (
+        index.name === "uniq_sent_rule_booking_trigger"
+          ? {
+              ...index,
+              definition: 'CREATE UNIQUE INDEX uniq_sent_rule_booking_trigger ON public."MessageLog" USING btree ("ruleId", "triggerAt", "bookingId") WHERE (status = \'SENT\'::"MessageStatus")',
+            }
+          : index
+      )),
+    })).toBe(false);
 
     const applied = [
       {
