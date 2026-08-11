@@ -480,7 +480,7 @@ async function readTrialReminderSnapshot(prisma) {
     prisma.$queryRaw`SELECT to_regclass('public."TrialBookingLink"') IS NOT NULL AS "exists"`,
     prisma.$queryRaw`SELECT column_name AS "columnName", data_type AS "dataType", udt_name AS "udtName", is_nullable AS "isNullable", column_default AS "columnDefault" FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'TrialBookingLink' ORDER BY ordinal_position`,
     prisma.$queryRaw`SELECT conname AS "name" FROM pg_constraint WHERE conrelid = to_regclass('public."TrialBookingLink"') ORDER BY conname`,
-    prisma.$queryRaw`SELECT i.relname AS "name", ix.indisunique AS "isUnique", COALESCE(array_agg(a.attname ORDER BY k.ordinality) FILTER (WHERE k.ordinality <= ix.indnkeyatts), ARRAY[]::name[]) AS "keyColumns", COALESCE(array_agg(a.attname ORDER BY k.ordinality) FILTER (WHERE k.ordinality > ix.indnkeyatts), ARRAY[]::name[]) AS "includeColumns" FROM pg_index ix JOIN pg_class t ON t.oid = ix.indrelid JOIN pg_namespace n ON n.oid = t.relnamespace JOIN pg_class i ON i.oid = ix.indexrelid JOIN LATERAL unnest(ix.indkey) WITH ORDINALITY AS k(attnum, ordinality) ON k.attnum > 0 JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = k.attnum WHERE n.nspname = 'public' AND t.relname = 'TrialBookingLink' AND i.relname <> 'TrialBookingLink_pkey' GROUP BY i.relname, ix.indisunique, ix.indnkeyatts ORDER BY i.relname`,
+    prisma.$queryRaw`SELECT i.relname AS "name", ix.indisunique AS "isUnique", ix.indisvalid AS "isValid", ix.indisready AS "isReady", pg_get_expr(ix.indpred, ix.indrelid) AS "predicate", COALESCE(array_agg(a.attname ORDER BY k.ordinality) FILTER (WHERE k.ordinality <= ix.indnkeyatts), ARRAY[]::name[]) AS "keyColumns", COALESCE(array_agg(a.attname ORDER BY k.ordinality) FILTER (WHERE k.ordinality > ix.indnkeyatts), ARRAY[]::name[]) AS "includeColumns" FROM pg_index ix JOIN pg_class t ON t.oid = ix.indrelid JOIN pg_namespace n ON n.oid = t.relnamespace JOIN pg_class i ON i.oid = ix.indexrelid JOIN LATERAL unnest(ix.indkey) WITH ORDINALITY AS k(attnum, ordinality) ON k.attnum > 0 JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = k.attnum WHERE n.nspname = 'public' AND t.relname = 'TrialBookingLink' AND i.relname <> 'TrialBookingLink_pkey' GROUP BY i.relname, ix.indisunique, ix.indisvalid, ix.indisready, ix.indpred, ix.indrelid, ix.indnkeyatts ORDER BY i.relname`,
     prisma.$queryRaw`SELECT c.relrowsecurity AS "enabled", c.relforcerowsecurity AS "forced" FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public' AND c.relname = 'TrialBookingLink' AND c.relkind = 'r'`,
     prisma.$queryRaw`SELECT count(*)::int AS "count" FROM pg_policies WHERE schemaname = 'public' AND tablename = 'TrialBookingLink'`,
     prisma.$queryRaw`SELECT count(*)::int AS "count" FROM information_schema.role_table_grants WHERE table_schema = 'public' AND table_name = 'TrialBookingLink' AND grantee IN ('anon', 'authenticated')`,
@@ -555,6 +555,9 @@ export function hasExpectedTrialReminderSchema(snapshot) {
       return actual &&
         actual.name === expected.name &&
         actual.isUnique === expected.isUnique &&
+        actual.isValid === true &&
+        actual.isReady === true &&
+        actual.predicate === null &&
         actual.keyColumns.length === expected.keyColumns.length &&
         actual.keyColumns.every(
           (column, columnIndex) => column === expected.keyColumns[columnIndex],
