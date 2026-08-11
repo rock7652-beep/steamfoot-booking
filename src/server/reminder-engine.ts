@@ -29,6 +29,8 @@ import { hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
 import {
   toLocalDateStr,
+  toLocalMonthStr,
+  monthRange,
   addTaiwanDuration,
   parseTaiwanDateToDbDate,
 } from "@/lib/date-utils";
@@ -83,13 +85,38 @@ export function tomorrowBookingDate(now: Date = new Date()): Date {
   return parseTaiwanDateToDbDate(tomorrowStr);
 }
 
-/** UTC range for the calendar month containing `now` in Asia/Taipei. */
+/** UTC half-open range for the calendar month containing `now` in Asia/Taipei. */
 export function taiwanReminderMonthRange(now: Date = new Date()): { start: Date; end: Date } {
-  const [year, month] = toLocalDateStr(now).split("-").map(Number);
-  // Taiwan is UTC+8, so local midnight is 16:00 UTC on the previous day.
-  const start = new Date(Date.UTC(year, month - 1, 1) - 8 * 60 * 60 * 1000);
-  const end = new Date(Date.UTC(year, month, 1) - 8 * 60 * 60 * 1000);
-  return { start, end };
+  const range = monthRange(toLocalMonthStr(now));
+  return { start: range.start, end: new Date(range.end.getTime() + 1) };
+}
+
+type ReminderQuotaLog = {
+  id: string;
+  ruleId: string | null;
+  bookingId: string | null;
+  triggerAt: Date | null;
+  channel: string;
+};
+
+/**
+ * One quota rule for every reminder transport:
+ * - automatic deliveries with a complete idempotency key are charged once;
+ * - manual/test rows with any missing key are real sends and are charged row by row.
+ */
+export function countReminderQuotaUsage(logs: ReminderQuotaLog[]): number {
+  const automaticDeliveries = new Set<string>();
+  let individualDeliveries = 0;
+  for (const log of logs) {
+    if (!log.ruleId || !log.bookingId || !log.triggerAt) {
+      individualDeliveries++;
+      continue;
+    }
+    automaticDeliveries.add(
+      `${log.channel}:${log.ruleId}:${log.bookingId}:${log.triggerAt.toISOString()}`,
+    );
+  }
+  return individualDeliveries + automaticDeliveries.size;
 }
 
 async function recordSkippedReminder(input: {
@@ -238,10 +265,9 @@ export async function runReminders(): Promise<SendResult> {
             sentAt: { gte: monthStart, lt: monthEnd },
             storeId: bookingStoreId,
           },
-          select: { ruleId: true, bookingId: true, triggerAt: true, channel: true },
-          distinct: ["ruleId", "bookingId", "triggerAt", "channel"],
+          select: { id: true, ruleId: true, bookingId: true, triggerAt: true, channel: true },
         });
-        storeSendCountCache.set(bookingStoreId, sentDeliveries.length);
+        storeSendCountCache.set(bookingStoreId, countReminderQuotaUsage(sentDeliveries));
       }
       const storePlan = storePlanCache.get(bookingStoreId);
       if (storePlan) {
@@ -300,14 +326,15 @@ export async function runReminders(): Promise<SendResult> {
           continue;
         }
         const bookingLink = `${baseUrl}/trial-booking/manage?token=${encodeURIComponent(createTrialBookingActionToken(booking))}`;
-        const code = await sendMessengerUtilityReminder({
+        const delivery = await sendMessengerUtilityReminder({
           ruleId: rule.id, templateId: rule.templateId, triggerAt,
           booking: { id: booking.id, storeId: bookingStoreId, customerId: customer.id, bookingDate: booking.bookingDate, slotTime: booking.slotTime, people: booking.people },
           store: { slug: store.slug, shopName: shopNameCache.get(bookingStoreId) ?? "蒸足" },
           bookingLink,
         });
+        const code = delivery.code;
         const status = code === "SENT" ? "SENT" : code.startsWith("SKIPPED_") ? "SKIPPED" : "FAILED";
-        if (status === "SENT") {
+        if (delivery.quotaConsumed) {
           storeSendCountCache.set(
             bookingStoreId,
             (storeSendCountCache.get(bookingStoreId) ?? 0) + 1,
