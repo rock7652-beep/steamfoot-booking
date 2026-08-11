@@ -91,45 +91,6 @@ export function getMessengerPageConfig(storeSlug: string): {
   };
 }
 
-export type MessengerUtilityTemplateConfig = {
-  name: string;
-  language: string;
-  /** The body placeholders, in the precise order approved in Meta. */
-  parameterOrder: Array<"shopName" | "bookingDate" | "bookingTime" | "people" | "bookingLink">;
-};
-
-const UTILITY_PARAMETER_KEYS = ["shopName", "bookingDate", "bookingTime", "people", "bookingLink"] as const;
-
-/**
- * Utility template configuration is deliberately environment-only.  A missing
- * or malformed value returns null so the scheduler can fail closed rather than
- * guessing an approved template's placeholder order.
- */
-export function getMessengerUtilityTemplateConfig(storeSlug: string): MessengerUtilityTemplateConfig | null {
-  const suffix = envSlug(storeSlug);
-  const name = nonEmptyEnv(`MESSENGER_UTILITY_TEMPLATE_NAME_${suffix}`)
-    ?? nonEmptyEnv("MESSENGER_UTILITY_TEMPLATE_NAME");
-  const language = nonEmptyEnv(`MESSENGER_UTILITY_TEMPLATE_LANGUAGE_${suffix}`)
-    ?? nonEmptyEnv("MESSENGER_UTILITY_TEMPLATE_LANGUAGE");
-  const rawOrder = nonEmptyEnv(`MESSENGER_UTILITY_TEMPLATE_PARAMETER_ORDER_${suffix}`)
-    ?? nonEmptyEnv("MESSENGER_UTILITY_TEMPLATE_PARAMETER_ORDER");
-  if (!name || !language || !rawOrder) return null;
-  const parameterOrder = rawOrder.split(",").map((value) => value.trim())
-    .filter((value): value is MessengerUtilityTemplateConfig["parameterOrder"][number] =>
-      (UTILITY_PARAMETER_KEYS as readonly string[]).includes(value),
-    );
-  if (
-    parameterOrder.length !== UTILITY_PARAMETER_KEYS.length
-    || new Set(parameterOrder).size !== UTILITY_PARAMETER_KEYS.length
-  ) return null;
-  return { name, language, parameterOrder };
-}
-
-/** Global kill switch; it is intentionally independent of the LINE entitlement. */
-export function messengerUtilityRemindersEnabled(): boolean {
-  return process.env.MESSENGER_UTILITY_REMINDERS_ENABLED?.trim().toLowerCase() === "true";
-}
-
 export async function resolveMessengerStoreByPageId(pageId: string): Promise<{
   id: string;
   slug: string;
