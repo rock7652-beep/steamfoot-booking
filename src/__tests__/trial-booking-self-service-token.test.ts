@@ -41,5 +41,8 @@ describe("trial booking reschedule target safety", () => {
     expect(isTrialRescheduleTargetAllowed("2026-08-12", "09:00", now)).toBe(true);
     expect(isTrialRescheduleTargetAllowed("bad-date", "12:30", now)).toBe(false);
     expect(isTrialRescheduleTargetAllowed("2026-08-11", "bad-time", now)).toBe(false);
+    expect(isTrialRescheduleTargetAllowed("2026-02-31", "12:30", now)).toBe(false);
+    expect(isTrialRescheduleTargetAllowed("2026-08-11", "24:00", now)).toBe(false);
+    expect(isTrialRescheduleTargetAllowed("2026-08-11", "12:60", now)).toBe(false);
   });
 });
