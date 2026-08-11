@@ -184,7 +184,8 @@ export function ZhubeiTrialBookingForm({ entry }: { entry?: string }) {
         <p className="mt-2 text-sm font-semibold text-primary-700">到店付款：{formatCurrency(success.expectedAmount)}</p>
         <p className="mt-2 text-sm text-earth-600">首次蒸足體驗每人 NT$499｜約 45 分鐘</p>
         <p className="mt-4 text-xs leading-5 text-earth-500">到店後再付款即可。這次預約不需要會員帳號，也不會扣除任何正式方案堂數。</p>
-        <a href="https://lin.ee/Nki2OjA" target="_blank" rel="noreferrer" className="mt-5 flex h-11 items-center justify-center rounded-xl border border-primary-200 text-sm font-medium text-primary-700">加入官方 LINE（選填）</a>
+        <a href="https://lin.ee/Nki2OjA" target="_blank" rel="noreferrer" className="mt-5 flex min-h-12 items-center justify-center rounded-xl bg-[#06C755] px-4 text-base font-bold text-white shadow-sm transition hover:bg-[#05b84d]">加入官方 LINE，接收預約提醒</a>
+        <p className="mt-2 text-xs leading-5 text-earth-500">若原本已完成 LINE 綁定，系統會以既有身分發送體驗提醒；首次加入後，也可從 LINE 內取得專屬預約入口。</p>
       </section>
     );
   }

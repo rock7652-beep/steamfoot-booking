@@ -284,7 +284,7 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
       where: chatLink?.channel === "LINE"
         ? { storeId: store.id, lineUserId: chatLink.chatIdentity, mergedIntoCustomerId: null }
         : { storeId: store.id, phone: data.phone, mergedIntoCustomerId: null },
-      select: { id: true, assignedStaffId: true },
+      select: { id: true, assignedStaffId: true, lineUserId: true, lineLinkStatus: true },
     });
     if (!customer && chatLink?.channel === "LINE") {
       const phoneCustomer = await prisma.customer.findFirst({
@@ -312,7 +312,7 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
               ? { lineUserId: chatLink.chatIdentity, lineLinkStatus: "LINKED" as const, lineLinkedAt: new Date() }
               : {}),
           },
-          select: { id: true, assignedStaffId: true },
+          select: { id: true, assignedStaffId: true, lineUserId: true, lineLinkStatus: true },
         });
       } catch (error) {
         if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2002") throw error;
@@ -320,7 +320,7 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
           where: chatLink?.channel === "LINE"
             ? { storeId: store.id, lineUserId: chatLink.chatIdentity, mergedIntoCustomerId: null }
             : { storeId: store.id, phone: data.phone, mergedIntoCustomerId: null },
-          select: { id: true, assignedStaffId: true },
+          select: { id: true, assignedStaffId: true, lineUserId: true, lineLinkStatus: true },
         });
         if (!concurrent) {
           if (chatLink?.channel === "LINE") {
@@ -378,7 +378,13 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
             expectedAmount,
             revenueStaffId: customer.assignedStaffId,
             notes: "公開快速體驗預約",
-            ...(chatLink ? { trialBookingChannel: chatLink.channel } : {}),
+            ...(
+              chatLink
+                ? { trialBookingChannel: chatLink.channel }
+                : customer.lineLinkStatus === "LINKED" && customer.lineUserId
+                  ? { trialBookingChannel: "LINE" as const }
+                  : {}
+            ),
           },
           select: { id: true },
         });

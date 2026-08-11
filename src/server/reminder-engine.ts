@@ -46,6 +46,14 @@ const DEFAULT_TEMPLATE = `{{customerName}} 您好！
 
 {{shopName}} 敬上`;
 
+const TRIAL_TEMPLATE = `{{customerName}} 您好！
+
+這是您明天 ({{bookingDate}}) {{bookingTime}} 的體驗預約提醒，請記得準時到店。
+
+請點擊專屬連結確認會到；如需取消或改期，也可在同一頁完成：{{bookingLink}}
+
+{{shopName}} 敬上`;
+
 export interface SendResult {
   total: number;
   sent: number;
@@ -379,7 +387,10 @@ export async function runReminders(): Promise<SendResult> {
       }
       const bookingDateStr = booking.bookingDate.toISOString().slice(0, 10);
       let bookingLink = `${baseUrl}/my-bookings`;
-      if (booking.bookingType === "FIRST_TRIAL" && booking.trialBookingChannel && !process.env.TRIAL_BOOKING_ACTION_SECRET) {
+      // Messenger bookings already continued above; a channel-null legacy
+      // first trial that reaches a verified LINE route must use self-service.
+      const isLineTrialBooking = booking.bookingType === "FIRST_TRIAL";
+      if (isLineTrialBooking && !process.env.TRIAL_BOOKING_ACTION_SECRET) {
         await recordFailedReminder({
           ruleId: rule.id,
           templateId: rule.templateId,
@@ -400,7 +411,7 @@ export async function runReminders(): Promise<SendResult> {
         });
         continue;
       }
-      if (booking.bookingType === "FIRST_TRIAL" && booking.trialBookingChannel) {
+      if (isLineTrialBooking) {
         bookingLink = `${baseUrl}/trial-booking/manage?token=${encodeURIComponent(createTrialBookingActionToken(booking))}`;
       }
       const vars: TemplateVariables = {
@@ -411,7 +422,7 @@ export async function runReminders(): Promise<SendResult> {
         staffName: customer.assignedStaff?.displayName ?? "店長",
         bookingLink,
       };
-      const renderedBody = renderTemplate(templateBody, vars);
+      const renderedBody = renderTemplate(isLineTrialBooking ? TRIAL_TEMPLATE : templateBody, vars);
 
       // 發送 LINE push
       const messages = [{ type: "text" as const, text: renderedBody }];

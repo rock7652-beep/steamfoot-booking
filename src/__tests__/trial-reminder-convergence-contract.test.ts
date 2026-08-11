@@ -75,6 +75,19 @@ describe("trial reminder convergence contract", () => {
     expect(booking).toContain("bookingId: created.id");
   });
 
+  it("routes a public trial through LINE when the existing customer is already verified", () => {
+    const booking = source("src/server/actions/public-trial-booking.ts");
+    expect(booking).toContain('customer.lineLinkStatus === "LINKED" && customer.lineUserId');
+    expect(booking).toContain('{ trialBookingChannel: "LINE" as const }');
+  });
+
+  it("uses trial self-service for verified first trials even when an older booking has no channel", () => {
+    const engine = source("src/server/reminder-engine.ts");
+    expect(engine).toContain('const isLineTrialBooking = booking.bookingType === "FIRST_TRIAL"');
+    expect(engine).toContain("createTrialBookingActionToken(booking)");
+    expect(engine).toContain("isLineTrialBooking ? TRIAL_TEMPLATE : templateBody");
+  });
+
   it("scopes calendar and slots to the same chat entry as submission", () => {
     const booking = source("src/server/actions/public-trial-booking.ts");
     const form = source("src/app/pricing/experience/zhubei/book/zhubei-trial-booking-form.tsx");
