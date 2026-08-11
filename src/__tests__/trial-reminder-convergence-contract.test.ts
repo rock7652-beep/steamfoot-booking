@@ -26,6 +26,8 @@ describe("trial reminder convergence contract", () => {
     expect(worker).toContain("await markClaimFailed(claimId)");
     expect(worker.indexOf("await markClaimFailed(claimId)")).toBeLessThan(worker.lastIndexOf("await record(input, code)"));
     expect(worker).toContain("delivery may already have happened");
+    expect(worker).toContain('quotaConsumed: false');
+    expect(worker).toContain('quotaConsumed: code === "SENT"');
   });
 
   it("clears stale reschedule slots and selection whenever the date changes", () => {
