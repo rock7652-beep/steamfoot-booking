@@ -468,7 +468,7 @@ export function hasExpectedPaymentSplitRls(snapshot, enabled) {
     snapshot.clientGrantCount === 0;
 }
 
-async function readTrialReminderSnapshot(prisma) {
+export async function readTrialReminderSnapshot(prisma) {
   const [
     trialEnum, reminderEnum, bookingColumns, trialTable, trialLinkColumns,
     trialConstraints, trialIndexes, trialRls, trialPolicies, trialClientGrants,
