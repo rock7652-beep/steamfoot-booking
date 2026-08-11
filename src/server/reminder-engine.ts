@@ -34,6 +34,7 @@ import {
 } from "@/lib/date-utils";
 import { resolveCentralLineRecipientsForCustomers } from "@/server/services/central-line-recipient-loader";
 import { resolveVerifiedReminderLineRoute } from "@/server/services/verified-reminder-line-route";
+import { sendMessengerUtilityReminder } from "@/server/services/messenger-utility-reminder";
 
 const DEFAULT_TEMPLATE = `{{customerName}} 您好！
 
@@ -90,6 +91,7 @@ async function recordSkippedReminder(input: {
   storeId: string;
   reason: string;
   lineRoute?: "CENTRAL" | "STORE" | null;
+  channel?: "LINE" | "MESSENGER";
 }): Promise<void> {
   try {
     await prisma.messageLog.create({
@@ -99,7 +101,7 @@ async function recordSkippedReminder(input: {
         customerId: input.customerId,
         bookingId: input.bookingId,
         triggerAt: input.triggerAt,
-        channel: "LINE",
+        channel: input.channel ?? "LINE",
         lineRoute: input.lineRoute ?? null,
         status: "SKIPPED",
         errorMessage: input.reason,
@@ -170,29 +172,6 @@ export async function runReminders(): Promise<SendResult> {
 
     result.total += bookings.length;
 
-    if (!lineReminderEnabled) {
-      result.skipped += bookings.length;
-      for (const booking of bookings) {
-        await recordSkippedReminder({
-          ruleId: rule.id,
-          templateId: rule.templateId,
-          customerId: booking.customer.id,
-          bookingId: booking.id,
-          triggerAt,
-          storeId: booking.storeId,
-          reason: "Feature not enabled",
-        });
-        result.details.push({
-          customerId: booking.customer.id,
-          bookingId: booking.id,
-          ruleName: rule.name,
-          status: "SKIPPED",
-          error: "Feature not enabled",
-        });
-      }
-      continue;
-    }
-
     const templateBody = rule.template?.body ?? DEFAULT_TEMPLATE;
     const recipients = await resolveCentralLineRecipientsForCustomers(
       bookings.map((booking) => booking.customer.id),
@@ -201,6 +180,47 @@ export async function runReminders(): Promise<SendResult> {
     for (const booking of bookings) {
       const customer = booking.customer;
       const bookingStoreId = booking.storeId;
+
+      if (booking.trialBookingChannel === "MESSENGER") {
+        const store = await prisma.store.findUnique({
+          where: { id: bookingStoreId }, select: { slug: true },
+        });
+        if (!store) {
+          await recordSkippedReminder({
+            ruleId: rule.id, templateId: rule.templateId, customerId: customer.id,
+            bookingId: booking.id, triggerAt, storeId: bookingStoreId,
+            channel: "MESSENGER", reason: "FAILED_CONFIGURATION",
+          });
+          result.failed++;
+          result.details.push({ customerId: customer.id, bookingId: booking.id, ruleName: rule.name, status: "FAILED", error: "FAILED_CONFIGURATION" });
+          continue;
+        }
+        if (!shopNameCache.has(bookingStoreId)) {
+          const config = await getShopConfig(bookingStoreId);
+          shopNameCache.set(bookingStoreId, config.shopName);
+        }
+        const bookingLink = `${baseUrl}/my-bookings`;
+        const code = await sendMessengerUtilityReminder({
+          ruleId: rule.id, templateId: rule.templateId, triggerAt,
+          booking: { id: booking.id, storeId: bookingStoreId, customerId: customer.id, bookingDate: booking.bookingDate, slotTime: booking.slotTime, people: booking.people },
+          store: { slug: store.slug, shopName: shopNameCache.get(bookingStoreId) ?? "蒸足" },
+          bookingLink,
+        });
+        const status = code === "SENT" ? "SENT" : code.startsWith("SKIPPED_") ? "SKIPPED" : "FAILED";
+        result[status === "SENT" ? "sent" : status === "SKIPPED" ? "skipped" : "failed"]++;
+        result.details.push({ customerId: customer.id, bookingId: booking.id, ruleName: rule.name, status, error: code === "SENT" ? undefined : code });
+        continue;
+      }
+
+      if (!lineReminderEnabled) {
+        await recordSkippedReminder({
+          ruleId: rule.id, templateId: rule.templateId, customerId: customer.id,
+          bookingId: booking.id, triggerAt, storeId: bookingStoreId, reason: "Feature not enabled",
+        });
+        result.skipped++;
+        result.details.push({ customerId: customer.id, bookingId: booking.id, ruleName: rule.name, status: "SKIPPED", error: "Feature not enabled" });
+        continue;
+      }
 
       // Any prior outcome for this rule/booking/day is terminal. This prevents
       // retries from sending first and then colliding with the unique log row.
