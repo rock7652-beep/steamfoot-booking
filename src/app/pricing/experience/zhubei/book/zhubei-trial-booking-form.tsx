@@ -65,7 +65,7 @@ function formatCurrency(value: number): string {
   }).format(value);
 }
 
-export function ZhubeiTrialBookingForm({ entry }: { entry?: string }) {
+export function ZhubeiTrialBookingForm() {
   const today = useMemo(taiwanToday, []);
   const initialMonth = useMemo(() => ({
     year: Number(today.slice(0, 4)),
@@ -148,7 +148,7 @@ export function ZhubeiTrialBookingForm({ entry }: { entry?: string }) {
     setSubmitting(true);
     setMessage("");
     try {
-      const result = await submitPublicTrialBooking({ name, phone, bookingDate, slotTime, people, website, entry });
+      const result = await submitPublicTrialBooking({ name, phone, bookingDate, slotTime, people, website });
       if (result.status === "ok") {
         setSuccess({
           date: result.bookingDate,
