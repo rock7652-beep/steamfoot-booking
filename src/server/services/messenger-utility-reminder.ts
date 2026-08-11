@@ -19,6 +19,12 @@ export type MessengerUtilityReminderCode =
   | "FAILED_CONFIGURATION"
   | "FAILED_IDENTITY_SCOPE";
 
+export type MessengerUtilityReminderResult = {
+  code: MessengerUtilityReminderCode;
+  /** True only when this invocation completed a new external delivery. */
+  quotaConsumed: boolean;
+};
+
 export type MessengerUtilityReminderInput = {
   ruleId: string;
   templateId: string | null;
@@ -140,34 +146,34 @@ async function loadScopedRecipient(bookingId: string, storeId: string): Promise<
 }
 
 /** Returns a safe code only; no raw API response, PSID, token, or PII is logged. */
-export async function sendMessengerUtilityReminder(input: MessengerUtilityReminderInput): Promise<MessengerUtilityReminderCode> {
+export async function sendMessengerUtilityReminder(input: MessengerUtilityReminderInput): Promise<MessengerUtilityReminderResult> {
   if (!messengerUtilityRemindersEnabled()) {
     await record(input, "SKIPPED_DISABLED");
-    return "SKIPPED_DISABLED";
+    return { code: "SKIPPED_DISABLED", quotaConsumed: false };
   }
 
   const template = getMessengerUtilityTemplateConfig(input.store.slug);
   if (!template) {
     await record(input, "SKIPPED_MISSING_TEMPLATE");
-    return "SKIPPED_MISSING_TEMPLATE";
+    return { code: "SKIPPED_MISSING_TEMPLATE", quotaConsumed: false };
   }
   const page = getMessengerPageConfig(input.store.slug);
   if (!page.pageId || !page.accessToken) {
     await record(input, "FAILED_CONFIGURATION");
-    return "FAILED_CONFIGURATION";
+    return { code: "FAILED_CONFIGURATION", quotaConsumed: false };
   }
   const recipient = await loadScopedRecipient(input.booking.id, input.booking.storeId);
   if (recipient.status !== "ok") {
     const code = recipient.status === "scope" ? "FAILED_IDENTITY_SCOPE" : "SKIPPED_MISSING_IDENTITY";
     await record(input, code);
-    return code;
+    return { code, quotaConsumed: false };
   }
 
   // Claim before the external side effect. A concurrent worker, or a retry
   // after Meta accepted the message but local finalization failed, must never
   // send the same reminder twice.
   const claimId = await claimDelivery(input);
-  if (!claimId) return "SENT";
+  if (!claimId) return { code: "SENT", quotaConsumed: false };
 
   const values = {
     shopName: input.store.shopName,
@@ -197,7 +203,7 @@ export async function sendMessengerUtilityReminder(input: MessengerUtilityRemind
       await markClaimFailed(claimId);
       await record(input, code);
     }
-    return code;
+    return { code, quotaConsumed: code === "SENT" };
   } catch (error) {
     // Transport exceptions and successful-send finalization failures leave a
     // CLAIMED guard because delivery may already have happened. Definite
