@@ -26,7 +26,6 @@ describe("trial booking self-service action token", () => {
   });
 });
 
-
 describe("trial booking reschedule target safety", () => {
   const now = new Date("2026-08-11T02:00:00.000Z"); // 10:00 Asia/Taipei
 
@@ -40,6 +39,8 @@ describe("trial booking reschedule target safety", () => {
     expect(isTrialRescheduleTargetAllowed("2026-08-11", "12:30", now)).toBe(true);
     expect(isTrialRescheduleTargetAllowed("2026-08-12", "09:00", now)).toBe(true);
     expect(isTrialRescheduleTargetAllowed("bad-date", "12:30", now)).toBe(false);
+    expect(isTrialRescheduleTargetAllowed("2026-99-99", "12:30", now)).toBe(false);
+    expect(isTrialRescheduleTargetAllowed("9999-99-99", "12:30", now)).toBe(false);
     expect(isTrialRescheduleTargetAllowed("2026-08-11", "bad-time", now)).toBe(false);
     expect(isTrialRescheduleTargetAllowed("2026-02-31", "12:30", now)).toBe(false);
     expect(isTrialRescheduleTargetAllowed("2026-08-11", "24:00", now)).toBe(false);
