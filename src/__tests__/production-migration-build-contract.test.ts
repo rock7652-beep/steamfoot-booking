@@ -340,10 +340,10 @@ describe("Production migration recovery guard", () => {
         "TrialBookingLink_storeId_fkey",
       ],
       trialIndexes: [
-        { name: "TrialBookingLink_bookingId_idx", isUnique: false, columns: ["bookingId"] },
-        { name: "TrialBookingLink_bookingId_key", isUnique: true, columns: ["bookingId"] },
-        { name: "TrialBookingLink_storeId_expiresAt_idx", isUnique: false, columns: ["storeId", "expiresAt"] },
-        { name: "TrialBookingLink_tokenHash_key", isUnique: true, columns: ["tokenHash"] },
+        { name: "TrialBookingLink_bookingId_idx", isUnique: false, keyColumns: ["bookingId"], includeColumns: [] },
+        { name: "TrialBookingLink_bookingId_key", isUnique: true, keyColumns: ["bookingId"], includeColumns: [] },
+        { name: "TrialBookingLink_storeId_expiresAt_idx", isUnique: false, keyColumns: ["storeId", "expiresAt"], includeColumns: [] },
+        { name: "TrialBookingLink_tokenHash_key", isUnique: true, keyColumns: ["tokenHash"], includeColumns: [] },
       ],
       trialRlsEnabled: true,
       trialRlsForced: false,
@@ -363,7 +363,7 @@ describe("Production migration recovery guard", () => {
       ...complete,
       trialIndexes: complete.trialIndexes.map((index) => (
         index.name === "TrialBookingLink_tokenHash_key"
-          ? { ...index, columns: ["storeId"] }
+          ? { ...index, keyColumns: ["storeId"] }
           : index
       )),
     })).toBe(false);
@@ -379,7 +379,15 @@ describe("Production migration recovery guard", () => {
       ...complete,
       trialIndexes: complete.trialIndexes.map((index) => (
         index.name === "TrialBookingLink_storeId_expiresAt_idx"
-          ? { ...index, columns: [...index.columns].reverse() }
+          ? { ...index, keyColumns: [...index.keyColumns].reverse() }
+          : index
+      )),
+    })).toBe(false);
+    expect(hasExpectedTrialReminderSchema({
+      ...complete,
+      trialIndexes: complete.trialIndexes.map((index) => (
+        index.name === "TrialBookingLink_storeId_expiresAt_idx"
+          ? { ...index, keyColumns: ["storeId"], includeColumns: ["expiresAt"] }
           : index
       )),
     })).toBe(false);
