@@ -21,7 +21,11 @@ export function TrialBookingManager() {
     <button disabled={disabled} className="mt-6 w-full rounded-xl bg-primary-600 p-3 font-semibold text-white disabled:opacity-40" onClick={() => void confirmTrialBookingFromChat(token).then(result => setMessage(result === "unavailable" ? "此預約目前無法自行處理，請聯絡門市。" : "已確認會到，期待見到您！"))}>確認會到</button>
     <section className="mt-4 rounded-xl bg-white p-4">
       <h2 className="font-semibold">更改時間（限一次）</h2>
-      <input className="mt-3 w-full rounded border p-2" type="date" value={date} onChange={e => setDate(e.target.value)} />
+      <input className="mt-3 w-full rounded border p-2" type="date" value={date} onChange={e => {
+        setDate(e.target.value);
+        setSlots([]);
+        setSelected("");
+      }} />
       <button disabled={disabled || !date} className="mt-2 rounded border px-3 py-2 text-sm disabled:opacity-40" onClick={() => void getTrialRescheduleSlotsFromChat(token, date).then(setSlots).catch(() => setMessage("無法取得可改期時段。"))}>查看可選時段</button>
       {slots.length > 0 && <div className="mt-3 flex flex-wrap gap-2">{slots.map(slot => <button key={slot} className={`rounded border px-3 py-2 ${selected === slot ? "bg-primary-100" : ""}`} onClick={() => setSelected(slot)}>{slot}</button>)}</div>}
       {selected && <button className="mt-3 w-full rounded-xl border border-primary-600 p-3 text-primary-700" onClick={() => void rescheduleTrialBookingFromChat({ token, date, slotTime: selected }).then(result => setMessage(result === "rescheduled" ? "已完成改期。" : result === "slot_full" ? "該時段剛好額滿，請重新選擇。" : "此預約目前無法自行改期，請聯絡門市。"))}>確認改為 {date} {selected}</button>}

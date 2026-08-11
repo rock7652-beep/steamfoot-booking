@@ -18,12 +18,22 @@ describe("trial reminder convergence contract", () => {
     expect(messengerWebhook).toContain('channel: "MESSENGER"');
   });
 
-  it("claims Messenger delivery before Meta and releases only recorded failures for retry", () => {
+  it("claims Messenger delivery before Meta and keeps definite failures retryable", () => {
     const worker = source("src/server/services/messenger-utility-reminder.ts");
     expect(worker.indexOf("claimDelivery(input)")).toBeLessThan(worker.indexOf("sendMessengerUtilityTemplate({"));
     expect(worker).toContain('eventType: "MESSENGER_UTILITY_REMINDER"');
-    expect(worker).toContain("await releaseClaim(claimId)");
-    expect(worker).toContain("Keep the claim when delivery may already have happened");
+    expect(worker).toContain('failedClaim?.outcome !== "FAILED"');
+    expect(worker).toContain("await markClaimFailed(claimId)");
+    expect(worker.indexOf("await markClaimFailed(claimId)")).toBeLessThan(worker.lastIndexOf("await record(input, code)"));
+    expect(worker).toContain("delivery may already have happened");
+  });
+
+  it("clears stale reschedule slots and selection whenever the date changes", () => {
+    const manager = source("src/app/trial-booking/manage/trial-booking-manager.tsx");
+    const changeHandler = manager.slice(manager.indexOf('onChange={e => {'), manager.indexOf('onChange={e => {') + 180);
+    expect(changeHandler).toContain("setDate(e.target.value)");
+    expect(changeHandler).toContain("setSlots([])");
+    expect(changeHandler).toContain('setSelected("")');
   });
 
   it("marks a batch with individual failures as retryable", () => {

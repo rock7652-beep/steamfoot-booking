@@ -64,12 +64,13 @@ function claimEventKey(input: MessengerUtilityReminderInput): string {
 }
 
 async function claimDelivery(input: MessengerUtilityReminderInput): Promise<string | null> {
+  const eventKey = claimEventKey(input);
   try {
     const claim = await prisma.digitalButlerExecutionLog.create({
       data: {
         storeId: input.booking.storeId,
         provider: "MESSENGER",
-        eventKey: claimEventKey(input),
+        eventKey,
         eventType: "MESSENGER_UTILITY_REMINDER",
         outcome: "CLAIMED",
       },
@@ -77,13 +78,31 @@ async function claimDelivery(input: MessengerUtilityReminderInput): Promise<stri
     });
     return claim.id;
   } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") return null;
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      const failedClaim = await prisma.digitalButlerExecutionLog.findUnique({
+        where: { storeId_eventKey: { storeId: input.booking.storeId, eventKey } },
+        select: { id: true, outcome: true },
+      });
+      if (failedClaim?.outcome !== "FAILED") return null;
+
+      // A definite transport rejection is safe to retry. Delete only the
+      // failed claim we observed; a concurrent worker that already reclaimed
+      // it must retain ownership.
+      const released = await prisma.digitalButlerExecutionLog.deleteMany({
+        where: { id: failedClaim.id, outcome: "FAILED" },
+      });
+      if (released.count === 0) return null;
+      return claimDelivery(input);
+    }
     throw error;
   }
 }
 
-async function releaseClaim(claimId: string): Promise<void> {
-  await prisma.digitalButlerExecutionLog.delete({ where: { id: claimId } }).catch(() => undefined);
+async function markClaimFailed(claimId: string): Promise<void> {
+  await prisma.digitalButlerExecutionLog.update({
+    where: { id: claimId },
+    data: { outcome: "FAILED" },
+  });
 }
 
 /**
@@ -169,18 +188,21 @@ export async function sendMessengerUtilityReminder(input: MessengerUtilityRemind
       },
     });
     const code = result.success ? "SENT" : result.failureCode ?? "FAILED_TRANSPORT";
-    await record(input, code);
     if (code === "SENT") {
+      await record(input, code);
       await prisma.digitalButlerExecutionLog.update({ where: { id: claimId }, data: { outcome: "SENT" } });
     } else {
-      // A definite failed attempt remains auditable in MessageLog, while the
-      // claim is released so the backup cron can retry it.
-      await releaseClaim(claimId);
+      // Mark the claim retryable before writing the audit row. If audit
+      // persistence fails, the backup cron can still reclaim this delivery.
+      await markClaimFailed(claimId);
+      await record(input, code);
     }
     return code;
   } catch (error) {
-    // Keep the claim when delivery may already have happened. This deliberately
-    // prefers a visible uncertain outcome over a duplicate customer message.
+    // Transport exceptions and successful-send finalization failures leave a
+    // CLAIMED guard because delivery may already have happened. Definite
+    // failures were marked FAILED above and remain reclaimable even when their
+    // audit write throws.
     throw error;
   }
 }
