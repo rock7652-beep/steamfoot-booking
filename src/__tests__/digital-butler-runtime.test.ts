@@ -8,6 +8,7 @@ import {
   DigitalButlerRuntime,
   matchesDigitalButlerTriggerKeyword,
   topLevelChoiceEntryStepKey,
+  trialExperienceBookingEntry,
 } from "@/server/services/digital-butler-runtime";
 
 const textStep = (id: string, stepKey: string, position: number, text: string) => ({
@@ -131,6 +132,39 @@ describe("DigitalButlerRuntime", () => {
 
   it("does not apply trial aliases to unrelated published flows", () => {
     expect(matchesDigitalButlerTriggerKeyword(["我想了解課程"], "我想體驗蒸足")).toBe(false);
+  });
+
+  it.each(["沒有進行中對話", "進行中對話已逾時"])
+  ("%s 時，試用別名直接選擇頂層預約體驗入口", () => {
+    const steps = [
+      {
+        id: "menu", stepKey: "menu", position: 0, type: "SINGLE_CHOICE" as const,
+        config: {
+          options: [
+            { label: "蒸足如何進行", value: "PROCESS", nextStepKey: "process" },
+            { label: "我想預約體驗", value: "BOOKING", nextStepKey: "name" },
+            { label: "價格方案", value: "PRICE", nextStepKey: "price" },
+          ],
+        },
+        required: true,
+      },
+      questionStep("name", "name", 1),
+    ];
+
+    expect(trialExperienceBookingEntry({ trigger: { keywords: ["我想了解蒸足"] } }, steps, "我想體驗蒸足")).toMatchObject({
+      startStepKey: "name",
+      value: { value: "BOOKING", label: "我想預約體驗" },
+    });
+  });
+
+  it("does not use the booking shortcut for an unrelated flow", () => {
+    const steps = [{
+      id: "menu", stepKey: "menu", position: 0, type: "SINGLE_CHOICE" as const,
+      config: { options: [{ label: "我想預約體驗", value: "BOOKING", nextStepKey: "name" }] },
+      required: true,
+    }];
+
+    expect(trialExperienceBookingEntry({ trigger: { keywords: ["我想了解課程"] } }, steps, "我想體驗蒸足")).toBeNull();
   });
 
   it("accepts a trial alias while an active conversation is waiting at the booking menu", async () => {
