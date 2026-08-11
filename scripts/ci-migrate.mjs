@@ -141,10 +141,10 @@ const expectedTrialLinkConstraints = [
   "TrialBookingLink_storeId_fkey",
 ];
 const expectedTrialLinkIndexes = [
-  "TrialBookingLink_bookingId_idx",
-  "TrialBookingLink_bookingId_key",
-  "TrialBookingLink_storeId_expiresAt_idx",
-  "TrialBookingLink_tokenHash_key",
+  { name: "TrialBookingLink_bookingId_idx", isUnique: false, columns: ["bookingId"] },
+  { name: "TrialBookingLink_bookingId_key", isUnique: true, columns: ["bookingId"] },
+  { name: "TrialBookingLink_storeId_expiresAt_idx", isUnique: false, columns: ["storeId", "expiresAt"] },
+  { name: "TrialBookingLink_tokenHash_key", isUnique: true, columns: ["tokenHash"] },
 ];
 
 function log(event) {
@@ -480,7 +480,7 @@ async function readTrialReminderSnapshot(prisma) {
     prisma.$queryRaw`SELECT to_regclass('public."TrialBookingLink"') IS NOT NULL AS "exists"`,
     prisma.$queryRaw`SELECT column_name AS "columnName", data_type AS "dataType", udt_name AS "udtName", is_nullable AS "isNullable", column_default AS "columnDefault" FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'TrialBookingLink' ORDER BY ordinal_position`,
     prisma.$queryRaw`SELECT conname AS "name" FROM pg_constraint WHERE conrelid = to_regclass('public."TrialBookingLink"') ORDER BY conname`,
-    prisma.$queryRaw`SELECT indexname AS "name" FROM pg_indexes WHERE schemaname = 'public' AND tablename = 'TrialBookingLink' AND indexname <> 'TrialBookingLink_pkey' ORDER BY indexname`,
+    prisma.$queryRaw`SELECT i.relname AS "name", ix.indisunique AS "isUnique", array_agg(a.attname ORDER BY k.ordinality) AS "columns" FROM pg_index ix JOIN pg_class t ON t.oid = ix.indrelid JOIN pg_namespace n ON n.oid = t.relnamespace JOIN pg_class i ON i.oid = ix.indexrelid JOIN LATERAL unnest(ix.indkey) WITH ORDINALITY AS k(attnum, ordinality) ON k.attnum > 0 JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = k.attnum WHERE n.nspname = 'public' AND t.relname = 'TrialBookingLink' AND i.relname <> 'TrialBookingLink_pkey' GROUP BY i.relname, ix.indisunique ORDER BY i.relname`,
     prisma.$queryRaw`SELECT c.relrowsecurity AS "enabled", c.relforcerowsecurity AS "forced" FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public' AND c.relname = 'TrialBookingLink' AND c.relkind = 'r'`,
     prisma.$queryRaw`SELECT count(*)::int AS "count" FROM pg_policies WHERE schemaname = 'public' AND tablename = 'TrialBookingLink'`,
     prisma.$queryRaw`SELECT count(*)::int AS "count" FROM information_schema.role_table_grants WHERE table_schema = 'public' AND table_name = 'TrialBookingLink' AND grantee IN ('anon', 'authenticated')`,
@@ -493,7 +493,7 @@ async function readTrialReminderSnapshot(prisma) {
     trialTableExists: trialTable.length === 1 && trialTable[0].exists === true,
     trialLinkColumns,
     trialConstraints: trialConstraints.map((row) => row.name),
-    trialIndexes: trialIndexes.map((row) => row.name),
+    trialIndexes,
     trialRlsEnabled: trialRls.length === 1 ? trialRls[0].enabled : null,
     trialRlsForced: trialRls.length === 1 ? trialRls[0].forced : null,
     trialPolicyCount: trialPolicies.length === 1 ? trialPolicies[0].count : null,
@@ -549,7 +549,17 @@ export function hasExpectedTrialReminderSchema(snapshot) {
     snapshot.trialTableExists === true &&
     trialLinkColumnsMatch &&
     sameValues(snapshot.trialConstraints, expectedTrialLinkConstraints) &&
-    sameValues(snapshot.trialIndexes, expectedTrialLinkIndexes) &&
+    snapshot.trialIndexes.length === expectedTrialLinkIndexes.length &&
+    expectedTrialLinkIndexes.every((expected, index) => {
+      const actual = snapshot.trialIndexes[index];
+      return actual &&
+        actual.name === expected.name &&
+        actual.isUnique === expected.isUnique &&
+        actual.columns.length === expected.columns.length &&
+        actual.columns.every(
+          (column, columnIndex) => column === expected.columns[columnIndex],
+        );
+    }) &&
     snapshot.trialRlsEnabled === true &&
     snapshot.trialRlsForced === false &&
     snapshot.trialPolicyCount === 0 &&
