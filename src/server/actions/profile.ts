@@ -601,7 +601,7 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
       // 2) 當前 user 是否已有 Customer（可能是 auth.ts 首登建的佔位，可能在同/別店）
       const existingByUserId = await prisma.customer.findUnique({
         where: { userId: user.id },
-        select: { id: true, storeId: true, phone: true },
+        select: { id: true, name: true, storeId: true, phone: true },
       });
 
       console.info("[updateProfileAction] not_found analysis", {
