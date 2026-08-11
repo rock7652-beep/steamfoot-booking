@@ -335,9 +335,9 @@ describe("Production migration recovery guard", () => {
       trialTableExists: true,
       trialLinkColumns,
       trialConstraints: [
-        "TrialBookingLink_bookingId_fkey",
-        "TrialBookingLink_pkey",
-        "TrialBookingLink_storeId_fkey",
+        { name: "TrialBookingLink_bookingId_fkey", constraintType: "f", localColumns: ["bookingId"], referencedSchema: "public", referencedTable: "Booking", referencedColumns: ["id"], updateAction: "c", deleteAction: "n" },
+        { name: "TrialBookingLink_pkey", constraintType: "p", localColumns: ["id"], referencedSchema: null, referencedTable: null, referencedColumns: [], updateAction: null, deleteAction: null },
+        { name: "TrialBookingLink_storeId_fkey", constraintType: "f", localColumns: ["storeId"], referencedSchema: "public", referencedTable: "Store", referencedColumns: ["id"], updateAction: "c", deleteAction: "c" },
       ],
       trialIndexes: [
         { name: "TrialBookingLink_bookingId_idx", isUnique: false, keyColumns: ["bookingId"], includeColumns: [], isValid: true, isReady: true, predicate: null },
@@ -359,6 +359,30 @@ describe("Production migration recovery guard", () => {
       ],
     };
     expect(hasExpectedTrialReminderSchema(complete)).toBe(true);
+    expect(hasExpectedTrialReminderSchema({
+      ...complete,
+      trialConstraints: complete.trialConstraints.map((constraint) => (
+        constraint.name === "TrialBookingLink_pkey"
+          ? { ...constraint, localColumns: ["storeId"] }
+          : constraint
+      )),
+    })).toBe(false);
+    expect(hasExpectedTrialReminderSchema({
+      ...complete,
+      trialConstraints: complete.trialConstraints.map((constraint) => (
+        constraint.name === "TrialBookingLink_bookingId_fkey"
+          ? { ...constraint, referencedTable: "Store" }
+          : constraint
+      )),
+    })).toBe(false);
+    expect(hasExpectedTrialReminderSchema({
+      ...complete,
+      trialConstraints: complete.trialConstraints.map((constraint) => (
+        constraint.name === "TrialBookingLink_bookingId_fkey"
+          ? { ...constraint, deleteAction: "c" }
+          : constraint
+      )),
+    })).toBe(false);
     expect(hasExpectedTrialReminderSchema({
       ...complete,
       trialIndexes: complete.trialIndexes.map((index) => (
