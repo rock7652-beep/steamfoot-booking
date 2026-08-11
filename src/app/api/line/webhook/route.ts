@@ -38,6 +38,8 @@ import {
 } from "@/server/services/digital-butler-line-reply";
 import { digitalButlerIntentsToLineMessages } from "@/server/services/digital-butler-channel";
 import { handleSessionBalanceLineResponse } from "@/server/services/session-balance-notifications";
+import { createTrialBookingChatLink } from "@/server/services/trial-booking-chat-link";
+import { ZHUBEI_EXPERIENCE_BOOKING_URL } from "@/lib/booking-links";
 
 export const dynamic = "force-dynamic";
 
@@ -397,7 +399,7 @@ async function handleTextMessage(
         }
       }
       if (replyToken && digitalButlerResult.messages.length > 0) {
-        await replyDigitalButlerMessages(storeId, replyToken, digitalButlerResult);
+        await replyDigitalButlerMessages(storeId, replyToken, digitalButlerResult, lineUserId);
       }
       return;
     }
@@ -416,7 +418,7 @@ async function handleTextMessage(
   if (replyToken && eventIdentity?.destination && eventIdentity.messageId) {
     const result = await handleDigitalButlerText(lineUserId, text, storeId, eventIdentity);
     if (result?.handled && result.messages.length > 0) {
-      await replyDigitalButlerMessages(storeId, replyToken, result);
+      await replyDigitalButlerMessages(storeId, replyToken, result, lineUserId);
     }
   }
 }
@@ -462,10 +464,21 @@ async function replyDigitalButlerMessages(
   storeId: string,
   replyToken: string,
   result: Awaited<ReturnType<typeof handleDigitalButlerText>>,
+  lineUserId: string,
 ) {
   if (!result) return;
+  const intents = await Promise.all(result.messages.map(async (intent) => {
+    if (intent.type !== "text" || intent.urlButton?.url !== ZHUBEI_EXPERIENCE_BOOKING_URL) return intent;
+    try {
+      const link = await createTrialBookingChatLink({ storeId, channel: "LINE", chatIdentity: lineUserId });
+      return { ...intent, urlButton: { ...intent.urlButton, url: link.url } };
+    } catch {
+      console.error("[LINE Webhook] booking link issue failed", { storeId });
+      return { ...intent, urlButton: undefined };
+    }
+  }));
   const messages = sanitizeDigitalButlerReplyMessages(
-    digitalButlerIntentsToLineMessages(result.messages),
+    digitalButlerIntentsToLineMessages(intents),
   );
   if (!messages.length) {
     console.error(JSON.stringify({

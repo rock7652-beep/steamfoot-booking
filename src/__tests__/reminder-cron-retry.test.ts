@@ -328,11 +328,10 @@ describe("computeRetryStatus — terminal status invariant", () => {
     ).toBe("OK");
   });
 
-  it("total>0 sent=部分 failed=部分 → OK (個別 LINE 失敗不視為批次 FAILED)", async () => {
-    // 跟主 cron 同款哲學：個別顧客 LINE token 過期 / blocked 不算批次失敗
+  it("total>0 sent=部分 failed=部分 → FAILED，讓 backup cron 重試", async () => {
     const { computeRetryStatus } = await loadHelper();
     expect(
       computeRetryStatus({ total: 6, sent: 3, failed: 3 }, null),
-    ).toBe("OK");
+    ).toBe("FAILED");
   });
 });
