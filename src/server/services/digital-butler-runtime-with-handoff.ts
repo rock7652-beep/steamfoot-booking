@@ -6,7 +6,10 @@ import type { DigitalButlerInboundTextMessage } from "@/server/services/digital-
 import { recordHumanSupportHandoff } from "@/server/services/human-support-handoff";
 
 export type { DigitalButlerRuntimeResult } from "@/server/services/digital-butler-runtime-core";
-export { topLevelChoiceEntryStepKey } from "./digital-butler-runtime";
+export {
+  matchesDigitalButlerTriggerKeyword,
+  topLevelChoiceEntryStepKey,
+} from "./digital-butler-runtime";
 
 export class DigitalButlerRuntime extends CoreDigitalButlerRuntime {
   override async handleText(input: DigitalButlerInboundTextMessage): Promise<DigitalButlerRuntimeResult> {
