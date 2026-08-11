@@ -29,6 +29,10 @@ const CHAT_BOOKING_COMPLETION_TEXT = [
   "",
   "期待為您服務 😊",
 ].join("\n");
+const DIRECT_TRIAL_BOOKING_TEXT = [
+  "想體驗蒸足嗎？",
+  "請點選下方連結，直接選擇方便的體驗時間：",
+].join("\n");
 
 function prismaBytes(value: Uint8Array): Uint8Array<ArrayBuffer> {
   return Uint8Array.from(value);
@@ -432,19 +436,6 @@ function topLevelChoiceEntry(steps: RuntimeStep[], text: string): { step: Runtim
   return { step, value: objectConfig(selected as Prisma.JsonValue) as Prisma.InputJsonObject, startStepKey: startStepKey.trim() };
 }
 
-export function trialExperienceBookingEntry(
-  definition: Prisma.JsonValue,
-  steps: RuntimeStep[],
-  text: string,
-): { step: RuntimeStep; value: Prisma.InputJsonValue; startStepKey: string } | null {
-  if (
-    !TRIAL_EXPERIENCE_TRIGGER_ALIASES.has(normalizeTriggerText(text)) ||
-    !matchesDigitalButlerTriggerKeyword(triggerKeywords(definition), text)
-  ) return null;
-  const menuStep = steps.find((step) => step.type === "SINGLE_CHOICE");
-  return menuStep ? topLevelChoiceEntry(steps, singleChoiceInputText(menuStep, text)) : null;
-}
-
 class PrismaDigitalButlerRuntimeRepository implements RuntimeRepository {
   async claimEvent(input: {
     storeId: string;
@@ -514,18 +505,6 @@ class PrismaDigitalButlerRuntimeRepository implements RuntimeRepository {
     });
     for (const flow of flows) {
       if (!flow.publishedVersion) continue;
-      const trialBookingEntry = trialExperienceBookingEntry(
-        flow.publishedVersion.definition,
-        flow.publishedVersion.steps,
-        text,
-      );
-      if (trialBookingEntry) {
-        return {
-          ...flow,
-          startStepKey: trialBookingEntry.startStepKey,
-          initialAnswer: { step: trialBookingEntry.step, value: trialBookingEntry.value },
-        } as Awaited<ReturnType<RuntimeRepository["findTriggeredFlow"]>>;
-      }
       if (matchesDigitalButlerTriggerKeyword(triggerKeywords(flow.publishedVersion.definition), text)) {
         return { ...flow, startStepKey: null } as Awaited<ReturnType<RuntimeRepository["findTriggeredFlow"]>>;
       }
@@ -768,6 +747,24 @@ export class DigitalButlerRuntime {
     if (conversation && conversation.expiresAt.getTime() <= Date.now()) {
       await this.repository.expireConversation(input.storeId, conversation.id);
       conversation = null;
+    }
+
+    if (
+      input.provider === "LINE"
+      && TRIAL_EXPERIENCE_TRIGGER_ALIASES.has(normalizeTriggerText(input.text))
+    ) {
+      if (conversation && !(await this.repository.cancelConversation(input.storeId, conversation.id))) {
+        return finish({ handled: true, messages: [], outcome: "INACTIVE_CONVERSATION" }, conversation.id);
+      }
+      return finish({
+        handled: true,
+        messages: [{
+          type: "text",
+          text: DIRECT_TRIAL_BOOKING_TEXT,
+          urlButton: { label: "立即預約體驗", url: ZHUBEI_EXPERIENCE_BOOKING_URL },
+        }],
+        outcome: "DIRECT_BOOKING",
+      }, conversation?.id);
     }
 
     if (!conversation) {

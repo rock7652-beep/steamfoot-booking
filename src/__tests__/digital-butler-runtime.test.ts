@@ -8,7 +8,6 @@ import {
   DigitalButlerRuntime,
   matchesDigitalButlerTriggerKeyword,
   topLevelChoiceEntryStepKey,
-  trialExperienceBookingEntry,
 } from "@/server/services/digital-butler-runtime";
 
 const textStep = (id: string, stepKey: string, position: number, text: string) => ({
@@ -134,40 +133,7 @@ describe("DigitalButlerRuntime", () => {
     expect(matchesDigitalButlerTriggerKeyword(["我想了解課程"], "我想體驗蒸足")).toBe(false);
   });
 
-  it.each(["沒有進行中對話", "進行中對話已逾時"])
-  ("%s 時，試用別名直接選擇頂層預約體驗入口", () => {
-    const steps = [
-      {
-        id: "menu", stepKey: "menu", position: 0, type: "SINGLE_CHOICE" as const,
-        config: {
-          options: [
-            { label: "蒸足如何進行", value: "PROCESS", nextStepKey: "process" },
-            { label: "我想預約體驗", value: "BOOKING", nextStepKey: "name" },
-            { label: "價格方案", value: "PRICE", nextStepKey: "price" },
-          ],
-        },
-        required: true,
-      },
-      questionStep("name", "name", 1),
-    ];
-
-    expect(trialExperienceBookingEntry({ trigger: { keywords: ["我想了解蒸足"] } }, steps, "我想體驗蒸足")).toMatchObject({
-      startStepKey: "name",
-      value: { value: "BOOKING", label: "我想預約體驗" },
-    });
-  });
-
-  it("does not use the booking shortcut for an unrelated flow", () => {
-    const steps = [{
-      id: "menu", stepKey: "menu", position: 0, type: "SINGLE_CHOICE" as const,
-      config: { options: [{ label: "我想預約體驗", value: "BOOKING", nextStepKey: "name" }] },
-      required: true,
-    }];
-
-    expect(trialExperienceBookingEntry({ trigger: { keywords: ["我想了解課程"] } }, steps, "我想體驗蒸足")).toBeNull();
-  });
-
-  it("accepts a trial alias while an active conversation is waiting at the booking menu", async () => {
+  it("sends the direct booking entry and ends an active conversation for the trial intent", async () => {
     const steps = [
       {
         id: "menu", stepKey: "menu", position: 0, type: "SINGLE_CHOICE" as const,
@@ -194,13 +160,39 @@ describe("DigitalButlerRuntime", () => {
 
     expect(result).toMatchObject({
       handled: true,
-      outcome: "WAITING_INPUT",
-      messages: [{ type: "text", text: "請告訴我們您的需求" }],
+      outcome: "DIRECT_BOOKING",
+      messages: [{ type: "text", urlButton: { label: "立即預約體驗" } }],
     });
-    expect(repository.saveAnswer).toHaveBeenCalledWith(expect.objectContaining({
-      step: expect.objectContaining({ stepKey: "menu" }),
-      value: { value: "BOOKING", label: "我想預約體驗" },
-    }));
+    const message = result.messages[0];
+    expect(message?.type).toBe("text");
+    if (message?.type !== "text") throw new Error("Expected a text booking entry message");
+    expect(message.urlButton?.url).toContain("/pricing/experience/zhubei/book");
+    expect(message.text).not.toContain("請告訴我們您的需求");
+    expect(repository.cancelConversation).toHaveBeenCalledWith(input.storeId, "conversation-menu");
+    expect(repository.saveAnswer).not.toHaveBeenCalled();
+    expect(repository.advanceConversation).not.toHaveBeenCalled();
+  });
+
+  it("sends the direct booking entry after an expired conversation without starting name collection", async () => {
+    repository.findActiveConversation.mockResolvedValue({
+      id: "expired-conversation", storeId: input.storeId, flowId: "flow-1",
+      flowVersionId: "version-1", currentStepKey: "menu",
+      expiresAt: new Date(Date.now() - 16 * 60 * 1000), flowVersion: { steps: [] }, answers: [],
+    });
+
+    const result = await new DigitalButlerRuntime(repository as never, gate).handleText({
+      ...input, text: "我想體驗蒸足",
+    });
+
+    expect(result).toMatchObject({
+      handled: true,
+      outcome: "DIRECT_BOOKING",
+      messages: [{ type: "text", urlButton: { label: "立即預約體驗" } }],
+    });
+    expect(repository.expireConversation).toHaveBeenCalledWith(input.storeId, "expired-conversation");
+    expect(repository.findTriggeredFlow).not.toHaveBeenCalled();
+    expect(repository.createConversation).not.toHaveBeenCalled();
+    expect(repository.saveAnswer).not.toHaveBeenCalled();
   });
 
   it("persists a top-level booking choice before starting the contact name step", async () => {
