@@ -378,6 +378,17 @@ describe("Production migration recovery guard", () => {
     expect(hasExpectedTrialReminderSchema({
       ...complete,
       messageIndexes: complete.messageIndexes.map((index) => (
+        index.name === "idx_rule_booking_trigger"
+          ? {
+              ...index,
+              definition: 'CREATE UNIQUE INDEX idx_rule_booking_trigger ON public."MessageLog" USING btree ("ruleId", "bookingId", "triggerAt")',
+            }
+          : index
+      )),
+    })).toBe(false);
+    expect(hasExpectedTrialReminderSchema({
+      ...complete,
+      messageIndexes: complete.messageIndexes.map((index) => (
         index.name === "uniq_sent_rule_booking_trigger"
           ? {
               ...index,
