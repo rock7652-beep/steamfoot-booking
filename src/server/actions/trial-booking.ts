@@ -425,6 +425,8 @@ export async function collectTrialPayment(
           amount,
           storeId,
           ...snapshot,
+          discountReason: data.discountReason || null,
+          note: data.note || null,
         },
       });
 

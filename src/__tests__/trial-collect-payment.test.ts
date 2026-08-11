@@ -243,6 +243,24 @@ describe("collectTrialPayment — SUCCESS-only real-revenue tx", () => {
     const r = await collectTrialPayment(base);
     expect(r.success).toBe(true); // clean success ⇒ no customerPlanWallet/walletSession calls
   });
+
+  it("persists optional discount reason and note on the revenue transaction", async () => {
+    const r = await collectTrialPayment({
+      ...base,
+      discountReason: "好友介紹優惠",
+      note: "店長現場確認",
+    });
+    expect(r.success).toBe(true);
+    expect(lastTx()).toMatchObject({
+      discountReason: "好友介紹優惠",
+      note: "店長現場確認",
+    });
+  });
+
+  it("stores omitted discount reason and note as null", async () => {
+    await collectTrialPayment(base);
+    expect(lastTx()).toMatchObject({ discountReason: null, note: null });
+  });
 });
 
 describe("collectTrialPayment — double-collect guard (race-safe)", () => {

@@ -56,6 +56,8 @@ export const collectTrialPaymentSchema = z.object({
   paymentMethod: z.enum(["CASH", "TRANSFER", "LINE_PAY", "CREDIT_CARD", "OTHER"]),
   paymentSplits: z.array(paymentSplitSchema).min(2).max(5).optional(),
   amount: z.number().int().min(0).max(1_000_000).optional(),
+  discountReason: z.string().trim().max(500).optional(),
+  note: z.string().trim().max(500).optional(),
   // PR-3d flow pivot：收款時若同步確認實際到店人數，一併寫入 Booking.attendedPeople。
   // 1..booking.people（server 端再驗 ≤ booking.people 與 type=FIRST_TRIAL）；
   // 省略則維持向後相容（不寫 attendedPeople，沿用 booking.attendedPeople 計算 clamp）。

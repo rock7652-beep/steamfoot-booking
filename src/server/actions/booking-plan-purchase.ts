@@ -57,6 +57,8 @@ export async function purchasePlanForSingleBooking(
     if (!plan) throw new AppError("NOT_FOUND", "方案不存在、已停用或不屬於本店");
     if (plan.sessionCount <= 1) throw new AppError("BUSINESS_RULE", "轉購請選擇多堂儲值方案");
     if (plan.sessionCount < booking.people) throw new AppError("BUSINESS_RULE", `方案共 ${plan.sessionCount} 堂，不足本次 ${booking.people} 人使用`);
+    const grossAmount = Number(plan.price);
+    if (data.amount > grossAmount) throw new AppError("VALIDATION", "實收金額不可高於原價");
 
     const isPending = data.paymentMethod === "TRANSFER";
     const now = new Date();
@@ -86,9 +88,9 @@ export async function purchasePlanForSingleBooking(
         await tx.booking.update({ where: { id: booking.id }, data: { bookingType: "PACKAGE_SESSION", customerPlanWalletId: wallet.id, servicePlanId: plan.id } });
         await tx.customer.update({ where: { id: fresh.customerId }, data: { customerStage: "ACTIVE", selfBookingEnabled: true, ...(!customer.convertedAt && { convertedAt: now }) } });
       }
-      const snapshot = await buildTransactionSnapshot(tx, { customerId: fresh.customerId, storeId, revenueStaffId, planId: plan.id, grossAmount: Number(plan.price), netAmount: Number(plan.price) });
+      const snapshot = await buildTransactionSnapshot(tx, { customerId: fresh.customerId, storeId, revenueStaffId, planId: plan.id, grossAmount, netAmount: data.amount });
       const transaction = await tx.transaction.create({
-        data: { ...snapshot, customerId: fresh.customerId, storeId, bookingId: booking.id, revenueStaffId, soldByStaffId: user.staffId ?? null, customerPlanWalletId: wallet?.id ?? null, transactionType: "PACKAGE_PURCHASE", paymentMethod: data.paymentMethod, paymentStatus: isPending ? "PENDING" : "SUCCESS", paidAt: isPending ? null : now, status: "SUCCESS", amount: plan.price, planId: plan.id, planSessionCountSnapshot: plan.sessionCount, pendingWalletExpiryDateSnapshot: isPending ? expiryDate : null, note: "單次預約現場轉購新儲值方案" },
+        data: { ...snapshot, customerId: fresh.customerId, storeId, bookingId: booking.id, revenueStaffId, soldByStaffId: user.staffId ?? null, customerPlanWalletId: wallet?.id ?? null, transactionType: "PACKAGE_PURCHASE", paymentMethod: data.paymentMethod, paymentStatus: isPending ? "PENDING" : "SUCCESS", paidAt: isPending ? null : now, status: "SUCCESS", amount: data.amount, planId: plan.id, planSessionCountSnapshot: plan.sessionCount, pendingWalletExpiryDateSnapshot: isPending ? expiryDate : null, discountReason: data.discountReason || null, note: data.note || null },
       });
       return { transactionId: transaction.id, walletId: wallet?.id ?? null };
     });
