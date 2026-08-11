@@ -136,9 +136,9 @@ const expectedTrialLinkColumns = [
   ["createdAt", "timestamp without time zone", "timestamp", "NO", "CURRENT_TIMESTAMP"],
 ];
 const expectedTrialLinkConstraints = [
-  "TrialBookingLink_bookingId_fkey",
-  "TrialBookingLink_pkey",
-  "TrialBookingLink_storeId_fkey",
+  { name: "TrialBookingLink_bookingId_fkey", constraintType: "f", localColumns: ["bookingId"], referencedSchema: "public", referencedTable: "Booking", referencedColumns: ["id"], updateAction: "c", deleteAction: "n" },
+  { name: "TrialBookingLink_pkey", constraintType: "p", localColumns: ["id"], referencedSchema: null, referencedTable: null, referencedColumns: [], updateAction: null, deleteAction: null },
+  { name: "TrialBookingLink_storeId_fkey", constraintType: "f", localColumns: ["storeId"], referencedSchema: "public", referencedTable: "Store", referencedColumns: ["id"], updateAction: "c", deleteAction: "c" },
 ];
 const expectedTrialLinkIndexes = [
   { name: "TrialBookingLink_bookingId_idx", isUnique: false, keyColumns: ["bookingId"], includeColumns: [] },
@@ -479,7 +479,7 @@ async function readTrialReminderSnapshot(prisma) {
     prisma.$queryRaw`SELECT column_name AS "columnName", data_type AS "dataType", udt_name AS "udtName", is_nullable AS "isNullable", column_default AS "columnDefault" FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'Booking' AND column_name IN ('trialBookingChannel', 'customerConfirmedAt', 'customerRescheduledAt', 'customerCancelledAt', 'customerCancelledSource', 'customerRescheduleCount', 'originalBookingDate', 'originalSlotTime') ORDER BY ordinal_position`,
     prisma.$queryRaw`SELECT to_regclass('public."TrialBookingLink"') IS NOT NULL AS "exists"`,
     prisma.$queryRaw`SELECT column_name AS "columnName", data_type AS "dataType", udt_name AS "udtName", is_nullable AS "isNullable", column_default AS "columnDefault" FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'TrialBookingLink' ORDER BY ordinal_position`,
-    prisma.$queryRaw`SELECT conname AS "name" FROM pg_constraint WHERE conrelid = to_regclass('public."TrialBookingLink"') ORDER BY conname`,
+    prisma.$queryRaw`SELECT c.conname AS "name", c.contype AS "constraintType", ARRAY(SELECT a.attname FROM unnest(c.conkey) WITH ORDINALITY AS k(attnum, ordinality) JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = k.attnum ORDER BY k.ordinality) AS "localColumns", CASE WHEN c.contype = 'f' THEN rn.nspname ELSE NULL END AS "referencedSchema", CASE WHEN c.contype = 'f' THEN rt.relname ELSE NULL END AS "referencedTable", CASE WHEN c.contype = 'f' THEN ARRAY(SELECT a.attname FROM unnest(c.confkey) WITH ORDINALITY AS k(attnum, ordinality) JOIN pg_attribute a ON a.attrelid = c.confrelid AND a.attnum = k.attnum ORDER BY k.ordinality) ELSE ARRAY[]::name[] END AS "referencedColumns", CASE WHEN c.contype = 'f' THEN c.confupdtype ELSE NULL END AS "updateAction", CASE WHEN c.contype = 'f' THEN c.confdeltype ELSE NULL END AS "deleteAction" FROM pg_constraint c LEFT JOIN pg_class rt ON rt.oid = c.confrelid LEFT JOIN pg_namespace rn ON rn.oid = rt.relnamespace WHERE c.conrelid = to_regclass('public."TrialBookingLink"') ORDER BY c.conname`,
     prisma.$queryRaw`SELECT i.relname AS "name", ix.indisunique AS "isUnique", ix.indisvalid AS "isValid", ix.indisready AS "isReady", pg_get_expr(ix.indpred, ix.indrelid) AS "predicate", COALESCE(array_agg(a.attname ORDER BY k.ordinality) FILTER (WHERE k.ordinality <= ix.indnkeyatts), ARRAY[]::name[]) AS "keyColumns", COALESCE(array_agg(a.attname ORDER BY k.ordinality) FILTER (WHERE k.ordinality > ix.indnkeyatts), ARRAY[]::name[]) AS "includeColumns" FROM pg_index ix JOIN pg_class t ON t.oid = ix.indrelid JOIN pg_namespace n ON n.oid = t.relnamespace JOIN pg_class i ON i.oid = ix.indexrelid JOIN LATERAL unnest(ix.indkey) WITH ORDINALITY AS k(attnum, ordinality) ON k.attnum > 0 JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = k.attnum WHERE n.nspname = 'public' AND t.relname = 'TrialBookingLink' AND i.relname <> 'TrialBookingLink_pkey' GROUP BY i.relname, ix.indisunique, ix.indisvalid, ix.indisready, ix.indpred, ix.indrelid, ix.indnkeyatts ORDER BY i.relname`,
     prisma.$queryRaw`SELECT c.relrowsecurity AS "enabled", c.relforcerowsecurity AS "forced" FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public' AND c.relname = 'TrialBookingLink' AND c.relkind = 'r'`,
     prisma.$queryRaw`SELECT count(*)::int AS "count" FROM pg_policies WHERE schemaname = 'public' AND tablename = 'TrialBookingLink'`,
@@ -548,7 +548,21 @@ export function hasExpectedTrialReminderSchema(snapshot) {
     bookingColumnsMatch &&
     snapshot.trialTableExists === true &&
     trialLinkColumnsMatch &&
-    sameValues(snapshot.trialConstraints, expectedTrialLinkConstraints) &&
+    snapshot.trialConstraints.length === expectedTrialLinkConstraints.length &&
+    expectedTrialLinkConstraints.every((expected, index) => {
+      const actual = snapshot.trialConstraints[index];
+      return actual &&
+        actual.name === expected.name &&
+        actual.constraintType === expected.constraintType &&
+        actual.localColumns.length === expected.localColumns.length &&
+        actual.localColumns.every((column, columnIndex) => column === expected.localColumns[columnIndex]) &&
+        actual.referencedSchema === expected.referencedSchema &&
+        actual.referencedTable === expected.referencedTable &&
+        actual.referencedColumns.length === expected.referencedColumns.length &&
+        actual.referencedColumns.every((column, columnIndex) => column === expected.referencedColumns[columnIndex]) &&
+        actual.updateAction === expected.updateAction &&
+        actual.deleteAction === expected.deleteAction;
+    }) &&
     snapshot.trialIndexes.length === expectedTrialLinkIndexes.length &&
     expectedTrialLinkIndexes.every((expected, index) => {
       const actual = snapshot.trialIndexes[index];
