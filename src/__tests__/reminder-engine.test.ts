@@ -464,7 +464,7 @@ describe("runReminders (daily next-day batch)", () => {
       maxMonthlyBookingsOverride: null, maxMonthlyReportsOverride: null,
       maxReminderSendsOverride: null, maxStoresOverride: null,
     } as never);
-    bookings.push(makeBooking({ bookingDate: new Date("2026-07-02T00:00:00.000Z"), hasLine: false, channel: "MESSENGER" }));
+    bookings.push(makeBooking({ bookingDate: new Date("2026-07-02T00:00:00.000Z"), hasLine: true, channel: "LINE" }));
     rules.push(makeRule());
 
     const { engine } = await loadModules();
@@ -486,64 +486,6 @@ describe("runReminders (daily next-day batch)", () => {
       start: new Date("2026-06-30T16:00:00.000Z"),
       end: new Date("2026-07-31T16:00:00.000Z"),
     });
-  });
-
-  it("Messenger 同一提醒的重試成功紀錄只占用一次月額度", async () => {
-    vi.setSystemTime(new Date("2026-05-11T04:00:00.000Z"));
-    mockPrisma.store.findUnique.mockResolvedValue({
-      id: STORE_ID, slug: "store-test", plan: "BASIC",
-      maxStaffOverride: null, maxCustomersOverride: null,
-      maxMonthlyBookingsOverride: null, maxMonthlyReportsOverride: null,
-      maxReminderSendsOverride: 10, maxStoresOverride: null,
-    } as never);
-    const sentAt = new Date("2026-05-10T10:00:00.000Z");
-    for (const id of ["retry-log-1", "retry-log-2"]) {
-      messageLogs.push({
-        id, ruleId: RULE_ID, bookingId: "previous-booking", customerId: CUSTOMER_ID,
-        triggerAt: new Date("2026-05-10T10:00:00.000Z"), status: "SENT",
-        storeId: STORE_ID, sentAt, createdAt: sentAt, channel: "MESSENGER",
-      });
-    }
-    bookings.push(makeBooking({ bookingDate: new Date("2026-05-12T00:00:00.000Z"), hasLine: false, channel: "MESSENGER" }));
-    rules.push(makeRule());
-
-    const { engine } = await loadModules();
-    await engine.runReminders();
-
-    expect(checkReminderSendLimitMock).toHaveBeenCalledWith(expect.anything(), 1);
-    expect(sendMessengerUtilityReminderMock).toHaveBeenCalledTimes(1);
-  });
-
-  it("同批次 Messenger 重播不加額度，後續真正新發送仍可使用剩餘額度", async () => {
-    vi.setSystemTime(new Date("2026-05-11T04:00:00.000Z"));
-    mockPrisma.store.findUnique.mockResolvedValue({
-      id: STORE_ID, slug: "store-test", plan: "BASIC",
-      maxStaffOverride: null, maxCustomersOverride: null,
-      maxMonthlyBookingsOverride: null, maxMonthlyReportsOverride: null,
-      maxReminderSendsOverride: 2, maxStoresOverride: null,
-    } as never);
-    const priorSentAt = new Date("2026-05-10T10:00:00.000Z");
-    messageLogs.push({
-      id: "prior", ruleId: RULE_ID, bookingId: "booking-replay", customerId: CUSTOMER_ID,
-      triggerAt: priorSentAt, status: "SENT", storeId: STORE_ID, sentAt: priorSentAt,
-      createdAt: priorSentAt, channel: "MESSENGER",
-    });
-    bookings.push(
-      makeBooking({ id: "booking-replay", bookingDate: new Date("2026-05-12T00:00:00.000Z"), hasLine: false, channel: "MESSENGER" }),
-      makeBooking({ id: "booking-new", bookingDate: new Date("2026-05-12T00:00:00.000Z"), hasLine: false, channel: "MESSENGER" }),
-    );
-    rules.push(makeRule());
-    sendMessengerUtilityReminderMock
-      .mockResolvedValueOnce({ code: "SENT", quotaConsumed: false })
-      .mockResolvedValueOnce({ code: "SENT", quotaConsumed: true });
-    checkReminderSendLimitMock.mockImplementation((_plan, current: number) => ({
-      allowed: current < 2, current, limit: 2,
-    }));
-
-    const { engine } = await loadModules();
-    await expect(engine.runReminders()).resolves.toMatchObject({ sent: 2, skipped: 0 });
-    expect(sendMessengerUtilityReminderMock).toHaveBeenCalledTimes(2);
-    expect(checkReminderSendLimitMock.mock.calls.map((call) => call[1])).toEqual([1, 1]);
   });
 
   it("命中：明天 (TW) 的有效預約 → SENT，triggerAt = 今天 18:00 TW", async () => {
@@ -666,85 +608,16 @@ describe("runReminders (daily next-day batch)", () => {
     );
   });
 
-  it("LINE gate 關閉仍會獨立處理 Messenger Utility reminder", async () => {
+  it("Messenger 排程提醒與 LINE PR 隔離，不呼叫正式發送服務", async () => {
     vi.setSystemTime(new Date("2026-05-11T04:00:00.000Z"));
     mockHasStoreFeature.mockResolvedValue(false);
-    mockPrisma.store.findUnique.mockResolvedValue({ slug: "store-test" } as never);
     bookings.push(makeBooking({ bookingDate: new Date("2026-05-12T00:00:00.000Z"), hasLine: false, channel: "MESSENGER" }));
     rules.push(makeRule());
     const { engine } = await loadModules();
-    await expect(engine.runReminders()).resolves.toMatchObject({ sent: 1, skipped: 0 });
+    await expect(engine.runReminders()).resolves.toMatchObject({ sent: 0, skipped: 1, failed: 0 });
     expect(pushMessageMock).not.toHaveBeenCalled();
-    expect(sendMessengerUtilityReminderMock).toHaveBeenCalledWith(expect.objectContaining({
-      booking: expect.objectContaining({ id: BOOKING_ID, storeId: STORE_ID }),
-      bookingLink: expect.stringMatching(/^https:\/\/test\.example\.com\/trial-booking\/manage\?token=/),
-    }));
-  });
-
-  it("缺少簽章 secret 時不傳送無法操作的 Messenger 連結", async () => {
-    vi.setSystemTime(new Date("2026-05-11T04:00:00.000Z"));
-    delete process.env.TRIAL_BOOKING_ACTION_SECRET;
-    mockHasStoreFeature.mockResolvedValue(false);
-    mockPrisma.store.findUnique.mockResolvedValue({ slug: "store-test" } as never);
-    bookings.push(makeBooking({ bookingDate: new Date("2026-05-12T00:00:00.000Z"), hasLine: false, channel: "MESSENGER" }));
-    rules.push(makeRule());
-
-    const { engine } = await loadModules();
-    await expect(engine.runReminders()).resolves.toMatchObject({ sent: 0, failed: 1 });
     expect(sendMessengerUtilityReminderMock).not.toHaveBeenCalled();
-    expect(messageLogs).toEqual(expect.arrayContaining([
-      expect.objectContaining({ bookingId: BOOKING_ID, status: "FAILED", errorMessage: "FAILED_CONFIGURATION" }),
-    ]));
-  });
-
-  it("Messenger 簽章 secret 恢復後可重新發送", async () => {
-    vi.setSystemTime(new Date("2026-05-11T04:00:00.000Z"));
-    delete process.env.TRIAL_BOOKING_ACTION_SECRET;
-    mockHasStoreFeature.mockResolvedValue(false);
-    mockPrisma.store.findUnique.mockResolvedValue({
-      id: STORE_ID, slug: "store-test", plan: "BASIC",
-      maxStaffOverride: null, maxCustomersOverride: null,
-      maxMonthlyBookingsOverride: null, maxMonthlyReportsOverride: null,
-      maxReminderSendsOverride: null, maxStoresOverride: null,
-    } as never);
-    bookings.push(makeBooking({ bookingDate: new Date("2026-05-12T00:00:00.000Z"), hasLine: false, channel: "MESSENGER" }));
-    rules.push(makeRule());
-
-    const { engine } = await loadModules();
-    await expect(engine.runReminders()).resolves.toMatchObject({ sent: 0, failed: 1 });
-    expect(messageLogs).toEqual(expect.arrayContaining([
-      expect.objectContaining({ status: "FAILED", errorMessage: "FAILED_CONFIGURATION" }),
-    ]));
-
-    process.env.TRIAL_BOOKING_ACTION_SECRET = "restored-test-secret";
-    await expect(engine.runReminders()).resolves.toMatchObject({ sent: 1 });
-    expect(sendMessengerUtilityReminderMock).toHaveBeenCalledTimes(1);
-  });
-
-  it("Messenger 在共用月提醒額度已滿時不呼叫傳送服務", async () => {
-    vi.setSystemTime(new Date("2026-05-11T04:00:00.000Z"));
-    mockHasStoreFeature.mockResolvedValue(false);
-    mockPrisma.store.findUnique.mockResolvedValue({
-      id: STORE_ID, slug: "store-test", plan: "BASIC",
-      maxStaffOverride: null, maxCustomersOverride: null,
-      maxMonthlyBookingsOverride: null, maxMonthlyReportsOverride: null,
-      maxReminderSendsOverride: 1, maxStoresOverride: null,
-    } as never);
-    checkReminderSendLimitMock.mockReturnValue({ allowed: false, current: 1, limit: 1 });
-    bookings.push(makeBooking({ bookingDate: new Date("2026-05-12T00:00:00.000Z"), hasLine: false, channel: "MESSENGER" }));
-    rules.push(makeRule());
-
-    const { engine } = await loadModules();
-    await expect(engine.runReminders()).resolves.toMatchObject({ sent: 0, skipped: 1 });
-    expect(sendMessengerUtilityReminderMock).not.toHaveBeenCalled();
-    expect(messageLogs).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        bookingId: BOOKING_ID,
-        channel: "MESSENGER",
-        status: "SKIPPED",
-        errorMessage: "Reminder send limit reached (1/1)",
-      }),
-    ]));
+    expect(messageLogs).toEqual([]);
   });
 
   it("不命中：今天的預約（不是明天）→ 不發送", async () => {

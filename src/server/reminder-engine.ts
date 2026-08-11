@@ -37,7 +37,6 @@ import {
 import { resolveCentralLineRecipientsForCustomers } from "@/server/services/central-line-recipient-loader";
 import { resolveVerifiedReminderLineRoute } from "@/server/services/verified-reminder-line-route";
 import { createTrialBookingActionToken } from "@/server/services/trial-booking-self-service";
-import { sendMessengerUtilityReminder } from "@/server/services/messenger-utility-reminder";
 
 const DEFAULT_TEMPLATE = `{{customerName}} 您好！
 
@@ -244,6 +243,22 @@ export async function runReminders(): Promise<SendResult> {
       const customer = booking.customer;
       const bookingStoreId = booking.storeId;
 
+      // Messenger scheduled delivery is intentionally isolated from this PR.
+      // Messenger can still issue a chat-bound booking link, but only LINE is
+      // permitted to send the next-day reminder until the separate delivery,
+      // quota, retry, and concurrency work has passed review.
+      if (booking.trialBookingChannel === "MESSENGER") {
+        result.skipped++;
+        result.details.push({
+          customerId: customer.id,
+          bookingId: booking.id,
+          ruleName: rule.name,
+          status: "SKIPPED",
+          error: "MESSENGER_SCHEDULED_REMINDER_ISOLATED",
+        });
+        continue;
+      }
+
       // LINE and Messenger share the same plan allowance. Check it before
       // either transport sends so one channel cannot bypass or starve the other.
       if (!storePlanCache.has(bookingStoreId)) {
@@ -282,7 +297,7 @@ export async function runReminders(): Promise<SendResult> {
             bookingId: booking.id,
             triggerAt,
             storeId: bookingStoreId,
-            channel: booking.trialBookingChannel === "MESSENGER" ? "MESSENGER" : "LINE",
+            channel: "LINE",
             reason,
           });
           result.skipped++;
@@ -295,54 +310,6 @@ export async function runReminders(): Promise<SendResult> {
           });
           continue;
         }
-      }
-
-      if (booking.trialBookingChannel === "MESSENGER") {
-        const store = await prisma.store.findUnique({
-          where: { id: bookingStoreId }, select: { slug: true },
-        });
-        if (!store) {
-          await recordSkippedReminder({
-            ruleId: rule.id, templateId: rule.templateId, customerId: customer.id,
-            bookingId: booking.id, triggerAt, storeId: bookingStoreId,
-            channel: "MESSENGER", reason: "FAILED_CONFIGURATION",
-          });
-          result.failed++;
-          result.details.push({ customerId: customer.id, bookingId: booking.id, ruleName: rule.name, status: "FAILED", error: "FAILED_CONFIGURATION" });
-          continue;
-        }
-        if (!shopNameCache.has(bookingStoreId)) {
-          const config = await getShopConfig(bookingStoreId);
-          shopNameCache.set(bookingStoreId, config.shopName);
-        }
-        if (!process.env.TRIAL_BOOKING_ACTION_SECRET) {
-          await recordFailedReminder({
-            ruleId: rule.id, templateId: rule.templateId, customerId: customer.id,
-            bookingId: booking.id, triggerAt, storeId: bookingStoreId,
-            channel: "MESSENGER", reason: "FAILED_CONFIGURATION",
-          });
-          result.failed++;
-          result.details.push({ customerId: customer.id, bookingId: booking.id, ruleName: rule.name, status: "FAILED", error: "FAILED_CONFIGURATION" });
-          continue;
-        }
-        const bookingLink = `${baseUrl}/trial-booking/manage?token=${encodeURIComponent(createTrialBookingActionToken(booking))}`;
-        const delivery = await sendMessengerUtilityReminder({
-          ruleId: rule.id, templateId: rule.templateId, triggerAt,
-          booking: { id: booking.id, storeId: bookingStoreId, customerId: customer.id, bookingDate: booking.bookingDate, slotTime: booking.slotTime, people: booking.people },
-          store: { slug: store.slug, shopName: shopNameCache.get(bookingStoreId) ?? "蒸足" },
-          bookingLink,
-        });
-        const code = delivery.code;
-        const status = code === "SENT" ? "SENT" : code.startsWith("SKIPPED_") ? "SKIPPED" : "FAILED";
-        if (delivery.quotaConsumed) {
-          storeSendCountCache.set(
-            bookingStoreId,
-            (storeSendCountCache.get(bookingStoreId) ?? 0) + 1,
-          );
-        }
-        result[status === "SENT" ? "sent" : status === "SKIPPED" ? "skipped" : "failed"]++;
-        result.details.push({ customerId: customer.id, bookingId: booking.id, ruleName: rule.name, status, error: code === "SENT" ? undefined : code });
-        continue;
       }
 
       if (!lineReminderEnabled) {

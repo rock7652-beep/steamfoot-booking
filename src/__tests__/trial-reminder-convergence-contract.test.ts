@@ -45,6 +45,21 @@ describe("trial reminder convergence contract", () => {
     expect(manager).toContain("slotRequestGate.isCurrent(requestId)");
   });
 
+  it("only lets the latest public booking date request update slots or loading state", () => {
+    const form = source("src/app/pricing/experience/zhubei/book/zhubei-trial-booking-form.tsx");
+    expect(form).toContain("const requestId = slotRequestGate.issue()");
+    expect(form).toContain("if (!slotRequestGate.isCurrent(requestId)) return");
+    expect(form).toContain("if (slotRequestGate.isCurrent(requestId)) setLoadingSlots(false)");
+    expect(form).toContain("slotRequestGate.invalidate()");
+  });
+
+  it("keeps Messenger scheduled reminders isolated from the LINE delivery engine", () => {
+    const engine = source("src/server/reminder-engine.ts");
+    expect(engine).toContain('booking.trialBookingChannel === "MESSENGER"');
+    expect(engine).toContain("MESSENGER_SCHEDULED_REMINDER_ISOLATED");
+    expect(engine).not.toContain("sendMessengerUtilityReminder({");
+  });
+
   it("marks a batch with individual failures as retryable", () => {
     const route = source("src/app/api/cron/reminders/route.ts");
     const retry = source("src/server/reminder-cron-retry.ts");

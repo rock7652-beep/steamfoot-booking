@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   fetchPublicTrialMonth,
   fetchPublicTrialSlots,
@@ -10,6 +10,7 @@ import {
   type PublicTrialDayStatus,
 } from "@/server/actions/public-trial-booking";
 import type { SlotAvailability } from "@/types";
+import { createLatestRequestGate } from "@/lib/latest-request-gate";
 
 function taiwanToday(): string {
   return new Intl.DateTimeFormat("en-CA", {
@@ -66,6 +67,7 @@ function formatCurrency(value: number): string {
 }
 
 export function ZhubeiTrialBookingForm({ entry }: { entry?: string }) {
+  const slotRequestGate = useRef(createLatestRequestGate()).current;
   const today = useMemo(taiwanToday, []);
   const initialMonth = useMemo(() => ({
     year: Number(today.slice(0, 4)),
@@ -104,6 +106,7 @@ export function ZhubeiTrialBookingForm({ entry }: { entry?: string }) {
   }, [entry, viewYear, viewMonth]);
 
   async function loadSlots(date: string) {
+    const requestId = slotRequestGate.issue();
     setBookingDate(date);
     setSlotTime("");
     setPeople(1);
@@ -112,16 +115,20 @@ export function ZhubeiTrialBookingForm({ entry }: { entry?: string }) {
     setLoadingSlots(true);
     try {
       const result = await fetchPublicTrialSlots(date, entry);
+      if (!slotRequestGate.isCurrent(requestId)) return;
       setSlots(result.slots);
       if (result.dayStatus !== "open") setMessage(dayStatusMessage(result.dayStatus));
     } catch {
-      setMessage("目前無法取得可預約時段，請稍後再試。");
+      if (slotRequestGate.isCurrent(requestId)) {
+        setMessage("目前無法取得可預約時段，請稍後再試。");
+      }
     } finally {
-      setLoadingSlots(false);
+      if (slotRequestGate.isCurrent(requestId)) setLoadingSlots(false);
     }
   }
 
   function changeMonth(offset: number) {
+    slotRequestGate.invalidate();
     const next = new Date(Date.UTC(viewYear, viewMonth - 1 + offset, 1));
     setViewYear(next.getUTCFullYear());
     setViewMonth(next.getUTCMonth() + 1);
