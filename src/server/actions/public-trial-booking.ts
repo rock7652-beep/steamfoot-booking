@@ -22,7 +22,6 @@ import { isStoreSubscriptionWriteBlocked } from "@/lib/subscription-guard";
 import { isStoreBookable } from "@/lib/store-operating-status";
 import { notifyManagerOfPublicTrialBooking } from "@/server/services/public-trial-manager-notification";
 import { ensureTrialPlan } from "@/server/services/trial-plan";
-import { resolveTrialBookingChatLink } from "@/server/services/trial-booking-chat-link";
 import type { SlotAvailability } from "@/types";
 
 const STORE_SLUG = "zhubei";
@@ -34,7 +33,6 @@ const InputSchema = z.object({
   slotTime: z.string().regex(/^\d{2}:\d{2}$/),
   people: z.coerce.number().int().min(1, "預約人數至少 1 人").max(2, "單次最多預約 2 人"),
   website: z.string().max(0).optional().default(""),
-  entry: z.string().max(512).optional(),
 });
 
 export type PublicTrialDayStatus =
@@ -226,13 +224,7 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
 
   const data = parsed.data;
   try {
-    const chatLink = data.entry ? await resolveTrialBookingChatLink(data.entry) : null;
-    // A supplied invalid/expired link is rejected rather than silently falling
-    // back to the public form; otherwise a forwarded link could bind wrongly.
-    if (data.entry && !chatLink) return { status: "invalid_input", message: "此預約連結已失效，請回到原本的聊天視窗重新取得連結。" };
-    const store = chatLink
-      ? await prisma.store.findUnique({ where: { id: chatLink.storeId }, select: { id: true, slug: true } })
-      : await resolvePublicStore();
+    const store = await resolvePublicStore();
     if (!store || !(await isStoreBookable(store.id))) return { status: "store_unavailable" };
     if (await isStoreSubscriptionWriteBlocked(store.id)) return { status: "store_unavailable" };
 
@@ -266,9 +258,7 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
     const trialPlan = await ensureTrialPlan(store.id, settings.trialDefaultPrice);
 
     let customer = await prisma.customer.findFirst({
-      where: chatLink?.channel === "LINE"
-        ? { storeId: store.id, lineUserId: chatLink.chatIdentity, mergedIntoCustomerId: null }
-        : { storeId: store.id, phone: data.phone, mergedIntoCustomerId: null },
+      where: { storeId: store.id, phone: data.phone, mergedIntoCustomerId: null },
       select: { id: true, assignedStaffId: true },
     });
     if (!customer) {
@@ -281,7 +271,6 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
             authSource: "MANUAL",
             customerStage: "LEAD",
             selfBookingEnabled: false,
-            ...(chatLink?.channel === "LINE" ? { lineUserId: chatLink.chatIdentity, lineLinkStatus: "LINKED" as const, lineLinkedAt: new Date() } : {}),
           },
           select: { id: true, assignedStaffId: true },
         });
@@ -327,7 +316,7 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
         });
         if ((aggregate._sum.people ?? 0) + data.people > slot.capacity) return null;
 
-        const created = await tx.booking.create({
+        return tx.booking.create({
           data: {
             storeId: store.id,
             customerId: customer.id,
@@ -341,20 +330,9 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
             expectedAmount,
             revenueStaffId: customer.assignedStaffId,
             notes: "公開快速體驗預約",
-            ...(chatLink ? { trialBookingChannel: chatLink.channel } : {}),
           },
           select: { id: true },
         });
-        if (chatLink) {
-          const claimed = await tx.trialBookingLink.updateMany({
-            where: { id: chatLink.linkId, storeId: store.id, consumedAt: null, expiresAt: { gt: new Date() } },
-            data: { consumedAt: new Date(), bookingId: created.id },
-          });
-          // Throw so the freshly-created booking is rolled back if another
-          // request has consumed this opaque link first.
-          if (claimed.count !== 1) throw new Error("TRIAL_BOOKING_LINK_CONSUMED");
-        }
-        return created;
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
     );
