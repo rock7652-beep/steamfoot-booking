@@ -85,6 +85,7 @@ let centralRecipientOverrides = new Map<string, {
 }>();
 const mockHasStoreFeature = vi.fn();
 const sendMessengerUtilityReminderMock = vi.fn();
+const checkReminderSendLimitMock = vi.fn();
 
 // ── Mock Prisma P2002 error class ──
 class MockPrismaError extends Error {
@@ -298,7 +299,7 @@ vi.mock("@/lib/shop-config", () => ({
   getShopConfig: async () => ({ shopName: "Test Shop" }),
 }));
 vi.mock("@/lib/usage-gate", () => ({
-  checkReminderSendLimit: () => ({ allowed: true, current: 0, limit: 1000 }),
+  checkReminderSendLimit: (...args: unknown[]) => checkReminderSendLimitMock(...args),
 }));
 vi.mock("@/lib/feature-gate", () => ({
   hasStoreFeature: (...args: unknown[]) => mockHasStoreFeature(...args),
@@ -405,6 +406,8 @@ beforeEach(() => {
   mockHasStoreFeature.mockResolvedValue(true);
   sendMessengerUtilityReminderMock.mockClear();
   sendMessengerUtilityReminderMock.mockResolvedValue("SENT");
+  checkReminderSendLimitMock.mockClear();
+  checkReminderSendLimitMock.mockReturnValue({ allowed: true, current: 0, limit: 1000 });
   vi.useFakeTimers();
 });
 
@@ -564,7 +567,57 @@ describe("runReminders (daily next-day batch)", () => {
     await expect(engine.runReminders()).resolves.toMatchObject({ sent: 0, failed: 1 });
     expect(sendMessengerUtilityReminderMock).not.toHaveBeenCalled();
     expect(messageLogs).toEqual(expect.arrayContaining([
-      expect.objectContaining({ bookingId: BOOKING_ID, status: "SKIPPED", errorMessage: "FAILED_CONFIGURATION" }),
+      expect.objectContaining({ bookingId: BOOKING_ID, status: "FAILED", errorMessage: "FAILED_CONFIGURATION" }),
+    ]));
+  });
+
+  it("Messenger 簽章 secret 恢復後可重新發送", async () => {
+    vi.setSystemTime(new Date("2026-05-11T04:00:00.000Z"));
+    delete process.env.TRIAL_BOOKING_ACTION_SECRET;
+    mockHasStoreFeature.mockResolvedValue(false);
+    mockPrisma.store.findUnique.mockResolvedValue({
+      id: STORE_ID, slug: "store-test", plan: "BASIC",
+      maxStaffOverride: null, maxCustomersOverride: null,
+      maxMonthlyBookingsOverride: null, maxMonthlyReportsOverride: null,
+      maxReminderSendsOverride: null, maxStoresOverride: null,
+    } as never);
+    bookings.push(makeBooking({ bookingDate: new Date("2026-05-12T00:00:00.000Z"), hasLine: false, channel: "MESSENGER" }));
+    rules.push(makeRule());
+
+    const { engine } = await loadModules();
+    await expect(engine.runReminders()).resolves.toMatchObject({ sent: 0, failed: 1 });
+    expect(messageLogs).toEqual(expect.arrayContaining([
+      expect.objectContaining({ status: "FAILED", errorMessage: "FAILED_CONFIGURATION" }),
+    ]));
+
+    process.env.TRIAL_BOOKING_ACTION_SECRET = "restored-test-secret";
+    await expect(engine.runReminders()).resolves.toMatchObject({ sent: 1 });
+    expect(sendMessengerUtilityReminderMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("Messenger 在共用月提醒額度已滿時不呼叫傳送服務", async () => {
+    vi.setSystemTime(new Date("2026-05-11T04:00:00.000Z"));
+    mockHasStoreFeature.mockResolvedValue(false);
+    mockPrisma.store.findUnique.mockResolvedValue({
+      id: STORE_ID, slug: "store-test", plan: "BASIC",
+      maxStaffOverride: null, maxCustomersOverride: null,
+      maxMonthlyBookingsOverride: null, maxMonthlyReportsOverride: null,
+      maxReminderSendsOverride: 1, maxStoresOverride: null,
+    } as never);
+    checkReminderSendLimitMock.mockReturnValue({ allowed: false, current: 1, limit: 1 });
+    bookings.push(makeBooking({ bookingDate: new Date("2026-05-12T00:00:00.000Z"), hasLine: false, channel: "MESSENGER" }));
+    rules.push(makeRule());
+
+    const { engine } = await loadModules();
+    await expect(engine.runReminders()).resolves.toMatchObject({ sent: 0, skipped: 1 });
+    expect(sendMessengerUtilityReminderMock).not.toHaveBeenCalled();
+    expect(messageLogs).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        bookingId: BOOKING_ID,
+        channel: "MESSENGER",
+        status: "SKIPPED",
+        errorMessage: "Reminder send limit reached (1/1)",
+      }),
     ]));
   });
 
