@@ -92,6 +92,33 @@ export function todayLocalDateString(): string {
   return toLocalDateStr();
 }
 
+/**
+ * 將台灣日期與時間字串嚴格解析為 UTC Date。
+ *
+ * 會拒絕 JavaScript 會自動正規化的不存在日期（例如 2026-02-31）
+ * 與超出範圍的時間，避免錯誤輸入被轉成另一個日期。
+ */
+export function parseTaipeiDateTime(dateStr: string, timeStr: string): Date | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr) || !/^\d{2}:\d{2}$/.test(timeStr)) return null;
+
+  const [year, month, day] = dateStr.split("-").map(Number);
+  const [hour, minute] = timeStr.split(":").map(Number);
+  if (hour > 23 || minute > 59) return null;
+
+  const parsed = new Date(Date.UTC(year, month - 1, day, hour - TZ_OFFSET_HOURS, minute));
+  const taipei = new Date(parsed.getTime() + TZ_OFFSET_HOURS * 60 * 60 * 1000);
+  if (
+    taipei.getUTCFullYear() !== year ||
+    taipei.getUTCMonth() !== month - 1 ||
+    taipei.getUTCDate() !== day ||
+    taipei.getUTCHours() !== hour ||
+    taipei.getUTCMinutes() !== minute
+  ) {
+    return null;
+  }
+  return parsed;
+}
+
 // ============================================================
 // 日期邊界（用於查詢 createdAt 等 UTC 時間戳記）
 // ============================================================
