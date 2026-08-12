@@ -55,7 +55,7 @@ describe("trial reminder convergence contract", () => {
     expect(manager).toContain('action === "confirm"');
     expect(manager).toContain('action === "cancel"');
     expect(manager).toContain('action === "reschedule"');
-    expect(manager).toContain("void loadRescheduleSlots()");
+    expect(manager).toContain("void loadRescheduleSlots(booking.bookingDate)");
   });
 
   it("shows signed booking status and does not offer blank reschedule controls after one change", () => {
@@ -70,10 +70,19 @@ describe("trial reminder convergence contract", () => {
     expect(manager).toContain("booking?.customerRescheduleCount && booking.customerRescheduleCount >= 1");
   });
 
-  it("removes the cancellation confirmation after a successful cancellation", () => {
+  it("uses the signed booking date as the initial reschedule date before loading slots", () => {
+    const manager = source("src/app/trial-booking/manage/trial-booking-manager.tsx");
+    expect(manager).toContain("setDate(status.bookingDate)");
+    expect(manager).toContain("void loadRescheduleSlots(booking.bookingDate)");
+    expect(manager).toContain('if (!requestedDate) return');
+  });
+
+  it("removes every cancellation action after a successful cancellation", () => {
     const manager = source("src/app/trial-booking/manage/trial-booking-manager.tsx");
     expect(manager).toContain('bookingStatus: "CANCELLED"');
-    expect(manager).toContain("{cancelled ? null : action === \"cancel\"");
+    expect(manager).toContain("setCancellationComplete(true)");
+    expect(manager).toContain("if (cancelled) return <main");
+    expect(manager).toContain('>{message || "這筆預約已取消。"}</p>');
   });
 
   it("only lets the latest public booking date request update slots or loading state", () => {
