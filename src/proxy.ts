@@ -331,6 +331,12 @@ export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | n
     return NextResponse.redirect(new URL("/hq/login", req.url));
   }
 
+  // Public legal documents must remain accessible without a session so
+  // platform reviewers and users can read them directly.
+  if (pathname === "/privacy" || pathname.startsWith("/privacy/")) {
+    return withDomainCookie(NextResponse.next(), domainStoreId);
+  }
+
   // /pricing → keep as-is (public)
   if (pathname === "/pricing" || pathname.startsWith("/pricing/")) {
     return withDomainCookie(NextResponse.next(), domainStoreId);
