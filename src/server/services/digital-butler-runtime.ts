@@ -924,6 +924,15 @@ export class DigitalButlerRuntime {
     let index = startIndex;
     let transitions = 0;
     let chatBookingCompletionPending = false;
+    const appendPendingChatBookingCompletion = () => {
+      if (!chatBookingCompletionPending) return;
+      messages.push({
+        type: "text",
+        text: CHAT_BOOKING_COMPLETION_TEXT,
+        urlButton: { label: "立即預約體驗", url: ZHUBEI_EXPERIENCE_BOOKING_URL },
+      });
+      chatBookingCompletionPending = false;
+    };
     while (index >= 0 && index < steps.length && transitions < 100) {
       transitions += 1;
       const step = steps[index];
@@ -938,12 +947,7 @@ export class DigitalButlerRuntime {
       }
       if (step.type === "TEXT") {
         if (chatBookingCompletionPending) {
-          messages.push({
-            type: "text",
-            text: CHAT_BOOKING_COMPLETION_TEXT,
-            urlButton: { label: "立即預約體驗", url: ZHUBEI_EXPERIENCE_BOOKING_URL },
-          });
-          chatBookingCompletionPending = false;
+          appendPendingChatBookingCompletion();
         } else {
           const text = textFromConfig(step);
           if (text) messages.push({ type: "text", text });
@@ -991,6 +995,7 @@ export class DigitalButlerRuntime {
           });
         }
       } else if (step.type === "COMPLETE_FLOW") {
+        appendPendingChatBookingCompletion();
         const completed = await this.repository.advanceConversation({
           storeId: conversation.storeId, conversationId: conversation.id,
           currentStepKey: null, status: "COMPLETED",
@@ -1003,6 +1008,7 @@ export class DigitalButlerRuntime {
     if (transitions >= 100) {
       return { handled: true, messages: messages.slice(0, 5), outcome: "INVALID_STATE" };
     }
+    appendPendingChatBookingCompletion();
     const completed = await this.repository.advanceConversation({
       storeId: conversation.storeId, conversationId: conversation.id,
       currentStepKey: null, status: "COMPLETED",
