@@ -38,7 +38,7 @@ const directCompletionSteps = steps
   .filter((step) => step.stepKey !== "completion")
   .map((step) => step.stepKey === "create"
     ? { ...step, config: { ...step.config, nextStepKey: "complete" } }
-    : step);
+    : step) as typeof steps;
 
 function conversation(
   currentStepKey: string,
