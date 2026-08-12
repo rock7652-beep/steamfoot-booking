@@ -45,6 +45,19 @@ describe("trial reminder convergence contract", () => {
     expect(manager).toContain("slotRequestGate.isCurrent(requestId)");
   });
 
+  it("opens each LINE reminder action in its dedicated self-service mode", () => {
+    const message = source("src/server/services/trial-booking-reminder-line-message.ts");
+    const manager = source("src/app/trial-booking/manage/trial-booking-manager.tsx");
+    expect(message).toContain('url.searchParams.set("action", action)');
+    expect(message).toContain('actionUrl("confirm")');
+    expect(message).toContain('actionUrl("cancel")');
+    expect(message).toContain('actionUrl("reschedule")');
+    expect(manager).toContain('action === "confirm"');
+    expect(manager).toContain('action === "cancel"');
+    expect(manager).toContain('action === "reschedule"');
+    expect(manager).toContain("void loadRescheduleSlots()");
+  });
+
   it("only lets the latest public booking date request update slots or loading state", () => {
     const form = source("src/app/pricing/experience/zhubei/book/zhubei-trial-booking-form.tsx");
     expect(form).toContain("const requestId = slotRequestGate.issue()");
