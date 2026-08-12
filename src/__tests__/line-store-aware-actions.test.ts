@@ -368,7 +368,7 @@ describe("LINE sending actions are store-aware", () => {
     });
   });
 
-  it("single-booking test renders a first-trial self-service link for an older channel-null booking", async () => {
+  it("single-booking test uses clear trial management buttons without showing the signed URL", async () => {
     vi.stubEnv("TRIAL_BOOKING_ACTION_SECRET", "test-secret");
     mockPrisma.booking.findFirst.mockResolvedValueOnce({
       id: "trial-booking-1",
@@ -394,10 +394,29 @@ describe("LINE sending actions are store-aware", () => {
     const result = await sendBookingLineTestReminder({ bookingId: "trial-booking-1" });
 
     expect(result.success).toBe(true);
-    const message = pushMessageMock.mock.calls.at(-1)?.[2]?.[0] as { text: string };
-    expect(message.text).toContain("體驗預約提醒");
-    expect(message.text).toContain("/trial-booking/manage?token=");
-    expect(message.text).not.toContain("/my-bookings");
+    const message = pushMessageMock.mock.calls.at(-1)?.[2]?.[0] as {
+      type: string;
+      altText: string;
+      contents: {
+        body: { contents: Array<{ text?: string }> };
+        footer: { contents: Array<{ action: { label: string; uri: string } }> };
+      };
+    };
+    expect(message).toMatchObject({
+      type: "flex",
+      altText: "體驗預約管理：確認、取消或改期",
+    });
+    expect(message.contents.body.contents[0]?.text).toContain("體驗預約提醒");
+    expect(message.contents.body.contents[0]?.text).not.toContain("/trial-booking/manage?token=");
+    expect(message.contents.footer.contents.map((button) => button.action.label)).toEqual([
+      "確認預約",
+      "取消預約",
+      "改期預約",
+    ]);
+    for (const button of message.contents.footer.contents) {
+      expect(button.action.uri).toContain("/trial-booking/manage?token=");
+      expect(button.action.uri).not.toContain("/my-bookings");
+    }
   });
 
   it("single-booking test falls back to an active store route after a definite central 400 rejection", async () => {

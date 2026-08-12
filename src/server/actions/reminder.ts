@@ -25,6 +25,7 @@ import { resolveVerifiedReminderLineRoute } from "@/server/services/verified-rem
 import { getAllActiveStoreIds } from "@/lib/store";
 import { DEFAULT_SESSION_BALANCE_NOTIFICATION_SETTING } from "@/lib/session-balance-notification-settings";
 import { createTrialBookingActionToken } from "@/server/services/trial-booking-self-service";
+import { buildTrialBookingReminderLineMessages } from "@/server/services/trial-booking-reminder-line-message";
 
 // ============================================================
 // Validators
@@ -868,7 +869,7 @@ export async function sendBookingLineTestReminder(
 
 這是您明天 ({{bookingDate}}) {{bookingTime}} 的體驗預約提醒，請記得準時到店。
 
-請點擊專屬連結確認會到；如需取消或改期，也可在同一頁完成：{{bookingLink}}
+請使用下方按鈕確認會到、取消或改期。
 
 {{shopName}} 敬上`
       : rule?.template?.body ??
@@ -894,7 +895,9 @@ export async function sendBookingLineTestReminder(
 這是管理者手動發送的通知測試，無須回覆。
 
 ${renderedReminder}`;
-    const messages = [{ type: "text" as const, text: renderedBody }];
+    const messages = isLineTrialBooking
+      ? buildTrialBookingReminderLineMessages(renderedBody, bookingLink)
+      : [{ type: "text" as const, text: renderedBody }];
     let actualRoute = route.channel;
     let result =
       route.channel === "STORE"

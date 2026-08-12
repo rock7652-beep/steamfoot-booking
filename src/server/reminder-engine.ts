@@ -37,6 +37,7 @@ import {
 import { resolveCentralLineRecipientsForCustomers } from "@/server/services/central-line-recipient-loader";
 import { resolveVerifiedReminderLineRoute } from "@/server/services/verified-reminder-line-route";
 import { createTrialBookingActionToken } from "@/server/services/trial-booking-self-service";
+import { buildTrialBookingReminderLineMessages } from "@/server/services/trial-booking-reminder-line-message";
 
 const DEFAULT_TEMPLATE = `{{customerName}} 您好！
 
@@ -50,7 +51,7 @@ const TRIAL_TEMPLATE = `{{customerName}} 您好！
 
 這是您明天 ({{bookingDate}}) {{bookingTime}} 的體驗預約提醒，請記得準時到店。
 
-請點擊專屬連結確認會到；如需取消或改期，也可在同一頁完成：{{bookingLink}}
+請使用下方按鈕確認會到、取消或改期。
 
 {{shopName}} 敬上`;
 
@@ -425,7 +426,9 @@ export async function runReminders(): Promise<SendResult> {
       const renderedBody = renderTemplate(isLineTrialBooking ? TRIAL_TEMPLATE : templateBody, vars);
 
       // 發送 LINE push
-      const messages = [{ type: "text" as const, text: renderedBody }];
+      const messages = isLineTrialBooking
+        ? buildTrialBookingReminderLineMessages(renderedBody, bookingLink)
+        : [{ type: "text" as const, text: renderedBody }];
       let actualRoute = route.channel;
       let sendResult = route.channel === "STORE"
         ? await pushMessage(bookingStoreId, route.recipientLineUserId, messages)
