@@ -33,6 +33,7 @@ type BookingRow = {
   slotTime: string;
   people: number;
   trialBookingChannel?: "LINE" | "MESSENGER" | null;
+  bookingType?: "FIRST_TRIAL" | "PACKAGE_SESSION" | "SINGLE";
   bookingStatus: string;
   customer: {
     id: string;
@@ -363,6 +364,7 @@ function makeBooking(opts: {
   status?: string;
   hasLine?: boolean;
   channel?: "LINE" | "MESSENGER";
+  bookingType?: "FIRST_TRIAL" | "PACKAGE_SESSION" | "SINGLE";
 }): BookingRow {
   return {
     id: opts.id ?? BOOKING_ID,
@@ -372,6 +374,7 @@ function makeBooking(opts: {
     slotTime: opts.slotTime ?? "14:00",
     people: 1,
     trialBookingChannel: opts.channel ?? null,
+    bookingType: opts.bookingType ?? "SINGLE",
     bookingStatus: opts.status ?? "CONFIRMED",
     customer: {
       id: opts.customerId ?? CUSTOMER_ID,
@@ -512,6 +515,36 @@ describe("runReminders (daily next-day batch)", () => {
     expect(pushMessageMock).toHaveBeenCalledWith(STORE_ID, LINE_USER_ID, [
       { type: "text", text: expect.any(String) },
     ]);
+  });
+
+  it("體驗預約使用管理按鈕，不在 LINE 文字裸露簽章網址", async () => {
+    vi.setSystemTime(new Date("2026-05-11T04:00:00.000Z"));
+    bookings.push(makeBooking({
+      bookingDate: new Date("2026-05-12T00:00:00.000Z"),
+      bookingType: "FIRST_TRIAL",
+    }));
+    rules.push(makeRule());
+
+    const { engine } = await loadModules();
+    await expect(engine.runReminders()).resolves.toMatchObject({ sent: 1, failed: 0 });
+
+    const message = pushMessageMock.mock.calls[0]?.[2]?.[0] as {
+      type: string;
+      contents: {
+        body: { contents: Array<{ text?: string }> };
+        footer: { contents: Array<{ action: { label: string; uri: string } }> };
+      };
+    };
+    expect(message.type).toBe("flex");
+    expect(message.contents.body.contents[0]?.text).not.toContain("/trial-booking/manage?token=");
+    expect(message.contents.footer.contents.map((button) => button.action.label)).toEqual([
+      "確認預約",
+      "取消預約",
+      "改期預約",
+    ]);
+    for (const button of message.contents.footer.contents) {
+      expect(button.action.uri).toContain("/trial-booking/manage?token=");
+    }
   });
 
   it("line_reminder 未授權時 → SKIPPED，不發 LINE並寫入稽核紀錄", async () => {
