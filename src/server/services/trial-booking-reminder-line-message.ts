@@ -9,6 +9,11 @@ export function buildTrialBookingReminderLineMessages(
   text: string,
   managementUrl: string,
 ): LineMessage[] {
+  const actionUrl = (action: "confirm" | "cancel" | "reschedule") => {
+    const url = new URL(managementUrl);
+    url.searchParams.set("action", action);
+    return url.toString();
+  };
   return [{
     type: "flex",
     altText: "體驗預約管理：確認、取消或改期",
@@ -31,17 +36,17 @@ export function buildTrialBookingReminderLineMessages(
           {
             type: "button",
             style: "primary",
-            action: { type: "uri", label: "確認預約", uri: managementUrl },
+            action: { type: "uri", label: "確認預約", uri: actionUrl("confirm") },
           },
           {
             type: "button",
             style: "secondary",
-            action: { type: "uri", label: "取消預約", uri: managementUrl },
+            action: { type: "uri", label: "取消預約", uri: actionUrl("cancel") },
           },
           {
             type: "button",
             style: "secondary",
-            action: { type: "uri", label: "改期預約", uri: managementUrl },
+            action: { type: "uri", label: "改期預約", uri: actionUrl("reschedule") },
           },
         ],
       },

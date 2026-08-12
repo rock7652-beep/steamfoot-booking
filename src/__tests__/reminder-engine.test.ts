@@ -545,6 +545,11 @@ describe("runReminders (daily next-day batch)", () => {
     for (const button of message.contents.footer.contents) {
       expect(button.action.uri).toContain("/trial-booking/manage?token=");
     }
+    expect(message.contents.footer.contents.map((button) => new URL(button.action.uri).searchParams.get("action"))).toEqual([
+      "confirm",
+      "cancel",
+      "reschedule",
+    ]);
   });
 
   it("line_reminder 未授權時 → SKIPPED，不發 LINE並寫入稽核紀錄", async () => {

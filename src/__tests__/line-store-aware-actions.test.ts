@@ -417,6 +417,11 @@ describe("LINE sending actions are store-aware", () => {
       expect(button.action.uri).toContain("/trial-booking/manage?token=");
       expect(button.action.uri).not.toContain("/my-bookings");
     }
+    expect(message.contents.footer.contents.map((button) => new URL(button.action.uri).searchParams.get("action"))).toEqual([
+      "confirm",
+      "cancel",
+      "reschedule",
+    ]);
   });
 
   it("single-booking test falls back to an active store route after a definite central 400 rejection", async () => {
